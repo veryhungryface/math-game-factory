@@ -443,7 +443,10 @@ if [ "$DEPLOY" = "1" ]; then
 메커닉: $(jqv "$WORK/chosen.json" .mechanic) ($(jqv "$WORK/chosen.json" .mechanic_origin))" >/dev/null 2>&1 \
     && log "커밋 완료" || log "⚠️  커밋할 변경 없음"
 
-  git push -q origin main >"$LOG_DIR/push.log" 2>&1 && log "GitHub 푸시 완료" || log "⚠️  푸시 실패 — $(tail -2 "$LOG_DIR/push.log")"
+  # 다른 곳(사람/다른 사이클)에서 먼저 푸시했을 수 있으니 리베이스 후 푸시한다.
+  git -c user.name="math-game-factory" -c user.email="bot@localhost" \
+      pull --rebase --autostash -q origin main >>"$LOG_DIR/push.log" 2>&1 || log "⚠️  리베이스 실패 — 그대로 푸시 시도"
+  git push -q origin main >>"$LOG_DIR/push.log" 2>&1 && log "GitHub 푸시 완료" || log "⚠️  푸시 실패 — $(tail -2 "$LOG_DIR/push.log")"
 
   vercel deploy --prod --yes >"$LOG_DIR/vercel.log" 2>&1
   ALIAS="https://${VERCEL_PROJECT}.vercel.app"
