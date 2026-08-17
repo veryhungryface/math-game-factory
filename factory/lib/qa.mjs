@@ -155,13 +155,18 @@ let perf = {};
 
 try {
   const page = await browser.newPage();
+  // 게임과 무관한 브라우저 자동 요청은 잡음이므로 제외한다.
+  const isNoise = (u = '') => /favicon\.ico|\/\.well-known\//.test(u);
+
   page.on('console', (m) => {
-    if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 300));
+    if (m.type() === 'error' && !isNoise(m.text())) consoleErrors.push(m.text().slice(0, 300));
   });
   page.on('pageerror', (e) => pageErrors.push(String(e).slice(0, 300)));
-  page.on('requestfailed', (r) => failedRequests.push(`${r.url()} — ${r.failure()?.errorText}`));
+  page.on('requestfailed', (r) => {
+    if (!isNoise(r.url())) failedRequests.push(`${r.url()} — ${r.failure()?.errorText}`);
+  });
   page.on('response', (r) => {
-    if (r.status() >= 400) failedRequests.push(`${r.status()} ${r.url()}`);
+    if (r.status() >= 400 && !isNoise(r.url())) failedRequests.push(`${r.status()} ${r.url()}`);
   });
 
   const url = `${server.url}/g/${slug}/`;

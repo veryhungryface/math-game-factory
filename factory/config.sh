@@ -24,7 +24,9 @@ export GH_REPO="${GH_REPO:-veryhungryface/math-game-factory}"
 export DEPLOY="${DEPLOY:-1}"           # 0 이면 배포 생략 (드라이런)
 
 # ── 보고 ──────────────────────────────────────────────
-export REPORT_TARGET="${REPORT_TARGET:-discord:#썜알트먼}"
+# #썜알트먼 채널 안의 스레드. 봇이 채널 본문에는 못 쓰고(403 Missing Permissions)
+# 스레드에는 쓸 수 있어서 스레드 id 를 쓴다. 다른 곳으로 바꾸려면 이 값만 교체.
+export REPORT_TARGET="${REPORT_TARGET:-discord:1516271245937868890}"
 export REPORT="${REPORT:-1}"           # 0 이면 에르메스 보고 생략
 
 # ── 기타 ──────────────────────────────────────────────

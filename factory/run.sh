@@ -142,12 +142,18 @@ finish() {
 
   cat "$report_file"
 
+  cp "$report_file" "$ROOT/logs/latest-report.md" 2>/dev/null
+
   if [ "$REPORT" = "1" ]; then
-    hermes send --to "$REPORT_TARGET" --file "$report_file" --quiet 2>/dev/null \
-      && log "📨 에르메스 보고 전송 완료 → $REPORT_TARGET" \
-      || log "⚠️  에르메스 보고 실패"
-    if [ "$status" = "게시" ] && [ -f "$ROOT/public/g/$SLUG/thumb.png" ]; then
-      hermes send --to "$REPORT_TARGET" "MEDIA:$ROOT/public/g/$SLUG/thumb.png" --quiet 2>/dev/null || true
+    if hermes send --to "$REPORT_TARGET" --file "$report_file" --quiet 2>>"$LOG_DIR/report.log"; then
+      log "📨 에르메스 보고 전송 완료 → $REPORT_TARGET"
+      if [ "$status" = "게시" ] && [ -f "$ROOT/public/g/$SLUG/thumb.png" ]; then
+        hermes send --to "$REPORT_TARGET" "MEDIA:$ROOT/public/g/$SLUG/thumb.png" --quiet 2>/dev/null || true
+      fi
+    else
+      # 전송 실패해도 결과를 잃지 않는다: 로컬 파일 + macOS 알림
+      log "⚠️  에르메스 보고 실패 ($(tail -1 "$LOG_DIR/report.log" 2>/dev/null)) — logs/latest-report.md 에 보관"
+      osascript -e "display notification \"${TITLE:-생산 결과} — $status\" with title \"수학 게임 공장\"" 2>/dev/null || true
     fi
   fi
 }
@@ -425,14 +431,18 @@ if [ "$DEPLOY" = "1" ]; then
 
   git push -q origin main >"$LOG_DIR/push.log" 2>&1 && log "GitHub 푸시 완료" || log "⚠️  푸시 실패 — $(tail -2 "$LOG_DIR/push.log")"
 
-  DEPLOY_URL="$(vercel deploy --prod --yes 2>"$LOG_DIR/vercel.log" | tail -1 | tr -d '[:space:]')"
-  if [[ "$DEPLOY_URL" == https://* ]]; then
-    log "배포 완료: $DEPLOY_URL"
-    ALIAS="https://${VERCEL_PROJECT}.vercel.app"
-    curl -sf -o /dev/null "$ALIAS/g/$SLUG/" && DEPLOY_URL="$ALIAS"
+  vercel deploy --prod --yes >"$LOG_DIR/vercel.log" 2>&1
+  ALIAS="https://${VERCEL_PROJECT}.vercel.app"
+  # 배포 반영까지 최대 60초 폴링 — 실제로 게임 URL 이 열려야 성공으로 친다.
+  DEPLOY_URL=""
+  for _ in $(seq 1 12); do
+    if curl -sf -o /dev/null "$ALIAS/g/$SLUG/"; then DEPLOY_URL="$ALIAS"; break; fi
+    sleep 5
+  done
+  if [ -n "$DEPLOY_URL" ]; then
+    log "배포 완료: $DEPLOY_URL/g/$SLUG/"
   else
-    log "⚠️  배포 실패 — $(tail -3 "$LOG_DIR/vercel.log")"
-    DEPLOY_URL=""
+    log "⚠️  배포 확인 실패 — $(grep -Eo 'https://[^ ]*vercel\.app' "$LOG_DIR/vercel.log" | tail -1) / $(tail -3 "$LOG_DIR/vercel.log")"
   fi
 else
   log "DEPLOY=0 — 배포 생략"
