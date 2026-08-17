@@ -32,4 +32,5 @@ export REPORT="${REPORT:-1}"           # 0 이면 에르메스 보고 생략
 
 # ── 기타 ──────────────────────────────────────────────
 unset ANTHROPIC_API_KEY                # 구독 CLI 인증을 쓴다 (API 키 아님)
-export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+# cron/launchd 는 최소 PATH 로 실행된다. node·claude·codex·vercel 이 사는 곳을 전부 넣어둔다.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/nodejs/bin:$HOME/.local/bin:$PATH"
