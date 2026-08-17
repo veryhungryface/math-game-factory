@@ -160,14 +160,24 @@ finish() {
 
 # ════════════════════════════════════════════════════════════════
 step "0. 준비"
-rm -rf "$WORK"; mkdir -p "$WORK"
+# RESUME=1 이면 이미 만들어진 기획(chosen.json)을 재사용하고 기획·심사를 건너뛴다.
+# 아트/구현 단계에서 죽었을 때 8분짜리 기획을 다시 돌리지 않기 위한 것.
+RESUMED=0
+if [ "${RESUME:-0}" = "1" ] && [ -f "$WORK/chosen.json" ] && [ -f "$WORK/slot.json" ]; then
+  RESUMED=1
+  log "RESUME=1 — 기존 기획을 재사용합니다 ($(jqv "$WORK/chosen.json" .title))"
+else
+  rm -rf "$WORK"; mkdir -p "$WORK"
+fi
 [ -f "$ROOT/curriculum/2022-elementary-math.json" ] || die "교육과정 파일이 없습니다"
 [ -d "$ROOT/node_modules/puppeteer" ] || { log "puppeteer 설치 중…"; npm install --silent >/dev/null 2>&1; }
 
 # ════════════════════════════════════════════════════════════════
 step "1. 슬롯 선택"
-node factory/lib/pick-slot.mjs --focus "$FOCUS" --write > "$LOG_DIR/slot.log" 2>&1 \
-  || die "슬롯 선택 실패 — $(tail -3 "$LOG_DIR/slot.log")"
+if [ "$RESUMED" = "0" ]; then
+  node factory/lib/pick-slot.mjs --focus "$FOCUS" --write > "$LOG_DIR/slot.log" 2>&1 \
+    || die "슬롯 선택 실패 — $(tail -3 "$LOG_DIR/slot.log")"
+fi
 cp "$WORK/slot.json" "$LOG_DIR/slot.json"
 UNIT_TITLE="$(jqv "$WORK/slot.json" .unit.title)"
 UNIT_GRADE="$(jqv "$WORK/slot.json" .unit.grade)"
@@ -177,6 +187,9 @@ log "슬롯: ${UNIT_GRADE}학년 ${UNIT_SEM}학기 · $UNIT_TITLE"
 SLOT_CTX="$(cat "$WORK/slot.json")"
 
 # ════════════════════════════════════════════════════════════════
+if [ "$RESUMED" = "1" ]; then
+  log "기획·심사 단계 건너뜀 (RESUME)"
+else
 step "2. 기획 (병렬 ${DESIGN_VARIANTS}개)"
 DESIGN_PIDS=()
 for i in $(seq 1 "$DESIGN_VARIANTS"); do
@@ -203,7 +216,7 @@ $SLOT_CTX
   claude_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
   DESIGN_PIDS+=($!)
 done
-for pid in "${DESIGN_PIDS[@]}"; do wait "$pid"; done
+for pid in ${DESIGN_PIDS[@]+"${DESIGN_PIDS[@]}"}; do wait "$pid"; done
 
 CONCEPTS=$(ls "$WORK"/concept-*.json 2>/dev/null | wc -l | tr -d ' ')
 log "기획안 ${CONCEPTS}개 생성"
@@ -227,6 +240,7 @@ $SLOT_CTX
     cp "$(ls "$WORK"/concept-*.json | head -1)" "$WORK/chosen.json"
   }
 fi
+fi
 
 SLUG="$(jqv "$WORK/chosen.json" .slug)"
 TITLE="$(jqv "$WORK/chosen.json" .title)"
@@ -240,7 +254,7 @@ jq --argjson slot "$SLOT_CTX" \
          unit_context: $slot.unit}' \
    "$WORK/chosen.json" > "$WORK/chosen.tmp" && mv "$WORK/chosen.tmp" "$WORK/chosen.json"
 cp "$WORK/chosen.json" "$LOG_DIR/chosen.json"
-log "선택: 「$TITLE」 ($SLUG)"
+log "선택: 「${TITLE}」 ($SLUG)"
 
 mkdir -p "$ROOT/public/g/$SLUG/assets"
 
@@ -267,7 +281,7 @@ $ASSET_JSON
 \`\`\`
 
 - slug: \`$SLUG\`
-- 게임: 「$TITLE」 — $(jqv "$WORK/chosen.json" .one_liner)
+- 게임: 「${TITLE}」 — $(jqv "$WORK/chosen.json" .one_liner)
 - 아트 방향: $(jq -c '.art_direction | {mood, palette}' "$WORK/chosen.json")
 
 저장 경로: $([ "$aid" = "thumb" ] && echo "\`public/g/$SLUG/thumb.png\` (정확히 1200×630)" || echo "\`public/g/$SLUG/assets/${aid}.png\`")
@@ -278,7 +292,7 @@ $ASSET_JSON
   codex_run "$T_ART" "$LOG_DIR/art-$aid.log" "$ART_PROMPT" &
   ART_PIDS+=($!)
 done
-for pid in "${ART_PIDS[@]}"; do wait "$pid"; done
+for pid in ${ART_PIDS[@]+"${ART_PIDS[@]}"}; do wait "$pid"; done
 
 # 개별 결과를 art.json 으로 합친다
 jq -s --arg slug "$SLUG" \
