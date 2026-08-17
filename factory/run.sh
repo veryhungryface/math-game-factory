@@ -6,6 +6,12 @@
 #   DEPLOY=0 REPORT=0 bash factory/run.sh   드라이런 (배포·보고 생략)
 #   FOCUS=6-2 bash factory/run.sh    특정 학년-학기만
 #
+#   RESUME_FROM=<stage> bash factory/run.sh   중간 단계부터 재개
+#     stage: design(기본) | art | build | qa | review
+#     factory/work/ 의 산출물을 그대로 재사용한다. 사이클이 중간에 죽었을 때
+#     50분짜리 구현을 다시 돌리지 않기 위한 것.
+#     예) 구현까지 끝났는데 검수에서 죽었다 → RESUME_FROM=qa
+#
 # 표준출력은 에르메스가 그대로 전달하는 보고서다. 로그는 stderr + logs/ 로 간다.
 
 set -uo pipefail
@@ -173,15 +179,31 @@ finish() {
 
 # ════════════════════════════════════════════════════════════════
 step "0. 준비"
-# RESUME=1 이면 이미 만들어진 기획(chosen.json)을 재사용하고 기획·심사를 건너뛴다.
-# 아트/구현 단계에서 죽었을 때 8분짜리 기획을 다시 돌리지 않기 위한 것.
-RESUMED=0
-if [ "${RESUME:-0}" = "1" ] && [ -f "$WORK/chosen.json" ] && [ -f "$WORK/slot.json" ]; then
-  RESUMED=1
-  log "RESUME=1 — 기존 기획을 재사용합니다 ($(jqv "$WORK/chosen.json" .title))"
+# 단계 재개. 각 단계에 번호를 주고, 시작 번호보다 앞선 단계는 건너뛴다.
+stage_no() {
+  case "$1" in
+    design) echo 2 ;; art) echo 4 ;; build) echo 5 ;;
+    qa)     echo 6 ;; review) echo 7 ;;
+    *)      echo 2 ;;
+  esac
+}
+RESUME_FROM="${RESUME_FROM:-}"
+# 예전 RESUME=1 은 art 부터 재개하는 것과 같다 (하위 호환)
+[ -z "$RESUME_FROM" ] && [ "${RESUME:-0}" = "1" ] && RESUME_FROM="art"
+START_AT=$(stage_no "${RESUME_FROM:-design}")
+
+if [ "$START_AT" -gt 2 ]; then
+  if [ ! -f "$WORK/chosen.json" ] || [ ! -f "$WORK/slot.json" ]; then
+    log "⚠️  재개할 산출물이 없습니다 (factory/work/chosen.json) — 처음부터 시작합니다"
+    START_AT=2; RESUME_FROM=""
+    rm -rf "$WORK"; mkdir -p "$WORK"
+  else
+    log "RESUME_FROM=$RESUME_FROM — 「$(jqv "$WORK/chosen.json" .title)」 기존 산출물을 재사용합니다"
+  fi
 else
   rm -rf "$WORK"; mkdir -p "$WORK"
 fi
+RESUMED=$([ "$START_AT" -gt 2 ] && echo 1 || echo 0)
 [ -f "$ROOT/curriculum/2022-elementary-math.json" ] || die "교육과정 파일이 없습니다"
 [ -d "$ROOT/node_modules/puppeteer" ] || { log "puppeteer 설치 중…"; npm install --silent >/dev/null 2>&1; }
 
@@ -272,6 +294,9 @@ log "선택: 「${TITLE}」 ($SLUG)"
 mkdir -p "$ROOT/public/g/$SLUG/assets"
 
 # ════════════════════════════════════════════════════════════════
+if [ "$START_AT" -gt 4 ]; then
+  log "아트 생성 건너뜀 (RESUME) — 기존 이미지 $(find "$ROOT/public/g/$SLUG" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')장"
+else
 step "4. 아트 생성 (병렬)"
 ASSET_IDS="$(jq -r '.art_direction.assets_needed[]?.id' "$WORK/chosen.json" 2>/dev/null)"
 if [ -z "$ASSET_IDS" ]; then
@@ -314,8 +339,13 @@ jq -s --arg slug "$SLUG" \
 
 ART_OK=$(find "$ROOT/public/g/$SLUG" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
 log "이미지 ${ART_OK}장 생성됨"
+fi
 
 # ════════════════════════════════════════════════════════════════
+if [ "$START_AT" -gt 5 ]; then
+  log "게임 구현 건너뜀 (RESUME) — 기존 index.html 재사용"
+  [ -f "$ROOT/public/g/$SLUG/index.html" ] || die "재개하려는데 게임 파일이 없습니다: public/g/$SLUG/index.html"
+else
 step "5. 게임 구현"
 BUILD_PROMPT="$(cat factory/prompts/30-build.md)
 
@@ -346,6 +376,7 @@ $(jq -c '.unit' "$WORK/slot.json")
 
 claude_run "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT"
 [ -f "$ROOT/public/g/$SLUG/index.html" ] || die "게임 파일이 생성되지 않았습니다 — $(tail -5 "$LOG_DIR/build.log")"
+fi
 
 # ════════════════════════════════════════════════════════════════
 step "6. 자동 QA"
