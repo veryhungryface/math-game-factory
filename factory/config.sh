@@ -15,6 +15,7 @@ export T_DESIGN="${T_DESIGN:-600}"     # 10분
 export T_JUDGE="${T_JUDGE:-420}"       # 7분
 export T_ART="${T_ART:-900}"           # 15분
 export T_BUILD="${T_BUILD:-3000}"      # 50분
+export T_MATHCHECK="${T_MATHCHECK:-600}"  # 10분 — 수학 전수 검산
 export T_REVIEW="${T_REVIEW:-900}"     # 15분
 export T_FIX="${T_FIX:-1500}"          # 25분
 

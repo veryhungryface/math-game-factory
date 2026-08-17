@@ -18,7 +18,7 @@
        ↓
 ⑤ 구현           자기완결형 index.html + meta.json                claude -p
        ↓
-⑥ 자동 QA        43개 기계 검사 (콘솔·404·FPS·모바일·문제 정합성)   puppeteer
+⑥ 자동 QA        35개 기계 검사 (콘솔·404·FPS·모바일·문제 정합성)   puppeteer
        ↓
 ⑦ 검수           스크린샷 보고 100점 채점, 수학은 손으로 검산        claude -p
        ↓

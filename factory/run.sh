@@ -12,6 +12,19 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 1
+
+# bash 는 스크립트를 바이트 오프셋으로 읽어가며 실행한다. 사이클이 1시간 넘게 도는 동안
+# 누군가 run.sh 를 편집하면 실행 중인 셸이 엉뚱한 위치로 점프해 조용히 망가진다.
+# 그래서 항상 스냅샷 사본으로 갈아탄 뒤 진행한다.
+if [ -z "${MGF_SNAPSHOT:-}" ]; then
+  SNAP="${TMPDIR:-/tmp}/mgf-run-$$.sh"
+  cp "$ROOT/factory/run.sh" "$SNAP" || exit 1
+  export MGF_SNAPSHOT="$SNAP"
+  bash "$SNAP" "$@"
+  RC=$?
+  rm -f "$SNAP"
+  exit $RC
+fi
 # shellcheck source=/dev/null
 source "$ROOT/factory/config.sh"
 
@@ -343,6 +356,33 @@ log "자동 QA 종료코드 $QA1"
 tail -25 "$LOG_DIR/qa-1.log" >&2
 
 # ════════════════════════════════════════════════════════════════
+# 수학 오류는 이 프로젝트에서 가장 치명적인 결함이라 종합 검수와 분리해
+# 독립 에이전트에게 전수 검산만 시킨다. 두 눈이 따로 보게 하는 것이 요점.
+MATHCHECK_PROMPT="$(cat factory/prompts/35-mathcheck.md)
+
+---
+- slug: \`$SLUG\`
+- 표본: \`factory/work/qa/$SLUG/report.json\` 의 \`problems_sample\`
+- 단원: $(jqv "$WORK/slot.json" .unit.title) (${UNIT_GRADE}학년 ${UNIT_SEM}학기)"
+
+run_mathcheck() {
+  local tag="$1"
+  rm -f "$WORK/mathcheck.json"
+  claude_run "$T_MATHCHECK" "$LOG_DIR/mathcheck-$tag.log" "$MATHCHECK_PROMPT"
+  cp "$WORK/mathcheck.json" "$LOG_DIR/mathcheck-$tag.json" 2>/dev/null
+  MATH_VERDICT="$(jqv "$WORK/mathcheck.json" .verdict)"
+  MATH_ERRORS="$(jq -r '.errors | length' "$WORK/mathcheck.json" 2>/dev/null || echo '?')"
+  if [ -z "$MATH_VERDICT" ]; then
+    log "⚠️  검산 에이전트가 결과를 남기지 않음 — 종합 검수에 맡긴다"
+    MATH_VERDICT="unknown"
+  fi
+  log "수학 검산($tag): $MATH_VERDICT / 오류 ${MATH_ERRORS}건"
+}
+
+step "6.5 수학 전수 검산"
+run_mathcheck 1
+
+# ════════════════════════════════════════════════════════════════
 step "7. 검수"
 REVIEW_PROMPT="$(cat factory/prompts/40-review.md)
 
@@ -350,6 +390,7 @@ REVIEW_PROMPT="$(cat factory/prompts/40-review.md)
 - slug: \`$SLUG\`
 - 커트라인: ${GATE_SCORE}점
 - 자동 QA 리포트: \`factory/work/qa/$SLUG/report.json\`
+- 독립 수학 검산 결과: \`factory/work/mathcheck.json\` — 여기서 오류가 나왔다면 그대로 인정하고 반영해라
 - 스크린샷: \`factory/work/qa/$SLUG/mobile.png\`, \`tablet.png\`, \`desktop.png\` — **Read 툴로 실제로 봐라**"
 
 claude_run "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT"
@@ -361,19 +402,23 @@ REJECT="$(jqv "$WORK/review.json" .reject_immediately)"
 log "1차 검수: ${SCORE:-?}점 / passed=$PASSED / reject=$REJECT"
 
 # ════════════════════════════════════════════════════════════════
-if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ]; then
+if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; then
   step "8. 수정 (마지막 기회)"
   claude_run "$T_FIX" "$LOG_DIR/fix.log" "$(cat factory/prompts/45-fix.md)
 
 ---
 - slug: \`$SLUG\`
 - 검수 결과: \`factory/work/review.json\`
+- 독립 수학 검산: \`factory/work/mathcheck.json\` — verdict 가 fail 이면 **이것부터** 고쳐라
 - 자동 QA: \`factory/work/qa/$SLUG/report.json\`"
 
   node factory/lib/qa.mjs "$SLUG" > "$LOG_DIR/qa-2.log" 2>&1
   QA1=$?
   cp -r "$WORK/qa/$SLUG" "$LOG_DIR/qa-2" 2>/dev/null
   log "재 QA 종료코드 $QA1"
+
+  step "8.5 수학 재검산"
+  run_mathcheck 2
 
   step "9. 재검수"
   rm -f "$WORK/review.json"
@@ -392,7 +437,7 @@ fi
 VERDICT="$(jqv "$WORK/review.json" .verdict)"
 
 # ════════════════════════════════════════════════════════════════
-if [ "$PASSED" != "true" ] || [ "$REJECT" = "true" ] || [ "$QA1" -ne 0 ]; then
+if [ "$PASSED" != "true" ] || [ "$REJECT" = "true" ] || [ "$QA1" -ne 0 ] || [ "${MATH_VERDICT:-unknown}" = "fail" ]; then
   step "폐기"
   ARCHIVE="$ROOT/factory/state/rejected/$RUN_ID-$SLUG"
   mkdir -p "$(dirname "$ARCHIVE")"

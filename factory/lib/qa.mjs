@@ -364,7 +364,8 @@ function finish() {
     fatal: fatal.length,
     auto_pass: fatal.length === 0,
     perf,
-    problems_sample: (Array.isArray(problems) ? problems : []).slice(0, 12),
+    // 검산 에이전트가 전수 검산할 표본. 줄이지 마라 — 이게 수학 오류를 잡는 근거다.
+    problems_sample: Array.isArray(problems) ? problems : [],
     checks,
     screenshots: ['mobile.png', 'tablet.png', 'desktop.png']
       .map((f) => path.join(OUT, f))
