@@ -1,0 +1,1645 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#070b18">
+<title>어림 대시 — 수의 범위와 올림·버림·반올림</title>
+<style>
+  :root{
+    --bg:#070b18; --cy:#00e5ff; --mg:#ff3d7f; --gd:#ffd23d; --gr:#7cf7c4; --tx:#e8f1ff;
+    --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);}
+  body{font-family:var(--font); color:var(--tx); overscroll-behavior:none;}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
+       padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);}
+
+  /* ── HUD ───────────────────────────────── */
+  #hud{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 10px 4px;}
+  #lvbadge{display:flex;flex-direction:column;line-height:1.05;padding:5px 9px;border-radius:10px;
+    background:linear-gradient(135deg,rgba(0,229,255,.22),rgba(255,61,127,.16));
+    border:1px solid rgba(0,229,255,.45); min-width:64px;}
+  #lvbadge b{font-size:15px;letter-spacing:.5px;color:var(--cy)}
+  #lvbadge small{font-size:9px;opacity:.72;white-space:nowrap}
+  #scorewrap{flex:1;text-align:center;line-height:1}
+  #score{font-size:27px;font-weight:900;letter-spacing:-.5px;font-variant-numeric:tabular-nums;
+    text-shadow:0 0 18px rgba(0,229,255,.55); display:block}
+  #best{font-size:9.5px;opacity:.6;letter-spacing:.4px}
+  #mute{width:44px;height:44px;flex:0 0 44px;border-radius:12px;border:1px solid rgba(232,241,255,.22);
+    background:rgba(255,255,255,.06);color:var(--tx);font-size:17px;cursor:pointer;padding:0}
+  #mute:active{transform:scale(.93)}
+
+  #bars{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 12px 4px;font-size:10.5px}
+  .pips{display:flex;gap:3px;align-items:center}
+  .pip{width:11px;height:11px;border-radius:3px;background:rgba(255,255,255,.13);
+       transition:background .18s ease, box-shadow .18s ease, transform .18s ease}
+  .pip.on.life{background:var(--mg);box-shadow:0 0 9px rgba(255,61,127,.75)}
+  .pip.on.fuel{background:var(--cy);box-shadow:0 0 9px rgba(0,229,255,.7)}
+  .lab{opacity:.55;letter-spacing:.5px}
+  #combo{margin-left:auto;font-weight:900;font-size:14px;color:var(--gd);
+    text-shadow:0 0 12px rgba(255,210,61,.6);transition:transform .12s cubic-bezier(.2,1.7,.4,1)}
+  #combo.hit{transform:scale(1.45)}
+
+  /* ── canvas ────────────────────────────── */
+  #stage{flex:1 1 auto;position:relative;min-height:0}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+
+  /* ── control pad ───────────────────────── */
+  #pad{flex:0 0 auto;padding:6px 10px 10px}
+  #placelab{text-align:center;font-size:10.5px;letter-spacing:1px;opacity:.62;margin-bottom:5px;height:13px}
+  #btns{display:flex;gap:8px}
+  .dash{flex:1 1 0;min-width:0;height:62px;border-radius:15px;cursor:pointer;padding:0;
+    border:1.5px solid rgba(0,229,255,.5);
+    background:linear-gradient(180deg,rgba(0,229,255,.20),rgba(0,229,255,.05));
+    color:var(--tx);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-family:var(--font);transition:transform .1s cubic-bezier(.2,1.7,.4,1), opacity .18s, box-shadow .18s}
+  .dash b{font-size:16px;font-weight:900;letter-spacing:-.3px}
+  .dash span{font-size:11.5px;opacity:.8;font-variant-numeric:tabular-nums;font-weight:700;color:var(--gd)}
+  .dash:active{transform:scale(.94);box-shadow:0 0 22px rgba(0,229,255,.5)}
+  .dash.off{opacity:.3;border-color:rgba(232,241,255,.2);background:rgba(255,255,255,.04)}
+  .dash.peek{box-shadow:0 0 26px rgba(255,210,61,.8);border-color:var(--gd)}
+  #hint{text-align:center;font-size:10.5px;opacity:.5;margin-top:6px;height:13px}
+
+  /* ── overlays ──────────────────────────── */
+  .ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;padding:22px;text-align:center;z-index:5;
+    background:radial-gradient(120% 90% at 50% 40%, rgba(7,11,24,.86), rgba(7,11,24,.97));
+    backdrop-filter:blur(3px)}
+  .ov.hide{display:none}
+  .ov h1{margin:0;font-size:34px;font-weight:900;letter-spacing:-1px;
+    background:linear-gradient(100deg,var(--cy),var(--gd),var(--mg));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .ov h2{margin:0;font-size:24px;font-weight:900;color:var(--mg)}
+  .ov p{margin:0;font-size:12.5px;line-height:1.75;opacity:.85;max-width:330px}
+  .ov .key{color:var(--cy);font-weight:800}
+  .ov .key2{color:var(--gd);font-weight:800}
+  .big{min-width:200px;height:56px;border-radius:16px;border:none;cursor:pointer;font-family:var(--font);
+    font-size:18px;font-weight:900;color:#04121a;letter-spacing:.5px;
+    background:linear-gradient(120deg,var(--cy),var(--gr));box-shadow:0 0 30px rgba(0,229,255,.5)}
+  .big:active{transform:scale(.95)}
+  #stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:340px}
+  .stat{min-width:76px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.1)}
+  .stat b{display:block;font-size:19px;font-weight:900;color:var(--gd);font-variant-numeric:tabular-nums}
+  .stat small{font-size:9.5px;opacity:.62}
+  #dex{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;max-width:330px}
+  .badge{font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.16);
+    opacity:.32;background:rgba(255,255,255,.04)}
+  .badge.on{opacity:1;border-color:var(--gr);color:var(--gr);background:rgba(124,247,196,.12);
+    box-shadow:0 0 12px rgba(124,247,196,.35)}
+
+  /* 되감기 */
+  #rewindwrap{position:absolute;left:0;right:0;bottom:16%;display:flex;flex-direction:column;
+    align-items:center;gap:6px;z-index:6;pointer-events:none}
+  #rewindwrap.hide{display:none}
+  #rewind{pointer-events:auto;min-width:210px;height:56px;border-radius:16px;border:2px solid var(--gd);
+    cursor:pointer;font-family:var(--font);font-size:17px;font-weight:900;color:var(--gd);
+    background:rgba(255,210,61,.16);box-shadow:0 0 26px rgba(255,210,61,.45)}
+  #rwbar{width:210px;height:5px;border-radius:3px;background:rgba(255,255,255,.15);overflow:hidden}
+  #rwfill{height:100%;width:100%;background:var(--gd)}
+
+  @media (max-height:680px){
+    .dash{height:54px} #score{font-size:23px} .ov h1{font-size:28px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hud">
+    <div id="lvbadge"><b>LV 1</b><small>수의 범위</small></div>
+    <div id="scorewrap"><span id="score">0</span><span id="best">최고 0</span></div>
+    <button id="mute" class="btn" aria-label="소리 켜기 끄기">🔊</button>
+  </header>
+
+  <div id="bars">
+    <span class="lab">라이프</span><div class="pips" id="lifepips"></div>
+    <span class="lab">연료</span><div class="pips" id="fuelpips"></div>
+    <span id="combo"></span>
+  </div>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <div id="rewindwrap" class="hide">
+      <button id="rewind" class="btn">⏪ 되감기 태엽</button>
+      <div id="rwbar"><div id="rwfill"></div></div>
+    </div>
+
+    <div id="intro" class="ov">
+      <h1>어림 대시</h1>
+      <p>수직선 위를 달린다. 위에서 내려오는 벽의 <span class="key">열린 구간</span>으로만 빠져나가라.<br>
+      <span class="key">●</span> 위는 발판, <span class="key2">○</span> 위는 낭떠러지다.</p>
+      <p>화면을 <span class="key">좌우로 드래그</span>하면 천천히 움직이고,<br>
+      아래 <span class="key2">올림·버림·반올림</span> 버튼은 그 어림값으로 <b>순간이동</b>한다.<br>
+      한 번 던진 어림은 되돌릴 수 없다.</p>
+      <button id="startBtn" class="big">시작하기</button>
+      <div id="dex"></div>
+    </div>
+
+    <div id="over" class="ov hide">
+      <h2>기록 종료</h2>
+      <div id="stats"></div>
+      <p id="overtip"></p>
+      <button id="againBtn" class="big">다시!</button>
+    </div>
+  </div>
+
+  <div id="pad">
+    <div id="placelab">&nbsp;</div>
+    <div id="btns">
+      <button class="btn dash" data-m="ceil"><b>올림</b><span>—</span></button>
+      <button class="btn dash" data-m="floor"><b>버림</b><span>—</span></button>
+      <button class="btn dash" data-m="round"><b>반올림</b><span>—</span></button>
+    </div>
+    <div id="hint">화면을 좌우로 드래그해 이동</div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════
+   0. 정수 전용 어림 연산 — 부동소수점 비교를 절대 쓰지 않는다
+   ══════════════════════════════════════════════════════════════ */
+function imod(v,p){ return ((v % p) + p) % p; }
+function floorTo(v,p){ return v - imod(v,p); }
+function ceilTo(v,p){ var r = imod(v,p); return r === 0 ? v : v - r + p; }
+function roundTo(v,p){ var r = imod(v,p); return (r * 2 >= p) ? (v - r + p) : (v - r); }
+var MFN = { ceil: ceilTo, floor: floorTo, round: roundTo };
+var MNAME = { ceil:'올림', floor:'버림', round:'반올림' };
+function apply(m,v,p){ return MFN[m](v,p); }
+
+/* 구간 판정 — 정수 비교만 */
+function inRange(v,r){
+  return (v > r.lo || (r.loIncl && v === r.lo)) && (v < r.hi || (r.hiIncl && v === r.hi));
+}
+
+/* 부팅 자체 단위 테스트 (고정 경계값 표) */
+(function selfTest(){
+  var T = [
+    [3274,100,'floor',3200],[3274,100,'ceil',3300],[3274,100,'round',3300],
+    [2449,100,'round',2400],[2450,100,'round',2500],[2449,10,'round',2450],
+    [3000,100,'ceil',3000],[3000,100,'floor',3000],[3000,100,'round',3000],
+    [465,10,'round',470],[475,10,'round',480],[464,10,'round',460],
+    [1250,100,'ceil',1300],[1250,100,'floor',1200],[1250,100,'round',1300],
+    [44821,1000,'round',45000],[44821,1000,'floor',44000],[44821,1000,'ceil',45000]
+  ];
+  var bad = 0;
+  for (var i=0;i<T.length;i++){
+    var got = apply(T[i][2], T[i][0], T[i][1]);
+    if (got !== T[i][3]) { bad++; console.log('[어림 대시] 단위테스트 실패', T[i], '→', got); }
+  }
+  console.log('[어림 대시] 어림 연산 단위테스트 ' + (T.length - bad) + '/' + T.length + ' 통과');
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   1. 벽(문제) 생성기
+   ══════════════════════════════════════════════════════════════ */
+function rint(a,b){ return a + Math.floor(Math.random() * (b - a + 1)); }
+function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+
+var MAXLANE = 11;
+function tidyLanes(lanes, keep){
+  var s = {}, out = [], i;
+  for (i=0;i<lanes.length;i++){ if (lanes[i] > 0) s[lanes[i]] = 1; }
+  for (var k in s) out.push(Number(k));
+  out.sort(function(a,b){ return a-b; });
+  var center = keep[0];
+  var guard = 0;
+  while (out.length > MAXLANE && guard++ < 40){
+    var lo = out[0], hi = out[out.length-1];
+    var dropHi = keep.indexOf(hi) < 0 && Math.abs(hi-center) >= Math.abs(lo-center);
+    if (dropHi) out.pop();
+    else if (keep.indexOf(lo) < 0) out.shift();
+    else if (keep.indexOf(hi) < 0) out.pop();
+    else break;
+  }
+  return out;
+}
+function passableLanes(w){
+  var r = [], i;
+  for (i=0;i<w.lanes.length;i++) if (inRange(w.lanes[i], w.rule)) r.push(w.lanes[i]);
+  return r;
+}
+
+/* 레벨별 속도표 — 위로 갈수록 손으로 미는 것만으로는 닿지 않는다 */
+var SPEED = [0, 5.6, 5.2, 4.6, 3.9, 3.3, 2.8, 2.4];   // 레인/초
+var FALLT = [0, 3.4, 3.1, 2.8, 2.4, 2.9, 2.2, 1.9];   // 초
+function fallTimeFor(lv, kind){
+  var b = FALLT[lv] || 1.9;
+  if (kind === 'back' && lv === 5) b *= 1.3;          // 역추적 첫 등장 완충
+  return b;
+}
+/* 반응 시간을 감안한 실제 드래그 사거리(레인 수) */
+function dragBudget(lv, kind){ return Math.max(1, Math.floor(fallTimeFor(lv, kind) * (SPEED[lv] || 2.4) * 0.7)); }
+function methodsFor(lv){
+  if (lv <= 2) return [];
+  if (lv === 3) return ['ceil','floor'];
+  return ['ceil','floor','round'];
+}
+/* 시작 칸을 고른다: 대시로 풀리는 칸을 우선하되, 최소한 드래그로는 닿아야 한다 */
+function chooseStart(w, lv){
+  var pass = passableLanes(w);
+  if (!pass.length) return w.lanes[0];
+  var budget = dragBudget(lv, w.kind);
+  var allow = methodsFor(lv);
+  var outs = w.lanes.filter(function(v){ return pass.indexOf(v) < 0; });
+  if (!outs.length) return w.lanes[0];
+  var dashable = [], reachable = [];
+  for (var i=0;i<outs.length;i++){
+    var v = outs[i], vi = w.lanes.indexOf(v);
+    var byDash = allow.some(function(m){ return pass.indexOf(apply(m, v, w.place)) >= 0; });
+    var byDrag = pass.some(function(pv){ return Math.abs(w.lanes.indexOf(pv) - vi) <= budget; });
+    if (byDash) dashable.push(v);
+    if (byDrag) reachable.push(v);
+  }
+  /* 대시로 풀리는 칸이 있으면 절반의 확률로 그쪽을 택해 버튼을 쓰게 만든다 */
+  if (dashable.length && (Math.random() < 0.65 || !reachable.length)) return pick(dashable);
+  if (reachable.length) return pick(reachable);
+  return pick(outs);
+}
+
+/* (A) 직접 범위 벽 — 이상/이하/초과/미만 */
+function wRange(mode, lv){
+  var width = mode === 1 ? rint(4,5) : rint(1,3);
+  var lo = rint(11, 76);
+  var hi = lo + width;
+  var loIncl = mode === 1 ? true : Math.random() < 0.5;
+  var hiIncl = mode === 1 ? true : Math.random() < 0.5;
+  if ((hi - (hiIncl?0:1)) < (lo + (loIncl?0:1))) { loIncl = true; hiIncl = true; }
+  var rule = { lo:lo, hi:hi, loIncl:loIncl, hiIncl:hiIncl };
+
+  var a = lo - 3, b = hi + 3;
+  while (b - a + 1 > MAXLANE){ if ((b - hi) >= (lo - a)) b--; else a++; }
+  var lanes = [];
+  for (var v = a; v <= b; v++) lanes.push(v);
+
+  var w0 = { kind:'range', rule:rule, lanes:lanes, place:10 };
+  var start = chooseStart(w0, lv || mode);
+  return {
+    kind:'range', rule:rule, lanes:lanes, place:10, start:start,
+    label: lo + ' ' + (loIncl?'이상':'초과') + ' ' + hi + ' ' + (hiIncl?'이하':'미만'),
+    sub: '이 범위 안으로 들어가라',
+    concept: '수의 범위', reveal:true, hideHole:false
+  };
+}
+
+/* (B) 어림 대시 벽 — 지금 값에서 올림/버림/반올림 */
+function wRound(p, methods, lv){
+  var m = pick(methods), v;
+  if (p === 10){
+    do { v = rint(112, 978); } while (v % 10 === 0);
+  } else {
+    do { v = rint(1120, 9780); } while (v % 100 === 0);
+    if (lv >= 4 && Math.random() < 0.45) v = Math.floor(v/100)*100 + rint(41,49); // 연속 반올림 함정
+  }
+  var ans = apply(m, v, p);
+  var rule = { lo:ans, hi:ans, loIncl:true, hiIncl:true };
+  var lanes = [], k;
+  for (k = -4; k <= 4; k++) lanes.push(ans + k * p);
+  lanes.push(v);
+  if (p === 100) lanes.push(roundTo(roundTo(v,10),100));      // 오개념 유혹 칸
+  lanes.push(floorTo(v,p)); lanes.push(ceilTo(v,p)); lanes.push(roundTo(v,p));
+  lanes = tidyLanes(lanes, [ans, v, floorTo(v,p), ceilTo(v,p)]);
+  return {
+    kind:'round', rule:rule, lanes:lanes, place:p, start:v, method:m, srcValue:v,
+    label: MNAME[m] + '하여 ' + (p === 10 ? '십' : '백') + '의 자리까지',
+    sub: '지금 ' + v,
+    concept: MNAME[m], reveal:false, hideHole: lv >= 4
+  };
+}
+
+/* (C) 역추적 벽 — 어림 결과로 원래 수의 범위 되찾기 */
+function wBack(p, lv){
+  var m = pick(['floor','ceil','round']);
+  var R = rint(12, 95) * p;
+  var rule;
+  if (m === 'round')      rule = { lo:R - p/2, hi:R + p/2, loIncl:true,  hiIncl:false };
+  else if (m === 'ceil')  rule = { lo:R - p,   hi:R,       loIncl:false, hiIncl:true  };
+  else                    rule = { lo:R,       hi:R + p,   loIncl:true,  hiIncl:false };
+
+  var tick = p / 4, lanes = [], k;
+  for (k = -4; k <= 4; k++) lanes.push(R + k * tick);
+  lanes = tidyLanes(lanes, [R, rule.lo, rule.hi]);
+  var start = chooseStart({ kind:'back', rule:rule, lanes:lanes, place:p }, lv);
+  return {
+    kind:'back', rule:rule, lanes:lanes, place:p, start:start, method:m,
+    label: MNAME[m] + '하여 ' + (p === 100 ? '백' : '십') + '의 자리까지 = ' + R,
+    sub: '원래 수가 될 수 있는 곳으로',
+    concept: '어림값 역추적', reveal:false, hideHole: lv >= 5
+  };
+}
+
+/* (D) 실생활 벽 — 문장이 어느 버튼인지를 지시한다 */
+var LIFE = [
+  { m:'ceil',  item:['사탕','구슬','스티커','딱지'], u:'개', vu:'개',
+    l1:function(o){ return o.it + ' ' + o.N + '개 → ' + o.d + '개씩 상자'; }, l2:'남김없이 담으려면 상자 전체 개수는?',
+    q:function(o){ return o.it + ' ' + o.N + '개를 ' + o.d + '개씩 상자에 남김없이 모두 담으려면, 상자 전체에 담을 수 있는 개수는?'; } },
+  { m:'floor', item:['리본','철사','끈','테이프'], u:'cm', vu:'cm',
+    l1:function(o){ return o.it + ' ' + o.N + 'cm → ' + o.d + 'cm씩'; }, l2:'자를 수 있는 만큼만',
+    q:function(o){ return o.it + ' ' + o.N + 'cm → ' + o.d + 'cm씩 자르면 쓸 수 있는 길이는 몇 cm?'; } },
+  { m:'round', item:['관객','학생','책','씨앗'], u:'명', vu:'',
+    l1:function(o){ return o.it + ' ' + o.N + '은(는)'; }, l2:'대략 몇백쯤?',
+    q:function(o){ return o.it + ' ' + o.N + ' → 대략 몇백?'; } }
+];
+function wLife(lv){
+  var t = pick(LIFE);
+  var d = 100;
+  var N;
+  do { N = rint(11,96) * 100 + rint(5,95); } while (N % d === 0);
+  var it = pick(t.item);
+  var o = { it:it, N:N, d:d };
+  var ans = apply(t.m, N, d);
+  var rule = { lo:ans, hi:ans, loIncl:true, hiIncl:true };
+  var lanes = [], k;
+  for (k = -4; k <= 4; k++) lanes.push(ans + k * d);
+  lanes.push(N); lanes.push(floorTo(N,d)); lanes.push(ceilTo(N,d)); lanes.push(roundTo(N,d));
+  lanes = tidyLanes(lanes, [ans, N, floorTo(N,d), ceilTo(N,d)]);
+  return {
+    kind:'life', rule:rule, lanes:lanes, place:d, start:N, method:t.m, srcValue:N,
+    label: t.l1(o), sub: t.l2, story: t.q(o),
+    concept: '상황에 맞는 어림', reveal:false, hideHole: lv >= 6
+  };
+}
+
+/* (E) 예외 함정 벽 — 아래가 모두 0인 수 */
+function wEdge(){
+  var p = 100;
+  var v = rint(12, 95) * p;
+  var m = pick(['ceil','floor','round']);
+  var ans = apply(m, v, p);   // === v
+  var rule = { lo:ans, hi:ans, loIncl:true, hiIncl:true };
+  var lanes = [], k;
+  for (k = -4; k <= 4; k++) lanes.push(v + k * p);
+  lanes = tidyLanes(lanes, [v]);
+  return {
+    kind:'edge', rule:rule, lanes:lanes, place:p, start:v, method:m, srcValue:v,
+    label: MNAME[m] + '하여 백의 자리까지', sub: '지금 ' + v + ' — 정말 움직일까?',
+    concept: MNAME[m], reveal:false, hideHole:false
+  };
+}
+
+function genWall(level){
+  var L = Math.max(1, Math.min(7, level | 0)), w, r = Math.random();
+  if (L === 1) w = wRange(1, 1);
+  else if (L === 2) w = wRange(2, 2);
+  else if (L === 3) w = wRound(10, ['floor','ceil'], 3);
+  else if (L === 4) w = (r < 0.28) ? wRange(2, 4) : wRound(10, ['floor','ceil','round'], 4);
+  else if (L === 5) w = (r < 0.35) ? wRound(100, ['floor','ceil','round'], 5) : wBack(100, 5);
+  else if (L === 6) w = (r < 0.32) ? wBack(100, 6) : wLife(6);
+  else {
+    if (r < 0.22) w = wEdge();
+    else if (r < 0.44) w = wLife(7);
+    else if (r < 0.64) w = wBack(100, 7);
+    else if (r < 0.86) w = wRound(100, ['floor','ceil','round'], 7);
+    else w = wRange(2, 7);
+  }
+  w.level = L;
+  if (w.lanes.indexOf(w.start) < 0){ w.lanes.push(w.start); w.lanes.sort(function(a,b){return a-b;}); }
+  if (passableLanes(w).length === 0){ w.rule.loIncl = true; w.rule.hiIncl = true; }
+  return w;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   2. 오디오 (사용자 제스처 이후에만 생성)
+   ══════════════════════════════════════════════════════════════ */
+var AC = null, muted = false;
+try { muted = localStorage.getItem('rd_mute') === '1'; } catch(e){}
+function audioOn(){
+  if (AC || muted) return;
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ AC = null; }
+}
+function tone(freq, dur, type, vol, delay){
+  if (!AC || muted) return;
+  try {
+    var t = AC.currentTime + (delay || 0);
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'triangle'; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.12, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  } catch(e){}
+}
+var SFX = {
+  pass:  function(){ tone(660,.13,'triangle',.10); tone(990,.16,'triangle',.08,.05); },
+  edge:  function(){ tone(660,.12,'sawtooth',.09); tone(880,.13,'sawtooth',.09,.07); tone(1320,.30,'triangle',.10,.14); },
+  crash: function(){ tone(150,.28,'square',.13); tone(90,.34,'sawtooth',.10,.04); },
+  dash:  function(){ tone(420,.07,'square',.06); tone(720,.07,'square',.05,.04); },
+  tick:  function(){ tone(300,.04,'sine',.04); },
+  over:  function(){ tone(392,.2,'triangle',.1); tone(311,.24,'triangle',.09,.16); tone(233,.4,'triangle',.09,.34); }
+};
+
+/* ══════════════════════════════════════════════════════════════
+   3. 에셋 (없으면 코드 드로잉으로 폴백)
+   ══════════════════════════════════════════════════════════════ */
+function loadImg(src){
+  var o = { img:new Image(), ok:false };
+  o.img.onload = function(){ o.ok = o.img.naturalWidth > 0; };
+  o.img.onerror = function(){ o.ok = false; };
+  o.img.src = src;
+  return o;
+}
+/* 벽 패널은 코드로 그린다 (래스터 이미지보다 선명하고 테마 색도 따라온다) */
+var IMG = { hero:loadImg('./assets/hero.png'), bg:loadImg('./assets/bg.png') };
+
+/* ══════════════════════════════════════════════════════════════
+   4. 테마 팔레트
+   ══════════════════════════════════════════════════════════════ */
+var THEMES = [
+  { name:'네온 시안', bg0:'#040a1a', bg1:'#0d1c3d', line:'#00e5ff', warn:'#ff3d7f', gold:'#ffd23d', safe:'#7cf7c4', grid:'rgba(255,61,127,.16)' },
+  { name:'오로라',   bg0:'#04140f', bg1:'#0a2b3a', line:'#7cf7c4', warn:'#ff7ad9', gold:'#ffe066', safe:'#8ad4ff', grid:'rgba(124,247,196,.15)' },
+  { name:'용암',     bg0:'#180406', bg1:'#3a1108', line:'#ffb03a', warn:'#ff2f5e', gold:'#ffe9a8', safe:'#ffd23d', grid:'rgba(255,79,58,.17)' },
+  { name:'심해',     bg0:'#02060f', bg1:'#07203a', line:'#5fd0ff', warn:'#c85cff', gold:'#a8ffe9', safe:'#7cf7c4', grid:'rgba(95,208,255,.14)' }
+];
+
+/* ══════════════════════════════════════════════════════════════
+   5. 저장
+   ══════════════════════════════════════════════════════════════ */
+var SAVE = { best:0, passes:0, dex:{} };
+try {
+  var raw = localStorage.getItem('rd_save');
+  if (raw) { var s = JSON.parse(raw); if (s && typeof s === 'object'){ SAVE.best = s.best|0; SAVE.passes = s.passes|0; SAVE.dex = s.dex || {}; } }
+} catch(e){}
+function persist(){ try { localStorage.setItem('rd_save', JSON.stringify(SAVE)); } catch(e){} }
+
+/* ══════════════════════════════════════════════════════════════
+   6. 게임 상태
+   ══════════════════════════════════════════════════════════════ */
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var REDUCED = false;
+try { REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+var G = {
+  phase:'intro', score:0, lives:3, fuel:3, maxFuel:6, combo:0, bestCombo:0,
+  solved:0, level:1, dist:0, edges:0, noDashPass:0, rewindLeft:1,
+  wall:null, prevWall:null, chip:{ value:0, pos:0, dashT:0, dashFrom:0, dashTo:0 },
+  drag:null, dragging:false, dashedThisWall:false,
+  timeScale:1, slowT:0, eyeT:0, shake:0, flash:0, flashCol:'#00e5ff',
+  reveal:0, revealTxt:'', revealRule:null, revealLanes:null,
+  invuln:0, rewindT:0, peek:null, peekT:0, themeIdx:0, stunned:0
+};
+var parts = [], pops = [], stars = [];
+var W = 0, H = 0, S = 1, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+/* ── DOM ── */
+var el = {
+  lv: document.querySelector('#lvbadge b'), lvsub: document.querySelector('#lvbadge small'),
+  score: document.getElementById('score'), best: document.getElementById('best'),
+  lifep: document.getElementById('lifepips'), fuelp: document.getElementById('fuelpips'),
+  combo: document.getElementById('combo'), place: document.getElementById('placelab'),
+  hint: document.getElementById('hint'), intro: document.getElementById('intro'),
+  over: document.getElementById('over'), stats: document.getElementById('stats'),
+  overtip: document.getElementById('overtip'), dex: document.getElementById('dex'),
+  mute: document.getElementById('mute'), rewrap: document.getElementById('rewindwrap'),
+  rewind: document.getElementById('rewind'), rwfill: document.getElementById('rwfill'),
+  dash: [].slice.call(document.querySelectorAll('.dash'))
+};
+var DEXLIST = ['이상','이하','초과','미만','올림','버림','반올림'];
+function renderDex(){
+  el.dex.innerHTML = '';
+  for (var i=0;i<DEXLIST.length;i++){
+    var d = document.createElement('div');
+    d.className = 'badge' + (SAVE.dex[DEXLIST[i]] ? ' on' : '');
+    d.textContent = DEXLIST[i];
+    el.dex.appendChild(d);
+  }
+}
+function pips(node, n, cls, max){
+  if (node.childElementCount !== max){
+    node.innerHTML = '';
+    for (var i=0;i<max;i++){ var d = document.createElement('div'); d.className = 'pip ' + cls; node.appendChild(d); }
+  }
+  for (var j=0;j<max;j++) node.children[j].className = 'pip ' + cls + (j < n ? ' on' : '');
+}
+
+function levelName(l){
+  return ['','이상·이하','초과·미만','십의 자리까지 어림','반올림 해금','역추적','실생활','전부 혼합'][l] || '';
+}
+
+var uiDirty = true;
+function syncUI(){
+  el.lv.textContent = 'LV ' + G.level;
+  el.lvsub.textContent = levelName(G.level);
+  el.score.textContent = Math.floor(G.score).toLocaleString('ko-KR');
+  el.best.textContent = '최고 ' + SAVE.best.toLocaleString('ko-KR');
+  pips(el.lifep, G.lives, 'life', 3);
+  pips(el.fuelp, G.fuel, 'fuel', G.maxFuel);
+  el.combo.textContent = G.combo >= 2 ? '×' + Math.min(8, G.combo) + ' 콤보' : '';
+  var w = G.wall;
+  el.place.textContent = w ? ((w.place === 10 ? '십' : '백') + '의 자리까지 어림') : ' ';
+  var allow = allowedMethods();
+  for (var i=0;i<el.dash.length;i++){
+    var b = el.dash[i], m = b.dataset.m;
+    var okm = allow.indexOf(m) >= 0 && G.fuel > 0 && G.phase === 'playing' && !!w;
+    b.classList.toggle('off', !okm);
+    var span = b.querySelector('span');
+    if (!w){ span.textContent = '—'; }
+    else if (allow.indexOf(m) < 0){ span.textContent = '잠김'; }
+    else if (G.level <= 3 || G.peek === m){ span.textContent = String(apply(m, G.chip.value, w.place)); }
+    else { span.textContent = '길게 눌러 보기'; }
+  }
+}
+function allowedMethods(){
+  if (G.level <= 2) return [];
+  if (G.level === 3) return ['ceil','floor'];
+  return ['ceil','floor','round'];
+}
+
+/* ══════════════════════════════════════════════════════════════
+   7. 수직선 좌표 매핑 (구간별 선형)
+   ══════════════════════════════════════════════════════════════ */
+/* 좁은 화면(폰)은 벽 낙하 거리를 벌기 위해 아래쪽, 넓은 화면(태블릿·데스크톱)은
+   위쪽 빈 공간이 너무 커지지 않게 65~70% 지점에 둔다. 낙하는 시간 기준이라
+   거리가 바뀌어도 체감 난이도는 같다. */
+function lineY(){ return H * (W / DPR >= 640 ? 0.70 : 0.785); }
+function padX(){ return Math.max(26 * S, W * 0.075); }
+function laneW(){
+  var w = G.wall; if (!w) return 30 * S;
+  var n = w.lanes.length;
+  return n > 1 ? (W - 2 * padX()) / (n - 1) : (W - 2 * padX());
+}
+function laneX(i){ return padX() + i * laneW(); }
+/* 값 → 화면 x (레인 사이 선형 보간, 바깥은 외삽) */
+function vx(v){
+  var w = G.wall; if (!w) return W / 2;
+  var L = w.lanes, n = L.length;
+  if (n === 1) return laneX(0);
+  if (v <= L[0])      return laneX(0) - (L[0] - v) / (L[1] - L[0]) * laneW();
+  if (v >= L[n-1])    return laneX(n-1) + (v - L[n-1]) / (L[n-1] - L[n-2]) * laneW();
+  for (var i=0;i<n-1;i++){
+    if (v >= L[i] && v <= L[i+1]){
+      var t = (L[i+1] === L[i]) ? 0 : (v - L[i]) / (L[i+1] - L[i]);
+      return laneX(i) + t * laneW();
+    }
+  }
+  return laneX(n-1);
+}
+/* 값 → 레인 인덱스(실수) */
+function vpos(v){
+  var w = G.wall; if (!w) return 0;
+  var L = w.lanes, n = L.length;
+  if (n === 1) return 0;
+  if (v <= L[0])   return -(L[0] - v) / (L[1] - L[0]);
+  if (v >= L[n-1]) return (n-1) + (v - L[n-1]) / (L[n-1] - L[n-2]);
+  for (var i=0;i<n-1;i++){
+    if (v >= L[i] && v <= L[i+1]) return i + (L[i+1] === L[i] ? 0 : (v - L[i]) / (L[i+1] - L[i]));
+  }
+  return n-1;
+}
+function xToPos(px){ return (px - padX()) / laneW(); }
+
+/* ══════════════════════════════════════════════════════════════
+   8. 파티클 / 팝업
+   ══════════════════════════════════════════════════════════════ */
+function burst(x, y, n, colors, spd, spread){
+  if (REDUCED) n = Math.min(n, 8);
+  if (parts.length > 240) return;
+  for (var i=0;i<n;i++){
+    var a = Math.random() * Math.PI * 2;
+    var v = spd * (0.35 + Math.random());
+    parts.push({
+      x:x, y:y,
+      vx:Math.cos(a) * v * (spread || 1), vy:Math.sin(a) * v * 0.6 - v * 0.25,
+      life:0.5 + Math.random() * 0.6, max:1.1,
+      r:(2 + Math.random() * 3.4) * S, c:pick(colors)
+    });
+  }
+}
+function popup(text, size, color, y){
+  pops.push({ t:text, life:1, size:size * S, c:color, y:(y === undefined ? H * 0.4 : y) });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   9. 벽 진행
+   ══════════════════════════════════════════════════════════════ */
+function fallTime(){ return fallTimeFor(G.level, G.wall ? G.wall.kind : null); }
+function spawnWall(same){
+  if (!same){
+    G.level = Math.max(1, Math.min(7, 1 + Math.floor(G.solved / 3)));
+    G.wall = genWall(G.level);
+  }
+  var w = G.wall;
+  w.t = 0;
+  w.done = false;
+  G.chip.value = w.start;
+  G.chip.pos = vpos(w.start);
+  G.chip.dashT = 0;
+  G.dashedThisWall = false;
+  G.peek = null;
+  G.drag = null;
+  uiDirty = true;
+}
+
+function edgeHit(v, r){ return inRange(v, r) && (v === r.lo || v === r.hi); }
+
+function resolveWall(force){
+  var w = G.wall; if (!w || w.done) return;
+  w.done = true;
+  var v = G.chip.value;
+  var ok = (force === true) ? true : (force === false ? false : inRange(v, w.rule));
+  if (force === true && !inRange(v, w.rule)){
+    var pl = passableLanes(w);
+    if (pl.length){ G.chip.value = pl[0]; G.chip.pos = vpos(pl[0]); v = pl[0]; }
+  }
+  if (ok) passWall(v); else crashWall(v);
+}
+
+function passWall(v){
+  var w = G.wall;
+  var isEdge = edgeHit(v, w.rule);
+  var isStay = (w.kind === 'edge');
+  G.combo++;
+  if (G.combo > G.bestCombo) G.bestCombo = G.combo;
+  var mult = Math.min(8, G.combo);
+  var gain = 100 * mult;
+  if (isEdge) gain *= 2;
+  var noDashBonus = (!G.dashedThisWall && w.kind === 'range');
+  if (noDashBonus) { gain = Math.floor(gain * 1.5); G.noDashPass++; }
+  G.score += gain;
+  G.solved++;
+  SAVE.passes++;
+  G.fuel = Math.min(G.maxFuel, G.fuel + 1 + (isEdge ? 2 : 0));
+  if (isEdge) G.edges++;
+
+  /* 도감 */
+  if (w.kind === 'range'){
+    if (w.rule.loIncl) SAVE.dex['이상'] = 1; else SAVE.dex['초과'] = 1;
+    if (w.rule.hiIncl) SAVE.dex['이하'] = 1; else SAVE.dex['미만'] = 1;
+  } else if (w.method) SAVE.dex[MNAME[w.method]] = 1;
+  persist();
+
+  var cx = vx(v), cy = lineY();
+  var TH = THEMES[G.themeIdx];
+  if (isEdge){
+    G.slowT = REDUCED ? 0 : 0.75;
+    G.shake = REDUCED ? 3 : 10;
+    G.flash = 0.55; G.flashCol = TH.gold;
+    burst(cx, cy, 46, [TH.gold, '#fff6cc', TH.line], 300 * S, 1.5);
+    popup('경계 뚫기 ×2', 34, TH.gold, H * 0.30);
+    if (w.srcValue !== undefined) popup(w.srcValue + ' → ' + v, 17, '#ffffff', H * 0.30 + 46 * S);
+    SFX.edge();
+  } else {
+    G.shake = REDUCED ? 2 : 5;
+    G.flash = 0.3; G.flashCol = TH.safe;
+    burst(cx, cy, 22, [TH.safe, TH.line, '#ffffff'], 210 * S, 1.2);
+    popup(isStay ? '그대로! 통과' : ('통과 +' + gain), 26, TH.safe, H * 0.32);
+    SFX.pass();
+  }
+  if (noDashBonus) popup('노 대시 +50%', 14, TH.line, H * 0.32 + 40 * S);
+
+  if (G.combo > 0 && G.combo % 5 === 0){ G.eyeT = 1.6; popup('어림의 눈!', 20, '#ffffff', H * 0.22); }
+
+  var newTheme = Math.min(THEMES.length - 1, Math.floor(SAVE.passes / 100));
+  if (newTheme !== G.themeIdx){ G.themeIdx = newTheme; popup('테마 해금 · ' + THEMES[G.themeIdx].name, 18, THEMES[G.themeIdx].gold, H * 0.5); }
+
+  G.prevWall = w;
+  setTimeout(function(){ if (G.phase === 'playing') spawnWall(false); }, 90);
+  uiDirty = true;
+}
+
+function reasonFor(w, v){
+  var r = w.rule;
+  if (v === r.lo && !r.loIncl) return '○ ' + r.lo + ' 은 포함되지 않아 (초과)';
+  if (v === r.hi && !r.hiIncl) return '○ ' + r.hi + ' 은 포함되지 않아 (미만)';
+  /* '아래 N' = 구하려는 자리 아래에 남은 수. 세 방법의 판단 근거가 전부 이 값이다
+     (올림: 0이 아니면 한 칸 위로 / 버림: 통째로 버림 / 반올림: 절반 이상이면 올림). */
+  if (w.kind === 'round' || w.kind === 'edge')
+    return w.srcValue + ' → 아래 ' + imod(w.srcValue, w.place) + ' → ' + MNAME[w.method] + ' → ' + r.lo;
+  if (w.kind === 'life')
+    return w.srcValue + ' → 아래 ' + imod(w.srcValue, w.place) + ' → ' + MNAME[w.method] + ' → ' + r.lo;
+  if (w.kind === 'back')  return '안전 구간 ' + rangeText(r);
+  return '안전 구간 ' + rangeText(r);
+}
+function rangeText(r){
+  if (r.lo === r.hi) return String(r.lo) + ' 한 칸';
+  return r.lo + ' ' + (r.loIncl ? '이상' : '초과') + ' ' + r.hi + ' ' + (r.hiIncl ? '이하' : '미만');
+}
+
+function crashWall(v){
+  var w = G.wall;
+  var TH = THEMES[G.themeIdx];
+  G.combo = 0;
+  G.lives--;
+  G.shake = REDUCED ? 4 : 16;
+  G.flash = 0.5; G.flashCol = TH.warn;
+  burst(vx(v), lineY(), 34, [TH.warn, '#ffffff', '#ff9ec2'], 260 * S, 1.3);
+  G.reveal = 1.0;
+  G.revealTxt = reasonFor(w, v);
+  G.revealRule = w.rule;
+  G.invuln = 0.6;
+  SFX.crash();
+  uiDirty = true;
+
+  if (G.lives <= 0){ setTimeout(gameOver, 520); return; }
+
+  G.prevWall = w;
+  if (G.rewindLeft > 0){
+    G.rewindT = 1.5;
+    G.stunned = 1;
+    el.rewrap.classList.remove('hide');
+    el.rwfill.style.width = '100%';
+  } else {
+    setTimeout(function(){ if (G.phase === 'playing') spawnWall(false); }, 480);
+  }
+}
+
+function doRewind(){
+  if (G.rewindT <= 0 || G.rewindLeft <= 0) return;
+  G.rewindLeft--; G.lives++; G.combo = 0;
+  G.rewindT = 0; G.stunned = 0; G.reveal = 0;
+  el.rewrap.classList.add('hide');
+  spawnWall(true);
+  popup('되감기!', 24, THEMES[G.themeIdx].gold, H * 0.3);
+  SFX.dash();
+  uiDirty = true;
+}
+
+function gameOver(){
+  G.phase = 'over';
+  G.wall = null;
+  if (Math.floor(G.score) > SAVE.best){ SAVE.best = Math.floor(G.score); }
+  persist();
+  el.rewrap.classList.add('hide');
+  el.stats.innerHTML =
+    stat(Math.floor(G.score).toLocaleString('ko-KR'), '점수') +
+    stat(G.solved + '개', '통과한 벽') +
+    stat('×' + G.bestCombo, '최고 콤보') +
+    stat(G.edges + '회', '경계 뚫기') +
+    stat(Math.floor(G.dist) + 'm', '달린 거리');
+  el.overtip.textContent = G.edges === 0
+    ? '팁: ● 위에 정확히 서서 통과하면 점수가 2배!'
+    : '팁: 연속 반올림은 함정이다. 2449를 반올림하여 백의 자리까지 나타내면 2400.';
+  renderDex();
+  el.over.classList.remove('hide');
+  SFX.over();
+  uiDirty = true;
+}
+function stat(b, s){ return '<div class="stat"><b>' + b + '</b><small>' + s + '</small></div>'; }
+
+/* ══════════════════════════════════════════════════════════════
+   10. 입력
+   ══════════════════════════════════════════════════════════════ */
+function startGame(){
+  audioOn();
+  G.phase = 'playing';
+  G.score = 0; G.lives = 3; G.fuel = 3; G.combo = 0; G.bestCombo = 0;
+  G.solved = 0; G.level = 1; G.dist = 0; G.edges = 0; G.noDashPass = 0;
+  G.rewindLeft = 1; G.reveal = 0; G.slowT = 0; G.eyeT = 0; G.stunned = 0;
+  G.themeIdx = Math.min(THEMES.length - 1, Math.floor(SAVE.passes / 100));
+  parts.length = 0; pops.length = 0;
+  el.intro.classList.add('hide');
+  el.over.classList.add('hide');
+  el.rewrap.classList.add('hide');
+  spawnWall(false);
+  uiDirty = true;
+}
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('againBtn').addEventListener('click', startGame);
+el.rewind.addEventListener('click', doRewind);
+el.mute.addEventListener('click', function(){
+  muted = !muted;
+  el.mute.textContent = muted ? '🔇' : '🔊';
+  try { localStorage.setItem('rd_mute', muted ? '1' : '0'); } catch(e){}
+  if (!muted) audioOn();
+});
+el.mute.textContent = muted ? '🔇' : '🔊';
+
+/* 드래그 */
+function onDown(e){
+  audioOn();
+  if (G.phase !== 'playing' || !G.wall || G.stunned) return;
+  var r = cv.getBoundingClientRect();
+  G.dragging = true;
+  G.drag = (e.clientX - r.left) * (W / r.width);
+  if (cv.setPointerCapture && e.pointerId !== undefined){ try { cv.setPointerCapture(e.pointerId); } catch(err){} }
+}
+function onMove(e){
+  if (!G.dragging) return;
+  var r = cv.getBoundingClientRect();
+  G.drag = (e.clientX - r.left) * (W / r.width);
+}
+function onUp(){ G.dragging = false; G.drag = null; }
+cv.addEventListener('pointerdown', onDown);
+cv.addEventListener('pointermove', onMove);
+window.addEventListener('pointerup', onUp);
+window.addEventListener('pointercancel', onUp);
+
+/* 대시 버튼 — 짧게 탭 = 대시 / 길게 = 엿보기(취소) */
+var pressTimer = null, pressed = null;
+function bindDash(btn){
+  var m = btn.dataset.m;
+  function down(e){
+    e.preventDefault();
+    audioOn();
+    if (G.phase !== 'playing') return;
+    pressed = m;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(function(){
+      if (pressed === m && G.wall){
+        G.peek = m;
+        btn.classList.add('peek');
+        uiDirty = true;
+      }
+    }, 250);
+  }
+  function up(e){
+    if (e) e.preventDefault();
+    clearTimeout(pressTimer);
+    btn.classList.remove('peek');
+    if (pressed !== m){ pressed = null; return; }
+    pressed = null;
+    if (G.peek === m){ G.peek = null; uiDirty = true; return; }  // 엿보기였으면 대시 취소
+    doDash(m);
+  }
+  btn.addEventListener('pointerdown', down);
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointerleave', function(){ clearTimeout(pressTimer); btn.classList.remove('peek'); if (G.peek === m) { G.peek = null; uiDirty = true; } pressed = null; });
+  btn.addEventListener('click', function(e){ e.preventDefault(); });
+}
+el.dash.forEach(bindDash);
+
+function doDash(m){
+  var w = G.wall;
+  if (G.phase !== 'playing' || !w || G.stunned) return;
+  if (allowedMethods().indexOf(m) < 0){ popup('아직 잠긴 어림', 15, THEMES[G.themeIdx].warn, H * 0.5); return; }
+  if (G.fuel <= 0){ popup('연료 부족 — 드래그로 버텨!', 15, THEMES[G.themeIdx].warn, H * 0.5); return; }
+  var target = apply(m, G.chip.value, w.place);
+  G.fuel--;
+  G.dashedThisWall = true;
+  G.chip.dashFrom = G.chip.pos;
+  G.chip.dashTo = vpos(target);
+  G.chip.dashT = 0.2;
+  G.chip.value = target;
+  var TH = THEMES[G.themeIdx];
+  burst(vx(target), lineY(), 12, [TH.line, '#ffffff'], 150 * S, 1);
+  popup(MNAME[m] + ' → ' + target, 15, TH.line, lineY() - 74 * S);
+  SFX.dash();
+  uiDirty = true;
+}
+
+/* 키보드 */
+var keyDir = 0;
+window.addEventListener('keydown', function(e){
+  audioOn();
+  var k = e.key;
+  if (k === ' ' || k === 'Spacebar'){
+    e.preventDefault();
+    if (G.phase !== 'playing') startGame();
+    else if (G.rewindT > 0) doRewind();
+    return;
+  }
+  if (G.phase !== 'playing') return;
+  if (k === 'ArrowLeft'){ keyDir = -1; e.preventDefault(); }
+  else if (k === 'ArrowRight'){ keyDir = 1; e.preventDefault(); }
+  else if (k === 'z' || k === 'Z' || k === '1') doDash('ceil');
+  else if (k === 'x' || k === 'X' || k === '2') doDash('floor');
+  else if (k === 'c' || k === 'C' || k === '3') doDash('round');
+  else if (k === 'Shift'){ G.peek = 'all'; uiDirty = true; }
+});
+window.addEventListener('keyup', function(e){
+  if (e.key === 'ArrowLeft' && keyDir === -1) keyDir = 0;
+  if (e.key === 'ArrowRight' && keyDir === 1) keyDir = 0;
+  if (e.key === 'Shift'){ G.peek = null; uiDirty = true; }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   11. 업데이트
+   ══════════════════════════════════════════════════════════════ */
+function update(dt){
+  /* 연출 타이머 */
+  if (G.slowT > 0) G.slowT = Math.max(0, G.slowT - dt);
+  if (G.eyeT > 0)  G.eyeT  = Math.max(0, G.eyeT - dt);
+  if (G.flash > 0) G.flash = Math.max(0, G.flash - dt * 2.6);
+  if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 46);
+  if (G.reveal > 0) G.reveal = Math.max(0, G.reveal - dt);
+  if (G.invuln > 0) G.invuln = Math.max(0, G.invuln - dt);
+
+  if (G.rewindT > 0){
+    G.rewindT -= dt;
+    el.rwfill.style.width = Math.max(0, G.rewindT / 1.5 * 100) + '%';
+    if (G.rewindT <= 0){
+      el.rewrap.classList.add('hide');
+      G.stunned = 0;
+      if (G.phase === 'playing') spawnWall(false);
+    }
+  }
+
+  var slow = (G.slowT > 0 || G.eyeT > 0) ? 0.32 : 1;
+  G.timeScale += (slow - G.timeScale) * Math.min(1, dt * 9);
+
+  /* 파티클 */
+  for (var i=parts.length-1;i>=0;i--){
+    var p = parts[i];
+    p.life -= dt * (G.timeScale * 0.5 + 0.5);
+    if (p.life <= 0){ parts.splice(i,1); continue; }
+    p.x += p.vx * dt * G.timeScale; p.y += p.vy * dt * G.timeScale;
+    p.vy += 420 * S * dt * G.timeScale; p.vx *= (1 - 1.4 * dt);
+  }
+  for (var j=pops.length-1;j>=0;j--){ pops[j].life -= dt * 1.15; if (pops[j].life <= 0) pops.splice(j,1); }
+
+  /* 별 */
+  for (var s=0;s<stars.length;s++){
+    var st = stars[s];
+    st.y += st.v * dt * (60 + G.level * 14) * G.timeScale;
+    if (st.y > H) { st.y = -4; st.x = Math.random() * W; }
+  }
+
+  if (G.phase !== 'playing') return;
+
+  G.dist += dt * (8 + G.level * 2.5);
+  G.score += dt * (6 + G.level * 3);
+
+  var w = G.wall;
+  if (!w || G.stunned) return;
+
+  /* 칩 이동 */
+  var c = G.chip;
+  if (c.dashT > 0){
+    c.dashT -= dt;
+    var k = Math.max(0, Math.min(1, 1 - c.dashT / 0.2));
+    var e = 1 - Math.pow(1 - k, 3);
+    c.pos = c.dashFrom + (c.dashTo - c.dashFrom) * e;
+    if (c.dashT <= 0) c.pos = c.dashTo;
+  } else {
+    var desired = null;
+    if (G.dragging && G.drag !== null) desired = xToPos(G.drag);
+    else if (keyDir !== 0) desired = c.pos + keyDir * 2;
+    if (desired !== null){
+      desired = Math.max(0, Math.min(w.lanes.length - 1, desired));
+      var step = (SPEED[G.level] || 2.4) * dt;
+      var d = desired - c.pos;
+      c.pos += Math.max(-step, Math.min(step, d));
+      c.pos = Math.max(0, Math.min(w.lanes.length - 1, c.pos));
+      var idx = Math.round(c.pos);
+      if (w.lanes[idx] !== undefined && w.lanes[idx] !== c.value){ c.value = w.lanes[idx]; uiDirty = true; SFX.tick(); }
+    }
+  }
+
+  /* 벽 하강 */
+  var mul = (G.peek && G.peek !== null && G.level >= 4) ? (G.level >= 6 ? 3 : 2) : 1;
+  w.t += dt * G.timeScale * mul / fallTime();
+
+  /* 경계 슬로우 (와우 모먼트) */
+  if (!REDUCED && w.t > 0.80 && w.t < 1 && G.slowT <= 0 && edgeHit(c.value, w.rule)) G.slowT = Math.max(G.slowT, 0.45);
+
+  if (w.t >= 1){ w.t = 1; resolveWall(); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   12. 렌더
+   ══════════════════════════════════════════════════════════════ */
+/* 오프스크린 캐시 — 소프트웨어 렌더링에서도 60fps 를 지키기 위해
+   정적인 것(배경·격자·수직선·비네트·벽 텍스처·칩)은 전부 미리 그려 두고 blit 만 한다. */
+var offBG = document.createElement('canvas'), bgc = offBG.getContext('2d');
+var offWall = document.createElement('canvas'), wtc = offWall.getContext('2d');
+var offHero = document.createElement('canvas'), hrc = offHero.getContext('2d');
+var lastW = 0, lastH = 0, builtTheme = -1, bgHasImg = false, wallHasImg = false, heroHasImg = false, heroBuilt = false;
+var WALLH = 62;
+
+function initStars(){
+  stars.length = 0;
+  for (var i=0;i<56;i++) stars.push({ x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.6+0.4, v:0.3+Math.random()*1.5, a:0.2+Math.random()*0.6 });
+}
+
+function buildBG(){
+  var TH = THEMES[G.themeIdx];
+  offBG.width = W; offBG.height = H;
+  var c = bgc;
+  c.setTransform(1,0,0,1,0,0);
+  c.clearRect(0,0,W,H);
+
+  var g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, TH.bg0); g.addColorStop(0.55, TH.bg1); g.addColorStop(1, TH.bg0);
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+
+  var ly = lineY();
+
+  /* 배경 이미지는 '멀어지는 하이웨이' 부분만 잘라 쓴다.
+     원본 가운데의 눈금자까지 그리면 진짜 수직선과 헷갈린다. */
+  bgHasImg = IMG.bg.ok;
+  if (bgHasImg){
+    var im = IMG.bg.img;
+    c.globalAlpha = 0.34;
+    c.drawImage(im, 0, 0, im.width, Math.round(im.height * 0.44), 0, 0, W, ly * 0.86);
+    c.globalAlpha = 1;
+    var fade = c.createLinearGradient(0, ly * 0.5, 0, ly * 0.9);
+    fade.addColorStop(0, 'rgba(0,0,0,0)');
+    fade.addColorStop(1, TH.bg0);
+    c.fillStyle = fade; c.fillRect(0, ly * 0.5, W, ly * 0.42);
+  }
+
+  c.strokeStyle = TH.grid; c.lineWidth = 1 * DPR;
+  for (var i=1;i<=8;i++){
+    var t = i / 8;
+    var y = ly - Math.pow(t, 1.9) * ly;
+    c.globalAlpha = 0.55 * (1 - t * 0.7);
+    c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
+  }
+  /* 하이웨이 선은 수직선에서 끊지 않고 화면 바닥까지 이어 간다 —
+     수직선 아래가 죽은 검은 공간으로 남지 않는다 (태블릿에서 특히) */
+  var ex = 0.13 + (0.62 - 0.13) * (H / Math.max(1, ly));
+  c.globalAlpha = 0.30;
+  for (var k=-4;k<=4;k++){
+    c.beginPath();
+    c.moveTo(W/2 + k * W * 0.13, 0);
+    c.lineTo(W/2 + k * W * ex, H);
+    c.stroke();
+  }
+  /* 수직선 아래 지면 — 격자를 이어 그려 아래쪽이 죽은 검은 면으로 남지 않게 */
+  var fh = H - ly;
+  if (fh > 30 * S){
+    c.strokeStyle = hexa(TH.line, 1);
+    for (var fi=1; fi<=6; fi++){
+      var ft = fi / 6;
+      c.globalAlpha = 0.18 * (1 - ft * 0.6);
+      var fy = ly + Math.pow(ft, 1.55) * fh;
+      c.beginPath(); c.moveTo(0, fy); c.lineTo(W, fy); c.stroke();
+    }
+    c.globalAlpha = 0.14;
+    for (var fk=-4; fk<=4; fk++){
+      c.beginPath();
+      c.moveTo(W/2 + fk * W * 0.62, ly);
+      c.lineTo(W/2 + fk * W * ex, H);
+      c.stroke();
+    }
+  }
+  c.globalAlpha = 1;
+
+  /* 수직선 바닥 광원 */
+  var gg = c.createLinearGradient(0, ly - 60 * S, 0, ly + 90 * S);
+  gg.addColorStop(0, 'rgba(0,0,0,0)');
+  gg.addColorStop(0.45, hexa(TH.line, 0.12));
+  gg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = gg; c.fillRect(0, ly - 60 * S, W, 150 * S);
+
+  /* 수직선 본체 (글로우는 다층 스트로크로) */
+  c.lineCap = 'butt';
+  c.strokeStyle = hexa(TH.line, 0.16); c.lineWidth = 12 * DPR;
+  c.beginPath(); c.moveTo(0, ly); c.lineTo(W, ly); c.stroke();
+  c.strokeStyle = hexa(TH.line, 0.38); c.lineWidth = 6 * DPR;
+  c.beginPath(); c.moveTo(0, ly); c.lineTo(W, ly); c.stroke();
+  c.strokeStyle = TH.line; c.lineWidth = 2.2 * DPR;
+  c.beginPath(); c.moveTo(0, ly); c.lineTo(W, ly); c.stroke();
+
+  /* 비네트 */
+  var vg = c.createRadialGradient(W/2, H*0.55, W*0.24, W/2, H*0.55, W*0.88);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,.5)');
+  c.fillStyle = vg; c.fillRect(0, 0, W, H);
+}
+
+function buildWallTex(){
+  var TH = THEMES[G.themeIdx];
+  var wh = Math.max(2, Math.round(WALLH * S));
+  offWall.width = Math.max(2, W); offWall.height = wh;
+  var c = wtc;
+  c.setTransform(1,0,0,1,0,0);
+  c.clearRect(0,0,W,wh);
+
+  /* 홀로그램 패널 본체 — 위는 시안, 아래로 갈수록 마젠타 경고색 */
+  var g = c.createLinearGradient(0, 0, 0, wh);
+  g.addColorStop(0,    hexa(TH.line, 0.42));
+  g.addColorStop(0.40, hexa(TH.line, 0.15));
+  g.addColorStop(0.74, hexa(TH.warn, 0.15));
+  g.addColorStop(1,    hexa(TH.warn, 0.40));
+  c.fillStyle = g; c.fillRect(0, 0, W, wh);
+
+  /* 육각 메시 — 한 번의 path/stroke 라 겹친 변이 두 번 칠해지지 않는다 */
+  var hr = Math.max(6, wh * 0.30);
+  var hx = hr * 1.5, hy = hr * 1.7320508;
+  c.strokeStyle = hexa(TH.line, 0.36);
+  c.lineWidth = Math.max(1, 1.1 * DPR);
+  c.beginPath();
+  for (var col = -1; col * hx < W + hx; col++){
+    var cx = col * hx, cyo = (col & 1) ? hy / 2 : 0;
+    for (var row = -1; row * hy < wh + hy; row++){
+      var cy = row * hy + cyo;
+      for (var k = 0; k < 6; k++){
+        var a1 = Math.PI / 3 * k, a2 = Math.PI / 3 * (k + 1);
+        c.moveTo(cx + Math.cos(a1) * hr, cy + Math.sin(a1) * hr);
+        c.lineTo(cx + Math.cos(a2) * hr, cy + Math.sin(a2) * hr);
+      }
+    }
+  }
+  c.stroke();
+
+  /* 상단 엣지 글로우 + 실선 */
+  var eg = c.createLinearGradient(0, 0, 0, wh * 0.42);
+  eg.addColorStop(0, hexa(TH.line, 0.50));
+  eg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = eg; c.fillRect(0, 0, W, wh * 0.42);
+  var lwv = Math.max(1, Math.round(2 * DPR));
+  c.fillStyle = hexa(TH.line, 0.95); c.fillRect(0, 0, W, lwv);
+
+  /* 하단 경고 스트라이프 */
+  var sh = Math.max(7, Math.round(wh * 0.22)), sy = wh - sh;
+  c.save();
+  c.beginPath(); c.rect(0, sy, W, sh); c.clip();
+  c.fillStyle = hexa(TH.warn, 0.26); c.fillRect(0, sy, W, sh);
+  c.fillStyle = hexa(TH.warn, 0.72);
+  var bw2 = sh * 0.85;
+  for (var sx = -sh * 2; sx < W + sh * 2; sx += bw2 * 2){
+    c.beginPath();
+    c.moveTo(sx, wh); c.lineTo(sx + bw2, wh);
+    c.lineTo(sx + bw2 + sh, sy); c.lineTo(sx + sh, sy);
+    c.closePath(); c.fill();
+  }
+  c.restore();
+  c.fillStyle = hexa(TH.warn, 0.85); c.fillRect(0, sy - lwv / 2, W, Math.max(1, lwv * 0.75));
+  c.fillStyle = hexa(TH.warn, 0.98); c.fillRect(0, wh - lwv, W, lwv);
+
+  wallHasImg = true;   /* 코드 드로잉이라 늦게 로드될 이미지가 없다 */
+}
+
+function buildHero(){
+  var TH = THEMES[G.themeIdx];
+  var sz = Math.max(24, Math.round(72 * S));
+  offHero.width = sz; offHero.height = sz;
+  var c = hrc;
+  c.setTransform(1,0,0,1,0,0);
+  c.clearRect(0,0,sz,sz);
+  c.save();
+  c.translate(sz/2, sz/2);
+  c.shadowColor = TH.line; c.shadowBlur = sz * 0.22;
+  heroHasImg = IMG.hero.ok;
+  if (heroHasImg){
+    var d = sz * 0.72;
+    c.drawImage(IMG.hero.img, -d/2, -d/2, d, d);
+  } else {
+    var r = sz * 0.30;
+    c.beginPath();
+    for (var i=0;i<6;i++){
+      var a = Math.PI / 3 * i - Math.PI / 2;
+      var x = Math.cos(a) * r, y = Math.sin(a) * r;
+      if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+    }
+    c.closePath();
+    var g2 = c.createLinearGradient(0, -r, 0, r);
+    g2.addColorStop(0, hexa(TH.line, 0.98)); g2.addColorStop(1, '#0d1c3d');
+    c.fillStyle = g2; c.fill();
+    c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.stroke();
+    c.shadowBlur = 0;
+    c.beginPath(); c.arc(0, 0, r * 0.32, 0, 6.2832);
+    c.fillStyle = '#ffffff'; c.fill();
+  }
+  c.restore();
+  heroBuilt = true;
+}
+
+function rebuildAll(){ buildBG(); buildWallTex(); buildHero(); initStars(); }
+
+function resize(){
+  var r = cv.getBoundingClientRect();
+  var cw = Math.max(1, Math.round(r.width)), ch = Math.max(1, Math.round(r.height));
+  var nw = Math.max(2, cw * DPR), nh = Math.max(2, ch * DPR);
+  if (cv.width !== nw || cv.height !== nh){ cv.width = nw; cv.height = nh; }
+  W = nw; H = nh;
+  S = Math.max(0.75, Math.min(2.2, W / (390 * DPR) * DPR));
+  if (W !== lastW || H !== lastH || builtTheme !== G.themeIdx){
+    lastW = W; lastH = H; builtTheme = G.themeIdx;
+    rebuildAll();
+    return;
+  }
+  /* 이미지가 뒤늦게 로드되면 그때 한 번만 다시 굽는다 */
+  if (!bgHasImg && IMG.bg.ok) buildBG();
+  if (!heroHasImg && IMG.hero.ok) buildHero();
+}
+
+function rr(x,y,w,h,r){
+  ctx.beginPath();
+  var rad = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+  ctx.moveTo(x+rad,y);
+  ctx.arcTo(x+w,y,x+w,y+h,rad);
+  ctx.arcTo(x+w,y+h,x,y+h,rad);
+  ctx.arcTo(x,y+h,x,y,rad);
+  ctx.arcTo(x,y,x+w,y,rad);
+  ctx.closePath();
+}
+
+function drawStars(){
+  ctx.fillStyle = '#ffffff';
+  for (var s=0;s<stars.length;s++){
+    var st = stars[s];
+    ctx.globalAlpha = st.a * 0.7;
+    ctx.fillRect(st.x, st.y, st.r * DPR, st.r * DPR * 2.4);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawNumberLine(TH){
+  var w = G.wall;
+  var y = lineY();
+  if (!w) return;
+
+  /* 안전 구간 밴드 */
+  var showBand = w.reveal || G.reveal > 0 || G.eyeT > 0;
+  if (showBand){
+    var a = vx(w.rule.lo), b = vx(w.rule.hi);
+    var col = G.reveal > 0 ? TH.safe : TH.line;
+    var by = y - 13 * S;
+    var pad0 = (w.rule.lo === w.rule.hi ? 9 * S : 0);
+    var xa = Math.min(a,b) - pad0, xb = Math.max(a,b) + pad0;
+    ctx.globalAlpha = G.reveal > 0 ? (0.55 + Math.sin(G.reveal * 22) * 0.25) : 0.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = hexa(col, 0.25); ctx.lineWidth = 14 * DPR;
+    ctx.beginPath(); ctx.moveTo(xa, by); ctx.lineTo(xb, by); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = 6 * DPR;
+    ctx.beginPath(); ctx.moveTo(xa, by); ctx.lineTo(xb, by); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+    marker(a, by, w.rule.loIncl, TH);
+    if (w.rule.hi !== w.rule.lo) marker(b, by, w.rule.hiIncl, TH);
+  }
+
+  /* 눈금 + 라벨 */
+  var lw = laneW();
+  var fs = Math.round(Math.max(9 * DPR, Math.min(13 * DPR, lw * 0.40)));
+  ctx.font = '700 ' + fs + 'px ' + FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  var eye = G.eyeT > 0;
+  var normal = hexa('#e8f1ff', 0.86);
+  for (var i=0;i<w.lanes.length;i++){
+    var x = laneX(i), v = w.lanes[i];
+    var isStart = (v === w.start);
+    ctx.strokeStyle = hexa(TH.line, isStart ? 0.95 : 0.5);
+    ctx.lineWidth = (isStart ? 2.4 : 1.4) * DPR;
+    ctx.beginPath(); ctx.moveTo(x, y - 8 * S); ctx.lineTo(x, y + 9 * S); ctx.stroke();
+    ctx.fillStyle = (eye && inRange(v, w.rule)) ? TH.safe : normal;
+    ctx.fillText(String(v), x, y + 13 * S);
+  }
+}
+function marker(x, y, incl, TH){
+  var r = 8 * S;
+  if (incl){
+    ctx.fillStyle = hexa(TH.line, 0.3);
+    ctx.beginPath(); ctx.arc(x, y, r * 1.75, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = TH.line;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  } else {
+    ctx.fillStyle = hexa(TH.warn, 0.22);
+    ctx.beginPath(); ctx.arc(x, y, r * 1.75, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#070b18';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = TH.warn; ctx.lineWidth = 3 * DPR; ctx.stroke();
+  }
+}
+
+var FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+
+/* 벽 패널의 화면 y 범위와 뚫린 구간 — drawWall 과 drawChip 이 같이 쓴다 */
+function wallGeom(){
+  var w = G.wall; if (!w) return null;
+  var y = lineY(), wallH = offWall.height;
+  var a = -wallH - 20 * S;
+  var top = a + (y - a) * w.t;
+  var EDGE = Math.max(13 * S, Math.min(20 * S, laneW() * 0.42));
+  var hl = vx(w.rule.lo) - (w.rule.loIncl ? EDGE : -EDGE);
+  var hr = vx(w.rule.hi) + (w.rule.hiIncl ? EDGE : -EDGE);
+  if (hr < hl + 12 * S){ var m = (hl + hr) / 2; hl = m - 6 * S; hr = m + 6 * S; }
+  return {
+    top: top, h: wallH, bottom: top + wallH,
+    hidden: w.hideHole && w.t < 0.68,   // 라벨은 처음부터 보인다 — 미리 계산한 사람만 여유가 있다
+    hl: hl, hr: hr
+  };
+}
+
+function drawWall(TH){
+  var w = G.wall; if (!w) return;
+  var gm = wallGeom();
+  var wallH = gm.h, top = gm.top, hidden = gm.hidden, hl = gm.hl, hr = gm.hr;
+
+  var segs = hidden ? [[0, W]] : [[0, Math.max(0, Math.min(W, hl))], [Math.max(0, Math.min(W, hr)), W]];
+
+  for (var i=0;i<segs.length;i++){
+    var x0 = Math.round(segs[i][0]), x1 = Math.round(segs[i][1]);
+    var sw = x1 - x0;
+    if (sw < 1) continue;
+    /* 미리 구운 텍스처를 1:1 로 blit — 소프트웨어 렌더링에서도 싸다 */
+    ctx.drawImage(offWall, x0, 0, sw, offWall.height, x0, top, sw, wallH);
+    /* 테두리 글로우 (shadowBlur 대신 다층 스트로크) */
+    ctx.strokeStyle = hexa(TH.line, 0.30); ctx.lineWidth = 5 * DPR;
+    rr(x0 - 1, top, sw + 2, wallH, 7 * S); ctx.stroke();
+    ctx.strokeStyle = hexa(TH.line, 0.95); ctx.lineWidth = 2 * DPR;
+    rr(x0 - 1, top, sw + 2, wallH, 7 * S); ctx.stroke();
+  }
+
+  /* 숨김 상태 */
+  if (hidden){
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = TH.gold;
+    ctx.font = '900 ' + Math.round(22 * S) + 'px ' + FONT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('? ? ?', W / 2, top + wallH / 2);
+    ctx.globalAlpha = 1;
+  }
+
+  /* 구멍 경계 ●/○ */
+  if (!hidden){
+    var my = top + wallH / 2;
+    marker(vx(w.rule.lo), my, w.rule.loIncl, TH);
+    if (w.rule.hi !== w.rule.lo) marker(vx(w.rule.hi), my, w.rule.hiIncl, TH);
+  }
+
+  /* 라벨 배너 */
+  /* 라벨은 벽이 화면 밖에 있어도 항상 읽을 수 있어야 한다 —
+     미리 계산할 시간을 주지 않으면 어림이 아니라 반사신경 게임이 된다. */
+  var by = Math.max(6 * S, top - 42 * S);
+  var t1 = w.label, t2 = w.sub;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '900 ' + Math.round(16 * S) + 'px ' + FONT;
+  var tw = Math.max(ctx.measureText(t1).width, 120 * S);
+  ctx.font = '600 ' + Math.round(11 * S) + 'px ' + FONT;
+  tw = Math.max(tw, ctx.measureText(t2).width);
+  var bw = Math.min(W - 14 * S, tw + 30 * S), bh = 40 * S;
+  ctx.fillStyle = 'rgba(7,11,24,.85)';
+  ctx.strokeStyle = hexa(TH.gold, 0.7); ctx.lineWidth = 1.5 * DPR;
+  rr(W/2 - bw/2, by, bw, bh, 10 * S); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = TH.gold;
+  ctx.font = '900 ' + Math.round(16 * S) + 'px ' + FONT;
+  ctx.fillText(t1, W/2, by + 14 * S);
+  ctx.fillStyle = hexa('#e8f1ff', 0.7);
+  ctx.font = '600 ' + Math.round(11 * S) + 'px ' + FONT;
+  ctx.fillText(t2, W/2, by + 30 * S);
+  ctx.globalAlpha = 1;
+}
+
+function drawChip(TH){
+  var w = G.wall; if (!w) return;
+  var c = G.chip;
+  var px = laneX(Math.max(-0.9, Math.min(w.lanes.length - 0.1, c.pos)));
+  var py = lineY();
+  var t = performance.now() / 1000;
+
+  /* 엿보기 유령 */
+  if (G.peek){
+    var ms = (G.peek === 'all') ? allowedMethods() : [G.peek];
+    for (var i=0;i<ms.length;i++){
+      var tv = apply(ms[i], c.value, w.place);
+      var gx = vx(tv);
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      ctx.setLineDash([5 * S, 5 * S]);
+      ctx.strokeStyle = TH.gold; ctx.lineWidth = 1.5 * DPR;
+      ctx.beginPath(); ctx.moveTo(gx, py - 40 * S); ctx.lineTo(gx, py + 8 * S); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(gx, py - 12 * S, 14 * S, 0, 6.2832);
+      ctx.fillStyle = hexa(TH.gold, 0.4); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  if (G.invuln > 0 && Math.floor(G.invuln * 14) % 2 === 0) return;
+
+  var bob = Math.sin(t * 4) * 2.2 * S;
+  var cy2 = py - 16 * S + bob;
+
+  /* 접지 광원 */
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = hexa(TH.line, 0.55);
+  ctx.beginPath(); ctx.ellipse(px, py + 3 * S, 17 * S, 4.5 * S, 0, 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  var sq = c.dashT > 0 ? 1.22 : 1;
+  var hw = offHero.width, sz = 64 * S;
+  ctx.save();
+  ctx.translate(px, cy2);
+  ctx.scale(sq, 2 - sq);
+  ctx.drawImage(offHero, -sz/2, -sz/2, sz, sz);
+  ctx.restore();
+
+  /* 현재 값 — 벽 패널과 겹치면 칩 아래(눈금 라벨 밑)로 뒤집는다 */
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.font = '900 ' + Math.round(19 * S) + 'px ' + FONT;
+  var vt = String(c.value), vw = ctx.measureText(vt).width;
+  var bh = 24 * S, bt = py - 64 * S;
+  var gm = wallGeom();
+  var blocked = gm && gm.bottom > bt && gm.top < bt + bh &&
+                (gm.hidden || px < gm.hl || px > gm.hr);
+  if (blocked) bt = Math.min(py + 34 * S, H - bh - 4 * S);
+  ctx.fillStyle = 'rgba(7,11,24,.72)';
+  rr(px - vw/2 - 7*S, bt, vw + 14*S, bh, 6*S); ctx.fill();
+  ctx.fillStyle = inRange(c.value, w.rule) ? TH.safe : '#ffffff';
+  ctx.fillText(vt, px, bt + 19 * S);
+}
+
+function drawFX(TH){
+  for (var i=0;i<parts.length;i++){
+    var p = parts[i];
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    ctx.fillStyle = p.c;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * Math.max(0.2, p.life), 0, 6.2832); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  for (var j=0;j<pops.length;j++){
+    var q = pops[j];
+    var k = 1 - q.life;
+    var sc = 1 + Math.min(0.35, k * 2.2) - k * 0.15;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, q.life * 1.8);
+    ctx.translate(W / 2, q.y - k * 28 * S);
+    ctx.scale(sc, sc);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '900 ' + q.size + 'px ' + FONT;
+    ctx.shadowColor = q.c; ctx.shadowBlur = 18 * S;
+    ctx.fillStyle = q.c;
+    ctx.fillText(q.t, 0, 0);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  /* 사망 이유 */
+  if (G.reveal > 0 && G.revealTxt){
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, G.reveal * 1.6);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    var bw = Math.min(W - 24 * S, 330 * S), bh = 42 * S, by = lineY() - 110 * S;
+    ctx.fillStyle = 'rgba(7,11,24,.9)';
+    ctx.strokeStyle = TH.safe; ctx.lineWidth = 1.6 * DPR;
+    rr(W/2 - bw/2, by, bw, bh, 10 * S); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = TH.safe;
+    var fs2 = 14 * S, inner = bw - 20 * S;
+    ctx.font = '800 ' + fs2 + 'px ' + FONT;
+    var tw2 = ctx.measureText(G.revealTxt).width;
+    if (tw2 > inner){ fs2 = Math.max(9 * S, fs2 * inner / tw2); ctx.font = '800 ' + fs2 + 'px ' + FONT; }
+    ctx.fillText(G.revealTxt, W/2, by + bh/2);
+    ctx.restore();
+  }
+
+  if (G.flash > 0){
+    ctx.globalAlpha = Math.min(0.4, G.flash * 0.5);
+    ctx.fillStyle = G.flashCol;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function hexa(hex, a){
+  if (hex[0] !== '#') return hex;
+  var h = hex.slice(1);
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  var n = parseInt(h, 16);
+  return 'rgba(' + ((n>>16)&255) + ',' + ((n>>8)&255) + ',' + (n&255) + ',' + a + ')';
+}
+
+function render(dt){
+  var TH = THEMES[G.themeIdx];
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.drawImage(offBG, 0, 0);          // 미리 구운 배경 = clear 겸용
+  if (G.shake > 0.1 && !REDUCED){
+    ctx.translate((Math.random()-0.5) * G.shake * DPR, (Math.random()-0.5) * G.shake * DPR);
+  }
+  drawStars();
+  drawNumberLine(TH);
+  drawWall(TH);
+  drawChip(TH);
+  drawFX(TH);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   13. 루프
+   ══════════════════════════════════════════════════════════════ */
+var last = 0, uiTick = 0;
+function frame(ts){
+  if (!last) last = ts;
+  var dt = Math.min(0.05, (ts - last) / 1000);
+  last = ts;
+  resize();
+  try {
+    update(dt);
+    render(dt);
+  } catch (err){
+    /* 렌더 실패해도 루프는 계속 — 미처리 예외 방지 */
+    if (!frame._warned){ frame._warned = 1; console.log('[어림 대시] 렌더 경고', err && err.message); }
+  }
+  uiTick += dt;
+  if (uiDirty || uiTick > 0.1){ uiTick = 0; uiDirty = false; syncUI(); }
+  requestAnimationFrame(frame);
+}
+
+/* 초기화 */
+resize();
+renderDex();
+syncUI();
+requestAnimationFrame(frame);
+
+/* ══════════════════════════════════════════════════════════════
+   14. QA 자동화 훅
+   ══════════════════════════════════════════════════════════════ */
+function problemFrom(w, idx){
+  var lanes = w.lanes.slice();
+  var pass = lanes.filter(function(v){ return inRange(v, w.rule); });
+  var fail = lanes.filter(function(v){ return !inRange(v, w.rule); });
+  var answer = pass.length ? pass[Math.floor(pass.length / 2)] : w.rule.lo;
+  /* 오답은 경계에 가까운 값부터 — 오개념을 정면으로 찌른다 */
+  fail.sort(function(a,b){
+    var da = Math.min(Math.abs(a - w.rule.lo), Math.abs(a - w.rule.hi));
+    var db = Math.min(Math.abs(b - w.rule.lo), Math.abs(b - w.rule.hi));
+    return da - db;
+  });
+  var choices = [answer];
+  for (var i=0;i<fail.length && choices.length < 4;i++){
+    if (choices.indexOf(fail[i]) < 0) choices.push(fail[i]);
+  }
+  var g = 1;
+  while (choices.length < 4){
+    var cand = answer + g * (w.place || 10) * (g % 2 ? 1 : -1);
+    if (cand > 0 && choices.indexOf(cand) < 0 && !inRange(cand, w.rule)) choices.push(cand);
+    g++;
+    if (g > 40) break;
+  }
+  /* 결정적 셔플 */
+  for (var s = choices.length - 1; s > 0; s--){
+    var r = (idx * 7 + s * 13) % (s + 1);
+    var tmp = choices[s]; choices[s] = choices[r]; choices[r] = tmp;
+  }
+
+  var prompt;
+  if (w.kind === 'range')       prompt = rangeText(w.rule) + '인 수는?';
+  else if (w.kind === 'round')  prompt = w.srcValue + '을(를) ' + MNAME[w.method] + '하여 ' + (w.place === 10 ? '십' : '백') + '의 자리까지 나타내면?';
+  else if (w.kind === 'edge')   prompt = w.srcValue + '을(를) ' + MNAME[w.method] + '하여 백의 자리까지 나타내면?';
+  else if (w.kind === 'back')   prompt = w.label + ' 이 되는 수는?';
+  else                          prompt = w.story;
+
+  return {
+    id: 'w' + idx,
+    prompt: prompt,
+    choices: choices.map(String),
+    answer: String(answer),
+    answerNumeric: answer,
+    unitConcept: w.concept
+  };
+}
+
+window.__GAME_TEST__ = {
+  ready: true,
+  start: function(){ startGame(); },
+  getState: function(){
+    return {
+      score: Math.floor(G.score),
+      lives: G.lives,
+      level: G.level,
+      phase: G.phase,
+      solved: G.solved,
+      fuel: G.fuel,
+      combo: G.combo
+    };
+  },
+  answerCorrect: function(){
+    if (G.phase !== 'playing') startGame();
+    if (!G.wall || G.wall.done) spawnWall(false);
+    G.rewindT = 0; G.stunned = 0; el.rewrap.classList.add('hide');
+    var pl = passableLanes(G.wall);
+    if (pl.length){ G.chip.value = pl[0]; G.chip.pos = vpos(pl[0]); }
+    resolveWall(true);
+    uiDirty = true;
+  },
+  answerWrong: function(){
+    if (G.phase !== 'playing') startGame();
+    if (!G.wall || G.wall.done) spawnWall(false);
+    G.rewindT = 0; G.stunned = 0; el.rewrap.classList.add('hide');
+    var fl = G.wall.lanes.filter(function(v){ return !inRange(v, G.wall.rule); });
+    if (fl.length){ G.chip.value = fl[0]; G.chip.pos = vpos(fl[0]); }
+    resolveWall(false);
+    uiDirty = true;
+  },
+  /* 검수용: 실제 벽 객체를 그대로 뽑아 본다 (게임 진행과 무관) */
+  debugWalls: function(level, n){
+    var out = [], cnt = Math.max(1, n | 0);
+    for (var i=0;i<cnt;i++){
+      var w = genWall(level);
+      out.push({
+        kind:w.kind, label:w.label, sub:w.sub, lanes:w.lanes, rule:w.rule,
+        start:w.start, place:w.place, level:w.level,
+        pass:passableLanes(w),
+        dash:{ ceil:ceilTo(w.start,w.place), floor:floorTo(w.start,w.place), round:roundTo(w.start,w.place) }
+      });
+    }
+    return out;
+  },
+  sampleProblems: function(n){
+    var count = Math.max(1, n | 0), out = [], seen = {}, guard = 0;
+    while (out.length < count && guard++ < count * 30){
+      var lv = 1 + (out.length + guard) % 7;
+      var p = problemFrom(genWall(lv), out.length);
+      if (seen[p.prompt]) continue;
+      seen[p.prompt] = 1;
+      out.push(p);
+    }
+    while (out.length < count){ out.push(problemFrom(genWall(1 + out.length % 7), out.length)); }
+    return out;
+  }
+};
+})();
+</script>
+</body>
+</html>
