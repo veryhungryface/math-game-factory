@@ -16,7 +16,9 @@
 
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# 스냅샷으로 재실행될 때는 스크립트가 /tmp 에 있으므로 위치로 ROOT 를 유추하면 안 된다.
+# 그래서 최초 실행이 알아낸 ROOT 를 MGF_ROOT 로 물려준다.
+ROOT="${MGF_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$ROOT" || exit 1
 
 # bash 는 스크립트를 바이트 오프셋으로 읽어가며 실행한다. 사이클이 1시간 넘게 도는 동안
@@ -25,8 +27,7 @@ cd "$ROOT" || exit 1
 if [ -z "${MGF_SNAPSHOT:-}" ]; then
   SNAP="${TMPDIR:-/tmp}/mgf-run-$$.sh"
   cp "$ROOT/factory/run.sh" "$SNAP" || exit 1
-  export MGF_SNAPSHOT="$SNAP"
-  bash "$SNAP" "$@"
+  MGF_SNAPSHOT="$SNAP" MGF_ROOT="$ROOT" bash "$SNAP" "$@"
   RC=$?
   rm -f "$SNAP"
   exit $RC
@@ -204,7 +205,8 @@ else
   rm -rf "$WORK"; mkdir -p "$WORK"
 fi
 RESUMED=$([ "$START_AT" -gt 2 ] && echo 1 || echo 0)
-[ -f "$ROOT/curriculum/2022-elementary-math.json" ] || die "교육과정 파일이 없습니다"
+[ -f "$ROOT/curriculum/2022-elementary-math.json" ] \
+  || die "교육과정 파일이 없습니다: $ROOT/curriculum/2022-elementary-math.json (ROOT=$ROOT 가 저장소를 가리키는지 확인해라)"
 [ -d "$ROOT/node_modules/puppeteer" ] || { log "puppeteer 설치 중…"; npm install --silent >/dev/null 2>&1; }
 
 # ════════════════════════════════════════════════════════════════
