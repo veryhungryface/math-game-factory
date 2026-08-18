@@ -126,6 +126,9 @@ const slot = {
     .map((m) => ({ slug: m.slug, title: m.title, mechanic: m.mechanic })),
   mechanic_pool: mechanicPool,
   avoid_mechanics: [...new Set([...recent, ...usedByUnit])],
+  // 최근 게임들이 전부 "어두운 배경 + 네온 시안/마젠타"로 수렴한 적이 있어서 추적한다.
+  // 기획 에이전트는 이 목록에 있는 무드/배경색과 겹치지 않는 걸 골라야 한다.
+  avoid_palette_moods: (queue.palette_history || []).slice(-6).map((p) => ({ mood: p.mood, bg: p.bg })),
   total_published: publishedMetas.length,
 };
 

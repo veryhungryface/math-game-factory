@@ -535,13 +535,15 @@ node factory/lib/build-index.mjs >&2 || die "허브 빌드 실패"
 
 node -e '
   const fs=require("fs"),p=process.argv[1];
-  const q=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{produced:[],failed:[],mechanic_history:[]};
-  q.produced=q.produced||[]; q.mechanic_history=q.mechanic_history||[];
+  const q=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{produced:[],failed:[],mechanic_history:[],palette_history:[]};
+  q.produced=q.produced||[]; q.mechanic_history=q.mechanic_history||[]; q.palette_history=q.palette_history||[];
   q.produced.push({run:process.argv[2],slug:process.argv[3],title:process.argv[4],score:Number(process.argv[5])||0,unit:process.argv[6],mechanic:process.argv[7],at:new Date().toISOString()});
   q.mechanic_history.push(process.argv[7]);
+  q.palette_history.push({slug:process.argv[3],mood:process.argv[8],bg:process.argv[9]});
   fs.writeFileSync(p,JSON.stringify(q,null,2)+"\n");
 ' "$ROOT/factory/state/queue.json" "$RUN_ID" "$SLUG" "$TITLE" "${SCORE:-0}" \
-  "$(jqv "$WORK/slot.json" .unit.id)" "$(jqv "$WORK/chosen.json" .mechanic)"
+  "$(jqv "$WORK/slot.json" .unit.id)" "$(jqv "$WORK/chosen.json" .mechanic)" \
+  "$(jqv "$WORK/chosen.json" .art_direction.mood)" "$(jq -r '.art_direction.palette[0] // ""' "$WORK/chosen.json" 2>/dev/null)"
 
 # ════════════════════════════════════════════════════════════════
 if [ "$DEPLOY" = "1" ]; then

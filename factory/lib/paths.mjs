@@ -16,11 +16,16 @@ export const P = {
   logs: path.join(ROOT, 'logs'),
 };
 
-export function readJSON(file, fallback = null) {
+const NO_FALLBACK = Symbol('no-fallback');
+
+// fallback 을 안 주면 실패 시 던진다. fallback 으로 null 을 명시적으로 줘도(예: readMeta)
+// 그 null 이 그대로 반환돼야 한다 — `fallback !== null` 로 비교하면 이 케이스에서
+// 깨진다 (실제로 진행 중인 게임 폴더 때문에 pick-slot.mjs 가 죽은 적이 있다).
+export function readJSON(file, fallback = NO_FALLBACK) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (err) {
-    if (fallback !== null) return fallback;
+    if (fallback !== NO_FALLBACK) return fallback;
     throw new Error(`JSON 읽기 실패: ${file} — ${err.message}`);
   }
 }

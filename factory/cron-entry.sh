@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 #
 # 초등 수학 게임 공장 — 에르메스 크론 진입점.
-# 2시간마다 실행되어 게임 1개를 기획·제작·검수·배포하고, 이 스크립트의 stdout 이
-# 그대로 사용자에게 전달된다 (hermes cron --no-agent).
+#
+# 중요: 이 스크립트는 파이프라인이 끝날 때까지 기다리지 않는다. 에르메스 크론은
+# --no-agent 스크립트를 cron.script_timeout_seconds(기본 600초=10분) 안에 강제
+# 종료시키는데, 실제 생산 파이프라인은 30~50분 걸린다. 예전 버전은 여기서
+# `bash factory/run.sh` 를 동기 실행하다가 10분에 잘려서 보고가 통째로 유실됐다
+# (2026-08-18 5회차에서 실제로 발생 — 게임은 백그라운드 고아 프로세스로 계속
+# 만들어졌지만 보고 채널이 죽어서 알림이 안 갔다).
+#
+# 그래서 여기서는 파이프라인을 백그라운드로 던지고 즉시 끝난다. 실제 결과 보고는
+# factory/run.sh 자신이 REPORT=1 로 끝났을 때 `hermes send` 를 직접 호출해서
+# 보낸다 — 이 크론 잡 프로세스의 생존 여부와 완전히 무관하다.
 #
 # 게임 코드/파이프라인 본체: /Users/sitpo/math-game-factory
 #
@@ -14,44 +23,32 @@ ROOT="$HOME/math-game-factory"
 [ -d "$ROOT" ] || { echo "💀 공장 디렉터리가 없습니다: $ROOT"; exit 1; }
 cd "$ROOT" || exit 1
 
-# node 를 못 찾는 환경(launchd 등) 대비
 if ! command -v node >/dev/null 2>&1; then
   for c in "$HOME"/.local/nodejs/bin/node /opt/homebrew/bin/node /usr/local/bin/node "$HOME/.local/bin/node"; do
     [ -x "$c" ] && export PATH="$(dirname "$c"):$PATH" && break
   done
 fi
-for c in node claude codex jq git; do
+for c in node claude codex jq git hermes; do
   command -v "$c" >/dev/null 2>&1 || { echo "💀 \`$c\` 를 찾을 수 없습니다 (PATH=$PATH)"; exit 1; }
 done
 
-# 보고는 크론이 stdout 으로 전달하므로 run.sh 자체 전송은 끈다.
-export REPORT=0
+# 이미 돌고 있는 사이클이 있으면 새로 띄우지 않는다 (run.sh 자체 락과 별개로,
+# 여기서 먼저 걸러야 중복 백그라운드 프로세스가 안 생긴다).
+if [ -f "$ROOT/factory/state/run.lock" ]; then
+  LOCK_PID="$(cat "$ROOT/factory/state/run.lock" 2>/dev/null)"
+  if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+    echo "⏭ 이전 사이클(pid $LOCK_PID)이 아직 실행 중입니다. 이번 회차는 건너뜁니다."
+    exit 0
+  fi
+fi
+
+export REPORT=1     # run.sh 가 직접 hermes send 로 보고한다
 export DEPLOY=1
 
-REPORT_FILE=""
-bash factory/run.sh >/tmp/mgf-stdout.$$ 2>/tmp/mgf-stderr.$$
-RC=$?
+LAUNCH_LOG="$ROOT/logs/cron-launch-$(date +%Y%m%d-%H%M%S).log"
+nohup bash factory/run.sh >"$LAUNCH_LOG" 2>&1 &
+disown
 
-# run.sh 는 마지막에 보고서를 stdout 으로 뱉고 logs/latest-report.md 에도 남긴다.
-if [ -s /tmp/mgf-stdout.$$ ]; then
-  cat /tmp/mgf-stdout.$$
-elif [ -f "$ROOT/logs/latest-report.md" ]; then
-  cat "$ROOT/logs/latest-report.md"
-else
-  echo "💀 생산 실패 (종료코드 $RC)"
-  echo '```'
-  tail -20 /tmp/mgf-stderr.$$
-  echo '```'
-fi
-
-# 게시된 경우 썸네일을 이어서 보낸다.
-SLUG="$(grep -m1 '^\*\*슬러그\*\*' "$ROOT/logs/latest-report.md" 2>/dev/null | sed 's/.*`\(.*\)`.*/\1/')"
-if [ -n "$SLUG" ] && [ -f "$ROOT/public/g/$SLUG/thumb.png" ] && grep -q '새 게임이 나왔습니다' "$ROOT/logs/latest-report.md" 2>/dev/null; then
-  TARGET="$(grep -m1 '^export REPORT_TARGET=' "$ROOT/factory/config.sh" | sed 's/.*:-\([^}]*\)}.*/\1/')"
-  IMG="$ROOT/public/g/$SLUG/square.png"
-  [ -f "$IMG" ] || IMG="$ROOT/public/g/$SLUG/thumb.png"
-  [ -n "$TARGET" ] && hermes send --to "$TARGET" "MEDIA:$IMG" --quiet 2>/dev/null || true
-fi
-
-rm -f /tmp/mgf-stdout.$$ /tmp/mgf-stderr.$$
+echo "🏭 생산 시작 — 기획부터 배포까지 보통 30~50분 걸립니다. 끝나면 이 스레드로 별도 보고합니다."
+echo "(백그라운드 로그: \`$LAUNCH_LOG\`)"
 exit 0
