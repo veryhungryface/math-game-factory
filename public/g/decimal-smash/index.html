@@ -460,10 +460,15 @@
     if (!sl.active) return;
     sl.popFx = performance.now();
     if (sl.role === 'bomb'){
-      // 스와이프 한 번이 폭탄 방울 여러 개를 동시에 관통해도 생명은 스트로크당 1개만 깎인다
-      // (실수 관용도 — 억울하게 두 목숨을 한 번에 잃지 않도록)
-      const firstBombThisStroke = !bombHitThisStroke;
-      bombHitThisStroke = true;
+      // 슬라이스 한 번이 폭탄 방울 여러 개를 동시에 관통해도 생명은 1개만 깎인다
+      // (실수 관용도 — 억울하게 두 목숨을 한 번에 잃지 않도록).
+      // pointerdown 기준 "스트로크당 1회"로 하면, 손가락을 떼지 않고 계속 슬라이스하는
+      // 흔한 플레이 방식에서 전체 플레이 세션이 하나의 스트로크로 묶여 목숨이 평생 딱
+      // 한 번만 깎이는 실사고가 났다(사용자 리포트로 발견). 그래서 "동시 관통"의 의미를
+      // 시간 간격(220ms)으로 다시 정의한다 — 이 안에서만 중복 방지, 그 이후는 새 히트.
+      const now = performance.now();
+      const firstBombThisStroke = (now - lastBombLifeLossAt) > 220;
+      if (firstBombThisStroke) lastBombLifeLossAt = now;
       state.combo = 0; sndBomb();
       spawnBurst(cx, cy, 'red', 26); triggerShake(18);
       if (firstBombThisStroke){
@@ -568,7 +573,7 @@
   }
 
   // ───────────────────────────── 입력
-  let trail = []; let downPt = null; const hitThisStroke = new Set(); let bombHitThisStroke = false;
+  let trail = []; let downPt = null; const hitThisStroke = new Set(); let lastBombLifeLossAt = -Infinity;
   function distSeg(px, py, x1, y1, x2, y2){
     const dx = x2 - x1, dy = y2 - y1; const len2 = dx*dx + dy*dy;
     let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2;
@@ -591,7 +596,7 @@
   canvas.addEventListener('pointerdown', (e) => {
     ensureAudio();
     if (state.phase !== 'playing') return;
-    const p = pointerPos(e); downPt = p; trail = [{ x: p.x, y: p.y, t: performance.now() }]; hitThisStroke.clear(); bombHitThisStroke = false;
+    const p = pointerPos(e); downPt = p; trail = [{ x: p.x, y: p.y, t: performance.now() }]; hitThisStroke.clear();
   });
   canvas.addEventListener('pointermove', (e) => {
     if (state.phase !== 'playing' || !downPt) return;
