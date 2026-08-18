@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>소수 스매시</title>
+<style>
+  :root{ --cyan:#00e5ff; --pink:#ff3d81; --yellow:#ffd23d; --bg:#0a0e27; }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:var(--bg); color:#fff;
+    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none;
+    touch-action:none;
+  }
+  #game{ display:block; width:100vw; height:100vh; touch-action:none; }
+  .ui-layer{ position:fixed; inset:0; pointer-events:none; z-index:5; }
+  #ruleCard{
+    position:absolute; top:max(10px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    max-width:92vw; padding:8px 18px; border-radius:16px;
+    background:rgba(10,14,39,.78); border:1px solid rgba(0,229,255,.55);
+    font-weight:800; font-size:clamp(13px, 4vw, 20px); text-align:center; line-height:1.35;
+    box-shadow:0 0 18px rgba(0,229,255,.25);
+    transition:transform .18s cubic-bezier(.34,1.56,.64,1);
+  }
+  #ruleCard.pulse{ transform:translateX(-50%) scale(1.06); }
+  #statsBar{
+    position:absolute; top:max(10px, env(safe-area-inset-top)); left:0; right:0;
+    display:flex; justify-content:space-between; align-items:flex-start; padding:10px 12px;
+  }
+  #scoreWrap, #livesBox{
+    background:rgba(10,14,39,.7); border-radius:12px; padding:6px 12px; font-weight:800;
+    font-size:clamp(14px, 4.2vw, 22px); border:1px solid rgba(255,255,255,.12);
+  }
+  #comboBox{
+    position:absolute; top:56px; left:50%; transform:translateX(-50%) scale(0);
+    font-weight:900; font-size:clamp(14px, 4.5vw, 24px); color:var(--yellow);
+    text-shadow:0 0 10px rgba(255,210,61,.8); opacity:0; transition:transform .15s ease, opacity .15s ease;
+    top:calc(max(10px, env(safe-area-inset-top)) + 46px);
+  }
+  #comboBox.show{ opacity:1; transform:translateX(-50%) scale(1); }
+  #livesBox span.dead{ opacity:.25; }
+  #muteBtn{
+    position:absolute; bottom:max(14px, env(safe-area-inset-bottom)); right:14px; pointer-events:auto;
+    width:48px; height:48px; border-radius:50%; border:1px solid rgba(255,255,255,.25);
+    background:rgba(10,14,39,.75); color:#fff; font-size:20px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .screen{
+    position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; background:radial-gradient(ellipse at 50% 30%, rgba(0,229,255,.12), rgba(10,14,39,.94) 65%);
+    pointer-events:auto; text-align:center; padding:24px;
+  }
+  .screen.hidden{ display:none; }
+  .screen h1{ font-size:clamp(28px,8vw,44px); margin:0; letter-spacing:-.5px;
+    background:linear-gradient(90deg, var(--cyan), var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .screen h2{ font-size:clamp(24px,7vw,36px); margin:0; color:var(--pink); }
+  .screen p{ margin:0; opacity:.85; font-size:clamp(14px,4vw,18px); }
+  .bigbtn{
+    margin-top:10px; padding:16px 44px; font-size:clamp(16px,4.6vw,22px); font-weight:800; border:none; border-radius:999px;
+    background:linear-gradient(135deg, var(--cyan), var(--pink)); color:#0a0e27; cursor:pointer;
+    min-height:52px; box-shadow:0 6px 24px rgba(0,229,255,.35);
+    transition:transform .1s ease;
+  }
+  .bigbtn:active{ transform:scale(.94); }
+  #howtoList{ list-style:none; padding:0; margin:6px 0 0; opacity:.75; font-size:clamp(12px,3.4vw,15px); line-height:1.7; }
+  #lastChanceVignette{
+    position:fixed; inset:0; pointer-events:none; z-index:6; opacity:0;
+    background:radial-gradient(ellipse at 50% 50%, rgba(255,61,129,0) 55%, rgba(255,26,60,.55) 100%);
+    transition:opacity .18s ease;
+  }
+  #lastChanceVignette.on{ opacity:1; }
+  #popupText{
+    position:fixed; top:38%; left:50%; z-index:7; pointer-events:none;
+    transform:translate(-50%,-50%) scale(.4); opacity:0;
+    font-weight:900; font-size:clamp(20px,7vw,34px); color:var(--yellow);
+    text-shadow:0 0 16px rgba(255,210,61,.9), 0 2px 8px rgba(0,0,0,.6);
+    transition:transform .32s cubic-bezier(.34,1.56,.64,1), opacity .32s ease;
+  }
+  #popupText.show{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+  @media (prefers-reduced-motion: reduce){
+    #ruleCard, #comboBox, .bigbtn, #popupText{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="ui-layer">
+  <div id="ruleCard">규칙을 불러오는 중…</div>
+  <div id="statsBar">
+    <div id="scoreWrap">점수 <span id="scoreVal">0</span></div>
+    <div id="livesBox"></div>
+  </div>
+  <div id="comboBox"></div>
+  <button id="muteBtn" aria-label="음소거 켜고 끄기">🔊</button>
+</div>
+
+<div id="lastChanceVignette"></div>
+<div id="popupText"></div>
+
+<div id="startScreen" class="screen">
+  <h1>소수 스매시</h1>
+  <p>커지는 것만 톡!</p>
+  <ul id="howtoList">
+    <li>규칙에 맞는 방울만 손가락(또는 마우스)으로 그어 터뜨려요</li>
+    <li>해골 폭탄 방울만 피하면 돼요 — 틀려도 콤보만 끊겨요</li>
+    <li>콤보가 쌓일수록 점수가 팍팍 올라가요</li>
+  </ul>
+  <button id="startBtn" class="bigbtn">시작</button>
+</div>
+
+<div id="gameoverScreen" class="screen hidden">
+  <h2>게임 오버</h2>
+  <p id="finalScore">점수 0</p>
+  <p id="bestScore">최고 기록 0</p>
+  <button id="retryBtn" class="bigbtn">다시!</button>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ───────────────────────────── 정수 기반 소수 연산 (부동소수점 오차 금지)
+  // 값 = n / 10^s. 모든 곱셈은 정수 곱으로 계산하고, 표시 직전에만 문자열로 소수점을 끼워 넣는다.
+  function decStr(n, s){
+    const neg = n < 0; n = Math.abs(n);
+    if (s <= 0) return (neg?'-':'') + String(n);
+    let str = String(n).padStart(s + 1, '0');
+    const ip = str.slice(0, str.length - s);
+    const fp = str.slice(str.length - s);
+    return (neg?'-':'') + ip + '.' + fp;
+  }
+  function mulDec(a, b){ return { n: a.n * b.n, s: a.s + b.s }; }
+  function reduceFrac(n, s){
+    n = Math.abs(n);
+    while (s > 0 && n % 10 === 0){ n = n / 10; s -= 1; }
+    return { n, s };
+  }
+  function eqVal(a, b){ const ra = reduceFrac(a.n, a.s), rb = reduceFrac(b.n, b.s); return ra.n === rb.n && ra.s === rb.s; }
+  function toNum(x){ return x.n / Math.pow(10, x.s); }
+  function randInt(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }
+  function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+  function shuffle(arr){ const a = arr.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+  function genDecimal1(minN, maxN){
+    let n;
+    do { n = randInt(minN, maxN); } while (n % 10 === 0);
+    return { n, s: 1 };
+  }
+
+  /** 정확한 곱 하나 + 자릿수 오배치 함정들 (값이 실제로 다른 경우만 채택 — 표기 차이만 나는 함정은 만들지 않는다) */
+  function genProductChoices(a, b, count){
+    count = count || 4;
+    const raw = { n: a.n * b.n, s: a.s + b.s };
+    const correct = reduceFrac(raw.n, raw.s);
+    const pool = [];
+    const tryAdd = (cand) => {
+      if (cand.s < 0) return;
+      if (eqVal(cand, correct)) return;
+      if (pool.some(p => eqVal(p, cand))) return;
+      pool.push(cand);
+    };
+    [-1, 1, -2, 2].forEach(d => tryAdd({ n: raw.n, s: raw.s + d }));
+    const distractors = pool.slice(0, Math.max(0, count - 1));
+    return {
+      promptStr: `${decStr(a.n,a.s)} × ${decStr(b.n,b.s)} = ?`,
+      correct, correctStr: decStr(correct.n, correct.s),
+      distractors: distractors.map(d => ({ val: d, str: decStr(d.n, d.s) }))
+    };
+  }
+
+  // ───────────────────────────── 캔버스 / DPR
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  let W = 0, H = 0, DPR = 1;
+  let bgLayer = null; // 정적 배경을 미리 구워둔 오프스크린 캔버스 (매 프레임 다시 그리지 않음)
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    bakeBackground();
+    slots.forEach(sl => { if (sl.active){ sl.x = Math.min(sl.x, W - sl.r); sl.y = Math.min(sl.y, H - sl.r); } });
+  }
+
+  function bakeBackground(){
+    const off = document.createElement('canvas');
+    off.width = Math.max(1, Math.round(W * DPR)); off.height = Math.max(1, Math.round(H * DPR));
+    const bctx = off.getContext('2d');
+    bctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (images.bg.ok){
+      const iw = images.bg.img.width, ih = images.bg.img.height;
+      const scale = Math.max(W / iw, H / ih);
+      const dw = iw * scale, dh = ih * scale;
+      bctx.drawImage(images.bg.img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      bctx.fillStyle = 'rgba(10,14,39,.28)';
+      bctx.fillRect(0, 0, W, H);
+    } else {
+      const g = bctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0a0e27'); g.addColorStop(1, '#141a3d');
+      bctx.fillStyle = g; bctx.fillRect(0, 0, W, H);
+      bctx.strokeStyle = 'rgba(0,229,255,.12)'; bctx.lineWidth = 1;
+      const gridN = 10;
+      for (let i = 1; i < gridN; i++){
+        const x = (W / gridN) * i;
+        bctx.beginPath(); bctx.moveTo(x, H * 0.55); bctx.lineTo(x + (x - W/2) * 0.4, H); bctx.stroke();
+      }
+    }
+    for (let i = 0; i < 46; i++){
+      const x = Math.random() * W, y = Math.random() * H, r = Math.random() * 1.6 + 0.4;
+      bctx.fillStyle = `rgba(${Math.random() < 0.5 ? '0,229,255' : '255,61,129'},${(Math.random()*0.35+0.12).toFixed(2)})`;
+      bctx.beginPath(); bctx.arc(x, y, r, 0, Math.PI * 2); bctx.fill();
+    }
+    bgLayer = off;
+  }
+
+  // ───────────────────────────── 이미지 (실패 시 코드 드로잉 폴백)
+  function loadImg(src){
+    const rec = { img: new Image(), ok: false };
+    rec.img.onload = () => { rec.ok = true; if (src.indexOf('bg.png') >= 0) bakeBackground(); };
+    rec.img.onerror = () => { rec.ok = false; };
+    rec.img.src = src;
+    return rec;
+  }
+  const images = {
+    bg: loadImg('./assets/bg.png'),
+    correct: loadImg('./assets/bubble-correct.png'),
+    bomb: loadImg('./assets/bubble-bomb.png')
+  };
+
+  // ───────────────────────────── 글로우 스프라이트 (shadowBlur 대신 미리 구운 그라디언트 재사용 — 소프트웨어 렌더링 성능 대비)
+  function makeGlow(color){
+    const s = 128; const c = document.createElement('canvas'); c.width = s; c.height = s;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
+    grad.addColorStop(0, color + 'ff'); grad.addColorStop(0.4, color + '88'); grad.addColorStop(1, color + '00');
+    g.fillStyle = grad; g.fillRect(0, 0, s, s);
+    return c;
+  }
+  const GLOW = {
+    cyan: makeGlow('#00e5ff'), pink: makeGlow('#ff3d81'), yellow: makeGlow('#ffd23d'), red: makeGlow('#ff1a3c')
+  };
+
+  // ───────────────────────────── 오디오 (사용자 제스처 이후, 코드 생성음만)
+  let actx = null, muted = false;
+  try { muted = localStorage.getItem('decimalSmashMuted') === '1'; } catch(e){}
+  function ensureAudio(){ if (!actx){ try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} } }
+  function beep(freq, dur, type, gain, delay){
+    if (muted || !actx) return;
+    const t0 = actx.currentTime + (delay || 0);
+    const osc = actx.createOscillator(); const g = actx.createGain();
+    osc.type = type || 'sine'; osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain || 0.18, t0 + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(actx.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.02);
+  }
+  function sndCorrect(combo){
+    const base = 520 + Math.min(combo, 10) * 24;
+    beep(base, 0.1, 'triangle', 0.16); beep(base * 1.5, 0.12, 'triangle', 0.1, 0.04);
+  }
+  function sndWrong(){ beep(220, 0.16, 'sawtooth', 0.1); beep(160, 0.18, 'sawtooth', 0.08, 0.03); }
+  function sndBomb(){ beep(90, 0.28, 'square', 0.2); beep(60, 0.32, 'square', 0.14, 0.05); }
+  function sndCombo(){ [660, 880, 1100].forEach((f, i) => beep(f, 0.14, 'sine', 0.12, i * 0.06)); }
+
+  // ───────────────────────────── 게임 상태
+  const state = {
+    phase: 'intro', // intro | playing | gameover
+    score: 0, best: 0, lives: 3, maxLives: 3,
+    combo: 0, bestCombo: 0, solved: 0,
+    level: 1, cycle: 0, roundType: 'judge', roundDir: 'bigger',
+    timeScale: 1, shake: 0, lastChanceShown: false,
+    reduceMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  };
+  try { state.best = parseInt(localStorage.getItem('decimalSmashBest') || '0', 10) || 0; } catch(e){}
+
+  const MAX_SLOTS = 8;
+  const slots = [];
+  for (let i = 0; i < MAX_SLOTS; i++){
+    slots.push({ id: i, active: false, role: 'judge', ok: false, text: '', x: 0, y: 0, vx: 0, vy: 0, r: 40, angV: 0, ttl: 0, born: 0, popFx: 0 });
+  }
+  let hintSlot = { active: false, text: '', x: 0, y: 0, vx: 0, vy: 0, r: 40, born: 0 };
+
+  let currentExpr = null;
+  let chainPhase = 'first'; // level5: first | second
+  let chainBase = null;
+
+  function targetCount(level, cycle){ return Math.min(8, 5 + Math.floor(cycle * 0.7) + (level >= 3 ? 0 : 0)); }
+  function speedMul(cycle){ return 1 + cycle * 0.16; }
+  function bombChance(cycle){ return Math.min(0.2, 0.08 + cycle * 0.018); }
+
+  function genJudgeItem(level, dir){
+    if (level === 1){
+      const a = genDecimal1(11, 98); const nat = randInt(2, 9);
+      return { text: `${decStr(a.n,a.s)} × ${nat}`, ok: true };
+    }
+    const a = genDecimal1(11, 98);
+    const big = Math.random() < 0.5;
+    const m = big ? { n: 10 + randInt(1, 9), s: 1 } : { n: randInt(1, 9), s: 1 };
+    const ok = big === (dir === 'bigger');
+    return { text: `${decStr(a.n,a.s)} × ${decStr(m.n,m.s)}`, ok };
+  }
+
+  function newExprLevel3(){
+    const a = genDecimal1(2, 97), b = genDecimal1(2, 97);
+    return genProductChoices(a, b, 4);
+  }
+  function newExprLevel4(){
+    const A = randInt(11, 49), B = randInt(11, 49);
+    const a = { n: A, s: 1 }, b = { n: B, s: 1 };
+    const expr = genProductChoices(a, b, 4);
+    expr.hintStr = `${A} × ${B} = ${A * B}`;
+    return expr;
+  }
+
+  function ruleTextFor(){
+    if (state.level === 1) return '자연수를 곱하면 무조건 커져요! 폭탄만 피해서 다 터뜨려라 💥';
+    if (state.level === 2) return state.roundDir === 'bigger'
+      ? '1보다 큰 수를 곱해서 <b>커지는</b> 식만 터뜨려라!'
+      : '1보다 작은 수를 곱해서 <b>작아지는</b> 식만 터뜨려라!';
+    if (state.level === 3) return `${currentExpr.promptStr} — 정답 방울만 터뜨려라!`;
+    if (state.level === 4) return `${currentExpr.promptStr} — 힌트 방울을 보고 정답만 터뜨려라!`;
+    if (state.level === 5) return chainPhase === 'first'
+      ? `${currentExpr.promptStr} — 정답을 먼저 찾아라!`
+      : `이어서 ${currentExpr.promptStr} — 연쇄 판단!`;
+    return '';
+  }
+
+  function pulseRuleCard(){
+    const el = document.getElementById('ruleCard');
+    el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+  }
+
+  function setRuleCard(){
+    document.getElementById('ruleCard').innerHTML = ruleTextFor();
+  }
+
+  function startRound(level){
+    state.level = level; state.roundType = (level <= 2) ? 'judge' : 'answer';
+    if (level === 2) state.roundDir = Math.random() < 0.5 ? 'bigger' : 'smaller';
+    if (level === 3) currentExpr = newExprLevel3();
+    if (level === 4) currentExpr = newExprLevel4();
+    if (level === 5){ chainPhase = 'first'; currentExpr = newExprLevel3(); }
+    hintSlot.active = (level === 4);
+    if (hintSlot.active){ spawnHint(); }
+    const n = targetCount(level, state.cycle);
+    for (let i = 0; i < MAX_SLOTS; i++){
+      const sl = slots[i];
+      if (i < n){
+        if (!sl.active) spawnPos(sl);
+        sl.active = true;
+        assignRole(sl);
+      } else {
+        sl.active = false;
+      }
+    }
+    if (state.roundType === 'answer') refreshAnswerSlots();
+    setRuleCard(); pulseRuleCard();
+  }
+
+  const ROUND_MS = 12000;
+  let roundTimer = 0;
+  const ROUND_SEQ = [1, 2, 3, 4, 5];
+  let seqIdx = 0;
+
+  function nextRound(){
+    seqIdx += 1;
+    if (seqIdx >= ROUND_SEQ.length){ seqIdx = 0; state.cycle += 1; }
+    roundTimer = 0;
+    startRound(ROUND_SEQ[seqIdx]);
+  }
+
+  function farEnough(x, y, r, excludeId){
+    if (Math.hypot(x - W / 2, y - H * 0.15) < r + 90) return false; // 규칙 카드 아래는 비워둔다
+    for (const other of slots){
+      if (!other.active || other.id === excludeId) continue;
+      if (Math.hypot(x - other.x, y - other.y) < (r + other.r) * 1.35) return false;
+    }
+    if (hintSlot.active && Math.hypot(x - hintSlot.x, y - hintSlot.y) < (r + hintSlot.r) * 1.2) return false;
+    return true;
+  }
+
+  function spawnPos(sl){
+    const r = Math.max(38, Math.min(W, H) * 0.115);
+    sl.r = r;
+    let x = r, y = r;
+    for (let i = 0; i < 24; i++){
+      x = randInt(r, Math.max(r, W - r)); y = randInt(r + 90, Math.max(r + 90, H - r));
+      if (farEnough(x, y, r, sl.id)) break;
+    }
+    sl.x = x; sl.y = y;
+    const ang = Math.random() * Math.PI * 2;
+    const sp = (Math.min(W, H) * 0.09) * speedMul(state.cycle);
+    sl.vx = Math.cos(ang) * sp; sl.vy = Math.sin(ang) * sp;
+    sl.angV = (Math.random() - 0.5) * 0.6;
+    sl.born = performance.now();
+  }
+
+  function assignRole(sl){
+    if (state.roundType === 'judge' && Math.random() < bombChance(state.cycle)){
+      sl.role = 'bomb'; sl.ok = false; sl.text = ''; sl.ttl = performance.now() + randInt(9000, 13000);
+      return;
+    }
+    if (state.roundType === 'judge'){
+      const item = genJudgeItem(state.level, state.roundDir);
+      sl.role = 'judge'; sl.ok = item.ok; sl.text = item.text;
+      sl.ttl = performance.now() + randInt(5000, 8500);
+      return;
+    }
+    // answer 라운드: 폭탄 슬롯도 섞이되, 나머지는 refreshAnswerSlots 가 내용 배정
+    if (Math.random() < bombChance(state.cycle) * 0.7){
+      sl.role = 'bomb'; sl.ok = false; sl.text = ''; sl.ttl = performance.now() + randInt(9000, 13000);
+      return;
+    }
+    sl.role = 'answer'; sl.ok = false; sl.text = '';
+  }
+
+  function refreshAnswerSlots(){
+    const items = [{ str: currentExpr.correctStr, ok: true }].concat(
+      currentExpr.distractors.map(d => ({ str: d.str, ok: false }))
+    );
+    let i = 0;
+    slots.forEach(sl => {
+      if (!sl.active || sl.role !== 'answer') return;
+      const it = items[i % items.length]; i += 1;
+      sl.text = it.str; sl.ok = it.ok;
+    });
+    // 정답이 화면에 하나도 없으면(모두 폭탄으로 배정된 극단적 경우) 첫 답 슬롯을 강제로 정답화
+    if (!slots.some(sl => sl.active && sl.role === 'answer' && sl.ok)){
+      const any = slots.find(sl => sl.active && sl.role === 'answer');
+      if (any){ any.text = currentExpr.correctStr; any.ok = true; }
+      else {
+        const bombSl = slots.find(sl => sl.active && sl.role === 'bomb');
+        if (bombSl){ bombSl.role = 'answer'; bombSl.text = currentExpr.correctStr; bombSl.ok = true; }
+      }
+    }
+    if (hintSlot.active) hintSlot.text = currentExpr.hintStr || '';
+  }
+
+  function spawnHint(){
+    const r = Math.max(50, Math.min(W, H) * 0.14);
+    hintSlot.r = r;
+    hintSlot.x = randInt(r, Math.max(r + 1, W - r)); hintSlot.y = randInt(r, Math.max(r + 1, H * 0.4));
+    const ang = Math.random() * Math.PI * 2;
+    const sp = Math.min(W, H) * 0.035;
+    hintSlot.vx = Math.cos(ang) * sp; hintSlot.vy = Math.sin(ang) * sp;
+    hintSlot.text = (currentExpr && currentExpr.hintStr) || '';
+    hintSlot.born = performance.now();
+  }
+
+  // ───────────────────────────── 슬라이스 처리
+  function multFor(combo){ if (combo >= 6) return 2; if (combo >= 3) return 1.5; return 1; }
+
+  function popSlot(sl, cx, cy){
+    if (!sl.active) return;
+    sl.popFx = performance.now();
+    if (sl.role === 'bomb'){
+      state.lives -= 1; state.combo = 0; sndBomb();
+      spawnBurst(cx, cy, 'red', 26); triggerShake(18);
+      updateHud();
+      if (state.lives === 1 && !state.lastChanceShown){ state.lastChanceShown = true; triggerLastChance(); }
+      if (state.lives <= 0){ gameOver(); return; }
+      assignRole(sl);
+      return;
+    }
+    if (sl.role === 'hint'){
+      spawnBurst(cx, cy, 'yellow', 8);
+      return;
+    }
+    if (sl.ok){
+      state.combo += 1; state.bestCombo = Math.max(state.bestCombo, state.combo);
+      const mult = multFor(state.combo);
+      let gained = Math.round(10 * mult);
+      let chainBonus = false;
+      if (state.roundType === 'answer' && state.level === 5 && chainPhase === 'second'){
+        gained += Math.round(15 * mult); chainBonus = true;
+      }
+      state.score += gained; state.solved += 1;
+      sndCorrect(state.combo);
+      spawnBurst(cx, cy, state.combo >= 6 ? 'pink' : 'cyan', 16 + Math.min(10, state.combo));
+      showFloatScore(cx, cy, '+' + gained);
+      if (state.combo === 3 || state.combo === 6){ sndCombo(); popCombo(); }
+      if (state.combo >= 5){ triggerWow(); }
+      updateHud();
+
+      if (state.roundType === 'judge'){
+        assignRole(sl);
+      } else {
+        if (state.level === 3 || state.level === 4){
+          currentExpr = (state.level === 3) ? newExprLevel3() : newExprLevel4();
+          if (hintSlot.active) spawnHint();
+          refreshAnswerSlots();
+        } else if (state.level === 5){
+          if (chainPhase === 'first'){
+            chainBase = currentExpr.correct;
+            chainPhase = 'second';
+            currentExpr = genProductChoices(chainBase, { n: 1, s: 1 }, 4);
+            refreshAnswerSlots();
+          } else {
+            chainPhase = 'first';
+            currentExpr = newExprLevel3();
+            refreshAnswerSlots();
+          }
+        }
+        setRuleCard();
+      }
+    } else {
+      state.combo = 0; sndWrong();
+      spawnBurst(cx, cy, 'pink', 8); triggerShake(4);
+      updateHud();
+      if (state.roundType === 'judge'){
+        assignRole(sl);
+      } else {
+        const d = pick(currentExpr.distractors);
+        sl.text = d.str; sl.ok = false;
+      }
+    }
+  }
+
+  // ───────────────────────────── 파티클 / 연출
+  const particles = [];
+  function spawnBurst(x, y, color, n){
+    const cap = state.reduceMotion ? Math.ceil(n * 0.4) : n;
+    for (let i = 0; i < cap && particles.length < 220; i++){
+      const a = Math.random() * Math.PI * 2, sp = Math.random() * 260 + 60;
+      particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: Math.random() * 0.4 + 0.35, color, size: Math.random() * 10 + 6 });
+    }
+  }
+  function triggerShake(mag){ state.shake = Math.max(state.shake, state.reduceMotion ? mag * 0.3 : mag); }
+  function triggerLastChance(){
+    const v = document.getElementById('lastChanceVignette'); v.classList.add('on');
+    setTimeout(() => v.classList.remove('on'), 900);
+    state.timeScale = 0.55; setTimeout(() => { state.timeScale = 1; }, 500);
+  }
+  let comboElTimer = null;
+  function popCombo(){
+    const el = document.getElementById('comboBox');
+    el.textContent = state.combo + '콤보!'; el.classList.add('show');
+    clearTimeout(comboElTimer); comboElTimer = setTimeout(() => el.classList.remove('show'), 700);
+  }
+  let wowTimer = null;
+  function triggerWow(){
+    const el = document.getElementById('popupText');
+    el.textContent = '완벽한 판단!'; el.classList.add('show');
+    clearTimeout(wowTimer); wowTimer = setTimeout(() => el.classList.remove('show'), 550);
+  }
+  const floatScores = [];
+  function showFloatScore(x, y, txt){ floatScores.push({ x, y, txt, life: 0 }); }
+
+  function updateHud(){
+    document.getElementById('scoreVal').textContent = state.score;
+    const lb = document.getElementById('livesBox');
+    let hearts = '';
+    for (let i = 0; i < state.maxLives; i++) hearts += `<span class="${i < state.lives ? '' : 'dead'}">♥</span>`;
+    lb.innerHTML = hearts;
+  }
+
+  // ───────────────────────────── 입력
+  let trail = []; let downPt = null; const hitThisStroke = new Set();
+  function distSeg(px, py, x1, y1, x2, y2){
+    const dx = x2 - x1, dy = y2 - y1; const len2 = dx*dx + dy*dy;
+    let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const cx = x1 + t * dx, cy = y1 + t * dy;
+    return Math.hypot(px - cx, py - cy);
+  }
+  function testSegmentHits(x1, y1, x2, y2){
+    slots.forEach(sl => {
+      if (!sl.active || hitThisStroke.has(sl.id)) return;
+      if (distSeg(sl.x, sl.y, x1, y1, x2, y2) <= sl.r * 1.05){
+        hitThisStroke.add(sl.id); popSlot(sl, sl.x, sl.y);
+      }
+    });
+  }
+  function pointerPos(e){
+    const rect = canvas.getBoundingClientRect();
+    return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    ensureAudio();
+    if (state.phase !== 'playing') return;
+    const p = pointerPos(e); downPt = p; trail = [{ x: p.x, y: p.y, t: performance.now() }]; hitThisStroke.clear();
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (state.phase !== 'playing' || !downPt) return;
+    const p = pointerPos(e);
+    const last = trail[trail.length - 1];
+    trail.push({ x: p.x, y: p.y, t: performance.now() });
+    if (trail.length > 14) trail.shift();
+    if (last) testSegmentHits(last.x, last.y, p.x, p.y);
+  });
+  function endStroke(e){
+    if (state.phase !== 'playing' || !downPt) return;
+    const p = pointerPos(e);
+    if (trail.length <= 2){
+      slots.forEach(sl => { if (sl.active && Math.hypot(sl.x - p.x, sl.y - p.y) <= sl.r) popSlot(sl, sl.x, sl.y); });
+    }
+    downPt = null;
+  }
+  canvas.addEventListener('pointerup', endStroke);
+  canvas.addEventListener('pointercancel', endStroke);
+
+  // ───────────────────────────── 화면 전환
+  function gameOver(){
+    state.phase = 'gameover';
+    if (state.score > state.best){ state.best = state.score; try { localStorage.setItem('decimalSmashBest', String(state.best)); } catch(e){} }
+    document.getElementById('finalScore').textContent = `점수 ${state.score} · 최고 콤보 ${state.bestCombo}`;
+    document.getElementById('bestScore').textContent = `최고 기록 ${state.best}`;
+    document.getElementById('gameoverScreen').classList.remove('hidden');
+  }
+
+  function resetGame(){
+    state.score = 0; state.lives = state.maxLives; state.combo = 0; state.bestCombo = 0; state.solved = 0;
+    state.cycle = 0; seqIdx = 0; state.lastChanceShown = false; state.timeScale = 1; state.shake = 0;
+    particles.length = 0; floatScores.length = 0;
+    updateHud();
+  }
+
+  function beginPlay(){
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('gameoverScreen').classList.add('hidden');
+    resetGame();
+    state.phase = 'playing';
+    startRound(ROUND_SEQ[0]);
+  }
+
+  document.getElementById('startBtn').addEventListener('click', () => { ensureAudio(); beginPlay(); });
+  document.getElementById('retryBtn').addEventListener('click', () => { ensureAudio(); beginPlay(); });
+  const muteBtn = document.getElementById('muteBtn');
+  function syncMuteBtn(){ muteBtn.textContent = muted ? '🔇' : '🔊'; }
+  syncMuteBtn();
+  muteBtn.addEventListener('click', () => {
+    muted = !muted; try { localStorage.setItem('decimalSmashMuted', muted ? '1' : '0'); } catch(e){}
+    syncMuteBtn();
+  });
+
+  // ───────────────────────────── 업데이트 / 렌더
+  let lastT = performance.now();
+  const glowFor = { cyan: GLOW.cyan, pink: GLOW.pink, yellow: GLOW.yellow, red: GLOW.red };
+
+  function fitFont(text, r){
+    let size = r * 0.5;
+    ctx.font = `800 ${size}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+    let w = ctx.measureText(text).width;
+    const maxW = r * 1.7;
+    let guard = 0;
+    while (w > maxW && size > 10 && guard < 8){
+      size *= 0.88; ctx.font = `800 ${size}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+      w = ctx.measureText(text).width; guard += 1;
+    }
+    return size;
+  }
+
+  function drawBubble(sl){
+    ctx.save();
+    ctx.translate(sl.x, sl.y);
+    const scalePunch = sl.popFx && performance.now() - sl.popFx < 120 ? 1.15 : 1;
+    ctx.scale(scalePunch, scalePunch);
+    const isBomb = sl.role === 'bomb';
+    const img = isBomb ? images.bomb : images.correct;
+    if (img.ok){
+      // 원본 PNG 모서리에 불투명 사각 배경이 남아있을 수 있어 원형으로 잘라낸다
+      ctx.save();
+      ctx.beginPath(); ctx.arc(0, 0, sl.r, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(img.img, -sl.r * 1.06, -sl.r * 1.06, sl.r * 2.12, sl.r * 2.12);
+      ctx.restore();
+      ctx.strokeStyle = isBomb ? 'rgba(255,138,154,.9)' : 'rgba(190,252,255,.85)';
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, sl.r, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      const grad = ctx.createRadialGradient(-sl.r*0.3, -sl.r*0.3, sl.r*0.1, 0, 0, sl.r);
+      if (isBomb){ grad.addColorStop(0, '#ff8a9a'); grad.addColorStop(1, '#c8002e'); }
+      else { grad.addColorStop(0, '#bdfcff'); grad.addColorStop(1, '#0090aa'); }
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, sl.r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = isBomb ? '#ffccd5' : '#e0feff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    if (!isBomb){
+      const fs = fitFont(sl.text, sl.r);
+      ctx.font = `800 ${fs}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = Math.max(3, fs * 0.16); ctx.strokeStyle = 'rgba(6,10,30,.85)';
+      ctx.strokeText(sl.text, 0, sl.r * 0.05);
+      ctx.fillStyle = '#ffffff'; ctx.fillText(sl.text, 0, sl.r * 0.05);
+    }
+    ctx.restore();
+  }
+
+  function drawHint(){
+    if (!hintSlot.active) return;
+    ctx.save();
+    ctx.translate(hintSlot.x, hintSlot.y);
+    const w = Math.max(140, hintSlot.r * 2.3), h = hintSlot.r * 0.9;
+    ctx.fillStyle = 'rgba(255,210,61,.16)';
+    ctx.strokeStyle = 'rgba(255,210,61,.85)'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+    roundRect(-w/2, -h/2, w, h, 14); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+    const fs = Math.max(13, Math.min(w * 0.11, 22));
+    ctx.font = `800 ${fs}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffe9a8';
+    ctx.fillText('힌트: ' + hintSlot.text, 0, 0);
+    ctx.restore();
+  }
+  function roundRect(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function step(now){
+    let dt = Math.min(0.05, (now - lastT) / 1000) * state.timeScale;
+    lastT = now;
+    requestAnimationFrame(step);
+
+    ctx.clearRect(0, 0, W, H);
+    let shakeX = 0, shakeY = 0;
+    if (state.shake > 0.2){
+      shakeX = (Math.random() - 0.5) * state.shake; shakeY = (Math.random() - 0.5) * state.shake;
+      state.shake *= 0.88;
+    } else state.shake = 0;
+    ctx.save(); ctx.translate(shakeX, shakeY);
+
+    if (bgLayer) ctx.drawImage(bgLayer, 0, 0, W, H);
+    else { ctx.fillStyle = '#0a0e27'; ctx.fillRect(0, 0, W, H); }
+
+    if (state.phase === 'playing'){
+      roundTimer += dt * 1000;
+      if (roundTimer >= ROUND_MS) nextRound();
+
+      slots.forEach(sl => {
+        if (!sl.active) return;
+        sl.x += sl.vx * dt; sl.y += sl.vy * dt;
+        const ang = Math.atan2(sl.vy, sl.vx) + sl.angV * dt;
+        const sp = Math.hypot(sl.vx, sl.vy);
+        sl.vx = Math.cos(ang) * sp; sl.vy = Math.sin(ang) * sp;
+        if (sl.x < sl.r){ sl.x = sl.r; sl.vx = Math.abs(sl.vx); }
+        if (sl.x > W - sl.r){ sl.x = W - sl.r; sl.vx = -Math.abs(sl.vx); }
+        if (sl.y < sl.r){ sl.y = sl.r; sl.vy = Math.abs(sl.vy); }
+        if (sl.y > H - sl.r){ sl.y = H - sl.r; sl.vy = -Math.abs(sl.vy); }
+        if ((sl.role === 'judge' || sl.role === 'bomb') && sl.ttl && now > sl.ttl){ assignRole(sl); }
+      });
+      // 방울끼리 겹치지 않도록 부드럽게 밀어낸다 (숫자가 가려지면 안 되므로)
+      for (let i = 0; i < MAX_SLOTS; i++){
+        const a = slots[i]; if (!a.active) continue;
+        for (let j = i + 1; j < MAX_SLOTS; j++){
+          const b = slots[j]; if (!b.active) continue;
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const dist = Math.hypot(dx, dy) || 0.001;
+          const minDist = (a.r + b.r) * 1.06;
+          if (dist < minDist){
+            const push = (minDist - dist) / 2;
+            const nx = dx / dist, ny = dy / dist;
+            a.x -= nx * push; a.y -= ny * push;
+            b.x += nx * push; b.y += ny * push;
+          }
+        }
+      }
+      slots.forEach(sl => {
+        if (!sl.active) return;
+        sl.x = Math.max(sl.r, Math.min(W - sl.r, sl.x));
+        sl.y = Math.max(sl.r, Math.min(H - sl.r, sl.y));
+      });
+      if (hintSlot.active){
+        hintSlot.x += hintSlot.vx * dt; hintSlot.y += hintSlot.vy * dt;
+        if (hintSlot.x < hintSlot.r || hintSlot.x > W - hintSlot.r) hintSlot.vx *= -1;
+        if (hintSlot.y < hintSlot.r || hintSlot.y > H * 0.42) hintSlot.vy *= -1;
+        hintSlot.x = Math.max(hintSlot.r, Math.min(W - hintSlot.r, hintSlot.x));
+        hintSlot.y = Math.max(hintSlot.r, Math.min(H * 0.42, hintSlot.y));
+      }
+    }
+
+    if (state.phase === 'playing' || state.phase === 'gameover'){
+      slots.forEach(sl => { if (sl.active) drawBubble(sl); });
+      drawHint();
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--){
+      const p = particles[i]; p.life += dt;
+      if (p.life >= p.max){ particles.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92;
+      const a = 1 - p.life / p.max;
+      const s = p.size * (0.6 + a * 0.6);
+      ctx.globalAlpha = a;
+      ctx.drawImage(glowFor[p.color], p.x - s, p.y - s, s * 2, s * 2);
+      ctx.globalAlpha = 1;
+    }
+    for (let i = floatScores.length - 1; i >= 0; i--){
+      const f = floatScores[i]; f.life += dt;
+      if (f.life >= 0.7){ floatScores.splice(i, 1); continue; }
+      ctx.globalAlpha = 1 - f.life / 0.7;
+      ctx.font = '800 20px -apple-system, sans-serif'; ctx.fillStyle = '#ffd23d';
+      ctx.textAlign = 'center';
+      ctx.fillText(f.txt, f.x, f.y - f.life * 40);
+      ctx.globalAlpha = 1;
+    }
+
+    if (trail.length > 1){
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      for (let i = 1; i < trail.length; i++){
+        const a = i / trail.length;
+        ctx.strokeStyle = `rgba(0,229,255,${a * 0.9})`;
+        ctx.lineWidth = 3 + a * 8;
+        ctx.beginPath(); ctx.moveTo(trail[i-1].x, trail[i-1].y); ctx.lineTo(trail[i].x, trail[i].y); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateHud();
+  requestAnimationFrame(step);
+
+  // ───────────────────────────── QA 훅
+  function sampleOne(idx){
+    const level = (idx % 5) + 1;
+    if (level === 1){
+      const a = genDecimal1(11, 98); const nat = randInt(2, 9);
+      const raw = { n: a.n * nat, s: a.s };
+      return {
+        id: 'p' + idx, prompt: `${decStr(a.n,a.s)} × ${nat} 은 ${decStr(a.n,a.s)}보다 큰가?`,
+        choices: ['커진다', '작아진다'], answer: '커진다', answerNumeric: toNum(reduceFrac(raw.n, raw.s)),
+        unitConcept: '어림하여 결과 확인하기'
+      };
+    }
+    if (level === 2){
+      const a = genDecimal1(11, 98); const big = Math.random() < 0.5;
+      const m = big ? { n: 10 + randInt(1,9), s: 1 } : { n: randInt(1,9), s: 1 };
+      const raw = mulDec(a, m);
+      const ans = big ? '커진다' : '작아진다';
+      return {
+        id: 'p' + idx, prompt: `${decStr(a.n,a.s)} × ${decStr(m.n,m.s)} 은 ${decStr(a.n,a.s)}보다 큰가, 작은가?`,
+        choices: ['커진다', '작아진다'], answer: ans, answerNumeric: toNum(reduceFrac(raw.n, raw.s)),
+        unitConcept: '어림하여 결과 확인하기'
+      };
+    }
+    if (level === 3){
+      const a = genDecimal1(2, 97), b = genDecimal1(2, 97);
+      const expr = genProductChoices(a, b, 4);
+      const choices = shuffle([expr.correctStr].concat(expr.distractors.map(d => d.str)));
+      return {
+        id: 'p' + idx, prompt: expr.promptStr, choices, answer: expr.correctStr,
+        answerNumeric: toNum(expr.correct), unitConcept: '(소수)×(소수)'
+      };
+    }
+    if (level === 4){
+      const A = randInt(11, 49), B = randInt(11, 49);
+      const expr = genProductChoices({ n: A, s: 1 }, { n: B, s: 1 }, 4);
+      const choices = shuffle([expr.correctStr].concat(expr.distractors.map(d => d.str)));
+      return {
+        id: 'p' + idx, prompt: `${A} × ${B} = ${A*B} 을 이용하면, ${expr.promptStr}`, choices, answer: expr.correctStr,
+        answerNumeric: toNum(expr.correct), unitConcept: '소수점 위치 규칙'
+      };
+    }
+    // level 5: 연쇄 판단 2단계
+    const a = genDecimal1(2, 97), b = genDecimal1(2, 97);
+    const first = genProductChoices(a, b, 4);
+    const second = genProductChoices(first.correct, { n: 1, s: 1 }, 4);
+    const choices = shuffle([second.correctStr].concat(second.distractors.map(d => d.str)));
+    return {
+      id: 'p' + idx,
+      prompt: `먼저 ${first.promptStr.replace(' = ?','')} = ${first.correctStr} 를 찾았다. 이어서 ${second.promptStr}`,
+      choices, answer: second.correctStr, answerNumeric: toNum(second.correct),
+      unitConcept: '0.1을 곱하는 것과 10으로 나누는 것의 관계'
+    };
+  }
+
+  window.__GAME_TEST__ = {
+    ready: true,
+    start(){ ensureAudio(); beginPlay(); },
+    getState(){ return { score: state.score, lives: state.lives, level: state.level, phase: state.phase, solved: state.solved }; },
+    answerCorrect(){
+      if (state.phase !== 'playing') beginPlay();
+      let sl = slots.find(s => s.active && s.ok && (s.role === 'judge' || s.role === 'answer'));
+      if (!sl){
+        sl = slots.find(s => s.active && (s.role === 'judge' || s.role === 'answer'));
+        if (sl){ sl.ok = true; if (state.roundType === 'answer') sl.text = currentExpr.correctStr; }
+      }
+      if (sl) popSlot(sl, sl.x, sl.y);
+    },
+    answerWrong(){
+      if (state.phase !== 'playing') beginPlay();
+      let sl = slots.find(s => s.active && s.role === 'bomb');
+      if (!sl){ sl = slots.find(s => s.active); if (sl) sl.role = 'bomb'; }
+      if (sl) popSlot(sl, sl.x, sl.y);
+    },
+    sampleProblems(n){
+      const out = [];
+      for (let i = 0; i < (n || 20); i++) out.push(sampleOne(i));
+      return out;
+    }
+  };
+})();
+</script>
+</body>
+</html>
