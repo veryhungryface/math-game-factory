@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>대칭 브레이커 — 접거나 돌려서 깨라</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#070a18;color:#f7fbff;
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+#cv{position:fixed;left:0;top:0;width:100%;height:100%;display:block;touch-action:none;z-index:0}
+.lay{position:fixed;left:0;right:0;z-index:2;pointer-events:none}
+#top{top:0;padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
+#bot{bottom:0;padding:8px 12px calc(10px + env(safe-area-inset-bottom))}
+.row{display:flex;align-items:center;gap:8px}
+.chip{background:rgba(18,34,74,.72);border:1px solid rgba(77,225,255,.28);border-radius:12px;
+  padding:5px 10px;font-size:12px;font-weight:800;letter-spacing:.02em;color:#9fd8ff;white-space:nowrap}
+#score{font-size:26px;font-weight:900;color:#f7fbff;letter-spacing:-.02em;line-height:1;
+  text-shadow:0 0 16px rgba(77,225,255,.55);font-variant-numeric:tabular-nums}
+#combo{font-size:15px;font-weight:900;color:#ffd166;text-shadow:0 0 12px rgba(255,209,102,.6);
+  transition:transform .18s cubic-bezier(.2,1.6,.4,1)}
+#lives{display:flex;gap:5px;margin-left:auto}
+.pip{width:15px;height:15px;border-radius:5px;background:#4de1ff;box-shadow:0 0 10px rgba(77,225,255,.9);
+  transition:all .35s cubic-bezier(.4,0,.2,1)}
+.pip.off{background:rgba(255,255,255,.13);box-shadow:none;transform:scale(.6) rotate(45deg)}
+#tbar{height:6px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:8px}
+#tfill{height:100%;width:100%;border-radius:99px;background:linear-gradient(90deg,#4de1ff,#ffd166);
+  transform-origin:left center;transition:background .3s}
+#tfill.hot{background:linear-gradient(90deg,#ff4d9d,#ff4d6a)}
+#hint{min-height:38px;display:block;text-align:center;padding:9px 4px 6px;
+  font-size:13.5px;font-weight:700;line-height:1.35;color:#cfe9ff;
+  text-shadow:0 2px 8px rgba(0,0,0,.8);transition:opacity .2s}
+#hint b{color:#ffd166;font-weight:900}
+#hint.bad b{color:#ffd166}
+#hint.warn{color:#ffd166}
+#hint.bad{color:#ff8fb0}
+.btn{pointer-events:auto;min-height:46px;min-width:46px;border:0;border-radius:14px;cursor:pointer;
+  font-family:inherit;font-size:15px;font-weight:900;color:#eaf6ff;background:rgba(18,34,74,.85);
+  border:1px solid rgba(77,225,255,.3);display:flex;align-items:center;justify-content:center;
+  text-decoration:none;transition:transform .12s cubic-bezier(.2,1.6,.4,1),background .18s}
+.btn:active{transform:scale(.94);background:rgba(77,225,255,.25)}
+#drop{flex:1;background:linear-gradient(180deg,rgba(255,77,157,.28),rgba(255,77,157,.12));
+  border-color:rgba(255,77,157,.5);color:#ffd6e6}
+.ov{position:fixed;left:0;top:0;right:0;bottom:0;z-index:5;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;
+  background:radial-gradient(ellipse at 50% 40%,rgba(18,34,74,.82),rgba(7,10,24,.96) 70%);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.ttl{font-size:34px;font-weight:900;letter-spacing:-.03em;line-height:1.1;
+  background:linear-gradient(180deg,#f7fbff,#4de1ff);-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;filter:drop-shadow(0 0 20px rgba(77,225,255,.45))}
+.sub{font-size:14px;font-weight:700;color:#9fd8ff;line-height:1.6}
+.card{background:rgba(10,18,42,.8);border:1px solid rgba(77,225,255,.22);border-radius:16px;
+  padding:14px 16px;font-size:13px;line-height:1.75;color:#cfe9ff;text-align:left;max-width:330px}
+.card b{color:#ffd166}
+.big{font-size:19px;padding:0 30px;min-height:56px;background:linear-gradient(180deg,#4de1ff,#2aa8d8);
+  color:#04121f;border:0;box-shadow:0 8px 28px rgba(77,225,255,.4)}
+#ovs{font-size:44px;font-weight:900;color:#ffd166;line-height:1;font-variant-numeric:tabular-nums;
+  text-shadow:0 0 26px rgba(255,209,102,.5)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="lay" id="top">
+  <div class="row">
+    <span class="chip" id="lvl">1단계</span>
+    <span id="score">0</span>
+    <span id="combo">x1</span>
+    <div id="lives"><i class="pip"></i><i class="pip"></i><i class="pip"></i></div>
+  </div>
+  <div id="tbar"><div id="tfill"></div></div>
+</div>
+
+<div class="lay" id="bot">
+  <div id="hint">도형 위를 <b>죽 그으면</b> 그 선으로 접혀요</div>
+  <div class="row">
+    <button class="btn" id="drop" type="button">버리기 ↓</button>
+    <button class="btn" id="mute" type="button" aria-label="소리 켜기 끄기">🔊</button>
+    <a class="btn" id="home" href="../../">목록</a>
+  </div>
+</div>
+
+<div class="ov" id="intro">
+  <div class="ttl">대칭 브레이커</div>
+  <div class="sub">접거나 돌려서 깨라</div>
+  <div class="card">
+    <b>긋기</b> — 도형 위를 그으면 그 선(대칭축)으로 접혀요. 딱 포개지면 하얗게 터져요.<br>
+    <b>탭</b> — 도형 안 점을 톡 누르면 그 점을 중심으로 180° 돌아가요.<br>
+    <b>버리기</b> — 접어도 돌려도 안 겹치는 결정은 아래로 버려요.<br>
+    대칭축을 <b>하나도 빠짐없이</b> 다 찾아야 결정이 깨져요!
+  </div>
+  <button class="btn big" id="go" type="button">시작하기</button>
+</div>
+
+<div class="ov" id="over" style="display:none">
+  <div class="sub">결정 성소가 어두워졌다</div>
+  <div id="ovs">0</div>
+  <div class="card" id="ovd"></div>
+  <button class="btn big" id="again" type="button">다시 도전</button>
+</div>
+
+<script>
+"use strict";
+/* ══════════════ 0. 기본 유틸 ══════════════ */
+var TAU=Math.PI*2, D2R=Math.PI/180, R2D=180/Math.PI;
+var REDUCE=window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches;
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function rnd(a,b){return a+Math.random()*(b-a);}
+function ri(a,b){return Math.floor(rnd(a,b+1));}
+function pick(A){return A[Math.floor(Math.random()*A.length)];}
+function easeOut(t){return 1-Math.pow(1-t,3);}
+function easeInOut(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+function ang180(d){d=d%180;if(d<0)d+=180;return d;}
+function angDiff(a,b){var d=Math.abs(ang180(a)-ang180(b));return Math.min(d,180-d);}
+function fmt(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+
+/* ══════════════ 1. 도형 카탈로그 (손검증 표) ══════════════
+   axes = 참 대칭축 각도(도, 수학좌표 x축 기준, 0~180). 모든 대칭축은 도형의 무게중심을 지난다.
+   point = 180도 돌려 완전히 겹치는가(점대칭도형).
+   decoy = 오개념 미끼 축(접으면 반드시 어긋난다).                                    */
+function polyC(v){var a=0,cx=0,cy=0,i,p,q,f;
+  for(i=0;i<v.length;i++){p=v[i];q=v[(i+1)%v.length];f=p[0]*q[1]-q[0]*p[1];a+=f;cx+=(p[0]+q[0])*f;cy+=(p[1]+q[1])*f;}
+  a*=0.5; if(Math.abs(a)<1e-9)return[0,0]; return[cx/(6*a),cy/(6*a)];}
+function ctr(v){var c=polyC(v);return v.map(function(p){return[p[0]-c[0],p[1]-c[1]];});}
+function reg(n,r,rot){var o=[],i,a;for(i=0;i<n;i++){a=rot*D2R+i*TAU/n;o.push([r*Math.cos(a),r*Math.sin(a)]);}return o;}
+function heartPts(){var o=[],i,t,x,y;
+  for(i=0;i<40;i++){t=Math.PI/2+i/40*TAU;x=1.6*Math.pow(Math.sin(t),3);
+    y=1.3*Math.cos(t)-0.5*Math.cos(2*t)-0.2*Math.cos(3*t)-0.1*Math.cos(4*t);o.push([x*2.6,y*2.6]);}
+  return o;}
+
+var SHAPES=[
+ {id:'sq',  name:'정사각형',      qn:'정사각형',      tier:1, v:reg(4,4.6,45),  axes:[0,45,90,135], point:true,  decoy:[22.5,112.5]},
+ {id:'hex', name:'정육각형',      qn:'정육각형',      tier:1, v:reg(6,4.6,0),   axes:[0,30,60,90,120,150], point:true, decoy:[]},
+ {id:'tri', name:'정삼각형',      qn:'정삼각형',      tier:1, v:reg(3,5.0,90),  axes:[30,90,150],   point:false, decoy:[0,60,120]},
+ {id:'pen', name:'정오각형',      qn:'정오각형',      tier:1, v:reg(5,4.8,90),  axes:[18,54,90,126,162], point:false, decoy:[]},
+ {id:'hrt', name:'하트',          qn:'하트 모양',     tier:1, v:heartPts(),     axes:[90],          point:false, decoy:[0,45,135]},
+ {id:'rct', name:'직사각형',      qn:'직사각형',      tier:2, v:[[-5,-3],[5,-3],[5,3],[-5,3]], axes:[0,90], point:true,  decoy:[30.96,149.04]},
+ {id:'rho', name:'마름모',        qn:'마름모',        tier:2, v:[[0,5],[3,0],[0,-5],[-3,0]],   axes:[0,90], point:true,  decoy:[59.04,120.96]},
+ {id:'iso', name:'이등변삼각형',  qn:'이등변삼각형',  tier:2, v:[[0,5],[-3.5,-2.5],[3.5,-2.5]], axes:[90], point:false, decoy:[0,30,150]},
+ {id:'trp', name:'등변사다리꼴',  qn:'등변사다리꼴',  tier:2, v:[[-2,3.333],[2,3.333],[4,-2.667],[-4,-2.667]], axes:[90], point:false, decoy:[0,45,108.4]},
+ {id:'par', name:'평행사변형',    qn:'평행사변형',    tier:3, v:[[-5,-3],[1,-3],[5,3],[-1,3]], axes:[], point:true,  decoy:[0,30.96,90,108.4]},
+ {id:'sbk', name:'S자 결정',      qn:null,            tier:3, v:[[-3,-2],[1,-2],[1,0],[3,0],[3,2],[-1,2],[-1,0],[-3,0]], axes:[], point:true, decoy:[0,45,90,135]},
+ {id:'hx6', name:'비뚤 육각 결정',qn:null,            tier:3, v:[[4,1],[1,3],[-3,2],[-4,-1],[-1,-3],[3,-2]], axes:[], point:true, decoy:[14,71.6,146.3]},
+ {id:'oct', name:'정팔각형',      qn:'정팔각형',      tier:4, v:reg(8,4.8,22.5), axes:[0,22.5,45,67.5,90,112.5,135,157.5], point:true, decoy:[]},
+ {id:'lbk', name:'ㄱ자 결정',     qn:null,            tier:4, v:[[0,0],[6,0],[6,2],[2,2],[2,4],[0,4]], axes:[], point:false, decoy:[0,45,90,135]},
+ {id:'rtr', name:'직각 결정',     qn:null,            tier:4, v:[[0,0],[6,0],[0,4]], axes:[], point:false, decoy:[0,45,90,135]},
+ {id:'gtp', name:'삐딱 사다리꼴', qn:null,            tier:4, v:[[0,0],[7,0],[5,4],[0,4]], axes:[], point:false, decoy:[0,45,90,135]}
+];
+SHAPES.forEach(function(s){s.v=ctr(s.v);s.cand=s.axes.concat(s.decoy).sort(function(a,b){return a-b;});});
+
+/* 반쪽 결정 — 축은 x=0 (세로). 왼쪽 절반만 주고 오른쪽 대응점을 격자에 찍는다. */
+var HALVES=[
+ {id:'house', name:'집 결정',   half:[[0,3],[-3,1],[-3,-2],[0,-2]]},
+ {id:'arrow', name:'화살 결정', half:[[0,3],[-2,0],[-1,0],[-1,-3],[0,-3]]},
+ {id:'cup',   name:'잔 결정',   half:[[0,3],[-2,3],[-3,-1],[0,-1]]},
+ {id:'crown', name:'왕관 결정', half:[[0,2],[-1,3],[-2,1],[-3,3],[-3,-2],[0,-2]]},
+ {id:'tree',  name:'나무 결정', half:[[0,3],[-2,0],[-1,0],[-3,-2],[-1,-2],[-1,-3],[0,-3]]}
+];
+HALVES.forEach(function(h){
+  var off=h.half.filter(function(p){return p[0]!==0;});
+  h.need=off.map(function(p){return[-p[0],p[1]];});           // 찍어야 할 대응점
+  h.full=h.half.concat(h.need.slice().reverse());             // 완성된 선대칭도형
+});
+
+/* 합동 게이트 — same:true 면 포개면 완전히 겹친다(회전·뒤집기 허용). */
+var GATES=[
+ {base:[[0,0],[4.4,0],[0,3.3]], name:'직각 삼각 조각', pieces:[
+   {rot:90,flip:false,s:1,same:true},{rot:205,flip:true,s:1,same:true},
+   {rot:15,flip:false,s:1.3,same:false,why:'모양은 같은데 크기가 달라요(닮음). 합동이 아니에요.'},
+   {rot:0,flip:false,s:1,same:false,alt:[[0,0],[7.26,0],[0,2]],why:'넓이는 같지만 포개면 삐져나와요.'}]},
+ {base:[[0,0],[5,0],[5,3.4],[0,3.4]], name:'직사각 조각', pieces:[
+   {rot:90,flip:false,s:1,same:true},{rot:35,flip:false,s:1,same:true},
+   {rot:0,flip:false,s:1,same:false,alt:[[0,0],[8.5,0],[8.5,2],[0,2]],why:'넓이 17로 같지만 모양이 달라 안 겹쳐요.'},
+   {rot:10,flip:true,s:0.75,same:false,why:'작게 줄인 도형은 합동이 아니에요.'}]},
+ {base:[[0,0],[5.5,0],[5.5,2],[2,2],[2,4],[0,4]], name:'ㄱ자 조각', pieces:[
+   {rot:180,flip:false,s:1,same:true},{rot:250,flip:true,s:1,same:true},
+   {rot:20,flip:false,s:1.25,same:false,why:'1.25배로 늘린 도형이라 테두리가 벌어져요.'},
+   {rot:0,flip:false,s:1,same:false,alt:[[0,0],[5.5,0],[5.5,2],[3,2],[3,4.55],[0,4.55]],why:'비슷해 보여도 튀어나온 부분 크기가 달라요.'}]}
+];
+function xform(v,t){var c=Math.cos(t.rot*D2R),s=Math.sin(t.rot*D2R),k=t.s,f=t.flip?-1:1;
+  return v.map(function(p){var x=p[0]*f*k,y=p[1]*k;return[x*c-y*s,x*s+y*c];});}
+GATES.forEach(function(g){g.base=ctr(g.base);
+  g.pieces.forEach(function(p){p.v=ctr(xform(p.alt?ctr(p.alt):g.base,p));});});
+</script>
+
+<script>
+"use strict";
+/* ══════════════ 2. 캔버스 · 배경 굽기 ══════════════ */
+var cv=document.getElementById('cv'), ctx=cv.getContext('2d',{alpha:false});
+var W=1,H=1,CW=1,CH=1,DPR=1;
+var bgc=document.createElement('canvas'), bgx=bgc.getContext('2d');
+var IMG={bg:null,glow:null};
+var glowSp=null;                     // 미리 축소해 구운 발광 스프라이트
+var stars=[];
+
+function makeGlow(){
+  var n=192,c=document.createElement('canvas');c.width=c.height=n;
+  var g=c.getContext('2d');
+  if(IMG.glow){ g.drawImage(IMG.glow,0,0,n,n); }
+  else{ var rg=g.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);
+    rg.addColorStop(0,'rgba(255,255,255,1)');rg.addColorStop(.25,'rgba(180,240,255,.75)');
+    rg.addColorStop(.6,'rgba(77,225,255,.22)');rg.addColorStop(1,'rgba(77,225,255,0)');
+    g.fillStyle=rg;g.fillRect(0,0,n,n); }
+  glowSp=c;
+}
+function bakeBG(){
+  bgc.width=W; bgc.height=H;
+  var g=bgx,i,gr;
+  gr=g.createLinearGradient(0,0,0,H);
+  gr.addColorStop(0,'#0d1a3c');gr.addColorStop(.45,'#0a1230');gr.addColorStop(1,'#05070f');
+  g.fillStyle=gr;g.fillRect(0,0,W,H);
+  if(IMG.bg){
+    var ir=IMG.bg.width/IMG.bg.height, cr=W/H, dw,dh;
+    if(ir>cr){dh=H;dw=H*ir;}else{dw=W;dh=W/ir;}
+    g.globalAlpha=.62; g.drawImage(IMG.bg,(W-dw)/2,(H-dh)/2,dw,dh); g.globalAlpha=1;
+  }
+  /* 위에서 내려오는 빛기둥 */
+  g.globalCompositeOperation='lighter';
+  for(i=0;i<3;i++){
+    var x=W*(0.22+i*0.29), w=W*0.16;
+    var lg=g.createLinearGradient(x,0,x+w*0.5,H*0.85);
+    lg.addColorStop(0,'rgba(77,225,255,.16)');lg.addColorStop(1,'rgba(77,225,255,0)');
+    g.fillStyle=lg;g.beginPath();g.moveTo(x-w*.3,0);g.lineTo(x+w,0);g.lineTo(x+w*1.7,H*.9);g.lineTo(x+w*.2,H*.9);g.closePath();g.fill();
+  }
+  /* 성소 바닥 광채 */
+  var fg=g.createRadialGradient(W/2,H*1.02,0,W/2,H*1.02,W*0.95);
+  fg.addColorStop(0,'rgba(255,77,157,.22)');fg.addColorStop(1,'rgba(255,77,157,0)');
+  g.fillStyle=fg;g.fillRect(0,H*.55,W,H*.45);
+  /* 별 먼지 */
+  for(i=0;i<110;i++){
+    var sx=Math.random()*W, sy=Math.random()*H, sr=Math.random()*1.9*DPR+0.5*DPR;
+    g.fillStyle='rgba(199,236,255,'+(0.10+Math.random()*0.35)+')';
+    g.beginPath();g.arc(sx,sy,sr,0,TAU);g.fill();
+  }
+  /* 결정 성소의 아우라 — 정적이라 미리 구워 둔다 */
+  var ar=Math.min(W,H)*0.46, ax=stage.cx*DPR, ay=(stage.cy||H*0.45)*DPR;
+  var ag=g.createRadialGradient(ax,ay,0,ax,ay,ar);
+  ag.addColorStop(0,'rgba(90,230,255,.40)');ag.addColorStop(.35,'rgba(77,225,255,.17)');
+  ag.addColorStop(.7,'rgba(120,90,220,.07)');ag.addColorStop(1,'rgba(77,225,255,0)');
+  g.fillStyle=ag;g.beginPath();g.arc(ax,ay,ar,0,TAU);g.fill();
+  g.globalCompositeOperation='source-over';
+  /* 비네트 */
+  var vg=g.createRadialGradient(W/2,H*.45,Math.min(W,H)*.28,W/2,H*.5,Math.max(W,H)*.78);
+  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.72)');
+  g.fillStyle=vg;g.fillRect(0,0,W,H);
+}
+function resize(){
+  CW=Math.max(300,window.innerWidth||360); CH=Math.max(420,window.innerHeight||640);
+  var d=Math.min(window.devicePixelRatio||1,1.5), budget=420000;
+  if(CW*CH*d*d>budget) d=Math.max(1,Math.sqrt(budget/(CW*CH)));
+  DPR=d; W=Math.round(CW*d); H=Math.round(CH*d);
+  cv.width=W;cv.height=H;cv.style.width=CW+'px';cv.style.height=CH+'px';
+  layout(); bakeBG();
+}
+
+/* 무대 좌표 */
+var stage={cx:0,cy:0,top:0,bot:0,h:0};
+function layout(){
+  stage.top=78; stage.bot=CH-106; stage.h=stage.bot-stage.top;
+  stage.cx=CW/2; stage.cy=stage.top+stage.h*0.46;
+  if(typeof relayout==='function')relayout();
+}
+
+/* ══════════════ 3. 파티클 · 화면 효과 ══════════════ */
+var PS=[], POPS=[], dust=[];
+var shakeT=0, shakeM=0, flashT=0, flashC='#fff', slowmo=0;
+var MAXP=REDUCE?70:230;
+function initDust(){dust=[];var n=REDUCE?10:20,i;
+  for(i=0;i<n;i++)dust.push({x:Math.random(),y:Math.random(),r:rnd(.7,2.4),s:rnd(.006,.026),a:rnd(.12,.42),p:rnd(0,TAU)});}
+function spark(x,y,n,col,spd,life){
+  if(PS.length>MAXP)return;
+  n=REDUCE?Math.ceil(n*0.4):n;
+  for(var i=0;i<n;i++){var a=rnd(0,TAU),v=rnd(spd*.35,spd);
+    PS.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:0,m:life||rnd(.45,.95),r:rnd(1.6,4.4),c:col,g:rnd(120,340),rot:rnd(0,TAU),vr:rnd(-9,9)});}
+}
+function sparkDir(x,y,n,col,dx,dy,spd){
+  if(PS.length>MAXP)return;
+  n=REDUCE?Math.ceil(n*0.4):n;
+  for(var i=0;i<n;i++){var sp=rnd(spd*.3,spd),jx=rnd(-.45,.45),jy=rnd(-.45,.45);
+    PS.push({x:x,y:y,vx:(dx+jx)*sp,vy:(dy+jy)*sp,l:0,m:rnd(.5,1.1),r:rnd(1.8,4.8),c:col,g:rnd(160,420),rot:rnd(0,TAU),vr:rnd(-8,8)});}
+}
+function pop(x,y,txt,col){POPS.push({x:x,y:y,t:txt,c:col||'#ffd166',l:0,m:1.0});}
+function shake(m){if(REDUCE)return;shakeM=Math.max(shakeM,m);shakeT=Math.max(shakeT,.36);}
+function flash(a,c){flashT=Math.max(flashT,a);flashC=c||'#f7fbff';}
+
+function updFX(dt){
+  var i,p;
+  for(i=PS.length-1;i>=0;i--){p=PS[i];p.l+=dt;
+    if(p.l>=p.m){PS.splice(i,1);continue;}
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vx*=0.985;p.rot+=p.vr*dt;}
+  for(i=POPS.length-1;i>=0;i--){p=POPS[i];p.l+=dt;if(p.l>=p.m)POPS.splice(i,1);else p.y-=52*dt;}
+  if(shakeT>0){shakeT-=dt;if(shakeT<=0){shakeT=0;shakeM=0;}}
+  if(flashT>0)flashT=Math.max(0,flashT-dt*2.4);
+  if(slowmo>0)slowmo=Math.max(0,slowmo-dt);
+  for(i=0;i<dust.length;i++){var d=dust[i];d.y-=d.s*dt*10;d.p+=dt*1.3;if(d.y<-.04){d.y=1.04;d.x=Math.random();}}
+}
+function drawDust(){
+  ctx.globalCompositeOperation='lighter';
+  for(var i=0;i<dust.length;i++){var d=dust[i],r=d.r*(0.7+0.3*Math.sin(d.p));
+    ctx.fillStyle='rgba(160,225,255,'+(d.a*(0.55+0.45*Math.sin(d.p)))+')';
+    ctx.fillRect(d.x*CW-r,d.y*CH-r,r*2,r*2);}
+  ctx.globalCompositeOperation='source-over';
+}
+function drawFX(){
+  var i,p;
+  if(!PS.length&&!POPS.length&&flashT<=0.001)return;
+  ctx.globalCompositeOperation='lighter';
+  for(i=0;i<PS.length;i++){p=PS[i];
+    var k=1-p.l/p.m, s=p.r*(0.5+k);
+    ctx.globalAlpha=k;ctx.fillStyle=p.c;
+    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+    ctx.beginPath();ctx.moveTo(0,-s*1.5);ctx.lineTo(s,0);ctx.lineTo(0,s*1.5);ctx.lineTo(-s,0);ctx.closePath();ctx.fill();
+    ctx.restore();}
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+  for(i=0;i<POPS.length;i++){p=POPS[i];
+    var t=p.l/p.m, sc=t<.18?lerp(.5,1.16,easeOut(t/.18)):lerp(1.16,1,easeOut(clamp((t-.18)/.3,0,1)));
+    ctx.save();ctx.translate(p.x,p.y);ctx.scale(sc,sc);ctx.globalAlpha=clamp((1-t)*2.2,0,1);
+    ctx.font='900 26px -apple-system,"Apple SD Gothic Neo",sans-serif';ctx.textAlign='center';
+    ctx.lineWidth=6;ctx.strokeStyle='rgba(4,10,26,.85)';ctx.strokeText(p.t,0,0);
+    ctx.fillStyle=p.c;ctx.fillText(p.t,0,0);ctx.restore();}
+  ctx.globalAlpha=1;
+  if(flashT>0.001){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=clamp(flashT,0,.55);
+    ctx.fillStyle=flashC;ctx.fillRect(0,0,CW,CH);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';}
+}
+</script>
+
+<script>
+"use strict";
+/* ══════════════ 4. 기하 — 반평면 자르기 · 접기 변환 ══════════════ */
+function clipHalf(poly,nx,ny,sgn){
+  var out=[],i,a,b,da,db,t;
+  for(i=0;i<poly.length;i++){
+    a=poly[i];b=poly[(i+1)%poly.length];
+    da=sgn*(a[0]*nx+a[1]*ny); db=sgn*(b[0]*nx+b[1]*ny);
+    if(da>=-1e-9)out.push(a);
+    if((da>1e-9&&db<-1e-9)||(da<-1e-9&&db>1e-9)){t=da/(da-db);
+      out.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}
+  }
+  return out;
+}
+/* 축(단위벡터 u)을 중심으로 phi 만큼 접었을 때의 정투영 좌표.
+   phi=PI 이면 정확히 대칭축에 대한 반사가 된다. */
+function foldPt(p,ux,uy,nx,ny,cphi){
+  var t=p[0]*ux+p[1]*uy, s=p[0]*nx+p[1]*ny;
+  return [t*ux+s*cphi*nx, t*uy+s*cphi*ny];
+}
+function inPoly(pt,poly){
+  var x=pt[0],y=pt[1],inside=false,i,j,xi,yi,xj,yj;
+  for(i=0,j=poly.length-1;i<poly.length;j=i++){
+    xi=poly[i][0];yi=poly[i][1];xj=poly[j][0];yj=poly[j][1];
+    if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=!inside;}
+  return inside;
+}
+function maxR(v){var m=0,i,d;for(i=0;i<v.length;i++){d=Math.hypot(v[i][0],v[i][1]);if(d>m)m=d;}return m;}
+function bbox(v){var a=1e9,b=1e9,c=-1e9,d=-1e9,i;
+  for(i=0;i<v.length;i++){if(v[i][0]<a)a=v[i][0];if(v[i][0]>c)c=v[i][0];if(v[i][1]<b)b=v[i][1];if(v[i][1]>d)d=v[i][1];}
+  return{x0:a,y0:b,x1:c,y1:d,w:c-a,h:d-b};}
+
+/* 화면 경로 (수학좌표 y↑ → 화면 y↓) */
+function trace(v,s,ox,oy){
+  ctx.beginPath();
+  for(var i=0;i<v.length;i++){var x=ox+v[i][0]*s,y=oy-v[i][1]*s;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+  ctx.closePath();
+}
+function fillPoly(v,s,ox,oy,fill,stroke,lw){
+  trace(v,s,ox,oy);
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.lineWidth=lw||2;ctx.strokeStyle=stroke;ctx.lineJoin='round';ctx.stroke();}
+}
+function glowAt(x,y,r,alpha,tint){
+  if(!glowSp)return;
+  ctx.globalCompositeOperation='lighter';ctx.globalAlpha=alpha;
+  if(tint){ctx.save();ctx.translate(x,y);ctx.drawImage(glowSp,-r,-r,r*2,r*2);ctx.restore();}
+  else ctx.drawImage(glowSp,x-r,y-r,r*2,r*2);
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+}
+function axisLine(ang,s,ox,oy,len,col,lw,dash){
+  var c=Math.cos(ang*D2R),si=Math.sin(ang*D2R);
+  ctx.save();ctx.setLineDash(dash||[]);ctx.lineWidth=lw;ctx.strokeStyle=col;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(ox-c*len,oy+si*len);ctx.lineTo(ox+c*len,oy-si*len);ctx.stroke();ctx.restore();
+}
+
+/* ══════════════ 5. 결정 만들기 ══════════════ */
+var cry=null, lastShapeId='';
+function fitScale(v,maxW,maxH){
+  var b=bbox(v);
+  return Math.min(maxW/Math.max(b.w,.001), maxH/Math.max(b.h,.001));
+}
+function newPoly(sh){
+  var maxW=Math.min(CW-72,330), maxH=Math.min(stage.h*0.62,330);
+  var s=clamp(fitScale(sh.v,maxW,maxH),12,60);
+  var c={kind:'poly',sh:sh,v:sh.v,scale:s,found:[],rotDone:false,
+    cx:stage.cx,cy:stage.cy,born:0,bob:0,dead:false};
+  /* 후보 대칭의 중심: 참 중심(원점) + 미끼 2개 */
+  var b=bbox(sh.v);
+  var d1=[sh.v[0][0]*0.55,sh.v[0][1]*0.55];
+  var m=[(sh.v[1][0]+sh.v[2%sh.v.length][0])/2*0.62,(sh.v[1][1]+sh.v[2%sh.v.length][1])/2*0.62];
+  var minG=44/s;
+  if(Math.hypot(d1[0],d1[1])<minG){d1=[b.x1*0.7,b.y1*0.5];}
+  if(Math.hypot(m[0]-d1[0],m[1]-d1[1])<minG||Math.hypot(m[0],m[1])<minG){m=[b.x0*0.62,b.y0*0.55];}
+  c.dots=[{x:0,y:0,ok:true},{x:d1[0],y:d1[1],ok:false},{x:m[0],y:m[1],ok:false}];
+  return c;
+}
+function newHalf(hh){
+  var maxW=Math.min(CW-56,340), maxH=Math.min(stage.h*0.7,360);
+  var s=clamp(Math.min((CW-34)/7.7,maxH/7.4),30,58);
+  return {kind:'half',hh:hh,scale:s,placed:[],need:hh.need.slice(),
+    cx:stage.cx,cy:stage.cy,born:0,bob:0,bad:null,badT:0,dead:false};
+}
+function newGate(g){
+  var s=clamp(Math.min((CW-70)/2/9.5, stage.h/2/9.5),9,22);
+  var c={kind:'gate',g:g,scale:s,cx:stage.cx,cy:stage.top+stage.h*0.20,born:0,
+    picked:[],fly:null,dead:false,slots:[]};
+  var gw=CW*0.5, gy=stage.top+stage.h*0.56, gh=stage.h*0.20;
+  for(var i=0;i<4;i++){
+    c.slots.push({x:stage.cx+(i%2?1:-1)*gw*0.5, y:gy+(i>1?gh:0), st:0});
+  }
+  return c;
+}
+/* 회전/리사이즈 후 현재 결정의 위치·크기 재계산 */
+function relayout(){
+  var c=cry;if(!c)return;
+  if(c.kind==='poly'){
+    c.cx=stage.cx;c.cy=stage.cy;
+    c.scale=clamp(fitScale(c.v,Math.min(CW-72,330),Math.min(stage.h*0.62,330)),12,60);
+  }else if(c.kind==='half'){
+    c.cx=stage.cx;c.cy=stage.cy;
+    c.scale=clamp(Math.min((CW-34)/7.7,Math.min(stage.h*0.7,360)/7.4),30,58);
+  }else if(c.kind==='gate'){
+    c.cx=stage.cx;c.cy=stage.top+stage.h*0.20;
+    c.scale=clamp(Math.min((CW-70)/2/9.5,stage.h/2/9.5),9,22);
+    var gw=CW*0.5,gy=stage.top+stage.h*0.56,gh=stage.h*0.20;
+    for(var i=0;i<4;i++){c.slots[i].x=stage.cx+(i%2?1:-1)*gw*0.5;c.slots[i].y=gy+(i>1?gh:0);}
+  }
+}
+function requiredLeft(c){
+  if(c.kind!=='poly')return 0;
+  return (c.sh.axes.length-c.found.length)+((c.sh.point&&!c.rotDone)?1:0);
+}
+function allDone(c){
+  return c.kind==='poly' && c.found.length===c.sh.axes.length && (!c.sh.point||c.rotDone)
+    && (c.sh.axes.length>0||c.sh.point);
+}
+</script>
+
+<script>
+"use strict";
+/* ══════════════ 6. 결정 그리기 ══════════════ */
+GATES.forEach(function(g){g.pieces.forEach(function(p){p.src=p.alt?ctr(p.alt):g.base;});});
+var CY='#4de1ff', MG='#ff4d9d', GD='#ffd166', WH='#f7fbff';
+
+function bodyGrad(ox,oy,r,a,b){
+  var g=ctx.createLinearGradient(ox-r,oy-r,ox+r,oy+r);
+  g.addColorStop(0,a);g.addColorStop(1,b);return g;
+}
+function drawBody(v,s,ox,oy,col1,col2,alpha,lw){
+  var r=Math.max(20,maxR(v)*s);
+  var A=alpha===undefined?1:alpha;
+  ctx.globalAlpha=A*0.92;
+  trace(v,s,ox,oy);ctx.fillStyle='rgba(6,14,34,.88)';ctx.fill();
+  ctx.globalAlpha=A;
+  trace(v,s,ox,oy);ctx.fillStyle=bodyGrad(ox,oy,r,col1,col2);ctx.fill();
+  ctx.globalAlpha=A*0.22;
+  ctx.lineWidth=1;ctx.strokeStyle='rgba(199,236,255,.45)';
+  ctx.beginPath();
+  for(var i=0;i<v.length;i++){ctx.moveTo(ox,oy);ctx.lineTo(ox+v[i][0]*s,oy-v[i][1]*s);}
+  ctx.stroke();
+  ctx.globalAlpha=A;
+  trace(v,s,ox,oy);ctx.lineWidth=lw||2.6;ctx.strokeStyle=WH;ctx.lineJoin='round';ctx.stroke();
+  ctx.globalAlpha=1;
+}
+function drawPolyCrystal(c,tt){
+  var s=c.scale, ox=c.cx, oy=c.cy+c.bob, i, rad=maxR(c.v)*s;
+  glowAt(ox,oy,rad*0.34,0.42+0.14*Math.sin(tt*2.2),1);
+  if(anim&&anim.type==='fold'&&anim.c===c){
+    var ph=anim.ph==='in'?easeInOut(clamp(anim.t/anim.dur,0,1)):1-easeOut(clamp(anim.t/anim.dur,0,1));
+    var phi=ph*Math.PI, cphi=Math.cos(phi);
+    var a=anim.ang*D2R, ux=Math.cos(a), uy=Math.sin(a), nx=-uy, ny=ux;
+    var fixed=clipHalf(c.v,nx,ny,-1), mov=clipHalf(c.v,nx,ny,1);
+    var movT=mov.map(function(p){return foldPt(p,ux,uy,nx,ny,cphi);});
+    ctx.globalCompositeOperation='lighter';
+    if(fixed.length>2)fillPoly(fixed,s,ox,oy,'rgba(45,190,240,.80)','rgba(160,235,255,.85)',2);
+    if(movT.length>2)fillPoly(movT,s,ox,oy,anim.ok?'rgba(210,80,190,.80)':'rgba(235,60,90,.82)',
+      anim.ok?'rgba(255,180,240,.9)':'rgba(255,140,150,.95)',2);
+    ctx.globalCompositeOperation='source-over';
+    axisLine(anim.ang,s,ox,oy,rad*1.06,'rgba(247,251,255,'+(0.55+0.45*Math.sin(ph*Math.PI))+')',3.4);
+    return;
+  }
+  if(anim&&anim.type==='rot'&&anim.c===c){
+    var t2=easeInOut(clamp(anim.t/anim.dur,0,1)), th=t2*Math.PI;
+    var dx=anim.dot.x*s, dy=-anim.dot.y*s, co=Math.cos(th), si=Math.sin(th);
+    var rv=c.v.map(function(p){var x=p[0]-anim.dot.x,y=p[1]-anim.dot.y;
+      return[x*co-y*si+anim.dot.x, x*si+y*co+anim.dot.y];});
+    ctx.globalCompositeOperation='lighter';
+    fillPoly(c.v,s,ox,oy,'rgba(45,190,240,.72)','rgba(160,235,255,.8)',2);
+    fillPoly(rv,s,ox,oy,anim.ok?'rgba(210,80,190,.82)':'rgba(235,60,90,.82)',
+      anim.ok?'rgba(255,180,240,.92)':'rgba(255,140,150,.95)',2.4);
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle=WH;ctx.beginPath();ctx.arc(ox+dx,oy+dy,6,0,TAU);ctx.fill();
+    glowAt(ox+dx,oy+dy,28,.7,1);
+    return;
+  }
+  if(anim&&anim.type==='drop'&&anim.c===c){
+    var td=clamp(anim.t/anim.dur,0,1);
+    ctx.save();ctx.globalAlpha=1-td*td;
+    drawBody(c.v,s,ox,oy+td*td*CH*0.9,anim.ok?'rgba(60,200,255,.8)':'rgba(235,70,100,.8)',
+      anim.ok?'rgba(120,120,255,.55)':'rgba(255,120,90,.6)',1-td*.2,2.4);
+    ctx.restore();return;
+  }
+  /* 평상시 */
+  drawBody(c.v,s,ox,oy,'rgba(44,178,246,.92)','rgba(176,60,214,.86)',1,3);
+  if(GS.lv<=3){ for(i=0;i<c.sh.cand.length;i++) axisLine(c.sh.cand[i],s,ox,oy,rad*1.0,'rgba(230,248,255,.38)',1.8,[7,9]); }
+  for(i=0;i<c.found.length;i++)
+    axisLine(c.sh.axes[c.found[i]],s,ox,oy,rad*1.03,'rgba(120,240,255,1)',3.4,[]);
+  ctx.globalCompositeOperation='lighter';
+  for(i=0;i<c.dots.length;i++){
+    var d=c.dots[i], px=ox+d.x*s, py=oy-d.y*s, pu=0.5+0.5*Math.sin(tt*3+i*1.7);
+    ctx.fillStyle='rgba(255,209,102,'+(0.30+0.30*pu)+')';
+    ctx.beginPath();ctx.arc(px,py,7.5+pu*2,0,TAU);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.9)';ctx.beginPath();ctx.arc(px,py,2.6,0,TAU);ctx.fill();
+  }
+  ctx.globalCompositeOperation='source-over';
+  if(c.rotDone){ctx.fillStyle='rgba(77,225,255,.95)';ctx.beginPath();ctx.arc(ox,oy,5,0,TAU);ctx.fill();
+    ctx.lineWidth=2;ctx.strokeStyle='rgba(247,251,255,.9)';ctx.beginPath();ctx.arc(ox,oy,12,0,TAU);ctx.stroke();}
+  if(drag&&drag.mode==='fold'&&drag.snap!==null)
+    axisLine(drag.snap,s,ox,oy,rad*1.12,'rgba(247,251,255,.95)',5,[]);
+}
+function drawHalfCrystal(c,tt){
+  var s=c.scale, ox=c.cx, oy=c.cy+c.bob, i, h=c.hh;
+
+  ctx.fillStyle='rgba(77,225,255,.055)';ctx.fillRect(ox,oy-4*s,4*s,8*s);
+  ctx.lineWidth=1;ctx.strokeStyle='rgba(160,225,255,.30)';ctx.beginPath();
+  for(i=-4;i<=4;i++){ctx.moveTo(ox+i*s,oy-4*s);ctx.lineTo(ox+i*s,oy+4*s);ctx.moveTo(ox-4*s,oy+i*s);ctx.lineTo(ox+4*s,oy+i*s);}
+  ctx.stroke();
+  var done=c.need.length===0;
+  var poly=done?h.full:h.half;
+  drawBody(poly,s,ox,oy,'rgba(44,178,246,.9)','rgba(176,60,214,.84)',1,2.8);
+  axisLine(90,s,ox,oy,s*4.4,'rgba(247,251,255,.92)',3,[9,7]);
+  for(i=0;i<c.placed.length;i++){var p=c.placed[i];
+    ctx.globalCompositeOperation='lighter';ctx.fillStyle='rgba(77,255,190,.9)';
+    ctx.beginPath();ctx.arc(ox+p[0]*s,oy-p[1]*s,7,0,TAU);ctx.fill();ctx.globalCompositeOperation='source-over';}
+  if(!done){
+    for(i=0;i<c.need.length;i++){var q=c.need[i],src=[-q[0],q[1]];
+      var pu=0.5+0.5*Math.sin(tt*3+i);
+      ctx.globalCompositeOperation='lighter';ctx.fillStyle='rgba(255,209,102,'+(0.5+0.4*pu)+')';
+      ctx.beginPath();ctx.arc(ox+src[0]*s,oy-src[1]*s,5.5,0,TAU);ctx.fill();
+      ctx.globalCompositeOperation='source-over';}
+  }
+  if(c.badT>0&&c.bad){
+    ctx.save();ctx.globalAlpha=clamp(c.badT*2,0,1);ctx.strokeStyle='#ff4d6a';ctx.lineWidth=4;ctx.lineCap='round';
+    var bx=ox+c.bad[0]*s,by=oy-c.bad[1]*s;
+    ctx.beginPath();ctx.moveTo(bx-9,by-9);ctx.lineTo(bx+9,by+9);ctx.moveTo(bx+9,by-9);ctx.lineTo(bx-9,by+9);ctx.stroke();ctx.restore();
+  }
+}
+function gateVerts(p,t){
+  var rot=lerp(p.rot,0,t), fx=lerp(p.flip?-1:1,1,t), co=Math.cos(rot*D2R), si=Math.sin(rot*D2R);
+  return ctr(p.src.map(function(q){var x=q[0]*fx*p.s,y=q[1]*p.s;return[x*co-y*si,x*si+y*co];}));
+}
+function drawGate(c,tt){
+  var s=c.scale, i;
+  /* 넓이를 세어 볼 수 있는 눈금 — '넓이가 같으면 합동'이라는 오개념을 스스로 확인하게 한다 */
+  ctx.save();ctx.lineWidth=1;ctx.strokeStyle='rgba(160,225,255,.14)';ctx.beginPath();
+  for(i=-14;i<=14;i++){var gx=c.cx+i*s;if(gx>2&&gx<CW-2){ctx.moveTo(gx,stage.top);ctx.lineTo(gx,stage.bot);}
+    var gy=stage.top+((i+14)*s);if(gy<stage.bot){ctx.moveTo(4,gy);ctx.lineTo(CW-4,gy);}}
+  ctx.stroke();ctx.restore();
+  glowAt(c.cx,c.cy,s*5.5,0.32,1);
+  drawBody(c.g.base,s,c.cx,c.cy,'rgba(255,196,80,.9)','rgba(255,110,60,.85)',1,3.2);
+  ctx.font='900 13px -apple-system,"Apple SD Gothic Neo",sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='rgba(255,209,102,.95)';ctx.fillText('기준 조각',c.cx,c.cy-s*5.6);
+  for(i=0;i<4;i++){
+    var p=c.g.pieces[i], sl=c.slots[i], st=c.picked[i]||0;
+    if(c.fly&&c.fly.i===i)continue;
+    var col1=st===1?'rgba(80,255,190,.7)':st===2?'rgba(120,40,60,.55)':'rgba(44,178,246,.9)';
+    var col2=st===1?'rgba(60,180,255,.8)':st===2?'rgba(70,20,40,.5)':'rgba(176,60,214,.84)';
+    ctx.save();
+    var bp=st===0?1+0.03*Math.sin(tt*2.4+i):1;
+    ctx.translate(sl.x,sl.y);ctx.scale(bp,bp);ctx.translate(-sl.x,-sl.y);
+    drawBody(p.v,s,sl.x,sl.y,col1,col2,st===2?.45:1,2.4);
+    ctx.restore();
+    if(st){var by=sl.y-bbox(p.v).y0*s+22;
+      ctx.font='900 24px -apple-system,sans-serif';ctx.textAlign='center';
+      ctx.fillStyle=st===1?'#7dffc4':'#ff8fb0';ctx.fillText(st===1?'✓':'✕',sl.x,by);}
+  }
+  if(c.fly){
+    var f=c.fly, t=easeInOut(clamp(f.t/f.dur,0,1)), pp=c.g.pieces[f.i];
+    var x=lerp(c.slots[f.i].x,c.cx,t), y=lerp(c.slots[f.i].y,c.cy,t);
+    var vv=gateVerts(pp,t);
+    ctx.globalCompositeOperation='lighter';
+    if(t>0.55)fillPoly(c.g.base,s,c.cx,c.cy,'rgba(45,190,240,.8)','rgba(160,235,255,.7)',2);
+    fillPoly(vv,s,x,y,pp.same?'rgba(210,80,190,.82)':'rgba(235,60,90,.85)',
+      pp.same?'rgba(255,190,245,.95)':'rgba(255,150,160,.95)',2.4);
+    ctx.globalCompositeOperation='source-over';
+  }
+}
+function drawCrack(a){
+  var s=a.c.scale,ox=a.c.cx,oy=a.c.cy,t=clamp(a.t/a.dur,0,1),e=easeOut(t),i;
+  ctx.globalCompositeOperation='lighter';
+  for(i=0;i<a.sh.length;i++){var f=a.sh[i];
+    ctx.save();ctx.globalAlpha=clamp(1-t*t*1.15,0,1);
+    ctx.translate(ox+(f.cx+f.vx*e*4.6)*s, oy-(f.cy+f.vy*e*4.6)*s+e*e*80);
+    ctx.rotate(f.r*e*2.2);
+    fillPoly(f.v,s*(1-t*0.45),0,0,'rgba(175,235,255,.85)','rgba(255,255,255,.95)',1.4);
+    ctx.restore();}
+  ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+}
+function drawReveal(rv){
+  var d=rv.data;if(!d)return;
+  var t=clamp(rv.t/rv.dur,0,1), a=clamp((1-t)*2.6,0,1)*clamp(t*6,0,1);
+  var s=d.s,ox=d.ox,oy=d.oy,i,rad=d.rad;
+  ctx.globalAlpha=a*0.55;
+  if(d.v)fillPoly(d.v,s,ox,oy,'rgba(30,60,110,.75)','rgba(199,236,255,.5)',2);
+  ctx.globalAlpha=a;
+  if(d.axes)for(i=0;i<d.axes.length;i++)axisLine(d.axes[i],s,ox,oy,rad*1.05,'#f7fbff',3,[10,8]);
+  if(d.center){ctx.strokeStyle='#f7fbff';ctx.lineWidth=3;ctx.setLineDash([4,5]);
+    ctx.beginPath();ctx.arc(ox,oy,13,0,TAU);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#f7fbff';ctx.beginPath();ctx.arc(ox,oy,4,0,TAU);ctx.fill();}
+  if(d.mine!==undefined&&d.mine!==null)axisLine(d.mine,s,ox,oy,rad*1.05,'#ff4d6a',4,[]);
+  if(d.mdot){ctx.fillStyle='#ff4d6a';ctx.beginPath();ctx.arc(ox+d.mdot[0]*s,oy-d.mdot[1]*s,8,0,TAU);ctx.fill();}
+  ctx.globalAlpha=1;
+}
+</script>
+
+<script>
+"use strict";
+/* ══════════════ 7. 게임 상태 ══════════════ */
+var GS={phase:'intro',score:0,lives:3,combo:1,lv:1,solved:0,made:0,axesFound:0,best:0,book:{}};
+var anim=null, rv=null, drag=null, lockUI=false, T=0, last=0, raf=0;
+var E={score:document.getElementById('score'),combo:document.getElementById('combo'),
+  lvl:document.getElementById('lvl'),tfill:document.getElementById('tfill'),
+  hint:document.getElementById('hint'),intro:document.getElementById('intro'),
+  over:document.getElementById('over'),ovs:document.getElementById('ovs'),ovd:document.getElementById('ovd'),
+  pips:document.querySelectorAll('.pip')};
+var timeLeft=8, timeMax=8;
+
+try{ GS.best=parseInt(localStorage.getItem('symbrk.best')||'0',10)||0;
+     GS.book=JSON.parse(localStorage.getItem('symbrk.book')||'{}')||{}; }catch(e){}
+
+/* ── 오디오 (사용자 제스처 이후에만) */
+var actx=null, muted=false;
+function initAudio(){ if(actx)return; try{var A=window.AudioContext||window.webkitAudioContext; if(A)actx=new A();}catch(e){actx=null;} }
+function tone(f,f2,dur,type,vol){
+  if(!actx||muted)return;
+  try{var o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime;
+    o.type=type||'triangle';o.frequency.setValueAtTime(f,t);
+    if(f2)o.frequency.exponentialRampToValueAtTime(Math.max(30,f2),t+dur);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol||0.16,t+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+dur+0.03);}catch(e){}
+}
+function sfx(k){
+  if(k==='good'){tone(560,1180,0.22,'triangle',0.14);tone(880,1760,0.16,'sine',0.07);}
+  else if(k==='perfect'){tone(420,1400,0.5,'triangle',0.16);tone(120,60,0.7,'sine',0.22);}
+  else if(k==='bad'){tone(210,70,0.32,'sawtooth',0.13);}
+  else if(k==='tick'){tone(760,900,0.07,'square',0.05);}
+  else if(k==='drop'){tone(300,90,0.35,'sine',0.12);}
+}
+
+/* ── HUD */
+function hint(txt,cls){E.hint.innerHTML=txt;E.hint.className=cls||'';}
+function syncHUD(){
+  if(E.score.textContent!==fmt(GS.score))E.score.textContent=fmt(GS.score);
+  var cm='x'+GS.combo; if(E.combo.textContent!==cm){E.combo.textContent=cm;
+    E.combo.style.transform='scale(1.35)';setTimeout(function(){E.combo.style.transform='scale(1)';},170);}
+  var lt=GS.lv+'단계'; if(E.lvl.textContent!==lt)E.lvl.textContent=lt;
+  for(var i=0;i<E.pips.length;i++)E.pips[i].className='pip'+(i<GS.lives?'':' off');
+}
+
+/* ── 결정 뽑기 */
+function tierMax(lv){return lv<=2?1:lv<=4?2:lv<=7?3:4;}
+function pickShape(){
+  var tm=tierMax(GS.lv), pool=SHAPES.filter(function(s){return s.tier<=tm&&s.id!==lastShapeId;});
+  if(GS.lv<8)pool=pool.filter(function(s){return s.axes.length>0||s.point;});
+  if(!pool.length)pool=SHAPES.slice(0,5);
+  var s=pick(pool); lastShapeId=s.id; return s;
+}
+function nextCrystal(){
+  anim=null;rv=null;drag=null;
+  GS.made++;
+  GS.lv=Math.min(12,1+Math.floor(GS.solved/3));
+  var kind='poly';
+  if(GS.lv>=5&&GS.made%5===0)kind='gate';
+  else if(GS.lv>=6&&Math.random()<0.28)kind='half';
+  if(kind==='gate'){cry=newGate(pick(GATES));timeMax=14;
+    hint('기준 조각과 <b>포개면 꼭 맞는</b> 조각을 모두 찾아 톡!','warn');}
+  else if(kind==='half'){cry=newHalf(pick(HALVES));timeMax=13;
+    hint('축 건너편에 <b>거리가 똑같은</b> 자리를 찍어 완성해요','warn');}
+  else{cry=newPoly(pickShape());timeMax=GS.lv<=3?9:GS.lv<=6?7:6;
+    hint(GS.lv<=3?'도형 위를 <b>죽 그으면</b> 그 선으로 접혀요':'접기·돌리기·버리기 중 하나!');}
+  timeLeft=timeMax;
+  syncHUD();
+}
+function startGame(){
+  GS.phase='playing';GS.score=0;GS.lives=3;GS.combo=1;GS.lv=1;GS.solved=0;GS.made=0;GS.axesFound=0;
+  PS.length=0;POPS.length=0;lastShapeId='';
+  E.intro.style.display='none';E.over.style.display='none';
+  nextCrystal();syncHUD();
+}
+function gameOver(){
+  GS.phase='over';anim=null;rv=null;cry=null;
+  if(GS.score>GS.best){GS.best=GS.score;try{localStorage.setItem('symbrk.best',String(GS.best));}catch(e){}}
+  try{localStorage.setItem('symbrk.book',JSON.stringify(GS.book));}catch(e){}
+  var nb=Object.keys(GS.book).length, tot=SHAPES.length+HALVES.length;
+  E.ovs.textContent=fmt(GS.score);
+  E.ovd.innerHTML='이번 판에 찾은 대칭축 <b>'+GS.axesFound+'개</b><br>'+
+    '깨뜨린 결정 <b>'+GS.solved+'개</b> · 도달 <b>'+GS.lv+'단계</b><br>'+
+    '결정 도감 <b>'+nb+'/'+tot+'</b> · 최고 기록 <b>'+fmt(GS.best)+'</b>';
+  E.over.style.display='flex';
+}
+
+/* ── 판정 결과 */
+function award(pts,label,x,y){
+  var got=pts*GS.combo;GS.score+=got;
+  pop(x||stage.cx,y||stage.cy-40,'+'+fmt(got),GD);
+  if(label)hint(label,'');
+  syncHUD();
+}
+function mistake(msg,data,after){
+  GS.lives--;GS.combo=1;
+  sfx('bad');shake(15);flash(.45,'#ff4d6a');
+  hint(msg,'bad');syncHUD();
+  rv={t:0,dur:1.0,data:data,after:after||'next'};
+}
+function crackNow(c,perfect){
+  var v=c.kind==='half'?c.hh.full:c.v, i, sh=[];
+  /* 대칭축을 따라 좌우 짝이 맞는 파편으로 쪼갠다 */
+  for(i=0;i<v.length;i++){
+    var a=v[i],b=v[(i+1)%v.length],m=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+    [[[0,0],a,m],[[0,0],m,b]].forEach(function(tri){
+      var gx=(tri[0][0]+tri[1][0]+tri[2][0])/3, gy=(tri[0][1]+tri[1][1]+tri[2][1])/3;
+      var d=Math.hypot(gx,gy)||1;
+      sh.push({v:tri.map(function(q){return[(q[0]-gx)*0.84,(q[1]-gy)*0.84];}),
+        cx:gx,cy:gy,vx:gx/d,vy:gy/d,r:rnd(-1,1)});
+    });
+  }
+  anim={type:'crack',c:c,t:0,dur:0.85,sh:sh};
+  flash(perfect?.52:.4,'#f7fbff');shake(perfect?22:12);
+  if(!REDUCE)slowmo=perfect?0.4:0;
+  spark(c.cx,c.cy,perfect?140:80,'rgba(200,245,255,1)',420,1.1);
+  spark(c.cx,c.cy,perfect?60:30,'rgba(255,209,102,1)',300,1.0);
+  sfx('perfect');
+  GS.solved++;GS.combo=Math.min(8,GS.combo+1);
+  GS.book[c.kind==='half'?c.hh.id:c.sh?c.sh.id:'gate']=1;
+  try{localStorage.setItem('symbrk.book',JSON.stringify(GS.book));}catch(e){}
+  syncHUD();
+}
+/* 접기 확정 */
+function commitFold(angle){
+  var c=cry,i,idx=-1;
+  for(i=0;i<c.sh.axes.length;i++)if(angDiff(c.sh.axes[i],angle)<0.6){idx=i;break;}
+  if(idx>=0&&c.found.indexOf(idx)>=0){hint('이미 찾은 대칭축이에요. 다른 축을 찾아봐요!','warn');return;}
+  anim={type:'fold',c:c,ang:angle,ok:idx>=0,idx:idx,t:0,dur:0.62,ph:'in'};
+  drag=null;sfx('tick');
+}
+function commitRot(dot){
+  var c=cry;
+  if(dot.ok&&c.rotDone){hint('이미 돌려서 확인했어요!','warn');return;}
+  anim={type:'rot',c:c,dot:dot,ok:(dot.ok&&c.sh.point),t:0,dur:0.72};
+  drag=null;sfx('tick');
+}
+function commitDrop(){
+  var c=cry;
+  if(c.kind!=='poly'){hint('이 결정은 버릴 수 없어요','warn');return;}
+  var ok=c.sh.axes.length===0&&!c.sh.point&&c.found.length===0;
+  if(ok){anim={type:'drop',c:c,ok:true,t:0,dur:0.55};sfx('drop');
+    award(220,'맞아요! 접어도 돌려도 안 겹치는 결정이에요',c.cx,c.cy-60);
+    sparkDir(c.cx,c.cy,26,'rgba(120,200,255,1)',0,1,260);}
+  else{
+    mistake('앗! 이 결정은 대칭이에요. 흰 점선이 정답 축이에요',revealData(c,null,null),'next');
+  }
+}
+function revealData(c,mine,mdot){
+  if(c.kind!=='poly')return null;
+  return{v:c.v,s:c.scale,ox:c.cx,oy:c.cy,rad:maxR(c.v)*c.scale,
+    axes:c.sh.axes,center:c.sh.point,mine:mine,mdot:mdot};
+}
+</script>
+
+<script>
+"use strict";
+/* ══════════════ 8. 진행 · 판정 해석 ══════════════ */
+function axisSparks(c,ang,col,n){
+  var a=ang*D2R, s=c.scale, r=bbox(c.v).w*s*0.55;
+  for(var i=0;i<(REDUCE?4:10);i++){
+    var k=rnd(-1,1);
+    spark(c.cx+Math.cos(a)*r*k, c.cy-Math.sin(a)*r*k, n||3, col, 200, 0.7);
+  }
+}
+function resolveFold(a){
+  var c=a.c;
+  if(a.ok){
+    c.found.push(a.idx);GS.axesFound++;
+    sfx('good');flash(.42,'#f7fbff');shake(7);
+    axisSparks(c,a.ang,'rgba(220,250,255,1)',3);
+    award(120,'',c.cx,c.cy-50);
+    if(allDone(c)){crackNow(c,true);
+      pop(stage.cx,stage.cy-95,'퍼펙트 크랙!','#4de1ff');
+      hint('완벽! <b>대칭축 '+c.sh.axes.length+'개</b>'+(c.sh.point?' + 점대칭까지':'')+' 모두 찾았어요','');
+      return;}
+    var left=c.sh.axes.length-c.found.length;
+    hint(left>0?'좋아요! 남은 대칭축 <b>'+left+'개</b>':'대칭축은 다 찾았어요. 돌려볼까요?','');
+    timeLeft=Math.min(timeMax,timeLeft+1.9);
+    a.ph='out';a.t=0;a.dur=0.32;
+  }else{
+    var ang=a.ang*D2R,ux=Math.cos(ang),uy=Math.sin(ang),nx=-uy,ny=ux;
+    var fixed=clipHalf(c.v,nx,ny,-1), mov=clipHalf(c.v,nx,ny,1);
+    var s=c.scale,i,cnt=0;
+    for(i=0;i<mov.length;i++){
+      var rp=foldPt(mov[i],ux,uy,nx,ny,-1);
+      if(!inPoly(rp,fixed)&&Math.hypot(rp[0],rp[1])>0.4){
+        sparkDir(c.cx+rp[0]*s,c.cy-rp[1]*s,7,'rgba(255,90,110,1)',0,1,150);cnt++;}
+    }
+    mistake('삐져나왔어요! 이 선으로 접으면 <b>어긋나요</b>',revealData(c,a.ang,null),'next');
+    anim=null;
+  }
+}
+function resolveRot(a){
+  var c=a.c;
+  if(a.ok){
+    c.rotDone=true;sfx('good');flash(.42,'#f7fbff');shake(7);
+    spark(c.cx,c.cy,24,'rgba(255,209,102,1)',260,0.8);
+    award(170,'',c.cx,c.cy-50);
+    if(allDone(c)){crackNow(c,true);
+      pop(stage.cx,stage.cy-95,'퍼펙트 크랙!','#4de1ff');
+      hint('완벽! 180° 돌려도 꼭 겹치는 <b>점대칭도형</b>이에요','');return;}
+    hint('점대칭 확인! 남은 대칭축 <b>'+(c.sh.axes.length-c.found.length)+'개</b>','');
+    timeLeft=Math.min(timeMax,timeLeft+1.9);
+  }else{
+    mistake(c.sh.point?'그 점은 대칭의 중심이 아니에요. 흰 동그라미가 진짜 중심!'
+      :'돌려도 겹치지 않아요. 이 결정은 <b>점대칭이 아니에요</b>',
+      revealData(c,null,[a.dot.x,a.dot.y]),'next');
+  }
+  if(anim===a&&anim.type==='rot')anim=null;
+}
+function resolveGate(a){
+  var c=a.c,p=c.g.pieces[a.i],i,left=0;
+  c.fly=null;
+  if(p.same){
+    c.picked[a.i]=1;sfx('good');flash(.35,'#7dffc4');shake(6);
+    spark(c.cx,c.cy,26,'rgba(125,255,196,1)',280,0.8);
+    award(260,'합동! 돌리거나 뒤집으면 꼭 포개져요',c.cx,c.cy-60);
+    for(i=0;i<4;i++)if(c.g.pieces[i].same&&c.picked[i]!==1)left++;
+    if(left===0){
+      GS.solved++;GS.combo=Math.min(8,GS.combo+1);
+      award(400,'합동 게이트 돌파!',stage.cx,stage.cy);
+      pop(stage.cx,stage.cy-70,'GATE CLEAR','#ffd166');
+      flash(.8,'#f7fbff');shake(18);sfx('perfect');GS.book['gate']=1;
+      anim={type:'hold',c:c,t:0,dur:0.7,go:'next'};return;
+    }
+    hint('좋아요! 합동인 조각이 <b>'+left+'개</b> 더 있어요','');
+    timeLeft=Math.min(timeMax,timeLeft+2.2);
+  }else{
+    c.picked[a.i]=2;
+    mistake(p.why||'포개면 완전히 겹치지 않아요',null,'stay');
+  }
+  if(anim===a)anim=null;
+}
+function stepAnim(dt){
+  var a=anim;a.t+=dt;
+  if(a.type==='gatefly'&&a.c.fly)a.c.fly.t=a.t;
+  if(a.t<a.dur)return;
+  if(a.type==='fold'){ if(a.ph==='in')resolveFold(a); else anim=null; }
+  else if(a.type==='rot')resolveRot(a);
+  else if(a.type==='gatefly')resolveGate(a);
+  else if(a.type==='drop'){anim=null;nextCrystal();}
+  else if(a.type==='crack'){anim=null;nextCrystal();}
+  else if(a.type==='hold'){var g=a.go;anim=null;if(g==='crack')crackNow(a.c,true);else nextCrystal();}
+  else anim=null;
+}
+function endReveal(){
+  var after=rv?rv.after:'next';rv=null;
+  if(GS.lives<=0){gameOver();return;}
+  if(after==='next')nextCrystal();
+  else{timeLeft=Math.min(timeMax,Math.max(timeLeft,timeMax*0.55));}
+}
+function timeUp(){
+  var c=cry;if(!c)return;
+  mistake('시간 초과! 코어가 과열됐어요',c.kind==='poly'?revealData(c,null,null):null,'next');
+}
+/* 반쪽 결정 */
+function commitHalfTap(gx,gy){
+  var c=cry,i,s=c.scale;
+  for(i=0;i<c.need.length;i++){
+    if(c.need[i][0]===gx&&c.need[i][1]===gy){
+      c.placed.push(c.need[i]);c.need.splice(i,1);
+      sfx('good');flash(.3,'#7dffc4');
+      spark(c.cx+gx*s,c.cy-gy*s,16,'rgba(125,255,196,1)',220,0.7);
+      award(130,'',c.cx+gx*s,c.cy-gy*s-30);
+      timeLeft=Math.min(timeMax,timeLeft+1.7);
+      if(!c.need.length){hint('선대칭도형 완성! 축에서 <b>거리가 똑같죠</b>','');
+        GS.axesFound++;anim={type:'hold',c:c,t:0,dur:0.55,go:'crack'};}
+      else hint('좋아요! 대응점 <b>'+c.need.length+'개</b> 남았어요','');
+      return;
+    }
+  }
+  c.bad=[gx,gy];c.badT=0.6;
+  mistake('거리가 달라요! 왼쪽 점과 축까지 <b>칸 수가 같아야</b> 해요',null,'stay');
+}
+/* ══════════════ 9. 입력 ══════════════ */
+function toLocal(c,x,y){var s=c.scale,oy=c.cy+(c.bob||0);return[(x-c.cx)/s,-(y-oy)/s];}
+function canInput(){return GS.phase==='playing'&&cry&&!anim&&!rv;}
+function pdown(x,y){
+  if(!canInput())return;
+  var c=cry,p=toLocal(c,x,y),i;
+  drag={sx:x,sy:y,x:x,y:y,mode:'free',snap:null,dot:null};
+  if(c.kind==='poly'){
+    for(i=0;i<c.dots.length;i++){
+      var d=c.dots[i],px=c.cx+d.x*c.scale,py=c.cy+c.bob-d.y*c.scale;
+      if(Math.hypot(x-px,y-py)<30){drag.mode='dot';drag.dot=d;return;}
+    }
+    if(inPoly(p,c.v))drag.mode='fold';
+  }else if(c.kind==='half')drag.mode='cell';
+  else if(c.kind==='gate')drag.mode='gate';
+}
+function pmove(x,y){
+  if(!drag||!canInput())return;
+  drag.x=x;drag.y=y;
+  if(drag.mode==='fold'){
+    var dx=x-drag.sx,dy=y-drag.sy;
+    if(Math.hypot(dx,dy)>26){
+      var ang=ang180(Math.atan2(-dy,dx)*R2D),cand=cry.sh.cand,best=null,bd=999;
+      for(var i=0;i<cand.length;i++){var d=angDiff(cand[i],ang);if(d<bd){bd=d;best=cand[i];}}
+      drag.snap=best;
+    }else drag.snap=null;
+  }
+}
+function pup(){
+  if(!drag){return;}
+  var d=drag,c=cry,dx=d.x-d.sx,dy=d.y-d.sy,dist=Math.hypot(dx,dy);
+  drag=null;
+  if(!canInput())return;
+  if(d.mode==='fold'){ if(dist>26&&d.snap!==null)commitFold(d.snap);
+    else hint('조금 더 <b>길게</b> 그어 보세요','warn'); return; }
+  if(d.mode==='dot'){ if(dist<16)commitRot(d.dot); return; }
+  if(d.mode==='free'){
+    if(dy>60&&Math.abs(dy)>Math.abs(dx))commitDrop();
+    return;
+  }
+  if(d.mode==='cell'&&dist<16){
+    var p=toLocal(c,d.x,d.y),gx=Math.round(p[0]),gy=Math.round(p[1]);
+    if(Math.abs(gx)<=4&&Math.abs(gy)<=4&&Math.hypot(p[0]-gx,p[1]-gy)<0.55)commitHalfTap(gx,gy);
+    return;
+  }
+  if(d.mode==='gate'&&dist<16){
+    for(var i=0;i<4;i++){var sl=c.slots[i];
+      if(Math.abs(d.x-sl.x)<CW*0.24&&Math.abs(d.y-sl.y)<stage.h*0.16){
+        if(c.picked[i])return;
+        c.fly={i:i,t:0,dur:0.8};anim={type:'gatefly',c:c,i:i,t:0,dur:0.8};sfx('tick');return;}
+    }
+  }
+}
+function evXY(e){var r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top];}
+cv.addEventListener('pointerdown',function(e){e.preventDefault();initAudio();var p=evXY(e);pdown(p[0],p[1]);
+  try{cv.setPointerCapture(e.pointerId);}catch(x){}},{passive:false});
+cv.addEventListener('pointermove',function(e){if(!drag)return;e.preventDefault();var p=evXY(e);pmove(p[0],p[1]);},{passive:false});
+cv.addEventListener('pointerup',function(e){e.preventDefault();pup();},{passive:false});
+cv.addEventListener('pointercancel',function(){drag=null;});
+document.getElementById('drop').addEventListener('click',function(){initAudio();if(canInput())commitDrop();});
+document.getElementById('mute').addEventListener('click',function(){
+  muted=!muted;this.textContent=muted?'🔇':'🔊';if(!muted)initAudio();});
+document.getElementById('go').addEventListener('click',function(){initAudio();startGame();});
+document.getElementById('again').addEventListener('click',function(){initAudio();startGame();});
+window.addEventListener('keydown',function(e){
+  if(e.key==='ArrowDown'||e.key===' '){e.preventDefault();if(canInput())commitDrop();}
+  if((e.key==='Enter')&&GS.phase!=='playing'){startGame();}
+});
+</script>
+
+<script>
+"use strict";
+/* ══════════════ 10. 루프 ══════════════ */
+function update(dt){
+  T+=dt; updFX(dt);
+  if(cry){cry.bob=Math.sin(T*1.7)*5.5; if(cry.badT>0)cry.badT-=dt;}
+  if(anim)stepAnim(dt);
+  else if(rv){rv.t+=dt;if(rv.t>=rv.dur)endReveal();}
+  else if(GS.phase==='playing'&&cry){
+    timeLeft-=dt;
+    if(timeLeft<=0){timeLeft=0;timeUp();}
+  }
+  var r=timeMax>0?clamp(timeLeft/timeMax,0,1):0;
+  E.tfill.style.transform='scaleX('+r.toFixed(3)+')';
+  var hot=r<0.3; if(hot!==E.tfill.classList.contains('hot'))E.tfill.classList.toggle('hot',hot);
+}
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.drawImage(bgc,0,0);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.save();
+  if(shakeT>0){var k=shakeM*(shakeT/0.36);ctx.translate(rnd(-k,k),rnd(-k,k));}
+  drawDust();
+  if(anim&&anim.type==='crack')drawCrack(anim);
+  else if(cry&&GS.phase==='playing'){
+    if(cry.kind==='poly')drawPolyCrystal(cry,T);
+    else if(cry.kind==='half')drawHalfCrystal(cry,T);
+    else drawGate(cry,T);
+  }
+  if(rv)drawReveal(rv);
+  drawFX();
+  ctx.restore();
+}
+function loop(now){
+  raf=requestAnimationFrame(loop);
+  if(!last)last=now;
+  var dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(slowmo>0)dt*=0.4;
+  update(dt);render();
+}
+
+/* ══════════════ 11. 문제 표본 (교과 내용 검증용) ══════════════ */
+function mkChoices(correct,cands,n){
+  var out=[String(correct)],i;
+  for(i=0;i<cands.length&&out.length<n;i++){var s=String(cands[i]);if(out.indexOf(s)<0)out.push(s);}
+  for(i=out.length-1;i>0;i--){var j=ri(0,i),t=out[i];out[i]=out[j];out[j]=t;}
+  return out;
+}
+var PT_YES='완전히 겹친다 (점대칭도형이다)', PT_NO='겹치지 않는다 (점대칭도형이 아니다)';
+function buildPool(){
+  var P=[],i,k;
+  SHAPES.forEach(function(s){
+    if(!s.qn)return;
+    var a=s.axes.length;
+    P.push({prompt:'「'+s.qn+'」을 접어서 완전히 겹치게 하는 대칭축은 모두 몇 개일까?',
+      choices:mkChoices(a+'개',[(a+1)+'개',(a+2)+'개',(a-1)+'개','0개','2개','4개','6개'],4),
+      answer:a+'개',answerNumeric:a,unitConcept:'대칭축의 개수'});
+    P.push({prompt:'「'+s.qn+'」을 어떤 점을 중심으로 180° 돌리면 처음 도형과 완전히 겹칠까?',
+      choices:[PT_YES,PT_NO],answer:s.point?PT_YES:PT_NO,answerNumeric:s.point?1:0,
+      unitConcept:'점대칭도형'});
+  });
+  var NG={7:'정칠각형',9:'정구각형',10:'정십각형',11:'정십일각형',12:'정십이각형'};
+  Object.keys(NG).forEach(function(kk){
+    var k=+kk, nm=NG[kk];
+    P.push({prompt:nm+'의 대칭축은 모두 몇 개일까?',
+      choices:mkChoices(k+'개',[(k+1)+'개',(k-1)+'개',(2*k)+'개',Math.max(1,k-2)+'개'],4),
+      answer:k+'개',answerNumeric:k,unitConcept:'정다각형의 대칭축'});
+    P.push({prompt:nm+'은 점대칭도형일까? (180° 돌려서 처음 도형과 겹치는지 보자)',
+      choices:[PT_YES,PT_NO],answer:(k%2===0)?PT_YES:PT_NO,answerNumeric:(k%2===0)?1:0,
+      unitConcept:'점대칭도형'});
+  });
+  for(k=3;k<=15;k++)
+    P.push({prompt:'합동인 두 삼각형에서 변 ㄱㄴ의 대응변이 변 ㄹㅁ이다. 변 ㄱㄴ이 '+k+' cm이면 변 ㄹㅁ은 몇 cm일까?',
+      choices:mkChoices(k+' cm',[(k+1)+' cm',(k-1)+' cm',(2*k)+' cm',(k+3)+' cm'],4),
+      answer:k+' cm',answerNumeric:k,unitConcept:'합동의 대응변'});
+  [35,48,55,62,70,85,95,110,125].forEach(function(d){
+    P.push({prompt:'합동인 두 사각형에서 각 ㄱ의 대응각이 각 ㅁ이다. 각 ㄱ이 '+d+'°이면 각 ㅁ은 몇 도일까?',
+      choices:mkChoices(d+'°',[(180-d)+'°',(d+10)+'°',(d-5)+'°',(90-d>0?90-d:d+25)+'°'],4),
+      answer:d+'°',answerNumeric:d,unitConcept:'합동의 대응각'});
+  });
+  for(k=1;k<=9;k++)
+    P.push({prompt:'선대칭도형을 완성하려고 한다. 대칭축에서 왼쪽으로 '+k+'칸 떨어진 점의 대응점은 오른쪽으로 몇 칸 떨어진 곳에 찍어야 할까?',
+      choices:mkChoices(k+'칸',[(k+1)+'칸',(k+2)+'칸',(2*k)+'칸',(k+3)+'칸'],4),
+      answer:k+'칸',answerNumeric:k,unitConcept:'선대칭도형 완성하기'});
+  for(k=3;k<=14;k++)
+    P.push({prompt:'점대칭도형에서 대칭의 중심 ㅇ에서 점 ㄱ까지의 거리가 '+k+' cm이다. 중심 ㅇ에서 점 ㄱ의 대응점 ㄷ까지의 거리는 몇 cm일까?',
+      choices:mkChoices(k+' cm',[(2*k)+' cm',(k+2)+' cm',(k-2)+' cm',(k+5)+' cm'],4),
+      answer:k+' cm',answerNumeric:k,unitConcept:'점대칭도형의 성질'});
+  var CG=[
+    {q:'가로 3 cm, 세로 4 cm인 직사각형과 합동인 도형은 어느 것일까?',
+     a:'가로 4 cm, 세로 3 cm인 직사각형',
+     d:['가로 2 cm, 세로 6 cm인 직사각형','가로 3.75 cm, 세로 5 cm인 직사각형','한 변이 3.5 cm인 정사각형']},
+    {q:'두 도형이 합동이려면 어떤 조건이어야 할까?',
+     a:'포개었을 때 완전히 겹쳐야 한다',
+     d:['넓이만 같으면 된다','모양만 같으면 된다','둘레만 같으면 된다']},
+    {q:'세 변이 3 cm, 4 cm, 5 cm인 삼각형과 합동인 것은?',
+     a:'세 변이 5 cm, 4 cm, 3 cm인 삼각형',
+     d:['세 변이 6 cm, 8 cm, 10 cm인 삼각형','밑변 6 cm, 높이 2 cm인 삼각형','세 변이 3 cm, 4 cm, 6 cm인 삼각형']},
+    {q:'직사각형 모양 종이를 90° 돌렸다. 처음 종이와 어떤 관계일까?',
+     a:'합동이다 (포개면 완전히 겹친다)',
+     d:['닮음이지만 합동은 아니다','넓이만 같다','아무 관계도 없다']}
+  ];
+  CG.forEach(function(c){P.push({prompt:c.q,choices:mkChoices(c.a,c.d,4),answer:c.a,
+    answerNumeric:1,unitConcept:'합동인 도형 찾기'});});
+  return P;
+}
+function sampleProblems(n){
+  n=Math.max(1,Math.min(300,parseInt(n,10)||20));
+  var pool=buildPool(),out=[],seen={},i,j,t;
+  for(i=pool.length-1;i>0;i--){j=ri(0,i);t=pool[i];pool[i]=pool[j];pool[j]=t;}
+  for(i=0;i<pool.length&&out.length<n;i++){
+    var p=pool[i];if(seen[p.prompt])continue;seen[p.prompt]=1;
+    out.push({id:'p'+(out.length+1),prompt:p.prompt,choices:p.choices,answer:p.answer,
+      answerNumeric:p.answerNumeric,unitConcept:p.unitConcept});
+  }
+  return out;
+}
+
+/* ══════════════ 12. 초기화 · 테스트 훅 ══════════════ */
+window.__GAME_TEST__={
+  ready:false,
+  start:function(){ if(GS.phase!=='playing')startGame(); },
+  getState:function(){return{score:GS.score,lives:GS.lives,level:GS.lv,phase:GS.phase,solved:GS.solved};},
+  answerCorrect:function(){
+    if(GS.phase!=='playing')startGame();
+    anim=null;rv=null;drag=null;
+    GS.axesFound++;award(150,'',stage.cx,stage.cy-50);
+    if(cry&&(cry.kind==='poly'||cry.kind==='half'))crackNow(cry,true);
+    else{GS.solved++;GS.combo=Math.min(8,GS.combo+1);nextCrystal();}
+    syncHUD();
+  },
+  answerWrong:function(){
+    if(GS.phase!=='playing')startGame();
+    anim=null;drag=null;
+    mistake('오답 처리',cry&&cry.kind==='poly'?revealData(cry,null,null):null,'next');
+  },
+  sampleProblems:sampleProblems
+};
+
+function boot(){
+  makeGlow();resize();initDust();
+  window.addEventListener('resize',resize);
+  window.addEventListener('orientationchange',function(){setTimeout(resize,120);});
+  hint('도형 위를 <b>죽 그으면</b> 그 선으로 접혀요');
+  syncHUD();
+  last=0;raf=requestAnimationFrame(loop);
+  window.__GAME_TEST__.ready=true;
+}
+(function(){
+  var left=2,done=false;
+  function fin(){if(done)return;done=true;boot();}
+  function one(key,src){
+    var im=new Image();
+    im.onload=function(){IMG[key]=im;if(--left<=0)fin();};
+    im.onerror=function(){IMG[key]=null;if(--left<=0)fin();};
+    im.src=src;
+  }
+  setTimeout(fin,5000);
+  one('bg','./assets/bg.png');
+  one('glow','./assets/glow.png');
+})();
+</script>
+</body>
+</html>
