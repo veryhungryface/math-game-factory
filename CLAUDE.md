@@ -27,7 +27,8 @@ public/                                Vercel 정적 배포 루트
 |---|---|---|
 | `index.html` | ✅ | 자기완결형 플레이 가능 게임. 외부 CDN 금지 |
 | `meta.json` | ✅ | 아래 스키마 준수 |
-| `thumb.png` | ✅ | 1200×630 카드 이미지 |
+| `thumb.png` | ✅ | 1200×630 허브 카드용 가로 이미지 |
+| `square.png` | ✅ | 1080×1080 정사각 공유용 이미지 — 디스코드 등에 게시할 때 쓴다 |
 | `assets/` | ⬜ | 생성 이미지·사운드. 경로는 **상대경로만** |
 
 ### 절대 규칙
@@ -126,6 +127,8 @@ HALF(225, 2) // 200
   "howto": ["방향키 또는 화면 탭으로 이동", "정답 통나무만 밟아라"],
   "playtime_min": 5,
   "difficulty": 3,
+  "thumb": "thumb.png",
+  "thumb_square": "square.png",
   "created_at": "2026-08-17T23:00:00+09:00",
   "version": 1,
   "qa": { "score": 0, "gate": 80, "passed": false, "reviewed_at": "", "notes": [] }

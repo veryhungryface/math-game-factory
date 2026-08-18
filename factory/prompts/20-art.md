@@ -21,16 +21,37 @@
 - **텍스트가 이미지 안에 들어가면 안 된다.** 모든 프롬프트에 `no text, no letters, no numbers` 를 넣어라. (숫자를 든 마스코트처럼 숫자가 꼭 필요한 경우만 예외)
 - 팔레트(`art_direction.palette`)의 색을 프롬프트에 영어 색상명으로 녹여라.
 
-## thumb.png 특별 규칙
+## thumb.png / square.png 특별 규칙
 
-- 게임의 **가장 멋있는 순간**을 담은 히어로 이미지. 스크린샷이 아니라 일러스트다.
-- 가로형(16:9에 가까운) 구도로 생성한 뒤 1200×630으로 맞춘다.
-- macOS `sips` 로 리사이즈·크롭한다:
+이 게임의 얼굴이 되는 두 장이다. **둘 다 필수**이고, 둘 다 "게임의 가장 멋있는 순간"을
+담은 일러스트다 — 스크린샷이 아니다. 절대 하나를 잘라서 다른 하나로 재활용하지 마라.
+구도 자체가 다르기 때문에 크롭으로 때우면 주인공이 잘리거나 여백만 남는다.
+
+### thumb.png — 1200×630 (허브 카드용, 가로)
+- 가로형(16:9~1.9:1) 구도로 생성. 주인공은 화면 중앙보다 살짝 왼쪽, 오른쪽에 여백을 둬서
+  타이틀 텍스트가 나중에 겹쳐도 되게.
+- macOS `sips` 로 리사이즈·크롭:
   ```bash
   sips -s format png "$SRC" --resampleHeightWidthMax 1400 --out /tmp/_t.png
   sips -c 630 1200 /tmp/_t.png --out "public/g/<slug>/thumb.png"   # -c 는 height width 순서
   ```
-  `sips -c` 는 중앙 크롭이다. 결과 크기를 `sips -g pixelWidth -g pixelHeight` 로 **반드시 확인**해라.
+
+### square.png — 1080×1080 (디스코드 등 공유용, 정사각)
+- **가로 이미지를 정사각으로 크롭하지 마라.** 주인공이 잘리거나 좌우 여백만 남는다.
+  반드시 **처음부터 정사각으로 새로 생성**해라 (`images_generate` 의 `size` 를 `1024x1024` 로).
+- 구도: 주인공(마스코트/핵심 오브젝트)을 화면 중앙에 크게, 카드 커버·앨범 아트처럼
+  임팩트 있게. 배경은 단순화해서 주인공이 확실히 도드라지게 — thumb.png보다 더
+  클로즈업이어야 한다.
+- 앱 아이콘처럼 **한눈에 무슨 게임인지 알아볼 수 있어야** 한다. 텍스트는 넣지 마라
+  (`no text, no letters, no numbers`).
+- 리사이즈 (생성 결과가 정확히 1080×1080이 아닐 수 있으니 반드시 맞춘다):
+  ```bash
+  sips -s format png "$SRC" --resampleHeightWidthMax 1200 --out /tmp/_sq.png
+  sips -c 1080 1080 /tmp/_sq.png --out "public/g/<slug>/square.png"
+  ```
+
+두 파일 모두 결과 크기를 `sips -g pixelWidth -g pixelHeight` 로 **반드시 확인**해라.
+`square.png` 는 가로세로가 정확히 같아야 한다(1080=1080). 다르면 QA에서 탈락한다.
 
 ## 용량 규칙
 

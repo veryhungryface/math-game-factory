@@ -87,6 +87,19 @@ window.__GAME_TEST__ = {
 - [ ] 여백이 답답하지 않다
 - [ ] `prefers-reduced-motion` 존중
 
+## <head> 공유 미리보기 태그
+
+`index.html` 의 `<head>` 안에 아트 에이전트가 만든 \`../square.png\`(1080×1080)를 가리키는
+공유 미리보기 태그를 넣어라. 게임 링크를 디스코드·카톡 등에 직접 붙여넣었을 때 카드가 뜨게
+하기 위함이다. \`thumb.png\`, \`square.png\` 는 이 시점에 이미 아트 단계에서 만들어져 있다.
+
+```html
+<meta property="og:title" content="<게임 제목>">
+<meta property="og:description" content="<tagline>">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+```
+
 ## meta.json
 
 `CLAUDE.md` 의 스키마 그대로 작성한다. 특히:

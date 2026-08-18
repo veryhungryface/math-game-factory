@@ -18,6 +18,17 @@ import puppeteer from 'puppeteer';
 import { P, readJSON, writeJSON, nowKST } from './paths.mjs';
 import { serveStatic } from './static-server.mjs';
 
+/** PNG IHDR 청크에서 width/height 를 읽는다. 외부 라이브러리 없이 표지 이미지 규격을 검증하기 위함. */
+function pngSize(file) {
+  try {
+    const buf = fs.readFileSync(file);
+    if (buf.length < 24 || buf.toString('hex', 0, 8) !== '89504e470d0a1a0a') return null;
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+  } catch {
+    return null;
+  }
+}
+
 /** puppeteer 캐시에서 풀 Chrome 실행파일을 찾는다 (WebGL2 지원용). 없으면 번들 기본값. */
 function resolveChrome() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -67,6 +78,26 @@ const metaPath = path.join(gameDir, 'meta.json');
 add('file.index', 'index.html 존재', fs.existsSync(htmlPath), htmlPath, true);
 add('file.meta', 'meta.json 존재', fs.existsSync(metaPath), metaPath, true);
 add('file.thumb', 'thumb.png 존재', fs.existsSync(path.join(gameDir, 'thumb.png')));
+// square.png 는 2026-08-18 오후 도입. 그 전에 이미 떠 있던 사이클(스냅샷 실행 중)은
+// 이 요구사항을 모르는 채로 아트 단계를 돌기 때문에, 당분간은 비치명적 경고로만 둔다.
+// 신규 사이클에서 안정적으로 생성되는 게 확인되면 fatal:true 로 올릴 것.
+add('file.square', 'square.png 존재 (공유용 정사각 이미지)', fs.existsSync(path.join(gameDir, 'square.png')));
+
+const thumbDim = pngSize(path.join(gameDir, 'thumb.png'));
+add(
+  'thumb.dims',
+  'thumb.png 가 1200×630',
+  !!thumbDim && thumbDim.w === 1200 && thumbDim.h === 630,
+  thumbDim ? `${thumbDim.w}×${thumbDim.h}` : '읽기 실패'
+);
+
+const squareDim = pngSize(path.join(gameDir, 'square.png'));
+add(
+  'square.dims',
+  'square.png 가 정확히 정사각(가로=세로), 800px 이상',
+  !!squareDim && squareDim.w === squareDim.h && squareDim.w >= 800,
+  squareDim ? `${squareDim.w}×${squareDim.h}` : '읽기 실패'
+);
 
 const html = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, 'utf8') : '';
 const meta = readJSON(metaPath, null);

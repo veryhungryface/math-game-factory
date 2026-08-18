@@ -48,7 +48,9 @@ fi
 SLUG="$(grep -m1 '^\*\*슬러그\*\*' "$ROOT/logs/latest-report.md" 2>/dev/null | sed 's/.*`\(.*\)`.*/\1/')"
 if [ -n "$SLUG" ] && [ -f "$ROOT/public/g/$SLUG/thumb.png" ] && grep -q '새 게임이 나왔습니다' "$ROOT/logs/latest-report.md" 2>/dev/null; then
   TARGET="$(grep -m1 '^export REPORT_TARGET=' "$ROOT/factory/config.sh" | sed 's/.*:-\([^}]*\)}.*/\1/')"
-  [ -n "$TARGET" ] && hermes send --to "$TARGET" "MEDIA:$ROOT/public/g/$SLUG/thumb.png" --quiet 2>/dev/null || true
+  IMG="$ROOT/public/g/$SLUG/square.png"
+  [ -f "$IMG" ] || IMG="$ROOT/public/g/$SLUG/thumb.png"
+  [ -n "$TARGET" ] && hermes send --to "$TARGET" "MEDIA:$IMG" --quiet 2>/dev/null || true
 fi
 
 rm -f /tmp/mgf-stdout.$$ /tmp/mgf-stderr.$$

@@ -20,6 +20,7 @@ const games = listGames()
       slug,
       url: `/g/${slug}/`,
       thumb: fs.existsSync(path.join(dir, 'thumb.png')) ? `/g/${slug}/thumb.png` : null,
+      thumb_square: fs.existsSync(path.join(dir, 'square.png')) ? `/g/${slug}/square.png` : null,
     };
   })
   .filter(Boolean)
