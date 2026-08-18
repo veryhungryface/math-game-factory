@@ -12,6 +12,7 @@
   :root{
     --cream:#fff4e0; --orange:#ffb85c; --blue:#5c7cfa; --ink:#2e3440;
     --wood:#c98a4b; --paper:#fffaf6; --bad:#ff5d6c; --good:#3ad39c;
+    --kraft:#e3c193; --kraft-dark:#c89a5f; --stamp-red:#d94b4b;
   }
   *{ box-sizing:border-box; }
   html,body{
@@ -25,8 +26,14 @@
   .ui-layer{ position:fixed; inset:0; z-index:5; pointer-events:none; }
   .pill{
     background:rgba(255,250,246,.92); border:2px solid var(--ink); border-radius:14px;
-    padding:6px 12px; font-weight:800; color:var(--ink); box-shadow:0 3px 0 rgba(0,0,0,.18);
+    padding:6px 12px; font-weight:800; color:var(--ink);
+    box-shadow:0 3px 0 rgba(0,0,0,.18), inset 0 1.5px 0 rgba(255,255,255,.8);
   }
+  #scoreVal{ display:inline-block; transition:transform .12s cubic-bezier(.34,1.56,.64,1); }
+  #scoreVal.punch{ transform:scale(1.35); color:var(--good); }
+  .gdot{ transition:background .18s ease; }
+  .gdot.pop{ animation:gdotPop .4s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes gdotPop{ 0%{ transform:scale(2); } 100%{ transform:scale(1); } }
   #topBar{
     position:absolute; top:max(8px, env(safe-area-inset-top)); left:8px; right:8px;
     display:flex; align-items:center; gap:8px; flex-wrap:wrap; pointer-events:none;
@@ -39,8 +46,11 @@
   #muteBtn{
     margin-left:auto; pointer-events:auto; width:44px; height:44px; border-radius:50%;
     border:2px solid var(--ink); background:rgba(255,250,246,.92); font-size:18px;
-    display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,.18);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,.18), inset 0 1.5px 0 rgba(255,255,255,.8);
+    transition:transform .1s ease, box-shadow .1s ease;
   }
+  #muteBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.18); }
   #comboText{
     position:absolute; left:50%; transform:translateX(-50%) scale(0); top:calc(max(8px, env(safe-area-inset-top)) + 46px);
     font-weight:900; font-size:clamp(14px,4.6vw,22px); color:#fff;
@@ -74,18 +84,35 @@
     pointer-events:none;
   }
   #orderCard{
-    background:rgba(255,250,246,.95); border:2px solid var(--ink); border-radius:16px;
-    padding:8px 10px; display:flex; align-items:center; gap:10px;
+    position:relative; overflow:visible;
+    background:
+      repeating-linear-gradient(135deg, rgba(0,0,0,.025) 0 6px, transparent 6px 12px),
+      linear-gradient(180deg, #fffaf2, #f8ecd8 88%);
+    border:2px solid var(--ink); border-top:4px dashed rgba(46,52,64,.35); border-radius:6px 6px 16px 16px;
+    padding:10px 10px 8px; display:flex; align-items:center; gap:10px;
     box-shadow:0 4px 0 rgba(0,0,0,.2); transition:transform .12s ease, box-shadow .12s ease;
   }
+  #orderCard::before{
+    content:'송장'; position:absolute; left:12px; top:-13px; z-index:1;
+    background:var(--ink); color:#ffe94d; font-weight:900; font-size:11px;
+    padding:2px 8px; border-radius:6px; letter-spacing:1px;
+    box-shadow:0 2px 0 rgba(0,0,0,.3);
+  }
+  #orderCard::after{
+    content:''; position:absolute; right:8px; top:-7px; width:14px; height:14px; border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, #fff, #d8c6a3 70%); border:2px solid var(--ink);
+  }
   #orderCard.hot{ transform:scale(1.03); box-shadow:0 0 0 4px var(--good); }
-  #orderIcon{ width:52px; height:52px; flex:none; border-radius:10px; background:#f4ecd8; }
+  #orderIcon{ width:52px; height:52px; flex:none; border-radius:10px; background:#f4ecd8; border:1.5px dashed rgba(46,52,64,.3); }
   #orderText{ flex:1; font-weight:800; font-size:clamp(12.5px,3.6vw,16px); line-height:1.3; }
   #rejectBtn{
     pointer-events:auto; flex:none; min-width:56px; min-height:44px; padding:6px 10px;
     border-radius:12px; border:2px solid var(--ink); background:#ffe3c2; font-weight:800;
     font-size:clamp(11px,3.2vw,13px); cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,.2), inset 0 1.5px 0 rgba(255,255,255,.7);
+    transition:transform .1s ease, box-shadow .1s ease;
   }
+  #rejectBtn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.2); }
   #orderTimerWrap{ height:5px; border-radius:3px; background:rgba(0,0,0,.12); margin-top:6px; overflow:hidden; }
   #orderTimerBar{ height:100%; background:var(--blue); width:100%; transition:width .1s linear; }
   #mascot{
@@ -101,6 +128,28 @@
     transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s ease;
   }
   #toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #flashFx{
+    position:fixed; inset:0; z-index:7; pointer-events:none; background:#fff; opacity:0;
+  }
+  #flashFx.go{ animation:flashPop .32s ease-out; }
+  #flashFx.bad{ animation:flashPopBad .32s ease-out; }
+  @keyframes flashPop{ 0%{ opacity:.55; background:var(--good);} 100%{ opacity:0; } }
+  @keyframes flashPopBad{ 0%{ opacity:.45; background:var(--bad);} 100%{ opacity:0; } }
+  #stampFx{
+    position:absolute; left:50%; top:50%; z-index:9; pointer-events:none;
+    transform:translate(-50%,-50%) rotate(-14deg) scale(2.6); opacity:0;
+    border:5px solid var(--stamp-red); color:var(--stamp-red); border-radius:12px;
+    padding:4px 14px; font-weight:900; font-size:clamp(16px,5vw,22px); letter-spacing:2px;
+    text-shadow:0 0 2px rgba(217,75,75,.4);
+  }
+  #stampFx.slam{ animation:stampSlam .55s cubic-bezier(.2,1.4,.4,1) forwards; }
+  @keyframes stampSlam{
+    0%{ transform:translate(-50%,-50%) rotate(-14deg) scale(2.6); opacity:0; }
+    35%{ transform:translate(-50%,-50%) rotate(-10deg) scale(0.92); opacity:1; }
+    50%{ transform:translate(-50%,-50%) rotate(-12deg) scale(1.08); opacity:1; }
+    65%{ transform:translate(-50%,-50%) rotate(-11deg) scale(1); opacity:1; }
+    100%{ transform:translate(-50%,-50%) rotate(-11deg) scale(1); opacity:0; }
+  }
   .screen{
     position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center;
     gap:12px; background:radial-gradient(ellipse at 50% 25%, rgba(255,184,92,.25), rgba(43,33,22,.96) 65%);
@@ -113,13 +162,98 @@
   .bigbtn{
     margin-top:8px; padding:16px 44px; font-size:clamp(16px,4.6vw,22px); font-weight:800; border:none; border-radius:999px;
     background:linear-gradient(135deg, var(--orange), var(--blue)); color:#fff; cursor:pointer;
-    min-height:52px; box-shadow:0 6px 0 rgba(0,0,0,.35); transition:transform .1s ease;
+    min-height:52px; box-shadow:0 6px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.4); transition:transform .1s ease, box-shadow .1s ease;
   }
-  .bigbtn:active{ transform:scale(.94) translateY(3px); }
+  .bigbtn:active{ transform:scale(.94) translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.35); }
   #howtoList{ list-style:none; padding:0; margin:6px 0 0; opacity:.9; font-size:clamp(12px,3.4vw,15px); line-height:1.75; color:#fdf3e2; }
+
+  /* ── 타이틀 화면 ─────────────────────────── */
+  #startScreen{ padding:0; gap:0; background:#2b2116; overflow:hidden; }
+  .titleBgWrap{ position:absolute; inset:0; z-index:0; overflow:hidden; background:radial-gradient(ellipse at 50% 18%, #ffd89b, #c98a4b 55%, #2b2116 100%); }
+  #titleImg{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 32%;
+    transform:scale(1); animation:titleZoom 20s ease-in-out infinite alternate;
+  }
+  @keyframes titleZoom{ from{ transform:scale(1); } to{ transform:scale(1.09); } }
+  .titleVignette{
+    position:absolute; inset:0;
+    background:linear-gradient(to bottom, rgba(30,20,10,.62) 0%, rgba(30,20,10,.05) 26%, rgba(30,20,10,.1) 55%, rgba(18,12,6,.92) 100%);
+  }
+  .titleDust{ position:absolute; inset:0; overflow:hidden; }
+  .titleDust span{
+    position:absolute; bottom:-6%; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,240,205,.95), rgba(255,240,205,0) 70%);
+    animation-name:dustFloat; animation-timing-function:ease-in; animation-iteration-count:infinite;
+  }
+  @keyframes dustFloat{
+    0%{ transform:translate(0,0); opacity:0; }
+    12%{ opacity:.85; }
+    85%{ opacity:.5; }
+    100%{ transform:translate(var(--dx,18px), -118vh); opacity:0; }
+  }
+  .titleContent{
+    position:relative; z-index:2; width:100%; height:100%;
+    display:flex; flex-direction:column; align-items:center;
+    padding:max(22px, env(safe-area-inset-top)) 20px max(16px, env(safe-area-inset-bottom));
+  }
+  .logoWrap{ margin-top:6px; animation:logoIn .8s cubic-bezier(.34,1.56,.64,1) both; }
+  .logoSign{
+    background:linear-gradient(160deg, #e0a05e, #b97a3c 90%);
+    border:4px solid #6b4423; border-radius:18px; padding:10px 28px;
+    transform:rotate(-3deg);
+    box-shadow:0 9px 0 rgba(0,0,0,.32), inset 0 2px 0 rgba(255,255,255,.3);
+    position:relative;
+  }
+  .logoSign::before, .logoSign::after{
+    content:''; position:absolute; top:6px; width:9px; height:9px; border-radius:50%;
+    background:#4a2f18; box-shadow:inset 0 1px 1px rgba(0,0,0,.5);
+  }
+  .logoSign::before{ left:8px; } .logoSign::after{ right:8px; }
+  .logoText{
+    margin:0; font-size:clamp(34px,11.5vw,56px); font-weight:900; color:#fff6e6;
+    letter-spacing:1px; transform:skewX(-3deg);
+    text-shadow:0 2px 0 #6b4423, 0 4px 0 #5a3717, 0 8px 14px rgba(0,0,0,.45), 0 0 20px rgba(255,184,92,.55);
+  }
+  .logoText span{ color:#ffe94d; }
+  .titleTagline{
+    margin-top:10px; color:#fff2da; font-weight:800; font-size:clamp(13px,3.8vw,17px);
+    background:rgba(43,33,22,.4); padding:4px 14px; border-radius:999px; letter-spacing:.5px;
+    animation:logoIn .8s .1s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  .titleSpacer{ flex:1; min-height:8px; }
+  #startBtn.startPulse{ animation:btnPulse 1.7s ease-in-out infinite; }
+  @keyframes btnPulse{
+    0%,100%{ box-shadow:0 6px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.4), 0 0 0 0 rgba(255,184,92,.55); }
+    50%{ box-shadow:0 6px 0 rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.4), 0 0 0 16px rgba(255,184,92,0); }
+  }
+  .titleFooter{ margin-top:14px; display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .unitBadge{
+    font-size:clamp(10.5px,3vw,12.5px); color:#fff2da; opacity:.9; font-weight:700;
+    background:rgba(20,14,8,.4); border:1px solid rgba(255,255,255,.18);
+    padding:3px 12px; border-radius:999px;
+  }
+  .bestBadge{ font-size:clamp(11.5px,3.3vw,14px); color:#ffe94d; font-weight:900; text-shadow:0 1px 2px rgba(0,0,0,.5); }
+  @keyframes logoIn{ from{ opacity:0; transform:translateY(-26px) scale(.75); } to{ opacity:1; transform:translateY(0) scale(1); } }
+
+  /* ── 게임오버 화면 ─────────────────────────── */
+  .resultStamp{
+    width:84px; height:84px; border-radius:50%; border:5px solid var(--stamp-red); color:var(--stamp-red);
+    display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:900; letter-spacing:1px;
+    transform:rotate(-10deg) scale(0); box-shadow:0 0 0 3px rgba(217,75,75,.25) inset;
+    animation:resultStampIn .5s .15s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  @keyframes resultStampIn{ 0%{ transform:rotate(-10deg) scale(2.4); opacity:0;} 60%{ transform:rotate(-10deg) scale(.92); opacity:1;} 100%{ transform:rotate(-10deg) scale(1); opacity:1;} }
+  #finalScore{ font-weight:900; font-size:clamp(20px,6vw,28px); color:var(--cream); }
+  #finalScore span{ display:inline-block; }
+
   @media (prefers-reduced-motion: reduce){
     #comboText, #orderCard, .bigbtn, #toast, #mascot, #trashZone, #stallBanner{ transition:none !important; }
     #trashZone.warn{ animation:none !important; }
+    #titleImg{ animation-duration:60s; }
+    .logoWrap, .titleTagline{ animation-duration:.01s; }
+    #startBtn.startPulse{ animation:none; }
+    .resultStamp{ animation-duration:.2s; }
+    .titleDust span{ animation-duration:40s !important; }
   }
 </style>
 </head>
@@ -145,27 +279,40 @@
         <div id="orderTimerWrap"><div id="orderTimerBar"></div></div>
       </div>
       <button id="rejectBtn">🚫 반려</button>
+      <div id="stampFx">배송완료</div>
     </div>
   </div>
 </div>
 
 <div id="toast"></div>
+<div id="flashFx"></div>
 
 <div id="startScreen" class="screen">
-  <h1>네모공장</h1>
-  <p>접어야 커진다</p>
-  <ul id="howtoList">
-    <li>같은 상자가 되는 전개도 타일끼리 겹치면 접혀서 상자가 돼요</li>
-    <li>완성된 상자를 아래 주문서 칸으로 끌어다 배송하세요</li>
-    <li>불량 전개도는 위로 스와이프하거나 오른쪽 슈트로 버리세요</li>
-  </ul>
-  <button id="startBtn" class="bigbtn">공장 가동!</button>
+  <div class="titleBgWrap">
+    <img id="titleImg" src="./assets/title.png" alt=""
+      onerror="this.style.display='none'; document.getElementById('startScreen').classList.add('img-fallback');" />
+    <div class="titleVignette"></div>
+    <div class="titleDust" id="titleDust"></div>
+  </div>
+  <div class="titleContent">
+    <div class="logoWrap">
+      <div class="logoSign"><h1 class="logoText">네모<span>공장</span></h1></div>
+    </div>
+    <div class="titleTagline">접어야 커진다 📦</div>
+    <div class="titleSpacer"></div>
+    <button id="startBtn" class="bigbtn startPulse">공장 가동!</button>
+    <div class="titleFooter">
+      <div class="unitBadge">5학년 2학기 · 직육면체와 정육면체</div>
+      <div class="bestBadge">최고 기록 <span id="titleBest">0</span></div>
+    </div>
+  </div>
 </div>
 
 <div id="gameoverScreen" class="screen hidden">
+  <div class="resultStamp" id="resultStamp">정지</div>
   <h2 id="gameoverTitle">공장 정지!</h2>
-  <p id="finalScore">점수 0</p>
-  <p id="bestScoreText">최고 기록 0</p>
+  <p id="finalScore">점수 <span id="finalScoreVal">0</span></p>
+  <p id="bestScoreText">최고 기록 <span id="bestScoreVal">0</span></p>
   <button id="retryBtn" class="bigbtn">다시!</button>
 </div>
 
@@ -468,7 +615,10 @@ const S={
   order:null, orderTimer:0, orderTimerMax:16,
   spawnTimer:900, stallEmptyZero:0,
   drag:null, particles:[], muted:false, lastTouchedId:null,
+  hitStopT:0, shakeT:0, shakeDur:0.01, shakeMag:0,
+  ambTimer:0, ambParticles:[],
 };
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 try{ S.best = Number(localStorage.getItem('cmf_best')||0)||0; }catch(e){ S.best=0; }
 
@@ -592,15 +742,25 @@ function drawOrderIcon(){
 
 // ───────────────────────────── HUD
 
+let scoreAnimFrom=0, scoreAnimTo=0, scoreAnimT=1;
+let prevGauge=0;
 function updateHUD(level){
-  document.getElementById('scoreVal').textContent=S.score;
+  const scoreEl=document.getElementById('scoreVal');
+  if(S.score!==scoreAnimTo){
+    scoreAnimFrom = Number(scoreEl.textContent)||0;
+    scoreAnimTo = S.score; scoreAnimT = 0;
+    scoreEl.classList.remove('punch'); void scoreEl.offsetWidth; scoreEl.classList.add('punch');
+    setTimeout(()=>scoreEl.classList.remove('punch'),160);
+  }
   const gb=document.getElementById('gaugeBox');
   gb.innerHTML='';
   for(let i=0;i<S.gaugeMax;i++){
     const d=document.createElement('div');
     d.className='gdot'+(i<S.gauge?' on':'');
+    if(S.gauge>prevGauge && i===S.gauge-1) d.classList.add('pop');
     gb.appendChild(d);
   }
+  prevGauge=S.gauge;
   const names=['정육면체','직육면체','겨냥도','모서리합'];
   document.getElementById('levelBox').textContent=`Lv.${S.level} ${names[S.level-1]}`;
 }
@@ -655,6 +815,57 @@ function drawParticles(){
     ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(1-t*0.5),0,Math.PI*2); ctx.fill();
   }
   ctx.globalAlpha=1;
+}
+function comboScaledCount(base){
+  return Math.min(base+40, Math.round(base + S.comboStreak*3));
+}
+
+// ── 배경 먼지(ambient-idle-motion) — 아무 조작이 없어도 화면이 살아있게
+function spawnAmbientDust(){
+  S.ambParticles.push({
+    x:Math.random()*CW, y:CH+10, vx:(Math.random()-0.5)*10, vy:-14-Math.random()*10,
+    life:0, maxLife:7+Math.random()*4, size:1.6+Math.random()*2.2, drift:Math.random()*Math.PI*2,
+  });
+}
+function updateAmbientDust(dt){
+  S.ambTimer-=dt;
+  if(S.ambTimer<=0 && S.ambParticles.length<16){ S.ambTimer = reduceMotion?1.4:0.5; spawnAmbientDust(); }
+  for(let i=S.ambParticles.length-1;i>=0;i--){
+    const p=S.ambParticles[i];
+    p.life+=dt;
+    if(p.life>=p.maxLife){ S.ambParticles.splice(i,1); continue; }
+    p.x += (p.vx + Math.sin(p.life*1.3+p.drift)*8)*dt;
+    p.y += p.vy*dt;
+  }
+}
+function drawAmbientDust(){
+  for(const p of S.ambParticles){
+    const t=p.life/p.maxLife;
+    const fade = t<0.15 ? t/0.15 : (t>0.8 ? (1-t)/0.2 : 1);
+    ctx.globalAlpha = 0.35*fade;
+    ctx.fillStyle='#ffe4b0';
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+// ── 히트스톱 & 화면 흔들림(screen-shake-tiered)
+function triggerHitStop(dur){ if(!reduceMotion) S.hitStopT=Math.max(S.hitStopT, dur); }
+function triggerShake(mag, dur){
+  S.shakeMag=Math.max(S.shakeMag, reduceMotion?mag*0.35:mag);
+  S.shakeDur=dur; S.shakeT=dur;
+}
+
+// ── 배송 완료 도장 & 화면 색 번쩍(color-flash)
+function stampFxEl(){ return document.getElementById('stampFx'); }
+function showDeliveryStamp(){
+  const el=stampFxEl();
+  el.classList.remove('slam'); void el.offsetWidth; el.classList.add('slam');
+}
+function flashScreen(kind){
+  const el=document.getElementById('flashFx');
+  el.classList.remove('go','bad'); void el.offsetWidth;
+  el.classList.add(kind==='bad' ? 'bad' : 'go');
 }
 
 // ───────────────────────────── 그리드 헬퍼
@@ -732,11 +943,13 @@ function completeBox(target){
   target.edgeSum=(target.dims[0]+target.dims[1]+target.dims[2])*4;
   target.anim={ kind:'pop', t:0, dur:0.36 };
   const r=cellRect(target.cellIndex);
-  spawnParticles(r.cx,r.cy,'#ffb85c',18);
+  spawnParticles(r.cx,r.cy,'#ffb85c',comboScaledCount(18));
   S.comboStreak++;
   S.combo=Math.min(3, 1+S.comboStreak*0.25);
   S.score += Math.round(15*S.combo);
   flashCombo();
+  triggerHitStop(0.05);
+  triggerShake(S.comboStreak>=4 ? 5 : 2.4, 0.18);
   if(target.level>=2 && target.isCube){
     S.score+=15; S.stickers++;
     showToast('이것도 직육면체야! 🎖️');
@@ -780,9 +993,11 @@ function attemptDeliver(boxTile){
     S.score += Math.round(60*S.combo);
     if(S.comboStreak>0 && S.comboStreak%3===0) S.gauge=Math.max(0,S.gauge-1);
     orderCard.classList.add('hot'); setTimeout(()=>orderCard.classList.remove('hot'),200);
-    bounceMascot(); flashCombo();
+    bounceMascot(); flashCombo(); showDeliveryStamp(); flashScreen('good');
+    triggerHitStop(0.08);
+    triggerShake(S.comboStreak>=4 ? 6 : 3, 0.2);
     const r=cellRect(boxTile.cellIndex>=0?boxTile.cellIndex:0);
-    spawnParticles(tile_px(boxTile), tile_py(boxTile), '#3ad39c', 22);
+    spawnParticles(tile_px(boxTile), tile_py(boxTile), '#3ad39c', comboScaledCount(22));
     removeFromGrid(boxTile);
     destroyTile(boxTile);
     const prevLevel=S.level;
@@ -793,6 +1008,7 @@ function attemptDeliver(boxTile){
   } else {
     S.gauge=Math.min(S.gaugeMax,S.gauge+1);
     S.comboStreak=0; S.combo=1;
+    flashScreen('bad'); triggerShake(4.5,0.22);
     if(S.gauge>=S.gaugeMax){ gameOver('gauge'); return true; }
     boxTile.anim={ kind:'shake', t:0, dur:0.35 };
     boxTile.dragging=false;
@@ -813,13 +1029,47 @@ function rejectOrder(){
 
 // ───────────────────────────── 게임오버 / 시작
 
+function animateNumber(el, to, dur){
+  const from=Number(el.textContent.replace(/[^0-9-]/g,''))||0;
+  const t0=performance.now();
+  (function step(now){
+    const t=clamp((now-t0)/dur,0,1);
+    el.textContent=String(Math.round(lerp(from,to,easeOutCubic(t))));
+    if(t<1) requestAnimationFrame(step);
+  })(t0);
+}
+function updateTitleBest(){
+  const el=document.getElementById('titleBest');
+  if(el) el.textContent=S.best;
+}
+
+// 타이틀 화면 먼지 입자 — 세로형 키 아트 위로 아주 느리게 떠오르며 공간감을 준다
+function initTitleDust(){
+  const holder=document.getElementById('titleDust');
+  if(!holder) return;
+  const n=reduceMotion?6:16;
+  for(let i=0;i<n;i++){
+    const s=document.createElement('span');
+    const size=2+Math.random()*3.4;
+    const left=Math.random()*100;
+    const dur=(reduceMotion?26:12)+Math.random()*10;
+    const delay=-Math.random()*dur;
+    const dx=(Math.random()-0.5)*60;
+    s.style.cssText=`left:${left}%; width:${size}px; height:${size}px; animation-duration:${dur}s; animation-delay:${delay}s; --dx:${dx}px;`;
+    holder.appendChild(s);
+  }
+}
+
 function gameOver(reason){
   if(S.phase==='gameover') return;
   S.phase='gameover';
   if(S.score>S.best){ S.best=S.score; try{ localStorage.setItem('cmf_best',String(S.best)); }catch(e){} }
   document.getElementById('gameoverTitle').textContent = '찌그러짐 게이지가 가득 찼어요!';
-  document.getElementById('finalScore').textContent=`점수 ${S.score}`;
-  document.getElementById('bestScoreText').textContent=`최고 기록 ${S.best}`;
+  const stamp=document.getElementById('resultStamp');
+  stamp.style.animation='none'; void stamp.offsetWidth; stamp.style.animation='';
+  animateNumber(document.getElementById('finalScoreVal'), S.score, 650);
+  animateNumber(document.getElementById('bestScoreVal'), S.best, 850);
+  updateTitleBest();
   document.getElementById('gameoverScreen').classList.remove('hidden');
 }
 
@@ -828,11 +1078,23 @@ function resetGame(){
   S.score=0; S.level=1; S.solved=0; S.combo=1; S.comboStreak=0; S.gauge=0; S.stickers=0;
   S.grid=new Array(GRID_N).fill(null);
   S.spawnTimer=200; S.stallEmptyZero=0; S.drag=null; S.particles=[];
+  S.hitStopT=0; S.shakeT=0; S.shakeMag=0;
+  scoreAnimFrom=0; scoreAnimTo=0; scoreAnimT=1; prevGauge=0;
+  scoreValEl.textContent='0';
   S.phase='playing';
   document.getElementById('trashZone').classList.remove('warn');
   document.getElementById('stallBanner').classList.remove('show');
   refreshOrder();
   updateHUD();
+  maybeShowFirstPlayTip();
+}
+
+function maybeShowFirstPlayTip(){
+  let seen=false;
+  try{ seen = localStorage.getItem('cmf_seen_tip')==='1'; }catch(e){}
+  if(seen) return;
+  try{ localStorage.setItem('cmf_seen_tip','1'); }catch(e){}
+  setTimeout(()=>{ if(S.phase==='playing') showToast('같은 상자가 되는 전개도끼리 겹쳐서 접어요! 📦'); }, 500);
 }
 
 function startGame(){
@@ -1010,6 +1272,7 @@ function updateTiles(dt){
         t.px=lerp(from.x, t.anim.toX, easeOutCubic(tt));
         t.py=lerp(from.y, t.anim.toY, easeOutCubic(tt));
         t.scale=lerp(1,0.2,tt); t.alpha=lerp(1,0.3,tt);
+        pushTrail(t);
         if(tt>=1){ finalizeMergeIfDone(t); }
       } else if(k==='pop'){
         t.scale = tt<0.5 ? lerp(1,1.22,tt/0.5) : lerp(1.22,1,(tt-0.5)/0.5);
@@ -1017,6 +1280,7 @@ function updateTiles(dt){
       } else if(k==='discard'){
         t.py = t.anim.fromY - 260*easeOutCubic(tt);
         t.alpha=lerp(1,0,tt); t.rot=lerp(0,0.6,tt);
+        pushTrail(t);
         if(tt>=1){ destroyTile(t); }
       } else if(k==='shake'){
         t.rot = Math.sin(tt*Math.PI*6)*0.10*(1-tt);
@@ -1029,6 +1293,45 @@ function updateTiles(dt){
     t.px=lerp(t.px, t.targetPx, 1-Math.pow(0.001,dt));
     t.py=lerp(t.py, t.targetPy, 1-Math.pow(0.001,dt));
   }
+}
+
+// ── 잔상(trail) — 병합·폐기로 빠르게 날아가는 타일 뒤에 흐릿한 궤적을 남긴다
+function pushTrail(t){
+  if(reduceMotion) return;
+  if(!t.trail) t.trail=[];
+  t.trail.push({ x:t.px, y:t.py, scale:t.scale, rot:t.rot||0 });
+  if(t.trail.length>4) t.trail.shift();
+}
+function drawTrail(t){
+  if(!t.trail || !t.trail.length) return;
+  const n=t.trail.length;
+  for(let i=0;i<n;i++){
+    const g=t.trail[i];
+    const a=(i+1)/(n+1)*0.28;
+    ctx.save();
+    ctx.globalAlpha=a*(t.alpha!=null?t.alpha:1);
+    ctx.translate(g.x,g.y); ctx.rotate(g.rot); ctx.scale(g.scale,g.scale);
+    const w=t.cellW||64, h=t.cellH||64;
+    ctx.fillStyle = t.kind==='box' ? '#fffaf6' : (t.valid?'#ffb85c':'#f2c98f');
+    roundRect(ctx,-w/2,-h/2,w,h,14); ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha=1;
+}
+
+// ── 판지(카드보드) 질감 — 카드 표면에 은은한 골판지 결을 얹는다
+function drawCardboardTexture(w,h,tone){
+  ctx.save();
+  roundRect(ctx,-w/2,-h/2,w,h,14); ctx.clip();
+  ctx.globalAlpha = tone==='dark' ? 0.10 : 0.07;
+  ctx.strokeStyle = '#8a5a2b';
+  ctx.lineWidth = Math.max(1, w*0.012);
+  const gap = Math.max(6, w*0.11);
+  for(let x=-w; x<w; x+=gap){
+    ctx.beginPath(); ctx.moveTo(x,-h/2); ctx.lineTo(x+h, h/2); ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
 }
 
 function drawNetShape(t, x, y, w, h){
@@ -1091,18 +1394,21 @@ function drawNetShape(t, x, y, w, h){
 
 function drawTile(t){
   const w=t.cellW||64, h=t.cellH||64;
+  drawTrail(t);
   ctx.save();
+  if(t.dragging){ ctx.shadowColor='rgba(0,0,0,.4)'; ctx.shadowBlur=14; ctx.shadowOffsetY=8; }
   ctx.globalAlpha=t.alpha;
   ctx.translate(t.px,t.py);
   ctx.rotate(t.rot||0);
   ctx.scale(t.scale,t.scale);
-  const cardColor = t.kind==='box' ? '#fffaf6' : (t.valid ? '#fffaf6' : '#fff0e6');
+  const cardColor = t.kind==='box' ? '#fffaf6' : (t.valid ? '#fdf6ea' : '#f7ead6');
   ctx.fillStyle=cardColor;
   ctx.strokeStyle = t.dragging ? '#ffb85c' : '#2e3440';
   ctx.lineWidth = t.dragging ? 4 : 2.4;
   roundRect(ctx, -w/2, -h/2, w, h, 14);
   ctx.fill(); ctx.stroke();
-  if(t.dragging){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=0; ctx.restore(); }
+  ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+  drawCardboardTexture(w, h, t.valid?'light':'dark');
 
   if(t.kind==='net'){
     drawNetShape(t, 0, 0, w, h*0.86);
@@ -1120,11 +1426,27 @@ function drawTile(t){
 }
 
 let lastT=performance.now();
+const scoreValEl=document.getElementById('scoreVal');
 
 function frame(now){
-  const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  let dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  // hit-stop: 정답/병합 순간 아주 짧게 시간을 늦춰 타격감을 준다
+  if(S.hitStopT>0){ S.hitStopT=Math.max(0,S.hitStopT-dt); dt*=0.06; }
+
   ctx.clearRect(0,0,CW,CH);
+  ctx.save();
+  // screen-shake-tiered: 이벤트 크기에 비례한 강도로 화면이 흔들린다
+  if(S.shakeT>0){
+    S.shakeT=Math.max(0,S.shakeT-dt);
+    const k=S.shakeT/S.shakeDur;
+    const mag=S.shakeMag*k;
+    ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag);
+    if(S.shakeT<=0) S.shakeMag=0;
+  }
   ctx.drawImage(bgLayer,0,0,CW,CH);
+
+  updateAmbientDust(dt);
+  drawAmbientDust();
 
   if(S.phase==='playing'){
     trySpawn(dt);
@@ -1153,6 +1475,13 @@ function frame(now){
     const t=S.tiles.get(id); if(t) drawTile(t);
   }
   drawParticles();
+  ctx.restore();
+
+  // 점수 카운트업 애니메이션
+  if(scoreAnimT<1){
+    scoreAnimT=Math.min(1, scoreAnimT + dt/0.35);
+    scoreValEl.textContent = Math.round(lerp(scoreAnimFrom, scoreAnimTo, easeOutCubic(scoreAnimT)));
+  }
 
   requestAnimationFrame(frame);
 }
@@ -1247,7 +1576,13 @@ window.__GAME_TEST__ = {
   answerCorrect(){
     if(S.phase!=='playing') startGame();
     if(!S.order) refreshOrder();
-    if(S.order.type==='wire') S.order.wireframeValid=true;
+    if(S.order.type==='wire' && !S.order.wireframeValid){
+      // order.accepts()는 genOrder()가 만든 순간의 겨냥도 valid 여부를 클로저로 고정해
+      // 판정한다(건드리지 않는다) — 이미 뽑힌 주문서가 '가짜 겨냥도'라 강제 정답 처리가
+      // 불가능하면, 유효한 겨냥도 주문서가 나올 때까지 주문서만 다시 뽑는다.
+      let guard=0;
+      while(!S.order.wireframeValid && guard++<50) refreshOrder();
+    }
     const dims = S.order.type==='cube' ? [3,3,3] : S.order.dims;
     const box=newTile('box',{ level:S.level, valid:true, cellIndex:-1, dims:[...dims],
       isCube: dims[0]===dims[1]&&dims[1]===dims[2], edgeSum:(dims[0]+dims[1]+dims[2])*4,
@@ -1268,6 +1603,8 @@ window.__GAME_TEST__ = {
 };
 
 updateHUD();
+updateTitleBest();
+initTitleDust();
 
 })();
 </script>
