@@ -1065,10 +1065,21 @@ function drawNetShape(t, x, y, w, h){
       roundRect(ctx, cx+cell*0.04, cy+cell*0.04, hc.w*cell-cell*0.08, hc.h*cell-cell*0.08, cell*0.12); ctx.stroke();
       ctx.restore();
     }
-    ctx.fillStyle='#2e3440';
-    ctx.font=`800 ${Math.max(11,w*0.11)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
-    ctx.textAlign='center';
-    ctx.fillText(`${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`, availW/2, availH+pad*1.6);
+    // 치수를 숫자로 읽고 계산해야 이 단계의 수학이 성립한다(주문서 치수·모서리합
+    // 매칭). 모양만 보고 대충 맞춰지지 않도록, 라벨을 작은 캡션이 아니라 카드에서
+    // 가장 먼저 눈에 띄는 고대비 배지로 그린다(CLAUDE.md 숫자 가독성 규칙).
+    const dimsLabel = `${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`;
+    ctx.font = `900 ${Math.max(15, w*0.15)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const tw = ctx.measureText(dimsLabel).width;
+    const badgeW = Math.min(availW, tw + w*0.14), badgeH = w*0.13;
+    const badgeCx = availW/2, badgeCy = availH + pad*0.9 + badgeH/2;
+    ctx.fillStyle = t.valid ? '#2e3440' : '#c23b3b';
+    roundRect(ctx, badgeCx-badgeW/2, badgeCy-badgeH/2, badgeW, badgeH, badgeH*0.5);
+    ctx.fill();
+    ctx.fillStyle = '#ffe94d';
+    ctx.fillText(dimsLabel, badgeCx, badgeCy+w*0.006);
+    ctx.textBaseline='alphabetic';
   }
   ctx.restore();
 }
