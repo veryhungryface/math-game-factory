@@ -1,0 +1,1691 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#070d1c">
+<title>젤리 게이트 — 분수의 곱셈</title>
+<style>
+  :root{
+    --bg:#070d1c; --bg2:#12203f; --mint:#3ef2c0; --gold:#ffd166; --rose:#ff5d73; --violet:#a06bff;
+    --tx:#e9f2ff;
+    --font:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);}
+  body{font-family:var(--font);color:var(--tx);overscroll-behavior:none;user-select:none;-webkit-user-select:none;}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
+       padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
+
+  /* ── HUD ─────────────────────────────── */
+  #hud{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 10px 3px;}
+  #lv{display:flex;flex-direction:column;line-height:1.08;padding:5px 9px;border-radius:11px;min-width:74px;
+      background:linear-gradient(135deg,rgba(62,242,192,.20),rgba(160,107,255,.16));
+      border:1px solid rgba(62,242,192,.42);}
+  #lv b{font-size:14px;letter-spacing:.3px;color:var(--mint)}
+  #lv small{font-size:9px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:104px}
+  #cnt{flex:1;text-align:center;line-height:1;min-width:0}
+  #num{display:block;font-size:34px;font-weight:900;letter-spacing:-1px;font-variant-numeric:tabular-nums;
+       color:var(--mint);transition:transform .13s cubic-bezier(.2,1.8,.4,1)}
+  #num.pop{transform:scale(1.32)}
+  #num.dn{color:var(--rose)}
+  #sub{font-size:9.5px;opacity:.6;letter-spacing:.3px;white-space:nowrap}
+  #mute{width:44px;height:44px;flex:0 0 44px;border-radius:12px;padding:0;cursor:pointer;
+        border:1px solid rgba(233,242,255,.22);background:rgba(255,255,255,.06);color:var(--tx);font-size:17px}
+  #mute:active{transform:scale(.93)}
+
+  /* ── 누적 식 ─────────────────────────── */
+  #eqbar{flex:0 0 auto;height:30px;display:flex;align-items:center;justify-content:center;
+         padding:0 10px;overflow:hidden}
+  #eq{display:flex;align-items:center;gap:5px;font-size:15px;font-weight:800;white-space:nowrap;
+      overflow:hidden;max-width:100%;letter-spacing:-.2px}
+  #eq .op{opacity:.55;font-weight:700;font-size:12px}
+  #eq .num0{color:var(--gold)}
+  #eq .res{color:var(--mint)}
+  #eq .dots{opacity:.4;font-size:12px}
+  .fr{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;
+      line-height:1.02;font-size:.72em;margin:0 1px}
+  .fr i{font-style:normal;padding:0 3px}
+  .fr i:first-child{border-bottom:1.6px solid currentColor;padding-bottom:1px}
+  .mx{display:inline-flex;align-items:center;gap:1px}
+
+  /* ── 무대 ───────────────────────────── */
+  #stage{flex:1 1 auto;position:relative;min-height:0}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
+         touch-action:none;user-select:none;-webkit-user-select:none}
+
+  /* ── 하단 ───────────────────────────── */
+  #pad{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:5px 10px 9px}
+  #slow{height:46px;min-width:104px;border-radius:14px;padding:0 12px;cursor:pointer;
+        display:flex;align-items:center;gap:7px;justify-content:center;
+        border:1.5px solid rgba(160,107,255,.55);color:var(--tx);font-family:var(--font);
+        background:linear-gradient(180deg,rgba(160,107,255,.24),rgba(160,107,255,.06));
+        font-size:13px;font-weight:800;transition:transform .1s cubic-bezier(.2,1.7,.4,1),opacity .2s}
+  #slow:active{transform:scale(.94)}
+  #slow[disabled]{opacity:.36}
+  #dots{display:flex;gap:3px}
+  #dots span{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.18)}
+  #dots span.on{background:var(--violet);box-shadow:0 0 7px rgba(160,107,255,.8)}
+  #tip{flex:1;font-size:11px;opacity:.6;line-height:1.32;min-width:0}
+
+  /* ── 오버레이 ───────────────────────── */
+  #ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:18px;
+      background:radial-gradient(120% 90% at 50% 40%,rgba(18,32,63,.86),rgba(7,13,28,.95));
+      backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:5}
+  #ov.on{display:flex}
+  #card{width:100%;max-width:340px;border-radius:20px;padding:20px 18px;text-align:center;
+        border:1px solid rgba(62,242,192,.30);
+        background:linear-gradient(165deg,rgba(30,48,92,.94),rgba(11,19,40,.96));}
+  #card h1{margin:0 0 4px;font-size:27px;letter-spacing:-.6px;
+     background:linear-gradient(96deg,var(--mint),var(--gold),var(--violet));
+     -webkit-background-clip:text;background-clip:text;color:transparent}
+  #card h2{margin:0 0 8px;font-size:21px;letter-spacing:-.4px;color:var(--gold)}
+  #card p{margin:6px 0;font-size:12.5px;line-height:1.6;opacity:.86}
+  #card .big{font-size:40px;font-weight:900;color:var(--mint);letter-spacing:-1.5px;margin:6px 0 2px;
+             font-variant-numeric:tabular-nums}
+  #card .lines{margin:10px 0 4px;padding:9px 10px;border-radius:12px;background:rgba(0,0,0,.28);
+               font-size:13px;font-weight:800;line-height:1.9}
+  #card .lines .lb{display:block;font-size:9.5px;font-weight:700;opacity:.55;letter-spacing:.6px;margin-bottom:1px}
+  #card .lines .me{color:var(--rose)}
+  #card .lines .op2{color:var(--mint)}
+  #card .rowline{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+  #go{margin-top:13px;width:100%;height:54px;border-radius:15px;border:0;cursor:pointer;
+      font-family:var(--font);font-size:17px;font-weight:900;color:#04121a;letter-spacing:-.3px;
+      background:linear-gradient(96deg,var(--mint),#7ef7d4);transition:transform .1s cubic-bezier(.2,1.7,.4,1)}
+  #go:active{transform:scale(.96)}
+  #howto{margin-top:10px;font-size:11px;opacity:.62;line-height:1.65;text-align:left}
+  #howto b{color:var(--mint)}
+  @media (prefers-reduced-motion: reduce){
+    #num,#slow,#go{transition:none}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div id="lv"><b>1구간</b><small>분모가 같은 진분수</small></div>
+    <div id="cnt"><span id="num">24</span><span id="sub">최고 0마리</span></div>
+    <button id="mute" aria-label="소리 켜기 끄기">🔊</button>
+  </div>
+  <div id="eqbar"><div id="eq"></div></div>
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="pad">
+    <button id="slow">정밀<span id="dots"></span></button>
+    <div id="tip">화면을 좌우로 끌어 <b>더 커지는 게이트</b>로 들어가세요.</div>
+  </div>
+  <div id="ov" class="on">
+    <div id="card">
+      <h1>젤리 게이트</h1>
+      <p>곱했는데 왜 줄어?</p>
+      <div id="cardbody"></div>
+      <button id="go">시작하기</button>
+      <div id="howto">
+        <b>①</b> 젤리 떼를 끌고 달립니다. 게이트에 적힌 분수만큼 젤리가 늘거나 줄어요.<br>
+        <b>②</b> 화면을 좌우로 끌어(또는 ← →) 더 커지는 게이트로 들어가세요.<br>
+        <b>③</b> 구간 끝 자물쇠 벽에 적힌 수 <b>이상</b>이면 부숩니다. 모자라면 튕겨나가요.<br>
+        <b>④</b> <b>정밀</b> 버튼(또는 Shift)으로 잠깐 느리게. 구간당 2번.
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════════════════════════════════════════════
+   0. 유틸 · 분수(정수쌍) 산술
+   ══════════════════════════════════════════════════════════ */
+function mulberry32(a){
+  return function(){
+    a|=0; a=(a+0x6D2B79F5)|0;
+    let t=Math.imul(a^(a>>>15), 1|a);
+    t=(t+Math.imul(t^(t>>>7), 61|t))^t;
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ const t=a%b; a=b; b=t; } return a; }
+function fr(n,d){ if(d<0){ n=-n; d=-d; } const g=gcd(n,d)||1; return {n:n/g, d:d/g}; }
+function fmul(x,y){ return fr(x.n*y.n, x.d*y.d); }
+function fval(f){ return f.n/f.d; }
+function feq(x,y){ return x.n*y.d === y.n*x.d; }
+function divisorsIn(N,lo,hi){
+  const out=[];
+  for(let d=lo; d<=hi; d++) if(N%d===0) out.push(d);
+  return out;
+}
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const lerp=(a,b,t)=>a+(b-a)*t;
+
+/* 분수 → 표시 정보. mixedOK 이면 가분수를 대분수로 적는다. */
+function fracLabel(f, mixedOK){
+  if(f.d===1) return {kind:'whole', w:f.n, n:0, d:1, text:String(f.n)};
+  if(f.n<f.d)  return {kind:'proper', w:0, n:f.n, d:f.d, text:f.n+'/'+f.d};
+  if(mixedOK){
+    const w=Math.floor(f.n/f.d), r=f.n-w*f.d;
+    return {kind:'mixed', w:w, n:r, d:f.d, text:w+'과 '+r+'/'+f.d};
+  }
+  return {kind:'improper', w:0, n:f.n, d:f.d, text:f.n+'/'+f.d};
+}
+
+/* ══════════════════════════════════════════════════════════
+   1. 게이트 생성기 — 결과는 언제나 정수 (분모는 현재 수의 약수)
+   ══════════════════════════════════════════════════════════ */
+const BANDS = [
+  {band:'same',    name:'분모가 같은 진분수', gates:3},
+  {band:'nat',     name:'진분수 vs 자연수',   gates:3},
+  {band:'diff',    name:'분모가 다른 진분수', gates:4},
+  {band:'pp',      name:'이중 게이트 — 진분수×진분수', gates:4},
+  {band:'improper',name:'진분수 vs 가분수',   gates:4},
+  {band:'mixed',   name:'대분수가 나온다',    gates:5},
+  {band:'mixed3',  name:'게이트 3개 · 대분수', gates:5},
+  {band:'mixed3',  name:'최종 구간 · 전속력',  gates:6}
+];
+function bandInfo(level){ return BANDS[clamp(level,1,8)-1]; }
+function mixedLevel(level){ return level>=6; }
+
+/* 이중 게이트: 4구간은 짝수 인덱스마다, 5구간부터는 3개마다 */
+function isDblStart(level, idx){
+  if(level===4) return idx%2===0;
+  if(level>=5)  return idx%3===0;
+  return false;
+}
+function workable(N){ return N>=8 && divisorsIn(N,2,12).length>=3; }
+
+function candidatesFor(N, band){
+  const out=[], seen=Object.create(null);
+  const ds = divisorsIn(N,2,12);
+  const amax = (band==='nat') ? 3 : 2;   // a ≤ amax*d
+  for(let i=0;i<ds.length;i++){
+    const d=ds[i], top=amax*d;
+    for(let a=1;a<=top;a++){
+      if(a===d) continue;                 // ×1 은 변화가 없다
+      const R=N*a/d;
+      if(R<4 || R>640) continue;
+      const f=fr(a,d);
+      const key=f.n+'/'+f.d;
+      if(seen[key]) continue;
+      seen[key]=1;
+      out.push({n:f.n, d:f.d, R:R, v:a/d});
+    }
+  }
+  return out;
+}
+function candOK(c, band){
+  const proper = c.v<1 && c.d>=2 && c.v>=0.3;
+  const whole  = c.d===1;
+  const impro  = c.v>1 && c.d>=2;
+  switch(band){
+    case 'same':     return proper && c.d>=3;
+    case 'diff':     return proper && c.d>=3;
+    case 'pp':       return proper && c.d>=2;
+    case 'nat':      return (whole && c.n<=3) || (proper && c.v>=0.6);
+    case 'improper': return proper || impro;
+    case 'mixed':    return impro && c.n>c.d;
+    case 'mixed3':   return impro || (proper && c.d>=3);
+    default:         return true;
+  }
+}
+function setOK(sel, N, band, needWorkable){
+  for(let i=0;i<sel.length;i++){
+    for(let j=i+1;j<sel.length;j++){
+      const a=sel[i], b=sel[j];
+      if(a.n*b.d === b.n*a.d) return false;                 // 교차곱이 같으면 같은 배율
+      if(Math.abs(a.R-b.R) < 0.15*N) return false;          // 차이가 너무 작다
+      const hi=Math.max(a.R,b.R), lo=Math.min(a.R,b.R);
+      if(hi > lo*3) return false;                            // 눈대중으로 걸러지는 쓰레기 방지
+    }
+  }
+  if(needWorkable){ for(let i=0;i<sel.length;i++) if(!workable(sel[i].R)) return false; }
+  const props = sel.filter(function(c){ return c.v<1; }).length;
+  const wholes= sel.filter(function(c){ return c.d===1; }).length;
+  switch(band){
+    case 'same':     return sel[0].d===sel[1].d;
+    case 'diff':     return sel[0].d!==sel[1].d;
+    case 'nat':      return wholes===1 && props===sel.length-1;
+    case 'improper': return props===1 && wholes===0;
+    case 'mixed3':   return props>=1 && props<sel.length;
+    default:         return true;
+  }
+}
+
+/* (N, level, idx, rng) → {N, supply, gates[], dbl} — 시뮬레이션과 실제 플레이가 동일하게 동작한다 */
+function pickSet(N, level, idx, rng){
+  let n=N, supply=0;
+  const dbl1=isDblStart(level, idx);
+  const dbl2=(idx>0) && isDblStart(level, idx-1);
+  let band = (dbl1||dbl2) ? 'pp' : bandInfo(level).band;
+  if(dbl1){ const t=12*Math.ceil(n/12); if(t!==n){ supply+=t-n; n=t; } }
+  if(n<12 || !workable(n)){ const t=12*Math.ceil((n+1)/12); supply+=t-n; n=t; }
+  const count = (level>=7 && !dbl1 && !dbl2) ? 3 : 2;
+
+  const chain=[band,'pp','any'];
+  for(let bi=0; bi<chain.length; bi++){
+    const b=chain[bi];
+    const pool=candidatesFor(n,b).filter(function(c){ return candOK(c,b); });
+    if(pool.length<count) continue;
+    for(let t=0;t<260;t++){
+      const sel=[]; const used=Object.create(null);
+      let bad=false;
+      for(let k=0;k<count;k++){
+        const c=pool[Math.floor(rng()*pool.length)];
+        const key=c.n+'/'+c.d;
+        if(used[key]){ bad=true; break; }
+        used[key]=1; sel.push(c);
+      }
+      if(bad) continue;
+      if(!setOK(sel, n, b, dbl1)) continue;
+      return finishSet(n, supply, sel, level, dbl1?1:(dbl2?2:0));
+    }
+  }
+  /* 최종 안전판 — 12의 배수로 맞추면 ×1/2 와 ×3/2 는 언제나 정수다 */
+  const t=12*Math.ceil(Math.max(n,12)/12);
+  supply += t-n; n=t;
+  const sel=[{n:1,d:2,R:n/2,v:.5},{n:3,d:2,R:n*3/2,v:1.5}];
+  return finishSet(n, supply, sel, level, dbl1?1:(dbl2?2:0));
+}
+function finishSet(n, supply, sel, level, dbl){
+  const mx=mixedLevel(level);
+  const gates=sel.map(function(c){
+    return {n:c.n, d:c.d, R:c.R, v:c.v, lab:fracLabel({n:c.n,d:c.d}, mx)};
+  });
+  let bi=0;
+  for(let i=1;i<gates.length;i++) if(gates[i].R>gates[bi].R) bi=i;
+  return {N:n, supply:supply, gates:gates, best:bi, dbl:dbl};
+}
+
+/* 구간 계획: 같은 시드로 최적 경로를 미리 달려 보고 자물쇠 수치를 정한다 */
+function planLevel(level, startN){
+  const rng=mulberry32((level*9176 + startN*31 + 7)>>>0);
+  const G=bandInfo(level).gates;
+  let n=startN; let path=[], dispStart=startN, supplied=false;
+  for(let i=0;i<G;i++){
+    const s=pickSet(n, level, i, rng);
+    if(s.supply>0){ dispStart=s.N; path=[]; supplied=true; }
+    n=s.N;
+    const g=s.gates[s.best];
+    path.push({n:g.n, d:g.d, lab:g.lab});
+    n=g.R;
+  }
+  return {gates:G, optFinal:n, path:path, dispStart:dispStart, supplied:supplied,
+          req:Math.max(5, Math.floor(n*0.85))};
+}
+
+/* ══════════════════════════════════════════════════════════
+   2. 캔버스 · 에셋 프리베이크
+   ══════════════════════════════════════════════════════════ */
+const DPR=Math.min(window.devicePixelRatio||1, 1.5);
+const stage=document.getElementById('stage');
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d', {alpha:false});
+let W=1, H=1;                      // CSS 픽셀 기준 논리 크기
+
+const REDUCED = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) || false;
+
+const IMG={jelly:null, gate:null, bg:null, wall:null};
+function loadImg(key, src){
+  const im=new Image();
+  im.onload=function(){ IMG[key]=im; bakeAll(); };
+  im.onerror=function(){ IMG[key]=null; bakeAll(); };
+  im.src=src;
+}
+
+function mkCanvas(w,h){
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(w)); c.height=Math.max(1,Math.round(h));
+  return c;
+}
+
+/* 흰 배경 PNG 의 바깥쪽 흰색만 테두리에서 번져 들어가며 지운다 (내부 흰 하이라이트는 보존) */
+function keyOutWhite(img, size){
+  const c=mkCanvas(size,size), g=c.getContext('2d');
+  g.drawImage(img,0,0,size,size);
+  let dat;
+  try{ dat=g.getImageData(0,0,size,size); }catch(e){ return c; }
+  const px=dat.data, w=size, h=size;
+  const isW=function(i){ return px[i]>232 && px[i+1]>232 && px[i+2]>232; };
+  const seen=new Uint8Array(w*h);
+  const stack=[];
+  for(let x=0;x<w;x++){ stack.push(x, x+(h-1)*w); }
+  for(let y=0;y<h;y++){ stack.push(y*w, w-1+y*w); }
+  while(stack.length){
+    const p=stack.pop();
+    if(p<0||p>=w*h||seen[p]) continue;
+    const i=p*4;
+    if(!isW(i)) continue;
+    seen[p]=1; px[i+3]=0;
+    const x=p%w, y=(p/w)|0;
+    if(x>0) stack.push(p-1);
+    if(x<w-1) stack.push(p+1);
+    if(y>0) stack.push(p-w);
+    if(y<h-1) stack.push(p+w);
+  }
+  /* 남은 흰 테두리를 살짝 눌러 후광을 줄인다 */
+  for(let p=0;p<w*h;p++){
+    const i=p*4;
+    if(px[i+3]>0 && isW(i)){
+      const x=p%w, y=(p/w)|0;
+      let edge=false;
+      if(x>0&&seen[p-1])edge=true; if(x<w-1&&seen[p+1])edge=true;
+      if(y>0&&seen[p-w])edge=true; if(y<h-1&&seen[p+w])edge=true;
+      if(edge) px[i+3]=90;
+    }
+  }
+  g.putImageData(dat,0,0);
+  return c;
+}
+
+/* 프리베이크 결과 */
+const BAKE={ jelly:[], jellyG:[], jellyR:[], gate:null, wall:null, bg:null, dot:null, glow:null };
+const JS_SIZE=[42,30,21];          // CSS px 기준 3단계
+
+function bakeJelly(){
+  BAKE.jelly.length=0; BAKE.jellyG.length=0; BAKE.jellyR.length=0;
+  for(let s=0;s<JS_SIZE.length;s++){
+    const px=Math.round(JS_SIZE[s]*DPR);
+    const base=mkCanvas(px,px), g=base.getContext('2d');
+    if(IMG.jelly){
+      g.drawImage(IMG.jelly, 0,0, px,px);
+    }else{
+      /* 폴백: 코드 드로잉 젤리 */
+      const r=px*0.42, cx=px/2, cy=px*0.54;
+      const gr=g.createRadialGradient(cx-r*0.3, cy-r*0.4, r*0.15, cx, cy, r);
+      gr.addColorStop(0,'#c9fff0'); gr.addColorStop(.45,'#3ef2c0'); gr.addColorStop(1,'#14a58a');
+      g.fillStyle=gr;
+      g.beginPath(); g.ellipse(cx,cy,r,r*0.94,0,0,Math.PI*2); g.fill();
+      g.fillStyle='rgba(255,255,255,.85)';
+      g.beginPath(); g.ellipse(cx-r*0.34, cy-r*0.36, r*0.20, r*0.14, -0.5, 0, Math.PI*2); g.fill();
+      g.fillStyle='#0a2b2a';
+      g.beginPath(); g.ellipse(cx-r*0.30, cy+r*0.02, r*0.11, r*0.14, 0,0,Math.PI*2); g.fill();
+      g.beginPath(); g.ellipse(cx+r*0.30, cy+r*0.02, r*0.11, r*0.14, 0,0,Math.PI*2); g.fill();
+    }
+    BAKE.jelly.push(base);
+    BAKE.jellyG.push(tint(base,'rgba(62,242,192,.55)'));
+    BAKE.jellyR.push(tint(base,'rgba(255,93,115,.62)'));
+  }
+}
+function tint(src, color){
+  const c=mkCanvas(src.width, src.height), g=c.getContext('2d');
+  g.drawImage(src,0,0);
+  g.globalCompositeOperation='source-atop';
+  g.fillStyle=color; g.fillRect(0,0,c.width,c.height);
+  g.globalCompositeOperation='source-over';
+  return c;
+}
+function bakeGate(){
+  const w=Math.round(300*DPR), h=Math.round(300*DPR);
+  const c=mkCanvas(w,h), g=c.getContext('2d');
+  if(IMG.gate){
+    g.drawImage(IMG.gate,0,0,w,h);
+  }else{
+    g.strokeStyle='#a06bff'; g.lineWidth=w*0.055; g.lineCap='round';
+    g.beginPath();
+    g.moveTo(w*0.14,h*0.96); g.lineTo(w*0.14,h*0.44);
+    g.arc(w*0.5,h*0.44,w*0.36,Math.PI,0);
+    g.lineTo(w*0.86,h*0.96);
+    g.stroke();
+    g.strokeStyle='rgba(62,242,192,.65)'; g.lineWidth=w*0.022; g.stroke();
+  }
+  BAKE.gate=c;
+}
+function bakeWall(){
+  const s=Math.round(420*DPR);
+  if(IMG.wall){
+    BAKE.wall=keyOutWhite(IMG.wall, s);
+  }else{
+    const c=mkCanvas(s,s), g=c.getContext('2d');
+    const gr=g.createLinearGradient(0,0,0,s);
+    gr.addColorStop(0,'#2b3f7a'); gr.addColorStop(1,'#131f42');
+    g.fillStyle=gr; roundRect(g, s*0.06, s*0.10, s*0.88, s*0.82, s*0.10); g.fill();
+    g.strokeStyle='#ffd166'; g.lineWidth=s*0.018; g.stroke();
+    BAKE.wall=c;
+  }
+}
+function bakeGlow(){
+  const w=96, h=96, c=mkCanvas(w,h), g=c.getContext('2d');
+  for(let y=0;y<h;y++){
+    const vy=Math.pow(y/(h-1), 1.7);
+    const lg=g.createLinearGradient(0,0,w,0);
+    lg.addColorStop(0,'rgba(62,242,192,0)');
+    lg.addColorStop(.5,'rgba(62,242,192,'+(0.42*vy).toFixed(3)+')');
+    lg.addColorStop(1,'rgba(62,242,192,0)');
+    g.fillStyle=lg; g.fillRect(0,y,w,1);
+  }
+  BAKE.glow=c;
+}
+function bakeDots(){
+  const d=Math.round(20*DPR), c=mkCanvas(d,d), g=c.getContext('2d');
+  const gr=g.createRadialGradient(d/2,d/2,0,d/2,d/2,d/2);
+  gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(.35,'rgba(255,255,255,.65)');
+  gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr; g.fillRect(0,0,d,d);
+  BAKE.dot=c;
+}
+function bakeBG(){
+  if(W<2||H<2) return;
+  const w=Math.round(W*DPR), h=Math.round(H*DPR);
+  const c=mkCanvas(w,h), g=c.getContext('2d');
+  g.fillStyle='#070d1c'; g.fillRect(0,0,w,h);
+  const gg=g.createLinearGradient(0,0,0,h);
+  gg.addColorStop(0,'#13224a'); gg.addColorStop(.6,'#0c1631'); gg.addColorStop(1,'#070d1c');
+  g.fillStyle=gg; g.fillRect(0,0,w,h);
+  if(IMG.bg){
+    const iw=IMG.bg.width, ih=IMG.bg.height;
+    const sc=Math.max(w/iw, h/ih);
+    const dw=iw*sc, dh=ih*sc;
+    g.globalAlpha=.92;
+    g.drawImage(IMG.bg, (w-dw)/2, (h-dh)/2, dw, dh);
+    g.globalAlpha=1;
+  }
+  /* 별·거품 프리베이크 */
+  const rr=mulberry32(4242);
+  for(let i=0;i<70;i++){
+    const x=rr()*w, y=rr()*h, r=(0.6+rr()*2.4)*DPR;
+    g.fillStyle='rgba(62,242,192,'+(0.05+rr()*0.16).toFixed(3)+')';
+    g.beginPath(); g.arc(x,y,r*2.4,0,Math.PI*2); g.fill();
+    g.fillStyle='rgba(220,245,255,'+(0.12+rr()*0.3).toFixed(3)+')';
+    g.beginPath(); g.arc(x,y,r*0.6,0,Math.PI*2); g.fill();
+  }
+  /* 아래쪽 어둡게 (젤리 대비) */
+  const vg=g.createLinearGradient(0,h*0.45,0,h);
+  vg.addColorStop(0,'rgba(7,13,28,0)'); vg.addColorStop(1,'rgba(7,13,28,.72)');
+  g.fillStyle=vg; g.fillRect(0,h*0.45,w,h*0.55);
+  BAKE.bg=c;
+}
+function bakeAll(){ bakeJelly(); bakeGate(); bakeWall(); bakeDots(); bakeGlow(); bakeBG(); }
+
+function roundRect(g,x,y,w,h,r){
+  r=Math.min(r,w/2,h/2);
+  g.beginPath();
+  g.moveTo(x+r,y);
+  g.lineTo(x+w-r,y); g.arcTo(x+w,y,x+w,y+r,r);
+  g.lineTo(x+w,y+h-r); g.arcTo(x+w,y+h,x+w-r,y+h,r);
+  g.lineTo(x+r,y+h); g.arcTo(x,y+h,x,y+h-r,r);
+  g.lineTo(x,y+r); g.arcTo(x,y,x+r,y,r);
+  g.closePath();
+}
+
+function resize(){
+  const w=stage.clientWidth||390, h=stage.clientHeight||500;
+  if(Math.abs(w-W)<0.5 && Math.abs(h-H)<0.5) return;
+  W=w; H=h;
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  bakeBG();
+}
+
+/* ══════════════════════════════════════════════════════════
+   3. 오디오 (사용자 제스처 이후에만)
+   ══════════════════════════════════════════════════════════ */
+let AC=null, gestured=false, muted=false;
+function audio(){
+  if(!gestured || muted) return null;
+  if(!AC){
+    try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }
+    catch(e){ AC=null; }
+  }
+  if(AC && AC.state==='suspended'){ try{ AC.resume(); }catch(e){} }
+  return AC;
+}
+function tone(f1,f2,dur,type,vol){
+  const a=audio(); if(!a) return;
+  try{
+    const o=a.createOscillator(), g=a.createGain();
+    o.type=type||'sine';
+    o.frequency.setValueAtTime(f1, a.currentTime);
+    if(f2 && f2!==f1) o.frequency.exponentialRampToValueAtTime(Math.max(30,f2), a.currentTime+dur);
+    g.gain.setValueAtTime(0.0001, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(vol||0.12, a.currentTime+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(); o.stop(a.currentTime+dur+0.02);
+  }catch(e){}
+}
+function noise(dur, vol){
+  const a=audio(); if(!a) return;
+  try{
+    const n=Math.floor(a.sampleRate*dur);
+    const buf=a.createBuffer(1,n,a.sampleRate), ch=buf.getChannelData(0);
+    for(let i=0;i<n;i++) ch[i]=(Math.random()*2-1)*Math.pow(1-i/n,2.2);
+    const s=a.createBufferSource(); s.buffer=buf;
+    const g=a.createGain(); g.gain.value=vol||0.16;
+    s.connect(g); g.connect(a.destination); s.start();
+  }catch(e){}
+}
+const SFX={
+  good:function(){ tone(520,980,.16,'triangle',.13); },
+  best:function(){ tone(660,1320,.2,'triangle',.15); tone(990,1480,.16,'sine',.07); },
+  bad:function(){ tone(260,140,.22,'sawtooth',.09); },
+  pop:function(){ noise(.16,.13); },
+  wall:function(){ tone(180,90,.4,'sawtooth',.14); noise(.3,.16); },
+  clear:function(){ tone(523,523,.12,'triangle',.13); setTimeout(function(){tone(659,659,.12,'triangle',.13);},110); setTimeout(function(){tone(880,1100,.24,'triangle',.14);},220); },
+  over:function(){ tone(330,80,.7,'sine',.14); }
+};
+
+/* ══════════════════════════════════════════════════════════
+   4. 게임 상태
+   ══════════════════════════════════════════════════════════ */
+const BEST_KEY='jellygate.best.v1';
+const G={
+  phase:'intro',
+  level:1, N:24, levelStartN:24, lives:3, score:0, solved:0, combo:0, bestCombo:0,
+  bestJelly:0,
+  plan:null, rng:null, gateIdx:0,
+  active:null,             // 다가오는 게이트 세트
+  lane:0, laneCount:2, laneT:0,
+  wall:null,
+  slowLeft:2, slowT:0,
+  shake:0, flash:0, flashCol:'#3ef2c0',
+  eqTerms:[], eqStartN:24, supplied:false,
+  dblFirst:null,
+  scroll:0, speedBase:150,
+  pop:null,                // 큰 숫자 팝
+  split:null,
+  banner:null,
+  cancelFx:null,
+  jellies:[], particles:[],
+  t:0
+};
+try{ G.bestJelly=parseInt(localStorage.getItem(BEST_KEY)||'0',10)||0; }catch(e){ G.bestJelly=0; }
+
+const MAXDRAW=90;
+
+function slotPos(i){
+  const r=Math.sqrt(i+0.55)*0.92;
+  const a=i*2.39996323;
+  return {x:Math.cos(a)*r, y:Math.sin(a)*r*0.60};
+}
+function newJelly(x,y){
+  return {x:x, y:y, tx:x, ty:y, s:0, ph:Math.random()*6.28, dead:false, tint:0, born:0};
+}
+function syncJellies(){
+  const want=Math.min(G.N, MAXDRAW);
+  while(G.jellies.length<want){
+    const c=crowdCenter();
+    G.jellies.push(newJelly(c.x+(Math.random()-.5)*40, c.y+(Math.random()-.5)*24));
+  }
+  while(G.jellies.length>want) G.jellies.pop();
+  layoutRunning();
+}
+function crowdCenter(){
+  return {x:laneX(G.laneT), y:H*0.735};
+}
+function gateW(){ return Math.min(W/Math.max(1,G.laneCount)*0.95, 210); }
+function lanePad(){ return Math.max(W*0.10, gateW()*0.5 + 5); }
+function laneX(t){
+  if(G.laneCount<=1) return W/2;
+  const pad=lanePad(), span=Math.max(1, W-pad*2);
+  return pad + span*(t/(G.laneCount-1));
+}
+function layoutRunning(){
+  const c=crowdCenter();
+  const sp=Math.max(9, Math.min(14, W/30));
+  for(let i=0;i<G.jellies.length;i++){
+    const p=slotPos(i);
+    const j=G.jellies[i];
+    j.tx=c.x+p.x*sp; j.ty=c.y+p.y*sp;
+    j.tint=0;
+  }
+}
+
+/* ── 파티클 ── */
+function burst(x,y,n,col,pow){
+  if(REDUCED) n=Math.min(n,6);
+  for(let i=0;i<n;i++){
+    if(G.particles.length>150) break;
+    const a=Math.random()*6.283, sp=(40+Math.random()*170)*(pow||1);
+    G.particles.push({x:x, y:y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-40, life:1, r:2+Math.random()*5, col:col});
+  }
+}
+
+/* ── 누적 식 DOM ── */
+const eqEl=document.getElementById('eq');
+function fracHTML(lab, cls){
+  if(lab.kind==='whole') return '<span class="'+cls+'">'+lab.w+'</span>';
+  if(lab.kind==='mixed')
+    return '<span class="mx '+cls+'">'+lab.w+'<span class="fr"><i>'+lab.n+'</i><i>'+lab.d+'</i></span></span>';
+  return '<span class="fr '+cls+'"><i>'+lab.n+'</i><i>'+lab.d+'</i></span>';
+}
+function renderEq(){
+  const terms=G.eqTerms;
+  let html='<span class="num0">'+G.eqStartN+'</span>';
+  const show=terms.slice(-4);
+  if(terms.length>4) html+='<span class="dots">…</span>';
+  for(let i=0;i<show.length;i++){
+    html+='<span class="op">×</span>'+fracHTML(show[i],'');
+  }
+  html+='<span class="op">=</span><span class="res">'+G.N+'</span>';
+  eqEl.innerHTML=html;
+}
+
+/* ── HUD ── */
+const numEl=document.getElementById('num'), subEl=document.getElementById('sub');
+const lvEl=document.getElementById('lv'), dotsEl=document.getElementById('dots');
+function renderHUD(){
+  numEl.textContent=G.N;
+  subEl.textContent='최고 '+G.bestJelly+'마리 · '+G.score+'점';
+  const bi=bandInfo(G.level);
+  lvEl.innerHTML='<b>'+G.level+'구간</b><small>'+bi.name+'</small>';
+  let d='';
+  for(let i=0;i<2;i++) d+='<span class="'+(i<G.slowLeft?'on':'')+'"></span>';
+  dotsEl.innerHTML=d;
+  document.getElementById('slow').disabled = G.slowLeft<=0;
+}
+function popNum(up){
+  numEl.classList.remove('pop','dn');
+  void numEl.offsetWidth;
+  numEl.classList.add('pop');
+  if(!up) numEl.classList.add('dn');
+  setTimeout(function(){ numEl.classList.remove('pop'); }, 150);
+  setTimeout(function(){ numEl.classList.remove('dn'); }, 420);
+}
+
+/* ══════════════════════════════════════════════════════════
+   5. 진행 로직
+   ══════════════════════════════════════════════════════════ */
+/* 구간 시작 보급 — 진분수 구간을 지나며 줄어든 떼를 친화수로 채워 준다 */
+const LEVEL_START_N=[24,24,36,60,72,96,120,144];
+function startLevel(level, startN, keepLives){
+  const floorN=LEVEL_START_N[clamp(level,1,8)-1];
+  const supplied=Math.max(startN|0, floorN);
+  startN=(supplied===floorN)?floorN:12*Math.ceil(supplied/12);
+  G.level=level;
+  G.levelStartN=startN;
+  G.N=startN;
+  G.plan=planLevel(level, startN);
+  G.rng=mulberry32((level*9176 + startN*31 + 7)>>>0);
+  G.gateIdx=0;
+  G.active=null; G.wall=null; G.split=null; G.cancelFx=null; G.dblFirst=null;
+  G.laneCount=2; G.lane=0; G.laneT=0;
+  G.slowLeft=2; G.slowT=0;
+  G.eqTerms=[]; G.eqStartN=startN; G.supplied=false;
+  G.combo=0;
+  G.scroll=0;
+  G.particles.length=0;
+  G.phase='run';
+  cardSeq++;
+  syncJellies();
+  for(let i=0;i<G.jellies.length;i++){ G.jellies[i].x=G.jellies[i].tx; G.jellies[i].y=G.jellies[i].ty; G.jellies[i].s=1; }
+  renderEq(); renderHUD();
+  banner(level+'구간 — '+bandInfo(level).name, '#3ef2c0');
+  spawnNext();
+  if(level>1) burst(crowdCenter().x, crowdCenter().y, 16, '#ffd166', .9);
+}
+
+function banner(text, col){
+  G.banner={text:text, col:col||'#3ef2c0', t:0};
+}
+
+function spawnNext(){
+  if(G.gateIdx >= G.plan.gates){ spawnWall(); return; }
+  const set=pickSet(G.N, G.level, G.gateIdx, G.rng);
+  if(set.supply>0){
+    const add=set.supply;
+    G.N=set.N;
+    G.eqStartN=G.N; G.eqTerms=[]; G.supplied=true;   /* 식이 거짓이 되지 않도록 기준점 재설정 */
+    syncJellies();
+    popNum(true);
+    banner('보급 젤리 +'+add, '#ffd166');
+    burst(crowdCenter().x, crowdCenter().y, 14, '#ffd166', .8);
+    renderEq(); renderHUD();
+  }
+  G.laneCount=set.gates.length;
+  G.lane=clamp(G.lane, 0, G.laneCount-1);
+  G.active={set:set, y:-90, resolved:false};
+}
+
+function spawnWall(){
+  G.wall={y:-160, req:G.plan.req, hit:false, broke:false, t:0};
+  G.active=null;
+  banner('자물쇠 벽! '+G.plan.req+'마리 이상', '#ffd166');
+}
+
+function gateSpeed(){
+  const base=[150,165,180,196,212,228,246,264][clamp(G.level,1,8)-1];
+  return base;
+}
+
+function resolveGate(idx){
+  const a=G.active; if(!a || a.resolved) return;
+  a.resolved=true;
+  const set=a.set;
+  const g=set.gates[clamp(idx,0,set.gates.length-1)];
+  const optimal=(g.R === set.gates[set.best].R);
+  const before=G.N;
+
+  G.eqTerms.push(g.lab);
+  G.N=g.R;
+  G.solved++;
+  if(optimal){ G.combo++; if(G.combo>G.bestCombo) G.bestCombo=G.combo; }
+  else G.combo=0;
+  let gain=Math.round((optimal?60:14) * (1 + Math.min(G.combo,8)*0.28));
+
+  /* 이중 게이트 처리 */
+  if(set.dbl===1){ G.dblFirst={n:g.n, d:g.d, lab:g.lab}; }
+  else if(set.dbl===2 && G.dblFirst){
+    const f1={n:G.dblFirst.n, d:G.dblFirst.d}, f2={n:g.n, d:g.d};
+    const prod=fmul(f1,f2);
+    const crossed = (gcd(f1.n,f2.d)>1) || (gcd(f2.n,f1.d)>1);
+    G.cancelFx={f1:G.dblFirst.lab, f2:g.lab, prod:fracLabel(prod,false), t:0, bonus:crossed};
+    if(crossed){ gain*=2; banner('약분 폭발! 점수 ×2', '#a06bff'); }
+    G.dblFirst=null;
+  }
+  G.score+=gain;
+  if(G.N>G.bestJelly){
+    G.bestJelly=G.N;
+    try{ localStorage.setItem(BEST_KEY, String(G.bestJelly)); }catch(e){}
+  }
+  startSplit(before, g, optimal);
+  renderEq(); renderHUD(); popNum(G.N>=before);
+  if(optimal){ SFX.best(); } else { SFX.good(); }
+  if(!optimal) SFX.bad();
+}
+
+function startSplit(before, g, optimal){
+  const visBefore=Math.min(before, MAXDRAW);
+  const visAfter=Math.min(g.R, MAXDRAW);
+  const d=g.d, a=g.n;
+  const groups=(d===1)? Math.max(2,Math.min(a,8)) : Math.max(a,d);
+  const keep=(d===1)? groups : a;
+
+  /* 그룹 격자 배치 */
+  const cols=Math.min(groups, groups<=4?groups:5);
+  const rows=Math.ceil(groups/cols);
+  const cw=(W*0.86)/cols, chh=Math.min(H*0.30, 66)/1;
+  const ox=W*0.07+cw/2, oy=H*0.58;
+  const gpos=[];
+  for(let i=0;i<groups;i++){
+    const c=i%cols, r=(i/cols)|0;
+    gpos.push({x:ox+c*cw, y:oy+(r-(rows-1)/2)*Math.min(58, H*0.11)});
+  }
+  /* 기존 젤리 → 그룹 배정 */
+  const srcGroups=(d===1)? 1 : d;
+  for(let i=0;i<G.jellies.length;i++){
+    const j=G.jellies[i];
+    const gi=(d===1)? 0 : Math.min(srcGroups-1, Math.floor(i*srcGroups/Math.max(1,visBefore)));
+    const inIdx=i - Math.floor(gi*visBefore/srcGroups);
+    const p=slotPos(inIdx);
+    const sp=Math.max(6, Math.min(11, cw/8));
+    j.tx=gpos[Math.min(gi,groups-1)].x + p.x*sp;
+    j.ty=gpos[Math.min(gi,groups-1)].y + p.y*sp;
+    j.grp=gi;
+    j.doomed = (d!==1) && (gi>=keep);
+    j.tint = j.doomed ? -1 : 1;
+  }
+  /* 늘어나는 경우: 새 젤리를 남는 그룹에 채운다 */
+  const need=visAfter-visBefore;
+  if(need>0){
+    const startG=(d===1)?1:d;
+    for(let k=0;k<need;k++){
+      const gi=startG + Math.floor(k*(groups-startG)/Math.max(1,need));
+      const gg=gpos[Math.min(Math.max(gi,0),groups-1)];
+      const p=slotPos(k%14);
+      const sp=Math.max(6, Math.min(11, cw/8));
+      const jj=newJelly(gg.x, gg.y);
+      jj.tx=gg.x+p.x*sp; jj.ty=gg.y+p.y*sp;
+      jj.s=0; jj.born=1; jj.tint=1; jj.doomed=false; jj.grp=gi;
+      G.jellies.push(jj);
+    }
+  }
+  G.split={t:0, dur:REDUCED?0.55:0.78, phase:0, g:g, before:before, after:g.R, optimal:optimal};
+  G.phase='split';
+  G.pop={v:g.R, t:0, up:g.R>=before};
+  G.shake=Math.min(14, 5+Math.abs(g.R-before)/Math.max(8,before)*9);
+  G.flash=1; G.flashCol=(g.R>=before)?'#3ef2c0':'#ff5d73';
+}
+
+function endSplit(){
+  const doomedList=[];
+  for(let i=G.jellies.length-1;i>=0;i--){
+    if(G.jellies[i].doomed){ doomedList.push(G.jellies[i]); G.jellies.splice(i,1); }
+  }
+  for(let i=0;i<doomedList.length;i++){
+    if(i%2===0) burst(doomedList[i].x, doomedList[i].y, 3, '#ff5d73', .7);
+  }
+  if(doomedList.length) SFX.pop();
+  syncJellies();
+  G.phase='run';
+  G.split=null;
+  G.gateIdx++;
+  G.active=null;
+  if(!G.wall) spawnNext();
+}
+
+let cardSeq=0;
+function deferCard(fn, ms){
+  const my=++cardSeq;
+  setTimeout(function(){ if(my===cardSeq) fn(); }, ms);
+}
+function hitWall(pass){
+  if(pass){
+    G.wall.broke=true;
+    G.score+=140+G.N;
+    SFX.wall();
+    burst(W/2, H*0.4, 40, '#ffd166', 1.5);
+    G.shake=16; G.flash=1; G.flashCol='#ffd166';
+    G.phase='clear';
+    deferCard(showClear, 700);
+  }else{
+    G.lives--;
+    SFX.wall(); SFX.bad();
+    G.shake=18; G.flash=1; G.flashCol='#ff5d73';
+    burst(W/2, H*0.5, 26, '#ff5d73', 1.1);
+    G.combo=0;
+    renderHUD();
+    G.phase='fail';
+    deferCard(function(){
+      if(G.lives<=0) showOver(); else showFail();
+    }, 650);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   6. 오버레이 카드
+   ══════════════════════════════════════════════════════════ */
+const ov=document.getElementById('ov'), cardBody=document.getElementById('cardbody'),
+      goBtn=document.getElementById('go'), howto=document.getElementById('howto'),
+      cardH=document.querySelector('#card h1');
+let goAction=null;
+function showOverlay(title, bodyHTML, btnText, action, showHow){
+  cardH.textContent=title;
+  cardBody.innerHTML=bodyHTML;
+  goBtn.textContent=btnText;
+  goAction=action;
+  howto.style.display=showHow?'block':'none';
+  ov.classList.add('on');
+}
+function hideOverlay(){ ov.classList.remove('on'); }
+
+function pathHTML(list, cls){
+  let h='';
+  for(let i=0;i<list.length;i++) h+='<span class="op">×</span>'+fracHTML(list[i], cls);
+  return h;
+}
+function showClear(){
+  let prod={n:1,d:1};
+  for(let i=0;i<G.eqTerms.length;i++){
+    const l=G.eqTerms[i];
+    const f=(l.kind==='whole')?{n:l.w,d:1}:(l.kind==='mixed'?{n:l.w*l.d+l.n,d:l.d}:{n:l.n,d:l.d});
+    prod=fmul(prod,f);
+  }
+  const pl=fracLabel(prod, prod.n>prod.d);
+  const html=
+    '<div class="big">'+G.N+'마리</div>'+
+    '<p>자물쇠 벽을 부쉈습니다!</p>'+
+    '<div class="lines"><span class="lb">'+(G.supplied?'보급 젤리 이후 총배율':'이번 구간 총배율')+'</span>'+
+      '<div class="rowline"><span class="num0">'+G.eqStartN+'</span>'+pathHTML(G.eqTerms,'')+
+      '<span class="op">=</span><span class="res">'+G.N+'</span></div>'+
+      '<div class="rowline" style="margin-top:4px"><span class="op">총</span>'+fracHTML(pl,'op2')+'<span class="op">배</span></div>'+
+    '</div>'+
+    '<p>최고 콤보 '+G.bestCombo+' · 점수 '+G.score+'점</p>';
+  const nx=G.level+1;
+  if(nx>8){
+    showOverlay('전 구간 돌파!', html, '처음부터 다시', function(){ restart(); }, false);
+  }else{
+    showOverlay(G.level+'구간 클리어', html, nx+'구간으로', function(){
+      hideOverlay(); startLevel(nx, G.N, true);
+    }, false);
+  }
+  SFX.clear();
+}
+function showFail(){
+  const html=
+    '<div class="big" style="color:var(--rose)">'+G.N+' &lt; '+G.plan.req+'</div>'+
+    '<p>젤리가 모자라 튕겨나갔어요.</p>'+
+    '<div class="lines">'+
+      '<span class="lb">내가 지나온 길</span>'+
+      '<div class="rowline"><span class="num0">'+G.eqStartN+'</span>'+pathHTML(G.eqTerms,'me')+
+        '<span class="op">=</span><span class="me">'+G.N+'</span></div>'+
+      '<span class="lb" style="margin-top:7px">가장 커지는 길</span>'+
+      '<div class="rowline"><span class="num0">'+G.plan.dispStart+'</span>'+pathHTML(G.plan.path.map(function(p){return p.lab;}),'op2')+
+        '<span class="op">=</span><span class="op2">'+G.plan.optFinal+'</span></div>'+
+    '</div>'+
+    '<p>남은 목숨 '+G.lives+'개 — 1보다 큰 수를 곱해야 늘어납니다.</p>';
+  showOverlay('구간 재도전', html, '다시 달리기', function(){
+    hideOverlay(); startLevel(G.level, G.levelStartN, true);
+  }, false);
+}
+function showOver(){
+  const html=
+    '<div class="big">'+G.score+'점</div>'+
+    '<p>가장 많이 모은 젤리 '+G.bestJelly+'마리 · 게이트 '+G.solved+'개 통과</p>'+
+    '<p style="opacity:.7">1보다 작은 분수를 곱하면 <b>줄어듭니다</b>. 게이트 두 개를 비교해 보세요.</p>';
+  showOverlay('게임 오버', html, '다시 하기', function(){ restart(); }, false);
+  SFX.over();
+}
+function restart(){
+  hideOverlay();
+  G.lives=3; G.score=0; G.solved=0; G.bestCombo=0;
+  startLevel(1, 24, false);
+}
+goBtn.addEventListener('click', function(){
+  gestured=true;
+  if(goAction) goAction();
+  else { hideOverlay(); restart(); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   7. 입력
+   ══════════════════════════════════════════════════════════ */
+let ptrDown=false, ptrStartX=0, ptrStartT=0, ptrMoved=false, longTimer=null;
+function setLaneFromX(x){
+  if(G.laneCount<=1){ G.lane=0; return; }
+  const pad=lanePad(), span=Math.max(1, W-pad*2);
+  const t=clamp((x-pad)/span, 0, 1);
+  G.lane=Math.round(t*(G.laneCount-1));
+}
+function onDown(e){
+  gestured=true;
+  ptrDown=true; ptrMoved=false;
+  const r=cv.getBoundingClientRect();
+  ptrStartX=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  ptrStartT=performance.now();
+  setLaneFromX(ptrStartX);
+  clearTimeout(longTimer);
+  longTimer=setTimeout(function(){ if(ptrDown && !ptrMoved) useSlow(); }, 340);
+  if(e.cancelable) e.preventDefault();
+}
+function onMove(e){
+  if(!ptrDown) return;
+  const r=cv.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  if(Math.abs(x-ptrStartX)>8) ptrMoved=true;
+  setLaneFromX(x);
+  if(e.cancelable) e.preventDefault();
+}
+function onUp(){ ptrDown=false; clearTimeout(longTimer); }
+cv.addEventListener('pointerdown', onDown);
+cv.addEventListener('pointermove', onMove);
+window.addEventListener('pointerup', onUp);
+window.addEventListener('pointercancel', onUp);
+cv.addEventListener('touchstart', function(e){ if(e.cancelable) e.preventDefault(); }, {passive:false});
+cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+window.addEventListener('keydown', function(e){
+  gestured=true;
+  const k=e.key;
+  if(k==='ArrowLeft'||k==='a'||k==='A'){ G.lane=clamp(G.lane-1,0,G.laneCount-1); e.preventDefault(); }
+  else if(k==='ArrowRight'||k==='d'||k==='D'){ G.lane=clamp(G.lane+1,0,G.laneCount-1); e.preventDefault(); }
+  else if(k==='Shift'){ useSlow(); }
+  else if(k==='r'||k==='R'){ restart(); }
+  else if(k===' '||k==='Enter'){
+    if(ov.classList.contains('on')){ goBtn.click(); e.preventDefault(); }
+  }
+});
+
+function useSlow(){
+  if(G.slowLeft<=0 || G.phase!=='run') return;
+  G.slowLeft--; G.slowT=0.55;
+  renderHUD();
+  tone(880,440,.18,'sine',.08);
+}
+document.getElementById('slow').addEventListener('click', function(){ gestured=true; useSlow(); });
+
+const muteBtn=document.getElementById('mute');
+muteBtn.addEventListener('click', function(){
+  gestured=true;
+  muted=!muted;
+  muteBtn.textContent=muted?'🔇':'🔊';
+  if(muted && AC){ try{ AC.suspend(); }catch(e){} }
+  else if(AC){ try{ AC.resume(); }catch(e){} }
+});
+
+/* ══════════════════════════════════════════════════════════
+   8. 업데이트 · 렌더
+   ══════════════════════════════════════════════════════════ */
+let lastT=0, resizeTick=0;
+function update(dt){
+  G.t+=dt;
+  if(G.slowT>0) G.slowT=Math.max(0, G.slowT-dt);
+  const slow=(G.slowT>0)?0.38:1;
+  const sp=gateSpeed()*slow;
+  G.scroll=(G.scroll + sp*dt*1.15) % Math.max(1,H);
+
+  /* 레인 보간 */
+  G.laneT=lerp(G.laneT, G.lane, 1-Math.pow(0.0008, dt));
+
+  /* 게이트 접근 */
+  if(G.phase==='run' && G.active && !G.active.resolved){
+    G.active.y += sp*dt;
+    const cy=H*0.735;
+    if(G.active.y >= cy-6){
+      resolveGate(Math.round(G.laneT));
+    }
+  }
+  /* 벽 접근 */
+  if((G.phase==='run') && G.wall && !G.wall.hit){
+    G.wall.y += sp*dt*0.9;
+    if(G.wall.y >= H*0.60){
+      G.wall.hit=true;
+      hitWall(G.N >= G.wall.req);
+    }
+  }
+  if(G.wall && G.wall.hit) G.wall.t+=dt;
+
+  /* 분리 연출 */
+  if(G.split){
+    G.split.t+=dt;
+    const s=G.split;
+    if(s.phase===0 && s.t>s.dur*0.5){
+      s.phase=1;
+      for(let i=0;i<G.jellies.length;i++){
+        const j=G.jellies[i];
+        if(j.doomed){ burst(j.x,j.y,2,'#ff5d73',.9); }
+      }
+      SFX.pop();
+    }
+    if(s.t>=s.dur){ endSplit(); }
+  }
+
+  /* 젤리 보간 */
+  const k=1-Math.pow(0.00004, dt);
+  const running=(G.phase!=='split');
+  if(running) layoutRunning();
+  for(let i=0;i<G.jellies.length;i++){
+    const j=G.jellies[i];
+    j.x=lerp(j.x, j.tx, k);
+    j.y=lerp(j.y, j.ty, k);
+    j.s=Math.min(1, j.s + dt*4.5);
+    j.ph+=dt*7;
+  }
+
+  /* 파티클 */
+  for(let i=G.particles.length-1;i>=0;i--){
+    const p=G.particles[i];
+    p.life-=dt*1.7;
+    if(p.life<=0){ G.particles.splice(i,1); continue; }
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=420*dt; p.vx*=0.985;
+  }
+
+  if(G.pop){ G.pop.t+=dt; if(G.pop.t>1.05) G.pop=null; }
+  if(G.banner){ G.banner.t+=dt; if(G.banner.t>1.9) G.banner=null; }
+  if(G.cancelFx){ G.cancelFx.t+=dt; if(G.cancelFx.t>1.5) G.cancelFx=null; }
+  G.shake=Math.max(0, G.shake-dt*36);
+  G.flash=Math.max(0, G.flash-dt*3.4);
+}
+
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  /* 배경 (프리베이크 1:1 블릿 2장) */
+  if(BAKE.bg){
+    ctx.drawImage(BAKE.bg, 0, 0, W, H);
+  }else{
+    ctx.fillStyle='#070d1c'; ctx.fillRect(0,0,W,H);
+  }
+  drawSpeed();
+
+  const sx=(G.shake>0 && !REDUCED)?(Math.random()-.5)*G.shake:0;
+  const sy=(G.shake>0 && !REDUCED)?(Math.random()-.5)*G.shake:0;
+  ctx.save();
+  ctx.translate(sx,sy);
+
+  drawLanes();
+  if(G.wall) drawWall();
+  if(G.active && !G.active.resolved) drawGates();
+  drawJellies();
+  drawParticles();
+  ctx.restore();
+
+  drawFX();
+}
+
+/* 소실점에서 쏟아져 나오는 속도 스트릭 + 떠오르는 거품 (배경은 고정) */
+function drawSpeed(){
+  const ph=(G.scroll/Math.max(1,H));
+  for(let i=0;i<9;i++){
+    const t=((i/9)+ph)%1;
+    const y=H*0.14+t*t*H*0.94;
+    const w=W*(0.05+t*0.62);
+    ctx.globalAlpha=0.04+t*0.13;
+    ctx.fillStyle='#3ef2c0';
+    ctx.fillRect(W/2-w/2, y, w, 1.4+t*3.4);
+  }
+  ctx.globalAlpha=1;
+  if(BAKE.dot){
+    const d=BAKE.dot, dw=d.width/DPR;
+    for(let i=0;i<12;i++){
+      const t=((i/12)+ph*1.7)%1;
+      const y=H*0.16+t*t*H*0.95;
+      const x=W*0.5 + Math.sin(i*2.7+G.t*0.6)*W*(0.06+t*0.46);
+      const s=dw*(0.30+t*0.85);
+      ctx.globalAlpha=0.10+t*0.26;
+      ctx.drawImage(d, x-s/2, y-s/2, s, s);
+    }
+    ctx.globalAlpha=1;
+  }
+}
+
+function drawLanes(){
+  const n=G.laneCount;
+  ctx.lineWidth=2;
+  for(let i=0;i<n;i++){
+    const x=laneX(i);
+    const sel=(Math.abs(G.laneT-i)<0.5);
+    ctx.strokeStyle=sel?'rgba(62,242,192,.42)':'rgba(160,107,255,.16)';
+    ctx.beginPath();
+    ctx.moveTo(x, H*0.16);
+    ctx.lineTo(x, H*0.92);
+    ctx.stroke();
+  }
+  /* 현재 레인 하이라이트 (부드러운 글로우) */
+  if(BAKE.glow){
+    const x=laneX(G.laneT);
+    const w=Math.min(W/n*0.92, 168);
+    ctx.drawImage(BAKE.glow, x-w/2, H*0.24, w, H*0.66);
+  }
+}
+
+function drawGates(){
+  const a=G.active, set=a.set;
+  const n=set.gates.length;
+  const gw=gateW();
+  for(let i=0;i<n;i++){
+    const g=set.gates[i];
+    const x=laneX(i);
+    const y=a.y;
+    const persp=clamp(0.52+0.48*(y+90)/(H*0.80), 0.4, 1.05);
+    const w=gw*persp, h=w;
+    const sel=Math.abs(G.laneT-i)<0.5;
+    if(BAKE.gate) ctx.drawImage(BAKE.gate, x-w/2, y-h*0.86, w, h);
+    /* 라벨 패널 */
+    const pw=w*0.80, ph=w*0.42;
+    ctx.fillStyle=sel?'rgba(9,16,34,.86)':'rgba(9,16,34,.78)';
+    roundRect(ctx, x-pw/2, y-h*0.58, pw, ph, ph*0.26); ctx.fill();
+    ctx.strokeStyle=sel?'rgba(62,242,192,.95)':'rgba(160,107,255,.50)';
+    ctx.lineWidth=sel?2.6:1.4; ctx.stroke();
+    drawMultiplier(g.lab, x, y-h*0.58+ph/2, w*0.155, sel?'#3ef2c0':'#e9f2ff');
+    /* 온보딩: 1구간 첫 게이트에는 결과 고스트 */
+    if(G.level===1 && G.gateIdx===0){
+      ctx.fillStyle='rgba(255,209,102,.75)';
+      ctx.font='700 '+Math.round(w*0.13)+'px '+FONT;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('→ '+g.R+'마리', x, y-h*0.58+ph+w*0.12);
+    }
+  }
+  if(set.dbl===1) labelBanner('이중 게이트 1단', a.y-gw*0.95, '#a06bff');
+  else if(set.dbl===2) labelBanner('이중 게이트 2단', a.y-gw*0.95, '#a06bff');
+}
+const FONT='-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+function labelBanner(text, y, col){
+  ctx.font='800 12px '+FONT;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle=col;
+  ctx.fillText(text, W/2, Math.max(14,y));
+}
+
+/* 캔버스에 ×분수 를 직접 조판 */
+function drawMultiplier(lab, cx, cy, size, col){
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle=col;
+  const big='900 '+Math.round(size*1.28)+'px '+FONT;
+  const small='800 '+Math.round(size*0.92)+'px '+FONT;
+  if(lab.kind==='whole'){
+    ctx.font=big;
+    ctx.fillText('×'+lab.w, cx, cy);
+    return;
+  }
+  let wNum=0;
+  ctx.font=big;
+  const xw=ctx.measureText('×').width;
+  let leftW=xw;
+  if(lab.kind==='mixed'){ wNum=ctx.measureText(String(lab.w)).width; leftW+=wNum; }
+  ctx.font=small;
+  const fw=Math.max(ctx.measureText(String(lab.n)).width, ctx.measureText(String(lab.d)).width)+size*0.30;
+  const total=leftW+fw;
+  let x=cx-total/2;
+  ctx.textAlign='left';
+  ctx.font=big;
+  ctx.fillText('×', x, cy); x+=xw;
+  if(lab.kind==='mixed'){ ctx.fillText(String(lab.w), x, cy); x+=wNum; }
+  ctx.textAlign='center';
+  ctx.font=small;
+  const fx=x+fw/2;
+  ctx.fillText(String(lab.n), fx, cy-size*0.52);
+  ctx.fillText(String(lab.d), fx, cy+size*0.52);
+  ctx.strokeStyle=col; ctx.lineWidth=Math.max(1.4, size*0.10);
+  ctx.beginPath();
+  ctx.moveTo(fx-fw*0.36, cy); ctx.lineTo(fx+fw*0.36, cy); ctx.stroke();
+}
+
+function drawWall(){
+  const wpx=Math.min(W*0.92, 420);
+  const y=G.wall.y;
+  let scale=1, alpha=1;
+  if(G.wall.broke){ scale=1+G.wall.t*0.8; alpha=Math.max(0,1-G.wall.t*1.4); }
+  ctx.globalAlpha=alpha;
+  if(BAKE.wall) ctx.drawImage(BAKE.wall, W/2-wpx*scale/2, y-wpx*scale/2, wpx*scale, wpx*scale);
+  ctx.globalAlpha=1;
+  if(!G.wall.broke){
+    const ok=G.N>=G.wall.req;
+    ctx.font='900 '+Math.round(wpx*0.115)+'px '+FONT;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=ok?'#3ef2c0':'#ffd166';
+    ctx.fillText(G.wall.req+' 이상', W/2, y+wpx*0.045);
+    ctx.font='800 '+Math.round(wpx*0.052)+'px '+FONT;
+    ctx.fillStyle='rgba(233,242,255,.75)';
+    ctx.fillText(ok?'통과!':'젤리가 더 필요해', W/2, y+wpx*0.125);
+  }
+}
+
+function drawJellies(){
+  const n=G.jellies.length;
+  if(!BAKE.jelly.length) return;
+  const sizeIdx = n>60?2:(n>28?1:0);
+  const base=BAKE.jelly[sizeIdx], gt=BAKE.jellyG[sizeIdx], rd=BAKE.jellyR[sizeIdx];
+  const px=base.width/DPR;
+  const splitting=(G.phase==='split');
+  for(let i=0;i<n;i++){
+    const j=G.jellies[i];
+    const bob=Math.sin(j.ph)*1.6;
+    let img=base;
+    if(splitting && j.tint===1) img=gt;
+    else if(splitting && j.tint===-1) img=rd;
+    const s=j.s*(1+(splitting?0.06:0));
+    const w=px*s, h=px*s;
+    ctx.drawImage(img, j.x-w/2, j.y-h/2+bob, w, h);
+  }
+  /* 화면 밖 인원 배지 */
+  if(G.N>MAXDRAW){
+    const c=crowdCenter();
+    ctx.font='900 13px '+FONT;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='rgba(7,13,28,.75)';
+    roundRect(ctx, c.x-34, c.y+34, 68, 22, 11); ctx.fill();
+    ctx.fillStyle='#ffd166';
+    ctx.fillText('외 '+(G.N-MAXDRAW)+'마리', c.x, c.y+45);
+  }
+  /* 콤보 트레일 */
+  if(G.combo>=3 && !REDUCED){
+    const c=crowdCenter();
+    for(let i=0;i<6;i++){
+      const t=i/6;
+      ctx.globalAlpha=0.30*(1-t);
+      ctx.fillStyle=['#3ef2c0','#ffd166','#ff5d73','#a06bff','#3ef2c0','#ffd166'][i];
+      ctx.beginPath();
+      ctx.ellipse(c.x, c.y+34+i*17+Math.sin(G.t*6+i)*3, 34*(1-t*0.6), 7*(1-t*0.5), 0,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+}
+
+function drawParticles(){
+  if(!BAKE.dot) return;
+  const d=BAKE.dot, dw=d.width/DPR;
+  for(let i=0;i<G.particles.length;i++){
+    const p=G.particles[i];
+    ctx.globalAlpha=Math.max(0,Math.min(1,p.life));
+    const s=dw*p.r*0.30;
+    ctx.drawImage(d, p.x-s/2, p.y-s/2, s, s);
+  }
+  ctx.globalAlpha=1;
+  /* 색을 얹는다 (한 번에) */
+}
+
+function drawFX(){
+  /* 플래시 */
+  if(G.flash>0){
+    ctx.globalAlpha=G.flash*0.30;
+    ctx.fillStyle=G.flashCol;
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha=1;
+  }
+  /* 큰 숫자 팝 */
+  if(G.pop){
+    const t=G.pop.t;
+    const e=t<0.18? (t/0.18) : 1;
+    const scale=1.25 - 0.25*Math.min(1,t*3.2) + (1-e)*0.5;
+    const alpha=t<0.72?1:Math.max(0,1-(t-0.72)/0.33);
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    ctx.translate(W/2, H*0.34);
+    ctx.scale(scale,scale);
+    ctx.font='900 '+Math.round(Math.min(W*0.20,74))+'px '+FONT;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=G.pop.up?'#3ef2c0':'#ff5d73';
+    ctx.fillText(String(G.pop.v), 0, 0);
+    ctx.font='800 '+Math.round(Math.min(W*0.045,17))+'px '+FONT;
+    ctx.fillStyle='rgba(233,242,255,.8)';
+    ctx.fillText(G.pop.up?'젤리가 늘었다!':'젤리가 줄었다!', 0, Math.min(W*0.14,52));
+    ctx.restore();
+  }
+  /* 약분 폭발 */
+  if(G.cancelFx){
+    const f=G.cancelFx, t=f.t;
+    const alpha=t<1.1?1:Math.max(0,1-(t-1.1)/0.4);
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    const y=H*0.18;
+    const s=Math.min(W*0.052,20);
+    ctx.fillStyle='rgba(7,13,28,.80)';
+    roundRect(ctx, W*0.06, y-s*1.6, W*0.88, s*3.2, s*0.7); ctx.fill();
+    ctx.strokeStyle='rgba(160,107,255,.7)'; ctx.lineWidth=1.6; ctx.stroke();
+    if(t<0.75){
+      const burnA=1-t/0.75;
+      drawMultiplier(f.f1, W*0.28, y, s, 'rgba(255,209,102,'+(0.35+burnA*0.65)+')');
+      ctx.font='800 '+Math.round(s*1.1)+'px '+FONT;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='rgba(233,242,255,.8)';
+      ctx.fillText('×', W*0.5, y);
+      drawMultiplier(f.f2, W*0.72, y, s, 'rgba(255,209,102,'+(0.35+burnA*0.65)+')');
+    }else{
+      const k=Math.min(1,(t-0.75)/0.3);
+      ctx.globalAlpha=alpha*k;
+      ctx.font='800 '+Math.round(s*0.9)+'px '+FONT;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#a06bff';
+      ctx.fillText(f.bonus?'약분 폭발!':'두 분수를 곱하면', W*0.30, y);
+      drawMultiplier(f.prod, W*0.72, y, s, '#3ef2c0');
+    }
+    ctx.restore();
+  }
+  /* 배너 */
+  if(G.banner){
+    const t=G.banner.t;
+    const a=t<1.4?1:Math.max(0,1-(t-1.4)/0.5);
+    ctx.globalAlpha=a;
+    ctx.font='900 '+Math.round(Math.min(W*0.052,20))+'px '+FONT;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=G.banner.col;
+    ctx.fillText(G.banner.text, W/2, H*0.10);
+    ctx.globalAlpha=1;
+  }
+  /* 정밀 모드 표시 */
+  if(G.slowT>0){
+    ctx.globalAlpha=0.5;
+    ctx.strokeStyle='#a06bff'; ctx.lineWidth=3;
+    ctx.strokeRect(2,2,W-4,H-4);
+    ctx.globalAlpha=1;
+  }
+}
+
+function frame(t){
+  requestAnimationFrame(frame);
+  if(!lastT) lastT=t;
+  let dt=(t-lastT)/1000; lastT=t;
+  if(dt>0.05) dt=0.05;
+  if(++resizeTick>20){ resizeTick=0; resize(); }
+  try{ update(dt); draw(); }catch(e){ /* 렌더 중단 방지 */ }
+}
+
+/* ══════════════════════════════════════════════════════════
+   9. 문제 표본 생성기 (게임 진행과 무관)
+   ══════════════════════════════════════════════════════════ */
+const SAMPLE_N=[12,16,18,20,24,28,30,32,36,40,42,45,48,54,60,72,80,90,96,120];
+let sampleSeed=0;
+function pickFrom(arr, rng){ return arr[Math.floor(rng()*arr.length)]; }
+
+function labText(f, mixedOK){ return fracLabel(f, mixedOK).text; }
+function fracText(f){
+  if(f.d===1) return String(f.n);
+  if(f.n>f.d){ const w=Math.floor(f.n/f.d); return w+'과 '+(f.n-w*f.d)+'/'+f.d; }
+  return f.n+'/'+f.d;
+}
+function uniqPush(list, v){
+  const s=String(v);
+  if(list.indexOf(s)<0) list.push(s);
+}
+function finishChoices(answer, cands, filler){
+  const ch=[String(answer)];
+  for(let i=0;i<cands.length && ch.length<4;i++){
+    const s=String(cands[i]);
+    if(s!==String(answer) && ch.indexOf(s)<0) ch.push(s);
+  }
+  for(let i=0;i<filler.length && ch.length<4;i++){
+    const s=String(filler[i]);
+    if(s!==String(answer) && ch.indexOf(s)<0) ch.push(s);
+  }
+  return ch;
+}
+function shuffle(arr, rng){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(rng()*(i+1));
+    const t=arr[i]; arr[i]=arr[j]; arr[j]=t;
+  }
+  return arr;
+}
+function pickMul(N, rng, opt){
+  /* N 의 약수 분모로 배율 하나 뽑기. 결과는 반드시 정수 */
+  const ds=divisorsIn(N,2,12);
+  if(!ds.length) return null;
+  for(let t=0;t<80;t++){
+    const d=pickFrom(ds,rng);
+    const top=(opt&&opt.proper)?d-1:2*d;
+    if(top<1) continue;
+    let a=1+Math.floor(rng()*top);
+    if(a===d) continue;
+    if(opt&&opt.proper && a>=d) continue;
+    if(opt&&opt.improper && a<=d) continue;
+    const R=N*a/d;
+    if(R<4 || R>2000) continue;
+    const f=fr(a,d);
+    if(opt&&opt.fracOnly && f.d===1) continue;
+    return {f:f, R:R};
+  }
+  return null;
+}
+
+function makeProblem(kind, rng){
+  if(kind===0){                                   /* 게이트 1개 통과 결과 */
+    const N=pickFrom(SAMPLE_N,rng);
+    const m=pickMul(N,rng,{fracOnly:true}); if(!m) return null;
+    const f=m.f, R=m.R;
+    const mixedOK=(f.n>f.d) && rng()<0.5;
+    const lab=fracLabel(f, mixedOK);
+    const cands=[];
+    if(N%f.n===0) uniqPush(cands, (N*f.d/f.n)+'마리');       // 분자·분모를 뒤집어 생각
+    uniqPush(cands, (N/f.d)+'마리');                          // 나누기만 함
+    uniqPush(cands, (N*f.n)+'마리');                          // 곱하기만 함
+    const filler=[(R+f.d)+'마리', (Math.max(1,R-f.d))+'마리', (N)+'마리'];
+    const ch=shuffle(finishChoices(R+'마리', shuffle(cands,rng), filler), rng);
+    return {
+      id:'g'+N+'x'+f.n+'_'+f.d,
+      prompt:'젤리 '+N+'마리가 ×'+lab.text+' 게이트를 지나면 몇 마리가 될까요?',
+      choices:ch, answer:R+'마리', answerNumeric:R,
+      unitConcept:(f.d===1?'(자연수)×(분수)':'(진분수)×(진분수)')
+    };
+  }
+  if(kind===1){                                   /* 이중 게이트 */
+    let N=pickFrom([24,36,48,60,72,96,120],rng);
+    const m1=pickMul(N,rng,{proper:true, fracOnly:true}); if(!m1) return null;
+    const R1=m1.R;
+    if(divisorsIn(R1,2,12).length<1) return null;
+    const m2=pickMul(R1,rng,{proper:true, fracOnly:true}); if(!m2) return null;
+    const R2=m2.R;
+    const f1=m1.f, f2=m2.f;
+    const cands=[];
+    uniqPush(cands, R1+'마리');                                        // 1단만 계산
+    const g=gcd(f1.n,f2.n);
+    if(g>1){                                                           // 분자끼리 약분한 오답
+      const wrong=fr(f1.n/g*f2.n/g, f1.d*f2.d);
+      const v=N*wrong.n/wrong.d;
+      if(Number.isInteger(v) && v>0) uniqPush(cands, v+'마리');
+    }
+    const wrong2=N*f2.n/f2.d;                                          // 2단만 계산
+    if(Number.isInteger(wrong2)) uniqPush(cands, wrong2+'마리');
+    const filler=[(R2*2)+'마리', (R2+f2.d)+'마리', (Math.max(1,R2-1))+'마리'];
+    const ch=shuffle(finishChoices(R2+'마리', shuffle(cands,rng), filler), rng);
+    return {
+      id:'d'+N+'_'+f1.n+f1.d+'_'+f2.n+f2.d,
+      prompt:'젤리 '+N+'마리가 ×'+f1.n+'/'+f1.d+' 게이트와 ×'+f2.n+'/'+f2.d+' 게이트를 잇달아 지나면 몇 마리가 될까요?',
+      choices:ch, answer:R2+'마리', answerNumeric:R2,
+      unitConcept:'(진분수)×(진분수)'
+    };
+  }
+  if(kind===2){                                   /* 진분수 × 진분수 (약분) */
+    const d1=2+Math.floor(rng()*9), d2=2+Math.floor(rng()*9);
+    const n1=1+Math.floor(rng()*(d1-1)), n2=1+Math.floor(rng()*(d2-1));
+    const f1=fr(n1,d1), f2=fr(n2,d2);
+    if(f1.d===1||f2.d===1) return null;
+    const ans=fmul(f1,f2);
+    const cands=[];
+    const L=d1*d2/gcd(d1,d2);
+    const w1=fr(n1*(L/d1)*n2*(L/d2), L);                    // 통분 후 분자끼리 곱함
+    if(!feq(w1,ans)) uniqPush(cands, fracText(w1));
+    const w2=fr(n1*n2, d1+d2);                              // 분모끼리 더함
+    if(!feq(w2,ans) && d1+d2>0) uniqPush(cands, fracText(w2));
+    const w3=fr(n1+n2, d1*d2);                              // 분자끼리 더함
+    if(!feq(w3,ans)) uniqPush(cands, fracText(w3));
+    const w4=fr(n1*d2, d1*n2);                              // 나눗셈처럼 뒤집음
+    if(!feq(w4,ans)) uniqPush(cands, fracText(w4));
+    const filler=[fracText(fr(ans.n+1,ans.d)), fracText(fr(ans.n,ans.d+1)), fracText(fr(ans.n*2,ans.d))];
+    const ch=shuffle(finishChoices(fracText(ans), shuffle(cands,rng), filler), rng);
+    return {
+      id:'p'+n1+d1+'_'+n2+d2,
+      prompt:n1+'/'+d1+' × '+n2+'/'+d2+' 를 계산하면? (기약분수로)',
+      choices:ch, answer:fracText(ans), answerNumeric:ans.n/ans.d,
+      unitConcept:'계산 과정에서 약분하기'
+    };
+  }
+  if(kind===3){                                   /* 대분수 × 대분수 */
+    const d1=2+Math.floor(rng()*5), d2=2+Math.floor(rng()*5);
+    const r1=1+Math.floor(rng()*(d1-1)), r2=1+Math.floor(rng()*(d2-1));
+    const w1=1+Math.floor(rng()*3), w2=1+Math.floor(rng()*3);
+    const f1=fr(w1*d1+r1, d1), f2=fr(w2*d2+r2, d2);
+    const ans=fmul(f1,f2);
+    const cands=[];
+    const bad1=fr(w1*w2*(d1*d2)+r1*r2, d1*d2);              // 자연수끼리·분수끼리 곱함
+    if(!feq(bad1,ans)) uniqPush(cands, fracText(bad1));
+    const bad2=fr((w1+r1)*(w2+r2), d1*d2);                  // 가분수로 바꿀 때 분모를 안 곱함
+    if(!feq(bad2,ans)) uniqPush(cands, fracText(bad2));
+    const bad3=fr(f1.n*f2.n, d1+d2);
+    if(!feq(bad3,ans)) uniqPush(cands, fracText(bad3));
+    const filler=[fracText(fr(ans.n+ans.d,ans.d)), fracText(fr(ans.n,ans.d+1)), fracText(fr(ans.n+1,ans.d))];
+    const ch=shuffle(finishChoices(fracText(ans), shuffle(cands,rng), filler), rng);
+    return {
+      id:'m'+w1+r1+d1+'_'+w2+r2+d2,
+      prompt:w1+'과 '+r1+'/'+d1+' × '+w2+'과 '+r2+'/'+d2+' 를 계산하면?',
+      choices:ch, answer:fracText(ans), answerNumeric:ans.n/ans.d,
+      unitConcept:'(대분수)×(대분수)'
+    };
+  }
+  if(kind===4){                                   /* 두 게이트 비교 */
+    const N=pickFrom(SAMPLE_N,rng);
+    const m1=pickMul(N,rng,{fracOnly:true}), m2=pickMul(N,rng,{fracOnly:true});
+    if(!m1||!m2) return null;
+    if(feq(m1.f,m2.f)) return null;
+    if(Math.abs(m1.R-m2.R)<0.12*N) return null;
+    const t1='×'+fracText(m1.f), t2='×'+fracText(m2.f);
+    if(t1===t2) return null;
+    const big=(m1.R>m2.R)?t1:t2;
+    return {
+      id:'c'+N+'_'+m1.f.n+m1.f.d+'_'+m2.f.n+m2.f.d,
+      prompt:'젤리 '+N+'마리 — '+t1+' 게이트와 '+t2+' 게이트 중 젤리가 더 많아지는 쪽은?',
+      choices:[t1,t2], answer:big, answerNumeric:Math.max(m1.R,m2.R),
+      unitConcept:'곱셈 결과의 크기 예상'
+    };
+  }
+  /* kind 5 — 커질까 작아질까 */
+  const N=pickFrom(SAMPLE_N,rng);
+  const m=pickMul(N,rng,{fracOnly:true});
+  if(!m) return null;
+  if(m.R===N) return null;
+  const up=m.R>N;
+  return {
+    id:'s'+N+'_'+m.f.n+m.f.d,
+    prompt:'젤리 '+N+'마리가 ×'+fracText(m.f)+' 게이트를 지나면 '+N+'마리보다 많아질까요, 적어질까요?',
+    choices:['많아진다','적어진다'], answer:up?'많아진다':'적어진다', answerNumeric:m.R,
+    unitConcept:'곱셈 결과의 크기 예상'
+  };
+}
+
+function sampleProblems(n){
+  n=Math.max(1, Math.min(200, n|0 || 20));
+  const rng=mulberry32((0x5eed + (sampleSeed++)*7919)>>>0);
+  const out=[], seen=Object.create(null);
+  let guard=0;
+  while(out.length<n && guard++<n*60){
+    const p=makeProblem(out.length%6, rng);
+    if(!p) continue;
+    if(!p.answer || !p.prompt) continue;
+    if(Array.isArray(p.choices)){
+      if(p.choices.indexOf(String(p.answer))<0) continue;
+      if(new Set(p.choices).size!==p.choices.length) continue;
+    }
+    if(seen[p.prompt]) continue;
+    seen[p.prompt]=1;
+    out.push(p);
+  }
+  /* 그래도 모자라면 중복 허용으로 채운다 */
+  guard=0;
+  while(out.length<n && guard++<n*60){
+    const p=makeProblem(guard%6, rng);
+    if(p && p.answer) out.push(p);
+  }
+  return out;
+}
+
+/* ══════════════════════════════════════════════════════════
+   10. 테스트 훅 · 부팅
+   ══════════════════════════════════════════════════════════ */
+function forceGate(best){
+  /* 카드가 떠 있으면 먼저 다음 상태로 넘긴다 */
+  if(G.phase==='intro' || G.phase==='over'){ hideOverlay(); restart(); }
+  else if(G.phase==='clear'){ hideOverlay(); startLevel(Math.min(8,G.level+1), G.N, true); }
+  else if(G.phase==='fail'){ hideOverlay(); startLevel(G.level, G.levelStartN, true); }
+  if(G.split) endSplit();
+  /* 자물쇠 벽이 대기 중이면 벽부터 해결한다 */
+  if(G.wall && !G.wall.hit){
+    G.wall.hit=true;
+    hitWall(G.N >= G.wall.req);
+    return;
+  }
+  if((!G.active || G.active.resolved) && !G.wall){ G.active=null; spawnNext(); }
+  if(G.wall && !G.wall.hit){ G.wall.hit=true; hitWall(G.N >= G.wall.req); return; }
+  if(!G.active || G.active.resolved) return;
+  const set=G.active.set;
+  let idx=set.best;
+  if(!best){
+    let wi=0;
+    for(let i=1;i<set.gates.length;i++) if(set.gates[i].R<set.gates[wi].R) wi=i;
+    idx=wi;
+  }
+  resolveGate(idx);
+}
+
+window.__GAME_TEST__={
+  ready:false,
+  start:function(){
+    hideOverlay();
+    if(G.phase==='intro' || G.phase==='over') restart();
+    else if(G.phase!=='run' && G.phase!=='split'){ startLevel(G.level, G.levelStartN, true); }
+    G.phase=(G.phase==='split')?'split':'run';
+    return true;
+  },
+  getState:function(){
+    return {score:G.score, lives:G.lives, level:G.level, phase:G.phase, solved:G.solved, jelly:G.N, combo:G.combo};
+  },
+  answerCorrect:function(){ forceGate(true); return true; },
+  answerWrong:function(){
+    forceGate(false);
+    G.lives--;
+    G.combo=0;
+    G.flash=1; G.flashCol='#ff5d73'; G.shake=12;
+    renderHUD();
+    if(G.lives<=0){ G.lives=0; G.phase='over'; deferCard(showOver,10); }
+    return true;
+  },
+  sampleProblems:function(n){ return sampleProblems(n); }
+};
+
+function boot(){
+  resize();
+  bakeAll();
+  loadImg('bg','./assets/bg.png');
+  loadImg('jelly','./assets/jelly.png');
+  loadImg('gate','./assets/gate.png');
+  loadImg('wall','./assets/wall.png');
+  G.plan=planLevel(1,24);
+  syncJellies();
+  for(let i=0;i<G.jellies.length;i++){ G.jellies[i].x=G.jellies[i].tx; G.jellies[i].y=G.jellies[i].ty; G.jellies[i].s=1; }
+  renderEq(); renderHUD();
+  goAction=function(){ hideOverlay(); restart(); };
+  requestAnimationFrame(frame);
+  window.__GAME_TEST__.ready=true;
+}
+window.addEventListener('resize', function(){ resize(); });
+if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ resize(); });
+boot();
+})();
+</script>
+</body>
+</html>
