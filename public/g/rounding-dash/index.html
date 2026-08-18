@@ -59,8 +59,8 @@
     background:linear-gradient(180deg,rgba(0,229,255,.20),rgba(0,229,255,.05));
     color:var(--tx);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
     font-family:var(--font);transition:transform .1s cubic-bezier(.2,1.7,.4,1), opacity .18s, box-shadow .18s}
-  .dash b{font-size:16px;font-weight:900;letter-spacing:-.3px}
-  .dash span{font-size:11.5px;opacity:.8;font-variant-numeric:tabular-nums;font-weight:700;color:var(--gd)}
+  .dash b{font-size:clamp(15px,4.2vw,18px);font-weight:900;letter-spacing:-.3px}
+  .dash span{font-size:clamp(12.5px,3.6vw,15px);opacity:.9;font-variant-numeric:tabular-nums;font-weight:800;color:var(--gd)}
   .dash:active{transform:scale(.94);box-shadow:0 0 22px rgba(0,229,255,.5)}
   .dash.off{opacity:.3;border-color:rgba(232,241,255,.2);background:rgba(255,255,255,.04)}
   .dash.peek{box-shadow:0 0 26px rgba(255,210,61,.8);border-color:var(--gd)}
@@ -1013,6 +1013,21 @@ function initStars(){
   for (var i=0;i<56;i++) stars.push({ x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.6+0.4, v:0.3+Math.random()*1.5, a:0.2+Math.random()*0.6 });
 }
 
+/* 화면 폭 대비 항상 일정 비율을 유지하는 크기 계산.
+   전역 S 는 2.2 에서 클램프되기 때문에, 태블릿·데스크톱처럼 W(화면 폭)가
+   커지면 S 만으로 그린 캐릭터·숫자가 화면 폭 대비 점점 작아진다.
+   캐릭터는 화면 폭의 12~15%, 숫자는 5% 이상을 유지해야 하므로
+   S 클램프를 거치지 않고 W 에서 직접 비율로 계산한다. */
+function heroDrawSize(){
+  return Math.max(46 * DPR, Math.min(W * 0.19, 420 * DPR));  // 안의 그림은 이 값의 72% → 화면 폭의 약 13.7%
+}
+function chipFontPx(){
+  return Math.max(16 * DPR, Math.min(W * 0.052, 160 * DPR));
+}
+function wallLabelFontPx(){
+  return Math.max(13 * DPR, Math.min(W * 0.044, 130 * DPR));
+}
+
 function buildBG(){
   var TH = THEMES[G.themeIdx];
   offBG.width = W; offBG.height = H;
@@ -1165,7 +1180,9 @@ function buildWallTex(){
 
 function buildHero(){
   var TH = THEMES[G.themeIdx];
-  var sz = Math.max(24, Math.round(72 * S));
+  /* 실제로 그려지는 크기(heroDrawSize)보다 12% 더 넉넉하게 구워서
+     shadowBlur 글로우가 캔버스 경계에서 잘리지 않게 한다. */
+  var sz = Math.max(28, Math.round(heroDrawSize() * 1.12));
   offHero.width = sz; offHero.height = sz;
   var c = hrc;
   c.setTransform(1,0,0,1,0,0);
@@ -1351,26 +1368,28 @@ function drawWall(TH){
     if (w.rule.hi !== w.rule.lo) marker(vx(w.rule.hi), my, w.rule.hiIncl, TH);
   }
 
-  /* 라벨 배너 */
-  /* 라벨은 벽이 화면 밖에 있어도 항상 읽을 수 있어야 한다 —
+  /* 라벨 배너 — 화면 폭의 4.4%(문제 문장) / 3%(부제)를 유지해
+     태블릿·데스크톱에서도 문제 문장이 작아지지 않는다.
+     라벨은 벽이 화면 밖에 있어도 항상 읽을 수 있어야 한다 —
      미리 계산할 시간을 주지 않으면 어림이 아니라 반사신경 게임이 된다. */
-  var by = Math.max(6 * S, top - 42 * S);
+  var f1 = wallLabelFontPx(), f2 = f1 * 0.68;
+  var by = Math.max(6 * S, top - f1 * 2.6);
   var t1 = w.label, t2 = w.sub;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '900 ' + Math.round(16 * S) + 'px ' + FONT;
-  var tw = Math.max(ctx.measureText(t1).width, 120 * S);
-  ctx.font = '600 ' + Math.round(11 * S) + 'px ' + FONT;
+  ctx.font = '900 ' + Math.round(f1) + 'px ' + FONT;
+  var tw = Math.max(ctx.measureText(t1).width, W * 0.30);
+  ctx.font = '600 ' + Math.round(f2) + 'px ' + FONT;
   tw = Math.max(tw, ctx.measureText(t2).width);
-  var bw = Math.min(W - 14 * S, tw + 30 * S), bh = 40 * S;
+  var bw = Math.min(W - 14 * S, tw + f1 * 1.9), bh = f1 * 2.45;
   ctx.fillStyle = 'rgba(7,11,24,.85)';
   ctx.strokeStyle = hexa(TH.gold, 0.7); ctx.lineWidth = 1.5 * DPR;
   rr(W/2 - bw/2, by, bw, bh, 10 * S); ctx.fill(); ctx.stroke();
   ctx.fillStyle = TH.gold;
-  ctx.font = '900 ' + Math.round(16 * S) + 'px ' + FONT;
-  ctx.fillText(t1, W/2, by + 14 * S);
+  ctx.font = '900 ' + Math.round(f1) + 'px ' + FONT;
+  ctx.fillText(t1, W/2, by + f1 * 0.86);
   ctx.fillStyle = hexa('#e8f1ff', 0.7);
-  ctx.font = '600 ' + Math.round(11 * S) + 'px ' + FONT;
-  ctx.fillText(t2, W/2, by + 30 * S);
+  ctx.font = '600 ' + Math.round(f2) + 'px ' + FONT;
+  ctx.fillText(t2, W/2, by + f1 * 1.86);
   ctx.globalAlpha = 1;
 }
 
@@ -1401,36 +1420,40 @@ function drawChip(TH){
 
   if (G.invuln > 0 && Math.floor(G.invuln * 14) % 2 === 0) return;
 
+  /* 캐릭터는 항상 화면 폭의 ~13.7% — 태블릿·데스크톱에서도 작아지지 않는다 */
+  var sz = heroDrawSize();
   var bob = Math.sin(t * 4) * 2.2 * S;
-  var cy2 = py - 16 * S + bob;
+  var cy2 = py - sz * 0.25 + bob;
 
   /* 접지 광원 */
   ctx.globalAlpha = 0.4;
   ctx.fillStyle = hexa(TH.line, 0.55);
-  ctx.beginPath(); ctx.ellipse(px, py + 3 * S, 17 * S, 4.5 * S, 0, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(px, py + 3 * S, sz * 0.266, sz * 0.070, 0, 0, 6.2832); ctx.fill();
   ctx.globalAlpha = 1;
 
   var sq = c.dashT > 0 ? 1.22 : 1;
-  var hw = offHero.width, sz = 64 * S;
   ctx.save();
   ctx.translate(px, cy2);
   ctx.scale(sq, 2 - sq);
   ctx.drawImage(offHero, -sz/2, -sz/2, sz, sz);
   ctx.restore();
 
-  /* 현재 값 — 벽 패널과 겹치면 칩 아래(눈금 라벨 밑)로 뒤집는다 */
+  /* 현재 값 — 화면 폭의 5% 이상을 유지(태블릿·데스크톱 포함), 벽 패널과 겹치면
+     칩 아래(눈금 라벨 밑)로 뒤집는다 */
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.font = '900 ' + Math.round(19 * S) + 'px ' + FONT;
+  var vfs = chipFontPx();
+  ctx.font = '900 ' + Math.round(vfs) + 'px ' + FONT;
   var vt = String(c.value), vw = ctx.measureText(vt).width;
-  var bh = 24 * S, bt = py - 64 * S;
+  var bh = vfs * 1.28, bt = py - sz * 0.94;
   var gm = wallGeom();
   var blocked = gm && gm.bottom > bt && gm.top < bt + bh &&
                 (gm.hidden || px < gm.hl || px > gm.hr);
-  if (blocked) bt = Math.min(py + 34 * S, H - bh - 4 * S);
+  if (blocked) bt = Math.min(py + sz * 0.53, H - bh - 4 * S);
+  var vpad = vfs * 0.37, vrad = vfs * 0.32;
   ctx.fillStyle = 'rgba(7,11,24,.72)';
-  rr(px - vw/2 - 7*S, bt, vw + 14*S, bh, 6*S); ctx.fill();
+  rr(px - vw/2 - vpad, bt, vw + vpad * 2, bh, vrad); ctx.fill();
   ctx.fillStyle = inRange(c.value, w.rule) ? TH.safe : '#ffffff';
-  ctx.fillText(vt, px, bt + 19 * S);
+  ctx.fillText(vt, px, bt + vfs);
 }
 
 function drawFX(TH){

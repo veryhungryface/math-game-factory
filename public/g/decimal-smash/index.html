@@ -460,11 +460,18 @@
     if (!sl.active) return;
     sl.popFx = performance.now();
     if (sl.role === 'bomb'){
-      state.lives -= 1; state.combo = 0; sndBomb();
+      // 스와이프 한 번이 폭탄 방울 여러 개를 동시에 관통해도 생명은 스트로크당 1개만 깎인다
+      // (실수 관용도 — 억울하게 두 목숨을 한 번에 잃지 않도록)
+      const firstBombThisStroke = !bombHitThisStroke;
+      bombHitThisStroke = true;
+      state.combo = 0; sndBomb();
       spawnBurst(cx, cy, 'red', 26); triggerShake(18);
-      updateHud();
-      if (state.lives === 1 && !state.lastChanceShown){ state.lastChanceShown = true; triggerLastChance(); }
-      if (state.lives <= 0){ gameOver(); return; }
+      if (firstBombThisStroke){
+        state.lives -= 1;
+        updateHud();
+        if (state.lives === 1 && !state.lastChanceShown){ state.lastChanceShown = true; triggerLastChance(); }
+        if (state.lives <= 0){ gameOver(); return; }
+      }
       assignRole(sl);
       return;
     }
@@ -561,7 +568,7 @@
   }
 
   // ───────────────────────────── 입력
-  let trail = []; let downPt = null; const hitThisStroke = new Set();
+  let trail = []; let downPt = null; const hitThisStroke = new Set(); let bombHitThisStroke = false;
   function distSeg(px, py, x1, y1, x2, y2){
     const dx = x2 - x1, dy = y2 - y1; const len2 = dx*dx + dy*dy;
     let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2;
@@ -584,7 +591,7 @@
   canvas.addEventListener('pointerdown', (e) => {
     ensureAudio();
     if (state.phase !== 'playing') return;
-    const p = pointerPos(e); downPt = p; trail = [{ x: p.x, y: p.y, t: performance.now() }]; hitThisStroke.clear();
+    const p = pointerPos(e); downPt = p; trail = [{ x: p.x, y: p.y, t: performance.now() }]; hitThisStroke.clear(); bombHitThisStroke = false;
   });
   canvas.addEventListener('pointermove', (e) => {
     if (state.phase !== 'playing' || !downPt) return;

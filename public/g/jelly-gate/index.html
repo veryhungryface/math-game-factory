@@ -126,7 +126,7 @@
       <div id="howto">
         <b>①</b> 젤리 떼를 끌고 달립니다. 게이트에 적힌 분수만큼 젤리가 늘거나 줄어요.<br>
         <b>②</b> 화면을 좌우로 끌어(또는 ← →) 더 커지는 게이트로 들어가세요.<br>
-        <b>③</b> 구간 끝 자물쇠 벽에 적힌 수 <b>이상</b>이면 부숩니다. 모자라면 튕겨나가요.<br>
+        <b>③</b> 구간 끝 자물쇠 벽에 적힌 수 <b>이상</b>이면 부숩니다. 조금 모자라도 한 번은 봐줘요. 많이 모자라면 튕겨나가요.<br>
         <b>④</b> <b>정밀</b> 버튼(또는 Shift)으로 잠깐 느리게. 구간당 2번.
       </div>
     </div>
@@ -243,13 +243,71 @@ function setOK(sel, N, band, needWorkable){
   const props = sel.filter(function(c){ return c.v<1; }).length;
   const wholes= sel.filter(function(c){ return c.d===1; }).length;
   switch(band){
-    case 'same':     return sel[0].d===sel[1].d;
-    case 'diff':     return sel[0].d!==sel[1].d;
+    case 'same':{
+      for(let i=1;i<sel.length;i++) if(sel[i].d!==sel[0].d) return false;
+      return true;
+    }
+    case 'diff':{
+      for(let i=0;i<sel.length;i++) for(let j=i+1;j<sel.length;j++) if(sel[i].d===sel[j].d) return false;
+      return true;
+    }
     case 'nat':      return wholes===1 && props===sel.length-1;
     case 'improper': return props===1 && wholes===0;
     case 'mixed3':   return props>=1 && props<sel.length;
     default:         return true;
   }
+}
+/* 'same'/'diff' 는 무작위 추첨만으로는 count>=3에서 거의 뽑히지 않으므로
+   분모별로 묶어서(직접) 뽑는다. */
+function groupByDenom(pool){
+  const byD=Object.create(null);
+  for(let i=0;i<pool.length;i++){
+    const c=pool[i];
+    (byD[c.d]||(byD[c.d]=[])).push(c);
+  }
+  return byD;
+}
+function sampleSameDenom(N, band, count, rng, needWorkable){
+  const pool=candidatesFor(N,band).filter(function(c){ return candOK(c,band); });
+  const byD=groupByDenom(pool);
+  const keys=Object.keys(byD).filter(function(k){ return byD[k].length>=count; });
+  shuffle(keys, rng);
+  for(let ki=0; ki<keys.length; ki++){
+    const group=byD[keys[ki]].slice();
+    for(let attempt=0; attempt<50; attempt++){
+      shuffle(group, rng);
+      const sel=group.slice(0,count);
+      if(setOK(sel, N, band, needWorkable)) return sel;
+    }
+  }
+  return null;
+}
+function sampleDiffDenom(N, band, count, rng, needWorkable){
+  const pool=candidatesFor(N,band).filter(function(c){ return candOK(c,band); });
+  const byD=groupByDenom(pool);
+  const keys=Object.keys(byD);
+  if(keys.length<count) return null;
+  for(let attempt=0; attempt<100; attempt++){
+    shuffle(keys, rng);
+    const chosenD=keys.slice(0,count);
+    const sel=[];
+    for(let i=0;i<chosenD.length;i++){
+      const g=byD[chosenD[i]];
+      sel.push(g[Math.floor(rng()*g.length)]);
+    }
+    if(setOK(sel, N, band, needWorkable)) return sel;
+  }
+  return null;
+}
+
+/* 레인(게이트) 개수 — 2개는 "왔다갔다"만 하는 느낌이라 3~4개로 늘린다.
+   대분수 레벨(6구간+)은 표기가 길어지므로 3개로, 나머지는 4개로 둔다.
+   이중 게이트(pp) 단계는 두 단을 거치므로 각 단은 3개로. */
+function laneCountFor(level, dbl1, dbl2){
+  if(dbl1||dbl2) return 3;
+  if(level===1) return 3;
+  if(level>=6)  return 3;
+  return 4;
 }
 
 /* (N, level, idx, rng) → {N, supply, gates[], dbl} — 시뮬레이션과 실제 플레이가 동일하게 동작한다 */
@@ -260,31 +318,47 @@ function pickSet(N, level, idx, rng){
   let band = (dbl1||dbl2) ? 'pp' : bandInfo(level).band;
   if(dbl1){ const t=12*Math.ceil(n/12); if(t!==n){ supply+=t-n; n=t; } }
   if(n<12 || !workable(n)){ const t=12*Math.ceil((n+1)/12); supply+=t-n; n=t; }
-  const count = (level>=7 && !dbl1 && !dbl2) ? 3 : 2;
+  const count = laneCountFor(level, dbl1, dbl2);
 
   const chain=[band,'pp','any'];
   for(let bi=0; bi<chain.length; bi++){
     const b=chain[bi];
-    const pool=candidatesFor(n,b).filter(function(c){ return candOK(c,b); });
-    if(pool.length<count) continue;
-    for(let t=0;t<260;t++){
-      const sel=[]; const used=Object.create(null);
-      let bad=false;
-      for(let k=0;k<count;k++){
-        const c=pool[Math.floor(rng()*pool.length)];
-        const key=c.n+'/'+c.d;
-        if(used[key]){ bad=true; break; }
-        used[key]=1; sel.push(c);
+    let sel=null;
+    if(b==='same') sel=sampleSameDenom(n, b, count, rng, dbl1);
+    else if(b==='diff') sel=sampleDiffDenom(n, b, count, rng, dbl1);
+    if(!sel){
+      const pool=candidatesFor(n,b).filter(function(c){ return candOK(c,b); });
+      if(pool.length>=count){
+        for(let t=0;t<400;t++){
+          const cand=[]; const used=Object.create(null);
+          let bad=false;
+          for(let k=0;k<count;k++){
+            const c=pool[Math.floor(rng()*pool.length)];
+            const key=c.n+'/'+c.d;
+            if(used[key]){ bad=true; break; }
+            used[key]=1; cand.push(c);
+          }
+          if(bad) continue;
+          if(!setOK(cand, n, b, dbl1)) continue;
+          sel=cand; break;
+        }
       }
-      if(bad) continue;
-      if(!setOK(sel, n, b, dbl1)) continue;
-      return finishSet(n, supply, sel, level, dbl1?1:(dbl2?2:0));
     }
+    if(sel) return finishSet(n, supply, sel, level, dbl1?1:(dbl2?2:0));
   }
-  /* 최종 안전판 — 12의 배수로 맞추면 ×1/2 와 ×3/2 는 언제나 정수다 */
+  /* 최종 안전판 — 12의 배수로 맞추면 나온 분수는 언제나 정수 배율이다 */
   const t=12*Math.ceil(Math.max(n,12)/12);
   supply += t-n; n=t;
-  const sel=[{n:1,d:2,R:n/2,v:.5},{n:3,d:2,R:n*3/2,v:1.5}];
+  const fd = count<=2?2:(count===3?3:4);
+  const sel=[]; const seen=Object.create(null);
+  for(let a=1; sel.length<count; a++){
+    if(a===fd) continue;
+    const f=fr(a,fd);
+    const key=f.n+'/'+f.d;
+    if(seen[key]) continue;
+    seen[key]=1;
+    sel.push({n:f.n, d:f.d, R:n*a/fd, v:a/fd});
+  }
   return finishSet(n, supply, sel, level, dbl1?1:(dbl2?2:0));
 }
 function finishSet(n, supply, sel, level, dbl){
@@ -310,8 +384,14 @@ function planLevel(level, startN){
     path.push({n:g.n, d:g.d, lab:g.lab});
     n=g.R;
   }
+  /* 예전엔 최적경로의 85%를 요구해서 게이트 한 번만 "차선"을 골라도
+     구간 끝에서 몰아서 실패하는 구조였다. 요구치를 60%로 낮추고,
+     그 아래 42%까지는 "가까스로 통과" 유예 구간을 둬서 즉사하지 않게 한다 —
+     그래도 42% 밑으로 크게 모자라면 여전히 실패한다(긴장감 유지). */
+  const req=Math.max(5, Math.floor(n*0.60));
+  const graceMin=Math.max(4, Math.floor(req*0.70));
   return {gates:G, optFinal:n, path:path, dispStart:dispStart, supplied:supplied,
-          req:Math.max(5, Math.floor(n*0.85))};
+          req:req, graceMin:graceMin};
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -380,9 +460,13 @@ function keyOutWhite(img, size){
 
 /* 프리베이크 결과 */
 const BAKE={ jelly:[], jellyG:[], jellyR:[], gate:null, wall:null, bg:null, dot:null, glow:null };
-const JS_SIZE=[42,30,21];          // CSS px 기준 3단계
+/* 화면 폭 대비 비율(%) — 실제 플레이 화면에서 젤리가 작게 뭉쳐 보인다는 피드백으로
+   가장 붐빌 때도 화면 폭의 15% 이상을 유지하도록 키웠다(예전엔 고정 42/30/21 CSS px였다). */
+const JS_PCT=[0.30, 0.225, 0.17];
+let JS_SIZE=[64,48,36];             // CSS px — bakeJelly() 에서 W 기준으로 매번 갱신
 
 function bakeJelly(){
+  JS_SIZE=JS_PCT.map(function(p){ return clamp(Math.round(W*p), 30, 150); });
   BAKE.jelly.length=0; BAKE.jellyG.length=0; BAKE.jellyR.length=0;
   for(let s=0;s<JS_SIZE.length;s++){
     const px=Math.round(JS_SIZE[s]*DPR);
@@ -511,10 +595,12 @@ function roundRect(g,x,y,w,h,r){
 function resize(){
   const w=stage.clientWidth||390, h=stage.clientHeight||500;
   if(Math.abs(w-W)<0.5 && Math.abs(h-H)<0.5) return;
+  const wChanged=Math.abs(w-W)>=0.5;
   W=w; H=h;
   cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
   ctx.setTransform(DPR,0,0,DPR,0,0);
   bakeBG();
+  if(wChanged) bakeJelly();   // 젤리 크기가 화면 폭 비율이므로 폭이 바뀌면 다시 굽는다
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -591,7 +677,10 @@ const G={
 };
 try{ G.bestJelly=parseInt(localStorage.getItem(BEST_KEY)||'0',10)||0; }catch(e){ G.bestJelly=0; }
 
-const MAXDRAW=90;
+/* 예전엔 최대 90마리를 화면에 그려서 개별 젤리가 작게 뭉쳐 보였다.
+   화면에 그리는 최대 마리 수를 줄이고 그만큼 개별 크기를 키운다(위 JS_PCT). */
+const MAXDRAW=32;
+function jellySizeIdx(n){ return n>20?2:(n>10?1:0); }
 
 function slotPos(i){
   const r=Math.sqrt(i+0.55)*0.92;
@@ -622,7 +711,16 @@ function laneX(t){
 }
 function layoutRunning(){
   const c=crowdCenter();
-  const sp=Math.max(9, Math.min(14, W/30));
+  const n=G.jellies.length;
+  const idx=jellySizeIdx(n);
+  const size=JS_SIZE[idx];
+  /* 젤리를 키운 뒤로, 화면 가장자리 레인(특히 태블릿처럼 lanePad가 좁은 화면)에서
+     무리 전체가 화면 밖으로 튀어나가지 않도록 남은 공간만큼만 퍼뜨린다. */
+  const spanUnit=Math.sqrt(Math.max(0,n-1)+0.55)*0.92;
+  const edgeRoom=Math.max(16, Math.min(c.x, W-c.x) - size*0.5 - 6);
+  let sp=size*0.40;
+  if(spanUnit>0.001) sp=Math.min(sp, edgeRoom/spanUnit);
+  sp=Math.max(sp, size*0.15);
   for(let i=0;i<G.jellies.length;i++){
     const p=slotPos(i);
     const j=G.jellies[i];
@@ -738,7 +836,7 @@ function spawnNext(){
 }
 
 function spawnWall(){
-  G.wall={y:-160, req:G.plan.req, hit:false, broke:false, t:0};
+  G.wall={y:-160, req:G.plan.req, graceMin:G.plan.graceMin, hit:false, broke:false, grace:false, t:0};
   G.active=null;
   banner('자물쇠 벽! '+G.plan.req+'마리 이상', '#ffd166');
 }
@@ -859,13 +957,16 @@ function deferCard(fn, ms){
   const my=++cardSeq;
   setTimeout(function(){ if(my===cardSeq) fn(); }, ms);
 }
-function hitWall(pass){
-  if(pass){
+function hitWall(){
+  const pass=G.N>=G.wall.req;
+  const grace=!pass && G.N>=G.wall.graceMin;
+  if(pass || grace){
     G.wall.broke=true;
-    G.score+=140+G.N;
+    G.wall.grace=grace;
+    G.score += pass ? (140+G.N) : (70+Math.floor(G.N*0.6));
     SFX.wall();
-    burst(W/2, H*0.4, 40, '#ffd166', 1.5);
-    G.shake=16; G.flash=1; G.flashCol='#ffd166';
+    burst(W/2, H*0.4, pass?40:24, pass?'#ffd166':'#a06bff', pass?1.5:1.05);
+    G.shake=pass?16:11; G.flash=1; G.flashCol=pass?'#ffd166':'#a06bff';
     G.phase='clear';
     deferCard(showClear, 700);
   }else{
@@ -912,14 +1013,16 @@ function showClear(){
     prod=fmul(prod,f);
   }
   const pl=fracLabel(prod, prod.n>prod.d);
+  const grace=!!(G.wall && G.wall.grace);
   const html=
-    '<div class="big">'+G.N+'마리</div>'+
-    '<p>자물쇠 벽을 부쉈습니다!</p>'+
+    '<div class="big"'+(grace?' style="color:var(--violet)"':'')+'>'+G.N+'마리</div>'+
+    '<p>'+(grace?'요구치엔 못 미쳤지만 <b>가까스로</b> 벽을 부쉈습니다!':'자물쇠 벽을 부쉈습니다!')+'</p>'+
     '<div class="lines"><span class="lb">'+(G.supplied?'보급 젤리 이후 총배율':'이번 구간 총배율')+'</span>'+
       '<div class="rowline"><span class="num0">'+G.eqStartN+'</span>'+pathHTML(G.eqTerms,'')+
       '<span class="op">=</span><span class="res">'+G.N+'</span></div>'+
       '<div class="rowline" style="margin-top:4px"><span class="op">총</span>'+fracHTML(pl,'op2')+'<span class="op">배</span></div>'+
     '</div>'+
+    (grace?'<p style="opacity:.75">다음 구간에선 더 커지는 게이트를 더 많이 골라 보세요.</p>':'')+
     '<p>최고 콤보 '+G.bestCombo+' · 점수 '+G.score+'점</p>';
   const nx=G.level+1;
   if(nx>8){
@@ -943,7 +1046,7 @@ function showFail(){
       '<div class="rowline"><span class="num0">'+G.plan.dispStart+'</span>'+pathHTML(G.plan.path.map(function(p){return p.lab;}),'op2')+
         '<span class="op">=</span><span class="op2">'+G.plan.optFinal+'</span></div>'+
     '</div>'+
-    '<p>남은 목숨 '+G.lives+'개 — 1보다 큰 수를 곱해야 늘어납니다.</p>';
+    '<p>남은 목숨 '+G.lives+'개 — 1보다 큰 수를 곱해야 늘어납니다. ('+G.plan.graceMin+'마리 이상이면 조금 모자라도 봐줘요)</p>';
   showOverlay('구간 재도전', html, '다시 달리기', function(){
     hideOverlay(); startLevel(G.level, G.levelStartN, true);
   }, false);
@@ -1060,7 +1163,7 @@ function update(dt){
     G.wall.y += sp*dt*0.9;
     if(G.wall.y >= H*0.60){
       G.wall.hit=true;
-      hitWall(G.N >= G.wall.req);
+      hitWall();
     }
   }
   if(G.wall && G.wall.hit) G.wall.t+=dt;
@@ -1190,13 +1293,14 @@ function drawGates(){
     const w=gw*persp, h=w;
     const sel=Math.abs(G.laneT-i)<0.5;
     if(BAKE.gate) ctx.drawImage(BAKE.gate, x-w/2, y-h*0.86, w, h);
-    /* 라벨 패널 */
-    const pw=w*0.80, ph=w*0.42;
-    ctx.fillStyle=sel?'rgba(9,16,34,.86)':'rgba(9,16,34,.78)';
+    /* 라벨 패널 — 화면 폭 대비 고정 최소 크기를 둬서 레인이 늘어나도 숫자가 안 작아지게 한다 */
+    const labelSize=Math.max(w*0.21, W*0.062);
+    const pw=Math.min(gw*0.98, Math.max(w*0.80, labelSize*3.7)), ph=Math.max(w*0.42, labelSize*1.9);
+    ctx.fillStyle=sel?'rgba(9,16,34,.92)':'rgba(9,16,34,.84)';
     roundRect(ctx, x-pw/2, y-h*0.58, pw, ph, ph*0.26); ctx.fill();
-    ctx.strokeStyle=sel?'rgba(62,242,192,.95)':'rgba(160,107,255,.50)';
-    ctx.lineWidth=sel?2.6:1.4; ctx.stroke();
-    drawMultiplier(g.lab, x, y-h*0.58+ph/2, w*0.155, sel?'#3ef2c0':'#e9f2ff');
+    ctx.strokeStyle=sel?'rgba(62,242,192,.95)':'rgba(160,107,255,.55)';
+    ctx.lineWidth=sel?3:1.6; ctx.stroke();
+    drawMultiplier(g.lab, x, y-h*0.58+ph/2, labelSize, sel?'#3ef2c0':'#ffe9b8');
     /* 온보딩: 1구간 첫 게이트에는 결과 고스트 */
     if(G.level===1 && G.gateIdx===0){
       ctx.fillStyle='rgba(255,209,102,.75)';
@@ -1260,20 +1364,21 @@ function drawWall(){
   ctx.globalAlpha=1;
   if(!G.wall.broke){
     const ok=G.N>=G.wall.req;
+    const grace=!ok && G.N>=G.wall.graceMin;
     ctx.font='900 '+Math.round(wpx*0.115)+'px '+FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle=ok?'#3ef2c0':'#ffd166';
+    ctx.fillStyle=ok?'#3ef2c0':(grace?'#a06bff':'#ffd166');
     ctx.fillText(G.wall.req+' 이상', W/2, y+wpx*0.045);
     ctx.font='800 '+Math.round(wpx*0.052)+'px '+FONT;
     ctx.fillStyle='rgba(233,242,255,.75)';
-    ctx.fillText(ok?'통과!':'젤리가 더 필요해', W/2, y+wpx*0.125);
+    ctx.fillText(ok?'통과!':(grace?'아슬아슬 — 그래도 통과':'젤리가 더 필요해'), W/2, y+wpx*0.125);
   }
 }
 
 function drawJellies(){
   const n=G.jellies.length;
   if(!BAKE.jelly.length) return;
-  const sizeIdx = n>60?2:(n>28?1:0);
+  const sizeIdx = jellySizeIdx(n);
   const base=BAKE.jelly[sizeIdx], gt=BAKE.jellyG[sizeIdx], rd=BAKE.jellyR[sizeIdx];
   const px=base.width/DPR;
   const splitting=(G.phase==='split');
@@ -1630,11 +1735,11 @@ function forceGate(best){
   /* 자물쇠 벽이 대기 중이면 벽부터 해결한다 */
   if(G.wall && !G.wall.hit){
     G.wall.hit=true;
-    hitWall(G.N >= G.wall.req);
+    hitWall();
     return;
   }
   if((!G.active || G.active.resolved) && !G.wall){ G.active=null; spawnNext(); }
-  if(G.wall && !G.wall.hit){ G.wall.hit=true; hitWall(G.N >= G.wall.req); return; }
+  if(G.wall && !G.wall.hit){ G.wall.hit=true; hitWall(); return; }
   if(!G.active || G.active.resolved) return;
   const set=G.active.set;
   let idx=set.best;
