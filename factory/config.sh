@@ -7,11 +7,21 @@ export DESIGN_VARIANTS="${DESIGN_VARIANTS:-3}" # 병렬 기획 에이전트 수
 export FOCUS="${FOCUS:-5-2,6-2}"               # 집중 학년-학기
 
 # ── 모델 ──────────────────────────────────────────────
-export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"
-export CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"
+# 티어 대응표 (사용자 확인, 2026-08-18):
+#   Claude:  opus(상) / sonnet(중)
+#   GPT-5.6: sol(상) / terra(중) / luna(하)
+#   Grok:    grok-4.6(상) / grok-4.5
+# 역할 배정 원칙: 판단이 어려운 단계(심사·빌드·검수)는 상위 티어,
+# 기획·수정은 중간 티어, 수학 검산은 **다른 회사 모델**(교차 검증 —
+# 같은 모델이 만들고 같은 모델이 검산하면 같은 맹점을 공유한다).
+export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"           # claude_run 기본
+export CLAUDE_MODEL_SMART="${CLAUDE_MODEL_SMART:-opus}" # 심사·빌드·검수용
+export CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"      # codex_run 기본 (아트 등)
+export CODEX_MODEL_SMART="${CODEX_MODEL_SMART:-gpt-5.6-sol}" # 수학 교차 검산용
+export GROK_MODEL="${GROK_MODEL:-grok-4.6}"             # 기획 3번(관점 다양화)
 
 # ── 단계별 제한 시간(초) ───────────────────────────────
-export T_DESIGN="${T_DESIGN:-600}"     # 10분
+export T_DESIGN="${T_DESIGN:-900}"     # 15분 — grok 기획자가 claude 보다 오래 걸린다(실측 ~8분)
 export T_JUDGE="${T_JUDGE:-420}"       # 7분
 export T_ART="${T_ART:-900}"           # 15분
 export T_BUILD="${T_BUILD:-3000}"      # 50분

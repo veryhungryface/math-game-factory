@@ -44,7 +44,7 @@ done
 
 echo
 echo "[3] 실행 도구"
-for c in node jq git claude codex vercel gh hermes; do
+for c in node jq git claude codex grok vercel gh hermes; do
   command -v "$c" >/dev/null 2>&1 && ok "$c ($(command -v "$c"))" || bad "$c 없음 — cron 환경 PATH 확인"
 done
 

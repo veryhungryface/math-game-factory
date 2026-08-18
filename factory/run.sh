@@ -63,24 +63,35 @@ run_timeout() {
   wait "$pid"; return $?
 }
 
-# claude 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트
+# claude 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트 [$4=모델(기본 $CLAUDE_MODEL)]
 claude_run() {
-  local secs="$1" logfile="$2" prompt="$3"
+  local secs="$1" logfile="$2" prompt="$3" model="${4:-$CLAUDE_MODEL}"
   run_timeout "$secs" env -u ANTHROPIC_API_KEY claude -p "$prompt" \
-    --model "$CLAUDE_MODEL" \
+    --model "$model" \
     --dangerously-skip-permissions \
     --add-dir "$ROOT" \
     >"$logfile" 2>&1
 }
 
-# codex 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트
+# codex 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트 [$4=모델(기본 $CODEX_MODEL)]
 codex_run() {
-  local secs="$1" logfile="$2" prompt="$3"
+  local secs="$1" logfile="$2" prompt="$3" model="${4:-$CODEX_MODEL}"
   run_timeout "$secs" env -u ANTHROPIC_API_KEY codex exec "$prompt" \
-    --model "$CODEX_MODEL" \
+    --model "$model" \
     --sandbox workspace-write \
     --skip-git-repo-check \
     --cd "$ROOT" \
+    >"$logfile" 2>&1
+}
+
+# grok 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트
+grok_run() {
+  local secs="$1" logfile="$2" prompt="$3"
+  run_timeout "$secs" grok -p "$prompt" \
+    --model "$GROK_MODEL" \
+    --always-approve \
+    --output-format plain \
+    --cwd "$ROOT" \
     >"$logfile" 2>&1
 }
 
@@ -274,7 +285,13 @@ $USER_FEEDBACK
 ## 출력 파일
 \`factory/work/concept-${i}.json\` 로 저장해라. \`n\` 필드는 ${i} 다."
 
-  claude_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
+  # 3번 슬롯(비주얼로 승부하는 안)은 Grok 으로 돌린다 — 전부 같은 모델로만 기획하니
+  # 게임들이 서로 비슷해 보인다는 지적을 받았다. 모델 자체를 바꿔서 진짜 다른 관점을 섞는다.
+  if [ "$i" = "3" ] && command -v grok >/dev/null 2>&1; then
+    grok_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
+  else
+    claude_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
+  fi
   DESIGN_PIDS+=($!)
 done
 for pid in ${DESIGN_PIDS[@]+"${DESIGN_PIDS[@]}"}; do wait "$pid"; done
@@ -295,7 +312,7 @@ else
 ## 이번 슬롯
 \`\`\`json
 $SLOT_CTX
-\`\`\`"
+\`\`\`" "$CLAUDE_MODEL_SMART"
   [ -f "$WORK/chosen.json" ] || {
     log "⚠️  심사 실패 — 1번 기획안으로 진행"
     cp "$(ls "$WORK"/concept-*.json | head -1)" "$WORK/chosen.json"
@@ -408,7 +425,7 @@ $(jq -c '.unit' "$WORK/slot.json")
 ## 끝내기 전에 반드시
 \`node factory/lib/qa.mjs $SLUG\` 를 돌려서 **치명적 결함 0건**을 확인해라. 실패하면 고치고 다시 돌려라."
 
-claude_run "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT"
+claude_run "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT" "$CLAUDE_MODEL_SMART"
 [ -f "$ROOT/public/g/$SLUG/index.html" ] || die "게임 파일이 생성되지 않았습니다 — $(tail -5 "$LOG_DIR/build.log")"
 fi
 
@@ -433,7 +450,9 @@ MATHCHECK_PROMPT="$(cat factory/prompts/35-mathcheck.md)
 run_mathcheck() {
   local tag="$1"
   rm -f "$WORK/mathcheck.json"
-  claude_run "$T_MATHCHECK" "$LOG_DIR/mathcheck-$tag.log" "$MATHCHECK_PROMPT"
+  # 게임을 만든 모델(claude)과 다른 회사 모델(GPT 상위 티어)로 검산한다 —
+  # 같은 모델이 만들고 검산하면 같은 맹점을 공유한다.
+  codex_run "$T_MATHCHECK" "$LOG_DIR/mathcheck-$tag.log" "$MATHCHECK_PROMPT" "$CODEX_MODEL_SMART"
   cp "$WORK/mathcheck.json" "$LOG_DIR/mathcheck-$tag.json" 2>/dev/null
   MATH_VERDICT="$(jqv "$WORK/mathcheck.json" .verdict)"
   MATH_ERRORS="$(jq -r '.errors | length' "$WORK/mathcheck.json" 2>/dev/null || echo '?')"
@@ -461,7 +480,7 @@ ${USER_FEEDBACK:+
 $USER_FEEDBACK
 이 피드백을 채점에 직접 반영해라. 특히 지목된 문제가 이번 게임에도 있으면 must_fix 로 적어라.}"
 
-claude_run "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT"
+claude_run "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT" "$CLAUDE_MODEL_SMART"
 cp "$WORK/review.json" "$LOG_DIR/review-1.json" 2>/dev/null
 
 SCORE="$(jqv "$WORK/review.json" .score)"
@@ -493,7 +512,7 @@ if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; 
   claude_run "$T_REVIEW" "$LOG_DIR/review-2.log" "$REVIEW_PROMPT
 
 이것은 **재검수**다. \`factory/work/fix.json\` 에 수정 내역이 있다. 수정이 실제로 반영됐는지 확인해라.
-봐주지 마라 — 여전히 미달이면 폐기가 맞다."
+봐주지 마라 — 여전히 미달이면 폐기가 맞다." "$CLAUDE_MODEL_SMART"
   cp "$WORK/review.json" "$LOG_DIR/review-2.json" 2>/dev/null
 
   SCORE="$(jqv "$WORK/review.json" .score)"
