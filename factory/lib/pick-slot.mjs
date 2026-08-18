@@ -126,6 +126,9 @@ const slot = {
     .map((m) => ({ slug: m.slug, title: m.title, mechanic: m.mechanic })),
   mechanic_pool: mechanicPool,
   avoid_mechanics: [...new Set([...recent, ...usedByUnit])],
+  // 교육부 고시 '성취기준 적용 시 고려 사항'에서 뽑은 문항 생성 제약(원문 근거).
+  // 기획·빌드·검산 프롬프트에 SLOT_CTX 로 통째로 전달된다 — 문제 생성기는 이걸 지켜야 한다.
+  generation_constraints: (curriculum.generation_constraints?.rules || []),
   // 최근 게임들이 전부 "어두운 배경 + 네온 시안/마젠타"로 수렴한 적이 있어서 추적한다.
   // 기획 에이전트는 이 목록에 있는 무드/배경색과 겹치지 않는 걸 골라야 한다.
   avoid_palette_moods: (queue.palette_history || []).slice(-6).map((p) => ({ mood: p.mood, bg: p.bg })),
