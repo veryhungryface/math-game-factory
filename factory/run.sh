@@ -223,6 +223,25 @@ log "슬롯: ${UNIT_GRADE}학년 ${UNIT_SEM}학기 · $UNIT_TITLE"
 
 SLOT_CTX="$(cat "$WORK/slot.json")"
 
+# ── 사용자 피드백 인박스 ────────────────────────────────────────
+# factory/state/feedback.md 에 뭔가 적혀 있으면 이번 사이클의 기획·검수에 끼워 넣고
+# 아카이브로 옮긴다. 매 사이클 반복 주입되지 않게 읽는 즉시 비운다.
+FEEDBACK_FILE="$ROOT/factory/state/feedback.md"
+USER_FEEDBACK=""
+if [ "$RESUMED" = "0" ] && [ -f "$FEEDBACK_FILE" ]; then
+  FB_BODY="$(grep -v '^<!--\|^사용자 피드백\|^여기에 적은\|^프롬프트에 그대로\|^쓰는 법\|^factory/state/feedback-archive\|^되게 하기\|^쓰면 된다\|^("젤리\|^-->' "$FEEDBACK_FILE" 2>/dev/null | sed '/^[[:space:]]*$/d')"
+  if [ -n "$FB_BODY" ]; then
+    USER_FEEDBACK="## 사용자 피드백 (직접 반영해라 — 무시하지 마라)
+
+$FB_BODY"
+    mkdir -p "$ROOT/factory/state/feedback-archive"
+    cp "$FEEDBACK_FILE" "$ROOT/factory/state/feedback-archive/$RUN_ID.md"
+    # 안내 주석만 남기고 본문은 비운다
+    head -8 "$FEEDBACK_FILE" > "$FEEDBACK_FILE.new" && mv "$FEEDBACK_FILE.new" "$FEEDBACK_FILE"
+    log "사용자 피드백 반영 — factory/state/feedback-archive/$RUN_ID.md 로 보관"
+  fi
+fi
+
 # ════════════════════════════════════════════════════════════════
 if [ "$RESUMED" = "1" ]; then
   log "기획·심사 단계 건너뜀 (RESUME)"
@@ -239,6 +258,9 @@ for i in $(seq 1 "$DESIGN_VARIANTS"); do
 $SLOT_CTX
 \`\`\`
 
+${USER_FEEDBACK:+
+$USER_FEEDBACK
+}
 ## 참고
 - 레퍼런스 광산: \`references/game-references.json\` 과 \`references/game-references.md\` 를 읽어서 아이디어를 가져와라.
 - 위 \`mechanic_pool\` 은 추천일 뿐이다. 더 좋은 게 있으면 references 에서 직접 골라도 된다. \`avoid_mechanics\` 는 피해라.
@@ -424,7 +446,10 @@ REVIEW_PROMPT="$(cat factory/prompts/40-review.md)
 - 커트라인: ${GATE_SCORE}점
 - 자동 QA 리포트: \`factory/work/qa/$SLUG/report.json\`
 - 독립 수학 검산 결과: \`factory/work/mathcheck.json\` — 여기서 오류가 나왔다면 그대로 인정하고 반영해라
-- 스크린샷: \`factory/work/qa/$SLUG/mobile.png\`, \`tablet.png\`, \`desktop.png\` — **Read 툴로 실제로 봐라**"
+- 스크린샷: \`factory/work/qa/$SLUG/mobile.png\`, \`tablet.png\`, \`desktop.png\` — **Read 툴로 실제로 봐라**
+${USER_FEEDBACK:+
+$USER_FEEDBACK
+이 피드백을 채점에 직접 반영해라. 특히 지목된 문제가 이번 게임에도 있으면 must_fix 로 적어라.}"
 
 claude_run "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT"
 cp "$WORK/review.json" "$LOG_DIR/review-1.json" 2>/dev/null
