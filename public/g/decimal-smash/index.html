@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>소수 스매시</title>
+<link rel="stylesheet" href="../../vendor/katex/katex.min.css">
+<script src="../../vendor/katex/katex.min.js"></script>
 <style>
   :root{ --cyan:#00e5ff; --pink:#ff3d81; --yellow:#ffd23d; --bg:#0a0e27; }
   *{ box-sizing:border-box; }
@@ -15,6 +17,21 @@
     touch-action:none;
   }
   #game{ display:block; width:100vw; height:100vh; touch-action:none; }
+  .math-layer{ position:fixed; inset:0; pointer-events:none; z-index:4; overflow:hidden; }
+  .math-eq{
+    position:absolute; left:0; top:0; transform-origin:center center;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:800; white-space:nowrap; line-height:1;
+    text-shadow:
+      -0.045em -0.045em 0 rgba(6,10,30,.9), 0.045em -0.045em 0 rgba(6,10,30,.9),
+      -0.045em  0.045em 0 rgba(6,10,30,.9), 0.045em  0.045em 0 rgba(6,10,30,.9),
+      0 2px 8px rgba(0,0,0,.5);
+  }
+  .math-eq .katex{ color:inherit; }
+  .math-eq .math-suffix{
+    margin-left:.18em; font-size:.6em; font-weight:800;
+    font-family:-apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
   .ui-layer{ position:fixed; inset:0; pointer-events:none; z-index:5; }
   #ruleCard{
     position:absolute; top:max(10px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
@@ -86,6 +103,7 @@
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="mathLayer" class="math-layer"></div>
 
 <div class="ui-layer">
   <div id="ruleCard">규칙을 불러오는 중…</div>
@@ -176,6 +194,69 @@
   const ctx = canvas.getContext('2d', { alpha: false });
   let W = 0, H = 0, DPR = 1;
   let bgLayer = null; // 정적 배경을 미리 구워둔 오프스크린 캔버스 (매 프레임 다시 그리지 않음)
+
+  // ───────────────────────────── 방울 수식(LaTeX) DOM 오버레이
+  // 캔버스 fillText 대신 KaTeX 로 렌더링한 절대위치 DOM 엘리먼트를 방울 위에 겹쳐 띄운다.
+  // 성능을 위해 katex.render()는 슬롯의 텍스트(또는 반지름)가 바뀔 때만 호출하고,
+  // 매 프레임에는 transform(translate+scale)만 갱신한다. KaTeX가 로드되지 않은 예외 상황에서는
+  // 기존 캔버스 fillText 방식으로 자동 폴백한다(아래 drawBubble 참고).
+  const useKatex = !!(window.katex && typeof window.katex.render === 'function');
+  const mathLayer = document.getElementById('mathLayer');
+  const slotMathEls = [];
+
+  function ensureMathEl(id){
+    let el = slotMathEls[id];
+    if (el) return el;
+    el = document.createElement('div');
+    el.className = 'math-eq';
+    el.style.display = 'none';
+    const tex = document.createElement('span'); tex.className = 'math-tex';
+    const suf = document.createElement('span'); suf.className = 'math-suffix';
+    el.appendChild(tex); el.appendChild(suf);
+    mathLayer.appendChild(el);
+    slotMathEls[id] = el;
+    return el;
+  }
+
+  // "8.2×4" → { tex:'8.2 \\times 4', suffix:'' } / "32.8" → { tex:'32.8', suffix:'' }
+  // 숫자·소수점·×·공백이 아닌 꼬리 문자(예: 한글 단위)는 LaTeX 밖으로 분리해 그대로 둔다.
+  function latexPartsFor(text){
+    const str = text || '';
+    const m = /^([0-9.\-\s×xX*]+)(.*)$/.exec(str);
+    let mathPart = str, suffix = '';
+    if (m){ mathPart = m[1].trim(); suffix = m[2] || ''; }
+    const tex = mathPart.replace(/[×xX*]/g, ' \\times ').trim();
+    return { tex, suffix };
+  }
+
+  function syncMathEl(sl){
+    const showable = sl.active && sl.role !== 'bomb' && !!sl.text;
+    let el = slotMathEls[sl.id];
+    if (!showable){
+      if (el) el.style.display = 'none';
+      return;
+    }
+    el = ensureMathEl(sl.id);
+    if (el.style.display === 'none') el.style.display = 'flex';
+    if (el._lastText !== sl.text || el._lastR !== sl.r){
+      el._lastText = sl.text; el._lastR = sl.r;
+      const { tex, suffix } = latexPartsFor(sl.text);
+      const baseFont = Math.max(16, sl.r * 0.8);
+      el.style.fontSize = baseFont + 'px';
+      const target = el.querySelector('.math-tex');
+      const sufEl = el.querySelector('.math-suffix');
+      try { window.katex.render(tex, target, { throwOnError: false, output: 'html' }); }
+      catch (e) { target.textContent = tex; }
+      sufEl.textContent = suffix;
+      // 방울 반지름 대비 너무 넓으면 축소 비율을 계산해둔다(다음 프레임부터는 transform만 갱신)
+      const maxW = sl.r * 1.78;
+      const measuredW = el.scrollWidth || el.getBoundingClientRect().width || maxW;
+      el._fitScale = measuredW > maxW ? Math.max(0.42, maxW / measuredW) : 1;
+    }
+    const punch = (sl.popFx && performance.now() - sl.popFx < 120) ? 1.15 : 1;
+    const s = (el._fitScale || 1) * punch;
+    el.style.transform = `translate(${sl.x}px, ${sl.y + sl.r * 0.05}px) translate(-50%, -50%) scale(${s})`;
+  }
 
   function resize(){
     DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -456,27 +537,33 @@
   // ───────────────────────────── 슬라이스 처리
   function multFor(combo){ if (combo >= 6) return 2; if (combo >= 3) return 1.5; return 1; }
 
+  // 폭탄이든 오답 방울이든, 슬라이스 한 번이 여러 개를 동시에 관통해도 생명은 1개만 깎인다
+  // (실수 관용도 — 억울하게 여러 목숨을 한 번에 잃지 않도록). 폭탄과 오답을 별도 타이머로
+  // 관리하지 않고 이 하나의 공유 디바운스로 처리한다 — 그래야 한 스트로크가 폭탄+오답을
+  // 동시에 관통해도 목숨이 1개만 깎인다.
+  // pointerdown 기준 "스트로크당 1회"로 하면, 손가락을 떼지 않고 계속 슬라이스하는
+  // 흔한 플레이 방식에서 전체 플레이 세션이 하나의 스트로크로 묶여 목숨이 평생 딱
+  // 한 번만 깎이는 실사고가 났다(사용자 리포트로 발견). 그래서 "동시 관통"의 의미를
+  // 시간 간격(220ms)으로 다시 정의한다 — 이 안에서만 중복 방지, 그 이후는 새 히트.
+  // 반환값 true = 이 호출로 게임오버가 확정되어 gameOver()까지 호출했다(호출부는 즉시 return 해야 한다).
+  function applyMistakeLifeLoss(){
+    const now = performance.now();
+    if (now - lastMistakeLifeLossAt <= 220) return false;
+    lastMistakeLifeLossAt = now;
+    state.lives -= 1;
+    updateHud();
+    if (state.lives === 1 && !state.lastChanceShown){ state.lastChanceShown = true; triggerLastChance(); }
+    if (state.lives <= 0){ gameOver(); return true; }
+    return false;
+  }
+
   function popSlot(sl, cx, cy){
     if (!sl.active) return;
     sl.popFx = performance.now();
     if (sl.role === 'bomb'){
-      // 슬라이스 한 번이 폭탄 방울 여러 개를 동시에 관통해도 생명은 1개만 깎인다
-      // (실수 관용도 — 억울하게 두 목숨을 한 번에 잃지 않도록).
-      // pointerdown 기준 "스트로크당 1회"로 하면, 손가락을 떼지 않고 계속 슬라이스하는
-      // 흔한 플레이 방식에서 전체 플레이 세션이 하나의 스트로크로 묶여 목숨이 평생 딱
-      // 한 번만 깎이는 실사고가 났다(사용자 리포트로 발견). 그래서 "동시 관통"의 의미를
-      // 시간 간격(220ms)으로 다시 정의한다 — 이 안에서만 중복 방지, 그 이후는 새 히트.
-      const now = performance.now();
-      const firstBombThisStroke = (now - lastBombLifeLossAt) > 220;
-      if (firstBombThisStroke) lastBombLifeLossAt = now;
       state.combo = 0; sndBomb();
       spawnBurst(cx, cy, 'red', 26); triggerShake(18);
-      if (firstBombThisStroke){
-        state.lives -= 1;
-        updateHud();
-        if (state.lives === 1 && !state.lastChanceShown){ state.lastChanceShown = true; triggerLastChance(); }
-        if (state.lives <= 0){ gameOver(); return; }
-      }
+      if (applyMistakeLifeLoss()) return;
       assignRole(sl);
       return;
     }
@@ -522,9 +609,12 @@
         setRuleCard();
       }
     } else {
+      // 오답 방울을 직접 슬라이스한 경우 — 폭탄과 동일한 공유 디바운스로 생명을 깎는다.
+      // (정답 방울을 화면 밖으로 놓친 경우는 여기로 오지 않는다 — 그 경우는 페널티 없음, 그대로 유지)
       state.combo = 0; sndWrong();
       spawnBurst(cx, cy, 'pink', 8); triggerShake(4);
       updateHud();
+      if (applyMistakeLifeLoss()) return;
       if (state.roundType === 'judge'){
         assignRole(sl);
       } else {
@@ -573,7 +663,7 @@
   }
 
   // ───────────────────────────── 입력
-  let trail = []; let downPt = null; const hitThisStroke = new Set(); let lastBombLifeLossAt = -Infinity;
+  let trail = []; let downPt = null; const hitThisStroke = new Set(); let lastMistakeLifeLossAt = -Infinity;
   function distSeg(px, py, x1, y1, x2, y2){
     const dx = x2 - x1, dy = y2 - y1; const len2 = dx*dx + dy*dy;
     let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2;
@@ -630,6 +720,7 @@
     state.score = 0; state.lives = state.maxLives; state.combo = 0; state.bestCombo = 0; state.solved = 0;
     state.cycle = 0; seqIdx = 0; state.lastChanceShown = false; state.timeScale = 1; state.shake = 0;
     particles.length = 0; floatScores.length = 0;
+    lastMistakeLifeLossAt = -Infinity; // 새 게임 세션은 이전 판의 디바운스 타이머를 물려받지 않는다
     updateHud();
   }
 
@@ -690,7 +781,8 @@
       ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, sl.r, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = isBomb ? '#ffccd5' : '#e0feff'; ctx.lineWidth = 2; ctx.stroke();
     }
-    if (!isBomb){
+    if (!isBomb && !useKatex){
+      // KaTeX DOM 오버레이가 텍스트를 그린다(아래 syncMathEl). 이건 KaTeX 로드 실패 시의 폴백.
       const fs = fitFont(sl.text, sl.r);
       ctx.font = `800 ${fs}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -789,6 +881,7 @@
       slots.forEach(sl => { if (sl.active) drawBubble(sl); });
       drawHint();
     }
+    if (useKatex) slots.forEach(syncMathEl);
 
     for (let i = particles.length - 1; i >= 0; i--){
       const p = particles[i]; p.life += dt;

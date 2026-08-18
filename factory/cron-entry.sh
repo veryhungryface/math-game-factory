@@ -49,6 +49,10 @@ LAUNCH_LOG="$ROOT/logs/cron-launch-$(date +%Y%m%d-%H%M%S).log"
 nohup bash factory/run.sh >"$LAUNCH_LOG" 2>&1 &
 disown
 
-echo "🏭 생산 시작 — 기획부터 배포까지 보통 30~50분 걸립니다. 끝나면 이 스레드로 별도 보고합니다."
-echo "(백그라운드 로그: \`$LAUNCH_LOG\`)"
+# 여기서 stdout 에 뭔가 찍으면 에르메스 크론이 "Cronjob Response: ... To stop or
+# manage this job..." 틀로 감싸서 매번 디스코드에 별도 메시지로 올린다. 실제
+# 결과 보고는 어차피 factory/run.sh 가 끝나고 나서 직접 hermes send 로 (이 틀 없이
+# 깔끔하게) 보내므로, 여기서는 stderr 로만 남기고 stdout 은 비운다 — 시작 알림
+# 중복을 없애기 위해서다. 로그는 $LAUNCH_LOG 에 그대로 남는다.
+echo "🏭 생산 시작 (백그라운드 로그: $LAUNCH_LOG)" >&2
 exit 0

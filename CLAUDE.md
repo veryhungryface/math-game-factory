@@ -107,6 +107,45 @@ HALF(225, 2) // 200
 - import map은 `<script type="module">` **보다 먼저** 나와야 한다.
 - 3D 게임은 `renderer.setPixelRatio(Math.min(devicePixelRatio, 2))` 로 모바일 성능을 지켜라.
 
+### KaTeX 사용법 (vendor) — 수식을 진짜 수식처럼 렌더링할 때
+
+분수·소수·식 표현을 캔버스 `fillText` 로 밋밋하게 그리지 말고, `public/vendor/katex/`
+를 써서 실제 수학 조판으로 렌더링해라. 특히 분수·대분수·거듭제곱처럼 plain text로
+표현하기 어색한 게임에 강력 추천한다.
+
+```html
+<link rel="stylesheet" href="../../vendor/katex/katex.min.css">
+<script src="../../vendor/katex/katex.min.js"></script>
+```
+(`type="module"` 아닌 일반 스크립트. 로드되면 전역 `window.katex` 가 생긴다.)
+
+**패턴 — 캔버스 위에 DOM 오버레이로 얹기** (캔버스 안에 직접 그릴 방법은 없다):
+```js
+const layer = document.createElement('div');
+layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden';
+document.body.appendChild(layer);
+
+function makeMathEl(tex, fontPx) {
+  const el = document.createElement('div');
+  el.style.cssText = `position:absolute;font-size:${fontPx}px;will-change:transform`;
+  katex.render(tex, el, { throwOnError: false });
+  layer.appendChild(el);
+  return el;
+}
+// 매 프레임: el.style.transform = `translate(${x}px,${y}px) scale(${s})`; 만 갱신
+// katex.render() 는 텍스트가 바뀔 때만 다시 호출해라 — 매 프레임 호출하면 느려진다(60fps 못 지킴).
+```
+
+- `\times`(곱셈), `\frac{a}{b}`(분수), `\div`(나눗셈) 등 LaTeX 문법을 그대로 쓴다. "8.2×4" 같은
+  plain text는 "8.2 \\times 4" 로 변환해라.
+- 한글 단위("마리", "cm" 등)는 LaTeX 문자열 밖에 별도 텍스트로 둬라 — 수식 안에 한글을 억지로
+  넣지 마라.
+- `{throwOnError:false}` 필수 — 변환 실수로 깨진 LaTeX가 게임 전체를 죽이면 안 된다.
+- 폰트는 `public/vendor/katex/fonts/*.woff2` 만 들어 있다(용량 절약). 최신 브라우저는
+  woff2만 요청하므로 문제없다 — **이 벤더 폴더 자체는 건드리지 마라.**
+- 비활성/화면 밖 슬롯의 수식 DOM 엘리먼트는 반드시 숨기거나 제거해라. 안 그러면 쌓여서
+  성능이 떨어진다.
+
 ### meta.json 스키마
 
 ```json

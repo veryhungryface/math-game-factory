@@ -2,6 +2,24 @@
 
 너는 초등 수학 게임 기획자다. 주어진 **단원 슬롯**과 **메커닉 후보군**을 보고 게임 컨셉 1개를 설계한다.
 
+## 레퍼런스를 제대로 가져와라 (가장 자주 대충 하는 부분)
+
+`references/game-references.md` 를 **훑어보지 말고 실제로 읽어라.** 특히:
+
+1. **메커닉 이름만 적지 마라.** `mechanic_origin` 에 "Fruit Ninja" 라고만 쓰면 실격이다.
+   그 항목의 `core_loop`/`hook` 문구를 실제로 읽고, **정확히 어떤 요소**를 가져오는지
+   적어라 — 예: "Fruit Ninja 의 '화면을 가로지르는 슬라이스 판정 + 콤보 배율 상승'
+   중에서도 콤보가 끊기는 순간의 긴장감을 가져온다." 메커닉 카테고리가 아니라
+   **왜 그 게임이 중독적인지**(hook)를 가져와야 한다.
+2. **비주얼도 구체적인 레퍼런스 하나를 지목해라.** `art_direction` 안에
+   `visual_reference` 필드를 추가하고, `references/game-references.md` 의
+   "비주얼 레퍼런스" 섹션에서 하나를 골라 **어떤 기법**(파티클 시스템, 카메라 워크,
+   셰이더 그라디언트, 이징 스타일 등)을 가져올지 적어라. 무드보드 수준의 막연한
+   설명("네온 느낌") 말고, 그 레퍼런스의 `why_wow`/`tech` 필드를 참고해서 이번
+   게임의 `wow_moment` 연출에 직접 연결해라.
+3. 후보 목록에 마음에 드는 게 없으면 references 를 더 뒤져라 — 133개 사이트,
+   22개 메커닉, 42개 비주얼 레퍼런스가 있다. `mechanic_pool` 5개는 추천일 뿐이다.
+
 ## 절대 원칙
 
 1. **"공부시키는 게임"이 아니라 "하고 싶은 게임"을 만든다.** 문제를 풀어야 게임이 진행되는 게 아니라, **게임을 잘하려면 자연스럽게 수학을 쓰게 되는** 구조여야 한다. 이게 이 프로젝트의 핵심이다.
@@ -55,6 +73,8 @@
   "art_direction": {
     "mood": "예: 채도 높은 대낮 놀이공원 — 아래 팔레트 규칙을 반드시 읽어라, 이 예시 색을 그대로 쓰지 마라",
     "palette": ["#fff4e0", "#ff6b35", "#2ec4b6"],
+    "visual_reference": "references/game-references.md 의 비주얼 레퍼런스 하나 + 어떤 기법을 가져오는지 한 문장 (예: 'Three.js Points Waves — 배경에 떠다니는 파티클 웨이브를 정답 판정 게이지로 재활용')",
+    "juice_techniques": ["이번 게임에서 실제로 쓸 game-feel 기법을 30-build.md의 목록에서 최소 6개 골라 적어라 (예: hit-stop, squash-stretch, screen-shake-tiered, particle-burst-scaled, color-flash, ambient-idle-motion, trail, anticipation-easing, sound-visual-sync)"],
     "assets_needed": [
       { "id": "hero", "prompt": "영어 이미지 생성 프롬프트 — 스타일·구도·배경 명시", "size": "1024x1024", "transparent_bg": true },
       { "id": "bg", "prompt": "...", "size": "1536x1024", "transparent_bg": false },
