@@ -1,0 +1,1259 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>네모공장</title>
+<meta property="og:title" content="네모공장">
+<meta property="og:description" content="접어야 커진다">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{
+    --cream:#fff4e0; --orange:#ffb85c; --blue:#5c7cfa; --ink:#2e3440;
+    --wood:#c98a4b; --paper:#fffaf6; --bad:#ff5d6c; --good:#3ad39c;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:#2b2116; color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none;
+    touch-action:none;
+  }
+  #game{ display:block; width:100vw; height:100vh; touch-action:none; }
+  .ui-layer{ position:fixed; inset:0; z-index:5; pointer-events:none; }
+  .pill{
+    background:rgba(255,250,246,.92); border:2px solid var(--ink); border-radius:14px;
+    padding:6px 12px; font-weight:800; color:var(--ink); box-shadow:0 3px 0 rgba(0,0,0,.18);
+  }
+  #topBar{
+    position:absolute; top:max(8px, env(safe-area-inset-top)); left:8px; right:8px;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; pointer-events:none;
+  }
+  #scoreBox{ font-size:clamp(14px,4vw,19px); }
+  #levelBox{ font-size:clamp(12px,3.4vw,16px); background:var(--orange); border-color:var(--ink); }
+  #gaugeBox{ display:flex; gap:4px; align-items:center; padding:6px 10px; }
+  .gdot{ width:14px; height:14px; border-radius:50%; background:#e7dfce; border:2px solid var(--ink); }
+  .gdot.on{ background:var(--bad); }
+  #muteBtn{
+    margin-left:auto; pointer-events:auto; width:44px; height:44px; border-radius:50%;
+    border:2px solid var(--ink); background:rgba(255,250,246,.92); font-size:18px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,.18);
+  }
+  #comboText{
+    position:absolute; left:50%; transform:translateX(-50%) scale(0); top:calc(max(8px, env(safe-area-inset-top)) + 46px);
+    font-weight:900; font-size:clamp(14px,4.6vw,22px); color:#fff;
+    text-shadow:0 0 8px rgba(255,184,92,.9), 0 2px 3px rgba(0,0,0,.5);
+    opacity:0; transition:transform .16s cubic-bezier(.34,1.56,.64,1), opacity .16s ease;
+  }
+  #comboText.show{ opacity:1; transform:translateX(-50%) scale(1); }
+  #trashZone{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    width:60px; height:60px; border-radius:50%; pointer-events:none;
+    background:rgba(255,250,246,.88); border:3px dashed var(--ink);
+    display:flex; align-items:center; justify-content:center; font-size:26px;
+    transition:transform .12s ease, background .12s ease;
+  }
+  #trashZone.hot{ transform:translateY(-50%) scale(1.15); background:#ffd7da; }
+  #trashZone.warn{ animation:trashPulse 0.7s ease-in-out infinite; border-color:var(--bad); }
+  @keyframes trashPulse{
+    0%,100%{ transform:translateY(-50%) scale(1); background:rgba(255,250,246,.88); }
+    50%{ transform:translateY(-50%) scale(1.12); background:#ffd7da; }
+  }
+  #stallBanner{
+    position:absolute; left:50%; top:calc(max(8px, env(safe-area-inset-top)) + 46px);
+    transform:translateX(-50%) translateY(-6px); z-index:6; pointer-events:none;
+    background:var(--bad); color:#fff; font-weight:800; font-size:clamp(12px,3.6vw,15px);
+    padding:6px 14px; border-radius:14px; box-shadow:0 3px 0 rgba(0,0,0,.2);
+    opacity:0; transition:opacity .18s ease, transform .18s ease;
+  }
+  #stallBanner.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #orderBar{
+    position:absolute; left:8px; right:8px; bottom:max(8px, env(safe-area-inset-bottom));
+    pointer-events:none;
+  }
+  #orderCard{
+    background:rgba(255,250,246,.95); border:2px solid var(--ink); border-radius:16px;
+    padding:8px 10px; display:flex; align-items:center; gap:10px;
+    box-shadow:0 4px 0 rgba(0,0,0,.2); transition:transform .12s ease, box-shadow .12s ease;
+  }
+  #orderCard.hot{ transform:scale(1.03); box-shadow:0 0 0 4px var(--good); }
+  #orderIcon{ width:52px; height:52px; flex:none; border-radius:10px; background:#f4ecd8; }
+  #orderText{ flex:1; font-weight:800; font-size:clamp(12.5px,3.6vw,16px); line-height:1.3; }
+  #rejectBtn{
+    pointer-events:auto; flex:none; min-width:56px; min-height:44px; padding:6px 10px;
+    border-radius:12px; border:2px solid var(--ink); background:#ffe3c2; font-weight:800;
+    font-size:clamp(11px,3.2vw,13px); cursor:pointer;
+  }
+  #orderTimerWrap{ height:5px; border-radius:3px; background:rgba(0,0,0,.12); margin-top:6px; overflow:hidden; }
+  #orderTimerBar{ height:100%; background:var(--blue); width:100%; transition:width .1s linear; }
+  #mascot{
+    position:absolute; left:10px; bottom:calc(100% + 6px); width:52px; height:52px;
+    pointer-events:none; transition:transform .28s cubic-bezier(.34,1.56,.64,1);
+  }
+  #mascot.bounce{ transform:translateY(-14px) rotate(-8deg) scale(1.1); }
+  #toast{
+    position:fixed; top:34%; left:50%; z-index:8; pointer-events:none;
+    transform:translate(-50%,-50%) scale(.5); opacity:0;
+    background:rgba(46,52,64,.9); color:#fffaf6; padding:10px 18px; border-radius:14px;
+    font-weight:800; font-size:clamp(14px,4.6vw,20px); text-align:center;
+    transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s ease;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  .screen{
+    position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:12px; background:radial-gradient(ellipse at 50% 25%, rgba(255,184,92,.25), rgba(43,33,22,.96) 65%);
+    pointer-events:auto; text-align:center; padding:24px;
+  }
+  .screen.hidden{ display:none; }
+  .screen h1{ font-size:clamp(30px,9vw,46px); margin:0; color:var(--cream); }
+  .screen h2{ font-size:clamp(24px,7vw,36px); margin:0; color:var(--orange); }
+  .screen p{ margin:0; color:#f1e7d6; opacity:.9; font-size:clamp(14px,4vw,18px); }
+  .bigbtn{
+    margin-top:8px; padding:16px 44px; font-size:clamp(16px,4.6vw,22px); font-weight:800; border:none; border-radius:999px;
+    background:linear-gradient(135deg, var(--orange), var(--blue)); color:#fff; cursor:pointer;
+    min-height:52px; box-shadow:0 6px 0 rgba(0,0,0,.35); transition:transform .1s ease;
+  }
+  .bigbtn:active{ transform:scale(.94) translateY(3px); }
+  #howtoList{ list-style:none; padding:0; margin:6px 0 0; opacity:.9; font-size:clamp(12px,3.4vw,15px); line-height:1.75; color:#fdf3e2; }
+  @media (prefers-reduced-motion: reduce){
+    #comboText, #orderCard, .bigbtn, #toast, #mascot, #trashZone, #stallBanner{ transition:none !important; }
+    #trashZone.warn{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="ui-layer">
+  <div id="topBar">
+    <div id="scoreBox" class="pill">점수 <span id="scoreVal">0</span></div>
+    <div id="gaugeBox" class="pill"></div>
+    <div id="levelBox" class="pill">Lv.1 정육면체</div>
+    <button id="muteBtn" aria-label="음소거 켜고 끄기">🔊</button>
+  </div>
+  <div id="comboText"></div>
+  <div id="stallBanner">칸이 얼마 안 남았어요! 필요없는 상자는 버려요 🗑️</div>
+  <div id="trashZone">🗑️</div>
+  <div id="orderBar">
+    <div id="mascot"><img src="./assets/hero.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))" onerror="this.style.display='none'" /></div>
+    <div id="orderCard">
+      <canvas id="orderIcon" width="104" height="104"></canvas>
+      <div style="flex:1">
+        <div id="orderText">주문서를 준비하는 중…</div>
+        <div id="orderTimerWrap"><div id="orderTimerBar"></div></div>
+      </div>
+      <button id="rejectBtn">🚫 반려</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="startScreen" class="screen">
+  <h1>네모공장</h1>
+  <p>접어야 커진다</p>
+  <ul id="howtoList">
+    <li>같은 상자가 되는 전개도 타일끼리 겹치면 접혀서 상자가 돼요</li>
+    <li>완성된 상자를 아래 주문서 칸으로 끌어다 배송하세요</li>
+    <li>불량 전개도는 위로 스와이프하거나 오른쪽 슈트로 버리세요</li>
+  </ul>
+  <button id="startBtn" class="bigbtn">공장 가동!</button>
+</div>
+
+<div id="gameoverScreen" class="screen hidden">
+  <h2 id="gameoverTitle">공장 정지!</h2>
+  <p id="finalScore">점수 0</p>
+  <p id="bestScoreText">최고 기록 0</p>
+  <button id="retryBtn" class="bigbtn">다시!</button>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ───────────────────────────── 기본 유틸
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const randInt=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick=(arr)=>arr[randInt(0,arr.length-1)];
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=randInt(0,i); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function easeOutBack(t){ const c1=1.70158, c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); }
+function easeOutCubic(t){ return 1-Math.pow(1-t,3); }
+function sameMultiset(a,b){
+  const x=[...a].sort((p,q)=>p-q), y=[...b].sort((p,q)=>p-q);
+  return x.length===y.length && x.every((v,i)=>v===y[i]);
+}
+
+// ───────────────────────────── 정육면체 전개도 6종 (헥소미노, 4×3 칸 기준)
+// 모두 "가로 4칸 벨트 + 위쪽 탭 1칸 + 아래쪽 탭 1칸" 형태의 실제로 접히는 정육면체 전개도다.
+
+const HEX_NETS = [
+  { cells:[[0,1],[1,0],[1,1],[1,2],[1,3],[2,1]] }, // 십자형
+  { cells:[[0,0],[1,0],[1,1],[1,2],[1,3],[2,3]] }, // 지그재그(양끝)
+  { cells:[[0,0],[1,0],[1,1],[1,2],[1,3],[2,1]] }, // 위0 아래1
+  { cells:[[0,3],[1,0],[1,1],[1,2],[1,3],[2,0]] }, // 지그재그(반대)
+  { cells:[[0,2],[1,0],[1,1],[1,2],[1,3],[2,2]] }, // 오른쪽 치우침
+  { cells:[[0,0],[0,1],[1,1],[1,2],[2,2],[2,3]] }, // 계단형
+];
+const HEX_BOUND = { w:4, h:3 };
+
+function cellsAdjacent(a,b){ return Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])===1; }
+function isConnected(cells){
+  if(cells.length===0) return true;
+  const seen=new Set([0]); const stack=[0];
+  while(stack.length){
+    const i=stack.pop();
+    for(let j=0;j<cells.length;j++){
+      if(seen.has(j)) continue;
+      if(cellsAdjacent(cells[i],cells[j])){ seen.add(j); stack.push(j); }
+    }
+  }
+  return seen.size===cells.length;
+}
+
+// 트랩 전개도: "정사각형이 정확히 6개, 변끼리 이어져 하나로 연결"이라는 필요조건을
+// 어기도록만 만든다 (구멍이 생기거나, 한 조각이 떨어져 나감) — 항상 100% 확실하게 무효다.
+function corruptHexCells(baseCells){
+  const kind = Math.random()<0.5 ? 'missing' : 'disconnect';
+  if(kind==='missing'){
+    const dropIdx = randInt(0,baseCells.length-1);
+    const cells = baseCells.filter((_,i)=>i!==dropIdx);
+    return { cells, kind, holeAt: baseCells[dropIdx] };
+  }
+  // disconnect: 셀 하나를 떼어서 나머지와 변으로 안 붙는 먼 자리로 옮긴다
+  const dropIdx = randInt(0,baseCells.length-1);
+  const rest = baseCells.filter((_,i)=>i!==dropIdx);
+  const bw=HEX_BOUND.w+2, bh=HEX_BOUND.h+1;
+  let placed=null;
+  outer:
+  for(let r=0;r<bh;r++){
+    for(let c=0;c<bw;c++){
+      const cand=[r,c];
+      if(rest.some(p=>p[0]===r&&p[1]===c)) continue;
+      if(rest.some(p=>cellsAdjacent(p,cand))) continue;
+      placed=cand; break outer;
+    }
+  }
+  if(!placed) placed=[bh-1,bw-1];
+  return { cells:[...rest,placed], kind, movedFrom:baseCells[dropIdx] };
+}
+
+// ───────────────────────────── 직육면체 전개도 (절차적, cm 단위)
+// 벨트 순서 left(d)-front(w)-right(d)-back(w), 높이 h. 위/아래 뚜껑(w×d)은
+// front 또는 back 칸 위아래에 붙는다 — 배치가 달라도 같은 상자다.
+function rectNetPieces(w,h,d,tabOn){
+  const beltW=[d,w,d,w];
+  const pieces=[]; let x=0;
+  for(let i=0;i<4;i++){ pieces.push({face:['left','front','right','back'][i], x, y:0, w:beltW[i], h}); x+=beltW[i]; }
+  const tabX = tabOn===0 ? pieces[1].x : pieces[3].x; // front(1) 또는 back(3)
+  pieces.push({face:'top', x:tabX, y:-d, w, h:d});
+  pieces.push({face:'bottom', x:tabX, y:h, w, h:d});
+  return pieces;
+}
+function boundsOf(pieces){
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const p of pieces){ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x+p.w); maxY=Math.max(maxY,p.y+p.h); }
+  return {minX,minY,maxX,maxY,w:maxX-minX,h:maxY-minY};
+}
+function corruptRectPieces(pieces){
+  const kind = Math.random()<0.5 ? 'missing' : 'disconnect';
+  const idx = randInt(0,pieces.length-1);
+  if(kind==='missing'){
+    return { pieces: pieces.filter((_,i)=>i!==idx), kind, holeAt: pieces[idx] };
+  }
+  const b = boundsOf(pieces);
+  const moved = pieces[idx];
+  const rest = pieces.filter((_,i)=>i!==idx);
+  const placed = { ...moved, x:b.maxX+moved.w*0.6, y:b.minY };
+  return { pieces:[...rest,placed], kind, movedFrom:moved };
+}
+
+// ───────────────────────────── 겨냥도 와이어프레임 (8꼭짓점 12모서리)
+// 프로젝션에서 보이는 면은 front(z=0) / top(y=1) / right(x=1) 세 면이고,
+// 그 세 면에 하나도 속하지 않는 유일한 꼭짓점(x=0,y=0,z=1)이 가려진 꼭짓점이다.
+// 그 꼭짓점에 닿는 변 3개만 점선, 나머지 9개는 항상 실선 — 치수와 무관하게 항상 참인 사실.
+const HIDDEN_VERT = [0,0,1];
+function boxVerts(w,h,d,right,up,depth,ox,oy){
+  const v={};
+  for(let x=0;x<=1;x++) for(let y=0;y<=1;y++) for(let z=0;z<=1;z++){
+    v[`${x}${y}${z}`] = {
+      x: ox + right.x*w*x + up.x*h*y + depth.x*d*z,
+      y: oy + right.y*w*x + up.y*h*y + depth.y*d*z,
+    };
+  }
+  return v;
+}
+function boxEdges(){
+  const keys=[]; for(let x=0;x<=1;x++)for(let y=0;y<=1;y++)for(let z=0;z<=1;z++) keys.push([x,y,z]);
+  const edges=[];
+  for(let i=0;i<keys.length;i++) for(let j=i+1;j<keys.length;j++){
+    const a=keys[i], b=keys[j];
+    const diff = Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]);
+    if(diff===1) edges.push([a.join(''), b.join('')]);
+  }
+  return edges;
+}
+const ALL_EDGES = boxEdges();
+const CORRECT_DASHED = ALL_EDGES.filter(([a,b])=> a===HIDDEN_VERT.join('') || b===HIDDEN_VERT.join('')).map(e=>e.join('|'));
+function edgeKey(e){ return e.join('|'); }
+function fakeDashedSet(){
+  const solidPool = ALL_EDGES.filter(e=>!CORRECT_DASHED.includes(edgeKey(e)));
+  const set = new Set(CORRECT_DASHED);
+  const swaps = randInt(1,3);
+  for(let i=0;i<swaps;i++){
+    const removeKey = [...set][randInt(0,set.size-1)];
+    set.delete(removeKey);
+    const add = pick(solidPool);
+    set.add(edgeKey(add));
+  }
+  // 우연히 정답과 완전히 같아지면 하나 더 스왑
+  if(set.size===CORRECT_DASHED.length && [...set].every(k=>CORRECT_DASHED.includes(k))){
+    const removeKey=[...set][0]; set.delete(removeKey); set.add(edgeKey(pick(solidPool)));
+  }
+  return set;
+}
+
+function drawWireBox(ctx, cx, cy, dims, dashedSet, opts){
+  opts = opts||{};
+  const [w,h,d]=dims;
+  const scale = (opts.size||70) / (w+h+d);
+  const right={x:1,y:0}, up={x:0,y:-0.92}, depth={x:0.56,y:-0.42};
+  const ox = cx - (w*right.x*scale + d*depth.x*scale)/2 - w*right.x*scale*0.15;
+  const oy = cy + (h*0.5)*(-up.y)*scale*0.65;
+  const verts = boxVerts(w*scale*0.62,h*scale*0.62,d*scale*0.62,right,up,depth,ox,oy);
+  ctx.save();
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.strokeStyle = opts.stroke || '#2e3440';
+  ctx.lineWidth = opts.lineWidth || 3;
+  // 실선 먼저
+  for(const [a,b] of ALL_EDGES){
+    const k=edgeKey([a,b]);
+    if(dashedSet.has(k)) continue;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(verts[a].x,verts[a].y); ctx.lineTo(verts[b].x,verts[b].y); ctx.stroke();
+  }
+  for(const [a,b] of ALL_EDGES){
+    const k=edgeKey([a,b]);
+    if(!dashedSet.has(k)) continue;
+    ctx.setLineDash([Math.max(3,opts.lineWidth*1.6), Math.max(3,opts.lineWidth*1.4)]);
+    ctx.beginPath(); ctx.moveTo(verts[a].x,verts[a].y); ctx.lineTo(verts[b].x,verts[b].y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  if(opts.fill!==false){
+    ctx.globalAlpha=0.16;
+    ctx.fillStyle=opts.fillColor||'#ffb85c';
+    ctx.beginPath();
+    ctx.moveTo(verts['010'].x,verts['010'].y); ctx.lineTo(verts['110'].x,verts['110'].y);
+    ctx.lineTo(verts['111'].x,verts['111'].y); ctx.lineTo(verts['011'].x,verts['011'].y); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+  return verts;
+}
+
+// ───────────────────────────── 캔버스/레이아웃
+
+const cvs=document.getElementById('game');
+const ctx=cvs.getContext('2d');
+let DPR=1, CW=360, CH=640;
+let bgLayer=document.createElement('canvas');
+let bgCtx=bgLayer.getContext('2d');
+let layout={ gridX:0,gridY:0,gridW:0,gridH:0, cellW:0,cellH:0 };
+
+const GRID_COLS=3, GRID_ROWS=4, GRID_N=GRID_COLS*GRID_ROWS;
+
+function cellRect(idx){
+  const col=idx%GRID_COLS, row=Math.floor(idx/GRID_COLS);
+  const x = layout.gridX + col*layout.cellW + layout.cellGap/2;
+  const y = layout.gridY + row*layout.cellH + layout.cellGap/2;
+  const w = layout.cellW - layout.cellGap;
+  const h = layout.cellH - layout.cellGap;
+  return {x,y,w,h,cx:x+w/2,cy:y+h/2};
+}
+
+function computeLayout(){
+  const topBar=document.getElementById('topBar');
+  const orderBar=document.getElementById('orderBar');
+  const topRect=topBar.getBoundingClientRect();
+  const orderRect=orderBar.getBoundingClientRect();
+  const trashRect=document.getElementById('trashZone').getBoundingClientRect();
+  const top = topRect.bottom + 44; // 콤보 텍스트 자리까지 확보
+  const bottom = orderRect.top - 8;
+  const rightMargin = (CW - trashRect.left) + 8;
+  const left = 10, right = Math.max(left+40, rightMargin);
+  const gw = Math.max(60, CW-left-right);
+  const gh = Math.max(60, bottom-top);
+  layout.gridX=left; layout.gridY=top; layout.gridW=gw; layout.gridH=gh;
+  layout.cellW=gw/GRID_COLS; layout.cellH=gh/GRID_ROWS;
+  layout.cellGap=Math.min(layout.cellW,layout.cellH)*0.1;
+}
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  CW=window.innerWidth; CH=window.innerHeight;
+  cvs.width=Math.floor(CW*DPR); cvs.height=Math.floor(CH*DPR);
+  cvs.style.width=CW+'px'; cvs.style.height=CH+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  bgLayer.width=Math.floor(CW*DPR); bgLayer.height=Math.floor(CH*DPR);
+  bgCtx.setTransform(DPR,0,0,DPR,0,0);
+  computeLayout();
+  buildBgLayer();
+}
+
+let bgImgLoaded=false;
+const bgImg=new Image();
+bgImg.onload=()=>{ bgImgLoaded=true; buildBgLayer(); };
+bgImg.onerror=()=>{ bgImgLoaded=false; };
+bgImg.src='./assets/bg.png';
+
+function buildBgLayer(){
+  const g=bgCtx;
+  g.clearRect(0,0,CW,CH);
+  const grad=g.createLinearGradient(0,0,0,CH);
+  grad.addColorStop(0,'#3a2c1c'); grad.addColorStop(1,'#20160e');
+  g.fillStyle=grad; g.fillRect(0,0,CW,CH);
+  if(bgImgLoaded){
+    g.save(); g.globalAlpha=0.28;
+    const s=Math.max(CW/bgImg.width, CH/bgImg.height);
+    const iw=bgImg.width*s, ih=bgImg.height*s;
+    g.drawImage(bgImg, (CW-iw)/2, (CH-ih)/2, iw, ih);
+    g.restore();
+  }
+  g.save(); g.globalAlpha=0.12; g.fillStyle='#ffb85c';
+  for(let i=0;i<14;i++){
+    const rx=(i*97)%CW, ry=(i*53+40)%CH, rr=18+((i*31)%26);
+    g.beginPath(); g.arc(rx,ry,rr,0,Math.PI*2); g.fill();
+  }
+  g.restore();
+  // 그리드 칸 슬롯(정적) 미리 그리기
+  for(let i=0;i<GRID_N;i++){
+    const r=cellRect(i);
+    g.save();
+    g.fillStyle='rgba(255,250,246,.10)';
+    g.strokeStyle='rgba(255,250,246,.35)';
+    g.lineWidth=2;
+    roundRect(g, r.x, r.y, r.w, r.h, 12);
+    g.fill(); g.stroke();
+    g.restore();
+  }
+}
+
+function roundRect(g,x,y,w,h,rad){
+  const r=Math.min(rad, w/2, h/2);
+  g.beginPath();
+  g.moveTo(x+r,y);
+  g.arcTo(x+w,y,x+w,y+h,r);
+  g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r);
+  g.arcTo(x,y,x+w,y,r);
+  g.closePath();
+}
+
+// ───────────────────────────── 게임 상태
+
+const LEVEL_THRESH=[0,150,420,820];
+const SPAWN_MS=[2100,1850,1550,1250];
+const TRAP_RATIO=[0.15,0.22,0.28,0.33];
+const ORDER_TIME=[16,20,24,26];
+
+let uid=1;
+const S={
+  phase:'intro', score:0, best:0, level:1, solved:0,
+  combo:1, comboStreak:0, gauge:0, gaugeMax:5, stickers:0,
+  grid:new Array(GRID_N).fill(null),
+  tiles:new Map(), tileOrder:[],
+  order:null, orderTimer:0, orderTimerMax:16,
+  spawnTimer:900, stallEmptyZero:0,
+  drag:null, particles:[], muted:false, lastTouchedId:null,
+};
+
+try{ S.best = Number(localStorage.getItem('cmf_best')||0)||0; }catch(e){ S.best=0; }
+
+function levelForScore(score){
+  let lv=1;
+  for(let i=0;i<LEVEL_THRESH.length;i++) if(score>=LEVEL_THRESH[i]) lv=i+1;
+  return lv;
+}
+
+function randDims(){
+  if(Math.random()<0.16){ const s=randInt(2,7); return [s,s,s]; }
+  return [randInt(2,9), randInt(2,9), randInt(2,9)];
+}
+
+// ───────────────────────────── 타일 생성
+
+function newTile(kind, extra){
+  const t=Object.assign({
+    id:uid++, kind, cellIndex:-1, px:0,py:0, targetPx:0,targetPy:0,
+    scale:1, alpha:1, rot:0, anim:null, dragging:false,
+  }, extra);
+  S.tiles.set(t.id,t);
+  S.tileOrder.push(t.id);
+  return t;
+}
+
+function genNetTile(level){
+  const isTrap = Math.random() < TRAP_RATIO[level-1];
+  if(level===1){
+    const patIdx=randInt(0,HEX_NETS.length-1);
+    const base=HEX_NETS[patIdx].cells;
+    if(!isTrap){
+      return newTile('net', { level, valid:true, shapeKind:'hex', cells:base, patternId:patIdx,
+        dims:[3,3,3], boundW:HEX_BOUND.w, boundH:HEX_BOUND.h });
+    }
+    const c=corruptHexCells(base);
+    return newTile('net', { level, valid:false, shapeKind:'hex', cells:c.cells, corrupt:c, patternId:null,
+      dims:null, boundW:HEX_BOUND.w+2, boundH:HEX_BOUND.h+1 });
+  }
+  const [w,h,d]=randDims();
+  const tabOn=randInt(0,1);
+  const pieces=rectNetPieces(w,h,d,tabOn);
+  if(!isTrap){
+    const b=boundsOf(pieces);
+    return newTile('net', { level, valid:true, shapeKind:'rect', pieces, dims:[w,h,d],
+      boundW:b.w, boundH:b.h, boundMinX:b.minX, boundMinY:b.minY });
+  }
+  const c=corruptRectPieces(pieces);
+  const b=boundsOf(c.pieces);
+  return newTile('net', { level, valid:false, shapeKind:'rect', pieces:c.pieces, corrupt:c, dims:[w,h,d],
+    boundW:b.w, boundH:b.h, boundMinX:b.minX, boundMinY:b.minY });
+}
+
+function tilesMatch(a,b){
+  if(a.kind!=='net'||b.kind!=='net') return false;
+  if(!a.valid||!b.valid) return false;
+  if(a.level===1) return a.patternId===b.patternId;
+  return sameMultiset(a.dims,b.dims);
+}
+
+// ───────────────────────────── 주문서
+
+function genOrder(){
+  const level=S.level;
+  const dims=randDims();
+  const [w,h,d]=dims;
+  const order={ level, dims, sum:(w+h+d)*4 };
+  if(level===1){
+    order.type='cube';
+    order.text='정육면체 상자 1개를 배송하세요';
+    order.accepts=(box)=> box.isCube;
+    order.wireframeValid=null;
+  } else if(level===2){
+    order.type='dims';
+    order.text=`가로 ${w} · 세로 ${h} · 높이 ${d} 상자를 배송하세요`;
+    order.accepts=(box)=> sameMultiset(box.dims, dims);
+    order.wireframeValid=null;
+  } else if(level===3){
+    order.type='wire';
+    const valid = Math.random()<0.6;
+    order.wireframeValid=valid;
+    order.dashed = valid ? new Set(CORRECT_DASHED) : fakeDashedSet();
+    order.text=`가로 ${w} · 세로 ${h} · 높이 ${d} — 겨냥도가 맞으면 배송하세요`;
+    order.accepts=(box)=> valid && sameMultiset(box.dims, dims);
+  } else {
+    order.type='sum';
+    order.text=`모서리 길이의 합이 ${order.sum}cm인 상자를 배송하세요`;
+    order.accepts=(box)=> box.edgeSum===order.sum;
+    order.wireframeValid=null;
+  }
+  return order;
+}
+
+function refreshOrder(){
+  S.order=genOrder();
+  S.orderTimer=0; S.orderTimerMax=ORDER_TIME[S.level-1];
+  drawOrderIcon();
+  document.getElementById('orderText').textContent=S.order.text;
+  document.getElementById('rejectBtn').style.display = S.order.type==='wire' ? 'block' : 'none';
+}
+
+function drawOrderIcon(){
+  const c=document.getElementById('orderIcon');
+  const g=c.getContext('2d');
+  g.clearRect(0,0,c.width,c.height);
+  g.fillStyle='#f4ecd8'; roundRect(g,0,0,c.width,c.height,14); g.fill();
+  const o=S.order; if(!o) return;
+  if(o.type==='cube'){
+    drawWireBox(g, c.width/2, c.height/2+8, [3,3,3], new Set(CORRECT_DASHED), {size:64,lineWidth:3.4});
+  } else if(o.type==='wire'){
+    drawWireBox(g, c.width/2, c.height/2+8, o.dims, o.dashed, {size:64,lineWidth:3.4, fillColor: o.wireframeValid?'#5c7cfa':'#ff5d6c'});
+  } else {
+    drawWireBox(g, c.width/2, c.height/2+8, o.dims, new Set(CORRECT_DASHED), {size:64,lineWidth:3.4});
+  }
+}
+
+// ───────────────────────────── HUD
+
+function updateHUD(level){
+  document.getElementById('scoreVal').textContent=S.score;
+  const gb=document.getElementById('gaugeBox');
+  gb.innerHTML='';
+  for(let i=0;i<S.gaugeMax;i++){
+    const d=document.createElement('div');
+    d.className='gdot'+(i<S.gauge?' on':'');
+    gb.appendChild(d);
+  }
+  const names=['정육면체','직육면체','겨냥도','모서리합'];
+  document.getElementById('levelBox').textContent=`Lv.${S.level} ${names[S.level-1]}`;
+}
+
+let comboTimeout=null;
+function flashCombo(){
+  const el=document.getElementById('comboText');
+  if(S.comboStreak>=2){
+    el.textContent=`콤보 ×${S.comboStreak}!`;
+    el.classList.add('show');
+    clearTimeout(comboTimeout);
+    comboTimeout=setTimeout(()=>el.classList.remove('show'),700);
+  }
+}
+
+let toastTimeout=null;
+function showToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout=setTimeout(()=>el.classList.remove('show'),1100);
+}
+
+function bounceMascot(){
+  const el=document.getElementById('mascot');
+  el.classList.add('bounce');
+  setTimeout(()=>el.classList.remove('bounce'),280);
+}
+
+// ───────────────────────────── 파티클
+
+function spawnParticles(x,y,color,count){
+  for(let i=0;i<count;i++){
+    const ang=Math.random()*Math.PI*2, spd=60+Math.random()*140;
+    S.particles.push({ x,y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd-40,
+      life:0, maxLife:0.5+Math.random()*0.3, size:3+Math.random()*4, color });
+  }
+}
+function updateParticles(dt){
+  for(let i=S.particles.length-1;i>=0;i--){
+    const p=S.particles[i];
+    p.life+=dt;
+    if(p.life>=p.maxLife){ S.particles.splice(i,1); continue; }
+    p.vy+=260*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+  }
+}
+function drawParticles(){
+  for(const p of S.particles){
+    const t=p.life/p.maxLife;
+    ctx.globalAlpha=1-t;
+    ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(1-t*0.5),0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+// ───────────────────────────── 그리드 헬퍼
+
+function emptyCells(){
+  const arr=[]; for(let i=0;i<GRID_N;i++) if(S.grid[i]===null) arr.push(i);
+  return arr;
+}
+function placeInCell(tile, idx){
+  tile.cellIndex=idx; S.grid[idx]=tile.id;
+  const r=cellRect(idx); tile.targetPx=r.cx; tile.targetPy=r.cy; tile.cellW=r.w; tile.cellH=r.h;
+}
+function removeFromGrid(tile){
+  if(tile.cellIndex>=0) S.grid[tile.cellIndex]=null;
+  tile.cellIndex=-1;
+}
+function destroyTile(tile){
+  removeFromGrid(tile);
+  S.tiles.delete(tile.id);
+  const i=S.tileOrder.indexOf(tile.id); if(i>=0) S.tileOrder.splice(i,1);
+}
+function bringToFront(tile){
+  const i=S.tileOrder.indexOf(tile.id);
+  if(i>=0){ S.tileOrder.splice(i,1); S.tileOrder.push(tile.id); }
+}
+
+function hasAnyPossibleMerge(){
+  const ids=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && t.kind==='net' && t.valid && !t.anim; });
+  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
+    if(tilesMatch(S.tiles.get(ids[i]), S.tiles.get(ids[j]))) return true;
+  }
+  return false;
+}
+
+// ───────────────────────────── 스폰
+
+function trySpawn(dt){
+  const empties=emptyCells();
+  if(empties.length<=2) return; // 칸이 얼마 안 남으면 스폰을 멈춰 정리할 시간을 준다
+  S.spawnTimer-=dt*1000;
+  if(S.spawnTimer>0) return;
+  S.spawnTimer=SPAWN_MS[S.level-1];
+  const idx=pick(empties);
+  const t=genNetTile(S.level);
+  placeInCell(t,idx);
+  const r=cellRect(idx);
+  t.px=r.cx; t.py=r.cy-260; t.scale=0.4; t.alpha=0.2;
+  t.anim={ kind:'spawn', t:0, dur:0.38 };
+}
+
+// ───────────────────────────── 병합 / 배송 / 폐기
+
+function attemptMerge(dragTile, targetTile){
+  if(!tilesMatch(dragTile,targetTile)){ return false; }
+  const cellIdx=targetTile.cellIndex;
+  const r=cellRect(cellIdx);
+  dragTile.anim={ kind:'mergeFly', t:0, dur:0.28, toX:r.cx, toY:r.cy };
+  dragTile.mergeTargetId=targetTile.id;
+  removeFromGrid(dragTile);
+  return true;
+}
+
+function finalizeMergeIfDone(tile){
+  if(tile.anim && tile.anim.kind==='mergeFly' && tile.anim.t>=1){
+    const target=S.tiles.get(tile.mergeTargetId);
+    destroyTile(tile);
+    if(target) completeBox(target);
+  }
+}
+
+function completeBox(target){
+  target.kind='box';
+  target.valid=true;
+  target.isCube = target.dims[0]===target.dims[1] && target.dims[1]===target.dims[2];
+  target.edgeSum=(target.dims[0]+target.dims[1]+target.dims[2])*4;
+  target.anim={ kind:'pop', t:0, dur:0.36 };
+  const r=cellRect(target.cellIndex);
+  spawnParticles(r.cx,r.cy,'#ffb85c',18);
+  S.comboStreak++;
+  S.combo=Math.min(3, 1+S.comboStreak*0.25);
+  S.score += Math.round(15*S.combo);
+  flashCombo();
+  if(target.level>=2 && target.isCube){
+    S.score+=15; S.stickers++;
+    showToast('이것도 직육면체야! 🎖️');
+    spawnParticles(r.cx,r.cy,'#5c7cfa',14);
+  }
+  updateHUD();
+}
+
+function emergencyRescue(){
+  // 그리드가 완전히 막혀도 즉시 게임오버 시키지 않고, 트랩(불량) 타일부터 우선해 1개를 무료로 치워 판을 풀어준다
+  const netIds=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && t.kind==='net' && !t.anim; });
+  let pickId = netIds.find(id=>!S.tiles.get(id).valid);
+  if(!pickId) pickId = netIds[0];
+  if(!pickId){
+    const boxIds=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && t.kind==='box' && !t.anim; });
+    pickId = boxIds[0];
+  }
+  if(!pickId) return;
+  discardTile(S.tiles.get(pickId));
+  showToast('긴급 정리! 자동으로 빈 칸을 만들었어요 🧹');
+}
+
+function discardTile(tile){
+  const wasTrap = tile.kind==='net' && !tile.valid;
+  removeFromGrid(tile);
+  tile.anim={ kind:'discard', t:0, dur:0.32, fromX:tile.px, fromY:tile.py };
+  if(wasTrap){
+    S.score+=8;
+    const r={x:tile.px,y:tile.py};
+    spawnParticles(r.x,r.y,'#3ad39c',10);
+  }
+  updateHUD();
+}
+
+function attemptDeliver(boxTile){
+  if(boxTile.kind!=='box') return false;
+  const ok = S.order && S.order.accepts(boxTile);
+  const orderCard=document.getElementById('orderCard');
+  if(ok){
+    S.solved++; S.comboStreak++; S.combo=Math.min(3,1+S.comboStreak*0.25);
+    S.score += Math.round(60*S.combo);
+    if(S.comboStreak>0 && S.comboStreak%3===0) S.gauge=Math.max(0,S.gauge-1);
+    orderCard.classList.add('hot'); setTimeout(()=>orderCard.classList.remove('hot'),200);
+    bounceMascot(); flashCombo();
+    const r=cellRect(boxTile.cellIndex>=0?boxTile.cellIndex:0);
+    spawnParticles(tile_px(boxTile), tile_py(boxTile), '#3ad39c', 22);
+    removeFromGrid(boxTile);
+    destroyTile(boxTile);
+    const prevLevel=S.level;
+    S.level=levelForScore(S.score);
+    refreshOrder();
+    if(S.level!==prevLevel){ showToast(`레벨 업! Lv.${S.level}`); }
+    updateHUD();
+  } else {
+    S.gauge=Math.min(S.gaugeMax,S.gauge+1);
+    S.comboStreak=0; S.combo=1;
+    if(S.gauge>=S.gaugeMax){ gameOver('gauge'); return true; }
+    boxTile.anim={ kind:'shake', t:0, dur:0.35 };
+    boxTile.dragging=false;
+    updateHUD();
+  }
+  return true;
+}
+function tile_px(t){ return t.px; } function tile_py(t){ return t.py; }
+
+function rejectOrder(){
+  if(!S.order) return;
+  const wasFake = S.order.wireframeValid===false;
+  if(wasFake){ S.score+=20; showToast('불량 주문서 반려! +20'); }
+  else { showToast('주문서 교체'); }
+  updateHUD();
+  refreshOrder();
+}
+
+// ───────────────────────────── 게임오버 / 시작
+
+function gameOver(reason){
+  if(S.phase==='gameover') return;
+  S.phase='gameover';
+  if(S.score>S.best){ S.best=S.score; try{ localStorage.setItem('cmf_best',String(S.best)); }catch(e){} }
+  document.getElementById('gameoverTitle').textContent = '찌그러짐 게이지가 가득 찼어요!';
+  document.getElementById('finalScore').textContent=`점수 ${S.score}`;
+  document.getElementById('bestScoreText').textContent=`최고 기록 ${S.best}`;
+  document.getElementById('gameoverScreen').classList.remove('hidden');
+}
+
+function resetGame(){
+  for(const id of [...S.tileOrder]) destroyTile(S.tiles.get(id));
+  S.score=0; S.level=1; S.solved=0; S.combo=1; S.comboStreak=0; S.gauge=0; S.stickers=0;
+  S.grid=new Array(GRID_N).fill(null);
+  S.spawnTimer=200; S.stallEmptyZero=0; S.drag=null; S.particles=[];
+  S.phase='playing';
+  document.getElementById('trashZone').classList.remove('warn');
+  document.getElementById('stallBanner').classList.remove('show');
+  refreshOrder();
+  updateHUD();
+}
+
+function startGame(){
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameoverScreen').classList.add('hidden');
+  resetGame();
+}
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('retryBtn').addEventListener('click', startGame);
+document.getElementById('rejectBtn').addEventListener('click', rejectOrder);
+document.getElementById('muteBtn').addEventListener('click', ()=>{
+  S.muted=!S.muted;
+  document.getElementById('muteBtn').textContent = S.muted ? '🔇' : '🔊';
+});
+
+// ───────────────────────────── 오디오 (사용자 제스처 이후에만, 코드 생성음)
+
+let actx=null;
+function ensureAudio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function beep(freq,dur,type,vol){
+  if(S.muted || !actx) return;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type=type||'sine'; o.frequency.value=freq;
+  g.gain.value=0; o.connect(g); g.connect(actx.destination);
+  const t0=actx.currentTime;
+  g.gain.linearRampToValueAtTime(vol||0.12, t0+0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+  o.start(t0); o.stop(t0+dur+0.02);
+}
+function sfxMerge(){ beep(520,0.14,'triangle',0.14); beep(780,0.12,'triangle',0.1); }
+function sfxDeliver(){ beep(660,0.1,'square',0.1); beep(990,0.16,'square',0.12); }
+function sfxWrong(){ beep(160,0.22,'sawtooth',0.12); }
+function sfxDiscard(){ beep(340,0.1,'sine',0.08); }
+document.body.addEventListener('pointerdown', ensureAudio, { once:true });
+
+const _completeBox=completeBox;
+completeBox=function(t){ _completeBox(t); sfxMerge(); };
+const _attemptDeliver=attemptDeliver;
+attemptDeliver=function(t){
+  const okBefore = S.order && S.order.accepts(t);
+  const r=_attemptDeliver(t);
+  if(okBefore) sfxDeliver(); else sfxWrong();
+  return r;
+};
+const _discardTile=discardTile;
+discardTile=function(t){ const wasTrap=t.kind==='net'&&!t.valid; _discardTile(t); if(wasTrap) sfxDiscard(); else sfxWrong(); };
+
+// ───────────────────────────── 입력 (드래그)
+
+function localPos(e){
+  const rect=cvs.getBoundingClientRect();
+  return { x:(e.clientX-rect.left), y:(e.clientY-rect.top) };
+}
+function hitTile(x,y){
+  for(let i=S.tileOrder.length-1;i>=0;i--){
+    const t=S.tiles.get(S.tileOrder[i]);
+    if(!t || t.dragging) continue;
+    const half=(t.cellW||64)/2*0.94, halfh=(t.cellH||64)/2*0.94;
+    if(Math.abs(x-t.px)<=half && Math.abs(y-t.py)<=halfh) return t;
+  }
+  return null;
+}
+function rectContainsClient(el,cx,cy){
+  const r=el.getBoundingClientRect();
+  return cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom;
+}
+function nearestCell(x,y){
+  let best=-1, bestD=Infinity;
+  for(let i=0;i<GRID_N;i++){
+    const r=cellRect(i);
+    const d=(x-r.cx)*(x-r.cx)+(y-r.cy)*(y-r.cy);
+    if(d<bestD){ bestD=d; best=i; }
+  }
+  return best;
+}
+
+cvs.addEventListener('pointerdown', (e)=>{
+  if(S.phase!=='playing') return;
+  const p=localPos(e);
+  const t=hitTile(p.x,p.y);
+  if(!t || t.anim) return;
+  S.drag={ id:t.id, offX:p.x-t.px, offY:p.y-t.py, startX:p.x, startY:p.y, startT:performance.now(), fromCell:t.cellIndex };
+  t.dragging=true;
+  S.lastTouchedId=t.id;
+  bringToFront(t);
+  cvs.setPointerCapture(e.pointerId);
+});
+
+window.addEventListener('pointermove', (e)=>{
+  if(!S.drag) return;
+  const t=S.tiles.get(S.drag.id); if(!t) return;
+  const rect=cvs.getBoundingClientRect();
+  t.px=(e.clientX-rect.left)-S.drag.offX;
+  t.py=(e.clientY-rect.top)-S.drag.offY;
+  const hot = rectContainsClient(document.getElementById('trashZone'), e.clientX, e.clientY);
+  document.getElementById('trashZone').classList.toggle('hot', hot);
+});
+
+function endDrag(e){
+  if(!S.drag) return;
+  const t=S.tiles.get(S.drag.id);
+  const drag=S.drag; S.drag=null;
+  document.getElementById('trashZone').classList.remove('hot');
+  if(!t) return;
+  t.dragging=false;
+  const cx = e.clientX, cy = e.clientY;
+  const dt=performance.now()-drag.startT;
+  const rect=cvs.getBoundingClientRect();
+  const swipedUp = (drag.startY - (cy - rect.top)) > 90 && Math.abs((cx-rect.left)-drag.startX) < 70 && dt<500;
+
+  if(swipedUp || rectContainsClient(document.getElementById('trashZone'), cx, cy)){
+    discardTile(t);
+    return;
+  }
+  if(rectContainsClient(document.getElementById('orderCard'), cx, cy)){
+    if(t.kind==='box'){
+      const ok=attemptDeliver(t);
+      if(ok) return;
+    }
+    // 그물(net) 타일을 주문서에 놓으면 그냥 되돌린다
+    snapBack(t, drag.fromCell);
+    return;
+  }
+  const p=localPos(e);
+  const targetIdx=nearestCell(p.x,p.y);
+  const occupantId=S.grid[targetIdx];
+  if(occupantId && occupantId!==t.id){
+    const occ=S.tiles.get(occupantId);
+    if(occ && occ.kind==='net' && t.kind==='net' && attemptMerge(t,occ)){
+      return;
+    }
+    snapBack(t, drag.fromCell);
+    return;
+  }
+  // 빈 칸으로 이동 (혹은 원래 칸으로)
+  if(t.cellIndex>=0) S.grid[t.cellIndex]=null;
+  placeInCell(t, targetIdx);
+}
+function snapBack(t, fromCell){
+  if(t.cellIndex>=0) S.grid[t.cellIndex]=null;
+  placeInCell(t, fromCell);
+  t.anim={ kind:'shake', t:0, dur:0.3 };
+}
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
+
+cvs.addEventListener('contextmenu', (e)=>{
+  e.preventDefault();
+  const p=localPos(e);
+  const t=hitTile(p.x,p.y);
+  if(t && !t.anim) discardTile(t);
+});
+window.addEventListener('keydown', (e)=>{
+  if(e.key==='x' || e.key==='X'){
+    const t=S.lastTouchedId!=null ? S.tiles.get(S.lastTouchedId) : null;
+    if(t && !t.anim && t.cellIndex>=0) discardTile(t);
+  }
+});
+
+// ───────────────────────────── 업데이트 / 렌더
+
+function updateTiles(dt){
+  for(const id of [...S.tileOrder]){
+    const t=S.tiles.get(id); if(!t) continue;
+    if(t.anim){
+      t.anim.t=Math.min(1, t.anim.t + dt/t.anim.dur);
+      const k=t.anim.kind, tt=t.anim.t;
+      if(k==='spawn'){
+        t.scale=lerp(0.4,1,easeOutBack(tt)); t.alpha=lerp(0.2,1,tt);
+        t.px=lerp(t.px, t.targetPx, 0.001); t.py=lerp(t.py, t.targetPy, 1-Math.pow(1-tt,3));
+        if(tt>=1){ t.scale=1; t.alpha=1; t.px=t.targetPx; t.py=t.targetPy; t.anim=null; }
+      } else if(k==='mergeFly'){
+        const from=t._flyFrom || (t._flyFrom={x:t.px,y:t.py});
+        t.px=lerp(from.x, t.anim.toX, easeOutCubic(tt));
+        t.py=lerp(from.y, t.anim.toY, easeOutCubic(tt));
+        t.scale=lerp(1,0.2,tt); t.alpha=lerp(1,0.3,tt);
+        if(tt>=1){ finalizeMergeIfDone(t); }
+      } else if(k==='pop'){
+        t.scale = tt<0.5 ? lerp(1,1.22,tt/0.5) : lerp(1.22,1,(tt-0.5)/0.5);
+        if(tt>=1){ t.scale=1; t.anim=null; }
+      } else if(k==='discard'){
+        t.py = t.anim.fromY - 260*easeOutCubic(tt);
+        t.alpha=lerp(1,0,tt); t.rot=lerp(0,0.6,tt);
+        if(tt>=1){ destroyTile(t); }
+      } else if(k==='shake'){
+        t.rot = Math.sin(tt*Math.PI*6)*0.10*(1-tt);
+        t.px = lerp(t.px, t.targetPx, 0.001);
+        if(tt>=1){ t.rot=0; t.anim=null; }
+      }
+      continue;
+    }
+    if(t.dragging) continue;
+    t.px=lerp(t.px, t.targetPx, 1-Math.pow(0.001,dt));
+    t.py=lerp(t.py, t.targetPy, 1-Math.pow(0.001,dt));
+  }
+}
+
+function drawNetShape(t, x, y, w, h){
+  const pad=w*0.06;
+  const availW=w-pad*2, availH=h-pad*2;
+  ctx.save();
+  ctx.translate(x-w/2+pad, y-h/2+pad);
+  if(t.shapeKind==='hex'){
+    const cell=Math.min(availW/t.boundW, availH/t.boundH);
+    const offX=(availW-cell*t.boundW)/2, offY=(availH-cell*t.boundH)/2;
+    ctx.fillStyle = t.valid ? '#ffb85c' : '#f2c98f';
+    ctx.strokeStyle='#2e3440'; ctx.lineWidth=Math.max(1.4,cell*0.05);
+    for(const c of t.cells){
+      const cx=offX+c[1]*cell, cy=offY+c[0]*cell;
+      roundRect(ctx, cx+cell*0.05, cy+cell*0.05, cell*0.9, cell*0.9, cell*0.14);
+      ctx.fill(); ctx.stroke();
+    }
+    if(!t.valid && t.corrupt && t.corrupt.kind==='missing'){
+      const hc=t.corrupt.holeAt;
+      const cx=offX+hc[1]*cell, cy=offY+hc[0]*cell;
+      ctx.save(); ctx.strokeStyle='rgba(255,93,108,.85)'; ctx.setLineDash([4,3]); ctx.lineWidth=2;
+      roundRect(ctx, cx+cell*0.05, cy+cell*0.05, cell*0.9, cell*0.9, cell*0.14); ctx.stroke();
+      ctx.restore();
+    }
+  } else {
+    const cell=Math.min(availW/t.boundW, availH/t.boundH);
+    const offX=(availW-cell*t.boundW)/2, offY=(availH-cell*t.boundH)/2;
+    ctx.fillStyle = t.valid ? '#5c7cfa' : '#9aabf5';
+    ctx.strokeStyle='#2e3440'; ctx.lineWidth=Math.max(1.4,cell*0.05);
+    for(const pcs of t.pieces){
+      const cx=offX+(pcs.x-t.boundMinX)*cell, cy=offY+(pcs.y-t.boundMinY)*cell;
+      roundRect(ctx, cx+cell*0.04, cy+cell*0.04, pcs.w*cell-cell*0.08, pcs.h*cell-cell*0.08, cell*0.12);
+      ctx.fill(); ctx.stroke();
+    }
+    if(!t.valid && t.corrupt && t.corrupt.kind==='missing'){
+      const hc=t.corrupt.holeAt;
+      const cx=offX+(hc.x-t.boundMinX)*cell, cy=offY+(hc.y-t.boundMinY)*cell;
+      ctx.save(); ctx.strokeStyle='rgba(255,93,108,.85)'; ctx.setLineDash([4,3]); ctx.lineWidth=2;
+      roundRect(ctx, cx+cell*0.04, cy+cell*0.04, hc.w*cell-cell*0.08, hc.h*cell-cell*0.08, cell*0.12); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.fillStyle='#2e3440';
+    ctx.font=`800 ${Math.max(11,w*0.11)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+    ctx.textAlign='center';
+    ctx.fillText(`${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`, availW/2, availH+pad*1.6);
+  }
+  ctx.restore();
+}
+
+function drawTile(t){
+  const w=t.cellW||64, h=t.cellH||64;
+  ctx.save();
+  ctx.globalAlpha=t.alpha;
+  ctx.translate(t.px,t.py);
+  ctx.rotate(t.rot||0);
+  ctx.scale(t.scale,t.scale);
+  const cardColor = t.kind==='box' ? '#fffaf6' : (t.valid ? '#fffaf6' : '#fff0e6');
+  ctx.fillStyle=cardColor;
+  ctx.strokeStyle = t.dragging ? '#ffb85c' : '#2e3440';
+  ctx.lineWidth = t.dragging ? 4 : 2.4;
+  roundRect(ctx, -w/2, -h/2, w, h, 14);
+  ctx.fill(); ctx.stroke();
+  if(t.dragging){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=0; ctx.restore(); }
+
+  if(t.kind==='net'){
+    drawNetShape(t, 0, 0, w, h*0.86);
+  } else {
+    drawWireBox(ctx, 0, -h*0.06, t.dims, new Set(CORRECT_DASHED), { size:w*0.72, lineWidth:Math.max(2,w*0.035), fillColor: t.isCube?'#5c7cfa':'#ffb85c' });
+    ctx.fillStyle='#2e3440';
+    ctx.font=`800 ${Math.max(10,w*0.1)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+    ctx.textAlign='center';
+    ctx.fillText(t.isCube? '정육면체' : `${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`, 0, h*0.40);
+    ctx.fillStyle='#3ad39c';
+    ctx.font=`900 ${Math.max(9,w*0.085)}px -apple-system, sans-serif`;
+    ctx.fillText('완성!', 0, -h*0.36);
+  }
+  ctx.restore();
+}
+
+let lastT=performance.now();
+
+function frame(now){
+  const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  ctx.clearRect(0,0,CW,CH);
+  ctx.drawImage(bgLayer,0,0,CW,CH);
+
+  if(S.phase==='playing'){
+    trySpawn(dt);
+    updateTiles(dt);
+    updateParticles(dt);
+
+    const empties=emptyCells();
+    const stalled = empties.length===0 && !hasAnyPossibleMerge();
+    const nearRisk = empties.length<=2;
+    document.getElementById('trashZone').classList.toggle('warn', nearRisk || stalled);
+    document.getElementById('stallBanner').classList.toggle('show', nearRisk || stalled);
+    if(stalled){
+      S.stallEmptyZero+=dt;
+      if(S.stallEmptyZero>4.2){ emergencyRescue(); S.stallEmptyZero=0; }
+    } else {
+      S.stallEmptyZero=0;
+    }
+
+    S.orderTimer+=dt;
+    const frac=clamp(1-S.orderTimer/S.orderTimerMax,0,1);
+    document.getElementById('orderTimerBar').style.width=(frac*100)+'%';
+    if(S.orderTimer>=S.orderTimerMax){ refreshOrder(); }
+  }
+
+  for(const id of S.tileOrder){
+    const t=S.tiles.get(id); if(t) drawTile(t);
+  }
+  drawParticles();
+
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(frame);
+
+// ───────────────────────────── 문제 표본 생성기 (테스트/검산용, 게임 진행과 무관)
+
+function sampleJudgeProblems(n){
+  const out=[];
+  const templates=[
+    ()=>{
+      const idx=randInt(0,HEX_NETS.length-1);
+      const label=['십자형','지그재그형','오른쪽 치우침 형','계단형','반대 지그재그형','또 다른 배치형'][idx];
+      const faultKind = pick(['ok','disconnect','missing']);
+      let prompt, answer;
+      if(faultKind==='ok'){
+        prompt=`정사각형 6개가 서로 변끼리 이어진 ${label} 전개도를 접으면 정육면체가 될까요?`;
+        answer='정육면체가 된다';
+      } else if(faultKind==='disconnect'){
+        prompt=`${label} 전개도에서 정사각형 하나를 떼어 다른 조각들과 변이 안 닿는 자리로 옮겼습니다. 이 6개짜리 도형을 접으면 정육면체가 될까요?`;
+        answer='정육면체가 되지 않는다';
+      } else {
+        prompt=`${label} 전개도에서 정사각형 하나를 빼서 5개만 남았습니다. 이걸 접으면 정육면체가 될까요?`;
+        answer='정육면체가 되지 않는다';
+      }
+      return { id:'hex'+idx+faultKind, prompt, choices:['정육면체가 된다','정육면체가 되지 않는다'], answer, answerNumeric: answer==='정육면체가 된다'?1:0, unitConcept:'정육면체의 전개도' };
+    },
+    ()=>{
+      const [w1,h1,d1]=randDims();
+      const same=Math.random()<0.5;
+      const [w2,h2,d2]= same ? shuffle([w1,h1,d1]) : [w1+randInt(1,3), h1, d1];
+      const answer = sameMultiset([w1,h1,d1],[w2,h2,d2]) ? '같은 상자가 된다' : '다른 상자가 된다';
+      return { id:`dims-${w1}${h1}${d1}-${w2}${h2}${d2}`, prompt:`가로·세로·높이가 ${w1}×${h1}×${d1} 인 전개도와 ${w2}×${h2}×${d2} 인 전개도는 같은 상자가 될까요?`,
+        choices:['같은 상자가 된다','다른 상자가 된다'], answer, answerNumeric: answer==='같은 상자가 된다'?1:0, unitConcept:'직육면체 전개도의 합동' };
+    },
+    ()=>{
+      const [w,h,d]=randDims();
+      const solid=9, dashed=3;
+      const askSolid=Math.random()<0.5;
+      const answer=askSolid?`${solid}개`:`${dashed}개`;
+      const choices=askSolid? ['6개','9개','12개','3개'] : ['3개','6개','9개','12개'];
+      return { id:'wire'+w+h+d+askSolid, prompt:`가로 ${w} 세로 ${h} 높이 ${d}인 직육면체의 겨냥도에서 ${askSolid?'실선(보이는 모서리)':'점선(숨은 모서리)'}은 몇 개일까요?`,
+        choices, answer, answerNumeric:askSolid?solid:dashed, unitConcept:'겨냥도의 실선과 점선' };
+    },
+    ()=>{
+      const [w,h,d]=randDims();
+      const correct=(w+h+d)*4;
+      const choices=new Set([correct, (w+h+d)*3, correct+4, correct-4]);
+      while(choices.size<4) choices.add(correct+randInt(-8,8));
+      return { id:'sum'+w+h+d, prompt:`가로 ${w}cm, 세로 ${h}cm, 높이 ${d}cm인 직육면체의 모든 모서리 길이의 합은 몇 cm일까요?`,
+        choices:[...choices].map(String), answer:String(correct), answerNumeric:correct, unitConcept:'직육면체의 모서리 길이의 합' };
+    },
+    ()=>{
+      const kind=pick(['면','모서리','꼭짓점']);
+      const ans={면:'6개',모서리:'12개',꼭짓점:'8개'}[kind];
+      const phrasing=pick([`직육면체의 ${kind}은(는) 몇 개일까요?`, `직육면체 상자에는 ${kind}이(가) 몇 개 있을까요?`]);
+      return { id:'count'+kind, prompt:phrasing, choices:['6개','8개','12개','24개'], answer:ans, answerNumeric:parseInt(ans), unitConcept:'직육면체의 구성 요소' };
+    },
+    ()=>{
+      const phrasing=pick([
+        { prompt:'정육면체는 직육면체에 포함될까요?', choices:['포함된다','포함되지 않는다'], answer:'포함된다' },
+        { prompt:'정육면체이면서 동시에 직육면체인 도형이 있을까요?', choices:['있다','없다'], answer:'있다' },
+        { prompt:'모든 정육면체는 마주 보는 면이 서로 평행하고 합동인 직육면체의 조건을 만족할까요?', choices:['만족한다','만족하지 않는다'], answer:'만족한다' },
+      ]);
+      return { id:'incl'+phrasing.prompt.length, prompt:phrasing.prompt, choices:phrasing.choices, answer:phrasing.answer, answerNumeric:1, unitConcept:'정육면체와 직육면체의 관계' };
+    },
+    ()=>{
+      const [w,h,d]=randDims();
+      return { id:'oppo'+w+h+d, prompt:`가로 ${w} 세로 ${h} 높이 ${d}인 직육면체의 전개도에서 어떤 면과 마주 보는 면은 같은 줄에서 몇 칸 건너뛴 면일까요?`, choices:['바로 옆 칸','한 칸 건너뛴 칸','두 칸 건너뛴 칸','맨 끝 칸'], answer:'한 칸 건너뛴 칸', answerNumeric:1, unitConcept:'전개도에서 마주 보는 면' };
+    },
+  ];
+  for(let i=0;i<n;i++){
+    const f=templates[i%templates.length];
+    out.push(f());
+  }
+  return out;
+}
+
+// ───────────────────────────── __GAME_TEST__ 훅
+
+window.__GAME_TEST__ = {
+  ready:true,
+  start(){
+    if(S.phase!=='playing') startGame();
+  },
+  getState(){
+    return { score:S.score, lives:Math.max(0,S.gaugeMax-S.gauge), level:S.level, phase:S.phase, solved:S.solved };
+  },
+  answerCorrect(){
+    if(S.phase!=='playing') startGame();
+    if(!S.order) refreshOrder();
+    if(S.order.type==='wire') S.order.wireframeValid=true;
+    const dims = S.order.type==='cube' ? [3,3,3] : S.order.dims;
+    const box=newTile('box',{ level:S.level, valid:true, cellIndex:-1, dims:[...dims],
+      isCube: dims[0]===dims[1]&&dims[1]===dims[2], edgeSum:(dims[0]+dims[1]+dims[2])*4,
+      px:-9999, py:-9999, targetPx:-9999, targetPy:-9999, cellW:64, cellH:64 });
+    attemptDeliver(box);
+    if(S.tiles.has(box.id)) destroyTile(box);
+  },
+  answerWrong(){
+    if(S.phase!=='playing') startGame();
+    const box=newTile('box',{ level:S.level, valid:true, cellIndex:-1, dims:[99,98,97],
+      isCube:false, edgeSum:1, px:-9999, py:-9999, targetPx:-9999, targetPy:-9999, cellW:64, cellH:64 });
+    attemptDeliver(box);
+    if(S.tiles.has(box.id)) destroyTile(box);
+  },
+  sampleProblems(n){
+    return sampleJudgeProblems(n||24);
+  },
+};
+
+updateHUD();
+
+})();
+</script>
+</body>
+</html>
