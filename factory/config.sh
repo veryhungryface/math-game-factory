@@ -18,6 +18,10 @@ export T_BUILD="${T_BUILD:-3000}"      # 50분
 export T_MATHCHECK="${T_MATHCHECK:-600}"  # 10분 — 수학 전수 검산
 export T_REVIEW="${T_REVIEW:-900}"     # 15분
 export T_FIX="${T_FIX:-1500}"          # 25분
+export T_SCOUT="${T_SCOUT:-900}"       # 15분 — 레퍼런스 스카우트 (게임 N개마다 1회)
+
+# ── 레퍼런스 갱신 루프 ─────────────────────────────────────────
+export SCOUT_EVERY="${SCOUT_EVERY:-10}"  # 게임 몇 개 게시할 때마다 새 레퍼런스를 찾을지
 
 # ── 배포 ──────────────────────────────────────────────
 export VERCEL_PROJECT="${VERCEL_PROJECT:-math-game-factory}"

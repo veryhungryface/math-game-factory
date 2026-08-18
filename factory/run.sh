@@ -581,4 +581,28 @@ else
   DEPLOY_URL="http://localhost (드라이런)"
 fi
 
+# ════════════════════════════════════════════════════════════════
+# 게임 게시가 끝난 뒤에만 시도한다 — 이 게임의 성공 여부와 완전히 무관한 부가
+# 작업이라 실패해도 die() 로 전체를 죽이지 않는다. 게임 N개마다(기본 10개)
+# 한 번, 새 카테고리에서 레퍼런스 후보를 찾아 references/pending/ 에 쌓아둔다.
+# 바로 game-references.json 에 섞이지 않는다 — 사람이 검토 후
+# merge-references.mjs 로 승인해야 실제 기획에 반영된다.
+if node factory/lib/scout-references.mjs check >"$LOG_DIR/scout.log" 2>&1; then
+  step "12. 레퍼런스 스카우트"
+  node factory/lib/scout-references.mjs prepare >>"$LOG_DIR/scout.log" 2>&1
+  SCOUT_PROMPT="$(cat factory/prompts/50-reference-scout.md)
+
+---
+## 이번 포커스
+\`\`\`json
+$(cat "$WORK/scout-focus.json" 2>/dev/null)
+\`\`\`"
+  claude_run "$T_SCOUT" "$LOG_DIR/scout-agent.log" "$SCOUT_PROMPT"
+  if node factory/lib/scout-references.mjs ingest >>"$LOG_DIR/scout.log" 2>&1; then
+    log "레퍼런스 후보 보관 — $(tail -2 "$LOG_DIR/scout.log" | tr '\n' ' ')"
+  else
+    log "⚠️  레퍼런스 스카우트 실패(게임 게시와는 무관) — $(tail -3 "$LOG_DIR/scout.log" | tr '\n' ' ')"
+  fi
+fi
+
 finish "게시"
