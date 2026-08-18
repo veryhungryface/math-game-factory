@@ -4,7 +4,8 @@
 
 ## 레퍼런스를 제대로 가져와라 (가장 자주 대충 하는 부분)
 
-`references/game-references.md` 를 **훑어보지 말고 실제로 읽어라.** 특히:
+`references/curated-concepts.md`(인사이트·라이선스·상위 20 컨셉 요약판)를 먼저 읽고,
+`references/game-references.md`(전체 목록)에서 세부를 확인해라. **훑어보지 말고 실제로 읽어라.** 특히:
 
 1. **메커닉 이름만 적지 마라.** `mechanic_origin` 에 "Fruit Ninja" 라고만 쓰면 실격이다.
    그 항목의 `core_loop`/`hook` 문구를 실제로 읽고, **정확히 어떤 요소**를 가져오는지
