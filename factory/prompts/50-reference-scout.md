@@ -35,7 +35,7 @@
 
 ## 산출물
 
-`factory/work/scout-candidates.json` 을 Write 로 작성해라:
+`factory/work/scout-candidates.json` 파일로 작성해라(네가 가진 파일 쓰기 도구를 써라):
 
 ```json
 {

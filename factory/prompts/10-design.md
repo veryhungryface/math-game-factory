@@ -39,7 +39,7 @@
 
 ## 산출물
 
-`factory/work/concept-<N>.json` 파일 하나를 Write 툴로 작성한다. `<N>`은 프롬프트 끝에 지정된 번호다.
+`factory/work/concept-<N>.json` 파일 하나를 작성한다(네가 가진 파일 쓰기 도구를 써라). `<N>`은 프롬프트 끝에 지정된 번호다.
 
 ```json
 {

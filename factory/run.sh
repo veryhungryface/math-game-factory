@@ -285,10 +285,13 @@ $USER_FEEDBACK
 ## 출력 파일
 \`factory/work/concept-${i}.json\` 로 저장해라. \`n\` 필드는 ${i} 다."
 
-  # 3번 슬롯(비주얼로 승부하는 안)은 Grok 으로 돌린다 — 전부 같은 모델로만 기획하니
-  # 게임들이 서로 비슷해 보인다는 지적을 받았다. 모델 자체를 바꿔서 진짜 다른 관점을 섞는다.
+  # 기획 3안을 서로 다른 회사 모델로 나눠 돌린다 — 전부 같은 모델로만 기획하니
+  # 게임들이 서로 비슷해 보인다는 지적을 받았고, 사용자가 codex·grok 토큰을 더
+  # 쓰라고 명시적으로 요청했다. 1번=claude, 2번=codex(GPT), 3번=grok.
   if [ "$i" = "3" ] && command -v grok >/dev/null 2>&1; then
     grok_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
+  elif [ "$i" = "2" ]; then
+    codex_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
   else
     claude_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
   fi
@@ -306,13 +309,15 @@ if [ "$CONCEPTS" -eq 1 ]; then
   cp "$(ls "$WORK"/concept-*.json | head -1)" "$WORK/chosen.json"
   log "기획안이 1개뿐 — 심사 생략"
 else
-  claude_run "$T_JUDGE" "$LOG_DIR/judge.log" "$(cat factory/prompts/15-judge.md)
+  # 심사는 GPT 상위 티어로 — 사용자 요청(claude 편중 완화). 기획안이 claude/codex/grok
+  # 3사에서 나오므로 어차피 어느 모델이 심사해도 자기 안이 하나는 섞여 있다.
+  codex_run "$T_JUDGE" "$LOG_DIR/judge.log" "$(cat factory/prompts/15-judge.md)
 
 ---
 ## 이번 슬롯
 \`\`\`json
 $SLOT_CTX
-\`\`\`" "$CLAUDE_MODEL_SMART"
+\`\`\`" "$CODEX_MODEL_SMART"
   [ -f "$WORK/chosen.json" ] || {
     log "⚠️  심사 실패 — 1번 기획안으로 진행"
     cp "$(ls "$WORK"/concept-*.json | head -1)" "$WORK/chosen.json"
@@ -494,7 +499,11 @@ log "1차 검수: ${SCORE:-?}점 / passed=$PASSED / reject=$REJECT"
 # ════════════════════════════════════════════════════════════════
 if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; then
   step "8. 수정 (마지막 기회)"
-  claude_run "$T_FIX" "$LOG_DIR/fix.log" "$(cat factory/prompts/45-fix.md)
+  # 수정 라운드는 grok — 사용자 요청(claude 편중 완화). grok 은 로컬 무샌드박스라
+  # qa.mjs(puppeteer + 로컬 서버)를 직접 돌릴 수 있다. codex 샌드박스는 그게 안 된다.
+  FIX_RUNNER=claude_run
+  if command -v grok >/dev/null 2>&1; then FIX_RUNNER=grok_run; fi
+  "$FIX_RUNNER" "$T_FIX" "$LOG_DIR/fix.log" "$(cat factory/prompts/45-fix.md)
 
 ---
 - slug: \`$SLUG\`
@@ -619,7 +628,11 @@ if node factory/lib/scout-references.mjs check >"$LOG_DIR/scout.log" 2>&1; then
 \`\`\`json
 $(cat "$WORK/scout-focus.json" 2>/dev/null)
 \`\`\`"
-  claude_run "$T_SCOUT" "$LOG_DIR/scout-agent.log" "$SCOUT_PROMPT"
+  if command -v grok >/dev/null 2>&1; then
+    grok_run "$T_SCOUT" "$LOG_DIR/scout-agent.log" "$SCOUT_PROMPT"
+  else
+    claude_run "$T_SCOUT" "$LOG_DIR/scout-agent.log" "$SCOUT_PROMPT"
+  fi
   if node factory/lib/scout-references.mjs ingest >>"$LOG_DIR/scout.log" 2>&1; then
     log "레퍼런스 후보 보관 — $(tail -2 "$LOG_DIR/scout.log" | tr '\n' ' ')"
   else
