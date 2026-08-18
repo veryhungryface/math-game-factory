@@ -7,7 +7,7 @@ export DESIGN_VARIANTS="${DESIGN_VARIANTS:-3}" # 병렬 기획 에이전트 수
 export FOCUS="${FOCUS:-5-2,6-2}"               # 집중 학년-학기
 
 # ── 모델 ──────────────────────────────────────────────
-export CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"
+export CLAUDE_MODEL="${CLAUDE_MODEL:-sonnet}"
 export CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"
 
 # ── 단계별 제한 시간(초) ───────────────────────────────
@@ -25,9 +25,10 @@ export GH_REPO="${GH_REPO:-veryhungryface/math-game-factory}"
 export DEPLOY="${DEPLOY:-1}"           # 0 이면 배포 생략 (드라이런)
 
 # ── 보고 ──────────────────────────────────────────────
-# #썜알트먼 채널 안의 스레드. 봇이 채널 본문에는 못 쓰고(403 Missing Permissions)
-# 스레드에는 쓸 수 있어서 스레드 id 를 쓴다. 다른 곳으로 바꾸려면 이 값만 교체.
-export REPORT_TARGET="${REPORT_TARGET:-discord:1516271245937868890}"
+# 사용자가 만든 "수학 게임 공장" 전용 스레드. 봇이 채널 본문에는 못 쓰고(403 Missing
+# Permissions) 스레드에는 쓸 수 있어서 스레드 id 를 쓴다. 2026-08-18 사용자 요청으로
+# 이 스레드로 변경 (이전: 1516271245937868890, #썜알트먼 안의 기존 잡담 스레드).
+export REPORT_TARGET="${REPORT_TARGET:-discord:1539073913777291344}"
 export REPORT="${REPORT:-1}"           # 0 이면 에르메스 보고 생략
 
 # ── 기타 ──────────────────────────────────────────────
