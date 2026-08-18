@@ -346,8 +346,8 @@ if [ -z "$ASSET_IDS" ]; then
   log "생성할 에셋이 지정되지 않음 — 썸네일만 만든다"
   ASSET_IDS="thumb"
 fi
-# thumb(가로 카드)과 square(정사각 공유용)는 기획서가 뭘 넣었든 항상 만든다.
-for req in thumb square; do
+# thumb(가로 카드)·square(정사각 공유용)·title(타이틀 화면 키 아트)은 기획서가 뭘 넣었든 항상 만든다.
+for req in thumb square title; do
   echo "$ASSET_IDS" | grep -qx "$req" || ASSET_IDS="$ASSET_IDS
 $req"
 done
@@ -357,6 +357,9 @@ for aid in $ASSET_IDS; do
   ASSET_JSON="$(jq -c --arg id "$aid" '.art_direction.assets_needed[]? | select(.id==$id)' "$WORK/chosen.json")"
   if [ -z "$ASSET_JSON" ] && [ "$aid" = "square" ]; then
     ASSET_JSON="{\"id\":\"square\",\"prompt\":\"$(jqv "$WORK/chosen.json" .one_liner) — 주인공을 중앙에 크게 클로즈업한 정사각 커버 아트\",\"size\":\"1024x1024\",\"transparent_bg\":false}"
+  fi
+  if [ -z "$ASSET_JSON" ] && [ "$aid" = "title" ]; then
+    ASSET_JSON="{\"id\":\"title\",\"prompt\":\"$(jqv "$WORK/chosen.json" .one_liner) — 주인공이 역동적 포즈로 등장하는 세로형 타이틀 키 아트, 상단 1/3은 로고 여백\",\"size\":\"1024x1536\",\"transparent_bg\":false}"
   fi
   [ -n "$ASSET_JSON" ] || ASSET_JSON="{\"id\":\"$aid\",\"prompt\":\"$(jqv "$WORK/chosen.json" .one_liner) key art\",\"size\":\"1536x1024\"}"
 
@@ -373,7 +376,7 @@ $ASSET_JSON
 - 게임: 「${TITLE}」 — $(jqv "$WORK/chosen.json" .one_liner)
 - 아트 방향: $(jq -c '.art_direction | {mood, palette}' "$WORK/chosen.json")
 
-저장 경로: $([ "$aid" = "thumb" ] && echo "\`public/g/$SLUG/thumb.png\` (정확히 1200×630, 가로형)" || ([ "$aid" = "square" ] && echo "\`public/g/$SLUG/square.png\` (정확히 1080×1080, 정사각 — thumb.png 크롭 재사용 금지, 새로 생성)" || echo "\`public/g/$SLUG/assets/${aid}.png\`"))
+저장 경로: $([ "$aid" = "thumb" ] && echo "\`public/g/$SLUG/thumb.png\` (정확히 1200×630, 가로형)" || ([ "$aid" = "square" ] && echo "\`public/g/$SLUG/square.png\` (정확히 1080×1080, 정사각 — thumb.png 크롭 재사용 금지, 새로 생성)" || ([ "$aid" = "title" ] && echo "\`public/g/$SLUG/assets/title.png\` (세로형 1024×1536, 타이틀 화면 키 아트 — 상단 1/3 로고 여백)" || echo "\`public/g/$SLUG/assets/${aid}.png\`")))
 
 작업이 끝나면 \`factory/work/art-${aid}.json\` 에 \`{\"id\":\"$aid\",\"path\":\"...\",\"w\":0,\"h\":0,\"kb\":0,\"ok\":true,\"note\":\"\"}\` 를 써라.
 다른 에이전트와 충돌하니 \`factory/work/art.json\` 은 건드리지 마라."
