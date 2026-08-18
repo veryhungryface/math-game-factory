@@ -78,10 +78,9 @@ const metaPath = path.join(gameDir, 'meta.json');
 add('file.index', 'index.html 존재', fs.existsSync(htmlPath), htmlPath, true);
 add('file.meta', 'meta.json 존재', fs.existsSync(metaPath), metaPath, true);
 add('file.thumb', 'thumb.png 존재', fs.existsSync(path.join(gameDir, 'thumb.png')));
-// square.png 는 2026-08-18 오후 도입. 그 전에 이미 떠 있던 사이클(스냅샷 실행 중)은
-// 이 요구사항을 모르는 채로 아트 단계를 돌기 때문에, 당분간은 비치명적 경고로만 둔다.
-// 신규 사이클에서 안정적으로 생성되는 게 확인되면 fatal:true 로 올릴 것.
-add('file.square', 'square.png 존재 (공유용 정사각 이미지)', fs.existsSync(path.join(gameDir, 'square.png')));
+// square.png 는 2026-08-18 도입. 4회차(decimal-smash)에서 리뷰 게이트의 자가 복구
+// (must_fix → fix 라운드에서 codex 로 생성)까지 검증됐으므로 fatal 로 승격한다.
+add('file.square', 'square.png 존재 (공유용 정사각 이미지)', fs.existsSync(path.join(gameDir, 'square.png')), '', true);
 
 const thumbDim = pngSize(path.join(gameDir, 'thumb.png'));
 add(
@@ -96,7 +95,8 @@ add(
   'square.dims',
   'square.png 가 정확히 정사각(가로=세로), 800px 이상',
   !!squareDim && squareDim.w === squareDim.h && squareDim.w >= 800,
-  squareDim ? `${squareDim.w}×${squareDim.h}` : '읽기 실패'
+  squareDim ? `${squareDim.w}×${squareDim.h}` : '읽기 실패',
+  true
 );
 
 const html = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, 'utf8') : '';
