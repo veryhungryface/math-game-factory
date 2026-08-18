@@ -13,6 +13,7 @@
  * 재미·비주얼·교육과정 정합성 같은 판단은 40-review.md 검수 에이전트가 맡는다.
  */
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import puppeteer from 'puppeteer';
 import { P, readJSON, writeJSON, nowKST } from './paths.mjs';
@@ -63,6 +64,10 @@ const gameDir = path.join(P.games, slug);
 fs.mkdirSync(OUT, { recursive: true });
 
 const checks = [];
+// finish() 가 치명적 결함으로 조기 종료될 수도 있어서, 참조하는 변수는 전부 미리 초기화해 둔다
+// (그렇지 않으면 let 의 TDZ 때문에 '치명적 결함 보고' 자체가 크래시로 죽는다 — 실제로 있었던 버그).
+let problems = [];
+let perf = {};
 const add = (id, label, ok, detail = '', fatal = false) =>
   checks.push({ id, label, ok: !!ok, detail: String(detail).slice(0, 800), fatal });
 
@@ -96,6 +101,35 @@ add(
   'square.png 가 정확히 정사각(가로=세로), 800px 이상',
   !!squareDim && squareDim.w === squareDim.h && squareDim.w >= 800,
   squareDim ? `${squareDim.w}×${squareDim.h}` : '읽기 실패',
+  true
+);
+
+// 이미지 생성 에이전트가 동시성 버그로 다른 게임의 이미지를 잘못 가져온 사고가
+// 실제로 있었다(symmetry-breaker 의 square.png 가 rounding-dash 와 byte-identical 이었음).
+// 표지 이미지가 다른 게임과 완전히 동일하면 그 사고가 재발한 것이다.
+const sha256 = (f) => {
+  try {
+    return crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+  } catch {
+    return null;
+  }
+};
+const myThumbHash = sha256(path.join(gameDir, 'thumb.png'));
+const mySquareHash = sha256(path.join(gameDir, 'square.png'));
+const dupes = [];
+if (fs.existsSync(P.games)) {
+  for (const other of fs.readdirSync(P.games)) {
+    if (other === slug) continue;
+    const otherDir = path.join(P.games, other);
+    if (myThumbHash && myThumbHash === sha256(path.join(otherDir, 'thumb.png'))) dupes.push(`thumb.png = ${other}/thumb.png`);
+    if (mySquareHash && mySquareHash === sha256(path.join(otherDir, 'square.png'))) dupes.push(`square.png = ${other}/square.png`);
+  }
+}
+add(
+  'image.notduplicate',
+  '표지 이미지가 다른 게임과 동일하지 않음',
+  dupes.length === 0,
+  dupes.join(', '),
   true
 );
 
@@ -180,9 +214,6 @@ const browser = await puppeteer.launch({
     '--hide-scrollbars',
   ],
 });
-
-let problems = [];
-let perf = {};
 
 try {
   const page = await browser.newPage();
