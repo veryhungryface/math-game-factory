@@ -462,6 +462,16 @@ function fakeDashedSet(){
   }
   return set;
 }
+// 오합체·폐기 시 "왜 안 되는지"를 한 줄로 설명하는 이유 문구 — 위상 사실을 그대로 재사용한다.
+function netTrapReason(corrupt){
+  if(!corrupt) return '접어도 상자가 안 돼요';
+  return corrupt.kind==='missing' ? '정사각형이 한 칸 모자라요' : '조각 하나가 서로 안 붙어 있어요';
+}
+function wireTrapReason(dashedSet){
+  if(!dashedSet) return '겨냥도 선이 잘못됐어요';
+  if(dashedSet.size !== CORRECT_DASHED.length) return `점선은 꼭 3개여야 해요 (지금 ${dashedSet.size}개)`;
+  return '점선 자리가 달라요 (숨은 모서리가 아니에요)';
+}
 
 function drawWireBox(ctx, cx, cy, dims, dashedSet, opts){
   opts = opts||{};
@@ -604,7 +614,15 @@ function roundRect(g,x,y,w,h,rad){
 const LEVEL_THRESH=[0,150,420,820];
 const SPAWN_MS=[2100,1850,1550,1250];
 const TRAP_RATIO=[0.15,0.22,0.28,0.33];
+// 겨냥도(wire) 타일의 트랩(실선/점선 오류) 비율 — L1·L2는 겨냥도가 항상 맞게 나와
+// "짝짓기" 자체에 집중하게 하고, L3부터 겨냥도 판별이 새로운 과제로 추가된다.
+const WIRE_TRAP_RATIO=[0,0,0.28,0.32];
 const ORDER_TIME=[16,20,24,26];
+
+function isSpawnKind(k){ return k==='net'||k==='wire'||k==='dims'; }
+function vol(d){ return d[0]*d[1]*d[2]; }
+function randCubeEdge(){ return randInt(2,6); }
+function cubeDims(){ const s=randCubeEdge(); return [s,s,s]; }
 
 let uid=1;
 const S={
@@ -650,13 +668,14 @@ function genNetTile(level){
   if(level===1){
     const patIdx=randInt(0,HEX_NETS.length-1);
     const base=HEX_NETS[patIdx].cells;
+    const dims=cubeDims();
     if(!isTrap){
       return newTile('net', { level, valid:true, shapeKind:'hex', cells:base, patternId:patIdx,
-        dims:[3,3,3], boundW:HEX_BOUND.w, boundH:HEX_BOUND.h });
+        dims, boundW:HEX_BOUND.w, boundH:HEX_BOUND.h });
     }
     const c=corruptHexCells(base);
     return newTile('net', { level, valid:false, shapeKind:'hex', cells:c.cells, corrupt:c, patternId:null,
-      dims:null, boundW:HEX_BOUND.w+2, boundH:HEX_BOUND.h+1 });
+      dims, boundW:HEX_BOUND.w+2, boundH:HEX_BOUND.h+1 });
   }
   const [w,h,d]=randDims();
   const tabOn=randInt(0,1);
@@ -672,19 +691,52 @@ function genNetTile(level){
     boundW:b.w, boundH:b.h, boundMinX:b.minX, boundMinY:b.minY });
 }
 
-function tilesMatch(a,b){
-  if(a.kind!=='net'||b.kind!=='net') return false;
-  if(!a.valid||!b.valid) return false;
-  // 레벨1: 위에서 이미 둘 다 "접으면 정육면체가 되는 전개도"임을 확인했다(valid===true).
-  // 패턴(십자형/지그재그 등)이 달라도 둘 다 정육면체가 되면 합쳐져야 한다 — 그게 이
-  // 단원의 핵심(서로 다른 전개도가 같은 정육면체가 될 수 있음을 인식하는 것)이다.
-  // patternId 로 완전히 같은 모양만 매칭시키던 게 실제 버그였다(사용자 리포트로 발견 —
-  // 서로 다른 유효한 전개도끼리 안 합쳐져서 진행 자체가 막혔다).
-  if(a.level===1) return true;
-  return sameMultiset(a.dims,b.dims);
+function genWireTile(level){
+  const dims = level===1 ? cubeDims() : randDims();
+  const trapRatio = WIRE_TRAP_RATIO[level-1];
+  const isTrap = Math.random() < trapRatio;
+  const dashed = isTrap ? fakeDashedSet() : new Set(CORRECT_DASHED);
+  return newTile('wire', { level, valid:!isTrap, dims, isCube: dims[0]===dims[1]&&dims[1]===dims[2], dashed });
 }
 
+function genDimsTile(level){
+  const dims=randDims();
+  return newTile('dims', { level, valid:true, dims, isCube: dims[0]===dims[1]&&dims[1]===dims[2] });
+}
+
+function pickSpawnKind(level){
+  if(level===1) return pick(['net','wire']);
+  return pick(['net','wire','dims']);
+}
+function genSpawnTile(level){
+  const kind=pickSpawnKind(level);
+  if(kind==='net') return genNetTile(level);
+  if(kind==='wire') return genWireTile(level);
+  return genDimsTile(level);
+}
+
+// ── 병합 판정: 서로 "다른 종류" 두 타일이 같은 상자(치수 multiset 동일)를 나타낼 때만
+// 성공한다. 같은 종류끼리는 절대 안 합쳐진다 — 그게 이번 심화의 핵심 규칙이다.
+// null 을 반환하면 성공, 문자열을 반환하면 그게 실패 이유(피드백 문구)다.
+function matchReason(a,b){
+  if(!isSpawnKind(a.kind) || !isSpawnKind(b.kind)) return '합칠 수 없어요';
+  if(a.kind===b.kind) return '같은 종류끼리는 안 합쳐져요';
+  if(!a.valid || !b.valid){
+    const bad = !a.valid ? a : b;
+    return bad.kind==='wire' ? wireTrapReason(bad.dashed) : netTrapReason(bad.corrupt);
+  }
+  if(!sameMultiset(a.dims,b.dims)) return '서로 다른 상자예요';
+  return null;
+}
+function tilesMatch(a,b){ return matchReason(a,b)===null; }
+
 // ───────────────────────────── 주문서
+
+function sequenceOrderText(order){
+  const cur=order.seq[order.seqIndex];
+  const stepLabel = order.seqIndex===0 ? '① 작은 상자 먼저' : '② 큰 상자는 나중에';
+  return `${stepLabel}: 가로 ${cur[0]} · 세로 ${cur[1]} · 높이 ${cur[2]}`;
+}
 
 function genOrder(){
   const level=S.level;
@@ -695,24 +747,22 @@ function genOrder(){
     order.type='cube';
     order.text='정육면체 상자 1개를 배송하세요';
     order.accepts=(box)=> box.isCube;
-    order.wireframeValid=null;
   } else if(level===2){
     order.type='dims';
     order.text=`가로 ${w} · 세로 ${h} · 높이 ${d} 상자를 배송하세요`;
     order.accepts=(box)=> sameMultiset(box.dims, dims);
-    order.wireframeValid=null;
   } else if(level===3){
-    order.type='wire';
-    const valid = Math.random()<0.6;
-    order.wireframeValid=valid;
-    order.dashed = valid ? new Set(CORRECT_DASHED) : fakeDashedSet();
-    order.text=`가로 ${w} · 세로 ${h} · 높이 ${d} — 겨냥도가 맞으면 배송하세요`;
-    order.accepts=(box)=> valid && sameMultiset(box.dims, dims);
+    order.type='sequence';
+    let small=randDims(), big=randDims(), guard=0;
+    while((vol(big)<=vol(small) || sameMultiset(small,big)) && guard++<40){ big=randDims(); }
+    order.seq=[small, big];
+    order.seqIndex=0;
+    order.text=sequenceOrderText(order);
+    order.accepts=(box)=> sameMultiset(box.dims, order.seq[order.seqIndex]);
   } else {
     order.type='sum';
     order.text=`모서리 길이의 합이 ${order.sum}cm인 상자를 배송하세요`;
     order.accepts=(box)=> box.edgeSum===order.sum;
-    order.wireframeValid=null;
   }
   return order;
 }
@@ -722,7 +772,7 @@ function refreshOrder(){
   S.orderTimer=0; S.orderTimerMax=ORDER_TIME[S.level-1];
   drawOrderIcon();
   document.getElementById('orderText').textContent=S.order.text;
-  document.getElementById('rejectBtn').style.display = S.order.type==='wire' ? 'block' : 'none';
+  document.getElementById('rejectBtn').style.display='none';
 }
 
 function drawOrderIcon(){
@@ -733,8 +783,8 @@ function drawOrderIcon(){
   const o=S.order; if(!o) return;
   if(o.type==='cube'){
     drawWireBox(g, c.width/2, c.height/2+8, [3,3,3], new Set(CORRECT_DASHED), {size:64,lineWidth:3.4});
-  } else if(o.type==='wire'){
-    drawWireBox(g, c.width/2, c.height/2+8, o.dims, o.dashed, {size:64,lineWidth:3.4, fillColor: o.wireframeValid?'#5c7cfa':'#ff5d6c'});
+  } else if(o.type==='sequence'){
+    drawWireBox(g, c.width/2, c.height/2+8, o.seq[o.seqIndex], new Set(CORRECT_DASHED), {size:64,lineWidth:3.4, fillColor:'#5c7cfa'});
   } else {
     drawWireBox(g, c.width/2, c.height/2+8, o.dims, new Set(CORRECT_DASHED), {size:64,lineWidth:3.4});
   }
@@ -761,7 +811,7 @@ function updateHUD(level){
     gb.appendChild(d);
   }
   prevGauge=S.gauge;
-  const names=['정육면체','직육면체','겨냥도','모서리합'];
+  const names=['정육면체 공방','직육면체 주문','정밀 검수','모서리합 마감'];
   document.getElementById('levelBox').textContent=`Lv.${S.level} ${names[S.level-1]}`;
 }
 
@@ -893,7 +943,7 @@ function bringToFront(tile){
 }
 
 function hasAnyPossibleMerge(){
-  const ids=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && t.kind==='net' && t.valid && !t.anim; });
+  const ids=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && isSpawnKind(t.kind) && !t.anim; });
   for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
     if(tilesMatch(S.tiles.get(ids[i]), S.tiles.get(ids[j]))) return true;
   }
@@ -909,7 +959,7 @@ function trySpawn(dt){
   if(S.spawnTimer>0) return;
   S.spawnTimer=SPAWN_MS[S.level-1];
   const idx=pick(empties);
-  const t=genNetTile(S.level);
+  const t=genSpawnTile(S.level);
   placeInCell(t,idx);
   const r=cellRect(idx);
   t.px=r.cx; t.py=r.cy-260; t.scale=0.4; t.alpha=0.2;
@@ -919,7 +969,16 @@ function trySpawn(dt){
 // ───────────────────────────── 병합 / 배송 / 폐기
 
 function attemptMerge(dragTile, targetTile){
-  if(!tilesMatch(dragTile,targetTile)){ return false; }
+  const reason = matchReason(dragTile, targetTile);
+  if(reason){
+    // 오합체(잘못된 시도): 두 타일이 부딪혀 튕기는 연출 + 콤보만 끊는다. 생명은 안 깎는다.
+    S.comboStreak=0; S.combo=1;
+    targetTile.anim={ kind:'shake', t:0, dur:0.3 };
+    showToast('❌ '+reason);
+    flashScreen('bad'); triggerShake(2.2,0.15); sfxWrong();
+    updateHUD();
+    return false;
+  }
   const cellIdx=targetTile.cellIndex;
   const r=cellRect(cellIdx);
   dragTile.anim={ kind:'mergeFly', t:0, dur:0.28, toX:r.cx, toY:r.cy };
@@ -960,9 +1019,9 @@ function completeBox(target){
 
 function emergencyRescue(){
   // 그리드가 완전히 막혀도 즉시 게임오버 시키지 않고, 트랩(불량) 타일부터 우선해 1개를 무료로 치워 판을 풀어준다
-  const netIds=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && t.kind==='net' && !t.anim; });
-  let pickId = netIds.find(id=>!S.tiles.get(id).valid);
-  if(!pickId) pickId = netIds[0];
+  const spawnIds=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && isSpawnKind(t.kind) && !t.anim; });
+  let pickId = spawnIds.find(id=>!S.tiles.get(id).valid);
+  if(!pickId) pickId = spawnIds[0];
   if(!pickId){
     const boxIds=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && t.kind==='box' && !t.anim; });
     pickId = boxIds[0];
@@ -973,7 +1032,7 @@ function emergencyRescue(){
 }
 
 function discardTile(tile){
-  const wasTrap = tile.kind==='net' && !tile.valid;
+  const wasTrap = (tile.kind==='net' || tile.kind==='wire') && !tile.valid;
   removeFromGrid(tile);
   tile.anim={ kind:'discard', t:0, dur:0.32, fromX:tile.px, fromY:tile.py };
   if(wasTrap){
@@ -986,8 +1045,58 @@ function discardTile(tile){
 
 function attemptDeliver(boxTile){
   if(boxTile.kind!=='box') return false;
-  const ok = S.order && S.order.accepts(boxTile);
+  const order=S.order;
+  if(!order) return false;
   const orderCard=document.getElementById('orderCard');
+
+  if(order.type==='sequence'){
+    const matchesCurrent = sameMultiset(boxTile.dims, order.seq[order.seqIndex]);
+    const matchesOther = !matchesCurrent && sameMultiset(boxTile.dims, order.seq[1-order.seqIndex]);
+    if(matchesOther){
+      // 순서가 바뀌었다: 반려 — 즉시 반환, 생명은 안 깎는다.
+      showToast('❌ 작은 상자부터 순서대로 보내야 해요!');
+      flashScreen('bad'); triggerShake(3,0.18);
+      S.comboStreak=0; S.combo=1;
+      boxTile.anim={ kind:'shake', t:0, dur:0.35 };
+      boxTile.dragging=false;
+      updateHUD();
+      return true;
+    }
+    if(matchesCurrent){
+      order.seqIndex++;
+      S.solved++; S.comboStreak++; S.combo=Math.min(3,1+S.comboStreak*0.25);
+      S.score += Math.round(40*S.combo);
+      orderCard.classList.add('hot'); setTimeout(()=>orderCard.classList.remove('hot'),200);
+      bounceMascot(); flashCombo(); showDeliveryStamp(); flashScreen('good');
+      triggerHitStop(0.06); triggerShake(S.comboStreak>=4?6:3,0.2);
+      spawnParticles(tile_px(boxTile), tile_py(boxTile), '#3ad39c', comboScaledCount(18));
+      removeFromGrid(boxTile); destroyTile(boxTile);
+      if(order.seqIndex>=order.seq.length){
+        S.score += 40;
+        showToast('2개 순서 배송 완료! 🎉');
+        const prevLevel=S.level;
+        S.level=levelForScore(S.score);
+        refreshOrder();
+        if(S.level!==prevLevel) showToast(`레벨 업! Lv.${S.level}`);
+      } else {
+        order.text=sequenceOrderText(order);
+        document.getElementById('orderText').textContent=order.text;
+        drawOrderIcon();
+      }
+      updateHUD();
+      return true;
+    }
+    S.gauge=Math.min(S.gaugeMax,S.gauge+1);
+    S.comboStreak=0; S.combo=1;
+    flashScreen('bad'); triggerShake(4.5,0.22);
+    if(S.gauge>=S.gaugeMax){ gameOver('gauge'); return true; }
+    boxTile.anim={ kind:'shake', t:0, dur:0.35 };
+    boxTile.dragging=false;
+    updateHUD();
+    return true;
+  }
+
+  const ok = order.accepts(boxTile);
   if(ok){
     S.solved++; S.comboStreak++; S.combo=Math.min(3,1+S.comboStreak*0.25);
     S.score += Math.round(60*S.combo);
@@ -1020,9 +1129,7 @@ function tile_px(t){ return t.px; } function tile_py(t){ return t.py; }
 
 function rejectOrder(){
   if(!S.order) return;
-  const wasFake = S.order.wireframeValid===false;
-  if(wasFake){ S.score+=20; showToast('불량 주문서 반려! +20'); }
-  else { showToast('주문서 교체'); }
+  showToast('주문서 교체');
   updateHUD();
   refreshOrder();
 }
@@ -1094,7 +1201,7 @@ function maybeShowFirstPlayTip(){
   try{ seen = localStorage.getItem('cmf_seen_tip')==='1'; }catch(e){}
   if(seen) return;
   try{ localStorage.setItem('cmf_seen_tip','1'); }catch(e){}
-  setTimeout(()=>{ if(S.phase==='playing') showToast('같은 상자가 되는 전개도끼리 겹쳐서 접어요! 📦'); }, 500);
+  setTimeout(()=>{ if(S.phase==='playing') showToast('전개도·겨냥도·치수카드 — 다른 종류 둘이 같은 상자면 겹쳐요! 📦'); }, 500);
 }
 
 function startGame(){
@@ -1141,7 +1248,7 @@ attemptDeliver=function(t){
   return r;
 };
 const _discardTile=discardTile;
-discardTile=function(t){ const wasTrap=t.kind==='net'&&!t.valid; _discardTile(t); if(wasTrap) sfxDiscard(); else sfxWrong(); };
+discardTile=function(t){ const wasTrap=(t.kind==='net'||t.kind==='wire')&&!t.valid; _discardTile(t); if(wasTrap) sfxDiscard(); else sfxWrong(); };
 
 // ───────────────────────────── 입력 (드래그)
 
@@ -1172,24 +1279,44 @@ function nearestCell(x,y){
   return best;
 }
 
+// 엿보기(peek): 레벨3부터 치수 배지가 숨겨진 전개도 타일을 1.5초 길게 누르면
+// 잠깐 배지가 보인다 — 대신 콤보가 끊긴다(페널티 있는 힌트).
+function triggerPeek(tile){
+  tile.peekUntil = performance.now()+1500;
+  S.comboStreak=0; S.combo=1;
+  showToast('엿보기! (콤보가 끊겼어요)');
+  updateHUD();
+}
+
 cvs.addEventListener('pointerdown', (e)=>{
   if(S.phase!=='playing') return;
   const p=localPos(e);
   const t=hitTile(p.x,p.y);
   if(!t || t.anim) return;
-  S.drag={ id:t.id, offX:p.x-t.px, offY:p.y-t.py, startX:p.x, startY:p.y, startT:performance.now(), fromCell:t.cellIndex };
+  S.drag={ id:t.id, offX:p.x-t.px, offY:p.y-t.py, startX:p.x, startY:p.y, startT:performance.now(), fromCell:t.cellIndex, moved:0 };
   t.dragging=true;
   S.lastTouchedId=t.id;
   bringToFront(t);
   cvs.setPointerCapture(e.pointerId);
+
+  if(t.kind==='net' && t.level>=3){
+    const dragId=t.id;
+    setTimeout(()=>{
+      if(!S.drag || S.drag.id!==dragId) return;
+      if((S.drag.moved||0) > 10) return;
+      const cur=S.tiles.get(dragId);
+      if(cur && cur.kind==='net') triggerPeek(cur);
+    }, 1500);
+  }
 });
 
 window.addEventListener('pointermove', (e)=>{
   if(!S.drag) return;
   const t=S.tiles.get(S.drag.id); if(!t) return;
   const rect=cvs.getBoundingClientRect();
-  t.px=(e.clientX-rect.left)-S.drag.offX;
-  t.py=(e.clientY-rect.top)-S.drag.offY;
+  const nx=(e.clientX-rect.left)-S.drag.offX, ny=(e.clientY-rect.top)-S.drag.offY;
+  S.drag.moved=(S.drag.moved||0)+Math.hypot(nx-t.px, ny-t.py);
+  t.px=nx; t.py=ny;
   const hot = rectContainsClient(document.getElementById('trashZone'), e.clientX, e.clientY);
   document.getElementById('trashZone').classList.toggle('hot', hot);
 });
@@ -1215,7 +1342,7 @@ function endDrag(e){
       const ok=attemptDeliver(t);
       if(ok) return;
     }
-    // 그물(net) 타일을 주문서에 놓으면 그냥 되돌린다
+    // 완성 전 타일을 주문서에 놓으면 그냥 되돌린다
     snapBack(t, drag.fromCell);
     return;
   }
@@ -1224,7 +1351,7 @@ function endDrag(e){
   const occupantId=S.grid[targetIdx];
   if(occupantId && occupantId!==t.id){
     const occ=S.tiles.get(occupantId);
-    if(occ && occ.kind==='net' && t.kind==='net' && attemptMerge(t,occ)){
+    if(occ && isSpawnKind(occ.kind) && isSpawnKind(t.kind) && attemptMerge(t,occ)){
       return;
     }
     snapBack(t, drag.fromCell);
@@ -1339,10 +1466,12 @@ function drawNetShape(t, x, y, w, h){
   const availW=w-pad*2, availH=h-pad*2;
   ctx.save();
   ctx.translate(x-w/2+pad, y-h/2+pad);
+  // 전개도 타일은 종류(정육면체/직육면체) 상관없이 항상 파랑 조각으로 통일한다 —
+  // 겨냥도(와이어프레임)·치수카드(큰 숫자)와 한눈에 구분되게 하기 위해서다.
   if(t.shapeKind==='hex'){
     const cell=Math.min(availW/t.boundW, availH/t.boundH);
     const offX=(availW-cell*t.boundW)/2, offY=(availH-cell*t.boundH)/2;
-    ctx.fillStyle = t.valid ? '#ffb85c' : '#f2c98f';
+    ctx.fillStyle = t.valid ? '#5c7cfa' : '#9aabf5';
     ctx.strokeStyle='#2e3440'; ctx.lineWidth=Math.max(1.4,cell*0.05);
     for(const c of t.cells){
       const cx=offX+c[1]*cell, cy=offY+c[0]*cell;
@@ -1373,20 +1502,39 @@ function drawNetShape(t, x, y, w, h){
       roundRect(ctx, cx+cell*0.04, cy+cell*0.04, hc.w*cell-cell*0.08, hc.h*cell-cell*0.08, cell*0.12); ctx.stroke();
       ctx.restore();
     }
-    // 치수를 숫자로 읽고 계산해야 이 단계의 수학이 성립한다(주문서 치수·모서리합
-    // 매칭). 모양만 보고 대충 맞춰지지 않도록, 라벨을 작은 캡션이 아니라 카드에서
-    // 가장 먼저 눈에 띄는 고대비 배지로 그린다(CLAUDE.md 숫자 가독성 규칙).
+  }
+  // 치수 배지: 레벨1~2는 항상 보여 진입장벽을 낮추고, 레벨3부터는 숨겨서 "전개도를
+  // 머릿속으로 접어 치수를 유추"하는 게 진짜 과제가 되게 한다. 길게 누르면(엿보기)
+  // 잠깐 보이지만 콤보가 끊기는 페널티가 있다.
+  const hidden = t.level>=3;
+  const peeking = !!(t.peekUntil && NOW_MS < t.peekUntil);
+  if(!hidden || peeking){
     const dimsLabel = `${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`;
     ctx.font = `900 ${Math.max(15, w*0.15)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     const tw = ctx.measureText(dimsLabel).width;
     const badgeW = Math.min(availW, tw + w*0.14), badgeH = w*0.13;
     const badgeCx = availW/2, badgeCy = availH + pad*0.9 + badgeH/2;
+    ctx.save();
+    if(peeking && hidden) ctx.globalAlpha=0.88;
     ctx.fillStyle = t.valid ? '#2e3440' : '#c23b3b';
     roundRect(ctx, badgeCx-badgeW/2, badgeCy-badgeH/2, badgeW, badgeH, badgeH*0.5);
     ctx.fill();
     ctx.fillStyle = '#ffe94d';
     ctx.fillText(dimsLabel, badgeCx, badgeCy+w*0.006);
+    ctx.restore();
+    ctx.textBaseline='alphabetic';
+  } else {
+    // 숨김 표시: "?" 배지로 접어서 알아내야 함을 암시한다.
+    const badgeW=w*0.22, badgeH=w*0.13;
+    const badgeCx=availW/2, badgeCy=availH+pad*0.9+badgeH/2;
+    ctx.fillStyle='rgba(46,52,64,.55)';
+    roundRect(ctx, badgeCx-badgeW/2, badgeCy-badgeH/2, badgeW, badgeH, badgeH*0.5);
+    ctx.fill();
+    ctx.fillStyle='#fff2da';
+    ctx.font=`900 ${Math.max(13,w*0.12)}px -apple-system, sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('?', badgeCx, badgeCy+w*0.006);
     ctx.textBaseline='alphabetic';
   }
   ctx.restore();
@@ -1401,7 +1549,10 @@ function drawTile(t){
   ctx.translate(t.px,t.py);
   ctx.rotate(t.rot||0);
   ctx.scale(t.scale,t.scale);
-  const cardColor = t.kind==='box' ? '#fffaf6' : (t.valid ? '#fdf6ea' : '#f7ead6');
+  const cardColor = t.kind==='box' ? '#fffaf6'
+    : t.kind==='dims' ? '#fff3c4'
+    : t.kind==='wire' ? (t.valid ? '#eef1fb' : '#fbe3e3')
+    : (t.valid ? '#fdf6ea' : '#f7ead6');
   ctx.fillStyle=cardColor;
   ctx.strokeStyle = t.dragging ? '#ffb85c' : '#2e3440';
   ctx.lineWidth = t.dragging ? 4 : 2.4;
@@ -1411,7 +1562,27 @@ function drawTile(t){
   drawCardboardTexture(w, h, t.valid?'light':'dark');
 
   if(t.kind==='net'){
+    // 전개도: 파랑 정사각형 조각들
     drawNetShape(t, 0, 0, w, h*0.86);
+  } else if(t.kind==='wire'){
+    // 겨냥도: 와이어프레임(실선/점선) — 실선 9개·점선 3개 규칙이 맞는지 판별해야 한다
+    drawWireBox(ctx, 0, -h*0.08, t.dims, t.dashed, { size:w*0.62, lineWidth:Math.max(2,w*0.032), fillColor: t.valid?'#5c7cfa':'#ff5d6c' });
+    ctx.fillStyle='#2e3440';
+    ctx.font=`800 ${Math.max(10,w*0.11)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+    ctx.textAlign='center';
+    ctx.fillText(`${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`, 0, h*0.40);
+  } else if(t.kind==='dims'){
+    // 치수 카드: 트랩 없이 숫자만 — 가장 큰 글자로 강조한다
+    ctx.fillStyle='#8a5a2b';
+    ctx.font=`800 ${Math.max(9,w*0.09)}px -apple-system, sans-serif`;
+    ctx.textAlign='center';
+    ctx.fillText('치수 카드', 0, -h*0.30);
+    ctx.fillStyle='#2e3440';
+    ctx.font=`900 ${Math.max(15,w*0.16)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+    ctx.textBaseline='middle';
+    ctx.fillText(`${t.dims[0]}×${t.dims[1]}`, 0, -h*0.02);
+    ctx.fillText(`×${t.dims[2]}`, 0, h*0.22);
+    ctx.textBaseline='alphabetic';
   } else {
     drawWireBox(ctx, 0, -h*0.06, t.dims, new Set(CORRECT_DASHED), { size:w*0.72, lineWidth:Math.max(2,w*0.035), fillColor: t.isCube?'#5c7cfa':'#ffb85c' });
     ctx.fillStyle='#2e3440';
@@ -1425,10 +1596,12 @@ function drawTile(t){
   ctx.restore();
 }
 
+let NOW_MS=performance.now();
 let lastT=performance.now();
 const scoreValEl=document.getElementById('scoreVal');
 
 function frame(now){
+  NOW_MS=now;
   let dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
   // hit-stop: 정답/병합 순간 아주 짧게 시간을 늦춰 타격감을 준다
   if(S.hitStopT>0){ S.hitStopT=Math.max(0,S.hitStopT-dt); dt*=0.06; }
@@ -1555,6 +1728,25 @@ function sampleJudgeProblems(n){
       const [w,h,d]=randDims();
       return { id:'oppo'+w+h+d, prompt:`가로 ${w} 세로 ${h} 높이 ${d}인 직육면체의 전개도에서 어떤 면과 마주 보는 면은 같은 줄에서 몇 칸 건너뛴 면일까요?`, choices:['바로 옆 칸','한 칸 건너뛴 칸','두 칸 건너뛴 칸','맨 끝 칸'], answer:'한 칸 건너뛴 칸', answerNumeric:1, unitConcept:'전개도에서 마주 보는 면' };
     },
+    ()=>{
+      // 새 병합 규칙: "다른 종류" 두 표현(전개도/겨냥도/치수카드)이 같은 상자를 나타낼 때만 합쳐진다.
+      const [w1,h1,d1]=randDims();
+      const same=Math.random()<0.5;
+      const [w2,h2,d2]= same ? shuffle([w1,h1,d1]) : [w1+randInt(1,3), h1, d1];
+      const kindPair = pick([['전개도','겨냥도'],['전개도','치수 카드'],['겨냥도','치수 카드']]);
+      const answer = sameMultiset([w1,h1,d1],[w2,h2,d2]) ? '병합할 수 있다' : '병합할 수 없다';
+      return { id:`match-${w1}${h1}${d1}-${w2}${h2}${d2}-${kindPair[0]}`,
+        prompt:`${kindPair[0]}가 나타내는 상자는 가로 ${w1}·세로 ${h1}·높이 ${d1} 이고, ${kindPair[1]}가 나타내는 상자는 가로 ${w2}·세로 ${h2}·높이 ${d2} 입니다. 이 둘을 겹치면 하나의 상자로 합쳐질까요?`,
+        choices:['병합할 수 있다','병합할 수 없다'], answer, answerNumeric: answer==='병합할 수 있다'?1:0, unitConcept:'서로 다른 표현끼리의 병합 판정' };
+    },
+    ()=>{
+      // 같은 종류끼리는 치수가 같아도 절대 안 합쳐진다 — 이번 심화의 핵심 규칙.
+      const [w,h,d]=randDims();
+      const kind=pick(['전개도','겨냥도','치수 카드']);
+      return { id:'samekind'+kind+w+h+d,
+        prompt:`가로 ${w}·세로 ${h}·높이 ${d}를 나타내는 ${kind} 2장을 나란히 겹치면 상자가 완성될까요?`,
+        choices:['완성된다','완성되지 않는다'], answer:'완성되지 않는다', answerNumeric:0, unitConcept:'같은 표현끼리는 병합되지 않음' };
+    },
   ];
   for(let i=0;i<n;i++){
     const f=templates[i%templates.length];
@@ -1576,14 +1768,10 @@ window.__GAME_TEST__ = {
   answerCorrect(){
     if(S.phase!=='playing') startGame();
     if(!S.order) refreshOrder();
-    if(S.order.type==='wire' && !S.order.wireframeValid){
-      // order.accepts()는 genOrder()가 만든 순간의 겨냥도 valid 여부를 클로저로 고정해
-      // 판정한다(건드리지 않는다) — 이미 뽑힌 주문서가 '가짜 겨냥도'라 강제 정답 처리가
-      // 불가능하면, 유효한 겨냥도 주문서가 나올 때까지 주문서만 다시 뽑는다.
-      let guard=0;
-      while(!S.order.wireframeValid && guard++<50) refreshOrder();
-    }
-    const dims = S.order.type==='cube' ? [3,3,3] : S.order.dims;
+    let dims;
+    if(S.order.type==='cube') dims=[3,3,3];
+    else if(S.order.type==='sequence') dims=S.order.seq[S.order.seqIndex];
+    else dims=S.order.dims;
     const box=newTile('box',{ level:S.level, valid:true, cellIndex:-1, dims:[...dims],
       isCube: dims[0]===dims[1]&&dims[1]===dims[2], edgeSum:(dims[0]+dims[1]+dims[2])*4,
       px:-9999, py:-9999, targetPx:-9999, targetPy:-9999, cellW:64, cellH:64 });
