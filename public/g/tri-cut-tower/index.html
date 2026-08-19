@@ -147,6 +147,9 @@
   #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1.02);}
   #toast.bad{border-color:#ffa08e;background:rgba(70,16,8,.92);}
   #toast.good{border-color:#9ef0bf;background:rgba(10,52,32,.92);}
+  /* 층 카드·최소 추론: 선택지/실루엣을 가리지 않게 컨트롤 바로 위로 */
+  #toast.bot{top:auto;bottom:calc(128px + env(safe-area-inset-bottom,0px));transform:translate(-50%,0);}
+  #toast.bot.show{transform:translate(-50%,0) scale(1.02);}
 
   @media (prefers-reduced-motion: reduce){
     #titleArt{animation-duration:60s;}
@@ -527,6 +530,73 @@ function countChoices(g,rng){
   return shuffle(all,rng);                   // 셔플
 }
 
+/** 6방 최소 개수 추론 MCQ — 오답은 정답 ±1, ±2 근방 */
+function nearCountChoices(answer,rng){
+  const deltas=[-1,1,-2,2,-3,3,4,-4,5,-5];
+  const seen=new Set([answer]);
+  const out=[];
+  for(const d of deltas){
+    const v=answer+d;
+    if(v<1||seen.has(v))continue;
+    seen.add(v);
+    out.push({v:v,why:d>0?'조금 더 많게 셈':'조금 더 적게 셈',correct:false});
+    if(out.length>=3)break;
+  }
+  let pad=answer+6;
+  while(out.length<3){
+    if(pad>=1&&!seen.has(pad)){seen.add(pad);out.push({v:pad,why:'보충',correct:false});}
+    pad++;
+  }
+  const all=out.slice(0,3);
+  all.push({v:answer,why:'정답',correct:true});
+  return shuffle(all,rng);
+}
+
+/** 옆에서 본 모양 오답. 회문(2-2, 3-3)이면 좌우 반전이 정답과 같아지므로
+ *  한 칸 증감·층 순서 뒤집기·앞모양 혼동 등 다른 오개념을 우선한다. */
+function sideWrongChoices(side,front,rng){
+  const key=a=>a.join('-');
+  const seen=new Set([key(side)]);
+  const pool=[];
+  function add(src){
+    if(!src||src.length!==side.length)return false;
+    const arr=src.map(v=>clamp(v|0,0,4));
+    const k=key(arr);
+    if(seen.has(k))return false;
+    seen.add(k);pool.push(arr);return true;
+  }
+  const pal=sameArr(side,side.slice().reverse());
+  if(!pal) add(side.slice().reverse());            // mis_C_mirror — 회문이 아닐 때만
+  add(front.slice());                              // 앞모양과 혼동
+  add(front.slice().reverse());
+  for(let i=0;i<side.length;i++){                  // 한 칸 증감
+    const up=side.slice();up[i]=side[i]+1;add(up);
+    const dn=side.slice();dn[i]=side[i]-1;add(dn);
+  }
+  if(side.length>=2){                              // 층 순서 뒤집기·회전
+    const sw=side.slice();const t=sw[0];sw[0]=sw[sw.length-1];sw[sw.length-1]=t;add(sw);
+    add(side.slice(1).concat([side[0]]));
+    add([side[side.length-1]].concat(side.slice(0,-1)));
+  }
+  add(side.map(v=>v+1));
+  add(side.map(v=>v-1));
+  add(side.map(v=>v>0?1:0));
+  const mx=Math.max.apply(null,side.concat([1]));
+  add(side.map(function(){return mx;}));
+  shuffle(pool,rng);                               // 문항마다 세트가 달라지게
+  const out=pool.slice(0,3);
+  let bump=0;
+  while(out.length<3&&bump<24){
+    const i=bump%side.length;
+    const mag=1+((bump/(side.length*2))|0);
+    const d=((Math.floor(bump/side.length)%2)?1:-1)*mag;
+    const b=side.map((v,j)=>j===i?v+d:v);
+    if(add(b)) out.push(pool[pool.length-1]);
+    bump++;
+  }
+  return out.slice(0,3);
+}
+
 /* ───────────────────────── 사운드 ───────────────────────── */
 const Sound={
   ctx:null, muted:false, ready:false,
@@ -743,7 +813,8 @@ function layout(){
     L.films={x:10,y:hudH+6,w:colW,h:CH-hudH-ctlH-14};
     L.stage={x:colW+18,y:hudH+2,w:CW-colW-28,h:CH-hudH-ctlH-8};
   }else{
-    const fh=clamp(CW*0.42,132,208);
+    const extra=(S.round&&S.round.kind==='LAYERS')?40:0;
+    const fh=clamp(CW*0.42,132,208)+extra;
     L.films={x:9,y:hudH+4,w:CW-18,h:fh};
     L.stage={x:0,y:hudH+fh+8,w:CW,h:CH-(hudH+fh+8)-ctlH-2};
   }
@@ -891,7 +962,13 @@ function buildRound(roomIdx,roundIdx){
     R.minN=q.minN;R.maxN=q.maxN;
     R.grid=mkGrid(q.W,q.D);R.editable=true;
     if(kind==='MINMIN'){R.required=q.minN;R.solution=q.minGrid;R.title='의뢰 6 · 가장 적게';
-      R.hint='같은 세 장 사진! 나무를 **가장 적게** 써서 쌓아 봐.';}
+      // 목표 개수는 숨기고, 먼저 "최소 몇 개?" 를 추론하게 한다 ([6수03-10])
+      R.minAsk=true;R.hideRequired=true;
+      const ch=nearCountChoices(q.minN,rng);
+      R.mcq={q:'최소 몇 개가 필요할까?',kind:'num',
+             choices:ch.map(c=>({label:c.v+'개',value:c.v,correct:c.correct,why:c.why})),
+             after:'최소 '+q.minN+'개로 세 장을 맞출 수 있어!'};
+      R.hint='세 장 사진을 보고, 나무는 최소 몇 개가 필요할까?';}
     else{R.required=q.maxN;R.solution=q.maxGrid;R.title='의뢰 6 · 가장 많게';
       R.hint='이번엔 같은 사진으로 **가장 많이** 쌓아 봐!';}
   }
@@ -983,7 +1060,11 @@ function burst(x,y,n,col,spd,life){
 }
 function toast(msg,cls,dur){
   const el=document.getElementById('toast');
-  el.textContent=msg;el.className='show'+(cls?' '+cls:'');
+  el.textContent=msg;
+  const R=S.round;
+  const bot=R&&R.kind==='LAYERS';
+  const extra=[cls,bot?'bot':''].filter(Boolean).join(' ');
+  el.className='show'+(extra?' '+extra:'');
   S.toastT=dur||1.9;
 }
 function tickToast(dt){
@@ -1008,7 +1089,7 @@ function stageExtent(R){
 /** 3D 를 실제로 앉힐 영역 — COUNT 는 하단 선택지 띠를 비워 둔다 */
 function stage3dRect(R){
   const s=L.stage;
-  if(R&&R.kind==='COUNT')return {x:s.x,y:s.y,w:s.w,h:Math.max(120,s.h-choiceBandH()-14)};
+  if(R&&(R.kind==='COUNT'||R.minAsk))return {x:s.x,y:s.y,w:s.w,h:Math.max(120,s.h-choiceBandH()-14)};
   return s;
 }
 function choiceBandH(){return Math.min(62,L.stage.h*0.20);}
@@ -1375,7 +1456,7 @@ function filmsKey(R){
   return [L.stamp,R.nonce,R.kind,
           R.grid?R.grid.a.join(','):'',
           R.paint?R.paint.cur.join(','):'',
-          R.revealed?1:0].join('|');
+          R.revealed?1:0,R.minAsk?1:0,R.hideRequired?1:0].join('|');
 }
 const FMARGIN=14;
 function drawFilms(dt){
@@ -1428,8 +1509,16 @@ function drawFilmsInner(R,rect){
     drawOneFilm(R,'front',rect.x+ww+gap,    rect.y+10,ww,rect.h-14);
     drawOneFilm(R,'side', rect.x+ww*2+gap*2,rect.y+10,ww,rect.h-14);
   }
-  // 최소/최대 목표 배지
-  if(R.required!=null){
+  // 최소 추론 단계: 목표 개수는 숨기고 질문만 보여 준다
+  if(R.minAsk){
+    const t='최소 몇 개가 필요할까?';
+    ctx.font='900 14px '+getFont();
+    const w=ctx.measureText(t).width+22;
+    const bx=rect.x+rect.w/2-w/2, by=rect.y+rect.h+1;
+    rr(ctx,bx,by-11,w,24,12);
+    ctx.fillStyle='#5a3410';ctx.fill();
+    ctx.fillStyle='#ffe9b8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,rect.x+rect.w/2,by+1);
+  }else if(R.required!=null&&!R.hideRequired){
     const t=(R.kind==='MINMIN'?'가장 적게 · 목표 ':'가장 많게 · 목표 ')+R.required+'개   (지금 '+gTotal(R.grid)+'개)';
     ctx.font='900 13px '+getFont();
     const w=ctx.measureText(t).width+22;
@@ -1471,10 +1560,22 @@ function wrapText(t,cx,cy,maxW,lh){
 }
 
 function drawLayerCards(rect,R){
+  // 위쪽 밴드에 문제 문장을 항상 그린다 — 층 카드가 밴드를 통째로 먹으면 무엇을 고르라는지 모른다
+  const qH=Math.round(rect.h*0.28);
+  rr(ctx,rect.x+2,rect.y+6,rect.w-4,qH-8,12);
+  ctx.fillStyle='rgba(255,250,240,.95)';ctx.fill();
+  ctx.lineWidth=2.5;ctx.strokeStyle='#b98d4e';ctx.stroke();
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font='900 '+clamp(rect.w*0.048,13,18)+'px '+getFont();
+  ctx.fillStyle='#4a2f12';
+  wrapText((R.mcq&&R.mcq.q)||'층별 모양을 보고 앞에서 본 모양을 고르자',
+           rect.x+rect.w/2,rect.y+6+(qH-8)/2,rect.w-22,17);
+
+  const bodyY=rect.y+qH, bodyH=rect.h-qH;
   const L2=R.layers,n=L2.length;
   const gap=7,ww=(rect.w-gap*(n-1))/n;
   for(let k=0;k<n;k++){
-    const x=rect.x+k*(ww+gap),y=rect.y+10,h=rect.h-14;
+    const x=rect.x+k*(ww+gap),y=bodyY+12,h=bodyH-16;
     filmCard(x,y,ww,h,(k+1)+'층','#5a3410');
     const inner=9,gw=ww-inner*2,gh=h-inner*2-4;
     const cs=Math.min(gw/R.W,gh/R.D);
@@ -1659,6 +1760,7 @@ function sceneKey(){
     R.grid?R.grid.a.join(','):'',
     R.paint?R.paint.cur.join(','):'',
     R.revealed?1:0,R.dead?R.dead.join(''):'',R.picked==null?'-':R.picked,
+    R.minAsk?1:0,R.hideRequired?1:0,
     S.xray.on?S.xray.t.toFixed(3):'-',
     S.ghostT>0?S.ghostT.toFixed(2):'-',
     anim].join('|');
@@ -1704,7 +1806,7 @@ function render(dt){
     if(R.kind==='LAYERS'||R.kind==='REASON'){
       drawChoiceArea(L.stage,R);
     }else{
-      if(R.kind!=='COUNT'){
+      if(R.kind!=='COUNT'&&!R.minAsk){
         ctx.save();ctx.beginPath();ctx.rect(L.stage.x,L.stage.y,L.stage.w,L.stage.h);ctx.clip();
         drawMascot(L.stage);
         ctx.restore();
@@ -1770,6 +1872,7 @@ cv.addEventListener('pointerdown',function(e){
 
 function cellTap(x,z){
   const R=S.round;if(!R||!R.editable)return;
+  if(R.minAsk){toast('먼저 최소 개수를 골라 줘!','',1.2);return;}
   // 발자국 밖이면 놓을 수 없다 (연결되지 않은 나무는 애초에 못 놓게 한다)
   const i=z*R.W+x;
   const allowed=R.footOnly?R.foot[i]:(R.films?R.films.top[i]>0:true);
@@ -1830,6 +1933,32 @@ function pickChoice(i){
   R.dead=R.dead||[];
   if(R.dead.indexOf(i)>=0)return;
   R.picked=i;S.bump['c'+i]=1;
+  // 6방 최소 추론: 맞히든 틀리든 정답 개수를 공개한 뒤 배치 단계로
+  if(R.minAsk){
+    const ok=!!R.mcq.choices[i].correct;
+    R.revealed=true;
+    if(ok){Sound.good();}
+    else{
+      R.attempts++;
+      S.lives=Math.max(0,S.lives-1);
+      S.combo=0;
+      updateHUD();
+      Sound.bad();
+      flash('#c4452d',0.34);shake(13);
+    }
+    if(S.lives<=0){
+      R.forced=true;
+      R.minAsk=false;R.hideRequired=false;R.mcq=null;
+      if(R.solution)R.grid=gclone(R.solution);
+      toast('괜찮아! 최소는 '+R.required+'개야 — 정답을 보여 줄게','',2.2);
+      setTimeout(function(){if(S.round===R&&!R.done){R.done=true;S.solved++;S.roomStarsRun.push(0);showResult(0,0);}},1600);
+      filmsCache.key='';sceneCache.key='';
+      return;
+    }
+    toast((ok?'맞아! ':'아깝다! ')+'최소는 '+R.required+'개야. 이제 그렇게 쌓아 봐!',ok?'good':'',2.4);
+    setTimeout(function(){ if(S.round===R&&!R.done) beginMinPlace(R); },1500);
+    return;
+  }
   if(R.mcq.choices[i].correct){R.revealed=true;succeed();return;}
   // 첫 오답: 그 보기만 지우고 다시 고르게 한다 (라운드는 끝나지 않는다)
   R.dead.push(i);
@@ -1842,6 +1971,17 @@ function pickChoice(i){
     toast('음… 다시 한 번 골라 볼까?','bad',1.6);
     R.picked=null;
   }
+}
+function beginMinPlace(R){
+  R.minAsk=false;
+  R.mcq=null;
+  R.revealed=false;
+  R.picked=null;
+  R.dead=null;
+  R.hideRequired=false;
+  R.hint='같은 세 장 사진! 나무를 **가장 적게** 써서 쌓아 봐.';
+  updateToolBtn();
+  filmsCache.key='';sceneCache.key='';
 }
 
 /* ───────────────────────── 성공 / 실패 ───────────────────────── */
@@ -1952,13 +2092,13 @@ function startRound(){
   camGoto('iso');
   layout();
   updateHUD();updateViewBtns();updateToolBtn();
-  if(S.round.hint)toast(S.round.hint.replace(/\*\*/g,''),'',2.4);
+  if(S.round.hint&&!S.round.minAsk)toast(S.round.hint.replace(/\*\*/g,''),'',2.4);
 }
 function updateToolBtn(){
   const R=S.round,b=document.getElementById('btnTool'),d=document.getElementById('btnDone');
   if(!b||!d||!R)return;
   if(R.kind==='COUNT'){b.textContent='🔦 투시등';b.disabled=false;d.disabled=true;d.style.opacity='.45';}
-  else if(R.kind==='LAYERS'||R.kind==='REASON'){b.textContent='🔦 투시등';b.disabled=true;d.disabled=true;d.style.opacity='.45';}
+  else if(R.kind==='LAYERS'||R.kind==='REASON'||R.minAsk){b.textContent='🔦 투시등';b.disabled=true;d.disabled=true;d.style.opacity='.45';}
   else{b.textContent='↺ 처음부터';b.disabled=false;d.disabled=false;d.style.opacity='1';}
 }
 /** 숫자가 갑자기 바뀌지 않게 항상 카운트업으로 보여 준다 */
@@ -2124,19 +2264,8 @@ function sampleOne(){
     // 옆에서 본 모양 (좌우 반전 오개념)
     const g=genPaintTower(rng);
     const side=gSide(g),front=gFront(g);
-    const key=a=>a.join('-');
-    const cands=[],seen=new Set([key(side)]);
-    const mis_C_mirror=side.slice().reverse();                  // 좌우 반전
-    const mis_front=front.slice();                              // 앞모양과 혼동
-    const alt=side.map((v,i)=>i===0?Math.max(1,v===1?2:v-1):v); // 한 칸 어긋남
-    [mis_C_mirror,mis_front,alt,side.map(v=>Math.min(v+1,4))].forEach(function(a){
-      if(a.length===side.length&&!seen.has(key(a))){seen.add(key(a));cands.push(a);}
-    });
-    while(cands.length<3){
-      const b=side.map((v,i)=>clamp(v+((i+cands.length)%2?1:-1),1,4));
-      if(!seen.has(key(b))){seen.add(key(b));cands.push(b);}else break;
-    }
-    const opts=cands.slice(0,3).concat([side]);
+    const cands=sideWrongChoices(side,front,rng);
+    const opts=shuffle(cands.slice(0,3).concat([side]),rng);
     const labels=opts.map(a=>a.join('-'));
     return {id:'s'+sampleSeed,
       prompt:'위에서 본 수가 뒷줄부터 [ '+topNumsText(g)+' ] 인 탑을 오른쪽 옆에서 보면? (앞쪽이 필름의 왼쪽, 왼→오 층수)',
@@ -2171,6 +2300,35 @@ window.__GAME_TEST__={
       S.roomIdx=S.roomIdx||0;S.roundIdx=0;S.roomStarsRun=[];
       hideAll();startRound();
     }catch(e){}
+  },
+  gotoRoom:function(roomIdx,roundIdx){
+    try{
+      S.runId=(S.runId|0)+1;S.mmCache=null;
+      S.roomIdx=clamp(roomIdx|0,0,5);
+      S.roundIdx=Math.max(0,roundIdx|0);
+      S.roomStarsRun=[];
+      hideAll();startRound();
+    }catch(e){}
+  },
+  verifyMinCountMcq:function(n){
+    n=Math.max(1,Math.min(40,n|0||12));
+    const out=[];
+    let seed=20260821;
+    for(let i=0;i<n;i++){
+      seed=(seed*1664525+1013904223)>>>0;
+      const rng=mulberry32(seed);
+      const q=genMinMax(rng);
+      const mn=minCountFor(q.W,q.D,q.foot,q.front,q.side);
+      const ch=nearCountChoices(q.minN,rng);
+      const ans=ch.find(function(c){return c.correct;});
+      const labels=ch.map(function(c){return c.v;});
+      out.push({
+        minN:q.minN, exhaustive:mn.min, mcq:ans&&ans.v,
+        inChoices:labels.indexOf(q.minN)>=0,
+        match:q.minN===mn.min && !!ans && ans.v===mn.min
+      });
+    }
+    return out;
   },
   getState:function(){
     return {score:S.score,lives:S.lives,level:S.roomIdx+1,phase:S.phase,solved:S.solved};
