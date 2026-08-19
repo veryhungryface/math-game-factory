@@ -286,6 +286,11 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 const ri=(g,lo,hi)=>lo+Math.floor(g()*(hi-lo+1));
 const pk=(g,a)=>a[Math.floor(g()*a.length)];
 function shuf(g,a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(g()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
+/* 마지막 글자 받침으로 이/가·은/는·을/를 선택. (c-0xAC00)%28===0 이면 받침 없음 → 배/가/는/를 */
+function josa(word,a,b){
+  const c=word.charCodeAt(word.length-1);
+  return word+(((c-0xAC00)%28)?a:b);
+}
 
 /* 합이 정확히 sum 인 k개의 정수를 [lo,hi] 안에서 만든다.
    각 슬롯에서 "남은 슬롯이 메울 수 있는 범위"로 상·하한을 좁혀 뽑기 때문에
@@ -423,14 +428,14 @@ function makeRound(level, g){
 /* 이유 칩 — 정답 1 + 오개념 2 (도박사 오류 / 두 색이니 반반) */
 function makeReasons(R,g){
   const nm=R.askName, f=R.favorable, t=R.total, other=(nm==='감'?'배':'감');
-  const ok = f===0 ? `${nm}이 하나도 없으니까 불가능해`
-           : f===t ? `열매가 모두 ${nm}이니까 확실해`
+  const ok = f===0 ? `${josa(nm,'이','가')} 하나도 없으니까 불가능해`
+           : f===t ? `열매가 모두 ${josa(nm,'이니까','니까')} 확실해`
            : f*2===t ? `${nm} ${f}개, ${other} ${t-f}개로 개수가 같으니까 반반이야`
-           : `${t}개 중에 ${nm}이 ${f}개라서 ${R.band.label}야`;
+           : `${t}개 중에 ${josa(nm,'이','가')} ${f}개라서 ${R.band.label}야`;
   const bad=[];
   if(f>0&&f<t) bad.push({text:'색이 두 가지라서 반반이야', mis:'two-outcomes-half'});
-  bad.push({text:`아까 ${other}이 여러 번 나왔으니 이번엔 ${nm} 차례야`, mis:'gamblers-fallacy'});
-  bad.push({text:`${nm}이 더 커 보여서 잘 떨어질 것 같아`, mis:'size-not-count'});
+  bad.push({text:`아까 ${josa(other,'이','가')} 여러 번 나왔으니 이번엔 ${nm} 차례야`, mis:'gamblers-fallacy'});
+  bad.push({text:`${josa(nm,'이','가')} 더 커 보여서 잘 떨어질 것 같아`, mis:'size-not-count'});
   if(f===0||f===t) bad.push({text:'해 보기 전에는 아무도 모르니까 반반이야', mis:'two-outcomes-half'});
   const chips=shuf(g,[{text:ok,ok:true,mis:null}].concat(shuf(g,bad).slice(0,2)));
   return chips;
@@ -897,7 +902,7 @@ function showCtrl(which){
   const bi=$('botInfo'); const showInfo=(which==='none'||which==='reason');
   bi.classList.toggle('hidden',!showInfo);
   if(showInfo&&RD){
-    $('biA').textContent=`● 감 ${RD.gamCount}`; $('biB').textContent=`▼ 배 ${RD.baeCount}`;
+    $('biA').textContent=`● 감 ${RD.gamCount}개`; $('biB').textContent=`▼ 배 ${RD.baeCount}개`;
     $('biT').textContent=(S.phase==='reason')?'왜 그런지 위에서 골라 보세요':'12번 떨어뜨려 이론과 비교하는 중…';
   }
 }
@@ -975,13 +980,13 @@ function setPhase(p){
   }
   else if(p==='predict'){
     showCtrl('lane');
-    $('chip').textContent=`🍯 ${RD.askName}이 떨어질 가능성은?`;
+    $('chip').textContent=`🍯 ${josa(RD.askName,'이','가')} 떨어질 가능성은?`;
     clearLanes();
     say(possPrompt(RD).replace(`${RD.askName}일 가능성`,`<b>${RD.askName}</b>일 가능성`),'칩을 길 위에 놓거나 칸을 누르세요');
   }
   else if(p==='shake'){
     showCtrl('none');
-    say('흔들었다! <b>12번</b> 떨어뜨려 볼게요','반투명 유령이 이론, 옆이 실험이에요');
+    say('흔들었다! 같은 나무에서 열매를 하나 뽑아 보고 다시 걸기를 <b>12번</b> 반복해요','반투명 유령이 이론, 옆이 실험이에요');
   }
   else if(p==='reason'){
     showCtrl('reason'); buildReasons();
@@ -1090,7 +1095,7 @@ function onLane(i){
     } else {
       const h = (RD.gamCount>0&&RD.baeCount>0&&RD.gamCount!==RD.baeCount)
         ? '색이 두 가지라고 반반은 아니에요. <b>개수를 세어</b> 봐요'
-        : `${RD.askName}이 ${RD.favorable}개, 전체가 ${RD.total}개예요`;
+        : `${josa(RD.askName,'이','가')} ${RD.favorable}개, 전체가 ${RD.total}개예요`;
       toast(h,'bad',2000);
       setTimeout(()=>{ if(S.running&&S.phase==='predict') el.classList.remove('no'); },700);
     }
@@ -1328,7 +1333,7 @@ function drawBaskets(){
     if(showCounts){
       ctx.fillStyle='rgba(74,40,18,.92)'; ctx.font='900 10.5px -apple-system,"Apple SD Gothic Neo",sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='bottom';
-      ctx.fillText('이론 '+(Math.round(exp*10)/10),gx,Math.max(L.groundY+8,rimY-8-gh));
+      ctx.fillText('이론 '+(Math.round(exp*10)/10)+'번',gx,Math.max(L.groundY+8,rimY-8-gh));
       const arr=piles[kind], r=7.4;
       arr.forEach((o,k)=>{
         const col=k%COLS, row=Math.floor(k/COLS);
@@ -1341,11 +1346,9 @@ function drawBaskets(){
                ctx.bezierCurveTo(x-r*0.92,y+r*0.75,x-r,y-r*0.35,x,y-r*0.95); }
         ctx.fill(); ctx.stroke();
       });
-      if(arr.length){
-        ctx.fillStyle='rgba(74,40,18,.92)'; ctx.font='900 10.5px -apple-system,"Apple SD Gothic Neo",sans-serif';
-        ctx.textAlign='center'; ctx.textBaseline='bottom';
-        ctx.fillText('실험 '+arr.length,ex,Math.max(L.groundY-5,rimY-13-Math.ceil(arr.length/COLS)*ROW));
-      }
+      ctx.fillStyle='rgba(74,40,18,.92)'; ctx.font='900 10.5px -apple-system,"Apple SD Gothic Neo",sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ctx.fillText('실험 '+arr.length+'번',ex,Math.max(L.groundY-5,rimY-13-Math.max(1,Math.ceil(arr.length/COLS))*ROW));
     }
     // 바구니
     ctx.fillStyle='#c98a4b'; ctx.strokeStyle='#7a4318'; ctx.lineWidth=2.6;
@@ -1357,12 +1360,15 @@ function drawBaskets(){
       ctx.beginPath(); ctx.moveTo(bx-w/2+k*2.2,yy); ctx.lineTo(bx+w/2-k*2.2,yy); ctx.stroke(); }
     ctx.fillStyle='#a86a34';
     ctx.beginPath(); ctx.roundRect(bx-w/2-3,rimY-6,w+6,9,4); ctx.fill();
-    // 라벨 — 색만이 아니라 모양·글자로 구분한다
+    // 라벨 — 낙하 횟수(번). 나무 열매 개수와 헷갈리지 않게 단위를 붙인다
+    const lab=(kind==='gam'?'● 감 ':'▼ 배 ')+piles[kind].length+'번';
+    ctx.font='900 12.5px -apple-system,"Apple SD Gothic Neo",sans-serif';
+    const lw=Math.max(74, ctx.measureText(lab).width+16);
     ctx.fillStyle='rgba(58,30,12,.9)';
-    ctx.beginPath(); ctx.roundRect(bx-30,rimY+hh+3,60,21,9); ctx.fill();
-    ctx.fillStyle='#ffeccd'; ctx.font='900 12.5px -apple-system,"Apple SD Gothic Neo",sans-serif';
+    ctx.beginPath(); ctx.roundRect(bx-lw/2,rimY+hh+3,lw,21,9); ctx.fill();
+    ctx.fillStyle='#ffeccd';
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText((kind==='gam'?'● 감 ':'▼ 배 ')+piles[kind].length,bx,rimY+hh+14);
+    ctx.fillText(lab,bx,rimY+hh+14);
   }
   // 날아가는 열매 (잔상 궤적을 남긴다)
   for(const f of flyers){
@@ -1622,6 +1628,32 @@ window.__GAME_TEST__={
     dropBar();
   },
   sampleProblems(n){ return sampleProblems(Math.max(1,n|0)); },
+  josa, makeReasons, possPrompt,
+  gotoShake(){
+    if(!S.running) startRun();
+    setPhase('shake');
+    return {gamCount:RD.gamCount, baeCount:RD.baeCount, askName:RD.askName};
+  },
+  sampleJosaCheck(n){
+    n=Math.max(1,n|0);
+    const bad=[], texts=[];
+    const re=/배이(?!ㄹ)|감가|배은|감는|배을|감를/;
+    for(const nm of ['감','배']){
+      for(let i=0;i<n;i++){
+        const t=3+(i%5), f=i%(t+1);
+        const R={askName:nm, favorable:f, total:t, band:BANDS[bandIdx(f,t)],
+          gamCount:nm==='감'?f:t-f, baeCount:nm==='감'?t-f:f};
+        const rs=makeReasons(R, mulberry32(0xC0FFEE+i+(nm.charCodeAt(0)<<8)));
+        const blob=[possPrompt(R),
+          `${josa(nm,'이','가')} 떨어질 가능성은?`,
+          `${josa(nm,'이','가')} ${f}개, 전체가 ${t}개예요`,
+          ...rs.map(r=>r.text)].join('\n');
+        texts.push({nm,f,t,blob});
+        if(re.test(blob)) bad.push({nm,f,t,blob});
+      }
+    }
+    return {ok:bad.length===0, tested:texts.length, bad, texts};
+  },
   checkFruitPromptConsistency,
   startZeroPredict(){
     if(!S.running) startRun();
