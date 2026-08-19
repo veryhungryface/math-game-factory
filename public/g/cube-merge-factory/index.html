@@ -34,8 +34,12 @@
   .gdot{ transition:background .18s ease; }
   .gdot.pop{ animation:gdotPop .4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes gdotPop{ 0%{ transform:scale(2); } 100%{ transform:scale(1); } }
+  /* 세로형 게임이라 와이드 화면에서는 중앙 640px 컬럼으로 제한(레터박스).
+     캔버스 그리드(computeLayout)도 같은 컬럼 기준으로 계산한다. */
+  :root{ --colW: min(100vw, 640px); --colX: calc((100vw - var(--colW)) / 2); }
   #topBar{
-    position:absolute; top:max(8px, env(safe-area-inset-top)); left:8px; right:8px;
+    position:absolute; top:max(8px, env(safe-area-inset-top));
+    left:calc(var(--colX) + 8px); right:calc(var(--colX) + 8px);
     display:flex; align-items:center; gap:8px; flex-wrap:wrap; pointer-events:none;
   }
   #scoreBox{ font-size:clamp(14px,4vw,19px); }
@@ -78,7 +82,7 @@
   .hintIcon .wf-dash{ stroke:var(--ink); stroke-width:1.6; fill:none; stroke-linecap:round; stroke-dasharray:2.2 1.8; }
   .hintIcon .wf-face{ fill:#5c7cfa; opacity:.22; stroke:none; }
   #trashZone{
-    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    position:absolute; right:calc(var(--colX) + 8px); top:50%; transform:translateY(-50%);
     width:60px; height:60px; border-radius:50%; pointer-events:none;
     background:rgba(255,250,246,.88); border:3px dashed var(--ink);
     display:flex; align-items:center; justify-content:center; font-size:26px;
@@ -99,7 +103,8 @@
   }
   #stallBanner.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   #orderBar{
-    position:absolute; left:8px; right:8px; bottom:max(8px, env(safe-area-inset-bottom));
+    position:absolute; left:calc(var(--colX) + 8px); right:calc(var(--colX) + 8px);
+    bottom:max(8px, env(safe-area-inset-bottom));
     pointer-events:none;
   }
   #orderCard{
@@ -584,8 +589,13 @@ function computeLayout(){
   const trashRect=document.getElementById('trashZone').getBoundingClientRect();
   const top = topRect.bottom + 96; // 힌트 배너 + 콤보 텍스트 자리까지 확보
   const bottom = orderRect.top - 8;
-  const rightMargin = (CW - trashRect.left) + 8;
-  const left = 10, right = Math.max(left+40, rightMargin);
+  // 세로형 게임 — 와이드 화면에서는 CSS(--colW)와 동일한 중앙 640px 컬럼으로 제한한다.
+  // 이걸 안 하면 카드가 화면 폭에 비례해 납작하게 늘어나 렌더링이 전부 깨진다
+  // (실사용자가 와이드 창 스크린샷으로 리포트한 버그).
+  const colW = Math.min(CW, 640);
+  const colX = (CW - colW) / 2;
+  const rightMargin = Math.max(colX + 10, (CW - trashRect.left) + 8);
+  const left = colX + 10, right = rightMargin + 40;
   const gw = Math.max(60, CW-left-right);
   const gh = Math.max(60, bottom-top);
   layout.gridX=left; layout.gridY=top; layout.gridW=gw; layout.gridH=gh;
@@ -1679,7 +1689,7 @@ function drawTile(t){
     ctx.font=`800 ${Math.max(9,w*0.085)}px -apple-system, sans-serif`;
     ctx.textAlign='center';
     ctx.fillText('겨냥도', 0, -h*0.42);
-    drawWireBox(ctx, 0, -h*0.04, t.dims, t.dashed, { targetW:w*0.80, targetH:h*0.54, lineWidth:Math.max(3,w*0.05), fillColor:'#5c7cfa' });
+    drawWireBox(ctx, 0, -h*0.04, t.dims, t.dashed, { targetW:w*0.80, targetH:h*0.54, lineWidth:Math.min(6, Math.max(3, Math.min(w,h)*0.05)), fillColor:'#5c7cfa' });
     ctx.fillStyle='#2e3440';
     ctx.font=`800 ${Math.max(10,w*0.11)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
     ctx.textAlign='center';
@@ -1697,7 +1707,7 @@ function drawTile(t){
     ctx.fillText(`×${t.dims[2]}`, 0, h*0.22);
     ctx.textBaseline='alphabetic';
   } else {
-    drawWireBox(ctx, 0, -h*0.05, t.dims, new Set(CORRECT_DASHED), { targetW:w*0.78, targetH:h*0.52, lineWidth:Math.max(3,w*0.048), fillColor: t.isCube?'#5c7cfa':'#ffb85c' });
+    drawWireBox(ctx, 0, -h*0.05, t.dims, new Set(CORRECT_DASHED), { targetW:w*0.78, targetH:h*0.52, lineWidth:Math.min(6, Math.max(3, Math.min(w,h)*0.048)), fillColor: t.isCube?'#5c7cfa':'#ffb85c' });
     ctx.fillStyle='#2e3440';
     ctx.font=`800 ${Math.max(10,w*0.1)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
     ctx.textAlign='center';
