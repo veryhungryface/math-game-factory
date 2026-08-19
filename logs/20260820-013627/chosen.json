@@ -1,0 +1,249 @@
+{
+  "n": 2,
+  "title": "큐브 출동",
+  "tagline": "쌓을수록 길이 열린다",
+  "slug": "cube-sortie",
+  "mechanic": "roguelike-autobattle-builder",
+  "mechanic_origin": "Vampire Survivors의 '이동만 하면 공격은 자동이고, 레벨업 때 3개 중 하나를 골라 빌드가 눈덩이처럼 커지는' 루프를 가져온다. 여기서는 적을 직접 때리는 대신 세 방향 설계도를 보고 쌓은 큐브 요새가 자동으로 드론을 막는다. 전투 중 쏟아지는 보상보다 다음 설계에서 어떤 강화 부품을 고를지 고민하고, 내 조립물의 약점이 전투 결과로 바로 드러나는 훅을 쓴다.",
+  "one_liner": "위·앞·옆 스캔을 보고 큐브 요새를 조립해 자동 출격 로봇을 지키는 90초 로그라이크 건축 게임.",
+  "why_fun": "손가락으로 한 칸에 큐브를 얹는 즉시 세 개의 홀로그램 투상이 찰칵 맞아 들어가서, 숨은 구조를 알아냈다는 탐정 쾌감이 온다. 위·앞·옆 부스를 누르면 카메라가 고정 시점으로 짧게 점프해 실제 실루엣을 도장처럼 확인하므로 좌우 반전도 손으로 발견한다. 맞는 설계를 빨리 완성할수록 자동 전투가 더 화려하게 터지고, 보상으로 얻은 포탑·다리·스캔 강화 중 무엇을 고를지가 다음 판의 내 빌드를 바꾼다. 마지막 보스 설계도에서 최소 큐브로 버틸지, 최대 큐브를 쌓아 과충전 보너스를 노릴지의 작은 도박이 '한 번만 더'를 만든다.",
+  "core_loop": [
+    "1. 3×3 조립판과 위·앞·옆 홀로그램 스캔을 받고, 각 바닥칸의 목표 높이를 추론한다.",
+    "2. 아래 부품 바에서 큐브 묶음을 드래그해 쌓는다. 놓는 순간 세 투상 게이지가 실시간으로 채워지고, 위·앞·오른쪽 옆 부스를 탭하면 카메라가 해당 고정 시점으로 점프해 정수 격자 실루엣 도장을 찍는다. 옆 도장의 왼쪽은 언제나 앞줄이라는 약속을 화면 화살표로 고정한다.",
+    "3. 세 시점 도장이 모두 목표와 맞으면 '출동'을 탭한다. 만든 요새가 8초 동안 자동으로 드론을 막고, 설계 정확도와 사용 큐브 수로 에너지·별을 받은 뒤 3개 강화 부품 중 하나를 골라 다음 설계로 간다."
+  ],
+  "math_is_the_verb": "플레이어가 하는 핵심 손동작은 답을 고르는 것이 아니라 3차원 격자의 특정 자리마다 필요한 층수만큼 큐브를 쌓는 일이다. 위 스캔의 숫자는 그 칸의 높이이고, 앞·옆 스캔은 각 줄에서 가장 높은 기둥으로 즉시 갱신된다. 위·앞·오른쪽 옆 고정 시점으로 직접 이동해 실루엣 도장을 찍어야 출동할 수 있어서, 숨은 큐브를 빼먹거나 옆면을 좌우 반대로 읽으면 해당 면의 도장이 어긋나고 포탑의 실제 벽도 비어 전투 중 드론이 통과한다.",
+  "controls": {
+    "mobile": "부품 바의 큐브를 한 손가락으로 격자 칸에 드래그해 놓는다. 조립판 바깥의 큰 위·앞·옆 버튼으로 카메라를 고정 시점에 보내 도장을 찍고, 출동·강화는 큰 탭 버튼으로 누른다.",
+    "desktop": "마우스로 드래그해 쌓고, 1/2/3 키로 위·앞·오른쪽 옆 고정 시점 도장을 찍는다. 스페이스로 출동한다."
+  },
+  "progression": "월드맵의 8개 구역을 순서대로 연다. 1~2구역은 2×2, 높이 1~2와 위 스캔 숫자만; 3~4구역은 3×2와 앞 스캔; 5~6구역은 3×3·높이 3과 오른쪽 옆 스캔(그림의 왼쪽=앞줄); 7~8구역은 세 투상만 주고 최소/최대 큐브로 출격 에너지를 조절한다. 전투 웨이브는 빨라지지만 '쉬움: 실수 2회 고스트 힌트'와 '도전: 힌트 없이 별 1.5배'를 시작 화면에서 직접 고른다.",
+  "problem_generator": {
+    "description": "무작위 그림을 검사하는 대신, 먼저 연결된 바닥 셀 집합(2×2, 3×2, 3×3)을 템플릿 풀에서 고르고 각 셀의 높이 1~3을 제약별로 배정한다. 행 r=0은 앞줄, 열 c=0은 왼쪽으로 고정한다. 그 높이 행렬에서 위 스캔(각 셀 높이), 앞 스캔(각 열의 최대 높이), 오른쪽 옆 스캔(각 행의 최대 높이, 그림의 왼쪽 칸=앞줄)을 결정론적으로 계산한다. 최소·최대 단계는 동일한 세 투상을 만족하는 높이 행렬 후보를 전수 열거하여 최소합·최대합이 서로 다른 설계도만 풀에 넣는다.",
+    "view_convention": {
+      "front": "앞에서 보며 그림의 왼쪽은 격자 열 c=0이다.",
+      "side": "오른쪽에서 보며 옆면 그림의 왼쪽 칸은 앞줄 r=0이다. 생성·렌더·힌트가 이 배열을 공유한다.",
+      "top": "위에서 보며 각 칸의 숫자는 그 자리에 쌓인 층수이다."
+    },
+    "difficulty_bands": [
+      {
+        "level": 1,
+        "rule": "2×2 연결 바닥칸, 높이 1~2, 위에서 본 숫자만 보고 그대로 쌓기",
+        "example": "위 스캔 [2,1; 1,2] → 모두 6개"
+      },
+      {
+        "level": 2,
+        "rule": "3×2, 위 스캔 숫자와 앞에서 본 최대 높이를 함께 만족시키기",
+        "example": "위 스캔 2·1·2 / 1·2·1, 앞 스캔 2·2·2"
+      },
+      {
+        "level": 3,
+        "rule": "3×3, 층별 모양을 보고 앞·오른쪽 옆 투상을 완성하기; 높이 1~3",
+        "example": "1층 십자, 2층 ㄴ자, 3층 중앙 한 칸"
+      },
+      {
+        "level": 4,
+        "rule": "세 투상만으로 가능한 설계의 최소 또는 최대 큐브 수를 골라 조립하기",
+        "example": "앞 [2,3,2], 오른쪽 옆 [3,2,2]를 만족하는 최소/최대 요새"
+      }
+    ],
+    "distractor_rules": [
+      {
+        "misconception": "그림에서 보이는 기둥만 세고 뒤에 가려진 바닥칸을 비운다",
+        "distractor_formula": "카메라 정면에서 가려진 모든 셀의 높이를 0으로 둔 visibleOnlyHeightMap을 미끼 고스트 설계로 제시한다."
+      },
+      {
+        "misconception": "위에서 본 모양의 숫자를 층수가 아닌 칸 번호·개수 표기로 해석한다",
+        "distractor_formula": "각 숫자 n이 있는 칸을 높이 1로 고정한 allMarkedOnceHeightMap을 생성해 총합과 투상 불일치를 보여 준다."
+      },
+      {
+        "misconception": "옆에서 본 모양의 좌우를 반대로 읽는다",
+        "distractor_formula": "오른쪽 옆 투상 side=[앞줄,…,뒷줄]을 reverse(side)로 적용한 mirroredSideHeightMap을 만들고, 비대칭 설계에서 틀린 칸만 도장 균열로 표시한다."
+      },
+      {
+        "misconception": "세 방향 투상은 쌓는 방법을 하나만 정한다",
+        "distractor_formula": "후보 행렬 중 첫 해 하나만 고정한 uniqueAssumptionCount를 제시하고, 전수 열거한 minSum/maxSum과 대비시킨다."
+      }
+    ]
+  },
+  "fail_state": "형성평가형이다. 잘못 놓은 큐브는 즉시 주황 균열선과 '앞 스캔 불일치' 같은 방향별 피드백을 내고 회수되어, 목숨 3개 중 수리 불꽃 1개만 잃는다. 같은 방향을 두 번 틀리면 해당 투상에 반투명 고스트 윤곽이 잠깐 나타나며 게임오버는 없다. 공간 시점 전환은 시행착오 자체가 학습이므로, 한 번의 오답이 판을 끝내게 하지 않는 것이 맞다.",
+  "reward": "정확 출동은 에너지, 연속 완성은 콤보 배율, 최소 큐브 완성은 '경량 설계' 별, 최대 큐브 완성은 '과충전' 별을 준다. 세 시점 도장을 한 번에 맞히면 '트리플 스캔' 배지와 파티클 배율을 추가한다. 별로 3택 강화(스캔 1회 확대, 포탑 연사, 수리 불꽃)를 해금하고, localStorage에 최고 에너지·오늘의 설계도 연속 완성·요새 배지를 저장한다. 서버가 생기면 학급 주간 요새 랭킹을 붙일 수 있다.",
+  "session_length_sec": 90,
+  "tech": [
+    "three"
+  ],
+  "wow_moment": "보스 설계의 마지막 큐브가 정확한 칸에 내려앉으면 위·앞·오른쪽 옆 카메라가 각각 0.18초씩 점프하며 세 실루엣 도장을 연속으로 찍는다. 세 도장이 맞는 마지막 프레임에 카메라가 아이소메트릭으로 후퇴하고 각 열에서 빛기둥이 솟는다. 요새가 자동 전개된 뒤 8초 웨이브의 드론을 막아내며 큐브 파편이 화면 깊이로 튄다.",
+  "art_direction": {
+    "mood": "채도 높은 대낮의 장난감 구조대 공사장: 크림색 구름과 하늘 아래 노랑 안전발판·코발트 큐브·토마토색 경고 깃발을 쓴다. 입체도형은 그늘진 네온보다 실제 블록의 면과 그림자가 읽혀야 하므로, 밝은 낮의 명확한 명암을 골랐다.",
+    "palette": [
+      "#FFF3C4",
+      "#38A8E0",
+      "#F6B93B",
+      "#E95D42",
+      "#254A77"
+    ],
+    "visual_reference": "three.js의 InstancedMesh 기법으로 큐브와 파편을 한 번에 그린다. 세 고정 시점 도장은 같은 높이맵에서 계산한 2D 격자 실루엣으로 렌더해 픽셀 비교와 무거운 물리를 피하고, 와우 순간에 카메라 후퇴와 함께 40개 이하 저폴리 큐브 파편을 축하 폭발로 연결한다.",
+    "juice_techniques": [
+      "hit-stop",
+      "squash-stretch",
+      "anticipation-overshoot-easing",
+      "screen-shake-tiered",
+      "particle-burst-scaled",
+      "color-flash",
+      "trail",
+      "ambient-idle-motion",
+      "sound-visual-sync"
+    ],
+    "assets_needed": [
+      {
+        "id": "hero",
+        "prompt": "Original cute cube construction rescue robot, round white helmet with a blue visor face and tiny orange safety flag, holding one cobalt building cube, chunky toy-like 3D low-poly render, three-quarter isometric view, full body centered, cheerful expression, clean transparent background, no text, no logos",
+        "size": "1024x1024",
+        "transparent_bg": true
+      },
+      {
+        "id": "bg",
+        "prompt": "Bright daytime toy construction rescue yard in original stylized low-poly 3D, cream clouds, blue sky, yellow safety platforms, cobalt modular cube towers, tiny red flags, clear isometric depth, room for UI in the center, no characters, no text, no logos",
+        "size": "1536x1024",
+        "transparent_bg": false
+      },
+      {
+        "id": "thumb",
+        "prompt": "Dynamic original mobile game key art: cute helmeted cube rescue robot rapidly stacking cobalt cubes into a small fortress while friendly drone sparks burst overhead, bright blue daytime toy construction yard, bold yellow and tomato-red accents, cinematic isometric camera, high contrast, no text, no logos",
+        "size": "1536x1024",
+        "transparent_bg": false
+      }
+    ]
+  },
+  "standards": [
+    "[6수03-09]",
+    "[6수03-10]"
+  ],
+  "unit_id": "g6s2-u2",
+  "risks": [
+    "모바일에서 3D 조작과 드래그가 충돌하지 않도록 자유 회전을 빼고 위·앞·옆 고정 시점 버튼으로 분리한다.",
+    "세 투상 최소·최대 후보 열거는 3×3·높이 3 이내로 제한하고, 사전 계산한 유효 설계도 풀을 사용해야 한다.",
+    "파편은 와우 순간에만 40개 이하로 제한하고 저사양에서는 2D 파티클로 폴백한다.",
+    "오른쪽 옆면의 왼쪽=앞줄이라는 약속을 생성·렌더·힌트가 공유하고 비대칭 샘플로 QA한다.",
+    "학급 주간 랭킹은 서버가 필요하므로 현재 버전에는 localStorage 개인 최고기록과 일일 설계도만 제공한다."
+  ],
+  "_judge": {
+    "scores": [
+      {
+        "n": 2,
+        "total": 84,
+        "breakdown": {
+          "math_is_verb": 19,
+          "fun": 18,
+          "curriculum": 18,
+          "visual": 17,
+          "feasibility": 12
+        },
+        "comment": "쌓기와 투상 갱신이 곧 수학이며 자동 전투가 빠른 보상을 준다. 다만 8구역·강화·전투까지 모두 구현하면 90분 범위를 넘기 쉬워 전투를 짧은 결과 연출로 제한해야 한다."
+      },
+      {
+        "n": 3,
+        "total": 82,
+        "breakdown": {
+          "math_is_verb": 20,
+          "fun": 16,
+          "curriculum": 20,
+          "visual": 18,
+          "feasibility": 8
+        },
+        "comment": "교육과정과 오개념 설계는 가장 치밀하고 시점 도장도 강렬하다. 하지만 다섯 조작 모드, 클리핑, 엑스레이, 난이도 분기, 카메라 교차페이드를 한 파일에 구현하는 범위가 지나치다."
+      }
+    ],
+    "winner": 2,
+    "reason": "2번은 큐브를 쌓아 세 투상을 맞추는 수학 동사가 명확하면서 자동 출동이라는 즉각적 보상 루프가 있어 30초 안에 재미가 온다. 3번보다 교육 범위는 조금 좁지만 고정 시점 도장만 흡수하면 핵심 오개념을 살리면서 구현 범위를 더 잘 통제할 수 있다.",
+    "improvements": [
+      "3번의 위·앞·오른쪽 옆 고정 시점 도장을 core_loop, controls, math_is_the_verb, wow_moment에 반영해 시점 전환 자체를 조작으로 만들었다.",
+      "3번의 '오른쪽 옆면 그림의 왼쪽=앞줄' 좌우 약속을 progression, problem_generator.view_convention, distractor_rules, risks에 명시했다.",
+      "3번의 세 장 동시 성공 손맛을 reward의 '트리플 스캔' 배지와 wow_moment의 연속 도장 연출로 반영했다."
+    ]
+  },
+  "grade": 6,
+  "semester": 2,
+  "unit_title": "공간과 입체",
+  "unit_context": {
+    "id": "g6s2-u2",
+    "grade": 6,
+    "semester": 2,
+    "order": 2,
+    "title": "공간과 입체",
+    "standards": [
+      "[6수03-09]",
+      "[6수03-10]"
+    ],
+    "key_concepts": [
+      "쌓기나무",
+      "위에서 본 모양",
+      "앞에서 본 모양",
+      "옆에서 본 모양",
+      "위에서 본 모양에 수 써서 나타내기",
+      "층별로 나타낸 모양",
+      "쌓기나무 개수의 최소와 최대"
+    ],
+    "misconceptions": [
+      {
+        "text": "그림에서 보이는 쌓기나무만 세고 뒤에 숨어 있는 쌓기나무를 빠뜨린다.",
+        "why": "2차원 그림에서 가려진 부분을 3차원으로 복원하는 공간 능력이 아직 발달 중이기 때문이다."
+      },
+      {
+        "text": "위에서 본 모양에 쓴 수를 그 자리에 쌓인 층수가 아니라 다른 뜻으로 해석한다.",
+        "why": "표현 방법의 약속을 정확히 이해하지 못하고 그림으로만 받아들이기 때문이다."
+      },
+      {
+        "text": "옆에서 본 모양의 좌우를 반대로 그린다.",
+        "why": "관찰자의 시점을 바꾸어 상상하는 과정을 생략하고 정면 그림을 그대로 옮기기 때문이다."
+      },
+      {
+        "text": "위, 앞, 옆에서 본 모양이 주어지면 쌓기나무를 쌓는 방법이 항상 한 가지뿐이라고 생각한다.",
+        "why": "세 방향의 모양이 같아도 숨은 자리의 층수가 달라질 수 있다는 점을 경험하지 못했기 때문이다. 최소·최대 개수가 다를 수 있다."
+      },
+      {
+        "text": "층별로 나타낸 모양을 겹쳐서 하나의 평면 그림으로 합쳐 버린다.",
+        "why": "층이라는 3차원 정보와 평면 표현을 분리해 다루지 못하기 때문이다."
+      }
+    ],
+    "problem_types": [
+      {
+        "type": "쌓기나무의 개수 세기",
+        "example": "그림과 같이 쌓은 모양에 사용된 쌓기나무는 몇 개인가?",
+        "answer": "보이지 않는 쌓기나무까지 포함해 센 개수",
+        "difficulty": 1
+      },
+      {
+        "type": "위에서 본 모양에 쓴 수로 전체 개수 구하기",
+        "example": "위에서 본 모양의 각 칸에 3, 1, 2, 2가 쓰여 있을 때 쌓기나무는 모두 몇 개인가?",
+        "answer": "8개",
+        "difficulty": 2
+      },
+      {
+        "type": "위·앞·옆에서 본 모양 그리기",
+        "example": "주어진 쌓기나무 모양을 위, 앞, 옆에서 본 모양을 각각 그리시오.",
+        "answer": "각 방향에서 보이는 칸을 빠짐없이 채운 모양",
+        "difficulty": 2
+      },
+      {
+        "type": "층별로 나타낸 모양 해석하기",
+        "example": "1층, 2층, 3층 모양이 주어졌을 때 앞에서 본 모양을 고르시오.",
+        "answer": "각 줄에서 가장 높은 층을 나타낸 모양",
+        "difficulty": 3
+      },
+      {
+        "type": "쌓기나무 개수의 최소·최대 구하기",
+        "example": "위, 앞, 옆에서 본 모양이 주어졌을 때 필요한 쌓기나무의 최소 개수와 최대 개수를 구하시오.",
+        "answer": "각 자리에 가능한 최소 층수를 넣은 값과 최대 층수를 넣은 값",
+        "difficulty": 4
+      }
+    ],
+    "domain": "03",
+    "domain_name": "도형과 측정",
+    "prerequisite_units": [
+      "g5s2-u5",
+      "g6s1-u2"
+    ],
+    "prerequisite_note": "직육면체와 정육면체(5-2 5단원), 각기둥과 각뿔(6-1 2단원)에서 기른 입체도형 감각이 바탕이다."
+  }
+}

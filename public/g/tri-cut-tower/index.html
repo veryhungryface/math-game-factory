@@ -1,0 +1,2234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<title>세컷탑 — 세 장이 맞아야 산다</title>
+<meta name="description" content="위·앞·옆 세 장 사진에 맞게 쌓기나무를 쌓는 나무 공방 게임">
+<meta property="og:title" content="세컷탑">
+<meta property="og:description" content="세 장이 맞아야 산다">
+<meta property="og:image" content="./square.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="세컷탑">
+<meta name="twitter:description" content="세 장이 맞아야 산다">
+<meta name="twitter:image" content="./square.png">
+<style>
+  :root{
+    --sky:#d7eef7; --cream:#f7efe0; --honey:#d98a2b; --forest:#2f6b4f; --terra:#c4452d;
+    --ink:#3a2412; --wood:#5a3410;
+    --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#20303a;font-family:var(--font);
+    user-select:none;-webkit-user-select:none;touch-action:manipulation;color:var(--ink);}
+  #cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;}
+
+  /* ── HUD ─────────────────────────────────────────── */
+  #hud{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:5px;
+    padding:6px 7px;padding-top:calc(6px + env(safe-area-inset-top));z-index:20;pointer-events:none;}
+  #hud.hide{display:none;}
+  .chip{background:rgba(38,24,12,.72);color:#fff9ec;border:2px solid rgba(255,235,200,.30);
+    border-radius:13px;padding:5px 7px;font-size:12.5px;font-weight:800;line-height:1.15;
+    display:flex;align-items:center;gap:5px;box-shadow:0 2px 0 rgba(0,0,0,.25) inset;}
+  .chip b{font-size:16px;font-weight:900;color:#ffd88a;font-variant-numeric:tabular-nums;}
+  .chip.room{flex:0 1 auto;min-width:0;max-width:min(46vw,260px);margin-right:auto;}
+  .chip.room span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+  .iconbtn{pointer-events:auto;width:44px;height:44px;flex:0 0 44px;border-radius:14px;border:none;
+    background:linear-gradient(#fdf6e8,#e9d7b8);color:var(--wood);font-size:19px;font-weight:900;
+    box-shadow:0 3px 0 #b08c5a, 0 5px 10px rgba(0,0,0,.25);cursor:pointer;font-family:var(--font);}
+  .iconbtn:active{transform:translateY(3px);box-shadow:0 0 0 #b08c5a, 0 2px 5px rgba(0,0,0,.25);}
+
+  /* ── 하단 컨트롤 ──────────────────────────────────── */
+  #ctl{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:6px 8px;
+    padding-bottom:calc(8px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;}
+  #ctl.hide{display:none;}
+  .row{display:flex;gap:6px;}
+  .vbtn{flex:1;min-width:0;height:46px;border-radius:15px;border:none;cursor:pointer;font-family:var(--font);
+    font-size:14px;font-weight:900;color:#4a2f12;background:linear-gradient(#fff6e4,#ecd6ae);
+    box-shadow:0 4px 0 #a9834f, 0 6px 12px rgba(0,0,0,.28);transition:transform .06s, box-shadow .06s;
+    display:flex;align-items:center;justify-content:center;gap:4px;}
+  .vbtn:active{transform:translateY(4px);box-shadow:0 0 0 #a9834f, 0 2px 6px rgba(0,0,0,.25);}
+  .vbtn.on{background:linear-gradient(#8fd6ae,#3f8c63);color:#062a19;box-shadow:0 4px 0 #1f5537, 0 6px 12px rgba(0,0,0,.3);}
+  .vbtn.big{height:56px;font-size:18px;flex:2.1;background:linear-gradient(#ffd070,#e08c1e);color:#452303;
+    box-shadow:0 5px 0 #9c5a09, 0 8px 16px rgba(0,0,0,.32);}
+  .vbtn.big:active{transform:translateY(5px);box-shadow:0 0 0 #9c5a09, 0 2px 6px rgba(0,0,0,.25);}
+  .vbtn.tool{flex:1.15;height:56px;font-size:15px;background:linear-gradient(#cfe9f6,#8fc0d8);color:#12384a;
+    box-shadow:0 5px 0 #4d7f96, 0 8px 16px rgba(0,0,0,.28);}
+  .vbtn.tool:active{transform:translateY(5px);box-shadow:0 0 0 #4d7f96, 0 2px 6px rgba(0,0,0,.25);}
+  .vbtn[disabled]{opacity:.42;filter:grayscale(.5);}
+
+  /* ── 전체화면 스크린 ─────────────────────────────── */
+  .screen{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;padding:16px;overflow:hidden;}
+  .screen.hide{display:none;}
+  #screen-title{background:#0e2a3a;}
+  #titleArt{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 34%;
+    animation:kenburns 24s ease-in-out infinite alternate;}
+  @keyframes kenburns{from{transform:scale(1.04) translate3d(0,0,0);}to{transform:scale(1.14) translate3d(0,-1.6%,0);}}
+  #titleFallback{position:absolute;inset:0;
+    background:radial-gradient(120% 80% at 50% 12%, #eaf6fc 0%, #cfe6f2 38%, #e8c98f 74%, #b8802f 100%);}
+  .veil{position:absolute;inset:0;background:
+     linear-gradient(180deg, rgba(8,26,38,.44) 0%, rgba(8,26,38,.06) 30%, rgba(28,14,4,.30) 62%, rgba(20,10,2,.80) 100%);}
+  .tstack{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;
+    justify-content:space-between;height:100%;width:100%;max-width:520px;padding:8px 0 6px;}
+  .logo{margin-top:4vh;text-align:center;transform:rotate(-3deg);animation:logoIn .8s cubic-bezier(.2,1.5,.4,1) both;}
+  @keyframes logoIn{from{transform:rotate(-3deg) scale(.5) translateY(-40px);opacity:0;}to{transform:rotate(-3deg) scale(1) translateY(0);opacity:1;}}
+  .logo h1{margin:0;font-size:clamp(50px,16vw,104px);line-height:.92;font-weight:900;letter-spacing:-.03em;
+    color:#ffe9b8;
+    text-shadow:
+      0 0 0 #fff,
+      -3px -3px 0 #5a3410, 3px -3px 0 #5a3410, -3px 3px 0 #5a3410, 3px 3px 0 #5a3410,
+      0 8px 0 #a75f14, 0 14px 0 #6d3a06, 0 20px 26px rgba(0,0,0,.55);}
+  .logo .sub{display:inline-block;margin-top:16px;padding:6px 16px;border-radius:999px;
+    background:rgba(47,107,79,.92);border:2px solid #ffe9b8;color:#f4fff8;font-weight:900;
+    font-size:clamp(13px,3.7vw,17px);letter-spacing:.02em;box-shadow:0 4px 12px rgba(0,0,0,.4);}
+  .tbottom{width:100%;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 14px;}
+  .diffrow{display:flex;gap:8px;width:100%;max-width:340px;}
+  .diffbtn{flex:1;height:48px;border-radius:15px;border:2px solid rgba(255,233,184,.5);cursor:pointer;
+    font-family:var(--font);font-size:15px;font-weight:900;color:#ffe9b8;background:rgba(24,16,8,.6);}
+  .diffbtn.on{background:linear-gradient(#ffd070,#e08c1e);color:#452303;border-color:#fff3d6;
+    box-shadow:0 4px 0 #9c5a09;}
+  #startBtn{width:100%;max-width:340px;height:66px;border-radius:22px;border:none;cursor:pointer;
+    font-family:var(--font);font-size:24px;font-weight:900;color:#4a2405;
+    background:linear-gradient(#ffe08a,#e8931d);box-shadow:0 6px 0 #96540a, 0 12px 26px rgba(0,0,0,.45);
+    animation:pulse 1.5s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.045);}}
+  #startBtn:active{transform:scale(.97) translateY(5px);box-shadow:0 1px 0 #96540a;animation:none;}
+  .tmeta{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding-bottom:calc(2px + env(safe-area-inset-bottom));}
+  .tmeta span{background:rgba(10,20,26,.6);border:1px solid rgba(255,233,184,.35);color:#ffe9b8;
+    border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:800;}
+
+  /* ── 월드맵 ─────────────────────────────────────── */
+  #screen-map{background:linear-gradient(180deg,#dcefF8 0%,#f7efe0 55%,#e6cfa4 100%);justify-content:flex-start;}
+  .maphead{width:100%;max-width:640px;display:flex;align-items:center;gap:8px;
+    padding-top:calc(4px + env(safe-area-inset-top));}
+  .maphead h2{flex:1;margin:0;font-size:21px;font-weight:900;color:var(--wood);}
+  .mapscroll{width:100%;max-width:640px;flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 2px 14px;
+    -webkit-overflow-scrolling:touch;}
+  .roomcard{width:100%;display:flex;align-items:center;gap:11px;margin-bottom:9px;padding:11px 12px;
+    border-radius:19px;border:3px solid #b98d4e;background:linear-gradient(#fffaf0,#f3e3c4);
+    box-shadow:0 4px 0 #b98d4e, 0 7px 16px rgba(90,52,16,.20);cursor:pointer;text-align:left;
+    font-family:var(--font);color:var(--wood);}
+  .roomcard:active{transform:translateY(4px);box-shadow:0 0 0 #b98d4e;}
+  .roomcard.locked{opacity:.55;filter:grayscale(.55);}
+  .rnum{flex:0 0 46px;height:46px;border-radius:14px;background:linear-gradient(#ffd070,#e08c1e);
+    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#4a2405;
+    border:2px solid #8f5407;}
+  .rbody{flex:1;min-width:0;}
+  .rbody .rt{font-size:16px;font-weight:900;line-height:1.2;}
+  .rbody .rd{font-size:12.5px;font-weight:700;opacity:.75;margin-top:2px;line-height:1.25;}
+  .rstars{flex:0 0 auto;font-size:15px;letter-spacing:1px;color:#e0a51f;}
+
+  /* ── 결과 오버레이 ───────────────────────────────── */
+  #screen-result{background:rgba(14,30,40,.86);}
+  .rescard{width:100%;max-width:400px;background:linear-gradient(#fffaf0,#f0dfbe);border:4px solid #b98d4e;
+    border-radius:26px;padding:20px 18px;text-align:center;box-shadow:0 10px 0 #8f6a35, 0 20px 40px rgba(0,0,0,.5);
+    animation:popIn .45s cubic-bezier(.2,1.6,.4,1) both;}
+  @keyframes popIn{from{transform:scale(.7) translateY(30px);opacity:0;}to{transform:scale(1) translateY(0);opacity:1;}}
+  .rescard h2{margin:0 0 6px;font-size:27px;font-weight:900;color:var(--wood);}
+  .resstars{font-size:38px;letter-spacing:4px;color:#e0a51f;margin:4px 0 8px;
+    text-shadow:0 3px 0 rgba(0,0,0,.14);}
+  .resline{font-size:15px;font-weight:800;color:#6a4a24;margin:3px 0;}
+  .resbig{font-size:40px;font-weight:900;color:var(--honey);font-variant-numeric:tabular-nums;margin:6px 0;
+    text-shadow:0 3px 0 rgba(90,52,16,.2);}
+  .resbtns{display:flex;gap:9px;margin-top:14px;}
+  .resbtn{flex:1;height:56px;border-radius:18px;border:none;cursor:pointer;font-family:var(--font);
+    font-size:17px;font-weight:900;color:#4a2405;background:linear-gradient(#ffe08a,#e8931d);
+    box-shadow:0 5px 0 #96540a;}
+  .resbtn.alt{background:linear-gradient(#dfeef6,#9fc4d6);color:#123645;box-shadow:0 5px 0 #4d7f96;}
+  .resbtn:active{transform:translateY(5px);box-shadow:0 0 0 #96540a;}
+
+  /* ── 토스트 ─────────────────────────────────────── */
+  #toast{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);z-index:35;pointer-events:none;
+    padding:10px 18px;border-radius:18px;background:rgba(30,18,8,.9);border:3px solid #ffd88a;
+    color:#fff6e0;font-size:16px;font-weight:900;text-align:center;max-width:88vw;line-height:1.35;
+    opacity:0;transition:opacity .2s, transform .25s;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  #toast.show{opacity:1;transform:translate(-50%,-50%) scale(1.02);}
+  #toast.bad{border-color:#ffa08e;background:rgba(70,16,8,.92);}
+  #toast.good{border-color:#9ef0bf;background:rgba(10,52,32,.92);}
+
+  @media (prefers-reduced-motion: reduce){
+    #titleArt{animation-duration:60s;}
+    #startBtn{animation-duration:3s;}
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud" class="hide">
+  <div class="chip room"><span id="hRoom">공방</span></div>
+  <div class="chip" style="flex:0 0 auto"><b id="hStep">1/2</b></div>
+  <div class="chip">⭐<b id="hScore">0</b></div>
+  <div class="chip">❤<b id="hLives">3</b></div>
+  <button class="iconbtn" id="btnSound" aria-label="소리 켜기/끄기">🔊</button>
+  <button class="iconbtn" id="btnHome" aria-label="공방 지도로">🏠</button>
+</div>
+
+<div id="ctl" class="hide">
+  <div class="row">
+    <button class="vbtn" id="vIso">입체</button>
+    <button class="vbtn" id="vTop">위</button>
+    <button class="vbtn" id="vFront">앞</button>
+    <button class="vbtn" id="vSide">옆</button>
+  </div>
+  <div class="row" id="row2">
+    <button class="vbtn tool" id="btnTool">투시등</button>
+    <button class="vbtn big" id="btnDone">완성!</button>
+  </div>
+</div>
+
+<div class="screen" id="screen-title">
+  <div id="titleFallback"></div>
+  <img id="titleArt" src="./assets/title.png" alt="">
+  <div class="veil"></div>
+  <div class="tstack">
+    <div class="logo">
+      <h1>세컷탑</h1>
+      <div class="sub">세 장이 맞아야 산다</div>
+    </div>
+    <div class="tbottom">
+      <div class="diffrow">
+        <button class="diffbtn on" id="dEasy">🌿 쉬움</button>
+        <button class="diffbtn" id="dHard">🔥 어려움</button>
+      </div>
+      <button id="startBtn">시작하기</button>
+      <div class="tmeta">
+        <span>6학년 2학기 · 공간과 입체</span>
+        <span id="tBest">최고 ⭐0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="screen hide" id="screen-map">
+  <div class="maphead">
+    <button class="iconbtn" id="btnMapBack" aria-label="타이틀로">◀</button>
+    <h2>나무 공방 · 오늘의 의뢰</h2>
+    <div class="chip" style="background:rgba(90,52,16,.85)">⭐<b id="mScore">0</b></div>
+  </div>
+  <div class="mapscroll" id="mapList"></div>
+</div>
+
+<div class="screen hide" id="screen-result">
+  <div class="rescard">
+    <h2 id="resTitle">완성!</h2>
+    <div class="resstars" id="resStars">★★★</div>
+    <div class="resbig" id="resScore">0</div>
+    <div class="resline" style="margin-top:-6px;opacity:.7">총점</div>
+    <div class="resline" id="resLine1"></div>
+    <div class="resline" id="resLine2"></div>
+    <div class="resbtns">
+      <button class="resbtn alt" id="resMap">공방 지도</button>
+      <button class="resbtn" id="resNext">다음 의뢰</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════════
+   세컷탑 — 쌓기나무 정사영 게임
+   좌표 규약 (이 파일 전체에서 단 하나의 모델만 쓴다):
+     · 격자 인덱스 x = 0..W-1  (화면/필름 왼쪽 → 오른쪽)
+     · 격자 인덱스 z = 0..D-1  (z=0 이 "앞줄", z=D-1 이 "뒷줄")
+     · 월드 좌표   wx = x-(W-1)/2 ,  wz = (D-1)/2 - z   (앞줄이 +Z)
+     · 위에서 본 모양  : 칸 (x,z) 의 층수 h.  필름에서 z=0(앞줄)이 아래쪽.
+     · 앞에서 본 모양  : front[x] = max_z h[x][z]
+     · 옆(오른쪽)에서 본 모양 : side[c] = max_x h[x][c],  c = z
+        → 관찰자가 +X 에서 -X 를 보면 화면 오른쪽이 -Z 이므로
+          앞줄(z=0, +Z쪽)이 필름의 **왼쪽**에 온다. 이 한 줄이 좌우 반전
+          오개념의 유일한 기준점이다.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────── 유틸 ───────────────────────── */
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const TAU=Math.PI*2, D2R=Math.PI/180;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function shuffle(arr,rng){for(let i=arr.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));const t=arr[i];arr[i]=arr[j];arr[j]=t;}return arr;}
+const pick=(arr,rng)=>arr[Math.floor(rng()*arr.length)];
+const easeOutBack=(t)=>{const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2);};
+const easeOutCubic=(t)=>1-Math.pow(1-t,3);
+const easeOutElastic=(t)=>{if(t===0||t===1)return t;const p=.42;return Math.pow(2,-9*t)*Math.sin((t*10-.75)*(TAU/p/8))+1;};
+function rr(c,x,y,w,h,r){r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+
+const REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MOT = REDUCED?0.35:1;           // 모션 강도 (완전 정지는 하지 않는다)
+
+const PAL={sky:'#d7eef7',cream:'#f7efe0',honey:'#d98a2b',forest:'#2f6b4f',terra:'#c4452d',
+           wood:'#5a3410',ink:'#3a2412'};
+
+/* ───────────────────────── 격자 모델 ───────────────────────── */
+function mkGrid(W,D){return {W:W,D:D,a:new Array(W*D).fill(0)};}
+function gget(g,x,z){return g.a[z*g.W+x]|0;}
+function gset(g,x,z,v){g.a[z*g.W+x]=v|0;}
+function gclone(g){const n=mkGrid(g.W,g.D);n.a=g.a.slice();return n;}
+function gTotal(g){let s=0;for(let i=0;i<g.a.length;i++)s+=g.a[i];return s;}
+function gFront(g){const r=[];for(let x=0;x<g.W;x++){let m=0;for(let z=0;z<g.D;z++)m=Math.max(m,gget(g,x,z));r.push(m);}return r;}
+function gSide(g){const r=[];for(let z=0;z<g.D;z++){let m=0;for(let x=0;x<g.W;x++)m=Math.max(m,gget(g,x,z));r.push(m);}return r;}
+function gFoot(g){return g.a.map(v=>v>0?1:0);}
+function sameArr(a,b){if(!a||!b||a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true;}
+function gEqual(a,b){return a.W===b.W&&a.D===b.D&&sameArr(a.a,b.a);}
+function gMaxH(g){let m=0;for(let i=0;i<g.a.length;i++)m=Math.max(m,g.a[i]);return m;}
+
+/** 등축 카메라(+X,+Y,+Z 방향 면이 보임)에서 세 면이 모두 이웃에 막힌 나무는 "숨은 나무"다.
+ *  +X 이웃 = (x+1,z), +Y 이웃 = 같은 칸 윗층, +Z 이웃 = (x, z-1)  ← z=0 이 앞줄이므로 +Z 는 z-1 */
+function visibleCubeCount(g){
+  let vis=0;
+  for(let z=0;z<g.D;z++)for(let x=0;x<g.W;x++){
+    const h=gget(g,x,z);
+    for(let y=0;y<h;y++){
+      const coveredX = (x+1<g.W) && gget(g,x+1,z)>y;
+      const coveredY = h>y+1;
+      const coveredZ = (z-1>=0) && gget(g,x,z-1)>y;
+      if(!(coveredX&&coveredY&&coveredZ)) vis++;
+    }
+  }
+  return vis;
+}
+function hiddenCubeCount(g){return gTotal(g)-visibleCubeCount(g);}
+
+/** 층별로 나타낸 모양: layer[k] = k+1 층에 나무가 있는 칸 마스크 */
+function gLayers(g){
+  const mx=gMaxH(g), out=[];
+  for(let k=0;k<mx;k++){const m=[];for(let i=0;i<g.a.length;i++)m.push(g.a[i]>k?1:0);out.push(m);}
+  return out;
+}
+
+/* 연결된 발자국 마스크 풀 — 전수 열거 후 필터(무작위 생성+사후검사 아님) */
+const maskPoolCache={};
+function connectedMaskPool(W,D,minC,maxC){
+  const key=W+'x'+D+'_'+minC+'_'+maxC;
+  if(maskPoolCache[key])return maskPoolCache[key];
+  const n=W*D,pool=[];
+  for(let m=1;m<(1<<n);m++){
+    let c=0;for(let i=0;i<n;i++)if(m>>i&1)c++;
+    if(c<minC||c>maxC)continue;
+    // 4방 연결 검사 (BFS)
+    let start=-1;for(let i=0;i<n;i++)if(m>>i&1){start=i;break;}
+    const seen=1<<start; let stack=[start],vis=seen,cnt=1;
+    const bit=[];bit.push(start);
+    let visited=new Set([start]);
+    while(bit.length){
+      const i=bit.pop(),x=i%W,z=(i/W)|0;
+      const nb=[[x+1,z],[x-1,z],[x,z+1],[x,z-1]];
+      for(const[nx,nz]of nb){
+        if(nx<0||nz<0||nx>=W||nz>=D)continue;
+        const j=nz*W+nx;
+        if((m>>j&1)&&!visited.has(j)){visited.add(j);bit.push(j);}
+      }
+    }
+    if(visited.size===c)pool.push(m);
+  }
+  maskPoolCache[key]=pool;
+  return pool;
+}
+function gridFromMask(W,D,mask,heights){
+  const g=mkGrid(W,D);let k=0;
+  for(let i=0;i<W*D;i++) if(mask>>i&1) g.a[i]=heights[k++];
+  return g;
+}
+
+/* ───────────────────────── 문제 생성기 ─────────────────────────
+   모든 생성은 "제약을 만족하는 후보 풀 → 셔플 → 샘플"이다.
+   높이는 무작위로 뽑아 검사하는 게 아니라, 필요한 성질(숨은 나무·유일해·
+   최소≠최대)을 **먼저 구조적으로 심고** 나머지를 채운다.                */
+
+/** 발자국 마스크와 층수 상한이 주어졌을 때 가능한 높이 배정 풀 */
+function heightPool(cells,minH,maxH,cap){
+  // cells: 칸 개수. cap: 배열(칸별 상한) 또는 null
+  const pool=[];
+  const rec=(i,acc)=>{
+    if(i===cells){pool.push(acc.slice());return;}
+    const hi=cap?Math.min(maxH,cap[i]):maxH;
+    for(let v=minH;v<=hi;v++){acc.push(v);rec(i+1,acc);acc.pop();}
+  };
+  rec(0,[]);
+  return pool;
+}
+
+/** 방 1 — 구멍 메우기: 완성된 2×2 탑에서 칸 하나를 비운다 */
+function genFill(rng){
+  const W=2,D=2;
+  const masks=connectedMaskPool(W,D,4,4);
+  const mask=masks[0];
+  // 높이 1~2 전수 풀에서, 앞·옆 실루엣이 평평하지 않은 것만
+  const pool=heightPool(4,1,2,null).filter(hs=>{
+    const g=gridFromMask(W,D,mask,hs);
+    const f=gFront(g),s=gSide(g);
+    return (Math.max.apply(null,f)!==Math.min.apply(null,f)) || (Math.max.apply(null,s)!==Math.min.apply(null,s));
+  });
+  const target=gridFromMask(W,D,mask,pick(pool,rng));
+  // 비울 칸: 비웠을 때 앞 또는 옆 실루엣이 실제로 달라지는 칸(=그림자에 구멍이 보이는 칸)
+  const f0=gFront(target),s0=gSide(target),cands=[];
+  for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+    const t=gclone(target);gset(t,x,z,0);
+    if(!sameArr(gFront(t),f0)||!sameArr(gSide(t),s0))cands.push([x,z]);
+  }
+  const hole=cands.length?pick(cands,rng):[0,0];
+  const start=gclone(target);gset(start,hole[0],hole[1],0);
+  return {W:W,D:D,maxH:2,target:target,start:start};
+}
+
+/** 방 2 — 숨은 나무: 등축에서 완전히 가려진 나무가 반드시 1개 이상 */
+function genHidden(rng){
+  const big=rng()<0.5;
+  const W=big?3:2, D=big?3:2, maxH=3;
+  // 숨은 나무를 구조적으로 심는다: (hx,hz) 는 +X 이웃과 +Z 이웃(z-1)이 있어야 한다
+  const hx=Math.floor(rng()*(W-1));           // 0..W-2  → x+1 존재
+  const hz=1+Math.floor(rng()*(D-1));         // 1..D-1  → z-1 존재
+  const g=mkGrid(W,D);
+  for(let z=0;z<D;z++)for(let x=0;x<W;x++) gset(g,x,z,1+Math.floor(rng()*maxH));
+  gset(g,hx,hz,Math.max(2,gget(g,hx,hz)));    // 위층 덮개
+  gset(g,hx+1,hz,Math.max(1,gget(g,hx+1,hz)));// +X 이웃
+  gset(g,hx,hz-1,Math.max(1,gget(g,hx,hz-1)));// +Z 이웃
+  if(gTotal(g)>20){                            // 나무 20개 상한 (교육과정 '간단한 모양')
+    for(let i=0;i<g.a.length&&gTotal(g)>20;i++) if(g.a[i]>1&&!(i===hz*W+hx)) g.a[i]--;
+  }
+  return g;
+}
+
+/** 방 3 — 필름 칠하기용 탑 */
+function genPaintTower(rng){
+  const big=rng()<0.55;
+  const W=big?3:2,D=big?2:2,maxH=3;
+  const masks=connectedMaskPool(W,D,Math.max(3,W*D-2),W*D);
+  const mask=pick(masks,rng);
+  let cells=0;for(let i=0;i<W*D;i++)if(mask>>i&1)cells++;
+  const hs=[];for(let i=0;i<cells;i++)hs.push(1+Math.floor(rng()*maxH));
+  let g=gridFromMask(W,D,mask,hs);
+  if(gMaxH(g)<2){gset(g,0,0,2);}
+  return g;
+}
+
+/** 방 4 — 세 장으로 복원: 위 필름에 수가 있으니 해는 유일하다 */
+function genRestore(rng){
+  const W=3,D=2,maxH=3;
+  const masks=connectedMaskPool(W,D,4,6);
+  const mask=pick(masks,rng);
+  let cells=0;for(let i=0;i<W*D;i++)if(mask>>i&1)cells++;
+  const pool=heightPool(cells,1,maxH,null).filter(hs=>{
+    const s=hs.reduce((a,b)=>a+b,0);
+    return s>=5&&s<=13&&Math.max.apply(null,hs)>=2;
+  });
+  return gridFromMask(W,D,mask,pick(pool,rng));
+}
+
+/** 방 5 — 층별 카드: 2~3층 탑 */
+function genLayerTower(rng){
+  const W=3,D=2;
+  const masks=connectedMaskPool(W,D,4,6);
+  const mask=pick(masks,rng);
+  let cells=0;for(let i=0;i<W*D;i++)if(mask>>i&1)cells++;
+  const pool=heightPool(cells,1,3,null).filter(hs=>{
+    const mx=Math.max.apply(null,hs);
+    return mx>=2&&hs.reduce((a,b)=>a+b,0)<=14;
+  });
+  const g=gridFromMask(W,D,mask,pick(pool,rng));
+  return g;
+}
+
+/** 방 6 — 최소/최대: 발자국 + 앞 + 옆만 주고 minN < maxN 을 보장 */
+function minCountFor(W,D,foot,front,side){
+  // 발자국 칸마다 1..cap 을 전수 탐색해 앞·옆을 모두 만족하는 최소 합을 찾는다.
+  const idx=[],cap=[];
+  for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+    if(!foot[z*W+x])continue;
+    idx.push([x,z]);cap.push(Math.min(front[x],side[z]));
+  }
+  let best=Infinity,bestG=null;
+  const g=mkGrid(W,D);
+  const rec=(i,sum)=>{
+    if(sum>=best)return;
+    if(i===idx.length){
+      if(sameArr(gFront(g),front)&&sameArr(gSide(g),side)){best=sum;bestG=gclone(g);}
+      return;
+    }
+    for(let v=1;v<=cap[i];v++){gset(g,idx[i][0],idx[i][1],v);rec(i+1,sum+v);}
+    gset(g,idx[i][0],idx[i][1],0);
+  };
+  rec(0,0);
+  return {min:best,grid:bestG};
+}
+function maxGridFor(W,D,foot,front,side){
+  const g=mkGrid(W,D);
+  for(let z=0;z<D;z++)for(let x=0;x<W;x++) if(foot[z*W+x]) gset(g,x,z,Math.min(front[x],side[z]));
+  return g;
+}
+function genMinMax(rng){
+  const shapes=[[2,2],[3,2],[2,2],[3,2],[3,3]];
+  for(let tries=0;tries<300;tries++){
+    const sh=pick(shapes,rng),W=sh[0],D=sh[1];
+    const maxH=(W*D>=9)?3:3;
+    const g=mkGrid(W,D);
+    for(let i=0;i<W*D;i++)g.a[i]=1+Math.floor(rng()*maxH);
+    const front=gFront(g),side=gSide(g),foot=gFoot(g);
+    const mg=maxGridFor(W,D,foot,front,side);
+    const maxN=gTotal(mg);
+    if(maxN>20)continue;
+    const mn=minCountFor(W,D,foot,front,side);
+    if(!isFinite(mn.min)||!mn.grid)continue;
+    if(mn.min>=maxN)continue;                     // min<max 보장 (다중해 오개념의 핵심)
+    return {W:W,D:D,maxH:Math.max.apply(null,front),foot:foot,front:front,side:side,
+            minN:mn.min,maxN:maxN,minGrid:mn.grid,maxGrid:mg};
+  }
+  // 폴백: 기획서 예시 (2×2, 앞[2,2], 옆[2,2] → 최대 8, 최소 6)
+  const W=2,D=2,g=mkGrid(2,2);g.a=[2,1,1,2];
+  const front=gFront(g),side=gSide(g),foot=gFoot(g);
+  const mg=maxGridFor(W,D,foot,front,side);
+  const mn=minCountFor(W,D,foot,front,side);
+  return {W:W,D:D,maxH:2,foot:foot,front:front,side:side,minN:mn.min,maxN:gTotal(mg),
+          minGrid:mn.grid,maxGrid:mg};
+}
+
+/* ───────────── 오답 만들기 — 전부 오개념 역산 ─────────────
+   misconception A : 보이는 나무만 세고 숨은 나무를 빠뜨린다
+   misconception B : 위에서 본 수를 층수가 아닌 다른 뜻으로 읽는다
+                     (B1 칸 수, B2 가장 큰 수)
+   misconception C : 옆에서 본 모양의 좌우를 반대로 그린다
+   misconception D : 세 장이 같으면 쌓는 법이 하나뿐이라고 생각한다
+   misconception E : 층별 모양을 겹쳐 하나의 납작한 그림으로 합친다   */
+function countChoices(g,rng){
+  const answer=gTotal(g);
+  const mis_A_visibleOnly = visibleCubeCount(g);                 // 숨은 나무 누락
+  let cells=0;for(let i=0;i<g.a.length;i++)if(g.a[i]>0)cells++;
+  const mis_B1_cellCount  = cells;                               // 수를 '칸 수'로 읽음
+  const mis_B2_maxDigit   = gMaxH(g);                            // 수를 '가장 큰 수'로 읽음
+  const mis_A2_topPlusOne = mis_A_visibleOnly+1;                 // 하나만 더 세다 만 경우
+  const raw=[
+    {v:mis_A_visibleOnly,why:'보이는 것만 셈'},
+    {v:mis_B1_cellCount, why:'칸 수로 셈'},
+    {v:mis_B2_maxDigit,  why:'가장 큰 수만 봄'},
+    {v:mis_A2_topPlusOne,why:'숨은 나무를 덜 셈'},
+    {v:answer+1,         why:'하나 더 셈'},
+    {v:answer-1,         why:'하나 덜 셈'}
+  ];
+  const out=[],seen=new Set([answer]);
+  for(const c of raw){                       // 정답 제거 → 범위 검사 → 중복 제거
+    if(c.v===answer)continue;
+    if(!(c.v>=1&&c.v<=40))continue;
+    if(seen.has(c.v))continue;
+    seen.add(c.v);out.push(c);
+    if(out.length>=3)break;
+  }
+  let pad=answer+2;                          // 부족분 보충
+  while(out.length<3){
+    if(!seen.has(pad)&&pad>=1){seen.add(pad);out.push({v:pad,why:'보충'});}
+    pad++;
+  }
+  const all=out.slice(0,3).map(c=>({v:c.v,why:c.why,correct:false}));
+  all.push({v:answer,why:'정답',correct:true});
+  return shuffle(all,rng);                   // 셔플
+}
+
+/* ───────────────────────── 사운드 ───────────────────────── */
+const Sound={
+  ctx:null, muted:false, ready:false,
+  init(){
+    if(this.ctx)return;
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC)return;
+      this.ctx=new AC();
+      this.master=this.ctx.createGain();
+      this.master.gain.value=0.32;
+      this.master.connect(this.ctx.destination);
+      this.ready=true;
+    }catch(e){ this.ready=false; }
+  },
+  resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume().catch(function(){}); },
+  tone(freq,dur,type,vol,delay,slideTo){
+    if(!this.ready||this.muted)return;
+    try{
+      const c=this.ctx,t0=c.currentTime+(delay||0);
+      const o=c.createOscillator(),g=c.createGain();
+      o.type=type||'triangle';
+      o.frequency.setValueAtTime(freq,t0);
+      if(slideTo)o.frequency.exponentialRampToValueAtTime(Math.max(40,slideTo),t0+dur);
+      g.gain.setValueAtTime(0.0001,t0);
+      g.gain.exponentialRampToValueAtTime(vol||0.3,t0+0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+      o.connect(g);g.connect(this.master);o.start(t0);o.stop(t0+dur+0.03);
+    }catch(e){}
+  },
+  noise(dur,vol,freq){
+    if(!this.ready||this.muted)return;
+    try{
+      const c=this.ctx,n=Math.floor(c.sampleRate*dur);
+      const buf=c.createBuffer(1,n,c.sampleRate),d=buf.getChannelData(0);
+      for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2.4);
+      const s=c.createBufferSource();s.buffer=buf;
+      const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=freq||900;f.Q.value=1.1;
+      const g=c.createGain();g.gain.value=vol||0.25;
+      s.connect(f);f.connect(g);g.connect(this.master);s.start();
+    }catch(e){}
+  },
+  place(){ this.noise(0.12,0.30,520); this.tone(220,0.10,'square',0.14,0,150); },
+  remove(){ this.tone(300,0.10,'sine',0.14,0,170); },
+  lamp(n){ this.tone(660*Math.pow(1.06,n||0),0.16,'triangle',0.20); },
+  tick(i){ this.tone(520+((i||0)%6)*70,0.07,'sine',0.15); },
+  good(){ [0,0.07,0.14,0.24].forEach((d,i)=>this.tone([523,659,784,1047][i],0.34,'triangle',0.26,d)); this.noise(0.3,0.16,2600); },
+  star(i){ this.tone([784,988,1319][i%3],0.4,'sine',0.24,0.06*i); },
+  bad(){ this.tone(190,0.28,'sawtooth',0.20,0,90); this.noise(0.16,0.14,300); },
+  shutter(){ this.noise(0.07,0.30,3200); this.noise(0.09,0.22,1400); }
+};
+
+/* ───────────────────────── 이미지 ───────────────────────── */
+const IMG={bg:null,hero:null,heroCut:null,ok:{}};
+function loadImg(key,src){
+  const im=new Image();
+  im.onload=function(){
+    IMG[key]=im;IMG.ok[key]=true;
+    if(key==='hero')makeHeroCut(im);
+    if(key==='bg'&&CW>0){bakeBG();sceneCache.key='';}   // 로드 전에 이미 구웠으면 다시 굽는다
+    sceneCache.key='';
+  };
+  im.onerror=function(){IMG.ok[key]=false;IMG[key]=null;};
+  im.src=src;
+}
+/** hero.png 는 흰 배경 위 단일 캐릭터라 흰색을 빼서 컷아웃을 만든다 */
+function makeHeroCut(im){
+  try{
+    const s=360,c=document.createElement('canvas');c.width=s;c.height=s;
+    const x=c.getContext('2d');x.drawImage(im,0,0,s,s);
+    const d=x.getImageData(0,0,s,s),p=d.data;
+    for(let i=0;i<p.length;i+=4){
+      const r=p[i],g=p[i+1],b=p[i+2];
+      const mn=Math.min(r,g,b),mx=Math.max(r,g,b);
+      if(mn>228&&mx-mn<16){p[i+3]=0;}
+      else if(mn>206&&mx-mn<26){p[i+3]=Math.round(p[i+3]*((228-mn)/22));}
+    }
+    x.putImageData(d,0,0);
+    IMG.heroCut=c;
+  }catch(e){IMG.heroCut=null;}
+}
+loadImg('bg','./assets/bg.png');
+loadImg('hero','./assets/hero.png');
+
+/* ───────────────────────── 방 정의 ───────────────────────── */
+const ROOMS=[
+  {id:1,name:'구멍 메우기',  short:'구멍',   desc:'앞 그림자에 뚫린 구멍을 메워라',      rounds:['FILL','FILL']},
+  {id:2,name:'투시등',      short:'투시등', desc:'숨은 나무까지 빠짐없이 세기',        rounds:['COUNT','COUNT']},
+  {id:3,name:'사진관',      short:'사진관', desc:'탑을 보고 필름을 직접 칠하기',       rounds:['PAINT','PAINT']},
+  {id:4,name:'복원 공방',    short:'복원',   desc:'세 장 사진만 보고 탑을 되살리기',    rounds:['BUILD','BUILD','REASON']},
+  {id:5,name:'층 카드',      short:'층 카드',desc:'층별 모양으로 앞모양 알아내기',      rounds:['LAYERS','LAYERS']},
+  {id:6,name:'최소와 최대',  short:'최소·최대',desc:'같은 세 장, 가장 적게 · 가장 많게', rounds:['MINMIN','MAXMAX','REASON']}
+];
+
+/* ───────────────────────── 상태 ───────────────────────── */
+const SAVE_KEY='tri-cut-tower.save.v1';
+const save={stars:[0,0,0,0,0,0],best:{},unlocked:1,totalScore:0};
+(function loadSave(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(raw){const o=JSON.parse(raw);
+      if(Array.isArray(o.stars)&&o.stars.length===6)save.stars=o.stars.map(v=>clamp(v|0,0,3));
+      if(o.best&&typeof o.best==='object')save.best=o.best;
+      save.unlocked=clamp(o.unlocked|0,1,6)||1;
+      save.totalScore=o.totalScore|0;}
+  }catch(e){}
+})();
+function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(e){}}
+
+const S={
+  phase:'title',        // title | map | playing | celebrate | result
+  hard:false,
+  roomIdx:0, roundIdx:0,
+  score:0, lives:3, solved:0, combo:0,
+  round:null,
+  camView:'iso',
+  shake:0, shakeMag:0, flash:0, flashCol:'#fff',
+  timeScale:1, hitStop:0,
+  parts:[], motes:[], lamps:[], films:[], flyFilms:[],
+  xray:{on:false,t:0,lit:0,last:-1},
+  ghost:null, ghostT:0,
+  toastT:0,
+  roomStarsRun:[],
+  bump:{}, scoreShow:0
+};
+
+/* ───────────────────────── 캔버스 ───────────────────────── */
+const cv=document.getElementById('cv');
+let ctx=cv.getContext('2d',{alpha:false});
+let CW=0,CH=0,DPR=1;
+let bgBake=null;                      // 정적 배경은 오프스크린에 한 번만 굽는다 (SW 렌더링 대비)
+
+/* 소프트웨어 렌더링(QA 헤드리스)에서도 60fps 를 지키려고 정적인 레이어를 전부 구워 둔다.
+   · filmsCache : 필름 패널 — 격자/필름이 바뀔 때만 다시 그린다
+   · sceneCache : 배경 + 필름 + 3D 스테이지 — 카메라가 멈추면 매 프레임 블릿 한 번으로 끝난다
+   매 프레임 살아 있는 것은 마스코트·선택지·톱밥·먼지·플래시뿐이다. */
+const filmsCache={c:null,key:'',w:0,h:0};
+const sceneCache={c:null,key:''};
+function mkOff(w,h,opaque){
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(w*DPR));c.height=Math.max(1,Math.round(h*DPR));
+  // 불투명 캔버스는 소프트웨어 합성에서 알파 블렌딩을 건너뛰어 훨씬 빠르다
+  c.__x=c.getContext('2d',opaque?{alpha:false}:undefined);
+  return c;
+}
+/** 전역 ctx 를 잠시 오프스크린으로 갈아 끼운다 (그리기 함수들이 전부 전역 ctx 를 쓴다) */
+function withCtx(c,fn){const old=ctx;ctx=c;try{fn();}finally{ctx=old;}}
+function invalidateScene(){sceneCache.key='';}
+function invalidateFilms(){filmsCache.key='';sceneCache.key='';}
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  CW=Math.max(280,Math.floor(window.innerWidth));
+  CH=Math.max(360,Math.floor(window.innerHeight));
+  cv.width=Math.floor(CW*DPR);cv.height=Math.floor(CH*DPR);
+  cv.style.width=CW+'px';cv.style.height=CH+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  bakeBG();
+  layout();
+  seedMotes();
+  filmsCache.c=null;filmsCache.key='';sceneCache.c=null;sceneCache.key='';
+}
+window.addEventListener('resize',resize);
+if(window.visualViewport)window.visualViewport.addEventListener('resize',resize);
+
+function bakeBG(){
+  const c=document.createElement('canvas');
+  c.width=Math.floor(CW*DPR);c.height=Math.floor(CH*DPR);
+  const x=c.getContext('2d',{alpha:false});
+  x.setTransform(DPR,0,0,DPR,0,0);
+  // 하늘빛 → 크림 → 나무 그라디언트 (이미지 없어도 성립)
+  const g=x.createLinearGradient(0,0,0,CH);
+  g.addColorStop(0,'#e6f5fc');g.addColorStop(.42,'#f7efe0');g.addColorStop(1,'#dcbc86');
+  x.fillStyle=g;x.fillRect(0,0,CW,CH);
+  if(IMG.bg){
+    const iw=IMG.bg.width,ih=IMG.bg.height;
+    const s=Math.max(CW/iw,CH/ih);
+    const w=iw*s,h=ih*s;
+    x.globalAlpha=0.92;
+    x.drawImage(IMG.bg,(CW-w)/2,(CH-h)*0.42,w,h);
+    x.globalAlpha=1;
+    // 위·아래를 눌러 UI 가독성 확보
+    const v=x.createLinearGradient(0,0,0,CH);
+    v.addColorStop(0,'rgba(240,250,255,.55)');v.addColorStop(.30,'rgba(255,250,240,.10)');
+    v.addColorStop(.72,'rgba(90,52,16,.10)');v.addColorStop(1,'rgba(60,32,8,.44)');
+    x.fillStyle=v;x.fillRect(0,0,CW,CH);
+  }else{
+    // 코드 드로잉 폴백 — 창문·벽·작업대
+    x.fillStyle='rgba(215,238,247,.85)';
+    rr(x,CW*0.06,CH*0.05,CW*0.36,CH*0.20,16);x.fill();
+    x.strokeStyle='#b98d4e';x.lineWidth=6;x.stroke();
+    x.fillStyle='rgba(90,52,16,.10)';x.fillRect(0,CH*0.55,CW,CH*0.45);
+  }
+  bgBake=c;
+}
+
+/* 먼지(톱밥) 앰비언트 */
+function seedMotes(){
+  S.motes=[];
+  const n=REDUCED?10:18;
+  for(let i=0;i<n;i++)S.motes.push({x:Math.random()*CW,y:Math.random()*CH,
+    r:0.8+Math.random()*2.0,vx:(Math.random()*0.22-0.05),vy:-(0.05+Math.random()*0.18),
+    a:0.16+Math.random()*0.30,ph:Math.random()*TAU});
+}
+
+/* ───────────────────────── 레이아웃 ───────────────────────── */
+const L={films:{x:0,y:0,w:0,h:0},stage:{x:0,y:0,w:0,h:0},land:false};
+function layout(){
+  const hudH=56+(hasNotch()?12:0);
+  const ctlH=(document.getElementById('ctl').classList.contains('hide'))?10:124;
+  L.land=(CW/CH)>1.18;
+  if(L.land){
+    const colW=clamp(CW*0.30,240,400);
+    L.films={x:10,y:hudH+6,w:colW,h:CH-hudH-ctlH-14};
+    L.stage={x:colW+18,y:hudH+2,w:CW-colW-28,h:CH-hudH-ctlH-8};
+  }else{
+    const fh=clamp(CW*0.42,132,208);
+    L.films={x:9,y:hudH+4,w:CW-18,h:fh};
+    L.stage={x:0,y:hudH+fh+8,w:CW,h:CH-(hudH+fh+8)-ctlH-2};
+  }
+  if(L.stage.h<140){const d=140-L.stage.h;L.films.h=Math.max(96,L.films.h-d);
+    L.stage.y=L.films.y+L.films.h+8;L.stage.h=CH-L.stage.y-ctlH-2;}
+  L.stamp=[L.films.x,L.films.y,L.films.w,L.films.h,L.stage.x,L.stage.y,L.stage.w,L.stage.h].map(Math.round).join(',');
+  filmsCache.key='';sceneCache.key='';
+}
+function hasNotch(){
+  try{const v=getComputedStyle(document.documentElement).getPropertyValue('--x');}catch(e){}
+  return (window.screen&&window.screen.height>800&&/iPhone|iPad/.test(navigator.userAgent));
+}
+
+/* ───────────────────────── 카메라 (직교 투영) ─────────────────────────
+   정사영이 학습 주제이므로 원근이 아니라 **직교 투영**을 쓴다.
+   위/앞/옆 웨이포인트로만 점프하고 자유 비행은 없다(멀미·길잃음 방지).  */
+const VIEWS={
+  iso:  {th: 34*D2R, ph: 30*D2R},
+  top:  {th:  0,     ph: 89.2*D2R},
+  front:{th:  0,     ph:  0},
+  side: {th: 90*D2R, ph:  0}
+};
+const cam={th:VIEWS.iso.th,ph:VIEWS.iso.ph,fromTh:0,fromPh:0,toTh:0,toPh:0,t:1,dur:0.62,scale:40,tScale:40};
+function camGoto(v){
+  const w=VIEWS[v]||VIEWS.iso;
+  S.camView=v;
+  cam.fromTh=cam.th;cam.fromPh=cam.ph;
+  cam.toTh=w.th;cam.toPh=w.ph;
+  cam.t=0;
+  updateViewBtns();
+}
+function camUpdate(dt){
+  if(cam.t<1){
+    cam.t=Math.min(1,cam.t+dt/cam.dur);
+    const e=REDUCED?easeOutCubic(cam.t):easeOutBack(cam.t);   // 살짝 지나쳤다 스프링으로 잠김
+    cam.th=lerp(cam.fromTh,cam.toTh,e);
+    cam.ph=lerp(cam.fromPh,cam.toPh,e);
+  }
+}
+function camBasis(th,ph){
+  const ct=Math.cos(th),st=Math.sin(th),cp=Math.cos(ph),sp=Math.sin(ph);
+  const d=[st*cp,sp,ct*cp];
+  let r=[d[2],0,-d[0]];
+  const rl=Math.hypot(r[0],r[2])||1;r=[r[0]/rl,0,r[2]/rl];
+  const u=[d[1]*r[2]-d[2]*r[1], d[2]*r[0]-d[0]*r[2], d[0]*r[1]-d[1]*r[0]];
+  return {d:d,r:r,u:u};
+}
+let BAS=camBasis(cam.th,cam.ph);
+let ORIGIN={x:0,y:0};
+function proj(p){
+  return {x:ORIGIN.x+(p[0]*BAS.r[0]+p[1]*BAS.r[1]+p[2]*BAS.r[2])*cam.scale,
+          y:ORIGIN.y-(p[0]*BAS.u[0]+p[1]*BAS.u[1]+p[2]*BAS.u[2])*cam.scale};
+}
+function depth(p){return p[0]*BAS.d[0]+p[1]*BAS.d[1]+p[2]*BAS.d[2];}
+function worldOf(W,D,x,z,y){return [x-(W-1)/2, y, (D-1)/2-z];}
+
+/* ───────────────────────── 라운드 만들기 ───────────────────────── */
+let rngSeed=(Date.now()^0x9e3779b9)>>>0;
+function nextRng(){rngSeed=(rngSeed*1664525+1013904223)>>>0;return mulberry32(rngSeed);}
+
+function buildRound(roomIdx,roundIdx){
+  const room=ROOMS[roomIdx];
+  const kind=room.rounds[Math.min(roundIdx,room.rounds.length-1)];
+  const rng=nextRng();
+  const R={nonce:(buildRound.n=(buildRound.n|0)+1),
+           kind:kind,room:room,attempts:0,W:2,D:2,maxH:3,editable:false,
+           grid:null,target:null,solution:null,showTopNums:true,
+           films:null,paint:null,mcq:null,required:null,footOnly:false,
+           title:'',hint:'',minN:0,maxN:0,done:false};
+
+  if(kind==='FILL'){
+    const q=genFill(rng);
+    R.W=q.W;R.D=q.D;R.maxH=q.maxH;R.target=q.target;R.solution=q.target;
+    R.grid=q.start;R.editable=true;R.showTopNums=true;
+    R.title='의뢰 1 · 구멍 난 탑';
+    R.hint='앞 그림자에 구멍이 났어! 빈 칸을 눌러 나무를 올려줘.';
+  }
+  else if(kind==='COUNT'){
+    const g=genHidden(rng);
+    R.W=g.W;R.D=g.D;R.maxH=gMaxH(g);R.target=g;R.solution=g;R.grid=g;
+    R.editable=false;
+    const ch=countChoices(g,rng);
+    R.mcq={q:'이 탑에 쓴 쌓기나무는 모두 몇 개일까?',
+           kind:'num',
+           choices:ch.map(c=>({label:c.v+'개',value:c.v,correct:c.correct,why:c.why})),
+           after:'뒤에 숨은 나무까지 세야 해. 투시등을 쓸어 보자!'};
+    R.title='의뢰 2 · 숨은 나무';
+    R.hint='투시등🔦을 눌러 빛을 쓸면 숨은 나무까지 보여!';
+  }
+  else if(kind==='PAINT'){
+    const g=genPaintTower(rng);
+    R.W=g.W;R.D=g.D;R.maxH=gMaxH(g);R.target=g;R.solution=g;R.grid=g;R.editable=false;
+    const which=(roundIdx===0)?'side':'top';   // 좌우 반전 함정을 반드시 한 번 겪게 한다
+    R.paint={film:which,cur:null,correct:null};
+    if(which==='top'){R.paint.cur=new Array(g.W*g.D).fill(0);R.paint.correct=g.a.slice();}
+    else if(which==='front'){R.paint.cur=new Array(g.W).fill(0);R.paint.correct=gFront(g);}
+    else {R.paint.cur=new Array(g.D).fill(0);R.paint.correct=gSide(g);}
+    R.title='의뢰 3 · 필름 칠하기';
+    R.hint=which==='top'?'위에서 본 모양! 칸을 눌러 층수를 써 넣어.'
+         : which==='front'?'앞에서 본 모양을 칠해 봐.'
+         : '오른쪽 옆에서 본 모양이야. 앞쪽이 필름의 왼쪽!';
+  }
+  else if(kind==='BUILD'){
+    const g=genRestore(rng);
+    R.W=g.W;R.D=g.D;R.maxH=Math.max(3,gMaxH(g));R.target=g;R.solution=g;
+    R.grid=mkGrid(g.W,g.D);R.editable=true;R.showTopNums=true;
+    R.title='의뢰 4 · 세 장으로 복원';
+    R.hint='세 장 사진이 모두 맞을 때까지 쌓아 봐!';
+  }
+  else if(kind==='LAYERS'){
+    const g=genLayerTower(rng);
+    R.W=g.W;R.D=g.D;R.maxH=gMaxH(g);R.target=g;R.solution=g;R.grid=g;R.editable=false;
+    R.layers=gLayers(g);
+    const correct=gFront(g);
+    // misconception E : 층 카드를 한 장으로 겹쳐 납작하게 만든 그림
+    const mis_E_flat=correct.map(v=>v>0?1:0);
+    // "겹치면 더한다" — 층마다의 칸을 세로로 더해 버린 그림
+    const mis_E_sum=[];
+    for(let x=0;x<g.W;x++){let s=0;for(let z=0;z<g.D;z++)s+=gget(g,x,z);mis_E_sum.push(Math.min(s,R.maxH+1));}
+    // misconception C : 좌우를 뒤집어 그린 그림
+    const mis_C_mirror=correct.slice().reverse();
+    const cands=[];
+    const key=a=>a.join('-');
+    const seen=new Set([key(correct)]);
+    [[mis_E_flat,'층을 납작하게 겹침'],[mis_E_sum,'층수를 더해 버림'],[mis_C_mirror,'좌우를 뒤집음']]
+      .forEach(function(p){if(!seen.has(key(p[0]))){seen.add(key(p[0]));cands.push({arr:p[0],why:p[1]});}});
+    let bump=0;
+    while(cands.length<3){                                   // 부족분 보충
+      const alt=correct.map((v,i)=>clamp(i===bump%correct.length?v+1:v,0,R.maxH+1));
+      if(!seen.has(key(alt))){seen.add(key(alt));cands.push({arr:alt,why:'보충'});}
+      bump++;if(bump>12)break;
+    }
+    const opts=cands.slice(0,3).map(c=>({arr:c.arr,correct:false,why:c.why}));
+    opts.push({arr:correct,correct:true,why:'정답'});
+    R.mcq={q:'층별 모양을 보고 앞에서 본 모양을 고르자',kind:'film',
+           choices:shuffle(opts,rng),after:'앞에서 본 모양은 줄마다 가장 높은 층이야.'};
+    R.title='의뢰 5 · 층 카드';
+    R.hint='층 카드를 겹쳐 납작하게 만들면 안 돼!';
+  }
+  else if(kind==='MINMIN'||kind==='MAXMAX'){
+    const q=(S.mmCache&&S.mmCache.roomRun===S.runId)?S.mmCache.q:genMinMax(rng);
+    S.mmCache={roomRun:S.runId,q:q};
+    R.W=q.W;R.D=q.D;R.maxH=q.maxH;R.footOnly=true;R.showTopNums=false;
+    R.foot=q.foot;R.front=q.front;R.side=q.side;
+    R.minN=q.minN;R.maxN=q.maxN;
+    R.grid=mkGrid(q.W,q.D);R.editable=true;
+    if(kind==='MINMIN'){R.required=q.minN;R.solution=q.minGrid;R.title='의뢰 6 · 가장 적게';
+      R.hint='같은 세 장 사진! 나무를 **가장 적게** 써서 쌓아 봐.';}
+    else{R.required=q.maxN;R.solution=q.maxGrid;R.title='의뢰 6 · 가장 많게';
+      R.hint='이번엔 같은 사진으로 **가장 많이** 쌓아 봐!';}
+  }
+  else if(kind==='REASON'){
+    const set=(roomIdx===5)?[
+      {t:'같은 사진이어도 안쪽 층수는 달라질 수 있어',correct:true},
+      {t:'세 장이 같으면 쌓는 법은 하나뿐이야',correct:false,why:'다중해를 모름'},
+      {t:'위에서 본 모양의 수는 칸의 개수를 뜻해',correct:false,why:'수의 뜻 오해'},
+      {t:'옆에서 본 모양은 앞에서 본 모양을 뒤집은 거야',correct:false,why:'좌우 반전 오개념'}
+    ]:[
+      {t:'위에서 본 모양의 수는 그 자리에 쌓은 층수야',correct:true},
+      {t:'위에서 본 모양의 수는 나무가 놓인 칸 수야',correct:false,why:'수의 뜻 오해'},
+      {t:'보이는 나무만 세면 전체 개수가 나와',correct:false,why:'숨은 나무 누락'},
+      {t:'앞에서 본 모양은 층별 모양을 겹쳐 납작하게 만든 거야',correct:false,why:'층 겹침 오개념'}
+    ];
+    R.mcq={q:'왜 그럴까? 맞는 설명을 골라 보자',kind:'text',
+           choices:shuffle(set.map(o=>({label:o.t,correct:o.correct,why:o.why||'정답'})),rng),
+           after:'좋아! 이게 세 장 사진의 약속이야.'};
+    R.W=2;R.D=2;R.maxH=2;R.grid=mkGrid(2,2);R.target=null;R.editable=false;
+    R.title='보너스 · 이유 카드';
+    R.hint='';
+  }
+
+  // 필름(의뢰 사진) 계산 — 문장·판정·연출이 모두 이 한 모델에서 나온다
+  if(R.solution&&R.kind!=='REASON'){
+    R.films={top:R.solution.a.slice(),front:gFront(R.solution),side:gSide(R.solution)};
+  }
+  if(R.footOnly){R.films={top:R.foot.slice(),front:R.front,side:R.side};}
+  R.lampsOn=[];
+  return R;
+}
+
+/* ───────────────────────── 판정 ───────────────────────── */
+function checkRound(R){
+  if(R.kind==='FILL'||R.kind==='BUILD'){
+    return gEqual(R.grid,R.solution);
+  }
+  if(R.kind==='MINMIN'||R.kind==='MAXMAX'){
+    const f=gFoot(R.grid);
+    if(!sameArr(f,R.foot))return false;
+    if(!sameArr(gFront(R.grid),R.front))return false;
+    if(!sameArr(gSide(R.grid),R.side))return false;
+    return gTotal(R.grid)===R.required;
+  }
+  if(R.kind==='PAINT'){return sameArr(R.paint.cur,R.paint.correct);}
+  return false;
+}
+/** 필름 칸별 상태: 0 맞음 / 1 부족 / 2 초과 / -1 해당없음 */
+function filmState(R,which,i,level){
+  if(!R.films)return -1;
+  if(which==='top'){
+    const cur=R.grid?R.grid.a[i]:0;
+    const tgt=R.footOnly?(R.films.top[i]?-1:0):R.films.top[i];
+    if(R.footOnly){
+      const want=R.foot[i];
+      if(want&&cur>0)return 0;
+      if(want&&cur===0)return 1;
+      if(!want&&cur>0)return 2;
+      return -1;
+    }
+    if(cur===tgt)return 0;
+    return cur<tgt?1:2;
+  }
+  const curArr=which==='front'?gFront(R.grid):gSide(R.grid);
+  const tgtArr=which==='front'?R.films.front:R.films.side;
+  const cur=curArr[i]||0,tgt=tgtArr[i]||0;
+  if(level!=null){
+    const inCur=level<cur,inTgt=level<tgt;
+    if(inCur&&inTgt)return 0;
+    if(!inCur&&inTgt)return 1;
+    if(inCur&&!inTgt)return 2;
+    return -1;
+  }
+  if(cur===tgt)return 0;
+  return cur<tgt?1:2;
+}
+
+/* ───────────────────────── 연출 ───────────────────────── */
+function shake(mag){S.shake=Math.max(S.shake,0.30);S.shakeMag=Math.max(S.shakeMag,mag*MOT);}
+function flash(col,amt){S.flash=Math.max(S.flash,amt*MOT);S.flashCol=col;}
+function hitstop(ms){S.hitStop=Math.max(S.hitStop,ms/1000);}
+function burst(x,y,n,col,spd,life){
+  n=Math.round(n*(REDUCED?0.45:1));
+  for(let i=0;i<n;i++){
+    const a=Math.random()*TAU,s=(spd||140)*(0.35+Math.random());
+    S.parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-40,g:340,
+      r:1.6+Math.random()*3.4,life:life||0.85,t:0,col:col||'#e8c27a',rot:Math.random()*TAU,vr:(Math.random()-.5)*8});
+  }
+}
+function toast(msg,cls,dur){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='show'+(cls?' '+cls:'');
+  S.toastT=dur||1.9;
+}
+function tickToast(dt){
+  if(S.toastT>0){S.toastT-=dt;if(S.toastT<=0)document.getElementById('toast').className='';}
+}
+
+/* ───────────────────────── 렌더: 3D 스테이지 ───────────────────────── */
+const hit={cells:[],films:[],choices:[]};
+
+/** 바운딩 박스 8점을 스케일 1로 투영해 화면 맞춤 범위를 구한다 */
+function stageExtent(R){
+  const W=R.W,D=R.D,H=Math.max(R.maxH,gMaxH(R.grid||mkGrid(1,1)),2);
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  const sv=cam.scale;cam.scale=1;const so=ORIGIN;ORIGIN={x:0,y:0};
+  for(const sx of [-0.5,W-0.5])for(const sz of [-0.5,D-0.5])for(const sy of [0,H]){
+    const q=proj([sx-(W-1)/2, sy, (D-1)/2-sz]);
+    minX=Math.min(minX,q.x);maxX=Math.max(maxX,q.x);minY=Math.min(minY,q.y);maxY=Math.max(maxY,q.y);
+  }
+  cam.scale=sv;ORIGIN=so;
+  return {minX:minX,maxX:maxX,minY:minY,maxY:maxY};
+}
+/** 3D 를 실제로 앉힐 영역 — COUNT 는 하단 선택지 띠를 비워 둔다 */
+function stage3dRect(R){
+  const s=L.stage;
+  if(R&&R.kind==='COUNT')return {x:s.x,y:s.y,w:s.w,h:Math.max(120,s.h-choiceBandH()-14)};
+  return s;
+}
+function choiceBandH(){return Math.min(62,L.stage.h*0.20);}
+/** 카메라 기저·스케일·원점 갱신 (그리기 전에 한 번, 캐시 키 계산의 근거) */
+function updateStage(dt){
+  const R=S.round;if(!R)return;
+  BAS=camBasis(cam.th,cam.ph);
+  if(R.kind==='LAYERS'||R.kind==='REASON')return;
+  const rect=stage3dRect(R),ex=stageExtent(R);
+  const w=Math.max(0.6,ex.maxX-ex.minX),h=Math.max(0.6,ex.maxY-ex.minY);
+  cam.tScale=Math.min((rect.w*0.80)/w,(rect.h*0.80)/h);
+  cam.scale=lerp(cam.scale,cam.tScale,Math.min(1,dt*9));
+  if(Math.abs(cam.scale-cam.tScale)<0.05)cam.scale=cam.tScale;
+  ORIGIN={x:rect.x+rect.w/2-(ex.minX+ex.maxX)/2*cam.scale,
+          y:rect.y+rect.h/2-(ex.minY+ex.maxY)/2*cam.scale};
+}
+
+const FACES=[
+  {n:[0,1,0], v:[[-.5,.5,-.5],[.5,.5,-.5],[.5,.5,.5],[-.5,.5,.5]], sh:1.00},  // 위
+  {n:[0,0,1], v:[[-.5,-.5,.5],[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5]], sh:0.82},  // 앞(+Z)
+  {n:[1,0,0], v:[[.5,-.5,-.5],[.5,-.5,.5],[.5,.5,.5],[.5,.5,-.5]], sh:0.63},  // 옆(+X)
+  {n:[0,0,-1],v:[[-.5,-.5,-.5],[.5,-.5,-.5],[.5,.5,-.5],[-.5,.5,-.5]],sh:0.70},
+  {n:[-1,0,0],v:[[-.5,-.5,-.5],[-.5,-.5,.5],[-.5,.5,.5],[-.5,.5,-.5]],sh:0.55},
+  {n:[0,-1,0],v:[[-.5,-.5,-.5],[.5,-.5,-.5],[.5,-.5,.5],[-.5,-.5,.5]],sh:0.42}
+];
+function shade(hex,k){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  const m=(v)=>clamp(Math.round(v*k+255*(1-k)*0.14),0,255);
+  return 'rgb('+m(r)+','+m(g)+','+m(b)+')';
+}
+
+function drawStage(dt){
+  const R=S.round;if(!R)return;
+  const rect=L.stage;
+  if(R.kind==='LAYERS'||R.kind==='REASON')return;
+
+  ctx.save();
+  ctx.beginPath();ctx.rect(rect.x,rect.y,rect.w,rect.h);ctx.clip();
+
+  const W=R.W,D=R.D,G=R.grid||mkGrid(W,D);
+
+  // ── 작업대 (바닥판)
+  const pad=0.5;
+  const corners=[[-(W-1)/2-pad,0,(D-1)/2+pad],[(W-1)/2+pad,0,(D-1)/2+pad],
+                 [(W-1)/2+pad,0,-(D-1)/2-pad],[-(W-1)/2-pad,0,-(D-1)/2-pad]];
+  ctx.beginPath();
+  corners.forEach((p,i)=>{const q=proj(p);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});
+  ctx.closePath();
+  ctx.fillStyle='rgba(255,248,232,.90)';ctx.fill();
+  ctx.lineWidth=3;ctx.strokeStyle='#b98d4e';ctx.stroke();
+
+  // 격자선 + 빈 칸 표시
+  hit.cells.length=0;
+  ctx.lineWidth=1.6;ctx.strokeStyle='rgba(160,120,70,.55)';
+  for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+    const q=[proj(worldOf(W,D,x,z,0).map((v,i)=>v+[-0.5,0,0.5][i])),
+             proj([x-(W-1)/2+0.5,0,(D-1)/2-z+0.5]),
+             proj([x-(W-1)/2+0.5,0,(D-1)/2-z-0.5]),
+             proj([x-(W-1)/2-0.5,0,(D-1)/2-z-0.5])];
+    ctx.beginPath();q.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();
+    const inFoot=R.footOnly?R.foot[z*W+x]:(R.films?(R.films.top[z*W+x]>0?1:0):1);
+    if(R.editable&&inFoot&&gget(G,x,z)===0){ctx.fillStyle='rgba(217,138,43,.16)';ctx.fill();}
+    ctx.stroke();
+  }
+  // 정오 그림자 (짧고 선명하게 — 정사영 학습을 방해하지 않게)
+  for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+    if(gget(G,x,z)<=0)continue;
+    const ox=0.16,oz=-0.16;
+    const c=[[x-(W-1)/2-0.46+ox,0.01,(D-1)/2-z+0.46+oz],[x-(W-1)/2+0.54+ox,0.01,(D-1)/2-z+0.46+oz],
+             [x-(W-1)/2+0.54+ox,0.01,(D-1)/2-z-0.54+oz],[x-(W-1)/2-0.46+ox,0.01,(D-1)/2-z-0.54+oz]];
+    ctx.beginPath();c.forEach((p,i)=>{const q=proj(p);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});ctx.closePath();
+    ctx.fillStyle='rgba(90,52,16,.20)';ctx.fill();
+  }
+
+  // 쌓을 공간 안내 상자 — 편집 가능한 방에서만, 칸별 정보는 주지 않는다
+  if(R.editable){
+    const HH=Math.max(2,R.footOnly?Math.max.apply(null,R.front):(R.films?Math.max.apply(null,R.films.top):2));
+    const bx=[-(W-1)/2-0.5,(W-1)/2+0.5], bz=[-(D-1)/2-0.5,(D-1)/2+0.5];
+    const E=[[0,0,0,1],[1,0,1,1],[0,1,0,0],[1,1,1,0]];
+    ctx.save();ctx.setLineDash([6,5]);ctx.lineWidth=1.6;ctx.strokeStyle='rgba(120,88,44,.34)';
+    for(let i=0;i<2;i++)for(let j=0;j<2;j++){
+      const a=proj([bx[i],0,bz[j]]),b=proj([bx[i],HH,bz[j]]);
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    }
+    ctx.beginPath();
+    [[0,0],[1,0],[1,1],[0,1]].forEach(function(c,i){const q=proj([bx[c[0]],HH,bz[c[1]]]);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});
+    ctx.closePath();ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── 큐브 수집 (painter's algorithm)
+  const cubes=[];
+  for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+    const h=gget(G,x,z);
+    for(let y=0;y<h;y++){
+      const anim=R.anim&&R.anim[z*W+x];
+      let yo=0,sy=1,sx=1;
+      if(anim&&y===h-1&&anim.t<1){
+        const e=easeOutElastic(anim.t);
+        yo=(1-Math.min(1,anim.t*2.4))*1.1*MOT;
+        sy=lerp(0.55,1,clamp(e,0,1.35));sx=lerp(1.35,1,clamp(e,0,1.35));  // squash & stretch
+      }
+      const c=worldOf(W,D,x,z,y+0.5+yo);
+      const hidden=((x+1<W)&&gget(G,x+1,z)>y)&&(h>y+1)&&((z-1>=0)&&gget(G,x,z-1)>y);
+      cubes.push({c:c,d:depth(c),x:x,z:z,y:y,sx:sx,sy:sy,hidden:hidden,top:(y===h-1)});
+    }
+  }
+  cubes.sort((a,b)=>a.d-b.d);
+
+  // 투시등: 카메라 깊이축으로 빛 면을 쓸어 나무를 하나씩 센다
+  const xr=S.xray;
+  let sweepD=-1e9;
+  if(xr.on){
+    let dmin=1e9,dmax=-1e9;
+    for(const cb of cubes){dmin=Math.min(dmin,cb.d);dmax=Math.max(dmax,cb.d);}
+    sweepD=lerp(dmin-0.6,dmax+0.6,clamp(xr.t,0,1));
+    let lit=0;for(const cb of cubes)if(cb.d<=sweepD)lit++;
+    if(lit!==xr.lit){for(let i=xr.lit;i<lit;i++)Sound.tick(i);xr.lit=lit;}
+  }
+
+  const baseCol=PAL.honey;
+  for(const cb of cubes){
+    const lit=!xr.on||cb.d<=sweepD;
+    const alpha=xr.on?(lit?1:0.30):1;
+    ctx.globalAlpha=alpha;
+    const faces=[];
+    for(const f of FACES){
+      const nd=f.n[0]*BAS.d[0]+f.n[1]*BAS.d[1]+f.n[2]*BAS.d[2];
+      if(nd<=0.015)continue;
+      faces.push(f);
+    }
+    for(const f of faces){
+      ctx.beginPath();
+      for(let i=0;i<4;i++){
+        const v=f.v[i];
+        const p=[cb.c[0]+v[0]*cb.sx, cb.c[1]+v[1]*cb.sy, cb.c[2]+v[2]*cb.sx];
+        const q=proj(p);
+        i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);
+      }
+      ctx.closePath();
+      let col=shade(baseCol,f.sh);
+      if(xr.on&&lit&&cb.hidden)col=shade('#2f6b4f',f.sh+0.14);
+      else if(xr.on&&lit)col=shade('#e8a94a',f.sh);
+      ctx.fillStyle=col;ctx.fill();
+      ctx.lineWidth=Math.max(1.2,cam.scale*0.045);
+      ctx.strokeStyle='rgba(74,42,12,'+(0.85*alpha)+')';ctx.stroke();
+    }
+    // 나뭇결 한 줄 (평면 벡터 느낌)
+    if(cb.top&&cam.scale>22){
+      const q=proj([cb.c[0],cb.c[1]+0.5,cb.c[2]]);
+      ctx.globalAlpha=alpha*0.28;ctx.fillStyle='#8a5a1e';
+      ctx.beginPath();ctx.ellipse(q.x,q.y,cam.scale*0.16,cam.scale*0.07,0,0,TAU);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // 유령 해(2차 오답 후 3초) — 정답을 대신 눌러 주지 않고 "이렇게 하면 된다"만 보여 준다
+  if(S.ghost&&S.ghostT>0){
+    ctx.globalAlpha=0.30+0.12*Math.sin(performance.now()/220);
+    for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+      const need=gget(S.ghost,x,z),have=gget(G,x,z);
+      for(let y=have;y<need;y++){
+        const c=worldOf(W,D,x,z,y+0.5);
+        for(const f of FACES){
+          const nd=f.n[0]*BAS.d[0]+f.n[1]*BAS.d[1]+f.n[2]*BAS.d[2];
+          if(nd<=0.015)continue;
+          ctx.beginPath();
+          for(let i=0;i<4;i++){const v=f.v[i];const q=proj([c[0]+v[0],c[1]+v[1],c[2]+v[2]]);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);}
+          ctx.closePath();ctx.fillStyle='rgba(47,107,79,.34)';ctx.fill();
+          ctx.setLineDash([5,4]);ctx.lineWidth=2;ctx.strokeStyle='#2f6b4f';ctx.stroke();ctx.setLineDash([]);
+        }
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // 탭 가능한 칸(윗면) 폴리곤 저장 — 입체/위 시점에서만 편집
+  if(R.editable&&(S.camView==='iso'||S.camView==='top')){
+    for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+      const h=gget(G,x,z);
+      const poly=[];
+      for(let i=0;i<4;i++){
+        const v=FACES[0].v[i];
+        poly.push(proj([x-(W-1)/2+v[0], h, (D-1)/2-z+v[2]]));
+      }
+      hit.cells.push({x:x,z:z,poly:poly,d:depth([x-(W-1)/2,h,(D-1)/2-z])});
+    }
+    hit.cells.sort((a,b)=>b.d-a.d);
+  }
+
+  ctx.restore();
+}
+
+function drawViewBadge(rect){
+  const names={iso:'입체로 보는 중',top:'위에서 본 시점',front:'앞에서 본 시점',side:'오른쪽 옆에서 본 시점'};
+  const t=names[S.camView]||'';
+  ctx.font='800 12.5px '+getFont();
+  const w=ctx.measureText(t).width+18;
+  ctx.fillStyle='rgba(30,18,8,.62)';
+  rr(ctx,rect.x+10,rect.y+8,w,24,12);ctx.fill();
+  ctx.fillStyle='#ffe9b8';ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText(t,rect.x+19,rect.y+21);
+}
+
+function drawMascot(rect){
+  const w=Math.min(rect.w*0.20,120);
+  if(w<44)return;
+  const x=rect.x+6,y=rect.y+rect.h-w-2;
+  const bob=Math.sin(performance.now()/620)*3*MOT;
+  ctx.save();
+  ctx.globalAlpha=0.96;
+  ctx.beginPath();ctx.ellipse(x+w/2,y+w*0.98+bob,w*0.33,w*0.07,0,0,TAU);
+  ctx.fillStyle='rgba(90,52,16,.20)';ctx.fill();
+  if(IMG.heroCut){
+    ctx.drawImage(IMG.heroCut,x,y+bob,w,w);
+  }else{
+    // 코드 드로잉 폴백 — 나무 여우 목수
+    const cx=x+w/2,cy=y+w*0.55+bob,r=w*0.28;
+    ctx.fillStyle='#c17a2e';ctx.beginPath();ctx.arc(cx,cy,r,0,TAU);ctx.fill();
+    ctx.fillStyle='#8a5216';
+    ctx.beginPath();ctx.moveTo(cx-r*0.9,cy-r*0.5);ctx.lineTo(cx-r*0.4,cy-r*1.25);ctx.lineTo(cx-r*0.18,cy-r*0.72);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(cx+r*0.9,cy-r*0.5);ctx.lineTo(cx+r*0.4,cy-r*1.25);ctx.lineTo(cx+r*0.18,cy-r*0.72);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#f7efe0';ctx.beginPath();ctx.ellipse(cx,cy+r*0.30,r*0.62,r*0.44,0,0,TAU);ctx.fill();
+    ctx.fillStyle='#3a2412';
+    ctx.beginPath();ctx.arc(cx-r*0.34,cy-r*0.12,r*0.12,0,TAU);ctx.fill();
+    ctx.beginPath();ctx.arc(cx+r*0.34,cy-r*0.12,r*0.12,0,TAU);ctx.fill();
+    ctx.beginPath();ctx.arc(cx,cy+r*0.24,r*0.10,0,TAU);ctx.fill();
+    ctx.fillStyle='#d98a2b';rr(ctx,cx-r*0.95,cy-r*1.55,r*1.9,r*0.5,r*0.24);ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ───────────────────────── 렌더: 필름 ───────────────────────── */
+function getFont(){return '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';}
+
+function filmCard(x,y,w,h,label,accent){
+  ctx.save();
+  // 카드 (게임 UI 다운 이중 보더 + 상단 하이라이트)
+  rr(ctx,x,y+3,w,h,14);ctx.fillStyle='rgba(90,52,16,.30)';ctx.fill();
+  rr(ctx,x,y,w,h,14);
+  const g=ctx.createLinearGradient(0,y,0,y+h);
+  g.addColorStop(0,'#fffbf2');g.addColorStop(1,'#efdfc0');
+  ctx.fillStyle=g;ctx.fill();
+  ctx.lineWidth=3;ctx.strokeStyle=accent||'#b98d4e';ctx.stroke();
+  rr(ctx,x+3,y+3,w-6,h*0.34,10);ctx.fillStyle='rgba(255,255,255,.55)';ctx.fill();
+  // 라벨 배지
+  ctx.font='900 '+Math.max(10.5,Math.min(14,w*0.145))+'px '+getFont();
+  const tw=ctx.measureText(label).width+14;
+  rr(ctx,x+w/2-tw/2,y-9,tw,19,10);ctx.fillStyle=accent||'#5a3410';ctx.fill();
+  ctx.fillStyle='#fff7e6';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(label,x+w/2,y+1);
+  ctx.restore();
+}
+
+const ST_COL={0:'#2f6b4f',1:'#f7efe0',2:'#c4452d'};
+function cellPaint(cx,cy,cw,ch,state,opts){
+  opts=opts||{};
+  const pad=1.5;
+  rr(ctx,cx+pad,cy+pad,cw-pad*2,ch-pad*2,Math.min(6,cw*0.2));
+  if(state===0){ctx.fillStyle=opts.dim?'#6ea98a':'#3f8c63';ctx.fill();
+    ctx.lineWidth=2.4;ctx.strokeStyle='#20573a';ctx.stroke();}
+  else if(state===1){ctx.fillStyle='rgba(255,252,244,.92)';ctx.fill();
+    ctx.setLineDash([4,3]);ctx.lineWidth=2.2;ctx.strokeStyle='#c08a3a';ctx.stroke();ctx.setLineDash([]);}
+  else if(state===2){ctx.fillStyle='#e0705a';ctx.fill();ctx.lineWidth=2.4;ctx.strokeStyle='#8e2c1c';ctx.stroke();}
+  else{ctx.fillStyle='rgba(160,130,95,.13)';ctx.fill();
+    ctx.lineWidth=1.4;ctx.strokeStyle='rgba(140,105,60,.35)';ctx.stroke();}
+}
+
+/** 위 필름 */
+function drawTopFilm(R,x,y,w,h,interactive){
+  const W=R.W,D=R.D;
+  const inner=10;
+  const gw=w-inner*2,gh=h-inner*2-6;
+  const cw=Math.min(gw/W,gh/D),cs=cw;
+  const ox=x+w/2-cs*W/2, oy=y+inner+4+ (gh-cs*D)/2;
+  for(let z=0;z<D;z++)for(let x2=0;x2<W;x2++){
+    const i=z*W+x2;
+    // 화면상 아래쪽이 앞줄(z=0)
+    const row=D-1-z;
+    const cx=ox+x2*cs, cy=oy+row*cs;
+    let st=-1;
+    if(R.kind==='PAINT'&&R.paint.film==='top'){
+      const cur=R.paint.cur[i],want=R.paint.correct[i];
+      st=R.revealed?(cur===want?0:(cur<want?1:2)):(cur>0?3:-1);
+    }else{
+      st=filmState(R,'top',i,null);
+    }
+    if(R.kind==='PAINT'&&R.paint.film==='top'){
+      rr(ctx,cx+1.5,cy+1.5,cs-3,cs-3,Math.min(6,cs*0.2));
+      ctx.fillStyle=st===0?'#3f8c63':st===2?'#e0705a':st===1?'#f6e6c4':'rgba(255,253,246,.95)';
+      ctx.fill();ctx.lineWidth=2.2;ctx.strokeStyle=st===0?'#20573a':'#b98d4e';ctx.stroke();
+      ctx.font='900 '+(cs*0.52)+'px '+getFont();
+      ctx.fillStyle=st===0?'#eafff2':'#4a2f12';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(R.paint.cur[i]),cx+cs/2,cy+cs/2+1);
+    }else if(R.footOnly){
+      const pad2=1.5;
+      rr(ctx,cx+pad2,cy+pad2,cs-pad2*2,cs-pad2*2,Math.min(6,cs*0.2));
+      if(!R.foot[i]){ctx.fillStyle='rgba(160,130,95,.13)';ctx.fill();
+        ctx.lineWidth=1.4;ctx.strokeStyle='rgba(140,105,60,.35)';ctx.stroke();}
+      else{
+        ctx.fillStyle=st===0?'#3f8c63':'#f3dfb6';ctx.fill();
+        ctx.lineWidth=3;ctx.strokeStyle=st===0?'#20573a':'#c08a3a';ctx.stroke();
+        ctx.font='900 '+(cs*0.46)+'px '+getFont();
+        ctx.fillStyle=st===0?'#eafff2':'#8a6a3a';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(R.grid?String(gget(R.grid,x2,z)||'·'):'·',cx+cs/2,cy+cs/2+1);
+      }
+    }else{
+      const tgt=R.films.top[i];
+      cellPaint(cx,cy,cs,cs,tgt>0?st:-1);
+      if(tgt>0){
+        ctx.font='900 '+(cs*0.52)+'px '+getFont();
+        ctx.fillStyle=st===0?'#eafff2':'#4a2f12';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(String(tgt),cx+cs/2,cy+cs/2+1);
+        if(R.editable&&st!==0){
+          const cur=R.grid.a[i];
+          ctx.font='900 '+(cs*0.27)+'px '+getFont();
+          ctx.fillStyle=st===2?'#7a1408':'#a8721f';
+          ctx.fillText('지금 '+cur,cx+cs/2,cy+cs-cs*0.18);
+        }
+      }
+    }
+    if(interactive)hit.films.push({film:'top',i:i,rect:[cx,cy,cs,cs]});
+  }
+}
+
+/** 앞/옆 필름 (실루엣) */
+function drawSilFilm(R,which,x,y,w,h,interactive){
+  const n=which==='front'?R.W:R.D;
+  const rows=Math.max(R.maxH, (R.films?Math.max.apply(null,(which==='front'?R.films.front:R.films.side).concat([1])):2));
+  const inner=10;
+  const gw=w-inner*2,gh=h-inner*2-6;
+  const cs=Math.min(gw/n,gh/rows);
+  const ox=x+w/2-cs*n/2, oy=y+inner+4+(gh-cs*rows)/2;
+  for(let c=0;c<n;c++)for(let lv=0;lv<rows;lv++){
+    const cx=ox+c*cs, cy=oy+(rows-1-lv)*cs;   // 아래가 1층
+    let st;
+    if(R.kind==='PAINT'&&R.paint.film===which){
+      const cur=R.paint.cur[c],want=R.paint.correct[c];
+      const inCur=lv<cur,inWant=lv<want;
+      st=R.revealed?(inCur&&inWant?0:(!inCur&&inWant?1:(inCur?2:-1))):(inCur?3:-1);
+      rr(ctx,cx+1.5,cy+1.5,cs-3,cs-3,Math.min(6,cs*0.2));
+      ctx.fillStyle=st===0?'#3f8c63':st===2?'#e0705a':st===1?'#f6e6c4':(inCur?'#d98a2b':'rgba(255,253,246,.92)');
+      ctx.fill();ctx.lineWidth=2.2;ctx.strokeStyle=inCur?'#7a4a12':'rgba(160,120,70,.5)';ctx.stroke();
+    }else{
+      st=filmState(R,which,c,lv);
+      cellPaint(cx,cy,cs,cs,st);
+    }
+    if(interactive)hit.films.push({film:which,i:c,level:lv,rect:[cx,cy,cs,cs]});
+  }
+  // 램프(줄 완성 표시)
+  if(R.films&&!R.footOnly||R.footOnly){
+    for(let c=0;c<n;c++){
+      const okCol=(filmState(R,which,c,null)===0);
+      const cx=ox+c*cs+cs/2, cy=oy-7;
+      ctx.beginPath();ctx.arc(cx,cy,3.6,0,TAU);
+      ctx.fillStyle=okCol?'#ffd45e':'rgba(120,95,60,.32)';ctx.fill();
+      if(okCol){ctx.beginPath();ctx.arc(cx,cy,7,0,TAU);ctx.fillStyle='rgba(255,212,94,.28)';ctx.fill();}
+    }
+  }
+}
+
+/** 필름 패널 캐시 키 — 카메라와 무관한 상태만 담는다 */
+function filmsKey(R){
+  return [L.stamp,R.nonce,R.kind,
+          R.grid?R.grid.a.join(','):'',
+          R.paint?R.paint.cur.join(','):'',
+          R.revealed?1:0].join('|');
+}
+const FMARGIN=14;
+function drawFilms(dt){
+  const R=S.round;if(!R)return;
+  const rect=L.films;
+  const key=filmsKey(R);
+  const w=rect.w+FMARGIN*2,h=rect.h+FMARGIN*2;
+  if(!filmsCache.c||filmsCache.w!==w||filmsCache.h!==h){
+    filmsCache.c=mkOff(w,h);filmsCache.w=w;filmsCache.h=h;filmsCache.key='';
+  }
+  if(filmsCache.key!==key){
+    const fc=filmsCache.c.__x;
+    fc.setTransform(DPR,0,0,DPR,0,0);
+    fc.clearRect(0,0,w,h);
+    fc.save();fc.translate(-(rect.x-FMARGIN),-(rect.y-FMARGIN));
+    withCtx(fc,function(){drawFilmsInner(R,rect);});
+    fc.restore();
+    filmsCache.key=key;
+  }
+  ctx.drawImage(filmsCache.c,rect.x-FMARGIN,rect.y-FMARGIN,w,h);
+}
+function drawFilmsInner(R,rect){
+  hit.films.length=0;
+  if(R.kind==='REASON'){drawBanner(rect,R.mcq.q,'이유 카드 ⭐보너스');return;}
+  if(R.kind==='COUNT'){drawBanner(rect,'이 탑에 쓴 쌓기나무는 모두 몇 개?','투시등🔦으로 숨은 나무를 확인해!');return;}
+  if(R.kind==='LAYERS'){drawLayerCards(rect,R);return;}
+  if(R.kind==='PAINT'){
+    const label=R.paint.film==='top'?'위에서 본 모양 (수 쓰기)':R.paint.film==='front'?'앞에서 본 모양':'오른쪽 옆에서 본 모양';
+    const accent=R.paint.film==='side'?'#2f6b4f':'#5a3410';
+    filmCard(rect.x+2,rect.y+10,rect.w-4,rect.h-14,label,accent);
+    if(R.paint.film==='top')drawTopFilm(R,rect.x+2,rect.y+10,rect.w-4,rect.h-14,true);
+    else drawSilFilm(R,R.paint.film,rect.x+2,rect.y+10,rect.w-4,rect.h-14,true);
+    if(R.paint.film==='side'){
+      ctx.font='900 12px '+getFont();ctx.fillStyle='#2f6b4f';ctx.textAlign='left';ctx.textBaseline='bottom';
+      ctx.fillText('◀ 앞쪽',rect.x+16,rect.y+rect.h-20);
+      ctx.textAlign='right';ctx.fillText('뒤쪽 ▶',rect.x+rect.w-16,rect.y+rect.h-20);
+    }
+    return;
+  }
+  // 세 장 필름
+  const gap=7;
+  if(L.land){
+    const hh=(rect.h-gap*2)/3;
+    drawOneFilm(R,'top',  rect.x,rect.y+10,        rect.w,hh-10);
+    drawOneFilm(R,'front',rect.x,rect.y+hh+gap+10, rect.w,hh-10);
+    drawOneFilm(R,'side', rect.x,rect.y+hh*2+gap*2+10,rect.w,hh-10);
+  }else{
+    const ww=(rect.w-gap*2)/3;
+    drawOneFilm(R,'top',  rect.x,           rect.y+10,rect.w? ww:0,rect.h-14);
+    drawOneFilm(R,'front',rect.x+ww+gap,    rect.y+10,ww,rect.h-14);
+    drawOneFilm(R,'side', rect.x+ww*2+gap*2,rect.y+10,ww,rect.h-14);
+  }
+  // 최소/최대 목표 배지
+  if(R.required!=null){
+    const t=(R.kind==='MINMIN'?'가장 적게 · 목표 ':'가장 많게 · 목표 ')+R.required+'개   (지금 '+gTotal(R.grid)+'개)';
+    ctx.font='900 13px '+getFont();
+    const w=ctx.measureText(t).width+22;
+    const bx=rect.x+rect.w/2-w/2, by=rect.y+rect.h+1;
+    rr(ctx,bx,by-11,w,24,12);
+    ctx.fillStyle=gTotal(R.grid)===R.required?'#2f6b4f':'rgba(30,18,8,.80)';ctx.fill();
+    ctx.fillStyle='#ffe9b8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,rect.x+rect.w/2,by+1);
+  }
+}
+function drawOneFilm(R,which,x,y,w,h){
+  const labels={top:'위에서 본 모양',front:'앞에서 본 모양',side:'옆(오른쪽)'};
+  let allOk=true;
+  const n=which==='top'?R.W*R.D:(which==='front'?R.W:R.D);
+  for(let i=0;i<n;i++){if(filmState(R,which,i,null)!==0){allOk=false;break;}}
+  filmCard(x,y,w,h,labels[which],allOk?'#2f6b4f':'#b98d4e');
+  if(which==='top')drawTopFilm(R,x,y,w,h,false);
+  else drawSilFilm(R,which,x,y,w,h,false);
+}
+
+function drawBanner(rect,title,sub){
+  filmCard(rect.x+2,rect.y+10,rect.w-4,rect.h-14,'의뢰서','#5a3410');
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const fs=clamp(rect.w*0.055,15,25);
+  ctx.font='900 '+fs+'px '+getFont();ctx.fillStyle='#4a2f12';
+  wrapText(title,rect.x+rect.w/2,rect.y+rect.h*0.44,rect.w-40,fs*1.22);
+  if(sub){
+    ctx.font='800 '+clamp(rect.w*0.036,11,15)+'px '+getFont();ctx.fillStyle='#8a6a3a';
+    wrapText(sub,rect.x+rect.w/2,rect.y+rect.h*0.76,rect.w-36,16);
+  }
+}
+function wrapText(t,cx,cy,maxW,lh){
+  const words=String(t).split(' ');const lines=[];let cur='';
+  for(const w of words){const test=cur?cur+' '+w:w;
+    if(ctx.measureText(test).width>maxW&&cur){lines.push(cur);cur=w;}else cur=test;}
+  if(cur)lines.push(cur);
+  const y0=cy-(lines.length-1)*lh/2;
+  lines.forEach((l,i)=>ctx.fillText(l,cx,y0+i*lh));
+  return lines.length;
+}
+
+function drawLayerCards(rect,R){
+  const L2=R.layers,n=L2.length;
+  const gap=7,ww=(rect.w-gap*(n-1))/n;
+  for(let k=0;k<n;k++){
+    const x=rect.x+k*(ww+gap),y=rect.y+10,h=rect.h-14;
+    filmCard(x,y,ww,h,(k+1)+'층','#5a3410');
+    const inner=9,gw=ww-inner*2,gh=h-inner*2-4;
+    const cs=Math.min(gw/R.W,gh/R.D);
+    const ox=x+ww/2-cs*R.W/2,oy=y+inner+3+(gh-cs*R.D)/2;
+    for(let z=0;z<R.D;z++)for(let x2=0;x2<R.W;x2++){
+      const cx=ox+x2*cs,cy=oy+(R.D-1-z)*cs;
+      const on=L2[k][z*R.W+x2];
+      rr(ctx,cx+1.5,cy+1.5,cs-3,cs-3,Math.min(5,cs*0.2));
+      ctx.fillStyle=on?'#d98a2b':'rgba(160,130,95,.12)';ctx.fill();
+      ctx.lineWidth=on?2.2:1.3;ctx.strokeStyle=on?'#7a4a12':'rgba(140,105,60,.35)';ctx.stroke();
+    }
+  }
+}
+
+/* MCQ — 숫자 칩 */
+function drawNumChoices(rect,R){
+  hit.choices.length=0;
+  const cs=R.mcq.choices,n=cs.length;
+  const gap=7, h=choiceBandH();
+  const w=(rect.w-18-gap*(n-1))/n;
+  const y=rect.y+rect.h-h-6;
+  for(let i=0;i<n;i++){
+    const x=rect.x+9+i*(w+gap);
+    const sel=(R.picked===i);
+    const dead=!!(R.dead&&R.dead.indexOf(i)>=0);
+    const bump=S.bump['c'+i]||0;
+    const s=1+bump*0.10;
+    ctx.save();ctx.translate(x+w/2,y+h/2);ctx.scale(s,s);ctx.translate(-(x+w/2),-(y+h/2));
+    rr(ctx,x,y+4,w,h,16);ctx.fillStyle='rgba(60,36,14,.35)';ctx.fill();
+    rr(ctx,x,y,w,h,16);
+    const g=ctx.createLinearGradient(0,y,0,y+h);
+    if(R.revealed&&cs[i].correct){g.addColorStop(0,'#9ee6bd');g.addColorStop(1,'#3f8c63');}
+    else if(R.revealed&&sel){g.addColorStop(0,'#f0a08e');g.addColorStop(1,'#c4452d');}
+    else if(dead){g.addColorStop(0,'#ddd3c4');g.addColorStop(1,'#bdb2a1');}
+    else{g.addColorStop(0,'#fff6e4');g.addColorStop(1,'#e9d3ab');}
+    ctx.fillStyle=g;ctx.fill();
+    ctx.lineWidth=3;ctx.strokeStyle=R.revealed&&cs[i].correct?'#1f5537':(dead?'#8b8175':'#a9834f');ctx.stroke();
+    ctx.font='900 '+clamp(w*0.36,19,30)+'px '+getFont();
+    ctx.fillStyle=(R.revealed&&(cs[i].correct||sel))?'#08281a':(dead?'#6d6459':'#4a2f12');
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(cs[i].label,x+w/2,y+h/2+1);
+    if(dead){ // 색만으로 구분하지 않는다 — 취소선을 함께 긋는다
+      ctx.lineWidth=3.4;ctx.strokeStyle='#8e2c1c';
+      ctx.beginPath();ctx.moveTo(x+w*0.18,y+h*0.72);ctx.lineTo(x+w*0.82,y+h*0.28);ctx.stroke();
+    }
+    if(R.revealed&&cs[i].correct){ctx.font='900 13px '+getFont();ctx.fillStyle='#0d3a24';ctx.fillText('정답',x+w/2,y+h-9);}
+    ctx.restore();
+    hit.choices.push({i:i,rect:[x,y,w,h]});
+  }
+}
+/* MCQ — 필름 카드 / 텍스트 카드 */
+function drawChoiceArea(rect,R){
+  hit.choices.length=0;
+  const cs=R.mcq.choices;
+  if(R.mcq.kind==='film'){
+    const gap=9,cols=2,rows=2;
+    const w=(rect.w-18-gap)/cols,h=(rect.h-12-gap)/rows;
+    for(let i=0;i<4;i++){
+      const cx=rect.x+9+(i%cols)*(w+gap), cy=rect.y+6+Math.floor(i/cols)*(h+gap);
+      const sel=(R.picked===i),ok=cs[i].correct;
+      const dead=!!(R.dead&&R.dead.indexOf(i)>=0);
+      const bump=S.bump['c'+i]||0,s=1+bump*0.07;
+      ctx.save();ctx.translate(cx+w/2,cy+h/2);ctx.scale(s,s);ctx.translate(-(cx+w/2),-(cy+h/2));
+      rr(ctx,cx,cy+4,w,h,17);ctx.fillStyle='rgba(60,36,14,.32)';ctx.fill();
+      rr(ctx,cx,cy,w,h,17);
+      ctx.fillStyle=R.revealed&&ok?'#dff6e8':(dead?'#ded6c9':'#fffaf0');ctx.fill();
+      ctx.lineWidth=3.4;ctx.strokeStyle=R.revealed&&ok?'#2f6b4f':(dead?'#8e2c1c':'#b98d4e');ctx.stroke();
+      // 실루엣 미니 필름 — 네 보기의 행 수를 통일해야 공정하게 비교된다
+      const arr=cs[i].arr,n=arr.length;
+      let rowsN=1;for(const c3 of cs)rowsN=Math.max(rowsN,Math.max.apply(null,c3.arr));
+      const pad=13,gw=w-pad*2,gh=h-pad*2-14;
+      const cw=Math.min(gw/n,gh/Math.max(rowsN,2));
+      const ox=cx+w/2-cw*n/2, oy=cy+pad+10+(gh-cw*rowsN)/2;
+      for(let c2=0;c2<n;c2++)for(let lv=0;lv<rowsN;lv++){
+        const bx=ox+c2*cw, by=oy+(rowsN-1-lv)*cw;
+        const on=lv<arr[c2];
+        rr(ctx,bx+1.5,by+1.5,cw-3,cw-3,Math.min(5,cw*0.2));
+        ctx.fillStyle=on?'#d98a2b':'rgba(160,130,95,.12)';ctx.fill();
+        ctx.lineWidth=on?2.2:1.2;ctx.strokeStyle=on?'#7a4a12':'rgba(140,105,60,.32)';ctx.stroke();
+      }
+      ctx.font='900 13px '+getFont();ctx.fillStyle='#8a6a3a';ctx.textAlign='center';ctx.textBaseline='top';
+      ctx.fillText(['㉮','㉯','㉰','㉱'][i],cx+w/2,cy+7);
+      if(R.revealed&&ok){ctx.font='900 14px '+getFont();ctx.fillStyle='#2f6b4f';ctx.textBaseline='bottom';ctx.fillText('정답 ✔',cx+w/2,cy+h-6);}
+      if(dead){ctx.lineWidth=4;ctx.strokeStyle='#8e2c1c';
+        ctx.beginPath();ctx.moveTo(cx+w*0.16,cy+h*0.80);ctx.lineTo(cx+w*0.84,cy+h*0.20);ctx.stroke();}
+      ctx.restore();
+      hit.choices.push({i:i,rect:[cx,cy,w,h]});
+    }
+  }else{
+    const gap=8,h=Math.min(72,(rect.h-gap*3-8)/4);
+    for(let i=0;i<cs.length;i++){
+      const cx=rect.x+10,cy=rect.y+6+i*(h+gap),w=rect.w-20;
+      const sel=(R.picked===i),ok=cs[i].correct;
+      const dead=!!(R.dead&&R.dead.indexOf(i)>=0);
+      const bump=S.bump['c'+i]||0,s=1+bump*0.045;
+      ctx.save();ctx.translate(cx+w/2,cy+h/2);ctx.scale(s,s);ctx.translate(-(cx+w/2),-(cy+h/2));
+      rr(ctx,cx,cy+4,w,h,17);ctx.fillStyle='rgba(60,36,14,.32)';ctx.fill();
+      rr(ctx,cx,cy,w,h,17);
+      ctx.fillStyle=R.revealed&&ok?'#dff6e8':(dead?'#ded6c9':'#fffaf0');ctx.fill();
+      ctx.lineWidth=3.2;ctx.strokeStyle=R.revealed&&ok?'#2f6b4f':(dead?'#8e2c1c':'#b98d4e');ctx.stroke();
+      ctx.font='800 '+clamp(w*0.042,13,17)+'px '+getFont();
+      ctx.fillStyle=dead?'#6d6459':'#4a2f12';ctx.textAlign='center';ctx.textBaseline='middle';
+      wrapText(cs[i].label,cx+w/2,cy+h/2,w-26,clamp(w*0.048,16,21));
+      if(dead){ctx.lineWidth=3.4;ctx.strokeStyle='#8e2c1c';
+        ctx.beginPath();ctx.moveTo(cx+16,cy+h-12);ctx.lineTo(cx+w-16,cy+12);ctx.stroke();}
+      ctx.restore();
+      hit.choices.push({i:i,rect:[cx,cy,w,h]});
+    }
+  }
+}
+
+/* 날아가는 필름 (wow moment) */
+function drawFlyFilms(){
+  const TRAIL=REDUCED?1:4;          // 잔상 — 빠르게 나는 필름 뒤에 궤적이 남는다
+  for(const f of S.flyFilms){
+    for(let k=TRAIL-1;k>=0;k--){
+      const t=clamp((f.t-k*0.045)/f.dur,0,1);
+      if(t<=0)continue;
+      const e=easeOutCubic(t);
+      const x=lerp(f.x0,f.x1,e),y=lerp(f.y0,f.y1,e);
+      const s=lerp(1,0.24,e),a=(1-t*t)*(k===0?0.95:0.16*(1-k/TRAIL));
+      ctx.save();ctx.globalAlpha=a;
+      ctx.translate(x,y);ctx.rotate(lerp(0,f.rot,e));ctx.scale(s,s);
+      rr(ctx,-f.w/2,-f.h/2,f.w,f.h,12);
+      ctx.fillStyle='rgba(255,246,224,.85)';ctx.fill();
+      ctx.lineWidth=4;ctx.strokeStyle='#ffd45e';ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+/* ───────────────────────── 메인 루프 ───────────────────────── */
+let last=performance.now();
+function frame(now){
+  let dt=(now-last)/1000;last=now;
+  if(dt>0.1)dt=0.1;
+  const rdt=dt;
+  if(S.hitStop>0){S.hitStop-=rdt;dt*=0.06;}          // hit-stop
+  dt*=S.timeScale;
+
+  camUpdate(dt);
+  updateStage(dt);
+  tickToast(rdt);
+
+  // 파티클
+  for(let i=S.parts.length-1;i>=0;i--){
+    const p=S.parts[i];p.t+=rdt;
+    if(p.t>=p.life){S.parts.splice(i,1);continue;}
+    p.vy+=p.g*rdt;p.x+=p.vx*rdt;p.y+=p.vy*rdt;p.rot+=p.vr*rdt;
+  }
+  // 먼지
+  for(const m of S.motes){m.x+=m.vx;m.y+=m.vy;m.ph+=0.02;
+    if(m.y<-6){m.y=CH+6;m.x=Math.random()*CW;}if(m.x>CW+6)m.x=-6;if(m.x<-6)m.x=CW+6;}
+  // 필름 비행
+  for(let i=S.flyFilms.length-1;i>=0;i--){const f=S.flyFilms[i];f.t+=rdt;if(f.t>f.dur)S.flyFilms.splice(i,1);}
+  // 블록 애니
+  const R=S.round;
+  if(R&&R.anim)for(const k in R.anim){const a=R.anim[k];if(a&&a.t<1)a.t=Math.min(1,a.t+rdt/0.42);}
+  // 투시등
+  if(S.xray.on){S.xray.t+=rdt/1.5;if(S.xray.t>=1.35){S.xray.on=false;S.xray.t=0;S.xray.lit=0;}}
+  if(S.ghostT>0)S.ghostT-=rdt;
+  if(S.shake>0){S.shake-=rdt*2.4;if(S.shake<0)S.shake=0;}
+  if(S.flash>0){S.flash-=rdt*2.6;if(S.flash<0)S.flash=0;}
+  for(const k in S.bump){S.bump[k]=Math.max(0,S.bump[k]-rdt*3.4);}
+  S.scoreShow=lerp(S.scoreShow,S.score,Math.min(1,rdt*7));
+  const hs=document.getElementById('hScore');
+  if(hs)hs.textContent=String(Math.round(S.scoreShow));
+
+  render(rdt);
+  requestAnimationFrame(frame);
+}
+
+/** 정적 레이어(배경+필름+3D) 캐시 키. 값이 그대로면 그리지 않고 블릿만 한다. */
+function sceneKey(){
+  const R=S.round;
+  const playing=(S.phase==='playing'||S.phase==='celebrate'||S.phase==='result');
+  if(!playing||!R)return 'bg|'+CW+'x'+CH+'|'+S.phase;
+  let anim='';
+  if(R.anim)for(const k in R.anim){const a=R.anim[k];if(a&&a.t<1)anim+=k+':'+a.t.toFixed(2)+';';}
+  return ['p',L.stamp,R.nonce,S.camView,
+    cam.th.toFixed(3),cam.ph.toFixed(3),cam.scale.toFixed(2),
+    R.grid?R.grid.a.join(','):'',
+    R.paint?R.paint.cur.join(','):'',
+    R.revealed?1:0,R.dead?R.dead.join(''):'',R.picked==null?'-':R.picked,
+    S.xray.on?S.xray.t.toFixed(3):'-',
+    S.ghostT>0?S.ghostT.toFixed(2):'-',
+    anim].join('|');
+}
+
+function render(dt){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  const R=S.round;
+  const playing=(S.phase==='playing'||S.phase==='celebrate'||S.phase==='result')&&!!R;
+
+  // ── 정적 레이어 (캐시)
+  if(!sceneCache.c||sceneCache.c.width!==cv.width||sceneCache.c.height!==cv.height){
+    sceneCache.c=mkOff(CW,CH,true);sceneCache.key='';
+  }
+  const key=sceneKey();
+  if(sceneCache.key!==key){
+    const sc=sceneCache.c.__x;
+    sc.setTransform(DPR,0,0,DPR,0,0);
+    withCtx(sc,function(){
+      if(bgBake)ctx.drawImage(bgBake,0,0,CW,CH);
+      else{ctx.fillStyle='#f7efe0';ctx.fillRect(0,0,CW,CH);}
+      if(playing){drawFilms(dt);drawStage(dt);}
+    });
+    sceneCache.key=key;
+  }
+
+  let sx=0,sy=0;
+  if(S.shake>0){const m=S.shakeMag*S.shake;sx=(Math.random()-.5)*m;sy=(Math.random()-.5)*m;}
+  ctx.save();
+  ctx.translate(sx,sy);
+  if(sx||sy){const k=1.035;ctx.drawImage(sceneCache.c,-CW*(k-1)/2,-CH*(k-1)/2,CW*k,CH*k);}
+  else ctx.drawImage(sceneCache.c,0,0,CW,CH);
+
+  // ── 살아 있는 레이어
+  ctx.save();
+  for(const m of S.motes){
+    ctx.globalAlpha=m.a*(0.6+0.4*Math.sin(m.ph));
+    ctx.fillStyle='#fff3d0';ctx.beginPath();ctx.arc(m.x,m.y,m.r,0,TAU);ctx.fill();
+  }
+  ctx.restore();
+
+  if(playing){
+    if(R.kind==='LAYERS'||R.kind==='REASON'){
+      drawChoiceArea(L.stage,R);
+    }else{
+      if(R.kind!=='COUNT'){
+        ctx.save();ctx.beginPath();ctx.rect(L.stage.x,L.stage.y,L.stage.w,L.stage.h);ctx.clip();
+        drawMascot(L.stage);
+        ctx.restore();
+      }else drawNumChoices(L.stage,R);
+      drawViewBadge(stage3dRect(R));      // 층카드·이유 카드 화면에서는 시점 배지가 필요 없다
+    }
+    drawFlyFilms();
+  }
+
+  for(const p of S.parts){
+    const k=1-p.t/p.life;
+    ctx.save();ctx.globalAlpha=clamp(k,0,1);
+    ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(-p.r,-p.r*0.6,p.r*2,p.r*1.2);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  if(S.flash>0){
+    ctx.globalAlpha=clamp(S.flash,0,0.72);
+    ctx.fillStyle=S.flashCol;ctx.fillRect(0,0,CW,CH);
+    ctx.globalAlpha=1;
+  }
+}
+
+/* ───────────────────────── 입력 ───────────────────────── */
+function ptIn(poly,px,py){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i].x,yi=poly[i].y,xj=poly[j].x,yj=poly[j].y;
+    if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/((yj-yi)||1e-9)+xi))inside=!inside;
+  }
+  return inside;
+}
+function inRect(r,x,y){return x>=r[0]&&x<=r[0]+r[2]&&y>=r[1]&&y<=r[1]+r[3];}
+
+cv.addEventListener('pointerdown',function(e){
+  e.preventDefault();
+  Sound.init();Sound.resume();
+  if(S.phase!=='playing')return;
+  const r=cv.getBoundingClientRect();
+  const x=e.clientX-r.left,y=e.clientY-r.top;
+  const R=S.round;if(!R)return;
+
+  // 1) 선택지
+  for(const c of hit.choices){
+    if(inRect(c.rect,x,y)){pickChoice(c.i);return;}
+  }
+  // 2) 필름 (PAINT)
+  if(R.kind==='PAINT'&&!R.revealed){
+    for(const f of hit.films){
+      if(inRect(f.rect,x,y)){paintTap(f);return;}
+    }
+  }
+  // 3) 격자 칸
+  if(R.editable){
+    for(const c of hit.cells){
+      if(ptIn(c.poly,x,y)){cellTap(c.x,c.z);return;}
+    }
+  }
+},{passive:false});
+
+function cellTap(x,z){
+  const R=S.round;if(!R||!R.editable)return;
+  // 발자국 밖이면 놓을 수 없다 (연결되지 않은 나무는 애초에 못 놓게 한다)
+  const i=z*R.W+x;
+  const allowed=R.footOnly?R.foot[i]:(R.films?R.films.top[i]>0:true);
+  if(!allowed){
+    toast('여긴 발자국 밖이야!','bad',1.1);Sound.bad();shake(6);
+    return;
+  }
+  const capH=R.footOnly?Math.min(R.front[x],R.side[z]):Math.max(R.maxH,R.films?R.films.top[i]:1);
+  const cur=gget(R.grid,x,z);
+  const before=filmSummary(R);
+  let next=cur+1;
+  if(next>capH)next=0;                   // 0 → 1 → … → 상한 → 0 순환 (한 손가락 조작)
+  gset(R.grid,x,z,next);
+  R.anim=R.anim||{};
+  R.anim[i]={t:0};
+  if(next>cur){Sound.place();burst(0,0,0);}
+  else Sound.remove();
+  shake(next>cur?3.2:2.0);
+  // 정답 칸에 딱 맞으면 즉시 초록 피드백 + 램프
+  afterEdit(before);
+}
+function filmSummary(R){
+  const s=[];
+  for(let i=0;i<R.W;i++)s.push(filmState(R,'front',i,null)===0?1:0);
+  for(let i=0;i<R.D;i++)s.push(filmState(R,'side',i,null)===0?1:0);
+  return s;
+}
+function afterEdit(before){
+  const R=S.round;
+  const after=filmSummary(R);
+  let newly=0;
+  for(let i=0;i<after.length;i++)if(after[i]&&!before[i])newly++;
+  if(newly>0){
+    Sound.lamp(newly);
+    flash('#ffe9b8',0.16);shake(5);
+    // 스테이지 중앙에 톱밥
+    burst(L.stage.x+L.stage.w/2,L.stage.y+L.stage.h*0.55,8*newly,'#e8c27a',150,0.7);
+  }
+  if(!S.hard&&checkRound(R)&&!R.revealed){
+    toast('세 장이 다 맞았어! 완성 버튼을 눌러!','good',1.6);
+  }
+}
+function paintTap(f){
+  const R=S.round;
+  if(f.film==='top'){
+    const cap=R.maxH;
+    R.paint.cur[f.i]=(R.paint.cur[f.i]+1)>cap?0:R.paint.cur[f.i]+1;
+  }else{
+    const lv=f.level+1;
+    R.paint.cur[f.i]=(R.paint.cur[f.i]===lv)?lv-1:lv;
+  }
+  Sound.place();shake(2.4);
+  S.bump['film']=1;
+}
+function pickChoice(i){
+  const R=S.round;
+  if(!R.mcq||R.revealed)return;
+  R.dead=R.dead||[];
+  if(R.dead.indexOf(i)>=0)return;
+  R.picked=i;S.bump['c'+i]=1;
+  if(R.mcq.choices[i].correct){R.revealed=true;succeed();return;}
+  // 첫 오답: 그 보기만 지우고 다시 고르게 한다 (라운드는 끝나지 않는다)
+  R.dead.push(i);
+  fail(R.mcq.choices[i].why||'');
+  if(R.dead.length>=2){
+    R.revealed=true;
+    toast('정답을 보여 줄게 — 다음에 만회하자!','',2.0);
+    setTimeout(function(){ if(S.round===R&&!R.done){ advance(0); } },1800);
+  }else{
+    toast('음… 다시 한 번 골라 볼까?','bad',1.6);
+    R.picked=null;
+  }
+}
+
+/* ───────────────────────── 성공 / 실패 ───────────────────────── */
+function stars(R){
+  if(R.forced)return 0;
+  if(R.attempts<=0)return 3;
+  if(R.attempts===1)return 2;
+  return 1;
+}
+function succeed(){
+  const R=S.round;
+  if(!R||R.done)return;
+  R.done=true;
+  const st=stars(R);
+  S.combo++;
+  const gain=100+50*st+Math.min(S.combo,8)*10;
+  S.score+=gain;
+  S.solved++;
+  S.roomStarsRun.push(st);
+  S.phase='celebrate';
+
+  // wow moment
+  hitstop(80);
+  flash('#fff2c8',0.62);
+  shake(16);
+  Sound.good();Sound.shutter();
+  const cx=L.stage.x+L.stage.w/2, cy=L.stage.y+L.stage.h*0.52;
+  // 세 장 필름이 벽에서 떨어져 탑으로 합쳐진다
+  S.flyFilms.length=0;
+  const fr=L.films;
+  const pos=L.land?[[fr.x+fr.w/2,fr.y+fr.h/6],[fr.x+fr.w/2,fr.y+fr.h/2],[fr.x+fr.w/2,fr.y+fr.h*5/6]]
+                  :[[fr.x+fr.w/6,fr.y+fr.h/2],[fr.x+fr.w/2,fr.y+fr.h/2],[fr.x+fr.w*5/6,fr.y+fr.h/2]];
+  pos.forEach(function(p,i){
+    S.flyFilms.push({x0:p[0],y0:p[1],x1:cx,y1:cy,w:Math.min(fr.w/3.4,110),h:Math.min(fr.h*0.8,120),
+      rot:(i-1)*0.5,t:0,dur:0.78});
+  });
+  setTimeout(function(){
+    burst(cx,cy,64,'#ffd45e',260,1.1);
+    burst(cx,cy,34,'#e8c27a',180,1.3);
+    flash('#ffe9b8',0.34);shake(11);
+    Sound.star(0);Sound.star(1);Sound.star(2);
+  },760);
+  camGoto('iso');
+  setTimeout(function(){ if(S.round===R) showResult(st,gain); },1250);
+}
+function fail(why){
+  const R=S.round;
+  if(!R)return;
+  R.attempts++;
+  S.lives=Math.max(0,S.lives-1);
+  S.combo=0;
+  updateHUD();
+  Sound.bad();
+  flash('#c4452d',0.34);shake(13);
+  const msg=why?('아깝다 — '+why+'!'):'세 장 중 아직 안 맞는 게 있어!';
+  toast(msg,'bad',1.8);
+  if(R.attempts>=2&&R.solution&&(R.kind==='FILL'||R.kind==='BUILD'||R.kind==='MINMIN'||R.kind==='MAXMAX')){
+    S.ghost=R.solution;S.ghostT=3.2;
+    toast('이렇게 쌓으면 돼! (3초)','bad',2.6);
+  }
+  if(R.kind==='PAINT'&&R.paint.film==='side'&&sameArr(R.paint.cur,R.paint.correct.slice().reverse())){
+    // misconception C : 옆에서 본 모양의 좌우를 반대로 그림
+    toast('오른쪽에서 보면 앞쪽이 왼쪽이야!','bad',2.6);
+  }
+  if(S.lives<=0){
+    // 게임오버는 없다 — 유령 해를 보여 주고 별 0으로 넘어간다
+    R.forced=true;
+    if(R.solution&&R.grid&&R.editable){R.grid=gclone(R.solution);}
+    if(R.kind==='PAINT'){R.paint.cur=R.paint.correct.slice();}
+    if(R.mcq)R.revealed=true;
+    toast('괜찮아! 정답을 보여 줄게 — 다음 의뢰로 가자','', 2.2);
+    setTimeout(function(){if(S.round===R&&!R.done){R.done=true;S.solved++;S.roomStarsRun.push(0);showResult(0,0);}},1600);
+  }
+}
+function submit(){
+  const R=S.round;
+  if(!R||R.done||S.phase!=='playing')return;
+  if(R.mcq){toast('보기를 하나 골라 줘!','',1.2);return;}
+  if(checkRound(R)){R.revealed=true;succeed();}
+  else{
+    R.revealed=true;                       // 어려움 모드도 이 순간부터 어긋난 면을 보여 준다
+    fail('');
+  }
+}
+
+/* ───────────────────────── 진행 ───────────────────────── */
+function updateHUD(){
+  const room=ROOMS[S.roomIdx];
+  const el=document.getElementById('hRoom');
+  if(el)el.innerHTML='<span>'+(room.short||room.name)+'</span>';
+  const es=document.getElementById('hStep');
+  if(es)es.textContent=(S.roundIdx+1)+'/'+room.rounds.length;
+  const hl=document.getElementById('hLives');
+  if(hl)hl.textContent=String(S.lives);
+}
+function updateViewBtns(){
+  [['vIso','iso'],['vTop','top'],['vFront','front'],['vSide','side']].forEach(function(p){
+    const b=document.getElementById(p[0]);
+    if(b)b.classList.toggle('on',S.camView===p[1]);
+  });
+}
+function startRound(){
+  S.round=buildRound(S.roomIdx,S.roundIdx);
+  S.lives=3;S.phase='playing';S.ghost=null;S.ghostT=0;
+  S.xray={on:false,t:0,lit:0,last:-1};
+  S.flyFilms.length=0;
+  cam.scale=cam.tScale=40;
+  camGoto('iso');
+  layout();
+  updateHUD();updateViewBtns();updateToolBtn();
+  if(S.round.hint)toast(S.round.hint.replace(/\*\*/g,''),'',2.4);
+}
+function updateToolBtn(){
+  const R=S.round,b=document.getElementById('btnTool'),d=document.getElementById('btnDone');
+  if(!b||!d||!R)return;
+  if(R.kind==='COUNT'){b.textContent='🔦 투시등';b.disabled=false;d.disabled=true;d.style.opacity='.45';}
+  else if(R.kind==='LAYERS'||R.kind==='REASON'){b.textContent='🔦 투시등';b.disabled=true;d.disabled=true;d.style.opacity='.45';}
+  else{b.textContent='↺ 처음부터';b.disabled=false;d.disabled=false;d.style.opacity='1';}
+}
+/** 숫자가 갑자기 바뀌지 않게 항상 카운트업으로 보여 준다 */
+function countUp(el,from,to,ms){
+  if(!el)return;
+  const t0=performance.now();
+  (function step(now){
+    const t=clamp((now-t0)/ms,0,1);
+    el.textContent=String(Math.round(lerp(from,to,easeOutCubic(t))));
+    if(t<1)requestAnimationFrame(step);
+  })(t0);
+}
+function showResult(st,gain){
+  S.phase='result';
+  const room=ROOMS[S.roomIdx];
+  const isLast=(S.roundIdx>=room.rounds.length-1);
+  document.getElementById('resTitle').textContent=st>0?(isLast?'의뢰 완료!':'좋았어!'):'다음엔 할 수 있어!';
+  document.getElementById('resStars').textContent='★★★'.slice(0,st)+'☆☆☆'.slice(0,3-st);
+  countUp(document.getElementById('resScore'),Math.max(0,S.score-gain),S.score,700);
+  const R=S.round;
+  let l1='';
+  if(R.kind==='COUNT')l1='정답은 '+gTotal(R.target)+'개 — 숨은 나무 '+hiddenCubeCount(R.target)+'개 포함!';
+  else if(R.kind==='MINMIN')l1='최소 '+R.minN+'개 · 최대는 '+R.maxN+'개야';
+  else if(R.kind==='MAXMAX')l1='같은 세 장인데 '+R.minN+'개~'+R.maxN+'개까지 가능해!';
+  else if(R.kind==='PAINT')l1=R.paint.film==='side'?'옆에서 보면 앞쪽이 왼쪽!':'필름이 딱 맞았어';
+  else if(R.kind==='LAYERS')l1='앞에서 본 모양은 줄마다 가장 높은 층!';
+  else if(R.mcq)l1=R.mcq.after||'';
+  else l1='세 장 사진이 모두 맞았어!';
+  document.getElementById('resLine1').textContent=l1;
+  document.getElementById('resLine2').textContent=(gain>0?('+'+gain+'점'):'') + (S.combo>1?('  ·  '+S.combo+'연속!'):'');
+  document.getElementById('resNext').textContent=isLast?'공방 지도로':'다음 의뢰';
+  show('screen-result');
+  if(isLast){
+    const best=Math.max.apply(null,[save.stars[S.roomIdx]].concat(S.roomStarsRun.length?[Math.round(S.roomStarsRun.reduce((a,b)=>a+b,0)/S.roomStarsRun.length)]:[0]));
+    save.stars[S.roomIdx]=clamp(best,0,3);
+    save.unlocked=Math.max(save.unlocked,Math.min(6,S.roomIdx+2));
+    save.totalScore=Math.max(save.totalScore,S.score);
+    persist();
+  }
+}
+function advance(delay){
+  const room=ROOMS[S.roomIdx];
+  const R=S.round;
+  if(R&&!R.done){R.done=true;S.solved++;S.roomStarsRun.push(0);}
+  if(S.roundIdx<room.rounds.length-1){S.roundIdx++;hideAll();startRound();}
+  else{S.roomIdx=Math.min(5,S.roomIdx+1);S.roundIdx=0;S.roomStarsRun=[];openMap();}
+}
+
+/* ───────────────────────── 화면 전환 ───────────────────────── */
+function show(id){
+  ['screen-title','screen-map','screen-result'].forEach(function(s){
+    document.getElementById(s).classList.toggle('hide',s!==id);
+  });
+  const play=(id===null);
+  document.getElementById('hud').classList.toggle('hide',!play);
+  document.getElementById('ctl').classList.toggle('hide',!play);
+  layout();
+}
+function hideAll(){show(null);}
+function openMap(){
+  S.phase='map';
+  document.getElementById('mScore').textContent=String(S.score);
+  const list=document.getElementById('mapList');
+  list.innerHTML='';
+  ROOMS.forEach(function(r,i){
+    const locked=(i+1)>save.unlocked;
+    const b=document.createElement('button');
+    b.className='roomcard'+(locked?' locked':'');
+    b.innerHTML='<div class="rnum">'+(locked?'🔒':(i+1))+'</div>'+
+      '<div class="rbody"><div class="rt">'+r.name+'</div><div class="rd">'+r.desc+'</div></div>'+
+      '<div class="rstars">'+('★★★'.slice(0,save.stars[i])+'☆☆☆'.slice(0,3-save.stars[i]))+'</div>';
+    b.addEventListener('click',function(){
+      if(locked){toast('앞의 의뢰를 먼저 끝내자!','',1.4);return;}
+      Sound.init();Sound.resume();
+      S.roomIdx=i;S.roundIdx=0;S.roomStarsRun=[];S.runId=(S.runId|0)+1;S.mmCache=null;
+      hideAll();startRound();
+    });
+    list.appendChild(b);
+  });
+  show('screen-map');
+}
+
+/* ───────────────────────── 버튼 배선 ───────────────────────── */
+function bind(id,fn){const el=document.getElementById(id);if(el)el.addEventListener('click',function(e){e.preventDefault();Sound.init();Sound.resume();fn();});}
+bind('startBtn',function(){ S.runId=(S.runId|0)+1; S.mmCache=null; openMap(); });
+bind('dEasy',function(){S.hard=false;document.getElementById('dEasy').classList.add('on');document.getElementById('dHard').classList.remove('on');});
+bind('dHard',function(){S.hard=true;document.getElementById('dHard').classList.add('on');document.getElementById('dEasy').classList.remove('on');});
+bind('btnMapBack',function(){S.phase='title';show('screen-title');});
+bind('btnHome',function(){openMap();});
+bind('btnSound',function(){
+  Sound.muted=!Sound.muted;
+  document.getElementById('btnSound').textContent=Sound.muted?'🔇':'🔊';
+});
+bind('vIso',function(){camGoto('iso');});
+bind('vTop',function(){camGoto('top');});
+bind('vFront',function(){camGoto('front');});
+bind('vSide',function(){camGoto('side');});
+bind('btnDone',function(){submit();});
+bind('btnTool',function(){
+  const R=S.round;if(!R)return;
+  if(R.kind==='COUNT'){
+    S.xray={on:true,t:0,lit:0,last:-1};
+    camGoto('iso');
+    toast('빛이 지나간 나무를 세어 봐!','',1.6);
+  }else if(R.editable){
+    R.grid=mkGrid(R.W,R.D);R.anim={};
+    Sound.remove();toast('처음부터 다시!','',1.0);
+  }
+});
+bind('resNext',function(){
+  document.getElementById('screen-result').classList.add('hide');
+  const room=ROOMS[S.roomIdx];
+  if(S.roundIdx<room.rounds.length-1){S.roundIdx++;hideAll();startRound();}
+  else{S.roomIdx=Math.min(5,S.roomIdx+(S.roomIdx<5?1:0));S.roundIdx=0;S.roomStarsRun=[];openMap();}
+});
+bind('resMap',function(){S.roundIdx=0;S.roomStarsRun=[];openMap();});
+
+window.addEventListener('keydown',function(e){
+  if(S.phase!=='playing')return;
+  const k=e.key.toLowerCase();
+  if(k==='1'||k==='q')camGoto('top');
+  else if(k==='2'||k==='w')camGoto('front');
+  else if(k==='3'||k==='e')camGoto('side');
+  else if(k==='4'||k==='r')camGoto('iso');
+  else if(k===' '){e.preventDefault();submit();}
+  else if(k==='f'){const b=document.getElementById('btnTool');if(b&&!b.disabled)b.click();}
+});
+
+/* ───────────────────────── __GAME_TEST__ ───────────────────────── */
+let sampleSeed=20260820;
+/** 위에서 본 모양의 수를 뒷줄 → 앞줄 순서로 한 줄씩 적는다 (교과서 표기와 같은 방향) */
+function topNumsText(g){
+  const rows=[];
+  for(let z=g.D-1;z>=0;z--){
+    const row=[];for(let x=0;x<g.W;x++)row.push(gget(g,x,z));
+    rows.push(row.join(' '));
+  }
+  return rows.join(' / ');
+}
+function sampleOne(){
+  sampleSeed=(sampleSeed*1103515245+12345)>>>0;
+  const rng=mulberry32(sampleSeed);
+  const t=Math.floor(rng()*4);
+  if(t===0){
+    // 개수 세기 — 숨은 나무 오개념
+    const g=genHidden(rng);
+    const ch=countChoices(g,rng);
+    return {id:'c'+sampleSeed,
+      prompt:'위에서 본 모양에 수가 뒷줄부터 [ '+topNumsText(g)+' ] 로 쓰인 탑이 있어요. 뒤에 숨은 것까지 세면 쌓기나무는 모두 몇 개인가요?',
+      choices:ch.map(c=>c.v+'개'),answer:gTotal(g)+'개',answerNumeric:gTotal(g),
+      unitConcept:'쌓기나무의 개수 세기'};
+  }
+  if(t===1){
+    // 위에서 본 수의 뜻
+    const g=genRestore(rng);
+    const ch=countChoices(g,rng);
+    return {id:'t'+sampleSeed,
+      prompt:'위에서 본 모양에 수가 뒷줄부터 [ '+topNumsText(g)+' ] 로 쓰여 있어요. 쌓기나무는 모두 몇 개인가요?',
+      choices:ch.map(c=>c.v+'개'),answer:gTotal(g)+'개',answerNumeric:gTotal(g),
+      unitConcept:'위에서 본 모양에 수 써서 나타내기'};
+  }
+  if(t===2){
+    // 옆에서 본 모양 (좌우 반전 오개념)
+    const g=genPaintTower(rng);
+    const side=gSide(g),front=gFront(g);
+    const key=a=>a.join('-');
+    const cands=[],seen=new Set([key(side)]);
+    const mis_C_mirror=side.slice().reverse();                  // 좌우 반전
+    const mis_front=front.slice();                              // 앞모양과 혼동
+    const alt=side.map((v,i)=>i===0?Math.max(1,v===1?2:v-1):v); // 한 칸 어긋남
+    [mis_C_mirror,mis_front,alt,side.map(v=>Math.min(v+1,4))].forEach(function(a){
+      if(a.length===side.length&&!seen.has(key(a))){seen.add(key(a));cands.push(a);}
+    });
+    while(cands.length<3){
+      const b=side.map((v,i)=>clamp(v+((i+cands.length)%2?1:-1),1,4));
+      if(!seen.has(key(b))){seen.add(key(b));cands.push(b);}else break;
+    }
+    const opts=cands.slice(0,3).concat([side]);
+    const labels=opts.map(a=>a.join('-'));
+    return {id:'s'+sampleSeed,
+      prompt:'위에서 본 수가 뒷줄부터 [ '+topNumsText(g)+' ] 인 탑을 오른쪽 옆에서 보면? (앞쪽이 필름의 왼쪽, 왼→오 층수)',
+      choices:labels,answer:side.join('-'),answerNumeric:Number(side.join('')),
+      unitConcept:'옆에서 본 모양'};
+  }
+  // 최소/최대
+  const q=genMinMax(rng);
+  const askMin=rng()<0.5;
+  const ans=askMin?q.minN:q.maxN;
+  // misconception D : 세 장이 같으면 쌓는 법이 하나뿐 → 최소·최대를 서로 바꿔 고른다
+  const mis_D_other=askMin?q.maxN:q.minN;
+  const seen=new Set([ans]),opts=[];
+  [mis_D_other, q.foot.filter(v=>v).length, Math.round((q.minN+q.maxN)/2), ans+1, ans-1, q.maxN+1].forEach(function(v){
+    if(v>=1&&!seen.has(v)&&opts.length<3){seen.add(v);opts.push(v);}
+  });
+  let pad=q.maxN+2;while(opts.length<3){if(!seen.has(pad)){seen.add(pad);opts.push(pad);}pad++;}
+  const all=shuffle(opts.concat([ans]),mulberry32(sampleSeed^0x5f5f));
+  return {id:'m'+sampleSeed,
+    prompt:'앞에서 본 모양 ['+q.front.join('-')+'], 옆(오른쪽)에서 본 모양 ['+q.side.join('-')+'] 이고 '+
+           q.W+'×'+q.D+' 발자국이 '+q.foot.filter(v=>v).length+'칸일 때, 쌓기나무는 가장 '+(askMin?'적게':'많게')+' 몇 개일까요?',
+    choices:all.map(v=>v+'개'),answer:ans+'개',answerNumeric:ans,
+    unitConcept:'쌓기나무 개수의 최소와 최대'};
+}
+
+window.__GAME_TEST__={
+  ready:false,
+  start:function(){
+    try{
+      if(S.phase==='playing')return;
+      S.runId=(S.runId|0)+1;S.mmCache=null;
+      S.roomIdx=S.roomIdx||0;S.roundIdx=0;S.roomStarsRun=[];
+      hideAll();startRound();
+    }catch(e){}
+  },
+  getState:function(){
+    return {score:S.score,lives:S.lives,level:S.roomIdx+1,phase:S.phase,solved:S.solved};
+  },
+  answerCorrect:function(){
+    try{
+      const R=S.round;
+      if(!R||S.phase!=='playing'){
+        // 라운드가 없으면 강제로 하나 시작하고 처리
+        if(S.phase!=='playing'){hideAll();startRound();}
+      }
+      const R2=S.round;if(!R2)return;
+      if(R2.mcq){
+        let idx=0;for(let i=0;i<R2.mcq.choices.length;i++)if(R2.mcq.choices[i].correct)idx=i;
+        R2.picked=idx;R2.revealed=true;succeed();
+      }else if(R2.kind==='PAINT'){
+        R2.paint.cur=R2.paint.correct.slice();R2.revealed=true;succeed();
+      }else{
+        R2.grid=gclone(R2.solution);R2.anim={};R2.revealed=true;succeed();
+      }
+    }catch(e){}
+  },
+  answerWrong:function(){
+    try{
+      const R=S.round;
+      if(!R){if(S.phase!=='playing'){hideAll();startRound();}}
+      const R2=S.round;if(!R2)return;
+      if(R2.editable&&R2.grid){                     // 일부러 틀린 상태를 만든다
+        const g=gclone(R2.grid);
+        const i0=0;g.a[i0]=(g.a[i0]+1)%5;R2.grid=g;
+      }
+      fail('');
+    }catch(e){}
+  },
+  sampleProblems:function(n){
+    n=Math.max(1,Math.min(80,n|0||20));
+    const out=[];
+    for(let i=0;i<n;i++){
+      try{out.push(sampleOne());}catch(e){}
+    }
+    return out;
+  }
+};
+
+/* ───────────────────────── 시작 ───────────────────────── */
+document.getElementById('titleArt').addEventListener('error',function(){
+  this.style.display='none';
+});
+(function initBest(){
+  const el=document.getElementById('tBest');
+  if(el)el.textContent='최고 ⭐'+(save.totalScore||0);
+})();
+resize();
+show('screen-title');
+requestAnimationFrame(function(t){last=t;frame(t);});
+window.__GAME_TEST__.ready=true;
+
+})();
+</script>
+</body>
+</html>
