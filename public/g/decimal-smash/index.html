@@ -98,93 +98,179 @@
   }
   .bigbtn:active{ transform:translateY(2px) scale(.95); box-shadow:0 2px 10px rgba(0,229,255,.32), inset 0 1px 0 rgba(255,255,255,.3); }
   .bigbtn-lg{ padding:18px 58px; font-size:clamp(19px,5.4vw,27px); min-height:64px; }
-  #howtoList{ list-style:none; padding:0; margin:6px 0 0; opacity:.85; font-size:clamp(12px,3.4vw,15px); line-height:1.7; }
+  /* ── 타이틀 화면 (docs/title-screen-spec.md) ─────────────── */
+  #startScreen{
+    --title-col:min(100vw,640px);
+    --logo-top:#f4ffff; --logo-mid:#8cffff; --logo-bottom:#2ee0ff;
+    --logo-outline:#03101c; --logo-side:#00a8c8; --logo-side-dark:#045a72;
+    --logo-glow:rgba(0,229,255,.55);
+    display:block; position:fixed; inset:0; z-index:10;
+    min-height:100svh; height:100dvh; overflow:hidden; isolation:isolate;
+    background:#071020; pointer-events:auto; text-align:center;
+    transition:opacity .24s ease;
+  }
+  #startScreen.hidden{ display:none; }
+  #startScreen.leaving{ opacity:0; }
 
-  /* ── 타이틀 화면 ─────────────────────────────────────────── */
-  .title-screen{
-    padding:0; overflow:hidden; justify-content:space-between;
-    background:radial-gradient(ellipse at 50% 20%, rgba(0,229,255,.18), rgba(10,14,39,.97) 72%);
+  .title-art{ --art-x:50%; --art-y:50%; --art-scale:1.02;
+    position:absolute; inset:0; z-index:0; overflow:hidden; background:#071020; }
+  .title-art__image{ width:100%; height:100%; display:block; object-fit:cover;
+    object-position:var(--art-x) var(--art-y); transform:scale(var(--art-scale));
+    filter:saturate(1.06) contrast(1.03);
+    animation:art-breathe 14s ease-in-out infinite alternate; }
+  .title-art__scrim, .title-art__vignette{ position:absolute; inset:0; z-index:1; pointer-events:none; }
+  .title-art__scrim{ background:
+    linear-gradient(180deg, rgba(4,8,18,.46) 0%, rgba(4,8,18,.18) 24%, rgba(4,8,18,.02) 46%,
+      rgba(4,8,18,.14) 67%, rgba(4,8,18,.74) 100%),
+    radial-gradient(ellipse 64% 27% at 50% 17%, rgba(4,8,18,.26), transparent 72%); }
+  .title-art__vignette{ background:
+    linear-gradient(90deg, rgba(2,5,12,.40) 0%, transparent 13%, transparent 87%, rgba(2,5,12,.40) 100%),
+    radial-gradient(ellipse at center, transparent 53%, rgba(2,5,12,.46) 112%);
+    mix-blend-mode:multiply; }
+  @keyframes art-breathe{
+    from{ transform:scale(var(--art-scale)) translate3d(0,0,0); }
+    to{ transform:scale(calc(var(--art-scale) + .035)) translate3d(0,-0.6%,0); } }
+
+  .title-ui{ position:relative; z-index:3; width:var(--title-col); height:100%; margin-inline:auto;
+    padding-inline:clamp(16px,5vw,32px); padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom); pointer-events:none; }
+  .title-logo-zone{ position:absolute; top:max(54px,7dvh); left:16px; right:16px; min-height:190px;
+    display:grid; place-content:start center; text-align:center; pointer-events:auto; }
+  .title-cta-zone{ position:absolute; left:50%; bottom:max(18px, env(safe-area-inset-bottom));
+    width:min(calc(100% - 32px),520px); transform:translateX(-50%);
+    display:grid; justify-items:center; gap:8px; pointer-events:auto; }
+  @media (min-width:641px){
+    .title-logo-zone{ left:24px; right:24px; }
+    .title-cta-zone{ width:min(calc(100% - 48px),520px); }
   }
-  .title-art{
-    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 32%; z-index:0;
-    animation:titleSlowZoom 22s ease-in-out infinite alternate;
+  @media (min-aspect-ratio:1/1){ .title-art{ --art-y:52%; } }
+  @media (max-height:700px){
+    .title-logo-zone{ top:max(38px,5dvh); min-height:150px; }
+    .title-cta-zone{ gap:5px; }
   }
-  .title-scrim{
-    position:absolute; inset:0; z-index:1;
-    background:linear-gradient(180deg, rgba(6,9,26,.88) 0%, rgba(6,9,26,.18) 32%, rgba(6,9,26,.12) 60%, rgba(6,9,26,.94) 100%);
-  }
-  .title-particles{ position:absolute; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
-  .title-bubble{
-    position:absolute; bottom:-14%; border-radius:50%;
-    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.9), rgba(0,229,255,.4) 55%, rgba(0,229,255,0) 78%);
-    opacity:0; animation-name:titleBubbleRise; animation-timing-function:ease-in; animation-iteration-count:infinite;
-  }
-  @keyframes titleBubbleRise{
-    0%{ transform:translateY(0) translateX(0); opacity:0; }
-    10%{ opacity:.85; }
-    85%{ opacity:.45; }
-    100%{ transform:translateY(-130vh) translateX(var(--drift,14px)); opacity:0; }
-  }
-  @keyframes titleSlowZoom{ 0%{ transform:scale(1); } 100%{ transform:scale(1.09); } }
-  .title-top{ position:relative; z-index:2; width:100%; padding-top:max(36px, calc(env(safe-area-inset-top) + 22px));
-    display:flex; flex-direction:column; align-items:center; gap:6px; }
-  .logo-slash{ position:relative; width:100%; height:1.3em; display:flex; align-items:center; justify-content:center;
-    font-size:clamp(32px,10.5vw,52px); font-weight:900; letter-spacing:-1px; margin:0; }
-  .logo-half{
-    position:absolute; left:0; right:0; top:0; text-align:center; white-space:nowrap;
-    -webkit-text-stroke:1.4px rgba(6,9,26,.95); paint-order:stroke fill;
-  }
-  .logo-top{
-    background:linear-gradient(180deg,#fff 10%, #bdfcff 55%, #00e5ff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
-    clip-path:polygon(0 0, 100% 0, 100% 44%, 0 56%);
-    filter:drop-shadow(0 3px 10px rgba(0,0,0,.55));
-    animation:logoSlamTop .65s cubic-bezier(.2,1.5,.4,1) both;
-  }
-  .logo-bottom{
-    background:linear-gradient(180deg,#ffd6e8 10%, #ff3d81 60%, #ff3d81); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
-    clip-path:polygon(0 44%, 100% 56%, 100% 100%, 0 100%);
-    filter:drop-shadow(0 3px 10px rgba(0,0,0,.55));
-    animation:logoSlamBottom .65s cubic-bezier(.2,1.5,.4,1) both;
-  }
-  .logo-cut{
-    position:absolute; left:50%; top:50%; width:118%; height:4px; z-index:3;
-    transform:translate(-50%,-50%) rotate(-2.4deg);
-    background:linear-gradient(90deg, rgba(255,255,255,0), #fff 25%, #fff 75%, rgba(255,255,255,0));
-    box-shadow:0 0 10px 2px rgba(255,255,255,.9), 0 0 28px 10px rgba(0,229,255,.65);
-    animation:logoCutFlash .8s ease-out both .08s;
-  }
-  @keyframes logoSlamTop{
-    0%{ transform:translate(-70px,-120px) rotate(-20deg); opacity:0; }
-    55%{ opacity:1; }
-    100%{ transform:translate(-6px,-3px) rotate(-2.4deg); opacity:1; }
-  }
-  @keyframes logoSlamBottom{
-    0%{ transform:translate(70px,120px) rotate(-20deg); opacity:0; }
-    55%{ opacity:1; }
-    100%{ transform:translate(6px,3px) rotate(-2.4deg); opacity:1; }
-  }
-  @keyframes logoCutFlash{
-    0%{ opacity:0; transform:translate(-50%,-50%) rotate(-2.4deg) scaleX(.2); }
-    45%{ opacity:1; transform:translate(-50%,-50%) rotate(-2.4deg) scaleX(1.05); }
-    100%{ opacity:.85; transform:translate(-50%,-50%) rotate(-2.4deg) scaleX(1); }
-  }
-  .title-tagline{ position:relative; z-index:2; margin:4px 0 0; font-weight:700; font-size:clamp(13px,3.8vw,17px);
-    color:#dffbff; text-shadow:0 2px 8px rgba(0,0,0,.6); opacity:.95; }
-  .title-bottom{ position:relative; z-index:2; width:100%; display:flex; flex-direction:column; align-items:center; gap:12px;
-    padding:0 20px max(18px, env(safe-area-inset-bottom)); }
-  .title-screen #howtoList{ max-width:340px; }
-  .pulse-btn{ animation:btnPulse 1.8s ease-in-out infinite; }
-  @keyframes btnPulse{
-    0%,100%{ box-shadow:0 6px 24px rgba(0,229,255,.35), inset 0 2px 0 rgba(255,255,255,.4), 0 0 0 0 rgba(0,229,255,.4); }
-    50%{ box-shadow:0 6px 28px rgba(0,229,255,.55), inset 0 2px 0 rgba(255,255,255,.4), 0 0 0 10px rgba(0,229,255,0); }
-  }
-  .title-foot{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center; }
-  .unit-badge, .best-badge{
-    font-size:clamp(10px,3vw,12px); font-weight:700; padding:5px 12px; border-radius:999px;
-    background:rgba(10,14,39,.6); border:1px solid rgba(255,255,255,.2); opacity:.9;
-  }
-  .best-badge b{ color:var(--yellow); font-weight:900; }
-  .art-fallback .title-art, .art-fallback .title-scrim{ display:none; }
+
+  .game-logo{ margin:0; display:flex; align-items:center; justify-content:center; flex-wrap:nowrap;
+    font-family:"Black Han Sans","Noto Sans KR","Apple SD Gothic Neo",sans-serif;
+    /* 5음절+간격: 390px에서 로고 본문 폭 ≈ 330–358px */
+    font-size:clamp(64px,20.4vw,110px); font-weight:900; line-height:.92; letter-spacing:-.10em;
+    white-space:nowrap; filter:drop-shadow(0 16px 14px rgba(0,0,0,.34));
+    transform:rotate(-1.5deg); transform-origin:50% 60%; }
+  .game-logo > span:not(.logo-gap){
+    --r:0deg; --y:0px; --s:1;
+    position:relative; display:inline-block; padding-inline:.025em; color:transparent;
+    -webkit-text-fill-color:transparent;
+    background:linear-gradient(180deg, var(--logo-top) 0%, var(--logo-mid) 48%, var(--logo-bottom) 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-stroke:clamp(2px,.75vw,5px) var(--logo-outline); paint-order:stroke fill;
+    text-shadow:
+      0 1px 0 var(--logo-side), 0 2px 0 var(--logo-side), 0 3px 0 var(--logo-side), 0 4px 0 var(--logo-side),
+      0 5px 0 var(--logo-side-dark), 0 6px 0 var(--logo-side-dark), 0 7px 0 var(--logo-side-dark),
+      0 8px 0 var(--logo-side-dark),
+      0 11px 2px rgba(42,13,4,.60), 0 16px 8px rgba(0,0,0,.46), 0 22px 22px rgba(0,0,0,.34),
+      0 0 26px var(--logo-glow);
+    transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s)); transform-origin:50% 80%;
+    animation:logo-letter-in 720ms cubic-bezier(.18,1.55,.34,1) both;
+    animation-delay:calc(var(--i,0) * 65ms); }
+  .game-logo .logo-gap{ width:.22em; flex:0 0 .22em; }
+  .game-subtitle{ margin:15px 0 0; padding:5px 13px 6px; border:1px solid rgba(255,255,255,.34);
+    border-radius:999px; color:#fff8df; background:rgba(22,13,12,.46);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 5px 14px rgba(0,0,0,.24);
+    backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+    font:800 clamp(12px,3.5vw,16px)/1.2 "Noto Sans KR",sans-serif; letter-spacing:-.02em;
+    text-shadow:0 2px 4px rgba(0,0,0,.72);
+    animation:logo-subtitle-in 420ms 520ms ease-out both; justify-self:center; }
+  .title-unit{ margin:9px 0 0; font-size:11.5px; font-weight:700; color:#fff; opacity:.72;
+    letter-spacing:-.01em; white-space:nowrap; text-shadow:0 2px 5px rgba(0,0,0,.85);
+    animation:logo-subtitle-in 420ms 640ms ease-out both; }
+  @keyframes logo-letter-in{
+    0%{ opacity:0; transform:translateY(calc(var(--y) - 82px)) rotate(calc(var(--r) - 10deg)) scale(.55); }
+    58%{ opacity:1; transform:translateY(calc(var(--y) + 8px)) rotate(calc(var(--r) + 3deg)) scale(calc(var(--s) * 1.10)); }
+    78%{ transform:translateY(calc(var(--y) - 3px)) rotate(calc(var(--r) - 1deg)) scale(calc(var(--s) * .97)); }
+    100%{ opacity:1; transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s)); } }
+  @keyframes logo-subtitle-in{
+    from{ opacity:0; transform:translateY(-8px) scale(.92); }
+    to{ opacity:1; transform:translateY(0) scale(1); } }
+
+  .title-start{
+    --cta-top:#ffd0e6; --cta-mid:#ff3d81; --cta-bottom:#d01058;
+    --cta-border:#3a0518; --cta-depth:#9a1048; --cta-ink:#2a0412;
+    position:relative; width:min(100%,420px); min-height:68px; padding:0 28px;
+    border:4px solid var(--cta-border); border-radius:22px; appearance:none; cursor:pointer;
+    color:var(--cta-ink);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.58) 0 2px, transparent 2px 100%),
+      linear-gradient(180deg, var(--cta-top) 0%, var(--cta-mid) 49%, var(--cta-bottom) 100%);
+    box-shadow:0 7px 0 var(--cta-depth), 0 10px 0 var(--cta-border), 0 17px 26px rgba(0,0,0,.38),
+      inset 0 3px 0 rgba(255,255,255,.55), inset 0 -3px 0 rgba(154,16,72,.20);
+    font-family:"Black Han Sans","Noto Sans KR",sans-serif;
+    font-size:clamp(21px,5.8vw,27px); font-weight:900; line-height:1; letter-spacing:-.03em;
+    text-shadow:0 2px 0 rgba(255,255,255,.38);
+    transform:translateY(0) scale(1); transform-origin:50% 100%;
+    animation:cta-pulse 2.4s ease-in-out 1.2s infinite;
+    transition:transform 90ms ease-out, box-shadow 90ms ease-out, filter 120ms ease-out;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  .title-start::after{ content:""; position:absolute; inset:5px 9px auto; height:19px; border-radius:999px;
+    background:linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,0)); pointer-events:none; }
+  .title-start > span{ position:relative; z-index:1; }
+  .title-start:hover{ filter:saturate(1.08) brightness(1.04); }
+  .title-start:active, .title-start.is-pressed{
+    transform:translateY(7px) scale(.985);
+    box-shadow:0 1px 0 var(--cta-depth), 0 3px 0 var(--cta-border), 0 7px 13px rgba(0,0,0,.30),
+      inset 0 3px 0 rgba(255,255,255,.38), inset 0 -2px 0 rgba(154,16,72,.18);
+    animation-play-state:paused; }
+  .title-start:focus-visible{ outline:4px solid #fff; outline-offset:5px; }
+  @keyframes cta-pulse{
+    0%,72%,100%{ transform:translateY(0) scale(1); }
+    80%{ transform:translateY(-2px) scale(1.025); }
+    88%{ transform:translateY(0) scale(1); }
+    94%{ transform:translateY(-1px) scale(1.012); } }
+  @media (max-height:700px){ .title-start{ min-height:64px; } }
+
+  .title-meta{ min-height:30px; display:flex; align-items:center; padding:6px 12px;
+    border:1px solid rgba(255,255,255,.24); border-radius:999px; color:rgba(255,255,255,.92);
+    background:rgba(5,10,20,.42); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px);
+    font-size:12px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums;
+    text-shadow:0 1px 3px rgba(0,0,0,.8); }
+  .title-meta[hidden]{ display:none; }
+  .title-howto{ min-height:44px; padding:7px 12px; border:0; cursor:pointer;
+    color:rgba(255,255,255,.86); background:transparent;
+    font:700 12px/1.2 "Noto Sans KR",sans-serif; text-decoration:underline;
+    text-decoration-color:rgba(255,255,255,.35); text-underline-offset:4px;
+    text-shadow:0 2px 5px rgba(0,0,0,.85); touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  .title-howto:focus-visible{ outline:3px solid #fff; outline-offset:2px; border-radius:10px; }
+  .title-mute{ position:absolute; z-index:4; top:max(10px, env(safe-area-inset-top));
+    right:max(12px, calc((100vw - min(100vw,640px)) / 2 + 12px));
+    width:44px; height:44px; display:grid; place-items:center; padding:0; cursor:pointer;
+    border:1px solid rgba(255,255,255,.18); border-radius:50%; color:#fff;
+    background:rgba(0,0,0,.28); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px);
+    font-size:21px; line-height:1; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  .title-mute:focus-visible{ outline:3px solid #fff; outline-offset:3px; }
+  .art-fallback .title-art__image{ display:none; }
+
+  /* ── 3단계 스포트라이트 온보딩 ───────────────────────────── */
+  #onb{ position:fixed; inset:0; z-index:45; pointer-events:auto; }
+  #onb.hidden{ display:none; }
+  #onbHole{ position:absolute; border-radius:18px; border:3px solid #00e5ff;
+    box-shadow:0 0 0 9999px rgba(6,10,24,.78), 0 0 0 6px rgba(0,229,255,.22) inset;
+    transition:top .22s ease, left .22s ease, width .22s ease, height .22s ease;
+    animation:onb-hole 1.6s ease-in-out infinite; }
+  @keyframes onb-hole{ 0%,100%{ border-color:#00e5ff; } 50%{ border-color:#ff3d81; } }
+  #onbCard{ position:absolute; left:50%; transform:translateX(-50%);
+    width:min(calc(100vw - 32px),420px);
+    background:linear-gradient(#121a3c,#0a1028); border:3px solid #00e5ff; border-radius:22px;
+    box-shadow:0 10px 0 rgba(0,0,0,.4), 0 18px 34px rgba(0,0,0,.5), 0 0 24px rgba(0,229,255,.28);
+    padding:14px 15px 15px; text-align:left; }
+  #onbNum{ display:inline-block; font-size:11px; font-weight:900; color:#041018; background:#00e5ff;
+    border-radius:8px; padding:2px 8px; letter-spacing:.5px; }
+  #onbTitle{ margin:8px 0 5px; font-size:19px; font-weight:900; letter-spacing:-.5px; color:#fff; }
+  #onbBody{ margin:0; font-size:13.5px; font-weight:700; line-height:1.5; color:#c8e8f4; }
+  #onbNext{ width:100%; min-height:52px; margin-top:10px; border:none; border-radius:16px; cursor:pointer;
+    font-family:inherit; font-size:17px; font-weight:900; color:#2a0412;
+    background:linear-gradient(#ffd0e6,#ff3d81); box-shadow:0 5px 0 #9a1048, 0 9px 16px rgba(0,0,0,.3);
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  #onbNext:active{ transform:translateY(5px); box-shadow:0 0 0 #9a1048, 0 3px 8px rgba(0,0,0,.3); }
+  #onbTap{ position:absolute; left:0; right:0; text-align:center; font-size:11.5px; font-weight:800;
+    color:rgba(255,255,255,.78); text-shadow:0 2px 5px rgba(0,0,0,.85); }
 
   /* ── 게임오버 화면 ───────────────────────────────────────── */
   .go-stamp{
@@ -222,10 +308,8 @@
   #popupText.show{ transform:translate(-50%,-50%) scale(1); opacity:1; }
   @media (prefers-reduced-motion: reduce){
     #ruleCard, #comboBox, .bigbtn, #popupText{ transition:none !important; }
-    .title-art{ animation:none; }
-    .pulse-btn{ animation:none; }
-    .title-bubble{ animation-duration:16s !important; }
-    .logo-top, .logo-bottom, .logo-cut{ animation-duration:.01s; animation-delay:0s; }
+    .title-art__image, .game-logo > span:not(.logo-gap), .game-subtitle, .title-unit, #onbHole{ animation:none; }
+    .title-start{ animation:none; transition-duration:0ms; }
   }
 </style>
 </head>
@@ -247,31 +331,46 @@
 <div id="popupText"></div>
 <div id="flashOverlay"></div>
 
-<div id="startScreen" class="screen title-screen">
-  <img id="titleArt" class="title-art" src="./assets/title.png" alt=""
-       onerror="this.remove(); document.getElementById('startScreen').classList.add('art-fallback')">
-  <div class="title-scrim"></div>
-  <div id="titleParticles" class="title-particles"></div>
-  <div class="title-top">
-    <h1 class="logo-slash" aria-label="소수 스매시">
-      <span class="logo-half logo-top" aria-hidden="true">소수 스매시</span>
-      <span class="logo-half logo-bottom" aria-hidden="true">소수 스매시</span>
-      <span class="logo-cut" aria-hidden="true"></span>
-    </h1>
-    <p class="title-tagline">커지는 것만 톡!</p>
+<div id="startScreen">
+  <div class="title-art" aria-hidden="true">
+    <img class="title-art__image" src="./assets/title.png" alt=""
+         onerror="this.closest('#startScreen').classList.add('art-fallback')">
   </div>
-  <div class="title-bottom">
-    <ul id="howtoList">
-      <li>규칙에 맞는 방울만 손가락(또는 마우스)으로 그어 터뜨려요</li>
-      <li>해골 폭탄 방울만 피하면 돼요 — 틀려도 콤보만 끊겨요</li>
-      <li>콤보가 쌓일수록 점수가 팍팍 올라가요</li>
-    </ul>
-    <button id="startBtn" class="bigbtn pulse-btn">시작</button>
-    <div class="title-foot">
-      <span class="unit-badge">5학년 2학기 · 소수의 곱셈</span>
-      <span class="best-badge">최고 기록 <b id="titleBest">0</b></span>
+  <div class="title-art__scrim" aria-hidden="true"></div>
+  <div class="title-art__vignette" aria-hidden="true"></div>
+
+  <button class="title-mute" id="btnTitleMute" type="button" aria-label="소리 끄기">🔊</button>
+
+  <div class="title-ui">
+    <div class="title-logo-zone">
+      <h1 class="game-logo" aria-label="소수 스매시">
+        <span aria-hidden="true" style="--i:0;--r:-5deg;--y:6px;--s:1.10">소</span>
+        <span aria-hidden="true" style="--i:1;--r:4deg;--y:-3px;--s:1.00">수</span>
+        <span class="logo-gap" aria-hidden="true"></span>
+        <span aria-hidden="true" style="--i:2;--r:-3deg;--y:4px;--s:1.12">스</span>
+        <span aria-hidden="true" style="--i:3;--r:5deg;--y:-5px;--s:.98">매</span>
+        <span aria-hidden="true" style="--i:4;--r:-2deg;--y:2px;--s:1.06">시</span>
+      </h1>
+      <p class="game-subtitle">커지는 것만 톡!</p>
+      <p class="title-unit">5학년 2학기 · 소수의 곱셈</p>
+    </div>
+    <div class="title-cta-zone">
+      <div class="title-meta" id="tBest" hidden></div>
+      <button class="title-start" id="startBtn" type="button"><span>스매시!</span></button>
+      <button class="title-howto" id="btnHowto" type="button">어떻게 놀아요? 〉</button>
     </div>
   </div>
+</div>
+
+<div id="onb" class="hidden">
+  <div id="onbHole"></div>
+  <div id="onbCard">
+    <span id="onbNum">1/3</span>
+    <h2 id="onbTitle"></h2>
+    <p id="onbBody"></p>
+    <button id="onbNext" type="button">다음</button>
+  </div>
+  <div id="onbTap">화면을 탭해도 넘어가요</div>
 </div>
 
 <div id="gameoverScreen" class="screen hidden">
@@ -502,6 +601,7 @@
   // ───────────────────────────── 게임 상태
   const state = {
     phase: 'intro', // intro | playing | gameover
+    frozen: false,
     score: 0, best: 0, lives: 3, maxLives: 3,
     combo: 0, bestCombo: 0, solved: 0,
     level: 1, cycle: 0, roundType: 'judge', roundDir: 'bigger',
@@ -907,11 +1007,11 @@
   }
   canvas.addEventListener('pointerdown', (e) => {
     ensureAudio();
-    if (state.phase !== 'playing') return;
+    if (state.phase !== 'playing' || state.frozen) return;
     const p = pointerPos(e); downPt = p; trail = [{ x: p.x, y: p.y, t: performance.now() }]; hitThisStroke.clear();
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (state.phase !== 'playing' || !downPt) return;
+    if (state.phase !== 'playing' || state.frozen || !downPt) return;
     const p = pointerPos(e);
     const last = trail[trail.length - 1];
     trail.push({ x: p.x, y: p.y, t: performance.now() });
@@ -919,7 +1019,7 @@
     if (last) testSegmentHits(last.x, last.y, p.x, p.y);
   });
   function endStroke(e){
-    if (state.phase !== 'playing' || !downPt) return;
+    if (state.phase !== 'playing' || state.frozen || !downPt) return;
     const p = pointerPos(e);
     if (trail.length <= 2){
       slots.forEach(sl => { if (sl.active && Math.hypot(sl.x - p.x, sl.y - p.y) <= sl.r) popSlot(sl, sl.x, sl.y); });
@@ -953,28 +1053,137 @@
     updateHud();
   }
 
-  function beginPlay(){
-    document.getElementById('startScreen').classList.add('hidden');
+  const ONB_KEY = 'onboardingSeen:decimal-smash';
+  const ONB_STEPS = [
+    { t:'방울을 그어 터뜨려라',
+      b:'위 규칙에 맞는 방울만 손가락(또는 마우스)으로 그어요. 그으면 톡, 터집니다.' },
+    { t:'해골 폭탄만 피해라',
+      b:'해골 무늬 폭탄 방울만 피하면 돼요. 규칙에 안 맞는 방울을 그어도 목숨은 그대로, 콤보만 끊겨요.' },
+    { t:'콤보를 쌓아 점수를 올려라',
+      b:'연속으로 맞히면 점수가 팍팍 올라가요. 준비됐으면 스매시!' }
+  ];
+  let onbIdx = -1;
+  function onbSeen(){ try { return !!localStorage.getItem(ONB_KEY); } catch(e){ return false; } }
+  function onbHoleRect(i){
+    const pad = (el, p) => {
+      const r = el.getBoundingClientRect();
+      return [r.left - p, r.top - p, r.width + p * 2, r.height + p * 2];
+    };
+    if (i === 0){
+      const cv = canvas.getBoundingClientRect();
+      return [cv.width * 0.10, cv.height * 0.28, cv.width * 0.80, cv.height * 0.46];
+    }
+    if (i === 1) return pad(document.getElementById('ruleCard'), 8);
+    return pad(document.getElementById('scoreWrap'), 8);
+  }
+  function onbPlace(){
+    if (onbIdx < 0) return;
+    const r = onbHoleRect(onbIdx);
+    const hole = document.getElementById('onbHole');
+    const card = document.getElementById('onbCard');
+    hole.style.left = r[0] + 'px'; hole.style.top = r[1] + 'px';
+    hole.style.width = Math.max(44, r[2]) + 'px'; hole.style.height = Math.max(44, r[3]) + 'px';
+    const cardH = card.offsetHeight || 160;
+    const above = r[1] - cardH - 24;
+    const below = r[1] + r[3] + 16;
+    let top;
+    if (above >= 10) top = above;
+    else if (below + cardH <= window.innerHeight - 16) top = below;
+    else top = Math.max(10, window.innerHeight - cardH - 16);
+    card.style.top = top + 'px';
+    document.getElementById('onbTap').style.top = (top + cardH + 7) + 'px';
+  }
+  function openOnb(i){
+    onbIdx = Math.max(0, Math.min(ONB_STEPS.length - 1, i | 0));
+    const st = ONB_STEPS[onbIdx];
+    document.getElementById('onbNum').textContent = (onbIdx + 1) + '/' + ONB_STEPS.length;
+    document.getElementById('onbTitle').textContent = st.t;
+    document.getElementById('onbBody').textContent = st.b;
+    document.getElementById('onbNext').textContent = (onbIdx === ONB_STEPS.length - 1) ? '해볼게요' : '다음';
+    document.getElementById('onb').classList.remove('hidden');
+    state.frozen = true;
+    onbPlace();
+    requestAnimationFrame(onbPlace);
+  }
+  function closeOnb(markSeen){
+    onbIdx = -1;
+    state.frozen = false;
+    document.getElementById('onb').classList.add('hidden');
+    if (markSeen){ try { localStorage.setItem(ONB_KEY, '1'); } catch(e){} }
+  }
+  function nextOnb(){
+    if (onbIdx < 0) return;
+    if (onbIdx < ONB_STEPS.length - 1) openOnb(onbIdx + 1);
+    else closeOnb(true);
+  }
+
+  function launchPlay(){
+    closeOnb(false);
+    const title = document.getElementById('startScreen');
+    title.classList.add('hidden'); title.classList.remove('leaving');
     document.getElementById('gameoverScreen').classList.add('hidden');
     resetGame();
     state.phase = 'playing';
+    state.frozen = false;
     startRound(ROUND_SEQ[0]);
+  }
+
+  function dismissTitleThen(fn){
+    const title = document.getElementById('startScreen');
+    title.classList.add('leaving');
+    setTimeout(() => {
+      title.classList.add('hidden');
+      title.classList.remove('leaving');
+      fn();
+    }, 240);
+  }
+
+  function beginPlay(forceGuide){
+    ensureAudio();
+    try { if (navigator.vibrate) navigator.vibrate(18); } catch(e){}
+    const guide = forceGuide || !onbSeen();
+    dismissTitleThen(() => {
+      launchPlay();
+      if (guide){
+        state.frozen = true;
+        setTimeout(() => { if (state.phase === 'playing') openOnb(0); }, 40);
+      }
+    });
   }
 
   function transitionToPlay(screenId){
     const screen = document.getElementById(screenId);
     screen.classList.add('leaving');
-    setTimeout(() => { beginPlay(); screen.classList.remove('leaving'); }, 160);
+    setTimeout(() => { launchPlay(); screen.classList.remove('leaving'); }, 160);
   }
-  document.getElementById('startBtn').addEventListener('click', () => { ensureAudio(); transitionToPlay('startScreen'); });
+  document.getElementById('startBtn').addEventListener('click', () => beginPlay(false));
+  document.getElementById('btnHowto').addEventListener('click', () => beginPlay(true));
   document.getElementById('retryBtn').addEventListener('click', () => { ensureAudio(); transitionToPlay('gameoverScreen'); });
+  document.getElementById('onb').addEventListener('click', nextOnb);
+  document.getElementById('onbNext').addEventListener('click', (e) => { e.stopPropagation(); nextOnb(); });
+
   const muteBtn = document.getElementById('muteBtn');
-  function syncMuteBtn(){ muteBtn.textContent = muted ? '🔇' : '🔊'; }
-  syncMuteBtn();
-  muteBtn.addEventListener('click', () => {
+  const titleMuteBtn = document.getElementById('btnTitleMute');
+  function syncMuteBtn(){
+    const ic = muted ? '🔇' : '🔊';
+    const lbl = muted ? '소리 켜기' : '소리 끄기';
+    muteBtn.textContent = ic; muteBtn.setAttribute('aria-label', lbl);
+    titleMuteBtn.textContent = ic; titleMuteBtn.setAttribute('aria-label', lbl);
+  }
+  function toggleMute(){
     muted = !muted; try { localStorage.setItem('decimalSmashMuted', muted ? '1' : '0'); } catch(e){}
     syncMuteBtn();
-  });
+  }
+  syncMuteBtn();
+  muteBtn.addEventListener('click', toggleMute);
+  titleMuteBtn.addEventListener('click', toggleMute);
+
+  function syncBestPill(){
+    const el = document.getElementById('tBest');
+    const v = Number(state.best || 0);
+    if (v > 0){ el.hidden = false; el.textContent = '최고 ' + v.toLocaleString('ko-KR') + '점'; }
+    else el.hidden = true;
+  }
 
   // ───────────────────────────── 업데이트 / 렌더
   let lastT = performance.now();
@@ -1067,7 +1276,7 @@
     drawDust();
     tickScoreDisplay(dt || 0.016);
 
-    if (state.phase === 'playing'){
+    if (state.phase === 'playing' && !state.frozen){
       roundTimer += dt * 1000;
       if (roundTimer >= ROUND_MS) nextRound();
       updateDust(dt);
@@ -1152,30 +1361,9 @@
     ctx.restore();
   }
 
-  // ── 타이틀 화면 연출: 떠오르는 방울 파티클 + 최고기록 뱃지 ──
-  function buildTitleParticles(){
-    const wrap = document.getElementById('titleParticles');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-    const n = state.reduceMotion ? 5 : 11;
-    for (let i = 0; i < n; i++){
-      const b = document.createElement('div');
-      b.className = 'title-bubble';
-      const size = Math.random() * 46 + 18;
-      b.style.width = size + 'px'; b.style.height = size + 'px';
-      b.style.left = (Math.random() * 92 + 4) + '%';
-      const dur = Math.random() * 10 + 12;
-      b.style.animationDuration = dur + 's';
-      b.style.animationDelay = (-Math.random() * dur) + 's';
-      b.style.setProperty('--drift', (Math.random() * 60 - 30) + 'px');
-      wrap.appendChild(b);
-    }
-  }
-  buildTitleParticles();
-  const titleBestEl = document.getElementById('titleBest');
-  if (titleBestEl) titleBestEl.textContent = state.best;
-
-  window.addEventListener('resize', resize);
+  syncBestPill();
+  window.addEventListener('resize', () => { resize(); onbPlace(); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', onbPlace);
   resize();
   updateHud();
   requestAnimationFrame(step);
@@ -1236,10 +1424,10 @@
 
   window.__GAME_TEST__ = {
     ready: true,
-    start(){ ensureAudio(); beginPlay(); },
+    start(){ ensureAudio(); launchPlay(); },
     getState(){ return { score: state.score, lives: state.lives, level: state.level, phase: state.phase, solved: state.solved }; },
     answerCorrect(){
-      if (state.phase !== 'playing') beginPlay();
+      if (state.phase !== 'playing') launchPlay();
       let sl = slots.find(s => s.active && s.ok && (s.role === 'judge' || s.role === 'answer'));
       if (!sl){
         sl = slots.find(s => s.active && (s.role === 'judge' || s.role === 'answer'));
@@ -1248,7 +1436,7 @@
       if (sl) popSlot(sl, sl.x, sl.y);
     },
     answerWrong(){
-      if (state.phase !== 'playing') beginPlay();
+      if (state.phase !== 'playing') launchPlay();
       let sl = slots.find(s => s.active && s.role === 'bomb');
       if (!sl){ sl = slots.find(s => s.active); if (sl) sl.role = 'bomb'; }
       if (sl) popSlot(sl, sl.x, sl.y);
