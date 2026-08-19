@@ -1,0 +1,450 @@
+<title>수학 게임 설계 바이블</title>
+<style>
+:root{
+  --paper:#fdfbf5; --page:#fffefa; --grid:#ece5d3; --line:#ddd4bd;
+  --ink:#1c2b4a; --ink-soft:#46536e; --muted:#8b8570;
+  --red:#d6403a; --red-soft:#fbe9e8;
+  --hl:#ffe95c; --hl-ink:#4a3f00;
+  --teal:#0e7f74; --teal-soft:#e2f2f0;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#141924; --page:#1a2130; --grid:#232c40; --line:#2e3a54;
+    --ink:#e9edf6; --ink-soft:#b9c2d6; --muted:#7e8aa5;
+    --red:#ff6f63; --red-soft:#3a2220;
+    --hl:#5a4d00; --hl-ink:#ffe95c;
+    --teal:#3fbfb0; --teal-soft:#12312e;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141924; --page:#1a2130; --grid:#232c40; --line:#2e3a54;
+  --ink:#e9edf6; --ink-soft:#b9c2d6; --muted:#7e8aa5;
+  --red:#ff6f63; --red-soft:#3a2220;
+  --hl:#5a4d00; --hl-ink:#ffe95c;
+  --teal:#3fbfb0; --teal-soft:#12312e;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    var(--paper);
+  background-size:28px 28px, 28px 28px, auto;
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic","Noto Sans KR",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  line-height:1.7;
+}
+.wrap{max-width:880px;margin:0 auto;padding:0 20px 120px}
+
+header{padding:72px 0 20px}
+.stamp{
+  display:inline-block;font-size:12px;font-weight:800;letter-spacing:.12em;
+  color:var(--red);border:2px solid var(--red);border-radius:6px;
+  padding:4px 12px;transform:rotate(-2deg);margin-bottom:20px;
+}
+h1{
+  font-size:clamp(34px,6vw,54px);font-weight:900;letter-spacing:-.03em;
+  line-height:1.12;margin:0 0 14px;text-wrap:balance;
+}
+h1 .u{
+  background:linear-gradient(transparent 62%, var(--hl) 62%);
+  color:inherit;
+}
+:root[data-theme="dark"] h1 .u, body h1 .u{ }
+.lead{color:var(--ink-soft);font-size:16.5px;max-width:60ch;margin:0}
+.lead b{color:var(--ink)}
+.meta{margin-top:18px;font-size:12.5px;color:var(--muted)}
+
+nav.toc{
+  margin:36px 0 0;background:var(--page);border:1.5px solid var(--line);
+  border-radius:14px;padding:18px 22px;
+}
+nav.toc ol{margin:6px 0 0;padding-left:0;list-style:none;columns:2;column-gap:32px}
+nav.toc li{margin:5px 0;break-inside:avoid}
+nav.toc a{color:var(--ink);text-decoration:none;font-weight:700;font-size:14px}
+nav.toc a:hover{color:var(--red)}
+nav.toc .n{color:var(--red);font-weight:900;margin-right:7px;font-variant-numeric:tabular-nums}
+.toc-label{font-size:11.5px;font-weight:800;letter-spacing:.12em;color:var(--muted)}
+
+section{margin-top:64px}
+.unit{
+  display:flex;align-items:baseline;gap:14px;margin-bottom:6px;
+}
+.unit .badge{
+  flex:none;background:var(--ink);color:var(--paper);
+  font-weight:900;font-size:13px;border-radius:8px;padding:5px 12px;letter-spacing:.04em;
+}
+:root[data-theme="dark"] .unit .badge{background:var(--teal);color:#08201d}
+.unit h2{font-size:clamp(22px,4vw,30px);font-weight:900;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.unit-sub{color:var(--muted);font-size:14px;margin:2px 0 22px;padding-left:2px}
+
+.card{
+  background:var(--page);border:1.5px solid var(--line);border-radius:14px;
+  padding:22px 26px;margin:16px 0;
+}
+.card h3{margin:0 0 10px;font-size:17px;font-weight:800}
+.card h3 .no{color:var(--red);margin-right:6px;font-variant-numeric:tabular-nums}
+.card p{margin:8px 0;font-size:14.5px;color:var(--ink-soft)}
+.card p b, .card li b{color:var(--ink)}
+.card ul{margin:8px 0;padding-left:20px}
+.card li{font-size:14.5px;color:var(--ink-soft);margin:5px 0}
+.hl{background:var(--hl);color:var(--hl-ink);padding:1px 5px;border-radius:4px;font-weight:700}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:14px 0}
+th{
+  text-align:left;font-size:11.5px;letter-spacing:.08em;color:var(--muted);
+  font-weight:800;padding:8px 10px;border-bottom:2px solid var(--line);white-space:nowrap;
+}
+td{padding:9px 10px;border-bottom:1px solid var(--grid);color:var(--ink-soft);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:700;white-space:nowrap}
+td .num{font-variant-numeric:tabular-nums;font-weight:800}
+.gap-hot td:first-child{color:var(--red)}
+.table-scroll{overflow-x:auto}
+
+.incident{
+  background:var(--red-soft);border:1.5px solid var(--red);border-radius:14px;
+  padding:18px 22px;margin:14px 0;position:relative;
+}
+.incident::before{
+  content:"✗";position:absolute;top:-14px;left:-10px;width:30px;height:30px;
+  background:var(--red);color:#fff;border-radius:50%;display:grid;place-items:center;
+  font-weight:900;font-size:16px;transform:rotate(-8deg);
+}
+.incident h4{margin:0 0 6px;font-size:15px;font-weight:800;color:var(--red)}
+.incident p{margin:5px 0;font-size:13.5px;color:var(--ink-soft)}
+.incident .lesson{
+  margin-top:10px;padding-top:10px;border-top:1px dashed var(--red);
+  font-size:13.5px;color:var(--ink);font-weight:700;
+}
+
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0}
+.tri .pillar{
+  background:var(--page);border:1.5px solid var(--line);border-radius:14px;padding:18px;
+  border-top:5px solid var(--teal);
+}
+.tri .pillar:nth-child(2){border-top-color:var(--red)}
+.tri .pillar:nth-child(3){border-top-color:var(--hl-ink)}
+:root[data-theme="dark"] .tri .pillar:nth-child(3){border-top-color:var(--hl-ink)}
+.tri h3{margin:0 0 8px;font-size:16px;font-weight:900}
+.tri p{margin:0;font-size:13px;color:var(--ink-soft);line-height:1.6}
+
+code, .mono{
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  font-size:.9em;background:var(--paper);border:1px solid var(--grid);
+  border-radius:5px;padding:1px 6px;
+}
+pre{
+  background:var(--paper);border:1.5px solid var(--line);border-radius:10px;
+  padding:14px 16px;overflow-x:auto;font-size:12.5px;line-height:1.6;
+}
+pre code{background:none;border:none;padding:0}
+
+.check{color:var(--teal);font-weight:900;margin-right:4px}
+.pipeline{
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0;font-size:12.5px;font-weight:700;
+}
+.pipeline .step{
+  background:var(--page);border:1.5px solid var(--line);border-radius:8px;padding:5px 11px;color:var(--ink);
+}
+.pipeline .step small{display:block;font-weight:600;color:var(--muted);font-size:10.5px}
+.pipeline .arr{color:var(--muted)}
+.pipeline .gate{border-color:var(--red);color:var(--red)}
+
+footer{
+  margin-top:80px;padding-top:24px;border-top:1.5px solid var(--line);
+  color:var(--muted);font-size:12.5px;text-align:center;line-height:1.9;
+}
+@media (max-width:640px){
+  nav.toc ol{columns:1}
+  .tri{grid-template-columns:1fr}
+  header{padding-top:48px}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="stamp">공장 규범 · 2026-08-19 종합</div>
+  <h1>수학 게임 <span class="u">설계 바이블</span></h1>
+  <p class="lead">2022 개정 교육과정 원문, 실사용자 피드백 6건, 게임 465종 실분석(vibe 22 + 킹수학 400 + 상용 43)과 우리 자신의 실패 7건에서 뽑아낸 원칙. 목표는 하나 — <b>정말 좋은 게임, 교육적인 게임, 아름다운 게임.</b></p>
+  <div class="meta">math-game-factory · 게시 5종 / 폐기 1종 · 분석 리포트 13부 근거</div>
+
+  <nav class="toc">
+    <span class="toc-label">차례</span>
+    <ol>
+      <li><a href="#u0"><span class="n">0</span>헌장 — 세 가지 서약</a></li>
+      <li><a href="#u1"><span class="n">1</span>교육 — 틀린 것을 가르치지 않는다</a></li>
+      <li><a href="#u2"><span class="n">2</span>재미 — 수학이 동사가 되게 한다</a></li>
+      <li><a href="#u3"><span class="n">3</span>아름다움 — 닌텐도를 기준선으로</a></li>
+      <li><a href="#u4"><span class="n">4</span>품질 게이트 — 통과가 아니라 거른다</a></li>
+      <li><a href="#u5"><span class="n">5</span>시장 지도 — 어디에 만들 것인가</a></li>
+      <li><a href="#u6"><span class="n">6</span>실패 박물관 — 일곱 번의 사고</a></li>
+      <li><a href="#u7"><span class="n">7</span>현재 전력과 다음 수</a></li>
+    </ol>
+  </nav>
+</header>
+
+<!-- ─────────────────────── 0단원 ─────────────────────── -->
+<section id="u0">
+  <div class="unit"><span class="badge">0단원</span><h2>헌장 — 세 가지 서약</h2></div>
+  <p class="unit-sub">모든 기획·구현·검수 판단의 최상위 기준. 서로 충돌하면 위에 있는 것이 이긴다.</p>
+  <div class="tri">
+    <div class="pillar">
+      <h3>① 수학이 동사다</h3>
+      <p>게임 위에 문제창을 얹지 않는다. 게임을 잘하려면 자연스럽게 수학을 쓰게 되는 구조 — 어림 버튼이 정답 입력이 아니라 <b>나를 다른 수로 던지는 텔레포트</b>인 것처럼, 수학 판단이 곧 조작이어야 한다.</p>
+    </div>
+    <div class="pillar">
+      <h3>② 틀린 답을 가르치느니 안 만든다</h3>
+      <p>품질이 형편없으면 안 만드느니만 못하다. 수학 오류 1건 = 점수 무관 즉시 폐기. 검수 80점 미만 = 게시하지 않는다. 실제로 6회차 「찰랑 스핀」은 77점으로 폐기됐다.</p>
+    </div>
+    <div class="pillar">
+      <h3>③ 억울하게 지면 안 된다</h3>
+      <p>실수 하나가 몇 수 뒤에 몰아서 게임오버로 터지는 구조는 금지. 목숨 3개 이상, 실수는 즉시 눈에 보이는 작은 손해로 끝난다. 이 조항은 총점 80점을 넘어도 단독으로 게시를 막는 게이트다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── 1단원 ─────────────────────── -->
+<section id="u1">
+  <div class="unit"><span class="badge">1단원</span><h2>교육 — 틀린 것을 가르치지 않는다</h2></div>
+  <p class="unit-sub">근거: 교육부 고시 제2022-33호 원문 PDF · 검정 교과서 9종 실물 차례 · 실제 폐기 사고 1건</p>
+
+  <div class="card">
+    <h3><span class="no">1.1</span>교육과정 정합 — 단원 번호가 아니라 성취기준 코드에 묶는다</h3>
+    <ul>
+      <li>2022 개정 5~6학년군 성취기준 <b>45개 전체</b>를 고시 원문에서 확보. 코드를 지어내면 QA가 자동 탈락시킨다.</li>
+      <li>초등 3~6 수학은 <b>검정 교과서(9종)</b>라 단원 순서가 출판사마다 다르다 — 6-2의 2·3단원(공간과 입체↔소수의 나눗셈)은 출판사별로 반대. 그래서 게임은 <span class="hl">성취기준 코드에 매핑</span>한다.</li>
+      <li>고시의 "적용 시 고려 사항"에서 뽑은 <b>문항 생성 제약 18조</b>가 모든 기획·빌드·검산 프롬프트에 자동 주입된다 — 원주율은 3.14만, 각뿔·원뿔 전개도는 안 다룸, 가능성은 0·½·1 수준의 수 표현 등.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">1.2</span>문제 생성 5원칙</h3>
+    <ul>
+      <li><b>① 자릿값부터 역생성.</b> "받아올림이 반드시 있는 덧셈"은 일의 자리 <code>ao=2..9, bo=(10−ao)..9</code>를 먼저 뽑아 조건을 구조적으로 보장한다. 만들고 나서 검사·재시도하는 방식은 편향과 무한루프를 낳는다. <i>(킹수학 실코드에서 검증)</i></li>
+      <li><b>② 제약 만족 풀에서 샘플링.</b> 단원 제약을 만족하는 후보를 전수 생성해 풀을 만들고 셔플한다.</li>
+      <li><b>③ 오답은 오개념의 역함수.</b> 오답 4개 중 최소 2개는 실제 학생 실수(자릿값 오배치·받아올림 누락·분모끼리 더함·역수 혼동)를 역산한 값 + 코드에 <code>misconceptionId</code> 기록. 잘 만든 상용 게임 전부가 이렇게 한다 — 랜덤 오답은 하수다.</li>
+      <li><b>④ 후처리 파이프라인 고정:</b> 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.</li>
+      <li><b>⑤ 부동소수점 금지.</b> 분수는 <code>{n,d}</code> 정수쌍 + 기약 정규화, 소수는 <code>n/10^s</code> 정수 스케일링. <code>0.1+0.2 ≠ 0.3</code>.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">1.3</span>한국 교과서 표현 함정 사전</h3>
+    <div class="table-scroll"><table>
+      <tr><th>표현</th><th>뜻</th><th>예 (225, 반올림)</th></tr>
+      <tr><td>반올림하여 십의 자리<b>까지</b></td><td>결과가 십의 자리까지 정확</td><td class="num">230</td></tr>
+      <tr><td>십의 자리<b>에서</b> 반올림</td><td>십의 자리 숫자를 보고 판단 → 결과는 백의 자리까지</td><td class="num">200</td></tr>
+    </table></div>
+    <p>이 한 글자 차이로 1회차 게임이 수학 0점을 받고 폐기 직전까지 갔다. 구조적 해법: 어림 문제는 <code>roundingMode / decisionPlace / retainedPlace / promptConvention</code> 4필드 모델로 만들어 문장과 정답이 같은 데이터에서 나오게 한다. 그 외 — <b>이상/이하</b>는 경계 포함·<b>초과/미만</b>은 제외(선택지에 경계값을 넣어 시험), 「대략 몇백?」은 문맥(자르기·담기)에 따라 버림/올림이 강제되니 상황을 문장에 명시.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">1.4</span>교차 검증 — 같은 모델은 같은 맹점을 공유한다</h3>
+    <p>게임을 만든 모델(Claude)과 <b>다른 회사 모델(GPT-5.6-sol)</b>이 문제 표본을 전수 손검산한다. 오류 1건이면 무조건 fail. 검산관은 재미·비주얼을 보지 않는다 — 단일 임무가 정확도를 만든다.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────── 2단원 ─────────────────────── -->
+<section id="u2">
+  <div class="unit"><span class="badge">2단원</span><h2>재미 — 수학이 동사가 되게 한다</h2></div>
+  <p class="unit-sub">근거: 실사용자 플레이 피드백 6건 · vibe 22종 · 킹수학 400종 실분석</p>
+
+  <div class="card">
+    <h3><span class="no">2.1</span>실사용자가 직접 가르쳐준 4계명 <small style="color:var(--muted)">(젤리 게이트 사건)</small></h3>
+    <ul>
+      <li><b>선택지 2개짜리 러너 금지.</b> 최소 3~4개를 화면에 고르게 분산. 왕복 두 칸은 게임이 아니다.</li>
+      <li><b>캐릭터는 게임 화면 크기에서 귀여워야 한다.</b> 원본 에셋이 예뻐도 32px로 뭉개지면 무의미 — 화면 폭 12~15% 이상으로 렌더링.</li>
+      <li><b>숫자·분수는 화면 폭 5% 이상 + 고대비 카드.</b> 분수는 KaTeX 실조판으로. 어두운 배경에 흘려 쓴 작은 숫자는 실격.</li>
+      <li><b>실수 관용</b> — 헌장 ③. 지연된 누적 실패 구조는 그 자체로 게시 불가.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">2.2</span>검증된 메커닉 패턴 — 465종에서 살아남은 것들</h3>
+    <div class="table-scroll"><table>
+      <tr><th>패턴</th><th>내용</th><th>어느 단원에</th></tr>
+      <tr><td>절차의 스텝화</td><td>필산·장제법은 최종답 대신 자리별 스텝 인터랙션 — 세로셈판이 실시간으로 채워진다</td><td>곱셈·나눗셈 계열</td></tr>
+      <tr><td>실측 판정</td><td>각도기·삼각자를 드래그로 직접 대보고 벡터+허용오차(±4°)로 판정. 4지선다보다 조작적</td><td>도형·각도</td></tr>
+      <tr><td>구성형 도구</td><td>성취기준 동사가 "그린다/만든다"면 채점형 퀴즈가 아니라 직접 그리기. 판정은 불변량→연결성→접기 시뮬레이션→충돌 4단계</td><td>전개도·그래프</td></tr>
+      <tr><td>채점자 역전</td><td>"풀어라" 대신 "이 답을 채점해라" — 같은 연산이 다른 인지 활동이 된다. 오개념 라이브러리가 품질을 좌우 = 우리 강점과 정합</td><td>연산 전반</td></tr>
+      <tr><td>공간 인터랙션</td><td>"정답으로 이동해서 닿는" 조작이 버튼 선택보다 몰입 — 팩맨식 이동, 블록 캐기</td><td>전 단원</td></tr>
+      <tr><td>이중 상태 확률</td><td>이론적 가능성 vs 실험 빈도 누적을 둘 다 — [예측→시행→비교] 루프. 킹수학조차 없는 구조라 앞설 수 있는 지점</td><td>가능성 (재도전 필수)</td></tr>
+      <tr><td>이유 설명 트랙</td><td>정답과 별개로 "왜 맞는가" 선택 문항에 추가 별 — 발견/정답/설명 3종 보상</td><td>도형·개념</td></tr>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">2.3</span>온보딩과 리텐션</h3>
+    <ul>
+      <li><b>30초 안에 첫 재미.</b> 온보딩은 핵심 규칙 2~4개 체크리스트 + 마스코트 1인칭 호소 한 줄("얘들아, 도와줘!"). 첫 성공까지 지속되는 힌트 배너.</li>
+      <li><b>정답 후 보상에 마이너스 금지</b> — 정답 맞히고 벌 받는 경험은 동기를 파괴한다(보상 풀에서 코드로 원천 차단).</li>
+      <li><b>난이도 선택 = 관용도 선택</b>을 옵션으로. 형성평가형(오답=힌트→정답 공개) ↔ 아케이드형(목숨 3+즉시 피드백) 중 단원 성격에 맞게 고르고 이유를 기획서에 남긴다.</li>
+      <li><b>로컬 리텐션:</b> 킹수학의 최강 무기는 학급 주간 랭킹(시즌 스포츠)이지만 우리는 서버가 없다 — localStorage로 최고기록 갱신 연출·일일 미션·스탬프 컬렉션.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────────────── 3단원 ─────────────────────── -->
+<section id="u3">
+  <div class="unit"><span class="badge">3단원</span><h2>아름다움 — 닌텐도를 기준선으로</h2></div>
+  <p class="unit-sub">근거: 실사용자 요청("첫화면이 멋져야, 닌텐도처럼") · 5종 전체 리디자인 실전</p>
+
+  <div class="card">
+    <h3><span class="no">3.1</span>첫인상 — 타이틀 화면은 필수다</h3>
+    <p>게임을 열면 닌텐도 게임을 켠 것 같아야 한다: <b>세로형 키 아트</b>(1024×1536, GPT 이미지 생성 — 주인공 역동 포즈 + 상단 ⅓ 로고 여백) 풀블리드 + <b>로고 연출</b>(그냥 텍스트 금지 — 다중 그림자·기울임·게임 주제와 맞는 형태: 대칭 게임은 좌우 대칭 로고, 슬라이스 게임은 베인 자국 로고) + 펄스 시작 버튼 + 느린 줌 모션 + 학년·단원 뱃지. 이미지 로드 실패 시 코드 그라디언트 폴백까지.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">3.2</span>게임 필(Juice) — "화려하게"는 체크가 안 되니 기법으로 센다</h3>
+    <p>9기법 중 <span class="hl">최소 6개를 실제 코드로 구현</span>해야 검수를 통과한다: hit-stop · squash&stretch · overshoot 이징 · 단계별 화면 흔들림 · 콤보 비례 파티클 · 컬러 플래시 · 잔상 트레일 · 상시 배경 모션 · 사운드-화면 동기. 점수는 카운트업, 버튼은 face/edge 2톤 입체+눌림, 게임오버 화면도 타이틀급으로.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">3.3</span>팔레트 다양성 — 전부 네온이면 전부 똑같아 보인다</h3>
+    <p>실제 사고: 초기 4개 게임의 배경색이 전부 <code>#07</code>로 시작(어두운 남색+네온 시안/마젠타). 원인은 프롬프트 예시 자체가 네온이었던 것. 지금은 <b>최근 6개 게임의 무드가 자동 회피 목록으로 기획에 주입</b>되고, 대낮 놀이공원·노을 캔디·자연 숲·파스텔 동화·모노크롬+포인트·레트로 아케이드·수채화 종이 7계열에서 단원 내용과 맞는 것을 고른다. 무드 선택의 이유를 한 줄로 남겨야 한다.</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">3.4</span>가독성과 반응형</h3>
+    <ul>
+      <li>정오 피드백은 <b>색 단독 금지</b>(색약 배려) — 색+텍스트/도형+사운드 병행. 힌트는 정답 대신 "지금 이 행동이 성공하는가"를 즉시 표시.</li>
+      <li>분수·수식은 <b>KaTeX 실조판</b>(로컬 벤더, CDN 금지). 렌더는 텍스트 변경 시에만, 매 프레임은 transform만.</li>
+      <li>모바일 390px부터 <b>초와이드 2000px까지</b> 검증 — 세로형 게임은 중앙 640px 컬럼+레터박스. QA 40번째 항목.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ─────────────────────── 4단원 ─────────────────────── -->
+<section id="u4">
+  <div class="unit"><span class="badge">4단원</span><h2>품질 게이트 — 통과가 아니라 거른다</h2></div>
+  <p class="unit-sub">3사 모델 분산: 판단이 어려운 곳은 상위 티어, 검산은 타사 모델, 관점 다양화는 3사 기획 경쟁</p>
+
+  <div class="pipeline">
+    <span class="step">슬롯 선택<small>공백 단원 우선</small></span><span class="arr">→</span>
+    <span class="step">기획 ×3<small>Claude·GPT·Grok 경쟁</small></span><span class="arr">→</span>
+    <span class="step">심사<small>GPT-sol</small></span><span class="arr">→</span>
+    <span class="step">아트<small>GPT 이미지 ×N 병렬</small></span><span class="arr">→</span>
+    <span class="step">빌드<small>Claude Opus</small></span><span class="arr">→</span>
+    <span class="step gate">QA 40항목<small>기계 검사</small></span><span class="arr">→</span>
+    <span class="step gate">수학 전수 검산<small>GPT-sol 교차</small></span><span class="arr">→</span>
+    <span class="step gate">검수 100점<small>Opus·80 커트</small></span><span class="arr">→</span>
+    <span class="step">수정 1회<small>Grok</small></span><span class="arr">→</span>
+    <span class="step">게시+보고<small>미달 시 폐기</small></span>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">4.1</span>기계가 확실히 판정할 수 있는 것 40가지</h3>
+    <p>puppeteer가 실제로 플레이한다: <code>__GAME_TEST__</code> 훅으로 시작·정답·오답을 강제 실행해 점수/목숨 변화를 검증, 문제 40개 표본 추출(정답∈선택지·중복·다양성 70%+), FPS 30+, 콘솔 에러·404 0건, 모바일~초와이드 4개 뷰포트, 표지 이미지 규격(1200×630/1080×1080)과 <b>타 게임과의 sha256 중복</b>(이미지 도용 사고 재발 방지)까지.</p>
+  </div>
+  <div class="card">
+    <h3><span class="no">4.2</span>사람 없이 사람처럼 — 검수관의 채점표</h3>
+    <p>교육과정 정합 25 · 수학 정확성 25 · 재미 20 · 비주얼 20 · 모바일 10. 검수관은 스크린샷을 실제로 열어 보고, 문제를 손으로 검산하고, juice 기법 개수를 코드에서 센다. <b>후하게 주지 마라 — 평범하면 70점대</b>가 명문화돼 있다. 80점은 "친구에게 링크를 보낼 만한" 수준. 여기에 실수 관용도 게이트(점수 무관)가 별도로 얹힌다.</p>
+  </div>
+  <div class="card">
+    <h3><span class="no">4.3</span>피드백 루프</h3>
+    <p>사용자 의견은 <code>factory/state/feedback.md</code>에 적으면 다음 사이클의 기획·검수 프롬프트에 자동 주입 후 아카이브. 레퍼런스는 10게임마다 새 카테고리를 자동 스카우트하되 사람 승인 후에만 병합. 이 문서(바이블) 자체도 사고가 날 때마다 갱신된다 — 실패가 규범이 된다.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────── 5단원 ─────────────────────── -->
+<section id="u5">
+  <div class="unit"><span class="badge">5단원</span><h2>시장 지도 — 어디에 만들 것인가</h2></div>
+  <p class="unit-sub">근거: 킹수학 400종 카탈로그 전수 분류 (5-2 매핑 42종 · 6-2 매핑 45종)</p>
+
+  <div class="card">
+    <h3><span class="no">5.1</span>단원별 경쟁 밀도 (5-2 / 6-2)</h3>
+    <div class="table-scroll"><table>
+      <tr><th>단원</th><th>킹수학 게임 수</th><th>판단</th></tr>
+      <tr><td>분수의 나눗셈 (6-2)</td><td><span class="num">27</span></td><td>과밀 — 물량 경쟁 무의미, 만들 거면 완전히 다른 동사로</td></tr>
+      <tr><td>분수의 곱셈 (5-2)</td><td><span class="num">22</span></td><td>과밀 (우리 「젤리 게이트」 이미 보유)</td></tr>
+      <tr><td>소수의 곱셈·나눗셈</td><td><span class="num">18~22</span></td><td>과밀 (「소수 스매시」 보유)</td></tr>
+      <tr class="gap-hot"><td>합동과 대칭 (5-2)</td><td><span class="num">2</span></td><td><b>공백</b> — 「대칭 브레이커」가 사실상 독주 가능</td></tr>
+      <tr class="gap-hot"><td>원기둥·원뿔·구 (6-2)</td><td><span class="num">3</span></td><td><b>공백</b> — 3D(three.js)가 내용상 정당한 단원</td></tr>
+      <tr class="gap-hot"><td>공간과 입체 (6-2)</td><td><span class="num">4</span> <small>(전부 관찰·반응형)</small></td><td><b>질적 공백</b> — 투영도 역추론·회전체·전개도 재구성이 비어 있음</td></tr>
+      <tr class="gap-hot"><td>평균과 가능성 (5-2)</td><td><span class="num">6</span> <small>(개념 깊이 없음)</small></td><td><b>질적 공백</b> — 이중 상태 확률 모델로 재도전</td></tr>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">5.2</span>포지셔닝 — 정면 경쟁이 아니라 상호보완</h3>
+    <p>킹수학의 본질은 <b>교실 다인 배틀 인프라</b>(전자칠판 팀전·QR 리더보드·학급 시즌 랭킹)이고 오답 교정·오개념 설계는 거의 없다. 우리는 정반대 — <b>1인 몰입 + 오개념 역산 + 실수 관용 + 닌텐도급 프로덕션</b>. 훔칠 것은 배틀 UI가 아니라 조각들이다: 소수점 시프트 조작, 전개도 접기 3D 피드백, 비례 문항 스펙, 프리핸드 채점 드로잉.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────── 6단원 ─────────────────────── -->
+<section id="u6">
+  <div class="unit"><span class="badge">6단원</span><h2>실패 박물관 — 일곱 번의 사고</h2></div>
+  <p class="unit-sub">전부 실제로 일어났고, 전부 규범이 됐다. 같은 사고는 두 번 나지 않는다.</p>
+
+  <div class="incident">
+    <h4>사고 1 · 「자리에서」를 「자리까지」로 읽음</h4>
+    <p>1회차 어림 게임이 "225를 십의 자리에서 반올림"의 답을 230으로 판정(정답 200). 검수관이 수학 0점 + 즉시폐기 → 수정 라운드에서 살아남.</p>
+    <p class="lesson">→ 함정 사전 명문화 + 어림 4필드 데이터 모델 + 타사 모델 전수 검산 신설</p>
+  </div>
+  <div class="incident">
+    <h4>사고 2 · 목숨이 평생 한 번만 깎이는 게임</h4>
+    <p>"스와이프당 1회" 관용 로직이 pointerdown 기준이라, 손가락을 떼지 않고 플레이하면 목숨이 다시는 안 깎였다. 사용자 리포트 "죽지를 않아"로 발각.</p>
+    <p class="lesson">→ 시간(220ms) 디바운스로 교체 + 연속 다중 히트 회귀 시나리오를 검증 표준에 추가</p>
+  </div>
+  <div class="incident">
+    <h4>사고 3 · 남의 게임 이미지를 가져다 씀</h4>
+    <p>병렬 이미지 생성 중 한 에이전트가 "최근 파일" 휴리스틱으로 다른 게임의 커버를 자기 것으로 저장 — 두 게임이 byte-identical 표지.</p>
+    <p class="lesson">→ "툴이 반환한 경로만 써라" 규칙 + QA에 타 게임 대비 sha256 중복 검사(fatal)</p>
+  </div>
+  <div class="incident">
+    <h4>사고 4 · 와이드 화면에서 레이아웃 전면 붕괴</h4>
+    <p>QA가 세로 모바일 위주라 2000px 창에서 카드가 납작하게 늘어나고 겨냥도가 시커먼 덩어리가 된 걸 놓쳤다. 사용자 스크린샷으로 발각.</p>
+    <p class="lesson">→ 세로형 게임 중앙 640px 컬럼 표준 + QA 초와이드 뷰포트 + 검수관 wide.png 육안 의무화</p>
+  </div>
+  <div class="incident">
+    <h4>사고 5 · "유효하면 아무거나 합쳐지는" 병합</h4>
+    <p>전개도 게임이 서로 다른 유효 전개도끼리 병합을 거부 — 십자형과 지그재그형 둘 다 정육면체가 되는데도. 사용자의 수학 직관이 코드보다 옳았고, 이 때문에 진행이 막혀 "치수가 안 보인다"는 2차 증상까지 유발.</p>
+    <p class="lesson">→ 룰 심화 리워크("같은 상자의 다른 표현끼리") + 판정 로직 변경 시 기하학적 전수 검증 의무</p>
+  </div>
+  <div class="incident">
+    <h4>사고 6 · 전부 같은 모델 = 전부 같은 취향</h4>
+    <p>기획을 한 모델이 독점하자 4개 게임의 배경색이 전부 #07 남색 네온으로 수렴. "디자인이 다 똑같다"는 지적.</p>
+    <p class="lesson">→ 기획 3안을 Claude/GPT/Grok 3사 경쟁으로 + 팔레트 무드 자동 회피 목록</p>
+  </div>
+  <div class="incident">
+    <h4>사고 7 · 크론이 10분 만에 보고를 삼킴</h4>
+    <p>파이프라인(30~50분)을 크론 타임아웃(10분)이 잘라 게임은 만들어지는데 보고만 증발. 태그만 겹치고 내용은 다른 "유령 매핑"이 시장에도 흔했다(5땡킹: 가능성 태그, 실제론 배수 게임).</p>
+    <p class="lesson">→ 실행/보고 분리 구조 + 사전점검(preflight) 스크립트 + 단원 태그는 코드가 아니라 내용으로 검증</p>
+  </div>
+</section>
+
+<!-- ─────────────────────── 7단원 ─────────────────────── -->
+<section id="u7">
+  <div class="unit"><span class="badge">7단원</span><h2>현재 전력과 다음 수</h2></div>
+  <p class="unit-sub">2026-08-19 기준 · 허브: math-game-factory.vercel.app</p>
+
+  <div class="card">
+    <h3><span class="no">7.1</span>게시된 5종 — 전부 리디자인·검증 완료</h3>
+    <div class="table-scroll"><table>
+      <tr><th>게임</th><th>단원 (5-2)</th><th>수학 동사</th><th>검수</th></tr>
+      <tr><td>소수 스매시</td><td>소수의 곱셈</td><td>커지는 곱셈만 골라 <b>긋는다</b> (KaTeX 조판)</td><td class="num">91</td></tr>
+      <tr><td>네모공장</td><td>직육면체와 정육면체</td><td>전개도·겨냥도·치수를 머릿속으로 접어 <b>짝짓는다</b></td><td class="num">90</td></tr>
+      <tr><td>어림 대시</td><td>수의 범위와 어림</td><td>올림·버림·반올림 버튼으로 수직선을 <b>텔레포트한다</b></td><td class="num">87</td></tr>
+      <tr><td>젤리 게이트</td><td>분수의 곱셈</td><td>결과가 커지는 분수 게이트를 <b>고른다</b> (3~4레인)</td><td class="num">86</td></tr>
+      <tr><td>대칭 브레이커</td><td>합동과 대칭</td><td>대칭축을 <b>긋고</b> 대칭의 중심을 <b>찍는다</b></td><td class="num">85</td></tr>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="no">7.2</span>다음 수 — 우선순위</h3>
+    <ul>
+      <li><span class="check">✓</span><b>평균과 가능성(5-2-6) 재도전</b> — 이중 상태 확률 모델(이론 vs 실험 빈도)로. 시장도 질적 공백, 우리도 유일한 폐기 단원.</li>
+      <li><span class="check">✓</span><b>공간과 입체(6-2-3)</b> — 투영도 역추론·쌓기나무 재구성. 시장의 관찰형 게임들이 못 건드린 "생산형" 접근.</li>
+      <li><span class="check">✓</span><b>원기둥·원뿔·구(6-2-6)</b> — 회전체 생성을 three.js로. 3D가 내용상 정당한 몇 안 되는 단원.</li>
+      <li>크론 재가동은 위 방향이 새 기준으로 검증된 뒤 — 지금은 품질 우선 수동 운전.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  수학 게임 설계 바이블 · math-game-factory 공장 규범의 사람용 종합판<br>
+  근거 문서 13부는 저장소 references/case-studies/ · 기계용 규범은 CLAUDE.md와 factory/prompts/ 에 상시 반영
+</footer>
+</div>
