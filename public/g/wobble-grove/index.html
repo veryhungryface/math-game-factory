@@ -470,6 +470,7 @@ function avgProblem(R){
            answer:String(ans), answerNumeric:ans, unitConcept:'평균 = 자료 값의 합 ÷ 자료의 수' };
 }
 function possPrompt(R){
+  // two 라운드도 가·나 열매를 한 막대에 합쳐 그리므로 "나무에" 그대로 둔다.
   return `나무에 감 ${R.gamCount}개, 배 ${R.baeCount}개가 달려 있어요. 모든 열매가 떨어질 가능성이 같을 때, 열매 하나를 아무거나 골라 떨어뜨리면 ${R.askName}일 가능성은?`;
 }
 function possProblem(R){
@@ -782,6 +783,21 @@ const BEST=(()=>{try{return JSON.parse(localStorage.getItem('wobble-grove')||'{}
 function saveBest(){ try{ localStorage.setItem('wobble-grove',JSON.stringify(BEST)); }catch(e){} }
 cumLog=BEST.cum||{};
 
+/* 화면 열매 색: 값 0 도 진짜 열매다. 빈 꼭지는 missing 미선택일 때만. */
+function fruitKindFor(R, i, missingFilled){
+  const isMissing=(R.kind==='missing'&&i===R.missingIdx);
+  if(isMissing && !missingFilled) return 'empty';
+  return R.colors[i]==='gam'?'gam':'bae';
+}
+function countsAtPredict(R){
+  let gam=0, bae=0, empty=0;
+  for(let i=0;i<R.n;i++){
+    const k=fruitKindFor(R,i,true);
+    if(k==='gam') gam++; else if(k==='bae') bae++; else empty++;
+  }
+  return {gam, bae, empty, n:R.n};
+}
+
 /* ── 열매 렌더 객체 ─────────────────────────────────────── */
 function buildFruits(){
   fruits=[];
@@ -801,7 +817,7 @@ function buildFruits(){
     // 아직 고르지 않은 빈 훅은 값이 없다 — 정답이 기울기로 새어 나가면 안 된다
     fruits.push({
       idx:i, value:isMissing?0:v, shown:isMissing?null:v, missing:isMissing,
-      kind: isMissing?'empty':(v===0?'empty':(RD.colors[i]==='gam'?'gam':'bae')),
+      kind: fruitKindFor(RD,i,false),
       tier:tierOf[i], nudge:nudgeOf[i]||0, sx:0, sy:0, sqx:1, sqy:1, sqv:0, ph:Math.random()*6.28,
       vx:0, vy:0, fall:false, gold:0, alpha:1
     });
@@ -985,7 +1001,7 @@ function buildCandidateButtons(){
     b.type='button'; b.className='btn'; b.textContent=v;
     b.addEventListener('click',()=>{
       S.pickedCand=i; const f=fruits[RD.missingIdx];
-      f.value=v; f.shown=v; f.kind=(RD.colors[RD.missingIdx]==='gam')?'gam':'bae';
+      f.value=v; f.shown=v; f.kind=fruitKindFor(RD,RD.missingIdx,true);
       f.sqv=0.7; SFX.pop(); burst(fruitPos(f,S.phaseT).x,fruitPos(f,S.phaseT).y,8,'255,220,140',2.2);
       [...row.children].forEach((c,j)=>c.style.filter=(j===i)?'none':'saturate(.45) brightness(.92)');
     });
@@ -1045,7 +1061,7 @@ function dropBar(){
   let hint='나무가 기울었어요! 무거운 쪽으로 열매가 쏟아졌어요';
   if(S.attemptsBar+1>=2){
     if(RD.kind==='median') hint='가운데 열매가 평균은 아니에요. <b>합 ÷ 열매 수</b>를 해 봐요';
-    else if(RD.kind==='zero') hint='빈 꼭지(0)도 <b>열매 수에 넣어서</b> 나눠요';
+    else if(RD.kind==='zero') hint='0이 적힌 열매도 <b>열매 수에 넣어서</b> 나눠요';
     else if(RD.kind==='two') hint='두 평균의 중간이 아니라 <b>모든 열매의 합 ÷ 전체 개수</b>예요';
     else hint=`합 ${RD.sum}을 열매 수 ${RD.n}로 나눠 봐요`;
   }
@@ -1548,10 +1564,38 @@ function frame(ts){
 /* ══════════════════════════════════════════════════════════════
    11. QA 훅
    ══════════════════════════════════════════════════════════════ */
+function checkFruitPromptConsistency(n){
+  n=Math.max(1,n|0);
+  const g=mulberry32(0xA11CE);
+  const fails=[];
+  const byKind={};
+  for(let i=0;i<n;i++){
+    const lv=1+(i%5);
+    const R=makeRound(lv,g);
+    byKind[R.kind]=(byKind[R.kind]||0)+1;
+    const c=countsAtPredict(R);
+    const prompt=possPrompt(R);
+    const m=prompt.match(/감 (\d+)개, 배 (\d+)개/);
+    const pg=m?+m[1]:-1, pb=m?+m[2]:-1;
+    if(c.gam!==R.gamCount || c.bae!==R.baeCount || c.empty!==0 ||
+       c.gam!==pg || c.bae!==pb || c.gam+c.bae!==R.n){
+      fails.push({i, kind:R.kind, values:R.values.slice(), colors:R.colors.slice(),
+        vis:{gam:c.gam,bae:c.bae,empty:c.empty},
+        prompt:{gam:R.gamCount,bae:R.baeCount,parsedGam:pg,parsedBae:pb,n:R.n}});
+    }
+  }
+  const ok=fails.length===0;
+  const msg=ok
+    ? `fruit-prompt consistency: ${n}/${n} pass (${Object.entries(byKind).map(([k,v])=>k+':'+v).join(', ')})`
+    : `fruit-prompt consistency: ${fails.length}/${n} FAIL`;
+  if(ok) console.log(msg); else console.error(msg, fails[0]);
+  return {ok, tested:n, fails, byKind, msg};
+}
+
 window.__GAME_TEST__={
   ready:false,
   start(){ startRun(); },
-  getState(){ return {score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved}; },
+  getState(){ return {score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved, kind:RD&&RD.kind, gamCount:RD&&RD.gamCount, baeCount:RD&&RD.baeCount, n:RD&&RD.n, values:RD&&RD.values.slice(), prompt:RD&&possPrompt(RD)}; },
   answerCorrect(){
     if(!S.running) startRun();
     if(S.phase==='predict'){ onLane(RD.bandIdx); return; }
@@ -1560,7 +1604,7 @@ window.__GAME_TEST__={
     if(RD.kind==='missing'&&S.pickedCand<0){
       const i=RD.candidates.indexOf(RD.missingValue);
       S.pickedCand=i; const f=fruits[RD.missingIdx];
-      f.value=RD.missingValue; f.shown=f.value; f.kind=(RD.colors[RD.missingIdx]==='gam')?'gam':'bae';
+      f.value=RD.missingValue; f.shown=f.value; f.kind=fruitKindFor(RD,RD.missingIdx,true);
     }
     S.spillT=0; S.settleT=0; S.barTick=RD.mean; dropBar();
   },
@@ -1571,13 +1615,28 @@ window.__GAME_TEST__={
       const wrong=RD.candidates.findIndex(v=>v!==RD.missingValue);
       S.pickedCand=wrong; const f=fruits[RD.missingIdx];
       f.value=RD.candidates[wrong]; f.shown=f.value;
-      f.kind=(RD.colors[RD.missingIdx]==='gam')?'gam':'bae';
+      f.kind=fruitKindFor(RD,RD.missingIdx,true);
     }
     S.spillT=0; S.settleT=0;
     S.barTick=(RD.mean+3<=RD.maxTick)?RD.mean+3:Math.max(0,RD.mean-3);
     dropBar();
   },
-  sampleProblems(n){ return sampleProblems(Math.max(1,n|0)); }
+  sampleProblems(n){ return sampleProblems(Math.max(1,n|0)); },
+  checkFruitPromptConsistency,
+  startZeroPredict(){
+    if(!S.running) startRun();
+    RD=makeRound(2, mulberry32(0x5EED02));
+    S.level=2; S.pickedCand=-1; S.attemptsBar=0; S.attemptsPred=0;
+    S.trialIdx=0; S.shakeT=0; S.settleT=0; S.spillT=0;
+    piles={gam:[],bae:[]};
+    S.barTick=RD.mean; S.tilt=0; S.tiltV=0;
+    buildFruits(); bakeRuler();
+    $('factChip').textContent=`합 ${RD.sum} · 열매 ${RD.n}개`;
+    setPhase('predict');
+    return {kind:RD.kind, values:RD.values.slice(), colors:RD.colors.slice(),
+      gamCount:RD.gamCount, baeCount:RD.baeCount, n:RD.n, prompt:possPrompt(RD),
+      fruits:fruits.map(f=>({kind:f.kind,value:f.value,shown:f.shown}))};
+  }
 };
 
 /* ── 부팅 ─────────────────────────────────────────────── */
