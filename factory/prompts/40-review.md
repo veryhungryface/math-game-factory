@@ -9,7 +9,7 @@
 - `public/g/<slug>/meta.json`
 - `factory/work/chosen.json` — 기획 의도
 - `factory/work/qa/<slug>/report.json` — 자동 검사 결과
-- `factory/work/qa/<slug>/mobile.png`, `tablet.png`, `desktop.png` — **스크린샷을 Read 툴로 실제로 봐라**
+- `factory/work/qa/<slug>/mobile.png`, `tablet.png`, `desktop.png`, `wide.png` — **스크린샷을 Read 툴로 실제로 봐라.** 특히 `wide.png`(2000px 초와이드)에서 레이아웃이 깨지는지(요소 겹침, 늘어난 카드, 화면 끝까지 벌어진 UI) 반드시 확인해라 — 실사용자가 와이드 창에서 게임이 통째로 깨진 걸 발견한 적이 있다. 깨져 있으면 must_fix high 다.
 - `curriculum/2022-elementary-math.json` — 해당 단원
 
 ## 채점 (총 100점)

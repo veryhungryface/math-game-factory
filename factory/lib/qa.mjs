@@ -400,6 +400,15 @@ try {
   await new Promise((r) => setTimeout(r, 900));
   await page.screenshot({ path: path.join(OUT, 'desktop.png') });
 
+  // 초와이드(≈2000px) — 실사용자가 와이드 창에서 네모공장 레이아웃이 통째로
+  // 깨진 걸 리포트한 뒤 추가. 기계 판정은 가로 스크롤 여부뿐이지만, wide.png
+  // 스크린샷을 남겨 검수관이 육안으로 깨짐을 확인하게 한다.
+  await page.setViewport({ width: 2000, height: 1045, deviceScaleFactor: 1 });
+  await new Promise((r) => setTimeout(r, 900));
+  const wideOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2);
+  add('wide.overflow', '초와이드(2000px) 가로 스크롤 없음', wideOverflow);
+  await page.screenshot({ path: path.join(OUT, 'wide.png') });
+
   add('run.console', '콘솔 에러 0건', consoleErrors.length === 0, consoleErrors.slice(0, 5).join('\n'), true);
   add('run.pageerror', '미처리 예외 0건', pageErrors.length === 0, pageErrors.slice(0, 5).join('\n'), true);
   add('run.network', '실패 요청 0건', failedRequests.length === 0, failedRequests.slice(0, 5).join('\n'), true);
@@ -429,7 +438,7 @@ function finish() {
     // 검산 에이전트가 전수 검산할 표본. 줄이지 마라 — 이게 수학 오류를 잡는 근거다.
     problems_sample: Array.isArray(problems) ? problems : [],
     checks,
-    screenshots: ['mobile.png', 'tablet.png', 'desktop.png']
+    screenshots: ['mobile.png', 'tablet.png', 'desktop.png', 'wide.png']
       .map((f) => path.join(OUT, f))
       .filter((f) => fs.existsSync(f)),
   };
