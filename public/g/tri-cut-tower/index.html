@@ -62,42 +62,181 @@
   .screen{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;
     justify-content:center;padding:16px;overflow:hidden;}
   .screen.hide{display:none;}
-  #screen-title{background:#0e2a3a;}
-  #titleArt{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 34%;
-    animation:kenburns 24s ease-in-out infinite alternate;}
-  @keyframes kenburns{from{transform:scale(1.04) translate3d(0,0,0);}to{transform:scale(1.14) translate3d(0,-1.6%,0);}}
-  #titleFallback{position:absolute;inset:0;
+/* ── 타이틀 (docs/title-screen-spec.md 적용) ────────── */
+  #screen-title{
+    /* 게임별 커스텀: 목공방 팔레트 — 꿀빛 소나무 면 + 호두나무 압출 */
+    --title-col:min(100vw,640px);
+    --logo-top:#FFF6DF; --logo-mid:#FFD98A; --logo-bottom:#D98A2B;
+    --logo-outline:#2E1604; --logo-side:#FFCB63; --logo-side-dark:#8A4409;
+    --logo-glow:rgba(255,203,99,.44);
+    display:block;padding:0;background:#0e2a3a;min-height:100svh;height:100dvh;
+    isolation:isolate;}
+  #screen-title.hide{display:none;}
+  #titleFallback{position:absolute;inset:0;z-index:0;
     background:radial-gradient(120% 80% at 50% 12%, #eaf6fc 0%, #cfe6f2 38%, #e8c98f 74%, #b8802f 100%);}
-  .veil{position:absolute;inset:0;background:
-     linear-gradient(180deg, rgba(8,26,38,.44) 0%, rgba(8,26,38,.06) 30%, rgba(28,14,4,.30) 62%, rgba(20,10,2,.80) 100%);}
-  .tstack{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;
-    justify-content:space-between;height:100%;width:100%;max-width:520px;padding:8px 0 6px;}
-  .logo{margin-top:4vh;text-align:center;transform:rotate(-3deg);animation:logoIn .8s cubic-bezier(.2,1.5,.4,1) both;}
-  @keyframes logoIn{from{transform:rotate(-3deg) scale(.5) translateY(-40px);opacity:0;}to{transform:rotate(-3deg) scale(1) translateY(0);opacity:1;}}
-  .logo h1{margin:0;font-size:clamp(34px,9.2vw,62px);line-height:1.05;font-weight:900;letter-spacing:-.04em;white-space:nowrap;
-    color:#ffe9b8;
+
+  /* 풀블리드 키 아트 */
+  .title-art{--art-x:50%;--art-y:50%;--art-scale:1.02;
+    position:absolute;inset:0;z-index:0;overflow:hidden;}
+  #titleArt{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;
+    object-position:var(--art-x) var(--art-y);transform:scale(var(--art-scale));
+    filter:saturate(1.05) contrast(1.03);
+    animation:art-breathe 14s ease-in-out infinite alternate;}
+  .title-art__scrim,.title-art__vignette{position:absolute;inset:0;z-index:1;pointer-events:none;}
+  .title-art__scrim{background:
+    linear-gradient(180deg,rgba(8,26,38,.56) 0%,rgba(8,26,38,.26) 26%,rgba(8,26,38,.02) 48%,
+      rgba(28,14,4,.18) 68%,rgba(16,8,2,.82) 100%),
+    radial-gradient(ellipse 68% 28% at 50% 16%,rgba(6,22,34,.46),transparent 74%);}
+  .title-art__vignette{background:
+    linear-gradient(90deg,rgba(4,14,22,.38) 0%,transparent 13%,transparent 87%,rgba(4,14,22,.38) 100%),
+    radial-gradient(ellipse at center,transparent 53%,rgba(4,14,22,.46) 112%);
+    mix-blend-mode:multiply;}
+  @keyframes art-breathe{
+    from{transform:scale(var(--art-scale)) translate3d(0,0,0);}
+    to{transform:scale(calc(var(--art-scale) + .035)) translate3d(0,-.6%,0);}}
+
+  /* UI 컬럼 */
+  .title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+    padding-inline:clamp(16px,5vw,32px);padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);pointer-events:none;}
+  .title-logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+    display:grid;place-content:start center;text-align:center;pointer-events:auto;}
+  .title-cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));
+    width:min(calc(100% - 32px),520px);transform:translateX(-50%);
+    display:grid;justify-items:center;gap:8px;pointer-events:auto;}
+  @media (min-width:641px){
+    .title-logo-zone{left:24px;right:24px;}
+    .title-cta-zone{width:min(calc(100% - 48px),520px);}}
+  /* 세로 키 아트를 가로 화면에 담을 때 목수의 얼굴이 잘리지 않게 (스펙 허용 44~56%) */
+  @media (min-aspect-ratio:1/1){ .title-art{--art-y:46%;} }
+  @media (max-height:700px){
+    .title-logo-zone{top:max(38px,5dvh);min-height:150px;}
+    .title-cta-zone{gap:5px;}}
+
+  /* 입체 한글 로고 — 「쌓기나무 공방」 4+2음절 */
+  .game-logo{margin:0;display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;
+    font-family:"Black Han Sans","Noto Sans KR","Apple SD Gothic Neo",var(--font);
+    /* 6음절: 390px 화면에서 본문 폭 ≈ 331px (스펙 권장 330~358px) */
+    font-size:clamp(46px,16.6vw,88px);font-weight:900;line-height:.92;letter-spacing:-.10em;
+    white-space:nowrap;filter:drop-shadow(0 16px 14px rgba(0,0,0,.34));
+    transform:rotate(-2deg);transform-origin:50% 60%;}
+  .game-logo>span:not(.logo-gap){
+    --r:0deg;--y:0px;--s:1;
+    position:relative;display:inline-block;padding-inline:.025em;color:transparent;
+    background:linear-gradient(180deg,var(--logo-top) 0%,var(--logo-mid) 48%,var(--logo-bottom) 100%);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-stroke:clamp(2px,.75vw,5px) var(--logo-outline);paint-order:stroke fill;
     text-shadow:
-      0 0 0 #fff,
-      -3px -3px 0 #5a3410, 3px -3px 0 #5a3410, -3px 3px 0 #5a3410, 3px 3px 0 #5a3410,
-      0 8px 0 #a75f14, 0 14px 0 #6d3a06, 0 20px 26px rgba(0,0,0,.55);}
-  .logo .sub{display:inline-block;margin-top:16px;padding:6px 16px;border-radius:999px;
-    background:rgba(47,107,79,.92);border:2px solid #ffe9b8;color:#f4fff8;font-weight:900;
-    font-size:clamp(13px,3.7vw,17px);letter-spacing:.02em;box-shadow:0 4px 12px rgba(0,0,0,.4);}
-  .tbottom{width:100%;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 14px;}
-  .diffrow{display:flex;gap:8px;width:100%;max-width:340px;}
-  .diffbtn{flex:1;height:48px;border-radius:15px;border:2px solid rgba(255,233,184,.5);cursor:pointer;
-    font-family:var(--font);font-size:15px;font-weight:900;color:#ffe9b8;background:rgba(24,16,8,.6);}
-  .diffbtn.on{background:linear-gradient(#ffd070,#e08c1e);color:#452303;border-color:#fff3d6;
-    box-shadow:0 4px 0 #9c5a09;}
-  #startBtn{width:100%;max-width:340px;height:66px;border-radius:22px;border:none;cursor:pointer;
-    font-family:var(--font);font-size:24px;font-weight:900;color:#4a2405;
-    background:linear-gradient(#ffe08a,#e8931d);box-shadow:0 6px 0 #96540a, 0 12px 26px rgba(0,0,0,.45);
-    animation:pulse 1.5s ease-in-out infinite;}
-  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.045);}}
-  #startBtn:active{transform:scale(.97) translateY(5px);box-shadow:0 1px 0 #96540a;animation:none;}
-  .tmeta{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding-bottom:calc(2px + env(safe-area-inset-bottom));}
-  .tmeta span{background:rgba(10,20,26,.6);border:1px solid rgba(255,233,184,.35);color:#ffe9b8;
-    border-radius:999px;padding:4px 11px;font-size:11.5px;font-weight:800;}
+      0 1px 0 var(--logo-side),0 2px 0 var(--logo-side),0 3px 0 var(--logo-side),0 4px 0 var(--logo-side),
+      0 5px 0 var(--logo-side-dark),0 6px 0 var(--logo-side-dark),0 7px 0 var(--logo-side-dark),
+      0 8px 0 var(--logo-side-dark),
+      0 11px 2px rgba(30,12,2,.60),0 16px 8px rgba(0,0,0,.46),0 22px 22px rgba(0,0,0,.34),
+      0 0 26px var(--logo-glow);
+    transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));transform-origin:50% 80%;
+    animation:logo-letter-in 720ms cubic-bezier(.18,1.55,.34,1) both;
+    animation-delay:calc(var(--i,0) * 65ms);}
+  .game-logo .logo-gap{width:.20em;flex:0 0 .20em;}
+  .game-subtitle{margin:15px 0 0;padding:5px 13px 6px;border:1px solid rgba(255,233,184,.42);
+    border-radius:999px;color:#f4fff8;background:rgba(47,107,79,.66);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 5px 14px rgba(0,0,0,.28);
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    font:800 clamp(12px,3.5vw,16px)/1.2 var(--font);letter-spacing:-.02em;
+    text-shadow:0 2px 4px rgba(0,0,0,.6);justify-self:center;
+    animation:logo-subtitle-in 420ms 520ms ease-out both;}
+  .title-unit{margin:9px 0 0;font-size:11.5px;font-weight:700;color:#fff;opacity:.76;
+    letter-spacing:-.01em;white-space:nowrap;text-shadow:0 2px 5px rgba(0,0,0,.85);
+    animation:logo-subtitle-in 420ms 640ms ease-out both;}
+  @keyframes logo-letter-in{
+    0%{opacity:0;transform:translateY(calc(var(--y) - 82px)) rotate(calc(var(--r) - 10deg)) scale(.55);}
+    58%{opacity:1;transform:translateY(calc(var(--y) + 8px)) rotate(calc(var(--r) + 3deg)) scale(calc(var(--s) * 1.10));}
+    78%{transform:translateY(calc(var(--y) - 3px)) rotate(calc(var(--r) - 1deg)) scale(calc(var(--s) * .97));}
+    100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));}}
+  @keyframes logo-subtitle-in{
+    from{opacity:0;transform:translateY(-8px) scale(.92);}
+    to{opacity:1;transform:translateY(0) scale(1);}}
+
+  /* 단일 CTA */
+  #startBtn{
+    --cta-top:#FFF0BC;--cta-mid:#FFC44F;--cta-bottom:#E08C1E;
+    --cta-border:#4A2405;--cta-depth:#9C5A09;--cta-ink:#452303;
+    position:relative;width:min(100%,420px);min-height:68px;padding:0 28px;
+    border:4px solid var(--cta-border);border-radius:22px;appearance:none;cursor:pointer;
+    color:var(--cta-ink);font-family:var(--font);
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.58) 0 2px,transparent 2px 100%),
+      linear-gradient(180deg,var(--cta-top) 0%,var(--cta-mid) 49%,var(--cta-bottom) 100%);
+    box-shadow:0 7px 0 var(--cta-depth),0 10px 0 var(--cta-border),0 17px 26px rgba(0,0,0,.38),
+      inset 0 3px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(140,70,8,.20);
+    font-size:clamp(21px,5.8vw,27px);font-weight:900;line-height:1;letter-spacing:-.03em;
+    text-shadow:0 2px 0 rgba(255,255,255,.38);
+    transform:translateY(0) scale(1);transform-origin:50% 100%;
+    animation:cta-pulse 2.4s ease-in-out 1.2s infinite;
+    transition:transform 90ms ease-out, box-shadow 90ms ease-out, filter 120ms ease-out;
+    touch-action:manipulation;}
+  #startBtn::after{content:"";position:absolute;inset:5px 9px auto;height:19px;border-radius:999px;
+    background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));pointer-events:none;}
+  #startBtn>span{position:relative;z-index:1;}
+  #startBtn:hover{filter:saturate(1.08) brightness(1.04);}
+  #startBtn:active{transform:translateY(7px) scale(.985);
+    box-shadow:0 1px 0 var(--cta-depth),0 3px 0 var(--cta-border),0 7px 13px rgba(0,0,0,.30),
+      inset 0 3px 0 rgba(255,255,255,.38),inset 0 -2px 0 rgba(140,70,8,.18);
+    animation-play-state:paused;}
+  #startBtn:focus-visible{outline:4px solid #fff;outline-offset:5px;}
+  @keyframes cta-pulse{
+    0%,72%,100%{transform:translateY(0) scale(1);}
+    80%{transform:translateY(-2px) scale(1.025);}
+    88%{transform:translateY(0) scale(1);}
+    94%{transform:translateY(-1px) scale(1.012);}}
+  @media (max-height:700px){#startBtn{min-height:64px;}}
+
+  /* 보조 위계: 기록 pill / 도움말 링크 / 음소거 */
+  .title-meta{min-height:30px;display:flex;align-items:center;padding:6px 12px;
+    border:1px solid rgba(255,233,184,.30);border-radius:999px;color:#ffe9b8;
+    background:rgba(10,20,26,.52);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+    font-size:12px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;
+    text-shadow:0 1px 3px rgba(0,0,0,.8);}
+  .title-meta[hidden]{display:none;}
+  .title-howto{min-height:44px;padding:7px 12px;border:0;cursor:pointer;font-family:var(--font);
+    color:rgba(255,240,214,.88);background:transparent;
+    font-size:12px;font-weight:700;line-height:1.2;text-decoration:underline;
+    text-decoration-color:rgba(255,240,214,.35);text-underline-offset:4px;
+    text-shadow:0 2px 5px rgba(0,0,0,.85);}
+  .title-howto:focus-visible{outline:3px solid #fff;outline-offset:2px;border-radius:10px;}
+  .title-mute{position:absolute;z-index:4;top:max(10px,env(safe-area-inset-top));
+    right:max(12px,calc((100vw - min(100vw,640px)) / 2 + 12px));
+    width:44px;height:44px;display:grid;place-items:center;padding:0;cursor:pointer;
+    border:1px solid rgba(255,233,184,.22);border-radius:50%;color:#fff;
+    background:rgba(6,18,26,.38);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+    font-size:21px;line-height:1;}
+  .title-mute:focus-visible{outline:3px solid #fff;outline-offset:3px;}
+
+  /* ── 3단계 스포트라이트 온보딩 (첫 실행 · 도움말 재열람) ── */
+  #onb{position:fixed;inset:0;z-index:46;pointer-events:auto;}
+  #onb.hide{display:none;}
+  #onbHole{position:absolute;border-radius:18px;border:3px solid #FFC44F;
+    box-shadow:0 0 0 9999px rgba(10,22,30,.78),0 0 0 6px rgba(255,196,79,.22) inset;
+    transition:top .22s ease,left .22s ease,width .22s ease,height .22s ease;
+    animation:onb-hole 1.6s ease-in-out infinite;}
+  #onbHole.flat{border-color:transparent;animation:none;}
+  @keyframes onb-hole{0%,100%{border-color:#FFC44F;}50%{border-color:#FFF0BC;}}
+  #onbCard{position:absolute;left:50%;transform:translateX(-50%);
+    width:min(calc(100vw - 32px),420px);
+    background:linear-gradient(180deg,#fffaf0,#f0dfbe);border:4px solid #b98d4e;border-radius:22px;
+    box-shadow:0 8px 0 #8f6a35,0 18px 34px rgba(0,0,0,.5);padding:14px 15px 15px;text-align:left;}
+  #onbNum{display:inline-block;font-size:11px;font-weight:900;color:#452303;background:#FFC44F;
+    border-radius:8px;padding:3px 9px;letter-spacing:.5px;}
+  #onbTitle{margin:8px 0 5px;font-size:19px;font-weight:900;letter-spacing:-.03em;color:var(--wood);}
+  #onbBody{margin:0;font-size:13.5px;font-weight:700;line-height:1.5;color:#6a4a24;}
+  .onb-mode{display:flex;align-items:center;gap:8px;min-height:44px;margin-top:6px;
+    font-size:12px;font-weight:800;color:#8a6636;cursor:pointer;}
+  .onb-mode[hidden]{display:none;}
+  .onb-mode input{width:20px;height:20px;accent-color:#c4452d;}
+  #onbNext{width:100%;min-height:52px;margin-top:10px;border:none;border-radius:16px;cursor:pointer;
+    font-family:var(--font);font-size:17px;font-weight:900;color:#4a2405;
+    background:linear-gradient(#ffe08a,#e8931d);box-shadow:0 5px 0 #96540a;}
+  #onbNext:active{transform:translateY(4px);box-shadow:0 1px 0 #96540a;}
+  #onbTap{position:absolute;left:0;right:0;text-align:center;font-size:11.5px;font-weight:800;
+    color:rgba(255,240,214,.78);text-shadow:0 2px 5px rgba(0,0,0,.85);}
 
   /* ── 월드맵 ─────────────────────────────────────── */
   #screen-map{background:linear-gradient(180deg,#dcefF8 0%,#f7efe0 55%,#e6cfa4 100%);justify-content:flex-start;}
@@ -152,8 +291,8 @@
   #toast.bot.show{transform:translate(-50%,0) scale(1.02);}
 
   @media (prefers-reduced-motion: reduce){
-    #titleArt{animation-duration:60s;}
-    #startBtn{animation-duration:3s;}
+    #titleArt,.game-logo>span:not(.logo-gap),.game-subtitle,.title-unit,#onbHole{animation:none;}
+    #startBtn{animation:none;transition-duration:0ms;}
   }
 </style>
 </head>
@@ -184,25 +323,46 @@
 
 <div class="screen" id="screen-title">
   <div id="titleFallback"></div>
-  <img id="titleArt" src="./assets/title.png" alt="">
-  <div class="veil"></div>
-  <div class="tstack">
-    <div class="logo">
-      <h1>쌓기나무 공방</h1>
-      <div class="sub">세 장이 맞아야 산다</div>
+  <div class="title-art" aria-hidden="true">
+    <img id="titleArt" src="./assets/title.png" alt="">
+  </div>
+  <div class="title-art__scrim" aria-hidden="true"></div>
+  <div class="title-art__vignette" aria-hidden="true"></div>
+
+  <button class="title-mute" id="titleMute" type="button" aria-label="소리 끄기">🔊</button>
+
+  <div class="title-ui">
+    <div class="title-logo-zone">
+      <h1 class="game-logo" aria-label="쌓기나무 공방">
+        <span aria-hidden="true" style="--i:0;--r:-5deg;--y:6px;--s:1.09">쌓</span>
+        <span aria-hidden="true" style="--i:1;--r:3deg;--y:-4px;--s:1.00">기</span>
+        <span aria-hidden="true" style="--i:2;--r:-2deg;--y:4px;--s:1.03">나</span>
+        <span aria-hidden="true" style="--i:3;--r:4deg;--y:-2px;--s:.99">무</span>
+        <span class="logo-gap" aria-hidden="true"></span>
+        <span aria-hidden="true" style="--i:4;--r:-4deg;--y:5px;--s:1.08">공</span>
+        <span aria-hidden="true" style="--i:5;--r:4deg;--y:-3px;--s:1.05">방</span>
+      </h1>
+      <p class="game-subtitle">세 장이 맞아야 산다</p>
+      <p class="title-unit">6학년 2학기 · 공간과 입체</p>
     </div>
-    <div class="tbottom">
-      <div class="diffrow">
-        <button class="diffbtn on" id="dEasy">🌿 쉬움</button>
-        <button class="diffbtn" id="dHard">🔥 어려움</button>
-      </div>
-      <button id="startBtn">시작하기</button>
-      <div class="tmeta">
-        <span>6학년 2학기 · 공간과 입체</span>
-        <span id="tBest">최고 ⭐0</span>
-      </div>
+    <div class="title-cta-zone">
+      <div class="title-meta" id="tBest" hidden></div>
+      <button id="startBtn" type="button"><span>의뢰 받기!</span></button>
+      <button class="title-howto" id="howtoBtn" type="button">어떻게 놀아요? 〉</button>
     </div>
   </div>
+</div>
+
+<div class="hide" id="onb">
+  <div id="onbHole"></div>
+  <div id="onbCard">
+    <span id="onbNum">1/3</span>
+    <h2 id="onbTitle"></h2>
+    <p id="onbBody"></p>
+    <label class="onb-mode" hidden><input type="checkbox" id="onbHard"><span>🔥 어려움 — 자동 힌트 없이 직접 맞힌다</span></label>
+    <button id="onbNext" type="button">다음</button>
+  </div>
+  <div id="onbTap">화면을 탭해도 넘어가요</div>
 </div>
 
 <div class="screen hide" id="screen-map">
@@ -822,6 +982,7 @@ function layout(){
     L.stage.y=L.films.y+L.films.h+8;L.stage.h=CH-L.stage.y-ctlH-2;}
   L.stamp=[L.films.x,L.films.y,L.films.w,L.films.h,L.stage.x,L.stage.y,L.stage.w,L.stage.h].map(Math.round).join(',');
   filmsCache.key='';sceneCache.key='';
+  if(typeof onbPlace==='function') onbPlace();
 }
 function hasNotch(){
   try{const v=getComputedStyle(document.documentElement).getPropertyValue('--x');}catch(e){}
@@ -2127,6 +2288,7 @@ function startRound(){
   camGoto('iso');
   updateHUD();updateViewBtns();updateToolBtn();
   if(S.round.hint&&!S.round.minAsk)toast(S.round.hint.replace(/\*\*/g,''),'',2.4);
+  if(onbPending){ onbPending=false; setTimeout(function(){ if(S.phase==='playing') openOnb(0,false); },260); }
 }
 function updateToolBtn(){
   const R=S.round,b=document.getElementById('btnTool'),d=document.getElementById('btnDone');
@@ -2170,6 +2332,7 @@ function showResult(st,gain){
     save.stars[S.roomIdx]=clamp(best,0,3);
     save.unlocked=Math.max(save.unlocked,Math.min(6,S.roomIdx+2));
     save.totalScore=Math.max(save.totalScore,S.score);
+    syncBestPill();
     persist();
   }
 }
@@ -2217,14 +2380,112 @@ function openMap(){
 
 /* ───────────────────────── 버튼 배선 ───────────────────────── */
 function bind(id,fn){const el=document.getElementById(id);if(el)el.addEventListener('click',function(e){e.preventDefault();Sound.init();Sound.resume();fn();});}
-bind('startBtn',function(){ S.runId=(S.runId|0)+1; S.mmCache=null; openMap(); });
-bind('dEasy',function(){S.hard=false;document.getElementById('dEasy').classList.add('on');document.getElementById('dHard').classList.remove('on');});
-bind('dHard',function(){S.hard=true;document.getElementById('dHard').classList.add('on');document.getElementById('dEasy').classList.remove('on');});
+/* ── 타이틀: 단일 CTA + 3단계 스포트라이트 온보딩 (docs/title-screen-spec.md) ──
+   기존 타이틀의 난이도 버튼 2개(쉬움/어려움)와 howto 4줄은 사라지지 않고 아래로 이관됐다.
+   1) 칸을 탭해 층 올리기            → 1단계 (작업대 스포트라이트)
+   2) 위·앞·옆 세 장이 실시간 재촬영 → 2단계 (필름 스포트라이트)
+   3) 시점 점프·투시등·완성! 버튼    → 3단계 (컨트롤 스포트라이트) + 어려움 토글    */
+const ONB_KEY='onboardingSeen:tri-cut-tower', HARD_KEY='tri-cut-tower.hard.v1';
+const ONB_STEPS=[
+  {t:'칸을 탭하면 한 층 올라간다',
+   b:'작업대의 격자 칸을 탭할 때마다 쌓기나무가 한 층씩 올라간다. 상한을 넘기면 0으로 돌아가니 마음껏 눌러 봐도 된다.'},
+  {t:'세 장의 사진이 바로 다시 찍힌다',
+   b:'쌓을 때마다 위·앞·옆에서 본 모양이 실시간으로 다시 찍힌다. 의뢰 사진과 다른 칸은 어두운 채로 남는다. 옆에서 본 모양은 앞쪽이 필름의 왼쪽이다.'},
+  {t:'세 장이 다 맞으면 「완성!」',
+   b:'아래 위·앞·옆·입체 버튼으로 시점을 바꿔 확인하고, 투시등을 쓸면 숨은 나무까지 하나씩 세어 준다. 세 장이 모두 겹치면 완성! 버튼을 눌러라.'}
+];
+var onbIdx=-1, onbOverTitle=false, onbPending=false;
+function onbSeen(){ try{ return !!localStorage.getItem(ONB_KEY); }catch(e){ return false; } }
+function onbHoleRect(i){
+  if(onbOverTitle) return null;
+  const f=L.films, g=L.stage, pad=6;
+  const ctl=document.getElementById('ctl'), r=ctl?ctl.getBoundingClientRect():null;
+  if(i===0) return [g.x+pad, g.y+pad, Math.max(60,g.w-pad*2), Math.max(60,g.h-pad*2)];
+  if(i===1) return [f.x-pad, f.y-pad, f.w+pad*2, f.h+pad*2];
+  if(r&&r.height) return [r.left+2, r.top-4, r.width-4, r.height+2];
+  return [8, CH-132, CW-16, 124];
+}
+function onbPlace(){
+  if(!(onbIdx>=0)) return;
+  const rect=onbHoleRect(onbIdx), hole=document.getElementById('onbHole'),
+        card=document.getElementById('onbCard'), tap=document.getElementById('onbTap');
+  const ch=card.offsetHeight||200;
+  if(!rect){
+    hole.classList.add('flat');
+    hole.style.left='50%'; hole.style.top='50%';
+    hole.style.width='0px'; hole.style.height='0px';
+    const top=Math.max(12,Math.round((CH-ch)/2));
+    card.style.top=top+'px'; tap.style.top=(top+ch+8)+'px';
+    return;
+  }
+  hole.classList.remove('flat');
+  hole.style.left=rect[0]+'px'; hole.style.top=rect[1]+'px';
+  hole.style.width=rect[2]+'px'; hole.style.height=rect[3]+'px';
+  const above=rect[1]-ch-26, below=rect[1]+rect[3]+26;
+  let top=(above>=10)?above:below;
+  top=Math.max(10,Math.min(top,CH-ch-44));
+  card.style.top=top+'px'; tap.style.top=(top+ch+8)+'px';
+}
+function openOnb(i,overTitle){
+  onbOverTitle=!!overTitle;
+  onbIdx=clamp(i|0,0,ONB_STEPS.length-1);
+  const st=ONB_STEPS[onbIdx], last=(onbIdx===ONB_STEPS.length-1);
+  document.getElementById('onbNum').textContent=(onbIdx+1)+'/'+ONB_STEPS.length;
+  document.getElementById('onbTitle').textContent=st.t;
+  document.getElementById('onbBody').textContent=st.b;
+  document.getElementById('onbNext').textContent=last?'해볼게요':'다음';
+  document.getElementById('onbHard').checked=!!S.hard;
+  document.querySelector('.onb-mode').hidden=!last;
+  document.getElementById('onb').classList.remove('hide');
+  onbPlace();
+  requestAnimationFrame(onbPlace);
+}
+function closeOnb(){
+  onbIdx=-1; onbOverTitle=false;
+  document.getElementById('onb').classList.add('hide');
+  try{ localStorage.setItem(ONB_KEY,'1'); }catch(e){}
+}
+function nextOnb(){ if(onbIdx<ONB_STEPS.length-1) openOnb(onbIdx+1,onbOverTitle); else closeOnb(); }
+function syncBestPill(){
+  const el=document.getElementById('tBest'), v=save.totalScore|0;
+  if(v>0){ el.hidden=false; el.textContent='최고 ⭐ '+v.toLocaleString('ko-KR'); }
+  else el.hidden=true;
+}
+function syncMuteIcons(){
+  const ic=Sound.muted?'🔇':'🔊', lbl=Sound.muted?'소리 켜기':'소리 끄기';
+  ['btnSound','titleMute'].forEach(function(id){
+    const b=document.getElementById(id); if(!b) return;
+    b.textContent=ic; b.setAttribute('aria-label',lbl);
+  });
+}
+try{ if(localStorage.getItem(HARD_KEY)==='1') S.hard=true; }catch(e){}
+
+/* CTA 하나로 바로 작업대까지 간다. 공방 지도는 플레이 중 🏠 와 결과 화면에서 그대로 열린다. */
+bind('startBtn',function(){
+  try{ if(navigator.vibrate) navigator.vibrate(18); }catch(e){}
+  S.runId=(S.runId|0)+1; S.mmCache=null;
+  S.roomIdx=clamp((save.unlocked|0)-1,0,5); S.roundIdx=0; S.roomStarsRun=[];
+  onbPending=!onbSeen();
+  hideAll(); startRound();
+});
+bind('howtoBtn',function(){ openOnb(0,true); });
+bind('titleMute',function(){
+  Sound.muted=!Sound.muted;
+  syncMuteIcons();
+});
+document.getElementById('onb').addEventListener('click',nextOnb);
+document.getElementById('onbNext').addEventListener('click',function(e){e.stopPropagation();nextOnb();});
+document.getElementById('onbHard').addEventListener('click',function(e){e.stopPropagation();});
+document.getElementById('onbHard').addEventListener('change',function(e){
+  S.hard=!!e.target.checked;
+  try{ localStorage.setItem(HARD_KEY,S.hard?'1':'0'); }catch(err){}
+});
+document.querySelector('.onb-mode').addEventListener('click',function(e){e.stopPropagation();});
 bind('btnMapBack',function(){S.phase='title';show('screen-title');});
 bind('btnHome',function(){openMap();});
 bind('btnSound',function(){
   Sound.muted=!Sound.muted;
-  document.getElementById('btnSound').textContent=Sound.muted?'🔇':'🔊';
+  syncMuteIcons();
 });
 bind('vIso',function(){camGoto('iso');});
 bind('vTop',function(){camGoto('top');});
@@ -2427,10 +2688,8 @@ window.__GAME_TEST__={
 document.getElementById('titleArt').addEventListener('error',function(){
   this.style.display='none';
 });
-(function initBest(){
-  const el=document.getElementById('tBest');
-  if(el)el.textContent='최고 ⭐'+(save.totalScore||0);
-})();
+syncBestPill();
+syncMuteIcons();
 resize();
 show('screen-title');
 requestAnimationFrame(function(t){last=t;frame(t);});
