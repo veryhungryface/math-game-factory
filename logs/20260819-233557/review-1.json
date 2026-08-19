@@ -1,0 +1,64 @@
+{
+  "slug": "wobble-grove",
+  "score": 61,
+  "gate": 80,
+  "passed": false,
+  "reject_immediately": true,
+  "breakdown": { "curriculum": 22, "math": 0, "fun": 16, "visual": 16, "mobile": 7 },
+  "math_verification": [
+    { "prompt": "열매에 적힌 수 1, 5, 6의 평균은?", "claimed": "4", "my_calculation": "12÷3=4", "correct": true },
+    { "prompt": "열매에 적힌 수 0, 1, 2, 5, 7의 평균은?", "claimed": "3", "my_calculation": "15÷5=3", "correct": true },
+    { "prompt": "열매에 적힌 수 3, 6, 6, 8, 12의 평균은?", "claimed": "7", "my_calculation": "35÷5=7 (중앙값 6과 다름 — 함정 성립)", "correct": true },
+    { "prompt": "열매 5개의 평균이 9인데 하나가 비었어요. 남은 열매 9, 10, 9, 11", "claimed": "6", "my_calculation": "45-39=6", "correct": true },
+    { "prompt": "가 나무 5개 평균 2, 나 나무 3개 평균 10. 모두 모으면 평균은?", "claimed": "5", "my_calculation": "(10+30)÷8=5, 함정 (2+10)÷2=6도 보기에 있음", "correct": true },
+    { "prompt": "열매 5개의 평균이 7인데 하나가 비었어요. 남은 열매 14, 5, 5, 3", "claimed": "8", "my_calculation": "35-27=8", "correct": true },
+    { "prompt": "열매 5개의 평균이 9인데 하나가 비었어요. 남은 열매 3, 9, 14, 14", "claimed": "5", "my_calculation": "45-40=5", "correct": true },
+    { "prompt": "열매에 적힌 수 4, 4, 5, 8, 14의 평균은?", "claimed": "7", "my_calculation": "35÷5=7", "correct": true },
+    { "prompt": "감 3개, 배 2개 — 배일 가능성은?", "claimed": "아닐 것 같다", "my_calculation": "2/5 < 1/2 → 아닐 것 같다", "correct": true },
+    { "prompt": "감 5개, 배 3개 — 감일 가능성은?", "claimed": "일 것 같다", "my_calculation": "5/8 > 1/2 → 일 것 같다", "correct": true },
+    { "prompt": "감 2개, 배 2개 — 배일 가능성은?", "claimed": "반반", "my_calculation": "2/4 = 1/2 → 반반", "correct": true },
+    { "prompt": "감 5개, 배 0개 — 배일 가능성은?", "claimed": "불가능", "my_calculation": "0/5 = 0 → 불가능", "correct": true },
+    { "prompt": "[게임 판정] 1, 5, 6 의 평균 문제에서 막대를 눈금 3 또는 5 에 놓으면?", "claimed": "성공 처리 (+60점, 콤보 유지, solved+1)", "my_calculation": "정답은 4뿐. 3과 5는 오답이어야 한다", "correct": false },
+    { "prompt": "[게임 판정] 평균 9·남은 열매 3,9,14,14 에서 후보 10을 고르고 막대를 10에 놓으면?", "claimed": "딱 수평! 평균 = 45 ÷ 5 = 10 (성공, +100점)", "my_calculation": "빠진 수는 45-40=5. 10은 '자료 수를 하나 적게 나눈' 오개념 보기이고, 45÷5=10 은 거짓인 식이다", "correct": false }
+  ],
+  "strengths": [
+    "수학이 확실히 동사다. 막대를 끌면 나무가 실시간으로 기우는 스프링 물리(index.html:1103)로 '평균 = 무게중심'이 설명 없이 손끝에 들어온다. 문제창이 아니다.",
+    "오개념 함정이 생성기 수준에서 구조적으로 보장된다. level3 은 중앙값≠평균을 대수적으로 강제하고(index.html:329~338), fakeTicks 로 sum/(n-1)·(A+B)/2 유혹 눈금을 실제로 화면에 찍는다.",
+    "비주얼이 art_direction 을 지켰다. 노을 과수원 팔레트, 선명한 실루엣, 얼굴 달린 열매 마스코트가 모바일 스크린샷에서 또렷하게 귀엽고 숫자도 흰 외곽선으로 잘 읽힌다.",
+    "juice 8종 구현(hit-stop, squash-stretch(sqv), 스프링 overshoot 이징, 단계별 screen-shake 1.2/4/5/7/12, color-flash, 콤보 비례 particle-burst, ambient sway+낙엽+ken-burns, SFX 동기). trail 만 빠졌다.",
+    "가능성 채점을 실험 결과가 아니라 이론 밴드에만 걸었고(RD.bandIdx), 12회 시행은 독립 베르누이로 생성해 이론 vs 실험 비교라는 [6수04-06] 취지를 정확히 살렸다.",
+    "실수 관용도는 합격이다. 하트 3개, 오답 시 같은 나무 재시도 + 2회차 오개념 힌트, 쉬움은 게임오버 없음, 예측 오답은 목숨을 깎지 않는다. 지연된 누적 실패 구조가 없다."
+  ],
+  "must_fix": [
+    {
+      "severity": "high",
+      "where": "index.html:1520 dropBar() — const eff=fruits.map(f=>f.value); const mean=...",
+      "issue": "빠진 자료(missing) 라운드에서 고른 후보가 정답인지 검사하지 않는다. 확정 시점에 후보를 포함한 값 배열로 평균을 다시 계산해 그 새 평균과 막대만 비교하므로, 오개념 보기를 골라도 새 평균이 정수면 성공한다. 실제 표본: 평균 9·남은 열매 3,9,14,14 에서 정답은 5인데, 오개념 보기 10(=40÷4, 자료 수를 하나 적게 나눈 값)을 고르고 막대를 10에 놓으면 만점 성공이 되고 토스트가 'RD.sum ÷ RD.n = 10' 즉 '45 ÷ 5 = 10' 이라는 거짓 등식을 아이에게 보여 준다. 잡으라고 만든 오개념에 최고 보상을 주는 정반대 학습이다.",
+      "how": "dropBar() 맨 앞에 라운드 종류별 정답 검사를 분리해서 넣어라. RD.kind==='missing' 이면 (1) RD.candidates[S.pickedCand]===RD.missingValue 이고 (2) S.barTick===RD.mean 인 두 조건을 모두 만족할 때만 성공시킨다. 후보가 틀렸으면 평균을 재계산하지 말고 '이 열매를 달면 평균이 RD.mean 이 안 돼요'로 실패 처리해라. eff/mean 재계산은 표시용으로만 쓰고 판정에서 분리한다."
+    },
+    {
+      "severity": "high",
+      "where": "index.html:1516 dropBar() — const tol=(S.diff==='easy')?1:0; if(off<=tol ...)",
+      "issue": "기본값인 쉬움 난이도(index.html:764 diff:'easy')에서 정답 평균과 1 차이 나는 눈금도 성공으로 처리해 S.combo++, S.solved++, setScore(+60), 다음 나무 진행까지 전부 준다. 1,5,6(평균 4)에서 3이나 5를 놓아도 통과한다. 아무 설정도 건드리지 않은 대부분의 학생에게 '평균은 대충 그 근처'라는 잘못된 기준이 보상으로 각인된다. 토스트가 정확한 평균을 알려 주긴 하지만 점수·콤보·해결 수를 그대로 주는 한 오답이 정답으로 계산된 것이다.",
+      "how": "성공 판정은 난이도와 무관하게 S.barTick===mean 일 때만으로 통일해라. 쉬움의 관용은 '판정을 무르게'가 아니라 '벌을 무르게'로 옮긴다 — off===1 이면 하트를 깎지 않고 점수·콤보·solved 도 올리지 않은 채 '한 칸 옆이에요! 합 ÷ 열매 수를 다시 해 봐요' 힌트와 함께 같은 나무를 재시도시켜라. 하트 차감은 off>=2 부터."
+    },
+    {
+      "severity": "medium",
+      "where": "index.html:473 가능성 문제 문장 생성 (\"열매 하나가 떨어질 때 ...일 가능성은?\")",
+      "issue": "각 열매가 같은 가능성으로 떨어진다는 조건이 문장에 없다. 등가능성이 명시되지 않으면 개수 비교만으로 '아닐 것 같다/일 것 같다'를 단정할 수 없어 수학적으로 모호하다. 무거운 열매가 먼저 떨어진다고 읽는 아이가 있다.",
+      "how": "문장을 '열매 하나를 아무거나 골라 떨어뜨릴 때' 또는 '모든 열매가 떨어질 가능성이 같을 때, 열매 하나가 떨어지면'으로 바꿔라. sampleProblems() 와 라이브 UI가 같은 문자열 생성 함수를 쓰게 해서 한 곳만 고치면 되게 한다."
+    },
+    {
+      "severity": "low",
+      "where": "public/g/wobble-grove/thumb.png (1.0MB), 폴더 합계 3.6MB",
+      "issue": "thumb.png 1MB, square.png 0.4MB 로 허브 카드 로딩이 무겁다. QA perf.fps 33 도 30fps 게이트에 여유가 크지 않다.",
+      "how": "thumb.png/square.png 를 pngquant 또는 품질 82 수준 재인코딩으로 200~300KB 대로 줄여라. 게임 로직 변경은 불필요하다."
+    }
+  ],
+  "nice_to_have": [
+    "juice_techniques 에 선언한 trail 이 구현되지 않았다. 쏟아지는 열매나 콤보 성공 시 막대에 짧은 잔상 궤적 하나만 추가해도 선언과 구현이 맞는다.",
+    "태블릿(820×1180) 스크린샷에서 화면 아래 1/3이 빈 갈색 흙 띠다. 바구니를 키우거나 이론 유령 더미 자리를 미리 실루엣으로 깔아 두면 세로 여백이 정리된다.",
+    "막대 초기 위치가 항상 maxTick/2 라 level1 에서 우연히 정답 근처인 판이 생긴다. 정답에서 최소 2눈금 떨어진 곳에서 시작하게 하면 매 판 실제로 계산하게 된다."
+  ],
+  "verdict": "폐기 — 표본 40문항의 제시 답 자체는 손검산 결과 전부 맞았지만, 게임의 성공 판정 두 곳이 수학적으로 틀린 답을 정답으로 인정한다. 특히 빠진 자료 라운드는 '자료 수를 하나 적게 나눈' 오개념 보기를 고르면 만점과 함께 '45 ÷ 5 = 10' 이라는 거짓 등식을 띄워, 이 게임이 잡겠다고 선언한 오개념을 정확히 강화한다. 기획·비주얼·조작감은 이 공장 상위권이므로 판정 로직 두 곳(index.html:1516, 1520)만 고쳐 재검수할 가치가 충분하다."
+}

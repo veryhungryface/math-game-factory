@@ -1,0 +1,48 @@
+{
+  "slug": "pour-spin",
+  "score": 77,
+  "gate": 80,
+  "passed": false,
+  "reject_immediately": false,
+  "breakdown": {
+    "curriculum": 22,
+    "math": 22,
+    "fun": 16,
+    "visual": 10,
+    "mobile": 7
+  },
+  "math_verification": [
+    { "prompt": "물통에 4, 4, 7컵이 담겨 있어요. 평균은 몇 컵일까요?", "claimed": "5", "my_calculation": "(4+4+7)/3=5", "correct": true },
+    { "prompt": "가 모둠(11,10,2,9)과 나 모둠(10,8,9)을 합쳐서 전체 평균을 구하면?", "claimed": "8.43", "my_calculation": "(32+27)/7=8.4286→8.43", "correct": true },
+    { "prompt": "4개의 물통 중 3개는 11, 11, 4컵이에요. 평균이 7컵이 되려면 나머지 물통은 몇 컵이어야 할까요?", "claimed": "2", "my_calculation": "4*7-26=2", "correct": true },
+    { "prompt": "흰 공 2개와 검은 공 6개가 든 주머니에서 공 1개를 꺼낼 때 흰 공이 나올 가능성을 분수로 나타내면?", "claimed": "1/4", "my_calculation": "2/8=1/4 (기약분수), 검은공 오답 2/6·6/8도 정답과 다름 확인", "correct": true },
+    { "prompt": "가 모둠(6,3,6)의 평균과 나 모둠(11,11,8)의 평균 중 어느 쪽이 더 큰가요?", "claimed": "나 모둠", "my_calculation": "5 vs 10 → 나 모둠", "correct": true },
+    { "prompt": "동전을 던졌더니 앞면이 연속 3번 나왔어요. 다음 한 번을 더 던질 때 뒷면이 나올 가능성은?", "claimed": "반반이다", "my_calculation": "독립시행이므로 1/2 (도박사의 오류 함정 정답 처리 맞음)", "correct": true }
+  ],
+  "strengths": [
+    "'물통 수위를 맞추는 붓기'가 평균의 정의(자료를 고르게 나눈 값)와 그대로 일치하는 조작이라 수학이 진짜 동사다. 완성된 수위가 그대로 회전판 넓이=확률로 이어지는 인과관계도 명확하다.",
+    "40개 표본 문제를 전수 손검산했고 오류 0건. 정수 컵 단위 스냅 + 정수 gcd 기반 기약분수 처리로 부동소수점 비교 문제도 없다.",
+    "distractor 설계가 오개념 규칙(중앙값 착각, 0 제외, 단순평균의평균, 도박사의 오류)을 정확히 따른다.",
+    "meta.standards 4개([6수04-01,04,05,06])가 실제 게임 루프(붓기=평균, 예측카드=가능성 표현, 결과 라벨=가능성을 수로, 비교UI=집단 비교) 전부에 대응된다.",
+    "실수 관용도: 목숨 3개, 실패(넘침/시간초과) 시 즉시 1개만 깎이고 바로 다음 라운드로 재시작 — 지연 누적형 게임오버 구조 없음."
+  ],
+  "must_fix": [
+    {
+      "severity": "high",
+      "where": "index.html:826-827 frame() — ctx.drawImage(bgCanvas,0,0,W,H, 0,0,W,H)",
+      "issue": "bgCanvas는 DPR 스케일로 구워져 실제 픽셀 크기가 W*DPR × H*DPR(예: 태블릿 1640×2360)인데, drawImage의 source rect를 CSS px 값인 (0,0,W,H)로 넘겨서 실제로는 bgCanvas의 좌상단 1/DPR² 영역(예: DPR=2면 전체의 1/4, 좌상단 쿼터)만 잘라 destination 전체(W,H, 즉 DPR 배로 다시 확대되는 좌표계)에 늘려 그린다. 결과적으로 배경 아트(천막·페리스휠·번팅)가 세로/가로 모두 약 2배로 확대·크롭되어 렌더링된다. DPR=1(구형 저가폰/데스크톱)에서는 W*DPR=W라 우연히 무해하지만, DPR=2~3인 대부분의 최신 아이폰·아이패드(이 프로젝트가 명시한 기준 기기 포함)에서는 항상 발생한다. 실제로 mobile.png/tablet.png 스크린샷에서 천막·페리스휠이 의도한 상단 34%보다 훨씬 아래(약 60%대)까지 확대되어 걸치고, 그 아래로 미완성처럼 보이는 밋밋한 크림색 여백이 화면 하단 상당 부분을 차지하는 모습으로 나타난다. fix.json이 'topSafe/rowH를 조정해 하단 여백을 9~16%로 줄였다'고 검증했지만 그 검증은 tanks[].rect 좌표(레이아웃 로직)만 읽은 것이라 이 렌더링 버그를 놓쳤다 — 레이아웃 수치는 맞아도 실제로 그려지는 배경 이미지 자체가 어긋나 있다.",
+      "how_to_fix": "drawImage 호출 시 source rect를 bgCanvas의 실제 픽셀 크기로 지정해라: ctx.drawImage(bgCanvas, 0,0, bgCanvas.width, bgCanvas.height, 0,0, W,H). 또는 더 간단히 ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(bgCanvas,0,0); ctx.restore(); 로 DPR 변환을 끄고 1:1로 그린 뒤 복원해라. 수정 후 DPR=2·3 에뮬레이션 스크린샷을 다시 찍어 천막/페리스휠이 상단 34% 안에 들어오는지 눈으로 재확인해라."
+    },
+    {
+      "severity": "medium",
+      "where": "index.html:1126-1143 sampleAvgCompareNumeric()",
+      "issue": "gA.mean===gB.mean인 경우 correct, wrongAvgOfAvg, gA.mean, gB.mean 네 후보값이 전부 같은 수로 붕괴해 Set 크기가 1이 되고, 실제로 QA 표본(avg-compare-num-rnr5r6)에서 choices:[\"7\"] 처럼 선택지가 1개뿐인 객관식 문제가 나왔다. 정답은 항상 보장되어 오답을 가르치진 않지만(math_verification 통과), '가중평균' 유형 다지선다가 가끔 아예 선택의 여지가 없는 문제로 나가는 건 이 게임의 QA 표본 신뢰도를 깎는다. sampleAvgBasic/sampleAvgMissing에는 있는 choices.size<4 패딩 guard가 이 함수에만 빠져 있다. (실제 플레이 화면의 '비교' 라운드는 이 함수를 쓰지 않고 고정 3지선다(가/나/같다) UI라 플레이 자체에는 영향 없음 — 순수 문제 생성기 코드 품질 이슈)",
+      "how_to_fix": "sampleAvgBasic처럼 while(choices.size<4){ ... } 패딩 루프를 추가하거나, gA/gB 재추첨 guard(while(gA.mean===gB.mean))를 makeRound의 compare 분기처럼 이 함수에도 적용해라."
+    }
+  ],
+  "nice_to_have": [
+    "gameover 결과창의 이론확률 vs 실제빈도 막대그래프는 좋은 아이디어인데, 첫 게임오버 전(스핀 0회)에는 '스핀 기록 없음'만 뜬다 — 살짝 아쉬운 빈 화면이니 최소 1회는 보게 난이도를 조정해도 좋다.",
+    "hero_mascot이 인트로/결과창에만 나온다 — 플레이 중(물 붓는 동안) 한 번씩 리액션하면 캐릭터 존재감이 더 커질 것."
+  ],
+  "verdict": "수정 후 재검수. 수학 정확성·교육과정 정합성·게임성은 이미 80점대 수준으로 탄탄하지만, DPR≥2 기기(이 프로젝트 기준 기기 대부분)에서 배경 아트가 drawImage source-rect 버그로 약 2배 확대·크롭되어 렌더링되는 심각한 시각 결함이 스크린샷에서 실제로 확인되어 총점이 게이트를 넘지 못한다. 이 한 줄 수정 후 스크린샷 재검수가 필요하다."
+}

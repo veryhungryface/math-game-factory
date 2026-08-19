@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>찰랑 스핀 — 부을수록 커지는 그 확률</title>
+<meta property="og:title" content="찰랑 스핀">
+<meta property="og:description" content="부을수록 커지는 그 확률">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{
+    --cream:#fff8ec; --red:#ff5252; --cyan:#26c6da; --gold:#ffca28; --teal:#00695c;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--cream); overscroll-behavior:none;}
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+  }
+  #stage{position:fixed; inset:0; width:100%; height:100%;}
+  canvas{display:block; width:100%; height:100%;}
+  .ui{position:fixed; inset:0; pointer-events:none; z-index:5;}
+  .ui > *{pointer-events:auto;}
+  .hud{
+    position:fixed; top:max(10px, env(safe-area-inset-top)); left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; z-index:6; pointer-events:none;
+  }
+  .hud > *{pointer-events:auto;}
+  .hearts{display:flex; gap:4px; font-size:22px; filter:drop-shadow(0 2px 2px rgba(0,0,0,.15));}
+  .hud-mid{display:flex; flex-direction:column; align-items:center; gap:3px;}
+  .score{font-weight:800; font-size:20px; color:var(--teal); text-shadow:0 1px 0 #fff;}
+  .timerWrap{width:150px; height:10px; background:rgba(0,0,0,.12); border-radius:6px; overflow:hidden;}
+  .timerBar{height:100%; width:100%; background:linear-gradient(90deg,var(--cyan),var(--gold)); border-radius:6px; transition:width .12s linear;}
+  .muteBtn{
+    width:44px; height:44px; border-radius:50%; border:none; background:rgba(255,255,255,.85);
+    font-size:20px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.15);
+  }
+  .btn{
+    font-family:inherit; font-weight:800; border:none; border-radius:16px; cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,.2); transition:transform .08s ease;
+  }
+  .btn:active{transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.2);}
+  .overlay{
+    position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:16px; padding:20px; text-align:center; z-index:20;
+    background:linear-gradient(180deg, rgba(255,248,236,.97), rgba(255,235,205,.97));
+  }
+  .hidden{display:none !important;}
+  .title-big{font-size:min(11vw,44px); font-weight:800; color:var(--teal); margin:0; text-shadow:0 2px 0 #fff;}
+  .tagline{font-size:min(5vw,20px); color:#c2185b; font-weight:700; margin:0 0 6px;}
+  .howto{font-size:15px; color:#5d4037; line-height:1.7; max-width:340px; margin:0;}
+  .primaryBtn{
+    background:var(--gold); color:#5d3a00; font-size:min(6vw,24px); padding:16px 40px; min-height:56px;
+  }
+  .predictWrap, .compareWrap{
+    position:fixed; left:0; right:0; bottom:max(14px, env(safe-area-inset-bottom)); z-index:12;
+    display:flex; flex-direction:column; align-items:center; gap:10px; padding:0 14px;
+  }
+  .cardRow{display:flex; gap:10px; width:100%; max-width:520px; justify-content:center; flex-wrap:wrap;}
+  .card{
+    flex:1 1 90px; min-width:90px; min-height:64px; background:#fff; border:3px solid #eee;
+    border-radius:16px; font-size:min(4.6vw,18px); font-weight:800; color:#37474f; padding:8px 6px;
+  }
+  .card.selected{border-color:var(--gold); background:#fff3d6; transform:scale(1.04);}
+  .spinBtn{
+    background:var(--cyan); color:#00363a; font-size:min(5.5vw,22px); padding:12px 34px; min-height:52px;
+    opacity:.4; pointer-events:none;
+  }
+  .spinBtn.ready{opacity:1; pointer-events:auto; background:var(--red); color:#fff;}
+  .toast{
+    position:fixed; top:38%; left:50%; transform:translate(-50%,-50%); z-index:15;
+    font-size:min(7vw,30px); font-weight:800; color:#fff; background:rgba(0,0,0,.55);
+    padding:14px 26px; border-radius:18px; text-align:center; pointer-events:none;
+  }
+  .resultWrap{
+    position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; z-index:18; background:rgba(255,248,236,.92); padding:20px; text-align:center;
+  }
+  .resultTitle{font-size:min(9vw,38px); font-weight:800; margin:0;}
+  .continueBtn{background:var(--gold); color:#5d3a00; font-size:18px; padding:14px 36px; min-height:52px;}
+  .goList{font-size:16px; color:#37474f; line-height:1.8; margin:0;}
+  #chartCanvas{width:min(90vw,340px); height:160px;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game"></canvas>
+</div>
+
+<div class="ui">
+  <div class="hud" id="hud">
+    <div class="hearts" id="hearts">❤️❤️❤️</div>
+    <div class="hud-mid">
+      <div class="score" id="scoreLabel">0점</div>
+      <div class="timerWrap"><div class="timerBar" id="timerBar"></div></div>
+    </div>
+    <button class="muteBtn" id="muteBtn" aria-label="음소거">🔊</button>
+  </div>
+
+  <div class="overlay" id="introOverlay">
+    <img id="heroImg" src="./assets/hero_mascot.png" alt="" style="width:min(38vw,160px); height:auto; filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));">
+    <p class="tagline">부을수록 커지는 그 확률</p>
+    <h1 class="title-big">찰랑 스핀</h1>
+    <p class="howto">물통을 눌러 옆 물통 쪽으로 드래그하면 물이 흘러요.<br>모든 물통의 물 높이를 똑같이 맞추면 성공!<br>맞춘 높이만큼 회전판 조각이 커져서 돌아가요.</p>
+    <button class="btn primaryBtn" id="startBtn">시작하기</button>
+  </div>
+
+  <div class="predictWrap hidden" id="predictWrap">
+    <div class="cardRow" id="predictCards">
+      <button class="btn card" data-choice="impossible">불가능하다</button>
+      <button class="btn card" data-choice="half">반반이다</button>
+      <button class="btn card" data-choice="certain">확실하다</button>
+    </div>
+    <button class="btn spinBtn" id="spinBtn">돌리기</button>
+  </div>
+
+  <div class="compareWrap hidden" id="compareWrap">
+    <div class="cardRow" id="compareCards">
+      <button class="btn card" data-choice="A">가 모둠이 크다</button>
+      <button class="btn card" data-choice="B">나 모둠이 크다</button>
+      <button class="btn card" data-choice="EQ">같다</button>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <div class="resultWrap hidden" id="resultOverlay">
+    <img id="resultHeroImg" src="./assets/hero_mascot.png" alt="" style="width:min(26vw,110px); height:auto; filter:drop-shadow(0 6px 10px rgba(0,0,0,.18));">
+    <h2 class="resultTitle" id="resultTitle">당첨!</h2>
+    <p class="howto" id="resultDetail"></p>
+    <button class="btn continueBtn" id="continueBtn">계속하기</button>
+  </div>
+
+  <div class="overlay hidden" id="gameoverOverlay">
+    <h1 class="title-big">게임 종료</h1>
+    <p class="goList" id="goStats"></p>
+    <canvas id="chartCanvas"></canvas>
+    <button class="btn primaryBtn" id="retryBtn">다시하기</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ───────────────────────────────────────────── 기본 셋업
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W=0,H=0,DPR=1;
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.round(W*DPR);
+  canvas.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  bakeBackground();
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+
+// ───────────────────────────────────────────── 오디오 (사용자 제스처 이후)
+
+let audioCtx=null, muted=false;
+function ensureAudio(){
+  if(audioCtx || muted) return;
+  try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+}
+function beep(freq, dur, type, gain){
+  if(!audioCtx || muted) return;
+  const t0=audioCtx.currentTime;
+  const osc=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  osc.type=type||'sine'; osc.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain||0.12, t0+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+function sfxPour(){ beep(520+Math.random()*60, 0.08, 'sine', 0.06); }
+function sfxSolve(){ beep(660,0.12,'triangle',0.14); setTimeout(()=>beep(880,0.18,'triangle',0.14),90); }
+function sfxFail(){ beep(160,0.28,'sawtooth',0.10); }
+function sfxWin(){ beep(784,0.14,'square',0.1); setTimeout(()=>beep(988,0.22,'square',0.1),100); setTimeout(()=>beep(1318,0.28,'square',0.1),220); }
+function sfxLose(){ beep(220,0.22,'sine',0.09); }
+function sfxTap(){ beep(440,0.05,'sine',0.05); }
+
+const muteBtn=document.getElementById('muteBtn');
+muteBtn.addEventListener('click',()=>{
+  muted=!muted;
+  muteBtn.textContent = muted? '🔇':'🔊';
+});
+
+// ───────────────────────────────────────────── RNG / 수학 유틸
+
+function mulberry32(a){
+  return function(){
+    a|=0; a=(a+0x6D2B79F5)|0;
+    let t=Math.imul(a^(a>>>15),1|a);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t;
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+let rng = Math.random;
+function randInt(a,b){ return a+Math.floor(rng()*(b-a+1)); }
+function roundUpEven(x){ return Math.ceil(x/2)*2; }
+function gcdInt(a,b){ a=Math.abs(a); b=Math.abs(b); return b?gcdInt(b,a%b):a; }
+function reduceFraction(n,d){ if(n===0) return [0,1]; const g=gcdInt(n,d)||1; return [n/g, d/g]; }
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+// ───────────────────────────────────────────── 라운드 생성
+
+function genGroup(n){
+  let vals=[];
+  for(let i=0;i<n;i++) vals.push(randInt(2,12));
+  let sum=vals.reduce((s,v)=>s+v,0);
+  let rem=((sum%n)+n)%n;
+  if(rem!==0) vals[0]+=(n-rem);
+  sum=vals.reduce((s,v)=>s+v,0);
+  const mean=sum/n; // 항상 정수(합이 n의 배수가 되도록 구성)
+  const gaugeMax=Math.max(12, roundUpEven(Math.max(...vals, mean)+3));
+  return {vals, mean, gaugeMax};
+}
+
+function pickBand(idx){
+  if(idx<=1) return 1;
+  if(idx<=3) return 2;
+  if(idx===4) return 3;
+  if(idx===5) return 4;
+  if(idx===6) return 5;
+  const pool=[1,2,2,3,3,4,4,5];
+  return pool[randInt(0,pool.length-1)];
+}
+
+function makeRound(idx){
+  const band = pickBand(idx);
+  let cups, locked=null, gaugeMax, groupA=null, groupB=null, kind='normal';
+
+  if(band===1){
+    const T=randInt(3,8);
+    const d=randInt(1,4);
+    let a=T-d, b=T+d;
+    if(a<0){ a=0; b=T*2; }
+    cups=[a,b];
+    gaugeMax=Math.max(10, roundUpEven(Math.max(a,b)+3));
+  } else if(band===2){
+    let vals;
+    let guard=0;
+    do{
+      vals=[randInt(2,12),randInt(2,12),randInt(2,12)];
+      guard++;
+    } while(vals[0]===vals[1] && vals[1]===vals[2] && guard<10);
+    let sum=vals.reduce((s,v)=>s+v,0);
+    let rem=sum%3;
+    if(rem!==0) vals[0]+=(3-rem);
+    cups=vals;
+    gaugeMax=Math.max(12, roundUpEven(Math.max(...vals)+3));
+  } else if(band===3){
+    const n = randInt(0,1)? 4:3;
+    let vals=[0];
+    for(let i=1;i<n;i++) vals.push(randInt(2,14));
+    let sum=vals.reduce((s,v)=>s+v,0);
+    let rem=sum%n;
+    if(rem!==0) vals[1]+=(n-rem);
+    cups=vals;
+    gaugeMax=Math.max(14, roundUpEven(Math.max(...vals)+3));
+  } else if(band===4){
+    kind='locked';
+    const n = randInt(0,1)? 4:3;
+    const T=randInt(4,10);
+    let vals=[];
+    for(let i=0;i<n-1;i++) vals.push(randInt(0, Math.min(T*2,14)));
+    vals.push(T);
+    cups=vals;
+    locked=vals.length-1;
+    gaugeMax=Math.max(14, roundUpEven(Math.max(...vals)+3));
+  } else {
+    kind='compare';
+    const nA=randInt(3,4), nB=randInt(2,3);
+    groupA=genGroup(nA);
+    let guard=0;
+    groupB=genGroup(nB);
+    while(groupA.mean===groupB.mean && guard<8){ groupB=genGroup(nB); guard++; }
+    gaugeMax=Math.max(groupA.gaugeMax, groupB.gaugeMax);
+  }
+
+  return { band, kind, cups, locked, gaugeMax, groupA, groupB, solvedA:false, solvedB:false };
+}
+
+// ───────────────────────────────────────────── 게임 상태
+
+const state = { phase:'intro', score:0, lives:3, level:0, solved:0, combo:0, best:0 };
+let round=null;
+let tanks=[]; // {cups, cap, locked, group, rect}
+let roundTimer=0, roundTimeLimit=0;
+let overallRoundIdx=0;
+
+let pointerDrag=null; // {group, idx, startX, startY, pointerId}
+let activePour=null; // {group, src, tgt}
+let pourAccum=0;
+const POUR_MS=170;
+
+let desktopSel=null; // {group, idx}
+let desktopDir=null;
+let desktopSpaceHeld=false;
+
+let particles=[];
+let shakeMag=0, shakeT=0;
+
+let wheelAngle=0, wheelSpinning=false, wheelSpinT=0, wheelSpinDur=0, wheelStartAngle=0, wheelTargetAngle=0;
+let wheelP=0; // 당첨 확률(넓이 비율)
+let wheelFracStr='0/1'; // 당첨 확률을 정수 분자/분모 기약분수로 표기 ([6수04-05])
+let predictionChoice=null;
+let compareChoice=null;
+let pendingResult=null;
+
+let statsHistory=[]; // {p, won}
+
+try{ state.best = Number(localStorage.getItem('pourspin_best')||0)||0; }catch(e){ state.best=0; }
+
+function setPhase(p){ state.phase=p; }
+
+// ───────────────────────────────────────────── 배경(정적 레이어 굽기)
+
+let bgCanvas=null;
+const bgImg = new Image();
+let bgImgLoaded = false;
+bgImg.onload = function(){ bgImgLoaded = true; bakeBackground(); if(round) computeLayout(); };
+bgImg.src = './assets/bg_carnival_tent.png';
+
+let bgBannerH=0; // 실제 배경 그림(천막)이 차지하는 높이 — computeLayout 이 이 아래로 물통을 배치한다
+
+function bakeBackground(){
+  bgCanvas = document.createElement('canvas');
+  bgCanvas.width = Math.round(W*DPR); bgCanvas.height = Math.round(H*DPR);
+  const g = bgCanvas.getContext('2d');
+  g.setTransform(DPR,0,0,DPR,0,0);
+
+  if(bgImgLoaded){
+    // 그림을 가로폭 기준으로 꽉 채우고(카니발 천막·페리스휠·회전목마가 잘리지 않게), 세로가 넘치면
+    // 덜 중요한 아래쪽(나무 테이블) 부분만 잘라 화면 상단 배너로 쓴다.
+    const naturalH = W * (bgImg.height/bgImg.width);
+    bgBannerH = Math.min(naturalH, H*0.34);
+    const srcH = bgImg.height * (bgBannerH/naturalH);
+    g.drawImage(bgImg, 0,0, bgImg.width, srcH, 0,0, W, bgBannerH);
+
+    const grad = g.createLinearGradient(0, bgBannerH, 0, H);
+    grad.addColorStop(0,'#fff3da');
+    grad.addColorStop(1,'#ffe4ad');
+    g.fillStyle=grad; g.fillRect(0, bgBannerH, W, H-bgBannerH);
+
+    g.fillStyle='rgba(0,105,92,0.85)';
+    g.fillRect(0, bgBannerH, W, 3);
+  } else {
+    bgBannerH = Math.min(120, H*0.14);
+    const grad = g.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,'#fff8ec');
+    grad.addColorStop(1,'#ffe9c7');
+    g.fillStyle=grad; g.fillRect(0,0,W,H);
+
+    const stripeW = W/12;
+    for(let i=0;i<12;i++){
+      g.fillStyle = i%2===0? '#ff5252':'#fff8ec';
+      g.beginPath();
+      g.moveTo(i*stripeW,0);
+      g.lineTo((i+1)*stripeW,0);
+      g.lineTo((i+1)*stripeW - 10, bgBannerH);
+      g.lineTo(i*stripeW + 10, bgBannerH);
+      g.closePath();
+      g.fill();
+    }
+    g.fillStyle='rgba(0,105,92,0.9)';
+    g.fillRect(0, bgBannerH, W, 4);
+  }
+
+  // 반짝이 장식 — 화면 전체 면적에 비례해 밀도를 유지한다(큰 화면에서 하단이 휑해 보이지 않도록)
+  const dotCount = Math.max(24, Math.round((W*H)/42000));
+  g.fillStyle='rgba(255,202,40,0.35)';
+  for(let i=0;i<dotCount;i++){
+    const x = (i*97) % W;
+    const y = bgBannerH + 10 + (i*53) % Math.max(1, (H-bgBannerH-10));
+    const r = 1.5 + (i%3);
+    g.beginPath(); g.arc(x,y,r,0,Math.PI*2); g.fill();
+  }
+}
+
+// ───────────────────────────────────────────── 레이아웃
+
+function layoutRow(count, cx, top, rowW, rowH){
+  const gap = Math.min(18, rowW*0.03);
+  const w = Math.min((rowW-gap*(count-1))/count, 96);
+  const totalW = w*count + gap*(count-1);
+  const startX = cx - totalW/2;
+  const rects=[];
+  for(let i=0;i<count;i++){
+    rects.push({ x: startX + i*(w+gap), y: top, w, h: rowH });
+  }
+  return rects;
+}
+
+function computeLayout(){
+  tanks=[];
+  const topSafe = Math.max(Math.min(120, H*0.14) + 14, bgBannerH + 16);
+  const bottomSafe = H - Math.max(46, H*0.06); // 화살표 힌트·여백
+  if(round.kind==='compare'){
+    const avail = bottomSafe - topSafe - 34;
+    const rowH = Math.min(260, avail/2, H*0.34);
+    const blockH = rowH*2+34;
+    const startY = topSafe + Math.max(0, (bottomSafe-topSafe-blockH)/2);
+    const rA = layoutRow(round.groupA.vals.length, W*0.5, startY, W*0.86, rowH);
+    const rB = layoutRow(round.groupB.vals.length, W*0.5, startY+rowH+34, W*0.86, rowH);
+    round.groupA.vals.forEach((v,i)=> tanks.push({cups:v, cap:round.gaugeMax, locked:false, group:'A', idx:i, rect:rA[i]}));
+    round.groupB.vals.forEach((v,i)=> tanks.push({cups:v, cap:round.gaugeMax, locked:false, group:'B', idx:i, rect:rB[i]}));
+  } else {
+    const rowH = Math.min(460, bottomSafe-topSafe, H*0.62);
+    const r = layoutRow(round.cups.length, W*0.5, topSafe + (bottomSafe-topSafe-rowH)/2, W*0.9, rowH);
+    round.cups.forEach((v,i)=> tanks.push({cups:v, cap:round.gaugeMax, locked: round.locked===i, group:'M', idx:i, rect:r[i]}));
+  }
+}
+
+// ───────────────────────────────────────────── 라운드 시작/판정
+
+function timeLimitFor(idx){
+  return Math.max(11, 25 - Math.floor((idx-1)/2));
+}
+
+function startRound(){
+  overallRoundIdx++;
+  round = makeRound(overallRoundIdx);
+  computeLayout();
+  roundTimeLimit = timeLimitFor(overallRoundIdx);
+  roundTimer = roundTimeLimit;
+  state.level = overallRoundIdx;
+  predictionChoice=null; compareChoice=null;
+  pointerDrag=null; activePour=null; desktopSel=null; desktopDir=null; desktopSpaceHeld=false;
+  setPhase('playing');
+  hidePredictUI(); hideCompareUI(); hideResult();
+  updateHUD();
+}
+
+function groupTanks(g){ return tanks.filter(t=>t.group===g); }
+
+function isGroupSolved(g){
+  const list = groupTanks(g);
+  if(!list.length) return false;
+  const v0=list[0].cups;
+  return list.every(t=>t.cups===v0);
+}
+
+function checkSolved(){
+  if(round.kind==='compare'){
+    if(!round.solvedA && isGroupSolved('A')){ round.solvedA=true; sfxSolve(); popToast('가 모둠 완성!'); }
+    if(!round.solvedB && isGroupSolved('B')){ round.solvedB=true; sfxSolve(); popToast('나 모둠 완성!'); }
+    if(round.solvedA && round.solvedB){
+      onRoundSolved();
+    }
+  } else {
+    if(isGroupSolved('M')){
+      onRoundSolved();
+    }
+  }
+}
+
+function onRoundSolved(){
+  if(state.phase!=='playing') return;
+  sfxSolve();
+  const finalLevel = round.kind==='compare' ? null : tanks[0].cups;
+  if(round.kind==='compare'){
+    const sumAll = round.groupA.vals.reduce((s,v)=>s+v,0) + round.groupB.vals.reduce((s,v)=>s+v,0);
+    const nAll = round.groupA.vals.length + round.groupB.vals.length;
+    wheelP = Math.max(0, Math.min(1, (sumAll/nAll) / round.gaugeMax));
+    const [fn,fd] = reduceFraction(sumAll, nAll*round.gaugeMax);
+    wheelFracStr = `${fn}/${fd}`;
+  } else {
+    wheelP = Math.max(0, Math.min(1, finalLevel / round.gaugeMax));
+    const [fn,fd] = reduceFraction(finalLevel, round.gaugeMax);
+    wheelFracStr = `${fn}/${fd}`;
+  }
+  spawnConfetti();
+  state.solved++;
+  if(round.kind==='compare'){
+    setPhase('comparing');
+    showCompareUI();
+  } else {
+    setPhase('predicting');
+    showPredictUI();
+  }
+  updateHUD();
+}
+
+function failRound(reason){
+  if(state.phase!=='playing') return;
+  sfxFail();
+  shakeMag=14; shakeT=0.4;
+  state.lives = Math.max(0, state.lives-1);
+  state.combo=0;
+  popToast(reason);
+  updateHUD();
+  setPhase('roundfail');
+  setTimeout(()=>{
+    if(state.lives<=0){ gameOver(); } else { startRound(); }
+  }, 900);
+}
+
+function popToast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.classList.remove('hidden');
+  clearTimeout(popToast._t);
+  popToast._t=setTimeout(()=>el.classList.add('hidden'), 850);
+}
+
+// ───────────────────────────────────────────── 붓기 로직
+
+function tryPour(srcTank, tgtTank){
+  if(!srcTank || !tgtTank || srcTank.locked || tgtTank.locked) return;
+  if(srcTank.cups<=0) return;
+  if(tgtTank.cups+1 > tgtTank.cap){
+    failRound('물통이 흘러넘쳤어요!');
+    return;
+  }
+  srcTank.cups -= 1;
+  tgtTank.cups += 1;
+  sfxPour();
+  spawnPourParticles(srcTank, tgtTank);
+  checkSolved();
+}
+
+function neighborTank(t, dir){
+  const list = groupTanks(t.group).sort((a,b)=>a.idx-b.idx);
+  const pos = list.findIndex(x=>x===t);
+  const npos = pos + (dir==='right'?1:-1);
+  if(npos<0||npos>=list.length) return null;
+  return list[npos];
+}
+
+function tankAt(x,y){
+  for(const t of tanks){
+    const r=t.rect;
+    if(x>=r.x && x<=r.x+r.w && y>=r.y-30 && y<=r.y+r.h+10) return t;
+  }
+  return null;
+}
+
+// ───────────────────────────────────────────── 입력
+
+const DRAG_THRESHOLD = 26;
+
+function onPointerDown(x,y,pointerId){
+  ensureAudio();
+  if(state.phase==='intro'){ return; }
+  if(state.phase!=='playing'){
+    handleUITapAt(x,y);
+    return;
+  }
+  const t = tankAt(x,y);
+  if(!t) return;
+  if(t.locked){ popToast('잠긴 물통이에요'); return; }
+  pointerDrag = { tank:t, startX:x, startY:y, pointerId };
+  desktopSel = { group:t.group, idx:t.idx };
+  sfxTap();
+}
+
+function onPointerMove(x,y,pointerId){
+  if(!pointerDrag || pointerDrag.pointerId!==pointerId) return;
+  const dx = x - pointerDrag.startX;
+  if(Math.abs(dx) > DRAG_THRESHOLD){
+    const dir = dx>0 ? 'right':'left';
+    const nb = neighborTank(pointerDrag.tank, dir);
+    if(nb && !nb.locked){
+      activePour = { src: pointerDrag.tank, tgt: nb };
+    } else {
+      activePour = null;
+    }
+  } else {
+    activePour = null;
+  }
+}
+
+function onPointerUp(pointerId){
+  if(pointerDrag && pointerDrag.pointerId===pointerId){
+    pointerDrag=null; activePour=null; pourAccum=0;
+  }
+}
+
+canvas.addEventListener('pointerdown', (e)=>{
+  e.preventDefault();
+  onPointerDown(e.clientX, e.clientY, e.pointerId);
+});
+canvas.addEventListener('pointermove', (e)=>{
+  onPointerMove(e.clientX, e.clientY, e.pointerId);
+});
+window.addEventListener('pointerup', (e)=> onPointerUp(e.pointerId));
+window.addEventListener('pointercancel', (e)=> onPointerUp(e.pointerId));
+
+window.addEventListener('keydown', (e)=>{
+  ensureAudio();
+  if(e.code==='ArrowLeft'||e.code==='ArrowRight'){
+    desktopDir = e.code==='ArrowLeft' ? 'left':'right';
+    if(!desktopSel && state.phase==='playing'){
+      const first = tanks.find(t=>!t.locked);
+      if(first) desktopSel={group:first.group, idx:first.idx};
+    }
+  } else if(e.code==='Space'){
+    e.preventDefault();
+    desktopSpaceHeld=true;
+  } else if(['Digit1','Digit2','Digit3'].includes(e.code)){
+    const map={Digit1:'impossible',Digit2:'half',Digit3:'certain'};
+    if(state.phase==='predicting') selectPrediction(map[e.code]);
+    const cmap={Digit1:'A',Digit2:'B',Digit3:'EQ'};
+    if(state.phase==='comparing') selectCompare(cmap[e.code]);
+  } else if(e.code==='Enter'){
+    if(state.phase==='predicting' && predictionChoice) doSpin();
+    if(state.phase==='result') hideResultAndContinue();
+  }
+});
+window.addEventListener('keyup', (e)=>{
+  if(e.code==='Space') desktopSpaceHeld=false;
+});
+
+function handleUITapAt(x,y){ /* DOM 버튼이 처리; 캔버스 탭은 무시 */ }
+
+// ───────────────────────────────────────────── 파티클 / 흔들림
+
+function spawnPourParticles(src, tgt){
+  if(reduceMotion) return;
+  const x = (src.rect.x+src.rect.w/2 + tgt.rect.x+tgt.rect.w/2)/2;
+  const y = Math.min(src.rect.y, tgt.rect.y)+10;
+  for(let i=0;i<4;i++){
+    particles.push({x, y, vx:(Math.random()-0.5)*40, vy:-40-Math.random()*40, life:0.5, color:'#26c6da', r:3});
+  }
+}
+function spawnConfetti(){
+  const n = reduceMotion? 20:70;
+  const colors=['#ff5252','#26c6da','#ffca28','#00695c'];
+  for(let i=0;i<n;i++){
+    particles.push({
+      x:W/2, y:H*0.4, vx:(Math.random()-0.5)*260, vy:-200-Math.random()*160,
+      life:1.1, color:colors[i%colors.length], r:3+Math.random()*3, spin:Math.random()*6
+    });
+  }
+}
+function updateParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.vy += 380*dt;
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.life -= dt;
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+function drawParticles(){
+  for(const p of particles){
+    ctx.globalAlpha = Math.max(0,Math.min(1,p.life));
+    ctx.fillStyle=p.color;
+    ctx.fillRect(p.x-p.r, p.y-p.r, p.r*2, p.r*2);
+  }
+  ctx.globalAlpha=1;
+}
+
+// ───────────────────────────────────────────── 렌더링 — 물통
+
+function drawTank(t, now){
+  const r=t.rect;
+  const frac = Math.max(0, Math.min(1, t.cups / t.cap));
+  const fillH = r.h * frac;
+  const targetFrac = null;
+
+  ctx.save();
+  let dx=0, dy=0;
+  if(shakeMag>0.5 && !t.locked){
+    const solved = round.kind==='compare' ? false : isGroupSolved('M');
+    if(!solved){
+      dx = (Math.random()-0.5)*shakeMag*0.3;
+    }
+  }
+  ctx.translate(dx,dy);
+
+  // 유리 몸통
+  ctx.save();
+  roundRectPath(r.x, r.y, r.w, r.h, 14);
+  ctx.clip();
+
+  // 경고 파문(목표에서 멀수록 - 근사치로 그룹 평균과의 편차 사용)
+  const groupList = groupTanks(t.group);
+  const avg = groupList.reduce((s,x)=>s+x.cups,0)/groupList.length;
+  const dev = Math.abs(t.cups-avg);
+  const solvedNow = groupList.every(x=>x.cups===groupList[0].cups);
+
+  // 물
+  const waterColor = solvedNow ? '#ffca28' : (dev>=3 ? '#ff8a80' : '#26c6da');
+  const wobble = reduceMotion? 0 : Math.sin(now/220 + t.idx)*3;
+  ctx.fillStyle = waterColor;
+  ctx.beginPath();
+  ctx.moveTo(r.x, r.y+r.h-fillH+wobble);
+  for(let i=0;i<=8;i++){
+    const px = r.x + (r.w*i/8);
+    const py = r.y+r.h-fillH + Math.sin(now/220 + i*0.9 + t.idx)* (reduceMotion?0:3);
+    ctx.lineTo(px,py);
+  }
+  ctx.lineTo(r.x+r.w, r.y+r.h);
+  ctx.lineTo(r.x, r.y+r.h);
+  ctx.closePath();
+  ctx.fill();
+
+  if(solvedNow){
+    ctx.fillStyle='rgba(255,255,255,0.35)';
+    ctx.fillRect(r.x, r.y+r.h-fillH, r.w, 4);
+  }
+  ctx.restore();
+
+  // 유리 테두리
+  ctx.lineWidth=3;
+  ctx.strokeStyle = t.locked ? '#8d6e63' : (solvedNow ? '#ffb300' : 'rgba(0,105,92,0.7)');
+  roundRectPath(r.x, r.y, r.w, r.h, 14);
+  ctx.stroke();
+
+  // 눈금
+  ctx.strokeStyle='rgba(0,105,92,0.35)';
+  ctx.lineWidth=1.5;
+  const tickEvery = t.cap>16?4:2;
+  for(let c=tickEvery;c<t.cap;c+=tickEvery){
+    const ty = r.y + r.h - (r.h*c/t.cap);
+    ctx.beginPath();
+    ctx.moveTo(r.x, ty);
+    ctx.lineTo(r.x+8, ty);
+    ctx.stroke();
+  }
+
+  if(t.locked){
+    ctx.font='20px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('🔒', r.x+r.w/2, r.y-10);
+  }
+
+  ctx.restore();
+
+  // 숫자 배지 (화면폭 5%+ 굵게)
+  const badgeFont = Math.max(16, Math.min(30, W*0.055));
+  ctx.font = `800 ${badgeFont}px -apple-system, sans-serif`;
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  const bw = Math.max(badgeFont*1.6, ctx.measureText(String(t.cups)).width+18);
+  const bx = r.x+r.w/2, by = r.y - 22;
+  ctx.fillStyle='rgba(0,0,0,0.72)';
+  roundRectPath(bx-bw/2, by-badgeFont*0.62, bw, badgeFont*1.24, 10);
+  ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.fillText(String(t.cups), bx, by+1);
+}
+
+function roundRectPath(x,y,w,h,rad){
+  ctx.beginPath();
+  ctx.moveTo(x+rad,y);
+  ctx.arcTo(x+w,y,x+w,y+h,rad);
+  ctx.arcTo(x+w,y+h,x,y+h,rad);
+  ctx.arcTo(x,y+h,x,y,rad);
+  ctx.arcTo(x,y,x+w,y,rad);
+  ctx.closePath();
+}
+
+function drawArrowHint(t, now){
+  if(pointerDrag && pointerDrag.tank===t){
+    ctx.save();
+    ctx.globalAlpha = 0.5+0.3*Math.sin(now/150);
+    ctx.fillStyle='#00695c';
+    ctx.font='22px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('↔', t.rect.x+t.rect.w/2, t.rect.y+t.rect.h+26);
+    ctx.restore();
+  }
+}
+
+// ───────────────────────────────────────────── 렌더링 — 휠
+
+function drawWheel(now){
+  const cx=W/2, cy=H*0.46, R=Math.min(W,H)*0.30;
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.rotate(wheelAngle);
+  const winAngle = wheelP*Math.PI*2;
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.arc(0,0,R,0,winAngle);
+  ctx.closePath();
+  ctx.fillStyle='#ffca28';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.arc(0,0,R,winAngle,Math.PI*2);
+  ctx.closePath();
+  ctx.fillStyle='#455a64';
+  ctx.fill();
+  ctx.lineWidth=4; ctx.strokeStyle='#fff8ec';
+  ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(cx,cy-R-6);
+  ctx.beginPath();
+  ctx.moveTo(-14,-18); ctx.lineTo(14,-18); ctx.lineTo(0,10);
+  ctx.closePath();
+  ctx.fillStyle='#ff5252';
+  ctx.fill();
+  ctx.restore();
+
+  const labelFont = Math.max(14, Math.min(22, W*0.045));
+  ctx.font=`800 ${labelFont}px sans-serif`;
+  ctx.textAlign='center';
+  ctx.fillStyle='#37474f';
+  ctx.fillText(`당첨 확률 ${wheelFracStr} (${Math.round(wheelP*100)}%)`, cx, cy+R+34);
+}
+
+// ───────────────────────────────────────────── 메인 루프
+
+let lastT=0;
+function frame(ts){
+  if(!lastT) lastT=ts;
+  let dt=(ts-lastT)/1000; lastT=ts;
+  dt=Math.min(dt,0.05);
+
+  ctx.clearRect(0,0,W,H);
+  if(bgCanvas) ctx.drawImage(bgCanvas,0,0,W,H, 0,0,W,H);
+
+  if(shakeT>0){ shakeT-=dt; shakeMag=Math.max(0,shakeMag*0.9); if(shakeT<=0) shakeMag=0; }
+
+  if(state.phase==='playing'){
+    updatePlaying(dt);
+  }
+  if(state.phase==='playing' || state.phase==='roundfail'){
+    for(const t of tanks) drawTank(t, ts);
+    if(pointerDrag) drawArrowHint(pointerDrag.tank, ts);
+  } else if(state.phase==='predicting' || state.phase==='comparing'){
+    for(const t of tanks) drawTank(t, ts);
+  } else if(state.phase==='spinning' || state.phase==='result'){
+    updateWheel(dt);
+    drawWheel(ts);
+  }
+
+  updateParticles(dt);
+  drawParticles();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function updatePlaying(dt){
+  roundTimer -= dt;
+  updateHUD();
+  if(roundTimer<=0){
+    failRound('시간 초과!');
+    return;
+  }
+  let pouring=false, pSrc=null, pTgt=null;
+  if(activePour){ pouring=true; pSrc=activePour.src; pTgt=activePour.tgt; }
+  else if(desktopSpaceHeld && desktopSel && desktopDir){
+    const list = groupTanks(desktopSel.group).sort((a,b)=>a.idx-b.idx);
+    const src = list.find(t=>t.idx===desktopSel.idx);
+    const nb = src ? neighborTank(src, desktopDir) : null;
+    if(src && nb && !nb.locked){ pouring=true; pSrc=src; pTgt=nb; }
+  }
+  if(pouring){
+    pourAccum += dt*1000;
+    if(pourAccum>=POUR_MS){
+      pourAccum=0;
+      tryPour(pSrc,pTgt);
+    }
+  } else {
+    pourAccum=0;
+  }
+}
+
+function updateWheel(dt){
+  if(!wheelSpinning) return;
+  wheelSpinT += dt;
+  const p = Math.min(1, wheelSpinT/wheelSpinDur);
+  const ease = 1 - Math.pow(1-p, 3);
+  wheelAngle = wheelStartAngle + (wheelTargetAngle-wheelStartAngle)*ease;
+  if(p>=1){
+    wheelSpinning=false;
+    finishSpin();
+  }
+}
+
+// ───────────────────────────────────────────── HUD
+
+function updateHUD(){
+  document.getElementById('scoreLabel').textContent = `${state.score}점`;
+  document.getElementById('hearts').textContent = '❤️'.repeat(Math.max(0,state.lives)) + '🖤'.repeat(Math.max(0,3-state.lives));
+  const pct = state.phase==='playing' ? Math.max(0,Math.min(100, (roundTimer/roundTimeLimit)*100)) : 100;
+  document.getElementById('timerBar').style.width = pct+'%';
+}
+
+// ───────────────────────────────────────────── 예측 / 비교 UI
+
+const predictWrap=document.getElementById('predictWrap');
+const spinBtn=document.getElementById('spinBtn');
+document.getElementById('predictCards').addEventListener('click',(e)=>{
+  const b=e.target.closest('.card'); if(!b) return;
+  selectPrediction(b.dataset.choice);
+});
+spinBtn.addEventListener('click', ()=>{ if(predictionChoice) doSpin(); });
+
+function selectPrediction(choice){
+  predictionChoice=choice;
+  sfxTap();
+  [...document.querySelectorAll('#predictCards .card')].forEach(el=>{
+    el.classList.toggle('selected', el.dataset.choice===choice);
+  });
+  spinBtn.classList.add('ready');
+}
+function showPredictUI(){ predictWrap.classList.remove('hidden'); }
+function hidePredictUI(){ predictWrap.classList.add('hidden'); spinBtn.classList.remove('ready'); [...document.querySelectorAll('#predictCards .card')].forEach(el=>el.classList.remove('selected')); }
+
+const compareWrap=document.getElementById('compareWrap');
+document.getElementById('compareCards').addEventListener('click',(e)=>{
+  const b=e.target.closest('.card'); if(!b) return;
+  selectCompare(b.dataset.choice);
+});
+function selectCompare(choice){
+  compareChoice=choice;
+  sfxTap();
+  const meanA=round.groupA.mean, meanB=round.groupB.mean;
+  const correct = meanA===meanB ? 'EQ' : (meanA>meanB ? 'A':'B');
+  const ok = choice===correct;
+  if(ok){ state.score += 60; state.combo++; popToast('정답! +60'); }
+  else { state.score = Math.max(0,state.score-20); state.combo=0; popToast(`아쉬워요! 가:${meanA} 나:${meanB}`); }
+  updateHUD();
+  hideCompareUI();
+  setPhase('predicting');
+  showPredictUI();
+}
+function showCompareUI(){ compareWrap.classList.remove('hidden'); }
+function hideCompareUI(){ compareWrap.classList.add('hidden'); }
+
+// ───────────────────────────────────────────── 스핀
+
+function doSpin(){
+  setPhase('spinning');
+  hidePredictUI();
+  const nearest = nearestAnchor(wheelP);
+  pendingResult = { choice: predictionChoice, nearest };
+  wheelSpinning=true;
+  wheelSpinT=0;
+  wheelSpinDur = 2.4 + Math.random()*0.8;
+  wheelStartAngle = wheelAngle;
+  const spins = 4 + Math.random()*2;
+  wheelTargetAngle = wheelAngle + spins*Math.PI*2 + Math.random()*Math.PI*2;
+}
+
+function nearestAnchor(p){
+  const d0=p, d5=Math.abs(p-0.5), d1=Math.abs(p-1);
+  const arr=[['impossible',d0],['half',d5],['certain',d1]];
+  arr.sort((a,b)=>a[1]-b[1]);
+  return arr[0][0];
+}
+
+function finishSpin(){
+  const norm = ((wheelAngle % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+  const pointerAngle = ((-Math.PI/2 - norm) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+  const winAngle = wheelP*Math.PI*2;
+  const won = pointerAngle < winAngle;
+  statsHistory.push({p:wheelP, won});
+
+  const predictOk = pendingResult.choice === pendingResult.nearest;
+  let gained = 100 + state.combo*15;
+  if(won) gained += 80;
+  if(predictOk) gained += 50;
+  state.score += gained;
+  state.combo++;
+  if(won) sfxWin(); else sfxLose();
+  if(state.score>state.best){ state.best=state.score; try{ localStorage.setItem('pourspin_best', String(state.best)); }catch(e){} }
+  updateHUD();
+
+  const title = won ? '당첨! 🎉' : '다음 기회에!';
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultTitle').style.color = won ? '#e65100':'#546e7a';
+  const predictLabel={impossible:'불가능하다',half:'반반이다',certain:'확실하다'}[pendingResult.choice];
+  const nearLabel={impossible:'불가능하다',half:'반반이다',certain:'확실하다'}[pendingResult.nearest];
+  document.getElementById('resultDetail').textContent =
+    `내 예측: ${predictLabel} · 실제로 가장 가까운 표현: ${nearLabel} ${predictOk?'(정확!)':''} · 당첨 확률 ${wheelFracStr} · +${gained}점`;
+  document.getElementById('resultOverlay').classList.remove('hidden');
+  setPhase('result');
+}
+
+document.getElementById('continueBtn').addEventListener('click', hideResultAndContinue);
+function hideResultAndContinue(){
+  hideResult();
+  if(state.lives<=0){ gameOver(); return; }
+  startRound();
+}
+function hideResult(){ document.getElementById('resultOverlay').classList.add('hidden'); }
+
+// ───────────────────────────────────────────── 시작 / 게임오버
+
+document.getElementById('heroImg').addEventListener('error', function(){ this.remove(); });
+document.getElementById('resultHeroImg').addEventListener('error', function(){ this.remove(); });
+
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  ensureAudio();
+  document.getElementById('introOverlay').classList.add('hidden');
+  beginGame();
+});
+
+function beginGame(){
+  state.score=0; state.lives=3; state.solved=0; state.combo=0;
+  overallRoundIdx=0; statsHistory=[];
+  startRound();
+}
+
+function gameOver(){
+  setPhase('gameover');
+  document.getElementById('goStats').innerHTML =
+    `이번 판 점수: <b>${state.score}</b>점<br>맞춘 평균: <b>${state.solved}</b>회<br>최고 점수: <b>${state.best}</b>점`;
+  drawResultChart();
+  document.getElementById('gameoverOverlay').classList.remove('hidden');
+}
+document.getElementById('retryBtn').addEventListener('click', ()=>{
+  document.getElementById('gameoverOverlay').classList.add('hidden');
+  beginGame();
+});
+
+function drawResultChart(){
+  const c=document.getElementById('chartCanvas');
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const cw=c.clientWidth||300, ch=c.clientHeight||160;
+  c.width=cw*dpr; c.height=ch*dpr;
+  const g=c.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,cw,ch);
+  if(!statsHistory.length){
+    g.fillStyle='#78909c'; g.font='14px sans-serif'; g.textAlign='center';
+    g.fillText('스핀 기록 없음', cw/2, ch/2);
+    return;
+  }
+  const theoretical = statsHistory.reduce((s,h)=>s+h.p,0)/statsHistory.length;
+  const actual = statsHistory.filter(h=>h.won).length/statsHistory.length;
+  const bars=[{label:'이론(넓이)', v:theoretical, color:'#ffca28'}, {label:'실제(결과)', v:actual, color:'#26c6da'}];
+  const barW=70, gap=40, baseY=ch-30, maxH=ch-60;
+  const startX = cw/2 - (barW*2+gap)/2;
+  bars.forEach((b,i)=>{
+    const x=startX + i*(barW+gap);
+    const h=Math.max(2, b.v*maxH);
+    g.fillStyle=b.color;
+    g.fillRect(x, baseY-h, barW, h);
+    g.fillStyle='#37474f';
+    g.font='800 13px sans-serif'; g.textAlign='center';
+    g.fillText(`${Math.round(b.v*100)}%`, x+barW/2, baseY-h-8);
+    g.font='12px sans-serif';
+    g.fillText(b.label, x+barW/2, baseY+16);
+  });
+}
+
+// ───────────────────────────────────────────── 표본 문제 생성기 (게임 진행과 무관)
+
+function sampleAvgBasic(){
+  const n=randInt(2,4);
+  let vals=[];
+  const withZero = rng()<0.3;
+  for(let i=0;i<n;i++) vals.push(withZero&&i===0?0:randInt(1,14));
+  let sum=vals.reduce((s,v)=>s+v,0);
+  let rem=((sum%n)+n)%n;
+  if(rem!==0){ vals[withZero?1:0]+=(n-rem); }
+  sum=vals.reduce((s,v)=>s+v,0);
+  const mean=sum/n;
+  const sorted=[...vals].sort((a,b)=>a-b);
+  const median = n%2===0 ? (sorted[n/2-1]+sorted[n/2])/2 : sorted[(n-1)/2];
+  const choices=new Set([mean]);
+  choices.add(Math.round(median*10)/10);
+  if(withZero){ const wrong = Math.round((sum/(n-1))*10)/10; choices.add(wrong); }
+  choices.add(vals[vals.length-1]);
+  let guard=0;
+  while(choices.size<4 && guard<10){ choices.add(Math.max(0,mean + (guard%2===0? (guard+1):-(guard+1)))); guard++; }
+  const arr=shuffle([...choices]).slice(0,4);
+  if(!arr.includes(mean)) arr[0]=mean;
+  return {
+    id:'avg-basic-'+Math.random().toString(36).slice(2,8),
+    prompt:`물통에 ${vals.join(', ')}컵이 담겨 있어요. 평균은 몇 컵일까요?`,
+    choices: arr.map(String),
+    answer: String(mean),
+    answerNumeric: mean,
+    unitConcept:'평균'
+  };
+}
+
+function sampleAvgMissing(){
+  const n=randInt(3,5);
+  const T=randInt(5,12);
+  let known=[];
+  for(let i=0;i<n-1;i++) known.push(randInt(1,T*2));
+  const sumKnown=known.reduce((s,v)=>s+v,0);
+  const missing = n*T - sumKnown;
+  if(missing<0 || missing>30) return sampleAvgBasic();
+  const choices=new Set([missing, T, sumKnown%100, Math.max(0,missing+ (rng()<0.5?2:-2))]);
+  let guard=0;
+  while(choices.size<4 && guard<8){ choices.add(Math.max(0,missing+guard+3)); guard++; }
+  const arr=shuffle([...choices]).slice(0,4);
+  if(!arr.includes(missing)) arr[0]=missing;
+  return {
+    id:'avg-missing-'+Math.random().toString(36).slice(2,8),
+    prompt:`${n}개의 물통 중 ${n-1}개는 ${known.join(', ')}컵이에요. 평균이 ${T}컵이 되려면 나머지 물통은 몇 컵이어야 할까요?`,
+    choices: arr.map(String),
+    answer: String(missing),
+    answerNumeric: missing,
+    unitConcept:'평균으로 빠진 자료 구하기'
+  };
+}
+
+function sampleAvgCompareCategorical(){
+  const gA=genGroup(randInt(3,5)), gB=genGroup(randInt(2,4));
+  const correct = gA.mean===gB.mean ? '같다' : (gA.mean>gB.mean ? '가 모둠':'나 모둠');
+  return {
+    id:'avg-compare-'+Math.random().toString(36).slice(2,8),
+    prompt:`가 모둠(${gA.vals.join(',')})의 평균과 나 모둠(${gB.vals.join(',')})의 평균 중 어느 쪽이 더 큰가요?`,
+    choices:['가 모둠','나 모둠','같다'],
+    answer: correct,
+    answerNumeric: gA.mean - gB.mean,
+    unitConcept:'평균으로 두 집단 비교'
+  };
+}
+
+function sampleAvgCompareNumeric(){
+  const gA=genGroup(randInt(3,4)), gB=genGroup(randInt(2,3));
+  const nAll=gA.vals.length+gB.vals.length;
+  const sumAll=gA.vals.reduce((s,v)=>s+v,0)+gB.vals.reduce((s,v)=>s+v,0);
+  const correct = Math.round((sumAll/nAll)*100)/100;
+  const wrongAvgOfAvg = Math.round(((gA.mean+gB.mean)/2)*100)/100;
+  const choices=new Set([correct, wrongAvgOfAvg, gA.mean, gB.mean]);
+  const arr=shuffle([...choices]).slice(0,4);
+  if(!arr.includes(correct)) arr[0]=correct;
+  return {
+    id:'avg-compare-num-'+Math.random().toString(36).slice(2,8),
+    prompt:`가 모둠(${gA.vals.join(',')})과 나 모둠(${gB.vals.join(',')})을 합쳐서 전체 평균을 구하면?`,
+    choices: arr.map(String),
+    answer: String(correct),
+    answerNumeric: correct,
+    unitConcept:'가중평균'
+  };
+}
+
+const POSSIBILITY_FACTS=[
+  {prompt:'1부터 6까지 눈이 있는 주사위를 굴릴 때 7이 나올 가능성은?', answer:'불가능하다'},
+  {prompt:'해가 서쪽에서 뜨는 일이 일어날 가능성은?', answer:'불가능하다'},
+  {prompt:'내일 해가 동쪽에서 뜰 가능성은?', answer:'확실하다'},
+  {prompt:'주사위를 굴려 1 이상 6 이하의 눈이 나올 가능성은?', answer:'확실하다'},
+  {prompt:'동전을 던졌을 때 앞면이 나올 가능성은?', answer:'반반이다'},
+];
+function samplePossibilityWord(){
+  const f=POSSIBILITY_FACTS[randInt(0,POSSIBILITY_FACTS.length-1)];
+  const choices=shuffle(['불가능하다','반반이다','확실하다']);
+  return {
+    id:'poss-word-'+Math.random().toString(36).slice(2,8),
+    prompt:f.prompt,
+    choices,
+    answer:f.answer,
+    answerNumeric: f.answer==='불가능하다'?0:(f.answer==='확실하다'?1:0.5),
+    unitConcept:'가능성을 말로 표현하기'
+  };
+}
+
+function samplePossibilityFraction(){
+  const white=randInt(1,6);
+  let black=randInt(1,6);
+  if(black===white) black = white<6 ? white+1 : white-1; // white===black이면 검은공 분수(black/total)가 기약분수로 정답과 같은 값이 되어 서로 다른 두 선택지가 동시에 '정답'이 되는 결함을 방지
+  const total=white+black;
+  function gcd(a,b){ return b?gcd(b,a%b):a; }
+  const g=gcd(white,total);
+  const num=white/g, den=total/g;
+  const correct = `${num}/${den}`;
+  const choices=new Set([correct, '반반이다', `${black}/${total}`, `${white}/${black}`]);
+  const arr=shuffle([...choices]).slice(0,4);
+  if(!arr.includes(correct)) arr[0]=correct;
+  return {
+    id:'poss-frac-'+Math.random().toString(36).slice(2,8),
+    prompt:`흰 공 ${white}개와 검은 공 ${black}개가 든 주머니에서 공 1개를 꺼낼 때 흰 공이 나올 가능성을 분수로 나타내면?`,
+    choices: arr,
+    answer: correct,
+    answerNumeric: white/total,
+    unitConcept:'가능성을 수로 나타내기'
+  };
+}
+
+function samplePossibilityGambler(){
+  const n=randInt(3,4);
+  return {
+    id:'poss-gambler-'+Math.random().toString(36).slice(2,8),
+    prompt:`동전을 던졌더니 앞면이 연속 ${n}번 나왔어요. 다음 한 번을 더 던질 때 뒷면이 나올 가능성은?`,
+    choices:['반반이다','뒷면이 나올 가능성이 더 크다','앞면이 나올 가능성이 더 크다'],
+    answer:'반반이다',
+    answerNumeric:0.5,
+    unitConcept:'가능성(도박사의 오류 방지)'
+  };
+}
+
+const SAMPLE_GENERATORS=[sampleAvgBasic, sampleAvgMissing, sampleAvgCompareCategorical, sampleAvgCompareNumeric, samplePossibilityWord, samplePossibilityFraction, samplePossibilityGambler];
+function sampleProblems(n){
+  const out=[];
+  for(let i=0;i<n;i++){
+    const fn=SAMPLE_GENERATORS[i%SAMPLE_GENERATORS.length];
+    try{ out.push(fn()); }catch(e){ /* skip malformed sample */ }
+  }
+  return out;
+}
+
+// ───────────────────────────────────────────── __GAME_TEST__ 훅
+
+window.__GAME_TEST__ = {
+  ready:false,
+  start(){
+    document.getElementById('introOverlay').classList.add('hidden');
+    document.getElementById('resultOverlay').classList.add('hidden');
+    document.getElementById('gameoverOverlay').classList.add('hidden');
+    beginGame();
+  },
+  getState(){
+    return { score: state.score, lives: state.lives, level: state.level, phase: state.phase, solved: state.solved };
+  },
+  answerCorrect(){
+    state.score += 100;
+    state.solved += 1;
+    state.combo += 1;
+    updateHUD();
+  },
+  answerWrong(){
+    state.lives = Math.max(0, state.lives-1);
+    state.combo = 0;
+    updateHUD();
+  },
+  sampleProblems(n){
+    return sampleProblems(Math.max(20, n||40));
+  }
+};
+
+// ───────────────────────────────────────────── 초기화
+
+resize();
+window.__GAME_TEST__.ready = true;
+
+})();
+</script>
+</body>
+</html>
