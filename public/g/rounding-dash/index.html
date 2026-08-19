@@ -20,8 +20,13 @@
   #app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
        padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);}
 
-  /* ── HUD ───────────────────────────────── */
+  /* 세로형 게임이라 와이드 화면(태블릿·데스크톱)에서는 중앙 컬럼으로 제한한다.
+     HUD/버튼은 좁은 컬럼(~680px)로, 캔버스(수직선 필드)는 조금 더 넓은 컬럼(~900px)으로.
+     캔버스는 #stage 의 실제 렌더 폭(getBoundingClientRect)을 그대로 읽어 W 를 정하므로,
+     이 CSS 폭 제한만으로 vx/vpos/폰트 크기 등 JS 좌표 계산도 전부 컬럼 기준으로 자동 축소된다. */
+  :root{ --uiColW: min(100vw, 680px); --stageColW: min(100vw, 900px); }
   #hud{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 10px 4px;
+    width:100%; max-width:var(--uiColW); margin:0 auto;
     background:linear-gradient(180deg,rgba(9,15,32,.6),rgba(9,15,32,.15));
     border-bottom:1px solid rgba(0,229,255,.14);}
   #lvbadge{display:flex;flex-direction:column;line-height:1.05;padding:6px 10px;border-radius:13px;
@@ -43,7 +48,8 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 3px 0 rgba(0,0,0,.35);}
   #mute:active{transform:translateY(2px) scale(.94);box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 1px 0 rgba(0,0,0,.35)}
 
-  #bars{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 12px 4px;font-size:10.5px}
+  #bars{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:0 12px 4px;font-size:10.5px;
+    width:100%; max-width:var(--uiColW); margin:0 auto; box-sizing:border-box}
   .pips{display:flex;gap:3px;align-items:center}
   .pip{width:11px;height:11px;border-radius:3px;background:rgba(255,255,255,.13);
        transition:background .18s ease, box-shadow .18s ease, transform .18s ease}
@@ -55,11 +61,16 @@
   #combo.hit{transform:scale(1.45)}
 
   /* ── canvas ────────────────────────────── */
-  #stage{flex:1 1 auto;position:relative;min-height:0}
+  /* 게임 필드(수직선)는 드래그 사거리가 과해지지 않도록 HUD보다 조금 더 넓은 컬럼(900px)으로 제한한다.
+     canvas 는 이 박스의 실제 렌더 폭을 그대로 따라가므로(JS resize() 가 getBoundingClientRect 사용),
+     아래 폭 제한만으로 수직선 좌표계 전체가 컬럼 기준으로 축소된다. */
+  #stage{flex:1 1 auto;position:relative;min-height:0;
+    width:100%; max-width:var(--stageColW); margin:0 auto}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
 
   /* ── control pad ───────────────────────── */
-  #pad{flex:0 0 auto;padding:6px 10px 10px}
+  #pad{flex:0 0 auto;padding:6px 10px 10px;
+    width:100%; max-width:var(--uiColW); margin:0 auto; box-sizing:border-box}
   #placelab{text-align:center;font-size:10.5px;letter-spacing:1px;opacity:.62;margin-bottom:5px;height:13px}
   #btns{display:flex;gap:8px}
   .dash{flex:1 1 0;min-width:0;height:62px;border-radius:16px;cursor:pointer;padding:0;
@@ -737,6 +748,10 @@ function spawnWall(same){
   G.dashedThisWall = false;
   G.peek = null;
   G.drag = null;
+  /* 이전 벽의 충돌 사유 박스("안전 구간 …")가 새 벽의 문제 배너와 화면상 겹치지 않도록,
+     새 벽이 뜨는 순간 바로 끈다 — 어차피 이제 상관없는 지난 벽 정보다(표시 타이밍만 조정, 판정 로직은 그대로). */
+  G.reveal = 0;
+  G.revealTxt = '';
   uiDirty = true;
 }
 

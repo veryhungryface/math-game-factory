@@ -21,8 +21,14 @@
   #app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
        padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
 
+  /* 세로형 게임 — 와이드 화면(데스크톱)에서는 HUD/식/조작 바를 중앙 680px 컬럼으로 제한한다.
+     캔버스 안의 게이트·레인·젤리 좌표(laneX/gateW/lanePad 등)도 같은 컬럼 기준으로 계산한다
+     (배경 그림 자체는 레터박스 없이 스테이지 전체 폭을 채운다). */
+  :root{ --colW: min(100vw, 680px); --colX: calc((100vw - var(--colW)) / 2); }
+
   /* ── HUD ─────────────────────────────── */
-  #hud{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 10px 3px;}
+  #hud{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 10px 3px;
+       width:var(--colW);max-width:var(--colW);margin:0 auto;}
   #lv{display:flex;flex-direction:column;line-height:1.08;padding:5px 9px;border-radius:11px;min-width:74px;
       background:linear-gradient(135deg,rgba(62,242,192,.20),rgba(160,107,255,.16));
       border:1px solid rgba(62,242,192,.42);
@@ -43,7 +49,8 @@
 
   /* ── 누적 식 ─────────────────────────── */
   #eqbar{flex:0 0 auto;height:30px;display:flex;align-items:center;justify-content:center;
-         padding:0 10px;overflow:hidden}
+         padding:0 10px;overflow:hidden;
+         width:var(--colW);max-width:var(--colW);margin:0 auto;}
   #eq{display:flex;align-items:center;gap:5px;font-size:15px;font-weight:800;white-space:nowrap;
       overflow:hidden;max-width:100%;letter-spacing:-.2px}
   #eq .op{opacity:.55;font-weight:700;font-size:12px}
@@ -62,7 +69,8 @@
          touch-action:none;user-select:none;-webkit-user-select:none}
 
   /* ── 하단 ───────────────────────────── */
-  #pad{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:5px 10px 9px}
+  #pad{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:5px 10px 9px;
+       width:var(--colW);max-width:var(--colW);margin:0 auto;}
   #slow{height:46px;min-width:104px;border-radius:14px;padding:0 12px;cursor:pointer;
         display:flex;align-items:center;gap:7px;justify-content:center;
         border:1.5px solid rgba(160,107,255,.55);color:var(--tx);font-family:var(--font);
@@ -497,6 +505,13 @@ const cv=document.getElementById('cv');
 const ctx=cv.getContext('2d', {alpha:false});
 let W=1, H=1;                      // CSS 픽셀 기준 논리 크기
 
+/* 와이드 화면(데스크톱)에서 게이트·레인·젤리가 화면 전체 폭에 흩어지지 않도록,
+   실제 플레이 요소는 중앙 680px 컬럼 기준으로만 배치한다. 배경(BAKE.bg)만 W(스테이지 전체 폭)를 그대로 쓴다.
+   CSS의 --colW(680px 클램프)와 값을 맞춘다. */
+function colW(){ return Math.min(W, 680); }
+function colX(){ return (W-colW())/2; }
+function colCX(){ return colX()+colW()/2; }
+
 const REDUCED = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) || false;
 
 const IMG={jelly:null, gate:null, bg:null, wall:null};
@@ -560,7 +575,7 @@ const JS_PCT=[0.30, 0.225, 0.17];
 let JS_SIZE=[64,48,36];             // CSS px — bakeJelly() 에서 W 기준으로 매번 갱신
 
 function bakeJelly(){
-  JS_SIZE=JS_PCT.map(function(p){ return clamp(Math.round(W*p), 30, 150); });
+  JS_SIZE=JS_PCT.map(function(p){ return clamp(Math.round(colW()*p), 30, 150); });
   BAKE.jelly.length=0; BAKE.jellyG.length=0; BAKE.jellyR.length=0;
   for(let s=0;s<JS_SIZE.length;s++){
     const px=Math.round(JS_SIZE[s]*DPR);
@@ -796,12 +811,12 @@ function syncJellies(){
 function crowdCenter(){
   return {x:laneX(G.laneT), y:H*0.735};
 }
-function gateW(){ return Math.min(W/Math.max(1,G.laneCount)*0.95, 210); }
-function lanePad(){ return Math.max(W*0.10, gateW()*0.5 + 5); }
+function gateW(){ return Math.min(colW()/Math.max(1,G.laneCount)*0.95, 210); }
+function lanePad(){ return Math.max(colW()*0.10, gateW()*0.5 + 5); }
 function laneX(t){
-  if(G.laneCount<=1) return W/2;
-  const pad=lanePad(), span=Math.max(1, W-pad*2);
-  return pad + span*(t/(G.laneCount-1));
+  if(G.laneCount<=1) return colCX();
+  const pad=lanePad(), span=Math.max(1, colW()-pad*2);
+  return colX() + pad + span*(t/(G.laneCount-1));
 }
 function layoutRunning(){
   const c=crowdCenter();
@@ -811,7 +826,7 @@ function layoutRunning(){
   /* 젤리를 키운 뒤로, 화면 가장자리 레인(특히 태블릿처럼 lanePad가 좁은 화면)에서
      무리 전체가 화면 밖으로 튀어나가지 않도록 남은 공간만큼만 퍼뜨린다. */
   const spanUnit=Math.sqrt(Math.max(0,n-1)+0.55)*0.92;
-  const edgeRoom=Math.max(16, Math.min(c.x, W-c.x) - size*0.5 - 6);
+  const edgeRoom=Math.max(16, Math.min(c.x-colX(), (colX()+colW())-c.x) - size*0.5 - 6);
   let sp=size*0.40;
   if(spanUnit>0.001) sp=Math.min(sp, edgeRoom/spanUnit);
   sp=Math.max(sp, size*0.15);
@@ -986,8 +1001,8 @@ function startSplit(before, g, optimal){
   /* 그룹 격자 배치 */
   const cols=Math.min(groups, groups<=4?groups:5);
   const rows=Math.ceil(groups/cols);
-  const cw=(W*0.86)/cols, chh=Math.min(H*0.30, 66)/1;
-  const ox=W*0.07+cw/2, oy=H*0.58;
+  const cw=(colW()*0.86)/cols, chh=Math.min(H*0.30, 66)/1;
+  const ox=colX()+colW()*0.07+cw/2, oy=H*0.58;
   const gpos=[];
   for(let i=0;i<groups;i++){
     const c=i%cols, r=(i/cols)|0;
@@ -1059,7 +1074,7 @@ function hitWall(){
     G.wall.grace=grace;
     G.score += pass ? (140+G.N) : (70+Math.floor(G.N*0.6));
     SFX.wall();
-    burst(W/2, H*0.4, pass?40:24, pass?'#ffd166':'#a06bff', pass?1.5:1.05);
+    burst(colCX(), H*0.4, pass?40:24, pass?'#ffd166':'#a06bff', pass?1.5:1.05);
     G.shake=pass?16:11; G.flash=1; G.flashCol=pass?'#ffd166':'#a06bff';
     G.phase='clear';
     deferCard(showClear, 700);
@@ -1067,7 +1082,7 @@ function hitWall(){
     G.lives--;
     SFX.wall(); SFX.bad();
     G.shake=18; G.flash=1; G.flashCol='#ff5d73';
-    burst(W/2, H*0.5, 26, '#ff5d73', 1.1);
+    burst(colCX(), H*0.5, 26, '#ff5d73', 1.1);
     G.combo=0;
     renderHUD();
     G.phase='fail';
@@ -1233,8 +1248,8 @@ titleGoBtn.addEventListener('click', function(){
 let ptrDown=false, ptrStartX=0, ptrStartT=0, ptrMoved=false, longTimer=null;
 function setLaneFromX(x){
   if(G.laneCount<=1){ G.lane=0; return; }
-  const pad=lanePad(), span=Math.max(1, W-pad*2);
-  const t=clamp((x-pad)/span, 0, 1);
+  const pad=lanePad(), span=Math.max(1, colW()-pad*2);
+  const t=clamp((x-colX()-pad)/span, 0, 1);
   G.lane=Math.round(t*(G.laneCount-1));
 }
 function onDown(e){
@@ -1433,7 +1448,7 @@ function drawLanes(){
   /* 현재 레인 하이라이트 (부드러운 글로우) */
   if(BAKE.glow){
     const x=laneX(G.laneT);
-    const w=Math.min(W/n*0.92, 168);
+    const w=Math.min(colW()/n*0.92, 168);
     ctx.drawImage(BAKE.glow, x-w/2, H*0.24, w, H*0.66);
   }
 }
@@ -1451,7 +1466,7 @@ function drawGates(){
     const sel=Math.abs(G.laneT-i)<0.5;
     if(BAKE.gate) ctx.drawImage(BAKE.gate, x-w/2, y-h*0.86, w, h);
     /* 라벨 패널 — 화면 폭 대비 고정 최소 크기를 둬서 레인이 늘어나도 숫자가 안 작아지게 한다 */
-    const labelSize=Math.max(w*0.21, W*0.062);
+    const labelSize=Math.max(w*0.21, colW()*0.062);
     const pw=Math.min(gw*0.98, Math.max(w*0.80, labelSize*3.7)), ph=Math.max(w*0.42, labelSize*1.9);
     ctx.fillStyle=sel?'rgba(9,16,34,.92)':'rgba(9,16,34,.84)';
     roundRect(ctx, x-pw/2, y-h*0.58, pw, ph, ph*0.26); ctx.fill();
@@ -1474,7 +1489,7 @@ function labelBanner(text, y, col){
   ctx.font='800 12px '+FONT;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle=col;
-  ctx.fillText(text, W/2, Math.max(14,y));
+  ctx.fillText(text, colCX(), Math.max(14,y));
 }
 
 /* 캔버스에 ×분수 를 직접 조판 */
@@ -1512,12 +1527,13 @@ function drawMultiplier(lab, cx, cy, size, col){
 }
 
 function drawWall(){
-  const wpx=Math.min(W*0.92, 420);
+  const cx=colCX();
+  const wpx=Math.min(colW()*0.92, 420);
   const y=G.wall.y;
   let scale=1, alpha=1;
   if(G.wall.broke){ scale=1+G.wall.t*0.8; alpha=Math.max(0,1-G.wall.t*1.4); }
   ctx.globalAlpha=alpha;
-  if(BAKE.wall) ctx.drawImage(BAKE.wall, W/2-wpx*scale/2, y-wpx*scale/2, wpx*scale, wpx*scale);
+  if(BAKE.wall) ctx.drawImage(BAKE.wall, cx-wpx*scale/2, y-wpx*scale/2, wpx*scale, wpx*scale);
   ctx.globalAlpha=1;
   if(!G.wall.broke){
     const ok=G.N>=G.wall.req;
@@ -1525,10 +1541,10 @@ function drawWall(){
     ctx.font='900 '+Math.round(wpx*0.115)+'px '+FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle=ok?'#3ef2c0':(grace?'#a06bff':'#ffd166');
-    ctx.fillText(G.wall.req+' 이상', W/2, y+wpx*0.045);
+    ctx.fillText(G.wall.req+' 이상', cx, y+wpx*0.045);
     ctx.font='800 '+Math.round(wpx*0.052)+'px '+FONT;
     ctx.fillStyle='rgba(233,242,255,.75)';
-    ctx.fillText(ok?'통과!':(grace?'아슬아슬 — 그래도 통과':'젤리가 더 필요해'), W/2, y+wpx*0.125);
+    ctx.fillText(ok?'통과!':(grace?'아슬아슬 — 그래도 통과':'젤리가 더 필요해'), cx, y+wpx*0.125);
   }
 }
 
@@ -1603,15 +1619,15 @@ function drawFX(){
     const alpha=t<0.72?1:Math.max(0,1-(t-0.72)/0.33);
     ctx.save();
     ctx.globalAlpha=alpha;
-    ctx.translate(W/2, H*0.34);
+    ctx.translate(colCX(), H*0.34);
     ctx.scale(scale,scale);
-    ctx.font='900 '+Math.round(Math.min(W*0.20,74))+'px '+FONT;
+    ctx.font='900 '+Math.round(Math.min(colW()*0.20,74))+'px '+FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle=G.pop.up?'#3ef2c0':'#ff5d73';
     ctx.fillText(String(G.pop.v), 0, 0);
-    ctx.font='800 '+Math.round(Math.min(W*0.045,17))+'px '+FONT;
+    ctx.font='800 '+Math.round(Math.min(colW()*0.045,17))+'px '+FONT;
     ctx.fillStyle='rgba(233,242,255,.8)';
-    ctx.fillText(G.pop.up?'젤리가 늘었다!':'젤리가 줄었다!', 0, Math.min(W*0.14,52));
+    ctx.fillText(G.pop.up?'젤리가 늘었다!':'젤리가 줄었다!', 0, Math.min(colW()*0.14,52));
     ctx.restore();
   }
   /* 약분 폭발 */
@@ -1621,26 +1637,27 @@ function drawFX(){
     ctx.save();
     ctx.globalAlpha=alpha;
     const y=H*0.18;
-    const s=Math.min(W*0.052,20);
+    const cx0=colX(), cw0=colW();
+    const s=Math.min(cw0*0.052,20);
     ctx.fillStyle='rgba(7,13,28,.80)';
-    roundRect(ctx, W*0.06, y-s*1.6, W*0.88, s*3.2, s*0.7); ctx.fill();
+    roundRect(ctx, cx0+cw0*0.06, y-s*1.6, cw0*0.88, s*3.2, s*0.7); ctx.fill();
     ctx.strokeStyle='rgba(160,107,255,.7)'; ctx.lineWidth=1.6; ctx.stroke();
     if(t<0.75){
       const burnA=1-t/0.75;
-      drawMultiplier(f.f1, W*0.28, y, s, 'rgba(255,209,102,'+(0.35+burnA*0.65)+')');
+      drawMultiplier(f.f1, cx0+cw0*0.28, y, s, 'rgba(255,209,102,'+(0.35+burnA*0.65)+')');
       ctx.font='800 '+Math.round(s*1.1)+'px '+FONT;
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillStyle='rgba(233,242,255,.8)';
-      ctx.fillText('×', W*0.5, y);
-      drawMultiplier(f.f2, W*0.72, y, s, 'rgba(255,209,102,'+(0.35+burnA*0.65)+')');
+      ctx.fillText('×', cx0+cw0*0.5, y);
+      drawMultiplier(f.f2, cx0+cw0*0.72, y, s, 'rgba(255,209,102,'+(0.35+burnA*0.65)+')');
     }else{
       const k=Math.min(1,(t-0.75)/0.3);
       ctx.globalAlpha=alpha*k;
       ctx.font='800 '+Math.round(s*0.9)+'px '+FONT;
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillStyle='#a06bff';
-      ctx.fillText(f.bonus?'약분 폭발!':'두 분수를 곱하면', W*0.30, y);
-      drawMultiplier(f.prod, W*0.72, y, s, '#3ef2c0');
+      ctx.fillText(f.bonus?'약분 폭발!':'두 분수를 곱하면', cx0+cw0*0.30, y);
+      drawMultiplier(f.prod, cx0+cw0*0.72, y, s, '#3ef2c0');
     }
     ctx.restore();
   }
@@ -1649,10 +1666,10 @@ function drawFX(){
     const t=G.banner.t;
     const a=t<1.4?1:Math.max(0,1-(t-1.4)/0.5);
     ctx.globalAlpha=a;
-    ctx.font='900 '+Math.round(Math.min(W*0.052,20))+'px '+FONT;
+    ctx.font='900 '+Math.round(Math.min(colW()*0.052,20))+'px '+FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle=G.banner.col;
-    ctx.fillText(G.banner.text, W/2, H*0.10);
+    ctx.fillText(G.banner.text, colCX(), H*0.10);
     ctx.globalAlpha=1;
   }
   /* 정밀 모드 표시 */
