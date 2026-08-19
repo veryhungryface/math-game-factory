@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>세컷탑 — 세 장이 맞아야 산다</title>
+<title>쌓기나무 공방 — 세 장이 맞아야 산다</title>
 <meta name="description" content="위·앞·옆 세 장 사진에 맞게 쌓기나무를 쌓는 나무 공방 게임">
-<meta property="og:title" content="세컷탑">
+<meta property="og:title" content="쌓기나무 공방">
 <meta property="og:description" content="세 장이 맞아야 산다">
 <meta property="og:image" content="./square.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="세컷탑">
+<meta name="twitter:title" content="쌓기나무 공방">
 <meta name="twitter:description" content="세 장이 맞아야 산다">
 <meta name="twitter:image" content="./square.png">
 <style>
@@ -74,7 +74,7 @@
     justify-content:space-between;height:100%;width:100%;max-width:520px;padding:8px 0 6px;}
   .logo{margin-top:4vh;text-align:center;transform:rotate(-3deg);animation:logoIn .8s cubic-bezier(.2,1.5,.4,1) both;}
   @keyframes logoIn{from{transform:rotate(-3deg) scale(.5) translateY(-40px);opacity:0;}to{transform:rotate(-3deg) scale(1) translateY(0);opacity:1;}}
-  .logo h1{margin:0;font-size:clamp(50px,16vw,104px);line-height:.92;font-weight:900;letter-spacing:-.03em;
+  .logo h1{margin:0;font-size:clamp(34px,9.2vw,62px);line-height:1.05;font-weight:900;letter-spacing:-.04em;white-space:nowrap;
     color:#ffe9b8;
     text-shadow:
       0 0 0 #fff,
@@ -188,7 +188,7 @@
   <div class="veil"></div>
   <div class="tstack">
     <div class="logo">
-      <h1>세컷탑</h1>
+      <h1>쌓기나무 공방</h1>
       <div class="sub">세 장이 맞아야 산다</div>
     </div>
     <div class="tbottom">
@@ -236,7 +236,7 @@
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   세컷탑 — 쌓기나무 정사영 게임
+   쌓기나무 공방 — 쌓기나무 정사영 게임
    좌표 규약 (이 파일 전체에서 단 하나의 모델만 쓴다):
      · 격자 인덱스 x = 0..W-1  (화면/필름 왼쪽 → 오른쪽)
      · 격자 인덱스 z = 0..D-1  (z=0 이 "앞줄", z=D-1 이 "뒷줄")
@@ -830,37 +830,66 @@ function hasNotch(){
 
 /* ───────────────────────── 카메라 (직교 투영) ─────────────────────────
    정사영이 학습 주제이므로 원근이 아니라 **직교 투영**을 쓴다.
-   위/앞/옆 웨이포인트로만 점프하고 자유 비행은 없다(멀미·길잃음 방지).  */
+   위/앞/옆 웨이포인트로만 점프하고 자유 비행은 없다(멀미·길잃음 방지).
+
+   전환은 오일러 각을 easeOutBack 으로 보간하지 않는다. 그 이징은 t≈0.4 부터
+   e>1 로 목표를 지나치고, 위 시점(ph≈89.2°)에서는 피치가 90° 극을 넘어
+   오른벡터가 반전되며 블록이 한순간 엉뚱한 자리에 찍혔다 돌아온다.  */
+const PH_MAX=89.2*D2R;
 const VIEWS={
   iso:  {th: 34*D2R, ph: 30*D2R},
-  top:  {th:  0,     ph: 89.2*D2R},
+  top:  {th:  0,     ph: PH_MAX},
   front:{th:  0,     ph:  0},
   side: {th: 90*D2R, ph:  0}
 };
-const cam={th:VIEWS.iso.th,ph:VIEWS.iso.ph,fromTh:0,fromPh:0,toTh:0,toPh:0,t:1,dur:0.62,scale:40,tScale:40};
+const cam={th:VIEWS.iso.th,ph:VIEWS.iso.ph,
+  fromTh:0,fromPh:0,toTh:0,toPh:0,fromSc:40,toSc:40,
+  t:1,dur:0.62,scale:40,tScale:40};
+/** 주어진 각에서의 화면 맞춤 스케일. cam/ORIGIN/BAS 를 건드리지 않는다. */
+function fitScale(th,ph,R){
+  const saved={th:cam.th,ph:cam.ph,sc:cam.scale,O:ORIGIN,B:BAS};
+  cam.th=th;cam.ph=ph;cam.scale=1;ORIGIN={x:0,y:0};
+  BAS=camBasis(th,ph);
+  const rect=stage3dRect(R),ex=stageExtent(R);
+  const w=Math.max(0.6,ex.maxX-ex.minX),h=Math.max(0.6,ex.maxY-ex.minY);
+  const sc=Math.min((rect.w*0.80)/w,(rect.h*0.80)/h);
+  cam.th=saved.th;cam.ph=saved.ph;cam.scale=saved.sc;ORIGIN=saved.O;BAS=saved.B;
+  return sc;
+}
 function camGoto(v){
   const w=VIEWS[v]||VIEWS.iso;
   S.camView=v;
-  cam.fromTh=cam.th;cam.fromPh=cam.ph;
+  // 보간 시작값은 "이전 뷰의 정지 좌표"가 아니라 지금 화면에 그려진 각·스케일
+  cam.fromTh=cam.th;cam.fromPh=cam.ph;cam.fromSc=cam.scale;
   cam.toTh=w.th;cam.toPh=w.ph;
+  const R=S.round;
+  if(R&&R.kind!=='LAYERS'&&R.kind!=='REASON'&&L.stage&&L.stage.w>0){
+    cam.toSc=fitScale(w.th,w.ph,R);
+  }else{
+    cam.toSc=cam.scale;
+  }
   cam.t=0;
   updateViewBtns();
 }
 function camUpdate(dt){
   if(cam.t<1){
     cam.t=Math.min(1,cam.t+dt/cam.dur);
-    const e=REDUCED?easeOutCubic(cam.t):easeOutBack(cam.t);   // 살짝 지나쳤다 스프링으로 잠김
+    const e=easeOutCubic(cam.t);                 // [0,1] — 극을 넘는 오버슈트 없음
     cam.th=lerp(cam.fromTh,cam.toTh,e);
-    cam.ph=lerp(cam.fromPh,cam.toPh,e);
+    cam.ph=clamp(lerp(cam.fromPh,cam.toPh,e),0,PH_MAX);
+    cam.scale=lerp(cam.fromSc,cam.toSc,e);
+    if(cam.t>=1){cam.th=cam.toTh;cam.ph=cam.toPh;cam.scale=cam.toSc;cam.tScale=cam.toSc;}
   }
 }
 function camBasis(th,ph){
+  ph=clamp(ph,0,PH_MAX);
   const ct=Math.cos(th),st=Math.sin(th),cp=Math.cos(ph),sp=Math.sin(ph);
   const d=[st*cp,sp,ct*cp];
-  let r=[d[2],0,-d[0]];
-  const rl=Math.hypot(r[0],r[2])||1;r=[r[0]/rl,0,r[2]/rl];
+  // yaw 로 오른벡터를 만들어 위 시점(cp≈0)에서도 기저가 무너지지 않게 한다
+  const r=[ct,0,-st];
   const u=[d[1]*r[2]-d[2]*r[1], d[2]*r[0]-d[0]*r[2], d[0]*r[1]-d[1]*r[0]];
-  return {d:d,r:r,u:u};
+  const ul=Math.hypot(u[0],u[1],u[2])||1;
+  return {d:d,r:r,u:[u[0]/ul,u[1]/ul,u[2]/ul]};
 }
 let BAS=camBasis(cam.th,cam.ph);
 let ORIGIN={x:0,y:0};
@@ -1101,8 +1130,12 @@ function updateStage(dt){
   const rect=stage3dRect(R),ex=stageExtent(R);
   const w=Math.max(0.6,ex.maxX-ex.minX),h=Math.max(0.6,ex.maxY-ex.minY);
   cam.tScale=Math.min((rect.w*0.80)/w,(rect.h*0.80)/h);
-  cam.scale=lerp(cam.scale,cam.tScale,Math.min(1,dt*9));
-  if(Math.abs(cam.scale-cam.tScale)<0.05)cam.scale=cam.tScale;
+  // 뷰 전환 중에는 camUpdate 가 시작 스케일→목표 스케일을 같은 이징으로 민다.
+  // 여기서 dt*9 로 따로 당기면 각은 옛 값인데 줌만 새 뷰로 점프한다.
+  if(cam.t>=1){
+    cam.scale=lerp(cam.scale,cam.tScale,Math.min(1,dt*9));
+    if(Math.abs(cam.scale-cam.tScale)<0.05)cam.scale=cam.tScale;
+  }
   ORIGIN={x:rect.x+rect.w/2-(ex.minX+ex.maxX)/2*cam.scale,
           y:rect.y+rect.h/2-(ex.minY+ex.maxY)/2*cam.scale};
 }
@@ -2089,8 +2122,9 @@ function startRound(){
   S.xray={on:false,t:0,lit:0,last:-1};
   S.flyFilms.length=0;
   cam.scale=cam.tScale=40;
-  camGoto('iso');
+  cam.th=VIEWS.iso.th;cam.ph=VIEWS.iso.ph;cam.t=1;
   layout();
+  camGoto('iso');
   updateHUD();updateViewBtns();updateToolBtn();
   if(S.round.hint&&!S.round.minAsk)toast(S.round.hint.replace(/\*\*/g,''),'',2.4);
 }
@@ -2370,6 +2404,22 @@ window.__GAME_TEST__={
       try{out.push(sampleOne());}catch(e){}
     }
     return out;
+  },
+  camGoto:function(v){camGoto(v);},
+  probeStage:function(){
+    const R=S.round;
+    if(!R||!R.grid)return null;
+    const pts=[];
+    let sx=0,sy=0,n=0;
+    for(let z=0;z<R.D;z++)for(let x=0;x<R.W;x++){
+      const h=gget(R.grid,x,z);if(h<=0)continue;
+      const q=proj(worldOf(R.W,R.D,x,z,h));
+      pts.push({x:x,z:z,h:h,sx:+q.x.toFixed(2),sy:+q.y.toFixed(2)});
+      sx+=q.x;sy+=q.y;n++;
+    }
+    return {view:S.camView,t:+cam.t.toFixed(4),th:+cam.th.toFixed(4),ph:+cam.ph.toFixed(4),
+      scale:+cam.scale.toFixed(3),ox:+ORIGIN.x.toFixed(2),oy:+ORIGIN.y.toFixed(2),
+      cx:n?+(sx/n).toFixed(2):0,cy:n?+(sy/n).toFixed(2):0,n:n,pts:pts};
   }
 };
 
