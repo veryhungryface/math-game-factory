@@ -128,57 +128,165 @@
   .badge.on{opacity:1;border-color:var(--gr);color:var(--gr);background:rgba(124,247,196,.12);
     box-shadow:0 0 12px rgba(124,247,196,.35)}
 
-  /* ── 타이틀 화면 ───────────────────────── */
-  #intro{position:fixed;inset:0;z-index:50;padding:0;background:none;backdrop-filter:none;
-    justify-content:flex-start;overflow:hidden}
-  #titleArt{position:absolute;inset:0;overflow:hidden;background:#040a1a}
-  #titleArt img{position:absolute;inset:-7%;width:114%;height:114%;object-fit:cover;object-position:50% 34%;
-    animation:titleZoom 21s ease-in-out infinite alternate}
-  #titleArt.fallback{background:radial-gradient(120% 90% at 50% 0%, #10254a 0%, #0a1730 42%, #040a1a 78%),
-    linear-gradient(0deg,#170a2e,#040a1a 55%)}
-  #titleArt::after{content:'';position:absolute;inset:0;
-    background:linear-gradient(180deg, rgba(4,8,20,.12) 0%, rgba(4,8,20,.28) 38%, rgba(4,8,20,.62) 68%, rgba(4,8,20,.95) 100%);}
-  #titleArt::before{content:'';position:absolute;inset:0;z-index:1;
-    background:radial-gradient(130% 85% at 50% 45%, transparent 40%, rgba(4,8,20,.55) 100%)}
-  @keyframes titleZoom{0%{transform:scale(1) translateY(0)}100%{transform:scale(1.11) translateY(-2%)}}
-  #titleParticles{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:2}
-  #titleParticles i{position:absolute;bottom:-6%;border-radius:50%;background:var(--cy);
-    box-shadow:0 0 8px 2px currentColor;opacity:0;animation-name:titleDrift;animation-timing-function:linear;animation-iteration-count:infinite}
-  @keyframes titleDrift{0%{opacity:0;transform:translateY(0) scale(.6)}8%{opacity:.85}92%{opacity:.6}100%{opacity:0;transform:translateY(-108vh) scale(1.1)}}
-  #introContent{position:relative;z-index:3;display:flex;flex-direction:column;height:100%;width:100%;
-    box-sizing:border-box;padding:calc(9% + env(safe-area-inset-top)) 7% calc(5% + env(safe-area-inset-bottom));
-    justify-content:space-between;align-items:center;text-align:center}
-  #logoWrap{display:flex;flex-direction:column;align-items:center;gap:6px;
-    animation:logoIn .8s cubic-bezier(.2,1.5,.35,1) both}
-  @keyframes logoIn{0%{opacity:0;transform:translateY(-26px) scale(.82) rotate(-3deg)}100%{opacity:1;transform:translateY(0) scale(1) rotate(-3deg)}}
-  #logo{margin:0;line-height:.94;transform:skewX(-5deg);display:flex;flex-direction:column;align-items:center}
-  #logo .lg{font-size:clamp(42px,13.5vw,68px);font-weight:900;letter-spacing:-1.5px;color:#fff;
-    -webkit-text-stroke:2px #03111c}
-  #logo .lg1{color:var(--cy);
-    text-shadow:-3px 0 #03111c,3px 0 #03111c,0 -3px #03111c,0 3px #03111c,
-      -3px -3px #03111c,3px -3px #03111c,-3px 3px #03111c,3px 3px #03111c,
-      0 0 20px rgba(0,229,255,.85),0 0 46px rgba(0,229,255,.5),0 9px 0 rgba(0,0,0,.4)}
-  #logo .lg2{color:var(--gd2, #ff8a3d);margin-top:-.06em;
-    text-shadow:-3px 0 #03111c,3px 0 #03111c,0 -3px #03111c,0 3px #03111c,
-      -3px -3px #03111c,3px -3px #03111c,-3px 3px #03111c,3px 3px #03111c,
-      0 0 20px rgba(255,138,61,.85),0 0 46px rgba(255,138,61,.5),0 9px 0 rgba(0,0,0,.4)}
-  #tagline{margin:4px 0 0;font-size:13px;font-weight:800;letter-spacing:1px;color:var(--tx);opacity:.9;
-    text-shadow:0 2px 8px rgba(0,0,0,.7)}
-  #introMid{flex:1;display:flex;align-items:center;justify-content:center;max-width:360px}
-  #introHow{font-size:11.5px;line-height:1.7;opacity:0;padding:10px 14px;border-radius:14px;
-    background:rgba(6,12,26,.55);border:1px solid rgba(0,229,255,.28);backdrop-filter:blur(2px);
-    animation:howIn .7s .5s ease both}
-  @keyframes howIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
-  #introBottom{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%}
-  #introFoot{display:flex;flex-direction:column;align-items:center;gap:5px;margin-top:2px}
-  #unitBadge{font-size:10.5px;padding:5px 13px;border-radius:999px;letter-spacing:.2px;
-    border:1px solid rgba(255,255,255,.24);background:rgba(7,11,24,.55);opacity:.85}
-  #bestBadge{font-size:11px;opacity:.75}
-  #bestBadge b{color:var(--gd);font-weight:900}
-  @media (max-height:680px){
-    #logo .lg{font-size:clamp(34px,11vw,52px)}
-    #introHow{font-size:10.5px}
+  /* ── 타이틀 (docs/title-screen-spec.md) ── */
+  #title{
+    --title-col:min(100vw,640px);
+    --logo-top:#e8ffff; --logo-mid:#00e5ff; --logo-bottom:#ffb14a;
+    --logo-outline:#03111c; --logo-side:#078a9c; --logo-side-dark:#044854;
+    --logo-glow:rgba(0,229,255,.50);
+    display:block;position:fixed;inset:0;z-index:50;min-height:100svh;height:100dvh;
+    overflow:hidden;isolation:isolate;background:#040a1a;}
+  #title.hide{display:none;}
+  .title-art{--art-x:50%;--art-y:52%;--art-scale:1.02;
+    position:absolute;inset:0;z-index:0;overflow:hidden;background:#040a1a;}
+  .title-art.fallback{background:radial-gradient(120% 90% at 50% 0%,#10254a 0%,#0a1730 42%,#040a1a 78%);}
+  .title-art__image{width:100%;height:100%;display:block;object-fit:cover;
+    object-position:var(--art-x) var(--art-y);transform:scale(var(--art-scale));
+    filter:saturate(1.08) contrast(1.04);
+    animation:art-breathe 14s ease-in-out infinite alternate;}
+  .title-art__scrim,.title-art__vignette{position:absolute;inset:0;z-index:1;pointer-events:none;}
+  .title-art__scrim{background:
+    linear-gradient(180deg,rgba(4,8,18,.46) 0%,rgba(4,8,18,.16) 24%,rgba(4,8,18,.02) 46%,
+      rgba(4,8,18,.14) 67%,rgba(4,8,18,.76) 100%),
+    radial-gradient(ellipse 64% 27% at 50% 17%,rgba(4,8,18,.26),transparent 72%);}
+  .title-art__vignette{background:
+    linear-gradient(90deg,rgba(2,5,12,.40) 0%,transparent 13%,transparent 87%,rgba(2,5,12,.40) 100%),
+    radial-gradient(ellipse at center,transparent 53%,rgba(2,5,12,.46) 112%);
+    mix-blend-mode:multiply;}
+  @keyframes art-breathe{
+    from{transform:scale(var(--art-scale)) translate3d(0,0,0);}
+    to{transform:scale(calc(var(--art-scale) + .035)) translate3d(0,-0.6%,0);}}
+  .title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+    padding-inline:clamp(16px,5vw,32px);padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);pointer-events:none;}
+  .title-logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+    display:grid;place-content:start center;text-align:center;pointer-events:auto;}
+  .title-cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));
+    width:min(calc(100% - 32px),520px);transform:translateX(-50%);
+    display:grid;justify-items:center;gap:8px;pointer-events:auto;}
+  @media (min-width:641px){
+    .title-logo-zone{left:24px;right:24px;}
+    .title-cta-zone{width:min(calc(100% - 48px),520px);}
   }
+  @media (min-aspect-ratio:1/1){ .title-art{--art-y:46%;} }
+  @media (max-height:700px){
+    .title-logo-zone{top:max(38px,5dvh);min-height:150px;}
+    .title-cta-zone{gap:5px;}
+  }
+  .game-logo{margin:0;display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;
+    font-family:"Black Han Sans","Noto Sans KR","Apple SD Gothic Neo",sans-serif;
+    font-size:clamp(60px,20vw,104px);font-weight:900;line-height:.92;letter-spacing:-.10em;
+    white-space:nowrap;filter:drop-shadow(0 16px 14px rgba(0,0,0,.34));
+    transform:rotate(-1.5deg);transform-origin:50% 60%;}
+  .game-logo>span:not(.logo-gap){
+    --r:0deg;--y:0px;--s:1;
+    position:relative;display:inline-block;padding-inline:.025em;color:transparent;
+    background:linear-gradient(180deg,var(--logo-top) 0%,var(--logo-mid) 48%,var(--logo-bottom) 100%);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-stroke:clamp(2px,.75vw,5px) var(--logo-outline);paint-order:stroke fill;
+    text-shadow:
+      0 1px 0 var(--logo-side),0 2px 0 var(--logo-side),0 3px 0 var(--logo-side),0 4px 0 var(--logo-side),
+      0 5px 0 var(--logo-side-dark),0 6px 0 var(--logo-side-dark),0 7px 0 var(--logo-side-dark),
+      0 8px 0 var(--logo-side-dark),
+      0 11px 2px rgba(4,18,28,.60),0 16px 8px rgba(0,0,0,.46),0 22px 22px rgba(0,0,0,.34),
+      0 0 26px var(--logo-glow);
+    transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));transform-origin:50% 80%;
+    animation:logo-letter-in 720ms cubic-bezier(.18,1.55,.34,1) both;
+    animation-delay:calc(var(--i,0) * 65ms);}
+  .game-logo .logo-gap{width:.22em;flex:0 0 .22em;}
+  .game-subtitle{margin:15px 0 0;padding:5px 13px 6px;border:1px solid rgba(255,255,255,.34);
+    border-radius:999px;color:#fff8df;background:rgba(8,18,32,.50);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 5px 14px rgba(0,0,0,.24);
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    font:800 clamp(12px,3.5vw,16px)/1.2 "Noto Sans KR",var(--font);letter-spacing:-.02em;
+    text-shadow:0 2px 4px rgba(0,0,0,.72);
+    animation:logo-subtitle-in 420ms 520ms ease-out both;justify-self:center;}
+  .title-unit{margin:9px 0 0;font-size:11.5px;font-weight:700;color:#fff;opacity:.72;
+    letter-spacing:-.01em;white-space:nowrap;text-shadow:0 2px 5px rgba(0,0,0,.85);
+    animation:logo-subtitle-in 420ms 640ms ease-out both;}
+  @keyframes logo-letter-in{
+    0%{opacity:0;transform:translateY(calc(var(--y) - 82px)) rotate(calc(var(--r) - 10deg)) scale(.55);}
+    58%{opacity:1;transform:translateY(calc(var(--y) + 8px)) rotate(calc(var(--r) + 3deg)) scale(calc(var(--s) * 1.10));}
+    78%{transform:translateY(calc(var(--y) - 3px)) rotate(calc(var(--r) - 1deg)) scale(calc(var(--s) * .97));}
+    100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));}}
+  @keyframes logo-subtitle-in{
+    from{opacity:0;transform:translateY(-8px) scale(.92);}
+    to{opacity:1;transform:translateY(0) scale(1);}}
+  .title-start{
+    --cta-top:#d4ffff;--cta-mid:#00e5ff;--cta-bottom:#00b4d8;
+    --cta-border:#03111c;--cta-depth:#007a8a;--cta-ink:#03111c;
+    position:relative;width:min(100%,420px);min-height:68px;padding:0 28px;
+    border:4px solid var(--cta-border);border-radius:22px;appearance:none;cursor:pointer;
+    color:var(--cta-ink);
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.58) 0 2px,transparent 2px 100%),
+      linear-gradient(180deg,var(--cta-top) 0%,var(--cta-mid) 49%,var(--cta-bottom) 100%);
+    box-shadow:0 7px 0 var(--cta-depth),0 10px 0 var(--cta-border),0 17px 26px rgba(0,0,0,.38),
+      inset 0 3px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(0,90,110,.20);
+    font-family:"Black Han Sans","Noto Sans KR",var(--font);
+    font-size:clamp(21px,5.8vw,27px);font-weight:900;line-height:1;letter-spacing:-.03em;
+    text-shadow:0 2px 0 rgba(255,255,255,.38);
+    transform:translateY(0) scale(1);transform-origin:50% 100%;
+    animation:cta-pulse 2.4s ease-in-out 1.2s infinite;
+    transition:transform 90ms ease-out,box-shadow 90ms ease-out,filter 120ms ease-out;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+  .title-start::after{content:"";position:absolute;inset:5px 9px auto;height:19px;border-radius:999px;
+    background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));pointer-events:none;}
+  .title-start>span{position:relative;z-index:1;}
+  .title-start:hover{filter:saturate(1.08) brightness(1.04);}
+  .title-start:active,.title-start.is-pressed{
+    transform:translateY(7px) scale(.985);
+    box-shadow:0 1px 0 var(--cta-depth),0 3px 0 var(--cta-border),0 7px 13px rgba(0,0,0,.30),
+      inset 0 3px 0 rgba(255,255,255,.38),inset 0 -2px 0 rgba(0,90,110,.18);
+    animation-play-state:paused;}
+  .title-start:focus-visible{outline:4px solid #fff;outline-offset:5px;}
+  @keyframes cta-pulse{
+    0%,72%,100%{transform:translateY(0) scale(1);}
+    80%{transform:translateY(-2px) scale(1.025);}
+    88%{transform:translateY(0) scale(1);}
+    94%{transform:translateY(-1px) scale(1.012);}}
+  @media (max-height:700px){.title-start{min-height:64px;}}
+  .title-meta{min-height:30px;display:flex;align-items:center;padding:6px 12px;
+    border:1px solid rgba(255,255,255,.24);border-radius:999px;color:rgba(255,255,255,.92);
+    background:rgba(5,10,20,.42);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+    font-size:12px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;
+    text-shadow:0 1px 3px rgba(0,0,0,.8);}
+  .title-meta[hidden]{display:none;}
+  .title-howto{min-height:44px;min-width:44px;padding:7px 12px;border:0;cursor:pointer;
+    color:rgba(255,255,255,.86);background:transparent;
+    font:700 12px/1.2 "Noto Sans KR",var(--font);text-decoration:underline;
+    text-decoration-color:rgba(255,255,255,.35);text-underline-offset:4px;
+    text-shadow:0 2px 5px rgba(0,0,0,.85);}
+  .title-howto:focus-visible{outline:3px solid #fff;outline-offset:2px;border-radius:10px;}
+  .title-mute{position:absolute;z-index:4;top:max(10px,env(safe-area-inset-top));
+    right:max(12px,calc((100vw - min(100vw,640px)) / 2 + 12px));
+    width:44px;height:44px;display:grid;place-items:center;padding:0;cursor:pointer;
+    border:1px solid rgba(255,255,255,.18);border-radius:50%;color:#fff;
+    background:rgba(0,0,0,.28);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+    font-size:21px;line-height:1;}
+  .title-mute:focus-visible{outline:3px solid #fff;outline-offset:3px;}
+  #onb{position:fixed;inset:0;z-index:55;pointer-events:auto;}
+  #onb.hide{display:none;}
+  #onbHole{position:absolute;border-radius:18px;border:3px solid #00e5ff;
+    box-shadow:0 0 0 9999px rgba(4,10,24,.76),0 0 0 6px rgba(0,229,255,.22) inset;
+    transition:top .22s ease,left .22s ease,width .22s ease,height .22s ease;
+    animation:onb-hole 1.6s ease-in-out infinite;}
+  @keyframes onb-hole{0%,100%{border-color:#00e5ff}50%{border-color:#7fffff}}
+  #onbCard{position:absolute;left:50%;transform:translateX(-50%);
+    width:min(calc(100vw - 32px),420px);
+    background:linear-gradient(#e8f8ff,#cfe8f5);border:4px solid #03111c;border-radius:22px;
+    box-shadow:0 10px 0 rgba(0,0,0,.4),0 18px 34px rgba(0,0,0,.5);
+    padding:14px 15px 15px;text-align:left;}
+  #onbNum{display:inline-block;font-size:11px;font-weight:900;color:#03111c;background:#00e5ff;
+    border-radius:8px;padding:2px 8px;letter-spacing:.5px;}
+  #onbTitle{margin:8px 0 5px;font-size:19px;font-weight:900;letter-spacing:-.5px;color:#03111c;}
+  #onbBody{margin:0;font-size:13.5px;font-weight:700;line-height:1.5;color:#1a3a48;}
+  #onbNext{width:100%;min-height:52px;margin-top:10px;border:none;border-radius:16px;cursor:pointer;
+    font-family:var(--font);font-size:17px;font-weight:900;color:#03111c;
+    background:linear-gradient(#d4ffff,#00e5ff);box-shadow:0 5px 0 #007a8a,0 9px 16px rgba(0,0,0,.3);}
+  #onbNext:active{transform:translateY(5px);box-shadow:0 0 0 #007a8a,0 3px 8px rgba(0,0,0,.3);}
+  #onbTap{position:absolute;left:0;right:0;text-align:center;font-size:11.5px;font-weight:800;
+    color:rgba(255,255,255,.78);text-shadow:0 2px 5px rgba(0,0,0,.85);}
 
   /* 되감기 */
   #rewindwrap{position:absolute;left:0;right:0;bottom:16%;display:flex;flex-direction:column;
@@ -194,13 +302,10 @@
     .dash{height:54px} #score{font-size:23px} .ov h2{font-size:22px}
   }
   @media (prefers-reduced-motion: reduce){
-    #titleArt img{animation-duration:60s;animation-iteration-count:1;animation-name:titleZoomSoft}
-    #logoWrap{animation-duration:.4s}
-    #introHow{animation-duration:.4s}
-    .big.pulse{animation-duration:5s}
-    #titleParticles i{animation-duration:34s;opacity:.35 !important}
+    .title-art__image,.game-logo>span:not(.logo-gap),.game-subtitle,.title-unit,#onbHole{animation:none;}
+    .title-start{animation:none;transition-duration:0ms;}
+    .big.pulse{animation:none;}
   }
-  @keyframes titleZoomSoft{0%{transform:scale(1) translateY(0)}100%{transform:scale(1.025) translateY(-.5%)}}
 </style>
 </head>
 <body>
@@ -225,36 +330,11 @@
       <div id="rwbar"><div id="rwfill"></div></div>
     </div>
 
-    <div id="intro" class="ov">
-      <div id="titleArt">
-        <img id="titleImg" src="./assets/title.png" alt=""
-          onerror="this.style.display='none';this.parentElement.classList.add('fallback')">
-      </div>
-      <div id="titleParticles"></div>
-      <div id="introContent">
-        <div id="logoWrap">
-          <h1 id="logo"><span class="lg lg1">어림</span><span class="lg lg2">대시</span></h1>
-          <p id="tagline">○ 위에 서면 끝</p>
-        </div>
-        <div id="introMid">
-          <p id="introHow"><span class="key">●</span> 위는 발판, <span class="key2">○</span> 위는 낭떠러지.
-          드래그로 이동, <span class="key">올림·버림·반올림</span> 버튼으로 순간이동한다.</p>
-        </div>
-        <div id="introBottom">
-          <div id="dex"></div>
-          <button id="startBtn" class="big pulse">시작하기</button>
-          <div id="introFoot">
-            <span id="unitBadge">5학년 2학기 · 수의 범위와 올림, 버림, 반올림</span>
-            <span id="bestBadge">최고 <b id="introBest">0</b></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div id="over" class="ov hide">
       <h2>기록 종료</h2>
       <div id="stats"></div>
       <p id="overtip"></p>
+      <div id="dex"></div>
       <button id="againBtn" class="big pulse">다시!</button>
     </div>
   </div>
@@ -268,6 +348,45 @@
     </div>
     <div id="hint">화면을 좌우로 드래그해 이동</div>
   </div>
+</div>
+
+<div id="title">
+  <div class="title-art" aria-hidden="true">
+    <img class="title-art__image" id="titleImg" src="./assets/title.png" alt=""
+      onerror="this.style.display='none';this.parentElement.classList.add('fallback')">
+  </div>
+  <div class="title-art__scrim" aria-hidden="true"></div>
+  <div class="title-art__vignette" aria-hidden="true"></div>
+  <button class="title-mute" id="btnTitleMute" type="button" aria-label="소리 끄기">🔊</button>
+  <div class="title-ui">
+    <div class="title-logo-zone">
+      <h1 class="game-logo" aria-label="어림 대시">
+        <span aria-hidden="true" style="--i:0;--r:-5deg;--y:6px;--s:1.10">어</span>
+        <span aria-hidden="true" style="--i:1;--r:3deg;--y:-3px;--s:1.00">림</span>
+        <span class="logo-gap" aria-hidden="true"></span>
+        <span aria-hidden="true" style="--i:3;--r:-3deg;--y:4px;--s:1.08">대</span>
+        <span aria-hidden="true" style="--i:4;--r:4deg;--y:-4px;--s:.98">시</span>
+      </h1>
+      <p class="game-subtitle">○ 위에 서면 끝</p>
+      <p class="title-unit">5학년 2학기 · 수의 범위와 올림, 버림, 반올림</p>
+    </div>
+    <div class="title-cta-zone">
+      <div class="title-meta" id="tBest" hidden></div>
+      <button class="title-start" id="startBtn" type="button"><span>대시!</span></button>
+      <button class="title-howto" id="btnHowto" type="button">어떻게 놀아요? 〉</button>
+    </div>
+  </div>
+</div>
+
+<div class="hide" id="onb">
+  <div id="onbHole"></div>
+  <div id="onbCard">
+    <span id="onbNum">1/3</span>
+    <h2 id="onbTitle"></h2>
+    <p id="onbBody"></p>
+    <button id="onbNext" type="button">다음</button>
+  </div>
+  <div id="onbTap">화면을 탭해도 넘어가요</div>
 </div>
 
 <script>
@@ -595,7 +714,7 @@ var G = {
   drag:null, dragging:false, dashedThisWall:false,
   timeScale:1, slowT:0, eyeT:0, shake:0, flash:0, flashCol:'#00e5ff',
   reveal:0, revealTxt:'', revealRule:null, revealLanes:null,
-  invuln:0, rewindT:0, peek:null, peekT:0, themeIdx:0, stunned:0
+  invuln:0, rewindT:0, peek:null, peekT:0, themeIdx:0, stunned:0, frozen:false
 };
 var parts = [], pops = [], stars = [];
 var W = 0, H = 0, S = 1, DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -606,13 +725,13 @@ var el = {
   score: document.getElementById('score'), best: document.getElementById('best'),
   lifep: document.getElementById('lifepips'), fuelp: document.getElementById('fuelpips'),
   combo: document.getElementById('combo'), place: document.getElementById('placelab'),
-  hint: document.getElementById('hint'), intro: document.getElementById('intro'),
+  hint: document.getElementById('hint'), intro: document.getElementById('title'),
   over: document.getElementById('over'), stats: document.getElementById('stats'),
   overtip: document.getElementById('overtip'), dex: document.getElementById('dex'),
   mute: document.getElementById('mute'), rewrap: document.getElementById('rewindwrap'),
   rewind: document.getElementById('rewind'), rwfill: document.getElementById('rwfill'),
   dash: [].slice.call(document.querySelectorAll('.dash')),
-  introBest: document.getElementById('introBest'), titleParticles: document.getElementById('titleParticles')
+  titleMute: document.getElementById('btnTitleMute'), tBest: document.getElementById('tBest')
 };
 var DEXLIST = ['이상','이하','초과','미만','올림','버림','반올림'];
 function renderDex(){
@@ -642,7 +761,7 @@ function syncUI(){
   el.lvsub.textContent = levelName(G.level);
   el.score.textContent = Math.floor(G.dispScore).toLocaleString('ko-KR');
   el.best.textContent = '최고 ' + SAVE.best.toLocaleString('ko-KR');
-  if (el.introBest) el.introBest.textContent = SAVE.best.toLocaleString('ko-KR');
+  syncBestPill();
   pips(el.lifep, G.lives, 'life', 3);
   pips(el.fuelp, G.fuel, 'fuel', G.maxFuel);
   el.combo.textContent = G.combo >= 2 ? '×' + Math.min(8, G.combo) + ' 콤보' : '';
@@ -938,6 +1057,7 @@ function runStatCountUp(){
    ══════════════════════════════════════════════════════════════ */
 function startGame(){
   audioOn();
+  G.frozen = false;
   G.phase = 'playing';
   G.score = 0; G.dispScore = 0; G.lives = 3; G.fuel = 3; G.combo = 0; G.bestCombo = 0;
   G.solved = 0; G.level = 1; G.dist = 0; G.edges = 0; G.noDashPass = 0;
@@ -950,21 +1070,97 @@ function startGame(){
   spawnWall(false);
   uiDirty = true;
 }
-document.getElementById('startBtn').addEventListener('click', startGame);
-document.getElementById('againBtn').addEventListener('click', startGame);
-el.rewind.addEventListener('click', doRewind);
-el.mute.addEventListener('click', function(){
+
+var ONB_KEY = 'onboardingSeen:rounding-dash';
+var ONB_STEPS = [
+  {t:'칩을 끌어 옮겨라',
+   b:'화면을 좌우로 드래그하면 칩이 눈금을 따라 천천히 움직인다. 구멍 쪽으로 미리 자리를 잡아라.'},
+  {t:'● 위는 발판, ○ 위는 낭떠러지',
+   b:'벽에 뚫린 구멍 안으로만 들어갈 수 있다. 경계 ●에 딱 서서 통과하면 점수 2배, 연료 +2.'},
+  {t:'올림·버림·반올림으로 대시',
+   b:'아래 버튼을 탭하면 그 어림값으로 순간이동한다(연료 1칸). 길게 누르면 착지점을 미리 보지만 벽이 빨리 내려온다. 죽으면 되감기 태엽을 판당 1번 쓸 수 있다.'}
+];
+var onbIdx = -1;
+function onbSeen(){ try { return !!localStorage.getItem(ONB_KEY); } catch(e){ return false; } }
+function onbHoleRect(i){
+  var r;
+  if (i === 0) r = document.getElementById('stage').getBoundingClientRect();
+  else if (i === 1) r = document.getElementById('stage').getBoundingClientRect();
+  else r = document.getElementById('pad').getBoundingClientRect();
+  var pad = 6;
+  return [r.left + pad, r.top + pad, Math.max(44, r.width - pad * 2), Math.max(44, r.height - pad * 2)];
+}
+function onbPlace(){
+  if (onbIdx < 0) return;
+  var box = onbHoleRect(onbIdx), hole = document.getElementById('onbHole'), card = document.getElementById('onbCard');
+  hole.style.left = box[0] + 'px'; hole.style.top = box[1] + 'px';
+  hole.style.width = box[2] + 'px'; hole.style.height = box[3] + 'px';
+  var want = box[1] - card.offsetHeight - 24;
+  var top = Math.max(10, Math.min(want, window.innerHeight - card.offsetHeight - 48));
+  if (want < 10) top = Math.min(window.innerHeight - card.offsetHeight - 16, box[1] + box[3] + 12);
+  card.style.top = top + 'px';
+  document.getElementById('onbTap').style.top = (top + card.offsetHeight + 7) + 'px';
+}
+function openOnb(i){
+  onbIdx = Math.max(0, Math.min(ONB_STEPS.length - 1, i | 0));
+  var st = ONB_STEPS[onbIdx];
+  document.getElementById('onbNum').textContent = (onbIdx + 1) + '/' + ONB_STEPS.length;
+  document.getElementById('onbTitle').textContent = st.t;
+  document.getElementById('onbBody').textContent = st.b;
+  document.getElementById('onbNext').textContent = (onbIdx === ONB_STEPS.length - 1) ? '해볼게요' : '다음';
+  document.getElementById('onb').classList.remove('hide');
+  G.frozen = true;
+  onbPlace();
+}
+function closeOnb(){
+  onbIdx = -1; G.frozen = false;
+  document.getElementById('onb').classList.add('hide');
+  try { localStorage.setItem(ONB_KEY, '1'); } catch(e){}
+}
+function nextOnb(){ if (onbIdx < ONB_STEPS.length - 1) openOnb(onbIdx + 1); else closeOnb(); }
+function beginPlay(force){
+  audioOn();
+  try { if (navigator.vibrate) navigator.vibrate(18); } catch(e){}
+  var guide = force || !onbSeen();
+  startGame();
+  if (guide){
+    G.frozen = true;
+    setTimeout(function(){ if (G.phase === 'playing') openOnb(0); }, 240);
+  }
+}
+function syncBestPill(){
+  var n = SAVE.best | 0;
+  if (n > 0){ el.tBest.hidden = false; el.tBest.textContent = '최고 ' + n.toLocaleString('ko-KR') + '점'; }
+  else el.tBest.hidden = true;
+}
+function syncMuteIcons(){
+  var ic = muted ? '🔇' : '🔊', lbl = muted ? '소리 켜기' : '소리 끄기';
+  el.mute.textContent = ic; el.mute.setAttribute('aria-label', lbl);
+  el.titleMute.textContent = ic; el.titleMute.setAttribute('aria-label', lbl);
+}
+function toggleMute(){
   muted = !muted;
-  el.mute.textContent = muted ? '🔇' : '🔊';
   try { localStorage.setItem('rd_mute', muted ? '1' : '0'); } catch(e){}
   if (!muted) audioOn();
-});
-el.mute.textContent = muted ? '🔇' : '🔊';
+  syncMuteIcons();
+}
+
+document.getElementById('startBtn').addEventListener('click', function(){ beginPlay(false); });
+document.getElementById('btnHowto').addEventListener('click', function(){ beginPlay(true); });
+document.getElementById('againBtn').addEventListener('click', startGame);
+el.rewind.addEventListener('click', doRewind);
+el.mute.addEventListener('click', toggleMute);
+el.titleMute.addEventListener('click', toggleMute);
+document.getElementById('onb').addEventListener('click', nextOnb);
+document.getElementById('onbNext').addEventListener('click', function(e){ e.stopPropagation(); nextOnb(); });
+window.addEventListener('resize', onbPlace);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', onbPlace);
+syncMuteIcons();
 
 /* 드래그 */
 function onDown(e){
   audioOn();
-  if (G.phase !== 'playing' || !G.wall || G.stunned) return;
+  if (G.frozen || G.phase !== 'playing' || !G.wall || G.stunned) return;
   var r = cv.getBoundingClientRect();
   G.dragging = true;
   G.drag = (e.clientX - r.left) * (W / r.width);
@@ -988,7 +1184,7 @@ function bindDash(btn){
   function down(e){
     e.preventDefault();
     audioOn();
-    if (G.phase !== 'playing') return;
+    if (G.frozen || G.phase !== 'playing') return;
     pressed = m;
     clearTimeout(pressTimer);
     pressTimer = setTimeout(function(){
@@ -1017,7 +1213,7 @@ el.dash.forEach(bindDash);
 
 function doDash(m){
   var w = G.wall;
-  if (G.phase !== 'playing' || !w || G.stunned) return;
+  if (G.frozen || G.phase !== 'playing' || !w || G.stunned) return;
   if (allowedMethods().indexOf(m) < 0){ popup('아직 잠긴 어림', 15, THEMES[G.themeIdx].warn, H * 0.5); return; }
   if (G.fuel <= 0){ popup('연료 부족 — 드래그로 버텨!', 15, THEMES[G.themeIdx].warn, H * 0.5); return; }
   var target = apply(m, G.chip.value, w.place);
@@ -1041,11 +1237,12 @@ window.addEventListener('keydown', function(e){
   var k = e.key;
   if (k === ' ' || k === 'Spacebar'){
     e.preventDefault();
+    if (onbIdx >= 0){ nextOnb(); return; }
     if (G.phase !== 'playing') startGame();
     else if (G.rewindT > 0) doRewind();
     return;
   }
-  if (G.phase !== 'playing') return;
+  if (G.frozen || G.phase !== 'playing') return;
   if (k === 'ArrowLeft'){ keyDir = -1; e.preventDefault(); }
   else if (k === 'ArrowRight'){ keyDir = 1; e.preventDefault(); }
   else if (k === 'z' || k === 'Z' || k === '1') doDash('ceil');
@@ -1106,7 +1303,7 @@ function update(dt){
     if (st.y > H) { st.y = -4; st.x = Math.random() * W; }
   }
 
-  if (G.phase !== 'playing') return;
+  if (G.phase !== 'playing' || G.frozen) return;
 
   G.dist += dt * (8 + G.level * 2.5);
   G.score += dt * (6 + G.level * 3);
@@ -1703,29 +1900,10 @@ function frame(ts){
   requestAnimationFrame(frame);
 }
 
-/* 타이틀 화면 앰비언트 파티클 — 순수 CSS 드리프트, 게임 루프와 무관 */
-function spawnTitleParticles(){
-  if (!el.titleParticles) return;
-  var n = REDUCED ? 5 : 12;
-  var colors = ['#00e5ff', '#ffd23d', '#ff8a3d'];
-  for (var i=0;i<n;i++){
-    var s = document.createElement('i');
-    var size = 2 + Math.random() * 3.4;
-    s.style.left = (Math.random() * 100) + '%';
-    s.style.width = size + 'px'; s.style.height = size + 'px';
-    s.style.color = colors[i % colors.length];
-    s.style.background = colors[i % colors.length];
-    s.style.animationDuration = (10 + Math.random() * 9) + 's';
-    s.style.animationDelay = (-Math.random() * 18) + 's';
-    el.titleParticles.appendChild(s);
-  }
-}
-
 /* 초기화 */
 resize();
 renderDex();
 syncUI();
-spawnTitleParticles();
 requestAnimationFrame(frame);
 
 /* ══════════════════════════════════════════════════════════════
@@ -1778,7 +1956,7 @@ function problemFrom(w, idx){
 
 window.__GAME_TEST__ = {
   ready: true,
-  start: function(){ startGame(); },
+  start: function(){ closeOnb(); startGame(); },
   getState: function(){
     return {
       score: Math.floor(G.score),
