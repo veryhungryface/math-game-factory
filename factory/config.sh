@@ -5,6 +5,9 @@
 export GATE_SCORE="${GATE_SCORE:-80}"          # 게시 커트라인 (100점 만점)
 export DESIGN_VARIANTS="${DESIGN_VARIANTS:-3}" # 병렬 기획 에이전트 수
 export FOCUS="${FOCUS:-5-2,6-2}"               # 집중 학년-학기
+# 게임 수가 같은 단원들 사이의 우선순위 (design-bible 7.2 · 킹수학 시장 공백 기준):
+# 가능성 재도전 → 공간과 입체 → 원기둥·원뿔·구 → 원의 둘레와 넓이 → 비례식 → (과밀: 분수·소수 나눗셈은 마지막)
+export PRIORITY_UNITS="${PRIORITY_UNITS:-g5s2-u6,g6s2-u2,g6s2-u6,g6s2-u5,g6s2-u4}"
 
 # ── 모델 ──────────────────────────────────────────────
 # 티어 대응표 (사용자 확인, 2026-08-18):

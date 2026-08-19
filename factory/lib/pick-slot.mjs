@@ -54,10 +54,21 @@ for (const m of publishedMetas) {
   if (countByUnit.has(id)) countByUnit.set(id, countByUnit.get(id) + 1);
 }
 
+// 시장 조사(킹수학 400종) 기반 우선순위 — 게임 수가 같으면(대개 0) 이 순서를 먼저 소진한다.
+// docs/design-bible.html 7.2 참조: 공백/질적 공백 단원 우선, 과밀 시장(분수·소수 연산)은 뒤로.
+const PRIORITY = (process.env.PRIORITY_UNITS || '')
+  .split(',').map((x) => x.trim()).filter(Boolean);
+const prioIdx = (u) => {
+  const i = PRIORITY.indexOf(u.id);
+  return i === -1 ? PRIORITY.length : i;
+};
+
 const sorted = [...units].sort((a, b) => {
   const ca = countByUnit.get(a.id) ?? 0;
   const cb = countByUnit.get(b.id) ?? 0;
   if (ca !== cb) return ca - cb;
+  const pa = prioIdx(a), pb = prioIdx(b);
+  if (pa !== pb) return pa - pb;
   if (a.grade !== b.grade) return a.grade - b.grade;
   return (a.order ?? 0) - (b.order ?? 0);
 });
