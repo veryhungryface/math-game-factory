@@ -334,30 +334,70 @@ function makeProportion(level, p, q, m1, m2, blank, story) {
   if (!traps.length) return null;                                // 눈금 위에 함정이 하나도 없으면 채택하지 않는다
   const shown = terms.map((t, i) => i === blank ? '□' : String(t));
   const eq = shown[0] + ' : ' + shown[1] + ' = ' + shown[2] + ' : ' + shown[3];
-  const choices = [String(ans)];
-  for (const c of cand) if (!choices.includes(String(c.v)) && choices.length < 4) choices.push(String(c.v));
+  const unit = (story && story.answerUnit) || '';
+  const fmt = (v) => unit ? String(v) + unit : String(v);
+  const choices = [fmt(ans)];
+  for (const c of cand) if (!choices.includes(fmt(c.v)) && choices.length < 4) choices.push(fmt(c.v));
   let bump = 1;
-  while (choices.length < 4) { const v = ans + bump; if (v <= maxTrack && !choices.includes(String(v))) choices.push(String(v)); bump++; if (bump > 9) break; }
+  while (choices.length < 4) { const v = ans + bump; if (v <= maxTrack && !choices.includes(fmt(v))) choices.push(fmt(v)); bump++; if (bump > 9) break; }
   return {
     id: nid('pr'), kind: story ? 'word-product' : 'product', level,
     stages: story ? ['label', 'product'] : ['product'],
     terms, blank, ans, traps, maxTrack, eq, story: story || null,
     prompt: story ? story.sentence : eq + ' 에서 □에 알맞은 수는?',
-    choices: shuffle(choices), answer: String(ans), answerNumeric: ans,
+    choices: shuffle(choices), answer: fmt(ans), answerNumeric: ans,
     unitConcept: story ? '실생활 비례식' : '비례식의 성질(외항의 곱 = 내항의 곱)',
     goalLine: eq,
   };
 }
 
-/** 채점 고블린: 오개념 공식으로 미리 갈라 둔 항아리를 O/X 로 채점하고, X 면 직접 다시 가른다. */
-function makeJudge(a, b, k) {
+/** 고블린이 보여 주는 두 몫. misconceptionId 가 없으면 옳은 배분(a·k, b·k). */
+function goblinCut(a, b, k, T, misconceptionId) {
+  const trueL = a * k, trueR = b * k;
+  if (!misconceptionId) return { left: trueL, right: trueR, correct: true };
+  let left, right;
+  switch (misconceptionId) {
+    case 'swapped-correspondence':                                   // 비 뒤집기
+      left = b * k; right = a * k; break;
+    case 'part-as-whole': {                                          // 합은 T, 비만 틀림
+      left = Math.round(T * a / b); right = T - left; break;
+    }
+    case 'divide-by-terms':                                          // 전체를 각 항으로 나눔 (합 ≠ T 가능)
+      left = Math.floor(T / a); right = Math.floor(T / b); break;
+    case 'half-half':                                                // 반반 나누기
+      left = Math.floor(T / 2); right = T - left; break;
+    case 'difference-divide': {                                      // 전체를 두 항의 차이로 나눔
+      const d = Math.abs(a - b);
+      if (d < 1) return null;
+      left = Math.floor(T / d); right = T - left; break;
+    }
+    case 'additive-ratio':
+      left = Math.round(T * (a + 1) / (a + b + 2)); right = T - left; break;
+    default:
+      return null;
+  }
+  if (!Number.isInteger(left) || !Number.isInteger(right) || left <= 0 || right < 0) return null;
+  if (left === trueL && right === trueR) return null;                // 우연히 정답이면 오답 케이스로 쓰지 않는다
+  if (left === 0 || right === 0) return null;                        // 빈 항아리는 비를 안 봐도 들통
+  return { left, right, correct: false };
+}
+
+/** 채점 고블린: 옳게 가른 경우와 오개념 배분을 섞어 O/X 를 실제로 판정한다. */
+function makeJudge(a, b, k, misconceptionId) {
   const base = makeSplit(2, a, b, k), T = base.T;
-  const wl = Math.floor(T / a), wr = Math.floor(T / b);           // divide-by-terms 오개념
+  const cut = goblinCut(a, b, k, T, misconceptionId);
+  if (!cut) return null;
+  const wl = cut.left, wr = cut.right;
   return Object.assign({}, base, {
-    id: nid('jg'), kind: 'judge-split', level: 5, stages: ['judge', 'split'],
-    wrongLeft: wl, wrongRight: wr, judgeAnswer: 'X',
+    id: nid('jg'), kind: 'judge-split', level: 5,
+    stages: cut.correct ? ['judge'] : ['judge', 'split'],
+    wrongLeft: wl, wrongRight: wr,
+    judgeAnswer: cut.correct ? 'O' : 'X',
+    misconceptionId: cut.correct ? undefined : misconceptionId,
     prompt: '고블린이 구슬 ' + T + '개를 ' + a + ' : ' + b + ' 으로 가른다며 ' + wl + '개와 ' + wr + '개로 나눴어요. 맞을까요?',
-    choices: ['맞아요', '아니에요'], answer: '아니에요', answerNumeric: 0,
+    choices: ['맞아요', '아니에요'],
+    answer: cut.correct ? '맞아요' : '아니에요',
+    answerNumeric: cut.correct ? 1 : 0,
     unitConcept: '비례배분 채점하기',
     goalLine: T + '개를 ' + a + ' : ' + b + ' 으로',
   });
@@ -398,22 +438,34 @@ for (let p = 1; p <= 9; p++) for (let q = 1; q <= 9; q++) {
 }
 
 const STORIES = [
-  { unitL: '휘발유(L)', unitR: '거리(km)', q: [11, 13],
+  { unitL: '휘발유(L)', unitR: '거리(km)', q: [11, 13], answerUnit: 'L',
     sent: (A, B, D) => '휘발유 ' + A + ' L로 ' + B + ' km를 달리는 자동차가 있어요. ' + D + ' km를 가려면 휘발유가 몇 L 필요할까요?' },
-  { unitL: '설탕(스푼)', unitR: '밀가루(컵)', q: [3, 4],
+  { unitL: '설탕(스푼)', unitR: '밀가루(컵)', q: [3, 4], answerUnit: '스푼',
     sent: (A, B, D) => '설탕 ' + A + ' 스푼에 밀가루 ' + B + ' 컵을 넣어 반죽해요. 밀가루 ' + D + ' 컵에는 설탕이 몇 스푼 필요할까요?' },
-  { unitL: '작은바퀴(톱니)', unitR: '큰바퀴(톱니)', q: [3, 5],
-    sent: (A, B, D) => '작은 바퀴 톱니 ' + A + '개가 큰 바퀴 톱니 ' + B + '개와 맞물려 돌아요. 큰 바퀴 톱니가 ' + D + '개면 작은 바퀴는 톱니가 몇 개일까요?' },
-  { unitL: '물감(컵)', unitR: '물(컵)', q: [2, 6],
-    sent: (A, B, D) => '물감 ' + A + ' 컵에 물 ' + B + ' 컵을 섞어 색을 만들어요. 물 ' + D + ' 컵에는 물감이 몇 컵 필요할까요?' },
+  { unitL: '작은바퀴(톱니)', unitR: '큰바퀴(톱니)', q: [3, 5], answerUnit: '개',
+    sent: (A, B, D) => '같은 비(' + A + ' : ' + B + ')로 만든 다른 톱니바퀴 쌍이 있어요. 큰 바퀴 톱니가 ' + D + '개면 작은 바퀴는 톱니가 몇 개일까요?' },
+  { unitL: '물감(컵)', unitR: '물(컵)', q: [2, 6], answerUnit: '컵',
+    sent: (A, B, D) => '물감 ' + A + ' 컵에 물 ' + B + ' 컵을 섞어 같은 색을 만들어요. 물 ' + D + ' 컵에는 물감이 몇 컵 필요할까요?' },
 ];
 for (const st of STORIES) for (const q of st.q) for (let m1 = 2; m1 <= 4; m1++) for (let m2 = 5; m2 <= 8; m2++) {
   if (m2 <= m1 || q * m2 > 99) continue;
   const A = m1, B = q * m1, D = q * m2;
-  const pr = makeProportion(5, 1, q, m1, m2, 2, { unitL: st.unitL, unitR: st.unitR, sentence: st.sent(A, B, D) });
+  const pr = makeProportion(5, 1, q, m1, m2, 2, { unitL: st.unitL, unitR: st.unitR, sentence: st.sent(A, B, D), answerUnit: st.answerUnit });
   if (pr) POOL[5].push(pr);
 }
-for (const [a, b] of [[3, 4], [2, 3], [2, 5], [5, 3], [3, 5]]) for (const k of [4, 5]) POOL[5].push(makeJudge(a, b, k));
+const JUDGE_PAIRS = [[3, 4], [2, 3], [2, 5], [5, 3], [3, 5], [4, 5], [3, 2], [5, 2]];
+const JUDGE_WRONG = ['swapped-correspondence', 'part-as-whole', 'divide-by-terms', 'half-half', 'difference-divide'];
+let judgeWrongI = 0;
+for (const [a, b] of JUDGE_PAIRS) for (const k of [4, 5]) {
+  if ((a + b) * k > 35) continue;
+  const okP = makeJudge(a, b, k, null);
+  if (okP) POOL[5].push(okP);
+  let badP = null;
+  for (let t = 0; t < JUDGE_WRONG.length && !badP; t++) {
+    badP = makeJudge(a, b, k, JUDGE_WRONG[(judgeWrongI + t) % JUDGE_WRONG.length]);
+  }
+  if (badP) { POOL[5].push(badP); judgeWrongI++; }
+}
 
 /* ── 2. 사운드 (WebAudio 코드 생성음만, 사용자 제스처 이후) ─────── */
 const SFX = {
@@ -742,11 +794,12 @@ function stageCorrect() {
     case 'split': return ST.cur === p.ansLeft;
     case 'reduce': return ST.cells[ST.cur] === p.g;
     case 'product': return ST.cur + 1 === p.ans;
-    default: return true;
+    default: return false;                                       // judge·label 은 버튼으로만 확정
   }
 }
 function lockStage() {
   if (ST.locked || S.phase !== 'playing') return;
+  if (ST.type === 'judge' || ST.type === 'label') return;        // 스페이스/엔터로 판정 우회 금지
   ST.locked = true; ST.squash = 1;
   if (stageCorrect()) {
     S.hitStop = 0.12; ST.dragging = false;
@@ -980,8 +1033,11 @@ function pressButton(b) {
     return;
   }
   if (b.kind === 'judge') {
-    if (b.val === S.problem.judgeAnswer) { S.hitStop = 0.1; burst(b.x + b.w / 2, b.y, 16, PAL.gold, -1); S.stageIdx++; configureStage(false); }
-    else fail();
+    if (b.val === S.problem.judgeAnswer) {
+      S.hitStop = 0.1; burst(b.x + b.w / 2, b.y, 16, PAL.gold, -1);
+      if (S.stageIdx >= S.problem.stages.length - 1) succeed();   // 고블린이 옳으면 바로 통과
+      else { S.hint = '맞아요! 이제 직접 갈라 봐요'; S.hintKind = 'go'; S.stageIdx++; configureStage(false); }
+    } else fail();
   }
 }
 cv.addEventListener('pointerdown', onDown, { passive: false });
@@ -996,7 +1052,10 @@ window.addEventListener('keydown', (e) => {
     ST.cur = clamp(ST.cur + d, ST.type === 'split' ? 0 : ST.min, ST.type === 'split' ? ST.T : ST.max);
     if (ST.cur !== before) { SFX.tick(); updateHint(); }
     e.preventDefault();
-  } else if (e.key === ' ' || e.key === 'Enter') { lockStage(); e.preventDefault(); }
+  } else if (e.key === ' ' || e.key === 'Enter') {
+    if (ST.type === 'split' || ST.type === 'reduce' || ST.type === 'product') lockStage();
+    e.preventDefault();
+  }
 });
 
 /* ── 9. 그리기 ───────────────────────────────────────────────── */
@@ -1629,7 +1688,11 @@ $('resFace').addEventListener('error', function () { this.style.display = 'none'
 
 /* ── 12. QA 자동화 훅 ────────────────────────────────────────── */
 function toSample(p) {
-  return { id: p.id, prompt: p.prompt, choices: p.choices, answer: p.answer, answerNumeric: p.answerNumeric, unitConcept: p.unitConcept };
+  const o = { id: p.id, prompt: p.prompt, choices: p.choices, answer: p.answer, answerNumeric: p.answerNumeric, unitConcept: p.unitConcept, kind: p.kind };
+  if (p.judgeAnswer) o.judgeAnswer = p.judgeAnswer;
+  if (p.misconceptionId) o.misconceptionId = p.misconceptionId;
+  if (p.wrongLeft !== undefined) { o.shownLeft = p.wrongLeft; o.shownRight = p.wrongRight; }
+  return o;
 }
 window.__GAME_TEST__ = {
   ready: false,
@@ -1638,7 +1701,28 @@ window.__GAME_TEST__ = {
     startRun(S.mode);
   },
   getState() {
-    return { score: S.score, lives: S.lives, level: S.roomIdx + 1, phase: S.phase, solved: S.solved, combo: S.combo, mistakes: S.mistakes, stars: S.stars };
+    return { score: S.score, lives: S.lives, level: S.roomIdx + 1, phase: S.phase, solved: S.solved, combo: S.combo, mistakes: S.mistakes, stars: S.stars, stage: ST.type, problemId: S.problem && S.problem.id };
+  },
+  forceKind(kind) {
+    const all = [1, 2, 3, 4, 5].flatMap(l => POOL[l]);
+    const hit = (kind === 'judge-split' && all.find(p => p.kind === kind && p.judgeAnswer === 'X'))
+      || all.find(p => p.kind === kind);
+    if (!hit) return false;
+    if (S.phase !== 'playing') this.start();
+    S.chips = null; S.celebrate = 0; S.problemMistakes = 0;
+    S.problem = hit; S.stageIdx = 0;
+    S.roomIdx = Math.max(0, (hit.level || 5) - 1);
+    configureStage(false);
+    return { id: hit.id, kind: hit.kind, judgeAnswer: hit.judgeAnswer || null, stages: hit.stages.slice() };
+  },
+  sampleJudge(n) {
+    const js = POOL[5].filter(p => p.kind === 'judge-split');
+    n = clamp(n || 40, 1, 80);
+    const src = shuffle(js);
+    const out = [];
+    if (!src.length) return out;
+    for (let i = 0; i < n; i++) out.push(toSample(src[i % src.length]));
+    return out;
   },
   answerCorrect() {
     if (S.phase !== 'playing') this.start();
@@ -1649,6 +1733,11 @@ window.__GAME_TEST__ = {
     if (ST.type === 'split') ST.cur = S.problem.ansLeft;
     else if (ST.type === 'product') ST.cur = S.problem.ans - 1;
     else if (ST.type === 'reduce') ST.cur = ST.cells.indexOf(S.problem.g);
+    else if (ST.type === 'judge') {
+      const b = ST.buttons.find(x => x.kind === 'judge' && x.val === S.problem.judgeAnswer);
+      if (b) pressButton(b);
+      return;
+    }
     ST.locked = false; lockStage();
   },
   answerWrong() {
