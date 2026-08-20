@@ -871,6 +871,13 @@ function spawnWall(same){
      새 벽이 뜨는 순간 바로 끈다 — 어차피 이제 상관없는 지난 벽 정보다(표시 타이밍만 조정, 판정 로직은 그대로). */
   G.reveal = 0;
   G.revealTxt = '';
+  /* 문제가 처음 뜰 때만 잠깐 감속해 읽고 생각할 시간을 준다.
+     되감기(같은 벽 재등장)에는 반복하지 않는다. */
+  if (!w.readSlowDone && !REDUCED){
+    var calc = (w.kind === 'round' || w.kind === 'back' || w.kind === 'life' || w.kind === 'edge');
+    G.slowT = Math.max(G.slowT, calc ? 1.15 : 0.7);
+    w.readSlowDone = true;
+  }
   uiDirty = true;
 }
 
@@ -917,16 +924,14 @@ function passWall(v){
   var TH = THEMES[G.themeIdx];
   if (isEdge){
     G.slowT = REDUCED ? 0 : 0.75;
-    G.shake = REDUCED ? 3 : 10;
     G.flash = 0.55; G.flashCol = TH.gold;
-    burst(cx, cy, 46, [TH.gold, '#fff6cc', TH.line], 300 * S, 1.5);
+    burst(cx, cy, 52, [TH.gold, '#fff6cc', TH.line], 320 * S, 1.55);
     popup('경계 뚫기 ×2', 34, TH.gold, H * 0.30);
     if (w.srcValue !== undefined) popup(w.srcValue + ' → ' + v, 17, '#ffffff', H * 0.30 + 46 * S);
     SFX.edge();
   } else {
-    G.shake = REDUCED ? 2 : 5;
     G.flash = 0.3; G.flashCol = TH.safe;
-    burst(cx, cy, 22, [TH.safe, TH.line, '#ffffff'], 210 * S, 1.2);
+    burst(cx, cy, 28, [TH.safe, TH.line, '#ffffff'], 230 * S, 1.25);
     popup(isStay ? '그대로! 통과' : ('통과 +' + gain), 26, TH.safe, H * 0.32);
     SFX.pass();
   }
