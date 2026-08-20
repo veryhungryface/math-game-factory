@@ -255,6 +255,7 @@ button{font-family:inherit}
 .stepper{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .stepper b{min-width:76px;text-align:center;font-size:clamp(22px,6vw,28px);font-weight:900;color:#FFD23A;
   letter-spacing:-.03em}
+.stepper b.blank{color:#FFE9C4;opacity:.72}
 .stepBtn{width:48px;height:48px;border-radius:14px;cursor:pointer;border:3px solid #6B3A08;
   background:linear-gradient(180deg,#FFF7D6,#F5C93E);color:#3A1F0A;font-size:24px;font-weight:900;
   box-shadow:0 4px 0 #A9700D,inset 0 2px 0 rgba(255,255,255,.65)}
@@ -321,7 +322,7 @@ button{font-family:inherit}
         <div class="lab">가득 채울 잔</div>
         <div class="stepper">
           <button class="stepBtn" type="button" id="qMinus" aria-label="잔 수 줄이기">−</button>
-          <b id="qVal">1잔</b>
+          <b id="qVal" class="blank">?</b>
           <button class="stepBtn" type="button" id="qPlus" aria-label="잔 수 늘리기">+</button>
         </div>
       </div>
@@ -329,11 +330,11 @@ button{font-family:inherit}
         <div class="lab">통에 남길 양</div>
         <div class="stepper">
           <button class="stepBtn" type="button" id="rMinus" aria-label="남길 양 줄이기">−</button>
-          <b id="rVal">0 L</b>
+          <b id="rVal" class="blank">?</b>
           <button class="stepBtn" type="button" id="rPlus" aria-label="남길 양 늘리기">+</button>
         </div>
       </div>
-      <button id="planGo" class="bigbtn" type="button">배송 시작</button>
+      <button id="planGo" class="bigbtn" type="button" disabled>배송 시작</button>
     </div>
   </div>
 
@@ -835,7 +836,7 @@ var S = {
   runCups: 0, stamps: { exact: 0, clean: 0, reason: 0 },
   poured: false, firstPourDone: false, ghost: 0, tipHold: 0,
   spilled: 0, fullGrace: 0, failLock: false,
-  planQ: 1, planRk: 0,
+  planQ: null, planRk: null,
   rndQi: 0, rndTrunc: 0, rndNext: 0, rndAnsK: 0, rndOk: false,
   invFails: 0, invChosen: null, ghostMarks: null,
   lastFail: null
@@ -1362,6 +1363,28 @@ function render() {
       ctx.drawImage(cupSprite,
         dx2 - cupSprite._ox * sx2 * sc0, dy2 - cupSprite._oy * sy2 * sc0,
         cupSprite._w * sx2 * sc0, cupSprite._h * sy2 * sc0);
+      if (S.ghostMarks && S.ghostMarks.cups >= 0 && si >= S.ghostMarks.cups) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(160,90,200,.92)'; ctx.lineWidth = 3; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.arc(dx2, dy2 - L.shelfH * .46, Math.max(16, L.shelfW * .42), 0, 6.2832); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(232,77,26,.9)'; ctx.lineWidth = 3.5;
+        var xm = Math.max(8, L.shelfW * .22);
+        ctx.beginPath(); ctx.moveTo(dx2 - xm, dy2 - L.shelfH * .62); ctx.lineTo(dx2 + xm, dy2 - L.shelfH * .30); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(dx2 + xm, dy2 - L.shelfH * .62); ctx.lineTo(dx2 - xm, dy2 - L.shelfH * .30); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    if (S.ghostMarks && S.ghostMarks.cups > nSealed) {
+      for (var mj = nSealed; mj < S.ghostMarks.cups; mj++) {
+        var gp = shelfPos(mj);
+        ctx.save();
+        ctx.setLineDash([5, 4]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(160,90,200,.85)';
+        cupPath(ctx, gp.x, gp.y, L.shelfW, L.shelfH); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+        lowY = Math.max(lowY, gp.y);
+      }
     }
     if (nSealed) {
       badge(ctx, fe > 0 ? L.cx : L.shelfLeft + L.shelfAvail * .5,
@@ -1388,12 +1411,12 @@ function render() {
     }
     }
 
-    // 떨어지는 알갱이 (trail)
+    // 떨어지는 알갱이 (trail) · 회수는 살짝 더 밝게
     for (var g = 0; g < S.grains.length; g++) {
       var gr = S.grains[g];
-      ctx.globalAlpha = .30;
+      ctx.globalAlpha = gr.recall ? .22 : .30;
       ctx.drawImage(grainSprite, gr.px - 4.5, gr.py - 4.5, 9, 9);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = gr.recall ? .82 : 1;
       ctx.drawImage(grainSprite, gr.x - 6, gr.y - 6, 12, 12);
     }
 
@@ -1412,7 +1435,7 @@ function render() {
     ctx.globalAlpha = 1;
 
     // 주문 배지 (플레이어가 적은 배송표 — 정답 잔량은 숨김)
-    if (S.phase === 'pour' && R.mode !== 'inverse') {
+    if (S.phase === 'pour' && R.mode !== 'inverse' && S.planQ !== null && S.planRk !== null) {
       badge(ctx, L.tank.cx, L.tank.cy + L.tank.h * .62 + 14,
         '주문 ' + S.planQ + '잔 · 남김 ' + fmtKS(S.planRk, R.s) + ' L',
         16, 'rgba(24,12,4,.82)', '#FFE9A8', 10);
@@ -1471,9 +1494,10 @@ function update(dt) {
   var R = S.round;
   if (!R) return;
 
-  // 쏟기 — 계산 단계(predict/plan/roundTiles)에서는 정지. 큰 흐름/미세 흐름 + 목표 근처 감속
+  // 쏟기 — 손을 누르고 있을 때만 발사. 손 뗀 뒤 기울기 감쇠로 알갱이가 더 나가 유출되면 억울하다.
+  var holding = S.pouring || S.fineHold;
   var canPour = (S.phase === 'pour' || S.phase === 'inverseSim') && !S.failLock;
-  if (canPour && S.tilt > .30 && S.tank > 0) {
+  if (canPour && holding && S.tilt > .30 && S.tank > 0) {
     var capNow = S.invC || R.C;
     var atCap = S.open >= capNow && S.fullGrace <= 0;
     var nearCap = !atCap && capNow - S.open <= 4 && capNow - S.open > 0;
@@ -1495,13 +1519,25 @@ function update(dt) {
     }
   } else S.emitAcc = 0;
 
-  // 알갱이 낙하
+  // 알갱이 낙하 · 회수 포물선
   var cupH = L.cupH;
   if (S.cups.length) cupH = Math.min(L.cupW, (L.col * .74) / Math.max(1, S.cups.length) - 6) * 1.24;
   var mouthY = L.cupBase - cupH * .92;
   for (var gi = S.grains.length - 1; gi >= 0; gi--) {
     var g = S.grains[gi];
     g.px = g.x; g.py = g.y;
+    if (g.recall) {
+      g.rt = Math.min(1, (g.rt || 0) + dt / 0.42);
+      var t = g.rt, e = t * t * (3 - 2 * t);
+      g.x = g.rx0 + (g.rx1 - g.rx0) * e;
+      g.y = g.ry0 + (g.ry1 - g.ry0) * e - Math.sin(t * Math.PI) * 72;
+      if (t >= 1) {
+        S.grains.splice(gi, 1);
+        S.tank++;
+        burst(g.x, g.y, 2, '255,214,110', 50);
+      }
+      continue;
+    }
     g.vy += 1250 * dt;
     g.vx += (g.tx - g.x) * 7.5 * dt;
     g.vx *= Math.pow(.28, dt);
@@ -1512,9 +1548,10 @@ function update(dt) {
   }
 
   if (S.phase === 'pour' && R.mode !== 'inverse') {
-    var busy = S.grains.length > 0 || S.t < doneLock || S.failLock;
+    var airBusy = hasAirborne();
+    var busy = airBusy || S.t < doneLock || S.failLock;
     $('doneBtn').disabled = busy;
-    $('sealBtn').disabled = busy || S.pouring || S.fineHold || S.open <= 0;
+    $('sealBtn').disabled = S.failLock || S.pouring || S.fineHold || S.open <= 0;
     if (S.open > 0 && S.open === (S.invC || R.C) && !S.pouring && !S.fineHold) $('sealBtn').classList.add('hot');
     else $('sealBtn').classList.remove('hot');
   }
@@ -1570,6 +1607,33 @@ function emitGrain() {
   if (Math.random() < .34) sfxDrip();
 }
 
+function hasAirborne() {
+  for (var i = 0; i < S.grains.length; i++) if (!S.grains[i].recall) return true;
+  return false;
+}
+function hasAirborneSpill() {
+  for (var i = 0; i < S.grains.length; i++) {
+    var g = S.grains[i];
+    if (g.spill && !g.recall) return true;
+  }
+  return false;
+}
+function beginRecall(g) {
+  if (!g || g.recall) return;
+  g.spill = false;
+  g.recall = true;
+  g.rt = 0;
+  g.rx0 = g.x; g.ry0 = g.y;
+  var T = L.tank;
+  g.rx1 = T.cx;
+  g.ry1 = T.cy - T.h * .42;
+}
+function recallAirborne() {
+  for (var i = 0; i < S.grains.length; i++) {
+    if (!S.grains[i].spill) beginRecall(S.grains[i]);
+  }
+}
+
 function landGrain(g) {
   var R = S.round;
   var cap = S.invC || R.C;
@@ -1593,8 +1657,11 @@ function landGrain(g) {
       cu.fill++; cu.sq = 1;
     }
   } else {
+    // 만수 후 착지한 정상 알갱이는 유출로 바꾸지 않는다. 밀봉 시점 잔량이 기준이고, 공중분은 통으로 회수.
     if (S.open >= cap) {
-      g.spill = true; landGrain(g); return;
+      beginRecall(g);
+      S.grains.push(g);
+      return;
     }
     S.open++;
     S.openSq = .10;
@@ -1605,8 +1672,11 @@ function landGrain(g) {
 
 function trySealCup() {
   if (S.phase !== 'pour' || S.failLock || !S.round) return;
-  if (S.grains.length || S.pouring || S.fineHold) return;
+  if (S.pouring || S.fineHold) return;
   var R = S.round, cap = R.C;
+  if (hasAirborneSpill() || S.spilled > 0) { onOverflow(); return; }
+  // 밀봉 순간의 잔량으로 판정. 공중 알갱이는 통으로 되돌린다.
+  recallAirborne();
   if (S.open <= 0) { say('먼저 잔에 담아요', 1.6); return; }
   if (S.open < cap) {
     failPour('underfill', '잔이 가득 차지 않았어요. 눈금까지 채운 뒤 밀봉해요.');
@@ -1701,7 +1771,7 @@ function startRound(idx) {
   var R = (idx === 0) ? hookFixed() : drawFrom(band);
   S.round = R;
   resetPourPhysics();
-  S.planQ = 1; S.planRk = 0;
+  S.planQ = null; S.planRk = null;
   S.invFails = 0; S.invChosen = null; S.rndOk = false; S.lastFail = null;
   S.quizTries = 0;
   hidePanels();
@@ -1750,18 +1820,29 @@ function pickPredict(rel) {
   }
 }
 
+function planIsReady() {
+  return S.planQ !== null && S.planRk !== null;
+}
+function syncPlanGo() {
+  var go = $('planGo');
+  var ready = planIsReady();
+  go.disabled = !ready;
+  go.textContent = ready ? '배송 시작' : '먼저 숫자를 적어요';
+}
 function syncPlanLabels() {
   var R = S.round; if (!R) return;
-  $('qVal').textContent = S.planQ + '잔';
-  $('rVal').textContent = fmtKS(S.planRk, R.s) + ' L';
+  var qEl = $('qVal'), rEl = $('rVal');
+  if (S.planQ === null) { qEl.textContent = '?'; qEl.classList.add('blank'); }
+  else { qEl.textContent = S.planQ + '잔'; qEl.classList.remove('blank'); }
+  if (S.planRk === null) { rEl.textContent = '?'; rEl.classList.add('blank'); }
+  else { rEl.textContent = fmtKS(S.planRk, R.s) + ' L'; rEl.classList.remove('blank'); }
+  syncPlanGo();
 }
 function openPlan() {
   var R = S.round;
   S.phase = 'plan';
-  S.planQ = Math.max(1, Math.min(16, S.planQ || 1));
-  S.planRk = Math.max(0, S.planRk);
   $('planHead').textContent = '가득 채울 잔과 남길 양을 적어요';
-  $('planSub').textContent = '꿀 ' + R.aT + ' L ÷ ' + R.bT + ' L. 계산하는 동안 통은 기울지 않아요.';
+  $('planSub').textContent = '꿀 ' + R.aT + ' L ÷ ' + R.bT + ' L. ＋와 −를 눌러 숫자를 고르세요. 0도 눌러야 적혀요.';
   syncPlanLabels();
   $('plan').classList.add('on');
   $('bottomBar').style.display = 'none';
@@ -1769,14 +1850,21 @@ function openPlan() {
 function nudgePlan(which, dir) {
   if (S.phase !== 'plan' && S.phase !== 'roundTiles') return;
   var R = S.round;
-  if (which === 'q') S.planQ = Math.max(0, Math.min(16, S.planQ + dir));
-  else {
-    S.planRk = Math.max(0, Math.min(R.kb - 1, S.planRk + dir));
+  if (which === 'q') {
+    if (S.planQ === null) S.planQ = dir > 0 ? 1 : 0;
+    else S.planQ = Math.max(0, Math.min(16, S.planQ + dir));
+  } else {
+    if (S.planRk === null) S.planRk = dir > 0 ? 1 : 0;
+    else S.planRk = Math.max(0, Math.min(R.kb - 1, S.planRk + dir));
   }
   syncPlanLabels();
 }
 function startPourFromPlan() {
   if (S.phase !== 'plan' || !S.round) return;
+  if (!planIsReady()) {
+    say('잔 수와 남길 양을 먼저 적어요', 1.8);
+    return;
+  }
   $('plan').classList.remove('on');
   enterPour();
 }
@@ -1852,7 +1940,6 @@ function submitRoundTiles() {
     return;
   }
   S.rndOk = true;
-  S.planQ = R.q; S.planRk = R.r;
   $('rndFeed').textContent = '좋아요. 이제 ' + R.q + '잔을 채우고 ' + fmtKS(R.r, 0) + ' L 를 통에 남겨요. (반올림 ' + fmtFixed(R.ansK, R.d) + '잔)';
   sfxGood(); flash('255,232,150', .5);
   setTimeout(function () { $('roundPanel').classList.remove('on'); openPlan(); }, 800);
@@ -1957,7 +2044,7 @@ function failPour(kind, msg) {
   var hintId = 'M3-shifted-remainder';
   if (kind === 'overflow') hintId = 'overflow-spill';
   if (kind === 'underfill') hintId = 'M2-point-one-too-far';
-  if (kind === 'cups') hintId = 'M1-shift-dividend-only';
+  if (kind === 'cups' || kind === 'plan') hintId = 'M1-shift-dividend-only';
   if (kind === 'rest') hintId = 'M3-shifted-remainder';
   S.ghostMarks = ghostFor(kind, R);
   applyPenalty(msg);
@@ -1982,15 +2069,21 @@ function applyPenalty(msg) {
   }
 }
 function ghostFor(kind, R) {
-  var g = { tankFrac: -1, cups: R.q, note: '' };
+  var g = { tankFrac: -1, cups: -1, extraCups: 0, note: '' };
+  var sealed = S.sealedCount;
+  var extra = Math.max(0, sealed - R.q);
   if (kind === 'overflow' || kind === 'underfill') {
     g.note = '가득은 한 잔 ' + R.bT + ' L 예요. 0.1 L 눈금을 세어 보세요.';
-  } else if (kind === 'cups') {
-    g.note = '가득 채울 잔은 ' + R.q + '개예요. (10배/0.1배로 옮긴 값이 아닌지 봐요)';
+  } else if (kind === 'cups' || kind === 'plan') {
     g.cups = R.q;
+    g.extraCups = extra;
+    g.tankFrac = R.N > 0 ? (R.r * R.gm) / R.N : 0;
+    var wroteQ = S.planQ === null ? '?' : (S.planQ + '잔');
+    g.note = '배송표 ' + wroteQ + ' · 실제 ' + sealed + '잔. 정답은 ' + R.q + '잔이에요. 유령 잔이 어긋난 자리예요.';
   } else if (kind === 'rest') {
     g.tankFrac = R.N > 0 ? (R.r * R.gm) / R.N : 0;
-    g.note = '통에 남을 양은 ' + fmtKS(R.r, R.s) + ' L. 나머지는 소수점을 옮기기 전의 크기예요.';
+    var wroteR = S.planRk === null ? '?' : (fmtKS(S.planRk, R.s) + ' L');
+    g.note = '배송표 남김 ' + wroteR + ' · 실제 ' + fmtKS(S.tank / R.gm, R.s) + ' L. 정답 나머지는 ' + fmtKS(R.r, R.s) + ' L 예요. 보라 점선이 그 눈금이에요.';
   } else if (kind === 'predict') {
     g.note = qIsBiggerThanA(R)
       ? '1보다 작은 수로 나누면 몫이 더 커져요.'
@@ -2001,7 +2094,7 @@ function ghostFor(kind, R) {
 function openFeedback(kind, msg, hintId) {
   S.phase = 'feedback';
   $('bottomBar').style.display = 'none';
-  $('fbTag').textContent = kind === 'overflow' ? '유출' : '다시 볼게요';
+  $('fbTag').textContent = kind === 'overflow' ? '유출' : (kind === 'plan' ? '배송표' : '다시 볼게요');
   $('fbHead').textContent = msg;
   $('fbSub').textContent = hintFor(hintId, S.round);
   var g = S.ghostMarks || {};
@@ -2016,6 +2109,11 @@ function undoFromFeedback() {
   if (kind === 'predict') { openPredict(); return; }
   if (kind === 'roundTiles') { openRoundTiles(); return; }
   if (kind === 'inverse' || R.band === 'inverse') { resetPourPhysics(); openInversePick(); return; }
+  if (kind === 'plan' || kind === 'cups' || kind === 'rest') {
+    resetPourPhysics();
+    openPlan();
+    return;
+  }
   // 해당 잔만 되돌리기: 열린 잔·유출·공중 알갱이를 통으로
   var air = S.grains.length;
   S.tank += S.open + S.spilled + air;
@@ -2034,12 +2132,27 @@ function submitDelivery() {
     failPour('underfill', '열린 잔이 있어요. 가득이면 밀봉, 아니면 통에 남겨요.');
     return;
   }
-  if (S.sealedCount !== R.q) {
-    failPour('cups', '담은 잔 수가 달라요. 가득 채울 잔은 ' + R.q + '개예요.');
+  if (S.planQ === null || S.planRk === null) {
+    failPour('plan', '배송표가 비어 있어요. 잔 수와 남길 양을 적고 다시 담아요.');
     return;
   }
-  if (S.tank !== rGrains()) {
-    failPour('rest', '통에 남은 양이 달라요. 남길 양은 ' + fmtKS(R.r, R.s) + ' L 예요.');
+  var planRestG = S.planRk * R.gm;
+  // (a) 실행 == 배송표
+  if (S.sealedCount !== S.planQ) {
+    failPour('cups', '담은 잔 수가 배송표와 달라요. 배송표에는 ' + S.planQ + '잔이라고 적었어요.');
+    return;
+  }
+  if (S.tank !== planRestG) {
+    failPour('rest', '통에 남은 양이 배송표와 달라요. 배송표에는 ' + fmtKS(S.planRk, R.s) + ' L 라고 적었어요.');
+    return;
+  }
+  // (c) 배송표 == 수학 정답
+  if (S.planQ !== R.q) {
+    failPour('plan', '배송표의 잔 수가 달라요. 가득 채울 잔은 ' + R.q + '개예요.');
+    return;
+  }
+  if (S.planRk !== R.r) {
+    failPour('rest', '배송표의 남길 양이 달라요. 남길 양은 ' + fmtKS(R.r, R.s) + ' L 예요.');
     return;
   }
   S.exactStamp = true;
@@ -2254,7 +2367,7 @@ $('muteBtn2').addEventListener('click', function (e) { e.stopPropagation(); audi
 var OB = [
   { head: '먼저 배송표를 적어요', body: '붓기 전에 가득 채울 잔 수와 통에 남길 양을 적어요. 계산하는 동안 통은 기울지 않아요. 알갱이 한 개는 모두 같은 부피예요.', target: 'tank' },
   { head: '가득 차면 손을 떼고 밀봉', body: '잔은 자동으로 닫히지 않아요. 눈금까지 채운 뒤 손을 떼고 「밀봉」을 누르세요. 넘치면 꿀이 테이블로 흘러 실패예요.', target: 'cup' },
-  { head: '계산한 만큼 배송 완료', body: '주문한 잔 수와 남긴 양이 맞으면 「배송 완료」. 탐험은 실수해도 되돌릴 수 있고, 잔치만 꿀방울이 줄어요.', target: 'done', modes: true }
+  { head: '계산한 만큼 배송 완료', body: '배송표에 적은 잔 수·남긴 양과 실제로 담은 값이 같고, 그 값이 계산과 맞아야 「배송 완료」예요. 탐험은 실수해도 되돌릴 수 있고, 잔치만 꿀방울이 줄어요.', target: 'done', modes: true }
 ];
 var obIdx = 0;
 function positionSpot() {
@@ -2440,15 +2553,45 @@ window.__GAME_TEST__ = {
       sealedCount: S.sealedCount, C: R ? R.C : 0, N: R ? R.N : 0,
       q: R ? R.q : 0, r: R ? R.r : 0, rGrains: R ? rGrains() : 0, gm: R ? R.gm : 0,
       planQ: S.planQ, planRk: S.planRk, failLock: S.failLock,
+      planReady: planIsReady(),
       band: R ? R.band : '', aT: R ? R.aT : '', bT: R ? R.bT : '', s: R ? R.s : 0,
       bigger: R ? qIsBiggerThanA(R) : false,
-      grains: S.grains.length, fullGrace: S.fullGrace, lastFail: S.lastFail
+      grains: S.grains.length,
+      recalling: S.grains.filter(function (g) { return g.recall; }).length,
+      fullGrace: S.fullGrace, lastFail: S.lastFail,
+      qLabel: $('qVal').textContent, rLabel: $('rVal').textContent,
+      planGoDisabled: $('planGo').disabled,
+      ghostNote: S.ghostMarks ? S.ghostMarks.note : ''
     };
   },
   applyCorrectPlan: function () {
     if (!S.round) return;
     S.planQ = S.round.q; S.planRk = S.round.r; syncPlanLabels();
   },
+  applyWrongPlan: function () {
+    if (!S.round) return;
+    S.planQ = S.round.q + 1;
+    S.planRk = S.round.r;
+    syncPlanLabels();
+  },
+  planReady: function () { return planIsReady(); },
+  startPourFromPlan: function () { startPourFromPlan(); },
+  trySeal: function () { trySealCup(); },
+  spawnAirGrains: function (n) {
+    n = Math.max(1, n || 4);
+    var sp = spoutPos(), tx = L.cupX, made = 0;
+    for (var i = 0; i < n && S.tank > 0; i++) {
+      S.tank--;
+      S.grains.push({
+        x: sp.x, y: sp.y - 8, px: sp.x, py: sp.y,
+        vx: 36 + Math.random() * 20, vy: -30 - Math.random() * 20,
+        tx: tx, target: 0, spill: false
+      });
+      made++;
+    }
+    return made;
+  },
+  recallAirborne: function () { recallAirborne(); },
   applyCorrectRoundTiles: function () {
     var R = S.round; if (!R || R.band !== 'round') return;
     S.rndQi = R.q; S.rndNext = R.nextDigit; S.rndAnsK = R.ansK;
@@ -2466,7 +2609,21 @@ window.__GAME_TEST__ = {
     while (S.open < R.C && S.tank > 0) { S.tank--; S.open++; }
     S.fullGrace = 0.28;
     return S.open === R.C && S.spilled === 0;
-  }
+  },
+  pourExact: function () {
+    var R = S.round; if (!R || S.phase !== 'pour' || S.failLock) return false;
+    S.grains = []; S.spilled = 0; S.puddles = [];
+    S.open = 0; S.sealed = []; S.sealedCount = 0;
+    S.tank = R.N;
+    for (var k = 0; k < R.q; k++) {
+      if (S.tank < R.C) return false;
+      S.open = R.C; S.tank -= R.C;
+      sealCup();
+    }
+    S.open = 0;
+    return S.sealedCount === R.q && S.tank === rGrains() && S.spilled === 0;
+  },
+  submitDone: function () { submitDelivery(); }
 };
 
 function forceCorrectPath() {
