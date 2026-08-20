@@ -269,6 +269,7 @@ button{font-family:inherit;cursor:pointer;touch-action:manipulation;}
 .qbtn{min-height:52px;font-size:14px;padding:9px 12px;text-align:left;line-height:1.34;}
 .qbtn.right{background:linear-gradient(180deg,#B6F0CE,#3FBB7E)!important;box-shadow:0 5px 0 #0B6B4F,0 8px 0 var(--ink)!important;}
 .qbtn.wrong{background:linear-gradient(180deg,#FFC9B8,#E4653C)!important;box-shadow:0 5px 0 #8C2E10,0 8px 0 var(--ink)!important;}
+.qbtn:disabled.wrong{filter:none;opacity:.72;}
 .qfb{font-size:13px;font-weight:900;margin:8px 0 2px;line-height:1.4;color:#0B4A36;}
 .rowbtn{display:flex;gap:9px;margin-top:12px;}
 .rowbtn .gbtn{flex:1 1 auto;min-height:54px;font-size:17px;}
@@ -1196,6 +1197,25 @@ function ringR(){return Math.sqrt(G.W*G.W+G.D*G.D)/2+.34;}
 
 /* ═════════ 라운드 진행 ═════════ */
 let assignedSlots=0;
+function layerTaskOpen(){return !!(G.task&&G.task.type==='layer'&&!G.task.done);}
+function layerSheetY(k){return k;}
+function currentLayerFromSheet(){
+  const y=G.sheetTarget;
+  const k=Math.round(y);
+  if(k<1||k>G.hMax)return 0;
+  if(Math.abs(y-k)>0.40)return 0;
+  return k;
+}
+function snapSheetOnRelease(){
+  if(!layerTaskOpen())return;
+  const mag=layerSheetY(G.task.k);
+  if(Math.abs(G.sheetTarget-mag)<0.55)G.sheetTarget=mag;
+}
+function peelBySheet(){
+  if(G.phase!=='play')return;
+  if(layerTaskOpen())return;
+  while(G.topLayer>=1&&G.sheet<G.topLayer-.12){ejectLayer(G.topLayer);G.topLayer--;}
+}
 function ejectLayer(k){
   const list=G.cubes.filter(c=>c.st==='in'&&c.y===k);
   if(!list.length)return;
@@ -1214,12 +1234,6 @@ function ejectLayer(k){
   }else if(list.length>=2){
     toast(k+'층 '+list.length+'개!');SFX.layer(list.length);
   }else SFX.layer(1);
-  // 층 카드 미션: 목표 층을 잠그지 않고 지나치면 놓친다
-  if(G.task&&G.task.type==='layer'&&!G.task.done&&
-     gridKey(layerCells(G.info.H,G.W,G.D,k))===G.task.key){
-    G.task.done=true;G.task.missed=true;
-    if(G.task.tries<=0)warnMiss('지나쳤어! 이 층이었는데…');else loseLife('지나쳤어!');
-  }
   renderFilms(true);renderTarget();
 }
 function landCube(c){
@@ -1285,11 +1299,12 @@ function onLock(){
     return;
   }
   if(t.type==='layer'&&G.phase==='play'){
-    const cur=gridKey(layerCells(G.info.H,G.W,G.D,G.topLayer));
-    if(G.topLayer>=1&&cur===t.key){
+    const at=currentLayerFromSheet();
+    const cur=at>=1?gridKey(layerCells(G.info.H,G.W,G.D,at)):'';
+    if(at>=1&&cur===t.key){
       t.done=true;if(t.tries===0)G.stars[2]=true;
       addScore(90*G.combo);fxGood(1.2);
-      toast(G.topLayer+'층 맞았다!');setGecko('층별 모양은 딱 한 층만 본 거야!');
+      toast(at+'층 맞았다!');setGecko('층별 모양은 딱 한 층만 본 거야!');
       renderTarget();
     }else{
       missTask(t,'이 층은 모양이 달라!','층별 모양은 그 층에 있는 자리만 그린 거야. 아래층일수록 넓어져.');
@@ -1314,18 +1329,35 @@ function topNumHTML(info){
   for(const v of g.cells)h+='<div class="tnc'+(v?' on':'')+'">'+(v||'')+'</div>';
   return h+'</div>';
 }
+function reasonRot(key,n){
+  let h=0;const s=String(key);
+  for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;
+  return Math.abs(h)%n;
+}
 function buildReasons(info){
-  const{n,vis0,foot,H,W,D,front}=info;
+  const{n,vis0,hidden0,foot,H,W,D,front}=info;
   const nums=[];for(let z=0;z<D;z++)for(let x=0;x<W;x++)if(H[x][z]>0)nums.push(H[x][z]);
   const concat=Number(String(nums.join('')).slice(0,4));
   const sumF=front.reduce((a,b)=>a+b,0);
+  let hidY=1;
+  for(let x=0;x<W;x++)for(let z=0;z<D;z++)for(let y=1;y<=H[x][z];y++)
+    if(!visibleAt(H,W,D,x,z,y,0))hidY=Math.max(hidY,y);
+  const hid=Math.max(1,hidden0);
+  const rights=[
+    '앞에서 보면 '+vis0+'칸이지만, '+hidY+'층 뒤에 '+hid+'칸이 숨어 있었어요.',
+    '처음 보이던 '+vis0+'개에 가려진 '+hid+'개를 더해야 모두 '+n+'개예요.',
+    '뒤에 숨어 있던 '+hid+'칸을 빠뜨려서 '+vis0+'개로만 보였어요.',
+    '보이는 '+vis0+'칸은 겉모습이고, 안쪽에 '+hid+'칸이 더 있었어요.'
+  ];
   const wrong=[];
-  if(vis0!==n)wrong.push({t:'처음 보이던 '+vis0+'개만 세면 돼요.',ok:false,why:'보이는 것만 세면 가려진 칸을 빠뜨려요. 실제로는 '+n+'개예요.'});
-  if(foot!==n)wrong.push({t:'위에서 본 자리 '+foot+'칸만큼만 있으면 돼요.',ok:false,why:'칸 수가 아니라 칸마다 쌓인 층수를 더해야 해요.'});
-  if(Number.isFinite(concat)&&concat!==n&&concat>9)wrong.push({t:'위에 쓴 수를 이어 붙이면 '+concat+'이에요.',ok:false,why:'이어 붙인 수가 아니라 각 칸의 층수를 모두 더해야 해요.'});
-  if(sumF!==n)wrong.push({t:'앞에서 본 층수를 더한 '+sumF+'개가 전부예요.',ok:false,why:'앞모습은 가린 칸을 빼 버려요. 모든 칸의 층수를 더해야 해요.'});
+  if(vis0!==n)wrong.push({t:'처음 보이던 '+vis0+'개만 세면, 그게 쌓기나무의 전부예요.',ok:false,why:'보이는 것만 세면 가려진 칸을 빠뜨려요. 실제로는 '+n+'개예요.'});
+  if(foot!==n)wrong.push({t:'위에서 본 자리 '+foot+'칸만큼만 있으면, 그게 전체 개수예요.',ok:false,why:'칸 수가 아니라 칸마다 쌓인 층수를 더해야 해요.'});
+  if(Number.isFinite(concat)&&concat!==n&&concat>9)wrong.push({t:'위에 쓴 수를 이어 붙인 '+concat+'이, 쌓기나무 개수예요.',ok:false,why:'이어 붙인 수가 아니라 각 칸의 층수를 모두 더해야 해요.'});
+  if(sumF!==n)wrong.push({t:'앞에서 본 층수를 더한 '+sumF+'개가, 숨은 칸 없이 전부예요.',ok:false,why:'앞모습은 가린 칸을 빼 버려요. 모든 칸의 층수를 더해야 해요.'});
+  const hi=Math.max.apply(null,front);
+  if(hi!==n)wrong.push({t:'앞에서 본 가장 높은 층 '+hi+'층이, 쌓기나무 개수예요.',ok:false,why:'가장 높은 층이 아니라 모든 칸의 층수를 더해야 해요.'});
   shuffle(wrong);
-  return[{t:'뒤에 숨어서 안 보이던 칸이 있었어요.',ok:true}].concat(wrong.slice(0,2));
+  return[{t:rights[reasonRot(info.key,rights.length)],ok:true}].concat(wrong.slice(0,2));
 }
 function showResult(){
   const i=G.info,askReason=(ROUNDS[G.round].type==='count'&&i.hidden0>0);
@@ -1353,19 +1385,32 @@ function showResult(){
   if(askReason){
     const order=shuffle(buildReasons(i));
     const qc=el('qc');
+    let reasonTries=0;
     order.forEach((r)=>{
       const b=document.createElement('button');
       b.className='gbtn ghost qbtn';b.textContent=r.t;
       b.onclick=()=>{
-        if(qc.dataset.done)return;qc.dataset.done='1';
-        [...qc.children].forEach(c=>{c.disabled=true;});
-        if(r.ok){b.classList.add('right');addScore(60*G.combo);G.stars[2]=true;fxGood(1);
-          el('qfb').textContent='맞아! 가려진 칸까지 세야 해.';}
-        else{b.classList.add('wrong');loseLife('가려진 칸을 빠뜨렸어!');
-          el('qfb').textContent=r.why;
-          [...qc.children].forEach((c,k)=>{if(order[k].ok)c.classList.add('right');});}
-        el('stars').outerHTML=starsHTML(G.stars);
-        el('nextBtn').disabled=false;
+        if(qc.dataset.done||b.disabled)return;
+        if(r.ok){
+          qc.dataset.done='1';
+          [...qc.children].forEach(c=>{c.disabled=true;});
+          b.classList.add('right');
+          if(reasonTries===0){addScore(60*G.combo);G.stars[2]=true;}
+          fxGood(1);
+          el('qfb').textContent='맞아! 가려진 칸까지 세야 해.';
+          el('stars').outerHTML=starsHTML(G.stars);
+          el('nextBtn').disabled=false;
+        }else{
+          b.classList.add('wrong');b.disabled=true;
+          reasonTries++;
+          if(reasonTries<=1){
+            warnMiss('가려진 칸을 빠뜨렸어!','다른 답을 다시 골라 봐.');
+            el('qfb').textContent=r.why+' 다른 답을 골라 봐.';
+          }else{
+            loseLife('가려진 칸을 빠뜨렸어!');
+            el('qfb').textContent=r.why;
+          }
+        }
       };
       qc.appendChild(b);
     });
@@ -1467,7 +1512,9 @@ function syncUI(dt){
   const frac=clamp(G.sheet/(G.hMax+.6),0,1);
   D_.knob.style.top=((1-frac)*(rh-52))+'px';
   D_.knob.classList.toggle('hot',!locked&&!G.observing);
-  D_.railTip.textContent=G.phase==='guess'?'먼저 개수를 잠가':(locked?'잠김':(G.observing?'다 찾았으면 내려':'한 층씩!'));
+  D_.railTip.textContent=G.phase==='guess'?'먼저 개수를 잠가':(locked?'잠김':
+    (layerTaskOpen()?(currentLayerFromSheet()===G.task.k?'이 층이야!':'지나치면 다시 올려')
+     :(G.observing?'다 찾았으면 내려':'한 층씩!')));
 }
 function syncUIHard(){
   uiCache={score:-1,combo:-1,lives:-1,tray:-1,round:-1,lockLabel:'',lockShow:null,txt:''};
@@ -1509,10 +1556,8 @@ function update(dt){
       syncUIHard();
     }
   }
-  // 빛면이 층을 지나면 그 층이 쟁반으로
-  if(G.phase==='play'){
-    while(G.topLayer>=1&&G.sheet<G.topLayer-.12){ejectLayer(G.topLayer);G.topLayer--;}
-  }
+  // 빛면이 층을 지나면 그 층이 쟁반으로 (층 미션 중엔 되돌릴 수 있게 아직 안 떨어뜨림)
+  peelBySheet();
   // 달그락 — 아직 못 찾은 칸이 있다는 신호(흔들림은 여기서만)
   if((G.phase==='play'||G.phase==='guess')&&G.observing&&G.info){
     G.rattle-=dt;
@@ -1601,6 +1646,7 @@ function draw(dt){
   let ti=0,hi=0;
   for(const c of G.cubes){
     if(c.st!=='in')continue;
+    if(layerTaskOpen()&&c.y>G.sheet+.12)continue;
     cubeLocal(c,_v);
     _dummy.position.copy(_v);
     const pop=c.pop;
@@ -1609,7 +1655,8 @@ function draw(dt){
     _dummy.scale.set((1+pop*.16)*pulse,(1+pop*.26)*pulse,(1+pop*.16)*pulse);            // squash & stretch
     _dummy.rotation.set(0,0,0);_dummy.updateMatrix();
     towerMesh.setMatrixAt(ti,_dummy.matrix);
-    const hot=(!G.observing&&c.y===G.topLayer);
+    const hotLayer=layerTaskOpen()?currentLayerFromSheet():G.topLayer;
+    const hot=(!G.observing&&c.y===hotLayer);
     towerMesh.setColorAt(ti,hot?COL_HOT:(c.seen?COL_SEEN:(wait?COL_WAIT:COL_PLAIN)));
     ti++;
     if(c.seen&&hi<MAXC){haloMesh.setMatrixAt(hi,_dummy.matrix);hi++;}
@@ -1756,10 +1803,18 @@ function onUp(e){
   if(e.pointerId!==ptr.id)return;
   if(ptr.mode==='rot'&&!ptr.moved)tryStamp(e.clientX,e.clientY);
   else if(ptr.mode==='rot')snapTheta();
+  else if(ptr.mode==='sheet')snapSheetOnRelease();
   ptr.id=null;ptr.mode=null;
 }
 function setSheet(v){
-  const nv=clamp(v,-.15,G.sheetTarget);
+  let nv;
+  if(layerTaskOpen()){
+    nv=clamp(v,-.15,G.hMax+.6);
+    const mag=layerSheetY(G.task.k),d=nv-mag;
+    if(Math.abs(d)<.42)nv=mag+d*.5;
+  }else{
+    nv=clamp(v,-.15,G.sheetTarget);
+  }
   if(nv!==G.sheetTarget){G.sheetTarget=nv;}
 }
 function snapTheta(){
@@ -1807,6 +1862,7 @@ window.addEventListener('keydown',(e)=>{
   if(e.key==='ArrowLeft'||e.key==='q'){rotateBy(1);e.preventDefault();}
   else if(e.key==='ArrowRight'||e.key==='e'){rotateBy(-1);e.preventDefault();}
   else if(e.key==='ArrowDown'&&G.phase==='play'){setSheet(G.sheetTarget-.34);e.preventDefault();}
+  else if(e.key==='ArrowUp'&&G.phase==='play'){setSheet(G.sheetTarget+.34);e.preventDefault();}
   else if(e.key===' '){onLock();e.preventDefault();}
 });
 /* 레일 드래그 */
@@ -1822,8 +1878,8 @@ D_.rail.addEventListener('pointerdown',(e)=>{
   audioOn();railSet(e.clientY);
 });
 D_.rail.addEventListener('pointermove',(e)=>{if(e.pointerId===railId)railSet(e.clientY);});
-D_.rail.addEventListener('pointerup',(e)=>{if(e.pointerId===railId)railId=null;});
-D_.rail.addEventListener('pointercancel',()=>{railId=null;});
+D_.rail.addEventListener('pointerup',(e)=>{if(e.pointerId===railId){snapSheetOnRelease();railId=null;}});
+D_.rail.addEventListener('pointercancel',()=>{if(railId!==null)snapSheetOnRelease();railId=null;});
 /* 최소·최대 슬라이더 */
 el('mmPrev').addEventListener('click',()=>{if(G.mmMaps){G.mmIdx=(G.mmIdx-1+G.mmMaps.list.length)%G.mmMaps.list.length;applyMinMax(G.mmIdx);SFX.tick();}});
 el('mmNext').addEventListener('click',()=>{if(G.mmMaps){G.mmIdx=(G.mmIdx+1)%G.mmMaps.list.length;applyMinMax(G.mmIdx);SFX.tick();}});
@@ -1918,7 +1974,74 @@ window.__GAME_TEST__={
     fxGood(1);
   },
   answerWrong(){loseLife('아쉬워!');},
-  sampleProblems(n){return sampleProblems(n||20);}
+  sampleProblems(n){return sampleProblems(n||20);},
+  sampleReasons(n){
+    const out=[],seen=new Set();
+    const specs=[
+      {W:2,D:2,hMax:2,hidden:[1,6],N:[4,8]},
+      {W:2,D:2,hMax:3,hidden:[1,6],N:[5,9]},
+      {W:3,D:2,hMax:3,hidden:[1,8],N:[6,12]},
+      {W:3,D:3,hMax:3,hidden:[2,9],N:[8,16]},
+      {W:3,D:3,hMax:4,hidden:[3,12],N:[10,18]}
+    ];
+    let guard=0;
+    while(out.length<(n||20)&&guard<500){
+      guard++;
+      const info=pickTower(specs[guard%specs.length]);
+      if(!info||info.hidden0<=0||seen.has(info.key))continue;
+      seen.add(info.key);
+      const rs=buildReasons(info);
+      const right=rs.find(r=>r.ok);
+      const wrongs=rs.filter(r=>!r.ok);
+      out.push({
+        key:info.key,vis0:info.vis0,hidden0:info.hidden0,n:info.n,
+        correct:right.t,wrongs:wrongs.map(r=>r.t),
+        lengths:[right.t.length,...wrongs.map(r=>r.t.length)]
+      });
+    }
+    return out;
+  },
+  showRecap(){
+    audioOn();
+    D_.title.classList.add('hide');
+    D_.onboard.classList.add('hide');
+    if(!G.started){G.started=true;showGameUI();}
+    G.round=0;
+    const info=buildInfo([1,2,1,1],2,2);
+    G.info=info;G.W=2;G.D=2;G.hMax=2;
+    G.stars=[true,true,false];G.roundScore=140;G.cleanScan=true;
+    G.needGuess=true;G.guess=info.vis0;G.lives=3;G.phase='result';
+    showResult();
+  },
+  forceLayerPlay(){
+    audioOn();
+    D_.title.classList.add('hide');
+    D_.onboard.classList.add('hide');
+    if(!G.started){G.started=true;showGameUI();}
+    G.score=0;G.shownScore=0;G.lives=3;G.combo=1;G.solved=0;
+    G.round=3;assignedSlots=0;
+    setupRound();
+    G.phase='play';G.timer=0;
+    syncUIHard();
+    return{k:G.task&&G.task.k,hMax:G.hMax,key:G.task&&G.task.key,n:G.info&&G.info.n};
+  },
+  sheetState(){
+    return{
+      sheet:G.sheet,sheetTarget:G.sheetTarget,topLayer:G.topLayer,
+      phase:G.phase,hMax:G.hMax,lives:G.lives,stars:G.stars.slice(),
+      at:currentLayerFromSheet(),
+      inTower:G.cubes.filter(c=>c.st==='in').length,
+      task:G.task?{type:G.task.type,k:G.task.k,done:!!G.task.done,missed:!!G.task.missed,tries:G.task.tries}:null
+    };
+  },
+  moveSheet(v){
+    setSheet(v);
+    G.sheet=G.sheetTarget;
+    peelBySheet();
+    return this.sheetState();
+  },
+  snapSheet(){snapSheetOnRelease();G.sheet=G.sheetTarget;return this.sheetState();},
+  lockLayer(){onLock();peelBySheet();return this.sheetState();}
 };
 init();
 </script>
