@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>원펼침 — 펼치면 네모가 돼</title>
+<title>원펼침 — 펼치면 네모에 가까워져</title>
 <meta property="og:title" content="원펼침">
-<meta property="og:description" content="펼치면 네모가 돼">
+<meta property="og:description" content="펼치면 네모에 가까워져">
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
@@ -362,7 +362,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);color:v
         <span aria-hidden="true" style="--i:1;--r:4deg;--y:-4px;--s:1.0">펼</span>
         <span aria-hidden="true" style="--i:2;--r:-2deg;--y:4px;--s:1.05">침</span>
       </h1>
-      <p class="game-subtitle">펼치면 네모가 돼</p>
+      <p class="game-subtitle">펼치면 네모에 가까워져</p>
       <p class="title-unit">6학년 2학기 · 원의 둘레와 넓이</p>
     </div>
     <div class="title-cta-zone">
@@ -540,7 +540,7 @@ function reasonSet(kind,g){
       {t:'반지름을 약 3.14배 하면 둘레예요', ok:false, misc:'DIAMETER_AS_RADIUS'}
     ],
     rect:[
-      {t:'세로는 반지름, 가로는 둘레의 반이에요', ok:true},
+      {t:'조각을 더 잘게 낼수록 직사각형에 가까워져요. 세로는 반지름, 가로는 둘레의 반이에요', ok:true},
       {t:'세로는 지름이에요', ok:false, misc:'DIAMETER_AS_RADIUS'},
       {t:'가로는 둘레 전체예요', ok:false, misc:'AREA_USED_DIAMETER_OR_C'}
     ],
@@ -595,7 +595,7 @@ function ribbonPrompt(R){
 function fitPrompt(R){
   if(R.kind==='rect'){
     return (R.label==='r'?'반지름이 '+fmtCm(R.r):'지름이 '+fmtCm(R.d))+
-      '인 원을 조각내어 펼쳤을 때 만들어지는 직사각형은? (원주율 약 3.14)';
+      '인 원을 조각내어 펼쳤을 때 펼친 모양은 어떤 직사각형에 가까워질까? (원주율 약 3.14)';
   }
   if(R.kind==='quad'){
     return '반지름이 '+fmtCm(R.r)+'인 원의 반지름을 2배('+fmtCm(2*R.r)+')로 늘리면 넓이는? (원주율 약 3.14)';
@@ -632,7 +632,7 @@ function sampleProblems(n){
     });
     const rs=R.reasons;
     const who=(R.label==='r'?'반지름 '+fmtCm(R.r):'지름 '+fmtCm(R.d))+'인 원에서, ';
-    const ask=R.kind==='rect'?'조각을 펼쳐 만든 직사각형에 대한 설명으로 옳은 것은?'
+    const ask=R.kind==='rect'?'조각을 펼쳐 가까워지는 직사각형에 대한 설명으로 옳은 것은?'
       :R.kind==='quad'?'반지름을 2배로 늘렸을 때 넓이에 대한 설명으로 옳은 것은?'
       :'색칠한 부분의 넓이를 구하는 방법으로 옳은 것은?';
     rows.push({
@@ -799,7 +799,7 @@ function computeLayout(){
   L.cy=L.stageT+L.stageH*0.30;
   L.tall=vw>=700 && vh>=900;                           // 태블릿 세로: 무대를 더 채운다
   L.R=Math.min(L.colW*(L.tall?0.30:0.25),L.stageH*0.32,(L.trackY-118-L.stageT)/2);
-  L.heroW=L.colW*(L.tall?0.39:0.26);                   // 태블릿에서 학을 1.5배
+  L.heroW=L.colW*(L.tall?0.39:0.36);                   // 모바일: 화면폭 36%(최소 20%, 기존 0.26×1.38)
   L.fsBig=Math.max(21,L.colW*0.068);                   // 핵심 숫자 (화면폭 5% 이상)
   L.fsMid=Math.max(15,L.colW*0.042);
   L.fsSm=Math.max(11.5,L.colW*0.031);
@@ -909,9 +909,17 @@ const S={
   fitPick:-1, resT:-1, areaShown:0,
   quadT:-1,
   ending:false, frozen:false, shake:0, flash:0, flashCol:'#D3541A', hitStop:0, fever:0,
-  trail:[], parts:[], stamps:[]
+  trail:[], parts:[], stamps:[],
+  pauseTimer:false, _tpause:false, _roundWall:0, _roundTime0:90
 };
 let R0=null, RUNQ=[];
+
+/** 연출(입력 불가·결과 카운트업)과 온보딩 동안은 생각할 시간이 아니므로 타이머를 멈춘다 */
+function isTimerPaused(){
+  if(S.frozen) return true;
+  if(S.pauseTimer) return true;
+  return S.phase==='reveal' || S.phase==='unfolding' || S.phase==='result';
+}
 
 /* ══════════════════════════════════════════════════════════════
    5. DOM 참조 · 공통 UI
@@ -989,7 +997,7 @@ function computeStage(){
   L.trackY=Math.min(L.stageT+L.stageH*0.80,L.stageB-114);
   L.cy=L.stageT+L.stageH*0.30;
   L.R=Math.min(L.colW*(L.tall?0.30:0.25),L.stageH*0.32,(L.trackY-118-L.stageT)/2);
-  L.heroW=L.colW*(L.tall?0.39:0.26);
+  L.heroW=L.colW*(L.tall?0.39:0.36);
   L.uR=Math.min(L.colW*(L.tall?0.32:0.235),(L.stageH-132)/3,(L.colW-2*L.pad)/3.14);
   L.rx0=L.colX+(L.colW-3.14*L.uR)/2;
   L.uy=L.stageT+L.fsBig*1.5+L.uR;
@@ -1039,7 +1047,10 @@ function startRun(){
   S.running=true; S.hard=!!S.hard;
   S.score=0; S.shown=0; S.lives=3; S.solved=0; S.misses=0;
   S.combo=0; S.bestCombo=0; S.roundIdx=0; S.patterns=0; S.lenSum=0;
-  S.timeLeft=90; S.fever=0; S.ending=false; S.frozen=false; S.parts.length=0; S.stamps.length=0; S.trail.length=0;
+  S.timeLeft=90; S.fever=0; S.ending=false; S.frozen=false; S.pauseTimer=false;
+  S._roundWall=0; S._roundTime0=90; S._tpause=false;
+  S.parts.length=0; S.stamps.length=0; S.trail.length=0;
+  tfill.style.transform='scaleX(1)'; tfill.classList.remove('hot');
   RUNQ=buildRunQueue();
   titleOv.classList.add('hidden'); overOv.classList.add('hidden');
   hud.classList.remove('hidden'); ctrl.classList.remove('hidden');
@@ -1049,12 +1060,18 @@ function startRun(){
 
 function nextRound(){
   if(!S.running) return;
+  if(S._roundWall){
+    const wall=(performance.now()-S._roundWall)/1000;
+    const used=S._roundTime0-S.timeLeft;
+    console.log('[unfurl-timer] round-done leaving='+(S.roundIdx)+' wall='+wall.toFixed(2)+'s timerUsed='+used.toFixed(2)+'s cinematicNotCounted');
+  }
   if(S.roundIdx>=RUNQ.length){ endRun('문양을 전부 폈어!'); return; }
   const slot=RUNQ[S.roundIdx];
   R0=makeRound(slot,RNG);
   S.level=slot.level;
   S.ribbon=0; S.tries=0; S.revealT=-1; S.unfT=-1; S.unfolded=false;
   S.fitPick=-1; S.resT=-1; S.areaShown=0; S.quadT=-1; S.hotGate=-1; S.n=8;
+  S._roundWall=performance.now(); S._roundTime0=S.timeLeft; S._tpause=false;
   stageChip.textContent=levelName(slot.level);
   factChip.textContent='문양 '+(S.roundIdx+1)+' / '+RUNQ.length;
   bakeRuler();
@@ -1063,6 +1080,7 @@ function nextRound(){
 
 function toPhase(p){
   S.phase=p;
+  S.pauseTimer=(p==='reveal'||p==='unfolding'||p==='result');
   if(p==='ribbon'){
     S.decision={kind:'gate'};
     buildGateRow();
@@ -1078,16 +1096,20 @@ function toPhase(p){
     say('조각 수를 골라 <b>펼치기</b>!','조각이 많을수록 톱니가 사라져요');
   }else if(p==='unfolding'){
     S.decision=null; S.unfT=0; showRows('');
-    say('부채꼴이 번갈아 미끄러진다…','넓이는 그대로예요 — 모양만 바뀌어요');
+    say('부채꼴이 번갈아 미끄러진다…','조각을 더 잘게 낼수록 직사각형에 가까워져요. 넓이는 그대로예요');
   }else if(p==='fit'){
     S.decision={kind:'fit'};
     buildFitRow(); showRows('fit');
-    if(R0.kind==='rect') say('펼친 모양에 딱 맞는 <b>창틀</b>은?','세로는 반지름이야 — 지름을 넣으면 넘쳐');
+    if(R0.kind==='rect') say('펼친 모양은 어떤 직사각형에 가까워질까?','세로는 반지름이야 — 지름을 넣으면 넘쳐');
     else if(R0.kind==='quad') say('반지름을 2배로! 넓이는 얼마가 될까?','가로도 2배, 세로도 2배면 칸은 몇 개?');
     else say('색칠한 <b>귀퉁이</b>의 넓이는?','정사각형에서 원을 빼면 남는 부분이야');
   }else if(p==='result'){
     S.decision=null; S.resT=0; showRows('next');
     nextBtn.textContent=(S.roundIdx+1>=RUNQ.length)?'결과 보기 →':'다음 문양으로 →';
+    if(R0.kind==='rect'){
+      if(S.n>=16) say('아주 잘게 나누면 직사각형이 돼요','가로는 원주의 반(3.14×r), 세로는 반지름!');
+      else say('조각을 더 잘게 낼수록 직사각형에 가까워져요','가로는 원주의 반(3.14×r), 세로는 반지름!');
+    }
   }else if(p==='reason'){
     S.decision={kind:'reason'};
     buildReasonRow(); showRows('reason');
@@ -1180,7 +1202,7 @@ function commitFit(i){
     if(R0.kind==='rect'){
       if(c.hh>R0.rectH&&c.ww>R0.rectW) msg='세로도 가로도 넘쳐! 세로는 <반지름>, 가로는 <둘레의 반>이야.';
       else if(c.hh>R0.rectH) msg='세로가 지름만큼 높아 — 창틀 위로 삐져나왔어. 반지름에 맞춰 봐.';
-      else msg='가로가 둘레 <전체>야. 펼치면 둘레의 <반>만 가로가 돼.';
+      else msg='가로가 둘레 <전체>야. 직사각형에 가까워질 때 가로는 둘레의 <반>이야.';
     }else if(R0.kind==='quad'){
       msg=(c.misc==='AREA_SCALES_LINEAR')?'길이가 2배라고 넓이도 2배는 아니야. 반지름이 2배면 반지름×반지름이 몇 배가 될까?'
         :(c.misc==='R_TIMES_TWO_NOT_SQUARE')?'반지름 × 2 가 아니라 반지름 × 반지름 이야.'
@@ -1376,8 +1398,8 @@ const ONB=[
   {t:'리본에 맞는 창틀 고르기',
    b:'둘레는 지름 × 약 3.14 예요. 지름 막대 3개보다 자투리만큼 길어요 — 그 길이의 창틀을 고르세요.',
    r:()=>{const q=gateRow.getBoundingClientRect(); return [q.left-6,q.top-6,q.width+12,q.height+12];}},
-  {t:'펼치면 직사각형!',
-   b:'조각을 펼치면 원이 직사각형이 돼요. 넓이는 그대로고, 세로는 반지름, 가로는 둘레의 반이에요.',
+  {t:'펼치면 네모에 가까워져요',
+   b:'조각을 더 잘게 낼수록 직사각형에 가까워져요. 넓이는 그대로고, 세로는 반지름, 가로는 둘레의 반이에요.',
    r:()=>[L.colX+L.pad,L.stageT,L.colW-2*L.pad,Math.min(L.stageH,300)]}
 ];
 let onbIdx=-1;
@@ -1446,7 +1468,13 @@ function update(dt){
   S.flash=Math.max(0,S.flash-dt*2.1);
   if(S.fever>0) S.fever=Math.max(0,S.fever-dt);
 
-  if(S.running&&!S.frozen){
+  const paused=isTimerPaused();
+  if(S.running && paused!==S._tpause){
+    S._tpause=paused;
+    const wall=S._roundWall?((performance.now()-S._roundWall)/1000).toFixed(2):'-';
+    console.log('[unfurl-timer]', paused?'PAUSE':'RUN', 'phase='+S.phase, 'left='+S.timeLeft.toFixed(2)+'s', 'wallRound='+wall+'s');
+  }
+  if(S.running&&!paused){
     S.timeLeft=Math.max(0,S.timeLeft-dt);
     tfill.style.transform='scaleX('+(S.timeLeft/90)+')';
     tfill.classList.toggle('hot',S.timeLeft<20);
@@ -1563,6 +1591,20 @@ function fillStageBottom(c,afterY,tiles){
   }
 }
 
+/** 원과 겹치지 않게, 칼럼 오른쪽·트랙 위 빈 띠에 학을 둔다. 모바일 최소 폭 20%. */
+function heroDrawW(scale){
+  const s=scale==null?1:scale;
+  const w=L.heroW*s;
+  return L.tall?w:Math.max(w, L.colW*0.20);
+}
+function heroClearX(w, prefer, clearLeft){
+  const left=clearLeft==null?(L.cx+L.R):clearLeft;
+  const minX=left+10+w/2;
+  const maxX=L.colX+L.colW-8-w/2;
+  const x=prefer==null?(L.colX+L.colW-w*0.48-8):prefer;
+  if(minX<=maxX) return clamp(x, minX, maxX);
+  return maxX;
+}
 function drawHero(c,x,y,w,flip){
   const im=IMG.hero;
   if(im&&im.width){
@@ -1616,8 +1658,9 @@ function drawRibbonStage(c,t){
   drawCircle(c,L.cx,L.cy,L.R,frac,R.label);
   // 라벨 배지 (핵심 숫자는 크고 굵게)
   badge(c,L.cx,L.cy-L.R-L.fsBig*0.95,(R.label==='r'?'반지름 ':'지름 ')+fmtCm(R.label==='r'?R.r:R.d),L.fsBig*0.78);
-  // 마스코트
-  drawHero(c,L.colX+L.colW*0.83,L.cy+L.R*0.75+Math.sin(t*1.4)*3*MO,L.heroW,false);
+  // 마스코트 — 원 오른쪽이 아니라 리본 트랙 위 빈 띠, 원과 겹치지 않게
+  const hW=heroDrawW(1);
+  drawHero(c,heroClearX(hW),L.trackY-10+Math.sin(t*1.4)*3*MO,hW,false);
 
   // 자 + 게이트
   c.drawImage(rulL,L.x0-20,L.trackY-30,rulL.width/DPR,rulL.height/DPR);
@@ -1802,12 +1845,12 @@ function drawUnfurlStage(c,t){
     c.save(); c.translate(L.rx0-30,L.ry0+uR/2); c.rotate(-Math.PI/2);
     badge(c,0,0,'세로 = 반지름 '+fmtCm(R.r),L.fsSm*1.1);
     c.restore();
-    if(n>=16) badge(c,L.ux,L.ry0-L.fsSm*1.35,'거의 직선이에요',L.fsSm*1.1,'#F6FBF0','rgba(72,99,56,.94)');
+    if(n>=16) badge(c,L.ux,L.ry0-L.fsSm*1.35,'무한히 나누면 직사각형이 돼요',L.fsSm*1.05,'#F6FBF0','rgba(72,99,56,.94)');
     else if(n<=4) badge(c,L.ux,L.ry0-L.fsSm*1.35,'톱니가 커요',L.fsSm*1.05,'#FFF3E8','rgba(211,84,26,.9)');
   }
   // 조각 수 · 반지름 배지 (fit 단계에서 계산 근거가 계속 보여야 한다)
   badge(c,L.ux,L.stageT+L.fsBig*0.72,(R.label==='r'?'반지름 ':'지름 ')+fmtCm(R.label==='r'?R.r:R.d),L.fsBig*0.78);
-  drawHero(c,L.colX+L.colW*0.87,L.uy+uR*0.9,L.heroW*(L.tall?1:0.8),false);
+  {const hW=heroDrawW(L.tall?1:0.9); drawHero(c,heroClearX(hW, L.colX+L.colW*0.86, L.ux+uR),L.uy+uR*0.55,hW,false);}
   fillStageBottom(c, L.ry0+uR+L.fsMid*3.4, [
     {k:'세로', v:fmtCm(R.r)},
     {k:'가로', v:'둘레 ÷ 2'},
@@ -1882,7 +1925,7 @@ function drawQuadStage(c,t){
     c.fillText('가로도 2배, 세로도 2배면?',cx,ly+lgH/2);
   }
 
-  drawHero(c,L.colX+L.colW*0.88,top+L.heroW*0.42,L.heroW*(L.tall?0.72:0.62),false);
+  {const hW=heroDrawW(L.tall?0.72:0.58); drawHero(c,L.colX+L.colW-hW*0.5-8,top+hW*0.42,hW,false);}
   fillStageBottom(c, ly+lgH+L.fsMid*2.4, [
     {k:'가로', v:'× 2'},
     {k:'세로', v:'× 2'},
@@ -1910,7 +1953,7 @@ function drawCornerStage(c,t){
   badge(c,x+side*0.76,y+rr-L.fsSm*1.5,'반지름 '+fmtCm(R.r),L.fsSm*1.15,'#F6FBF0','rgba(72,99,56,.95)');
   badge(c,x+side/2,y-L.fsBig*0.62,'한 변 '+fmtCm(R.d),L.fsBig*0.72);
   badge(c,x+side/2,y+side+L.fsMid*1.15,'주황 부분의 넓이는?',L.fsSm*1.2,'#FFF3E8','rgba(211,84,26,.95)');
-  drawHero(c,L.colX+L.colW*0.9,y+side*0.5,L.heroW*(L.tall?0.85:0.68),false);
+  {const hW=L.tall?L.heroW*0.85:L.colW*0.20; drawHero(c,L.colX+L.colW-hW*0.5-6,y+hW*0.92,hW,false);}
   fillStageBottom(c, y+side+L.fsMid*2.6, [
     {k:'정사각형', v:R.d+' × '+R.d},
     {k:'원', v:R.r+' × '+R.r+' × 3.14'},
@@ -2042,7 +2085,8 @@ window.__GAME_TEST__={
   getState(){
     return {score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved,
       misses:S.misses, combo:S.combo, patterns:S.patterns, round:S.roundIdx,
-      ribbon:S.ribbon, r:R0?R0.r:0, kind:R0?R0.kind:'', hotGate:S.hotGate};
+      ribbon:S.ribbon, r:R0?R0.r:0, kind:R0?R0.kind:'', hotGate:S.hotGate,
+      timeLeft:S.timeLeft, timerPaused:isTimerPaused()};
   },
   answerCorrect(){
     if(!S.running) startRun();
