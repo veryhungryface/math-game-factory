@@ -49,8 +49,17 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 #banner.hide{display:none;}
 #bTag{font-size:11px;font-weight:900;color:#0F2E48;background:#F4B400;border-radius:8px;
   padding:2px 7px;align-self:flex-start;letter-spacing:.5px;}
+#bTag.think{background:#7FC4EE;color:#04263F;}
 #bMain{font-size:15px;font-weight:900;color:#FFF7E6;line-height:1.25;letter-spacing:-.3px;}
 #bSub{font-size:11.5px;font-weight:700;color:#9FD1F2;line-height:1.25;}
+#bFormula{display:none;align-items:center;flex-wrap:wrap;gap:4px;margin-top:3px;}
+#bFormula.on{display:flex;}
+.ftile{background:#F4B400;color:#0F2E48;font-weight:900;font-size:12px;line-height:1;
+  border-radius:8px;padding:4px 7px;min-width:26px;text-align:center;
+  box-shadow:0 2px 0 #A0620A;}
+.ftile.dim{background:#3a3530;color:#FFE9A8;box-shadow:0 2px 0 #1a1816;}
+.fop{color:#9FD1F2;font-weight:900;font-size:14px;padding:0 1px;}
+.fnote{font-size:10.5px;font-weight:800;color:#FFE9A8;margin-right:4px;}
 #banner.good{border-color:#FFD35C;box-shadow:0 5px 0 rgba(0,0,0,.35),0 0 22px rgba(255,211,92,.55);animation:bpop .42s;}
 #banner.bad{border-color:#E64A35;animation:bshake .34s;}
 #banner.bad #bSub{color:#FFC0B4;}
@@ -300,6 +309,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   <div id="bTag">주문</div>
   <div id="bMain">주문을 기다리는 중…</div>
   <div id="bSub"></div>
+  <div id="bFormula"></div>
 </div>
 
 <div class="ovl" id="title">
@@ -404,12 +414,18 @@ function fmt100(v){                      // 1/100 정수 → 사람이 읽는 �
 
 const CONCEPT = {
   spin:'평면도형을 돌려 입체도형 만들기',
-  props:'원기둥·원뿔·구의 구성 요소',
-  cone:'원뿔의 모선과 높이 구별',
+  parts:'원기둥·원뿔·구의 구성 요소',
+  net:'원기둥의 전개도 — 옆면의 가로',
+  read:'높이·반지름 읽기',
+  radia:'반지름과 지름',
+  scale:'반지름과 둘레의 배 관계',
+  compare:'밑면 둘레 비교',
+  views:'위·앞·옆에서 본 모양',
   wrap:'원기둥의 전개도 — 옆면의 가로',
-  area:'원기둥의 전개도 — 옆면의 넓이',
-  sphere:'구를 위·앞·옆에서 본 모양'
+  area:'원기둥의 전개도 — 옆면의 넓이'
 };
+const FRIENDLY_R = [1,2,5,10];
+const CIRC_FRIENDLY = {1:6.28, 2:12.56, 5:31.4, 10:62.8};
 
 /* 회전 프로필 3종. 축은 항상 세로(왼쪽), 도형은 축의 오른쪽에 붙는다. */
 const PROFILES = {
@@ -423,7 +439,11 @@ function eul(w){const c=w.charCodeAt(w.length-1);
   if(c<0xAC00||c>0xD7A3) return '를';
   return ((c-0xAC00)%28!==0)?'을':'를';}
 let PID=0;
-function P(o){o.id='p'+(++PID);return o;}
+function P(o){
+  o.id='p'+(++PID);
+  o.isCalc = o.kind==='wrap'||o.kind==='area';
+  return o;
+}
 
 /* ── (A) 회전 주문 ─────────────────────────────────────────────
    오답 미끼: 원뿔·구 주문에도 항상 '직사각형'을 넣는다
@@ -444,7 +464,7 @@ function poolSpin(){
       mis: k===ansKey?null:(k==='rect'?'전개도-일반화: 원뿔·구도 직사각형을 돌려 만든다고 생각':'회전-결과 혼동'),
       viz:{kind:'profile',key:k}
     }));
-    return P({kind:'spin',band:1,target:s.t,
+    return P({kind:'spin',tier:1,target:s.t,
       prompt:'평면도형을 축에 대고 한 바퀴 돌려 '+s.ask+eul(s.ask)+' 만들어라. ('+s.cond+')',
       sub:'축에 붙이는 변 — 직사각형: 한 변 / 직각삼각형: 직각을 낀 변 / 반원: 지름',
       choices:chs, answerNumeric: s.t==='cyl'?2:(s.t==='cone'?1:0),
@@ -452,8 +472,12 @@ function poolSpin(){
   });
 }
 
-/* ── (B) 구성 요소 주문 ───────────────────────────────────────── */
-function poolProps(){
+/* ── (B) 구성 요소 — 티어 1 식별 ──────────────────────────────── */
+function textChoices(ans, distractors){
+  return [{label:ans,sub:'',ok:true,mis:null,viz:{kind:'text'}}]
+    .concat(distractors.map((d)=>({label:d[0],sub:'',ok:false,mis:d[1],viz:{kind:'text'}})));
+}
+function poolParts(){
   const items=[
     {q:'원기둥의 구성 요소를 바르게 말한 설계도는?',target:'cyl',n:0,
      a:'밑면 2개 · 굽은 옆면 1개 · 꼭짓점 0개',
@@ -467,6 +491,43 @@ function poolProps(){
      a:'밑면 없음 · 꼭짓점 없음 · 중심에서 반지름이 모두 같음',
      d:[['밑면 1개 · 꼭짓점 1개','원뿔과 혼동'],
         ['옆면을 직사각형으로 펼칠 수 있음','전개도-일반화: 구도 원기둥처럼 펼칠 수 있다고 생각']]},
+    {q:'밑면이 2개인 입체도형은?',target:'cyl',n:2,
+     a:'원기둥',
+     d:[['원뿔','원뿔은 밑면이 1개다'],
+        ['구','구는 밑면이 없다']]},
+    {q:'뾰족한 꼭짓점이 있는 입체도형은?',target:'cone',n:1,
+     a:'원뿔',
+     d:[['원기둥','각기둥-일반화: 원기둥에도 꼭짓점이 있다고 생각'],
+        ['구','구에는 꼭짓점이 없다']]},
+    {q:'꼭짓점도 밑면도 없는 입체도형은?',target:'sph',n:0,
+     a:'구',
+     d:[['원기둥','원기둥은 밑면이 2개다'],
+        ['원뿔','원뿔은 밑면 1개와 꼭짓점 1개가 있다']]},
+    {q:'원기둥의 밑면 모양은?',target:'cyl',n:0,
+     a:'원',
+     d:[['직사각형','옆면(전개도)과 밑면을 혼동'],
+        ['삼각형','원뿔을 앞에서 본 모양과 혼동']]},
+    {q:'원뿔의 밑면 모양은?',target:'cone',n:0,
+     a:'원',
+     d:[['삼각형','앞에서 본 모양을 밑면으로 착각'],
+        ['부채꼴','옆면 전개도와 밑면을 혼동']]},
+    {q:'굽은 면만으로 이루어진 입체도형은?',target:'sph',n:0,
+     a:'구',
+     d:[['원기둥','원기둥은 평평한 밑면 2개가 있다'],
+        ['원뿔','원뿔은 평평한 밑면 1개가 있다']]},
+    {q:'굽은 옆면이 있고 밑면이 두 개인 입체도형은?',target:'cyl',n:2,
+     a:'원기둥',
+     d:[['원뿔','원뿔은 밑면이 1개다'],
+        ['각기둥','각기둥은 굽은 면이 없다']]}
+  ];
+  return items.map((it)=>P({kind:'parts',tier:1,target:it.target,prompt:it.q,
+    sub:'밑면 개수 · 꼭짓점 · 굽은 면을 떠올려라',
+    choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.parts}));
+}
+
+/* ── (B2) 전개도 개념 — 티어 2 (계산 없음) ───────────────────── */
+function poolNet(){
+  const items=[
     {q:'원기둥의 전개도에서 옆면의 모양과 가로 길이는?',target:'cyl',n:0,
      a:'직사각형 · 가로 = 밑면의 둘레',
      d:[['직사각형 · 가로 = 밑면의 지름','지름-착각: 옆면 가로를 지름으로 생각'],
@@ -475,18 +536,18 @@ function poolProps(){
      a:'원기둥',
      d:[['원뿔','전개도-일반화: 원뿔 옆면도 직사각형이라고 생각'],
         ['구','전개도-일반화: 구도 펼칠 수 있다고 생각']]},
+    {q:'원기둥 옆면 띠의 가로는 밑면의 무엇과 같아야 할까?',target:'cyl',n:0,
+     a:'밑면의 둘레',
+     d:[['밑면의 지름','지름-착각: 옆면 가로를 지름으로 생각'],
+        ['밑면의 반지름','반지름을 가로로 착각']]},
     {q:'원기둥의 높이는 어느 길이인가?',target:'cyl',n:2,
      a:'두 밑면 사이의 거리 (옆면 직사각형의 세로)',
      d:[['밑면의 지름','지름-착각'],
         ['밑면의 둘레','둘레-높이 혼동']]}
   ];
-  return items.map((it)=>{
-    const chs=[{label:it.a,sub:'',ok:true,mis:null,viz:{kind:'text'}}]
-      .concat(it.d.map((d)=>({label:d[0],sub:'',ok:false,mis:d[1],viz:{kind:'text'}})));
-    return P({kind:'props',band:2,target:it.target,prompt:it.q,
-      sub:'설계도 카드를 골라 확인대에 올려라',
-      choices:chs, answerNumeric:it.n, unitConcept:CONCEPT.props});
-  });
+  return items.map((it)=>P({kind:'net',tier:2,target:it.target,prompt:it.q,
+    sub:'계산하지 말고 뜻을 골라라',
+    choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.net}));
 }
 
 /* ── (C) 원뿔 확인 — 모선 vs 높이 ────────────────────────────────
@@ -501,11 +562,141 @@ function poolCone(){
       {label:'파란 리본 '+l+'cm',sub:'꼭짓점 → 밑면 둘레',ok:false,mis:'모선-높이 혼동: 모선을 높이로 착각',viz:{kind:'cone',ribbon:'l',r:r,h:h,l:l}},
       {label:'빨간 리본 '+r+'cm',sub:'밑면 중심 → 둘레',ok:false,mis:'반지름을 높이로 착각',viz:{kind:'cone',ribbon:'r',r:r,h:h,l:l}}
     ];
-    return P({kind:'cone',band:2,target:'cone',
+    return P({kind:'read',tier:2,target:'cone',
       prompt:'원뿔의 높이를 나타내는 리본을 골라라. 높이는 꼭짓점에서 밑면에 수직으로 내린 선분이다.',
       sub:'모선(꼭짓점→밑면 둘레)은 높이보다 길다 — 헷갈리지 마라',
-      choices:chs, answerNumeric:h, unitConcept:CONCEPT.cone});
+      choices:chs, answerNumeric:h, unitConcept:CONCEPT.read});
   });
+}
+
+/* ── (C2) 원기둥 높이·반지름 읽기 — 티어 2 ───────────────────── */
+function poolCylRead(){
+  const sizes=[[2,5],[3,6],[4,8],[5,7],[6,4]];
+  const asks=[
+    {which:'h', q:'원기둥 그림에서 높이를 나타내는 선은?', n:(s)=>s[1],
+      ok:(s)=>'노란 선 '+s[1]+'cm', okSub:'두 밑면 사이 (수직)',
+      bad:[
+        (s)=>[{label:'파란 선 '+(2*s[0])+'cm',sub:'밑면을 가로지름',ok:false,mis:'지름을 높이로 착각',viz:{kind:'cylmark',mark:'d',r:s[0],h:s[1]}},
+              {label:'빨간 선 '+s[0]+'cm',sub:'밑면 중심 → 둘레',ok:false,mis:'반지름을 높이로 착각',viz:{kind:'cylmark',mark:'r',r:s[0],h:s[1]}}]
+      ]},
+    {which:'r', q:'원기둥 그림에서 밑면의 반지름을 나타내는 선은?', n:(s)=>s[0],
+      ok:(s)=>'빨간 선 '+s[0]+'cm', okSub:'밑면 중심 → 둘레',
+      bad:[
+        (s)=>[{label:'노란 선 '+s[1]+'cm',sub:'두 밑면 사이',ok:false,mis:'높이를 반지름으로 착각',viz:{kind:'cylmark',mark:'h',r:s[0],h:s[1]}},
+              {label:'파란 선 '+(2*s[0])+'cm',sub:'밑면을 가로지름',ok:false,mis:'지름을 반지름으로 착각',viz:{kind:'cylmark',mark:'d',r:s[0],h:s[1]}}]
+      ]}
+  ];
+  const out=[];
+  asks.forEach((ask)=>{
+    sizes.forEach((s)=>{
+      const chs=[
+        {label:ask.ok(s),sub:ask.okSub,ok:true,mis:null,viz:{kind:'cylmark',mark:ask.which,r:s[0],h:s[1]}}
+      ].concat(ask.bad[0](s));
+      out.push(P({kind:'read',tier:2,target:'cyl',r:s[0],h:s[1],
+        prompt:ask.q,
+        sub:'높이는 두 밑면 사이, 반지름은 밑면 중심에서 둘레까지',
+        choices:chs, answerNumeric:ask.n(s), unitConcept:CONCEPT.read}));
+    });
+  });
+  return out;
+}
+
+/* ── (C3) 반지름 ↔ 지름 — 티어 2 ─────────────────────────────── */
+function poolRadia(){
+  const ds=[4,6,8,10,12,20];
+  const out=[];
+  ds.forEach((d)=>{
+    const r=d/2;
+    out.push(P({kind:'radia',tier:2,target:'cyl',r:r,
+      prompt:'밑면의 지름이 '+d+'cm인 원기둥의 반지름은?',
+      sub:'지름 = 반지름 × 2',
+      choices:[
+        {label:r+'cm',sub:'',ok:true,mis:null,viz:{kind:'cylmark',mark:'r',r:r,h:Math.max(5,r+2)}},
+        {label:d+'cm',sub:'',ok:false,mis:'지름-착각: 지름을 반지름으로 생각',viz:{kind:'cylmark',mark:'d',r:r,h:Math.max(5,r+2)}},
+        {label:(d*2)+'cm',sub:'',ok:false,mis:'지름에 2를 한 번 더 곱함',viz:{kind:'cylmark',mark:'d',r:r,h:Math.max(5,r+2)}}
+      ], answerNumeric:r, unitConcept:CONCEPT.radia}));
+  });
+  [2,3,5,7].forEach((r)=>{
+    out.push(P({kind:'radia',tier:2,target:'cyl',r:r,
+      prompt:'밑면의 반지름이 '+r+'cm인 원기둥의 지름은?',
+      sub:'지름 = 반지름 × 2',
+      choices:[
+        {label:(2*r)+'cm',sub:'',ok:true,mis:null,viz:{kind:'cylmark',mark:'d',r:r,h:Math.max(5,r+3)}},
+        {label:r+'cm',sub:'',ok:false,mis:'지름-착각: 반지름을 지름으로 생각',viz:{kind:'cylmark',mark:'r',r:r,h:Math.max(5,r+3)}},
+        {label:(r/2)+'cm',sub:'',ok:false,mis:'지름과 반지름을 거꾸로 나눔',viz:{kind:'cylmark',mark:'r',r:r,h:Math.max(5,r+3)}}
+      ], answerNumeric:2*r, unitConcept:CONCEPT.radia}));
+  });
+  out.push(P({kind:'radia',tier:2,target:'cyl',r:4,
+    prompt:'밑면의 지름은 반지름의 몇 배일까?',
+    sub:'지름 = 반지름 × 2',
+    choices:textChoices('2배',[
+      ['4배','밑면 넓이의 배 관계와 혼동'],
+      ['같다 (1배)','지름과 반지름을 같은 길이로 생각']
+    ]), answerNumeric:2, unitConcept:CONCEPT.radia}));
+  return out;
+}
+
+/* ── (C4) 배 관계 — 티어 2 (3.14 계산 없음) ──────────────────── */
+function poolScale(){
+  const items=[
+    {q:'밑면의 반지름이 2배가 되면 밑면의 둘레는 몇 배가 될까?',k:2,n:2,
+     a:'2배', d:[['4배','밑면 넓이와 혼동: 넓이(πr²)는 4배가 된다'],['그대로','반지름만 바뀌고 둘레는 같다고 생각']], viz:{kind:'circles',r:2,k:2}},
+    {q:'밑면의 반지름이 3배가 되면 밑면의 둘레는 몇 배가 될까?',k:3,n:3,
+     a:'3배', d:[['9배','밑면 넓이와 혼동: 넓이(πr²)는 9배가 된다'],['그대로','반지름만 바뀌고 둘레는 같다고 생각']], viz:{kind:'circles',r:2,k:3}},
+    {q:'밑면의 지름이 2배가 되면 밑면의 둘레는 몇 배가 될까?',k:2,n:2,
+     a:'2배', d:[['4배','밑면 넓이와 혼동'],['1/2배','지름이 커지면 둘레가 줄어든다고 생각']], viz:{kind:'circles',r:3,k:2}},
+    {q:'밑면의 반지름이 반이 되면 밑면의 둘레는 어떻게 될까?',k:0.5,n:0.5,
+     a:'반(1/2배)', d:[['1/4배','밑면 넓이와 혼동'],['그대로','반지름만 바뀌고 둘레는 같다고 생각']], viz:{kind:'circles',r:4,k:0.5}},
+    {q:'밑면의 둘레를 길게 만들려면 무엇을 키워야 할까?',k:2,n:1,
+     a:'반지름(또는 지름)', d:[['높이','둘레-높이 혼동: 높이는 옆면의 세로'],['꼭짓점 개수','원기둥에는 꼭짓점이 없다']], viz:{kind:'circles',r:2,k:2}}
+  ];
+  return items.map((it)=>{
+    const chs=[{label:it.a,sub:'',ok:true,mis:null,viz:it.viz}]
+      .concat(it.d.map((d)=>({label:d[0],sub:'',ok:false,mis:d[1],viz:it.viz})));
+    return P({kind:'scale',tier:2,target:'cyl',prompt:it.q,
+      sub:'둘레 = 2 × 3.14 × 반지름  →  반지름이 k배면 둘레도 k배',
+      choices:chs, answerNumeric:it.n, unitConcept:CONCEPT.scale});
+  });
+}
+
+/* ── (C5) 띠 비교 — 티어 2 (계산 없이 반지름 크기) ───────────── */
+function poolCompare(){
+  const pairs=[
+    {a:2,b:3,eq:false,q:'반지름 2cm용 띠와 반지름 3cm용 띠 중 어느 것이 더 길까? (계산하지 말고)'},
+    {a:1,b:5,eq:false,q:'반지름 1cm용 띠와 반지름 5cm용 띠 중 어느 것이 더 길까? (계산하지 말고)'},
+    {a:5,b:10,eq:false,q:'반지름 5cm용 띠와 반지름 10cm용 띠 중 어느 것이 더 길까? (계산하지 말고)'},
+    {a:2,b:4,eq:false,q:'지름 4cm용 띠와 지름 8cm용 띠 중 어느 것이 더 길까? (계산하지 말고)',dia:true}
+  ];
+  const out=pairs.map((p)=>{
+    const long = Math.max(p.a,p.b), short=Math.min(p.a,p.b);
+    const unit = p.dia?'지름':'반지름';
+    const chs=[
+      {label:unit+' '+long+'cm용',sub:'더 큰 '+unit,ok:true,mis:null,viz:{kind:'stripcmp',rel:1.0,tag:unit+' '+long}},
+      {label:unit+' '+short+'cm용',sub:'더 작은 '+unit,ok:false,mis:'작은 쪽이 더 길다고 생각',viz:{kind:'stripcmp',rel:0.55,tag:unit+' '+short}},
+      {label:'길이가 같다',sub:'둘 다 한 바퀴',ok:false,mis:'반지름이 달라도 둘레가 같다고 생각',viz:{kind:'stripcmp',rel:0.8,tag:'같다',twin:true}}
+    ];
+    return P({kind:'compare',tier:2,target:'cyl',r:long,
+      prompt:p.q, sub:'밑면의 둘레는 반지름이 클수록 길다',
+      choices:chs, answerNumeric:long, unitConcept:CONCEPT.compare});
+  });
+  // 반지름 4cm용 vs 지름 8cm용 — 같다 (지름/반지름 혼동 시험)
+  out.push(P({kind:'compare',tier:2,target:'cyl',r:4,
+    prompt:'반지름 4cm용 띠와 지름 8cm용 띠 중 어느 것이 더 길까? (계산하지 말고)',
+    sub:'지름 8cm = 반지름 4cm  →  둘레가 같다',
+    choices:[
+      {label:'길이가 같다',sub:'같은 원',ok:true,mis:null,viz:{kind:'stripcmp',rel:0.85,tag:'같다',twin:true}},
+      {label:'반지름 4cm용이 더 길다',sub:'',ok:false,mis:'지름 쪽을 더 짧게 봄',viz:{kind:'stripcmp',rel:1.0,tag:'반지름 4'}},
+      {label:'지름 8cm용이 더 길다',sub:'',ok:false,mis:'지름-착각: 숫자 8이 더 크니 둘레도 길다고 생각',viz:{kind:'stripcmp',rel:1.15,tag:'지름 8'}}
+    ], answerNumeric:0, unitConcept:CONCEPT.compare}));
+  out.push(P({kind:'compare',tier:2,target:'cyl',r:5,
+    prompt:'반지름 5cm용 띠와 지름 5cm용 띠 중 어느 것이 더 길까? (계산하지 말고)',
+    sub:'지름 5cm = 반지름 2.5cm  →  반지름 5cm용이 더 길다',
+    choices:[
+      {label:'반지름 5cm용',sub:'지름 10cm와 같음',ok:true,mis:null,viz:{kind:'stripcmp',rel:1.0,tag:'반지름 5'}},
+      {label:'지름 5cm용',sub:'반지름 2.5cm와 같음',ok:false,mis:'지름과 반지름을 같은 길이로 생각',viz:{kind:'stripcmp',rel:0.5,tag:'지름 5'}},
+      {label:'길이가 같다',sub:'숫자가 둘 다 5',ok:false,mis:'지름-착각: 숫자만 보고 같다고 생각',viz:{kind:'stripcmp',rel:0.8,tag:'같다',twin:true}}
+    ], answerNumeric:5, unitConcept:CONCEPT.compare}));
+  return out;
 }
 
 /* ── 오답 후처리: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 ── */
@@ -524,107 +715,195 @@ function makeDistractors(ansVal,ansLabel,cands,spares){
   return out;
 }
 
-/* ── (D) 옆면 띠 감기 — 가로 = 밑면의 둘레 ───────────────────── */
-function poolWrap(){
-  const out=[];
-  for(let r=1;r<=5;r++) for(let h=2;h<=10;h++){
-    if(h===r) continue;                        // 오답 '세로에 반지름' 과 정답이 겹치는 조합 제외
-    for(let dia=0;dia<2;dia++){
-      const w=circ100(r);
-      const lab=(W,H)=>'가로 '+fmt100(W)+'cm × 세로 '+H+'cm';
-      const ansLabel=lab(w,h);
-      const ds=makeDistractors(w,ansLabel,rotate([
-        {label:lab(200*r,h),val:200*r,mis:'지름-착각: 옆면 가로를 밑면의 지름(2×r)으로 생각',stripW:200*r,stripH:h},
-        {label:lab(PI100*r,h),val:PI100*r,mis:'반지름만-곱: 3.14 × 반지름 (2를 빠뜨림)',stripW:PI100*r,stripH:h},
-        {label:lab(w,r),val:w+r*0.001,mis:'세로에 높이 대신 반지름을 넣음',stripW:w,stripH:r}
-      ],r+h+dia),[
-        {label:lab(circ100(r+1),h),val:circ100(r+1),mis:'반지름을 1cm 크게 읽음',stripW:circ100(r+1),stripH:h},
-        {label:lab(100*r,h),val:100*r,mis:'반지름을 그대로 가로로 사용',stripW:100*r,stripH:h}
-      ]);
-      const chs=[{label:ansLabel,sub:'',ok:true,mis:null,viz:{kind:'strip',stripW:w,stripH:h,r:r,h:h}}]
-        .concat(ds.map((d)=>({label:d.label,sub:'',ok:false,mis:d.mis,viz:{kind:'strip',stripW:d.stripW,stripH:d.stripH,r:r,h:h}})));
-      out.push(P({kind:'wrap',band: dia? 4:3, target:'cyl', r:r, h:h,
-        prompt:(dia?('밑면의 지름이 '+(2*r)+'cm'):('밑면의 반지름이 '+r+'cm'))+', 높이가 '+h+'cm인 원기둥에 딱 맞게 감을 옆면 띠는? (원주율 3.14)',
-        sub:'옆면의 가로 = 밑면의 둘레 = 2 × 3.14 × 반지름',
-        choices:chs, answerNumeric:w/100, unitConcept:CONCEPT.wrap}));
-    }
-  }
+/* ── (D) 옆면 띠 감기 — 티어 3 친숙수 / 티어 4 임의 r ─────────── */
+function wrapItem(r,h,dia,tier){
+  const w=circ100(r);
+  const lab=(W,H)=>'가로 '+fmt100(W)+'cm × 세로 '+H+'cm';
+  const ansLabel=lab(w,h);
+  const ds=makeDistractors(w,ansLabel,rotate([
+    {label:lab(200*r,h),val:200*r,mis:'지름-착각: 옆면 가로를 밑면의 지름(2×r)으로 생각',stripW:200*r,stripH:h},
+    {label:lab(PI100*r,h),val:PI100*r,mis:'반지름만-곱: 3.14 × 반지름 (2를 빠뜨림)',stripW:PI100*r,stripH:h},
+    {label:lab(w,r),val:w+r*0.001,mis:'세로에 높이 대신 반지름을 넣음',stripW:w,stripH:r}
+  ],r+h+dia),[
+    {label:lab(circ100(dia?2*r:r+1),h),val:circ100(dia?2*r:r+1),mis:dia?'지름을 반지름으로 넣어 계산':'반지름을 1cm 크게 읽음',stripW:circ100(dia?2*r:r+1),stripH:h},
+    {label:lab(100*r,h),val:100*r,mis:'반지름을 그대로 가로로 사용',stripW:100*r,stripH:h}
+  ]);
+  const chs=[{label:ansLabel,sub:'',ok:true,mis:null,viz:{kind:'strip',stripW:w,stripH:h,r:r,h:h}}]
+    .concat(ds.map((d)=>({label:d.label,sub:'',ok:false,mis:d.mis,viz:{kind:'strip',stripW:d.stripW,stripH:d.stripH,r:r,h:h}})));
+  return P({kind:'wrap',tier:tier,target:'cyl',r:r,h:h,dia:!!dia,
+    prompt:(dia?('반지름이 아니라 지름 '+(2*r)+'cm'):('반지름 '+r+'cm'))+', 높이 '+h+'cm 원기둥에 딱 맞는 옆면 띠는?',
+    sub:'옆면의 가로 = 밑면의 둘레 = 2 × 3.14 × 반지름',
+    formula:['2','×','3.14','×',String(r)],
+    formulaNote: dia?('지름 '+(2*r)+'cm → 반지름 '+r+'cm'):'',
+    choices:chs, answerNumeric:w/100, unitConcept:CONCEPT.wrap});
+}
+function poolWrapEasy(){
+  const out=[]; const hs=[3,4,6,8];
+  FRIENDLY_R.forEach((r)=>{
+    hs.forEach((h)=>{
+      if(h===r) return;
+      out.push(wrapItem(r,h,0,3));
+      out.push(wrapItem(r,h,1,3));
+    });
+  });
+  return out;
+}
+function poolWrapHard(){
+  const out=[]; const rs=[3,4,6,7,8,9]; const hs=[2,5,7,10];
+  rs.forEach((r)=>{
+    hs.forEach((h)=>{
+      if(h===r) return;
+      out.push(wrapItem(r,h,0,4));
+      out.push(wrapItem(r,h,1,4));
+    });
+  });
   return out;
 }
 
-/* ── (E) 옆면의 넓이 ─────────────────────────────────────────── */
+/* ── (E) 옆면의 넓이 — 티어 4 장인 전용 ──────────────────────── */
 function poolArea(){
   const out=[];
-  for(let r=1;r<=5;r++) for(let h=2;h<=10;h++){
-    const a=lat100(r,h); const lab=(v)=>fmt100(v)+'cm²';
-    const ansLabel=lab(a);
-    const ds=makeDistractors(a,ansLabel,rotate([
-      {label:lab(200*r*h),val:200*r*h,mis:'지름-착각: 지름 × 높이'},
-      {label:lab(PI100*r*h),val:PI100*r*h,mis:'반지름만-곱: 3.14 × 반지름 × 높이'},
-      {label:lab(PI100*r*r),val:PI100*r*r,mis:'밑면의 넓이와 혼동'}
-    ],r+h),[
-      {label:lab(lat100(r,h+1)),val:lat100(r,h+1),mis:'높이를 1cm 크게 읽음'},
-      {label:lab(lat100(r+1,h)),val:lat100(r+1,h),mis:'반지름을 1cm 크게 읽음'}
-    ]);
-    const chs=[{label:ansLabel,sub:fmt100(circ100(r))+' × '+h,ok:true,mis:null,viz:{kind:'num'}}]
-      .concat(ds.map((d)=>({label:d.label,sub:'',ok:false,mis:d.mis,viz:{kind:'num'}})));
-    out.push(P({kind:'area',band:4,target:'cyl',r:r,h:h,
-      prompt:'밑면의 반지름이 '+r+'cm, 높이가 '+h+'cm인 원기둥의 옆면의 넓이는? (원주율 3.14)',
-      sub:'옆면의 넓이 = 밑면의 둘레 × 높이',
-      choices:chs, answerNumeric:a/100, unitConcept:CONCEPT.area}));
-  }
+  const rs=[2,3,4,5,6], hs=[3,5,7,8];
+  rs.forEach((r)=>{
+    hs.forEach((h)=>{
+      if(h===r) return;
+      const a=lat100(r,h); const lab=(v)=>fmt100(v)+'cm²';
+      const ansLabel=lab(a);
+      const ds=makeDistractors(a,ansLabel,rotate([
+        {label:lab(200*r*h),val:200*r*h,mis:'지름-착각: 지름 × 높이'},
+        {label:lab(PI100*r*h),val:PI100*r*h,mis:'반지름만-곱: 3.14 × 반지름 × 높이'},
+        {label:lab(PI100*r*r),val:PI100*r*r,mis:'밑면의 넓이와 혼동'}
+      ],r+h),[
+        {label:lab(lat100(r,h+1)),val:lat100(r,h+1),mis:'높이를 1cm 크게 읽음'},
+        {label:lab(lat100(r+1,h)),val:lat100(r+1,h),mis:'반지름을 1cm 크게 읽음'}
+      ]);
+      const chs=[{label:ansLabel,sub:fmt100(circ100(r))+' × '+h,ok:true,mis:null,viz:{kind:'num'}}]
+        .concat(ds.map((d)=>({label:d.label,sub:'',ok:false,mis:d.mis,viz:{kind:'num'}})));
+      out.push(P({kind:'area',tier:4,target:'cyl',r:r,h:h,
+        prompt:'반지름 '+r+'cm, 높이 '+h+'cm 원기둥의 옆면의 넓이는? (원주율 3.14)',
+        sub:'옆면의 넓이 = 밑면의 둘레 × 높이',
+        formula:['2','×','3.14','×',String(r),'×',String(h)],
+        formulaNote:'둘레 × 높이',
+        choices:chs, answerNumeric:a/100, unitConcept:CONCEPT.area}));
+    });
+  });
   return out;
 }
 
-/* ── (F) 구 확인 — 위·앞·옆 ──────────────────────────────────── */
-function poolSphere(){
-  const qs=['구를 위·앞·옆에서 본 모양을 바르게 나타낸 확인 카드는?',
-            '카메라를 세 방향으로 돌렸다. 구의 위·앞·옆 모습이 옳은 카드는?',
-            '구는 어느 방향에서 보아도 모양이 같다. 바른 확인 카드는?'];
-  const wrongs=[
-    [['원','타원','원'],'구를 위·앞·옆에서 다르게 그림 (앞에서 타원)'],
-    [['원','원','직사각형'],'구를 원기둥처럼 옆에서 직사각형으로 봄'],
-    [['타원','원','타원'],'구를 위·옆에서 찌그러진 타원으로 그림'],
-    [['원','삼각형','원'],'구를 원뿔처럼 앞에서 삼각형으로 봄']
-  ];
-  return qs.map((q,i)=>{
-    const w1=wrongs[i%4], w2=wrongs[(i+1)%4];
-    const mk=(v)=>'위 '+v[0]+' · 앞 '+v[1]+' · 옆 '+v[2];
-    const chs=[
-      {label:mk(['원','원','원']),sub:'',ok:true,mis:null,viz:{kind:'views',v:['원','원','원']}},
-      {label:mk(w1[0]),sub:'',ok:false,mis:w1[1],viz:{kind:'views',v:w1[0]}},
-      {label:mk(w2[0]),sub:'',ok:false,mis:w2[1],viz:{kind:'views',v:w2[0]}}
-    ];
-    return P({kind:'sphere',band:2,target:'sph',prompt:q,
+/* ── (F) 위·앞·옆 모양 — 티어 2 ──────────────────────────────── */
+function poolViews(){
+  const mk=(v)=>'위 '+v[0]+' · 앞 '+v[1]+' · 옆 '+v[2];
+  const specs=[
+    {target:'sph', ok:['원','원','원'], n:3,
+      q:['구를 위·앞·옆에서 본 모양을 바르게 나타낸 카드는?','구는 어느 방향에서 보아도 모양이 같다. 바른 카드는?'],
       sub:'구는 위에서 보아도, 앞에서 보아도, 옆에서 보아도 원이다',
-      choices:chs, answerNumeric:3, unitConcept:CONCEPT.sphere});
+      d:[
+        [['원','타원','원'],'구를 위·앞·옆에서 다르게 그림 (앞에서 타원)'],
+        [['원','원','직사각형'],'구를 원기둥처럼 옆에서 직사각형으로 봄'],
+        [['원','삼각형','원'],'구를 원뿔처럼 앞에서 삼각형으로 봄']
+      ]},
+    {target:'cyl', ok:['원','직사각형','직사각형'], n:1,
+      q:['원기둥을 위·앞·옆에서 본 모양은?','원기둥을 위와 앞에서 보면 어떤 모양일까?'],
+      sub:'위: 밑면의 원 · 앞·옆: 직사각형',
+      d:[
+        [['원','원','원'],'원기둥을 구처럼 모든 방향에서 원으로 봄'],
+        [['직사각형','직사각형','직사각형'],'위에서 본 밑면을 직사각형으로 그림'],
+        [['원','삼각형','삼각형'],'원기둥을 원뿔과 혼동']
+      ]},
+    {target:'cone', ok:['원','삼각형','삼각형'], n:2,
+      q:['원뿔을 위·앞·옆에서 본 모양은?','원뿔을 위와 앞에서 보면 어떤 모양일까?'],
+      sub:'위: 밑면의 원 · 앞·옆: 삼각형',
+      d:[
+        [['원','원','원'],'원뿔을 구처럼 봄'],
+        [['원','직사각형','직사각형'],'원뿔을 원기둥과 혼동'],
+        [['삼각형','삼각형','삼각형'],'위에서도 삼각형으로 봄 (밑면의 원을 놓침)']
+      ]}
+  ];
+  const out=[];
+  specs.forEach((s)=>{
+    s.q.forEach((q,qi)=>{
+      const w1=s.d[qi%s.d.length], w2=s.d[(qi+1)%s.d.length];
+      const chs=[
+        {label:mk(s.ok),sub:'',ok:true,mis:null,viz:{kind:'views',v:s.ok}},
+        {label:mk(w1[0]),sub:'',ok:false,mis:w1[1],viz:{kind:'views',v:w1[0]}},
+        {label:mk(w2[0]),sub:'',ok:false,mis:w2[1],viz:{kind:'views',v:w2[0]}}
+      ];
+      out.push(P({kind:'views',tier:2,target:s.target,prompt:q,sub:s.sub,
+        choices:chs, answerNumeric:s.n, unitConcept:CONCEPT.views}));
+    });
   });
+  return out;
 }
 
 /* 제약을 만족하는 후보를 전수 생성해 만든 풀. 게임은 여기서 샘플링만 한다. */
-const POOL = [].concat(poolSpin(),poolProps(),poolCone(),poolWrap(),poolArea(),poolSphere());
-const POOL_BY_BAND = {1:[],2:[],3:[],4:[]};
-POOL.forEach((p)=>{POOL_BY_BAND[p.band].push(p);});
+const POOL = [].concat(
+  poolSpin(), poolParts(), poolNet(), poolCone(), poolCylRead(),
+  poolRadia(), poolScale(), poolCompare(), poolViews(),
+  poolWrapEasy(), poolWrapHard(), poolArea()
+);
+const POOL_BY_TIER = {1:[],2:[],3:[],4:[]};
+POOL.forEach((p)=>{ (POOL_BY_TIER[p.tier]||POOL_BY_TIER[2]).push(p); });
 
-/* 웨이브 → 난이도 밴드 구성 */
-function bandsForWave(w){
-  if(w<=2) return [1,1,2];
-  if(w<=4) return [1,2,2];
-  if(w<=6) return [2,3,3];
-  return [3,3,4,4];
+/* 웨이브 + 모드 → 티어 구성
+   1: 웨이브 1~2 식별    2: 웨이브 2~3 개념·비교
+   3: 웨이브 4+ 친숙수 둘레    4: 장인 전용 옆면넓이·임의 r     */
+function tiersForWave(w, mode){
+  const hard = (mode||'easy')==='hard';
+  if(w<=1) return [1,1,1];
+  if(w<=2) return [1,1,2,2];
+  if(w<=3) return [2,2,2,1];
+  if(hard) return [3,3,3,4];
+  return [3,3,3,2];
 }
-const bagsByBand={1:[],2:[],3:[],4:[]};
-function drawProblem(wave){
-  const b=pick(bandsForWave(wave));
-  let bag=bagsByBand[b];
-  if(!bag.length){ bagsByBand[b]=bag=shuffle(POOL_BY_BAND[b].slice()); }
-  const base=bag.pop();
-  // 선택지 순서는 매번 섞는다 (정답 위치 암기 방지)
+function createBags(){ return {1:[],2:[],3:[],4:[]}; }
+let bagsByTier=createBags();
+let recentKinds=[];
+function resetDealers(){ bagsByTier=createBags(); recentKinds=[]; }
+
+function takeFromTier(tier, bags, avoidKind){
+  const pool=POOL_BY_TIER[tier];
+  if(!pool||!pool.length) return null;
+  let bag=bags[tier];
+  if(!bag.length) bags[tier]=bag=shuffle(pool.slice());
+  if(avoidKind){
+    for(let i=bag.length-1;i>=0;i--){
+      if(bag[i].kind!==avoidKind) return bag.splice(i,1)[0];
+    }
+  }
+  if(!bag.length) bags[tier]=bag=shuffle(pool.slice());
+  return bag.length?bag.pop():null;
+}
+function wrapDrawn(base){
   const chs=shuffle(base.choices.slice());
   return {src:base, kind:base.kind, target:base.target, prompt:base.prompt, sub:base.sub,
-    choices:chs, ansIdx:chs.findIndex((c)=>c.ok), r:base.r, h:base.h,
-    unitConcept:base.unitConcept};
+    choices:chs, ansIdx:chs.findIndex((c)=>c.ok), r:base.r, h:base.h, dia:base.dia,
+    unitConcept:base.unitConcept, tier:base.tier, formula:base.formula||null,
+    formulaNote:base.formulaNote||'', isCalc:!!base.isCalc};
 }
+function pickBase(wave, mode, bags, recent){
+  const avoid = (recent.length>=2 && recent[recent.length-1]===recent[recent.length-2])
+    ? recent[recent.length-1] : null;
+  const ts=shuffle(tiersForWave(wave, mode).slice());
+  let base=null;
+  for(const t of ts){
+    base=takeFromTier(t, bags, avoid);
+    if(base && base.kind!==avoid) break;
+  }
+  if(!base){
+    const fallback=tiersForWave(wave, mode);
+    for(let i=0;i<fallback.length && !base;i++) base=takeFromTier(fallback[i], bags, null);
+  }
+  if(base){
+    recent.push(base.kind);
+    if(recent.length>4) recent.splice(0, recent.length-4);
+  }
+  return base;
+}
+function drawProblem(wave, mode){
+  const base=pickBase(wave, mode||G.mode, bagsByTier, recentKinds) || pick(POOL_BY_TIER[1]);
+  return wrapDrawn(base);
+}
+function isThinkProb(p){ return !!(p && (p.kind==='wrap' || p.kind==='area')); }
 
 /* ─────────────────────── 2. 사운드 (코드 생성음) ─────────────────────── */
 const Snd=(function(){
@@ -716,7 +995,7 @@ function layout(){
   L.hud=56;
   L.cardsH=Math.round(clamp(H*0.215,132,196));
   L.buildH=Math.round(clamp(H*0.115,76,112));
-  L.bannerH=Math.round(clamp(H*0.083,56,78));
+  L.bannerH=Math.round(clamp(H*0.105,68,96));
   L.padBottom=Math.round(8+ (window.visualViewport?0:0));
   L.fieldTop=L.hud;
   L.fieldH=Math.max(130, H - L.hud - L.cardsH - L.buildH - L.bannerH - L.padBottom - 6);
@@ -1018,6 +1297,44 @@ function drawConeRibbon(c,cx,cy,R,Hh,which){
   c.restore();
 }
 
+/* 원기둥 + 높이/반지름/지름 표시 */
+function drawCylMark(c,cx,cy,R,Hh,which){
+  drawSolid(c,'cyl',cx,cy,R,Hh,{face:'#EBD9B4',dark:'#C8B183',lw:2.5});
+  const top=cy-Hh/2, bot=cy+Hh/2, ry=R*0.34;
+  c.save(); c.lineCap='round';
+  c.lineWidth=2; c.strokeStyle='rgba(37,37,37,.28)';
+  c.beginPath(); c.moveTo(cx,top); c.lineTo(cx,bot); c.stroke();
+  c.beginPath(); c.moveTo(cx,top); c.lineTo(cx+R,top); c.stroke();
+  c.beginPath(); c.moveTo(cx-R,top); c.lineTo(cx+R,top); c.stroke();
+  c.lineWidth=5.5;
+  if(which==='h'){
+    c.strokeStyle=YEL; c.beginPath(); c.moveTo(cx,top); c.lineTo(cx,bot); c.stroke();
+    c.strokeStyle=INK; c.lineWidth=2;
+    c.beginPath(); c.moveTo(cx,bot-8); c.lineTo(cx+8,bot-8); c.lineTo(cx+8,bot); c.stroke();
+  }else if(which==='r'){
+    c.strokeStyle=TOM; c.beginPath(); c.moveTo(cx,top); c.lineTo(cx+R,top); c.stroke();
+  }else{
+    c.strokeStyle=COB; c.beginPath(); c.moveTo(cx-R,top); c.lineTo(cx+R,top); c.stroke();
+  }
+  c.restore();
+}
+
+/* 배 관계용 두 원 */
+function drawTwoCircles(c,cx,cy,r0,k){
+  const k2 = k<1 ? 0.5 : k;
+  const maxR=Math.min(26, (k2>1?18:22));
+  const ra=maxR/(k2>1?k2:1), rb=ra*k2;
+  c.save();
+  c.fillStyle='#9FD1F2'; c.strokeStyle=INK; c.lineWidth=2.2;
+  c.beginPath(); c.arc(cx-rb-4,cy,ra,0,TAU); c.fill(); c.stroke();
+  c.fillStyle='#F4B400';
+  c.beginPath(); c.arc(cx+ra+4,cy,rb,0,TAU); c.fill(); c.stroke();
+  c.fillStyle='rgba(37,37,37,.7)'; c.font='800 9px '+FONT; c.textAlign='center';
+  c.fillText('r',cx-rb-4,cy+ra+10);
+  c.fillText(k===0.5?'r÷2':('r×'+k),cx+ra+4,cy+rb+10);
+  c.restore();
+}
+
 /* 옆면 띠 (전개도 조각) */
 function drawStrip(c,x,y,w,h,color,label){
   c.save();
@@ -1118,6 +1435,22 @@ function renderCardFaces(){
     }else if(kind==='cone'){
       const R=Math.min(w*0.26,22), Hh=Math.min(vizH*0.8,46);
       drawConeRibbon(c,cx-R*0.4,cy,R,Hh,ch.viz.ribbon);
+    }else if(kind==='cylmark'){
+      const R=Math.min(w*0.24,20), Hh=Math.min(vizH*0.82,48);
+      drawCylMark(c,cx,cy,R,Hh,ch.viz.mark);
+    }else if(kind==='circles'){
+      drawTwoCircles(c,cx,cy,ch.viz.r||2,ch.viz.k||2);
+    }else if(kind==='stripcmp'){
+      const maxW=w-22, sw=Math.max(16,maxW*(ch.viz.rel||0.8));
+      const sh=Math.max(12,vizH*0.38);
+      if(ch.viz.twin){
+        drawStrip(c,cx-sw*0.42,cy-sh-3,sw*0.84,sh*0.72,'#EFE0BC');
+        drawStrip(c,cx-sw*0.42,cy+4,sw*0.84,sh*0.72,'#EFE0BC');
+      }else{
+        drawStrip(c,cx-sw/2,cy-sh/2,sw,sh,'#EFE0BC');
+      }
+      c.fillStyle='rgba(37,37,37,.62)'; c.font='800 9px '+FONT;
+      c.fillText(ch.viz.tag||'띠',cx,cy-sh/2-8);
     }else if(kind==='strip'){
       const maxW=w-22, sw=Math.max(12,maxW*(ch.viz.stripW/maxStrip));
       const sh=Math.max(10, vizH*0.62*(ch.viz.stripH/maxSH));
@@ -1188,13 +1521,29 @@ function updateBanner(msg,cls){
   const p=G.problem; const b=$('#banner');
   b.classList.remove('good','bad');
   if(cls) b.classList.add(cls);
-  if(msg){ $('#bTag').textContent = cls==='bad'?'왜 틀렸을까':'좋아!'; $('#bMain').textContent=msg.main; $('#bSub').textContent=msg.sub||''; return; }
+  if(msg){ $('#bTag').textContent = cls==='bad'?'왜 틀렸을까':'좋아!'; $('#bMain').textContent=msg.main; $('#bSub').textContent=msg.sub||''; setFormula(null); return; }
   if(!p) return;
-  $('#bTag').textContent='주문 '+G.wave+'-'+(G.solved+1);
+  const think=isThinkProb(p);
+  $('#bTag').textContent= think ? '계산 주문 · 먼지 대기' : ('주문 '+G.wave+'-'+(G.solved+1));
+  $('#bTag').classList.toggle('think', think);
   const len=p.prompt.length;
   $('#bMain').style.fontSize = (len<=30?16:len<=48?14:len<=70?12.5:11)+'px';
   $('#bMain').textContent=p.prompt;
-  $('#bSub').textContent = (G.mode==='easy'||p.kind==='spin'||p.kind==='wrap') ? p.sub : '';
+  const showSub = (G.mode==='easy'||p.kind==='spin'||p.kind==='compare'||p.kind==='scale'||p.kind==='radia'||p.kind==='read'||p.kind==='views') && !p.formula;
+  $('#bSub').textContent = showSub ? (p.sub||'') : '';
+  setFormula(p);
+}
+function setFormula(p){
+  const el=$('#bFormula');
+  if(!p || !p.formula || !p.formula.length){ el.classList.remove('on'); el.innerHTML=''; return; }
+  el.classList.add('on');
+  const bits=[];
+  if(p.formulaNote) bits.push('<span class="fnote">'+p.formulaNote+'</span>');
+  p.formula.forEach((tok)=>{
+    if(tok==='×'||tok==='=') bits.push('<span class="fop">'+tok+'</span>');
+    else bits.push('<span class="ftile'+(tok==='3.14'||tok==='2'?' dim':'')+'">'+tok+'</span>');
+  });
+  el.innerHTML=bits.join('');
 }
 
 /* ─────────────────────── 8. 연출 헬퍼 ─────────────────────── */
@@ -1469,7 +1818,7 @@ function startRun(mode){
   G.dex={}; G.concepts={}; G.toast=null;
   G.mountedIdx=-1; G.dragRobot=null; G.axisSwipe=null; G.hoverSlot=-1; G.dragCard=null;
   G.shake=0; G.flash=0; G.bounce=0; G.bounceT=0; G.glow=0;
-  bagsByBand[1]=[];bagsByBand[2]=[];bagsByBand[3]=[];bagsByBand[4]=[];
+  resetDealers(); G.thinkToastShown=false; G.wasThink=false;
   $('#title').classList.add('hide'); $('#result').classList.add('hide');
   $('#hud').classList.remove('hide'); $('#banner').classList.remove('hide');
   newProblem(); syncHud();
@@ -1857,9 +2206,11 @@ function drawAnim(c){
     const p=a.prob;
     const q=easeOutBack(clamp(pr/0.5,0,1));
     c.save(); c.translate(cx,cy); c.scale(q,q); c.translate(-cx,-cy);
-    if(p.kind==='cone'&&a.choice.viz.kind==='cone'){
+    if(a.choice.viz && a.choice.viz.kind==='cone'){
       drawConeRibbon(c,cx,cy,R*0.6,R*1.15,a.choice.viz.ribbon);
-    }else if(p.kind==='sphere'){
+    }else if(a.choice.viz && a.choice.viz.kind==='cylmark'){
+      drawCylMark(c,cx,cy,R*0.55,R*1.1,a.choice.viz.mark);
+    }else if(a.choice.viz && a.choice.viz.kind==='views'){
       const s=R*0.3, gap=R*0.72, v=a.choice.viz.v;
       ['위','앞','옆'].forEach((lb,k)=>{
         const xx=cx+(k-1)*gap;
@@ -2040,14 +2391,23 @@ function update(dt){
   if(G.toast){ G.toast.t+=dt; if(G.toast.t>1.8) G.toast=null; }
 
   if(G.phase==='playing'){
-    G.waveT+=dt;
-    if(G.waveT>=WAVE_SEC) nextWave();
-    G.spawnT-=dt;
-    if(G.spawnT<=0){
-      spawnEnemy();
-      G.spawnT=Math.max(0.55,1.9-0.17*(G.wave-1))*(0.85+Math.random()*0.35);
+    const think=isThinkProb(G.problem);
+    if(think && !G.thinkToastShown){
+      G.toast={txt:'계산 시간',sub:'먼지가 잠시 기다려 준다',t:0};
+      G.thinkToastShown=true;
     }
-    updateEnemies(dt);
+    if(think){
+      G.spawnT=1.6;
+    }else{
+      G.waveT+=dt;
+      if(G.waveT>=WAVE_SEC) nextWave();
+      G.spawnT-=dt;
+      if(G.spawnT<=0){
+        spawnEnemy();
+        G.spawnT=Math.max(0.55,1.9-0.17*(G.wave-1))*(0.85+Math.random()*0.35);
+      }
+    }
+    updateEnemies(think ? dt*0.08 : dt);
     for(let i=0;i<SLOTS;i++){
       const r=G.robots[i]; if(!r) continue;
       r.t+=dt; r.pop=Math.max(0,r.pop-dt*3.2);
@@ -2321,16 +2681,22 @@ window.addEventListener('resize',onResize);
 if(window.visualViewport) window.visualViewport.addEventListener('resize',onResize);
 
 /* ─────────────────────── 17. QA 훅 ─────────────────────── */
-function hookSample(n){
+function hookSample(n, opts){
   n=Math.max(1,n|0);
-  const bag=shuffle(POOL.slice());
+  opts=opts||{};
+  const mode=opts.mode||'easy';
+  const bags=createBags();
+  const recent=[];
   const out=[];
   for(let i=0;i<n;i++){
-    const p=bag[i%bag.length];
+    const w=(opts.wave|0)>0 ? (opts.wave|0) : (1+(i%8));
+    const p=pickBase(w, mode, bags, recent);
+    if(!p) break;
     const labels=p.choices.map((c)=>c.sub?(c.label+' ('+c.sub+')'):c.label);
     const ans=labels[p.choices.findIndex((c)=>c.ok)];
     out.push({id:p.id+'-'+i, prompt:p.prompt, choices:labels, answer:ans,
-      answerNumeric:p.answerNumeric, unitConcept:p.unitConcept});
+      answerNumeric:p.answerNumeric, unitConcept:p.unitConcept,
+      tier:p.tier, kind:p.kind, isCalc:!!p.isCalc, wave:w, mode:mode});
   }
   return out;
 }
@@ -2339,7 +2705,8 @@ window.__GAME_TEST__={
   start(){ if(G.phase!=='playing') startRun('easy'); },
   getState(){
     return {score:Math.round(G.score),lives:G.lives,level:G.wave,phase:G.phase,
-      solved:G.solved,combo:G.combo,misses:G.misses};
+      solved:G.solved,combo:G.combo,misses:G.misses,
+      kind:G.problem&&G.problem.kind, tier:G.problem&&G.problem.tier, think:isThinkProb(G.problem)};
   },
   answerCorrect(){
     if(G.phase!=='playing') startRun('easy');
@@ -2358,7 +2725,22 @@ window.__GAME_TEST__={
     if(i<0){ newProblem(); i=G.problem.choices.findIndex((c)=>!c.ok); }
     commit(i,true);
   },
-  sampleProblems(n){ return hookSample(n||20); }
+  sampleProblems(n, opts){ return hookSample(n||20, opts); },
+  forceTier(tier){
+    if(G.phase!=='playing') startRun('easy');
+    G.frozen=false;
+    const onb=$('#onb'); if(onb) onb.classList.add('hide');
+    const pool=(POOL_BY_TIER[tier]||[]).slice();
+    const prefer=pool.filter((p)=>p.kind==='compare'||p.kind==='scale'||p.kind==='radia'||p.kind==='views'||p.kind==='read');
+    const base=pick(prefer.length?prefer:pool);
+    if(!base) return false;
+    G.problem=wrapDrawn(base);
+    G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardY,hx:L.cardX(i),hy:L.cardY,
+      drag:false,dead:false,mounted:false,shake:0,lift:0,pop:0,face:null}));
+    renderCardFaces();
+    updateBanner();
+    return G.problem.kind;
+  }
 };
 
 /* ─────────────────────── 18. 시작 ─────────────────────── */
