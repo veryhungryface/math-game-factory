@@ -1023,10 +1023,13 @@ function tilesMatch(a,b){ return matchReason(a,b)===null; }
 
 // ───────────────────────────── 주문서
 
+function fmtCm(n){ return n+'cm'; }
+function dimJoin(dims){ return dims.map(fmtCm).join('×'); }
+function dimShort(dims){ return dims.join('×')+'cm'; }
 function sequenceOrderText(order){
   const cur=order.seq[order.seqIndex];
   const stepLabel = order.seqIndex===0 ? '① 작은 상자 먼저' : '② 큰 상자는 나중에';
-  return `${stepLabel}: 가로 ${cur[0]} · 세로 ${cur[1]} · 높이 ${cur[2]}`;
+  return `${stepLabel}: 가로 ${fmtCm(cur[0])} · 세로 ${fmtCm(cur[1])} · 높이 ${fmtCm(cur[2])}`;
 }
 
 // 이미 격자에 완성돼 있는 상자의 치수 — 주문서를 새로 뽑을 때 이걸 우선 채택하면
@@ -1059,7 +1062,7 @@ function genOrder(){
     order.accepts=(box)=> box.isCube;
   } else if(level===2){
     order.type='dims';
-    order.text=`가로 ${w} · 세로 ${h} · 높이 ${d} 상자를 배송하세요`;
+    order.text=`가로 ${fmtCm(w)} · 세로 ${fmtCm(h)} · 높이 ${fmtCm(d)} 상자를 배송하세요`;
     order.accepts=(box)=> sameMultiset(box.dims, dims);
   } else if(level===3){
     order.type='sequence';
@@ -2227,7 +2230,7 @@ function drawNetShape(t, x, y, w, h){
   const hidden = t.level>=3;
   const peeking = !!(t.peekUntil && NOW_MS < t.peekUntil);
   if(!hidden || peeking){
-    const dimsLabel = `${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`;
+    const dimsLabel = dimShort(t.dims);
     ctx.font = `900 ${Math.max(15, w*0.15)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     const tw = ctx.measureText(dimsLabel).width;
@@ -2301,7 +2304,7 @@ function drawTile(t){
     ctx.fillStyle='#2e3440';
     ctx.font=`800 ${Math.max(10,w*0.11)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
     ctx.textAlign='center';
-    ctx.fillText(`${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`, 0, h*0.40);
+    ctx.fillText(dimShort(t.dims), 0, h*0.40);
   } else if(t.kind==='dims'){
     // 치수 카드: 트랩 없이 숫자만 — 가장 큰 글자로 강조한다
     ctx.fillStyle='#8a5a2b';
@@ -2309,17 +2312,17 @@ function drawTile(t){
     ctx.textAlign='center';
     ctx.fillText('치수 카드', 0, -h*0.30);
     ctx.fillStyle='#2e3440';
-    ctx.font=`900 ${Math.max(15,w*0.16)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
+    ctx.font=`900 ${Math.max(14,w*0.145)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
     ctx.textBaseline='middle';
-    ctx.fillText(`${t.dims[0]}×${t.dims[1]}`, 0, -h*0.02);
-    ctx.fillText(`×${t.dims[2]}`, 0, h*0.22);
+    ctx.fillText(`${fmtCm(t.dims[0])}×${fmtCm(t.dims[1])}`, 0, -h*0.02);
+    ctx.fillText(`×${fmtCm(t.dims[2])}`, 0, h*0.22);
     ctx.textBaseline='alphabetic';
   } else {
     drawWireBox(ctx, 0, -h*0.05, t.dims, new Set(CORRECT_DASHED), { targetW:w*0.78, targetH:h*0.52, lineWidth:Math.min(6, Math.max(3, Math.min(w,h)*0.048)), fillColor: t.isCube?'#5c7cfa':'#ffb85c' });
     ctx.fillStyle='#2e3440';
     ctx.font=`800 ${Math.max(10,w*0.1)}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
     ctx.textAlign='center';
-    ctx.fillText(t.isCube? '정육면체' : `${t.dims[0]}×${t.dims[1]}×${t.dims[2]}`, 0, h*0.40);
+    ctx.fillText(t.isCube? '정육면체' : dimShort(t.dims), 0, h*0.40);
     ctx.fillStyle='#3ad39c';
     ctx.font=`900 ${Math.max(9,w*0.085)}px -apple-system, sans-serif`;
     ctx.fillText('완성!', 0, -h*0.36);
@@ -2439,7 +2442,7 @@ function sampleJudgeProblems(n){
       const same=Math.random()<0.5;
       const [w2,h2,d2]= same ? shuffle([w1,h1,d1]) : [w1+randInt(1,3), h1, d1];
       const answer = sameMultiset([w1,h1,d1],[w2,h2,d2]) ? '같은 상자가 된다' : '다른 상자가 된다';
-      return { id:`dims-${w1}${h1}${d1}-${w2}${h2}${d2}`, prompt:`가로·세로·높이가 ${w1}×${h1}×${d1} 인 전개도와 ${w2}×${h2}×${d2} 인 전개도는 같은 상자가 될까요?`,
+      return { id:`dims-${w1}${h1}${d1}-${w2}${h2}${d2}`, prompt:`가로·세로·높이가 ${dimJoin([w1,h1,d1])} 인 전개도와 ${dimJoin([w2,h2,d2])} 인 전개도는 같은 상자가 될까요?`,
         choices:['같은 상자가 된다','다른 상자가 된다'], answer, answerNumeric: answer==='같은 상자가 된다'?1:0, unitConcept:'직육면체 전개도의 합동' };
     },
     ()=>{
@@ -2448,7 +2451,7 @@ function sampleJudgeProblems(n){
       const askSolid=Math.random()<0.5;
       const answer=askSolid?`${solid}개`:`${dashed}개`;
       const choices=askSolid? ['6개','9개','12개','3개'] : ['3개','6개','9개','12개'];
-      return { id:'wire'+w+h+d+askSolid, prompt:`가로 ${w} 세로 ${h} 높이 ${d}인 직육면체의 겨냥도에서 ${askSolid?'실선(보이는 모서리)':'점선(숨은 모서리)'}은 몇 개일까요?`,
+      return { id:'wire'+w+h+d+askSolid, prompt:`가로 ${fmtCm(w)} 세로 ${fmtCm(h)} 높이 ${fmtCm(d)}인 직육면체의 겨냥도에서 ${askSolid?'실선(보이는 모서리)':'점선(숨은 모서리)'}은 몇 개일까요?`,
         choices, answer, answerNumeric:askSolid?solid:dashed, unitConcept:'겨냥도의 실선과 점선' };
     },
     ()=>{
@@ -2456,8 +2459,8 @@ function sampleJudgeProblems(n){
       const correct=(w+h+d)*4;
       const choices=new Set([correct, (w+h+d)*3, correct+4, correct-4]);
       while(choices.size<4) choices.add(correct+randInt(-8,8));
-      return { id:'sum'+w+h+d, prompt:`가로 ${w}cm, 세로 ${h}cm, 높이 ${d}cm인 직육면체의 모든 모서리 길이의 합은 몇 cm일까요?`,
-        choices:[...choices].map(String), answer:String(correct), answerNumeric:correct, unitConcept:'직육면체의 모서리 길이의 합' };
+      return { id:'sum'+w+h+d, prompt:`가로 ${fmtCm(w)}, 세로 ${fmtCm(h)}, 높이 ${fmtCm(d)}인 직육면체의 모든 모서리 길이의 합은 몇 cm일까요?`,
+        choices:[...choices].map(v=>fmtCm(v)), answer:fmtCm(correct), answerNumeric:correct, unitConcept:'직육면체의 모서리 길이의 합' };
     },
     ()=>{
       const kind=pick(['면','모서리','꼭짓점']);
@@ -2474,8 +2477,23 @@ function sampleJudgeProblems(n){
       return { id:'incl'+phrasing.prompt.length, prompt:phrasing.prompt, choices:phrasing.choices, answer:phrasing.answer, answerNumeric:1, unitConcept:'정육면체와 직육면체의 관계' };
     },
     ()=>{
-      const [w,h,d]=randDims();
-      return { id:'oppo'+w+h+d, prompt:`가로 ${w} 세로 ${h} 높이 ${d}인 직육면체의 전개도에서 어떤 면과 마주 보는 면은 같은 줄에서 몇 칸 건너뛴 면일까요?`, choices:['바로 옆 칸','한 칸 건너뛴 칸','두 칸 건너뛴 칸','맨 끝 칸'], answer:'한 칸 건너뛴 칸', answerNumeric:1, unitConcept:'전개도에서 마주 보는 면' };
+      // 특정 십자형 전개도 그림을 보여 주고 그 그림에서만 마주 보는 면을 묻는다.
+      // 일반 규칙("같은 줄에서 한 칸 건너")은 전개도마다 다르므로 쓰지 않는다.
+      const diagram='      [가]\n[나][다][라][마]\n      [바]';
+      const pairs=[['가','바'],['나','라'],['다','마']];
+      const pair=pick(pairs);
+      const swap=Math.random()<0.5;
+      const ask=swap?pair[1]:pair[0];
+      const ansFace=swap?pair[0]:pair[1];
+      const ans='['+ansFace+']';
+      const others=['가','나','다','라','마','바'].filter(l=>l!==ask&&l!==ansFace).map(l=>'['+l+']');
+      const choices=shuffle([ans, others[0], others[1], others[2]]);
+      return {
+        id:'oppo-cross-'+ask+ansFace,
+        prompt:'아래 정육면체 전개도에서 ['+ask+']와 마주 보는 면은 어느 면일까요?\n\n'+diagram,
+        choices, answer:ans, answerNumeric:['가','나','다','라','마','바'].indexOf(ansFace),
+        unitConcept:'전개도에서 마주 보는 면'
+      };
     },
     ()=>{
       // 새 병합 규칙: "다른 종류" 두 표현(전개도/겨냥도/치수카드)이 같은 상자를 나타낼 때만 합쳐진다.
@@ -2485,7 +2503,7 @@ function sampleJudgeProblems(n){
       const kindPair = pick([['전개도','겨냥도'],['전개도','치수 카드'],['겨냥도','치수 카드']]);
       const answer = sameMultiset([w1,h1,d1],[w2,h2,d2]) ? '병합할 수 있다' : '병합할 수 없다';
       return { id:`match-${w1}${h1}${d1}-${w2}${h2}${d2}-${kindPair[0]}`,
-        prompt:`${kindPair[0]}가 나타내는 상자는 가로 ${w1}·세로 ${h1}·높이 ${d1} 이고, ${kindPair[1]}가 나타내는 상자는 가로 ${w2}·세로 ${h2}·높이 ${d2} 입니다. 이 둘을 겹치면 하나의 상자로 합쳐질까요?`,
+        prompt:`${kindPair[0]}가 나타내는 상자는 가로 ${fmtCm(w1)}·세로 ${fmtCm(h1)}·높이 ${fmtCm(d1)} 이고, ${kindPair[1]}가 나타내는 상자는 가로 ${fmtCm(w2)}·세로 ${fmtCm(h2)}·높이 ${fmtCm(d2)} 입니다. 이 둘을 겹치면 하나의 상자로 합쳐질까요?`,
         choices:['병합할 수 있다','병합할 수 없다'], answer, answerNumeric: answer==='병합할 수 있다'?1:0, unitConcept:'서로 다른 표현끼리의 병합 판정' };
     },
     ()=>{
@@ -2493,7 +2511,7 @@ function sampleJudgeProblems(n){
       const [w,h,d]=randDims();
       const kind=pick(['전개도','겨냥도','치수 카드']);
       return { id:'samekind'+kind+w+h+d,
-        prompt:`가로 ${w}·세로 ${h}·높이 ${d}를 나타내는 ${kind} 2장을 나란히 겹치면 상자가 완성될까요?`,
+        prompt:`가로 ${fmtCm(w)}·세로 ${fmtCm(h)}·높이 ${fmtCm(d)}를 나타내는 ${kind} 2장을 나란히 겹치면 상자가 완성될까요?`,
         choices:['완성된다','완성되지 않는다'], answer:'완성되지 않는다', answerNumeric:0, unitConcept:'같은 표현끼리는 병합되지 않음' };
     },
   ];
