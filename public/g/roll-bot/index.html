@@ -230,12 +230,19 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 .stamp.on .em{filter:none;opacity:1;}
 @keyframes stampIn{0%{transform:scale(2.2) rotate(-14deg);opacity:0}70%{transform:scale(.94) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(-3deg)}}
 #dexTitle{font-size:12px;font-weight:900;color:#7A6440;margin:4px 0 5px;}
-#dex{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:12px;}
-.dcell{background:#fff;border:2px solid #D9C79E;border-radius:11px;padding:5px 2px;font-size:10px;font-weight:900;color:#CBBB99;}
+#dex{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:8px;}
+.dcell{background:#fff;border:2px solid #D9C79E;border-radius:9px;padding:4px 1px;font-size:8.5px;font-weight:900;color:#CBBB99;line-height:1.2;}
 .dcell.on{border-color:#1769AA;color:#0E3F68;background:#E6F2FB;}
+.dcell.fresh{border-color:#EFA211;background:#FFF4C8;color:#8A4A08;box-shadow:0 0 0 2px rgba(244,180,0,.45);animation:stampIn .45s cubic-bezier(.2,1.7,.4,1) both;}
+.dcell.aw{border-style:solid;}
+#rNext{font-size:12px;font-weight:800;color:#7A6440;margin:4px 0 8px;min-height:16px;}
 #rbtns{display:flex;gap:9px;}
 #rbtns .bigbtn{flex:1;min-height:58px;font-size:17px;}
 #newbest{font-size:13px;font-weight:900;color:#B9410F;margin-top:8px;min-height:17px;}
+.title-dex{position:absolute;right:14px;top:118px;width:110px;margin:0;padding:0;
+  font-size:11px;font-weight:800;line-height:1.2;color:var(--ink-navy);
+  text-align:right;text-shadow:0 1px 0 rgba(255,247,230,.9);}
+.title-dex[hidden]{display:none;}
 </style>
 </head>
 <body>
@@ -272,6 +279,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
     <p class="game-subtitle">딱 맞게 말아라</p>
     <p class="title-unit">6학년 2학기<br>원기둥 · 원뿔 · 구</p>
     <div class="title-meta" id="tBest" hidden></div>
+    <div class="title-dex" id="tDex" hidden></div>
     <button class="title-primary" id="btnStart" type="button" aria-label="가동">
       <span class="lever-rail" aria-hidden="true"></span>
       <span class="lever-knob" aria-hidden="true"></span>
@@ -306,12 +314,13 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
       <div class="rstat"><b id="rAcc">0%</b><span>정확도</span></div>
     </div>
     <div id="stamps">
-      <div class="stamp" id="stDis"><span class="em">🔎</span>발견<br>도감 6종</div>
+      <div class="stamp" id="stDis"><span class="em">🔎</span>발견<br>도감 12종</div>
       <div class="stamp" id="stAcc"><span class="em">🎯</span>정답<br>정확도 80%</div>
       <div class="stamp" id="stExp"><span class="em">💡</span>설명<br>5개념 정복</div>
     </div>
     <div id="dexTitle">로봇 도감</div>
     <div id="dex"></div>
+    <div id="rNext"></div>
     <div id="rbtns">
       <button class="bigbtn" id="btnRetry">다시 하기</button>
       <button class="bigbtn alt" id="btnHome">타이틀</button>
@@ -382,9 +391,58 @@ function eul(w){const c=w.charCodeAt(w.length-1);
   if(c<0xAC00||c>0xD7A3) return '를';
   return ((c-0xAC00)%28!==0)?'을':'를';}
 let PID=0;
+function slugMis(s){
+  if(!s) return null;
+  const map=[
+    ['지름-착각','diameter-as-width'],['반지름만-곱','missing-times-two'],
+    ['모선-높이','slant-height'],['전개도-일반화','generalize-net'],
+    ['각기둥-일반화','prism-generalize'],['밑면의 넓이','mix-base-area'],
+    ['둘레-높이','mix-circ-height'],['지름을 반지름','diameter-as-radius'],
+    ['반지름을 지름','radius-as-diameter'],['세로에 높이','height-as-radius'],
+    ['원뿔과 혼동','mix-cone'],['원기둥과 혼동','mix-cyl'],['구와 혼동','mix-sph'],
+    ['원뿔을','mix-cone'],['원기둥을','mix-cyl'],['구를','mix-sph'],
+    ['회전-결과','spin-result-mix'],['앞에서 본','front-as-base'],
+    ['옆면(전개도)과 밑면','net-as-base'],['부채꼴','cone-net-mix'],
+    ['꼭짓점','vertex-mix'],['같','same-length-mix'],['4배','area-scale-mix'],
+    ['9배','area-scale-mix'],['1/4','area-scale-mix'],['작은 쪽','smaller-longer'],
+    ['숫자만','number-looks-bigger'],['모선','slant-height'],
+    ['반지름을 높이','radius-as-height'],['지름을 높이','diameter-as-height'],
+    ['높이를 반지름','height-as-radius'],['지름에 2','double-diameter'],
+    ['거꾸로 나눔','invert-divide'],['높이 대신 반지름','height-as-radius'],
+    ['그대로 가로','radius-as-width'],['1cm 크게','off-by-one'],
+    ['위에서도 삼각형','top-as-triangle'],['옆에서 직사각형','side-as-rect']
+  ];
+  for(let i=0;i<map.length;i++) if(String(s).indexOf(map[i][0])>=0) return map[i][1];
+  return 'misc-concept';
+}
+function defaultParamKey(o){
+  if(o.paramKey) return o.paramKey;
+  const bits=[];
+  if(o.r!=null) bits.push('r='+o.r);
+  if(o.h!=null) bits.push('h='+o.h);
+  if(o.dia!=null) bits.push('dia='+(o.dia?1:0));
+  if(o.l!=null) bits.push('l='+o.l);
+  if(!bits.length) bits.push('q='+String(o.prompt||'').slice(0,28));
+  return bits.join('|');
+}
 function P(o){
   o.id='p'+(++PID);
-  o.isCalc = o.kind==='wrap'||o.kind==='area';
+  o.variant = o.variant || o.kind;
+  o.promptTemplateId = o.promptTemplateId || o.kind;
+  o.paramKey = defaultParamKey(o);
+  (o.choices||[]).forEach((c)=>{
+    if(c.ok) { if(!c.misconceptionId) c.misconceptionId=null; }
+    else if(!c.misconceptionId) c.misconceptionId=slugMis(c.mis);
+  });
+  o.misconceptionIds=(o.choices||[]).filter((c)=>!c.ok&&c.misconceptionId).map((c)=>c.misconceptionId);
+  if(o.isCalc==null){
+    const calcVar={
+      'choose-net':1,'choose-net-hard':1,'area':1,'complete-formula':1,
+      'find-error':1,'find-error-hard':1,'inverse-radius':1,
+      'missing-dimension':1,'two-step-compare':1
+    };
+    o.isCalc = !!(calcVar[o.variant] || o.kind==='wrap' || o.kind==='area');
+  }
   return o;
 }
 
@@ -407,7 +465,9 @@ function poolSpin(){
       mis: k===ansKey?null:(k==='rect'?'전개도-일반화: 원뿔·구도 직사각형을 돌려 만든다고 생각':'회전-결과 혼동'),
       viz:{kind:'profile',key:k}
     }));
-    return P({kind:'spin',tier:1,target:s.t,
+    return P({kind:'spin',variant:'spin',tier:1,target:s.t,
+      paramKey:'spin-'+s.t+'-'+s.cond.slice(0,10),
+      promptTemplateId:'spin-make',
       prompt:'평면도형을 축에 대고 한 바퀴 돌려 '+s.ask+eul(s.ask)+' 만들어라. ('+s.cond+')',
       sub:'축에 붙이는 변 — 직사각형: 한 변 / 직각삼각형: 직각을 낀 변 / 반원: 지름',
       choices:chs, answerNumeric: s.t==='cyl'?2:(s.t==='cone'?1:0),
@@ -463,8 +523,9 @@ function poolParts(){
      d:[['원뿔','원뿔은 밑면이 1개다'],
         ['각기둥','각기둥은 굽은 면이 없다']]}
   ];
-  return items.map((it)=>P({kind:'parts',tier:1,target:it.target,prompt:it.q,
-    sub:'밑면 개수 · 꼭짓점 · 굽은 면을 떠올려라',
+  return items.map((it)=>P({kind:'parts',variant:'parts',tier:1,target:it.target,
+    paramKey:'parts-'+it.q.slice(0,18), promptTemplateId:'parts-id',
+    prompt:it.q, sub:'밑면 개수 · 꼭짓점 · 굽은 면을 떠올려라',
     choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.parts}));
 }
 
@@ -488,8 +549,9 @@ function poolNet(){
      d:[['밑면의 지름','지름-착각'],
         ['밑면의 둘레','둘레-높이 혼동']]}
   ];
-  return items.map((it)=>P({kind:'net',tier:2,target:it.target,prompt:it.q,
-    sub:'계산하지 말고 뜻을 골라라',
+  return items.map((it)=>P({kind:'net',variant:'net',tier:2,target:it.target,
+    paramKey:'net-'+it.q.slice(0,18), promptTemplateId:'net-id',
+    prompt:it.q, sub:'계산하지 말고 뜻을 골라라',
     choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.net}));
 }
 
@@ -505,7 +567,8 @@ function poolCone(){
       {label:'파란 리본 '+l+'cm',sub:'꼭짓점 → 밑면 둘레',ok:false,mis:'모선-높이 혼동: 모선을 높이로 착각',viz:{kind:'cone',ribbon:'l',r:r,h:h,l:l}},
       {label:'빨간 리본 '+r+'cm',sub:'밑면 중심 → 둘레',ok:false,mis:'반지름을 높이로 착각',viz:{kind:'cone',ribbon:'r',r:r,h:h,l:l}}
     ];
-    return P({kind:'read',tier:2,target:'cone',
+    return P({kind:'read',variant:'read',tier:2,target:'cone', r:r,h:h,l:l,
+      paramKey:'r='+r+'|h='+h+'|l='+l, promptTemplateId:'cone-height',
       prompt:'원뿔의 높이를 나타내는 리본을 골라라. 높이는 꼭짓점에서 밑면에 수직으로 내린 선분이다.',
       sub:'모선(꼭짓점→밑면 둘레)은 높이보다 길다 — 헷갈리지 마라',
       choices:chs, answerNumeric:h, unitConcept:CONCEPT.read});
@@ -535,7 +598,8 @@ function poolCylRead(){
       const chs=[
         {label:ask.ok(s),sub:ask.okSub,ok:true,mis:null,viz:{kind:'cylmark',mark:ask.which,r:s[0],h:s[1]}}
       ].concat(ask.bad[0](s));
-      out.push(P({kind:'read',tier:2,target:'cyl',r:s[0],h:s[1],
+      out.push(P({kind:'read',variant:'read',tier:2,target:'cyl',r:s[0],h:s[1],
+        paramKey:'r='+s[0]+'|h='+s[1]+'|w='+ask.which, promptTemplateId:'cyl-read-'+ask.which,
         prompt:ask.q,
         sub:'높이는 두 밑면 사이, 반지름은 밑면 중심에서 둘레까지',
         choices:chs, answerNumeric:ask.n(s), unitConcept:CONCEPT.read}));
@@ -550,7 +614,8 @@ function poolRadia(){
   const out=[];
   ds.forEach((d)=>{
     const r=d/2;
-    out.push(P({kind:'radia',tier:2,target:'cyl',r:r,
+    out.push(P({kind:'radia',variant:'radia',tier:2,target:'cyl',r:r,
+      paramKey:'d='+d+'|ask=r', promptTemplateId:'radia-d2r',
       prompt:'밑면의 지름이 '+d+'cm인 원기둥의 반지름은?',
       sub:'지름 = 반지름 × 2',
       choices:[
@@ -560,7 +625,8 @@ function poolRadia(){
       ], answerNumeric:r, unitConcept:CONCEPT.radia}));
   });
   [2,3,5,7].forEach((r)=>{
-    out.push(P({kind:'radia',tier:2,target:'cyl',r:r,
+    out.push(P({kind:'radia',variant:'radia',tier:2,target:'cyl',r:r,
+      paramKey:'r='+r+'|ask=d', promptTemplateId:'radia-r2d',
       prompt:'밑면의 반지름이 '+r+'cm인 원기둥의 지름은?',
       sub:'지름 = 반지름 × 2',
       choices:[
@@ -569,7 +635,8 @@ function poolRadia(){
         {label:(r/2)+'cm',sub:'',ok:false,mis:'지름과 반지름을 거꾸로 나눔',viz:{kind:'cylmark',mark:'r',r:r,h:Math.max(5,r+3)}}
       ], answerNumeric:2*r, unitConcept:CONCEPT.radia}));
   });
-  out.push(P({kind:'radia',tier:2,target:'cyl',r:4,
+  out.push(P({kind:'radia',variant:'radia',tier:2,target:'cyl',r:4,
+    paramKey:'ask=times', promptTemplateId:'radia-times',
     prompt:'밑면의 지름은 반지름의 몇 배일까?',
     sub:'지름 = 반지름 × 2',
     choices:textChoices('2배',[
@@ -596,7 +663,9 @@ function poolScale(){
   return items.map((it)=>{
     const chs=[{label:it.a,sub:'',ok:true,mis:null,viz:it.viz}]
       .concat(it.d.map((d)=>({label:d[0],sub:'',ok:false,mis:d[1],viz:it.viz})));
-    return P({kind:'scale',tier:2,target:'cyl',prompt:it.q,
+    return P({kind:'scale',variant:'scale',tier:2,target:'cyl',
+      paramKey:'scale-k='+it.k, promptTemplateId:'scale-k',
+      prompt:it.q,
       sub:'둘레 = 2 × 3.14 × 반지름  →  반지름이 k배면 둘레도 k배',
       choices:chs, answerNumeric:it.n, unitConcept:CONCEPT.scale});
   });
@@ -618,12 +687,14 @@ function poolCompare(){
       {label:unit+' '+short+'cm용',sub:'더 작은 '+unit,ok:false,mis:'작은 쪽이 더 길다고 생각',viz:{kind:'stripcmp',rel:0.55,tag:unit+' '+short}},
       {label:'길이가 같다',sub:'둘 다 한 바퀴',ok:false,mis:'반지름이 달라도 둘레가 같다고 생각',viz:{kind:'stripcmp',rel:0.8,tag:'같다',twin:true}}
     ];
-    return P({kind:'compare',tier:2,target:'cyl',r:long,
+    return P({kind:'compare',variant:'compare',tier:2,target:'cyl',r:long,
+      paramKey:'cmp-'+p.a+'-'+p.b+(p.dia?'-d':''), promptTemplateId:p.dia?'cmp-dia':'cmp-r',
       prompt:p.q, sub:'밑면의 둘레는 반지름이 클수록 길다',
       choices:chs, answerNumeric:long, unitConcept:CONCEPT.compare});
   });
   // 반지름 4cm용 vs 지름 8cm용 — 같다 (지름/반지름 혼동 시험)
-  out.push(P({kind:'compare',tier:2,target:'cyl',r:4,
+  out.push(P({kind:'compare',variant:'compare',tier:2,target:'cyl',r:4,
+    paramKey:'cmp-r4-d8', promptTemplateId:'cmp-eq',
     prompt:'반지름 4cm용 띠와 지름 8cm용 띠 중 어느 것이 더 길까? (계산하지 말고)',
     sub:'지름 8cm = 반지름 4cm  →  둘레가 같다',
     choices:[
@@ -631,7 +702,8 @@ function poolCompare(){
       {label:'반지름 4cm용이 더 길다',sub:'',ok:false,mis:'지름 쪽을 더 짧게 봄',viz:{kind:'stripcmp',rel:1.0,tag:'반지름 4'}},
       {label:'지름 8cm용이 더 길다',sub:'',ok:false,mis:'지름-착각: 숫자 8이 더 크니 둘레도 길다고 생각',viz:{kind:'stripcmp',rel:1.15,tag:'지름 8'}}
     ], answerNumeric:0, unitConcept:CONCEPT.compare}));
-  out.push(P({kind:'compare',tier:2,target:'cyl',r:5,
+  out.push(P({kind:'compare',variant:'compare',tier:2,target:'cyl',r:5,
+    paramKey:'cmp-r5-d5', promptTemplateId:'cmp-num',
     prompt:'반지름 5cm용 띠와 지름 5cm용 띠 중 어느 것이 더 길까? (계산하지 말고)',
     sub:'지름 5cm = 반지름 2.5cm  →  반지름 5cm용이 더 길다',
     choices:[
@@ -673,7 +745,9 @@ function wrapItem(r,h,dia,tier){
   ]);
   const chs=[{label:ansLabel,sub:'',ok:true,mis:null,viz:{kind:'strip',stripW:w,stripH:h,r:r,h:h}}]
     .concat(ds.map((d)=>({label:d.label,sub:'',ok:false,mis:d.mis,viz:{kind:'strip',stripW:d.stripW,stripH:d.stripH,r:r,h:h}})));
-  return P({kind:'wrap',tier:tier,target:'cyl',r:r,h:h,dia:!!dia,
+  return P({kind:'wrap',variant:tier===4?'choose-net-hard':'choose-net',tier:tier,target:'cyl',r:r,h:h,dia:!!dia,
+    paramKey:'r='+r+'|h='+h+'|dia='+(dia?1:0),
+    promptTemplateId:dia?'wrap-dia':'wrap-r',
     prompt:(dia?('반지름이 아니라 지름 '+(2*r)+'cm'):('반지름 '+r+'cm'))+', 높이 '+h+'cm 원기둥에 딱 맞는 옆면 띠는?',
     sub:'옆면의 가로 = 밑면의 둘레 = 2 × 3.14 × 반지름',
     formula:['2','×','3.14','×',String(r)],
@@ -706,7 +780,7 @@ function poolWrapHard(){
 /* ── (E) 옆면의 넓이 — 티어 4 장인 전용 ──────────────────────── */
 function poolArea(){
   const out=[];
-  const rs=[2,3,4,5,6], hs=[3,5,7,8];
+  const rs=[2,3,4,5,6,7], hs=[3,5,7,8,9];
   rs.forEach((r)=>{
     hs.forEach((h)=>{
       if(h===r) return;
@@ -722,7 +796,8 @@ function poolArea(){
       ]);
       const chs=[{label:ansLabel,sub:fmt100(circ100(r))+' × '+h,ok:true,mis:null,viz:{kind:'num'}}]
         .concat(ds.map((d)=>({label:d.label,sub:'',ok:false,mis:d.mis,viz:{kind:'num'}})));
-      out.push(P({kind:'area',tier:4,target:'cyl',r:r,h:h,
+      out.push(P({kind:'area',variant:'area',tier:4,target:'cyl',r:r,h:h,
+        paramKey:'r='+r+'|h='+h, promptTemplateId:'area-lat',
         prompt:'반지름 '+r+'cm, 높이 '+h+'cm 원기둥의 옆면의 넓이는? (원주율 3.14)',
         sub:'옆면의 넓이 = 밑면의 둘레 × 높이',
         formula:['2','×','3.14','×',String(r),'×',String(h)],
@@ -771,21 +846,519 @@ function poolViews(){
         {label:mk(w1[0]),sub:'',ok:false,mis:w1[1],viz:{kind:'views',v:w1[0]}},
         {label:mk(w2[0]),sub:'',ok:false,mis:w2[1],viz:{kind:'views',v:w2[0]}}
       ];
-      out.push(P({kind:'views',tier:2,target:s.target,prompt:q,sub:s.sub,
+      out.push(P({kind:'views',variant:'views',tier:2,target:s.target,
+        paramKey:'views-'+s.target+'-'+qi, promptTemplateId:'views-'+s.target,
+        prompt:q,sub:s.sub,
         choices:chs, answerNumeric:s.n, unitConcept:CONCEPT.views}));
     });
   });
   return out;
 }
 
+/* ── 티어1 확장: 문장 변형 · 다른 설계도 · 실루엣 짝 ─────────── */
+function poolSpinAlt(){
+  const specs=[
+    {t:'cyl',ask:'원기둥',hint:'축에 붙인 변이 그대로 높이가 된다'},
+    {t:'cone',ask:'원뿔',hint:'축에 붙인 변이 높이가 되고, 빗변이 모선이 된다'},
+    {t:'sph',ask:'구',hint:'지름을 축에 붙이면 공이 된다'}
+  ];
+  return specs.map((s)=>{
+    const ansKey=s.t==='cyl'?'rect':(s.t==='cone'?'rtri':'semi');
+    const chs=['rect','rtri','semi'].map((k)=>({
+      label:PROFILES[k].name, sub:PROFILES[k].axisNote, ok:k===ansKey,
+      mis:k===ansKey?null:(k==='rect'?'전개도-일반화: 원뿔·구도 직사각형을 돌려 만든다고 생각':'회전-결과 혼동'),
+      misconceptionId:k===ansKey?null:(k==='rect'?'generalize-net':'spin-result-mix'),
+      viz:{kind:'profile',key:k}
+    }));
+    return P({kind:'spin',variant:'spin',tier:1,target:s.t,
+      paramKey:'spin-alt-'+s.t, promptTemplateId:'spin-hint',
+      prompt:s.ask+' 로봇을 만들려면 어떤 평면도형을 축에 붙여 돌려야 할까? ('+s.hint+')',
+      sub:'직사각형→원기둥, 직각삼각형→원뿔, 반원→구',
+      choices:chs, answerNumeric:s.t==='cyl'?2:(s.t==='cone'?1:0), unitConcept:CONCEPT.spin});
+  });
+}
+function poolOddOneOut(){
+  const items=[
+    {t:'cyl',q:'다음 중 원기둥이 아닌 설명은?',
+      a:'밑면이 1개이고 꼭짓점이 1개다',
+      d:[['밑면이 위아래로 똑같은 원 2개다','원기둥 성질을 오답으로 고름'],
+         ['옆면을 직사각형 띠로 펼칠 수 있다','원기둥 성질을 오답으로 고름']],
+      n:0},
+    {t:'cone',q:'다음 중 원뿔이 아닌 설명은?',
+      a:'어느 쪽에서 보아도 원으로 보인다',
+      d:[['밑면이 원 1개다','원뿔 성질을 오답으로 고름'],
+         ['꼭짓점에서 밑면 둘레로 모선이 이어진다','원뿔 성질을 오답으로 고름']],
+      n:1},
+    {t:'sph',q:'다음 중 구가 아닌 설명은?',
+      a:'옆면을 직사각형으로 펼칠 수 있다',
+      d:[['밑면과 꼭짓점이 없다','구 성질을 오답으로 고름'],
+         ['중심에서 겉면까지 거리가 모두 같다','구 성질을 오답으로 고름']],
+      n:0},
+    {t:'cyl',q:'세 설계도 중 성질이 다른 하나는?',
+      a:'뾰족한 꼭짓점이 있다',
+      d:[['굽은 옆면이 있다','원기둥·원뿔 공통을 오답으로 고름'],
+         ['밑면이 원이다','원기둥·원뿔 공통을 오답으로 고름']],
+      n:1},
+    {t:'cone',q:'원뿔만의 성질을 고르면?',
+      a:'모선이 있다',
+      d:[['밑면이 2개다','원기둥과 혼동'],
+         ['어느 방향에서 보아도 원이다','구와 혼동']],
+      n:1},
+    {t:'sph',q:'구만의 성질을 고르면?',
+      a:'평평한 면이 하나도 없다',
+      d:[['밑면이 원 1개다','원뿔과 혼동'],
+         ['옆면이 직사각형이다','원기둥과 혼동']],
+      n:0},
+    {t:'cyl',q:'원기둥에만 있는 것은?',
+      a:'똑같은 원 밑면 2개',
+      d:[['꼭짓점 1개','원뿔과 혼동'],
+         ['모선','원뿔과 혼동']],
+      n:2},
+    {t:'cone',q:'원뿔을 만드는 평면도형은?',
+      a:'직각삼각형',
+      d:[['직사각형','전개도-일반화'],
+         ['반원','회전-결과 혼동']],
+      n:1},
+    {t:'sph',q:'구를 만드는 평면도형은?',
+      a:'반원',
+      d:[['직사각형','전개도-일반화'],
+         ['직각삼각형','회전-결과 혼동']],
+      n:0}
+  ];
+  return items.map((it)=>P({kind:'parts',variant:'odd-one-out',tier:1,target:it.t,
+    paramKey:'odd-'+it.q.slice(0,16), promptTemplateId:'odd-one',
+    prompt:it.q, sub:'세 입체 중 성질이 다른 설명을 골라라',
+    choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.parts, isCalc:false}));
+}
+function poolMatchShadow(){
+  const items=[
+    {t:'cyl',q:'앞에서 보면 직사각형, 위에서 보면 원인 입체는?',a:'원기둥',
+      d:[['원뿔','앞에서 본 삼각형과 혼동'],['구','모든 방향이 원이라고 생각']],n:1},
+    {t:'cone',q:'앞에서 보면 삼각형, 위에서 보면 원인 입체는?',a:'원뿔',
+      d:[['원기둥','앞에서 본 직사각형과 혼동'],['구','모든 방향이 원이라고 생각']],n:2},
+    {t:'sph',q:'위·앞·옆 실루엣이 모두 원인 입체는?',a:'구',
+      d:[['원기둥','위에서 본 원만 보고 구로 생각'],['원뿔','위에서 본 원만 보고 구로 생각']],n:3},
+    {t:'cyl',q:'옆면 실루엣이 직사각형인 입체는?',a:'원기둥',
+      d:[['원뿔','옆면이 삼각형이다'],['구','옆면도 원이다']],n:1},
+    {t:'cone',q:'옆면 실루엣이 삼각형인 입체는?',a:'원뿔',
+      d:[['원기둥','옆면이 직사각형이다'],['구','옆면도 원이다']],n:2},
+    {t:'sph',q:'실루엣에 직선 변이 없는 입체는?',a:'구',
+      d:[['원기둥','밑면이 평평하다'],['원뿔','밑면이 평평하다']],n:0},
+    {t:'cyl',q:'돌림 축에 직사각형을 붙이면 생기는 실루엣은?',a:'원기둥',
+      d:[['원뿔','직각삼각형과 혼동'],['구','반원과 혼동']],n:1},
+    {t:'cone',q:'돌림 축에 직각삼각형을 붙이면 생기는 실루엣은?',a:'원뿔',
+      d:[['원기둥','직사각형과 혼동'],['구','반원과 혼동']],n:2},
+    {t:'sph',q:'돌림 축에 반원을 붙이면 생기는 실루엣은?',a:'구',
+      d:[['원기둥','직사각형과 혼동'],['원뿔','직각삼각형과 혼동']],n:3}
+  ];
+  return items.map((it)=>P({kind:'spin',variant:'match-shadow',tier:1,target:it.t,
+    paramKey:'sh-'+it.t+'-'+it.q.slice(0,12), promptTemplateId:'match-shadow',
+    prompt:it.q, sub:'위·앞·옆에서 본 모양을 떠올려라',
+    choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.spin, isCalc:false}));
+}
+
+/* ── 티어2 확장: 성질 정렬 · 참거짓 · 전개도 부분 ───────────── */
+function poolSortProps(){
+  const items=[
+    {t:'cyl',q:'원기둥의 밑면 개수는?',a:'2개',d:[['1개','원뿔과 혼동'],['0개','구와 혼동']],n:2},
+    {t:'cone',q:'원뿔의 밑면 개수는?',a:'1개',d:[['2개','원기둥과 혼동'],['0개','구와 혼동']],n:1},
+    {t:'sph',q:'구의 밑면 개수는?',a:'0개',d:[['1개','원뿔과 혼동'],['2개','원기둥과 혼동']],n:0},
+    {t:'cyl',q:'원기둥의 꼭짓점 개수는?',a:'0개',d:[['2개','각기둥-일반화'],['1개','원뿔과 혼동']],n:0},
+    {t:'cone',q:'원뿔의 꼭짓점 개수는?',a:'1개',d:[['0개','원기둥과 혼동'],['2개','각기둥-일반화']],n:1},
+    {t:'sph',q:'구의 꼭짓점 개수는?',a:'0개',d:[['1개','원뿔과 혼동'],['무한','곡면을 꼭짓점으로 생각']],n:0},
+    {t:'cyl',q:'원기둥 옆면의 전개도 모양은?',a:'직사각형',d:[['부채꼴','원뿔 전개도와 혼동'],['원','밑면과 혼동']],n:0},
+    {t:'cone',q:'원뿔 옆면의 전개도 모양은?',a:'부채꼴',d:[['직사각형','전개도-일반화'],['삼각형','앞에서 본 모양과 혼동']],n:1},
+    {t:'cyl',q:'원기둥에서 두 밑면 사이 거리를 무엇이라 할까?',a:'높이',d:[['모선','원뿔과 혼동'],['지름','지름-착각']],n:2},
+    {t:'cone',q:'원뿔에서 꼭짓점과 밑면 둘레를 잇는 선분은?',a:'모선',d:[['높이','모선-높이 혼동'],['반지름','반지름을 모선으로 착각']],n:1},
+    {t:'sph',q:'구의 중심에서 겉면까지 길이는?',a:'반지름',d:[['지름','지름-착각'],['높이','구에 높이가 있다고 생각']],n:0},
+    {t:'cyl',q:'원기둥 밑면의 둘레를 재려면 무엇이 필요할까?',a:'반지름(또는 지름)',d:[['높이','둘레-높이 혼동'],['꼭짓점','원기둥에는 꼭짓점이 없다']],n:1}
+  ];
+  return items.map((it)=>P({kind:'parts',variant:'sort-properties',tier:2,target:it.t,
+    paramKey:'sort-'+it.q.slice(0,18), promptTemplateId:'sort-prop',
+    prompt:it.q, sub:'구성 요소를 이름과 개수로 나눠 생각해라',
+    choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.parts, isCalc:false}));
+}
+function poolTrueFalse(){
+  const items=[
+    {t:'cyl',q:'“원기둥의 옆면 가로는 밑면의 지름과 같다.” 이 말은?',a:'틀렸다. 가로 = 밑면의 둘레',
+      d:[['맞다','지름-착각'],['틀렸다. 가로 = 반지름','반지름을 가로로 착각']],n:0},
+    {t:'cyl',q:'“원기둥에도 꼭짓점이 2개 있다.” 이 말은?',a:'틀렸다. 원기둥의 꼭짓점은 0개',
+      d:[['맞다','각기둥-일반화'],['틀렸다. 꼭짓점이 1개','원뿔과 혼동']],n:0},
+    {t:'cone',q:'“원뿔의 높이는 모선과 길이가 같다.” 이 말은?',a:'틀렸다. 모선이 높이보다 길다',
+      d:[['맞다','모선-높이 혼동'],['틀렸다. 높이가 모선보다 길다','높이와 모선을 거꾸로']],n:1},
+    {t:'sph',q:'“구는 앞에서 보면 타원이다.” 이 말은?',a:'틀렸다. 어느 쪽에서 보아도 원',
+      d:[['맞다','구를 위·앞·옆에서 다르게 그림'],['틀렸다. 앞에서 보면 직사각형','원기둥과 혼동']],n:3},
+    {t:'cyl',q:'“반지름이 2배면 밑면 둘레도 2배다.” 이 말은?',a:'맞다. 둘레는 반지름에 비례한다',
+      d:[['틀렸다. 4배가 된다','밑면 넓이와 혼동'],['틀렸다. 둘레는 그대로다','반지름만 바뀐다고 생각']],n:2},
+    {t:'cone',q:'“원뿔의 밑면은 삼각형이다.” 이 말은?',a:'틀렸다. 밑면은 원',
+      d:[['맞다','앞에서 본 모양을 밑면으로 착각'],['틀렸다. 밑면은 부채꼴','옆면 전개도와 혼동']],n:0},
+    {t:'sph',q:'“구도 옆면을 직사각형으로 펼칠 수 있다.” 이 말은?',a:'틀렸다. 구는 전개도로 펼치지 않는다',
+      d:[['맞다','전개도-일반화'],['틀렸다. 부채꼴로 펼친다','원뿔 전개도와 혼동']],n:0},
+    {t:'cyl',q:'“원기둥을 위에서 보면 원이다.” 이 말은?',a:'맞다. 위에서는 밑면의 원이 보인다',
+      d:[['틀렸다. 직사각형이다','앞·옆 모양과 혼동'],['틀렸다. 타원이다','원기둥을 비스듬히 본 그림과 혼동']],n:1},
+    {t:'cyl',q:'“지름은 반지름의 2배다.” 이 말은?',a:'맞다',
+      d:[['틀렸다. 같다','지름과 반지름을 같은 길이로 생각'],['틀렸다. 4배다','밑면 넓이의 배 관계와 혼동']],n:2},
+    {t:'cone',q:'“원뿔을 옆에서 보면 삼각형이다.” 이 말은?',a:'맞다',
+      d:[['틀렸다. 원이다','구와 혼동'],['틀렸다. 직사각형이다','원기둥과 혼동']],n:2},
+    {t:'sph',q:'“구에는 밑면이 있다.” 이 말은?',a:'틀렸다. 구에는 밑면이 없다',
+      d:[['맞다. 밑면이 1개','원뿔과 혼동'],['맞다. 밑면이 2개','원기둥과 혼동']],n:0},
+    {t:'cyl',q:'“원기둥 높이는 옆면 직사각형의 세로와 같다.” 이 말은?',a:'맞다',
+      d:[['틀렸다. 가로와 같다','둘레-높이 혼동'],['틀렸다. 밑면 지름과 같다','지름-착각']],n:2}
+  ];
+  return items.map((it)=>P({kind:'net',variant:'true-false-reason',tier:2,target:it.t,
+    paramKey:'tf-'+it.q.slice(0,20), promptTemplateId:'true-false',
+    prompt:it.q, sub:'맞으면 이유를, 틀리면 바른 이유를 골라라',
+    choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.net, isCalc:false}));
+}
+function poolMatchNetPart(){
+  const items=[
+    {t:'cyl',q:'원기둥 전개도에서 두 원은 무엇인가?',a:'위·아래 밑면',
+      d:[['옆면','옆면은 직사각형이다'],['모선','원기둥에는 모선이 없다']],n:0},
+    {t:'cyl',q:'원기둥 전개도에서 직사각형의 가로는?',a:'밑면의 둘레',
+      d:[['밑면의 지름','지름-착각'],['높이','둘레-높이 혼동']],n:0},
+    {t:'cyl',q:'원기둥 전개도에서 직사각형의 세로는?',a:'높이',
+      d:[['반지름','반지름을 높이로 착각'],['밑면의 둘레','가로와 세로를 혼동']],n:2},
+    {t:'cone',q:'원뿔 전개도에서 부채꼴은 무엇인가?',a:'옆면',
+      d:[['밑면','밑면은 원이다'],['높이 단면','모선-높이 혼동']],n:1},
+    {t:'cone',q:'원뿔 전개도에서 작은 원은 무엇인가?',a:'밑면',
+      d:[['옆면','옆면은 부채꼴이다'],['구의 단면','구와 혼동']],n:0},
+    {t:'cyl',q:'옆면 띠를 원기둥에 감으면 가로가 어디에 붙을까?',a:'밑면의 둘레',
+      d:[['밑면의 지름','지름-착각'],['높이','세로와 가로를 혼동']],n:0},
+    {t:'cyl',q:'전개도의 두 원을 포개면?',a:'위 밑면과 아래 밑면이 마주 본다',
+      d:[['옆면이 두 겹이 된다','원과 직사각형을 혼동'],['꼭짓점이 생긴다','각기둥-일반화']],n:1},
+    {t:'cone',q:'원뿔 전개도의 부채꼴 반지름은?',a:'모선',
+      d:[['높이','모선-높이 혼동'],['밑면의 반지름','밑면 원과 혼동']],n:1},
+    {t:'cyl',q:'원기둥 전개도를 접을 때 직사각형의 짧은 변은?',a:'높이와 같게 붙는다',
+      d:[['밑면 지름과 같게 붙는다','지름-착각'],['모선과 같게 붙는다','원뿔과 혼동']],n:2},
+    {t:'sph',q:'구를 전개도로 펼칠 수 있을까?',a:'원기둥처럼 한 장으로 펼치지 않는다',
+      d:[['직사각형으로 펼친다','전개도-일반화'],['부채꼴로 펼친다','원뿔 전개도와 혼동']],n:0},
+    {t:'cyl',q:'밑면 둘레보다 짧은 띠를 감으면?',a:'한 바퀴를 못 채운다',
+      d:[['한 바퀴가 딱 맞는다','길이가 달라도 같다고 생각'],['두 바퀴가 된다','짧은데 더 많이 감긴다고 생각']],n:0},
+    {t:'cyl',q:'밑면 둘레보다 긴 띠를 감으면?',a:'겹친다',
+      d:[['한 바퀴가 딱 맞는다','길이가 달라도 같다고 생각'],['빈 틈이 생긴다','긴데 모자란다고 생각']],n:1}
+  ];
+  return items.map((it)=>P({kind:'net',variant:'match-net-part',tier:2,target:it.t,
+    paramKey:'netpart-'+it.q.slice(0,18), promptTemplateId:'match-net-part',
+    prompt:it.q, sub:'전개도의 어느 조각인지 짝지어라',
+    choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.net, isCalc:false}));
+}
+
+/* ── 티어3 확장: 식 채우기 · 오류 찾기 · 역산 · 띠 비교 · 원뿔/구 ── */
+function poolCompleteFormula(){
+  const out=[];
+  FRIENDLY_R.forEach((r)=>{
+    const w=circ100(r);
+    const ans=String(r);
+    const chs=[
+      {label:r+'cm',sub:'반지름',ok:true,mis:null,misconceptionId:null,viz:{kind:'num'}},
+      {label:(2*r)+'cm',sub:'지름',ok:false,mis:'지름-착각: 빈칸에 지름을 넣음',misconceptionId:'diameter-as-width',viz:{kind:'num'}},
+      {label:fmt100(w)+'cm',sub:'둘레',ok:false,mis:'빈칸에 둘레 값을 그대로 넣음',misconceptionId:'circ-as-radius',viz:{kind:'num'}}
+    ];
+    out.push(P({kind:'wrap',variant:'complete-formula',tier:3,target:'cyl',r:r,h:6,
+      paramKey:'cf-r='+r, promptTemplateId:'complete-formula', isCalc:true,
+      prompt:'2 × 3.14 × □ = '+fmt100(w)+'  에서 □에 들어갈 반지름은?',
+      sub:'옆면의 가로 = 2 × 3.14 × 반지름',
+      formula:['2','×','3.14','×','□','= ',fmt100(w)],
+      formulaNote:'친숙한 반지름 1, 2, 5, 10만',
+      choices:chs, answerNumeric:r, unitConcept:CONCEPT.wrap}));
+    const chs2=[
+      {label:'2 × 3.14 × '+r,sub:'바른 식',ok:true,mis:null,misconceptionId:null,viz:{kind:'text'}},
+      {label:'3.14 × '+r,sub:'2가 없음',ok:false,mis:'반지름만-곱: 2를 빠뜨림',misconceptionId:'missing-times-two',viz:{kind:'text'}},
+      {label:'2 × 3.14 × '+(2*r),sub:'지름을 넣음',ok:false,mis:'지름-착각',misconceptionId:'diameter-as-width',viz:{kind:'text'}}
+    ];
+    out.push(P({kind:'wrap',variant:'complete-formula',tier:3,target:'cyl',r:r,h:8,
+      paramKey:'cf-eq-r='+r, promptTemplateId:'complete-formula-eq', isCalc:true,
+      prompt:'반지름 '+r+'cm 원기둥의 밑면 둘레를 바르게 쓴 식은?',
+      sub:'둘레 = 2 × 3.14 × 반지름',
+      formula:['2','×','3.14','×',String(r)],
+      choices:chs2, answerNumeric:w/100, unitConcept:CONCEPT.wrap}));
+  });
+  [3,4,6,8].forEach((h,i)=>{
+    const r=FRIENDLY_R[i%4];
+    const w=circ100(r);
+    const chs=[
+      {label:fmt100(w)+'cm',sub:'2 × 3.14 × '+r,ok:true,mis:null,misconceptionId:null,viz:{kind:'strip',stripW:w,stripH:h,r:r,h:h}},
+      {label:fmt100(PI100*r)+'cm',sub:'3.14 × '+r,ok:false,mis:'반지름만-곱',misconceptionId:'missing-times-two',viz:{kind:'strip',stripW:PI100*r,stripH:h,r:r,h:h}},
+      {label:(2*r)+'cm',sub:'지름',ok:false,mis:'지름-착각',misconceptionId:'diameter-as-width',viz:{kind:'strip',stripW:200*r,stripH:h,r:r,h:h}}
+    ];
+    out.push(P({kind:'wrap',variant:'complete-formula',tier:3,target:'cyl',r:r,h:h,
+      paramKey:'cf-blank-r='+r+'|h='+h, promptTemplateId:'complete-formula-blank', isCalc:true,
+      prompt:'2 × 3.14 × '+r+' = □  (높이 '+h+'cm 원기둥의 옆면 가로)',
+      sub:'빈칸은 밑면의 둘레',
+      formula:['2','×','3.14','×',String(r),'= ','□'],
+      choices:chs, answerNumeric:w/100, unitConcept:CONCEPT.wrap}));
+  });
+  return out;
+}
+function poolFindError(){
+  const out=[];
+  const hs=[3,4,6,8];
+  FRIENDLY_R.forEach((r,ri)=>{
+    hs.forEach((h,hi)=>{
+      if((ri+hi)%2) return;
+      if(h===r) return;
+      const w=circ100(r);
+      const wrong=fmt100(PI100*r);
+      const chs=[
+        {label:'2 × 3.14 × '+r+' = '+fmt100(w),sub:'바른 수정',ok:true,mis:null,misconceptionId:null,viz:{kind:'text'}},
+        {label:'3.14 × '+r+' = '+wrong,sub:'2를 뺀 채 유지',ok:false,mis:'반지름만-곱: 오류를 고치지 않음',misconceptionId:'missing-times-two',viz:{kind:'text'}},
+        {label:'2 × 3.14 × '+(2*r)+' = '+fmt100(circ100(2*r)),sub:'지름으로 고침',ok:false,mis:'지름-착각: 다른 오류로 바꿈',misconceptionId:'diameter-as-width',viz:{kind:'text'}}
+      ];
+      out.push(P({kind:'wrap',variant:'find-error',tier:3,target:'cyl',r:r,h:h,
+        paramKey:'fe-r='+r+'|h='+h, promptTemplateId:'find-error', isCalc:true,
+        prompt:'어떤 설계가 “3.14 × '+r+' = '+wrong+'cm”로 옆면 가로를 적었다. 바른 수정은?',
+        sub:'2를 빠뜨린 설계를 고친다. 답은 오류가 아니라 바른 식이다.',
+        formula:['2','×','3.14','×',String(r)],
+        formulaNote:'빠진 2를 넣기',
+        choices:chs, answerNumeric:w/100, unitConcept:CONCEPT.wrap}));
+    });
+  });
+  FRIENDLY_R.forEach((r)=>{
+    const w=circ100(r);
+    const chs=[
+      {label:'가로 '+fmt100(w)+'cm',sub:'둘레로 고침',ok:true,mis:null,misconceptionId:null,viz:{kind:'strip',stripW:w,stripH:5,r:r,h:5}},
+      {label:'가로 '+(2*r)+'cm',sub:'지름 유지',ok:false,mis:'지름-착각',misconceptionId:'diameter-as-width',viz:{kind:'strip',stripW:200*r,stripH:5,r:r,h:5}},
+      {label:'가로 '+r+'cm',sub:'반지름 유지',ok:false,mis:'반지름을 그대로 가로로 사용',misconceptionId:'radius-as-width',viz:{kind:'strip',stripW:100*r,stripH:5,r:r,h:5}}
+    ];
+    out.push(P({kind:'wrap',variant:'find-error',tier:3,target:'cyl',r:r,h:5,
+      paramKey:'fe-dia-r='+r, promptTemplateId:'find-error-dia', isCalc:true,
+      prompt:'옆면 가로를 지름 '+(2*r)+'cm로 적은 설계를 고치려면?',
+      sub:'옆면의 가로 = 밑면의 둘레',
+      formula:['2','×','3.14','×',String(r)],
+      choices:chs, answerNumeric:w/100, unitConcept:CONCEPT.wrap}));
+  });
+  return out;
+}
+function poolInverseRadius(){
+  const out=[];
+  FRIENDLY_R.forEach((r)=>{
+    const w=fmt100(circ100(r));
+    const chs=[
+      {label:r+'cm',sub:'대응표',ok:true,mis:null,misconceptionId:null,viz:{kind:'num'}},
+      {label:(2*r)+'cm',sub:'지름',ok:false,mis:'지름-착각: 둘레를 지름으로 나눈 값으로 생각',misconceptionId:'diameter-as-width',viz:{kind:'num'}},
+      {label:w+'cm',sub:'가로 길이',ok:false,mis:'둘레 값을 반지름으로 읽음',misconceptionId:'circ-as-radius',viz:{kind:'num'}}
+    ];
+    out.push(P({kind:'wrap',variant:'inverse-radius',tier:3,target:'cyl',r:r,h:6,
+      paramKey:'inv-r='+r, promptTemplateId:'inverse-radius', isCalc:true,
+      prompt:'옆면 띠 가로가 '+w+'cm일 때 밑면의 반지름은? (3.14로 새로 나누지 말고 대응표를 봐라)',
+      sub:'6.28→1 · 12.56→2 · 31.4→5 · 62.8→10',
+      formula:['2','×','3.14','×','r','= ',w],
+      formulaNote:'r ∈ {1,2,5,10}',
+      choices:chs, answerNumeric:r, unitConcept:CONCEPT.wrap}));
+    const neighbor=r===1?2:(r===2?5:(r===5?10:5));
+    const chs2=[
+      {label:r+'cm',sub:'반지름',ok:true,mis:null,misconceptionId:null,viz:{kind:'cylmark',mark:'r',r:r,h:6}},
+      {label:neighbor+'cm',sub:'한 칸 옆 수',ok:false,mis:'대응표를 한 칸 잘못 읽음',misconceptionId:'off-by-one',viz:{kind:'cylmark',mark:'d',r:r,h:6}},
+      {label:(2*r)+'cm',sub:'지름',ok:false,mis:'지름-착각',misconceptionId:'diameter-as-width',viz:{kind:'cylmark',mark:'d',r:r,h:6}}
+    ];
+    out.push(P({kind:'wrap',variant:'inverse-radius',tier:3,target:'cyl',r:r,h:8,
+      paramKey:'inv2-r='+r, promptTemplateId:'inverse-radius-tab', isCalc:true,
+      prompt:'가로 '+w+'cm 띠가 한 바퀴에 딱 맞았다. 반지름은?',
+      sub:'2 × 3.14 × 반지름 = '+w,
+      formula:['2','×','3.14','×','□','= ',w],
+      choices:chs2, answerNumeric:r, unitConcept:CONCEPT.wrap}));
+    out.push(P({kind:'wrap',variant:'inverse-radius',tier:3,target:'cyl',r:r,h:4,
+      paramKey:'inv3-r='+r, promptTemplateId:'inverse-radius-fit', isCalc:true,
+      prompt:'원기둥에 가로 '+w+'cm 띠를 감았더니 빈 틈도 겹침도 없었다. 반지름은?',
+      sub:'6.28→1 · 12.56→2 · 31.4→5 · 62.8→10',
+      formula:['2','×','3.14','×','r','= ',w],
+      choices:[
+        {label:r+'cm',sub:'대응표',ok:true,mis:null,misconceptionId:null,viz:{kind:'num'}},
+        {label:neighbor+'cm',sub:'옆 칸',ok:false,mis:'대응표를 한 칸 잘못 읽음',misconceptionId:'off-by-one',viz:{kind:'num'}},
+        {label:w+'cm',sub:'가로',ok:false,mis:'둘레 값을 반지름으로 읽음',misconceptionId:'circ-as-radius',viz:{kind:'num'}}
+      ], answerNumeric:r, unitConcept:CONCEPT.wrap}));
+  });
+  return out;
+}
+function poolCompareTwoWraps(){
+  const pairs=[[1,2],[2,5],[5,10],[1,5],[2,10],[1,10]];
+  const out=pairs.map((ab)=>{
+    const a=ab[0], b=ab[1];
+    const chs=[
+      {label:'반지름 '+b+'cm 띠',sub:b/a+'배 더 긴 둘레',ok:true,mis:null,misconceptionId:null,viz:{kind:'stripcmp',rel:1.0,tag:'r '+b}},
+      {label:'반지름 '+a+'cm 띠',sub:'더 짧은 둘레',ok:false,mis:'작은 쪽이 더 길다고 생각',misconceptionId:'smaller-longer',viz:{kind:'stripcmp',rel:0.5,tag:'r '+a}},
+      {label:'길이가 같다',sub:'둘 다 한 바퀴',ok:false,mis:'반지름이 달라도 둘레가 같다고 생각',misconceptionId:'same-length-mix',viz:{kind:'stripcmp',rel:0.8,tag:'같다',twin:true}}
+    ];
+    return P({kind:'compare',variant:'compare-two-wraps',tier:3,target:'cyl',r:b,h:4,
+      paramKey:'c2w-'+a+'-'+b, promptTemplateId:'compare-two-wraps', isCalc:false,
+      prompt:'반지름 '+a+'cm용 전개도와 반지름 '+b+'cm용 전개도 중 옆면 가로가 더 긴 것은? (계산하지 말고 배 관계로)',
+      sub:'반지름이 k배면 옆면 가로도 k배. 두 전개도가 각각의 원기둥에 맞는지 본다.',
+      choices:chs, answerNumeric:b, unitConcept:CONCEPT.compare});
+  });
+  const extras=[[2,4,'지름 4cm','반지름 2cm'],[5,10,'지름 10cm','반지름 5cm'],[1,2,'지름 2cm','반지름 1cm']];
+  [[2,5,3],[5,10,6],[1,2,8],[1,5,4]].forEach((ab)=>{
+    const a=ab[0], b=ab[1], h=ab[2];
+    out.push(P({kind:'compare',variant:'compare-two-wraps',tier:3,target:'cyl',r:b,h:h,
+      paramKey:'c2w-h='+h+'-'+a+'-'+b, promptTemplateId:'compare-two-wraps-h', isCalc:false,
+      prompt:'높이 '+h+'cm로 같은 두 원기둥(반지름 '+a+'cm, '+b+'cm)의 옆면 띠, 가로가 더 긴 것은?',
+      sub:'높이가 같아도 반지름이 큰 쪽 가로가 길다.',
+      choices:[
+        {label:'반지름 '+b+'cm 띠',sub:'',ok:true,mis:null,misconceptionId:null,viz:{kind:'stripcmp',rel:1.0,tag:'r '+b}},
+        {label:'반지름 '+a+'cm 띠',sub:'',ok:false,mis:'작은 쪽이 더 길다고 생각',misconceptionId:'smaller-longer',viz:{kind:'stripcmp',rel:0.5,tag:'r '+a}},
+        {label:'길이가 같다',sub:'높이가 같음',ok:false,mis:'높이만 보고 가로가 같다고 생각',misconceptionId:'ignore-radius',viz:{kind:'stripcmp',rel:0.8,tag:'같다',twin:true}}
+      ], answerNumeric:b, unitConcept:CONCEPT.compare}));
+  });
+  extras.forEach((e)=>{
+    const r=e[0], d=e[1];
+    out.push(P({kind:'compare',variant:'compare-two-wraps',tier:3,target:'cyl',r:r,h:5,
+      paramKey:'c2w-eq-'+r, promptTemplateId:'compare-two-wraps-eq', isCalc:false,
+      prompt:e[2]+'용 전개도와 '+e[3]+'용 전개도, 옆면 가로는?',
+      sub:'지름 '+d+'cm = 반지름 '+r+'cm  →  같은 둘레',
+      choices:[
+        {label:'길이가 같다',sub:'같은 원',ok:true,mis:null,misconceptionId:null,viz:{kind:'stripcmp',rel:0.85,tag:'같다',twin:true}},
+        {label:e[2]+'용이 더 길다',sub:'숫자 '+d,ok:false,mis:'지름-착각: 큰 숫자만 봄',misconceptionId:'number-looks-bigger',viz:{kind:'stripcmp',rel:1.1,tag:e[2]}},
+        {label:e[3]+'용이 더 길다',sub:'',ok:false,mis:'지름 쪽을 더 짧게 봄',misconceptionId:'diameter-as-radius',viz:{kind:'stripcmp',rel:0.7,tag:e[3]}}
+      ], answerNumeric:0, unitConcept:CONCEPT.compare}));
+  });
+  return out;
+}
+function poolHeightDebug(){
+  const tri=[[3,4,5],[4,3,5],[6,8,10],[8,6,10],[5,12,13],[12,5,13],[9,12,15],[8,15,17],[12,16,20],[7,24,25],[20,21,29],[9,40,41]];
+  return tri.map((t)=>{
+    const r=t[0],h=t[1],l=t[2];
+    const chs=[
+      {label:'높이는 '+h+'cm (밑면에 수직)',sub:'꼭짓점→밑면 중심',ok:true,mis:null,misconceptionId:null,viz:{kind:'cone',ribbon:'h',r:r,h:h,l:l}},
+      {label:'높이는 '+l+'cm (모선)',sub:'꼭짓점→밑면 둘레',ok:false,mis:'모선-높이 혼동',misconceptionId:'slant-height',viz:{kind:'cone',ribbon:'l',r:r,h:h,l:l}},
+      {label:'높이는 '+r+'cm (반지름)',sub:'밑면 중심→둘레',ok:false,mis:'반지름을 높이로 착각',misconceptionId:'radius-as-height',viz:{kind:'cone',ribbon:'r',r:r,h:h,l:l}}
+    ];
+    return P({kind:'read',variant:'height-debug',tier:3,target:'cone',r:r,h:h,l:l,
+      paramKey:'hd-r='+r+'|h='+h+'|l='+l, promptTemplateId:'height-debug', isCalc:false,
+      prompt:'원뿔 그림에서 모선 '+l+'cm를 높이로 적은 설계를 고쳐라. 바른 높이는?',
+      sub:'높이는 밑면에 수직. 모선은 빗변이라 더 길다.',
+      choices:chs, answerNumeric:h, unitConcept:CONCEPT.read});
+  });
+}
+function poolViewReason(){
+  const items=[
+    {t:'sph',q:'구를 옆에서 봐도 원인 까닭은?',a:'어느 단면이나 중심에서 거리가 같다',
+      d:[['옆면이 직사각형이라서','원기둥과 혼동'],['꼭짓점이 둥글어서','원뿔과 혼동']],n:3},
+    {t:'sph',q:'구의 위·앞·옆 카드가 모두 원인 까닭은?',a:'방향이 바뀌어도 겉모습이 같다',
+      d:[['위에서만 원이고 옆은 타원이라서','구를 다르게 그림'],['앞이 직사각형이라서','원기둥과 혼동']],n:3},
+    {t:'cyl',q:'원기둥을 위에서 보면 원인 까닭은?',a:'위에서는 밑면의 원이 보이기 때문',
+      d:[['옆면이 원이라서','옆면과 밑면을 혼동'],['구처럼 생겼기 때문','구와 혼동']],n:1},
+    {t:'cyl',q:'원기둥을 앞에서 보면 직사각형인 까닭은?',a:'높이와 밑면 지름이 변을 이루기 때문',
+      d:[['밑면이 직사각형이라서','밑면 모양과 혼동'],['모선이 있어서','원뿔과 혼동']],n:1},
+    {t:'cone',q:'원뿔을 앞에서 보면 삼각형인 까닭은?',a:'꼭짓점과 밑면 지름이 삼각형을 이루기 때문',
+      d:[['밑면이 삼각형이라서','앞에서 본 모양을 밑면으로 착각'],['옆면이 직사각형이라서','원기둥과 혼동']],n:2},
+    {t:'cone',q:'원뿔을 위에서 보면 원인 까닭은?',a:'위에서는 밑면의 원이 보이기 때문',
+      d:[['꼭짓점이 원이라서','꼭짓점을 원으로 생각'],['구와 같아서','구와 혼동']],n:2},
+    {t:'sph',q:'구에는 직사각형 실루엣이 없는 까닭은?',a:'평평한 면이 없기 때문',
+      d:[['높이가 없어서','구에 높이를 붙임'],['모선이 둥글어서','원뿔과 혼동']],n:0},
+    {t:'cyl',q:'원기둥 옆 실루엣이 삼각형이 아닌 까닭은?',a:'위아래 밑면 크기가 같아서',
+      d:[['꼭짓점이 있어서','각기둥-일반화'],['모선이 있어서','원뿔과 혼동']],n:1},
+    {t:'cone',q:'원뿔 위 실루엣이 삼각형이 아닌 까닭은?',a:'위에서는 밑면의 원이 보여서',
+      d:[['옆면이 원이라서','옆과 위를 혼동'],['구와 같아서','구와 혼동']],n:2},
+    {t:'sph',q:'구를 원기둥처럼 옆에 직사각형으로 그리면 안 되는 까닭은?',a:'구에는 평평한 옆면이 없다',
+      d:[['높이가 지름과 같아서','구에 높이를 둠'],['밑면이 두 개라서','원기둥과 혼동']],n:0},
+    {t:'cyl',q:'원기둥을 구처럼 세 방향 모두 원으로 그리면 안 되는 까닭은?',a:'앞·옆에서는 직사각형이 보이기 때문',
+      d:[['밑면이 없어서','구와 혼동'],['꼭짓점이 있어서','각기둥-일반화']],n:1},
+    {t:'cone',q:'원뿔을 원기둥처럼 앞을 직사각형으로 그리면 안 되는 까닭은?',a:'꼭짓점 때문에 앞이 삼각형이기 때문',
+      d:[['밑면이 두 개라서','원기둥과 혼동'],['모선이 없어서','모선을 빼먹음']],n:2}
+  ];
+  return items.map((it)=>P({kind:'views',variant:'view-reason',tier:3,target:it.t,
+    paramKey:'vr-'+it.q.slice(0,18), promptTemplateId:'view-reason', isCalc:false,
+    prompt:it.q, sub:'모양만이 아니라 까닭을 짝지어라',
+    choices:textChoices(it.a,it.d), answerNumeric:it.n, unitConcept:CONCEPT.views}));
+}
+
+/* ── 티어4 확장: 오류(어려움) · 빠진 길이 · 두 단계 비교 ─────── */
+function poolFindErrorHard(){
+  const out=[];
+  const rs=[3,4,6,7,8,9], hs=[2,5,7,10];
+  rs.forEach((r,ri)=>{
+    hs.forEach((h,hi)=>{
+      if(h===r) return;
+      const w=circ100(r), a=lat100(r,h);
+      const chs=[
+        {label:'가로 '+fmt100(w)+'cm, 넓이 '+fmt100(a)+'cm²',sub:'둘레×높이',ok:true,mis:null,misconceptionId:null,viz:{kind:'num'}},
+        {label:'가로 '+(2*r)+'cm, 넓이 '+fmt100(200*r*h)+'cm²',sub:'지름×높이',ok:false,mis:'지름-착각',misconceptionId:'diameter-as-width',viz:{kind:'num'}},
+        {label:'가로 '+fmt100(PI100*r)+'cm, 넓이 '+fmt100(PI100*r*h)+'cm²',sub:'3.14×r×h',ok:false,mis:'반지름만-곱',misconceptionId:'missing-times-two',viz:{kind:'num'}}
+      ];
+      out.push(P({kind:'area',variant:'find-error-hard',tier:4,target:'cyl',r:r,h:h,
+        paramKey:'feh-r='+r+'|h='+h, promptTemplateId:'find-error-hard', isCalc:true,
+        prompt:'반지름 '+r+'cm, 높이 '+h+'cm인데 옆면 가로를 지름 '+(2*r)+'cm로 적은 설계를 고쳐라.',
+        sub:'가로 = 2 × 3.14 × 반지름, 넓이 = 가로 × 높이',
+        formula:['2','×','3.14','×',String(r),'×',String(h)],
+        choices:chs, answerNumeric:a/100, unitConcept:CONCEPT.area}));
+    });
+  });
+  return out;
+}
+function poolMissingDim(){
+  const out=[];
+  const rs=[3,4,6,7,8], hs=[2,5,7,10];
+  rs.forEach((r)=>{
+    hs.forEach((h)=>{
+      if(h===r) return;
+      const w=circ100(r);
+      const chs=[
+        {label:r+'cm',sub:'가로÷(2×3.14)',ok:true,mis:null,misconceptionId:null,viz:{kind:'num'}},
+        {label:(2*r)+'cm',sub:'지름',ok:false,mis:'지름-착각',misconceptionId:'diameter-as-width',viz:{kind:'num'}},
+        {label:h+'cm',sub:'높이',ok:false,mis:'둘레-높이 혼동',misconceptionId:'mix-circ-height',viz:{kind:'num'}}
+      ];
+      out.push(P({kind:'wrap',variant:'missing-dimension',tier:4,target:'cyl',r:r,h:h,
+        paramKey:'md-r='+r+'|h='+h, promptTemplateId:'missing-r', isCalc:true,
+        prompt:'옆면 가로가 '+fmt100(w)+'cm, 세로가 '+h+'cm인 띠가 딱 맞았다. 밑면의 반지름은?',
+        sub:'가로 = 2 × 3.14 × 반지름',
+        formula:['2','×','3.14','×','□','= ',fmt100(w)],
+        choices:chs, answerNumeric:r, unitConcept:CONCEPT.wrap}));
+    });
+  });
+  return out;
+}
+function poolTwoStepCompare(){
+  const out=[];
+  const triples=[[3,4,6],[4,5,8],[3,5,7],[6,5,8],[7,4,9],[8,5,10],[4,7,6],[3,8,5],[6,7,4],[9,2,6],[5,3,8],[7,2,9],[8,3,7],[9,4,5],[6,2,10],[4,3,10],[5,4,9],[3,6,10]];
+  triples.forEach((t)=>{
+    const r=t[0], h1=t[1], h2=t[2];
+    const a1=lat100(r,h1), a2=lat100(r,h2);
+    const tall=h2>h1?h2:h1, short=h2>h1?h1:h2;
+    const chs=[
+      {label:'높이 '+tall+'cm 쪽',sub:'둘레는 같고 높이가 큼',ok:true,mis:null,misconceptionId:null,viz:{kind:'num'}},
+      {label:'높이 '+short+'cm 쪽',sub:'',ok:false,mis:'높이가 작은 쪽 넓이가 크다고 생각',misconceptionId:'smaller-longer',viz:{kind:'num'}},
+      {label:'같다',sub:'반지름이 같음',ok:false,mis:'높이 차이를 무시',misconceptionId:'ignore-height',viz:{kind:'num'}}
+    ];
+    out.push(P({kind:'area',variant:'two-step-compare',tier:4,target:'cyl',r:r,h:tall,
+      paramKey:'tsc-r='+r+'|'+h1+'|'+h2, promptTemplateId:'two-step-compare', isCalc:true,
+      prompt:'반지름 '+r+'cm로 같은 두 원기둥, 높이 '+h1+'cm와 '+h2+'cm. 옆면의 넓이가 더 큰 것은?',
+      sub:'넓이 = (2 × 3.14 × 반지름) × 높이. 반지름이 같으면 높이가 큰 쪽이 넓다.',
+      formula:['2','×','3.14','×',String(r),'×','높이'],
+      choices:chs, answerNumeric:(a1>a2?a1:a2)/100, unitConcept:CONCEPT.area}));
+  });
+  [[3,4,6,5],[4,5,8,7],[6,3,4,8]].forEach((t)=>{
+    const r1=t[0], r2=t[1], h=t[2];
+    const big=Math.max(r1,r2), sm=Math.min(r1,r2);
+    out.push(P({kind:'area',variant:'two-step-compare',tier:4,target:'cyl',r:big,h:h,
+      paramKey:'tsc-h='+h+'|'+r1+'|'+r2, promptTemplateId:'two-step-r', isCalc:true,
+      prompt:'높이 '+h+'cm로 같은 두 원기둥, 반지름 '+r1+'cm와 '+r2+'cm. 옆면의 넓이가 더 큰 것은?',
+      sub:'높이가 같으면 반지름이 큰 쪽이 옆면 넓이가 크다.',
+      formula:['2','×','3.14','×','반지름','×',String(h)],
+      choices:[
+        {label:'반지름 '+big+'cm 쪽',sub:'',ok:true,mis:null,misconceptionId:null,viz:{kind:'num'}},
+        {label:'반지름 '+sm+'cm 쪽',sub:'',ok:false,mis:'작은 반지름이 더 넓다고 생각',misconceptionId:'smaller-longer',viz:{kind:'num'}},
+        {label:'같다',sub:'높이가 같음',ok:false,mis:'반지름 차이를 무시',misconceptionId:'ignore-radius',viz:{kind:'num'}}
+      ], answerNumeric:lat100(big,h)/100, unitConcept:CONCEPT.area}));
+  });
+  return out;
+}
+
 /* 제약을 만족하는 후보를 전수 생성해 만든 풀. 게임은 여기서 샘플링만 한다. */
 const POOL = [].concat(
-  poolSpin(), poolParts(), poolNet(), poolCone(), poolCylRead(),
+  poolSpin(), poolSpinAlt(), poolParts(), poolOddOneOut(), poolMatchShadow(),
+  poolNet(), poolCone(), poolCylRead(),
   poolRadia(), poolScale(), poolCompare(), poolViews(),
-  poolWrapEasy(), poolWrapHard(), poolArea()
+  poolSortProps(), poolTrueFalse(), poolMatchNetPart(),
+  poolWrapEasy(), poolCompleteFormula(), poolFindError(), poolInverseRadius(),
+  poolCompareTwoWraps(), poolHeightDebug(), poolViewReason(),
+  poolWrapHard(), poolArea(), poolFindErrorHard(), poolMissingDim(), poolTwoStepCompare()
 );
 const POOL_BY_TIER = {1:[],2:[],3:[],4:[]};
 POOL.forEach((p)=>{ (POOL_BY_TIER[p.tier]||POOL_BY_TIER[2]).push(p); });
+const POOL_BY_VARIANT = {};
+POOL.forEach((p)=>{
+  const v=p.variant||p.kind;
+  (POOL_BY_VARIANT[v]||(POOL_BY_VARIANT[v]=[])).push(p);
+});
 
 /* 웨이브 + 모드 → 티어 구성
    1: 웨이브 1~2 식별    2: 웨이브 2~3 개념·비교
@@ -798,76 +1371,195 @@ function tiersForWave(w, mode){
   if(hard) return [3,3,3,4];
   return [3,3,3,2];
 }
+function createDealer(){
+  return {
+    bagsByTier:{1:[],2:[],3:[],4:[]},
+    paramBags:{},
+    recentVariants:[],
+    recentParamKeys:[],
+    recentTemplates:[],
+    recentTargets:[],
+    recentKinds:[],
+    tierUsed:{1:0,2:0,3:0,4:0},
+    calcUsed:0,
+    totalUsed:0,
+    window20:[]
+  };
+}
+let DEALER=createDealer();
+function resetDealers(){ DEALER=createDealer(); }
 function createBags(){ return {1:[],2:[],3:[],4:[]}; }
-let bagsByTier=createBags();
-let recentKinds=[];
-function resetDealers(){ bagsByTier=createBags(); recentKinds=[]; }
 
-function takeFromTier(tier, bags, avoidKind, preferType, forceType){
+function allowedTiers(wave, mode){
+  const bag=tiersForWave(wave, mode);
+  const u=[]; const seen={};
+  for(let i=0;i<bag.length;i++) if(!seen[bag[i]]){ seen[bag[i]]=1; u.push(bag[i]); }
+  return u;
+}
+function pickTierByRatio(wave, mode, dealer){
+  const bag=tiersForWave(wave, mode);
+  const want={}; bag.forEach((t)=>{ want[t]=(want[t]|0)+1; });
+  const allowed=allowedTiers(wave, mode);
+  let best=allowed[0], bestScore=1e9;
+  const tot=Math.max(1, dealer.totalUsed);
+  for(let i=0;i<allowed.length;i++){
+    const t=allowed[i];
+    const w=(want[t]||1)/bag.length;
+    const have=(dealer.tierUsed[t]||0)/tot;
+    const sc=have-w;
+    if(sc<bestScore){ bestScore=sc; best=t; }
+  }
+  return best;
+}
+function variantCountIn(arr, v){
+  let n=0; for(let i=0;i<arr.length;i++) if(arr[i]===v) n++; return n;
+}
+function consecutiveAtEnd(arr, v){
+  let n=0; for(let i=arr.length-1;i>=0;i--){ if(arr[i]===v) n++; else break; } return n;
+}
+function targetQuotaOk(recentTargets, t){
+  const win=recentTargets.slice(-8);
+  if(win.length<8) return true;
+  const n={cyl:0,cone:0,sph:0};
+  win.forEach((x)=>{ if(n[x]!=null) n[x]++; });
+  const minT=Math.min(n.cyl,n.cone,n.sph);
+  if(n[t]===minT && minT<2) return true;
+  if(n[t]>=4 && (n.cyl<2||n.cone<2||n.sph<2)) return false;
+  return true;
+}
+function scoreCandidate(p, dealer, preferType, forceType, wave, mode){
+  if(!p) return -1e9;
+  let s=0;
+  const v=p.variant||p.kind;
+  const pk=p.variant+'|'+p.paramKey;
+  const last6=dealer.recentVariants.slice(-6);
+  const c6={};
+  last6.forEach((x)=>{ c6[x]=(c6[x]|0)+1; });
+  let least=99;
+  Object.keys(c6).forEach((k)=>{ if(c6[k]<least) least=c6[k]; });
+  if(last6.length && (c6[v]|0)===least) s+=8;
+  else s-=(c6[v]|0)*3;
+  if(consecutiveAtEnd(dealer.recentVariants, v)>=2) s-=80;
+  if(variantCountIn(dealer.recentVariants.slice(-19), v)>=4) s-=50;
+  if(dealer.recentParamKeys.slice(-19).indexOf(pk)>=0) s-=90;
+  const tmpl=p.promptTemplateId||p.kind;
+  if(variantCountIn(dealer.recentTemplates.slice(-19), tmpl)>=2) s-=40;
+  if(preferType && p.target===preferType) s+=forceType?50:18;
+  else if(forceType && preferType && p.target!==preferType) s-=30;
+  if(!targetQuotaOk(dealer.recentTargets, p.target)) s-=12;
+  if(preferType && p.target===preferType) {}
+  else if(dealer.recentTargets.slice(-8).filter((t)=>t===p.target).length>=4) s-=10;
+  const easyLate=(mode||'easy')!=='hard' && wave>=4;
+  if(easyLate){
+    const tot=Math.max(1, dealer.totalUsed);
+    const calcRatio=dealer.calcUsed/tot;
+    if(p.isCalc && calcRatio>0.58) s-=14;
+    if(!p.isCalc && calcRatio<0.47) s-=6;
+    if(p.isCalc && calcRatio<0.47) s+=10;
+    if(!p.isCalc && calcRatio>0.58) s+=10;
+  }
+  return s;
+}
+function takeFromPool(pool, dealer, preferType, forceType, wave, mode){
+  if(!pool||!pool.length) return null;
+  let best=null, bestS=-1e8;
+  for(let i=0;i<pool.length;i++){
+    const sc=scoreCandidate(pool[i], dealer, preferType, forceType, wave, mode);
+    if(sc>bestS){ bestS=sc; best=pool[i]; }
+  }
+  if(best && bestS>-60) return best;
+  return bestS>-1e7?best:null;
+}
+function takeFromTier(tier, dealer, preferType, forceType, wave, mode){
   const pool=POOL_BY_TIER[tier];
   if(!pool||!pool.length) return null;
-  let bag=bags[tier];
-  if(!bag.length) bags[tier]=bag=shuffle(pool.slice());
-  const match=(p)=> (!preferType || p.target===preferType) && (!avoidKind || p.kind!==avoidKind);
+  let bag=dealer.bagsByTier[tier];
+  if(!bag.length) dealer.bagsByTier[tier]=bag=shuffle(pool.slice());
+  const scored=takeFromPool(bag, dealer, preferType, forceType, wave, mode);
+  if(scored){
+    const i=bag.indexOf(scored);
+    if(i>=0) bag.splice(i,1);
+    return scored;
+  }
   if(preferType){
     for(let i=bag.length-1;i>=0;i--){
-      if(match(bag[i])) return bag.splice(i,1)[0];
+      if(bag[i].target===preferType) return bag.splice(i,1)[0];
     }
     if(forceType){
-      const typed=pool.filter((p)=>p.target===preferType && (!avoidKind || p.kind!==avoidKind));
+      const typed=pool.filter((p)=>p.target===preferType);
       if(typed.length) return pick(typed);
-      const typed2=pool.filter((p)=>p.target===preferType);
-      if(typed2.length) return pick(typed2);
     }
   }
-  if(avoidKind){
-    for(let i=bag.length-1;i>=0;i--){
-      if(bag[i].kind!==avoidKind) return bag.splice(i,1)[0];
-    }
-  }
-  if(!bag.length) bags[tier]=bag=shuffle(pool.slice());
+  if(!bag.length) dealer.bagsByTier[tier]=bag=shuffle(pool.slice());
   return bag.length?bag.pop():null;
+}
+function commitDealt(dealer, base){
+  const v=base.variant||base.kind;
+  dealer.recentVariants.push(v);
+  dealer.recentParamKeys.push(v+'|'+base.paramKey);
+  dealer.recentTemplates.push(base.promptTemplateId||base.kind);
+  dealer.recentTargets.push(base.target);
+  dealer.recentKinds.push(base.kind);
+  dealer.tierUsed[base.tier]=(dealer.tierUsed[base.tier]|0)+1;
+  dealer.totalUsed++;
+  if(base.isCalc) dealer.calcUsed++;
+  const cap=20;
+  ['recentVariants','recentParamKeys','recentTemplates','recentTargets','recentKinds'].forEach((k)=>{
+    if(dealer[k].length>cap) dealer[k].splice(0, dealer[k].length-cap);
+  });
 }
 function wrapDrawn(base){
   const chs=shuffle(base.choices.slice());
-  return {src:base, kind:base.kind, target:base.target, prompt:base.prompt, sub:base.sub,
+  return {src:base, kind:base.kind, variant:base.variant||base.kind, target:base.target,
+    prompt:base.prompt, sub:base.sub, promptTemplateId:base.promptTemplateId||base.kind,
+    paramKey:base.paramKey, misconceptionIds:base.misconceptionIds||[],
     choices:chs, ansIdx:chs.findIndex((c)=>c.ok), r:base.r, h:base.h, dia:base.dia,
     unitConcept:base.unitConcept, tier:base.tier, formula:base.formula||null,
     formulaNote:base.formulaNote||'', isCalc:!!base.isCalc};
 }
-function pickBase(wave, mode, bags, recent, preferType, forceType){
-  const avoid = (recent.length>=2 && recent[recent.length-1]===recent[recent.length-2])
-    ? recent[recent.length-1] : null;
-  const ts=shuffle(tiersForWave(wave, mode).slice());
+function pickBase(wave, mode, dealer, _recent, preferType, forceType){
+  dealer=dealer||DEALER;
+  const allowed=allowedTiers(wave, mode);
+  const tryTiers=[];
+  const primary=pickTierByRatio(wave, mode, dealer);
+  tryTiers.push(primary);
+  allowed.forEach((t)=>{ if(tryTiers.indexOf(t)<0) tryTiers.push(t); });
+  const adj=primary===1?2:(primary===4?3:primary-1);
+  if(allowed.indexOf(adj)>=0 && tryTiers.indexOf(adj)<0) tryTiers.push(adj);
   let base=null;
-  for(const t of ts){
-    base=takeFromTier(t, bags, avoid, preferType, forceType);
-    if(base && base.kind!==avoid) break;
+  for(let pass=0;pass<3 && !base;pass++){
+    const pref=pass===0?preferType:null;
+    const force=pass===0?forceType:false;
+    for(let i=0;i<tryTiers.length && !base;i++){
+      const t=tryTiers[i];
+      base=takeFromTier(t, dealer, pref, force, wave, mode);
+      if(base && preferType && forceType && pass===0 && base.target!==preferType){
+        base=null;
+      }
+    }
   }
   if(!base){
-    const fallback=tiersForWave(wave, mode);
-    for(let i=0;i<fallback.length && !base;i++) base=takeFromTier(fallback[i], bags, null, preferType, forceType);
+    for(let i=0;i<allowed.length && !base;i++){
+      const pool=POOL_BY_TIER[allowed[i]];
+      if(pool&&pool.length) base=pool[(Math.random()*pool.length)|0];
+    }
   }
-  if(!base && preferType){
-    const any=POOL.filter((p)=>p.target===preferType);
-    if(any.length) base=pick(any);
-  }
-  if(base){
-    recent.push(base.kind);
-    if(recent.length>4) recent.splice(0, recent.length-4);
-  }
+  if(!base) base=POOL_BY_TIER[1][0];
+  if(base) commitDealt(dealer, base);
   return base;
 }
 function drawProblem(wave, mode){
   const empty=emptyCount();
   const mercy=pickMercySpawn(G.robots);
   G.pendingMercy=mercy;
-  const prefer=(empty<=2 && mercy && mercy.type) ? mercy.type : null;
-  const force=empty<=1 && !!prefer;
-  const base=pickBase(wave, mode||G.mode, bagsByTier, recentKinds, prefer, force) || pick(POOL_BY_TIER[1]);
+  const twin=G.twinCore;
+  const preferType = twin && twin.type ? twin.type
+    : ((empty<=2 && mercy && mercy.type) ? mercy.type : null);
+  const force=!!(twin && twin.type) || (empty<=1 && !!preferType);
+  const base=pickBase(wave, mode||G.mode, DEALER, null, preferType, force) || pick(POOL_BY_TIER[1]);
   return wrapDrawn(base);
 }
-function isThinkProb(p){ return !!(p && (p.kind==='wrap' || p.kind==='area')); }
+function isThinkProb(p){ return !!(p && p.isCalc); }
 
 /* ─────────────────────── 2. 사운드 (코드 생성음) ─────────────────────── */
 const Snd=(function(){
@@ -919,6 +1611,9 @@ const Snd=(function(){
     },
     bad(){ tone(200,0.20,'sawtooth',0.20,110); },
     merge(){ tone(392,0.10,'square',0.24); setTimeout(()=>tone(587,0.10,'square',0.24),80); setTimeout(()=>tone(880,0.18,'triangle',0.26),160); },
+    awaken(){
+      [392,523,659,784,1047].forEach((f,i)=>setTimeout(()=>{ tone(f,0.14,'triangle',0.24); tone(f*2,0.10,'square',0.08); }, i*70));
+    },
     shoot(){ tone(880,0.035,'square',0.055); },
     hit(){ noise(0.07,0.14); },
     leak(){ tone(150,0.35,'sawtooth',0.28,70); noise(0.25,0.2); },
@@ -1344,7 +2039,9 @@ function fitFont(c,text,maxW,start,min,weight){
 const FONT='-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
 
 /* ─────────────────────── 6. 게임 상태 ─────────────────────── */
-const SLOTS=5, MAX_WAVE=8, WAVE_SEC=12;
+const SLOTS=5, MAX_WAVE=8, WAVE_SEC=12, MAX_NORMAL_LEVEL=5;
+const STAGE_NAME=['','조립체','작업체','강화체','정예체','명장체'];
+const SIZE_AT=[0,0.88,0.96,1.03,1.10,1.16];
 const G={
   phase:'title', mode:'easy',
   score:0, scoreShown:0, lives:3, wave:1, waveT:0, combo:0, bestCombo:0,
@@ -1353,23 +2050,53 @@ const G={
   problem:null, cards:[], busy:false, anim:null, nextAt:0,
   shake:0, shakeT:0, flash:0, flashCol:'255,255,255', timeScale:1, hitstop:0,
   bounce:0, bounceT:0, glow:0, glowCol:'255,211,92',
-  spawnT:0, t:0, dex:{}, concepts:{}, heroSquash:0, toast:null, cleared:false,
+  spawnT:0, t:0, dex:{}, runDex:{}, savedDex:{}, newDex:[], concepts:{}, heroSquash:0, toast:null, cleared:false,
   dragCard:null, hintPulse:0, frozen:false,
   mountedIdx:-1, dragRobot:null, axisSwipe:null, hoverSlot:-1,
-  dissolves:[], mergeHint:null,
-  holdShip:null, hoverShip:false, pendingMercy:null
+  dissolves:[], mergeHint:null, mergeFx:null, stampFx:null,
+  holdShip:null, hoverShip:false, pendingMercy:null,
+  mergeDebt:0, twinCore:null,
+  spawnLane:'active', staging:[], releaseQ:[], stagingT:0, releaseT:0,
+  combatT:0, telegraph:null, eventLog:[], lastEventT:0, lastSpecialT:0,
+  waveCue:null, goldLast:null, mergeSlow:0
 };
 const BEST=(function(){
   try{ return JSON.parse(localStorage.getItem('rollbot.best.v1')||'{}')||{}; }catch(e){ return {}; }
 })();
 function saveBest(){ try{ localStorage.setItem('rollbot.best.v1',JSON.stringify(BEST)); }catch(e){} }
+const DEX_KEY='rollbot.dex.v2';
+function loadSavedDex(){
+  try{
+    const raw=localStorage.getItem(DEX_KEY);
+    if(raw){ const o=JSON.parse(raw); if(o&&typeof o==='object') return o; }
+  }catch(e){}
+  return {};
+}
+function saveSavedDex(){
+  try{ localStorage.setItem(DEX_KEY, JSON.stringify(G.savedDex||{})); }catch(e){}
+}
+G.savedDex=loadSavedDex();
 
 const ROBOT_SPEC={
-  cyl :{name:'원기둥봇', face:'#F4B400', dmg:[1,2,4],  cd:[0.60,0.50,0.42], kind:'bullet'},
-  cone:{name:'원뿔봇',   face:'#E64A35', dmg:[2,4,7],  cd:[1.00,0.85,0.70], kind:'spike'},
-  sph :{name:'구봇',     face:'#7FC4EE', dmg:[1,2,4],  cd:[0.85,0.72,0.60], kind:'orb'}
+  cyl :{name:'원기둥봇', awakenName:'황금 원기둥봇', face:'#F4B400', awakenFace:'#FFD35C',
+    dmg:[1,2,4,6,9],  cd:[0.60,0.50,0.42,0.36,0.32], kind:'bullet',
+    pierce:[0,0,1,1,1], burst:[1,1,1,3,3]},
+  cone:{name:'원뿔봇', awakenName:'혜성 원뿔봇', face:'#E64A35', awakenFace:'#FF7A4A',
+    dmg:[2,4,7,10,14], cd:[1.00,0.85,0.70,0.62,0.55], kind:'spike',
+    pierce:[2,3,4,5,6], burst:[1,1,1,1,1]},
+  sph :{name:'구봇', awakenName:'무지개 구봇', face:'#7FC4EE', awakenFace:'#C9B6FF',
+    dmg:[1,2,4,6,8],  cd:[0.85,0.72,0.60,0.52,0.46], kind:'orb',
+    pierce:[0,0,0,0,0], burst:[1,1,1,1,1], splash:[1,1,1.25,1.25,1.25], chain:[0,0,0,2,3]}
 };
 const TYPE_KO={cyl:'원기둥',cone:'원뿔',sph:'구'};
+const DEX_SLOTS=(function(){
+  const out=[];
+  ['cyl','cone','sph'].forEach((t)=>{
+    for(let l=1;l<=5;l++) out.push({type:t,level:l,awakened:false,name:TYPE_KO[t]+'봇 Lv'+l});
+    out.push({type:t,level:5,awakened:true,name:ROBOT_SPEC[t].awakenName});
+  });
+  return out;
+})();
 
 /* ─────────────────────── 7. 카드 ─────────────────────── */
 function renderCardFaces(){
@@ -1479,6 +2206,16 @@ function renderCardFaces(){
   });
 }
 
+function syncLaneForProblem(){
+  if(isThinkProb(G.problem)){
+    if(G.spawnLane==='release' && G.releaseQ.length) return;
+    if(G.spawnLane!=='staging'){ G.spawnLane='staging'; G.stagingT=0; }
+  }else if(G.spawnLane==='staging'){
+    G.spawnLane='release';
+    G.releaseQ=G.staging.splice(0);
+    G.releaseT=0.12;
+  }
+}
 function newProblem(){
   clearMount();
   G.problem=drawProblem(G.wave);
@@ -1486,6 +2223,8 @@ function newProblem(){
     drag:false,dead:false,mounted:false,gone:false,shake:0,lift:0,pop:0,face:null}));
   renderCardFaces();
   updateBanner();
+  logEvent('problemShown');
+  syncLaneForProblem();
 }
 function updateBanner(msg,cls){
   const p=G.problem; const b=$('#banner');
@@ -1494,7 +2233,7 @@ function updateBanner(msg,cls){
   if(msg){ $('#bTag').textContent = cls==='bad'?'왜 틀렸을까':'좋아!'; $('#bMain').textContent=msg.main; $('#bSub').textContent=msg.sub||''; setFormula(null); return; }
   if(!p) return;
   const think=isThinkProb(p);
-  $('#bTag').textContent= think ? '계산 주문 · 먼지 대기' : ('주문 '+G.wave+'-'+(G.solved+1));
+  $('#bTag').textContent= think ? '계산 주문 · 대기선' : ('주문 '+G.wave+'-'+(G.solved+1));
   $('#bTag').classList.toggle('think', think);
   const len=p.prompt.length;
   $('#bMain').style.fontSize = (len<=30?16:len<=48?14:len<=70?12.5:11)+'px';
@@ -1664,10 +2403,18 @@ function drawDissolves(c){
 const ROBOT_TYPES=['cyl','cone','sph'];
 const HOLD_SHIP_SEC=0.55;
 const SHIP_GEARS=8;
-function dexKey(t,l){ return t+l; }
-function mkRobot(type, level){
-  return {type:type, level:level||1, cd:0.25, pop:1.2, blink:0.18, joy:0.95, t:Math.random()*3};
+function dexKey(t,l,awakened){ return t+':'+l+':'+(awakened?'awakened':'normal'); }
+function isAwakened(rb){ return !!(rb && rb.awakened); }
+function isMergeableStage(rb){
+  return !!(rb && !rb.awakened && (rb.level|0)>=1 && (rb.level|0)<=MAX_NORMAL_LEVEL);
 }
+function mkRobot(type, level, awakened){
+  const lv=clamp(level||1,1,MAX_NORMAL_LEVEL);
+  const aw=!!awakened;
+  return {type:type, level:lv, awakened:aw, formId:aw?('awaken-'+type):(type+'-'+lv),
+    cd:0.18, pop:1.2, blink:0.18, joy:0.95, t:Math.random()*3, shotN:0, pose:0, outline:0};
+}
+function robotScale(rb){ return SIZE_AT[rb.level]||1.03; }
 function emptyCount(robots){
   robots=robots||G.robots;
   let n=0; for(let i=0;i<robots.length;i++) if(!robots[i]) n++;
@@ -1678,13 +2425,13 @@ function occupiedCount(robots){
   return robots.length-emptyCount(robots);
 }
 function canMerge(a,b){
-  return !!(a&&b&&a.type===b.type&&a.level===b.level&&a.level<3);
+  return !!(a&&b&&a.type===b.type&&a.level===b.level&&isMergeableStage(a)&&isMergeableStage(b));
 }
 function mergeCounts(robots){
   robots=robots||G.robots;
   const m={};
   for(const rb of robots){
-    if(!rb||rb.level>=3) continue;
+    if(!isMergeableStage(rb)) continue;
     const k=rb.type+'@'+rb.level;
     m[k]=(m[k]|0)+1;
   }
@@ -1693,7 +2440,7 @@ function mergeCounts(robots){
 function findMergePair(robots){
   robots=robots||G.robots;
   for(let i=0;i<robots.length;i++){
-    const a=robots[i]; if(!a||a.level>=3) continue;
+    const a=robots[i]; if(!isMergeableStage(a)) continue;
     for(let j=i+1;j<robots.length;j++){
       if(canMerge(a,robots[j])) return [i,j];
     }
@@ -1704,11 +2451,13 @@ function isShelfJam(robots){
   robots=robots||G.robots;
   return emptyCount(robots)<=0 && !findMergePair(robots);
 }
-function wouldMergeWith(robots, type, level){
-  if(!type || (level|0)>=3) return false;
+function wouldMergeWith(robots, type, level, awakened){
+  if(!type || awakened) return false;
+  const lv=level|0;
+  if(lv<1 || lv>MAX_NORMAL_LEVEL) return false;
   robots=robots||G.robots;
   for(const rb of robots){
-    if(rb && rb.type===type && rb.level===level) return true;
+    if(rb && !rb.awakened && rb.type===type && rb.level===lv) return true;
   }
   return false;
 }
@@ -1737,6 +2486,31 @@ function mostNumerousType(robots){
 }
 /* 선반을 보고 다음에 나오면 합체가 풀리는 종류·레벨을 고른다.
    빈 칸 1개면 합체 가능 후보를 반드시 고르고, 후보가 없으면 가장 많은 종류의 Lv1. */
+function waveUnlockLevel(w){
+  w=w||G.wave;
+  if(w<=2) return 1;
+  if(w<=4) return 2;
+  if(w<=6) return 3;
+  return 4;
+}
+function highestUnpaired(robots, cap){
+  const u=unpairedMergeables(robots);
+  if(!u.length) return null;
+  let best=null;
+  for(let i=0;i<u.length;i++){
+    if(cap!=null && u[i].level>cap) continue;
+    if(!best || u[i].level>best.level) best=u[i];
+  }
+  return best||u[0];
+}
+function maybeReserveTwinCore(){
+  if(G.twinCore) return G.twinCore;
+  const cap=waveUnlockLevel(G.wave);
+  const u=highestUnpaired(G.robots, cap);
+  if(!u) return null;
+  G.twinCore={type:u.type, level:Math.min(u.level, cap)};
+  return G.twinCore;
+}
 function pickMercySpawn(robots, rnd){
   robots=robots||G.robots;
   rnd=rnd||Math.random;
@@ -1745,48 +2519,102 @@ function pickMercySpawn(robots, rnd){
   const fallback={type:mostNumerousType(robots), level:1, mergeable:false};
   const fromUnpaired=()=>{
     if(!unpaired.length) return fallback;
+    unpaired.sort((a,b)=>b.level-a.level);
     const lv1=unpaired.filter((u)=>u.level===1);
     const bag=lv1.length?lv1:unpaired;
     const u=bag[(rnd()*bag.length)|0];
     return {type:u.type, level:u.level, mergeable:true};
   };
+  if(G.twinCore && G.twinCore.type){
+    return {type:G.twinCore.type, level:G.twinCore.level||1, mergeable:true, reserved:true};
+  }
   if(empty<=1){
     if(!unpaired.length) return fallback;
-    const lv1=unpaired.filter((u)=>u.level===1);
-    const bag=lv1.length?lv1:unpaired;
-    const u=bag[0];
+    unpaired.sort((a,b)=>b.level-a.level);
+    const u=unpaired[0];
     return {type:u.type, level:u.level, mergeable:true};
   }
   const p=empty<=2?0.95:0.62;
   if(unpaired.length && rnd()<p) return fromUnpaired();
   return {type:ROBOT_TYPES[(rnd()*ROBOT_TYPES.length)|0], level:1, mergeable:false};
 }
+function markDex(rb){
+  if(!rb) return;
+  const k=dexKey(rb.type, rb.level, rb.awakened);
+  G.dex[k]=true;
+  G.runDex[k]=true;
+  if(!G.savedDex[k]){
+    G.savedDex[k]=true;
+    G.newDex.push(k);
+    saveSavedDex();
+    G.stampFx={
+      txt:'NEW 설계도!',
+      name: rb.awakened ? ROBOT_SPEC[rb.type].awakenName : (TYPE_KO[rb.type]+'봇 Lv'+rb.level),
+      t:0, dur:0.8, x:0, y:0
+    };
+  }
+}
+function nextDiscovery(){
+  for(let i=0;i<DEX_SLOTS.length;i++){
+    const s=DEX_SLOTS[i];
+    const k=dexKey(s.type,s.level,s.awakened);
+    if(!G.savedDex[k]) return s;
+  }
+  return null;
+}
+function savedDexCount(){
+  let n=0; DEX_SLOTS.forEach((s)=>{ if(G.savedDex[dexKey(s.type,s.level,s.awakened)]) n++; });
+  return n;
+}
 function placeRobot(type){
   let idx=G.robots.indexOf(null);
   if(idx<0){ overdrive(); return null; }
   const empty=emptyCount();
+  const twin=G.twinCore;
   const mercy=empty<=1?pickMercySpawn(G.robots):(G.pendingMercy||pickMercySpawn(G.robots));
   G.pendingMercy=null;
-  let st=type, sl=1;
-  if(empty<=1){
+  let st=type, sl=1, aw=false;
+  if(twin && twin.type && empty>=1){
+    st=twin.type; sl=twin.level||1; G.twinCore=null;
+  }else if(empty<=1){
     st=mercy.type; sl=mercy.level||1;
   }else if(mercy.mergeable){
     st=mercy.type; sl=1;
   }
-  G.robots[idx]=mkRobot(st, sl);
-  G.dex[dexKey(st,sl)]=true;
+  const rb=mkRobot(st, sl, aw);
+  G.robots[idx]=rb;
+  markDex(rb);
+  G.mergeDebt=(G.mergeDebt||0)+1;
+  if(G.mergeDebt>=4 && !findMergePair()) maybeReserveTwinCore();
+  logEvent('robotPlace');
   Snd.spin();
   return st;
 }
 function mergeRobots(from,to){
   const a=G.robots[from], b=G.robots[to];
   if(from===to||!canMerge(a,b)) return false;
-  b.level++; b.pop=1.45; b.joy=1.1; G.robots[from]=null;
-  G.dex[dexKey(b.type,b.level)]=true;
+  const fromLv=a.level;
+  const willAwaken=fromLv>=MAX_NORMAL_LEVEL;
+  G.robots[from]=null;
+  beginMergeFx(from, to, a, b, willAwaken);
+  if(willAwaken){
+    b.awakened=true; b.formId='awaken-'+b.type; b.level=MAX_NORMAL_LEVEL;
+  }else{
+    b.level=fromLv+1;
+  }
+  b.pop=1.45; b.joy=1.2; b.outline=0.52; b.cd=0.02; b.shotN=0;
+  markDex(b);
+  G.mergeDebt=0;
   const x=L.slotX(to), y=L.padRowY-L.robotR*0.4;
-  Snd.merge();
-  celebrate('merge',x,y,1.15+b.level*0.28);
-  addScore(15*b.level,x,y);
+  if(willAwaken){ Snd.awaken(); logEvent('awaken'); }
+  else { Snd.merge(); logEvent('merge'); }
+  const mag=willAwaken?2.1:(b.level>=5?1.85:1.15+b.level*0.22);
+  celebrate('merge',x,y,mag);
+  addScore(willAwaken?80:(15*b.level),x,y);
+  if(b.level>=4 || willAwaken){
+    const nm=willAwaken?ROBOT_SPEC[b.type].awakenName:(STAGE_NAME[b.level]+' 완성!');
+    floatText(x, y-42, nm, '#FFD35C', willAwaken?1.25:1.1, true);
+  }
   onMergeSuccess(to);
   return true;
 }
@@ -1833,6 +2661,21 @@ function shipRobot(idx){
 function addScore(n,x,y){
   G.score+=n;
   if(x!==undefined) floatText(x,y,'+'+n,'#FFD35C');
+}
+function logEvent(type, extra){
+  const e={runMs:Math.round(G.t*1000), combatMs:Math.round((G.combatT||0)*1000),
+    wave:G.wave, phase:G.spawnLane||'active', type:type};
+  if(extra) for(const k in extra) e[k]=extra[k];
+  G.eventLog.push(e);
+  if(G.eventLog.length>800) G.eventLog.splice(0, G.eventLog.length-600);
+  G.lastEventT=G.t;
+}
+function beginMergeFx(from,to,a,b,awaken){
+  const dur=REDUCED?0.18:(awaken?0.70:(b.level>=4?0.62:0.52));
+  G.mergeFx={from:from,to:to,t:0,dur:dur,type:a.type,fromLv:a.level,
+    toLv:awaken?5:a.level+1, awaken:!!awaken, ghost:a};
+  G.mergeSlow=awaken?0.70:0.52;
+  if(G.stampFx){ G.stampFx.x=L.slotX(to); G.stampFx.y=L.padRowY-L.robotR-36; }
 }
 
 const MERGE_HINT_KEY='mergeHintSeen:roll-bot';
@@ -2019,6 +2862,12 @@ function commit(i,force){
     G.combo++; G.solved++;
     if(G.combo>G.bestCombo) G.bestCombo=G.combo;
     G.concepts[p.kind]=true;
+    logEvent('problemResolve');
+    if(G.spawnLane==='staging'){
+      G.spawnLane='release';
+      G.releaseQ=G.staging.splice(0);
+      G.releaseT=0.12;
+    }
     const base=10+Math.min(G.combo,9)*4;
     addScore(Math.round(base*(G.mode==='hard'?1.3:1)));
     Snd.good(G.combo);
@@ -2069,47 +2918,147 @@ function tickNext(){
 }
 
 /* ─────────────────────── 11. 적 / 탄환 ─────────────────────── */
-function spawnEnemy(){
+function safeLineY(){ return L.fieldTop + Math.min(L.fieldH*0.36, 118); }
+function liveEnemyCount(){
+  let n=0; for(let i=0;i<G.enemies.length;i++) if(G.enemies[i].hp>0) n++; return n;
+}
+function mkEnemy(kind, y){
   const w=G.wave;
-  const kinds=['dust','big','fast'];
-  const k = w<=1?'dust' : pick(w<=3?['dust','dust','fast']:['dust','big','fast','dust']);
+  const k=kind|| (w<=1?'dust' : pick(w<=3?['dust','dust','fast']:['dust','big','fast','dust']));
   const baseHp=2+Math.floor((w-1)*0.9);
   const hp = k==='big'? Math.round(baseHp*1.9) : (k==='fast'? Math.max(1,Math.round(baseHp*0.7)) : baseHp);
   const cross = 13.6 - w*0.82;
   const sp = (L.padRowY-L.fieldTop)/Math.max(5.5,cross) * (k==='fast'?1.5:(k==='big'?0.72:1));
   const r = (k==='big'?1.35:(k==='fast'?0.82:1)) * Math.min(L.bw*0.075,26);
-  G.enemies.push({x:L.bx+18+Math.random()*(L.bw-36),y:L.fieldTop-r-4,hp:hp,max:hp,sp:sp,r:r,
-    k:k,ph:Math.random()*TAU,flash:0,sq:0});
+  return {x:L.bx+18+Math.random()*(L.bw-36), y:y!=null?y:(L.fieldTop-r-4), hp:hp,max:hp,sp:sp,r:r,
+    k:k,ph:Math.random()*TAU,flash:0,sq:0,gold:false,waitLabel:0};
+}
+function spawnKindForWave(){
+  const w=G.wave, t=G.waveT;
+  if(w>=4 && t>=5 && t<9.5){
+    if(G.t - (G.lastSpecialT||0) >= 4){
+      G.lastSpecialT=G.t;
+      return (Math.floor(t/4)%2)?'big':'fast';
+    }
+  }
+  if(w<=1) return 'dust';
+  return pick(w<=3?['dust','dust','fast']:['dust','big','fast','dust']);
+}
+function spawnInterval(){
+  const w=G.wave, t=G.waveT;
+  let avg=Math.max(0.55, 1.9-0.17*(w-1));
+  if(t<1.2) return 0.7;
+  if(t<5.0) avg*=1.10;
+  else if(t>=9.5 && t<11.0) avg*=1.43;
+  else if(t>=11.0) return 99;
+  return Math.min(2.05, avg*(0.88+Math.random()*0.24));
+}
+function spawnEnemy(kind, y, fromStaging){
+  if(liveEnemyCount()>=8){
+    G.spawnT=Math.min(G.spawnT, 0.35);
+    return false;
+  }
+  const e=mkEnemy(kind, y);
+  if(fromStaging) e.y=y!=null?y:safeLineY();
+  G.enemies.push(e);
+  logEvent(fromStaging?'stagingRelease':'enemySpawn');
+  return e;
+}
+function beginTelegraph(kind){
+  const k=kind||spawnKindForWave();
+  const dummy=mkEnemy(k, L.fieldTop+8);
+  G.telegraph={k:k, x:dummy.x, y:L.fieldTop+10, t:0, dur:0.5, r:dummy.r};
+  logEvent('enemyTelegraph');
 }
 function damageEnemy(e,d){
   e.hp-=d; e.flash=0.18; e.sq=1;
+  logEvent('hit');
   if(e.hp<=0){
     burst(e.x,e.y,7,'#C9B79A',110,3.4);
     addScore(2+G.wave);
     Snd.hit();
+    logEvent('kill');
+    if(liveEnemyCount()<=1 && G.spawnLane==='active') G.spawnT=Math.min(G.spawnT, 0.8);
   }
+}
+function pushShot(opts){
+  G.shots.push({
+    x:opts.x,y:opts.y,vx:opts.vx,vy:opts.vy,dmg:opts.dmg,kind:opts.kind,
+    pierce:opts.pierce||0, hitSet:[], life:0, trail:[], col:opts.col,
+    r:opts.r, explode:!!opts.explode, chainLeft:opts.chainLeft||0,
+    splash:opts.splash||1, drill:!!opts.drill, wave:!!opts.wave, ult:!!opts.ult
+  });
 }
 function robotFire(rb,i,dt){
   rb.cd-=dt;
   if(rb.cd>0) return;
-  const spec=ROBOT_SPEC[rb.type], lv=rb.level-1;
+  const spec=ROBOT_SPEC[rb.type], lv=clamp(rb.level,1,5)-1;
   let best=null,bd=1e9;
   for(const e of G.enemies){ if(e.hp<=0) continue; const d=e.y; if(d<bd){bd=d;best=e;} }
-  if(!best) return;
-  rb.cd=spec.cd[lv];
   const x=L.slotX(i), y=L.padRowY-L.robotR*0.9;
-  const dx=best.x-x, dy=best.y-y, len=Math.hypot(dx,dy)||1;
+  if(!best){
+    if(G.staging.length){
+      const st=G.staging[0];
+      rb.aimX=st.x; rb.aimY=st.y;
+    }
+    return;
+  }
+  rb.cd=spec.cd[lv];
+  rb.shotN=(rb.shotN||0)+1;
+  const dmg=spec.dmg[lv]*(rb.awakened?1.22:1);
+  const col=rb.awakened?(spec.awakenFace||spec.face):spec.face;
+  const pierce=spec.kind==='spike'?spec.pierce[lv]:(spec.kind==='bullet'?spec.pierce[lv]:0);
   const sp = spec.kind==='spike'?620:(spec.kind==='orb'?380:520);
-  G.shots.push({x:x,y:y,vx:dx/len*sp,vy:dy/len*sp,dmg:spec.dmg[lv],kind:spec.kind,
-    pierce:spec.kind==='spike'?2+lv:0,hitSet:[],life:0,trail:[],col:spec.face,r:spec.kind==='orb'?7+lv*2:4+lv});
+  const ult=rb.awakened && (rb.shotN%5===0);
+  const burstN = ult?1:(spec.burst[lv]||1);
+  const baseAng=Math.atan2(best.y-y, best.x-x);
+  logEvent('shot');
+  if(ult){
+    if(spec.kind==='bullet'){
+      for(let k=-2;k<=2;k++){
+        const a=baseAng+k*0.22;
+        pushShot({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,dmg:dmg*0.55,kind:'bullet',
+          pierce:1,col:'#FFE08A',r:5+lv,ult:true});
+      }
+    }else if(spec.kind==='spike'){
+      pushShot({x:x,y:y,vx:Math.cos(baseAng)*780,vy:Math.sin(baseAng)*780,dmg:dmg*0.85,kind:'spike',
+        pierce:12,col:'#FFD0A8',r:8,ult:true,drill:true});
+    }else{
+      for(const e of G.enemies){ if(e.hp>0) damageEnemy(e, Math.max(1, dmg*0.45)); }
+      burst(L.bx+L.bw/2, L.fieldTop+L.fieldH*0.4, 22, '#C9B6FF', 200, 5);
+      edgeGlow('201,182,255',0.55);
+    }
+    rb.pop=Math.max(rb.pop,0.55);
+    rb.pose=0.4;
+    Snd.shoot();
+    return;
+  }
+  const lastExplode=spec.kind==='bullet' && lv>=4 && (rb.shotN%3===0);
+  for(let b=0;b<burstN;b++){
+    const spread=burstN>1?(b-(burstN-1)/2)*0.11:0;
+    const a=baseAng+spread;
+    const delay=burstN>1?b*0.04:0;
+    const fire=()=>{
+      pushShot({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,dmg:dmg,
+        kind:spec.kind, pierce:pierce, col:col,
+        r:spec.kind==='orb'?7+lv*2:4+lv, explode:lastExplode&&b===burstN-1,
+        chainLeft:spec.kind==='orb'?(spec.chain[lv]||0):0,
+        splash:spec.kind==='orb'?(spec.splash[lv]||1):1,
+        drill:spec.kind==='spike' && lv>=3});
+    };
+    if(delay>0.001) setTimeout(fire, delay*1000);
+    else fire();
+  }
   rb.pop=Math.max(rb.pop,0.35);
+  if(lv>=2) rb.blink=0.08;
   Snd.shoot();
 }
 function updateShots(dt){
   for(let i=G.shots.length-1;i>=0;i--){
     const s=G.shots[i];
+    if(s.drill){ s.x+=Math.sin(s.life*22)*28*dt; }
     s.x+=s.vx*dt; s.y+=s.vy*dt; s.life+=dt;
-    s.trail.push(s.x,s.y); if(s.trail.length>10) s.trail.splice(0,2);
+    s.trail.push(s.x,s.y); if(s.trail.length>12) s.trail.splice(0,2);
     let gone = s.life>2.2 || s.y<L.fieldTop-40 || s.x<L.bx-30 || s.x>L.bx+L.bw+30;
     if(!gone){
       for(const e of G.enemies){
@@ -2118,8 +3067,24 @@ function updateShots(dt){
         if(Math.hypot(e.x-s.x,e.y-s.y) < e.r+s.r){
           damageEnemy(e,s.dmg);
           s.hitSet.push(e);
-          if(s.kind==='orb'){
-            for(const o of G.enemies){ if(o!==e&&o.hp>0&&Math.hypot(o.x-s.x,o.y-s.y)<s.r*5) damageEnemy(o,1); }
+          if(s.explode){
+            burst(s.x,s.y,14,'#FFD35C',180,5);
+            for(const o of G.enemies){
+              if(o!==e&&o.hp>0&&Math.hypot(o.x-s.x,o.y-s.y)<42) damageEnemy(o, Math.max(1,s.dmg*0.45));
+            }
+            gone=true;
+          }else if(s.kind==='orb'){
+            const rad=s.r*5*(s.splash||1);
+            const extras=[];
+            for(const o of G.enemies){
+              if(o!==e&&o.hp>0&&Math.hypot(o.x-s.x,o.y-s.y)<rad) extras.push(o);
+            }
+            extras.sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y));
+            const n=Math.min(s.chainLeft||0, extras.length);
+            for(let k=0;k<Math.max(1,n);k++){
+              if(extras[k]) damageEnemy(extras[k], Math.max(1, Math.round(s.dmg*0.5)));
+            }
+            if(!n) for(const o of extras.slice(0,1)) damageEnemy(o,1);
             burst(s.x,s.y,8,'#9FD1F2',150,4);
             gone=true;
           }else if(s.kind==='spike'){
@@ -2132,14 +3097,18 @@ function updateShots(dt){
     if(gone) G.shots.splice(i,1);
   }
 }
-function updateEnemies(dt){
+function updateEnemies(dt, think){
+  const safe=safeLineY();
+  const slow=G.mergeSlow>0?0.35:1;
   for(let i=G.enemies.length-1;i>=0;i--){
     const e=G.enemies[i];
     if(e.hp<=0){ G.enemies.splice(i,1); continue; }
-    e.y+=e.sp*dt; e.ph+=dt*3; e.flash=Math.max(0,e.flash-dt); e.sq=Math.max(0,e.sq-dt*4);
+    const moveDt = think ? dt*0.20 : dt*slow;
+    e.y+=e.sp*moveDt; e.ph+=dt*3; e.flash=Math.max(0,e.flash-dt); e.sq=Math.max(0,e.sq-dt*4);
     e.x+=Math.sin(e.ph*0.7)*10*dt;
     e.x=clamp(e.x,L.bx+14,L.bx+L.bw-14);
-    if(e.y>=L.padRowY-e.r*0.3){
+    if(think && e.y > safe-e.r*0.2){ e.y=safe-e.r*0.2; }
+    if(!think && e.y>=L.padRowY-e.r*0.3){
       G.enemies.splice(i,1);
       G.lives--; G.combo=0;
       flash('230,74,53',0.55); shake(16); Snd.leak();
@@ -2157,23 +3126,32 @@ function startRun(mode){
   G.combo=0; G.bestCombo=0; G.solved=0; G.misses=0; G.attempts=0; G.cleared=false;
   G.enemies.length=0; G.shots.length=0; G.parts.length=0;
   G.robots=new Array(SLOTS).fill(null);
-  G.busy=false; G.anim=null; G.nextAt=0; G.spawnT=0.8; G.t=0;
-  G.dex={}; G.concepts={}; G.toast=null;
+  G.busy=false; G.anim=null; G.nextAt=0; G.spawnT=0.7; G.t=0; G.combatT=0;
+  G.dex={}; G.runDex={}; G.newDex=[]; G.concepts={}; G.toast=null;
   G.mountedIdx=-1; G.dragRobot=null; G.axisSwipe=null; G.hoverSlot=-1; G.dragCard=null;
   G.holdShip=null; G.hoverShip=false; G.pendingMercy=null;
+  G.mergeDebt=0; G.twinCore=null; G.mergeFx=null; G.stampFx=null; G.mergeSlow=0;
+  G.spawnLane='active'; G.staging.length=0; G.releaseQ.length=0; G.stagingT=0; G.releaseT=0;
+  G.telegraph=null; G.eventLog.length=0; G.lastEventT=0; G.lastSpecialT=0; G.waveCue=null;
   G.shake=0; G.flash=0; G.bounce=0; G.bounceT=0; G.glow=0;
   G.dissolves.length=0; resetMergeHint();
   resetDealers(); G.thinkToastShown=false; G.wasThink=false;
+  if(!G.savedDex) G.savedDex=loadSavedDex();
   $('#title').classList.add('hide'); $('#result').classList.add('hide');
   $('#hud').classList.remove('hide'); $('#banner').classList.remove('hide');
+  logEvent('waveCue');
   newProblem(); syncHud();
 }
 function nextWave(){
   if(G.wave>=MAX_WAVE){ gameOver(true); return; }
-  G.wave++; G.waveT=0;
+  if(!findMergePair()) maybeReserveTwinCore();
+  G.wave++; G.waveT=0; G.spawnT=0.7; G.telegraph=null; G.lastSpecialT=0;
   if(G.lives<3){ G.lives++; floatText(L.bx+L.bw/2,L.fieldTop+50,'수리 톱니 +1 ❤','#7FD8A0'); }
-  G.toast={txt:'웨이브 '+G.wave,sub:'먼지가 더 빨라진다!',t:0};
+  const nextKind=G.wave>=6?'빠른 먼지':(G.wave>=4?'큰 먼지':'먼지');
+  G.toast={txt:'웨이브 '+G.wave,sub:'다음: '+nextKind,t:0};
+  G.waveCue={txt:'다음 웨이브: '+nextKind, t:0};
   flash('160,220,255',0.30); Snd.wave();
+  logEvent('waveCue');
   addScore(50);
 }
 function gameOver(cleared){
@@ -2183,7 +3161,8 @@ function gameOver(cleared){
   $('#banner').classList.add('hide');
   Snd.over();
   const acc=G.attempts? Math.round(G.solved/G.attempts*100):0;
-  const dexN=Object.keys(G.dex).length;
+  const dexN=savedDexCount();
+  const runN=Object.keys(G.runDex||{}).length;
   let nb=[];
   if(!BEST.score||G.score>BEST.score){ BEST.score=G.score; nb.push('최고 점수'); }
   if(!BEST.wave||G.wave>BEST.wave){ BEST.wave=G.wave; nb.push('최고 웨이브'); }
@@ -2193,18 +3172,25 @@ function gameOver(cleared){
   $('#rsub').textContent = cleared? '8웨이브를 모두 막아냈다 🏅' : '오늘의 공방 성적표';
   $('#rWave').textContent=G.wave; $('#rCombo').textContent=G.bestCombo; $('#rAcc').textContent=acc+'%';
   $('#newbest').textContent = nb.length? ('🏆 신기록! '+nb.join(' · ')) : ('최고 '+(BEST.score||0)+'톱니');
-  $('#stDis').classList.toggle('on',dexN>=6);
+  $('#stDis').classList.toggle('on',dexN>=12);
   $('#stAcc').classList.toggle('on',acc>=80&&G.attempts>=5);
   $('#stExp').classList.toggle('on',Object.keys(G.concepts).length>=5);
+  $('#dexTitle').textContent='로봇 도감  '+dexN+'/18'+(runN?('  ·  이번 '+Object.keys(G.runDex).filter((k)=>G.newDex.indexOf(k)>=0).length+'종 신규'):'');
   const dex=$('#dex'); dex.innerHTML='';
-  ['cyl','cone','sph'].forEach((t)=>{
-    for(let l=1;l<=3;l++){
-      const d=document.createElement('div');
-      d.className='dcell'+(G.dex[dexKey(t,l)]?' on':'');
-      d.textContent=(G.dex[dexKey(t,l)]?TYPE_KO[t]+'봇 Lv'+l:'? ? ?');
-      dex.appendChild(d);
-    }
+  DEX_SLOTS.forEach((s)=>{
+    const k=dexKey(s.type,s.level,s.awakened);
+    const on=!!G.savedDex[k];
+    const fresh=G.newDex.indexOf(k)>=0;
+    const d=document.createElement('div');
+    d.className='dcell'+(on?' on':'')+(fresh?' fresh':'')+(s.awakened?' aw':'');
+    d.textContent=on?(s.awakened?s.name.replace('봇',''):('Lv'+s.level+(s.awakened?'★':''))):'?';
+    if(on && !s.awakened) d.textContent=TYPE_KO[s.type].slice(0,1)+s.level;
+    if(on && s.awakened) d.textContent=s.name.replace('봇','');
+    dex.appendChild(d);
   });
+  const nxt=nextDiscovery();
+  const rNext=$('#rNext');
+  rNext.textContent = nxt ? ('다음 발견: '+nxt.name) : '도감 완성! 18/18';
   // 점수 카운트업
   let shown=0; const target=G.score;
   $('#rscore').textContent='0';
@@ -2280,7 +3266,7 @@ function drawEnemy(c,e){
     if(i===0) c.moveTo(x,y); else c.lineTo(x,y);
   }
   c.closePath(); c.fill();
-  c.lineWidth=2.6; c.strokeStyle=INK; c.stroke();
+  c.lineWidth=e.gold?4:2.6; c.strokeStyle=e.gold?'#FFD35C':INK; c.stroke();
   // 눈
   const ee=Math.max(2.4,e.r*0.20);
   c.fillStyle='#FFF7E6';
@@ -2310,18 +3296,110 @@ function drawShot(c,s){
   if(s.kind==='spike'){
     const a=Math.atan2(s.vy,s.vx);
     c.save(); c.translate(s.x,s.y); c.rotate(a);
-    c.beginPath(); c.moveTo(s.r*2.1,0); c.lineTo(-s.r,s.r*0.85); c.lineTo(-s.r,-s.r*0.85); c.closePath();
+    c.beginPath(); c.moveTo(s.r*(s.ult?3.2:2.1),0); c.lineTo(-s.r,s.r*(s.ult?1.2:0.85)); c.lineTo(-s.r,-s.r*(s.ult?1.2:0.85)); c.closePath();
     c.fill(); c.stroke(); c.restore();
   }else{
-    c.beginPath(); c.arc(s.x,s.y,s.r,0,TAU); c.fill(); c.stroke();
+    c.beginPath(); c.arc(s.x,s.y,s.r*(s.ult?1.25:1),0,TAU); c.fill(); c.stroke();
+  }
+}
+function drawGearTiny(c,x,y,r,rot,col){
+  c.save(); c.translate(x,y); c.rotate(rot);
+  c.fillStyle=col||'#C9A227';
+  c.beginPath(); c.arc(0,0,r*0.62,0,TAU); c.fill();
+  for(let k=0;k<8;k++){
+    const a=k/8*TAU;
+    c.save(); c.rotate(a);
+    c.fillRect(r*0.42,-r*0.18,r*0.52,r*0.36);
+    c.restore();
+  }
+  c.fillStyle='#FFF7E6'; c.beginPath(); c.arc(0,0,r*0.22,0,TAU); c.fill();
+  c.restore();
+}
+function drawRobotDecor(c,rb,R,Hh){
+  const lv=rb.level, aw=!!rb.awakened, t=rb.t||G.t;
+  const spec=ROBOT_SPEC[rb.type];
+  if(lv>=2){
+    c.strokeStyle=spec.face; c.lineWidth=Math.max(2.2,R*0.10);
+    c.beginPath(); c.ellipse(0,Hh*0.42,R*0.92,R*0.22,0,0,TAU); c.stroke();
+    c.fillStyle=INK;
+    c.beginPath(); c.arc(0,-Hh*0.52,Math.max(2.2,R*0.09),0,TAU); c.fill();
+    c.fillStyle=spec.face;
+    c.fillRect(-1.1,-Hh*0.72,2.2,Hh*0.22);
+  }
+  if(lv>=3){
+    c.fillStyle=spec.face;
+    roundRect(c,-R*1.08,-Hh*0.18,R*0.28,Hh*0.42,4); c.fill();
+    roundRect(c,R*0.80,-Hh*0.18,R*0.28,Hh*0.42,4); c.fill();
+    c.strokeStyle='#FFF7E6'; c.lineWidth=1.6;
+    c.strokeRect(-R*0.72,-Hh*0.42,R*1.44,Hh*0.84);
+    c.save(); c.translate(0, Hh*0.38); c.scale(0.55,0.55);
+    c.strokeStyle=INK; c.lineWidth=2;
+    if(rb.type==='cyl'){ c.strokeRect(-8,-7,16,14); }
+    else if(rb.type==='cone'){ c.beginPath(); c.moveTo(0,-8); c.lineTo(8,7); c.lineTo(-8,7); c.closePath(); c.stroke(); }
+    else { c.beginPath(); c.arc(0,0,8,0,TAU); c.stroke(); }
+    c.restore();
+  }
+  if(lv>=4){
+    c.save(); c.globalAlpha=0.9;
+    drawGearTiny(c, 0, Hh*0.02, R*0.42, t*0.7, '#E8C547');
+    c.restore();
+    const g=c.createLinearGradient(-R, -Hh/2, R, Hh/2);
+    g.addColorStop(0,'rgba(255,255,255,.35)'); g.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=g; c.beginPath(); c.ellipse(-R*0.2,-Hh*0.1,R*0.35,Hh*0.4, -0.4,0,TAU); c.fill();
+    const pulse=0.45+0.55*Math.sin(t*4.2);
+    c.fillStyle='rgba(255,211,92,'+(0.35+pulse*0.4)+')';
+    c.beginPath(); c.arc(0,0,R*0.16,0,TAU); c.fill();
+  }
+  if(lv>=5){
+    c.fillStyle='#FFD35C';
+    c.beginPath();
+    c.moveTo(0,-Hh/2-R*0.42); c.lineTo(-R*0.28,-Hh/2-R*0.08); c.lineTo(R*0.28,-Hh/2-R*0.08);
+    c.closePath(); c.fill();
+    c.strokeStyle='#FFF7E6'; c.lineWidth=2.4;
+    c.beginPath(); c.ellipse(0,0,R*1.18,Hh*0.62,0,0,TAU); c.stroke();
+    const or=R*1.05;
+    drawGearTiny(c, Math.cos(t*1.4)*or, Math.sin(t*1.4)*or*0.45, R*0.16, t*2, '#F4B400');
+    drawGearTiny(c, Math.cos(t*1.4+Math.PI)*or, Math.sin(t*1.4+Math.PI)*or*0.45, R*0.16, -t*2, '#F4B400');
+  }
+  if(aw){
+    const halo=c.createRadialGradient(0,0,R*0.2,0,0,R*1.7);
+    const hc=rb.type==='cyl'?'255,211,92':(rb.type==='cone'?'255,122,74':'180,150,255');
+    halo.addColorStop(0,'rgba('+hc+',.55)'); halo.addColorStop(1,'rgba('+hc+',0)');
+    c.fillStyle=halo; c.beginPath(); c.arc(0,0,R*1.7,0,TAU); c.fill();
+    c.fillStyle='#FFF'; c.beginPath(); c.arc(0,0,R*0.14,0,TAU); c.fill();
+    for(let k=0;k<3;k++){
+      const a=t*0.7+k*TAU/3;
+      drawGearTiny(c, Math.cos(a)*R*1.22, Math.sin(a)*R*0.55, R*0.14, a, '#FFF7E6');
+    }
+  }
+}
+function drawRobotFace(c,rb,R,Hh,joy){
+  const fy = rb.type==='cone'? Hh*0.14 : (rb.type==='sph'? 0 : -Hh*0.02);
+  const lv=rb.level, aw=!!rb.awakened;
+  let mood='up';
+  if(aw || joy>0.08 || lv>=5) mood='joy';
+  drawFace(c,0,fy,R*0.92,rb.blink<0.12, mood);
+  if(lv>=2 && !aw){
+    const tx=rb.aimX!=null? clamp((rb.aimX- (G.dragRobot&&G.dragRobot.idx>=0?0:0) ), -8, 8)*0 : 0;
+    // pupil already in drawFace; add brow for lv3+
+  }
+  if(lv>=3 && mood!=='joy'){
+    c.strokeStyle=INK; c.lineWidth=Math.max(1.6,R*0.07); c.lineCap='round';
+    c.beginPath(); c.moveTo(-R*0.48, fy-R*0.28); c.lineTo(-R*0.18, fy-R*0.18); c.stroke();
+    c.beginPath(); c.moveTo(R*0.48, fy-R*0.28); c.lineTo(R*0.18, fy-R*0.18); c.stroke();
+  }
+  if(aw){
+    c.fillStyle='#FFF';
+    c.beginPath(); c.arc(-R*0.30, fy-R*0.08, Math.max(1.4,R*0.06),0,TAU); c.fill();
+    c.beginPath(); c.arc(R*0.30, fy-R*0.08, Math.max(1.4,R*0.06),0,TAU); c.fill();
   }
 }
 function drawRobot(c,rb,i){
   const dragging=G.dragRobot&&G.dragRobot.idx===i;
   const x=dragging?G.dragRobot.x:L.slotX(i);
   const baseY=dragging?G.dragRobot.y:L.padRowY+2;
-  const R=L.robotR*(0.78+rb.level*0.09);
-  const bob=dragging?0:Math.sin(rb.t*2.2+i)*2.2;
+  const R=L.robotR*robotScale(rb);
+  const bob=dragging?0:Math.sin(rb.t*2.2+i)* (rb.level>=1?2.2:1.4);
   const pop=rb.pop;
   const joy=rb.joy||0;
   const jw=joy>0? Math.sin((1-joy)*16)*joy : 0;
@@ -2331,27 +3409,32 @@ function drawRobot(c,rb,i){
   c.translate(x,baseY-Hh/2+bob-jw*8);
   c.scale(sx,sy);
   const counts=mergeCounts();
-  const glow=counts[rb.type+'@'+rb.level]>=2;
+  const glow=isMergeableStage(rb) && (counts[rb.type+'@'+rb.level]>=2);
   const hover=G.hoverSlot===i && G.dragRobot && G.dragRobot.idx!==i && canMerge(G.robots[G.dragRobot.idx],rb);
   const jamPick=isShelfJam() && suggestedShipIdx()===i;
-  if(glow||hover||jamPick){
+  if(glow||hover||jamPick||rb.awakened){
     const pulse=0.45+0.35*Math.sin(G.t*3.4+i);
     c.save();
-    c.globalAlpha=hover?0.55:(jamPick?0.34+pulse*0.28:(0.18+pulse*0.22));
-    c.fillStyle=jamPick?'#7FC4EE':'#F4B400';
-    c.beginPath(); c.ellipse(0,Hh*0.48,R*1.65,R*0.58,0,0,TAU); c.fill();
+    c.globalAlpha=hover?0.55:(jamPick?0.34+pulse*0.28:(rb.awakened?0.28+pulse*0.18:(0.18+pulse*0.22)));
+    c.fillStyle=jamPick?'#7FC4EE':(rb.awakened?'#FFE08A':'#F4B400');
+    c.beginPath(); c.ellipse(0,Hh*0.48,R*1.55,R*0.50,0,0,TAU); c.fill();
     c.strokeStyle=jamPick?'#7FC4EE':'#F4B400'; c.lineWidth=hover?5:3+pulse*2;
-    c.beginPath(); c.ellipse(0,0,R*1.25,Hh*0.72,0,0,TAU); c.stroke();
+    c.beginPath(); c.ellipse(0,0,R*1.18,Hh*0.68,0,0,TAU); c.stroke();
     c.restore();
   }
+  if(rb.outline>0){
+    c.save(); c.globalAlpha=rb.outline; c.strokeStyle='#FFF'; c.lineWidth=5;
+    c.beginPath(); c.ellipse(0,0,R*1.22,Hh*0.72,0,0,TAU); c.stroke(); c.restore();
+  }
   const spec=ROBOT_SPEC[rb.type];
-  drawSolid(c,rb.type,0,0,R,Hh,{face:spec.face,lw:3});
-  const fy = rb.type==='cone'? Hh*0.14 : (rb.type==='sph'? 0 : -Hh*0.02);
-  drawFace(c,0,fy,R*0.92,rb.blink<0.12, joy>0.08?'joy':'up');
-  // 레벨 뱃지
-  c.fillStyle=INK; roundRect(c,-R*0.55,-Hh/2-15,R*1.1,14,7); c.fill();
-  c.fillStyle='#FFD35C'; c.font='900 10px '+FONT; c.textAlign='center'; c.textBaseline='middle';
-  c.fillText('Lv'+rb.level,0,-Hh/2-8);
+  const face=rb.awakened?(spec.awakenFace||'#FFF7E6'):spec.face;
+  drawSolid(c,rb.type,0,0,R,Hh,{face:face,lw:rb.level>=3?3.4:3});
+  drawRobotDecor(c,rb,R,Hh);
+  drawRobotFace(c,rb,R,Hh,joy);
+  c.fillStyle=INK; roundRect(c,-R*0.62,-Hh/2-16,R*1.24,15,7); c.fill();
+  c.fillStyle=rb.awakened?'#FFE08A':'#FFD35C';
+  c.font='900 9.5px '+FONT; c.textAlign='center'; c.textBaseline='middle';
+  c.fillText(rb.awakened?'각성':('Lv'+rb.level),0,-Hh/2-8);
   const hold=G.holdShip;
   if(hold && hold.idx===i && !hold.moved && isShelfJam()){
     const k=clamp(hold.t/HOLD_SHIP_SEC,0,1);
@@ -2706,6 +3789,98 @@ function drawToast(c){
   c.fillStyle=IVORY; c.font='800 12px '+FONT; c.fillText(t.sub,L.bx+L.bw/2,y+16);
   c.restore();
 }
+function drawStaging(c){
+  const line=safeLineY();
+  if(G.spawnLane==='staging' || G.staging.length || G.releaseQ.length){
+    c.save();
+    c.strokeStyle='rgba(23,105,170,.55)'; c.setLineDash([6,6]); c.lineWidth=2;
+    c.beginPath(); c.moveTo(L.bx+12, line); c.lineTo(L.bx+L.bw-12, line); c.stroke();
+    c.setLineDash([]);
+    c.fillStyle='rgba(15,46,72,.72)';
+    c.font='900 11px '+FONT; c.textAlign='left'; c.textBaseline='middle';
+    c.fillText('대기선', L.bx+16, line-10);
+    c.restore();
+  }
+  const list=G.staging;
+  for(let i=0;i<list.length;i++){
+    const e=list[i];
+    const wob=Math.sin((e.ph||G.t*3)+i)*3;
+    c.save();
+    c.globalAlpha=0.55+0.2*Math.sin(G.t*4+i);
+    c.translate(e.x, e.y+wob);
+    c.fillStyle='#6E6152';
+    c.beginPath();
+    const n=8, rr=e.r||14;
+    for(let k=0;k<=n;k++){
+      const a=k/n*TAU, r=rr*(0.82+0.18*Math.sin(a*3+G.t*2));
+      if(k===0) c.moveTo(Math.cos(a)*r, Math.sin(a)*r); else c.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+    }
+    c.closePath(); c.fill();
+    c.strokeStyle=INK; c.lineWidth=2; c.stroke();
+    c.fillStyle='#FFF7E6'; c.font='900 11px '+FONT; c.textAlign='center'; c.textBaseline='middle';
+    c.fillText('대기 '+(i+1)+'/'+Math.max(list.length,1), 0, -rr-8);
+    c.restore();
+  }
+  if(G.telegraph){
+    const tg=G.telegraph, k=clamp(tg.t/tg.dur,0,1);
+    c.save(); c.globalAlpha=0.25+0.55*k;
+    c.strokeStyle='#E64A35'; c.setLineDash([5,4]); c.lineWidth=2.5;
+    c.beginPath(); c.arc(tg.x, tg.y, tg.r*(1.2-k*0.2), 0, TAU); c.stroke();
+    c.setLineDash([]);
+    c.fillStyle='#E64A35'; c.font='900 10px '+FONT; c.textAlign='center';
+    c.fillText('온다', tg.x, tg.y-tg.r-6);
+    c.restore();
+  }
+}
+function drawMergeFx(c){
+  const fx=G.mergeFx; if(!fx) return;
+  const k=clamp(fx.t/fx.dur,0,1);
+  const x=L.slotX(fx.to), y=L.padRowY-L.robotR*0.4;
+  c.save();
+  if(k<0.32){
+    const ang=k/0.32*TAU/3;
+    const sc=REDUCED?1:(0.85);
+    c.globalAlpha=1-k*0.4;
+    c.translate(x,y); c.rotate(ang); c.scale(sc,sc);
+    const spec=ROBOT_SPEC[fx.type];
+    drawSolid(c,fx.type,0,0,L.robotR*0.7,L.robotR, {face:spec.face,lw:2});
+  }
+  if(k>0.18 && k<0.62){
+    c.globalAlpha=0.8;
+    for(let i=0;i<8;i++){
+      const a=-Math.PI/2+i*0.22+(k*2);
+      const d=20+k*40;
+      drawGearTiny(c, x+Math.cos(a)*d, y+Math.sin(a)*d*0.4, 5, a, '#F4B400');
+    }
+  }
+  if((fx.toLv>=4 || fx.awaken) && k>0.45){
+    const a=(k-0.45)/0.55;
+    const grd=c.createLinearGradient(x, y-90, x, y+20);
+    grd.addColorStop(0,'rgba(255,211,92,'+(0.55*a)+')');
+    grd.addColorStop(1,'rgba(255,211,92,0)');
+    c.fillStyle=grd; c.fillRect(x-18, y-100, 36, 120);
+  }
+  if(fx.awaken && k>0.35){
+    c.globalCompositeOperation='lighter';
+    c.globalAlpha=0.35+0.35*Math.sin(k*20);
+    c.fillStyle='#FFF'; c.beginPath(); c.arc(x,y,30+k*40,0,TAU); c.fill();
+    c.globalCompositeOperation='source-over';
+  }
+  c.restore();
+}
+function drawStampFx(c){
+  const s=G.stampFx; if(!s) return;
+  const k=clamp(s.t/s.dur,0,1);
+  const al=k<0.15?k/0.15:(k>0.7?(1-k)/0.3:1);
+  const x=s.x||L.bx+L.bw/2, y=s.y||L.fieldTop+L.fieldH*0.32;
+  c.save(); c.globalAlpha=al; c.textAlign='center'; c.textBaseline='middle';
+  c.translate(x,y); c.rotate(-0.08); c.scale(1+0.08*(1-k),1+0.08*(1-k));
+  c.fillStyle='rgba(37,37,37,.9)'; roundRect(c,-72,-22,144,44,12); c.fill();
+  c.strokeStyle='#F4B400'; c.lineWidth=3; roundRect(c,-72,-22,144,44,12); c.stroke();
+  c.fillStyle='#FFD35C'; c.font='900 15px '+FONT; c.fillText(s.txt,0,-6);
+  c.fillStyle='#FFF7E6'; c.font='800 11px '+FONT; c.fillText(s.name||'',0,12);
+  c.restore();
+}
 function render(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.clearRect(0,0,W,H);
@@ -2715,11 +3890,13 @@ function render(){
   ctx.save(); ctx.translate(sx,sy);
   drawAmbient(ctx,G.t);
   if(G.phase!=='title'){
+    drawStaging(ctx);
     for(const e of G.enemies) drawEnemy(ctx,e);
     for(const s of G.shots) drawShot(ctx,s);
     const dragI=G.dragRobot?G.dragRobot.idx:-1;
     for(let i=0;i<SLOTS;i++){ const r=G.robots[i]; if(r&&i!==dragI) drawRobot(ctx,r,i); }
     if(dragI>=0 && G.robots[dragI]) drawRobot(ctx,G.robots[dragI],dragI);
+    drawMergeFx(ctx);
     drawShipCrate(ctx);
     if(G.anim) drawAnim(ctx);
     drawBuildZone(ctx,G.t);
@@ -2727,6 +3904,7 @@ function render(){
     drawDissolves(ctx);
     drawMergeHint(ctx);
     drawToast(ctx);
+    drawStampFx(ctx);
   }
   ctx.restore();
   if(G.glow>0.01){
@@ -2779,27 +3957,81 @@ function update(dt){
   if(G.toast){ G.toast.t+=dt; if(G.toast.t>1.8) G.toast=null; }
 
   if(G.phase==='playing'){
-    const think=isThinkProb(G.problem);
-    if(think && !G.thinkToastShown){
-      G.toast={txt:'계산 시간',sub:'먼지가 잠시 기다려 준다',t:0};
+    const think=isThinkProb(G.problem) && G.spawnLane!=='release';
+    if(isThinkProb(G.problem) && !G.thinkToastShown){
+      G.toast={txt:'계산 시간',sub:'먼지가 대기선에서 기다린다',t:0};
       G.thinkToastShown=true;
     }
-    if(think){
-      G.spawnT=1.6;
+    if(!isThinkProb(G.problem)) G.thinkToastShown=false;
+    syncLaneForProblem();
+    const combatDt = (isThinkProb(G.problem) && G.spawnLane==='staging') ? dt*0.15 : dt;
+    G.combatT=(G.combatT||0)+combatDt;
+    if(G.mergeSlow>0) G.mergeSlow=Math.max(0, G.mergeSlow-dt);
+    if(G.mergeFx){
+      G.mergeFx.t+=dt;
+      if(G.mergeFx.t>=G.mergeFx.dur) G.mergeFx=null;
+    }
+    if(G.stampFx){
+      G.stampFx.t+=dt;
+      if(G.stampFx.t>=G.stampFx.dur) G.stampFx=null;
+    }
+    G.waveT+=combatDt;
+    if(G.waveT>=WAVE_SEC) nextWave();
+    if(G.spawnLane==='staging'){
+      G.stagingT+=dt;
+      if(G.stagingT>=2.0){
+        G.stagingT=0;
+        if(G.staging.length<2){
+          const e=mkEnemy('dust', safeLineY());
+          e.y=safeLineY(); e.waitLabel=G.staging.length+1;
+          G.staging.push(e);
+          logEvent('stagingSpawn');
+        }else{
+          logEvent('stagingPulse');
+        }
+      }
+    }else if(G.spawnLane==='release'){
+      G.releaseT-=dt;
+      if(G.releaseT<=0 && G.releaseQ.length){
+        const e=G.releaseQ.shift();
+        spawnEnemy(e.k, e.y, true);
+        G.releaseT=0.45;
+      }
+      if(!G.releaseQ.length && G.releaseT<=0){
+        G.spawnLane='active';
+        if(isThinkProb(G.problem)){ G.spawnLane='staging'; G.stagingT=0; }
+      }
     }else{
-      G.waveT+=dt;
-      if(G.waveT>=WAVE_SEC) nextWave();
-      G.spawnT-=dt;
-      if(G.spawnT<=0){
-        spawnEnemy();
-        G.spawnT=Math.max(0.55,1.9-0.17*(G.wave-1))*(0.85+Math.random()*0.35);
+      if(G.telegraph){
+        G.telegraph.t+=dt;
+        if(G.telegraph.t>=G.telegraph.dur){
+          spawnEnemy(G.telegraph.k, L.fieldTop-4, false);
+          G.telegraph=null;
+          G.spawnT=spawnInterval();
+        }
+      }else{
+        G.spawnT-=dt;
+        if(G.spawnT<=0 && G.waveT<11.0){
+          if(liveEnemyCount()>=8) G.spawnT=0.3;
+          else beginTelegraph(spawnKindForWave());
+        }
       }
     }
-    updateEnemies(think ? dt*0.08 : dt);
+    if(G.waveT>=9.5 && G.enemies.length===1) G.enemies[0].gold=true;
+    const idleGap=G.t-(G.lastEventT||0);
+    if(idleGap>1.8){
+      if(G.spawnLane==='staging') logEvent('stagingPulse');
+      else if(G.spawnLane==='active' && !G.telegraph && liveEnemyCount()<8 && G.waveT<11){
+        beginTelegraph();
+      }
+    }
+    updateEnemies(dt, isThinkProb(G.problem) && G.spawnLane!=='release');
     for(let i=0;i<SLOTS;i++){
       const r=G.robots[i]; if(!r) continue;
       r.t+=dt; r.pop=Math.max(0,r.pop-dt*3.2);
       r.joy=Math.max(0,(r.joy||0)-dt*1.7);
+      r.outline=Math.max(0,(r.outline||0)-dt*1.8);
+      r.pose=Math.max(0,(r.pose||0)-dt);
       r.blink-=dt; if(r.blink<=-0.12) r.blink=2+Math.random()*4;
       robotFire(r,i,dt);
     }
@@ -3067,6 +4299,12 @@ function syncBestPill(){
   const el=$('#tBest'), v=Number(BEST.score||0);
   if(v>0){ el.hidden=false; el.textContent='최고 '+v.toLocaleString('ko-KR')+'톱니'; }
   else el.hidden=true;
+  const dx=$('#tDex');
+  if(dx){
+    const n=savedDexCount();
+    if(n>0){ dx.hidden=false; dx.textContent='도감 '+n+'/18'; }
+    else dx.hidden=true;
+  }
 }
 function syncMuteIcons(){
   const m=Snd.isMuted(), ic=m?'🔇':'🔊', lbl=m?'소리 켜기':'소리 끄기';
@@ -3102,18 +4340,20 @@ function hookSample(n, opts){
   n=Math.max(1,n|0);
   opts=opts||{};
   const mode=opts.mode||'easy';
-  const bags=createBags();
-  const recent=[];
+  const dealer=createDealer();
   const out=[];
   for(let i=0;i<n;i++){
     const w=(opts.wave|0)>0 ? (opts.wave|0) : (1+(i%8));
-    const p=pickBase(w, mode, bags, recent);
+    const p=pickBase(w, mode, dealer, null, opts.preferType||null, !!opts.forceType);
     if(!p) break;
     const labels=p.choices.map((c)=>c.sub?(c.label+' ('+c.sub+')'):c.label);
     const ans=labels[p.choices.findIndex((c)=>c.ok)];
+    const mis=(p.choices||[]).filter((c)=>!c.ok).map((c)=>c.misconceptionId||slugMis(c.mis));
     out.push({id:p.id+'-'+i, prompt:p.prompt, choices:labels, answer:ans,
       answerNumeric:p.answerNumeric, unitConcept:p.unitConcept,
-      tier:p.tier, kind:p.kind, isCalc:!!p.isCalc, wave:w, mode:mode});
+      tier:p.tier, kind:p.kind, variant:p.variant||p.kind, paramKey:p.paramKey,
+      promptTemplateId:p.promptTemplateId, misconceptionIds:p.misconceptionIds||mis,
+      isCalc:!!p.isCalc, wave:w, mode:mode, target:p.target});
   }
   return out;
 }
@@ -3125,7 +4365,10 @@ window.__GAME_TEST__={
   getState(){
     return {score:Math.round(G.score),lives:G.lives,level:G.wave,phase:G.phase,
       solved:G.solved,combo:G.combo,misses:G.misses,
-      kind:G.problem&&G.problem.kind, tier:G.problem&&G.problem.tier, think:isThinkProb(G.problem)};
+      kind:G.problem&&G.problem.kind, variant:G.problem&&G.problem.variant,
+      tier:G.problem&&G.problem.tier, think:isThinkProb(G.problem),
+      spawnLane:G.spawnLane, staging:G.staging.length, enemies:liveEnemyCount(),
+      waveT:G.waveT, maxLevel:G.robots.reduce((m,r)=>r?Math.max(m,r.awakened?6:r.level):m,0)};
   },
   answerCorrect(){
     if(G.phase!=='playing') startRun('easy');
@@ -3145,6 +4388,23 @@ window.__GAME_TEST__={
     commit(i,true);
   },
   sampleProblems(n, opts){ return hookSample(n||20, opts); },
+  skipAnim(){ if(G.busy) finishAnim(true); G.nextAt=0; newProblem(); },
+  autoStep(){
+    if(G.phase!=='playing') startRun('easy');
+    G.frozen=false;
+    const onb=$('#onb'); if(onb) onb.classList.add('hide');
+    if(G.busy) finishAnim(true);
+    const jam=isShelfJam();
+    const pair=findMergePair();
+    if(pair) mergeRobots(pair[0], pair[1]);
+    else if(jam) shipRobot(suggestedShipIdx());
+    if(!G.problem) newProblem();
+    const i=G.problem.choices.findIndex((c)=>c.ok);
+    commit(i,true);
+    if(G.busy) finishAnim(true);
+    G.nextAt=0; newProblem();
+    return this.getState();
+  },
   dropChoice(ok){
     if(G.phase!=='playing') startRun('easy');
     if(G.busy) finishAnim(true);
@@ -3167,7 +4427,7 @@ window.__GAME_TEST__={
     if(G.phase!=='playing') startRun('easy');
     G.frozen=false;
     const onb=$('#onb'); if(onb) onb.classList.add('hide');
-    const mk=()=>({type:'cyl',level:1,cd:0.25,pop:0.55,blink:0.2,joy:0.4,t:0.6});
+    const mk=()=>mkRobot('cyl',1,false);
     G.robots=new Array(SLOTS).fill(null);
     G.robots[1]=mk(); G.robots[3]=mk();
     G.enemies.length=0; G.anim=null; G.busy=false;
@@ -3194,7 +4454,7 @@ window.__GAME_TEST__={
   },
   isShelfJam(){ return isShelfJam(); },
   findMergePair(){ return findMergePair(); },
-  getShelf(){ return G.robots.map((r)=>r?{type:r.type,level:r.level}:null); },
+  getShelf(){ return G.robots.map((r)=>r?{type:r.type,level:r.level,awakened:!!r.awakened}:null); },
   pickMercy(robots){
     const shelf=robots||G.robots;
     return pickMercySpawn(shelf);
@@ -3203,7 +4463,7 @@ window.__GAME_TEST__={
     if(G.phase!=='playing') startRun('easy');
     G.frozen=false;
     const onb=$('#onb'); if(onb) onb.classList.add('hide');
-    const stub=(type,level)=>({type:type,level:level,cd:0.25,pop:0.4,blink:0.2,joy:0,t:0.5});
+    const stub=(type,level)=>mkRobot(type,level,false);
     G.robots=[stub('cone',1),stub('sph',1),stub('cyl',3),stub('cyl',2),stub('cyl',1)];
     G.enemies.length=0; G.anim=null; G.busy=false;
     G.dragRobot=null; G.holdShip=null; G.hoverShip=false;
@@ -3271,7 +4531,7 @@ window.__GAME_TEST__={
   },
   simulateOrderWeight(n){
     n=n||40;
-    const stub=(t,l)=>({type:t,level:l,cd:0.25,pop:0,blink:0,joy:0,t:0});
+    const stub=(t,l)=>mkRobot(t,l,false);
     const save=G.robots.slice();
     G.robots=[stub('cone',1),stub('sph',1),stub('cyl',3),stub('cyl',2),null];
     const mercy=pickMercySpawn(G.robots);
@@ -3284,6 +4544,100 @@ window.__GAME_TEST__={
     }
     G.robots=save;
     return {n:n, match:match, ratio:match/n, prefer:mercy.type, samples:samples};
+  },
+  MAX_NORMAL_LEVEL:MAX_NORMAL_LEVEL,
+  canMerge(a,b){ return canMerge(a,b); },
+  mergeAt(from,to){ return mergeRobots(from,to); },
+  setShelf(arr){
+    if(G.phase!=='playing') startRun('easy');
+    G.frozen=false;
+    G.robots=arr.map((r)=>r?mkRobot(r.type,r.level,!!r.awakened):null);
+    while(G.robots.length<SLOTS) G.robots.push(null);
+    return this.getShelf();
+  },
+  simulateMergeChain(type){
+    type=type||'cyl';
+    if(G.phase!=='playing') startRun('easy');
+    G.frozen=false; G.enemies.length=0; G.anim=null; G.busy=false;
+    const onb=$('#onb'); if(onb) onb.classList.add('hide');
+    G.robots=new Array(SLOTS).fill(null);
+    const steps=[];
+    for(let lv=1;lv<=MAX_NORMAL_LEVEL;lv++){
+      G.robots[0]=mkRobot(type,lv,false);
+      G.robots[1]=mkRobot(type,lv,false);
+      const ok=mergeRobots(0,1);
+      const got=G.robots[1];
+      steps.push({from:lv, ok:ok, level:got&&got.level, awakened:!!(got&&got.awakened)});
+      if(!ok) break;
+    }
+    const last=G.robots[1];
+    return {ok:!!(last&&last.awakened&&last.level===5), steps:steps, shelf:this.getShelf()};
+  },
+  forceShowcase(kind){
+    if(G.phase!=='playing') startRun('easy');
+    G.frozen=false;
+    const onb=$('#onb'); if(onb) onb.classList.add('hide');
+    G.enemies.length=0; G.staging.length=0; G.releaseQ.length=0;
+    G.anim=null; G.busy=false; G.parts.length=0; G.toast=null;
+    G.stampFx=null; G.mergeFx=null; G.telegraph=null; G.shots.length=0;
+    if(G.mergeHint){ G.mergeHint.visible=false; G.mergeHint.mode='none'; G.mergeHint.alpha=0; }
+    G.spawnLane='active';
+    if(kind==='lv5'){
+      G.robots=[mkRobot('cyl',5,false), mkRobot('cone',5,false), mkRobot('sph',5,false), mkRobot('cyl',4,false), null];
+      G.robots[0].joy=0.4; G.robots[1].joy=0.4; G.robots[2].joy=0.4;
+    }else if(kind==='awaken'){
+      G.robots=[mkRobot('cyl',5,true), mkRobot('cone',5,true), mkRobot('sph',5,true), mkRobot('cyl',5,false), null];
+      G.robots[0].joy=1; G.robots[1].joy=1; G.robots[2].joy=1;
+    }else if(kind==='pacing'){
+      G.spawnLane='staging';
+      const base=POOL.filter((p)=>p.isCalc && p.kind==='wrap')[0]||POOL[0];
+      G.problem=wrapDrawn(base);
+      G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardY,hx:L.cardX(i),hy:L.cardY,
+        drag:false,dead:false,mounted:false,gone:false,shake:0,lift:0,pop:0,face:null}));
+      renderCardFaces();
+      G.staging=[mkEnemy('dust', safeLineY()), mkEnemy('big', safeLineY())];
+      G.staging[0].x=L.bx+L.bw*0.32; G.staging[1].x=L.bx+L.bw*0.62;
+      G.enemies=[mkEnemy('fast', safeLineY()-36)];
+      G.robots=[mkRobot('cyl',5,false), mkRobot('cone',4,false), mkRobot('sph',3,false), null, mkRobot('cyl',2,false)];
+      updateBanner();
+    }
+    return {kind:kind, shelf:this.getShelf(), lane:G.spawnLane, staging:G.staging.length};
+  },
+  getEventLog(){ return G.eventLog.slice(); },
+  maxEventGap(){
+    const log=G.eventLog;
+    if(log.length<2) return {max:0, n:log.length};
+    let max=0, at=0;
+    for(let i=1;i<log.length;i++){
+      const g=(log[i].runMs-log[i-1].runMs)/1000;
+      if(g>max){ max=g; at=i; }
+    }
+    return {max:max, at:at, n:log.length, last:log[log.length-1]};
+  },
+  auditRotation(sets, n){
+    sets=sets||3; n=n||20;
+    const reports=[];
+    for(let s=0;s<sets;s++){
+      const sample=hookSample(n, {mode:'easy'});
+      const variants=sample.map((p)=>p.variant);
+      const params=sample.map((p)=>p.variant+'|'+p.paramKey);
+      let triple=0;
+      for(let i=2;i<variants.length;i++){
+        if(variants[i]===variants[i-1] && variants[i]===variants[i-2]) triple++;
+      }
+      const pc={};
+      params.forEach((k)=>{ pc[k]=(pc[k]|0)+1; });
+      const repeat=Object.keys(pc).filter((k)=>pc[k]>1).length;
+      const maxRepeat=Math.max.apply(null, Object.keys(pc).map((k)=>pc[k]));
+      reports.push({set:s, n:sample.length, triple:triple, paramRepeats:repeat, maxSameParam:maxRepeat,
+        uniqueParam:Object.keys(pc).length, variants:variants.slice(), kinds:sample.map((p)=>p.kind)});
+    }
+    return reports;
+  },
+  poolStats(){
+    const byT={1:0,2:0,3:0,4:0}, byV={};
+    POOL.forEach((p)=>{ byT[p.tier]=(byT[p.tier]|0)+1; const v=p.variant||p.kind; byV[v]=(byV[v]|0)+1; });
+    return {total:POOL.length, byTier:byT, byVariant:byV};
   }
 };
 
