@@ -1,0 +1,1682 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>가름돌 — 비례식과 비례배분</title>
+<meta name="description" content="자수정 가름돌을 밀어 구슬을 두 항아리에 비대로 나누는 6학년 비례배분 게임">
+<meta property="og:title" content="가름돌">
+<meta property="og:description" content="반쪽이 아니야">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{
+    --ink:#3B1D5E; --paper:#F4ECFF; --rose:#E83E8C; --teal:#0D9488;
+    --violet:#6D28D9; --gold:#F5C518;
+    --logo-top:#FFFBE6; --logo-mid:#FFD64A; --logo-bottom:#F0810E;
+    --logo-outline:#3B0764; --logo-side:#B4478E; --logo-side-dark:#6D28D9;
+    --logo-glow:rgba(232,62,140,.42);
+    --ff:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#2E1065;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+    -webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+  #cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none;z-index:1}
+  #bgc{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;pointer-events:none}
+
+  /* ── 음소거 (전역 보조 행동) */
+  #mute{position:fixed;top:max(10px,env(safe-area-inset-top));right:12px;width:44px;height:44px;z-index:40;
+    border-radius:14px;border:2px solid rgba(46,16,101,.55);background:rgba(255,255,255,.82);
+    color:#3B1D5E;font-size:19px;line-height:1;cursor:pointer;touch-action:manipulation;
+    box-shadow:0 3px 0 rgba(46,16,101,.35),inset 0 1px 0 rgba(255,255,255,.9);}
+  #mute:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(46,16,101,.35)}
+
+  .screen{position:fixed;inset:0;z-index:30;display:none}
+  .screen.on{display:block}
+
+  /* ── 타이틀 (docs/title-screen-spec.md) */
+  #title{--title-col:min(100vw,640px);overflow:hidden;isolation:isolate;background:#2E1065}
+  .kv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 62%;
+    animation:kv-drift 22s ease-in-out infinite alternate;z-index:0}
+  .kv-fallback{position:absolute;inset:0;z-index:0;
+    background:radial-gradient(120% 80% at 50% 18%,#FDF4FF 0%,#E9D5FF 38%,#A78BFA 72%,#5B21B6 100%)}
+  .kv-veil{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(46,16,101,.44) 0%,rgba(46,16,101,0) 30%,rgba(46,16,101,.12) 58%,rgba(46,16,101,.72) 100%)}
+  @keyframes kv-drift{from{transform:scale(1.04) translateY(0)}to{transform:scale(1.13) translateY(-1.4%)}}
+  .title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+    padding-inline:clamp(16px,5vw,32px);pointer-events:none}
+  .title-logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+    display:grid;place-content:start center;text-align:center;pointer-events:auto}
+  .game-logo{margin:0;display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;
+    font-family:"Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:clamp(56px,16.5vw,96px);
+    font-weight:900;line-height:.92;letter-spacing:.005em;white-space:nowrap;
+    filter:drop-shadow(0 2px 0 var(--logo-side)) drop-shadow(0 5px 0 var(--logo-side-dark))
+      drop-shadow(0 10px 3px rgba(30,8,60,.5)) drop-shadow(0 19px 17px rgba(0,0,0,.36))
+      drop-shadow(0 0 16px var(--logo-glow));
+    transform:rotate(-1.5deg);transform-origin:50% 60%}
+  .game-logo>span{--r:0deg;--y:0px;--s:1;position:relative;display:inline-block;padding-inline:.045em;
+    color:transparent;background:linear-gradient(180deg,var(--logo-top) 0%,var(--logo-mid) 46%,var(--logo-bottom) 100%);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-stroke:clamp(1.8px,.55vw,3.4px) var(--logo-outline);paint-order:stroke fill;
+    transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));transform-origin:50% 80%;
+    animation:logo-in 720ms cubic-bezier(.18,1.55,.34,1) both;animation-delay:calc(var(--i,0)*70ms)}
+  @keyframes logo-in{
+    0%{opacity:0;transform:translateY(calc(var(--y) - 82px)) rotate(calc(var(--r) - 10deg)) scale(.55)}
+    58%{opacity:1;transform:translateY(calc(var(--y) + 8px)) rotate(calc(var(--r) + 3deg)) scale(calc(var(--s)*1.1))}
+    78%{transform:translateY(calc(var(--y) - 3px)) rotate(calc(var(--r) - 1deg)) scale(calc(var(--s)*.97))}
+    100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}}
+  .game-subtitle{margin:16px 0 0;padding:6px 14px 7px;border:1px solid rgba(255,255,255,.36);border-radius:999px;
+    color:#FFF6FF;background:rgba(46,16,101,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 5px 14px rgba(0,0,0,.26);
+    font:800 clamp(12px,3.6vw,16px)/1.2 var(--ff);letter-spacing:-.02em;text-shadow:0 2px 4px rgba(0,0,0,.7);
+    animation:sub-in 420ms 520ms ease-out both}
+  @keyframes sub-in{from{opacity:0;transform:translateY(-8px) scale(.92)}to{opacity:1;transform:none}}
+
+  .title-cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));
+    width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:9px;pointer-events:auto}
+  .tol{display:flex;gap:6px;padding:5px;border-radius:999px;background:rgba(46,16,101,.52);
+    border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .tol button{min-width:104px;height:44px;padding:0 15px;border:0;border-radius:999px;background:transparent;
+    color:#F0DEFF;font:800 14px/1 var(--ff);cursor:pointer;touch-action:manipulation;letter-spacing:-.02em}
+  .tol button[aria-pressed="true"]{background:linear-gradient(180deg,#FFF3B0,#F5C518);color:#4A2A00;
+    box-shadow:0 3px 0 rgba(160,110,0,.55),inset 0 2px 0 rgba(255,255,255,.6)}
+  .title-status{margin:0;color:#F3E6FF;font:800 12.5px/1.3 var(--ff);text-shadow:0 2px 6px rgba(0,0,0,.75);letter-spacing:-.02em}
+  .title-start{--cta-top:#FFF6C2;--cta-mid:#F7CD3A;--cta-bottom:#F09419;--cta-border:#4A1F5E;--cta-depth:#B4478E;--cta-ink:#3B1907;
+    position:relative;width:min(100%,420px);min-height:68px;padding:0 28px;border:4px solid var(--cta-border);
+    border-radius:22px;appearance:none;cursor:pointer;color:var(--cta-ink);
+    background:linear-gradient(180deg,rgba(255,255,255,.58) 0 2px,transparent 2px 100%),
+      linear-gradient(180deg,var(--cta-top) 0%,var(--cta-mid) 49%,var(--cta-bottom) 100%);
+    box-shadow:0 7px 0 var(--cta-depth),0 10px 0 var(--cta-border),0 17px 26px rgba(0,0,0,.38),
+      inset 0 3px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(154,48,8,.2);
+    font:900 clamp(21px,5.8vw,27px)/1 var(--ff);letter-spacing:-.03em;text-shadow:0 2px 0 rgba(255,255,255,.38);
+    transform-origin:50% 100%;animation:cta-pulse 2.4s ease-in-out 1.2s infinite;
+    transition:transform 90ms ease-out,box-shadow 90ms ease-out;touch-action:manipulation}
+  .title-start::after{content:"";position:absolute;inset:5px 9px auto;height:19px;border-radius:999px;
+    background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));pointer-events:none}
+  .title-start:active{transform:translateY(7px) scale(.985);
+    box-shadow:0 1px 0 var(--cta-depth),0 3px 0 var(--cta-border),0 7px 13px rgba(0,0,0,.3),inset 0 3px 0 rgba(255,255,255,.38)}
+  @keyframes cta-pulse{0%,72%,100%{transform:translateY(0) scale(1)}80%{transform:translateY(-2px) scale(1.025)}
+    88%{transform:translateY(0) scale(1)}94%{transform:translateY(-1px) scale(1.012)}}
+  .title-help{min-height:44px;padding:0 12px;border:0;background:transparent;color:#F1DEFF;
+    font:800 14px/44px var(--ff);cursor:pointer;text-shadow:0 2px 6px rgba(0,0,0,.75);touch-action:manipulation}
+  @media (max-height:700px){.title-logo-zone{top:max(38px,5dvh);min-height:150px}.title-cta-zone{gap:6px}.title-start{min-height:64px}}
+  @media (min-width:641px){.title-logo-zone{left:24px;right:24px}}
+
+  /* ── 스포트라이트 온보딩 / 도움말 */
+  #onb{z-index:35;background:transparent}
+  #spot{position:absolute;border-radius:22px;box-shadow:0 0 0 9999px rgba(24,6,50,.72);
+    border:3px dashed rgba(255,243,176,.95);transition:all 260ms cubic-bezier(.2,1.3,.4,1);pointer-events:none}
+  .onb-card{position:absolute;left:50%;transform:translateX(-50%);width:min(calc(100% - 32px),460px);
+    padding:16px 18px 15px;border-radius:20px;border:3px solid #2E1065;
+    background:linear-gradient(180deg,#FFFDF7,#F6ECFF);box-shadow:0 12px 0 rgba(46,16,101,.35),0 20px 40px rgba(0,0,0,.4)}
+  .onb-step{margin:0 0 5px;color:#8B5CF6;font:900 12px/1 var(--ff);letter-spacing:.04em}
+  .onb-t{margin:0 0 5px;color:#2E1065;font:900 clamp(18px,5.2vw,22px)/1.25 var(--ff);letter-spacing:-.02em}
+  .onb-d{margin:0 0 12px;color:#5B4680;font:700 clamp(13px,3.8vw,15px)/1.45 var(--ff)}
+  .onb-next{width:100%;min-height:52px;border:3px solid #2E1065;border-radius:16px;cursor:pointer;
+    background:linear-gradient(180deg,#C4B5FD,#8B5CF6);color:#fff;font:900 17px/1 var(--ff);
+    box-shadow:0 5px 0 #4C1D95;touch-action:manipulation}
+  .onb-next:active{transform:translateY(3px);box-shadow:0 2px 0 #4C1D95}
+
+  /* ── 결과 */
+  #result{z-index:36;background:radial-gradient(120% 90% at 50% 16%,rgba(76,29,149,.86),rgba(24,6,50,.96))}
+  .res-wrap{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:10px;
+    padding:24px 16px calc(24px + env(safe-area-inset-bottom));width:min(100%,460px);margin-inline:auto;text-align:center}
+  .res-face{width:104px;height:104px;border-radius:50%;border:5px solid #F5C518;object-fit:cover;
+    background:#FDF4FF;box-shadow:0 10px 26px rgba(0,0,0,.45);animation:pop-in 520ms cubic-bezier(.2,1.6,.4,1) both}
+  @keyframes pop-in{from{opacity:0;transform:scale(.5) rotate(-8deg)}to{opacity:1;transform:none}}
+  .res-t{margin:2px 0 0;color:#FFF6D8;font:900 clamp(24px,7vw,32px)/1.1 var(--ff);letter-spacing:-.03em;
+    text-shadow:0 3px 0 #7C3AED,0 8px 18px rgba(0,0,0,.5)}
+  .res-score{margin:0;color:#FFE86B;font:900 clamp(46px,14vw,66px)/1 var(--ff);letter-spacing:-.04em;
+    text-shadow:0 4px 0 #B45309,0 12px 22px rgba(0,0,0,.5)}
+  .res-sub{margin:0;color:#EBDDFF;font:800 clamp(13px,3.8vw,15px)/1.5 var(--ff)}
+  .res-stars{font-size:26px;letter-spacing:4px;color:#F5C518;min-height:32px}
+  .res-btns{display:grid;gap:9px;width:100%;margin-top:6px}
+  .res-btns button{min-height:58px;border-radius:18px;border:4px solid #2E1065;cursor:pointer;
+    font:900 19px/1 var(--ff);touch-action:manipulation}
+  #again{background:linear-gradient(180deg,#FFF6C2,#F5C518);color:#3B1907;box-shadow:0 6px 0 #B4478E}
+  #again:active{transform:translateY(4px);box-shadow:0 2px 0 #B4478E}
+  #home{background:linear-gradient(180deg,#EDE9FE,#C4B5FD);color:#2E1065;box-shadow:0 6px 0 #6D28D9}
+  #home:active{transform:translateY(4px);box-shadow:0 2px 0 #6D28D9}
+  @media (prefers-reduced-motion:reduce){
+    .kv{animation-duration:60s}.title-start{animation:none}
+    .game-logo>span,.game-subtitle,.res-face{animation-duration:1ms}
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<canvas id="bgc" aria-hidden="true"></canvas>
+<button id="mute" type="button" aria-label="소리 끄기">🔊</button>
+
+<div id="title" class="screen on">
+  <div class="kv-fallback"></div>
+  <img id="kv" class="kv" src="./assets/title.png" alt="">
+  <div class="kv-veil"></div>
+  <div class="title-ui">
+    <div class="title-logo-zone">
+      <h1 class="game-logo" aria-label="가름돌">
+        <span aria-hidden="true" style="--i:0;--r:-5deg;--y:6px;--s:1.10">가</span>
+        <span aria-hidden="true" style="--i:1;--r:4deg;--y:-3px;--s:1.02">름</span>
+        <span aria-hidden="true" style="--i:2;--r:-2deg;--y:3px;--s:1.08">돌</span>
+      </h1>
+      <p class="game-subtitle">반쪽이 아니야</p>
+    </div>
+    <div class="title-cta-zone">
+      <div class="tol" role="group" aria-label="관용도 고르기">
+        <button id="tolEasy" type="button" aria-pressed="true">느긋하게</button>
+        <button id="tolHard" type="button" aria-pressed="false">아슬아슬</button>
+      </div>
+      <p class="title-status" id="tstat">6학년 2학기 · 비례식과 비례배분</p>
+      <button class="title-start" id="startBtn" type="button"><span>온실 문 열기</span></button>
+      <button class="title-help" id="helpBtn" type="button">어떻게 놀아요? 〉</button>
+    </div>
+  </div>
+</div>
+
+<div id="onb" class="screen">
+  <div id="spot"></div>
+  <div class="onb-card" id="onbCard">
+    <p class="onb-step" id="onbStep">1 / 3</p>
+    <h2 class="onb-t" id="onbT"></h2>
+    <p class="onb-d" id="onbD"></p>
+    <button class="onb-next" id="onbNext" type="button">다음</button>
+  </div>
+</div>
+
+<div id="result" class="screen">
+  <div class="res-wrap">
+    <img class="res-face" id="resFace" src="./assets/hero.png" alt="가름돌 요정">
+    <h2 class="res-t" id="resT">온실 정리 끝!</h2>
+    <p class="res-score" id="resScore">0</p>
+    <div class="res-stars" id="resStars"></div>
+    <p class="res-sub" id="resSub"></p>
+    <div class="res-btns">
+      <button id="again" type="button">한 번 더!</button>
+      <button id="home" type="button">타이틀로</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ══════════════════════════════════════════════════════════════════════
+   가름돌 (split-stone) — 6학년 2학기 · 비례식과 비례배분
+   모든 수는 정수로만 다룬다. 부동소수점 비교 없음.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 0. 유틸 ─────────────────────────────────────────────────────── */
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOutBack = (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2);
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+/** 약수 나열 (초6 교과서 방법 — 소인수분해를 쓰지 않는다) */
+function divisorsOf(n) { const r = []; for (let i = 1; i <= n; i++) if (n % i === 0) r.push(i); return r; }
+/** 공약수 = 두 수의 약수 목록의 교집합. 최대공약수는 그중 가장 큰 것. */
+function commonDivisors(a, b) { const db = divisorsOf(b); return divisorsOf(a).filter(d => db.includes(d)); }
+function gcdList(a, b) { const c = commonDivisors(a, b); return c[c.length - 1]; }
+
+/* ── 1. 문제 생성기 ───────────────────────────────────────────────
+   "무작위 생성 후 검증"이 아니라 제약 만족 풀을 전수 생성해 두고 샘플링한다.
+   모든 표현(구슬 수·묶음 수·항아리 높이·곱 기둥 높이·문장·정답)은
+   아래 한 모델에서 파생되므로 표현-수식 불일치가 구조적으로 불가능하다.
+   ──────────────────────────────────────────────────────────────── */
+
+let __pid = 0;
+const nid = (p) => p + (++__pid);
+
+/* 오답은 전부 오개념 역산이다. 각 값에 misconceptionId 를 붙여 둔다. */
+
+/** 비례배분: 전체 T=(a+b)k 를 a:b 로 가르기. 정답 몫은 a*k 와 b*k. */
+function makeSplit(level, a, b, k) {
+  const T = (a + b) * k, ansLeft = a * k, ansRight = b * k;
+  const traps = [];
+  const push = (cut, id, label) => {
+    cut = Math.round(cut);
+    if (!Number.isFinite(cut) || cut < 0 || cut > T || cut === ansLeft) return;
+    if (traps.some(t => t.cut === cut)) return;
+    traps.push({ cut, id, label });
+  };
+  // 오개념 ①  비 a:b 를 분수 a/b 로 보고 전체를 b 로 착각한다 (3:4 → 전체가 4)
+  push(T * a / b, 'part-as-whole', '전체를 뒷항으로 봤어요');
+  // 오개념 ②  전체를 비의 각 항으로 그냥 나눈다 (35÷3, 35÷4)
+  push(Math.floor(T / a), 'divide-by-terms', '전체를 항으로 나눴어요');
+  // 오개념 ③  전항·후항에 같은 수를 더해도 같은 비라고 본다 (a+1):(b+1)
+  push(T * (a + 1) / (a + b + 2), 'additive-ratio', '두 항에 같은 수를 더했어요');
+  // 오개념 ④  두 몫의 대응을 뒤바꾼다 (a*k 자리에 b*k)
+  push(b * k, 'swapped-correspondence', '앞뒤를 바꿔 담았어요');
+
+  const pairStr = (l, r) => l + '개, ' + r + '개';
+  const answer = pairStr(ansLeft, ansRight);
+  const choices = [answer];
+  for (const t of traps) {
+    let r = T - t.cut;
+    if (t.id === 'divide-by-terms') r = Math.floor(T / b);      // 35÷3, 35÷4 → 합이 T가 아니다
+    const s = pairStr(t.cut, r);
+    if (!choices.includes(s)) choices.push(s);
+    if (choices.length >= 4) break;
+  }
+  let bump = 1;
+  while (choices.length < 4) {                                   // 부족분 보충 (근사 오답)
+    const l = ansLeft + bump * (bump % 2 ? 1 : -1);
+    if (l > 0 && l < T) { const s = pairStr(l, T - l); if (!choices.includes(s)) choices.push(s); }
+    bump++; if (bump > 12) break;
+  }
+  return {
+    id: nid('sp'), kind: 'split', level, stages: ['split'],
+    a, b, k, T, ansLeft, ansRight, traps,
+    prompt: '구슬 ' + T + '개를 ' + a + ' : ' + b + ' 으로 가르면 각각 몇 개일까요?',
+    choices: shuffle(choices), answer, answerNumeric: ansLeft,
+    unitConcept: level === 1 ? '간단한 자연수의 비' : '비례배분',
+    goalLine: '구슬 ' + T + '개를 ' + a + ' : ' + b + ' 으로',
+  };
+}
+
+/** 간단한 자연수의 비로 나타내기 → 그 비로 가르기 (2단 문제) */
+function makeReduceSplit(a, b, m, k, asDecimal) {
+  const A = a * m, B = b * m;                                    // 원본 비 (약분 전)
+  const g = gcdList(A, B);                                       // = m
+  const dispA = asDecimal ? (A / 10).toFixed(1) : String(A);
+  const dispB = asDecimal ? (B / 10).toFixed(1) : String(B);
+  const base = makeSplit(3, a, b, k);
+  const ratio = (x, y) => x + ' : ' + y;
+  const answer = ratio(a, b);
+  const cand = [
+    { v: ratio(A, B), id: 'not-simplified' },                                        // 약분을 안 했다
+    { v: ratio(A - (m - 1), B - (m - 1)), id: 'additive-ratio' },                    // 나누지 않고 뺐다
+    { v: ratio(b, a), id: 'swapped-correspondence' },                                // 앞뒤를 바꿨다
+  ];
+  const half = commonDivisors(A, B).filter(d => d > 1 && d < g)[0];
+  if (half) cand.unshift({ v: ratio(A / half, B / half), id: 'partial-reduce' });    // 공약수로만 나눴다
+  const choices = [answer];
+  for (const c of cand) if (!choices.includes(c.v) && choices.length < 4) choices.push(c.v);
+  return {
+    id: nid('rs'), kind: 'reduce-split', level: 3, stages: ['reduce', 'split'],
+    a, b, k, T: base.T, ansLeft: base.ansLeft, ansRight: base.ansRight, traps: base.traps,
+    A, B, g, dispA, dispB, asDecimal,
+    prompt: dispA + ' : ' + dispB + ' 을 가장 간단한 자연수의 비로 나타내면? (그 비로 구슬 ' + base.T + '개를 가릅니다)',
+    choices: shuffle(choices), answer, answerNumeric: a / b,
+    unitConcept: '간단한 자연수의 비로 나타내기',
+    goalLine: dispA + ' : ' + dispB + ' 을 간단하게',
+  };
+}
+
+/** 비례식 A:B = C:D 의 빈 항 구하기. p,q 는 기약비, A=p·m1, B=q·m1, C=p·m2, D=q·m2. */
+function makeProportion(level, p, q, m1, m2, blank, story) {
+  const terms = [p * m1, q * m1, p * m2, q * m2];
+  const ans = terms[blank];
+  const [A, B, C, D] = terms;
+  const cand = [];
+  const add = (v, id, label) => {
+    if (!Number.isInteger(v) || v < 1 || v > 99 || v === ans) return;
+    if (cand.some(c => c.v === v)) return;
+    cand.push({ v, id, label });
+  };
+  // 오개념 ①  덧셈적 동치 — 두 비의 항의 "차"가 같다고 본다
+  add([C - D + B, D - C + A, A + D - B, B + C - A][blank], 'additive-ratio', '같은 수를 더했어요');
+  // 오개념 ②  앞의 두 수끼리·뒤의 두 수끼리 곱한다 (A×B = C×D)
+  add([C * D / B, C * D / A, A * B / D, A * B / C][blank], 'wrong-pairs-product', '앞쌍·뒷쌍끼리 곱했어요');
+  // 오개념 ③  두 비의 대응 순서를 뒤바꿔 곱한다 (A×C = B×D)
+  add([B * D / C, A * C / D, B * D / A, A * C / B][blank], 'swapped-correspondence', '대응을 뒤바꿨어요');
+  // 오개념 ④  비가 같으니 항도 그대로라고 보고 짝이 되는 항을 그냥 베낀다
+  add([C, D, A, B][blank], 'copy-term', '짝을 그대로 베꼈어요');
+  if (cand.length < 2) return null;                              // 오개념 오답 2개 미만이면 이 튜플은 채택하지 않는다
+
+  // 수정 기둥 눈금은 손가락으로 짚을 수 있어야 한다 — 칸 수를 30 이하로 묶는다.
+  // 눈금 밖의 오답은 선택지로는 남기되 화면 위 '함정 칸'으로는 놓지 않는다(닿을 수 없는 함정은 함정이 아니다).
+  const maxTrack = clamp(Math.max(ans + 9, Math.ceil(ans * 1.4)), 12, 30);
+  const traps = cand.filter(c => c.v <= maxTrack);
+  if (!traps.length) return null;                                // 눈금 위에 함정이 하나도 없으면 채택하지 않는다
+  const shown = terms.map((t, i) => i === blank ? '□' : String(t));
+  const eq = shown[0] + ' : ' + shown[1] + ' = ' + shown[2] + ' : ' + shown[3];
+  const choices = [String(ans)];
+  for (const c of cand) if (!choices.includes(String(c.v)) && choices.length < 4) choices.push(String(c.v));
+  let bump = 1;
+  while (choices.length < 4) { const v = ans + bump; if (v <= maxTrack && !choices.includes(String(v))) choices.push(String(v)); bump++; if (bump > 9) break; }
+  return {
+    id: nid('pr'), kind: story ? 'word-product' : 'product', level,
+    stages: story ? ['label', 'product'] : ['product'],
+    terms, blank, ans, traps, maxTrack, eq, story: story || null,
+    prompt: story ? story.sentence : eq + ' 에서 □에 알맞은 수는?',
+    choices: shuffle(choices), answer: String(ans), answerNumeric: ans,
+    unitConcept: story ? '실생활 비례식' : '비례식의 성질(외항의 곱 = 내항의 곱)',
+    goalLine: eq,
+  };
+}
+
+/** 채점 고블린: 오개념 공식으로 미리 갈라 둔 항아리를 O/X 로 채점하고, X 면 직접 다시 가른다. */
+function makeJudge(a, b, k) {
+  const base = makeSplit(2, a, b, k), T = base.T;
+  const wl = Math.floor(T / a), wr = Math.floor(T / b);           // divide-by-terms 오개념
+  return Object.assign({}, base, {
+    id: nid('jg'), kind: 'judge-split', level: 5, stages: ['judge', 'split'],
+    wrongLeft: wl, wrongRight: wr, judgeAnswer: 'X',
+    prompt: '고블린이 구슬 ' + T + '개를 ' + a + ' : ' + b + ' 으로 가른다며 ' + wl + '개와 ' + wr + '개로 나눴어요. 맞을까요?',
+    choices: ['맞아요', '아니에요'], answer: '아니에요', answerNumeric: 0,
+    unitConcept: '비례배분 채점하기',
+    goalLine: T + '개를 ' + a + ' : ' + b + ' 으로',
+  });
+}
+
+/* ── 풀 전수 생성 ─────────────────────────────────────────────── */
+const POOL = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+
+// (1,1) 은 네 오개념 공식이 전부 정답과 겹쳐 함정을 만들 수 없어 제외한다.
+for (const [a, b] of [[1, 2], [1, 3], [2, 1], [2, 3], [3, 1], [3, 2]])
+  for (let k = 2; k <= 4; k++) if ((a + b) * k <= 12) POOL[1].push(makeSplit(1, a, b, k));
+
+for (const [a, b] of [[2, 3], [3, 4], [2, 5], [3, 5], [4, 5], [5, 2], [5, 3]])
+  for (let k = 3; k <= 6; k++) if ((a + b) * k <= 35) POOL[2].push(makeSplit(2, a, b, k));
+
+for (const [a, b] of [[1, 2], [2, 3], [3, 4], [1, 3], [2, 5], [3, 5]])
+  for (const m of [2, 3, 4, 5]) {
+    const A = a * m, B = b * m;
+    if (A > 18 || B > 18) continue;
+    for (const k of [2, 3]) {
+      if ((a + b) * k > 20) continue;
+      POOL[3].push(makeReduceSplit(a, b, m, k, false));
+      if (A <= 9 && B <= 9) POOL[3].push(makeReduceSplit(a, b, m, k, true));   // 0.4 : 0.6 표기
+    }
+  }
+
+for (let p = 1; p <= 9; p++) for (let q = 1; q <= 9; q++) {
+  if (p === q || gcdList(p, q) !== 1) continue;
+  for (let m2 = 2; m2 <= 6; m2++) {
+    if (p * (q * m2) > 120) continue;
+    for (let blank = 0; blank < 4; blank++) {
+      const v = [p, q, p * m2, q * m2][blank];
+      if (v < 2 || v > 20) continue;
+      const pr = makeProportion(4, p, q, 1, m2, blank, null);
+      if (pr) POOL[4].push(pr);
+    }
+  }
+}
+
+const STORIES = [
+  { unitL: '휘발유(L)', unitR: '거리(km)', q: [11, 13],
+    sent: (A, B, D) => '휘발유 ' + A + ' L로 ' + B + ' km를 달리는 자동차가 있어요. ' + D + ' km를 가려면 휘발유가 몇 L 필요할까요?' },
+  { unitL: '설탕(스푼)', unitR: '밀가루(컵)', q: [3, 4],
+    sent: (A, B, D) => '설탕 ' + A + ' 스푼에 밀가루 ' + B + ' 컵을 넣어 반죽해요. 밀가루 ' + D + ' 컵에는 설탕이 몇 스푼 필요할까요?' },
+  { unitL: '작은바퀴(톱니)', unitR: '큰바퀴(톱니)', q: [3, 5],
+    sent: (A, B, D) => '작은 바퀴 톱니 ' + A + '개가 큰 바퀴 톱니 ' + B + '개와 맞물려 돌아요. 큰 바퀴 톱니가 ' + D + '개면 작은 바퀴는 톱니가 몇 개일까요?' },
+  { unitL: '물감(컵)', unitR: '물(컵)', q: [2, 6],
+    sent: (A, B, D) => '물감 ' + A + ' 컵에 물 ' + B + ' 컵을 섞어 색을 만들어요. 물 ' + D + ' 컵에는 물감이 몇 컵 필요할까요?' },
+];
+for (const st of STORIES) for (const q of st.q) for (let m1 = 2; m1 <= 4; m1++) for (let m2 = 5; m2 <= 8; m2++) {
+  if (m2 <= m1 || q * m2 > 99) continue;
+  const A = m1, B = q * m1, D = q * m2;
+  const pr = makeProportion(5, 1, q, m1, m2, 2, { unitL: st.unitL, unitR: st.unitR, sentence: st.sent(A, B, D) });
+  if (pr) POOL[5].push(pr);
+}
+for (const [a, b] of [[3, 4], [2, 3], [2, 5], [5, 3], [3, 5]]) for (const k of [4, 5]) POOL[5].push(makeJudge(a, b, k));
+
+/* ── 2. 사운드 (WebAudio 코드 생성음만, 사용자 제스처 이후) ─────── */
+const SFX = {
+  ac: null, muted: localStorage.getItem('splitStone.muted') === '1',
+  wake() { if (!this.ac) { try { this.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ac = null; } } if (this.ac && this.ac.state === 'suspended') this.ac.resume().catch(() => {}); },
+  tone(f0, f1, dur, type, vol) {
+    if (this.muted || !this.ac) return;
+    const t = this.ac.currentTime, o = this.ac.createOscillator(), g = this.ac.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t);
+    if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.16, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  },
+  tick() { this.tone(720, 760, 0.045, 'triangle', 0.05); },
+  clunk() { this.tone(300, 240, 0.07, 'square', 0.05); },
+  lock(step) { const b = 523.25 * Math.pow(1.0595, Math.min(step, 12)); this.tone(b, b * 1.5, 0.16, 'triangle', 0.16); },
+  fuse() { this.tone(880, 1320, 0.3, 'sine', 0.14); },
+  fail() { this.tone(180, 90, 0.34, 'sawtooth', 0.1); },
+  star() { this.tone(1046, 1568, 0.2, 'sine', 0.13); },
+  chip() { this.tone(560, 700, 0.08, 'sine', 0.09); },
+  finish() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.tone(f, f * 1.2, 0.24, 'triangle', 0.13), i * 110)); },
+};
+
+/* ── 3. 캔버스 · 레이아웃 · 프리렌더 스프라이트 ───────────────────
+   QA 브라우저는 소프트웨어 렌더링이다. 배경·항아리 유리·구슬처럼 변하지
+   않는 그림은 전부 오프스크린에 한 번 굽고, 매 프레임에는 drawImage 만 한다.
+   ──────────────────────────────────────────────────────────────── */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d', { alpha: true });
+const bgc = document.getElementById('bgc');
+const bgx = bgc.getContext('2d', { alpha: false });
+if (!ctx.roundRect) {
+  ctx.constructor.prototype.roundRect = function (x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    this.moveTo(x + rr, y); this.arcTo(x + w, y, x + w, y + h, rr); this.arcTo(x + w, y + h, x, y + h, rr);
+    this.arcTo(x, y + h, x, y, rr); this.arcTo(x, y, x + w, y, rr); this.closePath(); return this;
+  };
+}
+const G = { W: 390, H: 844, dpr: 1 };
+const L = {};
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MOTION = REDUCED ? 0.34 : 1;
+
+const IMG = { bg: null };
+(function loadBg() {
+  const im = new Image();
+  im.onload = () => { IMG.bg = im; bakeBackdrop(); };
+  im.onerror = () => { IMG.bg = null; bakeBackdrop(); };   // 없으면 코드 그라디언트로 그린다
+  im.src = './assets/bg.png';
+})();
+
+const PAL = {
+  paper: '#F4ECFF', ink: '#2E1065', rose: '#E83E8C', roseDeep: '#B21E63',
+  teal: '#0D9488', tealDeep: '#0B6E66', violet: '#6D28D9', gold: '#F5C518', cream: '#FFF8E7',
+};
+
+function makeSprite(w, h, draw) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.ceil(w * G.dpr)); c.height = Math.max(1, Math.ceil(h * G.dpr));
+  const x = c.getContext('2d'); x.scale(G.dpr, G.dpr); draw(x, w, h);
+  return { c: c, w: w, h: h };
+}
+function blit(sp, cx, cy, s) {
+  if (!sp) return; s = s || 1;
+  ctx.drawImage(sp.c, cx - sp.w * s / 2, cy - sp.h * s / 2, sp.w * s, sp.h * s);
+}
+const SP = { bead: {}, backdrop: null, stone: null, glow: null };
+
+function beadSprite(r, c1, c2, edge) {
+  const d = r * 2 + 4;
+  return makeSprite(d, d, (x) => {
+    const g = x.createRadialGradient(d / 2 - r * 0.38, d / 2 - r * 0.42, r * 0.12, d / 2, d / 2, r);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.28, c1); g.addColorStop(1, c2);
+    x.beginPath(); x.arc(d / 2, d / 2, r, 0, 6.2832); x.fillStyle = g; x.fill();
+    x.lineWidth = Math.max(1, r * 0.16); x.strokeStyle = edge; x.stroke();
+    x.beginPath(); x.ellipse(d / 2 - r * 0.34, d / 2 - r * 0.4, r * 0.3, r * 0.2, -0.6, 0, 6.2832);
+    x.fillStyle = 'rgba(255,255,255,.85)'; x.fill();
+  });
+}
+function bakeBeads(r) {
+  r = Math.max(3, Math.round(r * 2) / 2);
+  if (SP.bead.r === r) return;
+  SP.bead = {
+    r: r,
+    idle: beadSprite(r, '#FBE6FF', '#C9A9E8', 'rgba(46,16,101,.4)'),
+    rose: beadSprite(r, '#FF9CC8', '#D01F70', 'rgba(80,8,44,.5)'),
+    teal: beadSprite(r, '#7BE6D8', '#0B6E66', 'rgba(4,50,46,.5)'),
+    gold: beadSprite(r, '#FFF0A8', '#E0A80B', 'rgba(90,60,0,.5)'),
+  };
+}
+function bakeStone(w) {
+  const h = w * 1.24;
+  SP.stone = makeSprite(w + 10, h + 10, (x) => {
+    const cx = (w + 10) / 2, cy = (h + 10) / 2;
+    // 자수정 가름돌 — 깎인 면을 다각형 두 장으로
+    const pts = [[0, -h / 2], [w / 2, -h * 0.18], [w * 0.34, h / 2], [-w * 0.34, h / 2], [-w / 2, -h * 0.18]];
+    x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(cx + p[0], cy + p[1]) : x.moveTo(cx + p[0], cy + p[1])); x.closePath();
+    const g = x.createLinearGradient(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2);
+    g.addColorStop(0, '#E9D5FF'); g.addColorStop(0.42, '#A855F7'); g.addColorStop(1, '#5B21B6');
+    x.fillStyle = g; x.fill();
+    x.lineWidth = Math.max(2, w * 0.075); x.strokeStyle = '#2E1065'; x.stroke();
+    x.beginPath(); x.moveTo(cx, cy - h / 2); x.lineTo(cx - w * 0.34, cy + h / 2); x.lineTo(cx - w / 2, cy - h * 0.18); x.closePath();
+    x.fillStyle = 'rgba(255,255,255,.34)'; x.fill();
+    x.beginPath(); x.moveTo(cx, cy - h / 2); x.lineTo(cx + w * 0.34, cy + h / 2); x.lineTo(cx + w / 2, cy - h * 0.18); x.closePath();
+    x.fillStyle = 'rgba(46,16,101,.22)'; x.fill();
+  });
+  SP.glow = makeSprite(w * 3, w * 3, (x) => {
+    const r = w * 1.5, g = x.createRadialGradient(r, r, 0, r, r, r);
+    g.addColorStop(0, 'rgba(255,236,150,.9)'); g.addColorStop(0.45, 'rgba(245,197,24,.34)'); g.addColorStop(1, 'rgba(245,197,24,0)');
+    x.fillStyle = g; x.fillRect(0, 0, r * 2, r * 2);
+  });
+}
+
+/** 한낮의 장미석영 보물온실 — 배경 전체를 한 장으로 구워 둔다. */
+function bakeBackdrop() {
+  const W = G.W, H = G.H;
+  bgc.width = Math.round(W * G.dpr); bgc.height = Math.round(H * G.dpr);
+  bgc.style.width = W + 'px'; bgc.style.height = H + 'px';
+  bgx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
+  (function (x) {
+    if (IMG.bg) {
+      const s = Math.max(W / IMG.bg.width, H / IMG.bg.height);
+      const iw = IMG.bg.width * s, ih = IMG.bg.height * s;
+      x.drawImage(IMG.bg, (W - iw) / 2, (H - ih) / 2 - H * 0.02, iw, ih);
+      x.fillStyle = 'rgba(244,236,255,.5)'; x.fillRect(0, 0, W, H);
+    } else {
+      const g = x.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#FDF6FF'); g.addColorStop(0.44, '#EBD9FF'); g.addColorStop(1, '#C6A9F0');
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+    }
+    // 스테인드글라스 채광
+    for (let i = -2; i < 7; i++) {
+      x.save(); x.globalAlpha = 0.10 + (i % 3) * 0.03;
+      x.fillStyle = i % 2 ? '#FFC7E9' : '#9BE7DC';
+      x.beginPath(); x.moveTo(W * 0.16 * i, 0); x.lineTo(W * 0.16 * i + W * 0.1, 0);
+      x.lineTo(W * 0.16 * i + W * 0.42, H); x.lineTo(W * 0.16 * i + W * 0.28, H); x.closePath(); x.fill(); x.restore();
+    }
+    // 위·아래 부드러운 비네트 (HUD·바닥 가독성)
+    let v = x.createLinearGradient(0, 0, 0, H * 0.24);
+    v.addColorStop(0, 'rgba(46,16,101,.34)'); v.addColorStop(1, 'rgba(46,16,101,0)');
+    x.fillStyle = v; x.fillRect(0, 0, W, H * 0.24);
+    v = x.createLinearGradient(0, H * 0.62, 0, H);
+    v.addColorStop(0, 'rgba(46,16,101,0)'); v.addColorStop(1, 'rgba(46,16,101,.42)');
+    x.fillStyle = v; x.fillRect(0, H * 0.62, W, H * 0.38);
+  })(bgx);
+}
+
+function layout() {
+  const W = G.W, H = G.H;
+  const colW = Math.min(W, 560);
+  L.cx = W / 2;
+  const pad = Math.max(14, colW * 0.045);
+  L.x0 = L.cx - colW / 2 + pad; L.x1 = L.cx + colW / 2 - pad; L.w = L.x1 - L.x0;
+  L.col = colW;
+  L.hudY = Math.max(10, (window.visualViewport ? 0 : 0) + 10); L.hudH = 46;
+  L.goalY = L.hudY + L.hudH + 8;
+  L.goalH = clamp(H * 0.155, 96, 150);
+  L.botH = clamp(H * 0.15, 104, 168);
+  L.botY = H - L.botH - Math.max(6, H * 0.012);
+  L.troughH = clamp(H * 0.125, 92, 132);
+  L.troughY = L.botY - L.troughH - 6;
+  L.midY = L.goalY + L.goalH + 8;
+  L.midH = Math.max(120, L.troughY - L.midY - 8);
+  // 항아리
+  L.jarW = L.w * 0.46; L.jarH = Math.min(L.midH * 0.84, L.jarW * 2.05);
+  L.jarBottom = L.midY + L.midH - 36;                 // 아래 34px 은 이름표·묶음 수 자리
+  L.jarLX = L.x0 + L.w * 0.25; L.jarRX = L.x0 + L.w * 0.75;
+  // 구슬 줄
+  L.beadY = L.troughY + L.troughH * 0.46;
+  L.labelRowY = L.troughY + L.troughH * 0.26;   // 눈금 숫자 · 칸 이름 행
+  L.trackY = L.troughY + L.troughH * 0.60;      // 가름돌이 미끄러지는 행
+  L.stoneW = clamp(L.col * 0.115, 34, 66);
+  bakeStone(L.stoneW);
+  bakeBackdrop();
+}
+
+function resize() {
+  const W = Math.max(280, window.innerWidth), H = Math.max(420, window.innerHeight);
+  let dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const budget = 9.2e5;                                            // 소프트웨어 렌더링 보호: 채울 픽셀 수를 묶는다
+  if (W * H * dpr * dpr > budget) dpr = clamp(Math.sqrt(budget / (W * H)), 1, dpr);
+  G.W = W; G.H = H; G.dpr = dpr;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  layout();
+  SP.bead = {};
+  if (S.problem) configureStage(true);
+  spawnMotes();
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+
+/* ── 4. 게임 상태 ─────────────────────────────────────────────── */
+const ROOMS = [
+  { name: '가름의 방', level: 1, n: 2, tip: '가름돌 왼쪽이 이쪽 항아리, 오른쪽이 저쪽 항아리예요.' },
+  { name: '묶음의 방', level: 2, n: 2, tip: '전체를 두 항의 합만큼 묶음으로 나눠 보세요.' },
+  { name: '약분 온실', level: 3, n: 2, tip: '먼저 비를 가장 간단한 자연수의 비로 만들어요.' },
+  { name: '곱의 방', level: 4, n: 2, tip: '바깥의 곱과 안의 곱이 같아지면 잠겨요.' },
+  { name: '이름표 방', level: 5, n: 2, tip: '무엇이 앞항인지 먼저 정하고 나서 풀어요.' },
+];
+const S = {
+  phase: 'title', mode: 'easy',
+  score: 0, dispScore: 0, combo: 0, bestCombo: 0, lives: 3, mistakes: 0, solved: 0, stars: 0,
+  roomIdx: 0, qIdx: 0, queue: [], problem: null, stageIdx: 0,
+  timeLeft: 90, timeScale: 1, hitStop: 0, shake: 0, shakeSeed: 0,
+  flash: 0, flashCol: '255,236,150', banner: 0, bannerText: '', bannerSub: '',
+  particles: [], motes: [], ribbons: [], chips: null, ghost: 0, hint: '', hintKind: '',
+  problemMistakes: 0, comboPunch: 0, lockPulse: 0, celebrate: 0, litGroups: -1, fuse: 0, runId: 0,
+  jarShake: [0, 0], spill: [], trail: [], t: 0, lastLock: 0, maxP: 0,
+};
+const ST = { type: 'none', cur: 0, min: 0, max: 0, x: 0, vx: 0, dragging: false, locked: false, buttons: [], slots: [null, null], bounce: 0, squash: 0 };
+
+const LS = {
+  get best() { return +(localStorage.getItem('splitStone.best') || 0); },
+  set best(v) { localStorage.setItem('splitStone.best', String(v)); },
+  get today() { const d = localStorage.getItem('splitStone.day'); const k = new Date().toISOString().slice(0, 10); return d === k ? +(localStorage.getItem('splitStone.locks') || 0) : 0; },
+  bumpToday() { const k = new Date().toISOString().slice(0, 10); localStorage.setItem('splitStone.day', k); localStorage.setItem('splitStone.locks', String(this.today + 1)); },
+};
+
+function buildRun() {
+  S.queue = [];
+  for (const r of ROOMS) {
+    const pick = shuffle(POOL[r.level]).slice(0, r.n);
+    for (const p of pick) S.queue.push({ room: r, p: p });
+  }
+}
+
+function spawnMotes() {
+  S.motes = [];
+  const n = REDUCED ? 10 : 22;
+  for (let i = 0; i < n; i++) S.motes.push({ x: Math.random() * G.W, y: Math.random() * G.H, r: 1 + Math.random() * 2.4, s: 4 + Math.random() * 12, ph: Math.random() * 6.28 });
+}
+
+/* ── 5. 단계(stage) 구성 ─────────────────────────────────────── */
+function curStage() { return S.problem ? S.problem.stages[S.stageIdx] : 'none'; }
+
+function boundaryX(c) {
+  const g = ST.groups, cw = ST.clusterW, k = ST.k;
+  if (c >= ST.T) return L.x0 + g * cw;
+  const q = Math.floor(c / k), j = c % k;
+  return j === 0 ? L.x0 + q * cw : L.x0 + q * cw + ST.pad + ST.beadPitch * j;
+}
+function beadX(i) { const q = Math.floor(i / ST.k), j = i % ST.k; return L.x0 + q * ST.clusterW + ST.pad + ST.beadPitch * (j + 0.5); }
+function cellX(i) { return L.x0 + ST.cellW * (i + 0.5); }
+
+function configureStage(keepValue) {
+  const p = S.problem; if (!p) return;
+  const type = curStage();
+  const prev = ST.cur;
+  ST.type = type; ST.dragging = false; ST.locked = false; ST.buttons = []; ST.bounce = 0;
+  S.litGroups = -1; S.fuse = 0;
+  if (type === 'split') {
+    ST.T = p.T; ST.k = p.k; ST.groups = p.T / p.k;
+    ST.clusterW = L.w / ST.groups; ST.pad = ST.clusterW * 0.09;
+    ST.beadPitch = (ST.clusterW - ST.pad * 2) / p.k;
+    ST.beadR = clamp(Math.min(ST.beadPitch * 0.44, ST.clusterW * 0.19), 3.2, 12);
+    bakeBeads(ST.beadR);
+    ST.min = 0; ST.max = p.T;
+    ST.cur = keepValue ? clamp(prev, 0, p.T) : Math.round(p.T / 2);
+    ST.x = boundaryX(ST.cur);
+  } else if (type === 'reduce') {
+    ST.cells = commonDivisors(p.A, p.B);
+    ST.min = 0; ST.max = ST.cells.length - 1;
+    ST.cellW = L.w / ST.cells.length;
+    ST.cur = keepValue ? clamp(prev, 0, ST.max) : 0;
+    ST.x = cellX(ST.cur);
+  } else if (type === 'product') {
+    ST.min = 0; ST.max = p.maxTrack - 1;
+    ST.cellW = L.w / p.maxTrack;
+    ST.cur = keepValue ? clamp(prev, 0, ST.max) : Math.round(ST.max * 0.3);
+    ST.x = cellX(ST.cur); S.maxP = 0;
+  } else if (type === 'label') {
+    ST.slots = [null, null];
+    const chips = shuffle([{ t: p.story.unitL, slot: 0 }, { t: p.story.unitR, slot: 1 }]);
+    const bw = Math.min(L.w * 0.46, 210), bh = 60, gap = L.w - bw * 2 > 12 ? (L.w - bw * 2) : 10;
+    ST.buttons = chips.map((c, i) => ({ x: L.x0 + i * (bw + gap), y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: c.t, slot: c.slot, kind: 'chip', shake: 0 }));
+  } else if (type === 'judge') {
+    const bw = Math.min(L.w * 0.44, 190), bh = 66, gap = L.w - bw * 2;
+    ST.buttons = [
+      { x: L.x0, y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: '맞아요  ○', val: 'O', kind: 'judge' },
+      { x: L.x0 + bw + gap, y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: '아니에요  ✕', val: 'X', kind: 'judge' },
+    ];
+  }
+  updateHint();
+}
+
+function updateHint() {
+  const p = S.problem; if (!p) { S.hint = ''; return; }
+  const t = ST.type;
+  if (t === 'split') {
+    const left = ST.cur, right = p.T - left;
+    if (left === p.ansLeft) { S.hint = '지금이야! 손을 떼면 잠겨요'; S.hintKind = 'go'; }
+    else {
+      const trap = p.traps.find(x => x.cut === left);
+      if (trap) { S.hint = (left > p.ansLeft ? '왼쪽' : '오른쪽') + ' 항아리가 넘쳐요 — ' + trap.label; S.hintKind = 'warn'; }
+      else if (left % p.k !== 0) { S.hint = '묶음 하나가 잘렸어요 (' + p.k + '개씩)'; S.hintKind = 'warn'; }
+      else { S.hint = '왼쪽 ' + (left / p.k) + '묶음 · 오른쪽 ' + (right / p.k) + '묶음'; S.hintKind = 'idle'; }
+    }
+  } else if (t === 'reduce') {
+    const d = ST.cells[ST.cur];
+    S.hint = d === p.g ? '지금이야! 더 나눌 수 없어요' : (d === 1 ? '아직 약분하지 않았어요' : '더 큰 공약수가 남아 있어요');
+    S.hintKind = d === p.g ? 'go' : 'warn';
+  } else if (t === 'product') {
+    const o = outerProduct(), i2 = innerProduct();
+    S.hint = o === i2 ? '지금이야! 두 곱이 같아요' : (o > i2 ? '바깥의 곱이 더 커요' : '안의 곱이 더 커요');
+    S.hintKind = o === i2 ? 'go' : 'idle';
+  } else if (t === 'label') { S.hint = '문장에서 앞에 나온 것부터 올려요'; S.hintKind = 'idle'; }
+  else if (t === 'judge') { S.hint = '고블린이 제대로 갈랐는지 채점해요'; S.hintKind = 'idle'; }
+  if (S.mode === 'hard' && S.hintKind === 'go') { S.hint = '손을 떼면 이 자리에 잠겨요'; S.hintKind = 'idle'; }
+}
+
+function curTerms() {
+  const p = S.problem, t = p.terms.slice();
+  t[p.blank] = ST.cur + 1;
+  return t;
+}
+function outerProduct() { const t = curTerms(); return t[0] * t[3]; }
+function innerProduct() { const t = curTerms(); return t[1] * t[2]; }
+
+/* ── 6. 판정 ─────────────────────────────────────────────────── */
+function stageCorrect() {
+  const p = S.problem;
+  switch (ST.type) {
+    case 'split': return ST.cur === p.ansLeft;
+    case 'reduce': return ST.cells[ST.cur] === p.g;
+    case 'product': return ST.cur + 1 === p.ans;
+    default: return true;
+  }
+}
+function lockStage() {
+  if (ST.locked || S.phase !== 'playing') return;
+  ST.locked = true; ST.squash = 1;
+  if (stageCorrect()) {
+    S.hitStop = 0.12; ST.dragging = false;
+    if (S.stageIdx < S.problem.stages.length - 1) {
+      SFX.fuse(); S.hint = '좋아요! 이제 가름돌로 나눠요'; S.hintKind = 'go';
+      burst(ST.x, L.beadY, 14, '#F5C518');
+      const run = S.runId;
+      setTimeout(() => { if (S.phase !== 'playing' || run !== S.runId) return; S.stageIdx++; configureStage(false); ST.locked = false; }, 460);
+    } else succeed();
+  } else fail();
+}
+
+function gainOf(p) {
+  const mult = S.combo < 2 ? 1 : S.combo < 4 ? 2 : 3;
+  const base = p.k ? p.k : Math.max(3, Math.round(p.ans / 2));
+  return base * mult;
+}
+function succeed() {
+  const p = S.problem;
+  S.combo++; S.bestCombo = Math.max(S.bestCombo, S.combo);
+  const gain = gainOf(p);
+  S.score += gain; S.solved++; S.lastGain = gain;
+  LS.bumpToday();
+  // 정답 어휘: 상승·확산·빛. 화면 흔들림은 쓰지 않는다.
+  S.flash = 1; S.flashCol = '255,236,150'; S.celebrate = 1; S.comboPunch = 1; S.litGroups = 0; S.fuse = 0.001;
+  S.hint = ['잘했어요!', '멋져요!', '정확해요!'][S.combo % 3] + '  +' + gain + '점' + (S.combo >= 2 ? '  (' + S.combo + '연속)' : '');
+  S.hintKind = 'go';
+  SFX.lock(S.combo);
+  const n = Math.round((16 + S.combo * 7) * MOTION);
+  if (ST.type === 'split' || p.stages.indexOf('split') >= 0) {
+    burst(L.jarLX, L.jarBottom - L.jarH, n, PAL.rose, -1);
+    burst(L.jarRX, L.jarBottom - L.jarH, n, PAL.teal, -1);
+  } else {
+    burst(L.cx - L.w * 0.2, L.midY + L.midH * 0.3, n, PAL.rose, -1);
+    burst(L.cx + L.w * 0.2, L.midY + L.midH * 0.3, n, PAL.teal, -1);
+  }
+  ST.locked = true;
+  const run = S.runId;
+  setTimeout(() => {
+    if (S.phase !== 'playing' || run !== S.runId) return;
+    if (S.solved > 0 && S.solved % 3 === 0) openReasonChips(); else nextProblem();
+  }, 1150);
+}
+function fail(fromHook) {
+  const p = S.problem;
+  S.combo = 0; S.mistakes++; S.problemMistakes++;
+  if (S.mode === 'hard') S.lives--;
+  // 오답 어휘: 붕괴·흔들림·하강. 정답과 물리적으로 다르게.
+  S.shake = 1; S.shakeSeed = Math.random() * 100; S.flash = 0.7; S.flashCol = '232,62,140';
+  SFX.fail();
+  const tr = p.traps && ST.type === 'split' ? p.traps.find(x => x.cut === ST.cur) : null;
+  S.hint = tr ? tr.label + ' — 다시 해봐요' : '앗, 아직 아니에요. 다시 해봐요';
+  S.hintKind = 'warn';
+  const overLeft = ST.type === 'split' ? ST.cur > p.ansLeft : true;
+  S.jarShake[overLeft ? 0 : 1] = 1;
+  spillBeads(overLeft);
+  if (S.mode === 'hard' && S.lives <= 0) { setTimeout(() => endRun('lives'), 800); return; }
+  const run = S.runId;
+  const alive = () => S.phase === 'playing' && run === S.runId;
+  if (fromHook) { setTimeout(() => { if (alive()) nextProblem(); }, 320); return; }
+  if (S.problemMistakes >= 2 && S.mode === 'easy') {
+    S.ghost = 3;                                   // 유령 가름돌이 정답 칸을 3초 보여 주고 다음 문제로
+    S.hint = '여기가 정답 자리예요. 다음 문제로 갈게요'; S.hintKind = 'idle';
+    setTimeout(() => { if (alive()) nextProblem(); }, 3000);
+  } else {
+    setTimeout(() => { if (!alive()) return; ST.locked = false; S.stageIdx = Math.max(0, S.problem.stages.length - 1); configureStage(false); }, 700);
+  }
+}
+
+function openReasonChips() {
+  const p = S.problem;
+  const isSplit = p.stages.indexOf('split') >= 0;
+  const right = isSplit ? '전체를 ' + (p.a + p.b) + '묶음으로 나눴어요' : '바깥의 곱과 안의 곱이 같아요';
+  const wrongs = isSplit
+    ? ['전체를 ' + p.a + '로 나눴어요', '두 항의 차이만큼 갈랐어요']
+    : ['앞의 두 수끼리 곱했어요', '두 항에 같은 수를 더했어요'];
+  const opts = shuffle([{ t: right, ok: true }, { t: wrongs[0], ok: false }, { t: wrongs[1], ok: false }]);
+  const h = 58, gap = 10;
+  const panelH = 40 + h * 3 + gap * 2 + 16;
+  const panelY = Math.max(L.midY, L.botY + L.botH - panelH - 6);
+  const y0 = panelY + 46;
+  S.chips = {
+    title: '왜 이 자리였을까?', opts: opts, picked: -1, panel: { x: L.x0 - 8, y: panelY, w: L.w + 16, h: panelH },
+    rects: opts.map((o, i) => ({ x: L.x0 + 6, y: y0 + i * (h + gap), w: L.w - 12, h: h })),
+  };
+}
+
+function nextProblem() {
+  S.chips = null; S.ghost = 0; S.celebrate = 0; S.problemMistakes = 0; S.spill = []; S.ribbons = [];
+  S.qIdx++;
+  if (S.qIdx >= S.queue.length) { endRun('clear'); return; }
+  const entry = S.queue[S.qIdx];
+  const prevRoom = S.queue[S.qIdx - 1] ? S.queue[S.qIdx - 1].room : null;
+  S.roomIdx = ROOMS.indexOf(entry.room);
+  S.problem = entry.p; S.stageIdx = 0;
+  configureStage(false);
+  if (prevRoom !== entry.room) { S.banner = 1.6; S.bannerText = '온실 ' + (S.roomIdx + 1) + ' · ' + entry.room.name; S.bannerSub = entry.room.tip; }
+}
+
+function startRun(mode) {
+  S.mode = mode || S.mode;
+  S.phase = 'playing'; S.runId++;
+  S.score = 0; S.dispScore = 0; S.combo = 0; S.bestCombo = 0; S.solved = 0; S.mistakes = 0; S.stars = 0;
+  S.lives = 3; S.timeLeft = 90; S.qIdx = -1; S.particles = []; S.spill = []; S.trail = [];
+  S.problemMistakes = 0; S.chips = null; S.ghost = 0;
+  buildRun();
+  nextProblem();
+}
+
+function endRun(why) {
+  if (S.phase === 'result') return;
+  S.phase = 'result';
+  const best = Math.max(LS.best, S.score);
+  const isBest = S.score > LS.best && S.score > 0;
+  LS.best = best;
+  SFX.finish();
+  document.getElementById('resT').textContent = why === 'clear' ? '온실 정리 끝!' : why === 'time' ? '시간 종료!' : '항아리가 다 깨졌어요';
+  document.getElementById('resStars').textContent = '★'.repeat(Math.min(S.stars, 8)) || '☆';
+  document.getElementById('resSub').innerHTML =
+    '잠근 문제 <b>' + S.solved + '</b>개 · 최고 콤보 <b>' + S.bestCombo + '</b>' +
+    '<br>최고 기록 <b>' + best + '</b>' + (isBest ? ' 🎉 새 기록!' : '') +
+    '<br>오늘 가름 <b>' + LS.today + ' / 7</b>' + (LS.today >= 7 ? ' ✔ 오늘의 미션 완료' : '');
+  const el = document.getElementById('resScore');
+  let shown = 0; const target = S.score;
+  const step = () => { shown = Math.min(target, shown + Math.max(1, Math.ceil(target / 26))); el.textContent = shown; if (shown < target) requestAnimationFrame(step); };
+  el.textContent = '0'; requestAnimationFrame(step);
+  show('result');
+}
+
+/* ── 7. 파티클 ───────────────────────────────────────────────── */
+function burst(x, y, n, color, dir) {
+  n = Math.round(n * MOTION);
+  for (let i = 0; i < n; i++) {
+    const a = dir === -1 ? (-Math.PI / 2 + (Math.random() - 0.5) * 1.5) : Math.random() * 6.28;
+    const sp = 90 + Math.random() * 220;
+    S.particles.push({ x: x + (Math.random() - 0.5) * 26, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, r: 2 + Math.random() * 4, c: color, g: dir === -1 ? 320 : 620 });
+  }
+  if (S.particles.length > 220) S.particles.splice(0, S.particles.length - 220);
+}
+function spillBeads(left) {
+  const p = S.problem; if (!p || !p.T) return;
+  const x = left ? L.jarLX : L.jarRX;
+  const n = Math.round(12 * MOTION);
+  for (let i = 0; i < n; i++) S.spill.push({
+    x: x + (Math.random() - 0.5) * L.jarW * 0.6,
+    y: L.jarBottom - L.jarH * (0.55 + Math.random() * 0.35),
+    vx: (left ? -1 : 1) * (60 + Math.random() * 190), vy: -30 - Math.random() * 55,
+    life: 1.5, rose: left,
+  });
+}
+
+/* ── 8. 입력 ─────────────────────────────────────────────────── */
+function pos(e) {
+  const r = cv.getBoundingClientRect();
+  const t = e.touches && e.touches[0] ? e.touches[0] : e;
+  return { x: t.clientX - r.left, y: t.clientY - r.top };
+}
+function nearestCut(x) {
+  const p = S.problem;
+  let best = 0, bd = 1e9;
+  for (let c = 0; c <= ST.T; c++) { const d = Math.abs(boundaryX(c) - x); if (d < bd) { bd = d; best = c; } }
+  if (S.mode === 'easy') {                          // 묶음 칸 자석 — 억울한 손가락 오차를 막는다
+    const g = Math.round(x / ST.clusterW - L.x0 / ST.clusterW);
+    const gc = clamp(Math.round((x - L.x0) / ST.clusterW), 0, ST.groups) * ST.k;
+    if (Math.abs(boundaryX(gc) - x) < ST.clusterW * 0.42) best = gc;
+  } else {                                          // 어려움: 함정 칸이 살짝 당긴다
+    for (const t of p.traps) { if (Math.abs(boundaryX(t.cut) - x) < ST.clusterW * 0.16) { best = t.cut; break; } }
+  }
+  return clamp(best, 0, ST.T);
+}
+function setFromX(x) {
+  const before = ST.cur;
+  if (ST.type === 'split') ST.cur = nearestCut(x);
+  else if (ST.type === 'reduce' || ST.type === 'product') ST.cur = clamp(Math.round((x - L.x0 - ST.cellW / 2) / ST.cellW), ST.min, ST.max);
+  if (ST.cur !== before) { SFX.tick(); updateHint(); if (ST.type === 'split') addRibbon(before, ST.cur); }
+}
+function addRibbon(from, to) {
+  const dir = to > from ? 1 : -1;
+  for (let i = Math.min(from, to); i < Math.max(from, to); i++) {
+    S.ribbons.push({ x: beadX(i), y: L.beadY, tx: dir > 0 ? L.jarLX : L.jarRX, ty: L.jarBottom - L.jarH * 0.4, t: 0, rose: dir > 0 });
+  }
+  if (S.ribbons.length > 40) S.ribbons.splice(0, S.ribbons.length - 40);
+}
+
+function inRect(pt, r) { return pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h; }
+
+function onDown(e) {
+  SFX.wake();
+  if (S.phase !== 'playing') return;
+  const q = pos(e);
+  if (S.chips) {
+    for (let i = 0; i < S.chips.rects.length; i++) if (inRect(q, S.chips.rects[i])) {
+      if (S.chips.picked >= 0) return;
+      S.chips.picked = i;
+      if (S.chips.opts[i].ok) { S.stars++; SFX.star(); burst(L.cx, S.chips.rects[i].y, 18, PAL.gold, -1); }
+      else SFX.clunk();
+      const run = S.runId;
+      setTimeout(() => { if (S.phase === 'playing' && run === S.runId) nextProblem(); }, 850);
+      return;
+    }
+    return;
+  }
+  if (ST.locked) return;
+  if (ST.buttons.length) {
+    for (const b of ST.buttons) if (inRect(q, b)) { pressButton(b); return; }
+  }
+  if (ST.type === 'split' || ST.type === 'reduce' || ST.type === 'product') {
+    if (q.y >= L.troughY - 34 && q.y <= L.troughY + L.troughH + 24) {
+      ST.dragging = true; setFromX(q.x);
+      e.preventDefault();
+    }
+  }
+}
+function onMove(e) {
+  if (!ST.dragging || S.phase !== 'playing') return;
+  setFromX(pos(e).x); e.preventDefault();
+}
+function onUp() {
+  if (!ST.dragging) return;
+  ST.dragging = false;
+  lockStage();
+}
+function pressButton(b) {
+  SFX.chip();
+  if (b.kind === 'chip') {
+    const next = ST.slots[0] === null ? 0 : ST.slots[1] === null ? 1 : -1;
+    if (next < 0) return;
+    if (b.slot !== next) { b.shake = 1; SFX.clunk(); return; }   // 순서가 다르면 칩이 튕긴다 (잠금 전 피드백)
+    ST.slots[next] = b.label; b.placed = true;
+    if (ST.slots[0] && ST.slots[1]) { S.stageIdx++; configureStage(false); }
+    return;
+  }
+  if (b.kind === 'judge') {
+    if (b.val === S.problem.judgeAnswer) { S.hitStop = 0.1; burst(b.x + b.w / 2, b.y, 16, PAL.gold, -1); S.stageIdx++; configureStage(false); }
+    else fail();
+  }
+}
+cv.addEventListener('pointerdown', onDown, { passive: false });
+cv.addEventListener('pointermove', onMove, { passive: false });
+window.addEventListener('pointerup', onUp);
+window.addEventListener('pointercancel', onUp);
+window.addEventListener('keydown', (e) => {
+  if (S.phase !== 'playing' || ST.locked) return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    const d = e.key === 'ArrowLeft' ? -1 : 1;
+    const before = ST.cur;
+    ST.cur = clamp(ST.cur + d, ST.type === 'split' ? 0 : ST.min, ST.type === 'split' ? ST.T : ST.max);
+    if (ST.cur !== before) { SFX.tick(); updateHint(); }
+    e.preventDefault();
+  } else if (e.key === ' ' || e.key === 'Enter') { lockStage(); e.preventDefault(); }
+});
+
+/* ── 9. 그리기 ───────────────────────────────────────────────── */
+const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif';
+function setFont(px, w) { ctx.font = (w || 800) + ' ' + Math.round(px) + 'px ' + FONT; }
+function fitText(t, maxW, px, w) { setFont(px, w); while (px > 9 && ctx.measureText(t).width > maxW) { px -= 1; setFont(px, w); } return px; }
+function card(x, y, w, h, r, fill, edge, lw) {
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (edge) { ctx.lineWidth = lw || 3; ctx.strokeStyle = edge; ctx.stroke(); }
+}
+function topHi(x, y, w, h, r) {
+  const hh = Math.min(h * 0.42, h - 2);
+  const g = ctx.createLinearGradient(0, y, 0, y + hh);
+  g.addColorStop(0, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.beginPath(); ctx.roundRect(x + 1.5, y + 1.5, w - 3, hh, [r - 1, r - 1, 3, 3]);
+  ctx.fillStyle = g; ctx.fill();
+}
+function wrap(text, maxW, px) {
+  setFont(px, 700);
+  const words = text.split(' '), lines = []; let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/** 통통한 장미석영 조약돌 요정 — 게임 화면에서도 표정이 읽히도록 화면 폭의 15% */
+function drawMascot(x, y, s, mood, t) {
+  const bob = Math.sin(t * 2.4) * s * 0.03;
+  ctx.save(); ctx.translate(x, y + bob);
+  const sq = mood === 'joy' ? 1 + Math.sin(t * 16) * 0.06 : 1;
+  ctx.scale(1 / sq, sq);
+  ctx.beginPath(); ctx.ellipse(0, s * 0.42, s * 0.42, s * 0.1, 0, 0, 6.28); ctx.fillStyle = 'rgba(46,16,101,.16)'; ctx.fill();
+  const g = ctx.createRadialGradient(-s * 0.16, -s * 0.2, s * 0.06, 0, 0, s * 0.52);
+  g.addColorStop(0, '#FFE3F1'); g.addColorStop(0.45, '#FF8FC4'); g.addColorStop(1, '#D9327F');
+  ctx.beginPath(); ctx.ellipse(0, 0, s * 0.44, s * 0.4, 0, 0, 6.28); ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = Math.max(2, s * 0.05); ctx.strokeStyle = '#5C1038'; ctx.stroke();
+  // 팔 (가름돌을 미는 자세)
+  ctx.lineCap = 'round'; ctx.lineWidth = Math.max(3, s * 0.09); ctx.strokeStyle = '#9333EA';
+  ctx.beginPath(); ctx.moveTo(s * 0.3, s * 0.02); ctx.lineTo(s * 0.52, -s * 0.06); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-s * 0.3, s * 0.06); ctx.lineTo(-s * 0.48, s * 0.0); ctx.stroke();
+  // 눈 — 이 크기에서도 보이게 크게
+  const ey = mood === 'sad' ? s * 0.02 : -s * 0.02;
+  for (const sx of [-1, 1]) {
+    ctx.beginPath(); ctx.ellipse(sx * s * 0.15, ey, s * 0.105, s * 0.125, 0, 0, 6.28); ctx.fillStyle = '#33102B'; ctx.fill();
+    ctx.beginPath(); ctx.arc(sx * s * 0.15 - s * 0.035, ey - s * 0.045, s * 0.042, 0, 6.28); ctx.fillStyle = '#fff'; ctx.fill();
+  }
+  ctx.beginPath();
+  if (mood === 'sad') ctx.arc(0, s * 0.24, s * 0.1, Math.PI * 1.15, Math.PI * 1.85);
+  else ctx.arc(0, s * 0.13, s * 0.1, 0.2, Math.PI - 0.2);
+  ctx.lineWidth = Math.max(2, s * 0.045); ctx.strokeStyle = '#5C1038'; ctx.stroke();
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * s * 0.31, s * 0.12, s * 0.07, s * 0.045, 0, 0, 6.28); ctx.fillStyle = 'rgba(255,120,170,.6)'; ctx.fill(); }
+  ctx.restore();
+}
+
+function drawHUD() {
+  const y = L.hudY, h = L.hudH;
+  // 점수
+  const sw = Math.min(L.w * 0.42, 168);
+  card(L.x0, y, sw, h, 14, 'rgba(46,16,101,.78)', 'rgba(255,255,255,.4)', 2); topHi(L.x0, y, sw, h, 14);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  setFont(12, 800); ctx.fillStyle = '#E9D5FF'; ctx.fillText('점수', L.x0 + 12, y + h * 0.32);
+  const punch = 1 + S.comboPunch * 0.28;
+  ctx.save(); ctx.translate(L.x0 + 12, y + h * 0.68); ctx.scale(punch, punch);
+  setFont(20, 900); ctx.fillStyle = '#FFE86B'; ctx.fillText(String(Math.round(S.dispScore)), 0, 0); ctx.restore();
+  // 콤보
+  if (S.combo >= 2) {
+    const cw = 84, cx = L.x0 + sw + 8;
+    card(cx, y, cw, h, 14, 'rgba(245,197,24,.94)', '#7C3A00', 2);
+    ctx.textAlign = 'center'; setFont(11, 800); ctx.fillStyle = '#5A3300'; ctx.fillText('콤보', cx + cw / 2, y + h * 0.31);
+    setFont(19, 900); ctx.fillStyle = '#3B1907'; ctx.fillText(S.combo + '연속', cx + cw / 2, y + h * 0.7);
+  }
+  // 목숨 / 시간
+  const rw = 96, rx = L.x1 - rw - 52;
+  card(rx, y, rw, h, 14, 'rgba(46,16,101,.78)', 'rgba(255,255,255,.4)', 2);
+  ctx.textAlign = 'center';
+  if (S.mode === 'hard') {
+    setFont(11, 800); ctx.fillStyle = '#E9D5FF'; ctx.fillText('남은 시간', rx + rw / 2, y + h * 0.3);
+    setFont(19, 900); ctx.fillStyle = S.timeLeft < 15 ? '#FF9CC8' : '#FFF8E7';
+    ctx.fillText(Math.ceil(S.timeLeft) + '초 · ' + '♥'.repeat(Math.max(0, S.lives)), rx + rw / 2, y + h * 0.7);
+  } else {
+    setFont(11, 800); ctx.fillStyle = '#E9D5FF'; ctx.fillText('잠근 문제', rx + rw / 2, y + h * 0.3);
+    setFont(19, 900); ctx.fillStyle = '#FFF8E7'; ctx.fillText(S.solved + '개 · ★' + S.stars, rx + rw / 2, y + h * 0.7);
+  }
+}
+
+function ratioBadge(cx, cy, a, b, px) {
+  setFont(px, 900);
+  const sa = String(a), sb = String(b), sc = ' : ';
+  const wa = ctx.measureText(sa).width, wb = ctx.measureText(sb).width, wc = ctx.measureText(sc).width;
+  const total = wa + wb + wc;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  let x = cx - total / 2;
+  ctx.fillStyle = '#FF8FC4'; ctx.fillText(sa, x, cy); x += wa;
+  ctx.fillStyle = '#FFF8E7'; ctx.fillText(sc, x, cy); x += wc;
+  ctx.fillStyle = '#7BE6D8'; ctx.fillText(sb, x, cy);
+  ctx.textAlign = 'center';
+}
+
+/** 비례식을 항별로 색을 나눠 그린다. 빈 항은 지금 밀고 있는 값이 금색 수정으로 들어간다. */
+function drawEq(cx, cy, terms, blank, px, curVal) {
+  const parts = [];
+  terms.forEach((v, i) => {
+    parts.push({ s: i === blank ? String(curVal) : String(v), blank: i === blank, outer: i === 0 || i === 3 });
+    if (i < 3) parts.push({ s: i === 1 ? ' = ' : ' : ', sep: true });
+  });
+  setFont(px, 900);
+  let total = 0;
+  for (const q of parts) { q.w = ctx.measureText(q.s).width; total += q.w; }
+  while (total > L.w - 26 && px > 12) {
+    px -= 1; setFont(px, 900); total = 0;
+    for (const q of parts) { q.w = ctx.measureText(q.s).width; total += q.w; }
+  }
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  let x = cx - total / 2;
+  for (const q of parts) {
+    if (q.blank) {
+      ctx.beginPath(); ctx.roundRect(x - 4, cy - px * 0.62, q.w + 8, px * 1.24, 7);
+      ctx.fillStyle = 'rgba(245,197,24,.22)'; ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#F5C518'; ctx.stroke();
+    }
+    ctx.fillStyle = q.sep ? 'rgba(255,248,231,.7)' : q.blank ? '#FFE86B' : (q.outer ? '#FF8FC4' : '#7BE6D8');
+    ctx.fillText(q.s, x, cy); x += q.w;
+  }
+  ctx.textAlign = 'center';
+}
+
+function drawGoal() {
+  const p = S.problem; if (!p) return;
+  const x = L.x0, y = L.goalY, w = L.w, h = L.goalH;
+  card(x, y, w, h, 18, 'rgba(46,16,101,.8)', 'rgba(255,243,176,.55)', 3); topHi(x, y, w, h, 18);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  setFont(12, 800); ctx.fillStyle = '#C4B5FD';
+  const room = ROOMS[S.roomIdx];
+  ctx.fillText('온실 ' + (S.roomIdx + 1) + ' · ' + room.name, x + 14, y + 17);
+  ctx.textAlign = 'right'; ctx.fillStyle = '#E9D5FF';
+  ctx.fillText((S.qIdx + 1) + ' / ' + S.queue.length, x + w - 14, y + 17);
+  ctx.textAlign = 'center';
+  const cy = y + h * 0.56;
+  if (ST.type === 'split' || ST.type === 'judge') {
+    ratioBadge(x + w / 2, cy, p.a, p.b, Math.min(w * 0.155, h * 0.42));
+    setFont(14, 800); ctx.fillStyle = '#FFF8E7';
+    ctx.fillText('구슬 ' + p.T + '개를 이 비로 가르기', x + w / 2, y + h - 20);
+  } else if (ST.type === 'reduce') {
+    const px = fitText(p.dispA + ' : ' + p.dispB + '  →  ?', w - 30, Math.min(w * 0.13, h * 0.4), 900);
+    ctx.fillStyle = '#FFF8E7'; ctx.fillText(p.dispA + ' : ' + p.dispB + '  →  ?', x + w / 2, cy);
+    setFont(14, 800); ctx.fillStyle = '#FFF3B0';
+    ctx.fillText('가장 간단한 자연수의 비로', x + w / 2, y + h - 20);
+  } else if (ST.type === 'product' || ST.type === 'label') {
+    const val = ST.type === 'product' ? ST.cur + 1 : '□';
+    if (p.story) {
+      const lines = wrap(p.story.sentence, w - 26, 14);
+      ctx.fillStyle = '#FFF8E7'; setFont(14, 700);
+      lines.slice(0, 3).forEach((ln, i) => ctx.fillText(ln, x + w / 2, y + 38 + i * 19));
+      drawEq(x + w / 2, y + h - 24, p.terms, p.blank, Math.min(w * 0.1, 30), val);
+    } else {
+      drawEq(x + w / 2, cy, p.terms, p.blank, Math.min(w * 0.145, h * 0.4), val);
+      setFont(13.5, 800); ctx.fillStyle = '#FFF3B0'; ctx.fillText('가름돌을 밀어 두 곱을 같게 만들어요', x + w / 2, y + h - 16);
+    }
+  }
+}
+
+function beadPile(cx, bottom, count, w, hMax, sprite, cap) {
+  if (count <= 0) return;
+  let cols = 5, d = 0;
+  for (let c = 3; c <= 7; c++) {
+    const dd = Math.min(w / c, hMax / (Math.max(2, Math.ceil(cap / c)) * 0.92));
+    if (dd > d) { d = dd; cols = c; }
+  }
+  const r = SP.bead.r || 6;
+  const s = d / (r * 2 + 4);
+  const rows = Math.ceil(count / cols);
+  for (let i = 0; i < count; i++) {
+    const row = Math.floor(i / cols), col = i % cols;
+    const inRow = Math.min(cols, count - row * cols);
+    const bx = cx - (inRow - 1) * d / 2 + col * d;
+    const by = bottom - d * 0.5 - row * d * 0.9;
+    blit(sprite, bx, by, s);
+  }
+}
+
+function drawJars() {
+  const p = S.problem;
+  const left = ST.type === 'split' ? ST.cur : (p.wrongLeft !== undefined ? p.wrongLeft : 0);
+  const right = ST.type === 'split' ? p.T - ST.cur : (p.wrongRight !== undefined ? p.wrongRight : 0);
+  const sides = [
+    { cx: L.jarLX, n: left, sp: SP.bead.rose, col: PAL.rose, edge: '#7A0F44', name: ST.slots && ST.slots[0] ? ST.slots[0] : '왼쪽' },
+    { cx: L.jarRX, n: right, sp: SP.bead.teal, col: PAL.teal, edge: '#08554F', name: ST.slots && ST.slots[1] ? ST.slots[1] : '오른쪽' },
+  ];
+  sides.forEach((s, i) => {
+    const jw = L.jarW, jh = L.jarH, jx = s.cx - jw / 2, jy = L.jarBottom - jh;
+    const sh = S.jarShake[i];
+    ctx.save();
+    if (sh > 0) ctx.translate(Math.sin(S.t * 60 + i) * sh * 7, 0);
+    card(jx, jy, jw, jh, 16, 'rgba(255,255,255,.34)', 'rgba(46,16,101,.6)', 3);
+    // 묶음 눈금 (항아리 옆)
+    ctx.strokeStyle = 'rgba(46,16,101,.22)'; ctx.lineWidth = 1;
+    for (let g = 1; g < 6; g++) { const yy = L.jarBottom - jh * g / 6; ctx.beginPath(); ctx.moveTo(jx + 4, yy); ctx.lineTo(jx + jw - 4, yy); ctx.stroke(); }
+    beadPile(s.cx, L.jarBottom - 8, Math.min(s.n, 40), jw - 16, jh - 34, s.sp, Math.max(10, p.T || 20));
+    // 개수 배지 — 화면 폭 5% 이상, 굵게
+    const bw = jw * 0.72, bh = 40, bx = s.cx - bw / 2, by = jy - bh / 2;
+    card(bx, by, bw, bh, 13, 'rgba(46,16,101,.9)', s.col, 3);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    setFont(Math.min(L.col * 0.075, 26), 900); ctx.fillStyle = '#FFF8E7'; ctx.fillText(String(s.n), s.cx, by + bh / 2 + 1);
+    setFont(11.5, 800); ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fillText(s.name, s.cx, L.jarBottom + 15);
+    if (p.k && ST.type === 'split') {
+      setFont(12, 800); ctx.fillStyle = s.n % p.k === 0 ? '#0D9488' : '#B21E63';
+      ctx.fillText(s.n % p.k === 0 ? (s.n / p.k) + '묶음' : '묶음 깨짐', s.cx, L.jarBottom + 30);
+    }
+    ctx.restore();
+  });
+}
+
+function drawPillars() {
+  const p = S.problem;
+  const o = outerProduct(), inn = innerProduct();
+  const solved = p.terms.slice(); solved[p.blank] = p.ans;
+  const target = Math.max(o, inn, solved[0] * solved[3]) * 1.15;
+  S.maxP = S.maxP > 0 ? S.maxP + (target - S.maxP) * 0.14 : target;
+  const maxP = S.maxP;
+  const bw = Math.min(L.w * 0.3, 116), gap = L.w * 0.1;
+  const baseY = L.midY + L.midH - 34, maxH = L.midH - 66;
+  const cols = [
+    { x: L.cx - gap / 2 - bw, v: o, c: '#FF8FC4', e: '#B21E63', t: '바깥의 곱', sub: '외항 ' + curTerms()[0] + ' × ' + curTerms()[3] },
+    { x: L.cx + gap / 2, v: inn, c: '#7BE6D8', e: '#0B6E66', t: '안의 곱', sub: '내항 ' + curTerms()[1] + ' × ' + curTerms()[2] },
+  ];
+  const same = o === inn;
+  for (const c of cols) {
+    const h = Math.max(6, maxH * (c.v / maxP)) * (1 + (same ? S.fuse * 0.04 : 0));
+    card(c.x, baseY - maxH, bw, maxH, 10, 'rgba(255,255,255,.2)', 'rgba(46,16,101,.28)', 1.5);
+    card(c.x, baseY - h, bw, h, 10, c.c, c.e, 3);
+    // 10칸마다 눈금 — 높이 칸 수 = 곱의 값 (1차, 넓이·부피 아님)
+    ctx.strokeStyle = 'rgba(46,16,101,.35)'; ctx.lineWidth = 1;
+    for (let u = 10; u * (maxH / maxP) < h; u += 10) { const yy = baseY - u * (maxH / maxP); ctx.beginPath(); ctx.moveTo(c.x + 3, yy); ctx.lineTo(c.x + bw - 3, yy); ctx.stroke(); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const bh = 34, by = baseY - h - bh - 5;
+    card(c.x + bw / 2 - bw * 0.42, by, bw * 0.84, bh, 11, 'rgba(46,16,101,.9)', c.e, 2.5);
+    setFont(Math.min(L.col * 0.062, 22), 900); ctx.fillStyle = '#FFF8E7'; ctx.fillText(String(c.v), c.x + bw / 2, by + bh / 2 + 1);
+    setFont(12, 800); ctx.fillStyle = '#FFF8E7'; ctx.fillText(c.t, c.x + bw / 2, baseY + 15);
+    setFont(11, 700); ctx.fillStyle = 'rgba(255,248,231,.85)'; ctx.fillText(c.sub, c.x + bw / 2, baseY + 30);
+  }
+  if (same) {
+    ctx.save(); ctx.globalAlpha = 0.5 + Math.sin(S.t * 8) * 0.3;
+    blit(SP.glow, L.cx, baseY - maxH * (o / maxP) - 10, 1.1); ctx.restore();
+    ctx.textAlign = 'center'; setFont(15, 900); ctx.fillStyle = '#FFE86B';
+    ctx.fillText('= 같은 높이!', L.cx, baseY - maxH - 12);
+  }
+}
+
+/** 이름표 단계 — 무엇이 앞항인지 먼저 고정해야 가름돌이 움직인다. */
+function drawLabelStage() {
+  const p = S.problem;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const cyTop = L.midY + L.midH * 0.16;
+  setFont(15, 900); ctx.fillStyle = '#4C1D95';
+  ctx.fillText('무엇이 앞항인지 먼저 정해요', L.cx, cyTop - 26);
+  const sw = Math.min(L.w * 0.46, 200), sh = 62, gap = 12;
+  [0, 1].forEach(i => {
+    const sx = i === 0 ? L.cx - sw - gap / 2 : L.cx + gap / 2, sy = cyTop;
+    card(sx, sy, sw, sh, 15, ST.slots[i] ? (i ? 'rgba(13,148,136,.94)' : 'rgba(232,62,140,.94)') : 'rgba(255,255,255,.72)', '#2E1065', 3);
+    topHi(sx, sy, sw, sh, 15);
+    setFont(fitText(ST.slots[i] || (i === 0 ? '앞항 ?' : '뒷항 ?'), sw - 18, 16, 900), 900);
+    ctx.fillStyle = ST.slots[i] ? '#FFF8E7' : '#6D28D9';
+    ctx.fillText(ST.slots[i] || (i === 0 ? '앞항 ?' : '뒷항 ?'), sx + sw / 2, sy + sh / 2);
+    setFont(Math.min(L.col * 0.09, 34), 900); ctx.fillStyle = i ? '#0B6E66' : '#B21E63';
+    ctx.fillText(String(p.terms[i]), sx + sw / 2, sy + sh + 34);
+  });
+  setFont(13.5, 700); ctx.fillStyle = 'rgba(46,16,101,.8)';
+  const lines = wrap('두 비의 항이 같은 순서로 짝지어져야 해요. 순서를 바꾸면 이름표가 튕겨요.', L.w - 20, 13.5);
+  lines.forEach((ln, i) => ctx.fillText(ln, L.cx, L.midY + L.midH * 0.5 + i * 19));
+}
+
+function drawReducePanel() {
+  const p = S.problem;
+  const y = L.midY + 10, w = L.w;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const dec = p.asDecimal;
+  card(L.x0, y, w, dec ? 82 : 62, 14, 'rgba(255,255,255,.62)', 'rgba(46,16,101,.4)', 2);
+  setFont(13, 800); ctx.fillStyle = '#4C1D95';
+  ctx.fillText('두 수의 약수를 늘어놓고, 공통인 것 중 가장 큰 수로 나눠요', L.cx, y + 15);
+  if (dec) {   // 소수 표기는 먼저 10을 곱해 정수 비로 바꾼다 — 그 한 걸음을 보여 준다
+    setFont(14, 900); ctx.fillStyle = '#6D28D9';
+    ctx.fillText(p.dispA + ' : ' + p.dispB + ' 에 10을 곱하면  ' + p.A + ' : ' + p.B, L.cx, y + 36);
+  }
+  const rowY = y + (dec ? 20 : 0);
+  [[p.A, '#B21E63'], [p.B, '#0B6E66']].forEach((pair, r) => {
+    const ds = divisorsOf(pair[0]);
+    const common = commonDivisors(p.A, p.B);
+    setFont(13, 800);
+    const txt = pair[0] + '의 약수: ';
+    let tw = ctx.measureText(txt).width + ds.reduce((s, d) => s + ctx.measureText(' ' + d).width + 6, 0);
+    let x = L.cx - tw / 2;
+    ctx.textAlign = 'left'; ctx.fillStyle = pair[1]; ctx.fillText(txt, x, rowY + 34 + r * 18); x += ctx.measureText(txt).width;
+    for (const d of ds) {
+      const isC = common.includes(d), s = String(d), dw = ctx.measureText(s).width + 6;
+      const picked = isC && d === ST.cells[ST.cur];
+      if (isC) { ctx.fillStyle = picked ? '#F5C518' : 'rgba(109,40,217,.2)'; ctx.beginPath(); ctx.roundRect(x - 1, rowY + 25 + r * 18, dw + 2, 17, 5); ctx.fill(); }
+      ctx.fillStyle = isC ? '#2E1065' : 'rgba(46,16,101,.45)'; setFont(13, isC ? 900 : 700);
+      ctx.fillText(s, x + 3, rowY + 34 + r * 18); x += dw;
+    }
+  });
+  ctx.textAlign = 'center';
+  const d = ST.cells[ST.cur];
+  const ra = p.A / d, rb = p.B / d;
+  const cy = y + (dec ? 82 : 62) + (L.midH - (dec ? 92 : 72)) * 0.36;
+  setFont(13, 800); ctx.fillStyle = '#4C1D95'; ctx.fillText('지금 나누는 수 (공약수)', L.cx, cy - Math.min(L.w * 0.15, 62) * 0.62);
+  ratioBadgeDark(L.cx, cy, ra, rb, Math.min(L.w * 0.17, 62));
+  setFont(14, 800); ctx.fillStyle = Number.isInteger(ra) && d === p.g ? '#0D9488' : '#6D28D9';
+  ctx.fillText(p.A + ' ÷ ' + d + ' : ' + p.B + ' ÷ ' + d, L.cx, cy + Math.min(L.w * 0.17, 62) * 0.62);
+  setFont(13.5, 800); ctx.fillStyle = 'rgba(46,16,101,.8)';
+  ctx.fillText('이 비를 잠그면 구슬 ' + p.T + '개를 같은 비로 가릅니다', L.cx, cy + Math.min(L.w * 0.17, 62) * 0.62 + 30);
+}
+function ratioBadgeDark(cx, cy, a, b, px) {
+  const w = Math.min(L.w * 0.86, 320), h = px * 1.5;
+  card(cx - w / 2, cy - h / 2, w, h, 16, 'rgba(46,16,101,.88)', '#F5C518', 3);
+  ratioBadge(cx, cy, a, b, px);
+}
+
+function drawTrough() {
+  const p = S.problem;
+  const ty = L.troughY, th = L.troughH;
+  card(L.x0 - 6, ty, L.w + 12, th * 0.78, 16, 'rgba(255,255,255,.4)', 'rgba(46,16,101,.35)', 2.5);
+  if (ST.type === 'split') {
+    // 묶음 밴드
+    for (let g = 0; g < ST.groups; g++) {
+      const gx = L.x0 + g * ST.clusterW;
+      const lit = S.litGroups >= 0;
+      const leftG = g < p.a, isLit = lit && (g < S.litGroups);
+      ctx.beginPath(); ctx.roundRect(gx + 1.5, ty + 6, ST.clusterW - 3, th * 0.78 - 12, 10);
+      ctx.fillStyle = isLit ? (leftG ? 'rgba(232,62,140,.35)' : 'rgba(13,148,136,.35)') : (g % 2 ? 'rgba(109,40,217,.07)' : 'rgba(109,40,217,.13)');
+      ctx.fill();
+      ctx.strokeStyle = isLit ? '#F5C518' : 'rgba(46,16,101,.16)'; ctx.lineWidth = isLit ? 2.5 : 1; ctx.stroke();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; setFont(10, 800);
+      ctx.fillStyle = 'rgba(46,16,101,.5)'; ctx.fillText(String(p.k), gx + ST.clusterW / 2, ty + th * 0.78 - 10);
+    }
+    for (let i = 0; i < p.T; i++) {
+      const sp = i < ST.cur ? SP.bead.rose : SP.bead.teal;
+      blit(sp, beadX(i), L.beadY, 1);
+    }
+  } else if (ST.type === 'reduce') {
+    for (let i = 0; i < ST.cells.length; i++) {
+      const x = L.x0 + i * ST.cellW, sel = i === ST.cur;
+      card(x + 3, ty + 6, ST.cellW - 6, th * 0.78 - 12, 12, sel ? '#F5C518' : 'rgba(255,255,255,.66)', '#2E1065', sel ? 3 : 2);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      setFont(Math.min(ST.cellW * 0.36, 24), 900); ctx.fillStyle = '#2E1065';
+      ctx.fillText('÷' + ST.cells[i], x + ST.cellW / 2, L.labelRowY);
+    }
+  } else if (ST.type === 'product') {
+    ctx.strokeStyle = 'rgba(46,16,101,.32)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(L.x0, L.labelRowY + 12); ctx.lineTo(L.x1, L.labelRowY + 12); ctx.stroke();
+    for (let i = 0; i <= ST.max; i++) {
+      const x = cellX(i), big = (i + 1) % 5 === 0 || i === 0, sel = i === ST.cur;
+      ctx.beginPath(); ctx.moveTo(x, L.labelRowY + 12 - (big ? 9 : 4)); ctx.lineTo(x, L.labelRowY + 12 + (big ? 9 : 4));
+      ctx.strokeStyle = sel ? '#F5C518' : 'rgba(46,16,101,.35)'; ctx.lineWidth = sel ? 3 : 1.5; ctx.stroke();
+      if (big || sel) {
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        setFont(sel ? 15 : 11, sel ? 900 : 800); ctx.fillStyle = sel ? '#B45309' : 'rgba(46,16,101,.6)';
+        ctx.fillText(String(i + 1), x, L.labelRowY - 3);
+      }
+    }
+  } else if (ST.type === 'label') {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    setFont(15, 800); ctx.fillStyle = 'rgba(46,16,101,.75)';
+    ctx.fillText('이름표를 순서대로 올리면 가름돌이 움직여요', L.cx, ty + th * 0.36);
+  }
+  const sy = ST.type === 'split' ? L.beadY : L.trackY;
+  // 유령 가름돌 (2차 오답 힌트)
+  if (S.ghost > 0 && ST.type === 'split') {
+    ctx.save(); ctx.globalAlpha = 0.45 + Math.sin(S.t * 6) * 0.15;
+    blit(SP.stone, boundaryX(p.ansLeft), L.beadY, 1); ctx.restore();
+    ctx.textAlign = 'center'; setFont(13, 900); ctx.fillStyle = '#4C1D95';
+    ctx.fillText('여기예요!', boundaryX(p.ansLeft), L.beadY - L.stoneW * 0.9);
+  }
+  // 가름돌 + 궤적 + 마스코트
+  const tx = ST.x;
+  if (ST.type === 'label') return;
+  for (let i = 0; i < S.trail.length; i++) {
+    const t = S.trail[i];
+    ctx.save(); ctx.globalAlpha = t.a * 0.3; blit(SP.stone, t.x, sy, 0.9 - i * 0.02); ctx.restore();
+  }
+  ctx.save(); ctx.translate(tx, sy);
+  const sqx = 1 + ST.squash * 0.35, sqy = 1 - ST.squash * 0.3;
+  ctx.scale(sqx, sqy);
+  blit(SP.stone, 0, 0, 1);
+  ctx.restore();
+  const mSize = L.col * 0.15;
+  drawMascot(tx - L.stoneW * 0.72, L.troughY + L.troughH * 0.86, mSize, S.celebrate ? 'joy' : (S.jarShake[0] + S.jarShake[1] > 0.3 ? 'sad' : 'idle'), S.t);
+}
+
+function drawChips() {
+  if (!S.chips) return;
+  const c = S.chips;
+  ctx.fillStyle = 'rgba(24,6,50,.58)'; ctx.fillRect(0, 0, G.W, G.H);
+  card(c.panel.x, c.panel.y, c.panel.w, c.panel.h, 22, 'rgba(46,16,101,.96)', '#F5C518', 4);
+  topHi(c.panel.x, c.panel.y, c.panel.w, c.panel.h, 22);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  setFont(16, 900); ctx.fillStyle = '#FFE86B';
+  ctx.fillText(c.title + '  (맞히면 별 +1)', L.cx, c.panel.y + 24);
+  c.rects.forEach((r, i) => {
+    const o = c.opts[i], picked = c.picked === i;
+    const fill = c.picked < 0 ? 'rgba(255,255,255,.94)' : (o.ok ? '#7BE6D8' : picked ? '#FF9CC8' : 'rgba(255,255,255,.5)');
+    card(r.x, r.y, r.w, r.h, 16, fill, '#2E1065', 3); topHi(r.x, r.y, r.w, r.h, 16);
+    setFont(fitText((c.picked >= 0 && o.ok ? '○ ' : c.picked >= 0 && picked ? '✕ ' : '') + o.t, r.w - 26, 16, 800), 800);
+    ctx.fillStyle = '#2E1065';
+    ctx.fillText((c.picked >= 0 && o.ok ? '○ ' : c.picked >= 0 && picked ? '✕ ' : '') + o.t, r.x + r.w / 2, r.y + r.h / 2);
+  });
+}
+
+function drawBottom() {
+  const y = L.botY, h = L.botH;
+  // 힌트 — 색만 쓰지 않는다. 도형(●/▲/■) + 글자 + 소리를 같이 쓴다.
+  const kind = S.hintKind;
+  const mark = kind === 'go' ? '●' : kind === 'warn' ? '▲' : '■';
+  const bg = kind === 'go' ? 'rgba(13,148,136,.94)' : kind === 'warn' ? 'rgba(178,30,99,.94)' : 'rgba(46,16,101,.78)';
+  const hw = Math.min(L.w, 420), hh = 42, hx = L.cx - hw / 2;
+  card(hx, y + 4, hw, hh, 14, bg, 'rgba(255,255,255,.45)', 2); topHi(hx, y + 4, hw, hh, 14);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  setFont(fitText(mark + ' ' + S.hint, hw - 22, 15, 800), 800); ctx.fillStyle = '#FFF8E7';
+  ctx.fillText(mark + ' ' + S.hint, L.cx, y + 4 + hh / 2);
+  // 물리 계약 문장 — 은유의 숨은 가정을 아이가 추측하게 두지 않는다
+  if (ST.type === 'split' || ST.type === 'judge') {
+    setFont(11.5, 700); ctx.fillStyle = 'rgba(46,16,101,.78)';
+    ctx.fillText('구슬은 모두 같은 크기 · 같은 무게예요. 가름돌 왼쪽은 왼쪽 항아리로 갑니다.', L.cx, y + hh + 18);
+  }
+  for (const b of ST.buttons) {
+    if (b.placed) continue;
+    const off = b.shake > 0 ? Math.sin(S.t * 50) * b.shake * 8 : 0;
+    card(b.x + off, b.y, b.w, b.h, 16, b.kind === 'judge' ? (b.val === 'O' ? '#7BE6D8' : '#FF9CC8') : 'rgba(255,255,255,.94)', '#2E1065', 3);
+    topHi(b.x + off, b.y, b.w, b.h, 16);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    setFont(fitText(b.label, b.w - 20, 16, 900), 900); ctx.fillStyle = '#2E1065';
+    ctx.fillText(b.label, b.x + off + b.w / 2, b.y + b.h / 2);
+  }
+}
+
+function drawFX() {
+  for (const r of S.ribbons) {
+    const t = easeOutCubic(r.t);
+    const x = lerp(r.x, r.tx, t), yy = lerp(r.y, r.ty, t) - Math.sin(t * Math.PI) * 40;
+    ctx.beginPath(); ctx.arc(x, yy, 3.4 * (1 - t * 0.5), 0, 6.28);
+    ctx.fillStyle = r.rose ? 'rgba(232,62,140,' + (1 - t) + ')' : 'rgba(13,148,136,' + (1 - t) + ')'; ctx.fill();
+  }
+  for (const s of S.spill) {
+    blit(s.rose ? SP.bead.rose : SP.bead.teal, s.x, s.y, Math.max(0.4, s.life / 1.4));
+  }
+  for (const p of S.particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, 6.28); ctx.fillStyle = p.c; ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawMotes() {
+  ctx.save();
+  for (const m of S.motes) {
+    ctx.globalAlpha = 0.16 + Math.sin(S.t * 1.4 + m.ph) * 0.1;
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 6.28); ctx.fillStyle = '#FFF8E7'; ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawBanner() {
+  if (S.banner <= 0) return;
+  const a = Math.min(1, S.banner * 1.6), w = Math.min(L.w, 420), h = 84;
+  ctx.save(); ctx.globalAlpha = a;
+  const yy = L.midY + L.midH * 0.3;
+  card(L.cx - w / 2, yy, w, h, 20, 'rgba(46,16,101,.94)', '#F5C518', 4); topHi(L.cx - w / 2, yy, w, h, 20);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  setFont(fitText(S.bannerText, w - 30, 24, 900), 900); ctx.fillStyle = '#FFE86B'; ctx.fillText(S.bannerText, L.cx, yy + 30);
+  setFont(fitText(S.bannerSub, w - 26, 13, 700), 700); ctx.fillStyle = '#EBDDFF'; ctx.fillText(S.bannerSub, L.cx, yy + 60);
+  ctx.restore();
+}
+
+function render() {
+  ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
+  ctx.clearRect(0, 0, G.W, G.H);
+  ctx.save();
+  if (S.shake > 0) {                                  // 화면 흔들림은 오답 전용
+    const m = S.shake * 11 * MOTION;
+    ctx.translate(Math.sin(S.t * 47 + S.shakeSeed) * m, Math.cos(S.t * 39 + S.shakeSeed) * m * 0.7);
+  }
+  drawMotes();
+  if (S.phase === 'playing' && S.problem) {
+    drawHUD(); drawGoal();
+    if (ST.type === 'split' || ST.type === 'judge') drawJars();
+    else if (ST.type === 'reduce') drawReducePanel();
+    else if (ST.type === 'label') drawLabelStage();
+    else drawPillars();
+    drawTrough(); drawBottom(); drawFX(); drawBanner(); drawChips();
+  }
+  ctx.restore();
+  if (S.flash > 0) {
+    ctx.fillStyle = 'rgba(' + S.flashCol + ',' + (S.flash * 0.42) + ')';
+    ctx.fillRect(0, 0, G.W, G.H);
+  }
+}
+
+/* ── 10. 업데이트 루프 ───────────────────────────────────────── */
+function targetX() {
+  if (ST.type === 'split') return boundaryX(ST.cur);
+  if (ST.type === 'reduce' || ST.type === 'product') return cellX(ST.cur);
+  return L.cx;
+}
+const decay = (v, rate, dt) => Math.max(0, v - rate * dt);
+
+function update(dt) {
+  S.t += dt;
+  // hit-stop — 정답 순간 아주 짧게 시간이 멈춘다
+  if (S.hitStop > 0) { S.hitStop = Math.max(0, S.hitStop - dt); S.timeScale = 0.08; } else S.timeScale = 1;
+  const d = dt * S.timeScale;
+
+  S.dispScore += (S.score - S.dispScore) * Math.min(1, dt * 9);
+  S.flash = decay(S.flash, 2.2, dt); S.shake = decay(S.shake, 2.6, dt);
+  S.comboPunch = decay(S.comboPunch, 3.4, dt); ST.squash = decay(ST.squash, 4.2, dt);
+  S.banner = decay(S.banner, 1, dt); S.ghost = decay(S.ghost, 1, dt);
+  S.jarShake[0] = decay(S.jarShake[0], 2.2, dt); S.jarShake[1] = decay(S.jarShake[1], 2.2, dt);
+  for (const b of ST.buttons) if (b.shake > 0) b.shake = decay(b.shake, 4, dt);
+  if (S.celebrate > 0) S.celebrate = decay(S.celebrate, 0.85, dt);
+  if (S.fuse > 0) S.fuse = Math.min(1, S.fuse + dt * 2.4);
+
+  // 묶음이 왼쪽부터 차례로 점등 — 소리와 같은 프레임에 터진다
+  if (S.celebrate > 0 && S.litGroups >= 0 && S.problem && S.problem.T) {
+    S.litTick = (S.litTick || 0) + dt;
+    const total = S.problem.T / S.problem.k;
+    if (S.litTick > 0.085 && S.litGroups < total) { S.litTick = 0; S.litGroups++; SFX.tone(660 + S.litGroups * 70, 0, 0.06, 'triangle', 0.07); }
+  }
+
+  // 가름돌 — 물리 솔버 없이 스프링 이징만으로 무게와 관성을 낸다 (오버슈트)
+  const tx = targetX();
+  const kSt = 620, cSt = 2 * Math.sqrt(kSt) * 0.58;
+  ST.vx += ((tx - ST.x) * kSt - ST.vx * cSt) * d;
+  ST.x += ST.vx * d;
+  if (Math.abs(ST.vx) > 70) { S.trail.unshift({ x: ST.x, a: 1 }); if (S.trail.length > 6) S.trail.pop(); }
+  for (const t of S.trail) t.a = decay(t.a, 3.4, dt);
+  while (S.trail.length && S.trail[S.trail.length - 1].a <= 0) S.trail.pop();
+
+  for (let i = S.particles.length - 1; i >= 0; i--) {
+    const p = S.particles[i];
+    p.vy += p.g * d; p.x += p.vx * d; p.y += p.vy * d; p.life -= d * 1.15;
+    if (p.life <= 0) S.particles.splice(i, 1);
+  }
+  for (let i = S.spill.length - 1; i >= 0; i--) {
+    const s = S.spill[i]; s.vy += 900 * d; s.x += s.vx * d; s.y += s.vy * d; s.life -= d;
+    if (s.life <= 0 || s.y > G.H + 40) S.spill.splice(i, 1);
+  }
+  for (let i = S.ribbons.length - 1; i >= 0; i--) { S.ribbons[i].t += d * 1.9; if (S.ribbons[i].t >= 1) S.ribbons.splice(i, 1); }
+  for (const m of S.motes) { m.y -= m.s * d; m.x += Math.sin(S.t * 0.7 + m.ph) * 8 * d; if (m.y < -6) { m.y = G.H + 6; m.x = Math.random() * G.W; } }
+
+  // 어려움 모드 타이머 — 곱의 방과 연출 중에는 멈춘다
+  if (S.phase === 'playing' && S.mode === 'hard' && !S.paused && !S.chips && S.celebrate <= 0 && ST.type !== 'product' && ST.type !== 'label') {
+    S.timeLeft -= dt;
+    if (S.timeLeft <= 0) { S.timeLeft = 0; endRun('time'); }
+  }
+}
+
+let last = 0;
+function frame(ts) {
+  const dt = Math.min(0.05, last ? (ts - last) / 1000 : 0.016);
+  last = ts;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+/* ── 11. 화면 전환 · UI ──────────────────────────────────────── */
+const $ = (id) => document.getElementById(id);
+function show(id) { for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id); }
+function hideAll() { for (const s of document.querySelectorAll('.screen')) s.classList.remove('on'); }
+
+function refreshTitleStatus() {
+  const b = LS.best;
+  $('tstat').textContent = b > 0
+    ? '최고 ' + b + '점 · 오늘 가름 ' + LS.today + '/7 · 6학년 2학기 비례식과 비례배분'
+    : '6학년 2학기 · 비례식과 비례배분';
+}
+
+const ONB = [
+  { t: '가름돌을 좌우로 밀어요', d: '돌이 지나간 만큼 구슬이 왼쪽 항아리로 흘러가요. 손을 떼면 그 자리에 잠겨요.', spot: () => ({ x: L.x0 - 10, y: L.troughY - 10, w: L.w + 20, h: L.troughH + 20 }) },
+  { t: '두 항아리가 바로 바뀌어요', d: '구슬은 모두 같은 크기·같은 무게예요. 가름돌 왼쪽은 왼쪽 항아리, 오른쪽은 오른쪽 항아리로 갑니다.', spot: () => ({ x: L.x0 - 8, y: L.midY - 8, w: L.w + 16, h: L.midH + 16 }) },
+  { t: '묶음이 딱 맞는 자리를 찾아요', d: '3 : 4 라면 전체를 7묶음으로 나눠 왼쪽 3묶음, 오른쪽 4묶음. 맞는 자리에 오면 아래에 “지금이야!”가 떠요.', spot: () => ({ x: L.x0 - 8, y: L.goalY - 8, w: L.w + 16, h: L.goalH + 16 }) },
+];
+let onbStep = 0, onbFromHelp = false;
+function showOnb(fromHelp) {
+  onbFromHelp = !!fromHelp; onbStep = 0; S.paused = true;
+  show('onb'); paintOnb();
+}
+function paintOnb() {
+  const st = ONB[onbStep], r = st.spot();
+  const sp = $('spot');
+  sp.style.left = r.x + 'px'; sp.style.top = r.y + 'px'; sp.style.width = r.w + 'px'; sp.style.height = r.h + 'px';
+  $('onbStep').textContent = (onbStep + 1) + ' / 3';
+  $('onbT').textContent = st.t; $('onbD').textContent = st.d;
+  $('onbNext').textContent = onbStep === 2 ? '해볼게요' : '다음';
+  const card = $('onbCard');
+  const below = r.y + r.h + 14;
+  card.style.top = (below + 170 < G.H ? below : Math.max(12, r.y - 178)) + 'px';
+}
+$('onbNext').addEventListener('click', () => {
+  SFX.wake(); SFX.chip();
+  if (onbStep < 2) { onbStep++; paintOnb(); return; }
+  localStorage.setItem('splitStone.onboard', '1');
+  S.paused = false;
+  if (onbFromHelp && S.phase !== 'playing') { show('title'); } else { hideAll(); }
+});
+
+$('startBtn').addEventListener('click', () => {
+  SFX.wake();
+  hideAll();
+  startRun(S.mode);
+  if (localStorage.getItem('splitStone.onboard') !== '1') showOnb(false);
+});
+$('helpBtn').addEventListener('click', () => { SFX.wake(); showOnb(true); });
+$('tolEasy').addEventListener('click', () => { S.mode = 'easy'; SFX.wake(); SFX.chip(); $('tolEasy').setAttribute('aria-pressed', 'true'); $('tolHard').setAttribute('aria-pressed', 'false'); });
+$('tolHard').addEventListener('click', () => { S.mode = 'hard'; SFX.wake(); SFX.chip(); $('tolHard').setAttribute('aria-pressed', 'true'); $('tolEasy').setAttribute('aria-pressed', 'false'); });
+$('again').addEventListener('click', () => { SFX.wake(); hideAll(); startRun(S.mode); });
+$('home').addEventListener('click', () => { S.phase = 'title'; refreshTitleStatus(); show('title'); });
+$('mute').addEventListener('click', () => {
+  SFX.muted = !SFX.muted;
+  localStorage.setItem('splitStone.muted', SFX.muted ? '1' : '0');
+  $('mute').textContent = SFX.muted ? '🔇' : '🔊';
+  $('mute').setAttribute('aria-label', SFX.muted ? '소리 켜기' : '소리 끄기');
+  if (!SFX.muted) { SFX.wake(); SFX.chip(); }
+});
+$('kv').addEventListener('error', function () { this.style.display = 'none'; });
+$('resFace').addEventListener('error', function () { this.style.display = 'none'; });
+
+/* ── 12. QA 자동화 훅 ────────────────────────────────────────── */
+function toSample(p) {
+  return { id: p.id, prompt: p.prompt, choices: p.choices, answer: p.answer, answerNumeric: p.answerNumeric, unitConcept: p.unitConcept };
+}
+window.__GAME_TEST__ = {
+  ready: false,
+  start() {
+    hideAll(); S.paused = false; SFX.muted = true;
+    startRun(S.mode);
+  },
+  getState() {
+    return { score: S.score, lives: S.lives, level: S.roomIdx + 1, phase: S.phase, solved: S.solved, combo: S.combo, mistakes: S.mistakes, stars: S.stars };
+  },
+  answerCorrect() {
+    if (S.phase !== 'playing') this.start();
+    if (!S.problem) return;
+    S.chips = null;
+    S.stageIdx = S.problem.stages.length - 1;
+    configureStage(false);
+    if (ST.type === 'split') ST.cur = S.problem.ansLeft;
+    else if (ST.type === 'product') ST.cur = S.problem.ans - 1;
+    else if (ST.type === 'reduce') ST.cur = ST.cells.indexOf(S.problem.g);
+    ST.locked = false; lockStage();
+  },
+  answerWrong() {
+    if (S.phase !== 'playing') this.start();
+    if (!S.problem) return;
+    S.chips = null; ST.locked = true;
+    fail(true);
+  },
+  sampleProblems(n) {
+    n = clamp(n || 20, 1, 60);
+    const decks = [1, 2, 3, 4, 5].map(l => shuffle(POOL[l]));
+    const out = [];
+    for (let i = 0; out.length < n && i < 60; i++) {
+      let got = false;
+      for (const d of decks) { if (out.length >= n) break; if (d[i]) { out.push(toSample(d[i])); got = true; } }
+      if (!got) break;
+    }
+    return out;
+  },
+};
+
+/* ── 13. 시작 ───────────────────────────────────────────────── */
+resize();
+spawnMotes();
+refreshTitleStatus();
+$('mute').textContent = SFX.muted ? '🔇' : '🔊';
+requestAnimationFrame(frame);
+window.__GAME_TEST__.ready = true;
+</script>
+</body>
+</html>
