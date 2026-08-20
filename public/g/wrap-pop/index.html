@@ -530,7 +530,7 @@ function buildInspectPool(){
     d:['구의 지름','모선','원기둥의 높이'], con:'구의 구성 요소' });
   P.push({ key:'net-cyl', fig:'cylinder', mis:'INS_NET',
     q:'옆면이 직사각형 띠로 펼쳐지는 입체도형은?', a:'원기둥만',
-    d:['구만','원기둥과 구 모두','밑면만'], con:'원기둥의 전개도' });
+    d:['구만','원뿔만','원뿔과 구 모두'], con:'원기둥의 전개도' });
   P.push({ key:'net-cone', fig:'cone', figData:TRIPLES[0], mis:'INS_NET',
     q:'원뿔 주문에 직사각형 띠를 감아 달라고 합니다. 어떻게 해야 할까요?',
     a:'되돌려 보낸다 — 원기둥의 옆면만 직사각형 띠로 펼쳐진다',
@@ -539,7 +539,7 @@ function buildInspectPool(){
     q:'원기둥과 원뿔의 밑면 수를 바르게 짝지은 것은?', a:'원기둥 2개, 원뿔 1개',
     d:['원기둥 1개, 원뿔 2개','둘 다 2개','둘 다 1개'], con:'원기둥과 원뿔의 비교' });
   P.push({ key:'rot-tri', fig:'rot-tri', mis:'INS_ROT',
-    q:'직각삼각형을 한 변을 축으로 하여 한 바퀴 돌리면?', a:'원뿔', d:['원기둥','구','사각기둥'], con:'평면도형을 돌려 만든 입체' });
+    q:'직각삼각형을 직각을 낀 한 변을 축으로 하여 한 바퀴 돌리면?', a:'원뿔', d:['원기둥','구','사각기둥'], con:'평면도형을 돌려 만든 입체' });
   P.push({ key:'rot-rect', fig:'rot-rect', mis:'INS_ROT',
     q:'직사각형을 한 변을 축으로 하여 한 바퀴 돌리면?', a:'원기둥', d:['원뿔','구','삼각기둥'], con:'평면도형을 돌려 만든 입체' });
   P.push({ key:'rot-semi', fig:'rot-semi', mis:'INS_ROT',
@@ -561,7 +561,7 @@ function nextInspect(){
 const G = {
   phase:'title', score:0, shown:0, lives:3, combo:0, bestCombo:0,
   solved:0, ships:0, wrongs:0, time:SESSION, level:1,
-  orders:[], tray:[], sel:null, drag:null,
+  orders:[], tray:[], sel:null, drag:null, wrapArmed:null,
   fx:[], parts:[], motes:[], shake:0, hitStop:0, timeScale:1,
   ship:null, mistakes:{}, t:0, reduced:false
 };
@@ -793,6 +793,7 @@ function applyBand(band, o, forced){
     if(i >= 0){ band.gone = 1; setTimeout(() => { if(G.tray[i] === band) refillSlot(i); }, 260); }
   }
   G.sel = null;
+  G.wrapArmed = null;
 }
 
 function startShip(o){
@@ -947,7 +948,12 @@ function drawFigure(kind, dat){
     g.strokeStyle = COB; g.lineWidth = 2.6;
     g.beginPath(); g.ellipse(ax, bot+14, 56, 12, 0, 0.15, Math.PI*1.75); g.stroke();
     g.beginPath(); g.moveTo(ax-56, bot+12); g.lineTo(ax-49, bot+6); g.moveTo(ax-56, bot+12); g.lineTo(ax-50, bot+19); g.stroke();
-    g.fillStyle = CORAL; g.textAlign='left'; g.fillText('회전축', ax+4, top-16);
+    g.fillStyle = CORAL; g.textAlign='left';
+    g.fillText(kind === 'rot-tri' ? '직각을 낀 변' : kind === 'rot-semi' ? '지름' : '한 변', ax+6, top-16);
+    if(kind === 'rot-tri'){
+      g.strokeStyle = INK; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(ax+9, bot); g.lineTo(ax+9, bot-9); g.lineTo(ax, bot-9); g.stroke();
+    }
     g.fillStyle = INK; g.fillText('한 바퀴 돌리면?', ww*0.03, 14);
   }
   g.restore();
@@ -970,6 +976,27 @@ function orderAt(x,y){
   return null;
 }
 
+/** 주문 탭: 첫 탭은 둘레 자 확인, 같은 주문을 한 번 더 탭하면 감기 확정.
+    드래그(moved>16)는 endDrag 에서 즉시 확정한다. */
+function armOrWrap(o){
+  if(!o || o.busy > 0) return 'busy';
+  if(G.sel && !G.sel.gone){
+    if(G.wrapArmed === o){
+      applyBand(G.sel, o);
+      return 'wrap';
+    }
+    G.wrapArmed = o;
+    o.hint = 1.35;
+    Snd.tick();
+    toast('눈금을 보고 「감기!」를 누르세요', '#FFF3C4');
+    return 'arm';
+  }
+  G.wrapArmed = null;
+  o.hint = 1.35;
+  Snd.tick();
+  return 'hint';
+}
+
 cv.addEventListener('pointerdown', (e) => {
   if(G.phase !== 'playing') return;
   Snd.unlock();
@@ -979,15 +1006,13 @@ cv.addEventListener('pointerdown', (e) => {
     pt = { id:e.pointerId, x:p.x, y:p.y, sx:p.x, sy:p.y, t0:performance.now(), band:b };
     b.drag = true; b.trail = [];
     b.ox = p.x - b.x; b.oy = p.y - b.y;
+    if(G.sel !== b) G.wrapArmed = null;
     G.sel = b;
     cv.setPointerCapture(e.pointerId);
     return;
   }
   const o = orderAt(p.x, p.y);
-  if(o){
-    if(G.sel && !G.sel.gone){ applyBand(G.sel, o); }
-    else { o.hint = 1.35; Snd.tick(); }                 // 탭 → 눈금만 도는 둘레 자 (숫자는 안 줌)
-  }
+  if(o) armOrWrap(o);
 });
 cv.addEventListener('pointermove', (e) => {
   if(pt.id !== e.pointerId || !pt.band) return;
@@ -1234,6 +1259,11 @@ function drawOrder(g, o){
     g.strokeStyle = PAL.coral; g.lineWidth = 3.4;
     rrect(g, r.x + 0.6, r.y + 0.6, r.w - 1.2, r.h - 1.2, 18); g.stroke();
   }
+  const armed = G.wrapArmed === o && G.sel && !G.sel.gone;
+  if(armed){
+    g.strokeStyle = '#FFD98F'; g.lineWidth = 4;
+    rrect(g, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 18); g.stroke();
+  }
 
   // 둘레 자 힌트 — 호가 눈금을 세며 한 바퀴 돈다. 둘레 숫자는 찍지 않는다.
   if(o.hint > 0){
@@ -1253,9 +1283,34 @@ function drawOrder(g, o){
     }
     g.stroke();
   }
+  if(armed) drawWrapArm(g, o);
   // 감기는 띠 — 한 바퀴를 넘는 길이는 바깥 호로, 세로 불일치는 막대로 보여 준다
   const wrapFx = G.fx.find(f => f.kind === 'wrap' && f.o === o);
   if(wrapFx) drawWrapFx(g, o, wrapFx, cx, cy, rad);
+  g.restore();
+}
+
+function drawWrapArm(g, o){
+  const r = o.rect;
+  const pulse = 1 + Math.sin(G.t * 7) * 0.045;
+  const bh = Math.max(36, Math.min(44, r.h * 0.34));
+  const bw = Math.min(168, Math.max(118, r.w * 0.34));
+  const bx = r.x + r.w - bw - 10;
+  const by = r.y + r.h - bh - 8;
+  g.save();
+  g.translate(bx + bw/2, by + bh/2);
+  g.scale(pulse, pulse);
+  g.translate(-(bx + bw/2), -(by + bh/2));
+  rrect(g, bx, by, bw, bh, 14);
+  g.fillStyle = PAL.coral; g.fill();
+  g.strokeStyle = PAL.ink; g.lineWidth = 2.6; g.stroke();
+  g.fillStyle = '#FFF6E4';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '900 ' + Math.round(Math.max(15, Math.min(19, bh*0.46))) + 'px ' + FONT;
+  g.fillText('감기!', bx + bw/2, by + bh*0.38);
+  g.font = '800 ' + Math.round(Math.max(10, Math.min(12, bh*0.28))) + 'px ' + FONT;
+  g.fillStyle = 'rgba(255,246,228,.88)';
+  g.fillText('한 번 더 탭', bx + bw/2, by + bh*0.72);
   g.restore();
 }
 
@@ -1453,6 +1508,17 @@ function drawBand(g, b){
     g.strokeStyle = sel ? '#FFD98F' : PAL.coral; g.lineWidth = 3.5;
     rrect(g, x-3, y-3, w+6, h+6, 17); g.stroke();
   }
+  if(sel && !b.drag){
+    const cap = G.wrapArmed ? '한 번 더 탭하거나 「감기!」' : '원판을 탭해 눈금 · 한 번 더면 감기';
+    g.font = '800 11px ' + FONT;
+    g.textAlign = 'center'; g.textBaseline = 'top';
+    const tw = Math.min(w - 8, g.measureText(cap).width + 14);
+    const tx = x + (w - tw)/2, ty = y + 6, th = 18;
+    rrect(g, tx, ty, tw, th, 8);
+    g.fillStyle = 'rgba(20,36,42,.92)'; g.fill();
+    g.fillStyle = '#FFD98F';
+    g.fillText(cap, x + w/2, ty + 3);
+  }
   g.restore();
 }
 
@@ -1618,7 +1684,7 @@ function updateHud(){
 function startGame(){
   G.score = 0; G.shown = 0; G.lives = 3; G.combo = 0; G.bestCombo = 0;
   G.solved = 0; G.ships = 0; G.wrongs = 0; G.time = SESSION; G.mistakes = {};
-  G.fx = []; G.parts = []; G.ship = null; G.sel = null; G.shake = 0;
+  G.fx = []; G.parts = []; G.ship = null; G.sel = null; G.wrapArmed = null; G.shake = 0;
   orderSeq = 0; bandSeq = 0;
   resetBoard();
   D.vScore.textContent = '0';
@@ -1678,7 +1744,7 @@ function obSteps(){
   const t = { x:L.cx - 4, y:L.trayTop + 16, w:L.colW + 8, h:L.tileH*2 + 17 };
   return [
     { r:t, title:'띠를 골라 끌어 올려요', body:'아래 포장 띠의 <b>가로</b>와 <b>세로</b>를 보고, 하나를 손가락으로 끌어 위쪽 주문으로 올리세요.' },
-    { r:o, title:'가로 = 밑면의 둘레', body:'띠의 가로가 <b>2 × 3.14 × 반지름</b>과 같고 세로가 높이와 같아야 한 바퀴 착 감겨요. 원판을 탭하면 둘레 자가 눈금을 세며 돌아요. 숫자는 직접 계산하세요.' },
+    { r:o, title:'가로 = 밑면의 둘레', body:'띠의 가로가 <b>2 × 3.14 × 반지름</b>과 같고 세로가 높이와 같아야 한 바퀴 착 감겨요. 띠를 고른 뒤 원판을 <b>한 번</b> 탭하면 둘레 자가 돌아요. <b>한 번 더</b> 탭하거나 「감기!」를 눌러야 감깁니다. 숫자는 직접 계산하세요.' },
     { r:{ x:o.x + o.w - 100, y:o.y, w:96, h:o.h }, title:'같은 캔 3개면 출고!', body:'같은 규격 캔을 <b>3개</b> 만들면 상자로 출고돼요. 콤보가 커질수록 점수가 쑥쑥!' }
   ];
 }
@@ -1819,7 +1885,24 @@ window.__GAME_TEST__ = {
   ready: true,
   start(){ try{ localStorage.setItem(OB_KEY,'1'); }catch(e){} startGame(); },
   getState(){
-    return { score:G.score, lives:G.lives, level:levelOf(), phase:G.phase, solved:G.solved };
+    return {
+      score:G.score, lives:G.lives, level:levelOf(), phase:G.phase, solved:G.solved,
+      wrapArmed: G.wrapArmed ? G.orders.indexOf(G.wrapArmed) : -1,
+      hasSel: !!(G.sel && !G.sel.gone),
+      hint: (G.orders || []).map(o => +(o.hint > 0))
+    };
+  },
+  selectTray(i){
+    const b = G.tray[i|0];
+    if(!b || b.gone) return false;
+    if(G.sel !== b) G.wrapArmed = null;
+    G.sel = b;
+    return true;
+  },
+  tapOrder(i){
+    const o = G.orders[i|0];
+    if(!o) return 'none';
+    return armOrWrap(o);
   },
   answerCorrect(){
     if(G.phase !== 'playing' && G.phase !== 'ship') startGame();
