@@ -238,6 +238,37 @@ button{font-family:inherit}
   .title-art__image,.title-start,.game-logo>span,.game-subtitle{animation-duration:.01ms;animation-iteration-count:1}
   .title-art__image{transform:scale(1.02)}
 }
+
+/* ─────────── 배송표 / 관계 예측 / 역산 / 반올림 타일 ─────────── */
+#flowRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:min(100%,420px);pointer-events:auto}
+.midbtn{min-height:48px;padding:0 10px;border-radius:16px;cursor:pointer;border:3px solid #54220d;
+  background:linear-gradient(180deg,#E9F6FF,#7CC6E2);color:#08313F;font-size:16px;font-weight:900;
+  box-shadow:0 4px 0 #2A7E9B,0 7px 12px rgba(0,0,0,.28),inset 0 2px 0 rgba(255,255,255,.55)}
+.midbtn:active{transform:translateY(4px);box-shadow:0 0 0 #2A7E9B,0 3px 8px rgba(0,0,0,.25)}
+.midbtn:disabled{filter:grayscale(.45) brightness(.85);opacity:.65;cursor:default;transform:none}
+.midbtn.hot{background:linear-gradient(180deg,#FFF27A,#FF8B1F);color:#3B1907;border-color:#54220d;
+  box-shadow:0 4px 0 #A93D13,0 7px 12px rgba(0,0,0,.28),inset 0 2px 0 rgba(255,255,255,.55)}
+.midbtn.hold{filter:brightness(1.08);transform:translateY(3px)}
+.planRow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;padding:8px 10px;
+  border-radius:14px;background:rgba(255,255,255,.07);border:2px solid rgba(255,214,110,.28)}
+.planRow .lab{font-size:14px;font-weight:800;color:#FFE9C4;line-height:1.3;flex:1}
+.stepper{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.stepper b{min-width:76px;text-align:center;font-size:clamp(22px,6vw,28px);font-weight:900;color:#FFD23A;
+  letter-spacing:-.03em}
+.stepBtn{width:48px;height:48px;border-radius:14px;cursor:pointer;border:3px solid #6B3A08;
+  background:linear-gradient(180deg,#FFF7D6,#F5C93E);color:#3A1F0A;font-size:24px;font-weight:900;
+  box-shadow:0 4px 0 #A9700D,inset 0 2px 0 rgba(255,255,255,.65)}
+.stepBtn:active{transform:translateY(4px);box-shadow:0 0 0 #A9700D}
+.invGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.invCard{min-height:92px;padding:8px;border-radius:16px;cursor:pointer;border:3px solid #6B3A08;
+  background:linear-gradient(180deg,#FFF7D6,#F5C93E);color:#3A1F0A;font-weight:900;text-align:center}
+.invCard small{display:block;font-size:12px;font-weight:800;opacity:.75;margin-top:2px}
+.invCard.good{background:linear-gradient(180deg,#D8FFDF,#3FBF63);border-color:#14602C}
+.invCard.bad{background:linear-gradient(180deg,#FFE0D6,#E8663A);border-color:#7A2A0E}
+.invCard.sel{box-shadow:0 0 0 4px rgba(255,214,110,.55)}
+.tileGrid{display:grid;gap:8px;margin:8px 0}
+.ghostBox{margin-top:8px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.06);
+  border:1px dashed rgba(255,214,110,.4);font-size:13px;font-weight:800;color:#FFE9C4;line-height:1.4}
 </style>
 </head>
 <body>
@@ -259,17 +290,84 @@ button{font-family:inherit}
 
   <div id="bottomBar">
     <div id="tipLine">통을 꾹 눌러 기울여요</div>
-    <button id="doneBtn" class="bigbtn" type="button">다 담았어</button>
+    <div id="flowRow">
+      <button id="fineBtn" class="midbtn" type="button">살살 붓기</button>
+      <button id="sealBtn" class="midbtn" type="button">밀봉</button>
+    </div>
+    <button id="doneBtn" class="bigbtn" type="button">배송 완료</button>
   </div>
 
-  <!-- 퀴즈 -->
-  <div class="panel" id="quiz">
+  <!-- 관계 예측 -->
+  <div class="panel" id="predict">
     <div class="sheet">
-      <span class="qtag" id="qTag">왜 이 잔 수일까?</span>
-      <div class="qhead" id="qHead"></div>
-      <p class="qsub" id="qSub"></p>
-      <div class="choices" id="qChoices"></div>
-      <div id="qFeed"></div>
+      <span class="qtag">먼저 관계를 봐요</span>
+      <div class="qhead" id="predHead">몫이 꿀보다 클까요, 작을까요?</div>
+      <p class="qsub" id="predSub"></p>
+      <div class="choices">
+        <button class="ch" type="button" id="predGt">몫이 꿀보다 커요</button>
+        <button class="ch" type="button" id="predLt">몫이 꿀보다 작아요</button>
+      </div>
+      <div id="predFeed"></div>
+    </div>
+  </div>
+
+  <!-- 배송표 (q / r) -->
+  <div class="panel" id="plan">
+    <div class="sheet">
+      <span class="qtag">배송표</span>
+      <div class="qhead" id="planHead">가득 채울 잔과 남길 양을 적어요</div>
+      <p class="qsub" id="planSub"></p>
+      <div class="planRow">
+        <div class="lab">가득 채울 잔</div>
+        <div class="stepper">
+          <button class="stepBtn" type="button" id="qMinus" aria-label="잔 수 줄이기">−</button>
+          <b id="qVal">1잔</b>
+          <button class="stepBtn" type="button" id="qPlus" aria-label="잔 수 늘리기">+</button>
+        </div>
+      </div>
+      <div class="planRow">
+        <div class="lab">통에 남길 양</div>
+        <div class="stepper">
+          <button class="stepBtn" type="button" id="rMinus" aria-label="남길 양 줄이기">−</button>
+          <b id="rVal">0 L</b>
+          <button class="stepBtn" type="button" id="rPlus" aria-label="남길 양 늘리기">+</button>
+        </div>
+      </div>
+      <button id="planGo" class="bigbtn" type="button">배송 시작</button>
+    </div>
+  </div>
+
+  <!-- 반올림 타일 -->
+  <div class="panel" id="roundPanel">
+    <div class="sheet">
+      <span class="qtag">반올림 타일</span>
+      <div class="qhead" id="rndHead">몫의 다음 자리까지 구해요</div>
+      <p class="qsub" id="rndSub"></p>
+      <div class="tileGrid" id="rndTiles"></div>
+      <button id="rndGo" class="bigbtn" type="button">이 값으로 배송</button>
+      <div id="rndFeed"></div>
+    </div>
+  </div>
+
+  <!-- 역산: 잔 고르기 -->
+  <div class="panel" id="invPick">
+    <div class="sheet">
+      <span class="qtag">잔 창고</span>
+      <div class="qhead" id="invHead">남김없이 담기는 잔을 고르세요</div>
+      <p class="qsub" id="invSub"></p>
+      <div class="invGrid" id="invGrid"></div>
+      <div id="invFeed"></div>
+    </div>
+  </div>
+
+  <!-- 오답 원리 피드백 (오답일 때만) -->
+  <div class="panel" id="feedback">
+    <div class="sheet">
+      <span class="qtag" id="fbTag">다시 볼게요</span>
+      <div class="qhead" id="fbHead"></div>
+      <p class="qsub" id="fbSub"></p>
+      <div class="ghostBox" id="fbGhost"></div>
+      <button id="fbGo" class="bigbtn calm" type="button">다시 담기</button>
     </div>
   </div>
 
@@ -516,9 +614,13 @@ function mkRound(ka, kb, d) {
   if (!c) return null;
   var placeName = d === 1 ? '첫' : '둘';
   var gm = chooseGm(ka, kb);
+  // 다음 자리(반올림 판단용) 숫자 — 타일 UI가 정수로 다룬다
+  var nextDigit = Math.floor((ka * POW10[d + 1]) / kb) % 10;
+  var truncAtD = t;
   return {
     band: 'round', mode: 'fill', s: 0, ka: ka, kb: kb, aT: String(ka), bT: String(kb),
     q: qi, r: rr, d: d, gm: gm, N: ka * gm, C: kb * gm, cupCount: qi, roundUp: roundUp,
+    ansK: ansK, truncAtD: truncAtD, nextDigit: nextDigit,
     headWords: ['꿀', String(ka), 'L 를', String(kb), 'L 잔에'],
     quiz: {
       tag: '반올림하면?',
@@ -528,6 +630,55 @@ function mkRound(ka, kb, d) {
       answer: ans, answerNum: ansK / POW10[d], choices: c.list, why: c.why,
       explain: ka + ' ÷ ' + kb + ' 를 소수 ' + (d + 1) + '째 자리까지 구한 뒤 반올림해요. → ' + fmtFixed(ansK, d) + '.',
       concept: '몫을 반올림하여 나타내기'
+    }
+  };
+}
+
+// ───────────────────────────── 역산 (inverse): A 를 q잔에 남김없이 → 제수 B 고르기
+function mkInverse(ka, kb, q, s) {
+  if (q * kb !== ka) return null;
+  var aT = fmtKS(ka, s), bT = fmtKS(kb, s), qT = String(q);
+  var gm = chooseGm(ka, kb);
+  if (kb * gm > 44) return null;
+  // 오개념 M1 한쪽만 옮김, M2 소수점 자리 — 실제 잔 용량 후보
+  var d1k = kb * 10;                               // 0.8 → 8
+  var d2k = kb; var d2s = s + 1;                   // 0.8 → 0.08 (같은 k, 자리만 +1)
+  var d3k = (kb * 2 <= 80) ? kb * 2 : (kb > 4 ? kb - 2 : kb + 3);
+  if (d3k === kb || (ka % d3k === 0 && d3k !== kb)) {
+    d3k = kb + (kb >= 10 ? 4 : 3);
+    if (ka % d3k === 0) d3k += 1;
+  }
+  var ans = bT + ' L';
+  var mis1 = { id: 'M1-shift-divisor-only', text: fmtKS(d1k, s) + ' L', k: d1k, s: s };
+  var mis2 = { id: 'M2-point-one-too-far', text: fmtKS(d2k, d2s) + ' L', k: d2k, s: d2s };
+  var misX = { id: 'M1-shift-dividend-only', text: fmtKS(d3k, s) + ' L', k: d3k, s: s };
+  var c = makeChoices(ans, [mis1, mis2]);
+  if (!c) {
+    c = makeChoices(ans, [mis1, misX]);
+    if (!c) return null;
+  }
+  var cands = [{ k: kb, s: s, text: ans, ok: true, id: 'ok' }];
+  var seen = {}; seen[ans] = 1;
+  [mis1, mis2, misX].forEach(function (m) {
+    if (!m.text || seen[m.text]) return;
+    seen[m.text] = 1;
+    cands.push({ k: m.k, s: m.s, text: m.text, ok: false, id: m.id });
+  });
+  if (cands.length < 3) return null;
+  if (cands.length > 4) cands = cands.slice(0, 4);
+  return {
+    band: 'inverse', mode: 'inverse', s: s, ka: ka, kb: kb, aT: aT, bT: bT,
+    q: q, r: 0, gm: gm, N: ka * gm, C: kb * gm, cupCount: q,
+    cands: cands,
+    headWords: ['꿀', aT, 'L 를', qT, '잔에 남김없이'],
+    quiz: {
+      tag: '어느 잔일까?',
+      head: '꿀 ' + aT + ' L 를 ' + qT + '잔에 남김없이 담아요.',
+      sub: '한 잔의 크기는 몇 L 일까요?',
+      prompt: '꿀 ' + aT + ' L 를 ' + qT + '잔에 남김없이 담으려면 한 잔은? (' + aT + ' ÷ ' + qT + ')',
+      answer: ans, answerNum: numVal(kb, s), choices: c.list, why: c.why,
+      explain: aT + ' ÷ ' + qT + ' = ' + bT + '. ' + qT + ' × ' + bT + ' = ' + aT + ' 이라 남김없이 담겨요.',
+      concept: '남김없이 담기는 제수 고르기'
     }
   };
 }
@@ -614,17 +765,33 @@ function buildRoundPool() {
   return up.slice(0, n).concat(down.slice(0, n));
 }
 
+function buildInversePool() {
+  var out = [];
+  for (var kb = 3; kb <= 25; kb++) {
+    if (kb % 10 === 0) continue;
+    for (var q = 4; q <= 9; q++) {
+      var ka = q * kb;
+      if (ka > 140) continue;
+      var it = mkInverse(ka, kb, q, 1);
+      if (it) out.push(it);
+    }
+  }
+  return out;
+}
+
 var POOLS = {
   hook: buildHookPool(),
   fill0: buildFillExactPool(),
   fillR: buildFillRemPool(),
   split: buildSplitPool(),
-  round: buildRoundPool()
+  round: buildRoundPool(),
+  inverse: buildInversePool()
 };
 // 첫 판 고정 훅: 3 ÷ 0.5 → 잔 6
 function hookFixed() { return mkFill(30, 5, 1, 'hook'); }
 
-var SCHEDULE = ['hook', 'fill0', 'split', 'fillR', 'fill0', 'split', 'round'];
+// §4: 관계 예측 → 정밀 배송, 3라운드마다 역산, 마지막 반올림
+var SCHEDULE = ['hook', 'fill0', 'inverse', 'fillR', 'fill0', 'inverse', 'round'];
 
 /** 밴드별 셔플 큐에서 뽑는다 (무작위 생성 후 검증이 아니라 제약 만족 풀에서 샘플링) */
 var queues = {};
@@ -653,27 +820,38 @@ var W = 390, H = 844, DPR = 1;
 var L = { col: 390, x0: 0, cx: 195, top: 140, bot: 100, botCache: 96, sh: 600, shelfLeft: 100, shelfAvail: 280 };
 
 var S = {
-  phase: 'title',        // title | onboard | pour | seal | quiz | result
+  phase: 'title',        // title | onboard | predict | plan | pour | inversePick | inverseSim | roundTiles | feedback | result
   mode: 'explore',       // explore(관용) | feast(아케이드)
   roundIdx: 0, round: null,
   score: 0, shownScore: 0, combo: 1, lives: 3, solved: 0,
   tank: 0, open: 0, sealed: [], sealedCount: 0,
-  cups: [],              // split 모드의 잔들
-  rr: 0,                 // split 라운드로빈 인덱스
-  tilt: 0, tiltTarget: 0, tiltVel: 0, pouring: false,
-  emitAcc: 0, grains: [], sparks: [], pollen: [],
+  cups: [],              // inverse 시뮬 / 예전 split
+  rr: 0,
+  tilt: 0, tiltTarget: 0, tiltVel: 0, pouring: false, fineHold: false,
+  emitAcc: 0, grains: [], sparks: [], pollen: [], puddles: [],
   hitStop: 0, openSq: 0, feast: 0, flash: 0, flashCol: '255,214,110', shake: 0,
   t: 0, beeSay: '', beeSayT: 0, beeBounce: 0,
   quizTries: 0, exactStamp: false, cleanStamp: false,
   runCups: 0, stamps: { exact: 0, clean: 0, reason: 0 },
-  poured: false, firstPourDone: false, ghost: 0, tipHold: 0
+  poured: false, firstPourDone: false, ghost: 0, tipHold: 0,
+  spilled: 0, fullGrace: 0, failLock: false,
+  planQ: 1, planRk: 0,
+  rndQi: 0, rndTrunc: 0, rndNext: 0, rndAnsK: 0, rndOk: false,
+  invFails: 0, invChosen: null, ghostMarks: null,
+  lastFail: null
 };
 
-/** 판정·눈금·배지가 공유하는 남은 꿀(알갱이). 통 + (채우는 중 잔) + 공중 알갱이. */
+/** 통 + 열린 잔 + 공중(유출 아닌) 알갱이. 유출분은 제외. */
 function restGrains() {
   var R = S.round;
   if (!R) return 0;
-  return S.tank + (R.mode === 'fill' ? S.open : 0) + S.grains.length;
+  var air = 0;
+  for (var i = 0; i < S.grains.length; i++) if (!S.grains[i].spill) air++;
+  return S.tank + S.open + air;
+}
+function rGrains() {
+  var R = S.round; if (!R) return 0;
+  return R.r * R.gm;
 }
 
 // ── 에셋 (모두 상대경로, onerror 폴백)
@@ -895,7 +1073,31 @@ function cupPath(c, x, y, w, h) {   // x,y = 바닥 중앙
   c.lineTo(x + tw, y - h);
   c.closePath();
 }
-function drawCup(c, x, y, w, h, fillFrac, sealed, sq) {
+function tickStepGrains(R) {
+  if (!R) return 1;
+  // 0.1 L 눈금. s=1 이면 gm 알갱이 = 0.1 L, s=0 이면 gm 알갱이 = 1 L.
+  return R.s >= 1 ? R.gm * POW10[R.s - 1] : Math.max(1, R.gm);
+}
+function drawCupTicks(c, x, y, w, h, cap, step) {
+  if (!cap || !step) return;
+  c.save();
+  cupPath(c, x, y, w, h); c.clip();
+  var n = Math.floor(cap / step);
+  for (var i = 1; i < n; i++) {
+    var long = (i % 5 === 0);
+    if (!long && n > 16) continue;
+    var frac = (i * step) / cap;
+    var ty = y - h * .95 * frac;
+    c.strokeStyle = long ? 'rgba(24,58,70,.55)' : 'rgba(24,58,70,.32)';
+    c.lineWidth = long ? 2 : 1;
+    c.beginPath();
+    c.moveTo(x + w * .18, ty);
+    c.lineTo(x + w * (long ? .46 : .36), ty);
+    c.stroke();
+  }
+  c.restore();
+}
+function drawCup(c, x, y, w, h, fillFrac, sealed, sq, capGrains, stepGrains) {
   sq = sq || 1;
   var hh = h * sq, ww = w / Math.sqrt(sq);
   c.save();
@@ -921,6 +1123,7 @@ function drawCup(c, x, y, w, h, fillFrac, sealed, sq) {
     c.fillRect(x - ww * .42, top - 1, ww * .84, 2.5);
     c.restore();
   }
+  if (!sealed && capGrains) drawCupTicks(c, x, y, ww, hh, capGrains, stepGrains || 1);
   // 테두리 + 하이라이트
   cupPath(c, x, y, ww, hh);
   c.lineWidth = Math.max(4, ww * .075); c.strokeStyle = 'rgba(24,58,70,.5)'; c.stroke();
@@ -965,8 +1168,6 @@ function drawTank() {
   var T = L.tank, R = S.round;
   if (!R) return;
   var honey = R.N > 0 ? S.tank / R.N : 0;                 // 통 안 꿀 표면 (쏟아지는 중이면 내려감)
-  var lvl = R.N > 0 ? restGrains() / R.N : 0;             // 「한 잔」 선 초록/빨강 — onDone 과 같은 합계
-  var oneCup = R.N > 0 ? R.C / R.N : 0;
   var w = T.w, h = T.h;
 
   ctx.save();
@@ -1002,20 +1203,29 @@ function drawTank() {
     ctx.fillStyle = 'rgba(255,255,215,.55)';
     ctx.fillRect(-w * .38, sy - 1.5, w * .76, 3);
   }
-  // 「한 잔」 눈금 — 남은 꿀이 이 선 위면 한 잔 더 담을 수 있다
-  if (oneCup > 0 && oneCup < 1) {
-    var cy2 = iB - (iB - iT) * oneCup;
+  // 0.1 L 눈금만 (정답 잔량·초록 「한 잔」 선은 두지 않는다)
+  var step = tickStepGrains(R);
+  if (R.N > 0 && step > 0) {
+    var nTick = Math.floor(R.N / step);
+    for (var ti = 1; ti < nTick; ti++) {
+      var long = (ti % 5 === 0);
+      if (!long && nTick > 16) continue;
+      var frac = (ti * step) / R.N;
+      var ty2 = iB - (iB - iT) * frac;
+      ctx.strokeStyle = long ? 'rgba(24,58,70,.50)' : 'rgba(24,58,70,.28)';
+      ctx.lineWidth = long ? 2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(w * .18, ty2); ctx.lineTo(w * (long ? .44 : .34), ty2); ctx.stroke();
+    }
+  }
+  // 유령 눈금 (오답 피드백일 때만)
+  if (S.ghostMarks && S.ghostMarks.tankFrac >= 0) {
+    var gy = iB - (iB - iT) * S.ghostMarks.tankFrac;
     ctx.save();
-    ctx.setLineDash([7, 5]); ctx.lineWidth = 3;
-    ctx.strokeStyle = lvl >= oneCup ? 'rgba(63,191,99,.95)' : 'rgba(232,77,26,.95)';
-    ctx.beginPath(); ctx.moveTo(-w * .46, cy2); ctx.lineTo(w * .46, cy2); ctx.stroke();
+    ctx.setLineDash([5, 4]); ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(160,90,200,.85)';
+    ctx.beginPath(); ctx.moveTo(-w * .44, gy); ctx.lineTo(w * .44, gy); ctx.stroke();
     ctx.restore();
-    ctx.font = '900 13px -apple-system,"Apple SD Gothic Neo",sans-serif';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-    ctx.fillStyle = lvl >= oneCup ? 'rgba(20,90,44,.92)' : 'rgba(140,40,10,.92)';
-    roundRect(ctx, -w * .46, cy2 - 19, 52, 17, 7); ctx.fill();
-    ctx.fillStyle = '#FFF3C4';
-    ctx.fillText('한 잔', -w * .46 + 6, cy2 - 5);
   }
   ctx.restore();
 
@@ -1162,18 +1372,19 @@ function render() {
     // 채우는 중인 잔
     ctx.globalAlpha = 1 - fe;
     if (fe < .98) {
-    if (R.mode === 'split') {
-      for (var ci = 0; ci < S.cups.length; ci++) {
+    if (R.mode === 'inverse' || (S.cups && S.cups.length && R.mode === 'split')) {
+      var nC = S.cups.length, cap = S.invC || R.C;
+      for (var ci = 0; ci < nC; ci++) {
         var cu = S.cups[ci];
-        var cw = Math.min(L.cupW, (L.col * .74) / S.cups.length - 6);
-        drawCup(ctx, activeCupX(ci, S.cups.length), L.cupBase, cw, cw * 1.24,
-          R.C > 0 ? cu.fill / R.C : 0, cu.sealed, cu.sq);
+        var cw = Math.min(L.cupW, (L.col * .74) / Math.max(1, nC) - 6);
+        drawCup(ctx, activeCupX(ci, nC), L.cupBase, cw, cw * 1.24,
+          cap > 0 ? cu.fill / cap : 0, cu.sealed, cu.sq, cap, tickStepGrains(R));
       }
     } else if (S.phase !== 'result') {
       var sq = 1 + S.openSq;
-      drawCup(ctx, L.cupX, L.cupBase, L.cupW, L.cupH, R.C > 0 ? S.open / R.C : 0, false, sq);
-      // 용량 라벨
-      badge(ctx, L.cupX, L.cupBase + 20, '한 잔 ' + R.bT + ' L', 15, 'rgba(10,60,78,.86)', '#CFF3FF', 9);
+      var capC = S.invC || R.C;
+      drawCup(ctx, L.cupX, L.cupBase, L.cupW, L.cupH, capC > 0 ? S.open / capC : 0, false, sq, capC, tickStepGrains(R));
+      badge(ctx, L.cupX, L.cupBase + 20, '한 잔 ' + (S.invBT || R.bT) + ' L', 15, 'rgba(10,60,78,.86)', '#CFF3FF', 9);
     }
     }
 
@@ -1189,10 +1400,23 @@ function render() {
     ctx.globalAlpha = 1 - fe;
     if (fe < .98) drawTank();
 
-    // 남은 꿀 배지 (원래 단위 실시간)
-    var restK = Math.round(restGrains() / R.gm);
-    badge(ctx, L.tank.cx, L.tank.cy + L.tank.h * .62 + 14,
-      '남은 꿀 ' + fmtKS(restK, R.s) + ' L', 18, 'rgba(24,12,4,.86)', '#FFD23A', 11);
+    // 유출 웅덩이 (오답 어휘: 낙하·어두움)
+    for (var pi = 0; pi < S.puddles.length; pi++) {
+      var pd = S.puddles[pi];
+      ctx.globalAlpha = Math.min(.85, pd.a);
+      ctx.fillStyle = '#B96E04';
+      ctx.beginPath(); ctx.ellipse(pd.x, pd.y, pd.rx, pd.ry, 0, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = 'rgba(40,18,4,.35)';
+      ctx.beginPath(); ctx.ellipse(pd.x, pd.y + 1, pd.rx * .9, pd.ry * .7, 0, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 주문 배지 (플레이어가 적은 배송표 — 정답 잔량은 숨김)
+    if (S.phase === 'pour' && R.mode !== 'inverse') {
+      badge(ctx, L.tank.cx, L.tank.cy + L.tank.h * .62 + 14,
+        '주문 ' + S.planQ + '잔 · 남김 ' + fmtKS(S.planRk, R.s) + ' L',
+        16, 'rgba(24,12,4,.82)', '#FFE9A8', 10);
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -1222,7 +1446,8 @@ function update(dt) {
   S.shake = Math.max(0, S.shake - dt * 34);
   S.beeBounce *= Math.pow(.0025, dt);
   // 잔칫상 카메라: 붓기가 끝나면 밀봉된 잔이 화면 중앙으로 모여 커진다
-  var wantFeast = (S.phase === 'seal' || S.phase === 'quiz' || S.phase === 'result') ? 1 : 0;
+  var wantFeast = (S.phase === 'result') ? 1 : 0;
+  if (S.fullGrace > 0) S.fullGrace = Math.max(0, S.fullGrace - dt);
   S.feast += (wantFeast - S.feast) * Math.min(1, dt * 4.2);
   if (Math.abs(S.feast - wantFeast) < .004) S.feast = wantFeast;
   S.openSq = (S.openSq || 0) * Math.pow(.002, dt);
@@ -1246,19 +1471,34 @@ function update(dt) {
   var R = S.round;
   if (!R) return;
 
-  // 쏟기 — 기울기가 임계를 넘어야 (한 박자 늦었다 와르르)
-  if (S.phase === 'pour' && S.tilt > .30 && S.tank > 0) {
-    var rate = 10 + (S.tilt - .30) * 62;      // 알갱이/초
+  // 쏟기 — 계산 단계(predict/plan/roundTiles)에서는 정지. 큰 흐름/미세 흐름 + 목표 근처 감속
+  var canPour = (S.phase === 'pour' || S.phase === 'inverseSim') && !S.failLock;
+  if (canPour && S.tilt > .30 && S.tank > 0) {
+    var capNow = S.invC || R.C;
+    var atCap = S.open >= capNow && S.fullGrace <= 0;
+    var nearCap = !atCap && capNow - S.open <= 4 && capNow - S.open > 0;
+    var nearRest = R.mode !== 'inverse' && S.sealedCount >= R.q && S.tank - rGrains() <= 5 && S.tank > rGrains();
+    var rate;
+    if (S.fineHold) rate = nearCap || nearRest ? 2.2 : 4.5;
+    else rate = 10 + (S.tilt - .30) * 62;
+    if ((nearCap || nearRest) && !S.fineHold) rate = Math.min(rate, 4.2);
+    if (atCap) rate = Math.min(rate, 8);          // 가득 찬 뒤에도 멈추지 않음 — 유출이 나야 한다
+    if (S.phase === 'inverseSim') rate = 28;
     S.emitAcc += rate * dt;
     var guard = 0;
     while (S.emitAcc >= 1 && S.tank > 0 && guard++ < 8) {
       S.emitAcc -= 1; emitGrain();
     }
-    if (!S.firstPourDone) { S.firstPourDone = true; $('tipLine').textContent = '통 안의 초록 선보다 꿀이 많으면 한 잔 더!'; }
+    if (!S.firstPourDone) {
+      S.firstPourDone = true;
+      $('tipLine').textContent = '가득 차면 손을 떼고 「밀봉」. 넘치면 테이블로 흘러요';
+    }
   } else S.emitAcc = 0;
 
   // 알갱이 낙하
-  var mouthY = L.cupBase - (R.mode === 'split' ? Math.min(L.cupW, (L.col * .74) / Math.max(1, S.cups.length) - 6) * 1.24 : L.cupH) * .92;
+  var cupH = L.cupH;
+  if (S.cups.length) cupH = Math.min(L.cupW, (L.col * .74) / Math.max(1, S.cups.length) - 6) * 1.24;
+  var mouthY = L.cupBase - cupH * .92;
   for (var gi = S.grains.length - 1; gi >= 0; gi--) {
     var g = S.grains[gi];
     g.px = g.x; g.py = g.y;
@@ -1266,13 +1506,21 @@ function update(dt) {
     g.vx += (g.tx - g.x) * 7.5 * dt;
     g.vx *= Math.pow(.28, dt);
     g.x += g.vx * dt; g.y += g.vy * dt;
-    if (g.y >= mouthY) { S.grains.splice(gi, 1); landGrain(g); }
+    var hitY = g.spill ? (L.tableY - 6) : mouthY;
+    if (g.y >= hitY) { S.grains.splice(gi, 1); landGrain(g); }
     else if (g.y > H + 40) S.grains.splice(gi, 1);
   }
 
-  // 공중 알갱이·연타 잠금 동안 「다 담았어」 비활성 — 착지 전에 눌러 억울한 오답이 나지 않게
-  if (S.phase === 'pour' && R.mode === 'fill') {
-    $('doneBtn').disabled = S.grains.length > 0 || S.t < doneLock;
+  if (S.phase === 'pour' && R.mode !== 'inverse') {
+    var busy = S.grains.length > 0 || S.t < doneLock || S.failLock;
+    $('doneBtn').disabled = busy;
+    $('sealBtn').disabled = busy || S.pouring || S.fineHold || S.open <= 0;
+    if (S.open > 0 && S.open === (S.invC || R.C) && !S.pouring && !S.fineHold) $('sealBtn').classList.add('hot');
+    else $('sealBtn').classList.remove('hot');
+  }
+
+  if (S.phase === 'inverseSim' && S.tank === 0 && S.grains.length === 0) {
+    finishInverseSim();
   }
 
   // 파티클
@@ -1294,47 +1542,87 @@ function update(dt) {
     c2.sq = 1 + (1 - c2.t) * .18 * Math.sin(c2.t * 12);
   }
 
-  // split: 통이 비면 자동 마감
-  if (R.mode === 'split' && S.phase === 'pour' && S.tank === 0 && S.grains.length === 0) {
-    finishSplit();
-  }
   updateHUD();
 }
 
 function emitGrain() {
   var sp = spoutPos(), R = S.round;
   S.tank--;
-  var tx;
-  if (R.mode === 'split') {
+  var cap = S.invC || R.C;
+  var spill = false;
+  var tx, target = 0;
+  if (S.phase === 'inverseSim' && S.cups.length) {
     var n = S.cups.length;
-    var cw = Math.min(L.cupW, (L.col * .74) / n - 6);
-    tx = activeCupX(S.rr, n);
-    var gr = { x: sp.x, y: sp.y, px: sp.x, py: sp.y, vx: 40 + Math.random() * 60, vy: 30, tx: tx, target: S.rr };
+    var cu = S.cups[S.rr];
+    tx = activeCupX(S.rr, n) + (Math.random() - .5) * 10;
+    if (cu && cu.fill >= cap) spill = true;
+    target = S.rr;
     S.rr = (S.rr + 1) % n;
-    S.grains.push(gr);
   } else {
     tx = L.cupX + (Math.random() - .5) * L.cupW * .34;
-    S.grains.push({ x: sp.x, y: sp.y, px: sp.x, py: sp.y, vx: 50 + Math.random() * 70, vy: 20, tx: tx, target: 0 });
+    if (S.open >= cap && S.fullGrace <= 0) spill = true;
   }
+  if (spill) tx = L.cupX + L.cupW * (.55 + Math.random() * .35);
+  S.grains.push({
+    x: sp.x, y: sp.y, px: sp.x, py: sp.y,
+    vx: 50 + Math.random() * 70, vy: 20, tx: tx, target: target, spill: spill
+  });
   if (Math.random() < .34) sfxDrip();
 }
 
 function landGrain(g) {
   var R = S.round;
-  if (R.mode === 'split') {
+  var cap = S.invC || R.C;
+  if (g.spill) {
+    S.spilled++;
+    S.puddles.push({
+      x: g.x, y: L.tableY + 4 + Math.random() * 8,
+      rx: 10 + Math.random() * 14, ry: 4 + Math.random() * 3, a: .7 + Math.random() * .2
+    });
+    if (S.puddles.length > 28) S.puddles.shift();
+    burst(g.x, L.tableY, 3, '232,77,26', 70);
+    if (S.spilled === 1 && S.phase === 'pour') onOverflow();
+    return;
+  }
+  if (S.phase === 'inverseSim' && S.cups.length) {
     var cu = S.cups[g.target];
-    if (cu) { cu.fill++; cu.sq = 1; }
+    if (cu) {
+      if (cu.fill >= cap) {
+        g.spill = true; landGrain(g); return;
+      }
+      cu.fill++; cu.sq = 1;
+    }
   } else {
+    if (S.open >= cap) {
+      g.spill = true; landGrain(g); return;
+    }
     S.open++;
     S.openSq = .10;
-    if (S.open >= R.C) sealCup();
+    if (S.open === cap) S.fullGrace = 0.28;
   }
   if (Math.random() < .5) burst(g.x, g.y, 1, null, 60);
 }
 
+function trySealCup() {
+  if (S.phase !== 'pour' || S.failLock || !S.round) return;
+  if (S.grains.length || S.pouring || S.fineHold) return;
+  var R = S.round, cap = R.C;
+  if (S.open <= 0) { say('먼저 잔에 담아요', 1.6); return; }
+  if (S.open < cap) {
+    failPour('underfill', '잔이 가득 차지 않았어요. 눈금까지 채운 뒤 밀봉해요.');
+    return;
+  }
+  if (S.open > cap) {
+    onOverflow();
+    return;
+  }
+  sealCup();
+}
+
 function sealCup() {
   var R = S.round;
-  S.open -= R.C;
+  S.open = 0;
+  S.fullGrace = 0;
   S.sealedCount++;
   S.runCups++;
   var dest = shelfPos(S.sealedCount - 1);
@@ -1346,8 +1634,12 @@ function sealCup() {
   S.beeBounce = -10;
   sfxSeal(S.sealedCount);
   addScore(100 * S.combo);
-  if (S.sealedCount === 1) say('한 잔 완성!', 1.4);
-  else if (S.sealedCount === R.cupCount && R.band === 'hook') say('나눴는데 잔이 늘었어!', 2.6);
+  if (S.sealedCount === 1) say('한 잔 밀봉!', 1.4);
+  else if (S.sealedCount === R.q && R.band === 'hook') say('나눴는데 잔이 늘었어!', 2.6);
+  else if (S.sealedCount === R.q) say('이제 남길 양만 통에 남겨요', 2.2);
+  $('tipLine').textContent = S.sealedCount >= R.q
+    ? '통에 남을 양만 남기고 「배송 완료」'
+    : '다음 잔을 가득 채운 뒤 「밀봉」';
 }
 
 //═══════════════════════════════════════════════════════════════════
@@ -1375,17 +1667,32 @@ function renderLives() {
   el.innerHTML = out;
 }
 
+function hidePanels() {
+  ['predict', 'plan', 'roundPanel', 'invPick', 'feedback', 'result'].forEach(function (id) {
+    var el = $(id); if (el) el.classList.remove('on');
+  });
+}
 function setProblemCard() {
   var R = S.round;
   $('pStep').textContent = (S.roundIdx + 1) + ' / ' + SCHEDULE.length + ' · ' + R.quiz.concept;
   var row = $('pRow');
-  if (R.mode === 'split') {
+  if (R.mode === 'inverse') {
     row.innerHTML = '<span class="wrd">꿀</span><span class="num">' + R.aT + '</span><span class="wrd">L 를</span>' +
-      '<span class="num cup">' + R.n + '</span><span class="wrd">잔에 똑같이</span>';
+      '<span class="num cup">' + R.q + '</span><span class="wrd">잔에 남김없이</span>';
   } else {
     row.innerHTML = '<span class="wrd">꿀</span><span class="num">' + R.aT + '</span><span class="wrd">L 를</span>' +
       '<span class="num cup">' + R.bT + '</span><span class="wrd">L 잔에</span>';
   }
+}
+
+function resetPourPhysics() {
+  var R = S.round;
+  S.tank = R.N; S.open = 0; S.openSq = 0;
+  S.sealed = []; S.sealedCount = 0; S.grains = []; S.rr = 0;
+  S.cups = []; S.puddles = []; S.spilled = 0; S.fullGrace = 0;
+  S.failLock = false; S.firstPourDone = false; S.feast = 0;
+  S.invC = null; S.invBT = null; S.ghostMarks = null;
+  S.tilt = 0; S.tiltTarget = 0; S.tiltVel = 0; S.pouring = false; S.fineHold = false;
 }
 
 function startRound(idx) {
@@ -1393,131 +1700,371 @@ function startRound(idx) {
   var band = SCHEDULE[idx];
   var R = (idx === 0) ? hookFixed() : drawFrom(band);
   S.round = R;
-  S.tank = R.N; S.open = 0; S.openSq = 0;
-  S.sealed = []; S.sealedCount = 0; S.grains = []; S.rr = 0;
-  S.cups = [];
-  if (R.mode === 'split') {
-    for (var i = 0; i < R.n; i++) S.cups.push({ fill: 0, sealed: false, sq: 1 });
-  }
-  S.quizTries = 0; S.firstPourDone = false; S.feast = 0;
-  S.phase = 'pour';
+  resetPourPhysics();
+  S.planQ = 1; S.planRk = 0;
+  S.invFails = 0; S.invChosen = null; S.rndOk = false; S.lastFail = null;
+  S.quizTries = 0;
+  hidePanels();
   setProblemCard();
-  $('quiz').classList.remove('on');
-  $('result').classList.remove('on');
-  $('bottomBar').style.display = '';
-  var db = $('doneBtn');
-  if (R.mode === 'split') {
-    db.style.display = 'none';
-    $('tipLine').textContent = '꼭지 ' + R.n + '개로 동시에 나눠 담아요';
-  } else {
-    db.style.display = '';
-    db.disabled = false;
-    db.className = 'bigbtn';
-    $('tipLine').textContent = idx === 0 ? '통을 꾹 눌러 기울여요' : '한 잔을 못 채울 만큼 남으면 「다 담았어」';
-  }
+  $('bottomBar').style.display = 'none';
   layout();
-  say(idx === 0 ? '이 잔에 나눠 담아줘!' : '또 부탁해!', 2.2);
+  say(idx === 0 ? '먼저 몫을 생각해 봐!' : '또 부탁해!', 2.2);
+  if (R.band === 'inverse') openInversePick();
+  else if (R.band === 'round') openRoundTiles();
+  else openPredict();
 }
 
-// 「다 담았어」 — 남은 꿀(통+열린 잔+공중) < 한 잔 용량이면 정확히 몫만큼 밀봉돼 있다
-var doneLock = 0;
-function onDone() {
-  if (S.phase !== 'pour' || !S.round) return;
-  if (S.grains.length) return;                // 공중 알갱이가 착지할 때까지 판정하지 않음
-  if (S.t < doneLock) return;                 // 연타 방지 (한 번의 실수가 두 번 깎이지 않게)
-  var R = S.round, rest = restGrains();
-  if (rest >= R.C) {
-    doneLock = S.t + 1.1;
-    var db = $('doneBtn'); db.disabled = true;
-    setTimeout(function () { if (S.grains.length === 0 && S.t >= doneLock) db.disabled = false; }, 1100);
-    onWrong('아직 한 잔을 더 채울 수 있어요! 남은 꿀 ' + fmtKS(Math.round(rest / R.gm), R.s) +
-            ' L, 한 잔은 ' + R.bT + ' L.');
-    S.ghost = 1;
+function qIsBiggerThanA(R) {
+  // B < 1 이면 몫이 A보다 커질 수 있다. 스케일 정수: kb < 10^s
+  return R.kb < POW10[R.s];
+}
+
+function openPredict() {
+  var R = S.round;
+  S.phase = 'predict';
+  $('predHead').textContent = '꿀 ' + R.aT + ' L 를 ' + R.bT + ' L 로 나누면?';
+  $('predSub').textContent = '몫이 꿀보다 클까요, 작을까요? 천천히 생각해도 돼요.';
+  $('predFeed').textContent = '';
+  $('predGt').className = 'ch'; $('predLt').className = 'ch';
+  $('predGt').disabled = false; $('predLt').disabled = false;
+  $('predict').classList.add('on');
+  $('bottomBar').style.display = 'none';
+}
+function pickPredict(rel) {
+  if (S.phase !== 'predict' || !S.round) return;
+  var R = S.round, bigger = qIsBiggerThanA(R), ok = (rel === 'gt') === bigger;
+  $('predGt').disabled = true; $('predLt').disabled = true;
+  if (ok) {
+    (rel === 'gt' ? $('predGt') : $('predLt')).classList.add('good');
+    $('predFeed').textContent = bigger
+      ? '맞아요. 1보다 작은 수로 나누면 몫이 더 커져요.'
+      : '맞아요. 1보다 큰 수로 나누면 몫이 더 작아져요.';
+    sfxGood(); flash('255,232,150', .45);
+    setTimeout(function () { $('predict').classList.remove('on'); openPlan(); }, 700);
+  } else {
+    (rel === 'gt' ? $('predGt') : $('predLt')).classList.add('bad');
+    var msg = bigger
+      ? '나누는 수가 1보다 작으면 몫이 꿀보다 커져요.'
+      : '나누는 수가 1보다 크면 몫이 꿀보다 작아져요.';
+    failMath('predict', msg, { id: bigger ? 'M4-subtract-instead' : 'M4-multiply-instead' });
+  }
+}
+
+function syncPlanLabels() {
+  var R = S.round; if (!R) return;
+  $('qVal').textContent = S.planQ + '잔';
+  $('rVal').textContent = fmtKS(S.planRk, R.s) + ' L';
+}
+function openPlan() {
+  var R = S.round;
+  S.phase = 'plan';
+  S.planQ = Math.max(1, Math.min(16, S.planQ || 1));
+  S.planRk = Math.max(0, S.planRk);
+  $('planHead').textContent = '가득 채울 잔과 남길 양을 적어요';
+  $('planSub').textContent = '꿀 ' + R.aT + ' L ÷ ' + R.bT + ' L. 계산하는 동안 통은 기울지 않아요.';
+  syncPlanLabels();
+  $('plan').classList.add('on');
+  $('bottomBar').style.display = 'none';
+}
+function nudgePlan(which, dir) {
+  if (S.phase !== 'plan' && S.phase !== 'roundTiles') return;
+  var R = S.round;
+  if (which === 'q') S.planQ = Math.max(0, Math.min(16, S.planQ + dir));
+  else {
+    S.planRk = Math.max(0, Math.min(R.kb - 1, S.planRk + dir));
+  }
+  syncPlanLabels();
+}
+function startPourFromPlan() {
+  if (S.phase !== 'plan' || !S.round) return;
+  $('plan').classList.remove('on');
+  enterPour();
+}
+
+function enterPour() {
+  var R = S.round;
+  S.phase = 'pour';
+  S.failLock = false;
+  $('bottomBar').style.display = '';
+  $('doneBtn').style.display = '';
+  $('doneBtn').disabled = false;
+  $('doneBtn').className = 'bigbtn';
+  $('flowRow').style.display = '';
+  $('tipLine').textContent = '통을 눌러 붓고, 가득 차면 손을 떼 「밀봉」';
+  layout();
+  say('가득 채운 뒤 밀봉해 줘!', 2);
+}
+
+function truncFromDigits() {
+  var R = S.round, v = S.rndQi * POW10[R.d];
+  for (var i = 0; i < R.d; i++) v += (S.rndDec[i] || 0) * POW10[R.d - 1 - i];
+  return v;
+}
+function openRoundTiles() {
+  var R = S.round;
+  S.phase = 'roundTiles';
+  S.rndQi = 0; S.rndDec = []; S.rndNext = 0; S.rndAnsK = 0;
+  for (var i = 0; i < R.d; i++) S.rndDec[i] = 0;
+  var place = R.d === 1 ? '첫째' : '둘째';
+  $('rndHead').textContent = R.aT + ' ÷ ' + R.bT + ' 의 몫을 반올림';
+  $('rndSub').textContent = '소수 ' + place + '째 자리까지. 다음 자리까지 구한 뒤 반올림해요. 이 값이 배송할 잔 수와 남길 양을 정해요.';
+  $('rndFeed').textContent = '';
+  var box = $('rndTiles'); box.innerHTML = '';
+  function tile(label, getter, setter) {
+    var row = document.createElement('div'); row.className = 'planRow';
+    var lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = label;
+    var st = document.createElement('div'); st.className = 'stepper';
+    var m = document.createElement('button'); m.type = 'button'; m.className = 'stepBtn'; m.textContent = '−';
+    var b = document.createElement('b');
+    var p = document.createElement('button'); p.type = 'button'; p.className = 'stepBtn'; p.textContent = '+';
+    function refresh() { b.textContent = getter(); }
+    m.onclick = function () { setter(-1); refresh(); };
+    p.onclick = function () { setter(1); refresh(); };
+    st.appendChild(m); st.appendChild(b); st.appendChild(p);
+    row.appendChild(lab); row.appendChild(st); box.appendChild(row); refresh();
+  }
+  tile('정수 몫', function () { return String(S.rndQi); }, function (d) { S.rndQi = Math.max(0, Math.min(20, S.rndQi + d)); });
+  for (var di = 0; di < R.d; di++) {
+    (function (idx) {
+      var nm = idx === 0 ? '소수 첫째 자리' : '소수 둘째 자리';
+      tile(nm, function () { return String(S.rndDec[idx] || 0); }, function (d) {
+        S.rndDec[idx] = Math.max(0, Math.min(9, (S.rndDec[idx] || 0) + d));
+      });
+    })(di);
+  }
+  tile('그 다음 자리', function () { return String(S.rndNext); }, function (d) { S.rndNext = Math.max(0, Math.min(9, S.rndNext + d)); });
+  tile('반올림한 몫', function () { return fmtFixed(S.rndAnsK, R.d); }, function (d) { S.rndAnsK = Math.max(0, Math.min(200, S.rndAnsK + d)); });
+  $('roundPanel').classList.add('on');
+  $('bottomBar').style.display = 'none';
+}
+function submitRoundTiles() {
+  if (S.phase !== 'roundTiles' || !S.round) return;
+  var R = S.round;
+  var trunc = truncFromDigits();
+  var ok = S.rndQi === R.q && trunc === R.truncAtD && S.rndNext === R.nextDigit && S.rndAnsK === R.ansK;
+  if (!ok) {
+    var msg;
+    if (S.rndQi !== R.q) msg = '정수 몫부터 다시 봐요. 몇 잔이 가득 차나요?';
+    else if (S.rndNext !== R.nextDigit) msg = '다음 자리까지 구한 뒤 반올림해야 해요.';
+    else msg = '구하려는 자리를 다시 확인해요.';
+    var id = S.rndNext !== R.nextDigit ? 'M5-truncate-at-place' : 'M5-round-at-wrong-place';
+    failMath('roundTiles', msg, { id: id });
     return;
   }
-  S.exactStamp = (S.sealedCount === R.cupCount);
-  S.cleanStamp = (S.tank === 0 && S.grains.length === 0);
-  if (S.exactStamp) { S.stamps.exact++; addScore(300); }
-  if (S.cleanStamp) { S.stamps.clean++; addScore(200); }
-  finishPour();
+  S.rndOk = true;
+  S.planQ = R.q; S.planRk = R.r;
+  $('rndFeed').textContent = '좋아요. 이제 ' + R.q + '잔을 채우고 ' + fmtKS(R.r, 0) + ' L 를 통에 남겨요. (반올림 ' + fmtFixed(R.ansK, R.d) + '잔)';
+  sfxGood(); flash('255,232,150', .5);
+  setTimeout(function () { $('roundPanel').classList.remove('on'); openPlan(); }, 800);
 }
 
-function finishSplit() {
+function openInversePick() {
   var R = S.round;
-  var n = S.cups.length;
-  for (var j = 0; j < n; j++) burst(activeCupX(j, n), L.cupBase - L.cupH * .5, 12, null, 170);
-  for (var i = 0; i < n; i++) {
-    if (S.cups[i].sealed) continue;
-    S.cups[i].sealed = true;
-    S.sealedCount++; S.runCups++;
-    addScore(100 * S.combo);
-    var cx0 = activeCupX(i, n), dest = shelfPos(S.sealedCount - 1);
-    S.sealed.push({ sx: cx0, sy: L.cupBase, dx: dest.x, dy: dest.y, x: cx0, y: L.cupBase, t: 0, sq: 1 });
-  }
-  S.cups = [];                    // 잔칫상 목록으로 넘겼으므로 중복해서 그리지 않는다
-  S.hitStop = .09; flash('255,214,110', .6);
-  sfxSeal(n);
-  S.exactStamp = true; S.cleanStamp = true;
-  S.stamps.exact++; S.stamps.clean++; addScore(500);
-  say('똑같이 나눠 담았어!', 2);
-  finishPour();
-}
-
-function finishPour() {
-  S.phase = 'seal';
-  $('bottomBar').style.display = 'none';
-  setTimeout(openQuiz, 780);
-}
-
-// ── 퀴즈
-function openQuiz() {
-  var R = S.round; if (!R) return;
-  S.phase = 'quiz'; S.quizTries = 0;
-  $('qTag').textContent = R.quiz.tag;
-  $('qHead').textContent = R.quiz.head;
-  $('qSub').textContent = R.quiz.sub;
-  $('qFeed').textContent = '';
-  var box = $('qChoices'); box.innerHTML = '';
-  var order = shuffle(R.quiz.choices.slice());
-  order.forEach(function (txt) {
+  S.phase = 'inversePick';
+  $('invHead').textContent = '꿀 ' + R.aT + ' L 를 ' + R.q + '잔에 남김없이';
+  $('invSub').textContent = '딱 맞게 담기는 잔을 창고에서 고르세요.';
+  $('invFeed').textContent = '';
+  var grid = $('invGrid'); grid.innerHTML = '';
+  var cands = shuffle(R.cands.slice());
+  cands.forEach(function (cd) {
     var b = document.createElement('button');
-    b.type = 'button'; b.className = 'ch'; b.textContent = txt;
-    b.onclick = function () { pickChoice(b, txt); };
-    box.appendChild(b);
+    b.type = 'button'; b.className = 'invCard';
+    b.innerHTML = cd.text + '<small>잔 ' + R.q + '개</small>';
+    b.onclick = function () { pickInverse(cd, b); };
+    grid.appendChild(b);
   });
-  $('quiz').classList.add('on');
+  $('invPick').classList.add('on');
+  $('bottomBar').style.display = 'none';
 }
-function pickChoice(btn, txt) {
-  var R = S.round; if (S.phase !== 'quiz') return;
-  var box = $('qChoices');
-  if (txt === R.quiz.answer) {
-    btn.classList.add('good');
-    [].forEach.call(box.children, function (c) { if (c !== btn) c.classList.add('dim'); c.onclick = null; });
-    S.phase = 'seal';
+function pickInverse(cd, btn) {
+  if (S.phase !== 'inversePick') return;
+  S.invChosen = cd;
+  [].forEach.call($('invGrid').children, function (c) { c.classList.remove('sel'); c.onclick = null; });
+  if (btn) btn.classList.add('sel');
+  $('invPick').classList.remove('on');
+  startInverseSim(cd);
+}
+function startInverseSim(cd) {
+  var R = S.round;
+  // 시각용 정수 알갱이: 정답 잔은 q잔이 딱 차고, 오답 잔은 비율대로 부족/넘침.
+  var s = Math.max(R.s, cd.s);
+  var kbOkU = R.kb * POW10[s - R.s];
+  var kbU = cd.k * POW10[s - cd.s];
+  var Cok = 12;
+  var N = R.q * Cok;
+  var Cchosen = Math.max(1, Math.floor((Cok * kbU) / kbOkU));
+  S.invC = Cchosen;
+  S.tank = N;
+  S.open = 0; S.spilled = 0; S.puddles = []; S.grains = []; S.rr = 0;
+  S.cups = [];
+  for (var i = 0; i < R.q; i++) S.cups.push({ fill: 0, sealed: false, sq: 1 });
+  S.invBT = fmtKS(cd.k, cd.s);
+  S.phase = 'inverseSim';
+  S.pouring = true; S.tiltTarget = .72;
+  $('bottomBar').style.display = 'none';
+  $('tipLine').textContent = cd.ok ? '남김없이 담기는지 봐요' : '이 잔으로 나눠 담아 볼게요';
+  layout();
+}
+function finishInverseSim() {
+  if (S.phase !== 'inverseSim') return;
+  S.phase = 'delivered';
+  S.pouring = false; S.tiltTarget = 0;
+  var R = S.round, cap = S.invC, ok = true, leftover = S.tank, under = 0, over = S.spilled;
+  for (var i = 0; i < S.cups.length; i++) {
+    if (S.cups[i].fill < cap) { ok = false; under += cap - S.cups[i].fill; }
+    if (S.cups[i].fill > cap) { ok = false; over++; }
+  }
+  if (leftover > 0 || over > 0 || under > 0) ok = false;
+  if (S.invChosen && S.invChosen.ok && leftover === 0 && over === 0 && under === 0) ok = true;
+  if (S.invChosen && !S.invChosen.ok) ok = false;
+  if (ok) {
+    flash('255,232,150', .7); burst(L.cx, L.top + L.sh * .4, 28, null, 220);
+    sfxGood(); say('남김없이 담겼어!', 2);
     onCorrect(500 + 100 * S.combo);
-    S.stamps.reason++;
-    $('qFeed').textContent = '⭐ ' + R.quiz.explain;
-    setTimeout(nextRound, 1500);
+    S.stamps.exact++; S.stamps.clean++;
+    setTimeout(nextRound, 1200);
   } else {
-    btn.classList.add('bad'); btn.onclick = null;
-    S.quizTries++;
-    var whyId = '';
-    for (var i = 0; i < R.quiz.why.length; i++) if (R.quiz.why[i].text === txt) whyId = R.quiz.why[i].id;
-    onWrong(hintFor(whyId, R));
-    $('qFeed').textContent = S.beeSay;
-    if (S.quizTries >= 2) {
-      // 2차 오답 — 정답을 보여 주고 같은 통을 이어간다 (게임오버 없음)
-      [].forEach.call(box.children, function (c) {
-        c.onclick = null;
-        if (c.textContent === R.quiz.answer) c.classList.add('good');
-      });
-      $('qFeed').textContent = '💡 ' + R.quiz.explain;
-      S.phase = 'seal';
-      setTimeout(nextRound, 2100);
+    var msg = over > 0 ? '잔이 작아 꿀이 넘쳤어요.' : (leftover > 0 ? '통에 꿀이 남았어요.' : '잔에 빈 공간이 남았어요.');
+    S.invFails++;
+    var hintId = (S.invChosen && S.invChosen.id) || 'M1-shift-divisor-only';
+    S.ghostMarks = { tankFrac: leftover > 0 ? leftover / Math.max(1, leftover + cap * R.q) : 0 };
+    if (S.invFails === 1) {
+      // 1차 실패: 차이를 관찰하게 하고 페널티 없음
+      say(msg + ' 잔을 바꿔 다시 고르세요.', 3);
+      sfxBad();
+      setTimeout(function () {
+        resetPourPhysics();
+        openInversePick();
+        $('invFeed').textContent = hintFor(hintId, R);
+      }, 1400);
+    } else {
+      failMath('inverse', msg + ' ' + hintFor(hintId, R), { id: hintId });
     }
   }
 }
+
+var doneLock = 0;
+function onOverflow() {
+  if (S.failLock || S.phase !== 'pour') return;
+  failPour('overflow', '꿀이 테이블로 흘렀어요. 가득 차면 손을 떼고 밀봉해요.');
+}
+function failPour(kind, msg) {
+  if (S.failLock) return;
+  S.failLock = true;
+  S.pouring = false; S.fineHold = false; S.tiltTarget = 0;
+  S.lastFail = kind;
+  var R = S.round;
+  var hintId = 'M3-shifted-remainder';
+  if (kind === 'overflow') hintId = 'overflow-spill';
+  if (kind === 'underfill') hintId = 'M2-point-one-too-far';
+  if (kind === 'cups') hintId = 'M1-shift-dividend-only';
+  if (kind === 'rest') hintId = 'M3-shifted-remainder';
+  S.ghostMarks = ghostFor(kind, R);
+  applyPenalty(msg);
+  if (S.mode === 'feast' && S.lives <= 0) return;
+  openFeedback(kind, msg, hintId);
+}
+function failMath(where, msg, extra) {
+  S.lastFail = where;
+  applyPenalty(msg);
+  if (S.mode === 'feast' && S.lives <= 0) return;
+  openFeedback(where, msg, extra && extra.id);
+}
+function applyPenalty(msg) {
+  if (S.mode === 'feast') onWrong(msg);
+  else {
+    S.combo = 1;
+    S.shake = REDUCED ? 5 : 11;
+    flash('232,77,26', .45);
+    sfxBad();
+    say(msg || '앗, 다시!', 3.2);
+    renderLives();
+  }
+}
+function ghostFor(kind, R) {
+  var g = { tankFrac: -1, cups: R.q, note: '' };
+  if (kind === 'overflow' || kind === 'underfill') {
+    g.note = '가득은 한 잔 ' + R.bT + ' L 예요. 0.1 L 눈금을 세어 보세요.';
+  } else if (kind === 'cups') {
+    g.note = '가득 채울 잔은 ' + R.q + '개예요. (10배/0.1배로 옮긴 값이 아닌지 봐요)';
+    g.cups = R.q;
+  } else if (kind === 'rest') {
+    g.tankFrac = R.N > 0 ? (R.r * R.gm) / R.N : 0;
+    g.note = '통에 남을 양은 ' + fmtKS(R.r, R.s) + ' L. 나머지는 소수점을 옮기기 전의 크기예요.';
+  } else if (kind === 'predict') {
+    g.note = qIsBiggerThanA(R)
+      ? '1보다 작은 수로 나누면 몫이 더 커져요.'
+      : '1보다 큰 수로 나누면 몫이 더 작아져요.';
+  }
+  return g;
+}
+function openFeedback(kind, msg, hintId) {
+  S.phase = 'feedback';
+  $('bottomBar').style.display = 'none';
+  $('fbTag').textContent = kind === 'overflow' ? '유출' : '다시 볼게요';
+  $('fbHead').textContent = msg;
+  $('fbSub').textContent = hintFor(hintId, S.round);
+  var g = S.ghostMarks || {};
+  $('fbGhost').textContent = g.note || S.round.quiz.explain;
+  $('fbGo').textContent = S.mode === 'explore' ? '다시 담기' : '계속';
+  $('feedback').classList.add('on');
+}
+function undoFromFeedback() {
+  $('feedback').classList.remove('on');
+  var R = S.round, kind = S.lastFail;
+  S.ghostMarks = null;
+  if (kind === 'predict') { openPredict(); return; }
+  if (kind === 'roundTiles') { openRoundTiles(); return; }
+  if (kind === 'inverse' || R.band === 'inverse') { resetPourPhysics(); openInversePick(); return; }
+  // 해당 잔만 되돌리기: 열린 잔·유출·공중 알갱이를 통으로
+  var air = S.grains.length;
+  S.tank += S.open + S.spilled + air;
+  S.open = 0; S.spilled = 0; S.grains = []; S.puddles = []; S.fullGrace = 0;
+  S.failLock = false;
+  enterPour();
+}
+
+function submitDelivery() {
+  if (S.phase !== 'pour' || !S.round || S.failLock) return;
+  if (S.grains.length) return;
+  if (S.t < doneLock) return;
+  var R = S.round;
+  if (S.spilled > 0) { onOverflow(); return; }
+  if (S.open > 0) {
+    failPour('underfill', '열린 잔이 있어요. 가득이면 밀봉, 아니면 통에 남겨요.');
+    return;
+  }
+  if (S.sealedCount !== R.q) {
+    failPour('cups', '담은 잔 수가 달라요. 가득 채울 잔은 ' + R.q + '개예요.');
+    return;
+  }
+  if (S.tank !== rGrains()) {
+    failPour('rest', '통에 남은 양이 달라요. 남길 양은 ' + fmtKS(R.r, R.s) + ' L 예요.');
+    return;
+  }
+  S.exactStamp = true;
+  S.cleanStamp = (S.tank === 0);
+  if (S.exactStamp) { S.stamps.exact++; addScore(300); }
+  if (S.cleanStamp) { S.stamps.clean++; addScore(200); }
+  finishDelivery(false);
+}
+
+function finishDelivery(fromTest) {
+  S.phase = 'delivered';
+  S.pouring = false; S.fineHold = false; S.tiltTarget = 0;
+  $('bottomBar').style.display = 'none';
+  flash('255,232,150', .7);
+  burst(L.cx, L.top + L.sh * .42, 24 + S.combo * 4, null, 210);
+  S.beeBounce = -16;
+  onCorrect(500 + 100 * S.combo);
+  S.stamps.reason++;
+  say('배송 완료!', 1.6);
+  if (fromTest) nextRound();
+  else setTimeout(nextRound, 1100);
+}
+
 function hintFor(id, R) {
+  if (id === 'overflow-spill') return '가득 차면 손을 떼고 「밀봉」을 눌러요. 더 부으면 테이블로 흘러요.';
   if (id === 'M1-shift-dividend-only') return '한쪽만 10배 했어요. 두 수를 같이 옮겨야 몫이 그대로예요.';
   if (id === 'M1-shift-divisor-only') return '나누는 수만 옮기면 몫이 10배 작아져요.';
   if (id === 'M2-no-decimal-point') return '소수점을 빠뜨렸어요. 잔 높이를 다시 보세요.';
@@ -1557,7 +2104,7 @@ function onWrong(msg) {
     if (S.mode === 'explore') {
       S.lives = 3; renderLives();
       setTimeout(function () { say('괜찮아, 꿀방울 다시 채웠어!', 2.4); }, 900);
-    } else if (S.phase === 'pour' || S.phase === 'quiz') {
+    } else {
       setTimeout(showResult, 900);
     }
   }
@@ -1566,14 +2113,14 @@ function onWrong(msg) {
 function nextRound() {
   if (S.lives <= 0 && S.mode === 'feast') { showResult(); return; }
   if (S.roundIdx + 1 >= SCHEDULE.length) { showResult(); return; }
-  $('quiz').classList.remove('on');
+  hidePanels();
   startRound(S.roundIdx + 1);
 }
 
 // ── 결과
 function showResult() {
   S.phase = 'result';
-  $('quiz').classList.remove('on');
+  hidePanels();
   $('bottomBar').style.display = 'none';
   var best = 0, bestScore = 0;
   try {
@@ -1618,7 +2165,7 @@ function newRun() {
   $('hScore').textContent = '0';
   renderLives();
   $('result').classList.remove('on');
-  $('quiz').classList.remove('on');
+  hidePanels();
   startRound(0);
 }
 
@@ -1633,10 +2180,10 @@ function tiltFrom(dx) {
   S.tiltTarget = Math.max(.14, Math.min(1.0, t));
 }
 cv.addEventListener('pointerdown', function (e) {
-  if (S.phase !== 'pour') return;
+  if (S.phase !== 'pour' || S.failLock) return;
   audioInit();
   ptr.down = true; ptr.id = e.pointerId; ptr.x0 = e.clientX;
-  S.pouring = true; tiltFrom(0);
+  S.pouring = true; S.fineHold = false; tiltFrom(0);
   try { cv.setPointerCapture(e.pointerId); } catch (er) {}
   e.preventDefault();
 }, { passive: false });
@@ -1657,26 +2204,57 @@ cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 var keyDown = {};
 window.addEventListener('keydown', function (e) {
   if (e.repeat) return;
-  if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+  if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     if (S.phase === 'pour') { audioInit(); keyDown[e.key] = 1; S.tiltTarget = e.key === 'ArrowRight' ? .82 : .5; e.preventDefault(); }
+  } else if (e.key === 'ArrowDown') {
+    if (S.phase === 'pour' && !S.failLock) { audioInit(); S.fineHold = true; S.tiltTarget = .42; e.preventDefault(); }
   } else if (e.key === 'Enter') {
-    if (S.phase === 'pour' && S.round && S.round.mode === 'fill') onDone();
+    if (S.phase === 'pour') { if (S.open > 0) trySealCup(); else submitDelivery(); }
+    else if (S.phase === 'plan') startPourFromPlan();
   }
 });
 window.addEventListener('keyup', function (e) {
-  if (keyDown[e.key]) { delete keyDown[e.key]; if (!Object.keys(keyDown).length) S.tiltTarget = 0; }
+  if (e.key === 'ArrowDown') S.fineHold = false;
+  if (keyDown[e.key]) { delete keyDown[e.key]; if (!Object.keys(keyDown).length && !S.fineHold && !ptr.down) S.tiltTarget = 0; }
 });
 
-$('doneBtn').addEventListener('click', function () { audioInit(); onDone(); });
+$('doneBtn').addEventListener('click', function () { audioInit(); submitDelivery(); });
+$('sealBtn').addEventListener('click', function () { audioInit(); trySealCup(); });
+(function bindFine() {
+  var b = $('fineBtn');
+  function startFine(e) {
+    if (S.phase !== 'pour' || S.failLock) return;
+    audioInit();
+    S.fineHold = true; S.pouring = false; S.tiltTarget = .42;
+    b.classList.add('hold');
+    e.preventDefault();
+  }
+  function endFine() {
+    S.fineHold = false; S.tiltTarget = 0; b.classList.remove('hold');
+  }
+  b.addEventListener('pointerdown', startFine);
+  b.addEventListener('pointerup', endFine);
+  b.addEventListener('pointercancel', endFine);
+  b.addEventListener('pointerleave', endFine);
+})();
+$('planGo').addEventListener('click', function () { audioInit(); startPourFromPlan(); });
+$('qMinus').addEventListener('click', function () { nudgePlan('q', -1); });
+$('qPlus').addEventListener('click', function () { nudgePlan('q', 1); });
+$('rMinus').addEventListener('click', function () { nudgePlan('r', -1); });
+$('rPlus').addEventListener('click', function () { nudgePlan('r', 1); });
+$('predGt').addEventListener('click', function () { audioInit(); pickPredict('gt'); });
+$('predLt').addEventListener('click', function () { audioInit(); pickPredict('lt'); });
+$('rndGo').addEventListener('click', function () { audioInit(); submitRoundTiles(); });
+$('fbGo').addEventListener('click', function () { audioInit(); undoFromFeedback(); });
 $('againBtn').addEventListener('click', function () { audioInit(); newRun(); });
 $('muteBtn').addEventListener('click', function () { audioInit(); setMute(!muted); });
 $('muteBtn2').addEventListener('click', function (e) { e.stopPropagation(); audioInit(); setMute(!muted); });
 
 // ── 온보딩 (3단계 스포트라이트)
 var OB = [
-  { head: '통을 꾹 눌러요', body: '화면을 누른 채 있으면 통이 기울고 꿀 알갱이가 쏟아져요. 좌우로 끌면 세기가 달라져요. 알갱이 한 개는 모두 같은 부피예요.', target: 'tank' },
-  { head: '잔이 차면 저절로 밀봉', body: '한 잔이 가득 차는 순간 뚜껑이 닫히고 잔칫상으로 미끄러져요. 밀봉된 잔 수가 곧 몫이에요.', target: 'cup' },
-  { head: '한 잔을 못 채우면 끝', body: '통 안 초록 「한 잔」 선보다 꿀이 적어지면 「다 담았어」를 눌러요. 남은 꿀이 나머지예요.', target: 'done', modes: true }
+  { head: '먼저 배송표를 적어요', body: '붓기 전에 가득 채울 잔 수와 통에 남길 양을 적어요. 계산하는 동안 통은 기울지 않아요. 알갱이 한 개는 모두 같은 부피예요.', target: 'tank' },
+  { head: '가득 차면 손을 떼고 밀봉', body: '잔은 자동으로 닫히지 않아요. 눈금까지 채운 뒤 손을 떼고 「밀봉」을 누르세요. 넘치면 꿀이 테이블로 흘러 실패예요.', target: 'cup' },
+  { head: '계산한 만큼 배송 완료', body: '주문한 잔 수와 남긴 양이 맞으면 「배송 완료」. 탐험은 실수해도 되돌릴 수 있고, 잔치만 꿀방울이 줄어요.', target: 'done', modes: true }
 ];
 var obIdx = 0;
 function positionSpot() {
@@ -1703,7 +2281,11 @@ function showOb(i) {
 function closeOb() {
   $('onboard').classList.remove('on');
   try { localStorage.setItem('honeyCups:onboardingSeen', '1'); } catch (e) {}
-  if (S.phase === 'onboard') { S.phase = 'pour'; }
+  if (S.phase === 'onboard') {
+    if (S.round && S.round.band === 'inverse') openInversePick();
+    else if (S.round && S.round.band === 'round') openRoundTiles();
+    else openPredict();
+  }
 }
 $('obNext').addEventListener('click', function () {
   sfxPop();
@@ -1727,7 +2309,12 @@ function beginGame(skipOb) {
   newRun();
   var seen = false;
   try { seen = localStorage.getItem('honeyCups:onboardingSeen') === '1'; } catch (e) {}
-  if (!seen && !skipOb) { S.phase = 'onboard'; setTimeout(function () { showOb(0); }, 260); }
+  if (!seen && !skipOb) {
+    hidePanels();
+    $('bottomBar').style.display = '';
+    S.phase = 'onboard';
+    setTimeout(function () { showOb(0); }, 260);
+  }
 }
 $('startBtn').addEventListener('click', function () { beginGame(false); });
 $('howtoBtn').addEventListener('click', function (e) {
@@ -1804,18 +2391,34 @@ window.__GAME_TEST__ = {
       phase: S.phase, solved: S.solved, cups: S.runCups, combo: S.combo
     };
   },
-  answerCorrect: function () { onCorrect(500 + 100 * S.combo); },
-  answerWrong: function () { onWrong('테스트 오답'); },
+  answerCorrect: function () {
+    if (S.phase === 'title' || S.phase === 'result' || !S.round) {
+      try { localStorage.setItem('honeyCups:onboardingSeen', '1'); } catch (e) {}
+      $('onboard').classList.remove('on');
+      hideTitle();
+      newRun();
+    }
+    forceCorrectPath();
+  },
+  answerWrong: function () {
+    if (S.phase === 'title' || S.phase === 'result' || !S.round) {
+      try { localStorage.setItem('honeyCups:onboardingSeen', '1'); } catch (e) {}
+      $('onboard').classList.remove('on');
+      hideTitle();
+      newRun();
+    }
+    forceWrongPath();
+  },
   sampleProblems: function (n) {
     n = Math.max(1, n || 20);
-    var bands = ['hook', 'fill0', 'split', 'fillR', 'round'], out = [], used = {};
+    var bands = ['hook', 'fill0', 'fillR', 'inverse', 'round', 'split'], out = [], used = {};
     var cursors = {};
     bands.forEach(function (b) { cursors[b] = shuffle(POOLS[b].slice()); });
     var i = 0, guard = 0;
     while (out.length < n && guard++ < n * 40) {
       var b = bands[i % bands.length]; i++;
       var pool = cursors[b];
-      if (!pool.length) continue;
+      if (!pool || !pool.length) continue;
       var p = pool.pop();
       if (!p || used[p.quiz.prompt]) continue;
       used[p.quiz.prompt] = 1;
@@ -1829,8 +2432,75 @@ window.__GAME_TEST__ = {
       });
     }
     return out;
+  },
+  getSim: function () {
+    var R = S.round;
+    return {
+      phase: S.phase, tank: S.tank, open: S.open, spilled: S.spilled,
+      sealedCount: S.sealedCount, C: R ? R.C : 0, N: R ? R.N : 0,
+      q: R ? R.q : 0, r: R ? R.r : 0, rGrains: R ? rGrains() : 0, gm: R ? R.gm : 0,
+      planQ: S.planQ, planRk: S.planRk, failLock: S.failLock,
+      band: R ? R.band : '', aT: R ? R.aT : '', bT: R ? R.bT : '', s: R ? R.s : 0,
+      bigger: R ? qIsBiggerThanA(R) : false,
+      grains: S.grains.length, fullGrace: S.fullGrace, lastFail: S.lastFail
+    };
+  },
+  applyCorrectPlan: function () {
+    if (!S.round) return;
+    S.planQ = S.round.q; S.planRk = S.round.r; syncPlanLabels();
+  },
+  applyCorrectRoundTiles: function () {
+    var R = S.round; if (!R || R.band !== 'round') return;
+    S.rndQi = R.q; S.rndNext = R.nextDigit; S.rndAnsK = R.ansK;
+    S.rndDec = [];
+    var rest = R.truncAtD - R.q * POW10[R.d];
+    for (var i = 0; i < R.d; i++) {
+      var p = POW10[R.d - 1 - i];
+      S.rndDec[i] = Math.floor(rest / p);
+      rest = rest % p;
+    }
+  },
+  fillOpenToC: function () {
+    var R = S.round; if (!R || S.phase !== 'pour' || S.failLock) return false;
+    S.grains = [];
+    while (S.open < R.C && S.tank > 0) { S.tank--; S.open++; }
+    S.fullGrace = 0.28;
+    return S.open === R.C && S.spilled === 0;
   }
 };
+
+function forceCorrectPath() {
+  var R = S.round; if (!R) return;
+  hidePanels();
+  S.failLock = false; S.grains = []; S.spilled = 0; S.puddles = []; S.ghostMarks = null;
+  if (R.band === 'inverse') {
+    var okc = null;
+    for (var i = 0; i < R.cands.length; i++) if (R.cands[i].ok) okc = R.cands[i];
+    S.invChosen = okc;
+    onCorrect(500 + 100 * S.combo);
+    S.stamps.exact++; S.stamps.clean++;
+    nextRound();
+    return;
+  }
+  S.planQ = R.q; S.planRk = R.r; S.rndOk = true;
+  S.open = 0; S.sealed = []; S.sealedCount = 0;
+  S.tank = rGrains();
+  for (var k = 0; k < R.q; k++) {
+    S.open = R.C;
+    sealCup();
+  }
+  S.tank = rGrains(); S.open = 0;
+  finishDelivery(true);
+}
+
+function forceWrongPath() {
+  hidePanels();
+  S.phase = 'pour';
+  S.failLock = false;
+  S.spilled = Math.max(1, S.spilled);
+  S.puddles.push({ x: L.cupX + 36, y: L.tableY + 6, rx: 18, ry: 6, a: .85 });
+  failPour('overflow', '꿀이 테이블로 흘렀어요.');
+}
 
 init();
 })();
