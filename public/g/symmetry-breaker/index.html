@@ -501,7 +501,7 @@ function layout(){
 }
 
 /* ══════════════ 3. 파티클 · 화면 효과 ══════════════ */
-var PS=[], POPS=[], dust=[];
+var PS=[], POPS=[], dust=[], RINGS=[];
 var shakeT=0, shakeM=0, flashT=0, flashC='#fff', slowmo=0;
 var MAXP=REDUCE?70:230;
 function initDust(){dust=[];var n=REDUCE?10:20,i;
@@ -518,6 +518,19 @@ function sparkDir(x,y,n,col,dx,dy,spd){
   for(var i=0;i<n;i++){var sp=rnd(spd*.3,spd),jx=rnd(-.45,.45),jy=rnd(-.45,.45);
     PS.push({x:x,y:y,vx:(dx+jx)*sp,vy:(dy+jy)*sp,l:0,m:rnd(.5,1.1),r:rnd(1.8,4.8),c:col,g:rnd(160,420),rot:rnd(0,TAU),vr:rnd(-8,8)});}
 }
+/* 정답 전용: 위로 솟는 빛 가루. 화면 흔들림은 오답(mistake)만 쓴다. */
+function sparkRise(x,y,n,col,spd){
+  if(PS.length>MAXP)return;
+  n=REDUCE?Math.ceil(n*0.4):n;
+  for(var i=0;i<n;i++){
+    var sp=rnd(spd*.35,spd), jx=rnd(-.55,.55);
+    PS.push({x:x,y:y,vx:jx*sp,vy:-(sp*(0.55+Math.random()*0.7)),l:0,m:rnd(.55,1.2),r:rnd(1.8,5.2),c:col,g:rnd(-40,90),rot:rnd(0,TAU),vr:rnd(-8,8)});
+  }
+}
+function ring(x,y,col,r0,r1,life){
+  if(REDUCE)return;
+  RINGS.push({x:x,y:y,c:col||'rgba(200,245,255,.95)',r0:r0||14,r1:r1||96,l:0,m:life||0.52});
+}
 function pop(x,y,txt,col){POPS.push({x:x,y:y,t:txt,c:col||'#ffd166',l:0,m:1.0});}
 function shake(m){if(REDUCE)return;shakeM=Math.max(shakeM,m);shakeT=Math.max(shakeT,.36);}
 function flash(a,c){flashT=Math.max(flashT,a);flashC=c||'#f7fbff';}
@@ -528,6 +541,7 @@ function updFX(dt){
     if(p.l>=p.m){PS.splice(i,1);continue;}
     p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vx*=0.985;p.rot+=p.vr*dt;}
   for(i=POPS.length-1;i>=0;i--){p=POPS[i];p.l+=dt;if(p.l>=p.m)POPS.splice(i,1);else p.y-=52*dt;}
+  for(i=RINGS.length-1;i>=0;i--){p=RINGS[i];p.l+=dt;if(p.l>=p.m)RINGS.splice(i,1);}
   if(shakeT>0){shakeT-=dt;if(shakeT<=0){shakeT=0;shakeM=0;}}
   if(flashT>0)flashT=Math.max(0,flashT-dt*2.4);
   if(slowmo>0)slowmo=Math.max(0,slowmo-dt);
@@ -542,8 +556,13 @@ function drawDust(){
 }
 function drawFX(){
   var i,p;
-  if(!PS.length&&!POPS.length&&flashT<=0.001)return;
+  if(!PS.length&&!POPS.length&&!RINGS.length&&flashT<=0.001)return;
   ctx.globalCompositeOperation='lighter';
+  for(i=0;i<RINGS.length;i++){
+    p=RINGS[i]; var t=clamp(p.l/p.m,0,1), r=lerp(p.r0,p.r1,easeOut(t));
+    ctx.globalAlpha=clamp(1-t,0,1)*0.9; ctx.strokeStyle=p.c; ctx.lineWidth=3.4*(1-t)+1.1;
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.stroke();
+  }
   for(i=0;i<PS.length;i++){p=PS[i];
     var k=1-p.l/p.m, s=p.r*(0.5+k);
     ctx.globalAlpha=k;ctx.fillStyle=p.c;
@@ -1007,11 +1026,13 @@ function crackNow(c,perfect){
     });
   }
   anim={type:'crack',c:c,t:0,dur:0.85,sh:sh};
-  /* combo/점수에 비례해 파티클·흔들림 강도가 커진다 (particle-burst-scaled, screen-shake-tiered) */
+  /* combo/점수에 비례해 상승 파티클·빛 확산이 커진다. 흔들림은 오답 전용. */
   var boost=1+(GS.combo-1)*0.16;
   flash(clamp((perfect?.52:.4)+(GS.combo-1)*0.02,0,.85),'#f7fbff');
-  shake((perfect?22:12)+Math.min(11,(GS.combo-1)*2.2));
+  ring(c.cx,c.cy,'rgba(200,245,255,.95)',16,88+GS.combo*14,perfect?0.72:0.52);
+  ring(c.cx,c.cy,'rgba(255,209,102,.8)',10,54+GS.combo*10,0.44);
   if(!REDUCE)slowmo=perfect?0.4:0;
+  sparkRise(c.cx,c.cy,Math.round((perfect?70:40)*boost),'rgba(200,245,255,1)',380*Math.min(1.35,boost));
   spark(c.cx,c.cy,Math.round((perfect?140:80)*boost),'rgba(200,245,255,1)',420*Math.min(1.35,boost),1.1);
   spark(c.cx,c.cy,Math.round((perfect?60:30)*boost),'rgba(255,209,102,1)',300,1.0);
   if(GS.combo>=4)spark(c.cx,c.cy,Math.round(40*boost),'rgba(255,140,220,1)',380,0.95);
@@ -1067,7 +1088,9 @@ function resolveFold(a){
   var c=a.c;
   if(a.ok){
     c.found.push(a.idx);GS.axesFound++;
-    sfx('good');flash(.42,'#f7fbff');shake(7);
+    sfx('good');flash(.42,'#f7fbff');
+    ring(c.cx,c.cy,'rgba(220,250,255,.9)',12,72,0.46);
+    sparkRise(c.cx,c.cy,18,'rgba(220,250,255,1)',240);
     axisSparks(c,a.ang,'rgba(220,250,255,1)',3);
     award(120,'',c.cx,c.cy-50);
     if(allDone(c)){crackNow(c,true);
@@ -1094,7 +1117,9 @@ function resolveFold(a){
 function resolveRot(a){
   var c=a.c;
   if(a.ok){
-    c.rotDone=true;sfx('good');flash(.42,'#f7fbff');shake(7);
+    c.rotDone=true;sfx('good');flash(.42,'#f7fbff');
+    ring(c.cx,c.cy,'rgba(255,209,102,.9)',12,76,0.46);
+    sparkRise(c.cx,c.cy,16,'rgba(255,209,102,1)',250);
     spark(c.cx,c.cy,24,'rgba(255,209,102,1)',260,0.8);
     award(170,'',c.cx,c.cy-50);
     if(allDone(c)){crackNow(c,true);
@@ -1113,7 +1138,9 @@ function resolveGate(a){
   var c=a.c,p=c.g.pieces[a.i],i,left=0;
   c.fly=null;
   if(p.same){
-    c.picked[a.i]=1;sfx('good');flash(.35,'#7dffc4');shake(6);
+    c.picked[a.i]=1;sfx('good');flash(.35,'#7dffc4');
+    ring(c.cx,c.cy,'rgba(125,255,196,.9)',12,70,0.42);
+    sparkRise(c.cx,c.cy,16,'rgba(125,255,196,1)',250);
     spark(c.cx,c.cy,26,'rgba(125,255,196,1)',280,0.8);
     award(260,'합동! 돌리거나 뒤집으면 꼭 포개져요',c.cx,c.cy-60);
     for(i=0;i<4;i++)if(c.g.pieces[i].same&&c.picked[i]!==1)left++;
@@ -1121,7 +1148,11 @@ function resolveGate(a){
       GS.solved++;GS.combo=Math.min(8,GS.combo+1);
       award(400,'합동 게이트 돌파!',stage.cx,stage.cy);
       pop(stage.cx,stage.cy-70,'GATE CLEAR','#ffd166');
-      flash(.8,'#f7fbff');shake(18);sfx('perfect');GS.book['gate']=1;
+      flash(.8,'#f7fbff');
+      ring(stage.cx,stage.cy,'rgba(247,251,255,.95)',18,120,0.7);
+      ring(stage.cx,stage.cy,'rgba(255,209,102,.85)',10,78,0.5);
+      sparkRise(stage.cx,stage.cy,36,'rgba(255,209,102,1)',340);
+      sfx('perfect');GS.book['gate']=1;
       anim={type:'hold',c:c,t:0,dur:0.7,go:'next'};return;
     }
     hint('좋아요! 합동인 조각이 <b>'+left+'개</b> 더 있어요','');
