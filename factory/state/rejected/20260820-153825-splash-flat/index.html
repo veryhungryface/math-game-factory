@@ -1,0 +1,2750 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>첨벙 — 한 장만 삐면 기울어</title>
+<meta name="description" content="킥판 탑을 옮겨 수면을 평평하게 잠그고, 폭이 다른 매트에 오리가 앉을 가능성을 예상하는 5학년 평균·가능성 게임.">
+<meta property="og:title" content="첨벙">
+<meta property="og:description" content="한 장만 삐면 기울어">
+<meta property="og:image" content="./square.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="첨벙">
+<meta name="twitter:description" content="한 장만 삐면 기울어">
+<meta name="twitter:image" content="./square.png">
+<style>
+:root{
+  --tile:#EEF2F4; --cobalt:#0A4D6E; --coral:#FF3B30; --sun:#FFD60A; --ink:#2C3A42;
+  --logo-top:#FFF3B0; --logo-mid:#FFD60A; --logo-bottom:#FF6A2A;
+  --logo-outline:#12303F; --logo-side:#E8641C; --logo-side-dark:#8E2E0C;
+  --logo-glow:rgba(255,214,10,.42);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#062A3E}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  color:#fff;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  user-select:none;-webkit-user-select:none;touch-action:manipulation;overscroll-behavior:none;
+}
+button{font-family:inherit}
+.hide{display:none !important}
+#stage{position:fixed;inset:0;overflow:hidden;isolation:isolate}
+#cv{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
+
+/* ───────── HUD ───────── */
+#hud{position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(100vw,600px);
+  padding:max(8px,env(safe-area-inset-top)) 10px 0;z-index:14;display:flex;align-items:center;gap:6px;pointer-events:none}
+.chip{display:flex;align-items:center;gap:5px;height:40px;padding:0 12px;border-radius:14px;
+  background:rgba(10,44,62,.72);border:2px solid rgba(255,255,255,.26);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.20),0 4px 10px rgba(0,20,35,.30);
+  font-weight:900;font-size:15px;letter-spacing:-.02em;line-height:1;white-space:nowrap}
+#cLives{color:#FFD9D6;font-size:17px;letter-spacing:1px}
+#cScore{color:#FFF3B0;min-width:76px;justify-content:center;font-size:18px}
+#cRound{color:#CFEAF7}
+#cCombo{color:#0E2A38;background:linear-gradient(180deg,#FFE873,#FFC400);border-color:#7A4A00;
+  text-shadow:0 1px 0 rgba(255,255,255,.5)}
+.iconbtn{margin-left:auto;pointer-events:auto;width:44px;height:44px;display:grid;place-items:center;padding:0;
+  border:2px solid rgba(255,255,255,.24);border-radius:50%;color:#fff;background:rgba(6,34,50,.55);
+  font-size:19px;cursor:pointer;touch-action:manipulation}
+.iconbtn:active{transform:translateY(2px)}
+
+/* ───────── 하단 패널 ───────── */
+#panel{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(100vw,600px);z-index:13;
+  padding:10px 12px max(10px,env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(4,26,40,0) 0%,rgba(4,26,40,.62) 26%,rgba(4,26,40,.90) 100%)}
+#pTitle{font-size:clamp(15px,4.3vw,19px);font-weight:900;letter-spacing:-.02em;text-align:center;
+  text-shadow:0 2px 6px rgba(0,0,0,.7);margin-bottom:2px}
+#pSub{font-size:12px;font-weight:700;text-align:center;color:#BFE2F2;opacity:.95;margin-bottom:8px;
+  text-shadow:0 1px 4px rgba(0,0,0,.7);min-height:15px;line-height:1.35;white-space:normal}
+#pChoices{display:grid;gap:6px}
+#pChoices.nums{grid-template-columns:repeat(4,1fr)}
+#pChoices.nums3{grid-template-columns:repeat(3,1fr)}
+#pChoices.deck{grid-template-columns:repeat(5,1fr)}
+#pChoices.reasons{grid-template-columns:1fr}
+.opt{position:relative;min-height:78px;padding:6px 4px 8px;border:3px solid #0B3D55;border-radius:16px;cursor:pointer;
+  color:#0E2A38;background:linear-gradient(180deg,#FFFFFF 0%,#DCEEF7 52%,#B7DCEE 100%);
+  box-shadow:0 5px 0 #26708F,0 9px 14px rgba(0,18,30,.40),inset 0 2px 0 rgba(255,255,255,.85);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  transition:transform 90ms ease-out,box-shadow 90ms ease-out,filter 120ms;touch-action:manipulation}
+.opt:active,.opt.press{transform:translateY(5px);box-shadow:0 1px 0 #26708F,0 4px 8px rgba(0,18,30,.34),inset 0 2px 0 rgba(255,255,255,.7)}
+.opt .big{font-size:clamp(24px,7.2vw,34px);font-weight:900;line-height:1;letter-spacing:-.03em}
+.opt .lbl{font-size:11.5px;font-weight:800;color:#2B5468;line-height:1.15;text-align:center}
+.opt .lbl.top{font-size:12.5px;color:#0E2A38;letter-spacing:-.03em}
+#pChoices.deck .opt{min-height:84px;padding:7px 2px}
+#pChoices.deck .opt .big{font-size:clamp(19px,5.6vw,26px)}
+#pChoices.deck .opt .lbl{font-size:10px}
+#pChoices.deck .opt .lbl.top{font-size:11.5px}
+.opt.reason{min-height:56px;flex-direction:row;gap:8px;padding:8px 12px;text-align:left}
+.opt.reason .lbl{font-size:13.5px;color:#173A4C;text-align:left}
+.opt.ok{background:linear-gradient(180deg,#EAFFD9,#9EE870 60%,#6ED03C);border-color:#2C6B18;box-shadow:0 5px 0 #3D8A22,0 9px 14px rgba(0,18,30,.4),inset 0 2px 0 rgba(255,255,255,.7)}
+.opt.no{background:linear-gradient(180deg,#FFE3E0,#FFA79E 60%,#FF7B6E);border-color:#8A2418;box-shadow:0 5px 0 #A63424,0 9px 14px rgba(0,18,30,.4),inset 0 2px 0 rgba(255,255,255,.6)}
+.opt.dim{filter:grayscale(.4) brightness(.86);opacity:.8}
+.opt .mark{position:absolute;top:-9px;right:-6px;font-size:19px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
+/* 분수 ½ */
+.frac{display:inline-flex;flex-direction:column;align-items:center;line-height:1;vertical-align:middle}
+.frac b{font-size:.62em;font-weight:900;padding:0 .12em}
+.frac i{display:block;width:100%;height:.14em;min-height:3px;background:currentColor;border-radius:2px;margin:.07em 0;font-style:normal}
+.bigbtn{width:100%;min-height:60px;margin-top:6px;border:4px solid #6B2C06;border-radius:20px;cursor:pointer;
+  color:#3B1907;background:linear-gradient(180deg,#FFF27A 0%,#FFC62F 49%,#FF8B1F 100%);
+  box-shadow:0 6px 0 #A93D13,0 12px 20px rgba(0,0,0,.36),inset 0 3px 0 rgba(255,255,255,.55);
+  font-size:20px;font-weight:900;letter-spacing:-.03em;touch-action:manipulation}
+.bigbtn:active{transform:translateY(5px);box-shadow:0 1px 0 #A93D13,0 5px 10px rgba(0,0,0,.3),inset 0 3px 0 rgba(255,255,255,.45)}
+
+/* ───────── 결과 화면 ───────── */
+#over{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:18px;
+  background:radial-gradient(ellipse at 50% 34%,rgba(10,77,110,.72),rgba(3,20,32,.94) 76%);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#overCard{width:min(100%,420px);padding:20px 18px 18px;border:4px solid #0B3D55;border-radius:26px;text-align:center;
+  background:linear-gradient(180deg,#F3FBFF,#CDE9F6 60%,#A9D6EA);color:#0E2A38;
+  box-shadow:0 12px 0 #1A5470,0 22px 40px rgba(0,0,0,.45),inset 0 3px 0 rgba(255,255,255,.9);
+  animation:pop-in 420ms cubic-bezier(.18,1.5,.4,1) both}
+#overTitle{font-size:28px;font-weight:900;letter-spacing:-.04em;margin:0 0 2px}
+#overSub{font-size:13.5px;font-weight:800;color:#3B6579;margin:0 0 12px}
+.overRow{display:flex;justify-content:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.overStat{flex:1 1 92px;padding:9px 6px;border-radius:14px;background:rgba(12,60,84,.09);border:2px solid rgba(12,60,84,.16)}
+.overStat u{display:block;font-size:11px;font-weight:800;color:#4E7A8E;text-decoration:none;margin-bottom:2px}
+.overStat b{font-size:23px;font-weight:900;letter-spacing:-.03em}
+@keyframes pop-in{0%{opacity:0;transform:scale(.8) translateY(24px)}70%{opacity:1;transform:scale(1.04) translateY(-4px)}100%{opacity:1;transform:none}}
+
+/* ───────── 온보딩 ───────── */
+#onb{position:absolute;inset:0;z-index:34}
+#onbHole{position:absolute;border-radius:20px;box-shadow:0 0 0 9999px rgba(3,18,30,.70);border:3px dashed rgba(255,214,10,.9);
+  transition:all 280ms cubic-bezier(.3,1.2,.4,1);pointer-events:none}
+#onbBox{position:absolute;left:50%;transform:translateX(-50%);width:min(100% - 28px,420px);
+  padding:14px 16px 12px;border:3px solid #0B3D55;border-radius:20px;text-align:center;color:#0E2A38;
+  background:linear-gradient(180deg,#FFFFFF,#D7EEF9);box-shadow:0 8px 0 #1A5470,0 16px 28px rgba(0,0,0,.4)}
+#onbStep{font-size:11px;font-weight:900;color:#4E7A8E;letter-spacing:.06em}
+#onbText{font-size:16px;font-weight:900;line-height:1.35;letter-spacing:-.02em;margin:4px 0 10px}
+#onbNext{width:100%;min-height:48px;border:3px solid #6B2C06;border-radius:16px;color:#3B1907;font-size:17px;font-weight:900;
+  background:linear-gradient(180deg,#FFF27A,#FFC62F 55%,#FF9A22);box-shadow:0 5px 0 #A93D13,inset 0 2px 0 rgba(255,255,255,.6);cursor:pointer}
+#onbNext:active{transform:translateY(4px);box-shadow:0 1px 0 #A93D13}
+
+/* ───────── 타이틀 ───────── */
+.title-screen{--title-col:min(100vw,640px);position:absolute;inset:0;z-index:30;overflow:hidden;isolation:isolate;background:#062A3E}
+.title-art{--art-x:50%;--art-y:52%;--art-scale:1.02;position:absolute;inset:0;z-index:0;overflow:hidden;background:#062A3E}
+.title-art__image{width:100%;height:100%;display:block;object-fit:cover;object-position:var(--art-x) var(--art-y);
+  transform:scale(var(--art-scale));filter:saturate(1.05) contrast(1.02);animation:art-breathe 16s ease-in-out infinite alternate}
+.title-art__fallback{position:absolute;inset:0;background:
+  radial-gradient(ellipse 70% 40% at 50% 22%,#8FE3FF,transparent 70%),
+  linear-gradient(180deg,#7FD8F7 0%,#2E9CC8 44%,#0A4D6E 74%,#062A3E 100%)}
+.title-art__scrim,.title-art__vignette{position:absolute;inset:0;z-index:1;pointer-events:none}
+.title-art__scrim{background:
+  linear-gradient(180deg,rgba(4,22,36,.50) 0%,rgba(4,22,36,.18) 24%,rgba(4,22,36,.02) 46%,rgba(4,22,36,.18) 62%,rgba(4,22,36,.86) 100%),
+  radial-gradient(ellipse 64% 27% at 50% 16%,rgba(4,22,36,.30),transparent 72%)}
+.title-art__vignette{background:
+  linear-gradient(90deg,rgba(2,14,24,.38) 0%,transparent 13%,transparent 87%,rgba(2,14,24,.38) 100%),
+  radial-gradient(ellipse at center,transparent 54%,rgba(2,14,24,.44) 112%);mix-blend-mode:multiply}
+#titleFx{position:absolute;inset:0;z-index:2;width:100%;height:100%;pointer-events:none}
+.title-cta-scrim{position:absolute;left:0;right:0;bottom:0;height:42%;z-index:3;pointer-events:none;
+  background:linear-gradient(180deg,rgba(4,22,36,0) 0%,rgba(4,22,36,.38) 28%,rgba(4,22,36,.78) 62%,rgba(4,22,36,.92) 100%)}
+.title-ui{position:relative;z-index:4;width:var(--title-col);height:100%;margin-inline:auto;
+  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);pointer-events:none}
+.title-logo-zone{position:absolute;top:max(48px,6.5dvh);left:16px;right:16px;min-height:180px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;white-space:nowrap;
+  font-size:clamp(62px,18.5vw,116px);font-weight:900;line-height:.92;letter-spacing:-.09em;
+  filter:drop-shadow(0 16px 14px rgba(0,0,0,.34));transform:rotate(-2deg);transform-origin:50% 60%}
+.game-logo>span{--r:0deg;--y:0px;--s:1;position:relative;display:inline-block;padding-inline:.03em;color:transparent;
+  background:linear-gradient(180deg,var(--logo-top) 0%,var(--logo-mid) 48%,var(--logo-bottom) 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-stroke:clamp(3px,1vw,6px) var(--logo-outline);paint-order:stroke fill;
+  text-shadow:0 1px 0 var(--logo-side),0 2px 0 var(--logo-side),0 3px 0 var(--logo-side),0 4px 0 var(--logo-side),
+    0 5px 0 var(--logo-side-dark),0 6px 0 var(--logo-side-dark),0 7px 0 var(--logo-side-dark),0 8px 0 var(--logo-side-dark),
+    0 11px 2px rgba(10,30,42,.60),0 16px 8px rgba(0,0,0,.44),0 22px 22px rgba(0,0,0,.32),0 0 26px var(--logo-glow);
+  transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));transform-origin:50% 80%;
+  animation:logo-letter-in 720ms cubic-bezier(.18,1.55,.34,1) both;animation-delay:calc(var(--i,0) * 90ms)}
+.game-subtitle{margin:16px 0 0;padding:6px 14px 7px;border:1px solid rgba(255,255,255,.34);border-radius:999px;
+  color:#F2FBFF;background:rgba(6,30,44,.50);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 5px 14px rgba(0,0,0,.24);
+  font:800 clamp(13px,3.6vw,17px)/1.2 inherit;letter-spacing:-.02em;text-shadow:0 2px 4px rgba(0,0,0,.72);
+  animation:logo-subtitle-in 420ms 560ms ease-out both;display:inline-block}
+.title-cta-zone{position:absolute;left:50%;bottom:max(16px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:7px;pointer-events:auto;z-index:1}
+.mode-seg{display:flex;gap:5px;padding:4px;border-radius:16px;background:rgba(5,26,40,.52);border:1px solid rgba(255,255,255,.22);
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.mode-seg button{min-height:40px;min-width:96px;padding:0 14px;border:0;border-radius:12px;cursor:pointer;
+  color:rgba(255,255,255,.78);background:transparent;font-size:13px;font-weight:800;letter-spacing:-.02em;touch-action:manipulation}
+.mode-seg button.on{color:#0E2A38;background:linear-gradient(180deg,#FFFFFF,#BFE3F3);box-shadow:0 2px 0 rgba(0,40,60,.3)}
+.title-meta{min-height:30px;padding:6px 12px;border:1px solid rgba(255,255,255,.24);border-radius:999px;
+  color:rgba(255,255,255,.94);background:rgba(5,26,40,.44);font-size:12px;font-weight:800;line-height:1;
+  text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.title-start{--cta-top:#FFF27A;--cta-mid:#FFC62F;--cta-bottom:#FF8B1F;--cta-border:#54220D;--cta-depth:#A93D13;--cta-ink:#3B1907;
+  position:relative;width:min(100%,420px);min-height:68px;padding:0 28px;border:4px solid var(--cta-border);border-radius:22px;
+  appearance:none;cursor:pointer;color:var(--cta-ink);
+  background:linear-gradient(180deg,rgba(255,255,255,.58) 0 2px,transparent 2px 100%),
+    linear-gradient(180deg,var(--cta-top) 0%,var(--cta-mid) 49%,var(--cta-bottom) 100%);
+  box-shadow:0 7px 0 var(--cta-depth),0 10px 0 var(--cta-border),0 17px 26px rgba(0,0,0,.38),
+    inset 0 3px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(154,48,8,.20);
+  font-size:clamp(21px,5.8vw,27px);font-weight:900;line-height:1;letter-spacing:-.03em;
+  text-shadow:0 2px 0 rgba(255,255,255,.38);animation:cta-pulse 2.4s ease-in-out 1.2s infinite;
+  transition:transform 90ms ease-out,box-shadow 90ms ease-out;touch-action:manipulation}
+.title-start::after{content:"";position:absolute;inset:5px 9px auto;height:19px;border-radius:999px;
+  background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));pointer-events:none}
+.title-start:active{transform:translateY(7px) scale(.985);
+  box-shadow:0 1px 0 var(--cta-depth),0 3px 0 var(--cta-border),0 7px 13px rgba(0,0,0,.3),inset 0 3px 0 rgba(255,255,255,.38);
+  animation-play-state:paused}
+.title-howto{min-height:44px;padding:8px 12px;border:0;color:rgba(255,255,255,.88);background:transparent;
+  font:700 12.5px/1.2 inherit;text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);
+  text-underline-offset:4px;text-shadow:0 2px 5px rgba(0,0,0,.85);cursor:pointer;touch-action:manipulation}
+.title-mute{position:absolute;z-index:5;top:max(10px,env(safe-area-inset-top));
+  right:max(12px,calc((100vw - min(100vw,640px)) / 2 + 12px));width:44px;height:44px;display:grid;place-items:center;padding:0;
+  border:1px solid rgba(255,255,255,.18);border-radius:50%;color:#fff;background:rgba(0,0,0,.28);font-size:19px;cursor:pointer}
+@keyframes art-breathe{from{transform:scale(var(--art-scale)) translate3d(0,0,0)}to{transform:scale(calc(var(--art-scale) + .035)) translate3d(0,-.6%,0)}}
+@keyframes logo-letter-in{0%{opacity:0;transform:translateY(calc(var(--y) - 82px)) rotate(calc(var(--r) - 10deg)) scale(.55)}
+  58%{opacity:1;transform:translateY(calc(var(--y) + 8px)) rotate(calc(var(--r) + 3deg)) scale(calc(var(--s) * 1.10))}
+  78%{transform:translateY(calc(var(--y) - 3px)) rotate(calc(var(--r) - 1deg)) scale(calc(var(--s) * .97))}
+  100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}}
+@keyframes logo-subtitle-in{from{opacity:0;transform:translateY(-8px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes cta-pulse{0%,72%,100%{transform:translateY(0) scale(1)}80%{transform:translateY(-2px) scale(1.025)}
+  88%{transform:translateY(0) scale(1)}94%{transform:translateY(-1px) scale(1.012)}}
+@media (max-height:700px){
+  .title-logo-zone{top:max(34px,4.5dvh);min-height:150px}
+  .title-start{min-height:64px}
+  .title-cta-zone{gap:5px}
+}
+@media (min-aspect-ratio:1/1){
+  .title-art{--art-y:32%;--art-scale:1.04}
+  .title-art__scrim{background:
+    linear-gradient(180deg,rgba(4,22,36,.62) 0%,rgba(4,22,36,.24) 26%,rgba(4,22,36,.04) 48%,rgba(4,22,36,.22) 68%,rgba(4,22,36,.88) 100%),
+    radial-gradient(ellipse 46% 30% at 50% 14%,rgba(4,22,36,.42),transparent 74%)}
+  .title-cta-scrim{height:46%}
+  .game-logo{font-size:clamp(70px,9vw,132px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .title-art__image,.title-start,.game-logo>span,.game-subtitle{animation-duration:.01ms;animation-iteration-count:1}
+  .title-art__image{transform:scale(1.02)}
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div class="chip" id="cLives">❤❤❤</div>
+    <div class="chip" id="cScore">0</div>
+    <div class="chip" id="cRound">1판</div>
+    <div class="chip hide" id="cCombo">🔥2</div>
+    <button id="muteBtn" class="iconbtn" type="button" aria-label="소리 끄기">🔊</button>
+  </div>
+
+  <div id="panel">
+    <div id="pTitle">준비 중…</div>
+    <div id="pSub"></div>
+    <div id="pChoices"></div>
+    <button id="pAction" class="bigbtn hide" type="button">다음</button>
+  </div>
+
+  <div id="over" class="hide">
+    <div id="overCard">
+      <h2 id="overTitle">첨벙!</h2>
+      <p id="overSub">기록을 확인해요</p>
+      <div class="overRow">
+        <div class="overStat"><u>점수</u><b id="ovScore">0</b></div>
+        <div class="overStat"><u>수면 잠금</u><b id="ovLock">0</b></div>
+        <div class="overStat"><u>최고 콤보</u><b id="ovCombo">0</b></div>
+      </div>
+      <div class="overRow"><div class="overStat" style="flex:1 1 100%"><u>최고 점수</u><b id="ovBest">0</b></div></div>
+      <button id="againBtn" class="bigbtn" type="button">다시 첨벙!</button>
+    </div>
+  </div>
+
+  <div id="onb" class="hide">
+    <div id="onbHole"></div>
+    <div id="onbBox">
+      <div id="onbStep">1 / 3</div>
+      <div id="onbText"></div>
+      <button id="onbNext" type="button">다음</button>
+    </div>
+  </div>
+
+  <div class="title-screen" id="title">
+    <div class="title-art" aria-hidden="true">
+      <div class="title-art__fallback"></div>
+      <img class="title-art__image" id="titleImg" src="./assets/title.png" alt="">
+    </div>
+    <div class="title-art__scrim" aria-hidden="true"></div>
+    <div class="title-art__vignette" aria-hidden="true"></div>
+    <canvas id="titleFx" aria-hidden="true"></canvas>
+    <div class="title-cta-scrim" aria-hidden="true"></div>
+    <button class="title-mute" id="muteBtn2" type="button" aria-label="소리 끄기">🔊</button>
+    <div class="title-ui">
+      <div class="title-logo-zone">
+        <h1 class="game-logo" aria-label="첨벙">
+          <span aria-hidden="true" style="--r:-5deg;--y:6px;--s:1.09;--i:0">첨</span>
+          <span aria-hidden="true" style="--r:4deg;--y:-4px;--s:1.0;--i:1">벙</span>
+        </h1>
+        <p class="game-subtitle">한 장만 삐면 기울어</p>
+      </div>
+      <div class="title-cta-zone">
+        <div class="title-meta hide" id="tBest"></div>
+        <div class="mode-seg" role="group" aria-label="관용도 고르기">
+          <button type="button" id="modeEasy" class="on">느긋하게</button>
+          <button type="button" id="modeHard">아슬아슬</button>
+        </div>
+        <div class="title-meta">5학년 2학기 · 평균과 가능성</div>
+        <button class="title-start" id="startBtn" type="button"><span>첨벙 시작!</span></button>
+        <button class="title-howto" id="howtoBtn" type="button">어떻게 놀아요? 〉</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+
+//═══════════════════════════════════════════════════════════════════
+//---MATH-CORE-START---   (node 로 추출해 전수 검산하는 구간)
+//
+//  모든 값은 정수. 슬래브 1장 = 1, 레인 수 = 자료의 수.
+//  평균은 sum % n === 0 인 조합만 만들어 항상 정수다. 부동소수점 비교 없음.
+//  가능성은 폭(정수)끼리의 비교로만 판정한다 (wA*2 vs W).
+//═══════════════════════════════════════════════════════════════════
+
+var RND = Math.random;
+function ri(n){ return Math.floor(RND()*n); }
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=ri(i+1), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function sumOf(a){ var s=0; for(var i=0;i<a.length;i++) s+=a[i]; return s; }
+function maxOf(a){ var m=a[0]; for(var i=1;i<a.length;i++) if(a[i]>m) m=a[i]; return m; }
+function minOf(a){ var m=a[0]; for(var i=1;i<a.length;i++) if(a[i]<m) m=a[i]; return m; }
+/** 정렬 복사본의 중앙값. n 이 짝수면 두 가운데 값의 평균이 정수일 때만 값을, 아니면 -1. */
+function medianOf(a){
+  var s = a.slice().sort(function(x,y){return x-y;});
+  var n = s.length;
+  if(n % 2 === 1) return s[(n-1)/2];
+  var t = s[n/2 - 1] + s[n/2];
+  return (t % 2 === 0) ? t/2 : -1;
+}
+
+// ─────────── 가능성: 밴드(말)와 수 ───────────
+// 아이 화면에는 0 · ½ · 1 과 말 밴드만 쓴다. 일반 분수는 표시하지 않는다.
+var HALF = '\u00BD';
+var BANDS = [
+  { id:0, word:'불가능',      num:'0',     range:'0' },
+  { id:1, word:'아닐 것 같다', num:'',      range:'0과 '+HALF+' 사이' },
+  { id:2, word:'반반',        num:HALF,    range:HALF },
+  { id:3, word:'일 것 같다',   num:'',      range:HALF+'과 1 사이' },
+  { id:4, word:'확실',        num:'1',     range:'1' }
+];
+var CHANCE_MODEL = '오리는 매트 전체 폭 어디에나 똑같이, 앞 결과와 상관없이 떨어져요.';
+var MEAN_CONTRACT = '킥판은 모두 같은 두께 — 높은 탑이 값이 큰 거예요(무거운 게 아니에요).';
+/** 폭 wA 와 전체 폭 W 로 가능성 밴드를 정한다. 나눗셈 없이 정수 비교만 한다. */
+function bandOf(wA, W){
+  if(wA === 0) return 0;          // 불가능 · 수 0
+  if(wA === W) return 4;          // 확실 · 수 1
+  if(wA * 2 === W) return 2;      // 반반 · 수 ½
+  if(wA * 2 < W) return 1;        // 0과 ½ 사이
+  return 3;                       // ½과 1 사이
+}
+function bandRange(b){ return BANDS[b].range; }
+function bandWord(b){ return BANDS[b].word; }
+/** 유령 더미는 횟수 언어만. 분수는 찍지 않는다. */
+function theoryTimesPhrase(n, trials){
+  trials = trials || 12;
+  if(n <= 0) return '이론상 ' + trials + '번 중 0번';
+  if(n >= trials) return '이론상 ' + trials + '번 중 ' + trials + '번';
+  return '이론상 ' + trials + '번 중 약 ' + n + '번';
+}
+function countTimesPhrase(n, trials, head){
+  return (head || '이번') + ' ' + trials + '번 중 ' + n + '번';
+}
+/** 12회 시행의 이론 기대 마리 수. W 를 12의 약수로만 쓰므로 항상 정수다. */
+function theoryCount(wA, W, trials){ return (trials * wA) / W; }
+
+// 12의 약수만 허용 → 이론 유령 더미 높이가 항상 정수 (기획서 risk 대응)
+var ALLOWED_W = [2,3,4,6,12];
+
+/** 폭 쌍 전체 목록 (0 포함). 가능성 문제 표본과 라운드 세트의 원천 풀. */
+function allWidthPairs(){
+  var out = [];
+  for(var i=0;i<ALLOWED_W.length;i++){
+    var W = ALLOWED_W[i];
+    for(var wA=0; wA<=W; wA++){
+      if(theoryCount(wA, W, 12) % 1 !== 0) continue;
+      out.push({ wA:wA, wB:W-wA, W:W });
+    }
+  }
+  return out;
+}
+
+// ─────────── 평균: 제약 만족 풀 전수 생성 ───────────
+/** lo..hi 값의 n-튜플을 전수 생성해 filter 를 통과한 것만 모은다 (무작위 후 필터링이 아니라 풀 생성). */
+function enumerate(n, lo, hi, filter, cap){
+  var out = [], cur = new Array(n);
+  (function rec(k){
+    if(out.length >= cap * 12) return;      // 과도한 메모리 방지 (뒤에서 셔플 후 자름)
+    if(k === n){ if(filter(cur)) out.push(cur.slice()); return; }
+    for(var v=lo; v<=hi; v++){ cur[k]=v; rec(k+1); }
+  })(0);
+  shuffle(out);
+  return out.slice(0, cap);
+}
+
+var POOLS = {};
+function pool(name){
+  if(POOLS[name]) return POOLS[name];
+  var p;
+  if(name === 'basic'){
+    // n=3~4, 값 1~6, 합이 n 의 배수, 최소 한 번은 옮겨야 함(스프레드 2 이상)
+    var a = enumerate(3, 1, 6, function(v){ return sumOf(v)%3===0 && maxOf(v)-minOf(v)>=2; }, 120);
+    var b = enumerate(4, 1, 6, function(v){ return sumOf(v)%4===0 && maxOf(v)-minOf(v)>=2; }, 180);
+    p = a.concat(b);
+  } else if(name === 'zero'){
+    // 반드시 0 인 레인 1개. 0 을 빼고 3으로 나눈 '가짜 수면'도 정수라 오개념이 그럴듯해야 한다.
+    p = enumerate(4, 0, 8, function(v){
+      var z = 0, i; for(i=0;i<4;i++) if(v[i]===0) z++;
+      if(z !== 1) return false;
+      var s = sumOf(v);
+      if(s === 0 || s % 4 !== 0) return false;
+      if(s % 3 !== 0) return false;              // 가짜값 sum/(n-1) 도 정수여야 유혹이 된다
+      if(s/3 === s/4) return false;
+      return maxOf(v) - minOf(v) >= 2;
+    }, 200);
+  } else if(name === 'median'){
+    // n=5, 중앙값 ≠ 평균 이 구조적으로 보장된 세트만
+    p = enumerate(5, 1, 9, function(v){
+      var s = sumOf(v);
+      if(s % 5 !== 0) return false;
+      var m = s/5;
+      if(medianOf(v) === m) return false;
+      return maxOf(v)-minOf(v) >= 3 && maxOf(v)-minOf(v) <= 7;
+    }, 200);
+  } else if(name === 'missing'){
+    // 목표 평균 M, 공개 4개, 빈 레인 1개. missing = 5M - sumKnown
+    p = [];
+    for(var M=4; M<=8; M++){
+      var got = enumerate(4, 1, 10, function(v){
+        var s = sumOf(v);
+        var miss = 5*M - s;
+        var trap = 4*M - s;                       // 오개념: 빈 레인을 자료 수에서 뺀다
+        return miss>=1 && miss<=9 && trap>=1 && trap<=9 && trap!==miss;
+      }, 40);
+      for(var g=0; g<got.length; g++) p.push({ M:M, known:got[g] });
+    }
+    shuffle(p);
+  } else if(name === 'tworaft'){
+    // nA≠nB 이고 (meanA+meanB)/2 (가짜) 와 전체 평균(진짜)이 모두 정수이며 서로 다른 조합
+    p = [];
+    var sizes = [2,3,4];
+    for(var i=0;i<sizes.length;i++) for(var j=0;j<sizes.length;j++){
+      var nA = sizes[i], nB = sizes[j];
+      if(nA === nB) continue;
+      for(var mA=1; mA<=8; mA++) for(var mB=1; mB<=8; mB++){
+        if(mA === mB) continue;
+        if((mA+mB) % 2 !== 0) continue;                       // 가짜 선이 정수여야 유혹이 된다
+        var tot = nA*mA + nB*mB;
+        if(tot % (nA+nB) !== 0) continue;
+        var trueMean = tot/(nA+nB), trap = (mA+mB)/2;
+        if(trueMean === trap) continue;
+        p.push({ nA:nA, nB:nB, mA:mA, mB:mB, mean:trueMean, trap:trap });
+      }
+    }
+    shuffle(p);
+  } else {
+    p = [];
+  }
+  POOLS[name] = { list:p, i:0 };
+  return POOLS[name];
+}
+/** 풀에서 순서대로 뽑고, 다 쓰면 다시 섞는다 (같은 문제가 연달아 나오지 않게). */
+function draw(name){
+  var P = pool(name);
+  if(!P.list.length) return null;
+  if(P.i >= P.list.length){ shuffle(P.list); P.i = 0; }
+  return P.list[P.i++];
+}
+
+/** 합을 n 칸에 정수로 흩뿌린다. 평평한 상태에서 단위 이동만 하므로 합이 구조적으로 보존된다. */
+function splitSum(total, n, maxV){
+  var a = [], i, base = total / n;
+  for(i=0;i<n;i++) a.push(base);
+  var moves = 3 + ri(n*2);
+  for(var k=0;k<moves;k++){
+    var x = ri(n), y = ri(n);
+    if(x === y) continue;
+    if(a[x] > 0 && a[y] < maxV){ a[x]--; a[y]++; }
+  }
+  var flat = true;
+  for(i=1;i<n;i++) if(a[i] !== a[0]) flat = false;
+  if(flat && n >= 2 && a[0] > 0 && a[1] < maxV){ a[0]--; a[1]++; }
+  return a;
+}
+
+// ─────────── 오답(오개념 역산) 만들기 ───────────
+/**
+ * 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.
+ * cands 각 항목은 { v, mis } 로, mis 가 어떤 오개념을 역산한 값인지 남긴다.
+ */
+function buildNumChoices(correct, cands, want, lo, hi){
+  var picked = [{ v:correct, mis:null, correct:true }];
+  var seen = {}; seen[correct] = 1;
+  for(var i=0;i<cands.length && picked.length<want;i++){
+    var c = cands[i];
+    if(c.v === correct) continue;                 // 정답 제거
+    if(!(c.v >= lo && c.v <= hi)) continue;       // 범위 검사
+    if(seen[c.v]) continue;                       // 중복 제거
+    seen[c.v] = 1;
+    picked.push({ v:c.v, mis:c.mis, correct:false });
+  }
+  var d = 1;
+  while(picked.length < want && d < 40){          // 부족분 보충(합 계산 실수 = ±1, ±2)
+    var opts = [correct+d, correct-d];
+    for(var k=0;k<opts.length && picked.length<want;k++){
+      var v = opts[k];
+      if(v < lo || v > hi || seen[v]) continue;
+      seen[v] = 1;
+      picked.push({ v:v, mis:'sum-slip', correct:false });
+    }
+    d++;
+  }
+  return shuffle(picked);
+}
+
+// ─────────── 라운드(문제) 생성기 ───────────
+/** 평균 라운드. variant 별로 레인 배열·정답·오답을 함께 만든다(문장과 정답이 한 모델에서 나온다). */
+function makeMeanRound(variant){
+  var st = { type:'mean', variant:variant, lanes:[], fixed:[], reserve:0, raft:null,
+             mean:0, target:0, prompt:'', unitConcept:'평균', choices:[], answer:0, note:'' };
+  if(variant === 'basic' || variant === 'zero' || variant === 'median'){
+    var v = draw(variant) || [3,1,2];
+    var lanes = v.slice(), n = lanes.length, s = sumOf(lanes), mean = s/n;
+    st.lanes = lanes; st.mean = mean; st.target = mean;
+    st.fixed = lanes.map(function(){ return false; });
+    st.prompt = '킥판이 ' + lanes.join('·') + '장 있어요. 고르게 나누면 한 레인에 몇 장?';
+    st.answer = mean;
+    var zeroCount = 0; for(var i=0;i<n;i++) if(lanes[i]===0) zeroCount++;
+    var cands = [];
+    if(zeroCount > 0 && (s % (n - zeroCount) === 0))
+      cands.push({ v:s/(n-zeroCount), mis:'zero-excluded' });   // 0인 레인을 자료 수에서 뺌
+    var md = medianOf(lanes);
+    if(md >= 0) cands.push({ v:md, mis:'median-as-mean' });     // 가운데 값이 평균이라고 생각
+    cands.push({ v:maxOf(lanes), mis:'max-as-mean' });          // 가장 큰 값이 대표값이라고 생각
+    var mid = maxOf(lanes) + minOf(lanes);
+    if(mid % 2 === 0) cands.push({ v:mid/2, mis:'midrange-as-mean' });
+    st.choices = buildNumChoices(mean, cands, 4, 0, 20);
+    st.note = zeroCount > 0 ? '빈 레인도 자료 하나예요. ' + MEAN_CONTRACT : MEAN_CONTRACT;
+    st.unitConcept = zeroCount > 0 ? '0이 있는 자료의 평균' : '평균 = 자료 값의 합 ÷ 자료의 수';
+  } else if(variant === 'missing'){
+    var d = draw('missing') || { M:5, known:[4,5,6,3] };
+    var M = d.M, known = d.known.slice();
+    var sk = sumOf(known), miss = 5*M - sk;
+    st.lanes = known.concat([0]);
+    st.fixed = [true,true,true,true,false];
+    st.reserve = miss + 3 + ri(3);
+    st.mean = M; st.target = M;
+    st.prompt = '평균이 ' + M + '장이 되게 해요. ' + known.join('·') + '장이 있고 빈 레인 하나. 빈 레인에 몇 장?';
+    st.answer = miss;
+    st.choices = buildNumChoices(miss, [
+      { v: 4*M - sk, mis:'zero-excluded' },     // 빈 레인을 자료 수에서 뺌
+      { v: M,        mis:'mean-is-a-value' },   // 평균값 자체를 답으로 씀
+      { v: sk - 4*M, mis:'sum-reversed' }
+    ], 4, 0, 20);
+    st.note = '빈 레인도 자료 하나예요. 자료는 모두 5개! ' + MEAN_CONTRACT;
+    st.unitConcept = '평균을 이용해 빠진 자료 구하기';
+  } else { // tworaft
+    var t = draw('tworaft') || { nA:2, nB:4, mA:8, mB:2, mean:4, trap:5 };
+    var A = splitSum(t.nA*t.mA, t.nA, 12), B = splitSum(t.nB*t.mB, t.nB, 12);
+    st.lanes = A.concat(B);
+    st.fixed = st.lanes.map(function(){ return false; });
+    st.raft = []; var q;
+    for(q=0;q<t.nA;q++) st.raft.push(0);
+    for(q=0;q<t.nB;q++) st.raft.push(1);
+    st.raftInfo = { nA:t.nA, nB:t.nB, mA:t.mA, mB:t.mB };
+    st.mean = t.mean; st.target = t.mean;
+    st.prompt = '가 뗏목 ' + t.nA + '칸 평균 ' + t.mA + '장, 나 뗏목 ' + t.nB + '칸 평균 ' + t.mB + '장. 두 뗏목을 합치면 평균 몇 장?';
+    st.answer = t.mean;
+    st.choices = buildNumChoices(t.mean, [
+      { v:t.trap, mis:'unweighted-mean-of-means' },   // 두 평균을 다시 평균냄
+      { v:t.mA,   mis:'mean-is-a-value' },
+      { v:t.mB,   mis:'mean-is-a-value' }
+    ], 4, 0, 20);
+    st.note = '칸 수가 다르면 두 평균의 가운데가 전체 평균이 아니에요. ' + MEAN_CONTRACT;
+    st.unitConcept = '자료 수가 다른 두 집단의 평균';
+  }
+  return st;
+}
+
+/**
+ * 가능성 라운드.
+ *  ask='A' 면 산호 매트, 'B' 면 코발트 매트에 앉을 가능성을 묻는다.
+ *  streak=true 면 앞 4마리를 묻는 매트로 고정해 '앞 결과가 다음을 바꾼다'는 오개념을 시험한다.
+ */
+function makeChanceRound(pair, streak, ask){
+  var wA = pair.wA, wB = pair.wB, W = pair.W;
+  ask = (ask === 'B') ? 'B' : 'A';
+  var wAsk = (ask === 'A') ? wA : wB;
+  var name = (ask === 'A') ? '산호' : '코발트';
+  streak = !!streak;
+  if(streak && (wAsk === 0 || wAsk === W)) streak = false;
+  var b = bandOf(wAsk, W);
+  var shortQ = streak
+    ? ('산호 폭 ' + wA + ', 코발트 폭 ' + wB + '인데 ' + name + '에 네 번 연속 앉았어요. 다음 오리가 ' + name + ' 매트에 앉을 가능성은?')
+    : ('산호 매트 폭 ' + wA + ', 코발트 매트 폭 ' + wB + '. 오리가 ' + name + ' 매트에 앉을 가능성은?');
+  return {
+    type:'chance', wA:wA, wB:wB, W:W, ask:ask, wAsk:wAsk, askName:name,
+    band:b, trials:12, theory: theoryCount(wAsk, W, 12), streak: !!streak,
+    model: CHANCE_MODEL,
+    prompt: CHANCE_MODEL + ' ' + shortQ,
+    shortPrompt: shortQ,
+    unitConcept: streak ? '앞의 결과는 다음 가능성을 바꾸지 않는다' : '가능성을 말과 수로 나타내기',
+    answer: BANDS[b].word
+  };
+}
+
+/** 표본 추출용: 가능성 문제의 선택지(밴드 5개, 중복 없음)와 오개념 표시 */
+function chanceChoices(st){
+  var out = [];
+  for(var i=0;i<BANDS.length;i++){
+    var id = BANDS[i].id, mis = null;
+    if(id !== st.band){
+      if(st.streak) mis = 'gamblers-fallacy';                      // 많이 나왔으니 이번엔 반대쪽
+      else if(id === 2) mis = 'two-outcomes-so-half';              // 칸이 두 개니까 반반
+      else if(id === 0 || id === 4) mis = 'width-means-certain';   // 폭이 넓으면(좁으면) 무조건 확실(불가능)
+      else mis = 'wrong-side';                                     // 넓은 쪽/좁은 쪽을 뒤집어 읽음
+    }
+    out.push({ word:BANDS[i].word, mis:mis, correct:id === st.band });
+  }
+  return out;
+}
+
+/** '왜?' 보너스 문제 — 오개념 문장을 그대로 오답으로 쓴다. */
+function makeReason(st){
+  if(st.type === 'chance'){
+    if(st.streak) return {
+      prompt:'왜 그렇게 생각했나요?',
+      opts:[
+        { t:'매트 폭이 그대로라서 가능성도 그대로예요.', ok:true },
+        { t:'네 번이나 나왔으니 이번엔 반대쪽 차례예요.', ok:false, mis:'gamblers-fallacy' },
+        { t:'오리가 ' + st.askName + '을 좋아해서 계속 거기예요.', ok:false, mis:'outcome-preference' }
+      ]
+    };
+    if(st.band === 1 || st.band === 3) return {
+      prompt:'왜 반반이 아닐까요?',
+      opts:[
+        { t:'두 매트의 폭이 서로 달라서요.', ok:true },
+        { t:'앉을 곳이 두 군데니까 반반이에요.', ok:false, mis:'two-outcomes-so-half' },
+        { t:'오리가 12마리라서요.', ok:false, mis:'irrelevant-count' }
+      ]
+    };
+    return null;
+  }
+  if(st.variant === 'zero') return {
+    prompt:'빈 레인은 어떻게 셀까요?',
+    opts:[
+      { t:'빈 레인도 자료 하나라서 그대로 세요.', ok:true },
+      { t:'빈 레인은 자료가 없으니 빼고 세요.', ok:false, mis:'zero-excluded' },
+      { t:'빈 레인은 두 번 세요.', ok:false, mis:'double-count' }
+    ]
+  };
+  if(st.variant === 'median') return {
+    prompt:'가운데 탑 높이가 평균일까요?',
+    opts:[
+      { t:'아니요. 고르게 나눈 높이가 평균이에요.', ok:true },
+      { t:'네. 가운데 탑이 대표니까 평균이에요.', ok:false, mis:'median-as-mean' },
+      { t:'네. 가장 높은 탑이 평균이에요.', ok:false, mis:'max-as-mean' }
+    ]
+  };
+  if(st.variant === 'tworaft') return {
+    prompt:'왜 두 평균의 가운데가 아닐까요?',
+    opts:[
+      { t:'뗏목마다 칸 수가 달라서요.', ok:true },
+      { t:'두 평균을 더해 2로 나누면 되니까요.', ok:false, mis:'unweighted-mean-of-means' },
+      { t:'큰 평균만 보면 되니까요.', ok:false, mis:'max-as-mean' }
+    ]
+  };
+  return null;
+}
+
+/** QA·검산용 표본. 게임 진행과 무관하게 생성기에서만 뽑는다. */
+function sampleProblems(n){
+  n = Math.max(1, n|0);
+  var out = [], variants = ['basic','zero','median','missing','tworaft'];
+  var pairs = shuffle(allWidthPairs().filter(function(p){ return p.W >= 2; }));
+  var pi = 0;
+  for(var i=0;i<n;i++){
+    if(i % 2 === 0){
+      var st = makeMeanRound(variants[(i>>1) % variants.length]);
+      out.push({
+        id:'m' + i,
+        prompt: st.prompt,
+        choices: st.choices.map(function(c){ return String(c.v) + '장'; }),
+        answer: String(st.answer) + '장',
+        answerNumeric: st.answer,
+        unitConcept: st.unitConcept,
+        misconceptions: st.choices.filter(function(c){ return c.mis; }).map(function(c){ return c.mis; })
+      });
+    } else {
+      if(pi >= pairs.length){ shuffle(pairs); pi = 0; }
+      var pr = pairs[pi++];
+      var cs = makeChanceRound(pr, (i % 7 === 3), (i % 4 === 1) ? 'B' : 'A');
+      var ch = chanceChoices(cs);
+      out.push({
+        id:'c' + i,
+        prompt: cs.prompt,
+        choices: ch.map(function(c){ return c.word; }),
+        answer: cs.answer,
+        answerNumeric: cs.W ? (cs.wAsk / cs.W) : 0,
+        unitConcept: cs.unitConcept,
+        misconceptions: ch.filter(function(c){ return c.mis; }).map(function(c){ return c.mis; })
+      });
+    }
+  }
+  return out;
+}
+//---MATH-CORE-END---
+
+//═══════════════════════════════════════════════════════════════════
+//  게임 엔진
+//═══════════════════════════════════════════════════════════════════
+
+var $ = function(id){ return document.getElementById(id); };
+var cv = $('cv'), ctx = cv.getContext('2d', { alpha:false });
+var elHud = $('hud'), elPanel = $('panel'), elPTitle = $('pTitle'), elPSub = $('pSub'),
+    elChoices = $('pChoices'), elAction = $('pAction'),
+    elLives = $('cLives'), elScore = $('cScore'), elRound = $('cRound'), elCombo = $('cCombo'),
+    elTitle = $('title'), elOver = $('over'), elOnb = $('onb');
+
+var REDUCED = false;
+try { REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+var LS = {
+  get: function(k, d){ try { var v = localStorage.getItem('splashflat.' + k); return v === null ? d : v; } catch(e){ return d; } },
+  set: function(k, v){ try { localStorage.setItem('splashflat.' + k, String(v)); } catch(e){} }
+};
+
+var S = {
+  phase:'title', step:'', round:0, score:0, shownScore:0, lives:3, maxLives:3,
+  combo:0, bestCombo:0, solved:0, locks:0, mode:'easy', streakOK:0,
+  muted:false, shake:0, shakeSeed:0, flash:0, flashCol:'255,255,255', hitStop:0,
+  stage:null, t:0, over:false
+};
+
+// ─────────── 오디오 (사용자 제스처 이후에만) ───────────
+var AC = null, masterGain = null;
+function audioOn(){
+  if(AC || S.muted) return;
+  try {
+    var Ctor = window.AudioContext || window.webkitAudioContext;
+    if(!Ctor) return;
+    AC = new Ctor();
+    masterGain = AC.createGain();
+    masterGain.gain.value = 0.5;
+    masterGain.connect(AC.destination);
+  } catch(e){ AC = null; }
+  if(AC && AC.state === 'suspended') AC.resume().catch(function(){});
+}
+function tone(freq, dur, type, vol, slideTo, delay){
+  if(!AC || S.muted) return;
+  try {
+    var t0 = AC.currentTime + (delay || 0);
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t0);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol || .22, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(masterGain);
+    o.start(t0); o.stop(t0 + dur + .04);
+  } catch(e){}
+}
+function noise(dur, vol, hz){
+  if(!AC || S.muted) return;
+  try {
+    var n = Math.floor(AC.sampleRate * dur);
+    var buf = AC.createBuffer(1, n, AC.sampleRate), d = buf.getChannelData(0);
+    for(var i=0;i<n;i++) d[i] = (Math.random()*2-1) * (1 - i/n);
+    var src = AC.createBufferSource(); src.buffer = buf;
+    var f = AC.createBiquadFilter(); f.type='bandpass'; f.frequency.value = hz || 900; f.Q.value = .8;
+    var g = AC.createGain(); g.gain.value = vol || .18;
+    src.connect(f); f.connect(g); g.connect(masterGain);
+    src.start();
+  } catch(e){}
+}
+var SFX = {
+  pick:  function(){ tone(520, .08, 'triangle', .16, 700); },
+  drop:  function(){ tone(300, .14, 'sine', .20, 180); noise(.10, .10, 700); },
+  bad:   function(){ tone(190, .26, 'sawtooth', .16, 110); noise(.18, .12, 320); },
+  duck:  function(){ tone(680, .09, 'square', .10, 520); },
+  splash:function(){ noise(.22, .16, 1500); },
+  good:  function(c){ var b = 523.25 * Math.pow(1.0595, Math.min(12, (c||0)*2));
+                      tone(b, .12, 'triangle', .20); tone(b*1.5, .16, 'sine', .14, null, .07); },
+  lock:  function(){ [523.25,659.25,783.99,1046.5].forEach(function(f,i){ tone(f, .28, 'sine', .18, null, i*.075); });
+                     noise(.5, .14, 600); },
+  star:  function(){ tone(1318, .12, 'sine', .16); tone(1760, .18, 'sine', .12, null, .07); },
+  over:  function(){ [392,330,262].forEach(function(f,i){ tone(f, .3, 'triangle', .18, null, i*.14); }); }
+};
+
+// ─────────── 스프라이트 ───────────
+var IMG = { hero:null, duck:null };
+var duckCanvas = { coral:null, cobalt:null, size:0 };
+function loadImg(src, key, done){
+  var im = new Image();
+  im.onload = function(){ IMG[key] = im; duckCanvas.size = 0; if(done) done(); };
+  im.onerror = function(){ IMG[key] = null; };   // 폴백: 코드 드로잉
+  im.src = src;
+}
+loadImg('./assets/hero.png', 'hero');
+loadImg('./assets/duck.png', 'duck');
+loadImg('./assets/bg.png', 'bg', function(){ if(LO.deckY) buildBG(); });
+
+/** 오리 스프라이트를 필요한 크기로 한 번만 구워 둔다(소프트웨어 렌더링 대비). */
+function duckSprite(kind, size){
+  size = Math.max(12, Math.round(size));
+  if(duckCanvas.size !== size){
+    duckCanvas.size = size;
+    ['coral','cobalt'].forEach(function(k){
+      var c = document.createElement('canvas');
+      c.width = size; c.height = size;
+      var g = c.getContext('2d');
+      if(IMG.duck) g.drawImage(IMG.duck, 0, 0, size, size);
+      else drawDuckShape(g, size);
+      if(k === 'cobalt'){
+        var tinted = document.createElement('canvas');
+        tinted.width = size; tinted.height = size;
+        var tg = tinted.getContext('2d');
+        var okFilter = false;
+        try { tg.filter = 'hue-rotate(178deg) saturate(1.25) brightness(1.05)'; okFilter = (tg.filter !== 'none'); } catch(e){}
+        if(okFilter){
+          tg.drawImage(c, 0, 0);
+          g.clearRect(0,0,size,size);
+          g.drawImage(tinted, 0, 0);
+        } else {
+          g.globalCompositeOperation = 'source-atop';
+          g.fillStyle = 'rgba(46,140,190,.72)';
+          g.fillRect(0,0,size,size);
+          g.globalCompositeOperation = 'source-over';
+        }
+      }
+      duckCanvas[k] = c;
+    });
+  }
+  return duckCanvas[kind] || duckCanvas.coral;
+}
+function drawDuckShape(g, s){
+  var u = s/100;
+  g.save();
+  g.lineWidth = 3*u; g.strokeStyle = '#2C3A42';
+  g.fillStyle = '#FF6B3D';
+  g.beginPath(); g.ellipse(50*u, 66*u, 34*u, 26*u, 0, 0, 6.284); g.fill(); g.stroke();
+  g.beginPath(); g.arc(64*u, 34*u, 20*u, 0, 6.284); g.fill(); g.stroke();
+  g.fillStyle = '#FFD60A';
+  g.beginPath(); g.moveTo(80*u,32*u); g.lineTo(97*u,39*u); g.lineTo(80*u,45*u); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#2C3A42';
+  g.beginPath(); g.arc(70*u, 29*u, 4.4*u, 0, 6.284); g.fill();
+  g.restore();
+}
+function drawHero(g, x, y, size, bob){
+  var s = size;
+  if(IMG.hero){ g.drawImage(IMG.hero, x - s/2, y - s + bob, s, s); return; }
+  g.save();
+  g.translate(x, y - s/2 + bob);
+  g.lineWidth = Math.max(2, s*0.05); g.strokeStyle = '#2C3A42';
+  g.fillStyle = '#FF3B30';
+  g.beginPath(); g.arc(0, 0, s*0.42, 0, 6.284); g.fill(); g.stroke();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, s*0.17, 0, 6.284); g.fill(); g.stroke();
+  g.fillStyle = '#2C3A42';
+  g.beginPath(); g.arc(-s*0.15, -s*0.16, s*0.045, 0, 6.284); g.fill();
+  g.beginPath(); g.arc(s*0.15, -s*0.16, s*0.045, 0, 6.284); g.fill();
+  g.restore();
+}
+
+// ─────────── 레이아웃 ───────────
+var DPR = 1, VW = 390, VH = 844, LO = {};
+function resize(){
+  VW = cv.clientWidth || window.innerWidth;
+  VH = cv.clientHeight || window.innerHeight;
+  DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+  cv.width = Math.round(VW * DPR);
+  cv.height = Math.round(VH * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  var hudH = (elHud.offsetHeight || 56);
+  var panH = (elPanel.offsetHeight || 150);
+  var fw = Math.min(VW - 16, 560);
+  LO = {
+    w: VW, h: VH,
+    fx: (VW - fw)/2, fw: fw,
+    top: hudH + 8,
+    bot: VH - panH - 6
+  };
+  LO.deckY = LO.bot - 16;              // 풀 바닥(킥판이 서는 곳)
+  LO.ceilMin = LO.top + 62;            // 마스코트·말풍선 띠 아래가 풀 입구
+  LO.ceil = LO.ceilMin;
+  if(S.deckWant && S.ceilWant){
+    var avail = LO.deckY - LO.ceilMin;
+    var want = S.deckWant - S.ceilWant;
+    var box = Math.min(avail, Math.max(160, want));
+    var slack = Math.max(0, avail - box);
+    var k = (S.stage && S.stage.type === 'chance') ? 0.14 : 0.20;
+    LO.ceil = LO.ceilMin + slack * k;
+    LO.deckY = LO.ceil + box;
+  } else if(S.ceilWant){
+    LO.ceil = Math.max(LO.ceilMin, Math.min(LO.deckY - 170, S.ceilWant));
+  }
+  if(LO.deckY - LO.ceil < 160) LO.ceil = Math.max(LO.top, LO.deckY - 160);
+  buildBG();
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', function(){ setTimeout(resize, 120); });
+
+// ─────────── 배경 프리렌더 ───────────
+var bgCv = null;
+function buildBG(){
+  if(!bgCv) bgCv = document.createElement('canvas');
+  bgCv.width = Math.round(VW * DPR); bgCv.height = Math.round(VH * DPR);
+  var g = bgCv.getContext('2d');
+  g.setTransform(DPR,0,0,DPR,0,0);
+  var W = VW, H = VH;
+  // 벽: 흰 자기 타일
+  var wall = g.createLinearGradient(0,0,0,LO.deckY);
+  wall.addColorStop(0,'#F7FAFC'); wall.addColorStop(.62,'#E4EDF2'); wall.addColorStop(1,'#CBDCE5');
+  g.fillStyle = wall; g.fillRect(0,0,W,H);
+  var ts = Math.max(34, Math.round(W/9));
+  g.strokeStyle = 'rgba(120,155,175,.30)'; g.lineWidth = 1;
+  for(var x=0;x<=W+ts;x+=ts){ g.beginPath(); g.moveTo(x+.5,0); g.lineTo(x+.5,LO.deckY); g.stroke(); }
+  for(var y=0;y<=LO.deckY+ts;y+=ts){ g.beginPath(); g.moveTo(0,y+.5); g.lineTo(W,y+.5); g.stroke(); }
+  // 실내 수영장 배경 아트를 상단에 깔아 빈 벽을 채운다 (없으면 위의 타일 그라디언트가 폴백)
+  if(IMG.bg){
+    var dh = LO.ceil - 6, dw = W;
+    var sxw = IMG.bg.width, syh = Math.round(IMG.bg.height * 0.66);   // 물 시작 전까지만 사용
+    var scale = Math.max(dw / sxw, dh / syh);
+    var cw = dw / scale, ch = dh / scale;                              // 잘라낼 원본 크기
+    var sx = (sxw - cw) / 2, sy = Math.max(0, (syh - ch) * 0.72);
+    g.save();
+    g.beginPath(); g.rect(0, 0, dw, dh); g.clip();
+    g.drawImage(IMG.bg, sx, sy, cw, ch, 0, 0, dw, dh);
+    var fade = g.createLinearGradient(0, dh - 90, 0, dh);
+    fade.addColorStop(0, 'rgba(236,243,247,0)'); fade.addColorStop(1, 'rgba(236,243,247,.95)');
+    g.fillStyle = fade; g.fillRect(0, dh - 90, dw, 90);
+    g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(0, 0, dw, dh);
+    g.restore();
+  }
+  // 창으로 들어오는 정오 빛
+  g.save();
+  g.globalAlpha = .5;
+  var lg = g.createLinearGradient(0,0,W*.75,LO.deckY);
+  lg.addColorStop(0,'rgba(255,255,255,.95)'); lg.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle = lg;
+  g.beginPath(); g.moveTo(-40,0); g.lineTo(W*.42,0); g.lineTo(W*.16,LO.deckY); g.lineTo(-40,LO.deckY); g.closePath(); g.fill();
+  g.restore();
+  // 수영장 내부: 물 위쪽은 밝은 자기 타일 벽이 보인다
+  var px = LO.fx-6, pw = LO.fw+12, py = LO.ceil-10, ph = (LO.deckY+18) - (LO.ceil-10);
+  var pool = g.createLinearGradient(0, py, 0, LO.deckY+18);
+  pool.addColorStop(0,'#F2F8FB'); pool.addColorStop(.62,'#DCEBF2'); pool.addColorStop(1,'#BFD8E4');
+  g.save();
+  rr(g, px, py, pw, ph, 16); g.clip();
+  g.fillStyle = pool; g.fillRect(px, py, pw, ph);
+  // 내부 타일 격자
+  g.strokeStyle = 'rgba(120,160,180,.26)'; g.lineWidth = 1;
+  var its = Math.max(30, Math.round(pw/8));
+  for(var ix=px; ix<=px+pw; ix+=its){ g.beginPath(); g.moveTo(ix+.5,py); g.lineTo(ix+.5,LO.deckY+18); g.stroke(); }
+  for(var iy=py; iy<=LO.deckY+18; iy+=its){ g.beginPath(); g.moveTo(px,iy+.5); g.lineTo(px+pw,iy+.5); g.stroke(); }
+  // 안쪽 그늘 (깊이감)
+  var sh2 = g.createLinearGradient(0, py, 0, py+50);
+  sh2.addColorStop(0,'rgba(60,100,125,.30)'); sh2.addColorStop(1,'rgba(60,100,125,0)');
+  g.fillStyle = sh2; g.fillRect(px, py, pw, 50);
+  var sh3 = g.createLinearGradient(px, 0, px+34, 0);
+  sh3.addColorStop(0,'rgba(60,100,125,.24)'); sh3.addColorStop(1,'rgba(60,100,125,0)');
+  g.fillStyle = sh3; g.fillRect(px, py, 34, ph);
+  g.restore();
+  g.strokeStyle = '#FFFFFF'; g.lineWidth = 4;
+  rr(g, px, py, pw, ph, 16); g.stroke();
+  g.strokeStyle = 'rgba(44,58,66,.20)'; g.lineWidth = 1.5;
+  rr(g, px, py, pw, ph, 16); g.stroke();
+  // 데크
+  g.fillStyle = '#DCE7EC';
+  g.fillRect(0, LO.deckY+18, W, H-(LO.deckY+18));
+  g.fillStyle = 'rgba(44,58,66,.12)';
+  g.fillRect(0, LO.deckY+18, W, 3);
+}
+
+function rr(g,x,y,w,h,r){
+  r = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+  g.beginPath();
+  g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
+}
+function label(g, txt, x, y, size, fill, align, strokeW){
+  g.save();
+  g.font = '900 ' + size + 'px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  g.textAlign = align || 'center'; g.textBaseline = 'middle';
+  if(strokeW !== 0){
+    g.lineWidth = strokeW || Math.max(3, size*0.20);
+    g.strokeStyle = 'rgba(10,32,46,.85)'; g.lineJoin = 'round';
+    g.strokeText(txt, x, y);
+  }
+  g.fillStyle = fill || '#fff';
+  g.fillText(txt, x, y);
+  g.restore();
+}
+function badge(g, txt, x, y, size, bgc, fg){
+  g.save();
+  g.font = '900 ' + size + 'px -apple-system,"Apple SD Gothic Neo",sans-serif';
+  var w = g.measureText(txt).width + size*0.9, h = size*1.55;
+  g.fillStyle = bgc || 'rgba(10,32,46,.86)';
+  rr(g, x-w/2, y-h/2, w, h, h*0.36); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.42)'; g.lineWidth = 2;
+  rr(g, x-w/2, y-h/2, w, h, h*0.36); g.stroke();
+  g.textAlign='center'; g.textBaseline='middle';
+  g.fillStyle = fg || '#fff';
+  g.fillText(txt, x, y+1);
+  g.restore();
+  return w;
+}
+
+// ─────────── 파티클 / 떠오르는 글자 ───────────
+var parts = [], texts = [], flyers = [], ripples = [];
+function burst(x, y, n, col, spread, up){
+  n = Math.min(n, 34);
+  for(var i=0;i<n;i++){
+    var a = -Math.PI/2 + (Math.random()-.5) * (spread || 2.2);
+    var sp = (up || 1) * (1.4 + Math.random()*3.0);
+    parts.push({ x:x, y:y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 1.2,
+                 r:2 + Math.random()*3.4, life:1, col:col || '255,255,255', g:0.14 });
+  }
+  if(parts.length > 200) parts.splice(0, parts.length - 200);
+}
+function floatText(x, y, txt, col, size){
+  texts.push({ x:x, y:y, txt:txt, col:col || '#FFD60A', size:size || 22, life:1 });
+  if(texts.length > 12) texts.shift();
+}
+function ripple(x, y, r0, col){ ripples.push({ x:x, y:y, r:r0 || 6, life:1, col:col || '255,255,255' }); }
+
+// ─────────── HUD ───────────
+function syncHUD(){
+  var h = '';
+  for(var i=0;i<S.maxLives;i++) h += (i < S.lives ? '❤' : '🤍');
+  elLives.textContent = h;
+  elRound.textContent = S.round + '판';
+  if(S.combo >= 2){ elCombo.classList.remove('hide'); elCombo.textContent = '🔥' + S.combo; }
+  else elCombo.classList.add('hide');
+}
+function addScore(n){ S.score += n; }
+
+// ─────────── 패널 ───────────
+var panelHandler = null;
+function setPanel(o){
+  elPTitle.textContent = o.title || '';
+  elPSub.textContent = o.sub || '';
+  elChoices.className = o.kind || '';
+  elChoices.innerHTML = '';
+  panelHandler = o.onPick || null;
+  if(o.options){
+    for(var i=0;i<o.options.length;i++){
+      var op = o.options[i];
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'opt' + (o.kind === 'reasons' ? ' reason' : '');
+      b.setAttribute('data-i', i);
+      if(op.top !== undefined){
+        var d0 = document.createElement('div'); d0.className = 'lbl top'; d0.textContent = op.top; b.appendChild(d0);
+      }
+      if(op.big !== undefined){
+        var d1 = document.createElement('div'); d1.className = 'big'; d1.textContent = op.big; b.appendChild(d1);
+      }
+      if(op.half){
+        var f = document.createElement('div'); f.className = 'big';
+        f.innerHTML = '<span class="frac"><b>1</b><i></i><b>2</b></span>';
+        b.appendChild(f);
+      }
+      if(op.sub !== undefined){
+        var d2 = document.createElement('div'); d2.className = 'lbl'; d2.textContent = op.sub; b.appendChild(d2);
+      }
+      elChoices.appendChild(b);
+    }
+  }
+  if(o.action){ elAction.textContent = o.action; elAction.classList.remove('hide'); }
+  else elAction.classList.add('hide');
+  elAction.onclick = o.onAction || null;
+  requestAnimationFrame(function(){ resizeSoon(); });
+}
+var resizeTimer = 0;
+function resizeSoon(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 30); }
+
+elChoices.addEventListener('click', function(e){
+  var b = e.target.closest ? e.target.closest('.opt') : null;
+  if(!b || !panelHandler) return;
+  audioOn();
+  panelHandler(parseInt(b.getAttribute('data-i'), 10), b);
+});
+function markChoice(idx, ok){
+  var kids = elChoices.children;
+  for(var i=0;i<kids.length;i++){
+    if(i === idx) kids[i].classList.add(ok ? 'ok' : 'no');
+    else kids[i].classList.add('dim');
+  }
+}
+function revealCorrect(idx){
+  var kids = elChoices.children;
+  if(kids[idx]){
+    kids[idx].classList.remove('dim');
+    kids[idx].classList.add('ok');
+    var m = document.createElement('span'); m.className = 'mark'; m.textContent = '✓';
+    kids[idx].appendChild(m);
+  }
+}
+function lockChoices(){ panelHandler = null; }
+
+// ─────────── 타이머 (라운드가 바뀌면 예약된 콜백은 버린다) ───────────
+var timers = [], GEN = 0;
+function after(sec, fn){ timers.push({ t:sec, fn:fn, gen:GEN }); }
+function clearTimers(){ timers.length = 0; GEN++; }
+function runTimers(dt){
+  for(var i=timers.length-1;i>=0;i--){
+    var T = timers[i];
+    if(T.gen !== GEN){ timers.splice(i,1); continue; }
+    T.t -= dt;
+    if(T.t <= 0){ timers.splice(i,1); if(T.gen === GEN) T.fn(); }
+  }
+}
+
+// ─────────── 점수·목숨 ───────────
+function scoreCorrect(base){
+  var gain = (base || 120) + S.combo * 20;
+  addScore(gain);
+  S.combo++; S.solved++;
+  if(S.combo > S.bestCombo) S.bestCombo = S.combo;
+  S.streakOK++;
+  if(S.mode === 'easy' && S.streakOK >= 2 && S.lives < S.maxLives){ S.streakOK = 0; S.lives++; }
+  SFX.good(S.combo);
+  S.flash = 0.5; S.flashCol = '255,240,180';           // color-flash (정답: 따뜻한 빛)
+  syncHUD();
+  return gain;
+}
+function scoreWrong(){
+  S.combo = 0; S.streakOK = 0;
+  S.lives = Math.max(0, S.lives - 1);
+  SFX.bad();
+  S.shake = 1;                                          // screen-shake: 오답 전용
+  S.flash = 0.34; S.flashCol = '255,90,80';
+  syncHUD();
+  if(S.lives <= 0){ clearTimers(); after(0.9, gameOver); }
+}
+function splashTilt(lane){
+  var st = S.stage;
+  if(!st) return;
+  st.tiltLane = lane;
+  st.tiltT = 1;
+  var x = laneX(lane), y = yOf(st.h[lane] || 0);
+  burst(x, LO.deckY - 6, 22, '180,230,255', 3.2);
+  burst(x, y, 10, '255,90,80', 2.4);
+  ripple(x, LO.deckY, 14, '200,240,255');
+  S.shake = Math.max(S.shake, 0.9);
+  floatText(x, y - 30, '들쭉날쭉해서 첨벙!', '#FFC4BE', 20);
+  SFX.splash();
+}
+/** 놓은 직후: 스프레드가 커지거나(평탄화) 빈 레인을 넘기면(빠진 값) 그 자리에서 들쭉날쭉. 아슬아슬만 하트 −1. */
+function judgeDrop(st, dest, spread0){
+  if(!st || st.locked || dest < 0) return;
+  if(isMeanDone(st)) return;
+  var worse = false;
+  if(st.variant === 'missing'){
+    worse = !st.fixed[dest] && st.h[dest] > st.answer;
+  } else {
+    var spread1 = maxOf(st.h) - minOf(st.h);
+    worse = spread1 > (spread0 === undefined ? spread1 : spread0);
+  }
+  if(!worse) return;
+  splashTilt(dest);
+  if(S.mode === 'hard') scoreWrong();
+}
+
+// ─────────── 라운드 편성 ───────────
+var MEAN_SEQ = ['basic','zero','median','missing','tworaft'];
+var CHANCE_SEQ = [
+  { wA:1, wB:1, W:2,  ask:'A' },
+  { wA:3, wB:1, W:4,  ask:'A' },
+  { wA:1, wB:3, W:4,  ask:'A' },
+  { wA:0, wB:3, W:3,  ask:'A' },
+  { wA:4, wB:2, W:6,  ask:'A', streak:true },
+  { wA:5, wB:1, W:6,  ask:'B' }
+];
+function planRound(r){
+  if(r % 2 === 1) return { kind:'mean', variant: MEAN_SEQ[(((r-1)/2) | 0) % MEAN_SEQ.length] };
+  var k = (r/2) - 1;
+  if(k < CHANCE_SEQ.length) return { kind:'chance', pair: CHANCE_SEQ[k] };
+  var list = allWidthPairs().filter(function(p){ return p.W >= 2; });
+  var p = list[ri(list.length)];
+  var ask = ri(2) ? 'B' : 'A';
+  var wAsk = (ask === 'A') ? p.wA : p.wB;
+  var streak = (ri(4) === 0) && (wAsk > 0 && wAsk < p.W);
+  return { kind:'chance', pair:{ wA:p.wA, wB:p.wB, W:p.W, ask:ask, streak:streak } };
+}
+
+function nextRound(){
+  if(S.over) return;
+  clearTimers();
+  S.round++;
+  syncHUD();
+  var plan = planRound(S.round);
+  if(plan.kind === 'mean') beginMean(plan.variant);
+  else beginChance(plan.pair);
+}
+
+// ─────────── 평균 라운드 ───────────
+function beginMean(variant){
+  var spec = makeMeanRound(variant);
+  var st = spec;
+  st.h = spec.lanes.slice();
+  st.wob = []; st.wobV = [];
+  for(var i=0;i<st.h.length;i++){ st.wob.push(0); st.wobV.push(0); }
+  st.water = minOf(st.h);
+  if(variant === 'missing') st.water = sumOf(st.h) / st.h.length;
+  st.locked = false;
+  st.merged = !st.raft;
+  st.gapExtra = st.raft ? 22 : 0;
+  st.raftLocked = [false, false];
+  st.predIdx = null; st.predOK = null; st.predLocked = false;
+  st.hintOK = false;
+  st.tiltLane = -1; st.tiltT = 0;
+  st.heroTick = null; st.hoverTick = null;
+  st.step = st.raft ? 'rafts' : 'predict';
+  S.stage = st;
+  resetHero();
+  applyStageCeil();
+  if(st.step === 'rafts') panelAct();
+  else panelPredict();
+}
+function meanTickMax(st){
+  if(!st) return 8;
+  var mx = Math.max(maxOf(st.h), st.target || 0, st.answer || 0, 6);
+  if(st.choices) for(var i=0;i<st.choices.length;i++) if(st.choices[i].v > mx) mx = st.choices[i].v;
+  return Math.min(14, mx + 1);
+}
+function tickStandPos(v){
+  return { x: LO.fx + LO.fw - Math.max(28, Math.min(46, LO.fw * 0.08)), y: yOf(v) };
+}
+function panelPredict(){
+  var st = S.stage;
+  st.predVal = null;
+  st.predLocked = false;
+  st.heroTick = null;
+  st.hoverTick = null;
+  setPanel({
+    title: st.prompt,
+    sub: MEAN_CONTRACT + ' · 눈금을 눌러 그 높이에 서 봐요.',
+    kind: '',
+    options: null
+  });
+}
+function lockMeanPredict(val){
+  var st = S.stage;
+  if(!st || st.predLocked) return;
+  st.predLocked = true;
+  st.predIdx = val;
+  st.predVal = val;
+  st.predOK = (val === st.answer);
+  if(st.predOK){
+    var g = scoreCorrect(120);
+    floatText(tickStandPos(val).x, tickStandPos(val).y - 36, '+' + g, '#FFD60A', 30);
+    burst(tickStandPos(val).x, tickStandPos(val).y - 10, 14 + S.combo*3, '255,214,10', 2.6);
+    elPSub.textContent = '좋아요! 이제 진짜로 옮겨서 확인해요.';
+  } else {
+    scoreWrong();
+    elPSub.textContent = '평균은 ' + st.answer + '장이에요. 옮겨 보면 보여요.';
+    floatText(tickStandPos(st.answer).x, tickStandPos(st.answer).y - 28, '여기 ' + st.answer + '장', '#7CFF6B', 18);
+  }
+  after(1.15, function(){
+    hero.inPool = false;
+    hero.walking = false;
+    if(st.step === 'predict'){ st.step = 'act'; panelAct(); }
+    else if(st.step === 'predict2'){ startMerge(); }
+  });
+}
+function panelAct(){
+  var st = S.stage;
+  hero.inPool = false;
+  hero.walking = false;
+  var title, sub;
+  if(st.step === 'rafts') { title = '먼저 뗏목마다 고르게!'; sub = '같은 뗏목 안에서만 옮길 수 있어요. ' + MEAN_CONTRACT; }
+  else if(st.variant === 'missing'){ title = '여분에서 빈 레인으로 올려요'; sub = '탑 아래쪽을 집으면 여러 장이 한꺼번에 올라가요. 평균이 ' + st.target + '장이 되면 수면이 잠겨요.'; }
+  else { title = '높은 탑에서 집어 낮은 탑에 놓아요'; sub = st.note + (S.mode === 'hard' ? ' · 삐끗하면 들쭉날쭉해서 첨벙!' : ''); }
+  setPanel({ title: title, sub: sub, kind: '', options: null });
+}
+function checkLock(){
+  var st = S.stage;
+  if(!st || st.type !== 'mean' || st.locked) return;
+  if(st.step === 'rafts'){
+    for(var r=0;r<2;r++){
+      if(st.raftLocked[r]) continue;
+      var vals = [];
+      for(var i=0;i<st.h.length;i++) if(st.raft[i] === r) vals.push(st.h[i]);
+      if(maxOf(vals) === minOf(vals)){
+        st.raftLocked[r] = true;
+        SFX.lock();
+        var gy = LO.fx + LO.fw * (r === 0 ? 0.28 : 0.72);
+        floatText(gy, LO.ceil + 70, (r === 0 ? '가' : '나') + ' 뗏목 평균 ' + vals[0], '#8FE3FF', 22);
+        burst(gy, LO.deckY - vals[0] * slabH() - 10, 16, '143,227,255', 2.4);
+        addScore(40);
+      }
+    }
+    if(st.raftLocked[0] && st.raftLocked[1]){
+      st.step = 'predict2';
+      after(0.7, function(){ panelPredict(); });
+    }
+    return;
+  }
+  if(isMeanDone(st)) doLock();
+}
+function isMeanDone(st){
+  if(!st || st.type !== 'mean') return false;
+  if(st.step === 'rafts') return false;
+  if(st.variant === 'missing'){
+    var empty = -1, othersOK = true, i;
+    for(i=0;i<st.h.length;i++){
+      if(st.fixed[i]){ if(st.h[i] !== st.lanes[i]) othersOK = false; }
+      else empty = i;
+    }
+    return othersOK && empty >= 0 && st.h[empty] === st.answer;
+  }
+  return maxOf(st.h) === minOf(st.h);
+}
+function doLock(){
+  var st = S.stage;
+  st.locked = true;
+  st.step = 'locked';
+  S.locks++;
+  addScore(60);
+  S.hitStop = 0.08;                                   // hit-stop
+  S.flash = 0.62; S.flashCol = '255,255,255';
+  SFX.lock();
+  var y = LO.deckY - st.target * slabH();
+  ripple(LO.fx + LO.fw/2, y, 10, '255,255,255');
+  for(var i=0;i<st.h.length;i++){
+    st.wobV[i] = -1.9;                                 // 한 위상으로 출렁
+    burst(laneX(i), y - 6, 10 + S.combo*2, '255,255,255', 2.0);
+  }
+  floatText(LO.fx + LO.fw/2, y - 74, '수면 잠금!', '#FFF3B0', 28);
+  var extra = '';
+  if(st.variant === 'zero') extra = '빈 레인도 세었어요 → ' + sumOf(st.lanes) + ' ÷ ' + st.h.length + ' = ' + st.target;
+  else if(st.variant === 'median') extra = '가운데 탑 높이(' + medianOf(st.lanes) + ')와 평균(' + st.target + ')은 달라요.';
+  else if(st.variant === 'tworaft') extra = '두 평균의 가운데가 아니라 ' + sumOf(st.lanes) + ' ÷ ' + st.h.length + ' = ' + st.target;
+  else if(st.variant === 'missing') extra = '빈 레인 ' + st.answer + '장 → 합 ' + (st.h.length*st.target) + ' ÷ ' + st.h.length + ' = ' + st.target;
+  else extra = sumOf(st.lanes) + ' ÷ ' + st.h.length + ' = ' + st.target;
+  setPanel({ title: '평평! 평균은 ' + st.target + '장', sub: extra, kind:'', options:null });
+  after(1.5, function(){ afterMeanLock(); });
+}
+function afterMeanLock(){
+  var st = S.stage;
+  var rq = makeReason(st);
+  if(rq && !st.reasonDone){ askReason(rq); }
+  else nextRound();
+}
+function startMerge(){
+  var st = S.stage;
+  st.step = 'merge';
+  SFX.drop();
+  setPanel({ title: '두 뗏목을 하나로!', sub: '이제 여섯 칸을 한 수면으로 고르게 만들어요.', kind:'', options:null });
+  after(0.9, function(){
+    st.merged = true;
+    st.step = 'act';
+    st.raftLocked = [false, false];
+    panelAct();
+  });
+}
+
+// ─────────── 이유(보너스) 문제 ───────────
+function askReason(rq){
+  var st = S.stage;
+  st.reasonDone = true;
+  var opts = shuffle(rq.opts.slice());
+  setPanel({
+    title: rq.prompt,
+    sub: '맞히면 별 보너스!',
+    kind: 'reasons',
+    options: opts.map(function(o){ return { sub:o.t }; }),
+    onPick: function(i){
+      lockChoices();
+      var ok = !!opts[i].ok;
+      markChoice(i, ok);
+      if(ok){
+        addScore(80);
+        SFX.star();
+        floatText(LO.fx + LO.fw/2, LO.ceil + 90, '보너스 +80', '#FFD60A', 26);
+        burst(LO.fx + LO.fw/2, LO.ceil + 100, 18, '255,214,10', 2.6);
+        elPSub.textContent = '정확해요!';
+      } else {
+        for(var k=0;k<opts.length;k++) if(opts[k].ok) revealCorrect(k);
+        SFX.bad();
+        S.shake = 0.6;
+        elPSub.textContent = '이 설명을 기억해요.';
+      }
+      after(1.5, nextRound);
+    }
+  });
+}
+
+// ─────────── 가능성 라운드 ───────────
+function beginChance(pair){
+  var st = makeChanceRound(pair, pair.streak, pair.ask);
+  st.landed = [];     // { mat:0|1, i:인덱스 }
+  st.falling = [];
+  st.spawned = 0;
+  st.hits = 0;
+  st.predIdx = null; st.predOK = null; st.predLocked = false;
+  st.chosenBand = null;
+  st.nextT = 0;
+  st.step = st.streak ? 'pre' : 'predict';
+  st.preLeft = st.streak ? 4 : 0;
+  st.forceMat = (st.ask === 'A') ? 0 : 1;
+  S.stage = st;
+  resetHero();
+  applyStageCeil();
+  if(st.streak){
+    setPanel({ title:'잘 봐요! 오리 네 마리가 떨어져요',
+      sub: CHANCE_MODEL + ' 폭 ' + st.wA + ' 대 ' + st.wB + ' 매트예요.', kind:'', options:null });
+    st.nextT = 0.35;
+  } else {
+    panelChancePredict();
+  }
+}
+function chanceWhy(st){
+  if(st.wAsk === 0) return '폭이 0이라 앉을 수 없어요 → 불가능(0)';
+  if(st.wAsk === st.W) return '매트가 전부라서 반드시 앉아요 → 확실(1)';
+  if(st.wAsk * 2 === st.W) return '두 폭이 같아요 → 반반(' + HALF + ')';
+  if(st.wAsk * 2 > st.W) return '폭 ' + st.wAsk + '칸이 전체 ' + st.W + '칸의 반보다 넓어요 → 일 것 같다';
+  return '폭 ' + st.wAsk + '칸이 전체 ' + st.W + '칸의 반보다 좁아요 → 아닐 것 같다';
+}
+function panelChancePredict(){
+  var st = S.stage;
+  st.chosenBand = null;
+  st.predLocked = false;
+  resetHero();
+  setPanel({
+    title: st.streak ? ('다음 오리가 ' + st.askName + ' 매트에 앉을 가능성은?')
+                     : (st.askName + ' 매트(폭 ' + st.wAsk + '칸)에 앉을 가능성은?'),
+    sub: CHANCE_MODEL,
+    kind: '',
+    options: null
+  });
+}
+function pickChance(i){
+  var st = S.stage;
+  if(!st || st.predIdx !== null) return;
+  st.predIdx = i;
+  st.predLocked = true;
+  st.chosenBand = i;
+  st.predOK = (i === st.band);
+  if(st.predOK){
+    var g = scoreCorrect(140);
+    var cells = bandGeom();
+    var c = cells[i];
+    floatText(c.x + c.w/2, c.y - 10, '+' + g, '#FFD60A', 28);
+    burst(c.x + c.w/2, c.y, 16 + S.combo*3, '255,214,10', 2.6);
+  } else {
+    scoreWrong();
+  }
+  setPanel({ title: st.predOK ? '맞았어요! ' + bandWord(st.band) : ('정답은 ' + bandWord(st.band)),
+    sub: chanceWhy(st), kind:'', options:null });
+  after(1.2, function(){
+    hero.inPool = false;
+    hero.walking = false;
+    st.step = 'rain';
+    st.nextT = 0.2;
+    applyStageCeil();
+    setPanel({ title:'비가 내려요! 오리 12마리',
+      sub: theoryTimesPhrase(st.theory, st.trials) + '이 유령으로 보여요.', kind:'', options:null });
+  });
+}
+function spawnDuck(force){
+  var st = S.stage;
+  var mat = (force !== undefined && force !== null) ? force : ((ri(st.W) < st.wA) ? 0 : 1);
+  var G = matGeom();
+  var g = (mat === 0) ? G.a : G.b;
+  if(!g || g.w <= 1){ mat = 1 - mat; g = (mat === 0) ? G.a : G.b; }
+  if(!g) return;
+  var idx = 0, i;
+  for(i=0;i<st.landed.length;i++) if(st.landed[i].mat === mat) idx++;
+  st.falling.push({ mat:mat, idx:idx, x:g.x + g.w/2 + (Math.random()-.5) * Math.max(2, g.w*0.5),
+                    y: LO.ceil + 6, vy: 0, trail:[] });
+  st.spawned++;
+  SFX.duck();
+}
+function landDuck(f){
+  var st = S.stage;
+  st.landed.push({ mat:f.mat, idx:f.idx, sq:1 });
+  if((f.mat === 0 && st.ask === 'A') || (f.mat === 1 && st.ask === 'B')) st.hits++;
+  var p = duckPos(f.mat, f.idx);
+  burst(p.x, p.y + 6, 7, '255,255,255', 2.4);
+  ripple(p.x, p.y + 10, 4, '200,240,255');
+  SFX.splash();
+  if(st.step === 'rain' && st.landed.length >= st.trials){
+    after(0.6, chanceResult);
+  } else if(st.step === 'pre' && st.landed.length >= 4){
+    after(0.5, function(){
+      st.step = 'predict';
+      panelChancePredict();
+    });
+  }
+}
+function cumKey(st){ return 'cum' + st.wAsk + '_' + st.W; }
+function readCum(st){
+  var raw = LS.get(cumKey(st), '0/0').split('/');
+  return { s: parseInt(raw[0], 10) || 0, t: parseInt(raw[1], 10) || 0 };
+}
+function chanceResult(){
+  var st = S.stage;
+  st.step = 'result';
+  var c = readCum(st);
+  c.s += st.hits; c.t += st.trials;
+  LS.set(cumKey(st), c.s + '/' + c.t);
+  st.cum = c;
+  var nowBand = bandOf(st.hits, st.trials);
+  var msg = countTimesPhrase(st.hits, st.trials, '이번') + ' · ' + theoryTimesPhrase(st.theory, st.trials);
+  var sub = '이번은 ' + bandWord(nowBand) + ' · 이론은 ' + bandWord(st.band)
+    + '. 누적 ' + c.t + '번 중 ' + c.s + '번이 ' + st.askName + ' 매트!';
+  if(st.hits !== st.theory) sub += ' 한 판은 어긋나도 괜찮아요.';
+  addScore(30);
+  burst(LO.fx + LO.fw/2, matGeom().y - 40, 14, '255,255,255', 2.8);
+  setPanel({ title: msg, sub: sub, kind:'', options:null, action:'다음 판 ▶', onAction: function(){
+    var rq = makeReason(st);
+    if(rq && !st.reasonDone) askReason(rq);
+    else nextRound();
+  }});
+  after(4.2, function(){
+    var rq = makeReason(st);
+    if(rq && !st.reasonDone) askReason(rq);
+    else nextRound();
+  });
+}
+
+// ─────────── 기하 ───────────
+function slabH(){
+  var st = S.stage;
+  if(!st || st.type !== 'mean') return 20;
+  var mx = Math.max(maxOf(st.h), st.target, meanTickMax(st), 1) + 1.5;
+  var avail = LO.deckY - LO.ceil - 12;
+  var n = st.h.length + (st.variant === 'missing' ? 1 : 0);
+  var lw = (LO.fw - 16 - 7*(n-1)) / n;                 // 레인 폭 (킥판이 널빤지처럼 보이는 비율 유지)
+  return Math.max(9, Math.min(46, avail / mx, lw * 0.50));
+}
+function yOf(v){ return LO.deckY - v * slabH(); }
+function laneLayout(){
+  var st = S.stage;
+  if(!st || st.type !== 'mean') return null;
+  var n = st.h.length;
+  var slots = n + (st.variant === 'missing' ? 1 : 0);
+  var pad = 8, gap = Math.max(4, Math.min(9, LO.fw * 0.02));
+  var extra = (st.raft && !st.merged) ? st.gapExtra : 0;
+  var lw = (LO.fw - 2*pad - gap*(slots-1) - extra) / slots;
+  var out = [], cur = LO.fx + pad;
+  for(var i=0;i<slots;i++){
+    out.push({ cx: cur + lw/2, w: lw, i: i, reserve: (i >= n) });
+    cur += lw + gap;
+    if(st.raft && !st.merged && st.raftInfo && i === st.raftInfo.nA - 1) cur += extra;
+  }
+  return { slots: out, lw: lw };
+}
+/** 내용 높이로 수조를 잡고, 남는 세로는 풀 밖 매트·물결 앰비언트가 채운다. */
+function chanceContentH(){
+  var st = S.stage;
+  var tall = VH >= 1000;
+  var head = chanceHead();
+  var matH = tall ? 28 : 16;
+  var scale = tall ? 48 : 40;
+  var bottom = tall ? 148 : 96;
+  if(st && (st.step === 'rain' || st.step === 'result')) bottom = tall ? 168 : 124;
+  else if(st && st.step === 'pre') bottom = tall ? 80 : 64;
+  return 12 + 24 + 6 + scale + 6 + head + matH + 8 + 4 + bottom + 10;
+}
+function applyStageCeil(){
+  var st = S.stage;
+  S.deckWant = 0;
+  S.ceilWant = 0;
+  if(!st){ resize(); return; }
+  var avail = (LO.bot - 16) - LO.ceilMin;
+  if(avail < 160) avail = 160;
+  if(st.type === 'mean'){
+    var n = st.h.length + (st.variant === 'missing' ? 1 : 0);
+    var lw = (LO.fw - 16 - 7*(n-1)) / n;
+    var cap = Math.min(VH >= 1000 ? 56 : 46, lw * 0.50);
+    var mx = Math.max(maxOf(st.h), st.target, meanTickMax(st), 1) + 1.5;
+    var need = cap * mx + 36;
+    var box = Math.min(avail, Math.max(170, need));
+    var slack = Math.max(0, avail - box);
+    S.ceilWant = LO.ceilMin + slack * 0.20;
+    S.deckWant = S.ceilWant + box;
+  } else {
+    var need = chanceContentH();
+    var box = Math.min(avail, Math.max(220, need));
+    var slack = Math.max(0, avail - box);
+    S.ceilWant = LO.ceilMin + slack * 0.10;
+    S.deckWant = S.ceilWant + box;
+  }
+  resize();
+}
+function laneX(i){
+  var L = laneLayout();
+  return (L && L.slots[i]) ? L.slots[i].cx : LO.fx + LO.fw/2;
+}
+function slotAt(x, y){
+  var L = laneLayout();
+  if(!L) return null;
+  if(y < LO.ceil - 24 || y > LO.deckY + 22) return null;
+  for(var i=0;i<L.slots.length;i++){
+    var s = L.slots[i];
+    if(x >= s.cx - s.w/2 - 4 && x <= s.cx + s.w/2 + 4) return s;
+  }
+  return null;
+}
+function chanceZones(){
+  var stripY = LO.ceil + 12;
+  var stripH = 24;
+  var scaleH = (VH >= 1000) ? 48 : 40;
+  var scaleY = stripY + stripH + 6;
+  var head = chanceHead();
+  var duckTop = scaleY + scaleH + 6;
+  var matH = (VH >= 1000) ? 28 : 16;
+  var matY = duckTop + head;
+  var labelH = 8;
+  var restTop = matY + matH + labelH + 4;
+  var restH = Math.max(56, LO.deckY - 8 - restTop);
+  return {
+    stripY:stripY, stripH:stripH, scaleY:scaleY, scaleH:scaleH,
+    duckTop:duckTop, head:head, matY:matY, matH:matH, labelH:labelH,
+    restTop:restTop, restH:restH
+  };
+}
+function matGeom(){
+  var st = S.stage;
+  var x0 = LO.fx + 12, area = LO.fw - 24;
+  var Z = chanceZones();
+  var waterY = Z.matY + Z.matH;
+  if(!st || st.type !== 'chance') return { y:waterY, a:null, b:null, matH:Z.matH, area:area, x0:x0, compareH:Z.restH, Z:Z };
+  var gap = (st.wA > 0 && st.wB > 0) ? 8 : 0;
+  var usable = area - gap;
+  var aw = usable * (st.wA / st.W), bw = usable * (st.wB / st.W);
+  return {
+    y: waterY, matH: Z.matH, area: area, x0: x0, compareH: Z.restH, Z:Z,
+    a: st.wA > 0 ? { x:x0, w:aw } : null,
+    b: st.wB > 0 ? { x:x0 + aw + gap, w:bw } : null
+  };
+}
+function duckSize(){
+  var wide = Math.max(16, Math.min(36, (LO.fw - 24) / 12));
+  if(VH >= 1000) wide = Math.min(46, wide * 1.4);
+  return wide;
+}
+function bandGeom(){
+  var Z = chanceZones();
+  var n = 5, pad = 8, gap = 5;
+  var bw = (LO.fw - 2*pad - gap*(n-1)) / n;
+  var bh = Math.max(56, Math.min(VH >= 1000 ? 132 : 88, Z.restH - 6));
+  var y = Z.restTop + Math.max(0, (Z.restH - bh) * 0.5);
+  var cells = [], x = LO.fx + pad;
+  for(var i=0;i<n;i++){
+    cells.push({ i:i, x:x, y:y, w:bw, h:bh });
+    x += bw + gap;
+  }
+  return cells;
+}
+function bandAt(px, py){
+  var cells = bandGeom();
+  for(var i=0;i<cells.length;i++){
+    var c = cells[i];
+    if(px >= c.x && px <= c.x + c.w && py >= c.y - 8 && py <= c.y + c.h + 8) return i;
+  }
+  return -1;
+}
+function duckCols(matW, ds){ return Math.max(1, Math.min(6, Math.floor(matW / (ds * 0.92)))); }
+/** 매트 위에 오리 더미가 쌓일 만큼의 높이 */
+function chanceHead(){
+  var st = S.stage;
+  if(!st || st.type !== 'chance') return 70;
+  var raining = (st.step === 'rain' || st.step === 'result');
+  if(!raining) return (VH >= 1000) ? 52 : 36;
+  var area = LO.fw - 24, ds = duckSize();
+  var gap = (st.wA > 0 && st.wB > 0) ? 8 : 0;
+  var share = Math.max(st.wAsk, st.W - st.wAsk, 1);
+  var matW = Math.max(18, (area - gap) * (share / st.W));
+  var cols = duckCols(matW, ds);
+  var rows = Math.ceil(st.trials / cols);
+  return Math.max(80, Math.min(rows * ds * 0.62 + 36, 280));
+}
+function duckPos(mat, idx){
+  var G = matGeom(), g = (mat === 0) ? G.a : G.b, ds = duckSize();
+  if(!g) return { x: LO.fx + LO.fw/2, y: G.y, size: ds };
+  var cols = duckCols(g.w, ds);
+  var cw = Math.min(g.w / cols, ds * 0.95);
+  var col = idx % cols, row = Math.floor(idx / cols);
+  var x0 = g.x + (g.w - cols * cw) / 2;
+  return { x: x0 + cw * (col + 0.5), y: G.y - G.matH - ds*0.5 - row * ds * 0.62, size: ds };
+}
+
+// ─────────── 캐릭터(공간 예측) ───────────
+var hero = { x:0, y:0, sx:0, sy:0, tx:0, ty:0, t:1, dur:0.36, walking:false, inPool:false, onDone:null, size:56 };
+function resetHero(){
+  hero.walking = false;
+  hero.inPool = false;
+  hero.onDone = null;
+  hero.t = 1;
+  var size = Math.min(VW * 0.16, Math.max(36, (LO.ceil || 80) - (LO.top || 56) + 26));
+  hero.x = (LO.fx || 8) + size*0.55;
+  hero.y = (LO.ceil || 80) + 4;
+  hero.size = size;
+}
+function goStand(x, y, onDone){
+  hero.inPool = true;
+  hero.sx = hero.x; hero.sy = hero.y;
+  hero.tx = x; hero.ty = y;
+  hero.t = 0; hero.dur = 0.38;
+  hero.walking = true;
+  hero.onDone = onDone || null;
+}
+function tickAtPt(pt){
+  var st = S.stage;
+  if(!st || st.type !== 'mean') return -1;
+  if(pt.x < LO.fx - 8 || pt.x > LO.fx + LO.fw + 8) return -1;
+  if(pt.y < LO.ceil - 10 || pt.y > LO.deckY + 18) return -1;
+  var sh = slabH();
+  if(sh <= 0) return -1;
+  var v = Math.round((LO.deckY - pt.y) / sh);
+  var mx = meanTickMax(st);
+  if(v < 0) v = 0;
+  if(v > mx) v = mx;
+  return v;
+}
+function trySpatialPredict(pt){
+  var st = S.stage;
+  if(!st || hero.walking) return false;
+  if(st.type === 'mean' && (st.step === 'predict' || st.step === 'predict2') && !st.predLocked){
+    var v = tickAtPt(pt);
+    if(v < 0) return false;
+    st.heroTick = v;
+    st.hoverTick = v;
+    var p = tickStandPos(v);
+    goStand(p.x, p.y, function(){ lockMeanPredict(v); });
+    SFX.pick();
+    return true;
+  }
+  if(st.type === 'chance' && st.step === 'predict' && !st.predLocked){
+    var b = bandAt(pt.x, pt.y);
+    if(b < 0) return false;
+    st.chosenBand = b;
+    var c = bandGeom()[b];
+    goStand(c.x + c.w/2, c.y + 10, function(){ pickChance(b); });
+    SFX.pick();
+    return true;
+  }
+  return false;
+}
+
+// ─────────── 입력: 슬래브 옮기기 ───────────
+var carry = null, sticky = false, pressPt = null;
+function evPt(e){
+  var r = cv.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function canGrab(){
+  var st = S.stage;
+  return st && st.type === 'mean' && !st.locked && (st.step === 'act' || st.step === 'rafts');
+}
+function raftOf(i){ var st = S.stage; return (st.raft && !st.merged) ? st.raft[i] : 0; }
+function validDrop(from, d){
+  var st = S.stage;
+  if(!d) return false;
+  var n = st.h.length;
+  if(d.reserve) return from === -2;                       // 여분으로 되돌리기만 허용
+  if(st.fixed[d.i]) return false;
+  if(from === -2) return true;
+  if(st.raft && !st.merged && st.raft[from] !== st.raft[d.i]) return false;
+  return true;
+}
+function wouldFinish(d){
+  var st = S.stage;
+  if(!d || d.reserve || st.fixed[d.i]) return false;
+  var n = (carry && carry.n) ? carry.n : 1;
+  var h2 = st.h.slice(); h2[d.i] += n;
+  if(st.variant === 'missing'){
+    var empty = d.i, othersOK = true, i;
+    for(i=0;i<st.h.length;i++){
+      if(i === d.i) continue;
+      if(st.fixed[i] && h2[i] !== st.lanes[i]) othersOK = false;
+      if(!st.fixed[i]) empty = i;
+    }
+    return othersOK && !st.fixed[d.i] && h2[empty] === st.answer;
+  }
+  if(st.step === 'rafts'){
+    var r = st.raft[d.i], vals = [];
+    for(var i=0;i<h2.length;i++) if(st.raft[i] === r) vals.push(h2[i]);
+    return maxOf(vals) === minOf(vals);
+  }
+  return maxOf(h2) === minOf(h2);
+}
+function grab(pt){
+  var st = S.stage, s = slotAt(pt.x, pt.y);
+  if(!s) return false;
+  var spread0 = maxOf(st.h) - minOf(st.h);
+  if(s.reserve){
+    if(st.reserve <= 0) return false;
+    var sh = slabH();
+    var vis = Math.min(st.reserve, 8);
+    var topY = LO.deckY - vis * sh;
+    var k = Math.floor((pt.y - topY) / sh) + 1;
+    if(k < 1) k = 1;
+    if(k > vis) k = vis;
+    k = Math.max(1, Math.min(st.reserve, k));
+    st.reserve -= k;
+    carry = { from:-2, x:pt.x, y:pt.y, trail:[], n:k, spread0:spread0 };
+    if(k > 1) floatText(s.cx, topY - 12, '×' + k, '#FFF3B0', 18);
+  } else {
+    if(st.h[s.i] <= 0 || st.fixed[s.i]) {
+      if(st.fixed[s.i]) floatText(s.cx, yOf(st.h[s.i]) - 22, '고정된 자료예요', '#BFE2F2', 15);
+      return false;
+    }
+    st.h[s.i]--; st.wobV[s.i] = -1.1;
+    carry = { from:s.i, x:pt.x, y:pt.y, trail:[], n:1, spread0:spread0 };
+  }
+  SFX.pick();
+  return true;
+}
+function release(pt){
+  var st = S.stage;
+  if(!carry) return;
+  var d = slotAt(pt.x, pt.y);
+  var from = carry.from;
+  var okDrop = validDrop(from, d);
+  var destIdx = okDrop ? (d.reserve ? -2 : d.i) : from;
+  if(!okDrop){
+    var why = '여긴 못 놓아요';
+    if(d && !d.reserve && st.fixed[d.i]) why = '이미 정해진 자료예요';
+    else if(d && !d.reserve && st.raft && !st.merged) why = '같은 뗏목 안에서만!';
+    floatText(pt.x, pt.y - 30, why, '#FFC4BE', 15);
+  }
+  var n = carry.n || 1;
+  var tp;
+  if(destIdx === -2){
+    var L = laneLayout(), rs = L.slots[L.slots.length-1];
+    tp = { x: rs.cx, y: yOf(st.reserve + n) - slabH()/2 };
+  } else {
+    tp = { x: laneX(destIdx), y: yOf(st.h[destIdx] + n) - slabH()/2 };
+  }
+  flyers.push({ x:carry.x, y:carry.y, sx:carry.x, sy:carry.y, tx:tp.x, ty:tp.y, t:0, dur:0.26, dest:destIdx, n:n, spread0:carry.spread0 });
+  carry = null; sticky = false;
+}
+cv.addEventListener('pointerdown', function(e){
+  audioOn();
+  var pt = evPt(e);
+  if(trySpatialPredict(pt)){
+    pressPt = pt;
+    return;
+  }
+  if(!canGrab()) return;
+  pressPt = pt;
+  if(carry && sticky){
+    var st = S.stage, s = slotAt(pt.x, pt.y);
+    if(st && s && s.reserve && carry.from === -2 && st.reserve > 0){
+      st.reserve--;
+      carry.n = (carry.n || 1) + 1;
+      floatText(s.cx, pt.y - 24, '×' + carry.n, '#FFF3B0', 18);
+      SFX.pick();
+      return;
+    }
+    release(pt); return;
+  }
+  if(grab(pt)){ try { cv.setPointerCapture(e.pointerId); } catch(err){} }
+}, { passive:true });
+cv.addEventListener('pointermove', function(e){
+  var pt = evPt(e);
+  var st = S.stage;
+  if(st && st.type === 'mean' && (st.step === 'predict' || st.step === 'predict2') && !st.predLocked && !hero.walking){
+    var v = tickAtPt(pt);
+    st.hoverTick = (v < 0) ? null : v;
+  }
+  if(!carry) return;
+  carry.x = pt.x; carry.y = pt.y;
+  carry.trail.push({ x:pt.x, y:pt.y, a:1 });
+  if(carry.trail.length > 8) carry.trail.shift();
+}, { passive:true });
+cv.addEventListener('pointerup', function(e){
+  if(!carry) return;
+  var pt = evPt(e);
+  var moved = pressPt ? Math.hypot(pt.x - pressPt.x, pt.y - pressPt.y) : 99;
+  if(moved < 12 && !sticky){ sticky = true; carry.x = pt.x; carry.y = pt.y - 26; return; }
+  release(pt);
+}, { passive:true });
+cv.addEventListener('pointercancel', function(){ if(carry) release({ x:carry.x, y:carry.y }); }, { passive:true });
+
+// ─────────── 업데이트 ───────────
+function update(sdt, dt){
+  // 점수 카운트업
+  if(S.shownScore !== S.score){
+    var diff = S.score - S.shownScore;
+    S.shownScore += Math.sign(diff) * Math.max(1, Math.ceil(Math.abs(diff) * 0.18));
+    if(Math.abs(S.score - S.shownScore) < 1) S.shownScore = S.score;
+    elScore.textContent = String(Math.round(S.shownScore));
+  }
+  S.shake = Math.max(0, S.shake - dt * 2.6);
+  S.flash = Math.max(0, S.flash - dt * 2.2);
+  var i;
+  for(i=parts.length-1;i>=0;i--){
+    var p = parts[i];
+    p.x += p.vx; p.y += p.vy; p.vy += p.g; p.life -= sdt * 1.5;
+    if(p.life <= 0) parts.splice(i,1);
+  }
+  for(i=texts.length-1;i>=0;i--){
+    texts[i].y -= sdt * 42; texts[i].life -= sdt * 0.85;
+    if(texts[i].life <= 0) texts.splice(i,1);
+  }
+  for(i=ripples.length-1;i>=0;i--){
+    ripples[i].r += sdt * 190; ripples[i].life -= sdt * 1.5;
+    if(ripples[i].life <= 0) ripples.splice(i,1);
+  }
+  for(i=flyers.length-1;i>=0;i--){
+    var f = flyers[i];
+    f.t += sdt / f.dur;
+    if(f.t >= 1){
+      flyers.splice(i,1);
+      var st = S.stage;
+      if(st && st.type === 'mean'){
+        var n = f.n || 1;
+        if(f.dest === -2) st.reserve += n;
+        else {
+          st.h[f.dest] += n;
+          st.wobV[f.dest] = -2.0;
+          judgeDrop(st, f.dest, f.spread0);
+        }
+        SFX.drop();
+        ripple(f.tx, f.ty + slabH()/2, 5, '255,255,255');
+        checkLock();
+      }
+    } else {
+      var e2 = f.t < 1 ? 1 - Math.pow(1 - f.t, 3) : 1;         // overshoot easing
+      var ov = Math.sin(f.t * Math.PI) * 14;
+      f.x = f.sx + (f.tx - f.sx) * e2;
+      f.y = f.sy + (f.ty - f.sy) * e2 - ov;
+    }
+  }
+  if(hero.walking){
+    hero.t += sdt / hero.dur;
+    var e3 = hero.t < 1 ? 1 - Math.pow(1 - hero.t, 3) : 1;
+    hero.x = hero.sx + (hero.tx - hero.sx) * e3;
+    hero.y = hero.sy + (hero.ty - hero.sy) * e3 - Math.sin(Math.min(1, hero.t) * Math.PI) * 18;
+    if(hero.t >= 1){
+      hero.walking = false;
+      hero.x = hero.tx; hero.y = hero.ty;
+      var done = hero.onDone; hero.onDone = null;
+      if(done) done();
+    }
+  }
+  var st = S.stage;
+  if(!st) return;
+  if(st.type === 'mean'){
+    var target = (st.variant === 'missing') ? (sumOf(st.h) / st.h.length) : minOf(st.h);
+    if(st.locked) target = st.target;
+    st.water += (target - st.water) * Math.min(1, sdt * 7);
+    for(i=0;i<st.h.length;i++){
+      st.wobV[i] += (0 - st.wob[i]) * sdt * 46;               // squash & stretch 스프링
+      st.wobV[i] *= Math.pow(0.0016, sdt);
+      st.wob[i] += st.wobV[i] * sdt;
+    }
+    if(st.tiltT > 0) st.tiltT = Math.max(0, st.tiltT - sdt * 1.7);
+  } else if(st.type === 'chance'){
+    if(st.step === 'pre' || st.step === 'rain'){
+      st.nextT -= sdt;
+      var cap = (st.step === 'pre') ? 4 : st.trials;
+      if(st.nextT <= 0 && st.spawned < cap){
+        st.nextT = 0.19;
+        spawnDuck(st.step === 'pre' ? st.forceMat : null);
+      }
+    }
+    for(i=st.falling.length-1;i>=0;i--){
+      var d = st.falling[i];
+      d.vy += 1900 * sdt;
+      d.y += d.vy * sdt;
+      d.trail.push({ x:d.x, y:d.y });
+      if(d.trail.length > 6) d.trail.shift();
+      var tgt = duckPos(d.mat, d.idx);
+      if(d.y >= tgt.y){ st.falling.splice(i,1); landDuck(d); }
+    }
+    for(i=0;i<st.landed.length;i++) st.landed[i].sq = Math.max(0, st.landed[i].sq - sdt * 3.4);
+  }
+}
+
+// ─────────── 렌더 ───────────
+function drawWater(yTop){
+  var x0 = LO.fx - 6, w = LO.fw + 12, yb = LO.deckY + 18;
+  yTop = Math.max(LO.ceil - 8, Math.min(yb, yTop));
+  ctx.save();
+  rr(ctx, x0, LO.ceil - 10, w, yb - (LO.ceil - 10), 16);
+  ctx.clip();
+  var g = ctx.createLinearGradient(0, yTop, 0, yb);
+  g.addColorStop(0, 'rgba(28,160,208,.88)');
+  g.addColorStop(.55, 'rgba(12,92,132,.92)');
+  g.addColorStop(1, 'rgba(6,42,62,.95)');
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, yTop, w, yb - yTop);
+  for(var k=0;k<2;k++){
+    ctx.beginPath();
+    ctx.moveTo(x0, yTop + k*3);
+    for(var x=0;x<=w;x+=16){
+      ctx.lineTo(x0 + x, yTop + k*3 + Math.sin(x/54 + S.t*(1.5 + k*0.8) + k*1.7) * 3.4);
+    }
+    ctx.lineTo(x0 + w, yTop + 46); ctx.lineTo(x0, yTop + 46); ctx.closePath();
+    ctx.fillStyle = k === 0 ? 'rgba(140,230,255,.26)' : 'rgba(255,255,255,.13)';
+    ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.62)'; ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  for(var x2=0;x2<=w;x2+=16){
+    var yy = yTop + Math.sin(x2/54 + S.t*1.5) * 3.4;
+    if(x2 === 0) ctx.moveTo(x0 + x2, yy); else ctx.lineTo(x0 + x2, yy);
+  }
+  ctx.stroke();
+  // 흔들리는 빛무늬 (ambient-idle-motion)
+  ctx.globalAlpha = .12; ctx.fillStyle = '#DFF6FF';
+  for(var c=0;c<4;c++){
+    var cx = x0 + ((S.t*11 + c*97) % (w + 80)) - 40;
+    ctx.beginPath(); ctx.ellipse(cx, yTop + 40 + c*26, 26, 6, 0, 0, 6.284); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+function drawSlabRect(x, y, w, h, submerged, glow){
+  var r = Math.min(7, h*0.42);
+  var g = ctx.createLinearGradient(0, y, 0, y+h);
+  if(submerged){ g.addColorStop(0,'#FF7A55'); g.addColorStop(.55,'#E64430'); g.addColorStop(1,'#B93122'); }
+  else { g.addColorStop(0,'#FF8A5C'); g.addColorStop(.5,'#FF3B30'); g.addColorStop(1,'#D42417'); }
+  ctx.fillStyle = g;
+  rr(ctx, x, y, w, h, r); ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(30,20,18,.55)';
+  rr(ctx, x, y, w, h, r); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  rr(ctx, x + w*0.12, y + h*0.16, w*0.5, Math.max(2, h*0.16), 3); ctx.fill();
+  if(glow){
+    ctx.strokeStyle = 'rgba(255,214,10,.95)'; ctx.lineWidth = 3;
+    rr(ctx, x-2, y-2, w+4, h+4, r+2); ctx.stroke();
+  }
+}
+function guide(v, col, text, side){
+  var y = yOf(v);
+  if(y < LO.ceil - 6 || y > LO.deckY + 6) return;
+  ctx.save();
+  ctx.setLineDash([8,6]); ctx.lineWidth = 2.5; ctx.strokeStyle = col;
+  ctx.beginPath(); ctx.moveTo(LO.fx, y); ctx.lineTo(LO.fx + LO.fw, y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+  var bw = 0;
+  ctx.font = '900 12px -apple-system,sans-serif';
+  bw = ctx.measureText(text).width + 12;
+  badge(ctx, text, side === 'L' ? LO.fx + bw/2 + 26 : LO.fx + LO.fw - bw/2 - 4,
+        y + (side === 'L' ? 14 : -14), 12, 'rgba(10,32,46,.86)', col);
+}
+function drawMeanScene(){
+  var st = S.stage, L = laneLayout(), sh = slabH(), n = st.h.length;
+  var mx = Math.max(maxOf(st.h), st.target, 1) + 1;
+  var predicting = (st.step === 'predict' || st.step === 'predict2');
+  var mxT = predicting ? meanTickMax(st) : mx;
+  // 눈금(높이를 읽는 벽)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(40,92,118,.18)'; ctx.lineWidth = 1;
+  var stepv = mxT > 9 ? 2 : 1;
+  for(var v=stepv; v<=mxT; v+=stepv){
+    var yy = yOf(v);
+    if(yy < LO.ceil) break;
+    ctx.beginPath(); ctx.moveTo(LO.fx, yy); ctx.lineTo(LO.fx + LO.fw, yy); ctx.stroke();
+    label(ctx, String(v), LO.fx + 11, yy - 1, 12, 'rgba(30,80,105,.62)', 'center', 0);
+  }
+  ctx.restore();
+  if(predicting){
+    var traps = {};
+    if(st.choices) for(var ci=0;ci<st.choices.length;ci++) traps[st.choices[ci].v] = 1;
+    for(var tv=0; tv<=mxT; tv++){
+      var ty = yOf(tv);
+      if(ty < LO.ceil + 2 || ty > LO.deckY + 6) continue;
+      var hot = (st.hoverTick === tv) || (st.heroTick === tv);
+      ctx.save();
+      ctx.strokeStyle = hot ? '#FFD60A' : (traps[tv] ? 'rgba(255,214,10,.55)' : 'rgba(255,255,255,.32)');
+      ctx.lineWidth = hot ? 3.2 : 1.6;
+      ctx.setLineDash(hot ? [] : [6,5]);
+      ctx.beginPath(); ctx.moveTo(LO.fx + 20, ty); ctx.lineTo(LO.fx + LO.fw - 6, ty); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      badge(ctx, String(tv)+'장', LO.fx + LO.fw - 22, ty, hot ? 15 : 12,
+            hot ? 'rgba(255,214,10,.95)' : 'rgba(10,32,46,.78)',
+            hot ? '#0A4D6E' : '#FFF3B0');
+    }
+  }
+  drawWater(predicting && st.heroTick !== null && st.heroTick !== undefined ? yOf(st.heroTick) : yOf(st.water));
+  // 레인
+  for(var i=0;i<L.slots.length;i++){
+    var s = L.slots[i];
+    var w = Math.min(s.w, sh * 3.1);
+    if(s.reserve){
+      var show = Math.min(st.reserve, 8);
+      ctx.save();
+      ctx.setLineDash([6,5]); ctx.strokeStyle = 'rgba(30,80,105,.55)'; ctx.lineWidth = 2;
+      rr(ctx, s.cx - w/2 - 3, LO.deckY - sh*Math.max(1, show) - 6, w + 6, sh*Math.max(1, show) + 10, 8);
+      ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+      for(var q=0;q<show;q++) drawSlabRect(s.cx - w/2, LO.deckY - (q+1)*sh + 2, w, sh - 4, false, false);
+      if(st.reserve > 0) badge(ctx, '×' + st.reserve, s.cx, LO.deckY - show*sh - 16, 14, 'rgba(10,32,46,.88)', '#FFF3B0');
+      label(ctx, '여분', s.cx, LO.deckY + 10, 11, '#FFF3B0');
+      continue;
+    }
+    var h = st.h[i], wob = st.wob[i] || 0;
+    var hovered = carry && slotAt(carry.x, carry.y) === s;
+    var tilting = (st.tiltLane === i && st.tiltT > 0);
+    if(tilting){
+      ctx.save();
+      ctx.translate(s.cx, LO.deckY);
+      ctx.rotate((i % 2 ? 1 : -1) * st.tiltT * 0.34);
+      ctx.translate(-s.cx, -LO.deckY);
+    }
+    if(h === 0){
+      ctx.save();
+      ctx.setLineDash([5,5]); ctx.strokeStyle = 'rgba(255,255,255,.62)'; ctx.lineWidth = 2;
+      rr(ctx, s.cx - w/2, LO.deckY - sh + 3, w, sh - 6, 6); ctx.stroke();
+      ctx.setLineDash([]); ctx.restore();
+      badge(ctx, '0', s.cx, LO.deckY - sh/2, 13, 'rgba(10,32,46,.75)', '#FFF3B0');
+    }
+    for(var j=0;j<h;j++){
+      var off = wob * 8 * (j+1) / Math.max(1,h);
+      var hh = (sh - 3) * (1 + (j === h-1 ? -wob*0.28 : 0));
+      var yTop = LO.deckY - (j+1)*sh + 2 + off;
+      var sub = yTop > yOf(st.water) + 2;
+      drawSlabRect(s.cx - w/2, yTop, w, hh, sub, false);
+    }
+    if(tilting) ctx.restore();
+    if(hovered && carry){
+      var ok = validDrop(carry.from, s);
+      var fin = ok && wouldFinish(s);
+      ctx.save();
+      ctx.strokeStyle = ok ? (fin ? '#7CFF6B' : 'rgba(255,255,255,.9)') : '#FF7B6E';
+      ctx.lineWidth = 3; ctx.setLineDash(ok ? [] : [6,5]);
+      rr(ctx, s.cx - w/2 - 4, LO.deckY - (h+1)*sh - 2, w + 8, (h+1)*sh + 8, 10); ctx.stroke();
+      ctx.restore();
+      if(fin) badge(ctx, '지금이야! ▼', s.cx, LO.deckY - (h+1)*sh - 20, 13, '#2C7A1E', '#EAFFD9');
+    }
+    // 레인 번호(빈 레인도 자료라는 걸 또렷하게)
+    label(ctx, String(i+1) + (st.raft && !st.merged ? (st.raft[i] === 0 ? '·가' : '·나') : ''),
+          s.cx, LO.deckY + 10, 11, 'rgba(255,255,255,.85)', 'center', 2);
+  }
+  // 두 모둠(뗏목) 구분선과 배지
+  if(st.raft){
+    var groups = [[], []];
+    for(var gi=0; gi<st.h.length; gi++) groups[st.raft[gi]].push(gi);
+    if(!st.merged){
+      var lastA = L.slots[groups[0][groups[0].length-1]], firstB = L.slots[groups[1][0]];
+      var dx = (lastA.cx + lastA.w/2 + firstB.cx - firstB.w/2) / 2;
+      ctx.save();
+      ctx.setLineDash([7,6]); ctx.strokeStyle = 'rgba(30,80,105,.45)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(dx, LO.ceil + 6); ctx.lineTo(dx, LO.deckY + 14); ctx.stroke();
+      ctx.restore();
+    }
+    for(var r2=0;r2<2;r2++){
+      var g2 = groups[r2];
+      var cx2 = (L.slots[g2[0]].cx + L.slots[g2[g2.length-1]].cx) / 2;
+      var nm = (r2 === 0 ? '가 모둠 ' : '나 모둠 ') + g2.length + '칸';
+      if(st.raftLocked[r2] && !st.merged) nm = (r2 === 0 ? '가 평균 ' : '나 평균 ') + st.h[g2[0]] + '장';
+      badge(ctx, nm, cx2, LO.ceil + 16, 13, 'rgba(255,255,255,.92)', '#0A4D6E');
+    }
+  }
+  // 안내선
+  if(st.step !== 'predict' && st.predVal !== undefined && st.predVal !== null)
+    guide(st.predVal, '#FFD60A', '내 예상 ' + st.predVal, 'R');
+  if(st.variant === 'missing') guide(st.target, '#7CFF6B', '목표 평균 ' + st.target, 'L');
+  if(!st.locked && (st.step === 'act')){
+    if(st.variant === 'median'){
+      var md = medianOf(st.lanes);
+      if(md >= 0) guide(md, 'rgba(255,255,255,.7)', '가운데 탑 ' + md, 'L');
+    } else if(st.variant === 'zero'){
+      var z = 0;
+      for(var q2=0;q2<st.lanes.length;q2++) if(st.lanes[q2] === 0) z++;
+      var s2 = sumOf(st.lanes);
+      if(z > 0 && s2 % (st.lanes.length - z) === 0)
+        guide(s2/(st.lanes.length - z), 'rgba(255,255,255,.7)', '빈 레인 빼면 ' + (s2/(st.lanes.length-z)), 'L');
+    }
+  }
+  if(st.locked){
+    var yl = yOf(st.target);
+    badge(ctx, '평균 ' + st.target + '장', LO.fx + LO.fw/2, yl - 34, 26, 'rgba(255,255,255,.94)', '#0A4D6E');
+  }
+  // 날아가는 슬래브 / 손에 든 슬래브
+  var cw = Math.min(L.lw, sh*3.1);
+  for(var f=0;f<flyers.length;f++){
+    var fl = flyers[f];
+    var fn = Math.min(fl.n || 1, 6);
+    for(var fi=0;fi<fn;fi++) drawSlabRect(fl.x - cw/2, fl.y - sh/2 - fi*(sh*0.22), cw, sh - 3, false, false);
+    if((fl.n || 1) > 1) badge(ctx, '×' + fl.n, fl.x, fl.y - sh/2 - fn*(sh*0.22) - 8, 13, 'rgba(10,32,46,.88)', '#FFF3B0');
+  }
+  if(carry){
+    var cn = carry.n || 1;
+    for(var t2=0;t2<carry.trail.length;t2++){
+      var tr = carry.trail[t2];
+      ctx.globalAlpha = 0.06 + 0.05*t2;
+      drawSlabRect(tr.x - cw/2, tr.y - sh/2, cw, sh - 3, false, false);
+    }
+    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 6;
+    var shown = Math.min(cn, 6);
+    for(var ci=0;ci<shown;ci++) drawSlabRect(carry.x - cw/2, carry.y - sh/2 - ci*(sh*0.22), cw, sh - 3, false, true);
+    ctx.restore();
+    if(cn > 1) badge(ctx, '×' + cn, carry.x, carry.y - sh/2 - shown*(sh*0.22) - 8, 14, 'rgba(10,32,46,.88)', '#FFF3B0');
+  }
+}
+function drawChanceScene(){
+  var st = S.stage, G = matGeom(), ds = duckSize();
+  drawWater(G.y);
+  var mats = [{ g:G.a, w:st.wA, col:'#FF3B30', dark:'#B02418', name:'산호', ask:(st.ask === 'A') },
+              { g:G.b, w:st.wB, col:'#1E7FB0', dark:'#0A4D6E', name:'코발트', ask:(st.ask === 'B') }];
+  for(var m=0;m<2;m++){
+    var M = mats[m];
+    if(!M.g){
+      var dashW = 24;
+      var dx = (m === 0) ? G.x0 : G.x0 + G.area - dashW;
+      ctx.save();
+      ctx.setLineDash([5,4]);
+      ctx.strokeStyle = 'rgba(255,255,255,.62)';
+      ctx.lineWidth = 2;
+      rr(ctx, dx, G.y - G.matH, dashW, G.matH, 5); ctx.stroke();
+      ctx.setLineDash([]);
+      label(ctx, M.name + ' 폭 0칸', dx + dashW/2, G.y - G.matH - 14, 12, '#CFEAF7');
+      ctx.restore();
+      continue;
+    }
+    var y = G.y - G.matH;
+    var gr = ctx.createLinearGradient(0, y, 0, y + G.matH);
+    gr.addColorStop(0, M.col); gr.addColorStop(1, M.dark);
+    ctx.fillStyle = gr;
+    rr(ctx, M.g.x, y, M.g.w, G.matH, 6); ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,255,255,.75)';
+    rr(ctx, M.g.x, y, M.g.w, G.matH, 6); ctx.stroke();
+    if(M.ask && st.step !== 'result'){
+      var pu = 0.5 + 0.5*Math.sin(S.t*4);
+      ctx.strokeStyle = 'rgba(255,214,10,' + (0.55 + pu*0.45) + ')';
+      ctx.lineWidth = 3 + pu*1.6;
+      rr(ctx, M.g.x - 5, y - 5, M.g.w + 10, G.matH + 10, 10); ctx.stroke();
+    }
+    badge(ctx, M.name + ' 폭 ' + M.w, M.g.x + M.g.w/2, y - 14, Math.min(18, Math.max(12, M.g.w*0.14)),
+          'rgba(10,32,46,.86)', M.ask ? '#FFD60A' : '#EAF6FC');
+  }
+  var Z = G.Z || chanceZones();
+  // 폭 비교 띠 — 칸 수가 아니라 '넓이'가 가능성이라는 걸 위쪽에서 한 번 더 보여 준다
+  (function(){
+    var bx = LO.fx + 14, bw = LO.fw - 28, by = Z.stripY, bh = Z.stripH;
+    var aw = bw * (st.wA / st.W);
+    ctx.save();
+    if(st.wA > 0){
+      ctx.fillStyle = '#FF3B30'; rr(ctx, bx, by, aw, bh, 8); ctx.fill();
+    }
+    if(st.wB > 0){
+      ctx.fillStyle = '#1E7FB0'; rr(ctx, bx + aw, by, bw - aw, bh, 8); ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.5;
+    rr(ctx, bx, by, bw, bh, 8); ctx.stroke();
+    for(var k=1;k<st.W;k++){
+      var xx = bx + bw * k / st.W;
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(xx, by+3); ctx.lineTo(xx, by+bh-3); ctx.stroke();
+    }
+    ctx.restore();
+    if(st.wA > 0 && aw > 34) label(ctx, String(st.wA), bx + aw/2, by + bh/2, 15, '#FFF3B0');
+    if(st.wB > 0 && bw - aw > 34) label(ctx, String(st.wB), bx + aw + (bw-aw)/2, by + bh/2, 15, '#EAF6FC');
+    label(ctx, '전체 폭 ' + st.W + ' 칸', LO.fx + LO.fw/2, by - 10, 12, 'rgba(30,60,78,.9)', 'center', 0);
+  })();
+  // 0 ─ ½ ─ 1 눈금 + 이론 위치 마커 (분수 숫자는 찍지 않는다)
+  (function(){
+    var bx = LO.fx + 14, bw = LO.fw - 28, y = Z.scaleY, h = 14;
+    ctx.fillStyle = 'rgba(6,32,48,.78)';
+    rr(ctx, bx, y, bw, h, 7); ctx.fill();
+    var x0 = bx, xh = bx + bw/2, x1 = bx + bw;
+    ctx.fillStyle = 'rgba(255,107,61,.35)'; rr(ctx, x0, y, bw/2, h, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(55,169,220,.35)'; rr(ctx, xh, y, bw/2, h, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.6;
+    rr(ctx, bx, y, bw, h, 7); ctx.stroke();
+    function tick(x, lab){
+      ctx.strokeStyle = '#FFF3B0'; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(x, y-3); ctx.lineTo(x, y+h+3); ctx.stroke();
+      label(ctx, lab, x, y+h+12, 12, '#FFF3B0');
+    }
+    tick(x0, '0'); tick(xh, HALF); tick(x1, '1');
+    var tx = bx + bw * (st.W ? (st.wAsk / st.W) : 0);
+    ctx.fillStyle = '#FFD60A';
+    ctx.beginPath(); ctx.moveTo(tx, y-1); ctx.lineTo(tx-8, y-15); ctx.lineTo(tx+8, y-15); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#0A4D6E'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(tx, y-1); ctx.lineTo(tx-8, y-15); ctx.lineTo(tx+8, y-15); ctx.closePath(); ctx.stroke();
+    label(ctx, bandWord(st.band), tx, y-24, 11, '#FFD60A');
+  })();
+  // 이론 유령 더미
+  if(st.step === 'rain' || st.step === 'result'){
+    ctx.save(); ctx.globalAlpha = .32;
+    for(var t=0;t<st.theory;t++){
+      var gp = duckPos(st.ask === 'A' ? 0 : 1, t);
+      ctx.drawImage(duckSprite(st.ask === 'A' ? 'coral' : 'cobalt', ds),
+                    gp.x - ds/2 + ds*0.22, gp.y - ds/2 - ds*0.22, ds, ds);
+    }
+    ctx.restore();
+    if(st.theory > 0){
+      var gtop = duckPos(st.ask === 'A' ? 0 : 1, Math.max(0, st.theory-1));
+      badge(ctx, theoryTimesPhrase(st.theory, st.trials), gtop.x, Math.max(LO.ceil + 70, gtop.y - ds*0.85), 12,
+            'rgba(255,255,255,.92)', '#0A4D6E');
+    }
+  }
+  // 실제로 앉은 오리
+  for(var i=0;i<st.landed.length;i++){
+    var d = st.landed[i], p = duckPos(d.mat, d.idx);
+    var sq = d.sq, w = ds * (1 + sq*0.28), h = ds * (1 - sq*0.26);
+    ctx.drawImage(duckSprite(d.mat === 0 ? 'coral' : 'cobalt', ds), p.x - w/2, p.y + ds/2 - h, w, h);
+  }
+  // 떨어지는 오리 + 잔상
+  for(var k=0;k<st.falling.length;k++){
+    var fd = st.falling[k];
+    ctx.save();
+    for(var q=0;q<fd.trail.length;q++){
+      ctx.globalAlpha = 0.035 + q*0.022;
+      ctx.drawImage(duckSprite(fd.mat === 0 ? 'coral' : 'cobalt', ds), fd.trail[q].x - ds/2, fd.trail[q].y - ds/2, ds, ds);
+    }
+    ctx.globalAlpha = 1;
+    ctx.drawImage(duckSprite(fd.mat === 0 ? 'coral' : 'cobalt', ds), fd.x - ds/2, fd.y - ds/2, ds, ds);
+    ctx.restore();
+  }
+  // 가능성 칸(걸어가 서기) 또는 이론·실제 비교
+  if(st.step === 'predict' || (st.predIdx !== null && st.step !== 'rain' && st.step !== 'result' && st.step !== 'pre')){
+    var cells = bandGeom();
+    for(var bi=0; bi<cells.length; bi++){
+      var c = cells[bi], B = BANDS[bi];
+      var chosen = (st.chosenBand === bi);
+      var locked = st.predIdx !== null;
+      var okCell = locked && bi === st.band;
+      var noCell = locked && bi === st.predIdx && !st.predOK;
+      ctx.save();
+      var fill = okCell ? 'rgba(110,208,60,.92)' : noCell ? 'rgba(255,123,110,.92)'
+                : chosen ? 'rgba(255,214,10,.92)' : 'rgba(255,255,255,.90)';
+      ctx.fillStyle = fill;
+      rr(ctx, c.x, c.y, c.w, c.h, 12); ctx.fill();
+      ctx.strokeStyle = okCell ? '#2C6B18' : noCell ? '#8A2418' : chosen ? '#7A4A00' : '#0B3D55';
+      ctx.lineWidth = 2.6;
+      rr(ctx, c.x, c.y, c.w, c.h, 12); ctx.stroke();
+      label(ctx, B.word, c.x + c.w/2, c.y + c.h*0.38, Math.min(13, c.w*0.22),
+            okCell || noCell || chosen ? '#0E2A38' : '#0E2A38', 'center', 0);
+      label(ctx, B.range, c.x + c.w/2, c.y + c.h*0.68, Math.min(12, c.w*0.20),
+            '#2B5468', 'center', 0);
+      ctx.restore();
+    }
+  } else if(st.step === 'rain' || st.step === 'result'){
+    var cum = st.cum || readCum(st);
+    var bx = LO.fx + 14, bw = LO.fw - 28;
+    var col = st.ask === 'A' ? '#FF6B3D' : '#37A9DC';
+    var cy = Z.restTop + 4;
+    var cardH = Math.max(40, Math.min(64, Z.restH * 0.42));
+    var cw = Math.min(170, (bw - 12) / 2);
+    var gap = 12;
+    var cx0 = bx + (bw - (cw * 2 + gap)) / 2;
+    function card(x, title, value, sub, accent){
+      ctx.fillStyle = 'rgba(6,32,48,.78)';
+      rr(ctx, x, cy, cw, cardH, 12); ctx.fill();
+      ctx.strokeStyle = accent; ctx.lineWidth = 2.2;
+      rr(ctx, x, cy, cw, cardH, 12); ctx.stroke();
+      label(ctx, title, x + cw/2, cy + 13, 12, '#BFE2F2');
+      label(ctx, value, x + cw/2, cy + cardH * 0.52, Math.min(16, cardH * 0.28), '#FFF3B0');
+      if(sub) label(ctx, sub, x + cw/2, cy + cardH - 12, 11, '#DDF2FB');
+    }
+    card(cx0, '이론 유령', theoryTimesPhrase(st.theory, st.trials), bandWord(st.band), '#FFD60A');
+    card(cx0 + cw + gap, '이번 오리', countTimesPhrase(st.hits, st.trials, '이번'),
+         bandWord(bandOf(st.hits, st.trials)), col);
+    cy += cardH + 20;
+    var bh = Math.max(18, Math.min(28, Z.restH - cardH - 36));
+    function theoryMark(by){
+      var tx = bx + bw * (st.W ? (st.wAsk / st.W) : 0);
+      ctx.strokeStyle = '#FFD60A'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(tx, by - 5); ctx.lineTo(tx, by + bh + 5); ctx.stroke();
+    }
+    function bar(by, frac, fill, caption){
+      ctx.fillStyle = 'rgba(6,32,48,.78)';
+      rr(ctx, bx, by, bw, bh, 8); ctx.fill();
+      if(frac > 0){
+        ctx.fillStyle = fill;
+        rr(ctx, bx, by, Math.max(4, bw * Math.min(1, frac)), bh, 8); ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.6;
+      rr(ctx, bx, by, bw, bh, 8); ctx.stroke();
+      theoryMark(by);
+      label(ctx, caption, LO.fx + LO.fw/2, by - 12, 11, '#DDF2FB');
+    }
+    if(cy + bh < LO.deckY - 4){
+      bar(cy, st.hits / Math.max(1, st.trials), col,
+          countTimesPhrase(st.hits, st.trials, '이번') + '  ·  ' + theoryTimesPhrase(st.theory, st.trials));
+    }
+    if(cum.t > 0 && cy + bh * 2 + 28 < LO.deckY - 4){
+      bar(cy + bh + 22, cum.s / Math.max(1, cum.t), col,
+          '누적 ' + cum.t + '번 중 ' + cum.s + '번  ·  노란 선은 이론 위치');
+    }
+  } else if(st.step === 'pre'){
+    label(ctx, CHANCE_MODEL, LO.fx + LO.fw/2, Z.restTop + 22, 13, '#FFF3B0');
+  }
+}
+function drawMascot(){
+  var st = S.stage;
+  var size, x, y;
+  if(hero.inPool){
+    size = Math.min(72, Math.max(44, LO.fw * 0.12));
+    x = hero.x; y = hero.y;
+    hero.size = size;
+  } else {
+    size = Math.min(VW * 0.16, LO.ceil - LO.top + 26);
+    x = LO.fx + size*0.55; y = LO.ceil + 4;
+    if(!hero.walking){ hero.x = x; hero.y = y; }
+    hero.size = size;
+  }
+  var bob = Math.sin(S.t * 1.8) * 3;
+  if(hero.inPool){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,214,10,.85)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(x, y+4, size*0.38, 7, 0, 0, 6.284); ctx.stroke();
+    ctx.restore();
+  }
+  drawHero(ctx, x, y, size, bob);
+  if(hero.inPool) return;
+  var msg = '';
+  if(!st) msg = '';
+  else if(st.type === 'mean' && (st.step === 'predict' || st.step === 'predict2'))
+    msg = st.predLocked ? (st.predOK ? '이 높이야!' : '여기는 평균이 아니야') : '눈금을 눌러 서 봐요';
+  else if(st.type === 'mean') msg = st.step === 'locked' ? '평평해졌어!' : MEAN_CONTRACT;
+  else if(st.step === 'pre') msg = '앞 결과와 상관없이 떨어져요';
+  else if(st.step === 'predict') msg = st.predLocked ? (st.predOK ? '이 칸이야!' : '이쪽 칸이 아니야') : '가능성 칸으로 걸어가 서요';
+  else if(st.step === 'result') msg = '한 판은 어긋나도 괜찮아';
+  else msg = '어디에나 똑같이 떨어져요';
+  if(!msg) return;
+  ctx.save();
+  ctx.font = '800 12px -apple-system,"Apple SD Gothic Neo",sans-serif';
+  var bx = x + size*0.48, bw = Math.min(LO.fx + LO.fw - bx - 4, 235);
+  var words = msg.split(' '), lines = [''], li = 0;
+  for(var i=0;i<words.length;i++){
+    var test = lines[li] ? lines[li] + ' ' + words[i] : words[i];
+    if(ctx.measureText(test).width > bw - 18 && lines[li]){ li++; lines[li] = words[i]; }
+    else lines[li] = test;
+  }
+  if(lines.length > 2) lines = lines.slice(0,2);
+  var bh = 12 + lines.length * 15;
+  var by = y - size*0.72;
+  ctx.fillStyle = 'rgba(255,255,255,.94)';
+  rr(ctx, bx, by, bw, bh, 10); ctx.fill();
+  ctx.strokeStyle = 'rgba(10,60,85,.35)'; ctx.lineWidth = 2;
+  rr(ctx, bx, by, bw, bh, 10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx, by + bh*0.5); ctx.lineTo(bx - 8, by + bh*0.66); ctx.lineTo(bx + 2, by + bh*0.78);
+  ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,.94)'; ctx.fill();
+  ctx.fillStyle = '#0E2A38'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for(var l=0;l<lines.length;l++) ctx.fillText(lines[l], bx + 9, by + 13 + l*15);
+  ctx.restore();
+}
+function drawSlackAmbient(){
+  ctx.save();
+  var above = LO.ceil - LO.top;
+  if(above > 48){
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#8FE3FF';
+    for(var i=0;i<6;i++){
+      var cx = ((S.t*16 + i*90) % (VW + 80)) - 40;
+      ctx.beginPath(); ctx.ellipse(cx, LO.top + 18 + (i%3)*12, 36, 7, 0, 0, 6.284); ctx.fill();
+    }
+  }
+  var yb = LO.deckY + 18;
+  var lagoon = VH - yb;
+  if(lagoon > 28){
+    ctx.globalAlpha = 1;
+    var lg = ctx.createLinearGradient(0, yb, 0, VH);
+    lg.addColorStop(0, 'rgba(40,170,210,.38)');
+    lg.addColorStop(.45, 'rgba(16,100,140,.50)');
+    lg.addColorStop(1, 'rgba(8,50,78,.62)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(0, yb, VW, lagoon);
+    for(var layer=0; layer<4; layer++){
+      ctx.beginPath();
+      var y0 = yb + 8 + layer * Math.max(18, lagoon*0.16);
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.42 - layer*0.07) + ')';
+      ctx.lineWidth = 2.2 - layer*0.3;
+      for(var x=0;x<=VW;x+=12){
+        var yy = y0 + Math.sin(x/46 + S.t*(1.3+layer*0.2) + layer)* (3.4+layer);
+        if(x===0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.22; ctx.fillStyle = '#DFF6FF';
+    for(var c=0;c<7;c++){
+      var wx = ((S.t*18 + c*97) % (VW + 100)) - 50;
+      ctx.beginPath(); ctx.ellipse(wx, yb + 36 + (c%4)*Math.max(22, lagoon*0.12), 34, 7, 0, 0, 6.284); ctx.fill();
+    }
+    // 떠 있는 장식 킥판 — 남는 세로를 매트 앰비언트로
+    ctx.globalAlpha = 0.55;
+    var padW = Math.min(86, VW*0.12), padH = 14;
+    for(var p=0;p<5;p++){
+      var px = (VW*0.12 + p*VW*0.18 + Math.sin(S.t*0.7+p)*10);
+      var py = yb + 28 + (p%3)*Math.max(26, lagoon*0.14) + Math.sin(S.t*1.1+p*1.3)*5;
+      ctx.fillStyle = p%2 ? 'rgba(255,80,60,.55)' : 'rgba(30,140,190,.55)';
+      rr(ctx, px, py, padW, padH, 6); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.4;
+      rr(ctx, px, py, padW, padH, 6); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+function render(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if(bgCv) ctx.drawImage(bgCv, 0, 0, VW, VH);
+  else { ctx.fillStyle = '#0A4D6E'; ctx.fillRect(0,0,VW,VH); }
+  ctx.save();
+  if(S.shake > 0){
+    var m = S.shake * (REDUCED ? 2.5 : 8);
+    ctx.translate((Math.random()-.5)*m, (Math.random()-.5)*m);
+  }
+  var st = S.stage;
+  drawSlackAmbient();
+  if(st && st.type === 'mean') drawMeanScene();
+  else if(st && st.type === 'chance') drawChanceScene();
+  else drawWater(LO.ceil + (LO.deckY - LO.ceil) * 0.6);
+  drawMascot();
+  // 물결 링
+  for(var i=0;i<ripples.length;i++){
+    var rp = ripples[i];
+    ctx.strokeStyle = 'rgba(' + rp.col + ',' + (rp.life*0.7) + ')';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(rp.x, rp.y, rp.r, rp.r*0.34, 0, 0, 6.284); ctx.stroke();
+  }
+  // 파티클
+  for(var p=0;p<parts.length;p++){
+    var P = parts[p];
+    ctx.globalAlpha = Math.max(0, Math.min(1, P.life));
+    ctx.fillStyle = 'rgb(' + P.col + ')';
+    ctx.beginPath(); ctx.arc(P.x, P.y, P.r, 0, 6.284); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // 떠오르는 글자
+  for(var t=0;t<texts.length;t++){
+    var T = texts[t];
+    ctx.globalAlpha = Math.max(0, Math.min(1, T.life * 1.4));
+    label(ctx, T.txt, T.x, T.y, T.size, T.col);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  if(S.flash > 0.01){
+    ctx.fillStyle = 'rgba(' + S.flashCol + ',' + (S.flash * 0.42) + ')';
+    ctx.fillRect(0, 0, VW, VH);
+  }
+}
+
+// ─────────── 타이틀 물방울 효과 ───────────
+var tfx = $('titleFx'), tctx = tfx ? tfx.getContext('2d') : null, bubbles = [];
+function titleFx(dt){
+  if(!tctx || elTitle.classList.contains('hide')) return;
+  var w = tfx.clientWidth, h = tfx.clientHeight;
+  if(tfx.width !== Math.round(w*DPR) || tfx.height !== Math.round(h*DPR)){
+    tfx.width = Math.round(w*DPR); tfx.height = Math.round(h*DPR);
+  }
+  tctx.setTransform(DPR,0,0,DPR,0,0);
+  tctx.clearRect(0,0,w,h);
+  if(bubbles.length < (REDUCED ? 8 : 18) && Math.random() < 0.35)
+    bubbles.push({ x:Math.random()*w, y:h + 10, r:3 + Math.random()*7, v:14 + Math.random()*26, a:0.15 + Math.random()*0.35, p:Math.random()*6 });
+  for(var i=bubbles.length-1;i>=0;i--){
+    var b = bubbles[i];
+    b.y -= b.v * dt; b.p += dt*2;
+    if(b.y < -20){ bubbles.splice(i,1); continue; }
+    tctx.beginPath();
+    tctx.arc(b.x + Math.sin(b.p)*6, b.y, b.r, 0, 6.284);
+    tctx.strokeStyle = 'rgba(255,255,255,' + b.a + ')'; tctx.lineWidth = 1.6; tctx.stroke();
+    tctx.fillStyle = 'rgba(255,255,255,' + (b.a*0.34) + ')'; tctx.fill();
+  }
+}
+
+// ─────────── 온보딩 ───────────
+var onbStep = 0, onbPreview = false;
+var ONB = [
+  { t:'높은 탑에서 킥판 한 장을 집어 낮은 탑에 놓아요.', hole:function(){ return { x:LO.fx-4, y:LO.deckY-140, w:LO.fw+8, h:152 }; } },
+  { t:'높이가 모두 같아지면 수면이 잠겨요. 그 높이가 바로 평균! ' + MEAN_CONTRACT, hole:function(){ return { x:LO.fx-4, y:LO.ceil-6, w:LO.fw+8, h:140 }; } },
+  { t:'평균을 예상할 때는 눈금을 눌러 그 높이에 서요. 문제창은 없어요.', hole:function(){ return { x:LO.fx-4, y:LO.ceil-6, w:LO.fw+8, h:Math.max(120, LO.deckY-LO.ceil) }; } },
+  { t: CHANCE_MODEL + ' 가능성 칸(불가능·반반·확실…)으로 걸어가 서요.', hole:function(){ return { x:LO.fx-4, y:LO.ceil-6, w:LO.fw+8, h:Math.max(120, LO.deckY-LO.ceil) }; } }
+];
+function startOnboarding(preview){
+  onbPreview = !!preview;
+  onbStep = 0;
+  elOnb.classList.remove('hide');
+  paintOnb();
+}
+function paintOnb(){
+  var o = ONB[onbStep], hole = o.hole();
+  var el = $('onbHole');
+  hole.x = Math.max(6, hole.x); hole.y = Math.max(6, hole.y);
+  hole.w = Math.min(hole.w, VW - 12); hole.h = Math.min(hole.h, VH - 12);
+  el.style.left = hole.x + 'px'; el.style.top = hole.y + 'px';
+  el.style.width = hole.w + 'px'; el.style.height = hole.h + 'px';
+  $('onbStep').textContent = (onbStep+1) + ' / ' + ONB.length;
+  $('onbText').textContent = o.t;
+  $('onbNext').textContent = (onbStep === ONB.length-1) ? '해볼게요!' : '다음';
+  var box = $('onbBox');
+  var below = hole.y + hole.h + 14;
+  if(below + 140 > VH) box.style.top = Math.max(10, hole.y - 150) + 'px';
+  else box.style.top = below + 'px';
+}
+$('onbNext').addEventListener('click', function(){
+  audioOn();
+  onbStep++;
+  if(onbStep >= ONB.length){ dismissOnb(); LS.set('onb','1'); }
+  else paintOnb();
+});
+function dismissOnb(){ elOnb.classList.add('hide'); onbPreview = false; }
+
+// ─────────── 게임오버 ───────────
+function gameOver(){
+  if(S.over) return;
+  S.over = true;
+  S.phase = 'over';
+  clearTimers();
+  SFX.over();
+  var best = parseInt(LS.get('best','0'), 10) || 0;
+  var isBest = S.score > best;
+  if(isBest){ best = S.score; LS.set('best', best); }
+  $('overTitle').textContent = isBest ? '최고 기록!' : '첨벙!';
+  $('overSub').textContent = S.round + '판까지 갔어요 · ' + (S.mode === 'easy' ? '느긋하게' : '아슬아슬');
+  var n1 = 0, n2 = 0, n3 = 0, n4 = 0, step = 0;
+  var tick = setInterval(function(){                       // 결과 수치 카운트업 (게임 루프 아님)
+    step++;
+    n1 = Math.min(S.score, Math.ceil(S.score * step/18));
+    n2 = Math.min(S.locks, Math.ceil(S.locks * step/18));
+    n3 = Math.min(S.bestCombo, Math.ceil(S.bestCombo * step/18));
+    n4 = Math.min(best, Math.ceil(best * step/18));
+    $('ovScore').textContent = n1; $('ovLock').textContent = n2;
+    $('ovCombo').textContent = n3; $('ovBest').textContent = n4;
+    if(step >= 18) clearInterval(tick);
+  }, 32);
+  elOver.classList.remove('hide');
+  setPanel({ title:'다시 도전해요!', sub:'', kind:'', options:null });
+}
+$('againBtn').addEventListener('click', function(){ audioOn(); startGame(false); });
+
+// ─────────── 시작 / 타이틀 ───────────
+function startGame(showOnb){
+  S.over = false; S.phase = 'playing';
+  S.round = 0; S.score = 0; S.shownScore = 0; S.combo = 0; S.bestCombo = 0;
+  S.solved = 0; S.locks = 0; S.streakOK = 0; S.stage = null;
+  S.ceilWant = 0; S.deckWant = 0;
+  S.maxLives = (S.mode === 'easy') ? 5 : 3;
+  S.lives = S.maxLives;
+  parts.length = 0; texts.length = 0; flyers.length = 0; ripples.length = 0;
+  carry = null; sticky = false;
+  elTitle.classList.add('hide');
+  elOver.classList.add('hide');
+  elScore.textContent = '0';
+  syncHUD();
+  resize();
+  nextRound();
+  if(showOnb && LS.get('onb','0') !== '1') startOnboarding(false);
+}
+function setMode(m){
+  S.mode = m;
+  LS.set('mode', m);
+  $('modeEasy').classList.toggle('on', m === 'easy');
+  $('modeHard').classList.toggle('on', m === 'hard');
+}
+$('modeEasy').addEventListener('click', function(){ audioOn(); setMode('easy'); });
+$('modeHard').addEventListener('click', function(){ audioOn(); setMode('hard'); });
+$('startBtn').addEventListener('click', function(){ audioOn(); startGame(true); });
+$('howtoBtn').addEventListener('click', function(){ audioOn(); startOnboarding(true); });
+function toggleMute(){
+  S.muted = !S.muted;
+  var icon = S.muted ? '🔇' : '🔊';
+  $('muteBtn').textContent = icon; $('muteBtn2').textContent = icon;
+  var lab = S.muted ? '소리 켜기' : '소리 끄기';
+  $('muteBtn').setAttribute('aria-label', lab); $('muteBtn2').setAttribute('aria-label', lab);
+  if(!S.muted) audioOn();
+  if(masterGain) masterGain.gain.value = S.muted ? 0 : 0.5;
+}
+$('muteBtn').addEventListener('click', toggleMute);
+$('muteBtn2').addEventListener('click', toggleMute);
+$('titleImg').addEventListener('error', function(){ this.style.display = 'none'; });
+
+// ─────────── 메인 루프 ───────────
+var last = 0;
+function frame(ts){
+  requestAnimationFrame(frame);
+  if(!last) last = ts;
+  var dt = Math.min(0.05, (ts - last)/1000);
+  last = ts;
+  S.t += dt;
+  runTimers(dt);
+  var sdt = dt;
+  if(S.hitStop > 0){ S.hitStop -= dt; sdt = dt * 0.06; }      // hit-stop
+  update(sdt, dt);
+  render();
+  titleFx(dt);
+}
+
+// ─────────── 초기화 ───────────
+function init(){
+  setMode(LS.get('mode','easy') === 'hard' ? 'hard' : 'easy');
+  var best = parseInt(LS.get('best','0'), 10) || 0;
+  if(best > 0){
+    var tb = $('tBest');
+    tb.textContent = '최고 ' + best + '점';
+    tb.classList.remove('hide');
+  }
+  resize();
+  resetHero();
+  setPanel({ title:'첨벙 시작 버튼을 눌러요', sub:'', kind:'', options:null });
+  requestAnimationFrame(frame);
+  window.__GAME_TEST__.ready = true;
+}
+
+// ─────────── QA 훅 ───────────
+function ensurePlaying(){
+  if(S.phase !== 'playing' || S.over) startGame(false);
+  dismissOnb();
+}
+function forceNext(){
+  clearTimers();
+  after(0.35, function(){ if(!S.over) nextRound(); });
+}
+window.__GAME_TEST__ = {
+  ready: false,
+  start: function(){
+    if(S.phase !== 'playing' || S.over) startGame(false);
+    dismissOnb();
+  },
+  getState: function(){
+    return {
+      score: Math.round(S.score), lives: S.lives, level: S.round,
+      phase: S.phase, solved: S.solved,
+      combo: S.combo, locks: S.locks
+    };
+  },
+  answerCorrect: function(){
+    ensurePlaying();
+    var g = scoreCorrect(120);
+    floatText(LO.fx + LO.fw/2, LO.ceil + 70, '+' + g, '#FFD60A', 28);
+    burst(LO.fx + LO.fw/2, LO.ceil + 90, 14, '255,214,10', 2.4);
+    forceNext();
+  },
+  answerWrong: function(){
+    ensurePlaying();
+    scoreWrong();
+    if(S.lives > 0) forceNext();
+  },
+  sampleProblems: function(n){ return sampleProblems(n || 20); },
+  // 자동 플레이·회귀 테스트용 좌표 덤프 (게임 로직에는 쓰이지 않는다)
+  _dev: function(){
+    var st = S.stage;
+    if(!st) return null;
+    var d = { type:st.type, step:st.step, deckY:LO.deckY, ceil:LO.ceil, vw:VW, vh:VH, poolH:LO.deckY-LO.ceil, slackAbove:LO.ceil-LO.top, slackBelow:VH-(LO.deckY+18), predLocked:!!st.predLocked, heroInPool:!!hero.inPool };
+    if(st.type === 'chance'){
+      d.band = st.band; d.wA = st.wA; d.wB = st.wB; d.W = st.W; d.ask = st.ask;
+      d.hits = st.hits; d.theory = st.theory; d.landed = st.landed.length;
+      d.zones = chanceZones();
+      d.bands = bandGeom();
+      d.model = CHANCE_MODEL;
+    }
+    if(st.type === 'mean'){
+      var L = laneLayout();
+      d.h = st.h.slice(); d.target = st.target; d.variant = st.variant;
+      d.fixed = st.fixed.slice(); d.reserve = st.reserve; d.locked = st.locked;
+      d.raft = st.raft ? st.raft.slice() : null; d.merged = st.merged;
+      d.slabH = slabH();
+      d.lanes = L.slots.map(function(sl){ return { x:sl.cx, reserve:sl.reserve }; });
+    }
+    return d;
+  }
+};
+
+init();
+})();
+</script>
+</body>
+</html>

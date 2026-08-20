@@ -1,0 +1,93 @@
+{
+  "n": 2,
+  "title": "운빨 항해",
+  "tagline": "예측이 보물이 돼",
+  "slug": "luck-voyage",
+  "mechanic": "flick-and-choose probability roguelite",
+  "mechanic_origin": "Coup Ahoo (js13kGames 2024)의 '배의 화물이 곧 주사위이고, 주사위 눈이 체력·공격력이 되어 전투마다 잃거나 얻는 판돈이 커지는' 루프를 가져온다. 특히 매 전투가 읽히는 수 비교인데 화물 손실 때문에 다음 선택까지 긴장되는 hook을 차용하되, 해적·선박·주사위 아트와 전투 규칙은 쓰지 않는다. 여기서는 투명한 확률 구름항로를 골라 얻은 바람 구슬과 그 평균이 함대의 돌파력 자체가 된다.",
+  "one_liner": "확률이 보이는 구름 항로를 골라 바람 구슬을 모으고, 구슬을 고르게 나눠 평균 엔진으로 폭풍을 뚫는 90초 원정.",
+  "why_fun": "손가락으로 항로 카드를 넘기고 바로 회전판을 튕기는 순간, '이번에는 보물 바람이 나올까?'라는 짧은 판돈이 생긴다. 좋은 예측은 희귀 구름정령 도감과 콤보를 키우지만, 실제 결과는 매번 달라서 한 번의 불운으로 결론 낼 수 없다. 원정 끝에는 내 시행 막대가 이론 막대에 얼마나 가까웠는지와 새 도감 실루엣이 동시에 열려, 기록을 한 판 더 쌓고 싶어진다.",
+  "core_loop": [
+    "1. 세 개의 구름 항로를 한 손으로 넘겨 보고, 색뿐 아니라 부채꼴 면적·아이콘 수·0/반반/확실 배지로 '좋은 바람' 가능성을 판단해 하나를 탭한다.",
+    "2. 선택한 회전판을 위로 플릭해 출항한다. 나온 바람 구슬은 즉시 함대 화물칸과 '이번 항로 실제 결과' 막대에 쌓이며, 연속 성공이면 원정 콤보가 오른다.",
+    "3. 정박지에서 구슬을 드래그해 고정된 4개 엔진에 고르게 분배한다. 모두 같은 높이가 되는 순간 그 높이(합 ÷ 4)가 평균 추진력이 되어 폭풍 방벽을 깨고 다음 항로·도감 상자를 연다."
+  ],
+  "math_is_the_verb": "가능성 비교는 어느 항로를 탭해 플릭할지 결정하는 조준이고, 평균은 모은 구슬을 네 엔진에 실제로 평평하게 옮기는 손동작이다. 별도의 문제창이나 정답 버튼이 없으며, 평균이 맞지 않으면 엔진 높이가 같아지지 않아 돌파 플릭이 성립하지 않는다. 각 항로 카드에는 이론적 좋은 바람 비율과 내 시행의 성공/시행 수 막대가 함께 있어, 예측 → 반복 시행 → 비교가 항해 판단으로 계속 반복된다.",
+  "controls": {
+    "mobile": "항로 카드 좌우 스와이프, 항로 탭, 회전판 위로 플릭, 바람 구슬을 엔진으로 드래그, 돌파 버튼 길게 누르기",
+    "desktop": "마우스 드래그/클릭, 회전판은 위로 드래그, 엔진 분배는 드래그; 방향키는 카드 이동 보조"
+  },
+  "progression": "월드맵의 8개 구름 섬을 순차 해금한다. 1~2섬은 0·반반·1의 같은 크기 부채꼴과 4엔진 정수 평균, 3~5섬은 1/4·3/4와 서로 다른 크기 부채꼴 및 4~5개 자료 평균, 6~8섬은 최근 시행 막대가 포함된 항로·0이 섞인 자료·서로 다른 자료 수의 두 함대 비교를 쓴다. 시작 시 '순풍 모드'(첫 오답은 항로 면적 하이라이트와 재선택, 피해 없음)와 '폭풍 모드'(선택 실패 시 선체 1칸 피해, 목숨 3개)를 고른다; 개념 탐색이 중요한 단원이므로 기본값은 순풍 모드다.",
+  "problem_generator": {
+    "description": "항로는 미리 정의한 제약 만족 템플릿에서 샘플링한다. 각 템플릿은 전체 부채꼴 수 2·4·6 또는 같은 크기 칸 수, 좋은 바람 칸 수, 보상값을 먼저 고정하고 시각 배치를 셔플한다. 평균 정박지는 엔진 수 k를 먼저 선택한 뒤 목표 평균 a와 각 엔진의 초기 구슬 수를 생성해 합이 k×a인 자료만 배치한다. 비교 스테이지는 두 집단의 인원 nA·nB와 평균 a·b를 먼저 정해 합계를 역산하므로, 단순 평균의 평균이 전체 평균처럼 보이는 함정을 의도적으로 만들 수 있다. 실제 회전 결과는 누적 trials/successes로 저장해 이론 막대와 별도로 렌더한다.",
+    "difficulty_bands": [
+      {
+        "level": 1,
+        "rule": "2등분 회전판의 불가능·반반·확실 항로와 합이 4의 배수인 네 엔진 평균",
+        "example": "파란 칸 2/2인 항로는 확실, 엔진 구슬 2·4·6·8은 각각 5로 평탄화"
+      },
+      {
+        "level": 2,
+        "rule": "4등분·6등분 회전판에서 좋은 바람 비율 비교와 0이 포함된 다섯 자료의 평균",
+        "example": "금빛 칸 3/4 항로와 2/4 항로 비교; 0·3·6·6·10의 평균 5"
+      },
+      {
+        "level": 3,
+        "rule": "서로 다른 넓이의 부채꼴, 누적 시행 막대 해석, 인원 수가 다른 두 함대의 평균 비교·합산",
+        "example": "넓은 금빛 3/4 부채꼴이 있는 항로 선택; 5명 평균 8과 2명 평균 2의 전체 평균은 44/7"
+      }
+    ],
+    "distractor_rules": [
+      {
+        "misconception": "결과가 두 가지면 부채꼴 넓이와 무관하게 반반이라고 생각함",
+        "distractor_formula": "서로 다른 넓이의 두 결과 항로를 모두 1/2 배지처럼 보이게 하는 말풍선 유혹을 두되, 실제 선택 판정은 goodSectorArea / totalSectorArea로 한다."
+      },
+      {
+        "misconception": "앞선 결과가 다음 시행의 가능성을 바꾼다고 생각함",
+        "distractor_formula": "앞면 성공이 3회 연속 표시된 뒤 '이제 실패가 더 잘 나와요'라는 선원 조언 카드를 생성한다; 다음 회전의 확률은 previousResults와 무관하게 goodSectors / totalSectors로 유지한다."
+      },
+      {
+        "misconception": "평균에서 0인 자료를 자료 수에서 제외함",
+        "distractor_formula": "엔진 구슬 [0, a, a, 2a]의 잘못된 목표를 (0+a+a+2a)/3으로 표시한 고장 난 항법계로 만들고, 실제 평탄화 목표는 합/4로 판정한다."
+      },
+      {
+        "misconception": "인원 수가 다른 집단의 평균을 다시 평균내면 전체 평균이라고 생각함",
+        "distractor_formula": "함대 A·B의 오답 추진력을 (meanA+meanB)/2로 제시하고, 실제 전체 추진력은 (nA×meanA+nB×meanB)/(nA+nB)로 계산한다."
+      }
+    ]
+  },
+  "fail_state": "순풍 모드에서는 첫 잘못된 항로 선택에 면적 윤곽 힌트가 나타나고 재선택한다. 폭풍 모드에서는 나쁜 항로 또는 평균 분배 실패가 선체 1칸만 깎고 콤보가 0이 되며, 3칸이 모두 깨질 때 원정이 끝난다. 회전 결과가 불리해도 선택 성공 보상에서 빼앗는 일은 없고, 그 결과는 다음 예측에 쓰일 소중한 시행 기록으로 남는다.",
+  "reward": "항로 예측 적중과 엔진 평탄화는 별가루·연속 항해 콤보·구름정령 도감 조각을 준다. 회전판의 확률은 항상 공개하고 현금·결제·랜덤 손실은 없다. localStorage에 섬별 최고 콤보, 오늘의 동일 시드 원정, 5일 누적 항해 도장을 저장하며, 실제 시행 막대가 이론 막대에 가까워지는 '관측가' 배지를 보상한다.",
+  "session_length_sec": 90,
+  "tech": ["canvas2d"],
+  "wow_moment": "4개 엔진이 같은 높이에 닿아 평균이 완성되면 화면이 90ms hit-stop 후, 바닥의 점 구름 격자가 엔진 높이만큼 위로 솟아 거대한 균일 파도로 변한다. 카메라는 위로 살짝 따라가고 금빛 바람 구슬이 파도 곡선을 타고 폭풍 방벽을 뚫으며, 콤보에 비례한 수의 정령 실루엣이 도감 쪽으로 날아간다.",
+  "art_direction": {
+    "mood": "레트로 기상 관측소 아침 — 맑은 민트 하늘, 잉크 남색 계기판, 귤빛 경보등과 산호색 구름을 쓰는 선명한 종이 포스터 질감. 최근 슬롯의 노을 과수원·나무 공방·아이보리 장난감 공장·먹선 한지·보물온실·해바라기 들판을 피하면서, 확률을 '날씨 예보를 읽고 출항하는 일'로 직관화한다.",
+    "palette": ["#BFE8DD", "#12314A", "#FFB23F", "#F45B69", "#F7F1D5"],
+    "visual_reference": "three.js — Points Waves의 '아주 가벼운 스프라이트 점 격자를 물결치게 만들어 UI 뒤에서도 살아 있는 배경을 만드는' 기법을 canvas2d 점 격자로 재해석한다. 평균 엔진이 같아지는 wow_moment에서 이 점 격자가 같은 높이의 파도로 재정렬되어, 단순 파티클이 아니라 평균의 시각 증거가 된다.",
+    "juice_techniques": ["hit-stop", "squash & stretch", "anticipation / overshoot easing", "screen-shake-tiered", "particle-burst-scaled", "color-flash", "trail", "ambient-idle-motion", "sound-visual-sync"],
+    "assets_needed": [
+      {
+        "id": "hero",
+        "prompt": "Original cute child-friendly cloud navigator mascot, round wind-up observatory robot holding a tiny brass weather vane, full body three-quarter view, bold retro weather-poster illustration, mint sky and cream rim light, clean thick ink outlines, no text, transparent background",
+        "size": "1024x1024",
+        "transparent_bg": true
+      },
+      {
+        "id": "bg",
+        "prompt": "Vertical-friendly retro weather observatory floating above a mint morning cloud sea, paper poster texture, navy instrument towers, coral storm clouds far away, amber signal lamps, layered parallax clouds, crisp shapes and short shadows, no characters, no text",
+        "size": "1536x1024",
+        "transparent_bg": false
+      },
+      {
+        "id": "thumb",
+        "prompt": "Dynamic game key art for a Korean elementary probability adventure: original small observatory robot flicking a bright weather spinner, four equal wind engines create a gold wave through coral storm clouds, mint sky, navy and amber retro poster palette, bold mobile game composition, no text, no logos",
+        "size": "1536x1024",
+        "transparent_bg": false
+      }
+    ]
+  },
+  "standards": ["[6수04-01]", "[6수04-04]", "[6수04-05]", "[6수04-06]"],
+  "unit_id": "g5s2-u6",
+  "risks": ["확률 결과가 짧은 판에서 이론값과 크게 달라질 수 있으므로 '운이 틀렸다'가 아니라 시행 수와 실제 빈도를 분리해 보여 주어야 한다.", "구슬 평탄화가 반복 노동으로 느껴질 수 있어 엔진 수는 최대 5개, 한 정박지의 드래그는 3~6회로 제한하고 자동 정렬 보조를 제공해야 한다.", "회전판의 면적 판독은 색약 학생에게 불리할 수 있으므로 색 외에 부채꼴 경계, 아이콘 반복 수, 질감 패턴, 0·1/2·1 배지를 함께 제공해야 한다.", "서버 없는 localStorage 기록은 기기·학급 간 랭킹을 동기화할 수 없으며, 학급 주간 랭킹은 향후 서버 기능으로만 확장 가능하다."]
+}
