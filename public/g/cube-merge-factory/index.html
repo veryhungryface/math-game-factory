@@ -107,6 +107,60 @@
     bottom:max(8px, env(safe-area-inset-bottom));
     pointer-events:none;
   }
+  /* ── 배송 존 안내 라벨: "완성된 상자를 여기로 끌어와요" 를 항상 보여준다.
+     실사용자가 "아래로 가져가서 배송하는지도 알 수가 없음" 이라고 지적한 지점이다. */
+  #dropLabel{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    margin:0 auto 5px; width:max-content; max-width:100%;
+    padding:4px 11px; border-radius:999px;
+    background:rgba(46,52,64,.86); border:2px solid rgba(255,250,246,.55);
+    color:#fff3d2; font-weight:800; font-size:clamp(10.5px,3vw,13px); line-height:1.2;
+    box-shadow:0 3px 0 rgba(0,0,0,.28);
+    animation:dropIdle 2.6s ease-in-out infinite;
+  }
+  #dropCount{ color:#ffe94d; font-variant-numeric:tabular-nums; }
+  #dropLabel.ready{
+    background:var(--good); border-color:#0f6f52; color:#08301f;
+    animation:dropReadyPulse .78s ease-in-out infinite;
+  }
+  @keyframes dropIdle{
+    0%,100%{ transform:translateY(0); opacity:.86; }
+    50%{ transform:translateY(-3px); opacity:1; }
+  }
+  @keyframes dropReadyPulse{
+    0%,100%{ transform:translateY(0) scale(1); }
+    50%{ transform:translateY(-5px) scale(1.06); }
+  }
+  #orderCard.dropReady{
+    box-shadow:0 0 0 4px var(--good), 0 0 18px 3px rgba(58,211,156,.5), 0 4px 0 rgba(0,0,0,.2);
+    animation:cardReady .78s ease-in-out infinite;
+  }
+  @keyframes cardReady{
+    0%,100%{ transform:scale(1); }
+    50%{ transform:scale(1.022); }
+  }
+  #orderCard.idleWait{ animation:cardIdle 2.6s ease-in-out infinite; }
+  @keyframes cardIdle{
+    0%,100%{ box-shadow:0 4px 0 rgba(0,0,0,.2), 0 0 0 0 rgba(255,184,92,0); }
+    50%{ box-shadow:0 4px 0 rgba(0,0,0,.2), 0 0 0 3px rgba(255,184,92,.45); }
+  }
+  /* 첫 배송 축하 — 상승·확산·빛의 어휘만 쓴다 (흔들림 금지) */
+  #praise{
+    position:fixed; left:50%; top:29%; z-index:9; pointer-events:none;
+    transform:translate(-50%,-50%) scale(.6); opacity:0; text-align:center;
+    transition:transform .34s cubic-bezier(.2,1.5,.4,1), opacity .3s ease;
+  }
+  #praise.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+  #praise.rise{ transform:translate(-50%,-80%) scale(1.04); opacity:0; }
+  #praiseTitle{
+    font-weight:900; font-size:clamp(24px,8vw,40px); color:#fff8e2; letter-spacing:-.02em;
+    text-shadow:0 0 18px rgba(255,222,120,.95), 0 3px 0 #b8631e, 0 6px 16px rgba(0,0,0,.55);
+  }
+  #praiseSub{
+    margin-top:7px; font-weight:800; font-size:clamp(12px,3.8vw,16px); color:#fffaf0;
+    background:rgba(46,52,64,.82); border-radius:999px; padding:5px 14px; display:inline-block;
+    box-shadow:0 3px 0 rgba(0,0,0,.3);
+  }
   #orderCard{
     position:relative; overflow:visible;
     background:
@@ -144,6 +198,9 @@
     pointer-events:none; transition:transform .28s cubic-bezier(.34,1.56,.64,1);
   }
   #mascot.bounce{ transform:translateY(-14px) rotate(-8deg) scale(1.1); }
+  /* hero.png 는 알파 채널이 없어(colorType 2) 흰 배경이 그대로 박혀 있었다 —
+     어두운 공장 배경 위에 흰 사각형으로 떠 보이던 것을 동그란 작업자 배지로 감싼다. */
+  #mascot img{ border-radius:50%; border:2.5px solid var(--ink); background:#fff5e6; padding:2px; }
   #toast{
     position:fixed; top:34%; left:50%; z-index:8; pointer-events:none;
     transform:translate(-50%,-50%) scale(.5); opacity:0;
@@ -381,6 +438,7 @@
     transform:rotate(-10deg) scale(0); box-shadow:0 0 0 3px rgba(217,75,75,.25) inset;
     animation:resultStampIn .5s .15s cubic-bezier(.2,1.4,.4,1) both;
   }
+  .resultStamp.clear{ border-color:var(--good); color:var(--good); box-shadow:0 0 0 3px rgba(58,211,156,.25) inset, 0 0 26px rgba(58,211,156,.5); }
   @keyframes resultStampIn{ 0%{ transform:rotate(-10deg) scale(2.4); opacity:0;} 60%{ transform:rotate(-10deg) scale(.92); opacity:1;} 100%{ transform:rotate(-10deg) scale(1); opacity:1;} }
   #finalScore{ font-weight:900; font-size:clamp(20px,6vw,28px); color:var(--cream); }
   #finalScore span{ display:inline-block; }
@@ -391,6 +449,8 @@
     #titleImg, .game-logo, .game-logo>span, .titleTagline, .unitBadge, #onbHole{ animation:none; }
     #startBtn{ animation:none; transition-duration:0ms; }
     .resultStamp{ animation-duration:.2s; }
+    #dropLabel, #orderCard.dropReady, #orderCard.idleWait{ animation:none !important; }
+    #praise{ transition-duration:.15s; }
     .titleDust span{ animation-duration:40s !important; }
   }
 </style>
@@ -425,6 +485,7 @@
   <div id="stallBanner">칸이 얼마 안 남았어요! 필요없는 상자는 버려요 🗑️</div>
   <div id="trashZone">🗑️</div>
   <div id="orderBar">
+    <div id="dropLabel"><span id="dropCount">📦 0/10</span><span id="dropText">완성된 상자를 여기로 끌어와요!</span></div>
     <div id="mascot"><img src="./assets/hero.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))" onerror="this.style.display='none'" /></div>
     <div id="orderCard">
       <canvas id="orderIcon" width="104" height="104"></canvas>
@@ -432,13 +493,14 @@
         <div id="orderText">주문서를 준비하는 중…</div>
         <div id="orderTimerWrap"><div id="orderTimerBar"></div></div>
       </div>
-      <button id="rejectBtn">🚫 반려</button>
+      <button id="rejectBtn">🔄 교체</button>
       <div id="stampFx">배송완료</div>
     </div>
   </div>
 </div>
 
 <div id="toast"></div>
+<div id="praise"><div id="praiseTitle"></div><div id="praiseSub"></div></div>
 <div id="flashFx"></div>
 
 <div id="startScreen" class="screen">
@@ -735,6 +797,7 @@ function computeLayout(){
   layout.gridX=left; layout.gridY=top; layout.gridW=gw; layout.gridH=gh;
   layout.cellW=gw/GRID_COLS; layout.cellH=gh/GRID_ROWS;
   layout.cellGap=Math.min(layout.cellW,layout.cellH)*0.1;
+  updateDropZone();
 }
 
 function resize(){
@@ -800,16 +863,27 @@ function roundRect(g,x,y,w,h,rad){
 
 // ───────────────────────────── 게임 상태
 
-const LEVEL_THRESH=[0,150,420,820];
-const SPAWN_MS=[2100,1850,1550,1250];
-const TRAP_RATIO=[0.15,0.22,0.28,0.33];
+// ── 난이도 곡선 (실사용자 피드백 반영: "너무 깨기 어려워")
+// 레벨은 점수가 아니라 "배송 성공 개수"로 오른다 — 점수는 콤보에 따라 요동쳐서
+// 운 좋으면 2번 배송 만에 L3로 튀어올랐다(기존 LEVEL_THRESH 방식의 실제 결함).
+// 이제 L1(3건) → L2(3건) → L3(2건) → L4(2건), 총 10건 배송하면 클리어다.
+const LEVEL_SOLVED_THRESH=[0,3,6,8];
+const GOAL_DELIVERIES=10;
+const SPAWN_MS=[1600,1500,1400,1300];
+// 트랩 비율을 크게 낮췄다 — 게이지가 아니라 "필요한 게 안 나온다"는 체감을 만들던 주범.
+const TRAP_RATIO=[0.06,0.10,0.14,0.18];
 // 겨냥도(wire) 타일의 트랩(실선/점선 오류) 비율 — L1·L2는 겨냥도가 항상 맞게 나와
 // "짝짓기" 자체에 집중하게 하고, L3부터 겨냥도 판별이 새로운 과제로 추가된다.
-const WIRE_TRAP_RATIO=[0,0,0.28,0.32];
-const ORDER_TIME=[16,20,24,26];
+const WIRE_TRAP_RATIO=[0,0,0.16,0.20];
+// 주문 제한시간을 대폭 늘렸다(초반일수록 넉넉). 자비 스폰과 합쳐 한 주문이 15초 안팎에
+// 끝나므로 시간이 남아돌지만, 남는 시간이 "다음 주문을 미리 준비하는" 여유가 된다.
+const ORDER_TIME=[42,38,34,32];
+// 주문 자비 스폰(pity): 주문이 안 풀린 시간에 비례해 "그 주문에 필요한 타일"이 나올
+// 확률이 올라간다. base 50% → 초당 +5%p → 최대 96%.
+const SPAWN_TARGET_BASE=0.50, SPAWN_TARGET_RATE=0.05, SPAWN_TARGET_CAP=0.96;
 // 레벨별 새 규칙 한 줄 힌트 — L1은 첫 진입 지속 배너, L2~4는 레벨업 순간 3초짜리 배너로 쓰인다.
 const LEVEL_HINTS={
-  1:'같은 크기의 전개도와 겨냥도를 겹치면 상자 완성!',
+  1:'전개도+겨냥도를 겹쳐 상자를 만들고, 아래 주문서로 끌어와 배송!',
   2:'치수 카드도 짝이 될 수 있어요',
   3:'치수가 숨겨져요 — 전개도를 접어 상상해 보세요! 길게 누르면 살짝 보여요',
   4:'모서리 길이의 합이 맞는 상자만 배송돼요',
@@ -817,7 +891,7 @@ const LEVEL_HINTS={
 
 function isSpawnKind(k){ return k==='net'||k==='wire'||k==='dims'; }
 function vol(d){ return d[0]*d[1]*d[2]; }
-function randCubeEdge(){ return randInt(2,6); }
+function randCubeEdge(){ return randInt(2,4); }
 function cubeDims(){ const s=randCubeEdge(); return [s,s,s]; }
 
 let uid=1;
@@ -826,10 +900,11 @@ const S={
   combo:1, comboStreak:0, gauge:0, gaugeMax:5, stickers:0,
   grid:new Array(GRID_N).fill(null),
   tiles:new Map(), tileOrder:[],
-  order:null, orderTimer:0, orderTimerMax:16,
+  order:null, orderTimer:0, orderTimerMax:42,
   spawnTimer:900, spawnCount:0, firstPairDims:null, stallEmptyZero:0,
   introHintActive:false,
-  drag:null, particles:[], muted:false, lastTouchedId:null,
+  orderPity:0, idleMerge:0, firstDeliverDone:false, cleared:false, dropRefresh:0,
+  drag:null, particles:[], blooms:[], muted:false, lastTouchedId:null,
   hitStopT:0, shakeT:0, shakeDur:0.01, shakeMag:0,
   ambTimer:0, ambParticles:[],
 };
@@ -837,15 +912,29 @@ const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-mo
 
 try{ S.best = Number(localStorage.getItem('cmf_best')||0)||0; }catch(e){ S.best=0; }
 
-function levelForScore(score){
+function levelForSolved(n){
   let lv=1;
-  for(let i=0;i<LEVEL_THRESH.length;i++) if(score>=LEVEL_THRESH[i]) lv=i+1;
+  for(let i=0;i<LEVEL_SOLVED_THRESH.length;i++) if(n>=LEVEL_SOLVED_THRESH[i]) lv=i+1;
   return lv;
 }
 
+// 문제 표본(sampleProblems)용 — 수학 콘텐츠는 그대로 두려고 기존 범위(2~9)를 유지한다.
 function randDims(){
   if(Math.random()<0.16){ const s=randInt(2,7); return [s,s,s]; }
   return [randInt(2,9), randInt(2,9), randInt(2,9)];
+}
+
+// 플레이용 치수 풀 — 레벨별로 좁힌다.
+// 기존엔 게임 안에서도 2~9(=512가지)를 썼다: L2 주문("가로 w 세로 h 높이 d 상자를
+// 배송")에 정확히 맞는 타일 2장이 우연히 동시에 나올 확률이 주문 1건당 0.7% 였고,
+// 기대 소요 시간이 주문 하나에 49분이었다 — 이게 "잘 나오지도 않아"의 실체다.
+// 풀을 좁히고(아래) + 주문 지향 스폰(자비)까지 넣어 이 벽을 없앤다.
+const DIM_MAX=[4,4,5,6];
+function gameDims(level){
+  const mx = DIM_MAX[clamp((level|0)-1,0,3)];
+  if(level<=1){ const s=randInt(2,mx); return [s,s,s]; }
+  if(Math.random()<0.22){ const s=randInt(2,mx); return [s,s,s]; }
+  return [randInt(2,mx), randInt(2,mx), randInt(2,mx)];
 }
 
 // ───────────────────────────── 타일 생성
@@ -875,7 +964,7 @@ function genNetTile(level, forceDims){
     return newTile('net', { level, valid:false, shapeKind:'hex', cells:c.cells, corrupt:c, patternId:null,
       dims, boundW:HEX_BOUND.w+2, boundH:HEX_BOUND.h+1 });
   }
-  const [w,h,d]=forceDims||randDims();
+  const [w,h,d]=forceDims||gameDims(level);
   const tabOn=randInt(0,1);
   const pieces=rectNetPieces(w,h,d,tabOn);
   if(!isTrap){
@@ -890,7 +979,7 @@ function genNetTile(level, forceDims){
 }
 
 function genWireTile(level, forceDims){
-  const dims = forceDims || (level===1 ? cubeDims() : randDims());
+  const dims = forceDims || gameDims(level);
   // forceDims 가 있으면(첫 스폰 보장용) 트랩 없이 무조건 유효한 겨냥도를 만든다.
   const trapRatio = forceDims ? 0 : WIRE_TRAP_RATIO[level-1];
   const isTrap = Math.random() < trapRatio;
@@ -898,20 +987,23 @@ function genWireTile(level, forceDims){
   return newTile('wire', { level, valid:!isTrap, dims, isCube: dims[0]===dims[1]&&dims[1]===dims[2], dashed });
 }
 
-function genDimsTile(level){
-  const dims=randDims();
+function genDimsTile(level, forceDims){
+  const dims=forceDims||gameDims(level);
   return newTile('dims', { level, valid:true, dims, isCube: dims[0]===dims[1]&&dims[1]===dims[2] });
 }
 
-function pickSpawnKind(level){
-  if(level===1) return pick(['net','wire']);
-  return pick(['net','wire','dims']);
-}
+function kindsForLevel(level){ return level===1 ? ['net','wire'] : ['net','wire','dims']; }
+function pickSpawnKind(level){ return pick(kindsForLevel(level)); }
 function genSpawnTile(level){
   const kind=pickSpawnKind(level);
   if(kind==='net') return genNetTile(level);
   if(kind==='wire') return genWireTile(level);
   return genDimsTile(level);
+}
+function genTileOfKind(level, kind, forceDims){
+  if(kind==='net') return genNetTile(level, forceDims);
+  if(kind==='wire') return genWireTile(level, forceDims);
+  return genDimsTile(level, forceDims);
 }
 
 // ── 병합 판정: 서로 "다른 종류" 두 타일이 같은 상자(치수 multiset 동일)를 나타낼 때만
@@ -937,13 +1029,32 @@ function sequenceOrderText(order){
   return `${stepLabel}: 가로 ${cur[0]} · 세로 ${cur[1]} · 높이 ${cur[2]}`;
 }
 
+// 이미 격자에 완성돼 있는 상자의 치수 — 주문서를 새로 뽑을 때 이걸 우선 채택하면
+// "만들어 놓은 상자가 주문 교체로 쓸모없어지는" 헛수고를 막을 수 있다(자비 규칙).
+function existingBoxDims(){
+  const out=[];
+  for(const id of S.tileOrder){
+    const t=S.tiles.get(id);
+    if(t && t.kind==='box' && !t.anim) out.push(t.dims);
+  }
+  return out;
+}
+
 function genOrder(){
   const level=S.level;
-  const dims=randDims();
+  const onBoard=existingBoxDims();
+  // 60% 확률로 "지금 격자에 있는 상자"를 주문으로 삼는다 — 즉시 배송 가능한 주문이 되어
+  // 배송 동선을 자연스럽게 학습시키는 효과도 있다.
+  const reuse = onBoard.length && Math.random()<0.6 ? pick(onBoard) : null;
+  const dims = reuse || gameDims(level);
   const [w,h,d]=dims;
-  const order={ level, dims, sum:(w+h+d)*4 };
+  const order={ level, dims, sum:(w+h+d)*4, targetDims:[...dims] };
   if(level===1){
     order.type='cube';
+    // L1 주문은 가장 단순한 형태 하나뿐: "정육면체 상자 1개". 스폰이 겨냥할 구체적
+    // 치수(targetDims)만 정해 두고, 받아들이는 조건은 "정육면체이기만 하면" 이다.
+    const s=randCubeEdge();
+    order.targetDims=[s,s,s];
     order.text='정육면체 상자 1개를 배송하세요';
     order.accepts=(box)=> box.isCube;
   } else if(level===2){
@@ -952,10 +1063,16 @@ function genOrder(){
     order.accepts=(box)=> sameMultiset(box.dims, dims);
   } else if(level===3){
     order.type='sequence';
-    let small=randDims(), big=randDims(), guard=0;
-    while((vol(big)<=vol(small) || sameMultiset(small,big)) && guard++<40){ big=randDims(); }
+    // 이미 만들어 둔 상자가 있으면 그중 제일 작은 것을 ①번으로 삼는다 — 순서 주문이
+    // 바뀔 때마다 격자의 상자가 통째로 쓸모없어지는 헛수고를 막는다.
+    const smaller = onBoard.length ? onBoard.slice().sort((a,b)=>vol(a)-vol(b))[0] : null;
+    let small = (smaller && Math.random()<0.6) ? [...smaller] : gameDims(level);
+    let big=gameDims(level), guard=0;
+    while((vol(big)<=vol(small) || sameMultiset(small,big)) && guard++<60){ big=gameDims(level); }
+    if(vol(big)<=vol(small)) big=[small[0]+1, small[1]+1, small[2]];
     order.seq=[small, big];
     order.seqIndex=0;
+    order.targetDims=[...small];
     order.text=sequenceOrderText(order);
     order.accepts=(box)=> sameMultiset(box.dims, order.seq[order.seqIndex]);
   } else {
@@ -966,12 +1083,20 @@ function genOrder(){
   return order;
 }
 
+// 지금 주문을 이행하려면 어떤 치수의 상자가 필요한가 — 스폰 가중치의 표적.
+function orderTargetDims(){
+  const o=S.order; if(!o) return null;
+  if(o.type==='sequence') return o.seq[o.seqIndex];
+  return o.targetDims || o.dims;
+}
+
 function refreshOrder(){
   S.order=genOrder();
-  S.orderTimer=0; S.orderTimerMax=ORDER_TIME[S.level-1];
+  S.orderTimer=0; S.orderTimerMax=ORDER_TIME[clamp(S.level-1,0,ORDER_TIME.length-1)];
+  S.orderPity=0;
   drawOrderIcon();
   document.getElementById('orderText').textContent=S.order.text;
-  document.getElementById('rejectBtn').style.display='none';
+  updateDropZone();
 }
 
 function drawOrderIcon(){
@@ -1011,7 +1136,9 @@ function updateHUD(level){
   }
   prevGauge=S.gauge;
   const names=['정육면체 공방','직육면체 주문','정밀 검수','모서리합 마감'];
-  document.getElementById('levelBox').textContent=`Lv.${S.level} ${names[S.level-1]}`;
+  document.getElementById('levelBox').textContent=`Lv.${S.level} ${names[clamp(S.level-1,0,3)]}`;
+  const dc=document.getElementById('dropCount');
+  if(dc) dc.textContent=`📦 ${Math.min(S.solved,GOAL_DELIVERIES)}/${GOAL_DELIVERIES}`;
 }
 
 let comboTimeout=null;
@@ -1078,7 +1205,7 @@ function updateParticles(dt){
     const p=S.particles[i];
     p.life+=dt;
     if(p.life>=p.maxLife){ S.particles.splice(i,1); continue; }
-    p.vy+=260*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.vy+=(p.grav!=null?p.grav:260)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
   }
 }
 function drawParticles(){
@@ -1090,8 +1217,57 @@ function drawParticles(){
   }
   ctx.globalAlpha=1;
 }
+// 정답(병합·배송) 전용 파티클 — 위로 솟아 퍼지는 어휘. 오답 연출(흔들림)과 물리적으로
+// 구분된다. factory/prompts/30-build.md 「연출 감정 어휘 분리」 규칙.
+function spawnRisingParticles(x,y,color,count){
+  for(let i=0;i<count;i++){
+    const ang=-Math.PI/2 + (Math.random()-0.5)*2.0;
+    const spd=90+Math.random()*200;
+    S.particles.push({ x,y, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd,
+      life:0, maxLife:0.75+Math.random()*0.55, size:3+Math.random()*5, color, grav:130 });
+  }
+}
 function comboScaledCount(base){
   return Math.min(base+40, Math.round(base + S.comboStreak*3));
+}
+
+// ── 블룸(따뜻한 빛의 확산) — 정답 순간의 "흔들림" 자리를 대신한다
+function triggerBloom(x,y,scale,color){
+  S.blooms.push({ x,y, t:0, dur:reduceMotion?0.32:0.55, scale:scale||1, color:color||'#ffd98a' });
+}
+function updateBlooms(dt){
+  for(let i=S.blooms.length-1;i>=0;i--){
+    const b=S.blooms[i]; b.t+=dt;
+    if(b.t>=b.dur) S.blooms.splice(i,1);
+  }
+}
+function drawBlooms(){
+  for(const b of S.blooms){
+    const k=b.t/b.dur;
+    const r=(28+150*easeOutCubic(k))*b.scale;
+    ctx.save();
+    ctx.globalAlpha=(1-k)*0.55;
+    ctx.strokeStyle=b.color; ctx.lineWidth=Math.max(2,10*(1-k))*b.scale;
+    ctx.beginPath(); ctx.arc(b.x,b.y,r,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=(1-k)*0.16;
+    ctx.fillStyle=b.color;
+    ctx.beginPath(); ctx.arc(b.x,b.y,r*0.82,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha=1;
+}
+
+// ── 큰 칭찬 연출 (첫 배송 등) — 파티클 + 위로 솟는 칭찬 텍스트, 흔들림 없음
+let praiseTimer=null, praiseTimer2=null;
+function showPraise(title, sub){
+  const el=document.getElementById('praise');
+  document.getElementById('praiseTitle').textContent=title;
+  document.getElementById('praiseSub').textContent=sub||'';
+  el.classList.remove('show','rise'); void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(praiseTimer); clearTimeout(praiseTimer2);
+  praiseTimer=setTimeout(()=>{ el.classList.add('rise'); },1150);
+  praiseTimer2=setTimeout(()=>{ el.classList.remove('show','rise'); },1600);
 }
 
 // ── 배경 먼지(ambient-idle-motion) — 아무 조작이 없어도 화면이 살아있게
@@ -1166,6 +1342,144 @@ function bringToFront(tile){
   if(i>=0){ S.tileOrder.splice(i,1); S.tileOrder.push(tile.id); }
 }
 
+// ───────────────────────────── 배송 유도 (실사용자 피드백 #3)
+// "아래로 가져가서 배송하는지도 알 수가 없음" → 주문에 맞는 상자가 격자에 생기는 순간
+// 그 상자에 글로우 + 배송 존까지 흐르는 점선 화살표를 그린다. 배송 존(주문서)도
+// 대기 상태에서 부드럽게 펄스하고, 준비되면 초록으로 강조된다.
+
+function updateDropZone(){
+  const el=document.getElementById('orderCard');
+  if(!el) return;
+  const r=el.getBoundingClientRect();
+  layout.drop={ x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+  // 유도선이 끝나야 할 지점 = 배송 존 안내 라벨(#dropLabel)의 윗변. 주문서 카드까지
+  // 그리면 라벨에 화살촉이 가려진다.
+  const bar=document.getElementById('orderBar');
+  layout.dropTop = bar ? bar.getBoundingClientRect().top : r.top;
+}
+
+function findDeliverableTile(){
+  if(!S.order || !S.order.accepts) return null;
+  for(let i=S.tileOrder.length-1;i>=0;i--){
+    const t=S.tiles.get(S.tileOrder[i]);
+    if(!t || t.kind!=='box' || t.anim) continue;
+    try{ if(S.order.accepts(t)) return t; }catch(e){}
+  }
+  return null;
+}
+
+// 막힘 방지용 짝 힌트: 합칠 수 있는 두 타일을 찾는다. 바로 알려주면 "머릿속으로 접기"
+// 학습이 사라지므로, 일정 시간 아무 병합도 못 한 뒤에만 켜진다(아래 drawGuides 참고).
+function findMergePair(){
+  const ids=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && isSpawnKind(t.kind) && !t.anim; });
+  for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
+    const a=S.tiles.get(ids[i]), b=S.tiles.get(ids[j]);
+    if(tilesMatch(a,b)) return [a,b];
+  }
+  return null;
+}
+
+function drawArrowHead(x,y,ang,size,color){
+  ctx.save();
+  ctx.translate(x,y); ctx.rotate(ang);
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(size,0); ctx.lineTo(-size*0.75, size*0.68); ctx.lineTo(-size*0.4,0); ctx.lineTo(-size*0.75,-size*0.68);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawGlowRing(t, color, pulse){
+  const w=(t.cellW||64), h=(t.cellH||64);
+  ctx.save();
+  ctx.globalAlpha=0.30+0.34*pulse;
+  ctx.strokeStyle=color;
+  ctx.lineWidth=5+4*pulse;
+  ctx.shadowColor=color; ctx.shadowBlur=16+12*pulse;
+  const pad=6+4*pulse;
+  roundRect(ctx, t.px-w/2-pad, t.py-h/2-pad, w+pad*2, h+pad*2, 18);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGuides(now){
+  const drop=layout.drop;
+  const pulse=reduceMotion?0.5:(0.5+0.5*Math.sin(now/240));
+  const target=findDeliverableTile();
+
+  if(target && drop){
+    // 1) 배송 가능한 상자: 초록 글로우
+    drawGlowRing(target, '#3ad39c', pulse);
+    // 2) 배송 존까지 흐르는 점선 유도선 + 화살촉
+    const h=(target.cellH||64)/2;
+    const sx=target.px, sy=target.py+h+4;
+    const ex=drop.cx, ey=(layout.dropTop!=null?layout.dropTop:drop.y)-6;
+    const gap=ey-sy;
+    // 상자가 맨 아랫줄이라 세로 여유가 없으면 옆으로 부풀려서 선이 반드시 보이게 한다.
+    const bow = gap<80 ? (sx>CW*0.5 ? -1 : 1) * Math.max(46, 90-gap) : 0;
+    const mx=(sx+ex)/2 + bow, my=sy+Math.max(26, gap*0.55);
+    ctx.save();
+    ctx.strokeStyle='rgba(58,211,156,.95)';
+    ctx.lineWidth=5; ctx.lineCap='round';
+    ctx.setLineDash([12,10]);
+    ctx.lineDashOffset = reduceMotion?0:-((now/24)%22);
+    ctx.shadowColor='rgba(58,211,156,.75)'; ctx.shadowBlur=12;
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.quadraticCurveTo(mx,my,ex,ey); ctx.stroke();
+    ctx.setLineDash([]);
+    // 곡선 위를 흐르는 셰브론 3개 — "이 방향으로 끌어라"가 한눈에 읽히게
+    const qp=(t)=>({ x:(1-t)*(1-t)*sx+2*(1-t)*t*mx+t*t*ex, y:(1-t)*(1-t)*sy+2*(1-t)*t*my+t*t*ey });
+    const flow=reduceMotion?0.5:((now/900)%1);
+    for(let i=0;i<3;i++){
+      const u=clamp(0.12+((flow+i/3)%1)*0.76, 0, 1);
+      const a=qp(Math.max(0,u-0.03)), b2=qp(Math.min(1,u+0.03));
+      ctx.globalAlpha=0.55+0.45*Math.sin(u*Math.PI);
+      drawArrowHead(b2.x, b2.y, Math.atan2(b2.y-a.y, b2.x-a.x), 9, '#a8ffe0');
+    }
+    ctx.globalAlpha=1;
+    const tail=qp(0.94);
+    drawArrowHead(ex, ey+2+pulse*3, Math.atan2(ey-tail.y, ex-tail.x)||Math.PI/2, 15, '#3ad39c');
+    ctx.restore();
+  } else if(drop && !reduceMotion){
+    // 배송 가능한 상자가 없을 때: 짝 힌트(막힘 방지). 레벨1은 바로, 그 뒤엔 7초 이상
+    // 아무 병합도 못 했을 때만 — 스스로 접어보는 시간을 뺏지 않기 위해서다.
+    const delay = S.level===1 ? 2.5 : 7;
+    if(S.idleMerge>delay){
+      const pair=findMergePair();
+      if(pair){
+        const [a,b]=pair;
+        ctx.save();
+        ctx.strokeStyle='rgba(92,124,250,.9)'; ctx.lineWidth=4; ctx.lineCap='round';
+        ctx.setLineDash([9,8]); ctx.lineDashOffset=-((now/30)%17);
+        ctx.shadowColor='rgba(92,124,250,.65)'; ctx.shadowBlur=9;
+        ctx.beginPath(); ctx.moveTo(a.px,a.py); ctx.lineTo(b.px,b.py); ctx.stroke();
+        ctx.restore();
+        drawGlowRing(a,'#5c7cfa',pulse*0.8);
+        drawGlowRing(b,'#5c7cfa',pulse*0.8);
+        const cx=(a.px+b.px)/2, cy=(a.py+b.py)/2;
+        ctx.save();
+        ctx.fillStyle='rgba(92,124,250,.95)';
+        roundRect(ctx,cx-24,cy-13,48,26,13); ctx.fill();
+        ctx.fillStyle='#fff'; ctx.font='900 14px -apple-system, "Apple SD Gothic Neo", sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('짝!',cx,cy+1);
+        ctx.textBaseline='alphabetic';
+        ctx.restore();
+      }
+    }
+  }
+
+  // 배송 존 상태 반영 (CSS 펄스)
+  const card=document.getElementById('orderCard');
+  const label=document.getElementById('dropLabel');
+  const ready=!!target;
+  card.classList.toggle('dropReady', ready);
+  card.classList.toggle('idleWait', !ready);
+  label.classList.toggle('ready', ready);
+  const txt=document.getElementById('dropText');
+  const want = ready ? '👇 지금이야! 여기로 끌어와요' : '완성된 상자를 여기로 끌어와요!';
+  if(txt.textContent!==want) txt.textContent=want;
+}
+
 function hasAnyPossibleMerge(){
   const ids=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && isSpawnKind(t.kind) && !t.anim; });
   for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
@@ -1176,25 +1490,64 @@ function hasAnyPossibleMerge(){
 
 // ───────────────────────────── 스폰
 
+// ── 주문 지향 스폰 + 자비(pity) ───────────────────────────────────────────
+// 격자에 "지금 주문에 필요한 치수" 타일이 어떤 종류로 이미 있는지 센다.
+function boardTargetKinds(target){
+  const kinds=new Set();
+  if(!target) return kinds;
+  for(const id of S.tileOrder){
+    const t=S.tiles.get(id);
+    if(!t || !isSpawnKind(t.kind) || !t.valid) continue;
+    if(sameMultiset(t.dims,target)) kinds.add(t.kind);
+  }
+  return kinds;
+}
+// 이미 격자에 주문 치수의 상자(box)가 완성돼 있으면 더 밀어줄 필요가 없다.
+function hasDeliverableBox(){
+  return !!findDeliverableTile();
+}
+// 주문을 이행할 타일을 확률적으로 밀어넣는다. 반환값이 null 이면 일반 스폰.
+function trySpawnTargeted(level){
+  const target=orderTargetDims();
+  if(!target) return null;
+  if(hasDeliverableBox()) return null; // 이미 배송 가능 — 굳이 더 안 준다
+  const have=boardTargetKinds(target);
+  const pool=kindsForLevel(level);
+  const missing=pool.filter(k=>!have.has(k));
+  let p;
+  if(have.size>=2){
+    p=0.15;                       // 짝이 이미 격자에 있다 — 합치기만 하면 된다
+  } else if(have.size===1){
+    p=0.90;                       // 반쪽만 있다 — 짝을 거의 확실히 내려준다
+  } else {
+    p=clamp(SPAWN_TARGET_BASE + S.orderPity*SPAWN_TARGET_RATE, 0, SPAWN_TARGET_CAP);
+    if(S.orderPity>6) p=Math.max(p,0.90);  // 6초 넘게 못 풀면 강제 자비
+  }
+  if(Math.random()>=p) return null;
+  const kind = missing.length ? pick(missing) : pick(pool);
+  // forceDims 로 만들면 트랩(불량)이 절대 섞이지 않는다 — 자비 스폰은 항상 정상 타일.
+  return genTileOfKind(level, kind, [...target]);
+}
+
 function trySpawn(dt){
   const empties=emptyCells();
   if(empties.length<=2) return; // 칸이 얼마 안 남으면 스폰을 멈춰 정리할 시간을 준다
   S.spawnTimer-=dt*1000;
   if(S.spawnTimer>0) return;
-  S.spawnTimer=SPAWN_MS[S.level-1];
+  S.spawnTimer=SPAWN_MS[clamp(S.level-1,0,SPAWN_MS.length-1)];
   const idx=pick(empties);
   // 첫 스폰 보장: 게임을 시작하면 맨 처음 나오는 두 타일(=첫 4개 안)이 항상 서로 짝이 되는
   // 같은 치수의 전개도+겨냥도여서, 뭘 해야 하는지 몰라 헤매지 않고 바로 첫 성공을 맛보게 한다.
   let t;
   if(S.spawnCount===0){
-    const dims = S.level===1 ? cubeDims() : randDims();
+    const dims = orderTargetDims() || gameDims(S.level);
     S.firstPairDims = dims;
-    t = genNetTile(S.level, dims);
+    t = genNetTile(S.level, [...dims]);
   } else if(S.spawnCount===1 && S.firstPairDims){
-    t = genWireTile(S.level, S.firstPairDims);
+    t = genWireTile(S.level, [...S.firstPairDims]);
     S.firstPairDims = null;
   } else {
-    t = genSpawnTile(S.level);
+    t = trySpawnTargeted(S.level) || genSpawnTile(S.level);
   }
   S.spawnCount++;
   placeInCell(t,idx);
@@ -1239,37 +1592,79 @@ function completeBox(target){
   target.edgeSum=(target.dims[0]+target.dims[1]+target.dims[2])*4;
   target.anim={ kind:'pop', t:0, dur:0.36 };
   const r=cellRect(target.cellIndex);
-  spawnParticles(r.cx,r.cy,'#ffb85c',comboScaledCount(18));
+  // 정답 어휘: 위로 솟는 파티클 + 따뜻한 빛의 확산. 흔들림은 오답 전용이라 쓰지 않는다.
+  spawnRisingParticles(r.cx,r.cy,'#ffb85c',comboScaledCount(20));
+  triggerBloom(r.cx,r.cy,0.75,'#ffd98a');
+  S.idleMerge=0;
   if(S.introHintActive){
-    // 첫 병합 성공: 지속 힌트 배너를 축하 문구로 바꿨다가 잠시 후 사라지게 한다.
+    // 첫 병합 성공: 지속 힌트 배너를 "다음에 뭘 해야 하는지"로 바꾼다 — 배송 동선 안내.
     S.introHintActive=false;
-    showHintBanner('짝을 맞췄어요! 상자 완성 🎉', { autoHideMs:1800 });
+    showHintBanner('상자 완성! 이제 아래 주문서로 끌어와 배송해요 👇', { autoHideMs:3600 });
   }
   S.comboStreak++;
   S.combo=Math.min(3, 1+S.comboStreak*0.25);
   S.score += Math.round(15*S.combo);
   flashCombo();
   triggerHitStop(0.05);
-  triggerShake(S.comboStreak>=4 ? 5 : 2.4, 0.18);
   if(target.level>=2 && target.isCube){
     S.score+=15; S.stickers++;
     showToast('이것도 직육면체야! 🎖️');
-    spawnParticles(r.cx,r.cy,'#5c7cfa',14);
+    spawnRisingParticles(r.cx,r.cy,'#5c7cfa',16);
   }
   updateHUD();
 }
 
-function emergencyRescue(){
-  // 그리드가 완전히 막혀도 즉시 게임오버 시키지 않고, 트랩(불량) 타일부터 우선해 1개를 무료로 치워 판을 풀어준다
-  const spawnIds=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && isSpawnKind(t.kind) && !t.anim; });
-  let pickId = spawnIds.find(id=>!S.tiles.get(id).valid);
-  if(!pickId) pickId = spawnIds[0];
-  if(!pickId){
-    const boxIds=S.tileOrder.filter(id=>{ const t=S.tiles.get(id); return t && t.kind==='box' && !t.anim; });
-    pickId = boxIds[0];
+// 배송 성공 공통 연출 — 상승·확산·빛만 쓴다(흔들림 금지).
+function deliverySuccessFx(x,y){
+  const drop=layout.drop;
+  bounceMascot(); flashCombo(); showDeliveryStamp(); flashScreen('good');
+  triggerHitStop(0.08);
+  triggerBloom(x,y,1.0,'#8dffd4');
+  spawnRisingParticles(x,y,'#3ad39c',comboScaledCount(24));
+  if(drop){
+    spawnRisingParticles(drop.cx, drop.y+6, '#ffe94d', comboScaledCount(16));
+    triggerBloom(drop.cx, drop.y+6, 0.9, '#ffe08a');
   }
-  if(!pickId) return;
-  discardTile(S.tiles.get(pickId));
+  if(!S.firstDeliverDone){
+    // 첫 배송 성공: 큰 축하 연출 — 파티클 폭발 + 칭찬 텍스트. 화면 흔들림은 쓰지 않는다.
+    S.firstDeliverDone=true;
+    showPraise('첫 배송 성공! 🎉','완성한 상자를 주문서로 끌어오면 배송돼요');
+    if(drop){
+      spawnRisingParticles(drop.cx-drop.w*0.3, drop.y, '#ffb85c', 34);
+      spawnRisingParticles(drop.cx+drop.w*0.3, drop.y, '#5c7cfa', 34);
+      triggerBloom(drop.cx, drop.y, 1.9, '#fff3c4');
+    }
+    spawnRisingParticles(x,y,'#fff3c4',40);
+    showHintBanner('배송 성공! 주문서를 확인하고 다음 상자를 만들어요', { autoHideMs:2600 });
+  }
+}
+
+// 목표 배송 수를 채우면 클리어 — 기존엔 끝이 없어서 "깬다"는 감각 자체가 없었다.
+function checkClear(){
+  if(S.solved>=GOAL_DELIVERIES){ finishGame('clear'); return true; }
+  return false;
+}
+
+// 이 완성 상자가 지금 주문(또는 순서 주문의 나중 단계)에 쓸모가 있는가
+function boxUsefulForOrder(t){
+  const o=S.order;
+  if(!o || t.kind!=='box') return false;
+  if(o.type==='sequence') return o.seq.some(d=>sameMultiset(t.dims,d));
+  try{ return !!o.accepts(t); }catch(e){ return false; }
+}
+
+function emergencyRescue(){
+  // 그리드가 막혀도 게임오버 시키지 않고 1개를 무료로 치워 판을 풀어준다.
+  // 우선순위: 트랩 타일 → 지금 주문에 못 쓰는 완성 상자 → 아무 스폰 타일 → 아무거나.
+  // (예전엔 완성 상자를 맨 뒤로 미뤄서, 쓸모없는 상자로 격자가 꽉 차면 스폰도 구조도
+  //  멈춘 채 영구 교착에 빠졌다 — 자동 플레이테스트에서 재현된 실제 버그다.)
+  const alive=S.tileOrder.map(id=>S.tiles.get(id)).filter(t=>t && !t.anim);
+  let victim = alive.find(t=>isSpawnKind(t.kind) && !t.valid);
+  if(!victim) victim = alive.find(t=>t.kind==='box' && !boxUsefulForOrder(t));
+  if(!victim) victim = alive.find(t=>isSpawnKind(t.kind));
+  if(!victim) victim = alive[0];
+  if(!victim) return;
+  discardTile(victim);
   showToast('긴급 정리! 자동으로 빈 칸을 만들었어요 🧹');
 }
 
@@ -1308,16 +1703,17 @@ function attemptDeliver(boxTile){
       order.seqIndex++;
       S.solved++; S.comboStreak++; S.combo=Math.min(3,1+S.comboStreak*0.25);
       S.score += Math.round(40*S.combo);
+      S.gauge=Math.max(0,S.gauge-1);
       orderCard.classList.add('hot'); setTimeout(()=>orderCard.classList.remove('hot'),200);
-      bounceMascot(); flashCombo(); showDeliveryStamp(); flashScreen('good');
-      triggerHitStop(0.06); triggerShake(S.comboStreak>=4?6:3,0.2);
-      spawnParticles(tile_px(boxTile), tile_py(boxTile), '#3ad39c', comboScaledCount(18));
+      deliverySuccessFx(tile_px(boxTile), tile_py(boxTile));
       removeFromGrid(boxTile); destroyTile(boxTile);
+      S.orderPity=0;
+      if(checkClear()) return true;
       if(order.seqIndex>=order.seq.length){
         S.score += 40;
         showToast('2개 순서 배송 완료! 🎉');
         const prevLevel=S.level;
-        S.level=levelForScore(S.score);
+        S.level=levelForSolved(S.solved);
         refreshOrder();
         if(S.level!==prevLevel){ showToast(`레벨 업! Lv.${S.level}`); onLevelChanged(S.level); }
       } else {
@@ -1330,8 +1726,9 @@ function attemptDeliver(boxTile){
     }
     S.gauge=Math.min(S.gaugeMax,S.gauge+1);
     S.comboStreak=0; S.combo=1;
+    showToast('❌ 주문서와 다른 상자예요');
     flashScreen('bad'); triggerShake(4.5,0.22);
-    if(S.gauge>=S.gaugeMax){ gameOver('gauge'); return true; }
+    if(S.gauge>=S.gaugeMax){ finishGame('gauge'); return true; }
     boxTile.anim={ kind:'shake', t:0, dur:0.35 };
     boxTile.dragging=false;
     updateHUD();
@@ -1342,25 +1739,27 @@ function attemptDeliver(boxTile){
   if(ok){
     S.solved++; S.comboStreak++; S.combo=Math.min(3,1+S.comboStreak*0.25);
     S.score += Math.round(60*S.combo);
-    if(S.comboStreak>0 && S.comboStreak%3===0) S.gauge=Math.max(0,S.gauge-1);
+    // 배송에 성공할 때마다 찌그러짐 게이지를 1 회복한다 — 실수 하나가 몇 수 뒤에
+    // 몰아서 게임오버로 터지지 않게 하기 위한 완화(30-build.md 4번 규칙).
+    S.gauge=Math.max(0,S.gauge-1);
     orderCard.classList.add('hot'); setTimeout(()=>orderCard.classList.remove('hot'),200);
-    bounceMascot(); flashCombo(); showDeliveryStamp(); flashScreen('good');
-    triggerHitStop(0.08);
-    triggerShake(S.comboStreak>=4 ? 6 : 3, 0.2);
-    const r=cellRect(boxTile.cellIndex>=0?boxTile.cellIndex:0);
-    spawnParticles(tile_px(boxTile), tile_py(boxTile), '#3ad39c', comboScaledCount(22));
+    deliverySuccessFx(tile_px(boxTile), tile_py(boxTile));
     removeFromGrid(boxTile);
     destroyTile(boxTile);
+    S.orderPity=0;
+    updateHUD();
+    if(checkClear()) return true;
     const prevLevel=S.level;
-    S.level=levelForScore(S.score);
+    S.level=levelForSolved(S.solved);
     refreshOrder();
     if(S.level!==prevLevel){ showToast(`레벨 업! Lv.${S.level}`); onLevelChanged(S.level); }
     updateHUD();
   } else {
     S.gauge=Math.min(S.gaugeMax,S.gauge+1);
     S.comboStreak=0; S.combo=1;
+    showToast('❌ 주문서와 다른 상자예요');
     flashScreen('bad'); triggerShake(4.5,0.22);
-    if(S.gauge>=S.gaugeMax){ gameOver('gauge'); return true; }
+    if(S.gauge>=S.gaugeMax){ finishGame('gauge'); return true; }
     boxTile.anim={ kind:'shake', t:0, dur:0.35 };
     boxTile.dragging=false;
     updateHUD();
@@ -1370,10 +1769,12 @@ function attemptDeliver(boxTile){
 function tile_px(t){ return t.px; } function tile_py(t){ return t.py; }
 
 function rejectOrder(){
-  if(!S.order) return;
-  showToast('주문서 교체');
-  updateHUD();
+  if(!S.order || S.phase!=='playing') return;
+  const carry=S.orderPity*0.5; // 교체해도 자비는 절반 이어받는다 — 리셋 악용/헛수고 방지
+  showToast('주문서 교체 🔄');
   refreshOrder();
+  S.orderPity=carry;
+  updateHUD();
 }
 
 // ───────────────────────────── 게임오버 / 시작
@@ -1411,12 +1812,20 @@ function initTitleDust(){
   }
 }
 
-function gameOver(reason){
+function finishGame(reason){
   if(S.phase==='gameover') return;
   S.phase='gameover';
+  S.cleared = reason==='clear';
   if(S.score>S.best){ S.best=S.score; try{ localStorage.setItem('cmf_best',String(S.best)); }catch(e){} }
-  document.getElementById('gameoverTitle').textContent = '찌그러짐 게이지가 가득 찼어요!';
   const stamp=document.getElementById('resultStamp');
+  if(S.cleared){
+    document.getElementById('gameoverTitle').textContent = `오늘 주문 ${GOAL_DELIVERIES}건 완주! 🎉`;
+    stamp.textContent='완료'; stamp.classList.add('clear');
+    showPraise('공장 완주! 🏆', `주문 ${GOAL_DELIVERIES}건을 모두 배송했어요`);
+  } else {
+    document.getElementById('gameoverTitle').textContent = '찌그러짐 게이지가 가득 찼어요!';
+    stamp.textContent='정지'; stamp.classList.remove('clear');
+  }
   stamp.style.animation='none'; void stamp.offsetWidth; stamp.style.animation='';
   animateNumber(document.getElementById('finalScoreVal'), S.score, 650);
   animateNumber(document.getElementById('bestScoreVal'), S.best, 850);
@@ -1429,13 +1838,17 @@ function resetGame(){
   S.score=0; S.level=1; S.solved=0; S.combo=1; S.comboStreak=0; S.gauge=0; S.stickers=0;
   S.grid=new Array(GRID_N).fill(null);
   S.spawnTimer=200; S.spawnCount=0; S.firstPairDims=null; S.stallEmptyZero=0; S.drag=null; S.particles=[];
+  S.blooms=[]; S.orderPity=0; S.idleMerge=0; S.firstDeliverDone=false; S.cleared=false; S.dropRefresh=0;
   S.hitStopT=0; S.shakeT=0; S.shakeMag=0;
   scoreAnimFrom=0; scoreAnimTo=0; scoreAnimT=1; prevGauge=0;
   scoreValEl.textContent='0';
   S.phase='playing';
   document.getElementById('trashZone').classList.remove('warn');
   document.getElementById('stallBanner').classList.remove('show');
+  document.getElementById('praise').classList.remove('show','rise');
+  document.getElementById('resultStamp').classList.remove('clear');
   refreshOrder();
+  updateDropZone();
   updateHUD();
   S.introHintActive=true;
   showHintBanner(LEVEL_HINTS[1], { persist:true });
@@ -1464,8 +1877,8 @@ const ONB_KEY='onboardingSeen:cube-merge-factory';
 const ONB_STEPS=[
   { t:'다른 종류를 겹쳐라',
     b:'타일을 손가락으로 눌러 끌어요. 전개도(파랑 조각)·겨냥도(와이어프레임)·치수 카드(큰 숫자) 중 서로 다른 두 종류가 같은 상자를 나타내면 겹쳐서 상자가 완성돼요. 같은 종류끼리는 절대 안 합쳐져요.' },
-  { t:'완성되면 배송해요',
-    b:'완성된 상자를 아래 주문서 칸으로 끌어다 놓으면 점수를 받아요. 레벨3부터는 작은 상자부터 순서대로 2개를 배송해야 해요.' },
+  { t:'아래로 끌어다 배송!',
+    b:'완성된 상자를 화면 맨 아래 주문서(송장) 위로 끌어다 놓으면 배송돼요. 주문에 맞는 상자가 생기면 상자가 초록으로 빛나고 주문서까지 점선 화살표가 나타나요 — 그 선을 따라 끌어오면 돼요. 주문 10건을 배송하면 클리어!' },
   { t:'잘못 합치면 튕겨나가요',
     b:'트랩(불량) 타일을 합치거나 종류가 안 맞으면 튕겨나가며 이유가 뜨지만 목숨은 안 깎여요. 위로 스와이프하면 필요없는 타일을 버릴 수 있어요.' }
 ];
@@ -1585,13 +1998,12 @@ function nearestCell(x,y){
   return best;
 }
 
-// 엿보기(peek): 레벨3부터 치수 배지가 숨겨진 전개도 타일을 1.5초 길게 누르면
-// 잠깐 배지가 보인다 — 대신 콤보가 끊긴다(페널티 있는 힌트).
+// 엿보기(peek): 레벨3부터 치수 배지가 숨겨진 전개도 타일을 0.8초 길게 누르면 잠깐
+// 배지가 보인다. 예전엔 1.5초 유지 + 콤보 끊김이라 사실상 쓸 수 없는 힌트였다 —
+// 사용자 피드백(너무 어렵다)에 따라 대기 시간을 줄이고 페널티를 없앴다.
 function triggerPeek(tile){
-  tile.peekUntil = performance.now()+1500;
-  S.comboStreak=0; S.combo=1;
-  showToast('엿보기! (콤보가 끊겼어요)');
-  updateHUD();
+  tile.peekUntil = performance.now()+2000;
+  showToast('엿보기 👀');
 }
 
 cvs.addEventListener('pointerdown', (e)=>{
@@ -1612,7 +2024,7 @@ cvs.addEventListener('pointerdown', (e)=>{
       if((S.drag.moved||0) > 10) return;
       const cur=S.tiles.get(dragId);
       if(cur && cur.kind==='net') triggerPeek(cur);
-    }, 1500);
+    }, 800);
   }
 });
 
@@ -1941,18 +2353,29 @@ function frame(now){
   drawAmbientDust();
 
   if(S.phase==='playing'&&!S.frozen){
+    // 자비(pity) 타이머: 지금 주문을 못 푼 시간 / 마지막 병합 이후 시간
+    S.orderPity+=dt;
+    S.idleMerge+=dt;
+    // 배송 존 좌표는 자주 안 변하니 0.25초에 한 번만 재측정한다(레이아웃 리드 최소화)
+    S.dropRefresh-=dt;
+    if(S.dropRefresh<=0){ S.dropRefresh=0.25; updateDropZone(); }
+
     trySpawn(dt);
     updateTiles(dt);
     updateParticles(dt);
+    updateBlooms(dt);
 
     const empties=emptyCells();
-    const stalled = empties.length===0 && !hasAnyPossibleMerge();
+    // 교착 판정: 스폰은 빈 칸이 2칸 이하면 멈추므로, 빈 칸이 0이 될 때까지 기다리면
+    // 빈 칸 1~2개인 채로 아무 일도 안 일어나는 영구 교착이 생긴다. 그래서 스폰이
+    // 멈추는 그 구간(<=2)에서 "합칠 것도 배송할 것도 없으면" 곧바로 구조한다.
+    const stalled = empties.length<=2 && !hasAnyPossibleMerge() && !findDeliverableTile();
     const nearRisk = empties.length<=2;
     document.getElementById('trashZone').classList.toggle('warn', nearRisk || stalled);
     document.getElementById('stallBanner').classList.toggle('show', nearRisk || stalled);
     if(stalled){
       S.stallEmptyZero+=dt;
-      if(S.stallEmptyZero>4.2){ emergencyRescue(); S.stallEmptyZero=0; }
+      if(S.stallEmptyZero>2.2){ emergencyRescue(); S.stallEmptyZero=0; }
     } else {
       S.stallEmptyZero=0;
     }
@@ -1960,12 +2383,19 @@ function frame(now){
     S.orderTimer+=dt;
     const frac=clamp(1-S.orderTimer/S.orderTimerMax,0,1);
     document.getElementById('orderTimerBar').style.width=(frac*100)+'%';
-    if(S.orderTimer>=S.orderTimerMax){ refreshOrder(); }
+    if(S.orderTimer>=S.orderTimerMax){
+      const carry=S.orderPity*0.5; // 시간초과로 주문이 바뀌어도 자비는 절반 이어받는다
+      refreshOrder();
+      S.orderPity=carry;
+      showToast('주문서가 바뀌었어요 📄');
+    }
   }
 
   for(const id of S.tileOrder){
     const t=S.tiles.get(id); if(t) drawTile(t);
   }
+  if(S.phase==='playing'&&!S.frozen) drawGuides(now);
+  drawBlooms();
   drawParticles();
   ctx.restore();
 
@@ -2106,6 +2536,24 @@ window.__GAME_TEST__ = {
   },
   sampleProblems(n){
     return sampleJudgeProblems(n||24);
+  },
+  // 자동 플레이테스트용 — 좌표와 "지금 가능한 행동"만 노출한다.
+  // 치수(dims)는 일부러 내보내지 않는다: 레벨3의 '치수 숨김' 과제를 우회하지 않기 위해서다.
+  debugBoard(){
+    const deliver=findDeliverableTile();
+    const pair=findMergePair();
+    const tiles=[];
+    for(const id of S.tileOrder){
+      const t=S.tiles.get(id); if(!t) continue;
+      tiles.push({ id:t.id, kind:t.kind, x:Math.round(t.px), y:Math.round(t.py), busy:!!t.anim });
+    }
+    return {
+      tiles,
+      deliverableId: deliver?deliver.id:null,
+      mergePair: pair?[pair[0].id,pair[1].id]:null,
+      drop: layout.drop ? { x:Math.round(layout.drop.cx), y:Math.round(layout.drop.cy) } : null,
+      solved:S.solved, goal:GOAL_DELIVERIES, gauge:S.gauge, level:S.level, phase:S.phase, cleared:S.cleared,
+    };
   },
 };
 
