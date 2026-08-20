@@ -606,6 +606,7 @@
     combo: 0, bestCombo: 0, solved: 0,
     level: 1, cycle: 0, roundType: 'judge', roundDir: 'bigger',
     timeScale: 1, shake: 0, lastChanceShown: false,
+    thinkFreezeUntil: 0,
     reduceMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   };
   try { state.best = parseInt(localStorage.getItem('decimalSmashBest') || '0', 10) || 0; } catch(e){}
@@ -625,9 +626,50 @@
   function speedMul(cycle){ return 1 + cycle * 0.16; }
   function bombChance(cycle){ return Math.min(0.2, 0.08 + cycle * 0.018); }
 
+  // 초등에서 바로 떠올리는 곱수. 초반 계산형(3~4단계, 첫 사이클)은 이 풀에서만 고른다.
+  // ×1 은 값이 그대로라 '커진다' 명제가 거짓이 되므로 넣지 않는다.
+  const FAMILIAR_FACTORS = [
+    { n: 1, s: 1 },  // 0.1
+    { n: 2, s: 1 },  // 0.2
+    { n: 5, s: 1 },  // 0.5
+    { n: 25, s: 2 }, // 0.25
+    { n: 15, s: 1 }, // 1.5
+    { n: 2, s: 0 },  // 2
+    { n: 25, s: 1 }, // 2.5
+    { n: 3, s: 0 },  // 3
+    { n: 4, s: 0 },  // 4
+    { n: 5, s: 0 },  // 5
+    { n: 10, s: 0 }  // 10
+  ];
+  const FAMILIAR_TENTHS = [12, 15, 16, 24, 25, 32, 35, 45, 48];
+
+  // 계산형 라운드: 문제가 떠 있는 동안 낙하·라운드 타이머를 감속하고,
+  // 새 문제가 뜨면 잠깐 정지한다 (30-build.md 실시간 계산 부하 규칙).
+  const THINK_FREEZE_MS = 900;
+  const CALC_PRESSURE_SCALE = 0.28;
+
+  function isCalcRound(){ return state.roundType === 'answer'; }
+  function pressureScale(){
+    if (!isCalcRound()) return 1;
+    if (state.thinkFreezeUntil && performance.now() < state.thinkFreezeUntil) return 0;
+    return CALC_PRESSURE_SCALE;
+  }
+  function armThinkHold(){
+    if (isCalcRound()) state.thinkFreezeUntil = performance.now() + THINK_FREEZE_MS;
+  }
+  function useArbitraryDecimals(level, cycle){
+    return cycle >= 1 || level === 5;
+  }
+  function pairForCalc(level, cycle){
+    if (!useArbitraryDecimals(level, cycle)){
+      return [genDecimal1(11, 98), pick(FAMILIAR_FACTORS)];
+    }
+    return [genDecimal1(2, 97), genDecimal1(2, 97)];
+  }
+
   function genJudgeItem(level, dir){
     if (level === 1){
-      const a = genDecimal1(11, 98); const nat = randInt(2, 9);
+      const a = genDecimal1(11, 98); const nat = randInt(2, 9); // 2~9 = 1보다 큰 자연수 (×1 제외)
       return { text: `${decStr(a.n,a.s)} × ${nat}`, ok: true };
     }
     const a = genDecimal1(11, 98);
@@ -638,11 +680,12 @@
   }
 
   function newExprLevel3(){
-    const a = genDecimal1(2, 97), b = genDecimal1(2, 97);
+    const [a, b] = pairForCalc(state.level, state.cycle);
     return genProductChoices(a, b, 4);
   }
   function newExprLevel4(){
-    const A = randInt(11, 49), B = randInt(11, 49);
+    const A = (state.cycle === 0) ? pick(FAMILIAR_TENTHS) : randInt(11, 49);
+    const B = (state.cycle === 0) ? pick(FAMILIAR_TENTHS) : randInt(11, 49);
     const a = { n: A, s: 1 }, b = { n: B, s: 1 };
     const expr = genProductChoices(a, b, 4);
     expr.hintStr = `${A} × ${B} = ${A * B}`;
@@ -650,7 +693,7 @@
   }
 
   function ruleTextFor(){
-    if (state.level === 1) return '자연수를 곱하면 무조건 커져요! 폭탄만 피해서 다 터뜨려라 💥';
+    if (state.level === 1) return '1보다 큰 수를 곱하면 커져요! 폭탄만 피해서 다 터뜨려라 💥';
     if (state.level === 2) return state.roundDir === 'bigger'
       ? '1보다 큰 수를 곱해서 <b>커지는</b> 식만 터뜨려라!'
       : '1보다 작은 수를 곱해서 <b>작아지는</b> 식만 터뜨려라!';
@@ -692,6 +735,7 @@
     }
     if (state.roundType === 'answer') refreshAnswerSlots();
     setRuleCard(); pulseRuleCard();
+    armThinkHold();
   }
 
   const ROUND_MS = 12000;
@@ -858,6 +902,7 @@
           }
         }
         setRuleCard();
+        armThinkHold();
       }
     } else {
       // 오답 방울을 직접 슬라이스한 경우 — 폭탄과 동일한 공유 디바운스로 생명을 깎는다.
@@ -1047,6 +1092,7 @@
   function resetGame(){
     state.score = 0; state.lives = state.maxLives; state.combo = 0; state.bestCombo = 0; state.solved = 0;
     state.cycle = 0; seqIdx = 0; state.lastChanceShown = false; state.timeScale = 1; state.shake = 0;
+    state.thinkFreezeUntil = 0;
     particles.length = 0; floatScores.length = 0;
     lastMistakeLifeLossAt = -Infinity; // 새 게임 세션은 이전 판의 디바운스 타이머를 물려받지 않는다
     dispScore = 0; lastScoreSeen = 0; lastLivesSeen = state.maxLives;
@@ -1057,8 +1103,8 @@
   const ONB_STEPS = [
     { t:'방울을 그어 터뜨려라',
       b:'위 규칙에 맞는 방울만 손가락(또는 마우스)으로 그어요. 그으면 톡, 터집니다.' },
-    { t:'해골 폭탄만 피해라',
-      b:'해골 무늬 폭탄 방울만 피하면 돼요. 규칙에 안 맞는 방울을 그어도 목숨은 그대로, 콤보만 끊겨요.' },
+    { t:'폭탄과 오답은 목숨이 줄어요',
+      b:'해골 폭탄이나 규칙에 안 맞는 방울을 그으면 목숨이 줄어요. 맞는 방울만 그으세요!' },
     { t:'콤보를 쌓아 점수를 올려라',
       b:'연속으로 맞히면 점수가 팍팍 올라가요. 준비됐으면 스매시!' }
   ];
@@ -1277,21 +1323,22 @@
     tickScoreDisplay(dt || 0.016);
 
     if (state.phase === 'playing' && !state.frozen){
-      roundTimer += dt * 1000;
+      const pScale = pressureScale();
+      roundTimer += dt * 1000 * pScale;
       if (roundTimer >= ROUND_MS) nextRound();
       updateDust(dt);
 
       slots.forEach(sl => {
         if (!sl.active) return;
-        sl.x += sl.vx * dt; sl.y += sl.vy * dt;
-        const ang = Math.atan2(sl.vy, sl.vx) + sl.angV * dt;
+        sl.x += sl.vx * dt * pScale; sl.y += sl.vy * dt * pScale;
+        const ang = Math.atan2(sl.vy, sl.vx) + sl.angV * dt * pScale;
         const sp = Math.hypot(sl.vx, sl.vy);
         sl.vx = Math.cos(ang) * sp; sl.vy = Math.sin(ang) * sp;
         if (sl.x < sl.r){ sl.x = sl.r; sl.vx = Math.abs(sl.vx); }
         if (sl.x > W - sl.r){ sl.x = W - sl.r; sl.vx = -Math.abs(sl.vx); }
         if (sl.y < sl.r){ sl.y = sl.r; sl.vy = Math.abs(sl.vy); }
         if (sl.y > H - sl.r){ sl.y = H - sl.r; sl.vy = -Math.abs(sl.vy); }
-        if ((sl.role === 'judge' || sl.role === 'bomb') && sl.ttl && now > sl.ttl){ assignRole(sl); }
+        if (pScale > 0 && (sl.role === 'judge' || sl.role === 'bomb') && sl.ttl && now > sl.ttl){ assignRole(sl); }
       });
       // 방울끼리 겹치지 않도록 부드럽게 밀어낸다 (숫자가 가려지면 안 되므로)
       for (let i = 0; i < MAX_SLOTS; i++){
@@ -1315,7 +1362,7 @@
         sl.y = Math.max(sl.r, Math.min(H - sl.r, sl.y));
       });
       if (hintSlot.active){
-        hintSlot.x += hintSlot.vx * dt; hintSlot.y += hintSlot.vy * dt;
+        hintSlot.x += hintSlot.vx * dt * pScale; hintSlot.y += hintSlot.vy * dt * pScale;
         if (hintSlot.x < hintSlot.r || hintSlot.x > W - hintSlot.r) hintSlot.vx *= -1;
         if (hintSlot.y < hintSlot.r || hintSlot.y > H * 0.42) hintSlot.vy *= -1;
         hintSlot.x = Math.max(hintSlot.r, Math.min(W - hintSlot.r, hintSlot.x));
@@ -1371,8 +1418,9 @@
   // ───────────────────────────── QA 훅
   function sampleOne(idx){
     const level = (idx % 5) + 1;
+    const cycle = Math.floor(idx / 5);
     if (level === 1){
-      const a = genDecimal1(11, 98); const nat = randInt(2, 9);
+      const a = genDecimal1(11, 98); const nat = randInt(2, 9); // 1보다 큰 자연수
       const raw = { n: a.n * nat, s: a.s };
       return {
         id: 'p' + idx, prompt: `${decStr(a.n,a.s)} × ${nat} 은 ${decStr(a.n,a.s)}보다 큰가?`,
@@ -1392,7 +1440,7 @@
       };
     }
     if (level === 3){
-      const a = genDecimal1(2, 97), b = genDecimal1(2, 97);
+      const [a, b] = pairForCalc(3, cycle);
       const expr = genProductChoices(a, b, 4);
       const choices = shuffle([expr.correctStr].concat(expr.distractors.map(d => d.str)));
       return {
@@ -1401,7 +1449,8 @@
       };
     }
     if (level === 4){
-      const A = randInt(11, 49), B = randInt(11, 49);
+      const A = (cycle === 0) ? pick(FAMILIAR_TENTHS) : randInt(11, 49);
+      const B = (cycle === 0) ? pick(FAMILIAR_TENTHS) : randInt(11, 49);
       const expr = genProductChoices({ n: A, s: 1 }, { n: B, s: 1 }, 4);
       const choices = shuffle([expr.correctStr].concat(expr.distractors.map(d => d.str)));
       return {
@@ -1409,8 +1458,8 @@
         answerNumeric: toNum(expr.correct), unitConcept: '소수점 위치 규칙'
       };
     }
-    // level 5: 연쇄 판단 2단계
-    const a = genDecimal1(2, 97), b = genDecimal1(2, 97);
+    // level 5: 연쇄 판단 2단계 (고난도 — 임의 소수 허용)
+    const [a, b] = pairForCalc(5, cycle);
     const first = genProductChoices(a, b, 4);
     const second = genProductChoices(first.correct, { n: 1, s: 1 }, 4);
     const choices = shuffle([second.correctStr].concat(second.distractors.map(d => d.str)));
@@ -1425,7 +1474,20 @@
   window.__GAME_TEST__ = {
     ready: true,
     start(){ ensureAudio(); launchPlay(); },
-    getState(){ return { score: state.score, lives: state.lives, level: state.level, phase: state.phase, solved: state.solved }; },
+    getState(){
+      return {
+        score: state.score, lives: state.lives, level: state.level, phase: state.phase, solved: state.solved,
+        pressureScale: pressureScale(), roundType: state.roundType
+      };
+    },
+    forceLevel(level){
+      if (state.phase !== 'playing') launchPlay();
+      const lv = Math.max(1, Math.min(5, level | 0));
+      seqIdx = ROUND_SEQ.indexOf(lv);
+      if (seqIdx < 0) seqIdx = 0;
+      roundTimer = 0;
+      startRound(ROUND_SEQ[seqIdx]);
+    },
     answerCorrect(){
       if (state.phase !== 'playing') launchPlay();
       let sl = slots.find(s => s.active && s.ok && (s.role === 'judge' || s.role === 'answer'));
