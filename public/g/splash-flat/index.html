@@ -851,12 +851,16 @@ function drawHero(g, x, y, size, bob){
 
 // ─────────── 레이아웃 ───────────
 var DPR = 1, VW = 390, VH = 844, LO = {};
+var bgKey = '';
 function resize(){
   VW = cv.clientWidth || window.innerWidth;
   VH = cv.clientHeight || window.innerHeight;
   DPR = Math.min(window.devicePixelRatio || 1, 1.5);
-  cv.width = Math.round(VW * DPR);
-  cv.height = Math.round(VH * DPR);
+  var nw = Math.round(VW * DPR), nh = Math.round(VH * DPR);
+  if(cv.width !== nw || cv.height !== nh){
+    cv.width = nw;
+    cv.height = nh;
+  }
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   var hudH = (elHud.offsetHeight || 56);
   var panH = (elPanel.offsetHeight || 150);
@@ -882,10 +886,11 @@ function resize(){
     LO.ceil = Math.max(LO.ceilMin, Math.min(LO.deckY - 170, S.ceilWant));
   }
   if(LO.deckY - LO.ceil < 160) LO.ceil = Math.max(LO.top, LO.deckY - 160);
-  buildBG();
+  var key = VW + 'x' + VH + ':' + LO.ceil + ':' + LO.deckY + ':' + LO.fx + ':' + LO.fw;
+  if(key !== bgKey){ bgKey = key; buildBG(); }
 }
-window.addEventListener('resize', resize);
-window.addEventListener('orientationchange', function(){ setTimeout(resize, 120); });
+window.addEventListener('resize', function(){ applyStageCeil(); });
+window.addEventListener('orientationchange', function(){ setTimeout(function(){ applyStageCeil(); }, 120); });
 
 // ─────────── 배경 프리렌더 ───────────
 var bgCv = null;
@@ -1056,11 +1061,8 @@ function setPanel(o){
   if(o.action){ elAction.textContent = o.action; elAction.classList.remove('hide'); }
   else elAction.classList.add('hide');
   elAction.onclick = o.onAction || null;
-  requestAnimationFrame(function(){ resizeSoon(); });
+  requestAnimationFrame(function(){ applyStageCeil(); });
 }
-var resizeTimer = 0;
-function resizeSoon(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 30); }
-
 elChoices.addEventListener('click', function(e){
   var b = e.target.closest ? e.target.closest('.opt') : null;
   if(!b || !panelHandler) return;
@@ -1509,6 +1511,20 @@ function chanceResult(){
 }
 
 // ─────────── 기하 ───────────
+/** 태블릿처럼 세로가 남는 화면에서 0→1 로 커진다. 390×844 는 0. */
+function vGrow(){
+  if(S._vgT === S.t) return S._vg;
+  var g = 0;
+  if(VH >= 1000){
+    var bot = LO.bot || (VH - 160);
+    var top = LO.ceilMin || ((LO.top || 56) + 62);
+    var avail = Math.max(160, (bot - 16) - top);
+    if(avail > 540) g = Math.min(1.2, (avail - 540) / 340);
+  }
+  S._vgT = S.t;
+  S._vg = g;
+  return g;
+}
 function slabH(){
   var st = S.stage;
   if(!st || st.type !== 'mean') return 20;
@@ -1516,7 +1532,9 @@ function slabH(){
   var avail = LO.deckY - LO.ceil - 12;
   var n = st.h.length + (st.variant === 'missing' ? 1 : 0);
   var lw = (LO.fw - 16 - 7*(n-1)) / n;                 // 레인 폭 (킥판이 널빤지처럼 보이는 비율 유지)
-  return Math.max(9, Math.min(46, avail / mx, lw * 0.50));
+  var g = vGrow();
+  var cap = Math.min(46 + 32 * g, lw * (0.50 + 0.06 * g));
+  return Math.max(9, Math.min(cap, avail / mx));
 }
 function yOf(v){ return LO.deckY - v * slabH(); }
 function laneLayout(){
@@ -1535,17 +1553,18 @@ function laneLayout(){
   }
   return { slots: out, lw: lw };
 }
-/** 내용 높이로 수조를 잡고, 남는 세로는 풀 밖 매트·물결 앰비언트가 채운다. */
+/** 내용 최소 높이. 세로가 남으면 매트·비교띠·밴드가 비례해 커지고, 수조가 그 높이를 따라간다. */
 function chanceContentH(){
   var st = S.stage;
-  var tall = VH >= 1000;
+  var g = vGrow();
   var head = chanceHead();
-  var matH = tall ? 28 : 16;
-  var scale = tall ? 48 : 40;
-  var bottom = tall ? 148 : 96;
-  if(st && (st.step === 'rain' || st.step === 'result')) bottom = tall ? 168 : 124;
-  else if(st && st.step === 'pre') bottom = tall ? 80 : 64;
-  return 12 + 24 + 6 + scale + 6 + head + matH + 8 + 4 + bottom + 10;
+  var matH = Math.round(16 + 26 * g);
+  var scale = Math.round(40 + 28 * g);
+  var strip = Math.round(24 + 16 * g);
+  var bottom = Math.round(96 + 120 * g);
+  if(st && (st.step === 'rain' || st.step === 'result')) bottom = Math.round(124 + 90 * g);
+  else if(st && st.step === 'pre') bottom = Math.round(64 + 50 * g);
+  return 12 + strip + 6 + scale + 6 + head + matH + 8 + 4 + bottom + 10;
 }
 function applyStageCeil(){
   var st = S.stage;
@@ -1554,21 +1573,24 @@ function applyStageCeil(){
   if(!st){ resize(); return; }
   var avail = (LO.bot - 16) - LO.ceilMin;
   if(avail < 160) avail = 160;
+  var g = vGrow();
   if(st.type === 'mean'){
     var n = st.h.length + (st.variant === 'missing' ? 1 : 0);
     var lw = (LO.fw - 16 - 7*(n-1)) / n;
-    var cap = Math.min(VH >= 1000 ? 56 : 46, lw * 0.50);
+    var cap = Math.min(46 + 32 * g, lw * (0.50 + 0.06 * g));
     var mx = Math.max(maxOf(st.h), st.target, meanTickMax(st), 1) + 1.5;
     var need = cap * mx + 36;
     var box = Math.min(avail, Math.max(170, need));
+    if(g > 0) box = Math.min(avail, Math.max(box, Math.round(avail * (0.78 + 0.14 * g))));
     var slack = Math.max(0, avail - box);
-    S.ceilWant = LO.ceilMin + slack * 0.20;
+    S.ceilWant = LO.ceilMin + slack * 0.22;
     S.deckWant = S.ceilWant + box;
   } else {
     var need = chanceContentH();
     var box = Math.min(avail, Math.max(220, need));
+    if(g > 0) box = Math.min(avail, Math.max(box, Math.round(avail * (0.82 + 0.12 * g))));
     var slack = Math.max(0, avail - box);
-    S.ceilWant = LO.ceilMin + slack * 0.10;
+    S.ceilWant = LO.ceilMin + slack * (0.10 + 0.04 * g);
     S.deckWant = S.ceilWant + box;
   }
   resize();
@@ -1588,13 +1610,14 @@ function slotAt(x, y){
   return null;
 }
 function chanceZones(){
+  var g = vGrow();
   var stripY = LO.ceil + 12;
-  var stripH = 24;
-  var scaleH = (VH >= 1000) ? 48 : 40;
+  var stripH = Math.round(24 + 16 * g);
+  var scaleH = Math.round(40 + 28 * g);
   var scaleY = stripY + stripH + 6;
   var head = chanceHead();
   var duckTop = scaleY + scaleH + 6;
-  var matH = (VH >= 1000) ? 28 : 16;
+  var matH = Math.round(16 + 26 * g);
   var matY = duckTop + head;
   var labelH = 8;
   var restTop = matY + matH + labelH + 4;
@@ -1602,7 +1625,7 @@ function chanceZones(){
   return {
     stripY:stripY, stripH:stripH, scaleY:scaleY, scaleH:scaleH,
     duckTop:duckTop, head:head, matY:matY, matH:matH, labelH:labelH,
-    restTop:restTop, restH:restH
+    restTop:restTop, restH:restH, grow:g
   };
 }
 function matGeom(){
@@ -1622,15 +1645,19 @@ function matGeom(){
 }
 function duckSize(){
   var wide = Math.max(16, Math.min(36, (LO.fw - 24) / 12));
-  if(VH >= 1000) wide = Math.min(46, wide * 1.4);
+  var g = vGrow();
+  if(g > 0) wide = Math.min(52, wide * (1 + 0.55 * g));
   return wide;
 }
 function bandGeom(){
   var Z = chanceZones();
   var n = 5, pad = 8, gap = 5;
+  var g = Z.grow || vGrow();
   var bw = (LO.fw - 2*pad - gap*(n-1)) / n;
-  var bh = Math.max(56, Math.min(VH >= 1000 ? 132 : 88, Z.restH - 6));
-  var y = Z.restTop + Math.max(0, (Z.restH - bh) * 0.5);
+  var maxH = Math.round(88 + 110 * g);
+  var pondMin = g > 0 ? Math.round(Math.min(300, Z.restH * 0.40)) : 0;
+  var bh = Math.max(56, Math.min(maxH, Z.restH - 6 - pondMin));
+  var y = (g > 0) ? Z.restTop + 2 : Z.restTop + Math.max(0, (Z.restH - bh) * 0.5);
   var cells = [], x = LO.fx + pad;
   for(var i=0;i<n;i++){
     cells.push({ i:i, x:x, y:y, w:bw, h:bh });
@@ -1652,7 +1679,7 @@ function chanceHead(){
   var st = S.stage;
   if(!st || st.type !== 'chance') return 70;
   var raining = (st.step === 'rain' || st.step === 'result');
-  if(!raining) return (VH >= 1000) ? 52 : 36;
+  if(!raining) return Math.round(36 + 18 * vGrow());
   var area = LO.fw - 24, ds = duckSize();
   var gap = (st.wA > 0 && st.wB > 0) ? 8 : 0;
   var share = Math.max(st.wAsk, st.W - st.wAsk, 1);
@@ -1962,6 +1989,142 @@ function update(sdt, dt){
 }
 
 // ─────────── 렌더 ───────────
+var lilyCache = {};
+function lilySprite(rx){
+  rx = Math.round(rx);
+  if(lilyCache[rx]) return lilyCache[rx];
+  var ry = rx * 0.68;
+  var s = Math.ceil(rx * 2 + 6);
+  var c = document.createElement('canvas');
+  c.width = s; c.height = Math.ceil(ry * 2 + 6);
+  var g = c.getContext('2d');
+  g.translate(c.width / 2, c.height / 2);
+  g.beginPath();
+  var notch = 0.38;
+  g.ellipse(0, 0, rx, ry, 0, notch, Math.PI * 2 - notch);
+  g.lineTo(rx * 0.18, 0);
+  g.closePath();
+  var lg = g.createRadialGradient(-rx * 0.22, -ry * 0.2, 2, 0, 0, rx);
+  lg.addColorStop(0, 'rgba(158,214,96,.94)');
+  lg.addColorStop(0.45, 'rgba(72,160,64,.92)');
+  lg.addColorStop(1, 'rgba(28,96,46,.90)');
+  g.fillStyle = lg;
+  g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.28)';
+  g.lineWidth = 1.3;
+  g.stroke();
+  g.strokeStyle = 'rgba(18,70,28,.30)';
+  g.lineWidth = 1;
+  for(var i = 0; i < 5; i++){
+    var a = -Math.PI * 0.72 + i * 0.36;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.quadraticCurveTo(Math.cos(a)*rx*0.35, Math.sin(a)*ry*0.35, Math.cos(a)*rx*0.82, Math.sin(a)*ry*0.82);
+    g.stroke();
+  }
+  lilyCache[rx] = c;
+  return c;
+}
+function drawLilyPad(g, x, y, rx, _ry, rot){
+  var spr = lilySprite(rx);
+  g.save();
+  g.translate(x, y);
+  g.rotate(rot);
+  g.drawImage(spr, -spr.width / 2, -spr.height / 2);
+  g.restore();
+}
+/** 수련잎·오리·빛무늬 — 남는 물을 단색 대신 살아있는 연못으로. dens 1 = 풀, 0.4 = 레인 사이 약하게. */
+function drawPondLife(x, y, w, h, seed, dens){
+  if(w < 40 || h < 36) return;
+  dens = (dens == null) ? 1 : dens;
+  var t = S.t;
+  var nPad = Math.max(4, Math.min(22, Math.round(w * h / 9000 * dens)));
+  var nDuck = Math.max(2, Math.min(6, Math.round(h / 80 * dens)));
+  if(h < 70) nDuck = Math.min(nDuck, 2);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(255,255,255,.28)';
+  ctx.lineWidth = 1.2;
+  var ts = 32;
+  for(var ix = x; ix <= x + w; ix += ts){
+    ctx.beginPath(); ctx.moveTo(ix + 0.5, y); ctx.lineTo(ix + 0.5, y + h); ctx.stroke();
+  }
+  for(var iy = y; iy <= y + h; iy += ts){
+    ctx.beginPath(); ctx.moveTo(x, iy + 0.5); ctx.lineTo(x + w, iy + 0.5); ctx.stroke();
+  }
+  for(var layer = 0; layer < 4; layer++){
+    ctx.beginPath();
+    var yk = y + 8 + layer * Math.max(18, h / 4.5);
+    ctx.moveTo(x, y + h);
+    ctx.lineTo(x, yk);
+    for(var wx = 0; wx <= w; wx += 12){
+      ctx.lineTo(x + wx, yk + Math.sin(wx / 38 + t * (1.1 + layer * 0.2) + seed) * (5 + layer));
+    }
+    ctx.lineTo(x + w, y + h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(180,230,255,' + (0.08 + layer * 0.02) + ')';
+    ctx.fill();
+  }
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#DFF6FF';
+  for(var c = 0; c < 12; c++){
+    var cx = x + ((t * 14 + c * 89 + seed * 13) % (w + 90)) - 45;
+    var cy = y + 18 + (c % 6) * Math.max(14, h * 0.14) + Math.sin(t * 0.8 + c) * 6;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 28 + (c % 3) * 8, 6, 0, 0, 6.284);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  var padCols = Math.max(2, Math.round(Math.sqrt(nPad * w / Math.max(h, 1))));
+  var padRows = Math.max(2, Math.ceil(nPad / padCols));
+  var pk = 0;
+  for(var pr = 0; pr < padRows; pr++){
+    for(var pc = 0; pc < padCols; pc++){
+      if(pk >= nPad) break;
+      var px = x + ((pc + 0.5) / padCols) * w + Math.sin(t * 0.55 + pk * 1.1) * 10;
+      var py = y + ((pr + 0.5) / padRows) * h + Math.sin(t * 0.7 + pk * 0.8) * 5;
+      var rx = 16 + (pk % 5) * 6;
+      drawLilyPad(ctx, px, py, rx, rx * 0.68, pk * 0.9 + Math.sin(t * 0.4 + pk) * 0.12);
+      pk++;
+    }
+  }
+  // 떠 있는 장식 킥판
+  ctx.globalAlpha = 0.72;
+  var toyW = Math.min(72, w * 0.16), toyH = 12;
+  for(var p = 0; p < Math.min(6, 2 + nPad / 4); p++){
+    var tx = x + w * (0.1 + ((p * 0.29 + 0.04) % 0.78)) + Math.sin(t * 0.6 + p) * 12;
+    var ty = y + h * (0.18 + (p * 0.21) % 0.64) + Math.sin(t * 1.05 + p * 1.2) * 6;
+    ctx.fillStyle = p % 2 ? 'rgba(255,80,60,.70)' : 'rgba(30,140,190,.70)';
+    rr(ctx, tx, ty, toyW, toyH, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.40)'; ctx.lineWidth = 1.2;
+    rr(ctx, tx, ty, toyW, toyH, 5); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  for(var j = 0; j < nDuck; j++){
+    var ds = Math.round(20 + (j % 3) * 6);
+    var dir = (j % 2) ? 1 : -1;
+    var speed = 16 + (j % 3) * 9;
+    var span = w + ds * 5;
+    var along = ((t * speed + j * 70 + seed * 40) % span + span) % span;
+    var dx = dir > 0 ? x - ds * 1.5 + along : x + w + ds * 1.5 - along;
+    var dy = y + h * (0.22 + (j * 0.31) % 0.58) + Math.sin(t * 1.5 + j) * 5;
+    var spr = duckSprite(j % 2 ? 'coral' : 'cobalt', ds);
+    ctx.save();
+    ctx.translate(dx, dy);
+    if(dir < 0) ctx.scale(-1, 1);
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(spr, -ds / 2, -ds / 2, ds, ds);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,.30)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(dx, dy + ds * 0.30, ds * 0.72, 3.5, 0, 0, 6.284);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawWater(yTop){
   var x0 = LO.fx - 6, w = LO.fw + 12, yb = LO.deckY + 18;
   yTop = Math.max(LO.ceil - 8, Math.min(yb, yTop));
@@ -1974,14 +2137,21 @@ function drawWater(yTop){
   g.addColorStop(1, 'rgba(6,42,62,.95)');
   ctx.fillStyle = g;
   ctx.fillRect(x0, yTop, w, yb - yTop);
-  for(var k=0;k<2;k++){
+  var deep = yb - yTop;
+  var gV = vGrow();
+  var layers = (gV > 0 && deep > 90) ? 4 : 2;
+  for(var k=0;k<layers;k++){
     ctx.beginPath();
-    ctx.moveTo(x0, yTop + k*3);
-    for(var x=0;x<=w;x+=16){
-      ctx.lineTo(x0 + x, yTop + k*3 + Math.sin(x/54 + S.t*(1.5 + k*0.8) + k*1.7) * 3.4);
+    var yk = yTop + k * (gV > 0 ? Math.max(10, deep * 0.16) : 3);
+    ctx.moveTo(x0, yk);
+    for(var x=0;x<=w;x+=14){
+      ctx.lineTo(x0 + x, yk + Math.sin(x/54 + S.t*(1.4 + k*0.35) + k*1.7) * (3.4 + k*0.6));
     }
-    ctx.lineTo(x0 + w, yTop + 46); ctx.lineTo(x0, yTop + 46); ctx.closePath();
-    ctx.fillStyle = k === 0 ? 'rgba(140,230,255,.26)' : 'rgba(255,255,255,.13)';
+    var yClose = gV > 0 ? yb : yTop + 46;
+    ctx.lineTo(x0 + w, yClose); ctx.lineTo(x0, yClose); ctx.closePath();
+    ctx.fillStyle = (gV === 0)
+      ? (k === 0 ? 'rgba(140,230,255,.26)' : 'rgba(255,255,255,.13)')
+      : (k % 2 === 0 ? 'rgba(140,230,255,' + (0.16 - k*0.02) + ')' : 'rgba(255,255,255,' + (0.10 - k*0.015) + ')');
     ctx.fill();
   }
   ctx.strokeStyle = 'rgba(255,255,255,.62)'; ctx.lineWidth = 2.4;
@@ -1998,6 +2168,16 @@ function drawWater(yTop){
     ctx.beginPath(); ctx.ellipse(cx, yTop + 40 + c*26, 26, 6, 0, 0, 6.284); ctx.fill();
   }
   ctx.globalAlpha = 1;
+  if(gV > 0 && deep > 70){
+    var dens = (S.stage && S.stage.type === 'mean') ? 0.4 : 1;
+    var pondY = yTop + 32;
+    if(S.stage && S.stage.type === 'chance'){
+      var cells = bandGeom();
+      if(cells && cells[0]) pondY = Math.max(pondY, cells[0].y + cells[0].h + 6);
+    }
+    var pondH = yb - pondY - 6;
+    if(pondH > 36) drawPondLife(x0 + 8, pondY, w - 16, pondH, 3, dens);
+  }
   ctx.restore();
 }
 function drawSlabRect(x, y, w, h, submerged, glow){
@@ -2245,7 +2425,10 @@ function drawChanceScene(){
   })();
   // 0 ─ ½ ─ 1 눈금 + 이론 위치 마커 (분수 숫자는 찍지 않는다)
   (function(){
-    var bx = LO.fx + 14, bw = LO.fw - 28, y = Z.scaleY, h = 14;
+    var gV = Z.grow || vGrow();
+    var bx = LO.fx + 14, bw = LO.fw - 28;
+    var y = Z.scaleY + Math.round(18 * gV);
+    var h = Math.max(14, Math.round(14 + 12 * gV));
     ctx.fillStyle = 'rgba(6,32,48,.78)';
     rr(ctx, bx, y, bw, h, 7); ctx.fill();
     var x0 = bx, xh = bx + bw/2, x1 = bx + bw;
@@ -2316,9 +2499,11 @@ function drawChanceScene(){
       ctx.strokeStyle = okCell ? '#2C6B18' : noCell ? '#8A2418' : chosen ? '#7A4A00' : '#0B3D55';
       ctx.lineWidth = 2.6;
       rr(ctx, c.x, c.y, c.w, c.h, 12); ctx.stroke();
-      label(ctx, B.word, c.x + c.w/2, c.y + c.h*0.38, Math.min(13, c.w*0.22),
+      var wordSize = Math.max(13, Math.min(c.w * 0.22, c.h * 0.12));
+      var rangeSize = Math.max(12, Math.min(c.w * 0.20, c.h * 0.09));
+      label(ctx, B.word, c.x + c.w/2, c.y + c.h*0.38, wordSize,
             okCell || noCell || chosen ? '#0E2A38' : '#0E2A38', 'center', 0);
-      label(ctx, B.range, c.x + c.w/2, c.y + c.h*0.68, Math.min(12, c.w*0.20),
+      label(ctx, B.range, c.x + c.w/2, c.y + c.h*0.68, rangeSize,
             '#2B5468', 'center', 0);
       ctx.restore();
     }
@@ -2326,8 +2511,9 @@ function drawChanceScene(){
     var cum = st.cum || readCum(st);
     var bx = LO.fx + 14, bw = LO.fw - 28;
     var col = st.ask === 'A' ? '#FF6B3D' : '#37A9DC';
+    var gV = Z.grow || vGrow();
     var cy = Z.restTop + 4;
-    var cardH = Math.max(40, Math.min(64, Z.restH * 0.42));
+    var cardH = Math.max(40, Math.min(64 + 50 * gV, Z.restH * 0.36));
     var cw = Math.min(170, (bw - 12) / 2);
     var gap = 12;
     var cx0 = bx + (bw - (cw * 2 + gap)) / 2;
@@ -2344,7 +2530,7 @@ function drawChanceScene(){
     card(cx0 + cw + gap, '이번 오리', countTimesPhrase(st.hits, st.trials, '이번'),
          bandWord(bandOf(st.hits, st.trials)), col);
     cy += cardH + 20;
-    var bh = Math.max(18, Math.min(28, Z.restH - cardH - 36));
+    var bh = Math.max(18, Math.min(28 + 16 * gV, Z.restH - cardH - 36));
     function theoryMark(by){
       var tx = bx + bw * (st.W ? (st.wAsk / st.W) : 0);
       ctx.strokeStyle = '#FFD60A'; ctx.lineWidth = 3;
@@ -2441,6 +2627,7 @@ function drawSlackAmbient(){
   }
   var yb = LO.deckY + 18;
   var lagoon = VH - yb;
+  var gV = vGrow();
   if(lagoon > 28){
     ctx.globalAlpha = 1;
     var lg = ctx.createLinearGradient(0, yb, 0, VH);
@@ -2449,32 +2636,57 @@ function drawSlackAmbient(){
     lg.addColorStop(1, 'rgba(8,50,78,.62)');
     ctx.fillStyle = lg;
     ctx.fillRect(0, yb, VW, lagoon);
-    for(var layer=0; layer<4; layer++){
-      ctx.beginPath();
-      var y0 = yb + 8 + layer * Math.max(18, lagoon*0.16);
-      ctx.strokeStyle = 'rgba(255,255,255,' + (0.42 - layer*0.07) + ')';
-      ctx.lineWidth = 2.2 - layer*0.3;
-      for(var x=0;x<=VW;x+=12){
-        var yy = y0 + Math.sin(x/46 + S.t*(1.3+layer*0.2) + layer)* (3.4+layer);
-        if(x===0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+    if(gV > 0){
+      for(var layer=0; layer<5; layer++){
+        ctx.beginPath();
+        var y0 = yb + layer * (lagoon / 4.4);
+        ctx.moveTo(0, VH);
+        ctx.lineTo(0, y0);
+        for(var x=0;x<=VW;x+=10){
+          ctx.lineTo(x, y0 + Math.sin(x/42 + S.t*(1.2+layer*0.15) + layer) * (4+layer*0.7));
+        }
+        ctx.lineTo(VW, VH);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(180,230,255,' + (0.07 + layer*0.015) + ')';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,' + (0.38 - layer*0.05) + ')';
+        ctx.lineWidth = 2.0 - layer*0.18;
+        ctx.beginPath();
+        for(var xw=0;xw<=VW;xw+=10){
+          var yy = y0 + Math.sin(xw/42 + S.t*(1.2+layer*0.15) + layer) * (4+layer*0.7);
+          if(xw===0) ctx.moveTo(xw, yy); else ctx.lineTo(xw, yy);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 0.22; ctx.fillStyle = '#DFF6FF';
-    for(var c=0;c<7;c++){
-      var wx = ((S.t*18 + c*97) % (VW + 100)) - 50;
-      ctx.beginPath(); ctx.ellipse(wx, yb + 36 + (c%4)*Math.max(22, lagoon*0.12), 34, 7, 0, 0, 6.284); ctx.fill();
-    }
-    // 떠 있는 장식 킥판 — 남는 세로를 매트 앰비언트로
-    ctx.globalAlpha = 0.55;
-    var padW = Math.min(86, VW*0.12), padH = 14;
-    for(var p=0;p<5;p++){
-      var px = (VW*0.12 + p*VW*0.18 + Math.sin(S.t*0.7+p)*10);
-      var py = yb + 28 + (p%3)*Math.max(26, lagoon*0.14) + Math.sin(S.t*1.1+p*1.3)*5;
-      ctx.fillStyle = p%2 ? 'rgba(255,80,60,.55)' : 'rgba(30,140,190,.55)';
-      rr(ctx, px, py, padW, padH, 6); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.4;
-      rr(ctx, px, py, padW, padH, 6); ctx.stroke();
+      ctx.globalAlpha = 1;
+      drawPondLife(0, yb + 8, VW, Math.max(40, lagoon - 16), 7, 1.15);
+    } else {
+      for(var layer=0; layer<4; layer++){
+        ctx.beginPath();
+        var y0 = yb + 8 + layer * Math.max(18, lagoon*0.16);
+        ctx.strokeStyle = 'rgba(255,255,255,' + (0.42 - layer*0.07) + ')';
+        ctx.lineWidth = 2.2 - layer*0.3;
+        for(var x=0;x<=VW;x+=12){
+          var yy = y0 + Math.sin(x/46 + S.t*(1.3+layer*0.2) + layer)* (3.4+layer);
+          if(x===0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 0.22; ctx.fillStyle = '#DFF6FF';
+      for(var c=0;c<7;c++){
+        var wx = ((S.t*18 + c*97) % (VW + 100)) - 50;
+        ctx.beginPath(); ctx.ellipse(wx, yb + 36 + (c%4)*Math.max(22, lagoon*0.12), 34, 7, 0, 0, 6.284); ctx.fill();
+      }
+      ctx.globalAlpha = 0.55;
+      var padW = Math.min(86, VW*0.12), padH = 14;
+      for(var p=0;p<5;p++){
+        var px = (VW*0.12 + p*VW*0.18 + Math.sin(S.t*0.7+p)*10);
+        var py = yb + 28 + (p%3)*Math.max(26, lagoon*0.14) + Math.sin(S.t*1.1+p*1.3)*5;
+        ctx.fillStyle = p%2 ? 'rgba(255,80,60,.55)' : 'rgba(30,140,190,.55)';
+        rr(ctx, px, py, padW, padH, 6); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.4;
+        rr(ctx, px, py, padW, padH, 6); ctx.stroke();
+      }
     }
   }
   ctx.restore();
@@ -2730,6 +2942,7 @@ window.__GAME_TEST__ = {
       d.zones = chanceZones();
       d.bands = bandGeom();
       d.model = CHANCE_MODEL;
+      d.vGrow = vGrow();
     }
     if(st.type === 'mean'){
       var L = laneLayout();
