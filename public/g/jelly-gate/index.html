@@ -41,6 +41,8 @@
   #num.pop{transform:scale(1.32)}
   #num.dn{color:var(--rose)}
   #sub{font-size:9.5px;opacity:.6;letter-spacing:.3px;white-space:nowrap}
+  #hp{flex:0 0 auto;min-width:48px;text-align:center;font-size:14px;letter-spacing:1px;
+      line-height:1;color:var(--rose);text-shadow:0 1px 0 rgba(0,0,0,.45)}
   #mute{width:44px;height:44px;flex:0 0 44px;border-radius:12px;padding:0;cursor:pointer;
         border:1px solid rgba(233,242,255,.22);background:rgba(255,255,255,.06);color:var(--tx);font-size:17px;
         box-shadow:0 3px 0 rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.10);
@@ -303,6 +305,7 @@
   <div id="hud">
     <div id="lv"><b>1구간</b><small>분모가 같은 진분수</small></div>
     <div id="cnt"><span id="num">24</span><span id="sub">최고 0마리</span></div>
+    <div id="hp" aria-label="목숨">♥♥♥</div>
     <button id="mute" aria-label="소리 켜기 끄기">🔊</button>
   </div>
   <div id="eqbar"><div id="eq"></div></div>
@@ -319,7 +322,7 @@
       <div id="howto">
         <b>①</b> 젤리 떼를 끌고 달립니다. 게이트에 적힌 분수만큼 젤리가 늘거나 줄어요.<br>
         <b>②</b> 화면을 좌우로 끌어(또는 ← →) 더 커지는 게이트로 들어가세요.<br>
-        <b>③</b> 구간 끝 자물쇠 벽에 적힌 수 <b>이상</b>이면 부숩니다. 조금 모자라도 한 번은 봐줘요. 많이 모자라면 튕겨나가요.<br>
+        <b>③</b> 더 작은 곱을 고르면 젤리가 덜 늘거나 줄고, 한 번 봐준 뒤에는 목숨이 줄어요. 구간 끝 자물쇠 벽에 적힌 수 <b>이상</b>이면 부숩니다. 조금 모자라도 한 번은 봐줘요.<br>
         <b>④</b> <b>정밀</b> 버튼(또는 Shift)으로 잠깐 느리게. 구간당 2번.
       </div>
     </div>
@@ -615,11 +618,10 @@ function planLevel(level, startN){
     path.push({n:g.n, d:g.d, lab:g.lab});
     n=g.R;
   }
-  /* 예전엔 최적경로의 85%를 요구해서 게이트 한 번만 "차선"을 골라도
-     구간 끝에서 몰아서 실패하는 구조였다. 요구치를 60%로 낮추고,
-     그 아래 42%까지는 "가까스로 통과" 유예 구간을 둬서 즉사하지 않게 한다 —
-     그래도 42% 밑으로 크게 모자라면 여전히 실패한다(긴장감 유지). */
-  const req=Math.max(5, Math.floor(n*0.60));
+  /* 요구치는 최적 경로의 70%. 유예는 그 70%(전체의 ~49%)까지.
+     레인 판정(missesThisLevel)과 함께 쓴다: 틀린 곱이 2번이면 수가 맞아도 벽을 못 넘는다.
+     한 번 틀린 뒤에 수가 유예선 이상이면 기존처럼 한 번은 봐준다. */
+  const req=Math.max(5, Math.floor(n*0.70));
   const graceMin=Math.max(4, Math.floor(req*0.70));
   return {gates:G, optFinal:n, path:path, dispStart:dispStart, supplied:supplied,
           req:req, graceMin:graceMin};
@@ -903,6 +905,8 @@ const G={
   wall:null,
   slowLeft:2, slowT:0,
   shake:0, flash:0, flashCol:'#3ef2c0',
+  rise:0, bounce:0, praise:null,
+  gateWarned:false, missesThisLevel:0,
   eqTerms:[], eqStartN:24, supplied:false,
   dblFirst:null,
   scroll:0, speedBase:150,
@@ -968,13 +972,42 @@ function layoutRunning(){
 }
 
 /* ── 파티클 ── */
-function burst(x,y,n,col,pow){
+function burst(x,y,n,col,pow,dir){
   if(REDUCED) n=Math.min(n,6);
   for(let i=0;i<n;i++){
     if(G.particles.length>150) break;
     const a=Math.random()*6.283, sp=(40+Math.random()*170)*(pow||1);
-    G.particles.push({x:x, y:y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-40, life:1, r:2+Math.random()*5, col:col});
+    const up=dir==='up';
+    G.particles.push({
+      x:x, y:y,
+      vx: up ? (Math.random()-0.5)*90 : Math.cos(a)*sp,
+      vy: up ? -(70+Math.random()*220)*(pow||1) : Math.sin(a)*sp-40,
+      life:1, r:2+Math.random()*5, col:col,
+      grav: up ? 90 : 420
+    });
   }
+}
+
+/* 정답 = 상승·확산·빛. 오답 = 흔들림·붉은 플래시. 흔들림은 오답 전용. */
+function fxCorrect(big){
+  G.shake=0;
+  G.rise=big?1:0.72;
+  G.bounce=1;
+  G.flash=1;
+  G.flashCol=big?'#ffd166':'#3ef2c0';
+  const c=crowdCenter();
+  burst(c.x, c.y, big?32:18, '#ffd166', 1.15, 'up');
+  burst(c.x, c.y, 10, '#3ef2c0', 0.9, 'up');
+  G.praise={text: big?'벽 돌파!':(G.combo>=3?'멋진 곱!':'좋아요!'), t:0, col:'#ffd166'};
+}
+function fxWrong(){
+  G.rise=0;
+  G.bounce=0;
+  G.shake=Math.min(16, 12);
+  G.flash=1;
+  G.flashCol='#ff5d73';
+  const c=crowdCenter();
+  burst(c.x, c.y, 18, '#ff5d73', 1.05);
 }
 
 /* ── 누적 식 DOM ── */
@@ -985,13 +1018,36 @@ function fracHTML(lab, cls){
     return '<span class="mx '+cls+'">'+lab.w+'<span class="fr"><i>'+lab.n+'</i><i>'+lab.d+'</i></span></span>';
   return '<span class="fr '+cls+'"><i>'+lab.n+'</i><i>'+lab.d+'</i></span>';
 }
+function labFrac(l){
+  if(l.kind==='whole') return {n:l.w, d:1};
+  if(l.kind==='mixed') return {n:l.w*l.d+l.n, d:l.d};
+  return {n:l.n, d:l.d};
+}
 function renderEq(){
+  /* 항이 많아져도 화면에 보이는 등식은 항상 참이어야 한다.
+     앞쪽 생략분은 그 시점의 젤리 수(정수)로 접어, `… 12 × a × b = N` 꼴로 둔다. */
   const terms=G.eqTerms;
-  let html='<span class="num0">'+G.eqStartN+'</span>';
-  const show=terms.slice(-4);
-  if(terms.length>4) html+='<span class="dots">…</span>';
-  for(let i=0;i<show.length;i++){
-    html+='<span class="op">×</span>'+fracHTML(show[i],'');
+  const KEEP=4;
+  let html='';
+  if(terms.length<=KEEP){
+    html='<span class="num0">'+G.eqStartN+'</span>';
+    for(let i=0;i<terms.length;i++){
+      html+='<span class="op">×</span>'+fracHTML(terms[i],'');
+    }
+  }else{
+    const hidden=terms.length-KEEP;
+    let pn=G.eqStartN, pd=1;
+    for(let i=0;i<hidden;i++){
+      const f=labFrac(terms[i]);
+      pn*=f.n; pd*=f.d;
+      const g=gcd(pn,pd)||1;
+      pn/=g; pd/=g;
+    }
+    const prefix=pd===1?pn:Math.round(pn/pd);
+    html='<span class="dots">…</span><span class="num0">'+prefix+'</span>';
+    for(let i=hidden;i<terms.length;i++){
+      html+='<span class="op">×</span>'+fracHTML(terms[i],'');
+    }
   }
   html+='<span class="op">=</span><span class="res">'+G.N+'</span>';
   eqEl.innerHTML=html;
@@ -1009,12 +1065,18 @@ function renderHUD(){
   for(let i=0;i<2;i++) d+='<span class="'+(i<G.slowLeft?'on':'')+'"></span>';
   dotsEl.innerHTML=d;
   document.getElementById('slow').disabled = G.slowLeft<=0;
+  const hp=document.getElementById('hp');
+  if(hp){
+    let s='';
+    for(let i=0;i<3;i++) s+=i<G.lives?'♥':'♡';
+    hp.textContent=s;
+  }
 }
-function popNum(up){
+function popNum(good){
   numEl.classList.remove('pop','dn');
   void numEl.offsetWidth;
   numEl.classList.add('pop');
-  if(!up) numEl.classList.add('dn');
+  if(!good) numEl.classList.add('dn');
   setTimeout(function(){ numEl.classList.remove('pop'); }, 150);
   setTimeout(function(){ numEl.classList.remove('dn'); }, 420);
 }
@@ -1039,6 +1101,9 @@ function startLevel(level, startN, keepLives){
   G.slowLeft=2; G.slowT=0;
   G.eqTerms=[]; G.eqStartN=startN; G.supplied=false;
   G.combo=0;
+  G.gateWarned=false;
+  G.missesThisLevel=0;
+  G.rise=0; G.bounce=0; G.praise=null; G.shake=0;
   G.scroll=0;
   G.particles.length=0;
   G.phase='run';
@@ -1092,11 +1157,25 @@ function resolveGate(idx){
   const optimal=(g.R === set.gates[set.best].R);
   const before=G.N;
 
+  /* 수학은 고른 레인의 곱을 그대로 적용한다. 틀린(더 작은) 곱은 즉시 대가:
+     1차 경고(구간당 1회, 목숨 유지) 후엔 목숨 -1. 젤리 수는 곱 결과로 줄거나 덜 는다. */
   G.eqTerms.push(g.lab);
   G.N=g.R;
   G.solved++;
-  if(optimal){ G.combo++; if(G.combo>G.bestCombo) G.bestCombo=G.combo; }
-  else G.combo=0;
+  if(optimal){
+    G.combo++;
+    if(G.combo>G.bestCombo) G.bestCombo=G.combo;
+  }else{
+    G.combo=0;
+    G.missesThisLevel++;
+    if(!G.gateWarned){
+      G.gateWarned=true;
+      banner('아깝다! 한 번은 봐줄게', '#ff5d73');
+    }else{
+      G.lives--;
+      banner('틀린 곱 — 목숨 -1', '#ff5d73');
+    }
+  }
   let gain=Math.round((optimal?60:14) * (1 + Math.min(G.combo,8)*0.28));
 
   /* 이중 게이트 처리 */
@@ -1115,9 +1194,9 @@ function resolveGate(idx){
     try{ localStorage.setItem(BEST_KEY, String(G.bestJelly)); }catch(e){}
   }
   startSplit(before, g, optimal);
-  renderEq(); renderHUD(); popNum(G.N>=before);
-  if(optimal){ SFX.best(); } else { SFX.good(); }
-  if(!optimal) SFX.bad();
+  renderEq(); renderHUD(); popNum(optimal);
+  if(optimal) SFX.best();
+  else SFX.bad();
 }
 
 function startSplit(before, g, optimal){
@@ -1168,9 +1247,9 @@ function startSplit(before, g, optimal){
   }
   G.split={t:0, dur:REDUCED?0.55:0.78, phase:0, g:g, before:before, after:g.R, optimal:optimal};
   G.phase='split';
-  G.pop={v:g.R, t:0, up:g.R>=before};
-  G.shake=Math.min(14, 5+Math.abs(g.R-before)/Math.max(8,before)*9);
-  G.flash=1; G.flashCol=(g.R>=before)?'#3ef2c0':'#ff5d73';
+  G.pop={v:g.R, t:0, up:g.R>=before, good:optimal};
+  if(optimal) fxCorrect(false);
+  else fxWrong();
 }
 
 function endSplit(){
@@ -1183,8 +1262,14 @@ function endSplit(){
   }
   if(doomedList.length) SFX.pop();
   syncJellies();
-  G.phase='run';
   G.split=null;
+  if(G.lives<=0){
+    G.lives=0;
+    G.phase='over';
+    deferCard(showOver, 420);
+    return;
+  }
+  G.phase='run';
   G.gateIdx++;
   G.active=null;
   if(!G.wall) spawnNext();
@@ -1196,21 +1281,30 @@ function deferCard(fn, ms){
   setTimeout(function(){ if(my===cardSeq) fn(); }, ms);
 }
 function hitWall(){
-  const pass=G.N>=G.wall.req;
-  const grace=!pass && G.N>=G.wall.graceMin;
+  /* 벽 통과는 젤리 수와 레인 정확도를 함께 본다.
+     만점 통과: 요구치 이상 + 이번 구간 틀린 곱 0.
+     유예(1차 경고): 유예선 이상 + 틀린 곱 1번까지. 2번 이상이면 수가 맞아도 실패. */
+  const enough=G.N>=G.wall.req;
+  const close=G.N>=G.wall.graceMin;
+  const accurate=G.missesThisLevel===0;
+  const nearAcc=G.missesThisLevel<=1;
+  const pass=enough && accurate;
+  const grace=!pass && close && nearAcc;
   if(pass || grace){
     G.wall.broke=true;
     G.wall.grace=grace;
     G.score += pass ? (140+G.N) : (70+Math.floor(G.N*0.6));
     SFX.wall();
-    burst(colCX(), H*0.4, pass?40:24, pass?'#ffd166':'#a06bff', pass?1.5:1.05);
-    G.shake=pass?16:11; G.flash=1; G.flashCol=pass?'#ffd166':'#a06bff';
+    burst(colCX(), H*0.4, pass?40:24, pass?'#ffd166':'#a06bff', pass?1.5:1.05, 'up');
+    fxCorrect(true);
+    if(grace){ G.flashCol='#a06bff'; G.praise={text:'가까스로 통과!', t:0, col:'#a06bff'}; }
     G.phase='clear';
     deferCard(showClear, 700);
   }else{
     G.lives--;
     SFX.wall(); SFX.bad();
-    G.shake=18; G.flash=1; G.flashCol='#ff5d73';
+    fxWrong();
+    G.shake=18;
     burst(colCX(), H*0.5, 26, '#ff5d73', 1.1);
     G.combo=0;
     renderHUD();
@@ -1318,7 +1412,7 @@ function showOver(){
     '<div class="stamp" style="color:var(--rose)">GAME OVER</div>'+
     '<div class="big" data-cu="'+G.score+'">0점</div>'+
     '<p>가장 많이 모은 젤리 '+G.bestJelly+'마리 · 게이트 '+G.solved+'개 통과</p>'+
-    '<p style="opacity:.7">1보다 작은 분수를 곱하면 <b>줄어듭니다</b>. 게이트 두 개를 비교해 보세요.</p>';
+    '<p style="opacity:.7">1보다 작은 분수를 곱하면 <b>줄어듭니다</b>. 게이트를 비교해 더 커지는 쪽을 고르세요.</p>';
   showOverlay('게임 오버', html, '다시 하기', function(){ restart(); }, false);
   const bigEl=cardBody.querySelector('.big[data-cu]');
   if(bigEl) countUp(bigEl, G.score, '점');
@@ -1348,9 +1442,9 @@ const ONB_STEPS=[
   {t:'젤리 떼를 끌어라',
    b:'화면을 좌우로 끌거나 ← → 키로 젤리 떼의 레인을 옮긴다. 들어간 게이트의 분수만큼 젤리가 늘거나 줄어든다.'},
   {t:'더 커지는 게이트로',
-   b:'여러 게이트의 분수를 비교해 젤리가 가장 많아지는 쪽으로 들어간다. 정밀 버튼(또는 Shift)을 누르면 잠깐 느려진다. 구간당 2번.'},
+   b:'여러 게이트의 분수를 비교해 젤리가 가장 많아지는 쪽으로 들어간다. 더 작은 곱은 한 번 봐주고, 또 고르면 목숨이 줄어든다. 정밀 버튼(또는 Shift)을 누르면 잠깐 느려진다.'},
   {t:'자물쇠 벽을 부숴라',
-   b:'구간 끝 자물쇠 벽에 적힌 수 이상이면 부수고 다음 구간으로 간다. 조금 모자라도 한 번은 봐준다.'}
+   b:'구간 끝 자물쇠 벽에 적힌 수 이상이면 부수고 다음 구간으로 간다. 조금 모자라도 한 번은 봐준다. 틀린 곱을 두 번 고르면 수가 맞아도 벽을 못 넘는다.'}
 ];
 let onbIdx=-1;
 function onbSeen(){ try{ return !!localStorage.getItem(ONB_KEY); }catch(e){ return false; } }
@@ -1562,14 +1656,17 @@ function update(dt){
     const p=G.particles[i];
     p.life-=dt*1.7;
     if(p.life<=0){ G.particles.splice(i,1); continue; }
-    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=420*dt; p.vx*=0.985;
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=(p.grav==null?420:p.grav)*dt; p.vx*=0.985;
   }
 
   if(G.pop){ G.pop.t+=dt; if(G.pop.t>1.05) G.pop=null; }
   if(G.banner){ G.banner.t+=dt; if(G.banner.t>1.9) G.banner=null; }
   if(G.cancelFx){ G.cancelFx.t+=dt; if(G.cancelFx.t>1.5) G.cancelFx=null; }
+  if(G.praise){ G.praise.t+=dt; if(G.praise.t>1.15) G.praise=null; }
   G.shake=Math.max(0, G.shake-dt*36);
   G.flash=Math.max(0, G.flash-dt*3.4);
+  G.rise=Math.max(0, G.rise-dt*1.8);
+  G.bounce=Math.max(0, G.bounce-dt*2.2);
 }
 
 function draw(){
@@ -1726,15 +1823,18 @@ function drawWall(){
   if(BAKE.wall) ctx.drawImage(BAKE.wall, cx-wpx*scale/2, y-wpx*scale/2, wpx*scale, wpx*scale);
   ctx.globalAlpha=1;
   if(!G.wall.broke){
-    const ok=G.N>=G.wall.req;
-    const grace=!ok && G.N>=G.wall.graceMin;
+    const enough=G.N>=G.wall.req;
+    const close=!enough && G.N>=G.wall.graceMin;
+    const ok=enough && G.missesThisLevel===0;
+    const grace=!ok && (enough||close) && G.missesThisLevel<=1;
     ctx.font='900 '+Math.round(wpx*0.115)+'px '+FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle=ok?'#3ef2c0':(grace?'#a06bff':'#ffd166');
     ctx.fillText(G.wall.req+' 이상', cx, y+wpx*0.045);
     ctx.font='800 '+Math.round(wpx*0.052)+'px '+FONT;
     ctx.fillStyle='rgba(233,242,255,.75)';
-    ctx.fillText(ok?'통과!':(grace?'아슬아슬 — 그래도 통과':'젤리가 더 필요해'), cx, y+wpx*0.125);
+    const msg=ok?'통과!':(grace?'아슬아슬 — 그래도 통과':(G.missesThisLevel>=2?'틀린 곱이 너무 많아요':'젤리가 더 필요해'));
+    ctx.fillText(msg, cx, y+wpx*0.125);
   }
 }
 
@@ -1751,9 +1851,10 @@ function drawJellies(){
     let img=base;
     if(splitting && j.tint===1) img=gt;
     else if(splitting && j.tint===-1) img=rd;
-    const s=j.s*(1+(splitting?0.06:0));
+    const lift=(G.bounce>0 && !(splitting && j.doomed))? G.bounce*10 : 0;
+    const s=j.s*(1+(splitting?0.06:0))*(lift?1+0.12*G.bounce:1);
     const w=px*s, h=px*s;
-    ctx.drawImage(img, j.x-w/2, j.y-h/2+bob, w, h);
+    ctx.drawImage(img, j.x-w/2, j.y-h/2+bob-lift, w, h);
   }
   /* 화면 밖 인원 배지 */
   if(G.N>MAXDRAW){
@@ -1794,31 +1895,51 @@ function drawParticles(){
 }
 
 function drawFX(){
+  /* 정답 상승광 — 화면 흔들림 없이 아래에서 퍼지는 빛 */
+  if(G.rise>0){
+    const g=ctx.createRadialGradient(colCX(), H*0.72, 8, colCX(), H*0.48, Math.max(H,W)*0.55);
+    g.addColorStop(0, 'rgba(255,209,102,'+(G.rise*0.38)+')');
+    g.addColorStop(0.45, 'rgba(62,242,192,'+(G.rise*0.14)+')');
+    g.addColorStop(1, 'rgba(255,209,102,0)');
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,W,H);
+  }
   /* 플래시 */
   if(G.flash>0){
-    ctx.globalAlpha=G.flash*0.30;
+    ctx.globalAlpha=G.flash*(G.flashCol==='#ff5d73'?0.30:0.22);
     ctx.fillStyle=G.flashCol;
     ctx.fillRect(0,0,W,H);
     ctx.globalAlpha=1;
   }
-  /* 큰 숫자 팝 */
+  /* 큰 숫자 팝 — 색은 정답/오답, 문구는 증감이 아니라 판정 */
   if(G.pop){
     const t=G.pop.t;
     const e=t<0.18? (t/0.18) : 1;
     const scale=1.25 - 0.25*Math.min(1,t*3.2) + (1-e)*0.5;
     const alpha=t<0.72?1:Math.max(0,1-(t-0.72)/0.33);
+    const good=!!G.pop.good;
     ctx.save();
     ctx.globalAlpha=alpha;
-    ctx.translate(colCX(), H*0.34);
+    ctx.translate(colCX(), H*0.34 - (good? t*18 : 0));
     ctx.scale(scale,scale);
     ctx.font='900 '+Math.round(Math.min(colW()*0.20,74))+'px '+FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle=G.pop.up?'#3ef2c0':'#ff5d73';
+    ctx.fillStyle=good?'#3ef2c0':'#ff5d73';
     ctx.fillText(String(G.pop.v), 0, 0);
     ctx.font='800 '+Math.round(Math.min(colW()*0.045,17))+'px '+FONT;
     ctx.fillStyle='rgba(233,242,255,.8)';
-    ctx.fillText(G.pop.up?'젤리가 늘었다!':'젤리가 줄었다!', 0, Math.min(colW()*0.14,52));
+    ctx.fillText(good?(G.pop.up?'젤리가 늘었다!':'가장 큰 곱!'):'더 작은 곱!', 0, Math.min(colW()*0.14,52));
     ctx.restore();
+  }
+  if(G.praise){
+    const t=G.praise.t;
+    const a=t<0.7?1:Math.max(0,1-(t-0.7)/0.45);
+    ctx.globalAlpha=a;
+    ctx.font='900 '+Math.round(Math.min(colW()*0.068,26))+'px '+FONT;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=G.praise.col;
+    ctx.fillText(G.praise.text, colCX(), H*0.22 - t*36);
+    ctx.globalAlpha=1;
   }
   /* 약분 폭발 */
   if(G.cancelFx){
@@ -2129,16 +2250,21 @@ window.__GAME_TEST__={
     return true;
   },
   getState:function(){
-    return {score:G.score, lives:G.lives, level:G.level, phase:G.phase, solved:G.solved, jelly:G.N, combo:G.combo};
+    return {score:G.score, lives:G.lives, level:G.level, phase:G.phase, solved:G.solved, jelly:G.N, combo:G.combo, misses:G.missesThisLevel};
   },
   answerCorrect:function(){ forceGate(true); return true; },
   answerWrong:function(){
+    const livesBefore=G.lives;
     forceGate(false);
-    G.lives--;
-    G.combo=0;
-    G.flash=1; G.flashCol='#ff5d73'; G.shake=12;
-    renderHUD();
-    if(G.lives<=0){ G.lives=0; G.phase='over'; deferCard(showOver,10); }
+    /* 1차 경고만으로 목숨이 안 줄면 훅 계약(오답 시 상태 변화)을 위해 여기서 줄인다.
+       resolveGate/hitWall 이 이미 깎았으면 두 번 깎지 않는다. */
+    if(G.lives>=livesBefore && G.lives>0 && G.phase!=='clear' && G.phase!=='fail' && G.phase!=='over'){
+      G.lives--;
+      G.combo=0;
+      fxWrong();
+      renderHUD();
+      if(G.lives<=0){ G.lives=0; G.phase='over'; deferCard(showOver,10); }
+    }
     return true;
   },
   sampleProblems:function(n){ return sampleProblems(n); }
