@@ -860,11 +860,23 @@ let bagsByTier=createBags();
 let recentKinds=[];
 function resetDealers(){ bagsByTier=createBags(); recentKinds=[]; }
 
-function takeFromTier(tier, bags, avoidKind){
+function takeFromTier(tier, bags, avoidKind, preferType, forceType){
   const pool=POOL_BY_TIER[tier];
   if(!pool||!pool.length) return null;
   let bag=bags[tier];
   if(!bag.length) bags[tier]=bag=shuffle(pool.slice());
+  const match=(p)=> (!preferType || p.target===preferType) && (!avoidKind || p.kind!==avoidKind);
+  if(preferType){
+    for(let i=bag.length-1;i>=0;i--){
+      if(match(bag[i])) return bag.splice(i,1)[0];
+    }
+    if(forceType){
+      const typed=pool.filter((p)=>p.target===preferType && (!avoidKind || p.kind!==avoidKind));
+      if(typed.length) return pick(typed);
+      const typed2=pool.filter((p)=>p.target===preferType);
+      if(typed2.length) return pick(typed2);
+    }
+  }
   if(avoidKind){
     for(let i=bag.length-1;i>=0;i--){
       if(bag[i].kind!==avoidKind) return bag.splice(i,1)[0];
@@ -880,18 +892,22 @@ function wrapDrawn(base){
     unitConcept:base.unitConcept, tier:base.tier, formula:base.formula||null,
     formulaNote:base.formulaNote||'', isCalc:!!base.isCalc};
 }
-function pickBase(wave, mode, bags, recent){
+function pickBase(wave, mode, bags, recent, preferType, forceType){
   const avoid = (recent.length>=2 && recent[recent.length-1]===recent[recent.length-2])
     ? recent[recent.length-1] : null;
   const ts=shuffle(tiersForWave(wave, mode).slice());
   let base=null;
   for(const t of ts){
-    base=takeFromTier(t, bags, avoid);
+    base=takeFromTier(t, bags, avoid, preferType, forceType);
     if(base && base.kind!==avoid) break;
   }
   if(!base){
     const fallback=tiersForWave(wave, mode);
-    for(let i=0;i<fallback.length && !base;i++) base=takeFromTier(fallback[i], bags, null);
+    for(let i=0;i<fallback.length && !base;i++) base=takeFromTier(fallback[i], bags, null, preferType, forceType);
+  }
+  if(!base && preferType){
+    const any=POOL.filter((p)=>p.target===preferType);
+    if(any.length) base=pick(any);
   }
   if(base){
     recent.push(base.kind);
@@ -900,7 +916,12 @@ function pickBase(wave, mode, bags, recent){
   return base;
 }
 function drawProblem(wave, mode){
-  const base=pickBase(wave, mode||G.mode, bagsByTier, recentKinds) || pick(POOL_BY_TIER[1]);
+  const empty=emptyCount();
+  const mercy=pickMercySpawn(G.robots);
+  G.pendingMercy=mercy;
+  const prefer=(empty<=2 && mercy && mercy.type) ? mercy.type : null;
+  const force=empty<=1 && !!prefer;
+  const base=pickBase(wave, mode||G.mode, bagsByTier, recentKinds, prefer, force) || pick(POOL_BY_TIER[1]);
   return wrapDrawn(base);
 }
 function isThinkProb(p){ return !!(p && (p.kind==='wrap' || p.kind==='area')); }
@@ -959,7 +980,8 @@ const Snd=(function(){
     hit(){ noise(0.07,0.14); },
     leak(){ tone(150,0.35,'sawtooth',0.28,70); noise(0.25,0.2); },
     wave(){ [523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,0.16,'triangle',0.22),i*90)); },
-    over(){ [523,440,349,262].forEach((f,i)=>setTimeout(()=>tone(f,0.28,'sawtooth',0.22),i*160)); }
+    over(){ [523,440,349,262].forEach((f,i)=>setTimeout(()=>tone(f,0.28,'sawtooth',0.22),i*160)); },
+    ship(){ tone(440,0.10,'triangle',0.20); setTimeout(()=>tone(330,0.12,'triangle',0.18),70); setTimeout(()=>tone(262,0.18,'sine',0.16),150); }
   };
 })();
 
@@ -1009,6 +1031,9 @@ function layout(){
   const inner=L.bw-20, sw=inner/L.slots;
   L.slotW=sw; L.slotX=(i)=>L.bx+10+sw*(i+0.5);
   L.robotR=Math.min(sw*0.42, L.bw*0.085);
+  L.shipR=Math.max(24, Math.min(32, L.robotR*1.2));
+  L.shipX=L.bx+L.bw-14-L.shipR;
+  L.shipY=L.padRowY-L.robotR*3.55;
   // 돌림 축(작업대)
   L.axisX=L.bx+L.bw*0.5; L.axisY=L.buildY+L.buildH*0.62;
   L.axisH=L.buildH*0.72;
@@ -1388,7 +1413,8 @@ const G={
   spawnT:0, t:0, dex:{}, concepts:{}, heroSquash:0, toast:null, cleared:false,
   dragCard:null, hintPulse:0, frozen:false,
   mountedIdx:-1, dragRobot:null, axisSwipe:null, hoverSlot:-1,
-  dissolves:[], mergeHint:null
+  dissolves:[], mergeHint:null,
+  holdShip:null, hoverShip:false, pendingMercy:null
 };
 const BEST=(function(){
   try{ return JSON.parse(localStorage.getItem('rollbot.best.v1')||'{}')||{}; }catch(e){ return {}; }
@@ -1691,26 +1717,123 @@ function drawDissolves(c){
   }
 }
 
-/* ─────────────────────── 9. 로봇 / 머지 ─────────────────────── */
+/* ─────────────────────── 9. 로봇 / 머지 / 출고 ─────────────────────── */
+const ROBOT_TYPES=['cyl','cone','sph'];
+const HOLD_SHIP_SEC=0.55;
+const SHIP_GEARS=8;
 function dexKey(t,l){ return t+l; }
-function placeRobot(type){
-  let idx=G.robots.indexOf(null);
-  if(idx<0){ overdrive(); return; }
-  G.robots[idx]={type:type,level:1,cd:0.25,pop:1.2,blink:0.18,joy:0.95,t:Math.random()*3};
-  G.dex[dexKey(type,1)]=true;
-  Snd.spin();
+function mkRobot(type, level){
+  return {type:type, level:level||1, cd:0.25, pop:1.2, blink:0.18, joy:0.95, t:Math.random()*3};
+}
+function emptyCount(robots){
+  robots=robots||G.robots;
+  let n=0; for(let i=0;i<robots.length;i++) if(!robots[i]) n++;
+  return n;
+}
+function occupiedCount(robots){
+  robots=robots||G.robots;
+  return robots.length-emptyCount(robots);
 }
 function canMerge(a,b){
   return !!(a&&b&&a.type===b.type&&a.level===b.level&&a.level<3);
 }
-function mergeCounts(){
+function mergeCounts(robots){
+  robots=robots||G.robots;
   const m={};
-  for(const rb of G.robots){
+  for(const rb of robots){
     if(!rb||rb.level>=3) continue;
     const k=rb.type+'@'+rb.level;
     m[k]=(m[k]|0)+1;
   }
   return m;
+}
+function findMergePair(robots){
+  robots=robots||G.robots;
+  for(let i=0;i<robots.length;i++){
+    const a=robots[i]; if(!a||a.level>=3) continue;
+    for(let j=i+1;j<robots.length;j++){
+      if(canMerge(a,robots[j])) return [i,j];
+    }
+  }
+  return null;
+}
+function isShelfJam(robots){
+  robots=robots||G.robots;
+  return emptyCount(robots)<=0 && !findMergePair(robots);
+}
+function wouldMergeWith(robots, type, level){
+  if(!type || (level|0)>=3) return false;
+  robots=robots||G.robots;
+  for(const rb of robots){
+    if(rb && rb.type===type && rb.level===level) return true;
+  }
+  return false;
+}
+function unpairedMergeables(robots){
+  robots=robots||G.robots;
+  const m=mergeCounts(robots);
+  const out=[];
+  for(const k of Object.keys(m)){
+    if((m[k]|0)%2===1){
+      const p=k.split('@');
+      out.push({type:p[0], level:+p[1]});
+    }
+  }
+  return out;
+}
+function mostNumerousType(robots){
+  robots=robots||G.robots;
+  const n={cyl:0,cone:0,sph:0};
+  for(const rb of robots){ if(rb) n[rb.type]=(n[rb.type]|0)+1; }
+  let best='cyl', bestN=-1;
+  for(let i=0;i<ROBOT_TYPES.length;i++){
+    const t=ROBOT_TYPES[i];
+    if(n[t]>bestN){ bestN=n[t]; best=t; }
+  }
+  return best;
+}
+/* 선반을 보고 다음에 나오면 합체가 풀리는 종류·레벨을 고른다.
+   빈 칸 1개면 합체 가능 후보를 반드시 고르고, 후보가 없으면 가장 많은 종류의 Lv1. */
+function pickMercySpawn(robots, rnd){
+  robots=robots||G.robots;
+  rnd=rnd||Math.random;
+  const empty=emptyCount(robots);
+  const unpaired=unpairedMergeables(robots);
+  const fallback={type:mostNumerousType(robots), level:1, mergeable:false};
+  const fromUnpaired=()=>{
+    if(!unpaired.length) return fallback;
+    const lv1=unpaired.filter((u)=>u.level===1);
+    const bag=lv1.length?lv1:unpaired;
+    const u=bag[(rnd()*bag.length)|0];
+    return {type:u.type, level:u.level, mergeable:true};
+  };
+  if(empty<=1){
+    if(!unpaired.length) return fallback;
+    const lv1=unpaired.filter((u)=>u.level===1);
+    const bag=lv1.length?lv1:unpaired;
+    const u=bag[0];
+    return {type:u.type, level:u.level, mergeable:true};
+  }
+  const p=empty<=2?0.95:0.62;
+  if(unpaired.length && rnd()<p) return fromUnpaired();
+  return {type:ROBOT_TYPES[(rnd()*ROBOT_TYPES.length)|0], level:1, mergeable:false};
+}
+function placeRobot(type){
+  let idx=G.robots.indexOf(null);
+  if(idx<0){ overdrive(); return null; }
+  const empty=emptyCount();
+  const mercy=empty<=1?pickMercySpawn(G.robots):(G.pendingMercy||pickMercySpawn(G.robots));
+  G.pendingMercy=null;
+  let st=type, sl=1;
+  if(empty<=1){
+    st=mercy.type; sl=mercy.level||1;
+  }else if(mercy.mergeable){
+    st=mercy.type; sl=1;
+  }
+  G.robots[idx]=mkRobot(st, sl);
+  G.dex[dexKey(st,sl)]=true;
+  Snd.spin();
+  return st;
 }
 function mergeRobots(from,to){
   const a=G.robots[from], b=G.robots[to];
@@ -1732,6 +1855,38 @@ function overdrive(){
   floatText(L.bx+L.bw/2,L.padRowY-52,'전체 공격!','#FFD35C',1.15,true);
   addScore(40,L.bx+L.bw/2,L.padRowY-40);
 }
+function suggestedShipIdx(){
+  let best=-1, score=1e9;
+  for(let i=0;i<SLOTS;i++){
+    const rb=G.robots[i]; if(!rb) continue;
+    const sc=rb.level*10+i;
+    if(sc<score){ score=sc; best=i; }
+  }
+  return best;
+}
+function inShipZone(px,py){
+  if(!L.shipX) return false;
+  return Math.hypot(px-L.shipX, py-L.shipY) < Math.max(L.shipR+12, 28);
+}
+function shipRobot(idx){
+  const rb=G.robots[idx];
+  if(!rb) return false;
+  const x=(G.dragRobot&&G.dragRobot.idx===idx)?G.dragRobot.x:L.slotX(idx);
+  const y=(G.dragRobot&&G.dragRobot.idx===idx)?G.dragRobot.y:L.padRowY-L.robotR*0.4;
+  G.robots[idx]=null;
+  const n=SHIP_GEARS+rb.level*2;
+  addScore(n,x,y);
+  Snd.ship();
+  burst(x,y,14,'#7FC4EE',140,4);
+  floatText(x,y-28,'출고 +'+n+'톱니','#9FD1F2',1.05,true);
+  if(G.dragRobot && G.dragRobot.idx===idx) G.dragRobot=null;
+  if(G.holdShip && G.holdShip.idx===idx) G.holdShip=null;
+  G.hoverShip=false;
+  if(G.mergeHint && G.mergeHint.mode==='jam'){
+    G.mergeHint.mode='none'; G.mergeHint.visible=false;
+  }
+  return true;
+}
 function addScore(n,x,y){
   G.score+=n;
   if(x!==undefined) floatText(x,y,'+'+n,'#FFD35C');
@@ -1743,17 +1898,8 @@ function markMergeHintSeen(){ try{ localStorage.setItem(MERGE_HINT_KEY,'1'); }ca
 function resetMergeHint(){
   G.mergeHint={
     visible:false, mode:'none', pair:null, idleT:0,
-    reminded:false, celeT:0, delay:0, armed:false, alpha:0, celeAt:-1
+    reminded:false, celeT:0, delay:0, armed:false, alpha:0, celeAt:-1, shipAt:-1
   };
-}
-function findMergePair(){
-  for(let i=0;i<SLOTS;i++){
-    const a=G.robots[i]; if(!a||a.level>=3) continue;
-    for(let j=i+1;j<SLOTS;j++){
-      if(canMerge(a,G.robots[j])) return [i,j];
-    }
-  }
-  return null;
 }
 function onMergeSuccess(toIdx){
   const h=G.mergeHint; if(!h) return;
@@ -1767,44 +1913,73 @@ function updateMergeHint(dt){
   if(!G.mergeHint) resetMergeHint();
   const h=G.mergeHint;
   if(G.phase!=='playing' || G.frozen){
-    if(h.mode!=='cele'){ h.visible=false; h.alpha=Math.max(0,h.alpha-dt*4); }
+    if(h.mode!=='cele' && h.mode!=='jam'){ h.visible=false; h.alpha=Math.max(0,h.alpha-dt*4); }
     return;
   }
-  const pair=findMergePair();
-  const seen=mergeHintSeen();
-  if(h.mode==='cele'){
-    h.celeT+=dt; h.pair=null;
-    if(h.celeT>1.35){ h.mode='none'; h.visible=false; }
-  }else if(!seen){
-    if(pair){
-      if(!h.armed){ h.armed=true; h.delay=0.42; }
-      if(h.delay>0) h.delay-=dt;
-      if(h.delay<=0){ h.visible=true; h.mode='guide'; h.pair=pair; }
-    }else if(h.mode==='guide'){
-      h.pair=null;
+  if(isShelfJam()){
+    if(h.mode!=='jam'){
+      h.mode='jam'; h.visible=true; h.pair=null; h.celeT=0; h.delay=0;
     }
-    if(h.mode==='guide' && pair) h.pair=pair;
+    h.visible=true; h.pair=null; h.shipAt=suggestedShipIdx();
+  }else if(h.mode==='jam'){
+    h.mode='none'; h.visible=false; h.shipAt=-1;
   }else{
-    if(pair && !G.dragRobot){
-      h.idleT+=dt;
-      if(h.idleT>=10 && !h.reminded){
-        h.reminded=true; h.visible=true; h.mode='remind'; h.pair=pair; h.celeT=0;
+    const pair=findMergePair();
+    const seen=mergeHintSeen();
+    if(h.mode==='cele'){
+      h.celeT+=dt; h.pair=null;
+      if(h.celeT>1.35){ h.mode='none'; h.visible=false; }
+    }else if(!seen){
+      if(pair){
+        if(!h.armed){ h.armed=true; h.delay=0.42; }
+        if(h.delay>0) h.delay-=dt;
+        if(h.delay<=0){ h.visible=true; h.mode='guide'; h.pair=pair; }
+      }else if(h.mode==='guide'){
+        h.pair=null;
       }
+      if(h.mode==='guide' && pair) h.pair=pair;
     }else{
-      h.idleT=0;
-    }
-    if(h.mode==='remind'){
-      h.celeT+=dt; h.pair=pair||h.pair;
-      if(h.celeT>2.4 || !pair){ h.mode='none'; h.visible=false; }
+      if(pair && !G.dragRobot){
+        h.idleT+=dt;
+        if(h.idleT>=10 && !h.reminded){
+          h.reminded=true; h.visible=true; h.mode='remind'; h.pair=pair; h.celeT=0;
+        }
+      }else{
+        h.idleT=0;
+      }
+      if(h.mode==='remind'){
+        h.celeT+=dt; h.pair=pair||h.pair;
+        if(h.celeT>2.4 || !pair){ h.mode='none'; h.visible=false; }
+      }
     }
   }
-  const want=(h.visible && (h.mode==='guide'||h.mode==='remind'||h.mode==='cele'))?1:0;
+  const want=(h.visible && (h.mode==='guide'||h.mode==='remind'||h.mode==='cele'||h.mode==='jam'))?1:0;
   h.alpha=lerp(h.alpha, want, 1-Math.pow(0.0008,dt));
   if(h.alpha<0.02 && !want) h.alpha=0;
 }
+function drawDashedArrow(c,x1,y1,x2,y2){
+  const mx=(x1+x2)/2;
+  const my=Math.min(y1,y2)-Math.max(28, Math.abs(x2-x1)*0.18);
+  c.strokeStyle='#F4B400';
+  c.lineWidth=3.4; c.lineCap='round'; c.lineJoin='round';
+  c.setLineDash([8,7]); c.lineDashOffset=-(G.t*46);
+  c.beginPath(); c.moveTo(x1,y1); c.quadraticCurveTo(mx,my,x2,y2); c.stroke();
+  c.setLineDash([]);
+  const p=0.72;
+  const ax=(1-p)*(1-p)*x1+2*(1-p)*p*mx+p*p*x2;
+  const ay=(1-p)*(1-p)*y1+2*(1-p)*p*my+p*p*y2;
+  const bx=2*(1-p)*(mx-x1)+2*p*(x2-mx);
+  const by=2*(1-p)*(my-y1)+2*p*(y2-my);
+  const ang=Math.atan2(by,bx);
+  c.save(); c.translate(ax,ay); c.rotate(ang);
+  c.fillStyle='#F4B400'; c.strokeStyle=INK; c.lineWidth=2;
+  c.beginPath(); c.moveTo(11,0); c.lineTo(-7,7.5); c.lineTo(-7,-7.5); c.closePath();
+  c.fill(); c.stroke();
+  c.restore();
+}
 function drawMergeHint(c){
   const h=G.mergeHint; if(!h || h.alpha<0.02) return;
-  const pair=h.pair || findMergePair();
+  const pair=(h.mode==='jam')?null:(h.pair || findMergePair());
   const a=h.alpha;
   c.save(); c.globalAlpha=a;
 
@@ -1814,30 +1989,21 @@ function drawMergeHint(c){
       return {x:L.slotX(i), y:L.padRowY-L.robotR*0.85};
     };
     const p0=pos(pair[0]), p1=pos(pair[1]);
-    const x1=p0.x, y1=p0.y, x2=p1.x, y2=p1.y;
-    const mx=(x1+x2)/2;
-    const my=Math.min(y1,y2)-Math.max(34, Math.abs(x2-x1)*0.22);
-    c.strokeStyle='#F4B400';
-    c.lineWidth=3.4; c.lineCap='round'; c.lineJoin='round';
-    c.setLineDash([8,7]); c.lineDashOffset=-(G.t*46);
-    c.beginPath(); c.moveTo(x1,y1); c.quadraticCurveTo(mx,my,x2,y2); c.stroke();
-    c.setLineDash([]);
-    const p=0.72;
-    const ax=(1-p)*(1-p)*x1+2*(1-p)*p*mx+p*p*x2;
-    const ay=(1-p)*(1-p)*y1+2*(1-p)*p*my+p*p*y2;
-    const bx=2*(1-p)*(mx-x1)+2*p*(x2-mx);
-    const by=2*(1-p)*(my-y1)+2*p*(y2-my);
-    const ang=Math.atan2(by,bx);
-    c.save(); c.translate(ax,ay); c.rotate(ang);
-    c.fillStyle='#F4B400'; c.strokeStyle=INK; c.lineWidth=2;
-    c.beginPath(); c.moveTo(11,0); c.lineTo(-7,7.5); c.lineTo(-7,-7.5); c.closePath();
-    c.fill(); c.stroke();
-    c.restore();
+    drawDashedArrow(c, p0.x, p0.y, p1.x, p1.y);
+  }else if(h.mode==='jam'){
+    const si=h.shipAt>=0?h.shipAt:suggestedShipIdx();
+    if(si>=0){
+      const x1=(G.dragRobot&&G.dragRobot.idx===si)?G.dragRobot.x:L.slotX(si);
+      const y1=((G.dragRobot&&G.dragRobot.idx===si)?G.dragRobot.y:L.padRowY)-L.robotR*0.85;
+      drawDashedArrow(c, x1, y1, L.shipX, L.shipY+L.shipR*0.2);
+    }
   }
 
-  const txt=h.mode==='cele'?'합체 성공! 이제 혼자 할 수 있어! 🎉':'같은 로봇끼리 끌어다 놓으면 합체! 💪';
+  const txt=h.mode==='cele'?'합체 성공! 이제 혼자 할 수 있어! 🎉'
+    :(h.mode==='jam'?'선반이 꽉 찼어! 하나를 출고해서 자리를 만들자'
+    :'같은 로봇끼리 끌어다 놓으면 합체! 💪');
   c.font='900 14px '+FONT;
-  const maxW=Math.min(L.bw-28, 250);
+  const maxW=Math.min(L.bw-28, h.mode==='jam'?268:250);
   const lines=wrapLines(c,txt,maxW-20);
   const lh=18, padX=12, padY=10;
   const bw=Math.min(maxW, Math.max.apply(null,lines.map((ln)=>{ c.font='900 14px '+FONT; return c.measureText(ln).width; }))+padX*2);
@@ -1846,6 +2012,9 @@ function drawMergeHint(c){
   if(h.mode==='cele' && h.celeAt>=0){
     bx=clamp(L.slotX(h.celeAt)-bw/2, L.bx+8, L.bx+L.bw-bw-8);
     by=L.padRowY-L.robotR-bh-28;
+  }else if(h.mode==='jam'){
+    bx=clamp(L.bx+14, L.bx+8, L.bx+L.bw-bw-8);
+    by=L.padRowY-L.robotR-bh-56;
   }else if(pair){
     const mx=(L.slotX(pair[0])+L.slotX(pair[1]))/2;
     bx=clamp(mx-bw/2, L.bx+8, L.bx+L.bw-bw-8);
@@ -1876,8 +2045,9 @@ function drawMergeHint(c){
   roundRect(c,bx,by,bw,bh,14); c.fill();
   c.strokeStyle='#F4B400'; c.lineWidth=3;
   roundRect(c,bx,by,bw,bh,14); c.stroke();
-  // 꼬리 — 로봇 쪽을 가리킨다
-  const tailX=clamp((pair?(L.slotX(pair[0])+L.slotX(pair[1]))/2:bx+bw/2), bx+18, bx+bw-18);
+  // 꼬리 — 로봇(또는 출고 상자) 쪽을 가리킨다
+  const tailAim=h.mode==='jam'?L.shipX:(pair?(L.slotX(pair[0])+L.slotX(pair[1]))/2:bx+bw/2);
+  const tailX=clamp(tailAim, bx+18, bx+bw-18);
   c.beginPath();
   c.moveTo(tailX-8, by+bh-1);
   c.lineTo(tailX, by+bh+10);
@@ -1933,12 +2103,15 @@ function finishAnim(silent){
   a.done=true;
   const p=a.prob;
   if(a.ok){
-    placeRobot(p.target);
+    const placed=placeRobot(p.target);
     const x=L.bx+L.bw/2, y=L.fieldTop+L.fieldH*0.5;
     splash(x,y,0.85+Math.min(G.combo,8)*0.08);
     joyRobots(0.7);
     G.anim=null; G.busy=false;
-    if(!silent) updateBanner({main:'완성! '+TYPE_KO[p.target]+'봇이 작업대에 올랐다.',sub:'다음 주문 준비 중…'},'good');
+    if(!silent){
+      const name=TYPE_KO[placed||p.target]||'로봇';
+      updateBanner({main:'완성! '+name+'봇이 작업대에 올랐다.',sub:'다음 주문 준비 중…'},'good');
+    }
     G.nextAt=G.t+0.55;
   }else{
     G.anim=null; G.busy=false;
@@ -2044,6 +2217,7 @@ function startRun(mode){
   G.busy=false; G.anim=null; G.nextAt=0; G.spawnT=0.8; G.t=0;
   G.dex={}; G.concepts={}; G.toast=null;
   G.mountedIdx=-1; G.dragRobot=null; G.axisSwipe=null; G.hoverSlot=-1; G.dragCard=null;
+  G.holdShip=null; G.hoverShip=false; G.pendingMercy=null;
   G.shake=0; G.flash=0; G.bounce=0; G.bounceT=0; G.glow=0;
   G.dissolves.length=0; resetMergeHint();
   resetDealers(); G.thinkToastShown=false; G.wasThink=false;
@@ -2214,13 +2388,14 @@ function drawRobot(c,rb,i){
   const counts=mergeCounts();
   const glow=counts[rb.type+'@'+rb.level]>=2;
   const hover=G.hoverSlot===i && G.dragRobot && G.dragRobot.idx!==i && canMerge(G.robots[G.dragRobot.idx],rb);
-  if(glow||hover){
+  const jamPick=isShelfJam() && suggestedShipIdx()===i;
+  if(glow||hover||jamPick){
     const pulse=0.45+0.35*Math.sin(G.t*3.4+i);
     c.save();
-    c.globalAlpha=hover?0.55:(0.18+pulse*0.22);
-    c.fillStyle='#F4B400';
+    c.globalAlpha=hover?0.55:(jamPick?0.34+pulse*0.28:(0.18+pulse*0.22));
+    c.fillStyle=jamPick?'#7FC4EE':'#F4B400';
     c.beginPath(); c.ellipse(0,Hh*0.48,R*1.65,R*0.58,0,0,TAU); c.fill();
-    c.strokeStyle='#F4B400'; c.lineWidth=hover?5:3+pulse*2;
+    c.strokeStyle=jamPick?'#7FC4EE':'#F4B400'; c.lineWidth=hover?5:3+pulse*2;
     c.beginPath(); c.ellipse(0,0,R*1.25,Hh*0.72,0,0,TAU); c.stroke();
     c.restore();
   }
@@ -2232,6 +2407,42 @@ function drawRobot(c,rb,i){
   c.fillStyle=INK; roundRect(c,-R*0.55,-Hh/2-15,R*1.1,14,7); c.fill();
   c.fillStyle='#FFD35C'; c.font='900 10px '+FONT; c.textAlign='center'; c.textBaseline='middle';
   c.fillText('Lv'+rb.level,0,-Hh/2-8);
+  const hold=G.holdShip;
+  if(hold && hold.idx===i && !hold.moved && isShelfJam()){
+    const k=clamp(hold.t/HOLD_SHIP_SEC,0,1);
+    c.strokeStyle='rgba(0,0,0,.35)'; c.lineWidth=6;
+    c.beginPath(); c.arc(0,0,R*1.48,-Math.PI/2,-Math.PI/2+TAU); c.stroke();
+    c.strokeStyle=hold.armed?'#7FD8A0':'#7FC4EE'; c.lineWidth=6; c.lineCap='round';
+    c.beginPath(); c.arc(0,0,R*1.48,-Math.PI/2,-Math.PI/2+TAU*k); c.stroke();
+  }
+  c.restore();
+}
+function drawShipCrate(c){
+  if(G.phase!=='playing' || !isShelfJam()) return;
+  const x=L.shipX, y=L.shipY, r=L.shipR;
+  const pulse=0.5+0.5*Math.sin(G.t*4.2);
+  const hover=!!G.hoverShip;
+  c.save();
+  c.translate(x,y);
+  const sc=hover?1.14:(1+pulse*0.04);
+  c.scale(sc,sc);
+  c.globalAlpha=0.32+pulse*0.28;
+  c.fillStyle='#7FC4EE';
+  c.beginPath(); c.arc(0,0,r*1.45,0,TAU); c.fill();
+  c.globalAlpha=1;
+  c.fillStyle=hover?'#5AA8D8':'#3A6F96';
+  roundRect(c,-r*0.92,-r*0.82,r*1.84,r*1.64,10); c.fill();
+  c.strokeStyle=INK; c.lineWidth=2.6;
+  roundRect(c,-r*0.92,-r*0.82,r*1.84,r*1.64,10); c.stroke();
+  c.strokeStyle='rgba(255,247,230,.45)'; c.lineWidth=1.5;
+  c.beginPath(); c.moveTo(-r*0.55,-r*0.15); c.lineTo(r*0.55,-r*0.15); c.stroke();
+  c.fillStyle='#FFF7E6';
+  c.beginPath();
+  c.moveTo(0, r*0.42); c.lineTo(-r*0.34, 0.02); c.lineTo(r*0.34, 0.02);
+  c.closePath(); c.fill();
+  c.fillRect(-r*0.12, -r*0.38, r*0.24, r*0.42);
+  c.font='900 10px '+FONT; c.textAlign='center'; c.textBaseline='middle';
+  c.fillText('출고',0,-r*0.52);
   c.restore();
 }
 function drawHero(c){
@@ -2564,6 +2775,7 @@ function render(){
     const dragI=G.dragRobot?G.dragRobot.idx:-1;
     for(let i=0;i<SLOTS;i++){ const r=G.robots[i]; if(r&&i!==dragI) drawRobot(ctx,r,i); }
     if(dragI>=0 && G.robots[dragI]) drawRobot(ctx,G.robots[dragI],dragI);
+    drawShipCrate(ctx);
     if(G.anim) drawAnim(ctx);
     drawBuildZone(ctx,G.t);
     drawCards(ctx);
@@ -2647,6 +2859,10 @@ function update(dt){
       robotFire(r,i,dt);
     }
     updateShots(dt);
+    if(G.holdShip && !G.holdShip.moved && isShelfJam()){
+      G.holdShip.t+=dt;
+      if(G.holdShip.t>=HOLD_SHIP_SEC) G.holdShip.armed=true;
+    }
     if(G.anim){ G.anim.t+=dt; if(G.anim.t>=G.anim.dur) finishAnim(false); }
     tickNext();
   }
@@ -2742,10 +2958,16 @@ function onDown(e){
   const ri=robotAt(px,py);
   if(ri>=0){
     pointerId=e.pointerId; dragKind='robot';
-    G.dragRobot={idx:ri,x:L.slotX(ri),y:L.padRowY+2};
     grabDX=px-L.slotX(ri); grabDY=py-(L.padRowY+2);
     downT=performance.now(); downX=px; downY=py; moved=false;
-    G.hoverSlot=-1;
+    G.hoverSlot=-1; G.hoverShip=false;
+    if(isShelfJam()){
+      G.holdShip={idx:ri,t:0,armed:false,moved:false};
+      G.dragRobot=null;
+    }else{
+      G.holdShip=null;
+      G.dragRobot={idx:ri,x:L.slotX(ri),y:L.padRowY+2};
+    }
     Snd.unlock(); Snd.pick();
     try{ cv.setPointerCapture(e.pointerId); }catch(err){}
     e.preventDefault();
@@ -2758,9 +2980,18 @@ function onMove(e){
   if(Math.hypot(px-downX,py-downY)>8) moved=true;
   if(dragKind==='card' && G.dragCard){
     G.dragCard.x=px-grabDX; G.dragCard.y=py-grabDY;
-  }else if(dragKind==='robot' && G.dragRobot){
-    G.dragRobot.x=px-grabDX; G.dragRobot.y=py-grabDY;
-    G.hoverSlot=slotAt(px,py);
+  }else if(dragKind==='robot'){
+    if(G.holdShip && !G.holdShip.moved){
+      if(Math.hypot(px-downX,py-downY)>12){
+        G.holdShip.moved=true;
+        G.dragRobot={idx:G.holdShip.idx,x:px-grabDX,y:py-grabDY};
+      }
+    }
+    if(G.dragRobot){
+      G.dragRobot.x=px-grabDX; G.dragRobot.y=py-grabDY;
+      G.hoverSlot=slotAt(px,py);
+      G.hoverShip=isShelfJam() && inShipZone(G.dragRobot.x, G.dragRobot.y);
+    }
   }else if(dragKind==='swipe' && G.axisSwipe){
     G.axisSwipe.dx=px-downX; G.axisSwipe.dy=py-downY;
   }
@@ -2793,10 +3024,17 @@ function onUp(e){
     return;
   }
   if(kind==='robot'){
+    const hold=G.holdShip; G.holdShip=null;
     const dr=G.dragRobot; G.dragRobot=null;
     const hover=G.hoverSlot; G.hoverSlot=-1;
-    if(!dr) return;
-    if(hover>=0 && hover!==dr.idx){
+    const overShip=G.hoverShip; G.hoverShip=false;
+    const idx=dr?dr.idx:(hold?hold.idx:-1);
+    if(idx<0 || !G.robots[idx]) return;
+    if(isShelfJam() && ((hold&&hold.armed&&!hold.moved) || overShip)){
+      shipRobot(idx);
+      return;
+    }
+    if(dr && hover>=0 && hover!==dr.idx){
       if(G.robots[hover] && canMerge(G.robots[dr.idx],G.robots[hover])){
         mergeRobots(dr.idx,hover);
       }else if(!G.robots[hover]){
@@ -3008,6 +3246,99 @@ window.__GAME_TEST__={
     renderCardFaces();
     updateBanner();
     return G.problem.kind;
+  },
+  isShelfJam(){ return isShelfJam(); },
+  findMergePair(){ return findMergePair(); },
+  getShelf(){ return G.robots.map((r)=>r?{type:r.type,level:r.level}:null); },
+  pickMercy(robots){
+    const shelf=robots||G.robots;
+    return pickMercySpawn(shelf);
+  },
+  forceJamShelf(){
+    if(G.phase!=='playing') startRun('easy');
+    G.frozen=false;
+    const onb=$('#onb'); if(onb) onb.classList.add('hide');
+    const stub=(type,level)=>({type:type,level:level,cd:0.25,pop:0.4,blink:0.2,joy:0,t:0.5});
+    G.robots=[stub('cone',1),stub('sph',1),stub('cyl',3),stub('cyl',2),stub('cyl',1)];
+    G.enemies.length=0; G.anim=null; G.busy=false;
+    G.dragRobot=null; G.holdShip=null; G.hoverShip=false;
+    if(!G.mergeHint) resetMergeHint();
+    G.mergeHint.mode='jam'; G.mergeHint.visible=true; G.mergeHint.alpha=1;
+    G.mergeHint.pair=null; G.mergeHint.shipAt=suggestedShipIdx();
+    updateMergeHint(0.05);
+    return {
+      jam:isShelfJam(),
+      pair:findMergePair(),
+      mode:G.mergeHint.mode,
+      empty:emptyCount(),
+      shelf:G.robots.map((r)=>r?{type:r.type,level:r.level}:null)
+    };
+  },
+  shipRobot(idx){
+    idx=idx|0;
+    const ok=shipRobot(idx);
+    return {ok:ok, jam:isShelfJam(), empty:emptyCount(),
+      shelf:G.robots.map((r)=>r?{type:r.type,level:r.level}:null),
+      score:G.score};
+  },
+  spawnMercyNow(requestType){
+    const before=G.robots.map((r)=>r?{type:r.type,level:r.level}:null);
+    const placed=placeRobot(requestType||'cyl');
+    const pair=findMergePair();
+    return {
+      placed:placed,
+      mergeable:!!pair,
+      pair:pair,
+      before:before,
+      shelf:G.robots.map((r)=>r?{type:r.type,level:r.level}:null),
+      empty:emptyCount(),
+      jam:isShelfJam()
+    };
+  },
+  simulateMercyNearFull(n){
+    n=n||100;
+    const shelf=[
+      {type:'cone',level:1},{type:'sph',level:1},{type:'cyl',level:3},{type:'cyl',level:2},null
+    ];
+    let ok=0;
+    const samples=[];
+    for(let i=0;i<n;i++){
+      const m=pickMercySpawn(shelf);
+      const mergeable=wouldMergeWith(shelf, m.type, m.level);
+      if(mergeable) ok++;
+      if(samples.length<12) samples.push({type:m.type,level:m.level,mergeable:!!mergeable});
+    }
+    return {n:n, mergeable:ok, ratio:ok/n, samples:samples};
+  },
+  simulateJamFlow(){
+    const jam=this.forceJamShelf();
+    const before=this.getShelf();
+    const ship=this.shipRobot(0);
+    const afterShip=this.getShelf();
+    const spawn=this.spawnMercyNow('cyl');
+    const pair=findMergePair();
+    return {
+      detected:!!jam.jam && jam.mode==='jam' && !jam.pair,
+      shipped:!!ship.ok && ship.empty===1 && !ship.jam,
+      nextSpawnMergeable:!!pair,
+      before:before, afterShip:afterShip, spawn:spawn, pair:pair
+    };
+  },
+  simulateOrderWeight(n){
+    n=n||40;
+    const stub=(t,l)=>({type:t,level:l,cd:0.25,pop:0,blink:0,joy:0,t:0});
+    const save=G.robots.slice();
+    G.robots=[stub('cone',1),stub('sph',1),stub('cyl',3),stub('cyl',2),null];
+    const mercy=pickMercySpawn(G.robots);
+    let match=0;
+    const samples=[];
+    for(let i=0;i<n;i++){
+      const p=drawProblem(3,'easy');
+      if(p && p.target===mercy.type) match++;
+      if(samples.length<8) samples.push(p&&p.target);
+    }
+    G.robots=save;
+    return {n:n, match:match, ratio:match/n, prefer:mercy.type, samples:samples};
   }
 };
 
