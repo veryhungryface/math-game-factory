@@ -1023,7 +1023,7 @@ function layout(){
   b.style.left=(L.bx+10)+'px'; b.style.top=L.bannerY+'px';
   b.style.width=(L.bw-20)+'px'; b.style.height=L.bannerH+'px';
   bakeBg();
-  if(G.cards) G.cards.forEach((c,i)=>{ c.hx=L.cardX(i); c.hy=L.cardY; if(!c.drag){c.x=c.hx;c.y=c.hy;} });
+  if(G.cards) G.cards.forEach((c,i)=>{ c.hx=L.cardX(i); c.hy=L.cardY; if(!c.drag && !c.gone){c.x=c.hx;c.y=c.hy;} });
   if(G.problem) renderCardFaces();
 }
 
@@ -1387,7 +1387,8 @@ const G={
   bounce:0, bounceT:0, glow:0, glowCol:'255,211,92',
   spawnT:0, t:0, dex:{}, concepts:{}, heroSquash:0, toast:null, cleared:false,
   dragCard:null, hintPulse:0, frozen:false,
-  mountedIdx:-1, dragRobot:null, axisSwipe:null, hoverSlot:-1
+  mountedIdx:-1, dragRobot:null, axisSwipe:null, hoverSlot:-1,
+  dissolves:[], mergeHint:null
 };
 const BEST=(function(){
   try{ return JSON.parse(localStorage.getItem('rollbot.best.v1')||'{}')||{}; }catch(e){ return {}; }
@@ -1513,7 +1514,7 @@ function newProblem(){
   clearMount();
   G.problem=drawProblem(G.wave);
   G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardY,hx:L.cardX(i),hy:L.cardY,
-    drag:false,dead:false,mounted:false,shake:0,lift:0,pop:0,face:null}));
+    drag:false,dead:false,mounted:false,gone:false,shake:0,lift:0,pop:0,face:null}));
   renderCardFaces();
   updateBanner();
 }
@@ -1618,6 +1619,78 @@ function celebrate(kind,x,y,mag){
   joyRobots(0.88);
 }
 
+/* 정답 카드: 손패로 되돌아가지 않고 제자리에서 골드 글로우 → 떠오르며 파티클 분해.
+   오답만 손패로 되돌아가는 어휘를 쓴다 (30-build.md 연출 감정 어휘 분리). */
+function beginCardDissolve(card){
+  if(!card || card.gone) return;
+  const w=L.cardW, h=L.cardH;
+  const fx={
+    face:card.face, x:card.x, y:card.y, w:w, h:h,
+    t:0, dur:REDUCED?0.28:0.52, emit:0
+  };
+  G.dissolves.push(fx);
+  card.gone=true; card.dead=false; card.mounted=false; card.drag=false;
+  if(G.dragCard===card) G.dragCard=null;
+  const cx=card.x+w/2, cy=card.y+h/2;
+  const cols=['#FFD35C','#F4B400','#FFF7E6','#FFE08A','#FFC42E'];
+  burst(cx,cy,18,cols[0],160,4.4);
+  const n=REDUCED?8:16;
+  for(let i=0;i<n;i++){
+    const a=-Math.PI/2+(Math.random()-0.5)*1.7;
+    const v=(110+Math.random()*140);
+    G.parts.push({x:cx,y:cy,vx:Math.cos(a)*v*0.55,vy:Math.sin(a)*v,
+      life:0,max:0.45+Math.random()*0.35,s:3.2+Math.random()*3.4,
+      col:cols[i%cols.length],rot:Math.random()*TAU,vr:(Math.random()-0.5)*14,
+      gear:Math.random()<0.28,rise:true});
+  }
+}
+function updateDissolves(dt){
+  for(let i=G.dissolves.length-1;i>=0;i--){
+    const fx=G.dissolves[i];
+    fx.t+=dt;
+    const k=clamp(fx.t/fx.dur,0,1);
+    fx.emit+=dt;
+    if(k<0.72 && fx.emit>=0.032){
+      fx.emit=0;
+      const rise=easeOutCubic(k)*58;
+      const cx=fx.x+fx.w/2+(Math.random()-0.5)*fx.w*0.62;
+      const cy=fx.y+fx.h/2-rise+(Math.random()-0.5)*fx.h*0.45;
+      const a=-Math.PI/2+(Math.random()-0.5)*1.2;
+      const v=70+Math.random()*110;
+      G.parts.push({x:cx,y:cy,vx:Math.cos(a)*v*0.5,vy:Math.sin(a)*v,
+        life:0,max:0.32+Math.random()*0.28,s:2.2+Math.random()*2.8,
+        col:Math.random()<0.5?'#FFD35C':'#FFF7E6',rot:Math.random()*TAU,
+        vr:(Math.random()-0.5)*10,gear:Math.random()<0.2,rise:true});
+    }
+    if(fx.t>=fx.dur) G.dissolves.splice(i,1);
+  }
+}
+function drawDissolves(c){
+  for(const fx of G.dissolves){
+    const k=clamp(fx.t/fx.dur,0,1);
+    const rise=easeOutCubic(k)*58;
+    const al=k<0.42?1:Math.max(0,1-(k-0.42)/0.58);
+    const sc=1+0.10*k;
+    const cx=fx.x+fx.w/2, cy=fx.y+fx.h/2-rise;
+    c.save();
+    const glow=c.createRadialGradient(cx,cy,6,cx,cy,fx.w*0.95);
+    glow.addColorStop(0,'rgba(255,211,92,'+(0.62*(1-k))+')');
+    glow.addColorStop(0.45,'rgba(244,180,0,'+(0.28*(1-k))+')');
+    glow.addColorStop(1,'rgba(244,180,0,0)');
+    c.fillStyle=glow;
+    c.beginPath(); c.arc(cx,cy,fx.w*0.92,0,TAU); c.fill();
+    c.translate(cx,cy);
+    c.rotate((k-0.12)*0.07);
+    c.scale(sc,sc);
+    c.globalAlpha=al;
+    if(fx.face) c.drawImage(fx.face,-fx.w/2,-fx.h/2,fx.w,fx.h);
+    c.globalAlpha=al*0.38*(1-k);
+    c.fillStyle='#FFD35C';
+    roundRect(c,-fx.w/2,-fx.h/2,fx.w,fx.h,14); c.fill();
+    c.restore();
+  }
+}
+
 /* ─────────────────────── 9. 로봇 / 머지 ─────────────────────── */
 function dexKey(t,l){ return t+l; }
 function placeRobot(type){
@@ -1648,6 +1721,7 @@ function mergeRobots(from,to){
   Snd.merge();
   celebrate('merge',x,y,1.15+b.level*0.28);
   addScore(15*b.level,x,y);
+  onMergeSuccess(to);
   return true;
 }
 function overdrive(){
@@ -1663,6 +1737,158 @@ function addScore(n,x,y){
   if(x!==undefined) floatText(x,y,'+'+n,'#FFD35C');
 }
 
+const MERGE_HINT_KEY='mergeHintSeen:roll-bot';
+function mergeHintSeen(){ try{ return localStorage.getItem(MERGE_HINT_KEY)==='1'; }catch(e){ return false; } }
+function markMergeHintSeen(){ try{ localStorage.setItem(MERGE_HINT_KEY,'1'); }catch(e){} }
+function resetMergeHint(){
+  G.mergeHint={
+    visible:false, mode:'none', pair:null, idleT:0,
+    reminded:false, celeT:0, delay:0, armed:false, alpha:0, celeAt:-1
+  };
+}
+function findMergePair(){
+  for(let i=0;i<SLOTS;i++){
+    const a=G.robots[i]; if(!a||a.level>=3) continue;
+    for(let j=i+1;j<SLOTS;j++){
+      if(canMerge(a,G.robots[j])) return [i,j];
+    }
+  }
+  return null;
+}
+function onMergeSuccess(toIdx){
+  const h=G.mergeHint; if(!h) return;
+  const first=!mergeHintSeen();
+  markMergeHintSeen();
+  h.idleT=0; h.pair=null; h.armed=true;
+  h.mode='cele'; h.visible=true; h.celeT=0; h.celeAt=toIdx>=0?toIdx:-1; h.alpha=1;
+  if(first) floatText(L.slotX(toIdx), L.padRowY-L.robotR-28, '합체 성공!','#FFD35C',1.05,true);
+}
+function updateMergeHint(dt){
+  if(!G.mergeHint) resetMergeHint();
+  const h=G.mergeHint;
+  if(G.phase!=='playing' || G.frozen){
+    if(h.mode!=='cele'){ h.visible=false; h.alpha=Math.max(0,h.alpha-dt*4); }
+    return;
+  }
+  const pair=findMergePair();
+  const seen=mergeHintSeen();
+  if(h.mode==='cele'){
+    h.celeT+=dt; h.pair=null;
+    if(h.celeT>1.35){ h.mode='none'; h.visible=false; }
+  }else if(!seen){
+    if(pair){
+      if(!h.armed){ h.armed=true; h.delay=0.42; }
+      if(h.delay>0) h.delay-=dt;
+      if(h.delay<=0){ h.visible=true; h.mode='guide'; h.pair=pair; }
+    }else if(h.mode==='guide'){
+      h.pair=null;
+    }
+    if(h.mode==='guide' && pair) h.pair=pair;
+  }else{
+    if(pair && !G.dragRobot){
+      h.idleT+=dt;
+      if(h.idleT>=10 && !h.reminded){
+        h.reminded=true; h.visible=true; h.mode='remind'; h.pair=pair; h.celeT=0;
+      }
+    }else{
+      h.idleT=0;
+    }
+    if(h.mode==='remind'){
+      h.celeT+=dt; h.pair=pair||h.pair;
+      if(h.celeT>2.4 || !pair){ h.mode='none'; h.visible=false; }
+    }
+  }
+  const want=(h.visible && (h.mode==='guide'||h.mode==='remind'||h.mode==='cele'))?1:0;
+  h.alpha=lerp(h.alpha, want, 1-Math.pow(0.0008,dt));
+  if(h.alpha<0.02 && !want) h.alpha=0;
+}
+function drawMergeHint(c){
+  const h=G.mergeHint; if(!h || h.alpha<0.02) return;
+  const pair=h.pair || findMergePair();
+  const a=h.alpha;
+  c.save(); c.globalAlpha=a;
+
+  if(pair && (h.mode==='guide'||h.mode==='remind')){
+    const pos=(i)=>{
+      if(G.dragRobot && G.dragRobot.idx===i) return {x:G.dragRobot.x, y:G.dragRobot.y-L.robotR*0.85};
+      return {x:L.slotX(i), y:L.padRowY-L.robotR*0.85};
+    };
+    const p0=pos(pair[0]), p1=pos(pair[1]);
+    const x1=p0.x, y1=p0.y, x2=p1.x, y2=p1.y;
+    const mx=(x1+x2)/2;
+    const my=Math.min(y1,y2)-Math.max(34, Math.abs(x2-x1)*0.22);
+    c.strokeStyle='#F4B400';
+    c.lineWidth=3.4; c.lineCap='round'; c.lineJoin='round';
+    c.setLineDash([8,7]); c.lineDashOffset=-(G.t*46);
+    c.beginPath(); c.moveTo(x1,y1); c.quadraticCurveTo(mx,my,x2,y2); c.stroke();
+    c.setLineDash([]);
+    const p=0.72;
+    const ax=(1-p)*(1-p)*x1+2*(1-p)*p*mx+p*p*x2;
+    const ay=(1-p)*(1-p)*y1+2*(1-p)*p*my+p*p*y2;
+    const bx=2*(1-p)*(mx-x1)+2*p*(x2-mx);
+    const by=2*(1-p)*(my-y1)+2*p*(y2-my);
+    const ang=Math.atan2(by,bx);
+    c.save(); c.translate(ax,ay); c.rotate(ang);
+    c.fillStyle='#F4B400'; c.strokeStyle=INK; c.lineWidth=2;
+    c.beginPath(); c.moveTo(11,0); c.lineTo(-7,7.5); c.lineTo(-7,-7.5); c.closePath();
+    c.fill(); c.stroke();
+    c.restore();
+  }
+
+  const txt=h.mode==='cele'?'합체 성공! 이제 혼자 할 수 있어! 🎉':'같은 로봇끼리 끌어다 놓으면 합체! 💪';
+  c.font='900 14px '+FONT;
+  const maxW=Math.min(L.bw-28, 250);
+  const lines=wrapLines(c,txt,maxW-20);
+  const lh=18, padX=12, padY=10;
+  const bw=Math.min(maxW, Math.max.apply(null,lines.map((ln)=>{ c.font='900 14px '+FONT; return c.measureText(ln).width; }))+padX*2);
+  const bh=lines.length*lh+padY*2;
+  let bx, by;
+  if(h.mode==='cele' && h.celeAt>=0){
+    bx=clamp(L.slotX(h.celeAt)-bw/2, L.bx+8, L.bx+L.bw-bw-8);
+    by=L.padRowY-L.robotR-bh-28;
+  }else if(pair){
+    const mx=(L.slotX(pair[0])+L.slotX(pair[1]))/2;
+    bx=clamp(mx-bw/2, L.bx+8, L.bx+L.bw-bw-8);
+    const curveTop=L.padRowY-L.robotR*0.85-Math.max(34, Math.abs(L.slotX(pair[1])-L.slotX(pair[0]))*0.22);
+    by=curveTop-bh-16;
+  }else{
+    bx=L.bx+L.bw/2-bw/2; by=L.fieldTop+L.fieldH*0.38;
+  }
+  by=clamp(by, L.hud+8, L.fieldBottom-bh-8);
+
+  // 마스코트 미니 초상 — 말풍선이 문제(배너)·카드를 가리지 않게 필드에만 둔다
+  const faceR=18;
+  let fx=bx-faceR*2-6;
+  if(fx<L.bx+6) fx=bx+bw+faceR+8;
+  const fy=by+bh*0.55;
+  c.save();
+  c.translate(fx, fy);
+  if(IMG.hero){
+    const s=faceR*2.4;
+    c.drawImage(IMG.hero,-s/2,-s/2,s,s);
+  }else{
+    drawSolid(c,'cyl',0,2,faceR*0.72,faceR*1.35,{face:YEL});
+    drawFace(c,0,2,faceR*0.7,false,'joy');
+  }
+  c.restore();
+
+  c.fillStyle='rgba(37,37,37,.90)';
+  roundRect(c,bx,by,bw,bh,14); c.fill();
+  c.strokeStyle='#F4B400'; c.lineWidth=3;
+  roundRect(c,bx,by,bw,bh,14); c.stroke();
+  // 꼬리 — 로봇 쪽을 가리킨다
+  const tailX=clamp((pair?(L.slotX(pair[0])+L.slotX(pair[1]))/2:bx+bw/2), bx+18, bx+bw-18);
+  c.beginPath();
+  c.moveTo(tailX-8, by+bh-1);
+  c.lineTo(tailX, by+bh+10);
+  c.lineTo(tailX+8, by+bh-1);
+  c.closePath(); c.fill(); c.stroke();
+  c.fillStyle='#FFF7E6';
+  c.font='900 14px '+FONT; c.textAlign='center'; c.textBaseline='middle';
+  lines.forEach((ln,i)=>c.fillText(ln, bx+bw/2, by+padY+lh*(i+0.5)-1));
+  c.restore();
+}
+
 /* ─────────────────────── 10. 정답 / 오답 처리 ─────────────────────── */
 function clearMount(){
   if(G.mountedIdx>=0 && G.cards[G.mountedIdx]) G.cards[G.mountedIdx].mounted=false;
@@ -1673,7 +1899,7 @@ function commit(i,force){
   if(G.busy){ if(!force) return; finishAnim(true); }
   const p=G.problem; if(!p) return;
   const card=G.cards[i]; const ch=p.choices[i];
-  if(!ch || (card&&card.dead)) return;
+  if(!ch || (card&&(card.dead||card.gone))) return;
   clearMount();
   G.attempts++;
   if(ch.ok){
@@ -1687,6 +1913,7 @@ function commit(i,force){
     const cx=L.bx+L.bw/2, cy=L.fieldTop+L.fieldH*0.42;
     const kind=p.kind==='wrap'?'wrap':(p.kind==='spin'?'spin':'stamp');
     celebrate(kind,cx,cy);
+    beginCardDissolve(card);
     G.busy=true;
     G.anim={type:kind,ok:true,t:0,
       dur:p.kind==='wrap'?1.25:(p.kind==='spin'?0.90:0.85),choice:ch,prob:p,done:false};
@@ -1695,7 +1922,7 @@ function commit(i,force){
     Snd.bad();
     flash('230,74,53',0.26); shake(6); G.glow=0; G.bounce=0;
     G.parts=G.parts.filter((q)=>!q.praise&&!q.rise);
-    if(card){ card.shake=1; card.dead=true; card.mounted=false; }
+    if(card){ card.shake=1; card.dead=true; card.mounted=false; card.gone=false; }
     G.busy=true;
     G.anim={type:p.kind==='wrap'?'wrap':(p.kind==='spin'?'spin':'stamp'),ok:false,t:0,
       dur:p.kind==='wrap'?1.0:(p.kind==='spin'?1.00:0.7),choice:ch,prob:p,done:false};
@@ -1818,6 +2045,7 @@ function startRun(mode){
   G.dex={}; G.concepts={}; G.toast=null;
   G.mountedIdx=-1; G.dragRobot=null; G.axisSwipe=null; G.hoverSlot=-1; G.dragCard=null;
   G.shake=0; G.flash=0; G.bounce=0; G.bounceT=0; G.glow=0;
+  G.dissolves.length=0; resetMergeHint();
   resetDealers(); G.thinkToastShown=false; G.wasThink=false;
   $('#title').classList.add('hide'); $('#result').classList.add('hide');
   $('#hud').classList.remove('hide'); $('#banner').classList.remove('hide');
@@ -2247,6 +2475,7 @@ function drawCards(c){
   if(G.dragCard) drawOneCard(c,G.dragCard);
 }
 function drawOneCard(c,cd){
+  if(cd.gone) return;
   const w=L.cardW,h=L.cardH;
   if(cd.mounted){
     c.save();
@@ -2338,6 +2567,8 @@ function render(){
     if(G.anim) drawAnim(ctx);
     drawBuildZone(ctx,G.t);
     drawCards(ctx);
+    drawDissolves(ctx);
+    drawMergeHint(ctx);
     drawToast(ctx);
   }
   ctx.restore();
@@ -2419,9 +2650,10 @@ function update(dt){
     if(G.anim){ G.anim.t+=dt; if(G.anim.t>=G.anim.dur) finishAnim(false); }
     tickNext();
   }
-  // 카드 스프링
+  // 카드 스프링 — 정답 소비(gone)는 손패로 되돌아가지 않는다
   for(const cd of G.cards){
     if(cd.shake>0) cd.shake=Math.max(0,cd.shake-dt*3.2);
+    if(cd.gone) continue;
     const want=(cd===G.dragCard)?1:0;
     cd.lift=lerp(cd.lift,want,1-Math.pow(0.001,dt));
     if(cd!==G.dragCard){
@@ -2430,6 +2662,8 @@ function update(dt){
     }
     if(cd.pop>0) cd.pop=Math.max(0,cd.pop-dt*3);
   }
+  updateDissolves(dt);
+  updateMergeHint(dt);
   updateParts(dt);
   syncHud();
 }
@@ -2447,7 +2681,7 @@ function loop(ts){
 let pointerId=null, grabDX=0, grabDY=0, downT=0, downX=0, downY=0, moved=false, dragKind=null;
 function cardAt(px,py){
   for(let i=G.cards.length-1;i>=0;i--){
-    const cd=G.cards[i]; if(cd.dead||cd.mounted) continue;
+    const cd=G.cards[i]; if(cd.dead||cd.mounted||cd.gone) continue;
     if(px>=cd.x-4&&px<=cd.x+L.cardW+4&&py>=cd.y-4&&py<=cd.y+L.cardH+4) return cd;
   }
   return null;
@@ -2473,7 +2707,7 @@ function slotAt(px,py){
   return best;
 }
 function mountCard(cd){
-  if(!cd||cd.dead) return;
+  if(!cd||cd.dead||cd.gone) return;
   if(G.mountedIdx>=0 && G.cards[G.mountedIdx] && G.cards[G.mountedIdx]!==cd)
     G.cards[G.mountedIdx].mounted=false;
   G.mountedIdx=cd.idx;
@@ -2580,7 +2814,7 @@ window.addEventListener('blur',()=>onUp());
 window.addEventListener('keydown',(e)=>{
   if(G.phase!=='playing'||G.busy||G.frozen) return;
   const n={'1':0,'2':1,'3':2}[e.key];
-  if(n!==undefined&&G.cards[n]&&!G.cards[n].dead){
+  if(n!==undefined&&G.cards[n]&&!G.cards[n].dead&&!G.cards[n].gone){
     Snd.unlock();
     if(G.problem&&G.problem.kind==='spin') mountCard(G.cards[n]);
     else { G.cards[n].pop=1; commit(n); }
@@ -2601,7 +2835,7 @@ const ONB_STEPS=[
   {t:'딱 맞는 카드 하나만',
    b:'주문판을 읽고 카드 3장 중 하나만 고른다. 옆면 띠는 가로가 밑면의 둘레(2 × 3.14 × 반지름)인 것이 딱 맞는다.'},
   {t:'작업대를 지켜라',
-   b:'완성한 로봇이 먼지를 자동으로 막는다. 같은 로봇이 두 대 모이면 합체해 강해지고, 먼지가 작업대에 세 번 닿으면 작업이 끝난다.'}
+   b:'완성한 로봇이 먼지를 자동으로 막는다. 같은 로봇끼리 끌어다 놓으면 합체해 강해지고, 먼지가 작업대에 세 번 닿으면 작업이 끝난다.'}
 ];
 let onbIdx=-1;
 function onbSeen(){ try{ return !!localStorage.getItem(ONB_KEY); }catch(e){ return false; } }
@@ -2703,6 +2937,8 @@ function hookSample(n, opts){
 window.__GAME_TEST__={
   ready:false,
   start(){ if(G.phase!=='playing') startRun('easy'); },
+  freeze(){ G.frozen=true; },
+  unfreeze(){ G.frozen=false; },
   getState(){
     return {score:Math.round(G.score),lives:G.lives,level:G.wave,phase:G.phase,
       solved:G.solved,combo:G.combo,misses:G.misses,
@@ -2726,6 +2962,38 @@ window.__GAME_TEST__={
     commit(i,true);
   },
   sampleProblems(n, opts){ return hookSample(n||20, opts); },
+  dropChoice(ok){
+    if(G.phase!=='playing') startRun('easy');
+    if(G.busy) finishAnim(true);
+    if(!G.problem) newProblem();
+    G.dragCard=null; G.dragRobot=null; G.axisSwipe=null; G.mountedIdx=-1;
+    const want=!!ok;
+    let i=G.problem.choices.findIndex((c,k)=>!!c.ok===want && G.cards[k] && !G.cards[k].dead && !G.cards[k].gone);
+    if(i<0){ newProblem(); i=G.problem.choices.findIndex((c)=>!!c.ok===want); }
+    if(i<0) return false;
+    const cd=G.cards[i];
+    if(cd){
+      cd.mounted=false; cd.lift=1; cd.pop=1;
+      cd.x=L.axisX-L.cardW/2;
+      cd.y=L.buildY+Math.max(6,L.buildH*0.10);
+    }
+    commit(i,true);
+    return true;
+  },
+  forceMergePair(){
+    if(G.phase!=='playing') startRun('easy');
+    G.frozen=false;
+    const onb=$('#onb'); if(onb) onb.classList.add('hide');
+    const mk=()=>({type:'cyl',level:1,cd:0.25,pop:0.55,blink:0.2,joy:0.4,t:0.6});
+    G.robots=new Array(SLOTS).fill(null);
+    G.robots[1]=mk(); G.robots[3]=mk();
+    G.enemies.length=0; G.anim=null; G.busy=false;
+    if(!G.mergeHint) resetMergeHint();
+    G.mergeHint.armed=true; G.mergeHint.delay=0; G.mergeHint.visible=true;
+    G.mergeHint.mode='guide'; G.mergeHint.pair=[1,3]; G.mergeHint.alpha=1;
+    G.mergeHint.reminded=false; G.mergeHint.celeT=0;
+    return true;
+  },
   forceTier(tier){
     if(G.phase!=='playing') startRun('easy');
     G.frozen=false;
@@ -2736,7 +3004,7 @@ window.__GAME_TEST__={
     if(!base) return false;
     G.problem=wrapDrawn(base);
     G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardY,hx:L.cardX(i),hy:L.cardY,
-      drag:false,dead:false,mounted:false,shake:0,lift:0,pop:0,face:null}));
+      drag:false,dead:false,mounted:false,gone:false,shake:0,lift:0,pop:0,face:null}));
     renderCardFaces();
     updateBanner();
     return G.problem.kind;
