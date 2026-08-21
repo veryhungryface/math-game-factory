@@ -617,31 +617,67 @@ function bakeBackdrop() {
 
 function layout() {
   const W = G.W, H = G.H;
-  const colW = Math.min(W, 560);
+  L.land = W >= H;                                   // 가로(1280×800) 1기준, 세로는 기존 구도 유지
   L.cx = W / 2;
+  if (L.land) layoutLand(W, H); else layoutPort(W, H);
+  bakeStone(L.stoneW);
+  bakeBackdrop();
+}
+
+/** 세로 폰(390×844)·세로 태블릿 — 기존 560 컬럼 구도. 좌표만, 수학 로직과 무관. */
+function layoutPort(W, H) {
+  const colW = Math.min(W, 560);
   const pad = Math.max(14, colW * 0.045);
   L.x0 = L.cx - colW / 2 + pad; L.x1 = L.cx + colW / 2 - pad; L.w = L.x1 - L.x0;
   L.col = colW;
   L.hudY = Math.max(10, (window.visualViewport ? 0 : 0) + 10); L.hudH = 46;
   L.goalY = L.hudY + L.hudH + 8;
   L.goalH = clamp(H * 0.155, 96, 150);
+  L.goalX = L.x0; L.goalW = L.w;
   L.botH = clamp(H * 0.15, 104, 168);
   L.botY = H - L.botH - Math.max(6, H * 0.012);
   L.troughH = clamp(H * 0.125, 92, 132);
   L.troughY = L.botY - L.troughH - 6;
   L.midY = L.goalY + L.goalH + 8;
   L.midH = Math.max(120, L.troughY - L.midY - 8);
-  // 항아리
   L.jarW = L.w * 0.46; L.jarH = Math.min(L.midH * 0.84, L.jarW * 2.05);
   L.jarBottom = L.midY + L.midH - 36;                 // 아래 34px 은 이름표·묶음 수 자리
   L.jarLX = L.x0 + L.w * 0.25; L.jarRX = L.x0 + L.w * 0.75;
-  // 구슬 줄
+  L.compareW = Math.max(80, (L.jarRX - L.jarW / 2) - (L.jarLX + L.jarW / 2));
   L.beadY = L.troughY + L.troughH * 0.46;
-  L.labelRowY = L.troughY + L.troughH * 0.26;   // 눈금 숫자 · 칸 이름 행
-  L.trackY = L.troughY + L.troughH * 0.60;      // 가름돌이 미끄러지는 행
+  L.labelRowY = L.troughY + L.troughH * 0.26;
+  L.trackY = L.troughY + L.troughH * 0.60;
   L.stoneW = clamp(L.col * 0.115, 34, 66);
-  bakeStone(L.stoneW);
-  bakeBackdrop();
+}
+
+/** 가로 1기준: 두 항아리를 좌우 벽에 대치, 구슬 수직선은 화면 전폭, 비·문제는 상단 중앙. */
+function layoutLand(W, H) {
+  const pad = Math.max(16, Math.min(W, H) * 0.018);
+  L.x0 = pad; L.x1 = W - pad; L.w = L.x1 - L.x0;
+  L.col = Math.min(W * 0.5, 640);
+  L.hudY = Math.max(8, pad * 0.45); L.hudH = 46;
+  L.goalW = clamp(W * 0.42, Math.min(360, W * 0.48), 560);
+  L.goalH = clamp(H * 0.12, Math.min(64, H * 0.18), 104);
+  L.goalX = L.cx - L.goalW / 2;
+  L.goalY = L.hudY;
+  L.botH = clamp(H * 0.13, Math.min(72, H * 0.22), 124);
+  L.botY = H - L.botH - Math.max(6, pad * 0.35);
+  L.troughH = clamp(H * 0.16, Math.min(88, H * 0.24), 140);
+  let used = L.goalY + L.goalH + 20 + L.troughH + L.botH + 12;
+  if (used > H) L.troughH = Math.max(72, L.troughH - (used - H));
+  L.troughY = L.botY - L.troughH - 6;
+  L.midY = L.goalY + L.goalH + 6;
+  L.midH = Math.max(64, L.troughY - L.midY - 8);
+  L.jarW = clamp(Math.min(W * 0.26, L.midH * 0.85), 140, 380);
+  L.jarH = Math.min(L.midH * 0.90, L.jarW * 1.55);
+  L.jarBottom = L.midY + L.midH - 36;
+  L.jarLX = L.x0 + L.jarW * 0.52;
+  L.jarRX = L.x1 - L.jarW * 0.52;
+  L.compareW = Math.max(120, (L.jarRX - L.jarW / 2) - (L.jarLX + L.jarW / 2) - 16);
+  L.beadY = L.troughY + L.troughH * 0.46;
+  L.labelRowY = L.troughY + L.troughH * 0.26;
+  L.trackY = L.troughY + L.troughH * 0.60;
+  L.stoneW = clamp(L.col * 0.115, 40, 72);
 }
 
 function resize() {
@@ -723,7 +759,7 @@ function configureStage(keepValue) {
     ST.T = p.T; ST.k = p.k; ST.groups = p.T / p.k;
     ST.clusterW = L.w / ST.groups; ST.pad = ST.clusterW * 0.09;
     ST.beadPitch = (ST.clusterW - ST.pad * 2) / p.k;
-    ST.beadR = clamp(Math.min(ST.beadPitch * 0.44, ST.clusterW * 0.19), 3.2, 12);
+    ST.beadR = clamp(Math.min(ST.beadPitch * 0.44, ST.clusterW * 0.19), 3.2, L.land ? 16 : 12);
     bakeBeads(ST.beadR);
     ST.min = 0; ST.max = p.T;
     ST.cur = keepValue ? clamp(prev, 0, p.T) : Math.round(p.T / 2);
@@ -742,14 +778,29 @@ function configureStage(keepValue) {
   } else if (type === 'label') {
     ST.slots = [null, null];
     const chips = shuffle([{ t: p.story.unitL, slot: 0 }, { t: p.story.unitR, slot: 1 }]);
-    const bw = Math.min(L.w * 0.46, 210), bh = 60, gap = L.w - bw * 2 > 12 ? (L.w - bw * 2) : 10;
-    ST.buttons = chips.map((c, i) => ({ x: L.x0 + i * (bw + gap), y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: c.t, slot: c.slot, kind: 'chip', shake: 0 }));
+    const bh = 60;
+    if (L.land) {
+      const bw = Math.min(L.w * 0.28, 260), gap = 24;
+      const x0 = L.cx - bw - gap / 2;
+      ST.buttons = chips.map((c, i) => ({ x: x0 + i * (bw + gap), y: L.botY + 22, w: bw, h: bh, label: c.t, slot: c.slot, kind: 'chip', shake: 0 }));
+    } else {
+      const bw = Math.min(L.w * 0.46, 210), gap = L.w - bw * 2 > 12 ? (L.w - bw * 2) : 10;
+      ST.buttons = chips.map((c, i) => ({ x: L.x0 + i * (bw + gap), y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: c.t, slot: c.slot, kind: 'chip', shake: 0 }));
+    }
   } else if (type === 'judge') {
-    const bw = Math.min(L.w * 0.44, 190), bh = 66, gap = L.w - bw * 2;
-    ST.buttons = [
-      { x: L.x0, y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: '맞아요  ○', val: 'O', kind: 'judge' },
-      { x: L.x0 + bw + gap, y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: '아니에요  ✕', val: 'X', kind: 'judge' },
-    ];
+    if (L.land) {
+      const bw = Math.min(L.w * 0.22, 240), bh = 56;
+      ST.buttons = [
+        { x: L.x0 + 8, y: L.botY + 20, w: bw, h: bh, label: '맞아요  ○', val: 'O', kind: 'judge' },
+        { x: L.x1 - 8 - bw, y: L.botY + 20, w: bw, h: bh, label: '아니에요  ✕', val: 'X', kind: 'judge' },
+      ];
+    } else {
+      const bw = Math.min(L.w * 0.44, 190), bh = 66, gap = L.w - bw * 2;
+      ST.buttons = [
+        { x: L.x0, y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: '맞아요  ○', val: 'O', kind: 'judge' },
+        { x: L.x0 + bw + gap, y: L.botY + L.botH - bh - 10, w: bw, h: bh, label: '아니에요  ✕', val: 'X', kind: 'judge' },
+      ];
+    }
   }
   updateHint();
 }
@@ -881,9 +932,13 @@ function openReasonChips() {
   const panelH = 40 + h * 3 + gap * 2 + 16;
   const panelY = Math.max(L.midY, L.botY + L.botH - panelH - 6);
   const y0 = panelY + 46;
+  const pw = L.land ? Math.min(L.w, 520) : L.w + 16;
+  const px = L.land ? L.cx - pw / 2 : L.x0 - 8;
+  const rx = L.land ? px + 14 : L.x0 + 6;
+  const rw = L.land ? pw - 28 : L.w - 12;
   S.chips = {
-    title: '왜 이 자리였을까?', opts: opts, picked: -1, panel: { x: L.x0 - 8, y: panelY, w: L.w + 16, h: panelH },
-    rects: opts.map((o, i) => ({ x: L.x0 + 6, y: y0 + i * (h + gap), w: L.w - 12, h: h })),
+    title: '왜 이 자리였을까?', opts: opts, picked: -1, panel: { x: px, y: panelY, w: pw, h: panelH },
+    rects: opts.map((o, i) => ({ x: rx, y: y0 + i * (h + gap), w: rw, h: h })),
   };
 }
 
@@ -1168,7 +1223,8 @@ function drawEq(cx, cy, terms, blank, px, curVal) {
   setFont(px, 900);
   let total = 0;
   for (const q of parts) { q.w = ctx.measureText(q.s).width; total += q.w; }
-  while (total > L.w - 26 && px > 12) {
+  const maxEq = (L.goalW || L.w) - 26;
+  while (total > maxEq && px > 12) {
     px -= 1; setFont(px, 900); total = 0;
     for (const q of parts) { q.w = ctx.measureText(q.s).width; total += q.w; }
   }
@@ -1188,7 +1244,7 @@ function drawEq(cx, cy, terms, blank, px, curVal) {
 
 function drawGoal() {
   const p = S.problem; if (!p) return;
-  const x = L.x0, y = L.goalY, w = L.w, h = L.goalH;
+  const x = L.goalX, y = L.goalY, w = L.goalW, h = L.goalH;
   card(x, y, w, h, 18, 'rgba(46,16,101,.8)', 'rgba(255,243,176,.55)', 3); topHi(x, y, w, h, 18);
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   setFont(12, 800); ctx.fillStyle = '#C4B5FD';
@@ -1259,10 +1315,10 @@ function drawJars() {
     for (let g = 1; g < 6; g++) { const yy = L.jarBottom - jh * g / 6; ctx.beginPath(); ctx.moveTo(jx + 4, yy); ctx.lineTo(jx + jw - 4, yy); ctx.stroke(); }
     beadPile(s.cx, L.jarBottom - 8, Math.min(s.n, 40), jw - 16, jh - 34, s.sp, Math.max(10, p.T || 20));
     // 개수 배지 — 화면 폭 5% 이상, 굵게
-    const bw = jw * 0.72, bh = 40, bx = s.cx - bw / 2, by = jy - bh / 2;
+    const bw = jw * (L.land ? 0.78 : 0.72), bh = L.land ? 48 : 40, bx = s.cx - bw / 2, by = jy - bh / 2;
     card(bx, by, bw, bh, 13, 'rgba(46,16,101,.9)', s.col, 3);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    setFont(Math.min(L.col * 0.075, 26), 900); ctx.fillStyle = '#FFF8E7'; ctx.fillText(String(s.n), s.cx, by + bh / 2 + 1);
+    setFont(Math.min(L.col * 0.075, L.land ? 34 : 26), 900); ctx.fillStyle = '#FFF8E7'; ctx.fillText(String(s.n), s.cx, by + bh / 2 + 1);
     setFont(11.5, 800); ctx.fillStyle = 'rgba(255,255,255,.9)';
     ctx.fillText(s.name, s.cx, L.jarBottom + 15);
     if (p.k && ST.type === 'split') {
@@ -1273,6 +1329,59 @@ function drawJars() {
   });
 }
 
+/** 가로: 두 항아리 사이 비교 구조 — 목표 비, 지금 몫, 비례 막대, 목표 자리 눈금. */
+function drawLandCompare() {
+  const p = S.problem; if (!p || !L.land) return;
+  const left = ST.type === 'split' ? ST.cur : (p.wrongLeft !== undefined ? p.wrongLeft : 0);
+  const right = ST.type === 'split' ? p.T - left : (p.wrongRight !== undefined ? p.wrongRight : 0);
+  const cx = L.cx;
+  const top = L.midY + 10;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  setFont(13, 800); ctx.fillStyle = '#4C1D95';
+  ctx.fillText(ST.type === 'judge' ? '고블린이 이렇게 갈랐어요' : '지금 가른 몫', cx, top + 8);
+  ratioBadgeDark(cx, top + 52, p.a, p.b, Math.min(L.compareW * 0.12, 42));
+  setFont(12, 800); ctx.fillStyle = '#6D28D9';
+  ctx.fillText('목표 비', cx, top + 52 + Math.min(L.compareW * 0.12, 42) * 0.78);
+
+  const numY = L.midY + L.midH * 0.52;
+  setFont(13, 800); ctx.fillStyle = '#B21E63'; ctx.fillText('왼쪽', cx - 78, numY - 38);
+  setFont(13, 800); ctx.fillStyle = '#0B6E66'; ctx.fillText('오른쪽', cx + 78, numY - 38);
+  setFont(Math.min(L.compareW * 0.12, 48), 900); ctx.fillStyle = '#B21E63';
+  ctx.fillText(String(left), cx - 78, numY);
+  setFont(28, 900); ctx.fillStyle = '#2E1065'; ctx.fillText(':', cx, numY);
+  setFont(Math.min(L.compareW * 0.12, 48), 900); ctx.fillStyle = '#0B6E66';
+  ctx.fillText(String(right), cx + 78, numY);
+
+  const barW = Math.min(L.compareW, 380), barH = 26;
+  const bx = cx - barW / 2, by = numY + 46;
+  const tot = Math.max(1, left + right);
+  const lw = barW * (left / tot);
+  card(bx, by, barW, barH, 10, 'rgba(255,255,255,.5)', 'rgba(46,16,101,.4)', 2);
+  if (lw > 2) {
+    ctx.beginPath(); ctx.roundRect(bx + 1, by + 1, lw - 1, barH - 2, 8);
+    ctx.fillStyle = 'rgba(232,62,140,.88)'; ctx.fill();
+  }
+  if (barW - lw > 2) {
+    ctx.beginPath(); ctx.roundRect(bx + lw, by + 1, barW - lw - 1, barH - 2, 8);
+    ctx.fillStyle = 'rgba(13,148,136,.88)'; ctx.fill();
+  }
+  const markX = bx + barW * p.a / (p.a + p.b);
+  ctx.beginPath(); ctx.moveTo(markX, by - 6); ctx.lineTo(markX, by + barH + 6);
+  ctx.strokeStyle = '#F5C518'; ctx.lineWidth = 3; ctx.stroke();
+  setFont(12, 800); ctx.fillStyle = '#7C3AED';
+  ctx.fillText('목표 자리', markX, by + barH + 16);
+
+  setFont(13, 800);
+  ctx.fillStyle = '#B21E63'; ctx.fillText('← 왼쪽 항아리', cx - Math.min(140, L.compareW * 0.28), L.midY + L.midH - 16);
+  ctx.fillStyle = '#0B6E66'; ctx.fillText('오른쪽 항아리 →', cx + Math.min(140, L.compareW * 0.28), L.midY + L.midH - 16);
+  if (p.k && ST.type === 'split') {
+    setFont(14, 800); ctx.fillStyle = '#2E1065';
+    const ls = left % p.k === 0 ? (left / p.k) + '묶음' : '묶음 깨짐';
+    const rs = right % p.k === 0 ? (right / p.k) + '묶음' : '묶음 깨짐';
+    ctx.fillText(ls + '   ·   ' + rs, cx, by + barH + 36);
+  }
+}
+
 function drawPillars() {
   const p = S.problem;
   const o = outerProduct(), inn = innerProduct();
@@ -1280,13 +1389,25 @@ function drawPillars() {
   const target = Math.max(o, inn, solved[0] * solved[3]) * 1.15;
   S.maxP = S.maxP > 0 ? S.maxP + (target - S.maxP) * 0.14 : target;
   const maxP = S.maxP;
-  const bw = Math.min(L.w * 0.3, 116), gap = L.w * 0.1;
+  const bw = L.land ? Math.min(L.w * 0.22, 240) : Math.min(L.w * 0.3, 116);
+  const gap = L.land ? Math.max(L.compareW * 0.55, 180) : L.w * 0.1;
   const baseY = L.midY + L.midH - 34, maxH = L.midH - 66;
+  const leftX = L.land ? L.jarLX - bw / 2 : L.cx - gap / 2 - bw;
+  const rightX = L.land ? L.jarRX - bw / 2 : L.cx + gap / 2;
   const cols = [
-    { x: L.cx - gap / 2 - bw, v: o, c: '#FF8FC4', e: '#B21E63', t: '바깥의 곱', sub: '외항 ' + curTerms()[0] + ' × ' + curTerms()[3] },
-    { x: L.cx + gap / 2, v: inn, c: '#7BE6D8', e: '#0B6E66', t: '안의 곱', sub: '내항 ' + curTerms()[1] + ' × ' + curTerms()[2] },
+    { x: leftX, v: o, c: '#FF8FC4', e: '#B21E63', t: '바깥의 곱', sub: '외항 ' + curTerms()[0] + ' × ' + curTerms()[3] },
+    { x: rightX, v: inn, c: '#7BE6D8', e: '#0B6E66', t: '안의 곱', sub: '내항 ' + curTerms()[1] + ' × ' + curTerms()[2] },
   ];
   const same = o === inn;
+  if (L.land) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    setFont(14, 800); ctx.fillStyle = '#4C1D95';
+    ctx.fillText('바깥의 곱    vs    안의 곱', L.cx, L.midY + 16);
+    setFont(40, 900); ctx.fillStyle = '#B21E63'; ctx.fillText(String(o), L.cx - 78, L.midY + L.midH * 0.40);
+    setFont(30, 900); ctx.fillStyle = same ? '#0D9488' : '#2E1065';
+    ctx.fillText(same ? '=' : '≠', L.cx, L.midY + L.midH * 0.40);
+    setFont(40, 900); ctx.fillStyle = '#0B6E66'; ctx.fillText(String(inn), L.cx + 78, L.midY + L.midH * 0.40);
+  }
   for (const c of cols) {
     const h = Math.max(6, maxH * (c.v / maxP)) * (1 + (same ? S.fuse * 0.04 : 0));
     card(c.x, baseY - maxH, bw, maxH, 10, 'rgba(255,255,255,.2)', 'rgba(46,16,101,.28)', 1.5);
@@ -1313,12 +1434,15 @@ function drawPillars() {
 function drawLabelStage() {
   const p = S.problem;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const cyTop = L.midY + L.midH * 0.16;
+  const cyTop = L.land ? L.midY + L.midH * 0.22 : L.midY + L.midH * 0.16;
   setFont(15, 900); ctx.fillStyle = '#4C1D95';
   ctx.fillText('무엇이 앞항인지 먼저 정해요', L.cx, cyTop - 26);
-  const sw = Math.min(L.w * 0.46, 200), sh = 62, gap = 12;
+  const sw = L.land ? Math.min(L.jarW, 260) : Math.min(L.w * 0.46, 200), sh = 62, gap = 12;
   [0, 1].forEach(i => {
-    const sx = i === 0 ? L.cx - sw - gap / 2 : L.cx + gap / 2, sy = cyTop;
+    const sx = L.land
+      ? (i === 0 ? L.jarLX : L.jarRX) - sw / 2
+      : (i === 0 ? L.cx - sw - gap / 2 : L.cx + gap / 2);
+    const sy = cyTop;
     card(sx, sy, sw, sh, 15, ST.slots[i] ? (i ? 'rgba(13,148,136,.94)' : 'rgba(232,62,140,.94)') : 'rgba(255,255,255,.72)', '#2E1065', 3);
     topHi(sx, sy, sw, sh, 15);
     setFont(fitText(ST.slots[i] || (i === 0 ? '앞항 ?' : '뒷항 ?'), sw - 18, 16, 900), 900);
@@ -1334,6 +1458,7 @@ function drawLabelStage() {
 
 function drawReducePanel() {
   const p = S.problem;
+  if (L.land) { drawReducePanelLand(p); return; }
   const y = L.midY + 10, w = L.w;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const dec = p.asDecimal;
@@ -1372,6 +1497,48 @@ function drawReducePanel() {
   setFont(13.5, 800); ctx.fillStyle = 'rgba(46,16,101,.8)';
   ctx.fillText('이 비를 잠그면 구슬 ' + p.T + '개를 같은 비로 가릅니다', L.cx, cy + Math.min(L.w * 0.17, 62) * 0.62 + 30);
 }
+function drawReducePanelLand(p) {
+  const y = L.midY + 8;
+  const panelW = L.jarW, panelH = L.midH - 18;
+  const leftX = L.jarLX - panelW / 2, rightX = L.jarRX - panelW / 2;
+  const dec = p.asDecimal;
+  const common = commonDivisors(p.A, p.B);
+  const picked = ST.cells[ST.cur];
+  function divisorCard(x, n, col, title) {
+    card(x, y, panelW, panelH, 16, 'rgba(255,255,255,.62)', 'rgba(46,16,101,.4)', 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    setFont(14, 800); ctx.fillStyle = col; ctx.fillText(title, x + panelW / 2, y + 22);
+    setFont(30, 900); ctx.fillStyle = '#2E1065'; ctx.fillText(String(n), x + panelW / 2, y + 56);
+    const ds = divisorsOf(n);
+    const cols = Math.min(4, ds.length);
+    const cell = Math.min(62, (panelW - 24) / Math.max(1, cols));
+    ds.forEach((d, i) => {
+      const cx = x + panelW / 2 - ((cols - 1) * cell) / 2 + (i % cols) * cell;
+      const cy = y + 96 + Math.floor(i / cols) * 40;
+      const isC = common.includes(d), sel = isC && d === picked;
+      card(cx - cell * 0.4, cy - 16, cell * 0.8, 32, 8, sel ? '#F5C518' : isC ? 'rgba(109,40,217,.22)' : 'rgba(255,255,255,.5)', isC ? '#2E1065' : 'rgba(46,16,101,.25)', 2);
+      setFont(16, isC ? 900 : 700); ctx.fillStyle = isC ? '#2E1065' : 'rgba(46,16,101,.45)';
+      ctx.fillText(String(d), cx, cy);
+    });
+  }
+  divisorCard(leftX, p.A, '#B21E63', (dec ? p.dispA + ' → ' : '') + p.A + '의 약수');
+  divisorCard(rightX, p.B, '#0B6E66', (dec ? p.dispB + ' → ' : '') + p.B + '의 약수');
+  const d = ST.cells[ST.cur];
+  const ra = p.A / d, rb = p.B / d;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (dec) {
+    setFont(13, 800); ctx.fillStyle = '#6D28D9';
+    ctx.fillText(p.dispA + ' : ' + p.dispB + ' 에 10을 곱하면  ' + p.A + ' : ' + p.B, L.cx, y + 16);
+  }
+  setFont(14, 800); ctx.fillStyle = '#4C1D95';
+  ctx.fillText('지금 나누는 수 (공약수)', L.cx, L.midY + L.midH * 0.30);
+  ratioBadgeDark(L.cx, L.midY + L.midH * 0.48, ra, rb, Math.min(L.compareW * 0.14, 52));
+  setFont(16, 800); ctx.fillStyle = Number.isInteger(ra) && d === p.g ? '#0D9488' : '#6D28D9';
+  ctx.fillText(p.A + ' ÷ ' + d + '  :  ' + p.B + ' ÷ ' + d, L.cx, L.midY + L.midH * 0.68);
+  setFont(14, 800); ctx.fillStyle = 'rgba(46,16,101,.8)';
+  ctx.fillText('이 비를 잠그면 구슬 ' + p.T + '개를 같은 비로 가릅니다', L.cx, L.midY + L.midH * 0.82);
+}
+
 function ratioBadgeDark(cx, cy, a, b, px) {
   const w = Math.min(L.w * 0.86, 320), h = px * 1.5;
   card(cx - w / 2, cy - h / 2, w, h, 16, 'rgba(46,16,101,.88)', '#F5C518', 3);
@@ -1445,7 +1612,7 @@ function drawTrough() {
   ctx.scale(sqx, sqy);
   blit(SP.stone, 0, 0, 1);
   ctx.restore();
-  const mSize = L.col * 0.15;
+  const mSize = L.land ? Math.min(L.col * 0.12, 88) : L.col * 0.15;
   drawMascot(tx - L.stoneW * 0.72, L.troughY + L.troughH * 0.86, mSize, S.celebrate ? 'joy' : (S.jarShake[0] + S.jarShake[1] > 0.3 ? 'sad' : 'idle'), S.t);
 }
 
@@ -1474,7 +1641,7 @@ function drawBottom() {
   const kind = S.hintKind;
   const mark = kind === 'go' ? '●' : kind === 'warn' ? '▲' : '■';
   const bg = kind === 'go' ? 'rgba(13,148,136,.94)' : kind === 'warn' ? 'rgba(178,30,99,.94)' : 'rgba(46,16,101,.78)';
-  const hw = Math.min(L.w, 420), hh = 42, hx = L.cx - hw / 2;
+  const hw = Math.min(L.w, L.land ? 560 : 420), hh = 42, hx = L.cx - hw / 2;
   card(hx, y + 4, hw, hh, 14, bg, 'rgba(255,255,255,.45)', 2); topHi(hx, y + 4, hw, hh, 14);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   setFont(fitText(mark + ' ' + S.hint, hw - 22, 15, 800), 800); ctx.fillStyle = '#FFF8E7';
@@ -1498,7 +1665,7 @@ function drawBottom() {
 function drawFX() {
   for (const r of S.ribbons) {
     const t = easeOutCubic(r.t);
-    const x = lerp(r.x, r.tx, t), yy = lerp(r.y, r.ty, t) - Math.sin(t * Math.PI) * 40;
+    const x = lerp(r.x, r.tx, t), yy = lerp(r.y, r.ty, t) - Math.sin(t * Math.PI) * (L.land ? 72 : 40);
     ctx.beginPath(); ctx.arc(x, yy, 3.4 * (1 - t * 0.5), 0, 6.28);
     ctx.fillStyle = r.rose ? 'rgba(232,62,140,' + (1 - t) + ')' : 'rgba(13,148,136,' + (1 - t) + ')'; ctx.fill();
   }
@@ -1544,7 +1711,7 @@ function render() {
   drawMotes();
   if (S.phase === 'playing' && S.problem) {
     drawHUD(); drawGoal();
-    if (ST.type === 'split' || ST.type === 'judge') drawJars();
+    if (ST.type === 'split' || ST.type === 'judge') { drawJars(); if (L.land) drawLandCompare(); }
     else if (ST.type === 'reduce') drawReducePanel();
     else if (ST.type === 'label') drawLabelStage();
     else drawPillars();
@@ -1639,7 +1806,7 @@ function refreshTitleStatus() {
 const ONB = [
   { t: '가름돌을 좌우로 밀어요', d: '돌이 지나간 만큼 구슬이 왼쪽 항아리로 흘러가요. 손을 떼면 그 자리에 잠겨요.', spot: () => ({ x: L.x0 - 10, y: L.troughY - 10, w: L.w + 20, h: L.troughH + 20 }) },
   { t: '두 항아리가 바로 바뀌어요', d: '구슬은 모두 같은 크기·같은 무게예요. 가름돌 왼쪽은 왼쪽 항아리, 오른쪽은 오른쪽 항아리로 갑니다.', spot: () => ({ x: L.x0 - 8, y: L.midY - 8, w: L.w + 16, h: L.midH + 16 }) },
-  { t: '묶음이 딱 맞는 자리를 찾아요', d: '3 : 4 라면 전체를 7묶음으로 나눠 왼쪽 3묶음, 오른쪽 4묶음. 맞는 자리에 오면 아래에 “지금이야!”가 떠요.', spot: () => ({ x: L.x0 - 8, y: L.goalY - 8, w: L.w + 16, h: L.goalH + 16 }) },
+  { t: '묶음이 딱 맞는 자리를 찾아요', d: '3 : 4 라면 전체를 7묶음으로 나눠 왼쪽 3묶음, 오른쪽 4묶음. 맞는 자리에 오면 아래에 “지금이야!”가 떠요.', spot: () => ({ x: L.goalX - 8, y: L.goalY - 8, w: L.goalW + 16, h: L.goalH + 16 }) },
 ];
 let onbStep = 0, onbFromHelp = false;
 function showOnb(fromHelp) {
