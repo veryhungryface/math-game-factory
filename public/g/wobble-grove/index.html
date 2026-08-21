@@ -304,6 +304,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:#e9a86b;color:var(--
 #toast .t.on{opacity:1;transform:none}
 #toast .t.good{background:rgba(31,107,65,.94);border-color:#a9e6bd}
 #toast .t.bad{background:rgba(150,42,28,.94);border-color:#ffb4a8}
+/* ── 가로 우선: 수직선·비교 구조를 전폭으로. 좌우 앰비언트 여백 금지 ── */
+html.land #hud{padding-left:20px;padding-right:20px}
+html.land #ctrl{padding-left:20px;padding-right:20px}
+html.land #reasonsBox,html.land #logPanel{padding-left:20px;padding-right:20px}
+html.land #say .say-card{max-width:820px;font-size:16px;padding:10px 22px 11px}
+html.land #reasonsBox{flex-direction:row;align-items:stretch;gap:8px}
+html.land .reason{flex:1;min-height:56px;font-size:13px;justify-content:center;text-align:center}
+html.land .lane{min-height:68px}
+html.land #barRow{max-width:560px;width:100%;margin:0 auto}
+html.land #logPanel .lp{max-width:480px}
+html.land #over .card{max-width:380px}
+html.land #chip{min-width:160px}
+html.land #laneWrap{max-width:none}
+@media (max-height:520px){
+  html.land .lane{min-height:52px}
+  html.land .btn{min-height:48px}
+  html.land .btn.sm{min-height:48px;min-width:48px;flex-basis:48px}
+  html.land #say .say-card{padding:6px 14px 7px;font-size:13.5px}
+  html.land .reason{min-height:48px;font-size:12px}
+  html.land #factP{margin-top:4px}
+}
+
 @media (prefers-reduced-motion:reduce){
   .title-stage *,.title-stage *::before,.title-stage *::after{
     animation-duration:1ms !important;animation-iteration-count:1 !important;scroll-behavior:auto !important}
@@ -685,20 +707,44 @@ const rulerL=document.createElement('canvas'), rulerC=rulerL.getContext('2d');
 const FRUIT={};                                      // 구운 열매 스프라이트
 
 function computeLayout(){
-  L.colW=Math.min(vw,560); L.colX=(vw-L.colW)/2;
+  /* 가로는 1280×800 1기준(수직선 전폭). 세로는 기존 560px 단 유지 — 회귀 금지. */
+  L.land=vw>=vh;
+  document.documentElement.classList.toggle('land', L.land);
   const safeT=8+(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safeT'))||0);
-  L.hudH=112+safeT;
-  L.beamY=clamp(vh*0.255, L.hudH+96, 340);
-  L.tier0=L.beamY+Math.max(96,vh*0.11);
-  L.tierGap=clamp(vh*0.062,46,72);
-  L.rulerY=clamp(vh*0.585, L.tier0+L.tierGap*2+54, vh-236);
-  L.ctrlTop=vh-clamp(vh*0.24,176,220);
-  L.basketY=Math.max(L.rulerY+88,L.ctrlTop-72);
-  L.groundY=L.basketY-clamp(vh*0.07,48,78);
-  L.pad=Math.max(24,L.colW*0.075);
-  L.x0=L.colX+L.pad; L.x1=L.colX+L.colW-L.pad;
-  L.R=Math.min(L.colW*0.063,27);                     // 열매 반지름 (지름 ≈ 화면폭 12.6%)
-  L.fs=Math.max(18,L.colW*0.052);                    // 열매 숫자 폰트 (화면폭 5%+)
+  if(!L.land){
+    L.colW=Math.min(vw,560); L.colX=(vw-L.colW)/2;
+    L.hudH=112+safeT;
+    L.beamY=clamp(vh*0.255, L.hudH+96, 340);
+    L.tier0=L.beamY+Math.max(96,vh*0.11);
+    L.tierGap=clamp(vh*0.062,46,72);
+    L.rulerY=clamp(vh*0.585, L.tier0+L.tierGap*2+54, vh-236);
+    L.ctrlTop=vh-clamp(vh*0.24,176,220);
+    L.basketY=Math.max(L.rulerY+88,L.ctrlTop-72);
+    L.groundY=L.basketY-clamp(vh*0.07,48,78);
+    L.pad=Math.max(24,L.colW*0.075);
+    L.x0=L.colX+L.pad; L.x1=L.colX+L.colW-L.pad;
+    L.R=Math.min(L.colW*0.063,27);                   // 열매 반지름 (지름 ≈ 화면폭 12.6%)
+    L.fs=Math.max(18,L.colW*0.052);                  // 열매 숫자 폰트 (화면폭 5%+)
+    L.tiltAmp=0.2; L.b0=0.29; L.b1=0.71;
+  } else {
+    const short=vh<520;
+    L.colW=vw; L.colX=0;
+    L.hudH=(short?64:90)+safeT;
+    L.beamY=clamp(vh*(short?0.28:0.265), L.hudH+(short?40:78), short?122:228);
+    L.tier0=L.beamY+Math.max(short?48:62, vh*0.08);
+    L.tierGap=clamp(vh*(short?0.08:0.07), short?28:44, short?36:56);
+    L.rulerY=clamp(vh*0.55, L.tier0+L.tierGap*2+44, vh-(short?126:186));
+    L.ctrlTop=vh-clamp(vh*0.21, short?108:146, short?128:188);
+    L.basketY=Math.max(L.rulerY+(short?48:76), L.ctrlTop-(short?40:66));
+    L.groundY=L.basketY-clamp(vh*0.055, short?24:36, 60);
+    L.pad=clamp(vw*0.042, 40, 68);
+    L.x0=L.colX+L.pad; L.x1=L.colX+L.colW-L.pad;
+    L.R=clamp(Math.min(vw,vh)*0.036, 26, 34);
+    L.fs=clamp(vw*0.02, 20, 28);
+    L.tiltAmp=0.26; L.b0=0.20; L.b1=0.80;
+  }
+  document.documentElement.style.setProperty('--colW', L.colW+'px');
+  document.documentElement.style.setProperty('--colX', L.colX+'px');
 }
 const tickX=t=>L.x0+(t/(RD?RD.maxTick:10))*(L.x1-L.x0);
 const xTick=x=>clamp(Math.round((x-L.x0)/(L.x1-L.x0)*(RD?RD.maxTick:10)),0,RD?RD.maxTick:10);
@@ -769,41 +815,45 @@ function bakeBG(){
   }
   // 바구니가 놓인 자리의 그늘
   g.fillStyle='rgba(96,50,24,.22)';
-  for(const bx of [vw/2-L.colW*0.21,vw/2+L.colW*0.21]){
-    g.beginPath(); g.ellipse(bx,L.basketY+26,L.colW*0.19,9,0,0,7); g.fill();
+  const bwSh=L.land?L.colW*0.12:L.colW*0.19;
+  for(const bx of [L.colX+L.colW*(L.b0||0.29), L.colX+L.colW*(L.b1||0.71)]){
+    g.beginPath(); g.ellipse(bx,L.basketY+26,bwSh,9,0,0,7); g.fill();
   }
 }
 
 /* 배경 나무 — 땅에서 캐노피까지 이어져 화면 아래쪽 빈 공간을 채운다 */
 function drawOrchardTree(g){
-  const bx=L.colX+L.colW*0.055, topY=L.beamY-40, botY=L.groundY+6;
+  /* 가로는 수직선이 전폭이므로 나무를 colW에 비례시키지 않는다(눈금을 가리면 실패). */
+  const tw=L.land?Math.min(360,vw*0.24):L.colW;
+  const bx=L.land?Math.max(22,L.pad*0.45):L.colX+L.colW*0.055;
+  const topY=L.beamY-40, botY=L.groundY+6;
   g.save();
   g.strokeStyle='rgba(92,58,33,.85)'; g.lineCap='round';
-  g.lineWidth=Math.max(16,L.colW*0.052);
+  g.lineWidth=Math.max(16,tw*0.052);
   g.beginPath(); g.moveTo(bx,botY);
-  g.quadraticCurveTo(bx-L.colW*0.03,(topY+botY)/2,bx+L.colW*0.03,topY);
+  g.quadraticCurveTo(bx-tw*0.03,(topY+botY)/2,bx+tw*0.03,topY);
   g.stroke();
-  g.lineWidth=Math.max(7,L.colW*0.022);
+  g.lineWidth=Math.max(7,tw*0.022);
   const arms=[[-0.16,-0.1],[0.19,-0.02],[-0.13,0.16]];
   for(const [dx,dy] of arms){
     const y0=lerp(topY,botY,0.28+dy);
-    g.beginPath(); g.moveTo(bx+L.colW*0.012,y0);
-    g.quadraticCurveTo(bx+L.colW*dx*0.6,y0-24,bx+L.colW*dx,y0-46); g.stroke();
+    g.beginPath(); g.moveTo(bx+tw*0.012,y0);
+    g.quadraticCurveTo(bx+tw*dx*0.6,y0-24,bx+tw*dx,y0-46); g.stroke();
   }
   // 캐노피 — 같은 불투명 색으로 겹쳐 그려 한 덩어리 실루엣이 되게 한다
-  g.globalAlpha=0.5; g.fillStyle='#4e8f63';
+  g.globalAlpha=L.land?0.32:0.5; g.fillStyle='#4e8f63';
   const blobs=[[0.0,-0.05,0.2],[-0.11,0.03,0.15],[0.14,0.02,0.14],[0.04,-0.14,0.13],[-0.05,-0.02,0.17]];
   for(const [dx,dy,r] of blobs){
-    g.beginPath(); g.ellipse(bx+L.colW*dx,topY+L.colW*dy-14,L.colW*r,L.colW*r*0.72,0,0,7); g.fill();
+    g.beginPath(); g.ellipse(bx+tw*dx,topY+tw*dy-14,tw*r,tw*r*0.72,0,0,7); g.fill();
   }
-  g.globalAlpha=0.32; g.fillStyle='#2f5d43';
+  g.globalAlpha=L.land?0.2:0.32; g.fillStyle='#2f5d43';
   for(const [dx,dy,r] of [[-0.07,0.02,0.11],[0.09,-0.04,0.09]]){
-    g.beginPath(); g.ellipse(bx+L.colW*dx,topY+L.colW*dy-6,L.colW*r,L.colW*r*0.6,0,0,7); g.fill();
+    g.beginPath(); g.ellipse(bx+tw*dx,topY+tw*dy-6,tw*r,tw*r*0.6,0,0,7); g.fill();
   }
   g.globalAlpha=1;
   // 뿌리 그늘
   g.fillStyle='rgba(96,50,24,.28)';
-  g.beginPath(); g.ellipse(bx,botY+4,L.colW*0.13,7,0,0,7); g.fill();
+  g.beginPath(); g.ellipse(bx,botY+4,tw*0.13,7,0,0,7); g.fill();
   g.restore();
 }
 
@@ -874,19 +924,21 @@ function bakeRuler(){
   rulerL.width=Math.max(1,Math.round(vw*DPR)); rulerL.height=Math.round(H*DPR);
   const g=rulerC; g.setTransform(DPR,0,0,DPR,0,0); g.clearRect(0,0,vw,H);
   const y=36;
+  const rh=L.land?22:18, inset=L.land?18:14;
   g.fillStyle='rgba(74,40,18,.5)';
-  g.beginPath(); g.roundRect(L.x0-14,y-9,(L.x1-L.x0)+28,18,9); g.fill();
+  g.beginPath(); g.roundRect(L.x0-inset,y-rh/2,(L.x1-L.x0)+inset*2,rh,9); g.fill();
   g.fillStyle='rgba(255,236,205,.9)';
-  g.beginPath(); g.roundRect(L.x0-11,y-6,(L.x1-L.x0)+22,12,6); g.fill();
+  g.beginPath(); g.roundRect(L.x0-inset+3,y-rh/2+3,(L.x1-L.x0)+inset*2-6,rh-6,6); g.fill();
   const step=(L.x1-L.x0)/RD.maxTick;
   const skip=step<17?2:1;
   for(let t=0;t<=RD.maxTick;t++){
     const x=L.x0+t*step, big=(t%skip===0);
     g.strokeStyle=big?'#8a4b1e':'rgba(138,75,30,.45)';
-    g.lineWidth=big?2.4:1.6;
-    g.beginPath(); g.moveTo(x,y-5); g.lineTo(x,y+(big?11:7)); g.stroke();
+    g.lineWidth=big?(L.land?3.2:2.4):1.6;
+    g.beginPath(); g.moveTo(x,y-5); g.lineTo(x,y+(big?(L.land?14:11):7)); g.stroke();
     if(big){
-      g.fillStyle='#5c3a21'; g.font=`800 ${Math.max(10,Math.min(13.5,step*0.72))}px -apple-system,"Apple SD Gothic Neo",sans-serif`;
+      const fs=L.land?Math.max(13,Math.min(18,step*0.16)):Math.max(10,Math.min(13.5,step*0.72));
+      g.fillStyle='#5c3a21'; g.font=`800 ${fs}px -apple-system,"Apple SD Gothic Neo",sans-serif`;
       g.textAlign='center'; g.textBaseline='top'; g.fillText(String(t),x,y+20);
     }
   }
@@ -1054,7 +1106,7 @@ function showCtrl(which){
   }
 }
 function layoutSay(){
-  const top=L.hudH+6;
+  const top=L.hudH+(L.land?2:6);
   sayEl.style.top=top+'px';
   const sh=sayEl.classList.contains('hidden')?56:(sayEl.getBoundingClientRect().height||56);
   const below=top+sh+10;
@@ -1299,7 +1351,7 @@ function update(dt,t){
   const n=Math.max(1,fruits.length);
 
   // 가지 기울기 — 스프링 + 오버슈트(목표를 살짝 지나쳤다 돌아온다)
-  const target=clamp(effTorque()/(n*3.5),-1,1)*0.2;
+  const target=clamp(effTorque()/(n*3.5),-1,1)*(L.tiltAmp||0.2);
   S.tiltV+=(target-S.tilt)*46*dt;
   S.tiltV*=Math.pow(0.0016,dt);
   S.tilt+=S.tiltV*dt;
@@ -1360,7 +1412,7 @@ function update(dt,t){
     if(S.timeLeft<=0){ S.timeLeft=0; setPhase('result'); }
   }
 }
-function basketX(i){ return L.colX+L.colW*(i===0?0.29:0.71); }
+function basketX(i){ return L.colX+L.colW*(i===0?(L.b0||0.29):(L.b1||0.71)); }
 
 function finishShake(){
   // 관찰 일지: 이론 / 이번 12회 / 같은 구성 누적
@@ -1387,12 +1439,13 @@ function drawBeam(t){
   const half=(L.x1-L.x0)/2+L.pad*0.2, cxm=(L.x0+L.x1)/2;
   ctx.save(); ctx.translate(px,py); ctx.rotate(S.tilt); ctx.translate(-px,-py);
   // 가지
+  const bhBeam=L.land?22:18;
   ctx.fillStyle='#5c3a21';
-  ctx.beginPath(); ctx.roundRect(cxm-half,py-9,half*2,18,9); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(cxm-half,py-bhBeam/2,half*2,bhBeam,9); ctx.fill();
   ctx.fillStyle='rgba(255,214,160,.28)';
-  ctx.beginPath(); ctx.roundRect(cxm-half+4,py-6,half*2-8,5,3); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(cxm-half+4,py-bhBeam/2+3,half*2-8,6,3); ctx.fill();
   if(S.settleT>0){ ctx.strokeStyle=`rgba(255,214,110,${0.85*S.settleT})`; ctx.lineWidth=5;
-    ctx.beginPath(); ctx.roundRect(cxm-half,py-9,half*2,18,9); ctx.stroke(); }
+    ctx.beginPath(); ctx.roundRect(cxm-half,py-bhBeam/2,half*2,bhBeam,9); ctx.stroke(); }
   // 잎
   ctx.fillStyle='#3e7c59';
   for(let i=0;i<7;i++){
@@ -1449,7 +1502,8 @@ function drawBar(){
   ctx.globalAlpha=1;
   if(S.dragging){ ctx.globalAlpha=0.55; ctx.fillStyle='#ffd08a';
     ctx.beginPath(); ctx.roundRect(px-42,y-7,84,14,7); ctx.fill(); ctx.globalAlpha=1; }
-  const bw=Math.max(86,L.colW*0.24), bh=32;
+  const bw=L.land?Math.max(108,Math.min(148,vw*0.11)):Math.max(86,L.colW*0.24);
+  const bh=L.land?36:32;
   const bx=clamp(px,L.colX+bw/2+3,L.colX+L.colW-bw/2-3);
   const g=ctx.createLinearGradient(0,y-bh/2,0,y+bh/2);
   g.addColorStop(0,'#fff0bd'); g.addColorStop(.48,'#ffc94d'); g.addColorStop(1,'#d9962a');
@@ -1460,7 +1514,7 @@ function drawBar(){
   ctx.fillStyle='#8a4b1e';
   ctx.beginPath(); ctx.moveTo(px,y-bh/2-9); ctx.lineTo(px-8,y-bh/2); ctx.lineTo(px+8,y-bh/2); ctx.closePath(); ctx.fill();
   // 지금 고른 눈금 (막대 안에 크고 굵게)
-  ctx.font=`900 ${Math.max(20,L.colW*0.058)}px -apple-system,"Apple SD Gothic Neo",sans-serif`;
+  ctx.font=`900 ${L.land?26:Math.max(20,L.colW*0.058)}px -apple-system,"Apple SD Gothic Neo",sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.lineWidth=4; ctx.lineJoin='round'; ctx.strokeStyle='rgba(90,50,20,.9)';
   ctx.strokeText(String(S.barTick),bx,y+1);
@@ -1472,10 +1526,11 @@ function drawBaskets(){
   const ROW=9.2, COLS=2;                              // 두 칸씩 쌓는다 (이론·실험 같은 자)
   for(let i=0;i<2;i++){
     const kind=i===0?'gam':'bae', bx=basketX(i), by=L.basketY;
-    const w=Math.min(L.colW*0.40, Math.max(140,vh*0.14)), hh=Math.max(56, Math.min(78,vh*0.058));
+    const w=L.land?clamp(L.colW*0.26,220,340):Math.min(L.colW*0.40, Math.max(140,vh*0.14));
+    const hh=L.land?Math.max(62,Math.min(88,vh*0.09)):Math.max(56, Math.min(78,vh*0.058));
     const cnt=(kind==='gam')?RD.gamCount:RD.baeCount;
     const exp=cnt/RD.total*12;                        // 이론상 12번 중 몇 번
-    const gx=bx-w*0.27, ex=bx+w*0.25, rimY=by-8;
+    const gx=bx-w*(L.land?0.32:0.27), ex=bx+w*(L.land?0.30:0.25), rimY=by-8;
     // 이론 유령 자리 — 흔들기 전에도 실루엣만 깔아 세로 여백을 채운다
     const gh=Math.max(0,exp/COLS*ROW);
     if(exp>0){
