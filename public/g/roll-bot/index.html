@@ -2181,7 +2181,18 @@ function drawCardCaption(c, sub, x, y, boxW, boxH){
 const FONT='-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
 
 /* ─────────────────────── 6. 게임 상태 ─────────────────────── */
-const SLOTS=5, MAX_WAVE=8, WAVE_SEC=12, MAX_NORMAL_LEVEL=5;
+const SLOTS=5, MAX_WAVE=8, MAX_NORMAL_LEVEL=5;
+/* 웨이브 길이: W1=12s … W8=22.5s (W8/W3=1.5). 스폰 컷오프는 길이의 92%. */
+function waveDuration(w){
+  w=w==null?G.wave:w;
+  return 12 + (Math.max(1, w|0)-1)*1.5;
+}
+function waveMarks(w, t){
+  const S=waveDuration(w);
+  t=t==null?G.waveT:t;
+  const intro=S*0.10, ramp=S*0.42, press=S*0.79, stop=S*0.92;
+  return {S, intro, ramp, press, stop, t};
+}
 const STAGE_NAME=['','조립체','작업체','강화체','정예체','명장체'];
 const SIZE_AT=[0,0.88,0.96,1.03,1.10,1.16];
 const G={
@@ -2197,10 +2208,11 @@ const G={
   mountedIdx:-1, dragRobot:null, axisSwipe:null, hoverSlot:-1,
   dissolves:[], mergeHint:null, mergeFx:null, stampFx:null,
   holdShip:null, hoverShip:false, pendingMercy:null,
-  mergeDebt:0, twinCore:null,
+  mergeDebt:0, twinCore:null, pendingTicket:null,
   spawnLane:'active', staging:[], releaseQ:[], stagingT:0, releaseT:0,
   combatT:0, telegraph:null, eventLog:[], lastEventT:0, lastSpecialT:0,
-  waveCue:null, goldLast:null, mergeSlow:0
+  waveCue:null, goldLast:null, mergeSlow:0,
+  spawnLevelLog:[], waveTiming:[], waveStartedAt:0
 };
 const BEST=(function(){
   try{ return JSON.parse(localStorage.getItem('rollbot.best.v1')||'{}')||{}; }catch(e){ return {}; }
@@ -2648,31 +2660,37 @@ function mostNumerousType(robots){
   }
   return best;
 }
-/* 선반을 보고 다음에 나오면 합체가 풀리는 종류·레벨을 고른다.
-   빈 칸 1개면 합체 가능 후보를 반드시 고르고, 후보가 없으면 가장 많은 종류의 Lv1. */
-function waveUnlockLevel(w){
-  w=w||G.wave;
-  if(w<=2) return 1;
-  if(w<=4) return 2;
-  if(w<=6) return 3;
-  return 4;
-}
-function highestUnpaired(robots, cap){
-  const u=unpairedMergeables(robots);
-  if(!u.length) return null;
-  let best=null;
-  for(let i=0;i<u.length;i++){
-    if(cap!=null && u[i].level>cap) continue;
-    if(!best || u[i].level>best.level) best=u[i];
+function leadingType(robots){
+  robots=robots||G.robots;
+  const mass={cyl:0,cone:0,sph:0};
+  for(const rb of robots){
+    if(!rb || rb.awakened) continue;
+    mass[rb.type]+=1<<Math.max(0,(rb.level|0)-1);
   }
-  return best||u[0];
+  let best=mostNumerousType(robots), bestM=-1;
+  for(let i=0;i<ROBOT_TYPES.length;i++){
+    const t=ROBOT_TYPES[i];
+    if(mass[t]>bestM){ bestM=mass[t]; best=t; }
+  }
+  return best;
+}
+/* 스폰 레벨은 항상 Lv1. 레벨은 합체로만 오른다.
+   예외: 웨이브 10+에서만 10% 확률 Lv2 (현재 MAX_WAVE=8이라 실전 미적용). */
+function spawnLevelRoll(){
+  if((G.wave|0)>=10 && Math.random()<0.1) return 2;
+  return 1;
+}
+function highestUnpairedLv1(robots){
+  const u=unpairedMergeables(robots).filter((x)=>x.level===1);
+  return u.length?u:null;
 }
 function maybeReserveTwinCore(){
   if(G.twinCore) return G.twinCore;
-  const cap=waveUnlockLevel(G.wave);
-  const u=highestUnpaired(G.robots, cap);
-  if(!u) return null;
-  G.twinCore={type:u.type, level:Math.min(u.level, cap)};
+  const lv1=highestUnpairedLv1(G.robots);
+  const u=lv1?lv1[0]:(unpairedMergeables(G.robots)[0]||null);
+  const type=u?u.type:mostNumerousType(G.robots);
+  if(!type) return null;
+  G.twinCore={type:type, level:1};
   return G.twinCore;
 }
 function pickMercySpawn(robots, rnd){
@@ -2680,26 +2698,28 @@ function pickMercySpawn(robots, rnd){
   rnd=rnd||Math.random;
   const empty=emptyCount(robots);
   const unpaired=unpairedMergeables(robots);
+  const lv1u=unpaired.filter((u)=>u.level===1);
   const fallback={type:mostNumerousType(robots), level:1, mergeable:false};
-  const fromUnpaired=()=>{
-    if(!unpaired.length) return fallback;
-    unpaired.sort((a,b)=>b.level-a.level);
-    const lv1=unpaired.filter((u)=>u.level===1);
-    const bag=lv1.length?lv1:unpaired;
-    const u=bag[(rnd()*bag.length)|0];
-    return {type:u.type, level:u.level, mergeable:true};
+  const fromLv1=()=>{
+    if(!lv1u.length) return fallback;
+    const u=lv1u[(rnd()*lv1u.length)|0];
+    return {type:u.type, level:1, mergeable:true};
   };
-  if(G.twinCore && G.twinCore.type){
-    return {type:G.twinCore.type, level:G.twinCore.level||1, mergeable:true, reserved:true};
+  const fromTypeWeight=()=>{
+    if(!unpaired.length) return fallback;
+    const u=unpaired[(rnd()*unpaired.length)|0];
+    return {type:u.type, level:1, mergeable:wouldMergeWith(robots, u.type, 1)};
+  };
+  if(robots===G.robots && G.twinCore && G.twinCore.type){
+    return {type:G.twinCore.type, level:1, mergeable:wouldMergeWith(robots, G.twinCore.type, 1), reserved:true};
   }
   if(empty<=1){
-    if(!unpaired.length) return fallback;
-    unpaired.sort((a,b)=>b.level-a.level);
-    const u=unpaired[0];
-    return {type:u.type, level:u.level, mergeable:true};
+    if(lv1u.length) return fromLv1();
+    return fallback;
   }
   const p=empty<=2?0.95:0.62;
-  if(unpaired.length && rnd()<p) return fromUnpaired();
+  if(lv1u.length && rnd()<p) return fromLv1();
+  if(unpaired.length && rnd()<p) return fromTypeWeight();
   return {type:ROBOT_TYPES[(rnd()*ROBOT_TYPES.length)|0], level:1, mergeable:false};
 }
 function markDex(rb){
@@ -2730,18 +2750,18 @@ function savedDexCount(){
   let n=0; DEX_SLOTS.forEach((s)=>{ if(G.savedDex[dexKey(s.type,s.level,s.awakened)]) n++; });
   return n;
 }
-function placeRobot(type){
+function placeRobot(type, via){
   let idx=G.robots.indexOf(null);
   if(idx<0){ overdrive(); return null; }
   const empty=emptyCount();
   const twin=G.twinCore;
   const mercy=empty<=1?pickMercySpawn(G.robots):(G.pendingMercy||pickMercySpawn(G.robots));
   G.pendingMercy=null;
-  let st=type, sl=1, aw=false;
-  if(twin && twin.type && empty>=1){
-    st=twin.type; sl=twin.level||1; G.twinCore=null;
+  let st=type, sl=spawnLevelRoll(), aw=false, src=via||'reward';
+  if(twin && twin.type && empty>=1 && src!=='ticket'){
+    st=twin.type; sl=1; G.twinCore=null; src='twin';
   }else if(empty<=1){
-    st=mercy.type; sl=mercy.level||1;
+    st=mercy.type; sl=1; src=src==='ticket'?src:'mercy';
   }else if(mercy.mergeable){
     st=mercy.type; sl=1;
   }
@@ -2750,9 +2770,38 @@ function placeRobot(type){
   markDex(rb);
   G.mergeDebt=(G.mergeDebt||0)+1;
   if(G.mergeDebt>=4 && !findMergePair()) maybeReserveTwinCore();
-  logEvent('robotPlace');
+  (G.spawnLevelLog||(G.spawnLevelLog=[])).push({wave:G.wave, level:sl, type:st, via:src, t:G.t});
+  logEvent('robotPlace', {level:sl, type:st, via:src});
   Snd.spin();
   return st;
+}
+function grantMergeTicket(){
+  const m=pickMercySpawn(G.robots);
+  const type=(m&&m.mergeable&&m.type)||leadingType(G.robots)||mostNumerousType(G.robots);
+  if(emptyCount()<=0){
+    G.pendingTicket=type;
+    G.toast={txt:'합체 재료 티켓',sub:'칸이 비면 '+(TYPE_KO[type]||'')+'봇 Lv1',t:0};
+    return false;
+  }
+  G.pendingTicket=null;
+  const save=G.twinCore; G.twinCore=null;
+  const placed=placeRobot(type, 'ticket');
+  let n=1;
+  if(emptyCount()>=1){ placeRobot(type, 'ticket'); n=2; }
+  G.twinCore=save;
+  const name=TYPE_KO[placed||type]||'로봇';
+  G.toast={txt:'합체 재료 티켓!',sub:name+'봇 Lv1 ×'+n,t:0};
+  floatText(L.bx+L.bw/2, L.fieldTop+72, '재료 +'+name+'봇'+(n>1?' ×2':''),'#FFD35C',1.05,true);
+  return true;
+}
+function maybeGrantPendingTicket(){
+  if(!G.pendingTicket) return;
+  if(emptyCount()<=0) return;
+  const type=G.pendingTicket;
+  G.pendingTicket=null;
+  const save=G.twinCore; G.twinCore=null;
+  placeRobot(type, 'ticket');
+  G.twinCore=save;
 }
 function mergeRobots(from,to){
   const a=G.robots[from], b=G.robots[to];
@@ -2780,6 +2829,7 @@ function mergeRobots(from,to){
     floatText(x, y-42, nm, '#FFD35C', willAwaken?1.25:1.1, true);
   }
   onMergeSuccess(to);
+  maybeGrantPendingTicket();
   return true;
 }
 function overdrive(){
@@ -2820,6 +2870,7 @@ function shipRobot(idx){
   if(G.mergeHint && G.mergeHint.mode==='jam'){
     G.mergeHint.mode='none'; G.mergeHint.visible=false;
   }
+  maybeGrantPendingTicket();
   return true;
 }
 function addScore(n,x,y){
@@ -2831,7 +2882,7 @@ function logEvent(type, extra){
     wave:G.wave, phase:G.spawnLane||'active', type:type};
   if(extra) for(const k in extra) e[k]=extra[k];
   G.eventLog.push(e);
-  if(G.eventLog.length>800) G.eventLog.splice(0, G.eventLog.length-600);
+  if(G.eventLog.length>2500) G.eventLog.splice(0, G.eventLog.length-2000);
   G.lastEventT=G.t;
 }
 function beginMergeFx(from,to,a,b,awaken){
@@ -3089,32 +3140,33 @@ function liveEnemyCount(){
 function mkEnemy(kind, y){
   const w=G.wave;
   const k=kind|| (w<=1?'dust' : pick(w<=3?['dust','dust','fast']:['dust','big','fast','dust']));
-  const baseHp=2+Math.floor((w-1)*0.9);
+  /* HP는 완만히. 후반 길이는 스폰 시간·적 수로 맞춘다 (화력 절벽 금지). */
+  const baseHp=2+Math.floor((w-1)*0.85);
   const hp = k==='big'? Math.round(baseHp*1.9) : (k==='fast'? Math.max(1,Math.round(baseHp*0.7)) : baseHp);
-  const cross = 13.6 - w*0.82;
+  const cross = 14.0 - w*0.58;
   const sp = (L.padRowY-L.fieldTop)/Math.max(5.5,cross) * (k==='fast'?1.5:(k==='big'?0.72:1));
   const r = (k==='big'?1.35:(k==='fast'?0.82:1)) * Math.min(L.bw*0.075,26);
   return {x:L.bx+18+Math.random()*(L.bw-36), y:y!=null?y:(L.fieldTop-r-4), hp:hp,max:hp,sp:sp,r:r,
     k:k,ph:Math.random()*TAU,flash:0,sq:0,gold:false,waitLabel:0};
 }
 function spawnKindForWave(){
-  const w=G.wave, t=G.waveT;
-  if(w>=4 && t>=5 && t<9.5){
+  const w=G.wave, m=waveMarks(w);
+  if(w>=4 && m.t>=m.ramp && m.t<m.press){
     if(G.t - (G.lastSpecialT||0) >= 4){
       G.lastSpecialT=G.t;
-      return (Math.floor(t/4)%2)?'big':'fast';
+      return (Math.floor(m.t/4)%2)?'big':'fast';
     }
   }
   if(w<=1) return 'dust';
   return pick(w<=3?['dust','dust','fast']:['dust','big','fast','dust']);
 }
 function spawnInterval(){
-  const w=G.wave, t=G.waveT;
-  let avg=Math.max(0.55, 1.9-0.17*(w-1));
-  if(t<1.2) return 0.7;
-  if(t<5.0) avg*=1.10;
-  else if(t>=9.5 && t<11.0) avg*=1.43;
-  else if(t>=11.0) return 99;
+  const w=G.wave, m=waveMarks(w);
+  let avg=Math.max(0.50, 1.88-0.175*(w-1));
+  if(m.t<m.intro) return 0.7;
+  if(m.t<m.ramp) avg*=1.10;
+  else if(m.t>=m.press && m.t<m.stop) avg*=1.43;
+  else if(m.t>=m.stop) return 99;
   return Math.min(2.05, avg*(0.88+Math.random()*0.24));
 }
 function spawnEnemy(kind, y, fromStaging){
@@ -3295,6 +3347,7 @@ function startRun(mode){
   G.mountedIdx=-1; G.dragRobot=null; G.axisSwipe=null; G.hoverSlot=-1; G.dragCard=null;
   G.holdShip=null; G.hoverShip=false; G.pendingMercy=null;
   G.mergeDebt=0; G.twinCore=null; G.mergeFx=null; G.stampFx=null; G.mergeSlow=0;
+  G.pendingTicket=null; G.spawnLevelLog=[]; G.waveTiming=[]; G.waveStartedAt=0;
   G.spawnLane='active'; G.staging.length=0; G.releaseQ.length=0; G.stagingT=0; G.releaseT=0;
   G.telegraph=null; G.eventLog.length=0; G.lastEventT=0; G.lastSpecialT=0; G.waveCue=null;
   G.shake=0; G.flash=0; G.bounce=0; G.bounceT=0; G.glow=0;
@@ -3306,13 +3359,23 @@ function startRun(mode){
   logEvent('waveCue');
   newProblem(); syncHud();
 }
+function recordWaveEnd(reason){
+  (G.waveTiming||(G.waveTiming=[])).push({
+    wave:G.wave, wallSec:+(G.t-(G.waveStartedAt||0)).toFixed(3),
+    combatSec:+(G.waveT||0).toFixed(3), reason:reason||'advance'
+  });
+}
 function nextWave(){
-  if(G.wave>=MAX_WAVE){ gameOver(true); return; }
+  if(G.wave>=MAX_WAVE){ recordWaveEnd('clear'); gameOver(true); return; }
+  recordWaveEnd('advance');
   if(!findMergePair()) maybeReserveTwinCore();
+  grantMergeTicket();
   G.wave++; G.waveT=0; G.spawnT=0.7; G.telegraph=null; G.lastSpecialT=0;
+  G.waveStartedAt=G.t;
   if(G.lives<3){ G.lives++; floatText(L.bx+L.bw/2,L.fieldTop+50,'수리 톱니 +1 ❤','#7FD8A0'); }
   const nextKind=G.wave>=6?'빠른 먼지':(G.wave>=4?'큰 먼지':'먼지');
-  G.toast={txt:'웨이브 '+G.wave,sub:'다음: '+nextKind,t:0};
+  const subTicket=G.toast&&G.toast.txt==='합체 재료 티켓!' ? G.toast.sub : ('다음: '+nextKind);
+  G.toast={txt:'웨이브 '+G.wave, sub:subTicket, t:0};
   G.waveCue={txt:'다음 웨이브: '+nextKind, t:0};
   flash('160,220,255',0.30); Snd.wave();
   logEvent('waveCue');
@@ -3320,6 +3383,7 @@ function nextWave(){
 }
 function gameOver(cleared){
   if(G.phase==='over') return;
+  if(!cleared) recordWaveEnd('fail');
   G.phase='over'; G.cleared=!!cleared;
   G.busy=false; G.anim=null;
   $('#banner').classList.add('hide');
@@ -4140,7 +4204,7 @@ function update(dt){
       if(G.stampFx.t>=G.stampFx.dur) G.stampFx=null;
     }
     G.waveT+=combatDt;
-    if(G.waveT>=WAVE_SEC) nextWave();
+    if(G.waveT>=waveDuration(G.wave)) nextWave();
     if(G.spawnLane==='staging'){
       G.stagingT+=dt;
       if(G.stagingT>=2.0){
@@ -4175,17 +4239,19 @@ function update(dt){
         }
       }else{
         G.spawnT-=dt;
-        if(G.spawnT<=0 && G.waveT<11.0){
+        const marks=waveMarks(G.wave);
+        if(G.spawnT<=0 && G.waveT<marks.stop){
           if(liveEnemyCount()>=8) G.spawnT=0.3;
           else beginTelegraph(spawnKindForWave());
         }
       }
     }
-    if(G.waveT>=9.5 && G.enemies.length===1) G.enemies[0].gold=true;
+    const marks=waveMarks(G.wave);
+    if(G.waveT>=marks.press && G.enemies.length===1) G.enemies[0].gold=true;
     const idleGap=G.t-(G.lastEventT||0);
     if(idleGap>1.8){
       if(G.spawnLane==='staging') logEvent('stagingPulse');
-      else if(G.spawnLane==='active' && !G.telegraph && liveEnemyCount()<8 && G.waveT<11){
+      else if(G.spawnLane==='active' && !G.telegraph && liveEnemyCount()<8 && G.waveT<marks.stop){
         beginTelegraph();
       }
     }
@@ -4568,6 +4634,38 @@ window.__GAME_TEST__={
     if(G.busy) finishAnim(true);
     G.nextAt=0; newProblem();
     return this.getState();
+  },
+  tick(dt){
+    update(typeof dt==='number'?dt:0.05);
+    return this.getState();
+  },
+  getProgressStats(){
+    const log=G.spawnLevelLog||[];
+    const lv={1:0,2:0,3:0,4:0,5:0};
+    const byWave={};
+    log.forEach((s)=>{
+      lv[s.level]=(lv[s.level]|0)+1;
+      const w=s.wave||1;
+      if(!byWave[w]) byWave[w]={1:0,2:0,3:0,4:0,5:0,n:0};
+      byWave[w][s.level]=(byWave[w][s.level]|0)+1;
+      byWave[w].n++;
+    });
+    const n=log.length||1;
+    let maxGap=0, gapAt=0;
+    const ev=G.eventLog||[];
+    for(let i=1;i<ev.length;i++){
+      const g=(ev[i].runMs-ev[i-1].runMs)/1000;
+      if(g>maxGap){ maxGap=g; gapAt=i; }
+    }
+    const maxLv=G.robots.reduce((m,r)=>r?Math.max(m,r.awakened?6:r.level):m,0);
+    const awakened=G.robots.some((r)=>r&&r.awakened);
+    return {
+      spawnN:log.length, spawnLevels:lv, lv1Ratio: (lv[1]||0)/n,
+      byWave, waveTiming:G.waveTiming||[],
+      maxEventGap:maxGap, gapAt,
+      maxLevel:maxLv, awakened, shelf:this.getShelf(),
+      wave:G.wave, phase:G.phase, lives:G.lives, score:G.score
+    };
   },
   dropChoice(ok){
     if(G.phase!=='playing') startRun('easy');
