@@ -251,6 +251,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);color:v
   #onbHole{animation:none}
   .btn.pulse{animation:none}
 }
+
+/* ── 가로 우선: 펼친 직사각형(가로=둘레의 반)을 전폭으로. 좌우 앰비언트 여백 금지 ── */
+html.land #hud{padding-left:18px;padding-right:18px}
+html.land #say{font-size:16.5px;padding:0 22px}
+html.land #ctrl{padding:6px 18px calc(8px + var(--safeB))}
+html.land #fitRow{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+html.land #reasonRow{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+html.land .fit{min-height:50px;font-size:14.5px}
+html.land .rc{min-height:48px;font-size:13px}
+html.land .gate{min-height:56px}
+html.land #over .card{max-width:380px}
+@media (max-height:560px){
+  html.land .btn{min-height:48px}
+  html.land .fit{min-height:44px}
+  html.land .rc{min-height:44px;font-size:12px}
+  html.land #say{font-size:14px}
+}
 </style>
 </head>
 <body>
@@ -725,36 +742,43 @@ function bakeGhostSprite(n){
 }
 
 function computeLayout(){
-  L.colW=Math.min(vw,560); L.colX=(vw-L.colW)/2;
+  L.land=vw>=vh;
+  document.documentElement.classList.toggle('land', L.land);
   const safeT=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safeT'))||0;
-  L.hudH=104+safeT;
-  L.ctrlTop=vh-clamp(vh*0.30,208,300);
-  L.stageT=L.hudH+62;              // 지시문(#say) 두 줄이 들어갈 자리를 비워 둔다
-  L.stageB=L.ctrlTop-10;
-  L.stageH=Math.max(150,L.stageB-L.stageT);
-  L.pad=Math.max(16,L.colW*0.045);
-  L.x0=L.colX+L.pad; L.x1=L.colX+L.colW-L.pad;
-  L.trackW=L.x1-L.x0;
-  L.trackY=Math.min(L.stageT+L.stageH*0.80,L.stageB-114);
-  L.cx=L.colX+L.colW*0.34;
-  L.cy=L.stageT+L.stageH*0.30;
-  L.tall=vw>=700 && vh>=900;                           // 태블릿 세로: 무대를 더 채운다
-  L.R=Math.min(L.colW*(L.tall?0.30:0.25),L.stageH*0.32,(L.trackY-118-L.stageT)/2);
-  L.heroW=L.colW*(L.tall?0.39:0.36);                   // 모바일: 화면폭 36%(최소 20%, 기존 0.26×1.38)
-  L.fsBig=Math.max(21,L.colW*0.068);                   // 핵심 숫자 (화면폭 5% 이상)
-  L.fsMid=Math.max(15,L.colW*0.042);
-  L.fsSm=Math.max(11.5,L.colW*0.031);
-  // 펼침 화면
-  L.ux=L.colX+L.colW*0.5;
-  // 원(2uR) + 창틀(uR) + 라벨 여백이 무대 안에 전부 들어가게 반지름을 정한다
-  L.uR=Math.min(L.colW*(L.tall?0.32:0.235),(L.stageH-132)/3,(L.colW-2*L.pad)/3.14);
-  L.rx0=L.colX+(L.colW-3.14*L.uR)/2;
-  L.uy=L.stageT+L.fsBig*1.5+L.uR;
-  L.ry0=Math.min(L.uy+L.uR+46,L.stageB-L.uR-56);     // 원 바로 아래에 붙인다
-  if(L.tall){
-    const lo=L.uy+L.uR+46, hi=L.stageB-L.uR-78;
-    if(hi>lo) L.ry0=lo+(hi-lo)*0.28;                 // 태블릿: 원과 창틀 사이를 벌려 세로를 채운다
+  if(!L.land){
+    L.colW=Math.min(vw,560); L.colX=(vw-L.colW)/2;
+    L.hudH=104+safeT;
+    L.ctrlTop=vh-clamp(vh*0.30,208,300);
+    L.stageT=L.hudH+62;              // 지시문(#say) 두 줄이 들어갈 자리를 비워 둔다
+    L.stageB=L.ctrlTop-10;
+    L.stageH=Math.max(150,L.stageB-L.stageT);
+    L.pad=Math.max(16,L.colW*0.045);
+    L.x0=L.colX+L.pad; L.x1=L.colX+L.colW-L.pad;
+    L.trackW=L.x1-L.x0;
+    L.fsBig=Math.max(21,L.colW*0.068);                   // 핵심 숫자 (화면폭 5% 이상)
+    L.fsMid=Math.max(15,L.colW*0.042);
+    L.fsSm=Math.max(11.5,L.colW*0.031);
+    L.tall=vw>=700 && vh>=900;                           // 태블릿 세로: 무대를 더 채운다
+    L.heroW=L.colW*(L.tall?0.39:0.36);
+  }else{
+    L.colW=vw; L.colX=0;
+    L.hudH=(vh<560?72:90)+safeT;
+    L.ctrlTop=vh-clamp(vh*0.20,118,176);
+    L.stageT=L.hudH+(vh<560?40:52);
+    L.stageB=L.ctrlTop-8;
+    L.stageH=Math.max(140,L.stageB-L.stageT);
+    L.pad=clamp(vw*0.028,28,48);
+    L.x0=L.colX+L.pad; L.x1=L.colX+L.colW-L.pad;
+    L.trackW=L.x1-L.x0;
+    L.fsBig=clamp(vw*0.022,20,28);
+    L.fsMid=clamp(vw*0.016,14,18);
+    L.fsSm=clamp(vw*0.012,11,14);
+    L.tall=false;
+    L.heroW=clamp(vw*0.11,88,140);
   }
+  document.documentElement.style.setProperty('--colW', L.colW+'px');
+  document.documentElement.style.setProperty('--colX', L.colX+'px');
+  computeStage();
 }
 
 function bakeBG(){
@@ -924,7 +948,12 @@ function syncCtrl(){
     // 태블릿 세로에서 pick_n까지 예약하면 버튼 위가 빈 종이로 남는다.
     if(R0&&/^(fit|result)$/.test(S.phase)){
       const safeB=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safeB'))||0;
-      h=Math.max(h,R0.fit.length*56+(R0.fit.length-1)*7+17+safeB);
+      if(L.land){
+        const rows=Math.ceil(R0.fit.length/2);
+        h=Math.max(h,rows*50+(rows-1)*7+14+safeB);
+      }else{
+        h=Math.max(h,R0.fit.length*56+(R0.fit.length-1)*7+17+safeB);
+      }
     }
     L.ctrlTop=Math.max(vh*0.42,vh-h);
     L.stageB=L.ctrlTop-10;
@@ -935,17 +964,48 @@ function syncCtrl(){
 }
 /** 컨트롤 높이에 따라 무대 좌표만 다시 계산 (colW 등은 유지) */
 function computeStage(){
+  if(L.land) computeStageLand(); else computeStagePort();
+}
+
+/** 세로: 원 위 · 직사각형 아래 (기존 구도). */
+function computeStagePort(){
   L.trackY=Math.min(L.stageT+L.stageH*0.80,L.stageB-114);
   L.cy=L.stageT+L.stageH*0.30;
   L.R=Math.min(L.colW*(L.tall?0.30:0.25),L.stageH*0.32,(L.trackY-118-L.stageT)/2);
+  L.cx=L.colX+L.colW*0.34;
   L.heroW=L.colW*(L.tall?0.39:0.36);
   L.uR=Math.min(L.colW*(L.tall?0.32:0.235),(L.stageH-132)/3,(L.colW-2*L.pad)/3.14);
+  L.ux=L.colX+L.colW*0.5;
   L.rx0=L.colX+(L.colW-3.14*L.uR)/2;
   L.uy=L.stageT+L.fsBig*1.5+L.uR;
   L.ry0=Math.min(L.uy+L.uR+46,L.stageB-L.uR-56);
   if(L.tall){
     const lo=L.uy+L.uR+46, hi=L.stageB-L.uR-78;
     if(hi>lo) L.ry0=lo+(hi-lo)*0.28;
+  }
+}
+
+/** 가로 1기준: 둘레 리본은 전폭, 펼침은 원(왼쪽)과 직사각형(오른쪽, 가로=πr)을 병치. */
+function computeStageLand(){
+  L.trackY=Math.min(L.stageT+L.stageH*0.76,L.stageB-86);
+  L.R=Math.min(vw*0.125, L.stageH*0.30, Math.max(48,(L.trackY-L.stageT-52)/2));
+  L.cx=L.x0+L.R+6;
+  L.cy=L.stageT+Math.max(L.R+28, L.stageH*0.30);
+  if(L.cy+L.R>L.trackY-28) L.cy=L.trackY-28-L.R;
+  const gap=56;
+  const uRfromW=(L.trackW-gap)/5.14;                 // 2r + gap + πr
+  const uRfromH=Math.min((L.stageH-72)/2, L.stageH*0.46);
+  L.uR=Math.max(44, Math.min(uRfromW, uRfromH));
+  L.ux=L.x0+L.uR;
+  L.uy=L.stageT+Math.max(L.fsBig*1.7+L.uR, L.stageH*0.48);
+  if(L.uy+L.uR>L.stageB-12) L.uy=L.stageB-12-L.uR;
+  L.rx0=L.ux+L.uR+gap;
+  L.ry0=L.uy-L.uR*0.5;
+  if(L.rx0+3.14*L.uR>L.x1+0.5){
+    L.uR=Math.max(44,(L.x1-L.x0-gap)/5.14);
+    L.ux=L.x0+L.uR;
+    L.rx0=L.ux+L.uR+gap;
+    L.ry0=L.uy-L.uR*0.5;
   }
 }
 
@@ -1600,8 +1660,12 @@ function drawRibbonStage(c,t){
   // 라벨 배지 (핵심 숫자는 크고 굵게)
   badge(c,L.cx,L.cy-L.R-L.fsBig*0.95,(R.label==='r'?'반지름 ':'지름 ')+fmtCm(R.label==='r'?R.r:R.d),L.fsBig*0.78);
   // 마스코트 — 원 오른쪽이 아니라 리본 트랙 위 빈 띠, 원과 겹치지 않게
-  const hW=heroDrawW(1);
-  drawHero(c,heroClearX(hW),L.trackY-10+Math.sin(t*1.4)*3*MO,hW,false);
+  const hW=heroDrawW(L.land?0.62:1);
+  const hx=heroClearX(hW);
+  const hy=L.land
+    ? (L.cy+L.R*0.35+Math.sin(t*1.4)*3*MO)
+    : (L.trackY-10+Math.sin(t*1.4)*3*MO);
+  drawHero(c,hx,hy,hW,false);
 
   // 자 + 게이트
   c.drawImage(rulL,L.x0-20,L.trackY-30,rulL.width/DPR,rulL.height/DPR);
@@ -1786,13 +1850,17 @@ function drawUnfurlStage(c,t){
     c.save(); c.translate(L.rx0-30,L.ry0+uR/2); c.rotate(-Math.PI/2);
     badge(c,0,0,'세로 = 반지름 '+fmtCm(R.r),L.fsSm*1.1);
     c.restore();
-    if(n>=16) badge(c,L.ux,L.ry0-L.fsSm*1.35,'무한히 나누면 직사각형이 돼요',L.fsSm*1.05,'#F6FBF0','rgba(72,99,56,.94)');
-    else if(n<=4) badge(c,L.ux,L.ry0-L.fsSm*1.35,'톱니가 커요',L.fsSm*1.05,'#FFF3E8','rgba(211,84,26,.9)');
+    const tipX=L.land?(L.rx0+3.14*uR*0.5):L.ux;
+    const tipY=L.land?(L.ry0-L.fsSm*1.45):(L.ry0-L.fsSm*1.35);
+    if(n>=16) badge(c,tipX,tipY,'무한히 나누면 직사각형이 돼요',L.fsSm*1.05,'#F6FBF0','rgba(72,99,56,.94)');
+    else if(n<=4) badge(c,tipX,tipY,'톱니가 커요',L.fsSm*1.05,'#FFF3E8','rgba(211,84,26,.9)');
   }
   // 조각 수 · 반지름 배지 (fit 단계에서 계산 근거가 계속 보여야 한다)
   badge(c,L.ux,L.stageT+L.fsBig*0.72,(R.label==='r'?'반지름 ':'지름 ')+fmtCm(R.label==='r'?R.r:R.d),L.fsBig*0.78);
-  {const hW=heroDrawW(L.tall?1:0.9); drawHero(c,heroClearX(hW, L.colX+L.colW*0.86, L.ux+uR),L.uy+uR*0.55,hW,false);}
-  fillStageBottom(c, L.ry0+uR+L.fsMid*3.4, [
+  if(!L.land){
+    const hW=heroDrawW(L.tall?1:0.9); drawHero(c,heroClearX(hW, L.colX+L.colW*0.86, L.ux+uR),L.uy+uR*0.55,hW,false);
+  }
+  if(!L.land) fillStageBottom(c, L.ry0+uR+L.fsMid*3.4, [
     {k:'세로', v:fmtCm(R.r)},
     {k:'가로', v:'둘레 ÷ 2'},
     {k:'넓이', v:'세로 × 가로', hot:true}
@@ -1810,16 +1878,19 @@ function drawQuadStage(c,t){
   const top=L.stageT+L.fsBig*0.8;
   const bot=L.stageB-L.fsMid*0.2;
   const availH=Math.max(120,bot-top);
-  const cell=Math.min(maxW/6.28, availH/3.2, L.colW*0.20);
+  const gapQ=L.land?28:0;
+  const cell=L.land
+    ? Math.min((maxW-gapQ)/9.42, availH/2.15, 92)
+    : Math.min(maxW/6.28, availH/3.2, L.colW*0.20);
   const smW=3.14*cell, smH=cell;
   const lgW=6.28*cell, lgH=2*cell;
   const cx=L.colX+L.colW*0.5;
 
   badge(c,cx,top,'반지름 '+fmtCm(R.r)+' → '+fmtCm(2*R.r),L.fsBig*0.72);
 
-  const leftover=Math.max(0, availH-(smH+lgH+L.fsBig*2.8));
+  const leftover=Math.max(0, availH-(L.land?lgH:smH+lgH)-L.fsBig*2.8);
   const sy=top+L.fsBig*0.95+leftover*0.12;
-  const sx=cx-smW/2;
+  const sx=L.land ? L.x0 : (cx-smW/2);
 
   c.fillStyle='rgba(95,122,78,.58)';
   c.fillRect(sx,sy,smW,smH);
@@ -1827,9 +1898,10 @@ function drawQuadStage(c,t){
   c.fillStyle='#F6FBF0'; c.textAlign='center'; c.textBaseline='middle';
   c.font='900 '+Math.round(L.fsSm*1.05)+'px -apple-system,sans-serif';
   c.fillText('작은 원 1칸',sx+smW/2,sy+smH/2);
-  badge(c,cx,sy+smH+L.fsSm*1.15,'세로 '+fmtCm(R.r)+' × 가로 '+fmtLen(R.rectW),L.fsSm*1.02,'#FFF3E8','rgba(211,84,26,.92)');
+  badge(c,L.land?(sx+smW/2):cx,sy+smH+L.fsSm*1.15,'세로 '+fmtCm(R.r)+' × 가로 '+fmtLen(R.rectW),L.fsSm*1.02,'#FFF3E8','rgba(211,84,26,.92)');
 
-  const lx=cx-lgW/2, ly=sy+smH+L.fsMid*2.15+leftover*0.16;
+  const lx=L.land ? (sx+smW+gapQ) : (cx-lgW/2);
+  const ly=L.land ? sy : (sy+smH+L.fsMid*2.15+leftover*0.16);
 
   c.fillStyle='rgba(239,235,226,.55)';
   c.fillRect(lx,ly,lgW,lgH);
@@ -1857,17 +1929,21 @@ function drawQuadStage(c,t){
     c.restore();
   }
 
-  badge(c,cx,ly+lgH+L.fsSm*1.2,'가로 2배 · 세로 2배 · 칸 '+cells+'/4',L.fsSm*1.08,'#FFF3E8','rgba(211,84,26,.95)');
+  const midX=L.land?(lx+lgW/2):cx;
+  badge(c,midX,ly+lgH+L.fsSm*1.2,'가로 2배 · 세로 2배 · 칸 '+cells+'/4',L.fsSm*1.08,'#FFF3E8','rgba(211,84,26,.95)');
   if(cells>=4){
-    badge(c,cx,ly+lgH/2,'2 × 2 = 4배',L.fsBig*0.88,'#FFF3E8','rgba(211,84,26,.96)');
+    badge(c,midX,ly+lgH/2,'2 × 2 = 4배',L.fsBig*0.88,'#FFF3E8','rgba(211,84,26,.96)');
   }else if(!answered){
     c.fillStyle='rgba(42,41,38,.48)'; c.textAlign='center'; c.textBaseline='middle';
     c.font='900 '+Math.round(L.fsMid)+'px -apple-system,sans-serif';
-    c.fillText('가로도 2배, 세로도 2배면?',cx,ly+lgH/2);
+    c.fillText('가로도 2배, 세로도 2배면?',midX,ly+lgH/2);
   }
 
-  {const hW=heroDrawW(L.tall?0.72:0.58); drawHero(c,L.colX+L.colW-hW*0.5-8,top+hW*0.42,hW,false);}
-  fillStageBottom(c, ly+lgH+L.fsMid*2.4, [
+  if(!L.land){
+    const hW=heroDrawW(L.tall?0.72:0.58); drawHero(c,L.colX+L.colW-hW*0.5-8,top+hW*0.42,hW,false);
+  }
+  const qAfter=ly+lgH+L.fsMid*2.4;
+  if(!L.land || L.stageB-qAfter>52) fillStageBottom(c, qAfter, [
     {k:'가로', v:'× 2'},
     {k:'세로', v:'× 2'},
     {k:'넓이', v:'2 × 2 = 4배', hot:true}
@@ -1877,8 +1953,11 @@ function drawQuadStage(c,t){
 /* ── 정사각형 − 내접원 ────────────────────────────────────── */
 function drawCornerStage(c,t){
   const R=R0;
-  const side=Math.min(L.colW*0.56,L.stageH*0.62);
-  const x=L.colX+(L.colW-side)/2, y=L.stageT+L.stageH*0.20;
+  const side=L.land
+    ? Math.min(L.stageH*0.78, L.colW*0.42, 360)
+    : Math.min(L.colW*0.56,L.stageH*0.62);
+  const x=L.land ? L.x0+8 : L.colX+(L.colW-side)/2;
+  const y=L.land ? L.stageT+Math.max(18,(L.stageH-side)*0.35) : L.stageT+L.stageH*0.20;
   const rr=side/2;
   // 정사각형 (귀퉁이 색칠)
   c.fillStyle='#D3541A'; c.fillRect(x,y,side,side);
@@ -1893,9 +1972,12 @@ function drawCornerStage(c,t){
   c.beginPath(); c.moveTo(x+rr,y+rr); c.lineTo(x+side,y+rr); c.stroke(); c.setLineDash([]);
   badge(c,x+side*0.76,y+rr-L.fsSm*1.5,'반지름 '+fmtCm(R.r),L.fsSm*1.15,'#F6FBF0','rgba(72,99,56,.95)');
   badge(c,x+side/2,y-L.fsBig*0.62,'한 변 '+fmtCm(R.d),L.fsBig*0.72);
-  badge(c,x+side/2,y+side+L.fsMid*1.15,'주황 부분의 넓이는?',L.fsSm*1.2,'#FFF3E8','rgba(211,84,26,.95)');
-  {const hW=L.tall?L.heroW*0.85:L.colW*0.20; drawHero(c,L.colX+L.colW-hW*0.5-6,y+hW*0.92,hW,false);}
-  fillStageBottom(c, y+side+L.fsMid*2.6, [
+  badge(c,L.land?(x+side+(L.x1-x-side)*0.5):x+side/2, L.land?(y+side*0.5):y+side+L.fsMid*1.15,'주황 부분의 넓이는?',L.fsSm*1.2,'#FFF3E8','rgba(211,84,26,.95)');
+  if(!L.land){
+    const hW=L.tall?L.heroW*0.85:L.colW*0.20; drawHero(c,L.colX+L.colW-hW*0.5-6,y+hW*0.92,hW,false);
+  }
+  const cAfter=y+side+L.fsMid*2.6;
+  if(!L.land || L.stageB-cAfter>52) fillStageBottom(c, cAfter, [
     {k:'정사각형', v:R.d+' × '+R.d},
     {k:'원', v:R.r+' × '+R.r+' × 3.14'},
     {k:'색칠', v:'빼기', hot:true}
@@ -1906,16 +1988,19 @@ function drawCornerStage(c,t){
 function drawResultOverlay(c){
   if(S.resT<0) return;
   const R=R0;
-  const y=(R.kind==='rect')?L.uy-L.fsBig*0.2:L.stageB-L.fsBig*1.5;
+  const y=(R.kind==='rect')
+    ? (L.land ? L.ry0+L.uR*0.5 : L.uy-L.fsBig*0.2)
+    : L.stageB-L.fsBig*1.5;
   const unit=(R.kind==='rect'||R.kind==='quad'||R.kind==='corner')?' cm²':'';
-  badge(c,L.colX+L.colW*0.5,y,fmt(S.areaShown)+unit,L.fsBig,'#FFF3E8','rgba(211,84,26,.96)');
+  const ax=L.land&&R.kind==='rect' ? (L.rx0+3.14*L.uR*0.5) : (L.colX+L.colW*0.5);
+  badge(c,ax,y,fmt(S.areaShown)+unit,L.fsBig,'#FFF3E8','rgba(211,84,26,.96)');
   c.fillStyle='#2A2926'; c.textAlign='center'; c.textBaseline='middle';
   c.font='900 '+Math.round(L.fsSm*1.15)+'px -apple-system,sans-serif';
   let expr='';
   if(R.kind==='rect') expr=R.r+' × '+R.r+' × 약 3.14';
   else if(R.kind==='quad') expr=(2*R.r)+' × '+(2*R.r)+' × 약 3.14  (2×2=4배)';
   else expr=R.d+' × '+R.d+' − '+R.r+' × '+R.r+' × 약 3.14';
-  c.fillText(expr,L.colX+L.colW*0.5,y+L.fsBig*1.1);
+  c.fillText(expr,ax,y+L.fsBig*1.1);
 }
 
 function render(t){
