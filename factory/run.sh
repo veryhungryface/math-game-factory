@@ -433,7 +433,7 @@ $(jq -c '.unit' "$WORK/slot.json")
 ## 끝내기 전에 반드시
 \`node factory/lib/qa.mjs $SLUG\` 를 돌려서 **치명적 결함 0건**을 확인해라. 실패하면 고치고 다시 돌려라."
 
-"${BUILD_RUNNER:-claude_run}" "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT" "$CLAUDE_MODEL_SMART"
+"${BUILD_RUNNER:-claude_run}" "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT" "${BUILD_MODEL:-$CLAUDE_MODEL_SMART}"
 [ -f "$ROOT/public/g/$SLUG/index.html" ] || die "게임 파일이 생성되지 않았습니다 — $(tail -5 "$LOG_DIR/build.log")"
 fi
 
@@ -488,7 +488,7 @@ ${USER_FEEDBACK:+
 $USER_FEEDBACK
 이 피드백을 채점에 직접 반영해라. 특히 지목된 문제가 이번 게임에도 있으면 must_fix 로 적어라.}"
 
-"${REVIEW_RUNNER:-claude_run}" "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT" "$CLAUDE_MODEL_SMART"
+"${REVIEW_RUNNER:-claude_run}" "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT" "${REVIEW_MODEL:-$CLAUDE_MODEL_SMART}"
 cp "$WORK/review.json" "$LOG_DIR/review-1.json" 2>/dev/null
 
 SCORE="$(jqv "$WORK/review.json" .score)"
@@ -524,7 +524,7 @@ if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; 
   "${REVIEW_RUNNER:-claude_run}" "$T_REVIEW" "$LOG_DIR/review-2.log" "$REVIEW_PROMPT
 
 이것은 **재검수**다. \`factory/work/fix.json\` 에 수정 내역이 있다. 수정이 실제로 반영됐는지 확인해라.
-봐주지 마라 — 여전히 미달이면 폐기가 맞다." "$CLAUDE_MODEL_SMART"
+봐주지 마라 — 여전히 미달이면 폐기가 맞다." "${REVIEW_MODEL:-$CLAUDE_MODEL_SMART}"
   cp "$WORK/review.json" "$LOG_DIR/review-2.json" 2>/dev/null
 
   SCORE="$(jqv "$WORK/review.json" .score)"
