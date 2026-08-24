@@ -199,6 +199,25 @@ button{font-family:inherit}
   .title-stage *,.title-stage *::before,.title-stage *::after{
     animation-duration:1ms !important;animation-iteration-count:1 !important;scroll-behavior:auto !important}
 }
+
+/* ── 가로 우선: 레인·매트·밴드 5칸을 전폭으로. 좌우 앰비언트 여백 금지 ── */
+html.land #hud{left:0;transform:none;width:100%;max-width:none;padding-left:20px;padding-right:20px}
+html.land #panel{left:0;transform:none;width:100%;max-width:none;
+  padding:8px 20px max(8px,env(safe-area-inset-bottom))}
+html.land #pTitle{font-size:clamp(15px,2.1vw,18px);margin-bottom:1px}
+html.land #pSub{font-size:12px;margin-bottom:6px;min-height:14px}
+html.land .opt{min-height:56px}
+html.land #pChoices.deck .opt{min-height:60px}
+html.land .opt.reason{min-height:48px}
+html.land #pChoices.reasons{grid-template-columns:repeat(2,1fr)}
+html.land .bigbtn{min-height:52px;margin-top:4px;font-size:18px}
+html.land #overCard{max-width:440px}
+@media (max-height:520px){
+  html.land .chip{height:34px;font-size:13px}
+  html.land .opt{min-height:48px}
+  html.land #pChoices.deck .opt{min-height:52px}
+  html.land .iconbtn{width:40px;height:40px}
+}
 </style>
 </head>
 <body>
@@ -839,11 +858,15 @@ function resize(){
     cv.height = nh;
   }
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  /* 가로는 1280×800 1기준(수영장·레인·매트·밴드 전폭). 세로는 기존 560 단 유지 — 회귀 금지. */
+  var land = VW >= VH;
+  document.documentElement.classList.toggle('land', land);
   var hudH = (elHud.offsetHeight || 56);
   var panH = (elPanel.offsetHeight || 150);
-  var fw = Math.min(VW - 16, 560);
+  var pad = land ? Math.max(28, Math.min(48, VW * 0.028)) : 8;
+  var fw = land ? (VW - 2 * pad) : Math.min(VW - 16, 560);
   LO = {
-    w: VW, h: VH,
+    w: VW, h: VH, land: land,
     fx: (VW - fw)/2, fw: fw,
     top: hudH + 8,
     bot: VH - panH - 6
@@ -1510,8 +1533,14 @@ function slabH(){
   var n = st.h.length + (st.variant === 'missing' ? 1 : 0);
   var lw = (LO.fw - 16 - 7*(n-1)) / n;                 // 레인 폭 (킥판이 널빤지처럼 보이는 비율 유지)
   var g = vGrow();
-  var cap = Math.min(46 + 32 * g, lw * (0.50 + 0.06 * g));
+  var thick = (LO.land ? 58 : 46) + 32 * g;
+  var cap = Math.min(thick, lw * (0.50 + 0.06 * g));
   return Math.max(9, Math.min(cap, avail / mx));
+}
+/** 킥판 가로폭. 가로는 레인 칸을 거의 채워 비교 구조가 전폭이 되게 한다. */
+function slabW(slotW, sh){
+  if(LO.land) return Math.min(slotW * 0.90, sh * 9);
+  return Math.min(slotW, sh * 3.1);
 }
 function yOf(v){ return LO.deckY - v * slabH(); }
 function laneLayout(){
@@ -1534,11 +1563,12 @@ function laneLayout(){
 function chanceContentH(){
   var st = S.stage;
   var g = vGrow();
+  var land = LO.land ? 1 : 0;
   var head = chanceHead();
-  var matH = Math.round(16 + 26 * g);
-  var scale = Math.round(40 + 28 * g);
-  var strip = Math.round(24 + 16 * g);
-  var bottom = Math.round(96 + 120 * g);
+  var matH = Math.round(16 + 26 * g + 22 * land);
+  var scale = Math.round(40 + 28 * g + 8 * land);
+  var strip = Math.round(24 + 16 * g + 10 * land);
+  var bottom = Math.round(96 + 120 * g + 40 * land);
   if(st && (st.step === 'rain' || st.step === 'result')) bottom = Math.round(124 + 90 * g);
   else if(st && st.step === 'pre') bottom = Math.round(64 + 50 * g);
   return 12 + strip + 6 + scale + 6 + head + matH + 8 + 4 + bottom + 10;
@@ -1547,18 +1577,21 @@ function applyStageCeil(){
   var st = S.stage;
   S.deckWant = 0;
   S.ceilWant = 0;
-  if(!st){ resize(); return; }
+  resize();                                 // 현재 판형(land/fw/패널높이)을 먼저 맞춘다
+  if(!st){ return; }
   var avail = (LO.bot - 16) - LO.ceilMin;
   if(avail < 160) avail = 160;
   var g = vGrow();
   if(st.type === 'mean'){
     var n = st.h.length + (st.variant === 'missing' ? 1 : 0);
     var lw = (LO.fw - 16 - 7*(n-1)) / n;
-    var cap = Math.min(46 + 32 * g, lw * (0.50 + 0.06 * g));
+    var thick = (LO.land ? 58 : 46) + 32 * g;
+    var cap = Math.min(thick, lw * (0.50 + 0.06 * g));
     var mx = Math.max(maxOf(st.h), st.target, meanTickMax(st), 1) + 1.5;
     var need = cap * mx + 36;
     var box = Math.min(avail, Math.max(170, need));
     if(g > 0) box = Math.min(avail, Math.max(box, Math.round(avail * (0.78 + 0.14 * g))));
+    if(LO.land) box = Math.min(avail, Math.max(box, Math.round(avail * 0.90)));
     var slack = Math.max(0, avail - box);
     S.ceilWant = LO.ceilMin + slack * 0.22;
     S.deckWant = S.ceilWant + box;
@@ -1566,6 +1599,7 @@ function applyStageCeil(){
     var need = chanceContentH();
     var box = Math.min(avail, Math.max(220, need));
     if(g > 0) box = Math.min(avail, Math.max(box, Math.round(avail * (0.82 + 0.12 * g))));
+    if(LO.land) box = Math.min(avail, Math.max(box, Math.round(avail * 0.88)));
     var slack = Math.max(0, avail - box);
     S.ceilWant = LO.ceilMin + slack * (0.10 + 0.04 * g);
     S.deckWant = S.ceilWant + box;
@@ -1588,13 +1622,14 @@ function slotAt(x, y){
 }
 function chanceZones(){
   var g = vGrow();
+  var land = LO.land ? 1 : 0;
   var stripY = LO.ceil + 12;
-  var stripH = Math.round(24 + 16 * g);
-  var scaleH = Math.round(40 + 28 * g);
+  var stripH = Math.round(24 + 16 * g + 10 * land);
+  var scaleH = Math.round(40 + 28 * g + 8 * land);
   var scaleY = stripY + stripH + 6;
   var head = chanceHead();
   var duckTop = scaleY + scaleH + 6;
-  var matH = Math.round(16 + 26 * g);
+  var matH = Math.round(16 + 26 * g + 22 * land);
   var matY = duckTop + head;
   var labelH = 8;
   var restTop = matY + matH + labelH + 4;
@@ -1624,6 +1659,7 @@ function duckSize(){
   var wide = Math.max(16, Math.min(36, (LO.fw - 24) / 12));
   var g = vGrow();
   if(g > 0) wide = Math.min(52, wide * (1 + 0.55 * g));
+  if(LO.land) wide = Math.max(wide, Math.min(46, (LO.fw - 24) / 18));
   return wide;
 }
 function bandGeom(){
@@ -1631,7 +1667,7 @@ function bandGeom(){
   var n = 5, pad = 8, gap = 5;
   var g = Z.grow || vGrow();
   var bw = (LO.fw - 2*pad - gap*(n-1)) / n;
-  var maxH = Math.round(88 + 110 * g);
+  var maxH = Math.round(88 + 110 * g + (LO.land ? 48 : 0));
   var pondMin = g > 0 ? Math.round(Math.min(300, Z.restH * 0.40)) : 0;
   var bh = Math.max(56, Math.min(maxH, Z.restH - 6 - pondMin));
   var y = (g > 0) ? Z.restTop + 2 : Z.restTop + Math.max(0, (Z.restH - bh) * 0.5);
@@ -2226,7 +2262,7 @@ function drawMeanScene(){
   // 레인
   for(var i=0;i<L.slots.length;i++){
     var s = L.slots[i];
-    var w = Math.min(s.w, sh * 3.1);
+    var w = slabW(s.w, sh);
     if(s.reserve){
       var show = Math.min(st.reserve, 8);
       ctx.save();
@@ -2317,7 +2353,7 @@ function drawMeanScene(){
     badge(ctx, '평균 ' + st.target + '장', LO.fx + LO.fw/2, yl - 34, 26, 'rgba(255,255,255,.94)', '#0A4D6E');
   }
   // 날아가는 슬래브 / 손에 든 슬래브
-  var cw = Math.min(L.lw, sh*3.1);
+  var cw = slabW(L.lw, sh);
   for(var f=0;f<flyers.length;f++){
     var fl = flyers[f];
     var fn = Math.min(fl.n || 1, 6);
@@ -2491,7 +2527,7 @@ function drawChanceScene(){
     var gV = Z.grow || vGrow();
     var cy = Z.restTop + 4;
     var cardH = Math.max(40, Math.min(64 + 50 * gV, Z.restH * 0.36));
-    var cw = Math.min(170, (bw - 12) / 2);
+    var cw = LO.land ? Math.min(420, (bw - 16) / 2) : Math.min(170, (bw - 12) / 2);
     var gap = 12;
     var cx0 = bx + (bw - (cw * 2 + gap)) / 2;
     function card(x, title, value, sub, accent){
