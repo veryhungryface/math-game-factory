@@ -75,15 +75,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1C2422;color:var(--
 .vbadge .k{display:block;font-size:11px;font-weight:800;color:#1F6F68}
 .vbadge .n{display:block;font-size:clamp(18px,5.2vw,26px);font-weight:900;color:#1C2422;
   font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1.1}
-.vbadge.hot{background:#F2C14E;border-color:#E24A2A;animation:nowPulse 0.7s ease-in-out infinite}
 .vbadge.pick{border-color:#E24A2A;box-shadow:0 3px 0 #7a2414}
 .vbadge.goal{background:#fff1b8}
-.vbadge.goal .n{font-size:clamp(18px,5.2vw,26px);color:#E24A2A}
+.vbadge.goal .n{font-size:clamp(16px,4.6vw,22px);color:#E24A2A}
 .vbadge.ghost{opacity:.72;border-style:dashed;background:rgba(226,74,42,.12)}
-@keyframes nowPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-#nowLab{margin-top:4px;text-align:center;font-weight:900;font-size:16px;color:#1F6F68;
-  text-shadow:0 1px 0 #fff;opacity:0}
+#nowLab{margin-top:4px;text-align:center;font-weight:900;font-size:15px;color:#5a7a86;
+  text-shadow:0 1px 0 #fff;opacity:0;pointer-events:none}
 #nowLab.on{opacity:1}
+#coolBar{height:6px;border-radius:99px;background:rgba(28,36,34,.18);margin-top:4px;overflow:hidden;display:none}
+#coolBar.on{display:block}
+#coolBar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7aa0aa,#cfe4ea);border-radius:99px}
 
 #ctrl{position:fixed;left:var(--colX);width:var(--colW);bottom:0;z-index:4;
   padding:8px 10px calc(10px + var(--safeB));display:flex;flex-direction:column;gap:7px}
@@ -105,8 +106,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1C2422;color:var(--
 .btn:active{transform:translateY(4px);box-shadow:0 0 0 #1C2422}
 .btn.sm{flex:0 0 56px;min-width:56px;font-size:22px}
 .btn.go{flex:1}
-.btn.pulse{animation:pls 1.4s ease-in-out infinite}
-@keyframes pls{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+.btn.go:disabled,.mode:disabled,.btn.sm:disabled{opacity:.45;cursor:default;transform:none}
 
 #reasons{position:fixed;left:var(--colX);width:var(--colW);bottom:0;z-index:6;
   padding:8px 10px calc(12px + var(--safeB));display:flex;flex-direction:column;gap:7px}
@@ -308,7 +308,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1C2422;color:var(--
   .title-cta-zone{gap:5px}
 }
 @media (prefers-reduced-motion:reduce){
-  .game-logo>span:not(.logo-gap),.game-subtitle,.title-art__image,.title-start,.title-dust i,.btn.pulse,.vbadge.hot{
+  .game-logo>span:not(.logo-gap),.game-subtitle,.title-art__image,.title-start,.title-dust i{
     animation:none}
   #praise.on{transition-duration:0s}
 }
@@ -340,9 +340,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1C2422;color:var(--
   <div class="vrow">
     <div class="vbadge" id="vbR"><span class="k">반지름</span><span class="n" id="vnR">0 cm</span></div>
     <div class="vbadge" id="vbD"><span class="k">지름</span><span class="n" id="vnD">0 cm</span></div>
-    <div class="vbadge goal" id="vbGoal"><span class="k" id="vkGoal">목표</span><span class="n" id="vnGoal">0</span></div>
+    <div class="vbadge goal" id="vbGoal"><span class="k" id="vkGoal">주어진 수</span><span class="n" id="vnGoal">0</span></div>
   </div>
-  <div id="nowLab">지금이야!</div>
+  <div id="nowLab">등잔이 식는 중…</div>
+  <div id="coolBar"><i id="coolFill"></i></div>
 </div>
 
 <div id="ctrl" class="hidden">
@@ -352,7 +353,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1C2422;color:var(--
   </div>
   <div class="bar">
     <button class="btn sm" id="minusBtn" type="button" aria-label="반지름 줄이기">−</button>
-    <button class="btn go pulse" id="goBtn" type="button">등불 켜기</button>
+    <button class="btn go" id="goBtn" type="button">등불 켜기</button>
     <button class="btn sm" id="plusBtn" type="button" aria-label="반지름 키우기">+</button>
   </div>
 </div>
@@ -658,15 +659,17 @@ function makeTask(slot){
     kind:slot.kind, sub:slot.sub||'', r0:r, d, C, A,
     rTarget:r, modeTarget:'rim', given:slot.given||'d',
     ghosts:[], prompt:'', targetH:C, targetUnit:'cm',
-    unitConcept:'원주 = 지름 × 원주율', formulaMine:'', formulaGood:'',
-    missLine:''
+    unitConcept:'원주 = 지름 × 원주율', formulaMine:'', formulaGood:'', formulaHint:'',
+    givenLabel:'', missLine:''
   };
   if(slot.kind==='rim'){
     T.modeTarget='rim'; T.rTarget=r; T.targetH=C; T.targetUnit='cm';
     T.prompt = T.given==='d'
       ? '지름이 <b>'+fmtCm(d)+'</b>인 연못 길이야. <b>줄</b>로 막아 줘!'
       : '반지름이 <b>'+fmtCm(r)+'</b>인 길을 <b>줄</b>로 막아 줘!';
+    T.formulaHint='둘레 = 지름 × 약 3.14';
     T.formulaGood='둘레 = 지름 × 약 3.14  →  '+fmtCm(d)+' × 약 3.14 = '+fmtLen(C);
+    T.givenLabel = T.given==='d' ? '지름 '+fmtCm(d) : '반지름 '+fmtCm(r);
     T.unitConcept='원주 = 지름 × 원주율';
     if(slot.ghosts.includes('GHOST_D_AS_R'))
       T.ghosts.push({misconceptionId:'GHOST_D_AS_R', r:d, h:(2*d)*PI100, label:'지름을 반지름처럼'});
@@ -675,7 +678,9 @@ function makeTask(slot){
   } else if(slot.kind==='fill'){
     T.modeTarget='fill'; T.rTarget=r; T.targetH=A; T.targetUnit='cm²';
     T.prompt='반지름이 <b>'+fmtCm(r)+'</b>인 꽃밭이야. <b>기름 칸</b>으로 채워 줘!';
+    T.formulaHint='넓이 = 반지름 × 반지름 × 약 3.14';
     T.formulaGood='넓이 = 반지름 × 반지름 × 약 3.14  →  '+r+' × '+r+' × 약 3.14 = '+fmtArea(A);
+    T.givenLabel='반지름 '+fmtCm(r);
     T.unitConcept='원의 넓이 = 반지름 × 반지름 × 원주율';
     // GHOST_R_TIMES_TWO: A_ghost = r*2*314 (= C). 칸 카운터 자석
     T.ghosts.push({misconceptionId:'GHOST_R_TIMES_TWO', r:null, h:r*2*PI100, label:'반지름×2'});
@@ -687,13 +692,17 @@ function makeTask(slot){
     if(slot.sub==='rim'){
       T.modeTarget='rim'; T.rTarget=R; T.targetH=C100(R); T.targetUnit='cm';
       T.prompt='지금 등잔(반지름 <b>'+fmtCm(r)+'</b>)의 <b>줄만 2배</b>로 켜 줘!';
+      T.formulaHint='줄은 2배 → 반지름도 2배';
       T.formulaGood='줄은 2배 → 반지름도 2배. 둘레 = '+fmtCm(2*R)+' × 약 3.14 = '+fmtLen(C100(R));
+      T.givenLabel='지금 반지름 '+fmtCm(r)+' → 2배';
       T.unitConcept='원주 = 지름 × 원주율';
       T.ghosts.push({misconceptionId:'GHOST_D_AS_R', r:2*R, h:C100(2*R), label:'지름을 또 두 배'});
     } else {
       T.modeTarget='fill'; T.rTarget=R; T.targetH=A100(R); T.targetUnit='cm²';
       T.prompt='지금 등잔(반지름 <b>'+fmtCm(r)+'</b>)의 <b>기름을 4배</b>로 켜 줘!';
+      T.formulaHint='반지름 2배면 칸은 4배';
       T.formulaGood='반지름 2배면 칸은 4배. '+fmtArea(A)+' × 4 = '+fmtArea(A100(R));
+      T.givenLabel='지금 반지름 '+fmtCm(r)+' → 2배';
       T.unitConcept='반지름이 2배면 넓이는 4배';
       T.ghosts.push({misconceptionId:'GHOST_LINEAR_AREA', r:null, h:2*A, label:'넓이도 2배', stacked:true});
     }
@@ -701,7 +710,9 @@ function makeTask(slot){
   } else {
     T.modeTarget='fill'; T.rTarget=r; T.targetH=remain100(r); T.targetUnit='cm²';
     T.prompt='한 변이 <b>'+fmtCm(d)+'</b>인 꽃밭에서 내접 등잔을 켜고 <b>남은 그늘 칸</b>을 맞춰 줘!';
+    T.formulaHint='정사각형 넓이에서 원의 넓이를 빼요';
     T.formulaGood='정사각형 − 원 = '+fmtCm(d)+' × '+fmtCm(d)+' − '+fmtArea(A)+' = '+fmtArea(remain100(r));
+    T.givenLabel='한 변 '+fmtCm(d);
     T.unitConcept='색칠한 부분의 넓이';
     T.square=d;
     T.ghosts.push({misconceptionId:'GHOST_NO_SUB', r:null, h:d*d*100, label:'원을 안 뺌'});
@@ -846,9 +857,11 @@ const S = {
   task:null, queue:[], qIdx:0, missOnTask:0, hard:false,
   sprint:false, sprintT:0, pierStars:[0,0,0,0,0], unlocked:1,
   dragging:false, dragMode:null, trail:[], parts:[], mist:[], moths:[], ripples:[],
-  now:false, praiseT:0, praise:'', lockInput:false, firstMissHint:true,
+  praiseT:0, praise:'', lockInput:false, firstMissHint:true,
   land:false, px:18, lx:0, ly:0, play:{x:0,y:0,w:0,h:0},
-  stageX:0, stageW:0, revealGhost:null, lastPtr:null
+  stageX:0, stageW:0, revealGhost:null, lastPtr:null,
+  coolT:0, coolMax:0, pendingReplace:false, burned:0,
+  penaltyMs:0, testFast:false, actions:0
 };
 
 function comboMul(c){ return c>=4?5:c>=3?3:c>=2?2:1; }
@@ -1007,6 +1020,8 @@ function beginPlay(level, sprint){
   S.phase='playing'; S.level=level; S.sprint=!!sprint;
   S.sprintT = sprint?30:0;
   S.lockInput=false; S.mode=null; S.missOnTask=0;
+  S.coolT=0; S.coolMax=0; S.pendingReplace=false; S.burned=0;
+  if(!S.testFast){ S.penaltyMs=0; S.actions=0; }
   if(!sprint){
     S.lives=3; S.combo=0; S.solved=0; S.score=0; S.showScore=0;
   }
@@ -1023,24 +1038,110 @@ function nextTask(){
   }
   const slot=S.queue[S.qIdx];
   S.task=makeTask(slot);
-  S.mode=null; S.missOnTask=0; S.lockInput=false; S.now=false;
-  S.revealGhost=null;
-  S.rFloat = S.task.rTarget===3?6:3;
-  if(S.task.rTarget===S.rFloat) S.rFloat=4;
-  S.rVis=S.rFloat; S.trail=[]; S.ripples=[];
+  S.mode=null; S.missOnTask=0; S.lockInput=false;
+  S.revealGhost=null; S.pendingReplace=false; S.coolT=0; S.coolMax=0;
+  resetRadiusFar();
+  S.trail=[]; S.ripples=[];
   placeMoths(S.task);
-  $('sayCard').innerHTML = S.task.prompt + '<span class="sub">테두리를 끌면 줄 · 중심을 밀면 기름</span>';
-  $('fRim').classList.toggle('on', S.task.modeTarget==='rim');
-  $('fFill').classList.toggle('on', S.task.modeTarget==='fill');
+  $('sayCard').innerHTML = S.task.prompt + '<span class="sub">테두리를 끌면 줄 · 중심을 밀면 기름 · 계산한 뒤 등불 켜기</span>';
+  $('fRim').classList.remove('on');
+  $('fFill').classList.remove('on');
   updateModeBtns();
   updateValues();
+  setCtrlLocked(false);
   $('reasons').classList.add('hidden');
   $('ctrl').classList.remove('hidden');
+  hideCoolUI();
 }
 
 function updateModeBtns(){
   $('modeRim').classList.toggle('on', S.mode==='rim');
   $('modeFill').classList.toggle('on', S.mode==='fill');
+  $('fRim').classList.toggle('on', S.mode==='rim');
+  $('fFill').classList.toggle('on', S.mode==='fill');
+}
+
+function resetRadiusFar(){
+  if(!S.task){ S.rFloat=3; S.rVis=3; return; }
+  const t=S.task.rTarget;
+  S.rFloat = t<=8 ? 16 : 1;
+  if(S.rFloat===t) S.rFloat = t>=8 ? 1 : 16;
+  S.rVis=S.rFloat;
+}
+
+function hideCoolUI(){
+  const lab=$('nowLab'); if(lab) lab.classList.remove('on');
+  const bar=$('coolBar'); if(bar) bar.classList.remove('on');
+}
+function setCtrlLocked(on){
+  ['goBtn','minusBtn','plusBtn','modeRim','modeFill'].forEach(id=>{
+    const el=$(id); if(el) el.disabled=!!on;
+  });
+}
+function startCool(sec){
+  S.penaltyMs += Math.round(sec*1000);
+  if(S.testFast){ S.coolT=0; S.coolMax=0; return; }
+  S.coolT=sec; S.coolMax=sec; S.lockInput=true;
+  setCtrlLocked(true);
+  const lab=$('nowLab');
+  if(lab){ lab.textContent='등잔이 식는 중…'; lab.classList.add('on'); }
+  const bar=$('coolBar'); if(bar) bar.classList.add('on');
+  const n=RM?4:8;
+  for(let i=0;i<n;i++){
+    S.parts.push({kind:'steam',x:S.lx+(Math.random()-0.5)*28,y:S.ly-8,
+      vx:(Math.random()-0.5)*14,vy:-36-Math.random()*40,
+      life:0.55+Math.random()*0.45,t:0,r:5+Math.random()*8,c:'rgba(190,214,220,0.55)'});
+  }
+}
+function endCool(){
+  S.coolT=0; S.coolMax=0;
+  hideCoolUI();
+  const cmp=$('compare');
+  const blocked=cmp && !cmp.classList.contains('hidden');
+  if(S.phase==='playing' && !blocked){
+    S.lockInput=false;
+    setCtrlLocked(false);
+  }
+}
+
+function isomorphicSlot(task){
+  if(!task) return PLAY_SLOTS[0];
+  const same=PLAY_SLOTS.filter(s=>s.level===S.level && s.kind===task.kind
+    && (s.sub||'')===(task.sub||'') && s.r!==task.r0);
+  if(same.length) return same[Math.floor(RNG()*same.length)];
+  const lv=PLAY_SLOTS.filter(s=>s.level===S.level && s.r!==task.r0);
+  if(lv.length) return lv[Math.floor(RNG()*lv.length)];
+  const rs=[2,3,4,5,10].filter(x=>x!==task.r0);
+  return {level:S.level, kind:task.kind, sub:task.sub, r:rs[0]||((task.r0%10)+1),
+    given:task.given||'d', ghosts:[]};
+}
+function applyTask(slot){
+  S.task=makeTask(slot);
+  S.mode=null; S.missOnTask=0;
+  S.revealGhost=null; S.pendingReplace=false;
+  resetRadiusFar();
+  S.trail=[]; S.ripples=[];
+  placeMoths(S.task);
+  $('sayCard').innerHTML = S.task.prompt + '<span class="sub">테두리를 끌면 줄 · 중심을 밀면 기름 · 계산한 뒤 등불 켜기</span>';
+  updateModeBtns();
+  updateValues();
+  if(S.coolT>0){
+    S.lockInput=true;
+    setCtrlLocked(true);
+    const lab=$('nowLab');
+    if(lab){ lab.textContent='등잔이 식는 중…'; lab.classList.add('on'); }
+    const bar=$('coolBar'); if(bar) bar.classList.add('on');
+  } else {
+    S.lockInput=false;
+    setCtrlLocked(false);
+    hideCoolUI();
+  }
+}
+function replaceIsomorphic(){
+  const old=S.task;
+  S.burned++;
+  applyTask(isomorphicSlot(old));
+  toast('같은 종류의 새 등잔이야. 이번엔 계산해서 켜 줘!', 'bad');
 }
 
 function currentH(){
@@ -1064,32 +1165,28 @@ function updateValues(){
   const aH = T.kind==='remain' ? Math.max(0, T.square*T.square*100 - A100(r)) : A100(r);
   $('vnA').textContent=fmtArea(aH);
   $('vkA').textContent = T.kind==='remain'?'지금 그늘 칸':'지금 칸';
-  $('vkGoal').textContent = T.modeTarget==='rim'?'목표 줄': T.kind==='remain'?'목표 그늘 칸':'목표 칸';
-  $('vnGoal').textContent = T.targetUnit==='cm'?fmtLen(T.targetH):fmtArea(T.targetH);
-  const matchR = r===T.rTarget;
-  const hotC = S.mode==='rim' && T.modeTarget==='rim' && matchR;
-  const hotA = S.mode==='fill' && T.modeTarget==='fill' && matchR;
-  $('vbC').classList.toggle('hot', hotC);
+  $('vkGoal').textContent = '주어진 수';
+  $('vnGoal').textContent = T.givenLabel || (T.modeTarget==='rim'?'줄로 막아':'칸으로 채워');
+  $('vbC').classList.remove('hot');
+  $('vbA').classList.remove('hot');
   $('vbC').classList.toggle('pick', S.mode==='rim');
-  $('vbA').classList.toggle('hot', hotA);
   $('vbA').classList.toggle('pick', S.mode==='fill');
-  S.now = (hotC || hotA);
-  $('nowLab').classList.toggle('on', S.now);
-  $('goBtn').classList.toggle('pulse', S.now);
 }
 
 function setMode(m){
+  if(S.lockInput || S.coolT>0) return;
   S.mode=m; updateModeBtns(); updateValues(); sfxTick();
 }
 
 function nudge(dr){
+  if(S.lockInput || S.coolT>0) return;
   S.rFloat = clamp(Math.round(S.rFloat)+dr, 1, 16);
   S.rVis=S.rFloat; squash(1.08, 0.92); sfxTick(); updateValues();
 }
 
 function confirmLight(fromTest, forceOk){
   if(S.phase!=='playing' && !fromTest) return;
-  if(S.lockInput && !fromTest) return;
+  if((S.lockInput || S.coolT>0) && !fromTest && !S.testFast) return;
   const task=S.task;
   if(!task){ return; }
   if(!fromTest && !forceOk && !S.mode){
@@ -1097,6 +1194,7 @@ function confirmLight(fromTest, forceOk){
     squash(1.08, 0.94);
     return;
   }
+  S.actions++;
   const rInt=Math.round(S.rFloat);
   const ok = forceOk || (S.mode===task.modeTarget && rInt===task.rTarget);
   if(ok) applyCorrect(fromTest);
@@ -1115,6 +1213,7 @@ function applyCorrect(fromTest){
   S.solved++;
   if(S.lives<3) S.lives++;
   S.lockInput=true;
+  setCtrlLocked(true);
   S.rFloat=task?task.rTarget:S.rFloat; S.rVis=S.rFloat;
   if(task) S.mode=task.modeTarget;
   setScoreUI(); punchScore();
@@ -1143,13 +1242,18 @@ function applyCorrect(fromTest){
   if(S.score>best) localStorage.setItem(LS_BEST, String(S.score));
   if(S.bestCombo>Number(localStorage.getItem(LS_COMBO)||0)) localStorage.setItem(LS_COMBO, String(S.bestCombo));
 
-  if(S.sprint || fromTest){
-    setTimeout(()=>{ S.qIdx++; S.lockInput=false; if(S.phase==='playing') nextTask(); }, fromTest?30:650);
+  if(S.testFast || fromTest){
+    S.qIdx++; S.lockInput=false; setCtrlLocked(false);
+    if(S.phase==='playing') nextTask();
+    return;
+  }
+  if(S.sprint){
+    setTimeout(()=>{ S.qIdx++; S.lockInput=false; setCtrlLocked(false); if(S.phase==='playing') nextTask(); }, 650);
     return;
   }
   // 첫 정답만 이유 칩. 루프가 끊기지 않게 이후는 바로 다음 등잔.
   if(S.solved<=1) setTimeout(()=>showReasons(), 480);
-  else setTimeout(()=>{ S.qIdx++; S.lockInput=false; if(S.phase==='playing') nextTask(); }, 620);
+  else setTimeout(()=>{ S.qIdx++; S.lockInput=false; setCtrlLocked(false); if(S.phase==='playing') nextTask(); }, 620);
 }
 
 function applyWrong(fromTest){
@@ -1157,8 +1261,14 @@ function applyWrong(fromTest){
   const rInt=Math.round(S.rFloat);
   const diag=task?diagnose(task, S.mode, rInt):{misconceptionId:'MISS', line:'빗나감', mine:'?', good:'?'};
   S.combo=0;
-  S.lives=Math.max(0, S.lives-1);
   S.missOnTask++;
+  const close = !!(task && S.mode===task.modeTarget && Math.abs(rInt-task.rTarget)<=1);
+  const sizeOkWrongMode = !!(task && rInt===task.rTarget && S.mode!==task.modeTarget);
+  const keepSize = close || sizeOkWrongMode;
+  // QA 훅(answerWrong): 항상 목숨이 줄어야 상태 변화가 보인다.
+  // 실제 플레이: 1차는 경고만, 2차부터 목숨.
+  const takeLife = (fromTest && !S.testFast) || S.missOnTask>=2 || S.hard || S.sprint;
+  if(takeLife) S.lives=Math.max(0, S.lives-1);
   setScoreUI();
   shake(S.missOnTask>=2?10:6);
   flash('#E24A2A', 0.32);
@@ -1168,59 +1278,93 @@ function applyWrong(fromTest){
   praise('');
   $('comboP').classList.remove('on');
 
-  if(fromTest){
+  if(fromTest && !S.testFast){
     if(S.lives<=0) gameOver(false);
     return;
   }
-  if(S.sprint){
-    toast('콤보가 끊겼어. 다시 켜 봐!', 'bad');
-    S.lockInput=false;
-    showCompare(diag, true);
-    return;
-  }
-  // 기본(쉬움): 목숨이 깎여도 판이 끝나지 않는다.
-  // 1차=힌트, 2차=정답 고스트만 공개. 점수·solved·진행은 직접 맞춰야 지급.
-  if(!S.hard){
-    if(S.lives<=0){ S.lives=1; setScoreUI(); }
-    if(S.missOnTask===1 && task && S.mode===task.modeTarget && Math.abs(rInt-task.rTarget)<=1){
-      S.lives=Math.min(3, S.lives+1);
-      setScoreUI();
-      toast('거의 맞았어. 1 cm만 더 맞춰 봐!', 'bad');
-      S.lockInput=false;
+
+  const cool = S.missOnTask>=3 ? 1.6 : S.missOnTask===2 ? 1.2 : (close?0.55:0.85);
+
+  // 3회째 오답: 정답 크기 공개 후 점수·진행 없이 동형 문제로 교체.
+  if(S.missOnTask>=3 && task){
+    S.revealGhost={r:task.rTarget, mode:task.modeTarget};
+    S.pendingReplace=true;
+    startCool(cool);
+    if(S.testFast){
+      if(S.lives<=0){ gameOver(false); return; }
+      replaceIsomorphic();
       return;
     }
-    if(S.missOnTask>=2 && task){
-      S.revealGhost={r:task.rTarget, mode:task.modeTarget};
-      showCompare(diag, true);
-      toast('정답 크기는 점선이야. 줄/기름과 반지름을 직접 맞춰 켜 줘!', 'bad');
-      return;
+    showCompare(diag, true, true);
+    toast('세 번 빗나갔어. 정답을 보고 새 등잔으로!', 'bad');
+    if(S.lives<=0){
+      $('retryBtn').textContent='등불이 꺼졌어요';
     }
-    showCompare(diag, true);
     return;
   }
-  showCompare(diag, true);
-  if(S.hard && S.lives<=0) gameOver(false);
+
+  if(!keepSize) resetRadiusFar();
+  startCool(cool);
+  updateValues();
+
+  if(S.missOnTask===1 && close){
+    toast('거의 맞았어. 1 cm만 더 맞춰 봐!', 'bad');
+    if(S.testFast){ S.lockInput=false; setCtrlLocked(false); }
+    return;
+  }
+  if(S.missOnTask===1){
+    toast(sizeOkWrongMode ? '크기는 맞았어. 줄/기름만 다시 골라 봐!' : '빗나감! 식을 다시 생각해 봐.', 'bad');
+    if(S.testFast){ S.lockInput=false; setCtrlLocked(false); }
+    return;
+  }
+
+  // 2차: 방법(식)만 보여 주고 숫자는 숨김. 같은 등잔 재시도.
+  if(S.testFast){
+    S.lockInput=false; setCtrlLocked(false);
+    if(S.lives<=0) gameOver(false);
+    return;
+  }
+  showCompare(diag, true, false);
+  if(S.sprint) toast('콤보가 끊겼어. 다시 켜 봐!', 'bad');
+  if(S.lives<=0) gameOver(false);
 }
 
 function closeCompareRetry(){
   const cmp=$('compare');
   cmp.classList.add('hidden'); cmp.style.display='none';
-  S.lockInput=false;
-  if(S.hard && S.lives<=0){ gameOver(false); return; }
-  S.rFloat = S.task && S.task.rTarget===3?6:3;
-  if(S.task && S.task.rTarget===S.rFloat) S.rFloat=4;
-  S.rVis=S.rFloat; S.mode=null; S.now=false;
+  const burn=S.pendingReplace;
+  const dead=S.lives<=0;
+  if(dead){ gameOver(false); return; }
+  if(burn){ replaceIsomorphic(); return; }
+  if(!S.task) return;
+  S.mode=null;
+  if(S.missOnTask>=1) resetRadiusFar();
+  S.rVis=S.rFloat;
   updateModeBtns(); updateValues();
+  if(S.coolT>0){
+    S.lockInput=true;
+    setCtrlLocked(true);
+  } else {
+    S.lockInput=false;
+    setCtrlLocked(false);
+    hideCoolUI();
+  }
 }
-function showCompare(diag, keepPlaying){
+function showCompare(diag, keepPlaying, revealAnswer){
+  const showFull=!!revealAnswer;
   $('eqMine').textContent='내가 켠 식: '+(diag.mine||'');
-  $('eqGood').textContent='맞는 식: '+(diag.good|| (S.task&&S.task.formulaGood)||'');
-  const extra = S.revealGhost
-    ? ' 점선 원이 정답 크기야. 줄/기름을 고르고 반지름을 직접 맞춰 켜 줘.'
-    : '';
+  const hint=(S.task && S.task.formulaHint) || '둘레 = 지름 × 약 3.14  /  넓이 = 반지름 × 반지름 × 약 3.14';
+  $('eqGood').textContent = showFull
+    ? ('맞는 식: '+(diag.good || (S.task && S.task.formulaGood) || hint))
+    : ('쓰는 식: '+hint+'  (숫자는 네가 계산해 줘)');
+  const extra = showFull
+    ? ' 점선 원이 정답 크기야. 점수·진행은 없고 같은 종류의 새 등잔으로 바뀌어.'
+    : ' 한 번 더 직접 맞춰 켜 봐. 세 번 빗나가면 이 등잔은 꺼져.';
   $('eqWhy').textContent=(diag.line||'')+extra;
   const cmp=$('compare'); cmp.classList.remove('hidden'); cmp.style.display='flex';
   S.lockInput=true;
+  setCtrlLocked(true);
+  $('retryBtn').textContent = showFull ? '새 등잔으로' : '내가 다시 켤게';
   $('retryBtn').onclick=()=>{
     closeCompareRetry();
     if(!keepPlaying && S.lives<=0){ gameOver(false); }
@@ -1267,6 +1411,10 @@ function pickReason(btn, ch, chips){
 
 function finishDock(){
   const lv=S.level;
+  if(S.solved < S.queue.length){
+    gameOver(false);
+    return;
+  }
   S.pierStars[lv-1]=Math.max(S.pierStars[lv-1], S.combo>=5?3:S.combo>=2?2:1);
   S.unlocked=Math.max(S.unlocked, lv+1);
   try{ localStorage.setItem(LS_CLEAR, JSON.stringify({unlocked:S.unlocked, stars:S.pierStars})); }catch(e){}
@@ -1277,6 +1425,7 @@ function finishDock(){
   }
   if(lv>=5){ gameOver(true); return; }
   toast((lv)+'번 부두 점등! 다음 부두로', 'good');
+  if(S.testFast){ beginPlay(lv+1, false); return; }
   setTimeout(()=>beginPlay(lv+1, false), 700);
 }
 
@@ -1398,7 +1547,7 @@ function hitLantern(p){
 function applyDrag(p){
   let r = Math.hypot(p.x-S.lx, p.y-S.ly) / S.px;
   r = clamp(r, 1, 16);
-  // 고스트 자석 (오답 쪽으로만). 정답 자석은 '지금이야' 맥박으로만.
+  // 고스트 자석 (오답 쪽으로만). 정답 반지름에는 붙이지 않는다.
   if(S.task){
     const mag = S.hard?0.12:0.38;
     for(const g of S.task.ghosts){
@@ -1424,7 +1573,7 @@ function applyDrag(p){
 
 cv.addEventListener('pointerdown', e=>{
   if(S.phase!=='playing' && S.phase!=='onboarding') return;
-  if(S.lockInput) return;
+  if(S.lockInput || S.coolT>0) return;
   ensureAudio();
   const p=ptr(e); const h=hitLantern(p);
   if(!h) return;
@@ -1448,13 +1597,12 @@ function endDrag(e){
   squash(S.mode==='fill'?1.12:0.92, S.mode==='fill'?0.9:1.12);
   sfxSnap();
   updateValues();
-  if(S.phase==='playing' && S.now) confirmLight(false,false);
 }
 cv.addEventListener('pointerup', endDrag);
 cv.addEventListener('pointercancel', endDrag);
 
 window.addEventListener('keydown', e=>{
-  if(S.phase!=='playing'||S.lockInput) return;
+  if(S.phase!=='playing'||S.lockInput||S.coolT>0) return;
   if(e.key==='ArrowLeft'||e.key==='ArrowDown'){ nudge(-1); e.preventDefault(); }
   if(e.key==='ArrowRight'||e.key==='ArrowUp'){ nudge(1); e.preventDefault(); }
   if(e.key===' '||e.key==='Enter'){ confirmLight(false,false); e.preventDefault(); }
@@ -1664,12 +1812,24 @@ function drawLantern(){
   }
 
   // 림 히트 링 힌트
-  if(S.phase==='playing' && !S.mode){
+  if(S.phase==='playing' && !S.mode && S.coolT<=0){
     ctx.save(); ctx.translate(S.lx,S.ly);
     ctx.strokeStyle='rgba(226,74,42,0.35)'; ctx.lineWidth=10;
     ctx.beginPath(); ctx.arc(0,0,rp,0,Math.PI*2); ctx.stroke();
     ctx.fillStyle='rgba(242,193,78,0.18)';
     ctx.beginPath(); ctx.arc(0,0,rp*0.5,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  // 오답 후 식음: 등잔이 푸른 재로 식는다
+  if(S.coolT>0 && S.coolMax>0){
+    const k=clamp(S.coolT/S.coolMax,0,1);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(S.lx,S.ly,rp+2,0,Math.PI*2); ctx.clip();
+    ctx.fillStyle=`rgba(90,120,130,${0.18+0.38*k})`;
+    ctx.fillRect(S.lx-rp-4, S.ly-rp-4, rp*2+8, rp*2+8);
+    ctx.strokeStyle=`rgba(180,210,220,${0.35+0.4*k})`;
+    ctx.lineWidth=6;
+    ctx.beginPath(); ctx.arc(S.lx,S.ly,rp*0.72, -Math.PI/2, -Math.PI/2+Math.PI*2*k); ctx.stroke();
     ctx.restore();
   }
   ctx.restore();
@@ -1683,10 +1843,10 @@ function drawMoths(){
     let x,y;
     if(m.kind==='rim'){
       const a=m.ang + Math.sin(perfT*0.7+m.phase)*0.06*MO;
-      const ring=Math.min(rpx(S.task.rTarget), Math.min(S.play.w,S.play.h)*0.34);
+      const ring=Math.min(S.play.w, S.play.h)*0.28;
       x=S.lx+Math.cos(a)*ring; y=S.ly+Math.sin(a)*ring;
     } else {
-      const R=rpx(S.task.rTarget);
+      const R=Math.min(S.play.w, S.play.h)*0.16;
       x=S.lx+m.ux*R*1.4; y=S.ly+m.uy*R*1.4;
     }
     y += Math.sin(perfT*2.2+m.phase)*3*MO;
@@ -1776,6 +1936,11 @@ function drawParts(){
       ctx.fillStyle=p.c;
       ctx.fillRect(p.x, p.y, Math.max(1.2,p.r*0.65), p.r*3.4);
       ctx.restore();
+    } else if(p.kind==='steam'){
+      ctx.globalAlpha=Math.max(0,k)*0.55;
+      ctx.fillStyle='#d7e6ea';
+      ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r*(1.2-k*0.4),p.r*0.7,0,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
     } else {
       ctx.globalAlpha=Math.max(0,k);
       ctx.fillStyle=p.c;
@@ -1812,6 +1977,13 @@ function frame(now){
   if(Math.abs(S.score-S.showScore)<0.6) S.showScore=S.score;
   if($('scoreV')) $('scoreV').textContent=String(Math.round(S.showScore));
 
+  if(S.coolT>0){
+    S.coolT=Math.max(0, S.coolT-dt);
+    const fill=$('coolFill');
+    if(fill && S.coolMax>0) fill.style.width = Math.round((1-S.coolT/S.coolMax)*100)+'%';
+    if(S.coolT<=0) endCool();
+  }
+
   S.rVis += (S.rFloat - S.rVis)*Math.min(1, dt*10);
   S.sqX += (1-S.sqX)*Math.min(1, dt*8);
   S.sqY += (1-S.sqY)*Math.min(1, dt*8);
@@ -1826,6 +1998,8 @@ function frame(now){
         const dx=p.x-p.clipX, dy=p.y-p.clipY;
         if(dx*dx+dy*dy < p.clipR*p.clipR){ p.vy*=Math.pow(0.18,dt); p.vx*=Math.pow(0.25,dt); }
       }
+    } else if(p.kind==='steam'){
+      p.vy -= 18*dt;
     } else {
       p.vy+=220*dt;
     }
@@ -1878,18 +2052,46 @@ function restore(){
   }catch(e){}
 }
 
+function botFlush(){
+  const cmp=$('compare');
+  if(cmp && !cmp.classList.contains('hidden')) closeCompareRetry();
+  S.lockInput=false; S.coolT=0; S.coolMax=0;
+  setCtrlLocked(false);
+  hideCoolUI();
+}
+function botBegin(lv){
+  S.testFast=true;
+  hideAllOverlays();
+  S.score=0; S.showScore=0; S.lives=3; S.combo=0; S.solved=0; S.bestCombo=0;
+  S.hard=false; S.burned=0; S.penaltyMs=0; S.actions=0; S.pendingReplace=false;
+  beginPlay(lv, false);
+  botFlush();
+}
+function botSnap(){
+  return {
+    score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved,
+    combo:S.combo, burned:S.burned, penaltyMs:S.penaltyMs, actions:S.actions,
+    missOnTask:S.missOnTask, qIdx:S.qIdx
+  };
+}
+
 window.__GAME_TEST__ = {
   ready:false,
   start(){
     ensureAudio();
     hideAllOverlays();
+    S.testFast=false;
     S.score=0; S.showScore=0; S.lives=3; S.combo=0; S.solved=0; S.bestCombo=0;
     beginPlay(1, false);
   },
   getState(){
-    return {score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved, combo:S.combo};
+    return {
+      score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved, combo:S.combo,
+      missOnTask:S.missOnTask, coolT:S.coolT, burned:S.burned, penaltyMs:S.penaltyMs
+    };
   },
   answerCorrect(){
+    S.testFast=false;
     if(S.phase==='title'||S.phase==='map'||S.phase==='onboarding'||S.phase==='over'||S.phase==='clear'){
       beginPlay(Math.max(1,S.level||1), false);
     }
@@ -1898,6 +2100,7 @@ window.__GAME_TEST__ = {
     applyCorrect(true);
   },
   answerWrong(){
+    S.testFast=false;
     if(S.phase==='title'||S.phase==='map'||S.phase==='onboarding'){
       beginPlay(Math.max(1,S.level||1), false);
     }
@@ -1906,36 +2109,134 @@ window.__GAME_TEST__ = {
     applyWrong(true);
   },
   sampleProblems(n){ return sampleProblems(n); },
-  /* 항상 줄/항상 기름+확인 연타 봇. 클리어율 0이어야 한다. */
+  /* 항상 같은 모드·반지름 1 + 확인 연타. 진행 0이어야 한다. */
   mashBot(mode){
     const levels=[];
     let leakedAny=false, solvedSum=0;
     for(let lv=1; lv<=5; lv++){
-      hideAllOverlays();
-      S.score=0; S.showScore=0; S.lives=3; S.combo=0; S.solved=0; S.bestCombo=0; S.hard=false;
-      beginPlay(lv, false);
+      botBegin(lv);
       const startId=S.task && S.task.id;
       const startSolved=S.solved, startQ=S.qIdx;
-      for(let i=0;i<8;i++){
+      for(let i=0;i<12;i++){
         if(S.phase!=='playing' || !S.task) break;
-        S.mode=mode;
-        S.rFloat=1; S.rVis=1; S.lockInput=false;
+        S.mode=mode; S.rFloat=1; S.rVis=1;
         confirmLight(false, false);
-        const cmp=$('compare');
-        if(cmp && !cmp.classList.contains('hidden')) closeCompareRetry();
+        botFlush();
       }
-      const leaked = S.solved>startSolved || S.qIdx>startQ || S.phase==='clear';
+      const leaked = S.solved>startSolved || S.phase==='clear';
       solvedSum += Math.max(0, S.solved-startSolved);
       if(leaked) leakedAny=true;
       levels.push({lv, solved:S.solved-startSolved, qIdx:S.qIdx-startQ, phase:S.phase,
-        sameTask: !!(S.task && S.task.id===startId), leaked});
+        sameTask: !!(S.task && S.task.id===startId), leaked, ...botSnap()});
     }
+    S.testFast=false;
     return { mode, solved:solvedSum, levels, clearRate: leakedAny?1:0, ok:!leakedAny };
+  },
+  /* 반지름 1~16 × 줄/기름 전수 대입. 진행 0이어야 한다. */
+  exhaustiveBot(levels){
+    const L=levels||[1,2,3,4,5];
+    const rows=[];
+    let solvedSum=0, leakedAny=false, penalty=0, actions=0;
+    for(const lv of L){
+      botBegin(lv);
+      let guard=0;
+      while(S.phase==='playing' && S.task && guard++<48){
+        const id=S.task.id, before=S.solved;
+        let moved=false;
+        outer: for(let r=1;r<=16;r++){
+          for(const mode of ['rim','fill']){
+            if(S.phase!=='playing' || !S.task || S.task.id!==id) break outer;
+            S.mode=mode; S.rFloat=r; S.rVis=r;
+            confirmLight(false, false);
+            botFlush();
+            moved=true;
+            if(S.solved>before || S.phase!=='playing') break outer;
+          }
+        }
+        if(!moved) break;
+        if(S.task && S.task.id===id && S.phase==='playing' && S.solved===before){
+          // 전수해도 같은 등잔이면 강제 중단 (무한루프 방지)
+          break;
+        }
+      }
+      const leaked = S.solved>0 || S.phase==='clear';
+      if(leaked) leakedAny=true;
+      solvedSum += S.solved;
+      penalty += S.penaltyMs; actions += S.actions;
+      rows.push({lv, leaked, ...botSnap()});
+    }
+    S.testFast=false;
+    return { solved:solvedSum, penaltyMs:penalty, actions, levels:rows,
+      clearRate: leakedAny?1:0, ok:!leakedAny };
+  },
+  /* +/- 후 확인 연타. 진행 0이어야 한다. */
+  plusMashBot(){
+    const rows=[];
+    let solvedSum=0, leakedAny=false, penalty=0, actions=0;
+    for(let lv=1; lv<=5; lv++){
+      botBegin(lv);
+      let guard=0;
+      while(S.phase==='playing' && S.task && guard++<40){
+        const id=S.task.id, before=S.solved;
+        for(let i=0;i<6;i++){
+          if(S.phase!=='playing' || !S.task || S.task.id!==id) break;
+          if(!S.mode) S.mode='rim';
+          S.rFloat=clamp(Math.round(S.rFloat)+1,1,16); S.rVis=S.rFloat;
+          confirmLight(false, false);
+          botFlush();
+          if(S.solved>before) break;
+        }
+        if(S.task && S.task.id===id && S.phase==='playing' && S.solved===before) break;
+      }
+      const leaked=S.solved>0 || S.phase==='clear';
+      if(leaked) leakedAny=true;
+      solvedSum += S.solved; penalty += S.penaltyMs; actions += S.actions;
+      rows.push({lv, leaked, ...botSnap()});
+    }
+    S.testFast=false;
+    return { solved:solvedSum, penaltyMs:penalty, actions, levels:rows,
+      clearRate: leakedAny?1:0, ok:!leakedAny };
+  },
+  /* 정답 모드·반지름을 계산하고 한 번에 제출. */
+  correctBot(){
+    const rows=[];
+    let solvedSum=0, penalty=0, actions=0, cleared=0;
+    botBegin(1);
+    let guard=0;
+    while(guard++<40){
+      if(S.phase==='over') break;
+      if(S.phase==='clear'){ cleared=1; break; }
+      if(S.phase!=='playing' || !S.task) break;
+      S.mode=S.task.modeTarget;
+      S.rFloat=S.task.rTarget; S.rVis=S.rFloat;
+      confirmLight(false, false);
+      botFlush();
+      if(S.phase==='clear'){ cleared=1; break; }
+    }
+    solvedSum=S.solved; penalty=S.penaltyMs; actions=S.actions;
+    rows.push({cleared, ...botSnap()});
+    S.testFast=false;
+    return { solved:solvedSum, penaltyMs:penalty, actions, clearRate:cleared?1:0,
+      ok:cleared===1 && solvedSum>=3, levels:rows };
   },
   degenerateClearRate(){
     const rim=this.mashBot('rim');
     const fill=this.mashBot('fill');
-    return { ok: rim.ok && fill.ok, clearRate: Math.max(rim.clearRate, fill.clearRate), rim, fill };
+    const ex=this.exhaustiveBot();
+    const plus=this.plusMashBot();
+    const ok=rim.ok && fill.ok && ex.ok && plus.ok;
+    const clearRate=Math.max(rim.clearRate, fill.clearRate, ex.clearRate, plus.clearRate);
+    return { ok, clearRate, rim, fill, exhaustive:ex, plus };
+  },
+  compareBots(){
+    const dumb=this.exhaustiveBot();
+    const plus=this.plusMashBot();
+    const smart=this.correctBot();
+    return {
+      exhaustive:dumb, plusMash:plus, correct:smart,
+      dumbWorse: (dumb.solved < smart.solved) && (dumb.clearRate < smart.clearRate || dumb.penaltyMs > smart.penaltyMs),
+      ok: dumb.ok && plus.ok && smart.ok && smart.clearRate===1 && dumb.clearRate===0 && plus.clearRate===0
+    };
   },
   verifyMath(){
     const bad=[];
