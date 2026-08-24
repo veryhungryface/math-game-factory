@@ -322,6 +322,19 @@ button{font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color
 .modeBtn small{display:block;font-size:10.5px;font-weight:700;color:#8FC7CE;margin-top:3px}
 .modeBtn.sel{background:linear-gradient(180deg,#F7BE7C,#E08A38);border-color:#7A3F10;color:#3A1B05}
 .modeBtn.sel small{color:#5C2C09}
+
+/* ── 가로 우선: 얼음 띠(피제수)를 전폭으로. 좌우 앰비언트 여백 금지 ── */
+html.land .hud-top{width:100%;max-width:none;padding:calc(env(safe-area-inset-top) + 6px) 16px 0}
+html.land .qcard{width:min(calc(100% - 36px),720px);top:calc(env(safe-area-inset-top) + 48px)}
+html.land .tally{left:16px;max-width:220px}
+html.land .contract{left:auto;right:18px;transform:none;bottom:calc(env(safe-area-inset-bottom) + 8px)}
+html.land .panel{width:min(100%,520px)}
+@media (max-height:560px){
+  html.land .qcard{padding:6px 12px 7px;top:calc(env(safe-area-inset-top) + 42px)}
+  html.land .qcard .qmath{font-size:clamp(18px,2.4vw,24px)}
+  html.land .qcard .qlead,html.land .qcard .qnote{display:none}
+  html.land .tally .num{font-size:28px}
+}
 </style>
 </head>
 <body>
@@ -822,6 +835,34 @@ function layout(){
   cv.style.width=w+'px'; cv.style.height=h+'px';
   ctx.setTransform(DPR,0,0,DPR,0,0);
 
+  GEO.land=W>=H;
+  document.documentElement.classList.toggle('land', GEO.land);
+  if(GEO.land) layoutLand(); else layoutPort();
+
+  // DOM 라벨 위치 (캔버스 기하와 같은 비율)
+  $('rulerTag').style.top=(GEO.rulerY-Math.max(GEO.land?48:62,H*(GEO.land?0.062:0.085)))+'px';
+  positionRulerTag();
+  $('leftTag').style.top=GEO.leftTagY+'px';
+  $('leftTag').style.left=(GEO.colL+GEO.colW*0.5)+'px';
+  $('joinBtn').style.top=GEO.joinY+'px';
+  $('joinBtn').style.left=(GEO.colL+GEO.colW*0.5)+'px';
+  $('toast').style.top=GEO.toastY+'px';
+  $('toast').style.left=(GEO.colL+GEO.colW*0.5)+'px';
+
+  var tf=$('titleFx');
+  tf.width=Math.round(w*DPR); tf.height=Math.round(h*DPR);
+  tf.style.width=w+'px'; tf.style.height=h+'px';
+
+  bake.width=cv.width; bake.height=cv.height;
+  needBake=true;
+
+  snow.length=0;
+  var n=reduceMotion?14:30;
+  for(var i=0;i<n;i++) snow.push({x:Math.random()*W,y:Math.random()*H,r:0.8+Math.random()*1.8,s:6+Math.random()*16,ph:Math.random()*6.28});
+}
+
+/** 세로 폰(390×844) — 기존 660 컬럼 구도. 좌표만, 수학 로직과 무관. */
+function layoutPort(){
   var colW=Math.min(W,660);
   var cx=(W-colW)/2;
   GEO.colL=cx; GEO.colW=colW;
@@ -836,27 +877,29 @@ function layout(){
   GEO.foxX=cx+colW*0.17;
   GEO.foxY=H*0.80;
   GEO.foxS=Math.max(96,colW*0.30);
+  GEO.leftTagY=H*0.548;
+  GEO.joinY=H*0.60;
+  GEO.toastY=H*0.615;
+}
 
-  // DOM 라벨 위치 (캔버스 기하와 같은 비율)
-  $('rulerTag').style.top=(GEO.rulerY-Math.max(62,H*0.085))+'px';
-  positionRulerTag();
-  $('leftTag').style.top=(H*0.548)+'px';
-  $('leftTag').style.left=(cx+colW*0.5)+'px';
-  $('joinBtn').style.top=(H*0.60)+'px';
-  $('joinBtn').style.left=(cx+colW*0.5)+'px';
-  $('toast').style.top=(H*0.615)+'px';
-  $('toast').style.left=(cx+colW*0.5)+'px';
-
-  var tf=$('titleFx');
-  tf.width=Math.round(w*DPR); tf.height=Math.round(h*DPR);
-  tf.style.width=w+'px'; tf.style.height=h+'px';
-
-  bake.width=cv.width; bake.height=cv.height;
-  needBake=true;
-
-  snow.length=0;
-  var n=reduceMotion?14:30;
-  for(var i=0;i<n;i++) snow.push({x:Math.random()*W,y:Math.random()*H,r:0.8+Math.random()*1.8,s:6+Math.random()*16,ph:Math.random()*6.28});
+/** 가로 1기준(1280×800): 피제수 얼음 띠를 화면 전폭으로 펼쳐 자로 잰다. */
+function layoutLand(){
+  var pad=Math.max(36,Math.min(64,W*0.036));
+  GEO.colL=0; GEO.colW=W;
+  GEO.ribbonL=pad;
+  GEO.ribbonW=W-pad*2;
+  GEO.ribbonH=Math.max(40,Math.min(58,H*0.068));
+  GEO.ribbonY=Math.max(H*0.46, Math.min(H*0.52, 268+GEO.ribbonH));
+  GEO.rulerY=GEO.ribbonY-Math.max(28,H*0.048);
+  GEO.foxS=Math.max(88,Math.min(132,H*0.16));
+  GEO.foxX=pad+GEO.foxS*0.42;
+  GEO.foxY=H-Math.max(56,H*0.08);
+  GEO.sledW=Math.max(132,Math.min(188,W*0.15));
+  GEO.sledX=W-pad-GEO.sledW*0.42;
+  GEO.sledY=H-Math.max(62,H*0.09);
+  GEO.leftTagY=GEO.ribbonY+GEO.ribbonH*0.5+18;
+  GEO.joinY=GEO.leftTagY+36;
+  GEO.toastY=GEO.joinY+18;
 }
 
 /** 정적 배경을 오프스크린에 한 번만 굽는다 (소프트웨어 렌더 환경 대비) */
