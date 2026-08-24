@@ -204,6 +204,31 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070a18;color:#f7fbf
     animation-duration:1ms !important;animation-iteration-count:1 !important;scroll-behavior:auto !important}
   #onbHole{animation:none}
 }
+
+/* ── 가로 우선: 광축 기준 결정을 전폭으로. HUD·조작은 좌우 사이드. 앰비언트 여백 금지 ── */
+html.land #top{
+  top:0;bottom:0;left:0;right:auto;width:148px;
+  padding:calc(10px + env(safe-area-inset-top)) 10px 12px 12px;
+  display:flex;flex-direction:column;justify-content:flex-start;gap:10px}
+html.land #top .row{flex-direction:column;align-items:flex-start;flex-wrap:wrap;gap:6px}
+html.land #lives{margin-left:0}
+html.land #score{font-size:28px}
+html.land #tbar{width:100%;margin-top:4px}
+html.land #bot{
+  top:0;bottom:0;left:auto;right:0;width:156px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom)) 10px;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:8px}
+html.land #bot .row{flex-direction:column;width:100%}
+html.land #drop{width:100%;flex:none;min-height:56px}
+html.land #hint{position:fixed;left:160px;right:168px;bottom:10px;width:auto;
+  text-align:center;min-height:0;font-size:14px;padding:7px 14px;
+  background:rgba(7,10,24,.52);border-radius:12px}
+html.land .card{max-width:420px}
+html.land #onbCard{width:min(calc(100vw - 320px),520px)}
+@media (max-height:520px){
+  html.land #drop{min-height:48px}
+  html.land .btn{min-height:44px}
+}
 </style>
 </head>
 <body>
@@ -427,10 +452,22 @@ function resize(){
 }
 
 /* 무대 좌표 */
-var stage={cx:0,cy:0,top:0,bot:0,h:0};
+var stage={cx:0,cy:0,top:0,bot:0,h:0,land:false,padL:0,padR:0};
 function layout(){
-  stage.top=78; stage.bot=CH-106; stage.h=stage.bot-stage.top;
-  stage.cx=CW/2; stage.cy=stage.top+stage.h*0.46;
+  /* 가로는 1280×800 1기준(광축 위 결정을 전폭). 세로는 기존 상하 HUD 구도 유지. */
+  stage.land=CW>=CH;
+  document.documentElement.classList.toggle('land', stage.land);
+  if(!stage.land){
+    stage.padL=0; stage.padR=0;
+    stage.top=78; stage.bot=CH-106; stage.h=stage.bot-stage.top;
+    stage.cx=CW/2; stage.cy=stage.top+stage.h*0.46;
+  } else {
+    var short=CH<560;
+    stage.padL=short?120:148; stage.padR=short?128:156;
+    stage.top=12; stage.bot=CH-12; stage.h=stage.bot-stage.top;
+    stage.cx=CW/2;                               // 화면 중앙 광축
+    stage.cy=stage.top+stage.h*0.48;
+  }
   if(typeof relayout==='function')relayout();
 }
 
@@ -578,9 +615,46 @@ function fitScale(v,maxW,maxH){
   var b=bbox(v);
   return Math.min(maxW/Math.max(b.w,.001), maxH/Math.max(b.h,.001));
 }
+function playW(){ return Math.max(160, CW - (stage.padL||0) - (stage.padR||0)); }
+function crystalFit(){
+  if(stage.land){
+    var w=playW()-36, h=stage.h;
+    return {
+      polyW:Math.min(w, h*1.55), polyH:Math.min(h*0.88, CH*0.84),
+      polyLo:22, polyHi:150,
+      halfLo:40, halfHi:96,
+      gateLo:14, gateHi:38
+    };
+  }
+  return {
+    polyW:Math.min(CW-72,330), polyH:Math.min(stage.h*0.62,330),
+    polyLo:12, polyHi:60,
+    halfLo:30, halfHi:58,
+    gateLo:9, gateHi:22
+  };
+}
+function placeGateSlots(c){
+  var i;
+  if(stage.land){
+    var x0=(stage.padL||0)+36, x1=CW-(stage.padR||0)-72, span=x1-x0;
+    var y=stage.top+stage.h*0.78;
+    for(i=0;i<4;i++){
+      var x=x0+span*((i+0.5)/4);
+      if(c.slots[i]){c.slots[i].x=x;c.slots[i].y=y;}
+      else c.slots.push({x:x,y:y,st:0});
+    }
+  } else {
+    var gw=CW*0.5, gy=stage.top+stage.h*0.56, gh=stage.h*0.20;
+    for(i=0;i<4;i++){
+      var x=stage.cx+(i%2?1:-1)*gw*0.5, y=gy+(i>1?gh:0);
+      if(c.slots[i]){c.slots[i].x=x;c.slots[i].y=y;}
+      else c.slots.push({x:x,y:y,st:0});
+    }
+  }
+}
 function newPoly(sh){
-  var maxW=Math.min(CW-72,330), maxH=Math.min(stage.h*0.62,330);
-  var s=clamp(fitScale(sh.v,maxW,maxH),12,60);
+  var F=crystalFit();
+  var s=clamp(fitScale(sh.v,F.polyW,F.polyH),F.polyLo,F.polyHi);
   var c={kind:'poly',sh:sh,v:sh.v,scale:s,found:[],rotDone:false,
     cx:stage.cx,cy:stage.cy,born:0,bob:0,dead:false};
   /* 후보 대칭의 중심: 참 중심(원점) + 미끼 2개 */
@@ -594,35 +668,39 @@ function newPoly(sh){
   return c;
 }
 function newHalf(hh){
-  var maxW=Math.min(CW-56,340), maxH=Math.min(stage.h*0.7,360);
-  var s=clamp(Math.min((CW-34)/7.7,maxH/7.4),30,58);
+  var F=crystalFit();
+  var cell=stage.land?Math.min((playW()-40)/8.2, stage.h*0.90/8.2):Math.min((CW-34)/7.7,Math.min(stage.h*0.7,360)/7.4);
+  var s=clamp(cell,F.halfLo,F.halfHi);
   return {kind:'half',hh:hh,scale:s,placed:[],need:hh.need.slice(),
     cx:stage.cx,cy:stage.cy,born:0,bob:0,bad:null,badT:0,dead:false};
 }
 function newGate(g){
-  var s=clamp(Math.min((CW-70)/2/9.5, stage.h/2/9.5),9,22);
-  var c={kind:'gate',g:g,scale:s,cx:stage.cx,cy:stage.top+stage.h*0.20,born:0,
+  var F=crystalFit();
+  var s=stage.land
+    ? clamp(Math.min((playW()/4-20)/6.2, stage.h*0.42/7.2),F.gateLo,48)
+    : clamp(Math.min((CW-70)/2/9.5, stage.h/2/9.5),9,22);
+  var c={kind:'gate',g:g,scale:s,cx:stage.cx,cy:stage.top+stage.h*(stage.land?0.30:0.20),born:0,
     picked:[],fly:null,dead:false,slots:[]};
-  var gw=CW*0.5, gy=stage.top+stage.h*0.56, gh=stage.h*0.20;
-  for(var i=0;i<4;i++){
-    c.slots.push({x:stage.cx+(i%2?1:-1)*gw*0.5, y:gy+(i>1?gh:0), st:0});
-  }
+  placeGateSlots(c);
   return c;
 }
 /* 회전/리사이즈 후 현재 결정의 위치·크기 재계산 */
 function relayout(){
   var c=cry;if(!c)return;
+  var F=crystalFit();
   if(c.kind==='poly'){
     c.cx=stage.cx;c.cy=stage.cy;
-    c.scale=clamp(fitScale(c.v,Math.min(CW-72,330),Math.min(stage.h*0.62,330)),12,60);
+    c.scale=clamp(fitScale(c.v,F.polyW,F.polyH),F.polyLo,F.polyHi);
   }else if(c.kind==='half'){
     c.cx=stage.cx;c.cy=stage.cy;
-    c.scale=clamp(Math.min((CW-34)/7.7,Math.min(stage.h*0.7,360)/7.4),30,58);
+    var cell=stage.land?Math.min((playW()-40)/8.2, stage.h*0.90/8.2):Math.min((CW-34)/7.7,Math.min(stage.h*0.7,360)/7.4);
+    c.scale=clamp(cell,F.halfLo,F.halfHi);
   }else if(c.kind==='gate'){
-    c.cx=stage.cx;c.cy=stage.top+stage.h*0.20;
-    c.scale=clamp(Math.min((CW-70)/2/9.5,stage.h/2/9.5),9,22);
-    var gw=CW*0.5,gy=stage.top+stage.h*0.56,gh=stage.h*0.20;
-    for(var i=0;i<4;i++){c.slots[i].x=stage.cx+(i%2?1:-1)*gw*0.5;c.slots[i].y=gy+(i>1?gh:0);}
+    c.cx=stage.cx;c.cy=stage.top+stage.h*(stage.land?0.30:0.20);
+    c.scale=stage.land
+      ? clamp(Math.min((playW()/4-20)/6.2, stage.h*0.42/7.2),F.gateLo,48)
+      : clamp(Math.min((CW-70)/2/9.5,stage.h/2/9.5),9,22);
+    placeGateSlots(c);
   }
 }
 function requiredLeft(c){
@@ -1148,7 +1226,7 @@ function pdown(x,y){
   if(c.kind==='poly'){
     for(i=0;i<c.dots.length;i++){
       var d=c.dots[i],px=c.cx+d.x*c.scale,py=c.cy+c.bob-d.y*c.scale;
-      if(Math.hypot(x-px,y-py)<30){drag.mode='dot';drag.dot=d;return;}
+      if(Math.hypot(x-px,y-py)<(stage.land?40:30)){drag.mode='dot';drag.dot=d;return;}
     }
     if(inPoly(p,c.v))drag.mode='fold';
   }else if(c.kind==='half')drag.mode='cell';
@@ -1185,7 +1263,7 @@ function pup(){
   }
   if(d.mode==='gate'&&dist<16){
     for(var i=0;i<4;i++){var sl=c.slots[i];
-      if(Math.abs(d.x-sl.x)<CW*0.24&&Math.abs(d.y-sl.y)<stage.h*0.16){
+      if(Math.abs(d.x-sl.x)<(stage.land?Math.min(playW()*0.11,140):CW*0.24)&&Math.abs(d.y-sl.y)<(stage.land?stage.h*0.18:stage.h*0.16)){
         if(c.picked[i])return;
         c.fly={i:i,t:0,dur:0.8};anim={type:'gatefly',c:c,i:i,t:0,dur:0.8};sfx('tick');return;}
     }
@@ -1222,7 +1300,8 @@ var onbIdx=-1;
 function onbSeen(){ try{ return !!localStorage.getItem(ONB_KEY); }catch(e){ return false; } }
 function onbHoleRect(i){
   if(i===0){
-    var w=Math.min(CW-48,320),h=Math.min(stage.h*0.62,320);
+    var w=stage.land?Math.min(playW()-24, stage.h*1.25):Math.min(CW-48,320);
+    var h=stage.land?Math.min(stage.h*0.82, 560):Math.min(stage.h*0.62,320);
     return [stage.cx-w/2, stage.top+8, w, h];
   }
   if(i===1){
