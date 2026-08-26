@@ -95,6 +95,38 @@ grok_run() {
     >"$logfile" 2>&1
 }
 
+# codex 를 상위 티어(sol)로 돌리는 단축 러너 — 기획 2번·검수처럼 판단이 어려운 단계용.
+codex_smart_run() {
+  codex_run "$1" "$2" "$3" "${4:-$CODEX_MODEL_SMART}"
+}
+
+# 원하는 러너가 실제로 쓸 수 있는지 확인하고, 없으면 codex → claude 순으로 폴백한다.
+# (grok 잔액 소진 402, claude 세션 한도처럼 러너 하나가 죽어도 사이클이 멈추면 안 된다)
+resolve_runner() {
+  local want="$1"
+  case "$want" in
+    grok_run)                  command -v grok   >/dev/null 2>&1 && { echo grok_run;   return; } ;;
+    codex_run|codex_smart_run) command -v codex  >/dev/null 2>&1 && { echo "$want";    return; } ;;
+    claude_run)                command -v claude >/dev/null 2>&1 && { echo claude_run; return; } ;;
+  esac
+  command -v codex  >/dev/null 2>&1 && { echo codex_smart_run; return; }
+  command -v grok   >/dev/null 2>&1 && { echo grok_run;        return; }
+  echo claude_run
+}
+
+# 단계 실행. $1=원하는러너 $2=모델(비워도 됨) $3=제한시간 $4=로그 $5=프롬프트 [$6=& 로 띄울지]
+# 폴백이 일어나면 **모델 인자를 버린다** — 다른 회사 모델 이름을 그대로 넘겨서 400 을 맞은
+# 사고가 실제로 있었다(2026-08-25, run.sh 러너 모델 인자 400).
+stage_run() {
+  local want="$1" model="$2" secs="$3" logfile="$4" prompt="$5"
+  local got; got="$(resolve_runner "$want")"
+  if [ "$got" != "$want" ]; then
+    log "⚠️  러너 폴백: $want → $got (모델 인자는 러너 기본값으로 되돌린다)"
+    model=""
+  fi
+  "$got" "$secs" "$logfile" "$prompt" "$model"
+}
+
 jqv() { jq -r "$2 // empty" "$1" 2>/dev/null; }
 
 # ── 락 ────────────────────────────────────────────────────────────
@@ -108,6 +140,14 @@ if [ -f "$LOCK" ]; then
   rm -f "$LOCK"
 fi
 echo $$ > "$LOCK"
+
+# ── 러너 사전 점검 ────────────────────────────────────────────────
+# 어떤 러너로 이번 회차를 돌리는지 로그 첫머리에 남긴다. grok 잔액 소진(402)이나
+# claude 세션 한도처럼 러너 하나가 조용히 죽으면 원인을 찾느라 로그를 뒤져야 했다.
+for _c in grok codex claude; do
+  command -v "$_c" >/dev/null 2>&1 && _AVAIL="${_AVAIL:-}$_c " || true
+done
+log "러너 가용: ${_AVAIL:-없음}| 빌드=$(resolve_runner "${BUILD_RUNNER:-grok_run}") 검수=$(resolve_runner "${REVIEW_RUNNER:-codex_run}") 수정=$(resolve_runner "${FIX_RUNNER:-grok_run}")"
 
 STARTED_AT="$(date +%s)"
 SLUG=""; TITLE=""; SCORE=""; VERDICT=""; DEPLOY_URL=""; STATUS="진행중"
@@ -285,16 +325,12 @@ $USER_FEEDBACK
 ## 출력 파일
 \`factory/work/concept-${i}.json\` 로 저장해라. \`n\` 필드는 ${i} 다."
 
-  # 기획 3안을 서로 다른 회사 모델로 나눠 돌린다 — 전부 같은 모델로만 기획하니
-  # 게임들이 서로 비슷해 보인다는 지적을 받았고, 사용자가 codex·grok 토큰을 더
-  # 쓰라고 명시적으로 요청했다. 1번=claude, 2번=codex(GPT), 3번=grok.
-  if [ "$i" = "3" ] && command -v grok >/dev/null 2>&1; then
-    grok_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
-  elif [ "$i" = "2" ]; then
-    codex_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
-  else
-    claude_run "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
-  fi
+  # 기획 3안을 서로 다른 회사·티어 모델로 나눠 돌린다 — 전부 같은 모델로만 기획하니
+  # 게임들이 서로 비슷해 보인다는 지적을 받았다. 배정은 config.sh 의 DESIGN_RUNNERS
+  # (쉼표 구분, i 번째가 i 번 기획자). 기본값은 클로드를 쓰지 않는다.
+  IFS=',' read -ra _DR <<< "${DESIGN_RUNNERS:-grok_run,codex_smart_run,codex_run}"
+  DESIGN_R="$(resolve_runner "${_DR[$((i-1))]:-codex_run}")"
+  "$DESIGN_R" "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
   DESIGN_PIDS+=($!)
 done
 for pid in ${DESIGN_PIDS[@]+"${DESIGN_PIDS[@]}"}; do wait "$pid"; done
@@ -433,7 +469,7 @@ $(jq -c '.unit' "$WORK/slot.json")
 ## 끝내기 전에 반드시
 \`node factory/lib/qa.mjs $SLUG\` 를 돌려서 **치명적 결함 0건**을 확인해라. 실패하면 고치고 다시 돌려라."
 
-"${BUILD_RUNNER:-claude_run}" "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT" "${BUILD_MODEL:-$CLAUDE_MODEL_SMART}"
+stage_run "${BUILD_RUNNER:-grok_run}" "${BUILD_MODEL:-}" "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT"
 [ -f "$ROOT/public/g/$SLUG/index.html" ] || die "게임 파일이 생성되지 않았습니다 — $(tail -5 "$LOG_DIR/build.log")"
 fi
 
@@ -488,7 +524,7 @@ ${USER_FEEDBACK:+
 $USER_FEEDBACK
 이 피드백을 채점에 직접 반영해라. 특히 지목된 문제가 이번 게임에도 있으면 must_fix 로 적어라.}"
 
-"${REVIEW_RUNNER:-claude_run}" "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT" "${REVIEW_MODEL:-$CLAUDE_MODEL_SMART}"
+stage_run "${REVIEW_RUNNER:-codex_run}" "${REVIEW_MODEL:-$CODEX_MODEL_SMART}" "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT"
 cp "$WORK/review.json" "$LOG_DIR/review-1.json" 2>/dev/null
 
 SCORE="$(jqv "$WORK/review.json" .score)"
@@ -501,9 +537,7 @@ if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; 
   step "8. 수정 (마지막 기회)"
   # 수정 라운드는 grok — 사용자 요청(claude 편중 완화). grok 은 로컬 무샌드박스라
   # qa.mjs(puppeteer + 로컬 서버)를 직접 돌릴 수 있다. codex 샌드박스는 그게 안 된다.
-  FIX_RUNNER=claude_run
-  if command -v grok >/dev/null 2>&1; then FIX_RUNNER=grok_run; fi
-  "$FIX_RUNNER" "$T_FIX" "$LOG_DIR/fix.log" "$(cat factory/prompts/45-fix.md)
+  stage_run "${FIX_RUNNER:-grok_run}" "${FIX_MODEL:-}" "$T_FIX" "$LOG_DIR/fix.log" "$(cat factory/prompts/45-fix.md)
 
 ---
 - slug: \`$SLUG\`
@@ -521,10 +555,10 @@ if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; 
 
   step "9. 재검수"
   rm -f "$WORK/review.json"
-  "${REVIEW_RUNNER:-claude_run}" "$T_REVIEW" "$LOG_DIR/review-2.log" "$REVIEW_PROMPT
+  stage_run "${REVIEW_RUNNER:-codex_run}" "${REVIEW_MODEL:-$CODEX_MODEL_SMART}" "$T_REVIEW" "$LOG_DIR/review-2.log" "$REVIEW_PROMPT
 
 이것은 **재검수**다. \`factory/work/fix.json\` 에 수정 내역이 있다. 수정이 실제로 반영됐는지 확인해라.
-봐주지 마라 — 여전히 미달이면 폐기가 맞다." "${REVIEW_MODEL:-$CLAUDE_MODEL_SMART}"
+봐주지 마라 — 여전히 미달이면 폐기가 맞다."
   cp "$WORK/review.json" "$LOG_DIR/review-2.json" 2>/dev/null
 
   SCORE="$(jqv "$WORK/review.json" .score)"
@@ -554,27 +588,25 @@ fi
 
 # ════════════════════════════════════════════════════════════════
 step "10. 게시 준비"
-node -e '
-  const fs=require("fs"),f=process.argv[1];
-  const m=JSON.parse(fs.readFileSync(f,"utf8"));
-  const r=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-  m.qa={score:r.score,gate:Number(process.argv[3]),passed:true,reviewed_at:new Date().toISOString(),notes:(r.strengths||[]).slice(0,3)};
-  fs.writeFileSync(f,JSON.stringify(m,null,2)+"\n");
-' "$ROOT/public/g/$SLUG/meta.json" "$WORK/review.json" "$GATE_SCORE"
+# meta.qa 갱신 + queue.json(produced·mechanic_history·palette_history) + 허브 재빌드를
+# 한 스크립트가 전부 한다. 예전에는 이 세 가지가 run.sh 안에 인라인으로 흩어져 있었고,
+# 그래서 **부활(salvage) 경로처럼 run.sh 를 안 거치는 게시는 meta.qa.passed 가 false 로
+# 남아 허브에서 사라졌다** — 실제로 5작(쩍쩍·첨벙·유리를 불어·등불을 켜·칸자물쇠)이
+# 게시됐는데도 카탈로그에 안 뜨는 사고가 났다(2026-08-26 복구). 사람이 손으로 부활시킬
+# 때도 똑같이 이 스크립트를 호출해야 한다 — docs/OPERATIONS.md §8 참조.
+node factory/lib/publish-game.mjs "$SLUG" \
+  --score "${SCORE:-0}" \
+  --gate "$GATE_SCORE" \
+  --run "$RUN_ID" \
+  --unit "$(jqv "$WORK/slot.json" .unit.id)" \
+  --mechanic "$(jqv "$WORK/chosen.json" .mechanic)" \
+  --mood "$(jqv "$WORK/chosen.json" .art_direction.mood)" \
+  --bg "$(jq -r '.art_direction.palette[0] // ""' "$WORK/chosen.json" 2>/dev/null)" \
+  --notes-from "$WORK/review.json" >&2 || die "게시 처리 실패 (게이트 미달이거나 필수 파일 누락)"
 
-node factory/lib/build-index.mjs >&2 || die "허브 빌드 실패"
-
-node -e '
-  const fs=require("fs"),p=process.argv[1];
-  const q=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{produced:[],failed:[],mechanic_history:[],palette_history:[]};
-  q.produced=q.produced||[]; q.mechanic_history=q.mechanic_history||[]; q.palette_history=q.palette_history||[];
-  q.produced.push({run:process.argv[2],slug:process.argv[3],title:process.argv[4],score:Number(process.argv[5])||0,unit:process.argv[6],mechanic:process.argv[7],at:new Date().toISOString()});
-  q.mechanic_history.push(process.argv[7]);
-  q.palette_history.push({slug:process.argv[3],mood:process.argv[8],bg:process.argv[9]});
-  fs.writeFileSync(p,JSON.stringify(q,null,2)+"\n");
-' "$ROOT/factory/state/queue.json" "$RUN_ID" "$SLUG" "$TITLE" "${SCORE:-0}" \
-  "$(jqv "$WORK/slot.json" .unit.id)" "$(jqv "$WORK/chosen.json" .mechanic)" \
-  "$(jqv "$WORK/chosen.json" .art_direction.mood)" "$(jq -r '.art_direction.palette[0] // ""' "$WORK/chosen.json" 2>/dev/null)"
+# 게시 직후 정합성 감사 — 게시했는데 허브에 안 보이는 사고를 그 자리에서 잡는다.
+node factory/lib/verify-catalog.mjs >>"$LOG_DIR/verify-catalog.log" 2>&1 \
+  || log "⚠️  카탈로그 정합성 경고 — $(tail -3 "$LOG_DIR/verify-catalog.log" | tr '\n' ' ')"
 
 # ════════════════════════════════════════════════════════════════
 if [ "$DEPLOY" = "1" ]; then
@@ -628,11 +660,7 @@ if node factory/lib/scout-references.mjs check >"$LOG_DIR/scout.log" 2>&1; then
 \`\`\`json
 $(cat "$WORK/scout-focus.json" 2>/dev/null)
 \`\`\`"
-  if command -v grok >/dev/null 2>&1; then
-    grok_run "$T_SCOUT" "$LOG_DIR/scout-agent.log" "$SCOUT_PROMPT"
-  else
-    claude_run "$T_SCOUT" "$LOG_DIR/scout-agent.log" "$SCOUT_PROMPT"
-  fi
+  stage_run "${SCOUT_RUNNER:-grok_run}" "" "$T_SCOUT" "$LOG_DIR/scout-agent.log" "$SCOUT_PROMPT"
   if node factory/lib/scout-references.mjs ingest >>"$LOG_DIR/scout.log" 2>&1; then
     log "레퍼런스 후보 보관 — $(tail -2 "$LOG_DIR/scout.log" | tr '\n' ' ')"
   else
