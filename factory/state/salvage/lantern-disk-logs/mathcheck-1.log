@@ -1,0 +1,2292 @@
+Reading additional input from stdin...
+OpenAI Codex v0.149.1
+--------
+workdir: /Users/sitpo/math-game-factory
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: high
+reasoning summaries: none
+session id: 01a03472-54d0-7f41-a4cb-b7c853a9cee0
+--------
+user
+# 역할: 수학 검산관 (단일 임무)
+
+너는 **오직 수학 정확성만** 본다. 재미도, 비주얼도, 코드 품질도 보지 마라.
+이 게임이 학생에게 **틀린 답을 정답이라고 가르치는지**만 판정한다.
+
+이건 별도 단계다. 뒤에 오는 종합 검수관과 **독립적으로** 판단해야 의미가 있으니,
+"어차피 검수관이 볼 테니까"라고 넘기지 마라. 네가 마지막 방어선이라고 생각해라.
+
+## 읽을 것
+
+- `factory/work/qa/<slug>/report.json` 의 `problems_sample` — 게임의 문제 생성기가 실제로 뱉은 표본
+- `public/g/<slug>/index.html` 의 **문제 생성기와 정답 판정 코드** (게임 로직 전체가 아니라 그 부분만)
+- `curriculum/2022-elementary-math.json` 의 해당 단원 — 이 학년에서 허용되는 수의 범위·표기
+
+## 반드시 할 것
+
+### 1. 표본 전수 검산
+`problems_sample` 의 **모든** 문항을 하나씩 손으로 계산해라. 훑어보지 마라.
+
+**⚠️ 이 단계에서 실제로 게임을 폐기시킨 함정 — 「○의 자리에서」 vs 「○의 자리까지」**
+
+| 표현 | 뜻 | 225를 반올림 |
+|---|---|---|
+| 반올림하여 **십의 자리까지** | 결과가 십의 자리까지 정확 | **230** |
+| **십의 자리에서** 반올림 | 십의 자리 숫자를 보고 판단 → 결과는 **백의 자리까지** | **200** |
+
+「○의 자리에서」는 자릿수가 **한 자리 위**로 간다. `339을 십의 자리에서 올림 → 400`(340 아님),
+`739를 십의 자리에서 버림 → 700`(730 아님), `932를 십의 자리에서 올림 → 1000`(940 아님).
+게임이 이 둘을 섞어 쓰면 **오류다.** 실제로 1회차 게임이 이걸 틀려서 수학 0점을 받았다.
+
+그 밖에 문장의 **방향**도 정확히 읽어라:
+- 「3274를 백의 자리에서 반올림하면?」 → 정방향. 답은 3000.
+- 「반올림하여 백의 자리까지 = 3300 이 되는 수는?」 → **역방향**. 답은 3300이 아니라 3250~3349 중 하나여야 한다.
+- 「48 이상 53 이하인 수는?」 → 경계 포함. 48과 53은 정답이 될 수 있다.
+- 「48 초과 53 미만인 수는?」 → 경계 제외. 48과 53은 오답이어야 한다.
+
+방향과 자릿수를 잘못 읽고 **멀쩡한 게임을 틀렸다고 하는 것**도, **틀린 게임을 통과시키는 것**도
+똑같이 실패다. **문장을 두 번 읽고, 자릿수를 손으로 짚어라.**
+
+### 2. 코드에서 구조적 오류 찾기
+표본이 우연히 다 맞았어도 코드에 지뢰가 있으면 잡아내라.
+- 분수를 부동소수점으로 비교하는가 (`0.1+0.2 !== 0.3`)
+- 소수 연산을 스케일링 없이 하는가 (`1.1*3 = 3.3000000000000003`)
+- 반올림에 `Math.round` 를 음수나 5 경계에서 잘못 쓰는가
+- 기약분수 정규화가 빠졌는가 (`2/4` 와 `1/2` 를 다른 답으로 취급)
+- 오답 선택지 생성이 **정답과 같은 값**을 만들 수 있는가
+- 오답이 **순수 랜덤인가, 오개념 역산인가** — 30-build 규칙상 오답 중 최소 2개는
+  실제 학생 실수(자릿값 오류/받아올림 누락/분모끼리 더함 등)를 역산한 값이어야 한다.
+  전부 랜덤이면 code_risks 에 medium 으로 적어라
+- 나눗셈에서 0으로 나눌 가능성이 있는가
+- 문제 문장이 두 가지로 해석될 수 있는가
+
+### 3. 학년 적합성 + 교육과정 생성 제약
+- 5~6학년 교육과정 범위를 벗어나는 수(음수, 무리수, 지나치게 큰 수)가 나오는가
+- 표기가 교과서 관례를 따르는가 (`3.14`, `1 2/3` 같은 대분수 표기, 단위 붙이기)
+- `curriculum/2022-elementary-math.json` 의 `generation_constraints.rules` (교육부 고시
+  '적용 시 고려 사항' 원문 근거 18조)를 읽고, 게임 문항이 이를 위반하는지 확인해라.
+  예: 원주율은 3.14만, 각뿔·원뿔의 전개도는 안 다룸, 전개도 평가는 되는/안 되는
+  것 구별 중심, 가능성은 0·1/2·1 수준의 수 표현. 위반은 `grade_issues` 에 적고,
+  학생에게 틀린 개념을 가르치는 수준의 위반이면 `errors` 로 올려라.
+
+## 산출물
+
+`factory/work/mathcheck.json` 파일로 작성해라 (네가 가진 파일 쓰기 도구를 써라):
+
+```json
+{
+  "slug": "...",
+  "verified_count": 40,
+  "errors": [
+    { "prompt": "...", "game_answer": "...", "correct_answer": "...", "why": "..." }
+  ],
+  "code_risks": [
+    { "where": "index.html:412", "risk": "분수를 float 로 비교", "severity": "high", "how_to_fix": "..." }
+  ],
+  "grade_issues": ["..."],
+  "verdict": "pass | fail",
+  "note": "판정 근거 2문장"
+}
+```
+
+## 판정 규칙
+
+- `errors` 가 **1개라도** 있으면 `verdict: "fail"`. 예외 없다.
+- `code_risks` 에 `severity: "high"` 가 있으면 `verdict: "fail"`.
+- 그 외에는 `pass`.
+- 확신이 없으면 `fail` 쪽으로 기울여라. 틀린 답을 가르치는 것보다 게임 하나 못 내는 게 낫다.
+
+## 마지막
+
+최종 응답은 `검산 N문항 / 오류 M건 / 판정: pass|fail` 한 줄 + 오류가 있으면 그 목록만.
+
+---
+- slug: `lantern-disk`
+- 표본: `factory/work/qa/lantern-disk/report.json` 의 `problems_sample`
+- 단원: 원의 둘레와 넓이 (6학년 2학기)
+warning: Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.
+hook: SessionStart
+hook: SessionStart Completed
+hook: UserPromptSubmit
+hook: UserPromptSubmit Completed
+codex
+지정한 세 파일에서 표본 전체, 문제 생성·정답 판정 부분, 해당 단원의 생성 제약만 확인하겠습니다. 결과는 요구된 `factory/work/mathcheck.json`에 기록하겠습니다.
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/zsh -lc "rg -n 'problems_sample|lantern-disk|원의 둘레와 넓이|generation_constraints' factory/work/qa/lantern-disk/report.json public/g/lantern-disk/index.html curriculum/2022-elementary-math.json" in /Users/sitpo/math-game-factory
+ succeeded in 0ms:
+public/g/lantern-disk/index.html:346:      <p class="title-unit">6학년 2학기 · 원의 둘레와 넓이</p>
+public/g/lantern-disk/index.html:410:const LS_BEST = 'lantern-disk:best';
+public/g/lantern-disk/index.html:411:const LS_COMBO = 'lantern-disk:bestCombo';
+public/g/lantern-disk/index.html:412:const LS_ONB = 'onboardingSeen:lantern-disk';
+public/g/lantern-disk/index.html:413:const LS_CLEAR = 'lantern-disk:cleared';
+public/g/lantern-disk/index.html:414:const LS_SPRINT = 'lantern-disk:sprintBest';
+public/g/lantern-disk/index.html:415:const LS_DEX = 'lantern-disk:dex';
+factory/work/qa/lantern-disk/report.json:2:  "slug": "lantern-disk",
+factory/work/qa/lantern-disk/report.json:12:  "problems_sample": [
+factory/work/qa/lantern-disk/report.json:539:      "detail": "/Users/sitpo/math-game-factory/public/g/lantern-disk/index.html",
+factory/work/qa/lantern-disk/report.json:546:      "detail": "/Users/sitpo/math-game-factory/public/g/lantern-disk/meta.json",
+factory/work/qa/lantern-disk/report.json:595:      "detail": "lantern-disk vs lantern-disk",
+factory/work/qa/lantern-disk/report.json:817:    "/Users/sitpo/math-game-factory/factory/work/qa/lantern-disk/mobile.png",
+factory/work/qa/lantern-disk/report.json:818:    "/Users/sitpo/math-game-factory/factory/work/qa/lantern-disk/tablet.png",
+factory/work/qa/lantern-disk/report.json:819:    "/Users/sitpo/math-game-factory/factory/work/qa/lantern-disk/desktop.png",
+factory/work/qa/lantern-disk/report.json:820:    "/Users/sitpo/math-game-factory/factory/work/qa/lantern-disk/wide.png"
+curriculum/2022-elementary-math.json:1341:      "title": "원의 둘레와 넓이",
+curriculum/2022-elementary-math.json:1418:          "title": "원의 둘레와 넓이",
+curriculum/2022-elementary-math.json:1517:      "prerequisite_note": "직육면체의 전개도(5-2 5단원), 각기둥의 전개도(6-1 2단원)가 원기둥 전개도의 선수 학습이다. 옆면의 가로 길이가 밑면의 둘레이므로 원의 둘레와 넓이(6-2 5단원)를 먼저 배워야 한다."
+curriculum/2022-elementary-math.json:1803:  "generation_constraints": {
+
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/zsh -lc "jq '{slug, problems_sample}' factory/work/qa/lantern-disk/report.json && sed -n '400,900p' public/g/lantern-disk/index.html && sed -n '1320,1455p' curriculum/2022-elementary-math.json && sed -n '1800,1960p' curriculum/2022-elementary-math.json" in /Users/sitpo/math-game-factory
+ succeeded in 0ms:
+{
+  "slug": "lantern-disk",
+  "problems_sample": [
+    {
+      "id": "scale-m-8",
+      "prompt": "반지름이 8 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?",
+      "choices": [
+        "8배",
+        "4배",
+        "3.14배",
+        "2배"
+      ],
+      "answer": "4배",
+      "answerNumeric": 4,
+      "unitConcept": "반지름이 2배면 넓이는 4배"
+    },
+    {
+      "id": "id-fill",
+      "prompt": "나방이 원 안 꽃밭에 앉아요. 등잔을 어떻게 켤까요?",
+      "choices": [
+        "안을 기름 칸으로 채운다",
+        "지름 숫자만 켠다",
+        "원주율만 켠다",
+        "테두리에 줄을 두른다"
+      ],
+      "answer": "안을 기름 칸으로 채운다",
+      "answerNumeric": 2,
+      "unitConcept": "원의 넓이"
+    },
+    {
+      "id": "fill-d-8",
+      "prompt": "지름이 16 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "803.84 cm²",
+        "50.24 cm²",
+        "200.96 cm²",
+        "192 cm²"
+      ],
+      "answer": "200.96 cm²",
+      "answerNumeric": 200.96,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "fill-d-1",
+      "prompt": "지름이 2 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "12.56 cm²",
+        "3.14 cm²",
+        "6.28 cm²",
+        "3 cm²"
+      ],
+      "answer": "3.14 cm²",
+      "answerNumeric": 3.14,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "rim-d-2",
+      "prompt": "지름이 4 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "12.56 cm",
+        "25.12 cm",
+        "6.28 cm",
+        "12 cm"
+      ],
+      "answer": "12.56 cm",
+      "answerNumeric": 12.56,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "rim-r-8",
+      "prompt": "반지름이 8 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "50.24 cm",
+        "100.48 cm",
+        "25.12 cm",
+        "48 cm"
+      ],
+      "answer": "50.24 cm",
+      "answerNumeric": 50.24,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "rim-d-10",
+      "prompt": "지름이 20 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "62.8 cm",
+        "31.4 cm",
+        "125.6 cm",
+        "60 cm"
+      ],
+      "answer": "62.8 cm",
+      "answerNumeric": 62.8,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "rev-d-8",
+      "prompt": "둘레가 25.12 cm인 원의 지름은? (원주율 약 3.14)",
+      "choices": [
+        "4 cm",
+        "8 cm",
+        "25.12 cm",
+        "16 cm"
+      ],
+      "answer": "8 cm",
+      "answerNumeric": 8,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "rev-d-16",
+      "prompt": "둘레가 50.24 cm인 원의 지름은? (원주율 약 3.14)",
+      "choices": [
+        "16 cm",
+        "8 cm",
+        "32 cm",
+        "50.24 cm"
+      ],
+      "answer": "16 cm",
+      "answerNumeric": 16,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "rev-d-10",
+      "prompt": "둘레가 31.4 cm인 원의 지름은? (원주율 약 3.14)",
+      "choices": [
+        "5 cm",
+        "20 cm",
+        "10 cm",
+        "31.4 cm"
+      ],
+      "answer": "10 cm",
+      "answerNumeric": 10,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "scale-m-10",
+      "prompt": "반지름이 10 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?",
+      "choices": [
+        "2배",
+        "8배",
+        "4배",
+        "3.14배"
+      ],
+      "answer": "4배",
+      "answerNumeric": 4,
+      "unitConcept": "반지름이 2배면 넓이는 4배"
+    },
+    {
+      "id": "rim-r-10",
+      "prompt": "반지름이 10 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "60 cm",
+        "62.8 cm",
+        "31.4 cm",
+        "125.6 cm"
+      ],
+      "answer": "62.8 cm",
+      "answerNumeric": 62.8,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "rim-r-6",
+      "prompt": "반지름이 6 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "18.84 cm",
+        "75.36 cm",
+        "37.68 cm",
+        "36 cm"
+      ],
+      "answer": "37.68 cm",
+      "answerNumeric": 37.68,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "rim-r-3",
+      "prompt": "반지름이 3 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "18 cm",
+        "18.84 cm",
+        "37.68 cm",
+        "9.42 cm"
+      ],
+      "answer": "18.84 cm",
+      "answerNumeric": 18.84,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "fill-d-6",
+      "prompt": "지름이 12 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "108 cm²",
+        "113.04 cm²",
+        "37.68 cm²",
+        "452.16 cm²"
+      ],
+      "answer": "113.04 cm²",
+      "answerNumeric": 113.04,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "fill-r-1",
+      "prompt": "반지름이 1 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "3 cm²",
+        "12.56 cm²",
+        "3.14 cm²",
+        "6.28 cm²"
+      ],
+      "answer": "3.14 cm²",
+      "answerNumeric": 3.14,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "rev-d-6",
+      "prompt": "둘레가 18.84 cm인 원의 지름은? (원주율 약 3.14)",
+      "choices": [
+        "12 cm",
+        "3 cm",
+        "6 cm",
+        "18.84 cm"
+      ],
+      "answer": "6 cm",
+      "answerNumeric": 6,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "fill-r-9",
+      "prompt": "반지름이 9 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "56.52 cm²",
+        "254.34 cm²",
+        "243 cm²",
+        "1017.36 cm²"
+      ],
+      "answer": "254.34 cm²",
+      "answerNumeric": 254.34,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "fill-r-5",
+      "prompt": "반지름이 5 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "75 cm²",
+        "314 cm²",
+        "31.4 cm²",
+        "78.5 cm²"
+      ],
+      "answer": "78.5 cm²",
+      "answerNumeric": 78.5,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "rev-d-4",
+      "prompt": "둘레가 12.56 cm인 원의 지름은? (원주율 약 3.14)",
+      "choices": [
+        "12.56 cm",
+        "8 cm",
+        "2 cm",
+        "4 cm"
+      ],
+      "answer": "4 cm",
+      "answerNumeric": 4,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "rim-r-2",
+      "prompt": "반지름이 2 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "25.12 cm",
+        "6.28 cm",
+        "12.56 cm",
+        "12 cm"
+      ],
+      "answer": "12.56 cm",
+      "answerNumeric": 12.56,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "fill-r-8",
+      "prompt": "반지름이 8 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "50.24 cm²",
+        "192 cm²",
+        "803.84 cm²",
+        "200.96 cm²"
+      ],
+      "answer": "200.96 cm²",
+      "answerNumeric": 200.96,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "fill-r-6",
+      "prompt": "반지름이 6 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "113.04 cm²",
+        "452.16 cm²",
+        "108 cm²",
+        "37.68 cm²"
+      ],
+      "answer": "113.04 cm²",
+      "answerNumeric": 113.04,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "fill-r-4",
+      "prompt": "반지름이 4 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "25.12 cm²",
+        "48 cm²",
+        "200.96 cm²",
+        "50.24 cm²"
+      ],
+      "answer": "50.24 cm²",
+      "answerNumeric": 50.24,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "rim-d-4",
+      "prompt": "지름이 8 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "24 cm",
+        "12.56 cm",
+        "25.12 cm",
+        "50.24 cm"
+      ],
+      "answer": "25.12 cm",
+      "answerNumeric": 25.12,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "fill-r-7",
+      "prompt": "반지름이 7 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "147 cm²",
+        "43.96 cm²",
+        "153.86 cm²",
+        "615.44 cm²"
+      ],
+      "answer": "153.86 cm²",
+      "answerNumeric": 153.86,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "id-contract",
+      "prompt": "이 등잔에서 둘레와 넓이를 바르게 짝지은 것은?",
+      "choices": [
+        "줄 길이=넓이, 칸 수=둘레",
+        "지름=넓이, 반지름=둘레",
+        "줄 길이=둘레, 칸 수=넓이",
+        "원주율=넓이"
+      ],
+      "answer": "줄 길이=둘레, 칸 수=넓이",
+      "answerNumeric": 1,
+      "unitConcept": "원주와 넓이 구별"
+    },
+    {
+      "id": "remain-6",
+      "prompt": "한 변이 12 cm인 정사각형 안에 지름이 12 cm인 원이 꼭 맞게 들어 있을 때, 색칠한 부분(정사각형에서 원을 뺀 부분)의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "113.04 cm²",
+        "144 cm²",
+        "30.96 cm²",
+        "106.32 cm²"
+      ],
+      "answer": "30.96 cm²",
+      "answerNumeric": 30.96,
+      "unitConcept": "색칠한 부분의 넓이"
+    },
+    {
+      "id": "rim-d-6",
+      "prompt": "지름이 12 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "36 cm",
+        "75.36 cm",
+        "37.68 cm",
+        "18.84 cm"
+      ],
+      "answer": "37.68 cm",
+      "answerNumeric": 37.68,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "scale-m-3",
+      "prompt": "반지름이 3 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?",
+      "choices": [
+        "3.14배",
+        "4배",
+        "2배",
+        "8배"
+      ],
+      "answer": "4배",
+      "answerNumeric": 4,
+      "unitConcept": "반지름이 2배면 넓이는 4배"
+    },
+    {
+      "id": "fill-d-3",
+      "prompt": "지름이 6 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "27 cm²",
+        "28.26 cm²",
+        "18.84 cm²",
+        "113.04 cm²"
+      ],
+      "answer": "28.26 cm²",
+      "answerNumeric": 28.26,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "fill-d-4",
+      "prompt": "지름이 8 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "200.96 cm²",
+        "50.24 cm²",
+        "48 cm²",
+        "25.12 cm²"
+      ],
+      "answer": "50.24 cm²",
+      "answerNumeric": 50.24,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "remain-10",
+      "prompt": "한 변이 20 cm인 정사각형 안에 지름이 20 cm인 원이 꼭 맞게 들어 있을 때, 색칠한 부분(정사각형에서 원을 뺀 부분)의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "400 cm²",
+        "314 cm²",
+        "337.2 cm²",
+        "86 cm²"
+      ],
+      "answer": "86 cm²",
+      "answerNumeric": 86,
+      "unitConcept": "색칠한 부분의 넓이"
+    },
+    {
+      "id": "fill-r-3",
+      "prompt": "반지름이 3 cm인 원의 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "18.84 cm²",
+        "113.04 cm²",
+        "27 cm²",
+        "28.26 cm²"
+      ],
+      "answer": "28.26 cm²",
+      "answerNumeric": 28.26,
+      "unitConcept": "원의 넓이 = 반지름 × 반지름 × 원주율"
+    },
+    {
+      "id": "rim-d-1",
+      "prompt": "지름이 2 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "6 cm",
+        "3.14 cm",
+        "6.28 cm",
+        "12.56 cm"
+      ],
+      "answer": "6.28 cm",
+      "answerNumeric": 6.28,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "scale-a-4",
+      "prompt": "반지름이 4 cm인 원의 반지름을 2배(8 cm)로 늘리면 넓이는? (원주율 약 3.14)",
+      "choices": [
+        "803.84 cm²",
+        "200.96 cm²",
+        "100.48 cm²",
+        "50.24 cm²"
+      ],
+      "answer": "200.96 cm²",
+      "answerNumeric": 200.96,
+      "unitConcept": "반지름이 2배면 넓이는 4배"
+    },
+    {
+      "id": "scale-m-4",
+      "prompt": "반지름이 4 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?",
+      "choices": [
+        "4배",
+        "2배",
+        "3.14배",
+        "8배"
+      ],
+      "answer": "4배",
+      "answerNumeric": 4,
+      "unitConcept": "반지름이 2배면 넓이는 4배"
+    },
+    {
+      "id": "rim-d-8",
+      "prompt": "지름이 16 cm인 원의 둘레는? (원주율 약 3.14)",
+      "choices": [
+        "50.24 cm",
+        "48 cm",
+        "100.48 cm",
+        "25.12 cm"
+      ],
+      "answer": "50.24 cm",
+      "answerNumeric": 50.24,
+      "unitConcept": "원주 = 지름 × 원주율"
+    },
+    {
+      "id": "scale-m-6",
+      "prompt": "반지름이 6 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?",
+      "choices": [
+        "2배",
+        "3.14배",
+        "4배",
+        "8배"
+      ],
+      "answer": "4배",
+      "answerNumeric": 4,
+      "unitConcept": "반지름이 2배면 넓이는 4배"
+    },
+    {
+      "id": "id-rim",
+      "prompt": "나방이 원 둘레 길을 걸어요. 등잔을 어떻게 켤까요?",
+      "choices": [
+        "안을 기름 칸으로 채운다",
+        "지름 숫자만 켠다",
+        "테두리에 줄을 두른다",
+        "원주율만 켠다"
+      ],
+      "answer": "테두리에 줄을 두른다",
+      "answerNumeric": 1,
+      "unitConcept": "원주"
+    }
+  ]
+}
+</div>
+
+<script>
+(() => {
+/* ════════════════════════════════════════════════════════════
+   정수 백분위 모델. PI100=314. 부동소수점 비교 금지.
+   C100 = d * 314    A100 = r * r * 314
+   remain100 = d*d*100 - r*r*314
+   ════════════════════════════════════════════════════════════ */
+const PI100 = 314;
+const LS_BEST = 'lantern-disk:best';
+const LS_COMBO = 'lantern-disk:bestCombo';
+const LS_ONB = 'onboardingSeen:lantern-disk';
+const LS_CLEAR = 'lantern-disk:cleared';
+const LS_SPRINT = 'lantern-disk:sprintBest';
+const LS_DEX = 'lantern-disk:dex';
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296}}
+const RNG = mulberry32((Date.now() ^ 0xC14C1E) >>> 0);
+function shuf(g, a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(g()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
+function clamp(v,a,b){return v<a?a:v>b?b:v}
+function lerp(a,b,t){return a+(b-a)*t}
+function fmt(h){
+  const neg=h<0; h=Math.abs(Math.round(h));
+  const i=Math.floor(h/100), f=h%100;
+  let s;
+  if(f===0) s=String(i);
+  else if(f%10===0) s=i+'.'+(f/10);
+  else s=i+'.'+String(f).padStart(2,'0');
+  return (neg?'-':'')+s;
+}
+function fmtCm(n){return n+' cm'}
+function fmtLen(h){return fmt(h)+' cm'}
+function fmtArea(h){return fmt(h)+' cm²'}
+function C100(r){return 2*r*PI100}
+function A100(r){return r*r*PI100}
+function remain100(r){const d=2*r; return d*d*100 - r*r*PI100}
+
+/**
+ * 오답 후처리: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플
+ * cands[].misconceptionId 는 오개념 역산 표식 (검산관 확인용)
+ */
+function pickChoices(correctStr, cands, extras, g){
+  const seen=new Set([String(correctStr)]);
+  const dist=[];
+  const add=(c)=>{
+    if(!c||c.s==null) return;
+    const s=String(c.s);
+    if(!s||seen.has(s)) return;
+    if(c.ok===false) return;
+    seen.add(s); dist.push(s);
+  };
+  for(const c of cands) add(c);
+  if(extras) for(const c of extras){ if(dist.length>=3) break; add(c); }
+  let k=1;
+  while(dist.length<3 && k<40){
+    const s=String(correctStr).replace(/[\d.]+/, (n)=>{
+      const v=Math.round(Number(n)*100)+k*100; k++; return fmt(v);
+    });
+    k++;
+    if(!seen.has(s) && s!==String(correctStr)){ seen.add(s); dist.push(s); }
+  }
+  return shuf(g||RNG, [String(correctStr)].concat(dist.slice(0,3)));
+}
+
+function buildMcPool(){
+  const P=[], g=mulberry32(0x51C1E5);
+  // 원주 — 지름 제시. 오개념: π=3 / 반지름×π / 지름을 반지름으로(×2) / 넓이 공식
+  for(const r of [1,2,3,4,5,6,8,10]){
+    const d=2*r, C=C100(r), correct=fmtLen(C);
+    const cands=[
+      {s:fmtLen(d*300), misconceptionId:'GHOST_PI_IS_3'},       // 원주율을 3으로
+      {s:fmtLen(r*PI100), misconceptionId:'GHOST_USE_R'},       // 반지름 × 약 3.14
+      {s:fmtLen((2*d)*PI100), misconceptionId:'GHOST_D_AS_R'},  // 지름을 반지름 자리에
+      {s:fmtLen(A100(r)), misconceptionId:'GHOST_SWAP'}         // 넓이 공식을 둘레에
+    ];
+    const extras=[
+      {s:fmtLen(d*100), misconceptionId:'GHOST_FORGOT_PI'},
+      {s:fmtLen(r*100), misconceptionId:'GHOST_GAVE_R'}
+    ];
+    P.push({id:'rim-d-'+r, prompt:'지름이 '+fmtCm(d)+'인 원의 둘레는? (원주율 약 3.14)',
+      choices:pickChoices(correct,cands,extras,g), answer:correct, answerNumeric:C/100,
+      unitConcept:'원주 = 지름 × 원주율'});
+  }
+  // 원주 — 반지름 제시
+  for(const r of [1,2,3,4,5,6,8,10]){
+    const d=2*r, C=C100(r), correct=fmtLen(C);
+    const cands=[
+      {s:fmtLen(d*300), misconceptionId:'GHOST_PI_IS_3'},
+      {s:fmtLen(r*PI100), misconceptionId:'GHOST_USE_R'},
+      {s:fmtLen((2*d)*PI100), misconceptionId:'GHOST_D_AS_R'},
+      {s:fmtLen(A100(r)), misconceptionId:'GHOST_SWAP'}
+    ];
+    P.push({id:'rim-r-'+r, prompt:'반지름이 '+fmtCm(r)+'인 원의 둘레는? (원주율 약 3.14)',
+      choices:pickChoices(correct,cands,[{s:fmtLen(d*100),misconceptionId:'GHOST_FORGOT_PI'}],g),
+      answer:correct, answerNumeric:C/100, unitConcept:'원주 = 지름 × 원주율'});
+  }
+  // 넓이 — 반지름 제시. r=2 는 r×2 와 r×r 이 같아 제외 (구조적 보장)
+  for(const r of [1,3,4,5,6,7,8,9,10]){
+    const d=2*r, A=A100(r), correct=fmtArea(A);
+    const cands=[
+      {s:fmtArea(r*2*PI100), misconceptionId:'GHOST_R_TIMES_TWO'}, // 반지름×2×π (제곱 대신 두 배)
+      {s:fmtArea(C100(r)), misconceptionId:'GHOST_SWAP'},          // 둘레 공식으로 안을 채움 (값은 위와 같으면 중복 제거)
+      {s:fmtArea(d*d*PI100), misconceptionId:'GHOST_D_AS_R'},      // 지름을 반지름 자리에
+      {s:fmtArea(r*r*300), misconceptionId:'GHOST_PI_IS_3'}        // π=3
+    ];
+    P.push({id:'fill-r-'+r, prompt:'반지름이 '+fmtCm(r)+'인 원의 넓이는? (원주율 약 3.14)',
+      choices:pickChoices(correct,cands,[{s:fmtArea(r*PI100),misconceptionId:'GHOST_R_NOT_SQUARE'}],g),
+      answer:correct, answerNumeric:A/100, unitConcept:'원의 넓이 = 반지름 × 반지름 × 원주율'});
+  }
+  // 넓이 — 지름 제시
+  for(const r of [1,3,4,5,6,8,10]){
+    const d=2*r, A=A100(r), correct=fmtArea(A);
+    const cands=[
+      {s:fmtArea(d*d*PI100), misconceptionId:'GHOST_D_AS_R'},
+      {s:fmtArea(d*PI100), misconceptionId:'GHOST_SWAP'},
+      {s:fmtArea(r*r*300), misconceptionId:'GHOST_PI_IS_3'},
+      {s:fmtArea(r*2*PI100), misconceptionId:'GHOST_R_TIMES_TWO'}
+    ];
+    P.push({id:'fill-d-'+r, prompt:'지름이 '+fmtCm(d)+'인 원의 넓이는? (원주율 약 3.14)',
+      choices:pickChoices(correct,cands,[{s:fmtArea(d*d*100),misconceptionId:'GHOST_FORGOT_PI'}],g),
+      answer:correct, answerNumeric:A/100, unitConcept:'원의 넓이 = 반지름 × 반지름 × 원주율'});
+  }
+  // 반지름 2배 → 넓이 4배 (배율)
+  for(const r of [1,2,3,4,5,6,8,10]){
+    const correct='4배';
+    P.push({id:'scale-m-'+r, prompt:'반지름이 '+fmtCm(r)+'인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?',
+      choices:pickChoices(correct,[
+        {s:'2배', misconceptionId:'GHOST_LINEAR_AREA'},
+        {s:'8배', misconceptionId:'GHOST_CUBED'},
+        {s:'3.14배', misconceptionId:'GHOST_PI_AS_SCALE'}
+      ],[{s:'6배'}],g), answer:correct, answerNumeric:4,
+      unitConcept:'반지름이 2배면 넓이는 4배'});
+  }
+  // 반지름 2배 → 새 넓이 값
+  for(const r of [3,4,5]){
+    const R=2*r, A=A100(R), correct=fmtArea(A);
+    const cands=[
+      {s:fmtArea(2*A100(r)), misconceptionId:'GHOST_LINEAR_AREA'}, // 넓이도 2배
+      {s:fmtArea((2*R)*(2*R)*PI100), misconceptionId:'GHOST_D_AS_R'}, // 새 지름을 반지름처럼
+      {s:fmtArea(R*2*PI100), misconceptionId:'GHOST_R_TIMES_TWO'}
+    ];
+    P.push({id:'scale-a-'+r, prompt:'반지름이 '+fmtCm(r)+'인 원의 반지름을 2배('+fmtCm(R)+')로 늘리면 넓이는? (원주율 약 3.14)',
+      choices:pickChoices(correct,cands,[{s:fmtArea(A100(r)),misconceptionId:'GHOST_NO_SCALE'}],g),
+      answer:correct, answerNumeric:A/100, unitConcept:'반지름이 2배면 넓이는 4배'});
+  }
+  // 정사각형 − 내접원. r=2 는 A=C 라서 둘레를 빼는 오답이 정답과 같아져 제외
+  for(const r of [3,4,5,6,8,10]){
+    const d=2*r, rem=remain100(r), correct=fmtArea(rem);
+    const sq=d*d*100;
+    const cands=[
+      {s:fmtArea(sq), misconceptionId:'GHOST_NO_SUB'},                 // 원을 안 뺌
+      {s:fmtArea(sq-C100(r)), misconceptionId:'GHOST_SWAP'},            // 둘레를 넓이처럼 뺌
+      {s:fmtArea(A100(r)), misconceptionId:'GHOST_JUST_CIRCLE'},        // 원 넓이만 답
+      {s:fmtArea(sq-r*r*300), misconceptionId:'GHOST_PI_IS_3'}
+    ];
+    P.push({id:'remain-'+r, prompt:'한 변이 '+fmtCm(d)+'인 정사각형 안에 지름이 '+fmtCm(d)+'인 원이 꼭 맞게 들어 있을 때, 색칠한 부분(정사각형에서 원을 뺀 부분)의 넓이는? (원주율 약 3.14)',
+      choices:pickChoices(correct,cands,[{s:fmtArea(sq-r*PI100),misconceptionId:'GHOST_D_AS_R'}],g),
+      answer:correct, answerNumeric:rem/100, unitConcept:'색칠한 부분의 넓이'});
+  }
+  // 원주로 지름 구하기
+  for(const d of [4,6,8,10,12,16,20]){
+    const C=d*PI100, correct=fmtCm(d);
+    const cands=[
+      {s:fmtCm(d/2), misconceptionId:'GHOST_GAVE_R'},
+      {s:fmtCm(2*d), misconceptionId:'GHOST_D_AS_R'},
+      {s:fmt(C)+' cm', misconceptionId:'GHOST_GAVE_C'}
+    ];
+    P.push({id:'rev-d-'+d, prompt:'둘레가 '+fmtLen(C)+'인 원의 지름은? (원주율 약 3.14)',
+      choices:pickChoices(correct,cands,[{s:fmtCm(d+2)}],g),
+      answer:correct, answerNumeric:d, unitConcept:'원주 = 지름 × 원주율'});
+  }
+  // 식별(계산 없음)
+  P.push({id:'id-rim', prompt:'나방이 원 둘레 길을 걸어요. 등잔을 어떻게 켤까요?',
+    choices:shuf(g,['테두리에 줄을 두른다','안을 기름 칸으로 채운다','지름 숫자만 켠다','원주율만 켠다']),
+    answer:'테두리에 줄을 두른다', answerNumeric:1, unitConcept:'원주'});
+  P.push({id:'id-fill', prompt:'나방이 원 안 꽃밭에 앉아요. 등잔을 어떻게 켤까요?',
+    choices:shuf(g,['안을 기름 칸으로 채운다','테두리에 줄을 두른다','지름 숫자만 켠다','원주율만 켠다']),
+    answer:'안을 기름 칸으로 채운다', answerNumeric:2, unitConcept:'원의 넓이'});
+  P.push({id:'id-pi', prompt:'계산에서 쓰는 3.14에 대한 설명으로 옳은 것은?',
+    choices:shuf(g,['3.14는 원주율의 근삿값이다','원주율은 딱 3.14이다','원주율은 3이다','원주율은 지름이다']),
+    answer:'3.14는 원주율의 근삿값이다', answerNumeric:3.14, unitConcept:'원주율(근삿값 3.14)'});
+  P.push({id:'id-contract', prompt:'이 등잔에서 둘레와 넓이를 바르게 짝지은 것은?',
+    choices:shuf(g,['줄 길이=둘레, 칸 수=넓이','줄 길이=넓이, 칸 수=둘레','지름=넓이, 반지름=둘레','원주율=넓이']),
+    answer:'줄 길이=둘레, 칸 수=넓이', answerNumeric:1, unitConcept:'원주와 넓이 구별'});
+  return P;
+}
+const MC_POOL = buildMcPool();
+
+function sampleProblems(n){
+  const g=mulberry32(0xA11CE);
+  const seen=new Set(), uniq=[];
+  for(const p of shuf(g, MC_POOL)){
+    if(seen.has(p.prompt)) continue;
+    seen.add(p.prompt); uniq.push(p);
+  }
+  return uniq.slice(0, Math.max(1, n|0));
+}
+
+/* ── 플레이 슬롯 풀 (전수, 제약 만족) ───────────────────── */
+function buildPlaySlots(){
+  const S=[];
+  // L1 둘레 길. r∈{2,5,10} 림만. 고스트 없음
+  for(const r of [2,5,10]) S.push({level:1, kind:'rim', r, given:'d', ghosts:[]});
+  // L2 지름 표지판. GHOST_D_AS_R
+  for(const r of [3,4,5]) S.push({level:2, kind:'rim', r, given:'d', ghosts:['GHOST_D_AS_R','GHOST_PI_IS_3']});
+  // L3 꽃밭. r=2 제외(제곱=두 배). GHOST_R_TIMES_TWO + GHOST_SWAP
+  for(const r of [4,5,10]) S.push({level:3, kind:'fill', r, given:'r', ghosts:['GHOST_R_TIMES_TWO','GHOST_SWAP','GHOST_D_AS_R']});
+  // L4 두 배
+  for(const r of [2,4,5]) S.push({level:4, kind:'scale4', sub:'fill', r, given:'r', ghosts:['GHOST_LINEAR_AREA']});
+  for(const r of [2,5]) S.push({level:4, kind:'scale4', sub:'rim', r, given:'r', ghosts:['GHOST_D_AS_R']});
+  // L5 그늘. r=2 제외
+  for(const r of [3,4,5]) S.push({level:5, kind:'remain', r, given:'d', ghosts:['GHOST_SWAP','GHOST_NO_SUB']});
+  return S;
+}
+const PLAY_SLOTS = buildPlaySlots();
+
+function makeTask(slot){
+  const r=slot.r, d=2*r, C=C100(r), A=A100(r);
+  const T={
+    id:slot.kind+'-'+r+'-'+(slot.sub||'')+'-'+slot.level,
+    kind:slot.kind, sub:slot.sub||'', r0:r, d, C, A,
+    rTarget:r, modeTarget:'rim', given:slot.given||'d',
+    ghosts:[], prompt:'', targetH:C, targetUnit:'cm',
+    unitConcept:'원주 = 지름 × 원주율', formulaMine:'', formulaGood:'',
+    missLine:''
+  };
+  if(slot.kind==='rim'){
+    T.modeTarget='rim'; T.rTarget=r; T.targetH=C; T.targetUnit='cm';
+    T.prompt = T.given==='d'
+      ? '지름이 <b>'+fmtCm(d)+'</b>인 연못 길이야. <b>줄</b>로 막아 줘!'
+      : '반지름이 <b>'+fmtCm(r)+'</b>인 길을 <b>줄</b>로 막아 줘!';
+    T.formulaGood='둘레 = 지름 × 약 3.14  →  '+fmtCm(d)+' × 약 3.14 = '+fmtLen(C);
+    T.unitConcept='원주 = 지름 × 원주율';
+    if(slot.ghosts.includes('GHOST_D_AS_R'))
+      T.ghosts.push({misconceptionId:'GHOST_D_AS_R', r:d, h:(2*d)*PI100, label:'지름을 반지름처럼'});
+    if(slot.ghosts.includes('GHOST_PI_IS_3'))
+      T.ghosts.push({misconceptionId:'GHOST_PI_IS_3', r:null, h:d*300, label:'원주율 3'});
+  } else if(slot.kind==='fill'){
+    T.modeTarget='fill'; T.rTarget=r; T.targetH=A; T.targetUnit='cm²';
+    T.prompt='반지름이 <b>'+fmtCm(r)+'</b>인 꽃밭이야. <b>기름 칸</b>으로 채워 줘!';
+    T.formulaGood='넓이 = 반지름 × 반지름 × 약 3.14  →  '+r+' × '+r+' × 약 3.14 = '+fmtArea(A);
+    T.unitConcept='원의 넓이 = 반지름 × 반지름 × 원주율';
+    // GHOST_R_TIMES_TWO: A_ghost = r*2*314 (= C). 칸 카운터 자석
+    T.ghosts.push({misconceptionId:'GHOST_R_TIMES_TWO', r:null, h:r*2*PI100, label:'반지름×2'});
+    T.ghosts.push({misconceptionId:'GHOST_SWAP', r:null, h:C, label:'둘레 값으로 안을 채움', empty:true});
+    T.ghosts.push({misconceptionId:'GHOST_D_AS_R', r:d, h:A100(d), label:'지름을 반지름처럼'});
+  } else if(slot.kind==='scale4'){
+    const R=2*r;
+    T.r0=r;
+    if(slot.sub==='rim'){
+      T.modeTarget='rim'; T.rTarget=R; T.targetH=C100(R); T.targetUnit='cm';
+      T.prompt='지금 등잔(반지름 <b>'+fmtCm(r)+'</b>)의 <b>줄만 2배</b>로 켜 줘!';
+      T.formulaGood='줄은 2배 → 반지름도 2배. 둘레 = '+fmtCm(2*R)+' × 약 3.14 = '+fmtLen(C100(R));
+      T.unitConcept='원주 = 지름 × 원주율';
+      T.ghosts.push({misconceptionId:'GHOST_D_AS_R', r:2*R, h:C100(2*R), label:'지름을 또 두 배'});
+    } else {
+      T.modeTarget='fill'; T.rTarget=R; T.targetH=A100(R); T.targetUnit='cm²';
+      T.prompt='지금 등잔(반지름 <b>'+fmtCm(r)+'</b>)의 <b>기름을 4배</b>로 켜 줘!';
+      T.formulaGood='반지름 2배면 칸은 4배. '+fmtArea(A)+' × 4 = '+fmtArea(A100(R));
+      T.unitConcept='반지름이 2배면 넓이는 4배';
+      T.ghosts.push({misconceptionId:'GHOST_LINEAR_AREA', r:null, h:2*A, label:'넓이도 2배', stacked:true});
+    }
+    T.ghosts.push({misconceptionId:'GHOST_OLD', r:r, h:slot.sub==='rim'?C:A, label:'예전 크기', old:true});
+  } else {
+    T.modeTarget='fill'; T.rTarget=r; T.targetH=remain100(r); T.targetUnit='cm²';
+    T.prompt='한 변이 <b>'+fmtCm(d)+'</b>인 꽃밭에서 내접 등잔을 켜고 <b>남은 그늘 칸</b>을 맞춰 줘!';
+    T.formulaGood='정사각형 − 원 = '+fmtCm(d)+' × '+fmtCm(d)+' − '+fmtArea(A)+' = '+fmtArea(remain100(r));
+    T.unitConcept='색칠한 부분의 넓이';
+    T.square=d;
+    T.ghosts.push({misconceptionId:'GHOST_NO_SUB', r:null, h:d*d*100, label:'원을 안 뺌'});
+    T.ghosts.push({misconceptionId:'GHOST_SWAP', r:null, h:d*d*100-C, label:'둘레를 뺌'});
+  }
+  return T;
+}
+
+function liveValue(mode, rInt){
+  if(mode==='rim') return {h:C100(rInt), s:fmtLen(C100(rInt))};
+  if(mode==='fill') return {h:A100(rInt), s:fmtArea(A100(rInt))};
+  return {h:0, s:'—'};
+}
+
+function reasonChips(task, g){
+  const bank={
+    rim:[
+      {id:'C_EQ_D_PI', t:'둘레는 지름 × 약 3.14', ok:true},
+      {id:'WRONG_PI_EXACT', t:'원주율은 딱 3.14', ok:false},
+      {id:'WRONG_D_AS_R', t:'지름을 그대로 곱하면 된다', ok:false}
+    ],
+    fill:[
+      {id:'A_EQ_R2_PI', t:'넓이는 반지름 × 반지름 × 약 3.14', ok:true},
+      {id:'WRONG_SWAP', t:'둘레 값으로 안을 채운다', ok:false},
+      {id:'WRONG_D_AS_R', t:'지름을 그대로 곱하면 된다', ok:false}
+    ],
+    scale4:[
+      {id:'R2_AREA_4X', t:'반지름이 2배면 칸은 4배', ok:true},
+      {id:'WRONG_LINEAR', t:'반지름 2배면 넓어도 2배', ok:false},
+      {id:'WRONG_SWAP', t:'둘레 값으로 안을 채운다', ok:false}
+    ],
+    remain:[
+      {id:'REMAIN', t:'정사각형 넓이에서 원의 넓이를 빼요', ok:true},
+      {id:'WRONG_SWAP', t:'정사각형에서 둘레를 빼요', ok:false},
+      {id:'WRONG_D_AS_R', t:'원의 넓이는 지름 × 지름 × 약 3.14', ok:false}
+    ]
+  };
+  const k=task.kind==='scale4'?'scale4':task.kind==='remain'?'remain':task.kind==='fill'?'fill':'rim';
+  return shuf(g||RNG, bank[k]);
+}
+
+function diagnose(task, mode, rInt){
+  if(mode!==task.modeTarget){
+    return {misconceptionId:'GHOST_SWAP', line:'테두리 줄과 기름 칸을 뒤바꿨어',
+      mine: mode==='rim' ? '줄(둘레 공식)로 켰어' : '기름(넓이 공식)으로 켰어',
+      good: task.modeTarget==='rim' ? '길은 줄(둘레)로 막아야 해' : '꽃밭은 기름 칸(넓이)으로 채워야 해'};
+  }
+  const gh=task.ghosts.find(x=>x.r!=null && x.r===rInt && !x.old);
+  if(gh) return {misconceptionId:gh.misconceptionId, line:gh.label,
+    mine: playerFormula(task, mode, rInt), good: task.formulaGood};
+  const val=liveValue(mode,rInt);
+  const byH=task.ghosts.find(x=>x.h===val.h && !x.old);
+  if(byH) return {misconceptionId:byH.misconceptionId, line:byH.label,
+    mine: playerFormula(task, mode, rInt), good: task.formulaGood};
+  return {misconceptionId:'MISS_SIZE', line:'크기가 목표와 달라',
+    mine: playerFormula(task, mode, rInt), good: task.formulaGood};
+}
+function playerFormula(task, mode, rInt){
+  if(mode==='rim') return '내가 켠 줄 = 지름 '+fmtCm(2*rInt)+' × 약 3.14 = '+fmtLen(C100(rInt));
+  return '내가 켠 칸 = '+rInt+' × '+rInt+' × 약 3.14 = '+fmtArea(A100(rInt));
+}
+
+/* ── 유틸 · 에셋 · 소리 ─────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d', {alpha:false});
+const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MO = RM ? 0.45 : 1;
+let W=innerWidth, H=innerHeight, DPR=Math.min(devicePixelRatio||1, 2);
+
+const IM = {};
+function punchWhite(im){
+  try{
+    const c=document.createElement('canvas');
+    c.width=im.naturalWidth||im.width; c.height=im.naturalHeight||im.height;
+    const x=c.getContext('2d'); x.drawImage(im,0,0);
+    const id=x.getImageData(0,0,c.width,c.height), d=id.data;
+    for(let i=0;i<d.length;i+=4){
+      const r=d[i],g=d[i+1],b=d[i+2];
+      if(r>248&&g>248&&b>248) d[i+3]=0;
+      else if(r>236&&g>236&&b>236){
+        const t=(r+g+b-708)/60;
+        d[i+3]=Math.round(d[i+3]*Math.max(0,1-t));
+      }
+    }
+    x.putImageData(id,0,0); return c;
+  }catch(e){ return im; }
+}
+function loadImg(key, src, punch){
+  return new Promise(res=>{
+    const im=new Image();
+    im.onload=()=>{ IM[key]=punch?punchWhite(im):im; res(); };
+    im.onerror=()=>{ IM[key]=null; res(); };
+    im.src=src;
+  });
+}
+
+let AC=null, muted=false, bgGain=null, bgOsc=[];
+function ensureAudio(){
+  if(!AC){
+    const C=window.AudioContext||window.webkitAudioContext;
+    if(!C) return;
+    AC=new C();
+  }
+  if(AC.state==='suspended') AC.resume();
+}
+function beep(freq, dur, type, vol){
+  if(muted||!AC) return;
+  const t=AC.currentTime;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(Math.max(0.0001, vol||0.07), t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(AC.destination);
+  o.start(t); o.stop(t+dur);
+}
+function sfxCorrect(combo){
+  ensureAudio();
+  beep(523, 0.12, 'triangle', 0.08);
+  beep(784, 0.18, 'sine', 0.06);
+  if(combo>=3) beep(1046, 0.22, 'triangle', 0.05);
+  if(combo>=6) beep(1318, 0.28, 'sine', 0.04);
+  if(combo>=10) beep(1568, 0.32, 'triangle', 0.035);
+}
+function sfxWrong(){ ensureAudio(); beep(180, 0.22, 'sawtooth', 0.06); beep(110, 0.3, 'square', 0.04); }
+function sfxTick(){ ensureAudio(); beep(660, 0.05, 'sine', 0.03); }
+function sfxSnap(){ ensureAudio(); beep(440, 0.08, 'triangle', 0.05); }
+
+function setMuted(v){
+  muted=!!v;
+  const icon=muted?'🔇':'🔊';
+  $('muteBtn').textContent=icon; $('titleMute').textContent=icon;
+  $('muteBtn').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
+  $('titleMute').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
+}
+
+/* ── 상태 ──────────────────────────────────────────────── */
+const S = {
+  phase:'title', score:0, showScore:0, lives:3, level:1, solved:0, combo:0, bestCombo:0,
+  timeScale:1, hitT:0, shake:0, flash:0, flashC:'#F2C14E',
+  sqX:1, sqY:1, rFloat:3, rVis:3, mode:null,
+  task:null, queue:[], qIdx:0, missOnTask:0, hard:false,
+  sprint:false, sprintT:0, pierStars:[0,0,0,0,0], unlocked:1,
+  dragging:false, dragMode:null, trail:[], parts:[], mist:[], moths:[],
+  now:false, praiseT:0, praise:'', lockInput:false, firstMissHint:true,
+  land:false, px:18, lx:0, ly:0, play:{x:0,y:0,w:0,h:0}
+};
+
+function comboMul(c){ return c>=4?5:c>=3?3:c>=2?2:1; }
+function lanternTier(){ const c=S.combo; return c>=10?3:c>=6?2:c>=3?1:0; }
+
+function layout(){
+  W=innerWidth; H=innerHeight; DPR=Math.min(devicePixelRatio||1,2);
+  cv.width=Math.floor(W*DPR); cv.height=Math.floor(H*DPR);
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  S.land = W>H && W>=640;
+  document.documentElement.classList.toggle('land', S.land);
+  const top = 132 + (parseInt(getComputedStyle(document.documentElement).fontSize)||16);
+  const bot = 148;
+  const y0 = Math.max(118, 108 + (S.phase==='playing'?8:0));
+  const y1 = H - bot;
+  S.play = {x:0, y:y0, w:W, h:Math.max(160, y1-y0)};
+  if(S.land){
+    S.play = {x:0, y:72, w:W*0.58, h:H-88};
+  }
+  const fit = Math.min(S.play.w, S.play.h);
+  S.px = clamp(fit*0.36/10, 14, 28);
+  S.lx = S.play.x + S.play.w*0.5;
+  S.ly = S.play.y + S.play.h*0.52;
+}
+
+function rpx(r){ return r * S.px; }
+
+function populateHearts(){
+  const h=$('hearts'); h.innerHTML='';
+  for(let i=0;i<3;i++){
+    const s=document.createElement('canvas'); s.width=36; s.height=36; s.className='hp'+(i>=S.lives?' off':'');
+    const x=s.getContext('2d'); x.fillStyle='#E24A2A';
+    x.beginPath(); x.moveTo(18,30); x.bezierCurveTo(4,20,4,10,18,14); x.bezierCurveTo(32,10,32,20,18,30); x.fill();
+    h.appendChild(s);
+  }
+}
+function punchScore(){
+  const el=$('scoreV');
+  el.classList.remove('punch'); void el.offsetWidth; el.classList.add('punch');
+}
+function setScoreUI(){
+  $('scoreV').textContent = Math.round(S.showScore);
+  const c=$('comboP');
+  if(S.combo>=2){ c.textContent='등잔 ×'+comboMul(S.combo); c.classList.add('on'); }
+  else c.classList.remove('on');
+  populateHearts();
+}
+
+function toast(msg, kind){
+  const t=$('toastT'); t.textContent=msg; t.className='t on'+(kind?' '+kind:'');
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'), 1400);
+}
+function praise(text){
+  const el=$('praise'); el.textContent=text; el.classList.add('on'); S.praiseT=0.7;
+}
+
+function hideAllOverlays(){
+  $('title').classList.add('hidden');
+  $('onb').classList.add('hidden');
+  $('map').classList.add('hidden');
+  $('compare').classList.add('hidden');
+  $('over').classList.add('hidden');
+  $('reasons').classList.add('hidden');
+}
+function showPlayChrome(on){
+  $('hud').classList.toggle('hidden', !on);
+  $('say').classList.toggle('hidden', !on);
+  $('values').classList.toggle('hidden', !on);
+  $('ctrl').classList.toggle('hidden', !on);
+}
+
+/* ── 파티클 · 주스 ─────────────────────────────────────── */
+function burst(x,y,n,cols,up){
+  n = Math.min(80 - S.parts.length, Math.round(n*MO));
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, sp=40+Math.random()*180;
+    S.parts.push({x,y,vx:Math.cos(a)*sp*(up?0.4:1), vy:Math.sin(a)*sp-(up?120:0),
+      life:0.5+Math.random()*0.6, t:0, r:2+Math.random()*4, c:cols[i%cols.length]});
+  }
+}
+function hitStop(ms){ S.timeScale = RM?0.45:0.08; S.hitT = (ms||80)*MO; }
+function shake(amp){ S.shake = amp*MO; }
+function flash(c,a){ S.flash=a; S.flashC=c; }
+function squash(x,y){ S.sqX=x; S.sqY=y; }
+
+function spawnMist(){
+          "answer": "7 L",
+          "difficulty": 3
+        },
+        {
+          "type": "비례배분 역추적",
+          "example": "두 사람이 구슬을 5 : 3으로 나누어 가졌더니 한 사람이 다른 사람보다 10개 더 많았다. 전체 구슬은 몇 개인가?",
+          "answer": "40개",
+          "difficulty": 4
+        }
+      ],
+      "prerequisite_units": [
+        "g6s1-u4",
+        "g5s1-u2"
+      ],
+      "prerequisite_note": "비와 비율(6-1 4단원)에서 기준량과 비교하는 양을 익힌 것이 직접적 전제다. 약수와 배수(5-1 2단원)의 최대공약수는 비를 간단한 자연수의 비로 나타낼 때 쓰인다."
+    },
+    {
+      "id": "g6s2-u5",
+      "grade": 6,
+      "semester": 2,
+      "order": 5,
+      "title": "원의 둘레와 넓이",
+      "typical_assessment_month": "11월",
+      "title_2015": "원의 넓이",
+      "domain": "03",
+      "standards": [
+        "[6수03-15]",
+        "[6수03-16]"
+      ],
+      "key_concepts": [
+        "원주",
+        "지름",
+        "반지름",
+        "원주율(근삿값 3.14)",
+        "원주 = 지름 × 원주율",
+        "원의 넓이 = 반지름 × 반지름 × 원주율",
+        "원을 잘라 직사각형으로 만들어 넓이 구하기"
+      ],
+      "misconceptions": [
+        {
+          "text": "원주 공식과 원의 넓이 공식을 뒤바꾸어 넓이를 구할 때 지름을 사용한다.",
+          "why": "두 공식을 원리 없이 형태로만 외웠기 때문이다."
+        },
+        {
+          "text": "원의 넓이를 구할 때 반지름 × 반지름 대신 반지름 × 2를 쓴다.",
+          "why": "제곱의 의미를 두 배와 혼동하기 때문이다."
+        },
+        {
+          "text": "문제에서 지름이 주어졌는데 그대로 반지름 자리에 대입한다.",
+          "why": "지름과 반지름의 관계를 확인하는 습관이 없기 때문이다."
+        },
+        {
+          "text": "원주율이 정확히 3.14라고 생각한다.",
+          "why": "계산에서 늘 3.14를 쓰다 보니 근삿값이라는 사실을 잊기 때문이다. 교육과정에서도 근삿값으로 3.14를 사용하게 한다."
+        },
+        {
+          "text": "반지름이 2배가 되면 원의 넓이도 2배가 된다고 생각한다.",
+          "why": "길이의 배율과 넓이의 배율 관계를 이해하지 못하기 때문이다. 실제로는 4배가 된다."
+        }
+      ],
+      "problem_types": [
+        {
+          "type": "원주 구하기",
+          "example": "지름이 10 cm인 원의 원주를 구하시오. (원주율 3.14)",
+          "answer": "31.4 cm",
+          "difficulty": 1
+        },
+        {
+          "type": "원주로 지름 구하기",
+          "example": "원주가 47.1 cm인 원의 지름을 구하시오. (원주율 3.14)",
+          "answer": "15 cm",
+          "difficulty": 2
+        },
+        {
+          "type": "원의 넓이 구하기",
+          "example": "반지름이 6 cm인 원의 넓이를 구하시오. (원주율 3.14)",
+          "answer": "6 × 6 × 3.14 = 113.04 cm²",
+          "difficulty": 2
+        },
+        {
+          "type": "반지름 변화와 넓이 관계 추론",
+          "example": "반지름이 2배가 되면 원의 넓이는 몇 배가 되는가?",
+          "answer": "4배",
+          "difficulty": 3
+        },
+        {
+          "type": "색칠한 부분의 넓이 구하기",
+          "example": "한 변이 10 cm인 정사각형 안에 지름이 10 cm인 원이 꼭 맞게 들어 있을 때 색칠한 부분(정사각형에서 원을 뺀 부분)의 넓이를 구하시오. (원주율 3.14)",
+          "answer": "100 - 78.5 = 21.5 cm²",
+          "difficulty": 4
+        }
+      ],
+      "prerequisite_units": [
+        "g5s1-u6"
+      ],
+      "prerequisite_note": "다각형의 둘레와 넓이(5-1 6단원), 특히 직사각형의 넓이 구하는 방법이 원의 넓이를 유도하는 근거로 쓰인다(교육과정 성취기준 해설에 명시).",
+      "title_variants": [
+        {
+          "title": "원의 둘레와 넓이",
+          "publishers": [
+            "비상교육(방정숙)",
+            "아이스크림미디어(김성여)"
+          ]
+        },
+        {
+          "title": "원의 넓이",
+          "publishers": [
+            "지학사(강문봉)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "g6s2-u6",
+      "grade": 6,
+      "semester": 2,
+      "order": 6,
+      "title": "원기둥, 원뿔, 구",
+      "typical_assessment_month": "12월",
+      "domain": "03",
+      "standards": [
+        "[6수03-07]",
+        "[6수03-08]"
+      ],
+      "key_concepts": [
+        "원기둥",
+        "밑면",
+        "옆면",
+        "높이",
+        "원기둥의 전개도",
+        "원뿔",
+        "모선",
+        "원뿔의 꼭짓점",
+        "구",
+        "구의 중심",
+        "구의 반지름",
+    }
+  ],
+  "unit_source_note": "5-1, 5-2, 6-1, 6-2 단원명과 순서의 기본값은 경기도교육청 <2026학년도 초등학교 5~6학년 1~2학기 수업-평가 계획 예시 자료>의 '수학과 성취기준·단원 연결표'를 따랐다. 초등 수학 3~6학년은 검정 교과서이므로 단원명이 출판사별로 다를 수 있다. 실제 9종 교과서의 차례를 확인한 결과 단원의 주제·개수(6단원)·순서는 사실상 공통이며, 차이는 일부 단원의 이름에 국한된다. 확인된 차이는 각 단원의 title_variants 필드에 담았다. 6학년은 비상교육(방정숙) 실물 차례 이미지, 지학사(강문봉) 전자책 메타데이터, 아이스크림미디어(김성여) 교과서 소개 PDF 원문으로 검증했다. 6-2의 2·3단원(공간과 입체/소수의 나눗셈) 순서는 출판사별로 갈리므로 order_variants를 확인하라.",
+  "generation_constraints": {
+    "note": "교육부 고시 제2022-33호 [별책 8]의 '성취기준 적용 시 고려 사항'에서 문항 생성에 직접 영향을 주는 제약만 뽑았다. 모두 원문 근거가 있다.",
+    "rules": [
+      "자연수의 혼합 계산은 계산 순서에 중점을 두고, 지나치게 복잡한 혼합 계산은 다루지 않는다.",
+      "약수와 배수는 자연수 범위에서만 다룬다.",
+      "최대공약수와 최소공배수는 약수·배수를 나열해 공통된 것을 찾는 방법으로 다루고, 소인수의 곱으로 나타내어 구하는 방법은 평가에서 다루지 않는다.",
+      "분수의 사칙계산에서 기약분수로 나타낼 것을 요구하지 않을 경우, 결과를 기약분수가 아닌 분수로 나타내는 것도 허용한다.",
+      "통분할 때 공통분모로 최소공배수뿐 아니라 분모의 곱과 같은 공배수도 이용할 수 있다.",
+      "분수·소수의 곱셈과 나눗셈은 계산 원리를 탐구해 이해하는 수준에서 다룬다. 복잡한 계산은 계산기를 쓰게 할 수 있다.",
+      "두 양 사이의 대응 관계를 식으로 나타낼 때는 덧셈식, 뺄셈식, 곱셈식, 나눗셈식 중 하나로 표현되는 간단한 경우만 다룬다.",
+      "삼각형의 넓이를 구할 때는 높이가 삼각형의 외부에 있는 것도 다룬다.",
+      "넓이 단위 사이의 관계 중 1cm²와 1km² 사이의 단위 환산은 다루지 않는다.",
+      "각기둥의 전개도는 간단한 형태만 다루고, 각뿔과 원뿔의 전개도는 다루지 않는다.",
+      "입체도형의 전개도 평가는 전개도가 될 수 있는 것과 될 수 없는 것을 구별하는 데 중점을 둔다.",
+      "쌓기나무로 만든 입체도형의 위·앞·옆에서 본 모양을 평가할 때는 간단한 모양을 이용한다.",
+      "원주율의 근삿값으로 3.14를 사용한다.",
+      "원주율, 원주, 원의 넓이, 겉넓이와 부피 계산에서 복잡한 계산은 계산기를 사용하게 한다.",
+      "선대칭도형·점대칭도형 그리기 평가에서는 모눈종이, 점판, 공학 도구 등을 이용해 쉽게 그릴 수 있게 한다.",
+      "가능성은 직관적으로 파악되는 생활 속의 간단한 사건에 대하여 0, 1/2, 1 등의 수로 표현하게 한다.",
+      "원그래프를 그릴 때는 눈금이 표시된 원을 사용하게 한다.",
+      "복잡한 자료의 평균이나 백분율을 구할 때 계산기를 사용하게 할 수 있다."
+    ]
+  },
+  "publishers_5_6_math": {
+    "source": "한국교과서협회 2026학년도 초등학교 검정도서 전시본 도서목록(2022 개정 교육과정), 2025-09-10자",
+    "url": "https://www.ktbook.com/user/news/notice/notice_view.do?idx=567",
+    "list": [
+      "디딤돌교육(최수일)",
+      "아이스크림미디어(김성여)",
+      "지학사(강문봉)",
+      "와이비엠(류희찬)",
+      "동아출판(나귀수)",
+      "비상교육(방정숙)",
+      "천재교과서(박만구)",
+      "천재교과서(한대희)"
+    ],
+    "caveat": "미래엔(강태석)은 자사 2022 개정 사이트에 초등 수학 5-1/5-2 교과서와 차례를 게시하고 있으나 위 협회 목록에는 나타나지 않는다. 목록이 2025-09-10자여서 이후 합격분이 누락됐을 가능성이 있으며, 이 불일치는 해소하지 못했다. 금성출판사, 대교, 교학사는 초등 수학 5~6학년 발행사가 아니다."
+  }
+}
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/zsh -lc "rg -n 'function (buildMcPool|makeTask|pickChoices|check|submit|answer|nextTask|liveValue|diagnose)|answerNumeric|targetH|modeTarget|qIdx|reasonChips|correct|===.*answer|===.*target' public/g/lantern-disk/index.html" in /Users/sitpo/math-game-factory
+ succeeded in 0ms:
+443:function pickChoices(correctStr, cands, extras, g){
+444:  const seen=new Set([String(correctStr)]);
+457:    const s=String(correctStr).replace(/[\d.]+/, (n)=>{
+461:    if(!seen.has(s) && s!==String(correctStr)){ seen.add(s); dist.push(s); }
+463:  return shuf(g||RNG, [String(correctStr)].concat(dist.slice(0,3)));
+466:function buildMcPool(){
+470:    const d=2*r, C=C100(r), correct=fmtLen(C);
+482:      choices:pickChoices(correct,cands,extras,g), answer:correct, answerNumeric:C/100,
+487:    const d=2*r, C=C100(r), correct=fmtLen(C);
+495:      choices:pickChoices(correct,cands,[{s:fmtLen(d*100),misconceptionId:'GHOST_FORGOT_PI'}],g),
+496:      answer:correct, answerNumeric:C/100, unitConcept:'원주 = 지름 × 원주율'});
+500:    const d=2*r, A=A100(r), correct=fmtArea(A);
+508:      choices:pickChoices(correct,cands,[{s:fmtArea(r*PI100),misconceptionId:'GHOST_R_NOT_SQUARE'}],g),
+509:      answer:correct, answerNumeric:A/100, unitConcept:'원의 넓이 = 반지름 × 반지름 × 원주율'});
+513:    const d=2*r, A=A100(r), correct=fmtArea(A);
+521:      choices:pickChoices(correct,cands,[{s:fmtArea(d*d*100),misconceptionId:'GHOST_FORGOT_PI'}],g),
+522:      answer:correct, answerNumeric:A/100, unitConcept:'원의 넓이 = 반지름 × 반지름 × 원주율'});
+526:    const correct='4배';
+528:      choices:pickChoices(correct,[
+532:      ],[{s:'6배'}],g), answer:correct, answerNumeric:4,
+537:    const R=2*r, A=A100(R), correct=fmtArea(A);
+544:      choices:pickChoices(correct,cands,[{s:fmtArea(A100(r)),misconceptionId:'GHOST_NO_SCALE'}],g),
+545:      answer:correct, answerNumeric:A/100, unitConcept:'반지름이 2배면 넓이는 4배'});
+549:    const d=2*r, rem=remain100(r), correct=fmtArea(rem);
+558:      choices:pickChoices(correct,cands,[{s:fmtArea(sq-r*PI100),misconceptionId:'GHOST_D_AS_R'}],g),
+559:      answer:correct, answerNumeric:rem/100, unitConcept:'색칠한 부분의 넓이'});
+563:    const C=d*PI100, correct=fmtCm(d);
+570:      choices:pickChoices(correct,cands,[{s:fmtCm(d+2)}],g),
+571:      answer:correct, answerNumeric:d, unitConcept:'원주 = 지름 × 원주율'});
+576:    answer:'테두리에 줄을 두른다', answerNumeric:1, unitConcept:'원주'});
+579:    answer:'안을 기름 칸으로 채운다', answerNumeric:2, unitConcept:'원의 넓이'});
+582:    answer:'3.14는 원주율의 근삿값이다', answerNumeric:3.14, unitConcept:'원주율(근삿값 3.14)'});
+585:    answer:'줄 길이=둘레, 칸 수=넓이', answerNumeric:1, unitConcept:'원주와 넓이 구별'});
+618:function makeTask(slot){
+623:    rTarget:r, modeTarget:'rim', given:slot.given||'d',
+624:    ghosts:[], prompt:'', targetH:C, targetUnit:'cm',
+629:    T.modeTarget='rim'; T.rTarget=r; T.targetH=C; T.targetUnit='cm';
+640:    T.modeTarget='fill'; T.rTarget=r; T.targetH=A; T.targetUnit='cm²';
+652:      T.modeTarget='rim'; T.rTarget=R; T.targetH=C100(R); T.targetUnit='cm';
+658:      T.modeTarget='fill'; T.rTarget=R; T.targetH=A100(R); T.targetUnit='cm²';
+666:    T.modeTarget='fill'; T.rTarget=r; T.targetH=remain100(r); T.targetUnit='cm²';
+677:function liveValue(mode, rInt){
+683:function reasonChips(task, g){
+710:function diagnose(task, mode, rInt){
+711:  if(mode!==task.modeTarget){
+714:      good: task.modeTarget==='rim' ? '길은 줄(둘레)로 막아야 해' : '꽃밭은 기름 칸(넓이)으로 채워야 해'};
+809:  task:null, queue:[], qIdx:0, missOnTask:0, hard:false,
+908:  if(task.modeTarget==='rim'){
+935:  S.qIdx=0;
+941:function nextTask(){
+942:  if(S.qIdx>=S.queue.length){
+945:  const slot=S.queue[S.qIdx];
+953:  $('fRim').classList.toggle('on', S.task.modeTarget==='rim');
+954:  $('fFill').classList.toggle('on', S.task.modeTarget==='fill');
+983:  $('vkGoal').textContent = T.modeTarget==='rim'?'목표 줄': T.kind==='remain'?'목표 그늘 칸':'목표 칸';
+984:  $('vnGoal').textContent = T.targetUnit==='cm'?fmtLen(T.targetH):fmtArea(T.targetH);
+992:  hot = S.mode===T.modeTarget && r===T.rTarget;
+1014:  const ok = forceOk || (S.mode===task.modeTarget && rInt===task.rTarget);
+1029:  if(task) S.mode=task.modeTarget;
+1047:    setTimeout(()=>{ S.qIdx++; S.lockInput=false; if(S.phase==='playing') nextTask(); }, fromTest?30:650);
+1079:  if(!S.hard && S.missOnTask===1 && task && S.mode===task.modeTarget && Math.abs(rInt-task.rTarget)<=1){
+1107:  if(!S.task){ S.qIdx++; nextTask(); return; }
+1108:  const chips=reasonChips(S.task, RNG);
+1140:    S.qIdx++; S.lockInput=false; nextTask();
+1476:  const fillAmt = S.mode==='fill' || (S.task && S.task.modeTarget==='fill' && S.mode!=='rim') ? 0.92 : 0.18;
+1678:    if(S.task){ S.mode=S.task.modeTarget; S.rFloat=S.task.rTarget; S.rVis=S.rFloat; }
+1686:    S.mode = S.task && S.task.modeTarget==='rim' ? 'fill' : 'rim';
+
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/zsh -lc "nl -ba public/g/lantern-disk/index.html | sed -n '430,730p'; nl -ba public/g/lantern-disk/index.html | sed -n '880,1155p'" in /Users/sitpo/math-game-factory
+ succeeded in 0ms:
+   430	  return (neg?'-':'')+s;
+   431	}
+   432	function fmtCm(n){return n+' cm'}
+   433	function fmtLen(h){return fmt(h)+' cm'}
+   434	function fmtArea(h){return fmt(h)+' cm²'}
+   435	function C100(r){return 2*r*PI100}
+   436	function A100(r){return r*r*PI100}
+   437	function remain100(r){const d=2*r; return d*d*100 - r*r*PI100}
+   438	
+   439	/**
+   440	 * 오답 후처리: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플
+   441	 * cands[].misconceptionId 는 오개념 역산 표식 (검산관 확인용)
+   442	 */
+   443	function pickChoices(correctStr, cands, extras, g){
+   444	  const seen=new Set([String(correctStr)]);
+   445	  const dist=[];
+   446	  const add=(c)=>{
+   447	    if(!c||c.s==null) return;
+   448	    const s=String(c.s);
+   449	    if(!s||seen.has(s)) return;
+   450	    if(c.ok===false) return;
+   451	    seen.add(s); dist.push(s);
+   452	  };
+   453	  for(const c of cands) add(c);
+   454	  if(extras) for(const c of extras){ if(dist.length>=3) break; add(c); }
+   455	  let k=1;
+   456	  while(dist.length<3 && k<40){
+   457	    const s=String(correctStr).replace(/[\d.]+/, (n)=>{
+   458	      const v=Math.round(Number(n)*100)+k*100; k++; return fmt(v);
+   459	    });
+   460	    k++;
+   461	    if(!seen.has(s) && s!==String(correctStr)){ seen.add(s); dist.push(s); }
+   462	  }
+   463	  return shuf(g||RNG, [String(correctStr)].concat(dist.slice(0,3)));
+   464	}
+   465	
+   466	function buildMcPool(){
+   467	  const P=[], g=mulberry32(0x51C1E5);
+   468	  // 원주 — 지름 제시. 오개념: π=3 / 반지름×π / 지름을 반지름으로(×2) / 넓이 공식
+   469	  for(const r of [1,2,3,4,5,6,8,10]){
+   470	    const d=2*r, C=C100(r), correct=fmtLen(C);
+   471	    const cands=[
+   472	      {s:fmtLen(d*300), misconceptionId:'GHOST_PI_IS_3'},       // 원주율을 3으로
+   473	      {s:fmtLen(r*PI100), misconceptionId:'GHOST_USE_R'},       // 반지름 × 약 3.14
+   474	      {s:fmtLen((2*d)*PI100), misconceptionId:'GHOST_D_AS_R'},  // 지름을 반지름 자리에
+   475	      {s:fmtLen(A100(r)), misconceptionId:'GHOST_SWAP'}         // 넓이 공식을 둘레에
+   476	    ];
+   477	    const extras=[
+   478	      {s:fmtLen(d*100), misconceptionId:'GHOST_FORGOT_PI'},
+   479	      {s:fmtLen(r*100), misconceptionId:'GHOST_GAVE_R'}
+   480	    ];
+   481	    P.push({id:'rim-d-'+r, prompt:'지름이 '+fmtCm(d)+'인 원의 둘레는? (원주율 약 3.14)',
+   482	      choices:pickChoices(correct,cands,extras,g), answer:correct, answerNumeric:C/100,
+   483	      unitConcept:'원주 = 지름 × 원주율'});
+   484	  }
+   485	  // 원주 — 반지름 제시
+   486	  for(const r of [1,2,3,4,5,6,8,10]){
+   487	    const d=2*r, C=C100(r), correct=fmtLen(C);
+   488	    const cands=[
+   489	      {s:fmtLen(d*300), misconceptionId:'GHOST_PI_IS_3'},
+   490	      {s:fmtLen(r*PI100), misconceptionId:'GHOST_USE_R'},
+   491	      {s:fmtLen((2*d)*PI100), misconceptionId:'GHOST_D_AS_R'},
+   492	      {s:fmtLen(A100(r)), misconceptionId:'GHOST_SWAP'}
+   493	    ];
+   494	    P.push({id:'rim-r-'+r, prompt:'반지름이 '+fmtCm(r)+'인 원의 둘레는? (원주율 약 3.14)',
+   495	      choices:pickChoices(correct,cands,[{s:fmtLen(d*100),misconceptionId:'GHOST_FORGOT_PI'}],g),
+   496	      answer:correct, answerNumeric:C/100, unitConcept:'원주 = 지름 × 원주율'});
+   497	  }
+   498	  // 넓이 — 반지름 제시. r=2 는 r×2 와 r×r 이 같아 제외 (구조적 보장)
+   499	  for(const r of [1,3,4,5,6,7,8,9,10]){
+   500	    const d=2*r, A=A100(r), correct=fmtArea(A);
+   501	    const cands=[
+   502	      {s:fmtArea(r*2*PI100), misconceptionId:'GHOST_R_TIMES_TWO'}, // 반지름×2×π (제곱 대신 두 배)
+   503	      {s:fmtArea(C100(r)), misconceptionId:'GHOST_SWAP'},          // 둘레 공식으로 안을 채움 (값은 위와 같으면 중복 제거)
+   504	      {s:fmtArea(d*d*PI100), misconceptionId:'GHOST_D_AS_R'},      // 지름을 반지름 자리에
+   505	      {s:fmtArea(r*r*300), misconceptionId:'GHOST_PI_IS_3'}        // π=3
+   506	    ];
+   507	    P.push({id:'fill-r-'+r, prompt:'반지름이 '+fmtCm(r)+'인 원의 넓이는? (원주율 약 3.14)',
+   508	      choices:pickChoices(correct,cands,[{s:fmtArea(r*PI100),misconceptionId:'GHOST_R_NOT_SQUARE'}],g),
+   509	      answer:correct, answerNumeric:A/100, unitConcept:'원의 넓이 = 반지름 × 반지름 × 원주율'});
+   510	  }
+   511	  // 넓이 — 지름 제시
+   512	  for(const r of [1,3,4,5,6,8,10]){
+   513	    const d=2*r, A=A100(r), correct=fmtArea(A);
+   514	    const cands=[
+   515	      {s:fmtArea(d*d*PI100), misconceptionId:'GHOST_D_AS_R'},
+   516	      {s:fmtArea(d*PI100), misconceptionId:'GHOST_SWAP'},
+   517	      {s:fmtArea(r*r*300), misconceptionId:'GHOST_PI_IS_3'},
+   518	      {s:fmtArea(r*2*PI100), misconceptionId:'GHOST_R_TIMES_TWO'}
+   519	    ];
+   520	    P.push({id:'fill-d-'+r, prompt:'지름이 '+fmtCm(d)+'인 원의 넓이는? (원주율 약 3.14)',
+   521	      choices:pickChoices(correct,cands,[{s:fmtArea(d*d*100),misconceptionId:'GHOST_FORGOT_PI'}],g),
+   522	      answer:correct, answerNumeric:A/100, unitConcept:'원의 넓이 = 반지름 × 반지름 × 원주율'});
+   523	  }
+   524	  // 반지름 2배 → 넓이 4배 (배율)
+   525	  for(const r of [1,2,3,4,5,6,8,10]){
+   526	    const correct='4배';
+   527	    P.push({id:'scale-m-'+r, prompt:'반지름이 '+fmtCm(r)+'인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?',
+   528	      choices:pickChoices(correct,[
+   529	        {s:'2배', misconceptionId:'GHOST_LINEAR_AREA'},
+   530	        {s:'8배', misconceptionId:'GHOST_CUBED'},
+   531	        {s:'3.14배', misconceptionId:'GHOST_PI_AS_SCALE'}
+   532	      ],[{s:'6배'}],g), answer:correct, answerNumeric:4,
+   533	      unitConcept:'반지름이 2배면 넓이는 4배'});
+   534	  }
+   535	  // 반지름 2배 → 새 넓이 값
+   536	  for(const r of [3,4,5]){
+   537	    const R=2*r, A=A100(R), correct=fmtArea(A);
+   538	    const cands=[
+   539	      {s:fmtArea(2*A100(r)), misconceptionId:'GHOST_LINEAR_AREA'}, // 넓이도 2배
+   540	      {s:fmtArea((2*R)*(2*R)*PI100), misconceptionId:'GHOST_D_AS_R'}, // 새 지름을 반지름처럼
+   541	      {s:fmtArea(R*2*PI100), misconceptionId:'GHOST_R_TIMES_TWO'}
+   542	    ];
+   543	    P.push({id:'scale-a-'+r, prompt:'반지름이 '+fmtCm(r)+'인 원의 반지름을 2배('+fmtCm(R)+')로 늘리면 넓이는? (원주율 약 3.14)',
+   544	      choices:pickChoices(correct,cands,[{s:fmtArea(A100(r)),misconceptionId:'GHOST_NO_SCALE'}],g),
+   545	      answer:correct, answerNumeric:A/100, unitConcept:'반지름이 2배면 넓이는 4배'});
+   546	  }
+   547	  // 정사각형 − 내접원. r=2 는 A=C 라서 둘레를 빼는 오답이 정답과 같아져 제외
+   548	  for(const r of [3,4,5,6,8,10]){
+   549	    const d=2*r, rem=remain100(r), correct=fmtArea(rem);
+   550	    const sq=d*d*100;
+   551	    const cands=[
+   552	      {s:fmtArea(sq), misconceptionId:'GHOST_NO_SUB'},                 // 원을 안 뺌
+   553	      {s:fmtArea(sq-C100(r)), misconceptionId:'GHOST_SWAP'},            // 둘레를 넓이처럼 뺌
+   554	      {s:fmtArea(A100(r)), misconceptionId:'GHOST_JUST_CIRCLE'},        // 원 넓이만 답
+   555	      {s:fmtArea(sq-r*r*300), misconceptionId:'GHOST_PI_IS_3'}
+   556	    ];
+   557	    P.push({id:'remain-'+r, prompt:'한 변이 '+fmtCm(d)+'인 정사각형 안에 지름이 '+fmtCm(d)+'인 원이 꼭 맞게 들어 있을 때, 색칠한 부분(정사각형에서 원을 뺀 부분)의 넓이는? (원주율 약 3.14)',
+   558	      choices:pickChoices(correct,cands,[{s:fmtArea(sq-r*PI100),misconceptionId:'GHOST_D_AS_R'}],g),
+   559	      answer:correct, answerNumeric:rem/100, unitConcept:'색칠한 부분의 넓이'});
+   560	  }
+   561	  // 원주로 지름 구하기
+   562	  for(const d of [4,6,8,10,12,16,20]){
+   563	    const C=d*PI100, correct=fmtCm(d);
+   564	    const cands=[
+   565	      {s:fmtCm(d/2), misconceptionId:'GHOST_GAVE_R'},
+   566	      {s:fmtCm(2*d), misconceptionId:'GHOST_D_AS_R'},
+   567	      {s:fmt(C)+' cm', misconceptionId:'GHOST_GAVE_C'}
+   568	    ];
+   569	    P.push({id:'rev-d-'+d, prompt:'둘레가 '+fmtLen(C)+'인 원의 지름은? (원주율 약 3.14)',
+   570	      choices:pickChoices(correct,cands,[{s:fmtCm(d+2)}],g),
+   571	      answer:correct, answerNumeric:d, unitConcept:'원주 = 지름 × 원주율'});
+   572	  }
+   573	  // 식별(계산 없음)
+   574	  P.push({id:'id-rim', prompt:'나방이 원 둘레 길을 걸어요. 등잔을 어떻게 켤까요?',
+   575	    choices:shuf(g,['테두리에 줄을 두른다','안을 기름 칸으로 채운다','지름 숫자만 켠다','원주율만 켠다']),
+   576	    answer:'테두리에 줄을 두른다', answerNumeric:1, unitConcept:'원주'});
+   577	  P.push({id:'id-fill', prompt:'나방이 원 안 꽃밭에 앉아요. 등잔을 어떻게 켤까요?',
+   578	    choices:shuf(g,['안을 기름 칸으로 채운다','테두리에 줄을 두른다','지름 숫자만 켠다','원주율만 켠다']),
+   579	    answer:'안을 기름 칸으로 채운다', answerNumeric:2, unitConcept:'원의 넓이'});
+   580	  P.push({id:'id-pi', prompt:'계산에서 쓰는 3.14에 대한 설명으로 옳은 것은?',
+   581	    choices:shuf(g,['3.14는 원주율의 근삿값이다','원주율은 딱 3.14이다','원주율은 3이다','원주율은 지름이다']),
+   582	    answer:'3.14는 원주율의 근삿값이다', answerNumeric:3.14, unitConcept:'원주율(근삿값 3.14)'});
+   583	  P.push({id:'id-contract', prompt:'이 등잔에서 둘레와 넓이를 바르게 짝지은 것은?',
+   584	    choices:shuf(g,['줄 길이=둘레, 칸 수=넓이','줄 길이=넓이, 칸 수=둘레','지름=넓이, 반지름=둘레','원주율=넓이']),
+   585	    answer:'줄 길이=둘레, 칸 수=넓이', answerNumeric:1, unitConcept:'원주와 넓이 구별'});
+   586	  return P;
+   587	}
+   588	const MC_POOL = buildMcPool();
+   589	
+   590	function sampleProblems(n){
+   591	  const g=mulberry32(0xA11CE);
+   592	  const seen=new Set(), uniq=[];
+   593	  for(const p of shuf(g, MC_POOL)){
+   594	    if(seen.has(p.prompt)) continue;
+   595	    seen.add(p.prompt); uniq.push(p);
+   596	  }
+   597	  return uniq.slice(0, Math.max(1, n|0));
+   598	}
+   599	
+   600	/* ── 플레이 슬롯 풀 (전수, 제약 만족) ───────────────────── */
+   601	function buildPlaySlots(){
+   602	  const S=[];
+   603	  // L1 둘레 길. r∈{2,5,10} 림만. 고스트 없음
+   604	  for(const r of [2,5,10]) S.push({level:1, kind:'rim', r, given:'d', ghosts:[]});
+   605	  // L2 지름 표지판. GHOST_D_AS_R
+   606	  for(const r of [3,4,5]) S.push({level:2, kind:'rim', r, given:'d', ghosts:['GHOST_D_AS_R','GHOST_PI_IS_3']});
+   607	  // L3 꽃밭. r=2 제외(제곱=두 배). GHOST_R_TIMES_TWO + GHOST_SWAP
+   608	  for(const r of [4,5,10]) S.push({level:3, kind:'fill', r, given:'r', ghosts:['GHOST_R_TIMES_TWO','GHOST_SWAP','GHOST_D_AS_R']});
+   609	  // L4 두 배
+   610	  for(const r of [2,4,5]) S.push({level:4, kind:'scale4', sub:'fill', r, given:'r', ghosts:['GHOST_LINEAR_AREA']});
+   611	  for(const r of [2,5]) S.push({level:4, kind:'scale4', sub:'rim', r, given:'r', ghosts:['GHOST_D_AS_R']});
+   612	  // L5 그늘. r=2 제외
+   613	  for(const r of [3,4,5]) S.push({level:5, kind:'remain', r, given:'d', ghosts:['GHOST_SWAP','GHOST_NO_SUB']});
+   614	  return S;
+   615	}
+   616	const PLAY_SLOTS = buildPlaySlots();
+   617	
+   618	function makeTask(slot){
+   619	  const r=slot.r, d=2*r, C=C100(r), A=A100(r);
+   620	  const T={
+   621	    id:slot.kind+'-'+r+'-'+(slot.sub||'')+'-'+slot.level,
+   622	    kind:slot.kind, sub:slot.sub||'', r0:r, d, C, A,
+   623	    rTarget:r, modeTarget:'rim', given:slot.given||'d',
+   624	    ghosts:[], prompt:'', targetH:C, targetUnit:'cm',
+   625	    unitConcept:'원주 = 지름 × 원주율', formulaMine:'', formulaGood:'',
+   626	    missLine:''
+   627	  };
+   628	  if(slot.kind==='rim'){
+   629	    T.modeTarget='rim'; T.rTarget=r; T.targetH=C; T.targetUnit='cm';
+   630	    T.prompt = T.given==='d'
+   631	      ? '지름이 <b>'+fmtCm(d)+'</b>인 연못 길이야. <b>줄</b>로 막아 줘!'
+   632	      : '반지름이 <b>'+fmtCm(r)+'</b>인 길을 <b>줄</b>로 막아 줘!';
+   633	    T.formulaGood='둘레 = 지름 × 약 3.14  →  '+fmtCm(d)+' × 약 3.14 = '+fmtLen(C);
+   634	    T.unitConcept='원주 = 지름 × 원주율';
+   635	    if(slot.ghosts.includes('GHOST_D_AS_R'))
+   636	      T.ghosts.push({misconceptionId:'GHOST_D_AS_R', r:d, h:(2*d)*PI100, label:'지름을 반지름처럼'});
+   637	    if(slot.ghosts.includes('GHOST_PI_IS_3'))
+   638	      T.ghosts.push({misconceptionId:'GHOST_PI_IS_3', r:null, h:d*300, label:'원주율 3'});
+   639	  } else if(slot.kind==='fill'){
+   640	    T.modeTarget='fill'; T.rTarget=r; T.targetH=A; T.targetUnit='cm²';
+   641	    T.prompt='반지름이 <b>'+fmtCm(r)+'</b>인 꽃밭이야. <b>기름 칸</b>으로 채워 줘!';
+   642	    T.formulaGood='넓이 = 반지름 × 반지름 × 약 3.14  →  '+r+' × '+r+' × 약 3.14 = '+fmtArea(A);
+   643	    T.unitConcept='원의 넓이 = 반지름 × 반지름 × 원주율';
+   644	    // GHOST_R_TIMES_TWO: A_ghost = r*2*314 (= C). 칸 카운터 자석
+   645	    T.ghosts.push({misconceptionId:'GHOST_R_TIMES_TWO', r:null, h:r*2*PI100, label:'반지름×2'});
+   646	    T.ghosts.push({misconceptionId:'GHOST_SWAP', r:null, h:C, label:'둘레 값으로 안을 채움', empty:true});
+   647	    T.ghosts.push({misconceptionId:'GHOST_D_AS_R', r:d, h:A100(d), label:'지름을 반지름처럼'});
+   648	  } else if(slot.kind==='scale4'){
+   649	    const R=2*r;
+   650	    T.r0=r;
+   651	    if(slot.sub==='rim'){
+   652	      T.modeTarget='rim'; T.rTarget=R; T.targetH=C100(R); T.targetUnit='cm';
+   653	      T.prompt='지금 등잔(반지름 <b>'+fmtCm(r)+'</b>)의 <b>줄만 2배</b>로 켜 줘!';
+   654	      T.formulaGood='줄은 2배 → 반지름도 2배. 둘레 = '+fmtCm(2*R)+' × 약 3.14 = '+fmtLen(C100(R));
+   655	      T.unitConcept='원주 = 지름 × 원주율';
+   656	      T.ghosts.push({misconceptionId:'GHOST_D_AS_R', r:2*R, h:C100(2*R), label:'지름을 또 두 배'});
+   657	    } else {
+   658	      T.modeTarget='fill'; T.rTarget=R; T.targetH=A100(R); T.targetUnit='cm²';
+   659	      T.prompt='지금 등잔(반지름 <b>'+fmtCm(r)+'</b>)의 <b>기름을 4배</b>로 켜 줘!';
+   660	      T.formulaGood='반지름 2배면 칸은 4배. '+fmtArea(A)+' × 4 = '+fmtArea(A100(R));
+   661	      T.unitConcept='반지름이 2배면 넓이는 4배';
+   662	      T.ghosts.push({misconceptionId:'GHOST_LINEAR_AREA', r:null, h:2*A, label:'넓이도 2배', stacked:true});
+   663	    }
+   664	    T.ghosts.push({misconceptionId:'GHOST_OLD', r:r, h:slot.sub==='rim'?C:A, label:'예전 크기', old:true});
+   665	  } else {
+   666	    T.modeTarget='fill'; T.rTarget=r; T.targetH=remain100(r); T.targetUnit='cm²';
+   667	    T.prompt='한 변이 <b>'+fmtCm(d)+'</b>인 꽃밭에서 내접 등잔을 켜고 <b>남은 그늘 칸</b>을 맞춰 줘!';
+   668	    T.formulaGood='정사각형 − 원 = '+fmtCm(d)+' × '+fmtCm(d)+' − '+fmtArea(A)+' = '+fmtArea(remain100(r));
+   669	    T.unitConcept='색칠한 부분의 넓이';
+   670	    T.square=d;
+   671	    T.ghosts.push({misconceptionId:'GHOST_NO_SUB', r:null, h:d*d*100, label:'원을 안 뺌'});
+   672	    T.ghosts.push({misconceptionId:'GHOST_SWAP', r:null, h:d*d*100-C, label:'둘레를 뺌'});
+   673	  }
+   674	  return T;
+   675	}
+   676	
+   677	function liveValue(mode, rInt){
+   678	  if(mode==='rim') return {h:C100(rInt), s:fmtLen(C100(rInt))};
+   679	  if(mode==='fill') return {h:A100(rInt), s:fmtArea(A100(rInt))};
+   680	  return {h:0, s:'—'};
+   681	}
+   682	
+   683	function reasonChips(task, g){
+   684	  const bank={
+   685	    rim:[
+   686	      {id:'C_EQ_D_PI', t:'둘레는 지름 × 약 3.14', ok:true},
+   687	      {id:'WRONG_PI_EXACT', t:'원주율은 딱 3.14', ok:false},
+   688	      {id:'WRONG_D_AS_R', t:'지름을 그대로 곱하면 된다', ok:false}
+   689	    ],
+   690	    fill:[
+   691	      {id:'A_EQ_R2_PI', t:'넓이는 반지름 × 반지름 × 약 3.14', ok:true},
+   692	      {id:'WRONG_SWAP', t:'둘레 값으로 안을 채운다', ok:false},
+   693	      {id:'WRONG_D_AS_R', t:'지름을 그대로 곱하면 된다', ok:false}
+   694	    ],
+   695	    scale4:[
+   696	      {id:'R2_AREA_4X', t:'반지름이 2배면 칸은 4배', ok:true},
+   697	      {id:'WRONG_LINEAR', t:'반지름 2배면 넓어도 2배', ok:false},
+   698	      {id:'WRONG_SWAP', t:'둘레 값으로 안을 채운다', ok:false}
+   699	    ],
+   700	    remain:[
+   701	      {id:'REMAIN', t:'정사각형 넓이에서 원의 넓이를 빼요', ok:true},
+   702	      {id:'WRONG_SWAP', t:'정사각형에서 둘레를 빼요', ok:false},
+   703	      {id:'WRONG_D_AS_R', t:'원의 넓이는 지름 × 지름 × 약 3.14', ok:false}
+   704	    ]
+   705	  };
+   706	  const k=task.kind==='scale4'?'scale4':task.kind==='remain'?'remain':task.kind==='fill'?'fill':'rim';
+   707	  return shuf(g||RNG, bank[k]);
+   708	}
+   709	
+   710	function diagnose(task, mode, rInt){
+   711	  if(mode!==task.modeTarget){
+   712	    return {misconceptionId:'GHOST_SWAP', line:'테두리 줄과 기름 칸을 뒤바꿨어',
+   713	      mine: mode==='rim' ? '줄(둘레 공식)로 켰어' : '기름(넓이 공식)으로 켰어',
+   714	      good: task.modeTarget==='rim' ? '길은 줄(둘레)로 막아야 해' : '꽃밭은 기름 칸(넓이)으로 채워야 해'};
+   715	  }
+   716	  const gh=task.ghosts.find(x=>x.r!=null && x.r===rInt && !x.old);
+   717	  if(gh) return {misconceptionId:gh.misconceptionId, line:gh.label,
+   718	    mine: playerFormula(task, mode, rInt), good: task.formulaGood};
+   719	  const val=liveValue(mode,rInt);
+   720	  const byH=task.ghosts.find(x=>x.h===val.h && !x.old);
+   721	  if(byH) return {misconceptionId:byH.misconceptionId, line:byH.label,
+   722	    mine: playerFormula(task, mode, rInt), good: task.formulaGood};
+   723	  return {misconceptionId:'MISS_SIZE', line:'크기가 목표와 달라',
+   724	    mine: playerFormula(task, mode, rInt), good: task.formulaGood};
+   725	}
+   726	function playerFormula(task, mode, rInt){
+   727	  if(mode==='rim') return '내가 켠 줄 = 지름 '+fmtCm(2*rInt)+' × 약 3.14 = '+fmtLen(C100(rInt));
+   728	  return '내가 켠 칸 = '+rInt+' × '+rInt+' × 약 3.14 = '+fmtArea(A100(rInt));
+   729	}
+   730	
+   880	  $('hud').classList.toggle('hidden', !on);
+   881	  $('say').classList.toggle('hidden', !on);
+   882	  $('values').classList.toggle('hidden', !on);
+   883	  $('ctrl').classList.toggle('hidden', !on);
+   884	}
+   885	
+   886	/* ── 파티클 · 주스 ─────────────────────────────────────── */
+   887	function burst(x,y,n,cols,up){
+   888	  n = Math.min(80 - S.parts.length, Math.round(n*MO));
+   889	  for(let i=0;i<n;i++){
+   890	    const a=Math.random()*Math.PI*2, sp=40+Math.random()*180;
+   891	    S.parts.push({x,y,vx:Math.cos(a)*sp*(up?0.4:1), vy:Math.sin(a)*sp-(up?120:0),
+   892	      life:0.5+Math.random()*0.6, t:0, r:2+Math.random()*4, c:cols[i%cols.length]});
+   893	  }
+   894	}
+   895	function hitStop(ms){ S.timeScale = RM?0.45:0.08; S.hitT = (ms||80)*MO; }
+   896	function shake(amp){ S.shake = amp*MO; }
+   897	function flash(c,a){ S.flash=a; S.flashC=c; }
+   898	function squash(x,y){ S.sqX=x; S.sqY=y; }
+   899	
+   900	function spawnMist(){
+   901	  S.mist=[];
+   902	  for(let i=0;i<18;i++) S.mist.push({x:Math.random()*W, y:Math.random()*H, s:20+Math.random()*50, v:8+Math.random()*14, a:0.04+Math.random()*0.05});
+   903	}
+   904	
+   905	function placeMoths(task){
+   906	  S.moths=[];
+   907	  const n=4;
+   908	  if(task.modeTarget==='rim'){
+   909	    for(let i=0;i<n;i++){
+   910	      const ang=-Math.PI/2 + i*(Math.PI*2/n) + 0.2;
+   911	      S.moths.push({kind:'rim', ang, phase:Math.random()*6, glow:0});
+   912	    }
+   913	  } else {
+   914	    const spots=[[-0.35,-0.2],[0.32,-0.28],[-0.15,0.3],[0.28,0.22]];
+   915	    for(let i=0;i<n;i++) S.moths.push({kind:'fill', ux:spots[i][0], uy:spots[i][1], phase:i*1.3, glow:0});
+   916	  }
+   917	}
+   918	
+   919	/* ── 흐름 ──────────────────────────────────────────────── */
+   920	function slotsForLevel(lv, sprint){
+   921	  let pool=PLAY_SLOTS.filter(s=>s.level===lv);
+   922	  if(sprint) pool=PLAY_SLOTS.filter(s=>s.level<=Math.max(3,S.unlocked));
+   923	  return shuf(RNG, pool);
+   924	}
+   925	
+   926	function beginPlay(level, sprint){
+   927	  hideAllOverlays();
+   928	  S.phase='playing'; S.level=level; S.sprint=!!sprint;
+   929	  S.sprintT = sprint?30:0;
+   930	  S.lockInput=false; S.mode=null; S.missOnTask=0;
+   931	  if(!sprint){
+   932	    S.lives=3; S.combo=0; S.solved=0; S.score=0; S.showScore=0;
+   933	  }
+   934	  S.queue = slotsForLevel(level, sprint).slice(0, sprint?8: (level>=5?2:2));
+   935	  S.qIdx=0;
+   936	  showPlayChrome(true);
+   937	  setScoreUI();
+   938	  nextTask();
+   939	}
+   940	
+   941	function nextTask(){
+   942	  if(S.qIdx>=S.queue.length){
+   943	    finishDock(); return;
+   944	  }
+   945	  const slot=S.queue[S.qIdx];
+   946	  S.task=makeTask(slot);
+   947	  S.mode=null; S.missOnTask=0; S.lockInput=false; S.now=false;
+   948	  S.rFloat = S.task.rTarget===3?6:3;
+   949	  if(S.task.rTarget===S.rFloat) S.rFloat=4;
+   950	  S.rVis=S.rFloat; S.trail=[];
+   951	  placeMoths(S.task);
+   952	  $('sayCard').innerHTML = S.task.prompt + '<span class="sub">테두리를 끌면 줄 · 중심을 밀면 기름</span>';
+   953	  $('fRim').classList.toggle('on', S.task.modeTarget==='rim');
+   954	  $('fFill').classList.toggle('on', S.task.modeTarget==='fill');
+   955	  updateModeBtns();
+   956	  updateValues();
+   957	  $('reasons').classList.add('hidden');
+   958	  $('ctrl').classList.remove('hidden');
+   959	}
+   960	
+   961	function updateModeBtns(){
+   962	  $('modeRim').classList.toggle('on', S.mode==='rim');
+   963	  $('modeFill').classList.toggle('on', S.mode==='fill');
+   964	}
+   965	
+   966	function currentH(){
+   967	  const r=Math.round(S.rFloat);
+   968	  if(S.task && S.task.kind==='remain' && S.mode==='fill'){
+   969	    const d=S.task.square, rem=d*d*100 - A100(r);
+   970	    return rem;
+   971	  }
+   972	  if(S.mode==='rim') return C100(r);
+   973	  if(S.mode==='fill') return A100(r);
+   974	  return 0;
+   975	}
+   976	
+   977	function updateValues(){
+   978	  if(!S.task) return;
+   979	  const r=Math.round(S.rFloat), d=2*r;
+   980	  $('vnR').textContent=fmtCm(r);
+   981	  $('vnD').textContent=fmtCm(d);
+   982	  const T=S.task;
+   983	  $('vkGoal').textContent = T.modeTarget==='rim'?'목표 줄': T.kind==='remain'?'목표 그늘 칸':'목표 칸';
+   984	  $('vnGoal').textContent = T.targetUnit==='cm'?fmtLen(T.targetH):fmtArea(T.targetH);
+   985	  let nowS='—', hot=false;
+   986	  if(S.mode==='rim'){ nowS=fmtLen(C100(r)); $('vkNow').textContent='지금 줄'; }
+   987	  else if(S.mode==='fill'){
+   988	    if(T.kind==='remain'){ nowS=fmtArea(Math.max(0, T.square*T.square*100 - A100(r))); $('vkNow').textContent='지금 그늘 칸'; }
+   989	    else { nowS=fmtArea(A100(r)); $('vkNow').textContent='지금 칸'; }
+   990	  } else { $('vkNow').textContent='지금 값'; nowS='줄 또는 기름'; }
+   991	  $('vnNow').textContent=nowS;
+   992	  hot = S.mode===T.modeTarget && r===T.rTarget;
+   993	  S.now=hot;
+   994	  $('vbNow').classList.toggle('hot', hot);
+   995	  $('nowLab').classList.toggle('on', hot);
+   996	  $('goBtn').classList.toggle('pulse', hot);
+   997	}
+   998	
+   999	function setMode(m){
+  1000	  S.mode=m; updateModeBtns(); updateValues(); sfxTick();
+  1001	}
+  1002	
+  1003	function nudge(dr){
+  1004	  S.rFloat = clamp(Math.round(S.rFloat)+dr, 1, 16);
+  1005	  S.rVis=S.rFloat; squash(1.08, 0.92); sfxTick(); updateValues();
+  1006	}
+  1007	
+  1008	function confirmLight(fromTest, forceOk){
+  1009	  if(S.phase!=='playing' && !fromTest) return;
+  1010	  if(S.lockInput && !fromTest) return;
+  1011	  const task=S.task;
+  1012	  if(!task){ return; }
+  1013	  const rInt=Math.round(S.rFloat);
+  1014	  const ok = forceOk || (S.mode===task.modeTarget && rInt===task.rTarget);
+  1015	  if(ok) applyCorrect(fromTest);
+  1016	  else applyWrong(fromTest);
+  1017	}
+  1018	
+  1019	function applyCorrect(fromTest){
+  1020	  const task=S.task;
+  1021	  S.combo++;
+  1022	  if(S.combo>S.bestCombo) S.bestCombo=S.combo;
+  1023	  const add=100*comboMul(S.combo) + 50;
+  1024	  S.score += add;
+  1025	  S.solved++;
+  1026	  if(S.lives<3) S.lives++;
+  1027	  S.lockInput=true;
+  1028	  S.rFloat=task?task.rTarget:S.rFloat; S.rVis=S.rFloat;
+  1029	  if(task) S.mode=task.modeTarget;
+  1030	  setScoreUI(); punchScore();
+  1031	  // 정답 어휘: 상승·확산·빛. 흔들림 금지
+  1032	  hitStop(task && task.kind==='scale4'?90:70);
+  1033	  squash(0.86, 1.18);
+  1034	  flash('#F2C14E', 0.42);
+  1035	  const n=18+Math.min(40, S.combo*6);
+  1036	  burst(S.lx, S.ly, n, ['#F2C14E','#E24A2A','#fff6c4','#ffe08a'], true);
+  1037	  sfxCorrect(S.combo);
+  1038	  praise(S.combo>=5?'줄 2배 · 칸 4배!': S.combo>=3?'환하게 켜졌어!':'점등!');
+  1039	  S.moths.forEach(m=>m.glow=1);
+  1040	  saveDex(task);
+  1041	  updateValues();
+  1042	  const best=Number(localStorage.getItem(LS_BEST)||0);
+  1043	  if(S.score>best) localStorage.setItem(LS_BEST, String(S.score));
+  1044	  if(S.bestCombo>Number(localStorage.getItem(LS_COMBO)||0)) localStorage.setItem(LS_COMBO, String(S.bestCombo));
+  1045	
+  1046	  if(S.sprint || fromTest){
+  1047	    setTimeout(()=>{ S.qIdx++; S.lockInput=false; if(S.phase==='playing') nextTask(); }, fromTest?30:650);
+  1048	    return;
+  1049	  }
+  1050	  setTimeout(()=>showReasons(), 520);
+  1051	}
+  1052	
+  1053	function applyWrong(fromTest){
+  1054	  const task=S.task;
+  1055	  const rInt=Math.round(S.rFloat);
+  1056	  const diag=task?diagnose(task, S.mode, rInt):{misconceptionId:'MISS', line:'빗나감', mine:'?', good:'?'};
+  1057	  S.combo=0;
+  1058	  S.lives=Math.max(0, S.lives-1);
+  1059	  S.missOnTask++;
+  1060	  setScoreUI();
+  1061	  shake(S.missOnTask>=2?10:6);
+  1062	  flash('#E24A2A', 0.32);
+  1063	  squash(1.16, 0.84);
+  1064	  burst(S.lx, S.ly, 10, ['#5a2a24','#1C2422','#8a4a40'], false);
+  1065	  sfxWrong();
+  1066	  praise('');
+  1067	  $('comboP').classList.remove('on');
+  1068	
+  1069	  if(fromTest){
+  1070	    if(S.lives<=0) gameOver(false);
+  1071	    return;
+  1072	  }
+  1073	  if(S.sprint){
+  1074	    toast('콤보가 끊겼어. 다시 켜 봐!', 'bad');
+  1075	    S.lockInput=false;
+  1076	    showCompare(diag, true);
+  1077	    return;
+  1078	  }
+  1079	  if(!S.hard && S.missOnTask===1 && task && S.mode===task.modeTarget && Math.abs(rInt-task.rTarget)<=1){
+  1080	    S.lives=Math.min(3, S.lives+1); // 1차 근접 힌트는 목숨 회복
+  1081	    setScoreUI();
+  1082	    toast('거의 맞았어. 1 cm만 더 맞춰 봐!', 'bad');
+  1083	    S.lockInput=false;
+  1084	    return;
+  1085	  }
+  1086	  showCompare(diag, false);
+  1087	  if(S.hard && S.lives<=0) gameOver(false);
+  1088	}
+  1089	
+  1090	function showCompare(diag, keepPlaying){
+  1091	  $('eqMine').textContent='내가 켠 식: '+(diag.mine||'');
+  1092	  $('eqGood').textContent='맞는 식: '+(diag.good|| (S.task&&S.task.formulaGood)||'');
+  1093	  $('eqWhy').textContent=diag.line||'';
+  1094	  $('compare').classList.remove('hidden');
+  1095	  S.lockInput=true;
+  1096	  $('retryBtn').onclick=()=>{
+  1097	    $('compare').classList.add('hidden');
+  1098	    S.lockInput=false;
+  1099	    if(!keepPlaying && S.lives<=0){ gameOver(false); return; }
+  1100	    // 회복 등잔: 같은 과제 재시도
+  1101	    S.rFloat = S.task && S.task.rTarget===3?6:3;
+  1102	    S.rVis=S.rFloat; S.mode=null; updateModeBtns(); updateValues();
+  1103	  };
+  1104	}
+  1105	
+  1106	function showReasons(){
+  1107	  if(!S.task){ S.qIdx++; nextTask(); return; }
+  1108	  const chips=reasonChips(S.task, RNG);
+  1109	  const box=$('reasons'); box.innerHTML='';
+  1110	  const lab=document.createElement('div');
+  1111	  lab.style.cssText='text-align:center;font-weight:900;color:#fff8ea;text-shadow:0 2px 4px #000;margin-bottom:4px';
+  1112	  lab.textContent='이유 칩 — 바른 말을 고르면 설명 별!';
+  1113	  box.appendChild(lab);
+  1114	  chips.forEach(ch=>{
+  1115	    const b=document.createElement('button');
+  1116	    b.className='reason'; b.type='button'; b.textContent=ch.t;
+  1117	    b.onclick=()=>pickReason(b, ch, chips);
+  1118	    box.appendChild(b);
+  1119	  });
+  1120	  box.classList.remove('hidden');
+  1121	  $('ctrl').classList.add('hidden');
+  1122	}
+  1123	
+  1124	function pickReason(btn, ch, chips){
+  1125	  if(S.lockInput && S.phase!=='playing') {/* continue */}
+  1126	  chips; // keep
+  1127	  if(ch.ok){
+  1128	    btn.classList.add('ok');
+  1129	    S.score += 80; setScoreUI(); punchScore();
+  1130	    burst(W/2, H*0.7, 16+S.combo*3, ['#F2C14E','#fff'], true);
+  1131	    sfxCorrect(S.combo);
+  1132	    toast('설명 별!', 'good');
+  1133	  } else {
+  1134	    btn.classList.add('no');
+  1135	    toast('이 별은 다음에!', 'bad');
+  1136	  }
+  1137	  S.lockInput=true;
+  1138	  setTimeout(()=>{
+  1139	    $('reasons').classList.add('hidden');
+  1140	    S.qIdx++; S.lockInput=false; nextTask();
+  1141	  }, 700);
+  1142	}
+  1143	
+  1144	function finishDock(){
+  1145	  const lv=S.level;
+  1146	  S.pierStars[lv-1]=Math.max(S.pierStars[lv-1], S.combo>=5?3:S.combo>=2?2:1);
+  1147	  S.unlocked=Math.max(S.unlocked, lv+1);
+  1148	  try{ localStorage.setItem(LS_CLEAR, JSON.stringify({unlocked:S.unlocked, stars:S.pierStars})); }catch(e){}
+  1149	  if(S.sprint){
+  1150	    const n=Number(localStorage.getItem(LS_SPRINT)||0);
+  1151	    if(S.solved>n) localStorage.setItem(LS_SPRINT, String(S.solved));
+  1152	    gameOver(true); return;
+  1153	  }
+  1154	  if(lv>=5){ gameOver(true); return; }
+  1155	  toast((lv)+'번 부두 점등! 다음 부두로', 'good');
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+표본은 40문항입니다. 현재까지 생성기는 모든 원주·넓이 값을 `3.14 × 100` 정수 단위로 계산하고, 오답 중복을 문자열 단계에서 제거하는 구조임을 확인했습니다. 이제 40개 계산식과 실제 플레이 판정의 경계 사례를 대조하겠습니다.
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/zsh -lc "jq -r '.problems_sample | to_entries[] | \"\\(.key+1)\\t\\(.value.id)\\t\\(.value.prompt)\\t=> \\(.value.answer)\"' factory/work/qa/lantern-disk/report.json; jq '.problems_sample | length' factory/work/qa/lantern-disk/report.json; rg -n 'MC_POOL|sampleProblems|choices|\\.answer|answer\\)' public/g/lantern-disk/index.html" in /Users/sitpo/math-game-factory
+ succeeded in 0ms:
+1	scale-m-8	반지름이 8 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?	=> 4배
+2	id-fill	나방이 원 안 꽃밭에 앉아요. 등잔을 어떻게 켤까요?	=> 안을 기름 칸으로 채운다
+3	fill-d-8	지름이 16 cm인 원의 넓이는? (원주율 약 3.14)	=> 200.96 cm²
+4	fill-d-1	지름이 2 cm인 원의 넓이는? (원주율 약 3.14)	=> 3.14 cm²
+5	rim-d-2	지름이 4 cm인 원의 둘레는? (원주율 약 3.14)	=> 12.56 cm
+6	rim-r-8	반지름이 8 cm인 원의 둘레는? (원주율 약 3.14)	=> 50.24 cm
+7	rim-d-10	지름이 20 cm인 원의 둘레는? (원주율 약 3.14)	=> 62.8 cm
+8	rev-d-8	둘레가 25.12 cm인 원의 지름은? (원주율 약 3.14)	=> 8 cm
+9	rev-d-16	둘레가 50.24 cm인 원의 지름은? (원주율 약 3.14)	=> 16 cm
+10	rev-d-10	둘레가 31.4 cm인 원의 지름은? (원주율 약 3.14)	=> 10 cm
+11	scale-m-10	반지름이 10 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?	=> 4배
+12	rim-r-10	반지름이 10 cm인 원의 둘레는? (원주율 약 3.14)	=> 62.8 cm
+13	rim-r-6	반지름이 6 cm인 원의 둘레는? (원주율 약 3.14)	=> 37.68 cm
+14	rim-r-3	반지름이 3 cm인 원의 둘레는? (원주율 약 3.14)	=> 18.84 cm
+15	fill-d-6	지름이 12 cm인 원의 넓이는? (원주율 약 3.14)	=> 113.04 cm²
+16	fill-r-1	반지름이 1 cm인 원의 넓이는? (원주율 약 3.14)	=> 3.14 cm²
+17	rev-d-6	둘레가 18.84 cm인 원의 지름은? (원주율 약 3.14)	=> 6 cm
+18	fill-r-9	반지름이 9 cm인 원의 넓이는? (원주율 약 3.14)	=> 254.34 cm²
+19	fill-r-5	반지름이 5 cm인 원의 넓이는? (원주율 약 3.14)	=> 78.5 cm²
+20	rev-d-4	둘레가 12.56 cm인 원의 지름은? (원주율 약 3.14)	=> 4 cm
+21	rim-r-2	반지름이 2 cm인 원의 둘레는? (원주율 약 3.14)	=> 12.56 cm
+22	fill-r-8	반지름이 8 cm인 원의 넓이는? (원주율 약 3.14)	=> 200.96 cm²
+23	fill-r-6	반지름이 6 cm인 원의 넓이는? (원주율 약 3.14)	=> 113.04 cm²
+24	fill-r-4	반지름이 4 cm인 원의 넓이는? (원주율 약 3.14)	=> 50.24 cm²
+25	rim-d-4	지름이 8 cm인 원의 둘레는? (원주율 약 3.14)	=> 25.12 cm
+26	fill-r-7	반지름이 7 cm인 원의 넓이는? (원주율 약 3.14)	=> 153.86 cm²
+27	id-contract	이 등잔에서 둘레와 넓이를 바르게 짝지은 것은?	=> 줄 길이=둘레, 칸 수=넓이
+28	remain-6	한 변이 12 cm인 정사각형 안에 지름이 12 cm인 원이 꼭 맞게 들어 있을 때, 색칠한 부분(정사각형에서 원을 뺀 부분)의 넓이는? (원주율 약 3.14)	=> 30.96 cm²
+29	rim-d-6	지름이 12 cm인 원의 둘레는? (원주율 약 3.14)	=> 37.68 cm
+30	scale-m-3	반지름이 3 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?	=> 4배
+31	fill-d-3	지름이 6 cm인 원의 넓이는? (원주율 약 3.14)	=> 28.26 cm²
+32	fill-d-4	지름이 8 cm인 원의 넓이는? (원주율 약 3.14)	=> 50.24 cm²
+33	remain-10	한 변이 20 cm인 정사각형 안에 지름이 20 cm인 원이 꼭 맞게 들어 있을 때, 색칠한 부분(정사각형에서 원을 뺀 부분)의 넓이는? (원주율 약 3.14)	=> 86 cm²
+34	fill-r-3	반지름이 3 cm인 원의 넓이는? (원주율 약 3.14)	=> 28.26 cm²
+35	rim-d-1	지름이 2 cm인 원의 둘레는? (원주율 약 3.14)	=> 6.28 cm
+36	scale-a-4	반지름이 4 cm인 원의 반지름을 2배(8 cm)로 늘리면 넓이는? (원주율 약 3.14)	=> 200.96 cm²
+37	scale-m-4	반지름이 4 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?	=> 4배
+38	rim-d-8	지름이 16 cm인 원의 둘레는? (원주율 약 3.14)	=> 50.24 cm
+39	scale-m-6	반지름이 6 cm인 원의 반지름을 2배로 하면 넓이는 몇 배가 되는가?	=> 4배
+40	id-rim	나방이 원 둘레 길을 걸어요. 등잔을 어떻게 켤까요?	=> 테두리에 줄을 두른다
+40
+482:      choices:pickChoices(correct,cands,extras,g), answer:correct, answerNumeric:C/100,
+495:      choices:pickChoices(correct,cands,[{s:fmtLen(d*100),misconceptionId:'GHOST_FORGOT_PI'}],g),
+508:      choices:pickChoices(correct,cands,[{s:fmtArea(r*PI100),misconceptionId:'GHOST_R_NOT_SQUARE'}],g),
+521:      choices:pickChoices(correct,cands,[{s:fmtArea(d*d*100),misconceptionId:'GHOST_FORGOT_PI'}],g),
+528:      choices:pickChoices(correct,[
+544:      choices:pickChoices(correct,cands,[{s:fmtArea(A100(r)),misconceptionId:'GHOST_NO_SCALE'}],g),
+558:      choices:pickChoices(correct,cands,[{s:fmtArea(sq-r*PI100),misconceptionId:'GHOST_D_AS_R'}],g),
+570:      choices:pickChoices(correct,cands,[{s:fmtCm(d+2)}],g),
+575:    choices:shuf(g,['테두리에 줄을 두른다','안을 기름 칸으로 채운다','지름 숫자만 켠다','원주율만 켠다']),
+578:    choices:shuf(g,['안을 기름 칸으로 채운다','테두리에 줄을 두른다','지름 숫자만 켠다','원주율만 켠다']),
+581:    choices:shuf(g,['3.14는 원주율의 근삿값이다','원주율은 딱 3.14이다','원주율은 3이다','원주율은 지름이다']),
+584:    choices:shuf(g,['줄 길이=둘레, 칸 수=넓이','줄 길이=넓이, 칸 수=둘레','지름=넓이, 반지름=둘레','원주율=넓이']),
+588:const MC_POOL = buildMcPool();
+590:function sampleProblems(n){
+593:  for(const p of shuf(g, MC_POOL)){
+1689:  sampleProblems(n){ return sampleProblems(n); },
+1699:    const samp=sampleProblems(40);
+1702:      if(!p.choices || !p.choices.map(String).includes(String(p.answer))) bad.push(['choice',p.id]);
+1703:      if(new Set(p.choices.map(String)).size!==p.choices.length) bad.push(['dup',p.id]);
+
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/zsh -lc "nl -ba public/g/lantern-disk/index.html | sed -n '1640,1735p'; git status --short; if [ -f factory/work/mathcheck.json ]; then sed -n '1,160p' factory/work/mathcheck.json; fi" in /Users/sitpo/math-game-factory
+ succeeded in 0ms:
+  1640	    drawMascot();
+  1641	    drawParts();
+  1642	  } else if(S.phase==='title'){
+  1643	    // 타이틀은 DOM. 캔버스는 은은한 안개만
+  1644	    drawParts();
+  1645	  } else {
+  1646	    drawLantern();
+  1647	    drawParts();
+  1648	  }
+  1649	  drawFlash();
+  1650	
+  1651	  requestAnimationFrame(frame);
+  1652	}
+  1653	
+  1654	/* ── 부트 ──────────────────────────────────────────────── */
+  1655	function restore(){
+  1656	  try{
+  1657	    const c=JSON.parse(localStorage.getItem(LS_CLEAR)||'null');
+  1658	    if(c){ S.unlocked=c.unlocked||1; S.pierStars=c.stars||S.pierStars; }
+  1659	  }catch(e){}
+  1660	}
+  1661	
+  1662	window.__GAME_TEST__ = {
+  1663	  ready:false,
+  1664	  start(){
+  1665	    ensureAudio();
+  1666	    hideAllOverlays();
+  1667	    S.score=0; S.showScore=0; S.lives=3; S.combo=0; S.solved=0; S.bestCombo=0;
+  1668	    beginPlay(1, false);
+  1669	  },
+  1670	  getState(){
+  1671	    return {score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved, combo:S.combo};
+  1672	  },
+  1673	  answerCorrect(){
+  1674	    if(S.phase==='title'||S.phase==='map'||S.phase==='onboarding'||S.phase==='over'||S.phase==='clear'){
+  1675	      beginPlay(Math.max(1,S.level||1), false);
+  1676	    }
+  1677	    if(!S.task) nextTask();
+  1678	    if(S.task){ S.mode=S.task.modeTarget; S.rFloat=S.task.rTarget; S.rVis=S.rFloat; }
+  1679	    applyCorrect(true);
+  1680	  },
+  1681	  answerWrong(){
+  1682	    if(S.phase==='title'||S.phase==='map'||S.phase==='onboarding'){
+  1683	      beginPlay(Math.max(1,S.level||1), false);
+  1684	    }
+  1685	    if(!S.task) nextTask();
+  1686	    S.mode = S.task && S.task.modeTarget==='rim' ? 'fill' : 'rim';
+  1687	    applyWrong(true);
+  1688	  },
+  1689	  sampleProblems(n){ return sampleProblems(n); },
+  1690	  verifyMath(){
+  1691	    const bad=[];
+  1692	    for(const r of [1,2,3,4,5,6,7,8,9,10]){
+  1693	      if(C100(r)!==2*r*314) bad.push(['C',r,C100(r)]);
+  1694	      if(A100(r)!==r*r*314) bad.push(['A',r,A100(r)]);
+  1695	    }
+  1696	    if(remain100(5)!==10000-7850) bad.push(['remain5', remain100(5)]);
+  1697	    if(A100(5)!==7850) bad.push(['A5',A100(5)]);
+  1698	    if(C100(5)!==3140) bad.push(['C5',C100(5)]);
+  1699	    const samp=sampleProblems(40);
+  1700	    if(samp.length<20) bad.push(['count',samp.length]);
+  1701	    for(const p of samp){
+  1702	      if(!p.choices || !p.choices.map(String).includes(String(p.answer))) bad.push(['choice',p.id]);
+  1703	      if(new Set(p.choices.map(String)).size!==p.choices.length) bad.push(['dup',p.id]);
+  1704	    }
+  1705	    return bad;
+  1706	  }
+  1707	};
+  1708	
+  1709	Promise.all([
+  1710	  loadImg('bg','./assets/bg.png', false),
+  1711	  loadImg('hero','./assets/hero.png', true),
+  1712	  loadImg('moth','./assets/moth.png', true),
+  1713	  loadImg('mascot','./assets/mascot.png', true)
+  1714	]).then(()=>{
+  1715	  restore();
+  1716	  layout();
+  1717	  spawnMist();
+  1718	  populateHearts();
+  1719	  openTitle();
+  1720	  requestAnimationFrame(frame);
+  1721	  window.__GAME_TEST__.ready=true;
+  1722	});
+  1723	})();
+  1724	</script>
+  1725	</body>
+  1726	</html>
+ M factory/state/queue.json
+ M logs/latest-report.md
+ M public/catalog.json
+ M public/index.html
+?? docs/roll-bot-deepen-plan.md
+?? docs/title-diversity-plan.md
+?? factory/state/feedback-archive/20260824-232523.md
+?? factory/state/feedback-archive/20260825-001613.md
+?? factory/state/rejected/20260824-232523-glass-puff/
+?? factory/state/salvage/glass-puff-20260825/
+?? logs/20260820-213913/report.md
+?? logs/20260824-232523/
+?? logs/20260825-001613/
+?? logs/20260825-002728/
+?? public/g/lantern-disk/
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+40문항을 각각 계산해 대조했으며 정답 불일치는 없습니다. 교육과정의 “원주율 근삿값으로 3.14 사용” 제약에도 맞고, 실제 판정은 소수값 비교가 아니라 모드와 정수 반지름 목표를 비교해 부동소수점 오판 위험이 없습니다.
+hook: PreToolUse
+hook: PreToolUse Completed
+apply patch
+patch: completed
+/Users/sitpo/math-game-factory/factory/work/mathcheck.json
+diff --git a/factory/work/mathcheck.json b/factory/work/mathcheck.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..6af84400a3a145a39e076f7959a6a048760bf156
+--- /dev/null
++++ b/factory/work/mathcheck.json
+@@ -0,0 +1,9 @@
++{
++  "slug": "lantern-disk",
++  "verified_count": 40,
++  "errors": [],
++  "code_risks": [],
++  "grade_issues": [],
++  "verdict": "pass",
++  "note": "표본 40문항을 원주 = 지름 × 3.14, 원의 넓이 = 반지름 × 반지름 × 3.14로 각각 재계산하여 모든 정답과 일치함을 확인했다. 생성·판정 코드는 백분율 정수 모델을 사용하고 중복 정답 선택지를 제거하며, 원주율 근삿값 3.14를 쓰라는 6학년 교육과정 생성 제약도 충족한다."
++}
+
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/factory/work/mathcheck.json b/factory/work/mathcheck.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..6af84400a3a145a39e076f7959a6a048760bf156
+--- /dev/null
++++ b/factory/work/mathcheck.json
+@@ -0,0 +1,9 @@
++{
++  "slug": "lantern-disk",
++  "verified_count": 40,
++  "errors": [],
++  "code_risks": [],
++  "grade_issues": [],
++  "verdict": "pass",
++  "note": "표본 40문항을 원주 = 지름 × 3.14, 원의 넓이 = 반지름 × 반지름 × 3.14로 각각 재계산하여 모든 정답과 일치함을 확인했다. 생성·판정 코드는 백분율 정수 모델을 사용하고 중복 정답 선택지를 제거하며, 원주율 근삿값 3.14를 쓰라는 6학년 교육과정 생성 제약도 충족한다."
++}
+
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/zsh -lc 'jq . factory/work/mathcheck.json && git diff -- factory/work/mathcheck.json' in /Users/sitpo/math-game-factory
+ succeeded in 0ms:
+{
+  "slug": "lantern-disk",
+  "verified_count": 40,
+  "errors": [],
+  "code_risks": [],
+  "grade_issues": [],
+  "verdict": "pass",
+  "note": "표본 40문항을 원주 = 지름 × 3.14, 원의 넓이 = 반지름 × 반지름 × 3.14로 각각 재계산하여 모든 정답과 일치함을 확인했다. 생성·판정 코드는 백분율 정수 모델을 사용하고 중복 정답 선택지를 제거하며, 원주율 근삿값 3.14를 쓰라는 6학년 교육과정 생성 제약도 충족한다."
+}
+
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/factory/work/mathcheck.json b/factory/work/mathcheck.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..6af84400a3a145a39e076f7959a6a048760bf156
+--- /dev/null
++++ b/factory/work/mathcheck.json
+@@ -0,0 +1,9 @@
++{
++  "slug": "lantern-disk",
++  "verified_count": 40,
++  "errors": [],
++  "code_risks": [],
++  "grade_issues": [],
++  "verdict": "pass",
++  "note": "표본 40문항을 원주 = 지름 × 3.14, 원의 넓이 = 반지름 × 반지름 × 3.14로 각각 재계산하여 모든 정답과 일치함을 확인했다. 생성·판정 코드는 백분율 정수 모델을 사용하고 중복 정답 선택지를 제거하며, 원주율 근삿값 3.14를 쓰라는 6학년 교육과정 생성 제약도 충족한다."
++}
+
+codex
+검산 40문항 / 오류 0건 / 판정: pass
+diff --git a/factory/work/mathcheck.json b/factory/work/mathcheck.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..6af84400a3a145a39e076f7959a6a048760bf156
+--- /dev/null
++++ b/factory/work/mathcheck.json
+@@ -0,0 +1,9 @@
++{
++  "slug": "lantern-disk",
++  "verified_count": 40,
++  "errors": [],
++  "code_risks": [],
++  "grade_issues": [],
++  "verdict": "pass",
++  "note": "표본 40문항을 원주 = 지름 × 3.14, 원의 넓이 = 반지름 × 반지름 × 3.14로 각각 재계산하여 모든 정답과 일치함을 확인했다. 생성·판정 코드는 백분율 정수 모델을 사용하고 중복 정답 선택지를 제거하며, 원주율 근삿값 3.14를 쓰라는 6학년 교육과정 생성 제약도 충족한다."
++}
+
+hook: Stop
+hook: Stop Completed
+tokens used
+51,551
+검산 40문항 / 오류 0건 / 판정: pass
