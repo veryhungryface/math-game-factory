@@ -530,7 +530,7 @@ cp "$WORK/review.json" "$LOG_DIR/review-1.json" 2>/dev/null
 SCORE="$(jqv "$WORK/review.json" .score)"
 PASSED="$(jqv "$WORK/review.json" .passed)"
 REJECT="$(jqv "$WORK/review.json" .reject_immediately)"
-log "1차 검수: ${SCORE:-?}점 / passed=$PASSED / reject=$REJECT"
+log "1차 검수: ${SCORE:-?}점 / passed=${PASSED:-false} / reject=${REJECT:-false}"
 
 # ════════════════════════════════════════════════════════════════
 if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; then
@@ -564,7 +564,7 @@ if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; 
   SCORE="$(jqv "$WORK/review.json" .score)"
   PASSED="$(jqv "$WORK/review.json" .passed)"
   REJECT="$(jqv "$WORK/review.json" .reject_immediately)"
-  log "2차 검수: ${SCORE:-?}점 / passed=$PASSED"
+  log "2차 검수: ${SCORE:-?}점 / passed=${PASSED:-false}"
 fi
 
 VERDICT="$(jqv "$WORK/review.json" .verdict)"

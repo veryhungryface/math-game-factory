@@ -1,7 +1,14 @@
 # 인수인계 — 현재 상태 (갱신형 문서)
 
-> 마지막 갱신: 2026-08-26. 운영 규약은 `docs/OPERATIONS.md`.
+> 마지막 갱신: 2026-08-27. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
+
+## 2026-08-27 — 꽝도장(clang-stamp) 재검수 수정
+- 첫 검수 51점 탈락. `must_fix` 5건 전부 반영 (`factory/work/fix.json`).
+- 수학: 범위 문항 단일 정답, 역추적 문구=mode, 실생활 '개' 단위. 고유 표본 1979문항 독립 검산 0오류.
+- 게임성: 문에 방법명 제거·`result===answer` 판정·정답 버튼 힌트 제거·소포/문 폭을 결과값에서 파생.
+- 레이아웃: HUD 실측 높이 → `--hudH`, 세로 canvas colW 640 상한.
+- QA: 40/40, 치명적 결함 0. 재검수 대기.
 
 ## 2026-08-26 — 카탈로그 정합성 복구 · 러너 전환 · 크론 3시간
 - **사고와 영향**: `run.sh` 10단계가 `meta.json`의 `qa.passed`, `queue.json`의 produced·mechanic_history·palette_history, 허브 재빌드를 인라인 처리했지만, 사람이 `cp -r`로 승격하는 부활 경로는 이를 건너뛰었다. 그 결과 `qa.passed=false`인 쩍쩍(ice-snap)·첨벙(splash-flat)·유리를 불어(glass-puff)·등불을 켜(lantern-disk)·칸자물쇠(cell-latch) 5작이 게시 커밋 뒤에도 `build-index.mjs` 필터에 걸려 허브·카탈로그에서 누락됐다. 쩍쩍·첨벙은 8/20부터 6일간 보이지 않았고, mechanic_history도 18작 중 13개만 기록돼 중복 회피가 무력화돼 있었다.
