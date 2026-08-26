@@ -28,9 +28,18 @@ if ! command -v node >/dev/null 2>&1; then
     [ -x "$c" ] && export PATH="$(dirname "$c"):$PATH" && break
   done
 fi
-for c in node claude codex jq git hermes; do
+# 없으면 사이클 자체가 성립하지 않는 것들
+for c in node jq git hermes; do
   command -v "$c" >/dev/null 2>&1 || { echo "💀 \`$c\` 를 찾을 수 없습니다 (PATH=$PATH)"; exit 1; }
 done
+# LLM 러너는 최소 하나만 있으면 된다 — run.sh 의 resolve_runner() 가 폴백한다.
+# (기본 배정은 빌드=grok, 검수=codex. 클로드는 폴백 전용.)
+_RUNNERS=""
+for c in grok codex claude; do
+  command -v "$c" >/dev/null 2>&1 && _RUNNERS="$_RUNNERS$c "
+done
+[ -n "$_RUNNERS" ] || { echo "💀 LLM 러너가 하나도 없습니다 (grok/codex/claude, PATH=$PATH)"; exit 1; }
+echo "러너 가용: $_RUNNERS" >&2
 
 # 이미 돌고 있는 사이클이 있으면 새로 띄우지 않는다 (run.sh 자체 락과 별개로,
 # 여기서 먼저 걸러야 중복 백그라운드 프로세스가 안 생긴다).
