@@ -129,6 +129,22 @@ stage_run() {
 
 jqv() { jq -r "$2 // empty" "$1" 2>/dev/null; }
 
+# queue.json failed 장부 기입. $1=사유(비우면 생략).
+# 원래 폐기 단계에만 인라인으로 있어서 **빌드 단계에서 죽은 회차는 장부에 안 남았다**
+# (2026-08-27~28 grok 402 4연속 사망이 전부 미기록). 빌드 실패 경로도 이걸 거친다.
+record_failed() {
+  local reason="${1:-}"
+  node -e '
+    const fs=require("fs"),p=process.argv[1];
+    const q=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{produced:[],failed:[],mechanic_history:[]};
+    q.failed=q.failed||[];
+    const e={run:process.argv[2],slug:process.argv[3],title:process.argv[4],score:Number(process.argv[5])||0,unit:process.argv[6],at:new Date().toISOString()};
+    if(process.argv[7]) e.reason=process.argv[7];
+    q.failed.push(e);
+    fs.writeFileSync(p,JSON.stringify(q,null,2)+"\n");
+  ' "$ROOT/factory/state/queue.json" "$RUN_ID" "${SLUG:-}" "${TITLE:-}" "${SCORE:-0}" "$(jqv "$WORK/slot.json" .unit.id)" "$reason"
+}
+
 # ── 락 ────────────────────────────────────────────────────────────
 if [ -f "$LOCK" ]; then
   LOCK_PID="$(cat "$LOCK" 2>/dev/null)"
@@ -151,6 +167,7 @@ log "러너 가용: ${_AVAIL:-없음}| 빌드=$(resolve_runner "${BUILD_RUNNER:-
 
 STARTED_AT="$(date +%s)"
 SLUG=""; TITLE=""; SCORE=""; VERDICT=""; DEPLOY_URL=""; STATUS="진행중"
+BUILD_FALLBACK_NOTE=""   # 빌드 러너 폴백이 발동하면 채워진다 — 리포트에 그대로 남긴다
 
 cleanup() { rm -f "$LOCK"; }
 trap cleanup EXIT
@@ -201,6 +218,7 @@ finish() {
       fixes="$(jq -r '.must_fix[]? | "  - [\(.severity)] \(.issue)"' "$WORK/review.json" 2>/dev/null | head -4)"
       [ -n "$fixes" ] && { echo ""; echo "**지적 사항**"; echo "$fixes"; }
     fi
+    [ -n "${BUILD_FALLBACK_NOTE:-}" ] && { echo ""; echo "⚙️ **빌드 폴백**: $BUILD_FALLBACK_NOTE"; }
     echo ""
     if [ -n "$DEPLOY_URL" ]; then
       echo "▶ **플레이**: $DEPLOY_URL/g/$SLUG/"
@@ -470,7 +488,32 @@ $(jq -c '.unit' "$WORK/slot.json")
 \`node factory/lib/qa.mjs $SLUG\` 를 돌려서 **치명적 결함 0건**을 확인해라. 실패하면 고치고 다시 돌려라."
 
 stage_run "${BUILD_RUNNER:-grok_run}" "${BUILD_MODEL:-}" "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT"
-[ -f "$ROOT/public/g/$SLUG/index.html" ] || die "게임 파일이 생성되지 않았습니다 — $(tail -5 "$LOG_DIR/build.log")"
+BUILD_RC=$?
+
+# 러너 바이너리는 살아 있는데 API 쪽이 죽는 경우(대표: grok 402 잔액 소진)는
+# resolve_runner 가 못 잡는다 — 2026-08-27~28 에 4회 연속으로 회차가 통째로 죽었다.
+# 그래서 빌드 단계는 실행 **결과**를 보고 한 번 더 폴백한다: 비정상 종료·402류 출력·
+# index.html 미생성이면 codex 상위 티어(sol)로 1회 재시도. 빌드는 어려운 단계라 sol 을 쓴다.
+BUILD_ERR="$(grep -m1 -Eo 'status 402|402 Payment Required|Payment Required|usage balance exhausted' "$LOG_DIR/build.log" 2>/dev/null | head -1)"
+BUILD_PRIMARY="$(resolve_runner "${BUILD_RUNNER:-grok_run}")"
+if { [ "$BUILD_RC" -ne 0 ] || [ -n "$BUILD_ERR" ] || [ ! -f "$ROOT/public/g/$SLUG/index.html" ]; } \
+   && [ "$BUILD_PRIMARY" != "codex_run" ] && [ "$BUILD_PRIMARY" != "codex_smart_run" ] \
+   && command -v codex >/dev/null 2>&1; then
+  if [ -n "$BUILD_ERR" ]; then
+    BUILD_FALLBACK_NOTE="grok 402 → codex 폴백 ($BUILD_ERR, 모델 $CODEX_MODEL_SMART)"
+  else
+    BUILD_FALLBACK_NOTE="빌드 러너($BUILD_PRIMARY) 실패(rc=$BUILD_RC) → codex 폴백 (모델 $CODEX_MODEL_SMART)"
+  fi
+  log "⚠️  $BUILD_FALLBACK_NOTE — 재시도 로그 build-fallback.log"
+  codex_run "$T_BUILD" "$LOG_DIR/build-fallback.log" "$BUILD_PROMPT" "$CODEX_MODEL_SMART"
+fi
+
+if [ ! -f "$ROOT/public/g/$SLUG/index.html" ]; then
+  BLOG="$LOG_DIR/build.log"
+  [ -f "$LOG_DIR/build-fallback.log" ] && BLOG="$LOG_DIR/build-fallback.log"
+  record_failed "빌드 실패${BUILD_ERR:+ ($BUILD_ERR)}${BUILD_FALLBACK_NOTE:+ — codex 폴백도 실패}"
+  die "게임 파일이 생성되지 않았습니다 — $(tail -5 "$BLOG")"
+fi
 fi
 
 # ════════════════════════════════════════════════════════════════
@@ -575,13 +618,7 @@ if [ "$PASSED" != "true" ] || [ "$REJECT" = "true" ] || [ "$QA1" -ne 0 ] || [ "$
   ARCHIVE="$ROOT/factory/state/rejected/$RUN_ID-$SLUG"
   mkdir -p "$(dirname "$ARCHIVE")"
   mv "$ROOT/public/g/$SLUG" "$ARCHIVE" 2>/dev/null
-  node -e '
-    const fs=require("fs"),p=process.argv[1];
-    const q=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{produced:[],failed:[],mechanic_history:[]};
-    q.failed=q.failed||[];
-    q.failed.push({run:process.argv[2],slug:process.argv[3],title:process.argv[4],score:Number(process.argv[5])||0,unit:process.argv[6],at:new Date().toISOString()});
-    fs.writeFileSync(p,JSON.stringify(q,null,2)+"\n");
-  ' "$ROOT/factory/state/queue.json" "$RUN_ID" "$SLUG" "$TITLE" "${SCORE:-0}" "$(jqv "$WORK/slot.json" .unit.id)"
+  record_failed
   finish "폐기" "${VERDICT:-품질 게이트 미달}"
   exit 0
 fi

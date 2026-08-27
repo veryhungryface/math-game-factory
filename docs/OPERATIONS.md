@@ -27,7 +27,7 @@
 | Codex (GPT-5.6) | `codex exec --model gpt-5.6-sol --sandbox workspace-write --cd <dir> "..."` | 수학 검산, 디자인 스펙/재설계, 규범 감사, 이미지 생성(공장 art 단계) | 티어: sol(상)/terra(중)/luna(하). 샌드박스는 네트워크 차단 — 오프라인 분석·파일 작업만. puppeteer 불가 |
 | Grok | `grok -p "..." --always-approve` | 코드 수정, puppeteer 실측(QA·무뇌 봇·스크린샷), git 커밋·푸시 | 로컬 비샌드박스라 브라우저 가능. 장시간 작업은 "진행 로그 파일에 append하며 끝까지" 지시 필수(중도 이탈 이력) |
 
-단계별 기본값은 `BUILD_RUNNER=grok_run`, `REVIEW_RUNNER=codex_run`(모델 `$CODEX_MODEL_SMART`), `FIX_RUNNER=grok_run`, `SCOUT_RUNNER=grok_run`, `DESIGN_RUNNERS=grok_run,codex_smart_run,codex_run`이다. `codex_smart_run`은 codex를 sol 티어로 실행한다. `resolve_runner`는 지정 러너를 쓸 수 없으면 **codex → grok → claude** 순으로 폴백하고, `stage_run`은 폴백 시 원래 모델 인자를 버리고 대체 러너의 기본 모델을 쓴다. 2026-08-25 다른 회사 모델 이름을 그대로 넘겨 400을 맞은 사고를 구조적으로 막는 규칙이다.
+단계별 기본값은 `BUILD_RUNNER=grok_run`, `REVIEW_RUNNER=codex_run`(모델 `$CODEX_MODEL_SMART`), `FIX_RUNNER=grok_run`, `SCOUT_RUNNER=grok_run`, `DESIGN_RUNNERS=grok_run,codex_smart_run,codex_run`이다. `codex_smart_run`은 codex를 sol 티어로 실행한다. `resolve_runner`는 지정 러너를 쓸 수 없으면 **codex → grok → claude** 순으로 폴백하고, `stage_run`은 폴백 시 원래 모델 인자를 버리고 대체 러너의 기본 모델을 쓴다. 2026-08-25 다른 회사 모델 이름을 그대로 넘겨 400을 맞은 사고를 구조적으로 막는 규칙이다. 단 `resolve_runner`는 바이너리 존재만 보므로, **빌드 단계는 실행 결과까지 검사해**(비정상 종료·402류 출력·index.html 미생성) codex(`$CODEX_MODEL_SMART`)로 1회 폴백 재시도하고, codex도 실패하면 queue.json failed에 기입 후 실패 보고한다 — 2026-08-27~28 grok 402 잔액 소진 4연속 사망 후 도입.
 
 **백그라운드 실행 패턴**: `nohup <cli> ... > /tmp/로그 2>&1 &` 후 PID를 잡고, 모니터로 `while kill -0 <PID>; do sleep 60; done` 감시. pgrep에 한글·괄호 패턴은 정규식 함정이 있으니 **PID 기준**으로 감시해라.
 

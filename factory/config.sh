@@ -28,7 +28,10 @@ export GROK_MODEL="${GROK_MODEL:-grok-4.6}"             # 기획 3번(관점 다
 # 근거: 8/25 신작 3연작(유리를 불어 81 / 등불을 켜 92 / 칸자물쇠 88)이 클로드 무사용
 # (빌드=grok, 검수=codex sol)으로 전부 게이트를 통과했다 — 품질 손실 없이 대체 가능함이
 # 실증됐다. 교차 검증 원칙은 유지된다: 빌드(grok)와 검수·수학검산(codex)이 다른 회사다.
-# 러너가 없거나 죽으면 run.sh 의 resolve_runner() 가 codex → claude 순으로 폴백한다.
+# 러너 바이너리가 아예 없으면 run.sh 의 resolve_runner() 가 codex → claude 순으로 폴백한다.
+# 바이너리는 있는데 API 가 죽는 경우(grok 402 잔액 소진 — 2026-08-27~28 4연속 사망)는
+# resolve_runner 가 못 잡으므로, **빌드 단계는 실행 결과를 보고 codex(sol) 로 1회 폴백
+# 재시도**한다 (run.sh step 5, 2026-08-28 도입).
 export BUILD_RUNNER="${BUILD_RUNNER:-grok_run}"     # 게임 구현 — 로컬 무샌드박스라 qa.mjs 직접 실행 가능
 export BUILD_MODEL="${BUILD_MODEL:-}"               # 비우면 러너 기본 모델
 export REVIEW_RUNNER="${REVIEW_RUNNER:-codex_run}"  # 검수 — 빌드와 다른 회사(교차 검증)
