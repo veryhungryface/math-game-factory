@@ -1,0 +1,2050 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>폴짝이 — 빈 돌은 빠진다</title>
+<meta property="og:title" content="폴짝이">
+<meta property="og:description" content="빈 돌은 빠진다">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --mint:#D4EDE6; --teal:#0F6E62; --ver:#E24A1C; --ink:#3A3A38; --gold:#F2B705;
+  --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
+  --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
+  --colW:min(100vw,640px); --colX:calc((100vw - var(--colW)) / 2);
+  --logo-top:#fff6a8; --logo-mid:#F2B705; --logo-bottom:#E24A1C;
+  --logo-outline:#2a1a08; --logo-side:#F2B705; --logo-side-dark:#9a3a12;
+  --logo-glow:rgba(242,183,5,.45);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a3d38;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  touch-action:none;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;touch-action:none}
+.hidden{display:none !important;visibility:hidden !important;pointer-events:none !important}
+
+#hud{position:fixed;top:0;left:var(--colX);width:var(--colW);z-index:3;
+  padding:calc(8px + var(--safeT)) 10px 0;pointer-events:none}
+.row{display:flex;align-items:center;gap:6px}
+.pill{background:rgba(15,110,98,.88);border:2px solid rgba(242,183,5,.6);border-radius:14px;
+  padding:6px 10px;font-weight:900;font-size:13px;color:#fff8e8;white-space:nowrap;line-height:1.1;
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.25),0 3px 0 rgba(8,40,36,.45)}
+#scoreV{font-size:clamp(20px,5.4vw,26px);color:#fff8e8;display:inline-block;font-variant-numeric:tabular-nums;
+  font-weight:900;transition:transform .16s cubic-bezier(.34,1.7,.5,1)}
+#scoreV.punch{transform:scale(1.28)}
+#comboP{background:rgba(226,74,28,.92);border-color:#F2B705;opacity:0;
+  transition:opacity .2s,transform .16s cubic-bezier(.34,1.7,.5,1)}
+#comboP.on{opacity:1}
+#comboP.punch{transform:scale(1.2)}
+#hearts{display:flex;gap:4px;margin-left:auto;align-items:center}
+.hp{width:18px;height:18px;font-size:16px;line-height:18px;transition:transform .35s cubic-bezier(.34,1.7,.5,1),opacity .35s}
+.hp.off{opacity:.22;transform:scale(.62) rotate(28deg)}
+#muteBtn,.icon-btn{pointer-events:auto;width:44px;height:44px;min-width:44px;border-radius:14px;
+  border:2px solid rgba(242,183,5,.5);background:rgba(15,110,98,.88);color:#fff6e2;
+  font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.2),0 3px 0 rgba(8,40,36,.4)}
+#muteBtn:active,.icon-btn:active,.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(8,40,36,.4)}
+#contract{margin-top:5px;font-size:11px;font-weight:800;color:#1a2e2b;background:rgba(212,237,230,.94);
+  border:2px solid #0F6E62;border-radius:10px;padding:5px 8px;line-height:1.25;word-break:keep-all;
+  box-shadow:inset 0 1px 0 #fff,0 2px 0 rgba(15,110,98,.25)}
+#sign{margin-top:6px;background:linear-gradient(180deg,#fff8e4,#f3e2b0);border:3px solid #3A3A38;border-radius:16px;
+  padding:8px 10px 9px;text-align:center;box-shadow:0 4px 0 #3A3A38,inset 0 2px 0 #fff}
+#sign .k{display:block;font-size:11px;font-weight:800;color:#0F6E62;margin-bottom:2px}
+#sign .p{display:block;font-size:clamp(18px,5.2vw,24px);font-weight:900;color:#1a1a18;letter-spacing:-.03em;word-break:keep-all;line-height:1.25}
+#timerBar{height:6px;border-radius:99px;background:rgba(58,58,56,.18);margin-top:6px;overflow:hidden}
+#timerBar>i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#F2B705,#E24A1C);border-radius:99px;transform-origin:left center}
+
+#title{
+  --title-col:min(100vw,640px);
+  display:none;position:fixed;inset:0;min-height:100svh;height:100dvh;
+  padding:0;overflow:hidden;isolation:isolate;background:#0a3d38;z-index:12}
+#title.is-on{display:block}
+.title-art{--art-x:50%;--art-y:52%;--art-scale:1.02;
+  position:absolute;inset:0;z-index:0;overflow:hidden;
+  background:linear-gradient(180deg,#7fd4c8 0%,#1a8a7c 42%,#0F6E62 100%)}
+.title-art.fallback{background:linear-gradient(180deg,#9ee0d4 0%,#2aa090 40%,#0F6E62 100%)}
+.title-art__image{width:100%;height:100%;display:block;object-fit:cover;
+  object-position:var(--art-x) var(--art-y);transform:scale(var(--art-scale));
+  filter:saturate(1.06) contrast(1.03);animation:art-breathe 20s ease-in-out infinite alternate}
+.title-art__scrim,.title-art__vignette{position:absolute;inset:0;z-index:1;pointer-events:none}
+.title-art__scrim{background:linear-gradient(180deg,rgba(8,40,36,.52) 0%,rgba(8,40,36,.12) 24%,rgba(8,40,36,.02) 48%,rgba(8,40,36,.16) 70%,rgba(8,40,36,.78) 100%)}
+.title-art__vignette{background:linear-gradient(90deg,rgba(6,28,26,.42) 0%,transparent 14%,transparent 86%,rgba(6,28,26,.42) 100%),
+  radial-gradient(ellipse at center,transparent 54%,rgba(6,28,26,.46) 112%);mix-blend-mode:multiply}
+@keyframes art-breathe{from{transform:scale(var(--art-scale))}to{transform:scale(calc(var(--art-scale) + .035)) translate3d(0,-0.6%,0)}}
+.title-dust{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.title-dust i{position:absolute;width:7px;height:7px;border-radius:50%;background:rgba(255,248,220,.55);
+  animation:dust 11s linear infinite}
+.title-dust i:nth-child(1){left:12%;top:70%;animation-duration:13s}
+.title-dust i:nth-child(2){left:28%;top:82%;width:5px;height:5px;animation-duration:9s}
+.title-dust i:nth-child(3){left:63%;top:76%;animation-duration:15s}
+.title-dust i:nth-child(4){left:81%;top:64%;width:6px;height:6px;animation-duration:12s}
+.title-dust i:nth-child(5){left:47%;top:88%;animation-duration:10s}
+@keyframes dust{0%{transform:translateY(0) scale(1);opacity:.2}50%{opacity:.7}100%{transform:translateY(-42vh) scale(.6);opacity:0}}
+
+.title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+  padding-inline:clamp(16px,5vw,32px);padding-top:var(--safeT);padding-bottom:var(--safeB);pointer-events:none}
+.title-logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;
+  font-size:clamp(72px,27.5vw,132px);font-weight:900;line-height:.92;letter-spacing:-.08em;white-space:nowrap;
+  filter:drop-shadow(0 16px 14px rgba(0,0,0,.34));transform:rotate(-1.6deg);transform-origin:50% 60%}
+.game-logo>span:not(.logo-gap){--r:0deg;--y:0px;--s:1;position:relative;display:inline-block;padding-inline:.02em;
+  color:transparent;background:linear-gradient(180deg,var(--logo-top) 0%,var(--logo-mid) 48%,var(--logo-bottom) 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-stroke:clamp(2px,.75vw,5px) var(--logo-outline);paint-order:stroke fill;
+  text-shadow:0 1px 0 var(--logo-side),0 2px 0 var(--logo-side),0 3px 0 var(--logo-side),0 4px 0 var(--logo-side),
+    0 5px 0 var(--logo-side-dark),0 6px 0 var(--logo-side-dark),0 7px 0 var(--logo-side-dark),0 8px 0 var(--logo-side-dark),
+    0 11px 2px rgba(42,13,4,.6),0 16px 8px rgba(0,0,0,.46),0 22px 22px rgba(0,0,0,.34),0 0 26px var(--logo-glow);
+  transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));transform-origin:50% 80%;
+  animation:logo-letter-in 720ms cubic-bezier(.18,1.55,.34,1) both;animation-delay:calc(var(--i,0)*65ms)}
+.game-logo>span:nth-child(1){--i:0}.game-logo>span:nth-child(2){--i:1}.game-logo>span:nth-child(3){--i:2}
+.game-subtitle{margin:14px auto 0;padding:5px 13px 6px;border:1px solid rgba(255,255,255,.34);border-radius:999px;
+  color:#fff8df;background:rgba(12,40,36,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 5px 14px rgba(0,0,0,.24);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  font:800 clamp(12px,3.5vw,16px)/1.2 sans-serif;letter-spacing:-.02em;text-shadow:0 2px 4px rgba(0,0,0,.72);
+  animation:logo-subtitle-in 420ms 520ms ease-out both;width:max-content}
+.title-unit{margin:8px 0 0;font-size:12px;font-weight:700;color:rgba(255,246,228,.78);text-shadow:0 1px 3px #000}
+@keyframes logo-letter-in{
+  0%{opacity:0;transform:translateY(calc(var(--y) - 82px)) rotate(calc(var(--r) - 10deg)) scale(.55)}
+  58%{opacity:1;transform:translateY(calc(var(--y) + 8px)) rotate(calc(var(--r) + 3deg)) scale(calc(var(--s)*1.1))}
+  78%{transform:translateY(calc(var(--y) - 3px)) rotate(calc(var(--r) - 1deg)) scale(calc(var(--s)*.97))}
+  100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}}
+@keyframes logo-subtitle-in{from{opacity:0;transform:translateY(-8px) scale(.92)}to{opacity:1;transform:none}}
+
+.title-cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+.title-meta{min-height:30px;padding:6px 12px;border:1px solid rgba(255,255,255,.24);border-radius:999px;
+  color:rgba(255,255,255,.92);background:rgba(5,20,18,.42);backdrop-filter:blur(5px);
+  font-size:12px;font-weight:800;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.title-meta[hidden]{display:none}
+.title-start{--cta-top:#fff27a;--cta-mid:#ffc62f;--cta-bottom:#ff8b1f;--cta-border:#54220d;--cta-depth:#a93d13;--cta-ink:#3b1907;
+  position:relative;width:min(100%,420px);min-height:68px;padding:0 28px;border:4px solid var(--cta-border);
+  border-radius:22px;appearance:none;cursor:pointer;color:var(--cta-ink);
+  background:linear-gradient(180deg,rgba(255,255,255,.58) 0 2px,transparent 2px 100%),
+    linear-gradient(180deg,var(--cta-top) 0%,var(--cta-mid) 49%,var(--cta-bottom) 100%);
+  box-shadow:0 7px 0 var(--cta-depth),0 10px 0 var(--cta-border),0 17px 26px rgba(0,0,0,.38),
+    inset 0 3px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(154,48,8,.2);
+  font-family:inherit;font-size:clamp(21px,5.8vw,27px);font-weight:900;letter-spacing:-.03em;
+  text-shadow:0 2px 0 rgba(255,255,255,.38);transform-origin:50% 100%;
+  animation:cta-pulse 2.4s ease-in-out 1.2s infinite;touch-action:manipulation}
+.title-start::after{content:"";position:absolute;inset:5px 9px auto;height:19px;border-radius:999px;
+  background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));pointer-events:none}
+.title-start>span{position:relative;z-index:1}
+.title-start:active,.title-start.is-pressed{transform:translateY(7px) scale(.985);
+  box-shadow:0 1px 0 var(--cta-depth),0 3px 0 var(--cta-border),0 7px 13px rgba(0,0,0,.3);animation-play-state:paused}
+.title-start:focus-visible,.title-howto:focus-visible,.title-mute:focus-visible{outline:4px solid #fff;outline-offset:4px}
+@keyframes cta-pulse{0%,72%,100%{transform:translateY(0) scale(1)}80%{transform:translateY(-2px) scale(1.025)}
+  88%{transform:none}94%{transform:translateY(-1px) scale(1.012)}}
+.title-howto{min-height:44px;min-width:44px;padding:7px 10px;border:0;color:rgba(255,255,255,.86);background:transparent;
+  font:700 12px/1.2 sans-serif;text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);
+  text-underline-offset:4px;text-shadow:0 2px 5px rgba(0,0,0,.85);cursor:pointer}
+.title-mute{position:absolute;z-index:4;top:max(10px,var(--safeT));
+  right:max(12px,calc((100vw - min(100vw,640px)) / 2 + 12px));
+  width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.18);
+  border-radius:50%;color:#fff;background:rgba(0,0,0,.28);backdrop-filter:blur(5px);font-size:21px;cursor:pointer}
+
+#onb{position:fixed;inset:0;z-index:20;pointer-events:auto}
+#onbHole{position:absolute;border-radius:18px;border:3px solid #F2B705;
+  box-shadow:0 0 0 9999px rgba(8,40,36,.78),0 0 0 6px rgba(242,183,5,.22) inset}
+#onbCard{position:absolute;left:50%;transform:translateX(-50%);width:min(calc(100vw - 32px),420px);
+  background:linear-gradient(180deg,#fff8ea,#f3e2b8);border:3px solid #3A3A38;border-radius:22px;
+  box-shadow:0 8px 0 #3A3A38,0 18px 34px rgba(0,0,0,.45);padding:14px 15px 15px;text-align:left}
+#onbNum{display:inline-block;font-size:11px;font-weight:900;background:#F2B705;border-radius:8px;padding:3px 9px}
+#onbTitle{margin:8px 0 5px;font-size:19px;font-weight:900;color:#E24A1C}
+#onbBody{margin:0;font-size:13.5px;font-weight:700;line-height:1.5;color:#3A3A38}
+#onbNext{width:100%;min-height:52px;margin-top:10px;border:2.5px solid #3A3A38;border-radius:16px;
+  cursor:pointer;font-family:inherit;font-size:17px;font-weight:900;background:linear-gradient(180deg,#fff27a,#ff8b1f);
+  box-shadow:0 5px 0 #3A3A38}
+
+#map{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;
+  background:rgba(8,40,36,.72);backdrop-filter:blur(4px);padding:12px}
+#map .card{width:min(100%,440px);max-height:calc(100dvh - 24px);overflow:auto;background:linear-gradient(180deg,#fff8ea,#e7dcc4);
+  border:3px solid #3A3A38;border-radius:24px;padding:16px 14px 14px;box-shadow:0 8px 0 #3A3A38;
+  display:flex;flex-direction:column;gap:8px}
+#map h2{font-size:22px;font-weight:900;color:#0F6E62}
+.modeRow{display:flex;gap:6px}
+.modeBtn{flex:1;min-height:44px;border-radius:14px;border:2.5px solid #3A3A38;background:#fff;
+  font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 3px 0 #3A3A38}
+.modeBtn.on{background:linear-gradient(180deg,#fff27a,#F2B705)}
+.pier{min-height:52px;border-radius:16px;border:2.5px solid #3A3A38;background:linear-gradient(180deg,#fff,#eadfcb);
+  font-family:inherit;font-weight:900;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  padding:0 12px;box-shadow:0 4px 0 #3A3A38;text-align:left}
+.pier:active{transform:translateY(3px);box-shadow:0 1px 0 #3A3A38}
+.pier[disabled]{opacity:.45;filter:grayscale(.4);cursor:default;transform:none}
+.pier .st{color:#E24A1C;font-size:15px;margin-left:8px;white-space:nowrap}
+.backLink{min-height:44px;border:0;background:transparent;font:800 13px/1 sans-serif;color:#0F6E62;cursor:pointer;text-decoration:underline}
+
+#why{position:fixed;inset:0;z-index:11;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(8,40,36,.55);padding:12px 12px calc(16px + var(--safeB))}
+#why .card{width:min(100%,420px);background:linear-gradient(180deg,#fff8ea,#f3e2b8);border:3px solid #3A3A38;
+  border-radius:22px;padding:16px;box-shadow:0 8px 0 #3A3A38;display:flex;flex-direction:column;gap:8px}
+#why h3{text-align:center;font-size:18px;color:#E24A1C}
+.whyBtn{min-height:52px;border-radius:15px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;
+  color:#3A3A38;text-align:left;padding:10px 12px;line-height:1.3;
+  background:linear-gradient(180deg,#fff8ea,#eadfcb);border:2.5px solid #3A3A38;box-shadow:0 4px 0 #3A3A38}
+.whyBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #3A3A38}
+
+#over{position:fixed;inset:0;z-index:13;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;text-align:center;gap:12px;
+  background:radial-gradient(ellipse at 50% 38%,rgba(15,110,98,.55),rgba(8,28,26,.92) 72%)}
+#over .card{width:min(100%,360px);background:linear-gradient(180deg,#fff8ea,#f3e2b8);border:3px solid #3A3A38;
+  border-radius:24px;padding:20px 16px 16px;box-shadow:0 8px 0 #3A3A38;display:flex;flex-direction:column;gap:11px}
+#over h2{font-size:26px;font-weight:900;color:#E24A1C}
+#stars{font-size:32px;min-height:40px}
+#stars i{font-style:normal;display:inline-block;opacity:0;transform:scale(0) rotate(-40deg)}
+#stars i.pop{opacity:1;transform:none;transition:transform .45s cubic-bezier(.2,1.9,.4,1),opacity .25s}
+.stat{display:flex;justify-content:space-between;font-size:14px;font-weight:800;color:#0F6E62;
+  border-bottom:2px dotted rgba(58,58,56,.2);padding-bottom:5px}
+.stat b{font-size:22px;color:#3A3A38;font-variant-numeric:tabular-nums}
+.btn{pointer-events:auto;min-height:56px;border-radius:16px;cursor:pointer;font-family:inherit;
+  font-size:17px;font-weight:900;color:#3b1907;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#fff4c8,#F2B705);border:2.5px solid #3A3A38;
+  box-shadow:0 4px 0 #3A3A38,inset 0 2px 0 rgba(255,255,255,.55)}
+.btn:active{transform:translateY(4px);box-shadow:0 0 0 #3A3A38}
+.btn.ghost{background:linear-gradient(180deg,#fff,#e4ddd0);color:#3A3A38}
+
+#toast{position:fixed;left:0;right:0;z-index:15;display:flex;justify-content:center;pointer-events:none;top:38%}
+#toast .t{background:rgba(28,36,34,.92);border:2.5px solid #F2B705;border-radius:16px;padding:9px 15px;
+  font-size:14px;font-weight:900;color:#fff8ea;max-width:88vw;text-align:center;opacity:0;
+  transform:translateY(10px) scale(.94);transition:opacity .22s,transform .22s}
+#toast .t.on{opacity:1;transform:none}
+#toast .t.good{background:rgba(15,110,98,.94);border-color:#b7e4c7}
+#toast .t.bad{background:rgba(150,42,28,.94);border-color:#ffb4a8}
+#praise{position:fixed;left:0;right:0;z-index:7;top:28%;text-align:center;pointer-events:none;
+  font-size:clamp(22px,6vw,34px);font-weight:900;color:#F2B705;text-shadow:0 3px 0 #3A3A38,0 -8px 18px rgba(242,183,5,.5);
+  opacity:0;transform:translateY(16px)}
+#praise.on{opacity:1;transform:translateY(-12px);transition:opacity .2s,transform .55s cubic-bezier(.18,1.4,.32,1)}
+#paused{position:fixed;inset:0;z-index:16;display:flex;align-items:center;justify-content:center;
+  background:rgba(8,40,36,.55);color:#fff8e8;font-size:28px;font-weight:900;text-shadow:0 3px 0 #000}
+
+@media (orientation:landscape),(min-aspect-ratio:1/1){
+  .title-art{--art-y:46%;--art-x:50%}
+  .game-logo{font-size:clamp(48px,8.5vw,92px)}
+  .title-logo-zone{top:max(18px,4dvh);min-height:120px}
+  html.land{--colW:var(--stageW);--colX:var(--stageX)}
+  html.land #hud{left:var(--stageX);width:min(520px,calc(var(--stageW)*0.42));padding-left:12px}
+}
+@media (min-width:641px){
+  .title-logo-zone{left:24px;right:24px}
+  .title-cta-zone{width:min(calc(100% - 48px),520px)}
+}
+@media (max-height:700px){
+  .title-logo-zone{top:max(38px,5dvh);min-height:150px}
+  .game-logo{font-size:clamp(52px,18vw,96px)}
+  .title-start{min-height:64px}
+  .title-cta-zone{gap:5px}
+}
+@media (prefers-reduced-motion:reduce){
+  .game-logo>span:not(.logo-gap),.game-subtitle,.title-art__image,.title-start,.title-dust i{animation:none}
+  #praise.on{transition-duration:.12s}
+  #scoreV,#comboP,.hp{transition-duration:.08s}
+}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="row">
+    <div class="pill"><span id="scoreV">0</span></div>
+    <div class="pill" id="comboP">연속 ×1</div>
+    <div id="hearts"></div>
+    <button id="muteBtn" class="icon-btn" type="button" aria-label="소리 끄기">🔊</button>
+    <button id="pauseBtn" class="icon-btn" type="button" aria-label="잠시 멈춤">⏸</button>
+  </div>
+  <div id="contract">돌은 모두 같은 크기예요. 숫자만 보고 건너요.</div>
+  <div id="sign"><span class="k" id="signK">이번 줄</span><span class="p" id="signP">3 이상 6 미만</span></div>
+  <div id="timerBar"><i id="timerFill"></i></div>
+</div>
+
+<div id="title" class="is-on">
+  <div class="title-art" id="titleArt">
+    <img class="title-art__image" src="./assets/title.png" alt="" id="titleImg" onerror="this.style.display='none';this.parentNode.classList.add('fallback')">
+  </div>
+  <div class="title-art__scrim" aria-hidden="true"></div>
+  <div class="title-art__vignette" aria-hidden="true"></div>
+  <div class="title-dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <button class="title-mute" id="titleMute" type="button" aria-label="소리 끄기">🔊</button>
+  <div class="title-ui">
+    <div class="title-logo-zone">
+      <h1 class="game-logo" aria-label="폴짝이">
+        <span aria-hidden="true" style="--r:-5deg;--y:6px;--s:1.08">폴</span>
+        <span aria-hidden="true" style="--r:4deg;--y:-4px;--s:1.12">짝</span>
+        <span aria-hidden="true" style="--r:-2deg;--y:3px;--s:1.00">이</span>
+      </h1>
+      <p class="game-subtitle">빈 돌은 빠진다</p>
+      <div class="title-unit">5학년 2학기 · 수의 범위와 어림</div>
+    </div>
+    <div class="title-cta-zone">
+      <div class="title-meta" id="bestPill" hidden>최고 0칸</div>
+      <button class="title-start" id="ctaBtn" type="button"><span>폴짝 건너기!</span></button>
+      <button class="title-howto" id="howtoBtn" type="button">어떻게 놀아요? 〉</button>
+    </div>
+  </div>
+</div>
+
+<div id="onb" class="hidden">
+  <div id="onbHole"></div>
+  <div id="onbCard">
+    <span id="onbNum">1/3</span>
+    <h2 id="onbTitle">팻말을 봐요</h2>
+    <p id="onbBody"></p>
+    <button id="onbNext" type="button">다음</button>
+  </div>
+</div>
+
+<div id="map" class="hidden">
+  <div class="card">
+    <h2>어느 연못으로?</h2>
+    <div class="modeRow">
+      <button class="modeBtn on" id="modeEasy" type="button">여유 폴짝 · 목숨 5</button>
+      <button class="modeBtn" id="modeHard" type="button">아슬 폴짝 · 목숨 3</button>
+    </div>
+    <div id="ponds"></div>
+    <button class="backLink" id="mapBack" type="button">타이틀로</button>
+  </div>
+</div>
+
+<div id="why" class="hidden">
+  <div class="card">
+    <h3>왜 이 돌이 안전했을까요?</h3>
+    <p id="whyQ" style="text-align:center;font-weight:800;font-size:15px"></p>
+    <button class="whyBtn" id="whyA" type="button"></button>
+    <button class="whyBtn" id="whyB" type="button"></button>
+  </div>
+</div>
+
+<div id="over" class="hidden">
+  <div class="card">
+    <h2 id="overTitle">풍덩!</h2>
+    <div id="stars"><i>⭐</i><i>⭐</i><i>⭐</i></div>
+    <div class="stat">건넌 칸 <b id="stRows">0</b></div>
+    <div class="stat">점수 <b id="stScore">0</b></div>
+    <div class="stat">최고 콤보 <b id="stCombo">0</b></div>
+    <button class="btn" id="retryBtn" type="button">다시 폴짝!</button>
+    <button class="btn ghost" id="mapBtn" type="button">연못 고르기</button>
+  </div>
+</div>
+
+<div id="toast"><div class="t" id="toastT"></div></div>
+<div id="praise"></div>
+<div id="paused" class="hidden">잠시 멈춤 · 스페이스</div>
+
+<script>
+(() => {
+'use strict';
+
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const LS = {
+  best: 'stone-hop:best',
+  bestRows: 'stone-hop:bestRows',
+  unlock: 'stone-hop:unlock',
+  stars: 'stone-hop:stars',
+  seen: 'onboardingSeen:stone-hop',
+  mute: 'stone-hop:mute',
+  rowsTotal: 'stone-hop:rowsTotal',
+};
+const PLACE = ['일의 자리','십의 자리','백의 자리','천의 자리','만의 자리'];
+const PAL = { mint:'#D4EDE6', teal:'#0F6E62', ver:'#E24A1C', ink:'#3A3A38', gold:'#F2B705', cream:'#FFF8E4', water:'#12756a' };
+
+function pow10(p){ let m=1; for(let i=0;i<p;i++) m*=10; return m; }
+function UP(n,p){ const m=pow10(p); const q=(n/m)|0; const r=n-q*m; return r===0?n:(q+1)*m; }
+function DOWN(n,p){ const m=pow10(p); return ((n/m)|0)*m; }
+function HALF(n,p){ const m=pow10(p); const q=(n/m)|0; const r=n-q*m; return (r*2>=m)?(q+1)*m:q*m; }
+function applyMode(mode,n,p){ return mode==='up'?UP(n,p):mode==='down'?DOWN(n,p):HALF(n,p); }
+function inRange(n,lo,loInc,hi,hiInc){
+  if(loInc ? n<lo : n<=lo) return false;
+  if(hiInc ? n>hi : n>=hi) return false;
+  return true;
+}
+function ceilDiv(n,u){ return ((n+u-1)/u)|0; }
+function floorDiv(n,u){ return (n/u)|0; }
+function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function easeOutBack(t){ const c=1.70158; return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2); }
+function easeInExpo(t){ return t===0?0:Math.pow(2,10*t-10); }
+function easeOutQuad(t){ return 1-(1-t)*(1-t); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function pick(a){ return a[(Math.random()*a.length)|0]; }
+function rr(c,x,y,w,h,r){
+  const rad=Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+  if(c.roundRect){ c.roundRect(x,y,w,h,rad); return; }
+  c.moveTo(x+rad,y); c.arcTo(x+w,y,x+w,y+h,rad); c.arcTo(x+w,y+h,x,y+h,rad); c.arcTo(x,y+h,x,y,rad); c.arcTo(x,y,x+w,y,rad); c.closePath();
+}
+
+function bootMath(){
+  const bad=[];
+  const chk=(c,m)=>{ if(!c) bad.push(m); };
+  chk(HALF(225,1)===230,'HALF 225 p1');
+  chk(HALF(225,2)===200,'HALF 225 p2');
+  chk(UP(339,2)===400,'UP 339');
+  chk(DOWN(739,2)===700,'DOWN 739');
+  chk(UP(932,2)===1000,'UP 932');
+  chk(UP(3400,3)===4000,'UP 3400');
+  chk(UP(3000,2)===3000,'UP 3000 p2');
+  chk(UP(3000,3)===3000,'UP 3000 p3');
+  chk(HALF(2449,2)===2400,'HALF 2449');
+  chk(inRange(25,25,true,30,false) && !inRange(30,25,true,30,false),'25이상30미만');
+  chk(inRange(465,465,true,475,false) && !inRange(475,465,true,475,false),'465이상475미만');
+  chk(HALF(465,1)===470 && HALF(474,1)===470 && HALF(475,1)===480,'trace 470');
+  return bad;
+}
+
+/* ───────── 문제 풀 (제약 만족 전수 후 샘플) ───────── */
+const POOL = { rangeInc:[], rangeMix:[], toPlace:[], atPlace:[], except:[], life:[], trace:[] };
+
+function buildPools(){
+  for(let lo=10; lo<=80; lo++){
+    for(let w=5; w<=10; w++){
+      const hi=lo+w;
+      if(hi>99) continue;
+      POOL.rangeInc.push({lo,hi,loInc:true,hiInc:true});
+    }
+  }
+  for(let lo=10; lo<=80; lo++){
+    for(let w=6; w<=12; w++){
+      const hi=lo+w;
+      if(hi>99) continue;
+      POOL.rangeMix.push({lo,hi,loInc:false,hiInc:true});
+      POOL.rangeMix.push({lo,hi,loInc:true,hiInc:false});
+    }
+  }
+  for(const p of [1,2]){
+    const m=pow10(p);
+    const start=p===1?40:300;
+    const end=p===1?960:9800;
+    for(let T=start; T<=end; T+=m){
+      POOL.toPlace.push({mode:'half', convention:'TO_PLACE', p, decisionPlace:p-1, retainedPlace:p, target:T});
+    }
+  }
+  // AT_PLACE: 자릿값부터 역생성. 유혹값(TO_PLACE)이 정답과 수치 우연으로 같으면 버린다.
+  for(let h=1; h<=20; h++){
+    for(let t=0; t<=9; t++){
+      for(let u=0; u<=9; u++){
+        const n=h*100+t*10+u;
+        if(n<20) continue;
+        for(const mode of ['up','down','half']){
+          const d=1, p=2;
+          const result=applyMode(mode,n,p);
+          const temptation=applyMode(mode,n,d); // misconceptionId: at-vs-to
+          if(result<=0 || temptation===result) continue;
+          if(mode==='up' && n%100===0) continue;
+          if(mode==='down' && n%100===0) continue;
+          POOL.atPlace.push({n, mode, convention:'AT_PLACE', decisionPlace:d, retainedPlace:p, p, result, temptation});
+        }
+      }
+    }
+  }
+  // 백의 자리에서 (d=2, p=3)
+  for(let th=1; th<=9; th++){
+    for(let h=0; h<=9; h++){
+      for(let t of [0,3,4,9]){
+        for(let u of [0,9]){
+          const n=th*1000+h*100+t*10+u;
+          for(const mode of ['up','down','half']){
+            const d=2, p=3;
+            const result=applyMode(mode,n,p);
+            const temptation=applyMode(mode,n,d);
+            if(result<=0 || temptation===result) continue;
+            POOL.atPlace.push({n, mode, convention:'AT_PLACE', decisionPlace:d, retainedPlace:p, p, result, temptation});
+          }
+        }
+      }
+    }
+  }
+  // 고정 함정
+  const traps=[
+    {n:339, mode:'up', d:1}, {n:739, mode:'down', d:1}, {n:932, mode:'up', d:1},
+    {n:3400, mode:'up', d:2}, {n:225, mode:'half', d:1}, {n:225, mode:'half', d:2}
+  ];
+  for(const t of traps){
+    const p=t.d+1;
+    const result=applyMode(t.mode,t.n,p);
+    const temptation=applyMode(t.mode,t.n,t.d);
+    if(result<=0) continue;
+    POOL.atPlace.push({n:t.n, mode:t.mode, convention:'AT_PLACE', decisionPlace:t.d, retainedPlace:p, p, result, temptation, trap:true});
+  }
+  // 아래가 0인 예외
+  for(const p of [2,3]){
+    const m=pow10(p);
+    for(let k=2;k<=40;k++){
+      const n=k*m;
+      POOL.except.push({n, mode:'up', convention:'AT_PLACE', decisionPlace:p-1, retainedPlace:p, p, result:n});
+      POOL.except.push({n, mode:'down', convention:'AT_PLACE', decisionPlace:p-1, retainedPlace:p, p, result:n});
+      POOL.except.push({n, mode:'half', convention:'AT_PLACE', decisionPlace:p-1, retainedPlace:p, p, result:n});
+    }
+  }
+  const items=[
+    {item:'사탕', box:'상자', unit:100}, {item:'구슬', box:'봉지', unit:20},
+    {item:'연필', box:'다스', unit:12}, {item:'스티커', box:'묶음', unit:50},
+    {item:'공책', box:'묶음', unit:10}, {item:'사탕', box:'상자', unit:200},
+    {item:'구슬', box:'상자', unit:25}, {item:'색종이', box:'묶음', unit:30}
+  ];
+  for(const it of items){
+    for(let q=4; q<=28; q++){
+      for(const rem of [1, it.unit>>1, it.unit-1]){
+        if(rem<=0 || rem>=it.unit) continue;
+        const n=q*it.unit+rem;
+        POOL.life.push({...it, n, q, rem, mode:'ceil', answer:q+1});
+        POOL.life.push({...it, n, q, rem, mode:'floor', answer:q});
+      }
+    }
+  }
+  for(const p of [1,2]){
+    const m=pow10(p);
+    const start=p===1?40:400;
+    const end=p===1?960:9000;
+    for(let T=start; T<=end; T+=m){
+      const lo=T-(m>>1), hi=T+(m>>1);
+      POOL.trace.push({T, p, lo, hi, loInc:true, hiInc:false});
+    }
+  }
+}
+
+function verbKo(mode){ return mode==='up'?'올림':mode==='down'?'버림':'반올림'; }
+function eulreul(n){
+  const d=Math.abs(n|0)%10;
+  return (d===2||d===4||d===5||d===9)?'를':'을';
+}
+
+function uniqueStones(list){
+  const seen=new Set(); const out=[];
+  for(const s of list){
+    if(s.n<=0 || seen.has(s.n)) continue;
+    seen.add(s.n); out.push(s);
+  }
+  return out;
+}
+
+function pickBias(){
+  return pick(['left','right','mid','left','right']);
+}
+
+function boundMisId(v, lo, hi, loInc, hiInc){
+  if(v===lo) return loInc?'bound-exclude':'bound-include';
+  if(v===hi) return hiInc?'bound-exclude':'bound-include';
+  return undefined;
+}
+
+function layoutRange(lo, hi, loInc, hiInc, nWant, bias, isSafe){
+  const used=new Set();
+  const stones=[];
+  function add(n, extra){
+    if(n<=0 || used.has(n)) return false;
+    used.add(n);
+    stones.push(Object.assign({n, safe:isSafe(n), isBound:n===lo||n===hi}, extra||{}));
+    return true;
+  }
+  add(lo, {misconceptionId:boundMisId(lo,lo,hi,loInc,hiInc)});
+  if(hi!==lo) add(hi, {misconceptionId:boundMisId(hi,lo,hi,loInc,hiInc)});
+  if(stones.filter(s=>s.safe).length<2){
+    for(let n=lo+1; n<hi && stones.filter(s=>s.safe).length<2; n++){
+      if(isSafe(n)) add(n, {});
+    }
+  }
+  const nU=Math.max(0, nWant-stones.length);
+  let leftU=0, rightU=0;
+  if(bias==='left'){ leftU=nU; rightU=0; }
+  else if(bias==='right'){ leftU=0; rightU=nU; }
+  else { leftU=(nU/2)|0; rightU=nU-leftU; if(nU>=3 && leftU===rightU) leftU++; }
+  let n=lo-1;
+  while(leftU>0 && n>0){
+    if(!isSafe(n) && add(n, {misconceptionId:'out-low'})) leftU--;
+    n--;
+  }
+  n=hi+1;
+  while(rightU>0){
+    if(!isSafe(n) && add(n, {misconceptionId:'out-high'})) rightU--;
+    n++;
+    if(n>hi+80) break;
+  }
+  n=lo-1;
+  while(stones.length<nWant && n>0){
+    if(!isSafe(n)) add(n, {misconceptionId:'out-low'});
+    n--;
+  }
+  n=hi+1;
+  while(stones.length<nWant){
+    if(!isSafe(n)) add(n, {misconceptionId:'out-high'});
+    n++;
+    if(n>hi+80) break;
+  }
+  stones.sort((a,b)=>a.n-b.n);
+  if(stones.length>nWant){
+    const must=stones.filter(s=>s.isBound||s.safe);
+    const rest=stones.filter(s=>!(s.isBound||s.safe));
+    const need=Math.max(0, nWant-must.length);
+    let keepRest;
+    if(need===0) keepRest=[];
+    else if(bias==='left') keepRest=rest.filter(s=>s.n<lo).slice(-need);
+    else if(bias==='right') keepRest=rest.filter(s=>s.n>hi).slice(0, need);
+    else keepRest=rest.slice(0, need);
+    const merged=uniqueStones([...must, ...keepRest]).sort((a,b)=>a.n-b.n);
+    if(merged.length>nWant){
+      const safes=merged.filter(s=>s.safe);
+      const first=merged.indexOf(safes[0]);
+      const last=merged.indexOf(safes[safes.length-1]);
+      let start=bias==='left'? last-nWant+1 : bias==='right'? first : first-1;
+      start=Math.max(0, Math.min(start, merged.length-nWant));
+      stones.splice(0, stones.length, ...merged.slice(start, start+nWant));
+    } else {
+      stones.splice(0, stones.length, ...merged);
+    }
+  }
+  for(const s of stones) s.safe=isSafe(s.n);
+  return {stones, nSafe:stones.filter(s=>s.safe).length};
+}
+
+function layoutSingle(answer, distractors, nWant, bias){
+  const raw=[{n:answer, safe:true}, ...distractors.filter(d=>d.n!==answer && d.n>0)];
+  let stones=uniqueStones(raw);
+  const used=new Set(stones.map(s=>s.n));
+  function addSide(dir, id){
+    if(dir<0){
+      let v=Math.min(...stones.map(s=>s.n), answer)-1;
+      while(v>0){
+        if(!used.has(v) && v!==answer){
+          stones.push({n:v, safe:false, misconceptionId:id});
+          used.add(v); return true;
+        }
+        v--;
+      }
+    } else {
+      let v=Math.max(...stones.map(s=>s.n), answer)+1;
+      for(let g=0;g<80;g++,v++){
+        if(!used.has(v) && v!==answer){
+          stones.push({n:v, safe:false, misconceptionId:id});
+          used.add(v); return true;
+        }
+      }
+    }
+    return false;
+  }
+  const needU=Math.max(0, nWant-1);
+  if(bias==='left'){ while(stones.filter(s=>s.n<answer).length<needU){ if(!addSide(-1,'out-low')) break; } }
+  else if(bias==='right'){ while(stones.filter(s=>s.n>answer).length<needU){ if(!addSide(1,'out-high')) break; } }
+  else { while(stones.length<nWant){ if(!(stones.length%2?addSide(-1,'out-low'):addSide(1,'out-high'))) break; } }
+  stones.sort((a,b)=>a.n-b.n);
+  const unsafes=stones.filter(s=>s.n!==answer);
+  const ans={n:answer, safe:true};
+  let keep;
+  if(bias==='left') keep=unsafes.filter(s=>s.n<answer).slice(-needU);
+  else if(bias==='right') keep=unsafes.filter(s=>s.n>answer).slice(0, needU);
+  else {
+    const below=unsafes.filter(s=>s.n<answer);
+    const above=unsafes.filter(s=>s.n>answer);
+    const lb=Math.ceil(needU/2), rb=needU-lb;
+    keep=[...below.slice(-lb), ...above.slice(0, rb)];
+  }
+  if(keep.length<needU){
+    for(const s of unsafes){
+      if(keep.length>=needU) break;
+      if(!keep.some(k=>k.n===s.n)) keep.push(s);
+    }
+  }
+  stones=uniqueStones([ans, ...keep.slice(0, needU)]).sort((a,b)=>a.n-b.n);
+  for(const s of stones) s.safe=s.n===answer;
+  if(!stones.some(s=>s.safe)) stones.push({n:answer, safe:true});
+  stones=uniqueStones(stones).sort((a,b)=>a.n-b.n);
+  return {stones, nSafe:stones.filter(s=>s.safe).length};
+}
+
+function makeRangeRow(spec, nStones, bias){
+  const {lo,hi,loInc,hiInc}=spec;
+  const isSafe=n=>inRange(n,lo,loInc,hi,hiInc);
+  let {stones, nSafe}=layoutRange(lo, hi, loInc, hiInc, nStones, bias||'mid', isSafe);
+  if(nSafe<2){
+    const extra=loInc?lo:(lo+1);
+    if(isSafe(extra) && !stones.some(s=>s.n===extra)) stones.push({n:extra, safe:true, isBound:extra===lo||extra===hi});
+    stones=uniqueStones(stones).sort((a,b)=>a.n-b.n);
+    for(const s of stones) s.safe=isSafe(s.n);
+    nSafe=stones.filter(s=>s.safe).length;
+  }
+  const a=loInc?'이상':'초과', b=hiInc?'이하':'미만';
+  const prompt=`${lo} ${a} ${hi} ${b}`;
+  return {
+    kind:'range', prompt, lo, loInc, hi, hiInc, stones,
+    unitConcept: loInc&&hiInc?'이상과 이하':'초과와 미만',
+    sign:`${prompt}인 돌만`,
+    graceMul:1
+  };
+}
+
+function makeToPlaceRow(spec, nStones, bias){
+  const {p, target, mode='half'}=spec;
+  const m=pow10(p);
+  const lo=target-(m>>1), hi=target+(m>>1)-1;
+  const isSafe=n=>applyMode(mode,n,p)===target;
+  let {stones}=layoutRange(lo, hi, true, false, nStones, bias||'mid', isSafe);
+  if(stones.filter(s=>s.safe).length<2){
+    if(lo>=1 && !stones.some(s=>s.n===lo)) stones.push({n:lo, safe:isSafe(lo), isBound:true});
+    if(hi>=1 && !stones.some(s=>s.n===hi)) stones.push({n:hi, safe:isSafe(hi), isBound:true});
+    stones=uniqueStones(stones).sort((a,b)=>a.n-b.n);
+    for(const s of stones) s.safe=isSafe(s.n);
+  }
+  const prompt=`${verbKo(mode)}하여 ${PLACE[p]}까지 ${target}`;
+  return {
+    kind:'round-match', prompt, mode, convention:'TO_PLACE', p,
+    decisionPlace:p-1, retainedPlace:p, target, stones,
+    unitConcept:'반올림하여 자리까지',
+    sign:`${prompt}이 되는 돌만`,
+    graceMul:1.25
+  };
+}
+
+function makeAtComputeRow(spec, nStones, bias){
+  const {n, mode, decisionPlace, p, result, temptation}=spec;
+  const alwaysUp = mode==='up' ? result + pow10(decisionPlace) : result - pow10(decisionPlace);
+  const distractors=[
+    {n:temptation, misconceptionId:'at-vs-to'},
+    {n:alwaysUp>0?alwaysUp:result+pow10(p), misconceptionId:'always-up'},
+    {n:n, misconceptionId:'no-change'},
+    {n:result+pow10(p), misconceptionId:'always-up'}
+  ].filter(d=>d.n>0 && d.n!==result);
+  let {stones}=layoutSingle(result, distractors, Math.max(4, nStones), bias||'mid');
+  const prompt=`${n}${eulreul(n)} ${PLACE[decisionPlace]}에서 ${verbKo(mode)}하면`;
+  return {
+    kind:'round-result', prompt, nSrc:n, mode, convention:'AT_PLACE',
+    decisionPlace, retainedPlace:p, p, target:result, stones,
+    unitConcept:'자리에서 어림',
+    sign:prompt,
+    graceMul:1.3
+  };
+}
+
+function makeExceptRow(spec, nStones, bias){
+  const {n, mode, decisionPlace, p, result}=spec;
+  const bump=n+pow10(decisionPlace);
+  const next=applyMode(mode, n+1, p)===n ? n+pow10(p) : applyMode('up', n+1, p);
+  const distractors=[
+    {n:bump, misconceptionId:'always-up'},
+    {n:next, misconceptionId:'always-up'},
+    {n:DOWN(n, p+1)||pow10(p+1), misconceptionId:'at-vs-to'},
+    {n:n+pow10(p), misconceptionId:'always-up'}
+  ].filter(d=>d.n>0 && d.n!==result);
+  let {stones}=layoutSingle(result, distractors, Math.max(4, nStones), bias||'mid');
+  const prompt=`${n}${eulreul(n)} ${PLACE[decisionPlace]}에서 ${verbKo(mode)}하면`;
+  return {
+    kind:'round-result', prompt, nSrc:n, mode, convention:'AT_PLACE',
+    decisionPlace, retainedPlace:p, p, target:result, stones,
+    unitConcept:'아래가 0인 예외',
+    sign:prompt,
+    graceMul:1.3
+  };
+}
+
+function lifeWrongCands(spec){
+  const answer=spec.answer;
+  const cands=[
+    {n: spec.mode==='ceil' ? spec.q : spec.q+1, misconceptionId:'life-wrong-op'},
+    {n: spec.rem, misconceptionId:'life-remainder'},
+    {n: spec.unit, misconceptionId:'life-unit'},
+    {n: spec.n, misconceptionId:'life-raw'},
+    {n: spec.q, misconceptionId:'life-quot'},
+    {n: spec.q+2, misconceptionId:'life-plus2'},
+    {n: Math.max(1, answer-1), misconceptionId:'life-minus'}
+  ];
+  const seen=new Set([answer]);
+  const out=[];
+  for(const c of cands){
+    if(!Number.isFinite(c.n) || c.n<=0 || seen.has(c.n)) continue;
+    seen.add(c.n); out.push(c);
+  }
+  return out;
+}
+
+function makeLifeRow(spec, nStones, bias){
+  const {item, box, unit, n, mode, answer}=spec;
+  const distractors=lifeWrongCands(spec);
+  let {stones}=layoutSingle(answer, distractors, Math.max(4,nStones), bias||'mid');
+  const prompt = mode==='ceil'
+    ? `${item} ${n}개를 한 ${box}에 ${unit}개씩 모두 담으려면 ${box}는 몇 개?`
+    : `${item} ${n}개를 ${unit}개씩 묶음으로만 팔아요. 팔 수 있는 묶음은 몇 개?`;
+  return {
+    kind:'life', prompt, mode, nSrc:n, unit, answer, stones,
+    unitConcept:'상황에 맞는 어림 방법',
+    sign:prompt,
+    graceMul:1.4
+  };
+}
+
+function makeTraceRow(spec, nStones, bias){
+  const {T,p,lo,hi}=spec;
+  const row=makeRangeRow({lo, hi, loInc:true, hiInc:false}, nStones, bias);
+  row.kind='trace';
+  row.T=T; row.p=p;
+  row.prompt=`반올림하여 ${PLACE[p]}까지 나타냈더니 ${T}예요`;
+  row.sign=`${row.prompt}. 원래 수가 될 수 있는 돌만`;
+  row.unitConcept='어림 결과로 원래 수 역추적';
+  row.graceMul=1.35;
+  return row;
+}
+
+function tutorialRow(){
+  const stones=[
+    {n:2, safe:false, misconceptionId:'out-low'},
+    {n:3, safe:true, isBound:true, misconceptionId:'bound-exclude'},
+    {n:5, safe:true},
+    {n:6, safe:false, isBound:true, misconceptionId:'bound-include'}
+  ];
+  return {
+    kind:'range', prompt:'3 이상 6 미만', lo:3, loInc:true, hi:6, hiInc:false, stones,
+    unitConcept:'이상과 미만', sign:'3 이상 6 미만인 돌만', graceMul:1, tutorial:true
+  };
+}
+
+function decorateRow(row){
+  row.id='r'+Math.random().toString(36).slice(2,8);
+  row.offsetX=0;
+  row.drift=0;
+  row.age=0;
+  row.landed=false;
+  row.sunk=false;
+  for(const s of row.stones){
+    s.pulse=0; s.fill=0; s.ring=0; s.shake=0; s.sink=0; s.scaleX=1; s.scaleY=1;
+  }
+  return row;
+}
+
+function rowForPond(pond, rowsDone, nStones){
+  if(pond.id===1 && rowsDone===0) return decorateRow(tutorialRow());
+  const band = Math.min(3, (rowsDone/10)|0);
+  const bias=pickBias();
+  let kind;
+  if(pond.id===1) kind='rangeInc';
+  else if(pond.id===2) kind='rangeMix';
+  else if(pond.id===3) kind='toPlace';
+  else if(pond.id===4) kind='atPlace';
+  else if(pond.id===5) kind= rowsDone%2===0 ? 'except':'life';
+  else if(pond.id===6) kind='trace';
+  else {
+    const ks=['rangeInc','rangeMix','toPlace','atPlace','except','life','trace'];
+    kind=ks[rowsDone%ks.length];
+  }
+  function makeKind(k, b){
+    if(k==='rangeInc') return makeRangeRow(pick(POOL.rangeInc), nStones, b);
+    if(k==='rangeMix') return makeRangeRow(pick(POOL.rangeMix), nStones, b);
+    if(k==='toPlace'){
+      let spec=pick(POOL.toPlace);
+      if(band===0) spec=POOL.toPlace.find(s=>s.p===1 && s.target>=40 && s.target<=200) || spec;
+      return makeToPlaceRow(spec, nStones, b);
+    }
+    if(k==='atPlace'){
+      const prefer=POOL.atPlace.filter(s=>s.result>0 && (s.trap || (rowsDone<4 && s.n<1000)));
+      return makeAtComputeRow(pick(prefer.length?prefer:POOL.atPlace.filter(s=>s.result>0)), nStones, b);
+    }
+    if(k==='except') return makeExceptRow(pick(POOL.except), nStones, b);
+    if(k==='life') return makeLifeRow(pick(POOL.life), nStones, b);
+    return makeTraceRow(pick(POOL.trace), nStones, b);
+  }
+  let row=makeKind(kind, bias);
+  for(let tries=0; tries<8 && row.stones.filter(s=>s.safe).length<1; tries++){
+    row=makeKind(kind, pickBias());
+  }
+  const nSafe=row.stones.filter(s=>s.safe).length;
+  const singleOk=row.kind==='round-result' || row.kind==='life';
+  if(singleOk){
+    if(nSafe<1){
+      const ans=row.target!=null?row.target:row.answer;
+      if(ans>0 && !row.stones.some(s=>s.n===ans)) row.stones.push({n:ans, safe:true});
+      if(ans>0) row.stones.forEach(s=>{ s.safe = s.n===ans; });
+    }
+  } else if(nSafe<2){
+    const fallbackKind=kind==='toPlace'?'toPlace':kind==='trace'?'trace':'rangeInc';
+    if(fallbackKind==='toPlace') row=makeToPlaceRow(pick(POOL.toPlace), nStones, bias);
+    else if(fallbackKind==='trace') row=makeTraceRow(pick(POOL.trace), nStones, bias);
+    else row=makeRangeRow(pick(POOL.rangeInc), nStones, bias);
+  }
+  return decorateRow(row);
+}
+
+/* sampleProblems: 4지선다, 오개념 역산 최소 2개 */
+function isCorrectSpec(kind, spec, v){
+  if(kind==='range' || kind==='trace') return inRange(v, spec.lo, spec.loInc, spec.hi, spec.hiInc);
+  if(kind==='toPlace') return applyMode(spec.mode||'half', v, spec.p)===spec.target;
+  if(kind==='at' || kind==='except' || kind==='life') return v===spec.answer;
+  return false;
+}
+
+function packChoices(answer, distractors, spec, kind){
+  const ans=String(answer);
+  let ds=distractors
+    .filter(d=>d.value!==answer && String(d.value)!==ans)
+    .filter(d=>Number.isFinite(Number(d.value)) && Number(d.value)>0);
+  const seen=new Set([ans]);
+  const uniq=[];
+  for(const d of ds){
+    const s=String(d.value);
+    if(seen.has(s)) continue;
+    if(isCorrectSpec(kind, spec, Number(d.value))) continue;
+    seen.add(s); uniq.push(d);
+  }
+  const taggedNonFill=uniq.filter(d=>d.misconceptionId && d.misconceptionId!=='fill');
+  const pickD=[];
+  for(const d of taggedNonFill){ if(pickD.length<3) pickD.push(d); }
+  for(const d of uniq){ if(pickD.length<3 && !pickD.includes(d)) pickD.push(d); }
+  let i=1;
+  while(pickD.length<3 && i<400){
+    const v=Math.abs(answer)+i*3+7;
+    if(!seen.has(String(v)) && v>0 && !isCorrectSpec(kind, spec, v)){
+      pickD.push({value:v, misconceptionId:'fill'});
+      seen.add(String(v));
+    }
+    i++;
+  }
+  const choices=shuffle([ans, ...pickD.slice(0,3).map(d=>String(d.value))]);
+  return {choices, tagged:pickD.slice(0,3)};
+}
+
+function sampleProblems(n){
+  const out=[];
+  const N=Math.max(0, n|0);
+  for(let i=0;i<N;i++){
+    const t=i%7;
+    let item;
+    if(t===0){
+      const spec=POOL.rangeInc[i%POOL.rangeInc.length];
+      const answer=spec.lo; // 경계 포함이 정답 — misconception bound-exclude
+      const spec2={...spec, kind:'range'};
+      const {choices}=packChoices(answer, [
+        {value:spec.lo-1, misconceptionId:'out-low'},
+        {value:spec.hi+1, misconceptionId:'out-high'},
+        {value:spec.lo-2, misconceptionId:'bound-exclude'}
+      ], spec, 'range');
+      item={id:'ri'+i, prompt:`${spec.lo} 이상 ${spec.hi} 이하인 수는?`, choices, answer:String(answer),
+        answerNumeric:answer, unitConcept:'이상과 이하'};
+    } else if(t===1){
+      const spec=POOL.rangeMix[i%POOL.rangeMix.length];
+      const interior=spec.lo+2;
+      const answer=inRange(interior,spec.lo,spec.loInc,spec.hi,spec.hiInc)?interior:(spec.hiInc?spec.hi:spec.lo+1);
+      const boundWrong=spec.loInc?spec.hi:spec.lo;
+      const {choices}=packChoices(answer, [
+        {value:boundWrong, misconceptionId: spec.loInc?'bound-include':'bound-include'},
+        {value:spec.lo-1, misconceptionId:'out-low'},
+        {value:spec.hi+1, misconceptionId:'out-high'}
+      ], spec, 'range');
+      const a=spec.loInc?'이상':'초과', b=spec.hiInc?'이하':'미만';
+      item={id:'rm'+i, prompt:`${spec.lo} ${a} ${spec.hi} ${b}인 수는?`, choices, answer:String(answer),
+        answerNumeric:answer, unitConcept:'초과와 미만'};
+    } else if(t===2){
+      const trap = i%21===2;
+      const spec=trap ? {p:2, target:2400} : POOL.toPlace[(i*17)%POOL.toPlace.length];
+      const n = trap ? 2449 : spec.target - (pow10(spec.p)>>2);
+      const answer=HALF(n, spec.p);
+      const step = HALF(n, Math.max(1, spec.p-1));
+      const chain = spec.p>=2 ? HALF(step, spec.p) : HALF(n, 1);
+      const {choices, tagged}=packChoices(answer, [
+        {value:step, misconceptionId:'chain-step'},
+        {value:chain, misconceptionId:'chain-round'},
+        {value:n, misconceptionId:'no-change'},
+        {value:DOWN(n,spec.p), misconceptionId:'used-down'},
+        {value:UP(n,spec.p), misconceptionId:'used-up'}
+      ], {answer}, 'at');
+      item={id:'tp'+i, prompt:`${n}${eulreul(n)} 반올림하여 ${PLACE[spec.p]}까지 나타내면?`, choices, answer:String(answer),
+        answerNumeric:answer, unitConcept:'반올림하여 자리까지',
+        misconceptionIds:tagged.filter(d=>d.misconceptionId!=='fill').map(d=>d.misconceptionId)};
+    } else if(t===3){
+      const spec=i%21===3
+        ? {n:339, mode:'up', decisionPlace:1, p:2, result:400, temptation:340}
+        : POOL.atPlace[(i*31)%POOL.atPlace.length];
+      const answer=spec.result;
+      const {choices}=packChoices(answer, [
+        {value:spec.temptation, misconceptionId:'at-vs-to'},
+        {value:spec.n, misconceptionId:'no-change'},
+        {value:spec.result+pow10(spec.decisionPlace), misconceptionId:'always-up'}
+      ], {answer}, 'at');
+      item={id:'at'+i, prompt:`${spec.n}${eulreul(spec.n)} ${PLACE[spec.decisionPlace]}에서 ${verbKo(spec.mode)}하면?`,
+        choices, answer:String(answer), answerNumeric:answer, unitConcept:'자리에서 어림'};
+    } else if(t===4){
+      const spec=i%21===4
+        ? {n:3000, mode:'up', decisionPlace:2, p:3, result:3000}
+        : POOL.except[(i*11)%POOL.except.length];
+      const answer=spec.result;
+      const {choices}=packChoices(answer, [
+        {value:spec.n+pow10(spec.decisionPlace), misconceptionId:'always-up'},
+        {value:spec.n+pow10(spec.p), misconceptionId:'always-up'},
+        {value:DOWN(spec.n, spec.p+1)||pow10(spec.p), misconceptionId:'at-vs-to'}
+      ], {answer}, 'except');
+      item={id:'ex'+i, prompt:`${spec.n}${eulreul(spec.n)} ${PLACE[spec.decisionPlace]}에서 ${verbKo(spec.mode)}하면?`,
+        choices, answer:String(answer), answerNumeric:answer, unitConcept:'아래가 0인 예외'};
+    } else if(t===5){
+      const spec=POOL.life[i%POOL.life.length];
+      const answer=spec.answer;
+      const {choices, tagged}=packChoices(answer, lifeWrongCands(spec).map(d=>({value:d.n, misconceptionId:d.misconceptionId})), {answer}, 'life');
+      const prompt=spec.mode==='ceil'
+        ? `${spec.item} ${spec.n}개를 한 ${spec.box}에 ${spec.unit}개씩 모두 담으려면 ${spec.box}는 몇 개?`
+        : `${spec.item} ${spec.n}개를 ${spec.unit}개씩 묶음으로만 팔아요. 팔 수 있는 묶음은 몇 개?`;
+      item={id:'lf'+i, prompt, choices, answer:String(answer), answerNumeric:answer, unitConcept:'상황에 맞는 어림 방법',
+        misconceptionIds:tagged.filter(d=>d.misconceptionId!=='fill').map(d=>d.misconceptionId)};
+    } else {
+      const spec=POOL.trace[i%POOL.trace.length];
+      const answer=spec.lo; // 이상 경계
+      const {choices}=packChoices(answer, [
+        {value:spec.lo-1, misconceptionId:'out-low'},
+        {value:spec.hi, misconceptionId:'bound-include'},
+        {value:spec.hi+1, misconceptionId:'out-high'}
+      ], spec, 'trace');
+      item={id:'tr'+i, prompt:`반올림하여 ${PLACE[spec.p]}까지 나타냈더니 ${spec.T}예요. 원래 수가 될 수 있는 것은?`,
+        choices, answer:String(answer), answerNumeric:answer, unitConcept:'어림 결과로 원래 수 역추적'};
+    }
+    const ch=(item.choices||[]).map(String);
+    if(!ch.includes(String(item.answer)) || new Set(ch).size!==ch.length || ch.length<4){
+      const a=Number(item.answerNumeric);
+      const extra=[];
+      let k=1;
+      while(extra.length<3 && k<200){
+        const v=a+k*3+1;
+        if(v>0 && String(v)!==String(item.answer) && !extra.includes(String(v))) extra.push(String(v));
+        k++;
+      }
+      item.choices=shuffle([String(item.answer), ...extra]);
+    }
+    out.push(item);
+  }
+  return out;
+}
+
+/* ───────── 연못 ───────── */
+const PONDS=[
+  {id:1, name:'첫 연못', sub:'이상 · 이하', goal:8},
+  {id:2, name:'열린 연못', sub:'초과 · 미만', goal:8},
+  {id:3, name:'자리까지 연못', sub:'반올림하여 ○자리까지', goal:10},
+  {id:4, name:'자리에서 연못', sub:'○자리에서 어림', goal:10},
+  {id:5, name:'상자 연못', sub:'그대로인 수 · 상자', goal:10},
+  {id:6, name:'거꾸로 연못', sub:'어림 결과 역추적', goal:10},
+  {id:7, name:'끝없는 연못', sub:'조건이 섞여요', goal:99}
+];
+
+/* ───────── 상태 ───────── */
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+let W=innerWidth, H=innerHeight, dpr=1;
+const G={
+  phase:'title', pond:1, hard:false, score:0, showScore:0, lives:5, maxLives:5,
+  combo:0, bestCombo:0, solved:0, rows:0, whyStars:0, noHit:true,
+  timeLeft:90, session:90, timeScale:1, hitStop:0,
+  shake:0, shakeAmt:0, flash:0, flashCol:'#F2B705',
+  cur:null, next:null, prev:null,
+  player:{col:0, x:0, y:0, tx:0, ty:0, fx:0, fy:0, hopping:false, t:0, dur:0.28,
+    sx:1, sy:1, falling:false, fallT:0, bounce:0, trail:[]},
+  particles:[], koi:[], spark:[],
+  sel:-1, grace:2, graceMax:2, drifting:false, driftWarn:0,
+  paused:false, warned:false, scanT:0, scanIdx:0,
+  testFast:false
+};
+
+let save={unlock:1, stars:[0,0,0,0,0,0,0], best:0, bestRows:0, totalRows:0};
+try{
+  save.unlock=Math.max(1, parseInt(localStorage.getItem(LS.unlock)||'1',10)||1);
+  save.stars=JSON.parse(localStorage.getItem(LS.stars)||'[0,0,0,0,0,0,0]');
+  save.best=parseInt(localStorage.getItem(LS.best)||'0',10)||0;
+  save.bestRows=parseInt(localStorage.getItem(LS.bestRows)||'0',10)||0;
+  save.totalRows=parseInt(localStorage.getItem(LS.rowsTotal)||'0',10)||0;
+}catch(e){}
+
+let muted=localStorage.getItem(LS.mute)==='1';
+let AC=null, audioOn=false;
+
+function ensureAudio(){
+  try{
+    if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended') AC.resume();
+    audioOn=true;
+  }catch(e){}
+}
+function beep(freq, dur, type, gain, slide){
+  if(muted || !AC || !audioOn) return;
+  const t=AC.currentTime;
+  const o=AC.createOscillator();
+  const g=AC.createGain();
+  o.type=type||'sine';
+  o.frequency.setValueAtTime(freq, t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(40,slide), t+dur);
+  g.gain.setValueAtTime(gain||0.07, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  o.connect(g); g.connect(AC.destination);
+  o.start(t); o.stop(t+dur+0.02);
+}
+function sfxCorrect(combo){
+  const base=520+Math.min(8,combo)*40;
+  beep(base, 0.12, 'triangle', 0.08);
+  beep(base*1.25, 0.16, 'sine', 0.06);
+  beep(base*1.5, 0.2, 'sine', 0.05);
+}
+function sfxWrong(){ beep(160, 0.22, 'square', 0.09, 70); }
+function sfxHop(){ beep(640, 0.08, 'sine', 0.05); }
+function sfxScan(i){ beep(480+i*70, 0.1, 'triangle', 0.06); }
+
+const imgs={hero:null, bg:null, heroOk:false, bgOk:false};
+function punchWhite(img){
+  const c=document.createElement('canvas');
+  c.width=img.width; c.height=img.height;
+  const x=c.getContext('2d');
+  x.drawImage(img,0,0);
+  try{
+    const id=x.getImageData(0,0,c.width,c.height);
+    const d=id.data;
+    for(let i=0;i<d.length;i+=4){
+      if(d[i]>248 && d[i+1]>248 && d[i+2]>248) d[i+3]=0;
+    }
+    x.putImageData(id,0,0);
+  }catch(e){}
+  return c;
+}
+function loadImg(src, key){
+  return new Promise(res=>{
+    const im=new Image();
+    im.onload=()=>{
+      if(key==='hero'){ imgs.hero=punchWhite(im); imgs.heroOk=true; }
+      else { imgs.bg=im; imgs.bgOk=true; }
+      res();
+    };
+    im.onerror=()=>res();
+    im.src=src;
+  });
+}
+
+document.getElementById('titleImg').onerror=()=>{
+  document.getElementById('titleArt').classList.add('fallback');
+  document.getElementById('titleImg').style.display='none';
+};
+
+const ONB=[
+  {title:'팻말을 봐요', body:'위 팻말이 이번 줄의 조건이에요. 조건에 맞는 숫자 돌만 밟아요.'},
+  {title:'이상과 초과는 달라요', body:'이상·이하는 그 숫자 돌도 밟아요. 초과·미만은 그 숫자 돌은 빼요. 맞으면 ●, 틀리면 ○로 뚫려요.'},
+  {title:'오래 서 있으면 떠내려가요', body:'잠깐 읽고 폴짝! 물살에 돌이 흘러 나가기 전에 앞줄로 건너요.'}
+];
+let onbStep=0, onbThenMap=true;
+
+function el(id){ return document.getElementById(id); }
+function hide(n){ el(n).classList.add('hidden'); el(n).classList.remove('is-on'); }
+function show(n){ el(n).classList.remove('hidden'); if(n==='title') el(n).classList.add('is-on'); }
+
+function setMuteUI(){
+  const icon=muted?'🔇':'🔊';
+  el('muteBtn').textContent=icon;
+  el('titleMute').textContent=icon;
+  el('muteBtn').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
+  el('titleMute').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
+}
+function toggleMute(){
+  muted=!muted;
+  localStorage.setItem(LS.mute, muted?'1':'0');
+  setMuteUI();
+  if(!muted) ensureAudio();
+}
+
+function toast(msg, kind){
+  const t=el('toastT');
+  t.textContent=msg;
+  t.className='t on'+(kind?(' '+kind):'');
+  clearTimeout(toast._id);
+  toast._id=setTimeout(()=>{ t.classList.remove('on'); }, 1400);
+}
+function praise(msg){
+  const p=el('praise');
+  p.textContent=msg;
+  p.classList.add('on');
+  clearTimeout(praise._id);
+  praise._id=setTimeout(()=>p.classList.remove('on'), 700);
+}
+function punchScore(){
+  const n=el('scoreV');
+  n.classList.remove('punch');
+  void n.offsetWidth;
+  n.classList.add('punch');
+  setTimeout(()=>n.classList.remove('punch'), 180);
+}
+
+function layout(){
+  W=innerWidth; H=innerHeight;
+  dpr=Math.min(2, devicePixelRatio||1);
+  cv.width=(W*dpr)|0; cv.height=(H*dpr)|0;
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  document.documentElement.classList.toggle('land', W>H);
+}
+function stoneN(){ return W>H ? (W>=980?7:6) : 5; }
+function playW(){ return Math.min(W-20, W>H?1280:Math.min(W-20,720)); }
+function playX(){ return (W-playW())/2; }
+function laneMetrics(row){
+  const n=(row && row.stones && row.stones.length) || stoneN();
+  const pw=playW(), px=playX();
+  const rGuess=Math.min((pw/n)*0.38, Math.min(W,H)*0.1, 58);
+  const half=Math.max(rGuess*0.78, 22);
+  const edge=Math.max(12, half+6);
+  const inner=Math.max(n*36, pw-edge*2);
+  const gap=inner/n;
+  const r=Math.min(gap*0.40, Math.min(W,H)*0.1, 58);
+  return {n,pw,px,edge,inner,gap,r,half:Math.max(r*0.78, 22)};
+}
+function slotW(){ return laneMetrics(G.next).gap; }
+function stoneR(){ return laneMetrics(G.next).r; }
+function heroSize(){
+  const pw=playW();
+  const want=W>H ? pw*0.13 : Math.min(pw*0.20, H*0.16);
+  const gap=Math.abs(rowY('cur')-rowY('next'));
+  return clamp(Math.min(want, gap*0.68, H*0.26), 72, 240);
+}
+function rowY(which){
+  if(W>H) return which==='next' ? H*0.36 : H*0.78;
+  return which==='next' ? H*0.44 : H*0.74;
+}
+function stonePos(row, i, which){
+  const m=laneMetrics(row);
+  const x=m.px + (m.pw-m.inner)/2 + m.gap*(i+0.5) + (row.offsetX||0);
+  const y=rowY(which);
+  return {x,y,r:m.r};
+}
+function driftLimit(row){
+  const m=laneMetrics(row);
+  const pad=4;
+  const half=Math.max(m.r*0.78, 22);
+  const x0=m.px + (m.pw-m.inner)/2 + m.gap*0.5;
+  const xN=m.px + (m.pw-m.inner)/2 + m.gap*(m.n-0.5);
+  return {min: Math.min(0, pad+half-x0), max: Math.max(0, W-pad-half-xN)};
+}
+
+function refreshHUD(){
+  el('scoreV').textContent=String(G.showScore|0);
+  el('comboP').textContent='연속 ×'+Math.max(1,G.combo);
+  el('comboP').classList.toggle('on', G.combo>=2);
+  const h=el('hearts');
+  h.innerHTML='';
+  for(let i=0;i<G.maxLives;i++){
+    const s=document.createElement('span');
+    s.className='hp'+(i<G.lives?'':' off');
+    s.textContent='♥';
+    h.appendChild(s);
+  }
+  el('signP').textContent=G.next? G.next.sign : '';
+  el('signK').textContent=G.next && G.next.kind==='life' ? '이번 상황' : '이번 줄';
+  const frac=G.timeLeft/G.session;
+  el('timerFill').style.transform=`scaleX(${clamp(frac,0,1)})`;
+}
+
+function spawnAmbient(){
+  G.koi=[];
+  for(let i=0;i<3;i++){
+    G.koi.push({x:Math.random()*W, y:H*0.35+Math.random()*H*0.4, vx:20+Math.random()*30, dir:Math.random()<0.5?1:-1, p:Math.random()*6});
+  }
+  G.spark=[];
+  for(let i=0;i<18;i++){
+    G.spark.push({x:Math.random()*W, y:Math.random()*H, r:1+Math.random()*2, p:Math.random()*10});
+  }
+}
+
+function beginPlay(pondId, fromTest){
+  hide('title'); hide('map'); hide('onb'); hide('over'); hide('why'); hide('paused');
+  show('hud');
+  G.phase='playing';
+  G.pond=pondId||1;
+  G.score=fromTest?G.score:0;
+  G.showScore=G.score;
+  G.maxLives=G.hard?3:5;
+  G.lives=G.maxLives;
+  G.combo=0; G.bestCombo=0; G.solved=0; G.rows=0; G.whyStars=0; G.noHit=true;
+  G.timeLeft=90; G.session=90; G.timeScale=1; G.hitStop=0;
+  G.shake=0; G.flash=0; G.paused=false; G.warned=false;
+  G.particles=[]; G.player.falling=false; G.player.hopping=false; G.player.trail=[];
+  G.prev=null;
+  G.cur={kind:'dock', stones:Array.from({length:stoneN()}, (_,i)=>({n:0,safe:true,dock:true})), offsetX:0, landed:true};
+  G.next=rowForPond(PONDS[G.pond-1]||PONDS[0], 0, stoneN());
+  G.player.col=Math.floor(G.cur.stones.length/2);
+  G.sel=-1;
+  const p=stonePos(G.cur, G.player.col, 'cur');
+  G.player.x=p.x; G.player.y=p.y; G.player.tx=p.x; G.player.ty=p.y;
+  G.graceMax = (G.hard?1.5:2.0) * (G.next.graceMul||1);
+  G.grace=G.graceMax; G.drifting=false; G.driftWarn=0;
+  spawnAmbient();
+  refreshHUD();
+}
+
+function persist(){
+  try{
+    localStorage.setItem(LS.best, String(save.best));
+    localStorage.setItem(LS.bestRows, String(save.bestRows));
+    localStorage.setItem(LS.unlock, String(save.unlock));
+    localStorage.setItem(LS.stars, JSON.stringify(save.stars));
+    localStorage.setItem(LS.rowsTotal, String(save.totalRows));
+  }catch(e){}
+}
+
+function burst(x,y,n,col,up){
+  const k=REDUCE?Math.ceil(n*0.4):n;
+  for(let i=0;i<k;i++){
+    const a=Math.random()*Math.PI*2;
+    const sp=(up?80:40)+Math.random()*140;
+    G.particles.push({
+      x,y, vx:Math.cos(a)*sp*(up?0.5:1), vy:Math.sin(a)*sp*(up?-1:1)- (up?80:0),
+      life:0.4+Math.random()*0.5, max:0.7, r:2+Math.random()*4, col, g:up?420:280
+    });
+  }
+}
+
+function hintFor(stone, row){
+  if(!stone) return '이 돌은 조건에 안 맞아요';
+  if(stone.misconceptionId==='bound-include') return (row.lo||stone.n)+' 초과는 그 수를 빼요';
+  if(stone.misconceptionId==='bound-exclude') return stone.n+' 이상에는 '+stone.n+'도 들어가요';
+  if(stone.misconceptionId==='chain-round') return '한 자리만 보고 반올림해요';
+  if(stone.misconceptionId==='always-up') return '아래가 0이면 그대로예요';
+  if(stone.misconceptionId==='at-vs-to') return PLACE[row.decisionPlace||1]+'에서 어림하면 위 자리까지예요';
+  if(stone.misconceptionId==='life-wrong-op'){
+    return row.mode==='ceil' ? '남는 것도 상자가 필요해요' : '남은 개는 묶음이 안 돼요';
+  }
+  if(row.kind==='range' || row.kind==='trace'){
+    if(stone.n===row.lo && !row.loInc) return row.lo+' 초과는 '+row.lo+'을 빼요';
+    if(stone.n===row.hi && !row.hiInc) return row.hi+' 미만은 '+row.hi+'을 빼요';
+    if(stone.n===row.lo && row.loInc) return row.lo+' 이상에는 '+row.lo+'도 들어가요';
+    if(stone.n===row.hi && row.hiInc) return row.hi+' 이하에는 '+row.hi+'도 들어가요';
+  }
+  return '이 돌은 조건에 안 맞아요';
+}
+
+function maybeWhy(stone, row){
+  if(G.testFast) return;
+  if(!stone || !stone.isBound || !stone.safe) return;
+  if(row.kind!=='range' && row.kind!=='trace') return;
+  if(Math.random()>0.45) return;
+  const n=stone.n;
+  const inc = (n===row.lo && row.loInc) || (n===row.hi && row.hiInc);
+  if(!inc) return;
+  const word = n===row.lo ? (row.loInc?'이상':'초과') : (row.hiInc?'이하':'미만');
+  const good=`${n} ${word}에는 ${n}도 들어가요`;
+  const bad=`${n} ${word}은 ${n}보다 ${word==='이상'||word==='초과'?'큰':'작은'} 수만`;
+  const order=Math.random()<0.5;
+  el('whyQ').textContent=n+' 돌';
+  el('whyA').textContent=order?good:bad;
+  el('whyB').textContent=order?bad:good;
+  el('whyA').dataset.ok=order?'1':'0';
+  el('whyB').dataset.ok=order?'0':'1';
+  show('why');
+  G.phase='why';
+}
+
+function onWhy(ok){
+  hide('why');
+  G.phase='playing';
+  if(ok){
+    G.whyStars++;
+    G.score+=150;
+    punchScore();
+    praise('별 하나!');
+    sfxCorrect(6);
+    burst(W/2, H*0.4, 18, PAL.gold, true);
+  } else {
+    toast('포함이면 그 수도 넣어요', 'bad');
+  }
+}
+
+function koiScan(){
+  G.scanT=1.2; G.scanIdx=0;
+  praise('잉어 스캔!');
+  if(G.lives<G.maxLives) G.lives++;
+  const safe=(G.next&&G.next.stones||[]).filter(s=>s.safe);
+  safe.forEach((s,i)=> setTimeout(()=>{ s.pulse=1; sfxScan(i); }, REDUCE?0:i*90));
+  burst(W/2, rowY('next'), 12+G.combo, PAL.ver, true);
+}
+
+function applyCorrect(stone, instant){
+  const row=G.next;
+  if(!row) { G.score+=100; G.solved++; refreshHUD(); return; }
+  G.score += 100 + Math.min(12, G.combo)*20 + (stone && stone.isBound?50:0);
+  G.solved++;
+  G.rows++;
+  G.combo++;
+  if(G.combo>G.bestCombo) G.bestCombo=G.combo;
+  G.flash=REDUCE?0.12:0.22; G.flashCol='rgba(242,183,5,0.35)';
+  if(stone){ stone.fill=1; stone.scaleY=1.25; stone.scaleX=0.86; stone.pulse=1; }
+  const nPart=8+Math.min(24, G.combo*2);
+  const pos=stone?stonePos(row, row.stones.indexOf(stone), 'next'):{x:W/2,y:H/2};
+  burst(pos.x, pos.y, nPart, PAL.gold, true);
+  sfxCorrect(G.combo);
+  punchScore();
+  if(G.combo===3) praise('폴짝!');
+  if(G.combo===6) praise('연속!');
+  if(G.combo>0 && G.combo%10===0){
+    G.hitStop=REDUCE?0.04:0.06;
+    koiScan();
+  }
+  G.prev=G.cur;
+  G.cur=row; G.cur.landed=true;
+  for(const s of G.cur.stones){
+    if(s.safe) s.fill=1;
+    else { s.ring=1; s.sink=0.01; }
+  }
+  const pond=PONDS[G.pond-1]||PONDS[0];
+  if(G.pond!==7 && G.rows>=pond.goal){
+    endPond(true);
+    return;
+  }
+  G.next=rowForPond(pond, G.rows, stoneN());
+  G.player.col=clamp(G.player.col, 0, G.cur.stones.length-1);
+  G.sel=-1;
+  G.graceMax=Math.max(1.0, ((G.hard?1.5:2.0)-0.2*((G.rows/10)|0)) * (G.next.graceMul||1));
+  G.grace=G.graceMax; G.drifting=false; G.driftWarn=0;
+  refreshHUD();
+  if(!instant) maybeWhy(stone, row);
+}
+
+function loseLife(stone, row, bounced){
+  G.combo=0;
+  G.noHit=false;
+  G.shake=REDUCE?0.08:0.22;
+  G.shakeAmt=bounced?4:10;
+  sfxWrong();
+  if(stone){
+    stone.ring=1; stone.shake=1; stone.scaleX=1.15; stone.scaleY=0.75;
+    const pos=stonePos(row||G.next, (row||G.next).stones.indexOf(stone), 'next');
+    burst(pos.x, pos.y, 10+Math.min(16,G.solved), '#cfe8e4', false);
+  }
+  toast(hintFor(stone, row||G.next), 'bad');
+  if(bounced){
+    G.warned=true;
+    G.player.hopping=false;
+    const p=stonePos(G.cur, G.player.col, 'cur');
+    G.player.tx=p.x; G.player.ty=p.y; G.player.x=p.x; G.player.y=p.y;
+    G.player.bounce=1;
+    refreshHUD();
+    return;
+  }
+  G.lives=Math.max(0, G.lives-1);
+  refreshHUD();
+  if(G.lives<=0){ endPond(false); return; }
+  G.player.falling=true; G.player.fallT=0; G.player.hopping=false;
+  G.hitStop=REDUCE?0.03:0.04;
+}
+
+function applyWrong(stone){
+  const row=G.next;
+  const bounce=!G.hard && !G.warned;
+  loseLife(stone, row, bounce);
+}
+
+function afterFall(){
+  G.player.falling=false;
+  G.next=rowForPond(PONDS[G.pond-1]||PONDS[0], G.rows, stoneN());
+  G.cur={kind:'dock', stones:Array.from({length:G.next.stones.length}, ()=>({n:0,safe:true,dock:true})), offsetX:0, landed:true};
+  G.player.col=Math.floor(G.cur.stones.length/2);
+  G.sel=-1;
+  const p=stonePos(G.cur, G.player.col, 'cur');
+  G.player.x=p.x; G.player.y=p.y;
+  G.graceMax=(G.hard?1.5:2.0)*(G.next.graceMul||1);
+  G.grace=G.graceMax; G.drifting=false; G.driftWarn=0;
+  refreshHUD();
+}
+
+function endPond(cleared){
+  G.phase=cleared?'clear':'over';
+  save.best=Math.max(save.best, G.score);
+  save.bestRows=Math.max(save.bestRows, G.rows);
+  save.totalRows+=G.rows;
+  if(cleared && G.pond>=save.unlock) save.unlock=Math.min(7, G.pond+1);
+  let stars=0;
+  if(cleared) stars=1;
+  if(cleared && G.noHit) stars=2;
+  if(cleared && G.noHit && G.whyStars>=2) stars=3;
+  const idx=G.pond-1;
+  if(idx>=0 && idx<save.stars.length) save.stars[idx]=Math.max(save.stars[idx]||0, stars);
+  persist();
+  hide('hud'); hide('why');
+  show('over');
+  el('overTitle').textContent=cleared?'연못을 건넜어!':'풍덩!';
+  el('stRows').textContent=String(G.rows);
+  el('stScore').textContent=String(G.score);
+  el('stCombo').textContent=String(G.bestCombo);
+  const si=el('stars').querySelectorAll('i');
+  si.forEach((n,i)=>{
+    n.classList.remove('pop');
+    setTimeout(()=>{ if(i<stars) n.classList.add('pop'); }, 200+i*180);
+  });
+  if(cleared && G.score>=save.best){
+    burst(W/2, H*0.35, 28, PAL.gold, true);
+  }
+}
+
+function hopTo(index){
+  if(G.phase!=='playing' || G.player.hopping || G.player.falling) return;
+  const row=G.next;
+  if(!row || index<0 || index>=row.stones.length) return;
+  const stone=row.stones[index];
+  const dest=stonePos(row, index, 'next');
+  G.player.hopping=true; G.player.t=0; G.player.dur=REDUCE?0.16:0.28;
+  G.player.fx=G.player.x; G.player.fy=G.player.y;
+  G.player.tx=dest.x; G.player.ty=dest.y;
+  G.player.col=index;
+  G.player.sx=0.82; G.player.sy=1.18;
+  sfxHop();
+  G._pendingStone=stone;
+}
+
+function hopLand(){
+  G.player.hopping=false;
+  G.player.x=G.player.tx; G.player.y=G.player.ty;
+  G.player.sx=1.12; G.player.sy=0.88;
+  G.player.bounce=1;
+  const stone=G._pendingStone;
+  G._pendingStone=null;
+  if(!stone) return;
+  if(stone.safe) applyCorrect(stone, false);
+  else applyWrong(stone);
+}
+
+function tryHopSel(){ if(G.sel>=0) hopTo(G.sel); }
+
+function tapAt(x,y){
+  if(G.phase!=='playing' || G.player.hopping || G.player.falling) return;
+  const row=G.next;
+  if(!row) return;
+  let best=-1, bestD=1e9;
+  for(let i=0;i<row.stones.length;i++){
+    const p=stonePos(row,i,'next');
+    const d=Math.hypot(x-p.x, y-p.y);
+    const hitR=Math.max(p.r*1.35, 28);
+    if(d<hitR && d<bestD){ bestD=d; best=i; }
+  }
+  if(best>=0){ G.sel=best; hopTo(best); }
+}
+
+/* ───────── 렌더 ───────── */
+function drawBg(t){
+  if(imgs.bgOk && imgs.bg){
+    const img=imgs.bg;
+    const sc=Math.max(W/img.width, H/img.height)*1.08;
+    const ox=(W-img.width*sc)/2 + Math.sin(t*0.12)*8;
+    const oy=(H-img.height*sc)/2 + Math.cos(t*0.09)*6;
+    ctx.drawImage(img, ox, oy, img.width*sc, img.height*sc);
+    ctx.fillStyle='rgba(10,70,64,0.18)';
+    ctx.fillRect(0,0,W,H);
+  } else {
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#b7ebe1'); g.addColorStop(0.35,'#3aa898'); g.addColorStop(1,'#0c5a52');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  }
+  for(const s of G.spark){
+    const a=0.25+0.25*Math.sin(t*2+s.p);
+    ctx.fillStyle=`rgba(255,255,255,${a})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y+Math.sin(t+s.p)*4, s.r, 0, Math.PI*2); ctx.fill();
+  }
+  for(const k of G.koi){
+    ctx.save();
+    ctx.translate(k.x, k.y);
+    ctx.scale(k.dir, 1);
+    ctx.rotate(Math.sin(t*2+k.p)*0.12);
+    ctx.fillStyle=PAL.ver;
+    ctx.beginPath(); ctx.ellipse(0,0,16,7,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-16,0); ctx.lineTo(-24,-6); ctx.lineTo(-24,6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(6,-2,1.6,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawStone(s, x, y, r, selected){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.scale(s.scaleX||1, s.scaleY||1);
+  if(s.shake>0) ctx.translate((Math.random()-0.5)*6*s.shake, 0);
+  const sink=s.sink||0;
+  ctx.translate(0, sink*40);
+  ctx.globalAlpha=1-sink*0.7;
+  ctx.beginPath();
+  ctx.ellipse(0, r*0.62, r*0.92, r*0.28, 0, 0, Math.PI*2);
+  ctx.fillStyle='rgba(20,40,36,0.28)';
+  ctx.fill();
+  const filled=s.fill>0.5 && s.safe;
+  const ring=s.ring>0.5 && !s.safe;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r, r*0.72, 0, 0, Math.PI*2);
+  if(ring){
+    ctx.fillStyle='#d4ede6';
+    ctx.fill();
+    ctx.lineWidth=Math.max(5, r*0.16);
+    ctx.strokeStyle=PAL.ink;
+    ctx.stroke();
+  } else {
+    ctx.fillStyle=filled? '#4a4a46' : '#5c5c58';
+    ctx.fill();
+    ctx.lineWidth=3;
+    ctx.strokeStyle='#2e2e2c';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, -r*0.18, r*0.62, r*0.22, 0, 0, Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.14)';
+    ctx.fill();
+  }
+  if(filled){
+    ctx.beginPath(); ctx.arc(0, -r*0.05, r*0.22, 0, Math.PI*2);
+    ctx.fillStyle=PAL.gold; ctx.fill();
+  }
+  if(!s.dock){
+    const badge=r*0.78;
+    ctx.beginPath();
+    rr(ctx, -badge, -r*0.38, badge*2, r*0.7, 10);
+    ctx.fillStyle=ring?'rgba(255,248,228,0.92)':'#FFF8E4';
+    ctx.fill();
+    ctx.lineWidth=2;
+    ctx.strokeStyle=PAL.ink;
+    ctx.stroke();
+    const txt=String(s.n);
+    const badgeW=badge*2-8;
+    let fs=Math.min(r*0.70, 34);
+    if(txt.length>=4) fs=Math.min(fs, r*0.52);
+    if(txt.length>=5) fs=Math.min(fs, r*0.42);
+    ctx.font=`900 ${fs}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+    while(fs>10 && ctx.measureText(txt).width>badgeW){
+      fs-=1;
+      ctx.font=`900 ${fs}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+    }
+    ctx.fillStyle=PAL.ink;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(txt, 0, -r*0.02, badgeW);
+  }
+  if(selected && !s.dock){
+    ctx.lineWidth=4;
+    ctx.strokeStyle='#fff';
+    ctx.beginPath(); ctx.ellipse(0,0, r+6, r*0.72+6, 0,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle=PAL.gold;
+    ctx.font=`900 ${Math.max(12, r*0.35)}px sans-serif`;
+    ctx.fillText('여기!', 0, -r-10);
+  }
+  if(s.pulse>0){
+    ctx.globalAlpha=s.pulse;
+    ctx.strokeStyle=PAL.gold;
+    ctx.lineWidth=4;
+    ctx.beginPath(); ctx.ellipse(0,0, r+10*(1-s.pulse), r*0.72+8*(1-s.pulse), 0,0,Math.PI*2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawHero(x,y,t){
+  const hs=heroSize();
+  const bob=Math.sin(t*3)* (G.player.hopping?0:3);
+  const sx=G.player.sx, sy=G.player.sy;
+  ctx.save();
+  ctx.translate(x, y - hs*0.42 + bob);
+  ctx.scale(sx, sy);
+  if(G.player.falling){
+    ctx.translate(0, easeInExpo(clamp(G.player.fallT,0,1))*120);
+    ctx.rotate(G.player.fallT*0.6);
+  }
+  if(imgs.heroOk && imgs.hero){
+    ctx.drawImage(imgs.hero, -hs/2, -hs/2, hs, hs);
+  } else {
+    ctx.fillStyle=PAL.ver;
+    ctx.beginPath(); rr(ctx, -hs*0.28, -hs*0.05, hs*0.56, hs*0.55, 12); ctx.fill();
+    ctx.fillStyle='#f3d2b0';
+    ctx.beginPath(); ctx.arc(0, -hs*0.22, hs*0.2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle=PAL.ink;
+    ctx.beginPath(); ctx.arc(-hs*0.07, -hs*0.24, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hs*0.07, -hs*0.24, 3, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function draw(){
+  const t=performance.now()/1000;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(G.shake>0){
+    ctx.translate((Math.random()-0.5)*G.shakeAmt, (Math.random()-0.5)*G.shakeAmt);
+  }
+  drawBg(t);
+  if(G.phase==='title' || G.phase==='map'){
+    if(G.flash>0){ ctx.fillStyle=G.flashCol; ctx.fillRect(0,0,W,H); }
+    return;
+  }
+  if(G.cur){
+    for(let i=0;i<G.cur.stones.length;i++){
+      const p=stonePos(G.cur,i,'cur');
+      drawStone(G.cur.stones[i], p.x, p.y, p.r, false);
+    }
+  }
+  if(G.next){
+    for(let i=0;i<G.next.stones.length;i++){
+      const p=stonePos(G.next,i,'next');
+      drawStone(G.next.stones[i], p.x, p.y, p.r, G.sel>=0 && i===G.sel && G.phase==='playing');
+    }
+  }
+  for(const q of G.player.trail){
+    ctx.globalAlpha=q.a;
+    ctx.fillStyle='rgba(226,74,28,0.5)';
+    ctx.beginPath(); ctx.arc(q.x, q.y-heroSize()*0.3, 6*q.a, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+  }
+  drawHero(G.player.x, G.player.y, t);
+  for(const p of G.particles){
+    ctx.globalAlpha=clamp(p.life/p.max,0,1);
+    ctx.fillStyle=p.col;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  if(G.flash>0){
+    ctx.fillStyle=G.flashCol;
+    ctx.globalAlpha=G.flash;
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha=1;
+  }
+  if(G.scanT>0){
+    ctx.strokeStyle='rgba(226,74,28,0.65)';
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    const y=rowY('next')+Math.sin((1-G.scanT)*6)*8;
+    ctx.moveTo(playX(), y); ctx.lineTo(playX()+playW(), y); ctx.stroke();
+  }
+}
+
+function update(dt){
+  const t=performance.now()/1000;
+  if(G.showScore<G.score){
+    G.showScore=Math.min(G.score, G.showScore+Math.max(3, (G.score-G.showScore)*0.18));
+    el('scoreV').textContent=String(G.showScore|0);
+  }
+  for(const k of G.koi){
+    k.x += k.vx*k.dir*dt*0.2;
+    if(k.x>W+40) {k.dir=-1; k.y=H*0.3+Math.random()*H*0.4;}
+    if(k.x<-40) {k.dir=1;}
+  }
+  for(const s of G.spark){ s.y -= dt*6; if(s.y<0){ s.y=H; s.x=Math.random()*W; } }
+  for(let i=G.particles.length-1;i>=0;i--){
+    const p=G.particles[i];
+    p.life-=dt; p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+    if(p.life<=0) G.particles.splice(i,1);
+  }
+  G.player.sx=lerp(G.player.sx, 1, 1-Math.pow(0.001, dt));
+  G.player.sy=lerp(G.player.sy, 1, 1-Math.pow(0.001, dt));
+  if(G.player.bounce>0) G.player.bounce=Math.max(0, G.player.bounce-dt*3);
+
+  if(G.phase!=='playing' || G.paused) return;
+  if(G.hitStop>0){ G.hitStop-=dt; return; }
+
+  G.timeLeft=Math.max(0, G.timeLeft-dt);
+  el('timerFill').style.transform=`scaleX(${clamp(G.timeLeft/G.session,0,1)})`;
+  if(G.timeLeft<=0){ endPond(G.rows>= (PONDS[G.pond-1]||PONDS[0]).goal); return; }
+
+  if(G.next && !G.next.landed){
+    G.grace-=dt;
+    if(G.grace<=0){
+      G.drifting=true;
+      const dir = ((G.rows|0)%2===0)?1:-1;
+      const lim=driftLimit(G.next);
+      G.next.offsetX += dir * (38 + G.rows*2) * dt;
+      if(G.next.offsetX>lim.max || G.next.offsetX<lim.min){
+        G.next.offsetX=clamp(G.next.offsetX, lim.min, lim.max);
+        if(G.driftWarn<=0){
+          G.driftWarn=0.35;
+          toast('물살에 떠내려가요!', 'bad');
+        }
+      }
+    }
+  }
+  if(G.driftWarn>0){
+    G.driftWarn-=dt;
+    if(G.driftWarn<=0){
+      G.driftWarn=0;
+      if(!G.player.hopping && !G.player.falling && G.phase==='playing'){
+        loseLife(null, G.next, false);
+        if(G.next) G.next.offsetX=0;
+        G.grace=G.graceMax; G.drifting=false;
+      }
+    }
+  }
+  if(G.flash>0) G.flash=Math.max(0, G.flash-dt*2.2);
+  if(G.shake>0) G.shake=Math.max(0, G.shake-dt*2.5);
+  if(G.scanT>0) G.scanT=Math.max(0, G.scanT-dt);
+
+  if(G.next){
+    for(const s of G.next.stones){
+      if(s.pulse>0) s.pulse=Math.max(0,s.pulse-dt*2);
+      if(s.shake>0) s.shake=Math.max(0,s.shake-dt*3);
+      s.scaleX=lerp(s.scaleX||1,1, 1-Math.pow(0.0002,dt));
+      s.scaleY=lerp(s.scaleY||1,1, 1-Math.pow(0.0002,dt));
+    }
+  }
+  if(G.cur){
+    for(const s of G.cur.stones){
+      if(s.sink>0 && s.sink<1) s.sink=Math.min(1, s.sink+dt*1.2);
+      if(s.pulse>0) s.pulse=Math.max(0,s.pulse-dt*2);
+      s.scaleX=lerp(s.scaleX||1,1, 1-Math.pow(0.0002,dt));
+      s.scaleY=lerp(s.scaleY||1,1, 1-Math.pow(0.0002,dt));
+    }
+  }
+
+  const pl=G.player;
+  if(pl.hopping){
+    pl.t+=dt;
+    const u=clamp(pl.t/pl.dur,0,1);
+    const e=easeOutBack(u);
+    const arc=Math.sin(u*Math.PI)* (REDUCE?18:46);
+    pl.x=lerp(pl.fx, pl.tx, e);
+    pl.y=lerp(pl.fy, pl.ty, u) - arc;
+    pl.sx=lerp(0.82, 1.08, u);
+    pl.sy=lerp(1.2, 0.9, u);
+    if(!REDUCE) pl.trail.push({x:pl.x,y:pl.y,a:0.7});
+    if(pl.trail.length>10) pl.trail.shift();
+    if(u>=1) hopLand();
+  } else if(pl.falling){
+    pl.fallT+=dt/0.55;
+    pl.sy=1.25; pl.sx=0.8;
+    if(pl.fallT>=1) afterFall();
+  } else {
+    const p=G.cur?stonePos(G.cur, clamp(pl.col,0,(G.cur.stones.length-1)), 'cur'):{x:pl.x,y:pl.y};
+    pl.x=lerp(pl.x, p.x, 1-Math.pow(0.0008,dt));
+    pl.y=lerp(pl.y, p.y, 1-Math.pow(0.0008,dt));
+    if(pl.trail.length) pl.trail.shift();
+  }
+  for(const q of pl.trail) q.a*=0.92;
+}
+
+let last=performance.now();
+function frame(now){
+  const raw=Math.min(0.033, (now-last)/1000);
+  last=now;
+  const dt=raw*(G.timeScale);
+  try{ update(dt); draw(); }catch(e){}
+  requestAnimationFrame(frame);
+}
+
+/* ───────── UI ───────── */
+function renderMap(){
+  const box=el('ponds');
+  box.innerHTML='';
+  for(const p of PONDS){
+    const b=document.createElement('button');
+    b.className='pier';
+    b.type='button';
+    const locked=p.id>save.unlock;
+    b.disabled=locked;
+    const st=save.stars[p.id-1]||0;
+    b.innerHTML=`<span>${p.id===7?'∞ ':p.id+'. '}${p.name}<br><small style="font-weight:800;color:#0F6E62">${p.sub}</small></span><span class="st">${locked?'잠김':('⭐'.repeat(st)||'입장')}</span>`;
+    b.addEventListener('click', ()=>{ if(!locked){ ensureAudio(); beginPlay(p.id,false); }});
+    box.appendChild(b);
+  }
+}
+
+function openMap(){
+  hide('title'); hide('onb'); hide('over'); hide('hud'); hide('why');
+  show('map');
+  G.phase='map';
+  renderMap();
+}
+function openTitle(){
+  hide('map'); hide('onb'); hide('over'); hide('hud'); hide('why'); hide('paused');
+  show('title');
+  G.phase='title';
+  if(save.bestRows>0){ el('bestPill').hidden=false; el('bestPill').textContent='최고 '+save.bestRows+'칸'; }
+  else el('bestPill').hidden=true;
+}
+function openOnb(thenMap){
+  onbThenMap=thenMap;
+  onbStep=0;
+  hide('title'); hide('map');
+  show('onb');
+  G.phase='onboarding';
+  paintOnb();
+}
+function paintOnb(){
+  const o=ONB[onbStep];
+  el('onbNum').textContent=(onbStep+1)+'/3';
+  el('onbTitle').textContent=o.title;
+  el('onbBody').textContent=o.body;
+  el('onbNext').textContent=onbStep===2?'해볼게요':'다음';
+  const hole=el('onbHole');
+  if(onbStep===0){ hole.style.left='8%'; hole.style.right='8%'; hole.style.top='12%'; hole.style.height='90px'; }
+  else if(onbStep===1){ hole.style.top='38%'; hole.style.height='120px'; }
+  else { hole.style.top='62%'; hole.style.height='140px'; }
+}
+
+function fromCta(){
+  ensureAudio();
+  navigator.vibrate?.(18);
+  el('ctaBtn').classList.add('is-pressed');
+  setTimeout(()=>el('ctaBtn').classList.remove('is-pressed'), 160);
+  const seen=localStorage.getItem(LS.seen)==='1';
+  if(seen) openMap();
+  else openOnb(true);
+}
+
+el('ctaBtn').addEventListener('click', fromCta);
+el('howtoBtn').addEventListener('click', ()=>{ ensureAudio(); openOnb(G.phase==='map'?false:true); });
+el('onbNext').addEventListener('click', ()=>{
+  if(onbStep<2){ onbStep++; paintOnb(); }
+  else {
+    localStorage.setItem(LS.seen,'1');
+    hide('onb');
+    if(onbThenMap) openMap();
+    else openTitle();
+  }
+});
+el('mapBack').addEventListener('click', openTitle);
+el('modeEasy').addEventListener('click', ()=>{ G.hard=false; el('modeEasy').classList.add('on'); el('modeHard').classList.remove('on'); });
+el('modeHard').addEventListener('click', ()=>{ G.hard=true; el('modeHard').classList.add('on'); el('modeEasy').classList.remove('on'); });
+el('retryBtn').addEventListener('click', ()=>{ ensureAudio(); beginPlay(G.pond,false); });
+el('mapBtn').addEventListener('click', ()=>{ openMap(); });
+el('muteBtn').addEventListener('click', toggleMute);
+el('titleMute').addEventListener('click', toggleMute);
+el('pauseBtn').addEventListener('click', ()=>{
+  if(G.phase!=='playing') return;
+  G.paused=!G.paused;
+  el('paused').classList.toggle('hidden', !G.paused);
+});
+el('whyA').addEventListener('click', ()=>onWhy(el('whyA').dataset.ok==='1'));
+el('whyB').addEventListener('click', ()=>onWhy(el('whyB').dataset.ok==='1'));
+
+let touchX=0, touchY=0, touchT=0;
+cv.addEventListener('pointerdown', e=>{
+  if(G.phase!=='playing') return;
+  ensureAudio();
+  const r=cv.getBoundingClientRect();
+  tapAt(e.clientX-r.left, e.clientY-r.top);
+  touchX=e.clientX; touchY=e.clientY; touchT=performance.now();
+});
+cv.addEventListener('pointerup', e=>{
+  if(G.phase!=='playing') return;
+  const dt=performance.now()-touchT;
+  const dx=e.clientX-touchX, dy=e.clientY-touchY;
+  if(dt<280 && Math.hypot(dx,dy)>36){
+    const last=G.next?G.next.stones.length-1:0;
+    if(Math.abs(dx)>Math.abs(dy)){
+      if(G.sel<0) G.sel=dx>0?0:last;
+      else G.sel=clamp(G.sel+(dx>0?1:-1), 0, last);
+      hopTo(G.sel);
+    } else if(dy<0 && G.sel>=0) hopTo(G.sel);
+  }
+});
+
+addEventListener('keydown', e=>{
+  if(e.code==='Space'){
+    e.preventDefault();
+    if(G.phase==='playing'){
+      G.paused=!G.paused;
+      el('paused').classList.toggle('hidden', !G.paused);
+    }
+    return;
+  }
+  if(G.phase!=='playing' || G.paused) return;
+  if(!G.next) return;
+  const last=G.next.stones.length-1;
+  if(e.code==='ArrowLeft'){ G.sel = G.sel<0 ? last : clamp(G.sel-1,0,last); }
+  if(e.code==='ArrowRight'){ G.sel = G.sel<0 ? 0 : clamp(G.sel+1,0,last); }
+  if(e.code==='ArrowUp' || e.code==='Enter'){ if(G.sel>=0) hopTo(G.sel); }
+});
+addEventListener('resize', layout);
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden && G.phase==='playing'){ G.paused=true; el('paused').classList.remove('hidden'); }
+});
+
+function simulateBots(samples){
+  samples=samples||60;
+  const out={};
+  for(const pond of PONDS){
+    if(pond.id===7) continue;
+    let center=0, left=0, right=0;
+    for(let s=0;s<samples;s++){
+      let cOk=true, lOk=true, rOk=true;
+      for(let r=0;r<pond.goal;r++){
+        const row=rowForPond(pond, r, 5);
+        const n=row.stones.length;
+        const mid=(n/2)|0;
+        if(!row.stones[mid] || !row.stones[mid].safe) cOk=false;
+        if(!row.stones[0] || !row.stones[0].safe) lOk=false;
+        if(!row.stones[n-1] || !row.stones[n-1].safe) rOk=false;
+      }
+      if(cOk) center++;
+      if(lOk) left++;
+      if(rOk) right++;
+    }
+    out[pond.id]={name:pond.name, samples, center, left, right, enter:0,
+      centerRate: +(center/samples).toFixed(3),
+      leftRate: +(left/samples).toFixed(3),
+      rightRate: +(right/samples).toFixed(3)};
+  }
+  return out;
+}
+function pondKindAudit(samples){
+  samples=samples||12;
+  const out={};
+  for(const pond of PONDS){
+    const kinds={}, concepts={}, nSafeHist={};
+    let n=0, singleSafe=0;
+    const odd=[];
+    const rows=pond.id===7?8:pond.goal;
+    for(let s=0;s<samples;s++){
+      for(let r=0;r<rows;r++){
+        const row=rowForPond(pond, r, 5);
+        n++;
+        kinds[row.kind]=(kinds[row.kind]||0)+1;
+        concepts[row.unitConcept]=(concepts[row.unitConcept]||0)+1;
+        const ns=row.stones.filter(st=>st.safe).length;
+        nSafeHist[ns]=(nSafeHist[ns]||0)+1;
+        if(ns===1) singleSafe++;
+        else if(odd.length<4) odd.push({kind:row.kind, ns, nums:row.stones.map(st=>({n:st.n,safe:st.safe})), prompt:row.prompt, target:row.target, answer:row.answer});
+      }
+    }
+    out[pond.id]={name:pond.name, n, kinds, concepts, singleSafe, nSafeHist, odd};
+  }
+  return out;
+}
+function misconceptionAudit(n){
+  const ps=sampleProblems(n||120);
+  let bad=0, trap=null, lifeBad=0;
+  for(const p of ps){
+    const ids=p.misconceptionIds||[];
+    if(p.unitConcept==='반올림하여 자리까지' || p.unitConcept==='상황에 맞는 어림 방법'){
+      if(ids.length<2) { bad++; if(p.prompt.includes('2449')) trap=p; }
+    }
+    if(p.prompt.includes('2449')) trap=p;
+    if(p.unitConcept==='상황에 맞는 어림 방법' && ids.length<2) lifeBad++;
+  }
+  return {checked:ps.length, fewMisconceptions:bad, lifeBad, trap2449:trap};
+}
+
+window.__GAME_TEST__={
+  ready:false,
+  start(){
+    ensureAudio();
+    G.hard=false;
+    G.testFast=true;
+    beginPlay(1, true);
+  },
+  getState(){
+    return {score:G.score, lives:G.lives, level:G.pond, phase:G.phase, solved:G.solved};
+  },
+  answerCorrect(){
+    if(G.phase!=='playing') beginPlay(G.pond||1, true);
+    const row=G.next;
+    const st=row && row.stones.find(s=>s.safe);
+    if(st){
+      G.player.hopping=false; G.player.falling=false;
+      applyCorrect(st, true);
+    } else {
+      G.score+=100; G.solved++; refreshHUD();
+    }
+  },
+  answerWrong(){
+    if(G.phase!=='playing') beginPlay(G.pond||1, true);
+    G.warned=true;
+    const row=G.next;
+    const st=row && row.stones.find(s=>!s.safe);
+    applyWrong(st||{n:0,safe:false});
+  },
+  sampleProblems,
+  simulateBots,
+  pondKindAudit,
+  misconceptionAudit
+};
+
+buildPools();
+bootMath();
+layout();
+setMuteUI();
+if(save.bestRows>0){ el('bestPill').hidden=false; el('bestPill').textContent='최고 '+save.bestRows+'칸'; }
+Promise.all([loadImg('./assets/hero.png','hero'), loadImg('./assets/bg.png','bg')]).finally(()=>{
+  window.__GAME_TEST__.ready=true;
+  requestAnimationFrame(frame);
+});
+})();
+</script>
+</body>
+</html>
