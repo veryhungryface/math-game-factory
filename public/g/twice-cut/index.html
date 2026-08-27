@@ -1,0 +1,1764 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>두 번 잘라 — 남은 게 곱셈</title>
+<meta property="og:title" content="두 번 잘라">
+<meta property="og:description" content="남은 게 곱셈">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --yel:#FFE27A; --cherry:#FF4B7A; --cobalt:#1F4FD8; --ink:#111111; --cream:#FFF6E8;
+  --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
+  --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
+  --colW:min(100vw,640px); --colX:calc((100vw - var(--colW)) / 2);
+  --logo-top:#fff6c2; --logo-mid:#FFE27A; --logo-bottom:#FF4B7A;
+  --logo-outline:#2a0d14; --logo-side:#FFE27A; --logo-side-dark:#c42858;
+  --logo-glow:rgba(255,75,122,.42);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  touch-action:none;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;touch-action:none}
+.hidden{display:none !important;visibility:hidden !important;pointer-events:none !important}
+
+#hud{position:fixed;top:0;left:var(--colX);width:var(--colW);z-index:3;
+  padding:calc(8px + var(--safeT)) 10px 0;pointer-events:none}
+.row{display:flex;align-items:center;gap:6px}
+.pill{background:rgba(17,17,17,.88);border:2px solid #111;border-radius:14px;
+  padding:6px 10px;font-weight:900;font-size:13px;color:var(--cream);white-space:nowrap;line-height:1.1;
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.25),0 3px 0 rgba(80,30,10,.45)}
+#scoreV{font-size:clamp(20px,5.4vw,26px);color:#fff8e8;display:inline-block;font-variant-numeric:tabular-nums;
+  font-weight:900;transition:transform .16s cubic-bezier(.34,1.7,.5,1)}
+#scoreV.punch{transform:scale(1.28)}
+#comboP{background:rgba(255,75,122,.94);border-color:#111;opacity:0;
+  transition:opacity .2s,transform .16s cubic-bezier(.34,1.7,.5,1)}
+#comboP.on{opacity:1}
+#comboP.punch{transform:scale(1.2)}
+#hearts{display:flex;gap:4px;margin-left:auto;align-items:center}
+.hp{width:28px;height:28px;font-size:22px;line-height:28px;text-align:center;
+  transition:transform .35s cubic-bezier(.34,1.7,.5,1),opacity .35s;filter:drop-shadow(0 1px 0 #fff)}
+.hp.off{opacity:.22;transform:scale(.62) rotate(28deg)}
+#muteBtn,.icon-btn{pointer-events:auto;width:44px;height:44px;min-width:44px;border-radius:14px;
+  border:2px solid #111;background:linear-gradient(180deg,#fff6c8,#FFE27A);color:#111;
+  font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.55),0 3px 0 #8a3a12}
+#muteBtn:active,.icon-btn:active,.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #8a3a12}
+#contract{margin-top:5px;font-size:11px;font-weight:800;color:var(--ink);background:rgba(255,246,232,.94);
+  border:2px solid #111;border-radius:12px;padding:5px 8px;line-height:1.25;word-break:keep-all;
+  box-shadow:inset 0 1px 0 #fff,0 2px 0 rgba(17,17,17,.2)}
+#timerP{min-width:64px;text-align:center}
+
+#say{position:fixed;left:0;right:0;top:calc(92px + var(--safeT));z-index:3;pointer-events:none;padding:0 12px;display:flex;justify-content:center}
+#say .say-card{width:100%;max-width:640px;background:#FFF6E8;color:#111;
+  border:2.5px solid #111;border-radius:18px;padding:8px 12px 9px;text-align:center;
+  font-weight:900;font-size:clamp(15px,4.2vw,18px);line-height:1.35;word-break:keep-all;
+  box-shadow:0 3px 0 rgba(17,17,17,.25),0 8px 18px rgba(0,0,0,.18)}
+#sayEq{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px;min-height:52px}
+.frac{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;vertical-align:middle;
+  background:#111;color:#fff;border-radius:12px;padding:5px 10px 6px;min-width:46px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 2px 0 #FF4B7A}
+.frac b{font-size:clamp(20px,5.2vw,28px);font-weight:900;line-height:1;color:#fff}
+.frac i{display:block;width:100%;height:3px;background:#FFE27A;margin:3px 0;border-radius:2px}
+.wh{font-size:clamp(26px,6.4vw,36px);font-weight:900;line-height:1;padding:4px 6px}
+.op{font-size:clamp(22px,5.5vw,30px);font-weight:900;color:#1F4FD8}
+.knot{display:inline-flex;position:relative}
+.knot.glow .frac{box-shadow:0 0 0 3px #FFE27A,0 0 16px #FF4B7A}
+#sayMsg{font-size:clamp(13px,3.6vw,16px);font-weight:800;color:#1F4FD8}
+#say .sub{display:block;margin-top:2px;font-size:12px;font-weight:800;color:#5a3a20}
+
+#ctrl{position:fixed;left:var(--colX);width:var(--colW);bottom:0;z-index:4;
+  padding:8px 10px calc(10px + var(--safeB));display:flex;flex-direction:column;gap:7px}
+.bar{display:flex;gap:7px}
+.btn{pointer-events:auto;min-height:60px;border-radius:18px;cursor:pointer;font-family:inherit;
+  font-size:18px;font-weight:900;color:#3b1907;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#fff4c8,#ffb02a);border:3px solid #54220d;
+  box-shadow:0 5px 0 #a93d13,0 8px 0 #54220d,inset 0 2px 0 rgba(255,255,255,.55);
+  transition:transform .1s,box-shadow .1s}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #a93d13,0 2px 0 #54220d}
+.btn.go{flex:1}
+.btn.alt{background:linear-gradient(180deg,#d7e4ff,#4d73e8);color:#fff;text-shadow:0 1px 0 #1a2f80;
+  border-color:#152a80;box-shadow:0 5px 0 #1F4FD8,0 8px 0 #152a80,inset 0 2px 0 rgba(255,255,255,.4)}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+
+#est{position:fixed;inset:0;z-index:8;display:flex;align-items:flex-end;justify-content:center;
+  padding:0 12px calc(88px + var(--safeB));background:rgba(17,17,17,.28);pointer-events:auto}
+#est .est-card{width:min(100%,520px);background:linear-gradient(180deg,#fffdf6,#ffe7a8);border:3px solid #111;
+  border-radius:22px;padding:14px 12px 12px;box-shadow:0 8px 0 #111;text-align:center}
+#est h3{font-size:16px;font-weight:900;margin-bottom:10px}
+.chip{width:100%;min-height:52px;margin-top:7px;border-radius:16px;border:2.5px solid #111;cursor:pointer;
+  font-family:inherit;font-weight:900;font-size:15px;background:linear-gradient(180deg,#fff,#e8f0ff);
+  box-shadow:0 4px 0 #111}
+.chip:active{transform:translateY(3px);box-shadow:0 1px 0 #111}
+
+#title{--title-col:min(100vw,640px);position:fixed;inset:0;min-height:100svh;height:100dvh;
+  padding:0;overflow:hidden;isolation:isolate;background:#3a2208;z-index:12;display:none !important}
+#title.is-on{display:block !important}
+.title-art{--art-x:50%;--art-y:50%;--art-scale:1.02;
+  position:absolute;inset:0;z-index:0;overflow:hidden;background:linear-gradient(180deg,#7ec8ff 0%,#FFE27A 46%,#e8a020 100%)}
+.title-art.fallback{background:linear-gradient(180deg,#7ec8ff 0%,#FFE27A 40%,#FF4B7A 100%)}
+.title-art__image{width:100%;height:100%;display:block;object-fit:cover;
+  object-position:var(--art-x) var(--art-y);transform:scale(var(--art-scale));
+  filter:saturate(1.06) contrast(1.03);animation:art-breathe 20s ease-in-out infinite alternate}
+.title-art__scrim,.title-art__vignette{position:absolute;inset:0;z-index:1;pointer-events:none}
+.title-art__scrim{background:linear-gradient(180deg,rgba(30,12,8,.48) 0%,rgba(30,12,8,.12) 24%,rgba(30,12,8,.02) 48%,rgba(30,12,8,.16) 70%,rgba(30,12,8,.78) 100%)}
+.title-art__vignette{background:linear-gradient(90deg,rgba(20,8,4,.42) 0%,transparent 14%,transparent 86%,rgba(20,8,4,.42) 100%),
+  radial-gradient(ellipse at center,transparent 54%,rgba(20,8,4,.46) 112%);mix-blend-mode:multiply}
+@keyframes art-breathe{from{transform:scale(var(--art-scale))}to{transform:scale(calc(var(--art-scale) + .035)) translate3d(0,-0.6%,0)}}
+.title-dust{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.title-dust i{position:absolute;width:7px;height:7px;border-radius:50%;background:rgba(255,226,122,.7);animation:dust 11s linear infinite}
+.title-dust i:nth-child(1){left:12%;top:70%;animation-duration:13s}
+.title-dust i:nth-child(2){left:28%;top:82%;width:5px;height:5px;animation-duration:9s}
+.title-dust i:nth-child(3){left:63%;top:76%;animation-duration:15s}
+.title-dust i:nth-child(4){left:81%;top:64%;width:6px;height:6px;animation-duration:12s}
+.title-dust i:nth-child(5){left:47%;top:88%;animation-duration:10s}
+@keyframes dust{0%{transform:translateY(0) scale(1);opacity:.2}50%{opacity:.7}100%{transform:translateY(-42vh) scale(.6);opacity:0}}
+
+.title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+  padding-inline:clamp(16px,5vw,32px);padding-top:var(--safeT);padding-bottom:var(--safeB);pointer-events:none}
+.title-logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;
+  font-size:clamp(56px,16.8vw,100px);font-weight:900;line-height:.92;letter-spacing:-.08em;white-space:nowrap;
+  filter:drop-shadow(0 16px 14px rgba(0,0,0,.34));transform:rotate(-1.4deg);transform-origin:50% 60%}
+.game-logo>span:not(.logo-gap){--r:0deg;--y:0px;--s:1;position:relative;display:inline-block;padding-inline:.02em;
+  color:transparent;background:linear-gradient(180deg,var(--logo-top) 0%,var(--logo-mid) 48%,var(--logo-bottom) 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-stroke:clamp(2px,.75vw,5px) var(--logo-outline);paint-order:stroke fill;
+  text-shadow:0 1px 0 var(--logo-side),0 2px 0 var(--logo-side),0 3px 0 var(--logo-side),0 4px 0 var(--logo-side),
+    0 5px 0 var(--logo-side-dark),0 6px 0 var(--logo-side-dark),0 7px 0 var(--logo-side-dark),0 8px 0 var(--logo-side-dark),
+    0 11px 2px rgba(42,13,4,.6),0 16px 8px rgba(0,0,0,.46),0 22px 22px rgba(0,0,0,.34),0 0 26px var(--logo-glow);
+  transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));transform-origin:50% 80%;
+  animation:logo-letter-in 720ms cubic-bezier(.18,1.55,.34,1) both;animation-delay:calc(var(--i,0)*65ms)}
+.game-logo>span:nth-child(1){--i:0}.game-logo>span:nth-child(2){--i:1}
+.game-logo>span:nth-child(3){--i:2}.game-logo>span:nth-child(4){--i:3}
+.game-logo>span:nth-child(5){--i:4}.game-logo>span:nth-child(6){--i:5}
+.game-logo .logo-gap{width:.18em;flex:0 0 .18em}
+.game-subtitle{margin:14px auto 0;padding:5px 13px 6px;border:1px solid rgba(255,255,255,.34);border-radius:999px;
+  color:#fff8df;background:rgba(22,13,12,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 5px 14px rgba(0,0,0,.24);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  font:800 clamp(12px,3.5vw,16px)/1.2 sans-serif;letter-spacing:-.02em;text-shadow:0 2px 4px rgba(0,0,0,.72);
+  animation:logo-subtitle-in 420ms 520ms ease-out both;width:max-content}
+.title-unit{margin:8px 0 0;font-size:12px;font-weight:700;color:rgba(255,246,228,.78);text-shadow:0 1px 3px #000}
+@keyframes logo-letter-in{
+  0%{opacity:0;transform:translateY(calc(var(--y) - 82px)) rotate(calc(var(--r) - 10deg)) scale(.55)}
+  58%{opacity:1;transform:translateY(calc(var(--y) + 8px)) rotate(calc(var(--r) + 3deg)) scale(calc(var(--s)*1.1))}
+  78%{transform:translateY(calc(var(--y) - 3px)) rotate(calc(var(--r) - 1deg)) scale(calc(var(--s)*.97))}
+  100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}}
+@keyframes logo-subtitle-in{from{opacity:0;transform:translateY(-8px) scale(.92)}to{opacity:1;transform:none}}
+
+.title-cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+.title-meta{min-height:30px;padding:6px 12px;border:1px solid rgba(255,255,255,.24);border-radius:999px;
+  color:rgba(255,255,255,.92);background:rgba(5,10,20,.42);backdrop-filter:blur(5px);
+  font-size:12px;font-weight:800;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.title-meta[hidden]{display:none}
+.title-start{--cta-top:#fff27a;--cta-mid:#ffc62f;--cta-bottom:#ff8b1f;--cta-border:#54220d;--cta-depth:#a93d13;--cta-ink:#3b1907;
+  position:relative;width:min(100%,420px);min-height:68px;padding:0 28px;border:4px solid var(--cta-border);
+  border-radius:22px;appearance:none;cursor:pointer;color:var(--cta-ink);
+  background:linear-gradient(180deg,rgba(255,255,255,.58) 0 2px,transparent 2px 100%),
+    linear-gradient(180deg,var(--cta-top) 0%,var(--cta-mid) 49%,var(--cta-bottom) 100%);
+  box-shadow:0 7px 0 var(--cta-depth),0 10px 0 var(--cta-border),0 17px 26px rgba(0,0,0,.38),
+    inset 0 3px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(154,48,8,.2);
+  font-family:inherit;font-size:clamp(21px,5.8vw,27px);font-weight:900;letter-spacing:-.03em;
+  text-shadow:0 2px 0 rgba(255,255,255,.38);transform-origin:50% 100%;
+  animation:cta-pulse 2.4s ease-in-out 1.2s infinite;touch-action:manipulation}
+.title-start::after{content:"";position:absolute;inset:5px 9px auto;height:19px;border-radius:999px;
+  background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));pointer-events:none}
+.title-start>span{position:relative;z-index:1}
+.title-start:active,.title-start.is-pressed{transform:translateY(7px) scale(.985);
+  box-shadow:0 1px 0 var(--cta-depth),0 3px 0 var(--cta-border),0 7px 13px rgba(0,0,0,.3);animation-play-state:paused}
+.title-start:focus-visible,.title-howto:focus-visible,.title-mute:focus-visible{outline:4px solid #fff;outline-offset:4px}
+@keyframes cta-pulse{0%,72%,100%{transform:translateY(0) scale(1)}80%{transform:translateY(-2px) scale(1.025)}
+  88%{transform:none}94%{transform:translateY(-1px) scale(1.012)}}
+.title-howto{min-height:44px;min-width:44px;padding:7px 10px;border:0;color:rgba(255,255,255,.86);background:transparent;
+  font:700 12px/1.2 sans-serif;text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);
+  text-underline-offset:4px;text-shadow:0 2px 5px rgba(0,0,0,.85);cursor:pointer}
+.title-mute{position:absolute;z-index:4;top:max(10px,var(--safeT));
+  right:max(12px,calc((100vw - min(100vw,640px)) / 2 + 12px));
+  width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.18);
+  border-radius:50%;color:#fff;background:rgba(0,0,0,.28);backdrop-filter:blur(5px);font-size:21px;cursor:pointer}
+
+#onb{position:fixed;inset:0;z-index:20;pointer-events:auto}
+#onbHole{position:absolute;border-radius:18px;border:3px solid #FFE27A;
+  box-shadow:0 0 0 9999px rgba(30,12,8,.78),0 0 0 6px rgba(255,226,122,.22) inset}
+#onbCard{position:absolute;left:50%;transform:translateX(-50%);width:min(calc(100vw - 32px),420px);
+  background:linear-gradient(180deg,#fffdf6,#ffe7a8);border:3px solid #111;border-radius:22px;
+  box-shadow:0 8px 0 #111,0 18px 34px rgba(0,0,0,.45);padding:14px 15px 15px;text-align:left}
+#onbNum{display:inline-block;font-size:11px;font-weight:900;background:#FFE27A;border:2px solid #111;border-radius:8px;padding:3px 9px}
+#onbTitle{margin:8px 0 5px;font-size:19px;font-weight:900;color:#FF4B7A}
+#onbBody{margin:0;font-size:13.5px;font-weight:700;line-height:1.5;color:#111}
+#onbDiff{display:flex;gap:8px;margin-top:10px}
+#onbDiff button{flex:1;min-height:52px;border:2.5px solid #111;border-radius:14px;font-family:inherit;font-weight:900;
+  background:#fff;cursor:pointer;box-shadow:0 3px 0 #111;line-height:1.15;padding:6px 4px}
+#onbDiff button small{display:block;font-size:11px;font-weight:800;opacity:.72;margin-top:3px}
+#onbDiff button.on{background:linear-gradient(180deg,#fff27a,#ff8b1f)}
+#onbNext{width:100%;min-height:52px;margin-top:10px;border:2.5px solid #111;border-radius:16px;
+  cursor:pointer;font-family:inherit;font-size:17px;font-weight:900;background:linear-gradient(180deg,#fff27a,#ff8b1f);
+  box-shadow:0 5px 0 #111}
+
+#over{position:fixed;inset:0;z-index:13;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;text-align:center;background:radial-gradient(ellipse at 50% 38%,rgba(255,226,122,.45),rgba(30,12,8,.92) 72%)}
+#over .card{width:min(100%,360px);background:linear-gradient(180deg,#fffdf6,#ffe7a8);border:3px solid #111;
+  border-radius:24px;padding:20px 16px 16px;box-shadow:0 8px 0 #111;display:flex;flex-direction:column;gap:11px}
+#over h2{font-size:26px;font-weight:900;color:#FF4B7A}
+#stars{font-size:32px;min-height:40px}
+#stars i{font-style:normal;display:inline-block;opacity:.18;transform:scale(.7)}
+#stars i.pop{opacity:1;transform:scale(1.15);transition:transform .45s cubic-bezier(.2,1.9,.4,1),opacity .25s}
+.stat{display:flex;justify-content:space-between;font-size:14px;font-weight:800;color:#1F4FD8;
+  border-bottom:2px dotted rgba(17,17,17,.2);padding-bottom:5px}
+.stat b{font-size:22px;color:#111;font-variant-numeric:tabular-nums}
+#retryBtn{width:100%;min-height:64px;border:3px solid #54220d;border-radius:18px;cursor:pointer;font-family:inherit;
+  font-size:20px;font-weight:900;color:#3b1907;background:linear-gradient(180deg,#fff27a,#ff8b1f);
+  box-shadow:0 6px 0 #a93d13}
+#retryBtn:active{transform:translateY(4px);box-shadow:0 2px 0 #a93d13}
+
+#toast{position:fixed;left:0;right:0;z-index:15;display:flex;justify-content:center;pointer-events:none;top:38%}
+#toast .t{background:rgba(17,17,17,.92);border:2.5px solid #FFE27A;border-radius:16px;padding:9px 15px;
+  font-size:14px;font-weight:900;color:#fff8ea;max-width:88vw;text-align:center;opacity:0;
+  transform:translateY(10px) scale(.94);transition:opacity .22s,transform .22s}
+#toast .t.on{opacity:1;transform:none}
+#toast .t.good{background:rgba(31,79,216,.94);border-color:#b7e4c7}
+#toast .t.bad{background:rgba(150,42,28,.94);border-color:#ffb4a8}
+#praise{position:fixed;left:0;right:0;z-index:7;top:26%;text-align:center;pointer-events:none;
+  font-size:clamp(22px,6vw,34px);font-weight:900;color:#FFE27A;text-shadow:0 3px 0 #111,0 -8px 18px rgba(255,226,122,.5);
+  opacity:0;transform:translateY(16px)}
+#praise.on{opacity:1;transform:translateY(-18px);transition:opacity .2s,transform .55s cubic-bezier(.18,1.4,.32,1)}
+
+@media (max-width:420px){
+  #contract{font-size:10px;padding:4px 7px}
+  #say{top:calc(84px + var(--safeT))}
+  #say .say-card{font-size:14px;padding:7px 10px 8px}
+  #ctrl{padding:6px 8px calc(8px + var(--safeB))}
+  .btn{min-height:56px}
+}
+@media (orientation:landscape),(min-aspect-ratio:1/1){
+  .title-art{--art-y:54%;--art-x:50%}
+}
+@media (min-width:641px){
+  .title-logo-zone{left:24px;right:24px}
+  .title-cta-zone{width:min(calc(100% - 48px),520px)}
+}
+@media (max-height:700px){
+  .title-logo-zone{top:max(38px,5dvh);min-height:150px}
+  .game-logo{font-size:clamp(44px,13vw,80px)}
+  .title-start{min-height:64px}
+  .title-cta-zone{gap:5px}
+}
+@media (prefers-reduced-motion:reduce){
+  .game-logo>span:not(.logo-gap),.game-subtitle,.title-art__image,.title-start,.title-dust i{animation:none}
+  #praise.on{transition-duration:.12s}
+  #scoreV,#comboP{transition-duration:0s}
+}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="row">
+    <div class="pill"><span id="scoreV">0</span></div>
+    <div class="pill" id="comboP">콤보 ×1</div>
+    <div class="pill" id="timerP">90</div>
+    <div id="hearts"></div>
+    <button id="muteBtn" type="button" aria-label="소리 끄기">🔊</button>
+  </div>
+  <div id="contract">리본 칸은 모두 같은 길이예요. 칼은 칸 눈금에만 붙어요.</div>
+</div>
+
+<div id="say" class="hidden"><div class="say-card"><div id="sayEq"></div><div id="sayMsg"></div></div></div>
+<div id="ctrl" class="hidden">
+  <div class="bar">
+    <button class="btn alt hidden" id="unfoldBtn" type="button">매듭 펴기</button>
+    <button class="btn go" id="cutBtn" type="button">한 칼!</button>
+  </div>
+</div>
+<div id="praise"></div>
+<div id="toast"><div class="t" id="toastT"></div></div>
+
+<div id="est" class="hidden">
+  <div class="est-card">
+    <h3 id="estQ">이 곱은 처음 수보다?</h3>
+    <button class="chip" type="button" data-v="-1">처음보다 작아져요</button>
+    <button class="chip" type="button" data-v="0">처음과 같아요</button>
+    <button class="chip" type="button" data-v="1">처음보다 커져요</button>
+  </div>
+</div>
+
+<div id="title" class="is-on">
+  <div class="title-art" id="titleArt" aria-hidden="true">
+    <img class="title-art__image" src="./assets/title.png" alt=""
+      onerror="this.style.display='none';document.getElementById('titleArt').classList.add('fallback')">
+    <div class="title-art__scrim"></div>
+    <div class="title-art__vignette"></div>
+    <div class="title-dust"><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+  <button class="title-mute" id="titleMute" type="button" aria-label="소리 끄기">🔊</button>
+  <div class="title-ui">
+    <div class="title-logo-zone">
+      <h1 class="game-logo" aria-label="두 번 잘라">
+        <span aria-hidden="true" style="--r:-5deg;--y:6px;--s:1.10">두</span>
+        <span aria-hidden="true" style="--r:4deg;--y:-3px;--s:1.02">번</span>
+        <span class="logo-gap" aria-hidden="true"></span>
+        <span aria-hidden="true" style="--r:-3deg;--y:3px;--s:1.08">잘</span>
+        <span aria-hidden="true" style="--r:5deg;--y:-5px;--s:.98">라</span>
+      </h1>
+      <p class="game-subtitle">남은 게 곱셈</p>
+      <p class="title-unit">5학년 2학기 · 분수의 곱셈</p>
+    </div>
+    <div class="title-cta-zone">
+      <div class="title-meta" id="bestPill" hidden></div>
+      <button class="title-start" id="startBtn" type="button"><span>지금 자르기!</span></button>
+      <button class="title-howto" id="howtoBtn" type="button">어떻게 놀아요? ›</button>
+    </div>
+  </div>
+</div>
+
+<div id="onb" class="hidden">
+  <div id="onbHole"></div>
+  <div id="onbCard">
+    <span id="onbNum">1/3</span>
+    <h2 id="onbTitle"></h2>
+    <p id="onbBody"></p>
+    <div id="onbDiff" class="hidden">
+      <button type="button" id="diffEasy" class="on">자석 강함<small>칸마다 붙어요</small></button>
+      <button type="button" id="diffHard">자석 약함<small>눈금 한가운데만</small></button>
+    </div>
+    <button id="onbNext" type="button">다음</button>
+  </div>
+</div>
+
+<div id="over" class="hidden">
+  <div class="card">
+    <h2 id="overTitle">오늘은 여기까지</h2>
+    <div id="stars"><i>★</i><i>★</i><i>★</i></div>
+    <div class="stat">점수 <b id="overScore">0</b></div>
+    <div class="stat">담은 리본 <b id="overSolved">0</b></div>
+    <div class="stat">최고 콤보 <b id="overCombo">0</b></div>
+    <button id="retryBtn" type="button">다시 자르기</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const LS_BEST = "twice-cut:best";
+  const LS_COMBO = "twice-cut:combo";
+  const LS_ONB = "onboardingSeen:twice-cut";
+  const LS_MUTE = "twice-cut:mute";
+  const LS_EASY = "twice-cut:easy";
+  const LS_DAILY = "twice-cut:daily";
+  const SESSION = 90;
+  const DEN = [2, 3, 4, 5, 6];
+  const MIS = {
+    GROW: "multiply-always-grows",
+    MIXED_PARTS: "mixed-parts-separately",
+    COMMON_DEN: "common-denominator-first",
+    WRONG_CANCEL: "wrong-cancel",
+    DENOM_MUL: "multiply-into-denominator",
+    OF_WHOLE: "of-whole-not-remaining",
+  };
+  const MIS_MSG = {
+    "multiply-always-grows": "1보다 작은 수를 곱하면 더 짧아져요",
+    "mixed-parts-separately": "대분수는 가분수로 펴서 통째로 곱해요",
+    "common-denominator-first": "곱셈은 통분부터 하지 않아도 돼요",
+    "wrong-cancel": "서로 다른 분수의 분자와 분모를 약분해요",
+    "multiply-into-denominator": "자연수는 분자 쪽에 곱해요",
+    "of-whole-not-remaining": "둘째는 남은 조각의 분수예요",
+  };
+
+  function gcd(a, b) {
+    a = Math.abs(a | 0); b = Math.abs(b | 0);
+    while (b) { const t = a % b; a = b; b = t; }
+    return a || 1;
+  }
+  function reduce(n, d) {
+    if (d < 0) { n = -n; d = -d; }
+    if (!d) return { n: 0, d: 1 };
+    const g = gcd(n, d);
+    return { n: n / g, d: d / g };
+  }
+  function feq(a, b) { return a.n * b.d === b.n * a.d; }
+  function fstr(f) { return f.d === 1 ? String(f.n) : f.n + "/" + f.d; }
+  function mul(a, b) { return reduce(a.n * b.n, a.d * b.d); }
+  function wa(n) { return [2, 4, 5, 9].includes(n) ? "와" : "과"; }
+  function mixedStr(w, n, d) { return w + wa(w) + " " + n + "/" + d; }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function shuffle(arr) {
+    const x = arr.slice();
+    for (let i = x.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const t = x[i]; x[i] = x[j]; x[j] = t;
+    }
+    return x;
+  }
+  function backOut(t) {
+    const c = 1.70158;
+    const p = t - 1;
+    return p * p * ((c + 1) * p + c) + 1;
+  }
+
+  function pushUnique(arr, f, id) {
+    if (!f || f.d <= 0 || f.n < 0) return;
+    if (arr.some((x) => feq(x, f))) return;
+    arr.push({ n: f.n, d: f.d, misconceptionId: id });
+  }
+  function finalizeChoices(correct, raw, fillers) {
+    const out = [];
+    const seen = [];
+    for (const d of raw) {
+      const r = reduce(d.n, d.d);
+      if (r.n <= 0 || r.d <= 0 || r.n > 48 || r.d > 48) continue;
+      if (feq(r, correct)) continue;
+      if (seen.some((s) => feq(s, r))) continue;
+      seen.push(r);
+      out.push({ n: r.n, d: r.d, misconceptionId: d.misconceptionId || "filler" });
+    }
+    let fi = 0;
+    while (out.length < 3 && fillers && fi < 24) {
+      const extra = fillers[fi % fillers.length]();
+      fi++;
+      if (!extra) continue;
+      const r = reduce(extra.n, extra.d);
+      if (r.n <= 0 || r.d <= 0) continue;
+      if (feq(r, correct)) continue;
+      if (seen.some((s) => feq(s, r))) continue;
+      seen.push(r);
+      out.push({ n: r.n, d: r.d, misconceptionId: extra.misconceptionId || "filler" });
+    }
+    const choices = [{ n: correct.n, d: correct.d, misconceptionId: "correct" }, ...out.slice(0, 3)];
+    return shuffle(choices);
+  }
+
+  function buildPool() {
+    const pool = [];
+    for (const b of DEN) {
+      for (let k = 1; k <= 4; k++) {
+        const n = k * b;
+        if (n < 2 || n > 12) continue;
+        for (let a = 1; a < b; a++) {
+          const keep = k * a;
+          if (keep < 1 || keep >= n) continue;
+          const correct = reduce(n * a, b);
+          const raw = [];
+          pushUnique(raw, reduce(n, 1), MIS.GROW);
+          pushUnique(raw, reduce(n + a, 1), MIS.GROW);
+          pushUnique(raw, reduce(a, n * b), MIS.DENOM_MUL);
+          pushUnique(raw, reduce(a, b), MIS.DENOM_MUL);
+          const item = {
+            id: "nf-" + n + "-" + a + "-" + b,
+            kind: "n_times_frac",
+            unitConcept: "(자연수)×(분수)",
+            n, a, b, U: n, keep, cuts: 1,
+            left: { n, d: 1 }, right: { n: a, d: b },
+            correct, keepCells: [keep], group0: k, tempt: [],
+          };
+          item.prompt = n + " × " + a + "/" + b + " = ?";
+          item.choicesFrac = finalizeChoices(correct, raw, [
+            () => ({ n: keep + 1, d: 1, misconceptionId: "near" }),
+            () => ({ n: Math.max(1, keep - 1), d: 1, misconceptionId: "near" }),
+          ]);
+          // 유혹 칸: 그대로(n), 자연수 무시한 a칸 — 정답과 교차곱 불일치만
+          if (n !== keep) item.tempt.push({ keep: n, misconceptionId: MIS.GROW });
+          if (a !== keep) item.tempt.push({ keep: a, misconceptionId: MIS.DENOM_MUL });
+          pool.push(item);
+        }
+      }
+    }
+    for (const b of DEN) {
+      for (let m = 2; m <= 4; m++) {
+        const U = b * m;
+        if (U > 12) continue;
+        for (let a = 1; a < b; a++) {
+          const keep = a * m;
+          if (keep < 1 || keep > U) continue;
+          const correct = reduce(a * m, b);
+          const raw = [];
+          pushUnique(raw, reduce(a * m, b * m), MIS.COMMON_DEN);
+          pushUnique(raw, reduce(a, b), MIS.GROW);
+          pushUnique(raw, reduce(a, b * m), MIS.DENOM_MUL);
+          pushUnique(raw, reduce(m, 1), MIS.GROW);
+          const item = {
+            id: "fn-" + a + "-" + b + "-" + m,
+            kind: "frac_times_n",
+            unitConcept: "(분수)×(자연수)",
+            a, b, m, U, keep, cuts: 1,
+            left: { n: a, d: b }, right: { n: m, d: 1 },
+            correct, keepCells: [keep], group0: m, tempt: [],
+          };
+          item.prompt = a + "/" + b + " × " + m + " = ?";
+          item.choicesFrac = finalizeChoices(correct, raw, [
+            () => ({ n: a + m, d: b, misconceptionId: "add-instead" }),
+          ]);
+          if (a !== keep) item.tempt.push({ keep: a, misconceptionId: MIS.DENOM_MUL });
+          if (U !== keep) item.tempt.push({ keep: U, misconceptionId: MIS.GROW });
+          pool.push(item);
+        }
+      }
+    }
+    for (const b of DEN) {
+      for (const d of DEN) {
+        const U = b * d;
+        if (U < 2 || U > 12) continue;
+        for (let a = 1; a < b; a++) {
+          for (let c = 1; c < d; c++) {
+            const keep1 = a * d;
+            const keep2 = a * c;
+            if (keep1 < 1 || keep1 >= U) continue;
+            if (keep2 < 1 || keep2 >= keep1) continue;
+            const correct = reduce(a * c, b * d);
+            const raw = [];
+            pushUnique(raw, reduce(c, d), MIS.OF_WHOLE);
+            const lcm = (b * d) / gcd(b, d);
+            pushUnique(raw, reduce(a * (lcm / b) + c * (lcm / d), lcm), MIS.COMMON_DEN);
+            pushUnique(raw, reduce(1, 1), MIS.COMMON_DEN);
+            const gAb = gcd(a, b), gCd = gcd(c, d);
+            pushUnique(raw, reduce(a / gAb, c / gCd || 1), MIS.WRONG_CANCEL);
+            pushUnique(raw, reduce(a, c), MIS.WRONG_CANCEL);
+            pushUnique(raw, reduce(a, b), MIS.OF_WHOLE);
+            pushUnique(raw, reduce(a * d, b * d), MIS.WRONG_CANCEL);
+            const crossAd = gcd(a, d);
+            const crossCb = gcd(c, b);
+            const ofWholeKeep = c * b; // U * c/d = b*d * c/d = b*c  (정수)
+            const item = {
+              id: "ff-" + a + "-" + b + "-" + c + "-" + d,
+              kind: "frac_times_frac",
+              unitConcept: (crossAd > 1 || crossCb > 1) ? "계산 과정에서 약분하기" : "(진분수)×(진분수)",
+              a, b, c, d, U, keep1, keep2, cuts: 2,
+              left: { n: a, d: b }, right: { n: c, d: d },
+              correct, keepCells: [keep1, keep2],
+              group0: d, group1: a,
+              cross: { ad: crossAd, cb: crossCb },
+              cancelFriendly: crossAd > 1 || crossCb > 1,
+              tempt: [],
+            };
+            item.prompt = a + "/" + b + " × " + c + "/" + d + " = ?";
+            item.choicesFrac = finalizeChoices(correct, raw, [
+              () => ({ n: a + c, d: b + d, misconceptionId: "add-num-den" }),
+            ]);
+            if (ofWholeKeep !== keep2 && ofWholeKeep >= 1 && ofWholeKeep <= U)
+              item.tempt.push({ keep: ofWholeKeep, misconceptionId: MIS.OF_WHOLE, stage: 1 });
+            if (keep1 !== keep2) item.tempt.push({ keep: keep1, misconceptionId: MIS.WRONG_CANCEL, stage: 1 });
+            if (U !== keep1) item.tempt.push({ keep: U, misconceptionId: MIS.COMMON_DEN, stage: 0 });
+            pool.push(item);
+          }
+        }
+      }
+    }
+    for (const b of DEN) {
+      for (let a = 1; a < b; a++) {
+        if (gcd(a, b) !== 1) continue;
+        const p = b + a;
+        if (p > 8) continue;
+        for (const d of DEN) {
+          for (let c = 1; c < d; c++) {
+            if (gcd(c, d) !== 1) continue;
+            if ((p * c) % d !== 0) continue;
+            const keep = (p * c) / d;
+            if (keep < 1 || keep >= p) continue;
+            const correct = reduce(p * c, b * d);
+            const raw = [];
+            pushUnique(raw, reduce(1, 1), MIS.MIXED_PARTS);
+            pushUnique(raw, reduce(a * c, b * d), MIS.MIXED_PARTS);
+            pushUnique(raw, reduce(c, d), MIS.OF_WHOLE);
+            pushUnique(raw, reduce(p, b), MIS.MIXED_PARTS);
+            const item = {
+              id: "mx-" + a + "-" + b + "-" + c + "-" + d,
+              kind: "mixed_times_frac",
+              unitConcept: "(대분수)×(진분수)",
+              whole: 1, a, b, c, d, p, U: p, keep, cuts: 1, needsUnfold: true,
+              left: { n: p, d: b }, right: { n: c, d: d },
+              correct, keepCells: [keep], group0: 1, tempt: [],
+            };
+            item.prompt = mixedStr(1, a, b) + " × " + c + "/" + d + " = ?";
+            item.choicesFrac = finalizeChoices(correct, raw, [
+              () => ({ n: keep + 1, d: b, misconceptionId: "near" }),
+            ]);
+            if (1 !== keep) item.tempt.push({ keep: 1, misconceptionId: MIS.MIXED_PARTS });
+            if (p !== keep) item.tempt.push({ keep: p, misconceptionId: MIS.GROW });
+            pool.push(item);
+          }
+        }
+      }
+    }
+    const wordSrc = pool.filter((p) => p.kind === "frac_times_frac" && gcd(p.a, p.b) === 1 && gcd(p.c, p.d) === 1);
+    for (const src of wordSrc) {
+      pool.push({
+        ...src,
+        id: "wp-" + src.a + "-" + src.b + "-" + src.c + "-" + src.d,
+        kind: "word",
+        unitConcept: "실생활 문장제",
+        prompt: "길이가 " + src.a + "/" + src.b + " m인 리본의 " + src.c + "/" + src.d + " 만큼을 사용했다. 사용한 리본의 길이는 몇 m인가?",
+      });
+    }
+    const estSrc = pool.filter((p) => p.kind === "n_times_frac" || p.kind === "frac_times_frac" || p.kind === "frac_times_n");
+    for (const src of estSrc) {
+      const left = src.left;
+      const product = src.correct;
+      const cmp = product.n * left.d - left.n * product.d;
+      const ans = cmp < 0 ? "처음보다 작아져요" : cmp > 0 ? "처음보다 커져요" : "처음과 같아요";
+      pool.push({
+        id: "est-" + src.id,
+        kind: "estimate",
+        unitConcept: "곱셈 결과의 크기 예상",
+        prompt: "계산하지 않고, " + src.prompt.replace(" = ?", "") + " 의 값은 처음 수보다?",
+        answerStr: ans,
+        answerNumeric: cmp < 0 ? -1 : cmp > 0 ? 1 : 0,
+        choicesStr: ["처음보다 작아져요", "처음과 같아요", "처음보다 커져요"],
+        why: cmp < 0 ? "1보다 작은 수를 곱해서" : cmp > 0 ? "1보다 큰 수를 곱해서" : "1을 곱해서",
+      });
+    }
+    return pool;
+  }
+
+  const POOL = buildPool();
+  const PLAY_POOL = POOL.filter((p) => p.kind !== "estimate");
+
+  const TUTORIAL = {
+    id: "tut-half",
+    kind: "tutorial",
+    unitConcept: "(자연수)×(분수)",
+    n: 2, a: 1, b: 2, U: 2, keep: 1, cuts: 1,
+    left: { n: 1, d: 1 }, right: { n: 1, d: 2 },
+    correct: { n: 1, d: 2 }, keepCells: [1], group0: 1, tempt: [],
+    prompt: "1 × 1/2 = ?",
+    speech: "이거의 반만 남겨!",
+    choicesFrac: [
+      { n: 1, d: 2, misconceptionId: "correct" },
+      { n: 1, d: 1, misconceptionId: MIS.GROW },
+      { n: 2, d: 1, misconceptionId: MIS.GROW },
+      { n: 1, d: 4, misconceptionId: MIS.DENOM_MUL },
+    ],
+  };
+
+  // ---------- DOM / canvas
+  const $ = (id) => document.getElementById(id);
+  const cv = $("cv");
+  const ctx = cv.getContext("2d");
+  let W = 390, H = 844, dpr = 1;
+  const IM = { bg: null, hero: null, okBg: false, okHero: false };
+
+  function loadImg(src, key) {
+    const im = new Image();
+    im.onload = () => { IM[key] = im; IM["ok" + key.charAt(0).toUpperCase() + key.slice(1)] = true; };
+    im.onerror = () => { IM[key] = null; };
+    im.src = src;
+  }
+  loadImg("./assets/bg.png", "bg");
+  loadImg("./assets/hero.png", "hero");
+
+  // ---------- audio
+  let actx = null, muted = localStorage.getItem(LS_MUTE) === "1";
+  function unlock() {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) actx = new AC();
+    }
+    if (actx && actx.state === "suspended") actx.resume();
+  }
+  function beep(freq, dur, type, gain, at) {
+    if (muted || !actx) return;
+    const t = actx.currentTime + (at || 0);
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime((gain || 0.07), t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function sfxTick(i) { beep(320 + i * 38, 0.07, "triangle", 0.05); }
+  function sfxOk(combo, keep) {
+    const k = Math.max(1, keep || 4);
+    const root = 392 + (k % 8) * 28;
+    beep(root, 0.12, "sine", 0.08);
+    beep(root * 5 / 4, 0.14, "sine", 0.07, 0.05);
+    beep(root * 3 / 2, 0.18, "sine", 0.08, 0.1);
+    if (combo >= 3) beep(root * 2, 0.22, "triangle", 0.06, 0.14);
+  }
+  function sfxBad() { beep(140, 0.22, "sawtooth", 0.06); beep(110, 0.28, "square", 0.04, 0.05); }
+  function sfxCut() { beep(880, 0.06, "square", 0.05); }
+  function sfxCancel() { beep(698, 0.1, "triangle", 0.07); beep(932, 0.16, "sine", 0.07, 0.08); }
+  function syncMute() {
+    const ic = muted ? "🔇" : "🔊";
+    const lab = muted ? "소리 켜기" : "소리 끄기";
+    $("muteBtn").textContent = ic;
+    $("titleMute").textContent = ic;
+    $("muteBtn").setAttribute("aria-label", lab);
+    $("titleMute").setAttribute("aria-label", lab);
+  }
+  function toggleMute() {
+    muted = !muted;
+    localStorage.setItem(LS_MUTE, muted ? "1" : "0");
+    if (!muted) unlock();
+    syncMute();
+  }
+
+  // ---------- game state
+  const S = {
+    phase: "title",
+    score: 0, lives: 3, combo: 0, maxCombo: 0, solved: 0, stall: 1,
+    timeLeft: SESSION, easy: localStorage.getItem(LS_EASY) !== "0",
+    skipTut: false, used: new Set(),
+    rb: null, knifeKeep: 1, knifeShow: 1,
+    freeze: 0, shake: 0, flash: 0, flashCol: "#fff6c2",
+    timeScale: 1, pieces: [], parts: [], motes: [], trail: [],
+    displayScore: 0, praise: 0, boxSkin: 0,
+    pendingEst: false, estCmp: 0, hinted: false,
+    canceling: false, knotA: null, knotB: null, swipe: null,
+  };
+
+  let lastT = 0, nowT = 0, clock = 0;
+
+  function hearts() {
+    const el = $("hearts");
+    el.innerHTML = "";
+    for (let i = 0; i < 3; i++) {
+      const s = document.createElement("span");
+      s.className = "hp" + (i < S.lives ? "" : " off");
+      s.textContent = "🪝";
+      el.appendChild(s);
+    }
+  }
+  function punchScore() {
+    const el = $("scoreV");
+    el.textContent = String(Math.round(S.displayScore));
+    el.classList.remove("punch");
+    void el.offsetWidth;
+    el.classList.add("punch");
+  }
+  function setCombo() {
+    const el = $("comboP");
+    if (S.combo >= 2) {
+      el.textContent = "콤보 ×" + S.combo;
+      el.classList.add("on");
+      el.classList.remove("punch");
+      void el.offsetWidth;
+      el.classList.add("punch");
+    } else el.classList.remove("on");
+    S.boxSkin = S.combo >= 8 ? 3 : S.combo >= 5 ? 2 : S.combo >= 3 ? 1 : 0;
+  }
+  function toast(msg, kind) {
+    const t = $("toastT");
+    t.textContent = msg;
+    t.className = "t on" + (kind ? " " + kind : "");
+    clearTimeout(toast._id);
+    toast._id = setTimeout(() => { t.classList.remove("on"); }, 1400);
+  }
+  function praise(txt) {
+    const el = $("praise");
+    el.textContent = txt;
+    el.classList.add("on");
+    clearTimeout(praise._id);
+    praise._id = setTimeout(() => el.classList.remove("on"), 700);
+  }
+  function fracHTML(f, glow) {
+    if (f.d === 1) return '<span class="wh">' + f.n + "</span>";
+    return '<span class="knot' + (glow ? " glow" : "") + '"><span class="frac"><b>' + f.n + "</b><i></i><b>" + f.d + "</b></span></span>";
+  }
+  function renderSay() {
+    const rb = S.rb;
+    if (!rb) return;
+    const it = rb.item;
+    const eq = $("sayEq");
+    const glowL = it.cancelFriendly && !rb.cancelled && it.cross && it.cross.cb > 1;
+    const glowR = it.cancelFriendly && !rb.cancelled && it.cross && it.cross.ad > 1;
+    eq.innerHTML = fracHTML(it.left, glowL) + '<span class="op">×</span>' + fracHTML(it.right, glowR);
+    let msg = it.speech || "";
+    if (!msg) {
+      if (it.needsUnfold && !rb.unfolded) msg = "접힌 매듭을 먼저 펴 주세요!";
+      else if (rb.stage === 0 && it.cuts === 2) msg = "전체의 " + it.a + "/" + it.b + " 만 남겨!";
+      else if (rb.stage === 1) msg = "이제 남은 것의 " + it.c + "/" + it.d + " 만 남겨!";
+      else if (it.kind === "n_times_frac") msg = it.n + "칸의 " + it.a + "/" + it.b + " 만 남겨!";
+      else if (it.kind === "frac_times_n") msg = it.a + "/" + it.b + " 를 " + it.m + "번 남긴 길이로!";
+      else if (it.kind === "mixed_times_frac") msg = "펼친 리본의 " + it.c + "/" + it.d + " 만 남겨!";
+      else if (it.kind === "word") msg = "사용한 만큼만 상자에 담아요";
+      else msg = "아래쪽만 남기고 자르기";
+    }
+    $("sayMsg").innerHTML = msg + (it.kind === "word" ? '<span class="sub">칸은 모두 같은 길이예요</span>' : "");
+    $("unfoldBtn").classList.toggle("hidden", !(it.needsUnfold && !rb.unfolded));
+    $("cutBtn").textContent = it.needsUnfold && !rb.unfolded ? "먼저 펼치기" : "한 칼!";
+  }
+
+  function cloneItem(src) {
+    const it = {};
+    for (const k of Object.keys(src)) it[k] = src[k];
+    if (src.left) it.left = { n: src.left.n, d: src.left.d };
+    if (src.right) it.right = { n: src.right.n, d: src.right.d };
+    if (src.correct) it.correct = { n: src.correct.n, d: src.correct.d };
+    if (src.keepCells) it.keepCells = src.keepCells.slice();
+    if (src.tempt) it.tempt = src.tempt.map((t) => ({ keep: t.keep, misconceptionId: t.misconceptionId, stage: t.stage }));
+    if (src.cross) it.cross = { ad: src.cross.ad, cb: src.cross.cb };
+    if (src.choicesFrac) it.choicesFrac = src.choicesFrac.map((c) => ({ n: c.n, d: c.d, misconceptionId: c.misconceptionId }));
+    if (src.choicesStr) it.choicesStr = src.choicesStr.slice();
+    return it;
+  }
+  function mapLen(cells, origU, bw) {
+    const unit = bw / Math.max(origU, 1);
+    return clamp(cells * unit, 20, bw * 0.96);
+  }
+  function boxWidth() {
+    return clamp(Math.min(W, 640) * 0.42, 150, 220);
+  }
+  function stallName() {
+    return S.stall === 2 ? "두 칼" : S.stall === 3 ? "약분" : S.stall === 4 ? "문장" : "한 칼";
+  }
+  function updateContract() {
+    const snap = S.easy ? "칼이 칸마다 붙어요" : "눈금 한가운데에서만 붙어요";
+    $("contract").textContent = "지금은 " + stallName() + " · 칸은 같은 길이 · " + snap;
+  }
+
+  function layoutRibbon(item) {
+    const colW = Math.min(W, 640);
+    const hudH = 96 + 8;
+    const sayH = 92;
+    const ctrlH = 78;
+    const top = hudH + sayH;
+    const botLimit = H - ctrlH - 18;
+    const U = item.U;
+    const cellH = clamp((botLimit - top - 110) / U, 26, 62);
+    const ribbonH = cellH * U;
+    const ribbonTop = top + 12;
+    const ribbonBot = ribbonTop + ribbonH;
+    return {
+      x: W / 2, w: clamp(colW * 0.2, 64, 92),
+      top: ribbonTop, bot: Math.min(ribbonBot, botLimit - 86),
+      cellH, boxY: Math.min(ribbonBot + 8, botLimit - 78),
+    };
+  }
+
+  function spawn(item) {
+    if (!item) item = pickItem();
+    item = cloneItem(item);
+    const L = layoutRibbon(item);
+    const U = item.U;
+    const target = item.cuts === 2 ? item.keep1 : item.keep;
+    const finalKeep = item.keepCells[item.keepCells.length - 1];
+    S.rb = {
+      item, stage: 0, U, unfolded: !item.needsUnfold, cancelled: false,
+      group: item.group0 || 1, keepTarget: target, L, hinted: false,
+      appear: 0, squash: { x: 1, y: 1 },
+      origU: U, finalKeep, keep1: item.keep1, keep2: item.keep2,
+    };
+    S.knifeKeep = Math.max(1, Math.round(U / 2));
+    S.knifeShow = S.knifeKeep;
+    S.trail = [];
+    S.hinted = false;
+    updateContract();
+    renderSay();
+  }
+
+  function pickItem() {
+    const elapsed = SESSION - S.timeLeft;
+    let kinds;
+    if (!S.skipTut && S.solved === 0) return TUTORIAL;
+    if (elapsed < 16) kinds = ["n_times_frac", "frac_times_n", "tutorial"];
+    else if (elapsed < 38) kinds = ["frac_times_frac"];
+    else if (elapsed < 60) kinds = ["frac_times_frac", "mixed_times_frac"];
+    else kinds = ["word", "frac_times_frac", "mixed_times_frac"];
+    S.stall = elapsed < 16 ? 1 : elapsed < 38 ? 2 : elapsed < 60 ? 3 : 4;
+    let cand = PLAY_POOL.filter((p) => kinds.includes(p.kind) && !S.used.has(p.id));
+    if (S.stall === 3) {
+      const cf = cand.filter((p) => p.cancelFriendly);
+      if (cf.length) cand = cf;
+    }
+    if (!cand.length) {
+      S.used.clear();
+      cand = PLAY_POOL.filter((p) => kinds.includes(p.kind));
+    }
+    if (!cand.length) cand = PLAY_POOL.slice();
+    const it = cand[(Math.random() * cand.length) | 0];
+    S.used.add(it.id);
+    return it;
+  }
+
+  function burst(x, y, n, col, up) {
+    const N = REDUCE ? Math.max(6, n * 0.4) : n;
+    for (let i = 0; i < N; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 40 + Math.random() * 180;
+      S.parts.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (up ? 80 : 0),
+        life: 0.5 + Math.random() * 0.6, max: 0.9, r: 3 + Math.random() * 5,
+        col: col || (Math.random() < 0.5 ? "#FF4B7A" : "#FFE27A"), rot: Math.random() * 6, vr: (Math.random() - 0.5) * 8,
+      });
+    }
+  }
+
+  function winRibbon() {
+    const rb = S.rb;
+    if (!rb) return;
+    const it = rb.item;
+    S.combo++;
+    if (S.combo > S.maxCombo) S.maxCombo = S.combo;
+    let gain = 100 * S.combo;
+    if (rb.cancelled) gain += 80; // 싹약분 별 — 정답 후 마이너스 없음
+    S.score += gain;
+    S.solved++;
+    S.freeze = REDUCE ? 0.04 : 0.08; // hit-stop
+    S.flash = 0.28;
+    S.flashCol = S.combo >= 8 ? "#ffe27a" : "#fff1b0";
+    S.shake = 0; // 정답 경로에는 화면 흔들림 없음
+    const L = rb.L;
+    const cellH = (L.bot - L.top) / rb.U;
+    const keep = rb.keepTarget;
+    const origU = rb.origU || it.U;
+    const bw = boxWidth();
+    const mouthW = mapLen(rb.finalKeep, origU, bw);
+    const pieceW = mapLen(keep, origU, bw);
+    sfxOk(S.combo, keep);
+    setCombo();
+    S.pieces.push({
+      x: L.x, y: L.bot - keep * cellH, w: pieceW, h: Math.max(18, keep * cellH * 0.42),
+      vy: 0, sx: 1.18, sy: 0.82, t: 0, ok: true, keep,
+      oversize: false, undersize: false, mouthW,
+    });
+    burst(L.x, L.bot - 10, (REDUCE ? 6 : 10) + S.combo * (REDUCE ? 2 : 3), null, true);
+    praise(S.combo >= 8 ? "무지개 상자!" : S.combo >= 5 ? "금박 상자!" : S.combo >= 3 ? "벚꽃 상자!" : "꼭 맞다!");
+    punchScore();
+    const wantEst = S.combo > 0 && S.combo % 3 === 0 && it.kind !== "tutorial";
+    S.rb = null;
+    if (wantEst) {
+      S.pendingEst = true;
+      S.estCmp = (function () {
+        const pr = it.correct, left = it.left;
+        const cmp = pr.n * left.d - left.n * pr.d;
+        return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
+      })();
+      $("estQ").textContent = it.prompt.replace(" = ?", "") + " 의 값은 처음 수보다?";
+      $("est").classList.remove("hidden");
+      S.phase = "estimate";
+    } else {
+      setTimeout(() => { if (S.phase === "playing") spawn(); }, REDUCE ? 280 : 520);
+    }
+  }
+
+  function failRibbon(misId) {
+    const rb = S.rb;
+    if (!rb) return;
+    const L = rb.L;
+    const cellH = (L.bot - L.top) / rb.U;
+    const origU = rb.origU || rb.item.U;
+    const bw = boxWidth();
+    const mouthW = mapLen(rb.finalKeep, origU, bw);
+    const pieceW = mapLen(S.knifeKeep, origU, bw);
+    S.pieces.push({
+      x: L.x, y: L.bot - S.knifeKeep * cellH, w: pieceW, h: Math.max(16, S.knifeKeep * cellH * 0.42),
+      vy: 0, sx: 1, sy: 1, t: 0, ok: false, keep: S.knifeKeep,
+      oversize: S.knifeKeep > rb.finalKeep, undersize: S.knifeKeep < rb.finalKeep, mouthW,
+    });
+    S.flash = 0.22;
+    S.flashCol = "#6aa0ff";
+    S.shake = S.lives <= 1 ? 10 : 5; // 오답 전용 티어드 쉐이크
+    sfxBad();
+    toast(MIS_MSG[misId] || "상자 턱에 걸렸어요", "bad");
+    const easyFree = S.easy && !rb.hinted;
+    if (easyFree) {
+      rb.hinted = true;
+      S.hinted = true;
+      toast("점선이 정답 칸이에요. 다시!", "good");
+    } else {
+      S.combo = 0;
+      setCombo();
+      S.lives--;
+      hearts();
+      if (S.lives <= 0) { endGame("갈고리가 부러졌어요"); return; }
+    }
+    if (!easyFree) {
+      S.rb = null;
+      setTimeout(() => { if (S.phase === "playing") spawn(); }, 640);
+    }
+  }
+
+  function currentMisId() {
+    const rb = S.rb;
+    if (!rb) return MIS.OF_WHOLE;
+    const t = (rb.item.tempt || []).find((x) => x.keep === S.knifeKeep && (x.stage == null || x.stage === rb.stage));
+    return t ? t.misconceptionId : (S.knifeKeep > rb.keepTarget ? MIS.GROW : MIS.OF_WHOLE);
+  }
+
+  function doCut() {
+    const rb = S.rb;
+    if (!rb || S.phase !== "playing" || S.freeze > 0) return;
+    const it = rb.item;
+    if (it.needsUnfold && !rb.unfolded) { doUnfold(); return; }
+    sfxCut();
+    const keep = S.knifeKeep;
+    if (keep === rb.keepTarget) {
+      if (it.cuts === 2 && rb.stage === 0) {
+        S.freeze = REDUCE ? 0.03 : 0.055;
+        S.flash = 0.16;
+        S.flashCol = "#fff1b0";
+        burst(rb.L.x, rb.L.top + 20, 8, "#fff6e8", false);
+        rb.stage = 1;
+        rb.U = rb.keep1;
+        rb.keepTarget = rb.keep2;
+        rb.group = it.group1 || 1;
+        rb.L = layoutRibbon({ U: rb.U });
+        S.knifeKeep = clamp(S.knifeKeep, 1, rb.U);
+        renderSay();
+        praise("한 칼 성공!");
+      } else {
+        winRibbon();
+      }
+    } else {
+      failRibbon(currentMisId());
+    }
+  }
+
+  function doUnfold() {
+    const rb = S.rb;
+    if (!rb || rb.unfolded) return;
+    rb.unfolded = true;
+    rb.squash.y = 0.55;
+    rb.squash.x = 1.25;
+    sfxCancel();
+    praise("가분수로 폈어요");
+    renderSay();
+  }
+
+  function doCancel() {
+    const rb = S.rb;
+    if (!rb || rb.cancelled) return;
+    const it = rb.item;
+    if (!it.cancelFriendly) return;
+    let a = it.a, b = it.b, c = it.c, d = it.d;
+    const g1 = gcd(a, d); a /= g1; d /= g1;
+    const g2 = gcd(c, b); c /= g2; b /= g2;
+    if (b < 1) b = 1;
+    if (d < 1) d = 1;
+    const U = b * d;
+    if (U < 1 || U > 12) return;
+    const keep1 = a * d;
+    const keep2 = a * c;
+    if (!feq(reduce(keep2, U), it.correct)) return;
+    rb.cancelled = true;
+    rb.U = rb.stage === 0 ? U : keep1;
+    rb.origU = U;
+    rb.finalKeep = keep2;
+    rb.keep1 = keep1;
+    rb.keep2 = keep2;
+    if (rb.stage === 0) {
+      rb.keepTarget = keep1 >= U ? keep2 : keep1;
+      rb.group = d;
+      if (keep1 >= U) {
+        rb.stage = 1;
+        rb.U = U;
+        rb.keepTarget = keep2;
+        rb.group = 1;
+      }
+    } else {
+      rb.keepTarget = keep2;
+      rb.U = keep1;
+    }
+    sfxCancel();
+    burst(rb.L.x, rb.L.top + 40, REDUCE ? 8 : 14, "#FFE27A", true);
+    rb.L = layoutRibbon({ U: rb.U });
+    S.knifeKeep = clamp(S.knifeKeep, 1, rb.U);
+    praise("싹약분!");
+    renderSay();
+  }
+
+  function endGame(title) {
+    S.phase = "result";
+    $("hud").classList.add("hidden");
+    $("say").classList.add("hidden");
+    $("ctrl").classList.add("hidden");
+    $("est").classList.add("hidden");
+    $("over").classList.remove("hidden");
+    $("overTitle").textContent = title || "오늘은 여기까지";
+    const best = Math.max(S.score, parseInt(localStorage.getItem(LS_BEST) || "0", 10) || 0);
+    localStorage.setItem(LS_BEST, String(best));
+    localStorage.setItem(LS_COMBO, String(Math.max(S.maxCombo, parseInt(localStorage.getItem(LS_COMBO) || "0", 10) || 0)));
+    const day = new Date().toISOString().slice(0, 10);
+    try {
+      const d = JSON.parse(localStorage.getItem(LS_DAILY) || "{}");
+      if (d.date !== day) { d.date = day; d.n = 0; d.streak = (d.last === yesterday(day) ? (d.streak || 0) + 1 : 1); d.last = day; }
+      d.n = (d.n || 0) + S.solved;
+      localStorage.setItem(LS_DAILY, JSON.stringify(d));
+    } catch (e) {}
+    $("overSolved").textContent = String(S.solved);
+    $("overCombo").textContent = String(S.maxCombo);
+    const stars = S.solved >= 12 || S.maxCombo >= 8 ? 3 : S.solved >= 6 || S.maxCombo >= 5 ? 2 : S.solved >= 2 ? 1 : 0;
+    const si = $("stars").querySelectorAll("i");
+    si.forEach((el, i) => {
+      el.classList.remove("pop");
+      setTimeout(() => { if (i < stars) el.classList.add("pop"); }, 180 + i * 160);
+    });
+    let shown = 0;
+    const tgt = S.score;
+    const step = () => {
+      shown = Math.min(tgt, shown + Math.max(1, (tgt - shown) * 0.18 | 0) + 3);
+      $("overScore").textContent = String(shown);
+      if (shown < tgt) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    refreshBest();
+  }
+  function yesterday(iso) {
+    const d = new Date(iso + "T12:00:00+09:00");
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function startPlay(fromTest) {
+    S.phase = "playing";
+    S.score = 0; S.displayScore = 0; S.lives = 3; S.combo = 0; S.maxCombo = 0;
+    S.solved = 0; S.stall = 1; S.timeLeft = SESSION; S.used = new Set();
+    S.pieces = []; S.parts = []; S.shake = 0; S.flash = 0; S.freeze = 0;
+    S.pendingEst = false; S.skipTut = !!fromTest;
+    $("title").classList.remove("is-on");
+    $("title").setAttribute("aria-hidden", "true");
+    $("onb").classList.add("hidden");
+    $("over").classList.add("hidden");
+    $("est").classList.add("hidden");
+    $("hud").classList.remove("hidden");
+    $("say").classList.remove("hidden");
+    $("ctrl").classList.remove("hidden");
+    hearts(); setCombo(); punchScore();
+    spawn(fromTest ? pickItem() : undefined);
+  }
+
+  function refreshBest() {
+    const b = parseInt(localStorage.getItem(LS_BEST) || "0", 10) || 0;
+    const pill = $("bestPill");
+    if (b > 0) { pill.hidden = false; pill.textContent = "최고 " + b + "점"; }
+    else pill.hidden = true;
+  }
+
+  // ---------- onboarding
+  const ONB = [
+    { t: "리본을 끌어 칼 놓기", b: "세로 리본을 위아래로 끌면 칼이 칸에 붙어요. 아래쪽이 남는 조각이에요." },
+    { t: "한 칼로 아래만 남기기", b: "손을 떼거나 '한 칼!'을 누르면 윗부분은 버리고, 아래만 상자에 넣어요." },
+    { t: "둘째는 남은 것의 분수", b: "두 번째 칼은 처음 전체가 아니라 남은 조각의 분수예요. 90초 동안 한 칼, 두 칼, 펼치기가 차례로 나와요. 자석 강함은 칸마다 붙고, 약함은 눈금 한가운데에서만 붙어요." },
+  ];
+  let onbI = 0;
+  function showOnb(i) {
+    onbI = i;
+    $("onb").classList.remove("hidden");
+    $("title").classList.remove("is-on");
+    $("onbNum").textContent = (i + 1) + "/3";
+    $("onbTitle").textContent = ONB[i].t;
+    $("onbBody").textContent = ONB[i].b;
+    $("onbDiff").classList.toggle("hidden", i !== 2);
+    $("onbNext").textContent = i === 2 ? "해볼게요" : "다음";
+    const hole = $("onbHole");
+    const colW = Math.min(innerWidth, 640);
+    const x = (innerWidth - colW) / 2 + colW * 0.35;
+    if (i === 0) { hole.style.cssText = "left:" + x + "px;top:28%;width:" + (colW * 0.3) + "px;height:42%"; }
+    else if (i === 1) { hole.style.cssText = "left:" + (x - 20) + "px;top:62%;width:" + (colW * 0.38) + "px;height:18%"; }
+    else { hole.style.cssText = "left:" + (innerWidth / 2 - 90) + "px;top:12%;width:180px;height:70px"; }
+    $("onbCard").style.top = i === 2 ? "52%" : "18%";
+  }
+
+  // ---------- input
+  const ptr = { on: false, x: 0, y: 0, moved: 0, lastKeep: 0 };
+  function pt(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+  }
+  function yToKeep(y) {
+    const rb = S.rb; if (!rb) return 1;
+    const L = rb.L;
+    const cellH = (L.bot - L.top) / rb.U;
+    const raw = (L.bot - y) / cellH;
+    const nearest = Math.round(raw);
+    const dist = Math.abs(raw - nearest);
+    const magnet = S.easy ? 0.5 : 0.18;
+    if (dist <= magnet) return clamp(nearest, 1, rb.U);
+    return S.knifeKeep;
+  }
+  function onRibbon(p) {
+    const rb = S.rb; if (!rb) return false;
+    const L = rb.L;
+    return p.x > L.x - L.w * 1.6 && p.x < L.x + L.w * 1.8 && p.y > L.top - 24 && p.y < L.bot + 24;
+  }
+  function onKnotSwipe(p) {
+    // 교차 약분: 프롬프트 카드 영역을 대각선으로 긋기
+    const top = 96, bot = 200;
+    return p.y > top && p.y < bot;
+  }
+
+  cv.addEventListener("pointerdown", (e) => {
+    if (S.phase !== "playing") return;
+    unlock();
+    const p = pt(e);
+    ptr.on = true; ptr.x = p.x; ptr.y = p.y; ptr.moved = 0; ptr.lastKeep = S.knifeKeep;
+    if (S.rb && S.rb.item.cancelFriendly && !S.rb.cancelled && onKnotSwipe(p)) S.swipe = { x: p.x, y: p.y };
+    e.preventDefault();
+  }, { passive: false });
+  cv.addEventListener("pointermove", (e) => {
+    if (!ptr.on || S.phase !== "playing") return;
+    const p = pt(e);
+    ptr.moved += Math.abs(p.y - ptr.y) + Math.abs(p.x - ptr.x);
+    ptr.x = p.x; ptr.y = p.y;
+    if (S.rb && onRibbon(p)) {
+      const k = yToKeep(p.y);
+      if (k !== S.knifeKeep) { S.knifeKeep = k; sfxTick(k); }
+      S.trail.push({ x: S.rb.L.x + S.rb.L.w * 0.55, y: p.y, a: 1 });
+      if (S.trail.length > 14) S.trail.shift();
+    }
+  }, { passive: false });
+  function ptrUp(e) {
+    if (!ptr.on) return;
+    ptr.on = false;
+    if (S.phase !== "playing") return;
+    if (S.swipe && S.rb && !S.rb.cancelled) {
+      const p = e ? pt(e) : { x: ptr.x, y: ptr.y };
+      const dx = p.x - S.swipe.x, dy = p.y - S.swipe.y;
+      if (Math.hypot(dx, dy) > 36 && Math.abs(dx) > 18 && Math.abs(dy) > 12) doCancel();
+      S.swipe = null;
+      return;
+    }
+    S.swipe = null;
+    if (ptr.moved > 10 && S.rb && onRibbon({ x: ptr.x, y: ptr.y })) doCut();
+  }
+  cv.addEventListener("pointerup", ptrUp);
+  cv.addEventListener("pointercancel", ptrUp);
+
+  $("cutBtn").onclick = () => { unlock(); doCut(); };
+  $("unfoldBtn").onclick = () => { unlock(); doUnfold(); };
+  $("muteBtn").onclick = () => { unlock(); toggleMute(); };
+  $("titleMute").onclick = () => { unlock(); toggleMute(); };
+  $("startBtn").onclick = () => {
+    unlock();
+    $("startBtn").classList.add("is-pressed");
+    setTimeout(() => $("startBtn").classList.remove("is-pressed"), 160);
+    if (localStorage.getItem(LS_ONB)) startPlay(false);
+    else showOnb(0);
+  };
+  $("howtoBtn").onclick = () => { unlock(); showOnb(0); };
+  $("onbNext").onclick = () => {
+    if (onbI < 2) showOnb(onbI + 1);
+    else {
+      localStorage.setItem(LS_ONB, "1");
+      $("onb").classList.add("hidden");
+      startPlay(false);
+    }
+  };
+  $("diffEasy").onclick = () => { S.easy = true; localStorage.setItem(LS_EASY, "1"); $("diffEasy").classList.add("on"); $("diffHard").classList.remove("on"); };
+  $("diffHard").onclick = () => { S.easy = false; localStorage.setItem(LS_EASY, "0"); $("diffHard").classList.add("on"); $("diffEasy").classList.remove("on"); };
+  $("retryBtn").onclick = () => { unlock(); startPlay(false); };
+  $("est").addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    const v = parseInt(b.getAttribute("data-v"), 10);
+    $("est").classList.add("hidden");
+    S.phase = "playing";
+    if (v === S.estCmp) {
+      S.score += 50; // 정답 보상만, 오답 칩은 점수 유지
+      punchScore();
+      praise("설명 별!");
+      toast(S.estCmp < 0 ? "1보다 작은 수를 곱해서 작아져요" : S.estCmp > 0 ? "1보다 큰 수를 곱해서 커져요" : "1을 곱해서 같아요", "good");
+    } else {
+      toast("처음 수와 곱하는 수가 1보다 큰지 작은지 봐요", "bad");
+    }
+    S.pendingEst = false;
+    spawn();
+  });
+
+  addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    if (e.key === "r" || e.key === "R") {
+      if (S.phase === "result" || S.phase === "playing") startPlay(false);
+    }
+    if (S.phase !== "playing" || !S.rb) return;
+    if (e.key === "ArrowUp") { S.knifeKeep = clamp(S.knifeKeep + 1, 1, S.rb.U); sfxTick(S.knifeKeep); }
+    if (e.key === "ArrowDown") { S.knifeKeep = clamp(S.knifeKeep - 1, 1, S.rb.U); sfxTick(S.knifeKeep); }
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); doCut(); }
+    if (e.key === "x" || e.key === "X") doCancel();
+    if (e.key === "e" || e.key === "E") doUnfold();
+  });
+
+  // ---------- render helpers
+  function rr(c, x, y, w, h, r) {
+    c.beginPath();
+    if (c.roundRect) c.roundRect(x, y, w, h, r);
+    else { c.rect(x, y, w, h); }
+  }
+  function drawFrac(c, n, d, x, y, size, col, bg) {
+    if (bg) {
+      rr(c, x - size * 0.7, y - size * 0.85, size * 1.4, size * 1.7, 10);
+      c.fillStyle = bg; c.fill();
+      c.lineWidth = 2.5; c.strokeStyle = "#111"; c.stroke();
+    }
+    c.fillStyle = col;
+    c.font = "900 " + size + "px -apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    if (d === 1) {
+      c.fillText(String(n), x, y);
+      return;
+    }
+    c.fillText(String(n), x, y - size * 0.42);
+    c.strokeStyle = col;
+    c.lineWidth = Math.max(3, size * 0.1);
+    c.beginPath();
+    c.moveTo(x - size * 0.48, y);
+    c.lineTo(x + size * 0.48, y);
+    c.stroke();
+    c.fillText(String(d), x, y + size * 0.48);
+  }
+  function drawSquirrel(c, x, y, s) {
+    // fallback mascot — big eyes readable at game size
+    c.save();
+    c.translate(x, y); c.scale(s, s);
+    c.fillStyle = "#e8893a";
+    c.beginPath(); c.ellipse(0, 8, 28, 32, 0, 0, 6.3); c.fill();
+    c.fillStyle = "#fff3d6";
+    c.beginPath(); c.ellipse(0, 14, 16, 18, 0, 0, 6.3); c.fill();
+    c.fillStyle = "#e8893a";
+    c.beginPath(); c.ellipse(-22, -22, 10, 14, -0.4, 0, 6.3); c.fill();
+    c.beginPath(); c.ellipse(18, -24, 9, 13, 0.3, 0, 6.3); c.fill();
+    c.fillStyle = "#fff";
+    c.beginPath(); c.ellipse(-8, -4, 9, 10, 0, 0, 6.3); c.fill();
+    c.beginPath(); c.ellipse(8, -4, 9, 10, 0, 0, 6.3); c.fill();
+    c.fillStyle = "#111";
+    c.beginPath(); c.ellipse(-7, -3, 3.2, 3.6, 0, 0, 6.3); c.fill();
+    c.beginPath(); c.ellipse(9, -3, 3.2, 3.6, 0, 0, 6.3); c.fill();
+    c.fillStyle = "#8b4a22";
+    c.fillRect(22, -18, 8, 22);
+    c.fillStyle = "#c47a3a";
+    c.fillRect(18, -22, 16, 6);
+    c.restore();
+  }
+
+  function draw() {
+    const c = ctx;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+    if (S.shake > 0 && S.phase === "playing") {
+      c.save();
+      c.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake * 0.6);
+    }
+    // background
+    if (IM.bg) {
+      const iw = IM.bg.width, ih = IM.bg.height;
+      const sc = Math.max(W / iw, H / ih);
+      c.drawImage(IM.bg, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+    } else {
+      const g = c.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, "#7ec8ff"); g.addColorStop(0.45, "#FFE27A"); g.addColorStop(1, "#e8a020");
+      c.fillStyle = g; c.fillRect(0, 0, W, H);
+    }
+    // wide gutters
+    const colW = Math.min(W, 640);
+    const colX = (W - colW) / 2;
+    if (W > 720) {
+      c.fillStyle = "rgba(30,12,8,0.18)";
+      c.fillRect(0, 0, colX, H);
+      c.fillRect(colX + colW, 0, W - colX - colW, H);
+    }
+    // ambient motes
+    for (const m of S.motes) {
+      c.globalAlpha = 0.25 + 0.35 * Math.sin(m.p);
+      c.fillStyle = "#fff6c2";
+      c.beginPath(); c.arc(m.x, m.y, m.r, 0, 6.3); c.fill();
+    }
+    c.globalAlpha = 1;
+
+    if (S.phase === "playing" || S.phase === "estimate" || S.phase === "result") {
+      const rb = S.rb;
+      if (rb) drawRibbon(c, rb);
+      drawBox(c, rb);
+      for (const p of S.pieces) drawPiece(c, p);
+      // trail
+      for (let i = 0; i < S.trail.length; i++) {
+        const t = S.trail[i];
+        c.globalAlpha = (i / S.trail.length) * 0.45;
+        c.fillStyle = "#1F4FD8";
+        c.beginPath(); c.arc(t.x, t.y, 4, 0, 6.3); c.fill();
+      }
+      c.globalAlpha = 1;
+      if (rb) drawKnife(c, rb);
+      drawHero(c);
+      for (const p of S.parts) {
+        c.save();
+        c.globalAlpha = clamp(p.life / p.max, 0, 1);
+        c.translate(p.x, p.y); c.rotate(p.rot);
+        c.fillStyle = p.col;
+        rr(c, -p.r, -p.r * 0.4, p.r * 2, p.r * 0.8, 2); c.fill();
+        c.restore();
+      }
+    }
+
+    if (S.flash > 0) {
+      c.globalAlpha = S.flash * 0.45;
+      c.fillStyle = S.flashCol;
+      c.fillRect(0, 0, W, H);
+      c.globalAlpha = 1;
+    }
+    if (S.shake > 0 && S.phase === "playing") c.restore();
+  }
+
+  function drawRibbon(c, rb) {
+    const L = rb.L;
+    const sway = Math.sin(clock * 2.1) * (REDUCE ? 0.5 : 2.0);
+    const x = L.x + sway;
+    const top = L.top, bot = L.bot, w = L.w, U = rb.U;
+    const cellH = (bot - top) / U;
+    const sqx = rb.squash.x, sqy = rb.squash.y;
+    c.save();
+    c.translate(x, (top + bot) / 2);
+    c.scale(sqx, sqy);
+    c.translate(-x, -(top + bot) / 2);
+    // hook
+    c.strokeStyle = "#111"; c.lineWidth = 4;
+    c.beginPath(); c.arc(x, top - 10, 10, 0.2, Math.PI - 0.2); c.stroke();
+    c.fillStyle = "#c9a227";
+    c.fillRect(x - 4, top - 22, 8, 14);
+    const grp = Math.max(1, rb.group);
+    for (let i = 0; i < U; i++) {
+      const y2 = bot - i * cellH;
+      const y1 = y2 - cellH;
+      const gi = Math.floor(i / grp);
+      const cherry = gi % 2 === 0;
+      c.fillStyle = cherry ? "#FF4B7A" : "#ff7a9c";
+      rr(c, x - w / 2, y1 + 1, w, cellH - 2, 4);
+      c.fill();
+      c.strokeStyle = "#111"; c.lineWidth = 2; c.stroke();
+      // cream stripe
+      c.fillStyle = "rgba(255,246,232,0.35)";
+      c.fillRect(x - w / 2 + 6, y1 + 4, 5, cellH - 8);
+    }
+    // group ticks thicker
+    c.strokeStyle = "#111";
+    for (let g = 0; g <= U; g += grp) {
+      const y = bot - g * cellH;
+      c.lineWidth = 3.5;
+      c.beginPath(); c.moveTo(x - w / 2 - 8, y); c.lineTo(x + w / 2 + 8, y); c.stroke();
+    }
+    // temptation ticks
+    const tempts = (rb.item.tempt || []).filter((t) => (t.stage == null || t.stage === rb.stage) && t.keep >= 1 && t.keep < U);
+    for (const t of tempts) {
+      const y = bot - t.keep * cellH;
+      c.setLineDash([5, 4]);
+      c.strokeStyle = "rgba(31,79,216,0.55)";
+      c.lineWidth = 2;
+      c.beginPath(); c.moveTo(x - w / 2 - 14, y); c.lineTo(x + w / 2 + 14, y); c.stroke();
+      c.setLineDash([]);
+    }
+    // ghost correct (easy hint)
+    if (rb.hinted) {
+      const y = bot - rb.keepTarget * cellH;
+      c.setLineDash([7, 5]);
+      c.strokeStyle = "#1F4FD8";
+      c.lineWidth = 4;
+      c.beginPath(); c.moveTo(x - w / 2 - 18, y); c.lineTo(x + w / 2 + 18, y); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = "rgba(31,79,216,0.18)";
+      c.fillRect(x - w / 2, y, w, bot - y);
+    }
+    // keep numbers on groups
+    c.fillStyle = "#111";
+    c.font = "900 " + Math.max(12, Math.min(16, cellH * 0.42)) + "px sans-serif";
+    c.textAlign = "left";
+    c.textBaseline = "middle";
+    for (let g = grp; g <= U; g += grp) {
+      const y = bot - g * cellH + cellH * grp / 2;
+      rr(c, x + w / 2 + 10, y - 11, 28, 22, 8);
+      c.fillStyle = "#FFF6E8"; c.fill();
+      c.strokeStyle = "#111"; c.lineWidth = 2; c.stroke();
+      c.fillStyle = "#111";
+      c.textAlign = "center";
+      c.fillText(String(g), x + w / 2 + 24, y + 1);
+    }
+    c.restore();
+    rb._x = x;
+  }
+
+  function drawKnife(c, rb) {
+    const L = rb.L;
+    const x = rb._x || L.x;
+    const cellH = (L.bot - L.top) / rb.U;
+    const y = lerp(L.bot - S.knifeShow * cellH, L.bot - S.knifeKeep * cellH, 0.35);
+    // wooden scraper
+    c.save();
+    c.translate(x + L.w / 2 + 6, y);
+    c.rotate(-0.15);
+    c.fillStyle = "#8b4a22";
+    rr(c, -8, -7, 46, 14, 3); c.fill();
+    c.strokeStyle = "#111"; c.lineWidth = 2; c.stroke();
+    c.fillStyle = "#d4a574";
+    rr(c, 28, -5, 10, 10, 2); c.fill();
+    c.restore();
+    // keep badge — 화면 폭 5%+ 굵은 분수
+    const size = Math.max(W * 0.055, 22);
+    const keep = S.knifeKeep;
+    const den = rb.U;
+    drawFrac(c, keep, den, x - L.w / 2 - size * 1.15, y, size, "#111", "#FFF6E8");
+    // '이 칸' 라벨 (색약 대비: 텍스트+도형)
+    c.font = "800 11px sans-serif";
+    c.fillStyle = "#1F4FD8";
+    c.textAlign = "center";
+    c.fillText("남김 " + keep + "칸", x - L.w / 2 - size * 1.15, y + size * 1.05);
+  }
+
+  function drawBox(c, rb) {
+    const bw = boxWidth();
+    const bh = 86;
+    const x = W / 2;
+    const y = rb ? rb.L.boxY : H - 160;
+    const skin = S.boxSkin;
+    const lid = skin === 3 ? ["#ff4b7a", "#FFE27A", "#1F4FD8", "#fff"] : skin === 2 ? "#c9a227" : skin === 1 ? "#ff8fb0" : "#1F4FD8";
+    const origU = rb ? (rb.origU || rb.item.U) : 10;
+    const finalKeep = rb ? rb.finalKeep : 4;
+    const mouthW = mapLen(finalKeep, origU, bw);
+    c.save();
+    rr(c, x - bw / 2, y, bw, bh, 14);
+    c.fillStyle = Array.isArray(lid) ? "#1F4FD8" : lid;
+    c.fill();
+    c.lineWidth = 3; c.strokeStyle = "#111"; c.stroke();
+    // length ticks: 상자 가로 = 원래 리본 칸 수
+    c.strokeStyle = "rgba(255,246,232,0.7)";
+    c.lineWidth = 1.5;
+    const unit = bw / Math.max(origU, 1);
+    for (let i = 0; i <= origU; i++) {
+      const tx = x - bw / 2 + i * unit;
+      c.beginPath();
+      c.moveTo(tx, y + bh - 6);
+      c.lineTo(tx, y + bh - (i === finalKeep ? 22 : 12));
+      c.stroke();
+    }
+    // mouth = 정답 조각 길이 (같은 눈금)
+    rr(c, x - mouthW / 2, y - 8, mouthW, 18, 7);
+    c.fillStyle = "#0a1638"; c.fill();
+    c.strokeStyle = "#FFE27A"; c.lineWidth = 3; c.stroke();
+    c.fillStyle = "#FFF6E8";
+    c.font = "900 12px sans-serif";
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText(finalKeep + "칸 입구", x, y + 24);
+    // star
+    c.fillStyle = "#FFE27A";
+    c.font = "900 28px sans-serif";
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText("★", x, y + bh * 0.58);
+    if (skin === 2) {
+      c.fillStyle = "rgba(255,226,122,0.5)";
+      c.fillRect(x - bw / 2 + 8, y + 10, bw - 16, 8);
+    }
+    if (rb) {
+      const f = rb.item.correct;
+      drawFrac(c, f.n, f.d, x + bw / 2 + 36, y + 32, Math.max(22, W * 0.05), "#111", "#FFF6E8");
+    }
+    c.restore();
+  }
+
+  function drawPiece(c, p) {
+    c.save();
+    c.translate(p.x, p.y + p.h / 2);
+    c.scale(p.sx, p.sy);
+    c.translate(0, -p.h / 2);
+    c.fillStyle = p.ok ? "#FF4B7A" : "#7a8aa8";
+    rr(c, -p.w / 2, 0, p.w, p.h, 6); c.fill();
+    c.strokeStyle = "#111"; c.lineWidth = 2; c.stroke();
+    c.restore();
+  }
+
+  function drawHero(c) {
+    const colW = Math.min(W, 640);
+    const colX = (W - colW) / 2;
+    const size = clamp(colW * 0.28, 110, 168); // ≥12–15% 화면폭, 실제로는 더 크게
+    const x = colX + size * 0.50 + 8;
+    const y = H - 70 - size * 0.35;
+    c.save();
+    c.beginPath();
+    c.arc(x, y, size * 0.48, 0, 6.3);
+    c.fillStyle = "#FFF6E8"; c.fill();
+    c.lineWidth = 3; c.strokeStyle = "#111"; c.stroke();
+    c.clip();
+    if (IM.hero) {
+      c.drawImage(IM.hero, x - size * 0.48, y - size * 0.5, size * 0.96, size * 0.96);
+    } else {
+      drawSquirrel(c, x, y + 6, size / 90);
+    }
+    c.restore();
+  }
+
+  // ---------- update
+  function update(dt) {
+    clock += dt;
+    if (S.displayScore < S.score) {
+      S.displayScore = Math.min(S.score, S.displayScore + Math.max(3, (S.score - S.displayScore) * 8 * dt));
+      $("scoreV").textContent = String(Math.round(S.displayScore));
+    }
+    if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 18);
+    if (S.flash > 0) S.flash = Math.max(0, S.flash - dt * 2.2);
+    S.knifeShow = lerp(S.knifeShow, S.knifeKeep, S.easy ? 0.45 : 0.22);
+    if (S.rb) {
+      S.rb.squash.x = lerp(S.rb.squash.x, 1, 0.12);
+      S.rb.squash.y = lerp(S.rb.squash.y, 1, 0.12);
+      // anticipation overshoot towards knife
+      const diff = S.knifeKeep - S.knifeShow;
+      if (Math.abs(diff) > 0.02) S.knifeShow += diff * (S.easy ? 0.5 : 0.25);
+    }
+    for (const t of S.trail) t.a -= dt * 3;
+    S.trail = S.trail.filter((t) => t.a > 0);
+    for (const p of S.parts) {
+      p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 420 * dt; p.rot += p.vr * dt;
+    }
+    S.parts = S.parts.filter((p) => p.life > 0);
+    for (const p of S.pieces) {
+      p.t += dt;
+      const boxY = (S.rb ? S.rb.L.boxY : H - 150);
+      if (p.ok) {
+        p.vy += 900 * dt;
+        p.y += p.vy * dt;
+        if (p.y + p.h > boxY + 8) {
+          p.y = boxY + 8 - p.h;
+          p.vy *= -0.25;
+          p.sx = 1.25; p.sy = 0.72;
+        }
+        p.sx = lerp(p.sx, 1, 0.12);
+        p.sy = lerp(p.sy, 1, 0.12);
+      } else if (p.oversize) {
+        p.vy += 760 * dt;
+        p.y += p.vy * dt;
+        if (p.y + p.h > boxY - 6) {
+          p.y = boxY - 6 - p.h;
+          p.vy *= -0.12;
+          p.x += (p.x < W / 2 ? -1 : 1) * 40 * dt;
+          p.sx = 1.18; p.sy = 0.78;
+        }
+      } else if (p.undersize) {
+        p.vy += 980 * dt;
+        p.y += p.vy * dt;
+        p.sx = 0.88; p.sy = 1.12;
+      } else {
+        p.x += 90 * dt;
+        p.vy += 700 * dt;
+        p.y += p.vy * dt;
+        p.sx = 1.1; p.sy = 0.85;
+      }
+    }
+    S.pieces = S.pieces.filter((p) => p.t < 1.2);
+    for (const m of S.motes) {
+      m.y -= m.sp * dt; m.p += dt * 2;
+      if (m.y < -8) { m.y = H + 8; m.x = Math.random() * W; }
+    }
+    if (S.phase === "playing" && !S.pendingEst) {
+      S.timeLeft -= dt;
+      $("timerP").textContent = String(Math.max(0, Math.ceil(S.timeLeft)));
+      if (S.timeLeft <= 0) endGame("시간 끝!");
+    }
+  }
+
+  function resize() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = (W * dpr) | 0; cv.height = (H * dpr) | 0;
+    cv.style.width = W + "px"; cv.style.height = H + "px";
+    if (S.rb) S.rb.L = layoutRibbon({ U: S.rb.U });
+  }
+  addEventListener("resize", resize);
+
+  function loop(ts) {
+    if (!lastT) lastT = ts;
+    const real = Math.min(0.05, (ts - lastT) / 1000);
+    lastT = ts;
+    if (S.freeze > 0) S.freeze -= real;
+    else update(real * (REDUCE ? 1 : S.timeScale));
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ambient seeds
+  for (let i = 0; i < (REDUCE ? 6 : 10); i++) S.motes.push({ x: Math.random() * 400, y: Math.random() * 800, r: 1.5 + Math.random() * 2.5, sp: 8 + Math.random() * 16, p: Math.random() * 6 });
+
+  function sampleProblems(n) {
+    n = Math.max(0, n | 0);
+    const src = shuffle(POOL);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const p = src[i % src.length];
+      if (p.kind === "estimate") {
+        out.push({
+          id: p.id + "-" + i,
+          prompt: p.prompt,
+          choices: p.choicesStr.slice(),
+          answer: p.answerStr,
+          answerNumeric: p.answerNumeric,
+          unitConcept: p.unitConcept,
+        });
+      } else {
+        const ch = shuffle(p.choicesFrac.slice());
+        out.push({
+          id: p.id + "-" + i,
+          prompt: p.prompt,
+          choices: ch.map(fstr),
+          answer: fstr(p.correct),
+          answerNumeric: p.correct.n / p.correct.d,
+          unitConcept: p.unitConcept,
+        });
+      }
+    }
+    return out;
+  }
+
+  window.__GAME_TEST__ = {
+    ready: false,
+    start() { unlock(); startPlay(true); },
+    getState() {
+      return { score: S.score, lives: S.lives, level: S.stall, phase: S.phase, solved: S.solved };
+    },
+    answerCorrect() {
+      if (S.phase === "title" || S.phase === "onboard" || S.phase === "result") startPlay(true);
+      if (S.phase === "estimate") {
+        S.score += 50; $("est").classList.add("hidden"); S.phase = "playing"; S.pendingEst = false;
+        if (!S.rb) spawn();
+        return;
+      }
+      if (!S.rb) spawn();
+      if (S.rb && S.rb.item.needsUnfold && !S.rb.unfolded) S.rb.unfolded = true;
+      winRibbon();
+    },
+    answerWrong() {
+      if (S.phase === "title" || S.phase === "onboard" || S.phase === "result") startPlay(true);
+      if (S.phase === "estimate") {
+        $("est").classList.add("hidden"); S.phase = "playing"; S.pendingEst = false;
+      }
+      if (!S.rb) spawn();
+      S.easy = false; // 훅은 즉시 목숨 변화
+      if (S.rb) S.rb.hinted = true;
+      failRibbon(MIS.OF_WHOLE);
+    },
+    sampleProblems,
+    _poolView(id) {
+      const p = POOL.find((x) => x.id === id);
+      return p ? { id: p.id, U: p.U, keep1: p.keep1, keep2: p.keep2 } : null;
+    },
+    _spawnId(id) {
+      const p = PLAY_POOL.find((x) => x.id === id) || POOL.find((x) => x.id === id);
+      if (!p) return false;
+      S.phase = "playing";
+      spawn(p);
+      return true;
+    },
+    _cancel() { doCancel(); return true; },
+    _ribbon() {
+      const rb = S.rb;
+      if (!rb) return null;
+      return {
+        U: rb.U, origU: rb.origU, keep1: rb.keep1, keep2: rb.keep2, finalKeep: rb.finalKeep,
+        itemU: rb.item.U, itemKeep1: rb.item.keep1, itemKeep2: rb.item.keep2, cancelled: rb.cancelled,
+      };
+    },
+  };
+
+  resize();
+  syncMute();
+  refreshBest();
+  window.__GAME_TEST__.ready = true;
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
