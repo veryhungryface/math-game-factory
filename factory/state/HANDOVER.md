@@ -1,7 +1,22 @@
 # 인수인계 — 현재 상태 (갱신형 문서)
 
-> 마지막 갱신: 2026-08-27. 운영 규약은 `docs/OPERATIONS.md`.
+> 마지막 갱신: 2026-08-28. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
+
+## 2026-08-28 — grok 402 4연속 사망 → 빌드 codex 자동 폴백 도입
+- **사고**: 8/27 20:14 이후 4회차(mirror-vault·mirror-falls·glass-star-theater·lightfold-forge)가 전부 빌드 단계에서 `402 Payment Required: Grok Build usage balance exhausted`로 사망. `resolve_runner()`는 **바이너리 존재만** 확인해서(grok CLI는 살아 있음) 폴백이 발동하지 않았다. 8/28 실측에서도 grok은 여전히 402.
+- **수정 1 — 결과 기반 폴백**: `run.sh` 5단계가 빌드 실행 결과를 검사한다 — 비정상 종료(rc≠0)·로그에 402/Payment Required/usage balance exhausted·index.html 미생성이면 **codex(`$CODEX_MODEL_SMART`=sol)로 1회 폴백 재시도**. 발동 시 로그·리포트에 "grok 402 → codex 폴백"이 남는다. 원 러너가 이미 codex 계열이면 재시도하지 않는다.
+- **수정 2 — 빌드 실패 장부 기입**: 빌드 사망 회차가 queue.json failed에 안 남던 버그를 고쳤다. 폐기 단계의 인라인 node를 `record_failed()` 헬퍼로 분리하고 빌드 실패 경로도 이를 거친다(사유는 `reason` 필드).
+- **잔해 정리**: 고아 아트 폴더 4개(`public/g/{mirror-vault,mirror-falls,glass-star-theater,lightfold-forge}`, 미추적) 삭제, queue.json failed에 4회차 소급 기입. `verify-catalog.mjs` ✅ 20작 정합.
+- **검증**: 스텁(grok=402, codex=성공/실패)으로 폴백 분기 양쪽을 실주행 확인 — 폴백 성공 시 사이클 계속+리포트 표기, 폴백 실패 시 장부 기입+실패 보고.
+- **남은 일**: grok 잔액 충전되면 자동으로 grok 우선 복귀(코드 변경 불요). 충전 전까지는 매 회차 폴백으로 codex sol이 빌드한다.
+
+## 2026-08-27 — 겹쳐딱(overlay-snap) 재검수 수정
+- 첫 검수 58점·즉시폐기. `must_fix` 6건 전부 반영 (`factory/work/fix.json`).
+- 수학: 평행사변형 밑변=실제 변 길이, 문장 넓이===shoelace. 마름모·직사각형 배제 + 옆변 명기. `sampleProblems` 고유 116문항 독립 검산 0오류.
+- 게임: claim은 접기 반사 애니메이션으로 판정. 쉬움 자동포개기는 1회 조작 이내. 모눈 대응점 완성 웨이브 추가.
+- 레이아웃: 모바일 라벨 1~2개·충돌 회피, 마스코트 확대, 착! 하단.
+- QA: 40/40, 치명적 결함 0. 재검수 대기.
 
 ## 2026-08-27 — 두 번 잘라(twice-cut) 재검수 수정
 - 첫 검수 79점·즉시폐기. `must_fix` 4건 전부 반영 (`factory/work/fix.json`).
