@@ -72,7 +72,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
 #say .sub{display:block;margin-top:2px;font-size:12px;font-weight:800;color:#5a3a20}
 
 #ctrl{position:fixed;left:var(--colX);width:var(--colW);bottom:0;z-index:4;
-  padding:8px 10px calc(10px + var(--safeB));display:flex;flex-direction:column;gap:7px}
+  padding:8px 10px calc(14px + var(--safeB));display:flex;flex-direction:column;gap:7px}
 .bar{display:flex;gap:7px}
 .btn{pointer-events:auto;min-height:60px;border-radius:18px;cursor:pointer;font-family:inherit;
   font-size:18px;font-weight:900;color:#3b1907;display:flex;align-items:center;justify-content:center;
@@ -242,7 +242,7 @@ html.land #ctrl{left:50%;width:min(560px,calc(var(--stageW)*0.46));transform:tra
   #contract{font-size:10px;padding:4px 7px}
   #say{top:calc(84px + var(--safeT))}
   #say .say-card{font-size:14px;padding:7px 10px 8px}
-  #ctrl{padding:6px 8px calc(8px + var(--safeB))}
+  #ctrl{padding:6px 8px calc(13px + var(--safeB))}
   .btn{min-height:56px}
 }
 @media (orientation:landscape),(min-aspect-ratio:1/1){
@@ -1498,12 +1498,12 @@ html.land #ctrl{left:50%;width:min(560px,calc(var(--stageW)*0.46));transform:tra
     c.textBaseline = "middle";
     for (let g = grp; g <= U; g += grp) {
       const y = bot - g * cellH + cellH * grp / 2;
-      rr(c, x + w / 2 + 10, y - 11, 28, 22, 8);
+      rr(c, x + w / 2 + 15, y - 11, 28, 22, 8);
       c.fillStyle = "#FFF6E8"; c.fill();
       c.strokeStyle = "#111"; c.lineWidth = 2; c.stroke();
       c.fillStyle = "#111";
       c.textAlign = "center";
-      c.fillText(String(g), x + w / 2 + 24, y + 1);
+      c.fillText(String(g), x + w / 2 + 29, y + 1);
     }
     c.restore();
     rb._x = x;
@@ -1530,10 +1530,22 @@ html.land #ctrl{left:50%;width:min(560px,calc(var(--stageW)*0.46));transform:tra
     const den = rb.U;
     drawFrac(c, keep, den, x - L.w / 2 - size * 1.15, y, size, "#111", "#FFF6E8");
     // '이 칸' 라벨 (색약 대비: 텍스트+도형)
-    c.font = "800 11px sans-serif";
+    // 천막 줄무늬/분홍 기둥 위에서 저대비로 겹치지 않도록 배경판을 깔고 위치를 가둔다
+    const label = "남김 " + keep + "칸";
+    c.font = "800 11px -apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+    const tw = c.measureText(label).width;
+    const plateW = tw + 12, plateH = 17;
+    let lx = x - L.w / 2 - size * 1.15;
+    lx = Math.max(4 + plateW / 2, lx);                 // 화면 왼쪽 밖으로 나가지 않게
+    lx = Math.min(x - L.w / 2 - 6 - plateW / 2, lx);   // 분홍 기둥을 침범하지 않게
+    const ly = y + size * 1.05;
+    rr(c, lx - plateW / 2, ly - plateH / 2, plateW, plateH, 8);
+    c.fillStyle = "#FFF6E8"; c.fill();
+    c.strokeStyle = "#111"; c.lineWidth = 2; c.stroke();
     c.fillStyle = "#1F4FD8";
     c.textAlign = "center";
-    c.fillText("남김 " + keep + "칸", x - L.w / 2 - size * 1.15, y + size * 1.05);
+    c.textBaseline = "middle";
+    c.fillText(label, lx, ly);
   }
 
   function drawBox(c, rb) {
@@ -1601,8 +1613,13 @@ html.land #ctrl{left:50%;width:min(560px,calc(var(--stageW)*0.46));transform:tra
     const colW = Math.min(W, 640);
     const colX = (W - colW) / 2;
     // land: 스테이지 좌하 존에 크게 (파노라마 좌측 존 활용)
-    const size = FIELD.land ? clamp(FIELD.w * 0.15, 120, 190) : clamp(colW * 0.28, 110, 168);
-    const x = FIELD.land ? FIELD.x + size * 0.55 + 24 : colX + size * 0.50 + 8;
+    const size = FIELD.land ? clamp(FIELD.w * 0.15, 120, 190) : clamp(colW * 0.26, 100, 156);
+    let x = FIELD.land ? FIELD.x + size * 0.55 + 24 : colX + size * 0.50 + 8;
+    if (!FIELD.land) {
+      // 파란 입구 HUD 왼쪽 외곽선을 덮지 않도록 오른쪽 한계를 두고, 화면 왼쪽도 지킨다
+      x = Math.min(x, W / 2 - boxWidth() / 2 - size * 0.48 - 6);
+      x = Math.max(x, size * 0.48 + 6);
+    }
     const y = H - 70 - size * 0.35;
     c.save();
     c.beginPath();
