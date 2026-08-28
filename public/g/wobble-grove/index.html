@@ -65,7 +65,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#e9a86b;color:var(--
 #say .say-card.pop{animation:sayPop .3s cubic-bezier(.2,1.7,.4,1)}
 @keyframes sayPop{0%{transform:scale(.96);opacity:.55}100%{transform:scale(1);opacity:1}}
 #say b{color:#a8341f}
-#say .sub{display:block;font-size:12.5px;font-weight:800;color:#6b4423;margin-top:4px}
+#say .sub{display:block;font-size:var(--subfs,12.5px);font-weight:800;color:#6b4423;margin-top:4px}
+#say .say-card.tight{padding:7px 13px 8px;line-height:1.34}
 
 /* ── 하단 컨트롤 ─────────────────────────── */
 #ctrl{position:fixed;left:var(--colX);width:var(--colW);bottom:0;z-index:4;
@@ -714,8 +715,10 @@ function computeLayout(){
   if(!L.land){
     L.colW=Math.min(vw,560); L.colX=(vw-L.colW)/2;
     L.hudH=112+safeT;
-    L.beamY=clamp(vh*0.255, L.hudH+96, 340);
-    L.tier0=L.beamY+Math.max(96,vh*0.11);
+    /* 가지는 지시문 카드(길면 4줄까지 간다) 아래에 오도록 내려 둔다 — 카드가 가지를 덮으면
+       열매가 허공에 매달린 것처럼 보인다. 열매 단은 줄을 짧게 해서 제자리를 지킨다. */
+    L.beamY=clamp(vh*0.30, L.hudH+128, 340);
+    L.tier0=L.beamY+Math.max(58,vh*0.07);
     L.tierGap=clamp(vh*0.062,46,72);
     L.rulerY=clamp(vh*0.585, L.tier0+L.tierGap*2+54, vh-236);
     L.ctrlTop=vh-clamp(vh*0.24,176,220);
@@ -743,6 +746,10 @@ function computeLayout(){
     L.fs=clamp(vw*0.02, 20, 28);
     L.tiltAmp=0.26; L.b0=0.20; L.b1=0.80;
   }
+  /* 숫자판(막대)을 눈금 위로 얼마나 띄울지 — 눈금·눈금선을 가리지 않게.
+     맨 아래 열매와 부딪히지 않는 만큼만 띄우고, 여유가 없으면 예전처럼 눈금에 걸친다. */
+  L.barH=L.land?36:32;
+  L.barLift=clamp(L.rulerY-L.barH/2-(L.tier0+L.tierGap*2+L.R)-8, 0, 26);
   document.documentElement.style.setProperty('--colW', L.colW+'px');
   document.documentElement.style.setProperty('--colX', L.colX+'px');
 }
@@ -947,13 +954,14 @@ function bakeRuler(){
     const x=L.x0+f.tick*step;
     g.strokeStyle='rgba(196,69,54,.6)'; g.lineWidth=2.2; g.setLineDash([4,4]);
     g.beginPath(); g.moveTo(x,y-28); g.lineTo(x,y+12); g.stroke(); g.setLineDash([]);
+    /* 이름표는 눈금 아래(숫자 아래)에 둔다 — 위에 두면 층 밖으로 잘리고 숫자판과 겹친다 */
     g.font='900 11.5px -apple-system,"Apple SD Gothic Neo",sans-serif';
-    const tx=clamp(x,52,vw-52), tw=g.measureText(f.label).width+14;
+    const tw=g.measureText(f.label).width+14, tx=clamp(x,tw/2+6,vw-tw/2-6);
     g.fillStyle='#fff4de'; g.strokeStyle='#c44536'; g.lineWidth=1.8;
-    g.beginPath(); g.roundRect(tx-tw/2,y-46,tw,18,9); g.fill(); g.stroke();
+    g.beginPath(); g.roundRect(tx-tw/2,y+38,tw,18,9); g.fill(); g.stroke();
     g.fillStyle='#a8341f';
     g.textAlign='center'; g.textBaseline='middle';
-    g.fillText(f.label,tx,y-36.5);
+    g.fillText(f.label,tx,y+47.5);
   }
 }
 function bakeAll(){ bakeBG(); bakeFruits(); bakeRuler(); }
@@ -1061,9 +1069,18 @@ const hud=$('hud'), sayEl=$('say'), ctrl=$('ctrl'), barRow=$('barRow'),
       laneWrap=$('laneWrap'), lanesEl=$('lanes'), reasonsEl=$('reasonsBox'), candsEl=$('cands'),
       nextBtn=$('nextBtn'), toastT=$('toastT'), logPanel=$('logPanel');
 let toastTimer=0;
+/* 알림 띠 자리 — 가지(수평 막대)와 열매 숫자를 가리지 않는 틈에 넣는다 */
+function placeToast(){
+  const h=toastT.offsetHeight||36;
+  const underBeam=L.beamY+(L.land?11:9)+5;      // 가지 바로 아래
+  const numSafe=L.tier0+L.R*0.15;               // 첫 단 열매 숫자 위
+  const low=(L.sayBottom||L.hudH)+6;
+  $('toast').style.top=clamp(numSafe-h, low, underBeam)+'px';
+}
 function toast(msg,kind,ms){
   toastT.className='t on'+(kind?' '+kind:'');
   toastT.innerHTML=msg;
+  placeToast();
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>{toastT.className='t'+(kind?' '+kind:'')},ms||1700);
 }
@@ -1105,14 +1122,31 @@ function showCtrl(which){
     $('biT').textContent=(S.phase==='reason')?'왜 그런지 위에서 골라 보세요':'12번 떨어뜨려 이론과 비교하는 중…';
   }
 }
+/* 지시문이 길어도 가지(수평 막대)를 덮지 않도록 글자 크기를 한 단계씩 줄여 맞춘다 */
+function fitSay(top){
+  const card=sayEl.querySelector('.say-card');
+  if(!card||sayEl.classList.contains('hidden'))return;
+  const avail=Math.max(54, L.beamY-top-16);
+  const base=L.land?(vh<520?13.5:16):15;
+  const ratios=[1,.94,.88,.84,.8];
+  for(let i=0;i<ratios.length;i++){
+    const fs=Math.round(base*ratios[i]*10)/10;
+    card.style.fontSize=fs+'px';
+    card.style.setProperty('--subfs',(Math.round((fs-2.4)*10)/10)+'px');
+    card.classList.toggle('tight', i>0);
+    if(card.offsetHeight<=avail) break;
+  }
+}
 function layoutSay(){
   const top=L.hudH+(L.land?2:6);
   sayEl.style.top=top+'px';
+  fitSay(top);
   const sh=sayEl.classList.contains('hidden')?56:(sayEl.getBoundingClientRect().height||56);
   const below=top+sh+10;
+  L.sayBottom=top+sh;
   $('reasonsBox').style.top=below+'px';
   logPanel.style.top=below+'px';
-  $('toast').style.top=Math.max(below,L.beamY-10)+'px';
+  placeToast();
 }
 
 /* 가능성 다섯 칸 길 — 말 표현이 1순위, 숫자/구간 캡션은 보조 */
@@ -1493,32 +1527,37 @@ function drawFruits(t){
 }
 function drawBar(){
   const px=tickX(S.barTick), y=L.rulerY;
+  const lift=L.barLift||0, cy=y-lift;                 // 숫자판 중심 (눈금 위로 띄운 만큼)
   ctx.save();
   for(const tr of barTrail){
     ctx.globalAlpha=Math.max(0,tr.life)*0.45;
     ctx.fillStyle='#ffd08a';
-    ctx.beginPath(); ctx.roundRect(tr.x-28,y-5,56,10,5); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(tr.x-28,cy-5,56,10,5); ctx.fill();
   }
   ctx.globalAlpha=1;
   if(S.dragging){ ctx.globalAlpha=0.55; ctx.fillStyle='#ffd08a';
-    ctx.beginPath(); ctx.roundRect(px-42,y-7,84,14,7); ctx.fill(); ctx.globalAlpha=1; }
-  const bw=L.land?Math.max(108,Math.min(148,vw*0.11)):Math.max(86,L.colW*0.24);
-  const bh=L.land?36:32;
+    ctx.beginPath(); ctx.roundRect(px-42,cy-7,84,14,7); ctx.fill(); ctx.globalAlpha=1; }
+  const bw=L.land?Math.max(108,Math.min(148,vw*0.11)):Math.max(78,L.colW*0.20);
+  const bh=L.barH||(L.land?36:32);
   const bx=clamp(px,L.colX+bw/2+3,L.colX+L.colW-bw/2-3);
-  const g=ctx.createLinearGradient(0,y-bh/2,0,y+bh/2);
+  // 띄웠으면 눈금을 정확히 가리키는 화살표를 아래로, 아니면 예전처럼 위로
+  ctx.fillStyle='#8a4b1e';
+  ctx.beginPath();
+  if(lift>6){ ctx.moveTo(px,y-3); ctx.lineTo(px-8,cy+bh/2-2); ctx.lineTo(px+8,cy+bh/2-2); }
+  else { ctx.moveTo(px,cy-bh/2-9); ctx.lineTo(px-8,cy-bh/2); ctx.lineTo(px+8,cy-bh/2); }
+  ctx.closePath(); ctx.fill();
+  const g=ctx.createLinearGradient(0,cy-bh/2,0,cy+bh/2);
   g.addColorStop(0,'#fff0bd'); g.addColorStop(.48,'#ffc94d'); g.addColorStop(1,'#d9962a');
   ctx.fillStyle=g; ctx.strokeStyle='#8a4b1e'; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.roundRect(bx-bw/2,y-bh/2,bw,bh,11); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(bx-bw/2,cy-bh/2,bw,bh,11); ctx.fill(); ctx.stroke();
   ctx.fillStyle='rgba(255,255,255,.55)';
-  ctx.beginPath(); ctx.roundRect(bx-bw/2+5,y-bh/2+4,bw-10,5,3); ctx.fill();
-  ctx.fillStyle='#8a4b1e';
-  ctx.beginPath(); ctx.moveTo(px,y-bh/2-9); ctx.lineTo(px-8,y-bh/2); ctx.lineTo(px+8,y-bh/2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(bx-bw/2+5,cy-bh/2+4,bw-10,5,3); ctx.fill();
   // 지금 고른 눈금 (막대 안에 크고 굵게)
   ctx.font=`900 ${L.land?26:Math.max(20,L.colW*0.058)}px -apple-system,"Apple SD Gothic Neo",sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.lineWidth=4; ctx.lineJoin='round'; ctx.strokeStyle='rgba(90,50,20,.9)';
-  ctx.strokeText(String(S.barTick),bx,y+1);
-  ctx.fillStyle='#fff8e4'; ctx.fillText(String(S.barTick),bx,y+1);
+  ctx.strokeText(String(S.barTick),bx,cy+1);
+  ctx.fillStyle='#fff8e4'; ctx.fillText(String(S.barTick),bx,cy+1);
   ctx.restore();
 }
 function drawBaskets(){
