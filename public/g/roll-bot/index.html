@@ -17,6 +17,11 @@
 :root{
   --ivory:#FFF7E6; --yellow:#F4B400; --cobalt:#1769AA; --tomato:#E64A35; --ink:#252525;
   --font:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  /* 판형 (docs/playfield-spec.md ③ 극장형) — JS Math.min(W,1360) 과 반드시 일치 */
+  --stageW:min(100vw,1360px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+  /* 좌측 존(주문판+상태칩) 좌표. layout() 이 land 에서 실제 px 로 덮어쓴다 */
+  --hudX:0px; --hudW:280px; --hudB:16px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#1b1a18;
@@ -40,6 +45,25 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   background:linear-gradient(#FFF3D4,#EBD09A);color:#5A3A08;font-size:19px;font-weight:900;
   box-shadow:0 3px 0 #A9803A,0 5px 10px rgba(0,0,0,.28);cursor:pointer;font-family:var(--font);}
 .iconbtn:active{transform:translateY(3px);box-shadow:0 0 0 #A9803A,0 2px 5px rgba(0,0,0,.25);}
+
+/* ───── 와이드 극장형 (playfield-spec ③, stageW 1360) ─────
+   좌 존 = 주문판 + 상태 칩(세로 스택), 중앙 = 전장+작업대, 우 존 = 돌림 축 + 재료 카드.
+   세로에서 화면 위를 가로지르던 HUD 띠를 좌측 존 하단으로 "옮겨" 전장을 세로로 넓힌다. */
+html.land #hud{
+  top:auto; right:auto; left:var(--hudX); bottom:var(--hudB); width:var(--hudW);
+  height:auto; flex-direction:column; align-items:stretch; gap:7px; padding:0;
+}
+html.land #hud .chip{justify-content:space-between;font-size:13px;padding:7px 12px;min-height:38px;}
+html.land #hud .chip b{font-size:21px;}
+html.land #hud .chip.hearts{justify-content:center;font-size:19px;}
+html.land #hud .spacer{display:none;}
+html.land #hud .iconbtn{align-self:flex-end;}
+@media (max-height:560px){
+  html.land #hud{gap:5px;}
+  html.land #hud .chip{min-height:31px;font-size:12px;padding:4px 10px;}
+  html.land #hud .chip b{font-size:17px;}
+  html.land #hud .chip.hearts{font-size:15px;}
+}
 
 /* ───── 주문판 ───── */
 #banner{position:fixed;z-index:15;pointer-events:none;border-radius:18px;
@@ -1647,10 +1671,11 @@ loadImg('hero','./assets/hero.png');
 /* ─────────────────────── 4. 레이아웃 ─────────────────────── */
 const cv=$('#cv'), ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1;
-const L={};       // 레이아웃 좌표
+const L={ks:1, kv:1, land:false}; // 레이아웃 좌표 (ks=가로·크기 배율, kv=세로·탄속 배율)
 const bgcv=$('#bgcv');   // 정적 배경 전용 레이어. 한 번만 굽고 브라우저가 합성한다.
 
 function recomputeStack(){
+  if(L.land){ recomputeStackLand(); return; }
   const used=L.hud+L.cardsH+L.buildH+L.bannerH+L.padBottom+6;
   L.fieldH=Math.max(120, H-used);
   if(H-used<120){
@@ -1670,15 +1695,42 @@ function recomputeStack(){
     L.shipY=L.padRowY-L.robotR*3.55;
   }
 }
+/* 극장형: 세로 스택이 아니라 좌/중앙/우 3존. 전장 높이는 배너 높이와 무관하다. */
+function recomputeStackLand(){
+  L.fieldBottom=L.fieldTop+L.fieldH;
+  L.padRowY=L.fieldBottom-Math.round(clamp(L.fieldH*0.11,34,54*L.ks));
+  /* 세로 진격 거리 배율 — 탄속을 이 배율로 키우면 "탄이 적에게 닿는 데 걸리는 시간"이
+     세로폰(390×844, 진격 거리 321px)과 같아진다. 오토배틀 명중률 보존의 핵심. */
+  L.kv=clamp((L.padRowY-L.fieldTop)/321, 1, 2.8);
+  L.bannerY=L.fieldTop+4;
+  L.cardsY=L.buildY+L.buildH+10;
+  L.cardY=L.cardsY+4;
+  if(L.axisX!=null){
+    L.axisY=L.buildY+L.buildH*0.62;
+    L.shipY=L.padRowY-L.robotR*3.55;
+  }
+}
 function placeBannerEl(){
   const b=$('#banner');
-  b.style.left=(L.bx+10)+'px';
+  b.style.left=L.bannerX+'px';
   b.style.top=L.bannerY+'px';
-  b.style.width=(L.bw-20)+'px';
+  b.style.width=L.bannerW+'px';
   b.style.height=L.bannerH+'px';
+  const root=document.documentElement;
+  if(L.land){
+    const hb=Math.max(12,Math.round(H*0.02));
+    root.style.setProperty('--hudX',L.zoneLX+'px');
+    root.style.setProperty('--hudW',L.zoneLW+'px');
+    root.style.setProperty('--hudB',hb+'px');
+    const hud=$('#hud');
+    const hh=(hud&&!hud.classList.contains('hide'))?hud.offsetHeight:0;
+    L.hudTop=H-hb-(hh||Math.round(clamp(H*0.30,180,250)));
+  }else{
+    L.hudTop=L.hud;
+  }
 }
 function applyBannerFonts(len){
-  const col=Math.max(280, L.bw||W||390);
+  const col=Math.max(280, (L.land?L.bannerW+40:L.bw)||W||390);
   // 모바일 390 기준 기존 16px의 ~1.4배, 와이드에서도 시원하게
   const base=clamp(col*0.058, 21, 30);
   const k=len<=36?1:len<=52?0.94:len<=70?0.88:0.82;
@@ -1697,11 +1749,18 @@ function fitBannerToContent(){
   const b=$('#banner');
   if(!b || b.classList.contains('hide')) return false;
   const prevH=L.bannerH, prevY=L.bannerY, prevCards=L.cardsH, prevCardH=L.cardH;
-  b.style.width=(L.bw-20)+'px';
+  b.style.width=L.bannerW+'px';
   b.style.height='auto';
   const need=Math.ceil(Math.max(b.scrollHeight, b.offsetHeight));
-  const minH=Math.round(clamp(H*0.12, 92, 128));
-  const maxH=Math.round(clamp(H*0.24, 132, 200));
+  let minH, maxH;
+  if(L.land){
+    const roomBottom=(L.hudTop||H-268)-L.bannerY-14;
+    maxH=Math.max(120, Math.round(Math.min(H*0.50, roomBottom)));
+    minH=Math.min(Math.round(clamp(H*0.24, 130, 220)), maxH);
+  }else{
+    minH=Math.round(clamp(H*0.12, 92, 128));
+    maxH=Math.round(clamp(H*0.24, 132, 200));
+  }
   L.bannerH=clamp(need, minH, maxH);
   recomputeStack();
   placeBannerEl();
@@ -1709,7 +1768,60 @@ function fitBannerToContent(){
 }
 function syncCardHomes(){
   if(!G.cards) return;
-  G.cards.forEach((c,i)=>{ c.hx=L.cardX(i); c.hy=L.cardY; if(!c.drag && !c.gone){c.x=c.hx;c.y=c.hy;} });
+  G.cards.forEach((c,i)=>{ c.hx=L.cardX(i); c.hy=L.cardYf(i); if(!c.drag && !c.gone){c.x=c.hx;c.y=c.hy;} });
+}
+const STAGE_MAX=1360;   /* CSS --stageW 상한과 반드시 일치 */
+/* 세로폰 판형 — 전환 전과 100% 동일하게 유지한다 */
+function layoutPortraitZones(){
+  L.ks=1; L.kv=1;
+  const bw=Math.min(W, Math.max(340, H*0.62));
+  L.bx=Math.round((W-bw)/2); L.bw=Math.round(bw); L.by=0; L.bh=H;
+  L.hud=56;
+  L.fieldTop=L.hud;
+  L.cardsH=Math.round(clamp(H*0.235,148,214));
+  L.buildH=Math.round(clamp(H*0.115,76,112));
+  L.bannerH=Math.round(clamp(H*0.14, 96, 132));
+  L.zoneLX=L.bx; L.zoneLW=L.bw; L.zoneRX=L.bx; L.zoneRW=L.bw;
+  L.bannerX=L.bx+10; L.bannerW=L.bw-20;
+  L.buildX=L.bx+8; L.buildW=L.bw-16;
+  const pad=10, gap=8;
+  L.cardW=Math.floor((L.bw-pad*2-gap*2)/3);
+  L.cardH=Math.max(110,L.cardsH-12);
+  L.cardX=(i)=>L.bx+pad+(L.cardW+gap)*i;
+  L.cardYf=()=>L.cardY;
+  L.shelfX=L.bx+4; L.shelfW=L.bw-8;
+}
+/* 와이드 극장형 — 좌: 주문판+상태칩 / 중앙: 전장+작업대 / 우: 돌림 축+재료 카드.
+   전장을 세로·가로로 실제 확대하고, 두 배율(L.ks=가로/크기, L.kv=세로/탄속)로
+   오브젝트 크기와 탄속을 함께 키워 세로폰과 전투 밸런스를 동일하게 유지한다. */
+function layoutLandZones(){
+  const g=14;
+  const LZ=Math.round(clamp(L.stageW*0.225, 252, 312));
+  const RZ=Math.round(clamp(L.stageW*0.200, 208, 272));
+  L.zoneLX=L.stageX+g; L.zoneLW=LZ;
+  L.zoneRW=RZ; L.zoneRX=L.stageX+L.stageW-g-RZ;
+  L.bx=L.zoneLX+LZ+g;
+  L.bw=Math.max(300, L.zoneRX-g-L.bx);
+  L.by=0; L.bh=H;
+  L.ks=clamp(L.bw/390, 1, 2.2);
+  L.hud=10;                 /* 상단 HUD 띠는 좌측 존으로 이동 → 전장이 그만큼 커진다 */
+  L.fieldTop=L.hud;
+  L.fieldH=Math.max(220, H-L.fieldTop-12);
+  L.bannerX=L.zoneLX; L.bannerW=LZ;
+  L.bannerH=Math.round(Math.max(120, Math.min(H*0.34, H-268)));
+  L.buildX=L.zoneRX; L.buildW=RZ;
+  L.buildY=L.fieldTop+6;
+  L.buildH=Math.round(clamp(H*0.20, 104, 210));
+  const cardsTop=L.buildY+L.buildH+10;
+  L.cardsH=Math.max(150, H-12-cardsTop);
+  const cgap=Math.round(clamp(L.cardsH*0.035, 7, 14));
+  const ch=Math.floor((L.cardsH-8-cgap*2)/3);
+  const cw=Math.min(RZ-16, Math.round(ch*1.15));
+  L.cardH=Math.max(64,ch); L.cardW=Math.max(60,cw); L.cardGap=cgap;
+  const cx0=L.zoneRX+Math.round((RZ-L.cardW)/2);
+  L.cardX=()=>cx0;
+  L.cardYf=(i)=>L.cardY+(L.cardH+cgap)*i;
+  L.shelfX=L.zoneRX; L.shelfW=RZ;
 }
 function layout(){
   W=Math.max(280,window.innerWidth); H=Math.max(380,window.innerHeight);
@@ -1718,26 +1830,28 @@ function layout(){
   cv.style.width=W+'px'; cv.style.height=H+'px';
   ctx.setTransform(DPR,0,0,DPR,0,0);
 
-  const bw=Math.min(W, Math.max(340, H*0.62));
-  L.bx=Math.round((W-bw)/2); L.bw=Math.round(bw); L.by=0; L.bh=H;
-  L.hud=56;
-  L.cardsH=Math.round(clamp(H*0.235,148,214));
-  L.buildH=Math.round(clamp(H*0.115,76,112));
-  L.bannerH=Math.round(clamp(H*0.14, 96, 132));
-  L.padBottom=Math.round(8+ (window.visualViewport?0:0));
-  L.fieldTop=L.hud;
+  /* 판형 분기 — 종횡비뿐 아니라 폭 기준도 land 진입 조건이다 */
+  L.land=(W>=H && W>=640) || W>=1024;
+  document.documentElement.classList.toggle('land', L.land);
+  L.stageW=Math.min(W, STAGE_MAX);
+  L.stageX=Math.round((W-L.stageW)/2);
+  const root=document.documentElement;
+  root.style.setProperty('--stageW',L.stageW+'px');
+  root.style.setProperty('--stageX',L.stageX+'px');
+
   L.slots=5;
+  L.padBottom=Math.round(8+ (window.visualViewport?0:0));
+  if(L.land) layoutLandZones(); else layoutPortraitZones();
+
   const inner=L.bw-20, sw=inner/L.slots;
   L.slotW=sw; L.slotX=(i)=>L.bx+10+sw*(i+0.5);
   L.robotR=Math.min(sw*0.42, L.bw*0.085);
-  L.shipR=Math.max(24, Math.min(32, L.robotR*1.2));
+  L.shipR=Math.max(24, Math.min(32*L.ks, L.robotR*1.2));
   L.shipX=L.bx+L.bw-14-L.shipR;
-  L.axisX=L.bx+L.bw*0.5;
+  L.axisX=L.buildX+L.buildW*0.5;
   L.axisH=L.buildH*0.72;
-  const pad=10, gap=8;
-  L.cardW=Math.floor((L.bw-pad*2-gap*2)/3);
-  L.cardH=Math.max(110,L.cardsH-12);
-  L.cardX=(i)=>L.bx+pad+(L.cardW+gap)*i;
+  /* 작업 구역 안 도형 크기의 기준 단위 — 존이 좁아지면 폭에 맞춰 줄인다 */
+  L.bhu=Math.min(L.buildH, L.buildW*0.42);
   recomputeStack();
   placeBannerEl();
   if(G.phase==='playing' && G.problem){
@@ -1767,6 +1881,30 @@ function bakeBg(){
     c.fillStyle=g; c.fillRect(0,0,W,H);
   }
   c.fillStyle='rgba(70,42,16,.28)'; c.fillRect(0,0,W,H);
+
+  // 초와이드 거터 — 스테이지(1360px) 밖은 무대 밖이므로 톤을 눌러 둔다 (정적으로 굽는다)
+  if(L.land && L.stageW<W-2){
+    const gw=W-(L.stageX+L.stageW);
+    for(const f of ['rgba(10,7,3,.72)','rgba(58,54,50,.32)']){
+      c.fillStyle=f;
+      c.fillRect(0,0,L.stageX,H);
+      c.fillRect(L.stageX+L.stageW,0,gw,H);
+    }
+  }
+  // 좌/우 보조 존 — 공방 벽 선반 패널 (주문판·상태칩 / 돌림 축·재료 카드가 얹힌다)
+  if(L.land){
+    for(const z of [[L.zoneLX,L.zoneLW],[L.zoneRX,L.zoneRW]]){
+      const zx=z[0]-8, zw=z[1]+16;
+      const zg=c.createLinearGradient(0,0,0,H);
+      zg.addColorStop(0,'rgba(62,40,17,.66)'); zg.addColorStop(1,'rgba(34,22,10,.72)');
+      c.fillStyle=zg; roundRect(c,zx,6,zw,H-12,20); c.fill();
+      c.strokeStyle='rgba(244,180,0,.30)'; c.lineWidth=2.5; roundRect(c,zx,6,zw,H-12,20); c.stroke();
+      c.strokeStyle='rgba(255,255,255,.10)'; c.lineWidth=1.5; roundRect(c,zx+5,11,zw-10,H-22,16); c.stroke();
+      // 펙보드 구멍
+      c.fillStyle='rgba(255,231,180,.07)';
+      for(let y=30;y<H-24;y+=26) for(let x=zx+18;x<zx+zw-12;x+=26){ c.beginPath(); c.arc(x,y,2.2,0,TAU); c.fill(); }
+    }
+  }
 
   // 아이보리 작업대 (플레이 컬럼) — 따뜻한 크림 + 나무 결
   const bx=L.bx,bw=L.bw;
@@ -1875,13 +2013,13 @@ function bakeBg(){
   // 작업 구역 (돌림 축 존) — 밝은 나무 패널
   const bg=c.createLinearGradient(0,L.buildY,0,L.buildY+L.buildH);
   bg.addColorStop(0,'#F3E2BB'); bg.addColorStop(1,'#D9B56A');
-  c.fillStyle=bg; roundRect(c,bx+8,L.buildY,bw-16,L.buildH,16); c.fill();
-  c.strokeStyle='#F4B400'; c.lineWidth=3; roundRect(c,bx+8,L.buildY,bw-16,L.buildH,16); c.stroke();
+  c.fillStyle=bg; roundRect(c,L.buildX,L.buildY,L.buildW,L.buildH,16); c.fill();
+  c.strokeStyle='#F4B400'; c.lineWidth=3; roundRect(c,L.buildX,L.buildY,L.buildW,L.buildH,16); c.stroke();
   c.strokeStyle='rgba(255,255,255,.45)'; c.lineWidth=1.5;
-  roundRect(c,bx+12,L.buildY+4,bw-24,L.buildH-8,12); c.stroke();
+  roundRect(c,L.buildX+4,L.buildY+4,L.buildW-8,L.buildH-8,12); c.stroke();
   // 카드 선반
-  c.fillStyle='#7A4E1A'; roundRect(c,bx+4,L.cardsY-2,bw-8,L.cardsH,16); c.fill();
-  c.fillStyle='rgba(255,231,180,.12)'; roundRect(c,bx+8,L.cardsY+2,bw-16,10,6); c.fill();
+  c.fillStyle='#7A4E1A'; roundRect(c,L.shelfX,L.cardsY-2,L.shelfW,L.cardsH,16); c.fill();
+  c.fillStyle='rgba(255,231,180,.12)'; roundRect(c,L.shelfX+4,L.cardsY+2,L.shelfW-8,10,6); c.fill();
 }
 
 function roundRect(c,x,y,w,h,r){
@@ -2388,7 +2526,7 @@ function syncLaneForProblem(){
 function newProblem(){
   clearMount();
   G.problem=drawProblem(G.wave);
-  G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardY,hx:L.cardX(i),hy:L.cardY,
+  G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardYf(i),hx:L.cardX(i),hy:L.cardYf(i),
     drag:false,dead:false,mounted:false,gone:false,shake:0,lift:0,pop:0,face:null}));
   updateBanner();
   renderCardFaces();
@@ -3133,7 +3271,7 @@ function tickNext(){
 }
 
 /* ─────────────────────── 11. 적 / 탄환 ─────────────────────── */
-function safeLineY(){ return L.fieldTop + Math.min(L.fieldH*0.36, 118); }
+function safeLineY(){ return L.fieldTop + Math.min(L.fieldH*0.36, 118*L.kv); }
 function liveEnemyCount(){
   let n=0; for(let i=0;i<G.enemies.length;i++) if(G.enemies[i].hp>0) n++; return n;
 }
@@ -3145,7 +3283,7 @@ function mkEnemy(kind, y){
   const hp = k==='big'? Math.round(baseHp*1.9) : (k==='fast'? Math.max(1,Math.round(baseHp*0.7)) : baseHp);
   const cross = 14.0 - w*0.58;
   const sp = (L.padRowY-L.fieldTop)/Math.max(5.5,cross) * (k==='fast'?1.5:(k==='big'?0.72:1));
-  const r = (k==='big'?1.35:(k==='fast'?0.82:1)) * Math.min(L.bw*0.075,26);
+  const r = (k==='big'?1.35:(k==='fast'?0.82:1)) * Math.min(L.bw*0.075,26*L.ks);
   return {x:L.bx+18+Math.random()*(L.bw-36), y:y!=null?y:(L.fieldTop-r-4), hp:hp,max:hp,sp:sp,r:r,
     k:k,ph:Math.random()*TAU,flash:0,sq:0,gold:false,waitLabel:0};
 }
@@ -3224,7 +3362,8 @@ function robotFire(rb,i,dt){
   const dmg=spec.dmg[lv]*(rb.awakened?1.22:1);
   const col=rb.awakened?(spec.awakenFace||spec.face):spec.face;
   const pierce=spec.kind==='spike'?spec.pierce[lv]:(spec.kind==='bullet'?spec.pierce[lv]:0);
-  const sp = spec.kind==='spike'?620:(spec.kind==='orb'?380:520);
+  /* 전장이 세로로 커진 만큼 탄속도 L.kv 배로 — 탄이 적에게 닿는 시간을 세로폰과 동일하게 유지 */
+  const sp = (spec.kind==='spike'?620:(spec.kind==='orb'?380:520))*L.kv;
   const ult=rb.awakened && (rb.shotN%5===0);
   const burstN = ult?1:(spec.burst[lv]||1);
   const baseAng=Math.atan2(best.y-y, best.x-x);
@@ -3234,11 +3373,11 @@ function robotFire(rb,i,dt){
       for(let k=-2;k<=2;k++){
         const a=baseAng+k*0.22;
         pushShot({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,dmg:dmg*0.55,kind:'bullet',
-          pierce:1,col:'#FFE08A',r:5+lv,ult:true});
+          pierce:1,col:'#FFE08A',r:(5+lv)*L.ks,ult:true});
       }
     }else if(spec.kind==='spike'){
-      pushShot({x:x,y:y,vx:Math.cos(baseAng)*780,vy:Math.sin(baseAng)*780,dmg:dmg*0.85,kind:'spike',
-        pierce:12,col:'#FFD0A8',r:8,ult:true,drill:true});
+      pushShot({x:x,y:y,vx:Math.cos(baseAng)*780*L.kv,vy:Math.sin(baseAng)*780*L.kv,dmg:dmg*0.85,kind:'spike',
+        pierce:12,col:'#FFD0A8',r:8*L.ks,ult:true,drill:true});
     }else{
       for(const e of G.enemies){ if(e.hp>0) damageEnemy(e, Math.max(1, dmg*0.45)); }
       burst(L.bx+L.bw/2, L.fieldTop+L.fieldH*0.4, 22, '#C9B6FF', 200, 5);
@@ -3257,7 +3396,7 @@ function robotFire(rb,i,dt){
     const fire=()=>{
       pushShot({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,dmg:dmg,
         kind:spec.kind, pierce:pierce, col:col,
-        r:spec.kind==='orb'?7+lv*2:4+lv, explode:lastExplode&&b===burstN-1,
+        r:(spec.kind==='orb'?7+lv*2:4+lv)*L.ks, explode:lastExplode&&b===burstN-1,
         chainLeft:spec.kind==='orb'?(spec.chain[lv]||0):0,
         splash:spec.kind==='orb'?(spec.splash[lv]||1):1,
         drill:spec.kind==='spike' && lv>=3});
@@ -3272,10 +3411,10 @@ function robotFire(rb,i,dt){
 function updateShots(dt){
   for(let i=G.shots.length-1;i>=0;i--){
     const s=G.shots[i];
-    if(s.drill){ s.x+=Math.sin(s.life*22)*28*dt; }
+    if(s.drill){ s.x+=Math.sin(s.life*22)*28*L.ks*dt; }
     s.x+=s.vx*dt; s.y+=s.vy*dt; s.life+=dt;
     s.trail.push(s.x,s.y); if(s.trail.length>12) s.trail.splice(0,2);
-    let gone = s.life>2.2 || s.y<L.fieldTop-40 || s.x<L.bx-30 || s.x>L.bx+L.bw+30;
+    let gone = s.life>2.2 || s.y<L.fieldTop-40*L.kv || s.x<L.bx-30 || s.x>L.bx+L.bw+30;
     if(!gone){
       for(const e of G.enemies){
         if(e.hp<=0) continue;
@@ -3286,7 +3425,7 @@ function updateShots(dt){
           if(s.explode){
             burst(s.x,s.y,14,'#FFD35C',180,5);
             for(const o of G.enemies){
-              if(o!==e&&o.hp>0&&Math.hypot(o.x-s.x,o.y-s.y)<42) damageEnemy(o, Math.max(1,s.dmg*0.45));
+              if(o!==e&&o.hp>0&&Math.hypot(o.x-s.x,o.y-s.y)<42*L.ks) damageEnemy(o, Math.max(1,s.dmg*0.45));
             }
             gone=true;
           }else if(s.kind==='orb'){
@@ -3321,7 +3460,7 @@ function updateEnemies(dt, think){
     if(e.hp<=0){ G.enemies.splice(i,1); continue; }
     const moveDt = think ? dt*0.20 : dt*slow;
     e.y+=e.sp*moveDt; e.ph+=dt*3; e.flash=Math.max(0,e.flash-dt); e.sq=Math.max(0,e.sq-dt*4);
-    e.x+=Math.sin(e.ph*0.7)*10*dt;
+    e.x+=Math.sin(e.ph*0.7)*10*L.ks*dt;
     e.x=clamp(e.x,L.bx+14,L.bx+L.bw-14);
     if(think && e.y > safe-e.r*0.2){ e.y=safe-e.r*0.2; }
     if(!think && e.y>=L.padRowY-e.r*0.3){
@@ -3702,7 +3841,7 @@ function drawShipCrate(c){
   c.restore();
 }
 function drawHero(c){
-  const bh=L.buildH*0.94, x=L.bx+14, y=L.buildY+L.buildH*0.5;
+  const bh=Math.min(L.buildH*0.94, L.buildW*0.30), x=L.buildX+6, y=L.buildY+L.buildH*0.5;
   const sq=G.heroSquash;
   c.save(); c.translate(x+bh*0.45,y); c.scale(1+sq*0.16,1-sq*0.14);
   if(IMG.hero){ c.drawImage(IMG.hero,-bh*0.45,-bh*0.5,bh*0.9,bh); }
@@ -3715,16 +3854,16 @@ function cardOverBuild(cd){
   return inBuildZone(x,y);
 }
 function inBuildZone(px,py){
-  return px>=L.bx+8 && px<=L.bx+L.bw-8 && py>=L.buildY-6 && py<=L.buildY+L.buildH+8;
+  return px>=L.buildX && px<=L.buildX+L.buildW && py>=L.buildY-6 && py<=L.buildY+L.buildH+8;
 }
 function inAxisHot(px,py){
-  return px>=L.bx+L.bw*0.18 && px<=L.bx+L.bw*0.82 && py>=L.buildY-14 && py<=L.buildY+L.buildH+18;
+  return px>=L.buildX+L.buildW*0.18 && px<=L.buildX+L.buildW*0.82 && py>=L.buildY-14 && py<=L.buildY+L.buildH+18;
 }
 /* 작업 구역: 돌림 축 / 원기둥 코어 + 감기 미리보기 */
 function drawBuildZone(c,t){
   const p=G.problem;
   drawHero(c);
-  const cx=L.axisX, cy=L.buildY+L.buildH*0.52, hh=L.buildH*0.62;
+  const cx=L.axisX, cy=L.buildY+L.buildH*0.52, hh=L.bhu*0.62;
   const dragging=G.dragCard&&G.dragCard.drag&&cardOverBuild(G.dragCard);
   const mounted=G.mountedIdx>=0 && p && p.choices[G.mountedIdx];
   if(!p) return;
@@ -3788,17 +3927,41 @@ function drawBuildZone(c,t){
     c.fillStyle='#5A3A08'; c.font='900 11px '+FONT;
     c.fillText(dragging?'여기에 올려 확인해!':'설계도를 여기로 끌어다 놓아라',cx,L.buildY+14);
   }
-  // 목표 미리보기 (오른쪽)
-  const px=L.bx+L.bw-22-L.buildH*0.22;
+  // 목표 미리보기 — 세로: 작업 구역 오른쪽 / 와이드: 좌측 존(주문판 아래) 큰 카드
+  if(L.land){ drawTargetCard(c,p); return; }
+  const px=L.buildX+L.buildW-14-Math.min(L.bhu*0.22, L.buildW*0.11);
   const pcy=L.buildY+L.buildH*0.50;
   c.save(); c.globalAlpha=0.95;
-  drawSolid(c,p.target,px,pcy,L.buildH*0.19,L.buildH*0.32,{face:ROBOT_SPEC[p.target].face});
+  drawSolid(c,p.target,px,pcy,L.bhu*0.19,L.bhu*0.32,{face:ROBOT_SPEC[p.target].face});
   c.restore();
   c.textAlign='center'; c.textBaseline='middle';
   c.fillStyle='#5A3A08'; c.font='900 9.5px '+FONT;
   c.fillText('목표',px,L.buildY+L.buildH*0.14);
   c.fillStyle='#1769AA'; c.font='900 10.5px '+FONT;
   c.fillText(TYPE_KO[p.target]+'봇',px,L.buildY+L.buildH*0.88);
+}
+/* 와이드 좌측 존: 주문판 아래 "오늘의 목표 로봇" 카드 (세로에서 작업 구역 구석에 끼어
+   있던 목표 미리보기를 옮겨 온 것이다) */
+function drawTargetCard(c,p){
+  const x=L.zoneLX, w=L.zoneLW;
+  const top=L.bannerY+L.bannerH+14, room=L.hudTop-14-top;
+  const h=Math.round(clamp(room, 96, 300));
+  if(room<86) return;
+  const y=Math.round(top+Math.max(0,(room-h)/2));
+  c.save();
+  const g=c.createLinearGradient(0,y,0,y+h);
+  g.addColorStop(0,'#FFF8EA'); g.addColorStop(1,'#EAD2A0');
+  c.fillStyle=g; roundRect(c,x,y,w,h,18); c.fill();
+  c.strokeStyle='#F4B400'; c.lineWidth=3; roundRect(c,x,y,w,h,18); c.stroke();
+  c.strokeStyle='rgba(255,255,255,.5)'; c.lineWidth=1.5; roundRect(c,x+5,y+5,w-10,h-10,14); c.stroke();
+  c.textAlign='center'; c.textBaseline='middle';
+  c.fillStyle='#0F2E48'; c.font='900 12px '+FONT;
+  c.fillText('오늘의 목표 로봇',x+w/2,y+18);
+  const R=Math.min(w*0.20, h*0.24), Hh=Math.min(w*0.34, h*0.40);
+  drawSolid(c,p.target,x+w/2,y+h*0.54,R,Hh,{face:ROBOT_SPEC[p.target].face});
+  c.fillStyle='#B9410F'; c.font='900 16px '+FONT;
+  c.fillText(TYPE_KO[p.target]+'봇',x+w/2,y+h-20);
+  c.restore();
 }
 function animLabel(c,x,y,txt,col){
   c.save(); c.textAlign='center'; c.textBaseline='middle';
@@ -4485,8 +4648,8 @@ const ONB_STEPS=[
 let onbIdx=-1;
 function onbSeen(){ try{ return !!localStorage.getItem(ONB_KEY); }catch(e){ return false; } }
 function onbHoleRect(i){
-  if(i===0) return [L.bx+8, L.buildY, L.bw-16, L.buildH];                       // 조작: 돌림 축
-  if(i===1) return [L.bx+6, L.cardsY-2, L.bw-12, L.cardsH];                     // 선택/판단: 카드 3장
+  if(i===0) return [L.buildX, L.buildY, L.buildW, L.buildH];                    // 조작: 돌림 축
+  if(i===1) return [L.shelfX, L.cardsY-2, L.shelfW, L.cardsH];                  // 선택/판단: 카드 3장
   return [L.bx+6, L.padRowY-12, L.bw-12, Math.max(56,L.fieldBottom-L.padRowY+22)]; // 목표: 작업대
 }
 function onbPlace(){
@@ -4494,6 +4657,7 @@ function onbPlace(){
   const r=onbHoleRect(onbIdx), hole=$('#onbHole'), card=$('#onbCard');
   hole.style.left=r[0]+'px'; hole.style.top=r[1]+'px';
   hole.style.width=r[2]+'px'; hole.style.height=r[3]+'px';
+  card.style.left=L.land?Math.round(L.bx+L.bw/2)+'px':'50%';
   const want=r[1]-card.offsetHeight-30;
   const top=Math.max(L.hud+10, Math.min(want, H-card.offsetHeight-16));
   card.style.top=top+'px';
@@ -4563,6 +4727,7 @@ document.querySelector('.onb-mode').addEventListener('click',(e)=>e.stopPropagat
 
 function onResize(){ layout(); onbPlace(); }
 window.addEventListener('resize',onResize);
+window.addEventListener('orientationchange',()=>setTimeout(onResize,120));
 if(window.visualViewport) window.visualViewport.addEventListener('resize',onResize);
 
 /* ─────────────────────── 17. QA 훅 ─────────────────────── */
@@ -4708,7 +4873,7 @@ window.__GAME_TEST__={
     const base=pick(prefer.length?prefer:pool);
     if(!base) return false;
     G.problem=wrapDrawn(base);
-    G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardY,hx:L.cardX(i),hy:L.cardY,
+    G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardYf(i),hx:L.cardX(i),hy:L.cardYf(i),
       drag:false,dead:false,mounted:false,gone:false,shake:0,lift:0,pop:0,face:null}));
     updateBanner();
     renderCardFaces();
@@ -4854,7 +5019,7 @@ window.__GAME_TEST__={
       G.spawnLane='staging';
       const base=POOL.filter((p)=>p.isCalc && p.kind==='wrap')[0]||POOL[0];
       G.problem=wrapDrawn(base);
-      G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardY,hx:L.cardX(i),hy:L.cardY,
+      G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardYf(i),hx:L.cardX(i),hy:L.cardYf(i),
         drag:false,dead:false,mounted:false,gone:false,shake:0,lift:0,pop:0,face:null}));
       updateBanner();
       renderCardFaces();
@@ -4916,7 +5081,7 @@ window.__GAME_TEST__={
     }
     const base=list[0]||POOL[0];
     G.problem=wrapDrawn(base, true);
-    G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardY,hx:L.cardX(i),hy:L.cardY,
+    G.cards=[0,1,2].map((i)=>({idx:i,x:L.cardX(i),y:L.cardYf(i),hx:L.cardX(i),hy:L.cardYf(i),
       drag:false,dead:false,mounted:false,gone:false,shake:0,lift:0,pop:0,face:null}));
     updateBanner();
     renderCardFaces();
@@ -4927,13 +5092,23 @@ window.__GAME_TEST__={
       variant:G.problem.variant, kind:G.problem.kind
     };
   },
+  getLayout(){
+    return { land:!!L.land, stageW:L.stageW, stageX:L.stageX, playW:Math.round(L.bw),
+      fieldH:Math.round(L.fieldH||0), sizeScale:+((L.ks||1).toFixed(3)), speedScale:+((L.kv||1).toFixed(3)),
+      zones:{ left:[L.zoneLX,L.zoneLW], center:[L.bx,L.bw], right:[L.zoneRX,L.zoneRW] },
+      axis:{ x:Math.round(L.axisX), y:Math.round(L.buildY+L.buildH*0.5) },
+      cards:[0,1,2].map((i)=>({ x:Math.round(L.cardX(i)+L.cardW/2), y:Math.round(L.cardYf(i)+L.cardH/2),
+        w:Math.round(L.cardW), h:Math.round(L.cardH) })),
+      pads:[0,1,2,3,4].map((i)=>({ x:Math.round(L.slotX(i)), y:Math.round(L.padRowY-L.robotR*0.5) })) };
+  },
   inspectTextFit(){
     const b=$('#banner'), main=$('#bMain'), sub=$('#bSub');
     const mcs=getComputedStyle(main), scs=getComputedStyle(sub);
     const bannerOverflow=b.scrollHeight>b.clientHeight+1;
     const bannerBox=b.getBoundingClientRect();
     const buildTop=L.buildY, cardsTop=L.cardsY;
-    const overlapBuild=bannerBox.bottom>buildTop+1;
+    /* 극장형에서는 주문판(좌 존)과 작업 구역(우 존)이 좌우로 분리돼 세로 겹침이 의미 없다 */
+    const overlapBuild=L.land? (bannerBox.right>L.buildX+1) : (bannerBox.bottom>buildTop+1);
     return {
       banner:{
         fontSize:mcs.fontSize, subFontSize:scs.fontSize, lineHeight:mcs.lineHeight,
@@ -4941,7 +5116,7 @@ window.__GAME_TEST__={
         overlapBuild:overlapBuild, text:main.textContent
       },
       layout:{W:W,H:H,bw:L.bw,bannerH:L.bannerH,bannerY:L.bannerY,buildY:L.buildY,
-        cardsY:L.cardsY,cardW:L.cardW,cardH:L.cardH,fieldH:L.fieldH},
+        cardsY:L.cardsY,cardW:L.cardW,cardH:L.cardH,fieldH:L.fieldH,land:!!L.land},
       labels:(G.problem?G.problem.choices:[]).map((c)=>({label:c.label, sub:c.sub||'',
         hasParen:/\([^)]+\)\s*$/.test(c.label)}))
     };
