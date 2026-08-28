@@ -1963,13 +1963,37 @@ function drawTuftPlate(x,y,w,h, cols, rows, color, squish){
   return {cell, ox:x+ox, oy:y+oy, pw:w, ph:h};
 }
 
-function drawBadge(x,y, text, sub, big){
+/* 배지 치수만 미리 계산 (레이아웃이 배지 자리를 비워 두기 위해).
+   매 프레임 measureText 를 반복하면 느려지므로 결과를 캐시한다. */
+const _bmCache=new Map();
+function badgeMetrics(text, sub, big){
   const ref=Math.min(W, PLAY_COL_MAX);
+  const key=ref+'|'+(big?1:0)+'|'+text+'|'+(sub||'');
+  const hit=_bmCache.get(key);
+  if(hit) return hit;
   const fs = big ? Math.max(ref*0.046, 20) : Math.max(ref*0.034, 14);
+  ctx.save();
   ctx.font=`900 ${fs}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
   const tw=ctx.measureText(text).width;
-  const bw=Math.max(tw+22, 64), bh=sub? fs+28 : fs+16;
-  roundRect(ctx, x-bw/2, y-bh/2, bw, bh, 12);
+  let sw=0;
+  if(sub){
+    ctx.font='800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    sw=ctx.measureText(sub).width;
+  }
+  ctx.restore();
+  const m={fs, w:Math.max(tw+22, sw+20, 64), h: sub? fs+28 : fs+16};
+  if(_bmCache.size>400) _bmCache.clear();
+  _bmCache.set(key, m);
+  return m;
+}
+
+function drawBadge(x,y, text, sub, big, anchor){
+  const m=badgeMetrics(text, sub, big);
+  const fs=m.fs, bw=m.w, bh=m.h;
+  const bx = anchor==='r' ? (x-bw) : (anchor==='l' ? x : x-bw/2);
+  x = bx+bw/2;
+  ctx.font=`900 ${fs}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+  roundRect(ctx, bx, y-bh/2, bw, bh, 12);
   ctx.fillStyle='rgba(20,10,8,0.88)';
   ctx.fill();
   ctx.lineWidth=2;
@@ -1985,6 +2009,7 @@ function drawBadge(x,y, text, sub, big){
   }
 }
 
+let _pushW=-1;
 function drawHandle(x,y,r,hot){
   ctx.save();
   ctx.beginPath(); ctx.arc(x,y+3,r,0,Math.PI*2);
@@ -1997,9 +2022,15 @@ function drawHandle(x,y,r,hot){
   ctx.beginPath(); ctx.arc(x,y,r*0.38,0,Math.PI*2);
   ctx.fillStyle=hot?'#fff6c8':'#d4a31a'; ctx.fill();
   if(hot){
-    ctx.font='900 11px "Apple SD Gothic Neo",sans-serif';
-    ctx.fillStyle='#2C1810'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('밀기', x, y+r+12);
+    /* 어두운 바닥에서도 읽히도록 알약 배경 위에 밝은 글자 */
+    ctx.font='900 12px "Apple SD Gothic Neo",sans-serif';
+    if(_pushW<0) _pushW=ctx.measureText('밀기').width;
+    const lw=_pushW+16, lh=19, ly=y+r+13;
+    roundRect(ctx, x-lw/2, ly-lh/2, lw, lh, 9);
+    ctx.fillStyle='rgba(20,10,8,0.86)'; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle='#E8B423'; ctx.stroke();
+    ctx.fillStyle='#FFF6C8'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('밀기', x, ly);
   }
   ctx.restore();
 }
@@ -2096,28 +2127,68 @@ function renderPlay(dt){
     const maxRL=P0.slot==='D'?S.maxU:P0.D;
     const maxCR=P0.slot==='B'?S.maxU:P0.B;
     const maxRR=P0.slot==='C'?S.maxU:P0.C;
-    const sL=plateSize(box1,A,D,maxCL,maxRL);
-    const sR=plateSize(box2,B,C,maxCR,maxRR);
-    const wL=sL.w, hL=sL.h, wR=sR.w, hR=sR.h;
-    const xL=box1.x+(box1.w-wL)/2, yL=box1.y+(box1.h-hL)/2;
-    const xR=box2.x+(box2.w-wR)/2, yR=box2.y+(box2.h-hR)/2;
+    /* 배지·손잡이는 막(블록 기둥)을 절대 덮지 않는다.
+       ① 배지는 패널 위쪽 «모서리»에 두고, 막이 거기까지 닿을 때만 막을 배지 아래로 내린다.
+       ② 손잡이는 막 «바깥»에 접하게 놓는다 — 아래쪽 여유가 없으면 옆으로 뺀다. */
+    const slot=P0.slot;
+    const hr=Math.max(28, Math.min(L.colW||L.w,H)*0.05);
+    const needV=2*hr+34, needH=2*hr+12, PAD=8;
+    const bm1=badgeMetrics(String(cells.L), '바깥곱 '+A+'×'+D, true);
+    const bm2=badgeMetrics(String(cells.R), '안곱 '+B+'×'+C, true);
+    const bBox1={x:box1.x+12, y:box1.y+8, w:bm1.w, h:bm1.h};
+    const bBox2={x:box2.x+box2.w-12-bm2.w, y:box2.y+8, w:bm2.w, h:bm2.h};
+    function fitPlate(box, bb, cols, rows, maxC, maxR, resB, resR){
+      const mk=(top)=>({x:box.x+PAD, y:top,
+        w:Math.max(48, box.w-PAD*2-resR), h:Math.max(48, box.y+box.h-PAD-resB-top)});
+      let ar=mk(box.y+PAD);
+      let s=plateSize(ar, cols, rows, maxC, maxR);
+      let px=ar.x+(ar.w-s.w)/2, py=ar.y+(ar.h-s.h)/2;
+      const hit = px < bb.x+bb.w+10 && px+s.w > bb.x-10 && py < bb.y+bb.h+10;
+      if(hit){
+        ar=mk(bb.y+bb.h+10);
+        s=plateSize(ar, cols, rows, maxC, maxR);
+        px=ar.x+(ar.w-s.w)/2; py=ar.y+(ar.h-s.h)/2;
+      }
+      return {x:px, y:py, w:s.w, h:s.h};
+    }
+    function layoutSide(box, bb, cols, rows, maxC, maxR, hasH, vertical){
+      let p=fitPlate(box, bb, cols, rows, maxC, maxR, 0, 0);
+      const slackB=()=> box.y+box.h-PAD-(p.y+p.h);
+      const slackR=()=> box.x+box.w-PAD-(p.x+p.w);
+      if(hasH && slackB()<needV && slackR()<needH){
+        p = vertical ? fitPlate(box, bb, cols, rows, maxC, maxR, needV, 0)
+                     : fitPlate(box, bb, cols, rows, maxC, maxR, 0, needH);
+      }
+      let h=null;
+      if(hasH){
+        if(vertical){
+          h = (slackB()>=needV)
+            ? {x:p.x+p.w/2, y:p.y+p.h+hr+4}
+            : {x:p.x+p.w+hr+5, y:clamp(p.y+p.h-hr-2, p.y+hr, box.y+box.h-PAD-hr-24)};
+        } else {
+          h = (slackR()>=needH)
+            ? {x:p.x+p.w+hr+5, y:clamp(p.y+p.h/2, p.y+hr, box.y+box.h-PAD-hr-24)}
+            : {x:clamp(p.x+p.w-hr-2, box.x+PAD+hr, box.x+box.w-PAD-hr), y:p.y+p.h+hr+4};
+        }
+      }
+      return {p, h};
+    }
+    const sideL=layoutSide(box1, bBox1, A, D, maxCL, maxRL, slot==='A'||slot==='D', slot==='D');
+    const sideR=layoutSide(box2, bBox2, B, C, maxCR, maxRR, slot==='B'||slot==='C', slot==='C');
+    const wL=sideL.p.w, hL=sideL.p.h, wR=sideR.p.w, hR=sideR.p.h;
+    const xL=sideL.p.x, yL=sideL.p.y, xR=sideR.p.x, yR=sideR.p.y;
     const sq1={x:1,y:1}, sq2={x:1,y:1};
     if(S.lockOpen>0.7){ sq1.x=1.06; sq1.y=0.94; sq2.x=0.94; sq2.y=1.06; }
     drawTuftPlate(xL,yL,wL,hL, A, D, '#8E1C2C', sq1);
     drawTuftPlate(xR,yR,wR,hR, B, C, '#D45A1F', sq2);
-    /* 곱 배지: 패널 안쪽 상단. 세로는 자물쇠(중앙 gap)와 겹치지 않게 윗가장자리 */
-    const badgeY1=box1.y+22, badgeY2=box2.y+22;
-    drawBadge(box1.x+box1.w/2, badgeY1, String(cells.L), '바깥곱 '+A+'×'+D, true);
-    drawBadge(box2.x+box2.w/2, badgeY2, String(cells.R), '안곱 '+B+'×'+C, true);
+    /* 곱 배지: 패널 위쪽 모서리 (막·중앙 자물쇠와 겹치지 않는 자리) */
+    const badgeY1=bBox1.y+bm1.h/2, badgeY2=bBox2.y+bm2.h/2;
+    drawBadge(bBox1.x, badgeY1, String(cells.L), '바깥곱 '+A+'×'+D, true, 'l');
+    drawBadge(bBox2.x+bm2.w, badgeY2, String(cells.R), '안곱 '+B+'×'+C, true, 'r');
 
-    /* 손잡이: 빈 항이 있는 변 (막이 늘어나는 쪽) */
-    const slot=P0.slot;
-    let hx,hy;
-    if(slot==='A'){ hx=xL+wL; hy=yL+hL/2; }
-    else if(slot==='D'){ hx=xL+wL/2; hy=yL+hL; }
-    else if(slot==='B'){ hx=xR+wR; hy=yR+hR/2; }
-    else { hx=xR+wR/2; hy=yR+hR; }
-    const hr=Math.max(28, Math.min(L.colW||L.w,H)*0.05);
+    /* 손잡이: 빈 항이 있는 변 (막이 늘어나는 쪽) — 막 바깥에 접하게 */
+    const hPos=sideL.h || sideR.h;
+    const hx=hPos.x, hy=hPos.y;
     drawHandle(hx,hy,hr,true);
     handles.U={x:hx,y:hy,r:hr};
 
@@ -2126,7 +2197,11 @@ function renderPlay(dt){
       : Math.min(Math.max(42, gap*0.7), 56);
     drawLock(lockC.x, lockC.y, lockSz, S.lockOpen>0.3);
     S._geom={kind:P0.kind, land, gap, lockC, lockSz, box1, box2,
-      badge1:{x:box1.x+box1.w/2, y:badgeY1}, badge2:{x:box2.x+box2.w/2, y:badgeY2},
+      badge1:{x:bBox1.x+bm1.w/2, y:badgeY1}, badge2:{x:bBox2.x+bm2.w/2, y:badgeY2},
+      badgeBox1:{x:bBox1.x, y:bBox1.y, w:bm1.w, h:bm1.h},
+      badgeBox2:{x:bBox2.x, y:bBox2.y, w:bm2.w, h:bm2.h},
+      plate1:{x:xL, y:yL, w:wL, h:hL}, plate2:{x:xR, y:yR, w:wR, h:hR},
+      handle:{x:hx, y:hy, r:hr},
       L:{x:L.x,y:L.y,w:L.w,h:L.h,colW:L.colW,colX:L.colX}};
 
     /* 명패: 무대 패널 모서리 (격자·곱 배지와 겹치지 않게) */
@@ -2186,8 +2261,13 @@ function renderPlay(dt){
       const ov=(Lft+Rgt-T)*cellW;
       ctx.fillRect(x+w-rw, y, ov, h);
     }
-    drawBadge(x+lw/2, y-8, String(Lft), P0.a+' 몫', true);
-    drawBadge(x+w-rw/2, y-8, String(Rgt), P0.b+' 몫', true);
+    /* 몫 배지는 막 위쪽 «바깥»에 — 막 윗변을 덮지 않는다 */
+    const abL=badgeMetrics(String(Lft), P0.a+' 몫', true);
+    const abR=badgeMetrics(String(Rgt), P0.b+' 몫', true);
+    const abY=Math.max(L.y+abL.h/2+2, y-abL.h/2-8);
+    const abX=(cx,bw)=>clamp(cx, L.x+bw/2+4, L.x+L.w-bw/2-4);
+    drawBadge(abX(x+lw/2, abL.w), abY, String(Lft), P0.a+' 몫', true);
+    drawBadge(abX(x+w-rw/2, abR.w), abY, String(Rgt), P0.b+' 몫', true);
     drawBadge(x+w/2, y+h+22, Lft+Rgt+' / '+T, '합', false);
     const hr=Math.max(26, Math.min(L.colW||L.w,H)*0.045);
     drawHandle(x+lw, y+h/2, hr, S.activeSide==='L');
@@ -2205,7 +2285,9 @@ function renderPlay(dt){
     const A = P0.kind==='fold'?P0.Araw:P0.a;
     const B = P0.kind==='fold'?P0.Braw:P0.b;
     const f=Math.round(S.dispFold);
-    const y=L.y+L.h*0.16, h=Math.min(isTheater()?130:90, L.h*0.22), x=L.x+16, w=L.w-32;
+    /* 칸 수 배지 자리를 왼쪽에 먼저 비워 둔다 (띠 칸을 덮지 않게) */
+    const gut=Math.min(86, L.w*0.24);
+    const y=L.y+L.h*0.16, h=Math.min(isTheater()?130:90, L.h*0.22), x=L.x+16+gut, w=L.w-32-gut;
     const drawStrip=(yy, n, col, label)=>{
       const cw=w/n;
       for(let i=0;i<n;i++){
@@ -2217,14 +2299,15 @@ function renderPlay(dt){
           ctx.fillRect(x+(i+1)*cw-3, yy-4, 6, h+8);
         }
       }
-      drawBadge(x-4, yy+h/2, String(n), label, false);
+      drawBadge(x-10, yy+h/2, String(n), label, false, 'r');
     };
     drawStrip(y, A, '#8E1C2C', '앞');
     drawStrip(y+h+28, B, '#D45A1F', '뒤');
     const g0=P0.kind==='fold'?P0.g:gcd(P0.a,P0.b);
     drawBadge(L.x+L.w/2, y+h*2+70, f+'칸씩 접기', (A%f===0 && B%f===0) ? `${A/f} : ${B/f}` : '안 접힘', true);
     const hr=Math.max(26, Math.min(L.colW||L.w,H)*0.045);
-    const hx=L.x+L.w/2, hy=y+h*2+110;
+    const foldBH=badgeMetrics(f+'칸씩 접기', '접힘', true).h;
+    const hx=L.x+L.w/2, hy=y+h*2+70+foldBH/2+hr+8;
     drawHandle(hx, hy, hr, true);
     handles.F={x:hx,y:hy,r:hr};
     const lockSz=Math.max(48, Math.min((L.colW||L.w)*0.10, 72));
