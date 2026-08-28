@@ -142,8 +142,10 @@ button{font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color
 .contract{
   position:absolute;left:50%;transform:translateX(-50%);
   bottom:calc(env(safe-area-inset-bottom) + 4px);
-  font-size:10.5px;font-weight:700;color:rgba(223,246,249,.62);
-  white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.8);
+  font-size:10.5px;font-weight:700;color:rgba(232,250,252,.88);
+  white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.85);
+  padding:4px 11px;border-radius:999px;
+  background:rgba(6,30,40,.52);border:1px solid rgba(170,222,232,.20);
 }
 
 /* 붙이기 버튼 (대분수) */
@@ -327,7 +329,9 @@ button{font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color
 html.land .hud-top{width:100%;max-width:none;padding:calc(env(safe-area-inset-top) + 6px) 16px 0}
 html.land .qcard{width:min(calc(100% - 36px),720px);top:calc(env(safe-area-inset-top) + 48px)}
 html.land .tally{left:16px;max-width:220px}
-html.land .contract{left:auto;right:18px;transform:none;bottom:calc(env(safe-area-inset-bottom) + 8px)}
+/* 가로에서는 우하단 썰매 상자와 겹치므로 하단 중앙(빈 얼음판)으로 뺀다 */
+html.land .contract{left:50%;right:auto;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 10px);
+  background:rgba(6,30,40,.62)}
 html.land .panel{width:min(100%,520px)}
 @media (max-height:560px){
   html.land .qcard{padding:6px 12px 7px;top:calc(env(safe-area-inset-top) + 42px)}
@@ -896,7 +900,9 @@ function layoutLand(){
   GEO.foxY=H-Math.max(56,H*0.08);
   GEO.sledW=Math.max(132,Math.min(188,W*0.15));
   GEO.sledX=W-pad-GEO.sledW*0.42;
-  GEO.sledY=H-Math.max(62,H*0.09);
+  // 썰매 상자는 y=sledY-h*0.34 에서 높이 h*1.35 로 그려진다(h=sledW*0.62).
+  // 화면 아래로 잘리지 않도록 바닥 여백 14px 을 확보한 위치로 올린다.
+  GEO.sledY=Math.min(H-Math.max(62,H*0.09), H-14-GEO.sledW*0.62*1.01);
   GEO.leftTagY=GEO.ribbonY+GEO.ribbonH*0.5+18;
   GEO.joinY=GEO.leftTagY+36;
   GEO.toastY=GEO.joinY+18;
@@ -1462,10 +1468,14 @@ function drawRibbon(){
       ctx.setLineDash([5,4]);
       ctx.beginPath(); ctx.moveTo(gx2,y-h*0.62); ctx.lineTo(gx2,y+h*0.62); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle='rgba(226,86,72,.92)';
-      ctx.beginPath(); ctx.arc(gx2,y-h*0.62-9,8,0,6.284); ctx.fill();
+      // 얼음 막대 윗변과 붙지 않도록 조금 더 띄우고, 흰 링으로 배경과 분리한다
+      var qcy=y-h*0.62-13;
+      ctx.fillStyle='rgba(226,86,72,.95)';
+      ctx.beginPath(); ctx.arc(gx2,qcy,8,0,6.284); ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.92)'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(gx2,qcy,8,0,6.284); ctx.stroke();
       ctx.fillStyle='#fff'; ctx.font='900 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('?',gx2,y-h*0.62-8);
+      ctx.fillText('?',gx2,qcy+1);
       ctx.restore();
     }
   }
