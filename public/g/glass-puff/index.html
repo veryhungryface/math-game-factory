@@ -888,7 +888,17 @@ function nextCombo(){
 
 function grant(n){ if(!(n>0)) return; S.score += n; }
 
+// 렌더 패스 1회당 레이아웃 1회만 계산 (rPxOf 가 프레임마다 여러 번 부른다 —
+// 매번 getBoundingClientRect 를 때리면 60fps 를 못 지킨다). 렌더 밖에서는 항상 새로 잰다.
+let _lpCache = null;
 function layoutPlay(){
+  if(_lpCache) return _lpCache;
+  const r = layoutPlayCalc();
+  if(_lpRenderPass) _lpCache = r;
+  return r;
+}
+let _lpRenderPass = false;
+function layoutPlayCalc(){
   if(S.land){
     // 원형 ② 2단 분할 — 좌 무대(디스크), 우 패널(#say/#ctrl 은 CSS html.land 가 배치)
     const zx0 = S.stageX + 14;
@@ -1127,7 +1137,7 @@ function applySuccess(opts){
   spawnBurst(L.cx, L.cy, 8+mul*4, '#F0C14A');
   const exact = (S.fitErrPct||0) < 0.5;
   floatText(exact?'완벽한 스냅!':'+'+add, L.cx, L.cy-rPxOf(S.r100)-12, '#FFF6E0');
-  S.praiseT=1.2; S.praise=exact?'딱 맞았어!':'들어갔어요!';
+  S.praiseT=2.0; S.praise=exact?'딱 맞았어!':'들어갔어요!';
   sfxSnap();
   punchScore();
   saveDex(P0.r);
@@ -1523,9 +1533,21 @@ function drawPanelPlate(){
 }
 
 function drawKiln(L){
-  const kw = Math.min(Math.max(L.stage*0.18, 72), 120);
+  let kw = Math.min(Math.max(L.stage*0.18, 72), 120);
+  let x = L.left + 8;
+  // 하단 배지의 둥근 왼쪽 테두리를 화로가 물던 문제 — 겹치면 왼쪽으로 밀고, 그래도 남으면 줄인다.
+  if(S.phase!=='title'){
+    const B = metricBadgeGeom(L);
+    const bl = B.cx - B.bot.w/2 - 8;
+    const bTop = B.bot.y - B.bot.h/2, bBot = B.bot.y + B.bot.h/2;
+    const kTop = L.bot - kw*1.12 - 18, kBot = L.bot - 18;
+    if(kTop < bBot && kBot > bTop && x + kw > bl){
+      x = Math.max(2, Math.min(x, bl - kw));
+      if(x + kw > bl) kw = Math.max(46, bl - x);
+    }
+  }
   const kh = kw*1.12;
-  const x = L.left + 8, y = L.bot - kh - 18;
+  const y = L.bot - kh - 18;
   ctx.save();
   const flick = 0.92+0.08*Math.sin(nowMs*0.008);
   ctx.globalAlpha=0.95;
@@ -1665,31 +1687,97 @@ function drawDisc(L){
   ctx.restore();
 
   // badges — 성공 후 둘레·넓이는 목표값(허용오차 반올림). 원판 크기는 실측 유지.
+  // (축하 문구는 파티클보다 위에 그려야 하므로 render() 끝에서 그린다)
+  const B = metricBadgeGeom(L);
+  drawBadge(B.cx, B.top.y, B.top.text, B.top.fs, B.top.hot);
+  drawBadge(B.cx, B.bot.y, B.bot.text, B.bot.fs, B.bot.hot);
+}
+
+function drawPraise(L){
+  if(!(S.praiseT>0) || !S.praise) return;
+  const rp = rPxOf(S.dispR100);
   const fs = Math.max(L.stage*0.045, 18);
-  const settled = S.phase==='reason';
-  const rForMetric = settled ? S.targetR100 : Math.round(S.dispR100);
-  const cNow = circFromR100(rForMetric);
-  const aNow = areaFromR100(rForMetric);
-  const note = settled ? ' (허용오차·반올림)' : '';
+  const size = Math.max(22, L.stage*0.055);
+  const y = Math.max(L.top + size*0.8, L.cy - rp - fs*2.6);
+  ctx.save();
+  // 마지막 0.45초에만 사라진다 — 예전엔 등장 즉시 옅어져 읽을 수 없었다.
+  ctx.globalAlpha = clamp(S.praiseT/0.45, 0, 1);
+  ctx.font = '900 '+size+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.lineJoin='round'; ctx.miterLimit=2;
+  ctx.strokeStyle='rgba(28,16,6,0.9)'; ctx.lineWidth=9;
+  ctx.strokeText(S.praise, L.cx, y);
+  ctx.strokeStyle='#8C3E12'; ctx.lineWidth=5;
+  ctx.strokeText(S.praise, L.cx, y);
+  ctx.fillStyle='#FFF6E0';
+  ctx.fillText(S.praise, L.cx, y);
+  ctx.restore();
+}
+
+// ── 라벨 기하 (겹침 회피용) ─────────────────────────────────────
+// 배지·목표칩·화로가 서로 덮지 않도록 그리기 전에 사각형을 먼저 계산한다.
+const _twCache = new Map();
+function textW(text, font){
+  const k = font+' '+text;
+  let w = _twCache.get(k);
+  if(w===undefined){
+    ctx.save(); ctx.font=font; w=ctx.measureText(text).width; ctx.restore();
+    if(_twCache.size>400) _twCache.clear();
+    _twCache.set(k,w);
+  }
+  return w;
+}
+const BADGE_FONT = (fs)=>'900 '+fs+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const RAIL_FONT  = (fs)=>'800 '+fs+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+
+function railChipGeom(L){
+  if(!P0) return null;
+  const x0=L.left+18, x1=L.right-18, y=L.bot-8;
+  const tgt=targetMetricValue();
+  const cur=currentMetricValue(Math.round(S.dispR100));
+  const maxV=Math.max(tgt,cur,1)*1.25;
+  const tx=lerp(x0,x1, clamp(tgt/maxV,0,1));
+  const dotX=lerp(x0,x1, clamp(cur/maxV,0,1));
+  const fs=Math.max(13, L.stage*0.028);
+  const label='목표 '+(P0.metric==='C'?fmtLen(tgt):fmtArea(tgt));
+  const tw=textW(label, RAIL_FONT(fs))+18;
+  const th=fs*1.5;
+  const lx=clamp(tx, x0+tw/2, x1-tw/2);
+  const ly=y-12-th/2;
+  return {x0,x1,y,tx,dotX,fs,label,tw,th,lx,ly};
+}
+
+function metricBadgeGeom(L){
+  const rp=rPxOf(S.dispR100);
+  const fs=Math.max(L.stage*0.045, 18);
+  const settled=S.phase==='reason';
+  const rForMetric=settled ? S.targetR100 : Math.round(S.dispR100);
+  const note=settled ? ' (허용오차·반올림)' : '';
+  let topTxt, botTxt, topHot, botHot, botFs=fs;
   if(P0 && P0.metric==='R'){
     const rem = settled ? targetMetricValue() : currentMetricValue(Math.round(S.dispR100));
-    drawBadge(cx, cy-rp-fs*1.6, '남은 칸 '+fmtArea(rem)+note, fs, true);
-    drawBadge(cx, cy+rp+fs*1.15, '원 '+fmtArea(aNow)+note, Math.max(16, fs*0.82), false);
+    topTxt='남은 칸 '+fmtArea(rem)+note; topHot=true;
+    botTxt='원 '+fmtArea(areaFromR100(rForMetric))+note; botHot=false;
+    botFs=Math.max(16, fs*0.82);
   }else{
-    drawBadge(cx, cy-rp-fs*1.6, '둘레 '+fmtLen(cNow)+note, fs, P0&&P0.metric==='C');
-    drawBadge(cx, cy+rp+fs*1.15, '칸 '+fmtArea(aNow)+note, fs, P0&&P0.metric!=='C');
+    topTxt='둘레 '+fmtLen(circFromR100(rForMetric))+note; topHot=!!(P0&&P0.metric==='C');
+    botTxt='칸 '+fmtArea(areaFromR100(rForMetric))+note; botHot=!!(P0&&P0.metric!=='C');
   }
-
-  if(S.praiseT>0){
-    ctx.save();
-    ctx.globalAlpha=clamp(S.praiseT,0,1);
-    ctx.font='900 '+Math.max(22,L.stage*0.055)+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
-    ctx.textAlign='center'; ctx.fillStyle='#FFF6E0';
-    ctx.strokeStyle='#8C3E12'; ctx.lineWidth=6;
-    ctx.strokeText(S.praise, cx, cy-rp-fs*2.6);
-    ctx.fillText(S.praise, cx, cy-rp-fs*2.6);
-    ctx.restore();
+  const topH=fs*1.35, botH=botFs*1.35;
+  let botY=L.cy+rp+fs*1.15;
+  // 하단 배지가 레일의 「목표」 칩을 덮던 문제 — 칩 위로 밀어 올린다.
+  if(S.phase==='playing' || S.phase==='reason'){
+    const chip=railChipGeom(L);
+    if(chip){
+      const lim=chip.ly-chip.th/2-6-botH/2;
+      botY=Math.min(botY, Math.max(lim, L.cy+rp*0.6));
+    }
   }
+  return {
+    cx:L.cx, cy:L.cy, rp, fs,
+    top:{text:topTxt, fs, y:L.cy-rp-fs*1.6, h:topH, w:textW(topTxt,BADGE_FONT(fs))+22, hot:topHot},
+    bot:{text:botTxt, fs:botFs, y:botY, h:botH, w:textW(botTxt,BADGE_FONT(botFs))+22, hot:botHot}
+  };
 }
 
 function drawBadge(x,y,text,fs,hot){
@@ -1714,13 +1802,9 @@ function roundRect(x,y,w,h,r){
 }
 
 function drawRail(L){
-  if(!P0) return;
-  const x0=L.left+18, x1=L.right-18, y=L.bot-8;
-  const tgt=targetMetricValue();
-  const cur=currentMetricValue(Math.round(S.dispR100));
-  const maxV = Math.max(tgt, cur, 1)*1.25;
-  const tx=lerp(x0,x1, clamp(tgt/maxV,0,1));
-  const cx=lerp(x0,x1, clamp(cur/maxV,0,1));
+  const G = railChipGeom(L);
+  if(!G) return;
+  const x0=G.x0, x1=G.x1, y=G.y, tx=G.tx, cx=G.dotX;
   ctx.save();
   ctx.strokeStyle='rgba(44,41,38,0.55)';
   ctx.lineWidth=8; ctx.lineCap='round';
@@ -1730,16 +1814,10 @@ function drawRail(L){
   ctx.fillStyle='#FF8A3D';
   ctx.beginPath(); ctx.arc(cx,y,8,0,Math.PI*2); ctx.fill();
   ctx.strokeStyle='#2C2926'; ctx.lineWidth=2; ctx.stroke();
-  const fs=Math.max(13, L.stage*0.028);
-  ctx.font='800 '+fs+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.font=RAIL_FONT(G.fs);
   ctx.textAlign='center';
   ctx.textBaseline='middle';
-  const unit = P0.metric==='C' ? fmtLen(tgt) : fmtArea(tgt);
-  const label = '목표 '+unit;
-  const tw=ctx.measureText(label).width+18;
-  const th=fs*1.5;
-  const lx=clamp(tx, x0+tw/2, x1-tw/2);
-  const ly=y-16-th/2;
+  const label=G.label, tw=G.tw, th=G.th, lx=G.lx, ly=G.ly;
   ctx.fillStyle='#F4EEE4';
   ctx.strokeStyle='#2C2926';
   ctx.lineWidth=2.6;
@@ -1751,6 +1829,7 @@ function drawRail(L){
 }
 
 function render(){
+  _lpRenderPass = true; _lpCache = null;
   const sh = S.shake*(RM?0.3:1);
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.save();
@@ -1769,10 +1848,14 @@ function render(){
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
   }
   ctx.globalAlpha=1;
+  ctx.lineJoin='round'; ctx.miterLimit=2;
   for(const f of FX.floats){
     ctx.globalAlpha=clamp(f.life,0,1);
     ctx.font='900 '+Math.max(16,vw*0.045)+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
-    ctx.textAlign='center'; ctx.fillStyle=f.col;
+    ctx.textAlign='center';
+    ctx.strokeStyle='rgba(28,16,6,0.85)'; ctx.lineWidth=4;
+    ctx.strokeText(f.txt, f.x, f.y);
+    ctx.fillStyle=f.col;
     ctx.fillText(f.txt, f.x, f.y);
   }
   ctx.globalAlpha=1;
@@ -1782,11 +1865,14 @@ function render(){
     ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill();
   }
   ctx.globalAlpha=1;
+  // 축하 문구는 최상위 — 파티클·부유 텍스트·배지 위에 얹는다.
+  if(S.phase!=='title') drawPraise(L);
   if(S.flash>0.02){
     ctx.fillStyle=S.flashCol.replace(/[\d.]+\)$/, (0.32*S.flash)+')');
     ctx.fillRect(0,0,vw,vh);
   }
   ctx.restore();
+  _lpRenderPass = false; _lpCache = null;
 }
 
 function frame(ts){
