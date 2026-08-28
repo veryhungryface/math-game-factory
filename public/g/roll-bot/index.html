@@ -2218,11 +2218,13 @@ function drawViewShape(c,name,cx,cy,s){
 
 /* 텍스트 줄바꿈 */
 function wrapLines(c,text,maxW){
-  const words=String(text).split(/(\s+)/);
+  /* 구분점(·)은 앞 낱말에 NBSP로 붙인다 — 줄바꿈 때 다음 줄 첫머리로 홀로 밀리지 않게 */
+  const src=String(text).replace(/[ \t ]+([·•,;])/g, ' $1');
+  const words=src.split(/([ \t\n\r]+)/);
   const lines=[]; let cur='';
   for(const w of words){
     const t=cur+w;
-    if(c.measureText(t).width>maxW && cur.trim()){ lines.push(cur.trim()); cur=w.replace(/^\s+/,''); }
+    if(c.measureText(t).width>maxW && cur.trim()){ lines.push(cur.trim()); cur=w.replace(/^[ \t\n\r]+/,''); }
     else cur=t;
   }
   if(cur.trim()) lines.push(cur.trim());
@@ -3621,7 +3623,8 @@ function drawAmbient(c,t){
 }
 function drawEnemy(c,e){
   const wob=Math.sin(e.ph)*0.10, sq=e.sq*0.22;
-  const fade=clamp((e.y-(L.fieldTop-e.r))/(e.r*1.6),0,1);
+  /* 전장 위쪽 경계를 넘어서야 보이기 시작한다 — 잘린 윤곽이 눈에 띄지 않게 서서히 등장 */
+  const fade=clamp((e.y-L.fieldTop)/(e.r*1.15),0,1);
   if(fade<=0.02) return;
   c.save(); c.globalAlpha=fade; c.translate(e.x,e.y); c.scale(1+wob+sq,1-wob-sq*0.7);
   c.fillStyle=e.flash>0?'#FFFFFF':(e.k==='big'?'#6E6152':(e.k==='fast'?'#A2896A':'#8E8271'));
@@ -3798,10 +3801,13 @@ function drawRobot(c,rb,i){
   drawSolid(c,rb.type,0,0,R,Hh,{face:face,lw:rb.level>=3?3.4:3});
   drawRobotDecor(c,rb,R,Hh);
   drawRobotFace(c,rb,R,Hh,joy);
-  c.fillStyle=INK; roundRect(c,-R*0.62,-Hh/2-16,R*1.24,15,7); c.fill();
+  /* 배지는 입체의 실제 윗머리보다 위에 — 원기둥 윗면 타원(ry=R*0.34)을 물지 않게 */
+  const capOver=(rb.type==='cyl'?R*0.34:(rb.type==='sph'?Math.max(0,R-Hh/2):0))+3;
+  const badgeY=-Hh/2-capOver;
+  c.fillStyle=INK; roundRect(c,-R*0.62,badgeY-15,R*1.24,15,7); c.fill();
   c.fillStyle=rb.awakened?'#FFE08A':'#FFD35C';
   c.font='900 9.5px '+FONT; c.textAlign='center'; c.textBaseline='middle';
-  c.fillText(rb.awakened?'각성':('Lv'+rb.level),0,-Hh/2-8);
+  c.fillText(rb.awakened?'각성':('Lv'+rb.level),0,badgeY-7.5);
   const hold=G.holdShip;
   if(hold && hold.idx===i && !hold.moved && isShelfJam()){
     const k=clamp(hold.t/HOLD_SHIP_SEC,0,1);
@@ -4266,9 +4272,19 @@ function drawStampFx(c){
   const x=s.x||L.bx+L.bw/2, y=s.y||L.fieldTop+L.fieldH*0.32;
   c.save(); c.globalAlpha=al; c.textAlign='center'; c.textBaseline='middle';
   c.translate(x,y); c.rotate(-0.08); c.scale(1+0.08*(1-k),1+0.08*(1-k));
-  c.fillStyle='rgba(37,37,37,.9)'; roundRect(c,-72,-22,144,44,12); c.fill();
-  c.strokeStyle='#F4B400'; c.lineWidth=3; roundRect(c,-72,-22,144,44,12); c.stroke();
-  c.fillStyle='#FFD35C'; c.font='900 15px '+FONT; c.fillText(s.txt,0,-6);
+  /* 상자 폭은 실제 글자 폭에 맞춘다 — 축하 문구가 상자 밖으로 삐져나오지 않게 */
+  const maxBoxW=Math.max(150, Math.min(L.bw-24, 320));
+  const mainFs=fitFont(c, s.txt, maxBoxW-24, 16, 12, 900);
+  const wMain=c.measureText(s.txt).width;
+  c.font='800 11px '+FONT;
+  const wName=c.measureText(s.name||'').width;
+  const bw=Math.min(maxBoxW, Math.max(144, Math.max(wMain,wName)+26)), bh=44;
+  /* 파티클 위에 얹히므로 배경을 진하게 + 바깥 그림자로 글자 대비를 확보한다 */
+  c.shadowColor='rgba(0,0,0,.55)'; c.shadowBlur=14; c.shadowOffsetY=3;
+  c.fillStyle='rgba(28,24,18,.96)'; roundRect(c,-bw/2,-bh/2,bw,bh,12); c.fill();
+  c.shadowColor='transparent'; c.shadowBlur=0; c.shadowOffsetY=0;
+  c.strokeStyle='#F4B400'; c.lineWidth=3; roundRect(c,-bw/2,-bh/2,bw,bh,12); c.stroke();
+  c.fillStyle='#FFD35C'; c.font='900 '+mainFs+'px '+FONT; c.fillText(s.txt,0,-6);
   c.fillStyle='#FFF7E6'; c.font='800 11px '+FONT; c.fillText(s.name||'',0,12);
   c.restore();
 }
@@ -4282,7 +4298,11 @@ function render(){
   drawAmbient(ctx,G.t);
   if(G.phase!=='title'){
     drawStaging(ctx);
+    /* 적은 전장 안에서만 그린다 — 화면 위로 튀어나오거나 상단 HUD와 겹치지 않게 마스킹 */
+    ctx.save();
+    ctx.beginPath(); ctx.rect(L.bx, L.fieldTop, L.bw, L.fieldH); ctx.clip();
     for(const e of G.enemies) drawEnemy(ctx,e);
+    ctx.restore();
     for(const s of G.shots) drawShot(ctx,s);
     const dragI=G.dragRobot?G.dragRobot.idx:-1;
     for(let i=0;i<SLOTS;i++){ const r=G.robots[i]; if(r&&i!==dragI) drawRobot(ctx,r,i); }
@@ -4295,7 +4315,6 @@ function render(){
     drawDissolves(ctx);
     drawMergeHint(ctx);
     drawToast(ctx);
-    drawStampFx(ctx);
   }
   ctx.restore();
   if(G.glow>0.01){
@@ -4312,6 +4331,12 @@ function render(){
     ctx.fillRect(0,0,W,H);
   }
   if(G.phase!=='title') drawParts(ctx);
+  /* 축하 스탬프는 최후단 — 파티클·떠오르는 라벨에 가려지면 읽을 수 없다 */
+  if(G.phase!=='title' && G.stampFx){
+    ctx.save(); ctx.translate(sx,sy);
+    drawStampFx(ctx);
+    ctx.restore();
+  }
 }
 
 /* ─────────────────────── 14. 업데이트 ─────────────────────── */
