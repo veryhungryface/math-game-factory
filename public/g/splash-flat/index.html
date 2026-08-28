@@ -1176,6 +1176,8 @@ function planRound(r){
 function nextRound(){
   if(S.over) return;
   clearTimers();
+  // 지난 라운드의 점수 팝업·파티클이 새 라운드 눈금(0─½─1)·밴드 라벨 위에 남지 않게 지운다
+  texts.length = 0; parts.length = 0; ripples.length = 0;
   S.round++;
   syncHUD();
   var plan = planRound(S.round);
@@ -1525,13 +1527,21 @@ function vGrow(){
   S._vg = g;
   return g;
 }
+/** 레인이 실제로 쓰는 가로 띠. 좌측은 눈금 숫자 열, 우측은 높이 배지(N장)·오리가 서는 열로 비워 둔다. */
+function meanBand(){
+  var gR = Math.max(46, Math.min(66, LO.fw * 0.055));
+  var gL = 20;
+  var w = LO.fw - gL - gR;
+  if(w < 120){ gL = 0; gR = Math.min(gR, Math.max(0, LO.fw - 120)); w = LO.fw - gR; }
+  return { x: LO.fx + gL, w: w, gL: gL, gR: gR };
+}
 function slabH(){
   var st = S.stage;
   if(!st || st.type !== 'mean') return 20;
   var mx = Math.max(maxOf(st.h), st.target, meanTickMax(st), 1) + 1.5;
   var avail = LO.deckY - LO.ceil - 12;
   var n = st.h.length + (st.variant === 'missing' ? 1 : 0);
-  var lw = (LO.fw - 16 - 7*(n-1)) / n;                 // 레인 폭 (킥판이 널빤지처럼 보이는 비율 유지)
+  var lw = (meanBand().w - 16 - 7*(n-1)) / n;          // 레인 폭 (킥판이 널빤지처럼 보이는 비율 유지)
   var g = vGrow();
   var thick = (LO.land ? 58 : 46) + 32 * g;
   var cap = Math.min(thick, lw * (0.50 + 0.06 * g));
@@ -1548,10 +1558,11 @@ function laneLayout(){
   if(!st || st.type !== 'mean') return null;
   var n = st.h.length;
   var slots = n + (st.variant === 'missing' ? 1 : 0);
-  var pad = 8, gap = Math.max(4, Math.min(9, LO.fw * 0.02));
+  var B = meanBand();
+  var pad = 8, gap = Math.max(4, Math.min(9, B.w * 0.02));
   var extra = (st.raft && !st.merged) ? st.gapExtra : 0;
-  var lw = (LO.fw - 2*pad - gap*(slots-1) - extra) / slots;
-  var out = [], cur = LO.fx + pad;
+  var lw = (B.w - 2*pad - gap*(slots-1) - extra) / slots;
+  var out = [], cur = B.x + pad;
   for(var i=0;i<slots;i++){
     out.push({ cx: cur + lw/2, w: lw, i: i, reserve: (i >= n) });
     cur += lw + gap;
@@ -2228,7 +2239,8 @@ function drawMeanScene(){
   var mx = Math.max(maxOf(st.h), st.target, 1) + 1;
   var predicting = (st.step === 'predict' || st.step === 'predict2');
   var mxT = predicting ? meanTickMax(st) : mx;
-  // 눈금(높이를 읽는 벽)
+  // 눈금(높이를 읽는 벽) — 선은 바닥에 깔고, 숫자·배지는 물·킥판 위에 다시 얹는다(가려짐 방지)
+  var axisNums = [];
   ctx.save();
   ctx.strokeStyle = 'rgba(40,92,118,.18)'; ctx.lineWidth = 1;
   var stepv = mxT > 9 ? 2 : 1;
@@ -2236,9 +2248,10 @@ function drawMeanScene(){
     var yy = yOf(v);
     if(yy < LO.ceil) break;
     ctx.beginPath(); ctx.moveTo(LO.fx, yy); ctx.lineTo(LO.fx + LO.fw, yy); ctx.stroke();
-    label(ctx, String(v), LO.fx + 11, yy - 1, 12, 'rgba(30,80,105,.62)', 'center', 0);
+    axisNums.push({ v: v, y: yy });
   }
   ctx.restore();
+  var tickRows = [];
   if(predicting){
     var traps = {};
     if(st.choices) for(var ci=0;ci<st.choices.length;ci++) traps[st.choices[ci].v] = 1;
@@ -2253,12 +2266,11 @@ function drawMeanScene(){
       ctx.beginPath(); ctx.moveTo(LO.fx + 20, ty); ctx.lineTo(LO.fx + LO.fw - 6, ty); ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
-      badge(ctx, String(tv)+'장', LO.fx + LO.fw - 22, ty, hot ? 15 : 12,
-            hot ? 'rgba(255,214,10,.95)' : 'rgba(10,32,46,.78)',
-            hot ? '#0A4D6E' : '#FFF3B0');
+      tickRows.push({ v: tv, y: ty, hot: hot });
     }
   }
-  drawWater(predicting && st.heroTick !== null && st.heroTick !== undefined ? yOf(st.heroTick) : yOf(st.water));
+  var waterY = predicting && st.heroTick !== null && st.heroTick !== undefined ? yOf(st.heroTick) : yOf(st.water);
+  drawWater(waterY);
   // 레인
   for(var i=0;i<L.slots.length;i++){
     var s = L.slots[i];
@@ -2311,6 +2323,18 @@ function drawMeanScene(){
     // 레인 번호(빈 레인도 자료라는 걸 또렷하게)
     label(ctx, String(i+1) + (st.raft && !st.merged ? (st.raft[i] === 0 ? '·가' : '·나') : ''),
           s.cx, LO.deckY + 10, 11, 'rgba(255,255,255,.85)', 'center', 2);
+  }
+  // 눈금 숫자 열(좌) · 높이 배지 열(우) — 물과 킥판 위에 얹어 항상 읽히게 한다
+  for(var an=0; an<axisNums.length; an++){
+    var sunk = axisNums[an].y > waterY + 1;
+    label(ctx, String(axisNums[an].v), LO.fx + 11, axisNums[an].y - 1, 12,
+          sunk ? 'rgba(236,249,255,.94)' : 'rgba(30,80,105,.72)', 'center', 0);
+  }
+  for(var tb=0; tb<tickRows.length; tb++){
+    var tr0 = tickRows[tb];
+    badge(ctx, String(tr0.v)+'장', LO.fx + LO.fw - 22, tr0.y, tr0.hot ? 15 : 12,
+          tr0.hot ? 'rgba(255,214,10,.95)' : 'rgba(10,32,46,.78)',
+          tr0.hot ? '#0A4D6E' : '#FFF3B0');
   }
   // 두 모둠(뗏목) 구분선과 배지
   if(st.raft){
