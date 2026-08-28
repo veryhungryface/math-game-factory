@@ -464,7 +464,9 @@ function layout(){
   } else {
     var short=CH<560;
     stage.padL=short?120:148; stage.padR=short?128:156;
-    stage.top=12; stage.bot=CH-12; stage.h=stage.bot-stage.top;
+    /* 하단 안내 바(#hint, bottom:10px + 약 33px)를 무대에서 제외한다 —
+       안 그러면 도형 아래가 안내 바에 가린다. */
+    stage.top=12; stage.bot=CH-(short?46:52); stage.h=stage.bot-stage.top;
     stage.cx=CW/2;                               // 화면 중앙 광축
     stage.cy=stage.top+stage.h*0.48;
   }
@@ -615,6 +617,15 @@ function fitScale(v,maxW,maxH){
   var b=bbox(v);
   return Math.min(maxW/Math.max(b.w,.001), maxH/Math.max(b.h,.001));
 }
+/* 도형은 무게중심(원점)을 기준으로 그려지지만, 화면 중앙에 놓아야 하는 것은
+   무게중심이 아니라 경계상자의 중심이다. (정삼각형·하트·이등변삼각형처럼
+   무게중심과 경계상자 중심이 어긋난 도형은 그냥 stage.cy에 놓으면 위/아래가 잘린다.)
+   fitScale 이 보장하는 것도 '경계상자'가 들어간다는 것뿐이므로 원점을 이만큼 밀어준다. */
+function bboxOrigin(v,s){
+  var b=bbox(v);
+  return { x: stage.cx - (b.x0+b.x1)/2*s,      // 화면x = cx + localX*s
+           y: stage.cy + (b.y0+b.y1)/2*s };    // 화면y = cy - localY*s
+}
 function playW(){ return Math.max(160, CW - (stage.padL||0) - (stage.padR||0)); }
 function crystalFit(){
   if(stage.land){
@@ -655,8 +666,9 @@ function placeGateSlots(c){
 function newPoly(sh){
   var F=crystalFit();
   var s=clamp(fitScale(sh.v,F.polyW,F.polyH),F.polyLo,F.polyHi);
+  var o=bboxOrigin(sh.v,s);
   var c={kind:'poly',sh:sh,v:sh.v,scale:s,found:[],rotDone:false,
-    cx:stage.cx,cy:stage.cy,born:0,bob:0,dead:false};
+    cx:o.x,cy:o.y,born:0,bob:0,dead:false};
   /* 후보 대칭의 중심: 참 중심(원점) + 미끼 2개 */
   var b=bbox(sh.v);
   var d1=[sh.v[0][0]*0.55,sh.v[0][1]*0.55];
@@ -689,8 +701,9 @@ function relayout(){
   var c=cry;if(!c)return;
   var F=crystalFit();
   if(c.kind==='poly'){
-    c.cx=stage.cx;c.cy=stage.cy;
     c.scale=clamp(fitScale(c.v,F.polyW,F.polyH),F.polyLo,F.polyHi);
+    var o=bboxOrigin(c.v,c.scale);
+    c.cx=o.x;c.cy=o.y;
   }else if(c.kind==='half'){
     c.cx=stage.cx;c.cy=stage.cy;
     var cell=stage.land?Math.min((playW()-40)/8.2, stage.h*0.90/8.2):Math.min((CW-34)/7.7,Math.min(stage.h*0.7,360)/7.4);
