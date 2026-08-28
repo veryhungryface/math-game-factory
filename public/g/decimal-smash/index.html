@@ -11,7 +11,11 @@
 <link rel="stylesheet" href="../../vendor/katex/katex.min.css">
 <script src="../../vendor/katex/katex.min.js"></script>
 <style>
-  :root{ --cyan:#00e5ff; --pink:#ff3d81; --yellow:#ffd23d; --bg:#0a0e27; }
+  :root{
+    --cyan:#00e5ff; --pink:#ff3d81; --yellow:#ffd23d; --bg:#0a0e27;
+    /* 판형(playfield-spec) — 파노라마형: 플레이 필드는 중앙 스테이지(최대 1440px) */
+    --stageW:min(100vw,1440px); --stageX:calc((100vw - var(--stageW)) / 2);
+  }
   *{ box-sizing:border-box; }
   html,body{
     margin:0; padding:0; width:100%; height:100%; overflow:hidden;
@@ -74,6 +78,10 @@
   #ruleCard{ border-radius:18px; border:2px solid rgba(0,229,255,.55);
     box-shadow:0 0 18px rgba(0,229,255,.25), inset 0 1px 0 rgba(255,255,255,.22), inset 0 -8px 12px -10px rgba(0,0,0,.4); }
   #flashOverlay{ position:fixed; inset:0; z-index:6; pointer-events:none; opacity:0; background:#ff1a3c; }
+  /* ── 와이드(land) 분기 — HUD·규칙 카드·음소거 버튼을 스테이지 기준으로 정렬 ── */
+  html.land #statsBar{ left:var(--stageX); right:var(--stageX); padding:10px 16px; }
+  html.land #ruleCard{ max-width:min(760px, calc(var(--stageW)*0.62)); }
+  html.land #muteBtn{ right:calc(var(--stageX) + 14px); }
   #muteBtn{
     position:absolute; bottom:max(14px, env(safe-area-inset-bottom)); right:14px; pointer-events:auto;
     width:48px; height:48px; border-radius:50%; border:1px solid rgba(255,255,255,.25);
@@ -394,6 +402,13 @@
   let W = 0, H = 0, DPR = 1;
   let bgLayer = null; // 정적 배경을 미리 구워둔 오프스크린 캔버스 (매 프레임 다시 그리지 않음)
 
+  // ── 판형(docs/playfield-spec.md) — 원형 ① 파노라마형, stageW 1440 ──
+  // 방울 스폰·비행·바운스는 뷰포트가 아니라 중앙 스테이지(FIELD) 좌표를 쓴다.
+  // 세로폰에서는 FIELD.x=0, FIELD.w=W 라서 기존과 완전히 동일하게 동작한다.
+  const STAGE_MAX = 1440; // CSS --stageW 상한과 반드시 일치
+  const FIELD = { land: false, x: 0, w: 0 };
+  function fieldScale(){ return Math.min(FIELD.w || W, H); }
+
   // ───────────────────────────── 방울 수식(LaTeX) DOM 오버레이
   // 캔버스 fillText 대신 KaTeX 로 렌더링한 절대위치 DOM 엘리먼트를 방울 위에 겹쳐 띄운다.
   // 성능을 위해 katex.render()는 슬롯의 텍스트(또는 반지름)가 바뀔 때만 호출하고,
@@ -460,11 +475,22 @@
   function resize(){
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth; H = window.innerHeight;
+    // land 진입 조건은 종횡비 + 폭 기준 (세로로 긴 데스크톱 창도 와이드 취급)
+    FIELD.land = (W >= H && W >= 640) || W >= 1024;
+    document.documentElement.classList.toggle('land', FIELD.land);
+    FIELD.w = Math.min(W, STAGE_MAX);
+    FIELD.x = Math.round((W - FIELD.w) / 2);
+    const root = document.documentElement;
+    root.style.setProperty('--stageW', FIELD.w + 'px');
+    root.style.setProperty('--stageX', FIELD.x + 'px');
     canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     bakeBackground();
-    slots.forEach(sl => { if (sl.active){ sl.x = Math.min(sl.x, W - sl.r); sl.y = Math.min(sl.y, H - sl.r); } });
+    slots.forEach(sl => { if (sl.active){
+      sl.x = Math.max(FIELD.x + sl.r, Math.min(FIELD.x + FIELD.w - sl.r, sl.x));
+      sl.y = Math.min(sl.y, H - sl.r);
+    } });
     initDust();
   }
 
@@ -495,6 +521,15 @@
       const x = Math.random() * W, y = Math.random() * H, r = Math.random() * 1.6 + 0.4;
       bctx.fillStyle = `rgba(${Math.random() < 0.5 ? '0,229,255' : '255,61,129'},${(Math.random()*0.35+0.12).toFixed(2)})`;
       bctx.beginPath(); bctx.arc(x, y, r, 0, Math.PI * 2); bctx.fill();
+    }
+    // 초와이드(스테이지 상한 초과) 잔여 폭 — 배경 톤을 눌러 무대 밖임을 표시 (배경에 미리 굽는다)
+    if (FIELD.land && FIELD.w < W - 2){
+      bctx.fillStyle = 'rgba(3,6,18,.45)';
+      bctx.fillRect(0, 0, FIELD.x, H);
+      bctx.fillRect(FIELD.x + FIELD.w, 0, W - FIELD.x - FIELD.w, H);
+      bctx.fillStyle = 'rgba(0,229,255,.16)';
+      bctx.fillRect(FIELD.x - 1, 0, 1, H);
+      bctx.fillRect(FIELD.x + FIELD.w, 0, 1, H);
     }
     bgLayer = off;
   }
@@ -562,7 +597,7 @@
   };
   try { state.best = parseInt(localStorage.getItem('decimalSmashBest') || '0', 10) || 0; } catch(e){}
 
-  const MAX_SLOTS = 8;
+  const MAX_SLOTS = 12;
   const slots = [];
   for (let i = 0; i < MAX_SLOTS; i++){
     slots.push({ id: i, active: false, role: 'judge', ok: false, text: '', x: 0, y: 0, vx: 0, vy: 0, r: 40, angV: 0, ttl: 0, born: 0, popFx: 0 });
@@ -573,7 +608,13 @@
   let chainPhase = 'first'; // level5: first | second
   let chainBase = null;
 
-  function targetCount(level, cycle){ return Math.min(8, 5 + Math.floor(cycle * 0.7) + (level >= 3 ? 0 : 0)); }
+  // 와이드에서는 필드가 넓어진 만큼 방울 수를 늘려 밀도를 유지한다 (1280px→+2, 1440px→+3).
+  // 세로폰·가로폰(<900px)은 +0 이라 기존 난이도 곡선과 완전히 동일하다.
+  function extraWideSlots(){ return FIELD.land ? Math.max(0, Math.min(4, Math.floor((FIELD.w - 640) / 260))) : 0; }
+  function targetCount(level, cycle){
+    const base = Math.min(8, 5 + Math.floor(cycle * 0.7) + (level >= 3 ? 0 : 0));
+    return Math.min(MAX_SLOTS, base + extraWideSlots());
+  }
   function speedMul(cycle){ return 1 + cycle * 0.16; }
   function bombChance(cycle){ return Math.min(0.2, 0.08 + cycle * 0.018); }
 
@@ -712,16 +753,18 @@
   }
 
   function spawnPos(sl){
-    const r = Math.max(38, Math.min(W, H) * 0.115);
+    // 크기·속도는 스테이지 기준으로 스케일하되 상한을 둔다 (초와이드에서 거대해지면 안 된다)
+    const r = Math.max(38, Math.min(84, fieldScale() * 0.115));
     sl.r = r;
-    let x = r, y = r;
+    const x0 = FIELD.x, x1 = FIELD.x + FIELD.w;
+    let x = x0 + r, y = r;
     for (let i = 0; i < 24; i++){
-      x = randInt(r, Math.max(r, W - r)); y = randInt(r + 90, Math.max(r + 90, H - r));
+      x = randInt(x0 + r, Math.max(x0 + r, x1 - r)); y = randInt(r + 90, Math.max(r + 90, H - r));
       if (farEnough(x, y, r, sl.id)) break;
     }
     sl.x = x; sl.y = y;
     const ang = Math.random() * Math.PI * 2;
-    const sp = (Math.min(W, H) * 0.09) * speedMul(state.cycle);
+    const sp = (fieldScale() * 0.09) * speedMul(state.cycle);
     sl.vx = Math.cos(ang) * sp; sl.vy = Math.sin(ang) * sp;
     sl.angV = (Math.random() - 0.5) * 0.6;
     sl.born = performance.now();
@@ -769,11 +812,12 @@
   }
 
   function spawnHint(){
-    const r = Math.max(50, Math.min(W, H) * 0.14);
+    const r = Math.max(50, Math.min(96, fieldScale() * 0.14));
     hintSlot.r = r;
-    hintSlot.x = randInt(r, Math.max(r + 1, W - r)); hintSlot.y = randInt(r, Math.max(r + 1, H * 0.4));
+    hintSlot.x = randInt(FIELD.x + r, Math.max(FIELD.x + r + 1, FIELD.x + FIELD.w - r));
+    hintSlot.y = randInt(r, Math.max(r + 1, H * 0.4));
     const ang = Math.random() * Math.PI * 2;
-    const sp = Math.min(W, H) * 0.035;
+    const sp = fieldScale() * 0.035;
     hintSlot.vx = Math.cos(ang) * sp; hintSlot.vy = Math.sin(ang) * sp;
     hintSlot.text = (currentExpr && currentExpr.hintStr) || '';
     hintSlot.born = performance.now();
@@ -1068,7 +1112,7 @@
     };
     if (i === 0){
       const cv = canvas.getBoundingClientRect();
-      return [cv.width * 0.10, cv.height * 0.28, cv.width * 0.80, cv.height * 0.46];
+      return [FIELD.x + FIELD.w * 0.10, cv.height * 0.28, FIELD.w * 0.80, cv.height * 0.46];
     }
     if (i === 1) return pad(document.getElementById('ruleCard'), 8);
     return pad(document.getElementById('scoreWrap'), 8);
@@ -1285,8 +1329,8 @@
         const ang = Math.atan2(sl.vy, sl.vx) + sl.angV * dt * pScale;
         const sp = Math.hypot(sl.vx, sl.vy);
         sl.vx = Math.cos(ang) * sp; sl.vy = Math.sin(ang) * sp;
-        if (sl.x < sl.r){ sl.x = sl.r; sl.vx = Math.abs(sl.vx); }
-        if (sl.x > W - sl.r){ sl.x = W - sl.r; sl.vx = -Math.abs(sl.vx); }
+        if (sl.x < FIELD.x + sl.r){ sl.x = FIELD.x + sl.r; sl.vx = Math.abs(sl.vx); }
+        if (sl.x > FIELD.x + FIELD.w - sl.r){ sl.x = FIELD.x + FIELD.w - sl.r; sl.vx = -Math.abs(sl.vx); }
         if (sl.y < sl.r){ sl.y = sl.r; sl.vy = Math.abs(sl.vy); }
         if (sl.y > H - sl.r){ sl.y = H - sl.r; sl.vy = -Math.abs(sl.vy); }
         if (pScale > 0 && (sl.role === 'judge' || sl.role === 'bomb') && sl.ttl && now > sl.ttl){ assignRole(sl); }
@@ -1309,14 +1353,14 @@
       }
       slots.forEach(sl => {
         if (!sl.active) return;
-        sl.x = Math.max(sl.r, Math.min(W - sl.r, sl.x));
+        sl.x = Math.max(FIELD.x + sl.r, Math.min(FIELD.x + FIELD.w - sl.r, sl.x));
         sl.y = Math.max(sl.r, Math.min(H - sl.r, sl.y));
       });
       if (hintSlot.active){
         hintSlot.x += hintSlot.vx * dt * pScale; hintSlot.y += hintSlot.vy * dt * pScale;
-        if (hintSlot.x < hintSlot.r || hintSlot.x > W - hintSlot.r) hintSlot.vx *= -1;
+        if (hintSlot.x < FIELD.x + hintSlot.r || hintSlot.x > FIELD.x + FIELD.w - hintSlot.r) hintSlot.vx *= -1;
         if (hintSlot.y < hintSlot.r || hintSlot.y > H * 0.42) hintSlot.vy *= -1;
-        hintSlot.x = Math.max(hintSlot.r, Math.min(W - hintSlot.r, hintSlot.x));
+        hintSlot.x = Math.max(FIELD.x + hintSlot.r, Math.min(FIELD.x + FIELD.w - hintSlot.r, hintSlot.x));
         hintSlot.y = Math.max(hintSlot.r, Math.min(H * 0.42, hintSlot.y));
       }
     }
@@ -1431,6 +1475,7 @@
         pressureScale: pressureScale(), roundType: state.roundType
       };
     },
+    getLayout(){ return { land: FIELD.land, playW: FIELD.w, playX: FIELD.x }; },
     forceLevel(level){
       if (state.phase !== 'playing') launchPlay();
       const lv = Math.max(1, Math.min(5, level | 0));
