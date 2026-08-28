@@ -14,6 +14,8 @@
   --cream:#F4E9D6; --deep:#1A100C;
   --colW:min(100vw,960px);
   --colX:calc((100vw - var(--colW)) / 2);
+  --stageW:min(100vw,1360px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
   --safeT:env(safe-area-inset-top,0px);
   --safeB:env(safe-area-inset-bottom,0px);
   --logo-top:#FFE27A; --logo-mid:#E8B423; --logo-bottom:#D45A1F;
@@ -299,11 +301,30 @@ html,body{width:100%;height:100%;overflow:hidden;background:#6a4a38;color:var(--
 @media (orientation:landscape),(min-aspect-ratio:1/1){
   .title-art{--art-x:50%;--art-y:52%}
 }
-html.land #hud{padding-left:18px;padding-right:18px}
-html.land #say .say-card{max-width:860px;font-size:17px}
 html.land #reasonRow{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 html.land .rc{min-height:48px;font-size:13px}
 html.land #over .card{max-width:380px}
+/* 좁은 가로(폰 랜드스케이프): 기존 동작 유지 */
+@media (max-width:999.9px){
+  html.land #hud{padding-left:18px;padding-right:18px}
+  html.land #say .say-card{max-width:860px;font-size:17px}
+}
+/* 와이드 극장형 (playfield-spec ③, stageW 1360):
+   좌 존 = 문제 카드(say) · 중앙 무대 = 자물쇠 판(캔버스) · 우 존 = 기록/진행(hud) · 하단 중앙 = 컨트롤 */
+@media (min-width:1000px){
+  html.land #hud{
+    left:calc(var(--stageX) + var(--stageW) - min(300px,calc(var(--stageW)*0.21)) - 14px);
+    width:min(300px,calc(var(--stageW)*0.21));
+    padding:calc(12px + var(--safeT)) 0 0}
+  html.land #hud .row{flex-wrap:wrap;row-gap:6px}
+  html.land #stageRow{flex-wrap:wrap;row-gap:5px}
+  html.land #contract{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.45;margin-top:8px}
+  html.land #say{left:calc(var(--stageX) + 14px);right:auto;
+    width:min(320px,calc(var(--stageW)*0.21));padding:0;justify-content:flex-start}
+  html.land #say .say-card{max-width:none;text-align:left;font-size:16px}
+  html.land #say .sub{font-size:12.5px}
+  html.land #ctrl{left:50%;width:min(620px,calc(var(--stageW)*0.46));transform:translateX(-50%)}
+}
 
 @media (prefers-reduced-motion:reduce){
   .title-art__image,.title-embers i,.game-logo>span:not(.logo-gap),.game-subtitle,.title-start,#onbHole,.btn.pulse,.mn.cur .n{
@@ -1067,6 +1088,11 @@ function say(html){
   placeSay();
 }
 function placeSay(){
+  if(land && W>=1000){
+    /* 극장형: say는 좌측 존 상단 고정 */
+    $('say').style.top='calc(14px + env(safe-area-inset-top, 0px))';
+    return;
+  }
   const hud=$('hud');
   let top=72;
   if(hud && !hud.classList.contains('hidden')){
@@ -1299,15 +1325,29 @@ function paintFitBtn(){
 }
 
 const PLAY_COL_MAX=960;
+const STAGE_MAX=1360; /* CSS --stageW 상한과 반드시 일치 */
+function isTheater(){ return land && W>=1000; }
 function layoutPlay(){
   const hud=$('hud'), say=$('say'), ctrl=$('ctrl');
+  const bot = (ctrl&&!ctrl.classList.contains('hidden')?ctrl.getBoundingClientRect().top:H-80);
+  if(isTheater()){
+    /* 극장형: 좌 문제 존 / 중앙 무대 / 우 기록 존. CSS 존 폭과 같은 식을 쓴다 */
+    const stage=Math.min(W, STAGE_MAX);
+    const sx=(W-stage)/2;
+    const zL=Math.min(320, stage*0.21);
+    const zR=Math.min(300, stage*0.21);
+    const x=sx+zL+28, w=Math.max(220, stage-zL-zR-56);
+    const top=16;
+    return {x, y:top, w, h:Math.max(150, bot-top-14), colX:sx, colW:stage,
+      stageX:sx, stageW:stage, land:true, playW:w};
+  }
   const top = (hud&&!hud.classList.contains('hidden')?hud.getBoundingClientRect().bottom:60)
             + (say&&!say.classList.contains('hidden')?say.getBoundingClientRect().height+8:0);
-  const bot = (ctrl&&!ctrl.classList.contains('hidden')?ctrl.getBoundingClientRect().top:H-80);
   const pad=10;
   const colW=Math.min(W, PLAY_COL_MAX);
   const colX=(W-colW)/2;
-  return {x:colX+pad, y:top+6, w:colW-pad*2, h:Math.max(120, bot-top-16), colX, colW};
+  return {x:colX+pad, y:top+6, w:colW-pad*2, h:Math.max(120, bot-top-16), colX, colW,
+    land:!!land, playW:colW-pad*2};
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1829,7 +1869,8 @@ document.addEventListener('pointerdown', unlockAudio, {once:true});
    ══════════════════════════════════════════════════════════════ */
 function resize(){
   W=window.innerWidth; H=window.innerHeight;
-  land = W>H;
+  /* 폭 1024px 이상이면 종횡비와 무관하게 land (playfield-spec 2.2) */
+  land = (W>=H && W>=640) || W>=1024;
   document.documentElement.classList.toggle('land', land);
   DPR=Math.min(window.devicePixelRatio||1, 2);
   cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
@@ -1862,6 +1903,13 @@ function drawBg(){
     const g2=ctx.createLinearGradient(0,0,0,H);
     g2.addColorStop(0,'#d8c0a0'); g2.addColorStop(0.5,'#8E1C2C'); g2.addColorStop(1,'#2C1810');
     ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
+  }
+  /* 초와이드(1360px+) 잔여 폭: 배경 톤을 눌러 무대 밖임을 표시 (playfield-spec 2.3) */
+  if(land && W>STAGE_MAX+2){
+    const sx=(W-STAGE_MAX)/2;
+    ctx.fillStyle='rgba(20,10,8,0.30)';
+    ctx.fillRect(0,0,sx,H);
+    ctx.fillRect(sx+STAGE_MAX,0,W-sx-STAGE_MAX,H);
   }
   /* 장식 커튼은 타이틀에서만. 플레이 중엔 수학 막이 주인공 */
   if(IM.curtain && S.phase==='title'){
@@ -2014,7 +2062,8 @@ function renderPlay(dt){
     const A=cells.A, B=cells.B, C=cells.C, D=cells.D;
     let box1,box2,lockC,gap=0;
     if(land){
-      const pw=Math.min(L.w*0.36, 420), ph=Math.min(L.h*0.78, 340);
+      const th=isTheater();
+      const pw=Math.min(L.w*(th?0.40:0.36), th?500:420), ph=Math.min(L.h*(th?0.80:0.78), th?460:340);
       const y=L.y+(L.h-ph)/2;
       box1={x:L.x+8, y, w:pw, h:ph};
       box2={x:L.x+L.w-pw-8, y, w:pw, h:ph};
@@ -2115,7 +2164,7 @@ function renderPlay(dt){
   } else if(P0.kind==='allot' || P0.kind==='reverse'){
     const T=P0.T;
     const Lft=Math.round(S.dispL), Rgt=Math.round(S.dispR);
-    const y=L.y+L.h*0.18, h=Math.min(L.h*0.55, 180), x=L.x+12, w=L.w-24;
+    const y=L.y+L.h*0.18, h=Math.min(L.h*0.55, isTheater()?260:180), x=L.x+12, w=L.w-24;
     roundRect(ctx,x,y,w,h,14);
     ctx.fillStyle='#E8DCC8'; ctx.fill();
     ctx.strokeStyle='#2C1810'; ctx.lineWidth=2.5; ctx.stroke();
@@ -2156,7 +2205,7 @@ function renderPlay(dt){
     const A = P0.kind==='fold'?P0.Araw:P0.a;
     const B = P0.kind==='fold'?P0.Braw:P0.b;
     const f=Math.round(S.dispFold);
-    const y=L.y+L.h*0.16, h=Math.min(90, L.h*0.22), x=L.x+16, w=L.w-32;
+    const y=L.y+L.h*0.16, h=Math.min(isTheater()?130:90, L.h*0.22), x=L.x+16, w=L.w-32;
     const drawStrip=(yy, n, col, label)=>{
       const cw=w/n;
       for(let i=0;i<n;i++){
