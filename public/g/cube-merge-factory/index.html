@@ -34,9 +34,19 @@
   .gdot{ transition:background .18s ease; }
   .gdot.pop{ animation:gdotPop .4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes gdotPop{ 0%{ transform:scale(2); } 100%{ transform:scale(1); } }
-  /* 세로형 게임이라 와이드 화면에서는 중앙 640px 컬럼으로 제한(레터박스).
-     캔버스 그리드(computeLayout)도 같은 컬럼 기준으로 계산한다. */
+  /* 세로(폰) 판형: 중앙 640px 컬럼. 캔버스 그리드(computeLayout)도 같은 컬럼 기준이다. */
   :root{ --colW: min(100vw, 640px); --colX: calc((100vw - var(--colW)) / 2); }
+  /* 와이드 판형(docs/playfield-spec.md 원형 ② 2단 분할): 좌 머지 그리드 + 우 주문/도감 패널.
+     아래 4개 변수는 JS(layoutStage)가 매 resize 마다 실제 픽셀로 덮어쓴다 —
+     CSS 존과 캔버스 그리드가 반드시 같은 소스에서 나오게 하기 위해서다. */
+  :root{
+    --stageW: min(100vw, 1280px);
+    --stageX: calc((100vw - var(--stageW)) / 2);
+    --panelW: 0px;
+    --zoneL: 0px;      /* 좌측 그리드 존의 left */
+    --zoneW: 100vw;    /* 좌측 그리드 존의 width */
+    --zoneCx: 50vw;    /* 좌측 그리드 존의 가로 중심 */
+  }
   #topBar{
     position:absolute; top:max(8px, env(safe-area-inset-top));
     left:calc(var(--colX) + 8px); right:calc(var(--colX) + 8px);
@@ -237,6 +247,10 @@
     pointer-events:auto; text-align:center; padding:24px;
   }
   .screen.hidden{ display:none; }
+  /* ⚠️ 아래 #startScreen 규칙이 display:block 을 ID 특정도로 지정하기 때문에
+     .screen.hidden 만으로는 타이틀이 안 사라진다(시작해도 화면을 덮고 있었다).
+     같은 특정도로 hidden 을 다시 선언해 둔다 — 지우지 마라. */
+  #startScreen.hidden{ display:none; }
   .screen h1{ font-size:clamp(30px,9vw,46px); margin:0; color:var(--cream); }
   .screen h2{ font-size:clamp(24px,7vw,36px); margin:0; color:var(--orange); }
   .screen p{ margin:0; color:#f1e7d6; opacity:.9; font-size:clamp(14px,4vw,18px); }
@@ -380,6 +394,40 @@
   @keyframes resultStampIn{ 0%{ transform:rotate(-10deg) scale(2.4); opacity:0;} 60%{ transform:rotate(-10deg) scale(.92); opacity:1;} 100%{ transform:rotate(-10deg) scale(1); opacity:1;} }
   #finalScore{ font-weight:900; font-size:clamp(20px,6vw,28px); color:var(--cream); }
   #finalScore span{ display:inline-block; }
+
+  /* ── 와이드 재배치 (html.land) — 원형 ② 2단 분할 ───────────────
+     좌: 머지 그리드(4열×3행으로 확대, 캔버스). 우: 주문서 + 배송 도감 + 휴지통 패널.
+     세로에서 화면 아래에 깔려 있던 주문/배송 존이 통째로 오른쪽 기둥으로 이동한다. */
+  html.land #topBar{
+    left:calc(var(--zoneL) + 2px);
+    right:calc(100vw - var(--zoneL) - var(--zoneW) + 2px);
+  }
+  html.land #hintBanner{
+    left:var(--zoneL); right:calc(100vw - var(--zoneL) - var(--zoneW));
+    width:auto; max-width:560px; margin:0 auto;
+  }
+  html.land #comboText{ left:var(--zoneCx); top:auto; bottom:104px; }
+  html.land #stallBanner{ left:var(--zoneCx); top:auto; bottom:58px; }
+  html.land #toast{ left:var(--zoneCx); }
+  html.land #praise{ left:var(--zoneCx); }
+  html.land #onbCard{ left:var(--zoneCx); }
+  html.land #onbTap{ left:var(--zoneL); right:calc(100vw - var(--zoneL) - var(--zoneW)); }
+  /* 우측 패널 — 주문서 기둥 */
+  html.land #orderBar{
+    left:auto; right:calc(var(--stageX) + 14px); width:var(--panelW);
+    top:calc(max(10px, env(safe-area-inset-top)) + 62px); bottom:auto;
+  }
+  html.land #mascot{ left:6px; right:auto; top:-58px; bottom:auto; width:52px; height:52px; }
+  html.land #orderCard{ padding:12px 12px 10px; }
+  html.land #orderIcon{ width:60px; height:60px; }
+  html.land #orderText{ font-size:15px; }
+  html.land #dropLabel{ font-size:13px; padding:5px 13px; }
+  /* 휴지통 — 패널 기둥 맨 아래. transform:translateY(-50%) 를 그대로 쓰므로
+     top 은 "중심 y" 다 (hot/warn 애니메이션이 같은 transform 을 쓴다). */
+  html.land #trashZone{
+    right:calc(var(--stageX) + 14px + (var(--panelW) - 68px) / 2);
+    top:calc(100vh - 78px); width:68px; height:68px; font-size:29px;
+  }
 
   @media (prefers-reduced-motion: reduce){
     #comboText, #orderCard, .bigbtn, #toast, #mascot, #trashZone, #stallBanner, #hintBanner{ transition:none !important; }
@@ -695,12 +743,20 @@ const ctx=cvs.getContext('2d');
 let DPR=1, CW=360, CH=640;
 let bgLayer=document.createElement('canvas');
 let bgCtx=bgLayer.getContext('2d');
-let layout={ gridX:0,gridY:0,gridW:0,gridH:0, cellW:0,cellH:0 };
+// 우측 패널의 "배송 도감"은 배송 성공/판형 변경 때만 다시 굽는다 —
+// QA 브라우저는 소프트웨어 렌더링이라 매 프레임 겨냥도 10개를 그리면 30fps 게이트를 못 넘는다.
+let dexLayer=document.createElement('canvas');
+let dexCtx=dexLayer.getContext('2d');
+let dexDirty=true, dexRect={x:0,y:0,w:0,h:0};
+let layout={ gridX:0,gridY:0,gridW:0,gridH:0, cellW:0,cellH:0, cols:3, rows:4 };
 
+// 세로에서는 3열×4행, 와이드에서는 4열×3행으로 같은 12칸을 재배치한다.
+// 칸 수(GRID_N)와 인덱스 의미는 그대로라 게임 로직·상태는 전혀 바뀌지 않는다.
 const GRID_COLS=3, GRID_ROWS=4, GRID_N=GRID_COLS*GRID_ROWS;
 
 function cellRect(idx){
-  const col=idx%GRID_COLS, row=Math.floor(idx/GRID_COLS);
+  const cols=layout.cols||GRID_COLS;
+  const col=idx%cols, row=Math.floor(idx/cols);
   const x = layout.gridX + col*layout.cellW + layout.cellGap/2;
   const y = layout.gridY + row*layout.cellH + layout.cellGap/2;
   const w = layout.cellW - layout.cellGap;
@@ -708,32 +764,94 @@ function cellRect(idx){
   return {x,y,w,h,cx:x+w/2,cy:y+h/2};
 }
 
+// 무대(스테이지) 계산 — land 토글과 CSS 변수 주입을 한곳에서 한다.
+// 캔버스 그리드와 DOM 존이 같은 값에서 파생되도록, 여기서 정한 zoneL/zoneW 를
+// computeLayout 이 그대로 그리드 좌우 경계로 쓴다 (드래그 히트 판정도 동일 좌표계).
+const STAGE_MAX=1280, ZONE_PAD=16, PANEL_GAP=14;
+function layoutStage(){
+  const W=CW, H=CH;
+  S.land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE = Math.min(W, STAGE_MAX);
+  S.stageW = STAGE;
+  S.stageX = Math.round((W - STAGE) / 2);
+  S.panelW = S.land ? Math.min(400, Math.round(STAGE*0.32)) : 0;
+  if(S.land){
+    S.zoneL = S.stageX + ZONE_PAD;
+    S.zoneW = Math.max(200, STAGE - S.panelW - ZONE_PAD*2 - PANEL_GAP);
+  } else {
+    // 세로 판형에서는 존 = 화면 전체(중앙 컬럼 계산은 computeLayout 이 --colW 로 한다)
+    S.zoneL = 0; S.zoneW = W;
+  }
+  const st=document.documentElement.style;
+  st.setProperty('--stageW', STAGE+'px');
+  st.setProperty('--stageX', S.stageX+'px');
+  st.setProperty('--panelW', S.panelW+'px');
+  st.setProperty('--zoneL', S.zoneL+'px');
+  st.setProperty('--zoneW', S.zoneW+'px');
+  st.setProperty('--zoneCx', (S.zoneL + S.zoneW/2)+'px');
+}
+
 function computeLayout(){
   const topBar=document.getElementById('topBar');
   const orderBar=document.getElementById('orderBar');
   const topRect=topBar.getBoundingClientRect();
-  const orderRect=orderBar.getBoundingClientRect();
-  const trashRect=document.getElementById('trashZone').getBoundingClientRect();
-  const top = topRect.bottom + 96; // 힌트 배너 + 콤보 텍스트 자리까지 확보
-  const bottom = orderRect.top - 8;
-  // 세로형 게임 — 와이드 화면에서는 CSS(--colW)와 동일한 중앙 640px 컬럼으로 제한한다.
-  // 이걸 안 하면 카드가 화면 폭에 비례해 납작하게 늘어나 렌더링이 전부 깨진다
-  // (실사용자가 와이드 창 스크린샷으로 리포트한 버그).
-  const colW = Math.min(CW, 640);
-  const colX = (CW - colW) / 2;
-  const rightMargin = Math.max(colX + 10, (CW - trashRect.left) + 8);
-  const left = colX + 10, right = rightMargin + 40;
-  const gw = Math.max(60, CW-left-right);
-  const gh = Math.max(60, bottom-top);
+  let left, right, top, bottom;
+  if(S.land){
+    // 원형 ② 2단 분할 — 좌 그리드 존(4열×3행), 우 주문/도감 패널(CSS html.land 가 배치)
+    layout.cols=GRID_ROWS; layout.rows=GRID_COLS;   // 4열 × 3행
+    left = S.zoneL; right = S.zoneL + S.zoneW;
+    top = topRect.bottom + 54;   // 힌트 배너 자리만 확보 (콤보는 아래로 내려갔다)
+    bottom = CH - ZONE_PAD;
+  } else {
+    layout.cols=GRID_COLS; layout.rows=GRID_ROWS;   // 3열 × 4행
+    const orderRect=orderBar.getBoundingClientRect();
+    const trashRect=document.getElementById('trashZone').getBoundingClientRect();
+    top = topRect.bottom + 96; // 힌트 배너 + 콤보 텍스트 자리까지 확보
+    bottom = orderRect.top - 8;
+    // 세로 판형 — CSS(--colW)와 동일한 중앙 640px 컬럼으로 제한한다.
+    // 이걸 안 하면 카드가 화면 폭에 비례해 납작하게 늘어나 렌더링이 전부 깨진다.
+    const colW = Math.min(CW, 640);
+    const colX = (CW - colW) / 2;
+    const rightMargin = Math.max(colX + 10, (CW - trashRect.left) + 8);
+    left = colX + 10; right = CW - (rightMargin + 40);
+  }
+  let gw = Math.max(60, right-left);
+  let gh = Math.max(60, bottom-top);
+  if(S.land){
+    // 칸 비율 보정 — 카드 안의 그림·치수 배지는 세로로 긴 카드(폭/높이 0.62~1.1)를 전제로
+    // 그려진다. 창이 아주 넓거나(폰 가로) 아주 길면(1280×1400) 비율을 상한/하한에 맞춰
+    // 자르고 남는 여백만큼 그리드를 존 안에서 가운데로 옮긴다.
+    const cw0=gw/layout.cols, ch0=gh/layout.rows, ratio=cw0/ch0;
+    if(ratio>1.10){ const nw=ch0*1.10*layout.cols; left += (gw-nw)/2; gw=nw; }
+    else if(ratio<0.62){ const nh=(cw0/0.62)*layout.rows; top += (gh-nh)/2; gh=nh; }
+    // 콤보/토스트 등 중앙 정렬 UI는 실제 그리드 중심에 맞춘다.
+    document.documentElement.style.setProperty('--zoneCx', (left+gw/2)+'px');
+  }
   layout.gridX=left; layout.gridY=top; layout.gridW=gw; layout.gridH=gh;
-  layout.cellW=gw/GRID_COLS; layout.cellH=gh/GRID_ROWS;
+  layout.cellW=gw/layout.cols; layout.cellH=gh/layout.rows;
   layout.cellGap=Math.min(layout.cellW,layout.cellH)*0.1;
+  relayoutTiles();
+  dexDirty=true;
   updateDropZone();
+}
+
+// 판형이 바뀌면(회전·창 크기 변경) 이미 놓인 타일도 새 칸 좌표로 다시 앉힌다.
+// 드래그 중인 타일과 애니메이션 중인 타일은 목표만 갱신하고 위치는 건드리지 않는다.
+function relayoutTiles(){
+  if(!S || !S.tiles) return;
+  for(const t of S.tiles.values()){
+    if(t.cellIndex<0) continue;
+    const r=cellRect(t.cellIndex);
+    t.targetPx=r.cx; t.targetPy=r.cy; t.cellW=r.w; t.cellH=r.h;
+    if(!t.dragging && !t.anim){ t.px=r.cx; t.py=r.cy; }
+  }
 }
 
 function resize(){
   DPR=Math.min(window.devicePixelRatio||1,2);
   CW=window.innerWidth; CH=window.innerHeight;
+  layoutStage();
   cvs.width=Math.floor(CW*DPR); cvs.height=Math.floor(CH*DPR);
   cvs.style.width=CW+'px'; cvs.style.height=CH+'px';
   ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -768,6 +886,17 @@ function buildBgLayer(){
     g.beginPath(); g.arc(rx,ry,rr,0,Math.PI*2); g.fill();
   }
   g.restore();
+  // 와이드: 우측 주문 패널 등판을 배경에 미리 깔아 둔다 (DOM 카드가 그 위에 올라온다)
+  if(S.land){
+    const px=S.stageX + S.stageW - S.panelW - PANEL_GAP - 8;
+    const pw=S.panelW + 16;
+    g.save();
+    g.fillStyle='rgba(24,17,10,.56)';
+    roundRect(g, px, 8, pw, CH-16, 20); g.fill();
+    g.strokeStyle='rgba(255,184,92,.28)'; g.lineWidth=2;
+    roundRect(g, px, 8, pw, CH-16, 20); g.stroke();
+    g.restore();
+  }
   // 그리드 칸 슬롯(정적) 미리 그리기
   for(let i=0;i<GRID_N;i++){
     const r=cellRect(i);
@@ -777,6 +906,76 @@ function buildBgLayer(){
     g.lineWidth=2;
     roundRect(g, r.x, r.y, r.w, r.h, 12);
     g.fill(); g.stroke();
+    g.restore();
+  }
+  // 초와이드(1440px+) 잔여 폭은 톤을 눌러 무대 밖임을 표시한다 (playfield-spec 2.3)
+  if(S.land && S.stageW < CW-2){
+    g.save();
+    g.fillStyle='rgba(12,8,4,.42)';
+    g.fillRect(0,0,S.stageX,CH);
+    g.fillRect(S.stageX+S.stageW,0,CW-(S.stageX+S.stageW),CH);
+    g.restore();
+  }
+}
+
+// ── 우측 패널 "배송 도감" — 세로 판형에서 📦 n/10 한 줄로만 보이던 진행 상황을
+// 와이드에서는 배송한 상자를 실제 겨냥도로 쌓아 보여 준다. 정적 레이어로 굽는다.
+function buildDexLayer(){
+  dexDirty=false;
+  if(!S.land){ dexRect={x:0,y:0,w:0,h:0}; return; }
+  const px = S.stageX + S.stageW - S.panelW - PANEL_GAP;
+  const pw = S.panelW;
+  const top = Math.round((layout.orderBottom || 210) + 14);
+  const bot = Math.round(CH - 122);
+  const ph = bot - top;
+  if(pw<80 || ph<96){ dexRect={x:0,y:0,w:0,h:0}; return; }
+  dexRect={x:px,y:top,w:pw,h:ph};
+  dexLayer.width=Math.max(1,Math.floor(pw*DPR)); dexLayer.height=Math.max(1,Math.floor(ph*DPR));
+  const g=dexCtx;
+  g.setTransform(DPR,0,0,DPR,0,0);
+  g.clearRect(0,0,pw,ph);
+  g.save();
+  g.fillStyle='rgba(255,244,224,.90)';
+  g.font='900 13px -apple-system, "Apple SD Gothic Neo", sans-serif';
+  g.textAlign='left'; g.textBaseline='middle';
+  g.fillText('배송 도감', 4, 10);
+  g.textAlign='right';
+  g.fillStyle='#ffe94d';
+  g.fillText(`${Math.min(S.delivered.length,GOAL_DELIVERIES)} / ${GOAL_DELIVERIES}`, pw-4, 10);
+  g.restore();
+
+  const cols=2, rows=Math.ceil(GOAL_DELIVERIES/cols);
+  const gap=8, headH=26;
+  const cw=(pw - gap*(cols-1))/cols;
+  const chh=Math.min((ph-headH - gap*(rows-1))/rows, cw*0.82);
+  for(let i=0;i<GOAL_DELIVERIES;i++){
+    const c=i%cols, r=Math.floor(i/cols);
+    const x=c*(cw+gap), y=headH + r*(chh+gap);
+    const dims=S.delivered[i];
+    g.save();
+    if(dims){
+      g.fillStyle='rgba(255,184,92,.20)';
+      g.strokeStyle='rgba(255,184,92,.75)'; g.lineWidth=2;
+      roundRect(g,x,y,cw,chh,10); g.fill(); g.stroke();
+      // drawWireBox 는 인자로 받은 컨텍스트에 그린다 (전역 ctx 를 쓰지 않는다)
+      drawWireBox(g, x+cw/2, y+chh*0.44, dims, new Set(CORRECT_DASHED),
+        { targetW:cw*0.52, targetH:chh*0.50, lineWidth:2, stroke:'#fff1d6',
+          fillColor: dims[0]===dims[1]&&dims[1]===dims[2] ? '#5c7cfa' : '#ffb85c' });
+      g.fillStyle='#fff1d6';
+      g.font='800 10.5px -apple-system, "Apple SD Gothic Neo", sans-serif';
+      g.textAlign='center'; g.textBaseline='alphabetic';
+      g.fillText(dims.join('×')+'cm', x+cw/2, y+chh-6);
+    } else {
+      g.fillStyle='rgba(255,250,246,.08)';
+      g.strokeStyle='rgba(255,250,246,.26)'; g.lineWidth=1.6;
+      g.setLineDash([5,4]);
+      roundRect(g,x,y,cw,chh,10); g.fill(); g.stroke();
+      g.setLineDash([]);
+      g.fillStyle='rgba(255,250,246,.28)';
+      g.font='800 12px -apple-system, sans-serif';
+      g.textAlign='center'; g.textBaseline='middle';
+      g.fillText(String(i+1), x+cw/2, y+chh/2);
+    }
     g.restore();
   }
 }
@@ -838,6 +1037,9 @@ const S={
   drag:null, particles:[], blooms:[], muted:false, lastTouchedId:null,
   hitStopT:0, shakeT:0, shakeDur:0.01, shakeMag:0,
   ambTimer:0, ambParticles:[],
+  // 판형(레이아웃) 상태 — docs/playfield-spec.md
+  land:false, stageW:0, stageX:0, panelW:0, zoneL:0, zoneW:0,
+  delivered:[],   // 배송 완료한 상자의 치수 기록 (우측 패널 도감 표시용)
 };
 const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1098,11 +1300,20 @@ function showToast(msg){
 // L1 첫 진입 시 지속 표시(첫 병합 성공까지) → 축하 문구로 바뀌었다 사라짐.
 // 레벨이 바뀔 때는 그 레벨의 새 규칙을 3초간 보여준다.
 let hintBannerTimer=null;
+// 세로 판형 기준으로 쓰인 안내 문구("아래 주문서 … 👇")를 와이드에서 방향만 바꿔 준다.
+function dirText(t){
+  if(!S.land || !t) return t;
+  return String(t).replace(/화면 맨 아래 주문서/g,'오른쪽 패널의 주문서')
+                  .replace(/아래 주문서/g,'오른쪽 주문서')
+                  .replace(/아래로 끌어다/g,'오른쪽으로 끌어다')
+                  .replace(/👇/g,'👉');
+}
 function showHintBanner(text, opts){
   opts = opts||{};
   const el=document.getElementById('hintBanner');
   if(!el) return;
-  document.getElementById('hintBannerText').textContent=text;
+  // 와이드 판형에서는 주문서가 화면 아래가 아니라 오른쪽 패널에 있다 — 방향 안내를 맞춘다.
+  document.getElementById('hintBannerText').textContent = dirText(text);
   el.classList.add('show');
   clearTimeout(hintBannerTimer);
   if(opts.autoHideMs){
@@ -1289,7 +1500,13 @@ function updateDropZone(){
   // 유도선이 끝나야 할 지점 = 배송 존 안내 라벨(#dropLabel)의 윗변. 주문서 카드까지
   // 그리면 라벨에 화살촉이 가려진다.
   const bar=document.getElementById('orderBar');
-  layout.dropTop = bar ? bar.getBoundingClientRect().top : r.top;
+  const br = bar ? bar.getBoundingClientRect() : r;
+  layout.dropTop = br.top;
+  // 와이드 패널 도감은 주문 카드 아래에서 시작한다 — 카드 높이가 바뀌면 다시 굽는다.
+  if(Math.abs((layout.orderBottom||0) - br.bottom) > 2){
+    layout.orderBottom = br.bottom;
+    dexDirty = true;
+  }
 }
 
 function findDeliverableTile(){
@@ -1345,13 +1562,21 @@ function drawGuides(now){
     // 1) 배송 가능한 상자: 초록 글로우
     drawGlowRing(target, '#3ad39c', pulse);
     // 2) 배송 존까지 흐르는 점선 유도선 + 화살촉
-    const h=(target.cellH||64)/2;
-    const sx=target.px, sy=target.py+h+4;
-    const ex=drop.cx, ey=(layout.dropTop!=null?layout.dropTop:drop.y)-6;
-    const gap=ey-sy;
-    // 상자가 맨 아랫줄이라 세로 여유가 없으면 옆으로 부풀려서 선이 반드시 보이게 한다.
-    const bow = gap<80 ? (sx>CW*0.5 ? -1 : 1) * Math.max(46, 90-gap) : 0;
-    const mx=(sx+ex)/2 + bow, my=sy+Math.max(26, gap*0.55);
+    // 세로 판형은 아래(주문서)로, 와이드 판형은 오른쪽(주문 패널)으로 흐른다.
+    let sx, sy, ex, ey, mx, my;
+    if(S.land){
+      sx=target.px+(target.cellW||64)/2+4; sy=target.py;
+      ex=drop.x-8; ey=drop.cy;
+      mx=(sx+ex)/2; my=(sy+ey)/2 - Math.max(28, Math.abs(ex-sx)*0.12);
+    } else {
+      const h=(target.cellH||64)/2;
+      sx=target.px; sy=target.py+h+4;
+      ex=drop.cx; ey=(layout.dropTop!=null?layout.dropTop:drop.y)-6;
+      const gap=ey-sy;
+      // 상자가 맨 아랫줄이라 세로 여유가 없으면 옆으로 부풀려서 선이 반드시 보이게 한다.
+      const bow = gap<80 ? (sx>CW*0.5 ? -1 : 1) * Math.max(46, 90-gap) : 0;
+      mx=(sx+ex)/2 + bow; my=sy+Math.max(26, gap*0.55);
+    }
     ctx.save();
     ctx.strokeStyle='rgba(58,211,156,.95)';
     ctx.lineWidth=5; ctx.lineCap='round';
@@ -1410,7 +1635,8 @@ function drawGuides(now){
   card.classList.toggle('idleWait', !ready);
   label.classList.toggle('ready', ready);
   const txt=document.getElementById('dropText');
-  const want = ready ? '👇 지금이야! 여기로 끌어와요' : '완성된 상자를 여기로 끌어와요!';
+  const want = ready ? (S.land?'👈 지금이야! 여기로 끌어와요':'👇 지금이야! 여기로 끌어와요')
+                     : '완성된 상자를 여기로 끌어와요!';
   if(txt.textContent!==want) txt.textContent=want;
 }
 
@@ -1635,6 +1861,7 @@ function attemptDeliver(boxTile){
     }
     if(matchesCurrent){
       order.seqIndex++;
+      S.delivered.push([...boxTile.dims]); dexDirty=true;
       S.solved++; S.comboStreak++; S.combo=Math.min(3,1+S.comboStreak*0.25);
       S.score += Math.round(40*S.combo);
       S.gauge=Math.max(0,S.gauge-1);
@@ -1671,6 +1898,7 @@ function attemptDeliver(boxTile){
 
   const ok = order.accepts(boxTile);
   if(ok){
+    S.delivered.push([...boxTile.dims]); dexDirty=true;
     S.solved++; S.comboStreak++; S.combo=Math.min(3,1+S.comboStreak*0.25);
     S.score += Math.round(60*S.combo);
     // 배송에 성공할 때마다 찌그러짐 게이지를 1 회복한다 — 실수 하나가 몇 수 뒤에
@@ -1774,6 +2002,7 @@ function resetGame(){
   S.spawnTimer=200; S.spawnCount=0; S.firstPairDims=null; S.stallEmptyZero=0; S.drag=null; S.particles=[];
   S.blooms=[]; S.orderPity=0; S.idleMerge=0; S.firstDeliverDone=false; S.cleared=false; S.dropRefresh=0;
   S.hitStopT=0; S.shakeT=0; S.shakeMag=0;
+  S.delivered=[]; dexDirty=true;
   scoreAnimFrom=0; scoreAnimTo=0; scoreAnimT=1; prevGauge=0;
   scoreValEl.textContent='0';
   S.phase='playing';
@@ -1844,8 +2073,8 @@ function openOnb(i){
   onbIdx=Math.max(0,Math.min(i|0,ONB_STEPS.length-1));
   const st=ONB_STEPS[onbIdx];
   document.getElementById('onbNum').textContent=(onbIdx+1)+'/'+ONB_STEPS.length;
-  document.getElementById('onbTitle').textContent=st.t;
-  document.getElementById('onbBody').textContent=st.b;
+  document.getElementById('onbTitle').textContent=dirText(st.t);
+  document.getElementById('onbBody').textContent=dirText(st.b);
   document.getElementById('onbNext').textContent=(onbIdx===ONB_STEPS.length-1)?'해볼게요':'다음';
   document.getElementById('onb').classList.remove('hidden');
   S.frozen=true;
@@ -2282,6 +2511,10 @@ function frame(now){
     if(S.shakeT<=0) S.shakeMag=0;
   }
   ctx.drawImage(bgLayer,0,0,CW,CH);
+  if(S.land && S.phase!=='intro'){
+    if(dexDirty) buildDexLayer();
+    if(dexRect.w>0) ctx.drawImage(dexLayer, dexRect.x, dexRect.y, dexRect.w, dexRect.h);
+  }
 
   updateAmbientDust(dt);
   drawAmbientDust();
@@ -2485,6 +2718,13 @@ window.__GAME_TEST__ = {
   },
   sampleProblems(n){
     return sampleJudgeProblems(n||24);
+  },
+  // 판형 검증용 (docs/playfield-spec.md 2.4-5)
+  getLayout(){
+    return { land:S.land, playW:Math.round(layout.gridW), playH:Math.round(layout.gridH),
+      stageW:S.stageW, stageX:S.stageX, panelW:S.panelW,
+      cols:layout.cols, rows:layout.rows,
+      cellW:Math.round(layout.cellW), cellH:Math.round(layout.cellH) };
   },
   // 자동 플레이테스트용 — 좌표와 "지금 가능한 행동"만 노출한다.
   // 치수(dims)는 일부러 내보내지 않는다: 레벨3의 '치수 숨김' 과제를 우회하지 않기 위해서다.
