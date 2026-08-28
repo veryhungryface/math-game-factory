@@ -534,7 +534,7 @@ function blit(sp, cx, cy, s) {
   if (!sp) return; s = s || 1;
   ctx.drawImage(sp.c, cx - sp.w * s / 2, cy - sp.h * s / 2, sp.w * s, sp.h * s);
 }
-const SP = { bead: {}, backdrop: null, stone: null, glow: null };
+const SP = { bead: {}, backdrop: null, stone: null, glow: null, chip: null, chipKey: '' };
 
 function beadSprite(r, c1, c2, edge) {
   const d = r * 2 + 4;
@@ -620,6 +620,7 @@ function layout() {
   L.land = W >= H;                                   // 가로(1280×800) 1기준, 세로는 기존 구도 유지
   L.cx = W / 2;
   if (L.land) layoutLand(W, H); else layoutPort(W, H);
+  document.documentElement.classList.toggle('land', L.land);   // 판형 게이트 신호 (docs/playfield-spec.md)
   bakeStone(L.stoneW);
   bakeBackdrop();
 }
@@ -689,7 +690,7 @@ function resize() {
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   layout();
-  SP.bead = {};
+  SP.bead = {}; SP.chipKey = '';                                   // dpr 이 바뀌면 구워둔 스프라이트를 버린다
   if (S.problem) configureStage(true);
   spawnMotes();
 }
@@ -1337,13 +1338,21 @@ function drawLandCompare() {
   const cx = L.cx;
   const top = L.midY + 10;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  setFont(13, 800); ctx.fillStyle = '#4C1D95';
-  ctx.fillText(ST.type === 'judge' ? '고블린이 이렇게 갈랐어요' : '지금 가른 몫', cx, top + 8);
-  ratioBadgeDark(cx, top + 52, p.a, p.b, Math.min(L.compareW * 0.12, 42));
-  setFont(12, 800); ctx.fillStyle = '#6D28D9';
-  ctx.fillText('목표 비', cx, top + 52 + Math.min(L.compareW * 0.12, 42) * 0.78);
+  const badgePx = Math.min(L.compareW * 0.12, 42);
+  ratioBadgeDark(cx, top + 52, p.a, p.b, badgePx);
+  // '목표 비' 캡션 — 배지 카드 아래로 완전히 내리고 밝은 칩을 깔아 배경에 묻히지 않게 한다
+  const capY = top + 52 + badgePx * 0.75 + 14;
+  setFont(12, 800);
+  const capW = ctx.measureText('목표 비').width + 20;
+  card(cx - capW / 2, capY - 11, capW, 22, 10, 'rgba(255,248,231,.92)', 'rgba(109,40,217,.55)', 1.5);
+  ctx.fillStyle = '#5B21B6'; ctx.fillText('목표 비', cx, capY + 0.5);
 
   const numY = L.midY + L.midH * 0.52;
+  // 제목은 실제로 아래 숫자(지금 몫)를 가리킨다 — 자리가 나면 숫자 바로 위로 붙인다
+  const headText = ST.type === 'judge' ? '고블린이 이렇게 갈랐어요' : '지금 가른 몫';
+  const headY = numY - 62 > capY + 24 ? numY - 62 : top + 8;
+  setFont(13, 800); ctx.fillStyle = '#4C1D95';
+  ctx.fillText(headText, cx, headY);
   setFont(13, 800); ctx.fillStyle = '#B21E63'; ctx.fillText('왼쪽', cx - 78, numY - 38);
   setFont(13, 800); ctx.fillStyle = '#0B6E66'; ctx.fillText('오른쪽', cx + 78, numY - 38);
   setFont(Math.min(L.compareW * 0.12, 48), 900); ctx.fillStyle = '#B21E63';
@@ -1559,8 +1568,6 @@ function drawTrough() {
       ctx.fillStyle = isLit ? (leftG ? 'rgba(232,62,140,.35)' : 'rgba(13,148,136,.35)') : (g % 2 ? 'rgba(109,40,217,.07)' : 'rgba(109,40,217,.13)');
       ctx.fill();
       ctx.strokeStyle = isLit ? '#F5C518' : 'rgba(46,16,101,.16)'; ctx.lineWidth = isLit ? 2.5 : 1; ctx.stroke();
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; setFont(10, 800);
-      ctx.fillStyle = 'rgba(46,16,101,.5)'; ctx.fillText(String(p.k), gx + ST.clusterW / 2, ty + th * 0.78 - 10);
     }
     for (let i = 0; i < p.T; i++) {
       const sp = i < ST.cur ? SP.bead.rose : SP.bead.teal;
@@ -1614,6 +1621,34 @@ function drawTrough() {
   ctx.restore();
   const mSize = L.land ? Math.min(L.col * 0.12, 88) : L.col * 0.15;
   drawMascot(tx - L.stoneW * 0.72, L.troughY + L.troughH * 0.86, mSize, S.celebrate ? 'joy' : (S.jarShake[0] + S.jarShake[1] > 0.3 ? 'sad' : 'idle'), S.t);
+  // 묶음 개수 칩은 가름돌·마스코트보다 위에 그린다 (덮여서 사라지면 개수를 셀 수 없다)
+  if (ST.type === 'split') drawGroupCountChips(ty, th);
+}
+
+/** 각 묶음 밴드의 개수 라벨. 가름돌이 밴드 한가운데 설 수 있으므로 항상 맨 위 레이어에 칩으로 얹는다. */
+function drawGroupCountChips(ty, th) {
+  const p = S.problem;
+  if (!p || !p.k || !ST.groups) return;
+  const cy = ty + th * 0.78 - 12;
+  const cw = clamp(ST.clusterW - 10, 20, 34), ch = 17;
+  const sp = groupChipSprite(p.k, cw, ch);            // 칩은 전부 같은 그림 — 한 장 구워 재사용(소프트웨어 렌더링 보호)
+  for (let g = 0; g < ST.groups; g++) blit(sp, L.x0 + g * ST.clusterW + ST.clusterW / 2, cy, 1);
+}
+
+function groupChipSprite(k, cw, ch) {
+  const key = k + '|' + Math.round(cw) + '|' + ch;
+  if (!SP.chipKey || SP.chipKey !== key) {
+    SP.chip = makeSprite(cw + 4, ch + 4, (x) => {
+      x.beginPath(); x.roundRect(2, 2, cw, ch, 8);
+      x.fillStyle = 'rgba(255,248,231,.95)'; x.fill();
+      x.lineWidth = 1.5; x.strokeStyle = 'rgba(46,16,101,.55)'; x.stroke();
+      x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.font = '900 11px ' + FONT; x.fillStyle = '#2E1065';
+      x.fillText(String(k), 2 + cw / 2, 2 + ch / 2 + 0.5);
+    });
+    SP.chipKey = key;
+  }
+  return SP.chip;
 }
 
 function drawChips() {
@@ -1924,6 +1959,7 @@ window.__GAME_TEST__ = {
     }
     return out;
   },
+  getLayout() { return { land: L.land, playW: L.w, playX: L.x0 }; },
 };
 
 /* ── 13. 시작 ───────────────────────────────────────────────── */
