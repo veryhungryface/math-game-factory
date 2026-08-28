@@ -229,9 +229,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a2438;color:var(--
 @media (orientation:landscape),(min-aspect-ratio:1/1){
   .title-art{--art-y:56%;--art-x:48%}
   html.land{--colW:var(--stageW);--colX:var(--stageX)}
-  html.land #hud{left:var(--stageX);width:min(520px,calc(var(--stageW)*0.42));padding-left:12px}
+  /* 가로에서는 상단을 3분할 — 왼쪽 계기판 / 가운데 문제 카드 / 오른쪽 라이프·음소거 */
+  html.land #hud{left:var(--stageX);width:var(--stageW);padding-left:12px;padding-right:12px}
+  html.land #contract{max-width:min(300px,calc((var(--stageW) - min(560px,var(--stageW)*0.46)) / 2 - 26px))}
   html.land #say{top:calc(12px + var(--safeT));justify-content:center;padding-left:0}
-  html.land #say .say-card{max-width:min(640px,calc(var(--stageW)*0.56))}
+  html.land #say .say-card{max-width:min(560px,calc(var(--stageW)*0.46))}
   html.land #ctrl{left:50%;width:min(560px,calc(var(--stageW)*0.5));transform:translateX(-50%);max-width:none}
 }
 @media (min-width:641px){
@@ -854,7 +856,8 @@ function layout(){
   /* 플레이필드 폭 상한 1280 — 초와이드에서 부표 드래그가 화면 끝까지 벌어지지 않게 */
   SW=Math.min(W, 1280);
   SX=Math.round((W-SW)/2);
-  var pad=Math.max(18, SW*0.06);
+  /* 끝점 부표의 캡·값 배지가 화면 밖으로 잘리지 않도록 여백을 캡 반지름 기준으로 잡는다 */
+  var pad=Math.max(capR()+6, SW*0.06);
   var top=land ? H*0.34 : H*0.42;
   var bot=land ? H*0.78 : H*0.72;
   var y=clamp((top+bot)/2, H*0.40, H*0.70);
@@ -1149,6 +1152,9 @@ function setupWhy(){
    4. 입력
    ═══════════════════════════════════════════════════════════ */
 function capR(){ return Math.max(28, Math.min(40, SW*0.055)); }
+function badgeFs(){ return clamp(SW*0.05, 18, 26); }
+/* 수직선에서 부표 값 배지 윗변까지의 거리 — 화물이 이보다 위에 떠야 겹치지 않는다 */
+function buoyTopGap(){ var r=capR(), fs=badgeFs(); return r*1.22 + r + fs*0.7 + 16; }
 function buoyHit(x,y,which){
   var v = which==='L'?S.lo:S.hi;
   var bx=valToX(v), by=S.line.y;
@@ -1374,7 +1380,7 @@ function update(dt){
   S.cargo.forEach(function(c){
     c.x=valToX(c.v);
     if(c.state==='idle'){
-      var lift = 72 + (c.lane||0)*56;
+      var lift = buoyTopGap() + 14 + (c.lane||0)*56;
       c.y = S.line.y - lift + Math.sin((S.lastT/1000)+c.bob)* (REDUCE?1.5:4);
     } else if(c.state==='up'){
       c.vy -= 40*d; c.y += c.vy*d; c.sx=1.05; c.sy=0.9;
@@ -1476,7 +1482,9 @@ function draw(){
     var big = (v-min) % labelEvery === 0;
     ctx.strokeStyle='#17324D'; ctx.lineWidth=big?3:1.5;
     ctx.beginPath(); ctx.moveTo(x, L.y-(big?12:7)); ctx.lineTo(x, L.y+(big?12:7)); ctx.stroke();
-    if(big){
+    /* 부표가 올라앉은 눈금은 숫자 칩을 그리지 않는다 — 부표 값 배지와 삼중으로 겹치던 문제 */
+    var underBuoy = S.problem && (Math.abs(x-valToX(S.lo))<26 || Math.abs(x-valToX(S.hi))<26);
+    if(big && !underBuoy){
       var fs=clamp(SW*0.028, 12, 16);
       ctx.font='800 '+fs+'px sans-serif';
       ctx.textAlign='center'; ctx.textBaseline='top';
@@ -1591,14 +1599,16 @@ function drawBuoy(which, val, inc, locked, col, sq){
   }
   ctx.restore();
   /* 값 배지 — 캡 위, 화물과 겹치지 않게 */
-  var fs=clamp(SW*0.05, 18, 26);
+  var fs=badgeFs();
   ctx.font='900 '+fs+'px sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
   var tw=ctx.measureText(String(val)).width+26;
   var by=cy-r-fs*0.15-16;
-  roundRect(ctx, x-tw/2, by-fs*0.55, tw, fs+10, 10);
+  /* 배지는 스테이지 안으로 밀어 넣는다 — 끝점에서 잘리지 않게 */
+  var bx=clamp(x, SX+tw/2+4, SX+SW-tw/2-4);
+  roundRect(ctx, bx-tw/2, by-fs*0.55, tw, fs+10, 10);
   ctx.fillStyle='#17324D'; ctx.fill();
-  ctx.fillStyle='#FFD23F'; ctx.fillText(String(val), x, by);
+  ctx.fillStyle='#FFD23F'; ctx.fillText(String(val), bx, by);
   if(locked){
     ctx.font='800 11px sans-serif'; ctx.fillStyle='#fff8e2';
     ctx.fillText('고정', x, y+r+18);
