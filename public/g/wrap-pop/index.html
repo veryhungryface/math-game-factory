@@ -19,8 +19,18 @@
   --cta-top:#FFEBB4; --cta-mid:#F2B24E; --cta-bottom:#E4713C;
   --cta-border:#17272C; --cta-depth:#0C4C52; --cta-ink:#2B1608;
   --safe-t:env(safe-area-inset-top); --safe-b:env(safe-area-inset-bottom);
+  /* 와이드 판형 (docs/playfield-spec.md 원형 ② 2단 분할) — JS layout() 이 매 resize 갱신 */
+  --stageW:min(100vw,1280px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+  --panelW:min(420px,calc(var(--stageW)*0.34));
+  --panelX:calc(var(--stageX) + var(--stageW) - var(--panelW) - 14px);
   font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
 }
+/* 와이드(land): HUD 는 무대 전폭, 계약 바(마스코트)는 우측 패널 하단으로 이동 */
+html.land #hudIn{width:calc(var(--stageW) - 28px);}
+html.land #contract{left:var(--panelX);right:auto;width:var(--panelW);}
+html.land #contractIn{width:calc(var(--panelW) - 20px);}
+html.land #toast{left:calc(var(--stageX) + (var(--stageW) - var(--panelW))/2);}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#0B2A2E;}
 body{position:fixed;inset:0;touch-action:none;user-select:none;-webkit-user-select:none;
@@ -548,7 +558,7 @@ const G = {
   solved:0, ships:0, wrongs:0, time:SESSION, level:1,
   orders:[], tray:[], sel:null, drag:null, wrapArmed:null,
   fx:[], parts:[], motes:[], shake:0, hitStop:0, timeScale:1,
-  ship:null, mistakes:{}, t:0, reduced:false
+  ship:null, mistakes:{}, t:0, reduced:false, land:false
 };
 
 const cv = document.getElementById('gl');
@@ -581,42 +591,96 @@ function layout(){
 
   const st = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-t')) || 0;
   const sb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-b')) || 0;
-  const colW = Math.min(W - 20, 584);
-  const cx = (W - colW)/2;
+
+  // ── 판형 (docs/playfield-spec.md) — 폭 기준 포함 land 판정 + 1280px 스테이지 clamp ──
+  G.land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle('land', G.land);
+  const STAGE = Math.min(W, 1280);                    // CSS --stageW 상한과 일치
+  const SX = Math.round((W - STAGE)/2);
+  const rootS = document.documentElement.style;
+  rootS.setProperty('--stageW', STAGE + 'px');
+  rootS.setProperty('--stageX', SX + 'px');
 
   const hudH = Math.max(6, st) + 38 + 6;
   const mascotH = clamp(W*0.155, 58, 80);
-  const contractY = hudH + 4;
-  const contractH = Math.max(mascotH, 46);
 
-  // 트레이(포장 띠 보관대): 2×2 타일 — 세로가 긴 화면은 타일·주문 상한을 올려 빈 모래밭을 줄인다
-  const tileW = (colW - 10)/2;
-  const tileHMax = clamp(H*0.12, 104, 150);
-  const tileH = clamp(H*0.105, 74, tileHMax);
-  const trayH = tileH*2 + 9 + 20;
-  const trayTop = H - trayH - Math.max(10, sb) - 4;
+  if(G.land){
+    /* 원형 ② 2단 분할 — 좌: 조립 무대(주문 원판 3열, 크게), 우: 띠 트레이 + 계약 패널.
+       드래그는 우측 트레이 → 좌측 원판으로 좌↔우 동선. 히트 판정(bandAt/orderAt)은
+       여기서 계산한 같은 좌표(L.*, o.rect, b.hx)를 쓰므로 좌표계 불일치가 없다. */
+    const panelW = Math.min(420, Math.round(STAGE*0.34));
+    const panelX = SX + STAGE - panelW - 14;
+    rootS.setProperty('--panelW', panelW + 'px');
+    rootS.setProperty('--panelX', panelX + 'px');
 
-  const ordTop0 = contractY + contractH + 8;
-  const ordSpace = trayTop - ordTop0 - 10;
-  const gap = 9;
-  const rowHMax = clamp(H*0.16, 150, 210);
-  const rowH = clamp((ordSpace - gap*2)/3, 84, rowHMax);
-  const leftover = Math.max(0, ordSpace - (rowH*3 + gap*2));
-  const ordTop = ordTop0 + leftover * 0.45;
+    const cx = SX + 14;
+    const colW = panelX - cx - 18;                    // 좌측 무대(주문 열) 폭
+    const contractH = Math.max(mascotH, 46);
+    const contractY = H - contractH - Math.max(12, sb) - 10;   // 계약 바 = 패널 하단
 
-  L = { colW, cx, hudH, contractY, contractH, trayTop, tileW, tileH, rowH, gap, ordTop,
-        crateY: trayTop - 6 };
+    const panelTop = hudH + 2;
+    const panelBot = H - Math.max(10, sb) - 6;
+    const trayTop = panelTop + 12;
+    const trayX = panelX + 12, trayW = panelW - 24;
+    const tilesTop = trayTop + 20;
+    const tilesBot = contractY - 12;
+    // 패널이 충분히 높으면 1열 4행(넓은 띠), 낮으면(가로 폰) 2×2
+    const trayCols = (tilesBot - tilesTop) >= 430 ? 1 : 2;
+    const tRows = trayCols === 1 ? 4 : 2;
+    const tileW = trayCols === 1 ? trayW : (trayW - 10)/2;
+    const tileH = clamp((tilesBot - tilesTop - (tRows+1)*9)/tRows, 56, trayCols === 1 ? 190 : 170);
+    const tileGapY = clamp((tilesBot - tilesTop - tRows*tileH)/(tRows+1), 9, 24);
+    const tilesY = tilesTop + tileGapY;
 
-  G.orders.forEach((o,i) => { o.rect = { x:cx, y:ordTop + i*(rowH+gap), w:colW, h:rowH }; });
+    const ordTop0 = hudH + 8;
+    const bot = H - Math.max(12, sb) - 10;
+    const gap = 12;
+    const rowH = clamp((bot - ordTop0 - gap*2)/3, 96, 235);
+    const leftover = Math.max(0, (bot - ordTop0) - (rowH*3 + gap*2));
+    const ordTop = ordTop0 + leftover * 0.4;
+
+    L = { colW, cx, hudH, contractY, contractH, trayTop, tileW, tileH, rowH, gap, ordTop,
+          crateY: tilesBot,
+          trayX, trayW, trayCols, tilesY, tileGapY,
+          stageW: STAGE, stageX: SX, panelX, panelW, panelTop, panelBot };
+  } else {
+    const colW = Math.min(W - 20, 584);
+    const cx = (W - colW)/2;
+    const contractY = hudH + 4;
+    const contractH = Math.max(mascotH, 46);
+
+    // 트레이(포장 띠 보관대): 2×2 타일 — 세로가 긴 화면은 타일·주문 상한을 올려 빈 모래밭을 줄인다
+    const tileW = (colW - 10)/2;
+    const tileHMax = clamp(H*0.12, 104, 150);
+    const tileH = clamp(H*0.105, 74, tileHMax);
+    const trayH = tileH*2 + 9 + 20;
+    const trayTop = H - trayH - Math.max(10, sb) - 4;
+
+    const ordTop0 = contractY + contractH + 8;
+    const ordSpace = trayTop - ordTop0 - 10;
+    const gap = 9;
+    const rowHMax = clamp(H*0.16, 150, 210);
+    const rowH = clamp((ordSpace - gap*2)/3, 84, rowHMax);
+    const leftover = Math.max(0, ordSpace - (rowH*3 + gap*2));
+    const ordTop = ordTop0 + leftover * 0.45;
+
+    L = { colW, cx, hudH, contractY, contractH, trayTop, tileW, tileH, rowH, gap, ordTop,
+          crateY: trayTop - 6,
+          trayX: cx, trayW: colW, trayCols: 2, tilesY: trayTop + 20, tileGapY: 9,
+          stageW: STAGE, stageX: SX, panelX: 0, panelW: 0 };
+  }
+
+  G.orders.forEach((o,i) => { o.rect = { x:L.cx, y:L.ordTop + i*(L.rowH+L.gap), w:L.colW, h:L.rowH }; });
   G.tray.forEach((b) => {
     if(!b) return;
     const i = G.tray.indexOf(b);
-    b.hx = cx + (i%2)*(tileW+10); b.hy = trayTop + 20 + Math.floor(i/2)*(tileH+9);
-    b.tw = tileW; b.th = tileH;          // 타일 기하 (b.w/b.h 는 띠의 실제 치수라 건드리면 안 된다)
+    b.hx = L.trayX + (i % L.trayCols)*(L.tileW+10);
+    b.hy = L.tilesY + Math.floor(i / L.trayCols)*(L.tileH+L.tileGapY);
+    b.tw = L.tileW; b.th = L.tileH;      // 타일 기하 (b.w/b.h 는 띠의 실제 치수라 건드리면 안 된다)
     if(!b.drag && !b.snap){ b.x = b.hx; b.y = b.hy; }
   });
 
-  D.contract.style.top = contractY + 'px';
+  D.contract.style.top = L.contractY + 'px';
   buildMotes();
 }
 window.addEventListener('resize', layout);
@@ -1209,7 +1273,8 @@ function bakeOrder(o){
   const bx = x + r.h*0.94;
   const bw = r.w - r.h*0.94 - Math.min(96, r.w*0.24) - 8;
   const bh = Math.min(r.h*0.42, 54);
-  const big = Math.max(19, Math.min(r.h*0.235, W*0.062));
+  // 값 폰트는 배지 높이에도 캡 — 와이드에서 W*0.062 캡이 풀려 라벨을 덮는 것 방지
+  const big = Math.max(19, Math.min(r.h*0.235, W*0.062, bh*0.56));
   let lb, val, un;
   if(o.label === 'RADIUS'){ lb = '밑면의 반지름'; val = String(o.r); un = 'cm'; }
   else if(o.label === 'DIAMETER'){ lb = '밑면의 지름'; val = String(o.r*2); un = 'cm'; }
@@ -1507,17 +1572,36 @@ function drawBand(g, b){
   g.restore();
 }
 
+/* 초와이드 거터 — 스테이지 밖 잔여 폭을 톤 다운 (playfield-spec 2.3) */
+function drawGutter(g){
+  if(!G.land || L.stageW >= W - 2) return;
+  g.fillStyle = 'rgba(5,20,23,.36)';
+  g.fillRect(0, 0, L.stageX, H);
+  g.fillRect(L.stageX + L.stageW, 0, W - L.stageX - L.stageW, H);
+}
+
+/* 우측 패널 등판 — 트레이·계약 바를 하나의 판으로 묶는다 */
+function drawPanelPlate(g){
+  if(!G.land) return;
+  g.save();
+  rrect(g, L.panelX, L.panelTop, L.panelW, L.panelBot - L.panelTop, 18);
+  g.fillStyle = 'rgba(9,36,42,.55)'; g.fill();
+  g.strokeStyle = 'rgba(241,216,165,.3)'; g.lineWidth = 2; g.stroke();
+  g.restore();
+}
+
 function drawTray(g){
   g.save();
   g.textAlign = 'left'; g.textBaseline = 'middle';
   g.fillStyle = 'rgba(255,247,229,.94)'; g.font = '900 13px ' + FONT;
-  g.fillText('📦 포장 띠 — 감을 띠를 끌어 올리세요', L.cx + 2, L.trayTop + 10);
+  g.fillText(G.land ? '📦 포장 띠 — 왼쪽 원판으로 끌기' : '📦 포장 띠 — 감을 띠를 끌어 올리세요',
+             L.trayX + 2, L.trayTop + 10);
   // 컨베이어 벨트 느낌의 줄무늬 (ambient)
   const beltY = L.trayTop + 17, beltH = 3;
-  g.fillStyle = 'rgba(12,60,66,.5)'; g.fillRect(L.cx, beltY, L.colW, beltH);
+  g.fillStyle = 'rgba(12,60,66,.5)'; g.fillRect(L.trayX, beltY, L.trayW, beltH);
   g.fillStyle = 'rgba(241,216,165,.7)';
   const off = (G.t*40) % 24;
-  for(let x = -24; x < L.colW; x += 24) g.fillRect(L.cx + x + off, beltY, 11, beltH);
+  for(let x = -24; x < L.trayW; x += 24) g.fillRect(L.trayX + x + off, beltY, 11, beltH);
   g.restore();
   for(const b of G.tray) drawBand(g, b);
 }
@@ -1531,13 +1615,14 @@ function drawWrapMsg(g){
   // 마지막 줄이면 위로 붙인다 (아래는 포장 띠 트레이라 가리면 안 된다)
   const last = G.orders.indexOf(o) === G.orders.length - 1;
   const y = last ? r.y - 43 : r.y + r.h + 3;
+  const mid = L.cx + L.colW/2;                 // 무대(주문 열) 중심 — 와이드에서 W/2 와 다르다
   g.save();
   g.font = '900 12.5px ' + FONT; g.textAlign = 'center'; g.textBaseline = 'top';
   const wBox = Math.min(L.colW, Math.max(g.measureText(msg).width, g.measureText(need).width) + 24);
   rrect(g, L.cx + (L.colW - wBox)/2, y, wBox, 40, 10);
   g.fillStyle = 'rgba(178,58,34,.94)'; g.fill();
-  g.fillStyle = '#FFF0E4'; g.fillText(msg, W/2, y + 5);
-  g.font = '800 11.5px ' + FONT; g.fillStyle = '#FFD9C9'; g.fillText(need, W/2, y + 22);
+  g.fillStyle = '#FFF0E4'; g.fillText(msg, mid, y + 5);
+  g.font = '800 11.5px ' + FONT; g.fillStyle = '#FFD9C9'; g.fillText(need, mid, y + 22);
   g.restore();
 }
 
@@ -1545,6 +1630,7 @@ function drawShip(g){
   const s = G.ship; if(!s) return;
   const t = s.t / s.dur;
   const cy = H*0.42;
+  const mid = L.cx + L.colW/2;                 // 무대 중심 — 와이드에서 출고 연출을 좌측 무대 위에 둔다
   g.save();
   g.fillStyle = 'rgba(6,26,30,' + (0.5*Math.min(1, t*4)) + ')'; g.fillRect(0,0,W,H);
 
@@ -1557,11 +1643,11 @@ function drawShip(g){
   const cw = ribbonW * (0.28 + open*0.72);
   const chh = Math.min(H*0.14, 96);
   const total = cw*3 + 12;
-  const x0 = W/2 - total/2;
+  const x0 = mid - total/2;
 
   const stageW = Math.min(W - 14, L.colW + 16);   // 애니메이션 중 무대 크기가 흔들리지 않게 고정
   const stageH = chh + 116;
-  rrect(g, W/2 - stageW/2, cy - chh/2 - 62, stageW, stageH, 22);
+  rrect(g, mid - stageW/2, cy - chh/2 - 62, stageW, stageH, 22);
   g.fillStyle = 'rgba(10,38,44,.92)'; g.fill();
   g.strokeStyle = '#F1D8A5'; g.lineWidth = 3; g.stroke();
 
@@ -1587,9 +1673,9 @@ function drawShip(g){
   g.font = '900 ' + hp + 'px ' + FONT;
   while(hp > 11 && g.measureText(head).width > stageW - 26){ hp -= 1; g.font = '900 ' + hp + 'px ' + FONT; }
   g.fillStyle = '#FFF3D2';
-  g.fillText(head, W/2, cy - chh/2 - 32);
+  g.fillText(head, mid, cy - chh/2 - 32);
   g.fillStyle = '#FFD98F'; g.font = '900 ' + Math.round(Math.min(17, W*0.045)) + 'px ' + FONT;
-  g.fillText('+60점  ·  +3초  ·  ×' + Math.max(1, G.combo), W/2, cy + chh/2 + 34);
+  g.fillText('+60점  ·  +3초  ·  ×' + Math.max(1, G.combo), mid, cy + chh/2 + 34);
   g.restore();
 }
 
@@ -1609,6 +1695,8 @@ function render(){
   ctx.restore();
 
   if(G.phase !== 'title'){
+    drawGutter(ctx);
+    drawPanelPlate(ctx);
     for(let i=0;i<G.orders.length;i++) drawOrder(ctx, G.orders[i]);
     drawWrapMsg(ctx);
     drawTray(ctx);
@@ -1726,9 +1814,14 @@ function gameOver(byTime){
 let obStep = 0, obFromTitle = false;
 function obSteps(){
   const o = G.orders[0] ? G.orders[0].rect : { x:L.cx, y:L.ordTop, w:L.colW, h:L.rowH };
-  const t = { x:L.cx - 4, y:L.trayTop + 16, w:L.colW + 8, h:L.tileH*2 + 17 };
+  const tRows = Math.ceil(4 / L.trayCols);
+  const tBot = L.tilesY + tRows*L.tileH + (tRows-1)*L.tileGapY;
+  const t = { x:L.trayX - 4, y:L.trayTop + 16, w:L.trayW + 8, h:tBot + 4 - (L.trayTop + 16) };
   return [
-    { r:t, title:'띠를 골라 끌어 올려요', body:'아래 포장 띠의 <b>가로</b>와 <b>세로</b>를 보고, 하나를 손가락으로 끌어 위쪽 주문으로 올리세요.' },
+    { r:t, title:'띠를 골라 끌어 올려요',
+      body: G.land
+        ? '오른쪽 포장 띠의 <b>가로</b>와 <b>세로</b>를 보고, 하나를 손가락으로 끌어 왼쪽 주문 원판으로 옮기세요.'
+        : '아래 포장 띠의 <b>가로</b>와 <b>세로</b>를 보고, 하나를 손가락으로 끌어 위쪽 주문으로 올리세요.' },
     { r:o, title:'가로 = 밑면의 둘레', body:'띠의 가로가 <b>2 × 3.14 × 반지름</b>과 같고 세로가 높이와 같아야 한 바퀴 착 감겨요. 띠를 고른 뒤 원판을 <b>한 번</b> 탭하면 둘레 자가 돌아요. <b>한 번 더</b> 탭하거나 「감기!」를 눌러야 감깁니다. 숫자는 직접 계산하세요.' },
     { r:{ x:o.x + o.w - 100, y:o.y, w:96, h:o.h }, title:'같은 캔 3개면 출고!', body:'같은 규격 캔을 <b>3개</b> 만들면 상자로 출고돼요. 콤보가 커질수록 점수가 쑥쑥!' }
   ];
@@ -1875,6 +1968,16 @@ window.__GAME_TEST__ = {
       wrapArmed: G.wrapArmed ? G.orders.indexOf(G.wrapArmed) : -1,
       hasSel: !!(G.sel && !G.sel.gone),
       hint: (G.orders || []).map(o => +(o.hint > 0))
+    };
+  },
+  getLayout(){
+    return {
+      land: !!G.land, playW: Math.round(L.colW || 0),
+      stageW: L.stageW || W, panelW: L.panelW || 0,
+      orders: G.orders.map(o => o.rect ? { x:o.rect.x, y:o.rect.y, w:o.rect.w, h:o.rect.h } : null),
+      tray: G.tray.map(b => (b && !b.gone)
+        ? { x:b.hx, y:b.hy, w:b.tw, h:b.th, fits:G.orders.findIndex(o => fits(b, o)) }
+        : null)
     };
   },
   selectTray(i){
