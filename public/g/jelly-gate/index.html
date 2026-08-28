@@ -918,7 +918,18 @@ function crowdCenter(){
   return {x:laneX(G.laneT), y:H*0.735};
 }
 function gateW(){ return Math.min(colW()/Math.max(1,G.laneCount)*0.95, 210); }
-function lanePad(){ return Math.max(colW()*0.10, gateW()*0.5 + 5); }
+/* 가장 붐빌 때(MAXDRAW) 젤리 떼가 차지하는 반폭 — 바깥 레인이 스테이지 밖으로 삐져나가지
+   않도록 lanePad 의 하한으로 쓴다. 젤리를 크게 키운 뒤로 land(와이드)에서 colW*0.10 로는
+   무리 왼쪽이 화면 밖으로 잘렸다(1280 폭에서 colX=0 이라 여유가 전혀 없다). */
+function crowdHalf(){
+  const size=clamp(Math.round(colW()*JS_PCT[2]), 30, 150);
+  const spanUnit=Math.sqrt(MAXDRAW-1+0.55)*0.92;
+  return size*(0.15*spanUnit + 0.5) + 8;
+}
+function lanePad(){
+  const base=Math.max(colW()*0.10, gateW()*0.5 + 5);
+  return FIELD.land ? Math.max(base, crowdHalf()) : base;
+}
 function laneX(t){
   if(G.laneCount<=1) return colCX();
   const pad=lanePad(), span=Math.max(1, colW()-pad*2);
@@ -936,10 +947,12 @@ function layoutRunning(){
   let sp=size*0.40;
   if(spanUnit>0.001) sp=Math.min(sp, edgeRoom/spanUnit);
   sp=Math.max(sp, size*0.15);
+  /* 마지막 안전핀 — 어떤 화면비에서도 젤리 윤곽이 스테이지 밖으로 잘리지 않게 가둔다 */
+  const lo=colX()+size*0.5+2, hi=colX()+colW()-size*0.5-2;
   for(let i=0;i<G.jellies.length;i++){
     const p=slotPos(i);
     const j=G.jellies[i];
-    j.tx=c.x+p.x*sp; j.ty=c.y+p.y*sp;
+    j.tx=clamp(c.x+p.x*sp, Math.min(lo,hi), Math.max(lo,hi)); j.ty=c.y+p.y*sp;
     j.tint=0;
   }
 }
@@ -1660,8 +1673,11 @@ function draw(){
 
   drawLanes();
   if(G.wall) drawWall();
-  if(G.active && !G.active.resolved) drawGates();
+  GATE_TOP=0; GATE_BOTTOM=0;
+  const gatesOn=(G.active && !G.active.resolved);
+  if(gatesOn) drawGates(0);
   drawJellies();
+  if(gatesOn) drawGates(1);
   drawParticles();
   ctx.restore();
 
@@ -1718,36 +1734,62 @@ function drawLanes(){
   }
 }
 
-function drawGates(){
+/* 게이트 카드 묶음의 위/아래 y — 구간 배너가 카드를 덮지 않게 drawFX() 가 참조한다 */
+let GATE_TOP=0, GATE_BOTTOM=0;
+/* pass 0 = 게이트 아치(젤리 뒤), pass 1 = 라벨 카드·고스트·배너(젤리 위).
+   게이트가 도착하면 젤리 떼가 카드를 덮어 분수를 못 읽으므로 라벨만 젤리 위로 올린다. */
+function drawGates(pass){
   const a=G.active, set=a.set;
   const n=set.gates.length;
   const gw=gateW();
+  const y=a.y;
+  const persp=clamp(0.52+0.48*(y+90)/(H*0.80), 0.4, 1.05);
+  const w=gw*persp, h=w;
+  /* 라벨 패널 — 레인이 늘어나도 숫자가 안 작아지게 하한을 두되, land(스테이지 1280)에서
+     하한이 세로폰의 2배로 부풀어 패널이 게이트 그림보다 커지던 문제를 막는다(하한은 680 기준). */
+  const labelSize=Math.max(w*0.21, Math.min(colW(),680)*0.062);
+  const pw=Math.min(gw*0.98, Math.max(w*0.80, labelSize*3.7)), ph=Math.max(w*0.42, labelSize*1.9);
+  /* 게이트는 화면 위(y=-90)에서 들어온다. 그대로 두면 카드 윗부분이 캔버스 밖으로 잘려
+     수식이 사라지고 숫자 아랫동강만 보인다 — 카드가 완전히 들어올 때까지 상단에 붙잡는다. */
+  const py=Math.max(y-h*0.58, 6);
+  /* 온보딩 결과 고스트 위치 — 기본은 카드 위(아래는 젤리 떼가 덮는다).
+     카드가 아직 상단에 붙어 있어 위에 자리가 없으면 카드 아래로 내린다. */
+  const ghost=(G.level===1 && G.gateIdx===0);
+  const ts=Math.max(13, Math.round(w*0.13));
+  let gy=py-ts*0.95, ghostBelow=false;
+  if(gy < ts*0.9+4){ gy=py+ph+ts*0.95; ghostBelow=true; }
+  GATE_BOTTOM=(ghost && ghostBelow) ? gy+ts*0.9 : py+ph;
+  GATE_TOP=(ghost && !ghostBelow) ? gy-ts*0.9 : py;
   for(let i=0;i<n;i++){
     const g=set.gates[i];
     const x=laneX(i);
-    const y=a.y;
-    const persp=clamp(0.52+0.48*(y+90)/(H*0.80), 0.4, 1.05);
-    const w=gw*persp, h=w;
     const sel=Math.abs(G.laneT-i)<0.5;
-    if(BAKE.gate) ctx.drawImage(BAKE.gate, x-w/2, y-h*0.86, w, h);
-    /* 라벨 패널 — 화면 폭 대비 고정 최소 크기를 둬서 레인이 늘어나도 숫자가 안 작아지게 한다 */
-    const labelSize=Math.max(w*0.21, colW()*0.062);
-    const pw=Math.min(gw*0.98, Math.max(w*0.80, labelSize*3.7)), ph=Math.max(w*0.42, labelSize*1.9);
+    if(pass===0){
+      if(BAKE.gate) ctx.drawImage(BAKE.gate, x-w/2, y-h*0.86, w, h);
+      continue;
+    }
     ctx.fillStyle=sel?'rgba(9,16,34,.92)':'rgba(9,16,34,.84)';
-    roundRect(ctx, x-pw/2, y-h*0.58, pw, ph, ph*0.26); ctx.fill();
+    roundRect(ctx, x-pw/2, py, pw, ph, ph*0.26); ctx.fill();
     ctx.strokeStyle=sel?'rgba(62,242,192,.95)':'rgba(160,107,255,.55)';
     ctx.lineWidth=sel?3:1.6; ctx.stroke();
-    drawMultiplier(g.lab, x, y-h*0.58+ph/2, labelSize, sel?'#3ef2c0':'#ffe9b8');
-    /* 온보딩: 1구간 첫 게이트에는 결과 고스트 */
-    if(G.level===1 && G.gateIdx===0){
-      ctx.fillStyle='rgba(255,209,102,.75)';
-      ctx.font='700 '+Math.round(w*0.13)+'px '+FONT;
+    drawMultiplier(g.lab, x, py+ph/2, labelSize, sel?'#3ef2c0':'#ffe9b8');
+    /* 온보딩: 1구간 첫 게이트에는 결과 고스트. 어두운 알약을 깔아 배경 위에서도 읽히게 한다. */
+    if(ghost){
+      const txt='→ '+g.R+'마리';
+      ctx.font='700 '+ts+'px '+FONT;
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('→ '+g.R+'마리', x, y-h*0.58+ph+w*0.12);
+      const tw=ctx.measureText(txt).width;
+      ctx.fillStyle='rgba(9,16,34,.72)';
+      roundRect(ctx, x-tw/2-9, gy-ts*0.78, tw+18, ts*1.56, ts*0.78); ctx.fill();
+      ctx.fillStyle='rgba(255,209,102,.92)';
+      ctx.fillText(txt, x, gy);
     }
   }
-  if(set.dbl===1) labelBanner('이중 게이트 1단', a.y-gw*0.95, '#a06bff');
-  else if(set.dbl===2) labelBanner('이중 게이트 2단', a.y-gw*0.95, '#a06bff');
+  if(pass===0) return;
+  /* 이중 게이트 배너 — 카드 위가 비었으면 위, 카드가 상단에 붙어 있으면 아래 */
+  const by=(!ghostBelow)?Math.max(14, Math.min(a.y-gw*0.95, py-18)):GATE_BOTTOM+16;
+  if(set.dbl===1) labelBanner('이중 게이트 1단', by, '#a06bff');
+  else if(set.dbl===2) labelBanner('이중 게이트 2단', by, '#a06bff');
 }
 const FONT='-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
 function labelBanner(text, y, col){
@@ -1909,6 +1951,10 @@ function drawFX(){
     ctx.fillText(good?(G.pop.up?'젤리가 늘었다!':'가장 큰 곱!'):'더 작은 곱!', 0, Math.min(colW()*0.14,52));
     ctx.restore();
   }
+  /* 상단 중앙 텍스트 레이아웃 — 게이트 카드가 화면 상단에 붙어 있으면 배너를 카드 아래로
+     밀고, 칭찬 문구는 그 배너보다 아래에 두어 둘이 겹치지 않게 한다. */
+  const bannerFits=(GATE_BOTTOM<=0) || (H*0.10 < GATE_TOP-10);
+  const bannerY=bannerFits ? H*0.10 : Math.min(GATE_BOTTOM+16, H*0.42);
   if(G.praise){
     const t=G.praise.t;
     const a=t<0.7?1:Math.max(0,1-(t-0.7)/0.45);
@@ -1916,7 +1962,7 @@ function drawFX(){
     ctx.font='900 '+Math.round(Math.min(colW()*0.068,26))+'px '+FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle=G.praise.col;
-    ctx.fillText(G.praise.text, colCX(), H*0.22 - t*36);
+    ctx.fillText(G.praise.text, colCX(), Math.max(H*0.22 - t*36, G.banner?bannerY+36:0));
     ctx.globalAlpha=1;
   }
   /* 약분 폭발 */
@@ -1959,7 +2005,7 @@ function drawFX(){
     ctx.font='900 '+Math.round(Math.min(colW()*0.052,20))+'px '+FONT;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle=G.banner.col;
-    ctx.fillText(G.banner.text, colCX(), H*0.10);
+    ctx.fillText(G.banner.text, colCX(), bannerY);
     ctx.globalAlpha=1;
   }
   /* 정밀 모드 표시 */
