@@ -119,9 +119,15 @@
   }
   /* ── 배송 존 안내 라벨: "완성된 상자를 여기로 끌어와요" 를 항상 보여준다.
      실사용자가 "아래로 가져가서 배송하는지도 알 수가 없음" 이라고 지적한 지점이다. */
+  /* 배송 라벨 + 작업자 배지를 한 줄(flex)로 묶는다. 배지를 절대배치로 띄우면
+     세로 판형에서 보드 맨 아랫줄 카드의 치수 표기를 가린다(실제 결함). */
+  #dropRow{
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    margin:0 auto 5px; max-width:100%;
+  }
   #dropLabel{
     display:flex; align-items:center; justify-content:center; gap:6px;
-    margin:0 auto 5px; width:max-content; max-width:100%;
+    margin:0; min-width:0; width:max-content; max-width:100%;
     padding:4px 11px; border-radius:999px;
     background:rgba(46,52,64,.86); border:2px solid rgba(255,250,246,.55);
     color:#fff3d2; font-weight:800; font-size:clamp(10.5px,3vw,13px); line-height:1.2;
@@ -204,7 +210,7 @@
   #orderTimerWrap{ height:5px; border-radius:3px; background:rgba(0,0,0,.12); margin-top:6px; overflow:hidden; }
   #orderTimerBar{ height:100%; background:var(--blue); width:100%; transition:width .1s linear; }
   #mascot{
-    position:absolute; left:10px; bottom:calc(100% + 6px); width:52px; height:52px;
+    position:relative; flex:none; width:40px; height:40px;
     pointer-events:none; transition:transform .28s cubic-bezier(.34,1.56,.64,1);
   }
   #mascot.bounce{ transform:translateY(-14px) rotate(-8deg) scale(1.1); }
@@ -417,7 +423,8 @@
     left:auto; right:calc(var(--stageX) + 14px); width:var(--panelW);
     top:calc(max(10px, env(safe-area-inset-top)) + 62px); bottom:auto;
   }
-  html.land #mascot{ left:6px; right:auto; top:-58px; bottom:auto; width:52px; height:52px; }
+  /* 와이드에서는 주문 패널 위쪽이 비어 있으므로 예전처럼 카드 위에 띄운다. */
+  html.land #mascot{ position:absolute; left:6px; right:auto; top:-58px; bottom:auto; width:52px; height:52px; }
   html.land #orderCard{ padding:12px 12px 10px; }
   html.land #orderIcon{ width:60px; height:60px; }
   html.land #orderText{ font-size:15px; }
@@ -471,8 +478,10 @@
   <div id="stallBanner">칸이 얼마 안 남았어요! 필요없는 상자는 버려요 🗑️</div>
   <div id="trashZone">🗑️</div>
   <div id="orderBar">
-    <div id="dropLabel"><span id="dropCount">📦 0/10</span><span id="dropText">완성된 상자를 여기로 끌어와요!</span></div>
-    <div id="mascot"><img src="./assets/hero.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))" onerror="this.style.display='none'" /></div>
+    <div id="dropRow">
+      <div id="mascot"><img src="./assets/hero.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35))" onerror="this.style.display='none'" /></div>
+      <div id="dropLabel"><span id="dropCount">📦 0/10</span><span id="dropText">완성된 상자를 여기로 끌어와요!</span></div>
+    </div>
     <div id="orderCard">
       <canvas id="orderIcon" width="104" height="104"></canvas>
       <div style="flex:1">
@@ -1606,18 +1615,58 @@ function drawGuides(now){
       const pair=findMergePair();
       if(pair){
         const [a,b]=pair;
+        // 유도선은 카드 "테두리에서 테두리로"만 긋는다. 중심끼리 이으면 겨냥도 그림 위를
+        // 지나가서 정육면체의 모서리로 오독되고, 치수 표기까지 덮는다(실제 결함).
+        const edgePt=(t,tx,ty)=>{
+          const hw=(t.cellW||64)/2*0.98, hh=(t.cellH||64)/2*0.98;
+          const ux=tx-t.px, uy=ty-t.py;
+          const k=Math.min(hw/Math.max(1e-6,Math.abs(ux)), hh/Math.max(1e-6,Math.abs(uy)));
+          const s=Math.min(1,k);
+          return { x:t.px+ux*s, y:t.py+uy*s };
+        };
+        const p1=edgePt(a,b.px,b.py), p2=edgePt(b,a.px,a.py);
         ctx.save();
-        ctx.strokeStyle='rgba(92,124,250,.9)'; ctx.lineWidth=4; ctx.lineCap='round';
-        ctx.setLineDash([9,8]); ctx.lineDashOffset=-((now/30)%17);
+        ctx.strokeStyle='rgba(92,124,250,.9)'; ctx.lineWidth=5; ctx.lineCap='round';
+        // 점선이 아니라 "구슬점" — 겨냥도의 숨은 모서리 점선(짧은 대시)과 확실히 구분된다.
+        ctx.setLineDash([0,13]); ctx.lineDashOffset=-((now/34)%13);
         ctx.shadowColor='rgba(92,124,250,.65)'; ctx.shadowBlur=9;
-        ctx.beginPath(); ctx.moveTo(a.px,a.py); ctx.lineTo(b.px,b.py); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
         ctx.restore();
         drawGlowRing(a,'#5c7cfa',pulse*0.8);
         drawGlowRing(b,'#5c7cfa',pulse*0.8);
-        const cx=(a.px+b.px)/2, cy=(a.py+b.py)/2;
+        // 칩은 두 카드 사이 틈의 한가운데에서 수직으로 비켜 놓는다 — 카드 모서리를
+        // 가장 적게 가리는 쪽(다른 카드와 겹치지 않는 쪽)을 골라 앉힌다.
+        const mx0=(p1.x+p2.x)/2, my0=(p1.y+p2.y)/2;
+        const chipW=48, chipH=26;
+        // 카드와 실제로 겹치는 넓이로 자리를 고른다.
+        const overlap=(qx,qy)=>{
+          let s=0;
+          for(const id of S.tileOrder){
+            const t=S.tiles.get(id); if(!t) continue;
+            const ox=Math.min(qx+chipW/2, t.px+(t.cellW||64)/2) - Math.max(qx-chipW/2, t.px-(t.cellW||64)/2);
+            const oy=Math.min(qy+chipH/2, t.py+(t.cellH||64)/2) - Math.max(qy-chipH/2, t.py-(t.cellH||64)/2);
+            if(ox>0 && oy>0) s+=ox*oy;
+          }
+          if(qx<chipW/2 || qx>CW-chipW/2 || qy<chipH/2 || qy>CH-chipH/2) s+=9999;
+          return s;
+        };
+        const cw=(a.cellW||64), ch=(a.cellH||64);
+        const sameCol=Math.abs(a.px-b.px) < cw*0.5, sameRow=Math.abs(a.py-b.py) < ch*0.5;
+        let cx=mx0, cy=my0;
+        if(!sameCol && !sameRow){
+          // 대각선 이웃 — 네 카드 모서리가 만나는 지점이라 칩이 반드시 모서리를 문다.
+          // 수직 방향으로 반 칸 비켜서 빈 칸 쪽에 앉힌다.
+          const vx=p2.x-p1.x, vy=p2.y-p1.y, vl=Math.hypot(vx,vy)||1;
+          const nx=-vy/vl, ny=vx/vl;
+          const off=Math.min(cw,ch)*0.58;
+          const cand=[{x:mx0+nx*off,y:my0+ny*off},{x:mx0-nx*off,y:my0-ny*off},{x:mx0,y:my0}];
+          let bestS=Infinity;
+          for(const c of cand){ const s=overlap(c.x,c.y); if(s<bestS-0.5){ bestS=s; cx=c.x; cy=c.y; } }
+        }
         ctx.save();
-        ctx.fillStyle='rgba(92,124,250,.95)';
-        roundRect(ctx,cx-24,cy-13,48,26,13); ctx.fill();
+        ctx.strokeStyle='rgba(255,250,246,.92)'; ctx.lineWidth=2;
+        ctx.fillStyle='rgba(92,124,250,.97)';
+        roundRect(ctx,cx-chipW/2,cy-chipH/2,chipW,chipH,13); ctx.fill(); ctx.stroke();
         ctx.fillStyle='#fff'; ctx.font='900 14px -apple-system, "Apple SD Gothic Neo", sans-serif';
         ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText('짝!',cx,cy+1);
@@ -2342,7 +2391,7 @@ function drawCardboardTexture(w,h,tone){
   ctx.restore();
 }
 
-function drawNetShape(t, x, y, w, h){
+function drawNetShape(t, x, y, w, h, cardH){
   const pad=w*0.06;
   const availW=w-pad*2, availH=h-pad*2;
   ctx.save();
@@ -2395,7 +2444,14 @@ function drawNetShape(t, x, y, w, h){
     ctx.textAlign='center'; ctx.textBaseline='middle';
     const tw = ctx.measureText(dimsLabel).width;
     const badgeW = Math.min(availW, tw + w*0.14), badgeH = w*0.13;
-    const badgeCx = availW/2, badgeCy = availH + pad*0.9 + badgeH/2;
+    const badgeCx = availW/2;
+    let badgeCy = availH + pad*0.9 + badgeH/2;
+    // 배지가 카드 아래 테두리를 물지 않도록 카드 안쪽으로 끌어올린다.
+    if(cardH){
+      const y0 = y - h/2 + pad;                       // 카드 좌표계에서 본 도형 박스 원점
+      const maxCy = cardH/2 - Math.max(6, cardH*0.05) - badgeH/2 - y0;
+      badgeCy = Math.min(badgeCy, maxCy);
+    }
     ctx.save();
     if(peeking && hidden) ctx.globalAlpha=0.88;
     // 유효/트랩 상관없이 배지 색은 항상 같다 — 색으로 정답을 스포일하지 않고,
@@ -2452,7 +2508,7 @@ function drawTile(t){
     ctx.font=`800 ${Math.max(9,w*0.085)}px -apple-system, sans-serif`;
     ctx.textAlign='center';
     ctx.fillText('전개도', 0, -h*0.42);
-    drawNetShape(t, 0, h*0.03, w, h*0.78);
+    drawNetShape(t, 0, h*0.03, w, h*0.78, h);
   } else if(t.kind==='wire'){
     // 겨냥도: 와이어프레임(실선/점선) — 실선 9개·점선 3개 규칙이 맞는지는 오직 이 그림으로만
     // 판별해야 하므로, 색은 유효/트랩 상관없이 항상 같은 파랑으로 그린다.
