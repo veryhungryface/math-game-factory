@@ -19,6 +19,9 @@
   --cta-top:#FFF0A8; --cta-mid:#F5C13A; --cta-bottom:#E08C15;
   --cta-border:#14201A; --cta-depth:#0B6B4F; --cta-ink:#241706;
   --safe-t:env(safe-area-inset-top); --safe-b:env(safe-area-inset-bottom);
+  /* 무대 폭 — docs/playfield-spec.md §2.4 (무대 집중형 3D 는 1360 상한) */
+  --stageW:min(100vw,1360px); --stageX:calc((100vw - min(100vw,1360px)) / 2);
+  --zoneW:min(300px,calc(var(--stageW) * .24));
   font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -280,6 +283,36 @@ button{font-family:inherit;cursor:pointer;touch-action:manipulation;}
 #flash.go{animation:flashFade 320ms ease-out both;}
 #flash.bad{background:rgba(226,96,60,.5);}
 @keyframes flashFade{from{opacity:.85;}to{opacity:0;}}
+
+/* ───────── 와이드 재배치 — 원형 ③ 극장형 (docs/playfield-spec.md §3-③) ─────────
+   중앙 무대(3D 캔버스)는 풀블리드로 두고, 세로에서 무대 위를 덮던 미션·투상 필름은
+   좌 존으로, 목표 필름·빛면 레일은 우 존으로 밀어낸다. 비워진 세로 여백만큼
+   fitCamera() 가 탑을 확대한다(JS S.mT/S.mB/S.mX 와 값이 짝을 이룬다). */
+html.land #hud{padding-inline:calc(var(--stageX) + 14px);align-items:center;}
+html.land #scoreBox{flex:0 1 auto;}
+html.land #muteGame{margin-left:auto;}
+
+html.land #mission{left:calc(var(--stageX) + 14px);transform:none;
+  top:calc(max(8px,var(--safe-t)) + 62px);width:var(--zoneW);text-align:left;font-size:13.5px;}
+html.land #films{left:calc(var(--stageX) + 14px);width:var(--zoneW);flex-wrap:wrap;}
+html.land #target{right:calc(var(--stageX) + 14px);left:auto;width:var(--zoneW);
+  top:calc(max(8px,var(--safe-t)) + 62px);}
+html.land #rail{right:calc(var(--stageX) + 14px);
+  top:calc(max(8px,var(--safe-t)) + 190px);bottom:calc(max(14px,var(--safe-b)) + 96px);
+  height:auto;max-height:520px;}
+html.land #gecko{left:calc(var(--stageX) + 14px);max-width:var(--zoneW);
+  bottom:calc(max(14px,var(--safe-b)) + 92px);}
+html.land #gecko.up{bottom:calc(max(14px,var(--safe-b)) + 92px);}
+html.land #geckoImg{width:64px;height:64px;}
+html.land #bubble{max-width:calc(var(--zoneW) - 78px);font-size:12.5px;}
+
+/* 하단 컨트롤 — 세로에서 3층으로 쌓이던 것을 한 줄로 편다 (무대 세로 확보) */
+html.land #trayBox{bottom:max(14px,var(--safe-b));}
+html.land #rotRow{bottom:calc(max(14px,var(--safe-b)) + 6px);transform:translateX(-100%);
+  left:calc(50% - min(215px,calc((100vw - 20px)/2)) - 14px);}
+html.land #rotHint{display:none;}
+html.land #mmBar{transform:none;bottom:max(14px,var(--safe-b));width:auto;max-width:340px;
+  left:calc(50% + min(215px,calc((100vw - 20px)/2)) + 14px);right:calc(var(--stageX) + 14px);}
 
 @media (max-height:700px){
   .game-logo{top:8dvh;width:min(196px,54vw);}
@@ -929,6 +962,27 @@ const G={
   guess:null,guessVal:0,needGuess:false
 };
 
+/* ── 판형(스테이지) 상태 — docs/playfield-spec.md §2
+   land 진입 조건은 종횡비뿐 아니라 폭 기준도 본다. mX/mT/mB 는 좌우 존·상단 HUD·하단
+   컨트롤이 차지하는 px 여백이며, fitCamera() 가 이 여백을 뺀 사각형에 무대를 맞춘다. */
+const S={land:false,stageW:0,stageX:0,mX:0,mT:0,mB:0,vw:0,vh:0};
+function layoutStage(){
+  const W=window.innerWidth,H=window.innerHeight;
+  S.vw=W;S.vh=H;
+  S.land=(W>=H&&W>=640)||W>=1024;
+  document.documentElement.classList.toggle('land',S.land);
+  const STAGE=Math.min(W,1360);                    // CSS --stageW 상한과 일치
+  S.stageW=STAGE;S.stageX=Math.round((W-STAGE)/2);
+  const rs=document.documentElement.style;
+  rs.setProperty('--stageW',STAGE+'px');
+  rs.setProperty('--stageX',S.stageX+'px');
+  if(S.land){
+    const zone=Math.min(300,STAGE*.24);            // CSS --zoneW 와 일치
+    S.mX=S.stageX+14+zone;S.mT=62;S.mB=112;
+  }else{S.mX=0;S.mT=0;S.mB=0;}
+}
+layoutStage();
+
 /* ── DOM 참조 */
 const D_={hud:el('hud'),score:el('scoreVal'),combo:el('comboTag'),life:el('lifeRow'),round:el('roundVal'),
   films:el('films'),mission:el('mission'),target:el('target'),rail:el('rail'),knob:el('railKnob'),
@@ -1019,7 +1073,9 @@ function renderFilms(force){
 function layoutPanels(){
   if(D_.mission.classList.contains('hide'))return;
   const b=D_.mission.getBoundingClientRect().bottom+7;
-  D_.films.style.top=b+'px';D_.target.style.top=b+'px';
+  D_.films.style.top=b+'px';
+  // 와이드에서는 목표 필름이 우 존 고정 위치라 CSS 에 맡긴다
+  D_.target.style.top=S.land?'':b+'px';
 }
 function renderTarget(){
   const t=G.task;
@@ -1162,6 +1218,7 @@ function markStartingVisible(){
 
 /* ═════════ 좌표 헬퍼 ═════════ */
 const _v=new THREE.Vector3(),_v2=new THREE.Vector3(),_tgt=new THREE.Vector3(0,.9,0),
+      _aim=new THREE.Vector3(0,.9,0),
       _dummy=new THREE.Object3D(),_col=new THREE.Color(),_flat=new THREE.Vector3();
 CAMDIR.clone().setY(0).normalize();
 _flat.copy(CAMDIR).setY(0).normalize();
@@ -1597,19 +1654,80 @@ function updateWall(){
   }
   wallMesh.count=i;wallMesh.instanceMatrix.needsUpdate=true;
 }
+/* ═════════ 카메라 프레이밍 ═════════
+   세로(모바일)는 기존 공식을 그대로 쓴다 — 회귀 금지.
+   와이드(land)에서는 HUD 가 좌우 존으로 빠져 무대 세로가 비므로, 화면 전체가 아니라
+   "여백을 뺀 무대 사각형"에 탑·궤도 링(그림자 라운드면 벽 그림자까지)을 맞춰 넣는다.
+   카메라 축 기저가 고정(CAMDIR·RIGHTV)이라 투영을 행렬 없이 스칼라로 풀 수 있다:
+     depth = d - c,  ndcX = a/(depth·tanHalfV·aspect),  ndcY = b/(depth·tanHalfV)
+   여기서 (a,b,c) = 점을 (오른쪽축, 위축, 시선축)에 사영한 값. 몇 번 반복하면 수렴한다. */
+const _fitU=new THREE.Vector3().crossVectors(CAMDIR,RIGHTV).normalize();  // 카메라 위 축
+const FIT_CE=Math.cos(CAM_E),FIT_SE=Math.sin(CAM_E);
+const fitBuf=[];
+function fitPush(x,y,z){
+  const dy=y-_tgt.y;
+  fitBuf.push(x*RIGHTV.x+z*RIGHTV.z,
+              x*_fitU.x+dy*_fitU.y+z*_fitU.z,
+              x*CAMDIR.x+dy*CAMDIR.y+z*CAMDIR.z);
+}
+function collectFit(){
+  fitBuf.length=0;
+  const R=ringR(),top=G.hMax+.72,bot=-.5;                 // 궤도 링 반지름 · 탑 꼭대기 · 받침대 아래
+  for(let i=0;i<8;i++){
+    const a=i*Math.PI/4,cx=Math.cos(a)*R,cz=Math.sin(a)*R;
+    fitPush(cx,bot,cz);fitPush(cx,top,cz);
+  }
+  // 그림자 라운드는 벽 그림자도 화면 안에 있어야 한다. 라운드 중에 카메라가 튀지 않도록
+  // 현재 실루엣이 아니라 그 라운드의 최대 크기(cols×hMax)로 잡는다.
+  if(G.task&&G.task.type==='shadow'&&wallGroup){
+    const cols=Math.max(G.W,G.D),vm=Math.max(1,G.hMax);
+    const hx=cols*.56+.1,yT=vm*.56-.75,yB=-vm*.56-.75,p=wallGroup.position;
+    for(const sx of[-hx,hx])for(const ly of[yB,yT])
+      fitPush(p.x+sx*RIGHTV.x,p.y+ly,p.z+sx*RIGHTV.z);
+  }
+}
+let camD=0,camYOff=0;
 function fitCamera(){
   const w=canvas.clientWidth||window.innerWidth,h=canvas.clientHeight||window.innerHeight;
   const aspect=w/Math.max(1,h);
   const halfV=Math.tan(camera.fov*Math.PI/360);
   const needH=Math.sqrt(G.W*G.W+G.D*G.D)/2+.95;
   const needV=Math.max(3.7,G.hMax*.58+3.0);
-  const dist=Math.max(needV/halfV,needH/(halfV*aspect));
-  _v.copy(CAMDIR).multiplyScalar(dist).add(_tgt);
+  let dist=Math.max(needV/halfV,needH/(halfV*aspect)),yOff=0;
+  if(S.land){
+    collectFit();
+    let mT=S.mT,mB=S.mB;
+    const cap=h*.55;
+    if(mT+mB>cap){const k=cap/(mT+mB);mT*=k;mB*=k;}
+    const hyLim=Math.max(.2,(h-mT-mB)/h);
+    const cyT=(mB-mT)/h;                                   // 무대 사각형 중심의 NDC y
+    const hxLim=Math.max(.2,(w-2*Math.min(S.mX,w*.33))/w);
+    // 안전망: 와이드 프레이밍이 세로 공식보다 멀어지는 일은 없다(세로로 긴 창에서
+    // 좌우 존 폭이 가로 제약을 지배해 오히려 탑이 작아지는 것을 막는다).
+    const dMax=dist;
+    let d=Math.min(camD>0?camD:dist,dMax);yOff=camYOff;
+    for(let it=0;it<4;it++){
+      let lo=1e9,hi=-1e9,ax=0;
+      for(let i=0;i<fitBuf.length;i+=3){
+        const b=fitBuf[i+1]-yOff*FIT_CE,c=fitBuf[i+2]-yOff*FIT_SE;
+        const dep=Math.max(.8,d-c);
+        const ny=b/(dep*halfV),nx=Math.abs(fitBuf[i])/(dep*halfV*aspect);
+        if(ny<lo)lo=ny; if(ny>hi)hi=ny; if(nx>ax)ax=nx;
+      }
+      const hy=(hi-lo)/2,cy=(hi+lo)/2;
+      const sc=clamp(Math.max(hy/hyLim,ax/hxLim),.5,2);
+      d=clamp(d*sc,4,dMax);
+      yOff+=(cy/sc-cyT)*halfV*d/FIT_CE;                    // 조준점을 내리면 무대가 위로 올라간다
+    }
+    dist=d;camD=d;camYOff=yOff;
+  }else{camD=0;camYOff=0;}
+  _aim.set(_tgt.x,_tgt.y+yOff,_tgt.z);
+  _v.copy(CAMDIR).multiplyScalar(dist).add(_aim);
   if(G.shake>0){
     const s=G.shake;
     _v.x+=Math.sin(G.idle*61)*s*.5;_v.y+=Math.cos(G.idle*73)*s*.5;
   }
-  camera.position.copy(_v);camera.lookAt(_tgt);
+  camera.position.copy(_v);camera.lookAt(_aim);
   if(Math.abs(camera.aspect-aspect)>1e-4){camera.aspect=aspect;}
   camera.updateProjectionMatrix();
 }
@@ -1715,6 +1833,8 @@ function frame(now){
   if(!(dt>0))dt=1/60;
   dt=Math.min(.05,dt);
   if(G.hitStop>0){G.hitStop-=dt;dt*=.14;}                        // hit-stop
+  // resize 이벤트를 놓치는 경우(주소창 변화·창 복원 등)에도 판형이 어긋나지 않게 자가 복구한다
+  try{if(S.vw!==window.innerWidth||S.vh!==window.innerHeight)applyViewport();}catch(e){}
   try{update(dt);draw(dt);}catch(e){}
   if(!lowQ){
     fpsFrames++;fpsT+=dt;
@@ -1873,10 +1993,13 @@ function toggleMute(){
 }
 D_.muteG.addEventListener('click',toggleMute);
 D_.muteT.addEventListener('click',toggleMute);
-window.addEventListener('resize',()=>{
+function applyViewport(){
+  layoutStage();
   if(glOK){renderer.setSize(window.innerWidth,window.innerHeight,false);fitCamera();}
   layoutPanels();
-});
+}
+window.addEventListener('resize',applyViewport);
+window.addEventListener('orientationchange',()=>setTimeout(applyViewport,120));
 
 /* ═════════ 온보딩 ═════════ */
 const OB=[
@@ -1949,6 +2072,13 @@ window.__GAME_TEST__={
   ready:false,
   start(){audioOn();startGame(true);},
   getState(){return{score:G.score,lives:G.lives,level:G.round+1,phase:G.phase,solved:G.solved};},
+  /* 3D 카메라 게임의 판형 소명 — docs/playfield-spec.md §2.4-5.
+     캔버스는 풀블리드라 플레이필드 폭 = 무대 폭. camDist 가 작을수록 탑이 크다. */
+  getLayout(){
+    return{land:S.land,playW:Math.round(S.land?S.stageW:window.innerWidth),
+      stageW:S.stageW,stageX:S.stageX,zones:{left:S.mX-S.stageX,right:S.mX-S.stageX},
+      camDist:Math.round((camD||(camera?camera.position.distanceTo(_aim):0))*100)/100};
+  },
   answerCorrect(){
     addScore(60*G.combo);G.combo=Math.min(5,G.combo+1);
     if(G.info)G.stars[2]=true;
@@ -1994,13 +2124,14 @@ window.__GAME_TEST__={
     G.needGuess=true;G.guess=info.vis0;G.lives=3;G.phase='result';
     showResult();
   },
-  forceLayerPlay(){
+  forceLayerPlay(){return this.forceRound(3);},
+  forceRound(i){
     audioOn();
     D_.title.classList.add('hide');
     D_.onboard.classList.add('hide');
     if(!G.started){G.started=true;showGameUI();}
     G.score=0;G.shownScore=0;G.lives=3;G.combo=1;G.solved=0;
-    G.round=3;assignedSlots=0;
+    G.round=clamp(i|0,0,ROUNDS.length-1);assignedSlots=0;
     setupRound();
     G.phase='play';G.timer=0;
     syncUIHard();
