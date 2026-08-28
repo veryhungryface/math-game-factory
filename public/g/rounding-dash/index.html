@@ -20,11 +20,14 @@
   #app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
        padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);}
 
-  /* 세로형 게임이라 와이드 화면(태블릿·데스크톱)에서는 중앙 컬럼으로 제한한다.
-     HUD/버튼은 좁은 컬럼(~680px)로, 캔버스(수직선 필드)는 조금 더 넓은 컬럼(~900px)으로.
-     캔버스는 #stage 의 실제 렌더 폭(getBoundingClientRect)을 그대로 읽어 W 를 정하므로,
-     이 CSS 폭 제한만으로 vx/vpos/폰트 크기 등 JS 좌표 계산도 전부 컬럼 기준으로 자동 축소된다. */
-  :root{ --uiColW: min(100vw, 680px); --stageColW: min(100vw, 900px); }
+  /* ── 판형(docs/playfield-spec.md 원형 ① 파노라마형, stageW 1280) ──
+     세로폰은 기존 스택 레이아웃 그대로. 와이드(html.land)에서는 캔버스가 전면(full-bleed)이
+     되고, 수직선·벽·칩 좌표는 JS 의 중앙 스테이지(FIELD, 최대 1280px)에서 파생된다.
+     HUD 는 좌상, 라이프/연료 게이지는 우상, 어림 버튼은 하단 중앙 오버레이로 재배치.
+     --stageW/--stageX 상한은 JS 의 STAGE_MAX 와 반드시 일치시켜라. */
+  :root{ --uiColW: min(100vw, 680px);
+         --stageW: min(100vw, 1280px);
+         --stageX: calc((100vw - var(--stageW)) / 2); }
   #hud{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 10px 4px;
     width:100%; max-width:var(--uiColW); margin:0 auto;
     background:linear-gradient(180deg,rgba(9,15,32,.6),rgba(9,15,32,.15));
@@ -61,11 +64,10 @@
   #combo.hit{transform:scale(1.45)}
 
   /* ── canvas ────────────────────────────── */
-  /* 게임 필드(수직선)는 드래그 사거리가 과해지지 않도록 HUD보다 조금 더 넓은 컬럼(900px)으로 제한한다.
-     canvas 는 이 박스의 실제 렌더 폭을 그대로 따라가므로(JS resize() 가 getBoundingClientRect 사용),
-     아래 폭 제한만으로 수직선 좌표계 전체가 컬럼 기준으로 축소된다. */
-  #stage{flex:1 1 auto;position:relative;min-height:0;
-    width:100%; max-width:var(--stageColW); margin:0 auto}
+  /* canvas 는 #stage 의 실제 렌더 크기를 따라간다(JS resize() 가 getBoundingClientRect 사용).
+     세로폰에서는 스택 레이아웃의 남은 높이를, 와이드(land)에서는 화면 전면을 차지하고
+     수직선 좌표는 JS FIELD(중앙 1280px 스테이지)가 캡한다. */
+  #stage{flex:1 1 auto;position:relative;min-height:0;width:100%}
   canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
 
   /* ── control pad ───────────────────────── */
@@ -88,6 +90,28 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 2px 0 rgba(0,0,0,.3)}
   .dash.peek{box-shadow:inset 0 1.5px 0 rgba(255,255,255,.35), 0 0 26px rgba(255,210,61,.8);border-color:var(--gd)}
   #hint{text-align:center;font-size:10.5px;opacity:.5;margin-top:6px;height:13px}
+
+  /* ── 와이드(land) 재배치 — 원형 ① 파노라마: 캔버스 전면 + 존 오버레이 ──
+     HUD(레벨·점수) 좌상 / 라이프·연료 게이지 우상 / 어림 버튼 하단 중앙.
+     전부 --stageX 기준으로 정렬해 캔버스의 FIELD 스테이지와 존이 맞물린다. */
+  html.land #stage{position:absolute;inset:0;}
+  html.land #hud{position:absolute;z-index:3;top:10px;left:calc(var(--stageX) + 12px);
+    width:clamp(300px, calc(var(--stageW)*0.32), 430px);max-width:none;margin:0;
+    padding:8px 10px;border-radius:16px;border:1px solid rgba(0,229,255,.2);
+    background:linear-gradient(180deg,rgba(9,15,32,.8),rgba(9,15,32,.52));}
+  html.land #bars{position:absolute;z-index:3;top:16px;left:auto;right:calc(var(--stageX) + 12px);
+    width:auto;max-width:none;margin:0;padding:9px 14px;border-radius:14px;
+    border:1px solid rgba(0,229,255,.16);background:rgba(9,15,32,.6);}
+  html.land #combo{margin-left:8px;min-width:70px;text-align:right;}
+  html.land #pad{position:absolute;z-index:3;left:50%;bottom:calc(env(safe-area-inset-bottom) + 10px);
+    transform:translateX(-50%);width:clamp(340px, calc(var(--stageW)*0.46), 620px);max-width:none;margin:0;
+    padding:8px 12px 10px;border-radius:18px;border:1px solid rgba(0,229,255,.16);
+    background:linear-gradient(180deg,rgba(9,15,32,.5),rgba(9,15,32,.8));}
+  /* 키 낮은 가로폰(예: 844×390) — 버튼 패드를 얇게 눌러 눈금 라벨을 가리지 않게 */
+  @media (max-height:480px){
+    html.land #pad{padding:5px 10px 7px;}
+    html.land #placelab, html.land #hint{display:none;}
+  }
 
   /* ── overlays ──────────────────────────── */
   .ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -641,6 +665,12 @@ var G = {
 var parts = [], pops = [], stars = [];
 var W = 0, H = 0, S = 1, DPR = Math.min(window.devicePixelRatio || 1, 2);
 
+/* ── 판형(docs/playfield-spec.md 원형 ① 파노라마) ──
+   수직선·벽·칩 좌표는 뷰포트가 아니라 중앙 스테이지(FIELD, 디바이스 px)에서 파생한다.
+   세로폰에서는 FIELD.x=0, FIELD.w=W 라서 기존 좌표계와 완전히 동일하게 동작한다. */
+var STAGE_MAX = 1280;                    // CSS --stageW 상한과 반드시 일치
+var FIELD = { land:false, x:0, w:0 };
+
 /* ── DOM ── */
 var el = {
   lv: document.querySelector('#lvbadge b'), lvsub: document.querySelector('#lvbadge small'),
@@ -711,14 +741,22 @@ function allowedMethods(){
    7. 수직선 좌표 매핑 (구간별 선형)
    ══════════════════════════════════════════════════════════════ */
 /* 좁은 화면(폰)은 벽 낙하 거리를 벌기 위해 아래쪽, 넓은 화면(태블릿·데스크톱)은
-   위쪽 빈 공간이 너무 커지지 않게 65~70% 지점에 둔다. 낙하는 시간 기준이라
-   거리가 바뀌어도 체감 난이도는 같다. */
-function lineY(){ return H * (W / DPR >= 640 ? 0.70 : 0.785); }
-function padX(){ return Math.max(26 * S, W * 0.075); }
+   위쪽 빈 공간이 너무 커지지 않게 60~70% 지점에 둔다. 낙하는 시간 기준이라
+   거리가 바뀌어도 체감 난이도는 같다. land 에서는 하단 중앙의 버튼 오버레이를
+   피하도록 조금 위(키 낮은 가로폰은 더 위)에 둔다. */
+function lineY(){
+  if (FIELD.land) return H * (H < 500 * DPR ? 0.60 : 0.68);
+  return H * (W / DPR >= 640 ? 0.70 : 0.785);
+}
+/* 수직선 좌우 여백·레인 폭은 전부 FIELD(중앙 스테이지)에서 파생 — 와이드에서
+   수직선이 길어져 눈금 간격이 넓어진다(어림 게임이라 가독성이 좋아지는 방향). */
+function fieldPad(){ return Math.max(26 * S, FIELD.w * 0.075); }
+function padX(){ return FIELD.x + fieldPad(); }
 function laneW(){
   var w = G.wall; if (!w) return 30 * S;
   var n = w.lanes.length;
-  return n > 1 ? (W - 2 * padX()) / (n - 1) : (W - 2 * padX());
+  var inner = FIELD.w - 2 * fieldPad();
+  return n > 1 ? inner / (n - 1) : inner;
 }
 function laneX(i){ return padX() + i * laneW(); }
 /* 값 → 화면 x (레인 사이 선형 보간, 바깥은 외삽) */
@@ -1287,19 +1325,19 @@ function initStars(){
   for (var i=0;i<56;i++) stars.push({ x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.6+0.4, v:0.3+Math.random()*1.5, a:0.2+Math.random()*0.6 });
 }
 
-/* 화면 폭 대비 항상 일정 비율을 유지하는 크기 계산.
-   전역 S 는 2.2 에서 클램프되기 때문에, 태블릿·데스크톱처럼 W(화면 폭)가
-   커지면 S 만으로 그린 캐릭터·숫자가 화면 폭 대비 점점 작아진다.
-   캐릭터는 화면 폭의 12~15%, 숫자는 5% 이상을 유지해야 하므로
-   S 클램프를 거치지 않고 W 에서 직접 비율로 계산한다. */
+/* 스테이지 폭 대비 항상 일정 비율을 유지하는 크기 계산.
+   전역 S 는 2.2 에서 클램프되기 때문에, 태블릿·데스크톱처럼 폭이 커지면
+   S 만으로 그린 캐릭터·숫자가 화면 폭 대비 점점 작아진다.
+   기준은 뷰포트(W)가 아니라 FIELD.w(중앙 스테이지) — 초와이드에서 캔버스가
+   전면이 돼도 스테이지 상한(1280px)이 크기를 캡하고, 낮은 창에서는 H 로도 캡한다. */
 function heroDrawSize(){
-  return Math.max(46 * DPR, Math.min(W * 0.19, 420 * DPR));  // 안의 그림은 이 값의 72% → 화면 폭의 약 13.7%
+  return Math.max(46 * DPR, Math.min(FIELD.w * 0.19, H * 0.30, 420 * DPR));  // 안의 그림은 이 값의 72% → 스테이지 폭의 약 13.7%
 }
 function chipFontPx(){
-  return Math.max(16 * DPR, Math.min(W * 0.052, 160 * DPR));
+  return Math.max(16 * DPR, Math.min(FIELD.w * 0.052, H * 0.080, 160 * DPR));
 }
 function wallLabelFontPx(){
-  return Math.max(13 * DPR, Math.min(W * 0.044, 130 * DPR));
+  return Math.max(13 * DPR, Math.min(FIELD.w * 0.044, H * 0.062, 130 * DPR));
 }
 
 function buildBG(){
@@ -1387,6 +1425,18 @@ function buildBG(){
   vg.addColorStop(0, 'rgba(0,0,0,0)');
   vg.addColorStop(1, 'rgba(0,0,0,.5)');
   c.fillStyle = vg; c.fillRect(0, 0, W, H);
+
+  /* 초와이드 거터(판형 2.3절) — 스테이지 상한(1280px) 밖 잔여 폭은 배경을 이어 두고
+     톤만 눌러 무대 밖임을 표시한다. 정적이므로 여기서 한 번만 굽는다. */
+  if (FIELD.w < W - 2){
+    c.fillStyle = 'rgba(2,5,12,0.45)';
+    c.fillRect(0, 0, FIELD.x, H);
+    c.fillRect(FIELD.x + FIELD.w, 0, W - FIELD.x - FIELD.w, H);
+    var elw = Math.max(1, Math.round(DPR));
+    c.fillStyle = hexa(TH.line, 0.22);
+    c.fillRect(FIELD.x - elw, 0, elw, H);
+    c.fillRect(FIELD.x + FIELD.w, 0, elw, H);
+  }
 }
 
 function buildWallTex(){
@@ -1491,12 +1541,24 @@ function buildHero(){
 
 function rebuildAll(){ buildBG(); buildWallTex(); buildHero(); initStars(); }
 
+var landCached = null;
 function resize(){
+  /* land 토글(판형 2.2절: (W>=H && W>=640) || W>=1024)은 캔버스 측정보다 먼저 —
+     CSS 존 재배치(#stage 전면화)가 스테이지 크기를 바꾸기 때문이다. */
+  var vw = window.innerWidth || 1, vh = window.innerHeight || 1;
+  var land = (vw >= vh && vw >= 640) || vw >= 1024;
+  if (land !== landCached){
+    landCached = land;
+    FIELD.land = land;
+    document.documentElement.classList.toggle('land', land);
+  }
   var r = cv.getBoundingClientRect();
   var cw = Math.max(1, Math.round(r.width)), ch = Math.max(1, Math.round(r.height));
   var nw = Math.max(2, cw * DPR), nh = Math.max(2, ch * DPR);
   if (cv.width !== nw || cv.height !== nh){ cv.width = nw; cv.height = nh; }
   W = nw; H = nh;
+  FIELD.w = Math.min(W, Math.round(STAGE_MAX * DPR));
+  FIELD.x = Math.round((W - FIELD.w) / 2);
   S = Math.max(0.75, Math.min(2.2, W / (390 * DPR) * DPR));
   if (W !== lastW || H !== lastH || builtTheme !== G.themeIdx){
     lastW = W; lastH = H; builtTheme = G.themeIdx;
@@ -1553,9 +1615,9 @@ function drawNumberLine(TH){
     if (w.rule.hi !== w.rule.lo) marker(b, by, w.rule.hiIncl, TH);
   }
 
-  /* 눈금 + 라벨 */
+  /* 눈금 + 라벨 — 와이드에서 레인 간격이 넓어지는 만큼 라벨 상한도 18px 까지 키운다 */
   var lw = laneW();
-  var fs = Math.round(Math.max(9 * DPR, Math.min(13 * DPR, lw * 0.40)));
+  var fs = Math.round(Math.max(9 * DPR, Math.min(18 * DPR, lw * 0.40)));
   ctx.font = '700 ' + fs + 'px ' + FONT;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   var eye = G.eyeT > 0;
@@ -1610,7 +1672,9 @@ function drawWall(TH){
   var gm = wallGeom();
   var wallH = gm.h, top = gm.top, hidden = gm.hidden, hl = gm.hl, hr = gm.hr;
 
-  var segs = hidden ? [[0, W]] : [[0, Math.max(0, Math.min(W, hl))], [Math.max(0, Math.min(W, hr)), W]];
+  /* 벽 패널은 스테이지(FIELD) 폭까지만 — 초와이드 거터를 침범하지 않는다 */
+  var fx0 = FIELD.x, fx1 = FIELD.x + FIELD.w;
+  var segs = hidden ? [[fx0, fx1]] : [[fx0, Math.max(fx0, Math.min(fx1, hl))], [Math.max(fx0, Math.min(fx1, hr)), fx1]];
 
   for (var i=0;i<segs.length;i++){
     var x0 = Math.round(segs[i][0]), x1 = Math.round(segs[i][1]);
@@ -1647,14 +1711,15 @@ function drawWall(TH){
      라벨은 벽이 화면 밖에 있어도 항상 읽을 수 있어야 한다 —
      미리 계산할 시간을 주지 않으면 어림이 아니라 반사신경 게임이 된다. */
   var f1 = wallLabelFontPx(), f2 = f1 * 0.68;
-  var by = Math.max(6 * S, top - f1 * 2.6);
+  /* land 에서는 좌상 HUD·우상 게이지 오버레이 아래로 배너 상한을 내린다 */
+  var by = Math.max(FIELD.land ? 92 * DPR : 6 * S, top - f1 * 2.6);
   var t1 = w.label, t2 = w.sub;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = '900 ' + Math.round(f1) + 'px ' + FONT;
-  var tw = Math.max(ctx.measureText(t1).width, W * 0.30);
+  var tw = Math.max(ctx.measureText(t1).width, FIELD.w * 0.30);
   ctx.font = '600 ' + Math.round(f2) + 'px ' + FONT;
   tw = Math.max(tw, ctx.measureText(t2).width);
-  var bw = Math.min(W - 14 * S, tw + f1 * 1.9), bh = f1 * 2.45;
+  var bw = Math.min(FIELD.w - 14 * S, tw + f1 * 1.9), bh = f1 * 2.45;
   ctx.fillStyle = 'rgba(7,11,24,.85)';
   ctx.strokeStyle = hexa(TH.gold, 0.7); ctx.lineWidth = 1.5 * DPR;
   rr(W/2 - bw/2, by, bw, bh, 10 * S); ctx.fill(); ctx.stroke();
@@ -1894,6 +1959,10 @@ window.__GAME_TEST__ = {
       fuel: G.fuel,
       combo: G.combo
     };
+  },
+  /* 판형 검증용 (docs/playfield-spec.md 2.4-5) — CSS px 기준 */
+  getLayout: function(){
+    return { land: FIELD.land, playW: Math.round(FIELD.w / DPR), playX: Math.round(FIELD.x / DPR) };
   },
   answerCorrect: function(){
     if (G.phase !== 'playing') startGame();
