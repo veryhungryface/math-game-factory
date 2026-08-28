@@ -669,7 +669,7 @@ var W = 0, H = 0, S = 1, DPR = Math.min(window.devicePixelRatio || 1, 2);
    수직선·벽·칩 좌표는 뷰포트가 아니라 중앙 스테이지(FIELD, 디바이스 px)에서 파생한다.
    세로폰에서는 FIELD.x=0, FIELD.w=W 라서 기존 좌표계와 완전히 동일하게 동작한다. */
 var STAGE_MAX = 1280;                    // CSS --stageW 상한과 반드시 일치
-var FIELD = { land:false, x:0, w:0 };
+var FIELD = { land:false, x:0, w:0, pad:null };
 
 /* ── DOM ── */
 var el = {
@@ -683,6 +683,7 @@ var el = {
   mute: document.getElementById('mute'), rewrap: document.getElementById('rewindwrap'),
   rewind: document.getElementById('rewind'), rwfill: document.getElementById('rwfill'),
   dash: [].slice.call(document.querySelectorAll('.dash')),
+  pad: document.getElementById('pad'),
   titleMute: document.getElementById('btnTitleMute'), tBest: document.getElementById('tBest')
 };
 var DEXLIST = ['이상','이하','초과','미만','올림','버림','반올림'];
@@ -759,6 +760,10 @@ function laneW(){
   return n > 1 ? inner / (n - 1) : inner;
 }
 function laneX(i){ return padX() + i * laneW(); }
+/* 눈금 라벨 폰트/아래끝 — 와이드에서 레인 간격이 넓어지는 만큼 라벨 상한도 18px 까지 키운다.
+   drawNumberLine 과 현재 값 배지 배치가 같은 값을 봐야 서로 겹치지 않는다. */
+function tickFontPx(){ return Math.round(Math.max(9 * DPR, Math.min(18 * DPR, laneW() * 0.40))); }
+function numberLineBottom(){ return lineY() + 13 * S + tickFontPx(); }
 /* 값 → 화면 x (레인 사이 선형 보간, 바깥은 외삽) */
 function vx(v){
   var w = G.wall; if (!w) return W / 2;
@@ -1560,6 +1565,15 @@ function resize(){
   FIELD.w = Math.min(W, Math.round(STAGE_MAX * DPR));
   FIELD.x = Math.round((W - FIELD.w) / 2);
   S = Math.max(0.75, Math.min(2.2, W / (390 * DPR) * DPR));
+  /* land 에서 하단 버튼 패드는 캔버스 위에 겹쳐 뜬다 — 그 사각형을 캔버스 좌표로 재두어
+     현재 값 배지가 조작 HUD 를 덮지 않게 한다(세로 스택 레이아웃에서는 겹칠 일이 없다). */
+  FIELD.pad = null;
+  if (FIELD.land && el.pad){
+    var pr = el.pad.getBoundingClientRect();
+    if (pr.width > 1 && pr.height > 1){
+      FIELD.pad = { x0: (pr.left - r.left) * DPR, x1: (pr.right - r.left) * DPR, top: (pr.top - r.top) * DPR };
+    }
+  }
   if (W !== lastW || H !== lastH || builtTheme !== G.themeIdx){
     lastW = W; lastH = H; builtTheme = G.themeIdx;
     rebuildAll();
@@ -1615,9 +1629,8 @@ function drawNumberLine(TH){
     if (w.rule.hi !== w.rule.lo) marker(b, by, w.rule.hiIncl, TH);
   }
 
-  /* 눈금 + 라벨 — 와이드에서 레인 간격이 넓어지는 만큼 라벨 상한도 18px 까지 키운다 */
-  var lw = laneW();
-  var fs = Math.round(Math.max(9 * DPR, Math.min(18 * DPR, lw * 0.40)));
+  /* 눈금 + 라벨 */
+  var fs = tickFontPx();
   ctx.font = '700 ' + fs + 'px ' + FONT;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   var eye = G.eyeT > 0;
@@ -1672,8 +1685,11 @@ function drawWall(TH){
   var gm = wallGeom();
   var wallH = gm.h, top = gm.top, hidden = gm.hidden, hl = gm.hl, hr = gm.hr;
 
-  /* 벽 패널은 스테이지(FIELD) 폭까지만 — 초와이드 거터를 침범하지 않는다 */
-  var fx0 = FIELD.x, fx1 = FIELD.x + FIELD.w;
+  /* 벽 패널은 스테이지(FIELD) 폭까지만 — 초와이드 거터를 침범하지 않는다.
+     스테이지가 화면 전체를 쓸 때는 바깥 세로 윤곽·글로우가 뷰포트에서 잘리지 않도록
+     좌우를 조금 들여 그린다(레인은 fieldPad 안쪽이라 영향 없음). */
+  var inset = 4 * S;
+  var fx0 = FIELD.x + inset, fx1 = FIELD.x + FIELD.w - inset;
   var segs = hidden ? [[fx0, fx1]] : [[fx0, Math.max(fx0, Math.min(fx1, hl))], [Math.max(fx0, Math.min(fx1, hr)), fx1]];
 
   for (var i=0;i<segs.length;i++){
@@ -1732,12 +1748,47 @@ function drawWall(TH){
   ctx.globalAlpha = 1;
 }
 
+function chipX(){
+  var w = G.wall; if (!w) return W / 2;
+  return laneX(Math.max(-0.9, Math.min(w.lanes.length - 0.1, G.chip.pos)));
+}
+function chipBlink(){ return G.invuln > 0 && Math.floor(G.invuln * 14) % 2 === 0; }
+
+/* 우주선 본체 — 벽 패널보다 **먼저** 그린다.
+   벽이 반투명 홀로그램이라, 뒤에 깔면 범위 밖에 선 우주선이 패널 너머로 비쳐 보인다.
+   (예전처럼 위에 그리면 패널의 하단 경고 띠·윤곽을 지워 "블록을 관통한 것처럼" 보였다) */
 function drawChip(TH){
   var w = G.wall; if (!w) return;
   var c = G.chip;
-  var px = laneX(Math.max(-0.9, Math.min(w.lanes.length - 0.1, c.pos)));
+  var px = chipX();
   var py = lineY();
-  var t = performance.now() / 1000;
+  if (chipBlink()) return;
+
+  /* 캐릭터는 항상 화면 폭의 ~13.7% — 태블릿·데스크톱에서도 작아지지 않는다 */
+  var sz = heroDrawSize();
+  var bob = Math.sin(performance.now() / 1000 * 4) * 2.2 * S;
+  var cy2 = py - sz * 0.25 + bob;
+
+  /* 접지 광원 */
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = hexa(TH.line, 0.55);
+  ctx.beginPath(); ctx.ellipse(px, py + 3 * S, sz * 0.266, sz * 0.070, 0, 0, 6.2832); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  var sq = c.dashT > 0 ? 1.22 : 1;
+  ctx.save();
+  ctx.translate(px, cy2);
+  ctx.scale(sq, 2 - sq);
+  ctx.drawImage(offHero, -sz/2, -sz/2, sz, sz);
+  ctx.restore();
+}
+
+/* 엿보기 유령 + 현재 값 배지 — 이건 HUD 라 벽 패널 위에 그린다 */
+function drawChipHUD(TH){
+  var w = G.wall; if (!w) return;
+  var c = G.chip;
+  var px = chipX();
+  var py = lineY();
 
   /* 엿보기 유령 */
   if (G.peek){
@@ -1757,42 +1808,61 @@ function drawChip(TH){
     }
   }
 
-  if (G.invuln > 0 && Math.floor(G.invuln * 14) % 2 === 0) return;
+  if (chipBlink()) return;
 
-  /* 캐릭터는 항상 화면 폭의 ~13.7% — 태블릿·데스크톱에서도 작아지지 않는다 */
+  /* 현재 값 — 화면 폭의 5% 이상을 유지(태블릿·데스크톱 포함).
+     벽 패널과 겹치면 칩 아래로 뒤집는데, 이때 하단 조작 HUD(land 오버레이)를 덮지 않게
+     ① 눈금 라벨 아래 ~ 패드 위의 띠에 맞춰 넣고(좁으면 글자를 줄인다)
+     ② 띠가 너무 얇으면 패드 바깥(가까운 쪽)으로 밀고
+     ③ 그것도 안 되면 위 자리에 불투명 배지로 남긴다. */
   var sz = heroDrawSize();
-  var bob = Math.sin(t * 4) * 2.2 * S;
-  var cy2 = py - sz * 0.25 + bob;
-
-  /* 접지 광원 */
-  ctx.globalAlpha = 0.4;
-  ctx.fillStyle = hexa(TH.line, 0.55);
-  ctx.beginPath(); ctx.ellipse(px, py + 3 * S, sz * 0.266, sz * 0.070, 0, 0, 6.2832); ctx.fill();
-  ctx.globalAlpha = 1;
-
-  var sq = c.dashT > 0 ? 1.22 : 1;
-  ctx.save();
-  ctx.translate(px, cy2);
-  ctx.scale(sq, 2 - sq);
-  ctx.drawImage(offHero, -sz/2, -sz/2, sz, sz);
-  ctx.restore();
-
-  /* 현재 값 — 화면 폭의 5% 이상을 유지(태블릿·데스크톱 포함), 벽 패널과 겹치면
-     칩 아래(눈금 라벨 밑)로 뒤집는다 */
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   var vfs = chipFontPx();
+  var vt = String(c.value);
   ctx.font = '900 ' + Math.round(vfs) + 'px ' + FONT;
-  var vt = String(c.value), vw = ctx.measureText(vt).width;
-  var bh = vfs * 1.28, bt = py - sz * 0.94;
+  var vw = ctx.measureText(vt).width;
+  var bt = py - sz * 0.94, solid = false, bx = null;
   var gm = wallGeom();
-  var blocked = gm && gm.bottom > bt && gm.top < bt + bh &&
+  var blocked = gm && gm.bottom > bt && gm.top < bt + vfs * 1.28 &&
                 (gm.hidden || px < gm.hl || px > gm.hr);
-  if (blocked) bt = Math.min(py + sz * 0.53, H - bh - 4 * S);
-  var vpad = vfs * 0.37, vrad = vfs * 0.32;
-  ctx.fillStyle = 'rgba(7,11,24,.72)';
-  rr(px - vw/2 - vpad, bt, vw + vpad * 2, bh, vrad); ctx.fill();
+  if (blocked){
+    var bandTop = numberLineBottom() + 6 * S;
+    var bandBot = H - 4 * S;
+    var p = FIELD.pad;
+    var boxW = vw + vfs * 0.74;
+    var hitsPad = !!p && px + boxW / 2 > p.x0 && px - boxW / 2 < p.x1;
+    if (hitsPad && (p.top - 6 * S) - bandTop >= 26 * DPR){
+      bandBot = p.top - 6 * S;
+    } else if (hitsPad){
+      var bxL = p.x0 - 6 * S - boxW, bxR = p.x1 + 6 * S;
+      var okL = bxL >= 4 * S, okR = bxR + boxW <= W - 4 * S;
+      if (okL && (!okR || px < (p.x0 + p.x1) / 2)) bx = bxL;
+      else if (okR) bx = bxR;
+      else solid = true;
+    }
+    if (!solid){
+      var room = bandBot - bandTop;
+      if (room < vfs * 1.28){
+        vfs = Math.max(13 * DPR, room / 1.28);
+        ctx.font = '900 ' + Math.round(vfs) + 'px ' + FONT;
+        vw = ctx.measureText(vt).width;
+      }
+      bt = Math.max(bandTop, Math.min(py + sz * 0.53, bandBot - vfs * 1.28));
+    }
+  }
+  var bh = vfs * 1.28, vpad = vfs * 0.37, vrad = vfs * 0.32;
+  /* 배지가 뷰포트 밖으로 잘리지 않게 살짝 밀어 넣는다 */
+  if (bx === null) bx = px - vw / 2 - vpad;
+  bx = Math.max(4 * S, Math.min(W - 4 * S - (vw + vpad * 2), bx));
+  bt = Math.max(4 * S, Math.min(H - 4 * S - bh, bt));
+  ctx.fillStyle = solid ? 'rgba(7,11,24,.94)' : 'rgba(7,11,24,.72)';
+  rr(bx, bt, vw + vpad * 2, bh, vrad); ctx.fill();
+  if (solid){
+    ctx.strokeStyle = hexa(TH.line, 0.6); ctx.lineWidth = 1.5 * DPR;
+    rr(bx, bt, vw + vpad * 2, bh, vrad); ctx.stroke();
+  }
   ctx.fillStyle = inRange(c.value, w.rule) ? TH.safe : '#ffffff';
-  ctx.fillText(vt, px, bt + vfs);
+  ctx.fillText(vt, bx + vw / 2 + vpad, bt + vfs);
 }
 
 function drawFX(TH){
@@ -1865,8 +1935,9 @@ function render(dt){
   }
   drawStars();
   drawNumberLine(TH);
+  drawChip(TH);      // 우주선 → 벽 순서: 반투명 패널이 우주선 위를 덮어 깊이가 읽힌다
   drawWall(TH);
-  drawChip(TH);
+  drawChipHUD(TH);
   drawFX(TH);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
