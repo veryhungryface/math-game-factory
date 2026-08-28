@@ -3,6 +3,12 @@
 > 마지막 갱신: 2026-08-28. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-08-28 — 판형 규범 교체 (640px 중앙 컬럼 폐기 → --stageW 1280 + 와이드 원형 3종)
+- **배경**: 전 게임(20작) 판형 감사 — 진짜 가로 재배치 9작뿐, 4작은 배경만 와이드, 7작은 분기 전무. 전부 분기 조건이 종횡비뿐. 사용자 피드백 "거의 모든 게임이 모바일처럼 중앙에서만 플레이, 디자인 천편일률". 원인은 구 바이블의 "세로형 중앙 640px 컬럼+레터박스" 규범.
+- **신규 규격**: `docs/playfield-spec.md` — 원칙(1280px+에서 플레이 영역 재배치, 중앙 좁은 컬럼+빈 거터 실격), 표준 메커니즘(`--stageW: min(100vw,1280px)` + `html.land` 토글, 진입 조건에 `W>=1024` 폭 기준 포함), **와이드 원형 3종**(①파노라마 ②2단 분할 ③극장) + **전환 대상 11작 원형 배정표**(캠페인 작업지시서). design-bible 3.4절·사고 4 규범 조항은 이 문서 참조로 교체.
+- **게이트 반영**: qa.mjs 에 1280×800 뷰포트 `layout.wide1280` 검사(html.land / --stageW≥960 / getLayout 훅) + `desktop-1280.png` 캡처 신설. 40-review 에 데스크톱 플레이 영역 활용 게이트(미달 시 비주얼 감점+must_fix high), 10-design·30-build 에 playfield-spec 준수 의무 추가.
+- **다음**: 구작 11작 와이드 전환 캠페인 시작 예정 — 게임별 원형·stageW·난이도는 playfield-spec §4 배정표를 따른다. 권장 착수 순서: 난이도 하(decimal-smash, cell-latch) → ② 원형(wrap-pop/glass-puff)부터.
+
 ## 2026-08-28 — grok 402 4연속 사망 → 빌드 codex 자동 폴백 도입
 - **사고**: 8/27 20:14 이후 4회차(mirror-vault·mirror-falls·glass-star-theater·lightfold-forge)가 전부 빌드 단계에서 `402 Payment Required: Grok Build usage balance exhausted`로 사망. `resolve_runner()`는 **바이너리 존재만** 확인해서(grok CLI는 살아 있음) 폴백이 발동하지 않았다. 8/28 실측에서도 grok은 여전히 402.
 - **수정 1 — 결과 기반 폴백**: `run.sh` 5단계가 빌드 실행 결과를 검사한다 — 비정상 종료(rc≠0)·로그에 402/Payment Required/usage balance exhausted·index.html 미생성이면 **codex(`$CODEX_MODEL_SMART`=sol)로 1회 폴백 재시도**. 발동 시 로그·리포트에 "grok 402 → codex 폴백"이 남는다. 원 러너가 이미 codex 계열이면 재시도하지 않는다.

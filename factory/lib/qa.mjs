@@ -6,7 +6,7 @@
  *
  * 정적 검사 + 헤드리스 브라우저 플레이 테스트를 돌리고
  *   factory/work/qa/<slug>/report.json
- *   factory/work/qa/<slug>/{mobile,tablet,desktop}.png
+ *   factory/work/qa/<slug>/{mobile,tablet,desktop-1280,desktop,wide}.png
  * 를 남긴다. 치명적 결함이 있으면 exit 1.
  *
  * 이 하네스는 "기계가 확실히 판정할 수 있는 것"만 본다.
@@ -396,6 +396,35 @@ try {
   add('tablet.overflow', '태블릿 가로 스크롤 없음', tabOverflow);
   await page.screenshot({ path: path.join(OUT, 'tablet.png') });
 
+  // 판형 게이트 (docs/playfield-spec.md) — 1280×800에서 플레이 화면이 와이드로
+  // 재배치되는가. 기계 판정은 html.land 클래스(또는 게임이 노출하는 레이아웃 정보)의
+  // 활성 여부까지만 보고, "중앙 좁은 컬럼+빈 거터" 여부는 desktop-1280.png 를
+  // 검수관이 육안 확인한다. 구 640px 중앙 컬럼 규범은 2026-08-28 폐기됐다.
+  await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
+  await new Promise((r) => setTimeout(r, 900));
+  const wideLayout = await page.evaluate(() => {
+    const root = document.documentElement;
+    const stageWRaw = getComputedStyle(root).getPropertyValue('--stageW').trim();
+    let hookLayout = null;
+    try {
+      const t = window.__GAME_TEST__;
+      if (t && typeof t.getLayout === 'function') hookLayout = t.getLayout();
+    } catch {}
+    return { land: root.classList.contains('land'), stageW: stageWRaw, hookLayout };
+  });
+  const stagePx = parseFloat(wideLayout.stageW) || 0;
+  const wideActive =
+    wideLayout.land ||
+    stagePx >= 960 ||
+    (wideLayout.hookLayout && (wideLayout.hookLayout.land === true || Number(wideLayout.hookLayout.playW) >= 960));
+  add(
+    'layout.wide1280',
+    '1280px에서 와이드 분기 활성 (html.land 또는 --stageW≥960 또는 getLayout)',
+    wideActive,
+    JSON.stringify(wideLayout).slice(0, 200)
+  );
+  await page.screenshot({ path: path.join(OUT, 'desktop-1280.png') });
+
   await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
   await new Promise((r) => setTimeout(r, 900));
   await page.screenshot({ path: path.join(OUT, 'desktop.png') });
@@ -438,7 +467,7 @@ function finish() {
     // 검산 에이전트가 전수 검산할 표본. 줄이지 마라 — 이게 수학 오류를 잡는 근거다.
     problems_sample: Array.isArray(problems) ? problems : [],
     checks,
-    screenshots: ['mobile.png', 'tablet.png', 'desktop.png', 'wide.png']
+    screenshots: ['mobile.png', 'tablet.png', 'desktop-1280.png', 'desktop.png', 'wide.png']
       .map((f) => path.join(OUT, f))
       .filter((f) => fs.existsSync(f)),
   };

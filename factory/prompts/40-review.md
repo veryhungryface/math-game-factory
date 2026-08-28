@@ -9,7 +9,8 @@
 - `public/g/<slug>/meta.json`
 - `factory/work/chosen.json` — 기획 의도
 - `factory/work/qa/<slug>/report.json` — 자동 검사 결과
-- `factory/work/qa/<slug>/mobile.png`, `tablet.png`, `desktop.png`, `wide.png` — **스크린샷을 Read 툴로 실제로 봐라.** 특히 `wide.png`(2000px 초와이드)에서 레이아웃이 깨지는지(요소 겹침, 늘어난 카드, 화면 끝까지 벌어진 UI) 반드시 확인해라 — 실사용자가 와이드 창에서 게임이 통째로 깨진 걸 발견한 적이 있다. 깨져 있으면 must_fix high 다.
+- `factory/work/qa/<slug>/mobile.png`, `tablet.png`, `desktop-1280.png`, `desktop.png`, `wide.png` — **스크린샷을 Read 툴로 실제로 봐라.** 특히 `wide.png`(2000px 초와이드)에서 레이아웃이 깨지는지(요소 겹침, 늘어난 카드, 화면 끝까지 벌어진 UI) 반드시 확인해라 — 실사용자가 와이드 창에서 게임이 통째로 깨진 걸 발견한 적이 있다. 깨져 있으면 must_fix high 다.
+- `docs/playfield-spec.md` — 판형 규격 (와이드 원형 3종, 검증 기준)
 - `curriculum/2022-elementary-math.json` — 해당 단원
 
 ## 채점 (총 100점)
@@ -107,3 +108,9 @@
 
 ## 추가 확인: 판형 정합
 기획서의 orientation 근거가 실제 메커닉과 맞는지, 가로형이면 1280×800에서 설계가 완성돼 있는지 확인해라. 수직선·균형·좌우 비교류 메커닉을 세로에 욱여넣었으면 지적해라.
+
+## 추가 게이트: 데스크톱 플레이 영역 활용 (docs/playfield-spec.md — 2026-08-28 판형 규범)
+`desktop-1280.png`(1280×800)를 실제로 열어 보고 물어라: **플레이 영역이 화면을 활용하는가?**
+- 플레이가 중앙 좁은 컬럼(~640px)에 갇혀 있고 좌우가 빈 거터(합쳐서 화면 폭 30% 초과)면 → 비주얼 점수를 깎고 `must_fix` 에 `severity: "high"` 로 적어라. 배경만 넓게 칠하고 플레이·HUD·컨트롤이 세로폰 그대로면 같은 문제다.
+- QA의 `layout.wide1280` 항목(html.land 또는 --stageW 활성)이 실패했으면 그 이유를 확인해라. 정당한 예외(3D 카메라 게임 등)는 `getLayout()` 훅으로 소명돼 있어야 한다.
+- 와이드 레이아웃이 playfield-spec 의 원형 3종(파노라마/2단 분할/극장) 중 무엇인지 식별되는가. 직전 게시작들과 똑같은 재배치 패턴만 반복되면 지적해라.
