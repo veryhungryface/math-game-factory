@@ -1284,13 +1284,25 @@ function bakeOrder(o){
         Math.max(18, big*0.8), 'rgba(30,42,48,.9)');
 
   // 진행 핍 (완성 캔 3개)
-  const px = x + r.w - Math.min(96, r.w*0.24) + 6;
-  const pw = Math.min(96, r.w*0.24) - 14;
+  const colWpip = Math.min(96, r.w*0.24);
+  const px = x + r.w - colWpip + 6;
+  const pw = colWpip - 14;
   const cw = Math.min(pw/3 - 3, r.h*0.2);
   for(let k=0;k<o.need;k++) drawCan(g, px + cw*0.5 + k*(cw+4), y + r.h*0.46, cw, cw*1.5, o.pat, k < o.done);
-  g.fillStyle = 'rgba(40,54,61,.72)'; g.font = '900 ' + Math.round(Math.max(10, r.h*0.115)) + 'px ' + FONT;
+  // 출고 카운터 — 핍 열 폭(카드 오른쪽 여백 포함) 안에 반드시 들어가게 폰트를 줄인다.
+  // 와이드에서 r.h 가 커져도 열 폭은 96px 로 고정이라 그냥 두면 '고' 가 카드 밖으로 잘린다.
+  const shipTxt = o.done + '/' + o.need + ' 출고';
+  const shipAvail = colWpip - 12;
+  let shipFs = Math.round(Math.max(10, r.h*0.115));
   g.textAlign = 'left'; g.textBaseline = 'middle';
-  g.fillText(o.done + '/' + o.need + ' 출고', px, y + r.h*0.78);
+  g.font = '900 ' + shipFs + 'px ' + FONT;
+  const shipW = g.measureText(shipTxt).width;
+  if(shipW > shipAvail){
+    shipFs = Math.max(9, Math.floor(shipFs * shipAvail / shipW));
+    g.font = '900 ' + shipFs + 'px ' + FONT;
+  }
+  g.fillStyle = 'rgba(40,54,61,.72)';
+  g.fillText(shipTxt, px, y + r.h*0.78);
 
   o._off = off; o._key = key; o._rad = rad;
 }
@@ -1451,26 +1463,43 @@ function drawWrapFx(g, o, fx, cx, cy, rad){
       g.setLineDash([]);
       const miss = Math.max(0, o.c - (fx.band ? fx.band.w : 0));
       if(miss > 0){
-        g.fillStyle = '#FFF0E4'; g.font = '900 ' + Math.round(Math.max(10, r.h*0.11)) + 'px ' + FONT;
+        // 크림색 카드 위에 크림색 글자를 그냥 얹으면 읽히지 않는다 —
+        // '한 바퀴가 넘어요' 쪽과 같은 진한 판을 깔고 카드 안쪽에 완전히 넣는다.
+        const f1 = Math.round(Math.max(11, Math.min(15, r.h*0.11)));
+        g.font = '900 ' + f1 + 'px ' + FONT;
         g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillText('모자란 길이 ' + cm(miss), midX, r.y + 14);
+        const line = '모자란 길이 ' + cm(miss);
+        const bw2 = Math.min(r.w - 16, g.measureText(line).width + 20);
+        const bh2 = f1 + 13;
+        const ly = r.y + 5;
+        rrect(g, midX - bw2/2, ly, bw2, bh2, 8);
+        g.fillStyle = 'rgba(178,58,34,.94)'; g.fill();
+        g.fillStyle = '#FFF0E4';
+        g.fillText(line, midX, ly + bh2/2);
       }
     } else if(ratio > 1.005){
       const leftover = Math.max(0, (fx.band ? fx.band.w : 0) - o.c);
       const head = ratio >= 1.85 ? '두 바퀴가 돼요' : '한 바퀴가 넘어요';
-      g.font = '900 ' + Math.round(Math.max(10, r.h*0.1)) + 'px ' + FONT;
+      // 폰트를 캡하지 않으면 와이드(r.h 대)에서 두 줄이 32px 판을 넘쳐 서로 겹친다
+      const f1 = Math.round(Math.max(11, Math.min(15, r.h*0.1)));
+      const f2 = Math.round(Math.max(10, Math.min(13, r.h*0.095)));
+      g.font = '900 ' + f1 + 'px ' + FONT;
       g.textAlign = 'center'; g.textBaseline = 'middle';
       const line1 = head;
       const line2 = '남는 길이 ' + cm(leftover);
-      const tw = Math.max(g.measureText(line1).width, g.measureText(line2).width) + 18;
-      const ly = r.y + 4;
-      rrect(g, midX - tw/2, ly, tw, 32, 8);
+      const w1 = g.measureText(line1).width;
+      g.font = '800 ' + f2 + 'px ' + FONT;
+      const tw = Math.min(r.w - 16, Math.max(w1, g.measureText(line2).width) + 18);
+      const bh2 = f1 + f2 + 14;
+      const ly = r.y + 5;
+      rrect(g, midX - tw/2, ly, tw, bh2, 8);
       g.fillStyle = 'rgba(178,58,34,.94)'; g.fill();
       g.fillStyle = '#FFF0E4';
-      g.fillText(line1, midX, ly + 10);
-      g.font = '800 ' + Math.round(Math.max(9.5, r.h*0.095)) + 'px ' + FONT;
+      g.font = '900 ' + f1 + 'px ' + FONT;
+      g.fillText(line1, midX, ly + 6 + f1/2);
+      g.font = '800 ' + f2 + 'px ' + FONT;
       g.fillStyle = '#FFD9C9';
-      g.fillText(line2, midX, ly + 23);
+      g.fillText(line2, midX, ly + 8 + f1 + f2/2);
     }
   }
   if(!fx.ok && t >= 0.28){
