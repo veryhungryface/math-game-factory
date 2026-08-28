@@ -14,6 +14,9 @@
   --cream:#F4EEE4; --deep:#1A1816;
   --colW:min(100vw,800px);
   --colX:calc((100vw - var(--colW)) / 2);
+  --stageW:min(100vw,1280px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+  --panelW:min(400px,calc(var(--stageW)*0.32));
   --safeT:env(safe-area-inset-top,0px);
   --safeB:env(safe-area-inset-bottom,0px);
   --logo-top:#FFE9A8; --logo-mid:#F0C14A; --logo-bottom:#FF8A3D;
@@ -287,9 +290,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#6d7f90;color:var(--
 @media (orientation:landscape),(min-aspect-ratio:1/1){
   .title-art{--art-x:48%;--art-y:50%}
 }
-html.land #hud{padding-left:18px;padding-right:18px}
-html.land #say .say-card{max-width:800px;font-size:16px}
-html.land #reasonRow{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+/* ── 와이드 2단 분할 (playfield-spec 원형 ②) ─ 좌 = 부풀리기 무대, 우 = 문제/주문 패널 ── */
+html.land #hud{left:var(--stageX);width:calc(var(--stageW) - var(--panelW) - 24px);
+  padding-left:16px;padding-right:12px}
+html.land #say{left:calc(var(--stageX) + var(--stageW) - var(--panelW) - 12px);right:auto;
+  width:var(--panelW);padding:0}
+html.land #say .say-card{max-width:none;font-size:15px;text-align:left}
+html.land #say .sub{font-size:12.5px}
+html.land #ctrl{left:calc(var(--stageX) + var(--stageW) - var(--panelW) - 12px);
+  width:var(--panelW);padding:8px 0 calc(14px + var(--safeB))}
+html.land #reasonRow{display:flex;flex-direction:column;gap:7px}
 html.land .rc{min-height:48px;font-size:13px}
 html.land #over .card{max-width:380px}
 
@@ -863,7 +873,8 @@ const S = {
   shake:0, flash:0, flashCol:'rgba(255,180,60,0.28)',
   sqx:1, sqy:1, praiseT:0, praise:'',
   inTol:false, stuckGhost:null, lastGhost:null, reasonDone:false,
-  measuredR100:null, fitErrPct:null
+  measuredR100:null, fitErrPct:null,
+  land:false, stageW:0, stageX:0, panelW:0
 };
 let P0=null;
 let nowMs=0, lastTs=0;
@@ -878,6 +889,27 @@ function nextCombo(){
 function grant(n){ if(!(n>0)) return; S.score += n; }
 
 function layoutPlay(){
+  if(S.land){
+    // 원형 ② 2단 분할 — 좌 무대(디스크), 우 패널(#say/#ctrl 은 CSS html.land 가 배치)
+    const zx0 = S.stageX + 14;
+    const zx1 = S.stageX + S.stageW - S.panelW - 26;
+    let top = 128;
+    const hud = $('hud');
+    if(hud && !hud.classList.contains('hidden')){
+      const r = hud.getBoundingClientRect();
+      if(r.bottom > 40) top = r.bottom + 12;
+    }
+    const bot = vh - 56;
+    const availH = Math.max(160, bot - top);
+    const zoneW = Math.max(220, zx1 - zx0);
+    const stage = Math.min(800, zoneW, availH);
+    const cx = (zx0 + zx1) / 2;
+    const cy = (top + bot) * 0.5;
+    const maxPx = Math.max(84, Math.min(stage*0.34, stage/2 - 48));
+    return {cx, cy, maxPx, top, bot, stage, left:zx0, right:zx1,
+      stageTop:cy - stage/2, stageBot:cy + stage/2,
+      land:true, panelX:S.stageX + S.stageW - S.panelW - 12, panelW:S.panelW};
+  }
   let top = 126, bot = vh - 108;
   const say = $('say');
   if(say && !say.classList.contains('hidden')){
@@ -1469,6 +1501,27 @@ function drawBg(){
   }
 }
 
+function drawGutter(){
+  // 초와이드 잔여 폭 — 배경 톤을 눌러 무대 밖임을 표시 (playfield-spec 2.3)
+  if(!S.land || S.stageW >= vw-2) return;
+  ctx.fillStyle='rgba(18,14,10,0.34)';
+  ctx.fillRect(0,0,S.stageX,vh);
+  ctx.fillRect(S.stageX+S.stageW,0,vw-S.stageX-S.stageW,vh);
+}
+function drawPanelPlate(){
+  // 우측 문제/주문 패널 등판 — DOM 카드(#say/#ctrl) 뒤에 깔린다
+  if(!S.land) return;
+  const px = S.stageX + S.stageW - S.panelW - 20;
+  const pw = S.panelW + 16;
+  ctx.save();
+  ctx.fillStyle='rgba(30,26,22,0.32)';
+  roundRect(px, 8, pw, vh-16, 18); ctx.fill();
+  ctx.strokeStyle='rgba(240,193,74,0.26)';
+  ctx.lineWidth=2;
+  roundRect(px, 8, pw, vh-16, 18); ctx.stroke();
+  ctx.restore();
+}
+
 function drawKiln(L){
   const kw = Math.min(Math.max(L.stage*0.18, 72), 120);
   const kh = kw*1.12;
@@ -1703,6 +1756,8 @@ function render(){
   ctx.save();
   if(sh>0.2) ctx.translate((Math.random()-.5)*sh, (Math.random()-.5)*sh);
   drawBg();
+  drawGutter();
+  if(S.phase!=='title') drawPanelPlate();
   const L=layoutPlay();
   drawKiln(L);
   if(S.phase!=='title') drawDisc(L);
@@ -1749,10 +1804,21 @@ function resize(){
   cv.width=Math.round(vw*DPR); cv.height=Math.round(vh*DPR);
   cv.style.width=vw+'px'; cv.style.height=vh+'px';
   ctx.setTransform(DPR,0,0,DPR,0,0);
-  document.documentElement.classList.toggle('land', vw>vh);
+  // playfield-spec: 폭 1024px 이상이면 종횡비와 무관하게 와이드
+  S.land = (vw >= vh && vw >= 640) || vw >= 1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE = Math.min(vw, 1280);          // CSS --stageW 상한과 일치
+  const SX = Math.round((vw - STAGE) / 2);
+  S.stageW = STAGE; S.stageX = SX;
+  S.panelW = Math.min(400, Math.round(STAGE*0.32));
+  const root = document.documentElement;
+  root.style.setProperty('--stageW', STAGE+'px');
+  root.style.setProperty('--stageX', SX+'px');
+  root.style.setProperty('--panelW', S.panelW+'px');
   if(S.phase && S.phase!=='title') hideTitle();
 }
 window.addEventListener('resize', ()=>{ resize(); placeSay(); });
+window.addEventListener('orientationchange', ()=>setTimeout(()=>{ resize(); placeSay(); }, 120));
 
 /* ══════════════════════════════════════════════════════════════
    7. 타이틀 · 온보딩 · 버튼
@@ -1843,6 +1909,7 @@ $('titleMute').addEventListener('click', toggleMute);
 document.addEventListener('pointerdown', unlockAudio, {once:true});
 
 function placeSay(){
+  if(S.land){ $('say').style.top='calc(10px + var(--safeT))'; return; }
   const hud=$('hud');
   let top=72;
   if(hud && !hud.classList.contains('hidden')){
@@ -1878,6 +1945,10 @@ window.__GAME_TEST__ = {
       currentFromTarget:P0?currentMetricValue(S.targetR100):0};
   },
   layout(){ return layoutPlay(); },
+  getLayout(){
+    const L=layoutPlay();
+    return {land:S.land, playW:Math.round(L.right-L.left), stageW:S.stageW, panelW:S.panelW};
+  },
   setR100(v, exact){
     ensurePlaying();
     if(S.phase==='demo') return;
