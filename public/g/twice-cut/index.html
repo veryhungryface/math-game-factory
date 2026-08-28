@@ -229,6 +229,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
   opacity:0;transform:translateY(16px)}
 #praise.on{opacity:1;transform:translateY(-18px);transition:opacity .2s,transform .55s cubic-bezier(.18,1.4,.32,1)}
 
+/* ── 와이드(land) 분기 — docs/playfield-spec.md 원형 ① 파노라마형, stageW 1280 ──
+   HUD는 스테이지 좌상, 문제 카드(#say)는 우상 존으로 이동, 리본은 중앙에서 세로 공간을
+   더 크게 쓴다. 컨트롤은 리본 아래 중앙으로 좁힌다. */
+html.land #hud{left:var(--stageX);width:min(460px,calc(var(--stageW)*0.36))}
+html.land #say{left:auto;right:calc(var(--stageX) + 14px);top:calc(10px + var(--safeT));
+  width:min(420px,calc(var(--stageW)*0.34));padding:0;justify-content:flex-end}
+html.land #say .say-card{max-width:none}
+html.land #ctrl{left:50%;width:min(560px,calc(var(--stageW)*0.46));transform:translateX(-50%)}
+
 @media (max-width:420px){
   #contract{font-size:10px;padding:4px 7px}
   #say{top:calc(84px + var(--safeT))}
@@ -645,6 +654,20 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
   let W = 390, H = 844, dpr = 1;
   const IM = { bg: null, hero: null, okBg: false, okHero: false };
 
+  // ── 판형(docs/playfield-spec.md) — 원형 ① 파노라마형, stageW 1280 ──
+  const STAGE_MAX = 1280; // CSS --stageW 상한과 반드시 일치
+  const FIELD = { land: false, x: 0, w: 0 };
+  function layoutField() {
+    // land 진입 조건은 종횡비 + 폭 기준 (세로로 긴 데스크톱 창도 와이드 취급)
+    FIELD.land = (W >= H && W >= 640) || W >= 1024;
+    document.documentElement.classList.toggle("land", FIELD.land);
+    FIELD.w = Math.min(W, STAGE_MAX);
+    FIELD.x = Math.round((W - FIELD.w) / 2);
+    const root = document.documentElement;
+    root.style.setProperty("--stageW", FIELD.w + "px");
+    root.style.setProperty("--stageX", FIELD.x + "px");
+  }
+
   function loadImg(src, key) {
     const im = new Image();
     im.onload = () => { IM[key] = im; IM["ok" + key.charAt(0).toUpperCase() + key.slice(1)] = true; };
@@ -806,6 +829,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
     return clamp(cells * unit, 20, bw * 0.96);
   }
   function boxWidth() {
+    if (FIELD.land) return clamp(FIELD.w * 0.21, 190, 272);
     return clamp(Math.min(W, 640) * 0.42, 150, 220);
   }
   function stallName() {
@@ -819,17 +843,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
   function layoutRibbon(item) {
     const colW = Math.min(W, 640);
     const hudH = 96 + 8;
-    const sayH = 92;
+    // land: 문제 카드가 우상 존으로 빠지므로 리본이 세로 공간을 더 쓴다
+    const sayH = FIELD.land ? -40 : 92;
     const ctrlH = 78;
     const top = hudH + sayH;
     const botLimit = H - ctrlH - 18;
     const U = item.U;
-    const cellH = clamp((botLimit - top - 110) / U, 26, 62);
+    const cellH = clamp((botLimit - top - 110) / U, 26, FIELD.land ? 76 : 62);
     const ribbonH = cellH * U;
     const ribbonTop = top + 12;
     const ribbonBot = ribbonTop + ribbonH;
     return {
-      x: W / 2, w: clamp(colW * 0.2, 64, 92),
+      x: W / 2,
+      w: FIELD.land ? clamp(FIELD.w * 0.085, 72, 112) : clamp(colW * 0.2, 64, 92),
       top: ribbonTop, bot: Math.min(ribbonBot, botLimit - 86),
       cellH, boxY: Math.min(ribbonBot + 8, botLimit - 78),
     };
@@ -1182,9 +1208,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
     return p.x > L.x - L.w * 1.6 && p.x < L.x + L.w * 1.8 && p.y > L.top - 24 && p.y < L.bot + 24;
   }
   function onKnotSwipe(p) {
-    // 교차 약분: 프롬프트 카드 영역을 대각선으로 긋기
-    const top = 96, bot = 200;
-    return p.y > top && p.y < bot;
+    // 교차 약분: 프롬프트 카드 영역을 대각선으로 긋기 — land에선 카드가 우상 존으로
+    // 이동하므로 실제 카드 위치를 따라간다 (canvas 좌표 = client 좌표)
+    const r = $("say").getBoundingClientRect();
+    if (!r.width || !r.height) return false;
+    return p.y > r.top - 10 && p.y < r.bottom + 10 && p.x > r.left - 10 && p.x < r.right + 10;
   }
 
   cv.addEventListener("pointerdown", (e) => {
@@ -1349,10 +1377,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
       g.addColorStop(0, "#7ec8ff"); g.addColorStop(0.45, "#FFE27A"); g.addColorStop(1, "#e8a020");
       c.fillStyle = g; c.fillRect(0, 0, W, H);
     }
-    // wide gutters
-    const colW = Math.min(W, 640);
-    const colX = (W - colW) / 2;
-    if (W > 720) {
+    // wide gutters — land에서는 스테이지(1280) 밖 잔여 폭에만 톤 다운 (playfield-spec 2.3)
+    if (FIELD.land) {
+      if (FIELD.w < W - 2) {
+        c.fillStyle = "rgba(30,12,8,0.28)";
+        c.fillRect(0, 0, FIELD.x, H);
+        c.fillRect(FIELD.x + FIELD.w, 0, W - FIELD.x - FIELD.w, H);
+      }
+    } else if (W > 720) {
+      const colW = Math.min(W, 640);
+      const colX = (W - colW) / 2;
       c.fillStyle = "rgba(30,12,8,0.18)";
       c.fillRect(0, 0, colX, H);
       c.fillRect(colX + colW, 0, W - colX - colW, H);
@@ -1490,8 +1524,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
     c.fillStyle = "#d4a574";
     rr(c, 28, -5, 10, 10, 2); c.fill();
     c.restore();
-    // keep badge — 화면 폭 5%+ 굵은 분수
-    const size = Math.max(W * 0.055, 22);
+    // keep badge — 화면 폭 5%+ 굵은 분수 (초와이드 거대화 방지 상한)
+    const size = clamp(FIELD.land ? FIELD.w * 0.05 : W * 0.055, 22, 46);
     const keep = S.knifeKeep;
     const den = rb.U;
     drawFrac(c, keep, den, x - L.w / 2 - size * 1.15, y, size, "#111", "#FFF6E8");
@@ -1547,7 +1581,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
     }
     if (rb) {
       const f = rb.item.correct;
-      drawFrac(c, f.n, f.d, x + bw / 2 + 36, y + 32, Math.max(22, W * 0.05), "#111", "#FFF6E8");
+      drawFrac(c, f.n, f.d, x + bw / 2 + 36, y + 32, clamp((FIELD.land ? FIELD.w : W) * 0.05, 22, 42), "#111", "#FFF6E8");
     }
     c.restore();
   }
@@ -1566,8 +1600,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
   function drawHero(c) {
     const colW = Math.min(W, 640);
     const colX = (W - colW) / 2;
-    const size = clamp(colW * 0.28, 110, 168); // ≥12–15% 화면폭, 실제로는 더 크게
-    const x = colX + size * 0.50 + 8;
+    // land: 스테이지 좌하 존에 크게 (파노라마 좌측 존 활용)
+    const size = FIELD.land ? clamp(FIELD.w * 0.15, 120, 190) : clamp(colW * 0.28, 110, 168);
+    const x = FIELD.land ? FIELD.x + size * 0.55 + 24 : colX + size * 0.50 + 8;
     const y = H - 70 - size * 0.35;
     c.save();
     c.beginPath();
@@ -1656,9 +1691,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
     W = innerWidth; H = innerHeight;
     cv.width = (W * dpr) | 0; cv.height = (H * dpr) | 0;
     cv.style.width = W + "px"; cv.style.height = H + "px";
+    layoutField();
     if (S.rb) S.rb.L = layoutRibbon({ U: S.rb.U });
   }
   addEventListener("resize", resize);
+  addEventListener("orientationchange", () => setTimeout(resize, 120));
 
   function loop(ts) {
     if (!lastT) lastT = ts;
@@ -1708,6 +1745,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#3a2208;color:var(--
     start() { unlock(); startPlay(true); },
     getState() {
       return { score: S.score, lives: S.lives, level: S.stall, phase: S.phase, solved: S.solved };
+    },
+    getLayout() {
+      return { land: FIELD.land, playW: FIELD.w, playX: FIELD.x };
     },
     answerCorrect() {
       if (S.phase === "title" || S.phase === "onboard" || S.phase === "result") startPlay(true);
