@@ -21,10 +21,22 @@
   #app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;
        padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
 
-  /* 세로형 게임 — 와이드 화면(데스크톱)에서는 HUD/식/조작 바를 중앙 680px 컬럼으로 제한한다.
-     캔버스 안의 게이트·레인·젤리 좌표(laneX/gateW/lanePad 등)도 같은 컬럼 기준으로 계산한다
-     (배경 그림 자체는 레터박스 없이 스테이지 전체 폭을 채운다). */
-  :root{ --colW: min(100vw, 680px); --colX: calc((100vw - var(--colW)) / 2); }
+  /* 판형(docs/playfield-spec.md) — 원형 ① 파노라마형, stageW 1280.
+     세로폰은 기존처럼 중앙 680px 컬럼. land(가로/데스크톱, JS layoutField()가 토글)에서는
+     HUD·식·조작 바와 캔버스 레인·게이트·젤리 좌표가 중앙 1280px 스테이지 전체 폭을 쓴다.
+     --stageW/--stageX 는 JS 가 매 resize 마다 넣는다 (캔버스 FIELD 와 반드시 일치). */
+  :root{ --colW: min(100vw, 680px); --colX: calc((100vw - var(--colW)) / 2);
+         --stageW: min(100vw, 1280px); --stageX: calc((100vw - var(--stageW)) / 2); }
+  html.land{ --colW: var(--stageW); --colX: var(--stageX); }
+
+  /* ── 와이드(land) 재배치 — HUD 좌/중/우 분산, 조작 바 전폭 ── */
+  html.land #hud{ padding:8px 18px 4px; gap:14px; }
+  html.land #lv{ min-width:96px; }
+  html.land #lv small{ max-width:170px; }
+  html.land #eqbar{ height:32px; }
+  html.land #eq{ font-size:16px; }
+  html.land #pad{ padding:6px 18px 10px; gap:14px; }
+  html.land #tip{ font-size:12px; max-width:560px; }
 
   /* ── HUD ─────────────────────────────── */
   #hud{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 10px 3px;
@@ -571,10 +583,25 @@ const cv=document.getElementById('cv');
 const ctx=cv.getContext('2d', {alpha:false});
 let W=1, H=1;                      // CSS 픽셀 기준 논리 크기
 
-/* 와이드 화면(데스크톱)에서 게이트·레인·젤리가 화면 전체 폭에 흩어지지 않도록,
-   실제 플레이 요소는 중앙 680px 컬럼 기준으로만 배치한다. 배경(BAKE.bg)만 W(스테이지 전체 폭)를 그대로 쓴다.
-   CSS의 --colW(680px 클램프)와 값을 맞춘다. */
-function colW(){ return Math.min(W, 680); }
+/* ── 판형(docs/playfield-spec.md) — 원형 ① 파노라마형, stageW 1280 ──
+   세로폰: 기존 그대로 중앙 680px 컬럼 (FIELD.w = min(W,680)).
+   land(가로/데스크톱): 레인·게이트·젤리 떼가 중앙 1280px 스테이지 전체 폭을 쓴다.
+   배경(BAKE.bg)은 화면 전체(W)를 채우고, 1280 초과 잔여 폭은 bakeBG 에서 톤 다운(거터).
+   CSS --stageW/--stageX·html.land 토글과 캔버스 좌표가 같은 값(FIELD)을 쓴다. */
+const STAGE_MAX=1280;                     // CSS --stageW 상한과 반드시 일치
+const FIELD={land:false, w:0, x:0};
+function layoutField(){
+  const vw=window.innerWidth||W, vh=window.innerHeight||H;
+  /* land 진입 조건은 종횡비 + 폭 기준 — 세로로 긴 데스크톱 창도 와이드 취급 */
+  FIELD.land=(vw>=vh && vw>=640) || vw>=1024;
+  FIELD.w=Math.min(W, FIELD.land?STAGE_MAX:680);
+  FIELD.x=Math.round((W-FIELD.w)/2);
+  document.documentElement.classList.toggle('land', FIELD.land);
+  const rs=document.documentElement.style;
+  rs.setProperty('--stageW', FIELD.w+'px');
+  rs.setProperty('--stageX', FIELD.x+'px');
+}
+function colW(){ return FIELD.w || Math.min(W, 680); }
 function colX(){ return (W-colW())/2; }
 function colCX(){ return colX()+colW()/2; }
 
@@ -752,6 +779,15 @@ function bakeBG(){
   const vg=g.createLinearGradient(0,h*0.45,0,h);
   vg.addColorStop(0,'rgba(7,13,28,0)'); vg.addColorStop(1,'rgba(7,13,28,.72)');
   g.fillStyle=vg; g.fillRect(0,h*0.45,w,h*0.55);
+  /* 초와이드(1280 초과) 잔여 폭은 톤 다운 — 무대 밖임을 표시 (playfield-spec 2.3) */
+  if(FIELD.land && FIELD.w < W-2){
+    const gx=Math.round(FIELD.x*DPR), gr2=Math.round((FIELD.x+FIELD.w)*DPR);
+    g.fillStyle='rgba(3,7,16,.44)';
+    g.fillRect(0,0,gx,h); g.fillRect(gr2,0,w-gr2,h);
+    const lw=Math.max(1,Math.round(DPR));
+    g.fillStyle='rgba(62,242,192,.10)';
+    g.fillRect(gx-lw,0,lw,h); g.fillRect(gr2,0,lw,h);
+  }
   BAKE.bg=c;
 }
 function bakeAll(){ bakeJelly(); bakeGate(); bakeWall(); bakeDots(); bakeGlow(); bakeBG(); }
@@ -770,12 +806,14 @@ function roundRect(g,x,y,w,h,r){
 function resize(){
   const w=stage.clientWidth||390, h=stage.clientHeight||500;
   if(Math.abs(w-W)<0.5 && Math.abs(h-H)<0.5) return;
-  const wChanged=Math.abs(w-W)>=0.5;
+  const prevCol=FIELD.w||0;
   W=w; H=h;
+  layoutField();              // land 토글·스테이지 폭은 크기가 바뀔 때마다 다시 계산
   cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
   ctx.setTransform(DPR,0,0,DPR,0,0);
   bakeBG();
-  if(wChanged) bakeJelly();   // 젤리 크기가 화면 폭 비율이므로 폭이 바뀌면 다시 굽는다
+  /* 젤리 크기가 스테이지 폭 비율이므로 스테이지 폭(land 전환 포함)이 바뀌면 다시 굽는다 */
+  if(Math.abs(colW()-prevCol)>=0.5) bakeJelly();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1141,11 +1179,12 @@ function startSplit(before, g, optimal){
   const groups=(d===1)? Math.max(2,Math.min(a,8)) : Math.max(a,d);
   const keep=(d===1)? groups : a;
 
-  /* 그룹 격자 배치 */
+  /* 그룹 격자 배치 — 와이드에서는 격자가 너무 흩어지지 않게 900px 로 캡 (세로폰은 기존과 동일) */
+  const sw=Math.min(colW(), 900), sx=colCX()-sw/2;
   const cols=Math.min(groups, groups<=4?groups:5);
   const rows=Math.ceil(groups/cols);
-  const cw=(colW()*0.86)/cols, chh=Math.min(H*0.30, 66)/1;
-  const ox=colX()+colW()*0.07+cw/2, oy=H*0.58;
+  const cw=(sw*0.86)/cols, chh=Math.min(H*0.30, 66)/1;
+  const ox=sx+sw*0.07+cw/2, oy=H*0.58;
   const gpos=[];
   for(let i=0;i<groups;i++){
     const c=i%cols, r=(i/cols)|0;
@@ -1632,13 +1671,17 @@ function draw(){
 /* 소실점에서 쏟아져 나오는 속도 스트릭 + 떠오르는 거품 (배경은 고정) */
 function drawSpeed(){
   const ph=(G.scroll/Math.max(1,H));
+  /* land 에서는 스트릭·거품이 거터(무대 밖)로 새지 않게 스테이지 폭 기준으로 그린다.
+     세로폰(land 아님)은 기존 그대로 화면 전체 폭(W) 기준. */
+  const FW=FIELD.land?FIELD.w:W;
+  const FCX=FIELD.land?(FIELD.x+FIELD.w/2):W/2;
   for(let i=0;i<9;i++){
     const t=((i/9)+ph)%1;
     const y=H*0.14+t*t*H*0.94;
-    const w=W*(0.05+t*0.62);
+    const w=FW*(0.05+t*0.62);
     ctx.globalAlpha=0.04+t*0.13;
     ctx.fillStyle='#3ef2c0';
-    ctx.fillRect(W/2-w/2, y, w, 1.4+t*3.4);
+    ctx.fillRect(FCX-w/2, y, w, 1.4+t*3.4);
   }
   ctx.globalAlpha=1;
   if(BAKE.dot){
@@ -1646,7 +1689,7 @@ function drawSpeed(){
     for(let i=0;i<12;i++){
       const t=((i/12)+ph*1.7)%1;
       const y=H*0.16+t*t*H*0.95;
-      const x=W*0.5 + Math.sin(i*2.7+G.t*0.6)*W*(0.06+t*0.46);
+      const x=FCX + Math.sin(i*2.7+G.t*0.6)*FW*(0.06+t*0.46);
       const s=dw*(0.30+t*0.85);
       ctx.globalAlpha=0.10+t*0.26;
       ctx.drawImage(d, x-s/2, y-s/2, s, s);
@@ -1883,7 +1926,8 @@ function drawFX(){
     ctx.save();
     ctx.globalAlpha=alpha;
     const y=H*0.18;
-    const cx0=colX(), cw0=colW();
+    /* 와이드에서는 패널이 화면 전폭으로 늘어지지 않게 760px 로 캡 (세로폰은 기존과 동일) */
+    const cw0=Math.min(colW(), 760), cx0=colCX()-cw0/2;
     const s=Math.min(cw0*0.052,20);
     ctx.fillStyle='rgba(7,13,28,.80)';
     roundRect(ctx, cx0+cw0*0.06, y-s*1.6, cw0*0.88, s*3.2, s*0.7); ctx.fill();
@@ -2187,6 +2231,7 @@ window.__GAME_TEST__={
   getState:function(){
     return {score:G.score, lives:G.lives, level:G.level, phase:G.phase, solved:G.solved, jelly:G.N, combo:G.combo, misses:G.missesThisLevel};
   },
+  getLayout:function(){ return {land:FIELD.land, playW:FIELD.w, playX:FIELD.x}; },
   answerCorrect:function(){ forceGate(true); return true; },
   answerWrong:function(){
     const livesBefore=G.lives;
