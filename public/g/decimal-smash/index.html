@@ -42,14 +42,19 @@
   }
   .ui-layer{ position:fixed; inset:0; pointer-events:none; z-index:5; }
   #ruleCard{
-    position:absolute; top:max(10px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
-    max-width:92vw; padding:8px 18px; border-radius:16px;
+    /* 세로 화면에서는 점수/생명 줄 아래에 놓아 HUD와 겹치지 않게 한다 */
+    position:absolute; top:calc(max(10px, env(safe-area-inset-top)) + var(--hudRowH, 46px));
+    /* left:50% 로 잡으면 가용 폭이 화면 절반으로 줄어 문구가 잘게 접힌다 → 좌우 0 + auto 마진으로 중앙정렬 */
+    left:0; right:0; margin-inline:auto; width:fit-content;
+    max-width:min(94vw, 560px); padding:8px 18px; border-radius:16px;
     background:rgba(10,14,39,.78); border:1px solid rgba(0,229,255,.55);
+    /* 한글은 어절 단위로만 줄바꿈 — 음절 중간에서 끊기면 안 된다 */
+    word-break:keep-all; overflow-wrap:break-word; hyphens:none; text-wrap:balance;
     font-weight:800; font-size:clamp(13px, 4vw, 20px); text-align:center; line-height:1.35;
     box-shadow:0 0 18px rgba(0,229,255,.25);
     transition:transform .18s cubic-bezier(.34,1.56,.64,1);
   }
-  #ruleCard.pulse{ transform:translateX(-50%) scale(1.06); }
+  #ruleCard.pulse{ transform:scale(1.06); }
   #statsBar{
     position:absolute; top:max(10px, env(safe-area-inset-top)); left:0; right:0;
     display:flex; justify-content:space-between; align-items:flex-start; padding:10px 12px;
@@ -62,7 +67,7 @@
     position:absolute; top:56px; left:50%; transform:translateX(-50%) scale(0);
     font-weight:900; font-size:clamp(14px, 4.5vw, 24px); color:var(--yellow);
     text-shadow:0 0 10px rgba(255,210,61,.8); opacity:0; transition:transform .15s ease, opacity .15s ease;
-    top:calc(max(10px, env(safe-area-inset-top)) + 46px);
+    top:calc(var(--hudBottom, 56px) + 8px);
   }
   #comboBox.show{ opacity:1; transform:translateX(-50%) scale(1); }
   #livesBox span{ display:inline-block; transition:transform .2s cubic-bezier(.34,1.56,.64,1), opacity .2s ease; }
@@ -80,7 +85,7 @@
   #flashOverlay{ position:fixed; inset:0; z-index:6; pointer-events:none; opacity:0; background:#ff1a3c; }
   /* ── 와이드(land) 분기 — HUD·규칙 카드·음소거 버튼을 스테이지 기준으로 정렬 ── */
   html.land #statsBar{ left:var(--stageX); right:var(--stageX); padding:10px 16px; }
-  html.land #ruleCard{ max-width:min(760px, calc(var(--stageW)*0.62)); }
+  html.land #ruleCard{ top:max(10px, env(safe-area-inset-top)); max-width:min(760px, calc(var(--stageW)*0.62)); }
   html.land #muteBtn{ right:calc(var(--stageX) + 14px); }
   #muteBtn{
     position:absolute; bottom:max(14px, env(safe-area-inset-bottom)); right:14px; pointer-events:auto;
@@ -409,6 +414,41 @@
   const FIELD = { land: false, x: 0, w: 0 };
   function fieldScale(){ return Math.min(FIELD.w || W, H); }
 
+  // ── HUD 안전지대 ──
+  // 상단 점수/생명 줄과 규칙 카드가 차지하는 높이를 실측해, 그 아래로만 방울이 떠다니게 한다.
+  // (규칙 카드가 최상단 방울을 덮는 문제를 원천 차단)
+  let TOP_GUARD = 0;
+  // 좌우·아래 경계에서 이만큼 띄워 방울 외곽이 잘려 보이지 않게 한다
+  function edgePad(){ return Math.max(10, Math.min(28, Math.round(fieldScale() * 0.025))); }
+  // 힌트 칩은 원이 아니라 가로로 긴 상자다 — 경계 클램프는 반지름이 아니라 상자 반폭으로 해야 한다.
+  // 글자가 상자를 넘치지 않도록 실제 텍스트 폭을 재서 상자 폭을 정하고, 그 값을 클램프에도 쓴다.
+  function hintBaseW(r){ return Math.max(140, r * 2.3); }
+  function hintFontFor(w){ return Math.max(13, Math.min(w * 0.11, 22)); }
+  function updateHintBox(){
+    const base = hintBaseW(hintSlot.r);
+    ctx.save();
+    ctx.font = `800 ${hintFontFor(base)}px -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
+    const tw = ctx.measureText('힌트: ' + (hintSlot.text || '')).width;
+    ctx.restore();
+    hintSlot.boxW = Math.max(base, tw + 28);
+  }
+  function hintHalfW(){ return (hintSlot.boxW || hintBaseW(hintSlot.r)) / 2; }
+  function syncHudGuard(){
+    const root = document.documentElement;
+    const bar = document.getElementById('statsBar');
+    const card = document.getElementById('ruleCard');
+    let bottom = 0;
+    if (bar){
+      const b = bar.getBoundingClientRect();
+      root.style.setProperty('--hudRowH', Math.round(b.height + 6) + 'px');
+      bottom = Math.max(bottom, b.bottom);
+    }
+    // 위에서 --hudRowH 를 갱신했으므로 카드 위치를 다시 읽는다(레이아웃 강제 반영)
+    if (card) bottom = Math.max(bottom, card.getBoundingClientRect().bottom);
+    root.style.setProperty('--hudBottom', Math.round(bottom) + 'px');
+    TOP_GUARD = Math.max(0, Math.min(H * 0.36, bottom + 12));
+  }
+
   // ───────────────────────────── 방울 수식(LaTeX) DOM 오버레이
   // 캔버스 fillText 대신 KaTeX 로 렌더링한 절대위치 DOM 엘리먼트를 방울 위에 겹쳐 띄운다.
   // 성능을 위해 katex.render()는 슬롯의 텍스트(또는 반지름)가 바뀔 때만 호출하고,
@@ -487,9 +527,11 @@
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     bakeBackground();
+    syncHudGuard();
     slots.forEach(sl => { if (sl.active){
-      sl.x = Math.max(FIELD.x + sl.r, Math.min(FIELD.x + FIELD.w - sl.r, sl.x));
-      sl.y = Math.min(sl.y, H - sl.r);
+      const ep = edgePad();
+      sl.x = Math.max(FIELD.x + sl.r + ep, Math.min(FIELD.x + FIELD.w - sl.r - ep, sl.x));
+      sl.y = Math.max(TOP_GUARD + sl.r, Math.min(H - sl.r - ep, sl.y));
     } });
     initDust();
   }
@@ -704,6 +746,7 @@
 
   function setRuleCard(){
     document.getElementById('ruleCard').innerHTML = ruleTextFor();
+    syncHudGuard(); // 문구 줄 수가 바뀌면 안전지대도 갱신
   }
 
   function startRound(level){
@@ -712,6 +755,7 @@
     if (level === 3) currentExpr = newExprLevel3();
     if (level === 4) currentExpr = newExprLevel4();
     if (level === 5){ chainPhase = 'first'; currentExpr = newExprLevel3(); }
+    setRuleCard(); // 스폰 전에 안내 칩 높이를 확정해야 안전지대(TOP_GUARD)가 맞는다
     hintSlot.active = (level === 4);
     if (hintSlot.active){ spawnHint(); }
     const n = targetCount(level, state.cycle);
@@ -726,7 +770,7 @@
       }
     }
     if (state.roundType === 'answer') refreshAnswerSlots();
-    setRuleCard(); pulseRuleCard();
+    pulseRuleCard();
     armThinkHold();
   }
 
@@ -743,10 +787,10 @@
   }
 
   function farEnough(x, y, r, excludeId){
-    if (Math.hypot(x - W / 2, y - H * 0.15) < r + 90) return false; // 규칙 카드 아래는 비워둔다
+    if (y - r < TOP_GUARD) return false; // 상단 HUD 안전지대는 비워둔다
     for (const other of slots){
       if (!other.active || other.id === excludeId) continue;
-      if (Math.hypot(x - other.x, y - other.y) < (r + other.r) * 1.35) return false;
+      if (Math.hypot(x - other.x, y - other.y) < (r + other.r) * 1.4) return false;
     }
     if (hintSlot.active && Math.hypot(x - hintSlot.x, y - hintSlot.y) < (r + hintSlot.r) * 1.2) return false;
     return true;
@@ -756,10 +800,12 @@
     // 크기·속도는 스테이지 기준으로 스케일하되 상한을 둔다 (초와이드에서 거대해지면 안 된다)
     const r = Math.max(38, Math.min(84, fieldScale() * 0.115));
     sl.r = r;
-    const x0 = FIELD.x, x1 = FIELD.x + FIELD.w;
-    let x = x0 + r, y = r;
-    for (let i = 0; i < 24; i++){
-      x = randInt(x0 + r, Math.max(x0 + r, x1 - r)); y = randInt(r + 90, Math.max(r + 90, H - r));
+    const ep = edgePad();
+    const x0 = FIELD.x + ep, x1 = FIELD.x + FIELD.w - ep;
+    const yTop = Math.round(TOP_GUARD) + r, yBot = Math.max(yTop, H - r - ep);
+    let x = x0 + r, y = yTop;
+    for (let i = 0; i < 40; i++){
+      x = randInt(x0 + r, Math.max(x0 + r, x1 - r)); y = randInt(yTop, yBot);
       if (farEnough(x, y, r, sl.id)) break;
     }
     sl.x = x; sl.y = y;
@@ -808,18 +854,21 @@
         if (bombSl){ bombSl.role = 'answer'; bombSl.text = currentExpr.correctStr; bombSl.ok = true; }
       }
     }
-    if (hintSlot.active) hintSlot.text = currentExpr.hintStr || '';
+    if (hintSlot.active){ hintSlot.text = currentExpr.hintStr || ''; updateHintBox(); }
   }
 
   function spawnHint(){
     const r = Math.max(50, Math.min(96, fieldScale() * 0.14));
     hintSlot.r = r;
-    hintSlot.x = randInt(FIELD.x + r, Math.max(FIELD.x + r + 1, FIELD.x + FIELD.w - r));
-    hintSlot.y = randInt(r, Math.max(r + 1, H * 0.4));
+    hintSlot.text = (currentExpr && currentExpr.hintStr) || '';
+    updateHintBox();
+    const hw = hintHalfW(), ep = edgePad();
+    hintSlot.x = randInt(FIELD.x + hw + ep, Math.max(FIELD.x + hw + ep + 1, FIELD.x + FIELD.w - hw - ep));
+    const hy0 = Math.round(TOP_GUARD) + r;
+    hintSlot.y = randInt(hy0, Math.max(hy0 + 1, Math.max(hy0 + 1, H * 0.46)));
     const ang = Math.random() * Math.PI * 2;
     const sp = fieldScale() * 0.035;
     hintSlot.vx = Math.cos(ang) * sp; hintSlot.vy = Math.sin(ang) * sp;
-    hintSlot.text = (currentExpr && currentExpr.hintStr) || '';
     hintSlot.born = performance.now();
   }
 
@@ -1281,11 +1330,12 @@
     if (!hintSlot.active) return;
     ctx.save();
     ctx.translate(hintSlot.x, hintSlot.y);
-    const w = Math.max(140, hintSlot.r * 2.3), h = hintSlot.r * 0.9;
-    ctx.fillStyle = 'rgba(255,210,61,.16)';
+    const w = hintHalfW() * 2, h = hintSlot.r * 0.9;
+    // 방울 위로 지나가도 글자가 읽히도록 배경을 불투명하게 깐다
+    ctx.fillStyle = 'rgba(10,14,39,.9)';
     ctx.strokeStyle = 'rgba(255,210,61,.85)'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
     roundRect(-w/2, -h/2, w, h, 14); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
-    const fs = Math.max(13, Math.min(w * 0.11, 22));
+    const fs = hintFontFor(hintBaseW(hintSlot.r));
     ctx.font = `800 ${fs}px -apple-system, "Apple SD Gothic Neo", sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ffe9a8';
     ctx.fillText('힌트: ' + hintSlot.text, 0, 0);
@@ -1329,10 +1379,13 @@
         const ang = Math.atan2(sl.vy, sl.vx) + sl.angV * dt * pScale;
         const sp = Math.hypot(sl.vx, sl.vy);
         sl.vx = Math.cos(ang) * sp; sl.vy = Math.sin(ang) * sp;
-        if (sl.x < FIELD.x + sl.r){ sl.x = FIELD.x + sl.r; sl.vx = Math.abs(sl.vx); }
-        if (sl.x > FIELD.x + FIELD.w - sl.r){ sl.x = FIELD.x + FIELD.w - sl.r; sl.vx = -Math.abs(sl.vx); }
-        if (sl.y < sl.r){ sl.y = sl.r; sl.vy = Math.abs(sl.vy); }
-        if (sl.y > H - sl.r){ sl.y = H - sl.r; sl.vy = -Math.abs(sl.vy); }
+        const ep = edgePad();
+        const xMin = FIELD.x + sl.r + ep, xMax = FIELD.x + FIELD.w - sl.r - ep;
+        const yMin = TOP_GUARD + sl.r, yMax = H - sl.r - ep;
+        if (sl.x < xMin){ sl.x = xMin; sl.vx = Math.abs(sl.vx); }
+        if (sl.x > xMax){ sl.x = xMax; sl.vx = -Math.abs(sl.vx); }
+        if (sl.y < yMin){ sl.y = yMin; sl.vy = Math.abs(sl.vy); }
+        if (sl.y > yMax){ sl.y = yMax; sl.vy = -Math.abs(sl.vy); }
         if (pScale > 0 && (sl.role === 'judge' || sl.role === 'bomb') && sl.ttl && now > sl.ttl){ assignRole(sl); }
       });
       // 방울끼리 겹치지 않도록 부드럽게 밀어낸다 (숫자가 가려지면 안 되므로)
@@ -1342,7 +1395,8 @@
           const b = slots[j]; if (!b.active) continue;
           const dx = b.x - a.x, dy = b.y - a.y;
           const dist = Math.hypot(dx, dy) || 0.001;
-          const minDist = (a.r + b.r) * 1.06;
+          // 수식 라벨이 방울 지름만큼 넓으므로, 원끼리 여유 간격을 둬야 숫자가 붙어 보이지 않는다
+          const minDist = (a.r + b.r) * 1.24;
           if (dist < minDist){
             const push = (minDist - dist) / 2;
             const nx = dx / dist, ny = dy / dist;
@@ -1353,15 +1407,21 @@
       }
       slots.forEach(sl => {
         if (!sl.active) return;
-        sl.x = Math.max(FIELD.x + sl.r, Math.min(FIELD.x + FIELD.w - sl.r, sl.x));
-        sl.y = Math.max(sl.r, Math.min(H - sl.r, sl.y));
+        const ep = edgePad();
+        const xLo = FIELD.x + sl.r + ep, xHi = FIELD.x + FIELD.w - sl.r - ep;
+        const yLo = TOP_GUARD + sl.r, yHi = H - sl.r - ep;
+        sl.x = Math.max(xLo, Math.min(Math.max(xLo, xHi), sl.x));
+        sl.y = Math.max(yLo, Math.min(Math.max(yLo, yHi), sl.y));
       });
       if (hintSlot.active){
+        const hw = hintHalfW(), ep = edgePad();
+        const hxLo = FIELD.x + hw + ep, hxHi = FIELD.x + FIELD.w - hw - ep;
+        const hyLo = TOP_GUARD + hintSlot.r, hyHi = Math.max(hyLo, H * 0.48);
         hintSlot.x += hintSlot.vx * dt * pScale; hintSlot.y += hintSlot.vy * dt * pScale;
-        if (hintSlot.x < FIELD.x + hintSlot.r || hintSlot.x > FIELD.x + FIELD.w - hintSlot.r) hintSlot.vx *= -1;
-        if (hintSlot.y < hintSlot.r || hintSlot.y > H * 0.42) hintSlot.vy *= -1;
-        hintSlot.x = Math.max(FIELD.x + hintSlot.r, Math.min(FIELD.x + FIELD.w - hintSlot.r, hintSlot.x));
-        hintSlot.y = Math.max(hintSlot.r, Math.min(H * 0.42, hintSlot.y));
+        if (hintSlot.x < hxLo || hintSlot.x > hxHi) hintSlot.vx *= -1;
+        if (hintSlot.y < hyLo || hintSlot.y > hyHi) hintSlot.vy *= -1;
+        hintSlot.x = Math.max(hxLo, Math.min(Math.max(hxLo, hxHi), hintSlot.x));
+        hintSlot.y = Math.max(hyLo, Math.min(hyHi, hintSlot.y));
       }
     }
 
