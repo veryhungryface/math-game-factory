@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>제작 과정 — 수학 놀이터</title>
+<meta name="description" content="교육과정 데이터에서 출발해 여러 AI 에이전트가 나눠 만들고, 다른 회사 모델이 수학을 다시 검산하고, 80점을 못 넘으면 게시하지 않습니다. 수학 놀이터가 게임을 만드는 과정 전부 공개.">
+<meta property="og:title" content="제작 과정 — 수학 놀이터">
+<meta property="og:description" content="AI 에이전트들이 어떻게 초등 수학 게임을 만들고, 어떻게 절반을 버리는지.">
+<meta property="og:type" content="article">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --bg:#0b1020; --card:#182244; --card2:#141d3c; --line:#2a3766;
+    --fg:#f2f5ff; --muted:#9aa8d4;
+    --a1:#ff8a3d; --a2:#3ddc97; --a3:#5b8cff; --a4:#ff5fa2; --a5:#ffd84d;
+  }
+  html,body{margin:0;padding:0;overflow-x:hidden}
+  body{
+    background:
+      radial-gradient(1100px 600px at 12% -10%, #22306b 0%, transparent 60%),
+      radial-gradient(900px 500px at 105% 5%, #4a1f5e 0%, transparent 55%),
+      var(--bg);
+    color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic","Noto Sans KR",sans-serif;
+    -webkit-font-smoothing:antialiased; min-height:100dvh;
+    font-size:16px; line-height:1.8;
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:0 20px 96px}
+
+  /* ── 상단 바 ─────────────────────────── */
+  .topbar{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:18px 0 6px;
+  }
+  .back{
+    display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;
+    border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.05);
+    color:var(--fg);text-decoration:none;font-size:14px;font-weight:700;
+  }
+  .back:hover,.back:focus-visible{border-color:var(--a3);outline:none}
+  .back .arw{color:var(--a2);font-weight:900}
+
+  header.hero{padding:26px 0 8px}
+  .eyebrow{
+    display:inline-block;font-size:12px;font-weight:800;letter-spacing:.14em;
+    color:#0b1020;background:linear-gradient(90deg,var(--a2),var(--a3));
+    padding:6px 14px;border-radius:999px;margin-bottom:16px
+  }
+  h1{
+    font-size:clamp(32px,7.6vw,58px);line-height:1.12;margin:0 0 16px;font-weight:900;letter-spacing:-.03em;
+    background:linear-gradient(100deg,#fff 10%,var(--a1) 45%,var(--a4) 78%,var(--a3) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .lede{color:#cdd6f4;font-size:clamp(15px,3.8vw,19px);line-height:1.75;margin:0 0 8px;max-width:40ch}
+  .lede b{color:var(--fg)}
+
+  /* ── 요약 수치 ───────────────────────── */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin:28px 0 8px}
+  .stat{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .stat b{display:block;font-size:24px;font-weight:900;color:var(--a2);line-height:1.2}
+  .stat span{font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+
+  /* ── 목차 ───────────────────────────── */
+  nav.toc{
+    margin:34px 0 8px;background:var(--card2);border:1px solid var(--line);
+    border-radius:18px;padding:18px 18px 14px
+  }
+  nav.toc h2{margin:0 0 12px;font-size:13px;letter-spacing:.12em;color:var(--muted);font-weight:800}
+  nav.toc ol{margin:0;padding:0;list-style:none;counter-reset:toc;display:grid;gap:2px}
+  nav.toc li{counter-increment:toc}
+  nav.toc a{
+    display:flex;gap:10px;align-items:baseline;min-height:44px;align-content:center;
+    padding:6px 8px;border-radius:10px;color:var(--fg);text-decoration:none;font-size:15px;font-weight:600
+  }
+  nav.toc a::before{content:counter(toc);color:var(--a1);font-weight:900;font-size:13px;flex:none;width:16px}
+  nav.toc a:hover,nav.toc a:focus-visible{background:rgba(91,140,255,.14);outline:none}
+
+  /* ── 섹션 ───────────────────────────── */
+  section{margin-top:56px;scroll-margin-top:16px}
+  h2.sec{
+    font-size:clamp(22px,5.2vw,30px);font-weight:900;letter-spacing:-.02em;margin:0 0 6px;line-height:1.3;
+    display:flex;gap:12px;align-items:flex-start
+  }
+  h2.sec .n{
+    display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;font-size:16px;
+    background:linear-gradient(140deg,var(--a3),var(--a4));color:#fff;margin-top:2px
+  }
+  .dek{color:var(--muted);font-size:14.5px;margin:0 0 20px;padding-left:48px}
+  p{margin:0 0 16px}
+  strong{color:#fff}
+  .hl{color:var(--a5);font-weight:800}
+  h3{font-size:17px;font-weight:800;margin:28px 0 10px;color:#fff}
+  ul.plain{margin:0 0 16px;padding-left:20px}
+  ul.plain li{margin-bottom:8px}
+
+  .callout{
+    background:var(--card);border:1px solid var(--line);border-left:4px solid var(--a1);
+    border-radius:0 16px 16px 0;padding:16px 18px;margin:22px 0;font-size:15px
+  }
+  .callout b{color:var(--a5)}
+  .quote{
+    background:rgba(255,255,255,.04);border:1px dashed var(--line);border-radius:16px;
+    padding:16px 18px;margin:22px 0;font-size:15px;color:#dbe2fb
+  }
+  .quote .who{display:block;margin-top:8px;font-size:12.5px;color:var(--muted)}
+
+  /* ── 역할 카드 ──────────────────────── */
+  .roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:20px 0}
+  .role{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+  .role h4{margin:0 0 6px;font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .role h4 .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .role p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.65}
+
+  /* ── 표 ─────────────────────────────── */
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:20px 0 6px;border:1px solid var(--line);border-radius:16px}
+  .swipehint{display:none;font-size:12px;color:var(--muted);margin:0 0 20px;padding-left:4px}
+  @media (max-width:560px){.swipehint{display:block}}
+  table{border-collapse:collapse;width:100%;min-width:440px;font-size:14px}
+  th,td{padding:11px 13px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{background:rgba(255,255,255,.05);font-size:12.5px;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:800}
+  .up{color:var(--a2)}
+  .down{color:var(--a4)}
+
+  /* ── 파이프라인(되돌아가는 화살표 포함) ── */
+  .flow{margin:22px 0;display:grid;gap:8px}
+  .step{
+    display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:11px 14px
+  }
+  .step .k{
+    flex:none;font-size:11px;font-weight:900;color:#0b1020;background:var(--a3);
+    border-radius:7px;padding:3px 7px;margin-top:3px;font-variant-numeric:tabular-nums
+  }
+  .step .t{font-size:14.5px;line-height:1.6}
+  .step .t em{font-style:normal;color:var(--muted);font-size:13px;display:block;margin-top:2px}
+  .step.gate{border-color:rgba(255,138,61,.55);background:rgba(255,138,61,.09)}
+  .step.gate .k{background:var(--a1)}
+  .step.loopback{border-color:rgba(61,220,151,.5);background:rgba(61,220,151,.09)}
+  .step.loopback .k{background:var(--a2)}
+
+  /* ── 5겹 루프 다이어그램 ─────────────── */
+  figure.diagram{margin:26px 0;padding:0}
+  .diagram svg{display:block;width:100%;height:auto;max-width:520px;margin:0 auto}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.7}
+  .legend{display:grid;gap:8px;margin:18px 0 0}
+  .lg{
+    display:flex;gap:11px;align-items:flex-start;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:11px 13px
+  }
+  .lg .sw{width:12px;height:12px;border-radius:4px;flex:none;margin-top:6px}
+  .lg .txt{font-size:14px;line-height:1.6}
+  .lg .txt>b{display:inline-block;margin-right:8px}
+  .lg .txt .per{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-left:2px;white-space:nowrap}
+  .lg .txt em{font-style:normal;display:block;color:var(--muted);font-size:13px;margin-top:3px}
+
+  /* ── 하단 ───────────────────────────── */
+  .cta{
+    display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:56px 0 0
+  }
+  .cta a{
+    display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 26px;
+    border-radius:999px;text-decoration:none;font-weight:800;font-size:16px;
+    background:linear-gradient(100deg,var(--a3),var(--a4));color:#fff;border:none
+  }
+  .cta a.ghost{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--fg)}
+  .cta a:hover,.cta a:focus-visible{filter:brightness(1.08);outline:none}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;text-align:center;line-height:1.9}
+  footer a{color:var(--a3);display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
+
+  @media (max-width:520px){
+    .dek{padding-left:0}
+    h2.sec{gap:10px}
+    .stat b{font-size:21px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="../"><span class="arw">←</span> 수학 놀이터로 돌아가기</a>
+  </div>
+
+  <header class="hero">
+    <div class="eyebrow">제작 과정 공개</div>
+    <h1>이 게임들은<br>이렇게 만들어집니다</h1>
+    <p class="lede">교육과정 데이터에서 출발해 여러 AI가 역할을 나눠 만들고, <b>만든 쪽과 다른 회사의 AI가 수학을 처음부터 다시 계산</b>합니다. 그리고 80점을 못 넘으면 게시하지 않습니다. 실제로 <b>절반이 버려집니다.</b></p>
+
+    <div class="stats">
+      <div class="stat"><b>24편</b><span>게시된 게임</span></div>
+      <div class="stat"><b>24편</b><span>버려진 게임</span></div>
+      <div class="stat"><b>88.0점</b><span>게시작 평균 (게이트 80)</span></div>
+      <div class="stat"><b>9편</b><span>버렸다가 고쳐 살린 것</span></div>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="목차">
+    <h2>목차</h2>
+    <ol>
+      <li><a href="#start">출발점 — 교육과정 데이터와 재미 연구</a></li>
+      <li><a href="#agents">역할을 나눈 AI 에이전트들</a></li>
+      <li><a href="#models">여러 회사의 모델을 섞는 이유</a></li>
+      <li><a href="#review">검수 — 41가지 자동 점검과 100점 채점</a></li>
+      <li><a href="#gate">80점 게이트 — 절반은 게시되지 않습니다</a></li>
+      <li><a href="#loops">5겹 루프 — 공장이 스스로 나아집니다</a></li>
+      <li><a href="#revive">버려진 게임을 되살리는 트랙</a></li>
+      <li><a href="#honest">솔직하게 적어두는 한계</a></li>
+    </ol>
+  </nav>
+
+  <!-- ───────────────────────── 1 ───────────────────────── -->
+  <section id="start">
+    <h2 class="sec"><span class="n">1</span>출발점 — 교육과정 데이터와 재미 연구</h2>
+    <p class="dek">아이디어에서 시작하지 않습니다. 교과서가 정한 배움의 목표에서 시작합니다.</p>
+
+    <p>게임 한 편을 만들기 전에 <strong>2022 개정 교육과정의 초등 수학 성취기준</strong>을 통째로 데이터로 정리해 둡니다. 학년, 학기, 단원, 성취기준 코드(<code>[6수01-05]</code> 같은 것), 그 단원에서 아이들이 자주 틀리는 지점까지 한 줄씩 들어 있습니다. 이 파일은 사람만 손댈 수 있고, AI는 읽기만 합니다.</p>
+
+    <p>제작이 시작되면 가장 먼저 <strong>“이번엔 어느 칸이 비어 있는가”</strong>를 고릅니다. 이미 만든 게임들의 학년·단원 분포를 훑어서 비어 있는 단원을 찾고, 그 단원의 성취기준을 그대로 이번 게임의 과제로 넘깁니다. 그래서 게임이 늘어날수록 교과서를 고르게 덮게 됩니다.</p>
+
+    <h3>재미는 따로 연구합니다</h3>
+    <p>교육과정만 보면 문제집이 됩니다. 그래서 별도로 <strong>세계의 잘 만든 게임들이 왜 재미있는지</strong>를 계속 조사해 “메커닉 광산”이라는 목록으로 쌓아둡니다. 특정 게임을 베끼는 게 아니라 <em>재미의 원리</em>만 뽑습니다 — 예를 들면 “아슬아슬하게 타이밍을 맞추는 쾌감”, “쌓다가 무너지는 긴장”, “한 수 잘못 두면 판이 막히는 압박” 같은 것들입니다.</p>
+
+    <div class="callout">
+      <b>여기서 지키는 선.</b> 상표·캐릭터·그림·소리는 절대 가져오지 않습니다. 빌려오는 것은 <strong>“어떤 조작이 왜 즐거운가”라는 원리뿐</strong>이고, 이름과 그림은 전부 새로 만듭니다. 조사한 대상의 목록도 공개하지 않습니다.
+    </div>
+
+    <p>그다음이 이 공장에서 제일 중요한 한 걸음입니다. <strong>수학 개념과 재미 원리를 짝짓는 것.</strong> 좋은 짝은 “계산해서 답을 고르는” 형태가 아니라 <strong>계산 자체가 조작이 되는</strong> 형태입니다. 분수를 골라 누르는 게임보다, 분수만큼 실제로 잘라내야 다리를 건널 수 있는 게임이 낫습니다. 이 기준은 뒤에서 점수로도 강제됩니다(§4).</p>
+
+    <p>덤으로, 최근에 쓴 메커닉과 색감은 <strong>점수를 깎아서 다시 뽑히지 않게</strong> 합니다. 같은 단원에 이미 쓴 조작 방식이면 큰 감점, 최근 몇 편에 나온 색 분위기도 회피 목록으로 넘어갑니다. 게임들이 서로 닮아 보이지 않게 하려는 장치입니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 2 ───────────────────────── -->
+  <section id="agents">
+    <h2 class="sec"><span class="n">2</span>역할을 나눈 AI 에이전트들</h2>
+    <p class="dek">한 AI가 혼자 다 만들지 않습니다. 만드는 쪽과 판정하는 쪽이 분리돼 있습니다.</p>
+
+    <p>맨 위에 <strong>오케스트레이터</strong>가 있습니다. 이 역할은 직접 코드를 쓰지 않습니다. <strong>계획을 세우고, 각 하위 에이전트에게 작업지시서를 주고, 돌아온 결과를 실제로 확인하는 일</strong>만 합니다. “고쳤습니다”라는 대답은 증거로 치지 않고, 스크린샷을 직접 열어 보고 숫자를 다시 재는 것이 규칙입니다.</p>
+
+    <div class="roles">
+      <div class="role"><h4><span class="dot" style="background:var(--a3)"></span>기획 (3명 동시)</h4><p>서로 다른 AI 셋이 <b>동시에 서로 다른 각도</b>로 기획안을 냅니다. 정통 아케이드형 / 요즘 모바일 게임 문법 / 비주얼 승부. 하나만 시키면 게임들이 서로 비슷해집니다.</p></div>
+      <div class="role"><h4><span class="dot" style="background:var(--a4)"></span>심사</h4><p>기획 3안 중 하나를 고릅니다. 이때 <b>재미 예측 게이트</b>를 겁니다 — “아무 생각 없이 눌러도 이기는 구조”, “계산을 코드가 대신해 주는 구조”면 총점과 무관하게 탈락시킵니다.</p></div>
+      <div class="role"><h4><span class="dot" style="background:var(--a1)"></span>아트</h4><p>배경·주인공·썸네일·타이틀 이미지를 병렬로 생성합니다. 게임마다 정해진 <b>아트 디렉션 축</b>(종이공작 / 플랫 벡터 / 네온 / 클레이 / 픽셀 / 인쇄 / 칠판 / 도면 / 직물 / 유리 등)을 따르고, 최근 게임과 같은 축은 금지입니다.</p></div>
+      <div class="role"><h4><span class="dot" style="background:var(--a5)"></span>빌드</h4><p>실제 게임을 HTML 한 파일로 구현합니다. 다 만들고 나면 <b>자기 게임에 로봇을 붙여 스스로 부숴 봅니다</b>(§4의 무뇌봇).</p></div>
+      <div class="role"><h4><span class="dot" style="background:var(--a2)"></span>수학 검산</h4><p><b>게임을 만든 곳과 다른 회사의 AI</b>가 문제 생성기를 통째로 돌려 정답을 전부 다시 계산합니다. 하나만 틀려도 게시 불가.</p></div>
+      <div class="role"><h4><span class="dot" style="background:#c58cff"></span>검수</h4><p>100점 만점으로 채점하고, 못 고친 항목을 목록으로 남깁니다. 점수를 후하게 주지 말라는 지시가 프롬프트에 박혀 있습니다 — “평범하면 70점대”.</p></div>
+      <div class="role"><h4><span class="dot" style="background:#7fdfff"></span>수리</h4><p>검수에서 지적된 항목을 <b>딱 한 번</b> 고칩니다. 고친 뒤에는 자동 점검·수학 검산·검수를 처음부터 다시 받습니다.</p></div>
+      <div class="role"><h4><span class="dot" style="background:#9aa8d4"></span>레퍼런스 스카우트</h4><p>게임이 몇 편 쌓일 때마다 새로운 재미 원리를 찾아 후보로 쌓아둡니다. 바로 반영되지 않고 <b>사람이 승인해야</b> 목록에 들어갑니다.</p></div>
+    </div>
+
+    <p>이 분업에는 두 가지 원칙이 있습니다. 첫째, <strong>같은 파일을 두 에이전트가 동시에 건드리지 않습니다</strong> — 게임 한 편에 담당 하나. 둘째, <strong>만드는 에이전트와 판정하는 에이전트를 절대 겹치지 않게 합니다.</strong> 자기 답안을 자기가 채점하면 같은 실수를 두 번 놓칩니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 3 ───────────────────────── -->
+  <section id="models">
+    <h2 class="sec"><span class="n">3</span>여러 회사의 모델을 섞는 이유</h2>
+    <p class="dek">같은 모델이 만들고 같은 모델이 검산하면, 같은 맹점을 공유합니다.</p>
+
+    <p>이 공장은 <strong>Claude·GPT·Grok 계열의 서로 다른 회사 모델</strong>을 역할별로 나눠 씁니다. 단순히 여러 개를 쓰는 게 아니라, <strong>어려운 판단이 필요한 단계(심사·빌드·검수)에는 상위 티어, 기획·수정에는 중간 티어</strong>를 배정합니다. 기획만은 예외로 세 회사에 동시에 맡기는데, 여기서는 정확도보다 <strong>다양성</strong>이 더 중요하기 때문입니다.</p>
+
+    <h3>가장 중요한 규칙: 수학은 교차 검증</h3>
+    <p>게임을 구현한 모델과 <strong>다른 회사의 모델</strong>이, 그 게임의 문제 생성기를 독립적으로 돌려 <strong>정답을 전수 재계산</strong>합니다. 문항 몇 개를 표본으로 보는 게 아니라 생성 가능한 문제를 쭉 뽑아서 전부 다시 풉니다.</p>
+
+    <div class="quote">
+      “같은 모델이 만들고 같은 모델이 검산하면 같은 맹점을 공유한다.”
+      <span class="who">— 공장 설정 파일에 적혀 있는 배정 원칙</span>
+    </div>
+
+    <p>이게 왜 필요한지 보여주는 실제 사례가 있습니다. 어떤 게임은 겉보기엔 멀쩡했고 다른 항목은 전부 통과했는데, 독립 검산에서 <strong>오답 보기 중 하나가 우연히 정답과 같은 값</strong>인 문항이 발견됐습니다. 아이 입장에서는 정답을 눌러도 틀렸다고 나오는 게임입니다. 같은 날 하루에만 <strong>세 편이 수학 문제로 즉시 폐기</strong>됐고, 그 세 편 모두 나머지 검사는 다 통과한 상태였습니다.</p>
+
+    <div class="callout">
+      <b>한국 교과서 표현도 검산 대상입니다.</b> 「십의 자리<u>에서</u> 반올림」과 「반올림하여 십의 자리<u>까지</u>」는 완전히 다른 조작입니다(225 → 앞은 200, 뒤는 230). 이걸 헷갈려 게임 하나를 통째로 폐기한 뒤로, 이 함정은 모든 제작 지시문 맨 앞에 경고로 박혀 있습니다.
+    </div>
+
+    <h3>한 모델이 멈추면 자동으로 갈아탑니다</h3>
+    <p>AI 서비스는 가끔 죽습니다. 실제로 어느 날 밤 <strong>네 회차가 연달아 통째로 실패</strong>한 적이 있는데, 원인은 빌드용 모델의 사용량이 소진된 것이었습니다. 그때의 폴백 장치는 “그 도구가 설치돼 있는가”만 확인하고 있어서 작동하지 않았습니다.</p>
+    <p>그래서 규칙을 바꿨습니다 — <strong>폴백은 “도구가 있는가”가 아니라 “결과가 나왔는가”로 판단합니다.</strong> 결과물이 없거나 오류가 섞여 나오면 즉시 다른 회사 모델로 한 번 재시도합니다. 그리고 그때 조용히 사라졌던 네 회차는 나중에 소급해서 실패 기록으로 남겼습니다. <strong>실패를 기록에서 지우지 않는 것</strong>도 규칙입니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 4 ───────────────────────── -->
+  <section id="review">
+    <h2 class="sec"><span class="n">4</span>검수 — 41가지 자동 점검과 100점 채점</h2>
+    <p class="dek">기계가 확실히 판정할 수 있는 것과, 사람 같은 판단이 필요한 것을 나눠서 봅니다.</p>
+
+    <h3>① 자동 점검 41항목</h3>
+    <p>먼저 프로그램이 게임을 실제 브라우저에 띄워 <strong>41가지를 기계적으로 검사</strong>합니다. 통과/실패만 있는 이진 검사입니다.</p>
+    <ul class="plain">
+      <li><strong>파일·규격</strong> — 필수 파일이 다 있는가, 썸네일 크기가 맞는가, <em>다른 게임의 이미지를 그대로 가져다 쓰지 않았는가</em>(파일 지문 대조)</li>
+      <li><strong>자기완결성</strong> — 외부 서버에서 뭘 불러오지 않는가, 경로가 전부 상대경로인가</li>
+      <li><strong>실행</strong> — 콘솔 오류 0건, 깨진 요청 0건, 점수·목숨이 실제로 동작하는가</li>
+      <li><strong>수학</strong> — 문항 수, 문제 문장, 정답이 보기 안에 있는가, <em>오답 보기가 정답과 같은 값이 아닌가</em>, 문제가 충분히 다양한가</li>
+      <li><strong>화면</strong> — 휴대폰(390×844)·태블릿·데스크톱(1280×800)에서 가로 스크롤이 생기지 않는가, 터치 버튼이 손가락 크기(44px) 이상인가, 화면이 하얗게 비어 있지 않은가, 초당 프레임이 충분한가</li>
+    </ul>
+    <p>이 중 <strong>17개는 “치명” 항목</strong>이라 하나라도 걸리면 그 자리에서 제작이 중단됩니다. 그리고 이 41개 목록 자체가 <strong>과거에 실제로 밟은 지뢰의 기록</strong>입니다. 예를 들어 “다른 게임 이미지 도용 검사”는, 아트 담당 AI가 “최근에 만들어진 이미지 파일”을 찾다가 <strong>동시에 돌아가던 다른 게임의 이미지를 집어온 사고</strong> 이후에 생겼습니다.</p>
+
+    <h3>② 무뇌봇 테스트 — “아무거나 눌러도 이기는 게임” 걸러내기</h3>
+    <p>빌드 담당이 자기 게임에 <strong>생각 없는 로봇 4종을 붙여 각각 200판</strong>을 돌립니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>로봇</th><th>전략</th><th>합격선</th></tr></thead>
+        <tbody>
+          <tr><td>연타 봇</td><td>항상 같은 버튼만 반복해서 누른다</td><td class="num">완주율 25% 이하</td></tr>
+          <tr><td>순환 봇</td><td>1→2→3→4 순서로 돌려가며 누른다</td><td class="num">완주율 25% 이하</td></tr>
+          <tr><td>무작위 봇</td><td>매번 아무 곳이나 아무 방향으로</td><td class="num">완주율 25% 이하</td></tr>
+          <tr><td>무입력 봇</td><td>아무것도 하지 않고 그냥 둔다</td><td class="num">완주율 0%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="swipehint">표가 잘려 보이면 옆으로 밀어 보세요 →</p>
+    <p>이 시험을 넘지 못하면 그 게임은 <strong>수학을 몰라도 이길 수 있는 게임</strong>이고, 그건 수학 게임이 아닙니다. 실제로 어떤 게임은 “꾹 누르고 있기”만으로 100% 이기는 상태였는데, 문항이 <strong>1,232개</strong>나 있었는데도 그랬습니다. 진단은 이랬습니다 — <em>“문항 수가 문제가 아니라, 결과가 입력 전에 이미 정해져 있다.”</em> 핵심 구조를 다시 만든 뒤 무뇌봇 승률은 100%에서 <strong class="hl">0%</strong>가 됐습니다.</p>
+
+    <h3>③ 100점 채점</h3>
+    <p>마지막으로 검수 AI가 게임을 직접 플레이하고 스크린샷을 눈으로 보면서 채점합니다. <strong>배점 자체가 이 공장의 우선순위 선언</strong>입니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>항목</th><th class="num">배점</th><th>무엇을 보는가</th></tr></thead>
+        <tbody>
+          <tr><td>교육과정 정합성</td><td class="num">25</td><td>성취기준이 실재하고 내용이 맞는가, 핵심 개념을 정면으로 다루는가, 학년 수준에 맞는가</td></tr>
+          <tr><td>수학 정확성</td><td class="num">25</td><td>손으로 다시 풀어 <strong>하나라도 틀리면 0점 + 총점과 무관하게 즉시 폐기</strong></td></tr>
+          <tr><td>재미</td><td class="num">20</td><td><strong>수학이 동사인가</strong>(그냥 문제창이면 감점), 30초 안에 재미있는가, 난이도 곡선이 있는가</td></tr>
+          <tr><td>비주얼</td><td class="num">20</td><td>이 중 8점은 <strong>“앞선 게임들과 달라 보이는가”</strong>에 배정 — 최근 게임 화면과 대조합니다</td></tr>
+          <tr><td>모바일·성능</td><td class="num">10</td><td>휴대폰에서 잘리지 않는가, 부드럽게 돌아가는가, 숫자·분수가 읽히는가</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="swipehint">표가 잘려 보이면 옆으로 밀어 보세요 →</p>
+    <p>점수와 별개로 <strong>탈락 조건 네 가지</strong>가 더 있습니다. 아무 생각 없이 이길 수 있는가 · <strong>한 번 실수하면 회복이 불가능한가</strong> · 물리적 은유가 앞뒤가 맞는가 · 큰 화면에서 양옆이 텅 비어 있는가. 특히 두 번째는 아이들을 위한 게임에서 중요합니다. 한 번 틀렸다고 끝나버리면 배울 기회가 없습니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 5 ───────────────────────── -->
+  <section id="gate">
+    <h2 class="sec"><span class="n">5</span>80점 게이트 — 절반은 게시되지 않습니다</h2>
+    <p class="dek">게이트는 “목표”가 아니라 코드에 박힌 불변식입니다.</p>
+
+    <p>게시되려면 <strong>네 조건을 전부</strong> 만족해야 합니다. 하나라도 어긋나면 그 게임은 이 사이트에 올라오지 않습니다.</p>
+
+    <div class="flow">
+      <div class="step gate"><span class="k">1</span><span class="t">검수 총점 <b>80점 이상</b> <em>평범하면 70점대가 나오도록 설계된 채점표입니다.</em></span></div>
+      <div class="step gate"><span class="k">2</span><span class="t">즉시 폐기 사유 없음 <em>수학 오류 1건, 또는 한 번 실수하면 회복 불가 → 점수와 무관하게 탈락.</em></span></div>
+      <div class="step gate"><span class="k">3</span><span class="t">자동 점검 치명 항목 0건 <em>41항목 중 17개는 하나만 걸려도 즉시 중단.</em></span></div>
+      <div class="step gate"><span class="k">4</span><span class="t">독립 수학 검산 통과 <em>다른 회사 모델의 전수 재계산에서 오류 1개만 있어도 실패.</em></span></div>
+    </div>
+
+    <p><strong>이 80이라는 숫자는 낮출 수 없습니다.</strong> 게시 프로그램 안에 하한이 상수로 박혀 있어서, 어떤 설정값을 넣어도 80 아래로는 내려가지 않고 거부됩니다. 그리고 <strong>게시하는 입구가 하나뿐</strong>입니다 — 자동 사이클도, 사람이 손으로 되살린 게임도 같은 문을 지나야 합니다.</p>
+
+    <div class="callout">
+      <b>게시율 50%는 실패가 아니라 게이트가 일하고 있다는 증거입니다.</b> 24편을 게시하는 동안 24편을 버렸습니다. 통과한 것만 남았기 때문에 평균이 88점인 것이고, 만약 전부 올렸다면 이 사이트의 평균은 지금보다 훨씬 낮았을 겁니다.
+    </div>
+
+    <h3>미달이면 딱 한 번 고칩니다</h3>
+    <p>점수가 모자라면 수리 담당이 지적 사항을 전부 처리하고 <strong>자동 점검 → 수학 검산 → 검수를 처음부터 다시</strong> 받습니다. 재검수 지시문에는 이렇게 적혀 있습니다 — <em>“이것은 재검수다. 봐주지 마라. 여전히 미달이면 폐기가 맞다.”</em></p>
+    <p>기회를 <strong>한 번</strong>으로 제한한 데는 이유가 있습니다. 무한히 다시 시도하게 두면 점수가 통과선에 닿을 때까지 갈아내게 되고, 그 순간 게이트는 의미가 없어집니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 6 ───────────────────────── -->
+  <section id="loops">
+    <h2 class="sec"><span class="n">6</span>5겹 루프 — 공장이 스스로 나아집니다</h2>
+    <p class="dek">게임을 만드는 건 한 줄로 흘러가는 공정이 아니라, 서로 다른 속도로 도는 다섯 겹의 되먹임입니다.</p>
+
+    <p>“2시간마다 게임 한 편”이라는 말은 <strong>가장 안쪽 한 겹</strong>만 설명한 것입니다. 실제로 품질을 만드는 건 그 바깥을 도는 네 겹입니다. 이 네 겹이 없으면 지금 게시된 24편 중 9편은 아예 존재하지 않고, 나머지 15편도 지금 점수를 받지 못합니다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 480 480" role="img" aria-labelledby="loopttl loopdesc">
+        <title id="loopttl">5겹 되먹임 루프 다이어그램</title>
+        <desc id="loopdesc">가운데 '게임 1편'을 중심으로 다섯 개의 고리가 겹겹이 돌고 있습니다. 안쪽부터 L0 생산 루프, L1 자기수정, L2 학습, L3 캠페인, L4 부활이며 각 고리의 화살표는 출발점으로 되돌아옵니다.</desc>
+        <defs>
+          <marker id="hA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b8cff"/></marker>
+          <marker id="hB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3ddc97"/></marker>
+          <marker id="hC" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffd84d"/></marker>
+          <marker id="hD" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff8a3d"/></marker>
+          <marker id="hE" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff5fa2"/></marker>
+        </defs>
+
+        <!-- 고리 5겹: 각 고리는 위에서 출발해 시계방향으로 돌아 제자리로 되돌아온다 -->
+        <path d="M240,178 A62,62 0 1 1 192.5,200.1" fill="none" stroke="#5b8cff" stroke-width="7" stroke-linecap="round" marker-end="url(#hA)" opacity=".95"/>
+        <path d="M240,142 A98,98 0 1 1 164.9,177.0" fill="none" stroke="#3ddc97" stroke-width="7" stroke-linecap="round" marker-end="url(#hB)" opacity=".95"/>
+        <path d="M240,106 A134,134 0 1 1 137.4,153.9" fill="none" stroke="#ffd84d" stroke-width="7" stroke-linecap="round" marker-end="url(#hC)" opacity=".95"/>
+        <path d="M240,70 A170,170 0 1 1 109.8,130.8" fill="none" stroke="#ff8a3d" stroke-width="7" stroke-linecap="round" marker-end="url(#hD)" opacity=".95"/>
+        <path d="M240,34 A206,206 0 1 1 82.2,107.6" fill="none" stroke="#ff5fa2" stroke-width="7" stroke-linecap="round" marker-end="url(#hE)" opacity=".95"/>
+
+        <!-- 중심 -->
+        <circle cx="240" cy="240" r="46" fill="#182244" stroke="#2a3766" stroke-width="2"/>
+        <text x="240" y="234" text-anchor="middle" fill="#f2f5ff" font-size="17" font-weight="800" font-family="-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif">게임</text>
+        <text x="240" y="256" text-anchor="middle" fill="#f2f5ff" font-size="17" font-weight="800" font-family="-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif">1편</text>
+
+        <!-- 각 고리 라벨(고리 위에 얹힌 배지) -->
+        <g font-family="-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="13" font-weight="900" text-anchor="middle">
+          <rect x="221" y="168" width="38" height="21" rx="7" fill="#5b8cff"/><text x="240" y="183" fill="#0b1020">L0</text>
+          <rect x="221" y="132" width="38" height="21" rx="7" fill="#3ddc97"/><text x="240" y="147" fill="#0b1020">L1</text>
+          <rect x="221" y="96"  width="38" height="21" rx="7" fill="#ffd84d"/><text x="240" y="111" fill="#0b1020">L2</text>
+          <rect x="221" y="60"  width="38" height="21" rx="7" fill="#ff8a3d"/><text x="240" y="75"  fill="#0b1020">L3</text>
+          <rect x="221" y="24"  width="38" height="21" rx="7" fill="#ff5fa2"/><text x="240" y="39"  fill="#0b1020">L4</text>
+        </g>
+      </svg>
+      <figcaption>다섯 고리는 모두 <b>출발점으로 되돌아옵니다.</b> 바깥으로 갈수록 도는 주기가 길고, 고치는 범위가 넓어집니다.</figcaption>
+    </figure>
+
+    <div class="legend">
+      <div class="lg"><span class="sw" style="background:#5b8cff"></span><span class="txt"><b>L0 · 생산 루프</b><span class="per">2시간마다</span><em>단원 고르기 → 기획 3안 → 심사 → 아트 → 빌드 → 자동 점검 → 수학 검산 → 검수 → 게시 또는 폐기. 한 편을 만드는 한 바퀴.</em></span></div>
+      <div class="lg"><span class="sw" style="background:#3ddc97"></span><span class="txt"><b>L1 · 사이클 안의 자기수정</b><span class="per">몇 분~십몇 분</span><em>검수에 걸리면 되돌아가 고치고 다시 전 과정을 탑니다. 빌드가 자기 게임을 로봇으로 부숴 보는 것도 이 층입니다.</em></span></div>
+      <div class="lg"><span class="sw" style="background:#ffd84d"></span><span class="txt"><b>L2 · 사이클 사이의 학습</b><span class="per">하루</span><em>폐기된 게임들을 모아 실패 <b>유형</b>을 찾아내고, 그걸 다음 게임들의 제작 지시문에 규칙으로 심습니다. 이번 게임이 아니라 <b>앞으로 만들 모든 게임</b>을 고칩니다.</em></span></div>
+      <div class="lg"><span class="sw" style="background:#ff8a3d"></span><span class="txt"><b>L3 · 캠페인</b><span class="per">며칠~주</span><em>사람의 지적 하나로 <b>이미 게시된 전체 목록</b>을 전수 점검하고 한꺼번에 고칩니다. 그리고 같은 문제가 다시는 안 생기도록 새 검사 항목을 만듭니다.</em></span></div>
+      <div class="lg"><span class="sw" style="background:#ff5fa2"></span><span class="txt"><b>L4 · 부활</b><span class="per">비정기</span><em>버린 게임을 원인만 고쳐 다시 게이트에 세웁니다. 지금 게시된 24편 중 <b>9편</b>이 여기서 나왔습니다.</em></span></div>
+    </div>
+
+    <h3>L2가 실제로 작동한 사례</h3>
+    <p>어느 하루, <strong>여섯 회차가 연속으로 폐기</strong>됐습니다. 교육과정 점수도 비주얼 점수도 통과 수준이었는데 <strong>재미 점수 하나가 평균 6.8/20</strong>이라 게이트가 무너진 것이었습니다.</p>
+    <p>폐기작 열두 편의 검수 기록을 전부 다시 읽어서 실패 유형 여덟 가지를 뽑아냈습니다. 그중 결정적인 발견은 이것이었습니다 — <strong>화려한 연출을 아무리 많이 붙여도, 조작이 판단과 연결돼 있지 않으면 재미 점수는 회복되지 않는다.</strong> 실제로 연출 기법 아홉 가지를 다 넣고도 재미 4점을 받은 게임이 있었습니다.</p>
+    <p>그래서 성공작들과 대조해 네 가지 축을 뽑아 <strong>기획·심사·빌드 세 단계에 각각 게이트로 심었습니다.</strong> 답을 고르는 공간과 조작하는 공간이 같은가 / 아무렇게나 눌러서 성공할 확률이 낮은가 / 실패에 이빨이 있는가 / 기획서의 핵심 재미가 코드에 실제로 있는가.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th class="num">개입 전 (6회차)</th><th class="num">개입 후 (11회차)</th></tr></thead>
+        <tbody>
+          <tr><td>총점 평균</td><td class="num">63.7</td><td class="num up">72.2 &nbsp;(+8.5)</td></tr>
+          <tr><td><strong>재미 평균</strong></td><td class="num">6.8 / 20</td><td class="num up">12.4 / 20 &nbsp;(1.8배)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="swipehint">표가 잘려 보이면 옆으로 밀어 보세요 →</p>
+
+    <p>다만 정직하게 덧붙이면, <strong>그날도 게시는 0건이었습니다.</strong> 최고점이 79점이었거든요. 게이트를 하나 올리면 병목은 사라지는 게 아니라 옆으로 이동합니다. 새로 드러난 병목(수학 오류, 그리고 같은 날 새로 도입한 디자인 다양성 감점)이 다음 사이클의 숙제가 됩니다.</p>
+
+    <h3>L3 캠페인은 항상 다섯 박자입니다</h3>
+    <div class="flow">
+      <div class="step"><span class="k">1</span><span class="t">사람의 지적 <em>보통 스크린샷 한 장에서 시작합니다.</em></span></div>
+      <div class="step"><span class="k">2</span><span class="t">전수 감사 <em>전 게임을 여러 화면 크기로 자동 캡처하고 AI가 판정한 뒤, 오케스트레이터가 교차 확인합니다.</em></span></div>
+      <div class="step"><span class="k">3</span><span class="t">근본 원인 찾기 <em>범인은 거의 항상 “우리가 직접 쓴 제작 지시문 몇 줄”이었습니다.</em></span></div>
+      <div class="step"><span class="k">4</span><span class="t">일괄 수리 <em>게임 한 편당 담당 에이전트 한 명씩 붙여 병렬로.</em></span></div>
+      <div class="step loopback"><span class="k">↺</span><span class="t">재발 방지 게이트 신설 <em>이게 없으면 캠페인이 아니라 그냥 잡일입니다. 이후 만들어지는 모든 게임이 자동으로 이 검사를 받습니다.</em></span></div>
+    </div>
+
+    <p>실제로 있었던 캠페인들입니다. “거의 모든 게임이 휴대폰처럼 화면 가운데서만 논다”는 지적 → 20편 전수 감사 → 큰 화면용 배치 규격을 새로 만들어 11편 전환 → <strong>데스크톱 화면 검사 항목 신설</strong>. “배지가 게임 요소를 가린다”는 지적 → 20편 × 여러 화면 크기 × 여러 상태로 <strong>280장을 캡처해 AI가 판정</strong> → 결함 53건 확정 → 18편 전부 수리. “게임들이 다 똑같아 보인다”는 지적 → 화면 색과 코드를 기계로 비교했더니 최근 게임들의 <strong>스타일 코드가 문자 그대로 47~78% 동일</strong>했고, 원인은 모든 게임에 같은 스타일 문구를 강제로 붙이던 지시문이었습니다 → <strong>아트 디렉션 10축</strong>을 만들고 축당 정원을 3편으로 제한.</p>
+
+    <div class="callout">
+      <b>여기서 배운 것.</b> 품질 하한을 정하는 규칙은 반드시 <strong>획일화</strong>를 낳습니다. 검사할 수 있는 형태로 품질을 정의하면 만드는 쪽은 그 형태에 최적화하고, 그러면 전부 똑같아집니다. 그래서 하한 게이트를 만들 때는 <strong>다양성 게이트를 짝으로</strong> 붙입니다.
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 7 ───────────────────────── -->
+  <section id="revive">
+    <h2 class="sec"><span class="n">7</span>버려진 게임을 되살리는 트랙</h2>
+    <p class="dek">첫 점수는 그 게임의 상한이 아니라 진단값입니다.</p>
+
+    <p>게이트에 걸린 게임은 지워지지 않습니다. 폴더째 <strong>보관함으로 옮겨 통째로 보존</strong>됩니다. 그리고 검수관이 “원인이 국소적이다”라고 판단하면 되살릴 가치가 있는 것으로 표시됩니다.</p>
+
+    <p>부활이 싼 이유는 분명합니다. 기획도 그림도 코드도 <strong>이미 값을 치른 상태</strong>이고, 남은 것은 <strong>“무엇을 고쳐야 하는지 적힌 정확한 작업 지시서”</strong>뿐이기 때문입니다. 그리고 되살릴 때도 <strong>봐주기는 없습니다</strong> — 수학 재검산, 무뇌봇 재측정, 자동 점검 41항목, 그리고 같은 채점표로 재검수. 신작과 똑같은 문을 통과해야 합니다.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>게임</th><th class="num">첫 검수</th><th class="num">부활 후</th></tr></thead>
+        <tbody>
+          <tr><td>겹쳐딱</td><td class="num down">58</td><td class="num up">92</td></tr>
+          <tr><td>꽝도장</td><td class="num down">51</td><td class="num up">87</td></tr>
+          <tr><td>경계폭주</td><td class="num down">65</td><td class="num up">91</td></tr>
+          <tr><td>폴짝이</td><td class="num down">65</td><td class="num up">90</td></tr>
+          <tr><td>쩍쩍</td><td class="num down">75</td><td class="num up">87</td></tr>
+          <tr><td>등불을 켜</td><td class="num down">미달</td><td class="num up">92</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="swipehint">표가 잘려 보이면 옆으로 밀어 보세요 →</p>
+
+    <p>재미있는 건 <strong>부활 과정에서 새로 발견되는 것들</strong>입니다. 부활은 재작업이 아니라 <strong>두 번째 정밀 검사</strong>거든요. 어떤 게임에서는 <em>정답이 하나가 아닌 문항</em>이 발견됐습니다(직사각형도 평행사변형이니까요). 어떤 게임에서는 <em>수학적으로 똑같이 맞는 답인데 오답 처리하는 보스</em>가 있었습니다.</p>
+
+    <p>또 한 편은 게시된 뒤에 <strong>“애들이 풀 수 없는 속도”</strong>라는 지적을 받았습니다. 그래서 낙하를 <strong>계산할 시간(6초)</strong>과 <strong>판정하는 순간(2.4초)</strong>으로 쪼개 다시 설계하고, 어린이의 반응 속도(1.5~4.5초)를 흉내 낸 로봇으로 다시 측정해 확인했습니다. <strong>게시 후에 받은 지적도 게임을 되돌립니다.</strong></p>
+  </section>
+
+  <!-- ───────────────────────── 8 ───────────────────────── -->
+  <section id="honest">
+    <h2 class="sec"><span class="n">8</span>솔직하게 적어두는 한계</h2>
+    <p class="dek">자랑만 적으면 이 페이지의 의미가 없습니다.</p>
+
+    <ul class="plain">
+      <li><strong>게이트에는 세 등급이 있고, 아래 등급은 조용히 무시될 수 있습니다.</strong> 기계가 자동으로 막는 검사(가장 튼튼함), 점수로 깎는 항목(추이는 보이지만 판단이 들어감), 그리고 지시문에 적어놓은 “~하지 마라”(가장 싸지만 지켜지지 않을 수 있음). 다양성 규칙 중 몇 개는 아직 세 번째 등급에 머물러 있습니다.</li>
+      <li><strong>같은 지적이 두 번 온 적이 있습니다.</strong> “제목 화면이 다 똑같다”는 지적에 레이아웃을 여섯 종류로 나눴는데, 아흐레 뒤 같은 지적이 다시 왔습니다. 진짜 원인은 레이아웃이 아니라 <strong>지시문이 쓰라고 한 글꼴 파일이 애초에 없어서</strong> 전 게임이 조용히 같은 기본 글꼴로 넘어가고 있었던 것입니다. <em>규칙이 시키는 자원이 실제로 존재하는지부터 확인해야 한다</em>는 교훈이 여기서 나왔습니다.</li>
+      <li><strong>AI의 “고쳤습니다”는 증거가 아닙니다.</strong> 실제로 고치지 않고 고쳤다고 보고한 사례가 있었습니다. 그래서 스크린샷을 직접 열어 보고, 수학은 손으로 다시 풀고, 의심되면 로봇으로 다시 측정하는 것이 규칙입니다.</li>
+      <li><strong>게임들이 서로 얼마나 닮았는지를 주기적으로 재는 자동 장치가 아직 없습니다.</strong> 획일화는 세 번 다 <em>사람이 먼저</em> 알아챘습니다.</li>
+    </ul>
+
+    <div class="callout">
+      <b>사람의 관찰은 1급 입력입니다.</b> 사람이 남긴 의견은 다음 제작 사이클의 기획 지시문과 검수 지시문에 <strong>그대로 삽입</strong>돼서, 그 게임의 채점에 직접 반영됩니다. 지금까지 이렇게 반영된 의견이 46건입니다.
+    </div>
+
+    <p style="color:var(--muted);font-size:14.5px">궁금한 점이나 “이 게임 이런 게 이상해요” 같은 지적은 언제든 환영합니다. 대부분의 큰 개선은 스크린샷 한 장에서 시작했습니다.</p>
+  </section>
+
+  <div class="cta">
+    <a href="../">게임 보러 가기 →</a>
+    <a class="ghost" href="#start">처음으로 ↑</a>
+  </div>
+
+  <footer>
+    2022 개정 교육과정 초등 수학 기반 · 게임 메커닉은 참고하되 상표·캐릭터·에셋은 모두 오리지널 제작입니다.<br>
+    <a href="../">수학 놀이터 홈</a>
+  </footer>
+</div>
+</body>
+</html>

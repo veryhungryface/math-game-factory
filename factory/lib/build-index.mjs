@@ -120,7 +120,16 @@ const html = `<!doctype html>
     -webkit-font-smoothing:antialiased; min-height:100dvh;
   }
   .wrap{max-width:1180px;margin:0 auto;padding:0 20px 96px}
-  header{padding:64px 0 36px;text-align:center}
+  .topnav{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:18px 0 0}
+  .topnav a{
+    display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 17px;
+    border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.05);
+    color:var(--fg);text-decoration:none;font-size:14px;font-weight:700;
+    transition:border-color .18s, background .18s
+  }
+  .topnav a:hover,.topnav a:focus-visible{border-color:var(--a2);background:rgba(61,220,151,.12);outline:none}
+  .topnav a .ico{font-size:15px}
+  header{padding:44px 0 36px;text-align:center}
   .eyebrow{
     display:inline-block;font-size:12px;font-weight:800;letter-spacing:.14em;
     color:#0b1020;background:linear-gradient(90deg,var(--a2),var(--a3));
@@ -187,15 +196,20 @@ const html = `<!doctype html>
     border:1px dashed var(--line);border-radius:20px;margin-top:48px
   }
   footer{margin-top:80px;padding-top:26px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;text-align:center;line-height:1.8}
+  footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 6px}
   @media (max-width:520px){
     .grid{grid-template-columns:1fr;gap:14px}
-    header{padding:44px 0 24px}
+    header{padding:30px 0 24px}
+    .topnav{justify-content:center}
   }
   @media (prefers-reduced-motion:reduce){.card{transition:none}}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <nav class="topnav">
+    <a href="/about/"><span class="ico">🛠️</span> 제작 과정</a>
+  </nav>
   <header>
     <div class="eyebrow">2022 개정 교육과정</div>
     <h1>수학 놀이터</h1>
@@ -211,7 +225,8 @@ const html = `<!doctype html>
 
   <footer>
     2022 개정 교육과정 초등 수학 기반 · 마지막 업데이트 ${esc(catalog.generated_at.slice(0, 16).replace('T', ' '))}<br>
-    게임 메커닉은 참고하되 상표·캐릭터·에셋은 모두 오리지널 제작입니다.
+    게임 메커닉은 참고하되 상표·캐릭터·에셋은 모두 오리지널 제작입니다.<br>
+    <a href="/about/" style="color:var(--a3)">이 게임들이 만들어지는 과정 보기 →</a>
   </footer>
 </div>
 </body>
