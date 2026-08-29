@@ -9,9 +9,22 @@
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
+/* ══ 축 D 클레이·스톱모션 팔레트 ═════════════════════════════════
+   무지 배경지(연회색) + 점토 테라코타·크림·청록. 전부 무광.
+   광택(inset 흰 하이라이트)·하드 오프셋 그림자(0 3px 0)는 이 축에서 금지다.
+   부품은 「윤곽이 곧 형태」 — 테두리선 대신 덩어리와 깊은 소프트 그림자로 읽힌다. */
 :root{
-  --plaster:#D2DCE6; --amber:#FF8A3D; --teal:#1F7A6C; --gold:#F0C14A; --ink:#2C2926;
-  --cream:#F4EEE4; --deep:#1A1816;
+  --paper:#DFD8CA; --paper-lo:#B5AC9C; --paper-hi:#EDE7DA;
+  --terra:#C9613C; --terra-lo:#9B4526; --terra-hi:#E2825A;
+  --cream:#F1E4CB; --cream-lo:#D3BD99;
+  --teal:#3F8B7C; --teal-lo:#2A6055; --teal-hi:#63AC9B;
+  --ink:#4B3527; --ink-lo:#2F2019;
+  --clay-cast:rgba(58,40,29,.30);   /* 깊은 스튜디오 그림자 */
+  --clay-cast-2:rgba(58,40,29,.16);
+  /* 손으로 눌러 만든 듯 살짝 비뚤어진 윤곽 — 부품마다 다른 반경 조합을 돌려 쓴다 */
+  --rc-a:19px 25px 17px 23px / 23px 17px 25px 19px;
+  --rc-b:24px 18px 26px 20px / 18px 26px 19px 25px;
+  --rc-c:14px 19px 12px 17px / 17px 12px 19px 14px;
   --colW:min(100vw,800px);
   --colX:calc((100vw - var(--colW)) / 2);
   --stageW:min(100vw,1280px);
@@ -26,7 +39,7 @@
   --cta-border:#54220d; --cta-depth:#a93d13; --cta-ink:#3b1907;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:#6d7f90;color:var(--ink);
+html,body{width:100%;height:100%;overflow:hidden;background:var(--paper-lo);color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
   touch-action:none;overscroll-behavior:none}
@@ -35,81 +48,171 @@ html,body{width:100%;height:100%;overflow:hidden;background:#6d7f90;color:var(--
 
 #hud{position:fixed;top:0;left:var(--colX);width:var(--colW);z-index:3;
   padding:calc(6px + var(--safeT)) 10px 0;pointer-events:none}
-.row{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
-.pill{background:rgba(44,41,38,.86);border:2px solid rgba(240,193,74,.5);border-radius:13px;
-  padding:5px 9px;font-weight:900;font-size:12.5px;color:#F4EEE4;white-space:nowrap;line-height:1;
-  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.2),0 3px 0 rgba(28,24,20,.4)}
-#scoreV{font-size:23px;color:#fff;display:inline-block;font-variant-numeric:tabular-nums;
-  transition:transform .16s cubic-bezier(.34,1.7,.5,1)}
-#scoreV.punch{transform:scale(1.34)}
-#comboP{background:rgba(255,138,61,.92);border-color:#FFE9A8;color:#3A2414;opacity:0;
-  transition:opacity .2s,transform .16s cubic-bezier(.34,1.7,.5,1)}
+.row{display:flex;align-items:center;gap:7px;flex-wrap:nowrap}
+/* 점토 명패 — 테두리 없음, 광택 없음, 깊은 소프트 그림자. 반경은 손으로 눌러 비뚤다. */
+.pill{background:
+    radial-gradient(120% 150% at 26% 14%,rgba(255,247,232,.07),transparent 60%),
+    linear-gradient(178deg,var(--cream) 0%,var(--cream-lo) 100%);
+  border:0;border-radius:var(--rc-c);
+  padding:6px 11px;font-weight:900;font-size:12.5px;color:var(--ink);white-space:nowrap;line-height:1;
+  box-shadow:0 5px 10px var(--clay-cast),0 12px 20px var(--clay-cast-2),
+    inset 0 -4px 7px rgba(120,86,62,.20);transform:rotate(-.7deg)}
+#scoreV{font-size:23px;color:var(--ink-lo);display:inline-block;font-variant-numeric:tabular-nums;
+  transition:transform .16s steps(4,end)}
+#scoreV.punch{transform:scale(1.3) rotate(-2deg)}
+#comboP{background:
+    radial-gradient(120% 150% at 26% 14%,rgba(255,247,232,.07),transparent 60%),
+    linear-gradient(178deg,var(--terra-hi) 0%,var(--terra) 100%);
+  color:#3A1D10;opacity:0;border-radius:var(--rc-b);transform:rotate(1.1deg);
+  transition:opacity .2s,transform .16s steps(4,end)}
 #comboP.on{opacity:1}
-#comboP.punch{transform:scale(1.24)}
-#hearts{display:flex;gap:4px;margin-left:auto;align-items:center}
-.hp{width:18px;height:18px;transition:transform .35s cubic-bezier(.34,1.7,.5,1),opacity .35s}
-.hp.off{opacity:.22;transform:scale(.62) rotate(26deg)}
-#muteBtn{pointer-events:auto;width:44px;height:44px;min-width:44px;border-radius:14px;
-  border:2px solid rgba(240,193,74,.55);background:rgba(44,41,38,.86);color:#F4EEE4;
-  font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;
-  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.2),0 3px 0 rgba(28,24,20,.4);flex:0 0 auto}
-#muteBtn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(28,24,20,.4)}
-#stageRow{display:flex;gap:6px;margin-top:7px;align-items:center;flex-wrap:wrap}
-#contract{font-size:11px;font-weight:800;color:#F4EEE4;background:rgba(31,122,108,.88);
-  border:2px solid #F0C14A;border-radius:12px;padding:5px 10px;line-height:1.25;word-break:keep-all;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 3px 0 rgba(16,60,52,.45);
+#comboP.punch{transform:rotate(1.1deg) scale(1.2)}
+#hearts{display:flex;gap:5px;margin-left:auto;align-items:center}
+/* 목숨 = 반죽 구슬 세 덩이. 잃으면 납작하게 눌린 채 남는다. */
+.hp{width:19px;height:19px;flex:0 0 19px;
+  border-radius:54% 46% 48% 52% / 50% 52% 48% 50%;
+  background:linear-gradient(178deg,var(--terra-hi),var(--terra));
+  box-shadow:0 4px 6px var(--clay-cast-2),inset 0 -3px 5px rgba(112,45,22,.34);
+  transition:transform .35s steps(5,end),opacity .35s steps(5,end),background .35s steps(3,end)}
+.hp.off{opacity:.4;transform:scale(1.18,.42) rotate(4deg);
+  background:linear-gradient(178deg,var(--paper),var(--paper-lo));
+  box-shadow:0 2px 3px var(--clay-cast-2),inset 0 -2px 3px rgba(120,86,62,.3)}
+#muteBtn{position:relative;pointer-events:auto;width:44px;height:44px;min-width:44px;border-radius:var(--rc-c);
+  border:0;background:linear-gradient(178deg,var(--teal) 0%,var(--teal-lo) 100%);
+  color:var(--cream);
+  font-size:21px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 6px 11px var(--clay-cast),0 13px 21px var(--clay-cast-2),
+    inset 0 -5px 8px rgba(14,50,42,.34);flex:0 0 auto;transform:rotate(1.4deg);
+  transition:transform .09s steps(2,end),box-shadow .09s steps(2,end)}
+#muteBtn:active{transform:rotate(1.4deg) translateY(3px) scale(1.05,.9);
+  box-shadow:0 2px 5px var(--clay-cast),inset 0 -3px 6px rgba(14,50,42,.4)}
+/* 음소거 = 점토로 눌러 그은 사선 한 줄 */
+#muteBtn.muted::after,.title-mute.muted::after{content:"";position:absolute;left:50%;top:50%;
+  width:66%;height:3px;border-radius:2px;background:currentColor;opacity:.9;
+  transform:translate(-50%,-50%) rotate(-38deg);pointer-events:none}
+#stageRow{display:flex;gap:7px;margin-top:8px;align-items:center;flex-wrap:wrap}
+#stageChip{transform:rotate(.9deg);border-radius:var(--rc-b)}
+#contract{font-size:11px;font-weight:800;color:var(--cream);
+  background:linear-gradient(178deg,var(--teal) 0%,var(--teal-lo) 100%);
+  border:0;border-radius:var(--rc-a);padding:6px 12px;line-height:1.25;word-break:keep-all;
+  box-shadow:0 5px 10px var(--clay-cast),0 12px 18px var(--clay-cast-2),
+    inset 0 -4px 7px rgba(12,46,39,.30);transform:rotate(-.5deg);
   max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #title.hidden,#over.hidden{display:none !important;visibility:hidden !important;pointer-events:none !important;z-index:-1 !important}
-#dots{display:flex;gap:5px;margin-left:auto}
-.dot{width:12px;height:12px;border-radius:50%;border:2px solid #F0C14A;background:rgba(44,41,38,.5)}
-.dot.on{background:#FF8A3D;box-shadow:0 0 8px #FF8A3D}
-.dot.done{background:#1F7A6C}
+#dots{display:flex;gap:6px;margin-left:auto}
+/* 진행 점 = 눌러 붙인 점토 구슬 */
+.dot{width:13px;height:13px;border-radius:52% 48% 46% 54% / 48% 54% 46% 52%;border:0;
+  background:linear-gradient(178deg,var(--paper-hi),var(--paper-lo));
+  box-shadow:0 3px 5px var(--clay-cast-2),inset 0 -2px 3px rgba(120,86,62,.28)}
+.dot.on{background:linear-gradient(178deg,var(--terra-hi),var(--terra));
+  box-shadow:0 4px 7px var(--clay-cast),inset 0 -2px 4px rgba(120,50,26,.38);transform:scale(1.15)}
+.dot.done{background:linear-gradient(178deg,var(--teal-hi),var(--teal-lo));
+  box-shadow:0 3px 5px var(--clay-cast-2),inset 0 -2px 3px rgba(14,50,42,.36)}
 
 #say{position:fixed;left:0;right:0;z-index:3;pointer-events:none;padding:0 12px;display:flex;justify-content:center}
-#say .say-card{width:100%;max-width:640px;background:#F4EEE4;color:#2C2926;
-  border:2.5px solid #2C2926;border-radius:16px;padding:10px 14px 11px;text-align:center;
-  font-weight:900;font-size:15px;line-height:1.4;word-break:keep-all;
-  box-shadow:0 3px 0 #1A1816,0 8px 18px rgba(20,16,12,.28);transform-origin:50% 0}
-#say .say-card.pop{animation:sayPop .3s cubic-bezier(.2,1.7,.4,1)}
-@keyframes sayPop{0%{transform:scale(.96);opacity:.55}100%{transform:scale(1);opacity:1}}
-#say b{color:#B84A12}
-#say .sub{display:block;font-size:12px;font-weight:800;color:#5c564e;margin-top:4px}
-#aimTag{display:none;margin-top:6px;font-size:13px;font-weight:900;color:#145C4E;
-  background:#C8EDE4;border:2px solid #1F7A6C;border-radius:999px;padding:4px 12px;
+/* 주문표 = 배경지에 놓인 크림 점토 판. 테두리선 없이 두께와 그림자로 읽힌다. */
+#say .say-card{width:100%;max-width:640px;color:var(--ink);
+  background:
+    radial-gradient(90% 120% at 78% 12%,rgba(255,247,232,.09),transparent 58%),
+    radial-gradient(55% 70% at 18% 82%,rgba(120,86,62,.10),transparent 62%),
+    linear-gradient(178deg,var(--cream) 0%,var(--cream-lo) 100%);
+  border:0;border-radius:var(--rc-a);padding:12px 16px 13px;text-align:center;
+  font-weight:900;font-size:15px;line-height:1.4;word-break:keep-all;letter-spacing:-.01em;
+  box-shadow:0 9px 16px var(--clay-cast),0 20px 30px var(--clay-cast-2),
+    inset 0 -6px 10px rgba(120,86,62,.18);
+  transform:rotate(-.35deg);transform-origin:50% 0}
+/* 스톱모션 — 부드럽게 커지지 않고 몇 컷으로 툭툭 선다 */
+#say .say-card.pop{animation:sayPop .28s steps(4,end)}
+@keyframes sayPop{0%{transform:rotate(-.35deg) scale(.9,1.08)}
+  50%{transform:rotate(-.35deg) scale(1.05,.95)}
+  100%{transform:rotate(-.35deg) scale(1)}}
+#say b{color:var(--terra-lo)}
+#say .sub{display:block;font-size:12px;font-weight:800;color:#7A6552;margin-top:5px}
+#aimTag{display:none;margin-top:7px;font-size:13px;font-weight:900;color:var(--cream);
+  background:linear-gradient(178deg,var(--teal-hi),var(--teal-lo));border:0;
+  border-radius:var(--rc-c);padding:5px 14px;transform:rotate(1deg);
+  box-shadow:0 5px 9px var(--clay-cast),inset 0 -4px 6px rgba(12,46,39,.32);
   line-height:1.3;max-width:100%;word-break:keep-all}
 #aimTag.on{display:inline-block}
-#aimTag.fit{background:#FFF3C8;border-color:#F0C14A;color:#5A3A10}
+#aimTag.fit{background:linear-gradient(178deg,var(--terra-hi),var(--terra));color:#3A1D10;
+  box-shadow:0 5px 9px var(--clay-cast),inset 0 -4px 6px rgba(120,50,26,.34)}
 
 #ctrl{position:fixed;left:var(--colX);width:var(--colW);bottom:0;z-index:4;
   padding:8px 10px calc(9px + var(--safeB));display:flex;flex-direction:column;gap:8px}
-.btn{pointer-events:auto;min-height:56px;border-radius:16px;cursor:pointer;font-family:inherit;
-  font-size:17px;font-weight:900;color:#2C2926;display:flex;align-items:center;justify-content:center;
-  gap:6px;background:linear-gradient(180deg,#FFE9A8,#F0C14A);border:2.5px solid #2C2926;
-  box-shadow:0 4px 0 #2C2926,inset 0 2px 0 rgba(255,255,255,.65);
-  transition:transform .1s ease,box-shadow .1s ease,filter .15s}
-.btn:active{transform:translateY(4px);box-shadow:0 0 0 #2C2926,inset 0 2px 0 rgba(255,255,255,.5)}
-.btn.hot{background:linear-gradient(180deg,#FFC48A,#FF8A3D);color:#3A2414}
-.btn.ok{background:linear-gradient(180deg,#B8E0D4,#1F7A6C);color:#F4EEE4;border-color:#0E4A40;box-shadow:0 4px 0 #0E4A40}
-.btn.no{background:linear-gradient(180deg,#F5B8A4,#C45A38);color:#FFF1EA;border-color:#6d2214;box-shadow:0 4px 0 #6d2214}
-.btn.pulse{animation:pls 1.35s ease-in-out infinite}
-@keyframes pls{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
-.btn.now{background:linear-gradient(180deg,#C8EDE4,#2A9A86);color:#fff;border-color:#0E4A40;
-  box-shadow:0 4px 0 #0E4A40,inset 0 2px 0 rgba(255,255,255,.35)}
-#fitBtn{min-height:60px;font-size:20px}
-#reasonRow{display:flex;flex-direction:column;gap:7px}
+/* 버튼 = 손으로 뭉친 점토 덩어리. 테두리선·광택 대신 두께 음영 + 깊은 그림자.
+   누르면 눌렸다 복원된다(squash & stretch) — 이 축의 유일한 피드백 문법이다. */
+.btn{pointer-events:auto;min-height:56px;border-radius:var(--rc-a);cursor:pointer;font-family:inherit;
+  font-size:17px;font-weight:900;color:var(--ink);display:flex;align-items:center;justify-content:center;
+  gap:6px;border:0;letter-spacing:-.015em;
+  background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.08),transparent 60%),
+    linear-gradient(178deg,var(--cream) 0%,var(--cream-lo) 100%);
+  box-shadow:0 9px 15px var(--clay-cast),0 19px 26px var(--clay-cast-2),
+    inset 0 -8px 12px rgba(120,86,62,.24);
+  transform-origin:50% 100%;
+  transition:transform .09s steps(2,end),box-shadow .09s steps(2,end),filter .15s}
+.btn:active{transform:translateY(4px) scale(1.045,.9);
+  box-shadow:0 2px 6px var(--clay-cast),inset 0 -4px 9px rgba(120,86,62,.3)}
+.btn.hot{background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.07),transparent 60%),
+    linear-gradient(178deg,var(--terra-hi) 0%,var(--terra) 100%);color:#3B1D0F;
+  box-shadow:0 9px 15px var(--clay-cast),0 19px 26px var(--clay-cast-2),
+    inset 0 -8px 12px rgba(112,45,22,.34)}
+.btn.ok{background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.07),transparent 60%),
+    linear-gradient(178deg,var(--teal-hi) 0%,var(--teal-lo) 100%);color:var(--cream);
+  box-shadow:0 9px 15px var(--clay-cast),0 19px 26px var(--clay-cast-2),
+    inset 0 -8px 12px rgba(12,46,39,.36)}
+.btn.no{background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.05),transparent 60%),
+    linear-gradient(178deg,#C0725C 0%,#8E3F27 100%);color:#FBEFE6;
+  box-shadow:0 9px 15px var(--clay-cast),0 19px 26px var(--clay-cast-2),
+    inset 0 -8px 12px rgba(72,26,13,.38)}
+/* 스톱모션 저더 — 연속 보간이 아니라 몇 컷으로 눌렸다 펴진다 */
+.btn.pulse{animation:pls 1.5s steps(1,end) infinite}
+@keyframes pls{
+  0%,64%{transform:scale(1)}
+  72%{transform:scale(.97,1.05)}
+  80%{transform:scale(1.05,.95)}
+  88%{transform:scale(1.01,.99)}
+  96%,100%{transform:scale(1)}}
+.btn.now{background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.07),transparent 60%),
+    linear-gradient(178deg,#7CC3B2 0%,#2A8574 100%);color:#FFFDF6;
+  box-shadow:0 10px 17px var(--clay-cast),0 20px 28px var(--clay-cast-2),
+    inset 0 -8px 12px rgba(12,46,39,.34)}
+#fitBtn{min-height:60px;font-size:20px;border-radius:var(--rc-b)}
+#reasonRow{display:flex;flex-direction:column;gap:9px}
 .rc{min-height:50px;font-size:13.5px;font-weight:800;text-align:left;justify-content:flex-start;
-  padding:8px 13px;line-height:1.3;word-break:keep-all}
-#puffHint{text-align:center;font-size:12px;font-weight:800;color:#F4EEE4;
-  text-shadow:0 2px 4px rgba(0,0,0,.7);pointer-events:none}
+  padding:9px 14px;line-height:1.3;word-break:keep-all;border-radius:var(--rc-c)}
+.rc:nth-child(odd){transform:rotate(-.5deg)}
+.rc:nth-child(even){transform:rotate(.5deg)}
+.rc:nth-child(odd):active{transform:rotate(-.5deg) translateY(4px) scale(1.03,.92)}
+.rc:nth-child(even):active{transform:rotate(.5deg) translateY(4px) scale(1.03,.92)}
+/* 조작 안내가 배경지와 명도가 비슷해 묻혔다 — 글자를 키우고 잉크 톤으로 내린다 */
+#puffHint{text-align:center;font-size:13.5px;font-weight:800;color:#4B3527;
+  text-shadow:0 1px 0 rgba(255,252,244,.85);pointer-events:none}
 
 #toast{position:fixed;left:0;right:0;z-index:7;display:flex;justify-content:center;pointer-events:none}
-#toast .t{background:rgba(44,41,38,.94);border:2.5px solid #F0C14A;border-radius:16px;padding:9px 15px;
-  font-size:14px;font-weight:900;color:#F4EEE4;max-width:88vw;text-align:center;line-height:1.35;
-  opacity:0;transform:translateY(10px) scale(.94);transition:opacity .22s,transform .22s cubic-bezier(.2,1.6,.4,1);
+#toast .t{background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.06),transparent 60%),
+    linear-gradient(178deg,var(--cream) 0%,var(--cream-lo) 100%);
+  border:0;border-radius:var(--rc-c);padding:11px 16px;
+  font-size:14px;font-weight:900;color:var(--ink);max-width:88vw;text-align:center;line-height:1.35;
+  box-shadow:0 8px 14px var(--clay-cast),0 17px 24px var(--clay-cast-2),
+    inset 0 -6px 10px rgba(120,86,62,.2);
+  opacity:0;transform:translateY(10px) scale(.9,1.1);
+  transition:opacity .2s steps(3,end),transform .2s steps(3,end);
   word-break:keep-all}
-#toast .t.on{opacity:1;transform:none}
-#toast .t.good{background:rgba(31,122,108,.96);border-color:#C8EDE4}
-#toast .t.bad{background:rgba(150,54,26,.96);border-color:#F3C3AE}
+#toast .t.on{opacity:1;transform:rotate(-.6deg)}
+#toast .t.good{background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.06),transparent 60%),
+    linear-gradient(178deg,var(--teal-hi),var(--teal-lo));color:#F3FBF8;
+  box-shadow:0 8px 14px var(--clay-cast),inset 0 -6px 10px rgba(12,46,39,.34)}
+#toast .t.bad{background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.05),transparent 60%),
+    linear-gradient(178deg,#C0725C,#8E3F27);color:#FCF0E9;
+  box-shadow:0 8px 14px var(--clay-cast),inset 0 -6px 10px rgba(72,26,13,.36)}
 
 .ov{position:fixed;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;
   justify-content:center;padding:calc(14px + var(--safeT)) 16px calc(14px + var(--safeB));overflow:hidden}
@@ -117,37 +220,29 @@ html,body{width:100%;height:100%;overflow:hidden;background:#6d7f90;color:var(--
 #title{
   --title-col:min(100vw,640px);
   position:fixed;inset:0;min-height:100svh;height:100dvh;padding:0;margin:0;
-  overflow:hidden;isolation:isolate;background:#5d7384;display:block}
+  overflow:hidden;isolation:isolate;background:var(--paper-lo);display:block}
 .title-stage{position:fixed;inset:0;min-height:100svh;height:100dvh;overflow:hidden}
 .title-art{--art-x:46%;--art-y:48%;--art-scale:1.02;
-  position:absolute;inset:0;z-index:0;overflow:hidden;background:#5d7384}
+  position:absolute;inset:0;z-index:0;overflow:hidden;background:var(--paper-lo)}
 .title-art__image{width:100%;height:100%;display:block;object-fit:cover;
   object-position:var(--art-x) var(--art-y);transform:scale(var(--art-scale));
-  filter:saturate(1.06) contrast(1.03);animation:art-breathe 20s ease-in-out infinite alternate}
+  filter:saturate(1.02) contrast(1.02);animation:art-breathe 20s ease-in-out infinite alternate}
 .title-art__fallback{position:absolute;inset:0;display:none;
-  background:linear-gradient(180deg,#9aafbd 0%,#6d7f90 46%,#3d2a1c 100%)}
+  background:linear-gradient(178deg,var(--paper-hi) 0%,var(--paper) 52%,var(--paper-lo) 100%)}
 .title-art__scrim,.title-art__vignette{position:absolute;inset:0;z-index:1;pointer-events:none}
+/* 스튜디오 조명 — 파랑 먹빛이 아니라 점토 갈색으로 눌러 로고·CTA 가독을 확보한다 */
 .title-art__scrim{background:
-  linear-gradient(180deg,rgba(24,28,34,.50) 0%,rgba(24,28,34,.16) 24%,rgba(24,28,34,.02) 46%,
-    rgba(24,28,34,.14) 67%,rgba(18,14,12,.78) 100%),
-  radial-gradient(ellipse 64% 27% at 50% 17%,rgba(24,28,34,.28),transparent 72%)}
+  linear-gradient(180deg,rgba(52,36,26,.52) 0%,rgba(52,36,26,.20) 25%,rgba(52,36,26,.02) 47%,
+    rgba(52,36,26,.16) 68%,rgba(40,26,18,.74) 100%),
+  radial-gradient(ellipse 64% 27% at 50% 17%,rgba(52,36,26,.28),transparent 72%)}
 .title-art__vignette{background:
-  linear-gradient(90deg,rgba(12,14,18,.40) 0%,transparent 13%,transparent 87%,rgba(12,14,18,.40) 100%),
-  radial-gradient(ellipse at center,transparent 53%,rgba(12,14,18,.46) 112%);mix-blend-mode:multiply}
+  linear-gradient(90deg,rgba(46,32,22,.34) 0%,transparent 14%,transparent 86%,rgba(46,32,22,.34) 100%),
+  radial-gradient(ellipse at center,transparent 54%,rgba(46,32,22,.42) 112%);mix-blend-mode:multiply}
 @keyframes art-breathe{
   from{transform:scale(var(--art-scale)) translate3d(0,0,0)}
   to{transform:scale(calc(var(--art-scale) + .035)) translate3d(0,-0.6%,0)}}
-.title-embers{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
-.title-embers i{position:absolute;bottom:-8%;width:6px;height:6px;border-radius:50%;
-  background:#FF8A3D;opacity:.7;filter:blur(.4px);
-  animation:ember-up 11s linear infinite}
-.title-embers i:nth-child(1){left:12%;animation-duration:12s;animation-delay:0s;width:5px;height:5px}
-.title-embers i:nth-child(2){left:28%;animation-duration:9s;animation-delay:2s;background:#F0C14A}
-.title-embers i:nth-child(3){left:63%;animation-duration:13s;animation-delay:1s;width:7px;height:7px}
-.title-embers i:nth-child(4){left:81%;animation-duration:10s;animation-delay:4s;background:#ffc48a}
-.title-embers i:nth-child(5){left:47%;animation-duration:14s;animation-delay:3s;width:4px;height:4px}
-@keyframes ember-up{0%{transform:translateY(0) scale(.7);opacity:0}12%{opacity:.75}
-  100%{transform:translateY(-110vh) scale(1.1);opacity:0}}
+/* 축 D 는 파티클 금지 — 불티 레이어를 폐기하고 세트 위 먼지 없는 스튜디오로 둔다 */
+.title-embers{display:none}
 
 .title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
   padding-inline:clamp(16px,5vw,32px);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
@@ -183,20 +278,25 @@ html,body{width:100%;height:100%;overflow:hidden;background:#6d7f90;color:var(--
   52%{opacity:1;transform:translateY(calc(var(--y) - .04em)) rotate(var(--r)) scale(calc(var(--s)*1.14)) scaleY(.92)}
   76%{transform:translateY(var(--y)) rotate(var(--r)) scale(calc(var(--s)*.96)) scaleY(1.05)}
   100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}}
-.game-subtitle{margin:15px 0 0;padding:5px 13px 6px;border:1px solid rgba(255,255,255,.34);border-radius:999px;
-  color:#fff8df;background:rgba(22,13,12,.46);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 5px 14px rgba(0,0,0,.24);
-  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+/* 부제 = 세트 위에 놓인 크림 점토 조각. 유리 패널(반투명+블러)은 축 D 문법이 아니다. */
+.game-subtitle{margin:16px 0 0;padding:6px 15px 7px;border:0;border-radius:var(--rc-c);
+  color:#3B2A1D;background:linear-gradient(178deg,var(--cream),var(--cream-lo));
+  box-shadow:0 6px 12px rgba(40,26,18,.34),inset 0 -4px 7px rgba(120,86,62,.22);
+  transform:rotate(-1deg);
   font:400 clamp(13px,3.9vw,17px)/1.25 "LogoBagelFatOne","Apple SD Gothic Neo","Malgun Gothic",sans-serif;letter-spacing:0;
-  text-shadow:0 2px 4px rgba(0,0,0,.72);animation:logo-subtitle-in 420ms 660ms ease-out both}
-@keyframes logo-subtitle-in{from{opacity:0;transform:translateY(-8px) scale(.92)}to{opacity:1;transform:none}}
+  text-shadow:0 1px 0 rgba(255,252,244,.55);animation:logo-subtitle-in 380ms 660ms steps(4,end) both}
+@keyframes logo-subtitle-in{from{opacity:0;transform:rotate(-1deg) translateY(-8px) scale(.9,1.1)}
+  to{opacity:1;transform:rotate(-1deg)}}
 .title-unit{margin:10px 0 0;font-size:11px;font-weight:700;line-height:1.25;color:rgba(255,246,228,.82);
   text-shadow:0 1px 3px rgba(20,12,8,.85);text-align:center}
 
 .title-cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));
   width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
-.title-meta{min-height:30px;padding:6px 12px;border:1px solid rgba(255,255,255,.24);border-radius:999px;
-  color:rgba(255,255,255,.92);background:rgba(5,10,20,.42);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
-  font-size:12px;font-weight:800;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.title-meta{min-height:30px;padding:7px 14px;border:0;border-radius:var(--rc-c);
+  color:#3B2A1D;background:linear-gradient(178deg,var(--cream),var(--cream-lo));
+  box-shadow:0 5px 10px rgba(40,26,18,.36),inset 0 -3px 6px rgba(120,86,62,.22);
+  transform:rotate(.8deg);
+  font-size:12px;font-weight:800;line-height:1;text-shadow:0 1px 0 rgba(255,252,244,.55)}
 .title-meta[hidden]{display:none}
 .title-start{--cta-top:#fff27a;--cta-mid:#ffc62f;--cta-bottom:#ff8b1f;--cta-border:#54220d;--cta-depth:#a93d13;--cta-ink:#3b1907;
   position:relative;width:min(100%,420px);min-height:68px;padding:0 28px;border:4px solid var(--cta-border);
@@ -231,56 +331,85 @@ html,body{width:100%;height:100%;overflow:hidden;background:#6d7f90;color:var(--
 .title-mute{position:absolute;z-index:4;top:max(10px,env(safe-area-inset-top));
   right:max(12px,calc((100vw - min(100vw,640px)) / 2 + 12px));
   width:44px;height:44px;display:grid;place-items:center;padding:0;
-  border:1px solid rgba(255,255,255,.18);border-radius:50%;color:#fff;background:rgba(0,0,0,.28);
-  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);font-size:21px;pointer-events:auto;cursor:pointer}
+  border:0;border-radius:52% 48% 46% 54% / 48% 54% 46% 52%;color:var(--cream);
+  background:linear-gradient(178deg,var(--teal),var(--teal-lo));
+  box-shadow:0 5px 10px rgba(40,26,18,.42),inset 0 -4px 7px rgba(12,46,39,.34);
+  font-size:21px;line-height:1;pointer-events:auto;cursor:pointer}
 
 #onb{position:fixed;inset:0;z-index:45}
 #onb.hide{display:none}
-#onbHole{position:absolute;border-radius:18px;border:3px solid #F0C14A;
-  box-shadow:0 0 0 9999px rgba(20,16,12,.76),0 0 0 6px rgba(240,193,74,.2) inset;
-  transition:top .22s ease,left .22s ease,width .22s ease,height .22s ease;
-  animation:onb-hole 1.6s ease-in-out infinite}
-@keyframes onb-hole{0%,100%{border-color:#F0C14A}50%{border-color:#FF8A3D}}
-#onbCard{position:absolute;left:50%;transform:translateX(-50%);width:min(calc(100vw - 32px),420px);
-  background:linear-gradient(#F4EEE4,#E4D8C4);border:2.5px solid #2C2926;border-radius:22px;
-  box-shadow:0 8px 0 #1A1816,0 18px 34px rgba(0,0,0,.45);padding:14px 15px 15px;text-align:left}
-#onbNum{display:inline-block;font-size:11px;font-weight:900;color:#3A2414;background:#F0C14A;
-  border-radius:8px;padding:3px 9px;letter-spacing:.5px}
-#onbTitle{margin:8px 0 5px;font-size:19px;font-weight:900;letter-spacing:-.3px;color:#2C2926}
-#onbBody{margin:0;font-size:13.5px;font-weight:700;line-height:1.5;color:#5c564e;word-break:keep-all}
-#onbDiff{display:none;margin-top:10px}
+#onbHole{position:absolute;border-radius:var(--rc-a);border:0;
+  box-shadow:0 0 0 9999px rgba(46,32,22,.72),0 0 0 5px var(--terra);
+  transition:top .22s steps(4,end),left .22s steps(4,end),width .22s steps(4,end),height .22s steps(4,end);
+  animation:onb-hole 1.6s steps(1,end) infinite}
+@keyframes onb-hole{0%,50%{box-shadow:0 0 0 9999px rgba(46,32,22,.72),0 0 0 5px var(--terra)}
+  50.01%,100%{box-shadow:0 0 0 9999px rgba(46,32,22,.72),0 0 0 7px var(--teal-hi)}}
+#onbCard{position:absolute;left:50%;transform:translateX(-50%) rotate(-.4deg);width:min(calc(100vw - 32px),420px);
+  background:
+    radial-gradient(90% 120% at 80% 8%,rgba(255,247,232,.10),transparent 58%),
+    linear-gradient(178deg,var(--cream),var(--cream-lo));
+  border:0;border-radius:var(--rc-a);
+  box-shadow:0 14px 24px var(--clay-cast),0 30px 46px rgba(58,40,29,.24),
+    inset 0 -8px 14px rgba(120,86,62,.2);padding:16px 17px 17px;text-align:left}
+#onbNum{display:inline-block;font-size:11px;font-weight:900;color:#3B1D0F;
+  background:linear-gradient(178deg,var(--terra-hi),var(--terra));
+  border-radius:var(--rc-c);padding:4px 11px;letter-spacing:.5px;transform:rotate(-1.5deg);
+  box-shadow:0 3px 6px var(--clay-cast-2),inset 0 -3px 5px rgba(112,45,22,.3)}
+#onbTitle{margin:10px 0 5px;font-size:19px;font-weight:900;letter-spacing:-.3px;color:var(--ink)}
+#onbBody{margin:0;font-size:13.5px;font-weight:700;line-height:1.5;color:#7A6552;word-break:keep-all}
+#onbDiff{display:none;margin-top:11px}
 #onbDiff.on{display:block}
-#onbDiff .lbl{font-size:11.5px;font-weight:800;color:#5c564e;margin-bottom:5px}
-#onbDiff .row2{display:flex;gap:7px}
-.dfb{flex:1;min-height:46px;border-radius:14px;cursor:pointer;font-family:inherit;font-size:13.5px;
-  font-weight:900;color:#2C2926;background:#F4EEE4;border:2.5px solid #2C2926;box-shadow:0 3px 0 #2C2926;
+#onbDiff .lbl{font-size:11.5px;font-weight:800;color:#7A6552;margin-bottom:6px}
+#onbDiff .row2{display:flex;gap:9px}
+.dfb{flex:1;min-height:46px;border-radius:var(--rc-c);cursor:pointer;font-family:inherit;font-size:13.5px;
+  font-weight:900;color:var(--ink);border:0;
+  background:linear-gradient(178deg,var(--paper-hi),var(--paper));
+  box-shadow:0 6px 10px var(--clay-cast-2),inset 0 -5px 8px rgba(120,86,62,.22);
+  transform-origin:50% 100%;transition:transform .09s steps(2,end);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
-.dfb small{font-size:10px;font-weight:800;color:#6a665f}
-.dfb.sel{background:linear-gradient(180deg,#FFC48A,#FF8A3D);color:#3A2414}
-.dfb.sel small{color:rgba(58,36,20,.88)}
-#onbNext{width:100%;min-height:52px;margin-top:10px;border:2.5px solid #3A1B08;border-radius:16px;
-  cursor:pointer;font-family:inherit;font-size:17px;font-weight:900;color:#331706;
-  background:linear-gradient(#FFE6CE,#EE8A45);box-shadow:0 5px 0 #8E3A0C,0 9px 16px rgba(0,0,0,.28)}
-#onbNext:active{transform:translateY(5px);box-shadow:0 0 0 #8E3A0C,0 3px 8px rgba(0,0,0,.3)}
+.dfb:active{transform:translateY(3px) scale(1.04,.91)}
+.dfb small{font-size:10px;font-weight:800;color:#8A7663}
+.dfb.sel{background:linear-gradient(178deg,var(--terra-hi),var(--terra));color:#3B1D0F;
+  box-shadow:0 6px 10px var(--clay-cast),inset 0 -5px 8px rgba(112,45,22,.32)}
+.dfb.sel small{color:rgba(59,29,15,.86)}
+#onbNext{width:100%;min-height:52px;margin-top:12px;border:0;border-radius:var(--rc-b);
+  cursor:pointer;font-family:inherit;font-size:17px;font-weight:900;color:#3B1D0F;
+  background:
+    radial-gradient(80% 110% at 24% 14%,rgba(255,247,232,.08),transparent 60%),
+    linear-gradient(178deg,var(--terra-hi),var(--terra));
+  box-shadow:0 9px 15px var(--clay-cast),0 19px 26px var(--clay-cast-2),
+    inset 0 -8px 12px rgba(112,45,22,.34);
+  transform-origin:50% 100%;transition:transform .09s steps(2,end),box-shadow .09s steps(2,end)}
+#onbNext:active{transform:translateY(4px) scale(1.035,.9);
+  box-shadow:0 2px 6px var(--clay-cast),inset 0 -4px 9px rgba(112,45,22,.36)}
 #onbTap{position:absolute;left:0;right:0;text-align:center;font-size:11.5px;font-weight:800;
-  color:rgba(255,255,255,.8);text-shadow:0 2px 5px rgba(0,0,0,.85)}
+  color:rgba(250,244,232,.86);text-shadow:0 2px 5px rgba(40,26,18,.8)}
 
-#over{background:radial-gradient(ellipse at 50% 38%,rgba(90,70,50,.7),rgba(22,18,16,.94) 72%);
+#over{background:radial-gradient(ellipse at 50% 38%,rgba(120,96,72,.62),rgba(46,32,22,.92) 74%);
   backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
-#over .card{width:100%;max-width:340px;background:linear-gradient(180deg,#F4EEE4,#E4D8C4);
-  border:3px solid #2C2926;border-radius:24px;padding:20px 16px 16px;
-  box-shadow:0 8px 0 #1A1816,0 18px 40px rgba(20,18,16,.55);display:flex;flex-direction:column;gap:11px}
-#over h2{font-size:26px;font-weight:900;color:#B84A12;letter-spacing:-.03em}
+#over .card{width:100%;max-width:340px;
+  background:
+    radial-gradient(90% 120% at 80% 8%,rgba(255,247,232,.10),transparent 58%),
+    linear-gradient(178deg,var(--cream),var(--cream-lo));
+  border:0;border-radius:var(--rc-a);padding:22px 18px 18px;transform:rotate(.4deg);
+  box-shadow:0 16px 26px var(--clay-cast),0 34px 52px rgba(58,40,29,.28),
+    inset 0 -9px 15px rgba(120,86,62,.2);display:flex;flex-direction:column;gap:11px}
+#over h2{font-size:26px;font-weight:900;color:var(--terra-lo);letter-spacing:-.03em}
 #stars{font-size:32px;letter-spacing:3px;min-height:40px;display:flex;justify-content:center;gap:3px}
 #stars i{font-style:normal;display:inline-block;transform:scale(0) rotate(-40deg);opacity:0}
-#stars i.pop{transform:none;opacity:1;transition:transform .45s cubic-bezier(.2,1.9,.4,1),opacity .25s}
+#stars i.pop{transform:none;opacity:1;transition:transform .4s steps(5,end),opacity .2s steps(3,end)}
 .stat{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;font-weight:800;
-  color:#5c564e;border-bottom:2px dotted rgba(44,41,38,.28);padding-bottom:5px}
-.stat b{font-size:22px;font-weight:900;color:#2C2926;font-variant-numeric:tabular-nums}
-#dex{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
-.dx{width:26px;height:26px;border-radius:50%;border:2.5px solid #2C2926;font-size:10.5px;font-weight:900;
-  display:flex;align-items:center;justify-content:center;color:#8E8A83;background:rgba(255,255,255,.35)}
-.dx.on{background:#FF8A3D;color:#fff}
+  color:#7A6552;border-bottom:0;padding-bottom:7px;
+  background:linear-gradient(to top,rgba(120,86,62,.16) 0 2px,transparent 2px)}
+.stat b{font-size:22px;font-weight:900;color:var(--ink);font-variant-numeric:tabular-nums}
+#dex{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}
+.dx{width:27px;height:27px;border-radius:54% 46% 50% 50% / 48% 52% 48% 52%;border:0;
+  font-size:10.5px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;color:#9C8B78;
+  background:linear-gradient(178deg,var(--paper-hi),var(--paper));
+  box-shadow:0 3px 5px var(--clay-cast-2),inset 0 -3px 4px rgba(120,86,62,.24)}
+.dx.on{background:linear-gradient(178deg,var(--terra-hi),var(--terra));color:#FFF3EA;
+  box-shadow:0 4px 7px var(--clay-cast),inset 0 -3px 5px rgba(112,45,22,.32)}
 
 @media (min-width:641px){
   .title-logo-zone{left:24px;right:24px}
@@ -293,20 +422,35 @@ html,body{width:100%;height:100%;overflow:hidden;background:#6d7f90;color:var(--
   .game-logo{font-size:clamp(42px,12.2vw,72px)}
 }
 @media (orientation:landscape),(min-aspect-ratio:1/1){
-  .title-art{--art-x:48%;--art-y:50%}
+  /* 세로 키아트를 가로에 cover 로 깔면 세로가 크게 잘린다 — 아래쪽(부는 사람 + 부푼
+     원판 + 가마)이 남도록 초점을 내리고 살짝 줌아웃한다. */
+  .title-art{--art-x:50%;--art-y:60%;--art-scale:1.0}
+  .title-art__image{object-fit:cover}
 }
 /* ── 와이드 2단 분할 (playfield-spec 원형 ②) ─ 좌 = 부풀리기 무대, 우 = 문제/주문 패널 ── */
 html.land #hud{left:var(--stageX);width:calc(var(--stageW) - var(--panelW) - 24px);
   padding-left:16px;padding-right:12px}
 html.land #say{left:calc(var(--stageX) + var(--stageW) - var(--panelW) - 12px);right:auto;
   width:var(--panelW);padding:0}
-html.land #say .say-card{max-width:none;font-size:15px;text-align:left}
-html.land #say .sub{font-size:12.5px}
+html.land #say .say-card{max-width:none;font-size:18.5px;text-align:left;padding:15px 19px 16px;line-height:1.45}
+html.land #say .sub{font-size:15px}
 html.land #ctrl{left:calc(var(--stageX) + var(--stageW) - var(--panelW) - 12px);
   width:var(--panelW);padding:8px 0 calc(14px + var(--safeB))}
-html.land #reasonRow{display:flex;flex-direction:column;gap:7px}
-html.land .rc{min-height:48px;font-size:13px}
+html.land #reasonRow{display:flex;flex-direction:column;gap:9px}
+html.land .rc{min-height:54px;font-size:15px;padding:10px 16px}
 html.land #over .card{max-width:380px}
+/* 와이드에서 HUD 를 모바일 크기 그대로 두면 「축소한 모바일 화면」으로 읽힌다.
+   판형이 커진 만큼 명패와 글자도 함께 키운다 (골격·배치는 그대로). */
+html.land .pill{font-size:15px;padding:8px 14px}
+html.land #scoreV{font-size:28px}
+html.land #contract{font-size:13.5px;padding:8px 15px}
+html.land #hearts{gap:7px}
+html.land .hp{width:23px;height:23px;flex-basis:23px}
+html.land .dot{width:15px;height:15px}
+html.land #aimTag{font-size:15px;padding:6px 16px}
+html.land #puffHint{font-size:15px}
+html.land #fitBtn{min-height:66px;font-size:22px}
+html.land #toast .t{font-size:16px;padding:12px 20px}
 
 @media (prefers-reduced-motion:reduce){
   .title-art__image,.title-embers i,.game-logo>span:not(.logo-gap),.game-subtitle,.title-start,#onbHole,.btn.pulse{
@@ -787,38 +931,149 @@ const easeOutBack = t => { const c=1.70158*MO+1; const u=t-1; return 1+(c+1)*u*u
 const easeOutCubic = t => 1-Math.pow(1-t,3);
 
 let vw=0, vh=0, DPR=1;
-const IMG = {};
-function knockoutLight(im){
-  try{
-    const k=document.createElement('canvas');
-    k.width=im.width; k.height=im.height;
-    const kc=k.getContext('2d');
-    kc.drawImage(im,0,0);
-    const d=kc.getImageData(0,0,k.width,k.height), a=d.data;
-    for(let i=0;i<a.length;i+=4){
-      const r=a[i],g=a[i+1],b=a[i+2];
-      const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
-      const lum=(r+g+b)/3, sat=mx-mn;
-      if(lum>=248 && sat<18){ a[i+3]=0; continue; }
-      if(lum>=234 && sat<24){ a[i+3]=Math.round(a[i+3]*(248-lum)/14); continue; }
-      if(lum>=208 && sat<30 && b>=g-8 && g>=r-10){
-        a[i+3]=Math.round(a[i+3]*Math.max(0,(228-lum)/20));
-      }
+
+/* ══════════════════════════════════════════════════════════════
+   축 D — 클레이·스톱모션 렌더 팔레트와 원시 도구
+   회화 배경(bg/hero/kiln/frame .png, 합계 3.4MB)은 폐기했다. 이 축의 배경은
+   「무지 배경지」라서 그림이 아니라 코드가 굽는 종이면이고, 소품은 전부
+   점토 덩어리로 직접 그린다. 로드 비용이 0이 되어 fps 여유도 함께 벌었다.
+   ══════════════════════════════════════════════════════════════ */
+const CLAY = {
+  paper:'#DFD8CA', paperHi:'#EDE7DA', paperLo:'#B5AC9C', paperDeep:'#9A9082',
+  terra:'#C9613C', terraLo:'#9B4526', terraHi:'#E2825A',
+  cream:'#F1E4CB', creamLo:'#D3BD99', creamDeep:'#B9A181',
+  teal:'#3F8B7C', tealLo:'#2A6055', tealHi:'#63AC9B',
+  ink:'#4B3527', inkLo:'#2F2019',
+  cast:'rgba(58,40,29,0.30)', cast2:'rgba(58,40,29,0.15)'
+};
+/* 점토 스프라이트 굽기 — QA 브라우저는 swiftshader 소프트웨어 렌더링이라
+   createRadialGradient + fill 을 프레임마다 수십 번 하면 30fps 를 못 넘긴다.
+   점토의 무광 면·지문·접지 그림자는 크기만 바뀌고 모양은 안 바뀌므로 한 번 구워
+   drawImage 로 늘려 쓴다. (지문 8개를 매 프레임 그렸을 때 24fps 까지 떨어졌다) */
+const SPR = {};
+function makeSpr(size, paint){
+  const c=document.createElement('canvas');
+  c.width=c.height=size;
+  paint(c.getContext('2d'), size);
+  return c;
+}
+function buildSprites(){
+  const D=512, h=D/2;
+  // 원판 본체 — 무광 크림 점토 + 눌린 지문
+  SPR.disc = makeSpr(D, (b)=>{
+    const g=b.createRadialGradient(h-D*0.17, h-D*0.18, D*0.03, h+D*0.05, h+D*0.08, D*0.61);
+    g.addColorStop(0,'#FAF1DF');
+    g.addColorStop(0.46, CLAY.cream);
+    g.addColorStop(0.82, CLAY.creamLo);
+    g.addColorStop(1, CLAY.creamDeep);
+    b.fillStyle=g; b.fillRect(0,0,D,D);
+    // 지문·눌린 자국 — 엄지로 눌러 편 자리는 아래가 밝고 위 테두리가 어둡다
+    for(const [rr,a,sz,dp] of PRINTS){
+      const px=h+Math.cos(a)*h*rr, py=h+Math.sin(a)*h*rr, pr=h*sz;
+      // 테두리에 어두운 고리를 두면 「비눗방울」로 읽힌다 — 가장자리는 그냥 사라지게 둔다
+      const pg=b.createRadialGradient(px, py+pr*0.30, 1, px, py, pr);
+      pg.addColorStop(0,'rgba(255,251,240,'+(dp*0.95)+')');
+      pg.addColorStop(0.42,'rgba(162,128,94,'+(dp*0.34)+')');
+      pg.addColorStop(1,'rgba(162,128,94,0)');
+      b.fillStyle=pg;
+      b.beginPath(); b.ellipse(px, py, pr, pr*0.74, a, 0, Math.PI*2); b.fill();
     }
-    kc.putImageData(d,0,0);
-    return k;
-  }catch(e){ return im; }
+    // 반죽을 접어 붙인 이음매 — 가운데를 가로지르면 「얼굴」로 읽혀서 위쪽으로 비켜 둔다
+    b.strokeStyle='rgba(150,118,86,0.13)'; b.lineWidth=D*0.011; b.lineCap='round';
+    b.beginPath(); b.moveTo(D*0.16, D*0.34); b.quadraticCurveTo(D*0.46, D*0.22, D*0.80, D*0.31); b.stroke();
+    b.strokeStyle='rgba(255,251,240,0.18)'; b.lineWidth=D*0.007;
+    b.beginPath(); b.moveTo(D*0.16, D*0.352); b.quadraticCurveTo(D*0.46, D*0.232, D*0.80, D*0.322); b.stroke();
+    // 점토 미세결 — 표면이 완전히 매끈하면 플라스틱으로 읽힌다. 굽는 비용은 1회뿐.
+    let sd=7717;
+    const rn=()=>{ sd=(sd*1664525+1013904223)&0x7fffffff; return sd/0x7fffffff; };
+    for(let i=0;i<3400;i++){
+      const x=rn()*D, y=rn()*D, v=rn();
+      b.fillStyle = v>0.5 ? 'rgba(255,250,236,0.16)' : 'rgba(146,114,82,0.11)';
+      b.fillRect(x, y, v>0.9?2:1, 1);
+    }
+  });
+  // 접지 그림자 — 배경지에 눌러 붙은 깊은 소프트 그림자
+  SPR.shadow = makeSpr(256, (b,s)=>{
+    const c=s/2;
+    const g=b.createRadialGradient(c, c, s*0.04, c, c, c);
+    g.addColorStop(0,'rgba(58,40,29,0.36)');
+    g.addColorStop(0.55,'rgba(58,40,29,0.14)');
+    g.addColorStop(1,'rgba(58,40,29,0)');
+    b.fillStyle=g; b.fillRect(0,0,s,s);
+  });
+  // 대롱 끝 손잡이 구슬 — 무광이라 반사 하이라이트가 아니라 완만한 램버트 면만 있다
+  SPR.knob = makeSpr(96, (b,s)=>{
+    const c=s/2;
+    const g=b.createRadialGradient(c-s*0.14, c-s*0.16, 1, c+s*0.06, c+s*0.08, c*1.15);
+    g.addColorStop(0, CLAY.teal); g.addColorStop(0.62, '#357768'); g.addColorStop(1, CLAY.tealLo);
+    b.fillStyle=g; b.beginPath(); b.arc(c,c,c*0.94,0,Math.PI*2); b.fill();
+    // 엄지로 눌러 붙인 자국
+    b.fillStyle='rgba(20,58,50,0.24)';
+    b.beginPath(); b.ellipse(c, c+s*0.03, c*0.34, c*0.26, 0.3, 0, Math.PI*2); b.fill();
+    b.fillStyle='rgba(190,225,216,0.14)';
+    b.beginPath(); b.ellipse(c-s*0.10, c-s*0.13, c*0.26, c*0.19, -0.5, 0, Math.PI*2); b.fill();
+  });
 }
-function loadImg(key, src, post){
-  const im=new Image();
-  im.onload=()=>{ IMG[key]=post?post(im):im; };
-  im.onerror=()=>{ IMG[key]=null; };
-  im.src=src;
+
+// 손으로 빚은 윤곽 — 고정 노이즈 테이블이라 매 프레임 흔들리지 않는다(스톱모션은
+// 윤곽이 "떨리는" 게 아니라 "비뚤어진 채 굳어" 있어야 한다). 컷이 바뀔 때만 위상이 돈다.
+const WOB = [0.06,-0.04,0.03,-0.07,0.05,-0.02,0.07,-0.05,0.02,-0.06,0.04,-0.03,0.06,-0.05,0.03,-0.04];
+// 점토 원판 위 지문 자국 — 반지름 비율(0~1), 각도, 크기, 깊이
+const PRINTS = [
+  [0.30,0.9,0.34,0.13],[0.55,2.4,0.26,0.11],[0.42,4.1,0.30,0.12],
+  [0.68,5.4,0.22,0.10],[0.20,3.3,0.28,0.10],[0.62,0.3,0.24,0.09],
+  [0.46,5.9,0.20,0.08],[0.74,2.9,0.18,0.08],
+  [0.36,1.9,0.23,0.09],[0.58,3.6,0.19,0.07],[0.24,5.1,0.21,0.07]
+];
+
+// 살짝 비뚤어진 원 — 세그먼트 28개면 눈에는 "손으로 만 링"으로 보이고 비용은 무시할 만하다.
+function clayCirclePath(cx, cy, r, amp, phase){
+  // 반지름이 커지면 28각형의 직선 변이 눈에 보여 「2D 도형」으로 읽힌다 — 크기에 맞춰 늘린다.
+  const N = Math.max(28, Math.min(72, Math.round(r/5)));
+  ctx.beginPath();
+  for(let i=0;i<=N;i++){
+    const t = i/N, a = t*Math.PI*2;
+    const w = WOB[(i+phase)%WOB.length] + WOB[(i*3+phase+5)%WOB.length]*0.5;
+    const rr = r*(1 + w*amp);
+    const x = cx+Math.cos(a)*rr, y = cy+Math.sin(a)*rr;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.closePath();
 }
-loadImg('bg','./assets/bg.png');
-loadImg('hero','./assets/hero.png', knockoutLight);
-loadImg('kiln','./assets/kiln.png', knockoutLight);
-loadImg('frame','./assets/frame.png', knockoutLight);
+// 점토 덩어리 사각 — 모서리가 뭉툭하고 변이 미세하게 휜다
+function clayBarPathOn(c, x, y, w, h, r){
+  const rr = Math.min(r, w/2, h/2);
+  c.beginPath();
+  c.moveTo(x+rr, y);
+  c.quadraticCurveTo(x+w*0.5, y-rr*0.22, x+w-rr, y);
+  c.quadraticCurveTo(x+w, y, x+w, y+rr);
+  c.quadraticCurveTo(x+w+rr*0.22, y+h*0.5, x+w, y+h-rr);
+  c.quadraticCurveTo(x+w, y+h, x+w-rr, y+h);
+  c.quadraticCurveTo(x+w*0.5, y+h+rr*0.22, x+rr, y+h);
+  c.quadraticCurveTo(x, y+h, x, y+h-rr);
+  c.quadraticCurveTo(x-rr*0.22, y+h*0.5, x, y+rr);
+  c.quadraticCurveTo(x, y, x+rr, y);
+  c.closePath();
+}
+function clayBarPath(x, y, w, h, r){ clayBarPathOn(ctx, x, y, w, h, r); }
+buildSprites();
+
+/* 점토 명패 — 균일 반경 알약 + 2px 테두리 + inset 광택(23/24작이 쓰던 문법) 대신
+   윤곽만으로 읽히는 덩어리. 그라디언트를 프레임마다 만들지 않도록 단색 2겹으로
+   두께를 낸다 (아래 어두운 판 + 위 밝은 판). */
+function clayPlate(x, y, w, h, face, shade){
+  const r=h*0.34;
+  // 그림자 두 겹으로 배경지에서 확실히 떠오르게 — 크림 명패가 연회색 배경에 묻히던 문제
+  ctx.fillStyle='rgba(58,40,29,0.16)';
+  clayBarPath(x-1, y+7, w+2, h, r); ctx.fill();
+  ctx.fillStyle='rgba(58,40,29,0.38)';
+  clayBarPath(x, y+3, w, h, r); ctx.fill();
+  // 몸통은 단색. 밝은 「윗면」을 얹으면 inset 광택처럼 읽히므로, 어두운 「아랫면」만 깐다.
+  ctx.fillStyle=face;
+  clayBarPath(x, y, w, h, r); ctx.fill();
+  ctx.fillStyle=shade;
+  clayBarPath(x+1, y+h*0.54, w-2, h*0.46, r*0.85); ctx.fill();
+}
 
 const LS = {
   best:'glass-puff-best', onb:'onboardingSeen:glass-puff',
@@ -854,10 +1109,15 @@ function sfxWhoosh(){ beep(420, 0.1, 'triangle', 0.05); beep(640, 0.16, 'sine', 
 function sfxSnap(){ sfxTing(); sfxWhoosh(); }
 
 function syncMuteUI(){
-  const icon = muted ? '🔇' : '🔊';
+  // 이모지(🔊)는 어느 폰트에서도 반들반들한 플라스틱으로 렌더된다 — 무광 점토 세트에
+  // 이질적이라 폐기하고, 음표 글리프 + CSS 사선(.muted::after)으로 바꿨다.
   const lab = muted ? '소리 켜기' : '소리 끄기';
-  $('muteBtn').textContent = icon; $('muteBtn').setAttribute('aria-label', lab);
-  $('titleMute').textContent = icon; $('titleMute').setAttribute('aria-label', lab);
+  for(const id of ['muteBtn','titleMute']){
+    const el = $(id);
+    el.textContent = '♪';
+    el.classList.toggle('muted', muted);
+    el.setAttribute('aria-label', lab);
+  }
 }
 function toggleMute(){
   muted = !muted;
@@ -876,6 +1136,8 @@ const S = {
   r100:80, targetR100:500, dispR100:80, puff:false, drag:false,
   snapT:-1, snapFrom:80, snapMode:'', timeScale:1, hitStop:0,
   shake:0, flash:0, flashCol:'rgba(255,180,60,0.28)',
+  // 축 D 피드백: 흔들림·파티클 대신 눌림(sag)과 점토 눌린 자국 링(pressT)만 쓴다
+  sag:0, pressT:0, pressR:0,
   sqx:1, sqy:1, praiseT:0, praise:'',
   inTol:false, stuckGhost:null, lastGhost:null, reasonDone:false,
   measuredR100:null, fitErrPct:null,
@@ -883,7 +1145,8 @@ const S = {
 };
 let P0=null;
 let nowMs=0, lastTs=0;
-const FX = { parts:[], trails:[], floats:[], embers:[] };
+// 파티클(parts)·불티(embers) 배열은 폐기했다 — 축 D 는 파티클 금지다.
+const FX = { trails:[], floats:[] };
 const COMBO_STEPS = [1,2,3,5];
 function comboMul(){ return COMBO_STEPS[Math.min(S.combo-1, COMBO_STEPS.length-1)] || 1; }
 function nextCombo(){
@@ -1084,8 +1347,8 @@ function renderHearts(){
   const h=$('hearts'); h.innerHTML='';
   for(let i=0;i<3;i++){
     const s=document.createElement('span');
+    // 이모지 대신 CSS 로 빚은 점토 구슬 — 이모지는 어느 축에서도 무광 점토가 못 된다
     s.className='hp'+(i>=S.lives?' off':'');
-    s.textContent='🔶';
     h.appendChild(s);
   }
 }
@@ -1103,15 +1366,10 @@ function toast(msg, kind){
   clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'), 1600);
 }
 
-function spawnBurst(x,y,n,col){
-  const N = Math.round(n*MO);
-  for(let i=0;i<N;i++){
-    const a=Math.random()*Math.PI*2, sp=40+Math.random()*180;
-    FX.parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-40, life:1, r:3+Math.random()*5, col});
-  }
-}
+// 파티클 대신 「점토를 눌러 붙인 자국」이 한 겹 퍼졌다 사라진다. 링 하나 = stroke 1회.
+function clayPress(r){ S.pressT = 1; S.pressR = r; }
 function floatText(txt, x, y, col){
-  FX.floats.push({txt,x,y,vy:-46, life:1, col:col||'#F0C14A'});
+  FX.floats.push({txt,x,y,vy:-42, life:1, col:col||CLAY.terraLo});
 }
 
 function applySuccess(opts){
@@ -1126,8 +1384,10 @@ function applySuccess(opts){
   S.snapMode = '';
   S.hitStop = RM?40:80;
   S.timeScale = 0.15;
-  S.flash = 1; S.flashCol = 'rgba(255,170,50,0.32)';
-  S.sqx=1.18; S.sqy=0.84;
+  S.flash = 1; S.flashCol = 'rgba(226,130,90,0.32)';
+  // 부풀림이 곧 squash & stretch — 성공은 크게 눌렸다 펴지는 한 번의 반죽 동작이다
+  S.sqx=1.24; S.sqy=0.79;
+  S.sag = 0;
   S.shake = 0; // 정답 경로에는 흔들림 금지
   const mul = comboMul();
   let add = 100*mul;
@@ -1138,10 +1398,11 @@ function applySuccess(opts){
   S.solved++;
   S.phase='reason';
   const L=layoutPlay();
-  spawnBurst(L.cx, L.cy, 14+mul*8, '#FF8A3D');
-  spawnBurst(L.cx, L.cy, 8+mul*4, '#F0C14A');
+  clayPress(rPxOf(S.r100));
   const exact = (S.fitErrPct||0) < 0.5;
-  floatText(exact?'완벽한 스냅!':'+'+add, L.cx, L.cy-rPxOf(S.r100)-12, '#FFF6E0');
+  // 축하 명패와 같은 말을 두 번 띄우면 화면만 어지럽다 — 명패가 「딱 맞았어!」를 맡고
+  // 부유 텍스트는 점수만 알린다. 원판 안쪽에서 떠오르게 해 상단 배지와 안 겹친다.
+  floatText('+'+add, L.cx, L.cy+rPxOf(S.r100)*0.34, CLAY.terraLo);
   S.praiseT=2.0; S.praise=exact?'딱 맞았어!':'들어갔어요!';
   sfxSnap();
   punchScore();
@@ -1161,9 +1422,11 @@ function applyMiss(opts){
   if(S.phase==='reason'){ commitReason(false); return; }
   S.tries++; S.misses++; S.combo=1;
   S.lives = Math.max(0, S.lives-1);
-  S.shake = S.hard? 10: 6;
-  S.flash = 1; S.flashCol='rgba(180,50,30,0.28)';
-  S.sqx=0.86; S.sqy=1.16;
+  // 축 D 실패 = 「점토가 주저앉는다」. 화면 흔들림(shake)은 폐기하고 반죽이 퍼진다.
+  S.shake = 0;
+  S.sag = S.hard ? 1 : 0.8;
+  S.flash = 1; S.flashCol='rgba(142,63,39,0.26)';
+  S.sqx=1.2; S.sqy=0.74;
   sfxCrack();
   renderHearts(); updateComboHUD();
   const ghost = nearestGhost();
@@ -1173,8 +1436,6 @@ function applyMiss(opts){
     : (S.r100<S.targetR100 ? '조금 더 불어 봐. 안쪽이 부족해.' : '너무 컸어. 바깥으로 넘쳤어.');
   toast(msg, 'bad');
   setSay(P0.say, msg);
-  const L=layoutPlay();
-  spawnBurst(L.cx, L.cy, 8, '#C45A38');
 
   if(S.hard && S.lives<=0){ endRun(false); return; }
   if(!S.hard && S.lives<=0) S.lives=1; // 기본: 게임오버 없음, 목숨은 1로 유지
@@ -1239,8 +1500,8 @@ function commitReason(ok, idx, btn){
   toast('설명 별!', 'good');
   sfxTing();
   const L=layoutPlay();
-  spawnBurst(L.cx, L.cy-20, 10, '#F0C14A');
-  floatText('설명 ★', L.cx, L.cy-40, '#F0C14A');
+  S.sqx=1.10; S.sqy=0.90;
+  floatText('설명 ★', L.cx, L.cy-40, CLAY.tealLo);
   setTimeout(()=>{
     row.classList.add('hidden');
     nextRound();
@@ -1459,25 +1720,25 @@ function update(dt){
   }
   if(S.phase==='playing') updateFitBtn();
 
-  S.sqx += (1-S.sqx)*Math.min(1, dt*8);
-  S.sqy += (1-S.sqy)*Math.min(1, dt*8);
+  // 점토는 고무처럼 튀지 않는다 — 눌린 뒤 천천히, 그러나 확실히 제 모양으로 돌아온다.
+  const back = S.sag>0 ? 4.2 : 7;
+  S.sqx += (1-S.sqx)*Math.min(1, dt*back);
+  S.sqy += (1-S.sqy)*Math.min(1, dt*back);
   if(puffing){
-    const w=Math.sin(nowMs*0.014)*0.07*MO;
-    S.sqx=1+w; S.sqy=1-w;
+    // 숨을 불어넣는 동안 반죽이 눌렸다 늘어난다 — 스텝 클럭에 물려 저더가 남는다
+    const w=Math.sin(nowMs*0.011)*0.085*MO;
+    S.sqx=1+w; S.sqy=1-w*1.15;
   }
-  S.shake *= Math.pow(0.88, dt*60);
+  S.sag *= Math.pow(0.965, dt*60);
+  if(S.sag<0.01) S.sag=0;
   S.flash *= Math.pow(0.9, dt*60);
+  S.pressT = Math.max(0, S.pressT - dt*1.7);
   S.praiseT = Math.max(0, S.praiseT-dt);
 
   S.scoreShow += (S.score-S.scoreShow)*Math.min(1, dt*10);
   const shown=Math.round(S.scoreShow);
   if(String(shown)!==$('scoreV').textContent) $('scoreV').textContent=shown;
 
-  for(let i=FX.parts.length-1;i>=0;i--){
-    const p=FX.parts[i];
-    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=220*dt; p.life-=dt*1.6;
-    if(p.life<=0) FX.parts.splice(i,1);
-  }
   for(let i=FX.trails.length-1;i>=0;i--){
     FX.trails[i].life-=dt*1.8;
     if(FX.trails[i].life<=0) FX.trails.splice(i,1);
@@ -1486,61 +1747,109 @@ function update(dt){
     const f=FX.floats[i]; f.y+=f.vy*dt; f.life-=dt*0.9;
     if(f.life<=0) FX.floats.splice(i,1);
   }
-  if(FX.embers.length<12){
-    FX.embers.push({
-      x:Math.random()*vw, y:vh+10+Math.random()*40,
-      vy:-(20+Math.random()*40), vx:(Math.random()-.5)*12,
-      r:1.5+Math.random()*2.5, life:1, a:Math.random()
-    });
-  }
-  for(let i=FX.embers.length-1;i>=0;i--){
-    const e=FX.embers[i];
-    e.y+=e.vy*dt; e.x+=e.vx*dt; e.life-=dt*0.12;
-    if(e.life<=0||e.y<-20) FX.embers.splice(i,1);
-  }
 }
 
+/* ── 무지 배경지 · 오프스크린 베이킹 ─────────────────────────────
+   축 D 의 배경은 그림이 아니라 「이음매 없는 배경지(seamless paper)에 스튜디오
+   조명 하나」다. 종이결·기울기·바닥 그림자·거터·패널 등판이 전부 리사이즈 때만
+   바뀌므로 한 장에 구워 두고 프레임마다 drawImage 1회로 끝낸다.
+   (이 게임은 fps 여유가 27~32 뿐이라 정적 레이어 베이킹이 필수다.) */
+let BAKE = null, bakeKey = '';
+function bakeBackdrop(){
+  const key = vw+'x'+vh+'@'+DPR+'/'+(S.land?1:0)+'/'+S.stageX+'/'+S.stageW+'/'+S.panelW;
+  if(BAKE && bakeKey===key) return BAKE;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(vw*DPR));
+  c.height = Math.max(1, Math.round(vh*DPR));
+  const b = c.getContext('2d');
+  b.setTransform(DPR,0,0,DPR,0,0);
+
+  // 1) 배경지 — 뒤로 말려 올라가는 무한 배경지(cyclorama). 위가 밝고 아래로 갈수록
+  //    빛이 죽는다. 수평선이 없으니 바닥과 벽이 이어져 보인다.
+  const g = b.createLinearGradient(0,0,0,vh);
+  g.addColorStop(0, CLAY.paperHi);
+  g.addColorStop(0.42, CLAY.paper);
+  g.addColorStop(0.78, CLAY.paperLo);
+  g.addColorStop(1, CLAY.paperDeep);
+  b.fillStyle=g; b.fillRect(0,0,vw,vh);
+
+  // 2) 키 라이트 — 왼쪽 위에서 들어오는 소프트박스 한 등
+  const kl = b.createRadialGradient(vw*0.30, vh*0.10, 10, vw*0.36, vh*0.30, Math.max(vw,vh)*0.92);
+  kl.addColorStop(0,'rgba(255,250,238,0.42)');
+  kl.addColorStop(1,'rgba(255,250,238,0)');
+  b.fillStyle=kl; b.fillRect(0,0,vw,vh);
+
+  // 3) 배경지가 바닥으로 꺾이는 곡면 — 아주 완만한 어두운 띠
+  const sweep = b.createLinearGradient(0, vh*0.52, 0, vh*0.90);
+  sweep.addColorStop(0,'rgba(120,104,86,0)');
+  sweep.addColorStop(1,'rgba(96,80,62,0.20)');
+  b.fillStyle=sweep;
+  b.beginPath();
+  b.moveTo(0, vh*0.62);
+  b.quadraticCurveTo(vw*0.5, vh*0.50, vw, vh*0.62);
+  b.lineTo(vw, vh); b.lineTo(0, vh); b.closePath(); b.fill();
+
+  // 4) 종이결 — 점이 「튀면」 파티클로 읽힌다. 아주 옅게 깔아 결로만 남긴다.
+  const n = Math.min(6000, Math.round(vw*vh/200));
+  let seed = 20260829;
+  const rnd = ()=>{ seed=(seed*1664525+1013904223)&0x7fffffff; return seed/0x7fffffff; };
+  for(let i=0;i<n;i++){
+    const x=rnd()*vw, y=rnd()*vh, v=rnd();
+    b.fillStyle = v>0.5 ? 'rgba(255,252,246,0.07)' : 'rgba(118,102,84,0.045)';
+    b.fillRect(x, y, 1, 1);
+  }
+
+  // 5) 무대 바닥 그림자 웅덩이 — 「깊은 스튜디오 그림자」가 이 축의 서명이다
+  const L = layoutPlayCalc();
+  const sh = b.createRadialGradient(L.cx, L.cy + L.stage*0.30, L.stage*0.04,
+                                    L.cx, L.cy + L.stage*0.30, L.stage*0.62);
+  sh.addColorStop(0,'rgba(58,40,29,0.16)');
+  sh.addColorStop(0.5,'rgba(58,40,29,0.08)');
+  sh.addColorStop(1,'rgba(58,40,29,0)');
+  b.fillStyle=sh;
+  b.beginPath();
+  b.ellipse(L.cx, L.cy + L.stage*0.30, L.stage*0.72, L.stage*0.22, 0, 0, Math.PI*2);
+  b.fill();
+
+  // 6) 초와이드 거터 — 무대 밖은 조명이 닿지 않는 어두운 배경지다
+  if(S.land && S.stageW < vw-2){
+    b.fillStyle='rgba(70,54,40,0.22)';
+    b.fillRect(0,0,S.stageX,vh);
+    b.fillRect(S.stageX+S.stageW,0,vw-S.stageX-S.stageW,vh);
+  }
+
+  // 7) 우측 패널 등판 — DOM 카드가 놓이는 「배경지 위에 세워 둔 점토 판」.
+  //    테두리선 없이 깊은 소프트 그림자와 면 톤만으로 세운다.
+  if(S.land){
+    const px = S.stageX + S.stageW - S.panelW - 20;
+    const pw = S.panelW + 16;
+    b.save();
+    if(typeof b.filter === 'string'){ b.filter='blur(14px)'; }
+    b.fillStyle='rgba(58,40,29,0.30)';
+    clayBarPathOn(b, px+3, 16, pw, vh-24, 30); b.fill();
+    b.filter='none';
+    b.fillStyle='rgba(232,225,212,0.72)';
+    clayBarPathOn(b, px, 10, pw, vh-24, 28); b.fill();
+    b.fillStyle='rgba(120,100,80,0.10)';
+    clayBarPathOn(b, px, vh-24-(vh-24)*0.16, pw, (vh-24)*0.16+10, 28); b.fill();
+    b.restore();
+  }
+
+  BAKE = c; bakeKey = key;
+  return c;
+}
 function drawBg(){
-  if(IMG.bg){
-    const im=IMG.bg, ir=im.width/im.height, sr=vw/vh;
-    let dw, dh, dx, dy;
-    if(sr>ir){ dw=vw; dh=vw/ir; dx=0; dy=(vh-dh)/2; }
-    else { dh=vh; dw=vh*ir; dy=0; dx=(vw-dw)/2; }
-    ctx.drawImage(im, dx, dy, dw, dh);
-    ctx.fillStyle='rgba(210,220,230,0.18)';
-    ctx.fillRect(0,0,vw,vh);
-  }else{
-    const g=ctx.createLinearGradient(0,0,0,vh);
-    g.addColorStop(0,'#9aafbd'); g.addColorStop(.55,'#7b8c9a'); g.addColorStop(1,'#4a3a2c');
-    ctx.fillStyle=g; ctx.fillRect(0,0,vw,vh);
-  }
+  const c = bakeBackdrop();
+  ctx.drawImage(c, 0, 0, vw, vh);
 }
 
-function drawGutter(){
-  // 초와이드 잔여 폭 — 배경 톤을 눌러 무대 밖임을 표시 (playfield-spec 2.3)
-  if(!S.land || S.stageW >= vw-2) return;
-  ctx.fillStyle='rgba(18,14,10,0.34)';
-  ctx.fillRect(0,0,S.stageX,vh);
-  ctx.fillRect(S.stageX+S.stageW,0,vw-S.stageX-S.stageW,vh);
-}
-function drawPanelPlate(){
-  // 우측 문제/주문 패널 등판 — DOM 카드(#say/#ctrl) 뒤에 깔린다
-  if(!S.land) return;
-  const px = S.stageX + S.stageW - S.panelW - 20;
-  const pw = S.panelW + 16;
-  ctx.save();
-  ctx.fillStyle='rgba(30,26,22,0.32)';
-  roundRect(px, 8, pw, vh-16, 18); ctx.fill();
-  ctx.strokeStyle='rgba(240,193,74,0.26)';
-  ctx.lineWidth=2;
-  roundRect(px, 8, pw, vh-16, 18); ctx.stroke();
-  ctx.restore();
-}
-
+/* ── 점토 가마 ────────────────────────────────────────────────
+   테라코타 덩어리 + 어두운 아궁이 + 주황 점토 불꽃. 불꽃은 「연속으로 일렁이지」
+   않고 3컷 사이를 8fps 로 툭툭 갈아 끼운다 — 스톱모션 불꽃의 문법이다. */
 function drawKiln(L){
   let kw = Math.min(Math.max(L.stage*0.18, 72), 120);
   let x = L.left + 8;
-  // 하단 배지의 둥근 왼쪽 테두리를 화로가 물던 문제 — 겹치면 왼쪽으로 밀고, 그래도 남으면 줄인다.
+  // 하단 배지와 화로가 겹치던 문제 — 겹치면 왼쪽으로 밀고, 그래도 남으면 줄인다.
   if(S.phase!=='title'){
     const B = metricBadgeGeom(L);
     const bl = B.cx - B.bot.w/2 - 8;
@@ -1553,82 +1862,145 @@ function drawKiln(L){
   }
   const kh = kw*1.12;
   const y = L.bot - kh - 18;
-  ctx.save();
-  const flick = 0.92+0.08*Math.sin(nowMs*0.008);
-  ctx.globalAlpha=0.95;
-  if(IMG.kiln){
-    ctx.drawImage(IMG.kiln, x, y, kw, kh);
-  }else{
-    ctx.fillStyle='#8a4a32';
-    ctx.beginPath(); ctx.ellipse(x+kw/2, y+kh*0.62, kw*0.38, kh*0.38, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle='#ffb14a';
-    ctx.beginPath(); ctx.arc(x+kw/2, y+kh*0.58, kw*0.14*flick, 0, Math.PI*2); ctx.fill();
+  const cx = x+kw/2;
+  // 가마 몸통은 레이아웃이 바뀔 때만 모양이 변한다 — 크기 단위로 구워 둔다
+  const kkey = Math.round(kw);
+  if(!SPR.kiln || SPR.kilnW !== kkey){
+    SPR.kilnW = kkey;
+    SPR.kiln = makeSpr(Math.max(8, Math.round(kkey*1.3)), (b,s)=>{
+      const w=kkey, h2=kkey*1.12, ox=(s-w)/2, oy=s-h2-2, c2=ox+w/2;
+      b.fillStyle='rgba(58,40,29,0.26)';
+      b.beginPath(); b.ellipse(c2, oy+h2-4, w*0.52, h2*0.10, 0, 0, Math.PI*2); b.fill();
+      const body=b.createLinearGradient(ox, oy, ox, oy+h2);
+      body.addColorStop(0, CLAY.terraHi);
+      body.addColorStop(0.55, CLAY.terra);
+      body.addColorStop(1, CLAY.terraLo);
+      b.fillStyle=body;
+      b.beginPath();
+      b.moveTo(ox+w*0.06, oy+h2);
+      b.quadraticCurveTo(ox+w*0.02, oy+h2*0.42, ox+w*0.24, oy+h2*0.14);
+      b.quadraticCurveTo(ox+w*0.50, oy-h2*0.05, ox+w*0.77, oy+h2*0.15);
+      b.quadraticCurveTo(ox+w*0.99, oy+h2*0.44, ox+w*0.94, oy+h2);
+      b.closePath(); b.fill();
+      // 손자국 — 표면에 눌린 얕은 홈 두 개
+      b.fillStyle='rgba(120,50,26,0.20)';
+      b.beginPath(); b.ellipse(ox+w*0.24, oy+h2*0.36, w*0.11, h2*0.09, -0.5, 0, Math.PI*2); b.fill();
+      b.beginPath(); b.ellipse(ox+w*0.76, oy+h2*0.52, w*0.08, h2*0.07, 0.4, 0, Math.PI*2); b.fill();
+      // 아궁이 — 파낸 자리라 어둡다
+      const mw=w*0.46, mh=h2*0.40, mx=c2-mw/2, my=oy+h2*0.50;
+      b.fillStyle='#4A2718';
+      b.beginPath();
+      b.moveTo(mx, my+mh);
+      b.lineTo(mx, my+mh*0.42);
+      b.quadraticCurveTo(c2, my-mh*0.24, mx+mw, my+mh*0.42);
+      b.lineTo(mx+mw, my+mh);
+      b.closePath(); b.fill();
+    });
   }
-  ctx.restore();
+  const ss = SPR.kiln.width;
+  ctx.drawImage(SPR.kiln, cx-ss/2, y+kh+2-ss);
+
+  // 불꽃 — 8fps 로 3컷을 갈아 끼운다 (보간 없음). 단색 두 겹이면 충분하다.
+  const mw=kw*0.46, mh=kh*0.40, my=y+kh*0.50;
+  const cut = Math.floor(nowMs/125)%3;
+  const fw = mw*(0.46+cut*0.06), fh = mh*(0.62+((cut+1)%3)*0.07);
+  const fx = cx + (cut===1?1.5:cut===2?-1.5:0), fy = my+mh*0.92;
+  ctx.fillStyle='#D8622A';
+  ctx.beginPath();
+  ctx.moveTo(fx-fw/2, fy);
+  ctx.quadraticCurveTo(fx-fw*0.52, fy-fh*0.6, fx-fw*0.12, fy-fh);
+  ctx.quadraticCurveTo(fx+fw*0.20, fy-fh*0.52, fx+fw*0.52, fy-fh*0.72);
+  ctx.quadraticCurveTo(fx+fw*0.56, fy-fh*0.22, fx+fw/2, fy);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#F2A03C';
+  ctx.beginPath();
+  ctx.moveTo(fx-fw*0.26, fy);
+  ctx.quadraticCurveTo(fx-fw*0.28, fy-fh*0.42, fx-fw*0.04, fy-fh*0.66);
+  ctx.quadraticCurveTo(fx+fw*0.16, fy-fh*0.34, fx+fw*0.26, fy);
+  ctx.closePath(); ctx.fill();
 }
 
+/* ── 점토 후프 (목표 = 둘레) ───────────────────────────────────
+   손으로 만 청록 점토 링. 「윤곽이 곧 형태」라 테두리선을 따로 두지 않고,
+   두께 있는 링 아래쪽에 어두운 면을 한 겹 겹쳐 무광 두께를 만든다. */
 function drawHoop(cx,cy, rp){
+  const w = Math.max(9, rp*0.115);
   ctx.save();
-  ctx.strokeStyle= S.inTol ? '#F0C14A' : '#1F7A6C';
-  ctx.lineWidth=Math.max(8, rp*0.08);
-  ctx.beginPath(); ctx.arc(cx,cy,rp,0,Math.PI*2); ctx.stroke();
-  ctx.strokeStyle='#C4A46A';
-  ctx.lineWidth=2.5;
-  ctx.beginPath(); ctx.arc(cx,cy,rp,0,Math.PI*2); ctx.stroke();
-  // rivets
-  for(let i=0;i<4;i++){
-    const a=i*Math.PI/2;
-    ctx.fillStyle='#F0C14A';
-    ctx.beginPath(); ctx.arc(cx+Math.cos(a)*rp, cy+Math.sin(a)*rp, 5, 0, Math.PI*2); ctx.fill();
-  }
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  // 링이 배경지에 드리우는 그림자
+  ctx.strokeStyle='rgba(58,40,29,0.22)'; ctx.lineWidth=w;
+  clayCirclePath(cx, cy+w*0.55, rp, 0.035, 2); ctx.stroke();
+  // 아랫면(그늘)
+  ctx.strokeStyle = S.inTol ? '#8E4B22' : CLAY.tealLo;
+  ctx.lineWidth=w;
+  clayCirclePath(cx, cy+w*0.20, rp, 0.035, 2); ctx.stroke();
+  // 윗면(빛)
+  ctx.strokeStyle = S.inTol ? CLAY.terraHi : CLAY.teal;
+  ctx.lineWidth=w*0.78;
+  clayCirclePath(cx, cy-w*0.10, rp, 0.035, 2); ctx.stroke();
+  // 이음매 — 점토를 붙인 자리
+  const a0=-0.42;
+  ctx.strokeStyle='rgba(30,60,52,0.30)'; ctx.lineWidth=Math.max(1.5,w*0.16);
+  ctx.beginPath(); ctx.arc(cx,cy,rp,a0,a0+0.10); ctx.stroke();
   ctx.restore();
 }
+/* ── 점토 창틀 (목표 = 넓이) ───────────────────────────────────
+   진한 갈색 점토 막대 네 개를 눌러 붙인 네모. 살짝 기울어져 있다. */
 function drawSash(cx,cy, side){
+  const t = Math.max(11, side*0.075);
   ctx.save();
+  ctx.translate(cx,cy); ctx.rotate(-0.013); ctx.translate(-cx,-cy);
   const x=cx-side/2, y=cy-side/2;
-  ctx.strokeStyle='#8a5a28';
-  ctx.lineWidth=14;
-  ctx.strokeRect(x,y,side,side);
-  ctx.strokeStyle='#C4A46A';
-  ctx.lineWidth=3;
-  ctx.strokeRect(x-1,y-1,side+2,side+2);
+  const bars=[
+    [x-t*0.5, y-t*0.5, side+t, t],
+    [x-t*0.5, y+side-t*0.5, side+t, t],
+    [x-t*0.5, y+t*0.5, t, side-t],
+    [x+side-t*0.5, y+t*0.5, t, side-t]
+  ];
+  // 그림자
+  ctx.fillStyle='rgba(58,40,29,0.24)';
+  for(const [bx,by,bw,bh] of bars){ clayBarPath(bx, by+t*0.42, bw, bh, t*0.42); ctx.fill(); }
+  // 몸통 — 어두운 아랫면 위에 밝은 윗면을 얹어 무광 두께를 낸다(그라디언트 없이)
+  ctx.fillStyle='#4E3524';
+  for(const [bx,by,bw,bh] of bars){ clayBarPath(bx, by, bw, bh, t*0.42); ctx.fill(); }
+  ctx.fillStyle='#7A5540';
+  for(const [bx,by,bw,bh] of bars){ clayBarPath(bx+1, by, bw-2, bh*0.70, t*0.36); ctx.fill(); }
   ctx.restore();
 }
 
 function drawDisc(L){
   const rp = rPxOf(S.dispR100);
   const cx=L.cx, cy=L.cy;
-  const plate = Math.max(rp*2.15, rPxOf(S.targetR100)*2.2);
-  ctx.fillStyle='rgba(92,64,38,0.55)';
-  ctx.beginPath(); ctx.ellipse(cx, cy+8, plate*0.58, plate*0.16, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle='rgba(196,160,96,0.35)';
-  ctx.beginPath(); ctx.ellipse(cx, cy+2, plate*0.52, plate*0.12, 0, 0, Math.PI*2); ctx.fill();
-  ctx.save();
-  ctx.translate(cx,cy);
-  ctx.scale(S.sqx, S.sqy);
-  ctx.translate(-cx,-cy);
 
-  // trail
+  // 배경지에 드리운 깊은 스튜디오 그림자 — 원판이 커질수록, 주저앉을수록 넓게 퍼진다
+  const spread = 1 + S.sag*0.16;
+  const sw = rp*2.7*spread, sh2 = rp*0.86;
+  ctx.drawImage(SPR.shadow, cx-rp*0.10-sw/2, cy+rp*0.62-sh2/2, sw, sh2);
+
+  // 후프·창틀·고스트는 세트에 고정된 소품이라 눌리지 않는다. 눌리는 것은 반죽뿐이다.
+  ctx.save();
+
+  // 부풀린 자취 — 점토를 밀어낸 자리라 유리 잔광이 아니라 얕게 파인 테다
   for(const t of FX.trails){
-    ctx.strokeStyle='rgba(255,138,61,'+(0.22*t.life)+')';
+    ctx.strokeStyle='rgba(120,86,62,'+(0.16*t.life)+')';
     ctx.lineWidth=3;
     ctx.beginPath(); ctx.arc(cx,cy,rPxOf(t.r100),0,Math.PI*2); ctx.stroke();
   }
 
-  // ghosts
+  // 오개념 고스트 — 잘못 잘린 점토 자국(파선 대신 눌린 자국 톤)
   if(P0 && P0.ghosts && S.level>=2 && S.phase==='playing'){
     for(const g of P0.ghosts){
       const grp=rPxOf(g.r100);
       const near = Math.abs(S.r100-g.r100)<90;
-      ctx.setLineDash([6,6]);
-      ctx.strokeStyle = near ? 'rgba(196,90,56,0.85)' : 'rgba(90,80,70,0.35)';
+      ctx.setLineDash([7,7]);
+      ctx.strokeStyle = near ? 'rgba(155,69,38,0.85)' : 'rgba(96,80,62,0.38)';
       ctx.lineWidth = near?4:2;
       ctx.beginPath(); ctx.arc(cx,cy,grp,0,Math.PI*2); ctx.stroke();
       ctx.setLineDash([]);
     }
   }
 
-  // target hoop / sash
+  // 목표 후프 / 창틀
   if(P0){
     const trp = rPxOf(S.targetR100);
     if(P0.metric==='C') drawHoop(cx,cy,trp);
@@ -1636,60 +2008,82 @@ function drawDisc(L){
       const side = (P0.metric==='R' ? P0.d : (P0.metric==='A4'? 2*(P0.r*2): 2*P0.r)) * pxPerCm();
       drawSash(cx,cy, side);
       if(P0.metric==='R'){
-        ctx.fillStyle='rgba(180,70,40,0.22)';
-        ctx.fillRect(cx-side/2, cy-side/2, side, side);
-        ctx.save();
-        ctx.beginPath(); ctx.arc(cx,cy,rp,0,Math.PI*2);
-        ctx.rect(cx+side, cy-side, -2*side, 2*side);
+        // 원을 뺀 「남은 칸」 — 창틀 안에 채워 넣은 청록 점토
+        ctx.fillStyle='rgba(63,139,124,0.30)';
+        ctx.beginPath();
+        ctx.rect(cx-side/2, cy-side/2, side, side);
+        ctx.arc(cx,cy,rp,0,Math.PI*2);
         ctx.fill('evenodd');
-        ctx.restore();
       }
     }
   }
 
-  // glass disc
+  /* ── 점토 원판 본체 ─────────────────────────────────────────
+     완전 무광. 스펙큘러 하이라이트를 넣지 않고, 왼쪽 위에서 온 빛이 오른쪽
+     아래로 부드럽게 죽는 램버트 면만 만든다. 유리의 코스틱 애니메이션은 폐기.
+     squash & stretch 는 「바닥에 붙은 반죽」이라 아래쪽을 기준으로 눌린다 —
+     원 중심을 기준으로 줄이면 공중에 뜬 고무공이 되어 점토로 읽히지 않는다. */
+  const wob = 0.012;
   ctx.save();
-  ctx.beginPath(); ctx.arc(cx,cy,rp,0,Math.PI*2); ctx.clip();
-  if(IMG.hero){
-    ctx.drawImage(IMG.hero, cx-rp, cy-rp, rp*2, rp*2);
-  }else{
-    const gg=ctx.createRadialGradient(cx-rp*0.3,cy-rp*0.3, rp*0.1, cx,cy,rp);
-    gg.addColorStop(0,'#FFE7A0'); gg.addColorStop(.55,'#FFB14A'); gg.addColorStop(1,'#1F7A6C');
-    ctx.fillStyle=gg; ctx.fill();
-  }
-  // 1cm grid
+  ctx.translate(cx, cy+rp);
+  ctx.scale(S.sqx, S.sqy);
+  ctx.translate(-cx, -(cy+rp));
+  ctx.save();
+  clayCirclePath(cx, cy, rp, wob, 0);
+  ctx.clip();
+
+  // 무광 크림 면 + 지문 — 구워 둔 스프라이트 1장으로 끝낸다
+  ctx.drawImage(SPR.disc, cx-rp*1.02, cy-rp*1.02, rp*2.04, rp*2.04);
+
+  // 1 cm² 눈금 — 점토에 자로 눌러 낸 홈. 어두운 골 + 밝은 둔덕 2겹.
+  // 선마다 beginPath/stroke 하던 옛 코드(최대 60여 회)를 한 경로 2 스트로크로 접었다.
   const cell=pxPerCm();
-  ctx.strokeStyle='rgba(90,50,20,0.22)';
-  ctx.lineWidth=1;
   const n=Math.ceil(rp/cell)+1;
+  ctx.beginPath();
   for(let i=-n;i<=n;i++){
-    ctx.beginPath(); ctx.moveTo(cx+i*cell, cy-rp); ctx.lineTo(cx+i*cell, cy+rp); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-rp, cy+i*cell); ctx.lineTo(cx+rp, cy+i*cell); ctx.stroke();
+    ctx.moveTo(cx+i*cell, cy-rp); ctx.lineTo(cx+i*cell, cy+rp);
+    ctx.moveTo(cx-rp, cy+i*cell); ctx.lineTo(cx+rp, cy+i*cell);
   }
-  // caustic
-  const ca = (nowMs*0.0006)%1;
-  const cg=ctx.createRadialGradient(cx+Math.cos(ca*6)*rp*0.2, cy+Math.sin(ca*5)*rp*0.15, 2, cx,cy,rp);
-  cg.addColorStop(0,'rgba(255,255,220,0.28)'); cg.addColorStop(1,'rgba(255,200,80,0)');
-  ctx.fillStyle=cg; ctx.fillRect(cx-rp,cy-rp,rp*2,rp*2);
+  ctx.lineWidth=2; ctx.strokeStyle='rgba(128,100,72,0.20)'; ctx.stroke();
+  ctx.save(); ctx.translate(0,1.4);
+  ctx.lineWidth=1.3; ctx.strokeStyle='rgba(255,251,240,0.34)'; ctx.stroke();
+  ctx.restore();
   ctx.restore();
 
-  // rim
-  ctx.strokeStyle='#FF8A3D';
-  ctx.lineWidth=Math.max(4, rp*0.06);
-  ctx.beginPath(); ctx.arc(cx,cy,rp,0,Math.PI*2); ctx.stroke();
-  ctx.strokeStyle='rgba(31,122,108,0.7)';
-  ctx.lineWidth=2;
-  ctx.beginPath(); ctx.arc(cx,cy,Math.max(0.5, rp-2),0,Math.PI*2); ctx.stroke();
+  // 테두리 — 손으로 만 테라코타 굴렁쇠. 아래쪽 그늘 한 겹으로 두께를 만든다.
+  const rw = Math.max(6, rp*0.10);
+  ctx.lineJoin='round';
+  ctx.strokeStyle=CLAY.terraLo; ctx.lineWidth=rw;
+  clayCirclePath(cx, cy+rw*0.22, rp, wob, 0); ctx.stroke();
+  ctx.strokeStyle=CLAY.terra; ctx.lineWidth=rw*0.80;
+  clayCirclePath(cx, cy-rw*0.10, rp, wob, 0); ctx.stroke();
+  // 코일을 이어 붙인 자리 — 점토를 만 흔적이 한 곳에 남는다
+  ctx.lineCap='butt';
+  ctx.strokeStyle='rgba(120,50,26,0.34)'; ctx.lineWidth=rw*0.9;
+  ctx.beginPath(); ctx.arc(cx, cy, rp, -1.28, -1.16); ctx.stroke();
+  ctx.strokeStyle='rgba(240,176,144,0.24)'; ctx.lineWidth=rw*0.5;
+  ctx.beginPath(); ctx.arc(cx, cy, rp-rw*0.16, 1.85, 2.02); ctx.stroke();
+  ctx.lineCap='round';
 
-  // handle
-  ctx.fillStyle='#F0C14A';
-  ctx.strokeStyle='#2C2926';
-  ctx.lineWidth=2.5;
-  ctx.beginPath(); ctx.arc(cx+rp, cy, 18, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-  ctx.fillStyle='#2C2926';
-  ctx.beginPath(); ctx.arc(cx+rp, cy, 5, 0, Math.PI*2); ctx.fill();
+  // 손잡이 — 대롱 끝에 뭉친 점토 구슬 (검은 외곽선 없음)
+  const hr=18;
+  ctx.fillStyle='rgba(58,40,29,0.26)';
+  ctx.beginPath(); ctx.arc(cx+rp, cy+3.5, hr, 0, Math.PI*2); ctx.fill();
+  ctx.drawImage(SPR.knob, cx+rp-hr, cy-hr, hr*2, hr*2);
 
-  ctx.restore();
+  ctx.restore();   // squash 그룹
+  ctx.restore();   // 소품 그룹
+
+  // 눌린 자국 링 — 파티클을 대신하는 유일한 성공 연출
+  if(S.pressT>0){
+    const t=1-S.pressT;
+    ctx.save();
+    ctx.strokeStyle='rgba(155,69,38,'+(0.42*S.pressT)+')';
+    ctx.lineWidth=Math.max(3, rp*0.09*S.pressT);
+    clayCirclePath(cx, cy, S.pressR*(1+t*0.34), 0.03, 4);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // badges — 성공 후 둘레·넓이는 목표값(허용오차 반올림). 원판 크기는 실측 유지.
   // (축하 문구는 파티클보다 위에 그려야 하므로 render() 끝에서 그린다)
@@ -1698,23 +2092,31 @@ function drawDisc(L){
   drawBadge(B.cx, B.bot.y, B.bot.text, B.bot.fs, B.bot.hot);
 }
 
+/* 축하 문구 = 점토 명패에 눌러 찍은 글자.
+   먹선 외곽(strokeText 2겹)은 축 D 문법이 아니다 — 명패를 깔고 글자는 위쪽에
+   밝은 둔덕, 본체는 어두운 골로 「눌러 찍힌」 것처럼 보이게 한다. */
 function drawPraise(L){
   if(!(S.praiseT>0) || !S.praise) return;
-  const rp = rPxOf(S.dispR100);
-  const fs = Math.max(L.stage*0.045, 18);
   const size = Math.max(22, L.stage*0.055);
-  const y = Math.max(L.top + size*0.8, L.cy - rp - fs*2.6);
   ctx.save();
-  // 마지막 0.45초에만 사라진다 — 예전엔 등장 즉시 옅어져 읽을 수 없었다.
+  // 마지막 0.45초에만 사라진다 — 등장 즉시 옅어지면 읽을 수 없다.
   ctx.globalAlpha = clamp(S.praiseT/0.45, 0, 1);
   ctx.font = '900 '+size+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  ctx.lineJoin='round'; ctx.miterLimit=2;
-  ctx.strokeStyle='rgba(28,16,6,0.9)'; ctx.lineWidth=9;
-  ctx.strokeText(S.praise, L.cx, y);
-  ctx.strokeStyle='#8C3E12'; ctx.lineWidth=5;
-  ctx.strokeText(S.praise, L.cx, y);
-  ctx.fillStyle='#FFF6E0';
+  const w = ctx.measureText(S.praise).width + size*1.0;
+  const h = size*1.42;
+  // 명패가 생기면서 상단 수치 배지(둘레/칸)와 겹쳤다. 배지 위 공간은 좁아서
+  // 밀어 올려도 다시 물리므로, 축하 명패는 아예 원판 위쪽 면에 눌러 붙인다 —
+  // 점토 위에 점토 명패라 이 축에서는 오히려 자연스럽다.
+  const rp = rPxOf(S.dispR100);
+  let cyp = L.cy - Math.max(rp*0.45, h*0.9);
+  cyp = Math.max(cyp, L.top + h*0.60);
+  const py = cyp - h/2, y = cyp + size*0.34;
+  const px = L.cx-w/2;
+  clayPlate(px, py, w, h, CLAY.terra, CLAY.terraLo);
+  ctx.fillStyle='rgba(96,36,16,0.55)';
+  ctx.fillText(S.praise, L.cx, y+2.6);
+  ctx.fillStyle='#FFF4E6';
   ctx.fillText(S.praise, L.cx, y);
   ctx.restore();
 }
@@ -1785,113 +2187,135 @@ function metricBadgeGeom(L){
   };
 }
 
+/* 수치 배지 = 점토 명패. 테두리선 없음, 광택 없음, 깊은 소프트 그림자.
+   (기하 계산은 metricBadgeGeom 이 그대로 담당한다 — 8/29 겹침 수리 유지) */
 function drawBadge(x,y,text,fs,hot){
   ctx.save();
   ctx.font='900 '+fs+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
   const w=ctx.measureText(text).width+22;
   const h=fs*1.35;
-  ctx.fillStyle = hot ? 'rgba(44,41,38,0.92)' : 'rgba(244,238,228,0.94)';
-  ctx.strokeStyle = hot ? '#F0C14A' : '#2C2926';
-  ctx.lineWidth=2.5;
-  roundRect(x-w/2, y-h/2, w, h, 12);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle = hot ? '#F0C14A' : '#2C2926';
-  ctx.fillText(text, x, y+1);
+  const bx=x-w/2, by=y-h/2;
+  if(hot) clayPlate(bx, by, w, h, CLAY.terra, CLAY.terraLo);
+  else    clayPlate(bx, by, w, h, CLAY.cream, CLAY.creamLo);
+  // 눌러 찍은 글자. 테라코타 판 위의 짙은 갈색 글자는 대비가 모자라 읽기 어려웠다 —
+  // 강조 판은 크림 글자 + 아래로 파인 그늘로 뒤집는다.
+  if(hot){
+    ctx.fillStyle='rgba(96,36,16,0.55)';
+    ctx.fillText(text, x, y+2.4);
+    ctx.fillStyle='#FFF4E6';
+    ctx.fillText(text, x, y+1);
+  }else{
+    ctx.fillStyle='rgba(255,252,244,0.62)';
+    ctx.fillText(text, x, y-0.4);
+    ctx.fillStyle=CLAY.ink;
+    ctx.fillText(text, x, y+1);
+  }
   ctx.restore();
 }
-function roundRect(x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
-}
+// (구 roundRect — 균일 반경 알약 기하는 축 D 문법이 아니라 폐기. clayBarPath 로 대체)
 
+/* 레일 = 배경지에 눌러 낸 홈 + 목표 자리의 청록 점토 못 + 현재값 테라코타 구슬 */
 function drawRail(L){
   const G = railChipGeom(L);
   if(!G) return;
   const x0=G.x0, x1=G.x1, y=G.y, tx=G.tx, cx=G.dotX;
   ctx.save();
-  ctx.strokeStyle='rgba(44,41,38,0.55)';
-  ctx.lineWidth=8; ctx.lineCap='round';
+  ctx.lineCap='round';
+  // 파낸 홈 (어두운 골 + 아래 둔덕)
+  ctx.strokeStyle='rgba(100,82,64,0.34)'; ctx.lineWidth=9;
   ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke();
-  ctx.strokeStyle='#F0C14A'; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(tx, y-10); ctx.lineTo(tx, y+10); ctx.stroke();
-  ctx.fillStyle='#FF8A3D';
-  ctx.beginPath(); ctx.arc(cx,y,8,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle='#2C2926'; ctx.lineWidth=2; ctx.stroke();
+  ctx.strokeStyle='rgba(255,250,238,0.34)'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(x0,y+4.5); ctx.lineTo(x1,y+4.5); ctx.stroke();
+  // 목표 못
+  ctx.strokeStyle=CLAY.tealLo; ctx.lineWidth=6;
+  ctx.beginPath(); ctx.moveTo(tx, y-11); ctx.lineTo(tx, y+11); ctx.stroke();
+  ctx.strokeStyle=CLAY.tealHi; ctx.lineWidth=2.6;
+  ctx.beginPath(); ctx.moveTo(tx-0.8, y-10); ctx.lineTo(tx-0.8, y+9); ctx.stroke();
+  // 현재값 점토 구슬
+  ctx.fillStyle='rgba(58,40,29,0.28)';
+  ctx.beginPath(); ctx.arc(cx, y+3, 9, 0, Math.PI*2); ctx.fill();
+  const bg=ctx.createRadialGradient(cx-3.4, y-3.6, 1, cx, y, 9);
+  bg.addColorStop(0, CLAY.terraHi); bg.addColorStop(1, CLAY.terraLo);
+  ctx.fillStyle=bg;
+  ctx.beginPath(); ctx.arc(cx, y, 9, 0, Math.PI*2); ctx.fill();
+  // 목표 명패
   ctx.font=RAIL_FONT(G.fs);
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
   const label=G.label, tw=G.tw, th=G.th, lx=G.lx, ly=G.ly;
-  ctx.fillStyle='#F4EEE4';
-  ctx.strokeStyle='#2C2926';
-  ctx.lineWidth=2.6;
-  roundRect(lx-tw/2, ly-th/2, tw, th, 10);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle='#2C2926';
+  clayPlate(lx-tw/2, ly-th/2, tw, th, CLAY.cream, CLAY.creamLo);
+  ctx.fillStyle='rgba(255,252,244,0.7)';
+  ctx.fillText(label, lx, ly-0.5);
+  ctx.fillStyle=CLAY.ink;
   ctx.fillText(label, lx, ly+1);
   ctx.restore();
 }
 
 function render(){
   _lpRenderPass = true; _lpCache = null;
-  const sh = S.shake*(RM?0.3:1);
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.save();
-  if(sh>0.2) ctx.translate((Math.random()-.5)*sh, (Math.random()-.5)*sh);
+  // 화면 흔들림(shake)은 축 D 에서 폐기했다 — 세트는 삼각대 위에 고정돼 있고,
+  // 움직이는 것은 점토뿐이다. 실패는 S.sag 로 무대가 아니라 반죽이 주저앉는다.
   drawBg();
-  drawGutter();
-  if(S.phase!=='title') drawPanelPlate();
   const L=layoutPlay();
   drawKiln(L);
   if(S.phase!=='title') drawDisc(L);
   if(S.phase==='playing' || S.phase==='reason') drawRail(L);
 
-  for(const p of FX.parts){
-    ctx.globalAlpha=clamp(p.life,0,1);
-    ctx.fillStyle=p.col;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
-  }
-  ctx.globalAlpha=1;
   ctx.lineJoin='round'; ctx.miterLimit=2;
   for(const f of FX.floats){
     ctx.globalAlpha=clamp(f.life,0,1);
     ctx.font='900 '+Math.max(16,vw*0.045)+'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
     ctx.textAlign='center';
-    ctx.strokeStyle='rgba(28,16,6,0.85)'; ctx.lineWidth=4;
-    ctx.strokeText(f.txt, f.x, f.y);
+    // 눌러 찍은 글자 — 먹선 외곽 대신 밝은 둔덕 한 겹
+    ctx.fillStyle='rgba(255,250,238,0.72)';
+    ctx.fillText(f.txt, f.x, f.y-1.8);
     ctx.fillStyle=f.col;
     ctx.fillText(f.txt, f.x, f.y);
   }
   ctx.globalAlpha=1;
-  for(const e of FX.embers){
-    ctx.globalAlpha=0.35*e.life;
-    ctx.fillStyle='#FF8A3D';
-    ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill();
-  }
-  ctx.globalAlpha=1;
-  // 축하 문구는 최상위 — 파티클·부유 텍스트·배지 위에 얹는다.
+  // 축하 문구는 최상위 — 부유 텍스트·배지 위에 얹는다.
   if(S.phase!=='title') drawPraise(L);
   if(S.flash>0.02){
-    ctx.fillStyle=S.flashCol.replace(/[\d.]+\)$/, (0.32*S.flash)+')');
+    ctx.fillStyle=S.flashCol.replace(/[\d.]+\)$/, (0.26*S.flash)+')');
     ctx.fillRect(0,0,vw,vh);
   }
   ctx.restore();
   _lpRenderPass = false; _lpCache = null;
 }
 
+/* ── 스톱모션 스텝 클럭 ────────────────────────────────────────
+   Aardman 식 "on twos" — 시뮬레이션은 매 프레임 돌려 입력 지연을 없애되,
+   화면은 STEP_HZ 로만 갈아 끼운다. 연속 보간이 사라져 촬영된 인형극처럼 툭툭
+   선다. 부수 효과로 프레임당 그리기 비용이 1/4 로 떨어져 30fps 게이트에도
+   여유가 생긴다(측정은 rAF 콜백 수 기준이므로 스텝을 걸수록 유리하다). */
+const STEP_HZ = 12;
+const STEP_MS = 1000/STEP_HZ;
+let stepAcc = STEP_MS;
 function frame(ts){
   if(!lastTs) lastTs=ts;
   let dt=Math.min(0.05,(ts-lastTs)/1000);
-  lastTs=ts; nowMs=ts;
+  lastTs=ts;
   update(dt);
-  render();
+  stepAcc += dt*1000;
+  if(stepAcc >= STEP_MS){
+    stepAcc = stepAcc % STEP_MS;
+    // 컷 시각도 스텝에 맞춰 양자화한다 — 불꽃·눌림이 프레임 사이에서 미끄러지지 않는다
+    nowMs = Math.round(ts/STEP_MS)*STEP_MS;
+    render();
+  }
   requestAnimationFrame(frame);
 }
 
 function resize(){
   vw=innerWidth; vh=innerHeight;
-  DPR=Math.min(window.devicePixelRatio||1, 2);
+  // 무광 점토는 1px 헤어라인이 없어서 초고해상도가 필요 없다. 픽셀 예산을 걸어
+  // 소프트웨어 렌더링(QA swiftshader·저사양 폰)에서 프레임 시간을 확보한다.
+  const want = Math.min(window.devicePixelRatio||1, 2);
+  const budget = 900000;                     // 화면 전체를 매 컷 다시 칠하는 비용의 상한
+  const area = Math.max(1, vw*vh);
+  DPR = Math.max(1, Math.min(want, Math.sqrt(budget/area)));
   cv.width=Math.round(vw*DPR); cv.height=Math.round(vh*DPR);
   cv.style.width=vw+'px'; cv.style.height=vh+'px';
   ctx.setTransform(DPR,0,0,DPR,0,0);
