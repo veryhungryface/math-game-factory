@@ -948,7 +948,12 @@ var playW=1280, playX=0, playPad=40;
 var wave=null, briefing=0, fireCd=0, drones=0;
 var build={pierce:0, clone:0, magnet:0, rapid:0, bloom:0};
 var now=0, lastT=0, fpsEma=60, lowPerf=false;
-var pointer={id:null, x:0, y:0, dragging:null, downT:0, downX:0, downY:0};
+/* 멀티터치: pointerId 하나가 손잡이 하나를 잡는다. 두 손가락이 각각 다른 손잡이를
+   동시에 독립적으로 끌 수 있다. drags: pointerId -> {which,downT,downX,downY},
+   heldBy: 손잡이 -> 그것을 잡고 있는 pointerId(없으면 null). */
+var drags=Object.create(null);
+var heldBy={lo:null, hi:null};
+function isHeld(which){ return heldBy[which]!==null && heldBy[which]!==undefined; }
 var praiseT=0, ghostBound=null, ghostT=0, capturedMarks=[];
 var runStart=0, missTypes=Object.create(null);
 
@@ -1650,36 +1655,42 @@ function snapTurret(which){
 }
 
 /* ── 입력 ── */
-function hitTurret(x,y){
+/* skipHeld=true 면 이미 다른 손가락이 잡고 있는 손잡이는 후보에서 제외한다.
+   후보 우선순위는 단일 포인터 때와 동일하다(마우스 회귀 방지). */
+function hitTurret(x,y,skipHeld){
   var yl=Math.abs(y-lineY);
   if(yl>56) return null;
   var xl=vx(displayL), xr=vx(displayR);
   var dl=Math.abs(x-xl), dr=Math.abs(x-xr);
   /* 경계 자석은 손끝 흡착 반경도 넓힌다 (업그레이드 체감) */
   var near=44+Math.min(24, build.magnet*8), far=64+Math.min(24, build.magnet*8);
-  if(dl<near && dl<=dr) return 'lo';
-  if(dr<near) return 'hi';
-  if(dl<far) return 'lo';
-  if(dr<far) return 'hi';
+  function free(w){ return !(skipHeld && isHeld(w)); }
+  if(dl<near && dl<=dr && free('lo')) return 'lo';
+  if(dr<near && free('hi')) return 'hi';
+  if(dl<far && free('lo')) return 'lo';
+  if(dr<far && free('hi')) return 'hi';
   return null;
 }
 function onDown(e){
   if(phase==='title'||phase==='upgrade'||phase==='boss'||phase==='gameover'||phase==='clear') return;
   unlock();
   var x=e.clientX, y=e.clientY;
-  pointer.id=e.pointerId; pointer.x=x; pointer.y=y; pointer.downT=now; pointer.downX=x; pointer.downY=y;
-  var h=hitTurret(x,y);
-  pointer.dragging=h;
-  if(h) turrets.sel=h;
+  var h=hitTurret(x,y,true);
+  if(h){
+    drags[e.pointerId]={which:h, downT:now, downX:x, downY:y};
+    heldBy[h]=e.pointerId;
+    turrets.sel=h;
+  }
   try{ cv.setPointerCapture(e.pointerId); }catch(err){}
   if(phase==='briefing' && h){ phase='playing'; briefing=0; }
 }
 function onMove(e){
-  if(pointer.dragging==null) return;
+  var d=drags[e.pointerId];
+  if(!d) return;
   var x=e.clientX;
   var v=magnetSnap(xv(x));
   v=Math.max(lineMin, Math.min(lineMax, v));
-  if(pointer.dragging==='lo'){
+  if(d.which==='lo'){
     if(v>=turrets.hi) v=turrets.hi-1;
     turrets.lo=v; displayL=v;
   } else {
@@ -1689,17 +1700,19 @@ function onMove(e){
   if(phase==='briefing'){ phase='playing'; briefing=0; }
 }
 function onUp(e){
-  if(pointer.dragging==null){ pointer.id=null; return; }
-  var dt=now-pointer.downT;
-  var dist=Math.hypot(e.clientX-pointer.downX, e.clientY-pointer.downY);
+  var d=drags[e.pointerId];
+  if(!d) return;
+  delete drags[e.pointerId];
+  if(heldBy[d.which]===e.pointerId) heldBy[d.which]=null;
+  var dt=now-d.downT;
+  var dist=Math.hypot(e.clientX-d.downX, e.clientY-d.downY);
   if(dist<10 && dt<280){
-    if(pointer.dragging==='lo') turrets.loIncl=!turrets.loIncl;
+    if(d.which==='lo') turrets.loIncl=!turrets.loIncl;
     else turrets.hiIncl=!turrets.hiIncl;
     beep(660,.05,'square',.04);
   } else {
-    snapTurret(pointer.dragging);
+    snapTurret(d.which);
   }
-  pointer.dragging=null; pointer.id=null;
 }
 cv.addEventListener('pointerdown', onDown);
 cv.addEventListener('pointermove', onMove);
@@ -2009,7 +2022,7 @@ function drawTurret(which){
   ctx.strokeText(String(Math.round(v)), 0, -100);
   ctx.fillStyle=LIME;
   ctx.fillText(String(Math.round(v)), 0, -100);
-  if(pointer.dragging===which){
+  if(isHeld(which)){
     ctx.fillStyle='rgba(34,37,43,.88)';
     roundRect(-36,-148,72,36,12); ctx.fill();
     ctx.fillStyle='#fff'; ctx.font='900 '+Math.min(24, fs+4)+'px '+FONT;
@@ -2233,6 +2246,12 @@ window.__GAME_TEST__={
     if(phase==='briefing'){ phase='playing'; briefing=0; }
   },
   getLayout:function(){ return {land:land, playW:playW, playX:playX, lineY:lineY}; },
+  /* 읽기 전용 — 멀티터치 드래그 실측용. 현재 경계값과 손잡이 화면 좌표, 포인터 점유 상태 */
+  getBounds:function(){
+    return {lo:turrets.lo, hi:turrets.hi, loIncl:turrets.loIncl, hiIncl:turrets.hiIncl,
+      xl:vx(displayL), xr:vx(displayR), lineY:lineY, lineMin:lineMin, lineMax:lineMax,
+      heldLo:heldBy.lo, heldHi:heldBy.hi, dragCount:Object.keys(drags).length};
+  },
   /* 오답 선택지가 실제 오개념 역산값인지 감사 — 문항마다 서로 다른 오개념 2개 이상이어야 한다 */
   misconceptionAudit:function(n){
     n=Math.max(20, n|0);
