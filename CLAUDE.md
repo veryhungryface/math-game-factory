@@ -4,8 +4,9 @@
 
 > **새 세션/새 모델로 이 공장을 이어받았다면 가장 먼저 읽어라:**
 > 1. `docs/OPERATIONS.md` — 운영 매뉴얼 (크론·에이전트 CLI 규약·게이트·핫픽스/부활 절차·함정 목록)
-> 2. `factory/state/HANDOVER.md` — 현재 상태·진행 중 작업·백로그 (**작업 상태가 바뀌면 갱신·커밋할 것**)
-> 3. `docs/design-bible.html` + `docs/title-screen-spec.md` — 디자인 철학·타이틀 규격
+> 2. `docs/loop-engineering.md` — 이 공장의 5겹 피드백 루프(L0~L4)·횡단 원칙·모델 티어링·루프 설계 체크리스트. **게이트를 손대거나 새 자동화를 붙이기 전에 필독**
+> 3. `factory/state/HANDOVER.md` — 현재 상태·진행 중 작업·백로그 (**작업 상태가 바뀌면 갱신·커밋할 것**)
+> 4. `docs/design-bible.html` + `docs/title-screen-spec.md` — 디자인 철학·타이틀 규격
 
 ## 저장소 구조
 
