@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta property="og:title" content="자리화로">
+  <meta property="og:description" content="숫자를 끼워 불을 켜">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#173b57">
+  <title>자리화로</title>
+  <style>
+    :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--ink:#123047;--blue:#214c6b;--mid:#467a9a;--mist:#e8f0f2;--orange:#f26a3d;--gold:#f4c95d;--deep:#071827}
+    *{box-sizing:border-box} html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--deep);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#fff;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    button{font:inherit;color:inherit} button:focus-visible,[role=spinbutton]:focus-visible{outline:4px solid #fff;outline-offset:3px}
+    .screen{position:fixed;inset:0;overflow:hidden}.hidden{display:none!important}
+    #fx{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+    .icon-btn{width:48px;height:48px;border:2px solid rgba(255,255,255,.32);border-radius:50%;background:linear-gradient(#315f7d,#173b57);box-shadow:inset 0 2px rgba(255,255,255,.25),0 4px 0 #0c2638;display:grid;place-items:center;font-size:22px;cursor:pointer}
+    .icon-btn:active{transform:translateY(3px);box-shadow:inset 0 2px rgba(255,255,255,.2),0 1px 0 #0c2638}
+
+    /* 풀블리드 타이틀 */
+    #titleScreen{z-index:20;background:radial-gradient(circle at 50% 30%,#739bb3,#102d42 70%)}
+    .title-art{position:absolute;inset:-2%;overflow:hidden;background:linear-gradient(160deg,#b9d0d9,#274f6d)}
+    .title-art img{width:100%;height:100%;object-fit:cover;object-position:50% 50%;filter:saturate(1.06) contrast(1.04);animation:titleBreathe 20s ease-in-out infinite alternate}
+    .title-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,16,27,.45),rgba(5,16,27,.06) 48%,rgba(5,16,27,.8)),radial-gradient(circle at 50% 18%,rgba(230,245,250,.1),rgba(4,14,24,.3) 75%)}
+    .rain{position:absolute;inset:0;overflow:hidden;pointer-events:none}.rain i{position:absolute;top:-12%;width:2px;height:42px;background:linear-gradient(transparent,rgba(220,245,255,.62));transform:rotate(12deg);animation:rain 4.5s linear infinite}.rain i:nth-child(1){left:7%;animation-delay:-2s}.rain i:nth-child(2){left:23%;animation-delay:-.7s}.rain i:nth-child(3){left:71%;animation-delay:-3.2s}.rain i:nth-child(4){left:91%;animation-delay:-1.4s}.rain i:nth-child(5){left:52%;animation-delay:-4s}
+    .title-ui{position:relative;z-index:3;width:min(100vw,640px);height:100%;margin:auto;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);pointer-events:none}
+    .logo-zone{position:absolute;top:max(52px,6.5dvh);left:12px;right:12px;text-align:center;pointer-events:auto;filter:drop-shadow(0 15px 12px rgba(0,0,0,.42));animation:logoStamp .85s cubic-bezier(.18,1.55,.3,1) both}
+    .logo{margin:0;display:flex;justify-content:center;align-items:center;font-size:clamp(76px,24vw,126px);font-weight:1000;line-height:.88;letter-spacing:-.14em;transform:rotate(-2deg)}
+    .logo span{display:inline-block;color:#e9f8ff;-webkit-text-stroke:clamp(2px,1vw,5px) #102f49;paint-order:stroke fill;text-shadow:0 3px 0 #63a5c8,0 6px 0 #214c6b,0 9px 0 #102f49,0 13px 3px rgba(0,0,0,.45),0 0 22px rgba(244,201,93,.6)}
+    .logo span:nth-child(1){transform:translateY(6px) rotate(-5deg) scale(1.05)}.logo span:nth-child(2){color:#f4c95d;transform:translateY(-5px) rotate(3deg) scale(1.12)}.logo span:nth-child(3){transform:translateY(5px) rotate(-2deg)}.logo span:nth-child(4){color:#f26a3d;transform:translateY(-1px) rotate(5deg) scale(1.06)}
+    .tagline{display:inline-block;margin:18px 0 0;padding:7px 16px;border:2px solid rgba(255,255,255,.55);border-radius:999px;background:rgba(7,24,39,.64);box-shadow:inset 0 1px rgba(255,255,255,.25);font-weight:900;font-size:16px;text-shadow:0 2px 4px #000}
+    .title-actions{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:7px;pointer-events:auto}
+    #bestPill{min-height:30px;padding:6px 13px;border:1px solid rgba(255,255,255,.3);border-radius:999px;background:rgba(4,14,24,.52);font-size:12px;font-weight:900;backdrop-filter:blur(5px)}
+    #startBtn,.big-btn{width:min(100%,420px);min-height:68px;padding:0 24px;border:4px solid #47240f;border-radius:23px;background:linear-gradient(#fff4a0 0,#f4c95d 46%,#f26a3d 100%);color:#3d210d;box-shadow:0 7px 0 #a33d1d,0 10px 0 #47240f,0 17px 28px rgba(0,0,0,.4),inset 0 3px rgba(255,255,255,.6);font-size:clamp(22px,6vw,28px);font-weight:1000;cursor:pointer;text-shadow:0 2px rgba(255,255,255,.4);animation:pulse 2.5s 1.2s infinite}
+    #startBtn:active,.big-btn:active{transform:translateY(7px) scale(.985);box-shadow:0 1px 0 #a33d1d,0 3px 0 #47240f,0 7px 12px rgba(0,0,0,.35),inset 0 2px rgba(255,255,255,.4);animation-play-state:paused}
+    #howBtn{min-width:150px;min-height:44px;border:0;background:transparent;text-decoration:underline;text-underline-offset:5px;font-size:13px;font-weight:800;text-shadow:0 2px 4px #000;cursor:pointer}
+    #titleMute{position:absolute;z-index:5;top:max(10px,env(safe-area-inset-top));right:max(12px,calc((100vw - min(100vw,640px))/2 + 12px))}
+
+    /* 플레이 무대 */
+    #game{z-index:5;background:linear-gradient(150deg,#bfd2d8,#416f89 55%,#173b57)}
+    .play-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;opacity:.82;filter:saturate(.8) contrast(1.03)}
+    .play-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,29,44,.22),rgba(8,29,44,.7)),radial-gradient(circle at 72% 47%,rgba(232,240,242,.2),transparent 50%)}
+    #game.shake{animation:damageShake .28s linear}
+    #hud{position:absolute;z-index:8;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;height:54px;display:flex;align-items:center;gap:7px}
+    .hud-chip{height:48px;min-width:72px;padding:0 11px;border:2px solid rgba(232,240,242,.66);border-radius:16px;background:linear-gradient(180deg,rgba(42,86,113,.96),rgba(17,52,75,.96));box-shadow:inset 0 2px rgba(255,255,255,.22),0 4px 0 rgba(5,25,39,.74);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:900;text-shadow:0 2px #102a3b}
+    #timeChip{font-size:20px}#timeFill{position:absolute;left:12px;right:12px;bottom:-7px;height:5px;border-radius:6px;background:var(--gold);transform-origin:left;box-shadow:0 0 8px var(--gold)}
+    #scoreChip{font-size:13px;flex:1;max-width:180px}.score-num{font-size:20px}.score-num.punch{animation:scorePunch .32s ease-out}
+    #lives{font-size:20px;letter-spacing:1px;white-space:nowrap}.heart.break{animation:heartBreak .45s both}
+    #playMute{margin-left:auto;flex:0 0 48px}
+    #stage{position:absolute;z-index:4;top:70px;bottom:10px;left:var(--stageX);width:var(--stageW);display:grid;grid-template-rows:minmax(0,42fr) minmax(0,58fr);gap:8px;padding:0 8px}
+    .panel{position:relative;border:2px solid rgba(226,241,246,.7);border-radius:22px;background:linear-gradient(155deg,rgba(232,240,242,.9),rgba(126,165,184,.86));box-shadow:inset 0 2px rgba(255,255,255,.72),inset 0 -3px rgba(18,52,73,.2),0 7px 0 rgba(9,36,54,.58);color:var(--ink);overflow:hidden}
+    #workPanel{display:grid;grid-template-columns:1fr clamp(96px,18vw,150px);grid-template-rows:auto 1fr;gap:6px;padding:10px}
+    #factorCard{grid-column:1/2;position:relative;min-height:78px;border:3px solid #173b57;border-radius:18px;background:linear-gradient(#fff,#dcebf0);box-shadow:inset 0 3px #fff,0 4px 0 #173b57;display:grid;place-items:center;padding:7px;cursor:grab}
+    #factorCard:active{transform:translateY(2px);box-shadow:inset 0 2px #fff,0 2px 0 #173b57}
+    #problemText{font-size:clamp(25px,8vw,38px);line-height:1;font-weight:1000;color:#102e43;letter-spacing:-.03em;text-align:center}
+    #relationCard{font-size:11px;font-weight:900;color:#31556b;text-align:center;margin-top:5px;min-height:14px}
+    #bandBadge{position:absolute;left:9px;top:8px;padding:4px 8px;border-radius:999px;background:#214c6b;color:#fff;font-size:10px;font-weight:900}
+    .hold-tip{position:absolute;right:8px;bottom:5px;font-size:9px;font-weight:900;color:#467a9a}
+    #mascot{grid-column:2;grid-row:1/3;align-self:center;justify-self:center;width:clamp(88px,15vw,132px);height:clamp(88px,15vw,132px);border:3px solid #214c6b;border-radius:50%;object-fit:cover;background:#e8f0f2;box-shadow:0 5px 0 #173b57;animation:mascotIdle 2.6s ease-in-out infinite}
+    #mascot.fallback{display:none}
+    #drumWrap{grid-column:1/2;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:104px}
+    #drumLabel{font-size:11px;font-weight:1000;color:#31566c;margin-bottom:5px}
+    #drums{display:flex;gap:7px;justify-content:center}
+    .drum{position:relative;width:62px;height:88px;border:3px solid #102f49;border-radius:17px;background:linear-gradient(90deg,#bbd0da,#fff 50%,#aac4d0);box-shadow:inset 0 5px 7px rgba(255,255,255,.8),inset 0 -7px 8px rgba(22,62,84,.25),0 5px 0 #102f49;display:grid;place-items:center;font-size:48px;font-weight:1000;color:#0e3048;cursor:ns-resize;overflow:hidden;touch-action:none}
+    .drum:before,.drum:after{content:"";position:absolute;left:8px;right:8px;height:2px;background:rgba(33,76,107,.24)}.drum:before{top:12px}.drum:after{bottom:12px}.drum.spin{animation:drumTick .16s ease-out}
+    #railPanel{padding:10px 10px 8px;isolation:isolate}
+    #railHead{display:flex;align-items:center;justify-content:space-between;height:32px;gap:5px}
+    #instruction{font-weight:1000;font-size:13px;color:#173b57}.rail-speed{font-size:10px;font-weight:900;padding:5px 8px;border-radius:999px;color:#fff;background:#467a9a}
+    #dragField{position:absolute;left:8px;right:8px;top:50px;bottom:8px;border:2px solid rgba(33,76,107,.34);border-radius:18px;background:linear-gradient(180deg,rgba(21,59,83,.1),rgba(232,240,242,.55));overflow:hidden}
+    #railTrack{position:absolute;left:4%;right:4%;top:56%;height:20px;border:3px solid #173b57;border-radius:10px;background:linear-gradient(#789aae,#294e67 55%,#18374e);box-shadow:inset 0 3px rgba(255,255,255,.3),0 5px 0 rgba(7,30,45,.45)}
+    #slots{position:absolute;inset:0;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:0 2%}
+    .slot{position:relative;height:100%;display:flex;justify-content:center}.slot:before{content:"";position:absolute;top:calc(56% - 10px);width:4px;height:42px;border-radius:3px;background:#e8f0f2;box-shadow:0 0 0 2px #173b57}.slot b{position:absolute;top:calc(56% + 38px);width:72px;text-align:center;padding:4px 2px;border-radius:9px;background:#173b57;color:#fff;font-size:10px;line-height:1.1;box-shadow:inset 0 1px rgba(255,255,255,.23)}
+    html.land #slots{grid-template-columns:repeat(6,1fr)} html:not(.land) .slot[data-scale="5"]{display:none}
+    #ingot{position:absolute;z-index:5;top:14%;left:82%;width:112px;height:64px;margin-left:-56px;border:3px solid #173b57;border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.95),rgba(117,189,216,.92) 44%,rgba(33,76,107,.96));box-shadow:inset 0 5px rgba(255,255,255,.7),inset 0 -5px rgba(9,42,62,.27),0 7px 0 #12354d,0 10px 16px rgba(0,0,0,.25);display:grid;place-items:center;color:#0b2c43;font-size:30px;font-weight:1000;cursor:grab;touch-action:none;transform:translateZ(0)}
+    #ingot:active{cursor:grabbing}.ingot-hint{position:absolute;top:calc(14% + 70px);left:82%;transform:translateX(-50%);font-size:10px;font-weight:900;color:#214c6b;white-space:nowrap}
+    #ingot.dragging{filter:brightness(1.12);box-shadow:inset 0 5px #fff,0 13px 0 #12354d,0 18px 25px rgba(0,0,0,.32);transform:scale(1.06) rotate(-1deg)}
+    #ingot.near{animation:nearPulse .4s infinite alternate;border-color:#f4c95d}#ingot.locked{animation:lockOvershoot .45s cubic-bezier(.2,1.5,.3,1)}#ingot.cracked{animation:ingotCrack .34s linear;border-color:#752d21}
+    #forgeMouth{position:absolute;right:3%;bottom:3%;width:78px;height:86px;border:4px solid #173b57;border-radius:45% 45% 20% 20%;background:radial-gradient(circle at 50% 68%,#fff7b2 0,#f26a3d 27%,#742e20 53%,#102d42 55%);box-shadow:inset 0 4px rgba(255,255,255,.35),0 6px 0 #0d2b40}
+    #forgeMouth:before{content:"";position:absolute;inset:-17px 12px auto;height:30px;border-radius:50% 50% 15% 15%;background:#467a9a;border:3px solid #173b57}
+    #comboFlame{position:absolute;right:calc(3% + 15px);bottom:82px;width:48px;height:80px;opacity:.3;transform-origin:bottom;filter:drop-shadow(0 0 12px #f4c95d);background:radial-gradient(ellipse at 50% 80%,#fff 0 9%,#f4c95d 10% 28%,#f26a3d 29% 58%,transparent 60%);clip-path:polygon(50% 0,65% 28%,84% 18%,76% 52%,100% 66%,67% 100%,31% 100%,0 67%,24% 45%,18% 21%,39% 31%)}
+    #message{position:absolute;z-index:12;left:50%;top:45%;transform:translate(-50%,-50%);min-width:210px;max-width:88vw;padding:12px 18px;border:3px solid #173b57;border-radius:18px;background:#fff;color:#173b57;box-shadow:0 7px 0 #173b57,0 14px 22px rgba(0,0,0,.3);font-size:16px;font-weight:1000;text-align:center;opacity:0;pointer-events:none}
+    #message.show{animation:messageUp 1.15s both}#message.bad{background:#fff1ec;border-color:#752d21;box-shadow:0 7px 0 #752d21,0 14px 22px rgba(0,0,0,.3)}
+    #flash{position:absolute;z-index:7;inset:0;pointer-events:none;opacity:0}#flash.good{animation:goodFlash .4s ease-out}#flash.bad{animation:badFlash .32s ease-out}
+    #overheat{position:absolute;z-index:10;top:68px;left:50%;transform:translateX(-50%);padding:7px 18px;border:3px solid #fff0a4;border-radius:999px;background:#f26a3d;color:#fff;font-size:14px;font-weight:1000;box-shadow:0 4px 0 #8e341c,0 0 24px #f4c95d;display:none}#overheat.on{display:block;animation:overheatPulse .55s infinite alternate}
+
+    /* 온보딩/결과 */
+    .overlay{position:absolute;z-index:30;inset:0;background:rgba(5,18,29,.78);backdrop-filter:blur(5px);display:grid;place-items:center;padding:18px}
+    .modal{width:min(100%,470px);border:3px solid #dff3f8;border-radius:28px;background:linear-gradient(155deg,#f5fbfc,#a9c7d4);color:#14364e;box-shadow:inset 0 3px #fff,0 9px 0 #14364e,0 20px 45px rgba(0,0,0,.45);padding:22px;text-align:center}
+    .step-num{display:inline-block;padding:5px 12px;border-radius:999px;background:#214c6b;color:#fff;font-size:12px;font-weight:1000}.modal h2{font-size:clamp(25px,8vw,38px);margin:13px 0 8px;font-weight:1000}.modal p{font-size:16px;line-height:1.55;font-weight:800;margin:0 0 17px}.demo-icon{width:104px;height:104px;margin:4px auto 12px;border:3px solid #214c6b;border-radius:28px;background:radial-gradient(circle,#fff,#8eb4c6);display:grid;place-items:center;font-size:48px;box-shadow:inset 0 3px #fff,0 5px 0 #214c6b}.modal .big-btn{font-size:22px;color:#3d210d}
+    #resultTitle{color:#f26a3d;text-shadow:0 2px #fff}.stars{font-size:42px;letter-spacing:4px;animation:starsIn .6s cubic-bezier(.2,1.6,.3,1)}.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:15px 0}.result-stat{padding:10px 4px;border:2px solid #467a9a;border-radius:14px;background:#e8f0f2;font-size:11px;font-weight:900}.result-stat b{display:block;font-size:23px;color:#173b57;margin-top:3px}
+
+    html.land #hud{left:calc(var(--stageX) + 10px);right:calc(var(--stageX) + 10px)}
+    html.land #stage{top:72px;bottom:18px;grid-template-columns:38% 62%;grid-template-rows:1fr;gap:12px;padding:0 12px}
+    html.land #workPanel{grid-column:1;grid-row:1;grid-template-columns:1fr minmax(140px,32%);grid-template-rows:minmax(120px,35%) 1fr;padding:18px;gap:14px}
+    html.land #factorCard{min-height:120px}html.land #problemText{font-size:clamp(34px,3.5vw,54px)}html.land #mascot{width:min(190px,15vw);height:min(190px,15vw)}html.land #drumWrap{min-height:220px}html.land .drum{width:min(88px,7vw);height:min(126px,15vh);font-size:min(66px,5vw)}html.land #drums{gap:12px}
+    html.land #railPanel{grid-column:2;grid-row:1;padding:18px}html.land #railHead{height:42px}html.land #instruction{font-size:18px}html.land #dragField{top:68px;left:15px;right:15px;bottom:15px}html.land #ingot{width:156px;height:84px;margin-left:-78px;font-size:42px;top:17%}html.land .ingot-hint{top:calc(17% + 90px)}html.land .slot b{font-size:13px;width:94px;padding:7px 2px}html.land #forgeMouth{width:116px;height:130px}html.land #comboFlame{right:calc(3% + 23px);bottom:125px;width:72px;height:118px}
+    @media(max-height:700px){#stage{top:64px}.logo-zone{top:36px}.logo{font-size:clamp(62px,20vw,98px)}.tagline{margin-top:11px}.title-actions{gap:4px}#startBtn{min-height:64px}}
+    @keyframes titleBreathe{to{transform:scale(1.045) translateY(-.5%)}}@keyframes rain{to{transform:translate(70px,120vh) rotate(12deg)}}@keyframes logoStamp{0%{opacity:0;transform:scale(1.45) rotate(5deg)}70%{opacity:1;transform:scale(.96) rotate(-2deg)}100%{transform:scale(1)}}@keyframes pulse{0%,72%,100%{transform:scale(1)}82%{transform:translateY(-2px) scale(1.025)}90%{transform:scale(1)}}
+    @keyframes mascotIdle{50%{transform:translateY(-5px) rotate(1.5deg)}}@keyframes drumTick{50%{transform:scaleY(.88) scaleX(1.06)}}@keyframes scorePunch{50%{transform:scale(1.35);color:#f4c95d}}@keyframes heartBreak{to{transform:scale(0) rotate(25deg);opacity:.25}}@keyframes nearPulse{to{filter:brightness(1.22);transform:scale(1.04)}}@keyframes lockOvershoot{0%{transform:scaleX(1.16) scaleY(.83)}60%{transform:scaleX(.94) scaleY(1.08)}100%{transform:scale(1)}}@keyframes ingotCrack{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px) rotate(-2deg)}75%{transform:translateX(8px) rotate(2deg)}}@keyframes damageShake{0%,100%{transform:translate(0)}20%{transform:translate(-7px,2px)}40%{transform:translate(6px,-2px)}60%{transform:translate(-4px,1px)}80%{transform:translate(3px)}}@keyframes messageUp{0%{opacity:0;transform:translate(-50%,-20%) scale(.7)}14%,70%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-90%) scale(.92)}}@keyframes goodFlash{0%{opacity:.65;background:radial-gradient(circle,#fff7ba,rgba(242,106,61,.25),transparent 72%)}100%{opacity:0}}@keyframes badFlash{0%{opacity:.5;background:repeating-linear-gradient(115deg,rgba(120,38,28,.35) 0 8px,transparent 8px 28px)}100%{opacity:0}}@keyframes overheatPulse{to{transform:translateX(-50%) scale(1.06)}}@keyframes starsIn{from{transform:scale(.25) rotate(-12deg);opacity:0}} 
+    @media(prefers-reduced-motion:reduce){.title-art img{animation-duration:40s}.rain i{animation-duration:9s}.logo-zone{animation-duration:.2s}#startBtn{animation-duration:5s}.drum.spin,#game.shake{animation-duration:.12s}.mascot{animation-duration:5s}}
+  </style>
+</head>
+<body>
+  <section id="titleScreen" class="screen" aria-label="자리화로 타이틀 화면">
+    <div class="title-art"><picture><source media="(min-aspect-ratio:1/1)" srcset="./assets/bg.png"><img src="./assets/title.png" alt="" onerror="this.hidden=true"></picture><div class="title-shade"></div></div>
+    <div class="rain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <button id="titleMute" class="icon-btn" aria-label="소리 끄기">♪</button>
+    <div class="title-ui">
+      <div class="logo-zone"><h1 class="logo" aria-label="자리화로"><span aria-hidden="true">자</span><span aria-hidden="true">리</span><span aria-hidden="true">화</span><span aria-hidden="true">로</span></h1><p class="tagline">숫자를 끼워 불을 켜</p></div>
+      <div class="title-actions"><div id="bestPill" class="hidden"></div><button id="startBtn"><span>화로 점화!</span></button><div style="font-size:11px;font-weight:800;opacity:.86">5학년 2학기 · 소수의 곱셈</div><button id="howBtn">어떻게 놀아요? 〉</button></div>
+    </div>
+  </section>
+
+  <main id="game" class="screen hidden" aria-label="자리화로 게임">
+    <img class="play-bg" src="./assets/bg.png" alt="" onerror="this.hidden=true"><div class="play-scrim"></div><canvas id="fx"></canvas><div id="flash"></div>
+    <header id="hud"><div id="timeChip" class="hud-chip">⏱ <span id="timeText">90</span><i id="timeFill"></i></div><div id="scoreChip" class="hud-chip">점수 <span id="scoreText" class="score-num">0</span></div><div id="lives" class="hud-chip" aria-label="남은 하트 3개"><span class="heart">♥</span><span class="heart">♥</span><span class="heart">♥</span></div><button id="playMute" class="icon-btn" aria-label="소리 끄기">♪</button></header>
+    <div id="overheat">과열 2배 · <span id="heatTime">5.0</span>초</div>
+    <div id="stage">
+      <section id="workPanel" class="panel" aria-label="곱셈 숫자 드럼">
+        <div id="factorCard" role="button" tabindex="0" aria-label="누르는 동안 레일 감속"><span id="bandBadge">1단계</span><div><div id="problemText">2.7 × 4</div><div id="relationCard"></div></div><span class="hold-tip">꾹 눌러 레일 감속</span></div>
+        <img id="mascot" src="./assets/hero.png" alt="화로 로봇" onerror="this.hidden=true;document.getElementById('mascotFallback').style.display='grid'">
+        <div id="mascotFallback" aria-hidden="true" style="display:none;grid-column:2;grid-row:1/3;align-self:center;justify-self:center;width:88px;height:88px;border:3px solid #214c6b;border-radius:50%;background:#f4c95d;place-items:center;font-size:42px">⚙</div>
+        <div id="drumWrap"><div id="drumLabel">소수점을 빼고 곱한 수</div><div id="drums" aria-label="숫자 드럼"></div></div>
+      </section>
+      <section id="railPanel" class="panel" aria-label="소수점 자릿값 레일">
+        <div id="railHead"><span id="instruction">잉곳을 알맞은 자리까지 밀어 넣어요</span><span class="rail-speed" id="speedBadge">정밀 레일</span></div>
+        <div id="dragField">
+          <div id="railTrack"></div>
+          <div id="slots">
+            <div class="slot" data-scale="0"><b>자연수</b></div><div class="slot" data-scale="1"><b>십분의 일</b></div><div class="slot" data-scale="2"><b>백분의 일</b></div><div class="slot" data-scale="3"><b>천분의 일</b></div><div class="slot" data-scale="4"><b>만분의 일</b></div><div class="slot" data-scale="5"><b>십만분의 일</b></div>
+          </div>
+          <div id="ingot" role="button" tabindex="0" aria-label="숫자 잉곳을 자릿값 눈금으로 드래그">00</div><div class="ingot-hint">길게 잡고 좌우로 드래그</div>
+          <div id="comboFlame" aria-hidden="true"></div><div id="forgeMouth" aria-hidden="true"></div>
+        </div>
+      </section>
+    </div>
+    <div id="message" role="status" aria-live="polite"></div>
+    <div id="onboarding" class="overlay hidden"><div class="modal"><span id="stepNum" class="step-num">1 / 3</span><div id="demoIcon" class="demo-icon">↕</div><h2 id="stepTitle">드럼을 돌려요</h2><p id="stepBody">두 수에서 소수점을 빼고, 자연수처럼 곱한 숫자를 직접 맞춰요.</p><button id="nextStep" class="big-btn">다음</button></div></div>
+    <div id="result" class="overlay hidden"><div class="modal"><div class="stars">✦ ✦ ✦</div><h2 id="resultTitle">화로 작업 종료!</h2><p id="resultReason">90초 동안 만든 기록이에요.</p><div class="result-grid"><div class="result-stat">점수<b id="finalScore">0</b></div><div class="result-stat">최장 콤보<b id="finalCombo">0</b></div><div class="result-stat">완벽 점화<b id="finalSolved">0</b></div></div><button id="retryBtn" class="big-btn">같은 화로 다시!</button></div></div>
+  </main>
+
+  <script>
+  (()=>{'use strict';
+    const $=id=>document.getElementById(id), title=$('titleScreen'),game=$('game'),canvas=$('fx'),ctx=canvas.getContext('2d',{alpha:true});
+    const els={time:$('timeText'),timeFill:$('timeFill'),score:$('scoreText'),lives:$('lives'),problem:$('problemText'),relation:$('relationCard'),band:$('bandBadge'),drums:$('drums'),ingot:$('ingot'),field:$('dragField'),message:$('message'),flash:$('flash'),flame:$('comboFlame'),overheat:$('overheat'),heatTime:$('heatTime'),speed:$('speedBadge')};
+    const S={phase:'title',score:0,shownScore:0,lives:3,level:1,solved:0,combo:0,bestCombo:0,elapsed:0,timeLeft:90,heat:0,muted:false,problem:null,digits:[],drag:null,near:null,nearUntil:0,slow:false,shake:0,hitStop:0,last:performance.now(),particles:[],trails:[],deckIndex:[0,0,0],stageW:innerWidth,stageX:0,land:false,grace:true,locked:false,seed:20260829,runSeed:20260829};
+    let audioCtx=null;
+    const pow10=n=>10**n;
+    const fmt=(n,scale,keepZeros=false)=>{const sign=n<0?'-':'';let s=String(Math.abs(n)).padStart(scale+1,'0');if(scale===0)return sign+s;const out=sign+s.slice(0,-scale)+'.'+s.slice(-scale);return keepZeros?out:out.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'');};
+    const gcd=(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){const t=a%b;a=b;b=t}return a||1};
+    const rational=(n,d)=>{const g=gcd(n,d);return{n:n/g,d:d/g}};
+    function seeded(){S.seed=(Math.imul(S.seed,1664525)+1013904223)>>>0;return S.seed/4294967296}
+    function shuffle(a,rnd=seeded){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+    function makeChoices(p){
+      // 오개념을 실제 학생의 계산 경로에서 역산한다. 순서: 정답 제거→범위→중복→보충→셔플.
+      const raw=[];
+      const add=(drum,scale,misconceptionId)=>raw.push({drum,scale,misconceptionId,value:fmt(drum,scale)});
+      add(p.P,p.da,'one_factor_decimal_count'); // 한쪽 소수 자릿수만 센다.
+      add(p.P,p.db,'other_factor_decimal_count'); // 다른 한쪽만 센다.
+      add(p.P,Math.max(p.da,p.db),'addition_decimal_alignment'); // 덧셈처럼 소수점을 맞춘다.
+      add(p.P,0,'product_must_grow'); // 곱은 반드시 커진다고 여긴다.
+      add(p.P,Math.min(5,p.scale+1),'extra_decimal_zero_place_confusion'); // 필요 없는 0 자리를 하나 더 붙여 값이 10배 작아지는 혼동.
+      if(p.P%10===0){add(p.P,Math.max(0,p.scale-1),'trailing_zero_place_confusion');add(p.P,Math.min(5,p.scale+1),'trailing_zero_place_confusion');}
+      if(p.A===1||p.B===1)add(p.P,Math.max(0,p.scale-1),'times_point_one_reversed');
+      const correct=fmt(p.P,p.scale), seen=new Set([correct]);
+      let out=raw.filter(x=>x.scale>=0&&x.scale<=5&&x.drum>0&&x.drum<=9999).filter(x=>x.value!==correct).filter(x=>{if(seen.has(x.value))return false;seen.add(x.value);return true});
+      const supplements=[{drum:p.P+1,scale:p.scale,misconceptionId:'ones_digit_error'},{drum:Math.max(1,p.P-1),scale:p.scale,misconceptionId:'ones_digit_error'},{drum:p.P*10,scale:p.scale,misconceptionId:'place_shift_error'},{drum:Math.max(1,Math.floor(p.P/10)),scale:p.scale,misconceptionId:'place_shift_error'}];
+      for(const x of supplements){x.value=fmt(x.drum,x.scale);if(out.length>=3)break;if(x.drum<=9999&&x.value!==correct&&!seen.has(x.value)){seen.add(x.value);out.push(x)}}
+      out=out.slice(0,3);const packed=[{drum:p.P,scale:p.scale,misconceptionId:'correct',value:correct},...out];shuffle(packed);return packed;
+    }
+    function makeProblem(A,da,B,db,band,type){const P=A*B,scale=da+db,r=rational(P,pow10(scale));const p={id:`b${band}-${A}-${da}-${B}-${db}`,A,da,B,db,P,scale,band,type,a:fmt(A,da,true),b:fmt(B,db,true),answerRational:r};p.distractors=makeChoices(p);return p}
+    function buildPools(){
+      const pools=[[],[],[]],seen=[new Set(),new Set(),new Set()];
+      const push=(idx,A,da,B,db,type)=>{const p=makeProblem(A,da,B,db,idx+1,type);const key=`${p.a}×${p.b}`;if(!seen[idx].has(key)){seen[idx].add(key);pools[idx].push(p)}};
+      // 밴드 1: 자릿값 조건을 먼저 고정(da=1, db=0)하고 전수 생성한다.
+      for(let A=11;A<=99;A++)if(A%10)for(let B=2;B<=9;B++){const P=A*B;if(P>=10&&P<=999)push(0,A,1,B,0,'소수 한 자리×자연수')}
+      // 밴드 2: 두 인수의 소수 자릿수를 각각 1로 고정한 제약 만족 풀.
+      for(let A=2;A<=49;A++)if(A%10)for(let B=2;B<=19;B++)if(B%10){const P=A*B;if(P>=10&&P<=99)push(1,A,1,B,1,'소수 한 자리×소수 한 자리')}
+      // 밴드 3: 3자리 자연수 곱과 scale 2~3을 구조적으로 만든다. ×0.1 진단 카드도 별도 포함한다.
+      for(const [da,db] of [[1,1],[2,1],[1,2]])for(let A=11;A<=99;A++)if(A%10)for(let B=2;B<=49;B++)if(B%10){const P=A*B;if(P>=100&&P<=999)push(2,A,da,B,db,'자연수 곱 관계로 소수점 찾기')}
+      for(let B=101;B<=999;B+=7)if(B%10){const P=B;if(P>=100&&P<=999)push(2,1,1,B,2,'0.1을 곱하면 한 자리 작아져요')}
+      pools.forEach(p=>shuffle(p));return pools;
+    }
+    const POOLS=buildPools();
+    function nextProblem(level=S.level){const idx=Math.max(0,Math.min(2,level-1)),pool=POOLS[idx];const p=pool[S.deckIndex[idx]++%pool.length];return p}
+    function sample(n){const out=[];for(let i=0;i<Math.max(20,n|0);i++){const band=i%3, p=POOLS[band][(i*37+band*19)%POOLS[band].length];const choices=p.distractors.map(x=>x.value);out.push({id:p.id,prompt:`${p.a} × ${p.b} = ?`,choices,answer:fmt(p.P,p.scale),answerNumeric:p.answerRational.n/p.answerRational.d,unitConcept:p.type})}return out.slice(0,Math.max(20,n|0))}
+    function auditProblemPools(){const ruleIds=new Set(['one_factor_decimal_count','other_factor_decimal_count','addition_decimal_alignment','product_must_grow','extra_decimal_zero_place_confusion','trailing_zero_place_confusion','times_point_one_reversed']);let accidentalTruth=0,duplicateChoices=0,badProducts=0,tooFewRuleDistractors=0,total=0;for(const pool of POOLS)for(const p of pool){total++;const correct=fmt(p.P,p.scale),vals=p.distractors.map(x=>x.value);if(p.P!==p.A*p.B||correct!==fmt(p.A*p.B,p.da+p.db))badProducts++;if(new Set(vals).size!==vals.length)duplicateChoices++;const wrong=p.distractors.filter(x=>x.misconceptionId!=='correct');accidentalTruth+=wrong.filter(x=>x.value===correct).length;if(new Set(wrong.filter(x=>ruleIds.has(x.misconceptionId)).map(x=>x.misconceptionId)).size<2)tooFewRuleDistractors++}return{poolSizes:POOLS.map(x=>x.length),total,accidentalTruth,duplicateChoices,badProducts,tooFewRuleDistractors}}
+
+    function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);S.stageW=Math.min(W,1280);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(d,0,0,d,0,0)}
+    addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));layout();
+    function ensureAudio(){if(S.muted||audioCtx)return;try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch{audioCtx=null}}
+    function tone(freq,dur=.12,type='sine',gain=.045,delay=0){if(S.muted||!audioCtx)return;const t=audioCtx.currentTime+delay,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+dur)}
+    function sound(kind){if(kind==='good'){tone(520,.11,'sine',.05);tone(780,.17,'sine',.04,.08)}else if(kind==='wow'){tone(520,.12,'sine',.05);tone(690,.13,'sine',.05,.08);tone(1040,.28,'triangle',.045,.17)}else tone(120,.22,'sawtooth',.035)}
+    function toggleMute(){S.muted=!S.muted;for(const id of ['titleMute','playMute']){$(id).textContent=S.muted?'×':'♪';$(id).setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기')}if(!S.muted)ensureAudio()}
+    $('titleMute').addEventListener('click',()=>{ensureAudio();toggleMute()});$('playMute').addEventListener('click',()=>{ensureAudio();toggleMute()});
+
+    function setDigits(count){S.digits=Array(count).fill(0);els.drums.replaceChildren();for(let i=0;i<count;i++){const d=document.createElement('div');d.className='drum';d.tabIndex=0;d.role='spinbutton';d.setAttribute('aria-label',`${i+1}번째 숫자 드럼`);d.dataset.i=i;d.textContent='0';let y=0,moved=false;d.addEventListener('pointerdown',e=>{ensureAudio();y=e.clientY;moved=false;d.setPointerCapture(e.pointerId)});d.addEventListener('pointermove',e=>{if(!d.hasPointerCapture(e.pointerId))return;const dy=e.clientY-y;if(Math.abs(dy)>18){changeDigit(i,dy<0?1:-1);y=e.clientY;moved=true}});d.addEventListener('pointerup',()=>{if(!moved)changeDigit(i,1)});d.addEventListener('wheel',e=>{e.preventDefault();changeDigit(i,e.deltaY<0?1:-1)},{passive:false});d.addEventListener('keydown',e=>{if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();changeDigit(i,e.key==='ArrowUp'?1:-1)}});els.drums.append(d)}updateRaw()}
+    function changeDigit(i,delta){if(S.phase!=='playing'||S.locked)return;S.digits[i]=(S.digits[i]+delta+10)%10;const d=els.drums.children[i];d.textContent=S.digits[i];d.classList.remove('spin');void d.offsetWidth;d.classList.add('spin');tone(250+S.digits[i]*18,.035,'square',.018);updateRaw()}
+    function rawValue(){return Number(S.digits.join(''))}
+    function updateRaw(){els.ingot.textContent=S.digits.join('')||'0'}
+    function renderProblem(){const p=S.problem;els.problem.textContent=`${p.a} × ${p.b}`;els.band.textContent=`${p.band}단계`;els.relation.textContent=p.band===3?`${p.A} × ${p.B} = ${p.P} 를 이용해요`:'';els.speed.textContent=p.band===1?'정밀 레일':p.band===2?'가속 +12%':'폭주 +20%';setDigits(String(p.P).length);resetIngot()}
+    function resetIngot(){els.ingot.style.left='82%';els.ingot.style.top=S.land?'17%':'14%';els.ingot.className='';S.near=null;S.locked=false}
+    function chooseProblem(){S.problem=nextProblem();renderProblem()}
+
+    function slotCenters(){const r=els.field.getBoundingClientRect();return [...document.querySelectorAll('.slot')].filter(x=>getComputedStyle(x).display!=='none').map(x=>{const q=x.getBoundingClientRect();return{scale:+x.dataset.scale,x:q.left+q.width/2-r.left}})}
+    function beginDrag(e){if(S.phase!=='playing'||S.locked)return;ensureAudio();const r=els.field.getBoundingClientRect();S.drag={id:e.pointerId,offset:e.clientX-(r.left+parseFloat(els.ingot.style.left||'82')*r.width/100),moved:false};els.ingot.setPointerCapture(e.pointerId);els.ingot.classList.add('dragging')}
+    function moveDrag(e){if(!S.drag||S.drag.id!==e.pointerId)return;const r=els.field.getBoundingClientRect(),x=Math.max(54,Math.min(r.width-54,e.clientX-r.left-S.drag.offset));els.ingot.style.left=(x/r.width*100)+'%';S.drag.moved=S.drag.moved||Math.abs(e.movementX)>2;S.trails.push({x:r.left+x,y:r.top+r.height*.24,life:.25});if(S.trails.length>24)S.trails.shift()}
+    function endDrag(e){if(!S.drag||S.drag.id!==e.pointerId)return;els.ingot.classList.remove('dragging');const moved=S.drag.moved;S.drag=null;if(!moved)return;const r=els.field.getBoundingClientRect(),cx=parseFloat(els.ingot.style.left)*r.width/100,slots=slotCenters().sort((a,b)=>Math.abs(a.x-cx)-Math.abs(b.x-cx)),picked=slots[0];els.ingot.style.left=(picked.x/r.width*100)+'%';judge(picked.scale)}
+    els.ingot.addEventListener('pointerdown',beginDrag);els.ingot.addEventListener('pointermove',moveDrag);els.ingot.addEventListener('pointerup',endDrag);els.ingot.addEventListener('pointercancel',endDrag);
+    els.ingot.addEventListener('keydown',e=>{if(S.phase!=='playing')return;const slots=slotCenters(),r=els.field.getBoundingClientRect();if(e.key>='0'&&e.key<='5'){const q=slots.find(x=>x.scale===+e.key);if(q){e.preventDefault();els.ingot.style.left=(q.x/r.width*100)+'%';judge(q.scale)}}});
+    function setSlow(on){S.slow=on;els.speed.textContent=on?'감속 25%':S.level===1?'정밀 레일':S.level===2?'가속 +12%':'폭주 +20%'}
+    for(const ev of ['pointerdown','keydown'])$('factorCard').addEventListener(ev,e=>{if(ev==='keydown'&&e.key!==' '&&e.key!=='Enter')return;ensureAudio();setSlow(true)});for(const ev of ['pointerup','pointercancel','pointerleave','keyup'])$('factorCard').addEventListener(ev,()=>setSlow(false));
+
+    function misconceptionFor(p,raw,scale){if(raw!==p.P)return raw===p.P*10||raw===Math.floor(p.P/10)?'자릿값이 한 칸 밀렸어요. 자연수 곱부터 다시 봐요.':'드럼 숫자가 달라요. 소수점을 빼고 자연수처럼 곱해요.';if(scale===p.da||scale===p.db)return'한 수의 소수 자리만 셌어요. 두 수의 자릿수를 합쳐요.';if(scale===Math.max(p.da,p.db))return'덧셈처럼 점을 맞추지 말고, 소수 자리 수를 더해요.';if(scale===0)return'곱이 항상 커지지는 않아요. 1보다 작은 수를 곱하면 작아져요.';if((p.A===1||p.B===1)&&scale===p.scale-1)return'×0.1은 10으로 나눈 것과 같아 한 자리 작아져요.';if(p.P%10===0)return'끝의 0도 먼저 자리에 넣고, 값이 같을 때만 줄여 써요.';return'소수점이 갈 자리를 다시 세어 봐요.'}
+    function judge(scale){if(S.phase!=='playing'||S.locked)return;const p=S.problem,raw=rawValue();if(raw===p.P&&scale===p.scale){success(false);return}if(raw===p.P&&Math.abs(scale-p.scale)===1){S.near={scale};S.nearUntil=performance.now()+800;els.ingot.classList.add('near');showMessage('거의 맞았어요! 0.8초 안에 한 칸 다시 끼워요','near');tone(310,.08,'triangle',.025);return}fail(misconceptionFor(p,raw,scale),false)}
+    function showMessage(text,kind){els.message.textContent=text;els.message.className=kind==='bad'?'show bad':'show';void els.message.offsetWidth;els.message.className=kind==='bad'?'show bad':'show'}
+    function burst(count,color){const r=els.field.getBoundingClientRect(),x=r.left+r.width*.82,y=r.top+r.height*.58;for(let i=0;i<Math.min(48,count);i++){const a=-Math.PI*(.12+seeded()*.76),sp=80+seeded()*180;S.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.55+seeded()*.55,max:1,size:3+seeded()*6,color})}}
+    function success(forced){if(S.phase!=='playing')return;S.locked=true;S.near=null;els.ingot.classList.remove('near');els.ingot.classList.add('locked');S.combo++;S.solved++;S.bestCombo=Math.max(S.bestCombo,S.combo);const mult=S.heat>0?2:1,add=Math.round((100+S.level*35+S.combo*12)*mult);S.score+=add;S.grace=false;S.hitStop=60;els.flash.className='good';void els.flash.offsetWidth;els.flash.className='good';els.score.classList.remove('punch');void els.score.offsetWidth;els.score.classList.add('punch');const wow=S.combo%5===0;if(wow){S.heat=5;els.overheat.classList.add('on')}burst(14+S.combo*3,wow?'#f4c95d':'#f26a3d');showMessage(wow?`완벽 점화! +${add} · 5초 2배`:`정밀 점화! +${add}`,'good');els.flame.style.opacity=Math.min(1,.32+S.combo*.1);els.flame.style.transform=`scale(${Math.min(1.7,.7+S.combo*.09)})`;sound(wow?'wow':'good');setTimeout(()=>{if(S.phase==='playing'){chooseProblem()}},650)}
+    function fail(reason,forced){if(S.phase!=='playing')return;S.locked=true;S.near=null;els.ingot.classList.remove('near');els.ingot.classList.add('cracked');S.combo=0;let lost=true;if(S.grace&&!forced){S.grace=false;lost=false}else S.lives=Math.max(0,S.lives-1);updateLives();els.flash.className='bad';void els.flash.offsetWidth;els.flash.className='bad';game.classList.remove('shake');void game.offsetWidth;game.classList.add('shake');showMessage((lost?'하트가 깨졌어요! ':'첫 균열은 괜찮아요! ')+reason,'bad');sound('bad');if(S.lives<=0){setTimeout(()=>endGame('하트가 모두 깨져 화로가 멈췄어요.'),650)}else setTimeout(()=>{if(S.phase==='playing')chooseProblem()},900)}
+    function updateLives(){const hearts=[...els.lives.querySelectorAll('.heart')];hearts.forEach((h,i)=>{h.style.opacity=i<S.lives?'1':'.18';h.classList.toggle('break',i===S.lives)});els.lives.setAttribute('aria-label',`남은 하트 ${S.lives}개`)}
+    function endGame(reason){if(S.phase==='result')return;S.phase='result';S.locked=true;S.heat=0;els.overheat.classList.remove('on');$('resultReason').textContent=reason;$('resultTitle').textContent=S.solved>=8?'관측소가 환하게 켜졌어요!':'화로 작업 종료!';$('result').classList.remove('hidden');animateCount($('finalScore'),S.score);animateCount($('finalCombo'),S.bestCombo);animateCount($('finalSolved'),S.solved);const old=Number(localStorage.getItem('placevalueForgeBest')||0);if(S.score>old)localStorage.setItem('placevalueForgeBest',String(S.score));refreshBest()}
+    function animateCount(el,target){let start=performance.now();const go=t=>{const q=Math.min(1,(t-start)/700);el.textContent=Math.round(target*(1-(1-q)**3)).toLocaleString('ko-KR');if(q<1)requestAnimationFrame(go)};requestAnimationFrame(go)}
+    function resetRun(){S.phase='playing';S.score=0;S.shownScore=0;S.lives=3;S.level=1;S.solved=0;S.combo=0;S.bestCombo=0;S.elapsed=0;S.timeLeft=90;S.heat=0;S.grace=true;S.locked=false;S.seed=S.runSeed;S.deckIndex=[0,0,0];S.particles.length=0;S.trails.length=0;els.score.textContent='0';els.time.textContent='90';els.overheat.classList.remove('on');$('result').classList.add('hidden');updateLives();chooseProblem()}
+    function startGame(skipIntro=false){title.classList.add('hidden');game.classList.remove('hidden');if(skipIntro||localStorage.getItem('onboardingSeen:placevalue-forge')){ $('onboarding').classList.add('hidden');resetRun()}else{resetRun();S.phase='onboarding';openOnboarding()}}
+    const steps=[['↕','드럼을 돌려요','두 수에서 소수점을 빼고, 자연수처럼 곱한 숫자를 직접 맞춰요.'],['↔','잉곳을 밀어요','두 수의 소수 자릿수를 합친 만큼, 잉곳을 자릿값 눈금으로 직접 옮겨요.'],['♥','불을 지켜요','틀리면 이유가 바로 보여요. 하트 3개가 모두 깨지면 화로가 멈춰요.']];let step=0;
+    function openOnboarding(){step=0;$('onboarding').classList.remove('hidden');showStep()}
+    function showStep(){const s=steps[step];$('stepNum').textContent=`${step+1} / 3`;$('demoIcon').textContent=s[0];$('stepTitle').textContent=s[1];$('stepBody').textContent=s[2];$('nextStep').textContent=step===2?'해볼게요!':'다음'}
+    $('nextStep').addEventListener('click',()=>{ensureAudio();if(step<2){step++;showStep()}else{localStorage.setItem('onboardingSeen:placevalue-forge','1');$('onboarding').classList.add('hidden');resetRun()}});
+    $('startBtn').addEventListener('click',()=>{ensureAudio();navigator.vibrate?.(18);$('startBtn').classList.add('is-pressed');setTimeout(()=>startGame(false),110)});$('howBtn').addEventListener('click',()=>{ensureAudio();title.classList.add('hidden');game.classList.remove('hidden');resetRun();S.phase='onboarding';openOnboarding()});$('retryBtn').addEventListener('click',()=>{ensureAudio();resetRun()});
+    function refreshBest(){const b=Number(localStorage.getItem('placevalueForgeBest')||0);$('bestPill').classList.toggle('hidden',!b);if(b)$('bestPill').textContent=`최고 기록 ${b.toLocaleString('ko-KR')}점`}
+
+    function draw(now,dt){const W=innerWidth,H=innerHeight;ctx.clearRect(0,0,W,H);ctx.save();if(S.land&&S.stageW<W-2){ctx.fillStyle='rgba(2,14,23,.32)';ctx.fillRect(0,0,S.stageX,H);ctx.fillRect(S.stageX+S.stageW,0,W-S.stageX-S.stageW,H)}ctx.globalCompositeOperation='screen';for(let i=0;i<18;i++){const x=(i*113+now*.012*(i%3+1))%W,y=(i*71+Math.sin(now*.0005+i)*35)%H;ctx.fillStyle=`rgba(208,235,242,${.035+(i%4)*.012})`;ctx.beginPath();ctx.arc(x,y,2+i%3,0,Math.PI*2);ctx.fill()}for(const tr of S.trails){tr.life-=dt;ctx.globalAlpha=Math.max(0,tr.life/.25)*.42;ctx.fillStyle='#75c5e8';ctx.beginPath();ctx.ellipse(tr.x,tr.y,18*tr.life/.25,5,0,0,Math.PI*2);ctx.fill()}S.trails=S.trails.filter(x=>x.life>0);ctx.globalAlpha=1;for(const p of S.particles){p.life-=dt;p.vy+=170*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size*Math.max(.25,p.life),0,Math.PI*2);ctx.fill()}S.particles=S.particles.filter(p=>p.life>0);ctx.restore()}
+    function frame(now){let dt=Math.min(.05,(now-S.last)/1000);S.last=now;draw(now,dt);if(S.phase==='playing'){if(S.hitStop>0){S.hitStop-=dt*1000;dt=0}S.elapsed+=dt;S.timeLeft=Math.max(0,90-S.elapsed);const lvl=S.elapsed<30?1:S.elapsed<60?2:3;if(lvl!==S.level){S.level=lvl;showMessage(`${lvl}단계! 레일이 더 빨라져요`,'good');chooseProblem()}if(S.heat>0){S.heat=Math.max(0,S.heat-dt);els.heatTime.textContent=S.heat.toFixed(1);if(S.heat<=0)els.overheat.classList.remove('on')}if(S.near&&performance.now()>S.nearUntil)fail('가까운 눈금이었지만 다시 끼우는 시간이 지났어요.',false);els.time.textContent=Math.ceil(S.timeLeft);els.timeFill.style.transform=`scaleX(${S.timeLeft/90})`;if(S.timeLeft<=0)endGame(S.solved>=8?'90초 점화 임무를 마쳤어요!':'시간이 끝났어요. 다음엔 8개 점화를 노려요!')}S.shownScore+=(S.score-S.shownScore)*Math.min(1,dt*12);els.score.textContent=Math.round(S.shownScore).toLocaleString('ko-KR');requestAnimationFrame(frame)}requestAnimationFrame(frame);
+
+    // 퇴화 전략 자가 테스트: 선택을 자동 정답으로 고치지 않고 실제 드럼값+레일값만 비교한다.
+    function runDegenerateBots(runs=200){const strategies=['repeat','cycle','random','idle'],result={};let z=919191;const rnd=()=>{z=(Math.imul(z,1103515245)+12345)>>>0;return z/4294967296};for(const strategy of strategies){let completed=0,totalScore=0;for(let r=0;r<runs;r++){let lives=3,score=0,solved=0;for(let turn=0;turn<20&&lives>0;turn++){if(strategy==='idle')break;const band=turn<7?0:turn<14?1:2,p=POOLS[band][(r*17+turn*31)%POOLS[band].length],digits=String(p.P).length,max=10**digits;let raw,scale;if(strategy==='repeat'){raw=0;scale=0}else if(strategy==='cycle'){raw=(turn%4)*111%max;scale=turn%4}else{raw=Math.floor(rnd()*max);scale=Math.floor(rnd()*(band===2?6:5))}if(raw===p.P&&scale===p.scale){solved++;score+=100}else lives--}if(solved>=8&&lives>0)completed++;totalScore+=score}result[strategy]={runs,completions:completed,completionRate:+(completed/runs*100).toFixed(1),averageScore:+(totalScore/runs).toFixed(1)}}return result}
+    window.__GAME_TEST__={ready:true,start(){startGame(true)},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase!=='playing')startGame(true);success(true)},answerWrong(){if(S.phase!=='playing')startGame(true);fail('테스트 오답',true)},sampleProblems(n){return sample(n)},getLayout(){return{land:S.land,playW:S.stageW}},runDegenerateBots,auditProblemPools};
+    refreshBest();
+  })();
+  </script>
+</body>
+</html>

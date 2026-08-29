@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>영점 착륙</title>
+  <meta name="description" content="움직이는 소수점 클램프를 정확한 자릿값에 내려 화물을 착륙시키세요.">
+  <meta property="og:title" content="영점 착륙">
+  <meta property="og:description" content="점 하나가 화물을 살린다">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root{--stageW:min(100vw,1360px);--stageX:calc((100vw - var(--stageW))/2);--navy:#10253b;--cyan:#66d9e8;--red:#ff5a4e;--paper:#d7e6e8}
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--navy);color:var(--paper);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    body{font-family:"Courier New","Apple SD Gothic Neo","Malgun Gothic",monospace}
+    button{font:inherit;color:inherit;cursor:pointer}
+    button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+    #gameCanvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+    .hidden{display:none!important}
+    #titleScreen{position:fixed;inset:0;z-index:10;overflow:hidden;background:linear-gradient(155deg,#10253b,#061522)}
+    #titleArt{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;animation:title-breathe 20s ease-in-out infinite alternate}
+    #titleArtFallback{position:absolute;inset:0;background:linear-gradient(145deg,#10253b 0 62%,#0b1c2e 62%);opacity:0}
+    #titleArtFallback::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(102,217,232,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(102,217,232,.09) 1px,transparent 1px);background-size:24px 24px}
+    #titleScreen::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(4,12,24,.18),transparent 38%,rgba(4,12,24,.15) 63%,rgba(4,12,24,.78));z-index:1}
+    .title-ui{position:relative;z-index:3;width:min(100vw,640px);height:100%;margin:auto;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);pointer-events:none}
+    .logo-zone{position:absolute;top:max(52px,7dvh);left:16px;right:16px;text-align:center;pointer-events:auto;animation:logo-draw .9s cubic-bezier(.2,.9,.2,1) both}
+    .game-logo{margin:0;display:flex;justify-content:center;align-items:center;gap:.015em;font-family:"Arial Black","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:clamp(68px,24vw,126px);font-weight:1000;line-height:.8;letter-spacing:-.13em;transform:skewX(-7deg) rotate(-2deg);color:#e9fbff;-webkit-text-stroke:clamp(2px,.8vw,5px) #071b2d;paint-order:stroke fill;text-shadow:2px 2px 0 #66d9e8,4px 4px 0 #153c55,7px 7px 0 #06131f,0 0 18px rgba(102,217,232,.6)}
+    .game-logo span:nth-child(2){color:#66d9e8;transform:translateY(.08em) scale(1.08)}
+    .game-logo span:nth-child(3){transform:translateY(-.04em)}
+    .tagline{margin:20px 0 0;color:#fff;font:900 15px/1.3 "Courier New","Apple SD Gothic Neo",monospace;letter-spacing:.15em;text-shadow:0 2px 5px #061522}
+    .tagline::before,.tagline::after{content:"—";color:var(--cyan);margin:0 8px}
+    .cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:7px;pointer-events:auto}
+    #bestTitle{min-height:28px;padding:5px 10px;border:1px solid rgba(215,230,232,.45);background:rgba(6,21,34,.6);font-size:12px;font-weight:800;letter-spacing:.08em}
+    #startBtn{position:relative;width:min(100%,420px);height:68px;border:2px solid #d7e6e8;border-radius:0;background:#66d9e8;color:#071b2d;font:1000 21px/1 "Arial Black","Apple SD Gothic Neo",sans-serif;letter-spacing:.08em;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));animation:cta-pulse 2.2s ease-in-out infinite}
+    #startBtn::before,#startBtn::after{content:"";position:absolute;top:50%;width:24px;height:1px;background:#071b2d}
+    #startBtn::before{left:14px}#startBtn::after{right:14px}
+    #startBtn:active{transform:scale(.96);background:#fff}
+    #howBtn{min-width:150px;min-height:44px;border:0;background:transparent;color:#e9fbff;text-decoration:underline;text-underline-offset:5px;font-size:13px;font-weight:800}
+    .mute{position:fixed;z-index:30;top:max(10px,env(safe-area-inset-top));right:max(12px,calc((100vw - min(100vw,1360px))/2 + 12px));width:46px;height:46px;border:1px solid rgba(102,217,232,.7);border-radius:50%;background:rgba(6,21,34,.75);font-size:20px}
+    #hudText{position:fixed;z-index:5;left:max(10px,var(--stageX));top:max(10px,env(safe-area-inset-top));height:46px;display:flex;align-items:center;gap:11px;padding:0 10px;border-left:1px solid var(--cyan);border-bottom:1px solid rgba(102,217,232,.42);background:rgba(16,37,59,.7);font-size:12px;font-weight:900;letter-spacing:.05em;pointer-events:none}
+    #hudText b{color:#fff;font-size:18px;display:inline-block}
+    #hudText b.ink-punch{animation:ink-punch .28s steps(3,end)}
+    #notice{position:fixed;z-index:6;left:50%;top:64%;transform:translate(-50%,-50%);width:min(88vw,520px);min-height:52px;padding:12px;border:1px solid var(--cyan);background:rgba(6,21,34,.9);text-align:center;font-size:14px;font-weight:900;line-height:1.45;letter-spacing:.02em;pointer-events:none;opacity:0}
+    #notice.show{animation:notice-up .8s ease-out both}
+    #notice.bad{border-color:var(--red);animation:notice-drop .85s ease-out both}
+    #onboarding{position:fixed;z-index:20;inset:0;background:rgba(6,21,34,.52);display:grid;place-items:end center;padding:0 16px max(24px,env(safe-area-inset-bottom))}
+    .briefing{width:min(100%,520px);border:1px solid var(--cyan);background:#10253b;padding:18px;position:relative}
+    .briefing::before{content:"FLIGHT BRIEF";position:absolute;top:-9px;left:14px;background:#10253b;padding:0 8px;color:var(--cyan);font-size:11px;letter-spacing:.14em}
+    #briefStep{color:var(--cyan);font-size:12px;font-weight:900;letter-spacing:.1em}
+    #briefText{min-height:62px;margin:14px 0;font:900 17px/1.45 "Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all}
+    #briefNext{width:100%;height:54px;border:1px solid var(--paper);border-radius:0;background:transparent;font-size:16px;font-weight:900}
+    #briefNext:active{border-width:4px;color:#fff}
+    #result{position:fixed;z-index:18;inset:0;background:rgba(6,21,34,.93);display:grid;place-items:center;padding:20px}
+    .result-sheet{width:min(100%,520px);border:1px solid var(--cyan);padding:30px 22px;text-align:center;background-image:linear-gradient(rgba(102,217,232,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(102,217,232,.06) 1px,transparent 1px);background-size:20px 20px}
+    .result-sheet h2{margin:0;color:#fff;font:1000 clamp(34px,10vw,64px)/.95 "Arial Black","Apple SD Gothic Neo",sans-serif;letter-spacing:-.06em;text-shadow:3px 3px 0 #153c55}
+    #resultReason{margin:14px 0 22px;color:var(--cyan);font-weight:900}
+    .result-grid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid rgba(102,217,232,.5);border-bottom:1px solid rgba(102,217,232,.5);margin-bottom:22px}
+    .result-grid div{padding:16px 5px;font-size:12px}.result-grid div+div{border-left:1px solid rgba(102,217,232,.5)}
+    .result-grid b{display:block;color:#fff;font-size:34px;margin-top:4px}
+    #retryBtn{width:100%;height:64px;border:2px solid var(--paper);border-radius:0;background:var(--cyan);color:#071b2d;font-size:18px;font-weight:1000}
+    #retryBtn:active{background:#fff;border-width:5px}
+    @keyframes title-breathe{to{transform:scale(1.035) translateY(-.5%)}}
+    @keyframes logo-draw{from{opacity:0;transform:translateY(-24px) scale(.85)}70%{transform:translateY(5px) scale(1.03)}to{opacity:1}}
+    @keyframes cta-pulse{0%,76%,100%{transform:scale(1)}84%{transform:scale(1.025)}92%{transform:scale(.99)}}
+    @keyframes ink-punch{50%{transform:scale(1.28);color:var(--cyan)}}
+    @keyframes notice-up{0%{opacity:0;transform:translate(-50%,10px)}18%,70%{opacity:1;transform:translate(-50%,-8px)}100%{opacity:0;transform:translate(-50%,-32px)}}
+    @keyframes notice-drop{0%{opacity:0;transform:translate(-50%,-20px)}15%,75%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,15px)}}
+    @media (min-width:1024px){.game-logo{font-size:112px}.tagline{font-size:17px}html.land #notice{top:58%}html.land #onboarding{place-items:center end;padding:20px calc(var(--stageX) + 24px) 20px 20px}html.land .briefing{width:min(30vw,390px)}}
+    @media (max-height:700px){.logo-zone{top:38px}.game-logo{font-size:clamp(58px,20vw,92px)}.tagline{margin-top:14px}.cta-zone{gap:3px}}
+    @media (prefers-reduced-motion:reduce){#titleArt{animation-duration:45s}.game-logo{animation-duration:.2s}#startBtn{animation-duration:4s}}
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" aria-label="소수점 클램프 착륙 레일"></canvas>
+  <section id="titleScreen" aria-label="영점 착륙 타이틀 화면">
+    <div id="titleArtFallback" aria-hidden="true"></div>
+    <img id="titleArt" src="./assets/title.png" alt="소수점 클램프와 화물 활주로 청사진" onerror="this.style.display='none';document.getElementById('titleArtFallback').style.opacity='1'">
+    <div class="title-ui">
+      <div class="logo-zone">
+        <h1 class="game-logo" aria-label="영점 착륙"><span aria-hidden="true">영</span><span aria-hidden="true">점</span><span aria-hidden="true">착</span><span aria-hidden="true">륙</span></h1>
+        <p class="tagline">점 하나가 화물을 살린다</p>
+      </div>
+      <div class="cta-zone">
+        <div id="bestTitle" class="hidden"></div>
+        <button id="startBtn" type="button">착륙 관제 시작!</button>
+        <button id="howBtn" type="button">어떻게 놀아요? 〉</button>
+      </div>
+    </div>
+  </section>
+  <button id="muteBtn" class="mute" type="button" aria-label="소리 끄기">♪</button>
+  <div id="hudText" class="hidden" aria-live="polite"><span>화물 <b id="scoreText">0</b></span><span>목숨 <b id="livesText">3</b></span><span>콤보 <b id="comboText">0</b></span><span><b id="timeText">90</b>s</span></div>
+  <div id="notice" aria-live="assertive"></div>
+  <div id="onboarding" class="hidden" role="dialog" aria-modal="true" aria-label="게임 방법">
+    <div class="briefing"><div id="briefStep">01 / 03</div><div id="briefText"></div><button id="briefNext" type="button">다음 계측 〉</button></div>
+  </div>
+  <section id="result" class="hidden" aria-label="관제 결과">
+    <div class="result-sheet"><h2 id="resultTitle">활주로 폐쇄</h2><p id="resultReason"></p><div class="result-grid"><div>배송 화물<b id="resultSolved">0</b></div><div>최고 콤보<b id="resultCombo">0</b></div></div><button id="retryBtn" type="button">다시 관제하기</button></div>
+  </section>
+  <script>
+  (()=>{'use strict';
+    const $=id=>document.getElementById(id), canvas=$('gameCanvas'),ctx=canvas.getContext('2d',{alpha:false});
+    const POW10=[1,10,100,1000,10000];
+    const COLORS={navy:'#10253b',deep:'#061522',cyan:'#66d9e8',red:'#ff5a4e',paper:'#d7e6e8',white:'#ffffff'};
+    const S={phase:'title',score:0,displayScore:0,lives:3,level:1,solved:0,combo:0,bestCombo:0,stars:0,timeLeft:90,sessionStart:0,lastT:performance.now(),timeScale:1,hitStopUntil:0,problem:null,problemNo:0,clampX:.08,clampDir:1,dragging:false,pointerId:null,keyboardPause:0,feedback:null,flash:0,shake:0,trail:[],marks:[],land:false,stageW:innerWidth,stageX:0,play:{x:0,y:0,w:innerWidth,h:innerHeight},audio:null,muted:false,deckIndex:[0,0,0],decks:[[],[],[]],titleReady:true};
+
+    function safeGet(k,fallback=''){try{return localStorage.getItem(k)??fallback}catch{return fallback}}
+    function safeSet(k,v){try{localStorage.setItem(k,String(v))}catch{}}
+    function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){const t=a%b;a=b;b=t}return a||1}
+    // 모든 계산은 정수 계수와 10의 거듭제곱으로 유지한다. gcd는 분수 정규화 검증에도 쓴다.
+    function normalizedFraction(n,d){const g=gcd(n,d);return{n:n/g,d:d/g}}
+    function formatScaled(n,scale){if(scale===0)return String(n);const raw=String(Math.abs(n)).padStart(scale+1,'0');let out=raw.slice(0,-scale)+'.'+raw.slice(-scale);out=out.replace(/0+$/,'').replace(/\.$/,'');if(out.startsWith('.'))out='0'+out;return(n<0?'-':'')+out}
+    function factorText(n,scale){return formatScaled(n,scale)}
+    function railValues(p){return [4,3,2,1,0].map(d=>formatScaled(p,d))}
+    function mulberry(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+    function shuffled(a,rng=Math.random){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+
+    function makeProblem(id,band,ai,as,bi,bs,special=false){
+      const p=ai*bi,d=as+bs,answer=formatScaled(p,d),correctGap=4-d,spatial=railValues(p);
+      const rawDistractors=[];
+      // misconceptionId ONE_SIDE_SCALE: 두 인자의 소수 자릿수를 합치지 않고 한쪽만 적용한다.
+      rawDistractors.push({value:formatScaled(p,as),misconceptionId:'ONE_SIDE_SCALE_A'});
+      rawDistractors.push({value:formatScaled(p,bs),misconceptionId:'ONE_SIDE_SCALE_B'});
+      // misconceptionId PRODUCT_ALWAYS_GROWS: 소수점을 버리고 정수곱 P로 둔다.
+      rawDistractors.push({value:formatScaled(p,0),misconceptionId:'PRODUCT_ALWAYS_GROWS'});
+      // misconceptionId TRAILING_ZERO_PLACE: 끝자리 0을 다른 자릿값으로 오해해 한 칸 더 옮긴다.
+      if(d<4)rawDistractors.push({value:formatScaled(p,d+1),misconceptionId:'TRAILING_ZERO_PLACE'});
+      if(d>0)rawDistractors.push({value:formatScaled(p,d-1),misconceptionId:'DECIMAL_ALIGNMENT'});
+      // 필수 후처리 순서: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.
+      let wrong=rawDistractors.filter(x=>x.value!==answer);
+      wrong=wrong.filter(x=>{const v=Number(x.value);return Number.isFinite(v)&&v>0&&v<=9999});
+      const seen=new Set();wrong=wrong.filter(x=>!seen.has(x.value)&&seen.add(x.value));
+      for(const value of spatial){if(value!==answer&&!seen.has(value)){wrong.push({value,misconceptionId:'PLACE_VALUE_SHIFT'});seen.add(value)}if(wrong.length>=4)break}
+      wrong=shuffled(wrong, mulberry(id.length*997+p)).slice(0,4);
+      const choiceRecords=shuffled([{value:answer,misconceptionId:'CORRECT'},...wrong],mulberry(p+d*131));
+      const fraction=normalizedFraction(p,POW10[d]);
+      return{id,prompt:`${factorText(ai,as)} × ${factorText(bi,bs)}  |  점 없는 곱 ${p}`,ai,as,bi,bs,p,d,band,special,answer,answerNumeric:fraction.n/fraction.d,correctGap,digits:String(p).padStart(4,'0'),spatialChoices:spatial,choices:choiceRecords.map(x=>x.value),choiceRecords,unitConcept:special?'0.1을 곱하면 10으로 나눈 것과 같음':'소수점 위치 규칙'}
+    }
+
+    function buildPools(){
+      const b1=[],b2=[],b3=[];
+      // 밴드 1: 일의 자릿값부터 정한 전수 후보 풀. 무작위 생성·재시도 없음.
+      for(let ai=11;ai<=99;ai++){if(ai%10===0)continue;for(let bi=2;bi<=9;bi++){const p=ai*bi;if(p>=10&&p<=99)b1.push(makeProblem(`L1-${ai}-${bi}`,1,ai,1,bi,0))}}
+      // 밴드 2: 두 한 자리 소수의 정수 계수쌍을 전수 생성한다.
+      for(let ai=2;ai<=99;ai++){if(ai%10===0)continue;for(let bi=2;bi<=99;bi++){if(bi%10===0)continue;const p=ai*bi;if(p>=10&&p<=199)b2.push(makeProblem(`L2-${ai}-${bi}`,2,ai,1,bi,1))}}
+      // 밴드 3: 알려진 두 자리 정수곱과 scale 조합을 먼저 전수 생성해 성질을 구조적으로 보장한다.
+      const scales=[[1,1],[1,2],[2,1],[2,2]];
+      for(let ai=12;ai<=99;ai++)for(let bi=12;bi<=99;bi++)for(const [as,bs] of scales){const p=ai*bi,d=as+bs;if(p<=9999&&d<=4)b3.push(makeProblem(`L3-${ai}-${as}-${bi}-${bs}`,3,ai,as,bi,bs))}
+      const rng=mulberry(20260830);S.decks=[shuffled(b1,rng),shuffled(b2,rng),shuffled(b3,rng)];
+    }
+
+    function nextFromBand(band){const i=band-1,deck=S.decks[i];if(S.deckIndex[i]>=deck.length){S.decks[i]=shuffled(deck,mulberry(S.problemNo+991));S.deckIndex[i]=0}return S.decks[i][S.deckIndex[i]++]}
+    function makeSpecial(){const base=S.problem||makeProblem('SP-BASE',2,37,1,24,1);const scale=Math.min(3,Math.max(1,base.d));return makeProblem(`SP-${S.problemNo}-${base.p}`,Math.max(2,S.level),base.p,scale,1,1,true)}
+    function chooseNextProblem(){S.problemNo++;let p;if(S.problemNo===1)p=makeProblem('ONBOARD-27-4',1,27,1,4,0);else if(S.combo>0&&S.combo%6===5)p=makeSpecial();else p=nextFromBand(S.level);S.problem=p;S.clampX=.08+(S.problemNo%3)*.07;S.clampDir=S.problemNo%2?1:-1;S.trail.length=0}
+
+    function initAudio(){if(S.audio)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;try{S.audio=new AC()}catch{S.audio=null}}
+    function tone(kind){if(S.muted||!S.audio||S.audio.state!=='running')return;const a=S.audio,t=a.currentTime,o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.type=kind==='bad'?'sawtooth':'sine';const base=kind==='bad'?150:420+Math.min(5,S.combo)*55;o.frequency.setValueAtTime(base,t);if(kind!=='bad')o.frequency.exponentialRampToValueAtTime(base*1.55,t+.12);else o.frequency.exponentialRampToValueAtTime(75,t+.18);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.015);g.gain.exponentialRampToValueAtTime(.0001,t+(kind==='bad'?.22:.18));o.start(t);o.stop(t+.24)}
+    async function activateAudio(){initAudio();if(S.audio&&S.audio.state==='suspended'){try{await S.audio.resume()}catch{}}}
+
+    function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);const stage=Math.min(W,1360),sx=Math.round((W-stage)/2);S.stageW=stage;S.stageX=sx;document.documentElement.style.setProperty('--stageW',stage+'px');document.documentElement.style.setProperty('--stageX',sx+'px');S.play=S.land?{x:sx+stage*.245,y:52,w:stage*.51,h:H-72}:{x:0,y:72,w:W,h:H-92};const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+    addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));
+
+    function startGame(skipBrief=false){$('titleScreen').classList.add('hidden');$('result').classList.add('hidden');$('hudText').classList.remove('hidden');S.phase='playing';S.score=0;S.displayScore=0;S.lives=3;S.level=1;S.solved=0;S.combo=0;S.bestCombo=0;S.stars=0;S.timeLeft=90;S.sessionStart=performance.now();S.problemNo=0;S.deckIndex=[0,0,0];S.feedback=null;chooseNextProblem();updateHud();if(!skipBrief&&!safeGet('onboardingSeen:decimal-landing'))showBrief(0,true)}
+    const briefing=[
+      '점 없는 정수곱을 보고 결과의 소수점 자리를 계산해요. 첫 화물은 2.7 × 4예요.',
+      '클램프를 좌우로 직접 끌고, 원하는 숫자 틈에서 손을 떼세요. 자동으로 정답 칸에 붙지 않아요.',
+      '화물은 모두 같은 무게예요. 여기서 숫자는 무게가 아니라 자릿값의 크기를 뜻해요. 세 번 놓치면 활주로가 닫혀요.'
+    ];
+    let briefIndex=0,briefStarts=false;
+    function showBrief(i,starts=false){briefIndex=i;briefStarts=starts;if(S.phase==='playing')S.phase='brief';$('onboarding').classList.remove('hidden');$('briefStep').textContent=String(i+1).padStart(2,'0')+' / 03';$('briefText').textContent=briefing[i];$('briefNext').textContent=i===2?'직접 착륙하기':'다음 계측 〉'}
+    function closeBrief(){safeSet('onboardingSeen:decimal-landing','1');$('onboarding').classList.add('hidden');if(S.phase==='title')startGame(true);else if(S.phase==='brief'){S.phase='playing';S.sessionStart=performance.now()}}
+    $('briefNext').addEventListener('click',()=>{activateAudio();if(briefIndex<2)showBrief(briefIndex+1,briefStarts);else closeBrief()});
+    $('howBtn').addEventListener('click',()=>showBrief(0,true));
+    $('startBtn').addEventListener('click',async()=>{await activateAudio();startGame(false)});
+    $('retryBtn').addEventListener('click',async()=>{await activateAudio();startGame(true)});
+    $('muteBtn').addEventListener('click',async()=>{await activateAudio();S.muted=!S.muted;$('muteBtn').textContent=S.muted?'×':'♪';$('muteBtn').setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기')});
+
+    function gapFromX(nx){return Math.max(0,Math.min(4,Math.round(nx*4)))}
+    function misconceptionForGap(gap){const value=S.problem.spatialChoices[gap],rec=S.problem.choiceRecords.find(x=>x.value===value);if(rec)return rec.misconceptionId;const places=4-gap;if(places===0)return'PRODUCT_ALWAYS_GROWS';if(places===S.problem.as||places===S.problem.bs)return'ONE_SIDE_SCALE_A';if(Math.abs(places-S.problem.d)===1)return'TRAILING_ZERO_PLACE';return'PLACE_VALUE_SHIFT'}
+    function wrongMessage(id,selected){if(id.startsWith('ONE_SIDE'))return`한쪽 자리만 세면 안 돼요. 두 수의 소수 자릿수를 합쳐요: ${selected} ↔ ${S.problem.answer}`;if(id==='PRODUCT_ALWAYS_GROWS')return`곱하면 언제나 커지지 않아요. 실제 치수는 ${S.problem.answer}예요.`;if(id==='TRAILING_ZERO_PLACE')return`0 하나는 자리 한 칸 차이예요. ${selected}와 ${S.problem.answer}는 달라요.`;if(id==='DECIMAL_ALIGNMENT')return`덧셈처럼 점을 맞추지 말고, 소수 자릿수의 합을 세어요.`;return`소수점이 한 칸 어긋났어요: ${selected} ↔ ${S.problem.answer}`}
+    function popHud(id){const el=$(id);el.classList.remove('ink-punch');void el.offsetWidth;el.classList.add('ink-punch')}
+    function showNotice(text,bad=false){const n=$('notice');n.textContent=text;n.className='';void n.offsetWidth;n.classList.add('show');if(bad)n.classList.add('bad')}
+    function addMarks(type,count,x,y){for(let i=0;i<count;i++){const a=-Math.PI*.85+(i/(Math.max(1,count-1)))*Math.PI*.7,sp=45+(i%3)*13;S.marks.push({type,x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-30,life:.6+(i%2)*.12,max:.72})}}
+    function resolveGap(gap,forced=false){if(S.phase!=='playing'&&!forced)return;const correct=gap===S.problem.correctGap,selected=S.problem.spatialChoices[gap],now=performance.now();if(correct){S.score+=100+S.combo*18+(S.problem.special?200:0);S.solved++;S.combo++;S.bestCombo=Math.max(S.bestCombo,S.combo);if(S.problem.special)S.stars+=2;else if(Math.abs(S.clampX-gap/4)<.025)S.stars++;S.hitStopUntil=now+70;S.flash=.55;S.feedback={type:'good',t:now,duration:S.problem.special?1250:850,gap,selected,problem:S.problem};addMarks('dimension',Math.min(10,3+S.combo),slotX(gap),cargoGeom().bottom+62);tone('good');showNotice(S.problem.special?'×0.1 = ÷10  치수 확정!':`착륙! ${S.problem.answer}`,false);popHud('scoreText')}else{S.lives=Math.max(0,S.lives-1);S.combo=0;S.shake=S.lives===0?12:7;S.flash=-.7;const mid=misconceptionForGap(gap);S.feedback={type:'bad',t:now,duration:S.lives===0?1000:1150,gap,selected,misconceptionId:mid,problem:S.problem};tone('bad');showNotice(wrongMessage(mid,selected),true);popHud('livesText')}updateHud();S.phase='feedback'}
+    function forcedResolve(correct){if(S.phase==='title'||S.phase==='over')startGame(true);S.feedback=null;S.phase='playing';resolveGap(correct?S.problem.correctGap:(S.problem.correctGap+2)%5,true)}
+    function finishFeedback(){if(!S.feedback)return;if(S.lives<=0){endGame('lives');return}S.level=S.solved>=12?3:S.solved>=6?2:1;S.feedback=null;S.phase='playing';chooseNextProblem();updateHud()}
+    function endGame(reason){S.phase='over';S.feedback=null;$('hudText').classList.add('hidden');$('result').classList.remove('hidden');const prev=Number(safeGet('best:decimal-landing','0'))||0;if(S.solved>prev)safeSet('best:decimal-landing',S.solved);$('resultTitle').textContent=reason==='clear'?'항로 완성':'관제 종료';$('resultReason').textContent=reason==='time'?'시간 종료 · 배송 기록을 확인해요':reason==='clear'?'18개 화물이 모두 착륙했어요':'화물 세 개를 놓쳐 활주로가 닫혔어요';animateResult()}
+    function animateResult(){const t0=performance.now(),targetSolved=S.solved,targetCombo=S.bestCombo;function step(t){const p=Math.min(1,(t-t0)/650),e=1-(1-p)*(1-p);$('resultSolved').textContent=Math.round(targetSolved*e);$('resultCombo').textContent=Math.round(targetCombo*e);if(p<1)requestAnimationFrame(step)}requestAnimationFrame(step)}
+    function updateHud(){$('scoreText').textContent=Math.round(S.displayScore);$('livesText').textContent='◆'.repeat(S.lives)+'◇'.repeat(3-S.lives);$('comboText').textContent=S.combo;$('timeText').textContent=Math.max(0,Math.ceil(S.timeLeft));const best=Number(safeGet('best:decimal-landing','0'))||0;if(best>0){$('bestTitle').textContent=`최고 배송 ${best}개`;$('bestTitle').classList.remove('hidden')}}
+
+    canvas.addEventListener('pointerdown',e=>{if(S.phase!=='playing')return;activateAudio();S.dragging=true;S.pointerId=e.pointerId;canvas.setPointerCapture(e.pointerId);movePointer(e)});
+    function movePointer(e){const g=trackGeom();S.clampX=Math.max(0,Math.min(1,(e.clientX-g.left)/(g.right-g.left)));S.keyboardPause=.4}
+    canvas.addEventListener('pointermove',e=>{if(S.dragging&&e.pointerId===S.pointerId)movePointer(e)});
+    function releasePointer(e){if(!S.dragging||e.pointerId!==S.pointerId)return;movePointer(e);S.dragging=false;S.pointerId=null;resolveGap(gapFromX(S.clampX))}
+    canvas.addEventListener('pointerup',releasePointer);canvas.addEventListener('pointercancel',e=>{if(e.pointerId===S.pointerId){S.dragging=false;S.pointerId=null}});
+    addEventListener('keydown',e=>{if(S.phase!=='playing')return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const current=gapFromX(S.clampX),next=Math.max(0,Math.min(4,current+(e.key==='ArrowRight'?1:-1)));S.clampX=next/4;S.keyboardPause=1.2}else if(e.code==='Space'){e.preventDefault();resolveGap(gapFromX(S.clampX))}});
+
+    function cargoGeom(){const p=S.play;const top=S.land?p.y+102:p.y+105;const h=Math.min(S.land?250:205,p.h*.32);return{left:p.x+p.w*.08,right:p.x+p.w*.92,top,bottom:top+h,h}}
+    function trackGeom(){const c=cargoGeom();return{left:c.left+12,right:c.right-12,y:c.bottom+Math.min(105,S.play.h*.17)}}
+    function slotX(i){const g=trackGeom();return g.left+(g.right-g.left)*(i/4)}
+    function line(x1,y1,x2,y2,color=COLORS.cyan,width=1,dash=[]){ctx.beginPath();ctx.setLineDash(dash);ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();ctx.setLineDash([])}
+    function text(txt,x,y,size,color=COLORS.paper,align='center',weight=800){ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline='middle';ctx.font=`${weight} ${size}px "Courier New","Apple SD Gothic Neo",monospace`;ctx.fillText(txt,x,y)}
+    function drawArrow(x,y,dir,color){ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+dir*8,y-5);ctx.lineTo(x+dir*8,y+5);ctx.closePath();ctx.fill()}
+    function drawBackground(t){const W=innerWidth,H=innerHeight;ctx.fillStyle=COLORS.navy;ctx.fillRect(0,0,W,H);const ox=(t*.008)%24,oy=(t*.004)%24;ctx.strokeStyle='rgba(102,217,232,.075)';ctx.lineWidth=1;for(let x=S.stageX-24+ox;x<S.stageX+S.stageW+24;x+=24)line(x,0,x,H,'rgba(102,217,232,.06)');for(let y=-24+oy;y<H+24;y+=24)line(S.stageX,y,S.stageX+S.stageW,y,'rgba(102,217,232,.055)');for(let k=-H;k<S.stageW+H;k+=96)line(S.stageX+k,0,S.stageX+k-H,H,'rgba(102,217,232,.035)');ctx.strokeStyle='rgba(102,217,232,.32)';ctx.strokeRect(S.stageX+7,7,S.stageW-14,H-14);for(let i=0;i<12;i++){const x=S.stageX+((i*113+t*.006)%S.stageW),y=40+((i*157+Math.sin(t*.001+i)*16)%(H-80));ctx.fillStyle='rgba(102,217,232,.23)';ctx.fillRect(x,y,2,2)}if(S.stageW<innerWidth-2){ctx.fillStyle='rgba(2,9,18,.42)';ctx.fillRect(0,0,S.stageX,H);ctx.fillRect(S.stageX+S.stageW,0,innerWidth-S.stageX-S.stageW,H)}}
+    function drawZones(){if(!S.land)return;const sx=S.stageX,sw=S.stageW,H=innerHeight;line(sx+sw*.23,52,sx+sw*.23,H-24,'rgba(102,217,232,.32)');line(sx+sw*.77,52,sx+sw*.77,H-24,'rgba(102,217,232,.32)');text('FACTOR DRUM',sx+22,91,11,COLORS.cyan,'left',900);text('CONTROL LOG',sx+sw*.79,91,11,COLORS.cyan,'left',900);if(S.problem){text(factorText(S.problem.ai,S.problem.as),sx+sw*.115,175,42,COLORS.white);text('×',sx+sw*.115,225,24,COLORS.cyan);text(factorText(S.problem.bi,S.problem.bs),sx+sw*.115,275,42,COLORS.white);line(sx+35,310,sx+sw*.195,310,COLORS.cyan);text(`정수곱 ${S.problem.p}`,sx+sw*.115,340,17,COLORS.paper)}text(`배송 ${S.solved} / 18`,sx+sw*.79,166,18,COLORS.white,'left');text(`최고 콤보 ${S.bestCombo}`,sx+sw*.79,208,16,COLORS.paper,'left');text(`별 ${S.stars}`,sx+sw*.79,250,16,COLORS.cyan,'left');line(sx+sw*.79,284,sx+sw-30,284,'rgba(102,217,232,.45)');text('드래그 → 놓기',sx+sw*.79,320,14,COLORS.paper,'left')}
+    function drawProblem(t){if(!S.problem)return;const p=S.play,c=cargoGeom(),g=trackGeom(),center=p.x+p.w/2;const exprSize=Math.max(25,Math.min(42,p.w*.075));if(!S.land){text(`${factorText(S.problem.ai,S.problem.as)} × ${factorText(S.problem.bi,S.problem.bs)}`,center,p.y+44,exprSize,COLORS.white);text(`정수곱 ${S.problem.p}`,center,p.y+79,14,COLORS.cyan)}else{text(S.problem.special?'SPECIAL ×0.1 CARGO':`CARGO ${String(S.problemNo).padStart(2,'0')}`,center,p.y+22,13,S.problem.special?COLORS.white:COLORS.cyan)}
+      const shake=S.feedback?.type==='bad'?Math.sin(t*.09)*S.shake*Math.max(0,1-(t-S.feedback.t)/900):0;ctx.save();ctx.translate(shake,0);ctx.strokeStyle=S.problem.special?COLORS.white:'rgba(102,217,232,.8)';ctx.lineWidth=1;ctx.strokeRect(c.left,c.top,c.right-c.left,c.h);for(let x=c.left+14;x<c.right;x+=18)line(x,c.top,x-12,c.top+12,'rgba(102,217,232,.18)');line(c.left,c.top+34,c.right,c.top+34,'rgba(102,217,232,.35)');text('POINTLESS INTEGER CARGO',c.left+12,c.top+18,10,COLORS.cyan,'left');
+      const gapY=c.top+c.h*.58,digitY=gapY;const digitSize=Math.max(38,Math.min(68,p.w*.12));for(let i=0;i<5;i++){const x=c.left+12+(c.right-c.left-24)*(i/4);line(x,gapY-digitSize*.72,x,gapY+digitSize*.72,'rgba(102,217,232,.24)',1,[3,5]);ctx.beginPath();ctx.arc(x,gapY+digitSize*.64,3,0,Math.PI*2);ctx.strokeStyle=COLORS.cyan;ctx.stroke()}for(let i=0;i<4;i++){const x=(slotX(i)+slotX(i+1))/2;text(S.problem.digits[i],x,digitY,digitSize,COLORS.white,'center',900)}
+      line(g.left,g.y,g.right,g.y,COLORS.cyan,2);for(let i=0;i<5;i++){const x=slotX(i);line(x,g.y-12,x,g.y+13,COLORS.cyan,i===0||i===4?2:1);text(String(i+1),x,g.y+27,11,'rgba(215,230,232,.7)')}
+      for(let i=1;i<S.trail.length;i++){const a=S.trail[i-1],b=S.trail[i];line(a.x,a.y,b.x,b.y,`rgba(102,217,232,${i/S.trail.length*.22})`,1)}
+      const cx=g.left+(g.right-g.left)*S.clampX,cy=g.y-30,bob=S.dragging?-4:Math.sin(t*.008)*2;ctx.save();ctx.translate(cx,cy+bob);let sx=1,sy=1;if(S.feedback?.type==='good'){const q=Math.min(1,(t-S.feedback.t)/420);sx=1+Math.sin(q*Math.PI)*.24;sy=1-Math.sin(q*Math.PI)*.2}ctx.scale(sx,sy);ctx.strokeStyle=COLORS.cyan;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-28,-24);ctx.lineTo(-28,8);ctx.lineTo(-12,23);ctx.moveTo(28,-24);ctx.lineTo(28,8);ctx.lineTo(12,23);ctx.stroke();ctx.strokeRect(-21,-32,42,22);ctx.fillStyle=COLORS.deep;ctx.fillRect(-18,-29,36,16);ctx.fillStyle=COLORS.white;ctx.beginPath();ctx.arc(-7,-21,3,0,Math.PI*2);ctx.arc(7,-21,3,0,Math.PI*2);ctx.fill();ctx.fillStyle=COLORS.cyan;ctx.beginPath();ctx.arc(0,12,8,0,Math.PI*2);ctx.fill();ctx.restore();
+      const preview=S.problem.spatialChoices[gapFromX(S.clampX)];text(`선택 치수  ${preview}`,center,g.y+62,Math.max(20,Math.min(28,p.w*.055)),COLORS.white);text(S.dragging?'손을 떼면 잠금':'클램프를 잡아 끌기',center,g.y+94,13,COLORS.cyan);
+      drawFeedback(t,c,g);ctx.restore()}
+    function drawFeedback(t,c,g){const f=S.feedback;if(!f)return;const q=Math.min(1,(t-f.t)/Math.max(1,f.duration)),cx=slotX(f.gap),answerX=slotX(f.problem.correctGap),y=g.y-74;if(f.type==='good'){const e=1-Math.pow(1-q,3),spread=(c.right-c.left)*.46*e;line(cx-spread,y,cx+spread,y,COLORS.cyan,2);drawArrow(cx-spread,y,1,COLORS.cyan);drawArrow(cx+spread,y,-1,COLORS.cyan);line(cx,y-28,cx,g.y-2,COLORS.cyan);text(f.problem.special?'×0.1 = ÷10':`RESULT ${f.problem.answer}`,cx,y-19,Math.max(18,S.play.w*.04),COLORS.white)}else{const e=Math.min(1,q*2.4);line(cx,y,cx+(answerX-cx)*.48*e,y-24*e,COLORS.red,3);line(cx+(answerX-cx)*.48*e,y-24*e,cx+(answerX-cx)*e,y, COLORS.red,3);line(answerX,c.top+45,answerX,g.y-2,COLORS.cyan,2,[6,5]);text(`선택 ${f.selected}`,cx,y-20,15,COLORS.red);text(`실제 ${f.problem.answer}`,answerX,c.top+58,15,COLORS.cyan)}}
+    function drawMarks(dt){for(const m of S.marks){m.life-=dt;m.x+=m.vx*dt;m.y+=m.vy*dt;m.vy+=40*dt;const a=Math.max(0,m.life/m.max);ctx.strokeStyle=`rgba(102,217,232,${a})`;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(m.x-5,m.y);ctx.lineTo(m.x+5,m.y);ctx.moveTo(m.x,m.y-5);ctx.lineTo(m.x,m.y+5);ctx.stroke()}S.marks=S.marks.filter(m=>m.life>0)}
+    function drawFlash(){if(!S.flash)return;ctx.fillStyle=S.flash>0?`rgba(102,217,232,${Math.abs(S.flash)*.16})`:`rgba(255,90,78,${Math.abs(S.flash)*.14})`;ctx.fillRect(0,0,innerWidth,innerHeight)}
+    function update(t,dt){if(S.phase==='playing'||S.phase==='feedback'){if(t>=S.hitStopUntil){if(S.phase==='playing'&&!S.dragging){if(S.keyboardPause>0)S.keyboardPause-=dt;else{const speed=(.115+(S.level-1)*.04)*dt;S.clampX+=S.clampDir*speed;if(S.clampX>=1){S.clampX=1;S.clampDir=-1}else if(S.clampX<=0){S.clampX=0;S.clampDir=1}}}if(S.phase==='playing'){S.timeLeft=Math.max(0,90-(t-S.sessionStart)/1000);if(S.timeLeft<=0)endGame('time')}}if(S.phase==='feedback'&&S.feedback&&t-S.feedback.t>=S.feedback.duration)finishFeedback();if(S.solved>=18&&S.phase!=='over')endGame('clear');S.trail.push({x:trackGeom().left+(trackGeom().right-trackGeom().left)*S.clampX,y:trackGeom().y-30});if(S.trail.length>12)S.trail.shift()}S.displayScore+=(S.score-S.displayScore)*Math.min(1,dt*10);S.flash*=Math.pow(.035,dt);S.shake*=Math.pow(.08,dt);updateHud()}
+    function frame(t){const dt=Math.min(.05,(t-S.lastT)/1000||0);S.lastT=t;update(t,dt);drawBackground(t);if(S.phase!=='title'){drawZones();drawProblem(t);drawMarks(dt);drawFlash()}requestAnimationFrame(frame)}
+
+    function sampleProblems(n){const count=Math.max(20,Math.floor(Number(n)||20)),all=[...S.decks[0],...S.decks[1],...S.decks[2]],out=[];for(let i=0;i<count;i++){const p=all[(i*7919+i*i*17)%all.length];out.push({id:p.id,prompt:p.prompt,choices:p.choices.slice(),answer:p.answer,answerNumeric:p.answerNumeric,unitConcept:p.unitConcept})}return out}
+    function simulateBot(kind,runs=200){let complete=0,totalScore=0;const rng=mulberry(90421+kind.length);for(let r=0;r<runs;r++){let lives=3,solved=0,step=0,score=0;while(lives>0&&solved<18&&step<80){if(kind==='none')break;const band=solved>=12?3:solved>=6?2:1,deck=S.decks[band-1],p=deck[(r*37+step*19)%deck.length];let gap=0;if(kind==='cycle')gap=step%5;else if(kind==='random')gap=Math.floor(rng()*5);if(gap===p.correctGap){solved++;score+=100}else lives--;step++}if(solved>=18)complete++;totalScore+=score}return{kind,runs,completed:complete,completionRate:complete/runs,averageScore:Math.round(totalScore/runs)}}
+
+    buildPools();layout();const best=Number(safeGet('best:decimal-landing','0'))||0;if(best>0){$('bestTitle').textContent=`최고 배송 ${best}개`;$('bestTitle').classList.remove('hidden')}requestAnimationFrame(frame);
+    window.__GAME_TEST__={ready:true,start(){startGame(true)},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){forcedResolve(true)},answerWrong(){forcedResolve(false)},sampleProblems,getLayout(){return{land:S.land,playW:S.play.w}},simulateBot};
+  })();
+  </script>
+</body>
+</html>

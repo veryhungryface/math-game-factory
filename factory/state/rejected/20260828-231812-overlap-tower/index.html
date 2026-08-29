@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+  <meta property="og:title" content="겹침탑">
+  <meta property="og:description" content="딱 포개면 쑥 올라가">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>겹침탑</title>
+  <style>
+    :root{
+      --stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);
+      --paper:#e8e4dc;--ink:#25282d;--silver:#aeb5bc;--signal:#e7483d;
+      --light:#fffdf7;--gold:#ffd46b;--panel:rgba(247,244,237,.94);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#25282d;color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;border:0}
+    button:focus-visible{outline:4px solid var(--gold);outline-offset:3px}
+    .hidden{display:none!important}
+    #game{position:fixed;inset:0;overflow:hidden;isolation:isolate;background:linear-gradient(145deg,#f5f1e8,#aeb5bc 58%,#555a61)}
+    #ambient{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+    #gameBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.43;filter:grayscale(.15) contrast(1.03);z-index:-1}
+    .mute{position:fixed;z-index:90;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:48px;height:48px;border-radius:50%;background:#f7f4ed;border:2px solid var(--ink);box-shadow:0 4px 0 #696d73,0 7px 14px #0003;font-size:22px}
+    .mute:active,.gamebtn:active,.tower:active,.cta:active,.smallbtn:active{transform:translateY(3px) scale(.98);box-shadow:0 1px 0 #555}
+
+    /* 풀블리드 생성 키아트 타이틀 */
+    #titleScreen{position:fixed;inset:0;z-index:70;overflow:hidden;background:radial-gradient(circle at 50% 46%,#fffdf7,#d6d1c8 55%,#5d6269)}
+    #titleArt{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;object-position:50% 48%;animation:keyZoom 20s ease-in-out infinite alternate;transform-origin:50% 50%}
+    #titleScreen:after{content:"";position:absolute;inset:0;background:linear-gradient(#fff8 0%,transparent 31%,transparent 63%,#1d2026c9 100%);pointer-events:none}
+    .title-ui{position:relative;z-index:3;width:min(100vw,640px);height:100%;margin:auto;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);pointer-events:none}
+    .logo-zone{position:absolute;top:max(50px,6dvh);left:14px;right:14px;text-align:center;pointer-events:auto;animation:logoIn .8s cubic-bezier(.2,.9,.2,1.22) both}
+    .logo{margin:0;display:flex;justify-content:center;align-items:center;font-size:clamp(76px,27vw,132px);font-weight:1000;line-height:.82;letter-spacing:-.15em;transform:rotate(-3deg);filter:drop-shadow(0 15px 10px #0005)}
+    .logo span{display:inline-block;padding:.02em;color:#f8f4ea;-webkit-text-stroke:clamp(3px,1vw,6px) #25282d;paint-order:stroke fill;text-shadow:0 2px 0 #bbc0c5,0 4px 0 #8e949b,0 7px 0 #555b62,0 10px 1px #22262c,0 15px 22px #e7483d77;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}
+    .tagline{display:inline-block;margin:24px 0 0;padding:8px 18px;border:2px solid var(--ink);border-radius:999px;background:#f9f6efde;color:var(--ink);font-size:clamp(16px,4.8vw,21px);font-weight:900;box-shadow:0 4px 0 #aeb5bc;transform:rotate(1deg)}
+    .title-particles{position:absolute;inset:0;z-index:2;pointer-events:none}
+    .title-particles i{position:absolute;bottom:-20px;width:7px;height:18px;background:linear-gradient(#fff,#e7483d);border-radius:3px;opacity:.72;animation:floatUp var(--d) linear infinite;animation-delay:var(--delay);left:var(--x)}
+    .cta-zone{position:absolute;z-index:4;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:7px;pointer-events:auto;color:white}
+    .best-pill{min-height:36px;padding:7px 15px;background:#25282de8;border:2px solid #fff8;border-radius:999px;font-size:14px;font-weight:800;box-shadow:0 5px 14px #0004}
+    .cta{position:relative;width:min(100%,420px);min-height:68px;border-radius:24px;background:linear-gradient(#ff6a5f 0 48%,#e7483d 49% 100%);border:3px solid #25282d;color:white;font-size:clamp(22px,6vw,29px);font-weight:1000;letter-spacing:-.04em;text-shadow:0 2px 0 #8d221d;box-shadow:inset 0 3px 0 #ffb4ae,0 7px 0 #7f2825,0 13px 25px #0007;animation:pulse 1.8s ease-in-out infinite}
+    .cta:before,.cta:after{content:"◆";font-size:17px;margin:0 12px;color:#fff7c7}
+    .how{min-width:140px;min-height:44px;background:transparent;color:#fff;font-weight:900;text-decoration:underline;text-underline-offset:4px;text-shadow:0 2px 4px #000}
+    .unitbadge{font-size:13px;font-weight:800;color:#f2eee6;text-shadow:0 1px 3px #000}
+
+    /* 플레이 HUD */
+    #playUI{position:absolute;inset:0;z-index:4;pointer-events:none}
+    #hud{position:absolute;top:max(8px,env(safe-area-inset-top));left:10px;right:66px;height:58px;display:flex;gap:7px;align-items:stretch;pointer-events:auto}
+    .hudpill{min-width:72px;padding:6px 10px;border-radius:16px;background:linear-gradient(#fff,#e7e2da);border:2px solid #30343a;box-shadow:inset 0 2px 0 white,0 4px 0 #767b82,0 6px 10px #0002;display:grid;align-content:center;text-align:center;font-weight:900;font-size:13px}
+    .hudpill strong{display:block;color:var(--signal);font-size:20px;line-height:1;font-weight:1000;font-variant-numeric:tabular-nums}
+    .hudpill.punch strong{animation:scorePunch .36s cubic-bezier(.2,.9,.2,1.45)}
+    #timerPill{margin-left:auto}
+    #leftPanel,#rightPanel{position:absolute;pointer-events:auto}
+    #leftPanel{top:75px;left:10px;right:10px;height:82px;padding:10px 12px;border-radius:20px;background:var(--panel);border:2px solid #34373d;box-shadow:inset 0 2px 0 #fff,0 5px 0 #858a91,0 9px 22px #0002;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+    #mission{font-size:clamp(15px,4.2vw,19px);font-weight:950;line-height:1.18}
+    #mission small{display:block;color:#666c73;font-size:12px;margin-top:5px;font-weight:800}
+    #modeBtn{min-width:94px;height:48px;padding:3px 6px;border-radius:15px;background:#25282d;color:white;border:2px solid #000;box-shadow:inset 0 2px 0 #686d74,0 4px 0 #111;font-size:12px;font-weight:900;white-space:nowrap}
+    #stage{position:absolute;top:166px;left:8px;right:8px;bottom:193px;pointer-events:auto;display:grid;grid-template-rows:minmax(92px,1fr) auto;gap:8px}
+    #spiritZone{position:relative;display:grid;place-items:center;min-height:92px;overflow:visible}
+    #hero{position:absolute;left:4%;width:clamp(78px,25vw,126px);height:auto;z-index:3;filter:drop-shadow(0 9px 6px #1c202544);animation:bob 2.7s ease-in-out infinite;pointer-events:none}
+    #hero.joy{animation:joy .55s cubic-bezier(.2,.8,.2,1.4)}
+    #evo{position:absolute;top:4px;right:7px;min-width:104px;padding:5px 9px;border-radius:12px;background:#25282de8;color:white;border:2px solid #fff9;font-size:12px;font-weight:900;text-align:center}
+    #piece{position:absolute;z-index:5;width:116px;height:116px;left:63%;top:50%;transform:translate(-50%,-50%);filter:drop-shadow(0 8px 7px #0004);cursor:grab;touch-action:none;will-change:transform}
+    #piece.dragging{cursor:grabbing;filter:drop-shadow(0 15px 8px #0005)}
+    #piece.success{animation:pieceRise .62s cubic-bezier(.15,.7,.1,1) forwards}
+    #towerStrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;height:132px}
+    .tower{position:relative;min-width:0;min-height:110px;padding:6px 3px 5px;border-radius:17px;background:linear-gradient(155deg,#fffdf3,#cfd3d7);border:2px solid #34373d;box-shadow:inset 0 2px 0 white,0 5px 0 #777d84,0 8px 13px #0003;overflow:hidden;transition:filter .15s,transform .15s}
+    .tower:before{content:"";position:absolute;left:8px;right:8px;bottom:5px;height:calc(var(--h,1)*5px);max-height:31px;border-radius:7px 7px 10px 10px;background:repeating-linear-gradient(to top,#e7483d55 0 4px,#fff7 4px 6px);border:1px solid #8a2c28}
+    .tower canvas{position:relative;width:100%;height:82px;display:block}
+    .tower b{position:absolute;left:6px;top:5px;width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:#25282d;color:white;font-size:13px;border:2px solid white}
+    .tower.goodGlow{animation:targetGlow .7s ease-in-out 2}
+    .tower.wrong{animation:towerCrack .45s ease-in-out}
+    #rightPanel{left:8px;right:8px;bottom:max(7px,env(safe-area-inset-bottom));height:178px;display:grid;grid-template-rows:48px 1fr;gap:7px}
+    #feedback{display:grid;place-items:center;text-align:center;border-radius:17px;background:#25282dea;color:white;border:2px solid #fff9;box-shadow:inset 0 2px 0 #737880,0 4px 0 #111;padding:5px 10px;font-size:15px;font-weight:950;line-height:1.1}
+    #feedback.ok{background:#8b2925;color:#fff8d7}
+    #feedback.bad{background:#3f434a;color:#fff}
+    #controls{display:grid;grid-template-columns:1fr 1fr 1.45fr;gap:7px}
+    .gamebtn{min-height:60px;border-radius:19px;border:2px solid #25282d;background:linear-gradient(#fff,#d9d5cd);box-shadow:inset 0 2px 0 white,0 5px 0 #767b82,0 8px 13px #0003;font-size:20px;font-weight:1000}
+    #dropBtn{background:linear-gradient(#ff7168,#e7483d);color:white;text-shadow:0 2px #8e201b;box-shadow:inset 0 2px 0 #ffc1bd,0 5px 0 #802a26,0 8px 13px #0003}
+    #axisCue{position:absolute;left:63%;top:0;bottom:0;border-left:3px dashed #e7483d99;pointer-events:none;display:none}
+    #centerCue{position:absolute;left:63%;top:50%;width:25px;height:25px;border:3px solid #e7483d;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;display:none}
+
+    /* 와이드 극장형: 안내 / 중앙 4탑 무대 / 기록·컨트롤 재배치 */
+    html.land #hud{left:calc(var(--stageX) + 14px);right:calc(100vw - var(--stageX) - var(--stageW) + 14px);height:60px}
+    html.land #leftPanel{left:calc(var(--stageX) + 14px);right:auto;top:82px;width:min(250px,calc(var(--stageW)*.21));height:calc(100% - 106px);display:flex;flex-direction:column;justify-content:flex-start;padding:20px 15px;gap:18px}
+    html.land #mission{font-size:20px;line-height:1.32}
+    html.land #modeBtn{width:100%;margin-top:auto}
+    html.land #stage{left:calc(var(--stageX) + min(250px,calc(var(--stageW)*.21)) + 30px);right:calc(100vw - var(--stageX) - var(--stageW) + min(270px,calc(var(--stageW)*.22)) + 30px);top:78px;bottom:24px;grid-template-rows:minmax(250px,1fr) 235px;gap:12px}
+    html.land #spiritZone{border-radius:28px;background:radial-gradient(ellipse at 50% 85%,#fff9,transparent 62%);border:2px solid #fff4;box-shadow:inset 0 0 45px #fff8}
+    html.land #hero{left:10%;width:clamp(130px,15vw,190px);top:16%}
+    html.land #piece{left:66%;width:170px;height:170px;top:59%}
+    html.land #axisCue,html.land #centerCue{left:66%}
+    html.land #towerStrip{height:235px;gap:12px}
+    html.land .tower{min-height:220px;border-radius:25px;padding:12px}
+    html.land .tower canvas{height:160px}
+    html.land #rightPanel{left:auto;right:calc(100vw - var(--stageX) - var(--stageW) + 14px);bottom:24px;width:min(270px,calc(var(--stageW)*.22));height:calc(100% - 106px);grid-template-rows:90px 1fr;gap:13px}
+    html.land #feedback{font-size:18px;padding:12px}
+    html.land #controls{grid-template-columns:1fr 1fr;align-content:end}
+    html.land #dropBtn{grid-column:1/-1;min-height:86px}
+    html.land .gamebtn{min-height:72px}
+    html.land .mute{right:calc((100vw - var(--stageW))/2 + 14px)}
+    html.land #titleArt{object-position:50% 52%}
+
+    /* 온보딩 / 결과 */
+    .overlay{position:fixed;inset:0;z-index:80;display:grid;place-items:center;background:#20242bdc;padding:18px;pointer-events:auto}
+    .card{width:min(100%,470px);padding:26px 22px;border-radius:28px;background:linear-gradient(145deg,#fffdf7,#dcd8d0);border:3px solid #25282d;box-shadow:inset 0 3px white,0 9px 0 #70757c,0 20px 60px #0009;text-align:center}
+    .card .step{display:inline-block;padding:6px 13px;border-radius:99px;background:#25282d;color:white;font-weight:900}
+    .card h2{margin:16px 0 10px;font-size:clamp(27px,8vw,39px);font-weight:1000;letter-spacing:-.05em}
+    .card p{min-height:58px;margin:0 0 18px;font-size:18px;line-height:1.45;font-weight:800;color:#555a60}
+    .smallbtn{width:100%;min-height:60px;border-radius:19px;background:linear-gradient(#ff7168,#e7483d);border:2px solid #25282d;color:white;font-size:21px;font-weight:1000;box-shadow:inset 0 2px #ffc4c0,0 5px 0 #802a26}
+    #resultStars{font-size:48px;letter-spacing:5px;color:var(--gold);text-shadow:0 3px #8b6820;animation:starPop .7s cubic-bezier(.2,.8,.2,1.5)}
+    #resultScore{font-size:58px;font-weight:1000;color:var(--signal);font-variant-numeric:tabular-nums}
+    #toast{position:fixed;z-index:60;left:50%;top:32%;transform:translate(-50%,0);pointer-events:none;padding:10px 19px;border-radius:18px;background:#fff;color:#25282d;border:3px solid #e7483d;box-shadow:0 8px 20px #0005;font-size:clamp(21px,6vw,34px);font-weight:1000;opacity:0}
+    #toast.show{animation:toastUp .9s ease-out}
+    #flash{position:fixed;z-index:55;inset:0;pointer-events:none;opacity:0;background:#fff2b5}
+    #flash.on{animation:flash .32s ease-out}
+    #game.shake{animation:shake .34s linear}
+
+    @keyframes keyZoom{to{transform:scale(1.07) translateY(-1.2%)}}
+    @keyframes logoIn{from{opacity:0;transform:translateY(-35px) scale(.65) rotate(-8deg)}to{opacity:1;transform:none}}
+    @keyframes pulse{50%{transform:scale(1.035);filter:brightness(1.08)}}
+    @keyframes floatUp{to{transform:translateY(-110vh) rotate(330deg);opacity:0}}
+    @keyframes bob{50%{transform:translateY(-10px) rotate(2deg)}}
+    @keyframes joy{0%{transform:scale(1)}35%{transform:translateY(-26px) scaleX(1.13) scaleY(.88)}65%{transform:translateY(-9px) scaleX(.92) scaleY(1.16)}100%{transform:none}}
+    @keyframes pieceRise{0%{transform:translate(-50%,-50%) scaleX(1.16) scaleY(.78)}45%{transform:translate(-50%,-135%) scaleX(.88) scaleY(1.18)}100%{transform:translate(-50%,-230%) scale(.7);opacity:0}}
+    @keyframes scorePunch{50%{transform:scale(1.42);color:#ff3429}}
+    @keyframes targetGlow{50%{filter:brightness(1.3);transform:translateY(-8px) scale(1.03)}}
+    @keyframes towerCrack{20%,60%{transform:translateX(-7px) rotate(-2deg)}40%,80%{transform:translateX(7px) rotate(2deg)}}
+    @keyframes toastUp{0%{opacity:0;transform:translate(-50%,25px) scale(.6)}25%{opacity:1;transform:translate(-50%,-8px) scale(1.12)}100%{opacity:0;transform:translate(-50%,-90px) scale(.95)}}
+    @keyframes flash{0%{opacity:.62}100%{opacity:0}}
+    @keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+    @keyframes starPop{from{transform:scale(.2) rotate(-20deg);opacity:0}}
+    @media(max-height:700px) and (not (min-width:1024px)){#leftPanel{top:69px;height:72px}#stage{top:148px;bottom:166px}#rightPanel{height:153px}.gamebtn{min-height:52px}.logo-zone{top:34px}.logo{font-size:clamp(62px,22vw,100px)}.tagline{margin-top:16px}}
+    @media(prefers-reduced-motion:reduce){#titleArt{animation-duration:40s}.title-particles i{animation-duration:28s!important}.cta{animation-duration:3.5s}#hero{animation-duration:5s}#game.shake{animation-duration:.18s}}
+  </style>
+</head>
+<body>
+<main id="game">
+  <img id="gameBg" src="./assets/bg.png" alt="" onerror="this.style.display='none'">
+  <canvas id="ambient" aria-hidden="true"></canvas>
+  <section id="titleScreen" aria-label="겹침탑 타이틀 화면">
+    <img id="titleArt" src="./assets/title.png" alt="유리 신호정령과 겹침탑" onerror="this.style.display='none'">
+    <div class="title-particles" aria-hidden="true">
+      <i style="--x:8%;--d:12s;--delay:-4s"></i><i style="--x:22%;--d:16s;--delay:-9s"></i><i style="--x:41%;--d:13s;--delay:-3s"></i><i style="--x:62%;--d:18s;--delay:-12s"></i><i style="--x:78%;--d:14s;--delay:-7s"></i><i style="--x:91%;--d:17s;--delay:-2s"></i>
+    </div>
+    <div class="title-ui">
+      <div class="logo-zone">
+        <h1 class="logo" aria-label="겹침탑"><span aria-hidden="true" style="--y:5px;--r:-6deg;--s:1.03">겹</span><span aria-hidden="true" style="--y:-5px;--r:3deg;--s:1.12">침</span><span aria-hidden="true" style="--y:4px;--r:-2deg;--s:1.05">탑</span></h1>
+        <p class="tagline">딱 포개면 쑥 올라가!</p>
+      </div>
+      <div class="cta-zone">
+        <div class="best-pill">최고 기록 <span id="titleBest">0</span>점 · 5학년 2학기</div>
+        <button id="startBtn" class="cta" aria-label="신호탑 깨우기">신호탑 깨우기</button>
+        <button id="howBtn" class="how">어떻게 놀아요? 〉</button>
+        <div class="unitbadge">3단원 · 합동과 대칭</div>
+      </div>
+    </div>
+  </section>
+
+  <button id="muteBtn" class="mute" aria-label="소리 끄기">🔊</button>
+  <section id="playUI" class="hidden" aria-label="겹침탑 게임 화면">
+    <header id="hud">
+      <div class="hudpill" id="scorePill">점수<strong id="score">0</strong></div>
+      <div class="hudpill">연쇄<strong id="combo">0</strong></div>
+      <div class="hudpill">빛탑<strong id="height">0</strong></div>
+      <div class="hudpill" id="timerPill">남은 시간<strong id="timer">90</strong></div>
+    </header>
+    <aside id="leftPanel">
+      <div id="mission">윤곽을 보고 완전히 포개요<small>크기는 바꾸지 않아요 · 조각은 모두 같은 두께예요</small></div>
+      <button id="modeBtn" aria-label="게임 모드 바꾸기">탐험 모드</button>
+    </aside>
+    <section id="stage" aria-label="네 개의 수신 탑">
+      <div id="spiritZone">
+        <div id="axisCue"></div><div id="centerCue"></div>
+        <img id="hero" src="./assets/hero.png" alt="귀여운 신호정령" onerror="this.style.display='none'">
+        <canvas id="piece" width="240" height="240" aria-label="옮길 유리 조각"></canvas>
+        <div id="evo">정령 1단계 · 눈뜸</div>
+      </div>
+      <div id="towerStrip">
+        <button class="tower" data-i="0" aria-label="1번 탑"><b>1</b><canvas width="220" height="180"></canvas></button>
+        <button class="tower" data-i="1" aria-label="2번 탑"><b>2</b><canvas width="220" height="180"></canvas></button>
+        <button class="tower" data-i="2" aria-label="3번 탑"><b>3</b><canvas width="220" height="180"></canvas></button>
+        <button class="tower" data-i="3" aria-label="4번 탑"><b>4</b><canvas width="220" height="180"></canvas></button>
+      </div>
+    </section>
+    <aside id="rightPanel">
+      <div id="feedback" aria-live="polite">↻ 회전하거나 ⇋ 뒤집어 보세요</div>
+      <div id="controls">
+        <button id="rotateBtn" class="gamebtn" aria-label="조각 90도 회전">↻ 회전</button>
+        <button id="flipBtn" class="gamebtn" aria-label="조각 좌우 뒤집기">⇋ 뒤집기</button>
+        <button id="dropBtn" class="gamebtn" aria-label="고른 탑에 포개기">탑을 골라요</button>
+      </div>
+    </aside>
+  </section>
+
+  <section id="onboarding" class="overlay hidden" aria-label="게임 방법">
+    <div class="card">
+      <span class="step" id="stepNo">1 / 3</span>
+      <h2 id="stepTitle">윤곽을 읽어요</h2>
+      <p id="stepText">네 탑의 굵은 윤곽과 꼭짓점 표시를 살펴봐요.</p>
+      <button id="nextStep" class="smallbtn">다음</button>
+    </div>
+  </section>
+  <section id="result" class="overlay hidden" aria-label="게임 결과">
+    <div class="card">
+      <div id="resultStars">★★★</div><h2>신호탑 완성!</h2>
+      <div id="resultScore">0</div><p id="resultText">빛나는 층을 쌓았어요.</p>
+      <button id="againBtn" class="smallbtn">한 번 더 쌓기</button>
+    </div>
+  </section>
+  <div id="toast" aria-live="assertive">딱 맞았어!</div><div id="flash"></div>
+</main>
+
+<script>
+(()=>{'use strict';
+  const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+  const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const game=$('#game'), canvas=$('#ambient'), ctx=canvas.getContext('2d');
+  const piece=$('#piece'), pctx=piece.getContext('2d');
+  const towers=$$('.tower'), title=$('#titleScreen'), playUI=$('#playUI');
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const SHAPES=[
+    {id:'L4',cells:[[0,0],[0,1],[0,2],[1,2]]},
+    {id:'T4',cells:[[0,0],[1,0],[2,0],[1,1]]},
+    {id:'S4',cells:[[1,0],[2,0],[0,1],[1,1]]},
+    {id:'P5',cells:[[0,0],[1,0],[0,1],[1,1],[0,2]]},
+    {id:'U5',cells:[[0,0],[2,0],[0,1],[1,1],[2,1]]},
+    {id:'W5',cells:[[0,0],[0,1],[1,1],[1,2],[2,2]]},
+    {id:'Y5',cells:[[1,0],[0,1],[1,1],[2,1],[1,2]]},
+    {id:'Z5',cells:[[0,0],[1,0],[1,1],[1,2],[2,2]]}
+  ];
+  const normalize=c=>{const minX=Math.min(...c.map(p=>p[0])),minY=Math.min(...c.map(p=>p[1]));return c.map(p=>[p[0]-minX,p[1]-minY]).sort((a,b)=>a[1]-b[1]||a[0]-b[0]);};
+  const key=c=>normalize(c).map(p=>p.join(',')).join(';');
+  const transform=(cells,rot,flip,scale=1)=>normalize(cells.map(([x,y])=>{if(flip)x=-x;for(let i=0;i<rot;i++)[x,y]=[-y,x];return[x*scale,y*scale];}));
+  const uniqueTransforms=s=>{const out=[],seen=new Set();for(let f=0;f<2;f++)for(let r=0;r<4;r++){const cells=transform(s.cells,r,f);const k=key(cells);if(!seen.has(k)){seen.add(k);out.push({rot:r,flip:f,cells,key:k});}}return out;};
+  const byCount=n=>SHAPES.filter(s=>s.cells.length===n);
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+  /* 제약 만족 풀: 연결 도형 카탈로그와 D4 강체변환을 전수 전개한다. 무작위 생성/사후 재시도 없음. */
+  function buildProblemPool(){
+    const pool=[];let serial=0;
+    for(const shape of SHAPES){
+      const variants=uniqueTransforms(shape);
+      for(const v of variants){
+        for(const mode of ['congruence','line','point']){
+          if(mode==='line'&&v.flip===0)continue;
+          if(mode==='point'&&(v.rot!==2||v.flip!==0))continue;
+          const sameArea=byCount(shape.cells.length).find(q=>q.id!==shape.id&&key(q.cells)!==key(shape.cells));
+          if(!sameArea)continue;
+          const target=v.cells;
+          // 최소 2개가 기획서 오개념을 역산한 오답이며 각 선택지에 misconceptionId를 기록한다.
+          const distractors=[
+            {kind:'cells',cells:normalize(sameArea.cells),misconceptionId:'same-area-different-contour',label:'넓이만 같은 다른 윤곽'},
+            {kind:'scaled',cells:transform(shape.cells,v.rot,v.flip,1.5),misconceptionId:'similar-is-congruent',label:'같은 모양을 1.5배 확대'},
+            mode==='point'
+              ?{kind:'cells',cells:transform(shape.cells,0,1),misconceptionId:'point-as-line-reflection',label:'180° 대신 축으로 뒤집음'}
+              :{kind:'cells',cells:transform(shape.cells,(v.rot+1)%4,v.flip),misconceptionId:'wrong-rigid-transform',label:'회전 방향을 한 번 덜 맞춤'}
+          ];
+          // 오답 후처리: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.
+          const targetKey=key(target);let filtered=distractors.filter(d=>key(d.cells)!==targetKey);
+          filtered=filtered.filter(d=>d.cells.every(([x,y])=>Number.isFinite(x)&&Number.isFinite(y)&&Math.abs(x)<=8&&Math.abs(y)<=8));
+          const seen=new Set();filtered=filtered.filter(d=>{const k=d.kind+':'+key(d.cells);if(seen.has(k))return false;seen.add(k);return true;});
+          const supplements=variants.map(x=>({kind:'cells',cells:x.cells,misconceptionId:'wrong-rigid-transform',label:'다른 방향의 합동 윤곽'})).filter(d=>key(d.cells)!==targetKey&&!seen.has(d.kind+':'+key(d.cells)));
+          while(filtered.length<3&&supplements.length)filtered.push(supplements.shift());
+          if(filtered.length<3)continue;
+          const correct={kind:'cells',cells:target,misconceptionId:null,label:'완전히 포개지는 윤곽'};
+          const options=shuffle([correct,...filtered.slice(0,3)]);const answerIndex=options.indexOf(correct);
+          const turnText=v.rot===0?'회전 없이':v.rot===1?'시계 방향 90°':v.rot===2?'180°':`시계 방향 270°`;
+          const modeText=mode==='line'?`선대칭: 축으로 뒤집고 ${turnText} 돌리기`:mode==='point'?'점대칭: 중심 둘레 180° 돌리기':`합동: 크기 그대로 ${v.flip?'뒤집고 ':''}${turnText} 돌리기`;
+          pool.push({id:'ot-'+(++serial),shapeId:shape.id,source:shape.cells,target,rot:v.rot,flip:v.flip,mode,modeText,options,answerIndex,
+            prompt:`${shape.id} 조각을 ${modeText}에 따라 바꾸었을 때 완전히 포개지는 탑은?`,unitConcept:mode==='line'?'선대칭도형':mode==='point'?'점대칭도형':'합동'});
+        }
+      }
+    }
+    return pool;
+  }
+  const POOL=buildProblemPool();let deck=[];
+  const firstProblem={...POOL.find(p=>p.shapeId==='L4'&&p.rot===0&&p.flip===0&&p.mode==='congruence')};
+  function refillDeck(){deck=shuffle(POOL.slice());}
+  function takeProblem(){if(!deck.length)refillDeck();return deck.pop();}
+
+  const S={phase:'title',score:0,lives:4,level:1,solved:0,combo:0,height:0,time:90,mode:'explore',problem:null,rot:0,flip:0,selected:-1,stageW:innerWidth,stageX:0,land:false,timeScale:1,hitStop:0,shake:0,flash:0,particles:[],trails:[],startedAt:0,last:0,best:0,drag:null,evo:1};
+  try{S.best=Number(localStorage.getItem('overlap-tower:best'))||0}catch(e){}
+  $('#titleBest').textContent=S.best;
+  let audio=null,muted=false;
+  function ensureAudio(){if(!audio){const A=window.AudioContext||window.webkitAudioContext;if(A)audio=new A()}if(audio&&audio.state==='suspended')audio.resume().catch(()=>{});}
+  function beep(kind){if(muted||!audio)return;const now=audio.currentTime,o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.type=kind==='bad'?'square':'sine';o.frequency.setValueAtTime(kind==='bad'?135:520,now);if(kind==='good')o.frequency.exponentialRampToValueAtTime(980,now+.13);if(kind==='combo')o.frequency.exponentialRampToValueAtTime(1350,now+.18);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.13,now+.012);g.gain.exponentialRampToValueAtTime(.0001,now+.22);o.start(now);o.stop(now+.24)}
+  function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);S.stageW=Math.min(W,1280);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(d,0,0,d,0,0);drawProblem();}
+  addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));
+
+  function drawGlass(c,cells,selected=false,scaled=false){
+    const W=c.canvas.width,H=c.canvas.height;c.clearRect(0,0,W,H);if(!cells)return;
+    const xs=cells.map(p=>p[0]),ys=cells.map(p=>p[1]),spanX=Math.max(...xs)-Math.min(...xs)+1,spanY=Math.max(...ys)-Math.min(...ys)+1;
+    const unit=Math.min((W-30)/(spanX+1),(H-28)/(spanY+1));const ox=(W-(spanX-1)*unit)/2,oy=(H-(spanY-1)*unit)/2;
+    c.save();c.lineJoin='round';c.shadowColor=selected?'#e7483d':'#25282d55';c.shadowBlur=selected?14:6;
+    for(const [x,y] of cells){const px=ox+(x-Math.min(...xs))*unit,py=oy+(y-Math.min(...ys))*unit;c.fillStyle=scaled?'rgba(174,181,188,.34)':'rgba(245,249,252,.72)';c.strokeStyle=scaled?'#6d737b':'#25282d';c.lineWidth=scaled?5:7;c.beginPath();c.roundRect(px-unit*.45,py-unit*.45,unit*.9,unit*.9,unit*.14);c.fill();c.stroke();}
+    const pts=normalize(cells);['A','B','C'].forEach((t,i)=>{if(!pts[i])return;const [x,y]=pts[i],px=ox+(x-Math.min(...xs))*unit-unit*.24,py=oy+(y-Math.min(...ys))*unit-unit*.24;c.fillStyle='#e7483d';c.beginPath();c.arc(px,py,Math.max(7,unit*.12),0,Math.PI*2);c.fill();c.fillStyle='white';c.font=`900 ${Math.max(11,unit*.16)}px sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText(t,px,py)});c.restore();
+  }
+  function currentCells(){return transform(S.problem.source,S.rot,S.flip)}
+  function drawProblem(){if(!S.problem)return;drawGlass(pctx,currentCells(),true,false);towers.forEach((t,i)=>{const op=S.problem.options[i];drawGlass(t.querySelector('canvas').getContext('2d'),op.cells,S.selected===i,op.kind==='scaled');t.style.setProperty('--h',1+(S.height+i)%6);t.setAttribute('aria-label',`${i+1}번 탑, ${op.label}`)});$('#axisCue').style.display=S.problem.mode==='line'?'block':'none';$('#centerCue').style.display=S.problem.mode==='point'?'block':'none';}
+  function setProblem(p){S.problem=p;S.rot=0;S.flip=0;S.selected=-1;piece.classList.remove('success','dragging');piece.style.opacity='1';piece.style.transform='translate(-50%,-50%)';$('#dropBtn').textContent='탑을 골라요';$('#mission').innerHTML=`${p.modeText}<small>크기는 바꾸지 않아요 · ${p.shapeId} 꼭짓점 A·B·C를 맞춰요</small>`;$('#feedback').className='';$('#feedback').textContent=S.solved===0?'첫 조각은 그대로 놓아도 맞아요!':'윤곽과 꼭짓점을 함께 보세요';drawProblem();}
+  function startGame(skipGuide=false){title.classList.add('hidden');$('#result').classList.add('hidden');playUI.classList.remove('hidden');S.phase='playing';S.score=0;S.lives=4;S.level=1;S.solved=0;S.combo=0;S.height=0;S.time=90;S.evo=1;S.startedAt=performance.now();refillDeck();setProblem(firstProblem||takeProblem());syncHUD();if(!skipGuide){let seen=false;try{seen=localStorage.getItem('onboardingSeen:overlap-tower')==='1'}catch(e){}if(!seen)openGuide()} }
+  function syncHUD(){
+    $('#score').textContent=S.score;$('#combo').textContent=S.combo;$('#height').textContent=S.height;$('#timer').textContent=Math.ceil(S.time);$('#scorePill').classList.remove('punch');void $('#scorePill').offsetWidth;$('#scorePill').classList.add('punch');
+    const tiers=['눈뜸','빛몸통','은빛 날개','쌍안테나','진홍 왕관','별 신호체'];$('#evo').textContent=`정령 ${S.evo}단계 · ${tiers[Math.min(tiers.length-1,S.evo-1)]}`;$('#hero').style.filter=`drop-shadow(0 ${8+Math.min(S.evo,8)}px ${5+Math.min(S.evo,8)}px rgba(231,72,61,${Math.min(.18+S.evo*.055,.62)})) brightness(${Math.min(1+S.evo*.035,1.35)})`;const maxLives=S.mode==='artisan'?3:4;$('#modeBtn').textContent=`${S.mode==='artisan'?'장인':'탐험'} · ${'◆'.repeat(S.lives)}${'◇'.repeat(Math.max(0,maxLives-S.lives))}`;
+  }
+  function selectTower(i){if(S.phase!=='playing')return;ensureAudio();S.selected=i;towers.forEach((t,j)=>t.classList.toggle('goodGlow',j===i));setTimeout(()=>towers.forEach(t=>t.classList.remove('goodGlow')),430);$('#dropBtn').textContent=`${i+1}번에 포개기`;drawProblem();}
+  function orientationReady(){return key(currentCells())===key(S.problem.target)}
+  function attempt(i=S.selected,forced=null){if(S.phase!=='playing'||S.hitStop>0)return;ensureAudio();if(forced==='correct'){correct();return}if(forced==='wrong'){wrong((S.problem.answerIndex+1)%4);return}if(i<0){$('#feedback').textContent='먼저 네 탑 중 하나를 골라요';return}if(i===S.problem.answerIndex&&orientationReady())correct();else wrong(i,i===S.problem.answerIndex?'orientation':'tower')}
+  function correct(){
+    const gain=100+S.combo*35;S.combo++;S.solved++;S.height++;S.level=1+Math.floor(S.solved/5);S.score+=gain;S.hitStop=S.combo>=5?.08:.055;S.timeScale=.18;
+    const nextEvo=1+Math.floor(S.combo/4)+Math.floor(S.solved/12);S.evo=Math.max(S.evo,nextEvo);beep(S.combo>=3?'combo':'good');
+    piece.classList.remove('success');void piece.offsetWidth;piece.classList.add('success');$('#hero').classList.remove('joy');void $('#hero').offsetWidth;$('#hero').classList.add('joy');
+    $('#feedback').className='ok';$('#feedback').textContent=S.combo>=5?'빛 탑 대연쇄! 꼭짓점이 모두 이어졌어!':'착! 완전히 포개졌어';toast(S.combo>=5?`${S.combo}연쇄! 신호정령 진화!`:'딱 맞았어! ▲');flash();burst(innerWidth/2,innerHeight*(S.land?.45:.38),Math.min(70,20+S.combo*6));syncHUD();
+    setTimeout(()=>{if(S.phase==='playing')setProblem(takeProblem())},620);
+  }
+  function wrong(i,why='tower'){
+    S.combo=0;S.lives=Math.max(0,S.lives-1);S.time=Math.max(0,S.time-2);S.shake=S.mode==='artisan'?8:5;beep('bad');game.classList.remove('shake');void game.offsetWidth;game.classList.add('shake');const t=towers[i];if(t){t.classList.remove('wrong');void t.offsetWidth;t.classList.add('wrong')}
+    $('#feedback').className='bad';const p=S.problem;$('#feedback').textContent=why==='orientation'?(p.mode==='point'?'중심 둘레로 180° 돌려야 해요':p.mode==='line'?'축을 따라 뒤집어야 해요':'회전 방향을 먼저 맞춰요'):'금이 갔어! 크기와 꼭짓점까지 확인해요';toast('아직 안 겹쳐요 ◆');syncHUD();
+    if(S.mode==='artisan'&&S.lives<=0)setTimeout(endGame,450);else if(S.mode==='explore')setTimeout(()=>{S.lives=Math.max(S.lives,1);syncHUD()},900);
+  }
+  function toast(msg){const e=$('#toast');e.textContent=msg;e.classList.remove('show');void e.offsetWidth;e.classList.add('show')}
+  function flash(){const f=$('#flash');f.classList.remove('on');void f.offsetWidth;f.classList.add('on')}
+  function burst(x,y,n){for(let i=0;i<(REDUCED?Math.ceil(n*.45):n);i++){const a=Math.random()*Math.PI*2,sp=50+Math.random()*170;S.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-90,life:.45+Math.random()*.55,size:2+Math.random()*5,color:i%4?'#e7483d':'#fff3b0'})}}
+  function endGame(){if(S.phase==='result')return;S.phase='result';const best=Math.max(S.best,S.score);S.best=best;try{localStorage.setItem('overlap-tower:best',String(best));localStorage.setItem('overlap-tower:longest',String(Math.max(S.combo,Number(localStorage.getItem('overlap-tower:longest'))||0)))}catch(e){}$('#titleBest').textContent=best;$('#result').classList.remove('hidden');$('#resultText').textContent=`${S.solved}개를 포개고 탑을 ${S.height}층 올렸어요!`;animateNumber($('#resultScore'),S.score,650)}
+  function animateNumber(el,to,dur){const st=performance.now();function tick(n){const p=clamp((n-st)/dur,0,1);el.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(tick)}requestAnimationFrame(tick)}
+
+  $('#rotateBtn').addEventListener('click',()=>{if(S.phase!=='playing')return;ensureAudio();S.rot=(S.rot+1)%4;drawProblem();beep('good')});
+  $('#flipBtn').addEventListener('click',()=>{if(S.phase!=='playing')return;ensureAudio();S.flip=1-S.flip;drawProblem();beep('good')});
+  towers.forEach((t,i)=>t.addEventListener('click',()=>selectTower(i)));
+  $('#dropBtn').addEventListener('click',()=>attempt());
+  $('#modeBtn').addEventListener('click',()=>{S.mode=S.mode==='explore'?'artisan':'explore';S.lives=S.mode==='artisan'?3:4;$('#feedback').textContent=S.mode==='artisan'?'금 3개면 조립 종료!':'틀려도 거리선 힌트로 다시 도전!';syncHUD()});
+  $('#muteBtn').addEventListener('click',()=>{ensureAudio();muted=!muted;$('#muteBtn').textContent=muted?'🔇':'🔊';$('#muteBtn').setAttribute('aria-label',muted?'소리 켜기':'소리 끄기')});
+  $('#startBtn').addEventListener('click',()=>{ensureAudio();$('#startBtn').style.transform='translateY(5px) scale(.9)';setTimeout(()=>startGame(false),150)});
+  $('#howBtn').addEventListener('click',()=>{ensureAudio();openGuide()});$('#againBtn').addEventListener('click',()=>startGame(true));
+  const guide=[['윤곽을 읽어요','네 탑의 굵은 윤곽과 꼭짓점 A·B·C를 함께 살펴봐요.'],['회전하고 뒤집어요','↻ 회전과 ⇋ 뒤집기로 크기를 바꾸지 않은 채 조각 방향을 맞춰요.'],['완전히 포개요','맞는 탑을 누르고 포개기! 맞으면 층이 솟고 다음 윤곽이 열려요.']];let guideStep=0;
+  function openGuide(){guideStep=0;showGuide();$('#onboarding').classList.remove('hidden')}
+  function showGuide(){const g=guide[guideStep];$('#stepNo').textContent=`${guideStep+1} / 3`;$('#stepTitle').textContent=g[0];$('#stepText').textContent=g[1];$('#nextStep').textContent=guideStep===2?'해볼게요!':'다음'}
+  $('#nextStep').addEventListener('click',()=>{ensureAudio();if(guideStep<2){guideStep++;showGuide()}else{$('#onboarding').classList.add('hidden');try{localStorage.setItem('onboardingSeen:overlap-tower','1')}catch(e){}if(S.phase==='title')startGame(true)}});
+  addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')$('#rotateBtn').click();if(e.key==='f'||e.key==='F')$('#flipBtn').click();if(['1','2','3','4'].includes(e.key))selectTower(Number(e.key)-1);if(e.key==='Enter'||e.key===' ')attempt()});
+
+  /* 포인터 드래그: 조각이 2~3프레임 늦게 따라오고 놓을 때 가장 가까운 탑으로 스냅 */
+  piece.addEventListener('pointerdown',e=>{if(S.phase!=='playing')return;ensureAudio();piece.setPointerCapture(e.pointerId);S.drag={x:e.clientX,y:e.clientY,tx:e.clientX,ty:e.clientY};piece.classList.add('dragging')});
+  piece.addEventListener('pointermove',e=>{if(!S.drag)return;S.drag.tx=e.clientX;S.drag.ty=e.clientY;S.trails.push({x:e.clientX,y:e.clientY,life:.22})});
+  piece.addEventListener('pointerup',e=>{if(!S.drag)return;let best=-1,bd=1e9;towers.forEach((t,i)=>{const r=t.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,d=(x-e.clientX)**2+(y-e.clientY)**2;if(d<bd){bd=d;best=i}});piece.classList.remove('dragging');piece.style.transform='translate(-50%,-50%)';S.drag=null;if(best>=0&&bd<30000){selectTower(best);attempt(best)}});
+
+  function update(dt){
+    if(S.hitStop>0){S.hitStop-=dt;if(S.hitStop<=0)S.timeScale=1;return}
+    if(S.phase==='playing'){S.time-=dt*S.timeScale;if(S.time<=0){S.time=0;endGame()}$('#timer').textContent=Math.ceil(S.time)}
+    if(S.drag){S.drag.x+=(S.drag.tx-S.drag.x)*Math.min(1,dt*18);S.drag.y+=(S.drag.ty-S.drag.y)*Math.min(1,dt*18);const r=$('#spiritZone').getBoundingClientRect();piece.style.transform=`translate(${S.drag.x-r.left-piece.offsetLeft-58}px,${S.drag.y-r.top-piece.offsetTop-58}px) scaleX(1.08) scaleY(.92)`}
+    for(const p of S.particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=220*dt}S.particles=S.particles.filter(p=>p.life>0);for(const t of S.trails)t.life-=dt;S.trails=S.trails.filter(t=>t.life>0);
+  }
+  function render(now=0){const W=innerWidth,H=innerHeight;ctx.clearRect(0,0,W,H);const t=now*.00008;
+    for(let i=0;i<28;i++){const x=(i*113+Math.sin(t*9+i)*44)%W,y=(i*73+now*.009*(i%3+1))%(H+60)-30;ctx.fillStyle=i%7===0?'#e7483d35':'#ffffff30';ctx.beginPath();ctx.arc(x,y,1.5+(i%4),0,Math.PI*2);ctx.fill()}
+    for(const tr of S.trails){ctx.globalAlpha=tr.life*2.8;ctx.fillStyle='#e7483d';ctx.beginPath();ctx.arc(tr.x,tr.y,4+tr.life*20,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
+    for(const p of S.particles){ctx.globalAlpha=clamp(p.life*1.8,0,1);ctx.fillStyle=p.color;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.life*5);ctx.fillRect(-p.size/2,-p.size*1.5,p.size,p.size*3);ctx.restore()}ctx.globalAlpha=1;
+    if(S.land&&S.stageW<W-2){ctx.fillStyle='#16191ec9';ctx.fillRect(0,0,S.stageX,H);ctx.fillRect(S.stageX+S.stageW,0,W-(S.stageX+S.stageW),H)}
+  }
+  function loop(now){requestAnimationFrame(loop);if(!S.last)S.last=now;const dt=Math.min(.05,(now-S.last)/1000);S.last=now;update(dt);render(now)}
+
+  function sampleProblems(n){
+    n=Math.max(20,Math.min(300,parseInt(n,10)||20));const src=POOL.slice(),out=[];let idx=0;
+    while(out.length<n){const p=src[idx%src.length],cycle=Math.floor(idx/src.length);const choices=['1번 탑','2번 탑','3번 탑','4번 탑'];const answer=choices[p.answerIndex];out.push({id:p.id+'-'+idx,prompt:p.prompt+(cycle?` · 조립 순서 ${cycle+1}`:''),choices,answer,answerNumeric:p.answerIndex+1,unitConcept:p.unitConcept});idx++}
+    return out;
+  }
+  window.__GAME_TEST__={ready:false,start(){startGame(true)},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase!=='playing')startGame(true);correct()},answerWrong(){if(S.phase!=='playing')startGame(true);wrong((S.problem.answerIndex+1)%4)},sampleProblems,getLayout(){return{land:S.land,playW:S.land?Math.round(S.stageW*.57):innerWidth}}};
+  layout();requestAnimationFrame(loop);window.__GAME_TEST__.ready=true;
+})();
+</script>
+</body>
+</html>

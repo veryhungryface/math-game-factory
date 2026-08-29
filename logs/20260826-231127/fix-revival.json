@@ -1,0 +1,73 @@
+{
+  "slug": "clang-stamp",
+  "track": "폐기작 부활 — 2026-08-29 (오늘 4번째. 앞서 overlay-snap 92 / boundary-rush 91 / stone-hop 90)",
+  "history": [
+    "logs/20260826-231127/review-1.json — 51점 (수학 0점: 범위 문항 정답 2개, 역추적 문구=mode 불일치, 퇴화 전략)",
+    "logs/20260826-231127/review-2.json — 79점 (게이트 1점 미달로 폐기). high 2건 + medium 3건",
+    "logs/20260826-231127/review-3.json — 87점 passed (이번 재검수, must_fix 0건)"
+  ],
+  "fixed_this_round": [
+    {
+      "from": "review-2 must_fix [high] #1 — 역추적 카드에 플레이 가능한 정답이 없음",
+      "issue": "applyMiss 가 shouldStamp=false 소포를 흘려보내도 '칸을 놓쳤어요'로 실패 처리했다. 정답 행동(안 찍기)이 실패로 판정되는 문항이었다.",
+      "how": "하단에 ✕ 반송 버튼(#btnReject / tryReject())을 신설해 '이 소포는 이 문으로 못 나간다'를 능동적으로 표현하게 했다. 또 addTraceCard(R,p,mode,wantInside) 로 바꿔 찍기/반송이 정답인 카드를 짝으로 생성(23쌍 46장, 50:50)하고, 역추적 출현 확률을 4창구 22% / 5창구 28% 로 올렸다. 놓치기는 두 경우 모두 '놓침'으로 통일했다.",
+      "verified": "logs/20260826-231127/assert-trace.json — 역추적 24회 계기 측정. 반송정답 6/6 점수상승·목숨유지, 반송오답 3/3 목숨감소, 도장정답 6/6 점수상승, 도장오답 9건 중 6건 목숨감소(나머지 3건은 쉬움의 개념별 첫 오답 되감기). pageErrors 0."
+    },
+    {
+      "from": "review-2 must_fix [high] #2 — 범위 입력 창이 사람 손으로 불가능",
+      "issue": "쉬움 0.53초 안에 5탭을 요구했고, 어려움 콤보 8에서는 창이 0.02초까지 줄어 입력 자체가 불가능했다. 범위 난이도도 한 풀에 섞여 첫 문항부터 ○ 조합이 나왔다.",
+      "how": "끝점 ●/○ 토글에서 '노란 칸 안에서만' 제약을 제거해 낙하 내내 바꿀 수 있게 했다(타이밍은 봉인 1탭만). zoneRange(prob) 를 화면 비율이 아니라 실제 초 하한으로 다시 써 범위 0.60/0.46초, 도장 0.46/0.30초를 보장하고 콤보 축소폭도 0.08→0.055 로 줄였다. PLAY_POOLS.range1(●·● 1밴드)을 분리해 첫 창구는 여기서만 뽑는다.",
+      "verified": "shots/layout.json 6판형 계측 + 지식봇 7판 사망 0회(범위 봉인 포함 113~115개 통과)."
+    },
+    {
+      "from": "review-2 must_fix [medium] #3 — 실생활 '담기' 문장 모호",
+      "issue": "'1000개씩 남김없이 담으려면 통의 크기는?' 이 한 통의 용량·필요한 통 수·전체 수용량 중 무엇을 묻는지 불분명했다.",
+      "how": "'N개를 통 하나에 모두 담아요. 통은 d개 단위 크기만 있어요. 모두 담을 수 있는 가장 작은 통은 몇 개짜리인가?' 로 바꿨다(정답은 그대로 올림값). 독립 검산 1차가 '가장 작은' 최소 조건까지 요구해 그것도 반영했다."
+    },
+    {
+      "from": "review-2 must_fix [medium] #4 — digitBurst 가 정답 경로에서 파티클 0개",
+      "issue": "tryStamp 가 pkg.shown 을 정답으로 덮어쓴 뒤 digitBurst(pkg.shown, answer) 를 불러 두 값이 항상 같았다. 기획의 '버릴 숫자 파괴 후 0 재조립'이 실제로 작동하지 않았다.",
+      "how": "pkg.preStamp 에 도장 전 값을 보관하고 digitBurst(preStamp, answer) 를 호출한다. 연출도 2단계로 분리했다 — ① 버려질 자릿수가 어두운 종잇조각으로 부서지고 ② 0.14초 뒤 그 자리에 금빛 자릿수가 안착(파티클·플로터에 delay 필드 신설). 되감기 시 unstampPkg() 로 도장 자국을 지운다."
+    },
+    {
+      "from": "review-2 must_fix [medium] #5 — 토스트가 다음 목표 카드를 덮음",
+      "issue": "#toast 가 top:22% 고정이라 이전 문항 피드백이 새 목표 카드 하단을 가렸다.",
+      "how": "placeToast() 가 매 표시마다 낙하 구간 아래·입력 칸 위 빈 띠에 배치한다(목표 카드 하단+12px ~ 컨트롤 바 상단-58px, 화면 68% 상한).",
+      "verified": "factory/work/qa/clang-stamp/mobile.png — 토스트가 목표 카드와 겹치지 않음"
+    },
+    {
+      "from": "docs/playfield-spec.md (2026-08-28 제정 — 직전 검수 이후 신설 규범)",
+      "issue": "가로에서 --colW:min(430px) 중앙 컬럼이라 1280×800 좌우 빈 거터가 화면 폭 66% 였다(규격상 30% 초과는 must_fix high).",
+      "how": "극장형(원형 ③)으로 재배치. --stageW:min(100vw,1360px)+--stageX, land 진입 조건 (W>=H && W>=640) || W>=1024. 좌 존=HUD+목표 카드, 중앙 무대=낙하 칼럼 430→623px(1280), 우 존=출고탑. 세로에서 종료 화면에만 있던 '모은 도장' 도감을 플레이 중 존으로 옮겼다.",
+      "verified": "qa layout.wide1280 통과. play-desktop-1280.png / play-tall-1280.png(1280×1400 도 land) / play-wide-2000.png. 1280 거터 합 32px(2.5%). 390×844 회귀 없음."
+    },
+    {
+      "from": "독립 수학 재검산 1차 (codex gpt-5.6-sol) — high 2 + low 1",
+      "issue": "① 통 템플릿에 '가장 작은' 최소 조건이 없어 답이 유일하지 않음 ② '대략 나타내면'이 올림·버림·반올림 중 하나를 정하지 못함 ③ ceilAlwaysGrows/floorAlwaysShrinks 가 정확한 배수에서 401·399 같은 자리 안 맞는 오답을 생성",
+      "how": "① 위 #3 ② 'N개를 대략 말하려고 해요. 반올림하여 d개 단위로 나타내면 몇 개인가?' ③ n±ipow10(decisionPlace) → n±p (410·390), 실생활 보충 오답도 d 단위 격자 위(fl-d, ce+d)로 이동",
+      "verified": "logs/20260826-231127/mathcheck-3.json — 1,996문항 전수, errors 0, code_risks 0, verdict pass"
+    },
+    {
+      "from": "무뇌 봇 실측에서 드러난 것 (fun 게이트 F1·F4)",
+      "issue": "① 놓치기가 콤보만 끊어 무입력으로도 90초를 버틸 수 있었다 ② 범위 봉인이 무조건 perfect=true 라 연타 봇이 첫 창구에서 콤보를 공짜로 쌓았다(별 3개까지) ③ 별 기준이 점수라 10초 만에 죽는 봇도 3★를 받았다",
+      "how": "① applyMiss 에 연속 3회 놓침 → '문이 막혔어요' + 목숨 1 감소(정답·오답에서 스트릭 초기화, 토스트에 n/3 표시) ② 봉인도 칸 한가운데 판정으로만 정타 ③ 첫 창구(연습 3문항)는 배수 없음 ④ 별을 '실제로 내보낸 소포 수'로 (3★ 30 / 2★ 18 / 1★ 8)",
+      "measured": "logs/20260826-231127/bots-final.json(최종 빌드 3판씩) + bots-mid.json(중간본 4판씩) 합산 — 무입력 0/7 완주, 반올림 연타 0/7, 버튼 순환 0/7, 무작위 0/7 (전부 목숨 0 사망). 지식 봇 7판 사망 0회(6판 90초 완주, 1판은 하네스 200초 상한, 그 시점 목숨 3·phase=playing). 무뇌 봇 평균 통과 소포: 순환 6.3 / 무작위 1.9 / 연타·무입력 0. 지식 봇 113~115."
+    },
+    {
+      "from": "성능",
+      "issue": "배경 사진(1024×?)을 매 프레임 풀스크린 리샘플링하고 거터·무대 강조까지 매 프레임 칠했다. QA 브라우저는 swiftshader 소프트웨어 렌더링이다.",
+      "how": "bakeBg() 로 배경+거터+무대 강조를 오프스크린 캔버스에 한 번만 굽고 프레임마다 1:1 블릿한다(W/H/판형 변경 시에만 재굽기).",
+      "measured": "QA 하네스 32fps(통과선 30), 자체 puppeteer 하네스 60fps. 검수관이 nice_to_have 로 '여유가 적다'고 지적했다 — 다음 손질 대상."
+    }
+  ],
+  "not_fixed": [
+    "검수 nice_to_have: 본게임에 마스코트(우체국 소년) 반응이 없다 — 타이틀에만 등장한다",
+    "검수 nice_to_have: Stack 레퍼런스의 '어긋난 만큼 실제로 잘림'이 약하다(타이밍 편차가 절단량에 반영되지 않음)",
+    "검수 nice_to_have: 1280×1400 에서 하단 목재 여백이 크다",
+    "검수 nice_to_have: 일부 보충 오답이 near-miss-fill 로 채워진다",
+    "검수 nice_to_have: QA 하네스 32fps — 여유가 적다"
+  ],
+  "qa": "node factory/lib/qa.mjs clang-stamp → 41/41, 치명적 결함 0건 (layout.wide1280 포함)",
+  "review": "logs/20260826-231127/review-3.json — 87점 / passed true / must_fix 0건 / verdict 게시",
+  "state": "public/g/clang-stamp/ 로 승격만 해 둔 상태. publish-game.mjs 미실행, 커밋 미실행 (사용자 지시)."
+}

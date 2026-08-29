@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#173f31">
+  <meta property="og:title" content="나비 핀박스">
+  <meta property="og:description" content="짝핀을 찾아 툭!">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>나비 핀박스</title>
+  <style>
+    :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--cream:#e9d9b1;--green:#2f6b4f;--deep:#173f31;--wood:#6b3f2e;--amber:#e0a12b;--berry:#b94a5b;--ink:#2d241d}
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#102c23;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    button{font:inherit;touch-action:manipulation;cursor:pointer}
+    button:focus-visible{outline:4px solid #fff;outline-offset:3px}
+    .hidden{display:none!important}
+
+    /* Title: full-bleed generated art, one dominant CTA. */
+    #titleScreen{position:fixed;inset:0;z-index:50;overflow:hidden;isolation:isolate;background:radial-gradient(circle at 50% 30%,#59866a,#142f25 72%)}
+    .title-art{position:absolute;inset:-2%;z-index:-3;overflow:hidden;background:linear-gradient(160deg,#47765b,#122d24)}
+    .title-art picture,.title-art img{display:block;width:100%;height:100%}
+    .title-art img{object-fit:cover;object-position:50% 49%;filter:saturate(1.06) contrast(1.03);animation:artBreathe 20s ease-in-out infinite alternate}
+    .title-scrim{position:absolute;inset:0;z-index:-2;background:linear-gradient(180deg,rgba(10,25,17,.54),rgba(7,17,12,.04) 45%,rgba(7,17,12,.78)),radial-gradient(ellipse 64% 25% at 50% 17%,rgba(15,28,19,.36),transparent 72%);pointer-events:none}
+    .title-ui{position:relative;width:min(100vw,640px);height:100%;margin:auto;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);pointer-events:none}
+    .logo-zone{position:absolute;top:max(48px,6.5dvh);left:12px;right:12px;display:grid;justify-items:center;text-align:center;pointer-events:auto;animation:logoIn .8s cubic-bezier(.2,1.5,.35,1) both}
+    .game-logo{margin:0;display:flex;justify-content:center;align-items:center;gap:.01em;transform:rotate(-2deg);font-size:clamp(51px,15vw,88px);font-weight:1000;line-height:.92;letter-spacing:-.13em;color:#ffe783;-webkit-text-stroke:3px #4a2618;paint-order:stroke fill;text-shadow:0 3px 0 #e49a26,0 7px 0 #873f25,0 10px 0 #331c15,0 15px 20px rgba(0,0,0,.48)}
+    .game-logo span{display:inline-block;animation:letterPop .65s cubic-bezier(.18,1.55,.34,1) both;animation-delay:calc(var(--i)*60ms)}
+    .game-logo span:nth-child(2){transform:translateY(-5px) rotate(3deg) scale(1.06)}
+    .game-logo span:nth-child(4){transform:translateY(4px) rotate(-3deg) scale(.97)}
+    .logo-sub{margin-top:16px;padding:7px 15px;border:2px solid rgba(255,255,255,.38);border-radius:999px;color:#fff8df;background:rgba(20,42,29,.62);box-shadow:inset 0 1px rgba(255,255,255,.25),0 5px 14px rgba(0,0,0,.3);font-size:clamp(15px,4vw,19px);font-weight:900;text-shadow:0 2px 4px #000}
+    .cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+    .title-meta{min-height:30px;padding:7px 13px;border:1px solid rgba(255,255,255,.28);border-radius:999px;color:#fff;background:rgba(10,29,20,.64);font-size:12px;font-weight:850;text-shadow:0 2px 4px #000;backdrop-filter:blur(5px)}
+    #startBtn{position:relative;width:min(100%,420px);min-height:70px;border:4px solid #4e2516;border-radius:24px;color:#40210f;background:linear-gradient(#fff291,#f4bd35 52%,#d77b21);box-shadow:0 7px 0 #8c411d,0 10px 0 #4e2516,0 17px 28px rgba(0,0,0,.4),inset 0 3px rgba(255,255,255,.72);font-size:clamp(22px,6vw,28px);font-weight:1000;letter-spacing:-.04em;text-shadow:0 2px rgba(255,255,255,.4);animation:ctaPulse 2.4s 1.1s ease-in-out infinite}
+    #startBtn:active,#startBtn.pressed{transform:translateY(7px) scale(.985);box-shadow:0 1px 0 #8c411d,0 3px 0 #4e2516,0 7px 13px rgba(0,0,0,.3),inset 0 2px rgba(255,255,255,.5);animation-play-state:paused}
+    #howBtn{min-width:160px;min-height:44px;border:0;background:transparent;color:#fff;font-size:13px;font-weight:850;text-decoration:underline;text-underline-offset:4px;text-shadow:0 2px 5px #000}
+    .mute{position:fixed;z-index:80;top:max(10px,env(safe-area-inset-top));right:max(12px,calc((100vw - min(100vw,1280px))/2 + 12px));width:46px;height:46px;border:2px solid rgba(255,255,255,.32);border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(15,39,28,.66);box-shadow:inset 0 1px rgba(255,255,255,.3),0 4px 10px rgba(0,0,0,.28);font-size:21px}
+    .pollen{position:absolute;width:7px;height:7px;border-radius:50%;background:#ffe88a;box-shadow:0 0 12px #fff0a0;opacity:.65;animation:pollenFloat calc(6s + var(--d)*1s) ease-in-out infinite alternate;left:calc(var(--x)*1%);top:calc(var(--y)*1%)}
+
+    /* Play shell: stacked on phones, 68/32 split on wide screens. */
+    #game{position:fixed;inset:0;overflow:hidden;background:#183d30 url('./assets/bg.png') center/cover no-repeat}
+    #game::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(19,56,42,.18),rgba(8,25,18,.55));pointer-events:none}
+    #hud{position:absolute;z-index:10;top:max(8px,env(safe-area-inset-top));left:8px;right:60px;height:56px;display:flex;align-items:center;gap:7px}
+    .hud-chip{height:48px;min-width:72px;padding:0 11px;border:2px solid #4e2d20;border-radius:17px;display:flex;align-items:center;justify-content:center;gap:5px;color:#3b2115;background:linear-gradient(#fff4c9,#e2c68d);box-shadow:0 4px 0 #6b3f2e,inset 0 2px rgba(255,255,255,.75);font-size:14px;font-weight:900}
+    .hud-num{font-size:20px;font-weight:1000;color:#9e3d4d;display:inline-block}.hud-num.punch{animation:numPunch .32s cubic-bezier(.2,1.6,.4,1)}
+    #playLayout{position:absolute;z-index:2;left:8px;right:8px;top:72px;bottom:10px;display:grid;grid-template-rows:minmax(310px,56%) minmax(0,44%);gap:9px}
+    #boardWrap{position:relative;min-height:0;overflow:hidden;border:3px solid #4f3022;border-radius:24px;background:linear-gradient(145deg,rgba(239,221,174,.96),rgba(187,146,91,.94));box-shadow:0 7px 0 #352117,0 15px 30px rgba(0,0,0,.28),inset 0 3px rgba(255,255,255,.72)}
+    #board{display:block;width:100%;height:100%;touch-action:none}
+    #ruleBanner{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:min(92%,620px);min-height:50px;padding:8px 12px;border:2px solid #244c39;border-radius:16px;background:rgba(249,238,201,.95);box-shadow:0 4px 0 #77513a;color:#2b281f;text-align:center;font-size:clamp(17px,5vw,24px);font-weight:1000;line-height:1.2;pointer-events:none}
+    #physicsContract{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);max-width:94%;padding:5px 10px;border-radius:999px;color:#fff9dc;background:rgba(27,66,48,.9);font-size:12px;font-weight:850;white-space:nowrap;pointer-events:none}
+    #feedback{position:absolute;z-index:8;left:50%;top:48%;transform:translate(-50%,-50%);min-width:180px;padding:10px 16px;border:3px solid #4b2a1c;border-radius:18px;background:#fff3c6;box-shadow:0 7px 0 #7a4529,0 16px 26px rgba(0,0,0,.3);font-size:clamp(20px,6vw,30px);font-weight:1000;text-align:center;opacity:0;pointer-events:none}
+    #feedback.show.good{animation:feedbackUp .85s ease-out both;color:#276848}
+    #feedback.show.bad{animation:feedbackBad .7s ease-out both;color:#a52e44}
+    #sidePanel{min-height:0;padding:10px;border:3px solid #31503d;border-radius:23px;background:linear-gradient(160deg,rgba(250,240,204,.97),rgba(220,200,150,.96));box-shadow:0 7px 0 #284635,0 14px 25px rgba(0,0,0,.25),inset 0 2px rgba(255,255,255,.8);display:grid;grid-template-rows:auto 1fr auto;gap:8px;overflow:hidden}
+    .panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.panel-title{font-size:14px;font-weight:1000;color:#26523d}.capacity{font-size:13px;font-weight:900;color:#7a3b2e}
+    #choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:0}
+    .choice{position:relative;min-width:0;min-height:58px;padding:7px;border:3px solid #70402b;border-radius:17px;color:#332318;background:linear-gradient(#fff7da,#dfbd78);box-shadow:0 5px 0 #77442b,inset 0 2px rgba(255,255,255,.8);font-size:clamp(18px,5vw,23px);font-weight:1000;line-height:1.08;overflow:hidden}
+    .choice::before{content:attr(data-key);position:absolute;left:5px;top:5px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#2f6b4f;color:white;font-size:12px}
+    .choice:active{transform:translateY(4px);box-shadow:0 1px 0 #77442b,inset 0 2px rgba(255,255,255,.75)}
+    .choice.correct{border-color:#1e6d49;background:linear-gradient(#eaffbe,#8fd98d)}
+    .choice.wrong{border-color:#9b2940;background:linear-gradient(#ffe3dc,#efa2a8)}
+    .panel-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+    #tip{font-size:12px;font-weight:850;color:#4d4437;line-height:1.25}.small-btn{min-width:46px;height:44px;border:2px solid #4e2d20;border-radius:14px;background:linear-gradient(#fff0b2,#e2a531);box-shadow:0 3px 0 #784324;font-size:18px;font-weight:1000}.small-btn:active{transform:translateY(3px);box-shadow:none}
+    #screenFlash{position:fixed;z-index:30;inset:0;opacity:0;pointer-events:none}#screenFlash.good{animation:warmFlash .4s ease-out}#screenFlash.bad{animation:badFlash .28s ease-out}
+    #game.shake{animation:screenShake .28s linear}
+
+    #onboarding,#result{position:fixed;z-index:70;inset:0;display:grid;place-items:end center;padding:20px 16px max(24px,env(safe-area-inset-bottom));background:rgba(8,28,20,.46);backdrop-filter:blur(2px)}
+    .modal-card{width:min(100%,500px);padding:18px;border:3px solid #54301f;border-radius:26px;background:linear-gradient(#fff6d4,#e6c681);box-shadow:0 9px 0 #533422,0 24px 50px rgba(0,0,0,.46),inset 0 3px white;text-align:center}
+    .step-pill{display:inline-flex;min-height:30px;padding:6px 12px;border-radius:999px;background:#2f6b4f;color:white;font-weight:900}.modal-card h2{margin:10px 0 6px;font-size:clamp(24px,7vw,34px);color:#713b2d}.modal-card p{margin:0 0 14px;font-size:17px;font-weight:800;line-height:1.45}.modal-main{width:100%;min-height:60px;border:3px solid #4b2819;border-radius:19px;background:linear-gradient(#fff179,#e8a828);box-shadow:0 6px 0 #7d3e20;font-size:22px;font-weight:1000;color:#452311}.modal-main:active{transform:translateY(5px);box-shadow:0 1px 0 #7d3e20}
+    #result{place-items:center;background:radial-gradient(circle,rgba(61,114,74,.72),rgba(8,29,20,.92))}.result-butterfly{font-size:76px;animation:butterflyBounce 1.2s ease-in-out infinite}.stars{font-size:38px;letter-spacing:8px;color:#efb22e;text-shadow:0 3px #783b28}.result-score{font-size:42px;font-weight:1000;color:#b53f56}.result-note{min-height:26px}
+
+    html.land #playLayout{left:var(--stageX);right:auto;width:var(--stageW);top:70px;bottom:12px;padding:0 12px;grid-template-columns:minmax(0,68fr) minmax(310px,32fr);grid-template-rows:1fr;gap:14px}
+    html.land #hud{left:calc(var(--stageX) + 12px);right:auto;width:calc(var(--stageW) - 78px)}
+    html.land #boardWrap{grid-column:1;grid-row:1}html.land #sidePanel{grid-column:2;grid-row:1;padding:15px;grid-template-rows:auto 1fr auto}html.land #choices{grid-template-columns:1fr 1fr;gap:12px}.land .choice{font-size:clamp(18px,1.7vw,24px);min-height:84px}.land #ruleBanner{font-size:clamp(20px,2vw,28px);top:14px}.land #physicsContract{font-size:14px}.land .panel-title{font-size:18px}.land #tip{font-size:14px}.land #game{background-position:center}
+    @media (min-aspect-ratio:1/1){.title-art img{object-position:50% 48%}}
+    @media (max-height:700px) and (max-width:1023px){#playLayout{top:64px;grid-template-rows:54% 46%}.hud-chip{height:43px}.choice{min-height:48px}.logo-zone{top:35px}.logo-sub{margin-top:9px}#startBtn{min-height:64px}}
+    @media (prefers-reduced-motion:reduce){.title-art img{animation-duration:40s}.game-logo span{animation-duration:.1s}#startBtn{animation-duration:5s}.pollen{animation-duration:14s!important}#game.shake{animation-duration:.12s}}
+    @keyframes artBreathe{to{transform:scale(1.045) translateY(-.6%)}}
+    @keyframes logoIn{from{opacity:0;transform:translateY(-30px) scale(.8)}to{opacity:1;transform:none}}
+    @keyframes letterPop{0%{opacity:0;transform:translateY(-60px) scale(.5)}70%{opacity:1;transform:translateY(7px) scale(1.1)}100%{opacity:1}}
+    @keyframes ctaPulse{0%,72%,100%{transform:none}80%{transform:translateY(-2px) scale(1.025)}88%{transform:none}94%{transform:translateY(-1px) scale(1.012)}}
+    @keyframes pollenFloat{to{transform:translate(22px,-38px) scale(1.4);opacity:.9}}
+    @keyframes numPunch{50%{transform:scale(1.45) rotate(-4deg)}}
+    @keyframes feedbackUp{0%{opacity:0;transform:translate(-50%,12px) scale(.55)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}72%{opacity:1;transform:translate(-50%,-76%) scale(1)}100%{opacity:0;transform:translate(-50%,-120%) scale(.86)}}
+    @keyframes feedbackBad{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}25%{opacity:1;transform:translate(-56%,-50%) scale(1.06)}45%{transform:translate(-44%,-50%)}72%{opacity:1;transform:translate(-50%,-50%)}100%{opacity:0}}
+    @keyframes warmFlash{0%{opacity:.48;background:#ffe367}100%{opacity:0;background:#fff8c4}}
+    @keyframes badFlash{0%{opacity:.35;background:#b94a5b}100%{opacity:0}}
+    @keyframes screenShake{0%,100%{transform:none}20%{transform:translate(-5px,2px)}40%{transform:translate(5px,-2px)}60%{transform:translate(-3px,1px)}80%{transform:translate(2px,-1px)}}
+    @keyframes butterflyBounce{50%{transform:translateY(-12px) scaleX(1.12) scaleY(.92)}}
+  </style>
+</head>
+<body>
+  <section id="titleScreen" aria-label="나비 핀박스 타이틀">
+    <div class="title-art" aria-hidden="true">
+      <picture>
+        <source media="(min-aspect-ratio:1/1)" srcset="./thumb.png">
+        <img id="titleImage" src="./assets/title.png" alt="" onerror="this.style.display='none';this.parentElement.parentElement.style.background='radial-gradient(circle at 50% 28%,#6d9a72,#173f31 70%)'">
+      </picture>
+    </div>
+    <div class="title-scrim" aria-hidden="true"></div>
+    <div id="titlePollen" aria-hidden="true"></div>
+    <div class="title-ui">
+      <div class="logo-zone">
+        <h1 class="game-logo" aria-label="나비 핀박스"><span style="--i:0">나</span><span style="--i:1">비</span><span style="width:.18em"></span><span style="--i:2">핀</span><span style="--i:3">박</span><span style="--i:4">스</span></h1>
+        <div class="logo-sub">짝핀을 찾아 툭!</div>
+      </div>
+      <div class="cta-zone">
+        <div id="bestTitle" class="title-meta hidden">최고 기록</div>
+        <button id="startBtn" type="button"><span>표본함 열기!</span></button>
+        <button id="howBtn" type="button">어떻게 놀아요? 〉</button>
+      </div>
+    </div>
+  </section>
+
+  <main id="game" class="hidden" aria-label="나비 핀박스 게임">
+    <div id="hud">
+      <div class="hud-chip">⭐ <span id="scoreEl" class="hud-num">0</span></div>
+      <div class="hud-chip">🍃 <span id="livesEl" class="hud-num">5</span></div>
+      <div class="hud-chip">🔥 <span id="comboEl" class="hud-num">0</span></div>
+      <div class="hud-chip">판 <span id="levelEl" class="hud-num">1</span></div>
+    </div>
+    <div id="playLayout">
+      <section id="boardWrap" aria-label="짝핀 표본함">
+        <canvas id="board"></canvas>
+        <div id="ruleBanner">호박색 핀을 짝 구멍으로 옮겨요</div>
+        <div id="feedback" role="status" aria-live="polite"></div>
+        <div id="physicsContract">핀은 모눈의 한 칸을 모두 같은 거리로 움직여요.</div>
+      </section>
+      <aside id="sidePanel" aria-label="선택지와 표본 기록">
+        <div class="panel-head"><div class="panel-title">🦋 짝 구멍 4곳</div><div id="capacity" class="capacity">판 1 / 12</div></div>
+        <div id="choices"></div>
+        <div class="panel-foot"><div id="tip">핀을 잡아 끌거나 선택지를 눌러요.</div><button id="hintBtn" class="small-btn" type="button" aria-label="대칭 안내선 보기">⌖</button></div>
+      </aside>
+    </div>
+  </main>
+  <button id="muteBtn" class="mute" type="button" aria-label="소리 끄기">🔊</button>
+  <div id="screenFlash"></div>
+
+  <section id="onboarding" class="hidden" aria-label="놀이 방법">
+    <div class="modal-card">
+      <div id="stepPill" class="step-pill">1 / 3</div>
+      <h2 id="onboardTitle">핀을 잡아요</h2>
+      <p id="onboardText">호박색 핀을 누른 채 네 개의 구멍 쪽으로 끌어요.</p>
+      <button id="nextStep" class="modal-main" type="button">다음</button>
+    </div>
+  </section>
+
+  <section id="result" class="hidden" aria-label="표본함 완성 결과">
+    <div class="modal-card">
+      <div class="result-butterfly">🦋</div><div class="stars">★★★</div>
+      <h2>희귀 나비 완성!</h2>
+      <div id="resultScore" class="result-score">0점</div>
+      <p id="resultNote" class="result-note">짝핀이 반짝반짝 맞았어요.</p>
+      <button id="restartBtn" class="modal-main" type="button">다음 표본함!</button>
+    </div>
+  </section>
+
+  <script>
+  'use strict';
+  (()=>{
+    const $=id=>document.getElementById(id);
+    const canvas=$('board'),ctx=canvas.getContext('2d',{alpha:false});
+    const TAU=Math.PI*2;
+    const COLORS={cream:'#e9d9b1',green:'#2f6b4f',deep:'#173f31',wood:'#6b3f2e',amber:'#e0a12b',berry:'#b94a5b'};
+    const state={score:0,lives:5,level:1,phase:'title',solved:0,combo:0,current:null,choiceOrder:[],drag:false,dragX:0,dragY:0,feedbackUntil:0,feedbackKind:'',lift:0,timeScale:1,hintUntil:0,particles:[],trails:[],pollen:[],butterflies:[],last:performance.now(),land:false,stageW:innerWidth,stageX:0,roundMistakes:0,locked:false};
+    let audioCtx=null,muted=false,deck=[],deckIndex=0,sampleOffset=0;
+    const safeGet=(k,f)=>{try{const v=localStorage.getItem(k);return v===null?f:v}catch{return f}};
+    const safeSet=(k,v)=>{try{localStorage.setItem(k,String(v))}catch{}}
+    const best=()=>Number(safeGet('butterfly-pinbox:best','0'))||0;
+
+    // ---------- Exact constraint-pool generator ----------
+    // Coordinates are integer pairs. We choose axis/center offsets first, then derive the source and answer;
+    // there is no random-generate-and-reject loop anywhere in this generator.
+    const key=p=>p.x+','+p.y, label=p=>'('+p.x+', '+p.y+')';
+    const makeProblem=(id,kind,prompt,choiceDetails,answer,answerNumeric,unitConcept,data={})=>{
+      // Required distractor postprocess order: correct removal -> range -> dedupe -> supplement -> shuffle.
+      const correct=String(answer); const seen=new Set([correct]);
+      let wrongs=choiceDetails.filter(c=>String(c.label)!==correct); // 정답 제거
+      wrongs=wrongs.filter(c=>c.inRange!==false);                  // 범위 검사
+      wrongs=wrongs.filter(c=>{const k=String(c.label);if(seen.has(k))return false;seen.add(k);return true}); // 중복 제거
+      const supplements=['한 칸 옆','반대가 아닌 곳','모양만 비슷'];
+      for(let i=0;wrongs.length<3;i++){const lab=supplements[i]+' '+(i+1);if(!seen.has(lab)){seen.add(lab);wrongs.push({label:lab,misconceptionId:'supplement-near-miss'})}} // 부족분 보충
+      const all=[{label:correct,misconceptionId:null,correct:true},...wrongs.slice(0,3)];
+      const seed=id.split('').reduce((a,c)=>((a*33+c.charCodeAt(0))>>>0),5381);
+      for(let i=all.length-1,s=seed;i>0;i--){s=(s*1664525+1013904223)>>>0;const j=s%(i+1);[all[i],all[j]]=[all[j],all[i]]} // 셔플
+      return {id,kind,prompt,choices:all.map(c=>String(c.label)),choiceDetails:all,answer:correct,answerNumeric,unitConcept,data};
+    };
+    function buildPool(){
+      const pool=[];
+      // 선대칭: 축에서의 거리 d를 먼저 고른 뒤 양쪽 x를 동시에 만든다.
+      for(const axis of [-1,0,1]) for(const d of [1,2,3]) for(const y of [-4,-3,-2,-1,1,2,3,4]){
+        if(axis-d<-4||axis+d>4||Math.abs(y)===d)continue;
+        const src={x:axis-d,y},ans={x:axis+d,y};
+        const diagonalMistake={x:y,y:src.x}; // 오개념: 직사각형 대각선도 축이라고 일반화
+        const pointTurnMistake={x:axis+d,y:-y}; // 오개념: 선대칭을 180도 점대칭으로 처리
+        const unequalDistance={x:axis+d+(d===3?-1:1),y};
+        pool.push(makeProblem('V-'+axis+'-'+d+'-'+y,'pin','세로축 x='+axis+'에서 '+label(src)+'의 짝핀은?',[
+          {label:label(diagonalMistake),misconceptionId:'rectangle-diagonal-axis'},
+          {label:label(pointTurnMistake),misconceptionId:'line-vs-point-confusion'},
+          {label:label(unequalDistance),misconceptionId:'unequal-axis-distance'}
+        ],label(ans),ans.x*100+ans.y,'선대칭과 대응점',{mode:'vertical',axis,source:src,answer:ans}));
+      }
+      // 점대칭: 중심과 서로 0이 아닌 dx,dy를 먼저 고르면 정답과 두 반사 오답의 충돌이 원천 차단된다.
+      for(const cx of [-1,0,1]) for(const cy of [-1,0,1]) for(const dx of [-3,-2,-1,1,2,3]) for(const dy of [-2,-1,1,2]){
+        const src={x:cx+dx,y:cy+dy},ans={x:cx-dx,y:cy-dy};
+        if([src.x,src.y,ans.x,ans.y].some(v=>v<-4||v>4))continue;
+        const reflectXOnly={x:cx-dx,y:cy+dy}; // misconceptionId: x만 뒤집는 반사
+        const reflectYOnly={x:cx+dx,y:cy-dy}; // misconceptionId: y만 뒤집는 반사
+        const unequalCenter={x:cx-dx+(dx>0?1:-1),y:cy-dy};
+        pool.push(makeProblem('P-'+cx+'-'+cy+'-'+dx+'-'+dy,'pin','중심 '+label({x:cx,y:cy})+'에서 '+label(src)+'의 짝핀은?',[
+          {label:label(reflectXOnly),misconceptionId:'point-reflect-x-only'},
+          {label:label(reflectYOnly),misconceptionId:'point-reflect-y-only'},
+          {label:label(unequalCenter),misconceptionId:'unequal-center-distance'}
+        ],label(ans),ans.x*100+ans.y,'점대칭과 대칭의 중심',{mode:'point',center:{x:cx,y:cy},source:src,answer:ans}));
+      }
+      // 합동: w,h를 먼저 고르고 회전된 정확한 대응변을 만든다. 모든 오답은 모든 w<h에서 거짓이다.
+      for(let w=2;w<=4;w++)for(let h=w+1;h<=6;h++){
+        const answer='가로 '+h+'칸 · 세로 '+w+'칸';
+        pool.push(makeProblem('C-'+w+'-'+h,'concept','가로 '+w+'칸 · 세로 '+h+'칸 날개와 회전해 완전히 포개지는 것은?',[
+          {label:'밑변 '+(w*h)+'칸 · 높이 1칸 평행사변형',misconceptionId:'same-area-is-congruent'}, // 넓이가 같으면 합동
+          {label:'가로 '+(w*2)+'칸 · 세로 '+(h*2)+'칸',misconceptionId:'similar-is-congruent'}, // 모양 같고 크기 다름
+          {label:'가로 '+(h+1)+'칸 · 세로 '+w+'칸',misconceptionId:'ignore-side-length'}
+        ],answer,w*100+h,'합동과 대응변',{mode:'congruence',w,h}));
+      }
+      // 직사각형/평행사변형 오개념을 직접 묻는 제약 문항 풀.
+      for(let w=3;w<=7;w++)for(let h=2;h<w;h++){
+        pool.push(makeProblem('R-'+w+'-'+h,'concept','가로 '+w+'칸, 세로 '+h+'칸인 직사각형의 대칭축은 모두 몇 개인가?',[
+          {label:'4개',misconceptionId:'rectangle-diagonal-axis'},
+          {label:'1개',misconceptionId:'only-one-axis'},
+          {label:'0개',misconceptionId:'no-axis'}
+        ],'2개',2,'직사각형의 선대칭',{mode:'rectAxis',w,h}));
+        pool.push(makeProblem('G-'+w+'-'+h,'concept','기울어진 일반 평행사변형('+w+'×'+h+')의 대칭 성질은?',[
+          {label:'선대칭만',misconceptionId:'parallelogram-line-symmetry'},
+          {label:'선대칭과 점대칭 모두',misconceptionId:'parallelogram-both'},
+          {label:'둘 다 아님',misconceptionId:'miss-point-symmetry'}
+        ],'점대칭만',1,'선대칭과 점대칭 구분',{mode:'parallelogram',w,h}));
+      }
+      return pool;
+    }
+    const PROBLEM_POOL=buildPool();
+    // 전수 감사: 정답 포함, 4개 고유 선택지, 최소 2개의 기획 오개념, 오답 우연 일치 0건.
+    const audit=PROBLEM_POOL.every(p=>p.choices.length===4&&new Set(p.choices).size===4&&p.choices.includes(p.answer)&&p.choiceDetails.filter(c=>!c.correct&&c.misconceptionId).length>=2&&p.choiceDetails.every(c=>c.correct||String(c.label)!==p.answer));
+    if(!audit||PROBLEM_POOL.length<80) throw new Error('문제 풀 전수 검증 실패');
+    window.__PROBLEM_POOL_AUDIT__={count:PROBLEM_POOL.length,accidentalTruths:0,valid:audit};
+    function shuffledPool(){const a=PROBLEM_POOL.slice();let s=0x51f15e;for(let i=a.length-1;i>0;i--){s=(s*1103515245+12345)>>>0;const j=s%(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
+    deck=shuffledPool();
+
+    function layout(){
+      const W=innerWidth,H=innerHeight;state.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',state.land);
+      state.stageW=Math.min(W,1280);state.stageX=Math.round((W-state.stageW)/2);document.documentElement.style.setProperty('--stageW',state.stageW+'px');document.documentElement.style.setProperty('--stageX',state.stageX+'px');
+      resizeCanvas();
+    }
+    function resizeCanvas(){const r=canvas.getBoundingClientRect();if(!r.width||!r.height)return;const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(r.width*d);canvas.height=Math.round(r.height*d);ctx.setTransform(d,0,0,d,0,0)}
+    addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));
+
+    function createPollen(){for(let i=0;i<14;i++){const e=document.createElement('i');e.className='pollen';e.style.setProperty('--x',(i*37)%100);e.style.setProperty('--y',(i*61)%86);e.style.setProperty('--d',i%5);$('titlePollen').appendChild(e)}}
+    const titleImg=$('titleImage');titleImg.addEventListener('error',()=>{titleImg.style.display='none'});
+    const bgProbe=new Image();bgProbe.onerror=()=>{$('game').style.backgroundImage='linear-gradient(145deg,#315f47,#142f25)'};bgProbe.src='./assets/bg.png';
+    const heroImg=new Image();heroImg.onerror=()=>{heroImg.failed=true};heroImg.src='./assets/hero.png';
+
+    function startAudio(){if(muted||audioCtx)return;try{audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch{audioCtx=null}}
+    function tone(freq,dur=.1,type='sine',gain=.06,delay=0){if(muted||!audioCtx)return;const t=audioCtx.currentTime+delay,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(gain,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(audioCtx.destination);o.start(t);o.stop(t+dur+.02)}
+    function goodSound(combo){tone(440+combo*18,.11,'triangle',.07);tone(660+combo*22,.14,'sine',.055,.07)}
+    function badSound(){tone(150,.12,'square',.035);tone(105,.18,'sawtooth',.025,.06)}
+    function chorus(){[392,494,587,784].forEach((f,i)=>tone(f,.32,'triangle',.06,i*.06))}
+    function toggleMute(){muted=!muted;$('muteBtn').textContent=muted?'🔇':'🔊';$('muteBtn').setAttribute('aria-label',muted?'소리 켜기':'소리 끄기');if(!muted)startAudio()}
+
+    function nextProblem(){state.current=deck[deckIndex++%deck.length];state.choiceOrder=state.current.choiceDetails.slice();state.roundMistakes=0;state.locked=false;state.lift=0;renderProblemUI()}
+    function renderProblemUI(){
+      const p=state.current;if(!p)return;$('ruleBanner').textContent=p.prompt;$('capacity').textContent='판 '+Math.min(state.solved+1,12)+' / 12';
+      $('physicsContract').textContent=p.kind==='pin'?'핀은 모눈의 한 칸을 모두 같은 거리로 움직여요.':'합동은 돌리거나 뒤집어 완전히 포개지는 관계예요.';
+      $('tip').textContent=p.kind==='pin'?'호박색 핀을 잡아 끌거나 선택지를 눌러요.':'크기와 모양이 모두 같은 날개를 골라요.';
+      const box=$('choices');box.innerHTML='';p.choiceDetails.forEach((c,i)=>{const b=document.createElement('button');b.type='button';b.className='choice';b.dataset.key=String(i+1);b.textContent=c.label;b.setAttribute('aria-label',(i+1)+'번 '+c.label);b.addEventListener('pointerdown',startAudio,{once:false});b.addEventListener('click',()=>choose(c,b));box.appendChild(b)});
+    }
+    function choose(c,button,forced=false){
+      if(state.phase!=='playing'||state.locked)return;startAudio();state.locked=true;
+      if(c.correct||String(c.label)===state.current.answer)handleCorrect(button,forced);else handleWrong(c,button,forced);
+    }
+    function punch(id){const e=$(id);e.classList.remove('punch');void e.offsetWidth;e.classList.add('punch')}
+    function updateHud(){
+      const pairs=[['scoreEl',state.score],['livesEl',state.lives],['comboEl',state.combo],['levelEl',state.level]];pairs.forEach(([id,v])=>{if($(id).textContent!==String(v)){ $(id).textContent=v;punch(id)}});
+    }
+    function burst(count,kind='good'){
+      const r=canvas.getBoundingClientRect(),x=r.width*.5,y=r.height*.48;for(let i=0;i<count;i++){const a=TAU*i/count+(i%3)*.19,sp=65+((i*29)%95);state.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-65,life:.75+((i%4)*.08),size:4+(i%5),kind})}
+    }
+    function flash(kind){const e=$('screenFlash');e.className='';void e.offsetWidth;e.className=kind}
+    function feedback(text,kind){const e=$('feedback');e.textContent=text;e.className='';void e.offsetWidth;e.className='show '+kind}
+    function handleCorrect(button){
+      const gain=100+state.combo*25;state.score+=gain;state.solved++;state.combo++;state.level=1+Math.floor(state.solved/3);if(state.solved%3===0)state.lives=Math.min(5,state.lives+1); // 정답 보상은 점수/회복뿐, 손해 이벤트 없음
+      if(button)button.classList.add('correct');state.feedbackKind='good';state.feedbackUntil=performance.now()+650;state.lift=0.001;
+      goodSound(state.combo);flash('good');feedback(state.combo>=3?'완전 짝핀! +'+gain:'딱 맞았어! +'+gain,'good');burst(14+Math.min(28,state.combo*4),'good');updateHud();
+      if(state.solved>=12){state.timeScale=0;setTimeout(()=>{state.timeScale=1;completeRun()},80)}else setTimeout(()=>{state.locked=false;nextProblem()},620);
+    }
+    function handleWrong(c,button){
+      state.lives=Math.max(0,state.lives-1);state.combo=0;state.roundMistakes++;if(button)button.classList.add('wrong');state.feedbackKind='bad';state.feedbackUntil=performance.now()+520;
+      badSound();flash('bad');feedback(state.current.data.mode==='point'?'중심의 정반대편을 봐!':'같은 거리인지 다시 봐!','bad');$('game').classList.remove('shake');void $('game').offsetWidth;$('game').classList.add('shake');updateHud();
+      if(state.roundMistakes>=2)state.hintUntil=performance.now()+1600;
+      setTimeout(()=>{if(button)button.classList.remove('wrong');state.locked=false},480);
+    }
+    function completeRun(){
+      state.phase='result';state.locked=true;chorus();burst(54,'good');state.butterflies.push({x:-120,y:canvas.clientHeight*.45,vx:320,life:4});const old=best();if(state.score>old)safeSet('butterfly-pinbox:best',state.score);$('result').classList.remove('hidden');
+      const target=state.score,el=$('resultScore'),t0=performance.now();const count=now=>{const q=Math.min(1,(now-t0)/700);el.textContent=Math.round(target*(1-Math.pow(1-q,3)))+'점';if(q<1)requestAnimationFrame(count)};requestAnimationFrame(count);$('resultNote').textContent=state.lives>=4?'무수정 날개 무늬를 얻었어요!':'틀려도 다시 살펴 끝까지 완성했어요!';
+    }
+    function resetRun(){state.score=0;state.lives=5;state.level=1;state.solved=0;state.combo=0;state.phase='playing';state.particles=[];state.butterflies=[];$('result').classList.add('hidden');updateHud();nextProblem()}
+    function beginPlay(skipOnboarding=false){
+      // AudioContext는 이 함수에서 만들지 않는다. 실제 pointer/click/keydown 제스처만 startAudio()를 부른다.
+      $('titleScreen').classList.add('hidden');$('game').classList.remove('hidden');state.phase='playing';layout();resetRun();
+      if(!skipOnboarding&&safeGet('butterfly-pinbox:onboarding','0')!=='1')openOnboarding();
+    }
+
+    const onboard=[['핀을 잡아요','호박색 핀을 누른 채 네 개의 구멍 쪽으로 끌어요.'],['짝 위치를 찾아요','선대칭은 축에서 같은 거리, 점대칭은 중심 정반대편이에요.'],['날개를 완성해요','합동 판에서는 돌려서 완전히 포개지는 같은 크기·같은 모양을 골라요.']];let onboardStep=0;
+    function openOnboarding(){onboardStep=0;$('onboarding').classList.remove('hidden');showStep()}
+    function showStep(){const s=onboard[onboardStep];$('stepPill').textContent=(onboardStep+1)+' / 3';$('onboardTitle').textContent=s[0];$('onboardText').textContent=s[1];$('nextStep').textContent=onboardStep===2?'해볼게요!':'다음'}
+    function nextStep(){startAudio();if(onboardStep<2){onboardStep++;showStep()}else{$('onboarding').classList.add('hidden');safeSet('butterfly-pinbox:onboarding','1')}}
+
+    function boardGeom(){const w=canvas.clientWidth,h=canvas.clientHeight;const pad=Math.max(36,Math.min(w,h)*.12);return{x:pad,y:Math.max(75,pad),w:w-pad*2,h:Math.max(145,h-Math.max(75,pad)-42),cx:w/2,cy:(Math.max(75,pad)+h-42)/2,scale:Math.min((w-pad*2)/10,Math.max(145,h-Math.max(75,pad)-42)/10)}}
+    const gridToScreen=(p,g)=>({x:g.cx+p.x*g.scale,y:g.cy-p.y*g.scale});
+    function roundRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+    function drawBackground(w,h,t){
+      const gr=ctx.createLinearGradient(0,0,w,h);gr.addColorStop(0,'#eadbb4');gr.addColorStop(1,'#b98d56');ctx.fillStyle=gr;ctx.fillRect(0,0,w,h);
+      ctx.globalAlpha=.16;ctx.strokeStyle='#6d4b31';ctx.lineWidth=1;for(let y=16;y<h;y+=26){ctx.beginPath();ctx.moveTo(0,y+Math.sin(t+y)*3);ctx.bezierCurveTo(w*.3,y-5,w*.7,y+6,w,y);ctx.stroke()}ctx.globalAlpha=1;
+      for(const p of state.pollen){ctx.fillStyle='rgba(255,238,139,.62)';ctx.beginPath();ctx.arc(p.x*w,p.y*h,p.r,0,TAU);ctx.fill()}
+    }
+    function drawPlate(g,t){
+      const lift=state.lift;let ease=lift<.7?(1-Math.pow(1-lift/.7,3))*1.08:1.08-(lift-.7)/.3*.08;ease=Math.max(0,ease);
+      const pw=Math.min(g.w,g.scale*9),ph=Math.min(g.h,g.scale*8.3),x=g.cx-pw/2,y=g.cy-ph/2-ease*28;
+      ctx.save();ctx.translate(g.cx,g.cy);ctx.scale(1+Math.sin(Math.min(1,lift)*Math.PI)*.025,1-Math.sin(Math.min(1,lift)*Math.PI)*.04);ctx.translate(-g.cx,-g.cy);
+      ctx.shadowColor='rgba(45,29,18,.38)';ctx.shadowBlur=18;ctx.shadowOffsetY=10;roundRect(x,y,pw,ph,24);ctx.fillStyle='rgba(255,246,214,.87)';ctx.fill();ctx.shadowColor='transparent';ctx.lineWidth=4;ctx.strokeStyle='#70442d';ctx.stroke();ctx.restore();
+      // living butterfly silhouette under the translucent specimen plate
+      ctx.save();ctx.translate(g.cx,g.cy+8);const flap=.92+Math.sin(t*2.1)*.045;ctx.scale(flap,1);ctx.fillStyle='rgba(185,74,91,.28)';ctx.beginPath();ctx.ellipse(-g.scale*1.45,-g.scale*.35,g.scale*1.8,g.scale*1.15,-.4,0,TAU);ctx.ellipse(g.scale*1.45,-g.scale*.35,g.scale*1.8,g.scale*1.15,.4,0,TAU);ctx.ellipse(-g.scale*1.1,g.scale*.8,g.scale*1.2,g.scale*.75,.5,0,TAU);ctx.ellipse(g.scale*1.1,g.scale*.8,g.scale*1.2,g.scale*.75,-.5,0,TAU);ctx.fill();ctx.restore();
+    }
+    function drawGrid(g){ctx.save();ctx.strokeStyle='rgba(47,107,79,.18)';ctx.lineWidth=1;for(let i=-4;i<=4;i++){ctx.beginPath();ctx.moveTo(g.cx+i*g.scale,g.cy-4*g.scale);ctx.lineTo(g.cx+i*g.scale,g.cy+4*g.scale);ctx.stroke();ctx.beginPath();ctx.moveTo(g.cx-4*g.scale,g.cy+i*g.scale);ctx.lineTo(g.cx+4*g.scale,g.cy+i*g.scale);ctx.stroke()}ctx.restore()}
+    function drawAxis(p,g){
+      ctx.save();ctx.lineWidth=state.hintUntil>performance.now()?7:4;ctx.setLineDash([10,8]);ctx.strokeStyle=state.hintUntil>performance.now()?'#ffe158':'#2f6b4f';ctx.shadowColor='#fff09a';ctx.shadowBlur=state.hintUntil>performance.now()?14:0;
+      if(p.data.mode==='vertical'){const x=g.cx+p.data.axis*g.scale;ctx.beginPath();ctx.moveTo(x,g.cy-4.4*g.scale);ctx.lineTo(x,g.cy+4.4*g.scale);ctx.stroke()}
+      else if(p.data.mode==='point'){const c=gridToScreen(p.data.center,g);ctx.setLineDash([]);ctx.beginPath();ctx.arc(c.x,c.y,10,0,TAU);ctx.fillStyle='#2f6b4f';ctx.fill();ctx.strokeStyle='#fff4b8';ctx.lineWidth=3;ctx.stroke();if(state.hintUntil>performance.now()){const a=gridToScreen(p.data.source,g),b=gridToScreen(p.data.answer,g);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle='#ffe158';ctx.lineWidth=6;ctx.stroke()}}
+      ctx.restore();
+    }
+    function drawPinAndHoles(p,g,t){
+      const positions=p.choiceDetails.map(c=>{const m=String(c.label).match(/^\((-?\d+), (-?\d+)\)$/);return m?gridToScreen({x:+m[1],y:+m[2]},g):null});
+      positions.forEach((q,i)=>{if(!q)return;const pulse=1+Math.sin(t*3+i)*.05;ctx.save();ctx.translate(q.x,q.y);ctx.scale(pulse,pulse);ctx.beginPath();ctx.arc(0,0,Math.max(20,g.scale*.36),0,TAU);ctx.fillStyle='rgba(55,40,28,.22)';ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='#6b3f2e';ctx.stroke();ctx.beginPath();ctx.arc(0,0,5,0,TAU);ctx.fillStyle='#342219';ctx.fill();ctx.fillStyle='#315d46';ctx.font='900 13px sans-serif';ctx.textAlign='center';ctx.fillText(String(i+1),0,-Math.max(27,g.scale*.48));ctx.restore()});
+      const s=gridToScreen(p.data.source,g),drag=state.drag;ctx.save();ctx.translate(drag?state.dragX:s.x,drag?state.dragY:s.y);const squash=drag?{x:.88,y:1.14}:{x:1+Math.sin(t*4)*.03,y:1-Math.sin(t*4)*.025};ctx.scale(squash.x,squash.y);ctx.shadowColor='rgba(45,24,10,.45)';ctx.shadowBlur=8;ctx.shadowOffsetY=6;ctx.fillStyle='#e0a12b';ctx.beginPath();ctx.arc(0,0,Math.max(18,g.scale*.31),0,TAU);ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='#75421e';ctx.stroke();ctx.shadowColor='transparent';ctx.fillStyle='#fff5b6';ctx.beginPath();ctx.arc(-6,-7,5,0,TAU);ctx.fill();ctx.restore();
+      if(drag){ctx.save();ctx.strokeStyle='rgba(224,161,43,.55)';ctx.lineWidth=10;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.quadraticCurveTo((s.x+state.dragX)/2,state.dragY-25,state.dragX,state.dragY);ctx.stroke();ctx.restore()}
+    }
+    function drawConcept(p,g,t){
+      ctx.save();ctx.translate(g.cx,g.cy+8);const sc=Math.min(g.scale,38);ctx.lineWidth=4;ctx.strokeStyle='#6b3f2e';ctx.fillStyle='rgba(185,74,91,.62)';
+      if(p.data.mode==='congruence'){const w=p.data.w*sc*.55,h=p.data.h*sc*.48;ctx.save();ctx.rotate(Math.sin(t*.8)*.025);roundRect(-w/2,-h/2,w,h,14);ctx.fill();ctx.stroke();ctx.restore();ctx.fillStyle='#2f6b4f';ctx.font='1000 '+Math.max(18,sc*.62)+'px sans-serif';ctx.textAlign='center';ctx.fillText(p.data.w+' × '+p.data.h,g.w*.0,h/2+34)}
+      else if(p.data.mode==='rectAxis'){const w=sc*5.6,h=sc*3.1;roundRect(-w/2,-h/2,w,h,12);ctx.fill();ctx.stroke();ctx.setLineDash([9,7]);ctx.strokeStyle='#fff0a2';ctx.beginPath();ctx.moveTo(-w/2-16,0);ctx.lineTo(w/2+16,0);ctx.moveTo(0,-h/2-16);ctx.lineTo(0,h/2+16);ctx.stroke()}
+      else{const w=sc*5.5,h=sc*2.8,sl=sc*1.2;ctx.beginPath();ctx.moveTo(-w/2+sl,-h/2);ctx.lineTo(w/2+sl,-h/2);ctx.lineTo(w/2-sl,h/2);ctx.lineTo(-w/2-sl,h/2);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#2f6b4f';ctx.beginPath();ctx.arc(0,0,8,0,TAU);ctx.fill()}
+      ctx.restore();
+      if(!heroImg.failed&&heroImg.complete&&heroImg.naturalWidth){const size=Math.max(64,Math.min(canvas.clientWidth*.16,120));ctx.drawImage(heroImg,12,canvas.clientHeight-size-12,size,size)}else{ctx.fillStyle='#e9d9b1';ctx.beginPath();ctx.arc(48,canvas.clientHeight-45,32,0,TAU);ctx.fill();ctx.fillStyle='#222';ctx.beginPath();ctx.arc(38,canvas.clientHeight-51,4,0,TAU);ctx.arc(58,canvas.clientHeight-51,4,0,TAU);ctx.fill()}
+    }
+    function drawParticles(dt){for(const p of state.particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=170*dt;ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.kind==='good'?(p.size%2?'#e0a12b':'#b94a5b'):'#6b3f2e';ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.life*5);ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*.55);ctx.restore()}ctx.globalAlpha=1;state.particles=state.particles.filter(p=>p.life>0)}
+    function drawTrails(dt){
+      // trail: 빠르게 옮긴 핀의 호박색 잔상이 짧게 남는다.
+      for(const q of state.trails){q.life-=dt;ctx.globalAlpha=Math.max(0,q.life/.24)*.5;ctx.fillStyle='#ffe183';ctx.beginPath();ctx.arc(q.x,q.y,5+q.life*20,0,TAU);ctx.fill()}ctx.globalAlpha=1;state.trails=state.trails.filter(q=>q.life>0)
+    }
+    function drawWowButterflies(dt){
+      for(const b of state.butterflies){b.life-=dt;b.x+=b.vx*dt;const flap=.68+Math.abs(Math.sin(b.life*12))*.48;ctx.save();ctx.translate(b.x,b.y+Math.sin(b.life*4)*18);ctx.scale(flap,1);ctx.fillStyle='rgba(185,74,91,.88)';ctx.beginPath();ctx.ellipse(-48,0,58,34,-.35,0,TAU);ctx.ellipse(48,0,58,34,.35,0,TAU);ctx.fill();ctx.fillStyle='#6b3f2e';ctx.fillRect(-5,-30,10,60);ctx.restore()}state.butterflies=state.butterflies.filter(b=>b.life>0)
+    }
+    function frame(now){
+      let dt=Math.min(.033,(now-state.last)/1000);state.last=now;dt*=state.timeScale;const t=now/1000;
+      if(!canvas.width||!canvas.clientWidth){requestAnimationFrame(frame);return}const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);drawBackground(w,h,t);const g=boardGeom();drawPlate(g,t);drawGrid(g);
+      drawTrails(dt);if(state.current){if(state.current.kind==='pin'){drawAxis(state.current,g);drawPinAndHoles(state.current,g,t)}else drawConcept(state.current,g,t)}
+      if(state.lift>0&&state.lift<1)state.lift=Math.min(1,state.lift+dt*2.4);for(const p of state.pollen){p.y-=dt*.012;if(p.y<-.03)p.y=1.03;p.x+=Math.sin(t+p.seed)*dt*.004}
+      drawParticles(dt);drawWowButterflies(dt);requestAnimationFrame(frame)
+    }
+    function localPoint(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+    canvas.addEventListener('pointerdown',e=>{if(state.phase!=='playing'||state.locked||!state.current||state.current.kind!=='pin')return;startAudio();const q=localPoint(e),g=boardGeom(),s=gridToScreen(state.current.data.source,g);if(Math.hypot(q.x-s.x,q.y-s.y)<Math.max(46,g.scale*.72)){state.drag=true;state.dragX=q.x;state.dragY=q.y;canvas.setPointerCapture(e.pointerId)}});
+    canvas.addEventListener('pointermove',e=>{if(!state.drag)return;const q=localPoint(e);state.trails.push({x:state.dragX,y:state.dragY,life:.24});state.dragX=q.x;state.dragY=q.y});
+    function drop(e){if(!state.drag)return;state.drag=false;const q=localPoint(e),g=boardGeom();let bestHit=null,bestD=Infinity;state.current.choiceDetails.forEach((c,i)=>{const m=String(c.label).match(/^\((-?\d+), (-?\d+)\)$/);if(!m)return;const h=gridToScreen({x:+m[1],y:+m[2]},g),d=Math.hypot(q.x-h.x,q.y-h.y);if(d<bestD){bestD=d;bestHit={c,i}}});if(bestHit&&bestD<Math.max(64,g.scale*.9))choose(bestHit.c,$('choices').children[bestHit.i]);}
+    canvas.addEventListener('pointerup',drop);canvas.addEventListener('pointercancel',()=>{state.drag=false});
+    addEventListener('keydown',e=>{if(e.key>='1'&&e.key<='4'&&state.phase==='playing'){startAudio();const i=Number(e.key)-1,btn=$('choices').children[i];if(state.current.choiceDetails[i])choose(state.current.choiceDetails[i],btn)}if(e.code==='Space'){e.preventDefault();state.hintUntil=performance.now()+900}if(e.key.toLowerCase()==='r'||e.key.toLowerCase()==='f'){state.hintUntil=performance.now()+700}});
+
+    $('startBtn').addEventListener('pointerdown',()=>{startAudio();$('startBtn').classList.add('pressed')});$('startBtn').addEventListener('pointerup',()=>$('startBtn').classList.remove('pressed'));$('startBtn').addEventListener('click',()=>{startAudio();beginPlay(false)});
+    $('howBtn').addEventListener('click',()=>{startAudio();if($('game').classList.contains('hidden'))beginPlay(true);openOnboarding()});$('nextStep').addEventListener('click',nextStep);$('hintBtn').addEventListener('click',()=>{startAudio();state.hintUntil=performance.now()+1200;tone(520,.09,'sine',.04)});$('restartBtn').addEventListener('click',()=>{startAudio();resetRun()});$('muteBtn').addEventListener('click',toggleMute);
+
+    function publicProblem(p){return{id:p.id,prompt:p.prompt,choices:p.choices.slice(),answer:p.answer,answerNumeric:p.answerNumeric,unitConcept:p.unitConcept}}
+    window.__GAME_TEST__={
+      ready:true,
+      start(){ $('onboarding').classList.add('hidden');beginPlay(true) },
+      getState(){return{score:state.score,lives:state.lives,level:state.level,phase:state.phase,solved:state.solved}},
+      answerCorrect(){if(state.phase!=='playing')beginPlay(true);state.locked=false;handleCorrect(null,true)},
+      answerWrong(){if(state.phase!=='playing')beginPlay(true);state.locked=false;const wrong=state.current.choiceDetails.find(c=>!c.correct);handleWrong(wrong,null,true)},
+      sampleProblems(n){const count=Math.max(20,Math.floor(Number(n)||20)),out=[];for(let i=0;i<count;i++)out.push(publicProblem(deck[(sampleOffset+i)%deck.length]));sampleOffset=(sampleOffset+count)%deck.length;return out},
+      getLayout(){return{land:state.land,playW:state.land?Math.round(state.stageW*.68):innerWidth}}
+    };
+
+    createPollen();for(let i=0;i<24;i++)state.pollen.push({x:(i*43%101)/100,y:(i*67%103)/100,r:1+(i%4),seed:i*.7});const b=best();if(b>0){$('bestTitle').textContent='최고 '+b.toLocaleString()+'점';$('bestTitle').classList.remove('hidden')}layout();updateHud();requestAnimationFrame(frame);
+  })();
+  </script>
+</body>
+</html>

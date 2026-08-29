@@ -308,9 +308,35 @@ window.__GAME_TEST__ = {
   }
   ```
 
+## 📘 문제 생성기는 교과서 발문을 따른다 (2026-08-30 신설)
+
+문제 생성기를 짜기 **전에** `curriculum/textbook-structure.json` 에서 이번 단원 항목과
+최상단 `style_guide` / `expression_traps` 를 읽어라. (`curriculum/textbook-crosswalk.json` 이
+`unit_id` → 교과서 권·단원을 이어 준다. 원문 md 는 저작권상 미커밋 — 로컬에 있으면
+`curriculum/sources/textbook-icecream/` 에 있고, 없어도 structure 파일만으로 충분하다.)
+
+지켜라:
+
+1. **차시 범위를 넘지 마라.** `chosen.json` 의 `textbook_alignment.lessons_covered` 밖의
+   개념을 문제 생성기가 뱉으면 안 된다. 예: 「올림」 차시만 덮는 게임이 반올림 문항을 섞으면 탈락.
+   난이도 밴드도 차시 순서를 따라 올려라.
+2. **발문 문장은 style_guide 의 관습대로.** 익힘책 지시형(`~해 보세요`)과 교과서 청유형
+   (`~해 봅시다`)을 한 게임 안에서 섞지 마라. 답을 요구하는 형식도 관습이 있다 —
+   기호를 고르게 할 땐 「기호를 써 보세요」, 값을 구하게 할 땐 「~인지 구해 보세요」,
+   대소 비교는 「○ 안에 >, =, < 중 알맞은 것을 써넣으세요」, 빈칸은 「□ 안에 알맞은 수를
+   써넣으세요」. 우리가 새로 지어낸 어색한 한국어 발문을 쓰지 마라.
+3. **`expression_traps` 를 문제 생성기 주석에 옮겨 적어라.** 특히 답 형식(기약분수/대분수/
+   소수 몇째 자리까지), 어림 표현, 이상·이하·초과·미만 경계, 원주율 값 지시.
+4. **문항 유형을 섞어라.** `workbook.type_mix` 비율을 참고해 계산 일변도를 피한다.
+   `error_find`·`reverse`·`open_construct` 중 최소 하나는 메커닉에 녹여라.
+5. **등장인물·맥락.** 이름을 쓸 거면 성 없는 현대 한국 이름 2~3자. 실생활 맥락은
+   교과서가 쓰는 도메인 범주(학교생활·시장·요리·운동·자연·교통·통계 등) 안에서 고르고,
+   교과서 지문을 그대로 옮기지 마라 (저작권).
+
 ## 작업 순서 권장
 
-1. `chosen.json`, `art.json`, `curriculum/2022-elementary-math.json`(해당 단원만) 읽기
+1. `chosen.json`, `art.json`, `curriculum/2022-elementary-math.json`(해당 단원만),
+   `curriculum/textbook-structure.json`(해당 권·단원 + 최상단 `style_guide`·`expression_traps`) 읽기
 2. 문제 생성기부터 만들고 **콘솔에서 100개 뽑아 눈으로 검산**
 3. 게임 루프 → 입력 → 렌더 → 연출 순으로
 4. 마지막에 `__GAME_TEST__` 훅 연결

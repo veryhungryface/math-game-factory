@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>거울정원</title>
+  <meta name="description" content="한 조각을 밀면 거울 건너 짝도 함께 움직이는 대칭 퍼즐">
+  <meta property="og:title" content="거울정원">
+  <meta property="og:description" content="움직이면 반대가 움직여">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root{
+      --paper:#f1f0ea;--ink:#30363d;--mist:#a8afb5;--glass:#f04b32;--white:#fff;
+      --stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);
+      --safeT:env(safe-area-inset-top,0px);--safeB:env(safe-area-inset-bottom,0px);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#d8d7d1;color:var(--ink)}
+    body{font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-weight:700;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    button:focus-visible{outline:4px solid #ffd34e;outline-offset:3px}
+    .hidden{display:none!important}
+    #fxCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:22;pointer-events:none}
+
+    /* title-screen-spec: full-bleed art, one dominant CTA, no checklist */
+    #titleScreen{position:fixed;inset:0;z-index:20;min-height:100svh;height:100dvh;overflow:hidden;isolation:isolate;background:linear-gradient(160deg,#f5f1e7,#9fa8ac 70%,#30363d)}
+    .title-art{position:absolute;inset:0;z-index:0;overflow:hidden;background:radial-gradient(circle at 50% 38%,#fff 0 16%,#b9c0c2 45%,#30363d 120%)}
+    .title-art img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 52%;transform:scale(1.015);filter:saturate(1.04) contrast(1.04);animation:artBreathe 20s ease-in-out infinite alternate}
+    .title-art.fallback img{display:none}
+    .title-art:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(241,240,234,.18),rgba(241,240,234,0) 42%,rgba(25,31,36,.82) 100%),radial-gradient(ellipse at 50% 16%,rgba(255,255,255,.46),transparent 42%);pointer-events:none}
+    .title-vignette{position:absolute;inset:0;z-index:1;box-shadow:inset 0 0 100px rgba(31,38,43,.34);pointer-events:none}
+    .title-ui{position:relative;z-index:3;width:min(100vw,640px);height:100%;margin:auto;padding:var(--safeT) 16px var(--safeB);pointer-events:none}
+    .logo-zone{position:absolute;top:max(54px,7dvh);left:12px;right:12px;text-align:center;pointer-events:auto;animation:logoIn .75s cubic-bezier(.16,1.35,.35,1) both}
+    .game-logo{margin:0;display:flex;justify-content:center;align-items:center;white-space:nowrap;font-size:clamp(54px,15.2vw,88px);font-weight:1000;letter-spacing:-.13em;line-height:.9;transform:rotate(-2deg);filter:drop-shadow(0 13px 12px rgba(0,0,0,.24))}
+    .game-logo span{display:inline-block;padding:.015em;color:#fff9e8;-webkit-text-stroke:clamp(2px,.8vw,5px) #30363d;paint-order:stroke fill;text-shadow:0 2px 0 #f98873,0 4px 0 #e53b27,0 6px 0 #a82518,0 9px 2px rgba(48,54,61,.65),0 16px 19px rgba(48,54,61,.36);transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}
+    .tagline{display:inline-block;margin:18px 0 0;padding:7px 15px;border:2px solid rgba(255,255,255,.8);border-radius:999px;background:rgba(48,54,61,.78);box-shadow:inset 0 1px rgba(255,255,255,.3),0 5px 14px rgba(0,0,0,.22);color:#fff;font-size:clamp(14px,3.8vw,18px);font-weight:900;text-shadow:0 2px 3px #000}
+    .title-motes{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+    .title-motes i{position:absolute;width:10px;height:10px;border-radius:65% 35% 60% 40%;background:#f04b32;box-shadow:0 0 12px rgba(240,75,50,.7);animation:floatMote 6s ease-in-out infinite;opacity:.72}
+    .title-motes i:nth-child(1){left:9%;top:42%;animation-delay:-1s}.title-motes i:nth-child(2){left:84%;top:35%;animation-delay:-3.2s}.title-motes i:nth-child(3){left:18%;top:67%;animation-delay:-4.5s}.title-motes i:nth-child(4){left:76%;top:64%;animation-delay:-2.1s}.title-motes i:nth-child(5){left:52%;top:47%;animation-delay:-5.2s}
+    .cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:7px;pointer-events:auto}
+    .record-pill{min-height:32px;padding:6px 14px;border:1px solid rgba(255,255,255,.4);border-radius:999px;background:rgba(35,40,45,.72);color:#fff;font-size:13px;box-shadow:inset 0 1px rgba(255,255,255,.18)}
+    #startBtn{position:relative;width:min(100%,420px);min-height:68px;padding:0 26px;border:4px solid #30363d;border-radius:23px;background:linear-gradient(#fff7a7 0%,#ffc94c 48%,#f04b32 100%);box-shadow:0 7px 0 #a62b1b,0 10px 0 #30363d,0 17px 27px rgba(0,0,0,.38),inset 0 3px rgba(255,255,255,.65);font-size:clamp(22px,6vw,28px);font-weight:1000;letter-spacing:-.04em;animation:ctaPulse 2.4s 1.2s infinite;cursor:pointer}
+    #startBtn:active,#startBtn.pressed{transform:translateY(7px) scale(.985);box-shadow:0 1px 0 #a62b1b,0 3px 0 #30363d,0 7px 12px rgba(0,0,0,.3);animation-play-state:paused}
+    #helpBtn{min-width:150px;min-height:44px;border:0;background:transparent;color:#fff;font-weight:900;text-shadow:0 2px 4px #000;cursor:pointer}
+    .unit-badge{font-size:12px;color:#eceeea;text-shadow:0 2px 3px #000}
+    #muteBtn{position:fixed;z-index:60;right:max(12px,calc(var(--stageX) + 12px));top:max(12px,var(--safeT));width:48px;height:48px;border:2px solid rgba(255,255,255,.8);border-radius:16px;background:rgba(48,54,61,.84);box-shadow:0 4px 0 #171b1f,inset 0 2px rgba(255,255,255,.22);color:#fff;font-size:22px;cursor:pointer}
+    #muteBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #171b1f}
+
+    /* playfield-spec: mobile stacked, desktop split 68:32 */
+    #gameScreen{position:fixed;inset:0;z-index:5;display:grid;grid-template-rows:64px minmax(0,1fr);width:100%;height:100dvh;overflow:hidden;background:linear-gradient(145deg,#f1f0ea,#c7cbca 55%,#a8afb5)}
+    .game-bg{position:absolute;inset:0;z-index:-2;overflow:hidden;background:radial-gradient(circle at 35% 30%,#fff,#d3d4ce 50%,#8e989e)}
+    .game-bg img{width:100%;height:100%;object-fit:cover;opacity:.32;filter:grayscale(.35) contrast(.9)}
+    .game-bg.fallback img{display:none}
+    .game-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(241,240,234,.5),rgba(255,255,255,.06),rgba(48,54,61,.12))}
+    #hud{position:relative;z-index:5;display:flex;align-items:center;gap:7px;padding:max(8px,var(--safeT)) 66px 6px 10px}
+    .hud-chip{height:46px;min-width:72px;padding:0 11px;border:2px solid #30363d;border-radius:15px;background:linear-gradient(#fff,#e8e6dd);box-shadow:0 4px 0 #6d7377,inset 0 2px #fff;display:flex;align-items:center;justify-content:center;gap:5px;font-size:14px;white-space:nowrap}
+    .hud-chip strong{font-size:20px;font-weight:1000}.hud-chip.score{flex:1;max-width:180px}.heart{color:#f04b32;text-shadow:0 1px #30363d}
+    .punch{animation:punch .36s cubic-bezier(.16,1.5,.4,1)}
+    .game-shell{position:relative;z-index:2;width:100%;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) 275px;gap:7px;padding:4px 8px max(8px,var(--safeB))}
+    .board-zone{position:relative;min-height:0;display:grid;place-items:center}
+    .board-frame{position:relative;width:min(calc(100vw - 16px),100%,620px);max-height:100%;aspect-ratio:1;border:3px solid #30363d;border-radius:26px;overflow:hidden;background:rgba(241,240,234,.91);box-shadow:0 7px 0 #6c747a,0 12px 26px rgba(48,54,61,.28),inset 0 3px #fff,inset 0 -4px rgba(48,54,61,.12);transform-origin:center}
+    #boardCanvas{display:block;width:100%;height:100%;touch-action:none}
+    .board-label{position:absolute;left:50%;top:9px;transform:translateX(-50%);min-height:32px;padding:6px 13px;border:2px solid #30363d;border-radius:999px;background:#fff;color:#30363d;font-size:13px;white-space:nowrap;box-shadow:0 3px 0 #9fa6aa}
+    .physics-contract{position:absolute;left:50%;bottom:7px;transform:translateX(-50%);width:max-content;max-width:92%;padding:5px 10px;border-radius:10px;background:rgba(48,54,61,.86);color:#fff;font-size:11px;text-align:center}
+    .side-panel{min-height:0;border:3px solid #30363d;border-radius:24px;background:rgba(250,249,244,.94);box-shadow:0 6px 0 #777f84,inset 0 3px #fff;display:grid;grid-template-columns:90px 1fr;grid-template-rows:auto 1fr;gap:7px;padding:9px;overflow:hidden}
+    .mascot-card{grid-row:1/3;position:relative;border:2px solid #737a7f;border-radius:18px;overflow:hidden;background:radial-gradient(circle,#fff 0 38%,#d8d9d2 75%);display:grid;place-items:center;min-height:92px}
+    .mascot-card img{width:82px;height:82px;object-fit:cover;border-radius:50%;mix-blend-mode:multiply}
+    .mascot-card.fallback img{display:none}.mascot-card.fallback:after{content:"•ᴗ•";display:grid;place-items:center;width:66px;height:66px;border:4px solid #30363d;border-radius:50%;background:#fff;color:#f04b32;font-size:20px}
+    .rule-card{min-width:0;border:2px solid #a8afb5;border-radius:15px;background:#fff;padding:7px 10px;box-shadow:inset 0 2px #fff}
+    .rule-card small{display:block;color:#6a7176;font-size:11px}.rule-card strong{display:block;margin-top:2px;font-size:clamp(15px,4.2vw,20px);font-weight:1000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #message{min-height:24px;color:#30363d;font-size:13px;font-weight:900}
+    #message.good{color:#b32d1d}#message.bad{color:#30363d}
+    .control-area{display:grid;grid-template-columns:minmax(0,1fr) 166px;gap:8px;align-items:center;min-width:0}
+    .tip{font-size:12px;line-height:1.38;color:#60676b}.tip b{color:#f04b32}
+    .dpad{width:158px;height:158px;display:grid;grid-template:repeat(3,50px)/repeat(3,50px);gap:4px;justify-content:center;grid-template-areas:". up ." "left hint right" ". down ."}
+    .move-btn,.hint-btn{border:3px solid #30363d;border-radius:15px;background:linear-gradient(#fff,#d9d8d1);box-shadow:0 4px 0 #777d81,inset 0 2px #fff;font-size:23px;font-weight:1000;cursor:pointer}
+    .move-btn:active,.hint-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #777d81}.move-btn[data-dir="up"]{grid-area:up}.move-btn[data-dir="down"]{grid-area:down}.move-btn[data-dir="left"]{grid-area:left}.move-btn[data-dir="right"]{grid-area:right}.hint-btn{grid-area:hint;font-size:18px;background:linear-gradient(#ffd99c,#f04b32);color:#30363d}
+    #quizArea{grid-column:1/3;display:none;grid-template-rows:auto 1fr;gap:7px;min-height:0}
+    #quizArea.show{display:grid}.quiz-prompt{font-size:15px;font-weight:1000;line-height:1.25}.choices{display:grid;grid-template-columns:1fr 1fr;gap:7px;min-height:0}
+    .choice{min-height:52px;padding:6px 9px;border:3px solid #30363d;border-radius:15px;background:linear-gradient(#fff,#deddd6);box-shadow:0 4px 0 #747b80;font-size:12px;font-weight:900;line-height:1.25;cursor:pointer}
+    .choice:active{transform:translateY(3px);box-shadow:0 1px 0 #747b80}.choice.correct{background:#fff0a8}.choice.wrong{background:#c6c9ca;text-decoration:line-through}
+    .rise-text{position:fixed;z-index:40;left:50%;top:45%;transform:translate(-50%,0);padding:10px 18px;border:3px solid #30363d;border-radius:18px;background:#fff7bc;color:#d43522;font-size:clamp(24px,7vw,42px);font-weight:1000;pointer-events:none;animation:risePraise .9s ease-out forwards}
+    .screen-flash{position:fixed;z-index:35;inset:0;pointer-events:none;animation:flash .35s ease-out forwards}
+    .board-frame.shake{animation:shake .34s ease-out}.board-frame.joy{animation:joy .62s cubic-bezier(.16,1.4,.4,1)}
+
+    #onboarding,#result{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:rgba(35,41,46,.64);backdrop-filter:blur(5px)}
+    .modal-card{width:min(100%,440px);border:4px solid #30363d;border-radius:30px;background:linear-gradient(#fff,#eceae2);box-shadow:0 9px 0 #6e757a,0 24px 52px rgba(0,0,0,.36),inset 0 3px #fff;padding:24px;text-align:center}
+    .modal-card h2{margin:0 0 9px;font-size:clamp(28px,8vw,42px);font-weight:1000}.modal-card p{min-height:58px;margin:8px 0 15px;font-size:17px;line-height:1.45}.step-dots{font-weight:1000;color:#f04b32}.modal-action{width:100%;min-height:62px;border:4px solid #30363d;border-radius:20px;background:linear-gradient(#fff49a,#f04b32);box-shadow:0 6px 0 #8e2518;font-size:21px;font-weight:1000;cursor:pointer}.modal-action:active{transform:translateY(5px);box-shadow:0 1px 0 #8e2518}
+    .result-stars{font-size:48px;letter-spacing:5px;color:#f04b32;text-shadow:0 3px #30363d;animation:starPop .8s cubic-bezier(.16,1.5,.4,1)}.result-score{font-size:48px;font-weight:1000}
+
+    html.land #gameScreen{grid-template-rows:66px minmax(0,1fr)}
+    html.land #hud{width:var(--stageW);margin-left:var(--stageX);padding-left:14px}
+    html.land .game-shell{width:var(--stageW);margin-left:var(--stageX);grid-template-columns:minmax(0,68fr) minmax(320px,32fr);grid-template-rows:minmax(0,1fr);gap:14px;padding:6px 14px 14px}
+    html.land .board-frame{width:min(100%,calc(100vh - 96px),760px)}
+    html.land .side-panel{grid-template-columns:112px 1fr;grid-template-rows:auto minmax(0,1fr);padding:14px;gap:11px}
+    html.land .mascot-card img{width:104px;height:104px}
+    html.land .control-area{grid-template-columns:1fr;align-content:start}.land .tip{font-size:15px}.land .dpad{margin:auto;width:190px;height:190px;grid-template:repeat(3,58px)/repeat(3,58px);gap:7px}.land .dpad button{font-size:26px}
+    html.land #quizArea{align-content:start}.land .choice{min-height:68px;font-size:14px}
+
+    @media(max-height:720px) and (max-width:1023px){.game-shell{grid-template-rows:minmax(0,1fr) 245px}.side-panel{grid-template-columns:76px 1fr;padding:7px}.mascot-card img{width:68px;height:68px}.dpad{transform:scale(.9)}.control-area{grid-template-columns:1fr 150px}}
+    @media(max-width:365px){.hud-chip{padding:0 7px;min-width:64px}.game-shell{grid-template-rows:minmax(0,1fr) 255px}.side-panel{grid-template-columns:72px 1fr}.mascot-card img{width:66px;height:66px}.tip{font-size:11px}.control-area{grid-template-columns:1fr 145px}.dpad{transform:scale(.86)}}
+    @media(prefers-reduced-motion:reduce){.title-art img{animation-duration:40s}.title-motes i{animation-duration:11s}#startBtn{animation:none}.board-frame.shake{animation-duration:.18s}}
+    @keyframes artBreathe{to{transform:scale(1.055) translateY(-.6%)}}
+    @keyframes logoIn{from{opacity:0;transform:translateY(-70px) scale(.7) rotate(-5deg)}70%{transform:translateY(5px) scale(1.05) rotate(1deg)}to{opacity:1;transform:none}}
+    @keyframes floatMote{0%,100%{transform:translateY(0) rotate(0) scale(.8)}50%{transform:translateY(-28px) rotate(140deg) scale(1.2)}}
+    @keyframes ctaPulse{0%,72%,100%{transform:none}80%{transform:translateY(-2px) scale(1.025)}88%{transform:none}94%{transform:translateY(-1px) scale(1.012)}}
+    @keyframes punch{0%{transform:scale(1)}45%{transform:scale(1.35) rotate(-4deg)}100%{transform:scale(1)}}
+    @keyframes shake{0%,100%{transform:none}18%{transform:translate(calc(var(--shake,5)*-1px),2px) rotate(-.6deg)}36%{transform:translate(calc(var(--shake,5)*1px),-2px) rotate(.5deg)}54%{transform:translate(calc(var(--shake,5)*-.65px),1px)}72%{transform:translate(calc(var(--shake,5)*.4px),0)}}
+    @keyframes joy{0%{transform:scale(1)}35%{transform:translateY(-8px) scaleX(.92) scaleY(1.1)}60%{transform:translateY(2px) scaleX(1.06) scaleY(.94)}100%{transform:none}}
+    @keyframes risePraise{0%{opacity:0;transform:translate(-50%,20px) scale(.6)}35%{opacity:1;transform:translate(-50%,-5px) scale(1.15)}100%{opacity:0;transform:translate(-50%,-100px) scale(1)}}
+    @keyframes flash{from{background:rgba(255,217,87,.48)}to{background:rgba(255,217,87,0)}}
+    @keyframes starPop{from{transform:scale(.2) rotate(-12deg);opacity:0}70%{transform:scale(1.15)}to{transform:scale(1);opacity:1}}
+  </style>
+</head>
+<body>
+  <canvas id="fxCanvas" aria-hidden="true"></canvas>
+  <button id="muteBtn" type="button" aria-label="소리 끄기">🔊</button>
+
+  <section id="titleScreen" aria-label="거울정원 타이틀 화면">
+    <div id="titleArt" class="title-art"><img src="./assets/title.png" alt="" onerror="this.parentElement.classList.add('fallback');this.remove()"></div>
+    <div class="title-vignette"></div>
+    <div class="title-motes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="title-ui">
+      <div class="logo-zone">
+        <h1 class="game-logo" aria-label="거울정원"><span style="--r:-5deg;--y:5px;--s:1.08" aria-hidden="true">거</span><span style="--r:3deg;--y:-3px;--s:1" aria-hidden="true">울</span><span style="--r:-2deg;--y:3px;--s:1.1" aria-hidden="true">정</span><span style="--r:5deg;--y:-4px;--s:1" aria-hidden="true">원</span></h1>
+        <p class="tagline">움직이면 반대가 움직여</p>
+      </div>
+      <div class="cta-zone">
+        <div class="record-pill">최고 기록 <strong id="titleBest">0</strong>점 · 5학년 2학기</div>
+        <button id="startBtn" type="button"><span>꽃빛 맞추기!</span></button>
+        <button id="helpBtn" type="button">어떻게 놀아요? 〉</button>
+        <div class="unit-badge">합동과 대칭 · 거울정원 씨앗길</div>
+      </div>
+    </div>
+  </section>
+
+  <main id="gameScreen" class="hidden">
+    <div id="gameBg" class="game-bg"><img src="./assets/bg.png" alt="" onerror="this.parentElement.classList.add('fallback');this.remove()"></div>
+    <header id="hud">
+      <div class="hud-chip"><span>🌱</span><strong id="levelText">1</strong><span>/18</span></div>
+      <div class="hud-chip score"><span>빛</span><strong id="scoreText">0</strong></div>
+      <div class="hud-chip"><span class="heart">♥</span><strong id="livesText">5</strong></div>
+    </header>
+    <div class="game-shell">
+      <section class="board-zone" aria-label="대칭 퍼즐 보드">
+        <div id="boardFrame" class="board-frame">
+          <canvas id="boardCanvas"></canvas>
+          <div id="boardLabel" class="board-label">세로 대칭축</div>
+          <div class="physics-contract">유리꽃 짝은 축·중심에서 같은 거리로만 움직여요.</div>
+        </div>
+      </section>
+      <aside class="side-panel">
+        <div id="mascotCard" class="mascot-card"><img src="./assets/hero.png" alt="거울정원지기" onerror="this.parentElement.classList.add('fallback');this.remove()"></div>
+        <div class="rule-card"><small>이번 꽃빛 규칙</small><strong id="ruleText">축에서 같은 거리</strong><div id="message">주홍 조각을 목표 꽃으로 옮겨요!</div></div>
+        <div id="controlArea" class="control-area">
+          <div class="tip"><b>P</b>를 밀면 <b>P′</b>도 동시에 움직여요.<br>막히면 바로 되감기니 천천히 찾아봐요.</div>
+          <div class="dpad" aria-label="이동 버튼">
+            <button class="move-btn" data-dir="up" type="button" aria-label="위로 이동">↑</button>
+            <button class="move-btn" data-dir="left" type="button" aria-label="왼쪽으로 이동">←</button>
+            <button id="hintBtn" class="hint-btn" type="button" aria-label="거리선 힌트">◎</button>
+            <button class="move-btn" data-dir="right" type="button" aria-label="오른쪽으로 이동">→</button>
+            <button class="move-btn" data-dir="down" type="button" aria-label="아래로 이동">↓</button>
+          </div>
+        </div>
+        <div id="quizArea">
+          <div id="quizPrompt" class="quiz-prompt">왜 두 꽃이 정확히 대응할까요?</div>
+          <div id="choices" class="choices"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <section id="onboarding" class="hidden" aria-modal="true" role="dialog">
+    <div class="modal-card"><div id="stepDots" class="step-dots">1 / 3</div><h2 id="stepTitle">한 번 밀면 둘이 이동!</h2><p id="stepBody">보드에서 밀거나 네 방향 버튼을 눌러 보세요. P와 P′가 같은 박자로 움직여요.</p><button id="onboardNext" class="modal-action" type="button">다음</button></div>
+  </section>
+
+  <section id="result" class="hidden" aria-modal="true" role="dialog">
+    <div class="modal-card"><div class="result-stars">★★★</div><h2>대칭 꽃 만개!</h2><p>모든 꽃빛의 대응점을 찾았어요.</p><div id="resultScore" class="result-score">0</div><p>오늘 모은 꽃빛</p><button id="againBtn" class="modal-action" type="button">씨앗길 다시 걷기</button></div>
+  </section>
+
+  <script>
+  (()=>{'use strict';
+    const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+    const els={title:$('#titleScreen'),game:$('#gameScreen'),score:$('#scoreText'),lives:$('#livesText'),level:$('#levelText'),best:$('#titleBest'),frame:$('#boardFrame'),canvas:$('#boardCanvas'),fx:$('#fxCanvas'),msg:$('#message'),rule:$('#ruleText'),label:$('#boardLabel'),control:$('#controlArea'),quiz:$('#quizArea'),quizPrompt:$('#quizPrompt'),choices:$('#choices'),onboard:$('#onboarding'),result:$('#result'),resultScore:$('#resultScore'),mute:$('#muteBtn')};
+    const ctx=els.canvas.getContext('2d',{alpha:true}), fx=els.fx.getContext('2d',{alpha:true});
+    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const safeStore={get(k,f='0'){try{return localStorage.getItem(k)??f}catch{return f}},set(k,v){try{localStorage.setItem(k,String(v))}catch{}}};
+    const state={score:0,lives:5,level:1,phase:'title',solved:0,combo:0,collisions:0,timeScale:1,stopUntil:0,land:false,stageW:innerWidth,stageX:0,puzzle:null,pos:null,from:null,moveT:1,trails:[],particles:[],waves:[],showHint:false,quiz:null,last:performance.now(),audio:null,muted:false,poolIndex:0};
+    let boardRect={w:390,h:390,dpr:1}, pointer=null, holdTimer=0, sampleCursor=0;
+
+    function layout(){
+      const W=innerWidth,H=innerHeight;state.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',state.land);
+      state.stageW=Math.min(W,1280);state.stageX=Math.round((W-state.stageW)/2);document.documentElement.style.setProperty('--stageW',state.stageW+'px');document.documentElement.style.setProperty('--stageX',state.stageX+'px');
+      resizeCanvas(els.fx,fx,W,H);const r=els.frame.getBoundingClientRect();if(r.width>0)resizeCanvas(els.canvas,ctx,r.width,r.height,true);
+    }
+    function resizeCanvas(c,cx,w,h,board=false){const d=Math.min(devicePixelRatio||1,2);const pw=Math.max(1,Math.round(w*d)),ph=Math.max(1,Math.round(h*d));if(c.width!==pw||c.height!==ph){c.width=pw;c.height=ph;c.style.width=w+'px';c.style.height=h+'px'}cx.setTransform(d,0,0,d,0,0);if(board)boardRect={w,h,dpr:d}}
+    addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));
+
+    // Constraint-satisfied pool: goals and legal solution vectors are enumerated first, then starts are derived backwards.
+    // There is no random-generate/reject loop; every entry is structurally solvable by its stored path.
+    function buildPuzzlePool(){
+      const out=[];let id=0;
+      const addLine=(kind,size)=>{const half=Math.floor(size/2);for(let gx=0;gx<half;gx++)for(let gy=0;gy<size;gy++)for(const dx of [-2,-1,1,2])for(const dy of [-2,-1,1,2]){
+        let goal,start;if(kind==='lineV'){goal={x:gx,y:gy};start={x:gx-dx,y:gy-dy};if(start.x<0||start.x>=half||start.y<0||start.y>=size)continue}else{goal={x:gy,y:gx};start={x:gy-dy,y:gx-dx};if(start.y<0||start.y>=half||start.x<0||start.x>=size)continue}
+        const verticalFirst=Math.abs((id+gx+gy)%2)===0;const path=[];const push=(vx,vy,n)=>{for(let k=0;k<n;k++)path.push({x:vx,y:vy})};
+        const vx=Math.sign(goal.x-start.x),vy=Math.sign(goal.y-start.y);if(verticalFirst){push(0,vy,Math.abs(goal.y-start.y));push(vx,0,Math.abs(goal.x-start.x))}else{push(vx,0,Math.abs(goal.x-start.x));push(0,vy,Math.abs(goal.y-start.y))}
+        const block=verticalFirst&&vx?{x:start.x+vx,y:start.y}:(!verticalFirst&&vy?{x:start.x,y:start.y+vy}:null);
+        out.push({id:'garden-'+(++id),kind,size,start,goal,path,walls:block?[block]:[],concept:'선대칭도형'});
+      }};
+      addLine('lineV',4);addLine('lineH',5);
+      const size=6,c=2.5;for(let gx=0;gx<=2;gx++)for(let gy=0;gy<=2;gy++)for(const dx of [-2,-1,1,2])for(const dy of [-2,-1,1,2]){const start={x:gx-dx,y:gy-dy};if(start.x<0||start.x>2||start.y<0||start.y>2)continue;const path=[],vx=Math.sign(gx-start.x),vy=Math.sign(gy-start.y);for(let k=0;k<Math.abs(gy-start.y);k++)path.push({x:0,y:vy});for(let k=0;k<Math.abs(gx-start.x);k++)path.push({x:vx,y:0});const block=vx?{x:start.x+vx,y:start.y}:null;out.push({id:'garden-'+(++id),kind:'point',size,center:{x:c,y:c},start,goal:{x:gx,y:gy},path,walls:block?[block]:[],concept:'점대칭도형'})}
+      return out;
+    }
+    const puzzlePool=buildPuzzlePool();
+
+    // Distractor post-processing contract: remove answer → range/text validity → dedupe → supplement → shuffle.
+    function finalizeChoices(answer,raw,seed){
+      const tagged=raw.filter(x=>String(x.value)!==String(answer));
+      const inRange=tagged.filter(x=>String(x.value).trim().length>0);
+      const seen=new Set(),unique=[];for(const x of inRange)if(!seen.has(String(x.value))){seen.add(String(x.value));unique.push(x)}
+      const supplements=['아무 점이나 고른다','축과 겹치는 점','거리와 방향을 모두 무시한다'];let si=0;while(unique.length<3){const value=supplements[si++];if(value!==answer&&!seen.has(value)){seen.add(value);unique.push({value,misconceptionId:'supplement-always-false'})}}
+      const all=[{value:answer,misconceptionId:'correct'},...unique.slice(0,3)];let x=seed|0;for(let i=all.length-1;i>0;i--){x=(x*1664525+1013904223)|0;const j=(x>>>0)%(i+1);[all[i],all[j]]=[all[j],all[i]]}return all;
+    }
+    function buildProblemPool(){
+      const out=[];let id=0;
+      for(let a=2;a<=5;a++)for(let y=1;y<=7;y++)for(let dist=1;dist<=2;dist++){
+        const x=a-dist,answer=`(${a+dist}, ${y})`;
+        const raw=[
+          // misconception: point symmetry midpoint property is ignored; the original-side point is repeated.
+          {value:`(${x}, ${y})`,misconceptionId:'center-not-midpoint'},
+          // misconception: a horizontal-axis reflection is substituted for the stated vertical axis.
+          {value:`(${x}, ${y+dist})`,misconceptionId:'wrong-reflection-axis'},
+          // misconception: the answer is placed on the axis instead of the equal-distance opposite side.
+          {value:`(${a}, ${y})`,misconceptionId:'on-axis-is-counterpart'}
+        ];
+        const tagged=finalizeChoices(answer,raw,++id);out.push({id:'sym-v-'+id,prompt:`대칭축 x=${a}, 점 P(${x}, ${y})의 대응점 P′는?`,choices:tagged.map(x=>x.value),answer,answerNumeric:(a+dist)*100+y,unitConcept:'선대칭도형',choiceMeta:tagged});
+      }
+      for(let c=2;c<=5;c++)for(let d=2;d<=5;d++)for(let dx=1;dx<=2;dx++)for(let dy=1;dy<=2;dy++){
+        const answer=`(${c+dx}, ${d+dy})`,p=`(${c-dx}, ${d-dy})`;
+        const raw=[
+          // misconception: point symmetry is treated as reflection, so only x changes side.
+          {value:`(${c+dx}, ${d-dy})`,misconceptionId:'point-treated-as-reflection'},
+          // misconception: center is not used as the midpoint; same-direction point is kept.
+          {value:p,misconceptionId:'center-not-midpoint'},
+          {value:`(${c}, ${d})`,misconceptionId:'center-itself-as-counterpart'}
+        ];
+        const tagged=finalizeChoices(answer,raw,++id);out.push({id:'sym-p-'+id,prompt:`중심 O(${c}, ${d})에 대해 P${p}의 점대칭 대응점은?`,choices:tagged.map(x=>x.value),answer,answerNumeric:(c+dx)*100+(d+dy),unitConcept:'점대칭도형',choiceMeta:tagged});
+      }
+      return out;
+    }
+    const problemPool=buildProblemPool();
+
+    function mirror(p,z=state.puzzle){if(z.kind==='lineV')return{x:z.size-1-p.x,y:p.y};if(z.kind==='lineH')return{x:p.x,y:z.size-1-p.y};return{x:z.size-1-p.x,y:z.size-1-p.y}}
+    function same(a,b){return a&&b&&a.x===b.x&&a.y===b.y}
+    function key(p){return p.x+','+p.y}
+    function loadLevel(n){
+      state.level=n;const base=puzzlePool[((n-1)*11)%puzzlePool.length];state.puzzle={...base,walls:n<=3?[]:base.walls.map(w=>({...w}))};state.pos={...base.start};state.from={...base.start};state.moveT=1;state.trails=[];state.collisions=0;state.quiz=null;state.phase='playing';state.showHint=n<=1;
+      els.level.textContent=n;els.control.classList.remove('hidden');els.quiz.classList.remove('show');
+      const names={lineV:'세로 대칭축',lineH:'가로 대칭축',point:'대칭의 중심'};const rules={lineV:'축에서 같은 거리',lineH:'축에서 같은 거리',point:'중심이 두 점의 중점'};els.label.textContent=names[state.puzzle.kind];els.rule.textContent=rules[state.puzzle.kind];setMessage(n===1?'P를 위·아래로 먼저 움직여 보세요!':'두 꽃을 주홍 목표에 포개요.','');layout();
+    }
+
+    function startGame(skipGuide=false){
+      els.title.classList.add('hidden');els.game.classList.remove('hidden');els.result.classList.add('hidden');state.score=0;state.lives=5;state.solved=0;state.combo=0;updateHud();loadLevel(1);requestAnimationFrame(layout);
+      const seen=safeStore.get('onboardingSeen:mirror-garden','0')==='1';if(!skipGuide&&!seen)showOnboarding(0);else{els.onboard.classList.add('hidden');state.phase='playing'}
+    }
+    function showOnboarding(step){onboardStep=step;els.onboard.classList.remove('hidden');state.phase='onboarding';renderOnboard()}
+    const steps=[['한 번 밀면 둘이 이동!','보드에서 밀거나 네 방향 버튼을 눌러 보세요. P와 P′가 같은 박자로 움직여요.'],['축과 중심을 살펴봐요','선대칭은 축에서 같은 거리, 점대칭은 중심이 두 점의 정확한 중점이에요.'],['두 목표에 함께 포개요','주홍 꽃 두 곳에 동시에 닿으면 성공! ◎를 누르면 거리선을 볼 수 있어요.']];let onboardStep=0;
+    function renderOnboard(){const s=steps[onboardStep];$('#stepDots').textContent=(onboardStep+1)+' / 3';$('#stepTitle').textContent=s[0];$('#stepBody').textContent=s[1];$('#onboardNext').textContent=onboardStep===2?'해볼게요!':'다음'}
+
+    function tryMove(dx,dy,user=true){
+      if(user)ensureAudio();if(state.phase!=='playing'||state.moveT<1)return;const z=state.puzzle,next={x:state.pos.x+dx,y:state.pos.y+dy};const wallSet=new Set(z.walls.flatMap(w=>[key(w),key(mirror(w,z))]));const partner=mirror(next,z);
+      const bad=next.x<0||next.y<0||next.x>=z.size||next.y>=z.size||partner.x<0||partner.y<0||partner.x>=z.size||partner.y>=z.size||wallSet.has(key(next))||wallSet.has(key(partner));
+      if(bad){wrongFeedback('앗, 유리벽! 이동을 바로 되감았어요.');return}
+      state.trails.push({a:{...state.pos},b:mirror(state.pos,z),life:1});state.from={...state.pos};state.pos=next;state.moveT=0;state.showHint=false;playTone('move');setMessage('P와 P′가 동시에 '+directionWord(dx,dy)+' 이동!','');
+    }
+    function directionWord(dx,dy){return dx<0?'왼쪽으로':dx>0?'오른쪽으로':dy<0?'위로':'아래로'}
+    function wrongFeedback(text){
+      state.collisions++;state.combo=0;if(state.lives>1)state.lives--;else{state.lives=3;state.pos={...state.puzzle.start};state.from={...state.puzzle.start};state.moveT=1;state.trails=[];text+=' 새 꽃잎 3장으로 이 자리에서 다시 해요!'}updateHud();setMessage(text,'bad');const amp=Math.min(10,4+state.collisions*2);els.frame.style.setProperty('--shake',amp);restartClass(els.frame,'shake');flash(false);playTone('wrong');navigator.vibrate?.(reduced?0:24);
+    }
+    function portalReached(){return same(state.pos,state.puzzle.goal)}
+    function openReasonQuiz(){
+      if(state.phase!=='playing')return;state.phase='quiz';state.stopUntil=performance.now()+80;state.timeScale=0;burst(true);flash(true);restartClass(els.frame,'joy');rise('두 꽃이 포개졌어!');playTone('success');addScore(80+state.combo*10);state.combo++;
+      const isPoint=state.puzzle.kind==='point';const answer=isPoint?'중심이 두 점의 정확한 중점이에요':'축에서 두 점까지의 거리가 같아요';
+      const raw=isPoint?[
+        {value:'한쪽 점을 거울처럼 뒤집기만 했어요',misconceptionId:'point-treated-as-reflection'},
+        {value:'두 점이 중심과 같은 방향에 있어요',misconceptionId:'center-not-midpoint'},
+        {value:'넓이가 같으면 언제나 대응해요',misconceptionId:'same-area-means-congruent'}
+      ]:[
+        {value:'넓이가 같으면 언제나 대응해요',misconceptionId:'same-area-means-congruent'},
+        {value:'크기가 달라도 모양만 닮으면 돼요',misconceptionId:'similar-means-congruent'},
+        {value:'직사각형의 대각선은 모두 대칭축이에요',misconceptionId:'rectangle-diagonal-axis'}
+      ];
+      const tagged=finalizeChoices(answer,raw,state.level*31);state.quiz={answer,tagged};els.control.classList.add('hidden');els.quiz.classList.add('show');els.quizPrompt.textContent='이유 별 도전! 왜 두 꽃이 정확히 대응할까요?';els.choices.replaceChildren(...tagged.map((x,i)=>{const b=document.createElement('button');b.className='choice';b.type='button';b.textContent=x.value;b.dataset.i=i;b.addEventListener('click',()=>chooseReason(i,true));return b}));
+    }
+    function chooseReason(i,user=false){if(user)ensureAudio();if(state.phase!=='quiz')return;const item=state.quiz.tagged[i],buttons=$$('.choice');if(item.value===state.quiz.answer){buttons[i]?.classList.add('correct');addScore(120+state.combo*20);state.solved++;burst(true);rise('이유 별 획득! +'+(120+state.combo*20));playTone('chime');saveBest();setTimeout(nextLevel,520)}else{buttons[i]?.classList.add('wrong');wrongFeedback('그 생각은 포개어 확인하면 어긋나요. 다시 골라 봐요!');state.phase='quiz'}}
+    function nextLevel(){if(state.level>=18){showResult();return}loadLevel(state.level+1)}
+    function forceCorrect(){const before=state.score;addScore(100+state.level*5);state.solved++;state.combo++;burst(true);flash(true);rise('정답! 빛 +'+(state.score-before));playTone('chime');saveBest()}
+    function forceWrong(){wrongFeedback('대응점이 어긋났어요. 거리선을 다시 볼까요?')}
+
+    function addScore(v){const from=state.score,to=from+Math.max(1,Math.floor(v));state.score=to;animateNumber(els.score,from,to,280);restartClass(els.score,'punch')}
+    function updateHud(){els.score.textContent=state.score;els.lives.textContent=state.lives;els.level.textContent=state.level;restartClass(els.lives,'punch')}
+    function saveBest(){const old=Number(safeStore.get('best:mirror-garden','0'))||0;if(state.score>old){safeStore.set('best:mirror-garden',state.score);els.best.textContent=state.score}}
+    function showResult(){state.phase='result';saveBest();els.result.classList.remove('hidden');animateNumber(els.resultScore,0,state.score,850);burst(true,2)}
+    function animateNumber(el,a,b,d){const t0=performance.now();const tick=t=>{const p=Math.min(1,(t-t0)/d),e=1-Math.pow(1-p,3);el.textContent=Math.round(a+(b-a)*e);if(p<1)requestAnimationFrame(tick)};requestAnimationFrame(tick)}
+    function setMessage(t,c){els.msg.textContent=t;els.msg.className=c||''}
+    function restartClass(el,c){el.classList.remove(c);void el.offsetWidth;el.classList.add(c)}
+    function rise(t){const d=document.createElement('div');d.className='rise-text';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),950)}
+    function flash(good){const d=document.createElement('div');d.className='screen-flash';if(!good)d.style.background='rgba(48,54,61,.35)';document.body.appendChild(d);setTimeout(()=>d.remove(),380)}
+    function burst(good,mult=1){const count=Math.min(90,Math.round((reduced?12:22+state.combo*4)*mult));for(let i=0;i<count;i++){const a=Math.PI*2*i/count+Math.random()*.18,sp=70+Math.random()*150*(1+state.combo*.05);state.particles.push({x:innerWidth*.5,y:innerHeight*.45,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-50,life:.65+Math.random()*.55,size:3+Math.random()*5,color:good?(i%3?'#f04b32':'#fff0a0'):'#30363d'})}}
+
+    function ensureAudio(){if(state.muted)return;if(!state.audio){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;try{state.audio=new AC()}catch{return}}if(state.audio.state==='suspended')state.audio.resume().catch(()=>{})}
+    function playTone(type){const ac=state.audio;if(!ac||state.muted||ac.state!=='running')return;const now=ac.currentTime;const notes=type==='wrong'?[170,135]:type==='success'?[440,660]:type==='chime'?[660,880,1100]:type==='move'?[330]:[440];notes.forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=type==='wrong'?'square':'sine';o.frequency.setValueAtTime(f,now+i*.045);g.gain.setValueAtTime(type==='move'?.025:.055,now+i*.045);g.gain.exponentialRampToValueAtTime(.001,now+.16+i*.05);o.connect(g).connect(ac.destination);o.start(now+i*.045);o.stop(now+.19+i*.05)})}
+
+    function drawBoard(t){const w=boardRect.w,h=boardRect.h;if(!state.puzzle||w<2)return;ctx.clearRect(0,0,w,h);const z=state.puzzle,n=z.size,pad=Math.max(32,w*.09),cell=(Math.min(w,h)-pad*2)/n,ox=(w-cell*n)/2,oy=(h-cell*n)/2;
+      // ambient point-wave grid
+      for(let y=0;y<=n;y++)for(let x=0;x<=n;x++){const wave=Math.sin(t*.0015+x*.8+y*.55)*1.7;ctx.fillStyle='rgba(48,54,61,.22)';ctx.beginPath();ctx.arc(ox+x*cell,oy+y*cell+wave,1.8,0,Math.PI*2);ctx.fill()}
+      ctx.strokeStyle='rgba(48,54,61,.18)';ctx.lineWidth=1;for(let i=0;i<=n;i++){ctx.beginPath();ctx.moveTo(ox+i*cell,oy);ctx.lineTo(ox+i*cell,oy+n*cell);ctx.stroke();ctx.beginPath();ctx.moveTo(ox,oy+i*cell);ctx.lineTo(ox+n*cell,oy+i*cell);ctx.stroke()}
+      // symmetry axis/center
+      ctx.save();ctx.strokeStyle='#30363d';ctx.lineWidth=Math.max(3,w*.009);ctx.setLineDash([8,7]);if(z.kind==='lineV'){ctx.beginPath();ctx.moveTo(ox+n*cell/2,oy);ctx.lineTo(ox+n*cell/2,oy+n*cell);ctx.stroke()}else if(z.kind==='lineH'){ctx.beginPath();ctx.moveTo(ox,oy+n*cell/2);ctx.lineTo(ox+n*cell,oy+n*cell/2);ctx.stroke()}else{ctx.setLineDash([]);ctx.beginPath();ctx.arc(ox+n*cell/2,oy+n*cell/2,8,0,Math.PI*2);ctx.fillStyle='#30363d';ctx.fill();ctx.strokeStyle='#f04b32';ctx.lineWidth=3;ctx.beginPath();ctx.arc(ox+n*cell/2,oy+n*cell/2,14+Math.sin(t*.004)*2,0,Math.PI*2);ctx.stroke()}ctx.restore();
+      const toPx=p=>({x:ox+(p.x+.5)*cell,y:oy+(p.y+.5)*cell});const goalA=toPx(z.goal),goalB=toPx(mirror(z.goal,z));drawPortal(goalA,cell,t);drawPortal(goalB,cell,t);
+      const walls=[...z.walls,...z.walls.map(q=>mirror(q,z))];for(const q of walls){const p=toPx(q);ctx.fillStyle='#737b80';roundRect(ctx,p.x-cell*.38,p.y-cell*.38,cell*.76,cell*.76,cell*.13);ctx.fill();ctx.strokeStyle='#30363d';ctx.lineWidth=2;ctx.stroke()}
+      for(const tr of state.trails){const a=toPx(tr.a),b=toPx(tr.b);ctx.fillStyle=`rgba(168,175,181,${tr.life*.34})`;ctx.beginPath();ctx.arc(a.x,a.y,cell*.22,0,Math.PI*2);ctx.arc(b.x,b.y,cell*.22,0,Math.PI*2);ctx.fill()}
+      const q=state.moveT-1,e=state.moveT>=1?1:1+2.7*q*q*q+1.7*q*q,disp={x:state.from.x+(state.pos.x-state.from.x)*e,y:state.from.y+(state.pos.y-state.from.y)*e},a=toPx(disp),b=toPx(mirror(disp,z));if(state.showHint){const axis=z.kind==='point'?toPx({x:(n-1)/2,y:(n-1)/2}):z.kind==='lineV'?{x:ox+n*cell/2,y:a.y}:{x:a.x,y:oy+n*cell/2};ctx.strokeStyle='#f04b32';ctx.lineWidth=3;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(axis.x,axis.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([])}
+      const squash=state.moveT<1?Math.sin(state.moveT*Math.PI)*.16:Math.sin(t*.003)*.018;drawPiece(a,cell,'P',squash);drawPiece(b,cell,'P′',squash);
+    }
+    function roundRect(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r)}
+    function drawPortal(p,cell,t){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.sin(t*.002+p.x)*.04);ctx.fillStyle='rgba(240,75,50,.16)';ctx.strokeStyle='#f04b32';ctx.lineWidth=Math.max(3,cell*.08);ctx.beginPath();for(let i=0;i<8;i++){const a=-Math.PI/2+i*Math.PI/4,r=i%2?cell*.27:cell*.38,x=Math.cos(a)*r,y=Math.sin(a)*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
+    function drawPiece(p,cell,label,squash){ctx.save();ctx.translate(p.x,p.y);ctx.scale(1+squash,1-squash);ctx.shadowColor='rgba(240,75,50,.38)';ctx.shadowBlur=16;ctx.fillStyle='rgba(240,75,50,.88)';ctx.strokeStyle='#30363d';ctx.lineWidth=Math.max(2,cell*.055);ctx.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3,r=cell*.31,x=Math.cos(a)*r,y=Math.sin(a)*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.font=`1000 ${Math.max(16,cell*.26)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,0,1);ctx.restore()}
+    function drawFx(dt,t){const w=innerWidth,h=innerHeight;fx.clearRect(0,0,w,h);const ambientColors=['rgba(240,75,50,.22)','rgba(255,255,255,.24)','rgba(48,54,61,.16)','rgba(168,175,181,.25)','rgba(255,211,78,.18)'],ambientCount=els.title.classList.contains('hidden')?18:28;for(let i=0;i<ambientCount;i++){const x=(i*97+t*.012*(i%3+1))%w,y=(i*53+Math.sin(t*.001+i)*25)%h;fx.fillStyle=ambientColors[i%ambientColors.length];fx.beginPath();fx.arc(x,y,1.5+(i%3),0,Math.PI*2);fx.fill()}
+      for(let i=state.particles.length-1;i>=0;i--){const p=state.particles[i];p.life-=dt;p.vy+=180*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.life<=0){state.particles.splice(i,1);continue}fx.globalAlpha=Math.min(1,p.life*2);fx.fillStyle=p.color;fx.save();fx.translate(p.x,p.y);fx.rotate(t*.006+i);fx.fillRect(-p.size/2,-p.size/2,p.size,p.size);fx.restore()}fx.globalAlpha=1}
+    function loop(t){const realDt=Math.min(.033,Math.max(0,(t-state.last)/1000));state.last=t;if(state.stopUntil&&t>=state.stopUntil){state.stopUntil=0;state.timeScale=1}const dt=realDt*state.timeScale;if(state.phase==='playing'&&state.moveT<1){state.moveT=Math.min(1,state.moveT+dt*5.8);if(state.moveT>=1&&portalReached())openReasonQuiz()}for(const tr of state.trails)tr.life-=dt*.7;state.trails=state.trails.filter(x=>x.life>0);drawBoard(t);drawFx(realDt,t);requestAnimationFrame(loop)}
+
+    $$('.move-btn').forEach(b=>b.addEventListener('click',()=>{const d={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[b.dataset.dir];tryMove(d[0],d[1],true)}));
+    $('#hintBtn').addEventListener('click',()=>{ensureAudio();state.showHint=!state.showHint;setMessage(state.showHint?'점선의 양쪽 길이가 같은지 보세요!':'거리선을 접었어요.','')});
+    els.canvas.addEventListener('pointerdown',e=>{ensureAudio();pointer={x:e.clientX,y:e.clientY};clearTimeout(holdTimer);holdTimer=setTimeout(()=>{if(pointer){state.showHint=true;setMessage('축·중심까지 같은 거리를 확인해요!','')}},520);els.canvas.setPointerCapture?.(e.pointerId)});
+    els.canvas.addEventListener('pointerup',e=>{clearTimeout(holdTimer);if(!pointer)return;const dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;pointer=null;if(Math.hypot(dx,dy)<38)return;if(Math.abs(dx)>Math.abs(dy))tryMove(Math.sign(dx),0,true);else tryMove(0,Math.sign(dy),true)});
+    els.canvas.addEventListener('pointercancel',()=>{pointer=null;clearTimeout(holdTimer)});
+    addEventListener('keydown',e=>{const map={ArrowUp:[0,-1],w:[0,-1],W:[0,-1],ArrowDown:[0,1],s:[0,1],S:[0,1],ArrowLeft:[-1,0],a:[-1,0],A:[-1,0],ArrowRight:[1,0],d:[1,0],D:[1,0]};if(e.code==='Space'){e.preventDefault();ensureAudio();state.showHint=!state.showHint;return}const d=map[e.key];if(d){e.preventDefault();tryMove(d[0],d[1],true)}});
+    $('#startBtn').addEventListener('click',()=>{ensureAudio();navigator.vibrate?.(18);$('#startBtn').classList.add('pressed');setTimeout(()=>startGame(false),130)});
+    $('#helpBtn').addEventListener('click',()=>{startGame(true);showOnboarding(0)});
+    $('#onboardNext').addEventListener('click',()=>{ensureAudio();if(onboardStep<2){onboardStep++;renderOnboard()}else{safeStore.set('onboardingSeen:mirror-garden','1');els.onboard.classList.add('hidden');state.phase='playing'}});
+    $('#againBtn').addEventListener('click',()=>{ensureAudio();startGame(true)});
+    els.mute.addEventListener('click',()=>{if(!state.audio&&!state.muted)ensureAudio();state.muted=!state.muted;els.mute.textContent=state.muted?'🔇':'🔊';els.mute.setAttribute('aria-label',state.muted?'소리 켜기':'소리 끄기')});
+
+    els.best.textContent=Number(safeStore.get('best:mirror-garden','0'))||0;
+    layout();loadLevel(1);state.phase='title';requestAnimationFrame(loop);
+
+    window.__GAME_TEST__={
+      ready:true,
+      start(){startGame(true)},
+      getState(){return{score:state.score,lives:state.lives,level:state.level,phase:state.phase,solved:state.solved}},
+      answerCorrect(){forceCorrect()},
+      answerWrong(){forceWrong()},
+      sampleProblems(n){const count=Math.max(20,Math.floor(Number(n))||20),arr=[];for(let i=0;i<count;i++){const p=problemPool[(sampleCursor+i)%problemPool.length];arr.push({id:p.id,prompt:p.prompt,choices:[...p.choices],answer:p.answer,answerNumeric:p.answerNumeric,unitConcept:p.unitConcept})}sampleCursor=(sampleCursor+count)%problemPool.length;return arr},
+      getLayout(){return{land:state.land,playW:state.land?state.stageW*.68:innerWidth,poolSize:puzzlePool.length,problemPoolSize:problemPool.length}}
+    };
+  })();
+  </script>
+</body>
+</html>

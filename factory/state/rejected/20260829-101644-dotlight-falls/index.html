@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#fff7e8">
+  <meta property="og:title" content="점빛폭포">
+  <meta property="og:description" content="점 하나가 물길을 바꿔">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>점빛폭포</title>
+  <style>
+    :root{--cream:#fff7e8;--ink:#20242a;--coral:#ff4b2b;--paper:#fffdf6;--gray:#b8b5ae;--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--safeB:max(8px,env(safe-area-inset-bottom))}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--cream);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}.hidden{display:none!important}
+    #world{position:fixed;inset:0;overflow:hidden;background:linear-gradient(155deg,#fffdf6,#f7ead3 55%,#e6ddcd)}
+    #gameCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+    #bgArt{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.22;filter:grayscale(1) contrast(1.05);z-index:0;pointer-events:none}
+    #game{position:absolute;inset:0;z-index:2;opacity:0;visibility:hidden;transition:opacity .24s ease}
+    #game.on{opacity:1;visibility:visible}
+    .game-btn{min-width:44px;min-height:44px;border:2px solid var(--ink);border-radius:15px;background:linear-gradient(#fff,#f0e3cc);box-shadow:0 4px 0 var(--ink),inset 0 2px 0 #fff;font-weight:900}
+    .game-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink),inset 0 1px 0 #fff}
+    #hud{position:absolute;z-index:8;top:max(8px,env(safe-area-inset-top));left:10px;right:10px;height:50px;display:flex;gap:7px;align-items:center;pointer-events:none}
+    .hud-pill{height:46px;min-width:72px;padding:5px 10px;border:2px solid var(--ink);border-radius:16px;background:rgba(255,253,246,.94);box-shadow:0 3px 0 var(--ink),inset 0 2px 0 #fff;display:grid;align-content:center;line-height:1;pointer-events:auto}
+    .hud-pill small{font-size:10px;font-weight:800;opacity:.65}.hud-pill strong{font-size:18px;font-weight:950;font-variant-numeric:tabular-nums;margin-top:3px}.hud-pill strong.punch{animation:numPunch .32s cubic-bezier(.2,1.7,.3,1)}
+    #lifePill{margin-left:auto;min-width:92px}.drops{letter-spacing:2px;color:var(--coral);font-size:18px}.drop.off{color:#cfc8bd;filter:grayscale(1)}
+    #mute{pointer-events:auto;width:46px;height:46px;padding:0;font-size:20px}
+    #problemZone{position:absolute;z-index:4;top:70px;left:10px;right:10px;height:112px;padding:11px 12px;border:2px solid var(--ink);border-radius:20px;background:rgba(255,253,246,.95);box-shadow:0 5px 0 var(--ink),inset 0 2px 0 #fff;overflow:hidden}
+    #bandTag{position:absolute;left:10px;top:9px;padding:4px 9px;border-radius:999px;background:var(--ink);color:#fff;font-size:11px;font-weight:900}
+    #timerText{position:absolute;right:12px;top:9px;font-size:12px;font-weight:950;font-variant-numeric:tabular-nums}
+    #equation{margin-top:25px;text-align:center;font-size:clamp(27px,8vw,38px);font-weight:950;letter-spacing:.01em;line-height:1.2;font-variant-numeric:tabular-nums}
+    #timerTrack{position:absolute;left:12px;right:12px;bottom:9px;height:10px;border:2px solid var(--ink);border-radius:999px;background:#ddd5c7;overflow:hidden}
+    #timerFill{height:100%;width:100%;background:linear-gradient(90deg,#ffb03b,var(--coral));transform-origin:left;transition:background .15s}
+    #leftPanel,#rightPanel{display:none}
+    #workZone{position:absolute;z-index:3;top:190px;left:8px;right:8px;bottom:10px;border-radius:24px;overflow:hidden}
+    #waterMouth{position:absolute;z-index:3;left:50%;top:0;transform:translateX(-50%);width:min(76%,310px);height:76px;border:3px solid var(--ink);border-top:0;border-radius:0 0 34px 34px;background:rgba(32,36,42,.9);color:#fff;box-shadow:inset 0 -4px 0 rgba(255,255,255,.15),0 8px 18px rgba(32,36,42,.18);display:grid;place-items:center;font-size:13px;font-weight:900;letter-spacing:-.02em}
+    #gateNeedle{position:absolute;left:8px;top:8px;bottom:8px;width:5px;border-radius:4px;background:var(--coral);box-shadow:0 0 12px rgba(255,75,43,.7);transform-origin:top}
+    #feedback{position:absolute;z-index:12;left:50%;top:86px;transform:translate(-50%,-10px) scale(.8);min-width:190px;max-width:86%;padding:9px 15px;border:3px solid var(--ink);border-radius:18px;background:#fff;color:var(--ink);font-size:15px;font-weight:950;text-align:center;opacity:0;pointer-events:none;box-shadow:0 6px 0 var(--ink)}
+    #feedback.show{animation:feedbackRise .85s ease-out both}#feedback.bad{background:#fff0ed}#feedback.good{background:#fff4b9}
+    #mascot{position:absolute;z-index:2;right:2%;top:64px;width:clamp(58px,16vw,86px);height:clamp(58px,16vw,86px);object-fit:contain;filter:drop-shadow(0 5px 4px rgba(32,36,42,.25));pointer-events:none;transform-origin:50% 80%}
+    #mascot.cheer{animation:mascotCheer .62s cubic-bezier(.2,1.8,.3,1)}#mascot.ouch{animation:mascotOuch .48s ease}
+    #predict{position:absolute;z-index:6;left:50%;top:79px;transform:translateX(-50%);width:min(72%,300px);height:62px;border:2px dashed var(--ink);border-radius:22px;background:rgba(255,247,232,.95);display:flex;align-items:center;justify-content:center;gap:20px;font-weight:900}
+    .predictTarget{min-width:78px;height:48px;border:2px solid var(--ink);border-radius:15px;background:#fff;display:grid;place-items:center;font-size:14px}.predictTarget.selected{background:#ffd0c6;box-shadow:inset 0 0 0 3px var(--coral)}
+    #ribbonWrap{position:absolute;z-index:7;left:50%;top:112px;transform:translateX(-50%);width:min(95%,380px);height:124px;display:grid;place-items:center;transition:filter .16s}
+    #ribbonWrap.ready #ribbon{box-shadow:0 8px 0 var(--ink),0 0 0 6px rgba(255,75,43,.22),inset 0 3px 0 #fff}#ribbonWrap.ready::after{content:"위로 밀어!";position:absolute;top:-4px;left:50%;transform:translateX(-50%);padding:3px 10px;border-radius:999px;background:var(--coral);color:#fff;font-size:12px;font-weight:950;animation:nudge 1s ease-in-out infinite}
+    #ribbon{position:relative;height:82px;padding:8px 12px;border:3px solid var(--ink);border-radius:20px;background:linear-gradient(#fffdf6,#eadcc3);box-shadow:0 7px 0 var(--ink),inset 0 3px 0 #fff;display:flex;align-items:center;justify-content:center;gap:4px;touch-action:none;transition:transform .12s cubic-bezier(.2,1.5,.3,1),box-shadow .12s}
+    .slot{position:relative;width:58px;height:60px;border:3px dashed #77736c;border-radius:14px;background:rgba(255,255,255,.72);display:grid;place-items:center;font-size:31px;font-weight:950;font-variant-numeric:tabular-nums}.slot.filled{border-style:solid;border-color:var(--ink);background:#fff}.slot.hot{outline:5px solid rgba(255,75,43,.3);transform:scale(1.04)}
+    .placed{width:100%;height:100%;display:grid;place-items:center;pointer-events:none}
+    .gap{position:absolute;z-index:4;top:4px;width:26px;height:74px;transform:translateX(-50%);border-radius:14px;display:grid;align-items:end;justify-items:center;padding-bottom:7px}.gap::after{content:"";width:8px;height:8px;border:2px solid var(--ink);border-radius:50%;background:#f8eee0;opacity:.38}.gap.hot::after{width:18px;height:18px;opacity:1;background:#ffd0c6}.gap.has-dot::after{width:20px;height:20px;opacity:1;background:var(--coral);box-shadow:inset 0 3px 0 #ff9a86,0 3px 0 var(--ink)}
+    #beadDock{position:absolute;z-index:9;left:10px;top:243px;width:72px;height:72px;border:2px dashed var(--ink);border-radius:50%;display:grid;place-items:center;background:rgba(255,247,232,.9)}
+    #dotBead{width:52px;height:52px;border:3px solid var(--ink);border-radius:50%;background:radial-gradient(circle at 35% 28%,#fff 0 7%,#ff8e78 10%,var(--coral) 50%,#c72b12 100%);box-shadow:0 5px 0 var(--ink),0 7px 12px rgba(32,36,42,.2);display:grid;place-items:center;color:#fff;font-size:11px;font-weight:950;touch-action:none;cursor:grab}.dragging{position:fixed!important;z-index:99!important;pointer-events:none!important;transform:translate(-50%,-50%) scale(1.12)!important;filter:drop-shadow(0 12px 8px rgba(0,0,0,.25))}
+    #tileBank{position:absolute;z-index:5;left:88px;right:4px;top:241px;bottom:56px;padding:7px;border:2px solid var(--ink);border-radius:20px;background:rgba(255,253,246,.88);box-shadow:inset 0 2px 0 #fff;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:8px;overflow:hidden}
+    .tile{width:54px;height:54px;border:3px solid var(--ink);border-radius:15px;background:linear-gradient(#fff,#eaddc6);box-shadow:0 5px 0 var(--ink),inset 0 3px 0 #fff;display:grid;place-items:center;font-size:29px;font-weight:950;font-variant-numeric:tabular-nums;touch-action:none;cursor:grab}.tile:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}.tile.used{opacity:.16;pointer-events:none}.tile.spawn{animation:tileSpawn .38s cubic-bezier(.2,1.6,.3,1) both}
+    #bankLabel{position:absolute;left:12px;top:-8px;padding:2px 8px;border-radius:999px;background:var(--ink);color:#fff;font-size:10px;font-weight:900}
+    #tip{position:absolute;z-index:4;left:4px;right:4px;bottom:2px;height:44px;display:grid;place-items:center;padding:0 12px;border:2px solid var(--ink);border-radius:15px;background:rgba(255,253,246,.94);font-size:12px;font-weight:850;text-align:center;box-shadow:0 3px 0 var(--ink)}
+    #comboBadge{position:absolute;z-index:4;right:9px;top:238px;padding:6px 10px;border:2px solid var(--ink);border-radius:14px;background:#fff4b9;box-shadow:0 3px 0 var(--ink);font-weight:950;font-size:13px;pointer-events:none}
+    #flash{position:fixed;inset:0;z-index:30;pointer-events:none;opacity:0;background:rgba(255,197,58,.3)}#flash.go{animation:flash .28s ease-out}
+    .shake{animation:shake .36s ease both}
+
+    #titleScreen{position:fixed;inset:0;z-index:50;overflow:hidden;isolation:isolate;background:linear-gradient(#efe1c6,#fff7e8)}
+    #titleScreen.leave{animation:titleLeave .28s ease-in both}
+    .titleArt{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,#fff7e8,#d9cab0);overflow:hidden}.titleArt img{width:100%;height:100%;display:block;object-fit:cover;object-position:50% 51%;animation:artBreathe 20s ease-in-out infinite alternate}.titleScrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,247,232,.48),rgba(255,247,232,.02) 37%,rgba(32,36,42,.08) 64%,rgba(32,36,42,.7) 100%),radial-gradient(ellipse at 50% 13%,rgba(255,247,232,.74),transparent 46%)}
+    #titleParticles{position:absolute;inset:0;z-index:1;pointer-events:none}.titleParticle{position:absolute;width:9px;height:9px;border:2px solid var(--ink);border-radius:50%;background:var(--coral);animation:floaty 5s ease-in-out infinite;opacity:.74}
+    .titleUI{position:relative;z-index:3;width:min(100vw,640px);height:100%;margin:auto;pointer-events:none}
+    .logoZone{position:absolute;top:max(50px,6dvh);left:12px;right:12px;text-align:center;pointer-events:auto}
+    .logo{margin:0;display:flex;justify-content:center;align-items:center;white-space:nowrap;font-size:clamp(68px,21vw,112px);font-weight:1000;line-height:.92;letter-spacing:-.13em;filter:drop-shadow(0 12px 10px rgba(32,36,42,.2));transform:rotate(-2deg)}
+    .logo span{display:inline-block;color:#ff6b4e;-webkit-text-stroke:clamp(3px,1vw,5px) var(--ink);paint-order:stroke fill;text-shadow:0 2px 0 #ff9f85,0 5px 0 #d63117,0 8px 0 var(--ink),0 14px 16px rgba(32,36,42,.35);transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));animation:logoIn .72s cubic-bezier(.18,1.55,.34,1) both;animation-delay:calc(var(--i)*70ms)}
+    .subtitle{display:inline-block;margin:19px 0 0;padding:7px 14px;border:2px solid var(--ink);border-radius:999px;background:rgba(255,253,246,.86);box-shadow:0 3px 0 var(--ink);font-size:14px;font-weight:900;animation:fadeIn .45s .5s both}
+    .ctaZone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 28px),480px);transform:translateX(-50%);display:grid;justify-items:center;gap:7px;pointer-events:auto}
+    #bestTitle{min-height:29px;padding:6px 12px;border:1px solid rgba(255,255,255,.5);border-radius:999px;background:rgba(32,36,42,.62);color:#fff;font-size:12px;font-weight:900;backdrop-filter:blur(4px)}
+    #startBtn{position:relative;width:min(100%,420px);min-height:68px;border:4px solid var(--ink);border-radius:23px;background:linear-gradient(#fff39b 0 4%,#ff9d69 48%,var(--coral));box-shadow:0 7px 0 #b92912,0 10px 0 var(--ink),0 17px 22px rgba(0,0,0,.32),inset 0 3px 0 #fff;color:var(--ink);font-size:25px;font-weight:1000;letter-spacing:-.04em;animation:ctaPulse 2.4s 1.2s infinite}
+    #startBtn:active{transform:translateY(7px) scale(.985);box-shadow:0 1px 0 #b92912,0 3px 0 var(--ink),0 8px 13px rgba(0,0,0,.25)}
+    #howBtn{min-width:150px;min-height:44px;border:0;background:transparent;color:#fff;text-decoration:underline;text-underline-offset:4px;text-shadow:0 2px 4px #000;font-size:12px;font-weight:900}
+    .unitLine{color:rgba(255,255,255,.82);font-size:11px;font-weight:800;text-shadow:0 2px 4px #000}
+    #titleMute{position:absolute;z-index:6;right:max(12px,calc((100vw - min(100vw,640px))/2 + 12px));top:max(10px,env(safe-area-inset-top));width:46px;height:46px;padding:0;border:2px solid rgba(255,255,255,.7);border-radius:50%;background:rgba(32,36,42,.52);color:#fff;font-size:20px;box-shadow:0 3px 0 rgba(32,36,42,.7)}
+
+    .modal{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:18px;background:rgba(32,36,42,.72);backdrop-filter:blur(5px)}
+    .modalCard{width:min(100%,440px);padding:20px;border:3px solid var(--ink);border-radius:26px;background:var(--paper);box-shadow:0 9px 0 var(--ink),0 24px 45px rgba(0,0,0,.35),inset 0 3px 0 #fff;text-align:center}
+    .modalCard h2{margin:2px 0 12px;font-size:28px}.modalCard p{min-height:74px;margin:6px 0 16px;font-size:16px;font-weight:800;line-height:1.5}.stepDots{font-weight:950;color:var(--coral);letter-spacing:4px}.modalMain{width:100%;min-height:60px;margin-top:10px;border:3px solid var(--ink);border-radius:19px;background:linear-gradient(#ffb199,var(--coral));box-shadow:0 5px 0 var(--ink);font-size:20px;font-weight:950}.modalMain:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+    #modeChoice{display:flex;gap:8px;margin:12px 0}.mode{flex:1;min-height:58px;border:2px solid var(--ink);border-radius:16px;background:#eee3d2;font-weight:900}.mode.on{background:#ffd0c6;box-shadow:inset 0 0 0 3px var(--coral)}
+    #resultCard .stars{font-size:42px;letter-spacing:6px;color:#ff9b26;text-shadow:0 3px 0 var(--ink);animation:starPop .6s cubic-bezier(.2,1.7,.3,1)}#resultScore{font-size:46px;font-weight:1000;color:var(--coral);-webkit-text-stroke:1px var(--ink)}#resultStats{min-height:auto;font-size:15px}.retry{min-height:64px}
+
+    html.land #hud{left:var(--stageX);right:auto;width:min(360px,calc(var(--stageW)*.29));top:18px;flex-wrap:wrap;height:auto}html.land #lifePill{margin-left:0}html.land #problemZone{left:calc(var(--stageX) + 18px);right:auto;top:144px;width:min(330px,calc(var(--stageW)*.27));height:190px}html.land #equation{margin-top:47px;font-size:36px}html.land #timerTrack{height:14px;bottom:18px}html.land #workZone{left:calc(var(--stageX) + min(355px,calc(var(--stageW)*.29)));right:auto;top:18px;bottom:18px;width:min(760px,calc(var(--stageW)*.56));border-left:2px solid rgba(32,36,42,.16);border-right:2px solid rgba(32,36,42,.16)}html.land #waterMouth{width:56%;height:90px}html.land #ribbonWrap{top:160px;width:520px}html.land #ribbon{height:96px}.land .slot{width:72px;height:70px;font-size:38px}.land .gap{height:86px}.land #beadDock{top:292px;left:6%;width:82px;height:82px}.land #tileBank{left:19%;right:5%;top:286px;bottom:68px}.land .tile{width:66px;height:66px;font-size:34px}.land #tip{bottom:4px;left:6%;right:6%;height:50px}.land #mascot{right:4%;top:80px;width:96px;height:96px}.land #feedback{top:108px}.land #comboBadge{top:290px;right:6%}html.land #rightPanel{display:block;position:absolute;z-index:5;right:calc(var(--stageX) + 18px);top:28px;width:min(185px,calc(var(--stageW)*.14));bottom:28px;padding:18px 12px;border:2px solid var(--ink);border-radius:24px;background:rgba(255,253,246,.9);box-shadow:0 5px 0 var(--ink);text-align:center}#rightPanel h3{margin:5px 0;font-size:15px}#catalogGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.catalogDot{aspect-ratio:1;border:2px solid var(--ink);border-radius:50%;background:#e2d7c6;display:grid;place-items:center;font-size:14px}.catalogDot.got{background:var(--coral);color:#fff;animation:starPop .4s ease}#physicalContract{margin-top:18px;font-size:11px;font-weight:800;line-height:1.4}
+    @media(max-height:700px) and (max-width:1023px){#problemZone{top:58px;height:100px}#workZone{top:164px}.hud-pill{height:42px}.logoZone{top:35px}.logo{font-size:clamp(60px,18vw,90px)}#ribbonWrap{top:96px}#beadDock{top:222px}#tileBank{top:221px}.ctaZone{bottom:10px}}
+    @media(prefers-reduced-motion:reduce){.titleArt img,.logo span,#startBtn,.titleParticle,#ribbonWrap.ready::after{animation-duration:.01ms!important;animation-iteration-count:1!important}.tile.spawn{animation:none}}
+    @keyframes numPunch{0%{transform:scale(1)}45%{transform:scale(1.34);color:var(--coral)}100%{transform:scale(1)}}@keyframes feedbackRise{0%{opacity:0;transform:translate(-50%,10px) scale(.72)}18%{opacity:1;transform:translate(-50%,-6px) scale(1.08)}72%{opacity:1;transform:translate(-50%,-20px) scale(1)}100%{opacity:0;transform:translate(-50%,-42px) scale(.96)}}@keyframes mascotCheer{0%,100%{transform:translateY(0) scale(1)}35%{transform:translateY(-20px) scaleX(.88) scaleY(1.15)}60%{transform:translateY(2px) scaleX(1.12) scaleY(.86)}}@keyframes mascotOuch{0%,100%{transform:translateX(0) rotate(0)}25%{transform:translateX(-8px) rotate(-8deg)}60%{transform:translateX(7px) rotate(7deg)}}@keyframes nudge{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-7px)}}@keyframes tileSpawn{from{opacity:0;transform:translateY(-18px) rotate(-8deg) scale(.6)}70%{transform:translateY(3px) rotate(2deg) scale(1.08)}to{opacity:1;transform:none}}@keyframes flash{0%{opacity:0}18%{opacity:1}100%{opacity:0}}@keyframes shake{0%,100%{transform:translate(0)}20%{transform:translate(-7px,3px)}40%{transform:translate(6px,-2px)}60%{transform:translate(-4px,1px)}80%{transform:translate(3px,0)}}@keyframes artBreathe{from{transform:scale(1.01)}to{transform:scale(1.05) translateY(-.6%)}}@keyframes floaty{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-15px) rotate(120deg)}}@keyframes logoIn{from{opacity:0;transform:translateY(-70px) rotate(calc(var(--r) - 9deg)) scale(.55)}70%{opacity:1;transform:translateY(calc(var(--y) + 7px)) rotate(calc(var(--r) + 2deg)) scale(calc(var(--s)*1.08))}to{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}}@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}@keyframes ctaPulse{0%,72%,100%{transform:none}80%{transform:translateY(-2px) scale(1.025)}88%{transform:none}94%{transform:translateY(-1px) scale(1.012)}}@keyframes titleLeave{to{opacity:0;transform:scale(1.04);visibility:hidden}}@keyframes starPop{from{transform:scale(.4) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+  </style>
+</head>
+<body>
+  <div id="world">
+    <img id="bgArt" src="./assets/bg.png" alt="" aria-hidden="true">
+    <canvas id="gameCanvas" aria-hidden="true"></canvas>
+    <main id="game" aria-label="점빛폭포 게임">
+      <header id="hud">
+        <div class="hud-pill"><small>물방울</small><strong id="score">0</strong></div>
+        <div class="hud-pill"><small>남은 원정</small><strong id="sessionTime">1:30</strong></div>
+        <div class="hud-pill" id="lifePill"><small>누수</small><strong class="drops" id="lives">● ● ●</strong></div>
+        <button id="mute" class="game-btn" type="button" aria-label="소리 끄기">♪</button>
+      </header>
+      <section id="problemZone" aria-label="현재 곱셈 문제">
+        <span id="bandTag">잔잔한 물길</span><span id="timerText">8.0초</span>
+        <div id="equation">2.7 × 4 = ?</div><div id="timerTrack"><div id="timerFill"></div></div>
+      </section>
+      <section id="workZone" aria-label="숫자 리본 조립 작업대">
+        <div id="waterMouth"><span id="gateNeedle"></span>▲ 완성 리본을 여기로 밀어요</div>
+        <div id="feedback" aria-live="polite"></div>
+        <img id="mascot" src="./assets/hero.png" alt="산호색 소수점 구슬 친구">
+        <div id="predict" class="hidden" aria-label="결과 크기 예측"><div class="predictTarget" data-predict="smaller">작아져요</div><div class="predictTarget" data-predict="larger">커져요</div></div>
+        <div id="ribbonWrap"><div id="ribbon" role="button" tabindex="0" aria-label="완성한 리본을 위로 밀어 제출"></div></div>
+        <div id="beadDock"><div id="dotBead" role="button" tabindex="0" aria-label="소수점 구슬">점</div></div>
+        <div id="tileBank" aria-label="숫자 타일"><span id="bankLabel">숫자 타일</span></div>
+        <div id="comboBadge">물길 ×1</div>
+        <div id="tip">숫자를 칸에 끌고, 점 구슬을 틈에 놓아요</div>
+      </section>
+      <aside id="rightPanel"><h3>물빛 도감</h3><div id="catalogGrid"></div><div id="physicalContract">점 구슬은 자릿값의 위치를 뜻해요.<br>무게가 아니에요.</div></aside>
+    </main>
+  </div>
+  <div id="flash"></div>
+
+  <section id="titleScreen" aria-label="점빛폭포 타이틀 화면">
+    <div class="titleArt"><img id="titleArtImg" src="./assets/title.png" alt="점빛 폭포와 산호색 구슬 친구"><div class="titleScrim"></div></div>
+    <div id="titleParticles" aria-hidden="true"><i class="titleParticle" style="left:9%;top:42%;animation-delay:-1s"></i><i class="titleParticle" style="right:10%;top:35%;animation-delay:-3s"></i><i class="titleParticle" style="left:18%;top:66%;animation-delay:-2s"></i><i class="titleParticle" style="right:19%;top:61%;animation-delay:-4s"></i></div>
+    <button id="titleMute" type="button" aria-label="소리 끄기">♪</button>
+    <div class="titleUI"><div class="logoZone"><h1 class="logo" aria-label="점빛폭포"><span aria-hidden="true" style="--i:0;--r:-5deg;--y:6px;--s:1.08">점</span><span aria-hidden="true" style="--i:1;--r:3deg;--y:-2px;--s:.98">빛</span><span aria-hidden="true" style="--i:2;--r:-2deg;--y:4px;--s:1.1">폭</span><span aria-hidden="true" style="--i:3;--r:5deg;--y:0;--s:1">포</span></h1><p class="subtitle">점 하나가 물길을 바꿔</p></div><div class="ctaZone"><div id="bestTitle" class="hidden"></div><button id="startBtn" type="button">폭포 물길 열기!</button><button id="howBtn" type="button">어떻게 놀아요? 〉</button><div class="unitLine">5학년 2학기 · 소수의 곱셈</div></div></div>
+  </section>
+
+  <div id="onboard" class="modal hidden" role="dialog" aria-modal="true" aria-label="놀이 방법"><div class="modalCard"><div class="stepDots" id="stepDots">● ○ ○</div><h2 id="onTitle">숫자를 끼워요</h2><p id="onText">흩어진 숫자 타일을 끌어 결과 리본의 빈 칸을 모두 채워요.</p><div id="modeChoice" class="hidden"><button class="mode on" data-mode="explore">탐험<br><small>누수 3번</small></button><button class="mode" data-mode="rapid">급류<br><small>시간이 더 짧아요</small></button></div><button id="onNext" class="modalMain" type="button">다음</button></div></div>
+  <div id="result" class="modal hidden" role="dialog" aria-modal="true"><div class="modalCard" id="resultCard"><div class="stars" id="resultStars">★ ★ ★</div><h2 id="resultTitle">폭포 원정 끝!</h2><div id="resultScore">0</div><p id="resultStats"></p><button id="retry" class="modalMain retry" type="button">다시 물길 열기!</button></div></div>
+
+  <script>
+  (()=>{'use strict';
+    const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+    const E={world:$('#world'),game:$('#game'),canvas:$('#gameCanvas'),bg:$('#bgArt'),title:$('#titleScreen'),titleImg:$('#titleArtImg'),score:$('#score'),time:$('#sessionTime'),lives:$('#lives'),equation:$('#equation'),band:$('#bandTag'),timerText:$('#timerText'),timerFill:$('#timerFill'),gate:$('#gateNeedle'),ribbon:$('#ribbon'),ribbonWrap:$('#ribbonWrap'),bank:$('#tileBank'),bead:$('#dotBead'),dock:$('#beadDock'),feedback:$('#feedback'),tip:$('#tip'),combo:$('#comboBadge'),mascot:$('#mascot'),flash:$('#flash'),predict:$('#predict'),catalog:$('#catalogGrid'),onboard:$('#onboard'),result:$('#result')};
+    const ctx=E.canvas.getContext('2d',{alpha:true});
+    const S={phase:'title',score:0,lives:3,level:1,solved:0,combo:0,bestCombo:0,sessionLeft:90,roundLeft:8,roundMax:8,mode:'explore',problem:null,slots:[],dotGap:null,prediction:null,drag:null,locked:false,last:performance.now(),stageW:innerWidth,stageX:0,land:false,timeScale:1,hitStopUntil:0,particles:[],trails:[],ambient:[],wave:0,shake:0,deck:{1:0,2:0,3:0},catalog:new Set(),audio:null,muted:false,onStep:0};
+
+    const safeGet=(k,d)=>{try{const v=localStorage.getItem(k);return v===null?d:v}catch{return d}};
+    const safeSet=(k,v)=>{try{localStorage.setItem(k,String(v))}catch{}};
+    const pad=(n,p)=>String(n).padStart(p+1,'0');
+    const decimalString=(integer,places,keepZeros=false)=>{let s=pad(integer,places);if(places)s=s.slice(0,-places)+'.'+s.slice(-places);if(!keepZeros&&s.includes('.'))s=s.replace(/0+$/,'').replace(/\.$/,'');return s};
+    const exactKey=(integer,places)=>{while(places>0&&integer%10===0){integer/=10;places--}return integer+'@'+places};
+    const numeric=(integer,places)=>integer/(10**places);
+    const fisher=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+
+    // 제약 만족 풀: 무작위 생성 후 검증하지 않고 밴드별 가능한 인수를 전수 생성한다.
+    function makeProblem(level,A,B,pa,pb,kind='standard'){
+      const I=A*B,p=pa+pb,digits=pad(I,p),id=`b${level}-${A}-${pa}-${B}-${pb}-${kind}`;
+      const a=decimalString(A,pa),b=decimalString(B,pb),answer=decimalString(I,p),displayAnswer=decimalString(I,p,true);
+      const raw=[];
+      // misconceptionId가 실제 교육과정 오개념을 직접 가리킨다.
+      raw.push({misconceptionId:'ONE_SIDE_DECIMALS',value:decimalString(I,Math.max(pa,pb))});
+      // 자연수 쪽에도 소수점 아래 한 자리가 있다고 잘못 맞추는 오류를 역산한다.
+      const alignedPlaces=Math.min(pa,pb)===0?p+1:Math.abs(pa-pb);
+      raw.push({misconceptionId:'ALIGN_DECIMAL_POINTS',value:decimalString(I,alignedPlaces)});
+      if(numeric(B,pb)<1) raw.push({misconceptionId:'MULTIPLY_ALWAYS_LARGER',value:decimalString(I,Math.max(0,p-1))});
+      raw.push({misconceptionId:'TRAILING_ZERO_PLACE_VALUE',value:decimalString(I,Math.max(0,p-1),true)});
+      if(B===1&&pb===1) raw.push({misconceptionId:'TIMES_POINT_ONE_CONFUSION',value:decimalString(A,pa)});
+      const correctKey=exactKey(I,p),seen=new Set(),distractors=[];
+      // 후처리 순서: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.
+      for(const d of raw){if(!d.value||exactKeyFromText(d.value)===correctKey)continue;if(!(parseTextScaled(d.value)>=0&&parseTextScaled(d.value)<=999999))continue;if(seen.has(d.value))continue;seen.add(d.value);distractors.push(d)}
+      const offsets=[1,10,2,20,3,30,4,40];
+      for(const off of offsets){if(distractors.length>=3)break;const v=decimalString(I+off,p);if(exactKeyFromText(v)===correctKey||seen.has(v))continue;seen.add(v);distractors.push({misconceptionId:'PLACE_VALUE_NEIGHBOR',value:v})}
+      fisher(distractors);
+      const choices=fisher([answer,...distractors.slice(0,3).map(d=>d.value)]);
+      return{id,prompt:`${a} × ${b} = ?`,a,b,A,B,pa,pb,I,p,digits,answer,displayAnswer,answerNumeric:numeric(I,p),unitConcept:level===1?'(소수)×(자연수)':level===2?'(소수)×(소수)':'소수점 위치 추론',level,kind,distractors,choices};
+    }
+    function parseTextScaled(s){const q=String(s).split('.');return Number(q.join(''))/(10**(q[1]?.length||0))}
+    function exactKeyFromText(s){const q=String(s).split('.'),places=q[1]?.length||0;return exactKey(Number(q.join('')),places)}
+    const POOLS={1:[],2:[],3:[]};
+    for(let A=11;A<=49;A++)for(let B=2;B<=9;B++){const p=makeProblem(1,A,B,1,0);if(p.digits.length>=2&&p.digits.length<=3)POOLS[1].push(p)}
+    for(let A=2;A<=49;A++)for(let B=2;B<=9;B++){const p=makeProblem(2,A,B,1,1);if(p.digits.length===3)POOLS[2].push(p)}
+    for(let A=12;A<=49;A++)for(let B=12;B<=29;B++){const p=makeProblem(3,A,B,1,1);if(p.digits.length>=3&&p.digits.length<=4)POOLS[3].push(p)}
+    for(let A=12;A<=99;A++){const p=makeProblem(3,A,1,1,1,'times-point-one');if(p.digits.length>=3&&p.digits.length<=4)POOLS[3].push(p)}
+    const DECKS={1:fisher(POOLS[1].slice()),2:fisher(POOLS[2].slice()),3:fisher(POOLS[3].slice())};
+    function nextFromPool(level){const d=DECKS[level];if(S.deck[level]>=d.length){S.deck[level]=0;fisher(d)}return d[S.deck[level]++]}
+
+    function currentLevel(){const elapsed=90-S.sessionLeft;return elapsed<30?1:elapsed<60?2:3}
+    function setupRound(forcedLevel){if(S.phase!=='playing')return;S.locked=false;S.level=forcedLevel||currentLevel();S.problem=nextFromPool(S.level);S.roundMax=(S.level===1?8:S.level===2?7:6)-(S.mode==='rapid'?.8:0);S.roundLeft=S.roundMax;S.slots=Array(S.problem.digits.length).fill(null);S.dotGap=null;S.prediction=null;renderProblem();}
+    function renderProblem(){const p=S.problem;E.equation.textContent=p.prompt;E.band.textContent=S.level===1?'잔잔한 물길':S.level===2?'두 겹 물길':'급류 추론';E.tip.textContent=S.level===3?'먼저 곱이 커질지 작아질지 고른 뒤 리본을 만들어요':'숫자를 칸에 끌고, 점 구슬을 틈에 놓아요';E.predict.classList.toggle('hidden',S.level!==3);$$('.predictTarget').forEach(x=>x.classList.remove('selected'));renderRibbon();renderBank();E.combo.textContent=`물길 ×${Math.max(1,Math.min(4,S.combo))}`;}
+    function renderRibbon(){E.ribbon.innerHTML='';const n=S.slots.length;for(let i=0;i<n;i++){const slot=document.createElement('div');slot.className='slot'+(S.slots[i]?' filled':'');slot.dataset.slot=i;slot.innerHTML=S.slots[i]?`<span class="placed">${S.slots[i].digit}</span>`:'';E.ribbon.appendChild(slot)}requestAnimationFrame(()=>{const slots=$$('.slot');for(let g=0;g<=n;g++){const gap=document.createElement('div');gap.className='gap'+(S.dotGap===g?' has-dot':'');gap.dataset.gap=g;let x;if(g===0)x=slots[0].offsetLeft-4;else if(g===n)x=slots[n-1].offsetLeft+slots[n-1].offsetWidth+4;else x=(slots[g-1].offsetLeft+slots[g-1].offsetWidth+slots[g].offsetLeft)/2;gap.style.left=x+'px';E.ribbon.appendChild(gap)}updateReady()})}
+    function buildTileDigits(p){const correct=p.digits.split('');const misconceptions=p.distractors.slice(0,3).flatMap(d=>d.value.replace('.','').split(''));const extras=['0','1','5','9','4','7'];const bank=[...correct];for(const d of misconceptions){if(bank.length>=Math.max(8,correct.length+5))break;bank.push(d)}for(const d of extras){if(bank.length>=Math.max(9,correct.length+6))break;bank.push(d)}return fisher(bank).slice(0,10)}
+    function renderBank(){E.bank.querySelectorAll('.tile').forEach(x=>x.remove());buildTileDigits(S.problem).forEach((digit,i)=>{const t=document.createElement('div');t.className='tile spawn';t.dataset.digit=digit;t.dataset.tile=`${S.problem.id}-t${i}`;t.textContent=digit;t.style.animationDelay=(i*24)+'ms';t.setAttribute('role','button');t.tabIndex=0;t.setAttribute('aria-label',`숫자 ${digit} 타일`);E.bank.appendChild(t)});E.bead.classList.remove('used');}
+    function updateReady(){const ready=S.slots.length>0&&S.slots.every(Boolean)&&S.dotGap!==null&&(S.level<3||S.prediction);E.ribbonWrap.classList.toggle('ready',!!ready);return ready}
+
+    function beginDrag(el,type,ev){if(S.phase!=='playing'||S.locked)return;unlockAudio();const r=el.getBoundingClientRect();S.drag={el,type,id:el.dataset.tile||'',digit:el.dataset.digit||'.',originParent:el.parentNode,originNext:el.nextSibling,x:ev.clientX,y:ev.clientY};el.style.width=r.width+'px';el.style.height=r.height+'px';document.body.appendChild(el);el.classList.add('dragging');moveDrag(ev);ev.preventDefault()}
+    function moveDrag(ev){if(!S.drag)return;S.drag.x=ev.clientX;S.drag.y=ev.clientY;S.drag.el.style.left=ev.clientX+'px';S.drag.el.style.top=ev.clientY+'px';$$('.slot,.gap').forEach(x=>x.classList.remove('hot'));const hit=document.elementFromPoint(ev.clientX,ev.clientY);const target=hit?.closest(S.drag.type==='tile'?'.slot':'.gap');if(target)target.classList.add('hot')}
+    function endDrag(ev){if(!S.drag)return;const d=S.drag,hit=document.elementFromPoint(ev.clientX,ev.clientY),target=hit?.closest(d.type==='tile'?'.slot':'.gap');$$('.slot,.gap').forEach(x=>x.classList.remove('hot'));d.el.classList.remove('dragging');d.el.removeAttribute('style');if(d.type==='tile'&&target){const idx=Number(target.dataset.slot);if(S.slots[idx])restoreTile(S.slots[idx].el);S.slots[idx]={digit:d.digit,id:d.id,el:d.el};d.el.classList.add('used');d.originParent.insertBefore(d.el,d.originNext);playTone(260+Number(d.digit)*22,.055,'square');renderRibbon();}else if(d.type==='bead'&&target){S.dotGap=Number(target.dataset.gap);d.originParent.insertBefore(d.el,d.originNext);d.el.classList.add('used');playTone(620,.07,'sine');renderRibbon();}else{d.originParent.insertBefore(d.el,d.originNext)}S.drag=null;updateReady()}
+    function restoreTile(el){if(el)el.classList.remove('used')}
+    function removePlaced(idx){if(!S.slots[idx])return;restoreTile(S.slots[idx].el);S.slots[idx]=null;renderRibbon()}
+
+    let ribbonStart=null;
+    E.ribbon.addEventListener('pointerdown',ev=>{if(!updateReady())return;ribbonStart={y:ev.clientY};E.ribbon.setPointerCapture?.(ev.pointerId);unlockAudio()});
+    E.ribbon.addEventListener('pointermove',ev=>{if(!ribbonStart)return;const dy=Math.min(0,ev.clientY-ribbonStart.y);E.ribbon.style.transform=`translateY(${Math.max(-105,dy)}px) scaleX(${1+Math.min(0.05,-dy/2000)}) scaleY(${1-Math.min(.08,-dy/1200)})`});
+    E.ribbon.addEventListener('pointerup',ev=>{if(!ribbonStart)return;const dy=ev.clientY-ribbonStart.y;E.ribbon.style.transform='';ribbonStart=null;if(dy<-65)submitRibbon()});
+    E.ribbon.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();submitRibbon()}});
+    document.addEventListener('pointerdown',ev=>{const tile=ev.target.closest('.tile:not(.used)');if(tile)beginDrag(tile,'tile',ev);else if(ev.target===E.bead&&!E.bead.classList.contains('used'))beginDrag(E.bead,'bead',ev)});
+    document.addEventListener('pointermove',moveDrag);document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
+    E.ribbon.addEventListener('dblclick',ev=>{const s=ev.target.closest('.slot');if(s)removePlaced(Number(s.dataset.slot))});
+    $$('.predictTarget').forEach(t=>t.addEventListener('pointerdown',()=>{if(S.phase!=='playing')return;S.prediction=t.dataset.predict;$$('.predictTarget').forEach(x=>x.classList.toggle('selected',x===t));playTone(340,.05,'triangle');updateReady()}));
+
+    function assembled(){if(!S.slots.every(Boolean)||S.dotGap===null)return null;const ds=S.slots.map(x=>x.digit).join('');const places=ds.length-S.dotGap;return{integer:Number(ds),places,key:exactKey(Number(ds),places),text:decimalString(Number(ds),places,true)}}
+    function expectedPrediction(){return S.problem.answerNumeric<parseTextScaled(S.problem.a)?'smaller':'larger'}
+    function submitRibbon(){if(S.phase!=='playing'||S.locked)return;if(!updateReady()){showFeedback('세 동작을 모두 끝내요','bad');return}S.locked=true;const made=assembled(),correct=made&&made.key===exactKey(S.problem.I,S.problem.p)&&(S.level<3||S.prediction===expectedPrediction());E.ribbon.style.transform='translateY(-118px) scale(.88)';setTimeout(()=>{E.ribbon.style.transform='';correct?handleCorrect(false):handleWrong('submit',made?.text)},170)}
+    function misconceptionFor(madeText){if(!madeText)return'리본 칸과 점을 모두 채워요.';const p=S.problem;const hit=p.distractors.find(d=>exactKeyFromText(d.value)===exactKeyFromText(madeText));const id=hit?.misconceptionId;if(id==='ONE_SIDE_DECIMALS')return'한쪽 점만 세었어요. 두 수의 소수 자릿수를 모두 세어요.';if(id==='ALIGN_DECIMAL_POINTS')return'곱셈은 점을 맞추지 않고, 점 아래 자릿수를 합쳐요.';if(id==='MULTIPLY_ALWAYS_LARGER')return'1보다 작은 수를 곱하면 물높이는 작아져요.';if(id==='TRAILING_ZERO_PLACE_VALUE')return'끝 0을 지워도 값은 같지만, 점 위치는 바뀌면 안 돼요.';if(id==='TIMES_POINT_ONE_CONFUSION')return'0.1을 곱하면 10으로 나눈 것처럼 한 칸 작아져요.';return`내 리본 ${madeText} · 점 아래 자릿수를 다시 세어 봐요.`}
+    function handleCorrect(forced){if(S.phase!=='playing')return;const gain=100+Math.max(0,Math.round(80*S.roundLeft/S.roundMax));S.score+=gain;S.solved++;S.combo++;S.bestCombo=Math.max(S.bestCombo,S.combo);S.catalog.add(S.problem?S.problem.id.split('-').slice(0,3).join('-'):'test');S.timeScale=S.combo>=4?.05:1;if(S.combo>=4)S.hitStopUntil=performance.now()+70;punch(E.score);E.score.textContent=S.score;E.combo.textContent=`물길 ×${Math.min(4,S.combo)}`;showFeedback(S.combo>=4?`✦ 점빛 생물 발견! +${gain}`:`▲ 물길이 솟아요! +${gain}`,'good');E.flash.classList.remove('go');void E.flash.offsetWidth;E.flash.classList.add('go');animateMascot('cheer');burst(innerWidth/2,innerHeight*.4,18+Math.min(42,S.combo*8),true);S.wave=Math.max(S.wave,1+S.combo*.25);playSuccessChord();renderCatalog();setTimeout(()=>{if(S.phase==='playing')setupRound()},S.combo>=4?950:650)}
+    function handleWrong(reason,made){if(S.phase!=='playing')return;S.lives=Math.max(0,S.lives-1);S.combo=0;S.shake=reason==='timeout'?5:8;renderLives();showFeedback(reason==='timeout'?'◆ 수문이 닿았어요! 누수 +1':`◆ ${misconceptionFor(made)}`,'bad');E.world.classList.remove('shake');void E.world.offsetWidth;E.world.classList.add('shake');animateMascot('ouch');burst(innerWidth/2,innerHeight*.52,10,false);playWrong();if(S.lives<=0){setTimeout(()=>endGame('leaks'),650)}else setTimeout(()=>{if(S.phase==='playing')setupRound()},850)}
+    function showFeedback(text,type){E.feedback.textContent=text;E.feedback.className='';void E.feedback.offsetWidth;E.feedback.classList.add('show',type)}
+    function animateMascot(c){E.mascot.className='';void E.mascot.offsetWidth;E.mascot.classList.add(c)}
+    function punch(el){el.classList.remove('punch');void el.offsetWidth;el.classList.add('punch')}
+    function renderLives(){E.lives.innerHTML=Array.from({length:3},(_,i)=>`<span class="drop ${i<S.lives?'':'off'}">●</span>`).join(' ');punch(E.lives)}
+    function renderCatalog(){E.catalog.innerHTML='';for(let i=0;i<12;i++){const d=document.createElement('div');d.className='catalogDot'+(i<S.solved?' got':'');d.textContent=i<S.solved?'✦':'·';E.catalog.appendChild(d)}}
+
+    function unlockAudio(){if(S.muted)return;if(!S.audio){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;S.audio=new AC()}if(S.audio.state==='suspended')S.audio.resume().catch(()=>{})}
+    function playTone(freq,dur,type='sine',delay=0,vol=.06){if(S.muted||!S.audio)return;const t=S.audio.currentTime+delay,o=S.audio.createOscillator(),g=S.audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g).connect(S.audio.destination);o.start(t);o.stop(t+dur+.02)}
+    function playSuccessChord(){playTone(440,.12,'sine',0,.05);playTone(554,.15,'sine',.055,.05);if(S.combo>=2)playTone(659,.18,'triangle',.11,.04);if(S.combo>=4)playTone(880,.23,'sine',.16,.035)}
+    function playWrong(){playTone(170,.16,'sawtooth',0,.045);playTone(125,.2,'square',.08,.03)}
+    function toggleMute(){S.muted=!S.muted;['#mute','#titleMute'].forEach(sel=>{$(sel).textContent=S.muted?'×':'♪';$(sel).setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기')});if(S.muted&&S.audio)S.audio.suspend().catch(()=>{});else unlockAudio()}
+    $('#mute').addEventListener('click',toggleMute);$('#titleMute').addEventListener('click',toggleMute);
+
+    function startGame(){E.title.classList.add('leave');E.onboard.classList.add('hidden');E.result.classList.add('hidden');E.game.classList.add('on');S.phase='playing';S.score=0;S.lives=3;S.level=1;S.solved=0;S.combo=0;S.bestCombo=0;S.sessionLeft=90;S.catalog.clear();S.deck={1:0,2:0,3:0};E.score.textContent='0';renderLives();renderCatalog();setupRound(1);safeSet('dotlight-mode',S.mode);}
+    function endGame(reason){if(S.phase!=='playing')return;S.phase='gameover';S.locked=true;const best=Math.max(Number(safeGet('dotlight-best',0)),S.score);safeSet('dotlight-best',best);safeSet('dotlight-combo',Math.max(Number(safeGet('dotlight-combo',0)),S.bestCombo));const title=reason==='time'?(S.solved>=12?'12식 원정 성공!':'수문 시간이 끝났어요'):'누수 3개, 폭포가 멈췄어요';$('#resultTitle').textContent=title;$('#resultStars').textContent=S.solved>=12?'★ ★ ★':S.solved>=6?'★ ★ ☆':'★ ☆ ☆';$('#resultScore').textContent='0';$('#resultStats').textContent=`생물 ${S.solved}마리 · 최장 물길 ${S.bestCombo}콤보 · 최고 ${best}점`;E.result.classList.remove('hidden');let shown=0,target=S.score,t0=performance.now();const count=now=>{const q=Math.min(1,(now-t0)/650);shown=Math.round(target*(1-(1-q)**3));$('#resultScore').textContent=shown.toLocaleString();if(q<1)requestAnimationFrame(count)};requestAnimationFrame(count)}
+    $('#retry').addEventListener('click',startGame);
+
+    const onboarding=[['숫자를 끼워요','흩어진 숫자 타일을 끌어 결과 리본의 빈 칸을 모두 채워요.'],['점 구슬을 놓아요','두 수의 소수 자릿수를 세고, 산호색 점 구슬을 정확한 틈에 꽂아요.'],['리본을 밀어요','완성한 리본을 위 수로로 밀어요. 점 구슬은 무게가 아니라 자릿값의 위치예요.']];
+    function showOnboarding(){S.onStep=0;renderOnboarding();E.onboard.classList.remove('hidden')}
+    function renderOnboarding(){const s=S.onStep;$('#onTitle').textContent=onboarding[s][0];$('#onText').textContent=onboarding[s][1];$('#stepDots').textContent=[0,1,2].map(i=>i===s?'●':'○').join(' ');$('#modeChoice').classList.toggle('hidden',s!==2);$('#onNext').textContent=s===2?'물길 열기!':'다음'}
+    $('#onNext').addEventListener('click',()=>{unlockAudio();if(S.onStep<2){S.onStep++;renderOnboarding()}else{safeSet('onboardingSeen:dotlight-falls','1');startGame()}});
+    $$('.mode').forEach(b=>b.addEventListener('click',()=>{S.mode=b.dataset.mode;$$('.mode').forEach(x=>x.classList.toggle('on',x===b))}));
+    $('#startBtn').addEventListener('click',()=>{unlockAudio();navigator.vibrate?.(18);if(safeGet('onboardingSeen:dotlight-falls','0')==='1'){S.mode=safeGet('dotlight-mode','explore');startGame()}else showOnboarding()});$('#howBtn').addEventListener('click',showOnboarding);
+
+    function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);S.stageW=Math.min(W,1280);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');const dpr=Math.min(devicePixelRatio||1,2);E.canvas.width=Math.round(W*dpr);E.canvas.height=Math.round(H*dpr);E.canvas.style.width=W+'px';E.canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);if(!S.ambient.length)for(let i=0;i<90;i++)S.ambient.push({x:Math.random()*W,y:Math.random()*H,r:1+Math.random()*2,s:.15+Math.random()*.45,ph:Math.random()*6.28});}
+    addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));layout();
+    E.titleImg.onerror=()=>{E.titleImg.style.display='none';E.titleImg.parentElement.style.background='radial-gradient(circle at 50% 55%,#ff9b7c,#fff7e8 42%,#d8c7aa)'};E.bg.onerror=()=>{E.bg.style.display='none'};E.mascot.onerror=()=>{E.mascot.style.display='none'};
+
+    function burst(x,y,count,good){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,sp=80+Math.random()*180;S.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-(good?90:0),life:.55+Math.random()*.45,max:1,r:2+Math.random()*5,good})}}
+    function draw(now,dt){const W=innerWidth,H=innerHeight;ctx.clearRect(0,0,W,H);ctx.save();if(S.land&&S.stageW<W-2){ctx.fillStyle='rgba(32,36,42,.12)';ctx.fillRect(0,0,S.stageX,H);ctx.fillRect(S.stageX+S.stageW,0,W-S.stageX-S.stageW,H)}ctx.globalAlpha=.24;for(const a of S.ambient){a.y+=a.s*dt*28;if(a.y>H+5)a.y=-5;const x=a.x+Math.sin(now*.0007+a.ph)*10;ctx.fillStyle=(Math.floor(a.ph*10)%7===0)?'#ff4b2b':'#20242a';ctx.beginPath();ctx.arc(x,a.y,a.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;if(S.wave>0){const cx=S.land?S.stageX+S.stageW*.56:W*.5,base=H*(S.land?.38:.46);for(let i=0;i<160;i++){const col=i%20,row=Math.floor(i/20),x=cx+(col-9.5)*(S.land?20:13),y=base+(row-3.5)*12+Math.sin(col*.7+now*.008+row)*8*S.wave;ctx.fillStyle=i%9===0?'#ff4b2b':'#20242a';ctx.globalAlpha=.18+.3*Math.max(0,S.wave);ctx.beginPath();ctx.arc(x,y,1.5+(i%3),0,Math.PI*2);ctx.fill()}S.wave=Math.max(0,S.wave-dt*.8)}ctx.globalAlpha=1;for(let i=S.particles.length-1;i>=0;i--){const p=S.particles[i];p.life-=dt;p.vy+=170*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.life<=0){S.particles.splice(i,1);continue}ctx.globalAlpha=Math.min(1,p.life*2);ctx.fillStyle=p.good?'#ff4b2b':'#20242a';ctx.beginPath();if(p.good){ctx.arc(p.x,p.y,p.r,0,Math.PI*2)}else{ctx.rect(p.x-p.r,p.y-p.r,p.r*2,p.r*2)}ctx.fill()}ctx.restore()}
+    function loop(now){let dt=Math.min(.05,(now-S.last)/1000||0);S.last=now;if(now<S.hitStopUntil)dt*=.05;else S.timeScale=1;if(S.phase==='playing'){S.sessionLeft-=dt;S.roundLeft-=dt;E.time.textContent=`${Math.floor(Math.max(0,S.sessionLeft)/60)}:${String(Math.floor(Math.max(0,S.sessionLeft)%60)).padStart(2,'0')}`;E.timerText.textContent=Math.max(0,S.roundLeft).toFixed(1)+'초';const ratio=Math.max(0,S.roundLeft/S.roundMax);E.timerFill.style.transform=`scaleX(${ratio})`;E.gate.style.transform=`scaleY(${1-ratio})`;if(S.roundLeft<=0&&!S.locked){S.locked=true;handleWrong('timeout')}if(S.sessionLeft<=0)endGame('time')}draw(now,dt);requestAnimationFrame(loop)}requestAnimationFrame(loop);
+
+    const best=Number(safeGet('dotlight-best',0));if(best>0){$('#bestTitle').textContent=`최고 기록 ${best.toLocaleString()}점`;$('#bestTitle').classList.remove('hidden')}renderCatalog();
+
+    function sampleProblems(n){const all=[...POOLS[1],...POOLS[2],...POOLS[3]],out=[];const offset=(n*17+13)%all.length;for(let i=0;i<n;i++){const p=all[(offset+i*37)%all.length];out.push({id:p.id,prompt:p.prompt,choices:p.choices.slice(),answer:p.answer,answerNumeric:p.answerNumeric,unitConcept:p.unitConcept})}return out}
+    // 실제 조립 판정과 같은 확률 구조를 사용한 퇴화 전략 자가 시험용 추가 훅.
+    function botTrial(type,seed){let lives=3,solved=0,score=0;for(let step=0;step<40&&lives>0&&solved<12;step++){const p=POOLS[1+(step>=10)+(step>=22)][(seed*31+step*17)%POOLS[1+(step>=10)+(step>=22)].length];const bank=buildTileDigits(p);let made='',gap=-1;if(type==='none'){lives--;continue}for(let i=0;i<p.digits.length;i++){let idx=0;if(type==='cycle')idx=(step+i)%bank.length;else if(type==='random')idx=Math.floor(((Math.sin(seed*99+step*13+i*7)+1)/2)*bank.length)%bank.length;made+=bank[idx]}gap=type==='same'?0:type==='cycle'?step%(made.length+1):Math.floor(((Math.sin(seed*41+step*19)+1)/2)*(made.length+1))%(made.length+1);const key=exactKey(Number(made),made.length-gap);if(key===exactKey(p.I,p.p)){solved++;score+=100}else lives--}return{completed:solved>=12,score,solved}}
+    window.__GAME_TEST__={ready:true,start(){startGame()},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase!=='playing')startGame();S.locked=true;handleCorrect(true)},answerWrong(){if(S.phase!=='playing')startGame();S.locked=true;handleWrong('test','9.99')},sampleProblems,botTrial,getLayout(){return{land:S.land,playW:S.land?Math.round(S.stageW*.56):innerWidth}}};
+  })();
+  </script>
+</body>
+</html>
