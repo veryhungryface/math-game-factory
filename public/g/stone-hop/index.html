@@ -10,78 +10,109 @@
 <meta name="twitter:card" content="summary_large_image">
 <style>
 :root{
-  --mint:#D4EDE6; --teal:#0F6E62; --ver:#E24A1C; --ink:#3A3A38; --gold:#F2B705;
+  /* 축 A 종이공작·보드게임 — 크라프트 판지 + 가위로 오린 색종이 + 잉크 빨강 1색 */
+  --kraft:#C39A6B; --kraft-d:#A2794C; --kraft-dd:#7E5A34; --kraft-l:#D8B78E;
+  --card:#EFE6D2; --card-d:#D2C0A0; --card-s:#C0AC88; --cut:#F9F4E7;
+  --sage:#AEBB9B; --moss:#8FA378; --moss-d:#6E8455; --moss-dd:#55693F;
+  --ink:#3B3026; --ink-l:#6E5C48; --red:#C2202A; --red-d:#8E1119; --tape:#E4D4AC;
+  --paper-sh:rgba(94,68,40,.30);
+  /* 인게임 표시용 서체 — 타이틀 로고와 같은 Jua 를 숫자·팻말·버튼까지 확장 (시스템 스택 단독 탈피) */
+  --display:"LogoJua","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
   --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
   --colW:min(100vw,640px); --colX:calc((100vw - var(--colW)) / 2);
-  /* 로고 서체 다양화: T4 점프 아치 — 평평한 2색 면 + 깊은 물빛 외곽선 */
-  --logo-face:#FFE45C; --logo-face-2:#FFB020; --logo-outline:#123A33; --logo-splash:#8FE3D0;
+  /* 로고 서체 다양화: T4 점프 아치 유지 — 색만 종이공작 팔레트로 (오려낸 크림 판지 + 잉크 빨강 밑면) */
+  --logo-face:#F4EAD3; --logo-face-2:#DFCCA6; --logo-outline:#3B3026; --logo-splash:#C2202A;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:#0a3d38;color:var(--ink);
+html,body{width:100%;height:100%;overflow:hidden;background:#B98F60;color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
   touch-action:none;overscroll-behavior:none}
 #cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;touch-action:none}
 .hidden{display:none !important;visibility:hidden !important;pointer-events:none !important}
 
+/* ── HUD: 알약 칩 폐기 → 판지 탭 · 마스킹테이프 · 오린 종이 라벨 ───────────── */
 #hud{position:fixed;top:0;left:var(--colX);width:var(--colW);z-index:3;
-  padding:calc(8px + var(--safeT)) 10px 0;pointer-events:none}
-.row{display:flex;align-items:center;gap:6px}
-.pill{background:rgba(15,110,98,.88);border:2px solid rgba(242,183,5,.6);border-radius:14px;
-  padding:6px 10px;font-weight:900;font-size:13px;color:#fff8e8;white-space:nowrap;line-height:1.1;
-  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.25),0 3px 0 rgba(8,40,36,.45)}
-#scoreV{font-size:clamp(20px,5.4vw,26px);color:#fff8e8;display:inline-block;font-variant-numeric:tabular-nums;
-  font-weight:900;transition:transform .16s cubic-bezier(.34,1.7,.5,1)}
-#scoreV.punch{transform:scale(1.28)}
-#comboP{background:rgba(226,74,28,.92);border-color:#F2B705;opacity:0;
-  transition:opacity .2s,transform .16s cubic-bezier(.34,1.7,.5,1)}
+  padding:calc(9px + var(--safeT)) 11px 0;pointer-events:none}
+.row{display:flex;align-items:center;gap:7px}
+/* 판지 탭 — 반경 3px, 위쪽은 가위로 자른 흰 단면, 그림자는 대각 오프셋 (광택 없음) */
+.tab{position:relative;background:var(--card);border:1.5px solid var(--card-s);border-top:2.5px solid var(--cut);
+  border-radius:3px;
+  padding:5px 10px 6px;font-weight:800;font-size:13px;color:var(--ink);white-space:nowrap;line-height:1.1;
+  box-shadow:2px 3px 0 var(--paper-sh)}
+#scoreV{font-family:var(--display);font-size:clamp(19px,5vw,25px);color:var(--ink);display:inline-block;font-variant-numeric:tabular-nums;
+  font-weight:800;transition:transform .16s cubic-bezier(.34,1.7,.5,1)}
+#scoreV.punch{transform:scale(1.22)}
+#comboP{font-family:var(--display);background:var(--red);border-color:var(--red-d);border-top-color:#E8767C;color:#FFF3E4;opacity:0;
+  transform:rotate(-2deg);transition:opacity .2s,transform .16s cubic-bezier(.34,1.7,.5,1)}
 #comboP.on{opacity:1}
-#comboP.punch{transform:scale(1.2)}
-#hearts{display:flex;gap:4px;margin-left:auto;align-items:center}
-.hp{width:18px;height:18px;font-size:16px;line-height:18px;transition:transform .35s cubic-bezier(.34,1.7,.5,1),opacity .35s}
-.hp.off{opacity:.22;transform:scale(.62) rotate(28deg)}
-#muteBtn,.icon-btn{pointer-events:auto;width:44px;height:44px;min-width:44px;border-radius:14px;
-  border:2px solid rgba(242,183,5,.5);background:rgba(15,110,98,.88);color:#fff6e2;
-  font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;
-  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.2),0 3px 0 rgba(8,40,36,.4)}
-#muteBtn:active,.icon-btn:active,.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(8,40,36,.4)}
-#contract{margin-top:5px;font-size:11px;font-weight:800;color:#1a2e2b;background:rgba(212,237,230,.94);
-  border:2px solid #0F6E62;border-radius:10px;padding:5px 8px;line-height:1.25;word-break:keep-all;
-  box-shadow:inset 0 1px 0 #fff,0 2px 0 rgba(15,110,98,.25)}
-#sign{margin-top:6px;background:linear-gradient(180deg,#fff8e4,#f3e2b0);border:3px solid #3A3A38;border-radius:16px;
-  padding:8px 10px 9px;text-align:center;box-shadow:0 4px 0 #3A3A38,inset 0 2px 0 #fff}
-#sign .k{display:block;font-size:11px;font-weight:800;color:#0F6E62;margin-bottom:2px}
-#sign .p{display:block;font-size:clamp(18px,5.2vw,24px);font-weight:900;color:#1a1a18;letter-spacing:-.03em;word-break:keep-all;line-height:1.25}
-#timerBar{height:6px;border-radius:99px;background:rgba(58,58,56,.18);margin-top:6px;overflow:hidden}
-#timerBar>i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#F2B705,#E24A1C);border-radius:99px;transform-origin:left center}
+#comboP.punch{transform:rotate(-2deg) scale(1.16)}
+/* 목숨 = 남은 종이 말(meeple) 토큰. 쓰면 뒤집혀 눕는다 */
+#hearts{display:flex;gap:5px;margin-left:auto;align-items:center}
+.hp{width:15px;height:19px;background:var(--red);
+  clip-path:polygon(50% 0%,64% 11%,64% 25%,100% 40%,100% 56%,72% 50%,79% 100%,57% 100%,50% 76%,43% 100%,21% 100%,28% 50%,0% 56%,0% 40%,36% 25%,36% 11%);
+  transform:rotate(-4deg);transition:transform .35s cubic-bezier(.34,1.7,.5,1),opacity .35s,background .3s}
+.hp.off{background:var(--kraft-dd);opacity:.34;transform:rotate(72deg) scale(.8)}
+/* 판지 버튼 — 눌리면 종이가 살짝 밀린다 */
+#muteBtn,.icon-btn{pointer-events:auto;width:44px;height:44px;min-width:44px;border-radius:4px;
+  border:1.5px solid var(--card-s);border-top:2.5px solid var(--cut);background:var(--card);color:var(--ink);
+  font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:2px 3px 0 var(--paper-sh)}
+#muteBtn:active,.icon-btn:active,.btn:active{transform:translate(1px,2px);box-shadow:1px 1px 0 var(--paper-sh)}
+/* 규칙 라벨 — 크라프트 띠지 */
+#contract{margin-top:7px;font-size:11px;font-weight:800;color:#4A3B29;background:var(--kraft-l);
+  border:1.5px solid var(--kraft-dd);border-radius:2px;padding:5px 8px;line-height:1.25;word-break:keep-all;
+  box-shadow:2px 3px 0 rgba(94,68,40,.22)}
+/* 팻말 = 판에 마스킹테이프로 붙인 크림 판지 카드 */
+#sign{position:relative;margin-top:13px;background:var(--card);border:1.5px solid var(--card-s);border-radius:2px;
+  padding:11px 12px 10px;text-align:center;box-shadow:3px 4px 0 var(--paper-sh);
+  background-image:repeating-linear-gradient(94deg,rgba(120,95,60,.05) 0 1px,transparent 1px 6px)}
+#sign::before,#sign::after{content:"";position:absolute;top:-10px;width:56px;height:18px;
+  background:var(--tape);opacity:.94;
+  clip-path:polygon(0 8%,7% 0,18% 9%,30% 1%,44% 8%,58% 1%,72% 9%,86% 2%,100% 9%,100% 92%,88% 100%,74% 92%,60% 99%,45% 91%,31% 99%,17% 92%,6% 100%,0 92%)}
+#sign::before{left:12px;transform:rotate(-5deg)}
+#sign::after{right:12px;transform:rotate(4deg)}
+#sign .k{font-family:var(--display);display:block;font-size:11px;font-weight:800;color:var(--red);letter-spacing:.04em;margin-bottom:3px}
+#sign .p{font-family:var(--display);display:block;font-size:clamp(18px,5.2vw,24px);font-weight:800;color:var(--ink);letter-spacing:-.02em;
+  word-break:keep-all;line-height:1.25}
+/* 남은 시간 = 잘려 나가는 잉크 빨강 종이 띠 (라운딩 0, 자른 단면이 위에 흰 선) */
+#timerBar{height:10px;background:var(--kraft-dd);margin-top:9px;overflow:hidden;
+  border:1px solid rgba(70,50,28,.45);box-shadow:1px 2px 0 rgba(94,68,40,.22)}
+#timerBar>i{display:block;height:100%;width:100%;background:var(--red);
+  border-top:2px solid rgba(255,248,232,.62);transform-origin:left center}
 
 #title{
   --title-col:min(100vw,640px);
   display:none;position:fixed;inset:0;min-height:100svh;height:100dvh;
-  padding:0;overflow:hidden;isolation:isolate;background:#0a3d38;z-index:12}
+  padding:0;overflow:hidden;isolation:isolate;background:#B98F60;z-index:12}
 #title.is-on{display:block}
-.title-art{--art-x:50%;--art-y:52%;--art-scale:1.02;
-  position:absolute;inset:0;z-index:0;overflow:hidden;
-  background:linear-gradient(180deg,#7fd4c8 0%,#1a8a7c 42%,#0F6E62 100%)}
-.title-art.fallback{background:linear-gradient(180deg,#9ee0d4 0%,#2aa090 40%,#0F6E62 100%)}
+.title-art{--art-x:50%;--art-y:56%;--art-scale:1.02;
+  position:absolute;inset:0;z-index:0;overflow:hidden;background:#B98F60}
+.title-art.fallback{background:
+  repeating-linear-gradient(90deg,rgba(110,80,48,.09) 0 1px,transparent 1px 5px),
+  linear-gradient(180deg,#CBA476 0%,#BE9264 46%,#8FA378 47%,#6E8455 100%)}
 .title-art__image{width:100%;height:100%;display:block;object-fit:cover;
   object-position:var(--art-x) var(--art-y);transform:scale(var(--art-scale));
-  filter:saturate(1.06) contrast(1.03);animation:art-breathe 20s ease-in-out infinite alternate}
+  animation:art-breathe 26s ease-in-out infinite alternate}
 .title-art__scrim,.title-art__vignette{position:absolute;inset:0;z-index:1;pointer-events:none}
-.title-art__scrim{background:linear-gradient(180deg,rgba(8,40,36,.52) 0%,rgba(8,40,36,.12) 24%,rgba(8,40,36,.02) 48%,rgba(8,40,36,.16) 70%,rgba(8,40,36,.78) 100%)}
-.title-art__vignette{background:linear-gradient(90deg,rgba(6,28,26,.42) 0%,transparent 14%,transparent 86%,rgba(6,28,26,.42) 100%),
-  radial-gradient(ellipse at center,transparent 54%,rgba(6,28,26,.46) 112%);mix-blend-mode:multiply}
-@keyframes art-breathe{from{transform:scale(var(--art-scale))}to{transform:scale(calc(var(--art-scale) + .035)) translate3d(0,-0.6%,0)}}
+/* 종이 위에 드리운 얕은 스튜디오 그림자 — 회화용 어두운 스크림이 아니다 */
+.title-art__scrim{background:linear-gradient(180deg,rgba(74,54,32,.26) 0%,rgba(74,54,32,.05) 20%,
+  rgba(74,54,32,0) 44%,rgba(60,44,26,.14) 70%,rgba(48,34,20,.62) 100%)}
+.title-art__vignette{background:linear-gradient(90deg,rgba(70,50,30,.22) 0%,transparent 13%,transparent 87%,rgba(70,50,30,.22) 100%);
+  mix-blend-mode:multiply}
+@keyframes art-breathe{from{transform:scale(var(--art-scale))}to{transform:scale(calc(var(--art-scale) + .022))}}
+/* 오려낸 종이 부스러기가 팔랑팔랑 — 반짝이 먼지가 아니다 */
 .title-dust{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
-.title-dust i{position:absolute;width:7px;height:7px;border-radius:50%;background:rgba(255,248,220,.55);
-  animation:dust 11s linear infinite}
-.title-dust i:nth-child(1){left:12%;top:70%;animation-duration:13s}
-.title-dust i:nth-child(2){left:28%;top:82%;width:5px;height:5px;animation-duration:9s}
-.title-dust i:nth-child(3){left:63%;top:76%;animation-duration:15s}
-.title-dust i:nth-child(4){left:81%;top:64%;width:6px;height:6px;animation-duration:12s}
-.title-dust i:nth-child(5){left:47%;top:88%;animation-duration:10s}
-@keyframes dust{0%{transform:translateY(0) scale(1);opacity:.2}50%{opacity:.7}100%{transform:translateY(-42vh) scale(.6);opacity:0}}
+.title-dust i{position:absolute;width:11px;height:8px;background:#F2E9D3;border-radius:1px;
+  box-shadow:1px 1px 0 rgba(80,58,34,.28);animation:scrap 13s linear infinite}
+.title-dust i:nth-child(1){left:11%;top:74%;animation-duration:15s}
+.title-dust i:nth-child(2){left:27%;top:86%;width:8px;height:6px;background:#AEBB9B;animation-duration:11s}
+.title-dust i:nth-child(3){left:62%;top:80%;animation-duration:17s}
+.title-dust i:nth-child(4){left:82%;top:68%;width:9px;height:7px;background:#D8B78E;animation-duration:14s}
+.title-dust i:nth-child(5){left:46%;top:90%;width:7px;height:6px;background:#C2202A;animation-duration:12s}
+@keyframes scrap{0%{transform:translateY(0) rotate(0deg);opacity:0}
+  10%{opacity:.9}70%{opacity:.75}100%{transform:translateY(-46vh) rotate(300deg);opacity:0}}
 
 .title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
   padding-inline:clamp(16px,5vw,32px);padding-top:var(--safeT);padding-bottom:var(--safeB);pointer-events:none}
@@ -99,17 +130,20 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a3d38;color:var(--
   color:transparent;background:linear-gradient(168deg,var(--logo-face) 0%,var(--logo-face) 52%,var(--logo-face-2) 100%);
   -webkit-background-clip:text;background-clip:text;
   -webkit-text-stroke:clamp(5px,1.5vw,9px) var(--logo-outline);paint-order:stroke fill;
-  filter:drop-shadow(0 5px 0 var(--logo-splash)) drop-shadow(0 9px 10px rgba(6,32,28,.55));
+  filter:drop-shadow(0 5px 0 var(--logo-splash)) drop-shadow(3px 9px 0 rgba(70,50,28,.42));
   transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s));transform-origin:50% 100%;
   animation:logo-hop-in 620ms cubic-bezier(.24,1.4,.4,1) both;animation-delay:calc(var(--i,0)*135ms)}
 .game-logo>span:nth-child(1){--i:0}.game-logo>span:nth-child(2){--i:1}.game-logo>span:nth-child(3){--i:2}
-.game-subtitle{margin:14px auto 0;padding:5px 13px 6px;border:1px solid rgba(255,255,255,.34);border-radius:999px;
-  color:#fff8df;background:rgba(12,40,36,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 5px 14px rgba(0,0,0,.24);
-  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+/* 부제 = 판지에 붙인 마스킹테이프 라벨 (유리 알약 폐기) */
+.game-subtitle{position:relative;margin:16px auto 0;padding:6px 15px 7px;border:0;border-radius:1px;
+  color:#4A3B29;background:var(--tape);box-shadow:2px 3px 0 rgba(60,42,24,.34);
   font:400 clamp(14px,4.1vw,18px)/1.2 "LogoJua","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
-  letter-spacing:0;text-shadow:0 2px 4px rgba(0,0,0,.72);
+  letter-spacing:0;transform:rotate(-1.6deg);
+  clip-path:polygon(0 6%,6% 0,17% 8%,29% 1%,43% 8%,57% 1%,71% 8%,85% 1%,100% 7%,100% 93%,87% 100%,73% 92%,59% 99%,44% 91%,30% 99%,16% 92%,5% 100%,0 93%);
   animation:logo-subtitle-in 420ms 700ms ease-out both;width:max-content}
-.title-unit{margin:8px 0 0;font-size:12px;font-weight:700;color:rgba(255,246,228,.78);text-shadow:0 1px 3px #000}
+.title-unit{margin:12px auto 0;width:max-content;padding:4px 11px 5px;border-radius:2px;
+  background:rgba(59,48,38,.82);color:#F7F2E4;font-size:12.5px;font-weight:800;letter-spacing:.01em;
+  box-shadow:2px 3px 0 rgba(48,34,20,.34)}
 /* 아래에서 폴짝 뛰어올라 착지 — 위에서 떨어지는 낙하가 아니다 */
 @keyframes logo-hop-in{
   0%{opacity:0;transform:translateY(calc(var(--y) + .55em)) rotate(calc(var(--r) - 16deg)) scale(calc(var(--s)*.6))}
@@ -117,116 +151,129 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a3d38;color:var(--
   80%{transform:translateY(calc(var(--y) + .05em)) rotate(var(--r)) scale(calc(var(--s)*.95)) scaleY(.9)}
   100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(var(--s))}}
 @keyframes logo-subtitle-in{from{opacity:0;transform:translateY(-8px) scale(.92)}to{opacity:1;transform:none}}
-
 .title-cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
-  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
-.title-meta{min-height:30px;padding:6px 12px;border:1px solid rgba(255,255,255,.24);border-radius:999px;
-  color:rgba(255,255,255,.92);background:rgba(5,20,18,.42);backdrop-filter:blur(5px);
-  font-size:12px;font-weight:800;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  transform:translateX(-50%);display:grid;justify-items:center;gap:9px;pointer-events:auto}
+.title-meta{min-height:30px;padding:6px 12px;border:1.5px solid var(--kraft-dd);border-radius:2px;
+  color:#4A3B29;background:var(--kraft-l);box-shadow:2px 3px 0 rgba(60,42,24,.34);
+  font-size:12px;font-weight:800;line-height:1.15;transform:rotate(-1.2deg)}
 .title-meta[hidden]{display:none}
-.title-start{--cta-top:#fff27a;--cta-mid:#ffc62f;--cta-bottom:#ff8b1f;--cta-border:#54220d;--cta-depth:#a93d13;--cta-ink:#3b1907;
-  position:relative;width:min(100%,420px);min-height:68px;padding:0 28px;border:4px solid var(--cta-border);
-  border-radius:22px;appearance:none;cursor:pointer;color:var(--cta-ink);
-  background:linear-gradient(180deg,rgba(255,255,255,.58) 0 2px,transparent 2px 100%),
-    linear-gradient(180deg,var(--cta-top) 0%,var(--cta-mid) 49%,var(--cta-bottom) 100%);
-  box-shadow:0 7px 0 var(--cta-depth),0 10px 0 var(--cta-border),0 17px 26px rgba(0,0,0,.38),
-    inset 0 3px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(154,48,8,.2);
-  font-family:inherit;font-size:clamp(21px,5.8vw,27px);font-weight:900;letter-spacing:-.03em;
-  text-shadow:0 2px 0 rgba(255,255,255,.38);transform-origin:50% 100%;
-  animation:cta-pulse 2.4s ease-in-out 1.2s infinite;touch-action:manipulation}
-.title-start::after{content:"";position:absolute;inset:5px 9px auto;height:19px;border-radius:999px;
-  background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0));pointer-events:none}
+/* 시작 버튼 = 판지에서 뜯어낸 펀치아웃 카드. 광택·금색 그라디언트 폐기 */
+.title-start{position:relative;width:min(100%,420px);min-height:68px;padding:0 26px;
+  border:1.5px solid var(--card-s);border-radius:4px;appearance:none;cursor:pointer;
+  color:var(--ink);background:var(--card);
+  background-image:repeating-linear-gradient(94deg,rgba(120,95,60,.055) 0 1px,transparent 1px 6px);
+  box-shadow:3px 4px 0 var(--red);
+  font-family:var(--display);font-size:clamp(21px,5.8vw,27px);font-weight:400;letter-spacing:-.01em;
+  transform-origin:50% 100%;animation:cta-tilt 3.4s ease-in-out 1.2s infinite;touch-action:manipulation}
+/* 뜯어낸 자리를 표시하는 점선 절취선 */
+.title-start::after{content:"";position:absolute;inset:6px 8px;border:1.5px dashed rgba(94,68,40,.30);
+  border-radius:2px;pointer-events:none}
 .title-start>span{position:relative;z-index:1}
-.title-start:active,.title-start.is-pressed{transform:translateY(7px) scale(.985);
-  box-shadow:0 1px 0 var(--cta-depth),0 3px 0 var(--cta-border),0 7px 13px rgba(0,0,0,.3);animation-play-state:paused}
-.title-start:focus-visible,.title-howto:focus-visible,.title-mute:focus-visible{outline:4px solid #fff;outline-offset:4px}
-@keyframes cta-pulse{0%,72%,100%{transform:translateY(0) scale(1)}80%{transform:translateY(-2px) scale(1.025)}
-  88%{transform:none}94%{transform:translateY(-1px) scale(1.012)}}
-.title-howto{min-height:44px;min-width:44px;padding:7px 10px;border:0;color:rgba(255,255,255,.86);background:transparent;
-  font:700 12px/1.2 sans-serif;text-decoration:underline;text-decoration-color:rgba(255,255,255,.35);
-  text-underline-offset:4px;text-shadow:0 2px 5px rgba(0,0,0,.85);cursor:pointer}
+.title-start:active,.title-start.is-pressed{transform:translate(2px,3px);
+  box-shadow:1px 1px 0 var(--red);animation-play-state:paused}
+.title-start:focus-visible,.title-howto:focus-visible,.title-mute:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
+@keyframes cta-tilt{0%,74%,100%{transform:rotate(0deg)}82%{transform:rotate(-.9deg) translateY(-2px)}91%{transform:rotate(.5deg)}}
+.title-howto{min-height:44px;min-width:44px;padding:7px 10px;border:0;color:#FFF3E0;background:transparent;
+  font:800 12px/1.2 sans-serif;text-decoration:underline;text-decoration-color:rgba(255,243,224,.45);
+  text-underline-offset:4px;text-shadow:0 2px 4px rgba(48,34,20,.9);cursor:pointer}
 .title-mute{position:absolute;z-index:4;top:max(10px,var(--safeT));
   right:max(12px,calc((100vw - min(100vw,640px)) / 2 + 12px));
-  width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.18);
-  border-radius:50%;color:#fff;background:rgba(0,0,0,.28);backdrop-filter:blur(5px);font-size:21px;cursor:pointer}
+  width:44px;height:44px;display:grid;place-items:center;padding:0;
+  border:1.5px solid var(--card-s);border-top:2.5px solid var(--cut);border-radius:4px;color:var(--ink);background:var(--card);
+  box-shadow:2px 3px 0 rgba(60,42,24,.34);cursor:pointer}
 
 #onb{position:fixed;inset:0;z-index:20;pointer-events:auto}
-#onbHole{position:absolute;border-radius:18px;border:3px solid #F2B705;
-  box-shadow:0 0 0 9999px rgba(8,40,36,.78),0 0 0 6px rgba(242,183,5,.22) inset}
-#onbCard{position:absolute;left:50%;transform:translateX(-50%);width:min(calc(100vw - 32px),420px);
-  background:linear-gradient(180deg,#fff8ea,#f3e2b8);border:3px solid #3A3A38;border-radius:22px;
-  box-shadow:0 8px 0 #3A3A38,0 18px 34px rgba(0,0,0,.45);padding:14px 15px 15px;text-align:left}
-#onbNum{display:inline-block;font-size:11px;font-weight:900;background:#F2B705;border-radius:8px;padding:3px 9px}
-#onbTitle{margin:8px 0 5px;font-size:19px;font-weight:900;color:#E24A1C}
-#onbBody{margin:0;font-size:13.5px;font-weight:700;line-height:1.5;color:#3A3A38}
-#onbNext{width:100%;min-height:52px;margin-top:10px;border:2.5px solid #3A3A38;border-radius:16px;
-  cursor:pointer;font-family:inherit;font-size:17px;font-weight:900;background:linear-gradient(180deg,#fff27a,#ff8b1f);
-  box-shadow:0 5px 0 #3A3A38}
+/* 강조 구멍 = 가위로 오려낸 자리 (점선 절취선) */
+#onbHole{position:absolute;border-radius:3px;border:2.5px dashed var(--cut);
+  box-shadow:0 0 0 9999px rgba(52,38,22,.74)}
+#onbCard{position:absolute;left:50%;transform:translateX(-50%) rotate(-.7deg);width:min(calc(100vw - 32px),420px);
+  background:var(--card);border:1.5px solid var(--card-s);border-top:3px solid var(--cut);border-radius:3px;
+  box-shadow:4px 6px 0 rgba(52,38,22,.5);padding:15px 15px 15px;text-align:left;
+  background-image:repeating-linear-gradient(94deg,rgba(120,95,60,.05) 0 1px,transparent 1px 6px)}
+#onbNum{display:inline-block;font-size:11px;font-weight:800;color:#FFF3E4;background:var(--red);
+  border-radius:2px;padding:3px 9px}
+#onbTitle{font-family:var(--display);margin:9px 0 5px;font-size:19px;font-weight:800;color:var(--ink)}
+#onbBody{margin:0;font-size:13.5px;font-weight:700;line-height:1.55;color:#4A3B29}
+#onbNext{width:100%;min-height:52px;margin-top:12px;border:1.5px solid var(--card-s);border-top:3px solid var(--cut);
+  border-radius:3px;cursor:pointer;font-family:var(--display);font-size:17px;font-weight:400;color:var(--ink);
+  background:var(--kraft-l);box-shadow:3px 4px 0 var(--red)}
 
 #map{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;
-  background:rgba(8,40,36,.72);backdrop-filter:blur(4px);padding:12px}
-#map .card{width:min(100%,440px);max-height:calc(100dvh - 24px);overflow:auto;background:linear-gradient(180deg,#fff8ea,#e7dcc4);
-  border:3px solid #3A3A38;border-radius:24px;padding:16px 14px 14px;box-shadow:0 8px 0 #3A3A38;
-  display:flex;flex-direction:column;gap:8px}
-#map h2{font-size:22px;font-weight:900;color:#0F6E62}
-.modeRow{display:flex;gap:6px}
-.modeBtn{flex:1;min-height:44px;border-radius:14px;border:2.5px solid #3A3A38;background:#fff;
-  font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 3px 0 #3A3A38}
-.modeBtn.on{background:linear-gradient(180deg,#fff27a,#F2B705)}
-.pier{min-height:52px;border-radius:16px;border:2.5px solid #3A3A38;background:linear-gradient(180deg,#fff,#eadfcb);
-  font-family:inherit;font-weight:900;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
-  padding:0 12px;box-shadow:0 4px 0 #3A3A38;text-align:left}
-.pier:active{transform:translateY(3px);box-shadow:0 1px 0 #3A3A38}
-.pier[disabled]{opacity:.45;filter:grayscale(.4);cursor:default;transform:none}
-.pier .st{color:#E24A1C;font-size:15px;margin-left:8px;white-space:nowrap}
-.backLink{min-height:44px;border:0;background:transparent;font:800 13px/1 sans-serif;color:#0F6E62;cursor:pointer;text-decoration:underline}
+  background:rgba(52,38,22,.66);padding:12px}
+#map .card{width:min(100%,440px);max-height:calc(100dvh - 24px);overflow:auto;background:var(--card);
+  border:1.5px solid var(--card-s);border-top:3px solid var(--cut);border-radius:3px;padding:16px 14px 14px;
+  box-shadow:5px 7px 0 rgba(52,38,22,.5);display:flex;flex-direction:column;gap:9px;
+  background-image:repeating-linear-gradient(94deg,rgba(120,95,60,.045) 0 1px,transparent 1px 6px)}
+#map h2{font-family:var(--display);font-size:22px;font-weight:800;color:var(--ink)}
+.modeRow{display:flex;gap:7px}
+.modeBtn{flex:1;min-height:44px;border-radius:3px;border:1.5px solid var(--card-s);border-top:2.5px solid var(--cut);
+  background:#F7F2E4;color:var(--ink);font-family:var(--display);font-weight:400;font-size:13.5px;cursor:pointer;
+  box-shadow:2px 3px 0 var(--paper-sh)}
+.modeBtn.on{background:var(--red);color:#FFF3E4;border-color:var(--red-d);border-top-color:#E8767C;
+  box-shadow:2px 3px 0 rgba(78,14,20,.45)}
+/* 연못 = 판지에서 뜯는 말판 칸 */
+.pier{min-height:52px;border-radius:3px;border:1.5px solid var(--card-s);border-top:2.5px solid var(--cut);
+  background:var(--kraft-l);color:var(--ink);font-family:var(--display);font-weight:400;font-size:14.5px;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;padding:0 12px;
+  box-shadow:3px 4px 0 var(--paper-sh);text-align:left}
+.pier:active{transform:translate(2px,3px);box-shadow:1px 1px 0 var(--paper-sh)}
+.pier[disabled]{opacity:.42;filter:grayscale(.5);cursor:default;transform:none}
+.pier .st{color:var(--red);font-size:15px;margin-left:8px;white-space:nowrap;letter-spacing:.06em}
+.backLink{min-height:44px;border:0;background:transparent;font:800 13px/1 sans-serif;color:var(--ink-l);cursor:pointer;text-decoration:underline}
 
 #why{position:fixed;inset:0;z-index:11;display:flex;align-items:flex-end;justify-content:center;
-  background:rgba(8,40,36,.55);padding:12px 12px calc(16px + var(--safeB))}
-#why .card{width:min(100%,420px);background:linear-gradient(180deg,#fff8ea,#f3e2b8);border:3px solid #3A3A38;
-  border-radius:22px;padding:16px;box-shadow:0 8px 0 #3A3A38;display:flex;flex-direction:column;gap:8px}
-#why h3{text-align:center;font-size:18px;color:#E24A1C}
-.whyBtn{min-height:52px;border-radius:15px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;
-  color:#3A3A38;text-align:left;padding:10px 12px;line-height:1.3;
-  background:linear-gradient(180deg,#fff8ea,#eadfcb);border:2.5px solid #3A3A38;box-shadow:0 4px 0 #3A3A38}
-.whyBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #3A3A38}
+  background:rgba(52,38,22,.5);padding:12px 12px calc(16px + var(--safeB))}
+#why .card{width:min(100%,420px);background:var(--card);border:1.5px solid var(--card-s);border-top:3px solid var(--cut);
+  border-radius:3px;padding:16px;box-shadow:4px 6px 0 rgba(52,38,22,.5);display:flex;flex-direction:column;gap:9px}
+#why h3{font-family:var(--display);text-align:center;font-size:18px;font-weight:800;color:var(--ink)}
+.whyBtn{min-height:52px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:800;
+  color:var(--ink);text-align:left;padding:10px 12px;line-height:1.35;
+  background:var(--kraft-l);border:1.5px solid var(--card-s);border-top:2.5px solid var(--cut);
+  box-shadow:3px 4px 0 var(--paper-sh)}
+.whyBtn:active{transform:translate(2px,3px);box-shadow:1px 1px 0 var(--paper-sh)}
 
 #over{position:fixed;inset:0;z-index:13;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:20px;text-align:center;gap:12px;
-  background:radial-gradient(ellipse at 50% 38%,rgba(15,110,98,.55),rgba(8,28,26,.92) 72%)}
-#over .card{width:min(100%,360px);background:linear-gradient(180deg,#fff8ea,#f3e2b8);border:3px solid #3A3A38;
-  border-radius:24px;padding:20px 16px 16px;box-shadow:0 8px 0 #3A3A38;display:flex;flex-direction:column;gap:11px}
-#over h2{font-size:26px;font-weight:900;color:#E24A1C}
-#stars{font-size:32px;min-height:40px}
+  padding:20px;text-align:center;gap:12px;background:rgba(52,38,22,.72)}
+#over .card{width:min(100%,360px);background:var(--card);border:1.5px solid var(--card-s);border-top:3px solid var(--cut);
+  border-radius:3px;padding:20px 16px 16px;box-shadow:5px 7px 0 rgba(52,38,22,.5);
+  display:flex;flex-direction:column;gap:11px;transform:rotate(-.6deg);
+  background-image:repeating-linear-gradient(94deg,rgba(120,95,60,.05) 0 1px,transparent 1px 6px)}
+#over h2{font-family:var(--display);font-size:26px;font-weight:800;color:var(--ink)}
+#stars{font-size:30px;min-height:40px;color:var(--red);letter-spacing:.1em}
 #stars i{font-style:normal;display:inline-block;opacity:0;transform:scale(0) rotate(-40deg)}
-#stars i.pop{opacity:1;transform:none;transition:transform .45s cubic-bezier(.2,1.9,.4,1),opacity .25s}
-.stat{display:flex;justify-content:space-between;font-size:14px;font-weight:800;color:#0F6E62;
-  border-bottom:2px dotted rgba(58,58,56,.2);padding-bottom:5px}
-.stat b{font-size:22px;color:#3A3A38;font-variant-numeric:tabular-nums}
-.btn{pointer-events:auto;min-height:56px;border-radius:16px;cursor:pointer;font-family:inherit;
-  font-size:17px;font-weight:900;color:#3b1907;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(180deg,#fff4c8,#F2B705);border:2.5px solid #3A3A38;
-  box-shadow:0 4px 0 #3A3A38,inset 0 2px 0 rgba(255,255,255,.55)}
-.btn:active{transform:translateY(4px);box-shadow:0 0 0 #3A3A38}
-.btn.ghost{background:linear-gradient(180deg,#fff,#e4ddd0);color:#3A3A38}
+#stars i.pop{opacity:1;transform:rotate(-4deg);transition:transform .45s cubic-bezier(.2,1.9,.4,1),opacity .25s}
+.stat{display:flex;justify-content:space-between;font-size:14px;font-weight:800;color:var(--ink-l);
+  border-bottom:1.5px dashed rgba(94,68,40,.35);padding-bottom:5px}
+.stat b{font-family:var(--display);font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
+.btn{pointer-events:auto;min-height:56px;border-radius:3px;cursor:pointer;font-family:var(--display);
+  font-size:18px;font-weight:400;color:var(--ink);display:flex;align-items:center;justify-content:center;
+  background:var(--kraft-l);border:1.5px solid var(--card-s);border-top:3px solid var(--cut);
+  box-shadow:3px 5px 0 var(--red)}
+.btn:active{transform:translate(2px,4px);box-shadow:1px 1px 0 var(--red)}
+.btn.ghost{background:#F7F2E4;box-shadow:3px 5px 0 var(--paper-sh)}
+.btn.ghost:active{box-shadow:1px 1px 0 var(--paper-sh)}
 
-#toast{position:fixed;left:0;right:0;z-index:15;display:flex;justify-content:center;pointer-events:none;top:38%}
-#toast .t{background:rgba(28,36,34,.92);border:2.5px solid #F2B705;border-radius:16px;padding:9px 15px;
-  font-size:14px;font-weight:900;color:#fff8ea;max-width:88vw;text-align:center;opacity:0;
-  transform:translateY(10px) scale(.94);transition:opacity .22s,transform .22s}
-#toast .t.on{opacity:1;transform:none}
-#toast .t.good{background:rgba(15,110,98,.94);border-color:#b7e4c7}
-#toast .t.bad{background:rgba(150,42,28,.94);border-color:#ffb4a8}
+#toast{position:fixed;left:0;right:0;z-index:15;display:flex;justify-content:center;pointer-events:none;top:57%}
+#toast .t{font-family:var(--display);background:var(--card);border:1.5px solid var(--card-s);border-top:2.5px solid var(--cut);border-radius:3px;
+  padding:9px 15px;font-size:14px;font-weight:800;color:var(--ink);max-width:88vw;text-align:center;opacity:0;
+  box-shadow:3px 4px 0 rgba(52,38,22,.45);transform:translateY(10px) rotate(-1deg);transition:opacity .22s,transform .22s}
+#toast .t.on{opacity:1;transform:rotate(-1deg)}
+#toast .t.good{background:var(--sage);border-color:#8B9B78}
+#toast .t.bad{background:var(--red);color:#FFF3E4;border-color:var(--red-d);border-top-color:#E8767C}
+/* 칭찬 = 잉크 도장이 종이에 찍힌다 */
 #praise{position:fixed;left:0;right:0;z-index:7;top:28%;text-align:center;pointer-events:none;
-  font-size:clamp(22px,6vw,34px);font-weight:900;color:#F2B705;text-shadow:0 3px 0 #3A3A38,0 -8px 18px rgba(242,183,5,.5);
-  opacity:0;transform:translateY(16px)}
-#praise.on{opacity:1;transform:translateY(-12px);transition:opacity .2s,transform .55s cubic-bezier(.18,1.4,.32,1)}
+  font-family:var(--display);font-size:clamp(22px,6vw,34px);font-weight:800;color:var(--red);letter-spacing:-.02em;
+  text-shadow:2px 2px 0 rgba(255,246,228,.75);opacity:0;transform:translateY(10px) rotate(-3deg) scale(1.25)}
+#praise.on{opacity:1;transform:translateY(-10px) rotate(-3deg) scale(1);
+  transition:opacity .16s,transform .3s cubic-bezier(.2,1.5,.3,1)}
 #paused{position:fixed;inset:0;z-index:16;display:flex;align-items:center;justify-content:center;
-  background:rgba(8,40,36,.55);color:#fff8e8;font-size:28px;font-weight:900;text-shadow:0 3px 0 #000}
+  background:rgba(52,38,22,.6);color:var(--cut);font-family:var(--display);font-size:28px;font-weight:800}
 
 @media (orientation:landscape),(min-aspect-ratio:1/1){
-  .title-art{--art-y:46%;--art-x:50%}
+  .title-art{--art-y:52%;--art-x:50%}
   .game-logo{font-size:clamp(48px,8.5vw,92px)}
+  /* 가로에서는 글자가 작아지므로 오려낸 테두리도 같이 얇게 — 안 그러면 획이 메워진다 */
+  .game-logo>span:not(.logo-gap){-webkit-text-stroke-width:clamp(3.5px,.55vw,6px)}
   .title-logo-zone{top:max(18px,4dvh);min-height:120px}
   html.land{--colW:var(--stageW);--colX:var(--stageX)}
   html.land #hud{left:var(--stageX);width:min(520px,calc(var(--stageW)*0.42));padding-left:12px}
@@ -239,7 +286,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a3d38;color:var(--
   .title-logo-zone{top:max(38px,5dvh);min-height:150px}
   .game-logo{font-size:clamp(52px,18vw,96px)}
   .title-start{min-height:64px}
-  .title-cta-zone{gap:5px}
+  .title-cta-zone{gap:6px}
 }
 @media (prefers-reduced-motion:reduce){
   .game-logo>span:not(.logo-gap),.game-subtitle,.title-art__image,.title-start,.title-dust i{animation:none}
@@ -253,9 +300,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a3d38;color:var(--
 
 <div id="hud" class="hidden">
   <div class="row">
-    <div class="pill"><span id="scoreV">0</span></div>
-    <div class="pill" id="comboP">연속 ×1</div>
-    <div id="hearts"></div>
+    <div class="tab"><span id="scoreV">0</span></div>
+    <div class="tab" id="comboP">연속 ×1</div>
+    <div id="hearts" aria-label="남은 말"></div>
     <button id="muteBtn" class="icon-btn" type="button" aria-label="소리 끄기">🔊</button>
     <button id="pauseBtn" class="icon-btn" type="button" aria-label="잠시 멈춤">⏸</button>
   </div>
@@ -266,7 +313,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a3d38;color:var(--
 
 <div id="title" class="is-on">
   <div class="title-art" id="titleArt">
-    <img class="title-art__image" src="./assets/title.png" alt="" id="titleImg" onerror="this.style.display='none';this.parentNode.classList.add('fallback')">
+    <img class="title-art__image" src="./assets/title-paper.png" alt="" id="titleImg" onerror="this.style.display='none';this.parentNode.classList.add('fallback')">
   </div>
   <div class="title-art__scrim" aria-hidden="true"></div>
   <div class="title-art__vignette" aria-hidden="true"></div>
@@ -324,7 +371,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a3d38;color:var(--
 <div id="over" class="hidden">
   <div class="card">
     <h2 id="overTitle">풍덩!</h2>
-    <div id="stars"><i>⭐</i><i>⭐</i><i>⭐</i></div>
+    <div id="stars"><i>★</i><i>★</i><i>★</i></div>
     <div class="stat">건넌 칸 <b id="stRows">0</b></div>
     <div class="stat">점수 <b id="stScore">0</b></div>
     <div class="stat">최고 콤보 <b id="stCombo">0</b></div>
@@ -352,7 +399,17 @@ const LS = {
   rowsTotal: 'stone-hop:rowsTotal',
 };
 const PLACE = ['일의 자리','십의 자리','백의 자리','천의 자리','만의 자리'];
-const PAL = { mint:'#D4EDE6', teal:'#0F6E62', ver:'#E24A1C', ink:'#3A3A38', gold:'#F2B705', cream:'#FFF8E4', water:'#12756a' };
+/* 축 A 종이공작 팔레트 — 크라프트 판지 / 오린 색종이 / 잉크 빨강 1색 */
+const PAL = {
+  kraft:'#C39A6B', kraftD:'#A2794C', kraftDD:'#7E5A34', kraftL:'#D8B78E',
+  card:'#EFE6D2', cardD:'#D2C0A0', cardS:'#C0AC88', cut:'#F9F4E7',
+  sage:'#AEBB9B', moss:'#8FA378', mossD:'#6E8455', mossDD:'#55693F',
+  ink:'#3B3026', inkL:'#6E5C48', ver:'#C2202A', red:'#C2202A', redD:'#8E1119',
+  tape:'#E4D4AC', wet:'#93866A', wetD:'#6E634B',
+  /* 구버전 키 호환 (호출부 인자용) */
+  mint:'#EFE6D2', teal:'#6E8455', gold:'#E4D4AC', cream:'#F9F4E7', water:'#55693F'
+};
+const SCRAP = ['#EFE6D2','#F9F4E7','#AEBB9B','#D8B78E','#C39A6B','#C2202A'];
 
 function pow10(p){ let m=1; for(let i=0;i<p;i++) m*=10; return m; }
 function UP(n,p){ const m=pow10(p); const q=(n/m)|0; const r=n-q*m; return r===0?n:(q+1)*m; }
@@ -1015,7 +1072,7 @@ const PONDS=[
 
 /* ───────── 상태 ───────── */
 const cv=document.getElementById('cv');
-const ctx=cv.getContext('2d');
+const ctx=cv.getContext('2d',{alpha:false});
 let W=innerWidth, H=innerHeight, dpr=1;
 const G={
   phase:'title', pond:1, hard:false, score:0, showScore:0, lives:5, maxLives:5,
@@ -1073,33 +1130,209 @@ function sfxWrong(){ beep(160, 0.22, 'square', 0.09, 70); }
 function sfxHop(){ beep(640, 0.08, 'sine', 0.05); }
 function sfxScan(i){ beep(480+i*70, 0.1, 'triangle', 0.06); }
 
-const imgs={hero:null, bg:null, heroOk:false, bgOk:false};
-function punchWhite(img){
+/* ───────── 종이공작 베이킹 ─────────
+   회화 배경 이미지를 걷어내고 크라프트 판지·오린 색종이·펀치아웃 토큰을 코드로 그린다.
+   QA 브라우저는 소프트웨어 렌더링이라 정적인 층은 전부 오프스크린에 미리 구워 둔다. */
+const BAKE={ board:null, bw:0, bh:0, token:null, wet:null, tokenR:0, hero:null, heroS:0 };
+let FONT_OK=false;
+function seeded(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+function numFont(px){ return (FONT_OK?'400 ':'800 ')+px+'px "LogoJua",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif'; }
+function makeCv(w,h,opaque){
   const c=document.createElement('canvas');
-  c.width=img.width; c.height=img.height;
-  const x=c.getContext('2d');
-  x.drawImage(img,0,0);
-  try{
-    const id=x.getImageData(0,0,c.width,c.height);
-    const d=id.data;
-    for(let i=0;i<d.length;i+=4){
-      if(d[i]>248 && d[i+1]>248 && d[i+2]>248) d[i+3]=0;
-    }
-    x.putImageData(id,0,0);
-  }catch(e){}
-  return c;
+  c.width=Math.max(2,(w*dpr)|0); c.height=Math.max(2,(h*dpr)|0);
+  const x=c.getContext('2d', opaque?{alpha:false}:undefined); x.setTransform(dpr,0,0,dpr,0,0);
+  return {c,x,w,h};
 }
-function loadImg(src, key){
-  return new Promise(res=>{
-    const im=new Image();
-    im.onload=()=>{
-      if(key==='hero'){ imgs.hero=punchWhite(im); imgs.heroOk=true; }
-      else { imgs.bg=im; imgs.bgOk=true; }
-      res();
+/* 가위로 오린 물결 종이 한 장 — 윗변이 손으로 자른 곡선, 아래는 화면 밖까지 */
+function paperBand(x, yBase, amp, wl, ph, w, h){
+  x.beginPath();
+  x.moveTo(-8, yBase);
+  for(let px=-8; px<=w+8; px+=7){
+    x.lineTo(px, yBase + Math.sin(px/wl+ph)*amp + Math.sin(px/(wl*0.41)+ph*1.9)*amp*0.34);
+  }
+  x.lineTo(w+8, h+60); x.lineTo(-8, h+60); x.closePath();
+}
+function bakeBoard(){
+  const b=makeCv(W,H,true); const x=b.x; const rnd=seeded(20260829);
+  /* 1. 크라프트 골판지 바탕 */
+  x.fillStyle=PAL.kraft; x.fillRect(0,0,W,H);
+  x.strokeStyle='rgba(112,80,46,.085)'; x.lineWidth=1;
+  for(let px=0; px<W; px+=5){ x.beginPath(); x.moveTo(px+.5,0); x.lineTo(px+.5,H); x.stroke(); }
+  const flecks=Math.min(1100, ((W*H)/760)|0);
+  for(let i=0;i<flecks;i++){
+    const px=rnd()*W, py=rnd()*H, a=.05+rnd()*.11;
+    x.fillStyle = rnd()<.5 ? 'rgba(255,246,226,'+a+')' : 'rgba(98,70,38,'+a+')';
+    x.fillRect(px,py,1+rnd()*2.4,1);
+  }
+  /* 2. 겹쳐 오린 연못 종이 — 층마다 그림자 → 흰 절단면 → 색면 */
+  const nextY=rowY('next'), curY=rowY('cur');
+  const top=nextY-Math.min(H*0.15,130);
+  const bands=[
+    {y:top,               col:PAL.sage,  amp:10, wl:118, ph:0.6},
+    {y:top+(nextY-top)*.5,col:PAL.moss,  amp:8,  wl:88,  ph:2.4},
+    {y:nextY+(curY-nextY)*.30, col:PAL.mossD, amp:11, wl:136, ph:4.1},
+    {y:curY-(curY-nextY)*.18,  col:PAL.moss,  amp:7,  wl:96,  ph:5.7}
+  ];
+  for(const bd of bands){
+    x.fillStyle='rgba(62,44,24,.20)'; paperBand(x, bd.y+5, bd.amp, bd.wl, bd.ph, W, H); x.fill();
+    x.fillStyle=PAL.cut;               paperBand(x, bd.y-2, bd.amp, bd.wl, bd.ph, W, H); x.fill();
+    x.fillStyle=bd.col;                paperBand(x, bd.y+1, bd.amp, bd.wl, bd.ph, W, H); x.fill();
+  }
+  /* 3. 앞기슭 — 다시 크라프트 판지. 위 가장자리에 이끼 종이 풀숲 */
+  const shore=Math.min(H-6, curY+Math.min(H*0.15,140));
+  x.fillStyle='rgba(62,44,24,.22)'; paperBand(x, shore+5, 7, 104, 1.3, W, H); x.fill();
+  x.fillStyle=PAL.cut;              paperBand(x, shore-2, 7, 104, 1.3, W, H); x.fill();
+  x.fillStyle=PAL.kraftL;           paperBand(x, shore+1, 7, 104, 1.3, W, H); x.fill();
+  for(let i=0;i<Math.ceil(W/58);i++){
+    const gx=12+i*58+rnd()*22, gy=shore+Math.sin(gx/104+1.3)*7+2;
+    x.fillStyle= i%2? PAL.mossD : PAL.moss;
+    for(let k=-2;k<=2;k++){
+      x.beginPath(); x.moveTo(gx+k*3.6, gy+3);
+      x.lineTo(gx+k*5.4-1.6, gy-13-Math.abs(k)*-4+rnd()*4);
+      x.lineTo(gx+k*3.6+2.4, gy+3); x.closePath(); x.fill();
+    }
+  }
+  /* 4. 오린 연잎 — 가위로 쐐기 하나를 잘라낸 종이 원. 가장자리에만 놓아 돌과 헷갈리지 않게 */
+  const pad=(lx,ly,lr,rot,col)=>{
+    const notch=(ox,oy,rad)=>{
+      x.beginPath();
+      x.ellipse(ox, oy, rad, rad*0.66, 0, rot+0.36, rot+Math.PI*2-0.36);
+      x.lineTo(ox, oy);
+      x.closePath();
     };
-    im.onerror=()=>res();
-    im.src=src;
-  });
+    x.fillStyle='rgba(62,44,24,.22)'; notch(lx+3, ly+4, lr); x.fill();
+    x.fillStyle=PAL.cut;              notch(lx, ly-1.5, lr+2); x.fill();
+    x.fillStyle=col;                  notch(lx, ly, lr); x.fill();
+  };
+  const lr=Math.max(15, Math.min(W,H)*0.036);
+  const midA=nextY+(curY-nextY)*0.34, midB=nextY+(curY-nextY)*0.72;
+  pad(W*0.17, midA, lr, 0.6, PAL.sage);
+  pad(W*0.83, midB, lr*0.86, 2.4, PAL.sage);
+  pad(W*0.61, midA+lr*0.4, lr*0.62, 4.1, PAL.sage);
+  /* 오려 붙인 흰 물결 표시 — 종이 두 겹으로 낸 잔물결 */
+  x.strokeStyle='rgba(249,244,231,.55)'; x.lineCap='round';
+  for(let i=0;i<7;i++){
+    const wx=(0.08+((i*0.37)%0.84))*W, wy=nextY+(curY-nextY)*(0.14+((i*0.29)%0.74));
+    const ww=Math.max(20, W*0.055);
+    x.lineWidth=2.2;
+    x.beginPath();
+    x.moveTo(wx-ww, wy);
+    x.quadraticCurveTo(wx-ww*0.5, wy-4.5, wx, wy);
+    x.quadraticCurveTo(wx+ww*0.5, wy+4.5, wx+ww, wy);
+    x.stroke();
+  }
+  /* 5. 판을 책상에 고정한 마스킹테이프 두 조각 */
+  const tape=(tx,ty,tw,th,rot)=>{
+    x.save(); x.translate(tx,ty); x.rotate(rot);
+    x.fillStyle='rgba(62,44,24,.16)'; x.fillRect(-tw/2+2, -th/2+3, tw, th);
+    x.fillStyle='rgba(228,212,172,.92)'; x.fillRect(-tw/2, -th/2, tw, th);
+    x.fillStyle='rgba(150,120,80,.18)'; x.fillRect(-tw/2, -th/2, tw, 2);
+    x.restore();
+  };
+  tape(Math.max(58,W*0.11), top+6, Math.min(94,W*0.19), 19, -0.42);
+  tape(Math.min(W-58,W*0.89), top+6, Math.min(94,W*0.19), 19, 0.4);
+  BAKE.board=b.c; BAKE.bw=W; BAKE.bh=H;
+}
+/* 손으로 눌러 뜯은 펀치 자국 — 완전한 원이 아니라 미세하게 울퉁불퉁하다 */
+function punchPath(x, cx, cy, r, ry, ph){
+  const N=44;
+  x.beginPath();
+  for(let i=0;i<=N;i++){
+    const a=i/N*Math.PI*2;
+    const w=1 + Math.sin(a*3+ph)*0.010 + Math.sin(a*7+ph*2.1)*0.007 + Math.sin(a*13+ph*0.7)*0.004;
+    const px=cx+Math.cos(a)*r*w, py=cy+Math.sin(a)*ry*w;
+    if(i===0) x.moveTo(px,py); else x.lineTo(px,py);
+  }
+  x.closePath();
+}
+/* 펀치아웃 보드게임 토큰 — 옆면은 평평한 판지 단면, 윗면은 인쇄 없는 무광 판지 */
+function bakeToken(r, soaked){
+  const ry=r*0.80, th=Math.max(4, r*0.19), pad=Math.ceil(r*0.34)+8;
+  const w=r*2+pad*2, h=ry*2+th+pad*2;
+  const s=makeCv(w,h), x=s.x, cx=w/2, cy=pad+ry;
+  const face = soaked? PAL.wet : PAL.card;
+  const side = soaked? PAL.wetD : PAL.cardS;
+  const rnd=seeded(soaked?77:31);
+  /* 종이 그림자 (블러 없이 오프셋) */
+  x.fillStyle='rgba(58,42,22,.26)';
+  punchPath(x, cx+3, cy+th+5, r*0.98, ry*0.94, 1.9); x.fill();
+  /* 옆면 두께 — 한 가지 톤으로 곧게 잘린 판지 단면 (베벨 금지) */
+  x.fillStyle=side;
+  for(let i=8;i>=1;i--){ punchPath(x, cx, cy+th*(i/8), r, ry, 0.8); x.fill(); }
+  x.fillStyle= soaked? 'rgba(40,35,24,.35)' : 'rgba(96,74,44,.30)';
+  punchPath(x, cx, cy+th, r, ry, 0.8); x.fill();
+  x.fillStyle=side;
+  for(let i=7;i>=1;i--){ punchPath(x, cx, cy+th*(i/8), r, ry, 0.8); x.fill(); }
+  /* 흰 절단면 */
+  x.fillStyle=PAL.cut;
+  punchPath(x, cx, cy, r+1.7, ry+1.7, 0.8); x.fill();
+  /* 윗면 */
+  x.fillStyle=face;
+  punchPath(x, cx, cy, r, ry, 0.8); x.fill();
+  /* 종이 결·티 */
+  x.save(); punchPath(x, cx, cy, r, ry, 0.8); x.clip();
+  for(let i=0;i<Math.max(24, r|0);i++){
+    const a=.05+rnd()*.09;
+    x.fillStyle = rnd()<.5? 'rgba(255,252,240,'+a+')' : 'rgba(96,74,44,'+a+')';
+    x.fillRect(cx-r+rnd()*r*2, cy-ry+rnd()*ry*2, 1+rnd()*2.6, 1);
+  }
+  if(soaked){
+    /* 물이 스며 번진 얼룩 */
+    x.fillStyle='rgba(80,72,52,.20)';
+    x.beginPath(); x.ellipse(cx-r*0.16, cy+ry*0.14, r*0.82, ry*0.86, 0,0,Math.PI*2); x.fill();
+    x.fillStyle='rgba(70,62,44,.15)';
+    x.beginPath(); x.ellipse(cx+r*0.3, cy-ry*0.2, r*0.44, ry*0.5, 0,0,Math.PI*2); x.fill();
+  }
+  x.restore();
+  return {c:s.c, w, h, ox:cx, oy:cy};
+}
+/* 접어 세운 종이 말 (meeple standee) — 잉크 빨강 색지, 흰 절단면, 접힌 자국 */
+function meeplePath(x, w, h){
+  const X=v=>v*w, Y=v=>v*h;
+  x.beginPath();
+  x.moveTo(X(0.34), Y(0.335));
+  x.arc(X(0.5), Y(0.19), Math.min(w,h)*0.166, Math.PI*0.88, Math.PI*0.12, false);
+  x.lineTo(X(0.66), Y(0.335));
+  x.quadraticCurveTo(X(0.98), Y(0.37), X(0.975), Y(0.50));
+  x.quadraticCurveTo(X(0.97), Y(0.60), X(0.72), Y(0.575));
+  x.lineTo(X(0.78), Y(0.985));
+  x.lineTo(X(0.565), Y(0.985));
+  x.quadraticCurveTo(X(0.5), Y(0.79), X(0.435), Y(0.985));
+  x.lineTo(X(0.22), Y(0.985));
+  x.lineTo(X(0.28), Y(0.575));
+  x.quadraticCurveTo(X(0.03), Y(0.60), X(0.025), Y(0.50));
+  x.quadraticCurveTo(X(0.02), Y(0.37), X(0.34), Y(0.335));
+  x.closePath();
+}
+function bakeHero(hs){
+  const pad=8, w=hs, h=hs, s=makeCv(w+pad*2, h+pad*2), x=s.x;
+  x.translate(pad,pad);
+  /* 종이 두께 그림자 (한 겹 뒤로) */
+  x.save(); x.translate(2.5,3.5); meeplePath(x,w,h); x.fillStyle='rgba(58,42,22,.30)'; x.fill(); x.restore();
+  /* 흰 절단면 */
+  meeplePath(x,w,h); x.lineWidth=Math.max(3, hs*0.055); x.strokeStyle=PAL.cut; x.stroke();
+  /* 색지 */
+  meeplePath(x,w,h); x.fillStyle=PAL.ver; x.fill();
+  /* 접힌 면 그늘 */
+  x.save(); meeplePath(x,w,h); x.clip();
+  /* 명암 경계는 반드시 접는 선(w/2)과 겹쳐야 한다 — 다른 x 에 두면 팔 위에
+     접힌 적 없는 세로 단차가 생겨 렌더링 오류처럼 보인다 */
+  x.fillStyle='rgba(70,10,14,.20)';    x.fillRect(w*0.5,0,w*0.5,h);
+  x.fillStyle='rgba(255,240,230,.13)'; x.fillRect(0,0,w*0.5,h);
+  x.restore();
+  /* 접는 선 */
+  x.strokeStyle='rgba(80,12,16,.34)'; x.lineWidth=Math.max(1,hs*0.014);
+  x.beginPath(); x.moveTo(w*0.5, h*0.10); x.lineTo(w*0.5, h*0.96); x.stroke();
+  return {c:s.c, w:w+pad*2, h:h+pad*2, ox:pad+w/2, oy:pad+h/2};
+}
+function ensureBake(){
+  if(!BAKE.board || BAKE.bw!==W || BAKE.bh!==H) bakeBoard();
+  const r=stoneR();
+  if(!BAKE.token || Math.abs(BAKE.tokenR-r)>0.6){
+    BAKE.token=bakeToken(r,false); BAKE.wet=bakeToken(r,true); BAKE.tokenR=r;
+  }
+  const hs=heroSize();
+  if(!BAKE.hero || Math.abs(BAKE.heroS-hs)>0.6){ BAKE.hero=bakeHero(hs); BAKE.heroS=hs; }
 }
 
 document.getElementById('titleImg').onerror=()=>{
@@ -1109,8 +1342,8 @@ document.getElementById('titleImg').onerror=()=>{
 
 const ONB=[
   {title:'팻말을 봐요', body:'위 팻말이 이번 줄의 조건이에요. 조건에 맞는 숫자 돌만 밟아요.'},
-  {title:'이상과 초과는 달라요', body:'이상·이하는 그 숫자 돌도 밟아요. 초과·미만은 그 숫자 돌은 빼요. 맞으면 ●, 틀리면 ○로 뚫려 가라앉아요.'},
-  {title:'빠지면 한 칸 떠내려가요', body:'가라앉은 돌은 다시 못 밟아요. 팻말은 그대로니 남은 돌에서 다시 골라요.'},
+  {title:'이상과 초과는 달라요', body:'이상·이하는 그 숫자 돌도 밟아요. 초과·미만은 그 숫자 돌은 빼요. 맞으면 테이프로 딱 붙고, 틀리면 종이가 젖어 가라앉아요.'},
+  {title:'빠지면 한 칸 떠내려가요', body:'젖어서 가라앉은 판지는 다시 못 밟아요. 팻말은 그대로니 남은 돌에서 다시 골라요.'},
   {title:'오래 서 있으면 떠내려가요', body:'잠깐 읽고 폴짝! 물살에 돌이 흘러 나가기 전에 앞줄로 건너요.'}
 ];
 let onbStep=0, onbThenMap=true;
@@ -1119,10 +1352,20 @@ function el(id){ return document.getElementById(id); }
 function hide(n){ el(n).classList.add('hidden'); el(n).classList.remove('is-on'); }
 function show(n){ el(n).classList.remove('hidden'); if(n==='title') el(n).classList.add('is-on'); }
 
+/* 이모지 폐기 — 색종이를 오려 붙인 스피커 (몸통은 잉크색 종이, 소리는 잉크 빨강 획) */
+function muteSvg(){
+  const off = muted
+    ? '<path d="M17.5 9.5l5 5M22.5 9.5l-5 5" stroke="#C2202A" stroke-width="2.4" stroke-linecap="round" fill="none"/>'
+    : '<path d="M16.6 8.6c1.9 1.4 1.9 5.4 0 6.8M19.4 6.2c3.3 2.6 3.3 9 0 11.6" stroke="#C2202A" stroke-width="2.2" stroke-linecap="round" fill="none"/>';
+  return '<svg viewBox="0 0 26 24" width="24" height="22" aria-hidden="true">'
+    + '<path d="M3 9h3.4L11.6 4.4c.5-.5 1.4-.1 1.4.6v14c0 .7-.9 1.1-1.4.6L6.4 15H3z"'
+    + ' fill="#3B3026" stroke="#F9F4E7" stroke-width="1.4" stroke-linejoin="round"/>'
+    + off + '</svg>';
+}
 function setMuteUI(){
-  const icon=muted?'🔇':'🔊';
-  el('muteBtn').textContent=icon;
-  el('titleMute').textContent=icon;
+  const icon=muteSvg();
+  el('muteBtn').innerHTML=icon;
+  el('titleMute').innerHTML=icon;
   el('muteBtn').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
   el('titleMute').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
 }
@@ -1161,7 +1404,7 @@ function isLand(){ return (W>=H && W>=640) || W>=1024; }
 function layout(){
   W=innerWidth; H=innerHeight;
   LAND=isLand();
-  dpr=Math.min(2, devicePixelRatio||1);
+  dpr=Math.min(1.75, devicePixelRatio||1);
   cv.width=(W*dpr)|0; cv.height=(H*dpr)|0;
   cv.style.width=W+'px'; cv.style.height=H+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -1217,9 +1460,9 @@ function refreshHUD(){
   for(let i=0;i<G.maxLives;i++){
     const s=document.createElement('span');
     s.className='hp'+(i<G.lives?'':' off');
-    s.textContent='♥';
     h.appendChild(s);
   }
+  h.setAttribute('aria-label','남은 말 '+G.lives+'개');
   el('signP').textContent=G.next? G.next.sign : '';
   el('signK').textContent=G.next && G.next.kind==='life' ? '이번 상황' : '이번 줄';
   const frac=G.timeLeft/G.session;
@@ -1231,12 +1474,16 @@ function baseGrace(){ return G.hard?1.8:2.4; }
 
 function spawnAmbient(){
   G.koi=[];
+  /* 종이 잉어는 두 줄 사이 빈 물에서만 헤엄친다 — 토큰 숫자를 가리지 않게 */
+  const kr=stoneR(), y0=rowY('next')+kr*1.25, y1=Math.max(y0+8, rowY('cur')-kr*1.35);
   for(let i=0;i<3;i++){
-    G.koi.push({x:Math.random()*W, y:H*0.35+Math.random()*H*0.4, vx:20+Math.random()*30, dir:Math.random()<0.5?1:-1, p:Math.random()*6});
+    G.koi.push({x:Math.random()*W, y:y0+Math.random()*(y1-y0), vx:20+Math.random()*30,
+      dir:Math.random()<0.5?1:-1, p:Math.random()*6, y0, y1});
   }
   G.spark=[];
-  for(let i=0;i<18;i++){
-    G.spark.push({x:Math.random()*W, y:Math.random()*H, r:1+Math.random()*2, p:Math.random()*10});
+  for(let i=0;i<0;i++){
+    G.spark.push({x:Math.random()*W, y:Math.random()*H, r:1.8+Math.random()*1.8, p:Math.random()*10,
+      col: ['rgba(239,230,210,.62)','rgba(174,187,155,.72)','rgba(216,183,142,.62)'][(Math.random()*3)|0]});
   }
 }
 
@@ -1277,14 +1524,20 @@ function persist(){
   }catch(e){}
 }
 
+/* 입자 버스트 폐기 — 오려낸 종이 조각 서너 장이 팔랑거리며 떨어진다 */
 function burst(x,y,n,col,up){
-  const k=REDUCE?Math.ceil(n*0.4):n;
+  const k=REDUCE?2:clamp(Math.round(n*0.26), 3, 6);
   for(let i=0;i<k;i++){
-    const a=Math.random()*Math.PI*2;
-    const sp=(up?80:40)+Math.random()*140;
     G.particles.push({
-      x,y, vx:Math.cos(a)*sp*(up?0.5:1), vy:Math.sin(a)*sp*(up?-1:1)- (up?80:0),
-      life:0.4+Math.random()*0.5, max:0.7, r:2+Math.random()*4, col, g:up?420:280
+      x:x+(Math.random()-0.5)*18, y:y+(Math.random()-0.5)*10,
+      vx:(Math.random()-0.5)*(up?150:110),
+      vy: up ? -(90+Math.random()*80) : -(30+Math.random()*45),
+      life:0.85+Math.random()*0.55, max:1.4,
+      w:5+Math.random()*8, h:4+Math.random()*6,
+      rot:Math.random()*Math.PI, vr:(Math.random()-0.5)*5.5,
+      sway:Math.random()*6.28, swayA:14+Math.random()*20,
+      col: (col===PAL.ver && Math.random()<0.45) ? PAL.ver : SCRAP[(Math.random()*SCRAP.length)|0],
+      g: up?230:170
     });
   }
 }
@@ -1352,7 +1605,7 @@ function onWhy(ok){
 
 function koiScan(){
   G.scanT=1.2; G.scanIdx=0;
-  praise('잉어 스캔!');
+  praise('종이잉어 스캔!');
   if(G.lives<G.maxLives) G.lives++;
   const safe=(G.next&&G.next.stones||[]).filter(s=>s.safe);
   safe.forEach((s,i)=> setTimeout(()=>{ s.pulse=1; sfxScan(i); }, REDUCE?0:i*90));
@@ -1367,8 +1620,10 @@ function applyCorrect(stone, instant){
   G.rows++;
   G.combo++;
   if(G.combo>G.bestCombo) G.bestCombo=G.combo;
-  G.flash=REDUCE?0.12:0.22; G.flashCol='rgba(242,183,5,0.35)';
-  if(stone){ stone.fill=1; stone.scaleY=1.25; stone.scaleX=0.86; stone.pulse=1; }
+  /* 화면 플래시 폐기 → 말이 칸에 딸깍 앉으며 판지가 한 번 눌린다 */
+  G.flash=0;
+  G.shake=REDUCE?0.06:0.16; G.shakeAmt=3;
+  if(stone){ stone.fill=1; stone.scaleY=0.80; stone.scaleX=1.12; stone.pulse=1; }
   const nPart=8+Math.min(24, G.combo*2);
   const pos=stone?stonePos(row, row.stones.indexOf(stone), 'next'):{x:W/2,y:H/2};
   burst(pos.x, pos.y, nPart, PAL.gold, true);
@@ -1408,11 +1663,12 @@ function loseLife(stone, row, bounced){
   G.combo=0;
   G.noHit=false;
   G.shake=REDUCE?0.08:0.22;
-  G.shakeAmt=bounced?4:10;
+  G.shakeAmt=bounced?3:7;
   sfxWrong();
   if(stone){
     stone.dead=true;
-    stone.ring=1; stone.shake=1; stone.scaleX=1.15; stone.scaleY=0.75;
+    /* 젖은 종이가 축 처진다 — 흔들림이 아니라 늘어짐 */
+    stone.ring=1; stone.shake=0; stone.scaleX=1.06; stone.scaleY=0.88;
     const pos=stonePos(row||G.next, (row||G.next).stones.indexOf(stone), 'next');
     burst(pos.x, pos.y, 10+Math.min(16,G.solved), '#cfe8e4', false);
   }
@@ -1539,150 +1795,182 @@ function tapAt(x,y){
 
 /* ───────── 렌더 ───────── */
 function drawBg(t){
-  if(imgs.bgOk && imgs.bg){
-    const img=imgs.bg;
-    const sc=Math.max(W/img.width, H/img.height)*1.08;
-    const ox=(W-img.width*sc)/2 + Math.sin(t*0.12)*8;
-    const oy=(H-img.height*sc)/2 + Math.cos(t*0.09)*6;
-    ctx.drawImage(img, ox, oy, img.width*sc, img.height*sc);
-    ctx.fillStyle='rgba(10,70,64,0.18)';
-    ctx.fillRect(0,0,W,H);
-  } else {
-    const g=ctx.createLinearGradient(0,0,0,H);
-    g.addColorStop(0,'#b7ebe1'); g.addColorStop(0.35,'#3aa898'); g.addColorStop(1,'#0c5a52');
-    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-  }
+  /* 물 위에 떠다니는 종이 부스러기 (반짝이 폐기) */
   for(const s of G.spark){
-    const a=0.25+0.25*Math.sin(t*2+s.p);
-    ctx.fillStyle=`rgba(255,255,255,${a})`;
-    ctx.beginPath(); ctx.arc(s.x, s.y+Math.sin(t+s.p)*4, s.r, 0, Math.PI*2); ctx.fill();
+    ctx.save();
+    ctx.translate(s.x, s.y+Math.sin(t*0.8+s.p)*3);
+    ctx.rotate(s.p+t*0.12);
+    ctx.fillStyle='rgba(62,44,24,.16)'; ctx.fillRect(-s.r*1.4+1, -s.r+1.5, s.r*2.8, s.r*2);
+    ctx.fillStyle=s.col; ctx.fillRect(-s.r*1.4, -s.r, s.r*2.8, s.r*2);
+    ctx.restore();
   }
+  /* 오려 붙인 종이 잉어 — 흰 절단면이 보이는 납작한 색지 */
   for(const k of G.koi){
     ctx.save();
-    ctx.translate(k.x, k.y);
+    ctx.translate(k.x, k.y+Math.sin(t*1.1+k.p)*2.5);
     ctx.scale(k.dir, 1);
-    ctx.rotate(Math.sin(t*2+k.p)*0.12);
+    ctx.fillStyle='rgba(62,44,24,.18)';
+    ctx.beginPath(); ctx.ellipse(2.5,3.5,17,7.5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=PAL.cut;
+    ctx.beginPath(); ctx.ellipse(0,0,18.4,8.9,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-15,0); ctx.lineTo(-26,-8.4); ctx.lineTo(-26,8.4); ctx.closePath(); ctx.fill();
     ctx.fillStyle=PAL.ver;
-    ctx.beginPath(); ctx.ellipse(0,0,16,7,0,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-16,0); ctx.lineTo(-24,-6); ctx.lineTo(-24,6); ctx.closePath(); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(6,-2,1.6,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0,0,17,7.5,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-14,0); ctx.lineTo(-24.4,-7); ctx.lineTo(-24.4,7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=PAL.ink; ctx.beginPath(); ctx.arc(7,-1.8,1.7,0,Math.PI*2); ctx.fill();
     ctx.restore();
   }
 }
 
+/* 붙은 마스킹테이프 한 조각 — 안전한 돌을 밟아 굳었다는 표시 */
+function drawTape(r){
+  ctx.save();
+  ctx.rotate(-0.30);
+  const tw=r*2.02, th=Math.max(9, r*0.34);
+  ctx.globalAlpha=0.86;
+  ctx.fillStyle='rgba(62,44,24,.18)'; ctx.fillRect(-tw/2+1.5, r*0.30-th/2+2, tw, th);
+  ctx.fillStyle=PAL.tape;              ctx.fillRect(-tw/2, r*0.30-th/2, tw, th);
+  ctx.fillStyle='rgba(150,120,80,.22)';ctx.fillRect(-tw/2, r*0.30-th/2, tw, 1.8);
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
 function drawStone(s, x, y, r, selected){
+  const sink=s.sink||0;
+  const soaked=(s.ring>0.5 && !s.safe) || s.dead;
   ctx.save();
   ctx.translate(x,y);
-  ctx.scale(s.scaleX||1, s.scaleY||1);
-  if(s.shake>0) ctx.translate((Math.random()-0.5)*6*s.shake, 0);
-  const sink=s.sink||0;
-  ctx.translate(0, sink*40);
-  ctx.globalAlpha=1-sink*0.7;
-  ctx.beginPath();
-  ctx.ellipse(0, r*0.62, r*0.92, r*0.28, 0, 0, Math.PI*2);
-  ctx.fillStyle='rgba(20,40,36,0.28)';
-  ctx.fill();
-  const filled=s.fill>0.5 && s.safe;
-  const ring=s.ring>0.5 && !s.safe;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r, r*0.72, 0, 0, Math.PI*2);
-  if(ring){
-    ctx.fillStyle='#d4ede6';
-    ctx.fill();
-    ctx.lineWidth=Math.max(5, r*0.16);
-    ctx.strokeStyle=PAL.ink;
-    ctx.stroke();
-  } else {
-    ctx.fillStyle=filled? '#4a4a46' : '#5c5c58';
-    ctx.fill();
-    ctx.lineWidth=3;
-    ctx.strokeStyle='#2e2e2c';
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(0, -r*0.18, r*0.62, r*0.22, 0, 0, Math.PI*2);
-    ctx.fillStyle='rgba(255,255,255,0.14)';
-    ctx.fill();
-  }
-  if(filled){
-    ctx.beginPath(); ctx.arc(0, -r*0.05, r*0.22, 0, Math.PI*2);
-    ctx.fillStyle=PAL.gold; ctx.fill();
-  }
-  if(!s.dock){
-    const badge=r*0.78;
-    ctx.beginPath();
-    rr(ctx, -badge, -r*0.38, badge*2, r*0.7, 10);
-    ctx.fillStyle=ring?'rgba(255,248,228,0.92)':'#FFF8E4';
-    ctx.fill();
-    ctx.lineWidth=2;
-    ctx.strokeStyle=PAL.ink;
-    ctx.stroke();
-    const txt=String(s.n);
-    const badgeW=badge*2-8;
-    let fs=Math.min(r*0.70, 34);
-    if(txt.length>=4) fs=Math.min(fs, r*0.52);
-    if(txt.length>=5) fs=Math.min(fs, r*0.42);
-    ctx.font=`900 ${fs}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
-    while(fs>10 && ctx.measureText(txt).width>badgeW){
-      fs-=1;
-      ctx.font=`900 ${fs}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+  /* 가라앉는 자리에 이는 잔물결. 세기는 종형(sin) — 다 가라앉으면 사라진다.
+     지나간 줄의 오답 돌은 한꺼번에 sink=1 까지 가므로, 세기를 sink 에 비례시키면
+     줄 전체에 고리가 남아 화면이 어지러워진다. 밟아서 죽은 돌만 sink 0.45 에서
+     멈추므로 그 한 장에만 잔물결이 계속 남는다. */
+  if(sink>0.02){
+    const ra=Math.sin(Math.min(sink,1)*Math.PI)*0.5;
+    if(ra>0.02){
+      ctx.save();
+      ctx.globalAlpha=ra;
+      ctx.strokeStyle='rgba(249,244,231,.75)'; ctx.lineWidth=2;
+      for(let i=0;i<2;i++){
+        const k=r*(0.75+sink*0.55+i*0.26);
+        ctx.beginPath(); ctx.ellipse(0, r*0.1, k, k*0.34, 0, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.restore();
     }
-    ctx.fillStyle=PAL.ink;
+  }
+  ctx.scale(s.scaleX||1, s.scaleY||1);
+  if(sink>0){
+    /* 물에 젖어 종이가 휘며 수면 아래로 미끄러진다 — 세로로 눌리며 기운다 */
+    ctx.translate(0, sink*30);
+    ctx.rotate(sink*0.22);
+    ctx.scale(1-sink*0.10, 1-sink*0.46);
+    ctx.globalAlpha=Math.max(0, 1-sink*0.62);
+  }
+  const spr = soaked ? BAKE.wet : BAKE.token;
+  if(spr) ctx.drawImage(spr.c, -spr.ox, -spr.oy, spr.w, spr.h);
+  else { ctx.fillStyle=soaked?PAL.wet:PAL.card; ctx.beginPath(); ctx.ellipse(0,0,r,r*0.72,0,0,Math.PI*2); ctx.fill(); }
+  if(s.fill>0.5 && s.safe) drawTape(r);
+  if(!s.dock){
+    const txt=String(s.n);
+    const boxW=r*1.56;
+    /* 자간 계산은 반지름·서체가 바뀔 때만 — 매 프레임 measureText 하면 30fps 를 못 지킨다 */
+    if(s._fsR!==r || s._fsF!==FONT_OK){
+      let fs=Math.min(r*0.74, 36);
+      if(txt.length>=4) fs=Math.min(fs, r*0.54);
+      if(txt.length>=5) fs=Math.min(fs, r*0.44);
+      ctx.font=numFont(fs);
+      while(fs>10 && ctx.measureText(txt).width>boxW){ fs-=1; ctx.font=numFont(fs); }
+      s._fs=fs; s._fsR=r; s._fsF=FONT_OK; s._font=numFont(fs);
+    }
+    ctx.font=s._font;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(txt, 0, -r*0.02, badgeW);
+    /* 활판 인쇄처럼 잉크가 살짝 어긋나 찍힌다 */
+    if(!soaked){
+      ctx.fillStyle='rgba(194,32,42,.22)';
+      ctx.fillText(txt, 1.2, -r*0.02+1.2, boxW);
+    }
+    ctx.fillStyle= soaked? 'rgba(38,32,22,.88)' : PAL.ink;
+    ctx.fillText(txt, 0, -r*0.02, boxW);
+  }
+  /* 완전히 가라앉은 판지는 수면 아래다 — 알파만 깎으면 '흐려진 UI'로 읽히므로
+     숫자까지 덮는 초록 물빛 막을 씌워 물 밑에 잠긴 것으로 보이게 한다 */
+  if(s.dead && !s.dock){
+    ctx.save();
+    ctx.globalAlpha=0.40;
+    ctx.fillStyle=PAL.mossDD;
+    ctx.beginPath(); ctx.ellipse(0,0, r*1.06, r*0.86, 0,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=0.30;
+    ctx.strokeStyle='rgba(249,244,231,.8)'; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.ellipse(0,-r*0.14, r*0.62, r*0.20, 0,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
   }
   if(selected && !s.dock){
-    ctx.lineWidth=4;
-    ctx.strokeStyle='#fff';
-    ctx.beginPath(); ctx.ellipse(0,0, r+6, r*0.72+6, 0,0,Math.PI*2); ctx.stroke();
-    ctx.fillStyle=PAL.gold;
-    ctx.font=`900 ${Math.max(12, r*0.35)}px sans-serif`;
-    ctx.fillText('여기!', 0, -r-10);
+    /* 가위선 점선 + 종이 태그 */
+    ctx.setLineDash([6,5]);
+    ctx.lineWidth=2.5; ctx.strokeStyle='rgba(59,48,38,.65)';
+    ctx.beginPath(); ctx.ellipse(0,0, r+7, r*0.80+7, 0,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    const tw=Math.max(40, r*1.0), thh=Math.max(19, r*0.42), ty=-r*0.80-thh-11;
+    ctx.fillStyle='rgba(62,44,24,.24)'; ctx.fillRect(-tw/2+2, ty+2.5, tw, thh);
+    ctx.fillStyle=PAL.cut; ctx.fillRect(-tw/2, ty, tw, thh);
+    ctx.fillStyle=PAL.ver; ctx.fillRect(-tw/2, ty, tw, 3);
+    ctx.fillStyle=PAL.ink;
+    ctx.font=numFont(Math.max(11, r*0.30));
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('여기', 0, ty+thh/2+1);
   }
   if(s.pulse>0){
-    ctx.globalAlpha=s.pulse;
-    ctx.strokeStyle=PAL.gold;
-    ctx.lineWidth=4;
-    ctx.beginPath(); ctx.ellipse(0,0, r+10*(1-s.pulse), r*0.72+8*(1-s.pulse), 0,0,Math.PI*2); ctx.stroke();
+    /* 눌린 판지 자국이 퍼진다 */
+    ctx.globalAlpha=s.pulse*0.85;
+    ctx.setLineDash([7,6]);
+    ctx.strokeStyle=PAL.ver;
+    ctx.lineWidth=3;
+    ctx.beginPath(); ctx.ellipse(0,0, r+12*(1-s.pulse), r*0.80+9*(1-s.pulse), 0,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
   }
   ctx.restore();
 }
 
 function drawHero(x,y,t){
   const hs=heroSize();
-  const bob=Math.sin(t*3)* (G.player.hopping?0:3);
+  const bob=Math.sin(t*2.2)* (G.player.hopping?0:2);
   const sx=G.player.sx, sy=G.player.sy;
   ctx.save();
-  ctx.translate(x, y - hs*0.42 + bob);
+  ctx.translate(x, y - hs*0.46 + bob);
+  /* 종이라서 뛸 때 살짝 팔랑인다 */
+  if(G.player.hopping) ctx.rotate(Math.sin(clamp(G.player.t/G.player.dur,0,1)*Math.PI)*0.20);
+  else ctx.rotate(Math.sin(t*1.6)*0.02);
   ctx.scale(sx, sy);
   if(G.player.falling){
-    ctx.translate(0, easeInExpo(clamp(G.player.fallT,0,1))*120);
-    ctx.rotate(G.player.fallT*0.6);
+    const f=clamp(G.player.fallT,0,1);
+    ctx.translate(0, easeInExpo(f)*130);
+    ctx.rotate(f*0.7);
+    ctx.globalAlpha=Math.max(0, 1-f*0.55);
   }
-  if(imgs.heroOk && imgs.hero){
-    ctx.drawImage(imgs.hero, -hs/2, -hs/2, hs, hs);
-  } else {
-    ctx.fillStyle=PAL.ver;
-    ctx.beginPath(); rr(ctx, -hs*0.28, -hs*0.05, hs*0.56, hs*0.55, 12); ctx.fill();
-    ctx.fillStyle='#f3d2b0';
-    ctx.beginPath(); ctx.arc(0, -hs*0.22, hs*0.2, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle=PAL.ink;
-    ctx.beginPath(); ctx.arc(-hs*0.07, -hs*0.24, 3, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(hs*0.07, -hs*0.24, 3, 0, Math.PI*2); ctx.fill();
-  }
+  if(BAKE.hero) ctx.drawImage(BAKE.hero.c, -BAKE.hero.ox, -BAKE.hero.oy, BAKE.hero.w, BAKE.hero.h);
+  else { ctx.translate(-hs/2,-hs/2); ctx.fillStyle=PAL.ver; meeplePath(ctx, hs, hs); ctx.fill(); }
   ctx.restore();
 }
 
 function draw(){
   const t=performance.now()/1000;
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  ensureBake();
+  /* 화면 흔들림 폐기 → 판이 한 번 눌렸다 돌아온다 (무작위 지터 없음) */
+  let press=0;
   if(G.shake>0){
-    ctx.translate((Math.random()-0.5)*G.shakeAmt, (Math.random()-0.5)*G.shakeAmt);
+    const u=clamp(G.shake/0.22,0,1);
+    press=Math.sin(u*Math.PI)*G.shakeAmt*0.55;
   }
+  /* 판지 바탕은 1:1 디바이스 블릿 — 소프트웨어 렌더링에서 가장 싼 경로 */
+  ctx.setTransform(1,0,0,1,0,0);
+  if(BAKE.board){
+    const py=Math.round(press*dpr);
+    if(py>0){ ctx.fillStyle=PAL.kraft; ctx.fillRect(0,0,cv.width,py+1); }
+    ctx.drawImage(BAKE.board, 0, py);
+  } else { ctx.fillStyle=PAL.kraft; ctx.fillRect(0,0,cv.width,cv.height); }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(press) ctx.translate(0, press);
   drawBg(t);
-  if(G.phase==='title' || G.phase==='map'){
-    if(G.flash>0){ ctx.fillStyle=G.flashCol; ctx.fillRect(0,0,W,H); }
-    return;
-  }
+  if(G.phase==='title' || G.phase==='map') return;
   if(G.cur){
     for(let i=0;i<G.cur.stones.length;i++){
       const p=stonePos(G.cur,i,'cur');
@@ -1695,31 +1983,37 @@ function draw(){
       drawStone(G.next.stones[i], p.x, p.y, p.r, G.sel>=0 && i===G.sel && G.phase==='playing');
     }
   }
+  /* 뛴 자리에 떨어지는 종이 부스러기 자국 */
   for(const q of G.player.trail){
-    ctx.globalAlpha=q.a;
-    ctx.fillStyle='rgba(226,74,28,0.5)';
-    ctx.beginPath(); ctx.arc(q.x, q.y-heroSize()*0.3, 6*q.a, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha=q.a*0.55;
+    ctx.fillStyle=PAL.cut;
+    ctx.fillRect(q.x-2.5, q.y-heroSize()*0.3, 5, 4);
     ctx.globalAlpha=1;
   }
   drawHero(G.player.x, G.player.y, t);
+  /* 정답·오답 연출 = 파티클 대신 오려낸 종이 조각 서너 장이 팔랑 떨어진다 */
   for(const p of G.particles){
+    ctx.save();
     ctx.globalAlpha=clamp(p.life/p.max,0,1);
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.scale(1, Math.max(0.25, Math.abs(Math.cos(p.rot*1.3))));
+    ctx.fillStyle='rgba(62,44,24,.20)';
+    ctx.fillRect(-p.w/2+1, -p.h/2+1.5, p.w, p.h);
     ctx.fillStyle=p.col;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+    ctx.restore();
   }
   ctx.globalAlpha=1;
-  if(G.flash>0){
-    ctx.fillStyle=G.flashCol;
-    ctx.globalAlpha=G.flash;
-    ctx.fillRect(0,0,W,H);
-    ctx.globalAlpha=1;
-  }
   if(G.scanT>0){
-    ctx.strokeStyle='rgba(226,74,28,0.65)';
-    ctx.lineWidth=3;
+    /* 안전한 돌을 훑는 가위선 */
+    ctx.setLineDash([9,7]);
+    ctx.strokeStyle='rgba(194,32,42,.7)';
+    ctx.lineWidth=2.5;
     ctx.beginPath();
     const y=rowY('next')+Math.sin((1-G.scanT)*6)*8;
     ctx.moveTo(playX(), y); ctx.lineTo(playX()+playW(), y); ctx.stroke();
+    ctx.setLineDash([]);
   }
 }
 
@@ -1731,13 +2025,19 @@ function update(dt){
   }
   for(const k of G.koi){
     k.x += k.vx*k.dir*dt*0.2;
-    if(k.x>W+40) {k.dir=-1; k.y=H*0.3+Math.random()*H*0.4;}
+    if(k.x>W+40){ k.dir=-1; k.y=(k.y0||H*0.5)+Math.random()*Math.max(1,(k.y1||H*0.7)-(k.y0||H*0.5)); }
     if(k.x<-40) {k.dir=1;}
   }
   for(const s of G.spark){ s.y -= dt*6; if(s.y<0){ s.y=H; s.x=Math.random()*W; } }
   for(let i=G.particles.length-1;i>=0;i--){
     const p=G.particles[i];
-    p.life-=dt; p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.life-=dt; p.vy+=p.g*dt;
+    p.vx*=Math.pow(0.12, dt);            /* 종이라 공기 저항이 크다 */
+    p.vy=Math.min(p.vy, 120);            /* 낙하 속도 상한 — 팔랑팔랑 */
+    p.sway+=dt*5.2;
+    p.rot+=p.vr*dt;
+    p.x+=(p.vx+Math.cos(p.sway)*p.swayA)*dt;
+    p.y+=p.vy*dt;
     if(p.life<=0) G.particles.splice(i,1);
   }
   G.player.sx=lerp(G.player.sx, 1, 1-Math.pow(0.001, dt));
@@ -1846,7 +2146,7 @@ function renderMap(){
     const locked=p.id>save.unlock;
     b.disabled=locked;
     const st=save.stars[p.id-1]||0;
-    b.innerHTML=`<span>${p.id===7?'∞ ':p.id+'. '}${p.name}<br><small style="font-weight:800;color:#0F6E62">${p.sub}</small></span><span class="st">${locked?'잠김':('⭐'.repeat(st)||'입장')}</span>`;
+    b.innerHTML=`<span>${p.id===7?'∞ ':p.id+'. '}${p.name}<br><small style="font-weight:800;color:#6E5C48">${p.sub}</small></span><span class="st">${locked?'잠김':('★'.repeat(st)||'입장')}</span>`;
     b.addEventListener('click', ()=>{ if(!locked){ ensureAudio(); beginPlay(p.id,false); }});
     box.appendChild(b);
   }
@@ -2159,10 +2459,19 @@ bootMath();
 layout();
 setMuteUI();
 if(save.bestRows>0){ el('bestPill').hidden=false; el('bestPill').textContent='최고 '+save.bestRows+'칸'; }
-Promise.all([loadImg('./assets/hero.png','hero'), loadImg('./assets/bg.png','bg')]).finally(()=>{
+/* 회화 배경·캐릭터 이미지 로딩 폐기 — 모든 인게임 층은 코드로 굽는다.
+   숫자용 서체(Jua)가 준비되면 캔버스 폰트를 갈아 끼우고 토큰을 다시 굽는다. */
+function bootPaper(){
+  ensureBake();
   window.__GAME_TEST__.ready=true;
   requestAnimationFrame(frame);
-});
+}
+try{
+  if(document.fonts && document.fonts.load){
+    document.fonts.load('400 40px "LogoJua"').then(()=>{ FONT_OK=true; }).catch(()=>{});
+  }
+}catch(e){}
+bootPaper();
 })();
 </script>
 </body>
