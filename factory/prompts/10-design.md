@@ -12,14 +12,16 @@
    적어라 — 예: "Fruit Ninja 의 '화면을 가로지르는 슬라이스 판정 + 콤보 배율 상승'
    중에서도 콤보가 끊기는 순간의 긴장감을 가져온다." 메커닉 카테고리가 아니라
    **왜 그 게임이 중독적인지**(hook)를 가져와야 한다.
-2. **비주얼도 구체적인 레퍼런스 하나를 지목해라.** `art_direction` 안에
-   `visual_reference` 필드를 추가하고, `references/game-references.md` 의
-   "비주얼 레퍼런스" 섹션에서 하나를 골라 **어떤 기법**(파티클 시스템, 카메라 워크,
-   셰이더 그라디언트, 이징 스타일 등)을 가져올지 적어라. 무드보드 수준의 막연한
-   설명("네온 느낌") 말고, 그 레퍼런스의 `why_wow`/`tech` 필드를 참고해서 이번
-   게임의 `wow_moment` 연출에 직접 연결해라.
-3. 후보 목록에 마음에 드는 게 없으면 references 를 더 뒤져라 — 133개 사이트,
-   22개 메커닉, 42개 비주얼 레퍼런스가 있다. `mechanic_pool` 5개는 추천일 뿐이다.
+2. **비주얼 축을 하나 고르고, 원작의 아트 디렉션을 조사해라.** (아래 「아트 디렉션 의무」 절 전문 필독)
+   `references/game-references.json` 의 `art_directions.axes` 에서 축 하나(A~J)를 고르고,
+   `art_direction` 안에 `visual_axis` / `origin_art_notes` / `anti_reference` /
+   `component_grammar` / `feedback_signature` 를 **전부** 채워라.
+   `visual_reference`(기법 레퍼런스)는 계속 쓰되, 축을 대신하지 못한다 —
+   `references/game-references.json` 의 `visual_refs` 는 전부 WebGL 테크 데모라
+   **색·질감·타이포·부품을 결정해 주지 않는다.** 기법은 `visual_reference` 로,
+   화풍은 `visual_axis` 로 각각 정해라.
+3. 후보 목록에 마음에 드는 게 없으면 references 를 더 뒤져라 — 143개 사이트,
+   28개 메커닉, 46개 기법 레퍼런스, 10개 아트 디렉션 축이 있다. `mechanic_pool` 5개는 추천일 뿐이다.
 
 ## 잘 만든 실전 게임에서 검증된 패턴 (2026-08 vibe 시리즈 22종 실분석 — references/case-studies/)
 
@@ -110,6 +112,74 @@
 }
 ```
 
+## ⚠️ 아트 디렉션 의무 (2026-08-29 전수 감사 — `docs/design-diversity-plan.md`)
+
+게시작 24작을 전수 감사했더니 **24/24가 같은 화면**이었다:
+`상단 어두운 알약 칩 HUD → 크림색 문제 카드 → AI 회화 배경 위 플레이 → 하단 금색 광택 CTA`.
+최근 9작은 **색을 제거한 CSS 선언의 47~78%가 문자 그대로 같다.** 원인은 취향이 아니라
+기획서가 "이번 게임의 그림은 어떤 결인가"를 한 번도 결정하지 않았기 때문이다.
+그 빈칸을 아트·빌드 단계의 기본값 한 벌이 24번 채웠다.
+
+**그래서 이 단계에서 화풍을 확정한다. `art_direction` 은 이제 무드 문장이 아니라 계약이다.**
+
+### 필수 필드 5개 — 하나라도 비면 심사에서 탈락
+
+1. **`visual_axis`** — `references/game-references.json` 의 `art_directions.axes` 에서 축 id
+   하나(A~J). 그 축의 `image_style_stanza`·`component_grammar`·`background_policy`·
+   `feedback_grammar` 를 실제로 읽고 골라라. 10축으로 부족하면 **신규 축을 제안해도 된다** —
+   단 그때는 위 4개 항목을 같은 형식으로 직접 써 내야 하고, 기존 어느 축과도 겹치지 않음을
+   한 줄로 밝혀라.
+
+   **⛔ 직전 5작과 같은 축은 고를 수 없다 (하드 제약, 권고 아님).**
+   확인 절차 — 반드시 실행해라:
+   ```bash
+   # 최근 5작 slug
+   python3 -c "import json;q=json.load(open('factory/state/queue.json'));print([p['slug'] for p in q['produced'][-5:]])"
+   # 각 slug 의 축: meta.json 의 art_direction.visual_axis, 없으면 축 배정표에서 조회
+   grep -h '"visual_axis"' public/g/<slug>/meta.json
+   ```
+   `meta.json` 에 축이 안 적힌 구작은 `docs/design-diversity-plan.md` §3.1 축 배정표에서
+   그 slug 의 축을 찾아라. 또한 `art_directions.axes[].assigned` 에 **이미 3작이 찬 축**
+   (현재 축 C 네온: decimal-smash·jelly-gate·rounding-dash)은 정원 마감이라 고를 수 없다.
+
+2. **`origin_art_notes`** — `mechanic_origin` 으로 지목한 원작이 **실제로 어떤 그림인지** 3문장.
+   색·질감·타이포·피드백 중 무엇을 가져오고 무엇을 버리는지 명시해라. (상표·에셋 복제 금지 —
+   조형 언어만 차용한다.)
+
+   ⚠️ 지금까지 24작 중 **19작이 원작의 아트 디렉션을 통째로 버렸다.** Stack · Threes! ·
+   Polypad · PhET · Sandspiel · Helix Jump · oimo.io · balaline 은 전부 **배경 일러스트가
+   없는** 게임인데 우리는 24/24에 AI 회화 배경을 깔았다. **원작이 미니멀하면 미니멀하게 가라.**
+   메커닉만 훔치고 그림을 버리는 것이 이 공장의 최대 결함이다.
+
+3. **`anti_reference`** — 이번 게임이 **닮지 않아야 할** 우리 게시작 2개와 그 이유 한 줄씩.
+   `public/catalog.json` 에서 최근작을 확인해라. "닮지 않는다"를 색 하나가 아니라
+   **HUD 형태·배경 처리·정답 연출** 중 최소 2개 축에서 말해라.
+
+4. **`component_grammar`** — 이 게임의 HUD·부품이 어떤 물건인지 한 문장 + 축의 문법표
+   (`radius` / `border` / `shadow` / `gloss`)를 그대로 옮겨 적어라. 빌드 에이전트가 이걸
+   CSS로 번역한다. **"알약 칩(pill/chip)"은 축 A·I 이외에서 금지다.**
+
+5. **`feedback_signature`** — 정답·오답 연출을 **이 게임 고유의 사건**으로 써라.
+   `파티클 버스트 + 점수 팝업 + 화면 흔들림` 3종 세트는 현재 24/24가 쓰고 있는 범용
+   축하 효과다. **그대로 적으면 탈락이다.** 유리가 부풀어 터진다 / 자물쇠가 딸깍 걸린다 /
+   잉크가 번지며 판이 어긋난다 / 실이 꿰매지며 팽팽해진다 — 축의 `feedback_grammar` 를
+   이 게임의 오브젝트로 구체화해라.
+
+### 팔레트는 빌드에서 관철돼야 한다
+
+`palette_history` 를 보면 무드 문장은 "사프란 해바라기 들판", "모노크롬 먹선 한지",
+"대양 관제탑"처럼 다양하게 **선언**됐고 `bg` 도 `#FFE27A`, `#CFF6FF` 처럼 밝게 잡혔는데,
+실제 빌드된 게임의 최빈 hex는 `#111111`, `#17324d`, `#3a1f0a` 처럼 어두웠다.
+HUD·패널·버튼이 항상 어두운 반투명으로 덮어썼기 때문이다.
+
+- **`palette` 의 첫 색이 실제 화면 픽셀의 최빈색이 된다**고 생각하고 골라라.
+- 강조색을 호박·금색으로 잡지 마라 — 현재 23/24작이 호박 강조색이다.
+- 축이 배경 일러스트를 금지(B·C·E·G·H)하면 `assets_needed` 에 `bg` 를 넣지 마라.
+  그 축들은 코드가 그리는 플랫 면·격자·공허가 배경이다.
+- 마스코트는 **선택**이다. 현재 17/24작에 같은 화풍의 AI 동물·아동 캐릭터가 상주해서
+  "한 가족처럼 보인다"는 인상의 가장 직접적 원인이 됐다. 최근 게시작들이 이미 마스코트를
+  쓰고 있으면 이번엔 마스코트 없이 가라.
+
 ## 절대 원칙
 
 1. **"공부시키는 게임"이 아니라 "하고 싶은 게임"을 만든다.** 문제를 풀어야 게임이 진행되는 게 아니라, **게임을 잘하려면 자연스럽게 수학을 쓰게 되는** 구조여야 한다. 이게 이 프로젝트의 핵심이다.
@@ -165,13 +235,29 @@
   "tech": ["canvas2d"],
   "wow_moment": "플레이어가 '와' 하는 순간 1개를 구체적으로 (연출·카메라·파티클·사운드)",
   "art_direction": {
+    "visual_axis": "F",
+    "visual_axis_name": "인쇄·리소그래프",
+    "axis_style_stanza": "references/game-references.json 의 해당 축 image_style_stanza 를 그대로 복사 (아트 단계가 이 문장을 이미지 프롬프트에 넣는다). 신규 축을 제안했으면 직접 작성",
+    "axis_recent_check": "최근 5작의 축 목록과 이번 축이 겹치지 않음을 확인한 한 줄 (예: '최근 5작 = A,I,J,G,D → F 는 미사용')",
+    "origin_art_notes": "mechanic_origin 원작이 실제로 어떤 그림인지 3문장 + 무엇을 가져오고 무엇을 버리는지",
+    "anti_reference": [
+      { "slug": "twice-cut", "why": "HUD가 알약 칩 + 회화 배경 — 이번엔 판형 괘선 + 지면 배경으로 간다" },
+      { "slug": "stone-hop", "why": "정답 연출이 파티클 버스트 — 이번엔 잉크 번짐 하나로 대체" }
+    ],
+    "component_grammar": {
+      "hud": "이 게임의 HUD가 어떤 물건인가 한 문장 (알약 칩은 축 A·I 외 금지)",
+      "radius": "0", "border": "헤어라인", "shadow": "금지", "gloss": "금지",
+      "typeface_character": "축이 요구하는 서체 성격 (비트맵/세리프/손글씨/모노스페이스/자수 등). '시스템 산세리프'는 답이 아니다"
+    },
+    "background_policy": "축의 background_policy 를 이 게임에 맞춰 한 문장. 배경 일러스트를 쓸지 말지 여기서 확정한다",
+    "feedback_signature": "정답/오답 연출을 이 게임 고유의 사건으로. '파티클+점수팝업+화면흔들림'이면 탈락",
     "mood": "예: 채도 높은 대낮 놀이공원 — 아래 팔레트 규칙을 반드시 읽어라, 이 예시 색을 그대로 쓰지 마라",
     "palette": ["#fff4e0", "#ff6b35", "#2ec4b6"],
-    "visual_reference": "references/game-references.md 의 비주얼 레퍼런스 하나 + 어떤 기법을 가져오는지 한 문장 (예: 'Three.js Points Waves — 배경에 떠다니는 파티클 웨이브를 정답 판정 게이지로 재활용')",
+    "visual_reference": "references/game-references.json 의 visual_refs 하나 + 어떤 **기법**을 가져오는지 한 문장 (예: 'Three.js Points Waves — 배경에 떠다니는 파티클 웨이브를 정답 판정 게이지로 재활용'). 이건 기법이지 화풍이 아니다 — 화풍은 visual_axis 가 정한다",
     "juice_techniques": ["이번 게임에서 실제로 쓸 game-feel 기법을 30-build.md의 목록에서 최소 6개 골라 적어라 (예: hit-stop, squash-stretch, screen-shake-tiered, particle-burst-scaled, color-flash, ambient-idle-motion, trail, anticipation-easing, sound-visual-sync)"],
     "assets_needed": [
-      { "id": "hero", "prompt": "영어 이미지 생성 프롬프트 — 스타일·구도·배경 명시", "size": "1024x1024", "transparent_bg": true },
-      { "id": "bg", "prompt": "...", "size": "1536x1024", "transparent_bg": false },
+      { "id": "hero", "prompt": "영어 이미지 생성 프롬프트 — 구도·피사체만 쓴다. 화풍 문구는 아트 단계가 axis_style_stanza 로 붙이니 여기에 중복해서 쓰지 마라", "size": "1024x1024", "transparent_bg": true },
+      { "id": "bg", "prompt": "축 B·C·E·G·H 를 골랐으면 이 bg 항목 자체를 삭제해라 — 배경은 코드가 그린다", "size": "1536x1024", "transparent_bg": false },
       { "id": "thumb", "prompt": "1200x630 카드용 히어로 이미지 프롬프트", "size": "1536x1024", "transparent_bg": false }
     ]
   },

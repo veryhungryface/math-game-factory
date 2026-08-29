@@ -191,3 +191,15 @@
 - 신설 규범: 오답 수치 우연 전수 검사(r=2 사례). run.sh에 BUILD/REVIEW 러너·모델 오버라이드 추가(클로드 절약 모드) — codex 검수 시 REVIEW_MODEL 필수.
 - 사고 기록: 스냅샷 좀비(pkill 함정, OPERATIONS 13절), 러너 모델 인자 400.
 - 진행 중: 가로 전환 2팀(첨벙·대칭브레이커 / 쩍쩍·원펼침 + 판형 분류 감사). 크론 여전히 일시정지.
+
+## 2026-08-29 — 디자인 다양화: 전수 감사 + 파이프라인 아트 디렉션 강제
+- **문제**: 게시작 24작이 전부 같은 화면(상단 알약 칩 HUD → 크림 문제 카드 → AI 회화 배경 → 금색 광택 CTA). 최근 9작은 색 제거 후 CSS 선언 자카드 47~78% 동일(cell-latch~glass-puff 78.0%). 전수 감사·10축 정의·24작 축 배정표·재스킨 3차 계획은 `docs/design-diversity-plan.md`.
+- **근본 원인 3개(전부 프롬프트)**: ① `20-art.md` 고정 스타일 문구가 모든 에셋에 강제 부착 ② `30-build.md` "게임 화면 폴리시"가 알약 칩 문법을 문자 지시 + "배경 단색 금지" 체크가 미니멀 배경을 봉쇄 ③ `10-design.md` 의 `visual_reference` 가 WebGL 테크 데모(46개 전부)를 가리켜 화풍이 결정되지 않음.
+- **적용한 수정**:
+  - `references/game-references.json` 에 `art_directions` 신설 — 10축(A 종이공작 / B 플랫벡터 / C 네온 / D 클레이 / E 픽셀 / F 인쇄리소 / G 칠판문구 / H 블루프린트 / I 직물 / J 유리) × 팔레트·타이포·부품 문법·배경 정책·연출 문법·`image_style_stanza`·참고작·기존 배정작. 축당 정원 3작. `visual_refs` 는 그대로(기법 레퍼런스로 계속 사용).
+  - `10-design.md`: `art_direction` 필수 5필드(`visual_axis`/`origin_art_notes`/`anti_reference`/`component_grammar`/`feedback_signature`). **직전 5작과 같은 축 금지**(queue.json `produced` 최근 5 → 각 `meta.json` 의 `art_direction.visual_axis` 조회, 구작은 plan §3.1 표), 정원 3작 찬 축 금지(현재 C 네온 마감).
+  - `20-art.md`: 고정 스타일 문구 폐기 → 축별 스타일 스탠자 10종 표. `soft cel shading`/`bold saturated colors`/`thick clean outlines` 금지어. 축 B·C·E·G·H 는 배경 에셋 생성 금지(`art.json` 에 `skipped` 로 기록). title.png 구도도 축별 분기.
+  - `30-build.md`: 알약 칩 폴리시 → 축별 부품 문법표(radius/border/shadow/gloss), `0 3px 0` + 상단 inset 광택은 축 A·I 외 금지, `.pill`/`.chip` 복사 금지 + grep 자기검열. "배경 단색 금지" 체크 → "축과 일치 + 플레이 가독성" 으로 교체. 정답 연출 축별 표 신설(파티클+팝업+shake 3종 세트 기본값 금지). meta.json 에 `art_direction` 요약 기록 의무(다음 회차 축 조회용).
+  - `40-review.md`: 비주얼 20점 중 **8점을 분화에 배정** — 선례 비유사 4점(catalog 최근 3작 스크린샷 Read 대조, HUD/배경/연출 중 2개 이상 동일이면 0점) + 축 준수 4점(grep 로 금지 그림자·radius·광택 검출 시 0점). `review.json` 에 `visual_diff` 필드. 분화 2점 이하면 must_fix high.
+  - `docs/design-bible.html` §3.4 신설(기존 3.4 → 3.5).
+- **미착수(다음 사람 몫)**: ① `factory/lib/design-similarity.mjs` 신설(CSS 선언 자카드) + 검수 자동 연결 — 현재 검수는 육안·grep 대조다 ② `pick-slot.mjs` 에 `axis_history`/`axis_usage`/`recent_mascot_count` 주입(현재는 기획 에이전트가 직접 조회) ③ 기존 24작 재스킨: 1차 6작(cell-latch B / glass-puff D / overlay-snap I / twice-cut F / tide-checkpoint H / stone-hop A) → 2차 3작(boundary-rush E / clang-stamp G / lantern-disk J) → 3차 15작. plan §3.1~3.3 참조 ④ 구작 `meta.json` 에 `art_direction.visual_axis` 소급 기입(안 하면 직전 5작 축 조회가 plan 문서 수동 조회로 떨어진다).

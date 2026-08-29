@@ -33,19 +33,56 @@
 - **선택지/레인이 2개뿐인가?** (러너·레인 계열 한정) 그렇다면 4점 감점. 기획서
   `risks` 에 "2개인 이유"가 명시돼 있지 않으면 감점을 되돌리지 마라 (4)
 
-### 4. 비주얼 (20점)
-- **스크린샷을 보고** 판단해라. 밋밋하면 솔직하게 낮게 줘라 (5)
+### 4. 비주얼 (20점) — 이 중 **8점이 「디자인 분화」**다
+
+**분화 8점 (2026-08-29 전수 감사 — `docs/design-diversity-plan.md`)**
+
+24작을 전수 감사했더니 24/24가 같은 화면이었다(상단 알약 칩 HUD → 크림색 문제 카드 →
+AI 회화 배경 → 하단 금색 광택 CTA). 최근 9작은 색을 뺀 CSS 선언의 47~78%가 문자 그대로 같다.
+**여기서 후하게 주면 25번째 같은 게임이 나간다.**
+
+- **선례 비유사 (4점)** — ⚠️ **반드시 눈으로 대조해라.**
+  `public/catalog.json` 에서 **최근 게시 3작**의 slug 를 뽑고, 그 게임들의
+  `factory/work/qa/<slug>/desktop-1280.png` 또는 `public/g/<slug>/thumb.png` 를
+  **Read 툴로 실제로 열어** 이번 게임의 스크린샷과 나란히 비교해라.
+  ```bash
+  python3 -c "import json;c=json.load(open('public/catalog.json'));print([g['slug'] for g in c['games'][:4]])"
+  grep -h '\"visual_axis\"' public/g/*/meta.json | sort | uniq -c   # 축 사용 이력
+  ```
+  아래 셋 중 **2개 이상이 최근 3작과 같으면 이 항목 0점**:
+  ① HUD 형태(상단 전폭 띠 + 둥근 칩) ② 배경 처리(생성 회화 배경 + 반투명 패널)
+  ③ 정답 연출(파티클 버스트 + 점수 팝업 + 화면 흔들림).
+  보고서 `visual_diff` 에 비교한 3작 slug 와 "무엇이 다른가"를 각각 한 줄로 적어라.
+- **축 준수 (4점)** — `chosen.json` 의 `art_direction.visual_axis` 와 `component_grammar`
+  를 읽고, 실제 CSS가 그 문법표(radius/border/shadow/gloss)를 지켰는지 **코드로 확인**해라.
+  ```bash
+  grep -c 'border-radius:1[2-8]px' public/g/<slug>/index.html
+  grep -n 'inset 0 1\(\.5\)\?px 0 rgba(255,255,255' public/g/<slug>/index.html
+  grep -n 'box-shadow:[^;]*0 3px 0' public/g/<slug>/index.html
+  ```
+  축이 **금지**한 그림자·radius·광택을 썼으면 이 항목 **0점**.
+  축 A·I 이외에서 `0 3px 0` + 상단 `inset` 흰 하이라이트 조합이 나오면 자동 0점이다.
+  `.pill`/`.chip` CSS를 다른 게임에서 그대로 복사해 온 흔적(같은 rgba 값·같은 선언 순서)이
+  보이면 `must_fix` 에 `severity: "high"` 로 적어라.
+  기획서에 `visual_axis` 가 아예 없으면 이 항목 0점이고 `must_fix` high 다.
+
+**나머지 12점**
+- **스크린샷을 보고** 판단해라. 밋밋하면 솔직하게 낮게 줘라 (4)
 - **게임 필(Juice) 기법 개수.** `30-build.md` 의 표(hit-stop, squash&stretch,
   anticipation-easing, screen-shake-tiered, particle-burst-scaled, color-flash,
   trail, ambient-idle-motion, sound-visual-sync)에서 실제로 코드에 구현된 게
   몇 개인지 세라 — 스크린샷 여러 장을 비교하거나 코드에서 해당 로직을 찾아라.
-  6개 미만이면 이 항목 절반 이하로 깎아라 (6)
-- **레퍼런스 충실도.** 기획서의 `visual_reference`/`mechanic_origin` 이 구체적인
-  기법을 지목했다면, 실제로 그 기법이 눈에 보이는가. 이름만 걸고 안 지켰으면 감점 (3)
-- 팔레트 통제·타이포 위계·여백 (3)
+  6개 미만이면 이 항목 절반 이하로 깎아라. **다만 그 기법이 축의 재질로 번역됐는지도
+  같이 봐라** — 어느 축이든 똑같은 흰 원형 파티클이면 개수를 세도 감점이다 (4)
+- **레퍼런스 충실도.** 기획서의 `origin_art_notes`/`visual_reference`/`mechanic_origin` 이
+  지목한 것이 실제로 눈에 보이는가. 특히 원작이 **배경 일러스트 없는 미니멀 게임**
+  (Stack·Threes!·Polypad·PhET·Sandspiel·oimo·balaline 류)인데 우리가 회화 배경을
+  깔았으면 감점해라 — 24작 중 19작에서 반복된 결함이다 (2)
+- 팔레트 통제·타이포 위계·여백. 인게임 본문·수치가 `-apple-system` 시스템 스택뿐이고
+  축이 요구한 서체 성격(비트맵/세리프/손글씨/모노스페이스)이 화면에 없으면 감점 (1)
 - **캐릭터/마스코트가 스크린샷에서 실제로 귀여워 보이는가.** 원본 에셋 품질과 무관하게
-  게임 안에서 너무 작거나 겹쳐서 뭉개져 보이면 감점해라. 화면 폭 대비 크기를 스크린샷에서
-  자로 재듯 확인해라 (3)
+  게임 안에서 너무 작거나 겹쳐서 뭉개져 보이면 감점해라. (마스코트가 없는 축이면
+  이 1점은 감점하지 말고 배경·오브젝트의 존재감으로 대체 채점해라) (1)
 
 ### 5. 모바일 / 성능 (10점)
 - 390×844 스크린샷에서 잘리거나 겹치는 요소가 없는가 (3)
@@ -74,6 +111,15 @@
   "breakdown": {
     "curriculum": 22, "math": 24, "fun": 16, "visual": 15, "mobile": 6
   },
+  "visual_diff": {
+    "visual_axis": "F",
+    "axis_compliance": "축 F 문법표 준수 — radius 0 / 헤어라인 / 그림자 없음. 0 3px 0 검출 0건",
+    "compared_with": [
+      { "slug": "overlay-snap", "how_it_differs": "HUD가 알약 칩이 아니라 판형 괘선, 배경이 회화가 아니라 지면" },
+      { "slug": "twice-cut", "how_it_differs": "..." },
+      { "slug": "boundary-rush", "how_it_differs": "..." }
+    ]
+  },
   "math_verification": [
     { "prompt": "3/4 × 2/3 = ?", "claimed": "1/2", "my_calculation": "1/2", "correct": true }
   ],
@@ -92,6 +138,8 @@
 - **실수 관용도(6번)에서 문제가 있으면** → `must_fix` 에 high 로 적되, 총점이 80점을
   넘어도 이 한 가지 때문에 `passed: false` 로 만들어라. 재미없는 게임보다 나쁜 건
   "억울하게 지는" 게임이다.
+- **디자인 분화(4번의 분화 8점)에서 8점 중 2점 이하**면 총점과 무관하게 `must_fix` 에
+  `severity: "high"` 로 적어라. 25번째 같은 게임을 게시하는 것은 새 게임을 안 내는 것보다 나쁘다.
 - 총점 80점 미만 → `passed: false`. 자동 수정 1라운드가 돌고 재검수된다.
 - 총점 80점 이상이고 수학 오류 0이고 실수 관용도 문제 없음 → `passed: true`.
 - **후하게 주지 마라.** 평범하면 70점대다. 80점은 "친구에게 링크를 보낼 만한" 수준이다.
