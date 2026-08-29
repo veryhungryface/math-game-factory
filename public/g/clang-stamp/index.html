@@ -312,7 +312,7 @@ html.land .stamp,html.land .rbtn{ min-height:72px }
 </div>
 
 <div id="doorHud" class="hidden"><div class="door-card"><span class="k" id="doorK">나가는 문</span><span class="n" id="doorN">—</span><span class="sub" id="doorS"></span></div></div>
-<div id="peekLab" class="hidden">길게 누르면 판단 자리를 보여 줘요</div>
+<div id="peekLab" class="hidden">미리 눌러도 예약돼요 · 길게 누르면 판단 자리를 봐요</div>
 
 <div id="ctrl" class="hidden">
   <div id="stamps" style="display:contents">
@@ -937,9 +937,11 @@ window.addEventListener('resize', fit); fit();
 /* ════════════════════════════════════════════
    2. 게임 상태
    ════════════════════════════════════════════ */
+/* 한 판 길이. 소포 한 개당 5~6초를 주므로 90초로는 문항 수가 너무 적다. */
+const ROUND=120;
 const S={
   phase:'title', score:0, showScore:0, lives:3, combo:0, bestCombo:0, solved:0, seals:0,
-  level:1, timeLeft:90, easy:true, timeScale:1, hitStop:0,
+  level:1, timeLeft:ROUND, easy:true, timeScale:1, hitStop:0, mercyLeft:3,
   shake:0, shakeMag:0, flash:0, flashGold:true,
   pkg:null, parts:[], trails:[], floaters:[], tower:[],
   stampFly:null, peek:false, rewindLeft:1, invuln:0,
@@ -1036,7 +1038,7 @@ function praise(msg){
 }
 
 const ONB=[
-  {t:'노란 칸에서 찍어요', b:'위에서 소포가 떨어져요. 노란 찍는 칸 안에 있을 때만 도장이 찍혀요.'},
+  {t:'천천히 봐도 돼요', b:'소포는 천천히 내려와요. 답을 정했으면 미리 눌러 두세요. 노란 칸에 닿는 순간 그 도장이 저절로 찍혀요.'},
   {t:'도장이 곧 어림이에요', b:'올림·버림·반올림 도장이 수를 바꿔요. 바뀐 수가 위 문 숫자와 같아야 지나가요. 문에는 정답 방법이 안 적혀 있어요.'},
   {t:'아니면 반송이에요', b:'어떤 도장을 찍어도 문 숫자가 안 나오는 소포가 있어요. 그럴 땐 ✕ 반송을 눌러요. 한 번 놓치면 콤보만 끊기지만, 세 번 연속 놓치면 문이 막혀 종이가 찢어져요. 목숨은 세 개.'}
 ];
@@ -1076,11 +1078,13 @@ function takeFrom(name){
   return arr[S.cursor[name]++];
 }
 
+/* 소포 하나에 5~6초를 주므로 한 판에 도는 문항이 예전의 절반이다.
+   창구 단계 문턱도 같이 줄여야 뒤쪽 카드(함정·역추적)를 한 번은 만난다. */
 function windowOfSolved(s){
-  if(s<3) return 1;
-  if(s<8) return 2;
-  if(s<14) return 3;
-  if(s<20) return 4;
+  if(s<2) return 1;
+  if(s<5) return 2;
+  if(s<9) return 3;
+  if(s<14) return 4;
   return 5;
 }
 
@@ -1115,47 +1119,53 @@ function cloneProb(c){
   return o;
 }
 
-function fallDur(prob){
-  const base=S.easy?2.05:1.55;
-  let t=Math.max(0.85, base - S.solved*0.035);
-  if(S.level>=5 && !S.easy) t=t*0.85;
-  if(prob && prob.n>=1000) t=Math.max(t, 1.7);
-  /* 범위 띠는 양 끝 판단 + 봉인이라 낙하 자체를 넉넉히 준다 */
-  if(prob && prob.kind==='range') t=Math.max(t, S.easy?2.0:1.6);
-  return t;
+/* ── 어린이 기준 페이스 ───────────────────────────────
+   이 게임은 「어림 계산」을 요구한다. 10~12세가 문제를 읽고 판단하는 데는
+   반응속도가 아니라 계산 시간이 든다. 그래서 낙하를 두 구간으로 쪼개고
+   각 구간을 화면 비율이 아니라 **실제 초**로 잡는다.
+
+     approach : 소포가 나타나 찍는 칸에 닿기까지 = 읽고 어림하는 시간
+     zoneSec  : 찍는 칸을 통과하는 시간         = 실제 판정 창
+
+   콤보·진행 가속은 두 값의 하한을 절대 못 넘는다.
+     쉬움 : 계산 3.2초 + 판정 1.9초 = 최소 5.1초
+     세게 : 계산 2.0초 + 판정 1.2초 = 최소 3.2초
+   여기에 「예약」(reserve)까지 있어서, 미리 눌러 두면 칸에 닿는 순간
+   자동으로 찍힌다 — 정타 리듬게임이 아니라 판단 게임이 된다. */
+function paceOf(prob){
+  const adv=Math.min(1, S.solved/20);          /* 한 판 동안 서서히 */
+  const cb=Math.min(1, S.combo/8);             /* 콤보 가속은 아주 완만 */
+  let approach, zone, aMin, zMin;
+  if(S.easy){
+    approach=3.60-0.80*adv-0.25*cb; zone=2.40-0.40*adv-0.10*cb; aMin=3.20; zMin=1.90;
+  } else {
+    approach=3.00-0.70*adv-0.35*cb; zone=1.80-0.40*adv-0.20*cb; aMin=2.00; zMin=1.20;
+  }
+  if(prob){
+    /* 읽을 것이 많은 카드는 계산 시간을 더 준다 */
+    if(prob.kind==='range'||prob.kind==='life'||prob.kind==='trace') approach+= S.easy?1.0:0.7;
+    if(prob.n>=1000) approach+=0.5;
+    if(prob.conv==='AT_PLACE') approach+=0.4;   /* 「자리에서」는 한 단계 더 생각한다 */
+  }
+  return [Math.max(aMin, approach), Math.max(zMin, zone)];
 }
-/* 찍는 칸. 폭은 화면 비율이 아니라 「실제 초」로 하한을 둔다 —
-   콤보가 올라가도 사람 손으로 누를 수 없는 창이 되면 안 된다. */
+/* 찍는 칸의 «높이»는 이제 시간과 무관하다 — 통과 시간은 paceOf 가 초로 정한다.
+   따라서 콤보로 칸을 좁히지 않는다. 보기 좋고 손가락이 닿는 크기로 고정. */
 function zoneRange(prob){
   const isRange = !!(prob && prob.kind==='range');
-  let zt, zb, minSec;
-  if(isRange){
-    /* 봉인 창은 콤보로 좁히지 않는다 */
-    zt = S.easy?0.42:0.44; zb = S.easy?0.76:0.72;
-    minSec = S.easy?0.60:0.46;
-  } else if(S.easy){
-    zt=0.46; zb=0.72; minSec=0.46;
-  } else {
-    const shrink=Math.min(0.055, S.combo*0.007);
-    zt=0.52+shrink; zb=0.66-shrink;
-    minSec=0.30;
-  }
-  const dur=Math.max(0.4, fallDur(prob));
-  if((zb-zt)*dur < minSec){
-    const half=Math.min(0.28, minSec/dur/2), m=(zt+zb)/2;
-    zt=Math.max(0.30, m-half); zb=Math.min(0.88, m+half);
-  }
-  return [zt,zb];
+  if(S.easy) return isRange ? [0.42,0.76] : [0.44,0.74];
+  return isRange ? [0.44,0.74] : [0.46,0.72];
 }
 
 function spawn(){
   const prob=nextProblem();
   const [zt,zb]=zoneRange(prob);
+  const [aSec,zSec]=paceOf(prob);
   S.pkg={
-    prob, y:0.12, vy:1/fallDur(prob),
+    prob, y:0.12, pace:[aSec,zSec], vy:(zt-0.12)/aSec,
     x: colX+colW*0.5, state:'fall',
     sx:1, sy:1, rot:0, shown: (prob && prob.n!=null ? prob.n : ''),
-    burst:null, tHit:0, perfect:false, stamped:false,
+    burst:null, tHit:0, perfect:false, stamped:false, reserved:null,
     zone:[zt,zb], trail:[]
   };
   S.peek=false;
@@ -1200,9 +1210,9 @@ function paintCtrl(prob){
   if(isR){
     document.getElementById('loMark').textContent=prob.loMark==null?'?':(prob.loMark?'●':'○');
     document.getElementById('hiMark').textContent=prob.hiMark==null?'?':(prob.hiMark?'●':'○');
-    document.getElementById('peekLab').textContent='●/○은 언제든 바꿔요 · 노란 칸에서 봉인!';
+    document.getElementById('peekLab').textContent='●/○은 언제든 바꿔요 · 봉인은 미리 눌러도 예약돼요';
   } else {
-    document.getElementById('peekLab').textContent='길게 누르면 판단 자리를 봐요 · 안 맞으면 ✕ 반송';
+    document.getElementById('peekLab').textContent='미리 눌러도 예약돼요 · 길게 누르면 판단 자리를 봐요';
   }
 }
 
@@ -1234,7 +1244,8 @@ function beginPlay(){
   hideAll();
   S.phase='playing';
   S.score=0; S.showScore=0; S.lives=3; S.combo=0; S.bestCombo=0; S.solved=0; S.seals=0;
-  S.level=1; S.timeLeft=90; S.timeScale=1; S.hitStop=0; S.shake=0; S.flash=0;
+  S.level=1; S.timeLeft=ROUND; S.timeScale=1; S.hitStop=0; S.shake=0; S.flash=0;
+  S.mercyLeft=3; S.reserveTaught=false;
   S.parts.length=0; S.trails.length=0; S.floaters.length=0; S.tower.length=0;
   S.stampFly=null; S.invuln=0; S.conceptMiss={}; S.camZ=1; S.camT=1;
   S.rewindLeft=S.easy?3:1;
@@ -1332,15 +1343,18 @@ function unstampPkg(pkg){
   if(!pkg) return;
   if(pkg.preStamp!=null) pkg.shown=pkg.preStamp;
   else if(pkg.prob && pkg.prob.n!=null) pkg.shown=pkg.prob.n;
-  pkg.preStamp=null; pkg.stamped=false; pkg.rejected=false; pkg.rot=0;
+  pkg.preStamp=null; pkg.stamped=false; pkg.rejected=false; pkg.rot=0; pkg.reserved=null;
 }
 
 function applyWrong(fromTest, reason){
   if(S.phase!=='playing') return;
   const prob=S.pkg && S.pkg.prob;
   const key=prob? (prob.unitConcept||'x') : 'x';
-  if(S.easy && !S.conceptMiss[key] && !fromTest){
+  /* 처음 만나는 개념은 한 번 되감아 준다. 단 한 판에 3번까지 —
+     무한 관용은 아무 버튼이나 누르는 봇에게 목숨을 주는 구멍이 된다. */
+  if(S.easy && S.mercyLeft>0 && !S.conceptMiss[key] && !fromTest){
     S.conceptMiss[key]=1;
+    S.mercyLeft--;
     toast('되감기! 같은 소포예요', 'bad');
     if(S.pkg){ S.pkg.y=0.18; S.pkg.state='fall'; S.pkg.sx=1; S.pkg.sy=1; unstampPkg(S.pkg); }
     sfxMiss();
@@ -1454,14 +1468,43 @@ function pkgFitWidth(shown, answer){
   return pw;
 }
 
+/* ── 예약 ────────────────────────────────────────────
+   찍는 칸에 닿기 전에 미리 눌러 두면, 칸에 닿는 순간 그 도장이 자동으로 찍힌다.
+   어린이는 「계산이 끝난 순간」에 손이 나간다 — 그 순간을 헛손질로 만들지 않는다.
+   판단이 틀리면 예약도 똑같이 틀린 채로 찍히므로 난이도가 낮아지지는 않는다. */
+function reserveLabel(kind, mode){
+  return kind==='reject' ? '반송' : kind==='seal' ? '봉인' : modeWord(mode);
+}
+function reserve(kind, mode){
+  const pkg=S.pkg;
+  if(!pkg || pkg.state!=='fall') return;
+  const same = pkg.reserved && pkg.reserved.kind===kind && pkg.reserved.mode===mode;
+  pkg.reserved={kind, mode};
+  if(!same){
+    beep(660,0.05,'triangle',0.05);
+    /* 설명은 한 판에 한 번만 — 그 뒤로는 배지가 알려 준다 */
+    if(!S.reserveTaught){ S.reserveTaught=true; toast(reserveLabel(kind,mode)+' 예약 — 칸에 닿으면 찍혀요'); }
+    else toast(reserveLabel(kind,mode)+' 예약!');
+  }
+}
+function fireReserved(){
+  const pkg=S.pkg;
+  if(!pkg || !pkg.reserved) return;
+  const r=pkg.reserved;
+  pkg.reserved=null;
+  if(r.kind==='stamp') tryStamp(r.mode);
+  else if(r.kind==='reject') tryReject();
+  else if(r.kind==='seal') trySeal();
+}
+
 function tryStamp(mode){
   if(S.phase!=='playing' || !S.pkg) return;
   const pkg=S.pkg;
   if(pkg.state!=='fall') return;
   const prob=pkg.prob;
   if(prob.kind==='range') return;
-  const inZ= pkg.y>=pkg.zone[0] && pkg.y<=pkg.zone[1];
-  if(!inZ) return;
+  const inZ= pkg.y>=pkg.zone[0] && pkg.y<=pkg.zone[1]+0.02;   /* 놓침 판정과 같은 선까지 인정 — 죽은 띠를 만들지 않는다 */
+  if(!inZ){ if(pkg.y<pkg.zone[0]) reserve('stamp', mode); return; }
   const mid=(pkg.zone[0]+pkg.zone[1])/2;
   const perfect= Math.abs(pkg.y-mid) < (pkg.zone[1]-pkg.zone[0])*0.18;
   pkg.perfect=perfect;
@@ -1492,8 +1535,8 @@ function tryReject(){
   if(pkg.state!=='fall') return;
   const prob=pkg.prob;
   if(!prob || prob.kind==='range') return;
-  const inZ= pkg.y>=pkg.zone[0] && pkg.y<=pkg.zone[1];
-  if(!inZ) return;
+  const inZ= pkg.y>=pkg.zone[0] && pkg.y<=pkg.zone[1]+0.02;   /* 놓침 판정과 같은 선까지 인정 — 죽은 띠를 만들지 않는다 */
+  if(!inZ){ if(pkg.y<pkg.zone[0]) reserve('reject', null); return; }
   const mid=(pkg.zone[0]+pkg.zone[1])/2;
   const perfect= Math.abs(pkg.y-mid) < (pkg.zone[1]-pkg.zone[0])*0.18;
   pkg.perfect=perfect;
@@ -1526,9 +1569,9 @@ function trySeal(){
   const p=S.pkg.prob;
   if(!p || p.kind!=='range') return;
   if(S.pkg.state!=='fall') return;
-  const inZ= S.pkg.y>=S.pkg.zone[0] && S.pkg.y<=S.pkg.zone[1];
-  if(!inZ) return;
   if(p.loMark==null || p.hiMark==null){ toast('양 끝을 먼저 찍어요 (지금 눌러도 돼요)'); return; }
+  const inZ= S.pkg.y>=S.pkg.zone[0] && S.pkg.y<=S.pkg.zone[1]+0.02;
+  if(!inZ){ if(S.pkg.y<S.pkg.zone[0]) reserve('seal', null); return; }
   /* 정타는 「칸 한가운데에서 봉인했는가」로만 판정한다 — 연타로 ×2 를 얻을 수 없다 */
   const mid=(S.pkg.zone[0]+S.pkg.zone[1])/2;
   const perfect= Math.abs(S.pkg.y-mid) < (S.pkg.zone[1]-S.pkg.zone[0])*0.18;
@@ -1554,7 +1597,7 @@ function gameOver(){
   document.getElementById('overSolved').textContent=String(S.solved);
   document.getElementById('overCombo').textContent=String(S.bestCombo);
   document.getElementById('overDaily').textContent=S.daily+'/30';
-  const stars=S.solved>=30?3: S.solved>=18?2: S.solved>=8?1:0;
+  const stars=S.solved>=16?3: S.solved>=10?2: S.solved>=5?1:0;
   [...document.querySelectorAll('#stars i')].forEach((el,i)=>{
     setTimeout(()=>el.classList.toggle('pop', i<stars), 180+i*160);
   });
@@ -1664,7 +1707,7 @@ function update(dt){
   if(S.phase==='playing'){
     S.timeLeft-=gdt;
     const tf=document.getElementById('timerFill');
-    tf.style.transform='scaleX('+Math.max(0, S.timeLeft/90)+')';
+    tf.style.transform='scaleX('+Math.max(0, S.timeLeft/ROUND)+')';
     if(S.timeLeft<=0){ S.timeLeft=0; gameOver(); }
   }
 
@@ -1673,11 +1716,17 @@ function update(dt){
     pkg.sx += (1-pkg.sx)*Math.min(1, gdt*10);
     pkg.sy += (1-pkg.sy)*Math.min(1, gdt*10);
     if(pkg.state==='fall'){
-      const slow = (pkg.y>=pkg.zone[0] && pkg.prob && pkg.prob.n>=1000) ? 0.72 : 1;
-      pkg.y += pkg.vy * gdt * slow;
+      /* 구간별 속도 — 계산 구간(위)과 판정 구간(찍는 칸)의 «초»가 각각 지켜진다 */
+      const aSec=pkg.pace?pkg.pace[0]:3.5, zSec=pkg.pace?pkg.pace[1]:2.0;
+      const zEnd=pkg.zone[1]+0.02;
+      const wasAbove = pkg.y < pkg.zone[0];
+      pkg.vy = wasAbove ? (pkg.zone[0]-0.12)/aSec : (zEnd-pkg.zone[0])/zSec;
+      pkg.y += pkg.vy * gdt;
       pkg.trail.push({x:pkg.x, y:pkgDrawY(), a:1});
       if(pkg.trail.length>8) pkg.trail.shift();
-      if(pkg.y>pkg.zone[1]+0.02) applyMiss();
+      /* 칸에 막 들어왔다 — 예약해 둔 도장이 있으면 지금 찍힌다 */
+      if(wasAbove && pkg.y>=pkg.zone[0] && pkg.reserved) fireReserved();
+      else if(pkg.y>pkg.zone[1]+0.02) applyMiss();
     } else if(pkg.state==='flyDoor'){
       pkg.tHit+=real;
       const t=Math.min(1, pkg.tHit/0.38);
@@ -1946,6 +1995,25 @@ function drawPackage(){
     }
   }
   ctx.restore();
+  /* 예약 배지 — 「무엇을 미리 눌러 뒀는지」가 보여야 안심하고 미리 누른다 */
+  if(pkg.reserved && pkg.state==='fall'){
+    const label=reserveLabel(pkg.reserved.kind, pkg.reserved.mode)+' 예약';
+    const fs=Math.max(12, Math.min(18, colW*0.042));
+    ctx.save();
+    ctx.font='900 '+fs+'px '+FONT;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const tw=ctx.measureText(label).width;
+    const bw2=tw+22, bh2=fs+14;
+    /* 소포 위가 목표 카드에 가려지는 높이면 아래쪽에 붙인다 */
+    let by=y-size*0.46-bh2*0.75;
+    if(by < fallTop()+bh2*0.7) by = y+size*0.46+bh2*0.75;
+    ctx.fillStyle='rgba(26,95,90,.94)';
+    ctx.strokeStyle='#D4A017'; ctx.lineWidth=2.5;
+    roundRect(pkg.x-bw2/2, by-bh2/2, bw2, bh2, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#fff6d2';
+    ctx.fillText(label, pkg.x, by+1);
+    ctx.restore();
+  }
 }
 
 function drawRangeBand(p, bw){
@@ -2047,9 +2115,9 @@ function frame(now){
    ════════════════════════════════════════════ */
 window.__GAME_TEST__={
   ready:false,
-  start(){
+  start(opts){
     ensureAudio();
-    S.easy=true;
+    S.easy=!(opts && opts.hard);
     beginPlay();
   },
   getState(){
@@ -2059,9 +2127,10 @@ window.__GAME_TEST__={
   peek(){
     const k=S.pkg; if(!k) return null;
     const q=k.prob||{};
-    return { kind:q.kind, n:q.n, mode:q.mode, p:q.p, answer:q.answer,
+    return { id:q.id, kind:q.kind, n:q.n, mode:q.mode, p:q.p, answer:q.answer,
       shouldStamp:!!q.shouldStamp, loIncl:q.loIncl, hiIncl:q.hiIncl,
-      loMark:q.loMark, hiMark:q.hiMark, y:k.y, zone:k.zone, state:k.state };
+      loMark:q.loMark, hiMark:q.hiMark, y:k.y, zone:k.zone, state:k.state,
+      pace:k.pace?k.pace.slice():null, reserved:k.reserved?k.reserved.kind:null };
   },
   answerCorrect(){
     if(S.phase==='title'||S.phase==='onboarding'||S.phase==='over') beginPlay();
