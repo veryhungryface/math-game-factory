@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>분수 다리공사</title>
+<style>
+  :root{
+    --stageW: min(100vw, 1280px);
+    --stageX: calc((100vw - var(--stageW)) / 2);
+    --ink:#2b2a26; --vellum:#f4eddc; --vellum2:#efe5cd; --cyan:#0e7c86; --accent:#d95a2b;
+    --hair:1px solid var(--ink);
+    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:var(--vellum);color:var(--ink)}
+  body{position:fixed;inset:0;touch-action:none;user-select:none;-webkit-user-select:none}
+  #app{position:absolute;left:var(--stageX);top:0;width:var(--stageW);height:100%}
+  #cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+  /* HUD — 범례 박스·인출선 라벨 (H축 문법) */
+  #hud{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;
+       padding:calc(env(safe-area-inset-top,0px) + 6px) 10px 6px;pointer-events:none;z-index:5}
+  .chip{border:var(--hair);background:var(--vellum);padding:5px 10px;font-size:13px;line-height:1.2;
+        font-family:ui-monospace,Menlo,monospace;letter-spacing:.02em;white-space:nowrap}
+  .chip b{color:var(--accent);font-weight:700}
+  #muteBtn{margin-left:auto;pointer-events:auto;width:44px;height:44px;border:var(--hair);background:var(--vellum);
+           font-size:18px;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+
+  /* 문제 판넬 */
+  #panel{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 8px);
+         background:var(--vellum);border-top:var(--hair)}
+  #qtext{font-size:17px;line-height:1.55;min-height:44px;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
+  #qtext .fx{display:inline-flex;align-items:center;vertical-align:middle}
+  #qtext .fx .katex{font-size:1.15em}
+  #curAns{font-size:13px;margin-top:4px;color:var(--cyan);font-family:ui-monospace,Menlo,monospace;min-height:16px}
+  #ctrl{display:flex;gap:8px;margin-top:8px;align-items:stretch}
+  button.act{flex:1;min-height:48px;border:var(--hair);background:var(--vellum);color:var(--ink);
+    font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;padding:0 8px}
+  button.act.primary{border:1.5px solid var(--ink);background:var(--ink);color:var(--vellum)}
+  button.act:disabled{opacity:.35}
+  button.act:active{transform:translateY(1px)}
+
+  /* 타이틀 */
+  #title{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
+         justify-content:center;gap:18px;background:rgba(244,237,220,0.9);padding:20px;text-align:center}
+  #logoWrap{position:relative;width:min(86vw,420px)}
+  #logoWrap svg{width:100%;height:auto;display:block}
+  #howto{border:var(--hair);padding:10px 14px;font-size:13px;text-align:left;line-height:1.8;
+         background:rgba(239,229,205,0.95);max-width:340px}
+  #howto b{color:var(--cyan)}
+  #startBtn{min-width:220px;min-height:56px;border:1.5px solid var(--ink);background:var(--ink);color:var(--vellum);
+            font-size:18px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.06em}
+  #startBtn:active{transform:translateY(1px)}
+
+  /* 결과 */
+  #result{position:absolute;inset:0;z-index:25;display:none;flex-direction:column;align-items:center;
+          justify-content:center;gap:14px;background:var(--vellum);padding:24px;text-align:center}
+  #result h2{font-size:26px;letter-spacing:.04em}
+  #result p{font-size:15px;line-height:1.8}
+  #result .stat{border:var(--hair);background:var(--vellum2);padding:12px 22px;
+                font-family:ui-monospace,Menlo,monospace;font-size:14px;line-height:1.9;text-align:left}
+  #retryBtn{min-width:200px;min-height:52px;border:1.5px solid var(--ink);background:var(--ink);color:var(--vellum);
+            font-size:17px;font-weight:700;cursor:pointer;font-family:inherit}
+
+  /* ── 와이드 (1280px+) : 플레이 영역 재배치 (playfield-spec) ── */
+  html.land #hud{left:var(--stageX);width:min(460px,calc(var(--stageW)*0.38));right:auto}
+  html.land #panel{left:calc(var(--stageX) + var(--stageW) - min(340px,calc(var(--stageW)*0.27)) - 12px);
+    width:min(340px,calc(var(--stageW)*0.27));bottom:auto;top:64px;border:var(--hair)}
+  html.land #ctrl{flex-direction:column}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+  <div id="hud">
+    <div class="chip">STAGE <b id="hStage">1</b></div>
+    <div class="chip">SCORE <b id="hScore">0</b></div>
+    <div class="chip" id="hLives">♥♥♥</div>
+    <button id="muteBtn" class="mono" aria-label="소리 켜기 끄기">♪</button>
+  </div>
+
+  <div id="panel">
+    <div id="qtext"></div>
+    <div id="curAns" class="mono"></div>
+    <div id="ctrl">
+      <button class="act" id="undoBtn">한 장 빼기</button>
+      <button class="act primary" id="submitBtn">건너기</button>
+    </div>
+  </div>
+
+  <div id="title">
+    <div id="logoWrap">
+      <svg viewBox="0 0 420 130" aria-label="분수 다리공사 로고">
+        <g fill="none" stroke="#2b2a26" stroke-width="2">
+          <path d="M8 96 H412" stroke-width="1.5"/>
+          <path d="M40 96 L96 44 L152 96 M212 96 L268 44 L324 96" stroke-width="2.5"/>
+          <path d="M96 44 H268" stroke-width="2.5"/>
+          <path d="M60 70 H100 M140 70 H244 M284 70 H300" stroke-dasharray="4 3" stroke-width="1.2"/>
+        </g>
+        <g stroke="#0e7c86" stroke-width="1.4" fill="none">
+          <path d="M96 112 V120 M268 112 V120 M96 116 H268"/>
+          <path d="M96 110 v6 M268 110 v6"/>
+        </g>
+        <text x="176" y="117" font-family="Menlo,monospace" font-size="13" fill="#0e7c86">? m</text>
+        <text x="130" y="30" font-family="Menlo,monospace" font-size="15" fill="#2b2a26" font-weight="bold">분수 다리공사</text>
+        <g stroke="#d95a2b" stroke-width="1.6" fill="none"><path d="M132 36 H296"/></g>
+      </svg>
+    </div>
+    <div id="howto">
+      <b>장수 모드</b> — 판자를 탭해 강을 꼭 채우고 건너기.<br>
+      <b>길이 모드</b> — 판자 끝을 드래그해 한 장 길이를 맞추기.<br>
+      나눗셈의 답(몫)을 손으로 직접 짓는 게임입니다.
+    </div>
+    <button id="startBtn">공사 시작</button>
+  </div>
+
+  <div id="result">
+    <h2 id="rTitle">공사 중단</h2>
+    <div class="stat" id="rStat"></div>
+    <p id="rMsg"></p>
+    <button id="retryBtn">다시 공사</button>
+  </div>
+</div>
+<link rel="stylesheet" href="../../vendor/katex/katex.min.css">
+<script src="../../vendor/katex/katex.min.js"></script>
+<script>
+'use strict';
+/* ══════════════════ 유틸 — 전부 정수 연산 ══════════════════ */
+const gcd = (a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a||1;};
+const F = (n,d)=>{ if(d<0){n=-n;d=-d;} const g=gcd(n,d); return {n:n/g, d:d/g}; };
+const fEq = (a,b)=> a.n*b.d === b.n*a.d;
+const fLt = (a,b)=> a.n*b.d <  b.n*a.d;
+const fAdd = (a,b)=> F(a.n*b.d + b.n*a.d, a.d*b.d);
+const fMul = (a,b)=> F(a.n*b.n, a.d*b.d);
+const fLt1 = f=> Math.abs(f.n) < Math.abs(f.d);
+const fStr = f=> f.d===1 ? String(f.n) : f.n+'/'+f.d;
+const fMixed = f=>{ if(f.d===1) return String(f.n);
+  const w=Math.trunc(f.n/f.d), r=Math.abs(f.n%f.d);
+  return w===0 ? `${r}/${f.d}` : `${w} ${r}/${f.d}`; };
+const fNum = f=> f.n/f.d;
+const mulberry32 = s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+const ri = (rng,a,b)=> a+Math.floor(rng()*(b-a+1));
+const pick = (rng,arr)=> arr[Math.floor(rng()*arr.length)];
+const MONO = 'ui-monospace,Menlo,Consolas,monospace';
+
+/* ══════════════════ 문제 생성기 (순수 — 검산 표본 대상) ══════════════════
+   C1 (자연수)÷(단위분수)  C2 (자연수)÷(분수)  C3 (분수)÷(단위분수)  C4 (분수)÷(분수)
+   L1 (자연수)÷(자연수)→진분수  L2 →대분수  L3 (분수)÷(자연수)
+   길이 모드의 답은 반드시 눈금(1/24) 위에 놓인다. 정수 연산만 사용. */
+const SNAP = 24;
+const rivers = ['시내','강','개울','계곡','시냇가'];
+const planks = ['판자','널빤지','통나무판'];
+/* 조사 받침 판별 (OPERATIONS §9-7): 판자·널빤지 → 를/는, 통나무판 → 을/은 */
+const objJ = p => p==='통나무판' ? '을' : '를';
+const subJ = p => p==='통나무판' ? '은' : '는';
+function genProblem(lv, rng){
+  const types = lv<=1 ? ['C1','C1','L1'] : lv===2 ? ['C1','L1','L1','C3'] :
+                lv===3 ? ['C1','L1','C2','C3','L3'] :
+                lv===4 ? ['C2','C3','L3','L2','C4','C1'] :
+                         ['C2','C3','C4','L2','L3','L1','C1'];
+  const t = pick(rng,types);
+  const river = pick(rng,rivers), plank = pick(rng,planks);
+  let p=null, guard=0;
+  while(!p && guard++<500){
+    if(t==='C1'){ const d=ri(rng,2,6), N=ri(rng,1,3), q=N*d;
+      if(q<2||q>12) continue;
+      p={mode:'count', width:F(N,1), plank:F(1,d), q,
+         prompt:`폭 ${N}m ${river}에 ${fStr(F(1,d))}m ${plank}${objJ(plank)} 놓아라. ${plank}${subJ(plank)} 모두 몇 장?`,
+         concept:'(자연수)÷(단위분수)'};
+    } else if(t==='C2'){ const a=ri(rng,2,4), b=ri(rng,2,6); if(gcd(a,b)!==1) continue;
+      const N=ri(rng,1,4), q=N*b/a; if(!Number.isInteger(q)||q<2||q>12) continue;
+      p={mode:'count', width:F(N,1), plank:F(a,b), q,
+         prompt:`폭 ${N}m ${river}에 ${fStr(F(a,b))}m ${plank}${objJ(plank)} 놓아라. ${plank}${subJ(plank)} 모두 몇 장?`,
+         concept:'(자연수)÷(분수)'};
+    } else if(t==='C3'){ const b=ri(rng,2,6), a=ri(rng,1,b-1); if(gcd(a,b)!==1) continue;
+      const d=ri(rng,Math.max(2,b),8), q=a*d/b; if(!Number.isInteger(q)||q<2||q>12) continue;
+      p={mode:'count', width:F(a,b), plank:F(1,d), q,
+         prompt:`폭 ${fStr(F(a,b))}m ${river}에 ${fStr(F(1,d))}m ${plank}${objJ(plank)} 놓아라. ${plank}${subJ(plank)} 모두 몇 장?`,
+         concept:'(분수)÷(단위분수)'};
+    } else if(t==='C4'){ const b=ri(rng,2,4), a=ri(rng,1,b-1); if(gcd(a,b)!==1) continue;
+      const d=ri(rng,2,8), c=ri(rng,1,d-1); if(gcd(c,d)!==1||d===b) continue;
+      const q=a*d/(b*c); if(!Number.isInteger(q)||q<2||q>8) continue;
+      p={mode:'count', width:F(a,b), plank:F(c,d), q,
+         prompt:`폭 ${fStr(F(a,b))}m ${river}에 ${fStr(F(c,d))}m ${plank}${objJ(plank)} 놓아라. ${plank}${subJ(plank)} 모두 몇 장?`,
+         concept:'(분수)÷(분수)'};
+    } else if(t==='L1'){ const M=pick(rng,[2,3,4,6,8,12]), N=ri(rng,1,M-1);
+      if(gcd(N,M)!==1 || 24*N%M!==0) continue;
+      p={mode:'length', width:F(N,1), count:M, ans:F(N,M),
+         prompt:`폭 ${N}m ${river}에 ${plank} ${M}장으로 꼭 채운다. 한 장의 길이는 몇 m?`,
+         concept:'(자연수)÷(자연수)의 몫을 분수로'};
+    } else if(t==='L2'){ const M=pick(rng,[2,3,4]), N=ri(rng,M+1,Math.min(9,4*M-1));
+      if(24*N%M!==0) continue;
+      p={mode:'length', width:F(N,1), count:M, ans:F(N,M),
+         prompt:`폭 ${N}m ${river}에 ${plank} ${M}장으로 꼭 채운다. 한 장의 길이는 몇 m?`,
+         concept:'(자연수)÷(자연수)의 몫을 대분수로'};
+    } else if(t==='L3'){ const b=ri(rng,2,4), a=ri(rng,1,b-1); if(gcd(a,b)!==1) continue;
+      const k=pick(rng,[2,3,4,6]), ans=F(a,b*k);
+      if(ans.d>SNAP || SNAP*ans.n%ans.d!==0 || !fLt1(ans)) continue;
+      p={mode:'length', width:F(a,b), count:k, ans,
+         prompt:`폭 ${fStr(F(a,b))}m ${river}에 ${plank} ${k}장으로 꼭 채운다. 한 장의 길이는 몇 m?`,
+         concept:'(분수)÷(자연수)'};
+    }
+  }
+  if(!p) p={mode:'count', width:F(2,1), plank:F(1,2), q:4,
+    prompt:'폭 2m 강에 1/2m 판자를 놓아라. 판자는 모두 몇 장?', concept:'(자연수)÷(단위분수)'};
+  p.answer = p.mode==='count' ? String(p.q) : fStr(p.ans);
+  p.answerNumeric = p.mode==='count' ? p.q : fNum(p.ans);
+  p.choices = null;
+  return p;
+}
+/* 문제 문장: "2/3" 토큰만 KaTeX 조판(\\tfrac), 나머지는 텍스트. katex 없으면 전부 텍스트 폴백 */
+function renderQuestion(el, prompt){
+  el.innerHTML='';
+  for(const seg of prompt.split(/(\d+\/\d+)/)){
+    if(!seg) continue;
+    if(/^\d+\/\d+$/.test(seg) && window.katex){
+      const s=document.createElement('span'); s.className='fx';
+      try{ katex.render('\\tfrac{'+seg.replace('/','}{')+'}', s, {throwOnError:false}); }
+      catch(e){ s.textContent=seg; }
+      el.appendChild(s);
+    } else el.appendChild(document.createTextNode(seg));
+  }
+}
+
+/* ══════════════════ 게임 상태 ══════════════════ */
+const S = {
+  phase:'title', level:1, score:0, lives:3, solved:0, streak:0,
+  prob:null, placed:[], plankLen:F(1,SNAP), overWarned:false,
+  fx:{shake:0, pop:0, msg:'', msgT:0, bridgeFlash:0, drop:0},
+  muted:false
+};
+let AC=null;
+function beep(freq, dur=0.09, type='square', gain=0.05){
+  if(S.muted) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended') AC.resume().catch(()=>{});
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(gain,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+dur);
+    o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+const $ = id=>document.getElementById(id);
+const hud = ()=>{ $('hStage').textContent=S.level; $('hScore').textContent=S.score;
+  $('hLives').textContent='♥'.repeat(Math.max(0,S.lives))+'♡'.repeat(Math.max(0,3-S.lives)); };
+
+function wrongPlankLen(p){ // length 모드 시작값: 정답과 다른 스냅 (퇴화 방지)
+  const ansU = Math.round(SNAP*p.ans.n/p.ans.d);
+  let u = ansU + (Math.random()<0.5?-1:1)*ri(Math.random,2,7);
+  u = Math.max(1, Math.min(Math.round(SNAP*fNum(p.width))+SNAP, u));
+  if(u===ansU) u = ansU>1 ? ansU-2 : ansU+2;
+  return F(u,SNAP);
+}
+function nextProblem(){
+  const rng = mulberry32((Date.now()&0xffffffff) ^ ((S.solved+1)*2654435761|0));
+  S.prob = genProblem(S.level, rng);
+  S.placed = []; S.overWarned=false;
+  if(S.prob.mode==='length') S.plankLen = wrongPlankLen(S.prob);
+  updateLenLabel();
+  renderQuestion($('qtext'), S.prob.prompt);
+  $('undoBtn').disabled = S.prob.mode!=='count';
+  $('submitBtn').textContent = S.prob.mode==='count' ? '건너기' : '완공';
+  $('curAns').textContent='';
+  hud();
+}
+function updateLenLabel(){
+  const p=S.prob; if(!p) return;
+  if(p.mode==='length'){
+    $('curAns').textContent = `한 장 길이 = ${fMixed(S.plankLen)} m  (판자 ${p.count}장)`;
+  } else {
+    const used = S.placed.length ? fMul(p.plank, F(S.placed.length,1)) : F(0,1);
+    const left = fAdd(p.width, F(-used.n,used.d));
+    $('curAns').textContent = S.placed.length ? `놓은 길이 ${fMixed(used)} m · 남은 ${fMixed(left)} m` : '';
+  }
+}
+function startGame(){
+  S.level=1; S.score=0; S.lives=3; S.solved=0; S.streak=0;
+  S.phase='playing';
+  $('title').style.display='none'; $('result').style.display='none';
+  nextProblem();
+}
+function submit(){
+  if(S.phase!=='playing' || !S.prob) return;
+  const p=S.prob;
+  const ok = p.mode==='count'
+    ? S.placed.length===p.q
+    : fEq(fMul(S.plankLen, F(p.count,1)), p.width);
+  if(ok){
+    S.score += 10 + Math.min(S.streak,5)*2; S.streak++; S.solved++;
+    if(S.solved % 6 === 0) S.level = Math.min(9, S.level+1);
+    S.fx.pop=1; S.fx.bridgeFlash=1;
+    S.fx.msg = p.mode==='count' ? `${p.q}장 — 완공!` : `${fMixed(p.ans)}m — 완공!`;
+    S.fx.msgT=1.4; beep(660,.08); setTimeout(()=>beep(880,.1),90);
+    S.phase='reveal'; setTimeout(()=>{ if(S.phase==='reveal'){ S.phase='playing'; nextProblem(); } }, 1100);
+  } else {
+    fail(p.mode==='count' ? `무너졌다! ${p.q}장이 필요했어요` : `무너졌다! 한 장은 ${fMixed(p.ans)}m`);
+  }
+  hud();
+}
+function fail(msg){
+  const p=S.prob;
+  S.lives--; S.streak=0; S.fx.shake=1; S.fx.drop=1;
+  S.fx.msg = p && p.mode==='count' ? msg : msg;
+  S.fx.msgT=1.6; beep(160,.25,'sawtooth',0.07);
+  if(S.lives<=0) setTimeout(gameOver, 900);
+  else { S.phase='reveal'; setTimeout(()=>{ if(S.phase==='reveal'){ S.phase='playing'; nextProblem(); } }, 1100); }
+  hud();
+}
+function gameOver(){
+  S.phase='gameover';
+  $('rTitle').textContent='공사 중단';
+  $('rStat').innerHTML=`STAGE ${S.level} · 완공 ${S.solved}개<br>SCORE ${S.score}`;
+  $('rMsg').textContent='설계를 다시 확인하고 다리를 놓아 봐요.';
+  $('result').style.display='flex';
+}
+function forceCorrect(){
+  if(S.phase==='title'||S.phase==='gameover') startGame();
+  const p=S.prob; S.score += 10; S.solved++; S.streak++;
+  S.fx.pop=1; S.fx.bridgeFlash=1;
+  S.fx.msg = p.mode==='count' ? `${p.q}장 — 완공!` : `${fMixed(p.ans)}m — 완공!`; S.fx.msgT=1;
+  S.phase='reveal'; setTimeout(()=>{ if(S.phase==='reveal'){ S.phase='playing'; nextProblem(); } }, 250);
+  hud();
+}
+function forceWrong(){
+  if(S.phase==='title'||S.phase==='gameover') startGame();
+  fail('무너졌다!');
+}
+
+/* ══════════════════ 입력 ══════════════════ */
+$('startBtn').addEventListener('click', ()=>{ beep(520,.07); startGame(); });
+$('retryBtn').addEventListener('click', ()=>{ beep(520,.07); startGame(); });
+$('submitBtn').addEventListener('click', ()=>{ beep(440,.06); submit(); });
+$('undoBtn').addEventListener('click', ()=>{
+  if(S.phase==='playing' && S.prob && S.prob.mode==='count' && S.placed.length){
+    S.placed.pop(); S.overWarned=false; beep(300,.05); updateLenLabel();
+  }
+});
+$('muteBtn').addEventListener('click', ()=>{ S.muted=!S.muted; $('muteBtn').textContent = S.muted?'✕':'♪'; });
+
+const cv=$('cv'), ctx=cv.getContext('2d');
+let W=0,H=0, land=false;
+let gridCv=null;                                   // 모눈 오프스크린 캐시 (perf)
+function resize(){
+  const DPR=Math.min(devicePixelRatio||1, 2);
+  const r = $('app').getBoundingClientRect();
+  W=r.width; H=r.height;
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  gridCv=document.createElement('canvas');
+  gridCv.width=cv.width; gridCv.height=cv.height;
+  const g2=gridCv.getContext('2d');
+  g2.setTransform(DPR,0,0,DPR,0,0);
+  g2.strokeStyle='rgba(43,42,38,0.08)'; g2.lineWidth=1;
+  for(let x=0;x<=W;x+=28){ g2.beginPath(); g2.moveTo(x,0); g2.lineTo(x,H); g2.stroke(); }
+  for(let y=0;y<=H;y+=28){ g2.beginPath(); g2.moveTo(0,y); g2.lineTo(W,y); g2.stroke(); }
+  land = (W>=H && W>=640) || W>=1024;
+  document.documentElement.classList.toggle('land', land);
+}
+addEventListener('resize', resize); resize();
+
+/* 길이 모드: 판자 끝 드래그 */
+let drag=null;
+cv.addEventListener('pointerdown', e=>{
+  if(S.phase!=='playing' || !S.prob) return;
+  if(S.prob.mode==='length'){
+    const g=geom();
+    if(Math.abs(e.offsetX-g.plankEndX)<44 && Math.abs(e.offsetY-g.y0)<80){
+      drag={x0:e.offsetX, lenU:Math.round(SNAP*fNum(S.plankLen))};
+      cv.setPointerCapture(e.pointerId);
+    }
+  } else {
+    placePlank();
+  }
+});
+cv.addEventListener('pointermove', e=>{
+  if(!drag || !S.prob) return;
+  const g=geom();
+  const u = Math.max(1, Math.min(Math.round(SNAP*fNum(S.prob.width))+SNAP,
+             Math.round((e.offsetX-g.x0)/g.pxm*SNAP)));
+  if(u!==Math.round(SNAP*fNum(S.plankLen))){
+    S.plankLen=F(u,SNAP); beep(440+u*6,.02,'square',0.02); updateLenLabel();
+  }
+});
+addEventListener('pointerup', ()=>{ drag=null; });
+/* 장수 모드: 탭 = 판자 놓기. 강보다 남은 구간이 작으면 초과 시도 → 경고 1회 후 페널티(퇴화 방지) */
+function placePlank(){
+  const p=S.prob; if(!p || S.phase!=='playing') return;
+  const used=fMul(p.plank, F(S.placed.length,1));
+  const left=fAdd(p.width, F(-used.n,used.d));
+  if(fLt(left, p.plank) || left.n===0){
+    beep(180,.12,'sawtooth',0.05);
+    if(!S.overWarned){
+      S.overWarned=true; S.fx.shake=0.7;
+      S.fx.msg = left.n===0 ? '꽉 찼어요! 이제 건너기!' : '판자가 남은 자리보다 길어요!';
+      S.fx.msgT=1;
+    } else {
+      fail('판자가 넘쳐흘러요! 다리가 무너졌다!');
+    }
+    return;
+  }
+  S.placed.push(1); beep(420+S.placed.length*24,.05); updateLenLabel();
+}
+
+/* ══════════════════ 렌더 (H축: 벨럼 도면 + 먹선 + 시안·주홍 별색) ══════════════════ */
+function geom(){
+  const panelH = land ? 0 : 200;
+  const topH = 64;
+  const fieldW = land ? W*0.66 : W;
+  const fieldY = topH, fieldH = H - topH - panelH;
+  const maxW = Math.max(S.prob? fNum(S.prob.width):2, 2) + 1.6;
+  const pxm = Math.min(fieldW*0.82/maxW, fieldH*0.28);
+  const bridgeW = S.prob ? fNum(S.prob.width)*pxm : fieldW*0.5;
+  const x0 = (fieldW - bridgeW)/2;
+  const y0 = fieldY + fieldH*0.42;
+  return {fieldW, fieldX:0, fieldY, fieldH, pxm, bridgeW, x0, y0,
+          plankEndX: x0+bridgeW};
+}
+function drawFracText(txt, x, y, size, color, align='left'){
+  ctx.save(); ctx.fillStyle=color; ctx.textBaseline='middle';
+  ctx.font=`bold ${size}px ${MONO}`;
+  const s=String(txt);
+  const m = s.match(/^(\d+) (\d+)\/(\d+)$|^(\d+)\/(\d+)$|^(-?\d+)$/);
+  if(!m){ ctx.textAlign=align; ctx.fillText(s,x,y); ctx.restore(); return; }
+  if(m[4]!==undefined){
+    const n=m[4], d=m[5], w=Math.max(ctx.measureText(n).width, ctx.measureText(d).width);
+    const bx = align==='center'? x-w/2 : x;
+    ctx.textAlign='left';
+    ctx.fillText(n, bx+(w-ctx.measureText(n).width)/2, y-size*0.44);
+    ctx.fillText(d, bx+(w-ctx.measureText(d).width)/2, y+size*0.44);
+    ctx.strokeStyle=color; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(bx-2,y); ctx.lineTo(bx+w+2,y); ctx.stroke();
+  } else if(m[1]!==undefined){
+    const wInt=ctx.measureText(m[1]).width, wF=Math.max(ctx.measureText(m[2]).width, ctx.measureText(m[3]).width);
+    let bx = align==='center'? x-(wInt+wF+10)/2 : x;
+    ctx.textAlign='left';
+    ctx.fillText(m[1], bx, y);
+    const fx=bx+wInt+8;
+    ctx.fillText(m[2], fx+(wF-ctx.measureText(m[2]).width)/2, y-size*0.44);
+    ctx.fillText(m[3], fx+(wF-ctx.measureText(m[3]).width)/2, y+size*0.44);
+    ctx.strokeStyle=color; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(fx-2,y); ctx.lineTo(fx+wF+2,y); ctx.stroke();
+  } else { ctx.textAlign=align; ctx.fillText(m[6],x,y); }
+  ctx.restore();
+}
+function hatch(x,y,w,h,color,gap=0){
+  const g = gap || Math.max(6, w/5);
+  ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+  ctx.strokeStyle=color; ctx.lineWidth=1;
+  for(let i=-h;i<w;i+=g){ ctx.beginPath(); ctx.moveTo(x+i,y+h); ctx.lineTo(x+i+h,y); ctx.stroke(); }
+  ctx.restore();
+}
+function drawBridgeDeco(){ // 타이틀 뒤 도면 장식 (하단, 저투명 — 텍스트와 분리)
+  const INK='rgba(43,42,38,0.28)', CYAN='rgba(14,124,134,0.25)';
+  const w=Math.min(W*0.55,330), x=(W-w)/2, y=H*0.78, h=16;
+  ctx.save();
+  ctx.strokeStyle=INK; ctx.lineWidth=1.4;
+  ctx.beginPath();
+  ctx.moveTo(x,y+h); ctx.lineTo(x+w*0.22,y); ctx.lineTo(x+w*0.38,y+h);
+  ctx.moveTo(x+w*0.52,y+h); ctx.lineTo(x+w*0.72,y); ctx.lineTo(x+w*0.85,y+h);
+  ctx.moveTo(x+w*0.22,y); ctx.lineTo(x+w*0.72,y);
+  ctx.stroke();
+  ctx.setLineDash([5,4]); ctx.strokeRect(x, y+h, w, h*1.3); ctx.setLineDash([]);
+  ctx.strokeStyle=CYAN; ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(x,y+h*2.3+12); ctx.lineTo(x,y+h*2.3+20);
+  ctx.moveTo(x+w,y+h*2.3+12); ctx.lineTo(x+w,y+h*2.3+20);
+  ctx.moveTo(x,y+h*2.3+16); ctx.lineTo(x+w,y+h*2.3+16);
+  ctx.stroke();
+  drawFracText('3/4', x+w/2-30, y+h*2.3+16, 12, CYAN, 'center');
+  ctx.restore();
+}
+let lastT=performance.now(), tAcc=0;
+function draw(now){
+  const dt=Math.min(0.05,(now-lastT)/1000); lastT=now; tAcc+=dt;
+  S.fx.shake=Math.max(0,S.fx.shake-dt*2.4);
+  S.fx.pop=Math.max(0,S.fx.pop-dt*2);
+  S.fx.msgT=Math.max(0,S.fx.msgT-dt);
+  S.fx.bridgeFlash=Math.max(0,S.fx.bridgeFlash-dt*1.4);
+  S.fx.drop=Math.max(0,S.fx.drop-dt*1.6);
+
+  const INK='#2b2a26', CYAN='#0e7c86', ACC='#d95a2b';
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  if(S.fx.shake>0) ctx.translate((Math.random()-0.5)*10*S.fx.shake,(Math.random()-0.5)*8*S.fx.shake);
+
+  /* 도면 모눈 (오프스크린 캐시) */
+  if(gridCv) ctx.drawImage(gridCv, 0, 0, W, H);
+
+  const p=S.prob;
+  if(!p){ drawBridgeDeco(); ctx.restore(); requestAnimationFrame(draw); return; }
+  const g=geom();
+  const bw=g.bridgeW, bh=Math.max(24,g.pxm*0.4), bx=g.x0, by=g.y0;
+
+  /* 두 둑 */
+  ctx.fillStyle='#f4eddc'; ctx.strokeStyle=INK; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.rect(bx-56, by-bh*0.9, 56, bh*1.8); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.rect(bx+bw, by-bh*0.9, 56, bh*1.8); ctx.fill(); ctx.stroke();
+  hatch(bx-56, by-bh*0.9, 56, bh*1.8, 'rgba(43,42,38,0.4)');
+  hatch(bx+bw, by-bh*0.9, 56, bh*1.8, 'rgba(43,42,38,0.4)');
+  /* 강면 설계선 */
+  ctx.setLineDash([6,5]);
+  ctx.strokeStyle = S.fx.bridgeFlash>0 ? ACC : 'rgba(14,124,134,0.75)';
+  ctx.lineWidth = 1.4 + S.fx.bridgeFlash*1.6;
+  ctx.strokeRect(bx, by-bh, bw, bh*2);
+  ctx.setLineDash([]);
+  /* 폭 치수선 */
+  ctx.strokeStyle=CYAN; ctx.lineWidth=1.2;
+  ctx.beginPath();
+  ctx.moveTo(bx, by+bh+26); ctx.lineTo(bx, by+bh+34);
+  ctx.moveTo(bx+bw, by+bh+26); ctx.lineTo(bx+bw, by+bh+34);
+  ctx.moveTo(bx, by+bh+30); ctx.lineTo(bx+bw, by+bh+30);
+  ctx.stroke();
+  drawFracText(fMixed(p.width), bx+bw/2-10, by+bh+52, 15, CYAN, 'center');
+  ctx.font=`11px ${MONO}`; ctx.fillStyle=INK; ctx.textAlign='center';
+  ctx.fillText('m', bx+bw/2+14, by+bh+52);
+
+  if(p.mode==='count'){
+    const pw=fNum(p.plank)*g.pxm;
+    for(let i=0;i<S.placed.length;i++){
+      const px=bx+i*pw;
+      ctx.fillStyle = (i===S.placed.length-1 && S.fx.pop>0) ? 'rgba(217,90,43,0.16)' : 'rgba(14,124,134,0.14)';
+      ctx.strokeStyle=INK; ctx.lineWidth=1.4;
+      ctx.beginPath(); ctx.rect(px, by-bh, pw, bh*2); ctx.fill(); ctx.stroke();
+      hatch(px, by-bh, pw, bh*2, 'rgba(43,42,38,0.45)');
+    }
+    const used=fMul(p.plank,F(S.placed.length,1));
+    const left=fAdd(p.width,F(-used.n,used.d));
+    if(S.phase==='playing' && !fLt(left,p.plank) && left.n!==0){
+      ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(217,90,43,0.85)'; ctx.lineWidth=1.4;
+      ctx.strokeRect(bx+S.placed.length*pw, by-bh, pw, bh*2); ctx.setLineDash([]);
+    }
+    if(left.n>0){
+      ctx.strokeStyle='rgba(43,42,38,0.5)'; ctx.lineWidth=1; ctx.setLineDash([2,4]);
+      ctx.beginPath(); ctx.moveTo(bx+used.n*g.pxm, by); ctx.lineTo(bx+bw, by); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.font=`12px ${MONO}`; ctx.fillStyle=INK; ctx.textAlign='center';
+    ctx.fillText(`↗ 탭 = ${fMixed(p.plank)}m 판자 1장`, bx+bw/2, by-bh-26);
+  } else {
+    const L=fNum(S.plankLen)*g.pxm;
+    const active = S.phase==='playing';
+    for(let i=0;i<p.count;i++){
+      const px=bx+i*L;
+      if(i===0){
+        if(active){
+          ctx.fillStyle='rgba(14,124,134,0.14)'; ctx.strokeStyle=INK; ctx.lineWidth=1.6;
+          ctx.beginPath(); ctx.rect(bx, by-bh, L, bh*2); ctx.fill(); ctx.stroke();
+          hatch(bx, by-bh, L, bh*2, 'rgba(43,42,38,0.45)');
+          ctx.fillStyle=ACC;
+          ctx.beginPath(); ctx.arc(bx+L, by, 10, 0, Math.PI*2); ctx.fill();
+          ctx.strokeStyle=INK; ctx.lineWidth=1.4; ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(bx+L-4,by); ctx.lineTo(bx+L+4,by); ctx.stroke();
+        } else {
+          ctx.strokeStyle=INK; ctx.lineWidth=1.4; ctx.strokeRect(bx, by-bh, L, bh*2);
+        }
+        ctx.strokeStyle=CYAN; ctx.lineWidth=1.2;
+        const dimX = bx + Math.max(L, 36);           // 극단 스냅값에서도 틱·라벨 분리
+        ctx.beginPath();
+        ctx.moveTo(bx, by-bh-18); ctx.lineTo(bx, by-bh-26);
+        ctx.moveTo(dimX, by-bh-18); ctx.lineTo(dimX, by-bh-26);
+        ctx.moveTo(bx, by-bh-22); ctx.lineTo(dimX, by-bh-22);
+        ctx.stroke();
+        drawFracText(fMixed(S.plankLen), bx + Math.max(L,36)/2, by-bh-44, 15, CYAN, 'center');
+      } else if(active){
+        ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(43,42,38,0.5)'; ctx.lineWidth=1.2;
+        ctx.strokeRect(px, by-bh, L, bh*2); ctx.setLineDash([]);
+      }
+    }
+    /* 눈금자 (1/24 스냅) */
+    const rulerY=by+bh+84, maxM=fNum(p.width)+1.2;
+    ctx.strokeStyle='rgba(43,42,38,0.8)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(g.x0, rulerY); ctx.lineTo(g.x0+maxM*g.pxm, rulerY); ctx.stroke();
+    ctx.font=`10px ${MONO}`; ctx.textAlign='center'; ctx.fillStyle=INK;
+    for(let u=0; u<=Math.round(maxM*SNAP); u++){
+      const px=g.x0+u/SNAP*g.pxm, tall=u%SNAP===0, mid=u%12===0;
+      ctx.beginPath(); ctx.moveTo(px, rulerY); ctx.lineTo(px, rulerY+(tall?10:mid?7:3)); ctx.stroke();
+      if(tall) ctx.fillText(String(u/SNAP), px, rulerY+24);
+    }
+    ctx.fillText('m', g.x0+maxM*g.pxm, rulerY-10);
+    if(active){
+      ctx.font=`12px ${MONO}`; ctx.fillStyle=ACC; ctx.textAlign='center';
+      ctx.fillText('● 판자 끝을 좌우로 드래그', bx+bw/2, by-bh-76);
+    }
+  }
+
+  /* 측량 로봇 */
+  const cross = S.fx.bridgeFlash>0 ? (1-S.fx.bridgeFlash) : 0;
+  const cxp = bx-34 + (S.phase!=='playing' ? cross*(bw+68) : 0);
+  const cyp = S.fx.drop>0 ? by+80+S.fx.drop*60 : by - bh - 14 - Math.abs(Math.sin(tAcc*2.2))*2;
+  ctx.save();
+  ctx.strokeStyle=INK; ctx.lineWidth=1.6; ctx.fillStyle='#f4eddc';
+  ctx.beginPath(); ctx.rect(cxp-9, cyp-16, 18, 16); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cxp, cyp-23, 7, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=ACC; ctx.beginPath(); ctx.arc(cxp+2.5, cyp-23, 1.8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle=INK;
+  ctx.beginPath(); ctx.moveTo(cxp-6, cyp); ctx.lineTo(cxp-6, cyp+8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cxp+6, cyp); ctx.lineTo(cxp+6, cyp+8); ctx.stroke();
+  ctx.restore();
+
+  if(S.fx.msgT>0){
+    ctx.font='bold 17px -apple-system,"Apple SD Gothic Neo",sans-serif';
+    ctx.textAlign='center'; ctx.fillStyle = S.fx.msg.includes('무너')||S.fx.msg.includes('넘쳐') ? ACC : INK;
+    ctx.fillText(S.fx.msg, W/2, 40);
+  }
+  ctx.restore();
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+/* ══════════════════ QA 훅 ══════════════════ */
+window.__GAME_TEST__ = {
+  ready: true,
+  start(){ startGame(); },
+  getState(){ return { score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved, mode:S.prob?S.prob.mode:'none' }; },
+  answerCorrect(){ forceCorrect(); },
+  answerWrong(){ forceWrong(); },
+  getLayout(){ return { land, playW: Math.round(land ? W*0.66 : W) }; },
+  sampleProblems(n){
+    const out=[]; const rng=mulberry32(0xC0FFEE ^ ((n|0)*97));
+    for(let i=0;i<n;i++) out.push(genProblem(1+Math.floor(rng()*9), rng));
+    return out;
+  },
+  placePlank
+};
+</script>
+</body>
+</html>
