@@ -207,6 +207,7 @@ finish() {
       [ -n "$std" ] && echo "**성취기준**: $std"
     fi
     [ -n "$SCORE" ] && echo "**검수 점수**: ${SCORE}/100 (커트라인 ${GATE_SCORE})"
+    [ "${FIX_ROUNDS:-0}" -gt 0 ] && echo "**수정 루프**: ${FIX_ROUNDS}/${MAX_FIX_ROUNDS}회"
     if [ -f "$WORK/review.json" ]; then
       echo ""
       echo "**검수 세부**"
@@ -576,38 +577,64 @@ REJECT="$(jqv "$WORK/review.json" .reject_immediately)"
 log "1차 검수: ${SCORE:-?}점 / passed=${PASSED:-false} / reject=${REJECT:-false}"
 
 # ════════════════════════════════════════════════════════════════
+# 수정 루프: 미달 시 최대 MAX_FIX_ROUNDS회 "수정 → 재QA → 재검산 → 재검수" (2026-08-31, 1회→3회)
+# 게이트(80)는 불변 — 상한이 있으므로 반복이 게이트를 무의미하게 만들지 않는다(loop-engineering §3.1).
+# 라운드가 늘면 사이클이 크론 주기(120m)를 넘을 수 있다 — run.lock 이 다음 틱을 스킵하므로 안전하다.
+# 각 라운드의 검수 이력(review-N.json)을 다음 수정에 누적 주입해 같은 지적의 반복을 막는다.
+FIX_ROUNDS=0
 if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; then
-  step "8. 수정 (마지막 기회)"
-  # 수정 라운드는 grok — 사용자 요청(claude 편중 완화). grok 은 로컬 무샌드박스라
-  # qa.mjs(puppeteer + 로컬 서버)를 직접 돌릴 수 있다. codex 샌드박스는 그게 안 된다.
-  stage_run "${FIX_RUNNER:-grok_run}" "${FIX_MODEL:-}" "$T_FIX" "$LOG_DIR/fix.log" "$(cat factory/prompts/45-fix.md)
+  # 누적 검수 이력 — 전 라운드 점수와 must_fix 를 요약해 반환
+  fix_history() {
+    local r out=""
+    for r in $(seq 1 "$1"); do
+      [ -f "$LOG_DIR/review-$r.json" ] || continue
+      out+="
+### ${r}차 검수: $(jqv "$LOG_DIR/review-$r.json" .score)점
+$(jq -r '.must_fix[]? | "- [\(.severity)] \(.issue)"' "$LOG_DIR/review-$r.json" 2>/dev/null)"
+    done
+    printf '%s' "$out"
+  }
+  while [ "$FIX_ROUNDS" -lt "$MAX_FIX_ROUNDS" ]; do
+    FIX_ROUNDS=$((FIX_ROUNDS+1))
+    step "8. 수정 (${FIX_ROUNDS}/${MAX_FIX_ROUNDS})"
+    stage_run "${FIX_RUNNER:-grok_run}" "${FIX_MODEL:-}" "$T_FIX" "$LOG_DIR/fix-$FIX_ROUNDS.log" "$(cat factory/prompts/45-fix.md)
 
 ---
 - slug: \`$SLUG\`
-- 검수 결과: \`factory/work/review.json\`
+- 이것은 **${FIX_ROUNDS}차 수정**이다 (상한 ${MAX_FIX_ROUNDS}회 — 몇 차든 매 라운드가 마지막처럼 고쳐라)
+- 검수 결과: \`factory/work/review.json\` (최신)
 - 독립 수학 검산: \`factory/work/mathcheck.json\` — verdict 가 fail 이면 **이것부터** 고쳐라
-- 자동 QA: \`factory/work/qa/$SLUG/report.json\`"
+- 자동 QA: \`factory/work/qa/$SLUG/report.json\`
+- 누적 검수 이력 (이전 라운드 지적 — 같은 것을 다시 지적받지 않게 전부 반영해라):
+$(fix_history $((FIX_ROUNDS-1)))"
 
-  node factory/lib/qa.mjs "$SLUG" > "$LOG_DIR/qa-2.log" 2>&1
-  QA1=$?
-  cp -r "$WORK/qa/$SLUG" "$LOG_DIR/qa-2" 2>/dev/null
-  log "재 QA 종료코드 $QA1"
+    node factory/lib/qa.mjs "$SLUG" > "$LOG_DIR/qa-$((FIX_ROUNDS+1)).log" 2>&1
+    QA1=$?
+    cp -r "$WORK/qa/$SLUG" "$LOG_DIR/qa-$((FIX_ROUNDS+1))" 2>/dev/null
+    log "재 QA(${FIX_ROUNDS}차) 종료코드 $QA1"
 
-  step "8.5 수학 재검산"
-  run_mathcheck 2
+    step "8.5 수학 재검산 (${FIX_ROUNDS}/${MAX_FIX_ROUNDS})"
+    run_mathcheck $((FIX_ROUNDS+1))
 
-  step "9. 재검수"
-  rm -f "$WORK/review.json"
-  stage_run "${REVIEW_RUNNER:-codex_run}" "${REVIEW_MODEL:-$CODEX_MODEL_SMART}" "$T_REVIEW" "$LOG_DIR/review-2.log" "$REVIEW_PROMPT
+    step "9. 재검수 (${FIX_ROUNDS}/${MAX_FIX_ROUNDS})"
+    rm -f "$WORK/review.json"
+    stage_run "${REVIEW_RUNNER:-codex_run}" "${REVIEW_MODEL:-$CODEX_MODEL_SMART}" "$T_REVIEW" "$LOG_DIR/review-$((FIX_ROUNDS+1)).log" "$REVIEW_PROMPT
 
-이것은 **재검수**다. \`factory/work/fix.json\` 에 수정 내역이 있다. 수정이 실제로 반영됐는지 확인해라.
-봐주지 마라 — 여전히 미달이면 폐기가 맞다."
-  cp "$WORK/review.json" "$LOG_DIR/review-2.json" 2>/dev/null
+이것은 **${FIX_ROUNDS}차 재검수**다 (수정 상한 ${MAX_FIX_ROUNDS}회 중 ${FIX_ROUNDS}차 시도 후).
+\`factory/work/fix.json\` 에 수정 내역이 있다. 수정이 실제로 반영됐는지 확인해라.
+봐주지 마라 — 이전 점수와 무관하게 기준대로 채점해라. 여전히 미달이면 그렇게 판정해라."
+    cp "$WORK/review.json" "$LOG_DIR/review-$((FIX_ROUNDS+1)).json" 2>/dev/null
 
-  SCORE="$(jqv "$WORK/review.json" .score)"
-  PASSED="$(jqv "$WORK/review.json" .passed)"
-  REJECT="$(jqv "$WORK/review.json" .reject_immediately)"
-  log "2차 검수: ${SCORE:-?}점 / passed=${PASSED:-false}"
+    SCORE="$(jqv "$WORK/review.json" .score)"
+    PASSED="$(jqv "$WORK/review.json" .passed)"
+    REJECT="$(jqv "$WORK/review.json" .reject_immediately)"
+    log "${FIX_ROUNDS}차 재검수: ${SCORE:-?}점 / passed=${PASSED:-false} / reject=${REJECT:-false}"
+
+    if [ "$PASSED" = "true" ] && [ "$QA1" -eq 0 ] && [ "${MATH_VERDICT:-unknown}" != "fail" ]; then
+      log "✅ ${FIX_ROUNDS}차 수정으로 게이트 통과"
+      break
+    fi
+  done
 fi
 
 VERDICT="$(jqv "$WORK/review.json" .verdict)"

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#F3E9D2">
+  <meta property="og:title" content="접힘볼트">
+  <meta property="og:description" content="맞물리면 잠긴다">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>접힘볼트</title>
+  <style>
+    :root{--paper:#f3e9d2;--blue:#182b49;--red:#d94b3d;--ink:#30302c;--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--cell:min(15vw,72px)}
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    body{font-family:Georgia,"Nanum Myeongjo","Apple SD Gothic Neo",serif;background-color:var(--paper);background-image:radial-gradient(rgba(24,43,73,.12) .7px,transparent .8px),linear-gradient(90deg,transparent 49.7%,rgba(217,75,61,.035) 50%,transparent 50.3%);background-size:7px 7px,100% 100%}
+    button{font:inherit;color:inherit;min-width:44px;min-height:44px;cursor:pointer}
+    .hidden{display:none!important}
+    #title{position:fixed;inset:0;z-index:30;overflow:hidden;background:var(--paper);isolation:isolate}
+    #titleArt{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 52%;animation:paperBreath 20s ease-in-out infinite alternate}
+    #titleFallback{position:absolute;inset:0;background:radial-gradient(circle at 50% 62%,rgba(217,75,61,.34) 0 16%,transparent 17%),repeating-linear-gradient(32deg,transparent 0 23px,rgba(24,43,73,.09) 24px 26px),var(--paper)}
+    #titleWash{position:absolute;inset:0;background:linear-gradient(180deg,rgba(243,233,210,.38),transparent 42%,rgba(243,233,210,.18) 68%,rgba(24,43,73,.52));z-index:1}
+    .titleUi{position:relative;z-index:3;width:min(100%,640px);height:100%;margin:auto;pointer-events:none}
+    .logo{position:absolute;top:max(48px,7dvh);left:12px;right:12px;margin:0;text-align:center;color:var(--paper);font-family:Impact,"Arial Black","Apple SD Gothic Neo",sans-serif;font-size:clamp(58px,17vw,96px);font-weight:950;line-height:.86;letter-spacing:-.1em;transform:rotate(-2deg);-webkit-text-stroke:3px var(--blue);text-shadow:2px 2px 0 var(--red),4px 4px 0 var(--blue),7px 7px 0 rgba(217,75,61,.72),0 14px 0 rgba(24,43,73,.18);animation:logoDrop .8s cubic-bezier(.2,1.5,.3,1) both}
+    .logo small{display:block;margin-top:20px;font:900 16px/1.2 Georgia,"Apple SD Gothic Neo",serif;letter-spacing:.12em;color:var(--blue);-webkit-text-stroke:0;text-shadow:2px 0 var(--paper),-2px 0 var(--paper),0 2px var(--paper),0 -2px var(--paper)}
+    .titleBottom{position:absolute;left:16px;right:16px;bottom:max(18px,env(safe-area-inset-bottom));display:grid;justify-items:center;gap:8px;pointer-events:auto}
+    #bestLine{font-weight:900;color:var(--paper);text-shadow:1px 1px 0 var(--blue);letter-spacing:.04em}
+    #startBtn{width:min(100%,420px);height:68px;border:4px solid var(--blue);border-radius:4px;background:var(--red);color:#fff8e6;font-family:Impact,"Arial Black","Apple SD Gothic Neo",sans-serif;font-size:27px;font-weight:950;letter-spacing:.08em;box-shadow:7px 7px 0 var(--blue);animation:ctaPulse 2.5s 1s infinite}
+    #startBtn:active{transform:translate(5px,5px) scale(.98);box-shadow:2px 2px 0 var(--blue)}
+    #helpOpen{border:0;background:transparent;color:var(--paper);font-weight:900;text-decoration:underline;text-underline-offset:4px}
+    #mute{position:fixed;z-index:50;top:max(10px,env(safe-area-inset-top));right:12px;width:48px;height:48px;border:1px solid var(--blue);border-radius:0;background:var(--paper);font-size:22px}
+    .fleck{position:absolute;z-index:2;width:12px;height:19px;background:var(--red);opacity:.5;animation:drift 7s ease-in-out infinite alternate}
+    .fleck.f2{left:17%;top:44%;background:var(--blue);animation-delay:-2s}.fleck.f3{right:13%;top:35%;transform:rotate(32deg);animation-delay:-4s}.fleck.f4{right:28%;top:66%;width:8px;height:8px;background:var(--blue)}
+    #game{position:fixed;inset:0;overflow:hidden}
+    #hud{height:64px;border-bottom:1px solid rgba(48,48,44,.45);display:flex;align-items:center;justify-content:space-between;padding:8px 12px;font-family:"Courier New",monospace;font-weight:800;background:rgba(243,233,210,.92)}
+    .folio{font-size:12px;letter-spacing:.12em}.stats{display:flex;gap:12px;align-items:center}.statNum{display:inline-block;font-size:22px;font-weight:900;color:var(--blue);transition:transform .18s}.statNum.printPunch{animation:printPunch .35s steps(2)}
+    #layout{position:absolute;top:64px;bottom:0;left:var(--stageX);width:var(--stageW);display:grid;grid-template-rows:minmax(0,1fr) 238px;overflow:hidden}
+    #order{position:absolute;z-index:4;left:10px;top:10px;right:10px;border-top:3px double var(--blue);border-bottom:1px solid var(--ink);padding:6px 4px;background:rgba(243,233,210,.9);font-size:13px;pointer-events:none}
+    #order strong{color:var(--red)}
+    #workbench{position:relative;display:grid;place-items:center;overflow:hidden;padding-top:48px;perspective:850px}
+    #grid{position:relative;width:calc(var(--cell)*5);height:calc(var(--cell)*5);transform-style:preserve-3d;transition:transform .55s cubic-bezier(.18,1.28,.3,1)}
+    #grid::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(24,43,73,.17) 1px,transparent 1px),linear-gradient(90deg,rgba(24,43,73,.17) 1px,transparent 1px);background-size:var(--cell) var(--cell);border:1px solid rgba(24,43,73,.26)}
+    .face{position:absolute;width:calc(var(--cell) - 6px);height:calc(var(--cell) - 6px);margin:3px;background:var(--paper);border:2px solid var(--blue);display:grid;place-items:center;font-family:"Courier New",monospace;font-size:clamp(20px,6vw,32px);font-weight:900;color:var(--blue);will-change:transform;transition:left .18s,top .18s,transform .55s cubic-bezier(.18,1.35,.32,1),filter .25s;transform-origin:center;z-index:3}
+    .face::before{content:"";position:absolute;inset:4px;border:1px dashed var(--red);opacity:.55}.face::after{content:"";position:absolute;width:12px;height:12px;border:2px solid var(--red);border-radius:50%;background:var(--paper);right:-7px;top:calc(50% - 7px)}
+    .face.fixed{background:linear-gradient(25deg,rgba(24,43,73,.10),transparent 60%),var(--paper)}
+    .face.loose{cursor:grab;touch-action:none}.face.dragging{z-index:20;cursor:grabbing;filter:saturate(1.4)}
+    .face.bad{animation:inkSlip .42s steps(3);border-color:var(--red);filter:blur(.35px)}
+    .face.good{animation:seat .42s cubic-bezier(.16,1.5,.3,1)}
+    #foldStage{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center;opacity:0;transition:opacity .25s}
+    #foldStage.show{opacity:1}
+    #box3d{width:150px;height:120px;position:relative;transform-style:preserve-3d;transform:rotateX(-22deg) rotateY(34deg);animation:turntable 8s linear infinite}
+    .boxFace{position:absolute;inset:0;border:3px solid var(--blue);background:rgba(243,233,210,.95);display:grid;place-items:center;font-size:38px;font-weight:900;color:var(--red)}
+    .boxFace:nth-child(1){transform:translateZ(60px)}.boxFace:nth-child(2){transform:rotateY(180deg) translateZ(60px)}.boxFace:nth-child(3){transform:rotateY(90deg) translateZ(75px);width:120px;left:15px}.boxFace:nth-child(4){transform:rotateY(-90deg) translateZ(75px);width:120px;left:15px}.boxFace:nth-child(5){transform:rotateX(90deg) translateZ(60px);height:150px;top:-15px}.boxFace:nth-child(6){transform:rotateX(-90deg) translateZ(60px);height:150px;top:-15px}
+    #tray{position:relative;border-top:1px solid var(--ink);background:rgba(243,233,210,.96);padding:9px 12px 12px;display:grid;grid-template-columns:1fr;grid-template-rows:1fr 66px;gap:8px}
+    #pieces{display:flex;justify-content:center;align-items:center;gap:10px;min-height:80px}.trayFace{position:relative;width:68px;height:58px;border:2px solid var(--blue);background:var(--paper);display:grid;place-items:center;font:900 24px/1 "Courier New",monospace;color:var(--blue);touch-action:none}.trayFace::before{content:"";position:absolute;inset:4px;border:1px dashed var(--red)}
+    #foldHandle{position:relative;width:min(100%,460px);height:62px;margin:auto;border:2px solid var(--blue);border-radius:0;background:var(--blue);color:var(--paper);font-size:20px;font-weight:900;letter-spacing:.06em;overflow:hidden;touch-action:none}
+    #foldHandle::before{content:"↑";display:inline-block;margin-right:12px;color:var(--red);font-size:30px;animation:arrowUp 1.2s infinite}.complete #foldHandle{background:var(--red)}
+    #message{position:absolute;z-index:12;left:50%;top:16%;transform:translate(-50%,-20px);width:min(88%,500px);padding:12px;border:3px double var(--blue);background:var(--paper);text-align:center;font-size:18px;font-weight:900;opacity:0;pointer-events:none;transition:.25s}
+    #message.show{opacity:1;transform:translate(-50%,0)}#message.error{color:var(--red);border-color:var(--red)}
+    #stamp{position:absolute;z-index:15;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-7deg) scale(2);border:8px double var(--red);padding:11px 18px;color:var(--red);font:950 42px/1 Impact,"Apple SD Gothic Neo",sans-serif;letter-spacing:.08em;opacity:0;pointer-events:none}#stamp.hit{animation:stampIn .75s steps(3)}
+    #inkCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:10}
+    #overlay{position:fixed;inset:0;z-index:40;background:rgba(24,43,73,.92);display:grid;place-items:center;padding:18px}
+    .paperModal{width:min(100%,520px);max-height:90dvh;overflow:auto;background:var(--paper);border:5px double var(--red);padding:22px;text-align:center}.paperModal h2{font-size:34px;margin:0 0 12px;color:var(--blue)}.paperModal p{line-height:1.55;font-weight:700}.paperModal button{width:100%;min-height:60px;border:2px solid var(--blue);border-radius:0;background:var(--red);color:white;font-size:20px;font-weight:900;margin-top:8px}.guideStep{min-height:110px;display:grid;align-content:center;border-block:1px solid var(--blue);font-size:19px}
+    #heroPreview{width:130px;height:130px;object-fit:contain;float:right;margin:-8px 0 6px 10px}
+    html.land #hud{position:absolute;z-index:8;left:var(--stageX);width:var(--stageW)}
+    html.land #layout{top:64px;grid-template-columns:230px minmax(540px,1fr) 250px;grid-template-rows:1fr;gap:0}
+    html.land #order{position:relative;left:auto;right:auto;top:auto;margin:22px 12px;align-self:start;font-size:15px;grid-column:1;background:transparent}
+    html.land #workbench{grid-column:2;padding-top:0;border-inline:1px solid rgba(24,43,73,.25)}
+    html.land #tray{grid-column:3;grid-row:1;border-top:0;border-left:1px solid var(--ink);grid-template-rows:1fr 90px;padding-top:90px}
+    html.land #pieces{flex-direction:column;justify-content:flex-start}.land .trayFace{width:110px;height:82px;font-size:32px}
+    html.land #foldHandle{height:78px;width:210px}
+    html.land{--cell:min(9.4vh,92px)}
+    @keyframes paperBreath{to{transform:scale(1.045) translateY(-.5%)}}@keyframes logoDrop{from{opacity:0;transform:translateY(-70px) rotate(-7deg) scale(.7)}}
+    @keyframes ctaPulse{0%,72%,100%{transform:scale(1)}82%{transform:scale(1.035)}90%{transform:scale(.99)}}@keyframes drift{to{transform:translate(18px,-25px) rotate(140deg)}}
+    @keyframes printPunch{50%{transform:scale(1.32);color:var(--red)}}@keyframes inkSlip{0%,100%{transform:translate(0)}33%{transform:translate(-5px,2px)}66%{transform:translate(5px,-1px)}}
+    @keyframes seat{0%{transform:scale(1.2)}55%{transform:scale(.88,1.12)}100%{transform:scale(1)}}@keyframes arrowUp{50%{transform:translateY(-8px)}}@keyframes turntable{to{transform:rotateX(-22deg) rotateY(394deg)}}
+    @keyframes stampIn{0%{opacity:0;transform:translate(-50%,-50%) rotate(-7deg) scale(2)}35%,75%{opacity:1;transform:translate(-50%,-50%) rotate(-7deg) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(-7deg) scale(.96)}}
+    @media(max-width:620px){:root{--cell:min(16vw,64px)}#hud{height:58px}.stats{gap:7px;font-size:12px}.statNum{font-size:19px}#layout{top:58px;grid-template-rows:minmax(0,1fr) 220px}#order{font-size:12px}#workbench{padding-top:48px}.trayFace{width:64px;height:54px}#message{top:11%}.logo{font-size:clamp(54px,17vw,75px)}}
+    @media(max-height:700px) and (max-width:900px){:root{--cell:min(12vh,56px)}#layout{grid-template-rows:minmax(0,1fr) 176px}#tray{grid-template-rows:1fr 58px;padding:4px 10px}.trayFace{width:54px;height:46px}#foldHandle{height:54px}}
+    @media(prefers-reduced-motion:reduce){#titleArt{animation-duration:60s}.logo{animation-duration:.2s}#startBtn{animation-duration:6s}.face,#grid{transition-duration:.18s}.fleck{animation-duration:18s}}
+  </style>
+</head>
+<body>
+  <button id="mute" aria-label="소리 끄기">🔊</button>
+  <section id="title" aria-label="접힘볼트 타이틀">
+    <div id="titleFallback"></div><img id="titleArt" src="./assets/title.png" alt="접히는 종이 전개도와 볼트"><div id="titleWash"></div>
+    <i class="fleck" style="left:8%;top:23%"></i><i class="fleck f2"></i><i class="fleck f3"></i><i class="fleck f4"></i>
+    <div class="titleUi"><h1 class="logo">접힘볼트<small>맞물리면 잠긴다</small></h1><div class="titleBottom"><div id="bestLine">5학년 2학기 · 직육면체와 정육면체</div><button id="startBtn">지그 잠그기!</button><button id="helpOpen">어떻게 놀아요? 〉</button></div></div>
+  </section>
+  <main id="game" class="hidden">
+    <header id="hud"><span class="folio">공작책 05 · 주문 <b id="roundNum">01</b> · <b id="clockNum">90</b>초</span><div class="stats"><span>볼트 <b class="statNum" id="scoreNum">0</b></span><span>기회 <b class="statNum" id="lifeNum">3</b></span><span>잠금 ×<b class="statNum" id="comboNum">1</b></span></div></header>
+    <div id="layout">
+      <aside id="order"><strong>조립 지시</strong><br><span id="prompt">면 조각을 붙여 정육면체의 전개도를 만들어 보세요.</span><br><small id="contract">모든 면은 같은 크기예요. 접힌 뒤 겹치면 안 돼요.</small></aside>
+      <section id="workbench" aria-label="전개도 작업대"><div id="grid"></div><div id="foldStage"><div id="box3d"><div class="boxFace">별</div><div class="boxFace">달</div><div class="boxFace">물</div><div class="boxFace">줄</div><div class="boxFace">●</div><div class="boxFace">○</div></div></div><canvas id="inkCanvas"></canvas><div id="message"></div><div id="stamp">잠금</div></section>
+      <aside id="tray"><div id="pieces" aria-label="남은 면 조각"></div><button id="foldHandle">접기 손잡이</button></aside>
+    </div>
+  </main>
+  <div id="overlay" class="hidden"><div class="paperModal" id="modal"></div></div>
+  <script>
+  (()=>{'use strict';
+    // 교과서 표현 함정: 발문은 익힘책 지시형 '~해 보세요'로 통일하며, 차시 1·3·4·5 밖의 겨냥도 계산은 내지 않는다.
+    // 전개도는 정사각형 6개라는 사실만으로 참이 아니다. 접었을 때 겹침과 마주 보는 면을 함께 판정한다.
+    const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+    const templates=[
+      [[1,1],[1,2],[1,3],[0,2],[2,2],[3,2]],[[2,0],[2,1],[2,2],[2,3],[1,1],[3,1]],[[0,1],[1,1],[2,1],[3,1],[1,0],[1,2]],
+      [[1,0],[1,1],[1,2],[1,3],[0,2],[2,1]],[[0,2],[1,2],[2,2],[3,2],[1,1],[2,3]],[[2,0],[2,1],[2,2],[2,3],[1,2],[3,2]],
+      [[1,1],[2,1],[2,2],[2,3],[0,1],[2,0]],[[0,2],[1,2],[1,1],[1,0],[2,2],[3,2]],[[1,0],[1,1],[1,2],[2,2],[3,2],[1,3]],
+      [[0,1],[1,1],[1,2],[2,2],[3,2],[1,3]],[[1,0],[1,1],[2,1],[2,2],[2,3],[3,1]]
+    ];
+    const labels=['별','물','●','달','줄','○'];
+    const state={score:0,lives:3,level:1,phase:'title',solved:0,combo:0,round:0,failures:0,timeLeft:90,land:false,stageW:390,stageX:0,placed:new Map(),pieces:[],problem:null,drag:null,muted:false,audio:null,lastT:0,ink:[],hitStop:0};
+    const key=(r,c)=>r+','+c, same=(a,b)=>a[0]===b[0]&&a[1]===b[1];
+    function rotateCell(p,k){let [r,c]=p;for(let i=0;i<k;i++) [r,c]=[c,4-r];return[r,c]}
+    function normalize(cells){const mr=Math.min(...cells.map(x=>x[0])),mc=Math.min(...cells.map(x=>x[1]));return cells.map(([r,c])=>[r-mr+Math.max(0,Math.floor((5-(Math.max(...cells.map(x=>x[0]))-mr+1))/2)),c-mc+Math.max(0,Math.floor((5-(Math.max(...cells.map(x=>x[1]))-mc+1))/2))])}
+    function buildPool(){const pool=[];let id=0;for(let ti=0;ti<templates.length;ti++){for(let rot=0;rot<4;rot++){let cells=normalize(templates[ti].map(p=>rotateCell(p,rot)));for(const mirror of [false,true]){let cc=mirror?cells.map(([r,c])=>[r,4-c]):cells;cc=normalize(cc);const sig=cc.map(key).sort().join('|');if(pool.some(p=>p.signature===sig))continue;const fixedCount=ti<4?3:2;pool.push({id:'net-'+(++id),templateIndex:ti,cells:cc,signature:sig,fixedCount,level:ti<4?1:ti<8?2:3});}}}return pool}
+    const problemPool=buildPool();
+    function choicesFor(problem,target){const [r,c]=target;const raw=[
+      {cell:[r,Math.min(4,c+1)],misconceptionId:'ADJACENT_IS_OPPOSITE'}, // 평면 이웃을 접힌 뒤 마주 보는 면으로 오해
+      {cell:[Math.min(4,r+1),c],misconceptionId:'SIX_SQUARES_ALWAYS_NET'}, // 연결만 되면 전개도라고 오해
+      {cell:[Math.max(0,r-1),Math.max(0,c-1)],misconceptionId:'EDGE_LENGTH_IGNORED'}, // 변 길이·방향을 무시
+      {cell:target,misconceptionId:null},[0,4],[4,0],[4,4],[0,0]
+    ];
+      const out=[];for(const item of raw){const cell=item.cell||item;if(cell[0]<0||cell[0]>4||cell[1]<0||cell[1]>4)continue;const label='격자 '+(cell[0]+1)+'행 '+(cell[1]+1)+'열';if(out.some(x=>x.label===label))continue;out.push({label,cell,misconceptionId:item.misconceptionId||null});if(out.length===4)break}return out;
+    }
+    function makeSample(i){const p=problemPool[i%problemPool.length],missing=p.cells.slice(p.fixedCount),target=missing[i%missing.length],choices=choicesFor(p,target);const answer='격자 '+(target[0]+1)+'행 '+(target[1]+1)+'열';if(!choices.some(x=>x.label===answer)){choices.pop();choices.push({label:answer,cell:target,misconceptionId:null})}return{id:p.id+'-'+(i%missing.length),prompt:`접힘 도면 ${i+1}: 빈 면을 붙여 ${p.level===1?'정육면체':'직육면체'}의 전개도를 만들어 보세요.`,choices:choices.map(x=>x.label),answer,answerNumeric:target[0]*5+target[1],unitConcept:p.level===1?'정육면체의 전개도':p.level===2?'직육면체의 전개도':'마주 보는 면',choicesMeta:choices};}
+    function pickProblem(){const band=state.solved<2?1:state.solved<5?2:3;const eligible=problemPool.filter(p=>p.level===band);const p=eligible[state.round%eligible.length];return{...p,cells:p.cells.map(x=>[...x]),fixed:p.cells.slice(0,p.fixedCount),loose:p.cells.slice(p.fixedCount)}}
+    function layout(){const W=innerWidth,H=innerHeight;state.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',state.land);state.stageW=Math.min(W,1280);state.stageX=Math.round((W-state.stageW)/2);document.documentElement.style.setProperty('--stageW',state.stageW+'px');document.documentElement.style.setProperty('--stageX',state.stageX+'px');resizeInk()}
+    function resizeInk(){const c=$('#inkCanvas'),r=$('#workbench').getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);c.width=Math.max(1,r.width*d);c.height=Math.max(1,r.height*d);c.style.width=r.width+'px';c.style.height=r.height+'px';c.getContext('2d').setTransform(d,0,0,d,0,0)}
+    function audio(){if(state.muted)return null;if(!state.audio)state.audio=new(window.AudioContext||window.webkitAudioContext)();if(state.audio.state==='suspended')state.audio.resume();return state.audio}
+    function tone(freq,dur=.1,type='triangle',delay=0){const a=audio();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(.0001,a.currentTime+delay);g.gain.exponentialRampToValueAtTime(.12,a.currentTime+delay+.01);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+delay+dur);o.connect(g).connect(a.destination);o.start(a.currentTime+delay);o.stop(a.currentTime+delay+dur+.02)}
+    function renderRound(){state.problem=pickProblem();state.timeLeft=90;state.placed.clear();state.pieces=state.problem.loose.map((target,i)=>({id:'p'+i,label:labels[state.problem.fixedCount+i],target:[...target],pos:null,rot:0}));$('#grid').innerHTML='';state.problem.fixed.forEach((pos,i)=>addFace({id:'f'+i,label:labels[i],pos,fixed:true}));$('#pieces').innerHTML='';state.pieces.forEach(p=>{const e=document.createElement('div');e.className='trayFace';e.dataset.id=p.id;e.textContent=p.label;e.setAttribute('role','button');e.setAttribute('aria-label',p.label+' 면 조각');bindPiece(e,p);$('#pieces').append(e)});$('#prompt').textContent=state.problem.level===1?'면 조각을 붙여 정육면체의 전개도를 만들어 보세요.':state.problem.level===2?'서로 같은 크기의 면이 마주 보도록 직육면체 전개도를 만들어 보세요.':'접었을 때 별-달, 물-줄 인쇄가 마주 보도록 고쳐 보세요.';$('#contract').textContent=state.problem.level===1?'모든 면은 같은 크기예요. 접힌 뒤 겹치면 안 돼요.':'같은 인쇄쌍은 접힌 뒤 나란히 붙지 않고 서로 마주 봐요.';$('#roundNum').textContent=String(state.round+1).padStart(2,'0');$('#clockNum').textContent='90';$('#layout').classList.remove('complete');$('#foldStage').classList.remove('show');$('#grid').style.opacity='1';updateHUD()}
+    function addFace(p){const e=document.createElement('div');e.className='face '+(p.fixed?'fixed':'loose');e.dataset.id=p.id;e.textContent=p.label;positionFace(e,p.pos);if(!p.fixed)bindPiece(e,state.pieces.find(x=>x.id===p.id));$('#grid').append(e);return e}
+    function positionFace(e,pos){e.style.left=`calc(var(--cell)*${pos[1]})`;e.style.top=`calc(var(--cell)*${pos[0]})`}
+    function bindPiece(el,p){el.addEventListener('pointerdown',ev=>beginDrag(ev,p));el.addEventListener('dblclick',()=>rotatePiece(p));el.addEventListener('contextmenu',ev=>{ev.preventDefault();rotatePiece(p)})}
+    function beginDrag(ev,p){if(state.phase!=='playing')return;audio();ev.preventDefault();const source=ev.currentTarget;if(p.pos){state.placed.delete(key(...p.pos));p.pos=null}state.drag={p,source,ghost:source.cloneNode(true),pointerId:ev.pointerId};const g=state.drag.ghost;g.className='face loose dragging';g.style.position='fixed';g.style.margin='0';g.style.left=(ev.clientX-34)+'px';g.style.top=(ev.clientY-30)+'px';g.style.width='68px';g.style.height='58px';document.body.append(g);source.style.opacity='.25';source.setPointerCapture?.(ev.pointerId);source.addEventListener('pointermove',moveDrag);source.addEventListener('pointerup',endDrag,{once:true});source.addEventListener('pointercancel',endDrag,{once:true});tone(220,.05,'square')}
+    function moveDrag(ev){if(!state.drag)return;state.drag.ghost.style.left=(ev.clientX-34)+'px';state.drag.ghost.style.top=(ev.clientY-30)+'px'}
+    function endDrag(ev){const d=state.drag;if(!d)return;d.source.removeEventListener('pointermove',moveDrag);const rect=$('#grid').getBoundingClientRect(),cs=rect.width/5,c=Math.floor((ev.clientX-rect.left)/cs),r=Math.floor((ev.clientY-rect.top)/cs);d.ghost.remove();d.source.style.opacity='1';state.drag=null;if(r>=0&&r<5&&c>=0&&c<5&&!occupied(r,c)){placePiece(d.p,[r,c]);tone(330,.06,'square')}else{returnToTray(d.p)}}
+    function occupied(r,c){return state.problem.fixed.some(p=>p[0]===r&&p[1]===c)||state.pieces.some(p=>p.pos&&p.pos[0]===r&&p.pos[1]===c)}
+    function placePiece(p,pos){p.pos=pos;state.placed.set(key(...pos),p.id);let el=$(`.face[data-id="${p.id}"]`);if(!el){const tray=$(`.trayFace[data-id="${p.id}"]`);tray?.remove();el=addFace({...p,pos,fixed:false})}else positionFace(el,pos);el.style.transform=`rotate(${p.rot*90}deg)`;el.classList.add('good');setTimeout(()=>el.classList.remove('good'),450);$('#layout').classList.toggle('complete',state.pieces.every(x=>x.pos))}
+    function returnToTray(p){let el=$(`.face[data-id="${p.id}"]`);el?.remove();if(!$(`.trayFace[data-id="${p.id}"]`)){el=document.createElement('div');el.className='trayFace';el.dataset.id=p.id;el.textContent=p.label;bindPiece(el,p);$('#pieces').append(el)}p.pos=null;$('#layout').classList.remove('complete')}
+    function rotatePiece(p){p.rot=(p.rot+1)%4;const e=$(`[data-id="${p.id}"]`);if(e)e.style.transform=`rotate(${p.rot*90}deg)`;tone(260,.05,'square')}
+    function validate(){if(!state.pieces.every(p=>p.pos))return{ok:false,reason:'떨어진 면이 있어요. 여섯 면을 모두 놓아 보세요.'};const made=[...state.problem.fixed,...state.pieces.map(p=>p.pos)].map(key).sort().join('|');if(made!==state.problem.signature){const allConnected=isConnected([...state.problem.fixed,...state.pieces.map(p=>p.pos)]);return{ok:false,reason:allConnected?'면 2장이 접으면 겹쳐요. 마지막 조각의 이웃 관계를 바꿔 보세요.':'떨어진 면이 있어요. 모든 면이 변으로 이어져야 해요.'}}if(state.problem.level>1&&state.pieces.some(p=>p.rot%2!==0))return{ok:false,reason:'맞닿는 변의 길이가 달라요. 긴 변 방향을 다시 맞춰 보세요.'};return{ok:true}}
+    function isConnected(cells){const set=new Set(cells.map(key)),seen=new Set([key(...cells[0])]),q=[cells[0]];while(q.length){const [r,c]=q.shift();for(const n of [[r+1,c],[r-1,c],[r,c+1],[r,c-1]]){const k=key(...n);if(set.has(k)&&!seen.has(k)){seen.add(k);q.push(n)}}}return seen.size===cells.length}
+    function fold(){if(state.phase!=='playing')return;audio();const result=validate();state.phase='folding';tone(170,.13,'sawtooth');$('#grid').style.transform='rotateX(12deg) scale(.94)';setTimeout(()=>{if(result.ok)correct();else wrong(result.reason)},520)}
+    function correct(force=false){if(state.phase==='over')return;state.phase='feedback';state.hitStop=.075;state.combo=Math.min(3,state.combo+1);const gain=100*state.combo;state.score+=gain;state.solved++;state.round++;state.level=state.solved<2?1:state.solved<5?2:3;$('#grid').style.opacity='.12';$('#foldStage').classList.add('show');showMessage(`두 별색이 포개졌어요! +${gain} 볼트`,'ok');stamp();inkBurst(true,8+state.combo*4);tone(392,.11,'triangle');tone(523,.13,'triangle',.09);tone(659,.18,'triangle',.18);updateHUD(true);saveBest();setTimeout(()=>{if(state.solved>=8){endGame(true)}else{state.phase='playing';renderRound()}},1500)}
+    function wrong(reason='면 2장이 겹쳤어요.'){if(state.phase==='over')return;state.phase='feedback';state.lives=Math.max(0,state.lives-1);state.failures++;state.combo=0;$$('.face.loose').forEach(e=>e.classList.add('bad'));showMessage(reason,'error');inkBurst(false,5);tone(150,.18,'sawtooth');updateHUD(true);if(navigator.vibrate)navigator.vibrate(45);setTimeout(()=>{if(state.lives<=0)endGame(false);else{const last=state.pieces[state.pieces.length-1];if(last?.pos)returnToTray(last);$$('.face').forEach(e=>e.classList.remove('bad'));$('#grid').style.transform='';state.phase='playing';showMessage('마지막 조각을 직접 다시 놓아 보세요.','ok')}},1100)}
+    function showMessage(text,type){const m=$('#message');m.textContent=text;m.className='show '+(type||'');clearTimeout(showMessage.t);showMessage.t=setTimeout(()=>m.className='',1800)}
+    function stamp(){const s=$('#stamp');s.classList.remove('hit');void s.offsetWidth;s.classList.add('hit')}
+    function inkBurst(ok,count){const c=$('#inkCanvas'),r=c.getBoundingClientRect(),x=r.width/2,y=r.height/2;for(let i=0;i<count;i++){const a=(Math.PI*2*i/count)+Math.random()*.3;state.ink.push({x,y,vx:Math.cos(a)*(45+Math.random()*80),vy:Math.sin(a)*(35+Math.random()*70)-30,life:.8+Math.random()*.5,size:ok?3+Math.random()*5:5+Math.random()*7,color:ok?(i%2? '#d94b3d':'#182b49'):'#30302c'})}}
+    function countPrint(el,to){const from=Number(el.textContent)||0,start=performance.now(),dur=320;function step(t){const q=Math.min(1,(t-start)/dur),e=1-Math.pow(1-q,3);el.textContent=Math.round(from+(to-from)*e);if(q<1)requestAnimationFrame(step)}requestAnimationFrame(step)}
+    function updateHUD(punch=false){countPrint($('#scoreNum'),state.score);$('#lifeNum').textContent=state.lives;$('#comboNum').textContent=Math.max(1,state.combo);if(punch){$$('.statNum').forEach(e=>{e.classList.remove('printPunch');void e.offsetWidth;e.classList.add('printPunch')})}}
+    function saveBest(){const best=Math.max(state.score,Number(localStorage.getItem('fold-bolt-best')||0));localStorage.setItem('fold-bolt-best',best);localStorage.setItem('fold-bolt-solved',state.solved)}
+    function showTitleBest(){const best=Number(localStorage.getItem('fold-bolt-best')||0);$('#bestLine').textContent=best?`최고 ${best} 볼트 · 5학년 2학기`:'5학년 2학기 · 직육면체와 정육면체'}
+    function start(skipGuide=false){audio();$('#title').classList.add('hidden');$('#game').classList.remove('hidden');state.score=0;state.lives=3;state.level=1;state.solved=0;state.combo=0;state.round=0;state.phase='playing';renderRound();if(!skipGuide&&!localStorage.getItem('onboardingSeen:fold-bolt'))showGuide(0)}
+    const guide=[['1 · 면을 붙여요','남은 면 조각을 길게 눌러 격자의 빈 칸으로 직접 옮겨 보세요.'],['2 · 머릿속으로 접어요','정사각형 6개가 이어져도 접으면 겹칠 수 있어요. 면의 이웃을 살펴보세요.'],['3 · 손잡이를 밀어요','여섯 면을 놓은 뒤 접기 손잡이를 위로 밀어 실제로 확인해 보세요.']];
+    function showGuide(i){const [h,p]=guide[i];$('#overlay').classList.remove('hidden');$('#modal').innerHTML=`<h2>${h}</h2><div class="guideStep">${p}</div><button id="guideNext">${i===2?'해볼게요':'다음 장'}</button>`;$('#guideNext').onclick=()=>{if(i<2)showGuide(i+1);else{localStorage.setItem('onboardingSeen:fold-bolt','1');$('#overlay').classList.add('hidden')}}}
+    function endGame(win){state.phase='over';saveBest();$('#overlay').classList.remove('hidden');$('#modal').innerHTML=`<img id="heroPreview" src="./assets/hero.png" alt="접힌 종이 상자"><h2>${win?'도감에 인쇄 완료!':'지그를 다시 펼쳐요'}</h2><p>잠근 볼트 <b>${state.score}</b><br>완성한 전개도 <b>${state.solved}</b>개</p><button id="again">새 주문 받기</button>`;$('#heroPreview').onerror=e=>{e.currentTarget.style.display='none'};$('#again').onclick=()=>{$('#overlay').classList.add('hidden');start(true)}}
+    function loop(t){const dt=Math.min(.033,(t-state.lastT)/1000||0);state.lastT=t;if(state.phase==='playing'){state.timeLeft=Math.max(0,state.timeLeft-dt);$('#clockNum').textContent=Math.ceil(state.timeLeft);if(state.timeLeft<=0){showMessage('90초가 끝나 지그를 폐기해요.','error');endGame(false)}}if(state.hitStop>0)state.hitStop-=dt;else{const c=$('#inkCanvas'),ctx=c.getContext('2d'),r=c.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);ctx.globalAlpha=.10;for(let i=0;i<18;i++){ctx.fillStyle=i%3===0?'#d94b3d':'#182b49';const x=(i*83+(t*.006))%Math.max(1,r.width),y=(i*47)%Math.max(1,r.height);ctx.fillRect(x,y,1+(i%3),1+(i%2))}ctx.globalAlpha=1;for(const p of state.ink){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=50*dt;p.life-=dt;ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size)}ctx.globalAlpha=1;state.ink=state.ink.filter(p=>p.life>0)}requestAnimationFrame(loop)}
+    function simulateBots(rounds=200){function trial(kind){let score=0,complete=0;for(let n=0;n<rounds;n++){const p=problemPool[n%problemPool.length],targets=p.cells.slice(p.fixedCount).map(key),tries=targets.length;let picks=[];if(kind==='spam')picks=Array(tries).fill('0,0');if(kind==='cycle')picks=Array.from({length:tries},(_,i)=>key(i%5,Math.floor(i/5)));if(kind==='random')picks=Array.from({length:tries},()=>key(Math.floor(Math.random()*5),Math.floor(Math.random()*5)));if(kind==='idle')picks=[];const unique=new Set(picks);if(unique.size===targets.length&&targets.every(x=>unique.has(x))){complete++;score+=100}}return{completionRate:+(complete/rounds*100).toFixed(1),averageScore:+(score/rounds).toFixed(1)}}return{spam:trial('spam'),cycle:trial('cycle'),random:trial('random'),idle:trial('idle')}}
+    let handleStartY=0;$('#titleArt').onerror=e=>{e.currentTarget.style.display='none'};$('#startBtn').onclick=()=>start(false);$('#helpOpen').onclick=()=>{start(true);showGuide(0)};$('#foldHandle').addEventListener('pointerdown',e=>{handleStartY=e.clientY;audio()});$('#foldHandle').addEventListener('pointerup',e=>{if(e.clientY-handleStartY<-18)fold();else showMessage('손잡이를 위로 밀어 접어 보세요.','ok')});$('#mute').onclick=()=>{state.muted=!state.muted;$('#mute').textContent=state.muted?'🔇':'🔊';$('#mute').setAttribute('aria-label',state.muted?'소리 켜기':'소리 끄기')};window.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='r'&&state.pieces[0])rotatePiece(state.pieces.find(p=>p.pos)||state.pieces[0]);if(e.code==='Space'){e.preventDefault();fold()}});window.addEventListener('resize',layout);window.addEventListener('orientationchange',()=>setTimeout(layout,120));layout();showTitleBest();requestAnimationFrame(loop);
+    window.__GAME_TEST__={ready:true,start(){start(true)},getState(){return{score:state.score,lives:state.lives,level:state.level,phase:state.phase,solved:state.solved}},answerCorrect(){if(state.phase==='title')start(true);state.phase='playing';correct(true)},answerWrong(){if(state.phase==='title')start(true);state.phase='playing';wrong('면 2장이 겹쳤어요.')},sampleProblems(n){return Array.from({length:Math.max(20,n||20)},(_,i)=>{const p=makeSample(i);delete p.choicesMeta;return p})},getLayout(){return{land:state.land,playW:state.land?Math.max(540,state.stageW-480):state.stageW}},runBotAudit(n){return simulateBots(n||200)}};
+  })();
+  </script>
+</body>
+</html>

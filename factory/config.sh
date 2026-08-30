@@ -5,6 +5,10 @@
 export GATE_SCORE="${GATE_SCORE:-80}"          # 게시 커트라인 (100점 만점)
 export DESIGN_VARIANTS="${DESIGN_VARIANTS:-3}" # 병렬 기획 에이전트 수
 export FOCUS="${FOCUS:-5-2,6-2}"               # 집중 학년-학기
+# 검수 미달 시 수정→재검수 루프의 상한 (2026-08-31: 1회→3회, 폐기 전에 부족한 부분을 살린다).
+# 게이트(80)는 불변 — 상한이 있으므로 루프가 게이트를 무의미하게 만들지 않는다.
+# 라운드가 많아지면 사이클이 크론 주기(120m)를 넘을 수 있다 — run.lock 이 다음 틱을 스킵하므로 안전.
+export MAX_FIX_ROUNDS="${MAX_FIX_ROUNDS:-3}"
 # 게임 수가 같은 단원들 사이의 우선순위 (design-bible 7.2 · 킹수학 시장 공백 기준):
 # 가능성 재도전 → 공간과 입체 → 원기둥·원뿔·구 → 원의 둘레와 넓이 → 비례식 → (과밀: 분수·소수 나눗셈은 마지막)
 export PRIORITY_UNITS="${PRIORITY_UNITS:-g5s2-u6,g6s2-u2,g6s2-u6,g6s2-u5,g6s2-u4}"
