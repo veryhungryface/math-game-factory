@@ -62,20 +62,21 @@
     font-family:"LogoGugi","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
     font-weight:400;font-size:clamp(46px,12.4vw,78px);line-height:.95;letter-spacing:-.02em;white-space:nowrap;
     transform:rotate(-1deg);transform-origin:50% 60%}
-  .game-logo > span{--r:0deg;position:relative;display:inline-block;padding-inline:.02em;
+  .game-logo > span{--r:0deg;--y:0em;position:relative;display:inline-block;padding-inline:.02em;
     color:var(--ink);-webkit-text-stroke:clamp(2px,.6vw,4px) var(--deep);paint-order:stroke fill;
-    transform:rotate(var(--r));transform-origin:50% 420%;
+    transform:translateY(var(--y)) rotate(var(--r));transform-origin:50% 85%;
     animation:logo-arc-in 620ms cubic-bezier(.2,1.4,.4,1) both;animation-delay:calc(var(--i,0)*95ms)}
-  .game-logo > span:nth-of-type(1){--r:-12deg;--i:0}
-  .game-logo > span:nth-of-type(2){--r:-7.2deg;--i:1}
-  .game-logo > span:nth-of-type(3){--r:-2.4deg;--i:2}
-  .game-logo > span:nth-of-type(4){--r:2.4deg;--i:3}
-  .game-logo > span:nth-of-type(5){--r:7.2deg;--i:4}
-  .game-logo > span:nth-of-type(6){--r:12deg;--i:5}
+  /* T6 원호: 자기 중심 기울임 + em 단위 원호 낙차 (거리 원점 회전 금지 — 와이드에서 글자 겹침) */
+  .game-logo > span:nth-of-type(1){--r:-9deg;--y:.086em;--i:0}
+  .game-logo > span:nth-of-type(2){--r:-5.5deg;--y:.032em;--i:1}
+  .game-logo > span:nth-of-type(3){--r:-1.8deg;--y:0em;--i:2}
+  .game-logo > span:nth-of-type(4){--r:1.8deg;--y:0em;--i:3}
+  .game-logo > span:nth-of-type(5){--r:5.5deg;--y:.032em;--i:4}
+  .game-logo > span:nth-of-type(6){--r:9deg;--y:.086em;--i:5}
   .game-logo .logo-gap{width:.2em;flex:0 0 .2em}
   @keyframes logo-arc-in{
-    0%{opacity:0;transform:rotate(calc(var(--r) - 26deg)) scale(.6)}
-    100%{opacity:1;transform:rotate(var(--r)) scale(1)}
+    0%{opacity:0;transform:translateY(calc(var(--y) - .3em)) rotate(calc(var(--r) - 14deg)) scale(.6)}
+    100%{opacity:1;transform:translateY(var(--y)) rotate(var(--r)) scale(1)}
   }
   /* T6 원호 가이드 — 컴퍼스로 그은 호선이 글자 아래에 깔린다 */
   .logo-arc{position:relative;left:50%;transform:translateX(-50%);width:min(88vw,340px);height:14px;margin-top:-.1em}
@@ -83,8 +84,8 @@
   .logo-arc path{stroke:var(--cyan);stroke-width:1.2;fill:none;opacity:.8;
     stroke-dasharray:400;stroke-dashoffset:400;animation:arc-draw 700ms 420ms ease-out forwards}
   @keyframes arc-draw{to{stroke-dashoffset:0}}
-  .game-subtitle{margin:12px 0 0;display:inline-block;padding:5px 13px 6px;border:var(--hair);
-    color:var(--ink);background:rgba(13,30,48,.5);font:800 clamp(12px,3.5vw,16px)/1.2 "LogoGugi","Apple SD Gothic Neo",sans-serif;
+  .game-subtitle{margin:12px 0 0;display:inline-block;padding:4px 12px 5px;border:var(--hair);
+    color:var(--ink);background:rgba(13,30,48,.35);font:800 clamp(12px,3.3vw,15px)/1.25 "LogoGugi","Apple SD Gothic Neo",sans-serif;
     letter-spacing:-.01em;animation:sub-in 420ms 700ms ease-out both}
   @keyframes sub-in{from{opacity:0;transform:translateY(-8px) scale(.94)}to{opacity:1;transform:none}}
   .title-unit{margin:10px 0 0;font-size:11px;font-weight:700;opacity:.72;letter-spacing:.04em;
@@ -139,9 +140,10 @@
   #retryBtn{min-width:200px;min-height:52px;border:2px solid var(--deep);background:var(--accent);color:var(--deep);
             font-size:17px;font-weight:700;cursor:pointer;font-family:inherit}
 
-  /* ── 와이드 (1280px+) : 플레이 영역 재배치 (playfield-spec) ── */
-  html.land #hud{left:var(--stageX);width:min(460px,calc(var(--stageW)*0.38));right:auto}
-  html.land #panel{left:calc(var(--stageX) + var(--stageW) - min(340px,calc(var(--stageW)*0.27)) - 12px);
+  /* ── 와이드 (1280px+) : 플레이 영역 재배치 (playfield-spec)
+     #app 이 이미 stageX 에 놓여 있으므로 자식 오프셋에 stageX 를 다시 쓰면 이중 보상된다 ── */
+  html.land #hud{left:0;width:min(460px,calc(var(--stageW)*0.38));right:auto}
+  html.land #panel{left:calc(var(--stageW) - min(340px,calc(var(--stageW)*0.27)) - 12px);
     width:min(340px,calc(var(--stageW)*0.27));bottom:auto;top:64px;border:var(--hair)}
   html.land #ctrl{flex-direction:column}
 </style>
@@ -510,6 +512,21 @@ cv.addEventListener('pointermove', e=>{
   }
 });
 addEventListener('pointerup', ()=>{ drag=null; });
+/* PC 키보드 조작 — 모바일 전용이 아니다 */
+addEventListener('keydown', e=>{
+  if(S.phase!=='playing' || !S.prob) return;
+  if(e.key==='Enter'){ submit(); }
+  else if(e.key==='Backspace' || e.key==='u' || e.key==='U'){
+    if(S.prob.mode==='count' && S.placed.length){ S.placed.pop(); S.overWarned=false; beep(300,.05); updateLenLabel(); }
+  } else if(e.key==='ArrowLeft' || e.key==='ArrowRight'){
+    if(S.prob.mode!=='length') return;
+    e.preventDefault();
+    const d = e.key==='ArrowRight' ? 1 : -1;
+    const cur = Math.round(SNAP*fNum(S.plankLen));
+    const u = Math.max(1, Math.min(Math.round(SNAP*fNum(S.prob.width))+SNAP, cur+d));
+    if(u!==cur){ S.plankLen=F(u,SNAP); beep(440+u*6,.02,'square',0.02); updateLenLabel(); }
+  }
+});
 function placePlank(){
   const p=S.prob; if(!p || S.phase!=='playing') return;
   const used=fMul(p.plank, F(S.placed.length,1));
@@ -570,12 +587,15 @@ function drawFracText(txt, x, y, size, color, align='left'){
   } else { ctx.textAlign=align; ctx.fillText(m[6],x,y); }
   ctx.restore();
 }
-function hatch(x,y,w,h,color,gap=0){
-  const g = gap || Math.max(6, w/5);
+/* 해칭 — 패턴 필 (프레임당 수백 스트로크 금지) */
+const hatchTile=(()=>{const c=document.createElement('canvas');c.width=c.height=8;
+  const x=c.getContext('2d');x.strokeStyle='#dceaf2';x.lineWidth=1;
+  x.beginPath();x.moveTo(-2,10);x.lineTo(10,-2);x.moveTo(2,10+8);x.lineTo(10+8,-2+8);x.stroke();return c;})();
+let hatchPat=null;
+function hatch(x,y,w,h,alpha=0.35){
+  if(!hatchPat) hatchPat=ctx.createPattern(hatchTile,'repeat');
   ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
-  ctx.strokeStyle=color; ctx.lineWidth=1;
-  for(let i=-h;i<w;i+=g){ ctx.beginPath(); ctx.moveTo(x+i,y+h); ctx.lineTo(x+i+h,y); ctx.stroke(); }
-  ctx.restore();
+  ctx.globalAlpha=alpha; ctx.fillStyle=hatchPat; ctx.fillRect(x,y,w,h); ctx.restore();
 }
 function drawBridgeDeco(){ // 타이틀 뒤 도면 장식 (하단, 저투명 — 텍스트와 분리)
   const INK='rgba(220,234,242,0.3)', CYAN='rgba(127,214,232,0.3)';
@@ -598,6 +618,7 @@ function drawBridgeDeco(){ // 타이틀 뒤 도면 장식 (하단, 저투명 —
   ctx.restore();
 }
 let lastT=performance.now(), tAcc=0;
+const riverCache={key:'', waves:[]};
 function draw(now){
   const dt=Math.min(0.05,(now-lastT)/1000); lastT=now; tAcc+=dt;
   S.fx.shake=Math.max(0,S.fx.shake-dt*2.4);
@@ -612,6 +633,16 @@ function draw(now){
 
   /* 도면 모눈 (오프스크린 캐시) */
   if(gridCv) ctx.drawImage(gridCv, 0, 0, W, H);
+  /* 도면 테두리 프레임 + 코너 마크 (일괄 패스) */
+  ctx.strokeStyle='rgba(220,234,242,0.18)'; ctx.lineWidth=1;
+  ctx.strokeRect(10.5, 10.5, W-21, H-21);
+  ctx.strokeStyle='rgba(127,214,232,0.55)'; ctx.lineWidth=1.4;
+  ctx.beginPath();
+  for(const [cx,cy] of [[10.5,10.5],[W-10.5,10.5],[10.5,H-10.5],[W-10.5,H-10.5]]){
+    ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy);
+    ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8);
+  }
+  ctx.stroke();
 
   const p=S.prob;
   if(!p){ drawBridgeDeco(); ctx.restore(); requestAnimationFrame(draw); return; }
@@ -622,9 +653,29 @@ function draw(now){
   ctx.fillStyle='#142c44'; ctx.strokeStyle=INKC; ctx.lineWidth=1.6;
   ctx.beginPath(); ctx.rect(bx-56, by-bh*0.9, 56, bh*1.8); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.rect(bx+bw, by-bh*0.9, 56, bh*1.8); ctx.fill(); ctx.stroke();
-  hatch(bx-56, by-bh*0.9, 56, bh*1.8, 'rgba(220,234,242,0.35)');
-  hatch(bx+bw, by-bh*0.9, 56, bh*1.8, 'rgba(220,234,242,0.35)');
-  /* 강면 설계선 */
+  hatch(bx-56, by-bh*0.9, 56, bh*1.8, 0.35);
+  hatch(bx+bw, by-bh*0.9, 56, bh*1.8, 0.35);
+  /* 강면 — 물 톤 + 물결 헤어라인 (해도 문법), 설계 점선
+     물결은 Path2D 캐시(geom 변경 시만 재계산) — 프레임당 sin 계산 금지 */
+  ctx.fillStyle='rgba(9,22,38,0.42)';
+  ctx.fillRect(bx, by-bh, bw, bh*2);
+  {
+    const rk = `${bx.toFixed(1)}|${by.toFixed(1)}|${bw.toFixed(1)}|${bh.toFixed(1)}`;
+    if(rk !== riverCache.key){
+      riverCache.key = rk; riverCache.waves = [];
+      for(let wv=0; wv<3; wv++){
+        const wy = by-bh + (wv+0.8)*(bh*2/3.4);
+        const path = new Path2D();
+        for(let px=bx; px<=bx+bw; px+=6){
+          const yy = wy + Math.sin(px*0.045 + wv*1.7)*2.2;
+          px===bx ? path.moveTo(px,yy) : path.lineTo(px,yy);
+        }
+        riverCache.waves.push(path);
+      }
+    }
+    ctx.strokeStyle='rgba(127,214,232,0.28)'; ctx.lineWidth=1;
+    for(const wp of riverCache.waves) ctx.stroke(wp);
+  }
   ctx.setLineDash([6,5]);
   ctx.strokeStyle = S.fx.bridgeFlash>0 ? ACCC : 'rgba(127,214,232,0.8)';
   ctx.lineWidth = 1.4 + S.fx.bridgeFlash*1.6;
@@ -648,7 +699,7 @@ function draw(now){
       ctx.fillStyle = (i===S.placed.length-1 && S.fx.pop>0) ? 'rgba(255,154,82,0.22)' : 'rgba(220,234,242,0.10)';
       ctx.strokeStyle=INKC; ctx.lineWidth=1.4;
       ctx.beginPath(); ctx.rect(px, by-bh, pw, bh*2); ctx.fill(); ctx.stroke();
-      hatch(px, by-bh, pw, bh*2, 'rgba(220,234,242,0.4)');
+      hatch(px, by-bh, pw, bh*2, 0.4);
     }
     const used=fMul(p.plank,F(S.placed.length,1));
     const left=fAdd(p.width,F(-used.n,used.d));
@@ -672,7 +723,7 @@ function draw(now){
         if(active){
           ctx.fillStyle='rgba(220,234,242,0.10)'; ctx.strokeStyle=INKC; ctx.lineWidth=1.6;
           ctx.beginPath(); ctx.rect(bx, by-bh, L, bh*2); ctx.fill(); ctx.stroke();
-          hatch(bx, by-bh, L, bh*2, 'rgba(220,234,242,0.4)');
+          hatch(bx, by-bh, L, bh*2, 0.4);
           ctx.fillStyle=ACCC;
           ctx.beginPath(); ctx.arc(bx+L, by, 10, 0, Math.PI*2); ctx.fill();
           ctx.strokeStyle=INKC; ctx.lineWidth=1.4; ctx.stroke();
@@ -693,16 +744,18 @@ function draw(now){
         ctx.strokeRect(px, by-bh, L, bh*2); ctx.setLineDash([]);
       }
     }
-    /* 눈금자 (1/24 스냅) */
+    /* 눈금자 (1/24 스냅) — 눈금 전부 하나의 패스 */
     const rulerY=by+bh+84, maxM=fNum(p.width)+1.2;
     ctx.strokeStyle='rgba(220,234,242,0.8)'; ctx.lineWidth=1.2;
     ctx.beginPath(); ctx.moveTo(g.x0, rulerY); ctx.lineTo(g.x0+maxM*g.pxm, rulerY); ctx.stroke();
-    ctx.font=`10px ${MONO}`; ctx.textAlign='center'; ctx.fillStyle=INKC;
+    ctx.beginPath();
     for(let u=0; u<=Math.round(maxM*SNAP); u++){
       const px=g.x0+u/SNAP*g.pxm, tall=u%SNAP===0, mid=u%12===0;
-      ctx.beginPath(); ctx.moveTo(px, rulerY); ctx.lineTo(px, rulerY+(tall?10:mid?7:3)); ctx.stroke();
-      if(tall) ctx.fillText(String(u/SNAP), px, rulerY+24);
+      ctx.moveTo(px, rulerY); ctx.lineTo(px, rulerY+(tall?10:mid?7:3));
     }
+    ctx.stroke();
+    ctx.font=`10px ${MONO}`; ctx.textAlign='center'; ctx.fillStyle=INKC;
+    for(let u=0; u<=Math.round(maxM*SNAP); u+=SNAP) ctx.fillText(String(u/SNAP), g.x0+u/SNAP*g.pxm, rulerY+24);
     ctx.fillText('m', g.x0+maxM*g.pxm, rulerY-10);
     if(active){
       ctx.font=`12px ${MONO}`; ctx.fillStyle=ACCC; ctx.textAlign='center';
