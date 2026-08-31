@@ -1,0 +1,1669 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>내려탁 — 빗나가면 판이 잘려</title>
+<meta property="og:title" content="내려탁">
+<meta property="og:description" content="빗나가면 판이 잘려">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+@font-face{font-family:"LogoBlock";src:url("./assets/fonts/logo-blackhansans.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+:root{
+  --void:#D6BFA8; --void2:#E8D3B8; --cream:#F4EFE6; --tomato:#E45A3C; --teal:#2F6B5A; --sky:#3A7CA5; --ink:#3A2A22;
+  --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
+  --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--void);color:var(--ink);
+  font-family:"Avenir Next Condensed","Futura","DIN Alternate","Eurostile",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;touch-action:none}
+.hidden{display:none !important}
+button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+
+/* 축 K: 아이소 명패. radius 0, 면이 곧 윤곽, 하드 접지 4px. 알약·inset 광택 금지 */
+#muteBtn{position:fixed;top:calc(10px + var(--safeT));right:12px;z-index:20;width:44px;height:44px;min-width:44px;
+  border:0;background:var(--cream);color:var(--teal);font-size:18px;font-weight:800;
+  box-shadow:4px 4px 0 rgba(58,42,34,.28);transform:skewX(-8deg)}
+#muteBtn:active{transform:skewX(-8deg) scaleY(.86) scaleX(1.06)}
+html.land #muteBtn{right:calc(var(--stageX) + 14px)}
+
+#title{--title-col:min(100vw,640px);position:fixed;inset:0;min-height:100svh;height:100dvh;overflow:hidden;isolation:isolate;z-index:12;background:#C9A888}
+.title-art{position:absolute;inset:0;z-index:0;overflow:hidden;background:
+  linear-gradient(180deg,#E8D3B8 0%,#D6BFA8 100%)}
+.title-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 82%;
+  animation:ken 22s ease-in-out infinite alternate;pointer-events:none}
+.title-art img.fail{opacity:0}
+@keyframes ken{from{transform:scale(1)}to{transform:scale(1.04)}}
+.title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+  padding-inline:clamp(16px,5vw,32px);padding-top:var(--safeT);padding-bottom:var(--safeB);pointer-events:none}
+.title-logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;display:flex;justify-content:center;align-items:flex-end;gap:.02em;
+  font-family:"LogoBlock","Avenir Next Condensed",sans-serif;font-size:clamp(76px,28vw,132px);font-weight:400;line-height:.9;
+  color:var(--cream);letter-spacing:-.06em;filter:none;transform:skewX(-6deg)}
+.game-logo span{display:inline-block;color:var(--cream);-webkit-text-stroke:clamp(5px,1.4vw,8px) var(--teal);
+  paint-order:stroke fill;animation:stackin .55s cubic-bezier(.2,1.4,.3,1) both}
+.game-logo span:nth-child(1){animation-delay:40ms}
+.game-logo span:nth-child(2){animation-delay:140ms}
+.game-logo span:nth-child(3){animation-delay:240ms}
+@keyframes stackin{0%{opacity:0;transform:translateY(.7em) scaleY(.35)}72%{opacity:1;transform:translateY(-.05em) scaleY(1.08)}100%{opacity:1;transform:none}}
+.game-subtitle{margin:14px auto 0;padding:6px 14px;background:var(--teal);color:var(--cream);
+  font-family:"LogoBlock",sans-serif;font-size:clamp(14px,4vw,18px);letter-spacing:.04em;width:max-content;
+  box-shadow:4px 4px 0 rgba(58,42,34,.3);animation:stackin .4s .5s both}
+.title-unit{margin:10px 0 0;font-size:12px;font-weight:800;color:rgba(58,42,34,.78);letter-spacing:.04em}
+.title-cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+.title-meta{min-height:28px;padding:5px 12px;background:rgba(244,239,230,.9);color:var(--ink);
+  font-size:12px;font-weight:800;box-shadow:4px 4px 0 rgba(58,42,34,.18)}
+.title-start{width:100%;max-width:420px;height:68px;min-height:68px;border:0;background:var(--tomato);color:var(--cream);
+  font-family:"LogoBlock",sans-serif;font-size:clamp(22px,6vw,28px);letter-spacing:.02em;
+  box-shadow:4px 4px 0 #8E2E1C;animation:ctapulse 1.6s ease-in-out infinite;transform-origin:50% 100%}
+.title-start:active{transform:scaleY(.88) scaleX(1.05);box-shadow:2px 2px 0 #8E2E1C;animation:none}
+@keyframes ctapulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+.title-howto,.title-diff{background:none;border:0;color:var(--ink);font-size:14px;font-weight:800;min-height:44px;padding:8px 12px;opacity:.82}
+.title-diff{opacity:.7}
+
+#onb{position:fixed;inset:0;z-index:16;background:rgba(42,30,24,.46);display:flex;align-items:flex-end;justify-content:center;padding:18px}
+#onb .card{width:min(100%,520px);background:var(--cream);color:var(--ink);padding:18px 18px 16px;box-shadow:4px 4px 0 rgba(58,42,34,.35)}
+#onb .num{font-size:12px;font-weight:800;color:var(--teal);letter-spacing:.08em}
+#onb h2{font-size:22px;font-weight:800;margin:6px 0 8px;letter-spacing:-.02em}
+#onb p{font-size:15px;font-weight:700;line-height:1.45}
+#onb .diffs{display:flex;gap:8px;margin:12px 0 4px}
+#onb .diffs button{flex:1;min-height:60px;border:0;background:#E8D3B8;color:var(--ink);font-weight:800;font-size:16px;box-shadow:4px 4px 0 rgba(58,42,34,.22)}
+#onb .diffs button.on{background:var(--teal);color:var(--cream)}
+#onb .diffs button:active{transform:scaleY(.9)}
+#onbNext{width:100%;min-height:60px;margin-top:10px;border:0;background:var(--tomato);color:#fff;font-weight:800;font-size:18px;box-shadow:4px 4px 0 #8E2E1C}
+#onbNext:active{transform:scaleY(.9)}
+
+#over{position:fixed;inset:0;z-index:15;background:rgba(58,42,34,.38);display:flex;align-items:center;justify-content:center;padding:18px}
+#over .card{width:min(100%,520px);background:var(--cream);padding:28px 22px 22px;text-align:center;box-shadow:4px 4px 0 rgba(58,42,34,.4)}
+#over h2{font-size:clamp(28px,8vw,42px);font-weight:800;color:var(--teal);letter-spacing:-.03em}
+#over .stat{margin-top:10px;font-size:16px;font-weight:800}
+#over .stat b{font-size:28px;display:inline-block}
+#retryBtn{margin-top:18px;width:100%;min-height:64px;border:0;background:var(--tomato);color:#fff;font-size:20px;font-weight:800;box-shadow:4px 4px 0 #8E2E1C}
+#retryBtn:active{transform:scaleY(.9)}
+
+@media (min-width:641px){
+  .title-logo-zone{left:24px;right:24px}
+  .title-cta-zone{width:min(calc(100% - 48px),520px)}
+}
+@media (max-height:700px){
+  .title-logo-zone{top:max(38px,5dvh);min-height:150px}
+  .game-logo{font-size:clamp(58px,22vw,96px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .title-art img{animation-duration:48s}
+  .game-logo span,.game-subtitle{animation-duration:.01s}
+  .title-start{animation:none}
+}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<button id="muteBtn" type="button" aria-label="소리 끄기">♪</button>
+
+<div id="title">
+  <div class="title-art">
+    <img id="titleImg" src="./assets/title.png" alt="" onerror="this.classList.add('fail')">
+  </div>
+  <div class="title-ui">
+    <div class="title-logo-zone">
+      <h1 class="game-logo" aria-label="내려탁"><span>내</span><span>려</span><span>탁</span></h1>
+      <p class="game-subtitle">빗나가면 판이 잘려</p>
+      <p class="title-unit">5학년 2학기 · 평균과 가능성</p>
+    </div>
+    <div class="title-cta-zone">
+      <div class="title-meta" id="bestPill"></div>
+      <button class="title-start" id="startBtn" type="button">고르게 찍기!</button>
+      <button class="title-diff" id="diffBtn" type="button">난이도 쉬움</button>
+      <button class="title-howto" id="howtoBtn" type="button">어떻게 놀아요? ›</button>
+    </div>
+  </div>
+</div>
+
+<div id="onb" class="hidden">
+  <div class="card">
+    <div class="num" id="onbNum">1/3</div>
+    <h2 id="onbTitle"></h2>
+    <p id="onbBody"></p>
+    <div class="diffs hidden" id="onbDiff">
+      <button type="button" id="diffEasy" class="on">쉬움<small style="display:block;font-size:11px;font-weight:700;opacity:.85">첫 실수는 합·개수만</small></button>
+      <button type="button" id="diffHard">어려움<small style="display:block;font-size:11px;font-weight:700;opacity:.85">빗나가면 바로 잘려요</small></button>
+    </div>
+    <button id="onbNext" type="button">다음</button>
+  </div>
+</div>
+
+<div id="over" class="hidden">
+  <div class="card">
+    <h2 id="overTitle">판이 쌓였다</h2>
+    <div class="stat">점수 <b id="overScore">0</b></div>
+    <div class="stat">맞춘 층 <b id="overSolved">0</b></div>
+    <div class="stat">최고 콤보 <b id="overCombo">0</b></div>
+    <button id="retryBtn" type="button">다시 찍기!</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── 교과서 표현 함정 (문제 생성기 주석)
+     - 발문은 익힘책 지시형(~해 보세요)만. 청유형(~해 봅시다)과 섞지 않음.
+     - 평균 = (자룟값의 합) ÷ (자료의 수). 중앙값·최빈값이라는 말은 쓰지 않음.
+     - 값 0은 자료가 있는 것이다. 자료의 수에서 빼지 않음.
+     - 이번 작은 가능성 0·1/2·1을 다루지 않음(차시 1~3만).
+     - 어림 「○의 자리에서」 표현 금지. 이상/이하 경계 문항 없음.
+     - 정답은 정수 눈금. 부동소수점 비교 금지, tick===m 정수 비교만. */
+
+  const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const LS_BEST = "level-slam:best";
+  const LS_COMBO = "level-slam:combo";
+  const LS_ONB = "onboardingSeen:level-slam";
+  const LS_MUTE = "level-slam:mute";
+  const LS_EASY = "level-slam:easy";
+  const LS_STAMP = "level-slam:stamps";
+  const LS_MISSION = "level-slam:mission";
+
+  const cv = document.getElementById("cv");
+  const ctx = cv.getContext("2d");
+  const muteBtn = document.getElementById("muteBtn");
+  const titleEl = document.getElementById("title");
+  const onbEl = document.getElementById("onb");
+  const overEl = document.getElementById("over");
+
+  const PAL = { void:"#D6BFA8", void2:"#E8D3B8", cream:"#F4EFE6", tomato:"#E45A3C", tomatoTop:"#F28A74", tomatoSide:"#C24730", teal:"#2F6B5A", tealTop:"#3E8A74", tealSide:"#245446", sky:"#3A7CA5", ink:"#3A2A22" };
+
+  const NAMES = ["가은", "도윤", "지민", "현우", "시아", "수현"];
+  const CTX = [
+    { unit:"회", scene:"제기차기 기록" },
+    { unit:"점", scene:"고리 던지기 점수" },
+    { unit:"점", scene:"콩 주머니 던지기 점수" },
+    { unit:"개", scene:"상자 속 구슬 수" },
+    { unit:"회", scene:"왕복 달리기 기록" }
+  ];
+  /* 숫자 끝소리 받침: 2·4·5·9(이·사·오·구)는 와, 나머지(영·일·삼·육·칠·팔·십)는 과 */
+  function josaWa(n) {
+    const d = Math.abs(n) % 10;
+    return (d === 2 || d === 4 || d === 5 || d === 9) ? "와" : "과";
+  }
+
+  const STENCIL = {
+    "0":[0b01110,0b10001,0b10011,0b10101,0b11001,0b10001,0b01110],
+    "1":[0b00100,0b01100,0b00100,0b00100,0b00100,0b00100,0b01110],
+    "2":[0b01110,0b10001,0b00001,0b00110,0b01000,0b10000,0b11111],
+    "3":[0b01110,0b10001,0b00001,0b00110,0b00001,0b10001,0b01110],
+    "4":[0b00010,0b00110,0b01010,0b10010,0b11111,0b00010,0b00010],
+    "5":[0b11111,0b10000,0b11110,0b00001,0b00001,0b10001,0b01110],
+    "6":[0b01110,0b10000,0b11110,0b10001,0b10001,0b10001,0b01110],
+    "7":[0b11111,0b00001,0b00010,0b00100,0b00100,0b01000,0b01000],
+    "8":[0b01110,0b10001,0b10001,0b01110,0b10001,0b10001,0b01110],
+    "9":[0b01110,0b10001,0b10001,0b01111,0b00001,0b00001,0b01110],
+    "+":[0,0b00100,0b00100,0b11111,0b00100,0b00100,0],
+    "-":[0,0,0,0b11111,0,0,0],
+    "x":[0,0b10001,0b01010,0b00100,0b01010,0b10001,0],
+    "/":[0b00001,0b00010,0b00100,0b00100,0b01000,0b10000,0],
+    "=":[0,0b11111,0,0b11111,0,0,0],
+    "÷":[0b00100,0,0b11111,0,0b00100,0,0]
+  };
+
+  function combos(n, lo, hi, sum, start, path, out) {
+    if (n === 0) { if (sum === 0) out.push(path.slice()); return; }
+    const vmax = Math.min(hi, sum - lo * (n - 1));
+    const vmin = Math.max(lo, sum - hi * (n - 1));
+    for (let v = Math.max(start, vmin); v <= vmax; v++) {
+      path.push(v);
+      combos(n - 1, lo, hi, sum - v, v, path, out);
+      path.pop();
+    }
+  }
+  function shuf(a, rng) {
+    const b = a.slice();
+    for (let i = b.length - 1; i > 0; i--) {
+      const j = (rng() * (i + 1)) | 0;
+      const t = b[i]; b[i] = b[j]; b[j] = t;
+    }
+    return b;
+  }
+  function rngFn(seed) {
+    let t = seed >>> 0;
+    return function () {
+      t += 0x6d2b79f5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function medianOf(vals) {
+    const s = vals.slice().sort((a, b) => a - b);
+    const n = s.length;
+    if (n % 2 === 1) return s[(n / 2) | 0];
+    const a = s[n / 2 - 1], b = s[n / 2];
+    return ((a + b) & 1) === 0 ? (a + b) / 2 : null;
+  }
+  function midrange(vals) {
+    const mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals);
+    return ((mx + mn) & 1) === 0 ? (mx + mn) / 2 : null;
+  }
+  function skipZeroMean(vals) {
+    const z = vals.filter((v) => v === 0).length;
+    if (!z) return null;
+    const s = vals.reduce((a, b) => a + b, 0);
+    const d = vals.length - z;
+    if (d <= 0 || s % d !== 0) return null;
+    return s / d;
+  }
+  function sumOf(v) { return v.reduce((a, b) => a + b, 0); }
+
+  /* 비교형 오개념: 다른 팀 평균, (m1+m2)/2, 합친 전체 평균, 자료 수 혼동.
+     정수이면서 정답과 다른 값이 2개 미만이면 그 자료는 풀에서 버린다. */
+  function compareMiscons(m1, m2) {
+    const winner = Math.max(m1, m2);
+    const items = [];
+    const add = function (v, id) {
+      if (v === null || v === undefined) return;
+      if (!Number.isInteger(v) || v === winner || v < 0 || v > 16) return;
+      items.push({ value: v, misconceptionId: id });
+    };
+    add(Math.min(m1, m2), "otherGroupMean");
+    add(((m1 + m2) & 1) === 0 ? (m1 + m2) / 2 : null, "unweightedGroupMean");
+    const tot = 3 * m1 + 4 * m2;
+    add(tot % 7 === 0 ? tot / 7 : null, "pooledMeanIgnoreN");
+    const sumA = 3 * m1, sumB = 4 * m2;
+    add(sumA % 4 === 0 ? sumA / 4 : null, "wrongCountMean");
+    add(sumB % 3 === 0 ? sumB / 3 : null, "wrongCountMean");
+    add(tot % 6 === 0 ? tot / 6 : null, "wrongPooledN");
+    add(tot % 8 === 0 ? tot / 8 : null, "wrongPooledN");
+    const seen = {};
+    return items.filter(function (d) {
+      if (seen[d.value]) return false;
+      seen[d.value] = 1;
+      return true;
+    });
+  }
+
+  /* 역산 오개념: 평균을 빈칸으로 쓰기, n을 4·6으로 착각, 합에서 평균만 빼기,
+     보이는 값의 중앙·범위 중간·최솟·최댓, 0을 자료 수에서 빼기.
+     값 중복·범위 필터 뒤 서로 다른 오답이 2개 미만이면 그 자료는 풀에서 버린다. */
+  function reverseMiscons(m, hidden, visible, S) {
+    const visN = visible.length;
+    const items = [];
+    const add = function (v, id) {
+      if (v === null || v === undefined) return;
+      if (!Number.isInteger(v) || v === hidden || v < 0 || v > 16) return;
+      items.push({ value: v, misconceptionId: id });
+    };
+    add(m, "meanInsteadOfMissing");
+    const med = medianOf(visible);
+    const mid = midrange(visible);
+    if (med !== null) add(med, "medianAsMean");
+    if (mid !== null) add(mid, "midrangeAsMean");
+    add(m * visN - S, "wrongNReverse");
+    add(5 * m, "forgetSubtract");
+    add(S - m, "subtractMean");
+    add(m * 6 - S, "wrongNPlus");
+    add(Math.min.apply(null, visible), "pickADatum");
+    add(Math.max.apply(null, visible), "pickADatum");
+    if (S % visN === 0) add(S / visN, "visMeanAsMissing");
+    const z = visible.filter((v) => v === 0).length;
+    if (z) add(m * (5 - z) - S, "skipZeroReverse");
+    const seen = {};
+    return items.filter(function (d) {
+      if (seen[d.value]) return false;
+      seen[d.value] = 1;
+      return true;
+    });
+  }
+
+  /* 판정은 보이는 위치(vis)를 반올림. 이동 중 tick은 아직 이전 칸일 수 있다. */
+  function judgeTick() {
+    if (!S.plate) return 0;
+    return Math.round(S.plate.vis);
+  }
+  function checkJudgeBoundary() {
+    const saved = S.plate;
+    const cases = [[0, 0], [0.49, 0], [0.5, 1], [5, 5], [5.49, 5], [5.5, 6], [8.2, 8], [8.8, 9]];
+    let ok = true;
+    for (let i = 0; i < cases.length; i++) {
+      S.plate = { vis: cases[i][0], tick: 99, moving: true };
+      if (judgeTick() !== cases[i][1]) ok = false;
+    }
+    S.plate = saved;
+    return ok;
+  }
+
+  function buildPools() {
+    const act1 = [];
+    for (let m = 2; m <= 7; m++) {
+      const found = [];
+      combos(4, 1, 9, 4 * m, 1, [], found);
+      for (let i = 0; i < found.length; i++) {
+        const t = found[i];
+        if (t.every((v) => v === m)) continue;
+        const mid = midrange(t);
+        if (mid === null || mid === m) continue;
+        act1.push({ n: 4, m: m, vals: t.slice(), band: 1, mid: mid, med: medianOf(t) });
+      }
+    }
+    const act2 = [];
+    for (let m = 2; m <= 8; m++) {
+      const four = [];
+      combos(4, 1, 16, 5 * m, 1, [], four);
+      for (let i = 0; i < four.length; i++) {
+        const vals = [0].concat(four[i]);
+        const med = medianOf(vals);
+        if (med === m) continue;
+        const skip0 = skipZeroMean(vals);
+        const mid = midrange(vals);
+        act2.push({ n: 5, m: m, vals: vals, band: 2, med: med, skip0: skip0, mid: mid });
+      }
+    }
+    const reverse = [];
+    const seenR = {};
+    for (let m = 3; m <= 10; m++) {
+      const found = [];
+      combos(5, 0, 16, 5 * m, 0, [], found);
+      for (let i = 0; i < found.length; i++) {
+        const t = found[i];
+        if (t.every((v) => v === m)) continue;
+        let hi = t.length - 1;
+        if (t[hi] === m) hi = 0;
+        const x = t[hi];
+        if (x === m) continue;
+        const vis = t.filter((_, k) => k !== hi);
+        const S = sumOf(vis);
+        const mis = reverseMiscons(m, x, vis, S);
+        if (mis.length < 2) continue;
+        const k = m + ":" + x + ":" + S;
+        if (seenR[k]) continue;
+        seenR[k] = 1;
+        reverse.push({ n: 5, m: m, vals: t.slice(), hidden: x, visible: vis, S: S, band: 3, hideIndex: hi, distractors: mis });
+        if (reverse.length >= 480) break;
+      }
+      if (reverse.length >= 480) break;
+    }
+    const aByM = {};
+    const bByM = {};
+    for (let m = 3; m <= 9; m++) {
+      const fa = [], fb = [];
+      combos(3, 1, 12, 3 * m, 1, [], fa);
+      combos(4, 0, 12, 4 * m, 0, [], fb);
+      aByM[m] = fa.filter((t) => !t.every((v) => v === m)).slice(0, 24);
+      bByM[m] = fb.filter((t) => !t.every((v) => v === m) && t.filter((v) => v === 0).length <= 1).slice(0, 24);
+    }
+    const compare = [];
+    const ms = [3, 4, 5, 6, 7, 8, 9];
+    for (let i = 0; i < ms.length; i++) {
+      for (let j = 0; j < ms.length; j++) {
+        const m1 = ms[i], m2 = ms[j];
+        if (m1 === m2) continue;
+        const As = aByM[m1], Bs = bByM[m2];
+        if (!As.length || !Bs.length) continue;
+        const mis = compareMiscons(m1, m2);
+        if (mis.length < 2) continue;
+        const take = Math.min(6, As.length, Bs.length);
+        for (let k = 0; k < take; k++) {
+          const mid = ((m1 + m2) & 1) === 0 ? (m1 + m2) / 2 : null;
+          const tot = 3 * m1 + 4 * m2;
+          compare.push({
+            band: 3, A: As[k % As.length], B: Bs[(k * 3) % Bs.length],
+            m1: m1, m2: m2, winnerMean: Math.max(m1, m2),
+            mid: mid, totMean: tot % 7 === 0 ? tot / 7 : null,
+            distractors: mis
+          });
+        }
+      }
+    }
+    return { act1: act1, act2: act2, reverse: reverse, compare: compare };
+  }
+
+  const POOL = buildPools();
+  const R0 = rngFn(0x51a31);
+  POOL.act1 = shuf(POOL.act1, R0);
+  POOL.act2 = shuf(POOL.act2, R0);
+  POOL.reverse = shuf(POOL.reverse, R0);
+  POOL.compare = shuf(POOL.compare, R0);
+  const CUR = { a1: 0, a2: 0, rv: 0, cp: 0 };
+
+  function take(arr, key) {
+    const i = CUR[key] % arr.length;
+    CUR[key]++;
+    return arr[i];
+  }
+
+  function finishChoices(answer, raw, lo, hi, rng) {
+    const seen = {};
+    seen[String(answer)] = 1;
+    const out = [];
+    for (let i = 0; i < raw.length; i++) {
+      const v = raw[i].value;
+      if (!Number.isInteger(v) || v === answer || v < lo || v > hi) continue;
+      const k = String(v);
+      if (seen[k]) continue;
+      seen[k] = 1;
+      out.push(raw[i]);
+    }
+    const pack = [{ value: answer, misconceptionId: null }].concat(out.slice(0, 3));
+    return shuf(pack, rng);
+  }
+
+  function packSample(src, rng) {
+    const names = shuf(NAMES, rng);
+    const ctx = CTX[(rng() * CTX.length) | 0];
+    if (src.kind === "mean") {
+      const vals = src.vals;
+      const u = src.withZero ? "" : ctx.unit;
+      const labeled = vals.map((v, i) => names[i % names.length] + " " + v + u).join(", ");
+      const prompt = src.withZero
+        ? vals.join(", ") + "의 평균을 구해 보세요."
+        : labeled + " " + ctx.scene + "의 평균을 구해 보세요.";
+      const raw = [];
+      if (src.med !== null && src.med !== src.m) raw.push({ value: src.med, misconceptionId: "medianAsMean" });
+      if (src.skip0 !== null && src.skip0 !== src.m) raw.push({ value: src.skip0, misconceptionId: "skipZero" });
+      if (src.mid !== null && src.mid !== src.m) raw.push({ value: src.mid, misconceptionId: "midrangeAsMean" });
+      const dv = vals.find((v) => v !== src.m);
+      if (dv !== undefined) raw.push({ value: dv, misconceptionId: "pickADatum" });
+      const ch = finishChoices(src.m, raw, 0, 16, rng);
+      return {
+        id: src.id, prompt: prompt,
+        choices: ch.map((c) => String(c.value) + u),
+        answer: String(src.m) + u, answerNumeric: src.m,
+        unitConcept: "평균 구하기",
+        distractors: ch.filter((c) => c.misconceptionId)
+      };
+    }
+    if (src.kind === "reverse") {
+      const visN = src.visible.length;
+      const prompt = "평균이 " + src.m + "이고 5개 기록 중 " + visN + "개 기록의 합이 " + src.S + "일 때, 나머지 한 기록을 구해 보세요.";
+      const raw = (src.distractors && src.distractors.length)
+        ? src.distractors.slice()
+        : reverseMiscons(src.m, src.hidden, src.visible, src.S);
+      const ch = finishChoices(src.hidden, raw, 0, 16, rng);
+      return {
+        id: src.id, prompt: prompt,
+        choices: ch.map((c) => String(c.value)),
+        answer: String(src.hidden), answerNumeric: src.hidden,
+        unitConcept: "평균을 이용해 빠진 자료 구하기",
+        distractors: ch.filter((c) => c.misconceptionId)
+      };
+    }
+    const lastA = src.A[src.A.length - 1];
+    const prompt = "건강 팀 " + src.A.join("·") + josaWa(lastA) + " 장수 팀 " + src.B.join("·") + "의 평균을 각각 구해 보세요. 평균이 더 큰 팀의 평균을 구해 보세요.";
+    const raw = (src.distractors && src.distractors.length)
+      ? src.distractors.slice()
+      : compareMiscons(src.m1, src.m2);
+    const ch = finishChoices(src.winnerMean, raw, 0, 16, rng);
+    return {
+      id: src.id, prompt: prompt,
+      choices: ch.map((c) => String(c.value)),
+      answer: String(src.winnerMean), answerNumeric: src.winnerMean,
+      unitConcept: "평균으로 두 집단 비교·해석하기",
+      distractors: ch.filter((c) => c.misconceptionId)
+    };
+  }
+
+  function sampleProblems(n) {
+    const rng = rngFn(0xC0FFEE + (n * 19));
+    const a1 = shuf(POOL.act1, rng), a2 = shuf(POOL.act2, rng);
+    const rv = shuf(POOL.reverse, rng), cp = shuf(POOL.compare, rng);
+    let i1 = 0, i2 = 0, ir = 0, ic = 0;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const slot = i % 12;
+      let src;
+      if (slot < 4) src = Object.assign({ kind: "mean", withZero: false, id: "p" + i }, a1[i1++ % a1.length]);
+      else if (slot < 8) src = Object.assign({ kind: "mean", withZero: true, id: "p" + i }, a2[i2++ % a2.length]);
+      else if (slot === 8 || slot === 10) src = Object.assign({ kind: "reverse", id: "p" + i }, rv[ir++ % rv.length]);
+      else if (slot === 9) src = Object.assign({ kind: "mean", withZero: true, id: "p" + i }, a2[i2++ % a2.length]);
+      else src = Object.assign({ kind: "compare", id: "p" + i }, cp[ic++ % cp.length]);
+      out.push(packSample(src, rng));
+    }
+    return out;
+  }
+
+  /* ── game state ── */
+  const S = {
+    phase: "title", land: false, stageW: 0, stageX: 0, play: { x: 0, y: 0, w: 0, h: 0 },
+    W: 0, H: 0, dpr: 1,
+    easy: localStorage.getItem(LS_EASY) !== "0",
+    muted: localStorage.getItem(LS_MUTE) === "1",
+    score: 0, scoreShown: 0, lives: 3, combo: 0, bestCombo: 0, solved: 0, hits: 0,
+    completedRounds: 0, round: 0, level: 1,
+    problem: null, towers: [], plate: null, ghost: null,
+    locked: false, hit: 0, shake: 0, timeScale: 1,
+    flyers: [], shards: [], trails: [], pop: null, gauge: null,
+    comboPlates: [], lastMeans: [],
+    hint: null, easyHintUsed: false, readyAt: 0, idle: 0,
+    punch: 0, ambient: 0, reduce: REDUCE,
+    comparePhase: 0, gen: 0
+  };
+
+  let IM = { chip: null, plate: null, titleOk: true };
+  let bgCache = null, bgKey = "";
+
+  function loadImg(src) {
+    return new Promise(function (res) {
+      const im = new Image();
+      im.onload = function () { res(im); };
+      im.onerror = function () { res(null); };
+      im.src = src;
+    });
+  }
+  function chroma(img) {
+    if (!img) return null;
+    try {
+      const c = document.createElement("canvas");
+      c.width = img.width; c.height = img.height;
+      const x = c.getContext("2d");
+      x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, c.width, c.height);
+      const p = d.data;
+      for (let i = 0; i < p.length; i += 4) {
+        if (p[i] > 232 && p[i + 1] > 228 && p[i + 2] > 220) p[i + 3] = 0;
+      }
+      x.putImageData(d, 0, 0);
+      return c;
+    } catch (e) { return img; }
+  }
+
+  /* ── audio (gesture later) ── */
+  let AC = null, master = null;
+  function unlockAudio() {
+    if (S.muted) return;
+    try {
+      if (!AC) {
+        AC = new (window.AudioContext || window.webkitAudioContext)();
+        master = AC.createGain();
+        master.gain.value = 0.18;
+        master.connect(AC.destination);
+      }
+      if (AC.state === "suspended") AC.resume();
+    } catch (e) {}
+  }
+  function beep(kind) {
+    if (S.muted || !AC) return;
+    const t0 = AC.currentTime;
+    function tone(freq, dur, type, at, vol) {
+      const o = AC.createOscillator();
+      const g = AC.createGain();
+      o.type = type || "square";
+      o.frequency.setValueAtTime(freq, t0 + at);
+      g.gain.setValueAtTime(0.0001, t0 + at);
+      g.gain.exponentialRampToValueAtTime(vol || 0.8, t0 + at + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+      o.connect(g); g.connect(master);
+      o.start(t0 + at); o.stop(t0 + at + dur + 0.02);
+    }
+    if (kind === "tick") tone(520, 0.04, "square", 0, 0.18);
+    else if (kind === "ok") { tone(523, 0.09, "square", 0, 0.7); tone(784, 0.14, "square", 0.07, 0.55); }
+    else if (kind === "bad") { tone(196, 0.18, "sawtooth", 0, 0.5); tone(130, 0.22, "sawtooth", 0.08, 0.4); }
+    else if (kind === "combo") { tone(523, 0.1, "square", 0, 0.55); tone(659, 0.1, "square", 0.14, 0.55); tone(784, 0.18, "square", 0.28, 0.7); }
+    else if (kind === "slide") tone(392, 0.08, "triangle", 0, 0.3);
+  }
+
+  function layout() {
+    const W = innerWidth, H = innerHeight;
+    S.land = (W >= H && W >= 640) || W >= 1024;
+    document.documentElement.classList.toggle("land", S.land);
+    const STAGE = Math.min(W, 1280);
+    const SX = Math.round((W - STAGE) / 2);
+    S.stageW = STAGE; S.stageX = SX; S.W = W; S.H = H;
+    const root = document.documentElement;
+    root.style.setProperty("--stageW", STAGE + "px");
+    root.style.setProperty("--stageX", SX + "px");
+    if (S.land) S.play = { x: SX + 12, y: 58, w: STAGE - 24, h: Math.max(160, H - 70) };
+    else S.play = { x: 0, y: 118, w: W, h: Math.max(160, H - 118 - 18) };
+    const dpr = Math.min(devicePixelRatio || 1, 1.5);
+    S.dpr = dpr;
+    cv.width = Math.max(1, (W * dpr) | 0);
+    cv.height = Math.max(1, (H * dpr) | 0);
+    cv.style.width = W + "px";
+    cv.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function dwellMs() {
+    const act = S.round <= 4 ? 1 : S.round <= 8 ? 2 : 3;
+    if (S.easy) return act === 1 ? 320 : act === 2 ? 240 : 200;
+    return act === 1 ? 140 : act === 2 ? 120 : 100;
+  }
+
+  function pickStart(answer, maxT, dwell) {
+    const maxSteps = Math.max(2, Math.floor(2400 / dwell) - 1);
+    const opts = [];
+    for (let t = 0; t <= maxT; t++) {
+      const d = Math.abs(t - answer);
+      if (d >= 2 && d <= maxSteps) opts.push(t);
+    }
+    if (!opts.length) return answer === 0 ? Math.min(2, maxT) : 0;
+    return opts[(Math.random() * opts.length) | 0];
+  }
+
+  function makeTowers(vals, names, hiddenIndex) {
+    return vals.map(function (h, i) {
+      return {
+        h: h, target: h, name: names[i % names.length],
+        hidden: hiddenIndex === i, squash: 1, x: 0
+      };
+    });
+  }
+
+  function spawnRound() {
+    S.round++;
+    S.level = Math.min(3, 1 + ((S.round - 1) / 4) | 0);
+    S.locked = false;
+    S.flyers.length = 0;
+    S.shards.length = 0;
+    S.hint = null;
+    S.easyHintUsed = false;
+    S.comparePhase = 0;
+    S.pop = null;
+    S.gauge = null;
+    const slot = ((S.round - 1) % 12);
+    const rng = rngFn((S.round * 9973 + CUR.a1 * 13) >>> 0);
+    const names = shuf(NAMES, rng);
+    let kind, src, vals, answer, prompt, ghost = null, hiddenIndex = -1, groups = null, unitConcept;
+
+    if (slot < 4) {
+      src = take(POOL.act1, "a1");
+      kind = "mean";
+      vals = shuf(src.vals, rng);
+      answer = src.m;
+      const ctx = CTX[slot % CTX.length];
+      prompt = names.slice(0, 4).map((nm, i) => nm + " " + vals[i] + ctx.unit).join(", ") + " " + ctx.scene + "의 평균을 구해 그 높이에 찍어 보세요.";
+      unitConcept = "평균 구하기";
+    } else if (slot === 5 || slot === 9) {
+      const pool = slot === 9 ? POOL.act2.filter((p) => p.skip0 !== null && p.skip0 !== p.m) : POOL.act2;
+      src = (pool.length ? pool : POOL.act2)[CUR.a2 % (pool.length || POOL.act2.length)];
+      CUR.a2++;
+      kind = "error";
+      vals = shuf(src.vals, rng);
+      answer = src.m;
+      ghost = slot === 9 && src.skip0 !== null && src.skip0 !== src.m ? src.skip0 : src.med;
+      if (ghost === answer || ghost === null) ghost = src.mid !== null && src.mid !== src.m ? src.mid : src.med;
+      prompt = vals.join(", ") + "의 평균을 구해 그 높이에 찍어 보세요. 가운데 값이 항상 평균인 것은 아니에요.";
+      unitConcept = "평균 구하기";
+    } else if (slot < 8) {
+      src = take(POOL.act2, "a2");
+      kind = "mean";
+      vals = shuf(src.vals, rng);
+      answer = src.m;
+      prompt = vals.join(", ") + "의 평균을 구해 그 높이에 찍어 보세요.";
+      unitConcept = "평균 구하기";
+    } else if (slot === 8 || slot === 10) {
+      src = take(POOL.reverse, "rv");
+      kind = "reverse";
+      const vis = shuf(src.visible, rng);
+      vals = vis.concat([0]);
+      hiddenIndex = vals.length - 1;
+      answer = src.hidden;
+      prompt = "평균이 " + src.m + "이에요. 5개 기록 중 " + vis.length + "개 기록의 합은 " + src.S + "예요. 나머지 한 기록을 구해 그 높이에 찍어 보세요.";
+      unitConcept = "평균을 이용해 빠진 자료 구하기";
+      src = Object.assign({}, src, { vals: vals, S: src.S });
+    } else {
+      src = take(POOL.compare, "cp");
+      kind = "compare";
+      const A = shuf(src.A, rng), B = shuf(src.B, rng);
+      groups = { A: A, B: B, m1: src.m1, m2: src.m2 };
+      vals = A.slice();
+      answer = src.m1;
+      prompt = "건강 팀 " + A.join("·") + "의 평균을 구해 그 높이에 찍어 보세요.";
+      unitConcept = "평균으로 두 집단 비교·해석하기";
+    }
+
+    const maxT = Math.max(9, answer, Math.max.apply(null, vals), ghost || 0);
+    const dwell = dwellMs();
+    const start = pickStart(answer, maxT, dwell);
+    S.towers = makeTowers(vals, names, hiddenIndex);
+    S.problem = {
+      kind: kind, vals: vals, m: (kind === "reverse" ? src.m : (kind === "compare" ? groups.m1 : answer)),
+      answerTick: answer, maxT: maxT, prompt: prompt, names: names, src: src, groups: groups,
+      unitConcept: unitConcept, ghost: ghost, sum: sumOf(kind === "reverse" ? src.visible : vals), n: vals.length
+    };
+    if (kind === "reverse") S.problem.n = src.n;
+    S.ghost = ghost;
+    S.plate = { tick: start, vis: start, dir: start < answer ? 1 : -1, acc: 0, dwell: dwell / 1000, squash: 1, lockY: null, moving: false, from: start, to: start };
+    S.readyAt = performance.now();
+    S.idle = 0;
+    S.trails.length = 0;
+    S.promptLines = null;
+    S.gen++;
+    towerLayout();
+  }
+
+  function baseY() {
+    return S.play.y + S.play.h - (S.land ? 48 : 72);
+  }
+  function yOfTick(tick) {
+    return baseY() - tick * chipSize().h;
+  }
+  function chipSize() {
+    const p = S.play;
+    const n = Math.max(1, S.towers.length || 4);
+    const maxT = (S.problem && S.problem.maxT) || 12;
+    const leftPad = S.land ? 72 : 44;
+    const rightPad = S.land ? 140 : 14;
+    const h = Math.max(16, Math.min(58, (p.h - (S.land ? 78 : 96)) / (maxT + 2.4)));
+    const inner = Math.max(80, p.w - leftPad - rightPad);
+    const w = Math.max(28, Math.min(h * 1.65, inner / n * 0.72));
+    return { w: w, h: h, leftPad: leftPad, rightPad: rightPad, inner: inner };
+  }
+
+  function towerLayout() {
+    const p = S.play;
+    const cs = chipSize();
+    const n = S.towers.length;
+    const base = baseY();
+    const step = cs.inner / Math.max(1, n);
+    for (let i = 0; i < n; i++) {
+      S.towers[i].x = p.x + cs.leftPad + step * (i + 0.5);
+      S.towers[i].base = base;
+    }
+    return { cs: cs, base: base };
+  }
+
+  function onTap() {
+    if (S.phase !== "playing" || S.locked || !S.plate || !S.problem) return;
+    resolveTap(judgeTick(), false);
+  }
+
+  function resolveTap(tick, forced) {
+    if (!S.problem) spawnRound();
+    const ans = S.problem.answerTick;
+    const ok = tick === ans;
+    if (ok) onCorrect(forced);
+    else onWrong(tick, forced);
+  }
+
+  function onCorrect(forced) {
+    const p = S.problem;
+    S.locked = true;
+    S.hit = S.reduce ? 0.03 : 0.06;
+    S.timeScale = 0;
+    S.plate.squash = 0.62;
+    S.plate.lockY = p.answerTick;
+    const add = 100 + S.combo * 25;
+    S.score += add;
+    S.combo += 1;
+    if (S.combo > S.bestCombo) S.bestCombo = S.combo;
+    S.hits += 1;
+    const comparePending = p.kind === "compare" && S.comparePhase === 0;
+    if (!comparePending) {
+      S.completedRounds += 1;
+      S.solved = S.completedRounds;
+    }
+    S.punch = 1;
+    S.lastMeans.push(p.answerTick);
+    if (S.lastMeans.length > 3) S.lastMeans.shift();
+    beep("ok");
+    // 칩 재배치는 판정 성공 뒤에만. 코드가 미리 고르게 만들지 않는다.
+    if (p.kind !== "reverse" && p.kind !== "compare") beginSlide(p.answerTick);
+    else if (p.kind === "reverse") {
+      S.towers[S.towers.length - 1].hidden = false;
+      S.towers[S.towers.length - 1].target = p.answerTick;
+      S.towers[S.towers.length - 1].h = 0;
+    } else if (p.kind === "compare") {
+      beginSlide(p.answerTick);
+    }
+    S.gauge = { sum: p.sum, n: p.n, m: p.kind === "reverse" ? p.m : p.answerTick, fill: 0, add: add };
+    S.pop = { text: "한 층!", t: 0, good: true };
+    if (S.combo > 0 && S.combo % 3 === 0) {
+      beep("combo");
+      S.comboPlates = S.lastMeans.slice();
+      if (S.lives < 3) S.lives += 1; // 회복 기회. 정답 보상은 마이너스 없음
+      try {
+        const st = (+localStorage.getItem(LS_STAMP) || 0) + 1;
+        localStorage.setItem(LS_STAMP, String(Math.min(12, st)));
+      } catch (e) {}
+    }
+    const gen = S.gen;
+    setTimeout(function () { if (S.gen === gen) afterCorrect(); }, S.reduce ? 420 : 900);
+  }
+
+  function beginSlide(m) {
+    const donors = [];
+    const rec = [];
+    for (let i = 0; i < S.towers.length; i++) {
+      const t = S.towers[i];
+      if (t.hidden) continue;
+      if (t.h > m) donors.push({ i: i, extra: t.h - m });
+      else if (t.h < m) rec.push({ i: i, need: m - t.h });
+    }
+    S.flyers.length = 0;
+    let di = 0, leftover = donors.length ? donors[0].extra : 0;
+    for (let r = 0; r < rec.length; r++) {
+      let need = rec[r].need;
+      while (need > 0 && di < donors.length) {
+        const takeN = Math.min(need, leftover);
+        for (let k = 0; k < takeN; k++) {
+          const from = S.towers[donors[di].i];
+          const to = S.towers[rec[r].i];
+          S.flyers.push({
+            sx: from.x, sy: 0, tx: to.x, ty: 0,
+            fromI: donors[di].i, toI: rec[r].i,
+            t: -k * 0.06 - r * 0.05, fromH: from.h - k, toH: to.h + (rec[r].need - need) + k
+          });
+        }
+        need -= takeN;
+        leftover -= takeN;
+        if (leftover <= 0) { di++; leftover = donors[di] ? donors[di].extra : 0; }
+      }
+    }
+    for (let i = 0; i < S.towers.length; i++) {
+      if (!S.towers[i].hidden) S.towers[i].target = m;
+    }
+  }
+
+  function afterCorrect() {
+    if (S.phase !== "playing") return;
+    if (S.problem && S.problem.kind === "compare" && S.comparePhase === 0) {
+      S.comparePhase = 1;
+      const g = S.problem.groups;
+      const B = g.B;
+      S.towers = makeTowers(B, ["장수1", "장수2", "장수3", "장수4"], -1);
+      S.problem.vals = B;
+      S.problem.answerTick = g.m2;
+      S.problem.m = g.m2;
+      S.problem.sum = sumOf(B);
+      S.problem.n = B.length;
+      S.problem.prompt = "장수 팀 " + B.join("·") + "의 평균을 구해 그 높이에 찍어 보세요.";
+      S.problem.maxT = Math.max(9, g.m2, Math.max.apply(null, B));
+      const dwell = dwellMs();
+      const start = pickStart(g.m2, S.problem.maxT, dwell);
+      S.plate = { tick: start, vis: start, dir: start < g.m2 ? 1 : -1, acc: 0, dwell: dwell / 1000, squash: 1, lockY: null, moving: false, from: start, to: start };
+      S.locked = false;
+      S.readyAt = performance.now();
+      S.idle = 0;
+      S.flyers.length = 0;
+      S.gauge = null;
+      S.promptLines = null;
+      return;
+    }
+    if (S.round >= 12) return finishRun();
+    spawnRound();
+  }
+
+  function onWrong(tick, forced) {
+    const ans = S.problem.answerTick;
+    const d = tick - ans;
+    const msg = d > 0 ? d + "칸 높아요" : (d < 0 ? (-d) + "칸 낮아요" : "빗나갔어요");
+    S.pop = { text: msg, t: 0, good: false };
+    S.shake = S.reduce ? 0.12 : Math.min(0.42, 0.16 + Math.abs(d) * 0.05);
+    S.plate.squash = 1.18;
+    beep("bad");
+    spawnShards(tick, ans);
+    // 탑은 절대 고르게 만들지 않는다
+    if (S.easy && !S.easyHintUsed && !forced) {
+      S.easyHintUsed = true;
+      S.hint = "합 " + S.problem.sum + " · 자료 " + S.problem.n + "개";
+      S.combo = 0;
+      S.locked = false;
+      return;
+    }
+    S.locked = true;
+    S.combo = 0;
+    S.lives = Math.max(0, S.lives - 1);
+    if (S.lives <= 0) {
+      setTimeout(lose, 700);
+      return;
+    }
+    const gen = S.gen;
+    setTimeout(function () {
+      if (S.gen !== gen || S.phase !== "playing") return;
+      if (S.round >= 12) return finishRun();
+      spawnRound();
+    }, 800);
+  }
+
+  function spawnShards(tick, ans) {
+    const cs = chipSize();
+    const y1 = yOfTick(tick);
+    const y2 = yOfTick(ans);
+    const lo = Math.min(tick, ans), hi = Math.max(tick, ans);
+    for (let t = lo; t < hi; t++) {
+      S.shards.push({
+        x: S.towers.length ? S.towers[(S.towers.length / 2) | 0].x : S.play.x + S.play.w / 2,
+        y: yOfTick(t + 0.5),
+        vy: 40 + Math.random() * 80,
+        vx: (Math.random() - 0.5) * 80,
+        rot: 0, vr: (Math.random() - 0.5) * 4,
+        w: Math.min(S.play.w * 0.55, cs.w * S.towers.length * 0.9),
+        life: 1
+      });
+    }
+  }
+
+  function lose() {
+    S.phase = "over";
+    S.gen++;
+    saveBest();
+    document.getElementById("overTitle").textContent = "판이 잘렸다";
+    showOver();
+  }
+  function win() {
+    S.phase = "clear";
+    S.gen++;
+    saveBest();
+    document.getElementById("overTitle").textContent = "한 층이 됐다!";
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem(LS_MISSION, today + ":12");
+    } catch (e) {}
+    showOver();
+  }
+  function finishRun() {
+    const compareComplete = !S.problem || S.problem.kind !== "compare" || S.comparePhase === 1;
+    if (S.completedRounds >= 12 && compareComplete) win();
+    else {
+      S.phase = "over";
+      S.gen++;
+      saveBest();
+      document.getElementById("overTitle").textContent = "층이 모자라요";
+      showOver();
+    }
+  }
+  function saveBest() {
+    try {
+      const b = +localStorage.getItem(LS_BEST) || 0;
+      if (S.score > b) localStorage.setItem(LS_BEST, String(S.score));
+      const c = +localStorage.getItem(LS_COMBO) || 0;
+      if (S.bestCombo > c) localStorage.setItem(LS_COMBO, String(S.bestCombo));
+    } catch (e) {}
+    refreshBest();
+  }
+  function showOver() {
+    overEl.classList.remove("hidden");
+    animateNum(document.getElementById("overScore"), S.score);
+    document.getElementById("overSolved").textContent = String(S.solved);
+    document.getElementById("overCombo").textContent = String(S.bestCombo);
+  }
+  function animateNum(el, target) {
+    const t0 = performance.now();
+    function step(now) {
+      const k = Math.min(1, (now - t0) / 700);
+      el.textContent = String(Math.round(target * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function startPlay(skipOnb) {
+    titleEl.classList.add("hidden");
+    overEl.classList.add("hidden");
+    onbEl.classList.add("hidden");
+    S.score = 0; S.scoreShown = 0; S.lives = 3; S.combo = 0; S.bestCombo = 0;
+    S.solved = 0; S.hits = 0; S.completedRounds = 0; S.round = 0; S.level = 1; S.lastMeans = []; S.comboPlates = [];
+    S.phase = "playing";
+    spawnRound();
+    if (!skipOnb && !localStorage.getItem(LS_ONB)) {
+      S.phase = "onb";
+      S.locked = true;
+      onbStep = 0;
+      renderOnb();
+      onbEl.classList.remove("hidden");
+    }
+  }
+
+  let onbStep = 0;
+  const ONB = [
+    { t: "탑 높이는 기록이에요", b: "칩은 모두 같은 크기예요. 높은 탑은 기록이 큰 거예요." },
+    { t: "평균 눈금에서 찍어요", b: "고르게 판이 오르내릴 때, 자룟값을 고르게 한 높이에서 화면을 탭하세요." },
+    { t: "빗나가면 판만 잘려요", b: "탑은 그대로예요. 높이 0인 빈 탑도 자료 하나예요." }
+  ];
+  function renderOnb() {
+    document.getElementById("onbNum").textContent = (onbStep + 1) + "/3";
+    document.getElementById("onbTitle").textContent = ONB[onbStep].t;
+    document.getElementById("onbBody").textContent = ONB[onbStep].b;
+    document.getElementById("onbDiff").classList.toggle("hidden", onbStep !== 2);
+    document.getElementById("onbNext").textContent = onbStep === 2 ? "해볼게요" : "다음";
+    document.getElementById("diffEasy").classList.toggle("on", S.easy);
+    document.getElementById("diffHard").classList.toggle("on", !S.easy);
+  }
+
+  function refreshBest() {
+    const b = +localStorage.getItem(LS_BEST) || 0;
+    const c = +localStorage.getItem(LS_COMBO) || 0;
+    const el = document.getElementById("bestPill");
+    el.textContent = b ? ("최고 " + b + " · 콤보 " + c) : "최고 기록 없음";
+  }
+  function refreshDiff() {
+    document.getElementById("diffBtn").textContent = "난이도 " + (S.easy ? "쉬움" : "어려움");
+  }
+  function refreshMute() {
+    muteBtn.textContent = S.muted ? "×" : "♪";
+    muteBtn.setAttribute("aria-label", S.muted ? "소리 켜기" : "소리 끄기");
+    document.body.classList.toggle("is-muted", S.muted);
+  }
+
+  /* ── drawing ── */
+  function drawStencil(str, x, y, px, color) {
+    str = String(str);
+    const w = str.length * (px * 6);
+    let cx = x - w / 2;
+    ctx.fillStyle = color;
+    for (let i = 0; i < str.length; i++) {
+      const rows = STENCIL[str[i]];
+      if (!rows) { cx += px * 6; continue; }
+      for (let r = 0; r < 7; r++) {
+        for (let c = 0; c < 5; c++) {
+          if (rows[r] & (1 << (4 - c))) ctx.fillRect(cx + c * px, y + r * px, px, px);
+        }
+      }
+      cx += px * 6;
+    }
+  }
+
+  function isoCube(x, yTop, w, h, col, squash) {
+    const sq = squash || 1;
+    const dx = w * 0.48;
+    const dy = Math.min(w * 0.16, h * 0.34);
+    const hh = Math.max(4, (h - dy) * sq);
+    const y = yTop;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + dx, y + dy);
+    ctx.lineTo(x, y + dy * 2);
+    ctx.lineTo(x - dx, y + dy);
+    ctx.closePath();
+    ctx.fillStyle = col.top;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - dx, y + dy);
+    ctx.lineTo(x, y + dy * 2);
+    ctx.lineTo(x, y + dy * 2 + hh);
+    ctx.lineTo(x - dx, y + dy + hh);
+    ctx.closePath();
+    ctx.fillStyle = col.left;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x + dx, y + dy);
+    ctx.lineTo(x, y + dy * 2);
+    ctx.lineTo(x, y + dy * 2 + hh);
+    ctx.lineTo(x + dx, y + dy + hh);
+    ctx.closePath();
+    ctx.fillStyle = col.side;
+    ctx.fill();
+  }
+
+  function drawPlateAt(y, w, alpha, squash) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const x = S.towers.length ? (S.towers[0].x + S.towers[S.towers.length - 1].x) / 2 : S.play.x + S.play.w / 2;
+    const pw = w;
+    const ph = Math.max(10, chipSize().h * 0.55) * (squash || 1);
+    const dx = pw * 0.08;
+    const dy = 10;
+    ctx.beginPath();
+    ctx.moveTo(x - pw / 2, y);
+    ctx.lineTo(x + pw / 2, y);
+    ctx.lineTo(x + pw / 2 + dx, y + dy);
+    ctx.lineTo(x - pw / 2 + dx, y + dy);
+    ctx.closePath();
+    ctx.fillStyle = PAL.tealTop;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - pw / 2, y);
+    ctx.lineTo(x - pw / 2 + dx, y + dy);
+    ctx.lineTo(x - pw / 2 + dx, y + dy + ph);
+    ctx.lineTo(x - pw / 2, y + ph);
+    ctx.closePath();
+    ctx.fillStyle = PAL.teal;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - pw / 2 + dx, y + dy);
+    ctx.lineTo(x + pw / 2 + dx, y + dy);
+    ctx.lineTo(x + pw / 2 + dx, y + dy + ph);
+    ctx.lineTo(x - pw / 2 + dx, y + dy + ph);
+    ctx.closePath();
+    ctx.fillStyle = PAL.tealSide;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawVoid(dt) {
+    const W = S.W, H = S.H;
+    const key = W + "x" + H + (S.land ? "L" : "P") + S.stageX;
+    if (!bgCache || bgKey !== key) {
+      bgCache = document.createElement("canvas");
+      bgCache.width = Math.max(1, W);
+      bgCache.height = Math.max(1, H);
+      const b = bgCache.getContext("2d");
+      const g = b.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, PAL.void2);
+      g.addColorStop(1, PAL.void);
+      b.fillStyle = g;
+      b.fillRect(0, 0, W, H);
+      if (S.land && S.stageW < W - 2) {
+        b.fillStyle = "rgba(90,70,55,.22)";
+        b.fillRect(0, 0, S.stageX, H);
+        b.fillRect(S.stageX + S.stageW, 0, W - (S.stageX + S.stageW), H);
+      }
+      b.fillStyle = "rgba(90,70,55,.10)";
+      for (let r = 0; r < 12; r++) {
+        for (let c = 0; c < 10; c++) {
+          b.fillRect((c + 0.5) / 10 * W, (r + 0.5) / 12 * H, 2, 2);
+        }
+      }
+      bgKey = key;
+    }
+    ctx.drawImage(bgCache, 0, 0);
+    S.ambient += dt;
+    ctx.fillStyle = "rgba(90,70,55,.10)";
+    for (let r = 0; r < 8; r++) {
+      const wave = Math.sin(S.ambient * 0.7 + r * 0.45) * 4;
+      ctx.fillRect((r + 0.5) / 8 * W, H * 0.35 + wave, 2, 2);
+    }
+  }
+
+  function drawHUD() {
+    const p = S.play;
+    const cream = PAL.cream;
+    function plaque(x, y, w, h, label, value, punch) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = "rgba(58,42,34,.22)";
+      ctx.fillRect(4, 4, w, h);
+      ctx.fillStyle = PAL.tomato;
+      ctx.fillRect(0, 10, w, h - 10);
+      ctx.fillStyle = PAL.tomatoTop;
+      ctx.beginPath();
+      ctx.moveTo(0, 10); ctx.lineTo(14, 0); ctx.lineTo(w + 14, 0); ctx.lineTo(w, 10); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = PAL.tomatoSide;
+      ctx.beginPath();
+      ctx.moveTo(w, 10); ctx.lineTo(w + 14, 0); ctx.lineTo(w + 14, h - 10); ctx.lineTo(w, h); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = cream;
+      ctx.textAlign = "left";
+      ctx.font = "800 11px 'Avenir Next Condensed','Futura',sans-serif";
+      ctx.fillText(label, 10, 24);
+      const sc = punch ? 1 + S.punch * 0.16 : 1;
+      ctx.save();
+      ctx.translate(12, h - 10);
+      ctx.scale(sc, sc);
+      ctx.font = "800 26px 'Avenir Next Condensed','Futura','DIN Alternate',sans-serif";
+      ctx.fillStyle = cream;
+      ctx.fillText(String(value), 0, 0);
+      ctx.restore();
+      ctx.restore();
+    }
+    if (S.land) {
+      plaque(p.x + p.w - 132, p.y + 4, 110, 58, "SCORE", Math.round(S.scoreShown), true);
+      plaque(p.x + p.w - 132, p.y + 72, 110, 58, "COMBO", S.combo, false);
+    } else {
+      plaque(p.x + 8, 6, 108, 54, "SCORE", Math.round(S.scoreShown), true);
+      plaque(p.x + 132, 6, 92, 54, "COMBO", S.combo, false);
+    }
+    const lifeX = S.land ? p.x + p.w - 118 : p.x + 12;
+    const lifeY = S.land ? p.y + 148 : 68;
+    for (let i = 0; i < 3; i++) {
+      const on = i < S.lives;
+      isoCube(lifeX + i * 26, lifeY, 20, 16, on
+        ? { top: PAL.tomatoTop, left: PAL.tomato, side: PAL.tomatoSide }
+        : { top: "#CDB6A0", left: "#B89A86", side: "#A88876" }, on ? 1 : 0.7);
+    }
+    if (S.land) {
+      ctx.fillStyle = PAL.ink;
+      ctx.font = "800 12px 'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("칩은 모두 같은 크기예요. 탑 높이가 기록이에요.", p.x + 78, p.y + 18);
+    }
+  }
+
+  function drawTicks(cs, base) {
+    const maxT = (S.problem && S.problem.maxT) || 12;
+    const x0 = S.play.x + (S.land ? 8 : 6);
+    const x1 = S.play.x + S.play.w - (S.land ? 148 : 8);
+    ctx.strokeStyle = "rgba(58,42,34,.22)";
+    ctx.lineWidth = 1;
+    const fs = Math.max(11, Math.min(cs.h * 0.4, 16));
+    ctx.font = "800 " + fs + "px 'Avenir Next Condensed','Futura',sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (let t = 0; t <= maxT; t++) {
+      const y = yOfTick(t);
+      ctx.beginPath();
+      ctx.moveTo(x0 + 28, y);
+      ctx.lineTo(x1, y);
+      ctx.stroke();
+      ctx.fillStyle = PAL.cream;
+      ctx.fillRect(x0, y - fs * 0.55, 30, fs * 1.1);
+      ctx.fillStyle = PAL.ink;
+      ctx.fillText(String(t), x0 + 26, y);
+    }
+    ctx.textBaseline = "alphabetic";
+  }
+
+  function drawTowers(cs) {
+    for (let i = 0; i < S.towers.length; i++) {
+      const tw = S.towers[i];
+      const h = tw.h;
+      const shadowW = cs.w * 0.72;
+      ctx.fillStyle = "rgba(58,42,34,.18)";
+      ctx.fillRect(tw.x - shadowW * 0.5 + 4, tw.base + 2, shadowW, 6);
+      if (tw.hidden || h === 0) {
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = "rgba(58,42,34,.45)";
+        ctx.lineWidth = 2;
+        const top = yOfTick(Math.max(1, (S.problem && S.problem.m) || 4));
+        ctx.strokeRect(tw.x - cs.w * 0.32, top, cs.w * 0.64, tw.base - top);
+        ctx.restore();
+        ctx.fillStyle = PAL.cream;
+        ctx.fillRect(tw.x - 16, tw.base - 28, 32, 24);
+        ctx.fillStyle = PAL.ink;
+        ctx.font = "800 16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("?", tw.x, tw.base - 10);
+      }
+      const visH = Math.max(0, Math.round(h));
+      for (let k = 0; k < visH; k++) {
+        const yTop = yOfTick(k + 1);
+        isoCube(tw.x, yTop, cs.w, cs.h, { top: PAL.tomatoTop, left: PAL.tomato, side: PAL.tomatoSide }, tw.squash);
+      }
+      const badge = Math.max(22, Math.min(40, S.W * 0.055));
+      const bx = tw.x, by = tw.base + 10;
+      ctx.fillStyle = "rgba(58,42,34,.22)";
+      ctx.fillRect(bx - badge * 0.62 + 3, by + 3, badge * 1.24, badge * 0.9);
+      ctx.fillStyle = PAL.cream;
+      ctx.fillRect(bx - badge * 0.62, by, badge * 1.24, badge * 0.9);
+      ctx.fillStyle = PAL.ink;
+      ctx.font = "800 " + Math.max(16, badge * 0.62) + "px 'Avenir Next Condensed','Futura',sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(visH), bx, by + badge * 0.46);
+      ctx.textBaseline = "alphabetic";
+      if (tw.name && S.problem && S.problem.kind !== "compare") {
+        ctx.fillStyle = PAL.ink;
+        ctx.font = "800 11px 'Apple SD Gothic Neo',sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(tw.name, tw.x, by + badge * 0.95 + 12);
+      }
+    }
+  }
+
+  function drawWorld(dt) {
+    const lay = towerLayout();
+    const cs = lay.cs;
+    drawTicks(cs, lay.base);
+    drawTowers(cs);
+
+    if (S.ghost !== null && S.ghost !== undefined) {
+      const gy = yOfTick(S.ghost);
+      const pw = S.towers.length ? (S.towers[S.towers.length - 1].x - S.towers[0].x) + cs.w : cs.w * 4;
+      drawPlateAt(gy, pw, 0.28, 1);
+    }
+
+    for (let i = S.trails.length - 1; i >= 0; i--) {
+      const tr = S.trails[i];
+      tr.a -= dt * 2.4;
+      if (tr.a <= 0) { S.trails.splice(i, 1); continue; }
+      const pw = S.towers.length ? (S.towers[S.towers.length - 1].x - S.towers[0].x) + cs.w : cs.w * 4;
+      drawPlateAt(tr.y, pw, tr.a * 0.14, 1);
+    }
+
+    if (S.plate) {
+      const y = yOfTick(S.plate.vis);
+      const pw = S.towers.length ? (S.towers[S.towers.length - 1].x - S.towers[0].x) + cs.w : cs.w * 4;
+      drawPlateAt(y, pw, 0.92, S.plate.squash);
+    }
+
+    for (let i = 0; i < S.flyers.length; i++) {
+      const f = S.flyers[i];
+      if (f.t < 0 || f.t > 1) continue;
+      const u = f.t;
+      const e = 1 - Math.pow(1 - u, 3);
+      const x = f.sx + (f.tx - f.sx) * e;
+      const y = f.sy + (f.ty - f.sy) * e - Math.sin(u * Math.PI) * 28;
+      isoCube(x, y, cs.w * 0.8, cs.h * 0.8, { top: PAL.tomatoTop, left: PAL.tomato, side: PAL.tomatoSide }, 1);
+    }
+    for (let i = S.shards.length - 1; i >= 0; i--) {
+      const s = S.shards[i];
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(s.rot);
+      ctx.globalAlpha = Math.max(0, s.life);
+      ctx.fillStyle = PAL.teal;
+      ctx.fillRect(-s.w / 2, -5, s.w, 10);
+      ctx.restore();
+    }
+
+    if (S.comboPlates.length) {
+      for (let i = 0; i < S.comboPlates.length; i++) {
+        const y = yOfTick(S.comboPlates[i]) - i * 6;
+        const pw = S.towers.length ? (S.towers[S.towers.length - 1].x - S.towers[0].x) + cs.w : cs.w * 4;
+        drawPlateAt(y, pw, 0.22, 1);
+      }
+    }
+
+    drawPrompt();
+    if (S.gauge) drawGauge();
+    if (S.pop) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - S.pop.t);
+      ctx.fillStyle = S.pop.good ? PAL.teal : PAL.tomato;
+      ctx.font = "800 " + Math.max(22, S.W * 0.055) + "px 'Apple SD Gothic Neo',sans-serif";
+      ctx.textAlign = "center";
+      const py = S.play.y + 56 + (S.pop.good ? -S.pop.t * 24 : Math.sin(S.pop.t * 20) * 4);
+      ctx.fillText(S.pop.text, S.play.x + S.play.w / 2, py);
+      ctx.restore();
+    }
+    if (S.hint) {
+      ctx.fillStyle = PAL.cream;
+      const hw = Math.min(280, S.play.w * 0.7), hh = 36;
+      const hx = S.play.x + (S.play.w - hw) / 2, hy = S.play.y + 64;
+      ctx.fillRect(hx, hy, hw, hh);
+      ctx.fillStyle = "rgba(58,42,34,.25)";
+      ctx.fillRect(hx + 4, hy + 4, hw, hh);
+      ctx.fillStyle = PAL.ink;
+      ctx.font = "800 16px 'Apple SD Gothic Neo',sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(S.hint, hx + hw / 2, hy + 24);
+    }
+  }
+
+  function drawPrompt() {
+    if (!S.problem) return;
+    const p = S.play;
+    const text = S.problem.prompt;
+    const fs = Math.max(15, Math.min(20, S.W * 0.038));
+    ctx.font = "800 " + fs + "px 'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+    const maxW = Math.min(p.w - 24, 640);
+    if (!S.promptLines || S.promptKey !== text + maxW) {
+      S.promptLines = wrapText(text, maxW);
+      S.promptKey = text + maxW;
+    }
+    const lines = S.promptLines;
+    const sub = S.land ? 0 : 16;
+    const boxH = 14 + lines.length * (fs + 4) + sub;
+    const boxW = maxW;
+    const x = p.x + (p.w - boxW) / 2;
+    const y = S.land ? p.y + 22 : p.y - 4;
+    ctx.fillStyle = "rgba(58,42,34,.22)";
+    ctx.fillRect(x + 4, y + 4, boxW, boxH);
+    ctx.fillStyle = PAL.cream;
+    ctx.fillRect(x, y, boxW, boxH);
+    ctx.fillStyle = PAL.ink;
+    ctx.textAlign = "center";
+    for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], x + boxW / 2, y + 16 + i * (fs + 4));
+    if (!S.land) {
+      ctx.font = "800 11px 'Apple SD Gothic Neo',sans-serif";
+      ctx.fillStyle = "rgba(58,42,34,.7)";
+      ctx.fillText("칩은 모두 같은 크기예요. 탑 높이가 기록이에요.", x + boxW / 2, y + boxH - 6);
+    }
+  }
+  function wrapText(text, maxW) {
+    const words = text.split(" ");
+    const lines = [];
+    let cur = "";
+    for (let i = 0; i < words.length; i++) {
+      const t = cur ? cur + " " + words[i] : words[i];
+      if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = words[i]; }
+      else cur = t;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function drawGauge() {
+    const g = S.gauge;
+    const p = S.play;
+    const fs = Math.max(14, S.W * 0.032);
+    const label = g.sum + " ÷ " + g.n + " = " + g.m;
+    ctx.font = "800 " + fs + "px 'Avenir Next Condensed',sans-serif";
+    const w = Math.min(280, p.w * 0.6), h = 40;
+    const x = p.x + (p.w - w) / 2, y = p.y + p.h - 8;
+    ctx.fillStyle = PAL.teal;
+    ctx.fillRect(x, y - h, w * Math.min(1, g.fill), h);
+    ctx.strokeStyle = PAL.tealSide;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y - h, w, h);
+    ctx.fillStyle = PAL.cream;
+    ctx.textAlign = "center";
+    ctx.fillText(label, x + w / 2, y - 14);
+  }
+
+  function update(dt) {
+    if (S.scoreShown < S.score) {
+      S.scoreShown = Math.min(S.score, S.scoreShown + Math.max(3, (S.score - S.scoreShown) * 8 * dt));
+    }
+    if (S.punch > 0) S.punch = Math.max(0, S.punch - dt * 4);
+    if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 2.4);
+    if (S.pop) { S.pop.t += dt * 1.3; if (S.pop.t > 1.2) S.pop = null; }
+    if (S.gauge) S.gauge.fill = Math.min(1, S.gauge.fill + dt * 1.4);
+
+    if (S.phase !== "playing" && S.phase !== "onb") return;
+    if (S.hit > 0) {
+      S.hit -= dt;
+      if (S.hit <= 0) S.timeScale = 1;
+      return;
+    }
+    const gdt = dt * S.timeScale;
+
+    if (S.plate && !S.locked && S.phase === "playing") {
+      S.idle += gdt;
+      const timeout = S.easy ? 5.5 : 4;
+      if (S.idle >= timeout) {
+        resolveTap(judgeTick(), false);
+      } else {
+        const maxT = S.problem.maxT;
+        const MOVE_FRAC = 0.35;
+        S.plate.acc += gdt;
+        if (!S.plate.moving) {
+          S.plate.vis = S.plate.tick;
+          const restDur = S.plate.dwell * (1 - MOVE_FRAC);
+          if (S.plate.acc >= restDur) {
+            S.plate.acc = 0;
+            let next = S.plate.tick + S.plate.dir;
+            if (next < 0 || next > maxT) {
+              S.plate.dir *= -1;
+              next = S.plate.tick + S.plate.dir;
+            }
+            S.plate.from = S.plate.tick;
+            S.plate.to = next;
+            S.plate.moving = true;
+            if (!S.reduce) beep("tick");
+            if (S.trails.length > 8) S.trails.shift();
+            S.trails.push({ y: yOfTick(S.plate.vis), a: 1 });
+          }
+        }
+        if (S.plate.moving) {
+          const moveDur = Math.max(0.001, S.plate.dwell * MOVE_FRAC);
+          const k = Math.min(1, S.plate.acc / moveDur);
+          const e = easeOutBack(k);
+          S.plate.vis = S.plate.from + (S.plate.to - S.plate.from) * e;
+          if (k >= 1) {
+            S.plate.tick = S.plate.to;
+            S.plate.vis = S.plate.to;
+            S.plate.moving = false;
+            S.plate.acc = 0;
+          }
+        }
+      }
+    }
+    if (S.plate) S.plate.squash += (1 - S.plate.squash) * Math.min(1, gdt * 10);
+
+    const cs = chipSize();
+    for (let i = 0; i < S.flyers.length; i++) {
+      const f = S.flyers[i];
+      f.t += gdt * 1.7;
+      const from = S.towers[f.fromI], to = S.towers[f.toI];
+      if (from) { f.sx = from.x; f.sy = yOfTick(Math.max(1, from.h)); }
+      if (to) { f.tx = to.x; f.ty = yOfTick(to.h + 1); }
+      if (f.t >= 1 && !f.landed) {
+        f.landed = true;
+        if (from && from.h > from.target) from.h -= 1;
+        if (to && to.h < to.target) to.h += 1;
+        to && (to.squash = 0.72);
+        beep("slide");
+      }
+    }
+    for (let i = 0; i < S.towers.length; i++) {
+      const tw = S.towers[i];
+      tw.squash += (1 - tw.squash) * Math.min(1, gdt * 8);
+      if (S.locked && S.flyers.length && S.problem && S.problem.kind !== "reverse") {
+        /* heights change via flyers */
+      } else if (S.locked && S.problem && S.problem.kind === "reverse" && !tw.hidden && tw.h < tw.target) {
+        tw.h += gdt * 8;
+        if (tw.h > tw.target) tw.h = tw.target;
+      }
+    }
+    for (let i = S.shards.length - 1; i >= 0; i--) {
+      const s = S.shards[i];
+      s.vy += 520 * gdt;
+      s.x += s.vx * gdt;
+      s.y += s.vy * gdt;
+      s.rot += s.vr * gdt;
+      s.life -= gdt * 0.7;
+      if (s.life <= 0 || s.y > S.H + 40) S.shards.splice(i, 1);
+    }
+  }
+  function easeOutBack(t) {
+    const c1 = 1.70158, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  }
+
+  function frame(now) {
+    if (!frame.prev) frame.prev = now;
+    let dt = Math.min(0.05, (now - frame.prev) / 1000);
+    frame.prev = now;
+    update(dt);
+    ctx.save();
+    if (S.shake > 0 && S.phase === "playing") {
+      const mag = S.shake * 10;
+      ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
+    }
+    drawVoid(dt);
+    if (S.phase !== "title") {
+      drawWorld(dt);
+      drawHUD();
+    }
+    ctx.restore();
+    requestAnimationFrame(frame);
+  }
+
+  /* ── input ── */
+  function isUi(el) {
+    return el && (el.closest && (el.closest("button") || el.closest("#title") || el.closest("#onb") || el.closest("#over")));
+  }
+  window.addEventListener("pointerdown", function (e) {
+    unlockAudio();
+    if (S.phase !== "playing") return;
+    if (e.target === muteBtn || (e.target.closest && e.target.closest("#muteBtn"))) return;
+    onTap();
+  });
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.key === " ") {
+      e.preventDefault();
+      unlockAudio();
+      if (S.phase === "playing") onTap();
+    }
+  });
+
+  document.getElementById("startBtn").addEventListener("click", function () {
+    unlockAudio();
+    this.style.transform = "scaleY(.86) scaleX(1.06)";
+    setTimeout(function () { startPlay(false); }, 140);
+  });
+  document.getElementById("howtoBtn").addEventListener("click", function () {
+    titleEl.classList.add("hidden");
+    S.phase = "onb";
+    if (!S.problem) { S.round = 0; spawnRound(); S.round = 0; }
+    S.locked = true;
+    onbStep = 0;
+    renderOnb();
+    onbEl.classList.remove("hidden");
+  });
+  document.getElementById("diffBtn").addEventListener("click", function () {
+    S.easy = !S.easy;
+    try { localStorage.setItem(LS_EASY, S.easy ? "1" : "0"); } catch (e) {}
+    refreshDiff();
+  });
+  document.getElementById("onbNext").addEventListener("click", function () {
+    if (onbStep < 2) { onbStep++; renderOnb(); return; }
+    try { localStorage.setItem(LS_ONB, "1"); } catch (e) {}
+    onbEl.classList.add("hidden");
+    if (S.round === 0) startPlay(true);
+    else { S.phase = "playing"; S.locked = false; S.readyAt = performance.now(); }
+  });
+  document.getElementById("diffEasy").addEventListener("click", function () {
+    S.easy = true; try { localStorage.setItem(LS_EASY, "1"); } catch (e) {} refreshDiff(); renderOnb();
+  });
+  document.getElementById("diffHard").addEventListener("click", function () {
+    S.easy = false; try { localStorage.setItem(LS_EASY, "0"); } catch (e) {} refreshDiff(); renderOnb();
+  });
+  document.getElementById("retryBtn").addEventListener("click", function () {
+    overEl.classList.add("hidden");
+    startPlay(true);
+  });
+  muteBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    S.muted = !S.muted;
+    try { localStorage.setItem(LS_MUTE, S.muted ? "1" : "0"); } catch (e2) {}
+    refreshMute();
+    if (!S.muted) unlockAudio();
+  });
+
+  window.addEventListener("resize", layout);
+  window.addEventListener("orientationchange", function () { setTimeout(layout, 120); });
+
+  function boot() {
+    layout();
+    refreshBest();
+    refreshDiff();
+    refreshMute();
+    loadImg("./assets/chip.png").then(function (im) { IM.chip = chroma(im); });
+    loadImg("./assets/plate.png").then(function (im) { IM.plate = chroma(im); });
+    requestAnimationFrame(frame);
+    window.__GAME_TEST__ = {
+      ready: true,
+      start: function () {
+        unlockAudio();
+        layout();
+        startPlay(true);
+      },
+      getState: function () {
+        return {
+          score: S.score,
+          lives: S.lives,
+          level: S.level,
+          phase: S.phase === "clear" ? "over" : S.phase,
+          solved: S.solved
+        };
+      },
+      answerCorrect: function () {
+        if (S.phase === "title" || S.phase === "onb" || S.phase === "over" || S.phase === "clear") startPlay(true);
+        if (!S.problem) spawnRound();
+        const wasLocked = S.locked;
+        S.locked = false;
+        resolveTap(S.problem.answerTick, true);
+        if (wasLocked && S.phase === "playing") { /* score already applied */ }
+      },
+      answerWrong: function () {
+        if (S.phase === "title" || S.phase === "onb") startPlay(true);
+        if (S.phase === "over" || S.phase === "clear") {
+          S.lives = Math.max(0, S.lives - 1);
+          return;
+        }
+        if (!S.problem) spawnRound();
+        S.locked = false;
+        S.easyHintUsed = true;
+        let bad = 0;
+        if (S.problem.answerTick !== 0) bad = 0;
+        else bad = Math.min(S.problem.maxT, 1);
+        resolveTap(bad, true);
+      },
+      sampleProblems: sampleProblems,
+      checkJudgeBoundary: checkJudgeBoundary,
+      getLayout: function () {
+        return { land: S.land, playW: S.play.w };
+      }
+    };
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
