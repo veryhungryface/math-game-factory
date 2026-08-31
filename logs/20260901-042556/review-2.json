@@ -1,0 +1,102 @@
+{
+  "slug": "fence-lap",
+  "score": 63,
+  "gate": 80,
+  "passed": false,
+  "reject_immediately": true,
+  "breakdown": {
+    "curriculum": 23,
+    "math": 0,
+    "fun": 17,
+    "visual": 14,
+    "mobile": 9
+  },
+  "visual_diff": {
+    "visual_axis": "M",
+    "axis_compliance": "축 M의 2px radius·4px 우드 립·무그림자·무inset 문법은 지켰고 0 3px 0 검출도 0건이다. 그러나 정답 처리에서 S.shake=5.5와 spawnBurst()를 호출해 기획서가 금지한 정답 화면 흔들림·범용 파티클 버스트를 사용하므로 축 준수는 2/4다.",
+    "compared_with": [
+      {
+        "slug": "fork-rail",
+        "how_it_differs": "갈래기관차의 픽셀 선로·복숭아 보도·픽셀 창 HUD와 달리, 포마이카 격자와 나사 박힌 캐비닛 마퀴를 쓴다."
+      },
+      {
+        "slug": "face-the-gate",
+        "how_it_differs": "면을 대!의 흰색·하늘색 3D 실루엣 레인과 달리, 무일러스트 크림 라미네이트 판 위 2D 울타리 닫힘이 중심이다."
+      },
+      {
+        "slug": "layer-lit",
+        "how_it_differs": "층수켜기의 세이지 LCD 휴대기기 베젤·검정 세그먼트와 달리, 우드 립과 토마토/틸 포마이카 면 채움·도트 마퀴를 사용한다."
+      }
+    ]
+  },
+  "math_verification_summary": "problems_sample 40문항을 targetW×targetH×cellN/cellD 또는 역추적 cells÷targetW로 각각 검산했다. 일반 계산·상황·오류수정 37문항은 일치했고 reverse 3문항은 질문과 claimed answer의 양이 달랐다.",
+  "math_verification": [
+    {
+      "prompt": "가로는 첫째 수, 세로는 둘째 수를 나타내도록 1과 2/4 × 1과 2/3 만큼을 울타리로 닫아 보세요.",
+      "claimed": "2와 1/2",
+      "my_calculation": "6×5×1/12=30/12=5/2=2와 1/2",
+      "correct": true
+    },
+    {
+      "prompt": "가로는 첫째 수, 세로는 둘째 수를 나타내도록 3/5 × 4 만큼을 울타리로 닫아 보세요.",
+      "claimed": "2와 2/5",
+      "my_calculation": "3×4×1/5=12/5=2와 2/5",
+      "correct": true
+    },
+    {
+      "prompt": "가로가 5칸일 때 넓이가 15칸이 되게 세로를 닫아 보세요. 곱은 5/8이에요.",
+      "claimed": "5/8",
+      "my_calculation": "묻는 값은 세로이므로 15÷5=3칸",
+      "correct": false
+    },
+    {
+      "prompt": "가로가 2칸일 때 넓이가 2칸이 되게 세로를 닫아 보세요. 곱은 2/15이에요.",
+      "claimed": "2/15",
+      "my_calculation": "묻는 값은 세로이므로 2÷2=1칸",
+      "correct": false
+    },
+    {
+      "prompt": "가로가 2칸일 때 넓이가 8칸이 되게 세로를 닫아 보세요. 곱은 8/25이에요.",
+      "claimed": "8/25",
+      "my_calculation": "묻는 값은 세로이므로 8÷2=4칸",
+      "correct": false
+    }
+  ],
+  "strengths": [
+    "성취기준 [6수01-09]와 g5s2-u2가 실재하며, 분수 곱셈을 별도 선택지 대신 직교 격자 넓이 닫기 조작으로 정면에서 다룬다.",
+    "자동 QA 41/41, 52fps, 콘솔·네트워크 오류 0건이며 1280×800의 2단 분할과 2000px 스테이지 클램프가 실제 스크린샷에서 유지된다.",
+    "목숨 3개이고 쉬움에서는 오답 확정 전 되돌리기 1회가 있어 단 한 번의 실수로 런이 회복 불가능해지지 않는다.",
+    "무입력은 진행하지 않고 1×1 정답을 풀에서 제외했으며, 같은 입력·순환·무작위 입력은 세 번의 오답 뒤 종료되도록 실패 조건이 연결돼 있다."
+  ],
+  "must_fix": [
+    {
+      "severity": "high",
+      "where": "index.html:409-417, 484-565, 1572-1591 역추적 생성·표본 훅",
+      "issue": "역추적 3문항은 세로 칸 수를 묻는데 answer·choices·answerNumeric은 이미 문장에 제시된 곱을 내보낸다. 예를 들어 넓이 15칸, 가로 5칸의 정답은 세로 3칸이지만 claimed는 5/8이다.",
+      "how": "reverse 문항만 별도 답 모델로 분리해 answer=String(targetH), answerNumeric=targetH, choices=칸 수 오개념으로 생성하라. POOL 전체에서 reverse마다 targetW×targetH=cells, answerNumeric===targetH, 정답 선택지 1개를 단언하고 재QA·독립 검산하라."
+    },
+    {
+      "severity": "medium",
+      "where": "index.html:854-872, 916-936, 1447-1516 정답 연출",
+      "issue": "축 M은 정답 화면 흔들림과 범용 파티클 버스트를 명시적으로 금지했지만 성공 시 S.shake=5.5와 12개 사각 파티클 버스트가 함께 실행된다.",
+      "how": "정답의 shake와 spawnBurst 호출을 제거하고, 이미 축에 맞는 행 단위 포마이카 면 채움·마퀴 숫자 점등·칸별 상승음만 강화하라. 오답은 현재의 스파크 선 먹기와 틸트 암전을 유지하라."
+    },
+    {
+      "severity": "medium",
+      "where": "index.html:467-480 실생활 발문 생성기",
+      "issue": "‘1/3컵’, ‘5/6잔’은 단위 띄어쓰기가 없고 ‘한 줄에 1/5씩 5줄을 그었습니다. 그린 길이는 몇인지’는 길이 단위가 없어 묻는 양이 모호하다.",
+      "how": "수와 단위를 띄우고, 선 문항은 ‘한 줄의 길이가 1/5 m인 선을 5줄 그었습니다. 그린 선의 길이는 모두 몇 m인지’처럼 단위와 전체 길이를 명시하라."
+    },
+    {
+      "severity": "medium",
+      "where": "index.html:643-684 fitBoard 및 tablet.png",
+      "issue": "820×1180 태블릿에서 비land 셀 상한 92px 때문에 보드가 화면 중앙의 작은 부분에 머물고 세로 여백 대부분이 비어 있다.",
+      "how": "태블릿 세로 폭 구간에서 셀 상한을 play.w·play.h에서 파생해 보드가 안전 영역의 약 60~75%를 쓰게 하되, 390×844의 프롬프트·되돌리기와 겹치지 않도록 별도 캡처로 확인하라."
+    }
+  ],
+  "nice_to_have": [
+    "인게임 본문·축 숫자도 축 M의 마퀴 성격에 맞는 좁은 아케이드 글자꼴 또는 도트 글리프로 통일하면 타이틀과 플레이 화면의 서체 인상이 더 연결된다.",
+    "2000px에서 허용된 거터는 안정적이지만, 왼쪽 보드 상단의 큰 빈 포마이카 면을 마당 진행에 따라 보드 위치·크기가 달라지는 구성으로 활용하면 와이드 화면의 밀도가 좋아진다."
+  ],
+  "verdict": "폐기 — 독립 검산과 직접 표본 검산에서 역추적 3문항의 질문과 claimed answer가 서로 다른 양으로 확인되어 즉시 폐기 조건에 해당한다. 1차 수정의 축 안내·와이드 확장·오개념 최소 2종은 반영됐지만, 수학 답 계약을 고친 뒤 재QA·재검산·재검수가 필요하다."
+}

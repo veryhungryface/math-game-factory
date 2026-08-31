@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>울타리 한바퀴 — 한 변만 어긋나면 끝</title>
+<meta property="og:title" content="울타리 한바퀴">
+<meta property="og:description" content="한 변만 어긋나면 끝">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../vendor/katex/katex.min.css">
+<style>
+@font-face{
+  font-family:"LogoBlackHan";
+  src:url("./assets/fonts/logo-blackhansans.woff2") format("woff2");
+  font-weight:400;font-style:normal;font-display:swap;
+}
+:root{
+  --formica:#DDD6C8; --ink:#2A2622; --tomato:#C73E3A; --teal:#1F6F6A; --hot:#E04A3C;
+  --wood:#2A2622; --lip:#3D332C; --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
+  --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--formica);color:var(--ink);
+  font-family:"Apple SD Gothic Neo","Malgun Gothic",ui-sans-serif,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  touch-action:none;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
+#katexLayer{position:fixed;inset:0;z-index:3;pointer-events:none;overflow:hidden}
+.hidden{display:none !important;visibility:hidden !important;pointer-events:none !important}
+
+#mute,#undo{
+  pointer-events:auto;position:fixed;z-index:6;
+  width:48px;height:48px;min-width:48px;min-height:48px;
+  border:4px solid var(--wood);border-radius:2px;background:var(--formica);color:var(--ink);
+  font:800 13px/1 "Apple SD Gothic Neo","Malgun Gothic",sans-serif;letter-spacing:.04em;cursor:pointer;
+}
+#mute{right:10px;top:max(8px,var(--safeT));}
+#undo{left:10px;bottom:max(12px,var(--safeB));display:none;min-width:132px;height:52px;background:var(--teal);color:var(--formica)}
+#undo.show{display:block}
+#mute:active,#undo:active{transform:translateY(1px);border-color:#1a1714}
+
+#prompt{
+  position:fixed;z-index:4;pointer-events:none;
+  left:10px;right:62px;top:max(62px,calc(var(--safeT) + 54px));
+  min-height:56px;padding:8px 10px 8px 12px;
+  background:var(--formica);color:var(--ink);
+  border:4px solid var(--wood);border-radius:2px;
+  font-weight:800;line-height:1.3;
+}
+#prompt .eq{font-size:clamp(20px,5.2vw,28px);min-height:36px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#prompt .say{font-size:clamp(13px,3.4vw,16px);margin-top:4px;word-break:keep-all}
+#prompt .axis{margin-top:3px;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--teal)}
+#failNote{
+  position:fixed;z-index:5;left:12px;right:12px;bottom:max(72px,calc(var(--safeB) + 60px));
+  text-align:center;font-weight:800;font-size:15px;color:var(--formica);background:var(--ink);
+  border:4px solid var(--wood);border-radius:2px;padding:8px 10px;opacity:0;pointer-events:none;word-break:keep-all
+}
+#failNote.on{opacity:1}
+
+#title{--title-col:min(100vw,640px);position:fixed;inset:0;z-index:20;min-height:100svh;height:100dvh;
+  overflow:hidden;isolation:isolate;background:#3D332C}
+.title-art{position:absolute;inset:-6%;width:112%;height:112%;object-fit:cover;object-position:center 28%;
+  animation:ken 20s ease-in-out infinite alternate}
+.title-fallback{position:absolute;inset:0;display:none;
+  background:linear-gradient(180deg,#E7E0D2 0%,#DDD6C8 42%,#C73E3A 78%,#2A2622 100%)}
+.title-specks{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.title-specks i{position:absolute;width:5px;height:5px;background:#C73E3A;opacity:.28;border-radius:1px;animation:speck 9s linear infinite}
+.title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+  padding-inline:clamp(16px,5vw,32px);pointer-events:none}
+.logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;font-family:"LogoBlackHan","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  font-weight:400;font-size:clamp(48px,14vw,76px);line-height:.92;color:#C73E3A;
+  -webkit-text-stroke:5px #2A2622;paint-order:stroke fill;letter-spacing:-.05em;
+  animation:sticker 700ms cubic-bezier(.2,1.4,.4,1) both}
+.game-logo span{display:block}
+.game-sub{margin-top:10px;font-family:"LogoBlackHan","Apple SD Gothic Neo",sans-serif;
+  font-size:clamp(16px,4.4vw,22px);color:#2A2622;background:#DDD6C8;
+  border:4px solid #2A2622;border-radius:2px;padding:5px 10px;letter-spacing:.04em}
+.cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+.meta-row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.yard-tag{border:4px solid #2A2622;color:#2A2622;background:#DDD6C8;padding:3px 8px;font-size:11px;font-weight:800;
+  letter-spacing:.08em;border-radius:2px}
+#best{min-height:24px;color:#2A2622;background:#DDD6C8;border:4px solid #2A2622;border-radius:2px;
+  font-size:12px;font-weight:800;letter-spacing:.06em;padding:3px 8px}
+#start{
+  width:min(100%,420px);height:68px;border:4px solid #2A2622;border-radius:2px;background:#C73E3A;color:#DDD6C8;
+  font-size:22px;font-weight:800;letter-spacing:.14em;animation:ctaPulse 1.7s ease-in-out infinite;cursor:pointer
+}
+#start:active{transform:translateY(1px) scale(.98);animation:none}
+#how,#diff{min-height:44px;border:0;background:transparent;color:#2A2622;text-decoration:underline;
+  text-underline-offset:3px;font-weight:800;font-size:14px;letter-spacing:.04em;cursor:pointer}
+#titleMute{position:absolute;z-index:4;right:12px;top:max(10px,var(--safeT));
+  width:48px;height:48px;border:4px solid #2A2622;border-radius:2px;background:#DDD6C8;color:#2A2622;font-size:16px;cursor:pointer}
+
+#help,#onboard,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(221,214,200,.72)}
+#help.show,#onboard.show,#result.show{display:grid}
+.cab-panel{width:min(88vw,480px);padding:20px 16px 16px;background:#DDD6C8;color:#2A2622;
+  border:4px solid #2A2622;border-radius:2px}
+.cab-panel h2{margin:0 0 10px;font-size:22px;letter-spacing:.08em}
+.cab-panel p{font-weight:800;line-height:1.45;margin:0 0 8px;font-size:15px;word-break:keep-all}
+.cab-panel .step{font-size:12px;letter-spacing:.16em;margin-bottom:8px;color:#1F6F6A;font-weight:800}
+.cab-panel button{width:100%;height:56px;border:4px solid #2A2622;border-radius:2px;background:#C73E3A;color:#DDD6C8;
+  font-weight:800;font-size:18px;letter-spacing:.1em;margin-top:8px;cursor:pointer}
+.cab-panel button:active{transform:translateY(1px)}
+.result-score{font-size:56px;font-weight:800;letter-spacing:.06em;text-align:center;margin:8px 0 4px;color:#C73E3A}
+.result-sub{text-align:center;font-weight:800;margin-bottom:12px}
+
+#prompt,#mute,#undo,#failNote{opacity:0;pointer-events:none}
+html.ingame #prompt,html.ingame #mute{opacity:1}
+html.ingame #mute{pointer-events:auto}
+html.ingame #undo.show{opacity:1;pointer-events:auto}
+html.ingame #failNote.on{opacity:1}
+html.ingame #title,#title.gone{display:none!important;visibility:hidden!important;pointer-events:none!important}
+html.land #prompt{
+  left:calc(var(--stageX) + var(--stageW) * .62 + 12px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 16px);
+  top:92px; width:auto; min-height:168px; padding:12px 14px 14px;
+}
+html.land #prompt .eq{font-size:clamp(26px,2.6vw,36px);min-height:48px}
+html.land #prompt .say{font-size:16px;margin-top:8px;line-height:1.4}
+html.land #prompt .axis{font-size:13px;margin-top:8px;letter-spacing:.04em}
+html.land #mute{right:auto;left:calc(var(--stageX) + var(--stageW) - 58px)}
+html.land #undo{
+  left:calc(var(--stageX) + var(--stageW) * .62 + 12px);
+  width:calc(var(--stageW) * .38 - 32px);
+  height:56px;bottom:max(16px,var(--safeB));font-size:16px
+}
+html.land #failNote{
+  left:calc(var(--stageX) + var(--stageW) * .62 + 12px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 16px);
+  bottom:max(84px, calc(var(--safeB) + 72px));
+  font-size:16px;padding:12px 14px
+}
+@media (max-height:620px){
+  html.land #prompt{top:78px;min-height:112px;padding:8px 10px}
+  html.land #prompt .eq{font-size:22px;min-height:32px}
+  html.land #prompt .say{font-size:14px;margin-top:4px}
+}
+
+@keyframes ken{to{transform:scale(1.07) translate3d(0,-1.4%,0)}}
+@keyframes speck{50%{opacity:.08;transform:translateY(8px)}}
+@keyframes sticker{0%{transform:scale(1.18);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes ctaPulse{50%{transform:scale(1.04)}}
+@media (min-width:641px){
+  .logo-zone{left:24px;right:24px}
+  .cta-zone{width:min(calc(100% - 48px),520px)}
+  .game-logo{font-size:76px}
+}
+@media (max-height:700px){
+  .logo-zone{top:max(38px,5dvh);min-height:150px}
+  .game-logo{font-size:clamp(40px,12vw,58px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .title-art{animation-duration:60s}
+  .game-logo{animation-duration:.2s}
+  #start{animation-duration:4s}
+  .title-specks i{animation:none}
+}
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="울타리 한바퀴 포마이카 격자"></canvas>
+<div id="katexLayer"></div>
+<div id="prompt">
+  <div class="eq" id="eq"></div>
+  <div class="say" id="say">원점에서 울타리를 닫아 보세요.</div>
+  <div class="axis">칸 값은 모두 같아요 · 가로는 첫째 수 · 세로는 둘째 수 · 모양은 달라도 곱은 같아요</div>
+</div>
+<button id="mute" aria-label="소리 끄기">♪</button>
+<button id="undo" aria-label="이번 울타리 되돌리기">되돌리기</button>
+<div id="failNote"></div>
+
+<section id="title" aria-label="울타리 한바퀴 타이틀 화면">
+  <img class="title-art" src="./assets/title.png" alt=""
+    onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+  <div class="title-fallback"></div>
+  <div class="title-specks" id="titleSpecks"></div>
+  <button id="titleMute" aria-label="소리 끄기">♪</button>
+  <div class="title-ui">
+    <div class="logo-zone">
+      <h1 class="game-logo" aria-label="울타리 한바퀴">
+        <span>울타리</span>
+        <span>한바퀴</span>
+      </h1>
+      <div class="game-sub">한 변만 어긋나면 끝</div>
+    </div>
+    <div class="cta-zone">
+      <div class="meta-row">
+        <span class="yard-tag">5학년 2학기</span>
+        <span class="yard-tag">분수의 곱셈</span>
+      </div>
+      <div id="best"></div>
+      <button id="start">한바퀴 닫기</button>
+      <div class="meta-row">
+        <button id="how">어떻게 놀아요?</button>
+        <button id="diff">지금: 쉬움</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="help">
+  <div class="cab-panel">
+    <div class="step">안내</div>
+    <h2>직교 울타리</h2>
+    <p>1. 왼쪽 아래 원점에서 반대 꼭짓점을 끌어 직사각형을 만들어요. 손을 떼면 닫힙니다.</p>
+    <p>2. 가로는 첫째 수 칸, 세로는 둘째 수 칸을 나타내도록 닫아요. 4×2와 2×4는 모양이 다르지만 곱은 같아요.</p>
+    <p>3. 칸 하나의 값은 모두 같아요. 스파크가 열린 선을 따라잡기 전에 닫으세요. 목숨은 3개입니다.</p>
+    <button id="closeHelp">해볼게요</button>
+  </div>
+</div>
+<div id="onboard">
+  <div class="cab-panel">
+    <div class="step" id="obStep">1/3</div>
+    <h2 id="obTitle">원점에서 끌어요</h2>
+    <p id="obBody">왼쪽 아래 말뚝에서 손가락을 끌어 반대 꼭짓점을 옮기세요. 울타리는 격자에 붙습니다.</p>
+    <button id="obNext">다음</button>
+  </div>
+</div>
+<div id="result">
+  <div class="cab-panel">
+    <div class="step" id="resKicker">교대 종료</div>
+    <h2 id="resTitle">캐비닛이 꺼졌어요</h2>
+    <div class="result-score" id="resScore">0</div>
+    <div class="result-sub" id="resSub"></div>
+    <button id="again">다시 닫기</button>
+  </div>
+</div>
+
+<script src="../../vendor/katex/katex.min.js"></script>
+<script>
+(() => {
+'use strict';
+
+/* expression traps (5-2 분수의 곱셈)
+ * - 발문은 익힘책 지시형(~해 보세요)만. 청유형(~해 봅시다)과 섞지 않음.
+ * - 대분수는 「n과/와 p/q」. 기약분수는 성공 후 별 클립에서만 요구.
+ * - 울타리 판정은 축 모델: 가로=첫째 수 칸, 세로=둘째 수 칸. 4×2와 2×4는 모양이 다르지만 곱은 같다.
+ * - 어림 표현 없음. 「○의 자리에서」 금지(받아올림과 혼동).
+ * - 이상/이하·원주율은 이 단원 해당 없음.
+ * - 분자 양쪽이 1인 표본(1×1 닫힘)은 생성하지 않음.
+ * - 칸 하나의 값은 모두 같다(등가 미세칸). */
+
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d', { alpha: false });
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PAL = { formica:'#DDD6C8', ink:'#2A2622', tomato:'#C73E3A', teal:'#1F6F6A', hot:'#E04A3C', lip:'#4A3B30', cream:'#E8E2D4' };
+const LS_BEST = 'fence-lap:best', LS_ONB = 'onboardingSeen:fence-lap', LS_MUTE = 'fence-lap:muted';
+const LS_STAMP = 'fence-lap:stamps', LS_TODAY = 'fence-lap:today', LS_MOS = 'fence-lap:mosaic';
+const SESSION = 90;
+const YARDS = [{ id:'mill', title:'맷돌 마당' }, { id:'patch', title:'조각보 마당' }, { id:'mat', title:'멍석 마당' }];
+
+const GLYPH = {
+  '0':[0x1E,0x21,0x21,0x21,0x21,0x21,0x1E],
+  '1':[0x08,0x18,0x08,0x08,0x08,0x08,0x1C],
+  '2':[0x1E,0x21,0x01,0x06,0x18,0x20,0x3F],
+  '3':[0x1E,0x21,0x01,0x0E,0x01,0x21,0x1E],
+  '4':[0x06,0x0A,0x12,0x22,0x3F,0x02,0x02],
+  '5':[0x3F,0x20,0x3E,0x01,0x01,0x21,0x1E],
+  '6':[0x0E,0x10,0x20,0x3E,0x21,0x21,0x1E],
+  '7':[0x3F,0x01,0x02,0x04,0x08,0x08,0x08],
+  '8':[0x1E,0x21,0x21,0x1E,0x21,0x21,0x1E],
+  '9':[0x1E,0x21,0x21,0x1F,0x01,0x02,0x1C],
+  '×':[0x00,0x22,0x14,0x08,0x14,0x22,0x00],
+  ':':[0x00,0x08,0x08,0x00,0x08,0x08,0x00],
+  ' ':[0,0,0,0,0,0,0]
+};
+
+function gcd(a,b){ a=Math.abs(a|0); b=Math.abs(b|0); while(b){ const t=a%b; a=b; b=t; } return a||1; }
+function lcm(a,b){ return Math.abs((a/gcd(a,b))*b)|0; }
+function simp(n,d){
+  n = n|0; d = d|0;
+  if (!d) return { n:0, d:1 };
+  if (d < 0) { n = -n; d = -d; }
+  const g = gcd(n,d);
+  return { n: n/g, d: d/g };
+}
+function eqf(a,b){ return a.n * b.d === b.n * a.d; }
+function waGwa(w){
+  const s = ['','일','이','삼','사','오','육','칠','팔','구'][w];
+  return /[일삼육칠팔]/.test(s) ? '과 ' : '와 ';
+}
+function fstr(f){
+  f = simp(f.n, f.d);
+  if (f.n === 0) return '0';
+  if (f.d === 1) return String(f.n);
+  const n = Math.abs(f.n), sign = f.n < 0 ? '-' : '';
+  const w = Math.floor(n / f.d), r = n % f.d;
+  if (w === 0) return sign + n + '/' + f.d;
+  if (r === 0) return sign + String(w);
+  return sign + w + waGwa(w) + r + '/' + f.d;
+}
+function texRaw(n,d){
+  if (d === 1) return String(n);
+  return '\\dfrac{' + n + '}{' + d + '}';
+}
+function shuffle(a){
+  const b = a.slice();
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = b[i]; b[i] = b[j]; b[j] = t;
+  }
+  return b;
+}
+function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+
+/* ── 제약 만족 풀: 분모·분자부터 역생성 ── */
+function buildPool(){
+  const pool = [];
+  const used = new Set();
+  function push(p){
+    if (p.targetW < 1 || p.targetH < 1) return;
+    if (p.targetW === 1 && p.targetH === 1) return;
+    if (p.boardW > 6 || p.boardH > 6) return;
+    if (p.targetW > p.boardW || p.targetH > p.boardH) return;
+    if (p.targetW === p.boardW && p.targetH === p.boardH) return;
+    if (p.boardW * p.boardH < 6) return;
+    p.product = simp(p.targetW * p.targetH * p.cellN, p.cellD);
+    if (p.product.n === 0) return;
+    if (used.has(p.id)) return;
+    used.add(p.id);
+    if (p.style === 'life') {
+      if (/몇 m/.test(p.prompt)) p.unit = ' m';
+      else if (/몇 잔/.test(p.prompt)) p.unit = ' 잔';
+      else if (/몇 컵/.test(p.prompt)) p.unit = ' 컵';
+    }
+    finalizeChoices(p);
+    const miscN = new Set((p.misconceptions || []).filter(id => id !== 'nearMissFill')).size;
+    if (miscN < 2) return;
+    const nearN = (p.misconceptions || []).filter(id => id === 'nearMissFill').length;
+    if (nearN > 1) return;
+    pool.push(p);
+  }
+
+  // Band 1: (진분수)×(자연수) — 가로는 분모 b칸, 세로는 k묶음, 정답 (a,k)
+  for (let b = 2; b <= 6; b++) {
+    for (let a = 1; a < b; a++) {
+      if (gcd(a,b) !== 1) continue;
+      for (let k = 2; k <= 4; k++) {
+        const calc = {
+          id: 'fn-' + a + '-' + b + '-' + k,
+          band: 1, kind: 'fracNat', unitConcept: '(진분수)×(자연수)',
+          a, b, k, boardW: b, boardH: k, targetW: a, targetH: k,
+          cellN: 1, cellD: b, showIdx: true,
+          prompt: '가로는 첫째 수, 세로는 둘째 수를 나타내도록 ' + a + '/' + b + ' × ' + k + ' 만큼을 울타리로 닫아 보세요.',
+          tex: texRaw(a,b) + ' \\times ' + k,
+          leftTex: texRaw(a,b), rightTex: String(k)
+        };
+        push(calc);
+        push(Object.assign({}, calc, {
+          id: calc.id + '-life',
+          prompt: lifeFracNat(a,b,k),
+          style: 'life'
+        }));
+      }
+    }
+  }
+  // Band 1: (자연수)×(진분수) — 가로는 k, 세로는 분모 b, 정답 (k,a)
+  for (let k = 2; k <= 6; k++) {
+    for (let b = 2; b <= 6; b++) {
+      for (let a = 1; a < b; a++) {
+        if (gcd(a,b) !== 1) continue;
+        const calc = {
+          id: 'nf-' + k + '-' + a + '-' + b,
+          band: 1, kind: 'natFrac', unitConcept: '(자연수)×(진분수)',
+          k, a, b, boardW: k, boardH: b, targetW: k, targetH: a,
+          cellN: 1, cellD: b, showIdx: true,
+          prompt: '가로는 첫째 수, 세로는 둘째 수를 나타내도록 ' + k + ' × ' + a + '/' + b + ' 만큼을 울타리로 닫아 보세요.',
+          tex: k + ' \\times ' + texRaw(a,b),
+          leftTex: String(k), rightTex: texRaw(a,b)
+        };
+        push(calc);
+        push(Object.assign({}, calc, {
+          id: calc.id + '-life',
+          prompt: lifeNatFrac(k,a,b),
+          style: 'life'
+        }));
+      }
+    }
+  }
+
+  // Band 2: 진분수×진분수 — b×d 격자, 정답 (a,c)
+  for (let b = 2; b <= 6; b++) {
+    for (let d = 2; d <= 6; d++) {
+      for (let a = 1; a < b; a++) {
+        for (let c = 1; c < d; c++) {
+          if (a === 1 && c === 1) continue;
+          if (gcd(a,b) !== 1 || gcd(c,d) !== 1) continue;
+          const calc = {
+            id: 'ff-' + a + '-' + b + '-' + c + '-' + d,
+            band: 2, kind: 'fracFrac', unitConcept: '(진분수)×(진분수)',
+            a, b, c, d, boardW: b, boardH: d, targetW: a, targetH: c,
+            cellN: 1, cellD: b * d, showIdx: false,
+            prompt: '가로는 첫째 수, 세로는 둘째 수를 나타내도록 ' + a + '/' + b + ' × ' + c + '/' + d + ' 만큼을 울타리로 닫아 보세요.',
+            tex: texRaw(a,b) + ' \\times ' + texRaw(c,d),
+            leftTex: texRaw(a,b), rightTex: texRaw(c,d)
+          };
+          push(calc);
+          if ((a + d + c) % 3 === 0) {
+            push(Object.assign({}, calc, {
+              id: calc.id + '-life',
+              prompt: '나은이가 천 한 장의 ' + a + '/' + b + ' 중에서 ' + c + '/' + d + '만큼을 썼습니다. 사용한 천은 전체의 얼마인지, 가로는 첫째 수·세로는 둘째 수가 되게 닫아 보세요.',
+              style: 'life'
+            }));
+          }
+          // 역추적: 가로 칸·넓이 칸을 주고 세로 칸을 닫기. 물은 값은 세로 칸 수(곱의 값이 아님).
+          const cells = a * c;
+          if (a !== 1) {
+            const prod = simp(a * c * calc.cellN, calc.cellD);
+            push(Object.assign({}, calc, {
+              id: calc.id + '-revW',
+              kind: 'reverse', band: 3, unitConcept: '(진분수)×(진분수)',
+              product: prod,
+              prompt: '가로가 ' + a + '칸일 때 넓이가 ' + cells + '칸이 되게 세로를 닫아 보세요. 곱은 ' + fstr(prod) + '이에요.',
+              style: 'reverse'
+            }));
+          }
+        }
+      }
+    }
+  }
+
+  // Band 3: 대분수 — 가분수 분자 축, 점선 단위 네모(d1×d2)
+  const mixed = [];
+  for (let q = 2; q <= 5; q++) {
+    for (let p = 1; p < q; p++) {
+      const n = q + p;
+      if (n <= 6) mixed.push({ whole: 1, p, q, n, d: q });
+    }
+  }
+  mixed.push({ whole: 2, p: 1, q: 2, n: 5, d: 2 });
+  for (const A of mixed) {
+    for (const B of mixed) {
+      const boardW = 6, boardH = 6;
+      if (A.n === 1 && B.n === 1) continue;
+      const calc = {
+        id: 'mx-' + A.n + '-' + A.d + '-' + B.n + '-' + B.d,
+        band: 3, kind: 'mixed', unitConcept: '(대분수)×(대분수)',
+        A, B, boardW, boardH, targetW: A.n, targetH: B.n,
+        unitW: A.d, unitH: B.d,
+        cellN: 1, cellD: A.d * B.d, showIdx: false,
+        prompt: '가로는 첫째 수, 세로는 둘째 수를 나타내도록 ' + mixedStr(A) + ' × ' + mixedStr(B) + ' 만큼을 울타리로 닫아 보세요.',
+        tex: texMixed(A) + ' \\times ' + texMixed(B),
+        leftTex: texMixed(A), rightTex: texMixed(B)
+      };
+      push(calc);
+      // 오류 찾기: 자연수끼리·분수끼리 곱한 잘못된 울타리
+      const gw = Math.max(1, A.whole * B.whole);
+      const gh = Math.max(1, A.p * B.p);
+      if (!(gw === A.n && gh === B.n) && gw <= 6 && gh <= 6) {
+        push(Object.assign({}, calc, {
+          id: calc.id + '-err',
+          kind: 'error',
+          ghostW: gw, ghostH: gh,
+          prompt: mixedStr(A) + ' × ' + mixedStr(B) + ' 의 잘못된 울타리를, 가로는 첫째 수·세로는 둘째 수가 되게 바른 칸으로 고쳐 닫아 보세요.',
+          style: 'error'
+        }));
+      }
+    }
+  }
+  return pool;
+}
+function mixedStr(M){ return M.whole + waGwa(M.whole) + M.p + '/' + M.q; }
+function texMixed(M){ return M.whole + '\\dfrac{' + M.p + '}{' + M.q + '}'; }
+function lifeFracNat(a,b,k){
+  const bag = [
+    '나은이가 ' + a + '/' + b + ' 컵씩 ' + k + '번 넣었습니다. 넣은 양은 몇 컵인지, 가로는 첫째 수·세로는 둘째 수가 되게 울타리로 닫아 보세요.',
+    '하준이가 길이 ' + a + '/' + b + ' m인 끈을 ' + k + '개 이었습니다. 이은 길이는 몇 m인지, 가로는 첫째 수·세로는 둘째 수가 되게 울타리로 닫아 보세요.',
+    '주스 ' + a + '/' + b + ' 잔씩 ' + k + '번 따른 양은 몇 잔인지, 가로는 첫째 수·세로는 둘째 수가 되게 울타리로 닫아 보세요.'
+  ];
+  return bag[(a + k) % bag.length];
+}
+function lifeNatFrac(k,a,b){
+  const bag = [
+    '하준이가 한 줄의 길이가 ' + a + '/' + b + ' m인 선을 ' + k + '줄 그었습니다. 그린 선의 길이는 모두 몇 m인지, 가로는 첫째 수·세로는 둘째 수가 되게 울타리로 닫아 보세요.',
+    '나은이가 ' + k + '칸짜리 띠의 ' + a + '/' + b + '만큼을 썼습니다. 사용한 칸 수는 몇인지, 가로는 첫째 수·세로는 둘째 수가 되게 울타리로 닫아 보세요.',
+    '리본 ' + k + ' m의 ' + a + '/' + b + '만큼을 썼습니다. 사용한 길이는 몇 m인지, 가로는 첫째 수·세로는 둘째 수가 되게 울타리로 닫아 보세요.'
+  ];
+  return bag[(k + a) % bag.length];
+}
+
+function finalizeReverseChoices(p){
+  const h = p.targetH | 0;
+  const w = p.targetW | 0;
+  const cells = w * h;
+  const answer = String(h);
+  const items = [];
+  const seen = new Set([h]);
+  function addInt(n, misconceptionId){
+    n = n | 0;
+    if (n < 1 || n > 48) return false;
+    if (n === h) return false;
+    if (seen.has(n)) return false;
+    seen.add(n);
+    items.push({ n, str: String(n), misconceptionId });
+    return true;
+  }
+  addInt(w, 'useGivenWidth');
+  addInt(cells, 'useAreaCells');
+  addInt(cells - w, 'subtractSides');
+  addInt(w + h, 'addSides');
+  addInt(p.boardH, 'fullHeight');
+  addInt(p.boardW, 'fullWidth');
+  addInt(p.d, 'useDenom');
+  addInt(p.b, 'useFirstDenom');
+  addInt(Math.max(1, (w * p.boardH) | 0), 'wrongRect');
+  const byId = new Map();
+  for (const it of items) {
+    if (!byId.has(it.misconceptionId)) byId.set(it.misconceptionId, []);
+    byId.get(it.misconceptionId).push(it);
+  }
+  const idOrder = shuffle([...byId.keys()]);
+  const picked = [];
+  for (const id of idOrder) {
+    if (picked.length >= 2) break;
+    picked.push(byId.get(id)[0]);
+  }
+  let filled = false;
+  for (const n of [h + 1, Math.max(1, h - 1), h + 2, Math.max(1, h - 2)]) {
+    if (addInt(n, 'nearMissFill')) {
+      picked.push(items[items.length - 1]);
+      filled = true;
+      break;
+    }
+  }
+  if (!filled) {
+    for (const id of idOrder) {
+      const extra = byId.get(id).find(x => picked.indexOf(x) < 0);
+      if (extra) {
+        picked.push(extra);
+        break;
+      }
+    }
+  }
+  const dstr = picked.slice(0, 3);
+  p.misconceptions = dstr.map(x => x.misconceptionId);
+  p.choices = shuffle([answer].concat(dstr.map(x => x.str)));
+  p.answer = answer;
+}
+
+function finalizeChoices(p){
+  if (p.kind === 'reverse') {
+    finalizeReverseChoices(p);
+    return;
+  }
+  const ans = p.product;
+  const answer = fstr(ans);
+  const items = [];
+  const seen = new Set([ans.n + '/' + ans.d]);
+  function add(frac, misconceptionId){
+    if (!frac || !frac.d) return false;
+    const f = simp(frac.n, frac.d);
+    if (f.n <= 0 || f.d <= 0 || f.n > 120 || f.d > 120) return false;
+    if (eqf(f, ans)) return false;
+    const k = f.n + '/' + f.d;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    items.push({ frac: f, str: fstr(f), misconceptionId });
+    return true;
+  }
+  if (p.kind === 'fracFrac') {
+    add({ n: (p.a || 0) + (p.c || 0), d: lcm(p.b || 1, p.d || 1) }, 'commonDenomAdd');
+    add({ n: (p.a || 0) * (p.d || 1) + (p.c || 0) * (p.b || 1), d: (p.b || 1) * (p.d || 1) }, 'commonDenomAdd');
+    add({ n: 1, d: (p.b || 1) * (p.d || 1) }, 'cancelNums');
+    const g = gcd(p.a || 1, p.c || 1);
+    if (g > 1) add({ n: ((p.a / g) * (p.c / g)), d: p.b * p.d }, 'cancelNums');
+    add({ n: (p.a || 1) * (p.c || 1), d: 1 }, 'alwaysBigger');
+  }
+  add({ n: p.boardW * p.boardH * p.cellN, d: p.cellD }, 'alwaysBigger');
+  if (p.kind === 'natFrac' || p.kind === 'fracNat') {
+    add({ n: p.k, d: 1 }, 'alwaysBigger');
+    add({ n: p.a, d: p.b * p.k }, 'natTimesDenom');
+    add({ n: p.k * p.b + p.a, d: p.b }, 'addInstead');
+    add({ n: p.a, d: p.b }, 'dropNat');
+  }
+  if (p.kind === 'mixed' || p.kind === 'error') {
+    const A = p.A, B = p.B;
+    add({ n: A.whole * B.whole * A.d * B.d + A.p * B.p, d: A.d * B.d }, 'mixedSplit');
+    add({ n: A.whole * B.whole, d: 1 }, 'mixedSplit');
+    add({ n: A.n * B.whole, d: A.d }, 'mixedSplit');
+    add({ n: A.n * B.n, d: 1 }, 'alwaysBigger');
+  }
+  if (ans.n !== ans.d) add({ n: ans.d, d: ans.n }, 'reciprocal');
+
+  const byId = new Map();
+  for (const it of items) {
+    if (it.misconceptionId === 'nearMissFill') continue;
+    if (!byId.has(it.misconceptionId)) byId.set(it.misconceptionId, []);
+    byId.get(it.misconceptionId).push(it);
+  }
+  const idOrder = shuffle([...byId.keys()]);
+  const picked = [];
+  for (const id of idOrder) {
+    if (picked.length >= 2) break;
+    picked.push(byId.get(id)[0]);
+  }
+  let k = 1, filled = false;
+  while (!filled && k < 40) {
+    const cands = [
+      { n: ans.n + k, d: ans.d },
+      { n: ans.n, d: ans.d + k },
+      { n: Math.max(1, ans.n - k), d: ans.d },
+      { n: ans.n * k, d: ans.d * (k + 1) }
+    ];
+    for (const c of cands) {
+      if (add(c, 'nearMissFill')) {
+        picked.push(items[items.length - 1]);
+        filled = true;
+        break;
+      }
+    }
+    k++;
+  }
+  if (picked.length < 3) {
+    for (const id of idOrder) {
+      const extra = byId.get(id).find(x => picked.indexOf(x) < 0);
+      if (extra) {
+        picked.push(extra);
+        if (picked.length >= 3) break;
+      }
+    }
+  }
+  const dstr = picked.slice(0, 3);
+  p.misconceptions = dstr.map(x => x.misconceptionId);
+  p.choices = shuffle([answer].concat(dstr.map(x => x.str)));
+  p.answer = answer;
+}
+
+const POOL = buildPool();
+(function assertPool(){
+  for (const p of POOL) {
+    const ids = (p.misconceptions || []).filter(m => m !== 'nearMissFill');
+    if (new Set(ids).size < 2) throw new Error('misconception assert: ' + p.id);
+    if ((p.misconceptions || []).filter(m => m === 'nearMissFill').length > 1)
+      throw new Error('nearMissFill>1: ' + p.id);
+    if (p.choices.indexOf(p.answer) < 0) throw new Error('answer missing: ' + p.id);
+    if (new Set(p.choices.map(String)).size !== p.choices.length) throw new Error('dup choices: ' + p.id);
+    if (p.kind === 'reverse') {
+      const cells = p.targetW * p.targetH;
+      if (p.answer !== String(p.targetH)) throw new Error('reverse answer: ' + p.id);
+      if (p.choices.filter(c => c === p.answer).length !== 1) throw new Error('reverse choice: ' + p.id);
+      const cm = p.prompt.match(/넓이가 (\d+)칸/);
+      const wm = p.prompt.match(/가로가 (\d+)칸/);
+      if (!cm || Number(cm[1]) !== cells) throw new Error('reverse cells: ' + p.id);
+      if (!wm || Number(wm[1]) !== p.targetW) throw new Error('reverse W: ' + p.id);
+    }
+  }
+})();
+const BY_BAND = [ [], [], [], [] ];
+POOL.forEach(p => BY_BAND[p.band].push(p));
+
+const S = {
+  phase: 'title', easy: true, score: 0, shown: 0, lives: 3, solved: 0, combo: 0,
+  lampLeft: 0, tLeft: SESSION, yard: 1, cur: null, cw: 0, ch: 0,
+  dragging: false, lock: false, timeScale: 1, hitStop: 0,
+  fuse: 0, sparkT: 0, fill: null, eat: null, pendingWrong: false, wrongT: 0,
+  undoLeft: 1, overshoot: 0, postSquash: 1, tilt: 0, blackout: 0,
+  mosaic: [], lastIds: [], muted: false, pointerId: null,
+  keys: Object.create(null), trail: [], gloss: 0, speckle: null,
+  land: false, stageW: 0, stageX: 0, play: {x:0,y:0,w:0,h:0}, hud: {x:0,y:0,w:0,h:0},
+  cell: 48, bx: 0, by: 0, bw: 0, bh: 0, W: 0, H: 0, dpr: 1,
+  punch: 1, marqFlash: 0, promptBottom: 0
+};
+const IMG = { post: null, spark: null, postOk: false, sparkOk: false };
+function loadImg(src, key){
+  const im = new Image();
+  im.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = 96; c.height = 96;
+    c.getContext('2d').drawImage(im, 0, 0, 96, 96);
+    IMG[key] = c; IMG[key + 'Ok'] = true;
+  };
+  im.onerror = () => { IMG[key] = null; IMG[key + 'Ok'] = false; };
+  im.src = src;
+}
+loadImg('./assets/post.png', 'post');
+loadImg('./assets/spark.png', 'spark');
+
+let audioCtx = null;
+function unlock(){
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function beep(freq, dur, type, gain){
+  if (S.muted || !audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type || 'square';
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(gain || 0.05, t0);
+  g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t0); o.stop(t0 + dur);
+}
+
+function layout(){
+  const W = innerWidth, H = innerHeight;
+  S.land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE = Math.min(W, 1280);
+  const SX = Math.round((W - STAGE) / 2);
+  S.stageW = STAGE; S.stageX = SX; S.W = W; S.H = H;
+  const root = document.documentElement;
+  root.style.setProperty('--stageW', STAGE + 'px');
+  root.style.setProperty('--stageX', SX + 'px');
+  const dpr = Math.min(devicePixelRatio || 1, 1.25);
+  S.dpr = dpr;
+  cv.width = Math.round(W * dpr);
+  cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px';
+  cv.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const safeT = parseFloat(getComputedStyle(root).getPropertyValue('--safeT')) || 0;
+  if (S.land) {
+    const leftW = Math.floor(STAGE * 0.62);
+    S.play = { x: SX + 10, y: 10, w: leftW - 16, h: H - 20 };
+    S.hud = { x: SX + leftW + 4, y: 10, w: STAGE - leftW - 16, h: H - 20 };
+  } else {
+    S.hud = { x: 10, y: 8, w: W - 68, h: 48 };
+    const top = 150;
+    const bot = 70;
+    S.play = { x: 8, y: top, w: W - 16, h: Math.max(160, H - top - bot) };
+  }
+  bakeSpeckle();
+  fitBoard();
+  S.promptBottom = $('#prompt').getBoundingClientRect().bottom;
+}
+function fitBoard(){
+  const p = S.cur;
+  const cols = p ? p.boardW : 5, rows = p ? p.boardH : 4;
+  const play = S.play;
+  const labelL = S.land ? 32 : 22;
+  const labelB = S.land ? 32 : 24;
+  const badgeR = S.land ? 10 : Math.max(28, Math.min(56, play.w * 0.12));
+  const availW = Math.max(80, play.w - labelL - badgeR);
+  const availH = Math.max(80, play.h - labelB - 8);
+  let cell = Math.min(availW / cols, availH / rows);
+  if (S.land) {
+    cell = Math.min(240, cell);
+  } else if (play.w >= 600) {
+    // 태블릿 세로: 고정 92px 상한 대신 play에서 파생. 보드 세로가 안전 영역의 60~75%.
+    const maxH = play.h * 0.75;
+    const minH = play.h * 0.60;
+    if (rows * cell > maxH) cell = maxH / rows;
+    if (rows * cell < minH) cell = Math.min(availW / cols, availH / rows, minH / rows);
+    cell = Math.min(cell, availW / cols, availH / rows);
+  }
+  if (!S.land && cell < 44 && cols * 44 <= availW && rows * 44 <= availH) cell = 44;
+  S.cell = Math.max(S.land ? 56 : 36, cell);
+  S.bw = S.cell * cols;
+  S.bh = S.cell * rows;
+  S.bx = play.x + labelL + Math.max(0, (availW - S.bw) / 2);
+  S.by = S.land
+    ? play.y + Math.max(0, availH - S.bh)
+    : play.y + Math.max(0, (availH - S.bh) / 2);
+}
+function bakeSpeckle(){
+  S.bg = null;
+  S.speckle = null;
+}
+
+function yardOfTime(){
+  const gone = SESSION - S.tLeft;
+  if (gone < 30) return 1;
+  if (gone < 60) return 2;
+  return 3;
+}
+function sparkSpeed(){
+  const y = S.yard;
+  if (S.easy) return 0.35;
+  return y === 1 ? 0.35 : y === 2 ? 0.7 : 1.0;
+}
+function nextProblem(){
+  S.yard = yardOfTime();
+  const band = S.yard;
+  const src = BY_BAND[band].length ? BY_BAND[band] : POOL;
+  let tries = 0, p;
+  do {
+    p = src[(Math.random() * src.length) | 0];
+    tries++;
+  } while (S.lastIds.indexOf(p.id) >= 0 && tries < 12);
+  S.lastIds.push(p.id);
+  if (S.lastIds.length > 8) S.lastIds.shift();
+  return p;
+}
+function spawn(){
+  S.cur = nextProblem();
+  S.cw = 0; S.ch = 0;
+  S.dragging = false; S.lock = false;
+  S.fuse = 0; S.pendingWrong = false; S.wrongT = 0;
+  S.undoLeft = S.easy ? 1 : 0;
+  S.fill = null; S.eat = null; S.overshoot = 0;
+  S.postSquash = 1;
+  fitBoard();
+  renderPrompt();
+  $('#undo').classList.toggle('show', S.easy && S.undoLeft > 0);
+  $('#failNote').classList.remove('on');
+}
+function displayPrompt(p){
+  return p.prompt
+    .replace(/가로는 첫째 수, 세로는 둘째 수를 나타내도록 /g, '')
+    .replace(/, 가로는 첫째 수·세로는 둘째 수가 되게/g, '')
+    .replace(/가로는 첫째 수·세로는 둘째 수가 되게 /g, '');
+}
+function renderPrompt(){
+  const p = S.cur;
+  const eq = $('#eq'), say = $('#say');
+  if (!p) { eq.textContent = ''; say.textContent = ''; return; }
+  const tex = p.tex || '';
+  if (window.katex) {
+    try { katex.render(tex, eq, { throwOnError: false }); }
+    catch { eq.textContent = displayPrompt(p); }
+  } else {
+    eq.textContent = displayPrompt(p).replace(' 만큼을 울타리로 닫아 보세요.', '');
+  }
+  say.textContent = displayPrompt(p);
+  S.promptBottom = $('#prompt').getBoundingClientRect().bottom;
+}
+
+function startPlay(skipOnboard){
+  unlock();
+  document.documentElement.classList.add('ingame');
+  $('#title').classList.add('gone');
+  $('#result').classList.remove('show');
+  $('#onboard').classList.remove('show');
+  S.phase = 'playing';
+  S.score = 0; S.shown = 0; S.lives = 3; S.solved = 0; S.combo = 0;
+  S.lampLeft = 0; S.tLeft = SESSION; S.yard = 1; S.lastIds = [];
+  S.hitStop = 0; S.timeScale = 1; S.tilt = 0; S.blackout = 0;
+  S.mosaic = loadMosaic();
+  spawn();
+  if (!skipOnboard && !localStorage.getItem(LS_ONB)) {
+    S.phase = 'onboard';
+    obI = 0; showOnboard();
+  }
+}
+function endRun(){
+  S.phase = 'result';
+  S.dragging = false; S.lock = true;
+  const best = Number(localStorage.getItem(LS_BEST) || 0);
+  const neu = S.score > best;
+  if (neu) localStorage.setItem(LS_BEST, String(S.score));
+  bumpToday(S.solved);
+  stampYards();
+  $('#resKicker').textContent = neu ? '새 기록' : '교대 종료';
+  $('#resTitle').textContent = neu ? '마퀴가 새로 찍혔어요' : '캐비닛이 꺼졌어요';
+  $('#resScore').textContent = '0';
+  $('#resSub').textContent = '닫은 판 ' + S.solved + ' · 최고 ' + Math.max(best, S.score);
+  $('#result').classList.add('show');
+  countUp($('#resScore'), S.score, 700);
+  refreshBest();
+}
+function countUp(el, to, ms){
+  const t0 = performance.now();
+  const tick = now => {
+    const k = Math.min(1, (now - t0) / ms);
+    el.textContent = String(Math.round(to * k));
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function gridFrom(px, py){
+  const x = (px - S.bx) / S.cell;
+  const yFromTop = (py - S.by) / S.cell;
+  const col = clamp(Math.round(x), 0, S.cur.boardW);
+  const rowFromTop = clamp(Math.round(yFromTop), 0, S.cur.boardH);
+  const row = S.cur.boardH - rowFromTop;
+  return { w: col, h: row };
+}
+function cellXY(i, j){
+  return { x: S.bx + i * S.cell, y: S.by + (S.cur.boardH - j) * S.cell };
+}
+
+function onPtrDown(e){
+  if (S.phase !== 'playing' || S.lock) return;
+  unlock();
+  const r = cv.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  if (x < S.play.x - 8 || y < S.play.y - 8 || x > S.play.x + S.play.w + 8 || y > S.play.y + S.play.h + 8) return;
+  S.dragging = true; S.pointerId = e.pointerId;
+  try { cv.setPointerCapture(e.pointerId); } catch {}
+  const g = gridFrom(x, y);
+  S.cw = g.w; S.ch = g.h;
+  S.fuse = 0; S.overshoot = 0.18;
+  beep(180, 0.04, 'square', 0.03);
+}
+function onPtrMove(e){
+  if (!S.dragging || S.phase !== 'playing' || S.lock) return;
+  const r = cv.getBoundingClientRect();
+  const g = gridFrom(e.clientX - r.left, e.clientY - r.top);
+  if (g.w !== S.cw || g.h !== S.ch) {
+    S.cw = g.w; S.ch = g.h;
+    S.overshoot = 0.12;
+  }
+}
+function onPtrUp(e){
+  if (!S.dragging) return;
+  S.dragging = false;
+  try { cv.releasePointerCapture(e.pointerId); } catch {}
+  tryClose();
+}
+function areaEqualsProduct(cw, ch, p){
+  // cw*ch*cellN / cellD  vs product.n/product.d  — 정수 교차곱
+  const left = cw * ch * p.cellN * p.product.d;
+  const right = p.product.n * p.cellD;
+  return left === right;
+}
+function tryClose(){
+  if (S.phase !== 'playing' || S.lock) return;
+  if (S.cw <= 0 || S.ch <= 0) return;
+  // 축 모델: 가로는 첫째 수, 세로는 둘째 수. 전치는 곱은 같아도 모양이 다르다.
+  const ok = S.cw === S.cur.targetW && S.ch === S.cur.targetH;
+  if (!ok && S.easy && S.undoLeft > 0 && !S.pendingWrong) {
+    S.pendingWrong = true;
+    S.wrongT = 1.6;
+    showFailNote(false);
+    $('#undo').classList.add('show');
+    beep(140, 0.12, 'sawtooth', 0.04);
+    return;
+  }
+  resolveClose(ok);
+}
+function resolveClose(ok){
+  S.pendingWrong = false; S.wrongT = 0; S.lock = true; S.dragging = false;
+  if (ok) resolveCorrect();
+  else resolveWrong('size');
+}
+function resolveCorrect(){
+  const p = S.cur;
+  const cells = p.targetW * p.targetH;
+  S.combo = Math.min(3, S.combo + 1);
+  const mult = (S.combo >= 3 ? 3 : S.combo >= 2 ? 2 : 1) * (S.lampLeft > 0 ? 2 : 1);
+  // 정답 보상 풀: 칸 수·콤보·램프만. 마이너스 이벤트 원천 차단.
+  const gain = Math.max(1, cells * mult);
+  S.score += gain;
+  S.solved += 1;
+  if (S.lampLeft > 0) S.lampLeft -= 1;
+  if (S.combo === 3) {
+    addMosaic(p.targetW, p.targetH);
+  }
+  if (S.combo >= 4) S.lampLeft = Math.max(S.lampLeft, 2);
+  S.hitStop = REDUCE ? 0.03 : 0.08;
+  S.postSquash = 0.72;
+  S.punch = 1.08;
+  S.marqFlash = 1;
+  S.fill = { n: 0, total: cells, row: 0, acc: 0 };
+  S.timeScale = 0;
+  for (let i = 0; i < p.targetH; i++) {
+    setTimeout(() => beep(340 + i * 90, 0.09, 'square', 0.055), 90 + i * 100);
+  }
+  showFailNote(true);
+  setTimeout(() => {
+    S.timeScale = 1;
+  }, S.hitStop * 1000);
+}
+function resolveWrong(why){
+  S.combo = 0;
+  S.lives = Math.max(0, S.lives - 1);
+  S.postSquash = 1.25;
+  S.blackout = REDUCE ? 0.03 : 0.07;
+  S.tilt = why === 'spark' ? -0.9 : 0.7;
+  const per = 2 * (Math.max(1, S.cw) + Math.max(1, S.ch));
+  S.eat = { t: 0, dur: 0.55, per };
+  beep(110, 0.18, 'sawtooth', 0.05);
+  showFailNote(false);
+  if (S.lives <= 0) {
+    setTimeout(endRun, 700);
+  }
+}
+function showFailNote(ok){
+  const el = $('#failNote');
+  const p = S.cur;
+  const unit = p.unit || '';
+  if (ok) {
+    el.textContent = '가로 ' + p.targetW + '칸 × 세로 ' + p.targetH + '칸 × ' + p.cellN + '/' + p.cellD + ' = ' + fstr(p.product) + unit;
+    el.style.background = PAL.teal;
+    el.classList.add('on');
+    setTimeout(() => el.classList.remove('on'), 1100);
+  } else if (areaEqualsProduct(S.cw, S.ch, p) && (S.cw !== p.targetW || S.ch !== p.targetH)) {
+    el.textContent = '곱의 값은 같아요. 하지만 가로는 첫째 수 ' + p.targetW + '칸, 세로는 둘째 수 ' + p.targetH + '칸이어야 해요. 모양은 달라도 곱은 같아요.';
+    el.style.background = PAL.ink;
+    el.classList.add('on');
+  } else {
+    el.textContent = '가로는 첫째 수 ' + p.targetW + '칸, 세로는 둘째 수 ' + p.targetH + '칸인데 지금은 ' + S.cw + '×' + S.ch + '였어요';
+    el.style.background = PAL.ink;
+    el.classList.add('on');
+  }
+}
+
+function doUndo(){
+  if (!S.easy || S.undoLeft <= 0 || S.phase !== 'playing') return;
+  if (!S.pendingWrong && !S.dragging) return;
+  S.undoLeft -= 1;
+  S.pendingWrong = false; S.wrongT = 0;
+  S.cw = 0; S.ch = 0; S.dragging = false; S.fuse = 0; S.lock = false;
+  $('#undo').classList.toggle('show', S.undoLeft > 0);
+  $('#failNote').classList.remove('on');
+  beep(240, 0.06, 'triangle', 0.03);
+}
+function addMosaic(w,h){
+  S.mosaic.push({ w, h, c: S.mosaic.length % 2 ? PAL.tomato : PAL.teal });
+  if (S.mosaic.length > 12) S.mosaic.shift();
+  try { localStorage.setItem(LS_MOS, JSON.stringify(S.mosaic)); } catch {}
+}
+function loadMosaic(){
+  try { return JSON.parse(localStorage.getItem(LS_MOS) || '[]'); } catch { return []; }
+}
+function bumpToday(n){
+  const d = new Date(); const key = d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  let o = { d: key, n: 0 };
+  try { o = JSON.parse(localStorage.getItem(LS_TODAY) || 'null') || o; } catch {}
+  if (o.d !== key) o = { d: key, n: 0 };
+  o.n += n;
+  try { localStorage.setItem(LS_TODAY, JSON.stringify(o)); } catch {}
+}
+function stampYards(){
+  let st = { mill:false, patch:false, mat:false };
+  try { st = Object.assign(st, JSON.parse(localStorage.getItem(LS_STAMP) || '{}')); } catch {}
+  if (S.solved >= 1) st.mill = true;
+  if (S.solved >= 4) st.patch = true;
+  if (S.solved >= 8) st.mat = true;
+  try { localStorage.setItem(LS_STAMP, JSON.stringify(st)); } catch {}
+}
+
+function afterFillDone(){
+  S.fill = null; S.lock = false;
+  if (S.phase === 'playing' && S.tLeft > 0 && S.lives > 0) spawn();
+}
+function afterEatDone(){
+  S.eat = null; S.lock = false; S.tilt = 0;
+  $('#failNote').classList.remove('on');
+  if (S.phase === 'playing' && S.tLeft > 0 && S.lives > 0) spawn();
+}
+
+/* ── 입력 ── */
+cv.addEventListener('pointerdown', onPtrDown);
+cv.addEventListener('pointermove', onPtrMove);
+window.addEventListener('pointerup', onPtrUp);
+window.addEventListener('pointercancel', onPtrUp);
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  S.keys[e.key] = true;
+  if (S.phase !== 'playing' || S.lock) {
+    if (e.key === 'Enter' && S.phase === 'result') { startPlay(true); }
+    return;
+  }
+  if (e.key === 'ArrowLeft') { S.cw = clamp(S.cw - 1, 0, S.cur.boardW); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { S.cw = clamp(S.cw + 1, 0, S.cur.boardW); e.preventDefault(); }
+  if (e.key === 'ArrowDown') { S.ch = clamp(S.ch - 1, 0, S.cur.boardH); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { S.ch = clamp(S.ch + 1, 0, S.cur.boardH); e.preventDefault(); }
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); tryClose(); }
+  if ((e.key === 'r' || e.key === 'R') && S.easy) doUndo();
+});
+window.addEventListener('keyup', e => { S.keys[e.key] = false; });
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', () => setTimeout(layout, 120));
+
+$('#start').addEventListener('click', () => {
+  unlock();
+  $('#start').style.transform = 'scale(.96)';
+  setTimeout(() => startPlay(false), 140);
+});
+$('#again').addEventListener('click', () => startPlay(true));
+$('#how').addEventListener('click', () => { $('#help').classList.add('show'); });
+$('#closeHelp').addEventListener('click', () => $('#help').classList.remove('show'));
+$('#diff').addEventListener('click', () => {
+  S.easy = !S.easy;
+  $('#diff').textContent = S.easy ? '지금: 쉬움' : '지금: 어려움';
+});
+$('#undo').addEventListener('click', doUndo);
+function syncMute(){
+  const t = S.muted ? '✕' : '♪';
+  $('#mute').textContent = t;
+  $('#titleMute').textContent = t;
+}
+$('#mute').addEventListener('click', () => { unlock(); S.muted = !S.muted; try { localStorage.setItem(LS_MUTE, S.muted ? '1':'0'); } catch {} syncMute(); });
+$('#titleMute').addEventListener('click', () => { unlock(); S.muted = !S.muted; try { localStorage.setItem(LS_MUTE, S.muted ? '1':'0'); } catch {} syncMute(); });
+S.muted = localStorage.getItem(LS_MUTE) === '1';
+syncMute();
+
+const OB = [
+  { t:'원점에서 끌어요', b:'왼쪽 아래 말뚝에서 손가락을 끌어 반대 꼭짓점을 옮기세요. 울타리는 모든 칸 경계에 고르게 붙습니다.' },
+  { t:'가로는 첫째 수, 세로는 둘째 수', b:'가로는 첫째 수 칸, 세로는 둘째 수 칸을 나타내도록 닫아요. 4×2와 2×4는 모양이 다르지만 곱은 같아요.' },
+  { t:'칸 값은 모두 같아요', b:'칸 하나의 값은 모두 같습니다. 스파크가 열린 선을 따라잡기 전에 닫으세요. 목숨은 3개입니다.' }
+];
+let obI = 0;
+function showOnboard(){
+  $('#obStep').textContent = (obI+1) + '/3';
+  $('#obTitle').textContent = OB[obI].t;
+  $('#obBody').textContent = OB[obI].b;
+  $('#onboard').classList.add('show');
+  $('#obNext').textContent = obI === 2 ? '해볼게요' : '다음';
+}
+$('#obNext').addEventListener('click', () => {
+  if (obI < 2) { obI++; showOnboard(); return; }
+  localStorage.setItem(LS_ONB, '1');
+  $('#onboard').classList.remove('show');
+  S.phase = 'playing';
+});
+
+function refreshBest(){
+  const b = Number(localStorage.getItem(LS_BEST) || 0);
+  $('#best').textContent = b ? ('최고 ' + b) : '최고 기록 없음';
+}
+refreshBest();
+
+(function specks(){
+  const box = $('#titleSpecks');
+  for (let i = 0; i < 10; i++) {
+    const el = document.createElement('i');
+    el.style.left = (8 + i * 9) + '%';
+    el.style.top = (20 + (i * 17) % 60) + '%';
+    el.style.background = i % 2 ? PAL.teal : PAL.tomato;
+    el.style.animationDelay = (i * 0.4) + 's';
+    box.appendChild(el);
+  }
+})();
+
+/* ── 그리기 ── */
+function roundRect(c, x, y, w, h, r){
+  r = Math.min(r, w/2, h/2);
+  c.beginPath();
+  c.moveTo(x+r, y);
+  c.arcTo(x+w, y, x+w, y+h, r);
+  c.arcTo(x+w, y+h, x, y+h, r);
+  c.arcTo(x, y+h, x, y, r);
+  c.arcTo(x, y, x+w, y, r);
+  c.closePath();
+}
+function drawGlyph(c, ch, x, y, s, color){
+  const g = GLYPH[ch];
+  if (!g) return Math.round(s) * 6;
+  const step = Math.max(3, Math.round(s));
+  const p = Math.max(2, step - 1);
+  c.fillStyle = color;
+  for (let r = 0; r < 7; r++) {
+    for (let col = 0; col < 6; col++) {
+      if (g[r] & (1 << (5 - col))) c.fillRect(x + col * step, y + r * step, p, p);
+    }
+  }
+  return step * 6;
+}
+function drawMarqText(c, str, x, y, s, color){
+  let px = x;
+  for (const ch of String(str)) px += drawGlyph(c, ch, px, y, s, color) + s * 0.4;
+  return px;
+}
+function drawFrac(c, n, d, x, y, size, color){
+  c.save();
+  c.fillStyle = color;
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.font = '800 ' + size + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  if (d === 1) { c.fillText(String(n), x, y); c.restore(); return; }
+  c.fillText(String(n), x, y - size * 0.62);
+  c.fillRect(x - size * 0.55, y - size * 0.08, size * 1.1, Math.max(3, size * 0.12));
+  c.fillText(String(d), x, y + size * 0.7);
+  c.restore();
+}
+function drawPost(x, y, sc){
+  const s = sc * S.postSquash;
+  const w = 54 * s, h = 70 * s;
+  if (IMG.postOk && IMG.post) {
+    ctx.drawImage(IMG.post, x - w * 0.45, y - h * 0.82, w, h);
+    return;
+  }
+  ctx.fillStyle = PAL.lip;
+  roundRect(ctx, x - 10 * s, y - 48 * s, 20 * s, 50 * s, 2);
+  ctx.fill();
+  ctx.fillStyle = PAL.formica;
+  roundRect(ctx, x - 14 * s, y - 58 * s, 28 * s, 16 * s, 2);
+  ctx.fill();
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+  roundRect(ctx, x - 14 * s, y - 58 * s, 28 * s, 16 * s, 2); ctx.stroke();
+  ctx.fillStyle = PAL.hot;
+  ctx.beginPath(); ctx.arc(x + 5 * s, y - 50 * s, 4 * s, 0, 6.28); ctx.fill();
+  ctx.fillStyle = PAL.teal;
+  ctx.beginPath(); ctx.arc(x - 5 * s, y - 50 * s, 3 * s, 0, 6.28); ctx.fill();
+}
+function drawSparkAt(x, y){
+  const sc = Math.max(S.land ? 28 : 20, S.cell * (S.land ? 0.48 : 0.36));
+  if (IMG.sparkOk && IMG.spark) {
+    ctx.drawImage(IMG.spark, x - sc * 0.5, y - sc * 0.5, sc, sc);
+    return;
+  }
+  ctx.fillStyle = PAL.teal;
+  ctx.fillRect(x - sc * 0.32, y - sc * 0.42, sc * 0.64, sc * 0.4);
+  ctx.fillStyle = PAL.hot;
+  ctx.fillRect(x - sc * 0.32, y - sc * 0.02, sc * 0.64, sc * 0.4);
+}
+
+function perimeterPoint(len, W, H, ox, oy, cw, ch, fromBottom){
+  const w = cw * S.cell, h = ch * S.cell;
+  const per = 2 * (w + h);
+  if (per <= 0) return { x: ox, y: oy, a: 0 };
+  let t = ((len % per) + per) % per;
+  // origin bottom-left, go right, up, left, down
+  const y0 = fromBottom ? oy : oy;
+  if (t < w) return { x: ox + t, y: y0, a: 0 };
+  t -= w;
+  if (t < h) return { x: ox + w, y: y0 - t, a: -Math.PI / 2 };
+  t -= h;
+  if (t < w) return { x: ox + w - t, y: y0 - h, a: Math.PI };
+  t -= w;
+  return { x: ox, y: y0 - h + t, a: Math.PI / 2 };
+}
+
+function drawBoard(){
+  const p = S.cur;
+  if (!p) return;
+  const cell = S.cell, bw = p.boardW, bh = p.boardH;
+  // wood lip
+  ctx.fillStyle = PAL.lip;
+  ctx.fillRect(S.bx - 8, S.by - 8, S.bw + 16, S.bh + 16);
+  ctx.fillStyle = PAL.ink;
+  ctx.fillRect(S.bx - 4, S.by - 4, S.bw + 8, S.bh + 8);
+  // formica face
+  ctx.fillStyle = S.speckle || PAL.formica;
+  ctx.fillRect(S.bx, S.by, S.bw, S.bh);
+  // unit dashed square for mixed
+  if (p.unitW && p.unitH) {
+    const u = cellXY(0, 0);
+    ctx.strokeStyle = PAL.teal;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    ctx.strokeRect(S.bx, S.by + (bh - p.unitH) * cell, p.unitW * cell, p.unitH * cell);
+    ctx.setLineDash([]);
+  }
+  // error ghost
+  if (p.kind === 'error' && p.ghostW && p.ghostH && !S.fill) {
+    ctx.strokeStyle = PAL.ink;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([5, 4]);
+    const gy = S.by + (bh - p.ghostH) * cell;
+    ctx.strokeRect(S.bx, gy, p.ghostW * cell, p.ghostH * cell);
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+  // cells + fill
+  const filled = S.fill ? S.fill.n : (S.lock && S.fill === null && S.eat === null && S.cw === p.targetW ? p.targetW * p.targetH : 0);
+  let nFill = S.fill ? S.fill.n : 0;
+  for (let j = 0; j < bh; j++) {
+    for (let i = 0; i < bw; i++) {
+      const x = S.bx + i * cell;
+      const y = S.by + (bh - 1 - j) * cell;
+      const inside = i < S.cw && j < S.ch;
+      const idx = j * p.targetW + i;
+      const isAnsCell = i < p.targetW && j < p.targetH;
+      if (S.fill && isAnsCell && idx < S.fill.n) {
+        ctx.fillStyle = (i + j) % 2 ? PAL.tomato : PAL.hot;
+        ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+      } else if (inside && !S.fill && !S.eat) {
+        ctx.fillStyle = 'rgba(31,111,106,.12)';
+        ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+      }
+      ctx.strokeStyle = 'rgba(42,38,34,.28)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, cell, cell);
+    }
+  }
+  if (!S.land && (S.easy || p.showIdx)) {
+    const badge = Math.max(S.W * 0.05, cell * 0.4);
+    const fx = Math.min(S.bx + S.bw + badge * 0.7, S.play.x + S.play.w - 8);
+    const fy = S.by + Math.min(S.bh * 0.5, badge * 1.2);
+    drawFrac(ctx, p.cellN, p.cellD, fx, fy, badge, PAL.teal);
+    ctx.fillStyle = PAL.ink;
+    ctx.font = '800 ' + Math.max(11, cell * 0.18) + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('칸', fx, fy + badge * 0.95);
+  }
+  // axis ticks
+  ctx.fillStyle = PAL.ink;
+  ctx.font = '800 ' + Math.max(12, cell * 0.22) + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let i = 1; i <= bw; i++) ctx.fillText(String(i), S.bx + (i - 0.5) * cell, S.by + S.bh + 4);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let j = 1; j <= bh; j++) ctx.fillText(String(j), S.bx - 6, S.by + (bh - j + 0.5) * cell);
+
+  // fence
+  const cw = S.cw, ch = S.ch;
+  if (cw > 0 && ch > 0) {
+    const ox = S.bx, oy = S.by + S.bh;
+    const w = cw * cell, h = ch * cell;
+    const os = 1 + S.overshoot * 0.08;
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.scale(os, os);
+    ctx.translate(-ox, -oy);
+    ctx.strokeStyle = PAL.ink;
+    ctx.lineWidth = Math.max(4, cell * 0.08);
+    ctx.lineJoin = 'round';
+    const alphaEat = S.eat ? Math.max(0, 1 - S.eat.t / S.eat.dur) : 1;
+    ctx.globalAlpha = alphaEat;
+    ctx.strokeRect(ox, oy - h, w, h);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    // live count badge — 정답 색 누설 없음
+    ctx.fillStyle = PAL.formica;
+    ctx.strokeStyle = PAL.ink;
+    ctx.lineWidth = 3;
+    const bx = ox + 10, by2 = oy - 28;
+    roundRect(ctx, bx, by2, 64, 22, 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = PAL.ink;
+    ctx.font = '800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(cw + ' × ' + ch, bx + 8, by2 + 12);
+  }
+  // posts
+  const origin = cellXY(0, 0);
+  const postSc = S.land
+    ? Math.max(1.15, Math.min(1.85, S.cell * 0.018))
+    : Math.max(0.85, Math.min(1.35, (S.play.w * 0.14) / 56));
+  drawPost(origin.x, origin.y, postSc);
+  if (cw > 0 && ch > 0) {
+    const a = cellXY(cw, 0), b = cellXY(cw, ch), c3 = cellXY(0, ch);
+    ctx.fillStyle = PAL.ink;
+    [[a.x, a.y], [b.x, b.y], [c3.x, c3.y]].forEach(([x,y]) => {
+      ctx.fillRect(x - 4, y - 4, 8, 8);
+    });
+  }
+
+  // ambient spark on outer border
+  const outerPer = 2 * (S.bw + S.bh);
+  const sp = perimeterPoint(S.sparkT * S.cell, 0, 0, S.bx, S.by + S.bh, p.boardW, p.boardH);
+  drawSparkAt(sp.x, sp.y, sp.a);
+  // fuse spark while dragging / eating
+  if ((S.dragging || S.pendingWrong) && cw > 0 && ch > 0) {
+    const fp = perimeterPoint(S.fuse * S.cell, 0, 0, S.bx, S.by + S.bh, cw, ch);
+    drawSparkAt(fp.x, fp.y, fp.a);
+    S.trail.push({ x: fp.x, y: fp.y, a: 1 });
+  }
+  if (S.eat && cw > 0 && ch > 0) {
+    const fp = perimeterPoint((S.eat.t / S.eat.dur) * 2 * (cw + ch) * S.cell, 0, 0, S.bx, S.by + S.bh, cw, ch);
+    drawSparkAt(fp.x, fp.y, fp.a);
+  }
+  // trail chips (formica, not white circles)
+  S.trail = S.trail.slice(-18);
+  for (let i = 0; i < S.trail.length; i++) {
+    const t = S.trail[i];
+    t.a *= 0.88;
+    ctx.globalAlpha = t.a * 0.6;
+    ctx.fillStyle = i % 2 ? PAL.teal : PAL.tomato;
+    ctx.fillRect(t.x - 3, t.y - 3, 6, 6);
+  }
+  ctx.globalAlpha = 1;
+
+  // wrong overlay target dashed
+  if (S.pendingWrong || (S.eat && S.eat.t < 0.5)) {
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = PAL.teal;
+    ctx.lineWidth = 3;
+    const ty = S.by + (bh - p.targetH) * cell;
+    ctx.strokeRect(S.bx, ty, p.targetW * cell, p.targetH * cell);
+    ctx.setLineDash([]);
+  }
+}
+
+function drawHud(){
+  const x = S.land ? S.hud.x : 10;
+  const y = S.land ? S.hud.y : 0;
+  const w = S.land ? S.hud.w : Math.min(S.W - 70, 360);
+  if (S.land) {
+    const h = S.hud.h;
+    ctx.fillStyle = PAL.lip;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = PAL.formica;
+    ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
+    [[8,8],[w-18,8],[8,h-18],[w-18,h-18]].forEach(([sx,sy]) => {
+      ctx.fillStyle = '#6a5a4a';
+      ctx.beginPath(); ctx.arc(x + sx + 4, y + sy + 4, 4, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = PAL.ink; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x + sx, y + sy + 4); ctx.lineTo(x + sx + 8, y + sy + 4); ctx.stroke();
+    });
+    ctx.fillStyle = PAL.ink;
+    ctx.fillRect(x + 10, y + 10, w - 72, 68);
+    ctx.fillStyle = '#3D332C';
+    ctx.fillRect(x + 14, y + 14, w - 80, 60);
+    const mx = x + 22, my = y + 26;
+    const s = 5;
+    const mq = S.marqFlash > 0 ? PAL.hot : PAL.tomato;
+    const scoreEnd = drawMarqText(ctx, String(Math.round(S.shown)).padStart(4, '0'), mx, my, s, mq);
+    for (let i = 0; i < 3; i++) {
+      const lx = scoreEnd + 16 + i * 20;
+      const ly = my + 16;
+      ctx.fillStyle = i < S.lives ? PAL.hot : '#5a4e44';
+      ctx.beginPath(); ctx.arc(lx, ly, 8, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = PAL.formica; ctx.lineWidth = 2; ctx.stroke();
+    }
+    const tStr = String(Math.ceil(Math.max(0, S.tLeft))).padStart(2, '0');
+    drawMarqText(ctx, tStr, x + w - 148, my, s, PAL.formica);
+
+    const p = S.cur;
+    const ix = x + 16;
+    const short = h < 620;
+    let iy = Math.max(short ? y + 188 : y + 250, Math.round(S.promptBottom || (y + 250)) + 12);
+    const iw = w - 32;
+    const botLimit = y + h - 78;
+    const infoH = short ? 88 : 110;
+    ctx.fillStyle = PAL.lip;
+    ctx.fillRect(ix - 4, iy - 10, iw + 8, infoH + 8);
+    ctx.fillStyle = PAL.cream;
+    ctx.fillRect(ix, iy - 6, iw, infoH);
+    ctx.fillStyle = PAL.teal;
+    ctx.font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('칸 하나의 값', ix + 10, iy);
+    ctx.fillStyle = PAL.ink;
+    ctx.font = '800 22px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText(p ? (p.cellD === 1 ? String(p.cellN) : p.cellN + '/' + p.cellD) : '', ix + 10, iy + 22);
+    ctx.fillStyle = PAL.ink;
+    ctx.font = '800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText('지금 울타리', ix + iw * 0.42, iy);
+    ctx.font = '800 22px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText((S.cw || 0) + ' × ' + (S.ch || 0), ix + iw * 0.42, iy + 28);
+    ctx.font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillStyle = PAL.teal;
+    ctx.fillText('가로는 첫째 수 · 세로는 둘째 수', ix + 10, iy + (short ? 64 : 82));
+    iy += short ? 96 : 124;
+
+    ctx.fillStyle = PAL.ink;
+    ctx.font = '800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText('마당 진행', ix, iy);
+    iy += 20;
+    for (let i = 0; i < 3; i++) {
+      const bx = ix + i * (iw / 3);
+      const bw = iw / 3 - 6;
+      const on = S.yard > i;
+      ctx.fillStyle = on ? (i === S.yard - 1 ? PAL.tomato : PAL.teal) : PAL.cream;
+      ctx.fillRect(bx, iy, bw, 36);
+      ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+      ctx.strokeRect(bx, iy, bw, 36);
+      ctx.fillStyle = on ? PAL.formica : PAL.ink;
+      ctx.font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(YARDS[i].title.replace(' 마당', ''), bx + bw / 2, iy + 18);
+    }
+    ctx.textAlign = 'left';
+    iy += 50;
+    ctx.fillStyle = PAL.ink;
+    ctx.font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText(YARDS[S.yard - 1].title + ' · 닫은 판 ' + S.solved + (S.combo >= 2 ? ' · 콤보 ×' + Math.min(3, S.combo) : '') + (S.lampLeft > 0 ? ' · 램프' : ''), ix, iy);
+    iy += 22;
+
+    if (iy + 24 > botLimit) return;
+    ctx.fillStyle = PAL.ink;
+    ctx.font = '800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText('포마이카 모자이크', ix, iy);
+    iy += 18;
+    const tile = Math.max(28, Math.min(56, Math.floor((iw - 18) / 4), Math.floor((botLimit - iy - 8) / 3) - 6));
+    const vis = Math.min(12, Math.max(4, Math.floor((botLimit - iy) / (tile + 6)) * 4));
+    for (let i = 0; i < vis; i++) {
+      const tx = ix + (i % 4) * (tile + 6);
+      const ty = iy + Math.floor(i / 4) * (tile + 6);
+      ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+      ctx.fillStyle = S.mosaic[i] ? S.mosaic[i].c : PAL.cream;
+      ctx.fillRect(tx, ty, tile, tile);
+      ctx.strokeRect(tx, ty, tile, tile);
+      if (S.mosaic[i]) {
+        ctx.fillStyle = PAL.formica;
+        ctx.font = '800 11px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(S.mosaic[i].w + '×' + S.mosaic[i].h, tx + tile / 2, ty + tile / 2);
+      }
+    }
+    return;
+  }
+  const mx = 12;
+  const my = 8;
+  const s = 4;
+  const mq = S.marqFlash > 0 ? PAL.hot : PAL.tomato;
+  const scoreEnd = drawMarqText(ctx, String(Math.round(S.shown)).padStart(4, '0'), mx, my, s, mq);
+  for (let i = 0; i < 3; i++) {
+    const lx = scoreEnd + 14 + i * 18;
+    const ly = my + 14;
+    ctx.fillStyle = i < S.lives ? PAL.hot : '#7a6e64';
+    ctx.beginPath(); ctx.arc(lx, ly, 7, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = PAL.ink; ctx.lineWidth = 2; ctx.stroke();
+  }
+  const tStr = String(Math.ceil(Math.max(0, S.tLeft))).padStart(2, '0');
+  drawMarqText(ctx, tStr, scoreEnd + 14 + 62, my, s, PAL.ink);
+  if (S.combo >= 2) {
+    ctx.fillStyle = PAL.teal;
+    ctx.font = '800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('×' + Math.min(3, S.combo), mx, my + 36);
+  }
+  if (S.lampLeft > 0) {
+    ctx.fillStyle = PAL.hot;
+    ctx.fillText('램프 ON', mx + 40, my + 36);
+  }
+}
+
+function drawGutter(){
+  if (!S.land || S.stageW >= S.W - 2) return;
+  ctx.fillStyle = '#2A2622';
+  ctx.fillRect(0, 0, S.stageX, S.H);
+  ctx.fillRect(S.stageX + S.stageW, 0, S.W - (S.stageX + S.stageW), S.H);
+}
+
+function draw(){
+  ctx.fillStyle = PAL.formica;
+  ctx.fillRect(0, 0, S.W, S.H);
+  ctx.fillStyle = 'rgba(42,38,34,.08)';
+  for (let i = 0; i < 8; i++) ctx.fillRect((i * 73) % S.W, (i * 41 + 20) % S.H, 2, 2);
+  ctx.fillStyle = 'rgba(255,255,255,.13)';
+  const gy = ((S.gloss * 40) % (S.H + 40)) - 20;
+  ctx.fillRect(0, gy, S.W, 2);
+  ctx.save();
+  if (S.tilt) {
+    ctx.translate(S.W / 2, S.H / 2);
+    ctx.rotate(S.tilt * Math.PI / 180);
+    ctx.translate(-S.W / 2, -S.H / 2);
+  }
+  drawGutter();
+  if (S.phase !== 'title') {
+    drawHud();
+    if (S.punch !== 1 && S.cur) {
+      const cx = S.bx + S.bw / 2, cy = S.by + S.bh / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(S.punch, S.punch);
+      ctx.translate(-cx, -cy);
+      drawBoard();
+      ctx.restore();
+    } else {
+      drawBoard();
+    }
+  }
+  ctx.restore();
+  if (S.blackout > 0) {
+    ctx.fillStyle = 'rgba(42,38,34,' + Math.min(0.85, S.blackout * 10) + ')';
+    ctx.fillRect(0, 0, S.W, S.H);
+  }
+}
+
+function step(dt){
+  S.gloss += dt * (REDUCE ? 0.15 : 0.4);
+  S.sparkT += sparkSpeed() * dt;
+  if (S.shown < S.score) S.shown = Math.min(S.score, S.shown + Math.max(1, (S.score - S.shown) * 8 * dt));
+  if (S.overshoot > 0) S.overshoot = Math.max(0, S.overshoot - dt * 4.5);
+  if (S.postSquash < 1) S.postSquash = Math.min(1, S.postSquash + dt * 3.2);
+  if (S.postSquash > 1) S.postSquash = Math.max(1, S.postSquash - dt * 3.2);
+  if (S.tilt) S.tilt *= Math.pow(0.04, dt);
+  if (S.blackout > 0) S.blackout = Math.max(0, S.blackout - dt);
+  if (S.punch > 1) S.punch = Math.max(1, S.punch - dt * 0.9);
+  if (S.marqFlash > 0) S.marqFlash = Math.max(0, S.marqFlash - dt * 2.2);
+
+  if (S.phase !== 'playing') return;
+  if (S.hitStop > 0) {
+    S.hitStop -= dt / Math.max(S.timeScale, 0.0001);
+    if (S.hitStop <= 0) S.timeScale = 1;
+    return;
+  }
+  S.tLeft -= dt;
+  if (S.tLeft <= 0) { S.tLeft = 0; endRun(); return; }
+  S.yard = yardOfTime();
+
+  if (S.dragging && S.cw > 0 && S.ch > 0) {
+    S.fuse += sparkSpeed() * dt;
+    const per = 2 * (S.cw + S.ch);
+    if (S.fuse >= per) {
+      S.dragging = false;
+      resolveWrong('spark');
+    }
+  }
+  if (S.pendingWrong) {
+    S.wrongT -= dt;
+    if (S.wrongT <= 0) resolveClose(false);
+  }
+  if (S.fill) {
+    S.fill.acc += dt;
+    const stepT = REDUCE ? 0.05 : 0.09;
+    const rowW = Math.max(1, S.cur.targetW);
+    while (S.fill.acc >= stepT && S.fill.n < S.fill.total) {
+      S.fill.acc -= stepT;
+      S.fill.n = Math.min(S.fill.total, S.fill.n + rowW);
+    }
+    if (S.fill.n >= S.fill.total) afterFillDone();
+  }
+  if (S.eat) {
+    S.eat.t += dt;
+    if (S.eat.t >= S.eat.dur) afterEatDone();
+  }
+}
+
+let last = performance.now();
+function loop(now){
+  const raw = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const dt = raw * (S.timeScale === 0 ? 0 : S.timeScale);
+  if (S.timeScale === 0) {
+    S.hitStop -= raw;
+    if (S.hitStop <= 0) S.timeScale = 1;
+  } else {
+    step(dt === 0 ? raw : dt);
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function sampleProblems(n){
+  n = Math.max(0, n | 0);
+  const rev = shuffle(POOL.filter(p => p.kind === 'reverse'));
+  const rest = shuffle(POOL.filter(p => p.kind !== 'reverse'));
+  const wantRev = Math.min(rev.length, Math.max(3, Math.round(n * rev.length / Math.max(1, POOL.length))));
+  const src = shuffle(rev.slice(0, wantRev).concat(rest.slice(0, Math.max(0, n - wantRev))));
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const p = src[i % src.length];
+    out.push({
+      id: p.id + '#' + i,
+      prompt: p.prompt,
+      choices: p.choices.slice(),
+      answer: p.answer,
+      answerNumeric: p.kind === 'reverse' ? p.targetH : p.product.n / p.product.d,
+      unitConcept: p.unitConcept,
+      misconceptions: (p.misconceptions || []).slice(),
+      kind: p.kind,
+      targetW: p.targetW,
+      targetH: p.targetH,
+      cellN: p.cellN,
+      cellD: p.cellD,
+      productN: p.product.n,
+      productD: p.product.d
+    });
+  }
+  return out;
+}
+
+window.__GAME_TEST__ = {
+  ready: false,
+  start() {
+    unlock();
+    startPlay(true);
+  },
+  getState() {
+    const phase = S.phase === 'result' ? 'over' : S.phase === 'onboard' ? 'title' : S.phase;
+    return { score: S.score, lives: S.lives, level: S.yard, phase, solved: S.solved };
+  },
+  getLayout() {
+    return { land: S.land, playW: S.play.w, playX: S.play.x, cell: S.cell, boardW: S.bw, boardH: S.bh, hudW: S.hud.w };
+  },
+  answerCorrect() {
+    unlock();
+    if (S.phase === 'title' || S.phase === 'onboard' || S.phase === 'result') startPlay(true);
+    if (!S.cur) spawn();
+    S.cw = S.cur.targetW; S.ch = S.cur.targetH;
+    S.pendingWrong = false; S.fill = null; S.eat = null; S.lock = false;
+    resolveCorrect();
+    S.timeScale = 1; S.hitStop = 0;
+    S.fill = null; S.lock = false;
+  },
+  answerWrong() {
+    unlock();
+    if (S.phase === 'title' || S.phase === 'onboard' || S.phase === 'result') startPlay(true);
+    if (!S.cur) spawn();
+    S.cw = S.cur.targetW === S.cur.boardW ? 1 : S.cur.boardW;
+    S.ch = S.cur.targetH === S.cur.boardH ? 1 : Math.max(1, S.cur.targetH === 1 ? 2 : 1);
+    if (S.cw === S.cur.targetW && S.ch === S.cur.targetH) S.cw = Math.max(1, S.cur.targetW - 1) || S.cur.boardW;
+    S.pendingWrong = false; S.fill = null; S.eat = null; S.lock = false;
+    resolveWrong('size');
+    S.eat = null; S.lock = false;
+  },
+  sampleProblems,
+  _dumpPool() {
+    return POOL.map(p => ({
+      id: p.id,
+      kind: p.kind,
+      prompt: p.prompt,
+      answer: p.answer,
+      choices: p.choices.slice(),
+      misconceptions: (p.misconceptions || []).slice(),
+      productN: p.product.n,
+      productD: p.product.d,
+      targetW: p.targetW,
+      targetH: p.targetH,
+      cellN: p.cellN,
+      cellD: p.cellD,
+      boardW: p.boardW,
+      boardH: p.boardH
+    }));
+  },
+  _simBots(n) {
+    n = n || 200;
+    const out = {};
+    function run(pick) {
+      let lives = 3, solved = 0, t = 0;
+      while (t < 90 && lives > 0) {
+        const band = t < 30 ? 1 : t < 60 ? 2 : 3;
+        const src = BY_BAND[band];
+        const p = src[(Math.random() * src.length) | 0];
+        const v = pick(p);
+        t += 6;
+        if (!v) continue;
+        if (v.w === p.targetW && v.h === p.targetH) solved++;
+        else lives--;
+      }
+      return solved >= 8 && lives > 0;
+    }
+    const kinds = {
+      mash: p => ({ w: 1, h: 1 }),
+      cycle: (function () { let i = 0; return p => { i++; return { w: (i % p.boardW) + 1, h: (Math.floor(i / p.boardW) % p.boardH) + 1 }; }; })(),
+      rand: p => ({ w: 1 + ((Math.random() * p.boardW) | 0), h: 1 + ((Math.random() * p.boardH) | 0) }),
+      idle: () => null
+    };
+    for (const k of Object.keys(kinds)) {
+      let w = 0;
+      for (let i = 0; i < n; i++) if (run(kinds[k])) w++;
+      out[k] = +(w / n).toFixed(4);
+    }
+    return out;
+  }
+};
+
+layout();
+requestAnimationFrame(loop);
+window.__GAME_TEST__.ready = true;
+})();
+</script>
+</body>
+</html>
