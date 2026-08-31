@@ -1,0 +1,1818 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>송판올려 — 열 장이면 올려</title>
+<meta property="og:title" content="송판올려">
+<meta property="og:description" content="열 장이면 올려">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+@font-face{
+  font-family:"LogoDoHyeon";
+  src:url("./assets/fonts/logo-dohyeon.woff2") format("woff2");
+  font-weight:400;font-style:normal;font-display:swap;
+}
+:root{
+  --floor:#F4EBD8; --pine:#C8A36A; --navy:#1E4B73; --ink:#B3332A; --wood:#3D2B1F;
+  --face:"Copperplate","Futura","Century Gothic","Gill Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --logo:"LogoDoHyeon","Copperplate","Futura","Century Gothic",sans-serif;
+  --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
+  --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--floor);color:var(--wood);
+  font-family:var(--face);font-weight:800;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  touch-action:none;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
+.hidden{display:none !important;visibility:hidden !important;pointer-events:none !important}
+
+#mute{
+  pointer-events:auto;position:fixed;z-index:6;
+  width:48px;height:48px;min-width:48px;min-height:48px;
+  border:2px solid var(--wood);border-radius:0;background:var(--navy);color:var(--floor);
+  font:800 16px/1 var(--face);letter-spacing:.06em;cursor:pointer;
+  right:10px;top:max(8px,var(--safeT));
+}
+#mute:active{transform:scaleY(.88)}
+
+#prompt{
+  position:fixed;z-index:4;pointer-events:none;
+  left:10px;right:62px;top:max(56px,calc(var(--safeT) + 48px));
+  min-height:52px;padding:8px 10px;
+  background:var(--floor);color:var(--wood);
+  border:2px solid var(--wood);border-radius:0;
+}
+#prompt .eq{font-size:clamp(22px,6.2vw,34px);min-height:34px;letter-spacing:.02em;font-weight:800}
+#prompt .say{font-size:clamp(13px,3.6vw,16px);margin-top:4px;word-break:keep-all;line-height:1.35}
+#prompt .axis{margin-top:3px;font-size:11px;letter-spacing:.08em;color:var(--navy)}
+#failNote{
+  position:fixed;z-index:5;left:12px;right:12px;bottom:max(16px,calc(var(--safeB) + 10px));
+  text-align:center;font-weight:800;font-size:15px;color:var(--floor);background:var(--ink);
+  border:2px solid var(--wood);border-radius:0;padding:8px 10px;opacity:0;pointer-events:none;word-break:keep-all
+}
+#failNote.on{opacity:1}
+
+#title{--title-col:min(100vw,640px);position:fixed;inset:0;z-index:20;min-height:100svh;height:100dvh;
+  overflow:hidden;isolation:isolate;background:#C8A36A}
+.title-art{position:absolute;inset:-6%;width:112%;height:112%;object-fit:cover;object-position:center 70%;
+  animation:ken 20s ease-in-out infinite alternate}
+.title-fallback{position:absolute;inset:0;display:none;
+  background:linear-gradient(180deg,#F4EBD8 0%,#E8D4A8 42%,#C8A36A 72%,#1E4B73 100%)}
+.title-specks{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.title-specks i{position:absolute;width:7px;height:3px;background:#C8A36A;opacity:.35;animation:chip 11s linear infinite}
+.title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+  padding-inline:clamp(16px,5vw,32px);pointer-events:none}
+.logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;font-family:var(--logo);font-weight:400;
+  font-size:clamp(52px,16vw,88px);line-height:.9;color:#B3332A;
+  -webkit-text-stroke:4px #3D2B1F;paint-order:stroke fill;letter-spacing:-.04em;
+  position:relative;display:inline-block;transform:rotate(-2deg);
+  animation:brandIn 720ms cubic-bezier(.2,.8,.2,1.15) both}
+.game-logo .stamp{
+  position:absolute;left:6px;top:6px;color:#1E4B73;
+  -webkit-text-stroke:4px #1E4B73;paint-order:stroke fill;
+  z-index:-1;pointer-events:none;user-select:none}
+.game-sub{margin-top:12px;font-family:var(--logo);font-size:clamp(16px,4.6vw,22px);color:#F4EBD8;
+  background:#1E4B73;border:2px solid #3D2B1F;border-radius:0;padding:6px 12px;letter-spacing:.1em;
+  display:inline-block;transform:rotate(-2deg)}
+.cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+.meta-row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.yard-tag{border:2px solid #3D2B1F;color:#3D2B1F;background:#F4EBD8;padding:3px 8px;font-size:11px;font-weight:800;
+  letter-spacing:.08em;border-radius:0}
+#best{min-height:24px;color:#F4EBD8;background:#1E4B73;border:2px solid #3D2B1F;border-radius:0;
+  font-size:12px;font-weight:800;letter-spacing:.06em;padding:3px 8px;font-family:var(--logo)}
+#start{
+  width:min(100%,420px);height:68px;border:2px solid #3D2B1F;border-radius:0;background:#B3332A;color:#F4EBD8;
+  font-family:var(--logo);font-size:24px;font-weight:400;letter-spacing:.14em;animation:ctaPulse 1.7s ease-in-out infinite;cursor:pointer
+}
+#start:active{transform:scaleY(.9);animation:none}
+#how,#diff{min-height:44px;border:0;background:transparent;color:#3D2B1F;text-decoration:underline;
+  text-underline-offset:3px;font-weight:800;font-size:14px;letter-spacing:.04em;cursor:pointer;font-family:var(--logo)}
+#titleMute{position:absolute;z-index:4;right:12px;top:max(10px,var(--safeT));
+  width:48px;height:48px;border:2px solid #3D2B1F;border-radius:0;background:#1E4B73;color:#F4EBD8;font-size:16px;cursor:pointer}
+
+#help,#onboard,#result,#choice{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(244,235,216,.78)}
+#help.show,#onboard.show,#result.show,#choice.show{display:grid}
+.plaque{width:min(88vw,480px);padding:20px 16px 16px;background:#F4EBD8;color:#3D2B1F;
+  border:2px solid #3D2B1F;border-radius:0}
+.plaque h2{margin:0 0 10px;font-family:var(--logo);font-size:26px;letter-spacing:.08em;color:#1E4B73}
+.plaque p{font-weight:800;line-height:1.45;margin:0 0 8px;font-size:15px;word-break:keep-all}
+.plaque .step{font-size:12px;letter-spacing:.16em;margin-bottom:8px;color:#1E4B73;font-weight:800}
+.plaque button{width:100%;height:56px;border:2px solid #3D2B1F;border-radius:0;background:#B3332A;color:#F4EBD8;
+  font-family:var(--logo);font-weight:400;font-size:20px;letter-spacing:.1em;margin-top:8px;cursor:pointer}
+.plaque button:active{transform:scaleY(.9)}
+.plaque button.alt{background:#1E4B73}
+.result-score{font-size:56px;font-weight:800;letter-spacing:.06em;text-align:center;margin:8px 0 4px;color:#B3332A;font-family:var(--logo)}
+.result-sub{text-align:center;font-weight:800;margin-bottom:12px}
+.choice-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.choice-row button{height:72px;margin-top:0;font-size:18px}
+
+#prompt,#mute,#failNote{opacity:0;pointer-events:none}
+html.ingame #prompt,html.ingame #mute{opacity:1}
+html.ingame #mute{pointer-events:auto}
+html.ingame #failNote.on{opacity:1}
+html.ingame #title,#title.gone{display:none!important;visibility:hidden!important;pointer-events:none!important}
+
+html.land #prompt{
+  left:calc(var(--stageX) + var(--stageW) * .62 + 12px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 16px);
+  top:92px;width:auto;min-height:140px;padding:12px 14px 14px;
+}
+html.land #prompt .eq{font-size:clamp(26px,2.8vw,40px);min-height:44px}
+html.land #prompt .say{font-size:16px;margin-top:8px;line-height:1.4}
+html.land #prompt .axis{font-size:13px;margin-top:8px}
+html.land #mute{right:auto;left:calc(var(--stageX) + var(--stageW) - 58px)}
+html.land #failNote{
+  left:calc(var(--stageX) + var(--stageW) * .62 + 12px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 16px);
+  bottom:max(20px, var(--safeB));
+  font-size:16px;padding:12px 14px
+}
+html.tall #prompt{
+  left:16px;right:16px;top:max(52px, calc(var(--safeT) + 44px));
+  min-height:64px;padding:8px 12px
+}
+html.tall #prompt .eq{font-size:clamp(22px,3.6vw,32px);min-height:32px}
+html.tall #prompt .say{font-size:15px;margin-top:6px}
+html.tall #failNote{left:16px;right:16px;bottom:max(12px,var(--safeB))}
+
+@keyframes ken{to{transform:scale(1.07) translate3d(0,-1.4%,0)}}
+@keyframes chip{50%{opacity:.08;transform:translateY(10px) rotate(20deg)}}
+@keyframes brandIn{0%{transform:rotate(-8deg) scale(1.28);opacity:0}100%{transform:rotate(-2deg) scale(1);opacity:1}}
+@keyframes ctaPulse{50%{transform:scale(1.04)}}
+@media (min-width:641px){
+  .logo-zone{left:24px;right:24px}
+  .cta-zone{width:min(calc(100% - 48px),520px)}
+  .game-logo{font-size:84px}
+}
+@media (max-height:700px){
+  .logo-zone{top:max(38px,5dvh);min-height:150px}
+  .game-logo{font-size:clamp(40px,12vw,58px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .title-art{animation-duration:60s}
+  .game-logo{animation-duration:.2s}
+  #start{animation-duration:4s}
+  .title-specks i{animation:none}
+}
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="송판올려 도장 마루"></canvas>
+<div id="prompt">
+  <div class="eq" id="eq"></div>
+  <div class="say" id="say">열 장씩 묶어 올려 보세요.</div>
+  <div class="axis">송판 열 장이 위 자리의 한 장이에요</div>
+</div>
+<button id="mute" aria-label="소리 끄기">♪</button>
+<div id="failNote"></div>
+
+<section id="title" aria-label="송판올려 타이틀 화면">
+  <img class="title-art" src="./assets/title.png" alt=""
+    onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+  <div class="title-fallback"></div>
+  <div class="title-specks" id="titleSpecks"></div>
+  <button id="titleMute" aria-label="소리 끄기">♪</button>
+  <div class="title-ui">
+    <div class="logo-zone">
+      <h1 class="game-logo" aria-label="송판올려"><span class="stamp" aria-hidden="true">송판올려</span>송판올려</h1>
+      <div class="game-sub">열 장이면 올려</div>
+    </div>
+    <div class="cta-zone">
+      <div class="meta-row">
+        <span class="yard-tag">3학년 2학기</span>
+        <span class="yard-tag">곱셈</span>
+      </div>
+      <div id="best"></div>
+      <button id="start">격파 시작</button>
+      <div class="meta-row">
+        <button id="how">어떻게 놀아요?</button>
+        <button id="diff">지금: 쉬움</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="help">
+  <div class="plaque">
+    <div class="step">안내</div>
+    <h2>열 장이면 올려</h2>
+    <p>1. 일의 자리 기둥에서 칼선 손잡이를 세로로 끌어 열 장의 배수 높이에 놓고 손을 떼세요.</p>
+    <p>2. 열 장 묶음이 왼쪽 자리의 한 장이 됩니다. 남은 장은 아홉 장을 넘기면 안 됩니다.</p>
+    <p>3. 세 자리를 잠그면 목표 송판이 격파됩니다. 빗맞으면 송판에 금이 가고 목숨이 줄어요.</p>
+    <button id="closeHelp">해볼게요</button>
+  </div>
+</div>
+<div id="onboard">
+  <div class="plaque">
+    <div class="step" id="obStep">1/3</div>
+    <h2 id="obTitle">칼선을 놓아 보세요</h2>
+    <p id="obBody">일의 자리 기둥의 칼선 손잡이를 세로로 끌어 열 장의 배수 높이에 놓고 손을 떼세요. 송판 열 장이 위 자리의 한 장이에요.</p>
+    <button id="obNext">다음</button>
+  </div>
+</div>
+<div id="choice">
+  <div class="plaque">
+    <div class="step">청띠 명찰</div>
+    <h2>다음 판을 고르세요</h2>
+    <p>수학 답이 아니라 운영 선택입니다. 둘 다 이득이에요.</p>
+    <div class="choice-row">
+      <button id="pickShield" class="alt">보호대<br>다음 실수 1회 막기</button>
+      <button id="pickFocus">집중<br>다음 판 콤보 2배</button>
+    </div>
+  </div>
+</div>
+<div id="result">
+  <div class="plaque">
+    <div class="step" id="resKicker">세션 끝</div>
+    <h2 id="resTitle">격파 기록</h2>
+    <div class="result-score" id="resScore">0</div>
+    <div class="result-sub" id="resSub"></div>
+    <button id="again">다시 격파</button>
+    <button id="cont" class="alt">이어하기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* expression traps (3-2 곱셈)
+ * - 발문은 익힘책 지시형(~해 보세요)만. 청유형(~해 봅시다)과 섞지 않음.
+ * - 「올림」은 10묶음을 위 자리에 보내는 받아올림만. 「○의 자리에서 올림」 금지(3-2 받아올림 ≠ 5-2 어림).
+ * - 어림은 promptConvention TO_PLACE: 「몇백으로 어림해 보세요」. AT_PLACE 금지.
+ * - 이상/이하·원주율·기약분수는 이 단원 해당 없음.
+ * - 모든 수는 정수. p = digit*m + incoming; written = p%10; carryOut = Math.floor(p/10).
+ */
+
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d', { alpha: false });
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PAL = { floor:'#F4EBD8', pine:'#C8A36A', pineLo:'#B0894E', navy:'#1E4B73', ink:'#B3332A', wood:'#3D2B1F', cream:'#F7F1E4', grain:'#E8D4A8' };
+const LS_BEST = 'plank-up-best', LS_DAY = 'plank-up-day', LS_BRAND = 'plank-up-brands', LS_ONB = 'onboardingSeen:plank-up', LS_MUTE = 'plank-up-mute';
+const SESSION = 90;
+const MIX = ['compute','compute','real_life','compute','reverse','compute','error_find','compute','real_life','compute','reverse','error_find'];
+const PLACE_NAME = ['일','십','백','천'];
+const GLYPH = {
+  '0':[0x1E,0x21,0x21,0x21,0x21,0x21,0x1E],
+  '1':[0x08,0x18,0x08,0x08,0x08,0x08,0x1C],
+  '2':[0x1E,0x21,0x01,0x06,0x18,0x20,0x3F],
+  '3':[0x1E,0x21,0x01,0x0E,0x01,0x21,0x1E],
+  '4':[0x06,0x0A,0x12,0x22,0x3F,0x02,0x02],
+  '5':[0x3F,0x20,0x3E,0x01,0x01,0x21,0x1E],
+  '6':[0x0E,0x10,0x20,0x3E,0x21,0x21,0x1E],
+  '7':[0x3F,0x01,0x02,0x04,0x08,0x08,0x08],
+  '8':[0x1E,0x21,0x21,0x1E,0x21,0x21,0x1E],
+  '9':[0x3E,0x21,0x21,0x1F,0x01,0x02,0x1C],
+  '×':[0x00,0x22,0x14,0x08,0x14,0x22,0x00],
+  ':':[0x00,0x08,0x08,0x00,0x08,0x08,0x00],
+  '-':[0x00,0x00,0x00,0x1C,0x00,0x00,0x00],
+  ' ':[0,0,0,0,0,0,0]
+};
+
+function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+function shuffle(a){
+  const b = a.slice();
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = b[i]; b[i] = b[j]; b[j] = t;
+  }
+  return b;
+}
+function pick(a){ return a[(Math.random() * a.length) | 0]; }
+function digitsOf(n){
+  n = n | 0;
+  const d = [];
+  if (n === 0) return [0];
+  while (n > 0) { d.push(n % 10); n = Math.floor(n / 10); }
+  return d;
+}
+
+/* ── 오개념 역산 ─────────────────────────────────────────── */
+function missIncomingCarry(a, m){
+  // misconceptionId: missIncomingCarry — 앞에서 올린 수를 다음 자리 곱에 더하지 않는다
+  let s = 0, place = 1, n = a | 0;
+  while (n > 0 || place === 1) {
+    const d = n % 10;
+    const p = d * m; // incoming carry 누락
+    s += (p % 10) * place;
+    n = Math.floor(n / 10);
+    place *= 10;
+  }
+  return s;
+}
+function unshiftedPartial(a, b){
+  // misconceptionId: unshiftedPartial — 둘째 부분곱을 한 칸 왼쪽에 두지 않는다
+  if (b == null || b < 10) {
+    // 한 자리 곱: 자릿값을 전부 같은 자리에 더함
+    let s = 0, n = a | 0;
+    while (n > 0) { s += (n % 10); n = Math.floor(n / 10); }
+    return s * (arguments[1] || 1);
+  }
+  const bo = b % 10, bt = Math.floor(b / 10);
+  return a * bo + a * bt; // *10 자리 밀기 누락
+}
+function overEstimateBoth(a, m, b){
+  // misconceptionId: overEstimateBoth — 두 수를 모두 지나치게 크게 어림
+  if (b != null && b >= 10) {
+    const aUp = (Math.floor(a / 10) + 1) * 10;
+    const bUp = (Math.floor(b / 10) + 1) * 10;
+    return aUp * bUp;
+  }
+  const step = a >= 100 ? 100 : 10;
+  const aUp = (Math.floor(a / step) + 1) * step;
+  return aUp * (m + 1);
+}
+function properEstimate(a, m, b){
+  if (b != null && b >= 10) {
+    const near = (n) => Math.round(n / 10) * 10;
+    return near(a) * near(b);
+  }
+  const step = a >= 100 ? 100 : 10;
+  return Math.round(a / step) * step * m;
+}
+function estimateUnit(actual){
+  return actual >= 1000 ? 1000 : 100;
+}
+function carriesOf(a, m){
+  const d = digitsOf(a);
+  const n = Math.max(3, d.length);
+  const out = [];
+  let incoming = 0;
+  for (let i = 0; i < n; i++) {
+    const digit = d[i] || 0;
+    const trueP = digit * m + incoming;
+    const written = trueP % 10;
+    const carryOut = Math.floor(trueP / 10);
+    out.push({ i, name: PLACE_NAME[i] || (i + '자리'), digit, m, incoming, trueP, written, carryOut });
+    incoming = carryOut;
+  }
+  return out;
+}
+function hasCarry(a, m){
+  return carriesOf(a, m).some(c => c.carryOut > 0);
+}
+function setCarryAnswer(spec, focus){
+  const correct = focus.carryOut | 0;
+  spec.answer = String(correct);
+  spec.answerNumeric = correct;
+  spec.carryFocus = focus;
+  const seen = new Set([String(correct)]);
+  const dist = [];
+  const cands = [
+    0, 1, 2, 3, 4, 5,
+    correct + 1, Math.max(0, correct - 1),
+    focus.incoming | 0,
+    Math.floor((focus.digit * (focus.m || spec.m)) / 10),
+    10
+  ];
+  for (const raw of cands) {
+    const v = raw | 0;
+    const k = String(v);
+    if (v === correct || v < 0 || seen.has(k)) continue;
+    seen.add(k);
+    dist.push(v);
+    if (dist.length === 3) break;
+  }
+  while (dist.length < 3) {
+    const v = dist.length + 6;
+    if (!seen.has(String(v)) && v !== correct) { dist.push(v); seen.add(String(v)); }
+    else break;
+  }
+  spec.choices = shuffle([String(correct), ...dist.slice(0, 3).map(String)]);
+  spec.misconceptions = ['missIncomingCarry', 'falseCarry', 'unshiftedPartial'];
+}
+
+function finalizeChoices(item){
+  const correct = item.product | 0;
+  const m = item.m, a = item.a, b = item.b;
+  const raw = [
+    { v: missIncomingCarry(a, m), misconceptionId: 'missIncomingCarry' },
+    { v: unshiftedPartial(a, b != null ? b : m), misconceptionId: 'unshiftedPartial' },
+    { v: overEstimateBoth(a, m, b), misconceptionId: 'overEstimateBoth' },
+    { v: correct + 10, misconceptionId: 'falseCarry' },
+    { v: correct - 10, misconceptionId: 'offByTen' },
+    { v: a + (b != null ? b : m), misconceptionId: 'addedNotMultiplied' }
+  ];
+  const seen = new Set([String(correct)]);
+  const dist = [];
+  for (const d of raw) {
+    const v = d.v | 0;
+    if (!Number.isFinite(v) || v === correct) continue;
+    if (v < 0 || v > 99999) continue;
+    const k = String(v);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    dist.push(d);
+  }
+  while (dist.length < 3) {
+    const v = correct + (dist.length + 2) * 10;
+    const k = String(v);
+    if (seen.has(k) || v === correct) { dist.push({ v: correct + 111, misconceptionId: 'fill' }); break; }
+    seen.add(k);
+    dist.push({ v, misconceptionId: 'fill' });
+  }
+  const use = dist.slice(0, 3);
+  const choices = shuffle([String(correct), ...use.map(d => String(d.v))]);
+  item.choices = choices;
+  item.answer = String(correct);
+  item.answerNumeric = correct;
+  item.misconceptions = use.map(d => d.misconceptionId);
+  item.distractors = use;
+  return item;
+}
+
+const LIFE = [
+  (a, m) => `도장에 송판이 ${a}장씩 ${m}묶음 있습니다. 모두 몇 장인지 구해 보세요.`,
+  (a, m) => `좌석이 ${a}줄이고 한 줄에 ${m}자리입니다. 자리는 모두 몇 개인지 구해 보세요.`,
+  (a, m) => `한 접시에 음식이 ${a}인분씩 ${m}접시 있습니다. 음식은 모두 몇 인분인지 구해 보세요.`,
+  (a, m) => `민준이 송판을 ${a}장씩 ${m}번 옮겼습니다. 옮긴 송판은 모두 몇 장인지 구해 보세요.`,
+  (a, m) => `서연이 경기를 ${a}분씩 ${m}번 했습니다. 경기 시간은 모두 몇 분인지 구해 보세요.`
+];
+
+function promptCompute(a, m, b){
+  if (b != null) return `${a} × ${b}을 구해 보세요.`;
+  return `${a} × ${m}을 구해 보세요.`;
+}
+
+/* ── 제약 만족 풀: 자릿값부터 역생성 ──────────────────────── */
+const POOLS = { 1: [], 2: [], 3: [], 4: [] };
+
+function pushSpec(band, spec){
+  spec.band = band;
+  spec.product = spec.b != null ? spec.a * spec.b : spec.a * spec.m;
+  spec.id = (spec.kind || 'c') + '-' + spec.a + 'x' + (spec.b != null ? spec.b : spec.m) + '-' + band + '-' + POOLS[band].length;
+  finalizeChoices(spec);
+  POOLS[band].push(spec);
+}
+
+function buildPools(){
+  // Band 1: 차시1. 모든 자리 p<10. m∈{2,3}, 각 자리 0~4 (m=3이면 0~3)
+  for (const m of [2, 3]) {
+    const maxD = Math.floor(9 / m);
+    for (let h = 1; h <= maxD; h++) {
+      for (let t = 0; t <= maxD; t++) {
+        for (let o = 1; o <= maxD; o++) {
+          const a = h * 100 + t * 10 + o;
+          pushSpec(1, { a, m, kind: 'compute', unitConcept: '올림이 없는 곱셈', prompt: promptCompute(a, m) });
+        }
+      }
+    }
+  }
+  // Band 2: 차시2. 일의 자리에만 올림 한 번. 일의 p∈[10,18], 십·백 p<10
+  for (const m of [2, 3, 4]) {
+    for (let o = 1; o <= 9; o++) {
+      const p0 = o * m;
+      if (p0 < 10 || p0 > 18) continue;
+      const c0 = Math.floor(p0 / 10);
+      for (let t = 0; t <= 9; t++) {
+        if (t * m + c0 >= 10) continue;
+        for (let h = 1; h <= 9; h++) {
+          if (h * m >= 10) continue;
+          const a = h * 100 + t * 10 + o;
+          pushSpec(2, { a, m, kind: 'compute', unitConcept: '올림이 한 번 있는 곱셈', prompt: promptCompute(a, m) });
+        }
+      }
+    }
+  }
+  // Band 3: 차시3. 연속 올림. 일의 올림이 십을 10 이상으로. 백은 세 자리에 남김
+  for (const m of [2, 3, 4, 5]) {
+    for (let o = 1; o <= 9; o++) {
+      const p0 = o * m;
+      if (p0 < 10) continue;
+      const c0 = Math.floor(p0 / 10);
+      for (let t = 0; t <= 9; t++) {
+        const p1 = t * m + c0;
+        if (p1 < 10) continue;
+        const c1 = Math.floor(p1 / 10);
+        for (let h = 1; h <= 9; h++) {
+          const p2 = h * m + c1;
+          if (p2 >= 10) continue;
+          const a = h * 100 + t * 10 + o;
+          pushSpec(3, { a, m, kind: 'compute', unitConcept: '올림이 여러 번 있는 곱셈', prompt: promptCompute(a, m) });
+        }
+      }
+    }
+  }
+  // Band 4: 차시6. (두 자리)×(두 자리), 첫째 줄 일의 자리에만 올림 한 번, 둘째 줄은 자리 밀기
+  for (let bo = 2; bo <= 9; bo++) {
+    for (let ao = 1; ao <= 9; ao++) {
+      const p0 = ao * bo;
+      if (p0 < 10) continue;
+      const c0 = Math.floor(p0 / 10);
+      for (let at = 1; at <= 9; at++) {
+        if (at * bo + c0 >= 10) continue;
+        for (let bt = 1; bt <= 9; bt++) {
+          if (ao * bt >= 10 || at * bt >= 10) continue;
+          const a = at * 10 + ao, b = bt * 10 + bo;
+          pushSpec(4, { a, m: bo, b, kind: 'shift_row', unitConcept: '(두 자리 수)×(두 자리 수)', prompt: promptCompute(a, bo, b) });
+        }
+      }
+    }
+  }
+}
+
+function wrapSpec(base, type){
+  const spec = Object.assign({}, base);
+  const right = spec.b != null ? spec.b : spec.m;
+  spec.type = type || spec.kind || 'compute';
+  if (type === 'real_life') {
+    spec.prompt = pick(LIFE)(spec.a, right);
+    spec.type = 'real_life';
+  } else if (type === 'reverse') {
+    spec.type = 'reverse';
+    spec.unitConcept = '받아올림 역추적';
+    const onesM = spec.b != null ? (spec.b % 10) : spec.m;
+    const carries = carriesOf(spec.a, onesM);
+    const focus = carries.find(c => c.carryOut > 0) || carries[0];
+    const from = (PLACE_NAME[focus.i] || '일') + '의 자리';
+    const to = (PLACE_NAME[focus.i + 1] || '위') + '의 자리';
+    if (spec.b != null) {
+      spec.prompt = spec.a + ' × ' + spec.b + '의 일의 자리 부분곱 ' + spec.a + '×' + onesM + '에서 ' + from + '에서 ' + to + '로 올리는 묶음은 몇 묶음인가요?';
+    } else {
+      spec.prompt = spec.a + ' × ' + spec.m + '의 세로셈에서 ' + from + '에서 ' + to + '로 올리는 묶음은 몇 묶음인가요?';
+    }
+    setCarryAnswer(spec, focus);
+  } else if (type === 'error_find') {
+    spec.prompt = spec.a + ' × ' + right + '에서 올려 보낸 송판이 빠졌습니다. 고쳐 보세요.';
+    spec.type = 'error_find';
+    spec.unitConcept = '연속 올림에서 올린 수 빠뜨림';
+    spec.errorFind = 'missIncomingCarry';
+  } else if (type === 'shift_row' || spec.kind === 'shift_row') {
+    spec.prompt = spec.a + ' × ' + right + '에서 십의 자리 곱은 한 칸 왼쪽에 두고 묶어 보세요.';
+    spec.type = 'shift_row';
+  } else {
+    spec.prompt = promptCompute(spec.a, spec.m, spec.b);
+    spec.type = 'compute';
+  }
+  return spec;
+}
+function takeSpec(band, type){
+  const pool = POOLS[band] && POOLS[band].length ? POOLS[band] : POOLS[Math.min(band, 3)];
+  let base = pick(pool);
+  if (type === 'reverse') {
+    const richer = (POOLS[Math.max(2, Math.min(band, 3))] || []).concat(POOLS[3] || []);
+    const src = richer.length ? richer : pool;
+    let g = 0;
+    while (g++ < 24 && !hasCarry(base.a, base.b != null ? (base.b % 10) : base.m)) {
+      base = pick(src);
+    }
+  }
+  return wrapSpec(base, type);
+}
+
+function startHFor(p, carryOut){
+  const ans = 10 * carryOut;
+  const cand = [];
+  for (let h = 0; h <= p; h++) if (h !== ans) cand.push(h);
+  if (!cand.length) return ans === 0 && p === 0 ? 0 : 1;
+  return pick(cand);
+}
+
+function makePlaces(spec, errorFind){
+  const m = spec.m | 0;
+  const rows = carriesOf(spec.a | 0, m);
+  const places = rows.map((row, i) => {
+    const miss = errorFind && i === 1 && row.incoming > 0;
+    return {
+      i: row.i, name: row.name,
+      digit: row.digit, m: row.m, incoming: row.incoming,
+      trueP: row.trueP, written: row.written, carryOut: row.carryOut,
+      boards: row.digit * row.m, received: 0,
+      missing: miss ? row.incoming : 0,
+      locked: false, cracked: 0,
+      knifeH: 0, startH: 0, answerH: 10 * row.carryOut,
+      squash: 1, squashT: 0
+    };
+  });
+  for (const pl of places) {
+    const vis = pl.boards;
+    pl.answerH = 10 * pl.carryOut;
+    pl.startH = startHFor(Math.max(vis, 1), Math.floor(vis / 10));
+    if (pl.startH === pl.answerH && vis === pl.trueP) pl.startH = startHFor(vis, pl.carryOut);
+    if (pl.startH === pl.answerH && vis > 0) pl.startH = pl.startH === 0 ? Math.min(vis, 1) : 0;
+    pl.knifeH = pl.startH;
+  }
+  return places;
+}
+
+/* ── 게임 상태 ───────────────────────────────────────────── */
+const S = {
+  phase: 'title', land: false, tall: false, W: 0, H: 0, dpr: 1,
+  stageW: 0, stageX: 0,
+  score: 0, scoreShow: 0, lives: 5, combo: 1, solved: 0, lockedPlaces: 0,
+  level: 1, timeLeft: SESSION, session: SESSION,
+  easy: true, mute: false, shield: 0, focus: 0,
+  board: null, active: 0, mixI: 0,
+  drag: null, flyers: [],
+  timeScale: 1, shake: 0, stampT: 0, tickFlash: 0, grace: 0,
+  punch: 0, failT: 0, failNote: '',
+  idleT: 0, collapse: 0, broken: 0, offered4: false, offered8: false,
+  continueMode: false, bestStamp: false,
+  estimate: null, pegX: 0.5,
+  beltShift: 0, beltX: 0,
+  cols: [], targetCrack: 0, targetBreak: 0,
+  sun: 0
+};
+
+let AC = null, lastT = 0, raf = 0;
+
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+function loadBest(){ try { return parseInt(localStorage.getItem(LS_BEST) || '0', 10) || 0; } catch { return 0; } }
+function saveBest(n){ try { localStorage.setItem(LS_BEST, String(n)); } catch {} }
+function bumpDay(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_DAY) || '{}');
+    const k = todayKey();
+    if (raw.date !== k) { raw.date = k; raw.places = 0; }
+    raw.places = (raw.places || 0) + 1;
+    localStorage.setItem(LS_DAY, JSON.stringify(raw));
+  } catch {}
+}
+function brand(id){
+  try {
+    const b = JSON.parse(localStorage.getItem(LS_BRAND) || '{}');
+    b[id] = true;
+    localStorage.setItem(LS_BRAND, JSON.stringify(b));
+  } catch {}
+}
+
+function setMute(on){
+  S.mute = !!on;
+  try { localStorage.setItem(LS_MUTE, S.mute ? '1' : '0'); } catch {}
+  $('#mute').textContent = S.mute ? '✕' : '♪';
+  $('#titleMute').textContent = S.mute ? '✕' : '♪';
+}
+function unlockAudio(){
+  if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+  if (AC.state === 'suspended') AC.resume();
+}
+function beep(kind){
+  if (S.mute || !AC) return;
+  const t0 = AC.currentTime;
+  const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
+  o.connect(f); f.connect(g); g.connect(AC.destination);
+  f.type = 'lowpass';
+  if (kind === 'stamp') {
+    o.frequency.setValueAtTime(180, t0); o.frequency.exponentialRampToValueAtTime(70, t0 + 0.12);
+    f.frequency.value = 900; g.gain.setValueAtTime(0.12, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+    o.type = 'square';
+  } else if (kind === 'wood') {
+    o.frequency.setValueAtTime(220, t0); o.frequency.exponentialRampToValueAtTime(110, t0 + 0.08);
+    f.frequency.value = 1400; g.gain.setValueAtTime(0.08, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.09);
+    o.type = 'triangle';
+  } else if (kind === 'whoosh') {
+    o.frequency.setValueAtTime(420, t0); o.frequency.exponentialRampToValueAtTime(180, t0 + 0.22);
+    f.frequency.value = 2000; g.gain.setValueAtTime(0.06, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.22);
+    o.type = 'sawtooth';
+  } else if (kind === 'crack') {
+    o.frequency.setValueAtTime(90, t0);
+    f.frequency.value = 400; g.gain.setValueAtTime(0.1, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
+    o.type = 'square';
+  } else {
+    o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(60, t0 + 0.18);
+    f.frequency.value = 600; g.gain.setValueAtTime(0.09, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+    o.type = 'sine';
+  }
+  o.start(t0); o.stop(t0 + 0.24);
+}
+
+function layout(){
+  const W = innerWidth, H = innerHeight;
+  S.land = (W >= H && W >= 640) || W >= 1024;
+  S.tall = !S.land && W >= 700 && H >= 1000;
+  document.documentElement.classList.toggle('land', S.land);
+  document.documentElement.classList.toggle('tall', S.tall);
+  const STAGE = Math.min(W, 1280);
+  const SX = Math.round((W - STAGE) / 2);
+  S.stageW = STAGE; S.stageX = SX; S.W = W; S.H = H;
+  const root = document.documentElement;
+  root.style.setProperty('--stageW', STAGE + 'px');
+  root.style.setProperty('--stageX', SX + 'px');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  S.dpr = dpr;
+  cv.width = Math.round(W * dpr);
+  cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px';
+  cv.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  floorCv = null;
+  bakeFloor();
+  layoutCols();
+}
+function layoutCols(){
+  const W = S.W, H = S.H, land = S.land;
+  let x, y, w, h;
+  if (land) {
+    x = S.stageX + 16;
+    y = 58;
+    w = S.stageW * 0.62 - 24;
+    h = Math.max(180, H - 70);
+    S.play = { x, y, w, h };
+    S.algo = { x: S.stageX + S.stageW * 0.62 + 8, y: H * 0.42, w: S.stageW * 0.38 - 24, h: H * 0.5 };
+  } else if (S.tall) {
+    const promptBottom = 128;
+    const algoH = Math.min(120, Math.round(H * 0.11));
+    S.algo = { x: 16, y: promptBottom, w: W - 32, h: algoH };
+    x = 16;
+    y = promptBottom + algoH + 8;
+    w = W - 32;
+    h = Math.min(300, Math.max(250, H - y - 20));
+    S.play = { x, y, w, h };
+  } else {
+    x = 8;
+    y = Math.max(118, 56 + 70);
+    w = W - 16;
+    h = Math.max(180, H - y - 96);
+    S.play = { x, y, w, h };
+    S.algo = { x: 10, y: H - 88, w: W - 20, h: 72 };
+  }
+}
+
+function currentBand(){
+  const elapsed = S.session - S.timeLeft;
+  if (S.continueMode) {
+    if (elapsed >= 90) return 4;
+    if (elapsed >= 70) return 3;
+    if (elapsed >= 12) return 2;
+    return 1;
+  }
+  if (elapsed >= 70) return 3;
+  if (elapsed >= 12) return 2;
+  return 1;
+}
+
+function spawnBoard(){
+  const band = currentBand();
+  S.level = band;
+  let type;
+  if (band === 1) type = 'compute';
+  else if (band === 4) type = Math.random() < 0.55 ? 'shift_row' : pick(['compute','error_find','reverse']);
+  else type = MIX[S.mixI % MIX.length];
+  if (type === 'reverse' && band < 2) type = 'compute';
+  if (type === 'error_find' && band < 2) type = 'compute';
+  S.mixI++;
+  let spec = takeSpec(band === 4 && type !== 'shift_row' ? Math.min(band, 3) : band, type);
+  if (type === 'shift_row' && POOLS[4].length) spec = takeSpec(4, 'shift_row');
+  if (type === 'error_find' && band < 2) spec = takeSpec(2, 'error_find');
+  const errorFind = spec.type === 'error_find';
+  const places = makePlaces(spec, errorFind);
+  S.board = {
+    spec, places, type: spec.type,
+    product: spec.product,
+    prompt: spec.prompt,
+    reverse: spec.type === 'reverse',
+    errorFind,
+    shift: spec.type === 'shift_row',
+    phase2: false,
+    firstDone: false,
+    perfect: true
+  };
+  S.beltShift = 0;
+  S.active = 0;
+  while (S.active < places.length && places[S.active].trueP === 0 && places[S.active].digit === 0) {
+    places[S.active].locked = true;
+    S.active++;
+  }
+  if (S.active >= places.length) S.active = 0;
+  S.grace = 0;
+  S.targetCrack = 0;
+  S.targetBreak = 0;
+  updatePrompt();
+}
+
+function updatePrompt(){
+  const b = S.board;
+  if (!b) { $('#eq').textContent = ''; $('#say').textContent = ''; return; }
+  const sp = b.spec;
+  const right = sp.b != null ? sp.b : sp.m;
+  $('#eq').textContent = sp.a + ' × ' + right;
+  $('#say').textContent = b.prompt;
+}
+
+function beginPlay(opts){
+  opts = opts || {};
+  document.documentElement.classList.add('ingame');
+  $('#title').classList.add('gone');
+  $('#result').classList.remove('show');
+  $('#choice').classList.remove('show');
+  $('#help').classList.remove('show');
+  $('#onboard').classList.remove('show');
+  S.phase = 'play';
+  S.score = 0; S.scoreShow = 0; S.combo = 1; S.solved = 0; S.lockedPlaces = 0; S.broken = 0;
+  S.lives = S.easy ? 5 : 3;
+  S.session = opts.continueMode ? 180 : SESSION;
+  S.timeLeft = S.session;
+  S.continueMode = !!opts.continueMode;
+  S.shield = 0; S.focus = 0; S.offered4 = false; S.offered8 = false;
+  S.mixI = 0; S.collapse = 0; S.failT = 0; S.bestStamp = false;
+  S.flyers.length = 0;
+  spawnBoard();
+  layout();
+}
+
+function endSession(why){
+  S.phase = 'result';
+  const best = loadBest();
+  let rec = false;
+  if (S.broken > best) { saveBest(S.broken); rec = true; S.bestStamp = true; }
+  $('#resKicker').textContent = why === 'lives' ? '더미가 무너졌어요' : '세션 끝';
+  $('#resTitle').textContent = why === 'lives' ? '격파 기록' : '격파 기록';
+  $('#resScore').textContent = '0';
+  $('#resSub').textContent = '격파 ' + S.broken + '판 · 최고 ' + Math.max(best, S.broken) + '판' + (rec ? ' · 새 기록 낙인' : '');
+  $('#result').classList.add('show');
+  $('#cont').style.display = S.continueMode ? 'none' : 'block';
+  countUp($('#resScore'), S.broken, 600);
+  if (S.board && S.board.spec.band === 1) brand('noCarry');
+}
+
+function countUp(el, target, ms){
+  const t0 = performance.now();
+  const tick = (t) => {
+    const k = Math.min(1, (t - t0) / ms);
+    const e = 1 - Math.pow(1 - k, 3);
+    el.textContent = String(Math.round(target * e));
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function activePlace(){
+  const b = S.board;
+  if (!b) return null;
+  return b.places[S.active] || null;
+}
+
+function judgeKnife(){
+  const b = S.board, pl = activePlace();
+  if (!b || !pl || pl.locked || S.phase !== 'play') return;
+  if (b.shift && b.phase2 && S.beltShift !== 1) {
+    applyWrong('unshiftedPartial', '십의 자리 곱은 한 칸 왼쪽에 두세요.');
+    return;
+  }
+  // 실제 장수: 아래 자리에서 도착한 received 포함. error-find 는 빠진 장(missing)만 더한다
+  const p = placeCount(pl);
+  const answerH = 10 * Math.floor(p / 10);
+  const h = Math.round(pl.knifeH);
+  if (h === answerH) applyCorrect(pl, answerH, p);
+  else {
+    if (S.easy && S.grace === 0) {
+      S.grace = 1; S.tickFlash = 0.9;
+      S.failNote = '열 장 눈금을 살펴 보세요.'; S.failT = 1.2;
+      beep('wood');
+      return;
+    }
+    const missCarry = b.errorFind || (pl.incoming > 0 && h === 10 * Math.floor((pl.digit * pl.m) / 10));
+    applyWrong(missCarry ? 'missIncomingCarry' : 'wrongHeight',
+      h > answerH ? '너무 많이 올렸어요. 남은 장은 아홉을 넘기면 안 돼요.' :
+      (answerH > 0 ? '열 장 묶음을 더 올려 보세요.' : '열 장이 안 되면 올리지 마세요.'));
+  }
+}
+
+function applyCorrect(pl, answerH, p){
+  const b = S.board;
+  pl.locked = true;
+  pl.knifeH = answerH;
+  const written = p % 10;
+  const carryOut = Math.floor(p / 10);
+  pl.writtenNow = written;
+  pl.carryOutNow = carryOut;
+  const mult = (S.focus > 0 ? 2 : 1);
+  const gain = 100 * Math.max(1, S.combo) * mult;
+  S.score += gain; // 정답 보상은 이득만. 마이너스 이벤트 원천 차단
+  S.combo += 1;
+  S.lockedPlaces += 1;
+  bumpDay();
+  S.timeScale = REDUCE ? 0.4 : 0.08;
+  S.hitStop = REDUCE ? 0.04 : 0.09;
+  S.punch = 1;
+  S.stampT = 1;
+  S.targetCrack = Math.min(1, (S.active + 1) / Math.max(1, b.places.filter(p => p.trueP > 0 || p.digit > 0).length));
+  beep('wood');
+  beep('stamp');
+  const remain = written;
+  pl.boards = remain;
+  pl.received = 0;
+  if (carryOut > 0 && S.active + 1 < b.places.length && !b.errorFind) {
+    const dest = b.places[S.active + 1];
+    spawnFlyers(pl, dest, carryOut);
+  }
+  brand(b.spec.band === 1 ? 'noCarry' : b.spec.band === 2 ? 'oneCarry' : b.spec.band >= 3 ? 'chain' : 'lock');
+  if (b.errorFind) brand('fix');
+  if (b.shift) brand('shift');
+  advanceOrBreak();
+}
+
+function spawnFlyers(from, dest, packs){
+  for (let i = 0; i < packs; i++) {
+    S.flyers.push({
+      from, dest, packs: 1, t: 0, dur: REDUCE ? 0.28 : 0.55 + i * 0.08,
+      trail: [], landed: false
+    });
+  }
+  beep('whoosh');
+}
+
+function onFlyerLand(fl){
+  if (fl.landed) return;
+  fl.landed = true;
+  fl.dest.received += 1; // 열 장이 위 자리의 한 장
+  fl.dest.squash = 1.25;
+  fl.dest.squashT = 0.22;
+  if (fl.dest.boards + fl.dest.received >= 10) S.impact = 12;
+}
+
+function advanceOrBreak(){
+  const b = S.board;
+  S.active++;
+  while (S.active < b.places.length) {
+    const pl = b.places[S.active];
+    const p = placeCount(pl);
+    if (p === 0 && pl.digit === 0 && pl.incoming === 0 && pl.received === 0) {
+      pl.locked = true; S.active++; continue;
+    }
+    break;
+  }
+  if (S.active >= b.places.length) completeBoard();
+  else {
+    const pl = b.places[S.active];
+    const vis = placeCount(pl);
+    pl.answerH = 10 * Math.floor(vis / 10);
+    if (Math.round(pl.knifeH) === pl.answerH) pl.knifeH = startHFor(vis, Math.floor(vis / 10));
+    if (b.errorFind && pl.missing) {
+      const trap = 10 * Math.floor((pl.digit * pl.m) / 10);
+      if (trap !== pl.answerH) pl.knifeH = trap;
+    }
+    S.grace = 0;
+  }
+}
+
+function placeCount(pl){
+  if (!pl) return 0;
+  const miss = (S.board && S.board.errorFind) ? (pl.missing || 0) : 0;
+  return pl.boards + pl.received + miss;
+}
+
+function completeBoard(){
+  const b = S.board;
+  if (b && b.shift && !b.phase2 && b.spec.b != null) {
+    startShiftPhase2(b);
+    return;
+  }
+  S.broken += 1;
+  S.solved += 1;
+  S.targetBreak = 1;
+  S.punch = 1.2;
+  if (S.focus > 0) S.focus -= 1;
+  if (b.perfect) brand('perfect');
+  beep('stamp');
+  if (S.broken === 4 && !S.offered4) { S.offered4 = true; openChoice(); return; }
+  if (S.broken === 8 && !S.offered8) { S.offered8 = true; openChoice(); return; }
+  if (shouldEstimate()) { openEstimate(); return; }
+  spawnBoard();
+}
+
+function startShiftPhase2(b){
+  b.phase2 = true;
+  b.firstDone = true;
+  const a = b.spec.a | 0, bt = Math.floor(b.spec.b / 10);
+  const d = digitsOf(a);
+  const places = [];
+  let incoming = 0;
+  for (let i = 0; i < Math.max(2, d.length); i++) {
+    const digit = d[i] || 0;
+    const trueP = digit * bt + incoming;
+    const written = trueP % 10;
+    const carryOut = Math.floor(trueP / 10);
+    places.push({
+      i, name: PLACE_NAME[i] || (i + '자리'),
+      digit, m: bt, incoming, trueP, written, carryOut,
+      boards: digit * bt, received: 0, missing: 0,
+      locked: false, cracked: 0,
+      knifeH: 0, startH: 0, answerH: 10 * carryOut,
+      squash: 1, squashT: 0
+    });
+    incoming = carryOut;
+  }
+  for (const pl of places) {
+    const vis = pl.boards;
+    pl.startH = startHFor(Math.max(vis, 1), Math.floor(vis / 10));
+    if (pl.startH === pl.answerH && vis > 0) pl.startH = pl.startH === 0 ? Math.min(vis, 1) : 0;
+    pl.knifeH = pl.startH;
+  }
+  b.places = places;
+  S.beltShift = 0;
+  S.active = 0;
+  b.prompt = '십의 자리 곱은 한 칸 왼쪽에 두고 묶어 보세요.';
+  updatePrompt();
+  S.grace = 0;
+}
+
+function shouldEstimate(){
+  if (S.level < 2) return false;
+  if (S.broken % 4 !== 0) return false;
+  if (!S.board) return false;
+  return S.board.type === 'compute' || S.board.type === 'real_life';
+}
+
+function openChoice(){
+  S.phase = 'choice';
+  $('#choice').classList.add('show');
+}
+function closeChoice(kind){
+  $('#choice').classList.remove('show');
+  if (kind === 'shield') S.shield = 1;
+  if (kind === 'focus') S.focus = 1;
+  S.phase = 'play';
+  spawnBoard();
+}
+
+function openEstimate(){
+  const sp = S.board.spec;
+  const actual = sp.product;
+  const good = properEstimate(sp.a, sp.m, sp.b);
+  const bad = overEstimateBoth(sp.a, sp.m, sp.b);
+  const useBad = Math.random() < 0.5;
+  const shown = useBad ? bad : good;
+  const unit = estimateUnit(actual);
+  const close = Math.abs(actual - shown) <= unit;
+  S.estimate = { actual, shown, close, good, bad, unit, shownIsOver: useBad };
+  S.pegX = close ? 0.18 : 0.82; // 시작은 정답 구역이 아님
+  S.phase = 'estimate';
+  $('#eq').textContent = sp.a + ' × ' + (sp.b != null ? sp.b : sp.m);
+  $('#say').textContent = shown + '으로 어림했습니다. 실제 값은 ' + actual + '입니다. 차이가 ' + unit + ' 이하이면 가깝다고 합니다. 가까운지 말뚝을 밀어 표시해 보세요.';
+}
+
+function judgeEstimate(){
+  const e = S.estimate;
+  if (!e) return;
+  const closeSide = S.pegX >= 0.5;
+  const ok = closeSide === e.close;
+  S.phase = 'play';
+  S.estimate = null;
+  if (ok) {
+    S.score += 80 * Math.max(1, S.combo);
+    S.combo += 1;
+    S.punch = 1;
+    beep('stamp');
+  } else {
+    const diff = Math.abs(e.actual - e.shown);
+    if (e.close) applyWrong('overEstimateBoth', '어림과 실제의 차이가 ' + e.unit + ' 이하예요. 가깝다 쪽을 고르세요.');
+    else if (e.shownIsOver) applyWrong('overEstimateBoth', '두 수를 너무 크게 잡으면 실제와 멀어져요. 차이가 ' + diff + '이라 ' + e.unit + '보다 커요.');
+    else applyWrong('overEstimateBoth', '이 어림은 차이가 ' + diff + '이라 ' + e.unit + '보다 커요. 가깝지 않다 쪽을 고르세요.');
+  }
+  if (S.lives > 0 && S.phase === 'play') spawnBoard();
+}
+
+function applyWrong(misconceptionId, msg){
+  const b = S.board, pl = activePlace();
+  if (b) b.perfect = false;
+  if (pl) pl.cracked += 1;
+  S.shake = 8;
+  S.failNote = msg; S.failT = 1.6;
+  S.combo = 1;
+  beep('crack');
+  if (S.shield > 0) { S.shield = 0; S.failNote = '보호대가 실수를 막았어요.'; return; }
+  S.lives -= 1;
+  if (S.lives <= 0) {
+    S.collapse = 1;
+    setTimeout(() => endSession('lives'), 700);
+  }
+}
+
+function drawGlyph(str, x, y, sc, col){
+  ctx.fillStyle = col;
+  let ox = x;
+  for (const ch of String(str)) {
+    const g = GLYPH[ch] || GLYPH[' '];
+    for (let r = 0; r < 7; r++) {
+      const bits = g[r];
+      for (let c = 0; c < 6; c++) {
+        if (bits & (1 << (5 - c))) ctx.fillRect(ox + c * sc, y + r * sc, sc + 0.2, sc + 0.2);
+      }
+    }
+    ox += 6 * sc + Math.max(2, sc);
+  }
+  return ox - x;
+}
+
+let floorCv = null, floorW = 0, floorH = 0;
+function bakeFloor(){
+  if (floorW === S.W && floorH === S.H && floorCv) return;
+  floorW = S.W; floorH = S.H;
+  floorCv = document.createElement('canvas');
+  floorCv.width = Math.max(1, S.W);
+  floorCv.height = Math.max(1, S.H);
+  const f = floorCv.getContext('2d');
+  f.fillStyle = PAL.floor;
+  f.fillRect(0, 0, S.W, S.H);
+  const plank = 32;
+  for (let y = 0, i = 0; y < S.H; y += plank, i++) {
+    if (i % 2) { f.fillStyle = PAL.cream; f.fillRect(0, y, S.W, plank); }
+    f.strokeStyle = 'rgba(61,43,31,.14)';
+    f.lineWidth = 1;
+    f.beginPath(); f.moveTo(0, y + 0.5); f.lineTo(S.W, y + 0.5); f.stroke();
+    f.fillStyle = 'rgba(192,163,106,.2)';
+    const ox = (i % 3) * 48;
+    for (let x = ox; x < S.W; x += 160) f.fillRect(x, y + 6, 2, plank - 12);
+  }
+}
+
+function drawFloor(){
+  bakeFloor();
+  if (floorCv) ctx.drawImage(floorCv, 0, 0);
+  else { ctx.fillStyle = PAL.floor; ctx.fillRect(0, 0, S.W, S.H); }
+  if (!REDUCE) {
+    S.sun = (S.sun + 0.12) % Math.max(1, S.W);
+    ctx.fillStyle = 'rgba(255,255,255,.045)';
+    ctx.fillRect(S.sun - 70, 0, 140, S.H);
+  }
+  if (S.tall && S.play && S.algo && S.phase !== 'title') {
+    const mx = S.play.x - 8;
+    const my = S.algo.y - 8;
+    const mw = S.play.w + 16;
+    const mh = (S.play.y + S.play.h) - S.algo.y + 16;
+    ctx.fillStyle = 'rgba(200,163,106,.22)';
+    ctx.fillRect(mx, my, mw, mh);
+    ctx.strokeStyle = PAL.wood;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(mx + 0.5, my + 0.5, mw - 1, mh - 1);
+  }
+  if (S.land && S.stageW < S.W - 2) {
+    ctx.fillStyle = 'rgba(61,43,31,.16)';
+    ctx.fillRect(0, 0, S.stageX, S.H);
+    ctx.fillRect(S.stageX + S.stageW, 0, S.W - (S.stageX + S.stageW), S.H);
+  }
+}
+
+function colLayout(){
+  const b = S.board;
+  if (!b) return [];
+  const n = b.places.length;
+  const p = S.play;
+  const gap = 10;
+  const cw = (p.w - gap * (n - 1)) / n;
+  const colY = S.tall ? p.y + 16 : p.y + 28;
+  const colH = S.tall ? Math.min(p.h - 24, 260) : p.h - 48;
+  const out = [];
+  for (let vis = 0; vis < n; vis++) {
+    const i = n - 1 - vis; // 왼쪽이 높은 자리
+    const pl = b.places[i];
+    out.push({
+      pl, i,
+      x: p.x + vis * (cw + gap),
+      y: colY,
+      w: cw,
+      h: colH,
+      active: i === S.active && !pl.locked
+    });
+  }
+  S.cols = out;
+  return out;
+}
+
+function boardH(col){
+  const pl = col.pl;
+  const count = Math.max(1, placeCount(pl));
+  const cap = Math.max(count + 2, 8);
+  return clamp((col.h * 0.62) / cap, 12, 38);
+}
+
+function drawPlank(x, y, w, h, cracked, ghost){
+  if (ghost) ctx.globalAlpha = 0.4;
+  ctx.fillStyle = ghost ? PAL.grain : PAL.pine;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = PAL.pineLo;
+  ctx.fillRect(x, y + h - 2, w, 2);
+  ctx.fillStyle = 'rgba(61,43,31,.22)';
+  ctx.fillRect(x + 3, y + 1, 2, h - 2);
+  ctx.fillStyle = 'rgba(61,43,31,.12)';
+  if (h > 8) ctx.fillRect(x + w * 0.55, y + 2, 1, h - 4);
+  if (h > 12) ctx.fillRect(x + w * 0.28, y + 3, 1, h - 6);
+  ctx.fillStyle = 'rgba(179,51,42,.18)';
+  ctx.fillRect(x + w - 8, y + 1, 4, 3);
+  ctx.strokeStyle = PAL.wood;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  if (cracked) {
+    ctx.strokeStyle = PAL.ink;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.18, y);
+    ctx.lineTo(x + w * 0.7, y + h);
+    ctx.stroke();
+  }
+  if (ghost) ctx.globalAlpha = 1;
+}
+
+function drawHud(){
+  const y = 8;
+  const x0 = S.land ? S.stageX + 12 : 8;
+  const muteW = 58;
+  const avail = (S.land ? S.stageW - 80 : S.W - muteW - 16);
+  const items = [
+    ['격파', S.broken],
+    ['콤보', Math.max(1, S.combo)],
+    ['목숨', Math.max(0, S.lives)],
+    ['초', Math.max(0, Math.ceil(S.timeLeft))]
+  ];
+  const gap = 6;
+  const w = Math.max(64, Math.min(110, (avail - gap * 3) / 4));
+  const h = 44;
+  ctx.font = '800 11px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  items.forEach((it, i) => {
+    const x = x0 + i * (w + gap);
+    const navy = i < 3;
+    ctx.fillStyle = navy ? PAL.navy : PAL.wood;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = PAL.wood;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    if (navy) { ctx.fillStyle = PAL.pine; ctx.fillRect(x, y, w, 5); }
+    ctx.fillStyle = PAL.floor;
+    ctx.fillText(it[0], x + 6, y + 16);
+    const sc = w >= 90 ? 3 : 2;
+    drawGlyph(String(it[1]), x + 6, y + 20, sc, PAL.floor);
+  });
+}
+
+function drawAlgo(){
+  const b = S.board;
+  if (!b) return;
+  const a = S.algo;
+  ctx.fillStyle = PAL.cream;
+  ctx.fillRect(a.x, a.y, a.w, a.h);
+  ctx.strokeStyle = PAL.wood;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(a.x + 1, a.y + 1, a.w - 2, a.h - 2);
+  const sp = b.spec;
+  const right = sp.b != null ? sp.b : sp.m;
+  const sc = Math.max(2, Math.min(5, (a.w / 90) | 0, Math.floor(a.h / 36)));
+  const cx = a.x + a.w - 12;
+  const row = (s, ry, col) => {
+    let x = cx;
+    const chs = String(s).split('').reverse();
+    for (const ch of chs) {
+      x -= 6 * sc + sc;
+      drawGlyph(ch, x, ry, sc, col);
+    }
+  };
+  row(sp.a, a.y + 8, PAL.wood);
+  drawGlyph('×', a.x + (S.land ? 72 : 10), a.y + 8 + 8 * sc, sc, PAL.navy);
+  row(right, a.y + 8 + 8 * sc, PAL.wood);
+  ctx.strokeStyle = PAL.wood;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(a.x + 8, a.y + 8 + 16 * sc);
+  ctx.lineTo(a.x + a.w - 8, a.y + 8 + 16 * sc);
+  ctx.stroke();
+  const digits = [];
+  for (let i = b.places.length - 1; i >= 0; i--) {
+    const pl = b.places[i];
+    digits.push((pl.locked || b.reverse) ? String(pl.written) : '');
+  }
+  let x = cx;
+  for (let k = digits.length - 1; k >= 0; k--) {
+    x -= 6 * sc + sc;
+    if (digits[k] !== '') {
+      ctx.fillStyle = PAL.ink;
+      ctx.beginPath();
+      ctx.arc(x + 3 * sc, a.y + 8 + 18 * sc + 3.5 * sc, 5 * sc, 0, Math.PI * 2);
+      ctx.fill();
+      drawGlyph(digits[k], x, a.y + 8 + 18 * sc, sc, PAL.floor);
+    }
+  }
+  if (S.stampT > 0) {
+    ctx.globalAlpha = S.stampT;
+    ctx.strokeStyle = PAL.ink;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(a.x + 4, a.y + 4, a.w - 8, a.h - 8);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawTarget(){
+  const a = S.algo;
+  if (!a) return;
+  const tw = Math.min(56, a.w * 0.22);
+  const th = Math.min(a.h - 12, S.land ? 120 : 56);
+  const x = a.x + 8;
+  const y = a.y + (a.h - th) / 2;
+  ctx.fillStyle = PAL.pine;
+  ctx.fillRect(x, y, tw, th);
+  ctx.strokeStyle = PAL.wood;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, tw, th);
+  ctx.strokeStyle = PAL.ink;
+  ctx.lineWidth = 2;
+  const cracks = Math.round(S.targetCrack * 3);
+  for (let i = 0; i < cracks; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x + 6, y + 12 + i * (th / 4));
+    ctx.lineTo(x + tw - 6, y + 24 + i * (th / 3.5));
+    ctx.stroke();
+  }
+  if (S.targetBreak > 0) {
+    ctx.fillStyle = PAL.ink;
+    ctx.fillRect(x + tw / 2 - 1, y, 2, th);
+  }
+}
+
+function drawColumns(){
+  const cols = colLayout();
+  const b = S.board;
+  if (!b) return;
+  const idle = REDUCE ? 0 : Math.sin(S.idleT * 1.2) * 0.6;
+  for (const col of cols) {
+    const pl = col.pl;
+    const bh = boardH(col);
+    const visN = pl.boards + pl.received;
+    const ghostN = b.errorFind ? pl.missing : 0;
+    const total = visN + ghostN;
+    const floorY = col.y + col.h - 8;
+    const sq = pl.squash || 1;
+    ctx.save();
+    ctx.translate(0, idle + (S.collapse > 0 ? S.collapse * 40 : 0) + (S.impact ? (Math.random() - 0.5) * S.impact : 0));
+    ctx.fillStyle = col.active ? PAL.navy : 'rgba(61,43,31,.2)';
+    ctx.fillRect(col.x, floorY, col.w * 0.9, 4);
+    ctx.fillStyle = PAL.navy;
+    ctx.fillRect(col.x, col.y - 22, Math.min(48, col.w * 0.5), 18);
+    ctx.fillStyle = PAL.floor;
+    ctx.font = '800 11px Copperplate, Futura, sans-serif';
+    ctx.fillText(pl.name, col.x + 8, col.y - 9);
+
+    const w = col.w * 0.62;
+    const x = col.x + 4;
+    for (let n = 0; n < total; n++) {
+      const ghost = n >= visN;
+      const yy = floorY - (n + 1) * bh * sq;
+      drawPlank(x, yy, w, Math.max(3, bh - 1), pl.cracked > 0 && n < visN, ghost);
+    }
+    const badgeY = floorY - total * bh * sq - 36;
+    const bw = 54, bhBadge = 30;
+    ctx.fillStyle = PAL.wood;
+    ctx.fillRect(x, badgeY, bw, bhBadge);
+    ctx.strokeStyle = PAL.navy;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, badgeY, bw, bhBadge);
+    const numSc = Math.max(3, Math.round(S.W * 0.018));
+    drawGlyph(String(total), x + 8, badgeY + 5, Math.min(4, numSc), PAL.floor);
+
+    if (col.active || (!pl.locked && col.pl === activePlace())) {
+      const hgt = clamp(pl.knifeH, 0, Math.max(total, 1));
+      const ky = floorY - hgt * bh * sq;
+      ctx.strokeStyle = PAL.wood;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x - 4, ky); ctx.lineTo(x + w + 8, ky); ctx.stroke();
+      ctx.fillStyle = PAL.navy;
+      ctx.fillRect(x + w + 2, ky - 22, 44, 44);
+      ctx.strokeStyle = PAL.wood;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + w + 2, ky - 22, 44, 44);
+      col.knife = { x: x - 6, y: ky - 26, w: w + 56, h: 52 };
+      if (S.tickFlash > 0 && S.easy) {
+        ctx.strokeStyle = PAL.ink;
+        ctx.globalAlpha = 0.4 + 0.4 * Math.sin(S.tickFlash * 20);
+        ctx.lineWidth = 2;
+        for (let t = 10; t <= total; t += 10) {
+          const ty = floorY - t * bh * sq;
+          ctx.beginPath(); ctx.moveTo(x, ty); ctx.lineTo(x + w, ty); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+    if (b.shift && !b.phase2) {
+      const ox = S.beltShift * (S.play.w / Math.max(1, b.places.length));
+      ctx.strokeStyle = PAL.navy;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(col.x + ox * 0, col.y, col.w, 10);
+    }
+    ctx.restore();
+  }
+  drawFlyers(cols);
+}
+
+function colRectFor(place){
+  return (S.cols || []).find(c => c.pl === place);
+}
+
+function drawFlyers(cols){
+  for (const fl of S.flyers) {
+    const a = colRectFor(fl.from), d = colRectFor(fl.dest);
+    if (!a || !d) continue;
+    const k = Math.min(1, fl.t / fl.dur);
+    const e = k < 1 ? (1 - Math.pow(1 - k, 3)) : 1;
+    const over = k < 1 ? Math.sin(k * Math.PI) * -40 : 0;
+    const x1 = a.x + a.w * 0.4, y1 = a.y + a.h * 0.3;
+    const x2 = d.x + d.w * 0.4, y2 = d.y + d.h * 0.55;
+    const x = x1 + (x2 - x1) * e;
+    const y = y1 + (y2 - y1) * e + over;
+    if (!REDUCE && k < 1 && (fl.trail.length < 8)) fl.trail.push({ x, y, a: 0.35 });
+    for (const tr of fl.trail) {
+      ctx.globalAlpha = tr.a;
+      ctx.fillStyle = PAL.pine;
+      ctx.fillRect(tr.x, tr.y, 28, 10);
+      tr.a *= 0.92;
+    }
+    ctx.globalAlpha = 1;
+    const sqx = k > 0.85 ? 1.2 : 1;
+    const sqy = k > 0.85 ? 0.75 : 1;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(sqx, sqy);
+    ctx.fillStyle = PAL.pine;
+    ctx.fillRect(-18, -16, 36, 32);
+    ctx.fillStyle = PAL.navy;
+    ctx.fillRect(-20, -4, 40, 8);
+    ctx.strokeStyle = PAL.wood;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-18, -16, 36, 32);
+    ctx.restore();
+  }
+}
+
+function drawEstimate(){
+  const e = S.estimate;
+  if (!e) return;
+  const p = S.play;
+  ctx.fillStyle = PAL.cream;
+  ctx.fillRect(p.x + 12, p.y + p.h * 0.35, p.w - 24, 88);
+  ctx.strokeStyle = PAL.wood;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(p.x + 12, p.y + p.h * 0.35, p.w - 24, 88);
+  const x0 = p.x + 32, x1 = p.x + p.w - 32, y = p.y + p.h * 0.35 + 48;
+  ctx.strokeStyle = PAL.wood;
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.fillStyle = PAL.navy;
+  ctx.font = '800 14px Copperplate, Futura, sans-serif';
+  ctx.fillText('가깝지 않다', x0, y - 16);
+  ctx.fillText('가깝다', x1 - 52, y - 16);
+  const px = x0 + (x1 - x0) * S.pegX;
+  ctx.fillStyle = PAL.ink;
+  ctx.fillRect(px - 8, y - 22, 16, 44);
+  S.pegHit = { x: px - 22, y: y - 24, w: 44, h: 48 };
+}
+
+function draw(){
+  const sh = S.phase === 'play' && S.shake > 0 ? (Math.random() - 0.5) * S.shake : 0;
+  ctx.save();
+  ctx.translate(sh, 0);
+  if (S.punch > 0 && S.phase === 'play') {
+    const k = 1 + 0.045 * S.punch;
+    ctx.translate(S.W / 2, S.H / 2);
+    ctx.scale(k, k);
+    ctx.translate(-S.W / 2, -S.H / 2);
+  }
+  drawFloor();
+  if (S.phase === 'title') { ctx.restore(); return; }
+  drawHud();
+  if (S.phase === 'estimate') drawEstimate();
+  else {
+    drawColumns();
+    drawAlgo();
+    drawTarget();
+  }
+  if (S.failT > 0) $('#failNote').textContent = S.failNote;
+  ctx.restore();
+}
+
+function step(dt){
+  S.idleT += dt;
+  if (S.hitStop > 0) { S.hitStop -= dt; S.timeScale = 0.08; }
+  else S.timeScale = 1;
+  const t = dt * (S.hitStop > 0 ? 0.08 : 1);
+  if (S.phase === 'play') {
+    S.timeLeft -= t;
+    if (S.timeLeft <= 0) { S.timeLeft = 0; endSession('time'); }
+  }
+  S.scoreShow += (S.score - S.scoreShow) * Math.min(1, dt * 8);
+  if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 28);
+  if (S.stampT > 0) S.stampT = Math.max(0, S.stampT - dt * 2.2);
+  if (S.tickFlash > 0) S.tickFlash = Math.max(0, S.tickFlash - dt);
+  if (S.punch > 0) S.punch = Math.max(0, S.punch - dt * 3);
+  if (S.failT > 0) { S.failT -= dt; $('#failNote').classList.toggle('on', S.failT > 0); }
+  if (S.collapse > 0) S.collapse = Math.min(1, S.collapse + dt * 1.6);
+  if (S.impact) S.impact = Math.max(0, S.impact - dt * 40);
+  for (const pl of (S.board ? S.board.places : [])) {
+    if (pl.squashT > 0) {
+      pl.squashT -= dt;
+      pl.squash = 1 + 0.25 * Math.sin(pl.squashT * 20);
+    } else pl.squash = 1;
+  }
+  for (let i = S.flyers.length - 1; i >= 0; i--) {
+    const fl = S.flyers[i];
+    fl.t += dt;
+    if (fl.t >= fl.dur && !fl.landed) onFlyerLand(fl);
+    if (fl.t >= fl.dur + 0.15) S.flyers.splice(i, 1);
+  }
+}
+
+function loop(now){
+  if (!lastT) lastT = now;
+  let dt = (now - lastT) / 1000;
+  lastT = now;
+  if (dt > 0.05) dt = 0.05;
+  step(dt);
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+
+function pt(e){
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX, y: t.clientY };
+}
+function hit(r, p){ return r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
+
+function yToKnife(col, py){
+  const pl = col.pl;
+  const bh = boardH(col);
+  const total = pl.boards + pl.received + (S.board.errorFind ? pl.missing : 0);
+  const floorY = col.y + col.h - 8;
+  const h = (floorY - py) / bh;
+  return clamp(h, 0, Math.max(total, 0));
+}
+
+function onDown(e){
+  unlockAudio();
+  if (S.phase === 'estimate') {
+    const p = pt(e);
+    if (hit(S.pegHit, p) || true) {
+      S.drag = { kind: 'peg', id: e.pointerId };
+      try { cv.setPointerCapture(e.pointerId); } catch {}
+    }
+    return;
+  }
+  if (S.phase !== 'play') return;
+  const p = pt(e);
+  colLayout();
+  const col = (S.cols || []).find(c => c.active);
+  if (col && col.knife && hit(col.knife, p)) {
+    S.drag = { kind: 'knife', col, moved: false, y0: p.y, h0: col.pl.knifeH, id: e.pointerId };
+    try { cv.setPointerCapture(e.pointerId); } catch {}
+  } else if (S.board && S.board.shift && !S.board.phase2) {
+    S.drag = { kind: 'belt', x0: p.x, s0: S.beltShift, moved: false, id: e.pointerId };
+    try { cv.setPointerCapture(e.pointerId); } catch {}
+  }
+}
+function onMove(e){
+  if (!S.drag) return;
+  const p = pt(e);
+  if (S.drag.kind === 'knife') {
+    const col = S.drag.col || (S.cols || []).find(c => c.active);
+    if (!col) return;
+    const h = yToKnife(col, p.y);
+    if (Math.abs(h - S.drag.h0) > 0.2) S.drag.moved = true;
+    col.pl.knifeH = h;
+  } else if (S.drag.kind === 'belt') {
+    const dx = p.x - S.drag.x0;
+    if (Math.abs(dx) > 8) S.drag.moved = true;
+    S.beltShift = dx < -30 ? 1 : 0;
+  } else if (S.drag.kind === 'peg') {
+    const pplay = S.play;
+    S.pegX = clamp((p.x - (pplay.x + 32)) / (pplay.w - 64), 0, 1);
+  }
+}
+function onUp(e){
+  if (!S.drag) return;
+  const kind = S.drag.kind;
+  S.drag = null;
+  if (kind === 'knife') judgeKnife();
+  else if (kind === 'peg') judgeEstimate();
+  else if (kind === 'belt') { /* 밀기는 손떼기만, 칼질은 별도 */ }
+}
+
+cv.addEventListener('pointerdown', onDown);
+cv.addEventListener('pointermove', onMove);
+cv.addEventListener('pointerup', onUp);
+cv.addEventListener('pointercancel', onUp);
+window.addEventListener('keydown', (e) => {
+  if (S.phase !== 'play') return;
+  const pl = activePlace();
+  if (!pl) return;
+  const vis = pl.boards + pl.received + (S.board.errorFind ? pl.missing : 0);
+  if (e.key === 'ArrowUp') { pl.knifeH = clamp(Math.round(pl.knifeH) + 1, 0, vis); e.preventDefault(); }
+  if (e.key === 'ArrowDown') { pl.knifeH = clamp(Math.round(pl.knifeH) - 1, 0, vis); e.preventDefault(); }
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); judgeKnife(); }
+});
+
+function showBest(){
+  const n = loadBest();
+  $('#best').textContent = n ? ('최고 ' + n + '판') : '최고 기록 없음';
+}
+function specks(){
+  const box = $('#titleSpecks');
+  box.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const el = document.createElement('i');
+    el.style.left = (8 + Math.random() * 84) + '%';
+    el.style.top = (20 + Math.random() * 60) + '%';
+    el.style.animationDelay = (Math.random() * 6) + 's';
+    box.appendChild(el);
+  }
+}
+
+let obI = 0;
+const OB = [
+  { t: '칼선을 놓아 보세요', b: '일의 자리 기둥의 칼선 손잡이를 세로로 끌어 열 장의 배수 높이에 놓고 손을 떼세요. 송판 열 장이 위 자리의 한 장이에요.' },
+  { t: '열 장을 올려 보세요', b: '칼선 아래 열 장씩이 왼쪽 기둥의 한 장으로 날아갑니다. 남은 장은 아홉 장을 넘기면 안 돼요.' },
+  { t: '세 자리를 잠그세요', b: '일·십·백을 잠그면 목표 송판이 격파됩니다. 빗맞으면 금이 가고 목숨이 줄어요. 목숨은 여러 개라 만회할 수 있습니다.' }
+];
+function openOnboard(){
+  obI = 0; paintOb(); $('#onboard').classList.add('show');
+}
+function paintOb(){
+  $('#obStep').textContent = (obI + 1) + '/3';
+  $('#obTitle').textContent = OB[obI].t;
+  $('#obBody').textContent = OB[obI].b;
+  $('#obNext').textContent = obI === 2 ? '해볼게요' : '다음';
+}
+
+$('#start').onclick = () => {
+  unlockAudio();
+  $('#start').style.transform = 'scaleY(.88)';
+  setTimeout(() => {
+    try { if (!localStorage.getItem(LS_ONB)) { openOnboard(); return; } } catch {}
+    beginPlay();
+  }, 120);
+};
+$('#obNext').onclick = () => {
+  if (obI < 2) { obI++; paintOb(); }
+  else { try { localStorage.setItem(LS_ONB, '1'); } catch {} $('#onboard').classList.remove('show'); beginPlay(); }
+};
+$('#how').onclick = () => $('#help').classList.add('show');
+$('#closeHelp').onclick = () => $('#help').classList.remove('show');
+$('#diff').onclick = () => {
+  S.easy = !S.easy;
+  $('#diff').textContent = S.easy ? '지금: 쉬움' : '지금: 어려움';
+};
+$('#again').onclick = () => { $('#result').classList.remove('show'); beginPlay(); };
+$('#cont').onclick = () => { $('#result').classList.remove('show'); beginPlay({ continueMode: true }); };
+$('#pickShield').onclick = () => closeChoice('shield');
+$('#pickFocus').onclick = () => closeChoice('focus');
+$('#mute').onclick = () => { unlockAudio(); setMute(!S.mute); };
+$('#titleMute').onclick = () => { unlockAudio(); setMute(!S.mute); };
+
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', () => setTimeout(layout, 120));
+
+function sampleProblems(n){
+  n = Math.max(1, n | 0);
+  const bag = [];
+  for (const band of [1, 2, 3, 4]) {
+    for (const spec of (POOLS[band] || [])) bag.push(spec);
+  }
+  const shuffled = shuffle(bag);
+  const types = ['compute', 'real_life', 'reverse', 'error_find', 'shift_row', 'compute'];
+  const carryBag = (POOLS[2] || []).concat(POOLS[3] || []);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    let type = types[i % types.length];
+    let base = shuffled[i % shuffled.length];
+    if (type === 'shift_row' && POOLS[4].length) base = POOLS[4][i % POOLS[4].length];
+    if (type === 'reverse') {
+      base = (carryBag.length ? carryBag : shuffled)[i % Math.max(1, carryBag.length || shuffled.length)];
+    }
+    if (i % 8 === 7) {
+      const estPool = (POOLS[2] && POOLS[2].length) ? POOLS[2] : shuffled;
+      const sp = wrapSpec(estPool[i % estPool.length], 'compute');
+      const actual = sp.product | 0;
+      const shown = (i % 16 === 7) ? overEstimateBoth(sp.a, sp.m, sp.b) : properEstimate(sp.a, sp.m, sp.b);
+      const unit = estimateUnit(actual);
+      const close = Math.abs(actual - shown) <= unit;
+      const answer = close ? '가깝다' : '가깝지 않다';
+      out.push({
+        id: 'est-' + sp.id + '-' + i,
+        prompt: shown + '으로 어림했습니다. 실제 값은 ' + actual + '입니다. 차이가 ' + unit + ' 이하이면 가깝다고 합니다. 가까운지 말뚝을 밀어 표시해 보세요.',
+        choices: shuffle(['가깝다', '가깝지 않다', '같다', '비교할 수 없다']),
+        answer,
+        answerNumeric: close ? 1 : 0,
+        unitConcept: '곱셈 결과 어림하기',
+        misconceptions: ['overEstimateBoth']
+      });
+      continue;
+    }
+    const spec = wrapSpec(base, type);
+    out.push({
+      id: spec.id + '-' + i,
+      prompt: spec.prompt,
+      choices: spec.choices.slice(),
+      answer: spec.answer,
+      answerNumeric: spec.answerNumeric,
+      unitConcept: spec.unitConcept,
+      misconceptions: spec.misconceptions
+    });
+  }
+  return out;
+}
+
+function forceCorrect(){
+  if (S.phase === 'title' || S.phase === 'result') beginPlay();
+  if (S.phase === 'choice') { closeChoice('focus'); }
+  if (S.phase === 'estimate') { S.pegX = S.estimate.close ? 0.8 : 0.2; judgeEstimate(); return; }
+  if (S.phase !== 'play') { S.phase = 'play'; if (!S.board) spawnBoard(); }
+  if (!S.board) spawnBoard();
+  let pl = activePlace();
+  if (!pl) { spawnBoard(); pl = activePlace(); }
+  const p = pl ? placeCount(pl) : 0;
+  const ans = 10 * Math.floor(p / 10);
+  if (S.board && S.board.shift && S.board.phase2) S.beltShift = 1;
+  if (pl) { pl.knifeH = ans; applyCorrect(pl, ans, p); }
+  else { S.score += 100; S.combo += 1; }
+}
+
+function forceWrong(){
+  if (S.phase === 'title') beginPlay();
+  applyWrong('force', '빗맞았습니다.');
+}
+
+window.__GAME_TEST__ = {
+  ready: false,
+  start() { beginPlay(); },
+  getState() {
+    return { score: S.score | 0, lives: S.lives | 0, level: S.level | 0, phase: S.phase, solved: S.solved | 0 };
+  },
+  answerCorrect() { forceCorrect(); },
+  answerWrong() { forceWrong(); },
+  sampleProblems,
+  getLayout() { return { land: S.land, tall: S.tall, playW: S.play ? S.play.w : S.stageW, playH: S.play ? S.play.h : S.H, stageW: S.stageW }; }
+};
+
+function botBoard(band){
+  const spec = takeSpec(band, 'compute');
+  const places = makePlaces(spec, false);
+  return { spec, places };
+}
+function solvePlace(pl, bot, lives, easy){
+  const p = pl.trueP;
+  const ans = 10 * Math.floor(p / 10);
+  const start = pl.startH;
+  let h = start;
+  let tries = 0;
+  let grace = easy ? 1 : 0;
+  const top = Math.max(p, 1);
+  const slots = [top, Math.round(top * 2 / 3), Math.round(top / 3), 0];
+  while (tries < 16) {
+    if (bot === 'idle') return { ok: false, lives };
+    if (bot === 'mash') h = start;
+    else if (bot === 'cycle') h = slots[tries % 4];
+    else if (bot === 'rand') h = (Math.random() * (top + 1)) | 0;
+    else if (bot === 'fixed-bottom') h = 0;
+    else if (bot === 'fixed-top') h = top;
+    else if (bot === 'same-height') h = 4;
+    tries++;
+    if (h === ans) return { ok: true, lives };
+    if (grace > 0) { grace--; continue; }
+    lives--;
+    if (lives <= 0) return { ok: false, lives: 0 };
+  }
+  return { ok: false, lives };
+}
+function botTrial(bot, band){
+  let lives = 5;
+  const b = botBoard(band);
+  for (const pl of b.places) {
+    if (pl.trueP === 0 && pl.digit === 0) continue;
+    const r = solvePlace(pl, bot, lives, true);
+    lives = r.lives;
+    if (!r.ok) return false;
+  }
+  return true;
+}
+function runBots(n){
+  n = n || 200;
+  const kinds = ['mash', 'cycle', 'rand', 'idle', 'fixed-bottom', 'fixed-top', 'same-height'];
+  const out = {};
+  for (const k of kinds) {
+    let w = 0;
+    for (let i = 0; i < n; i++) {
+      const r = i % 100;
+      const band = r < 8 ? 1 : r < 60 ? 2 : 3;
+      if (botTrial(k, band)) w++;
+    }
+    out[k] = +(w / n).toFixed(4);
+  }
+  return out;
+}
+window.__GAME_TEST__.runBots = runBots;
+
+try { S.mute = localStorage.getItem(LS_MUTE) === '1'; } catch {}
+setMute(S.mute);
+showBest();
+specks();
+buildPools();
+layout();
+window.__GAME_TEST__.ready = true;
+raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
