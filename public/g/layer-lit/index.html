@@ -1,0 +1,1696 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta property="og:title" content="층수켜기">
+<meta property="og:description" content="잠기기 전에 켜">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<title>층수켜기</title>
+<style>
+@font-face{
+  font-family:"LogoBlackHan";
+  src:url("./assets/fonts/logo-blackhansans.woff2") format("woff2");
+  font-weight:400;font-style:normal;font-display:swap;
+}
+:root{
+  --stageW:min(100vw,1280px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+  --lcd:#C8D4A4;--ink:#2C3324;--miss:#E25B4A;--steel:#5B7F8A;--cream:#F4F0D8;--ghost:#9AA87A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--lcd);color:var(--ink);
+  font-family:ui-monospace,"SF Mono",Menlo,"Courier New","Apple SD Gothic Neo","Malgun Gothic",monospace;
+  touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer;border-radius:0}
+button:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+#game{position:fixed;inset:0;overflow:hidden;background:var(--lcd)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
+#chrome{position:absolute;z-index:5;inset:0;pointer-events:none}
+#mute{
+  pointer-events:auto;position:absolute;right:10px;top:max(8px,env(safe-area-inset-top));
+  width:48px;height:48px;border:2px solid var(--ink);background:var(--ink);color:var(--lcd);
+  font-size:18px;letter-spacing:.04em
+}
+#undo{
+  pointer-events:auto;position:absolute;left:10px;bottom:max(12px,env(safe-area-inset-bottom));
+  min-width:120px;height:48px;border:2px solid var(--ink);background:var(--cream);color:var(--ink);
+  font-weight:800;font-size:14px;letter-spacing:.06em;display:none
+}
+#undo.show{display:block}
+#undo:active{transform:translateY(1px)}
+#prompt{
+  position:absolute;left:10px;right:62px;top:max(8px,env(safe-area-inset-top));
+  min-height:52px;padding:8px 10px;border:2px solid var(--ink);background:var(--lcd);
+  font-weight:800;font-size:clamp(15px,4.2vw,20px);line-height:1.25;letter-spacing:.02em;
+  pointer-events:none
+}
+#prompt b{font-size:1.15em}
+#failLine{
+  position:absolute;left:10px;right:10px;bottom:max(66px,calc(env(safe-area-inset-bottom) + 54px));
+  min-height:0;padding:0 8px;color:var(--miss);font-weight:800;font-size:14px;letter-spacing:.02em;
+  text-align:center;pointer-events:none;opacity:0
+}
+#failLine.show{opacity:1}
+
+#title{position:fixed;z-index:20;inset:0;overflow:hidden;background:#1a1e14}
+.title-art{position:absolute;inset:-4%;width:108%;height:108%;object-fit:cover;object-position:center 72%;
+  animation:ken 20s ease-in-out infinite alternate}
+.title-fallback{position:absolute;inset:0;display:none;background:linear-gradient(180deg,#2C3324,#C8D4A4 40%,#9AA87A)}
+.title-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(44,51,36,.55) 0%,transparent 34%,rgba(44,51,36,.28) 100%);
+  pointer-events:none}
+.title-scan{position:absolute;left:8%;right:8%;height:3px;background:var(--steel);opacity:.55;animation:scanY 7s linear infinite;pointer-events:none}
+.title-bits{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.title-bits i{position:absolute;width:8px;height:8px;background:#2C3324;opacity:.22;animation:bit 6s steps(4) infinite}
+.title-ui{position:relative;z-index:3;width:min(100vw,640px);height:100%;margin-inline:auto;
+  padding-inline:clamp(16px,5vw,32px);pointer-events:none}
+.logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;display:flex;justify-content:center;gap:.02em;
+  font-family:"LogoBlackHan","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-weight:400;
+  font-size:clamp(52px,16vw,84px);line-height:.9;color:var(--cream);
+  -webkit-text-stroke:4px var(--ink);paint-order:stroke fill;letter-spacing:-.06em}
+.game-logo span{display:inline-block;animation:lcdOn .55s steps(2) both}
+.game-logo span:nth-child(1){transform:translateY(0);animation-delay:0s}
+.game-logo span:nth-child(2){transform:translateY(.16em);animation-delay:.07s}
+.game-logo span:nth-child(3){transform:translateY(.32em);animation-delay:.14s}
+.game-logo span:nth-child(4){transform:translateY(.48em);animation-delay:.21s}
+.game-sub{margin-top:58px;font-family:"LogoBlackHan","Apple SD Gothic Neo",sans-serif;font-size:clamp(16px,4.4vw,22px);
+  color:var(--ink);background:var(--lcd);border:2px solid var(--ink);padding:6px 12px;letter-spacing:.12em}
+.cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+.meta-row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.bezel-tag{border:2px solid var(--cream);color:var(--cream);background:transparent;padding:4px 8px;font-size:11px;font-weight:800;letter-spacing:.08em}
+#best{min-height:28px;color:var(--cream);font-size:12px;font-weight:800;letter-spacing:.08em}
+#start{
+  width:min(100%,420px);height:68px;border:2px solid var(--cream);background:var(--ink);color:var(--lcd);
+  font-size:22px;font-weight:800;letter-spacing:.18em;animation:ctaPulse 1.6s steps(2) infinite
+}
+#start:active{transform:scale(.97) translateY(1px);animation:none}
+#how,#hard{min-height:44px;border:0;background:transparent;color:var(--cream);text-decoration:underline;
+  text-underline-offset:3px;font-weight:800;font-size:14px;letter-spacing:.06em}
+#titleMute{position:absolute;z-index:4;right:12px;top:max(10px,env(safe-area-inset-top));
+  width:48px;height:48px;border:2px solid var(--cream);background:var(--ink);color:var(--lcd);font-size:16px}
+
+#help,#onboard,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(44,51,36,.72)}
+#help.show,#onboard.show,#result.show{display:grid}
+.lcd-panel{width:min(88vw,480px);padding:22px 18px 18px;background:var(--lcd);border:2px solid var(--ink);color:var(--ink)}
+.lcd-panel h2{margin:0 0 12px;font-size:22px;letter-spacing:.12em}
+.lcd-panel p{font-weight:800;line-height:1.45;margin:0 0 10px;font-size:15px}
+.lcd-panel .step{font-size:12px;letter-spacing:.16em;margin-bottom:8px}
+.lcd-panel button{width:100%;height:56px;border:2px solid var(--ink);background:var(--ink);color:var(--lcd);
+  font-weight:800;font-size:18px;letter-spacing:.12em;margin-top:8px}
+.lcd-panel button:active{transform:translateY(1px)}
+.result-score{font-size:56px;font-weight:800;letter-spacing:.08em;text-align:center;margin:8px 0 4px}
+.result-sub{text-align:center;font-weight:800;margin-bottom:12px}
+
+html.ingame #title,#title.gone{display:none!important;visibility:hidden!important;pointer-events:none!important}
+html.land #prompt{left:calc(var(--stageX) + 12px);right:auto;width:calc(var(--stageW) * .56);top:max(10px,env(safe-area-inset-top))}
+html.land #mute{right:auto;left:calc(var(--stageX) + var(--stageW) - 58px)}
+html.land #undo{left:calc(var(--stageX) + var(--stageW) * .58);bottom:max(16px,env(safe-area-inset-bottom))}
+html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(100% - var(--stageX) - var(--stageW) + 10px);bottom:max(72px,calc(env(safe-area-inset-bottom) + 60px))}
+
+@keyframes ken{to{transform:scale(1.06) translateY(-1.2%)}}
+@keyframes scanY{from{top:12%}to{top:86%}}
+@keyframes bit{50%{opacity:.05;transform:translateY(6px)}}
+@keyframes lcdOn{0%{opacity:.12}45%{opacity:1}60%{opacity:.4}100%{opacity:1}}
+@keyframes ctaPulse{50%{transform:scale(1.03);background:#3a4330}}
+@media (min-width:641px){
+  .logo-zone{left:24px;right:24px}
+  .cta-zone{width:min(calc(100% - 48px),520px)}
+  .game-logo{font-size:84px}
+}
+@media (max-height:700px){
+  .logo-zone{top:max(38px,5dvh);min-height:150px}
+  .game-logo{font-size:clamp(44px,14vw,64px)}
+  .game-sub{margin-top:42px}
+}
+@media (prefers-reduced-motion:reduce){
+  .title-art{animation-duration:60s}
+  .game-logo span{animation-duration:.2s}
+  #start{animation-duration:4s}
+  .title-scan{animation:none;top:42%}
+}
+</style>
+</head>
+<body>
+<div id="game">
+  <canvas id="cv" aria-label="층수켜기 우물 스캐너"></canvas>
+  <div id="chrome">
+    <div id="prompt">우물 스캐너가 멈췄어. 층이 잠기기 전에 칸을 켜 줘!</div>
+    <button id="mute" aria-label="소리 끄기">♪</button>
+    <button id="undo" aria-label="이 층 되돌리기">되돌리기</button>
+    <div id="failLine"></div>
+  </div>
+</div>
+
+<section id="title" aria-label="층수켜기 타이틀 화면">
+  <img class="title-art" src="./assets/title.png" alt=""
+    onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+  <div class="title-fallback"></div>
+  <div class="title-shade"></div>
+  <div class="title-scan"></div>
+  <div class="title-bits" id="titleBits"></div>
+  <button id="titleMute" aria-label="소리 끄기">♪</button>
+  <div class="title-ui">
+    <div class="logo-zone">
+      <h1 class="game-logo" aria-label="층수켜기">
+        <span aria-hidden="true">층</span>
+        <span aria-hidden="true">수</span>
+        <span aria-hidden="true">켜</span>
+        <span aria-hidden="true">기</span>
+      </h1>
+      <div class="game-sub">잠기기 전에 켜</div>
+    </div>
+    <div class="cta-zone">
+      <div class="meta-row">
+        <span class="bezel-tag">6학년 2학기</span>
+        <span class="bezel-tag">공간과 입체</span>
+      </div>
+      <div id="best"></div>
+      <button id="start">스캐너 켜기</button>
+      <div class="meta-row">
+        <button id="how">어떻게 놀아요?</button>
+        <button id="hard">어려움</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="help">
+  <div class="lcd-panel">
+    <div class="step">안내</div>
+    <h2>우물을 켜요</h2>
+    <p>1. 스캔 막대가 머무는 층의 칸만 켜고 끄세요.</p>
+    <p>2. 가려진 칸도 그 층에 있으면 켭니다. 아래가 꺼져 있으면 위층은 켜지지 않아요.</p>
+    <p>3. 위에서 본 모양은 위쪽이 앞쪽이고, 오른쪽에서 본 모양은 앞쪽이 왼쪽입니다. 미쓰가 세 번이면 우물이 닫혀요.</p>
+    <button id="closeHelp">해볼게요</button>
+  </div>
+</div>
+<div id="onboard">
+  <div class="lcd-panel">
+    <div class="step" id="obStep">1/3</div>
+    <h2 id="obTitle">지금 층만</h2>
+    <p id="obBody">스캔 막대가 머무는 층의 3×3 칸만 손가락으로 켜고 끄세요.</p>
+    <button id="obNext">다음</button>
+  </div>
+</div>
+<div id="result">
+  <div class="lcd-panel">
+    <div class="step" id="resKicker">스캔 종료</div>
+    <h2 id="resTitle">우물이 닫혔어요</h2>
+    <div class="result-score" id="resScore">0</div>
+    <div class="result-sub" id="resSub"></div>
+    <button id="again">다시 켜기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ── expression traps (6-2 쌓기나무) ──
+ * - 발문은 익힘책 지시형(~해 보세요)만.
+ * - 높이표 첫 줄(z=0)이 앞쪽. 위·옆 그림도 같은 변환만 쓴다.
+ * - '오른쪽에서 본 모양'은 앞쪽(z=0)이 그림의 왼쪽. 변환은 rightOf() 하나.
+ * - 간단한 모양: 격자 ≤3×3, 높이 ≤3, 칸 수 ≤12. 각뿔·원뿔 전개도 없음.
+ * - 어림 표현·이상/이하 경계는 이 단원 해당 없음.
+ * - 「○의 자리에서」 어림 금지 (받아올림과 혼동). */
+const FRONT_ROW = '첫 줄이 앞쪽';
+const RIGHT_AS_LEFT = '앞쪽이 왼쪽';
+
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d', { alpha: false });
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PAL = { lcd:'#C8D4A4', ink:'#2C3324', miss:'#E25B4A', steel:'#5B7F8A', cream:'#F4F0D8', ghost:'#9AA87A', dim:'#B7C392' };
+const LS_BEST = 'layer-lit:best', LS_ONB = 'onboardingSeen:layer-lit', LS_MUTE = 'layer-lit:muted';
+const LS_STAMP = 'layer-lit:stamps', LS_TODAY = 'layer-lit:today';
+const WELLS = [
+  { id:'plant', title:'발전소', lesson:2 },
+  { id:'hall', title:'시청', lesson:3 },
+  { id:'garden', title:'식물원', lesson:4 },
+  { id:'hotel', title:'호텔', lesson:5 }
+];
+const SESSION = 90;
+
+const SEG7 = {0:0x3F,1:0x06,2:0x5B,3:0x4F,4:0x66,5:0x6D,6:0x7D,7:0x07,8:0x7F,9:0x6F};
+const G5 = {
+  '0':[0x0E,0x11,0x13,0x15,0x19,0x11,0x0E],
+  '1':[0x04,0x0C,0x04,0x04,0x04,0x04,0x0E],
+  '2':[0x0E,0x11,0x01,0x06,0x08,0x10,0x1F],
+  '3':[0x0E,0x11,0x01,0x06,0x01,0x11,0x0E],
+  '4':[0x02,0x06,0x0A,0x12,0x1F,0x02,0x02],
+  '5':[0x1F,0x10,0x1E,0x01,0x01,0x11,0x0E],
+  '6':[0x06,0x08,0x10,0x1E,0x11,0x11,0x0E],
+  '7':[0x1F,0x01,0x02,0x04,0x08,0x08,0x08],
+  '8':[0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E],
+  '9':[0x0E,0x11,0x11,0x0F,0x01,0x02,0x0C],
+  ' ':[0,0,0,0,0,0,0],
+  '-':[0,0,0,0x1F,0,0,0],
+  'X':[0x11,0x0A,0x04,0x04,0x04,0x0A,0x11],
+  '+':[0x04,0x04,0x04,0x1F,0x04,0x04,0x04],
+  'x':[0x00,0x11,0x0A,0x04,0x0A,0x11,0x00]
+};
+
+function cloneH(H){ return H.map(r => r.slice()); }
+function zeros(n){ return Array.from({length:n}, () => Array(n).fill(0)); }
+function sumH(H){ let s=0; for (const r of H) for (const v of r) s+=v; return s; }
+function maxH(H){ let m=0; for (const r of H) for (const v of r) if (v>m) m=v; return m; }
+function occCount(H){ let c=0; for (const r of H) for (const v of r) if (v>0) c++; return c; }
+function eqGrid(a,b){
+  if (!a || !b || a.length!==b.length) return false;
+  for (let z=0;z<a.length;z++) for (let x=0;x<a.length;x++) if (a[z][x]!==b[z][x]) return false;
+  return true;
+}
+function eqArr(a,b){
+  if (!a || !b || a.length!==b.length) return false;
+  for (let i=0;i<a.length;i++) if (a[i]!==b[i]) return false;
+  return true;
+}
+function gridOn(G){ let c=0; for (const r of G) for (const v of r) c+=v; return c; }
+function occupancy(H){ return H.map(r => r.map(v => v>0?1:0)); }
+function fmtGrid(H){ return H.map(r => r.join(' ')).join(' / '); }
+function packArr(a){ let n=0, p=1; for (let i=0;i<a.length;i++){ n+=a[i]*p; p*=4; } return n; }
+function layerMask(L){ let m=0, n=L.length; for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (L[z][x]) m|=1<<(z*n+x); return m; }
+function fmtCells(L){
+  const n=L.length, out=[];
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (L[z][x]) out.push(`(${z},${x})`);
+  return out.length ? out.join('') : '(없음)';
+}
+
+/* rightOf: 오른쪽에서 본 높이. 화면에서 앞쪽 z=0 이 왼쪽. 이 함수만 쓴다. */
+function frontOf(H){
+  const n=H.length, F=Array(n).fill(0);
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (H[z][x]>F[x]) F[x]=H[z][x];
+  return F;
+}
+function rightOf(H){
+  const n=H.length, R=Array(n).fill(0);
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (H[z][x]>R[z]) R[z]=H[z][x];
+  return R;
+}
+function layerOf(H,y){ return H.map(r => r.map(h => h>=y?1:0)); }
+function heightFromLayers(layers,n){
+  const H=zeros(n);
+  for (let y=0;y<layers.length;y++){
+    const L=layers[y]; if (!L) continue;
+    for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (L[z][x]) H[z][x]=y+1;
+  }
+  return H;
+}
+
+/* 앞-오른쪽 아이소에서 가려지는 칸: 바로 앞(z-1)·오른쪽(x+1)·대각. */
+function isHidden(H,z,x,y){
+  if (H[z][x]<y) return false;
+  const n=H.length;
+  if (z>0 && H[z-1][x]>=y) return true;
+  if (x+1<n && H[z][x+1]>=y) return true;
+  if (z>0 && x+1<n && H[z-1][x+1]>=y) return true;
+  return false;
+}
+function countHidden(H){
+  let c=0, n=H.length;
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++)
+    for (let y=1;y<=H[z][x];y++) if (isHidden(H,z,x,y)) c++;
+  return c;
+}
+function visibleCount(H){ return sumH(H)-countHidden(H); }
+function isSolidBox(H){
+  const m=maxH(H); if (m===0) return true;
+  for (const r of H) for (const v of r) if (v!==m) return false;
+  return true;
+}
+function layerCountsOk(H, minOn, maxOn, full){
+  const m=maxH(H);
+  for (let y=1;y<=m;y++){
+    const c=gridOn(layerOf(H,y));
+    if (c<minOn || c>maxOn || c===full) return false;
+  }
+  return true;
+}
+
+function enumNxN(n, hMax, sumMin, sumMax, minOn, maxOn){
+  const out=[], H=zeros(n), cells=n*n, full=n*n;
+  function rec(i){
+    if (i===cells){
+      const s=sumH(H), m=maxH(H);
+      if (s>=sumMin && s<=sumMax && m>=1 && m<=hMax && !isSolidBox(H) && layerCountsOk(H,minOn,maxOn,full))
+        out.push(cloneH(H));
+      return;
+    }
+    const z=(i/n)|0, x=i%n;
+    for (let h=0;h<=hMax;h++){ H[z][x]=h; rec(i+1); }
+  }
+  rec(0);
+  return out;
+}
+
+const POOL2 = enumNxN(2, 2, 3, 6, 1, 3).filter(H => maxH(H)===2);
+const POOL2H = POOL2.filter(H => countHidden(H)>=1);
+const POOL3 = [];
+const MINMAX = [];
+{
+  /* extrema: every 0..3 height map. Difficulty cap applied only after true max. */
+  const groups=new Map();
+  const H=zeros(3), cells=9;
+  function rec(i){
+    if (i===cells){
+      const s=sumH(H), m=maxH(H);
+      if (m>=1){
+        const T=occupancy(H), F=frontOf(H), R=rightOf(H);
+        const key=T.flat().join('')+'|'+F.join(',')+'|'+R.join(',');
+        let g=groups.get(key);
+        if (!g){
+          g={ T:T.map(r=>r.slice()), F:F.slice(), R:R.slice(), minSum:s, maxSum:s, minH:cloneH(H), maxH:cloneH(H) };
+          groups.set(key,g);
+        } else {
+          if (s<g.minSum){ g.minSum=s; g.minH=cloneH(H); }
+          if (s>g.maxSum){ g.maxSum=s; g.maxH=cloneH(H); }
+        }
+      }
+      if (s>=4 && s<=12 && m>=1 && m<=3 && !isSolidBox(H) && layerCountsOk(H,1,8,9))
+        POOL3.push(cloneH(H));
+      return;
+    }
+    const z=(i/3)|0, x=i%3;
+    for (let h=0;h<=3;h++){ H[z][x]=h; rec(i+1); }
+  }
+  rec(0);
+  for (const g of groups.values()){
+    if (g.minSum!==g.maxSum && g.maxSum<=12 && g.minSum>=4)
+      MINMAX.push(g);
+  }
+}
+const POOL3H = POOL3.filter(H => countHidden(H)>=1);
+const POOL3_3 = POOL3.filter(H => maxH(H)===3);
+
+function pick(arr, rng){
+  if (!arr.length) return null;
+  return arr[(rng()*arr.length)|0];
+}
+function rngFn(seed){
+  let s = (seed>>>0) || 1;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+function wrapSolid(H, extra){
+  const n=H.length, floors=maxH(H);
+  const layers=[];
+  for (let y=1;y<=floors;y++) layers.push(layerOf(H,y));
+  return Object.assign({
+    H:cloneH(H), n, floors, layers,
+    F:frontOf(H), R:rightOf(H), sum:sumH(H),
+    hidden:countHidden(H), vis:visibleCount(H),
+    top:cloneH(H)
+  }, extra);
+}
+
+function makeErrorStart(H, y, kind){
+  const L=layerOf(H,y), n=H.length;
+  if (kind==='hidden-omit'){
+    /* 오개념: 보이는 칸만 켠다 */
+    const G=L.map((row,z)=>row.map((v,x)=>(v && !isHidden(H,z,x,y))?1:0));
+    return eqGrid(G,L)?null:G;
+  }
+  if (kind==='layer-union'){
+    /* 오개념: 층 카드를 겹쳐 합집합으로 켠다 → 1층 점유를 위층에 그대로 */
+    if (y===1) return null;
+    const G=layerOf(H,1);
+    return eqGrid(G,L)?null:G;
+  }
+  if (kind==='side-flip'){
+    /* 오개념: 옆모양 좌우를 뒤집어 켠다 */
+    const G=L.map(row => row.slice().reverse());
+    return eqGrid(G,L)?null:G;
+  }
+  return null;
+}
+function pickErrorStart(H, kind){
+  if (!H) return null;
+  const m=maxH(H);
+  for (let y=1;y<=m;y++){
+    const st=makeErrorStart(H,y,kind);
+    if (st) return { startPaint:st, errorY:y };
+  }
+  return null;
+}
+function paintDiff(start, need){
+  let on=0, off=0;
+  const n=need.length;
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++){
+    const s=start && start[z] ? (start[z][x]|0) : 0;
+    const g=need[z][x]|0;
+    if (!s && g) on++;
+    if (s && !g) off++;
+  }
+  return { on, off };
+}
+
+function makeDeck(hard, rng){
+  const deck=[];
+  function add(H, meta){
+    if (!H) return;
+    deck.push(wrapSolid(H, meta));
+  }
+  const p2h = POOL2H.length?POOL2H:POOL2;
+  add(cloneH(pick(p2h, rng)), { well:0, kind:'construct', unitConcept:'쌓기나무의 개수 세기', promptKind:'iso' });
+  {
+    const src = POOL2H.length?POOL2H:POOL2;
+    const cands = src.filter(H => pickErrorStart(H,'hidden-omit'));
+    if (cands.length){
+      const H=cloneH(pick(cands, rng));
+      const err=pickErrorStart(H,'hidden-omit');
+      add(H, { well:0, kind:'error-find', errorY:err.errorY, errorKind:'hidden-omit',
+        startPaint:err.startPaint, unitConcept:'쌓기나무의 개수 세기', promptKind:'iso', misconceptionId:'hidden-omit' });
+    }
+  }
+  add(cloneH(pick(POOL3H.length?POOL3H:POOL3, rng)), { well:1, kind:'construct', unitConcept:'위, 앞, 옆에서 본 모양', promptKind:'sil' });
+  {
+    const cands=POOL3.filter(H => pickErrorStart(H,'side-flip'));
+    if (cands.length){
+      const H=cloneH(pick(cands, rng));
+      const err=pickErrorStart(H,'side-flip');
+      add(H, { well:1, kind:'error-find', errorY:err.errorY, errorKind:'side-flip',
+        startPaint:err.startPaint, unitConcept:'옆에서 본 모양', promptKind:'sil', misconceptionId:'side-flip' });
+    }
+  }
+  add(cloneH(pick(POOL3_3.length?POOL3_3:POOL3, rng)), { well:2, kind:'topnum', unitConcept:'위에서 본 모양에 수 써서 나타내기', promptKind:'top' });
+  {
+    const src=POOL3_3.length?POOL3_3:POOL3;
+    const cands=src.filter(H => makeErrorStart(H,2,'layer-union'));
+    if (cands.length){
+      const H=cloneH(pick(cands, rng));
+      add(H, { well:3, kind:'layers', unitConcept:'층별로 나타낸 모양', promptKind:'cards',
+        errorY:2, errorKind:'layer-union', misconceptionId:'layer-union' });
+    } else {
+      add(cloneH(pick(src, rng)), { well:3, kind:'layers', unitConcept:'층별로 나타낸 모양', promptKind:'cards' });
+    }
+  }
+  if (MINMAX.length){
+    const mm=pick(MINMAX, rng);
+    add(cloneH(mm.minH), { well:3, kind:'min', unitConcept:'쌓기나무 개수의 최소와 최대', promptKind:'minmax',
+      minSum:mm.minSum, maxSum:mm.maxSum, F:mm.F.slice(), R:mm.R.slice(), T:mm.T.map(r=>r.slice()), misconceptionId:'unique-stack' });
+    add(cloneH(mm.maxH), { well:3, kind:'max', unitConcept:'쌓기나무 개수의 최소와 최대', promptKind:'minmax',
+      minSum:mm.minSum, maxSum:mm.maxSum, F:mm.F.slice(), R:mm.R.slice(), T:mm.T.map(r=>r.slice()), misconceptionId:'unique-stack' });
+  }
+  return deck;
+}
+
+function choiceKind(v){
+  v=String(v);
+  if (v==='(없음)' || /^\(\d+,\d+\)(\(\d+,\d+\))*$/.test(v)) return 'cells';
+  if (/^\d+$/.test(v)) return 'num';
+  if (/^\d+(,\d+)+$/.test(v)) return 'vec';
+  return 'bad';
+}
+function finishChoices(answer, raws){
+  const ans=String(answer);
+  const kind=choiceKind(ans);
+  if (kind==='bad') return null;
+  const seen=new Set([ans]);
+  const kept=[];
+  for (const r of raws){
+    const v=String(r.value);
+    if (choiceKind(v)!==kind) continue;
+    if (seen.has(v) || v==='' || v==='undefined' || v==='NaN') continue;
+    seen.add(v);
+    kept.push({ value:v, misconceptionId:r.misconceptionId||'hidden-omit' });
+  }
+  if (kept.length<2) return null;
+  const d=kept.slice(0,3);
+  if (d.length<2) return null;
+  const choices=[ans, ...d.map(x=>x.value)];
+  for (let i=choices.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [choices[i],choices[j]]=[choices[j],choices[i]]; }
+  return { choices, distractors:d };
+}
+
+function countMiscons(H){
+  const s=sumH(H), vis=visibleCount(H), occ=occCount(H), m=maxH(H);
+  const fSum=frontOf(H).reduce((a,b)=>a+b,0);
+  const rSum=rightOf(H).reduce((a,b)=>a+b,0);
+  return [
+    { value:String(vis), misconceptionId:'hidden-omit' },
+    { value:String(occ), misconceptionId:'top-as-index' },
+    { value:String(m), misconceptionId:'top-as-index' },
+    { value:String(fSum), misconceptionId:'hidden-omit' },
+    { value:String(rSum), misconceptionId:'side-flip' },
+    { value:String(Math.max(0,s-1)), misconceptionId:'hidden-omit' },
+    { value:String(occ*m), misconceptionId:'unique-stack' },
+    { value:String(H.length*H.length), misconceptionId:'layer-union' }
+  ];
+}
+function minmaxMiscons(mm, which){
+  const occ=mm.T.flat().reduce((a,b)=>a+b,0);
+  const fSum=mm.F.reduce((a,b)=>a+b,0);
+  const rSum=mm.R.reduce((a,b)=>a+b,0);
+  const cap=Math.max(...mm.F, ...mm.R);
+  const other=which==='min'?mm.maxSum:mm.minSum;
+  const ans=which==='min'?mm.minSum:mm.maxSum;
+  return [
+    { value:String(other), misconceptionId:'unique-stack' },
+    { value:String(occ), misconceptionId:'top-as-index' },
+    { value:String(fSum), misconceptionId:'hidden-omit' },
+    { value:String(rSum), misconceptionId:'side-flip' },
+    { value:String(cap), misconceptionId:'top-as-index' },
+    { value:String(occ*cap), misconceptionId:'unique-stack' },
+    { value:String(Math.max(0, ans+(which==='min'?1:-1))), misconceptionId:'hidden-omit' }
+  ];
+}
+
+function sampleProblems(n){
+  n=Math.max(20, n|0);
+  const out=[];
+  const src3=POOL3.length?POOL3:[[[1,2,0],[0,2,1],[1,0,1]]];
+  const src2=POOL2.length?POOL2:[[[2,1],[1,0]]];
+  let i=0, guard=0;
+  while (out.length<n && guard<n*80){
+    guard++;
+    const band=out.length%6;
+    const H=cloneH((band===0?src2:src3)[i % (band===0?src2:src3).length]);
+    i++;
+    const nG=H.length, F=frontOf(H), R=rightOf(H), s=sumH(H);
+    const idx=out.length;
+    let item=null;
+    if (band===0){
+      const L1=layerOf(H,1);
+      const visOnly=L1.map((row,z)=>row.map((v,x)=>(v && !isHidden(H,z,x,1))?1:0));
+      const flipX=L1.map(r=>r.slice().reverse());
+      const flipZ=L1.slice().reverse().map(r=>r.slice());
+      const backOff=L1.map((row,z)=> z===nG-1 ? row.map(()=>0) : row.slice());
+      const frontOnly=L1.map((row,z)=> z===0 ? row.slice() : row.map(()=>0));
+      const pack=finishChoices(fmtCells(L1), [
+        { value:fmtCells(visOnly), misconceptionId:'hidden-omit' },
+        { value:fmtCells(eqGrid(flipX,L1)?flipZ:flipX), misconceptionId:'side-flip' },
+        { value:fmtCells(backOff), misconceptionId:'hidden-omit' },
+        { value:fmtCells(frontOnly), misconceptionId:'hidden-omit' }
+      ]);
+      if (pack) item={ id:'L1-'+idx, prompt:`쌓기나무 높이입니다(${FRONT_ROW}). ${fmtGrid(H)}. 1층에서 켜야 할 칸(행,열 · 0행이 앞줄, 0열이 왼쪽)을 골라 보세요.`,
+        choices:pack.choices, answer:fmtCells(L1), answerNumeric:layerMask(L1), unitConcept:'층별로 나타낸 모양',
+        heightMap:H, distractors:pack.distractors };
+    } else if (band===1){
+      const pack=finishChoices(String(s), countMiscons(H));
+      if (pack) item={ id:'CNT-'+idx, prompt:`위에서 본 모양의 각 칸에 쓴 수입니다(${FRONT_ROW}). ${fmtGrid(H)}. 쌓기나무는 모두 몇 개인지 구해 보세요.`,
+        choices:pack.choices, answer:String(s), answerNumeric:s, unitConcept:'위에서 본 모양에 수 써서 나타내기',
+        heightMap:H, distractors:pack.distractors };
+    } else if (band===2){
+      const ans=F.join(',');
+      const pack=finishChoices(ans, [
+        { value:R.join(','), misconceptionId:'side-flip' },
+        { value:F.slice().reverse().join(','), misconceptionId:'side-flip' },
+        { value:H[0].join(','), misconceptionId:'layer-union' },
+        { value:H[nG-1].join(','), misconceptionId:'hidden-omit' }
+      ]);
+      if (pack) item={ id:'FR-'+idx, prompt:`위에서 본 모양의 각 칸에 쓴 수입니다(${FRONT_ROW}). ${fmtGrid(H)}. 앞에서 본 높이(왼쪽부터)를 구해 보세요.`,
+        choices:pack.choices, answer:ans, answerNumeric:packArr(F), unitConcept:'앞에서 본 모양', heightMap:H, distractors:pack.distractors };
+    } else if (band===3){
+      const ans=R.join(',');
+      const pack=finishChoices(ans, [
+        { value:R.slice().reverse().join(','), misconceptionId:'side-flip' },
+        { value:F.join(','), misconceptionId:'side-flip' },
+        { value:H.map(r=>r[nG-1]).join(','), misconceptionId:'layer-union' },
+        { value:H.map(r=>r[0]).join(','), misconceptionId:'hidden-omit' }
+      ]);
+      if (pack) item={ id:'RT-'+idx, prompt:`위에서 본 모양의 각 칸에 쓴 수입니다(${FRONT_ROW}). ${fmtGrid(H)}. 오른쪽에서 본 높이(${RIGHT_AS_LEFT})를 구해 보세요.`,
+        choices:pack.choices, answer:ans, answerNumeric:packArr(R), unitConcept:'옆에서 본 모양', heightMap:H, distractors:pack.distractors };
+    } else if (band===4){
+      const mm = MINMAX.length ? MINMAX[i % MINMAX.length] : null;
+      if (mm){
+        const pack=finishChoices(String(mm.minSum), minmaxMiscons(mm,'min'));
+        if (pack) item={ id:'MIN-'+idx, prompt:`위에서 본 모양(${FRONT_ROW}) ${fmtGrid(mm.T)}, 앞에서 본 높이(왼쪽부터) ${mm.F.join(',')}, 오른쪽에서 본 높이(${RIGHT_AS_LEFT}) ${mm.R.join(',')} 일 때 쌓기나무 개수의 최솟값을 구해 보세요.`,
+          choices:pack.choices, answer:String(mm.minSum), answerNumeric:mm.minSum, unitConcept:'쌓기나무 개수의 최소와 최대', distractors:pack.distractors };
+      }
+    } else {
+      const mm = MINMAX.length ? MINMAX[i % MINMAX.length] : null;
+      if (mm){
+        const pack=finishChoices(String(mm.maxSum), minmaxMiscons(mm,'max'));
+        if (pack) item={ id:'MAX-'+idx, prompt:`위에서 본 모양(${FRONT_ROW}) ${fmtGrid(mm.T)}, 앞에서 본 높이(왼쪽부터) ${mm.F.join(',')}, 오른쪽에서 본 높이(${RIGHT_AS_LEFT}) ${mm.R.join(',')} 일 때 쌓기나무 개수의 최댓값을 구해 보세요.`,
+          choices:pack.choices, answer:String(mm.maxSum), answerNumeric:mm.maxSum, unitConcept:'쌓기나무 개수의 최소와 최대', distractors:pack.distractors };
+      }
+    }
+    if (item) out.push(item);
+  }
+  return out;
+}
+
+/* ── audio ── */
+let AC=null, muted=localStorage.getItem(LS_MUTE)==='1';
+function unlockAudio(){
+  try{
+    if (!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    if (AC.state==='suspended') AC.resume();
+  }catch(e){}
+}
+function beep(freq, dur, type, vol){
+  if (muted || !AC) return;
+  try{
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type||'square';
+    o.frequency.value=freq;
+    g.gain.value=vol||0.05;
+    g.gain.exponentialRampToValueAtTime(0.0008, AC.currentTime+dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+function syncMute(){
+  const t=muted?'×':'♪';
+  $('#mute').textContent=t; $('#titleMute').textContent=t;
+  $('#mute').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
+}
+function toggleMute(){
+  unlockAudio(); muted=!muted;
+  localStorage.setItem(LS_MUTE, muted?'1':'0');
+  syncMute(); if (!muted) beep(880,.06,'square',.04);
+}
+
+/* ── images ── */
+const IM={ brick:null, miss:null };
+function loadImg(src, key){
+  const im=new Image();
+  im.onload=()=>{
+    if (key==='brick'){
+      const c=document.createElement('canvas'); c.width=im.width; c.height=im.height;
+      const g=c.getContext('2d'); g.drawImage(im,0,0);
+      const d=g.getImageData(0,0,c.width,c.height);
+      for (let i=0;i<d.data.length;i+=4) if (d.data[i]>248 && d.data[i+1]>248 && d.data[i+2]>248) d.data[i+3]=0;
+      g.putImageData(d,0,0); IM.brick=c;
+    } else IM[key]=im;
+  };
+  im.onerror=()=>{ IM[key]=null; };
+  im.src=src;
+}
+loadImg('./assets/lcd-brick.png','brick');
+loadImg('./assets/miss-mark.png','miss');
+
+/* ── state ── */
+const S={
+  phase:'title', hard:false, land:false, stageW:0, stageX:0,
+  W:0, H:0, dpr:1,
+  score:0, showScore:0, lives:3, level:1, solved:0, combo:0,
+  miss:0, time:SESSION, runT:0,
+  deck:[], di:0, solid:null,
+  floorY:1, paint:null, paint0:null, locked:[],
+  scanPhase:'approach', scanT:0, dwell:4,
+  undoLeft:1, cursor:{z:0,x:0},
+  dragOn:false, dragVal:0, ptr:null,
+  freeze:0, flash:0, missFlash:0, ghostT:0, wow:null, punch:0,
+  failMsg:'', failT:0, brokenView:null,
+  lamps:0, stamps:{plant:false,hall:false,garden:false,hotel:false},
+  wellPerfect:true, floorInteracted:false,
+  trail:[],
+  cellRects:[],
+  stim:null, well:null,
+  timeScale:1
+};
+try{
+  const st=JSON.parse(localStorage.getItem(LS_STAMP)||'{}');
+  if (st && typeof st==='object') S.stamps=Object.assign(S.stamps, st);
+}catch(e){}
+
+function bestScore(){ return Number(localStorage.getItem(LS_BEST)||0)|0; }
+function saveBest(){
+  if (S.score>bestScore()) localStorage.setItem(LS_BEST, String(S.score));
+}
+function showBest(){
+  const b=bestScore();
+  $('#best').textContent = b ? ('최고 '+b) : '최고 기록 없음';
+}
+
+function layout(){
+  const W=innerWidth, H=innerHeight;
+  S.W=W; S.H=H;
+  S.land=(W>=H && W>=640) || W>=1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE=Math.min(W,1280), SX=Math.round((W-STAGE)/2);
+  S.stageW=STAGE; S.stageX=SX;
+  const root=document.documentElement;
+  root.style.setProperty('--stageW', STAGE+'px');
+  root.style.setProperty('--stageX', SX+'px');
+  const dpr=Math.min(devicePixelRatio||1, 1.5);
+  S.dpr=dpr;
+  cv.width=Math.floor(W*dpr); cv.height=Math.floor(H*dpr);
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.imageSmoothingEnabled=false;
+  const top=max(8, envTop())+62;
+  const bot=max(12, envBot())+ (S.hard?8:56);
+  if (S.land){
+    S.stim={ x:SX+12, y:top, w:STAGE*0.56-10, h:H-top-16 };
+    S.well={ x:SX+STAGE*0.58, y:top, w:STAGE*0.42-16, h:H-top-bot };
+  } else {
+    const mid=top + Math.max(180, (H-top-bot)*0.42);
+    S.stim={ x:10, y:top, w:W-20, h:mid-top-8 };
+    S.well={ x:10, y:mid, w:W-20, h:H-mid-bot };
+  }
+}
+function max(a,b){ return a>b?a:b; }
+function envTop(){ return parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding')||'0')||0; }
+function envBot(){ return 0; }
+
+function dwellFor(well){
+  if (S.hard) return well>=3?2.0 : well>=1?2.2 : 2.4;
+  return well>=3?3.2 : well>=1?3.6 : 4.0;
+}
+
+function promptFor(sol, y){
+  const w=WELLS[sol.well].title;
+  const conv=`위에서 본 모양은 위쪽이 앞쪽, 오른쪽에서 본 모양은 ${RIGHT_AS_LEFT}`;
+  if (sol.kind==='min') return `${w} · 위·앞·옆 모양을 지키며 가장 적게 쌓아 보세요. ${conv}.`;
+  if (sol.kind==='max') return `${w} · 위·앞·옆 모양을 지키며 가장 많게 쌓아 보세요. ${conv}.`;
+  if (sol.kind==='layers'){
+    if (y===2 && sol.errorKind==='layer-union' && makeErrorStart(sol.H,2,'layer-union'))
+      return `${w} · 1층 카드를 겹쳐 켠 칸이 있어요. 겹친 칸을 끄고 ${y}층 카드만 남기세요.`;
+    return `${w} · 지금 ${y}층 카드만 켜 보세요. 카드를 겹쳐 켜면 안 돼요.`;
+  }
+  if (sol.kind==='topnum') return `${w} · ${y}층 칸을 켜 보세요. 켜진 층 수가 꼭대기 숫자가 됩니다.`;
+  /* error-find: 시작 상태와 같은 조작만 지시. 다른 층은 일반 켜기. */
+  if (sol.kind==='error-find' && (sol.errorY||1)===y){
+    if (sol.errorKind==='hidden-omit')
+      return `${w} · ${y}층에 가려진 칸이 빠져 있어요. 빠진 칸을 켜 보세요.`;
+    if (sol.errorKind==='side-flip')
+      return `${w} · ${y}층 칸이 좌우로 뒤집혀 있어요. 켜고 꺼서 고쳐 보세요.`;
+    return `${w} · ${y}층이 잘못 켜져 있어요. 켜거나 꺼서 고쳐 보세요.`;
+  }
+  if (sol.promptKind==='sil') return `${w} · ${y}층 칸을 켜 위·앞·옆 모양을 맞춰 보세요. ${conv}.`;
+  return `${w} · ${y}층에 쌓기나무가 있는 칸을 켜 보세요. 가려진 칸도 켜요.`;
+}
+function verifyErrorFindRounds(trials){
+  trials=trials||80;
+  const fails=[];
+  let hid=0, flip=0, union=0;
+  for (let i=0;i<trials;i++){
+    const deck=makeDeck(false, rngFn(4001+i*17));
+    for (const sol of deck){
+      if (sol.kind==='error-find'){
+        const y=sol.errorY|0;
+        const need=layerOf(sol.H,y);
+        const start=sol.startPaint;
+        const d=paintDiff(start, need);
+        const p=promptFor(sol,y);
+        if (sol.errorKind==='hidden-omit'){
+          hid++;
+          if (!start) fails.push({i,kind:'hidden-omit',why:'no startPaint'});
+          else if (d.on<1) fails.push({i,kind:'hidden-omit',why:'no cells to turn on'});
+          else if (d.off!==0) fails.push({i,kind:'hidden-omit',why:'start has extras'});
+          if (!/빠진 칸을 켜/.test(p) || /꺼서 고쳐/.test(p))
+            fails.push({i,kind:'hidden-omit',why:'prompt',p});
+        } else if (sol.errorKind==='side-flip'){
+          flip++;
+          if (!start) fails.push({i,kind:'side-flip',why:'no startPaint'});
+          else if (d.on<1 || d.off<1) fails.push({i,kind:'side-flip',why:'need both on and off',d});
+          if (!/켜고 꺼서/.test(p)) fails.push({i,kind:'side-flip',why:'prompt',p});
+        }
+        for (let fy=1; fy<=sol.floors; fy++){
+          if (fy===y) continue;
+          const p2=promptFor(sol,fy);
+          if (/꺼서 고쳐|빠진 칸을 켜|켜고 꺼서/.test(p2))
+            fails.push({i,kind:sol.errorKind,why:'error prompt on other floor',fy,p2});
+        }
+      }
+      if (sol.kind==='layers' && sol.errorKind==='layer-union'){
+        const u=makeErrorStart(sol.H,2,'layer-union');
+        if (u){
+          union++;
+          const d=paintDiff(u, layerOf(sol.H,2));
+          const p=promptFor(sol,2);
+          if (d.off<1) fails.push({i,kind:'layer-union',why:'no extras to turn off'});
+          if (d.on!==0) fails.push({i,kind:'layer-union',why:'missing cells on union start'});
+          if (!/겹친 칸을 끄/.test(p)) fails.push({i,kind:'layer-union',why:'prompt',p});
+          const p1=promptFor(sol,1);
+          if (/겹친 칸을 끄/.test(p1)) fails.push({i,kind:'layer-union',why:'off prompt on floor 1',p1});
+        }
+      }
+    }
+  }
+  return { trials, hid, flip, union, fail:fails.length, fails:fails.slice(0,12) };
+}
+
+function beginSolid(){
+  if (S.di>=S.deck.length){ endRun('clear'); return; }
+  S.solid=S.deck[S.di];
+  S.level=S.solid.well+1;
+  S.floorY=1;
+  S.locked=[];
+  S.wellPerfect=true;
+  S.dwell=dwellFor(S.solid.well);
+  beginFloor();
+}
+function beginFloor(){
+  const sol=S.solid, n=sol.n, y=S.floorY;
+  let start=zeros(n);
+  if (sol.kind==='error-find' && sol.startPaint && (sol.errorY||1)===y) start=cloneH(sol.startPaint);
+  if (sol.kind==='layers' && y===2){
+    const u=makeErrorStart(sol.H,2,'layer-union');
+    if (u) start=u;
+  }
+  S.paint=start; S.paint0=cloneH(start);
+  S.scanPhase='approach'; S.scanT=0;
+  S.undoLeft=S.hard?0:1;
+  S.floorInteracted=false;
+  S.cursor={z:0,x:0};
+  $('#prompt').innerHTML = promptFor(sol,y) + ` <b>${y}층</b>`;
+  $('#undo').classList.toggle('show', S.undoLeft>0);
+  beep(220+y*40, .04, 'square', .03);
+}
+function isUniqueStack(sol){
+  return sol.kind!=='min' && sol.kind!=='max';
+}
+function belowOn(z,x,y){
+  if (y<=1) return true;
+  const L=S.locked[y-2];
+  return !!(L && L[z][x]);
+}
+function toggleCell(z,x, val){
+  const n=S.solid.n;
+  if (z<0||x<0||z>=n||x>=n) return false;
+  if (S.scanPhase!=='dwell' && S.scanPhase!=='approach') return false;
+  const want = val==null ? (S.paint[z][x]?0:1) : val;
+  if (want===1 && !belowOn(z,x,S.floorY)){
+    S.flash=0.12;
+    beep(140,.07,'square',.04);
+    return false;
+  }
+  if (S.paint[z][x]===want) return false;
+  S.paint[z][x]=want;
+  S.floorInteracted=true;
+  beep(want?620:280,.035,'square',.035);
+  return true;
+}
+function undoFloor(){
+  if (S.undoLeft<=0 || S.scanPhase==='lock' || S.scanPhase==='feedback') return;
+  S.paint=cloneH(S.paint0);
+  S.undoLeft=0;
+  $('#undo').classList.remove('show');
+  beep(300,.08,'square',.04);
+}
+
+function firstMismatch(got, need){
+  const n=got.length;
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (got[z][x]!==need[z][x]) return {z,x, got:got[z][x], need:need[z][x]};
+  return null;
+}
+function failText(sol, y, got, need){
+  const mm=firstMismatch(got, need);
+  if (!mm) return `${y}층이 잠겼어요.`;
+  const n=sol.n;
+  const layers=S.locked.concat([got]);
+  const Hp=heightFromLayers(layers, n);
+  const F=frontOf(Hp), R=rightOf(Hp);
+  let view='위모양';
+  if (F[mm.x]!==sol.F[mm.x]) view=`앞모양 ${mm.x+1}째 줄 높이가 ${F[mm.x]}`;
+  else if (R[mm.z]!==sol.R[mm.z]) view=`옆모양 ${mm.z+1}째 줄 높이가 ${R[mm.z]}`;
+  else view=`꼭대기 (${mm.z},${mm.x})`;
+  const hid=isHidden(sol.H, mm.z, mm.x, y) ? ' 가려진 칸이에요.' : '';
+  S.brokenView = F[mm.x]!==sol.F[mm.x] ? 'front' : (R[mm.z]!==sol.R[mm.z] ? 'right' : 'top');
+  return `${y}층 (${mm.z},${mm.x})가 ${mm.got?'켜':'꺼'}져 ${view}이 됐어요.${hid}`;
+}
+
+function awardCorrect(){
+  S.combo++;
+  const mul=S.combo>=2?2:1;
+  const add=100*mul;
+  S.score+=add;
+  S.solved++;
+  S.flash=0.08;
+  S.punch=1;
+  S.freeze=REDUCE?0.02:0.08;
+  S.timeScale=0.15;
+  beep(660,.07,'square',.05);
+  if (S.combo>=2){ beep(880,.09,'square',.05); beep(990,.12,'square',.04); }
+}
+function applyMiss(msg){
+  S.combo=0;
+  S.wellPerfect=false;
+  S.miss++;
+  S.lives=Math.max(0, 3-S.miss);
+  S.missFlash=1;
+  S.ghostT=1;
+  S.failMsg=msg||'층이 잠겼어요.';
+  S.failT=1.2;
+  $('#failLine').textContent=S.failMsg;
+  $('#failLine').classList.add('show');
+  beep(160,.16,'square',.07);
+  if (S.lives<=0){ endRun('miss'); return false; }
+  return true;
+}
+
+function lockFloor(forceOk, forceBad){
+  const sol=S.solid, y=S.floorY, n=sol.n;
+  const need=layerOf(sol.H,y);
+  const got=cloneH(S.paint);
+  const last=y>=sol.floors;
+  const unique=isUniqueStack(sol);
+  S.scanPhase='feedback'; S.scanT=0;
+  $('#undo').classList.remove('show');
+
+  if (forceOk){
+    S.locked[y-1]=cloneH(need);
+    awardCorrect();
+    return;
+  }
+  if (forceBad){
+    let bad=cloneH(got);
+    if (eqGrid(bad,need)){
+      for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (need[z][x]){ bad[z][x]=0; z=n; break; }
+    }
+    S.locked[y-1]=cloneH(need);
+    const alive=applyMiss(failText(sol,y,bad,need));
+    if (!alive) return;
+    return;
+  }
+
+  if (unique){
+    if (eqGrid(got, need)){
+      S.locked[y-1]=cloneH(need);
+      awardCorrect();
+    } else {
+      S.locked[y-1]=cloneH(need);
+      const alive=applyMiss(failText(sol,y,got,need));
+      if (!alive) return;
+    }
+    return;
+  }
+
+  /* min/max: 층별 대표 쌓기와 달라도, 투영·개수가 맞으면 정답 */
+  if (last){
+    S.locked[y-1]=got;
+    const Hp=heightFromLayers(S.locked, n);
+    const occOk=!sol.T || eqGrid(occupancy(Hp), sol.T);
+    const projOk=eqArr(frontOf(Hp), sol.F) && eqArr(rightOf(Hp), sol.R);
+    const sumOk=sol.kind==='min' ? sumH(Hp)===sol.minSum : sumH(Hp)===sol.maxSum;
+    if (occOk && projOk && sumOk){
+      awardCorrect();
+    } else {
+      const alive=applyMiss(sol.kind==='min'
+        ? '위·앞·옆 모양을 지키며 가장 적게 쌓지 못했어요.'
+        : '위·앞·옆 모양을 지키며 가장 많게 쌓지 못했어요.');
+      if (!alive) return;
+    }
+    return;
+  }
+  if (y===1 && sol.T){
+    if (eqGrid(got, sol.T)){
+      S.locked[y-1]=cloneH(sol.T);
+      awardCorrect();
+    } else {
+      S.locked[y-1]=cloneH(sol.T);
+      const alive=applyMiss('위에서 본 모양과 다른 칸을 켰어요.');
+      if (!alive) return;
+    }
+    return;
+  }
+  S.locked[y-1]=got;
+  S.flash=0.06;
+}
+
+function afterFeedback(){
+  const sol=S.solid;
+  if (S.lives<=0) return;
+  if (S.floorY < sol.floors){
+    S.floorY++;
+    beginFloor();
+    return;
+  }
+  if (S.wellPerfect){
+    S.lamps=Math.min(4, S.lamps+1);
+    S.wow={ t:0, H:cloneH(sol.H), n:sol.n };
+    S.freeze=REDUCE?0.03:0.08;
+    S.timeScale=0.12;
+    S.stamps[WELLS[sol.well].id]=true;
+    try{ localStorage.setItem(LS_STAMP, JSON.stringify(S.stamps)); }catch(e){}
+    beep(520,.08,'square',.05);
+    setTimeoutTone();
+  }
+  S.di++;
+  if (S.di>=S.deck.length){ endRun('clear'); return; }
+  beginSolid();
+}
+function setTimeoutTone(){
+  /* chained LCD arpeggio without setInterval */
+  beep(392,.07,'square',.04);
+}
+
+function endRun(why){
+  S.phase = why==='clear' ? 'clear' : 'gameover';
+  S.timeScale=1;
+  saveBest();
+  const kicker = why==='clear' ? '네 우물 점등' : (why==='time' ? '스캔이 끝났어요' : '우물이 닫혔어요');
+  const title = why==='clear' ? '검사등 점등' : (why==='time' ? '시간 종료' : '미쓰 세 번');
+  $('#resKicker').textContent=kicker;
+  $('#resTitle').textContent=title;
+  $('#resSub').textContent = `켠 층 ${S.solved} · 콤보 ${S.combo} · ${WELLS[Math.min(3,S.level-1)].title}`;
+  S.showScore=0;
+  $('#result').classList.add('show');
+  beep(why==='clear'?784:110, .2, 'square', .06);
+}
+
+function startGame(skipOnb, hard){
+  unlockAudio();
+  S.hard=!!hard;
+  document.documentElement.classList.add('ingame');
+  $('#title').classList.add('gone');
+  $('#result').classList.remove('show');
+  $('#help').classList.remove('show');
+  if (!skipOnb && !localStorage.getItem(LS_ONB)){
+    S.phase='onboard'; S.ob=0; showOnboard(); return;
+  }
+  actuallyStart();
+}
+function actuallyStart(){
+  S.phase='playing';
+  S.score=0; S.showScore=0; S.lives=3; S.miss=0; S.combo=0; S.solved=0;
+  S.time=SESSION; S.runT=0; S.lamps=0; S.di=0; S.wow=null;
+  S.failMsg=''; S.failT=0; S.flash=0; S.missFlash=0; S.ghostT=0; S.punch=0;
+  S.trail=[]; S.timeScale=1; S.freeze=0;
+  S.deck=makeDeck(S.hard, Math.random);
+  $('#failLine').classList.remove('show');
+  layout();
+  beginSolid();
+}
+
+const OB = [
+  { t:'지금 층만', b:'스캔 막대가 머무는 층의 칸만 손가락으로 켜고 끄세요.' },
+  { t:'가려진 칸도', b:'그림 뒤에 숨은 칸도 그 층에 있으면 켜요. 아래가 꺼져 있으면 위층은 켜지지 않아요.' },
+  { t:'미쓰 세 번', b:'틀리거나 그냥 잠기면 미쓰가 찍혀요. 세 번이면 우물이 닫힙니다. 위에서 본 모양은 위쪽이 앞쪽, 오른쪽에서 본 모양은 앞쪽이 왼쪽이에요.' }
+];
+function showOnboard(){
+  const o=OB[S.ob];
+  $('#obStep').textContent=(S.ob+1)+'/3';
+  $('#obTitle').textContent=o.t;
+  $('#obBody').textContent=o.b;
+  $('#obNext').textContent=S.ob===2?'해볼게요':'다음';
+  $('#onboard').classList.add('show');
+}
+function nextOnboard(){
+  if (S.ob<2){ S.ob++; showOnboard(); return; }
+  localStorage.setItem(LS_ONB,'1');
+  $('#onboard').classList.remove('show');
+  actuallyStart();
+}
+
+/* ── input ── */
+function cellAt(px,py){
+  const rs=S.cellRects;
+  for (const r of rs) if (px>=r.x && px<=r.x+r.s && py>=r.y && py<=r.y+r.s) return r;
+  return null;
+}
+function onDown(e){
+  if (S.phase!=='playing') return;
+  unlockAudio();
+  const x=e.clientX, y=e.clientY;
+  const c=cellAt(x,y);
+  if (!c) return;
+  S.ptr=e.pointerId;
+  try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+  const cur=S.paint[c.z][c.x];
+  const want=cur?0:1;
+  S.dragOn=true; S.dragVal=want;
+  S.cursor={z:c.z,x:c.x};
+  toggleCell(c.z,c.x,want);
+}
+function onMove(e){
+  if (!S.dragOn || S.phase!=='playing') return;
+  const c=cellAt(e.clientX,e.clientY);
+  if (!c) return;
+  S.cursor={z:c.z,x:c.x};
+  toggleCell(c.z,c.x,S.dragVal);
+}
+function onUp(){ S.dragOn=false; S.ptr=null; }
+
+cv.addEventListener('pointerdown', onDown);
+cv.addEventListener('pointermove', onMove);
+window.addEventListener('pointerup', onUp);
+window.addEventListener('pointercancel', onUp);
+
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.key==='m' || e.key==='M') { toggleMute(); return; }
+  if (S.phase==='title' && (e.key==='Enter' || e.key===' ')) { e.preventDefault(); startGame(false,false); return; }
+  if (S.phase!=='playing' || !S.solid) return;
+  const n=S.solid.n;
+  if (e.key==='ArrowLeft'){ S.cursor.x=Math.max(0,S.cursor.x-1); e.preventDefault(); }
+  else if (e.key==='ArrowRight'){ S.cursor.x=Math.min(n-1,S.cursor.x+1); e.preventDefault(); }
+  else if (e.key==='ArrowUp'){ S.cursor.z=Math.max(0,S.cursor.z-1); e.preventDefault(); }
+  else if (e.key==='ArrowDown'){ S.cursor.z=Math.min(n-1,S.cursor.z+1); e.preventDefault(); }
+  else if (e.key===' ' || e.key==='Enter'){ e.preventDefault(); toggleCell(S.cursor.z,S.cursor.x); }
+  else if ((e.key==='z'||e.key==='Z') && S.undoLeft) undoFloor();
+});
+
+$('#start').addEventListener('click', () => startGame(false,false));
+$('#hard').addEventListener('click', () => startGame(false,true));
+$('#how').addEventListener('click', () => { $('#help').classList.add('show'); });
+$('#closeHelp').addEventListener('click', () => $('#help').classList.remove('show'));
+$('#obNext').addEventListener('click', nextOnboard);
+$('#again').addEventListener('click', () => { $('#result').classList.remove('show'); startGame(true, S.hard); });
+$('#mute').addEventListener('click', toggleMute);
+$('#titleMute').addEventListener('click', toggleMute);
+$('#undo').addEventListener('click', undoFloor);
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', () => setTimeout(layout, 120));
+
+/* ── draw helpers ── */
+function drawSeg7(ctx, d, x, y, w, h, on){
+  const t=Math.max(2, w*0.16);
+  const A=d&1,B=d&2,C=d&4,D=d&8,E=d&16,F=d&32,G=d&64;
+  ctx.fillStyle=on||PAL.ink;
+  function bar(bx,by,bw,bh){ ctx.fillRect(bx|0,by|0,Math.max(1,bw|0),Math.max(1,bh|0)); }
+  if (A) bar(x+t, y, w-2*t, t);
+  if (G) bar(x+t, y+h/2-t/2, w-2*t, t);
+  if (D) bar(x+t, y+h-t, w-2*t, t);
+  if (F) bar(x, y+t, t, h/2-t-t/2);
+  if (B) bar(x+w-t, y+t, t, h/2-t-t/2);
+  if (E) bar(x, y+h/2+t/2, t, h/2-t-t/2);
+  if (C) bar(x+w-t, y+h/2+t/2, t, h/2-t-t/2);
+}
+function drawNum7(ctx, num, x, y, dw, dh, digits){
+  const s=String(Math.max(0,num|0)).padStart(digits,'0').slice(-digits);
+  for (let i=0;i<digits;i++){
+    const ch=s.charCodeAt(i)-48;
+    drawSeg7(ctx, SEG7[ch]||0, x+i*(dw+7), y, dw, dh, PAL.ink);
+  }
+}
+function drawPix5(ctx, text, x, y, sc, col){
+  ctx.fillStyle=col||PAL.ink;
+  let cx=x;
+  for (const ch of String(text)){
+    const g=G5[ch];
+    if (g){
+      for (let row=0;row<7;row++){
+        const bits=g[row];
+        for (let col=0;col<5;col++) if (bits & (1<<(4-col))) ctx.fillRect(cx+col*sc, y+row*sc, sc, sc);
+      }
+    }
+    cx += 6*sc;
+  }
+  return cx;
+}
+function drawK(ctx, text, x, y, px, col){
+  ctx.font=`800 ${Math.max(11,px|0)}px ui-monospace,"SF Mono",Menlo,"Apple SD Gothic Neo",sans-serif`;
+  ctx.fillStyle=col||PAL.ink;
+  ctx.textBaseline='top';
+  ctx.fillText(String(text), x, y);
+}
+
+function drawLcdSprite(ctx, cx, cy, s, on){
+  const x=cx-s/2, y=cy-s;
+  ctx.fillStyle=on?PAL.ink:PAL.dim;
+  ctx.fillRect(x|0, y|0, s|0, s|0);
+  const g=Math.max(2, s*0.14), iw=s-g*2, ih=(s-g*3)/2;
+  ctx.fillStyle=on?PAL.lcd:PAL.ghost;
+  ctx.fillRect((x+g)|0, (y+g)|0, iw|0, ih|0);
+  ctx.fillRect((x+g)|0, (y+g*2+ih)|0, iw|0, ih|0);
+}
+
+function drawCircuit(rect){
+  const x=rect.x, y=rect.y, w=rect.w, h=rect.h;
+  ctx.strokeStyle=PAL.ghost; ctx.lineWidth=2;
+  const t=14;
+  ctx.beginPath();
+  ctx.moveTo(x+8, y+8+t); ctx.lineTo(x+8, y+8); ctx.lineTo(x+8+t, y+8);
+  ctx.moveTo(x+w-8-t, y+8); ctx.lineTo(x+w-8, y+8); ctx.lineTo(x+w-8, y+8+t);
+  ctx.moveTo(x+8, y+h-8-t); ctx.lineTo(x+8, y+h-8); ctx.lineTo(x+8+t, y+h-8);
+  ctx.moveTo(x+w-8-t, y+h-8); ctx.lineTo(x+w-8, y+h-8); ctx.lineTo(x+w-8, y+h-8-t);
+  ctx.stroke();
+  ctx.fillStyle=PAL.ghost;
+  for (let i=0;i<5;i++){
+    ctx.fillRect(x+18+i*10, y+h-12, 6, 2);
+    ctx.fillRect(x+w-24, y+16+i*8, 2, 5);
+  }
+}
+function drawFrontArrow(x, y, dir){
+  ctx.fillStyle=PAL.steel;
+  ctx.beginPath();
+  if (dir==='up'){
+    ctx.moveTo(x, y); ctx.lineTo(x-7, y+11); ctx.lineTo(x+7, y+11);
+    ctx.closePath(); ctx.fill();
+    drawK(ctx, '앞', x-8, y+12, 12, PAL.steel);
+  } else if (dir==='right'){
+    ctx.moveTo(x+12, y); ctx.lineTo(x, y-7); ctx.lineTo(x, y+7);
+    ctx.closePath(); ctx.fill();
+    drawK(ctx, '앞', x-22, y-8, 12, PAL.steel);
+  } else {
+    ctx.moveTo(x, y); ctx.lineTo(x+11, y-7); ctx.lineTo(x+11, y+7);
+    ctx.closePath(); ctx.fill();
+    drawK(ctx, '앞', x+12, y-7, 12, PAL.steel);
+  }
+}
+function drawLayerScale(rect, floors, cur){
+  const x=rect.x+10, top=rect.y+22, bot=rect.y+rect.h-18;
+  const span=Math.max(40, bot-top);
+  ctx.fillStyle=PAL.ghost;
+  ctx.fillRect(x, top, 2, span);
+  for (let k=1;k<=Math.max(3,floors);k++){
+    const yy=bot - (k-0.5)*(span/Math.max(3,floors));
+    ctx.fillStyle=k===cur?PAL.steel:PAL.ghost;
+    ctx.fillRect(x-3, yy, 10, 3);
+    drawK(ctx, k+'층', x+10, yy-8, 12, k===cur?PAL.ink:PAL.ghost);
+  }
+}
+
+function drawIso(H, rect, scanY, blink){
+  drawCircuit(rect);
+  const n=H.length, m=Math.max(2, maxH(H));
+  const leftPad=56, rightPad=18, topPad=10, botPad=14;
+  const s=Math.max(40, Math.min(
+    (rect.w-leftPad-rightPad)/( (n-1)*1.24 + (n-1)*0.22 + 1.15 ),
+    (rect.h-topPad-botPad)/( (m-1)*0.94 + (n-1)*0.16 + 1.2 )
+  ));
+  const spanX=(n-1)*s*1.24 + (n-1)*s*0.22 + s;
+  const spanY=(m-1)*s*0.94 + (n-1)*s*0.16 + s;
+  const ox=rect.x+leftPad+(rect.w-leftPad-rightPad-spanX)/2 + s*0.5;
+  const oy=rect.y+topPad+(rect.h-topPad-botPad+spanY)/2 - s*0.1;
+  drawLayerScale(rect, m, scanY);
+  drawFrontArrow(Math.max(rect.x+22, ox - s*0.62), oy - s*0.2, 'right');
+  for (let z=n-1;z>=0;z--){
+    for (let x=0;x<n;x++){
+      const h=H[z][x];
+      for (let y=1;y<=h;y++){
+        const cx=ox + x*s*1.24 + z*s*0.22;
+        const cy=oy - (y-1)*s*0.94 + z*s*0.16;
+        const lit=!(blink && y===scanY && ((S.runT*10)|0)%2);
+        drawLcdSprite(ctx, cx, cy, s*0.9, lit);
+      }
+    }
+  }
+  if (scanY>=1){
+    const cy=oy - (scanY-1)*s*0.94 - s*0.5;
+    ctx.fillStyle=PAL.steel;
+    ctx.fillRect(rect.x+36, cy, rect.w-48, 4);
+    ctx.globalAlpha=0.25;
+    ctx.fillRect(rect.x+36, cy+5, rect.w-48, 6);
+    ctx.globalAlpha=1;
+  }
+}
+
+function drawSil(arr, x, y, w, h, label, flash, frontLeft){
+  const n=arr.length, cw=(w-8)/n, ch=(h-22)/Math.max(3, n);
+  ctx.fillStyle=PAL.lcd;
+  ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+  drawK(ctx, label, x+4, y+2, 12, flash?PAL.miss:PAL.ink);
+  for (let i=0;i<n;i++){
+    const ht=arr[i];
+    for (let k=0;k<3;k++){
+      const on=k<ht;
+      const bx=x+4+i*cw, by=y+h-6-(k+1)*ch;
+      ctx.fillStyle=on?(flash?PAL.miss:PAL.ink):PAL.dim;
+      ctx.fillRect(bx+2, by+2, cw-6, ch-4);
+    }
+  }
+  if (frontLeft) drawFrontArrow(x+8, y+h-10, 'left');
+}
+function drawTopGrid(H, x, y, w, h, showNum, flash){
+  const n=H.length, s=Math.min((w-8)/n, (h-28)/n);
+  ctx.fillStyle=PAL.lcd; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+  drawK(ctx, '위에서 본 모양 · 위=앞', x+4, y+2, 12, flash?PAL.miss:PAL.ink);
+  const ox=x+(w-s*n)/2, oy=y+22;
+  ctx.fillStyle=PAL.steel;
+  ctx.beginPath();
+  ctx.moveTo(ox+s*n/2, oy-1); ctx.lineTo(ox+s*n/2-6, oy+8); ctx.lineTo(ox+s*n/2+6, oy+8);
+  ctx.closePath(); ctx.fill();
+  for (let z=0;z<n;z++) for (let xx=0;xx<n;xx++){
+    const v=H[z][xx];
+    const bx=ox+xx*s, by=oy+z*s;
+    ctx.fillStyle=v>0?PAL.ink:PAL.dim;
+    ctx.fillRect(bx+2, by+2, s-4, s-4);
+    if (showNum && v>0){
+      const dw=s*0.38, dh=s*0.56;
+      drawNum7(ctx, v, bx+(s-dw)/2, by+(s-dh)/2, dw, dh, 1);
+    }
+  }
+}
+function drawLayerCard(L, x, y, w, h, title, active){
+  const n=L.length, s=Math.min((w-8)/n,(h-16)/n);
+  ctx.fillStyle=active?PAL.cream:PAL.lcd;
+  ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle=active?PAL.steel:PAL.ink; ctx.lineWidth=active?3:2; ctx.strokeRect(x,y,w,h);
+  drawK(ctx, title, x+4, y+2, 11, PAL.ink);
+  const ox=x+(w-s*n)/2, oy=y+14;
+  for (let z=0;z<n;z++) for (let xx=0;xx<n;xx++){
+    ctx.fillStyle=L[z][xx]?PAL.ink:PAL.dim;
+    ctx.fillRect(ox+xx*s+2, oy+z*s+2, s-4, s-4);
+  }
+}
+
+function layoutCells(n, rect){
+  const pad=8, head=72, foot=22;
+  const size=Math.min((rect.w-pad*2-24)/n, (rect.h-head-foot-pad)/n);
+  const ox=rect.x+(rect.w-size*n)/2, oy=rect.y+head;
+  const rs=[];
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++){
+    rs.push({ z,x, x:ox+x*size, y:oy+z*size, s:size });
+  }
+  S.cellRects=rs;
+  return { ox, oy, size };
+}
+
+function drawWellWalls(rect){
+  const tile=16, wrap=((S.runT*10)% (tile*8));
+  ctx.fillStyle=PAL.ink;
+  ctx.fillRect(rect.x, rect.y, 5, rect.h);
+  ctx.fillRect(rect.x+rect.w-5, rect.y, 5, rect.h);
+  ctx.fillStyle=PAL.lcd;
+  for (let i=0;i<8;i++){
+    const yy=rect.y + ((i*tile + wrap)%(rect.h-8));
+    ctx.fillRect(rect.x+1, yy, 3, 8);
+    ctx.fillRect(rect.x+rect.w-4, yy, 3, 8);
+  }
+}
+
+function drawBezel(){
+  const W=S.W, H=S.H;
+  ctx.fillStyle=PAL.lcd;
+  ctx.fillRect(0,0,W,H);
+  if (S.land && S.stageW < W-2){
+    ctx.fillStyle='#1c2016';
+    ctx.fillRect(0,0,S.stageX,H);
+    ctx.fillRect(S.stageX+S.stageW,0, W-(S.stageX+S.stageW), H);
+  }
+  /* 유리면 가로 반사 1px */
+  ctx.fillStyle='rgba(244,240,216,.22)';
+  ctx.fillRect(S.land?S.stageX:0, (S.runT*13)%H, S.land?S.stageW:W, 1);
+}
+
+function drawMissHoles(x,y,s){
+  s=Math.max(44, s||44);
+  for (let i=0;i<3;i++){
+    const bx=x+i*(s+6);
+    ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
+    ctx.strokeRect(bx,y,s,s);
+    ctx.fillStyle=PAL.dim; ctx.fillRect(bx+2,y+2,s-4,s-4);
+    if (i<S.miss){
+      if (IM.miss) ctx.drawImage(IM.miss, bx+2, y+2, s-4, s-4);
+      else {
+        ctx.fillStyle=PAL.miss;
+        ctx.fillRect(bx+s*0.2, y+s*0.2, s*0.18, s*0.18);
+        ctx.fillRect(bx+s*0.62, y+s*0.2, s*0.18, s*0.18);
+        ctx.fillRect(bx+s*0.28, y+s*0.62, s*0.44, s*0.12);
+      }
+    }
+  }
+}
+
+function drawHud(){
+  if (!S.stim) return;
+  ctx.fillStyle=PAL.lcd;
+  ctx.fillRect(S.stim.x, S.stim.y, S.stim.w, S.stim.h);
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
+  ctx.strokeRect(S.stim.x, S.stim.y, S.stim.w, S.stim.h);
+  drawCircuit(S.stim);
+  if (S.well){
+    ctx.fillRect(S.well.x, S.well.y, S.well.w, S.well.h);
+    ctx.strokeRect(S.well.x, S.well.y, S.well.w, S.well.h);
+    drawWellWalls(S.well);
+  }
+}
+
+function drawPlay(){
+  const sh = S.missFlash>0 ? ((((S.runT*40)|0)%2)?3:-3) : (S.punch>0? (S.punch*2)|0 : 0);
+  if (sh) ctx.translate(sh, 0);
+  drawBezel();
+  const sol=S.solid;
+  if (!sol){ drawHud(); if (sh) ctx.translate(-sh, 0); return; }
+  const n=sol.n, y=S.floorY;
+  const stim=S.stim, well=S.well;
+  ctx.fillStyle=PAL.lcd;
+  ctx.fillRect(stim.x, stim.y, stim.w, stim.h);
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(stim.x, stim.y, stim.w, stim.h);
+
+  const flashView = S.failT>0 ? S.brokenView : null;
+  const isoH = sol.promptKind==='minmax' ? occupancy(sol.H).map((r,z)=>r.map((t,x)=>t?1:0)) : sol.H;
+  if (sol.promptKind==='cards'){
+    drawCircuit(stim);
+    const cw=(stim.w-24)/3, ch=Math.min(stim.h-28, cw+18);
+    const oy=stim.y+(stim.h-ch)/2;
+    for (let k=0;k<sol.floors;k++){
+      drawLayerCard(sol.layers[k]||zeros(n), stim.x+12+k*cw, oy, cw-8, ch, (k+1)+'층', k===y-1);
+    }
+  } else if (sol.promptKind==='minmax'){
+    drawCircuit(stim);
+    const gap=8, colW=(stim.w-gap*4)/3, colH=stim.h-44;
+    const gy=stim.y+36;
+    drawK(ctx, sol.kind==='min'?'가장 적게 쌓기':'가장 많게 쌓기', stim.x+12, stim.y+10, 18, PAL.ink);
+    drawTopGrid(sol.T.map(r=>r.map(v=>v)), stim.x+gap, gy, colW, colH, false, flashView==='top');
+    drawSil(sol.F, stim.x+gap*2+colW, gy, colW, colH, '앞에서 본 모양', flashView==='front', false);
+    drawSil(sol.R, stim.x+gap*3+colW*2, gy, colW, colH, '오른쪽(앞=왼)', flashView==='right', true);
+  } else {
+    const isoW = sol.promptKind==='iso' ? stim.w : stim.w*0.52;
+    const isoRect={ x:stim.x+4, y:stim.y+4, w:isoW-8, h:stim.h-8 };
+    const showH = S.wow ? S.wow.H : sol.H;
+    drawIso(showH, isoRect, y, S.flash>0);
+    if (sol.promptKind!=='iso'){
+      const sx=stim.x+isoW, sw=stim.w-isoW-6;
+      const hh=(stim.h-16)/3;
+      drawTopGrid(sol.H, sx, stim.y+4, sw, hh, sol.kind==='topnum' && S.locked.length>0, flashView==='top');
+      drawSil(sol.F, sx, stim.y+8+hh, sw, hh, '앞에서 본 모양', flashView==='front', false);
+      drawSil(sol.R, sx, stim.y+12+hh*2, sw, hh, '오른쪽(앞=왼)', flashView==='right', true);
+    }
+  }
+
+  /* well */
+  ctx.fillStyle=PAL.lcd;
+  ctx.fillRect(well.x, well.y, well.w, well.h);
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(well.x, well.y, well.w, well.h);
+  drawWellWalls(well);
+  const dw=14, dh=24;
+  drawNum7(ctx, S.showScore|0, well.x+10, well.y+6, dw, dh, 4);
+  drawNum7(ctx, Math.max(0, Math.ceil(S.time)), well.x+10+(dw+7)*4+12, well.y+6, dw, dh, 2);
+  drawPix5(ctx, 'x'+(S.combo>=2?'2':'1'), well.x+10+(dw+7)*6+20, well.y+10, 3, PAL.ink);
+  const missS=44;
+  const missX=well.x+well.w - 3*(missS+6) - 10;
+  drawMissHoles(Math.max(well.x+8, missX), well.y+4, missS);
+  drawK(ctx, y+'층 켜기', well.x+10, well.y+36, 14, PAL.ink);
+
+  const {ox, oy, size} = layoutCells(n, well);
+  drawK(ctx, '앞', ox+size*n/2-8, oy-16, 12, PAL.steel);
+  drawK(ctx, '뒤', ox+size*n/2-8, oy+size*n+4, 12, PAL.ghost);
+  drawK(ctx, '왼', ox-18, oy+size*n/2-8, 12, PAL.ghost);
+  const need=layerOf(sol.H,y);
+  const punch=S.punch>0 ? 1+S.punch*0.12 : 1;
+  for (const r of S.cellRects){
+    const on=S.paint[r.z][r.x];
+    let col=on?PAL.ink:PAL.dim;
+    if (S.scanPhase==='feedback' && !eqGrid(S.paint, need)){
+      if (on!==need[r.z][r.x]){
+        if (((S.scanT*18)|0)%2===0) col = on?PAL.ink:PAL.lcd;
+      }
+    }
+    const cx=r.x+r.s/2, cy=r.y+r.s/2, hs=(r.s-8)*punch/2;
+    ctx.fillStyle=col;
+    ctx.fillRect(cx-hs, cy-hs, hs*2, hs*2);
+    if (on){
+      const g=Math.max(4, r.s*0.14), iw=hs*2-g*2, ih=(hs*2-g*3)/2;
+      ctx.fillStyle=PAL.lcd;
+      ctx.fillRect(cx-hs+g, cy-hs+g, iw, ih);
+      ctx.fillRect(cx-hs+g, cy-hs+g*2+ih, iw, ih);
+    } else if (S.floorY>1 && belowOn(r.z,r.x,S.floorY)){
+      ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
+      ctx.strokeRect(r.x+r.s*0.3, r.y+r.s*0.3, r.s*0.4, r.s*0.4);
+    }
+    ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
+    ctx.strokeRect(cx-hs, cy-hs, hs*2, hs*2);
+    if (S.cursor.z===r.z && S.cursor.x===r.x){
+      ctx.strokeStyle=PAL.steel; ctx.lineWidth=3;
+      ctx.strokeRect(r.x+1, r.y+1, r.s-2, r.s-2);
+    }
+  }
+
+  /* scan bar */
+  const first=S.cellRects[0], last=S.cellRects[S.cellRects.length-1];
+  let ty=first.y;
+  if (S.scanPhase==='approach'){
+    const u=Math.min(1,S.scanT/0.38);
+    const over=u<1 ? (u + 0.08*Math.sin(u*Math.PI)) : 1;
+    ty = well.y+well.h - over*(well.y+well.h - (first.y+size*0.15) - well.y);
+  } else {
+    ty = first.y + size*0.12;
+  }
+  S.trail.push(ty); if (S.trail.length>10) S.trail.shift();
+  for (let i=0;i<S.trail.length;i++){
+    ctx.globalAlpha=0.08+i*0.04;
+    ctx.fillStyle=PAL.steel;
+    ctx.fillRect(well.x+8, S.trail[i], well.w-16, 5);
+  }
+  ctx.globalAlpha=1;
+  ctx.fillStyle=PAL.steel;
+  ctx.fillRect(well.x+6, ty, well.w-12, 4);
+
+  if (S.flash>0){
+    ctx.fillStyle='rgba(44,51,36,'+(S.flash*0.35)+')';
+    ctx.fillRect(well.x, well.y, well.w, well.h);
+  }
+  if (S.missFlash>0){
+    ctx.fillStyle='rgba(226,91,74,'+(S.missFlash*0.28)+')';
+    ctx.fillRect(well.x, well.y, well.w, well.h);
+  }
+  if (S.ghostT>0){
+    ctx.globalAlpha=S.ghostT*0.35;
+    ctx.fillStyle=PAL.ink;
+    ctx.fillRect(well.x+10, well.y+10, well.w-20, 8);
+    ctx.globalAlpha=1;
+  }
+
+  /* ambient idle: 꺼진 칸 잔상 깜빡 */
+  if (((S.runT*2)|0)%2===0){
+    ctx.globalAlpha=0.06;
+    ctx.fillStyle=PAL.ink;
+    ctx.fillRect(well.x+14, well.y+well.h*0.2, 3, well.h*0.5);
+    ctx.globalAlpha=1;
+  }
+
+  for (let i=0;i<4;i++){
+    ctx.fillStyle=i<S.lamps?PAL.steel:PAL.dim;
+    ctx.fillRect(well.x+8+i*16, well.y+well.h-12, 12, 6);
+  }
+
+  if (S.wow && S.wow.t<1.6){
+    ctx.globalAlpha=Math.min(1, 1.6-S.wow.t);
+    drawK(ctx, '우물 점등', stim.x+12, stim.y+stim.h-28, 18, PAL.ink);
+    ctx.globalAlpha=1;
+  }
+  if (sh) ctx.translate(-sh, 0);
+}
+
+function drawShutter(p){
+  const W=S.W, H=S.H;
+  ctx.fillStyle=PAL.ink;
+  ctx.fillRect(0,0,W, H*0.5*p);
+  ctx.fillRect(0, H-H*0.5*p, W, H*0.5*p);
+}
+
+/* ── loop ── */
+let last=performance.now();
+function tick(now){
+  const raw=Math.min(0.05, (now-last)/1000); last=now;
+  if (S.freeze>0){ S.freeze-=raw; if (S.freeze<=0) S.timeScale=1; }
+  const dt=raw*(S.freeze>0?S.timeScale:1);
+  S.runT += dt;
+
+  if (S.showScore < S.score){
+    S.showScore = Math.min(S.score, S.showScore + Math.max(8, (S.score-S.showScore)*6*dt));
+    if (S.phase==='gameover' || S.phase==='clear') $('#resScore').textContent=String(S.showScore|0);
+  } else S.showScore=S.score;
+
+  if (S.flash>0) S.flash=Math.max(0,S.flash-dt*6);
+  if (S.punch>0) S.punch=Math.max(0,S.punch-dt*5);
+  if (S.missFlash>0) S.missFlash=Math.max(0,S.missFlash-dt*2.2);
+  if (S.ghostT>0) S.ghostT=Math.max(0,S.ghostT-dt);
+  if (S.failT>0){
+    S.failT-=dt;
+    if (S.failT<=0) $('#failLine').classList.remove('show');
+  }
+  if (S.wow) S.wow.t+=dt;
+
+  if (S.phase==='playing' && S.solid){
+    S.time -= dt;
+    if (S.time<=0){ S.time=0; endRun('time'); }
+    else {
+      if (S.scanPhase==='approach'){
+        S.scanT+=dt;
+        if (S.scanT>=0.38){ S.scanPhase='dwell'; S.scanT=0; }
+      } else if (S.scanPhase==='dwell'){
+        S.scanT+=dt;
+        if (S.scanT>=S.dwell){
+          lockFloor(false, false);
+        }
+      } else if (S.scanPhase==='feedback'){
+        S.scanT+=dt;
+        if (S.scanT>= (S.flash>0?0.55:0.9)) afterFeedback();
+      }
+    }
+  }
+
+  if (S.phase==='playing' || S.phase==='gameover' || S.phase==='clear' || S.phase==='onboard'){
+    if (S.phase==='onboard' || S.phase==='playing' || S.phase==='gameover' || S.phase==='clear'){
+      if (S.phase!=='title'){
+        drawPlay();
+        if (S.phase==='gameover') drawShutter(Math.min(1, 1-S.lives));
+      }
+    }
+  } else {
+    /* title: keep lcd under for screenshot variance if canvas visible */
+    drawBezel();
+    drawPix5(ctx, '88', 20, 20, 3, PAL.ink);
+  }
+
+  requestAnimationFrame(tick);
+}
+
+/* ── title bits ── */
+{
+  const box=$('#titleBits');
+  for (let i=0;i<10;i++){
+    const el=document.createElement('i');
+    el.style.left=(8+Math.random()*84)+'%';
+    el.style.top=(20+Math.random()*70)+'%';
+    el.style.animationDelay=(Math.random()*4)+'s';
+    el.style.width=(6+(i%3)*4)+'px';
+    el.style.height=(6+(i%2)*4)+'px';
+    box.appendChild(el);
+  }
+}
+
+function forceCorrect(){
+  if (S.phase==='title') startGame(true, S.hard);
+  if (S.phase==='onboard'){ localStorage.setItem(LS_ONB,'1'); $('#onboard').classList.remove('show'); actuallyStart(); }
+  if (S.phase!=='playing' || !S.solid){ S.score+=100; return; }
+  if (S.scanPhase==='feedback'){ S.score+=100; S.solved++; return; }
+  S.paint=cloneH(layerOf(S.solid.H, S.floorY));
+  lockFloor(true, false);
+}
+function forceWrong(){
+  if (S.phase==='title') startGame(true, S.hard);
+  if (S.phase==='onboard'){ localStorage.setItem(LS_ONB,'1'); $('#onboard').classList.remove('show'); actuallyStart(); }
+  if (S.phase!=='playing' || !S.solid){ S.lives=Math.max(0,S.lives-1); S.miss++; return; }
+  if (S.scanPhase==='feedback'){ applyMiss('강제 오답'); return; }
+  lockFloor(false, true);
+}
+
+function simulateBot(type, runs){
+  runs=runs||200;
+  let complete=0, totalScore=0;
+  for (let r=0;r<runs;r++){
+    const deck=makeDeck(false, rngFn(1000+r*97));
+    let lives=3, score=0, combo=0, dead=false, solved=0;
+    for (const sol of deck){
+      if (dead) break;
+      for (let y=1;y<=sol.floors;y++){
+        const need=layerOf(sol.H,y), n=sol.n, got=zeros(n);
+        if (type==='same'){ got[0][0]=1; }
+        else if (type==='cycle'){
+          for (let z=0;z<n;z++) for (let x=0;x<n;x++) got[z][x]=1;
+        } else if (type==='random'){
+          for (let z=0;z<n;z++) for (let x=0;x<n;x++) got[z][x]=Math.random()<0.5?1:0;
+        }
+        if (eqGrid(got, need)){ combo++; score+=100*(combo>=2?2:1); solved++; }
+        else { combo=0; lives--; if (lives<=0){ dead=true; break; } }
+      }
+    }
+    if (!dead) complete++;
+    totalScore+=score;
+  }
+  return { completionRate: complete/runs, averageScore: totalScore/runs };
+}
+
+showBest();
+syncMute();
+layout();
+requestAnimationFrame(tick);
+
+window.__GAME_TEST__ = {
+  ready: true,
+  start(){ startGame(true, false); },
+  getState(){ return { score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved }; },
+  answerCorrect(){ forceCorrect(); },
+  answerWrong(){ forceWrong(); },
+  sampleProblems,
+  getLayout(){ return { land:S.land, playW:S.land?S.stageW:S.W }; },
+  simulateBot,
+  verifyErrorFind: verifyErrorFindRounds
+};
+})();
+</script>
+</body>
+</html>
