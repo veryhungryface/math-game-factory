@@ -401,6 +401,7 @@ try {
   // 활성 여부까지만 보고, "중앙 좁은 컬럼+빈 거터" 여부는 desktop-1280.png 를
   // 검수관이 육안 확인한다. 구 640px 중앙 컬럼 규범은 2026-08-28 폐기됐다.
   await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
+  await page.evaluate(() => { try { window.__GAME_TEST__ && typeof window.__GAME_TEST__.start === 'function' && window.__GAME_TEST__.start(); } catch {} });
   await new Promise((r) => setTimeout(r, 900));
   const wideLayout = await page.evaluate(() => {
     const root = document.documentElement;
@@ -426,6 +427,7 @@ try {
   await page.screenshot({ path: path.join(OUT, 'desktop-1280.png') });
 
   await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
+  await page.evaluate(() => { try { window.__GAME_TEST__ && typeof window.__GAME_TEST__.start === 'function' && window.__GAME_TEST__.start(); } catch {} });
   await new Promise((r) => setTimeout(r, 900));
   await page.screenshot({ path: path.join(OUT, 'desktop.png') });
 
@@ -433,6 +435,7 @@ try {
   // 깨진 걸 리포트한 뒤 추가. 기계 판정은 가로 스크롤 여부뿐이지만, wide.png
   // 스크린샷을 남겨 검수관이 육안으로 깨짐을 확인하게 한다.
   await page.setViewport({ width: 2000, height: 1045, deviceScaleFactor: 1 });
+  await page.evaluate(() => { try { window.__GAME_TEST__ && typeof window.__GAME_TEST__.start === 'function' && window.__GAME_TEST__.start(); } catch {} });
   await new Promise((r) => setTimeout(r, 900));
   const wideOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2);
   add('wide.overflow', '초와이드(2000px) 가로 스크롤 없음', wideOverflow);

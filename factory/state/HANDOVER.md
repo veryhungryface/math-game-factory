@@ -3,6 +3,10 @@
 > 마지막 갱신: 2026-08-31. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-08-31 — cube-unfasten 2차 수정 (재검수 대기)
+- 1차 39점 수학·전개 판정은 유지. 2차 검수 75점 탈락 원인(축 D 0/4, 목표 윤곽 과소, 꽃·잎 보조문구, 없는 fix.json)을 `public/g/cube-unfasten/index.html`에서 수술.
+- QA `node factory/lib/qa.mjs cube-unfasten` → **41/41 · 치명 0 · fps 37**. 기록은 `factory/work/fix.json`.
+
 ## 2026-08-31 — L1 수정 루프 확장: 폐기 전 수정 기회 1회→3회 (사용자 지시)
 - **변경**: 검수 미달 시 "수정→재QA→재검산→재검수"를 **최대 3회**(`factory/config.sh`의 `MAX_FIX_ROUNDS`) 반복하고, 소진 후에도 미달이면 폐기. 게이트(80)는 불변 — 상한이 있으므로 루프가 게이트를 무의미하게 만들지 않는다(loop-engineering §3.1 갱신).
 - **누적 이력 주입**: 각 라운드의 검수(review-1..N.json) 점수·must_fix를 다음 수정 프롬프트에 합성 주입(45-fix.md도 "매 라운드가 마지막" 문구로 갱신) — 같은 지적의 반복 방지. 재검수 프롬프트에 "이전 점수와 무관하게 채점" 명시(점수 인상 유도 편향 차단).
@@ -237,3 +241,7 @@
   - `40-review.md`: 비주얼 20점 중 **8점을 분화에 배정** — 선례 비유사 4점(catalog 최근 3작 스크린샷 Read 대조, HUD/배경/연출 중 2개 이상 동일이면 0점) + 축 준수 4점(grep 로 금지 그림자·radius·광택 검출 시 0점). `review.json` 에 `visual_diff` 필드. 분화 2점 이하면 must_fix high.
   - `docs/design-bible.html` §3.4 신설(기존 3.4 → 3.5).
 - **미착수(다음 사람 몫)**: ① `factory/lib/design-similarity.mjs` 신설(CSS 선언 자카드) + 검수 자동 연결 — 현재 검수는 육안·grep 대조다 ② `pick-slot.mjs` 에 `axis_history`/`axis_usage`/`recent_mascot_count` 주입(현재는 기획 에이전트가 직접 조회) ③ 기존 24작 재스킨: 1차 6작(cell-latch B / glass-puff D / overlay-snap I / twice-cut F / tide-checkpoint H / stone-hop A) → 2차 3작(boundary-rush E / clang-stamp G / lantern-disk J) → 3차 15작. plan §3.1~3.3 참조 ④ 구작 `meta.json` 에 `art_direction.visual_axis` 소급 기입(안 하면 직전 5작 축 조회가 plan 문서 수동 조회로 떨어진다).
+
+## 2026-08-31 — 접어득템 빌드
+- `public/g/fold-loot/`에 축 F 리소그래프 전개도 제작 게임과 메타데이터를 구현했다. 11개 정육면체 전개도 닫힌 풀, 정수 방향 BFS 접힘·충돌 판정, 3단계 난도, 직접 드래그·회전, 도감과 테스트 훅을 포함한다.
+- 공식 QA는 현재 Codex 샌드박스의 로컬 포트 바인드 금지(`listen EPERM`)로 브라우저 진입 전에 중단된다. JS/JSON 구문, 상대 경로, 교육과정 코드, 금지 CSS와 11개 전개도 전수 판정은 로컬 정적 검증 완료. 샌드박스 밖에서 `node factory/lib/qa.mjs fold-loot` 재실행 필요.
