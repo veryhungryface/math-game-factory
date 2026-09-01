@@ -1,0 +1,2019 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>짝점 — 못 하나 빗나가면 끝</title>
+<meta property="og:title" content="짝점">
+<meta property="og:description" content="못 하나 빗나가면 끝">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+@font-face{
+  font-family:"LogoDoHyeon";
+  src:url("./assets/fonts/logo-dohyeon.woff2") format("woff2");
+  font-weight:400;font-style:normal;font-display:swap;
+}
+:root{
+  --board:#D9C6F0; --ink:#2A2140; --coral:#E24B5A; --teal:#1F8A7A; --cream:#F4F0E8;
+  --face:"Futura","Century Gothic","Gill Sans","Copperplate","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --logo:"LogoDoHyeon","Futura","Century Gothic","Apple SD Gothic Neo",sans-serif;
+  --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
+  --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--board);color:var(--ink);
+  font-family:var(--face);font-weight:800;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  touch-action:none;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer;border-radius:0}
+button:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
+
+#mute{
+  pointer-events:auto;position:fixed;z-index:6;
+  width:48px;height:48px;min-width:48px;min-height:48px;
+  border:6px solid var(--ink);background:var(--cream);color:var(--ink);
+  font:400 18px/1 var(--logo);letter-spacing:.06em;
+  right:10px;top:max(8px,var(--safeT));opacity:0;pointer-events:none
+}
+#mute:active{transform:scaleY(.88)}
+#failNote{
+  position:fixed;z-index:5;left:12px;right:12px;bottom:max(12px,calc(var(--safeB) + 8px));
+  text-align:center;font-weight:800;font-size:15px;color:var(--cream);background:var(--ink);
+  border:6px solid var(--coral);padding:8px 10px;opacity:0;pointer-events:none;word-break:keep-all
+}
+#failNote.on{opacity:1}
+
+#title{--title-col:min(100vw,640px);position:fixed;inset:0;z-index:20;min-height:100svh;height:100dvh;
+  overflow:hidden;isolation:isolate;background:#C9B4E4}
+.title-art{position:absolute;inset:-8%;width:116%;height:116%;object-fit:cover;object-position:center 82%;
+  animation:ken 20s ease-in-out infinite alternate}
+.title-fallback{position:absolute;inset:0;display:none;
+  background:linear-gradient(180deg,#E8DCF6 0%,#D9C6F0 38%,#C4A8E4 70%,#2A2140 100%)}
+.title-specks{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.title-specks i{position:absolute;height:3px;background:#E24B5A;opacity:.38;border-radius:0;animation:floatBand 12s linear infinite}
+.title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+  padding-inline:clamp(16px,5vw,32px);pointer-events:none}
+.logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;position:relative;display:inline-block;line-height:.86;
+  font-family:var(--logo);font-weight:400;font-size:clamp(72px,22vw,108px);letter-spacing:-.04em}
+.game-logo .off,.game-logo .face{display:block}
+.game-logo .off{position:absolute;left:0;top:0;color:#2A2140;-webkit-text-stroke:6px #2A2140;
+  transform:translate(.08em,.08em);animation:register 720ms cubic-bezier(.18,.86,.22,1.08) both}
+.game-logo .face{position:relative;color:#E24B5A;-webkit-text-stroke:6px #2A2140;paint-order:stroke fill;
+  animation:faceIn 480ms ease both}
+.game-sub{margin-top:10px;font-family:var(--logo);font-size:clamp(16px,4.6vw,22px);color:#F4F0E8;
+  background:#2A2140;border:6px solid #1F8A7A;padding:6px 12px;letter-spacing:.08em;
+  display:inline-block}
+.cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+.meta-row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.yard-tag{border:6px solid var(--ink);color:var(--ink);background:var(--cream);padding:3px 8px;font-size:11px;
+  font-weight:800;letter-spacing:.08em}
+#best{min-height:24px;color:var(--cream);background:var(--ink);border:6px solid var(--teal);
+  font-size:12px;font-weight:800;letter-spacing:.06em;padding:3px 8px;font-family:var(--logo)}
+#start{
+  width:min(100%,420px);height:68px;border:6px solid var(--ink);background:var(--coral);color:var(--cream);
+  font-family:var(--logo);font-size:26px;font-weight:400;letter-spacing:.12em;
+  animation:ctaPulse 1.6s ease-in-out infinite
+}
+#start:active{transform:scaleY(.9);animation:none}
+#how,#diff{min-height:44px;border:0;background:transparent;color:var(--ink);text-decoration:underline;
+  text-underline-offset:3px;font-weight:800;font-size:14px;letter-spacing:.04em;font-family:var(--logo)}
+#titleMute{position:absolute;z-index:4;right:12px;top:max(10px,var(--safeT));
+  width:48px;height:48px;border:6px solid var(--ink);background:var(--cream);color:var(--ink);font-size:16px}
+
+#help,#onboard,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(42,33,64,.55)}
+#help.show,#onboard.show,#result.show{display:grid}
+.plaque{width:min(88vw,480px);padding:20px 16px 16px;background:var(--cream);color:var(--ink);
+  border:6px solid var(--ink)}
+.plaque h2{margin:0 0 10px;font-family:var(--logo);font-size:28px;letter-spacing:.06em;color:var(--coral)}
+.plaque p{font-weight:800;line-height:1.45;margin:0 0 8px;font-size:15px;word-break:keep-all}
+.plaque .step{font-size:12px;letter-spacing:.16em;margin-bottom:8px;color:var(--teal);font-weight:800}
+.plaque button{width:100%;height:56px;border:6px solid var(--ink);background:var(--coral);color:var(--cream);
+  font-family:var(--logo);font-weight:400;font-size:20px;letter-spacing:.1em;margin-top:8px}
+.plaque button:active{transform:scaleY(.9)}
+.plaque button.alt{background:var(--teal);color:var(--cream)}
+.result-score{font-size:56px;font-weight:800;letter-spacing:.06em;text-align:center;margin:8px 0 4px;
+  color:var(--coral);font-family:var(--logo)}
+.result-sub{text-align:center;font-weight:800;margin-bottom:12px}
+.stamps{display:flex;gap:8px;justify-content:center;margin:8px 0 4px}
+.stamps b{display:grid;place-items:center;min-width:72px;height:44px;border:6px solid var(--ink);
+  background:var(--board);font-size:12px;letter-spacing:.04em}
+.stamps b.on{background:var(--teal);color:var(--cream)}
+
+html.ingame #mute{opacity:1;pointer-events:auto}
+html.ingame #failNote.on{opacity:1}
+html.ingame #title,#title.gone{display:none!important;visibility:hidden!important;pointer-events:none!important}
+html.land #mute{right:auto;left:calc(var(--stageX) + var(--stageW) - 58px)}
+html.land #failNote{
+  left:calc(var(--stageX) + var(--stageW) * .62 + 10px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 14px);
+  bottom:max(18px,var(--safeB))
+}
+
+@keyframes ken{to{transform:scale(1.07) translate3d(0,-1.3%,0)}}
+@keyframes floatBand{50%{opacity:.12;transform:translateY(12px) rotate(8deg)}}
+@keyframes register{from{transform:translate(.2em,.2em);opacity:0}to{transform:translate(.08em,.08em);opacity:1}}
+@keyframes faceIn{from{opacity:0}to{opacity:1}}
+@keyframes ctaPulse{50%{transform:scale(1.045)}}
+@media (min-width:641px){
+  .logo-zone{left:24px;right:24px}
+  .cta-zone{width:min(calc(100% - 48px),520px)}
+  .game-logo{font-size:108px}
+}
+@media (max-height:700px){
+  .logo-zone{top:max(38px,5dvh);min-height:150px}
+  .game-logo{font-size:clamp(56px,16vw,78px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .title-art{animation-duration:60s}
+  .game-logo .off,.game-logo .face{animation-duration:.2s}
+  #start{animation-duration:4s}
+  .title-specks i{animation:none}
+}
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="짝점 고무 점판"></canvas>
+<button id="mute" aria-label="소리 끄기">♪</button>
+<div id="failNote"></div>
+
+<section id="title" aria-label="짝점 타이틀 화면">
+  <img class="title-art" src="./assets/title.png" alt=""
+    onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+  <div class="title-fallback"></div>
+  <div class="title-specks" id="titleSpecks"></div>
+  <button id="titleMute" aria-label="소리 끄기">♪</button>
+  <div class="title-ui">
+    <div class="logo-zone">
+      <h1 class="game-logo" aria-label="짝점"><span class="off" aria-hidden="true">짝점</span><span class="face">짝점</span></h1>
+      <div class="game-sub">못 하나 빗나가면 끝</div>
+    </div>
+    <div class="cta-zone">
+      <div class="meta-row">
+        <span class="yard-tag">5학년 2학기</span>
+        <span class="yard-tag">합동과 대칭</span>
+      </div>
+      <div id="best"></div>
+      <button id="start">못에 뛰어!</button>
+      <div class="meta-row">
+        <button id="how">어떻게 놀아요?</button>
+        <button id="diff">지금: 쉬움</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="help">
+  <div class="plaque">
+    <div class="step">안내</div>
+    <h2>짝이 되는 못</h2>
+    <p>1. 깜빡이는 점의 대응점 못을 눌러 토큰을 착지시키세요. 선택지 버튼은 없어요.</p>
+    <p>2. 합동은 포개면 겹치는 점, 선대칭은 축에서 같은 칸, 점대칭은 중심에서 같은 칸입니다.</p>
+    <p>3. 빗나가면 구멍으로 빠져요. 목숨 3개, 90초입니다.</p>
+    <button id="closeHelp">해볼게요</button>
+  </div>
+</div>
+<div id="onboard">
+  <div class="plaque">
+    <div class="step" id="obStep">1/3</div>
+    <h2 id="obTitle">못을 눌러 뛰어 보세요</h2>
+    <p id="obBody">점판의 흰 못을 누르면 토큰이 그 칸으로 한 칸 뛰어 착지합니다. 착지한 칸이 곧 답이에요.</p>
+    <button id="obNext">다음</button>
+  </div>
+</div>
+<div id="result">
+  <div class="plaque">
+    <div class="step" id="resKicker">점판 기록</div>
+    <h2 id="resTitle">다시 뛰어 보세요</h2>
+    <div class="result-score" id="resScore">0</div>
+    <div class="result-sub" id="resSub"></div>
+    <div class="stamps" id="resStamps"></div>
+    <button id="again">다시 뛰어!</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* expression traps (5-2 합동과 대칭)
+ * - 발문은 익힘책 지시형(~해 보세요)만. 청유형(~해 봅시다)과 섞지 않음.
+ * - 합동 = 포개었을 때 완전히 겹치는. 넓이 같음·닮음과 구분.
+ * - 선대칭 = 한 직선을 따라 접었을 때 완전히 겹치는. 「○의 자리에서」 어림 표현 없음.
+ * - 점대칭 = 어떤 점을 중심으로 180° 돌렸을 때 완전히 겹치는.
+ * - 칸 수는 '축에서 몇 칸'. 좌표 순서쌍·(x,y)·직선 방정식 금지.
+ * - 직사각형 대칭축은 가로·세로 중선 2개. 대각선은 축이 아니다.
+ * - 일반 평행사변형은 점대칭이지 선대칭이 아니다.
+ * - 이상/이하·원주율·기약분수·어림 TO_PLACE 는 이 단원 해당 없음.
+ */
+
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), ctx = cv.getContext('2d', { alpha: false });
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PAL = { board:'#D9C6F0', boardLo:'#C4AEDF', ink:'#2A2140', coral:'#E24B5A', teal:'#1F8A7A', cream:'#F4F0E8', hole:'#6B5A88', white:'#F7F4EE' };
+const FACE = '"LogoDoHyeon","Futura","Century Gothic","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const LOGO = '"LogoDoHyeon","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const KR = '"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const NUMFACE = '"Futura","Century Gothic","Gill Sans","Copperplate",sans-serif';
+const LS_BEST = 'pair-peg:best', LS_ONB = 'onboardingSeen:pair-peg', LS_MUTE = 'pair-peg:muted';
+const LS_STAMP = 'pair-peg:stamps', LS_DAY = 'pair-peg:today', LS_ALBUM = 'pair-peg:album';
+const SESSION = 90;
+const N = 7;
+const HANG = ['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ'];
+const YARDS = [
+  { id:'congruence', title:'합동못', t:8 },
+  { id:'line-sym', title:'접기못', t:6 },
+  { id:'point-sym', title:'돌리기못', t:4.5 }
+];
+const LIFE_NAMES = ['보자기','창살','도장'];
+
+const MIS = {
+  AREA: 'same-area-not-congruent',
+  SIM: 'similar-not-congruent',
+  DIAG: 'rect-diagonal-as-axis',
+  PARA: 'parallelogram-as-line-sym',
+  FLIP: 'point-sym-drawn-as-flip',
+  EDGE: 'count-from-edge-not-axis',
+  SAME: 'same-spot'
+};
+
+const GLYPH = {
+  '0':[0x1E,0x21,0x21,0x21,0x21,0x21,0x1E],
+  '1':[0x08,0x18,0x08,0x08,0x08,0x08,0x1C],
+  '2':[0x1E,0x21,0x01,0x06,0x18,0x20,0x3F],
+  '3':[0x1E,0x21,0x01,0x0E,0x01,0x21,0x1E],
+  '4':[0x06,0x0A,0x12,0x22,0x3F,0x02,0x02],
+  '5':[0x3F,0x20,0x3E,0x01,0x01,0x21,0x1E],
+  '6':[0x0E,0x10,0x20,0x3E,0x21,0x21,0x1E],
+  '7':[0x3F,0x01,0x02,0x04,0x08,0x08,0x08],
+  '8':[0x1E,0x21,0x21,0x1E,0x21,0x21,0x1E],
+  '9':[0x3E,0x21,0x21,0x1F,0x01,0x02,0x1C],
+  '×':[0x00,0x22,0x14,0x08,0x14,0x22,0x00],
+  ':':[0x00,0x08,0x08,0x00,0x08,0x08,0x00],
+  '-':[0x00,0x00,0x00,0x1C,0x00,0x00,0x00],
+  ' ':[0,0,0,0,0,0,0]
+};
+
+function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+function shuffle(a){
+  const b = a.slice();
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = b[i]; b[i] = b[j]; b[j] = t;
+  }
+  return b;
+}
+function pick(a){ return a[(Math.random() * a.length) | 0]; }
+function inCell(c,r){ return c >= 0 && c < N && r >= 0 && r < N && (c|0) === c && (r|0) === r; }
+function keyOf(c,r){ return c + ',' + r; }
+function ptsKey(pts){ return pts.map(p => p[0] + ':' + p[1]).join('|'); }
+function copyPts(p){ return p.map(q => [q[0], q[1]]); }
+function overlapCount(a,b){
+  const S = new Set(a.map(p => keyOf(p[0], p[1])));
+  let n = 0;
+  for (const p of b) if (S.has(keyOf(p[0], p[1]))) n++;
+  return n;
+}
+function shoelace2(pts){
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    s += a[0] * b[1] - b[0] * a[1];
+  }
+  return Math.abs(s);
+}
+function sideD2(pts){
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    out.push((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]));
+  }
+  return out;
+}
+function isScaleneTri(pts){
+  if (!pts || pts.length !== 3) return false;
+  const d = sideD2(pts);
+  return d[0] !== d[1] && d[1] !== d[2] && d[2] !== d[0];
+}
+function uniqueVertexHint(pts, vi){
+  if (!pts || pts.length !== 3) return '';
+  const prev = (vi + 2) % 3, next = (vi + 1) % 3;
+  const abx = pts[prev][0] - pts[vi][0], aby = pts[prev][1] - pts[vi][1];
+  const acx = pts[next][0] - pts[vi][0], acy = pts[next][1] - pts[vi][1];
+  if (abx * acx + aby * acy === 0) return ' 점 ㄱ은 직각인 꼭짓점이에요.';
+  const opps = [
+    (pts[1][0] - pts[2][0]) * (pts[1][0] - pts[2][0]) + (pts[1][1] - pts[2][1]) * (pts[1][1] - pts[2][1]),
+    (pts[2][0] - pts[0][0]) * (pts[2][0] - pts[0][0]) + (pts[2][1] - pts[0][1]) * (pts[2][1] - pts[0][1]),
+    (pts[0][0] - pts[1][0]) * (pts[0][0] - pts[1][0]) + (pts[0][1] - pts[1][1]) * (pts[0][1] - pts[1][1])
+  ];
+  const mx = Math.max(opps[0], opps[1], opps[2]);
+  const mn = Math.min(opps[0], opps[1], opps[2]);
+  let nMax = 0, nMin = 0;
+  for (let i = 0; i < 3; i++) { if (opps[i] === mx) nMax++; if (opps[i] === mn) nMin++; }
+  if (opps[vi] === mx && nMax === 1) return ' 점 ㄱ은 가장 긴 변의 맞은편 꼭짓점이에요.';
+  if (opps[vi] === mn && nMin === 1) return ' 점 ㄱ은 가장 짧은 변의 맞은편 꼭짓점이에요.';
+  return '';
+}
+function congName(proto){
+  if (proto.right) return '직각인 꼭짓점과 맞닿은 두 변이 ' + proto.legs + '인 직각삼각형';
+  return '세 변의 길이가 모두 다른 삼각형';
+}
+function lineReflect(type, k, p){
+  return type === 'v' ? [2 * k - p[0], p[1]] : [p[0], 2 * k - p[1]];
+}
+function pointReflect(cx, cy, p){
+  return [2 * cx - p[0], 2 * cy - p[1]];
+}
+function xfPts(pts, rot, fx, fy){
+  return pts.map(([x, y]) => {
+    if (fx) x = -x;
+    if (fy) y = -y;
+    for (let i = 0; i < rot; i++) { const t = x; x = -y; y = t; }
+    return [x, y];
+  });
+}
+function relText(from, to){
+  const dc = to[0] - from[0], dr = to[1] - from[1];
+  const parts = [];
+  if (dc > 0) parts.push('오른쪽 ' + dc + '칸');
+  else if (dc < 0) parts.push('왼쪽 ' + (-dc) + '칸');
+  if (dr > 0) parts.push('아래 ' + dr + '칸');
+  else if (dr < 0) parts.push('위 ' + (-dr) + '칸');
+  if (!parts.length) return '점 ㄱ과 같은 못';
+  return '점 ㄱ에서 ' + parts.join(', ') + ' 못';
+}
+function axisDist(type, k, c, r){
+  return type === 'v' ? Math.abs(c - k) : Math.abs(r - k);
+}
+
+function finalizeChoices(answer, distractors, fillers){
+  const seen = new Set([String(answer)]);
+  const kept = [];
+  function take(list){
+    if (!list) return;
+    for (const d of list) {
+      const t = String(d.text);
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      kept.push(d);
+      if (kept.length >= 3) return;
+    }
+  }
+  take(distractors);
+  take(fillers);
+  let n = 2;
+  while (kept.length < 3 && n < 8) {
+    const t = '점 ㄱ에서 오른쪽 ' + n + '칸, 아래 ' + n + '칸 못';
+    n++;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    kept.push({ text: t, misconceptionId: 'near-fill' });
+  }
+  const choices = [String(answer)];
+  for (const d of kept) {
+    if (choices.length >= 4) break;
+    choices.push(d.text);
+  }
+  return { choices: shuffle(choices), distractors: kept };
+}
+
+/* 합동은 세 변의 길이가 모두 다른 삼각형만. 자기대칭 도형은 대응점이 유일하지 않다.
+ * 초등 교과서에 '빗변'이 없으므로 직각삼각형은 직각인 꼭짓점과 맞닿은 두 변의 길이로만 부른다. */
+const PROTOS = [
+  { id:'rt345', kind:'tri', name:'직각삼각형', pts:[[0,0],[3,0],[0,4]], legs:'3칸과 4칸', right:true },
+  { id:'rt254', kind:'tri', name:'직각삼각형', pts:[[0,0],[2,0],[0,4]], legs:'2칸과 4칸', right:true },
+  { id:'rt236', kind:'tri', name:'직각삼각형', pts:[[0,0],[3,0],[0,2]], legs:'3칸과 2칸', right:true },
+  { id:'rt352', kind:'tri', name:'직각삼각형', pts:[[0,0],[5,0],[0,2]], legs:'5칸과 2칸', right:true },
+  { id:'scal', kind:'tri', name:'삼각형', pts:[[0,0],[3,0],[1,2]], legs:'', right:false },
+  { id:'scal2', kind:'tri', name:'삼각형', pts:[[0,0],[5,0],[2,3]], legs:'', right:false },
+  { id:'scal3', kind:'tri', name:'삼각형', pts:[[0,0],[4,0],[1,3]], legs:'', right:false }
+];
+
+function placements(proto){
+  const out = [];
+  const seen = new Set();
+  for (let rot = 0; rot < 4; rot++) {
+    for (let fx = 0; fx < 2; fx++) {
+      for (let fy = 0; fy < 2; fy++) {
+        const local = xfPts(proto.pts, rot, fx, fy);
+        let minX = 99, minY = 99, maxX = -99, maxY = -99;
+        for (let i = 0; i < local.length; i++) {
+          const x = local[i][0], y = local[i][1];
+          if (x < minX) minX = x; if (y < minY) minY = y;
+          if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+        }
+        const w = maxX - minX, h = maxY - minY;
+        for (let dx = 0; dx <= N - 1 - w; dx++) {
+          for (let dy = 0; dy <= N - 1 - h; dy++) {
+            const pts = [];
+            let k = '';
+            for (let i = 0; i < local.length; i++) {
+              const p = [local[i][0] - minX + dx, local[i][1] - minY + dy];
+              pts.push(p);
+              k += p[0] + ':' + p[1] + ',';
+            }
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push({ pts, rot, fx, fy });
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function pairPool(sameOrient){
+  const pairs = [];
+  for (const proto of PROTOS) {
+    if (!isScaleneTri(proto.pts)) continue;
+    const ps = placements(proto);
+    let added = 0;
+    for (let i = 0; i < ps.length && added < 18; i++) {
+      const A = ps[i];
+      for (let j = i + 1; j < ps.length && added < 18; j++) {
+        const B = ps[j];
+        const same = A.rot === B.rot && A.fx === B.fx && A.fy === B.fy;
+        if (sameOrient && !same) continue;
+        if (!sameOrient && same) continue;
+        if (overlapCount(A.pts, B.pts) > 0) continue;
+        let acx = 0, acy = 0, bcx = 0, bcy = 0;
+        for (const p of A.pts) { acx += p[0]; acy += p[1]; }
+        for (const p of B.pts) { bcx += p[0]; bcy += p[1]; }
+        const nA = A.pts.length;
+        if (Math.abs(acx / nA - bcx / nA) + Math.abs(acy / nA - bcy / nA) < 3) continue;
+        pairs.push({ proto, A, B });
+        added++;
+      }
+    }
+  }
+  return pairs;
+}
+
+const PAIRS_SAME = pairPool(true);
+const PAIRS_ROT = pairPool(false);
+
+function areaDecoy(proto, avoid){
+  const a2 = shoelace2(proto.pts);
+  for (const q of PROTOS) {
+    if (q.id === proto.id || q.kind === proto.kind) continue;
+    if (shoelace2(q.pts) !== a2) continue;
+    const ps = placements(q);
+    for (const P of ps) {
+      if (overlapCount(P.pts, avoid) === 0) return { proto: q, pts: P.pts };
+    }
+  }
+  return null;
+}
+function similarDecoy(proto, avoid){
+  const scaled = proto.pts.map(p => [p[0] * 2, p[1] * 2]);
+  const fake = { pts: scaled };
+  const ps = placements(fake);
+  for (const P of ps) {
+    if (overlapCount(P.pts, avoid) === 0) return P.pts;
+  }
+  return null;
+}
+
+function where(p){ return '왼쪽에서 ' + (p[0] + 1) + '번째, 위에서 ' + (p[1] + 1) + '번째 못'; }
+
+function wrapItem(o){
+  const ans = relText(o.start, o.answerCell);
+  const dtexts = [];
+  for (const d of (o.distractors || [])) {
+    if (!d.cell || (d.cell[0] === o.answerCell[0] && d.cell[1] === o.answerCell[1])) continue;
+    dtexts.push({ text: relText(o.start, d.cell), misconceptionId: d.misconceptionId });
+  }
+  const fillers = [
+    { text: '점 ㄱ과 같은 못', misconceptionId: MIS.SAME },
+    { text: relText(o.start, [clamp(o.start[0] + 1, 0, N - 1), o.start[1]]), misconceptionId: 'near-fill' }
+  ];
+  const fin = finalizeChoices(ans, dtexts, fillers);
+  o.answerText = ans;
+  o.answer = ans;
+  o.answerNumeric = o.answerCell[0] * N + o.answerCell[1];
+  o.choices = fin.choices;
+  o.misconceptions = fin.distractors.map(d => d.misconceptionId);
+  if (o.flavor === 'error') o.say = '옳게 고쳐 보세요.';
+  else if (o.kind === 'reverse' && o.unitConcept === '대칭축') o.say = '두 대응점을 이은 선분의 한가운데 못으로 뛰어 보세요.';
+  else if (o.kind === 'reverse') o.say = '대칭의 중심 못으로 뛰어 보세요.';
+  else if (o.kind === 'line') o.say = '대응점을 찍어 선대칭도형을 완성해 보세요.';
+  else if (o.kind === 'point') o.say = '대응점을 찍어 점대칭도형을 완성해 보세요.';
+  else if (o.kind === 'congruence') o.say = '완전히 겹치도록 포개면 점 ㄱ과 겹치는 꼭짓점으로 뛰어 보세요.';
+  else o.say = '점 ㄱ의 대응점 못으로 뛰어 보세요.';
+  return o;
+}
+
+function makeCong(pair, band, flavor, idx){
+  const A = pair.A.pts, B = pair.B.pts, proto = pair.proto;
+  if (!isScaleneTri(proto.pts) || A.length !== 3 || B.length !== 3) return null;
+  const vi = idx % A.length;
+  const start = A[vi], answerCell = B[vi];
+  if (start[0] === answerCell[0] && start[1] === answerCell[1]) return null;
+  const avoid = A.concat(B);
+  const decoys = [];
+  const shapes = [{ pts: copyPts(A), color: 'coral', closed: true }];
+  shapes.push({ pts: copyPts(B), color: 'teal', closed: true });
+  const sim = similarDecoy(proto, avoid);
+  if (sim) {
+    shapes.push({ pts: sim, color: 'teal', closed: true });
+    decoys.push({ cell: sim[vi % sim.length], misconceptionId: MIS.SIM });
+  }
+  const area = areaDecoy(proto, avoid.concat(sim || []));
+  if (area) {
+    shapes.push({ pts: copyPts(area.pts), color: 'teal', closed: true });
+    decoys.push({ cell: area.pts[0], misconceptionId: MIS.AREA });
+  }
+  const otherV = B[(vi + 1) % B.length];
+  decoys.push({ cell: otherV, misconceptionId: 'wrong-vertex' });
+  const life = flavor === 'life' ? LIFE_NAMES[idx % 3] : null;
+  const head = life ? (life + ' 무늬를 보고 ') : '그림을 보고 ';
+  const hint = uniqueVertexHint(proto.pts, vi);
+  const prompt = head + congName(proto) + '과 합동인 도형에서 점 ㄱ은 ' + where(start) + '에 있어요.' + hint + ' 완전히 겹치도록 포개면 점 ㄱ과 겹치는 꼭짓점 못으로 뛰어 보세요.';
+  return wrapItem({
+    id: 'cg-' + proto.id + '-' + band + '-' + idx + '-' + vi,
+    kind: 'congruence', band, flavor: flavor || 'basic',
+    unitConcept: '대응점',
+    prompt, start, answerCell,
+    shapes, axis: null, center: null,
+    labels: [{ c: start[0], r: start[1], t: 'ㄱ' }],
+    distractors: decoys,
+    timeLimit: band === 1 ? 8 : 6,
+    showTicks: band === 1,
+    life
+  });
+}
+
+function linePool(){
+  const items = [];
+  for (const type of ['v', 'h']) {
+    for (let k = 1; k <= 5; k++) {
+      for (let c = 0; c < N; c++) for (let r = 0; r < N; r++) {
+        if (type === 'v' && c === k) continue;
+        if (type === 'h' && r === k) continue;
+        const c2 = type === 'v' ? 2 * k - c : c;
+        const r2 = type === 'h' ? 2 * k - r : r;
+        if (!inCell(c2, r2)) continue;
+        if (c2 === c && r2 === r) continue;
+        const d = axisDist(type, k, c, r);
+        if (d < 1) continue;
+        items.push({ type, k, start: [c, r], answer: [c2, r2], d });
+      }
+    }
+  }
+  return items;
+}
+const LINE_RAW = linePool();
+
+function extraOnSide(type, k, start){
+  const extra = [];
+  for (let t = 0; t < LINE_RAW.length && extra.length < 2; t++) {
+    const it = LINE_RAW[(t * 17 + start[0] * 7 + start[1]) % LINE_RAW.length];
+    if (it.type !== type || it.k !== k) continue;
+    if (it.start[0] === start[0] && it.start[1] === start[1]) continue;
+    const same = type === 'v' ? ((start[0] - k) * (it.start[0] - k) > 0) : ((start[1] - k) * (it.start[1] - k) > 0);
+    if (!same) continue;
+    extra.push(it.start);
+  }
+  return extra;
+}
+
+function makeLine(raw, flavor, idx){
+  const start = raw.start, answerCell = raw.answer;
+  const extras = extraOnSide(raw.type, raw.k, start);
+  const given = [start].concat(extras);
+  const mirrors = [];
+  for (const p of extras) {
+    const q = lineReflect(raw.type, raw.k, p);
+    if (!inCell(q[0], q[1])) continue;
+    if (q[0] === answerCell[0] && q[1] === answerCell[1]) continue;
+    mirrors.push(q);
+  }
+  const shapes = [{ pts: given, color: 'coral', closed: false }];
+  if (mirrors.length >= 2) shapes.push({ pts: mirrors, color: 'coral', closed: false });
+  const edge = raw.type === 'v' ? [start[0] < raw.k ? 0 : N - 1, start[1]] : [start[0], start[1] < raw.k ? 0 : N - 1];
+  const distractors = [
+    { cell: edge, misconceptionId: MIS.EDGE },
+    { cell: start, misconceptionId: MIS.SAME }
+  ];
+  if (raw.type === 'v') {
+    const flipR = clamp(2 * raw.k - start[1] === start[1] ? start[1] + 1 : 2 * (raw.k) - start[1], 0, N - 1);
+    distractors.push({ cell: [start[0], flipR], misconceptionId: MIS.FLIP });
+  } else {
+    const flipC = clamp(2 * raw.k - start[0], 0, N - 1);
+    if (inCell(flipC, start[1])) distractors.push({ cell: [flipC, start[1]], misconceptionId: MIS.FLIP });
+  }
+  const life = flavor === 'life' ? LIFE_NAMES[idx % 3] : null;
+  const head = life ? (life + ' 무늬에서 ') : '';
+  const axisName = raw.type === 'v' ? '세로' : '가로';
+  const prompt = head + axisName + ' 대칭축이 있는 선대칭도형의 일부가 그려져 있어요. 점 ㄱ은 ' + where(start) + '에 있어요. 대응점을 찍어 선대칭도형을 완성해 보세요.';
+  return wrapItem({
+    id: 'ln-' + raw.type + raw.k + '-' + start[0] + start[1] + '-' + idx,
+    kind: 'line', band: 2, flavor: flavor || 'basic',
+    unitConcept: '선대칭도형',
+    prompt, start, answerCell,
+    shapes,
+    axis: { type: raw.type, k: raw.k },
+    center: null,
+    labels: [{ c: start[0], r: start[1], t: 'ㄱ' }],
+    distractors, timeLimit: 6, showTicks: false, hintDist: raw.d, life
+  });
+}
+
+function makeRectDiag(idx){
+  const rects = [
+    { pts:[[1,1],[5,1],[5,3],[1,3]], vAxis:3, hAxis:2, start:[1,1], ans:[5,1], diag:[5,3] },
+    { pts:[[0,2],[4,2],[4,4],[0,4]], vAxis:2, hAxis:3, start:[0,2], ans:[4,2], diag:[4,4] },
+    { pts:[[2,0],[6,0],[6,4],[2,4]], vAxis:4, hAxis:2, start:[2,0], ans:[6,0], diag:[6,4] }
+  ];
+  const R = rects[idx % rects.length];
+  const otherAxis = [R.start[0], 2 * R.hAxis - R.start[1]];
+  const item = wrapItem({
+    id: 'rd-' + idx,
+    kind: 'line', band: 2, flavor: 'error',
+    unitConcept: '대칭축',
+    prompt: '이 직사각형을 그림에 그어진 세로 대칭축을 따라 접어 완전히 겹치게 하려면, 점 ㄱ(' + where(R.start) + ')의 대응점 못으로 뛰어 보세요.',
+    start: R.start, answerCell: R.ans,
+    shapes: [{ pts: R.pts, color: 'coral', closed: true }],
+    axis: { type: 'v', k: R.vAxis },
+    center: null,
+    labels: [{ c: R.start[0], r: R.start[1], t: 'ㄱ' }],
+    distractors: [
+      { cell: R.diag, misconceptionId: MIS.DIAG },
+      { cell: otherAxis, misconceptionId: 'other-axis' }
+    ],
+    timeLimit: 6, showTicks: false, hintDist: Math.abs(R.ans[0] - R.vAxis)
+  });
+  item.say = '그림에 그어진 세로 대칭축을 따라 접을 때 점 ㄱ의 대응점 못으로 뛰어 보세요.';
+  return item;
+}
+
+function pointPool(){
+  const items = [];
+  for (let cx = 1; cx <= 5; cx++) for (let cy = 1; cy <= 5; cy++) {
+    for (let c = 0; c < N; c++) for (let r = 0; r < N; r++) {
+      if (c === cx && r === cy) continue;
+      const c2 = 2 * cx - c, r2 = 2 * cy - r;
+      if (!inCell(c2, r2)) continue;
+      if (c2 === c && r2 === r) continue;
+      const flip = [2 * cx - c, r];
+      const flipOk = inCell(flip[0], flip[1]) && !(flip[0] === c2 && flip[1] === r2);
+      items.push({ cx, cy, start: [c, r], answer: [c2, r2], flip: flipOk ? flip : null, dc: c - cx, dr: r - cy });
+    }
+  }
+  return items;
+}
+const POINT_RAW = pointPool();
+
+function makePoint(raw, flavor, idx){
+  const start = raw.start, answerCell = raw.answer;
+  const extras = [];
+  const seen = new Set([keyOf(start[0], start[1]), keyOf(answerCell[0], answerCell[1])]);
+  for (const it of POINT_RAW) {
+    if (it.cx !== raw.cx || it.cy !== raw.cy) continue;
+    const s = it.start;
+    const sk = keyOf(s[0], s[1]);
+    if (seen.has(sk)) continue;
+    const mir = pointReflect(raw.cx, raw.cy, s);
+    if (!inCell(mir[0], mir[1])) continue;
+    if (mir[0] === answerCell[0] && mir[1] === answerCell[1]) continue;
+    extras.push(s);
+    seen.add(sk);
+    seen.add(keyOf(mir[0], mir[1]));
+    if (extras.length >= 2) break;
+  }
+  const given = [start].concat(extras);
+  const mirrors = extras.map(p => pointReflect(raw.cx, raw.cy, p));
+  const shapes = [{ pts: given, color: 'coral', closed: false }];
+  if (mirrors.length >= 2) shapes.push({ pts: mirrors, color: 'coral', closed: false });
+  else if (mirrors.length === 1) shapes.push({ pts: [extras[0], mirrors[0]], color: 'coral', closed: false });
+  const distractors = [];
+  if (raw.flip) distractors.push({ cell: raw.flip, misconceptionId: MIS.FLIP });
+  distractors.push({ cell: start, misconceptionId: MIS.SAME });
+  const edge = [start[0] < raw.cx ? 0 : N - 1, start[1]];
+  distractors.push({ cell: edge, misconceptionId: MIS.EDGE });
+  const life = flavor === 'life' ? LIFE_NAMES[idx % 3] : null;
+  const head = life ? (life + ' 무늬에서 ') : '';
+  const prompt = head + '대칭의 중심 ㅇ(' + where([raw.cx, raw.cy]) + ')이 있는 점대칭도형의 일부가 그려져 있어요. 점 ㄱ은 ' + where(start) + '에 있어요. 대응점을 찍어 점대칭도형을 완성해 보세요.';
+  return wrapItem({
+    id: 'pt-' + raw.cx + raw.cy + '-' + start[0] + start[1] + '-' + idx,
+    kind: 'point', band: 3, flavor: flavor || 'basic',
+    unitConcept: '점대칭도형',
+    prompt, start, answerCell,
+    shapes,
+    axis: null, center: { c: raw.cx, r: raw.cy, show: true },
+    labels: [{ c: start[0], r: start[1], t: 'ㄱ' }, { c: raw.cx, r: raw.cy, t: 'ㅇ' }],
+    distractors, timeLimit: 4.5, showTicks: false, hintDist: Math.abs(raw.dc), life
+  });
+}
+
+function makePointError(raw, idx){
+  if (!raw.flip) return null;
+  const item = makePoint(raw, 'error', idx);
+  if (!item) return null;
+  item.id = 'er-' + item.id;
+  item.flavor = 'error';
+  item.prompt = '민준이가 대응점을 잘못 찍었어요. 점 ㄱ은 ' + where(raw.start) + '이고 중심 ㅇ은 ' + where([raw.cx, raw.cy]) + '이에요. 옳게 고쳐 보세요.';
+  item.say = '옳게 고쳐 보세요.';
+  item.fakePeg = raw.flip;
+  item.unitConcept = '점대칭도형';
+  return item;
+}
+
+function makeReverseLine(idx){
+  const cands = LINE_RAW.filter(it => it.d >= 1 && it.d <= 3);
+  const it = cands[idx % cands.length];
+  const a = it.start, b = it.answer;
+  const mid = it.type === 'v' ? [it.k, a[1]] : [a[0], it.k];
+  if (!inCell(mid[0], mid[1])) return null;
+  if (mid[0] === a[0] && mid[1] === a[1]) return null;
+  return wrapItem({
+    id: 'rv-l-' + it.type + it.k + '-' + a[0] + a[1] + '-' + idx,
+    kind: 'reverse', band: 2, flavor: 'reverse',
+    unitConcept: '대칭축',
+    prompt: '점 ㄱ(' + where(a) + ')과 점 ㄷ(' + where(b) + ')이 선대칭의 대응점이에요. 두 대응점을 이은 선분의 한가운데 못으로 뛰어 보세요.',
+    start: a, answerCell: mid,
+    shapes: [{ pts: [a, b], color: 'teal', closed: false }],
+    axis: { type: it.type, k: it.k },
+    center: null,
+    labels: [{ c: a[0], r: a[1], t: 'ㄱ' }, { c: b[0], r: b[1], t: 'ㄷ' }],
+    distractors: [
+      { cell: b, misconceptionId: MIS.SAME },
+      { cell: it.type === 'v' ? [a[0], clamp(a[1] + it.d, 0, N - 1)] : [clamp(a[0] + it.d, 0, N - 1), a[1]], misconceptionId: MIS.EDGE }
+    ],
+    timeLimit: 6, showTicks: false, hintDist: it.d
+  });
+}
+
+function makeReversePoint(idx){
+  const cands = POINT_RAW.filter(it => Math.abs(it.dc) + Math.abs(it.dr) >= 2);
+  const it = cands[idx % cands.length];
+  const a = it.start, b = it.answer, mid = [it.cx, it.cy];
+  return wrapItem({
+    id: 'rv-p-' + it.cx + it.cy + '-' + a[0] + a[1] + '-' + idx,
+    kind: 'reverse', band: 3, flavor: 'reverse',
+    unitConcept: '대칭의 중심',
+    prompt: '점 ㄱ(' + where(a) + ')과 점 ㄷ(' + where(b) + ')이 점대칭의 대응점이에요. 대칭의 중심 못으로 뛰어 보세요.',
+    start: a, answerCell: mid,
+    shapes: [{ pts: [a, b], color: 'teal', closed: false }],
+    axis: null, center: { c: it.cx, r: it.cy, show: false },
+    labels: [{ c: a[0], r: a[1], t: 'ㄱ' }, { c: b[0], r: b[1], t: 'ㄷ' }],
+    distractors: [
+      { cell: it.flip || [clamp(a[0], 0, N - 1), clamp(mid[1], 0, N - 1)], misconceptionId: MIS.FLIP },
+      { cell: b, misconceptionId: MIS.SAME }
+    ],
+    timeLimit: 4.5, showTicks: false, hintDist: Math.abs(it.dc)
+  });
+}
+
+function makeParaTrap(idx){
+  const paras = [
+    { pts:[[0,1],[4,1],[6,3],[2,3]], center:[3,2], start:[0,1], ans:[6,3], fakeAxis:3 },
+    { pts:[[1,0],[5,0],[6,2],[2,2]], center:[3,1], start:[1,0], ans:[5,2], fakeAxis:3 }
+  ];
+  const P = paras[idx % paras.length];
+  return wrapItem({
+    id: 'para-' + idx,
+    kind: 'point', band: 3, flavor: 'error',
+    unitConcept: '점대칭도형',
+    prompt: '이 평행사변형을 180° 돌렸을 때 겹치는 점 ㄱ(' + where(P.start) + ')의 대응점 못으로 뛰어 보세요.',
+    start: P.start, answerCell: P.ans,
+    shapes: [{ pts: P.pts, color: 'coral', closed: true }],
+    axis: null, center: { c: P.center[0], r: P.center[1], show: true },
+    labels: [{ c: P.start[0], r: P.start[1], t: 'ㄱ' }, { c: P.center[0], r: P.center[1], t: 'ㅇ' }],
+    distractors: [
+      { cell: [2 * P.fakeAxis - P.start[0], P.start[1]], misconceptionId: MIS.PARA },
+      { cell: P.start, misconceptionId: MIS.SAME }
+    ],
+    timeLimit: 4.5, showTicks: false
+  });
+}
+
+function buildQuizPool(){
+  const pool = [];
+  const used = new Set();
+  function add(it){
+    if (!it || !it.prompt || !it.choices || !it.choices.includes(it.answer)) return;
+    if (used.has(it.prompt)) return;
+    used.add(it.prompt);
+    pool.push(it);
+  }
+  for (let i = 0; i < PAIRS_SAME.length; i++) add(makeCong(PAIRS_SAME[i], 1, i % 4 === 1 ? 'life' : 'basic', i));
+  for (let i = 0; i < PAIRS_ROT.length; i++) add(makeCong(PAIRS_ROT[i], 2, 'basic', i + 50));
+  for (let i = 0; i < LINE_RAW.length; i += 3) add(makeLine(LINE_RAW[i], i % 9 === 0 ? 'life' : 'basic', i));
+  for (let i = 0; i < 6; i++) add(makeRectDiag(i));
+  for (let i = 0; i < POINT_RAW.length; i += 4) add(makePoint(POINT_RAW[i], i % 12 === 0 ? 'life' : 'basic', i));
+  for (let i = 0; i < POINT_RAW.length; i += 7) add(makePointError(POINT_RAW[i], i));
+  for (let i = 0; i < 24; i++) add(makeReverseLine(i));
+  for (let i = 0; i < 24; i++) add(makeReversePoint(i));
+  for (let i = 0; i < 4; i++) add(makeParaTrap(i));
+  return pool;
+}
+
+const POOL = buildQuizPool();
+const POOL_BY = {
+  1: POOL.filter(p => p.band === 1),
+  2: POOL.filter(p => p.band === 2),
+  3: POOL.filter(p => p.band === 3)
+};
+
+function takeFrom(list, flavor, avoid){
+  const bag = list.filter(p => (!flavor || p.flavor === flavor) && !avoid.has(p.id));
+  const src = bag.length ? bag : list.filter(p => !avoid.has(p.id));
+  const src2 = src.length ? src : list;
+  return src2[(Math.random() * src2.length) | 0];
+}
+
+function buildRun(){
+  const spec = [
+    { band:1, flavor:'basic' }, { band:1, flavor:'life' }, { band:1, flavor:'basic' }, { band:1, flavor:'basic' },
+    { band:2, flavor:'basic' }, { band:2, flavor:'life' }, { band:2, flavor:'reverse' }, { band:2, flavor:'error' },
+    { band:3, flavor:'basic' }, { band:3, flavor:'life' }, { band:3, flavor:'reverse' }, { band:3, flavor:'error' }
+  ];
+  const avoid = new Set();
+  const deck = [];
+  for (let i = 0; i < spec.length; i++) {
+    const s = spec[i];
+    const it = takeFrom(POOL_BY[s.band], s.flavor, avoid);
+    if (it) { avoid.add(it.id); deck.push(it); }
+  }
+  while (deck.length < 12) {
+    const it = POOL[(deck.length * 13) % POOL.length];
+    deck.push(it);
+  }
+  return deck;
+}
+
+function sampleProblems(n){
+  n = Math.max(0, n | 0);
+  const src = shuffle(POOL);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const p = src[i % src.length];
+    out.push({
+      id: p.id + '-' + i,
+      prompt: p.prompt,
+      choices: p.choices.slice(),
+      answer: p.answer,
+      answerNumeric: p.answerNumeric,
+      unitConcept: p.unitConcept,
+      start: p.start && p.start.slice(),
+      answerCell: p.answerCell && p.answerCell.slice(),
+      kind: p.kind,
+      axis: p.axis ? { type: p.axis.type, k: p.axis.k } : null,
+      center: p.center ? { c: p.center.c, r: p.center.r } : null,
+      shapes: (p.shapes || []).map(sh => ({ pts: sh.pts.map(q => q.slice()), color: sh.color, closed: !!sh.closed }))
+    });
+  }
+  return out;
+}
+
+/* ── state ─────────────────────────────────────────────── */
+const S = {
+  phase:'title', land:false, W:390, H:844, stageW:390, stageX:0,
+  score:0, showScore:0, lives:3, combo:0, solved:0, level:1,
+  easy:true, grace:1, session:SESSION, qTime:8, qMax:8,
+  deck:[], qi:0, problem:null, busy:false,
+  aimC:3, aimR:3, hover:null,
+  token:{ x:0, y:0, sx:1, sy:1, falling:0, hop:null },
+  taut:null, snapLives:0, camX:0, camY:0, camTX:0, camTY:0,
+  timeScale:1, hitStop:0, trail:[], failT:0, failMsg:'',
+  pattern:0, album:[], stamps:{ congruence:false, 'line-sym':false, 'point-sym':false },
+  mute:false, t:0, after:null, countT:0, lastWhy:'',
+  hud:null, promptBox:null, panel:null, infoBox:null, timerBox:null, dockStrip:null, timerFill:null, sessionLabel:null
+};
+
+let actx = null;
+const imgs = { token:null, band:null };
+function loadImg(src, key){
+  const im = new Image();
+  im.onload = () => { imgs[key] = im; };
+  im.onerror = () => { imgs[key] = null; };
+  im.src = src;
+}
+loadImg('./assets/peg-token.png', 'token');
+loadImg('./assets/rubber-band.png', 'band');
+
+function unlockAudio(){
+  if (!actx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) actx = new AC();
+  }
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+function tone(freq, dur, type, gain, at){
+  if (S.mute || !actx) return;
+  const t0 = actx.currentTime + (at || 0);
+  const o = actx.createOscillator();
+  const g = actx.createGain();
+  o.type = type || 'triangle';
+  o.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(gain || 0.07, t0);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+function sndHop(){ tone(160, 0.08, 'triangle', 0.05); }
+function sndCorrect(combo){
+  tone(220, 0.09, 'triangle', 0.07);
+  if (combo >= 2) tone(330, 0.1, 'triangle', 0.06, 0.04);
+  if (combo >= 3) tone(440, 0.12, 'square', 0.04, 0.08);
+}
+function sndWrong(){
+  tone(180, 0.16, 'sawtooth', 0.06);
+  tone(90, 0.22, 'triangle', 0.05, 0.05);
+}
+
+function showBest(){
+  let best = 0;
+  try { best = parseInt(localStorage.getItem(LS_BEST) || '0', 10) || 0; } catch {}
+  $('#best').textContent = best ? ('최고 ' + best) : '최고 기록 없음';
+}
+function setMute(on){
+  S.mute = !!on;
+  const lab = S.mute ? '✕' : '♪';
+  $('#mute').textContent = lab;
+  $('#titleMute').textContent = lab;
+  try { localStorage.setItem(LS_MUTE, S.mute ? '1' : '0'); } catch {}
+}
+function loadPersist(){
+  try { S.mute = localStorage.getItem(LS_MUTE) === '1'; } catch {}
+  try { S.stamps = Object.assign(S.stamps, JSON.parse(localStorage.getItem(LS_STAMP) || '{}')); } catch {}
+  try { S.album = JSON.parse(localStorage.getItem(LS_ALBUM) || '[]'); } catch {}
+  setMute(S.mute);
+  showBest();
+}
+
+let boardCache = null, boardKey = '';
+let playCache = null, playKey = '';
+let hudCache = null, hudCtx = null, hudDirty = true;
+let hudScoreI = -1, hudSessI = -1;
+function drawDpr(){ return Math.min(devicePixelRatio || 1, 1.25); }
+function markHud(){ hudDirty = true; }
+function pegXY(c, r){
+  return { x: S.board.x + S.pad + c * S.gap, y: S.board.y + S.pad + r * S.gap };
+}
+function layout(){
+  const W = innerWidth, H = innerHeight;
+  S.W = W; S.H = H;
+  S.land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE = Math.min(W - 24, W >= 1680 ? 1880 : 1280);
+  const SX = Math.round((W - STAGE) / 2);
+  S.stageW = STAGE; S.stageX = SX;
+  const root = document.documentElement;
+  root.style.setProperty('--stageW', STAGE + 'px');
+  root.style.setProperty('--stageX', SX + 'px');
+  const dpr = drawDpr();
+  if (cv.width !== (W * dpr | 0) || cv.height !== (H * dpr | 0)) {
+    cv.width = W * dpr | 0; cv.height = H * dpr | 0;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+  }
+  const safeT = 22, safeB = 10;
+  if (S.land) {
+    const leftW = Math.round(STAGE * 0.62);
+    const dockH = 72;
+    const availH = H - safeT - safeB;
+    const bs = Math.max(220, Math.min(leftW - 16, availH - dockH - 8));
+    S.board = { x: SX + 8 + (leftW - 16 - bs) / 2, y: safeT + Math.max(0, (availH - bs - dockH) * 0.35), s: bs };
+    S.dockStrip = { x: S.board.x, y: S.board.y + bs + 2, w: bs, h: dockH };
+    S.timerBox = null;
+    S.panel = { x: SX + leftW + 8, y: safeT + 4, w: STAGE - leftW - 18, h: H - safeT - safeB - 8 };
+    S.hud = null;
+    S.promptBox = null;
+    S.infoBox = null;
+  } else {
+    const hudH = 54, promptH = 52, timerH = 14, dockH = 78;
+    const infoWant = H < 700 ? 96 : Math.max(110, Math.min(200, H * 0.17));
+    const top = safeT + hudH + 6 + promptH + 4;
+    const bot = safeB + timerH + dockH + infoWant + 6;
+    const bs = Math.max(200, Math.min(W - 16, H - top - bot));
+    S.board = { x: (W - bs) / 2, y: top, s: bs };
+    S.dockStrip = { x: S.board.x, y: S.board.y + bs + 2, w: bs, h: dockH };
+    S.timerBox = { x: S.board.x, y: S.dockStrip.y + dockH + 4, w: bs, h: timerH };
+    S.panel = null;
+    S.hud = { x: 8, y: safeT + 4, w: W - 64, h: hudH };
+    S.promptBox = { x: S.board.x, y: S.board.y - promptH - 4, w: bs, h: promptH };
+    const infoY = S.timerBox.y + timerH + 6;
+    S.infoBox = { x: 8, y: infoY, w: W - 16, h: Math.max(72, H - safeB - infoY) };
+  }
+  S.pad = Math.max(26, S.board.s * 0.09);
+  S.gap = (S.board.s - S.pad * 2) / (N - 1);
+  S.pegR = Math.max(22, Math.min(S.gap * 0.38, 34));
+  S.tokenSize = clamp(Math.min(S.gap * 1.55, S.dockStrip.h * 1.4), 56, 118);
+  S.dock = { x: S.board.x + S.board.s / 2, y: S.dockStrip.y + S.dockStrip.h * 0.58 };
+  if (!S.token.hop) {
+    S.token.x = S.dock.x; S.token.y = S.dock.y;
+  }
+  boardKey = '';
+  playKey = '';
+  markHud();
+  S.promptLines = null;
+  S.hintLines = null;
+}
+
+function currentProblem(){ return S.problem; }
+
+function stampYard(band){
+  const id = band === 1 ? 'congruence' : band === 2 ? 'line-sym' : 'point-sym';
+  S.stamps[id] = true;
+  try { localStorage.setItem(LS_STAMP, JSON.stringify(S.stamps)); } catch {}
+}
+
+function loadProblem(p){
+  S.problem = p;
+  S.qMax = p.timeLimit || (p.band === 1 ? 8 : p.band === 2 ? 6 : 4.5);
+  S.qTime = S.qMax;
+  S.aimC = p.start[0]; S.aimR = p.start[1];
+  S.taut = null;
+  S.busy = false;
+  S.token.hop = null;
+  S.token.falling = 0;
+  S.token.sx = 1; S.token.sy = 1;
+  S.token.x = S.dock.x; S.token.y = S.dock.y;
+  S.level = p.band;
+  stampYard(p.band);
+  S.failMsg = ''; S.failT = 0;
+  S.promptLines = null;
+  S.hintLines = null;
+  markHud();
+  $('#failNote').classList.remove('on');
+}
+
+function beginPlay(){
+  document.documentElement.classList.add('ingame');
+  $('#title').classList.add('gone');
+  $('#result').classList.remove('show');
+  $('#onboard').classList.remove('show');
+  S.phase = 'playing';
+  S.score = 0; S.showScore = 0; S.lives = 3; S.combo = 0; S.solved = 0;
+  S.grace = S.easy ? 1 : 0;
+  S.session = SESSION; S.pattern = 0;
+  S.deck = buildRun(); S.qi = 0;
+  S.snapLives = 0; S.camX = 0; S.camY = 0;
+  S.lastWhy = '';
+  layout();
+  loadProblem(S.deck[0]);
+}
+
+function endRun(){
+  S.phase = 'over';
+  document.documentElement.classList.remove('ingame');
+  let best = 0;
+  try { best = parseInt(localStorage.getItem(LS_BEST) || '0', 10) || 0; } catch {}
+  const neu = S.score > best;
+  if (neu) { try { localStorage.setItem(LS_BEST, String(S.score)); } catch {} best = S.score; }
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    const rec = JSON.parse(localStorage.getItem(LS_DAY) || '{}');
+    if (rec.d !== day) rec.n = 0;
+    rec.d = day; rec.n = (rec.n || 0) + S.solved;
+    localStorage.setItem(LS_DAY, JSON.stringify(rec));
+  } catch {}
+  $('#resKicker').textContent = neu ? '새 기록' : '점판 기록';
+  $('#resTitle').textContent = S.score === 0 ? '다시 뛰어 보세요' : (neu ? '새 기록' : '점판 기록');
+  $('#resScore').textContent = '0';
+  S.countT = S.score;
+  $('#resSub').textContent = '착지 ' + S.solved + ' · 최고 ' + best;
+  const st = $('#resStamps');
+  st.innerHTML = YARDS.map(y => '<b class="' + (S.stamps[y.id] ? 'on' : '') + '">' + y.title + '</b>').join('');
+  $('#result').classList.add('show');
+  showBest();
+}
+
+function nextProblem(){
+  if (S.lives <= 0 || S.session <= 0) { endRun(); return; }
+  S.qi++;
+  if (S.qi >= S.deck.length) {
+    S.deck = S.deck.concat(buildRun());
+  }
+  loadProblem(S.deck[S.qi]);
+}
+
+function applyCorrect(){
+  const combo = Math.min(3, S.combo + 1);
+  const add = 100 * combo;
+  S.combo = combo;
+  S.score += add;
+  S.solved += 1;
+  S.busy = true;
+  S.hitStop = REDUCE ? 0.03 : 0.08;
+  S.timeScale = 0;
+  const p = S.problem;
+  if (p) S.taut = { a: p.start, b: p.answerCell, t: 0 };
+  S.token.sx = 1.18; S.token.sy = 0.82;
+  if (S.combo >= 3) {
+    S.pattern = Math.min(6, S.pattern + 1);
+    try {
+      const alb = JSON.parse(localStorage.getItem(LS_ALBUM) || '[]');
+      alb.push({ n: S.pattern, at: Date.now() });
+      localStorage.setItem(LS_ALBUM, JSON.stringify(alb.slice(-12)));
+    } catch {}
+  }
+  sndCorrect(S.combo);
+  S.lastWhy = S.combo >= 2 ? ('연속 ' + S.combo + '번 착지!') : '고무줄이 팽팽히 걸렸어요.';
+  S.hintLines = null;
+  markHud();
+  S.after = { t: REDUCE ? 0.28 : 0.55, fn: nextProblem };
+}
+
+function applyWrong(reason, opts){
+  const keepLife = opts && opts.keepLife;
+  if (keepLife && S.grace > 0 && S.problem && S.problem.hintDist != null) {
+    S.grace -= 1;
+    S.combo = 0;
+    S.failMsg = '축에서 ' + S.problem.hintDist + '칸이에요. 다시 뛰어 보세요.';
+    S.lastWhy = S.failMsg;
+    S.hintLines = null;
+    markHud();
+    S.failT = 2.2;
+    $('#failNote').textContent = S.failMsg;
+    $('#failNote').classList.add('on');
+    sndWrong();
+    S.busy = true;
+    S.token.sx = 1.1; S.token.sy = 0.85;
+    S.after = { t: 0.7, fn: () => { S.busy = false; S.token.x = S.dock.x; S.token.y = S.dock.y; S.qTime = S.qMax; } };
+    return;
+  }
+  S.combo = 0;
+  S.lives -= 1;
+  S.snapLives = 0.45;
+  S.failMsg = reason || '빗나간 못이에요.';
+  S.lastWhy = S.failMsg;
+  S.hintLines = null;
+  markHud();
+  S.failT = 1.6;
+  $('#failNote').textContent = S.failMsg;
+  $('#failNote').classList.add('on');
+  sndWrong();
+  S.busy = true;
+  S.token.falling = 1;
+  S.camTX = (Math.random() < 0.5 ? -1 : 1) * 5;
+  S.after = { t: REDUCE ? 0.35 : 0.62, fn: () => {
+    S.token.falling = 0;
+    S.token.x = S.dock.x; S.token.y = S.dock.y;
+    S.token.sx = 1; S.token.sy = 1;
+    if (S.lives <= 0) endRun();
+    else nextProblem();
+  }};
+}
+
+function hopTo(c, r, forced){
+  if (S.phase !== 'playing' || !S.problem) return;
+  if (S.busy && !forced) return;
+  if (!inCell(c, r)) return;
+  const p = S.problem;
+  const dest = pegXY(c, r);
+  const from = { x: S.token.x, y: S.token.y };
+  S.busy = true;
+  S.aimC = c; S.aimR = r;
+  sndHop();
+  const dur = REDUCE ? 0.14 : 0.28;
+  S.token.hop = { fx: from.x, fy: from.y, tx: dest.x, ty: dest.y, t: 0, dur, c, r };
+  S.camTX = (dest.x - from.x) * 0.04;
+  S.camTY = (dest.y - from.y) * 0.04;
+  S.token.sx = 0.86; S.token.sy = 1.18;
+  S.pendingJudge = { c, r };
+}
+
+function judgeLanding(c, r){
+  const p = S.problem;
+  const ok = p && c === p.answerCell[0] && r === p.answerCell[1];
+  if (ok) applyCorrect();
+  else {
+    let why = '빗나간 못이에요.';
+    if (p && p.fakePeg && c === p.fakePeg[0] && r === p.fakePeg[1]) why = '뒤집어 찍은 못이에요. 180° 돌린 칸이에요.';
+    else if (p && p.axis && p.kind === 'line') why = '대칭축에서 같은 칸 반대편이에요.';
+    else if (p && p.kind === 'congruence') why = '포개면 겹치는 대응점이 아니에요.';
+    else if (p && p.kind === 'point') why = '중심에서 같은 칸 반대편이에요.';
+    applyWrong(why, { keepLife: true });
+  }
+}
+
+function tick(dt){
+  S.t += dt;
+  if (S.showScore < S.score) {
+    const step = Math.max(4, (S.score - S.showScore) * 8 * dt);
+    S.showScore = Math.min(S.score, S.showScore + step);
+    const si = Math.round(S.showScore);
+    if (si !== hudScoreI) markHud();
+  }
+  S.camX += (S.camTX - S.camX) * Math.min(1, dt * 8);
+  S.camY += (S.camTY - S.camY) * Math.min(1, dt * 8);
+  S.camTX *= (1 - dt * 3); S.camTY *= (1 - dt * 3);
+  if (S.token.sx !== 1 || S.token.sy !== 1) {
+    S.token.sx += (1 - S.token.sx) * Math.min(1, dt * 10);
+    S.token.sy += (1 - S.token.sy) * Math.min(1, dt * 10);
+  }
+  if (S.taut) S.taut.t += dt;
+  if (S.snapLives > 0) S.snapLives -= dt;
+  if (S.failT > 0) {
+    S.failT -= dt;
+    if (S.failT <= 0) $('#failNote').classList.remove('on');
+  }
+  if (S.token.hop) {
+    const h = S.token.hop;
+    h.t += dt;
+    const u = clamp(h.t / h.dur, 0, 1);
+    const e = 1 - Math.pow(1 - u, 3);
+    const lift = 4 * e * (1 - e) * S.gap * 0.9;
+    S.token.x = h.fx + (h.tx - h.fx) * e;
+    S.token.y = h.fy + (h.ty - h.fy) * e - lift;
+    if (!REDUCE) {
+      if (S.trail.length > 2) S.trail.shift();
+    }
+    if (u >= 1) {
+      S.token.x = h.tx; S.token.y = h.ty;
+      S.token.hop = null;
+      S.token.sx = 1.22; S.token.sy = 0.78;
+      const j = S.pendingJudge;
+      S.pendingJudge = null;
+      if (j) judgeLanding(j.c, j.r);
+    }
+  } else {
+    for (const g of S.trail) g.a -= dt * 3;
+    S.trail = S.trail.filter(g => g.a > 0);
+  }
+  if (S.token.falling > 0) {
+    S.token.falling += dt * 2.4;
+    S.token.y += dt * 90;
+    S.token.sx = 0.7; S.token.sy = 1.25;
+  }
+  if (S.after) {
+    S.after.t -= dt;
+    if (S.after.t <= 0) {
+      const fn = S.after.fn;
+      S.after = null;
+      S.busy = false;
+      fn();
+    }
+  }
+  if (S.phase === 'playing' && !S.busy) {
+    S.session -= dt;
+    S.qTime -= dt;
+    if (S.session <= 0) { S.session = 0; endRun(); return; }
+    if (S.qTime <= 0) applyWrong('시간이 다 되어 못이 잠겼어요.', { keepLife: true });
+  }
+}
+
+function drawGlyph(x, y, s, ch, col, g){
+  g = g || ctx;
+  const bits = GLYPH[ch];
+  if (!bits) return;
+  g.fillStyle = col;
+  const cw = s / 7, chh = s / 7;
+  for (let r = 0; r < 7; r++) {
+    for (let c = 0; c < 6; c++) {
+      if (bits[r] & (1 << (5 - c))) g.fillRect(x + c * cw, y + r * chh, cw + 0.4, chh + 0.4);
+    }
+  }
+}
+function drawNum(x, y, s, n, col, g){
+  g = g || ctx;
+  const str = String(n | 0);
+  const w = s * 0.78 * str.length;
+  let px = x - w / 2;
+  for (const ch of str) { drawGlyph(px, y - s / 2, s, ch, col, g); px += s * 0.78; }
+}
+
+function drawBand(pts, color, closed, sag, width, g){
+  g = g || ctx;
+  if (!pts || pts.length < 2) return;
+  g.strokeStyle = color;
+  g.lineWidth = width || Math.max(5, S.gap * 0.14);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  g.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+    const a = pegXY(pts[i][0], pts[i][1]);
+    const ni = i + 1;
+    if (!closed && ni >= pts.length) break;
+    const bpt = pts[ni % pts.length];
+    const b = pegXY(bpt[0], bpt[1]);
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const nx = -(b.y - a.y) * 0.05 * sag;
+    const ny = (b.x - a.x) * 0.05 * sag;
+    if (i === 0) g.moveTo(a.x, a.y);
+    g.quadraticCurveTo(mx + nx, my + ny, b.x, b.y);
+  }
+  g.stroke();
+}
+
+function rebuildBoard(){
+  const dockH = S.dockStrip ? S.dockStrip.h : 0;
+  const k = S.board.s + ':' + S.pegR + ':' + S.gap + ':' + (S.pad | 0) + ':' + (dockH | 0);
+  if (boardKey === k && boardCache) return;
+  boardKey = k;
+  const dpr = drawDpr();
+  const s = S.board.s;
+  const cw = Math.max(1, s * dpr | 0), ch = Math.max(1, (s + dockH) * dpr | 0);
+  if (!boardCache || boardCache.width !== cw || boardCache.height !== ch) {
+    boardCache = document.createElement('canvas');
+    boardCache.width = cw; boardCache.height = ch;
+  }
+  const c = boardCache;
+  const g = c.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, cw, ch);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = PAL.board; g.fillRect(0, 0, s, s);
+  g.fillStyle = PAL.boardLo;
+  for (let i = 0; i < 8; i++) {
+    g.globalAlpha = 0.16;
+    g.fillRect((i * 47) % s, (i * 31) % s, 18, 9);
+  }
+  g.globalAlpha = 1;
+  g.strokeStyle = PAL.ink; g.lineWidth = 6; g.strokeRect(3, 3, s - 6, s - 6);
+  for (let r = 0; r < N; r++) for (let c0 = 0; c0 < N; c0++) {
+    const x = S.pad + c0 * S.gap, y = S.pad + r * S.gap;
+    g.fillStyle = PAL.hole;
+    g.beginPath(); g.arc(x, y, S.pegR * 0.72, 0, Math.PI * 2); g.fill();
+    g.fillStyle = PAL.white;
+    g.beginPath(); g.arc(x, y, S.pegR * 0.46, 0, Math.PI * 2); g.fill();
+  }
+  if (dockH > 8) {
+    g.fillStyle = PAL.boardLo;
+    g.fillRect(0, s, s, dockH);
+    g.strokeStyle = PAL.ink; g.lineWidth = 6;
+    g.strokeRect(3, s + 3, s - 6, dockH - 6);
+    g.strokeStyle = PAL.coral; g.lineWidth = 5; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.strokeRect(12, s + 12, s - 24, dockH - 24);
+    const pegs = [[12, s + 12], [s - 12, s + 12], [s - 12, s + dockH - 12], [12, s + dockH - 12]];
+    for (const p of pegs) {
+      g.fillStyle = PAL.hole;
+      g.beginPath(); g.arc(p[0], p[1], 6, 0, Math.PI * 2); g.fill();
+      g.fillStyle = PAL.white;
+      g.beginPath(); g.arc(p[0], p[1], 3.5, 0, Math.PI * 2); g.fill();
+    }
+  }
+}
+
+function rebuildPlay(){
+  rebuildBoard();
+  const p = S.problem;
+  const dockH = S.dockStrip ? S.dockStrip.h : 0;
+  const k = (p ? p.id : '-') + ':' + boardKey + ':' + (S.pattern | 0);
+  if (k === playKey && playCache) return;
+  playKey = k;
+  const dpr = drawDpr();
+  const w = S.board.s, h = S.board.s + dockH;
+  const cw = Math.max(1, w * dpr | 0), ch = Math.max(1, h * dpr | 0);
+  if (!playCache || playCache.width !== cw || playCache.height !== ch) {
+    playCache = document.createElement('canvas');
+    playCache.width = cw; playCache.height = ch;
+  }
+  const c = playCache;
+  const g = c.getContext('2d', { alpha: false });
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = PAL.board; g.fillRect(0, 0, w, h);
+  if (boardCache) g.drawImage(boardCache, 0, 0, w, h);
+  g.translate(-S.board.x, -S.board.y);
+  if (S.pattern > 0) {
+    g.save();
+    g.beginPath();
+    g.rect(S.board.x, S.board.y, S.board.s, S.board.s * Math.min(1, S.pattern / 6));
+    g.clip();
+    g.globalAlpha = 0.22;
+    g.strokeStyle = PAL.teal; g.lineWidth = 3;
+    for (let i = 0; i < S.pattern; i++) {
+      const x = S.board.x + S.pad + ((i * 2) % (N - 1)) * S.gap;
+      const y = S.board.y + S.pad + (((i * 3) % (N - 1))) * S.gap;
+      g.strokeRect(x - S.gap * 0.4, y - S.gap * 0.4, S.gap * 0.8, S.gap * 0.8);
+    }
+    g.restore();
+  }
+  if (p && p.axis && p.kind !== 'reverse') {
+    g.save();
+    g.strokeStyle = PAL.ink;
+    g.lineWidth = Math.max(4, S.gap * 0.1);
+    g.globalAlpha = 0.85;
+    g.setLineDash([10, 7]);
+    g.beginPath();
+    if (p.axis.type === 'v') {
+      const x = pegXY(p.axis.k, 0).x;
+      g.moveTo(x, S.board.y + 8); g.lineTo(x, S.board.y + S.board.s - 8);
+    } else {
+      const y = pegXY(0, p.axis.k).y;
+      g.moveTo(S.board.x + 8, y); g.lineTo(S.board.x + S.board.s - 8, y);
+    }
+    g.stroke();
+    g.setLineDash([]);
+    g.globalAlpha = 1;
+    const tag = p.axis.type === 'v' ? '세로 대칭축' : '가로 대칭축';
+    const tfs = Math.max(13, S.gap * 0.28);
+    g.font = '800 ' + tfs + 'px ' + KR;
+    g.fillStyle = PAL.ink;
+    g.textBaseline = 'middle';
+    if (p.axis.type === 'v') {
+      const x = pegXY(p.axis.k, 0).x;
+      g.save();
+      g.translate(x + 8, S.board.y + 22);
+      g.textAlign = 'left';
+      g.fillStyle = PAL.cream;
+      g.fillRect(-2, -tfs * 0.55, g.measureText(tag).width + 8, tfs * 1.15);
+      g.strokeStyle = PAL.ink; g.lineWidth = 2;
+      g.strokeRect(-2, -tfs * 0.55, g.measureText(tag).width + 8, tfs * 1.15);
+      g.fillStyle = PAL.ink;
+      g.fillText(tag, 2, 0);
+      g.restore();
+    } else {
+      const y = pegXY(0, p.axis.k).y;
+      g.textAlign = 'left';
+      const tw = g.measureText(tag).width + 8;
+      g.fillStyle = PAL.cream;
+      g.fillRect(S.board.x + 10, y + 8, tw, tfs * 1.15);
+      g.strokeStyle = PAL.ink; g.lineWidth = 2;
+      g.strokeRect(S.board.x + 10, y + 8, tw, tfs * 1.15);
+      g.fillStyle = PAL.ink;
+      g.fillText(tag, S.board.x + 14, y + 8 + tfs * 0.55);
+    }
+    g.restore();
+  }
+  if (p && p.shapes) {
+    for (const sh of p.shapes) {
+      const col = sh.color === 'coral' ? PAL.coral : PAL.teal;
+      drawBand(sh.pts, col, sh.closed, 1, Math.max(6, S.gap * 0.16), g);
+    }
+  }
+  if (p && p.fakePeg) {
+    const f = pegXY(p.fakePeg[0], p.fakePeg[1]);
+    g.strokeStyle = PAL.coral; g.lineWidth = 2; g.setLineDash([4, 4]);
+    g.beginPath(); g.arc(f.x, f.y, S.pegR * 0.7, 0, Math.PI * 2); g.stroke();
+    g.setLineDash([]);
+  }
+  if (p && p.labels) {
+    const fs = Math.max(20, S.W * 0.048);
+    g.font = '800 ' + fs + 'px ' + KR;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const lb of p.labels) {
+      const q = pegXY(lb.c, lb.r);
+      const bw = fs * 1.2, bh = fs * 1.1;
+      let bx = q.x - bw / 2;
+      let by = q.y - S.pegR - bh - 6;
+      if (by < S.board.y + 8) by = q.y + S.pegR + 6;
+      if (bx < S.board.x + 8) bx = S.board.x + 8;
+      if (bx + bw > S.board.x + S.board.s - 8) bx = S.board.x + S.board.s - 8 - bw;
+      g.fillStyle = PAL.cream;
+      g.fillRect(bx, by, bw, bh);
+      g.strokeStyle = PAL.coral; g.lineWidth = 4;
+      g.strokeRect(bx + 2, by + 2, bw - 4, bh - 4);
+      g.strokeStyle = PAL.ink; g.lineWidth = 2;
+      g.strokeRect(bx, by, bw, bh);
+      g.fillStyle = PAL.ink;
+      g.fillText(lb.t, bx + bw / 2, by + bh / 2);
+    }
+  }
+  playCache = c;
+}
+
+function drawToken(x, y, sx, sy, alpha){
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(sx, sy);
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  const ts = S.tokenSize;
+  if (imgs.token) ctx.drawImage(imgs.token, (-ts * 0.5) | 0, (-ts * 0.72) | 0, ts | 0, ts | 0);
+  else {
+    ctx.fillStyle = PAL.coral;
+    ctx.beginPath(); ctx.ellipse(0, -ts * 0.18, ts * 0.32, ts * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = PAL.cream;
+    ctx.fillRect(-ts * 0.1, -ts * 0.02, ts * 0.2, ts * 0.38);
+  }
+  ctx.restore();
+}
+
+function yardTitle(){
+  return S.level === 1 ? '합동못' : S.level === 2 ? '접기못' : '돌리기못';
+}
+function bestShown(){
+  try { return Math.max(S.score | 0, parseInt(localStorage.getItem(LS_BEST) || '0', 10) || 0); } catch { return S.score | 0; }
+}
+function todayShown(){
+  try {
+    const rec = JSON.parse(localStorage.getItem(LS_DAY) || '{}');
+    const day = new Date().toISOString().slice(0, 10);
+    return (rec.d === day ? (rec.n || 0) : 0) + (S.solved || 0);
+  } catch { return S.solved || 0; }
+}
+function defaultHint(){
+  const p = S.problem;
+  if (!p) return '깜빡이는 점의 대응점 못으로 뛰어 보세요.';
+  if (S.lastWhy) return S.lastWhy;
+  if (p.kind === 'congruence') return '포개면 겹치는 꼭짓점을 찾아 보세요.';
+  if (p.kind === 'line') return '대칭축에서 같은 칸 반대편이에요.';
+  if (p.kind === 'point') return '중심에서 같은 칸 반대편이에요.';
+  if (p.kind === 'reverse') return '두 점의 한가운데 못을 찾아 보세요.';
+  return '점 ㄱ의 대응점 못으로 뛰어 보세요.';
+}
+
+function paintPeg(g, x, y, r){
+  g.fillStyle = PAL.hole;
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  g.fillStyle = PAL.white;
+  g.beginPath(); g.arc(x, y, r * 0.55, 0, Math.PI * 2); g.fill();
+}
+function paintBandCard(g, x, y, w, h, bandCol){
+  if (w < 20 || h < 20) return;
+  g.fillStyle = PAL.cream;
+  g.fillRect(x + 6, y + 6, w - 12, h - 12);
+  g.strokeStyle = bandCol || PAL.coral;
+  g.lineWidth = 6; g.lineJoin = 'miter';
+  g.strokeRect(x + 8, y + 8, w - 16, h - 16);
+  g.fillStyle = PAL.hole;
+  const s = 8;
+  g.fillRect(x + 5, y + 5, s, s);
+  g.fillRect(x + w - 13, y + 5, s, s);
+  g.fillRect(x + 5, y + h - 13, s, s);
+  g.fillRect(x + w - 13, y + h - 13, s, s);
+  g.fillStyle = PAL.white;
+  g.fillRect(x + 7, y + 7, 4, 4);
+  g.fillRect(x + w - 11, y + 7, 4, 4);
+  g.fillRect(x + 7, y + h - 11, 4, 4);
+  g.fillRect(x + w - 11, y + h - 11, 4, 4);
+}
+function paintBandLabel(g, x, y, w, h, title, value, bandCol){
+  paintBandCard(g, x, y, w, h, bandCol || PAL.coral);
+  g.fillStyle = PAL.teal;
+  g.font = '800 ' + Math.max(11, Math.min(13, h * 0.2)) + 'px ' + KR;
+  g.textAlign = 'left'; g.textBaseline = 'top';
+  g.fillText(title, x + 18, y + 14);
+  g.fillStyle = PAL.ink;
+  g.font = '800 ' + Math.min(24, h * 0.4) + 'px ' + NUMFACE;
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  g.fillText(typeof value === 'number' ? String(value | 0) : String(value), x + w - 16, y + h * 0.62);
+}
+function wrapPromptLines(g, text, maxW, maxLines){
+  g = g || ctx;
+  const chars = String(text || '');
+  const lines = [];
+  let line = '';
+  for (let i = 0; i < chars.length; i++) {
+    const t = line + chars[i];
+    if (g.measureText(t).width > maxW && line) {
+      lines.push(line);
+      line = chars[i];
+      if (lines.length >= maxLines - 1) {
+        line = chars.slice(i);
+        break;
+      }
+    } else line = t;
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+    const last = lines[maxLines - 1];
+    lines[maxLines - 1] = last.length > 2 ? last.slice(0, last.length - 1) + '…' : last;
+  }
+  return lines;
+}
+function paintStamps(g, x, y, w, h){
+  const ids = YARDS;
+  const gap = 6;
+  const cw = (w - gap * 2) / 3;
+  for (let i = 0; i < 3; i++) {
+    const on = !!S.stamps[ids[i].id];
+    const bx = x + i * (cw + gap);
+    paintBandCard(g, bx, y, cw, h, on ? PAL.teal : PAL.ink);
+    g.fillStyle = on ? PAL.teal : PAL.ink;
+    g.font = '800 ' + Math.max(11, Math.min(15, h * 0.3)) + 'px ' + KR;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(ids[i].title, bx + cw / 2, y + h * 0.55);
+  }
+}
+function paintPattern(g, x, y, w, h){
+  paintBandCard(g, x, y, w, h, PAL.teal);
+  g.fillStyle = PAL.teal;
+  g.font = '800 12px ' + KR;
+  g.textAlign = 'left'; g.textBaseline = 'top';
+  g.fillText('숨은 무늬', x + 18, y + 12);
+  const n = 6, pad = 18, gy = y + 30;
+  const slot = Math.min(28, (w - pad * 2) / n - 4, h - 44);
+  for (let i = 0; i < n; i++) {
+    const sx = x + pad + i * (slot + 4);
+    g.fillStyle = i < S.pattern ? PAL.teal : PAL.board;
+    g.fillRect(sx, gy, slot, slot);
+    g.strokeStyle = PAL.ink; g.lineWidth = 2;
+    g.strokeRect(sx, gy, slot, slot);
+  }
+}
+function paintHintCard(g, x, y, w, h){
+  paintBandCard(g, x, y, w, h, PAL.ink);
+  g.fillStyle = PAL.teal;
+  g.font = '800 12px ' + KR;
+  g.textAlign = 'left'; g.textBaseline = 'top';
+  g.fillText(S.easy ? '쉬움 · 힌트 ' + S.grace + '회' : '어려움', x + 18, y + 12);
+  g.fillStyle = PAL.ink;
+  const fs = Math.max(13, Math.min(16, h * 0.22));
+  g.font = '800 ' + fs + 'px ' + KR;
+  if (!S.hintLines) S.hintLines = wrapPromptLines(g, defaultHint(), w - 36, Math.max(2, Math.min(4, ((h - 32) / (fs + 4)) | 0)));
+  let yy = y + 30;
+  for (const ln of S.hintLines) { g.fillText(ln, x + 18, yy); yy += fs + 4; }
+}
+
+function paintPortraitTop(g){
+  const hud = S.hud;
+  const lw = hud.w / 3 - 4;
+  paintBandLabel(g, hud.x, hud.y, lw, 52, '점수', Math.round(S.showScore), PAL.coral);
+  paintBandLabel(g, hud.x + lw + 4, hud.y, lw, 52, '콤보', '×' + Math.max(1, S.combo), PAL.teal);
+  paintBandLabel(g, hud.x + (lw + 4) * 2, hud.y, lw, 52, '목숨', S.lives, PAL.coral);
+  const pb = S.promptBox;
+  paintBandCard(g, pb.x, pb.y, pb.w, pb.h, PAL.ink);
+  const q = S.problem;
+  const prompt = q ? (q.say || q.prompt) : '짝이 되는 못을 찍어 줘!';
+  const pfs = Math.max(13, Math.min(16, S.W * 0.038));
+  g.font = '800 ' + pfs + 'px ' + KR;
+  g.fillStyle = PAL.ink;
+  g.textAlign = 'left'; g.textBaseline = 'top';
+  if (!S.promptLines) S.promptLines = wrapPromptLines(g, prompt, pb.w - 32, 3);
+  let yy = pb.y + 12;
+  for (const ln of S.promptLines) { g.fillText(ln, pb.x + 16, yy); yy += pfs + 4; }
+}
+function paintPortraitInfo(g){
+  const info = S.infoBox;
+  if (!info || info.h <= 40) return;
+  g.fillStyle = PAL.cream;
+  g.fillRect(info.x + 4, info.y + 4, info.w - 8, info.h - 8);
+  g.strokeStyle = PAL.coral;
+  g.lineWidth = 6;
+  g.strokeRect(info.x + 8, info.y + 8, info.w - 16, info.h - 16);
+  g.fillStyle = PAL.hole;
+  g.fillRect(info.x + 6, info.y + 6, 8, 8);
+  g.fillRect(info.x + info.w - 14, info.y + 6, 8, 8);
+  g.fillRect(info.x + 6, info.y + info.h - 14, 8, 8);
+  g.fillRect(info.x + info.w - 14, info.y + info.h - 14, 8, 8);
+  const innerH = info.h - 28;
+  const rowGap = 6;
+  const recH = 28;
+  const stampH = 36;
+  const hintH = Math.max(44, Math.min(72, innerH * 0.28));
+  const patH = Math.max(52, innerH - recH - stampH - hintH - rowGap * 3);
+  let yy = info.y + 14;
+  const fs = Math.max(13, Math.min(16, recH * 0.5));
+  g.font = '800 ' + fs + 'px ' + KR;
+  g.textAlign = 'left'; g.textBaseline = 'top';
+  g.fillStyle = PAL.teal;
+  g.fillText('기록 ' + bestShown() + '   마당 ' + yardTitle() + '   오늘 ' + todayShown(), info.x + 18, yy);
+  yy += recH;
+  const yards = YARDS;
+  let x0 = info.x + 18;
+  for (let i = 0; i < 3; i++) {
+    const on = !!S.stamps[yards[i].id];
+    g.fillStyle = on ? PAL.teal : PAL.boardLo;
+    g.fillRect(x0, yy, 86, stampH - 8);
+    g.strokeStyle = PAL.ink; g.lineWidth = 2;
+    g.strokeRect(x0, yy, 86, stampH - 8);
+    g.fillStyle = on ? PAL.cream : PAL.ink;
+    g.font = '800 13px ' + KR;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(yards[i].title, x0 + 43, yy + (stampH - 8) / 2);
+    x0 += 96;
+  }
+  yy += stampH;
+  g.textAlign = 'left'; g.textBaseline = 'top';
+  g.fillStyle = PAL.ink;
+  g.font = '800 ' + fs + 'px ' + KR;
+  const hintLinesN = Math.max(2, Math.min(4, ((hintH - 8) / (fs + 4)) | 0));
+  if (!S.hintLines) S.hintLines = wrapPromptLines(g, defaultHint(), info.w - 36, hintLinesN);
+  let hy = yy;
+  for (const ln of S.hintLines) { g.fillText(ln, info.x + 18, hy); hy += fs + 4; }
+  yy = hy + 10;
+  const remain = info.y + info.h - 14 - yy;
+  if (remain >= 48) paintPattern(g, info.x + 8, yy, info.w - 16, remain);
+}
+
+function paintLandHud(g){
+  const x = S.panel.x, y = S.panel.y, w = S.panel.w, h = S.panel.h;
+  const gap = 6;
+  const compact = h < 520;
+  const weights = compact
+    ? [64, 54, 110, 30, 52, 0, 72, 0]
+    : [62, 54, 130, 32, 54, 66, 78, 70];
+  const sumW = weights.reduce((a, b) => a + b, 0);
+  const slots = weights.filter(v => v > 0).length;
+  const avail = h - gap * (slots - 1);
+  const hs = weights.map(v => v <= 0 ? 0 : v / sumW * avail);
+  let yy = y;
+  const take = (i) => { const v = hs[i]; yy += v + (v ? gap : 0); return v; };
+  paintBandLabel(g, x, yy, w, hs[0], '점수', Math.round(S.showScore), PAL.coral);
+  take(0);
+  paintBandLabel(g, x, yy, w * 0.48, hs[1], '콤보', '×' + Math.max(1, S.combo), PAL.teal);
+  paintBandLabel(g, x + w * 0.52, yy, w * 0.48, hs[1], '목숨', S.lives, PAL.coral);
+  take(1);
+  const promptH = hs[2];
+  paintBandCard(g, x, yy, w, promptH, PAL.ink);
+  const q = S.problem;
+  const prompt = q ? (q.prompt || q.say) : '짝이 되는 못을 찍어 줘!';
+  const pfs = Math.max(14, Math.min(18, w * 0.046));
+  g.font = '800 ' + pfs + 'px ' + KR;
+  g.fillStyle = PAL.ink;
+  g.textAlign = 'left'; g.textBaseline = 'top';
+  if (!S.promptLines) S.promptLines = wrapPromptLines(g, prompt, w - 36, 6);
+  let ty = yy + 12;
+  for (const ln of S.promptLines) { g.fillText(ln, x + 18, ty); ty += pfs + 6; }
+  g.fillStyle = PAL.teal;
+  g.font = '800 15px ' + KR;
+  g.fillText('점 ㄱ  ↔  ?', x + 18, yy + promptH - 22);
+  take(2);
+  g.fillStyle = PAL.ink;
+  g.fillRect(x + 8, yy, w - 16, 10);
+  S.timerFill = { x: x + 8, y: yy, w: w - 16, h: 10 };
+  S.sessionLabel = { x: x + 10, y: yy + 14 };
+  take(3);
+  if (hs[4]) {
+    paintBandLabel(g, x, yy, w * 0.48, hs[4], '기록', bestShown(), PAL.teal);
+    paintBandLabel(g, x + w * 0.52, yy, w * 0.48, hs[4], '오늘', todayShown(), PAL.coral);
+    take(4);
+  }
+  if (hs[5]) { paintStamps(g, x, yy, w, hs[5]); take(5); }
+  if (hs[6]) { paintHintCard(g, x, yy, w, hs[6]); take(6); }
+  if (hs[7]) paintPattern(g, x, yy, w, Math.max(52, y + h - yy));
+}
+
+function paintHud(g){
+  g = g || ctx;
+  if (S.panel) paintLandHud(g);
+  else if (S.hud && S.promptBox) {
+    paintPortraitTop(g);
+    paintPortraitInfo(g);
+  }
+}
+
+function rebuildHud(){
+  const si = Math.round(S.showScore);
+  const se = Math.ceil(Math.max(0, S.session));
+  if (hudCache && !hudDirty && hudScoreI === si && hudSessI === se) return;
+  hudDirty = false;
+  hudScoreI = si;
+  hudSessI = se;
+  const dpr = drawDpr();
+  const cw = Math.max(1, S.W * dpr | 0), ch = Math.max(1, S.H * dpr | 0);
+  if (!hudCache || hudCache.width !== cw || hudCache.height !== ch) {
+    hudCache = document.createElement('canvas');
+    hudCache.width = cw; hudCache.height = ch;
+    hudCtx = hudCache.getContext('2d', { alpha: true });
+  } else {
+    hudCtx.setTransform(1, 0, 0, 1, 0, 0);
+    hudCtx.clearRect(0, 0, cw, ch);
+  }
+  hudCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  paintHud(hudCtx);
+}
+
+function draw(){
+  const W = S.W, H = S.H;
+  ctx.fillStyle = PAL.board;
+  ctx.fillRect(0, 0, W, H);
+  if (S.land && S.stageW < W - 2) {
+    ctx.fillStyle = 'rgba(42,33,64,.22)';
+    ctx.fillRect(0, 0, S.stageX, H);
+    ctx.fillRect(S.stageX + S.stageW, 0, W - (S.stageX + S.stageW), H);
+  }
+  if (S.phase === 'title' && !document.documentElement.classList.contains('ingame')) return;
+
+  ctx.save();
+  ctx.translate(S.camX, S.camY);
+  rebuildPlay();
+  if (playCache) {
+    const dockH = S.dockStrip ? S.dockStrip.h : 0;
+    ctx.drawImage(playCache, S.board.x, S.board.y, S.board.s, S.board.s + dockH);
+  }
+  const p = S.problem;
+  if (S.taut) {
+    drawBand([S.taut.a, S.taut.b], PAL.coral, false, 0, Math.max(8, S.gap * 0.22));
+  }
+  if (p) {
+    const sp = pegXY(p.start[0], p.start[1]);
+    ctx.strokeStyle = PAL.coral; ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.4 + 0.25 * Math.sin(S.t * 6);
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, S.pegR * 1.2, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  if (S.land) {
+    const ring = pegXY(S.aimC, S.aimR);
+    ctx.strokeStyle = PAL.ink; ctx.lineWidth = 2; ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.arc(ring.x, ring.y, S.pegR * 1.05, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = PAL.ink;
+  ctx.fillRect(S.dock.x - 28, S.dock.y + S.tokenSize * 0.22, 56, 6);
+
+  const tf = S.token.falling > 0 ? Math.max(0.2, 1 - S.token.falling) : 1;
+  drawToken(S.token.x, S.token.y, S.token.sx * tf, S.token.sy * tf, tf);
+
+  ctx.restore();
+
+  rebuildHud();
+  if (hudCache) ctx.drawImage(hudCache, 0, 0, W, H);
+  if (S.timerBox) {
+    const t = S.timerBox;
+    ctx.fillStyle = PAL.ink;
+    ctx.fillRect(t.x, t.y, t.w, t.h);
+    if (S.phase === 'playing') {
+      ctx.fillStyle = PAL.coral;
+      ctx.fillRect(t.x, t.y, t.w * clamp(S.qTime / S.qMax, 0, 1), t.h);
+    }
+  } else if (S.timerFill && S.phase === 'playing') {
+    const t = S.timerFill;
+    ctx.fillStyle = PAL.coral;
+    ctx.fillRect(t.x, t.y, t.w * clamp(S.qTime / S.qMax, 0, 1), t.h);
+    if (S.sessionLabel) {
+      ctx.fillStyle = PAL.ink;
+      ctx.font = '800 13px ' + KR;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText('남은 시간 ' + Math.ceil(Math.max(0, S.session)) + '초', S.sessionLabel.x, S.sessionLabel.y);
+    }
+  }
+
+  if (S.snapLives > 0) {
+    ctx.strokeStyle = PAL.coral; ctx.lineWidth = 3; ctx.globalAlpha = S.snapLives;
+    ctx.beginPath();
+    ctx.moveTo(20, 40); ctx.lineTo(80, 70);
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+}
+
+function pegAt(px, py){
+  let best = null, bestD = S.gap * 0.48;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const q = pegXY(c, r);
+    const d = Math.hypot(px - q.x, py - q.y);
+    if (d < bestD) { bestD = d; best = { c, r }; }
+  }
+  return best;
+}
+
+cv.addEventListener('pointerdown', ev => {
+  if (S.phase !== 'playing') return;
+  unlockAudio();
+  const r = cv.getBoundingClientRect();
+  const p = pegAt(ev.clientX - r.left, ev.clientY - r.top);
+  if (p) hopTo(p.c, p.r, false);
+}, { passive: true });
+
+window.addEventListener('keydown', ev => {
+  if (S.phase !== 'playing') return;
+  if (ev.key === 'ArrowLeft') { S.aimC = clamp(S.aimC - 1, 0, N - 1); ev.preventDefault(); }
+  if (ev.key === 'ArrowRight') { S.aimC = clamp(S.aimC + 1, 0, N - 1); ev.preventDefault(); }
+  if (ev.key === 'ArrowUp') { S.aimR = clamp(S.aimR - 1, 0, N - 1); ev.preventDefault(); }
+  if (ev.key === 'ArrowDown') { S.aimR = clamp(S.aimR + 1, 0, N - 1); ev.preventDefault(); }
+  if (ev.key === ' ' || ev.key === 'Enter') { hopTo(S.aimC, S.aimR, false); ev.preventDefault(); }
+});
+
+function forceCorrect(){
+  if (S.phase === 'title' || S.phase === 'over') beginPlay();
+  if (S.phase !== 'playing') { S.phase = 'playing'; document.documentElement.classList.add('ingame'); }
+  if (!S.problem) { S.deck = buildRun(); S.qi = 0; loadProblem(S.deck[0]); }
+  const p = S.problem;
+  applyCorrect();
+  if (p) {
+    const d = pegXY(p.answerCell[0], p.answerCell[1]);
+    S.token.x = d.x; S.token.y = d.y;
+  }
+}
+function forceWrong(){
+  if (S.phase === 'title' || S.phase === 'over') beginPlay();
+  applyWrong('빗나간 못이에요.');
+}
+
+function tryStart(){
+  unlockAudio();
+  let seen = false;
+  try { seen = localStorage.getItem(LS_ONB) === '1'; } catch {}
+  if (!seen) { showOnboard(0); return; }
+  beginPlay();
+}
+
+const OB = [
+  { t:'못을 눌러 뛰어 보세요', b:'점판의 흰 못을 누르면 토큰이 그 칸으로 한 칸 뛰어 착지합니다. 착지한 칸이 곧 답이에요.' },
+  { t:'짝이 되는 칸', b:'합동은 포개면 겹치는 점, 선대칭은 축에서 같은 칸, 점대칭은 중심에서 같은 칸이에요.' },
+  { t:'빗나가면 구멍', b:'빗나간 못은 구멍으로 빠져 목숨이 줄어요. 목숨 3개, 90초입니다. 연속 착지가 콤보가 됩니다.' }
+];
+let obI = 0;
+function showOnboard(i){
+  obI = i;
+  $('#obStep').textContent = (i + 1) + '/3';
+  $('#obTitle').textContent = OB[i].t;
+  $('#obBody').textContent = OB[i].b;
+  $('#obNext').textContent = i === 2 ? '해볼게요' : '다음';
+  $('#onboard').classList.add('show');
+}
+$('#obNext').onclick = () => {
+  unlockAudio();
+  if (obI < 2) showOnboard(obI + 1);
+  else {
+    try { localStorage.setItem(LS_ONB, '1'); } catch {}
+    $('#onboard').classList.remove('show');
+    beginPlay();
+  }
+};
+
+$('#start').onclick = () => {
+  unlockAudio();
+  $('#start').style.transform = 'scale(.92)';
+  setTimeout(() => { $('#start').style.transform = ''; tryStart(); }, 120);
+};
+$('#how').onclick = () => { $('#help').classList.add('show'); };
+$('#closeHelp').onclick = () => { $('#help').classList.remove('show'); };
+$('#diff').onclick = () => {
+  S.easy = !S.easy;
+  $('#diff').textContent = S.easy ? '지금: 쉬움' : '지금: 어려움';
+};
+$('#again').onclick = () => { $('#result').classList.remove('show'); beginPlay(); };
+$('#mute').onclick = () => { unlockAudio(); setMute(!S.mute); };
+$('#titleMute').onclick = () => { unlockAudio(); setMute(!S.mute); };
+
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', () => setTimeout(layout, 120));
+
+function specks(){
+  const host = $('#titleSpecks');
+  for (let i = 0; i < 7; i++) {
+    const el = document.createElement('i');
+    el.style.left = (8 + i * 13) + '%';
+    el.style.top = (30 + (i * 17) % 50) + '%';
+    el.style.width = (18 + (i % 3) * 10) + 'px';
+    el.style.animationDelay = (i * 0.4) + 's';
+    host.appendChild(el);
+  }
+}
+
+function botTrial(kind){
+  const deck = buildRun();
+  let lives = 3, solved = 0;
+  for (let i = 0; i < deck.length; i++) {
+    const p = deck[i];
+    let c, r;
+    if (kind === 'idle') return false;
+    if (kind === 'mash') { c = p.start[0]; r = p.start[1]; }
+    else if (kind === 'cycle') { const k = i % (N * N); c = k % N; r = (k / N) | 0; }
+    else { c = (Math.random() * N) | 0; r = (Math.random() * N) | 0; }
+    if (c === p.answerCell[0] && r === p.answerCell[1]) solved++;
+    else {
+      lives--;
+      if (lives <= 0) return false;
+    }
+  }
+  return solved >= deck.length;
+}
+function runBots(n){
+  n = n || 200;
+  const kinds = ['mash', 'cycle', 'rand', 'idle'];
+  const out = {};
+  for (const k of kinds) {
+    let w = 0;
+    for (let i = 0; i < n; i++) if (botTrial(k === 'rand' ? 'rand' : k)) w++;
+    out[k] = +(w / n).toFixed(4);
+  }
+  return out;
+}
+
+window.__GAME_TEST__ = {
+  ready: false,
+  start() { beginPlay(); },
+  getState() {
+    return { score: S.score | 0, lives: S.lives | 0, level: S.level | 0, phase: S.phase === 'playing' ? 'playing' : S.phase, solved: S.solved | 0 };
+  },
+  answerCorrect() { forceCorrect(); },
+  answerWrong() { forceWrong(); },
+  sampleProblems,
+  getLayout() { return { land: S.land, playW: S.board ? S.board.s : S.stageW, playH: S.board ? S.board.s : S.H, stageW: S.stageW }; },
+  runBots
+};
+
+let last = performance.now();
+function loop(now){
+  const raw = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (S.timeScale === 0) {
+    S.hitStop -= raw;
+    if (S.hitStop <= 0) S.timeScale = 1;
+  }
+  const dt = S.timeScale === 0 ? 0 : raw;
+  if (S.phase === 'playing' || S.phase === 'over') tick(dt);
+  if (S.phase === 'over') {
+    const el = $('#resScore');
+    const cur = parseInt(el.textContent, 10) || 0;
+    if (cur < S.score) el.textContent = String(Math.min(S.score, cur + Math.max(7, ((S.score - cur) * 8 * raw) | 0)));
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+try { S.mute = localStorage.getItem(LS_MUTE) === '1'; } catch {}
+loadPersist();
+specks();
+layout();
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => { markHud(); });
+}
+window.__GAME_TEST__.ready = true;
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

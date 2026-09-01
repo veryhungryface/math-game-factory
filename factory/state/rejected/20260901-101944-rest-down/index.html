@@ -1,0 +1,2199 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>알내려 — 남으면 아래로</title>
+<meta property="og:title" content="알내려">
+<meta property="og:description" content="남으면 아래로">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+@font-face{
+  font-family:"LogoGaegu";
+  src:url("./assets/fonts/logo-gaegu.woff2") format("woff2");
+  font-weight:400;font-style:normal;font-display:swap;
+}
+:root{
+  --asphalt:#B4C0CC; --cobalt:#2458B5; --red:#E23B2E; --chalk:#F4F1E8; --ink:#2C3A4A;
+  --face:"Chalkboard SE","Marker Felt","Hiragino Maru Gothic ProN","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --logo:"LogoGaegu","Chalkboard SE","Apple SD Gothic Neo",sans-serif;
+  --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
+  --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--asphalt);color:var(--ink);
+  font-family:var(--face);font-weight:700;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  touch-action:none;overscroll-behavior:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
+.hidden{display:none !important;visibility:hidden !important;pointer-events:none !important}
+
+#mute{
+  pointer-events:auto;position:fixed;z-index:6;
+  width:48px;height:48px;min-width:48px;min-height:48px;
+  border:2px solid var(--chalk);background:var(--cobalt);color:var(--chalk);
+  font:700 18px/1 var(--face);cursor:pointer;border-radius:0;
+  right:10px;top:max(8px,var(--safeT));
+}
+#mute:active{filter:brightness(1.12)}
+
+#prompt{
+  position:fixed;z-index:4;pointer-events:none;
+  left:10px;right:62px;top:max(56px,calc(var(--safeT) + 48px));
+  min-height:56px;padding:8px 10px;
+  background:var(--chalk);color:var(--ink);
+  border:2px solid var(--ink);border-radius:0;
+}
+#prompt .eq{font-size:clamp(22px,6.4vw,36px);min-height:34px;font-weight:800;letter-spacing:.02em}
+#prompt .say{font-size:clamp(13px,3.6vw,16px);margin-top:4px;word-break:keep-all;line-height:1.35;font-weight:700}
+#prompt .axis{margin-top:3px;font-size:11px;letter-spacing:.04em;color:var(--cobalt);font-weight:700}
+#failNote{
+  position:fixed;z-index:5;left:12px;right:12px;bottom:max(16px,calc(var(--safeB) + 10px));
+  text-align:center;font-weight:800;font-size:15px;color:var(--chalk);background:var(--red);
+  border:2px solid var(--ink);border-radius:0;padding:8px 10px;opacity:0;pointer-events:none;word-break:keep-all
+}
+#failNote.on{opacity:1}
+
+#title{--title-col:min(100vw,640px);position:fixed;inset:0;z-index:20;min-height:100svh;height:100dvh;
+  overflow:hidden;isolation:isolate;background:#7A8A9A}
+.title-art{position:absolute;inset:-6%;width:112%;height:112%;object-fit:cover;object-position:center 72%;
+  animation:ken 20s ease-in-out infinite alternate}
+.title-fallback{position:absolute;inset:0;display:none;
+  background:linear-gradient(180deg,#D5DDE4 0%,#B4C0CC 40%,#8A9AAB 70%,#2458B5 100%)}
+.title-dust{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.title-dust i{position:absolute;width:5px;height:5px;background:#F4F1E8;opacity:.28;border-radius:0;
+  animation:dust 12s linear infinite}
+.title-ui{position:relative;z-index:3;width:var(--title-col);height:100%;margin-inline:auto;
+  padding-inline:clamp(16px,5vw,32px);pointer-events:none}
+.logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
+  display:grid;place-content:start center;text-align:center;pointer-events:auto}
+.game-logo{margin:0;font-family:var(--logo);font-weight:400;
+  font-size:clamp(58px,18vw,96px);line-height:.92;color:var(--chalk);
+  -webkit-text-stroke:4px var(--ink);paint-order:stroke fill;letter-spacing:-.06em;
+  display:flex;justify-content:center;gap:.02em}
+.game-logo span{display:inline-block;animation:stepIn .7s cubic-bezier(.2,.85,.2,1.12) both}
+.game-logo span:nth-child(1){transform:translateY(0) rotate(-4deg);animation-delay:0s}
+.game-logo span:nth-child(2){transform:translateY(.2em) rotate(2deg);animation-delay:.08s}
+.game-logo span:nth-child(3){transform:translateY(.4em) rotate(-3deg);animation-delay:.16s}
+.game-sub{margin-top:52px;font-family:var(--logo);font-size:clamp(18px,5vw,24px);color:var(--ink);
+  background:var(--chalk);border:2px solid var(--ink);border-radius:0;padding:6px 14px;letter-spacing:.08em;
+  display:inline-block}
+.cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
+  transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
+.meta-row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.yard-tag{border:2px solid var(--ink);color:var(--ink);background:var(--chalk);padding:3px 8px;font-size:11px;font-weight:800;
+  letter-spacing:.08em;border-radius:0}
+#best{min-height:24px;color:var(--chalk);background:var(--cobalt);border:2px solid var(--ink);border-radius:0;
+  font-size:12px;font-weight:800;letter-spacing:.04em;padding:3px 8px;font-family:var(--logo)}
+#start{
+  width:min(100%,420px);height:68px;border:2px solid var(--ink);border-radius:0;background:var(--cobalt);color:var(--chalk);
+  font-family:var(--logo);font-size:28px;font-weight:400;letter-spacing:.12em;animation:ctaPulse 1.7s ease-in-out infinite;cursor:pointer
+}
+#start:active{filter:brightness(1.15);animation:none;letter-spacing:.18em}
+#how,#diff{min-height:44px;border:0;background:transparent;color:var(--ink);text-decoration:underline;
+  text-underline-offset:3px;font-weight:800;font-size:14px;letter-spacing:.04em;cursor:pointer;font-family:var(--logo)}
+#titleMute{position:absolute;z-index:4;right:12px;top:max(10px,var(--safeT));
+  width:48px;height:48px;border:2px solid var(--ink);border-radius:0;background:var(--cobalt);color:var(--chalk);font-size:16px;cursor:pointer}
+
+#help,#onboard,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(180,192,204,.82)}
+#help.show,#onboard.show,#result.show{display:grid}
+.plaque{width:min(88vw,480px);padding:20px 16px 16px;background:var(--chalk);color:var(--ink);
+  border:2px solid var(--ink);border-radius:0}
+.plaque h2{margin:0 0 10px;font-family:var(--logo);font-size:26px;letter-spacing:.06em;color:var(--cobalt)}
+.plaque p{font-weight:700;line-height:1.45;margin:0 0 8px;font-size:15px;word-break:keep-all}
+.plaque .step{font-size:12px;letter-spacing:.16em;margin-bottom:8px;color:var(--cobalt);font-weight:800}
+.plaque button{width:100%;height:56px;border:2px solid var(--ink);border-radius:0;background:var(--cobalt);color:var(--chalk);
+  font-family:var(--logo);font-weight:400;font-size:22px;letter-spacing:.1em;margin-top:8px;cursor:pointer}
+.plaque button:active{filter:brightness(1.12)}
+.plaque button.alt{background:var(--ink);color:var(--chalk)}
+.result-score{font-size:56px;font-weight:800;letter-spacing:.06em;text-align:center;margin:8px 0 4px;color:var(--cobalt);font-family:var(--logo)}
+.result-sub{text-align:center;font-weight:800;margin-bottom:12px}
+
+#prompt,#mute,#failNote{opacity:0;pointer-events:none}
+html.ingame #prompt,html.ingame #mute{opacity:1}
+html.ingame #mute{pointer-events:auto}
+html.ingame #failNote.on{opacity:1}
+html.ingame #title,#title.gone{display:none!important;visibility:hidden!important;pointer-events:none!important}
+
+html.land #prompt{
+  left:calc(var(--stageX) + var(--stageW) * .58 + 12px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 16px);
+  top:62px;width:auto;min-height:100px;padding:10px 12px 12px;
+}
+html.land #prompt .eq{font-size:clamp(26px,2.8vw,40px);min-height:44px}
+html.land #prompt .say{font-size:16px;margin-top:8px;line-height:1.4}
+html.land #prompt .axis{font-size:13px;margin-top:8px}
+html.land #mute{right:auto;left:calc(var(--stageX) + var(--stageW) - 58px)}
+html.land #failNote{
+  left:calc(var(--stageX) + var(--stageW) * .58 + 12px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 16px);
+  bottom:max(20px, var(--safeB));
+  font-size:16px;padding:12px 14px
+}
+
+@keyframes ken{to{transform:scale(1.07) translate3d(0,-1.4%,0)}}
+@keyframes dust{50%{opacity:.08;transform:translateY(14px) rotate(25deg)}}
+@keyframes stepIn{0%{opacity:0;transform:translateY(1.1em)} }
+@keyframes ctaPulse{50%{transform:scale(1.04)}}
+@media (min-width:641px){
+  .logo-zone{left:24px;right:24px}
+  .cta-zone{width:min(calc(100% - 48px),520px)}
+  .game-logo{font-size:88px}
+}
+@media (max-height:700px){
+  .logo-zone{top:max(38px,5dvh);min-height:150px}
+  .game-logo{font-size:clamp(44px,13vw,62px)}
+  .game-sub{margin-top:36px}
+}
+@media (prefers-reduced-motion:reduce){
+  .title-art{animation-duration:60s}
+  .game-logo span{animation-duration:.2s}
+  #start{animation-duration:4s}
+  .title-dust i{animation:none}
+}
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="알내려 운동장 우물"></canvas>
+<div id="prompt">
+  <div class="eq" id="eq"></div>
+  <div class="say" id="say">남은 알을 아래로 내려 보세요.</div>
+  <div class="axis">구슬은 모두 같은 크기예요. 아래턱 높이는 남길 알의 개수예요.</div>
+</div>
+<button id="mute" aria-label="소리 끄기">♪</button>
+<div id="failNote"></div>
+
+<section id="title" aria-label="알내려 타이틀 화면">
+  <img class="title-art" src="./assets/title.png" alt=""
+    onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+  <div class="title-fallback"></div>
+  <div class="title-dust" id="titleDust"></div>
+  <button id="titleMute" aria-label="소리 끄기">♪</button>
+  <div class="title-ui">
+    <div class="logo-zone">
+      <h1 class="game-logo" aria-label="알내려">
+        <span aria-hidden="true">알</span>
+        <span aria-hidden="true">내</span>
+        <span aria-hidden="true">려</span>
+      </h1>
+      <div class="game-sub">남으면 아래로</div>
+    </div>
+    <div class="cta-zone">
+      <div class="meta-row">
+        <span class="yard-tag">3학년 2학기</span>
+        <span class="yard-tag">나눗셈</span>
+      </div>
+      <div id="best"></div>
+      <button id="start">우물 열기</button>
+      <div class="meta-row">
+        <button id="how">어떻게 놀아요?</button>
+        <button id="diff">지금: 쉬움</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="help">
+  <div class="plaque">
+    <div class="step">안내</div>
+    <h2>남으면 아래로</h2>
+    <p>1. 위 층부터 아래턱 손잡이를 세로로 끌어 남길 알 높이에 놓고 손을 떼세요.</p>
+    <p>2. 남길 알은 나누는 수보다 작아야 해요. 남은 알은 백묵 홈을 따라 아래 층으로 떨어져요.</p>
+    <p>3. 빗맞으면 구슬이 흩어지고 목숨이 줄어요. 쉬움에서는 그 층의 첫 실수는 눈금만 깜빡이고 목숨은 그대로예요. 구슬은 모두 같은 크기예요.</p>
+    <button id="closeHelp">해볼게요</button>
+  </div>
+</div>
+<div id="onboard">
+  <div class="plaque">
+    <div class="step" id="obStep">1/3</div>
+    <h2 id="obTitle">아래턱을 놓아 보세요</h2>
+    <p id="obBody">위 층 우물의 아래턱 손잡이를 세로로 끌어 남길 알 높이에 놓고 손을 떼세요.</p>
+    <button id="obNext">다음</button>
+  </div>
+</div>
+<div id="result">
+  <div class="plaque">
+    <div class="step" id="resKicker">세션 끝</div>
+    <h2 id="resTitle">잠근 층</h2>
+    <div class="result-score" id="resScore">0</div>
+    <div class="result-sub" id="resSub"></div>
+    <button id="again">다시</button>
+    <button id="cont" class="alt">이어하기</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* expression traps (3-2 나눗셈)
+ * - 발문은 익힘책 지시형(~해 보세요)만. 청유형(~해 봅시다)과 섞지 않음.
+ * - 「내림」은 세로셈에서 남은 수를 아래 자리로 보내는 조작만. 「○의 자리에서 내림」 금지(어림 혼동).
+ * - 나머지는 나누는 수보다 항상 작다. 나누어떨어진다 = 나머지 0.
+ * - 확인: (나누는 수)×(몫)+(나머지)=(나누어지는 수). 나머지 덧셈 누락 금지.
+ * - 어림·[4수01-08]은 이 게임이 다루지 않음. 이상/이하·원주율·기약분수 해당 없음.
+ * - 모든 수는 정수. current = digit + 10*incomingRest, r = current % d, q = Math.floor(current / d).
+ */
+
+const $ = s => document.querySelector(s);
+const cv = $('#cv');
+const CVCTX = cv.getContext('2d', { alpha: false });
+let ctx = CVCTX;
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PAL = { asphalt:'#B4C0CC', cobalt:'#2458B5', red:'#E23B2E', chalk:'#F4F1E8', ink:'#2C3A4A', pale:'#D5DDE4', deep:'#1A3A7A' };
+const LS_BEST = 'rest-down-best', LS_DAY = 'rest-down-day', LS_CHALK = 'rest-down-chalks', LS_ONB = 'onboardingSeen:rest-down', LS_MUTE = 'rest-down-mute';
+const SESSION = 90;
+const MIX = ['compute','compute','real_life','compute','reverse','compute','error_find','compute','real_life','compute','reverse','error_find'];
+const NAMES = ['유나','시윤','다은','지후'];
+const GLYPH = {
+  '0':[0x1E,0x21,0x21,0x21,0x21,0x21,0x1E],
+  '1':[0x08,0x18,0x08,0x08,0x08,0x08,0x1C],
+  '2':[0x1E,0x21,0x01,0x06,0x18,0x20,0x3F],
+  '3':[0x1E,0x21,0x01,0x0E,0x01,0x21,0x1E],
+  '4':[0x06,0x0A,0x12,0x22,0x3F,0x02,0x02],
+  '5':[0x3F,0x20,0x3E,0x01,0x01,0x21,0x1E],
+  '6':[0x0E,0x10,0x20,0x3E,0x21,0x21,0x1E],
+  '7':[0x3F,0x01,0x02,0x04,0x08,0x08,0x08],
+  '8':[0x1E,0x21,0x21,0x1E,0x21,0x21,0x1E],
+  '9':[0x3E,0x21,0x21,0x3F,0x01,0x02,0x1C],
+  '÷':[0x08,0x00,0x3E,0x00,0x08,0x00,0x00],
+  '⋯':[0x00,0x00,0x14,0x00,0x14,0x00,0x00],
+  '×':[0x00,0x22,0x14,0x08,0x14,0x22,0x00],
+  '+':[0x00,0x08,0x08,0x3E,0x08,0x08,0x00],
+  '=':[0x00,0x00,0x3E,0x00,0x3E,0x00,0x00],
+  ':':[0x00,0x08,0x08,0x00,0x08,0x08,0x00],
+  '-':[0x00,0x00,0x00,0x1C,0x00,0x00,0x00],
+  ' ':[0,0,0,0,0,0,0]
+};
+
+function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+function shuffle(a){
+  const b = a.slice();
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = b[i]; b[i] = b[j]; b[j] = t;
+  }
+  return b;
+}
+function pick(a){ return a[(Math.random() * a.length) | 0]; }
+function subj(name){
+  const c = name.charCodeAt(name.length - 1);
+  const jong = (c >= 0xAC00 && c <= 0xD7A3) ? (c - 0xAC00) % 28 : 0;
+  return name + (jong ? '이가' : '가');
+}
+function eulReulNum(n){
+  // 0영 1일 2이 3삼 4사 5오 6육 7칠 8팔 9구
+  return [1, 1, 0, 1, 0, 0, 1, 1, 1, 0][Math.abs(n | 0) % 10] ? '을' : '를';
+}
+function formatQR(q, r){ return (r | 0) === 0 ? String(q | 0) : ((q | 0) + '⋯' + (r | 0)); }
+const FACE = '"Chalkboard SE","Marker Felt","Hiragino Maru Gothic ProN","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+
+/* ── 오개념 역산 ─────────────────────────────────────────── */
+function skipZeroQuotient(n, d){
+  // misconceptionId: skipZeroQuotient — 나눌 수 없으면 몫 0을 쓰지 않고 자리를 건너뛴다
+  const s = String(n | 0);
+  let rem = 0, qdigits = '', skipped = false;
+  for (let i = 0; i < s.length; i++) {
+    rem = rem * 10 + (s.charCodeAt(i) - 48);
+    if (rem < d) {
+      if (qdigits.length) qdigits += '0';
+      else skipped = true;
+      continue;
+    }
+    qdigits += String(Math.floor(rem / d));
+    rem = rem % d;
+  }
+  if (!qdigits) qdigits = '0';
+  return { text: formatQR(parseInt(qdigits, 10), rem), skipped, q: parseInt(qdigits, 10), r: rem };
+}
+function remainderTooBig(n, d){
+  // misconceptionId: remainderTooBig — 나머지가 나누는 수 이상인데도 한 묶음 더 잠그지 않는다
+  const q = Math.floor(n / d), r = n % d;
+  if (q < 1) return { text: formatQR(0, n), q: 0, r: n };
+  return { text: formatQR(q - 1, r + d), q: q - 1, r: r + d };
+}
+function checkSkipRemainder(n, d){
+  // misconceptionId: checkSkipRemainder — 검산에서 몫×나누는 수만 하고 나머지를 더하지 않는다
+  const q = Math.floor(n / d);
+  const product = d * q;
+  return { text: String(product), q, r: 0, product };
+}
+
+function uniqueChoices(correct, cands){
+  const out = [];
+  const seen = new Set();
+  const add = (v, id) => {
+    const s = String(v);
+    if (!s || seen.has(s)) return false;
+    seen.add(s);
+    out.push({ v: s, misconceptionId: id });
+    return true;
+  };
+  add(correct, 'correct');
+  for (const c of cands) if (c && c.v != null) add(c.v, c.id);
+  let k = 0;
+  const q = parseInt(String(correct).split('⋯')[0], 10) || 0;
+  while (out.length < 4 && k < 24) {
+    const near = k % 3 === 0 ? String(q + 1 + (k / 3 | 0))
+      : k % 3 === 1 ? formatQR(Math.max(0, q - 1), (k % 7) + 1)
+      : String(Math.max(1, q + k));
+    add(near, 'nearMiss');
+    k++;
+  }
+  const pinned = out[0];
+  const rest = shuffle(out.slice(1)).slice(0, 3);
+  return shuffle([pinned].concat(rest));
+}
+
+function finalizeChoices(spec){
+  const n = spec.n | 0, d = spec.d | 0;
+  const q = Math.floor(n / d), r = n % d;
+  spec.q = q; spec.r = r;
+  spec.answer = formatQR(q, r);
+  spec.answerQuotient = q;
+  spec.answerRemainder = r;
+  spec.answerNumeric = r === 0 ? q : n;
+  const skipZ = skipZeroQuotient(n, d);
+  const tooBig = remainderTooBig(n, d);
+  const skipR = checkSkipRemainder(n, d);
+  const cands = [];
+  if (skipZ.text !== spec.answer) cands.push({ v: skipZ.text, id: 'skipZeroQuotient' });
+  if (tooBig.text !== spec.answer) cands.push({ v: tooBig.text, id: 'remainderTooBig' });
+  if (skipR.text !== spec.answer) cands.push({ v: skipR.text, id: 'checkSkipRemainder' });
+  const packed = uniqueChoices(spec.answer, cands);
+  spec.choices = packed.map(p => p.v);
+  spec.misconceptions = packed.filter(p => p.misconceptionId !== 'correct' && p.misconceptionId !== 'nearMiss').map(p => p.misconceptionId);
+  spec.choiceMeta = packed;
+}
+
+/* ── 제약 만족 풀: 자릿값부터 역생성 ──────────────────────── */
+const POOLS = { 1: [], 2: [], 3: [], z: [] };
+
+function pushSpec(band, spec){
+  spec.band = band;
+  spec.q = Math.floor(spec.n / spec.d);
+  spec.r = spec.n % spec.d;
+  spec.id = (spec.kind || 'c') + '-' + spec.n + 'd' + spec.d + '-' + band + '-' + (POOLS[band] || POOLS[1]).length;
+  finalizeChoices(spec);
+  (POOLS[band] || POOLS[1]).push(spec);
+}
+
+function buildPools(){
+  // Band 1 차시2. (몇십몇)÷(몇) 내림 없음. 십의 자리 ≥ d 이고 십의 r=0, 전체도 나누어떨어짐.
+  for (let d = 2; d <= 9; d++) {
+    const maxQ = Math.floor(9 / d);
+    for (let qt = 1; qt <= maxQ; qt++) {
+      const t = qt * d;
+      for (let qo = 0; qo <= maxQ; qo++) {
+        const o = qo * d;
+        const n = 10 * t + o;
+        if (n < 10) continue;
+        pushSpec(1, { n, d, kind: 'compute', unitConcept: '내림이 없는 나눗셈', prompt: promptCompute(n, d) });
+      }
+    }
+  }
+  // Band 2 차시4. 내림 있는 (몇십몇)÷(몇). 십의 r≥1, 일의 층에서 나누어떨어짐.
+  for (let d = 2; d <= 9; d++) {
+    for (let t = 1; t <= 9; t++) {
+      const rT = t % d;
+      if (rT < 1) continue;
+      for (let o = 0; o <= 9; o++) {
+        const ones = 10 * rT + o;
+        if (ones % d !== 0) continue;
+        const n = 10 * t + o;
+        pushSpec(2, { n, d, kind: 'compute', unitConcept: '내림이 있는 나눗셈', prompt: promptCompute(n, d) });
+      }
+    }
+  }
+  // Band 3 차시5. 나머지 있는 식, 내림 없음. 십의 r=0, 일의 r≥1.
+  for (let d = 2; d <= 9; d++) {
+    const maxQ = Math.floor(9 / d);
+    for (let qt = 1; qt <= maxQ; qt++) {
+      const t = qt * d;
+      for (let o = 0; o <= 9; o++) {
+        if (o % d === 0) continue;
+        const n = 10 * t + o;
+        const r = n % d;
+        if (r < 1) continue;
+        pushSpec(3, { n, d, kind: 'compute', unitConcept: '나머지가 있는 나눗셈', prompt: n + '÷' + d + '의 몫과 나머지를 구해 보세요.' });
+      }
+    }
+  }
+  // skipZero 시드: 십의 자리 < d (몫 0을 써야 하는 층)
+  for (let d = 2; d <= 9; d++) {
+    for (let t = 1; t < d && t <= 9; t++) {
+      for (let o = 0; o <= 9; o++) {
+        const n = 10 * t + o;
+        POOLS.z.push({ n, d, kind: 'skipZero', unitConcept: '몫의 자릿값', band: 3 });
+      }
+    }
+  }
+}
+
+function iRaGo(s){
+  const last = String(s).slice(-1);
+  const n = last.charCodeAt(0) - 48;
+  if (n < 0 || n > 9) return '이라고';
+  return [1, 1, 0, 1, 0, 0, 1, 1, 1, 0][n] ? '이라고' : '라고';
+}
+function promptCompute(n, d){ return n + '÷' + d + eulReulNum(d) + ' 계산해 보세요.'; }
+function promptCheck(n, d, q, r){
+  return n + '÷' + d + '=' + formatQR(q, r) + '가 맞는지 확인해 보세요. ' + d + '×' + q + '+' + r + '의 값은 얼마인가요?';
+}
+function promptReverse(n, d){
+  return n + '÷' + d + '에서 십의 자리 수를 나눈 뒤, 십의 자리에서 남은 1십은 몇 개인가요?';
+}
+function reverseAnswer(n, d){
+  const t = Math.floor((n | 0) / 10) % 10;
+  const rT = t % (d | 0);
+  return { t, rT, text: rT + '개' };
+}
+function promptErrorFind(n, d){
+  const tooBig = remainderTooBig(n, d);
+  const rr = (n | 0) % (d | 0);
+  const ask = rr ? '바른 몫과 나머지를 구해 보세요.' : '바른 몫을 구해 보세요.';
+  return n + '÷' + d + eulReulNum(d) + ' ' + tooBig.text + iRaGo(tooBig.text) + ' 했습니다. 한 묶음 더 나누어 ' + ask;
+}
+function lifePrompt(n, d){
+  const name = pick(NAMES);
+  const who = subj(name);
+  const r = (n | 0) % (d | 0);
+  if (r === 0) {
+    return pick([
+      () => who + ' 구슬 ' + n + '개를 ' + d + '개씩 상자에 담으면 몇 상자에 담을 수 있는지 구해 보세요.',
+      () => '화분 ' + n + '개를 한 줄에 ' + d + '개씩 놓으면 몇 줄이 되는지 구해 보세요.',
+      () => who + ' 배지 ' + n + '개를 ' + d + '개씩 묶으면 몇 묶음이 되는지 구해 보세요.'
+    ])();
+  }
+  return pick([
+    () => who + ' 구슬 ' + n + '개를 ' + d + '개씩 상자에 담으면 몇 상자이고 몇 개가 남는지 구해 보세요.',
+    () => '화분 ' + n + '개를 한 줄에 ' + d + '개씩 놓으면 몇 줄이고 몇 개가 남는지 구해 보세요.',
+    () => who + ' 배지 ' + n + '개를 ' + d + '개씩 묶으면 몇 묶음이고 몇 개가 남는지 구해 보세요.'
+  ])();
+}
+
+function wrapSpec(base, type){
+  const spec = Object.assign({}, base);
+  spec.type = type || spec.kind || 'compute';
+  spec.errorKind = null;
+  const rr = (spec.n | 0) % (spec.d | 0);
+  if (type === 'real_life') {
+    spec.prompt = lifePrompt(spec.n, spec.d);
+    spec.type = 'real_life';
+    spec.unitConcept = spec.unitConcept || '나눗셈';
+  } else if (type === 'reverse') {
+    spec.type = 'reverse';
+    spec.unitConcept = '내림이 있는 나눗셈';
+    spec.prompt = promptReverse(spec.n, spec.d);
+  } else if (type === 'error_find') {
+    spec.type = 'error_find';
+    if (spec.kind === 'skipZero') {
+      spec.errorKind = 'skipZeroQuotient';
+      spec.unitConcept = '몫의 자릿값';
+      spec.prompt = spec.n + '÷' + spec.d + '에서 십의 자리 수는 나누는 수보다 작아 묶음이 안 됩니다. 아래로 내릴 십의 자리 숫자는 몇인가요?';
+    } else {
+      spec.errorKind = 'remainderTooBig';
+      spec.unitConcept = '몫과 나머지';
+      spec.prompt = promptErrorFind(spec.n, spec.d);
+    }
+  } else if (type === 'check') {
+    spec.type = 'check';
+    spec.unitConcept = '곱셈으로 나눗셈 확인하기';
+    const q0 = spec.q != null ? spec.q : Math.floor(spec.n / spec.d);
+    const r0 = spec.r != null ? spec.r : (spec.n % spec.d);
+    spec.prompt = promptCheck(spec.n, spec.d, q0, r0);
+  } else {
+    spec.prompt = rr ? (spec.n + '÷' + spec.d + '의 몫과 나머지를 구해 보세요.') : promptCompute(spec.n, spec.d);
+    spec.type = 'compute';
+  }
+  finalizeChoices(spec);
+  if (type === 'reverse') applyReverseChoices(spec);
+  return spec;
+}
+
+function applyReverseChoices(spec){
+  const n = spec.n | 0, d = spec.d | 0;
+  const { t, rT, text } = reverseAnswer(n, d);
+  spec.answer = text;
+  spec.answerNumeric = rT;
+  spec.answerQuotient = Math.floor(t / d);
+  spec.answerRemainder = rT;
+  const packed = uniqueChoices(text, [
+    { v: '0개', id: 'skipZeroQuotient' },
+    { v: String(10 * rT), id: 'nearMiss' },
+    { v: t + '개', id: 'nearMiss' },
+    { v: d + '개', id: 'remainderTooBig' },
+    { v: (10 * rT + 1) + '개', id: 'nearMiss' }
+  ]);
+  spec.choices = packed.map(p => p.v);
+  spec.misconceptions = packed.filter(p => p.misconceptionId !== 'correct' && p.misconceptionId !== 'nearMiss').map(p => p.misconceptionId);
+  spec.choiceMeta = packed;
+}
+
+function takeSpec(band, type){
+  let pool = POOLS[band] && POOLS[band].length ? POOLS[band] : POOLS[Math.min(band, 3)];
+  if (type === 'reverse') {
+    pool = POOLS[2].length ? POOLS[2] : pool;
+  }
+  if (type === 'error_find') {
+    if (Math.random() < 0.5 && POOLS.z.length) {
+      const z = pick(POOLS.z);
+      const spec = Object.assign({}, z);
+      finalizeChoices(spec);
+      return wrapSpec(spec, 'error_find');
+    }
+    pool = POOLS[2].length ? POOLS[2] : pool;
+  }
+  if (type === 'check') {
+    pool = POOLS[3].length ? POOLS[3] : pool;
+  }
+  return wrapSpec(pick(pool), type);
+}
+
+function startHFor(current, r, mode, d){
+  current = current | 0; r = r | 0; d = d | 0;
+  if (current <= 0) return 0;
+  if (mode === 'skipZeroQuotient') {
+    // 바닥(0알)으로 스폰 — 몫을 쓴 척. 정답은 전부 내림(current).
+    return r === 0 ? Math.min(current, 1) : 0;
+  }
+  if (mode === 'remainderTooBig') {
+    const h = (r + d <= current) ? (r + d) : (d <= current ? d : current);
+    return h === r ? (r === 0 ? Math.min(current, d || 1) : 0) : h;
+  }
+  if (mode === 'checkSkipRemainder') {
+    const dq = current - r;
+    return dq === r ? (r === 0 ? Math.min(current, 1) : 0) : dq;
+  }
+  const cand = [];
+  for (let h = 0; h <= current; h++) if (h !== r) cand.push(h);
+  if (!cand.length) return r === 0 ? Math.min(current, 1) : 0;
+  return pick(cand);
+}
+
+function digitsOf(n){
+  n = n | 0;
+  return { o: n % 10, t: Math.floor(n / 10) % 10, h: Math.floor(n / 100) % 10 };
+}
+
+function makeFloors(spec){
+  const d = spec.d | 0;
+  const { o, t, h } = digitsOf(spec.n);
+  const floors = [];
+  const errorKind = spec.errorKind;
+  const onlyOnes = errorKind === 'remainderTooBig';
+  const withHundreds = h > 0;
+  if (withHundreds && !onlyOnes) {
+    const cur = h;
+    const r = cur % d, q = Math.floor(cur / d);
+    const mode = (cur < d) ? 'skipZeroQuotient' : null;
+    const startH = startHFor(cur, r, mode || errorKind, d);
+    floors.push({ name:'백', place:2, digit:h, incoming:0, current:cur, r, q, jawH:startH, startH, locked:false, kind:'normal', graceUsed:false, squash:1, squashT:0 });
+  }
+  if (!onlyOnes) {
+    const incoming = 0;
+    const cur = t + 10 * incoming;
+    const r = cur % d, q = Math.floor(cur / d);
+    let mode = errorKind === 'skipZeroQuotient' && cur < d ? 'skipZeroQuotient' : null;
+    const startH = startHFor(cur, r, mode, d);
+    floors.push({ name:'십', place:1, digit:t, incoming:0, current:cur, r, q, jawH:startH, startH, locked:false, kind:'normal', graceUsed:false, squash:1, squashT:0 });
+  }
+  {
+    const rT = t % d;
+    const incoming = onlyOnes ? rT : 0;
+    const current = o + 10 * incoming;
+    const r = current % d, q = Math.floor(current / d);
+    const mode = errorKind === 'remainderTooBig' ? 'remainderTooBig' : null;
+    const startH = startHFor(current, r, mode, d);
+    floors.push({ name:'일', place:0, digit:o, incoming, current, r, q, jawH:startH, startH, locked:false, kind:'normal', graceUsed:false, squash:1, squashT:0, pendingIncoming: !onlyOnes });
+  }
+  if (spec.type === 'check') {
+    const q = spec.q, r = spec.r;
+    const current = spec.n;
+    const startH = startHFor(current, current, 'checkSkipRemainder', d);
+    floors.push({ name:'확인', place:-1, digit:spec.n, incoming:0, current, r: current, q: 1, jawH:startH, startH, locked:false, kind:'check', combined:false, sideR:r, bundleH:d * q, graceUsed:false, squash:1, squashT:0 });
+  }
+  for (const fl of floors) {
+    if (fl.kind !== 'check' && fl.startH === fl.r && fl.current > 0) {
+      fl.startH = startHFor(fl.current, fl.r, null, d);
+      fl.jawH = fl.startH;
+    }
+  }
+  return floors;
+}
+
+/* ── 게임 상태 ───────────────────────────────────────────── */
+const S = {
+  phase: 'title', land: false, W: 0, H: 0, dpr: 1,
+  stageW: 0, stageX: 0, play: null, algo: null,
+  score: 0, scoreShow: 0, lives: 5, combo: 1, solved: 0, lockedPlaces: 0,
+  level: 1, timeLeft: SESSION, session: SESSION,
+  easy: true, mute: false,
+  board: null, active: 0, mixI: 0,
+  drag: null, drops: [], trails: [], scatter: [],
+  timeScale: 1, hitStop: 0, shake: 0, tickFlash: 0,
+  punch: 0, failT: 0, failNote: '',
+  idleT: 0, cam: 0, camTo: 0, camV: 0,
+  beatLayers: 0, beatFlash: [0, 0, 0],
+  continueMode: false, bestStamp: false,
+  lid: 0, wipe: 0, chalkWrite: 0,
+  wellRects: []
+};
+
+let AC = null, lastT = 0, raf = 0;
+let asphaltPat = null, marbleImg = null, gutterImg = null, marbleOk = false, gutterOk = false;
+const MARBLE_SPR = [];
+let skyCan = null, skyW = -1;
+let bgCan = null, bgKey = '';
+let algoCan = null, algoKey = '';
+let lastSig = '';
+let glyphsWarm = false;
+
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+function loadBest(){ try { return parseInt(localStorage.getItem(LS_BEST) || '0', 10) || 0; } catch { return 0; } }
+function saveBest(n){ try { localStorage.setItem(LS_BEST, String(n)); } catch {} }
+function bumpDay(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_DAY) || '{}');
+    const k = todayKey();
+    if (raw.date !== k) { raw.date = k; raw.places = 0; }
+    raw.places = (raw.places || 0) + 1;
+    localStorage.setItem(LS_DAY, JSON.stringify(raw));
+  } catch {}
+}
+function brand(id){
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_CHALK) || '{}');
+    raw[id] = (raw[id] || 0) + 1;
+    localStorage.setItem(LS_CHALK, JSON.stringify(raw));
+  } catch {}
+}
+
+function bakeMarbles(){
+  for (let r = 8; r <= 48; r++) {
+    const c = document.createElement('canvas');
+    c.width = r * 2; c.height = r * 2;
+    const g = c.getContext('2d');
+    if (marbleOk && marbleImg) {
+      g.drawImage(marbleImg, 0, 0, r * 2, r * 2);
+    } else {
+      g.beginPath();
+      g.arc(r, r, r - 0.5, 0, Math.PI * 2);
+      g.fillStyle = PAL.cobalt;
+      g.fill();
+      g.beginPath();
+      g.arc(r * 0.72, r * 0.7, r * 0.28, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(244,241,232,.7)';
+      g.fill();
+      g.beginPath();
+      g.arc(r, r, r - 0.5, 0, Math.PI * 2);
+      g.strokeStyle = PAL.deep;
+      g.lineWidth = 1;
+      g.stroke();
+    }
+    MARBLE_SPR[r] = c;
+  }
+}
+function loadImgs(){
+  marbleImg = new Image();
+  marbleImg.onload = () => { marbleOk = true; bakeMarbles(); };
+  marbleImg.onerror = () => { marbleOk = false; bakeMarbles(); };
+  marbleImg.src = './assets/marble.png';
+  gutterImg = new Image();
+  gutterImg.onload = () => { gutterOk = true; };
+  gutterImg.onerror = () => { gutterOk = false; };
+  gutterImg.src = './assets/gutter.png';
+  bakeMarbles();
+}
+
+function bakeAsphalt(){
+  const c = document.createElement('canvas');
+  c.width = 192; c.height = 192;
+  const g = c.getContext('2d');
+  g.fillStyle = PAL.asphalt;
+  g.fillRect(0, 0, 192, 192);
+  const img = g.getImageData(0, 0, 192, 192);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() * 16) | 0;
+    d[i] = clamp(d[i] + n - 8, 150, 210);
+    d[i+1] = clamp(d[i+1] + n - 7, 160, 220);
+    d[i+2] = clamp(d[i+2] + n - 5, 170, 230);
+  }
+  g.putImageData(img, 0, 0);
+  asphaltPat = ctx.createPattern(c, 'repeat');
+  bgKey = '';
+}
+
+function hudMetrics(){
+  const top = S.land ? 10 : Math.max(8, 6);
+  const courtY = top + 46;
+  const courtH = 16;
+  return { top, cellH: 40, courtY, courtH, bottom: courtY + courtH };
+}
+
+function layout(){
+  const W = innerWidth, H = innerHeight;
+  S.W = W; S.H = H;
+  S.land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE = Math.min(W, 1280);
+  const SX = Math.round((W - STAGE) / 2);
+  S.stageW = STAGE; S.stageX = SX;
+  const root = document.documentElement;
+  root.style.setProperty('--stageW', STAGE + 'px');
+  root.style.setProperty('--stageX', SX + 'px');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  S.dpr = dpr;
+  cv.width = Math.round(W * dpr);
+  cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px';
+  cv.style.height = H + 'px';
+  ctx = CVCTX;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  algoKey = '';
+  lastSig = '';
+  const hud = hudMetrics();
+  if (S.land) {
+    const playTop = hud.bottom + 10;
+    S.play = { x: SX + 16, y: playTop, w: STAGE * 0.58 - 24, h: Math.max(180, H - playTop - 12) };
+    let algoY = playTop;
+    try {
+      const pr = $('#prompt').getBoundingClientRect();
+      if (pr.bottom > 40) algoY = Math.ceil(pr.bottom) + 10;
+    } catch {}
+    S.algo = { x: SX + STAGE * 0.58 + 8, y: algoY, w: STAGE * 0.42 - 28, h: Math.max(180, H - algoY - 12) };
+  } else {
+    let y = Math.max(168, hud.bottom + 118);
+    try {
+      const pr = $('#prompt').getBoundingClientRect();
+      if (pr.bottom > 40) y = Math.ceil(pr.bottom) + 8;
+    } catch {}
+    S.play = { x: 10, y, w: W - 20, h: Math.max(180, H - y - 88) };
+    S.algo = { x: 10, y: H - 80, w: W - 20, h: 64 };
+  }
+  layoutWells();
+}
+
+function layoutWells(){
+  const b = S.board, p = S.play;
+  S.wellRects = [];
+  if (!b || !p) return;
+  const floors = b.floors;
+  const n = floors.length;
+  const gap = Math.max(24, Math.min(36, p.h * 0.06));
+  const h = (p.h - gap * (n - 1)) / n;
+  for (let i = 0; i < n; i++) {
+    S.wellRects[i] = { x: p.x + 8, y: p.y + i * (h + gap), w: p.w - 16, h };
+  }
+}
+
+function currentBand(){
+  const elapsed = S.session - S.timeLeft;
+  if (S.continueMode) {
+    if (elapsed >= 90) return 3;
+    if (elapsed >= 40) return 3;
+    if (elapsed >= 12) return 2;
+    return 1;
+  }
+  if (elapsed >= 70) return 3;
+  if (elapsed >= 30) return 2;
+  return 1;
+}
+
+function spawnBoard(){
+  const band = currentBand();
+  S.level = band;
+  let type = MIX[S.mixI % MIX.length];
+  if (band === 1) type = (type === 'real_life') ? 'real_life' : 'compute';
+  if (type === 'reverse' && band < 2) type = 'compute';
+  if (type === 'error_find' && band < 2) type = 'compute';
+  if (S.continueMode && S.mixI % 5 === 4) type = Math.random() < 0.5 ? 'check' : 'error_find';
+  S.mixI++;
+  const spec = takeSpec(band, type);
+  const floors = makeFloors(spec);
+  S.board = { spec, floors, type: spec.type, prompt: spec.prompt, perfect: true, written: [] };
+  S.active = 0;
+  S.beatLayers = 0;
+  S.drops.length = 0;
+  S.scatter.length = 0;
+  S.camTo = 0; S.cam = 0;
+  skipEmptyFloors();
+  layoutWells();
+  updatePrompt();
+}
+
+function isSkippable(fl){
+  if (!fl || fl.kind === 'check' || fl.locked) return false;
+  if (fl.pendingIncoming) return false;
+  return floorCurrent(fl) === 0;
+}
+function skipEmptyFloors(){
+  const b = S.board;
+  if (!b) return;
+  while (S.active < b.floors.length && isSkippable(b.floors[S.active])) {
+    b.floors[S.active].locked = true;
+    S.active++;
+  }
+  if (S.active >= b.floors.length) {
+    S.solved += 1;
+    spawnBoard();
+  }
+}
+
+function updatePrompt(){
+  const b = S.board;
+  if (!b) { $('#eq').textContent = ''; $('#say').textContent = ''; return; }
+  const sp = b.spec;
+  const fl = activeFloor();
+  $('#eq').textContent = sp.n + ' ÷ ' + sp.d;
+  $('#say').textContent = b.prompt;
+}
+
+function beginPlay(opts){
+  opts = opts || {};
+  document.documentElement.classList.add('ingame');
+  $('#title').classList.add('gone');
+  $('#result').classList.remove('show');
+  $('#help').classList.remove('show');
+  $('#onboard').classList.remove('show');
+  S.phase = 'play';
+  S.score = 0; S.scoreShow = 0; S.combo = 1; S.solved = 0; S.lockedPlaces = 0;
+  S.lives = S.easy ? 5 : 3;
+  S.session = opts.continueMode ? 180 : SESSION;
+  S.timeLeft = S.session;
+  S.continueMode = !!opts.continueMode;
+  S.mixI = 0; S.failT = 0; S.bestStamp = false; S.lid = 0; S.wipe = 0;
+  S.drops.length = 0; S.trails.length = 0; S.scatter.length = 0;
+  spawnBoard();
+  layout();
+}
+
+function endSession(why){
+  S.phase = 'result';
+  const best = loadBest();
+  let rec = false;
+  if (S.lockedPlaces > best) { saveBest(S.lockedPlaces); rec = true; S.bestStamp = true; }
+  $('#resKicker').textContent = why === 'lives' ? '우물 뚜껑이 닫혔어요' : '세션 끝';
+  $('#resTitle').textContent = '잠근 층';
+  $('#resScore').textContent = '0';
+  $('#resSub').textContent = '잠근 층 ' + S.lockedPlaces + ' · 최고 ' + Math.max(best, S.lockedPlaces) + (rec ? ' · 새 백묵 원' : '');
+  $('#result').classList.add('show');
+  $('#cont').style.display = S.continueMode ? 'none' : 'block';
+  countUp($('#resScore'), S.lockedPlaces, 640);
+}
+
+function countUp(el, target, ms){
+  const t0 = performance.now();
+  const tick = (t) => {
+    const k = Math.min(1, (t - t0) / ms);
+    const e = 1 - Math.pow(1 - k, 3);
+    el.textContent = String(Math.round(target * e));
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function activeFloor(){
+  const b = S.board;
+  if (!b) return null;
+  return b.floors[S.active] || null;
+}
+
+function floorCurrent(fl){
+  if (fl.kind === 'check') return fl.combined ? fl.current : fl.bundleH;
+  return fl.digit + 10 * fl.incoming;
+}
+
+function recompute(fl, d){
+  const cur = floorCurrent(fl);
+  fl.current = cur;
+  if (fl.kind === 'check') {
+    fl.r = fl.combined ? cur : fl.bundleH;
+    return;
+  }
+  fl.r = cur % d;
+  fl.q = Math.floor(cur / d);
+}
+
+/* ── 판정 ────────────────────────────────────────────────── */
+function judgeJaw(fl){
+  if (!fl || fl.locked || S.phase !== 'play') return;
+  const d = S.board.spec.d;
+  recompute(fl, d);
+  const h = fl.jawH | 0;
+  const ans = fl.kind === 'check' ? (fl.combined ? fl.current : -1) : fl.r;
+  if (fl.kind === 'check') {
+    if (!fl.combined) { applyWrong(fl, 'checkSkipRemainder', '나머지를 기둥에 합친 뒤 처음 수 높이에 놓아 보세요.'); return; }
+    if (h === fl.current) { applyCorrect(fl, false); return; }
+    applyWrong(fl, 'checkSkipRemainder', '처음 수는 (나누는 수)×(몫)+(나머지)예요.');
+    return;
+  }
+  if (h === fl.r && h < d) { applyCorrect(fl, false); return; }
+  if (h >= d) { applyWrong(fl, 'remainderTooBig', '나머지는 나누는 수보다 항상 작아야 해요.'); return; }
+  if (fl.current < d && h === 0) { applyWrong(fl, 'skipZeroQuotient', '묶음이 안 되면 알을 모두 아래로 내려 보세요.'); return; }
+  applyWrong(fl, 'wrongRest', '남길 알 높이가 달라요. 다시 놓아 보세요.');
+}
+
+function applyCorrect(fl, instant){
+  const d = S.board.spec.d;
+  recompute(fl, d);
+  fl.locked = true;
+  fl.jawH = fl.kind === 'check' ? fl.current : fl.r;
+  fl.squash = 1.18; fl.squashT = 0.22;
+  S.board.written[fl.place] = fl.kind === 'check' ? S.board.spec.n : fl.q;
+  const gain = 100 * Math.max(1, Math.min(2, S.combo));
+  S.score += gain;
+  S.combo = Math.min(8, S.combo + 1);
+  S.lockedPlaces += 1;
+  bumpDay();
+  S.hitStop = instant ? 0 : (REDUCE ? 0.04 : 0.08);
+  S.timeScale = S.hitStop > 0 ? 0 : 1;
+  S.punch = 1;
+  S.chalkWrite = 1;
+  S.beatLayers = Math.min(3, S.beatLayers + 1);
+  playLayer(S.beatLayers);
+  if (!REDUCE && !instant) {
+    const rect = S.wellRects[S.active] || S.play;
+    if (rect) {
+      for (let i = 0; i < 10; i++) {
+        S.trails.push({
+          x: rect.x + 20 + Math.random() * (rect.w - 40),
+          y: rect.y + 16 + Math.random() * (rect.h * 0.55),
+          life: 0.35 + Math.random() * 0.25,
+          r: 5 + Math.random() * 7
+        });
+      }
+    }
+  }
+  if (fl.kind !== 'check' && S.active + 1 < S.board.floors.length) {
+    const next = S.board.floors[S.active + 1];
+    if (next && next.kind === 'normal' && next.pendingIncoming) {
+      if (fl.r > 0) spawnDrops(fl, next, instant);
+      else {
+        next.pendingIncoming = false;
+        next.incoming = 0;
+        recompute(next, d);
+        next.startH = startHFor(next.current, next.r, null, d);
+        next.jawH = next.startH;
+      }
+    }
+  }
+  if (S.board.spec.band === 1) brand('noCarry');
+  if (S.board.spec.band === 2) brand('carry');
+  if (S.board.spec.r > 0) brand('rest');
+  if (fl.current < d && fl.kind === 'normal') brand('q0');
+  advanceOrComplete(instant);
+}
+
+function spawnDrops(from, next, instant){
+  const r = from.r | 0;
+  const rect = S.wellRects[S.active] || S.play;
+  const dest = S.wellRects[S.active + 1] || S.play;
+  for (let i = 0; i < r; i++) {
+    S.drops.push({
+      x: rect.x + rect.w * 0.5 + (i - r / 2) * 10,
+      y: rect.y + rect.h - 18,
+      tx: dest.x + dest.w * 0.5,
+      ty: dest.y + 28,
+      t: instant ? 1 : -i * 0.06,
+      split: false,
+      r
+    });
+  }
+  next.incoming = r;
+  next.pendingIncoming = false;
+  recompute(next, S.board.spec.d);
+  next.startH = startHFor(next.current, next.r, S.board.spec.errorKind === 'remainderTooBig' ? 'remainderTooBig' : null, S.board.spec.d);
+  next.jawH = next.startH;
+  S.camTo = S.active + 1;
+}
+
+function advanceOrComplete(instant){
+  const b = S.board;
+  let n = S.active + 1;
+  while (n < b.floors.length && b.floors[n].locked) n++;
+  if (n < b.floors.length) {
+    S.active = n;
+    skipEmptyFloors();
+    if (!S.board || S.board !== b) return;
+    S.camTo = S.active;
+    updatePrompt();
+    return;
+  }
+  S.solved += 1;
+  if (b.perfect) brand('perfect');
+  playCadence();
+  if (instant) spawnBoard();
+  else S.punch = 1.4;
+  if (!instant) setTimeout(() => { if (S.phase === 'play') spawnBoard(); }, REDUCE ? 180 : 420);
+}
+
+function applyWrong(fl, misconceptionId, note){
+  if (S.phase !== 'play') {
+    S.failT = 1;
+    return;
+  }
+  S.failNote = note;
+  S.failT = 1.6;
+  $('#failNote').textContent = note;
+  $('#failNote').classList.add('on');
+  if (S.easy && fl && !fl.graceUsed) {
+    fl.graceUsed = true;
+    S.tickFlash = 1.2;
+    playMiss();
+    return;
+  }
+  S.board.perfect = false;
+  S.combo = 1;
+  S.shake = REDUCE ? 0 : 7;
+  S.wipe = 1;
+  scatterWell(fl);
+  playMiss();
+  S.lives -= 1;
+  if (S.lives <= 0) {
+    S.lid = 0.01;
+    setTimeout(() => { if (S.phase === 'play') endSession('lives'); }, 520);
+  }
+}
+
+function scatterWell(fl){
+  const idx = S.board.floors.indexOf(fl);
+  const rect = S.wellRects[idx] || S.play;
+  const n = Math.min(12, floorCurrent(fl) || 6);
+  for (let i = 0; i < n; i++) {
+    S.scatter.push({
+      x: rect.x + 20 + Math.random() * (rect.w - 40),
+      y: rect.y + 20 + Math.random() * (rect.h - 40),
+      vx: (Math.random() - 0.5) * 220,
+      vy: -80 - Math.random() * 160,
+      rot: Math.random() * 6,
+      life: 0.7 + Math.random() * 0.4
+    });
+  }
+}
+
+/* ── 오디오 ──────────────────────────────────────────────── */
+function unlockAudio(){
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+  } catch {}
+}
+function setMute(on){
+  S.mute = !!on;
+  try { localStorage.setItem(LS_MUTE, S.mute ? '1' : '0'); } catch {}
+  $('#mute').textContent = S.mute ? '✕' : '♪';
+  $('#titleMute').textContent = S.mute ? '✕' : '♪';
+}
+function beep(freq, dur, type, gain, when){
+  if (S.mute || !AC) return;
+  try {
+    const t0 = AC.currentTime + (when || 0);
+    const o = AC.createOscillator();
+    const g = AC.createGain();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(gain || 0.06, t0);
+    g.gain.exponentialRampToValueAtTime(0.0008, t0 + dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch {}
+}
+function playLayer(n){
+  if (S.mute) { S.beatFlash[clamp(n - 1, 0, 2)] = 1; return; }
+  if (n === 1) { beep(90, 0.12, 'sine', 0.1); beep(60, 0.08, 'triangle', 0.08); } // kick
+  else if (n === 2) { beep(1800, 0.05, 'square', 0.04); beep(900, 0.04, 'triangle', 0.03); } // clap
+  else { beep(70, 0.18, 'sawtooth', 0.07); } // bass
+}
+function playCadence(){
+  if (S.mute) { S.beatFlash = [1, 1, 1]; return; }
+  playLayer(1);
+  setTimeout(() => playLayer(2), 140);
+  setTimeout(() => playLayer(3), 280);
+}
+function playMiss(){ beep(180, 0.16, 'sawtooth', 0.05); beep(120, 0.2, 'triangle', 0.04); }
+
+/* ── 입력 ────────────────────────────────────────────────── */
+function eventPos(e){
+  if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  if (e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+function jawFromY(fl, rect, y){
+  const cur = floorCurrent(fl);
+  const top = rect.y + 28, bot = rect.y + rect.h - 22;
+  const t = clamp((bot - y) / Math.max(8, bot - top), 0, 1);
+  return clamp(Math.round(t * cur), 0, cur);
+}
+function hitSidePile(fl, rect, x, y){
+  if (!fl || fl.kind !== 'check' || fl.combined) return false;
+  const sx = rect.x + rect.w - 70, sy = rect.y + rect.h * 0.35;
+  return x > sx - 10 && x < rect.x + rect.w + 4 && y > sy - 10 && y < sy + 90;
+}
+function combineCheck(fl){
+  fl.combined = true;
+  fl.current = S.board.spec.n;
+  fl.r = fl.current;
+  fl.sideR = 0;
+}
+
+cv.addEventListener('pointerdown', (e) => {
+  if (S.phase !== 'play') return;
+  const fl = activeFloor();
+  if (!fl || fl.locked) return;
+  const rect = S.wellRects[S.active];
+  if (!rect) return;
+  const p = eventPos(e);
+  if (hitSidePile(fl, rect, p.x, p.y)) {
+    combineCheck(fl);
+    unlockAudio();
+    e.preventDefault();
+    return;
+  }
+  S.drag = { moved: false, x: p.x, y: p.y, fl };
+  unlockAudio();
+  try { cv.setPointerCapture(e.pointerId); } catch {}
+  e.preventDefault();
+}, { passive: false });
+cv.addEventListener('pointermove', (e) => {
+  if (!S.drag) return;
+  const p = eventPos(e);
+  const fl = S.drag.fl;
+  const rect = S.wellRects[S.active];
+  if (!fl || !rect) return;
+  if (!S.drag.moved && Math.abs(p.y - S.drag.y) > 7) S.drag.moved = true;
+  if (S.drag.moved) fl.jawH = jawFromY(fl, rect, p.y);
+  e.preventDefault();
+}, { passive: false });
+function endDrag(e){
+  if (!S.drag) return;
+  const fl = S.drag.fl;
+  S.drag = null;
+  if (fl && !fl.locked) judgeJaw(fl);
+  if (e) e.preventDefault();
+}
+cv.addEventListener('pointerup', endDrag, { passive: false });
+cv.addEventListener('pointercancel', endDrag, { passive: false });
+
+window.addEventListener('keydown', (e) => {
+  if (S.phase !== 'play') return;
+  const fl = activeFloor();
+  if (!fl || fl.locked) return;
+  const cur = floorCurrent(fl);
+  if (e.key === 'ArrowUp') { fl.jawH = clamp(fl.jawH + 1, 0, cur); e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { fl.jawH = clamp(fl.jawH - 1, 0, cur); e.preventDefault(); }
+  else if (e.key === ' ' || e.key === 'Enter') { judgeJaw(fl); e.preventDefault(); }
+});
+
+/* ── 그리기 ──────────────────────────────────────────────── */
+function chalkLine(x1, y1, x2, y2, w, color){
+  ctx.strokeStyle = color || PAL.chalk;
+  ctx.lineWidth = w || 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1 + 0.4, y1);
+  ctx.lineTo(x2, y2 + 0.5);
+  ctx.stroke();
+}
+function chalkRect(x, y, w, h, color){
+  ctx.strokeStyle = color || PAL.chalk;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 0.5, y + 0.5, w, h);
+}
+const GLYPH_SPR = new Map();
+function glyphSprite(ch, s, color){
+  const key = ch + '|' + (s | 0) + '|' + color;
+  let spr = GLYPH_SPR.get(key);
+  if (spr) return spr;
+  const g = GLYPH[ch];
+  const px = s / 7;
+  const w = Math.ceil(7 * px + 2);
+  const h = Math.ceil(7 * px + 2);
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, w);
+  c.height = Math.max(1, h);
+  const gctx = c.getContext('2d');
+  if (g) {
+    gctx.fillStyle = color || PAL.ink;
+    for (let row = 0; row < 7; row++) {
+      for (let col = 0; col < 6; col++) {
+        if (g[row] & (1 << (5 - col))) {
+          const jx = (Math.sin((row + col) * 1.8) * 0.35);
+          gctx.fillRect(col * px + jx + 1, row * px + 1, px + 0.4, px + 0.4);
+        }
+      }
+    }
+  }
+  spr = { c, adv: 6 * px + px };
+  GLYPH_SPR.set(key, spr);
+  return spr;
+}
+function drawGlyph(ch, x, y, s, color){
+  if (!GLYPH[ch]) return x;
+  const spr = glyphSprite(ch, s, color || PAL.ink);
+  ctx.drawImage(spr.c, x - 1, y - 1);
+  return x + spr.adv;
+}
+function drawChalkStr(str, x, y, s, color){
+  let cx = x;
+  for (const ch of String(str)) cx = drawGlyph(ch, cx, y, s, color);
+  return cx;
+}
+
+function drawMarble(x, y, r, squashX, squashY){
+  const ir = clamp(r | 0, 8, 48);
+  const spr = MARBLE_SPR[ir];
+  ctx.save();
+  ctx.translate(x, y);
+  const sx = squashX || 1, sy = squashY || 1;
+  if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
+  if (spr) ctx.drawImage(spr, -ir, -ir);
+  else {
+    ctx.beginPath();
+    ctx.arc(0, 0, ir, 0, Math.PI * 2);
+    ctx.fillStyle = PAL.cobalt;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function wellZones(rect){
+  const numS = Math.max(20, Math.min(rect.w, S.W) * 0.05);
+  const plateH = numS + 18;
+  const headerH = Math.max(plateH + 12, 52);
+  const handle = 22;
+  let top = rect.y + headerH + handle;
+  let bot = rect.y + rect.h - handle - 4;
+  if (bot - top < 36) {
+    top = rect.y + headerH + 8;
+    bot = rect.y + rect.h - 16;
+  }
+  return {
+    numS, plateH, headerH, handle,
+    top, bot,
+    marbleY: rect.y + headerH,
+    marbleH: Math.max(28, (rect.y + rect.h - 8) - (rect.y + headerH)),
+    tickL: rect.x + 10,
+    tickR: rect.x + rect.w - 50,
+    plateX: rect.x + 8,
+    plateY: rect.y + 6,
+    plateW: 56
+  };
+}
+
+function packMarbles(count, rect, jawH, z){
+  count = count | 0;
+  if (count <= 0) return [];
+  z = z || wellZones(rect);
+  const areaH = z.marbleH;
+  const areaW = rect.w - 86;
+  let cols = count > 24 ? 5 : count > 12 ? 4 : count > 6 ? 3 : count > 3 ? 2 : 1;
+  if (count <= 10 && areaH / count >= 28) cols = 1;
+  const rows = Math.ceil(count / cols);
+  const size = Math.min(areaW / cols - 4, areaH / rows - 3, Math.max(32, Math.min(rect.w, areaH) * 0.22));
+  const r = Math.max(12, size / 2);
+  const gridW = cols * (r * 2 + 4);
+  const ox = rect.x + Math.max(14, (rect.w - 70 - gridW) / 2);
+  const out = [];
+  const show = Math.min(count, 28);
+  for (let i = 0; i < show; i++) {
+    const col = i % cols;
+    const row = (i / cols) | 0;
+    const x = ox + col * (r * 2 + 4) + r;
+    const y = z.marbleY + areaH - 10 - row * (r * 2 + 3) - r;
+    out.push({ x, y, r, drop: i < jawH });
+  }
+  return out;
+}
+
+function drawWell(fl, rect, i){
+  const active = i === S.active && !fl.locked;
+  const z = wellZones(rect);
+  ctx.save();
+  if (fl.squashT > 0) {
+    ctx.translate(rect.x + rect.w / 2, rect.y + rect.h / 2);
+    ctx.scale(2 - fl.squash, fl.squash);
+    ctx.translate(-(rect.x + rect.w / 2), -(rect.y + rect.h / 2));
+  }
+  ctx.fillStyle = active ? PAL.pale : 'rgba(244,241,232,.28)';
+  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  chalkRect(rect.x, rect.y, rect.w, rect.h, fl.locked ? PAL.cobalt : PAL.chalk);
+  if (S.beatFlash[i] > 0) {
+    ctx.fillStyle = 'rgba(244,241,232,' + (S.beatFlash[i] * 0.35) + ')';
+    ctx.fillRect(rect.x, rect.y, 6, rect.h);
+  }
+
+  ctx.fillStyle = PAL.chalk;
+  ctx.fillRect(rect.x, rect.y, rect.w, z.headerH);
+  ctx.strokeStyle = PAL.ink;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(rect.x + 1, rect.y + z.headerH);
+  ctx.lineTo(rect.x + rect.w - 1, rect.y + z.headerH);
+  ctx.stroke();
+
+  const cur = floorCurrent(fl);
+  ctx.fillStyle = PAL.chalk;
+  ctx.fillRect(z.plateX, z.plateY, z.plateW, z.plateH);
+  chalkRect(z.plateX, z.plateY, z.plateW, z.plateH, PAL.ink);
+  drawChalkStr(String(cur), z.plateX + 6, z.plateY + 4, z.numS, PAL.ink);
+  ctx.font = '700 12px ' + FACE;
+  ctx.fillStyle = PAL.cobalt;
+  ctx.fillText(fl.name + ' · ÷' + S.board.spec.d, z.plateX + z.plateW + 8, z.plateY + Math.min(z.plateH - 6, 22));
+
+  const marbles = packMarbles(Math.min(cur, 28), rect, fl.jawH, z);
+  const punch = fl.squashT > 0;
+  const sqx = punch ? fl.squash : 1, sqy = punch ? (2 - fl.squash) : 1;
+  for (const m of marbles) {
+    if (m.drop && active) {
+      ctx.globalAlpha = 0.72;
+      drawMarble(m.x + 1, m.y + 3, m.r * 0.96, 1, 1);
+      ctx.globalAlpha = 1;
+    } else {
+      drawMarble(m.x, m.y, m.r, fl.locked ? 1 : sqx, fl.locked ? 1 : sqy);
+    }
+  }
+  if (cur > 28) {
+    ctx.fillStyle = PAL.ink;
+    ctx.font = '800 16px ' + FACE;
+    ctx.fillText('+' + (cur - 28), rect.x + rect.w - 54, z.plateY + 18);
+  }
+
+  if (fl.kind === 'check' && !fl.combined) {
+    const sx = rect.x + rect.w - 54;
+    const sy = z.marbleY + z.marbleH * 0.35;
+    for (let k = 0; k < Math.min(fl.sideR, 8); k++) drawMarble(sx, sy + k * 16, 11, 1, 1);
+    ctx.fillStyle = PAL.red;
+    ctx.font = '800 13px ' + FACE;
+    ctx.fillText('나머지', sx - 18, sy - 12);
+  }
+
+  const t = cur <= 0 ? 0 : fl.jawH / cur;
+  const jy = z.bot - t * (z.bot - z.top);
+  ctx.fillStyle = PAL.ink;
+  ctx.fillRect(z.tickL, jy - 3, z.tickR - z.tickL, 6);
+  ctx.fillStyle = PAL.chalk;
+  ctx.fillRect(z.tickL + 1, jy - 2, z.tickR - z.tickL - 2, 4);
+  const hx = rect.x + rect.w - 22;
+  const hy = clamp(jy, rect.y + z.headerH + z.handle, rect.y + rect.h - z.handle - 2);
+  ctx.fillStyle = PAL.cobalt;
+  ctx.fillRect(hx - 22, hy - 22, 44, 44);
+  chalkRect(hx - 22, hy - 22, 44, 44, PAL.chalk);
+  drawChalkStr(String(fl.jawH), hx - 16, hy - 14, 22, PAL.chalk);
+
+  if (S.easy && active) {
+    const d = S.board.spec.d;
+    const blink = S.tickFlash > 0 && Math.sin(S.idleT * 22) > 0;
+    if (cur > 0) {
+      for (let k = d; k <= cur; k += d) {
+        const ty = z.bot - (k / cur) * (z.bot - z.top);
+        if (ty < rect.y + z.headerH + 8 || ty > z.bot - 8) continue;
+        if (Math.abs(ty - jy) < 8) continue;
+        chalkLine(z.tickL, ty, Math.min(z.tickR, hx - 28), ty, blink ? 5 : 2, PAL.red);
+      }
+    }
+  }
+  if (fl.locked) {
+    ctx.fillStyle = 'rgba(36,88,181,.12)';
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+  ctx.restore();
+}
+
+function drawGutterBetween(a, b){
+  if (!a || !b) return;
+  const gapTop = a.y + a.h + 3;
+  const gapBot = b.y - 3;
+  const h = gapBot - gapTop;
+  if (h < 8) return;
+  const w = Math.min(28, h + 8);
+  const x = a.x + (a.w - w) / 2;
+  if (gutterOk) ctx.drawImage(gutterImg, x, gapTop, w, h);
+  else {
+    chalkLine(x + 6, gapTop, x + 6, gapBot, 2, PAL.chalk);
+    chalkLine(x + w - 6, gapTop, x + w - 6, gapBot, 2, PAL.chalk);
+  }
+}
+
+function drawHud(){
+  const W = S.W;
+  const hud = hudMetrics();
+  const top = hud.top;
+  const muteW = 58;
+  const timeW = 62;
+  const timeX = S.land ? (S.stageX + S.stageW * 0.58 - timeW - 8) : (W - muteW - timeW - 8);
+  const baseX = S.land ? S.stageX + 12 : 8;
+  const avail = timeX - baseX - 8;
+  const cw = Math.min(S.land ? 90 : 78, (avail - 16) / 3);
+  const cells = [
+    { k: '층', v: String(S.lockedPlaces) },
+    { k: '콤보', v: '×' + Math.min(2, Math.max(1, S.combo)) },
+    { k: '목숨', v: S.lives }
+  ];
+  ctx.font = '700 10px ' + FACE;
+  for (let i = 0; i < 3; i++) {
+    const x = baseX + i * (cw + 6);
+    ctx.fillStyle = PAL.chalk;
+    ctx.fillRect(x, top, cw, hud.cellH);
+    chalkRect(x, top, cw, hud.cellH, PAL.ink);
+    ctx.fillStyle = PAL.cobalt;
+    ctx.fillText(cells[i].k, x + 6, top + 12);
+    if (i === 2) {
+      const maxH = Math.min(S.lives, 5);
+      const gap = Math.min(12, (cw - 12) / 5);
+      for (let h = 0; h < maxH; h++) {
+        ctx.fillStyle = PAL.red;
+        ctx.fillRect(x + 8 + h * gap, top + 18, 10, 14);
+      }
+    } else {
+      drawChalkStr(cells[i].v, x + 8, top + 16, 18, PAL.ink);
+    }
+  }
+  ctx.fillStyle = PAL.chalk;
+  ctx.fillRect(timeX, top, timeW, hud.cellH);
+  chalkRect(timeX, top, timeW, hud.cellH, PAL.ink);
+  drawChalkStr(String(Math.max(0, S.timeLeft | 0)), timeX + 8, top + 10, 22, PAL.ink);
+
+  const courts = 3;
+  const elapsed = S.session - S.timeLeft;
+  const filled = S.continueMode ? 3 : (elapsed >= 70 ? 3 : elapsed >= 30 ? 2 : 1);
+  for (let i = 0; i < courts; i++) {
+    const cx = (S.land ? S.stageX + 12 : 10) + i * 22;
+    const cy = hud.courtY;
+    ctx.fillStyle = i < filled ? PAL.cobalt : PAL.chalk;
+    ctx.fillRect(cx, cy, 16, hud.courtH);
+    chalkRect(cx, cy, 16, hud.courtH, PAL.ink);
+  }
+}
+
+function algoStateKey(){
+  const a = S.algo, b = S.board;
+  if (!a || !b) return '';
+  const fl = b.floors[S.active];
+  const locked = (b.floors || []).filter(f => f.kind === 'normal' && f.locked)
+    .map(f => f.place + ':' + f.q + ':' + f.r).join(';');
+  const checkFl = (b.floors || []).find(f => f.kind === 'check');
+  return [
+    a.x|0, a.y|0, a.w|0, a.h|0, S.land ? 1 : 0,
+    b.spec.n, b.spec.d, b.spec.q, b.spec.r, b.spec.type,
+    S.active,
+    fl ? ((fl.jawH|0) + ',' + (fl.locked?1:0) + ',' + (fl.combined?1:0) + ',' + (fl.kind||'')) : '',
+    locked,
+    checkFl && checkFl.locked ? 1 : 0
+  ].join('|');
+}
+
+function paintAlgo(){
+  const a = S.algo, b = S.board;
+  if (!a || !b) return;
+  ctx.fillStyle = PAL.chalk;
+  ctx.fillRect(a.x, a.y, a.w, a.h);
+  chalkRect(a.x, a.y, a.w, a.h, PAL.ink);
+  const sp = b.spec;
+  const n = sp.n | 0, d = sp.d | 0;
+  const floors = b.floors || [];
+  const locked = floors.filter(f => f.kind === 'normal' && f.locked);
+  const qstr = locked.map(f => String(f.q)).join('');
+  const last = locked[locked.length - 1];
+  const checkFl = floors.find(f => f.kind === 'check');
+  const showCheckN = !(checkFl && !checkFl.locked);
+
+  if (!S.land || a.h < 140) {
+    const s = Math.max(18, Math.min(28, a.h * 0.28));
+    let x = a.x + 10, y = a.y + 12;
+    x = drawChalkStr(String(n), x, y, s, PAL.ink);
+    x = drawChalkStr('÷', x + 4, y, s, PAL.cobalt);
+    x = drawChalkStr(String(d), x + 4, y, s, PAL.ink);
+    y += s + 10;
+    x = a.x + 10;
+    if (qstr) {
+      x = drawChalkStr(qstr, x, y, s, PAL.cobalt);
+      if (last && last.place === 0) {
+        x = drawChalkStr('⋯', x + 6, y, s, PAL.ink);
+        drawChalkStr(String(last.r), x + 6, y, s, PAL.red);
+      }
+    } else {
+      ctx.font = '700 14px ' + FACE;
+      ctx.fillStyle = PAL.cobalt;
+      ctx.fillText('위 층부터 아래턱을 놓아 보세요', a.x + 10, y + 16);
+    }
+    return;
+  }
+
+  const pad = 14;
+  const boxW = a.w - pad * 2;
+  let y = a.y + pad;
+  ctx.font = '800 13px ' + FACE;
+  ctx.fillStyle = PAL.cobalt;
+  ctx.fillText('세로셈 · 낙인판', a.x + pad, y + 12);
+  y += 22;
+
+  const s = Math.min(34, Math.max(22, a.w * 0.07));
+  let x = a.x + pad;
+  x = drawChalkStr(String(n), x, y, s, PAL.ink);
+  x = drawChalkStr('÷', x + 6, y, s, PAL.cobalt);
+  x = drawChalkStr(String(d), x + 6, y, s, PAL.ink);
+  x = drawChalkStr('=', x + 8, y, s, PAL.ink);
+  if (qstr) {
+    x = drawChalkStr(qstr, x + 8, y, s, PAL.cobalt);
+    if (last && last.place === 0) {
+      x = drawChalkStr('⋯', x + 6, y, s, PAL.ink);
+      drawChalkStr(String(last.r), x + 6, y, s, PAL.red);
+    }
+  } else {
+    ctx.font = '800 20px ' + FACE;
+    ctx.fillStyle = PAL.ink;
+    ctx.fillText('?', x + 10, y + s * 0.78);
+  }
+  y += s + 14;
+
+  const fy = a.y + a.h - 52;
+  const restH = Math.max(220, fy - y - 12);
+  const boxH = Math.max(120, Math.min(restH * 0.38, restH - 210));
+  const boxX = a.x + pad;
+  ctx.fillStyle = PAL.pale;
+  ctx.fillRect(boxX, y, boxW, boxH);
+  chalkRect(boxX, y, boxW, boxH, PAL.ink);
+  const gs = Math.min(28, boxH * 0.18);
+  let dx = boxX + 10;
+  const divY = y + 36;
+  dx = drawChalkStr(String(d), dx, divY, gs, PAL.cobalt);
+  ctx.strokeStyle = PAL.ink;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(dx + 4, divY - 4);
+  ctx.lineTo(dx + 4, divY + gs + 4);
+  ctx.lineTo(boxX + boxW - 12, divY + gs + 4);
+  ctx.stroke();
+  drawChalkStr(String(n), dx + 12, divY, gs, PAL.ink);
+  if (qstr) drawChalkStr(qstr, dx + 12, y + 8, gs, PAL.cobalt);
+  ctx.font = '700 14px ' + FACE;
+  let stepY = divY + gs + 22;
+  const normals = floors.filter(f => f.kind === 'normal');
+  if (locked.length) {
+    ctx.fillStyle = PAL.ink;
+    for (const lf of locked) {
+      if (stepY > y + boxH - 16) break;
+      ctx.fillText(lf.name + ' 자리  몫 ' + lf.q + ' · 나머지 ' + lf.r + (lf.r >= d ? ' (너무 큼)' : ' 내림'), boxX + 12, stepY);
+      stepY += 20;
+    }
+  } else {
+    ctx.fillStyle = PAL.cobalt;
+    ctx.fillText('위 층부터 아래턱을 놓아 보세요', boxX + 12, stepY);
+    stepY += 22;
+    ctx.fillStyle = PAL.ink;
+    ctx.fillText('남길 알은 나누는 수보다 작아야 해요', boxX + 12, stepY);
+  }
+  y += boxH + 14;
+
+  ctx.font = '800 13px ' + FACE;
+  ctx.fillStyle = PAL.cobalt;
+  ctx.fillText('잠근 자리', a.x + pad, y + 12);
+  y += 20;
+  const slotW = Math.min(110, (boxW - 8) / Math.max(1, normals.length));
+  normals.forEach((lf, i) => {
+    const sx = a.x + pad + i * (slotW + 8);
+    const on = floors.indexOf(lf) === S.active;
+    ctx.fillStyle = lf.locked ? PAL.cobalt : (on ? '#F7E6A1' : PAL.pale);
+    ctx.fillRect(sx, y, slotW, 54);
+    chalkRect(sx, y, slotW, 54, PAL.ink);
+    ctx.font = '700 12px ' + FACE;
+    ctx.fillStyle = lf.locked ? PAL.chalk : PAL.cobalt;
+    ctx.fillText(lf.name, sx + 8, y + 16);
+    if (lf.locked) drawChalkStr(String(lf.q), sx + 8, y + 24, 22, PAL.chalk);
+    else {
+      ctx.fillStyle = on ? PAL.red : PAL.ink;
+      ctx.fillText(on ? '진행' : '대기', sx + 8, y + 36);
+    }
+  });
+  y += 70;
+
+  const fl = floors[S.active];
+  ctx.font = '800 13px ' + FACE;
+  ctx.fillStyle = PAL.cobalt;
+  ctx.fillText('지금 층', a.x + pad, y + 12);
+  y += 22;
+  ctx.font = '700 15px ' + FACE;
+  ctx.fillStyle = PAL.ink;
+  if (fl) {
+    if (fl.kind === 'check') {
+      ctx.fillText('(나누는 수)×(몫)+(나머지)=(처음 수)', a.x + pad, y + 14);
+      y += 24;
+      const rhs = fl.locked ? String(n) : '□';
+      ctx.fillText(d + ' × ' + (sp.q | 0) + ' + ' + (sp.r | 0) + ' = ' + rhs, a.x + pad, y + 14);
+    } else if (fl.locked) {
+      const cur = floorCurrent(fl);
+      ctx.fillText(fl.name + ' 알 ' + cur + '개 · 몫 ' + (fl.q | 0) + ' · 나머지 ' + (fl.r | 0), a.x + pad, y + 14);
+      y += 24;
+      ctx.fillStyle = (fl.r | 0) < d ? PAL.cobalt : PAL.red;
+      ctx.fillText('나머지 ' + fl.r + '  ·  나누는 수 ' + d + '보다 작아야 해요', a.x + pad, y + 14);
+    } else {
+      const cur = floorCurrent(fl);
+      const jaw = fl.jawH | 0;
+      ctx.fillText(fl.name + ' 알 ' + cur + '개 · 나누는 수 ' + d + ' · 지금 남긴 알 ' + jaw, a.x + pad, y + 14);
+      y += 24;
+      ctx.fillStyle = jaw < d ? PAL.cobalt : PAL.red;
+      ctx.fillText('남길 알은 나누는 수보다 작아야 해요', a.x + pad, y + 14);
+    }
+  }
+  y += 28;
+
+  if (fy - y > 70) {
+    ctx.font = '800 13px ' + FACE;
+    ctx.fillStyle = PAL.cobalt;
+    ctx.fillText('한 묶음 = ' + d + '알', a.x + pad, y + 12);
+    y += 20;
+    const cell = Math.min(22, (boxW - 8) / Math.max(d, 2));
+    for (let i = 0; i < d; i++) {
+      const bx = a.x + pad + i * (cell + 4);
+      ctx.fillStyle = PAL.cobalt;
+      ctx.fillRect(bx, y, cell, cell);
+      chalkRect(bx, y, cell, cell, PAL.ink);
+    }
+    y += cell + 14;
+    const shownRest = fl && fl.locked
+      ? (fl.kind === 'check' ? (sp.r | 0) : (fl.r | 0))
+      : (fl && fl.kind !== 'check' ? (fl.jawH | 0) : 0);
+    ctx.font = '700 13px ' + FACE;
+    ctx.fillStyle = PAL.ink;
+    ctx.fillText((fl && fl.locked ? '남은 알 ' : '지금 남긴 알 ') + shownRest + '개 / 한 묶음 ' + d + '개', a.x + pad, y + 12);
+    y += 18;
+    const barW = boxW - 4;
+    ctx.fillStyle = PAL.pale;
+    ctx.fillRect(a.x + pad, y, barW, 16);
+    chalkRect(a.x + pad, y, barW, 16, PAL.ink);
+    const fill = Math.min(1, shownRest / Math.max(1, d));
+    ctx.fillStyle = shownRest < d ? PAL.cobalt : PAL.red;
+    ctx.fillRect(a.x + pad + 2, y + 2, Math.max(0, (barW - 4) * fill), 12);
+  }
+
+  ctx.fillStyle = PAL.pale;
+  ctx.fillRect(a.x + pad, fy, boxW, 38);
+  chalkRect(a.x + pad, fy, boxW, 38, PAL.ink);
+  ctx.font = '800 14px ' + FACE;
+  ctx.fillStyle = PAL.ink;
+  const showQ = qstr || '□';
+  const showR = (last && last.place === 0) ? String(last.r) : '□';
+  const showN = showCheckN ? String(n) : '□';
+  ctx.fillText('검산  ' + d + ' × ' + showQ + ' + ' + showR + ' = ' + showN, a.x + pad + 10, fy + 24);
+}
+
+function drawAlgo(){
+  const a = S.algo, b = S.board;
+  if (!a || !b) return;
+  const key = algoStateKey();
+  const w = Math.max(1, a.w | 0), h = Math.max(1, a.h | 0);
+  if (!algoCan || algoCan.width !== w || algoCan.height !== h || algoKey !== key) {
+    if (!algoCan) algoCan = document.createElement('canvas');
+    algoCan.width = w;
+    algoCan.height = h;
+    const prev = ctx;
+    ctx = algoCan.getContext('2d', { alpha: false });
+    ctx.setTransform(1, 0, 0, 1, -a.x, -a.y);
+    paintAlgo();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx = prev;
+    algoKey = key;
+  }
+  ctx.drawImage(algoCan, a.x, a.y);
+}
+
+function drawDrops(){
+  for (const d of S.drops) {
+    if (d.t < 0) continue;
+    const k = clamp(d.t, 0, 1);
+    const e = k < 0.7 ? (k / 0.7) * (k / 0.7) : 1 + Math.sin((k - 0.7) * 12) * 0.04 * (1 - k);
+    const x = d.x + (d.tx - d.x) * e;
+    const y = d.y + (d.ty - d.y) * Math.pow(k, 0.85);
+    const sx = k > 0.82 ? 1.25 : 1;
+    const sy = k > 0.82 ? 0.8 : 1;
+    drawMarble(x, y, 12, sx, sy);
+  }
+}
+
+function ensureSky(W){
+  if (skyCan && skyW === W) return;
+  skyCan = document.createElement('canvas');
+  skyCan.width = Math.max(1, W | 0);
+  skyCan.height = 140;
+  const g = skyCan.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 0, 140);
+  sky.addColorStop(0, 'rgba(36,88,181,.16)');
+  sky.addColorStop(1, 'rgba(180,192,204,0)');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, skyCan.width, 140);
+  skyW = W;
+}
+
+function bakeBg(W, H){
+  const key = W + 'x' + H + ':' + S.stageX + ':' + S.stageW + ':' + (S.land ? 1 : 0) + ':' + (asphaltPat ? 1 : 0);
+  if (bgCan && bgKey === key) return;
+  ensureSky(W);
+  bgCan = document.createElement('canvas');
+  bgCan.width = Math.max(1, W | 0);
+  bgCan.height = Math.max(1, H | 0);
+  const g = bgCan.getContext('2d');
+  g.fillStyle = PAL.asphalt;
+  g.fillRect(0, 0, W, H);
+  if (asphaltPat) { g.fillStyle = asphaltPat; g.fillRect(0, 0, W, H); }
+  g.drawImage(skyCan, 0, 0);
+  if (S.land && S.stageW < W - 2) {
+    g.fillStyle = 'rgba(44,58,74,.22)';
+    g.fillRect(0, 0, S.stageX, H);
+    g.fillRect(S.stageX + S.stageW, 0, W - (S.stageX + S.stageW), H);
+  }
+  bgKey = key;
+}
+
+function draw(){
+  const W = S.W, H = S.H;
+  bakeBg(W, H);
+  ctx.drawImage(bgCan, 0, 0);
+  const shx = S.shake ? (Math.sin(S.idleT * 48) * S.shake) : 0;
+  ctx.save();
+  ctx.translate(shx, 0);
+  if (S.punch > 0 && S.play) {
+    const k = 1 + S.punch * 0.028;
+    ctx.translate(S.play.x + S.play.w / 2, S.play.y + S.play.h / 2);
+    ctx.scale(k, k);
+    ctx.translate(-(S.play.x + S.play.w / 2), -(S.play.y + S.play.h / 2));
+  }
+
+  if (S.phase === 'play' || S.phase === 'result') {
+    const rects = S.wellRects;
+    if (S.board) {
+      S.board.floors.forEach((fl, i) => { if (rects[i]) drawWell(fl, rects[i], i); });
+    }
+    for (let i = 0; i < rects.length - 1; i++) drawGutterBetween(rects[i], rects[i + 1]);
+    drawDrops();
+    for (const t of S.trails) {
+      ctx.globalAlpha = clamp(t.life * 2, 0, 0.45);
+      ctx.fillStyle = PAL.chalk;
+      ctx.fillRect(t.x - t.r * 0.5, t.y - t.r * 0.5, t.r, t.r);
+      ctx.globalAlpha = 1;
+    }
+    for (const s of S.scatter) {
+      ctx.globalAlpha = clamp(s.life, 0, 1);
+      ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.rot);
+      drawMarble(0, 0, 10, 1.1, 0.85);
+      ctx.restore(); ctx.globalAlpha = 1;
+    }
+    drawHud();
+    drawAlgo();
+    if (S.lid > 0) {
+      ctx.fillStyle = 'rgba(44,58,74,' + clamp(S.lid, 0, 0.72) + ')';
+      ctx.fillRect(S.play.x, S.play.y, S.play.w, S.play.h * S.lid);
+    }
+  }
+  ctx.restore();
+}
+
+function step(dt){
+  S.idleT += dt;
+  if (S.hitStop > 0) {
+    S.hitStop -= dt;
+    if (S.hitStop <= 0) S.timeScale = 1;
+  }
+  const adt = dt * (S.timeScale || 1);
+  if (S.scoreShow < S.score) S.scoreShow = Math.min(S.score, S.scoreShow + adt * 480);
+  if (S.shake > 0) S.shake = Math.max(0, S.shake - adt * 28);
+  if (S.failT > 0) {
+    S.failT -= dt;
+    if (S.failT <= 0) $('#failNote').classList.remove('on');
+  }
+  if (S.tickFlash > 0) S.tickFlash -= dt;
+  if (S.wipe > 0) S.wipe -= dt;
+  if (S.punch > 0) S.punch -= dt * 2;
+  if (S.lid > 0 && S.lid < 1) S.lid = Math.min(1, S.lid + dt * 2.2);
+  for (let i = 0; i < 3; i++) S.beatFlash[i] = Math.max(0, S.beatFlash[i] - dt * 2.4);
+  S.cam += (S.camTo - S.cam) * (1 - Math.pow(0.0008, adt));
+  if (S.board) {
+    for (const fl of S.board.floors) {
+      if (fl.squashT > 0) {
+        fl.squashT -= adt;
+        fl.squash += (1 - fl.squash) * 12 * adt;
+      } else fl.squash = 1;
+    }
+  }
+  for (const d of S.drops) {
+    d.t += adt * 1.7;
+    if (d.t > 0.12 && d.t < 0.82 && ((d._tr | 0) !== ((d.t * 12) | 0))) {
+      d._tr = (d.t * 12) | 0;
+      const k = clamp(d.t, 0, 1);
+      const e = k < 0.7 ? (k / 0.7) * (k / 0.7) : 1;
+      S.trails.push({
+        x: d.x + (d.tx - d.x) * e,
+        y: d.y + (d.ty - d.y) * Math.pow(k, 0.85),
+        life: 0.22,
+        r: 6
+      });
+    }
+    if (d.t > 0.82 && !d.split) {
+      d.split = true;
+      for (let k = 0; k < 6; k++) S.trails.push({ x: d.tx + (k - 2.5) * 8, y: d.ty, life: 0.35, r: 6 });
+    }
+  }
+  S.drops = S.drops.filter(d => d.t < 1.15);
+  for (const t of S.trails) t.life -= adt;
+  S.trails = S.trails.filter(t => t.life > 0);
+  if (S.trails.length > 48) S.trails.splice(0, S.trails.length - 48);
+  for (const s of S.scatter) {
+    s.vy += 420 * adt; s.x += s.vx * adt; s.y += s.vy * adt; s.rot += adt * 6; s.life -= adt;
+  }
+  S.scatter = S.scatter.filter(s => s.life > 0);
+  if (S.phase === 'play') {
+    S.timeLeft -= dt;
+    if (S.timeLeft <= 0) { S.timeLeft = 0; endSession('time'); }
+  }
+}
+
+function sceneSig(){
+  const b = S.board;
+  let fls = '';
+  if (b) {
+    for (const f of b.floors) {
+      fls += (f.jawH|0) + ',' + (f.locked?1:0) + ',' + (f.incoming|0) + ',' + (f.combined?1:0) + ',' + (f.squashT > 0 ? 1 : 0) + ';';
+    }
+  }
+  const blink = (S.tickFlash > 0 && Math.sin(S.idleT * 22) > 0) ? 1 : 0;
+  return [
+    S.phase, S.W, S.H, S.land ? 1 : 0, S.timeLeft | 0, S.lives, S.lockedPlaces,
+    S.combo, S.scoreShow | 0, S.active, fls,
+    S.drops.length, S.trails.length, S.scatter.length,
+    S.shake > 0.15 ? 1 : 0, S.punch > 0.04 ? 1 : 0, S.lid > 0 ? 1 : 0,
+    S.wipe > 0 ? 1 : 0, blink,
+    (S.beatFlash[0] + S.beatFlash[1] + S.beatFlash[2]) > 0.03 ? 1 : 0,
+    S.failT > 0 ? 1 : 0
+  ].join('|');
+}
+
+function loop(t){
+  if (!lastT) lastT = t;
+  let dt = (t - lastT) / 1000;
+  lastT = t;
+  if (dt > 0.05) dt = 0.05;
+  step(dt);
+  if (S.phase === 'title') {
+    raf = requestAnimationFrame(loop);
+    return;
+  }
+  const sig = sceneSig();
+  if (sig !== lastSig) {
+    lastSig = sig;
+    ctx = CVCTX;
+    draw();
+  }
+  raf = requestAnimationFrame(loop);
+}
+
+function prewarmGlyphs(){
+  if (glyphsWarm) return;
+  glyphsWarm = true;
+  const sizes = [18, 20, 22, 24, 28, 34];
+  const cols = [PAL.ink, PAL.cobalt, PAL.red, PAL.chalk];
+  const chars = '0123456789÷⋯×+=- ';
+  for (const s of sizes) for (const c of cols) for (const ch of chars) glyphSprite(ch, s, c);
+}
+
+/* ── UI ──────────────────────────────────────────────────── */
+function showBest(){
+  const n = loadBest();
+  $('#best').textContent = n ? ('최고 ' + n + '층') : '최고 기록 없음';
+}
+function specks(){
+  const box = $('#titleDust');
+  box.innerHTML = '';
+  for (let i = 0; i < 12; i++) {
+    const el = document.createElement('i');
+    el.style.left = (6 + Math.random() * 88) + '%';
+    el.style.top = (10 + Math.random() * 80) + '%';
+    el.style.animationDelay = (Math.random() * 8) + 's';
+    box.appendChild(el);
+  }
+}
+
+let obI = 0;
+const OB = [
+  { t: '아래턱을 놓아 보세요', b: '위 층 우물의 아래턱 손잡이를 세로로 끌어 남길 알 높이에 놓고 손을 떼세요.' },
+  { t: '남길 알은 작아야 해요', b: '남길 알은 나누는 수보다 작아야 해요. 남은 알은 백묵 홈을 따라 아래 층으로 떨어져요.' },
+  { t: '빗맞으면 흩어져요', b: '빗맞으면 구슬이 백묵 밖으로 흩어지고 목숨이 줄어요. 쉬움에서는 그 층의 첫 실수는 눈금만 깜빡여요. 구슬은 모두 같은 크기예요.' }
+];
+function paintOb(){
+  $('#obStep').textContent = (obI + 1) + '/3';
+  $('#obTitle').textContent = OB[obI].t;
+  $('#obBody').textContent = OB[obI].b;
+  $('#obNext').textContent = obI < 2 ? '다음' : '해볼게요';
+}
+function openOnboard(){ obI = 0; paintOb(); $('#onboard').classList.add('show'); }
+
+$('#start').onclick = () => {
+  unlockAudio();
+  $('#start').style.filter = 'brightness(1.2)';
+  setTimeout(() => {
+    try { if (!localStorage.getItem(LS_ONB)) { openOnboard(); return; } } catch {}
+    beginPlay();
+  }, 120);
+};
+$('#obNext').onclick = () => {
+  if (obI < 2) { obI++; paintOb(); }
+  else { try { localStorage.setItem(LS_ONB, '1'); } catch {} $('#onboard').classList.remove('show'); beginPlay(); }
+};
+$('#how').onclick = () => $('#help').classList.add('show');
+$('#closeHelp').onclick = () => $('#help').classList.remove('show');
+$('#diff').onclick = () => {
+  S.easy = !S.easy;
+  $('#diff').textContent = S.easy ? '지금: 쉬움' : '지금: 어려움';
+};
+$('#again').onclick = () => { $('#result').classList.remove('show'); beginPlay(); };
+$('#cont').onclick = () => { $('#result').classList.remove('show'); beginPlay({ continueMode: true }); };
+$('#mute').onclick = () => { unlockAudio(); setMute(!S.mute); };
+$('#titleMute').onclick = () => { unlockAudio(); setMute(!S.mute); };
+
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', () => setTimeout(layout, 120));
+
+function sampleProblems(n){
+  n = Math.max(1, n | 0);
+  const bag = [];
+  for (const band of [1, 2, 3]) for (const spec of (POOLS[band] || [])) bag.push(spec);
+  const shuffled = shuffle(bag);
+  const types = ['compute', 'real_life', 'reverse', 'error_find', 'check', 'compute'];
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    let type = types[i % types.length];
+    let base = shuffled[i % shuffled.length];
+    if (type === 'reverse') base = (POOLS[2].length ? POOLS[2] : shuffled)[i % Math.max(1, POOLS[2].length || shuffled.length)];
+    if (type === 'error_find' && POOLS.z.length && i % 2 === 0) {
+      base = POOLS.z[i % POOLS.z.length];
+      const spec = wrapSpec(Object.assign({}, base, { choices: null }), 'error_find');
+      const t = Math.floor(spec.n / 10) % 10;
+      const ans = String(t);
+      const d = spec.d;
+      const packed = uniqueChoices(ans, [
+        { v: '0', id: 'skipZeroQuotient' },
+        { v: String(d), id: 'remainderTooBig' },
+        { v: String(Math.max(0, t - 1)), id: 'nearMiss' }
+      ]);
+      out.push({
+        id: spec.id + '-ef-' + i,
+        prompt: spec.prompt,
+        choices: packed.map(p => p.v),
+        answer: ans,
+        answerNumeric: t,
+        answerQuotient: spec.q | 0,
+        answerRemainder: spec.r | 0,
+        unitConcept: spec.unitConcept,
+        misconceptions: ['skipZeroQuotient', 'remainderTooBig']
+      });
+      continue;
+    }
+    if (type === 'check') {
+      base = (POOLS[3].length ? POOLS[3] : shuffled)[i % Math.max(1, POOLS[3].length || shuffled.length)];
+      const spec = wrapSpec(base, 'check');
+      const n0 = spec.n, d = spec.d, q = spec.q, r = spec.r;
+      const ans = String(n0);
+      const packed = uniqueChoices(ans, [
+        { v: String(d * q), id: 'checkSkipRemainder' },
+        { v: String(q + r), id: 'nearMiss' },
+        { v: String(d * q + d), id: 'remainderTooBig' }
+      ]);
+      out.push({
+        id: spec.id + '-ck-' + i,
+        prompt: spec.prompt,
+        choices: packed.map(p => p.v),
+        answer: ans,
+        answerNumeric: n0,
+        answerQuotient: q,
+        answerRemainder: r,
+        unitConcept: spec.unitConcept,
+        misconceptions: ['checkSkipRemainder']
+      });
+      continue;
+    }
+    if (type === 'reverse') {
+      const spec = wrapSpec(base, 'reverse');
+      out.push({
+        id: spec.id + '-rv-' + i,
+        prompt: spec.prompt,
+        choices: spec.choices.slice(),
+        answer: spec.answer,
+        answerNumeric: spec.answerNumeric,
+        answerQuotient: spec.answerQuotient,
+        answerRemainder: spec.answerRemainder,
+        unitConcept: spec.unitConcept,
+        misconceptions: spec.misconceptions
+      });
+      continue;
+    }
+    const spec = wrapSpec(base, type);
+    out.push({
+      id: spec.id + '-' + i,
+      prompt: spec.prompt,
+      choices: spec.choices.slice(),
+      answer: spec.answer,
+      answerNumeric: spec.answerNumeric,
+      answerQuotient: spec.answerQuotient,
+      answerRemainder: spec.answerRemainder,
+      unitConcept: spec.unitConcept,
+      misconceptions: spec.misconceptions
+    });
+  }
+  return out;
+}
+
+function forceCorrect(){
+  if (S.phase === 'title' || S.phase === 'result') beginPlay();
+  if (S.phase !== 'play') { S.phase = 'play'; if (!S.board) spawnBoard(); }
+  if (!S.board) spawnBoard();
+  let fl = activeFloor();
+  if (!fl) { spawnBoard(); fl = activeFloor(); }
+  if (fl.kind === 'check' && !fl.combined) combineCheck(fl);
+  fl.jawH = fl.kind === 'check' ? fl.current : fl.r;
+  applyCorrect(fl, true);
+}
+function forceWrong(){
+  if (S.phase === 'title') beginPlay();
+  const fl = activeFloor() || (S.board && S.board.floors[0]);
+  if (fl) fl.graceUsed = true;
+  applyWrong(fl || { graceUsed: true }, 'force', '빗맞았습니다.');
+}
+
+window.__GAME_TEST__ = {
+  ready: false,
+  start() { beginPlay(); },
+  getState() {
+    return { score: S.score | 0, lives: S.lives | 0, level: S.level | 0, phase: S.phase, solved: S.solved | 0 };
+  },
+  answerCorrect() { forceCorrect(); },
+  answerWrong() { forceWrong(); },
+  sampleProblems,
+  getLayout() {
+    const hud = hudMetrics();
+    return {
+      land: S.land,
+      playX: S.play ? S.play.x : 0,
+      playY: S.play ? S.play.y : 0,
+      playW: S.play ? S.play.w : S.stageW,
+      playH: S.play ? S.play.h : S.H,
+      stageW: S.stageW,
+      hudBottom: hud.bottom,
+      gap: S.play ? (S.play.y - hud.bottom) : 0
+    };
+  },
+  spoilerScan() {
+    const b = S.board;
+    if (!b) return { ok: true, leaks: [] };
+    const fl = b.floors[S.active];
+    if (!fl || fl.locked) return { ok: true, leaks: [], locked: true };
+    const d = b.spec.d | 0;
+    const q = fl.q | 0;
+    const r = fl.kind === 'check' ? (b.spec.n | 0) : (fl.r | 0);
+    const leaks = [];
+    const say = ($('#say') && $('#say').textContent) || '';
+    const eq = ($('#eq') && $('#eq').textContent) || '';
+    if (fl.kind !== 'check') {
+      if (new RegExp('몫\\s*' + q + '(?!\\d)').test(say + eq)) leaks.push('prompt q=' + q);
+      if (new RegExp('나머지\\s*' + r + '(?!\\d)').test(say + eq)) leaks.push('prompt r=' + r);
+    }
+    return {
+      ok: leaks.length === 0,
+      leaks,
+      q, r, d,
+      jawH: fl.jawH | 0,
+      kind: fl.kind,
+      prompt: b.prompt,
+      startH: fl.startH | 0
+    };
+  }
+};
+
+function solveFloor(fl, bot, lives, easy, d){
+  const cur = fl.digit + 10 * fl.incoming;
+  const ans = fl.kind === 'check' ? (fl.combined ? fl.current : fl.bundleH) : (cur % d);
+  const start = fl.startH;
+  let h = start;
+  let tries = 0;
+  let grace = easy ? 1 : 0;
+  const slots = [cur, Math.round(cur * 2 / 3), Math.round(cur / 3), 0];
+  while (tries < 16) {
+    if (bot === 'idle') return { ok: false, lives };
+    if (bot === 'mash') h = start;
+    else if (bot === 'cycle') h = slots[tries % 4];
+    else if (bot === 'rand') h = (Math.random() * (cur + 1)) | 0;
+    tries++;
+    if (fl.kind === 'check') {
+      if (!fl.combined) {
+        if (grace > 0) { grace--; continue; }
+        lives--;
+        if (lives <= 0) return { ok: false, lives: 0 };
+        continue;
+      }
+    }
+    if (h === ans && (fl.kind === 'check' || h < d || ans >= d)) {
+      if (fl.kind === 'normal' && h === (cur % d) && h < d) return { ok: true, lives };
+      if (fl.kind === 'check' && h === fl.current && fl.combined) return { ok: true, lives };
+    }
+    if (h === (cur % d) && h < d && fl.kind === 'normal') return { ok: true, lives };
+    if (grace > 0) { grace--; continue; }
+    lives--;
+    if (lives <= 0) return { ok: false, lives: 0 };
+  }
+  return { ok: false, lives };
+}
+function botTrial(bot, band){
+  let lives = 3;
+  const spec = takeSpec(band, 'compute');
+  const floors = makeFloors(spec);
+  for (let i = 0; i < floors.length; i++) {
+    const fl = floors[i];
+    if (fl.kind !== 'normal') continue;
+    if (i > 0) {
+      const prev = floors[i - 1];
+      if (prev.kind === 'normal') {
+        fl.incoming = prev.r;
+        fl.pendingIncoming = false;
+      }
+    }
+    const r = solveFloor(fl, bot, lives, false, spec.d);
+    lives = r.lives;
+    if (!r.ok) return false;
+  }
+  return true;
+}
+function runBots(n){
+  n = n || 200;
+  const kinds = ['mash', 'cycle', 'rand', 'idle'];
+  const out = {};
+  for (const k of kinds) {
+    let w = 0;
+    for (let i = 0; i < n; i++) {
+      const r = i % 100;
+      const band = r < 20 ? 1 : r < 60 ? 2 : 3;
+      if (botTrial(k, band)) w++;
+    }
+    out[k] = +(w / n).toFixed(4);
+  }
+  return out;
+}
+window.__GAME_TEST__.runBots = runBots;
+
+try { S.mute = localStorage.getItem(LS_MUTE) === '1'; } catch {}
+setMute(S.mute);
+showBest();
+specks();
+loadImgs();
+buildPools();
+prewarmGlyphs();
+layout();
+bakeAsphalt();
+window.__GAME_TEST__.ready = true;
+raf = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
