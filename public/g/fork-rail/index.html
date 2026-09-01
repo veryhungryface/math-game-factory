@@ -295,7 +295,18 @@ function josa(word, withB, withoutB){ return String(word)+(jongIndex(word)?withB
 function euro(word){ const j=jongIndex(word); return String(word)+((j&&j!==8)?"으로":"로"); }
 function iga(word){ return josa(word,"이","가"); }
 function eulreul(word){ return josa(word,"을","를"); }
+function gwa(word){ return josa(word,"과","와"); }
 function ratioStr(a,b){ return a+" : "+b; }
+/* 소수 표기: 정수 십분의 일 단위를 그대로 문자열로 만든다(부동소수 비교 금지, 표시 전용). */
+function tenthStr(v){ return (v/10).toFixed(1); }
+/* 제시된 원래 비 — expand 는 소수 비/분수 비를 그대로 보여 준다.
+   분수는 「2분의 1」로 읽어 쓴다. 문장 속 빗금(1/2)은 교과서 표기가 아니고 나눗셈으로 읽힌다.
+   (전광판에는 아래 drawFracRatio 가 진짜 분수꼴로 조판한다.) */
+function rawRatioStr(p){
+  if(p.kind!=="expand") return ratioStr(p.a,p.b);
+  if(p.mode==="decimal") return tenthStr(p.rawA)+" : "+tenthStr(p.rawB);
+  return `${p.fd}분의 ${p.fn} : ${p.gd}분의 ${p.gn}`;
+}
 
 const STUFF=[
   {item:"사탕", L:"행복 센터", R:"나눔 센터"},
@@ -310,26 +321,52 @@ const STUFF=[
 const POOLS=(function buildPools(){
   const ratios=[];
   for(let a=1;a<=5;a++) for(let b=a+1;b<=6;b++) if(gcd(a,b)===1) ratios.push({a,b,s:a+b});
-  const expand=[];
-  for(let p=1;p<=9;p++) for(let q=1;q<=9;q++){
-    if(p===q) continue;
-    const T=p+q;
-    if(T<8||T>15) continue;
-    const g=gcd(p,q);
-    expand.push({kind:"expand", mode:"decimal", a:p/g, b:q/g, u:g, T, left:p, rawA:p, rawB:q, id:`ed-${p}-${q}`});
+  /* ── 「간단한 자연수의 비로 나타내기」 ──────────────────────────────
+   * 학생이 보는 것은 소수 비(0.4 : 0.6) 또는 분수 비(1/2 : 1/3)다.
+   * (1) 간단한 자연수의 비 a : b 로 나타내고 (2) 전체 T칸을 그 비로 나눈다.
+   * T=(a+b)·u, 정답 칸수 left=a·u — 전부 정수 연산이라 부동소수 오차가 없다.
+   * 제시된 수를 그대로 칸 수로 읽으면 정답이 되는 퇴화 조합(m===u, 분자===left)은
+   * 빼서, 간단히 하는 단계를 건너뛸 수 없게 만든다. */
+  const orderedAll=[];
+  for(let a=1;a<=6;a++) for(let b=1;b<=6;b++){
+    if(a===b) continue;
+    if(gcd(a,b)!==1) continue;
+    orderedAll.push({a,b,s:a+b});
   }
-  for(const d of [4,5,8,10]){
-    for(let n=1;n<d;n++) for(let m=1;m<d;m++){
-      if(n===m) continue;
-      const base=n+m;
-      const kMin=Math.ceil(8/base), kMax=Math.floor(15/base);
-      for(let k=kMin;k<=kMax;k++){
-        if(k<1) continue;
-        const T=base*k, left=n*k;
-        if(T<8||T>15||left<1||left>=T) continue;
-        const g=gcd(n,m);
-        expand.push({kind:"expand", mode:"frac", a:n/g, b:m/g, u:g*k, T, left, fn:n, fd:d, gn:m, gd:d, id:`ef-${n}-${d}-${m}-${k}`});
+  const ordered=orderedAll.filter(r=>r.s<=7);   // u>=2 로 T를 8~15에 넣기 위한 상한
+  const expand=[];
+  for(const r of ordered){
+    for(let u=Math.ceil(8/r.s); u<=Math.floor(15/r.s); u++){
+      if(u<2) continue;
+      const T=r.s*u, left=r.a*u;
+      if(T<8||T>15||left<1||left>=T) continue;
+      for(let m=1;m<=5;m++){
+        if(m===u) continue;                       // 제시 수 = 정답 칸수 퇴화 방지
+        const na=r.a*m, nb=r.b*m;
+        if(na>29||nb>29) continue;                // 2.9 이하만
+        if(na%10===0||nb%10===0) continue;        // 소수 자리가 살아 있어야 한다
+        if(na===left||nb===left) continue;
+        expand.push({kind:"expand", mode:"decimal", a:r.a, b:r.b, u, T, left,
+          rawA:na, rawB:nb, id:`ed-${na}-${nb}-${u}`});
       }
+    }
+  }
+  const fracs=[];
+  for(let d=2;d<=6;d++) for(let n=1;n<d;n++) if(gcd(n,d)===1) fracs.push({n,d});
+  for(const f of fracs) for(const g2 of fracs){
+    /* fn/fd : gn/gd 를 통분(교차 곱)하면 fn·gd : gn·fd, 다시 최대공약수로 약분 */
+    const A=f.n*g2.d, B=g2.n*f.d;
+    const gg=gcd(A,B), a=A/gg, b=B/gg;
+    if(a===b) continue;
+    const s=a+b;
+    if(s>7) continue;
+    for(let u=Math.ceil(8/s); u<=Math.floor(15/s); u++){
+      if(u<2) continue;
+      const T=s*u, left=a*u;
+      if(T<8||T>15||left<1||left>=T) continue;
+      if(f.n===left||g2.n===left) continue;
+      expand.push({kind:"expand", mode:"frac", a, b, u, T, left,
+        fn:f.n, fd:f.d, gn:g2.n, gd:g2.d, id:`ef-${f.n}${f.d}-${g2.n}${g2.d}-${u}`});
     }
   }
   const share=[];
@@ -340,19 +377,20 @@ const POOLS=(function buildPools(){
       share.push({kind:"share", a:r.a, b:r.b, u, T, left, id:`sh-${r.a}-${r.b}-${u}`});
     }
   }
+  /* 비례식의 성질 — 비례식이 이 열차의 두 부분을 실제로 가리키게 만든다.
+     앞부분 : 뒷부분 = a : b, 뒷부분 c칸 → a : b = □ : c, □=a·k, 전체 T=(a+b)k.
+     (예전엔 전체 칸 수가 비례식과 무관한 아무 수였다.) */
   const siding=[];
-  for(const r of ratios){
-    for(let k=2;k<=6;k++){
-      const c=r.a*k, box=r.b*k;
-      for(const extra of [6,8,10,12]){
-        const S=box+extra;
-        if(box<1||box>=S||S>40||c<1) continue;
-        siding.push({kind:"siding", a:r.a, b:r.b, k, c, box, T:S, left:box, id:`si-${r.a}-${r.b}-${k}-${extra}`});
-      }
+  for(const r of orderedAll){
+    for(let k=2;k<=10;k++){
+      const front=r.a*k, back=r.b*k, T=front+back;
+      if(T<10||T>36) continue;
+      if(front<1||front>=T) continue;
+      siding.push({kind:"siding", a:r.a, b:r.b, k, c:back, box:front, T, left:front, id:`si-${r.a}-${r.b}-${k}`});
     }
   }
   const reverse=[];
-  for(const r of ratios){
+  for(const r of orderedAll){
     for(let u=2;u<=8;u++){
       const D=Math.abs(r.a-r.b)*u, T=r.s*u, left=r.a*u;
       if(D<2||T<10||T>40||left<1||left>=T) continue;
@@ -384,21 +422,28 @@ const POOLS=(function buildPools(){
 function misconceptionPins(p){
   const T=p.T, ans=p.left;
   const out=[];
-  const add=(n, id)=>{ if(n>=1 && n<T && n!==ans && !out.some(x=>x.n===n)) out.push({n, misconceptionId:id}); };
+  const add=(n, id)=>{ if(Number.isInteger(n) && n>=1 && n<T && n!==ans && !out.some(x=>x.n===n)) out.push({n, misconceptionId:id}); };
   /* M1 비 3:4를 분수 3/4로 보고 한 항만 끊음 */
   add(p.a, "M1_ratio_as_fraction");
   add(p.b, "M1_ratio_as_fraction");
   /* M2 전항·후항에 같은 수를 더함 */
   if(p.u) add(p.a+p.u, "M2_additive_ratio");
+  /* M6 간단한 자연수의 비로 나타내지 않고 제시된 수를 그대로 칸 수로 씀 */
+  if(p.kind==="expand"){
+    if(p.mode==="decimal") add(p.rawA, "M6_not_simplified");
+    else { add(p.fn, "M6_not_simplified"); add(p.fn*p.gd, "M6_not_simplified"); }
+  }
   /* M3 전체를 각 항으로 나눔 */
   add(Math.floor(T/p.a), "M3_divide_by_term");
   add(Math.floor(T/p.b), "M3_divide_by_term");
   if(p.kind==="siding"){
-    /* M4 앞의 두 수끼리 곱함 */
+    /* M4 앞의 두 수끼리 곱함 (외항의 곱·내항의 곱이 아니다) */
     add(p.a*p.b, "M4_front_front_product");
     add(p.a*p.c, "M4_front_front_product");
-    /* M5 대응 순서를 뒤집음: a:b = □:c 로 계산 → a*c/b */
-    if((p.a*p.c)%p.b===0) add((p.a*p.c)/p.b, "M5_swapped_correspondence");
+    /* M5 대응 순서를 뒤집어 a : b = c : □ 로 풀어 버림 → b*c/a */
+    if((p.b*p.c)%p.a===0) add((p.b*p.c)/p.a, "M5_swapped_correspondence");
+    /* 뒷부분 칸수를 그대로 답으로 씀 */
+    add(p.c, "M5_swapped_correspondence");
   }
   /* M5 앞뒤 항을 바꿔 끊음 (전항/후항 순서 혼동) */
   add(p.T - p.left, "M5_swapped_correspondence");
@@ -425,30 +470,35 @@ function finalizeChoices(answer, cands, T){
   shuffle(labels);
   return {choices:labels, distractors:picks, answerLabel:answer+"칸"};
 }
+/* 발문 규칙
+ *  - 전항/후항은 「비 a : b 에서 a가 전항, b가 후항」일 때만 쓴다.
+ *    나눠 받는 쪽(사람·모둠)을 전항/후항이라 부르지 않는다.
+ *  - 발문만 읽고도 정답이 하나로 정해져야 한다 → 전체 칸 수를 반드시 문장에 넣는다.
+ *  - 수량(몇 칸)과 위치(몇 칸째)를 섞지 않는다 → 「앞부분이 몇 칸이 되도록」.
+ */
 function promptFor(p, i){
   const stuff=STUFF[i%STUFF.length];
   const simple=ratioStr(p.a,p.b);
-  if(p.kind==="expand" && p.mode==="decimal"){
-    return {prompt:`전체 ${p.T}칸 열차를 ${euro(simple)} 나누려면 앞에서 몇 칸에서 끊어야 하나요?`,
-      unitConcept:"간단한 자연수의 비로 나타내기", L:"빨간 물감", R:"파란 물감"};
-  }
-  if(p.kind==="expand" && p.mode==="frac"){
-    return {prompt:`전체 ${p.T}칸 열차를 ${euro(simple)} 나누려면 앞에서 몇 칸에서 끊어야 하나요?`,
-      unitConcept:"간단한 자연수의 비로 나타내기", L:"전항", R:"후항"};
+  if(p.kind==="expand"){
+    const raw=rawRatioStr(p);
+    return {prompt:`전체 ${p.T}칸 열차를 ${gwa(stuff.L)} ${iga(stuff.R)} ${raw}의 비로 나누어 가지려고 해요. 간단한 자연수의 비로 나타낸 뒤, ${iga(stuff.L)} 받을 앞부분이 몇 칸이 되도록 끊어야 하나요?`,
+      unitConcept:"간단한 자연수의 비로 나타내기", L:stuff.L, R:stuff.R};
   }
   if(p.kind==="siding"){
-    return {prompt:`${p.a} : ${p.b} = ${p.c} : □에서 □에 알맞은 칸만큼, 아래 열차에서 그 칸 앞의 핀을 눌러 보세요.`,
-      unitConcept:"비례식의 성질", L:"전항", R:"후항"};
+    return {prompt:`앞부분의 칸 수와 뒷부분의 칸 수의 비는 ${p.a} : ${p.b}이고, 뒷부분은 ${p.c}칸이에요. 비례식 ${p.a} : ${p.b} = □ : ${p.c}에서 □에 알맞은 수를 구해, 앞부분이 □칸이 되도록 끊어 보세요.`,
+      unitConcept:"비례식의 성질", L:"앞부분", R:"뒷부분"};
   }
   if(p.kind==="reverse"){
-    return {prompt:`${eulreul(stuff.item)} ${stuff.L}(전항) : ${stuff.R}(후항) = ${euro(simple)} 나누었더니 후항이 전항보다 ${p.D}개 더 많았어요. 앞에서부터 전항에 줄 칸을 끊어 보세요.`,
-      unitConcept:"비례배분 역추적", L:stuff.L, R:stuff.R};
+    const more = p.b>p.a ? stuff.R : stuff.L;
+    const less = p.b>p.a ? stuff.L : stuff.R;
+    return {prompt:`${stuff.item} 열차를 ${gwa(stuff.L)} ${iga(stuff.R)} 나누어 가졌더니 칸 수의 비가 ${simple}이고, ${iga(more)} ${less}보다 ${p.D}칸 더 많아요. ${iga(stuff.L)} 받을 앞부분이 몇 칸이 되도록 끊어야 하나요?`,
+      unitConcept:"비례배분", L:stuff.L, R:stuff.R};
   }
   if(p.kind==="error"){
-    return {prompt:`이 ${stuff.item} 열차는 잘못 끊겨 있어요. 잘못된 핀을 다시 이은 다음, ${stuff.L} : ${stuff.R} = ${iga(simple)} 되게 바른 핀을 눌러 보세요.`,
+    return {prompt:`앞부분 ${p.preCut}칸으로 끊긴 ${p.T}칸 ${stuff.item} 열차예요. ${gwa(stuff.L)} ${iga(stuff.R)} ${euro(simple)} 나눌 때 ${iga(stuff.L)} 받을 앞부분으로 알맞은지 살펴보고, 다시 이은 뒤 알맞은 곳에서 끊어 보세요.`,
       unitConcept:"오류 찾기", L:stuff.L, R:stuff.R};
   }
-  return {prompt:`${stuff.item} ${p.T}개를 ${stuff.L} 수 : ${stuff.R} 수 = ${euro(simple)} 나누어 보세요. 앞에서부터 끊을 칸을 고르세요.`,
+  return {prompt:`${iga(stuff.item)} 한 칸에 하나씩 실린 ${p.T}칸 열차예요. ${gwa(stuff.L)} ${iga(stuff.R)} ${euro(simple)} 나누어 가지려고 해요. ${iga(stuff.L)} 받을 앞부분이 몇 칸이 되도록 끊어야 하나요?`,
     unitConcept:"비례배분", L:stuff.L, R:stuff.R};
 }
 function toSample(p, i){
@@ -531,7 +581,7 @@ const S={
   signalBlink:0,
   birds:[],
   obI:0,
-  panX:0, dragPan:false, ptrMoved:0, lastPX:0
+  panX:0, dragPan:false, dragBar:false, ptrMoved:0, lastPX:0
 };
 function hiText(){ hiLine.textContent="최고 "+S.hi+"점"; }
 hiText();
@@ -553,18 +603,23 @@ function spawnFromBand(band){
   let p=cloneP(pick(pool));
   const meta=promptFor(p, S.solved+S.sent);
   p.L=meta.L; p.R=meta.R; p.prompt=meta.prompt; p.unitConcept=meta.unitConcept;
-  p.showNums = S.easy && S.elapsed<60 && p.kind!=="siding";
+  /* 쉬움 모드에서는 긴 열차(비례식 편성 포함)에도 칸 번호를 붙인다 —
+     36칸을 손으로 세는 것은 이 게임이 묻는 수학이 아니다. */
+  p.showNums = S.easy && (S.elapsed<60 || p.T>16);
   p.misPins=misconceptionPins(p);
   return p;
 }
 
-function exposeSec(){
+function exposeSec(T){
   let t=7.2;
   if(S.elapsed>=30) t=6.2;
-  if(S.elapsed>=60) t=4.6;
+  if(S.elapsed>=60) t=5.0;
   if(S.rule==="express") t*=0.55;
   if(S.rule==="precise") t*=1.35;
   if(S.easy) t*=1.12;
+  /* 긴 열차는 밀어 보고 칸을 세는 데 시간이 더 든다.
+     난이도는 수학으로 올려야지, 손가락으로 올리면 안 된다. */
+  t *= 1 + Math.min(0.7, Math.max(0, ((T||10)-12)*0.03));
   return t;
 }
 
@@ -607,7 +662,7 @@ function makeTrain(p){
   const destFailX=fx+8;
   const dist=Math.max(70, S.play.w*0.16);
   const startX=destFailX+dist;
-  const sec=exposeSec();
+  const sec=exposeSec(T);
   const speed=dist/sec;
   S.train={
     T, stride, carW, pinSlot,
@@ -623,12 +678,22 @@ function makeTrain(p){
   S.usedRedo=false; S.boardLit=false; S.productsOn=false; S.hint="";
   S.splitT=0; S.splitOk=false; S.shards.length=0;
 }
+/* 화면 x = 월드 x - panX.
+ *   panX 를 키우면 시야가 오른쪽(열차 꼬리)으로 간다 → 꼬리를 보려면 panX 상한이 커야 한다.
+ *   panX 를 줄이면 시야가 왼쪽(기관차 앞)으로 간다 → 하한은 0 이하.
+ * (이 두 식이 뒤바뀌어 있어서 390px에서 12번 이후 핀에 영원히 닿지 못했다.) */
+function panRange(){
+  const tr=S.train;
+  if(!tr) return {min:0, max:0};
+  const total=tr.T*tr.stride;
+  const minPan=Math.min(0, tr.x - S.play.x - 8);
+  const maxPan=Math.max(0, tr.x + total - S.play.x - S.play.w + 12);
+  return {min:minPan-40, max:maxPan+40};
+}
 function clampPan(){
   const tr=S.train; if(!tr) { S.panX=0; return; }
-  const total=tr.T*tr.stride;
-  const minPan=Math.min(0, S.play.w - (tr.x+total - S.play.x) - 12);
-  const maxPan=Math.max(0, tr.x - S.play.x - 8);
-  S.panX=clamp(S.panX, minPan-40, maxPan+40);
+  const r=panRange();
+  S.panX=clamp(S.panX, r.min, r.max);
 }
 function ensureCursorVisible(){
   const tr=S.train; if(!tr) return;
@@ -638,6 +703,26 @@ function ensureCursorVisible(){
   clampPan();
 }
 
+/* 전체 열차 축소 막대(스크럽 바). 열차가 화면보다 길 때만 뜬다.
+   여기를 끌면 한 번에 꼬리까지 갈 수 있다 — 40칸 열차를 손가락으로 4번 미는 대신. */
+function railBar(){
+  const tr=S.train; if(!tr) return null;
+  const total=tr.T*tr.stride;
+  if(total <= S.play.w-24) return null;
+  return {x:S.play.x+12, y:trackY()+64, w:Math.max(120, S.play.w-24), h:22, total};
+}
+function railBarAt(px,py){
+  const bar=railBar(); if(!bar) return false;
+  return px>=bar.x-8 && px<=bar.x+bar.w+8 && py>=bar.y-10 && py<=bar.y+bar.h+10;
+}
+function panToBar(px){
+  const bar=railBar(); if(!bar) return;
+  const tr=S.train;
+  const wl=tr.x-20, span=bar.total+40;
+  const world=wl+clamp((px-bar.x)/bar.w, 0, 1)*span;
+  S.panX=world-(S.play.x+S.play.w/2);
+  clampPan();
+}
 function pinWorldX(n){
   const tr=S.train; if(!tr) return 0;
   return tr.x + n*tr.stride - tr.pinSlot/2;
@@ -736,9 +821,12 @@ function whyWrong(n){
   const hit=p.misPins.find(d=>d.n===n);
   const want=p.left;
   let msg=`누른 칸 ${n} · 목표 ${want}칸.`;
+  if(p.kind==="expand"){
+    msg+=` ${rawRatioStr(p)}를 간단한 자연수의 비로 나타내면 ${p.a} : ${p.b}예요.`;
+  }
   if(p.kind==="siding"){
-    const outer=p.a*want, inner=p.b*p.c;
-    msg+=` 외항의 곱 ${p.a}×${want}=${outer}, 내항의 곱 ${p.b}×${p.c}=${inner}. 외항의 곱과 내항의 곱이 같아야 해요.`;
+    /* a : b = □ : c 이므로 외항은 a·c, 내항은 b·□ 이다. */
+    msg+=` 외항의 곱 ${p.a}×${p.c}=${p.a*p.c}, 내항의 곱 ${p.b}×${want}=${p.b*want}. 외항의 곱과 내항의 곱이 같아야 해요.`;
   } else {
     const den=p.a+p.b;
     if(den>0 && p.T%den===0){
@@ -752,6 +840,7 @@ function whyWrong(n){
     if(hit.misconceptionId==="M3_divide_by_term") msg+=" 전체를 한 항으로 나누면 안 돼요.";
     if(hit.misconceptionId==="M4_front_front_product") msg+=" 앞의 두 수끼리 곱하면 외항·내항이 아니에요.";
     if(hit.misconceptionId==="M5_swapped_correspondence") msg+=" 항의 순서가 뒤바뀌었어요.";
+    if(hit.misconceptionId==="M6_not_simplified") msg+=" 제시된 수를 그대로 칸 수로 쓰면 안 돼요.";
   }
   return msg;
 }
@@ -808,8 +897,19 @@ function confirmPin(n){
     applyWrong(n);
     return;
   }
-  if(n===p.left) applyCorrect(false);
-  else applyWrong(n);
+  if(n===p.left){ applyCorrect(false); return; }
+  /* 손이 미끄러진 한 칸 차이는 탈선시키지 않는다(쉬움 모드).
+     핀 간격 36px 에 터치 타깃 44px — 구조적으로 이웃 핀이 겹친다. 그건 셈이 아니라 손이다.
+     단 오개념 핀(비의 한 항만 끊기 등)은 한 칸 옆이어도 봐주지 않는다.
+     시간은 그대로 흐르므로 벌은 남아 있다(잠깐 멈춰 다시 누를 틈만 준다). */
+  if(S.easy && Math.abs(n-p.left)===1 && !(p.misPins||[]).some(d=>d.n===n)){
+    S.hint="한 칸 옆이에요. 다시 눌러 보세요.";
+    S.shake=REDUCE?0.06:0.1; S.shakeMag=1;
+    S.hitStop=REDUCE?0.12:0.3;
+    sfxTick();
+    return;
+  }
+  applyWrong(n);
 }
 
 function stampRatio(a,b){
@@ -852,7 +952,7 @@ function pickRule(rule){
 
 const OB=[
   {t:"기차는 오른쪽에서 갈래를 향해 달려요.", s:"연결핀(객차 사이 작은 쇠)을 누르면 그 앞에서 끊겨요."},
-  {t:"앞칸은 왼쪽, 남은 칸은 오른쪽으로 가요.", s:"전체를 (전항+후항)으로 나누면 한 몫이에요. 객차 한 칸은 모두 같은 크기예요."},
+  {t:"앞칸은 왼쪽, 남은 칸은 오른쪽으로 가요.", s:"전체를 (전항+후항)으로 나누면 한 몫이에요. 0.4 : 0.6 이나 2분의 1 : 3분의 1 은 먼저 간단한 자연수의 비로 나타내요."},
   {t:"한 칸만 어긋나면 탈선해요.", s:"목숨은 3개. 틀려도 다음 열차에서 만회할 수 있어요."}
 ];
 function showOnboard(){
@@ -924,6 +1024,13 @@ cv.addEventListener("pointerdown", e=>{
   cv.setPointerCapture(e.pointerId);
   S.pointerId=e.pointerId;
   const p=pt(e);
+  S.dragBar=railBarAt(p.x,p.y);
+  if(S.dragBar){
+    S.hoverPin=0; S.dragPan=true; S.ptrMoved=99; S.lastPX=p.x;
+    panToBar(p.x);
+    e.preventDefault();
+    return;
+  }
   S.hoverPin=pinAt(p.x,p.y);
   S.dragPan=!S.hoverPin;
   S.ptrMoved=0; S.lastPX=p.x;
@@ -932,6 +1039,9 @@ cv.addEventListener("pointerdown", e=>{
 cv.addEventListener("pointermove", e=>{
   if(S.phase!=="playing") return;
   const p=pt(e);
+  if(S.pointerId===e.pointerId && S.dragBar){
+    panToBar(p.x); S.lastPX=p.x; return;
+  }
   if(S.pointerId===e.pointerId){
     const dx=p.x-S.lastPX;
     S.ptrMoved+=Math.abs(dx);
@@ -943,11 +1053,13 @@ cv.addEventListener("pointermove", e=>{
 });
 function endPtr(e){
   if(S.pointerId!==e.pointerId) return;
-  if(S.phase==="playing" && S.hoverPin && !S.dragPan) confirmPin(S.hoverPin);
-  S.pointerId=null; S.hoverPin=0; S.dragPan=false;
+  if(S.phase==="playing" && S.hoverPin && !S.dragPan && !S.dragBar) confirmPin(S.hoverPin);
+  S.pointerId=null; S.hoverPin=0; S.dragPan=false; S.dragBar=false;
 }
 cv.addEventListener("pointerup", endPtr);
-cv.addEventListener("pointercancel", ()=>{ S.pointerId=null; S.hoverPin=0; });
+cv.addEventListener("pointercancel", ()=>{ S.pointerId=null; S.hoverPin=0; S.dragBar=false; });
+/* 신호 레버는 바깥을 눌러도 닫힌다 — 모달에 갇히지 않게 (기본은 보통 운행). */
+shade.addEventListener("pointerdown", ()=>{ if(S.phase==="lever"){ hideLever(); sfxTick(); } });
 
 window.addEventListener("keydown", e=>{
   if(e.repeat) return;
@@ -1136,8 +1248,26 @@ function drawHeroStation(){
   }
 }
 
+/* 분수꼴 조판 — 5×7 비트맵 글리프를 분자 / 가로줄 / 분모로 쌓는다.
+   교과서는 분수를 세로로 쓴다. 빗금(1/2)은 나눗셈으로 읽히므로 전광판에 쓰지 않는다. */
+function fracRatioW(px){ return 34*px; }   // 분수(8) + " : "(18) + 분수(8)
+function fracRatioH(px){ return 17*px; }
+function drawFracGlyph(c, n, d, x, y, px, color){
+  drawBits(c, String(n), x+Math.round(1.5*px), y, px, color);
+  c.fillStyle=color;
+  c.fillRect(x+px, y+8*px, 6*px, Math.max(1, px-1));
+  drawBits(c, String(d), x+Math.round(1.5*px), y+10*px, px, color);
+}
+function drawFracRatio(c, p, x, y, px, color){
+  drawFracGlyph(c, p.fn, p.fd, x, y, px, color);
+  drawBits(c, " : ", x+8*px, y+5*px, px, color);
+  drawFracGlyph(c, p.gn, p.gd, x+26*px, y, px, color);
+}
+/* 전광판: expand 는 「제시된 비」(소수·분수)를 보여 주고,
+   정답을 맞힌 뒤에야 간단한 자연수의 비로 바뀐다 — 간단히 하는 일을 대신해 주지 않는다. */
 function liveRatio(p){
-  return {L:p.a, R:p.b, tag:S.boardLit?"기약비":"목표 비"};
+  if(p.kind==="expand" && !S.boardLit) return {text:rawRatioStr(p), tag:"제시된 비"};
+  return {text:ratioStr(p.a,p.b), tag:S.boardLit?"간단한 자연수의 비":"목표 비"};
 }
 
 function drawBoards(){
@@ -1147,29 +1277,43 @@ function drawBoards(){
   const promptW = S.land ? Math.min(520, S.stageW*0.42) : Math.max(120, S.W-20-muteGap);
   const promptX = S.land ? S.stageX+12 : 10;
   const promptY = S.land ? 12 : 10;
-  const promptH = S.land ? 56 : 52;
+  const promptLines = S.land ? 3 : 4;
+  const promptH = S.land ? 62 : 74;
   rpgBox(ctx, promptX, promptY, promptW, promptH, CREAM);
-  wrapPrompt(ctx, p.prompt, promptX+8, promptY+18, promptW-16, S.land?14:13);
+  wrapPrompt(ctx, p.prompt, promptX+8, promptY+18, promptW-16, S.land?14:13, promptLines);
 
   const rr=liveRatio(p);
   const target=Math.max(22, Math.min(48, S.W*0.05));
   const px=Math.max(3, Math.min(6, Math.round(target/7)));
-  const ratio=`${rr.L} : ${rr.R}`;
-  const rw=glyphW(ratio, px);
-  const bw=Math.max(rw+20, 120), bh=7*px+34;
+  const ratio=rr.text;
+  /* 분수 비는 세로 분수꼴로 조판한다(글자 크기는 칸이 너무 커지지 않게 낮춘다). */
+  const isFrac = p.kind==="expand" && p.mode==="frac" && !S.boardLit;
+  const pxF = Math.max(3, px-2);
+  const rw = isFrac ? fracRatioW(pxF) : glyphW(ratio, px);
+  const rh = isFrac ? fracRatioH(pxF) : 7*px;
+
+  /* 큰 숫자 줄과 소자막 줄을 따로 쌓는다 — 예전엔 두 줄이 겹쳐서 읽히지 않았다.
+     칸 높이: 위 라벨 18 + 숫자 7·px + 아래 소자막 18 + 여백 8 */
+  let sub="";
+  if(p.kind==="siding") sub=`${p.a} : ${p.b} = □ : ${p.c}`;
+  else if(p.kind==="reverse") sub=`차이 ${p.D}칸 · ${rr.tag}`;
+  else sub=`전체 ${p.T}칸 · ${rr.tag}`;
+  ctx.save();
+  ctx.font='800 11px ui-monospace,"Courier New",monospace';
+  const subW=ctx.measureText(sub).width;
+  ctx.restore();
+  const bw=Math.min(S.land?520:S.W-20, Math.max(rw+20, subW+18, 120));
+  const bh=rh+44;
   const boardX = S.land ? (S.stageX + S.stageW - bw - muteGap) : 10;
   const boardY = S.land ? 12 : promptY+promptH+8;
   const fill = S.boardLit ? TEAL : "#4A3A42";
   rpgBox(ctx, boardX, boardY, bw, bh, fill);
   pxText(ctx, p.L+" : "+p.R, boardX+8, boardY+14, 11, S.boardLit?SIGNAL:CREAM);
-  drawBits(ctx, ratio, boardX+Math.floor((bw-rw)/2), boardY+20, px, CREAM);
-
-  let sub="";
-  if(p.kind==="siding") sub=`${p.a} : ${p.b} = ${p.c} : □`;
-  else if(p.kind==="expand") sub="전체 "+p.T+"칸 · "+rr.tag;
-  else if(p.kind==="reverse") sub="차이 "+p.D+"칸";
-  else sub="전체 "+p.T+"칸 · "+rr.tag;
-  pxText(ctx, sub, boardX+8, boardY+bh-8, 11, CREAM);
+  const rx=boardX+Math.floor((bw-rw)/2);
+  if(isFrac) drawFracRatio(ctx, p, rx, boardY+18, pxF, CREAM);
+  else drawBits(ctx, ratio, rx, boardY+18, px, CREAM);
+  pxText(ctx, sub, boardX+8, boardY+bh-7, 11, CREAM);
+  S.boardBottom = boardY+bh;
 
   if(S.productsOn){
     const n=p.left, r=p.T-n;
@@ -1191,18 +1335,49 @@ function drawBoards(){
   pxText(ctx, p.R, fx+42, y+104, 11, S.boardLit?CREAM:INK);
 }
 
-function wrapPrompt(c, text, x, y, maxW, size){
+/* 줄바꿈 계산 결과는 문장·폭·크기가 같으면 재사용한다(매 프레임 measureText 방지). */
+const WRAP_CACHE=new Map();
+function wrapLines(c, text, maxW, size){
+  const key=text+"|"+Math.round(maxW)+"|"+size;
+  const hit=WRAP_CACHE.get(key);
+  if(hit) return hit;
   c.font=`800 ${size}px ui-monospace,"Courier New",monospace`;
-  const words=text.split(" ");
-  let line="", ly=y, n=0;
+  /* 「1 : 3」·「= □」·「2분의 1」은 줄 끝에서 쪼개지면 안 된다 — 한 덩어리로 묶는다. */
+  const raw=text.split(" ");
+  const words=[];
+  for(let i=0;i<raw.length;i++){
+    let w=raw[i];
+    if(/분의$/.test(w) && i+1<raw.length){ w+=" "+raw[i+1]; i++; }   // 2분의 1
+    if((w===":"||w==="=") && words.length && i+1<raw.length &&
+       (words[words.length-1].length+raw[i+1].length+4)<=22){
+      let nx=raw[i+1]; i++;
+      if(/분의$/.test(nx) && i+1<raw.length){ nx+=" "+raw[i+1]; i++; }
+      words[words.length-1] += " "+w+" "+nx;
+    } else words.push(w);
+  }
+  const lines=[];
+  let line="";
   for(const w of words){
     const t=line?line+" "+w:w;
-    if(c.measureText(t).width>maxW && line){
-      c.fillStyle=INK; c.fillText(line, x, ly);
-      line=w; ly+=size+3; n++; if(n>=3){ c.fillText(line, x, ly); return; }
-    } else line=t;
+    if(c.measureText(t).width>maxW && line){ lines.push(line); line=w; }
+    else line=t;
   }
-  c.fillStyle=INK; c.fillText(line, x, ly);
+  if(line) lines.push(line);
+  if(WRAP_CACHE.size>400) WRAP_CACHE.clear();
+  WRAP_CACHE.set(key, lines);
+  return lines;
+}
+/* 잘라 먹지 않는다 — 줄 수가 넘치면 글자를 한 단계씩 줄여서 전부 보여 준다. */
+function wrapPrompt(c, text, x, y, maxW, size, maxLines){
+  const cap=maxLines||3;
+  let sz=size, lines=wrapLines(c, text, maxW, sz);
+  while(lines.length>cap && sz>10){ sz--; lines=wrapLines(c, text, maxW, sz); }
+  c.save();
+  c.font=`800 ${sz}px ui-monospace,"Courier New",monospace`;
+  c.fillStyle=INK;
+  let ly=y;
+  for(let i=0;i<Math.min(lines.length,cap);i++){ c.fillText(lines[i], x, ly); ly+=sz+3; }
+  c.restore();
 }
 
 function drawHUD(){
@@ -1236,9 +1411,10 @@ function drawHUD(){
   }
   if(S.hint){
     const hx=S.land? S.stageX+12 : 10;
-    const hy=S.play.y+8;
-    rpgBox(ctx, hx, hy, Math.min(S.play.w-20, 420), 40, CREAM);
-    wrapPrompt(ctx, S.hint, hx+8, hy+16, Math.min(S.play.w-36, 404), 12);
+    /* 세로형에서는 전광판이 플레이 영역 위쪽까지 내려올 수 있다 — 그 아래에 붙인다. */
+    const hy=S.land? S.play.y+8 : Math.max(S.play.y+8, (S.boardBottom||0)+6);
+    rpgBox(ctx, hx, hy, Math.min(S.play.w-20, 420), 56, CREAM);
+    wrapPrompt(ctx, S.hint, hx+8, hy+16, Math.min(S.play.w-36, 404), 12, 3);
   }
   pxText(ctx, "객차 한 칸은 모두 같은 크기예요", S.land? S.stageX+12 : 10, S.play.y + S.play.h - 8, 11, INK);
 }
@@ -1248,6 +1424,10 @@ function drawTrain(dt){
   if(!tr||!p) return;
   const y=trackY();
   const pan=S.panX||0;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(S.play.x, 0, S.play.w, S.H);
+  ctx.clip();   // 무대 밖(가로 여백)으로 객차가 삐져나가지 않게
   if(!tr.split){
     S.trails.push({x:tr.x-pan, y, t:0.18});
     if(S.trails.length>8) S.trails.shift();
@@ -1318,20 +1498,34 @@ function drawTrain(dt){
       ctx.fillRect(px-3, py-8, 6, 6);
     }
   }
-  if(p.kind==="siding"){
-    const n=Math.min(p.c, 16), cw=Math.max(20, Math.min(28, tr.carW*0.7));
-    const sx=S.play.x+12, sy=y-100;
-    pxText(ctx, "본선 "+p.c+"칸 (정차)", sx, sy-8, 12, INK);
-    for(let i=0;i<n;i++){
-      const x=sx+i*(cw+1);
-      if(IMG.car.ok) ctx.drawImage(IMG.car, x, sy, cw*1.4, cw);
-      else drawCarFallback(ctx, x, sy, cw, cw*0.7, false);
-    }
-    pxText(ctx, "아래 열차에서 □칸 앞의 핀", sx, sy+cw+14, 12, INK);
+  ctx.restore();
+  drawRailBar();
+}
+
+function drawRailBar(){
+  const bar=railBar(); if(!bar) return;
+  const tr=S.train;
+  const wl=tr.x-20, span=bar.total+40, k=bar.w/span;
+  const tip="이 막대를 끌면 뒷칸으로 갑니다";
+  ctx.save();
+  ctx.font='800 11px ui-monospace,"Courier New",monospace';
+  const tipW=ctx.measureText(tip).width;
+  ctx.restore();
+  pxText(ctx, tip, bar.x+bar.w-tipW, bar.y-5, 11, INK);   // 갈래 기둥과 겹치지 않게 오른쪽 정렬
+  rpgBox(ctx, bar.x, bar.y, bar.w, bar.h, CREAM);
+  const cw=Math.max(1, tr.carW*k-1);
+  for(let i=0;i<tr.T;i++){
+    ctx.fillStyle = tr.split ? GREY : STEEL;
+    ctx.fillRect(Math.round(bar.x+(carWorldX(i)-wl)*k), bar.y+6, cw, 10);
   }
-  if(tr.T*tr.stride > S.play.w*0.9){
-    pxText(ctx, "밀어서 뒷칸을 봐요", S.play.x+12, y+52, 11, INK);
-  }
+  const vx=bar.x+((S.panX+S.play.x)-wl)*k;
+  const vw=Math.max(6, S.play.w*k);
+  ctx.globalAlpha=0.35; ctx.fillStyle=SIGNAL;
+  ctx.fillRect(vx, bar.y+2, vw, bar.h-4);
+  ctx.globalAlpha=1;
+  ctx.fillStyle=INK;
+  ctx.fillRect(vx, bar.y+2, 1, bar.h-4);
+  ctx.fillRect(vx+vw-1, bar.y+2, 1, bar.h-4);
 }
 
 function drawShards(dt){
