@@ -12,7 +12,7 @@
     :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--targetH:188px;--grape:#8D80B7;--red:#E65345;--teal:#278E88;--cream:#F2E6D2;--ink:#322B43}
     *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--grape);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;color:var(--ink);font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
     button{font:inherit;color:inherit;cursor:pointer}button:focus-visible{outline:4px solid var(--cream);outline-offset:3px}
-    #game{position:fixed;inset:0;overflow:hidden;background:#8D80B7}
+    #game{position:fixed;inset:0;overflow:hidden}
     #bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.5;pointer-events:none}
     canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
     #hud{position:absolute;z-index:4;left:10px;right:10px;top:max(10px,env(safe-area-inset-top));height:58px;display:flex;gap:8px;align-items:center;pointer-events:none}
@@ -22,7 +22,10 @@
     .clay-label b{display:block;margin-top:2px;font-size:23px;letter-spacing:.04em;transform:rotate(-1.4deg) scale(1.05,.88);transform-origin:left center;text-shadow:0 2px 0 rgba(50,43,67,.2)}.stamp-pop{animation:stamp .28s steps(3)}
     #mute{margin-left:auto;pointer-events:auto;width:48px;height:48px;border:0;background:var(--ink);color:var(--cream);clip-path:polygon(18% 4%, 78% 0, 100% 32%, 92% 88%, 48% 100%, 4% 84%, 0 36%);box-shadow:0 10px 18px rgba(50,43,67,.3);font-size:21px}
     #prompt{position:absolute;z-index:4;left:14px;right:14px;top:76px;min-height:52px;padding:12px 16px 10px;background:var(--cream);box-shadow:16px 20px 0 -8px rgba(50,43,67,.18), 0 14px 26px rgba(50,43,67,.24);font-weight:900;font-size:clamp(15px,4.1vw,21px);line-height:1.25;text-align:center;clip-path:polygon(2% 16%, 14% 0, 86% 3%, 100% 18%, 98% 86%, 78% 100%, 8% 96%, 0 58%);transform:rotate(-.5deg) scale(1,.97)}
-    #prompt small{display:block;font-size:13px;margin-top:5px;color:#4a425c;letter-spacing:.01em;transform:rotate(.8deg) scale(1.02,.9);transform-origin:center}
+    #prompt.long{font-size:clamp(13.5px,3.55vw,19px)}
+    #prompt small{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;margin-top:6px;color:#4a425c;letter-spacing:.01em}
+    #prompt small .chip{flex:0 0 auto;filter:drop-shadow(2px 3px 0 rgba(50,43,67,.22))}
+    #prompt small span{min-width:0}#prompt small b{flex:0 0 auto;padding:2px 7px 1px;background:var(--teal);color:#fff;border-radius:9px;font-size:11.5px}
     #controls{position:absolute;z-index:5;left:0;right:0;bottom:max(14px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:18px;pointer-events:none}
     .turn{pointer-events:auto;width:68px;height:68px;border:0;background:var(--red);color:#fff;font-size:31px;font-weight:900;clip-path:polygon(22% 2%, 78% 6%, 100% 38%, 88% 92%, 42% 100%, 2% 80%, 6% 28%);box-shadow:0 14px 22px rgba(50,43,67,.34);animation:clayidle .16s steps(2) infinite}.turn:active{animation:none;transform:scale(.87) rotate(5deg)}
     #dragHint{position:absolute;z-index:4;left:50%;bottom:calc(var(--targetH) + 86px);transform:translateX(-50%);padding:9px 16px;background:var(--teal);color:#fff;font-weight:900;opacity:0;clip-path:polygon(8% 6%, 92% 0, 100% 72%, 78% 100%, 4% 90%, 0 40%);transition:opacity .2s;pointer-events:none;white-space:nowrap}#dragHint.show{opacity:1;animation:breathe 1s steps(4) infinite}
@@ -39,6 +42,7 @@
     html.land{--targetH:0px}
     html.land #hud{left:var(--stageX);right:auto;width:calc(var(--stageW)*.58);padding-left:18px}html.land #prompt{left:calc(var(--stageX) + var(--stageW)*.59);right:auto;top:78px;width:calc(var(--stageW)*.38);min-height:84px;padding:16px 18px;font-size:20px}html.land #controls{left:var(--stageX);right:auto;width:calc(var(--stageW)*.58);bottom:30px}html.land #dragHint{left:calc(var(--stageX) + var(--stageW)*.29);bottom:96px}
     @media (min-aspect-ratio:1/1){.title-art{object-position:center 52%}.logo{font-size:100px;top:45px}.tag{top:160px}}
+    @media (max-height:700px){#prompt{font-size:clamp(13px,3.5vw,17px);padding:10px 14px 8px}#prompt.long{font-size:clamp(11.5px,3.1vw,15px)}#prompt small{font-size:11.5px;margin-top:4px}}
     @media (prefers-reduced-motion:reduce){.title-art{animation-duration:60s}.logo{animation-duration:.2s}#start{animation-duration:4s}#dragHint.show{animation:none}.turn{animation:none}}
     @keyframes clayidle{50%{transform:translate(1px,1px) rotate(1.5deg)}}
   </style>
@@ -51,7 +55,7 @@
   <div id="prompt"></div><div id="dragHint">상자 면을 바깥으로 끌어 펼쳐요!</div>
   <div id="controls"><button class="turn" id="left" aria-label="상자 왼쪽으로 돌리기">↶</button><button class="turn" id="right" aria-label="상자 오른쪽으로 돌리기">↷</button></div>
   <div id="toast"></div>
-  <div id="result"><div class="result-clay"><h2>공구가 쉬어요</h2><div>이번 배달 점수</div><div class="result-score" id="finalScore">0</div><button id="again">새 공구로 다시!</button></div></div>
+  <div id="result"><div class="result-clay"><h2 id="resultTitle">공구가 쉬어요</h2><div id="resultSub">이번 배달</div><div class="result-score" id="finalScore">0</div><button id="again">새 공구로 다시!</button></div></div>
 </div>
 <section id="title" aria-label="상자해제 타이틀 화면">
   <img class="title-art" src="./assets/title.png" alt="펼쳐지기 시작한 점토 정육면체" onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(160deg,#8D80B7,#322B43)'">
@@ -74,7 +78,6 @@
   const ALL_MASKS=[];
   for(let a=0;a<6;a++)for(let b=a+1;b<7;b++)for(let c=b+1;c<8;c++)for(let d=c+1;d<9;d++)for(let e=d+1;e<10;e++)for(let f=e+1;f<11;f++)for(let g=f+1;g<12;g++)ALL_MASKS.push((1<<a)|(1<<b)|(1<<c)|(1<<d)|(1<<e)|(1<<f)|(1<<g));
   const bits=m=>EDGE_NAMES.filter((_,i)=>m&(1<<i));
-  function mask(...xs){return xs.reduce((m,x)=>m|(1<<x),0)}
   function pop(m){let n=0;for(;m;m>>=1)n+=m&1;return n}
 
   function unfold(cut){
@@ -96,40 +99,139 @@
     keys.sort();return keys[0];
   }
 
-  const SEEDS=[
-    {example:mask(1,2,3,5,6,7,10),pre:[1,5],locked:[1,5],band:1,hint:'면 6 · 모서리 12 · 꼭짓점 8',prompt:'십자 모양이 되도록 자물쇠 7개를 풀어 전개도를 만들어 보세요.'},
-    {example:mask(4,5,7,8,9,10,11),pre:[4,8],locked:[4,8],band:1,hint:'면 6 · 모서리 12 · 꼭짓점 8',prompt:'아래위로 긴 십자 모양이 되도록 자물쇠 7개를 풀어 전개도를 만들어 보세요.'},
-    {example:695,band:2,hint:'면 6 · 모서리 12 · 꼭짓점 8',prompt:'T자 모양이 되도록 자물쇠 7개를 풀어 전개도를 만들어 보세요.'},
-    {example:mask(1,2,3,8,9,10,11),band:2,oppositePair:'별·달',hint:'별과 달은 마주 보는 면이에요.',prompt:'별과 달이 마주 보는 이 상자를, 그림의 윤곽처럼 펼쳐 보세요.'},
-    {example:mask(1,2,3,5,6,7,11),band:2,oppositePair:'꽃·잎',hint:'꽃과 잎은 마주 보는 면이에요.',prompt:'꽃과 잎이 마주 보는 이 상자를, 그림의 윤곽처럼 펼쳐 보세요.'},
-    {example:3127,band:2,hint:'면 6 · 모서리 12 · 꼭짓점 8',prompt:'계단 모양이 되도록 자물쇠 7개를 풀어 전개도를 만들어 보세요.'},
-    {example:mask(0,2,3,4,6,7,11),pre:[0,1],locked:[0],protected:8,band:3,hint:'빨간 테이프는 자르지 마세요.',prompt:'잘못된 전개도를 고치세요. 빨간 테이프는 남기고, 그림의 윤곽처럼 펼쳐 보세요.'},
-    {example:2279,protected:3,band:3,hint:'빨간 테이프는 자르지 마세요.',prompt:'빨간 테이프(ㄹ)는 남기고, ㄱ자 모양이 되도록 자물쇠 7개를 풀어 보세요.'},
-    {example:mask(0,2,3,4,5,7,10),pre:[2,8],locked:[2],protected:6,band:3,hint:'빨간 테이프는 자르지 마세요.',prompt:'포개지지 않게 고치세요. 빨간 테이프는 남기고, 그림의 윤곽처럼 펼쳐 보세요.'},
-    {example:1447,band:3,hint:'면 6 · 모서리 12 · 꼭짓점 8',prompt:'지그재그 모양이 되도록 자물쇠 7개를 풀어 전개도를 만들어 보세요.'}
-  ];
+  /* ── 전개도 격자 읽기 ────────────────────────────────────────────────
+     그려지는 전개도(u.pos)를 그대로 읽어 칸 격자를 만든다.
+     발문의 모양 이름 · 미니 그림 · 목표 윤곽 패널이 모두 이 격자 하나에서 나오므로
+     "발문이 말하는 모양"과 "실제 목표 모양"이 어긋날 수가 없다.
+     (예전엔 발문 문자열을 손으로 붙여 'T자'가 T가 아니고 'ㄱ자'가 Z자였다.) */
+  function netGrid(pos){
+    const minx=Math.min(...pos.map(p=>p[0])), miny=Math.min(...pos.map(p=>p[1]));
+    const cells=pos.map(p=>[p[0]-minx,p[1]-miny]);
+    const w=Math.max(...cells.map(c=>c[0]))+1, h=Math.max(...cells.map(c=>c[1]))+1;
+    const rows=[];
+    for(let y=0;y<h;y++){const xs=cells.filter(c=>c[1]===y).map(c=>c[0]).sort((a,b)=>a-b);rows.push({len:xs.length,start:xs[0],xs})}
+    const solid=rows.every(r=>r.xs.every((x,i)=>i===0||x-r.xs[i-1]===1));
+    return{w,h,rows,cells,solid};
+  }
+  const NTH=['','첫','둘','셋','넷'], nth=n=>NTH[n]+'째';
+  /* 격자 → 모양 이름. 줄 길이와 어긋난 칸 수만 말하므로 이름에서 격자를 되짚어
+     복원할 수 있다(= 이름이 거짓일 수 없다). 20종 전부 서로 다른 이름이 나온다. */
+  function netName(g){
+    if(!g.solid)return null;
+    const L=g.rows.map(r=>r.len), S0=g.rows.map(r=>r.start);
+    if(g.h===3&&L[0]===1&&L[1]===4&&L[2]===1){
+      const a=S0[0]-S0[1]+1, b=S0[2]-S0[1]+1;
+      if(a<1||a>4||b<1||b>4)return null;
+      return a===b?`네 칸이 이어진 줄의 ${nth(a)} 칸 위와 아래에 한 칸씩 붙은 모양`
+                  :`네 칸이 이어진 줄의 ${nth(a)} 칸 위와 ${nth(b)} 칸 아래에 한 칸씩 붙은 모양`;
+    }
+    if(g.h===3&&L[1]===3&&((L[0]===2&&L[2]===1)||(L[0]===1&&L[2]===2))){
+      const two=L[0]===2?0:2, one=two===0?2:0;
+      const d=S0[two]-S0[1], k=S0[one]-S0[1]+1;
+      if((d!==-1&&d!==2)||k<1||k>3)return null;
+      const side=d<0?'왼쪽':'오른쪽', t=d<0?1:3;   /* 두 칸짜리 줄이 걸친 칸 = 왼쪽으로 나오면 첫째, 오른쪽이면 셋째 */
+      return two===0?`세 칸이 이어진 줄의 ${nth(t)} 칸 위와 그 ${side}에 두 칸이 붙고, 아래 ${nth(k)} 칸에 한 칸이 붙은 모양`
+                    :`세 칸이 이어진 줄의 ${nth(k)} 칸 위에 한 칸이 붙고, ${nth(t)} 칸 아래와 그 ${side}에 두 칸이 붙은 모양`;
+    }
+    if(g.h===2&&L[0]===3&&L[1]===3){
+      const d=S0[1]-S0[0];if(Math.abs(d)!==2)return null;
+      return `세 칸이 이어진 줄 두 개가 아랫줄만 ${d>0?'오른쪽':'왼쪽'}으로 두 칸 밀린 모양`;
+    }
+    if(g.h===3&&L[0]===2&&L[1]===2&&L[2]===2){
+      const d=S0[1]-S0[0];if(Math.abs(d)!==1||S0[2]-S0[1]!==d)return null;
+      return `두 칸씩 세 줄이 줄마다 ${d>0?'오른쪽':'왼쪽'}으로 한 칸씩 내려가는 계단 모양`;
+    }
+    return null;
+  }
+  function netFamily(g){const L=g.rows.map(r=>r.len).join('-');
+    return L==='1-4-1'?'1-4-1':(L==='2-3-1'||L==='1-3-2')?'2-3-1':L==='3-3'?'3-3':L==='2-2-2'?'2-2-2':'기타'}
+  /* 발문 옆 미니 그림도 같은 격자에서 그린다 */
+  function netChip(g,s){s=s||11;let r=`<svg class="chip" width="${g.w*s}" height="${g.h*s}" viewBox="0 0 ${g.w*s} ${g.h*s}" aria-hidden="true">`;
+    for(const c of g.cells)r+=`<rect x="${c[0]*s+.8}" y="${c[1]*s+.8}" width="${s-1.6}" height="${s-1.6}" rx="2.5" fill="#278E88"/>`;
+    return r+'</svg>'}
+
+  /* ── 792개 절단 마스크 전수 계산 → 겹침 없는 전개 384개 → 회전 동치 모양 20종 ──
+     시드를 손으로 적지 않는다. 모양 20종을 기하에서 뽑아 오므로 회전만 다른 중복이 원천 차단된다. */
+  const NETS=new Map(), CLASSES=new Map();
+  for(const m of ALL_MASKS){
+    const u=unfold(m);if(!u.ok)continue;
+    const key=canonicalShape(u.pos);
+    NETS.set(m,{u,key});
+    if(!CLASSES.has(key))CLASSES.set(key,{key,masks:[]});
+    CLASSES.get(key).masks.push(m);
+  }
+  for(const c of CLASSES.values()){
+    /* 대표 마스크 = 가장 납작하게 그려지는 방향. 그려지는 방향이 곧 이름의 근거다. */
+    let best=null,bs=null,bg=null;
+    for(const m of c.masks){
+      const g=netGrid(NETS.get(m).u.pos);
+      const sig=[g.h,g.cells.slice().sort((a,b)=>a[1]-b[1]||a[0]-b[0]).map(p=>p.join(',')).join(';')];
+      if(!bs||sig[0]<bs[0]||(sig[0]===bs[0]&&sig[1]<bs[1])){bs=sig;best=m;bg=g}
+    }
+    c.example=best;c.grid=bg;c.name=netName(bg);c.family=netFamily(bg);
+  }
+  const FAM_ORDER={'1-4-1':0,'2-3-1':1,'3-3':2,'2-2-2':3,'기타':4};
+  const SHAPES=[...CLASSES.values()].sort((a,b)=>{
+    const d=FAM_ORDER[a.family]-FAM_ORDER[b.family];if(d)return d;
+    const sa=a.family==='1-4-1'&&a.grid.rows[0].start===a.grid.rows[2].start?0:1;
+    const sb=b.family==='1-4-1'&&b.grid.rows[0].start===b.grid.rows[2].start?0:1;
+    if(sa!==sb)return sa-sb;
+    return a.key<b.key?-1:1;
+  });
+  /* 모양 20종 × 조건 3종(조건 없음 / 빨간 테이프 / 미리 풀린 자물쇠) = 시드 60개.
+     조건도 대표 마스크에서 도출하므로 손으로 적은 값이 하나도 없다. */
+  const SEEDS=[];
+  SHAPES.forEach((c,ci)=>{
+    const cut=[];for(let e=0;e<12;e++)if(c.example&(1<<e))cut.push(e);
+    const hin=NETS.get(c.example).u.hinges;
+    const tier=ci<8?1:ci<14?2:3;
+    const add=o=>SEEDS.push(Object.assign({cls:ci,key:c.key,example:c.example,name:c.name,family:c.family,grid:c.grid,locked:[]},o));
+    add({kind:'plain',band:tier});
+    add({kind:'tape',band:Math.min(3,tier+1),protected:hin[ci%hin.length]});
+    const pre=[cut[ci%cut.length],cut[(ci+3)%cut.length]].filter((v,i,a)=>a.indexOf(v)===i);
+    add({kind:'pre',band:Math.min(3,tier+1),pre,locked:pre.slice()});
+  });
   function seedAccepts(seed,m){
-    const u=unfold(m);if(!u.ok)return false;
-    if((seed.locked||[]).some(e=>!(m&(1<<e))))return false;
+    const rec=NETS.get(m);if(!rec)return false;
     if(seed.protected!==undefined&&(m&(1<<seed.protected)))return false;
-    return canonicalShape(u.pos)===seed.shapeKey;
+    if(seed.locked.some(e=>!(m&(1<<e))))return false;
+    return rec.key===seed.shapeKey;
   }
   for(const s of SEEDS){
-    const u0=unfold(s.example);s.shapeKey=canonicalShape(u0.pos);s.exampleUnfold=u0;
-    s.validMasks=ALL_MASKS.filter(m=>seedAccepts(s,m));s.accept=new Set(s.validMasks);
+    s.shapeKey=s.key;s.exampleUnfold=NETS.get(s.example).u;
+    s.validMasks=[];for(const m of NETS.keys())if(seedAccepts(s,m))s.validMasks.push(m);
+    s.accept=new Set(s.validMasks);
+    s.prompt=s.kind==='tape'?`${s.name}이 되도록 자물쇠를 풀어 보세요. 빨간 테이프(${EDGE_NAMES[s.protected]})가 붙은 모서리는 풀지 마세요.`
+            :s.kind==='pre'?`${s.name}으로 펼쳐 보세요. 이미 풀린 자물쇠 ${s.pre.length}개를 포함해 모두 7개를 풀어야 해요.`
+            :`${s.name}이 되도록 자물쇠 7개를 풀어 보세요.`;
+    s.hint=s.kind==='tape'?'테이프 모서리는 접히는 자리예요'
+          :s.kind==='pre'?'미리 풀린 자물쇠는 그대로 두세요'
+          :s.band>=2?'마주 보는 면: 해–물방울, 별–달, 꽃–잎'
+          :'면 6 · 모서리 12 · 꼭짓점 8';
+  }
+  /* 한 판 = 서로 다른 모양 10개. 쉬움 3 · 보통 4 · 어려움 3 으로 뽑는다. */
+  const ROUNDS=10;
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;const t=a[i];a[i]=a[j];a[j]=t}return a}
+  function pickRun(){
+    const bags=[[],[],[]];SEEDS.forEach((s,i)=>bags[s.band-1].push(i));bags.forEach(shuffle);
+    const want=[3,4,3],out=[],used=new Set();
+    for(let b=0;b<3;b++){let n=0;for(const i of bags[b]){if(n>=want[b])break;if(used.has(SEEDS[i].cls))continue;used.add(SEEDS[i].cls);out.push(i);n++}}
+    for(const i of shuffle(SEEDS.map((_,k)=>k))){if(out.length>=ROUNDS)break;if(used.has(SEEDS[i].cls))continue;used.add(SEEDS[i].cls);out.push(i)}
+    return out.slice(0,ROUNDS);
   }
 
   const MSG={
     disconnected:'연결이 끊긴 면이 있어요. 남긴 다섯 모서리가 여섯 면을 이어야 해요.',
     overlap:'두 면이 같은 자리에 포개졌어요. 경첩을 바꿔 보세요.',
     wrongShape:'전개도는 됐지만 목표 윤곽과 달라요. 그림을 보고 다시 풀어 보세요.',
+    mirror:'좌우가 뒤집힌 모양이에요. 상자는 뒤집을 수 없으니 거울에 비친 전개도는 답이 아니에요.',
     protected:'빨간 테이프 모서리는 남긴 채 다른 곳을 풀어 보세요.',
     visibleOnly:'숨은 모서리도 상자를 돌려 살펴보세요.',
     locked:'미리 풀린 자물쇠는 그대로 두고 나머지 다섯 개를 골라 보세요.'
   };
 
-  let S={score:0,lives:3,level:1,phase:'title',solved:0,combo:0,round:0,view:0,yaw:0,cut:0,drag:false,dragLen:0,unfold:0,last:performance.now(),muted:false,land:false,stageW:390,stageX:0,marks:[],flashUntil:0,freezeUntil:0,failKind:'',lastUnfold:null,squash:1,overshoot:1};
-  let audio=null,userGesture=false,bgCache=null,panelCache=null,clampSpr={},clayNoise=null,geom=null,targetSpr=[],faceTile=[];
+  let S={score:0,lives:3,level:1,phase:'title',solved:0,combo:0,round:0,order:pickRun(),view:0,yaw:0,cut:0,drag:false,dragLen:0,unfold:0,last:performance.now(),muted:false,land:false,stageW:390,stageX:0,marks:[],flashUntil:0,freezeUntil:0,failKind:'',lastUnfold:null,squash:1,overshoot:1,needFull:true};
+  let audio=null,userGesture=false,bgCache=null,panelCache=null,clampSpr={},clayNoise=null,geom=null,faceTile=[],nameSpr={},hiddenSpr=[];
   const bgImg=$('#bg');if(bgImg)bgImg.addEventListener('load',()=>{if(S.phase!=='title')rebuildCache()});
   addEventListener('pointerdown',()=>{userGesture=true},{once:true,capture:true});
   addEventListener('keydown',()=>{userGesture=true},{once:true,capture:true});
@@ -163,48 +265,81 @@
     if(bgImg&&bgImg.naturalWidth){g.globalAlpha=.38;g.drawImage(bgImg,0,0,W,H);g.globalAlpha=1}
     g.fillStyle='rgba(50,43,67,.12)';g.beginPath();g.ellipse(W*.5,H*.72,Math.min(W,720)*.38,42,0,0,7);g.fill();
     if(S.land&&S.stageW<W-2){g.fillStyle='rgba(50,43,67,.22)';g.fillRect(0,0,S.stageX,H);g.fillRect(S.stageX+S.stageW,0,S.stageX,H)}
+    S.needFull=true;
+    /* 배경 이미지는 이미 bgCache 에 구워졌다. DOM 레이어를 남겨 두면 전면 합성 비용만 두 배가 된다. */
+    if(bgImg&&bgImg.naturalWidth)bgImg.style.display='none';
     bakePanel();
   }
-  function bakePanel(){panelCache=null}
-  function roundSoft(g,x,y,w,h,j){g.beginPath();g.moveTo(x+j,y+2);g.bezierCurveTo(x+w*.25,y-3,x+w*.72,y+4,x+w-j,y);g.quadraticCurveTo(x+w+4,y+h*.45,x+w-2,y+h-j);g.bezierCurveTo(x+w*.7,y+h+4,x+w*.3,y+h-3,x+j,y+h);g.quadraticCurveTo(x-4,y+h*.5,x+j,y+2)}
-  function bakeTargets(){
-    targetSpr=SEEDS.map(seed=>{
-      const c=document.createElement('canvas');c.width=400;c.height=400;const g=c.getContext('2d');
-      if(seed.exampleUnfold)drawNetAt(g,200,202,90,1,seed.exampleUnfold,'');
-      return c;
-    });
+  /* 목표 윤곽 패널은 라운드마다 한 번만 굽는다 (매 프레임 다시 그리면 소프트웨어 렌더러에서 fps 를 깎아먹는다) */
+  function bakePanel(){
+    const sh=shelfZone();
+    const w=Math.max(24,Math.round(sh.w)), h=Math.max(24,Math.round(sh.h));
+    const th=S.land?h*.68:h;
+    const d=S.dpr||1;
+    const c=document.createElement('canvas');c.width=Math.round(w*d);c.height=Math.round(h*d);
+    const g=c.getContext('2d');g.setTransform(d,0,0,d,0,0);
+    paintTarget(g,0,0,w,th,current());
+    if(S.land)paintShelf(g,0,h*.70,w,h*.28);
+    panelCache={c,x:sh.x,y:sh.y,w,h};
   }
+  /* 면 스프라이트. 좌표는 예전 실시간 fillFace 의 비율(공칭 반변 s 기준)을 타일 좌표로 옮긴 것이다.
+     타일 폭 TILE = 면의 공칭 변 길이(=2s)이므로 s ↔ TILE/2 로 환산한다. */
+  const TILE=192, INSET=.07, TK=.93/(1-2*INSET);
   function bakeFaces(){
+    const H2=TILE/2, s=H2, m=TILE*INSET;
     faceTile=FACE_COL.map((col,i)=>{
-      const c=document.createElement('canvas');c.width=128;c.height=128;const g=c.getContext('2d');
-      const pts=[{x:10,y:14},{x:116,y:8},{x:120,y:114},{x:8,y:118}];
-      clayQuadPath(g,pts,i+3);
+      const c=document.createElement('canvas');c.width=TILE;c.height=TILE;const g=c.getContext('2d');
+      const pts=[{x:m,y:m},{x:TILE-m,y:m},{x:TILE-m,y:TILE-m},{x:m,y:TILE-m}];
+      clayQuadPath(g,pts,i);
       g.fillStyle=col;g.fill();
-      g.save();clayQuadPath(g,pts,i+3);g.clip();
-      g.globalAlpha=.32;if(clayNoise)g.drawImage(clayNoise,0,0,128,128);g.globalAlpha=1;
-      g.fillStyle='rgba(50,43,67,.16)';g.beginPath();g.ellipse(86,90,28,16,.4,0,7);g.fill();
-      g.fillStyle=FACE_COL2[i];g.globalAlpha=.4;g.beginPath();g.ellipse(40,38,26,14,-.3,0,7);g.fill();g.globalAlpha=1;
-      g.fillStyle='rgba(50,43,67,.2)';g.beginPath();g.ellipse(44,48,10,6,.5,0,7);g.fill();
-      g.fillStyle='rgba(50,43,67,.12)';g.beginPath();g.ellipse(78,56,12,5,-.2,0,7);g.fill();
-      g.translate(64,64);drawMark(g,FACE_MARK[i],38);
+      g.save();clayQuadPath(g,pts,i);g.clip();
+      if(clayNoise){g.globalAlpha=.13;g.drawImage(clayNoise,0,0,TILE,TILE);g.globalAlpha=1}
+      g.fillStyle='rgba(50,43,67,.16)';g.beginPath();g.ellipse(H2+s*.16,H2+s*.18,s*.2,s*.1,.45,0,7);g.fill();
+      g.fillStyle=FACE_COL2[i];g.globalAlpha=.35;g.beginPath();g.ellipse(H2-s*.14,H2-s*.12,s*.18,s*.09,-.35,0,7);g.fill();g.globalAlpha=1;
+      g.fillStyle='rgba(50,43,67,.14)';g.beginPath();g.ellipse(H2-s*.1,H2-s*.04,s*.07,s*.04,.5,0,7);g.fill();
+      g.fillStyle='rgba(50,43,67,.1)';g.beginPath();g.ellipse(H2+s*.08,H2+s*.02,s*.05,s*.03,-.2,0,7);g.fill();
+      g.translate(H2,H2);drawMark(g,FACE_MARK[i],s*.4);
       g.restore();
       return c;
     });
   }
-  function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);if(S.phase!=='title')hideTitle();S.stageW=Math.min(W,1280);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');const th=S.land?0:Math.max(176,Math.min(280,H*0.24));document.documentElement.style.setProperty('--targetH',th+'px');const d=Math.min(devicePixelRatio||1,1.5);canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(d,0,0,d,0,0);rebuildCache()}
+  /* 모서리 이름표·숨은 모서리 표시도 미리 굽는다 — 매 프레임 12번씩 한글을 조판하지 않기 위함 */
+  function bakeLabels(){
+    const make=(txt,col,px)=>{const c=document.createElement('canvas');c.width=34;c.height=28;const g=c.getContext('2d');
+      g.font=`900 ${px}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillStyle=col;g.fillText(txt,17,14);return c};
+    nameSpr={cream:EDGE_NAMES.map(n=>make(n,C.cream,13)),red:EDGE_NAMES.map(n=>make(n,C.red,13))};
+    hiddenSpr=[0,1].map(open=>EDGE_NAMES.map((n,i)=>{
+      const c=document.createElement('canvas');c.width=44;c.height=36;const g=c.getContext('2d');
+      g.translate(22,18);g.globalAlpha=.5;lump(g,0,0,8,6,hash(i)*.4,open?C.red:'#3a3248');g.globalAlpha=1;
+      g.font='900 10px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillStyle=C.cream;g.globalAlpha=.5;g.fillText(n,0,0);
+      return c;
+    }));
+  }
+  function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);if(S.phase!=='title')hideTitle();S.stageW=Math.min(W,1280);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');const th=S.land?0:Math.max(152,Math.min(280,H*0.24));document.documentElement.style.setProperty('--targetH',th+'px');
+    /* 백버퍼 크기 상한. QA 브라우저(swiftshader)는 캔버스 합성 자체가 프레임 예산을 잡아먹어
+       그리는 양보다 백버퍼 픽셀 수가 fps 를 좌우한다. 화면이 클수록 배율을 낮춰 예산을 맞춘다. */
+    const d=Math.max(1,Math.min(devicePixelRatio||1,1.5,Math.sqrt(520000/Math.max(1,W*H))));S.dpr=d;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(d,0,0,d,0,0);measurePrompt();rebuildCache()}
   addEventListener('resize',layout);
 
-  if(!clayNoise){clayNoise=makeNoise();clampSpr={shut:makeClamp('shut'),open:makeClamp('open'),tape:makeClamp('tape')};bakeFaces();bakeTargets()}
+  if(!clayNoise){clayNoise=makeNoise();clampSpr={shut:makeClamp('shut'),open:makeClamp('open'),tape:makeClamp('tape')};bakeFaces();bakeLabels()}
   layout();
 
-  function current(){return SEEDS[S.round%SEEDS.length]}
-  function resetRound(){const p=current();S.level=p.band;S.cut=(p.pre||[]).reduce((m,e)=>m|(1<<e),0);S.view=0;S.yaw=0;S.drag=false;S.dragLen=0;S.unfold=0;S.failKind='';S.lastUnfold=null;S.squash=1;S.overshoot=1;updateHUD();if(panelCache)bakePanel()}
-  function updateHUD(){const n=pop(S.cut);$('#cutCount').textContent=n+' / 7';$('#lives').textContent='●'.repeat(S.lives)+'○'.repeat(3-S.lives);$('#combo').textContent=S.combo;const p=current();$('#prompt').innerHTML=p.prompt+'<small>'+(p.hint||'')+'</small>';$('#dragHint').classList.toggle('show',n===7&&S.phase==='playing');['#cutCount','#lives','#combo'].forEach(x=>{const e=$(x);e.classList.remove('stamp-pop');void e.offsetWidth;e.classList.add('stamp-pop')})}
+  function current(){return SEEDS[S.order[Math.min(S.round,S.order.length-1)]]}
+  function resetRound(){const p=current();S.level=p.band;S.cut=(p.pre||[]).reduce((m,e)=>m|(1<<e),0);S.view=0;S.yaw=0;S.drag=false;S.dragLen=0;S.unfold=0;S.failKind='';S.lastUnfold=null;S.squash=1;S.overshoot=1;S.needFull=true;updateHUD();bakePanel()}
+  function updateHUD(){const n=pop(S.cut);$('#cutCount').textContent=n+' / 7';$('#lives').textContent='●'.repeat(S.lives)+'○'.repeat(3-S.lives);$('#combo').textContent=S.combo;const p=current();
+    $('#prompt').classList.toggle('long',p.prompt.length>56);$('#prompt').innerHTML=p.prompt+'<small>'+netChip(p.grid)+'<span>'+(p.hint||'')+'</span><b>'+Math.min(S.round+1,ROUNDS)+'/'+ROUNDS+'</b></small>';
+    measurePrompt();$('#dragHint').classList.toggle('show',n===7&&S.phase==='playing');['#cutCount','#lives','#combo'].forEach(x=>{const e=$(x);e.classList.remove('stamp-pop');void e.offsetWidth;e.classList.add('stamp-pop')})}
   function hideTitle(){const t=$('#title');if(t){t.style.animation='none';const art=t.querySelector('.title-art');if(art)art.style.animation='none';t.remove()}document.documentElement.classList.add('ingame');document.body.classList.add('ingame')}
-  function startGame(){S.phase='playing';S.score=0;S.lives=3;S.solved=0;S.combo=0;S.round=0;hideTitle();$('#result').classList.remove('show');resetRound();tone(330,.08);setTimeout(()=>tone(494,.1),90)}
+  function startGame(){S.phase='playing';S.score=0;S.lives=3;S.solved=0;S.combo=0;S.round=0;S.order=pickRun();hideTitle();$('#result').classList.remove('show');resetRound();tone(330,.08);setTimeout(()=>tone(494,.1),90)}
 
-  function playZone(){const W=innerWidth,H=innerHeight;if(S.land)return{x:S.stageX+16,y:78,w:S.stageW*.57-28,h:H-170};const th=Math.max(176,Math.min(280,H*0.24));return{x:8,y:132,w:W-16,h:H-132-th-88}}
-  function shelfZone(){const W=innerWidth,H=innerHeight;if(S.land)return{x:S.stageX+S.stageW*.59,y:200,w:S.stageW*.38,h:H-220};const th=Math.max(176,Math.min(280,H*0.24));return{x:10,y:H-88-th,w:W-20,h:th}}
+  /* 발문 상자는 모양 이름 때문에 길어질 수 있다. 놀이판·목표 패널이 발문 아래에서 시작하도록
+     실제 렌더된 높이를 재서 비켜 준다(짧은 화면에서 상자와 글자가 겹치던 자리). */
+  function measurePrompt(){const el=$('#prompt');if(!el)return;const r=el.getBoundingClientRect();S.pBottom=Math.round(r.bottom)}
+  function playZone(){const W=innerWidth,H=innerHeight;if(S.land)return{x:S.stageX+16,y:78,w:S.stageW*.57-28,h:H-170};
+    const th=Math.max(152,Math.min(280,H*0.24));const y=Math.max(132,(S.pBottom||128)+4);return{x:8,y,w:W-16,h:Math.max(160,H-y-th-88)}}
+  function shelfZone(){const W=innerWidth,H=innerHeight;
+    if(S.land){const y=Math.max(200,(S.pBottom||128)+14);return{x:S.stageX+S.stageW*.59,y,w:S.stageW*.38,h:Math.max(200,H-20-y)}}
+    const th=Math.max(152,Math.min(280,H*0.24));return{x:10,y:H-88-th,w:W-20,h:th}}
 
   function cubeGeom(cx,cy,s,yaw){
     const y0=yaw-0.64,c=Math.cos(y0),sn=Math.sin(y0),cam={x:.55,y:.5,z:1};
@@ -246,21 +381,19 @@
     else{g.beginPath();g.moveTo(0,-s*.36);g.quadraticCurveTo(s*.36,0,0,s*.4);g.quadraticCurveTo(-s*.36,0,0,-s*.36);g.fill()}
     g.restore();
   }
-  function fillFace(pts,id,scale,nom){
-    const cx=(pts[0].x+pts[2].x)/2, cy=(pts[0].y+pts[2].y)/2;
-    /* 마크·명암은 공칭 크기 기준 — 투영된 모서리 길이를 쓰면 회전 중 원근 왜곡으로 마크가 펄스한다 */
-    const s=nom||Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y);
-    const P=pts.map(p=>({x:cx+(p.x-cx)*scale,y:cy+(p.y-cy)*scale}));
+  /* 면은 미리 구운 스프라이트를 아핀 변환으로 얹는다.
+     투영이 (x,y,z)에 대해 선형이라 정사각 면은 화면에서 정확히 평행사변형이 된다
+     → drawImage 한 번이 예전의 베지에 패스 + 타원 5개 + 마크 그리기를 전부 대체한다. */
+  function drawFaceSprite(pts,id){
     ctx.fillStyle='rgba(50,43,67,.28)';
-    clayQuadPath(ctx,P.map(p=>({x:p.x+7,y:p.y+10})),id+11);
-    ctx.fill();
-    clayQuadPath(ctx,P,id);
-    ctx.fillStyle=FACE_COL[id];ctx.fill();
-    ctx.fillStyle='rgba(50,43,67,.16)';ctx.beginPath();ctx.ellipse(cx+s*.16,cy+s*.18,s*.2,s*.1,.45,0,7);ctx.fill();
-    ctx.fillStyle=FACE_COL2[id];ctx.globalAlpha=.35;ctx.beginPath();ctx.ellipse(cx-s*.14,cy-s*.12,s*.18,s*.09,-.35,0,7);ctx.fill();ctx.globalAlpha=1;
-    ctx.fillStyle='rgba(50,43,67,.14)';ctx.beginPath();ctx.ellipse(cx-s*.1,cy-s*.04,s*.07,s*.04,.5,0,7);ctx.fill();
-    ctx.fillStyle='rgba(50,43,67,.1)';ctx.beginPath();ctx.ellipse(cx+s*.08,cy+s*.02,s*.05,s*.03,-.2,0,7);ctx.fill();
-    ctx.save();ctx.translate(cx,cy);drawMark(ctx,FACE_MARK[id],s*.4);ctx.restore();
+    ctx.beginPath();ctx.moveTo(pts[0].x+7,pts[0].y+10);
+    for(let i=1;i<4;i++)ctx.lineTo(pts[i].x+7,pts[i].y+10);
+    ctx.closePath();ctx.fill();
+    /* 타일 안쪽 여백(INSET)까지 감안해 예전 fillFace 의 0.93 축소 비율과 같은 크기로 얹는다 */
+    const ux=(pts[1].x-pts[0].x)/TILE*TK, uy=(pts[1].y-pts[0].y)/TILE*TK;
+    const vx=(pts[3].x-pts[0].x)/TILE*TK, vy=(pts[3].y-pts[0].y)/TILE*TK;
+    const ox=(pts[0].x+pts[2].x)/2-(ux+vx)*TILE/2, oy=(pts[0].y+pts[2].y)/2-(uy+vy)*TILE/2;
+    ctx.save();ctx.transform(ux,uy,vx,vy,ox,oy);ctx.drawImage(faceTile[id],0,0);ctx.restore();
   }
 
   function unfoldEase(p){if(p<.14)return -0.14*(p/.14);const t=(p-.14)/.86;if(t<.78)return(t/.78)*1.12;return 1.12-(t-.78)/.22*.12}
@@ -298,33 +431,46 @@
     u.pos.forEach((pt,i)=>{if(pt)return;const t=Math.min(1,p);g.save();g.translate((i-2.5)*cell*.7,cell*1.6+t*24);g.globalAlpha=.7;clayCell(g,0,0,cell*.62,i);g.restore()});
     g.restore();
   }
-  function drawTarget(x,y,w,h,seed){
-    ctx.fillStyle='#F2E6D2';
-    softShape(x,y,w,h,18);ctx.fill();
-    ctx.fillStyle='rgba(50,43,67,.2)';
-    softShape(x+10,y+12,w,h,18);ctx.fill();
-    ctx.fillStyle='#F2E6D2';
-    softShape(x,y,w,h,18);ctx.fill();
-    ctx.fillStyle=C.ink;ctx.font='900 16px "Apple SD Gothic Neo"';ctx.textAlign='left';ctx.fillText('목표 윤곽',x+16,y+26);
-    const spr=targetSpr[S.round%SEEDS.length];
+  function paintTarget(g,x,y,w,h,seed){
+    g.fillStyle='rgba(50,43,67,.2)';
+    softShape(g,x+10,y+12,w,h,18);g.fill();
+    g.fillStyle='#F2E6D2';
+    softShape(g,x,y,w,h,18);g.fill();
+    g.fillStyle=C.ink;g.font='900 16px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';g.textAlign='left';g.textBaseline='alphabetic';g.fillText('목표 윤곽',x+16,y+26);
     const side=Math.min(w-12,h-34);
-    if(spr&&side>8)ctx.drawImage(spr,x+(w-side)*.5,y+30,side,side-8);
+    if(seed&&seed.exampleUnfold&&side>8)drawNetAt(g,x+w*.5,y+30+side*.505,side*.225,1,seed.exampleUnfold,'');
   }
-  function drawShelf(x,y,w,h){ctx.fillStyle='rgba(50,43,67,.18)';softShape(x,y,w,h,14);ctx.fill();const n=Math.min(6,S.solved);for(let i=0;i<n;i++){const bx=x+12+i*Math.min(70,w/6.2), by=y+h*.18;ctx.fillStyle=FACE_COL[2+i%4];softShape(bx,by,Math.min(58,w/7),Math.max(28,h*.62),10);ctx.fill()}}
-  function softShape(x,y,w,h,j){ctx.beginPath();ctx.moveTo(x+j,y+2);ctx.bezierCurveTo(x+w*.25,y-3,x+w*.72,y+4,x+w-j,y);ctx.quadraticCurveTo(x+w+4,y+h*.45,x+w-2,y+h-j);ctx.bezierCurveTo(x+w*.7,y+h+4,x+w*.3,y+h-3,x+j,y+h);ctx.quadraticCurveTo(x-4,y+h*.5,x+j,y+2)}
+  function paintShelf(g,x,y,w,h){g.fillStyle='rgba(50,43,67,.18)';softShape(g,x,y,w,h,14);g.fill();const n=Math.min(6,S.solved);for(let i=0;i<n;i++){const bx=x+12+i*Math.min(70,w/6.2), by=y+h*.18;g.fillStyle=FACE_COL[2+i%4];softShape(g,bx,by,Math.min(58,w/7),Math.max(28,h*.62),10);g.fill()}}
+  function softShape(g,x,y,w,h,j){g.beginPath();g.moveTo(x+j,y+2);g.bezierCurveTo(x+w*.25,y-3,x+w*.72,y+4,x+w-j,y);g.quadraticCurveTo(x+w+4,y+h*.45,x+w-2,y+h-j);g.bezierCurveTo(x+w*.7,y+h+4,x+w*.3,y+h-3,x+j,y+h);g.quadraticCurveTo(x-4,y+h*.5,x+j,y+2)}
 
   function draw(t){
     const W=innerWidth,H=innerHeight;
-    if(bgCache)ctx.drawImage(bgCache,0,0,W,H);
-    else{ctx.fillStyle='#8D80B7';ctx.fillRect(0,0,W,H)}
-    if(S.phase==='title')return;
-    const zone=playZone(), sh=shelfZone();
+    const d2=Math.min(devicePixelRatio||1,2);
+    const full=S.needFull;
+    if(S.phase==='title'){
+      if(full){if(bgCache)ctx.drawImage(bgCache,0,0,W,H);else{ctx.fillStyle='#8D80B7';ctx.fillRect(0,0,W,H)}S.needFull=false}
+      return;
+    }
+    const zone=playZone();
     const idle=(Math.floor(t/83)%2)?1.4:-1.4;
-    const size=Math.min(zone.w*.92,zone.h*(S.land?.86:.8),S.land?480:Math.min(520,zone.h*.82));
+    let size=Math.min(zone.w*.92,zone.h*(S.land?.86:.8),S.land?480:Math.min(520,zone.h*.82));
     const cx=zone.x+zone.w/2+idle*.15, cy=zone.y+zone.h*(S.land?.52:.5)+idle;
-    const targetH=S.land?sh.h*.68:sh.h;
-    drawTarget(sh.x, sh.y, sh.w, targetH, current());
-    if(S.land)drawShelf(sh.x, sh.y+sh.h*.70, sh.w, sh.h*.28);
+    /* 세로가 짧은 화면에서 상자 윗면 자물쇠가 발문 상자를 파고들지 않도록 마지막에 한 번 더 줄인다 */
+    if(!S.land){const lim=(cy-(S.pBottom||0)-34)/.517;if(lim>140&&size>lim)size=lim}
+    /* 배경은 정적이다. 상자·전개도·자물쇠가 실제로 닿는 사각형만 복원한다.
+       투영 최대 반지름은 상자 반변의 1.36배(=size*0.517)이고 자물쇠 스프라이트가 44px 더 나간다. */
+    const mg=size*.52+36;
+    const bx=Math.max(0,cx-mg), by=Math.max(0,cy-mg), bw=Math.min(W,cx+mg)-bx, bh=Math.min(H,cy+mg+28)-by;
+    if(full){
+      if(bgCache)ctx.drawImage(bgCache,0,0,W,H);else{ctx.fillStyle='#8D80B7';ctx.fillRect(0,0,W,H)}
+    }else if(bw>0&&bh>0){
+      if(bgCache)ctx.drawImage(bgCache,bx*d2,by*d2,bw*d2,bh*d2,bx,by,bw,bh);
+      else{ctx.fillStyle='#8D80B7';ctx.fillRect(bx,by,bw,bh)}
+    }
+    /* 목표 윤곽 패널도 정적이다 — 복원 영역과 겹칠 때만 다시 얹는다 */
+    const P=panelCache;
+    if(P&&(full||!(bx+bw<=P.x||bx>=P.x+P.w||by+bh<=P.y||by>=P.y+P.h)))ctx.drawImage(P.c,P.x,P.y,P.w,P.h);
+    S.needFull=false;
 
     const showCube=S.unfold<0.8;
     const showNet=S.unfold>0.02;
@@ -335,28 +481,24 @@
       ctx.fillStyle='rgba(50,43,67,.16)';ctx.beginPath();ctx.ellipse(cx+22,cy+size*.36,size*.4,20,0,0,7);ctx.fill();
       ctx.fillStyle='rgba(50,43,67,.22)';ctx.beginPath();ctx.ellipse(cx+14,cy+size*.33,size*.3,14,0,0,7);ctx.fill();
       const vis=g.faces.filter(f=>f.vis).sort((a,b)=>a.z-b.z);
-      vis.forEach(f=>fillFace(f.pts,f.id,.93,size*.38*sc));
+      vis.forEach(f=>drawFaceSprite(f.pts,f.id));
       const p=current();
       const flash=S.flashUntil>t;
       ctx.lineCap='round';
+      ctx.strokeStyle='rgba(50,43,67,.5)';ctx.lineWidth=7;
+      ctx.beginPath();
       g.edges.forEach(e=>{
         if(!e.vis||(S.cut&(1<<e.id)))return;
-        ctx.strokeStyle='rgba(50,43,67,.5)';ctx.lineWidth=7;
-        ctx.beginPath();ctx.moveTo(e.a.x,e.a.y);ctx.lineTo(e.b.x,e.b.y);ctx.stroke();
+        ctx.moveTo(e.a.x,e.a.y);ctx.lineTo(e.b.x,e.b.y);
       });
-      ctx.font='900 13px "Apple SD Gothic Neo"';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.stroke();
       g.edges.forEach(e=>{
         const open=!!(S.cut&(1<<e.id)), prot=p.protected===e.id;
-        if(!e.vis){
-          ctx.globalAlpha=.5;
-          lump(ctx,e.x,e.y,8,6,hash(e.id)*.4,open?C.red:'#3a3248');
-          ctx.fillStyle=C.cream;ctx.font='900 10px "Apple SD Gothic Neo"';ctx.fillText(EDGE_NAMES[e.id],e.x,e.y);
-          ctx.globalAlpha=1;return;
-        }
+        if(!e.vis){ctx.drawImage(hiddenSpr[open?1:0][e.id],e.x-22,e.y-18);return}
         const spr=prot?clampSpr.tape:(open?clampSpr.open:clampSpr.shut);
         const sc2=(open?1.08:1)*(flash&&open?1.1:1);
         ctx.drawImage(spr,e.x-38*sc2,e.y-40*sc2,76*sc2,76*sc2);
-        ctx.fillStyle=prot?C.red:C.cream;ctx.fillText(EDGE_NAMES[e.id],e.x,e.y+(open?-10:0));
+        ctx.drawImage((prot?nameSpr.red:nameSpr.cream)[e.id],e.x-17,e.y-14+(open?-10:0));
       });
     }else geom=cubeGeom(cx,cy,size*.36,S.yaw);
     if(showNet){const u=S.lastUnfold||current().exampleUnfold;drawNetAt(ctx,cx,cy,Math.min(58,size*.18),S.unfold,u,S.failKind)}
@@ -379,13 +521,22 @@
       return{ok:false,kind:u.reason==='overlap'?'overlap':'disconnected',u};
     }
     if((p.locked||[]).some(e=>!(S.cut&(1<<e))))return{ok:false,kind:'locked',u};
+    /* 판정을 바꾸지 않고 진단만 덧붙인다 — 거울상은 여전히 오답이지만 왜 오답인지 알려 준다.
+       실제 상자는 뒤집을 수 없으므로 거울상 전개도는 이 상자의 전개도가 아니다. */
+    if(canonicalShape(u.pos.map(q=>[-q[0],q[1]]))===p.shapeKey)return{ok:false,kind:'mirror',u};
     return{ok:false,kind:'wrongShape',u};
   }
   function submit(){if(S.phase!=='playing'||pop(S.cut)!==7)return;S.phase='judging';S.unfold=.01;S.squash=.7;const r=classify();S.failKind=r.ok?'':r.kind;S.lastUnfold=r.u;setTimeout(()=>{if(r.ok)correct();else wrong(r.kind)},1050)}
-  function correct(){S.score+=100*Math.min(3,1+S.combo);S.combo++;S.solved++;S.round++;S.flashUntil=performance.now()+90;S.overshoot=1.12;tone(523,.09);setTimeout(()=>tone(659,.1),100);setTimeout(()=>tone(784,.13),210);show('전개도가 촤르륵! 배달 선반에 착 찍혔어요.');const best=Math.max(+localStorage.getItem('cube-unfasten-best')||0,S.score);localStorage.setItem('cube-unfasten-best',best);setTimeout(()=>{S.phase='playing';resetRound()},1300)}
-  function wrong(kind='disconnected'){S.lives=Math.max(0,S.lives-1);S.combo=0;tone(125,.18,'sawtooth');show(MSG[kind]||MSG.disconnected);updateHUD();if(S.lives===0){S.phase='over';setTimeout(endGame,850)}else setTimeout(()=>{S.phase='playing';S.unfold=0;S.failKind='';S.lastUnfold=null;S.squash=1},1100)}
+  function correct(){S.score+=100*Math.min(3,1+S.combo);S.combo++;S.solved++;S.round++;S.flashUntil=performance.now()+90;S.overshoot=1.12;tone(523,.09);setTimeout(()=>tone(659,.1),100);setTimeout(()=>tone(784,.13),210);
+    const cleared=S.round>=ROUNDS;
+    if(cleared)S.score+=300;
+    show(cleared?'상자 열 개 배달 완료! 전개도 도감이 꽉 찼어요.':'전개도가 촤르륵! 배달 선반에 착 찍혔어요.');
+    const best=Math.max(+localStorage.getItem('cube-unfasten-best')||0,S.score);localStorage.setItem('cube-unfasten-best',best);
+    if(cleared){S.phase='over';setTimeout(()=>{setTimeout(()=>tone(988,.18),0);endGame(true)},1400)}
+    else setTimeout(()=>{S.phase='playing';resetRound()},1300)}
+  function wrong(kind='disconnected'){S.lives=Math.max(0,S.lives-1);S.combo=0;tone(125,.18,'sawtooth');show(MSG[kind]||MSG.disconnected);updateHUD();if(S.lives===0){S.phase='over';setTimeout(()=>endGame(false),850)}else setTimeout(()=>{S.phase='playing';S.unfold=0;S.failKind='';S.lastUnfold=null;S.squash=1},1100)}
   function show(msg){const e=$('#toast');e.textContent=msg;e.classList.remove('show');void e.offsetWidth;e.classList.add('show')}
-  function endGame(){$('#finalScore').textContent=S.score;$('#result').classList.add('show')}
+  function endGame(cleared){$('#resultTitle').textContent=cleared?'배달 완료!':'공구가 쉬어요';$('#resultSub').textContent=cleared?`상자 ${ROUNDS}개를 모두 펼쳤어요`:`펼친 상자 ${S.solved} / ${ROUNDS}`;$('#finalScore').textContent=S.score;$('#result').classList.add('show')}
 
   function loop(t){const frozen=t<S.freezeUntil;const dt=frozen?0:Math.min(.05,(t-S.last)/1000);S.last=t;if(!frozen){const target=-S.view*Math.PI/2;let d=target-S.yaw;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;S.yaw+=d*Math.min(1,dt*10);if(S.unfold>0&&S.unfold<1)S.unfold=Math.min(1,S.unfold+dt*0.92);if(S.squash<1)S.squash=Math.min(1,S.squash+dt*2.4);if(S.overshoot>1)S.overshoot=Math.max(1,S.overshoot-dt*.4)}draw(t);requestAnimationFrame(loop)}
   requestAnimationFrame(loop);
@@ -401,8 +552,26 @@
   $('#start').onclick=()=>{tone(392,.08);$('#start').style.transform='scale(.9)';setTimeout(startGame,120)};$('#again').onclick=startGame;$('#how').onclick=()=>$('#help').classList.add('show');$('#closeHelp').onclick=()=>$('#help').classList.remove('show');
   const best=+localStorage.getItem('cube-unfasten-best')||0;if(best)$('#best').textContent='최고 '+best+'점 · 5학년 2학기';
 
-  function sampleProblems(n){return Array.from({length:Math.max(20,n)},(_,i)=>{const p=SEEDS[i%SEEDS.length],variant=Math.floor(i/SEEDS.length),all=p.validMasks.map(m=>bits(m).join('·'));return{id:`net-${i+1}`,prompt:`${p.prompt} (상자 ${i+1}, 시점 ${variant%4+1})`,choices:null,answer:all.join(' | '),answerNumeric:p.validMasks.length,unitConcept:p.band===3?'잘못된 전개도 고치기':'정육면체의 전개도',validCuts:all,example:bits(p.example).join('·')}})}
-  window.__GAME_TEST__={ready:true,start:startGame,getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase==='title')startGame();correct()},answerWrong(){if(S.phase==='title')startGame();wrong('disconnected')},sampleProblems,getLayout(){return{land:S.land,playW:S.land?S.stageW*.58:innerWidth}},classifyCut:m=>{const p=current();return{ok:p.accept.has(m),n:p.validMasks.length}},simulateBot(type,runs=200){let complete=0,totalScore=0;for(let r=0;r<runs;r++){let solved=0;for(let q=0;q<SEEDS.length;q++){const p=SEEDS[q];const m=type==='same'?1:type==='cycle'?127:type==='random'?ALL_MASKS[(Math.random()*ALL_MASKS.length)|0]:0;if(p.accept.has(m))solved++}if(solved===SEEDS.length)complete++;totalScore+=solved*100}return{completionRate:complete/runs,averageScore:totalScore/runs}}};
+  /* 표본은 실제 문제 풀 그대로 낸다 — 같은 문제에 꼬리표만 갈아 끼워 다양성 검사를 속이지 않는다.
+     풀은 모양 20종 × 조건 3종 = 60문제이고 정답 집합이 문제마다 실제로 다르다. */
+  function sampleProblems(n){
+    const k=Math.max(1,Math.min((n|0)||20,SEEDS.length));
+    return SEEDS.slice(0,k).map((p,i)=>{
+      const all=p.validMasks.map(m=>bits(m).join('·'));
+      return{id:`net-${i+1}`,prompt:p.prompt,choices:null,answer:all.join(' | '),answerNumeric:p.validMasks.length,
+        unitConcept:p.kind==='tape'?'접히는 모서리를 남기고 전개도 만들기':p.kind==='pre'?'잘못된 전개도 고치기':'정육면체의 전개도',
+        shapeName:p.name,shapeFamily:p.family,shapeKey:p.key,band:p.band,validCuts:all,example:bits(p.example).join('·')}});
+  }
+  window.__GAME_TEST__={ready:true,start:startGame,getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved,round:S.round,rounds:ROUNDS}},answerCorrect(){if(S.phase==='title')startGame();correct()},answerWrong(){if(S.phase==='title')startGame();wrong('disconnected')},sampleProblems,getLayout(){return{land:S.land,playW:S.land?S.stageW*.58:innerWidth}},classifyCut:m=>{const p=current();return{ok:p.accept.has(m),n:p.validMasks.length}},
+    currentCut(){return S.cut},
+    /* 자동 플레이 검증용 — 화면상의 모서리 위치(탭 좌표) */
+    edgePoints(){return geom?geom.edges.map(e=>({id:e.id,x:Math.round(e.x),y:Math.round(e.y),vis:e.vis})):[]},
+    /* 검수용 — 시드 풀 전체를 기하 정보와 함께 내보낸다 (모양 이름이 격자와 맞는지 외부에서 재검산할 수 있게) */
+    pool(){return SEEDS.map(s=>({cls:s.cls,key:s.key,kind:s.kind,band:s.band,name:s.name,family:s.family,prompt:s.prompt,hint:s.hint,
+      grid:{w:s.grid.w,h:s.grid.h,cells:s.grid.cells,rows:s.grid.rows.map(r=>({len:r.len,start:r.start}))},
+      example:s.example,protectedEdge:s.protected,locked:s.locked,pre:s.pre||[],validMasks:s.validMasks,
+      exampleCells:s.exampleUnfold.pos}))},
+    simulateBot(type,runs=200){let complete=0,totalScore=0;for(let r=0;r<runs;r++){let solved=0;for(let q=0;q<SEEDS.length;q++){const p=SEEDS[q];const m=type==='same'?1:type==='cycle'?127:type==='random'?ALL_MASKS[(Math.random()*ALL_MASKS.length)|0]:0;if(p.accept.has(m))solved++}if(solved===SEEDS.length)complete++;totalScore+=solved*100}return{completionRate:complete/runs,averageScore:totalScore/runs}}};
 })();
 </script>
 </body>
