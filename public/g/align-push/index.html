@@ -107,11 +107,17 @@ button,a{font-family:var(--serif)}
   border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);background:var(--paper);
   font-size:clamp(16px,calc(var(--stageW)*0.022),24px);line-height:1.35;word-break:keep-all}
 #prompt .why{display:block;margin-top:5px;font-size:11px;letter-spacing:.08em;color:var(--teal)}
-html.land #hud{left:var(--stageX);width:min(520px,calc(var(--stageW)*0.42));right:auto}
-html.land #hudRight{position:fixed;top:calc(8px + var(--safeT));right:calc(var(--stageX) + 12px);
+html.land #hud{left:var(--stageX);width:max-content;max-width:calc(var(--stageW) * 0.6);right:auto;padding-left:24px}
+html.land #hud .rule{padding-bottom:5px}
+html.land #scoreV,html.land #timeV,html.land #comboV,html.land #sheetV{
+  font-size:clamp(20px,calc(var(--stageW)*0.021),27px)}
+html.land #hudRight{position:fixed;top:calc(8px + var(--safeT));right:calc(var(--stageX) + 24px);
   z-index:3;display:flex;pointer-events:none;border-bottom:1px solid var(--ink)}
-html.land #prompt{left:calc(var(--stageX) + min(520px,calc(var(--stageW)*0.42)) + 8px);
-  right:calc(var(--stageX) + 160px);top:calc(10px + var(--safeT));text-align:left}
+/* 발문은 상단 전폭 배너 — 좁은 박스에 갇혀 글자가 작아지지 않게 한다. */
+html.land #prompt{left:calc(var(--stageX) + 24px);right:calc(var(--stageX) + 24px);
+  top:calc(60px + var(--safeT));text-align:center}
+html.land #prompt .line{max-width:calc(var(--stageW) - 56px);width:100%;
+  font-size:clamp(18px,calc(var(--stageW)*0.0195),25px);padding:7px 14px 6px}
 #hudRight{display:none}
 html.land #hudRight{display:flex}
 
@@ -302,10 +308,29 @@ function josaUlAfterNum(str){
 }
 function unitUl(u){ return u==="kg"?"을":"를"; }
 
-function fmt(n,s){
+/* 교과서 표기 규약: 소수의 오른쪽 끝자리 0은 생략한다 (0.30 = 0.3, 3.00 = 3).
+   단 「소수 ○째 자리까지 나타내기」가 요구된 문항만 fmtFixed 로 자리를 채운다. */
+function normDec(d){
+  let n=d.n, s=d.s;
+  while(s>0 && n%10===0){ n=n/10; s--; }
+  return {n,s};
+}
+function fmtFixed(n,s){
   if(s<=0) return String(n);
   const w=Math.trunc(n/p10(s));
   return w+"."+String(n%p10(s)).padStart(s,"0");
+}
+function fmt(n,s){
+  const d=normDec({n,s});
+  return fmtFixed(d.n,d.s);
+}
+/* 요구 형식(소수 places 자리까지)에 맞춘 표기. places 가 없으면 끝자리 0을 생략한다. */
+function fmtForm(q, places){
+  if(places==null) return fmt(q.n,q.s);
+  let n=q.n, s=q.s;
+  while(s<places){ n*=10; s++; }
+  if(s>places) return fmt(q.n,q.s);
+  return fmtFixed(n,s);
 }
 function qEq(a,b){
   let an=a.n,as=a.s,bn=b.n,bs=b.s;
@@ -337,8 +362,34 @@ function wordPrompt(who,w,A,B){
 }
 
 const POOL=[];
+const SEEN_SIG=new Set();
+function placesKo(s){ return s===1?"한":s===2?"두":s===3?"세":String(s); }
+/* 차시 라벨을 문자열로 뭉뚱그리지 않고 실제 소수 자릿수에서 계산한다. */
+function conceptOf(num,div){
+  if(num.s===0) return "(자연수)÷(소수 "+placesKo(div.s)+" 자리)";
+  return "(소수 "+placesKo(num.s)+" 자리)÷(소수 "+placesKo(div.s)+" 자리)";
+}
+function bandOfShape(num,div,q){
+  if(num.s===0) return 3;
+  if(num.s===1 && div.s===1 && q.s===0 && q.n<=9) return 1;
+  return 2;
+}
 function pushP(p){
-  if(!p.round && !verifyExact(p.num,p.div,p.q)) return;
+  if(!p.round){
+    // 표기 정규화 — 3.00 ÷ 0.75 는 3 ÷ 0.75 다.
+    p.num=normDec(p.num); p.div=normDec(p.div); p.q=normDec(p.q);
+    // 나누는 수가 자연수면 자리 옮기기가 없다(7 ÷ 1.0 류 퇴화 나눗셈 배제).
+    if(p.div.s<1) return;
+    p.k=p.div.s;
+    if(!p.remain && !verifyExact(p.num,p.div,p.q)) return;
+    p.unitConcept=p.conceptFixed || (conceptOf(p.num,p.div)+(p.conceptSuffix||""));
+    p.band=p.bandFixed || bandOfShape(p.num,p.div,p.q);
+    p.maxSnap=Math.min(5, Math.max(p.maxSnap||0, p.k+2));
+  }
+  const sig=(p.type||"c")+"|"+p.num.n+"/"+p.num.s+"|"+p.div.n+"/"+p.div.s
+    +"|"+p.q.n+"/"+p.q.s+"|"+(p.place||0)+"|"+(p.prompt||"");
+  if(SEEN_SIG.has(sig)) return;
+  SEEN_SIG.add(sig);
   p.id=(p.type||"c")+"-"+fmt(p.num.n,p.num.s)+"-"+fmt(p.div.n,p.div.s)+"-"+p.k+"-"+POOL.length;
   if(!p.prompt){
     const expr=fmt(p.num.n,p.num.s)+" ÷ "+fmt(p.div.n,p.div.s);
@@ -354,9 +405,7 @@ function pushP(p){
       const N=q*d;
       if(N<10 || N>99 || N%10===0) continue;
       pushP({
-        type:"calc",band:1,num:{n:N,s:1},div:{n:d,s:1},k:1,q:{n:q,s:0},
-        unitConcept:"(소수 한 자리)÷(소수 한 자리)",
-        maxSnap:3
+        type:"calc",num:{n:N,s:1},div:{n:d,s:1},q:{n:q,s:0},maxSnap:3
       });
     }
   }
@@ -366,8 +415,7 @@ function pushP(p){
       const N=q*d;
       if(N>99 || N%10===0 || d%10===0) continue;
       pushP({
-        type:"calc",band:1,num:{n:N,s:1},div:{n:d,s:1},k:1,q:{n:q,s:0},
-        unitConcept:"(소수 한 자리)÷(소수 한 자리)",maxSnap:3
+        type:"calc",num:{n:N,s:1},div:{n:d,s:1},q:{n:q,s:0},maxSnap:3
       });
     }
   }
@@ -381,8 +429,7 @@ function pushP(p){
       const N=q*d;
       if(N<20 || N>999) continue;
       pushP({
-        type:"calc",band:2,num:{n:N,s:2},div:{n:d,s:2},k:2,q:{n:q,s:0},
-        unitConcept:"(소수 두 자리)÷(소수 두 자리)",maxSnap:4
+        type:"calc",num:{n:N,s:2},div:{n:d,s:2},q:{n:q,s:0},maxSnap:4
       });
     }
   }
@@ -391,15 +438,17 @@ function pushP(p){
 /* 밴드 2b: (소수 두 자리)÷(소수 한 자리), k=1, 몫에 소수점이 남을 수 있음.
    몫 자릿값 qn(소수 한 자리 스케일) × 나누는 수 정수부터 역생성. */
 (function band2mix(){
+  let i=0;
   for(let qn=12;qn<=29;qn++){
     if(qn%10===0) continue;
     for(let d=11;d<=39;d++){
       if(d%10===0) continue;
       const N=qn*d;
       if(N<100 || N>999) continue;
+      // 이 차시 하나가 풀의 절반을 차지하지 않도록 솎아 낸다(6차시 균형).
+      if((i++)%3!==0) continue;
       pushP({
-        type:"calc",band:2,num:{n:N,s:2},div:{n:d,s:1},k:1,q:{n:qn,s:1},
-        unitConcept:"(소수 두 자리)÷(소수 한 자리)",maxSnap:4
+        type:"calc",num:{n:N,s:2},div:{n:d,s:1},q:{n:qn,s:1},maxSnap:4
       });
     }
   }
@@ -416,8 +465,7 @@ function pushP(p){
         if(N<2 || N>80 || !Number.isInteger(N)) continue;
         if(k===1 && d>25 && d!==5 && d!==15 && d!==25) continue;
         pushP({
-          type:"calc",band:3,num:{n:N,s:0},div:{n:d,s:k},k,q:{n:q,s:0},
-          unitConcept:"(자연수)÷(소수)",maxSnap:5
+          type:"calc",num:{n:N,s:0},div:{n:d,s:k},q:{n:q,s:0},maxSnap:5
         });
       }
     }
@@ -431,30 +479,47 @@ function pushP(p){
     const w=rnd(WORDS), who=rnd(NAMES);
     const A=fmt(p.num.n,p.num.s), B=fmt(p.div.n,p.div.s);
     pushP({
-      ...p, type:"word", id:undefined,
+      ...p, type:"word", id:undefined, conceptSuffix:"",
       prompt:wordPrompt(who,w,A,B)
     });
   });
 })();
 
-/* 역추적: 이미 찍힌 정수식만 보이고 원래 점을 복원. 바를 왼쪽으로 k칸. */
+/* 역추적: 이미 찍힌 정수식만 보이고 원래 점을 복원한 뒤 몫까지 찍는다.
+   발문은 정답 식을 말해 주지 않는다 — 나누어지는 수 하나만 알려 주고,
+   나누는 수는 '두 수를 같은 칸만큼 옮긴다'는 성질로 스스로 되돌려야 한다.
+   그래서 몫이 같은 0.35 ÷ 0.05 는 여전히 오답이고, 판정도 몫 드럼을 함께 본다. */
+function shiftedExpr(p,k){
+  const ns=Math.max(0,p.num.s-k), ds=Math.max(0,p.div.s-k);
+  const Nn=p.num.n*p10(Math.max(0,k-p.num.s));
+  const Dn=p.div.n*p10(Math.max(0,k-p.div.s));
+  return fmt(Nn,ns)+" ÷ "+fmt(Dn,ds);
+}
 (function reverse(){
-  POOL.filter(p=>p.type==="calc" && p.q.s===0 && p.k>=1 && p.band<=2).slice(0,40).forEach(p=>{
+  const src=POOL.filter(p=>p.type==="calc" && p.q.s===0 && p.k>=1 && p.band<=2);
+  const st=Math.max(1,Math.floor(src.length/40));
+  src.filter((_,i)=>i%st===0).slice(0,40).forEach(p=>{
+    const A=fmt(p.num.n,p.num.s);
+    const shown=shiftedExpr(p,p.k);
     pushP({
       ...p, type:"reverse", id:undefined, startBar:p.k, targetBar:0,
-      prompt:(()=>{ const expr=fmt(p.num.n,p.num.s)+" ÷ "+fmt(p.div.n,p.div.s); return "처음 식이 "+expr+josaIAfterNum(expr)+" 되도록 소수점을 원래 자리로 되돌려 보세요."; })(),
-      unitConcept:p.unitConcept+" · 역추적"
+      prompt:"지금 판에는 "+shown+josaIAfterNum(shown)+" 찍혀 있습니다. 처음 식의 나누어지는 수는 "
+        +A+"입니다. 처음 나눗셈식을 찾고 몫을 구해 보세요.",
+      conceptSuffix:" · 역추적"
     });
   });
 })();
 
 /* 오류 찾기: 나누는 수만 이미 k칸 옮겨진 채로 시작. 코드를 고쳐 주지 않음. */
 (function errors(){
-  POOL.filter(p=>p.type==="calc" && p.q.s===0 && p.band<=2).slice(0,36).forEach(p=>{
+  const src=POOL.filter(p=>p.type==="calc" && p.q.s===0 && p.band<=2);
+  const st=Math.max(1,Math.floor(src.length/36));
+  src.filter((_,i)=>i%st===0).slice(0,36).forEach(p=>{
+    const expr=fmt(p.num.n,p.num.s)+" ÷ "+fmt(p.div.n,p.div.s);
     pushP({
       ...p, type:"error", id:undefined, startBar:0, startRow:p.k,
-      prompt:"한쪽 수만 옮겨져 있습니다. 두 수의 소수점을 같은 칸만큼 옮기고 몫을 구해 보세요.",
-      unitConcept:p.unitConcept+" · 오류 찾기"
+      prompt:"한쪽 수만 옮겨져 있습니다. 처음 식 "+expr+"의 두 소수점을 같은 칸만큼 옮기고 몫을 구해 보세요.",
+      conceptSuffix:" · 오류 찾기"
     });
   });
 })();
@@ -471,16 +536,60 @@ function roundTo(num,den,place){
   return {n:scaled,s:place,extra,ip,frac};
 }
 (function rounds(){
-  const pairs=[[7,3,1],[7,3,2],[2,3,2],[5,6,2],[8,3,1],[1,6,2],[10,3,2],[5,3,2],[11,6,2],[8,7,2]];
+  const pairs=[
+    [7,3,1],[7,3,2],[2,3,2],[5,6,2],[8,3,1],[1,6,2],[10,3,2],[5,3,2],[11,6,2],[8,7,2],
+    [4,3,1],[4,3,2],[1,3,1],[2,3,1],[5,6,1],[11,6,1],[11,3,1],[11,3,2],[13,6,2],[17,6,2],
+    [5,7,2],[6,7,2],[9,7,1],[9,7,2],[4,9,1],[5,9,1],[7,9,2],[8,9,2],[22,7,2],[16,3,2]
+  ];
   for(const [a,b,place] of pairs){
     const r=roundTo(a,b,place);
-    const trunc=fmt(Math.floor((a*p10(place))/b), place);
+    const trunc=fmtFixed(Math.floor((a*p10(place))/b), place);
+    const rs=roundTo(a,b,place-1);          // 한 자리 덜 정확하게 반올림한 값
     pushP({
       type:"round",band:3,num:{n:a,s:0},div:{n:b,s:0},k:0,q:{n:r.n,s:r.s},round:true,
-      extra:r.extra, place, trunc,
+      extra:r.extra, place, trunc, requiredPlaces:place, shortRound:{n:rs.n,s:rs.s},
       prompt:a+" ÷ "+b+"의 몫을 반올림하여 소수 "+(place===1?"첫째":"둘째")+" 자리까지 나타내 보세요.",
       unitConcept:"몫을 반올림하여 나타내기",maxSnap:3
     });
+  }
+})();
+
+/* 차시 6 「나누어 주고 남는 양」 — 남는 수의 소수점은 옮긴 자리가 아니라
+   처음 수의 소수점 자리에 찍는다. 7.6 ÷ 1.5 = 5 … 0.1 (1 이 아니다). */
+const REMAIN_CTX=[
+  {a:"우유",nun:"는",u:"L",per:"한 병에 ",v1:"담으려고",v2:"담을 수 있을 만큼 담고"},
+  {a:"밀가루",nun:"는",u:"kg",per:"한 봉지에 ",v1:"나누어 담으려고",v2:"담을 수 있을 만큼 담고"},
+  {a:"끈",nun:"은",u:"m",per:"",v1:"자르려고",v2:"자를 수 있을 만큼 자르고"},
+  {a:"주스",nun:"는",u:"L",per:"한 컵에 ",v1:"따르려고",v2:"따를 수 있을 만큼 따르고"}
+];
+(function remains(){
+  const cand=[];
+  for(let D=12;D<=48;D++){
+    if(D%10===0) continue;
+    for(let quo=2;quo<=9;quo++){
+      for(let rem=1;rem<D;rem++){
+        const N=quo*D+rem;
+        if(N<20 || N>99) continue;
+        if(rem%10===0) continue;      // 남는 양이 1.0 이면 「1」 오답과 구별되지 않는다
+        cand.push([N,D,quo,rem]);
+      }
+    }
+  }
+  const step=Math.max(1, Math.floor(cand.length/36));
+  let i=0;
+  for(let j=0;j<cand.length;j+=step){
+    const [N,D,quo,rem]=cand[j];
+    const c=REMAIN_CTX[i%REMAIN_CTX.length];
+    const A=fmt(N,1), B=fmt(D,1);
+    pushP({
+      type:"remain", remain:true, bandFixed:2, maxSnap:4,
+      num:{n:N,s:1}, div:{n:D,s:1}, q:{n:rem,s:1}, quo,
+      conceptFixed:"나누어 주고 남는 양",
+      prompt:c.a+" "+A+" "+c.u+unitUl(c.u)+" "+c.per+B+" "+c.u+"씩 "+c.v1+" 합니다. "
+        +c.v2+" 남는 "+c.a+c.nun+" 몇 "+c.u+"인지 구해 보세요.",
+      remainCtx:{a:c.a,u:c.u,per:c.per}
+    });
+    i++;
   }
 })();
 
@@ -538,29 +647,43 @@ function choiceDup(a,b,expr){
 
 function buildChoices(p){
   const expr=p.type==="reverse";
+  // 「소수 ○째 자리까지」를 요구한 문항만 자리를 채워 표기한다(정답·오답 같은 형식).
+  const rp=p.requiredPlaces;
   const ans=expr
     ? fmt(p.num.n,p.num.s)+" ÷ "+fmt(p.div.n,p.div.s)
-    : fmtQ(p.q);
+    : fmtForm(p.q, rp);
   const raw=[];
   const add=(q,id)=>{
     if(!q) return;
-    const s=typeof q==="string"?q:fmtQ(q);
+    const s=typeof q==="string"?q:fmtForm(q, rp);
     if(!s || s===ans) return;
     raw.push({s, misconceptionId:id});
   };
-  if(expr){
+  if(p.remain){
+    add(pointQ(p),"remainder-point");           // 남는 수의 점을 옮긴 자리에 찍음 (0.1 → 1)
+    add({n:p.quo,s:0},"quotient-instead");      // 몫을 남는 양으로 답함
+    add({n:p.q.n+1,s:p.q.s},"fill");
+    add({n:p.q.n+2,s:p.q.s},"fill");
+    add({n:Math.max(1,p.q.n-1),s:p.q.s},"fill");
+  } else if(expr){
     // 발문이 원래 식 복원으로 유일하므로, 같은 몫의 한 칸 더 이동은 오답(overshift)이다.
     add(fmt(p.num.n,p.num.s+1)+" ÷ "+fmt(p.div.n,p.div.s+1),"overshift");
     add(fmt(p.num.n,p.num.s)+" ÷ "+fmt(p.div.n,0),"one-side-shift");
     add(fmt(p.num.n,0)+" ÷ "+fmt(p.div.n,p.div.s),"num-only-shift");
     add(fmt(p.num.n,p.num.s)+" ÷ "+fmt(p.div.n,p.div.s+1),"one-side-shift");
+  } else if(p.round){
+    // 어림 문항의 오답은 어림 자체의 오류여야 한다(자리 옮기기 오개념을 섞지 않는다).
+    add(p.trunc,"round-short");                       // 그다음 자리를 보지 않고 버림
+    add(p.shortRound,"round-wrong-place");            // 한 자리 덜 정확하게 반올림
+    add({n:p.q.n+1,s:p.q.s},"round-up-extra");        // 무조건 올림
+    add({n:Math.max(0,p.q.n-1),s:p.q.s},"fill");
+    add({n:p.q.n+2,s:p.q.s},"fill");
   } else {
     add(oneSideQ(p),"one-side-shift");
     add(numOnlyQ(p),"num-only-shift");
     add(overshiftQ(p),"overshift");
     add(pointQ(p),"quotient-point");
     add(smallQ(),"always-smaller");
-    if(p.round) add(p.trunc,"round-short");
     add({n:p.q.n+1,s:p.q.s},"fill");
     add({n:Math.max(1,p.q.n-1),s:p.q.s},"fill");
     add({n:p.q.n+2,s:p.q.s},"fill");
@@ -569,13 +692,14 @@ function buildChoices(p){
   const has=s=> choiceDup(s,ans,expr) || seen.some(t=>choiceDup(s,t,expr));
   const out=[];
   for(const r of raw){
-    if(has(r.s) || r.s.length>12) continue;
+    // 식 선택지는 "0.625 ÷ 0.125"(13자)까지 살려야 몫 동일 함정 오답이 잘리지 않는다.
+    if(has(r.s) || r.s.length>(expr?16:12)) continue;
     seen.push(r.s);
     out.push(r);
   }
   let fill=2;
   while(out.length<3){
-    const s=String(fill++);
+    const s=expr? String(fill++) : fmtForm({n:fill++,s:0}, rp);
     if(has(s)) continue;
     seen.push(s);
     out.push({s, misconceptionId:"fill"});
@@ -719,14 +843,14 @@ function pickProblem(forceType, forceBand){
     if(S.mode==="easy") type="calc";
     else {
       const n=S.solved;
-      const cycle=["calc","word","calc","reverse","calc","error","word","calc"];
+      const cycle=["calc","word","calc","reverse","calc","error","remain","calc"];
       type=cycle[n%cycle.length];
       if(band===3 && S.solved>=8){
         const rounds=POOL.filter(p=>p.type==="round");
         const used=S.starBundles.length; // not accurate; count round used
         if(S._roundsUsed<2 && Math.random()<0.35) type="round";
       }
-      if(band===1 && (type==="reverse"||type==="error")) type="calc";
+      if(band===1 && (type==="reverse"||type==="error"||type==="remain")) type="calc";
     }
   }
   const want=POOL.filter(p=>{
@@ -738,7 +862,9 @@ function pickProblem(forceType, forceBand){
       if(p.band!==1 || p.q.s!==0 || p.q.n>9) return false;
       if(p.type!=="calc" && p.type!=="word") return false;
     } else {
-      if(type==="round") return p.type==="round";
+      // 특수 차시(어림·역추적·오류 찾기·남는 양)는 자체 난이도를 가지므로 밴드로 거르지 않는다.
+      // 거르면 파생 문항의 band 가 1이라 실제 플레이에 한 번도 나오지 않는다.
+      if(type==="round"||type==="reverse"||type==="error"||type==="remain") return p.type===type;
       if(p.band!==band && !(band===3 && p.band>=2)) return false;
     }
     return p.type===type;
@@ -768,11 +894,6 @@ function placeDigits(n,s,ncols,ones){
 }
 
 function setupDrums(p){
-  if(p.type==="reverse"){
-    S.drums=[];
-    S.extra=0;
-    return;
-  }
   const ds=[];
   if(p.round){
     const ip=(p.q.n/p10(p.q.s))|0;
@@ -825,7 +946,8 @@ function loadSheet(p, isPractice){
 function paintPrompt(){
   const p=S.prob; if(!p) return;
   let why="두 수에 같은 10배·100배를 하여도 몫은 같아요";
-  if(p.type==="reverse") why="소수점을 처음 식의 자리로만 되돌려 보세요";
+  if(p.type==="reverse") why="나누어지는 수가 처음 수가 되는 자리까지만 되돌려요";
+  else if(p.remain) why="남는 수의 소수점은 처음 수의 자리 그대로예요";
   else if(p.type==="error") why="두 수에 같은 칸만큼 옮겨야 몫이 같아요";
   else if(p.round) why="반올림하여 정해진 자리까지 나타내 보세요";
   promptLine.innerHTML=p.prompt+'<span class="why">'+why+'</span>';
@@ -873,15 +995,30 @@ function bakeBg(w,h){
   S.paper=c; S.paperW=w; S.paperH=h;
 }
 
+const RAIL_GAP=40;   // 가로 배치에서 레일과 몫 드럼 사이 간격
+function drumBoxW(){ return Math.max(48, Math.min(64, S.stageW*0.13)); }
 function railGeom(){
   const W=S.W, p=S.prob;
   const n=8, ones=2;
-  const top=S.land? 102 : (S.H>700? 148: 132);
-  const left=S.land? S.stageX+18 : 10;
-  const right=S.land? S.stageX+S.stageW-190 : W-10;
-  const w=Math.max(220, right-left);
-  const cellW=w/n;
-  const rowH=Math.max(50, Math.min(78, S.stageW*0.135));
+  // 가로에서는 발문 전폭 배너 아래에 자리값 라벨이 들어갈 자리를 남긴다.
+  const top=S.land? 168 : (S.H>700? 148: 132);
+  let left, w, cellW;
+  if(S.land){
+    // 몫 드럼을 레일 바로 옆 같은 가로 밴드에 두고, 레일+드럼을 한 덩어리로 가운데 정렬한다.
+    const nd=Math.max(1, (S.drums&&S.drums.filter(d=>d.kind).length)||1);
+    const drumsW=nd*(drumBoxW()+6)-6;
+    const avail=S.stageW-48;
+    cellW=Math.max(34, Math.min((avail-RAIL_GAP-drumsW)/n, 84));
+    w=cellW*n;
+    left=S.stageX+Math.max(24, (S.stageW-(w+RAIL_GAP+drumsW))/2);
+  } else {
+    left=10;
+    w=Math.max(220, (W-10)-left);
+    cellW=w/n;
+  }
+  const rowH=S.land
+    ? Math.max(58, Math.min(108, (S.H-top-190)/2))
+    : Math.max(50, Math.min(78, S.stageW*0.135));
   const y0=top+8;
   const y1=y0+rowH+8;
   const maxSnap=p? (S.mode==="easy"?3:(p.maxSnap||4)) : 4;
@@ -892,12 +1029,14 @@ function workGeom(){
   const g=railGeom();
   const ds=S.drums.filter(d=>d.kind);
   const n=ds.length;
-  const dw=Math.max(48, Math.min(64, S.stageW*0.13));
-  const dh=Math.max(56, Math.min(76, S.stageW*0.17));
+  const dw=drumBoxW();
+  const dh=S.land
+    ? Math.max(56, Math.min(96, g.rowH*0.92))
+    : Math.max(56, Math.min(76, S.stageW*0.17));
   let x0,y0;
   if(S.land){
-    x0=S.stageX+S.stageW-20-Math.max(1,n)*(dw+6);
-    y0=g.y0+6;
+    x0=Math.min(g.left+g.w+RAIL_GAP, S.stageX+S.stageW-24-Math.max(1,n)*(dw+6));
+    y0=g.y0+Math.max(0, ((g.y1+g.rowH)-g.y0-dh)/2);
   } else {
     const total=Math.max(0, n*(dw+6)-6);
     x0=g.left+Math.max(0,(g.w-total)/2);
@@ -907,9 +1046,9 @@ function workGeom(){
   const contentBot=S.land ? (g.y1+g.rowH) : (n? y0+dh : g.y1+g.rowH);
   const platenH=Math.max(58, Math.min(88, S.stageW*0.13));
   const platenLift=60;
-  const paperX=S.land? S.stageX+40 : 16;
-  const paperW=S.land? S.stageW-80 : S.W-32;
-  const paperY=contentBot+10;
+  const paperW=S.land? Math.min(S.stageW-80, 840) : S.W-32;
+  const paperX=S.land? S.stageX+(S.stageW-paperW)/2 : 16;
+  const paperY=contentBot+14;
   const platenW=S.land? Math.min(paperW+16, S.stageW-36) : S.W-24;
   const platenX=S.land? S.stageX+(S.stageW-platenW)/2 : 12;
   const platenY=clamp(S.H-platenH-platenLift, paperY+24, S.H-platenH-8);
@@ -1078,9 +1217,15 @@ function commonShiftOk(p, barPos, q){
 function failReason(){
   const p=S.prob, drum=readDrum();
   if(p.type==="reverse"){
-    if(S.barPos<0) return "한 칸 더 가면 처음 식이 아니에요.";
-    if(S.barPos!==(p.targetBar||0)) return "소수점을 처음 식의 자리로 되돌려 보세요.";
-    return "칸과 몫을 다시 맞춰 보세요.";
+    const tgt=p.targetBar||0;
+    if(S.barPos<tgt) return "한 칸 더 가면 나누어지는 수가 "+fmt(p.num.n,p.num.s)+"이 아니에요.";
+    if(S.barPos!==tgt) return "나누어지는 수가 "+fmt(p.num.n,p.num.s)+"이 되는 자리까지 되돌려 보세요.";
+    return "칸은 맞았어요. 몫 드럼을 굴려 몫을 맞춰 보세요.";
+  }
+  if(p.remain){
+    if(S.barPos<p.k) return "나누는 수가 자연수가 되도록 두 수를 같은 칸만큼 옮겨 보세요.";
+    if(drum.s!==p.q.s) return "남는 수의 소수점은 처음 수의 소수점 자리에 맞춰 찍어요.";
+    return "남는 양을 다시 구해 보세요.";
   }
   if(p.round && drum.extra===0) return "그다음 자리까지 굴린 다음 접어 보세요.";
   if(p.round) return "반올림하여 소수 "+(p.place===1?"첫째":"둘째")+" 자리까지 나타내 보세요.";
@@ -1095,9 +1240,12 @@ function failReason(){
 function isCorrect(){
   const p=S.prob, drum=readDrum();
   if(!p) return false;
-  if(p.type==="reverse") return S.barPos===(p.targetBar||0);
+  // 역추적: 칸을 되돌리는 것만으로는 통과하지 못한다. 몫 드럼까지 맞아야 한다.
+  if(p.type==="reverse") return S.barPos===(p.targetBar||0) && qEq(drum,p.q);
   // 오류 찾기: 어긋난 나누어지는 수를 바가 있는 원위치 칸까지 밀어 나누는 수와 같은 칸만큼 맞춤.
   if(p.type==="error") return S.rowShift===p.k && S.barPos===0 && qEq(drum,p.q);
+  // 남는 양: 나누는 수를 자연수로 만든 뒤, 남는 수의 소수점은 처음 자리 그대로다.
+  if(p.remain) return S.barPos>=p.k && qEq(drum,p.q);
   if(p.round) return commonShiftOk(p, S.barPos, drum) && qEq(drum,p.q) && drum.extra===p.extra;
   // 일반 계산: 최소 k칸 이상 공통 이동은 같은 비율이므로 몫이 같으면 정답.
   return commonShiftOk(p, S.barPos, drum) && qEq(drum,p.q);
@@ -1149,34 +1297,30 @@ function applyCorrect(fromHook){
 }
 
 function liveExpr(p, barPos){
-  const k=Math.max(0, barPos|0);
+  const k=barPos|0;   // 역추적은 원래 자리보다 왼쪽(-)으로도 갈 수 있다
   if(p.round) return fmt(p.num.n,p.num.s)+" ÷ "+fmt(p.div.n,p.div.s);
-  const ns=Math.max(0,p.num.s-k), ds=Math.max(0,p.div.s-k);
-  const Nn=p.num.n*p10(Math.max(0,k-p.num.s));
-  const Dn=p.div.n*p10(Math.max(0,k-p.div.s));
-  return fmt(Nn, ns)+" ÷ "+fmt(Dn, ds);
+  return shiftedExpr(p,k);
 }
 function liveMul(k){
   k=Math.max(0,k|0);
   return k<=0?"×1":k===1?"×10":k===2?"×100":k===3?"×1000":("×"+p10(k));
 }
 function livePreview(p){
-  const k=Math.max(0, S.barPos|0);
-  let qstr="—";
-  if(p.type==="reverse") qstr=fmtQ(p.q);
-  else if(S.drums && S.drums.length) qstr=fmtQ(readDrum());
+  const k=S.barPos|0;
+  const qstr=(S.drums && S.drums.length)? fmtQ(readDrum()) : "—";
   return {k, expr:liveExpr(p,k), mul:liveMul(k), qstr};
 }
 function stampText(p){
   const k=p.type==="reverse"?0:Math.max(p.k, S.barPos||0);
-  if(p.round) return liveExpr(p,0)+" ≈ "+fmtQ(p.q);
+  if(p.round) return liveExpr(p,0)+" ≈ "+fmtForm(p.q,p.requiredPlaces);
+  if(p.remain) return liveExpr(p,0)+" = "+p.quo+" … "+fmtQ(p.q);
   return liveExpr(p,k)+" = "+fmtQ(p.q);
 }
 
 function paintInkEq(on){
   const el=inkEq;
   if(!on || !S.inkText){ el.classList.remove("on"); el.innerHTML=""; return; }
-  const tex=S.inkText.replace("÷","\\div").replace("≈","\\approx");
+  const tex=S.inkText.replace("÷","\\div").replace("≈","\\approx").replace("…","\\cdots");
   if(window.katex){
     try{ katex.render(tex, el, {throwOnError:false, displayMode:false}); }
     catch{ el.textContent=S.inkText; }
@@ -1282,6 +1426,12 @@ function onDown(x,y,id){
   S._wg=null; S._dirty=true;
   const h=hit(x,y); if(!h) return;
   ptr.id=id; ptr.x=x; ptr.y=y; ptr.lx=x; ptr.ly=y; ptr.kind=h.kind; ptr.drum=h.i??-1;
+  // 끌기는 누른 지점을 기준(anchor)으로 누적 거리를 본다.
+  // 프레임마다의 미세 이동만 보면 천천히 끌 때 한 칸도 움직이지 않는다.
+  ptr.x0=x; ptr.y0=y;
+  ptr.barBase=S.barPos;
+  ptr.rowBase=S.rowShift;
+  ptr.drumBase=(h.kind==="drum" && S.drums[h.i]) ? S.drums[h.i].v : 0;
   if(h.kind==="platen"){
     ptr.grabY=y;
     ptr.platenAvail=Math.max(24, S.H-y-4);
@@ -1295,28 +1445,25 @@ function onDown(x,y,id){
 }
 function onMove(x,y){
   if(ptr.id==null) return;
-  const dx=x-ptr.lx, dy=y-ptr.ly;
   ptr.lx=x; ptr.ly=y; ptr.x=x; ptr.y=y;
   S._wg=null; S._dirty=true;
   const g=railGeom();
   if(ptr.kind==="bar"){
-    const nx=barPixel(g)+dx;
+    const nx=g.left+(g.barBase+ptr.barBase)*g.cellW + (x-ptr.x0);
     const cell=Math.round((nx-g.left)/g.cellW - g.barBase);
     const nb=clamp(cell, S.prob&&S.prob.type==="reverse"?-S.prob.k:0, g.maxSnap);
     if(nb!==S.barPos){ S.barPos=nb; sfx("move"); S.barGhosts.push({x:barPixel(g),a:1}); }
   } else if(ptr.kind==="row"){
-    const cell=Math.round(dx/g.cellW);
-    if(Math.abs(dx)>g.cellW*0.45){
-      S.rowShift=clamp(S.rowShift+(dx>0?-1:1), 0, g.maxSnap);
-      ptr.lx=x; sfx("move");
-    }
+    // 나누어지는 수 줄은 오른쪽으로 끌면 왼쪽 칸으로 되돌아온다(자리 올리기).
+    const step=Math.round((x-ptr.x0)/g.cellW);
+    const nr=clamp(ptr.rowBase-step, 0, g.maxSnap);
+    if(nr!==S.rowShift){ S.rowShift=nr; sfx("move"); }
   } else if(ptr.kind==="drum"){
     const d=S.drums[ptr.drum];
     if(!d || d.kind==="dot") return;
-    if(Math.abs(dy)>22){
-      d.v=(d.v+(dy>0?1:-1)+10)%10;
-      ptr.ly=y; sfx("drum");
-    }
+    const step=Math.round((y-ptr.y0)/26);
+    const nv=((ptr.drumBase+step)%10+10)%10;
+    if(nv!==d.v){ d.v=nv; sfx("drum"); }
   } else if(ptr.kind==="platen"){
     const pulled=Math.max(0, y-ptr.grabY);
     const need=Math.min(46, ptr.platenAvail*0.55);
@@ -1370,15 +1517,15 @@ const ctx=cv.getContext("2d");
 function roundRect(x,y,w,h){ ctx.beginPath(); ctx.rect(x,y,w,h); }
 
 function drawBarAsset(x,y,h){
-  ctx.strokeStyle=REG; ctx.lineWidth=2;
+  ctx.strokeStyle=REG; ctx.lineWidth=5;
   ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y+h); ctx.stroke();
   if(IM.bar.ok){
     const w=Math.max(22, h*0.1);
     ctx.drawImage(IM.bar, x-w/2, y, w, h);
   }
   ctx.fillStyle=REG;
-  ctx.beginPath(); ctx.arc(x,y+10,6,0,6.28); ctx.fill();
-  ctx.beginPath(); ctx.arc(x,y+h-10,6,0,6.28); ctx.fill();
+  ctx.beginPath(); ctx.arc(x,y+10,8,0,6.28); ctx.fill();
+  ctx.beginPath(); ctx.arc(x,y+h-10,8,0,6.28); ctx.fill();
   ctx.strokeStyle=INK; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(x-8,y+10); ctx.lineTo(x+8,y+10);
   ctx.moveTo(x,y+2); ctx.lineTo(x,y+18); ctx.stroke();
@@ -1439,7 +1586,7 @@ function drawSheet(wg){
     const usable=sh.h*0.7;
     const y0=-sh.h/2+Math.max(36, usable*0.14);
     const row=Math.max(24, Math.min(48, usable*0.13));
-    const rows=[["이동 배율", live.mul],["바뀐 식", live.expr],[p.type==="reverse"?"이미 찍힌 몫":"몫", live.qstr]];
+    const rows=[["이동 배율", live.mul],["바뀐 식", live.expr],[p.remain?"남는 양":"몫", live.qstr]];
     ctx.strokeStyle="rgba(27,27,27,.22)"; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(-innerW/2, y0-8); ctx.lineTo(innerW/2, y0-8); ctx.stroke();
     rows.forEach((r,i)=>{
@@ -1543,6 +1690,21 @@ function drawPlay(dt){
   }
   row(cellsN, g.y0, p.type==="error"?S.rowShift:0, 0);
   row(cellsD, g.y1, p.type==="error"? p.k:0, S.hintDiv);
+
+  // 줄 왼쪽(=자연수 자리)에 들어온 칸을 옅게 물들인다.
+  // "나누는 수의 숫자가 모두 줄 왼쪽에 오게" 라는 지시가 눈에 바로 보이게 하고,
+  // 바를 한 칸 밀 때 무엇이 달라졌는지 한눈에 잡히게 한다.
+  {
+    const bxNow=barPixel(g);
+    const wLeft=Math.max(0, Math.min(bxNow, g.left+g.w)-g.left);
+    if(wLeft>0){
+      ctx.save();
+      ctx.globalAlpha=0.15; ctx.fillStyle=TEAL;
+      ctx.fillRect(g.left, g.y0, wLeft, g.rowH);
+      ctx.fillRect(g.left, g.y1, wLeft, g.rowH);
+      ctx.restore();
+    }
+  }
 
   S.barGhosts=S.barGhosts.filter(z=>z.a>0.05);
   for(const z of S.barGhosts){
@@ -1773,7 +1935,7 @@ window.__GAME_TEST__={
           bar=(Math.random()*(maxSnap+1))|0;
           drum={n:(Math.random()*10)|0,s:0};
         }
-        const ok = p.type==="reverse" ? bar===0 : (bar>=p.k && qEq(drum,p.q) && (p.type!=="error" || row===p.k));
+        const ok = p.type==="reverse" ? (bar===0 && qEq(drum,p.q)) : (bar>=p.k && qEq(drum,p.q) && (p.type!=="error" || row===p.k));
         if(ok){ score+=100*combo; combo++; solved++; }
         else { combo=1; lives--; }
         p=JSON.parse(JSON.stringify(rnd(POOL.filter(x=>x.type==="calc"&&x.band<=2&&x.q.s===0))));
