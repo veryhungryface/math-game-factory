@@ -202,7 +202,7 @@ html.tall #failNote{left:16px;right:16px;bottom:max(12px,var(--safeB))}
   <div class="plaque">
     <div class="step">안내</div>
     <h2>열 장이면 올려</h2>
-    <p>1. 일의 자리 기둥에서 칼선 손잡이를 세로로 끌어 열 장의 배수 높이에 놓고 손을 떼세요.</p>
+    <p>1. 일의 자리 기둥을 손가락으로 짚으면 칼선이 따라옵니다. 열 장의 배수 높이에 놓고 손을 떼세요.</p>
     <p>2. 열 장 묶음이 왼쪽 자리의 한 장이 됩니다. 남은 장은 아홉 장을 넘기면 안 됩니다.</p>
     <p>3. 세 자리를 잠그면 목표 송판이 격파됩니다. 빗맞으면 송판에 금이 가고 목숨이 줄어요.</p>
     <button id="closeHelp">해볼게요</button>
@@ -293,6 +293,25 @@ function digitsOf(n){
   return d;
 }
 
+/* ── 조사 선택: 수를 읽었을 때의 끝소리로 고른다 ─────────────
+ * 끝자리가 0이 아니면 그 자리 숫자의 읽는 소리(일 이 삼 사 오 육 칠 팔 구),
+ * 0이면 마지막 자릿값 이름(십 백 천 만)의 끝소리를 본다.
+ *   받침 없음: 이 사 오 구            → 를 / 는 / 가 / 로
+ *   받침 ㄹ  : 일 칠 팔              → 을 / 은 / 이 / 로   (ㄹ 뒤는 '으로'가 아니라 '로')
+ *   그 밖 받침: 삼(ㅁ) 육(ㄱ) 십(ㅂ) 백(ㄱ) 천(ㄴ) 만(ㄴ) 영(ㅇ) → 을 / 은 / 이 / 으로
+ */
+const DIGIT_TAIL = { 1:'ㄹ', 2:'', 3:'ㅁ', 4:'', 5:'', 6:'ㄱ', 7:'ㄹ', 8:'ㄹ', 9:'' };
+function numTail(n){
+  n = Math.abs(Math.round(n || 0));
+  const d = n % 10;
+  if (d) { const c = DIGIT_TAIL[d]; return { batchim: !!c, rieul: c === 'ㄹ' }; }
+  return { batchim: true, rieul: false }; // 영·십·백·천·만 전부 ㄹ 아닌 받침
+}
+function josaEul(n){ return numTail(n).batchim ? '을' : '를'; }
+function josaEun(n){ return numTail(n).batchim ? '은' : '는'; }
+function josaI(n){ return numTail(n).batchim ? '이' : '가'; }
+function josaRo(n){ const t = numTail(n); return (!t.batchim || t.rieul) ? '로' : '으로'; }
+
 /* ── 오개념 역산 ─────────────────────────────────────────── */
 function missIncomingCarry(a, m){
   // misconceptionId: missIncomingCarry — 앞에서 올린 수를 다음 자리 곱에 더하지 않는다
@@ -328,16 +347,39 @@ function overEstimateBoth(a, m, b){
   const aUp = (Math.floor(a / step) + 1) * step;
   return aUp * (m + 1);
 }
-function properEstimate(a, m, b){
-  if (b != null && b >= 10) {
-    const near = (n) => Math.round(n / 10) * 10;
-    return near(a) * near(b);
-  }
-  const step = a >= 100 ? 100 : 10;
-  return Math.round(a / step) * step * m;
-}
-function estimateUnit(actual){
-  return actual >= 1000 ? 1000 : 100;
+/* ── 어림셈 문항 [4수01-08] ─────────────────────────────────
+ * 「몇백(몇십)으로 어림하여 곱을 어림한다」 — 어림 대상은 곱해지는 수 하나뿐이고
+ * 곱하는 수는 그대로 둔다. 보기 셋은 모두 이웃한 몇백의 곱이라 전부 살아 있다.
+ * (「○의 자리에서」 표현은 3-2 받아올림과 충돌하므로 쓰지 않는다 — CLAUDE.md)
+ */
+function makeEstimateQ(sp){
+  const a = sp.a | 0;
+  const mult = (sp.b != null ? sp.b : sp.m) | 0;
+  const unit = a >= 100 ? 100 : 10;
+  const unitName = unit === 100 ? '몇백' : '몇십';
+  const lo = Math.floor(a / unit) * unit;   // 바로 아래 몇백
+  const hi = lo + unit;                     // 바로 위 몇백
+  // a 는 unit 의 배수가 아니고 정확히 중간도 아니다(끝자리가 0이 아니게 만들어 둔 풀이다)
+  const round = (a - lo) * 2 >= unit ? hi : lo;
+  // 보기 셋은 모두 '이웃한 몇백'이라 셋 다 실제로 학생이 고를 만한 어림이다.
+  // 창을 아래·위 두 방향으로 굴려서 정답 자리가 왼쪽·가운데·오른쪽에 골고루 오게 한다.
+  // 정답 자리가 왼쪽·가운데·오른쪽에 1/3씩 오도록 창 방향을 가중해 고른다
+  const canDown = lo - unit >= unit;
+  const down = canDown && (round === lo ? Math.random() >= 2 / 3 : Math.random() >= 1 / 3);
+  const bases = down ? [lo - unit, lo, hi] : [lo, hi, hi + unit];
+  const values = bases.map(v => v * mult);
+  const z = bases.indexOf(round);
+  return {
+    a, mult, unit, unitName,
+    bases, values,
+    answerIndex: z,
+    round,
+    answer: values[z],
+    actual: a * mult,
+    prompt: '송판이 ' + a + '장씩 ' + mult + '묶음 있습니다. 모두 몇 장쯤인지 알아보려고 ' +
+            a + josaEul(a) + ' 가장 가까운 ' + unitName + '으로 어림했습니다. ' +
+            '어림한 곱이 얼마인지 말뚝을 밀어 표시해 보세요.'
+  };
 }
 function carriesOf(a, m){
   const d = digitsOf(a);
@@ -391,13 +433,24 @@ function setCarryAnswer(spec, focus){
 function finalizeChoices(item){
   const correct = item.product | 0;
   const m = item.m, a = item.a, b = item.b;
-  const raw = [
+  // (두 자리)×(두 자리)는 오개념이 다르다. missIncomingCarry(a, 일의 자리) 를 쓰면
+  // 정답의 1/10 크기밖에 안 되는 엉뚱한 채움값이 나오므로 부분곱 오류로 갈아 끼운다.
+  const raw = b != null ? (() => {
+    const bo = b % 10, bt = Math.floor(b / 10);
+    return [
+      { v: a * bo + a * bt, misconceptionId: 'unshiftedPartial' },        // 둘째 부분곱을 한 칸 안 민다
+      { v: a * bo, misconceptionId: 'missTensPartial' },                  // 십의 자리 부분곱을 통째로 빠뜨린다
+      { v: a * bt * 10, misconceptionId: 'missOnesPartial' },             // 일의 자리 부분곱을 통째로 빠뜨린다
+      { v: missIncomingCarry(a, bo) + missIncomingCarry(a, bt) * 10, misconceptionId: 'missIncomingCarry' },
+      { v: a + b, misconceptionId: 'addedNotMultiplied' }
+    ];
+  })() : [
     { v: missIncomingCarry(a, m), misconceptionId: 'missIncomingCarry' },
-    { v: unshiftedPartial(a, b != null ? b : m), misconceptionId: 'unshiftedPartial' },
+    { v: unshiftedPartial(a, m), misconceptionId: 'unshiftedPartial' },
     { v: overEstimateBoth(a, m, b), misconceptionId: 'overEstimateBoth' },
     { v: correct + 10, misconceptionId: 'falseCarry' },
     { v: correct - 10, misconceptionId: 'offByTen' },
-    { v: a + (b != null ? b : m), misconceptionId: 'addedNotMultiplied' }
+    { v: a + m, misconceptionId: 'addedNotMultiplied' }
   ];
   const seen = new Set([String(correct)]);
   const dist = [];
@@ -428,16 +481,16 @@ function finalizeChoices(item){
 }
 
 const LIFE = [
-  (a, m) => `도장에 송판이 ${a}장씩 ${m}묶음 있습니다. 모두 몇 장인지 구해 보세요.`,
-  (a, m) => `좌석이 ${a}줄이고 한 줄에 ${m}자리입니다. 자리는 모두 몇 개인지 구해 보세요.`,
-  (a, m) => `한 접시에 음식이 ${a}인분씩 ${m}접시 있습니다. 음식은 모두 몇 인분인지 구해 보세요.`,
-  (a, m) => `민준이 송판을 ${a}장씩 ${m}번 옮겼습니다. 옮긴 송판은 모두 몇 장인지 구해 보세요.`,
-  (a, m) => `서연이 경기를 ${a}분씩 ${m}번 했습니다. 경기 시간은 모두 몇 분인지 구해 보세요.`
+  (a, m) => `도장에 송판이 ${a}장씩 ${m}묶음 있습니다. 송판은 모두 몇 장인지 구해 보세요.`,
+  (a, m) => `의자가 ${a}줄로 놓여 있습니다. 한 줄에 의자가 ${m}개씩 있다면 의자는 모두 몇 개인지 구해 보세요.`,
+  (a, m) => `한 상자에 김밥이 ${a}줄씩 들어 있습니다. 이런 상자가 ${m}개라면 김밥은 모두 몇 줄인지 구해 보세요.`,
+  (a, m) => `민준이가 송판을 ${a}장씩 ${m}번 옮겼습니다. 옮긴 송판은 모두 몇 장인지 구해 보세요.`,
+  (a, m) => `서연이가 줄넘기를 ${a}번씩 ${m}일 했습니다. 줄넘기를 모두 몇 번 했는지 구해 보세요.`
 ];
 
 function promptCompute(a, m, b){
-  if (b != null) return `${a} × ${b}을 구해 보세요.`;
-  return `${a} × ${m}을 구해 보세요.`;
+  const right = b != null ? b : m;
+  return `${a} × ${right}${josaEul(right)} 구해 보세요.`;
 }
 
 /* ── 제약 만족 풀: 자릿값부터 역생성 ──────────────────────── */
@@ -499,20 +552,32 @@ function buildPools(){
       }
     }
   }
-  // Band 4: 차시6. (두 자리)×(두 자리), 첫째 줄 일의 자리에만 올림 한 번, 둘째 줄은 자리 밀기
-  for (let bo = 2; bo <= 9; bo++) {
-    for (let ao = 1; ao <= 9; ao++) {
-      const p0 = ao * bo;
-      if (p0 < 10) continue;
-      const c0 = Math.floor(p0 / 10);
-      for (let at = 1; at <= 9; at++) {
-        if (at * bo + c0 >= 10) continue;
-        for (let bt = 1; bt <= 9; bt++) {
-          if (ao * bt >= 10 || at * bt >= 10) continue;
-          const a = at * 10 + ao, b = bt * 10 + bo;
-          pushSpec(4, { a, m: bo, b, kind: 'shift_row', unitConcept: '(두 자리 수)×(두 자리 수)', prompt: promptCompute(a, bo, b) });
+  // Band 4: 차시6. (두 자리)×(두 자리). 두 부분곱 모두 세 자리까지 허용하고
+  // 둘째 인수를 11~99 전 범위로 넓힌다(예전에는 제약 때문에 사실상 ×12 하나뿐이었다).
+  {
+    const cand = [];
+    for (let bo = 1; bo <= 9; bo++) {
+      for (let bt = 1; bt <= 9; bt++) {
+        const b = bt * 10 + bo;
+        if (b < 12) continue;
+        for (let ao = 1; ao <= 9; ao++) {
+          for (let at = 1; at <= 9; at++) {
+            const a = at * 10 + ao;
+            if (a < 12) continue;
+            // 한 기둥에 쌓이는 송판이 화면을 넘으면 칼선이 손에 닿지 않는다.
+            // Band 1~3 과 같은 상한(자리곱 45장)을 지킨다.
+            const dmax = Math.max(at, ao);
+            if (dmax * bo > 45 || dmax * bt > 45) continue;
+            // 두 부분곱(a×bo, a×bt) 중 적어도 한 번은 올림이 있어야 '올려 보내기'가 살아난다
+            if (!hasCarry(a, bo) && !hasCarry(a, bt)) continue;
+            cand.push({ a, b, bo });
+          }
         }
       }
+    }
+    // 실제 게임에서 Band 4 는 이어하기 후반에만 나온다. 풀을 다른 밴드와 비슷한 크기로 맞춘다.
+    for (const c of shuffle(cand).slice(0, 220)) {
+      pushSpec(4, { a: c.a, m: c.bo, b: c.b, kind: 'shift_row', unitConcept: '(두 자리 수)×(두 자리 수)', prompt: promptCompute(c.a, c.bo, c.b) });
     }
   }
 }
@@ -520,6 +585,9 @@ function buildPools(){
 function wrapSpec(base, type){
   const spec = Object.assign({}, base);
   const right = spec.b != null ? spec.b : spec.m;
+  // (두 자리)×(두 자리) 스펙에 생활문을 얹으면 「66분씩 83번」 같은 억지 상황이 나온다.
+  // 이 스펙은 세로셈 두 줄 발문으로만 낸다.
+  if (spec.b != null && type === 'real_life') type = 'shift_row';
   spec.type = type || spec.kind || 'compute';
   if (type === 'real_life') {
     spec.prompt = pick(LIFE)(spec.a, right);
@@ -539,12 +607,22 @@ function wrapSpec(base, type){
     }
     setCarryAnswer(spec, focus);
   } else if (type === 'error_find') {
-    spec.prompt = spec.a + ' × ' + right + '에서 올려 보낸 송판이 빠졌습니다. 고쳐 보세요.';
+    // 실제로 올림이 일어나는 문항에서만 쓴다(takeSpec 이 걸러 준다). 올림이 없으면 계산형으로 되돌린다.
+    const onesM = spec.b != null ? (spec.b % 10) : spec.m;
+    const c = carriesOf(spec.a, onesM);
+    if (!c[0] || c[0].carryOut <= 0) {
+      spec.prompt = promptCompute(spec.a, spec.m, spec.b);
+      spec.type = 'compute';
+      spec.unitConcept = '올림이 없는 곱셈';
+      return spec;
+    }
+    spec.prompt = spec.a + ' × ' + right + '의 세로셈에서 일의 자리에서 올린 ' + c[0].carryOut +
+                  josaEul(c[0].carryOut) + ' 십의 자리 계산에 더하지 않았습니다. 바르게 고쳐 계산해 보세요.';
     spec.type = 'error_find';
-    spec.unitConcept = '연속 올림에서 올린 수 빠뜨림';
+    spec.unitConcept = '올린 수를 다음 자리 곱에 더하지 않는 실수 바로잡기';
     spec.errorFind = 'missIncomingCarry';
   } else if (type === 'shift_row' || spec.kind === 'shift_row') {
-    spec.prompt = spec.a + ' × ' + right + '에서 십의 자리 곱은 한 칸 왼쪽에 두고 묶어 보세요.';
+    spec.prompt = spec.a + ' × ' + right + josaEul(right) + ' 세로셈으로 계산해 보세요.';
     spec.type = 'shift_row';
   } else {
     spec.prompt = promptCompute(spec.a, spec.m, spec.b);
@@ -552,15 +630,27 @@ function wrapSpec(base, type){
   }
   return spec;
 }
+function onesCarry(spec){
+  const onesM = spec.b != null ? (spec.b % 10) : spec.m;
+  const c = carriesOf(spec.a, onesM);
+  return c[0] ? c[0].carryOut : 0;
+}
 function takeSpec(band, type){
   const pool = POOLS[band] && POOLS[band].length ? POOLS[band] : POOLS[Math.min(band, 3)];
   let base = pick(pool);
-  if (type === 'reverse') {
+  if (type === 'reverse' || type === 'error_find') {
     const richer = (POOLS[Math.max(2, Math.min(band, 3))] || []).concat(POOLS[3] || []);
     const src = richer.length ? richer : pool;
+    // error_find 는 '일의 자리에서 십의 자리로 올린 수'가 실제로 있어야 발문이 참이 된다.
+    const ok = type === 'error_find'
+      ? (s) => onesCarry(s) > 0
+      : (s) => hasCarry(s.a, s.b != null ? (s.b % 10) : s.m);
     let g = 0;
-    while (g++ < 24 && !hasCarry(base.a, base.b != null ? (base.b % 10) : base.m)) {
-      base = pick(src);
+    while (g++ < 48 && !ok(base)) base = pick(src);
+    if (!ok(base)) {
+      const found = src.find(ok) || pool.find(ok);
+      if (found) base = found;
+      else return wrapSpec(base, 'compute');
     }
   }
   return wrapSpec(base, type);
@@ -708,6 +798,13 @@ function layout(){
   bakeFloor();
   layoutCols();
 }
+// 문제 카드가 실제로 차지한 높이. 카드가 자릿값 머리표를 덮지 않게 이 아래에서 판을 시작한다.
+function promptBottom(){
+  const el = $('#prompt');
+  if (!el) return 56;
+  const r = el.getBoundingClientRect();
+  return r.height ? r.bottom : 56;
+}
 function layoutCols(){
   const W = S.W, H = S.H, land = S.land;
   let x, y, w, h;
@@ -719,17 +816,17 @@ function layoutCols(){
     S.play = { x, y, w, h };
     S.algo = { x: S.stageX + S.stageW * 0.62 + 8, y: H * 0.42, w: S.stageW * 0.38 - 24, h: H * 0.5 };
   } else if (S.tall) {
-    const promptBottom = 128;
+    const pb = Math.max(120, Math.round(promptBottom()) + 8);
     const algoH = Math.min(120, Math.round(H * 0.11));
-    S.algo = { x: 16, y: promptBottom, w: W - 32, h: algoH };
+    S.algo = { x: 16, y: pb, w: W - 32, h: algoH };
     x = 16;
-    y = promptBottom + algoH + 8;
+    y = pb + algoH + 8;
     w = W - 32;
-    h = Math.min(300, Math.max(250, H - y - 20));
+    h = Math.max(280, H - y - 28);   // 태블릿에서 화면 아래 절반이 비지 않게 끝까지 쓴다
     S.play = { x, y, w, h };
   } else {
     x = 8;
-    y = Math.max(118, 56 + 70);
+    y = Math.max(118, Math.round(promptBottom()) + 8);
     w = W - 16;
     h = Math.max(180, H - y - 96);
     S.play = { x, y, w, h };
@@ -739,15 +836,21 @@ function layoutCols(){
 
 function currentBand(){
   const elapsed = S.session - S.timeLeft;
+  let band;
   if (S.continueMode) {
-    if (elapsed >= 90) return 4;
-    if (elapsed >= 70) return 3;
-    if (elapsed >= 12) return 2;
-    return 1;
+    if (elapsed >= 90) band = 4;
+    else if (elapsed >= 70) band = 3;
+    else if (elapsed >= 12) band = 2;
+    else band = 1;
+  } else {
+    if (elapsed >= 70) band = 3;
+    else if (elapsed >= 12) band = 2;
+    else band = 1;
   }
-  if (elapsed >= 70) return 3;
-  if (elapsed >= 12) return 2;
-  return 1;
+  // Band 1 은 정의상 올림이 하나도 없다. 첫 판(연습판) 하나만 그렇게 두고,
+  // 두 번째 판부터는 반드시 올려 보내기가 나오게 한다.
+  if (band === 1 && S.broken >= 1) band = 2;
+  return band;
 }
 
 function spawnBoard(){
@@ -796,6 +899,7 @@ function updatePrompt(){
   const right = sp.b != null ? sp.b : sp.m;
   $('#eq').textContent = sp.a + ' × ' + right;
   $('#say').textContent = b.prompt;
+  layoutCols(); // 카드 높이가 문항마다 달라진다 — 판을 카드 아래로 다시 민다
 }
 
 function beginPlay(opts){
@@ -901,9 +1005,12 @@ function applyCorrect(pl, answerH, p){
   const remain = written;
   pl.boards = remain;
   pl.received = 0;
-  if (carryOut > 0 && S.active + 1 < b.places.length && !b.errorFind) {
+  if (carryOut > 0 && S.active + 1 < b.places.length) {
     const dest = b.places[S.active + 1];
-    spawnFlyers(pl, dest, carryOut);
+    // 오류찾기 판에서 '빠뜨린 올림'은 이미 그 자리에 유령 송판(missing)으로 놓여 있다.
+    // 그 한 번만 건너뛰고, 나머지 자리로 가는 올림은 정상적으로 날려 보낸다.
+    // (안 그러면 백의 자리 장수가 세로셈 답의 자릿수와 어긋난다)
+    if (!(b.errorFind && dest.missing > 0)) spawnFlyers(pl, dest, carryOut);
   }
   brand(b.spec.band === 1 ? 'noCarry' : b.spec.band === 2 ? 'oneCarry' : b.spec.band >= 3 ? 'chain' : 'lock');
   if (b.errorFind) brand('fix');
@@ -984,24 +1091,16 @@ function startShiftPhase2(b){
   b.phase2 = true;
   b.firstDone = true;
   const a = b.spec.a | 0, bt = Math.floor(b.spec.b / 10);
-  const d = digitsOf(a);
-  const places = [];
-  let incoming = 0;
-  for (let i = 0; i < Math.max(2, d.length); i++) {
-    const digit = d[i] || 0;
-    const trueP = digit * bt + incoming;
-    const written = trueP % 10;
-    const carryOut = Math.floor(trueP / 10);
-    places.push({
-      i, name: PLACE_NAME[i] || (i + '자리'),
-      digit, m: bt, incoming, trueP, written, carryOut,
-      boards: digit * bt, received: 0, missing: 0,
-      locked: false, cracked: 0,
-      knifeH: 0, startH: 0, answerH: 10 * carryOut,
-      squash: 1, squashT: 0
-    });
-    incoming = carryOut;
-  }
+  // carriesOf 는 최소 세 자리를 만든다 — 둘째 부분곱이 세 자리여도 마지막 올림을 잃지 않는다
+  const places = carriesOf(a, bt).map(row => ({
+    i: row.i, name: row.name,
+    digit: row.digit, m: row.m, incoming: row.incoming,
+    trueP: row.trueP, written: row.written, carryOut: row.carryOut,
+    boards: row.digit * row.m, received: 0, missing: 0,
+    locked: false, cracked: 0,
+    knifeH: 0, startH: 0, answerH: 10 * row.carryOut,
+    squash: 1, squashT: 0
+  }));
   for (const pl of places) {
     const vis = pl.boards;
     pl.startH = startHFor(Math.max(vis, 1), Math.floor(vis / 10));
@@ -1011,7 +1110,12 @@ function startShiftPhase2(b){
   b.places = places;
   S.beltShift = 0;
   S.active = 0;
-  b.prompt = '십의 자리 곱은 한 칸 왼쪽에 두고 묶어 보세요.';
+  while (S.active < places.length && places[S.active].trueP === 0 && places[S.active].digit === 0) {
+    places[S.active].locked = true;
+    S.active++;
+  }
+  if (S.active >= places.length) S.active = 0;
+  b.prompt = '이번에는 ' + b.spec.a + ' × ' + bt + '입니다. 띠를 한 칸 왼쪽으로 민 다음 묶어 올려 보세요.';
   updatePrompt();
   S.grace = 0;
 }
@@ -1020,6 +1124,7 @@ function shouldEstimate(){
   if (S.level < 2) return false;
   if (S.broken % 4 !== 0) return false;
   if (!S.board) return false;
+  if (S.board.spec.b != null) return false; // (두 자리)×(두 자리)는 어림 대상이 아니다
   return S.board.type === 'compute' || S.board.type === 'real_life';
 }
 
@@ -1035,27 +1140,26 @@ function closeChoice(kind){
   spawnBoard();
 }
 
+function pegZone(){ return clamp(Math.floor(S.pegX * 3), 0, 2); }
+
 function openEstimate(){
   const sp = S.board.spec;
-  const actual = sp.product;
-  const good = properEstimate(sp.a, sp.m, sp.b);
-  const bad = overEstimateBoth(sp.a, sp.m, sp.b);
-  const useBad = Math.random() < 0.5;
-  const shown = useBad ? bad : good;
-  const unit = estimateUnit(actual);
-  const close = Math.abs(actual - shown) <= unit;
-  S.estimate = { actual, shown, close, good, bad, unit, shownIsOver: useBad };
-  S.pegX = close ? 0.18 : 0.82; // 시작은 정답 구역이 아님
+  const q = makeEstimateQ(sp);
+  S.estimate = q;
+  // 시작 말뚝은 정답 자리가 아닌 곳에 둔다
+  const wrong = [0, 1, 2].filter(i => i !== q.answerIndex);
+  S.pegX = (pick(wrong) + 0.5) / 3;
   S.phase = 'estimate';
-  $('#eq').textContent = sp.a + ' × ' + (sp.b != null ? sp.b : sp.m);
-  $('#say').textContent = shown + '으로 어림했습니다. 실제 값은 ' + actual + '입니다. 차이가 ' + unit + ' 이하이면 가깝다고 합니다. 가까운지 말뚝을 밀어 표시해 보세요.';
+  $('#eq').textContent = q.a + ' × ' + q.mult;
+  $('#say').textContent = q.prompt;
+  layoutCols();
 }
 
 function judgeEstimate(){
   const e = S.estimate;
   if (!e) return;
-  const closeSide = S.pegX >= 0.5;
-  const ok = closeSide === e.close;
+  const z = pegZone();
+  const ok = z === e.answerIndex;
   S.phase = 'play';
   S.estimate = null;
   if (ok) {
@@ -1064,10 +1168,10 @@ function judgeEstimate(){
     S.punch = 1;
     beep('stamp');
   } else {
-    const diff = Math.abs(e.actual - e.shown);
-    if (e.close) applyWrong('overEstimateBoth', '어림과 실제의 차이가 ' + e.unit + ' 이하예요. 가깝다 쪽을 고르세요.');
-    else if (e.shownIsOver) applyWrong('overEstimateBoth', '두 수를 너무 크게 잡으면 실제와 멀어져요. 차이가 ' + diff + '이라 ' + e.unit + '보다 커요.');
-    else applyWrong('overEstimateBoth', '이 어림은 차이가 ' + diff + '이라 ' + e.unit + '보다 커요. 가깝지 않다 쪽을 고르세요.');
+    const chose = e.bases[z];
+    applyWrong(chose < e.round ? 'underEstimate' : 'overEstimateBoth',
+      e.a + josaEun(e.a) + ' ' + chose + '보다 ' + e.round + '에 더 가까워요. ' +
+      e.round + ' × ' + e.mult + ' = ' + e.answer + '쯤이에요.');
   }
   if (S.lives > 0 && S.phase === 'play') spawnBoard();
 }
@@ -1161,18 +1265,24 @@ function colLayout(){
   const gap = 10;
   const cw = (p.w - gap * (n - 1)) / n;
   const colY = S.tall ? p.y + 16 : p.y + 28;
-  const colH = S.tall ? Math.min(p.h - 24, 260) : p.h - 48;
+  const colH = S.tall ? p.h - 40 : p.h - 48;
+  const prev = S.cols || [];
   const out = [];
   for (let vis = 0; vis < n; vis++) {
     const i = n - 1 - vis; // 왼쪽이 높은 자리
     const pl = b.places[i];
+    // draw() 가 붙여 둔 칼선 히트박스를 이어받는다.
+    // (이걸 버리면 pointerdown 시점에 col.knife 가 없어져 터치로 칼을 잡을 수 없다)
+    const old = prev.find(c => c.pl === pl);
     out.push({
       pl, i,
       x: p.x + vis * (cw + gap),
       y: colY,
       w: cw,
       h: colH,
-      active: i === S.active && !pl.locked
+      pitch: cw + gap,
+      active: i === S.active && !pl.locked,
+      knife: old ? old.knife : undefined
     });
   }
   S.cols = out;
@@ -1356,19 +1466,33 @@ function drawColumns(){
       const yy = floorY - (n + 1) * bh * sq;
       drawPlank(x, yy, w, Math.max(3, bh - 1), pl.cracked > 0 && n < visN, ghost);
     }
-    const badgeY = floorY - total * bh * sq - 36;
+    // 더미가 아주 높으면(45장 이상) 배지가 문제 카드 뒤로 숨는다 — 기둥 머리 위로 붙잡아 둔다
+    const badgeY = Math.max(col.y + 2, floorY - total * bh * sq - 36);
     const bw = 54, bhBadge = 30;
     ctx.fillStyle = PAL.wood;
     ctx.fillRect(x, badgeY, bw, bhBadge);
     ctx.strokeStyle = PAL.navy;
     ctx.lineWidth = 2;
     ctx.strokeRect(x, badgeY, bw, bhBadge);
-    const numSc = Math.max(3, Math.round(S.W * 0.018));
-    drawGlyph(String(total), x + 8, badgeY + 5, Math.min(4, numSc), PAL.floor);
+    // 두 자리 수가 배지를 넘지 않게 글자 크기를 자릿수에 맞춰 줄인다
+    const numStr = String(total);
+    const numSc = clamp(Math.floor((bw - 14) / (numStr.length * 7)), 2, 4);
+    drawGlyph(numStr, x + 8, badgeY + 5, numSc, PAL.floor);
 
     if (col.active || (!pl.locked && col.pl === activePlace())) {
-      const hgt = clamp(pl.knifeH, 0, Math.max(total, 1));
-      const ky = floorY - hgt * bh * sq;
+      // 열 장 눈금은 늘 보여 준다 — 칼선이 어디에 놓여야 하는지가 이 게임의 과제다
+      ctx.strokeStyle = PAL.ink;
+      ctx.lineWidth = 2;
+      const flash = S.tickFlash > 0 && S.easy;
+      for (let t = 10; t <= total; t += 10) {
+        const ty = floorY - t * bh;
+        ctx.globalAlpha = flash ? (0.5 + 0.4 * Math.sin(S.tickFlash * 20)) : 0.5;
+        ctx.beginPath(); ctx.moveTo(x - 2, ty); ctx.lineTo(x + w + 2, ty); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // 칼선은 판정과 똑같은 좌표에 그린다(squash 를 태우면 보이는 곳과 판정이 어긋난다)
+      const hgt = clamp(Math.round(pl.knifeH), 0, Math.max(total, 1));
+      const ky = floorY - hgt * bh;
       ctx.strokeStyle = PAL.wood;
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(x - 4, ky); ctx.lineTo(x + w + 8, ky); ctx.stroke();
@@ -1377,27 +1501,37 @@ function drawColumns(){
       ctx.strokeStyle = PAL.wood;
       ctx.lineWidth = 2;
       ctx.strokeRect(x + w + 2, ky - 22, 44, 44);
+      drawGlyph(String(hgt), x + w + 8, ky - 8, 2, PAL.floor);
       col.knife = { x: x - 6, y: ky - 26, w: w + 56, h: 52 };
-      if (S.tickFlash > 0 && S.easy) {
-        ctx.strokeStyle = PAL.ink;
-        ctx.globalAlpha = 0.4 + 0.4 * Math.sin(S.tickFlash * 20);
-        ctx.lineWidth = 2;
-        for (let t = 10; t <= total; t += 10) {
-          const ty = floorY - t * bh * sq;
-          ctx.beginPath(); ctx.moveTo(x, ty); ctx.lineTo(x + w, ty); ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-    }
-    if (b.shift && !b.phase2) {
-      const ox = S.beltShift * (S.play.w / Math.max(1, b.places.length));
-      ctx.strokeStyle = PAL.navy;
-      ctx.lineWidth = 4;
-      ctx.strokeRect(col.x + ox * 0, col.y, col.w, 10);
     }
     ctx.restore();
   }
+  drawShiftBelt(cols);
   drawFlyers(cols);
+}
+
+/* 둘째 부분곱(십의 자리 곱)은 한 칸 왼쪽에 써야 한다.
+ * 밀기 전에는 띠가 한 칸 오른쪽에 놓여 있고, 왼쪽으로 밀어야 칼질이 열린다. */
+function drawShiftBelt(cols){
+  const b = S.board;
+  if (!b || !b.shift || !b.phase2 || !cols.length) return;
+  const last = cols[cols.length - 1];
+  const pitch = cols[0].pitch || (cols[0].w + 10);
+  const span = last.x + last.w - cols[0].x;
+  const w = Math.max(40, span - pitch);           // 한 칸 밀 자리를 남겨 화면 밖으로 나가지 않게 한다
+  const x = cols[0].x + (S.beltShift === 1 ? 0 : pitch);
+  const y = cols[0].y - 4;
+  ctx.save();
+  ctx.globalAlpha = S.beltShift === 1 ? 1 : 0.85;
+  ctx.fillStyle = S.beltShift === 1 ? PAL.navy : PAL.ink;
+  ctx.fillRect(x, y, w, 16);
+  ctx.strokeStyle = PAL.wood;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, 16);
+  ctx.fillStyle = PAL.floor;
+  ctx.font = '800 11px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.fillText(S.beltShift === 1 ? '한 칸 왼쪽 — 좋아요' : '← 한 칸 왼쪽으로 미세요', x + 8, y + 12);
+  ctx.restore();
 }
 
 function colRectFor(place){
@@ -1443,23 +1577,50 @@ function drawEstimate(){
   const e = S.estimate;
   if (!e) return;
   const p = S.play;
+  const boxY = p.y + Math.min(p.h * 0.3, 160);
+  const boxH = 150;
+  // 말뚝은 이 판 안에서만 잡힌다 — 엉뚱한 곳을 눌러 실수로 채점되지 않게
+  S.estBox = { x: p.x + 12, y: boxY - 8, w: p.w - 24, h: boxH + 16 };
   ctx.fillStyle = PAL.cream;
-  ctx.fillRect(p.x + 12, p.y + p.h * 0.35, p.w - 24, 88);
+  ctx.fillRect(p.x + 12, boxY, p.w - 24, boxH);
   ctx.strokeStyle = PAL.wood;
   ctx.lineWidth = 2;
-  ctx.strokeRect(p.x + 12, p.y + p.h * 0.35, p.w - 24, 88);
-  const x0 = p.x + 32, x1 = p.x + p.w - 32, y = p.y + p.h * 0.35 + 48;
+  ctx.strokeRect(p.x + 12, boxY, p.w - 24, boxH);
+  ctx.font = '800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.fillStyle = PAL.navy;
+  ctx.fillText(e.a + josaEul(e.a) + ' 가장 가까운 ' + e.unitName + '으로 어림하면?', p.x + 24, boxY + 22);
+
+  const x0 = p.x + 32, x1 = p.x + p.w - 32, y = boxY + boxH - 44;
+  const zone = pegZone();
+  // 세 자리(구역) 안내판: 어림한 몇백 × 곱하는 수
+  for (let i = 0; i < 3; i++) {
+    const zx0 = x0 + (x1 - x0) * (i / 3), zw = (x1 - x0) / 3;
+    const cx = zx0 + zw / 2;
+    if (i === zone) {
+      ctx.fillStyle = 'rgba(30,75,115,.16)';
+      ctx.fillRect(zx0 + 2, boxY + 30, zw - 4, boxH - 46);
+    }
+    ctx.fillStyle = i === zone ? PAL.navy : PAL.wood;
+    ctx.font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    const cap = e.bases[i] + ' × ' + e.mult;
+    ctx.fillText(cap, cx - ctx.measureText(cap).width / 2, boxY + 48);
+    const num = String(e.values[i]);
+    const sc = Math.max(2, Math.min(4, Math.floor(zw / (num.length * 9))));
+    const nw = num.length * (6 * sc + Math.max(2, sc));
+    drawGlyph(num, cx - nw / 2, boxY + 58, sc, i === zone ? PAL.ink : PAL.wood);
+    ctx.fillStyle = PAL.wood;
+    ctx.fillRect(cx - 1, y - 12, 2, 12);
+  }
   ctx.strokeStyle = PAL.wood;
   ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
-  ctx.fillStyle = PAL.navy;
-  ctx.font = '800 14px Copperplate, Futura, sans-serif';
-  ctx.fillText('가깝지 않다', x0, y - 16);
-  ctx.fillText('가깝다', x1 - 52, y - 16);
-  const px = x0 + (x1 - x0) * S.pegX;
+  const px = x0 + (x1 - x0) * clamp(S.pegX, 0, 1);
   ctx.fillStyle = PAL.ink;
-  ctx.fillRect(px - 8, y - 22, 16, 44);
-  S.pegHit = { x: px - 22, y: y - 24, w: 44, h: 48 };
+  ctx.fillRect(px - 9, y - 24, 18, 46);
+  ctx.strokeStyle = PAL.wood;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(px - 9, y - 24, 18, 46);
+  S.pegHit = { x: px - 24, y: y - 26, w: 48, h: 52 };
 }
 
 function draw(){
@@ -1541,25 +1702,46 @@ function yToKnife(col, py){
   return clamp(h, 0, Math.max(total, 0));
 }
 
+// 판이 막 바뀐 직후(다음 draw 전)에 손이 닿으면 S.cols 가 옛 판의 기둥일 수 있다.
+// colLayout() 은 이제 칼선 히트박스를 이어받으므로 항상 다시 계산해도 안전하다.
+function activeCol(){
+  return colLayout().find(c => c.active) || null;
+}
+// 손가락이 칼선 손잡이를 놓쳐도 그 기둥 안이면 칼선을 잡게 해 준다(초등 손가락 기준).
+function grabZone(col){
+  return { x: col.x - 14, y: col.y - 12, w: col.w + 28, h: col.h + 16 };
+}
+function needBeltShift(){
+  const b = S.board;
+  return !!(b && b.shift && b.phase2 && S.beltShift !== 1);
+}
+
 function onDown(e){
   unlockAudio();
   if (S.phase === 'estimate') {
     const p = pt(e);
-    if (hit(S.pegHit, p) || true) {
-      S.drag = { kind: 'peg', id: e.pointerId };
-      try { cv.setPointerCapture(e.pointerId); } catch {}
-    }
+    if (S.estBox && !hit(S.estBox, p)) return;
+    S.drag = { kind: 'peg', id: e.pointerId };
+    try { cv.setPointerCapture(e.pointerId); } catch {}
+    onMove(e);
     return;
   }
   if (S.phase !== 'play') return;
   const p = pt(e);
-  colLayout();
-  const col = (S.cols || []).find(c => c.active);
-  if (col && col.knife && hit(col.knife, p)) {
-    S.drag = { kind: 'knife', col, moved: false, y0: p.y, h0: col.pl.knifeH, id: e.pointerId };
-    try { cv.setPointerCapture(e.pointerId); } catch {}
-  } else if (S.board && S.board.shift && !S.board.phase2) {
+  // 둘째 부분곱은 한 칸 왼쪽으로 밀어야 칼질을 할 수 있다 — 밀기가 먼저다
+  if (needBeltShift()) {
     S.drag = { kind: 'belt', x0: p.x, s0: S.beltShift, moved: false, id: e.pointerId };
+    try { cv.setPointerCapture(e.pointerId); } catch {}
+    return;
+  }
+  const col = activeCol();
+  if (!col) return;
+  const onKnife = col.knife && hit(col.knife, p);
+  const inCol = hit(grabZone(col), p);
+  if (onKnife || inCol) {
+    // 손잡이가 아니라 기둥을 짚었으면 칼선이 손가락 높이로 따라온다
+    if (!onKnife) col.pl.knifeH = Math.round(yToKnife(col, p.y));
+    S.drag = { kind: 'knife', col, moved: !onKnife, y0: p.y, h0: col.pl.knifeH, id: e.pointerId };
     try { cv.setPointerCapture(e.pointerId); } catch {}
   }
 }
@@ -1569,7 +1751,8 @@ function onMove(e){
   if (S.drag.kind === 'knife') {
     const col = S.drag.col || (S.cols || []).find(c => c.active);
     if (!col) return;
-    const h = yToKnife(col, p.y);
+    // 송판 한 장 단위로 딱딱 붙는다 — 보이는 칼선 자리와 채점 자리가 늘 같아진다
+    const h = Math.round(yToKnife(col, p.y));
     if (Math.abs(h - S.drag.h0) > 0.2) S.drag.moved = true;
     col.pl.knifeH = h;
   } else if (S.drag.kind === 'belt') {
@@ -1599,6 +1782,11 @@ window.addEventListener('keydown', (e) => {
   const pl = activePlace();
   if (!pl) return;
   const vis = pl.boards + pl.received + (S.board.errorFind ? pl.missing : 0);
+  // 둘째 부분곱 띠 밀기(키보드)
+  if (S.board.shift && S.board.phase2) {
+    if (e.key === 'ArrowLeft') { S.beltShift = 1; e.preventDefault(); return; }
+    if (e.key === 'ArrowRight') { S.beltShift = 0; e.preventDefault(); return; }
+  }
   if (e.key === 'ArrowUp') { pl.knifeH = clamp(Math.round(pl.knifeH) + 1, 0, vis); e.preventDefault(); }
   if (e.key === 'ArrowDown') { pl.knifeH = clamp(Math.round(pl.knifeH) - 1, 0, vis); e.preventDefault(); }
   if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); judgeKnife(); }
@@ -1622,7 +1810,7 @@ function specks(){
 
 let obI = 0;
 const OB = [
-  { t: '칼선을 놓아 보세요', b: '일의 자리 기둥의 칼선 손잡이를 세로로 끌어 열 장의 배수 높이에 놓고 손을 떼세요. 송판 열 장이 위 자리의 한 장이에요.' },
+  { t: '칼선을 놓아 보세요', b: '일의 자리 기둥을 손가락으로 짚으면 칼선이 따라옵니다. 열 장의 배수 높이에 놓고 손을 떼세요. 송판 열 장이 위 자리의 한 장이에요.' },
   { t: '열 장을 올려 보세요', b: '칼선 아래 열 장씩이 왼쪽 기둥의 한 장으로 날아갑니다. 남은 장은 아홉 장을 넘기면 안 돼요.' },
   { t: '세 자리를 잠그세요', b: '일·십·백을 잠그면 목표 송판이 격파됩니다. 빗맞으면 금이 가고 목숨이 줄어요. 목숨은 여러 개라 만회할 수 있습니다.' }
 ];
@@ -1674,29 +1862,27 @@ function sampleProblems(n){
   const types = ['compute', 'real_life', 'reverse', 'error_find', 'shift_row', 'compute'];
   const carryBag = (POOLS[2] || []).concat(POOLS[3] || []);
   const out = [];
+  // 인덱스로 뽑으면 호출마다 같은 문항이 되돌아온다(전수 표본이 여섯 벌 겹친다). 전부 무작위로 뽑는다.
   for (let i = 0; i < n; i++) {
     let type = types[i % types.length];
-    let base = shuffled[i % shuffled.length];
-    if (type === 'shift_row' && POOLS[4].length) base = POOLS[4][i % POOLS[4].length];
-    if (type === 'reverse') {
-      base = (carryBag.length ? carryBag : shuffled)[i % Math.max(1, carryBag.length || shuffled.length)];
+    let base = pick(shuffled);
+    if (type === 'shift_row' && POOLS[4].length) base = pick(POOLS[4]);
+    if (type === 'reverse' || type === 'error_find') {
+      // 두 유형 모두 '올린 수'가 실제로 있어야 발문이 참이 된다 (Band 2·3 은 정의상 올림이 있다)
+      base = pick(carryBag.length ? carryBag : shuffled);
     }
     if (i % 8 === 7) {
-      const estPool = (POOLS[2] && POOLS[2].length) ? POOLS[2] : shuffled;
-      const sp = wrapSpec(estPool[i % estPool.length], 'compute');
-      const actual = sp.product | 0;
-      const shown = (i % 16 === 7) ? overEstimateBoth(sp.a, sp.m, sp.b) : properEstimate(sp.a, sp.m, sp.b);
-      const unit = estimateUnit(actual);
-      const close = Math.abs(actual - shown) <= unit;
-      const answer = close ? '가깝다' : '가깝지 않다';
+      const estPool = carryBag.length ? carryBag : shuffled;
+      const sp = pick(estPool);
+      const q = makeEstimateQ(sp);
       out.push({
         id: 'est-' + sp.id + '-' + i,
-        prompt: shown + '으로 어림했습니다. 실제 값은 ' + actual + '입니다. 차이가 ' + unit + ' 이하이면 가깝다고 합니다. 가까운지 말뚝을 밀어 표시해 보세요.',
-        choices: shuffle(['가깝다', '가깝지 않다', '같다', '비교할 수 없다']),
-        answer,
-        answerNumeric: close ? 1 : 0,
+        prompt: q.prompt,
+        choices: q.values.map(String),
+        answer: String(q.answer),
+        answerNumeric: q.answer,
         unitConcept: '곱셈 결과 어림하기',
-        misconceptions: ['overEstimateBoth']
+        misconceptions: ['underEstimate', 'overEstimateBoth']
       });
       continue;
     }
@@ -1717,7 +1903,7 @@ function sampleProblems(n){
 function forceCorrect(){
   if (S.phase === 'title' || S.phase === 'result') beginPlay();
   if (S.phase === 'choice') { closeChoice('focus'); }
-  if (S.phase === 'estimate') { S.pegX = S.estimate.close ? 0.8 : 0.2; judgeEstimate(); return; }
+  if (S.phase === 'estimate') { S.pegX = (S.estimate.answerIndex + 0.5) / 3; judgeEstimate(); return; }
   if (S.phase !== 'play') { S.phase = 'play'; if (!S.board) spawnBoard(); }
   if (!S.board) spawnBoard();
   let pl = activePlace();
