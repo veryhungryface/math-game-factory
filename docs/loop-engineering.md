@@ -58,7 +58,7 @@
   → 심사 (codex sol, fun 예측 게이트)
   → 아트 (codex 이미지 생성 병렬: bg/hero/thumb/square/title)
   → 빌드 (grok, 한 파일 HTML)
-  → 자동 QA (qa.mjs, puppeteer 41항목)
+  → 자동 QA (qa.mjs, puppeteer 43항목)
   → 독립 수학 전수 검산 (codex sol — 만든 모델과 다른 회사)
   → 검수 채점 (codex sol, 100점 만점 / 80점 게이트)
   → [미달 시] 수정 루프(최대 3회) → 재QA → 재검산 → 재검수
@@ -81,9 +81,9 @@
    실제로 8/29 세 회차(pair-heist·decimal-dot-raiders·decimal-alchemy)가 `math: 0` 으로
    즉시 폐기됐다 — 나머지 항목은 다 통과였다.
 
-### 자동 QA는 41개 이진 검사다 (`factory/lib/qa.mjs`)
+### 자동 QA는 43개 이진 검사다 (`factory/lib/qa.mjs`)
 
-`logs/20260829-221826/qa-2/report.json` 실측 — `total: 41, passed: 41, fatal: 0`:
+캔버스가 있는 게임 기준 `total: 43` (캔버스가 없으면 `visual.notblank` 가 빠져 42):
 
 ```
 file.index file.meta file.thumb file.square thumb.dims square.dims image.notduplicate
@@ -92,14 +92,37 @@ static.nocdn static.relpath static.testhook static.viewport static.lang static.t
 static.size static.assets
 run.ready run.api run.score run.penalty run.console run.pageerror run.network
 math.count math.prompt math.answer math.choices math.dupchoices math.variety math.numeric
-perf.fps mobile.overflow mobile.touch tablet.overflow visual.notblank
+input.real perf.fps perf.fps1280
+mobile.overflow mobile.touch tablet.overflow visual.notblank
 layout.wide1280 wide.overflow
 ```
 
-이 중 **17개가 `fatal`** 이다 — 하나라도 실패하면 `auto_pass:false` + `process.exit(1)`.
+이 중 **20개가 `fatal`** 이다 — 하나라도 실패하면 `auto_pass:false` + `process.exit(1)`.
 정적 검사 구간이 끝나는 시점에 fatal 이 있으면 **브라우저 검사 자체를 건너뛰고** 즉시 종료한다(비용 절약).
-반대로 `thumb.dims`·`perf.fps`·`layout.wide1280` 은 **비-fatal** 이다 — 기계는 통과시키고 검수 에이전트가 감점한다.
+반대로 `thumb.dims`·`math.variety`·`layout.wide1280` 은 **비-fatal** 이다 — 기계는 통과시키고 검수 에이전트가 감점한다.
 **"기계가 확실히 판정할 수 있는가"와 "중요한가"는 다른 축이고, 이 공장은 둘을 섞지 않는다.**
+
+#### 2026-09-01 보강 4건 — 게이트가 뚫린 실사례에서 나왔다
+
+1. **`input.real` 신설 (fatal).** `__GAME_TEST__.answerCorrect()` 는 게임 내부 판정을
+   직접 부르므로 **입력 경로를 통째로 건너뛴다.** 터치가 완전히 죽은 송판올려(plank-up)가
+   41개 중 40개를 통과했다. 이제 브라우저가 만든 **진짜 pointer 이벤트**로
+   탭·드래그를 (엘리먼트 중심 + 격자로) 쏘고, 무입력 기준선보다 큰 변화가
+   `getState()`·DOM 서명·캔버스 픽셀 중 하나에 생기는지 본다. 음소거·도움말 같은
+   게임 크롬 버튼은 근거에서 제외한다 — 그걸 허용하면 죽은 게임이 음소거 토글로 통과한다.
+   범용 제스처로 도저히 닿지 않는 게임은 훅에 선택적 `simulateInput()` 을 노출해 탈출할 수 있다.
+2. **`perf.fps` fatal 승격 + 중앙값화 + 데스크톱 추가.** 단일 3초 표본은 머신 부하에 따라
+   11~60fps 로 요동쳐 오탐·미탐이 둘 다 났다. 이제 1.5초 표본 3회의 중앙값을 쓰고,
+   미달이면 한 번 더 재고, **그래도 미달이면 같은 브라우저에서 고정 비용 캔버스 벤치를 돌려
+   그 시점의 머신 여유를 재서 보정**한다. 보정값도 30 미만이면 fatal, 보정값이 30 이상이면
+   "머신 부하 가능성"으로 비-fatal 판정 보류. 1280 뷰포트도 같은 방식으로 따로 잰다.
+3. **표본 변주.** `sampleProblems(40)` 한 번만 부르면 결정적 시드 게임은 늘 같은 40문항만
+   보여 준다. 이제 `n = 40 / 17 / 63` 세 번 불러 합집합(중복 제거)을 검산 표본으로 넘긴다.
+4. **`math.variety` 강화.** 프롬프트 **문자열 전체**를 비교하니 `"(상자 3, 시점 A)"` 같은
+   접미사만 갈아 끼우면 무력화됐다(cube-unfasten 은 사실상 10문제로 100% 를 받았다).
+   이제 괄호·대괄호 주석 덩어리와 꼬리 일련번호를 걷어낸 **핵심 문장**으로 센다.
+   숫자 자체는 지우지 않는다 — `3/4 × 2/3` 과 `1/2 × 5/6` 은 다른 문제다.
+   같은 잣대로 다시 재니 cube-unfasten 은 원문 100% → 핵심 16%(10/63) 로 드러났다.
 
 이 목록 자체가 루프의 퇴적물이다:
 

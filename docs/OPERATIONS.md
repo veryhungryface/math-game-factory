@@ -39,7 +39,7 @@
 **백그라운드 실행 패턴**: `nohup <cli> ... > /tmp/로그 2>&1 &` 후 PID를 잡고, 모니터로 `while kill -0 <PID>; do sleep 60; done` 감시. pgrep에 한글·괄호 패턴은 정규식 함정이 있으니 **PID 기준**으로 감시해라.
 
 ## 4. 생산 파이프라인 (`factory/run.sh`)
-단계: 슬롯 선택(pick-slot) → 기획 3안 병렬(grok/codex sol/codex) → 심사(codex sol) → 아트(codex 이미지: bg/hero/thumb 1200×630/square 1080×1080/title 세로) → 빌드(grok) → QA(`factory/lib/qa.mjs` 40항목, puppeteer 풀크롬) → 수학 검산(codex sol, `35-mathcheck.md`) → 검수(codex sol, `40-review.md`, **80점 게이트**) → 미달 시 수정→재QA→재검산→재검수 루프 **최대 3회**(`MAX_FIX_ROUNDS`, 2026-08-31 1회→3회 — 폐기 전에 부족한 부분을 살린다. 이전 라운드 검수 이력을 다음 수정에 누적 주입해 같은 지적의 반복을 막는다) → `publish-game.mjs` 게시 → `verify-catalog.mjs` 정합성 확인 → 커밋·푸시 → 디스코드 보고 → (10작마다) 레퍼런스 스카우트. 각 단계 러너는 `factory/config.sh` 값과 §3 폴백 규칙을 따른다.
+단계: 슬롯 선택(pick-slot) → 기획 3안 병렬(grok/codex sol/codex) → 심사(codex sol) → 아트(codex 이미지: bg/hero/thumb 1200×630/square 1080×1080/title 세로) → 빌드(grok) → QA(`factory/lib/qa.mjs` 43항목, puppeteer 풀크롬) → 수학 검산(codex sol, `35-mathcheck.md`) → 검수(codex sol, `40-review.md`, **80점 게이트**) → 미달 시 수정→재QA→재검산→재검수 루프 **최대 3회**(`MAX_FIX_ROUNDS`, 2026-08-31 1회→3회 — 폐기 전에 부족한 부분을 살린다. 이전 라운드 검수 이력을 다음 수정에 누적 주입해 같은 지적의 반복을 막는다) → `publish-game.mjs` 게시 → `verify-catalog.mjs` 정합성 확인 → 커밋·푸시 → 디스코드 보고 → (10작마다) 레퍼런스 스카우트. 각 단계 러너는 `factory/config.sh` 값과 §3 폴백 규칙을 따른다.
 - 프롬프트: `factory/prompts/10-design.md, 30-build.md, 35-mathcheck.md, 40-review.md, 50-reference-scout.md`
 - 설정: `factory/config.sh` (모델·타임아웃·GATE_SCORE=80·PRIORITY_UNITS·REPORT_TARGET)
 - 검수 제한 시간: `T_REVIEW=1200`초. 900초에서 실제 타임아웃 1회 후 2026-08-26 상향했다.
