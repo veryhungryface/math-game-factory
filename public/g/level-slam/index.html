@@ -16,7 +16,12 @@
   --stageW:min(100vw,1280px); --stageX:calc((100vw - var(--stageW)) / 2);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:var(--void);color:var(--ink);
+/* 공허 그라디언트와 점 격자는 매 프레임 캔버스에 다시 굽지 않고 문서 배경으로 깐다.
+   1280 dpr2 에서 전체화면 blit 한 번(≈2.3Mpx)이 프레임 예산의 큰 몫이었다. */
+html,body{width:100%;height:100%;overflow:hidden;color:var(--ink);
+  background-color:var(--void);
+  background-image:radial-gradient(rgba(90,70,55,.10) 1px,transparent 1.6px),linear-gradient(180deg,var(--void2) 0%,var(--void) 100%);
+  background-size:10% 8.3333%,100% 100%;background-repeat:repeat,no-repeat;background-attachment:fixed,fixed;
   font-family:"Avenir Next Condensed","Futura","DIN Alternate","Eurostile",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;overscroll-behavior:none}
 #cv{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;touch-action:none}
@@ -178,17 +183,37 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
   const PAL = { void:"#D6BFA8", void2:"#E8D3B8", cream:"#F4EFE6", tomato:"#E45A3C", tomatoTop:"#F28A74", tomatoSide:"#C24730", teal:"#2F6B5A", tealTop:"#3E8A74", tealSide:"#245446", sky:"#3A7CA5", ink:"#3A2A22" };
 
   const NAMES = ["가은", "도윤", "지민", "현우", "시아", "수현"];
+  /* noun 은 「지민의 ○○이 □회예요」에 들어가는 개별 자룟값의 이름이다.
+     scene 만 있으면 「지민 □회의 상자 속 구슬 수」처럼 □가 무엇을 세는지 흐려진다.
+     「왕복 달리기 기록」은 단위가 회라서 시간 기록으로 오해된다 → 횟수로 쓴다. */
   const CTX = [
-    { unit:"회", scene:"제기차기 기록" },
-    { unit:"점", scene:"고리 던지기 점수" },
-    { unit:"점", scene:"콩 주머니 던지기 점수" },
-    { unit:"개", scene:"상자 속 구슬 수" },
-    { unit:"회", scene:"왕복 달리기 기록" }
+    { unit:"회", scene:"제기차기 기록", noun:"기록" },
+    { unit:"점", scene:"고리 던지기 점수", noun:"점수" },
+    { unit:"점", scene:"콩 주머니 던지기 점수", noun:"점수" },
+    { unit:"개", scene:"상자 속 구슬 수", noun:"구슬 수" },
+    { unit:"회", scene:"왕복 달리기 횟수", noun:"횟수" }
   ];
-  /* 숫자 끝소리 받침: 2·4·5·9(이·사·오·구)는 와, 나머지(영·일·삼·육·칠·팔·십)는 과 */
-  function josaWa(n) {
-    const d = Math.abs(n) % 10;
-    return (d === 2 || d === 4 || d === 5 || d === 9) ? "와" : "과";
+  /* 한글 받침 유무로 조사를 고른다. 단위가 회(받침 없음)·점(받침 있음)으로 섞이므로
+     "…이에요/예요", "…은/는" 을 문장 조립 시점에 결정해야 비문이 안 난다. */
+  function hasJong(s) {
+    const t = String(s);
+    const c = t.charCodeAt(t.length - 1);
+    if (c < 0xAC00 || c > 0xD7A3) return false;
+    return ((c - 0xAC00) % 28) !== 0;
+  }
+  function josa(s, withJong, noJong) { return hasJong(s) ? withJong : noJong; }
+  /* 받침 있는 이름은 「가은이의 / 가은이는」, 없는 이름은 「현우의 / 현우는」. */
+  function possName(n) { return n + (hasJong(n) ? "이" : "") + "의"; }
+  function topicName(n) { return n + (hasJong(n) ? "이" : "") + "는"; }
+  /* 「제기차기 기록이 가은 2회, 도윤 3회」처럼 이름과 수치를 조사 없이 붙이면 표를
+     옮겨 적은 문장이 되고, 「상자 속 구슬 수」는 상자가 하나인지 사람마다인지 흐려진다.
+     첫 자료만 소유 관계를 온전히 밝히고 나머지는 「도윤이는 3회」로 이어 붙인다. */
+  function dataClause(names, vals, ctx) {
+    const head = possName(names[0]) + " " + ctx.scene + josa(ctx.scene, "은 ", "는 ") + vals[0] + ctx.unit;
+    const rest = vals.slice(1).map(function (v, i) {
+      return topicName(names[(i + 1) % names.length]) + " " + v + ctx.unit;
+    });
+    return [head].concat(rest).join(", ");
   }
 
   const STENCIL = {
@@ -455,11 +480,10 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     const ctx = CTX[(rng() * CTX.length) | 0];
     if (src.kind === "mean") {
       const vals = src.vals;
-      const u = src.withZero ? "" : ctx.unit;
-      const labeled = vals.map((v, i) => names[i % names.length] + " " + v + u).join(", ");
-      const prompt = src.withZero
-        ? vals.join(", ") + "의 평균을 구해 보세요."
-        : labeled + " " + ctx.scene + "의 평균을 구해 보세요.";
+      /* 교과서는 자료를 이름 붙은 기록으로 제시한다. 0이 든 자료도 마찬가지다
+         (0은 "자료가 없는 것"이 아니라 "0회를 기록한 것"이므로 이름을 붙여야 한다). */
+      const u = ctx.unit;
+      const prompt = dataClause(names, vals, ctx) + josa(u, "이에요", "예요") + ". 평균을 구해 보세요.";
       const raw = [];
       if (src.med !== null && src.med !== src.m) raw.push({ value: src.med, misconceptionId: "medianAsMean" });
       if (src.skip0 !== null && src.skip0 !== src.m) raw.push({ value: src.skip0, misconceptionId: "skipZero" });
@@ -476,30 +500,40 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       };
     }
     if (src.kind === "reverse") {
-      const visN = src.visible.length;
-      const prompt = "평균이 " + src.m + "이고 5개 기록 중 " + visN + "개 기록의 합이 " + src.S + "일 때, 나머지 한 기록을 구해 보세요.";
+      /* 합을 직접 주면 뺄셈 한 번으로 줄어든다. 교과서처럼 자료를 늘어놓고
+         하나를 □ 로 두어, 학생이 (평균 × 자료 수) 를 먼저 세우게 한다. */
+      const u = ctx.unit;
+      const who = names[src.visible.length % names.length];
+      const prompt = dataClause(names, src.visible, ctx) + "이고, " +
+        possName(who) + " " + ctx.noun + josa(ctx.noun, "은 ", "는 ") + "□" + u + josa(u, "이에요", "예요") +
+        ". 평균이 " + src.m + u + "일 때, □에 알맞은 수를 구해 보세요.";
       const raw = (src.distractors && src.distractors.length)
         ? src.distractors.slice()
         : reverseMiscons(src.m, src.hidden, src.visible, src.S);
       const ch = finishChoices(src.hidden, raw, 0, 16, rng);
       return {
         id: src.id, prompt: prompt,
-        choices: ch.map((c) => String(c.value)),
-        answer: String(src.hidden), answerNumeric: src.hidden,
+        choices: ch.map((c) => String(c.value) + u),
+        answer: String(src.hidden) + u, answerNumeric: src.hidden,
         unitConcept: "평균을 이용해 빠진 자료 구하기",
         distractors: ch.filter((c) => c.misconceptionId)
       };
     }
-    const lastA = src.A[src.A.length - 1];
-    const prompt = "건강 팀 " + src.A.join("·") + josaWa(lastA) + " 장수 팀 " + src.B.join("·") + "의 평균을 각각 구해 보세요. 평균이 더 큰 팀의 평균을 구해 보세요.";
+    /* 자료 구분자는 가운뎃점이 아니라 쉼표. 요구는 한 문장으로만. */
+    const u = ctx.unit;
+    const listA = src.A.map((v) => v + u).join(", ");
+    const listB = src.B.map((v) => v + u).join(", ");
+    const prompt = "건강 팀의 " + ctx.scene + josa(ctx.scene, "은 ", "는 ") + listA +
+      "이고, 장수 팀의 " + ctx.noun + josa(ctx.noun, "은 ", "는 ") + listB + josa(u, "이에요", "예요") +
+      ". 평균이 더 큰 팀의 평균을 구해 보세요.";
     const raw = (src.distractors && src.distractors.length)
       ? src.distractors.slice()
       : compareMiscons(src.m1, src.m2);
     const ch = finishChoices(src.winnerMean, raw, 0, 16, rng);
     return {
       id: src.id, prompt: prompt,
-      choices: ch.map((c) => String(c.value)),
-      answer: String(src.winnerMean), answerNumeric: src.winnerMean,
+      choices: ch.map((c) => String(c.value) + u),
+      answer: String(src.winnerMean) + u, answerNumeric: src.winnerMean,
       unitConcept: "평균으로 두 집단 비교·해석하기",
       distractors: ch.filter((c) => c.misconceptionId)
     };
@@ -542,7 +576,6 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
   };
 
   let IM = { chip: null, plate: null, titleOk: true };
-  let bgCache = null, bgKey = "";
 
   function loadImg(src) {
     return new Promise(function (res) {
@@ -625,10 +658,13 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  /* 판정 창 = 정지 구간 + 진입/이탈 이동의 각 절반 = dwell 1주기.
+     30fps 환경에서 100~140ms 는 3~4프레임뿐이라 계산을 아는 학생도 못 맞춘다.
+     실패가 수학 오류가 아니라 반응속도로 귀결되면 안 된다 — 하한을 200ms 로 올린다. */
   function dwellMs() {
     const act = S.round <= 4 ? 1 : S.round <= 8 ? 2 : 3;
-    if (S.easy) return act === 1 ? 320 : act === 2 ? 240 : 200;
-    return act === 1 ? 140 : act === 2 ? 120 : 100;
+    if (S.easy) return act === 1 ? 360 : act === 2 ? 300 : 260;
+    return act === 1 ? 280 : act === 2 ? 240 : 200;
   }
 
   function pickStart(answer, maxT, dwell) {
@@ -666,14 +702,18 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     const rng = rngFn((S.round * 9973 + CUR.a1 * 13) >>> 0);
     const names = shuf(NAMES, rng);
     let kind, src, vals, answer, prompt, ghost = null, hiddenIndex = -1, groups = null, unitConcept;
+    /* 모든 문항에 자료 맥락(이름·단위·상황)을 붙인다. 수 나열형 발문은 쓰지 않는다. */
+    const ctx = CTX[slot % CTX.length];
+    const dataSentence = function (list) {
+      return dataClause(names, list, ctx) + josa(ctx.unit, "이에요", "예요") + ".";
+    };
 
     if (slot < 4) {
       src = take(POOL.act1, "a1");
       kind = "mean";
       vals = shuf(src.vals, rng);
       answer = src.m;
-      const ctx = CTX[slot % CTX.length];
-      prompt = names.slice(0, 4).map((nm, i) => nm + " " + vals[i] + ctx.unit).join(", ") + " " + ctx.scene + "의 평균을 구해 그 높이에 찍어 보세요.";
+      prompt = dataSentence(vals.slice(0, 4)) + " 평균을 구해 그 높이에 찍어 보세요.";
       unitConcept = "평균 구하기";
     } else if (slot === 5 || slot === 9) {
       const pool = slot === 9 ? POOL.act2.filter((p) => p.skip0 !== null && p.skip0 !== p.m) : POOL.act2;
@@ -684,14 +724,14 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       answer = src.m;
       ghost = slot === 9 && src.skip0 !== null && src.skip0 !== src.m ? src.skip0 : src.med;
       if (ghost === answer || ghost === null) ghost = src.mid !== null && src.mid !== src.m ? src.mid : src.med;
-      prompt = vals.join(", ") + "의 평균을 구해 그 높이에 찍어 보세요. 가운데 값이 항상 평균인 것은 아니에요.";
+      prompt = dataSentence(vals) + " 평균을 구해 그 높이에 찍어 보세요. 가운데 값이 항상 평균인 것은 아니에요.";
       unitConcept = "평균 구하기";
     } else if (slot < 8) {
       src = take(POOL.act2, "a2");
       kind = "mean";
       vals = shuf(src.vals, rng);
       answer = src.m;
-      prompt = vals.join(", ") + "의 평균을 구해 그 높이에 찍어 보세요.";
+      prompt = dataSentence(vals) + " 평균을 구해 그 높이에 찍어 보세요.";
       unitConcept = "평균 구하기";
     } else if (slot === 8 || slot === 10) {
       src = take(POOL.reverse, "rv");
@@ -700,7 +740,10 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       vals = vis.concat([0]);
       hiddenIndex = vals.length - 1;
       answer = src.hidden;
-      prompt = "평균이 " + src.m + "이에요. 5개 기록 중 " + vis.length + "개 기록의 합은 " + src.S + "예요. 나머지 한 기록을 구해 그 높이에 찍어 보세요.";
+      prompt = dataClause(names, vis, ctx) + "이고, " +
+        possName(names[vis.length % names.length]) + " " + ctx.noun + josa(ctx.noun, "은 ", "는 ") +
+        "□" + ctx.unit + josa(ctx.unit, "이에요", "예요") +
+        ". 평균이 " + src.m + ctx.unit + "일 때, □에 알맞은 수를 구해 그 높이에 찍어 보세요.";
       unitConcept = "평균을 이용해 빠진 자료 구하기";
       src = Object.assign({}, src, { vals: vals, S: src.S });
     } else {
@@ -710,7 +753,9 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       groups = { A: A, B: B, m1: src.m1, m2: src.m2 };
       vals = A.slice();
       answer = src.m1;
-      prompt = "건강 팀 " + A.join("·") + "의 평균을 구해 그 높이에 찍어 보세요.";
+      prompt = "건강 팀의 " + ctx.scene + josa(ctx.scene, "은 ", "는 ") +
+        A.map(function (v) { return v + ctx.unit; }).join(", ") + josa(ctx.unit, "이에요", "예요") +
+        ". 평균을 구해 그 높이에 찍어 보세요.";
       unitConcept = "평균으로 두 집단 비교·해석하기";
     }
 
@@ -721,7 +766,8 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     S.problem = {
       kind: kind, vals: vals, m: (kind === "reverse" ? src.m : (kind === "compare" ? groups.m1 : answer)),
       answerTick: answer, maxT: maxT, prompt: prompt, names: names, src: src, groups: groups,
-      unitConcept: unitConcept, ghost: ghost, sum: sumOf(kind === "reverse" ? src.visible : vals), n: vals.length
+      unitConcept: unitConcept, ghost: ghost, sum: sumOf(kind === "reverse" ? src.visible : vals), n: vals.length,
+      ctx: ctx
     };
     if (kind === "reverse") S.problem.n = src.n;
     S.ghost = ghost;
@@ -734,8 +780,10 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     towerLayout();
   }
 
+  /* 바닥 여백은 값+이름이 든 명패 한 칩(= badge*0.9 + 이름줄 15px + 그림자)을
+     통째로 담을 만큼 잡는다. 가로 화면에서 48px 이면 이름줄이 뷰포트 밖으로 잘렸다. */
   function baseY() {
-    return S.play.y + S.play.h - (S.land ? 48 : 72);
+    return S.play.y + S.play.h - (S.land ? 64 : 72);
   }
   function yOfTick(tick) {
     return baseY() - tick * chipSize().h;
@@ -746,7 +794,7 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     const maxT = (S.problem && S.problem.maxT) || 12;
     const leftPad = S.land ? 72 : 44;
     const rightPad = S.land ? 140 : 14;
-    const h = Math.max(16, Math.min(58, (p.h - (S.land ? 78 : 96)) / (maxT + 2.4)));
+    const h = Math.max(16, Math.min(58, (p.h - (S.land ? 94 : 96)) / (maxT + 2.4)));
     const inner = Math.max(80, p.w - leftPad - rightPad);
     const w = Math.max(28, Math.min(h * 1.65, inner / n * 0.72));
     return { w: w, h: h, leftPad: leftPad, rightPad: rightPad, inner: inner };
@@ -808,7 +856,10 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     } else if (p.kind === "compare") {
       beginSlide(p.answerTick);
     }
-    S.gauge = { sum: p.sum, n: p.n, m: p.kind === "reverse" ? p.m : p.answerTick, fill: 0, add: add };
+    /* 빠진 자료 문항의 합은 "보이는 4개의 합"이라 그대로 쓰면 19 ÷ 5 = 6 같은
+       거짓 등식이 뜬다. 찾아낸 값을 더한 전체 합으로 보여야 식이 참이 된다. */
+    const gaugeSum = p.kind === "reverse" ? p.sum + p.answerTick : p.sum;
+    S.gauge = { sum: gaugeSum, n: p.n, m: p.kind === "reverse" ? p.m : p.answerTick, fill: 0, add: add };
     S.pop = { text: "한 층!", t: 0, good: true };
     if (S.combo > 0 && S.combo % 3 === 0) {
       beep("combo");
@@ -869,7 +920,10 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       S.problem.m = g.m2;
       S.problem.sum = sumOf(B);
       S.problem.n = B.length;
-      S.problem.prompt = "장수 팀 " + B.join("·") + "의 평균을 구해 그 높이에 찍어 보세요.";
+      const pc = S.problem.ctx || CTX[0];
+      S.problem.prompt = "이번에는 장수 팀의 " + pc.scene + josa(pc.scene, "은 ", "는 ") +
+        B.map(function (v) { return v + pc.unit; }).join(", ") + josa(pc.unit, "이에요", "예요") +
+        ". 평균을 구해 그 높이에 찍어 보세요.";
       S.problem.maxT = Math.max(9, g.m2, Math.max.apply(null, B));
       const dwell = dwellMs();
       const start = pickStart(g.m2, S.problem.maxT, dwell);
@@ -901,6 +955,35 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       S.hint = "합 " + S.problem.sum + " · 자료 " + S.problem.n + "개";
       S.combo = 0;
       S.locked = false;
+      return;
+    }
+    S.locked = true;
+    S.combo = 0;
+    S.lives = Math.max(0, S.lives - 1);
+    if (S.lives <= 0) {
+      setTimeout(lose, 700);
+      return;
+    }
+    const gen = S.gen;
+    setTimeout(function () {
+      if (S.gen !== gen || S.phase !== "playing") return;
+      if (S.round >= 12) return finishRun();
+      spawnRound();
+    }, 800);
+  }
+
+  /* 무입력 시간 초과. 판정(judgeTick)을 절대 부르지 않으므로 점수가 생길 경로가 없다. */
+  function timeoutMiss() {
+    if (!S.problem || S.locked || S.phase !== "playing") return;
+    S.idle = 0;
+    S.pop = { text: "시간이 지났어요", t: 0, good: false };
+    S.shake = S.reduce ? 0.1 : 0.2;
+    if (S.plate) S.plate.squash = 1.18;
+    beep("bad");
+    if (S.easy && !S.easyHintUsed) {
+      S.easyHintUsed = true;
+      S.hint = "합 " + S.problem.sum + " · 자료 " + S.problem.n + "개";
+      S.combo = 0;
       return;
     }
     S.locked = true;
@@ -1056,7 +1139,40 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     }
   }
 
+  /* QA 브라우저는 소프트웨어 렌더러라 path fill 이 비싸다. 한 프레임에 탑 칩이
+     최대 80개(= 240 path fill)까지 나오므로, 눌림이 없는 기본 칩은 오프스크린에
+     한 번만 구워 두고 drawImage 로 찍는다. 눌림 중(squash≠1)인 칩만 직접 그린다. */
+  const SPRITES = new Map();
+  function chipSprite(w, h, col) {
+    const key = Math.round(w * 2) + "|" + Math.round(h * 2) + "|" + col.top + col.left + col.side + "|" + S.dpr;
+    let sp = SPRITES.get(key);
+    if (sp) return sp;
+    if (SPRITES.size > 8) SPRITES.clear();
+    const dx = w * 0.48;
+    const dy = Math.min(w * 0.16, h * 0.34);
+    const hh = Math.max(4, h - dy);
+    const pad = 2;
+    const cw = dx * 2 + pad * 2, chh = dy * 2 + hh + pad * 2;
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.ceil(cw * S.dpr));
+    c.height = Math.max(1, Math.ceil(chh * S.dpr));
+    const g = c.getContext("2d");
+    g.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+    paintCube(g, dx + pad, pad, w, h, col, 1);
+    sp = { canvas: c, ox: dx + pad, oy: pad, w: cw, h: chh };
+    SPRITES.set(key, sp);
+    return sp;
+  }
   function isoCube(x, yTop, w, h, col, squash) {
+    const sq = squash || 1;
+    if (Math.abs(sq - 1) < 0.02) {
+      const sp = chipSprite(w, h, col);
+      ctx.drawImage(sp.canvas, x - sp.ox, yTop - sp.oy, sp.w, sp.h);
+      return;
+    }
+    paintCube(ctx, x, yTop, w, h, col, sq);
+  }
+  function paintCube(ctx, x, yTop, w, h, col, squash) {
     const sq = squash || 1;
     const dx = w * 0.48;
     const dy = Math.min(w * 0.16, h * 0.34);
@@ -1125,31 +1241,12 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
 
   function drawVoid(dt) {
     const W = S.W, H = S.H;
-    const key = W + "x" + H + (S.land ? "L" : "P") + S.stageX;
-    if (!bgCache || bgKey !== key) {
-      bgCache = document.createElement("canvas");
-      bgCache.width = Math.max(1, W);
-      bgCache.height = Math.max(1, H);
-      const b = bgCache.getContext("2d");
-      const g = b.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, PAL.void2);
-      g.addColorStop(1, PAL.void);
-      b.fillStyle = g;
-      b.fillRect(0, 0, W, H);
-      if (S.land && S.stageW < W - 2) {
-        b.fillStyle = "rgba(90,70,55,.22)";
-        b.fillRect(0, 0, S.stageX, H);
-        b.fillRect(S.stageX + S.stageW, 0, W - (S.stageX + S.stageW), H);
-      }
-      b.fillStyle = "rgba(90,70,55,.10)";
-      for (let r = 0; r < 12; r++) {
-        for (let c = 0; c < 10; c++) {
-          b.fillRect((c + 0.5) / 10 * W, (r + 0.5) / 12 * H, 2, 2);
-        }
-      }
-      bgKey = key;
+    ctx.clearRect(0, 0, W, H);
+    if (S.land && S.stageW < W - 2) {
+      ctx.fillStyle = "rgba(90,70,55,.22)";
+      ctx.fillRect(0, 0, S.stageX, H);
+      ctx.fillRect(S.stageX + S.stageW, 0, W - (S.stageX + S.stageW), H);
     }
-    ctx.drawImage(bgCache, 0, 0);
     S.ambient += dt;
     ctx.fillStyle = "rgba(90,70,55,.10)";
     for (let r = 0; r < 8; r++) {
@@ -1205,12 +1302,8 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
         ? { top: PAL.tomatoTop, left: PAL.tomato, side: PAL.tomatoSide }
         : { top: "#CDB6A0", left: "#B89A86", side: "#A88876" }, on ? 1 : 0.7);
     }
-    if (S.land) {
-      ctx.fillStyle = PAL.ink;
-      ctx.font = "800 12px 'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText("칩은 모두 같은 크기예요. 탑 높이가 기록이에요.", p.x + 78, p.y + 18);
-    }
+    /* 안내 문구는 발문 박스 안에서만 그린다(drawPrompt). 가로 화면에서 따로 띄우면
+       박스 밖 좌상단에 고아 텍스트로 남아 발문과 분리돼 보인다. */
   }
 
   function drawTicks(cs, base) {
@@ -1244,7 +1337,9 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       const shadowW = cs.w * 0.72;
       ctx.fillStyle = "rgba(58,42,34,.18)";
       ctx.fillRect(tw.x - shadowW * 0.5 + 4, tw.base + 2, shadowW, 6);
-      if (tw.hidden || h === 0) {
+      /* 「모르는 값(?)」과 「0회를 기록한 자료」는 완전히 다르다. 둘 다 ? 로 그리면
+         발문이 "시아 0개"라고 말하는데 화면은 "시아 ?"라고 말하는 모순이 생긴다. */
+      if (tw.hidden) {
         ctx.save();
         ctx.setLineDash([5, 4]);
         ctx.strokeStyle = "rgba(58,42,34,.45)";
@@ -1258,30 +1353,45 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
         ctx.font = "800 16px sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("?", tw.x, tw.base - 10);
+      } else if (h === 0) {
+        // 높이 0인 빈 탑 — 자료는 있고 값이 0이다. 바닥에 빈 자리만 표시한다.
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "rgba(58,42,34,.30)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(tw.x - cs.w * 0.32, tw.base);
+        ctx.lineTo(tw.x + cs.w * 0.32, tw.base);
+        ctx.stroke();
+        ctx.restore();
       }
       const visH = Math.max(0, Math.round(h));
       for (let k = 0; k < visH; k++) {
         const yTop = yOfTick(k + 1);
         isoCube(tw.x, yTop, cs.w, cs.h, { top: PAL.tomatoTop, left: PAL.tomato, side: PAL.tomatoSide }, tw.squash);
       }
+      /* 값과 이름을 명패 하나에 합친다. 따로 떼어 놓으면 가로 화면에서 이름줄만
+         화면 밖으로 밀려 "누구의 기록인지" 대응이 끊긴다(발문과 탑의 연결이 끊김). */
       const badge = Math.max(22, Math.min(40, S.W * 0.055));
+      const showName = !!(tw.name && S.problem && S.problem.kind !== "compare");
+      const nameH = showName ? 15 : 0;
+      const bw = badge * 1.24, bh = badge * 0.9 + nameH;
       const bx = tw.x, by = tw.base + 10;
       ctx.fillStyle = "rgba(58,42,34,.22)";
-      ctx.fillRect(bx - badge * 0.62 + 3, by + 3, badge * 1.24, badge * 0.9);
+      ctx.fillRect(bx - bw / 2 + 3, by + 3, bw, bh);
       ctx.fillStyle = PAL.cream;
-      ctx.fillRect(bx - badge * 0.62, by, badge * 1.24, badge * 0.9);
+      ctx.fillRect(bx - bw / 2, by, bw, bh);
       ctx.fillStyle = PAL.ink;
       ctx.font = "800 " + Math.max(16, badge * 0.62) + "px 'Avenir Next Condensed','Futura',sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(String(visH), bx, by + badge * 0.46);
-      ctx.textBaseline = "alphabetic";
-      if (tw.name && S.problem && S.problem.kind !== "compare") {
-        ctx.fillStyle = PAL.ink;
-        ctx.font = "800 11px 'Apple SD Gothic Neo',sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(tw.name, tw.x, by + badge * 0.95 + 12);
+      ctx.fillText(tw.hidden ? "?" : String(visH), bx, by + badge * 0.46);
+      if (showName) {
+        ctx.fillStyle = "rgba(58,42,34,.82)";
+        ctx.font = "800 11px 'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+        ctx.fillText(tw.name, bx, by + badge * 0.9 + nameH / 2);
       }
+      ctx.textBaseline = "alphabetic";
     }
   }
 
@@ -1377,7 +1487,7 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       S.promptKey = text + maxW;
     }
     const lines = S.promptLines;
-    const sub = S.land ? 0 : 16;
+    const sub = 16; // 안내 한 줄은 가로/세로 모두 박스 안에 넣는다
     const boxH = 14 + lines.length * (fs + 4) + sub;
     const boxW = maxW;
     const x = p.x + (p.w - boxW) / 2;
@@ -1389,11 +1499,9 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     ctx.fillStyle = PAL.ink;
     ctx.textAlign = "center";
     for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], x + boxW / 2, y + 16 + i * (fs + 4));
-    if (!S.land) {
-      ctx.font = "800 11px 'Apple SD Gothic Neo',sans-serif";
-      ctx.fillStyle = "rgba(58,42,34,.7)";
-      ctx.fillText("칩은 모두 같은 크기예요. 탑 높이가 기록이에요.", x + boxW / 2, y + boxH - 6);
-    }
+    ctx.font = "800 11px 'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+    ctx.fillStyle = "rgba(58,42,34,.7)";
+    ctx.fillText("칩은 모두 같은 크기예요. 탑 높이가 기록이에요.", x + boxW / 2, y + boxH - 6);
   }
   function wrapText(text, maxW) {
     const words = text.split(" ");
@@ -1444,12 +1552,18 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
 
     if (S.plate && !S.locked && S.phase === "playing") {
       S.idle += gdt;
-      const timeout = S.easy ? 5.5 : 4;
+      /* 판단 시간 확보. 판이 정답 눈금을 지나는 것은 한 왕복에 두 번뿐이라,
+         제한이 4초면 "계산 시간 + 한 번의 통과"밖에 없다. 꽝도장이 계산 2.0초 +
+         판정 1.2초를 하한으로 두는 것과 같은 취지로, 통과 기회를 3회 이상 준다. */
+      const timeout = S.easy ? 9 : 7;
       if (S.idle >= timeout) {
-        resolveTap(judgeTick(), false);
+        /* 시간 초과는 무조건 미스다. 예전처럼 judgeTick() 을 판정에 넘기면
+           가만히 있어도 판이 정답 눈금을 지나는 순간 점수가 붙었다. */
+        timeoutMiss();
       } else {
         const maxT = S.problem.maxT;
-        const MOVE_FRAC = 0.35;
+        /* 이동 비중을 줄이면 같은 주기에서 "정답 눈금에 멈춰 있는" 시간이 늘어난다. */
+        const MOVE_FRAC = 0.28;
         S.plate.acc += gdt;
         if (!S.plate.moving) {
           S.plate.vis = S.plate.tick;
