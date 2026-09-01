@@ -125,8 +125,10 @@ html.land #contract{position:fixed;left:auto;right:max(16px, calc((100vw - var(-
   font:400 clamp(14px,3.8vw,18px)/1.2 var(--face);position:relative;border-radius:8px;
   animation:logo-subtitle-in 420ms 560ms ease-out both;box-shadow:0 4px 10px rgba(44,36,28,.24)}
 .game-subtitle::before{content:"";position:absolute;inset:4px;border:1.6px dashed var(--stitch);opacity:.75;border-radius:6px}
-.title-unit{margin:10px 0 0;font-size:12px;font-weight:400;color:rgba(44,36,28,.82);letter-spacing:.02em;
-  text-shadow:0 1px 0 rgba(230,213,184,.5)}
+/* 펠트 배경(진한 올리브) 위라 어두운 잉크색은 대비가 안 난다 — 크림색 배지에 올린다. */
+.title-unit{margin:10px auto 0;width:max-content;padding:4px 11px 5px;font-size:12px;font-weight:400;
+  color:var(--ink);background:rgba(230,213,184,.94);border-radius:999px;letter-spacing:.02em;
+  box-shadow:0 1px 0 rgba(44,36,28,.18)}
 .title-cta-zone{position:absolute;left:50%;bottom:max(18px,var(--safeB));width:min(calc(100% - 32px),520px);
   transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
 .title-meta{min-height:30px;padding:6px 13px;border:0;color:var(--ink);background:rgba(230,213,184,.92);
@@ -307,13 +309,30 @@ const LS = {
 };
 const PAL = { mat:"#6E8B5C", matHi:"#7A9868", cream:"#E6D5B8", cerise:"#C8336A", teal:"#2A7A7B", ink:"#2C241C", floss:"#FFF6E8" };
 const SESSION = 90;
-const DENS = [3,4,5,7,8,9,10,11];
+const DENS = [3,4,5,6,7,8,9,10,11,12,13];
 
 function gcd(a,b){ a=Math.abs(a|0); b=Math.abs(b|0); while(b){ const t=a%b; a=b; b=t; } return a||1; }
 function F(n,d){ n=n|0; d=d|0; if(!d) d=1; if(d<0){ n=-n; d=-d; } const g=gcd(n,d); return {n:n/g, d:d/g}; }
 function lcm(a,b){ return (a/gcd(a,b))*b; }
 function eqF(a,b){ return a.n*b.d === b.n*a.d; }
 function fKey(f){ return f.n+"/"+f.d; }
+/* 조사 을/를 — 분수는 「d분의 n」으로 읽으므로 마지막에 오는 수(분자)의 받침으로 정한다. */
+function tailNum(f){
+  if(!f || !f.d) return 0;
+  const n=Math.abs(f.n), d=f.d;
+  if(d===1) return n;
+  const w=(n/d)|0, r=n%d;
+  if(w===0) return n;
+  if(r===0) return w;
+  return r;
+}
+function hasJongNum(n){
+  n=Math.abs(n|0);
+  const last=n%10;
+  if(last===0) return true;            // 십·이십·백 …
+  return last===1||last===3||last===6||last===7||last===8;
+}
+function eulReul(f){ return hasJongNum(tailNum(f)) ? "을" : "를"; }
 function gwaParticle(w){
   // 일·삼·육·칠·팔·십…은 받침 → 과, 이·사·오·구는 모음 → 와
   const gwa = {1:1,3:1,6:1,7:1,8:1,10:1,11:1,13:1,16:1,17:1,18:1,20:1};
@@ -352,19 +371,23 @@ function makeProb(o){
 function buildPools(){
   const P = {1:[],2:[],3:[]};
   // 밴드1: 동분모, 분자끼리 나누어떨어짐. k를 먼저 뽑아 n=k*q 로 구조를 보장.
-  for(let k=2;k<=4;k++) for(let q=2;q<=4;q++){
-    const n=k*q; if(n<4||n>8) continue;
+  //   ★ 피제수·제수 둘 다 기약이어야 한다. 6/8 ÷ 4/8 처럼 양쪽 다 약분되는 조합은
+  //     교과서에 없고, '분모끼리 나눠도 우연히 맞는' 오개념을 오히려 강화한다.
+  for(let k=2;k<=4;k++) for(let q=2;q<=5;q++){
+    const n=k*q; if(n<4||n>10) continue;
     for(const d of DENS){
       if(n>=d) continue; // 진분수만 — 6/3 같은 가분수는 교과서 1차시 발문에 안 맞다
+      if(gcd(n,d)!==1 || gcd(k,d)!==1) continue;
       P[1].push(makeProb({band:1,kind:"calc",n,k,d,divN:n,divD:d,divsN:k,divsD:d,unitConcept:"분모가 같은 (분수)÷(분수)",unitD:d}));
     }
   }
   // 밴드2: 동분모, 나머지 있음. n%k !== 0 이 되게 n,k 를 역생성.
-  for(let k=2;k<=4;k++) for(let n=5;n<=10;n++){
+  for(let k=2;k<=4;k++) for(let n=5;n<=11;n++){
     if(n<=k || n%k===0) continue;
     const q=(n/k)|0; if(q<1) continue;
     for(const d of DENS){
       if(n>=d) continue;
+      if(gcd(n,d)!==1 || gcd(k,d)!==1) continue;
       P[2].push(makeProb({band:2,kind:"calc",n,k,d,divN:n,divD:d,divsN:k,divsD:d,unitConcept:"분모가 같은 (분수)÷(분수) 나머지",unitD:d}));
     }
   }
@@ -374,6 +397,7 @@ function buildPools(){
     if(d1===d2) continue;
     const D=lcm(d1,d2);
     for(let a=1;a<=5;a++) for(let b=1;b<d2;b++){
+      if(gcd(a,d1)!==1 || gcd(b,d2)!==1) continue;   // 원래 분수는 둘 다 기약
       const n=a*(D/d1), k=b*(D/d2);
       if(n<4||n>12||k<2||k>=n) continue;
       if(((n/k)|0)<1) continue;
@@ -385,13 +409,16 @@ function buildPools(){
     const n=W*d; if(n<4||n>12) continue;
     for(let b=2;b<d;b++){
       const k=b; if(k>=n) continue;
+      if(gcd(b,d)!==1) continue;                     // 제수도 기약
       P[3].push(makeProb({band:3,kind:"nat",n,k,d,divN:W,divD:1,divsN:b,divsD:d,unitConcept:"(자연수)÷(분수)",unitD:d}));
     }
   }
   // 밴드3c: 대분수 → 가분수 칸. 자연수 부분만 베면 남음이 드러나게 설계.
   for(let w=1;w<=2;w++) for(let qn=2;qn<=5;qn++) for(let p=1;p<qn;p++){
+    if(gcd(p,qn)!==1) continue;                      // 대분수의 분수부는 항상 기약
     const num=w*qn+p;
     for(let d=2;d<=5;d++) for(let b=1;b<d;b++){
+      if(gcd(b,d)!==1) continue;                     // 제수도 기약
       const D=lcm(qn,d);
       const n=num*(D/qn), k=b*(D/d);
       if(n<4||n>12||k<2||k>=n) continue;
@@ -412,14 +439,16 @@ const STORY = [
 function promptFor(p){
   const A = mixedStr(p.dividend), B = mixedStr(p.divisor);
   if(p.kind==="story"){
+    // 식을 괄호로 덧붙이지 않는다 — '무엇을 무엇으로 나누는가'를 학생이 판단해야 한다.
     const s = STORY[(p.storyI||0) % STORY.length];
-    return s.ctx+" "+A+" "+s.u+"를 "+B+" "+s.u+s.mid+" "+s.verb+" ("+A+" ÷ "+B+")";
+    return s.ctx+" "+A+" "+s.u+"를 "+B+" "+s.u+s.mid+" "+s.verb+".";
   }
   if(p.kind==="reverse"){
     return "몫이 "+p.q+"인 나눗셈이 되도록 같은 크기로 묶어 보세요. 칸은 "+p.n+"개예요.";
   }
   if(p.kind==="error"){
-    return A+" ÷ "+B+"의 잘못된 박음질을 풀고 알맞게 묶고 몫을 구해 보세요.";
+    // 화면에 점선으로 잘못 묶인 실이 실제로 제시돼 있다. 그 대상을 발문에서 가리킨다.
+    return A+" ÷ "+B+eulReul(p.divisor)+" 잘못 묶어 놓은 실이 있습니다. 잘못 묶인 실을 끊고 알맞게 다시 묶어 몫을 구해 보세요.";
   }
   return A+" ÷ "+B+"의 몫을 구해 보세요.";
 }
@@ -608,10 +637,12 @@ function applyCanvasSize(){
 function portraitBand(){
   const tablet = !S.land && H>=900;
   const pr=playRect();
-  if(S.land) return {top:pr.y+pr.h*0.28, bot:pr.y+pr.h*0.72};
+  // 와이드에서도 세로 밴드를 넓게 잡아 무리가 무대 높이를 실제로 오르내리게 한다.
+  // (위 경계는 문제 카드 아래, 아래 경계는 화면 안쪽 — 실제 클램프는 무리 반높이만큼 더 들인다)
+  if(S.land) return {top:pr.y+pr.h*0.22, bot:pr.y+pr.h*0.92};
   return {
     top: tablet ? H*0.22 : Math.max(pr.y + 16, H*0.24),
-    bot: tablet ? H*0.78 : Math.min(pr.y + pr.h - 16, H*0.76)
+    bot: tablet ? H*0.86 : Math.min(pr.y + pr.h - 16, H*0.90)
   };
 }
 function placeFlockInBand(f){
@@ -619,12 +650,13 @@ function placeFlockInBand(f){
   const pr=playRect();
   const tablet=!S.land && H>=900;
   const cols = f.p.n<=6 ? f.p.n : Math.ceil(f.p.n/2);
-  const halfW = ((cols-1)*(f.size*1.08))/2 + f.size*0.55;
+  const halfW = ((cols-1)*(f.size*(1+cellGapRatio())))/2 + f.size*0.55;
   const minX = pr.x + halfW + 10;
   const maxX = pr.x + pr.w - halfW - 10;
   const band=portraitBand();
   if(S.land){
-    f.cy = pr.y + pr.h*0.48;
+    const hh = flockHalfH(f);
+    f.cy = clamp(f.cy, band.top+hh, Math.max(band.top+hh, band.bot-hh));
     f.cx = clamp(f.cx, minX, maxX);
     return;
   }
@@ -749,10 +781,16 @@ function writeBest(n){
 })();
 
 /* ── 무리 생성 ── */
+/* 와이드에서는 칸 사이를 더 벌려 무리가 무대 폭을 실제로 쓴다 (playfield-spec ① 파노라마) */
+function cellGapRatio(){ return S.land ? 0.16 : 0.08; }
+function flockHalfH(f){
+  const rows = f.p.n<=6 ? 1 : 2;
+  return ((rows-1)*(f.size*(1+cellGapRatio())))/2 + f.size*0.55;
+}
 function cellLayout(n, size){
   const rows = n<=6 ? 1 : 2;
   const cols = Math.ceil(n/rows);
-  const gap = size*0.08;
+  const gap = size*cellGapRatio();
   const pts=[];
   for(let i=0;i<n;i++){
     const r = rows===1 ? 0 : (i<cols?0:1);
@@ -770,20 +808,24 @@ function spawnFlock(p, opts){
   const pr=playRect();
   const tablet = !S.land && H>=900;
   const cols = p.n<=6 ? p.n : Math.ceil(p.n/2);
-  const sizeCap = tablet ? 80 : 96;
-  const size = clamp(Math.min((pr.w-24)/(cols+0.8), tablet ? pr.h*0.14 : pr.h*0.20), 52, sizeCap);
+  // 와이드에서는 무대 폭(stageW)에서 칸 크기를 파생시킨다. 96px 고정 상한이 1280 화면을
+  // 텅 비게 만들던 원인이다.
+  const sizeCap = S.land ? clamp(S.stageW*0.115, 96, 168) : (tablet ? 80 : 96);
+  const vCap = S.land ? pr.h*0.26 : (tablet ? pr.h*0.14 : pr.h*0.20);
+  const size = clamp(Math.min((pr.w-24)/(cols+0.8), vCap), 52, sizeCap);
   const local=cellLayout(p.n, size);
   const fromLeft = S.land && !opts.tutorial;
-  const halfW = ((cols-1)*(size*1.08))/2 + size*0.55;
+  const halfW = ((cols-1)*(size*(1+cellGapRatio())))/2 + size*0.55;
   const minX = pr.x + halfW + 10;
   const maxX = pr.x + pr.w - halfW - 10;
   let cx, cy, vx, vy;
   const g = S.land ? 360 : 200;
   if(fromLeft){
     cx = minX;
-    cy = pr.y + pr.h*0.48;
+    // 아래쪽에서 던져 무대 위쪽까지 솟게 한다 — 세로 밴드(0.18~0.84)를 실제로 훑는다.
+    cy = pr.y + pr.h*0.62;
     vx = 200+Math.random()*70;
-    vy = -(180+Math.random()*50);
+    vy = -(300+Math.random()*70);
   } else {
     cx = clamp((pr.x + pr.w*0.5) + (Math.random()-0.5)*Math.min(70, pr.w*0.14), minX, maxX);
     const bandTop = tablet ? H*0.22 : Math.max(pr.y + 16, H*0.24);
@@ -827,8 +869,8 @@ function setPrompt(p, flock){
     }catch(e){ promptEq.textContent=A+" ÷ "+B; }
   }else promptEq.textContent=A+" ÷ "+B;
   if(p.kind==="reverse") promptSub.textContent="몫이 "+p.q+"이에요. 같은 크기로 묶어 보세요.";
-  else if(p.kind==="error") promptSub.textContent="잘못된 실만 칼로 끊고, 알맞게 묶고 몫을 구해 보세요.";
-  else if(p.kind==="story") promptSub.textContent=promptFor(p).split("(")[0].trim();
+  else if(p.kind==="error") promptSub.textContent="잘못 묶인 실(점선)을 칼로 끊고, 알맞게 다시 묶어 몫을 구해 보세요.";
+  else if(p.kind==="story") promptSub.textContent=promptFor(p);
   else promptSub.textContent="나누는 조각은 "+flock.expected+"칸이에요. 그만큼 베면 온전한 묶음 1개예요.";
   promptTag.classList.remove("hidden");
 }
@@ -1199,10 +1241,14 @@ function update(dt){
     f.vy += (S.land ? 360 : 200)*dt;
     f.cx += f.vx*dt;
     f.cy += f.vy*dt;
-    if(!S.land){
+    {
       const band=portraitBand();
-      if(f.cy < band.top){ f.cy=band.top; if(f.vy<0) f.vy*=-0.25; }
-      if(f.hang<5.4 && f.cy > band.bot){ f.cy=band.bot; if(f.vy>0) f.vy= -Math.min(160, 40+f.vy*0.4); }
+      const hangMax = S.land ? 4.6 : 5.4;
+      const kick = S.land ? 300 : 160;
+      const hh = flockHalfH(f);
+      const top = band.top + hh, bot = Math.max(band.top + hh, band.bot - hh);
+      if(f.cy < top){ f.cy=top; if(f.vy<0) f.vy*=-0.25; }
+      if(f.hang<hangMax && f.cy > bot){ f.cy=bot; if(f.vy>0) f.vy= -Math.min(kick, 40+f.vy*0.45); }
     }
     f.rot += f.rotv*dt;
     if(f.wrongUntil>0) f.wrongUntil-=dt;
