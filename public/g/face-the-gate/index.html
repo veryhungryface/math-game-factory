@@ -102,7 +102,7 @@ button{font-family:inherit;cursor:pointer;touch-action:manipulation;appearance:n
 #prompt{position:fixed;left:12px;right:12px;z-index:5;text-align:center;pointer-events:none;
   font-weight:800;font-size:clamp(16px,4.4vw,22px);line-height:1.35;color:var(--ink);
   background:var(--paper);border:3px solid var(--ink);padding:10px 14px;word-break:keep-all}
-#observe{position:fixed;left:12px;right:12px;z-index:6;text-align:center;pointer-events:none;
+#observe{position:fixed;left:12px;right:12px;top:calc(118px + var(--safeT));z-index:6;text-align:center;pointer-events:none;
   font-weight:800;font-size:15px;color:#fff;background:var(--violet);border:3px solid var(--ink);
   padding:8px 12px;opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s}
 #observe.on{opacity:1;transform:none}
@@ -126,6 +126,7 @@ button{font-family:inherit;cursor:pointer;touch-action:manipulation;appearance:n
 #onbNext,.again{width:100%;min-height:64px;border:3px solid var(--ink);background:var(--teal);color:#fff;
   font-family:var(--geo);font-weight:800;font-size:20px;border-radius:0}
 #onbNext:active,.again:active{border-width:5px}
+.again:disabled{opacity:.42;background:var(--mute)}
 #resScore{font-family:var(--geo);font-size:clamp(42px,12vw,72px);font-weight:800;color:var(--teal);line-height:1;
   letter-spacing:-.04em}
 #resNote{border-top:3px solid var(--ink);padding-top:10px;margin-top:8px}
@@ -223,8 +224,8 @@ html.land #observe{left:calc(var(--stageX) + 16px);
 <div id="onb" class="hidden">
   <div class="card">
     <div class="step" id="onbStep">1/3</div>
-    <h2 id="onbTitle">돌려 봅시다</h2>
-    <p id="onbBody">입체 위를 손가락으로 밀어 밑면과 옆면이 바뀌는 모습을 봅시다.</p>
+    <h2 id="onbTitle">돌려 보세요</h2>
+    <p id="onbBody">입체 위를 손가락으로 밀어 밑면과 옆면이 바뀌는 모습을 살펴보세요.</p>
     <button type="button" id="onbNext">다음</button>
   </div>
 </div>
@@ -250,13 +251,19 @@ import * as THREE from 'three';
 
    expression_traps:
    - 이 단원은 어림이 아니다. 「○의 자리에서」를 쓰지 않는다(받아올림과 혼동).
-   - [6수03-08] 전개도·원주 계산은 범위 밖. 전개도 문항을 내지 않고 원뿔·구 전개도를 만들지 않는다.
-   - 원뿔의 높이는 꼭짓점과 밑면 사이의 거리. 선분 자체의 이름으로 묻지 않는다.
+   - [6수03-08] 원기둥의 전개도는 이 단원의 4차시 중 하나다. 전개도는 '텍스트 문항'으로만 다루고
+     관문 메커닉으로 만들지 않는다. 원뿔·구의 전개도는 교육과정에 없으므로 만들지 않는다.
+   - 원뿔의 높이는 꼭짓점과 밑면 사이의 거리, 모선은 꼭짓점과 밑면의 둘레를 잇는 선분이다.
    - 원뿔 삼각형 문은 면이 아니라 '옆에서 본 모양'. '어느 면'의 답으로 '옆모습'을 두지 않는다.
    - 원뿔의 모선 ≠ 높이. 원기둥의 밑면은 평평한 원, 옆면은 굽은 면. 원기둥에는 꼭짓점이 없다.
-   - 통과의 물리 조건과 면 이름을 섞지 않는다. 목표 자세를 발문에 명시한다.
    - 원기둥 직사각형 문은 밑면 원(지름 2r)이 들어가는 h≥2r 치수를 내지 않는다.
-   - 발문은 교과서 청유형 「~해 봅시다」만 쓴다.
+
+   발문 규격 (curriculum/textbook-structure.json · style_guide):
+   - 이 게임은 학생이 혼자 푸는 매체이므로 **익힘책 레지스터**만 쓴다: 「~해 보세요 / ~인가요? /
+     ~할까요? / ~하나요?」. 교과서 청유형 「~봅시다」·「이야기해 보세요」·하십시오체는 금지다.
+     튜토리얼·결과 화면 문장까지 한 레지스터로 통일한다. ENDING_BAN 이 이를 기계로 막는다.
+   - **발문이 정답을 말하지 않는다.** 문(구멍)의 모양은 조건으로 주고 면 이름은 학생이 판단한다.
+     한 unitConcept 안에서 정답이 갈리도록 kind(construct/reverse/error_find)를 설계한다.
    ══════════════════════════════════════════════════════════════ */
 
 const $ = (id) => document.getElementById(id);
@@ -471,18 +478,18 @@ function shuffle(a, rnd) {
 }
 function pick(arr, rnd) { return arr[( (rnd || Math.random)() * arr.length ) | 0]; }
 
-function faceAnswer(item) {
-  if (item.solidType === 'sphere') return '원';
-  if (item.solidType === 'cone') {
-    return item.gateView === 'circle' ? '밑면이 보이게' : '옆에서 본 삼각형 모양';
-  }
-  return item.gateView === 'circle' ? '밑면' : '옆면';
-}
 function viewKo(v) {
   if (v === 'circle') return '원';
   if (v === 'rectangle') return '직사각형';
   return '삼각형';
 }
+
+/* ── 발문 레지스터 게이트 ──────────────────────────────────────────
+   style_guide 는 교과서(청유형 '봅시다')와 익힘책(지시형 '보세요')을 절대적으로 가른다.
+   이 게임은 익힘책 쪽이다. 아래 정규식에 걸리는 문장은 만들지 않는다.
+   verifyRegister() 가 생성된 발문 전수와 UI 문구를 이 규칙으로 재검사한다. */
+const ENDING_BAN = /봅시다|봅시오|보십시오|이야기해 보세요|하시오|구하시오|쓰시오|고르시오|하십시오/;
+function registerOk(s) { return !ENDING_BAN.test(String(s || '')); }
 function finishChoices(answer, distractors) {
   /* 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플 */
   const pool = distractors.filter((d) => d.text && d.text !== answer);
@@ -505,124 +512,252 @@ function finishChoices(answer, distractors) {
   return out;
 }
 
+/* ── 문항 조립 ───────────────────────────────────────────────────
+   설계 규칙 두 가지를 코드 구조로 강제한다.
+   (1) 발문은 정답을 말하지 않는다. construct 는 '구멍 모양'만 조건으로 주고 면 이름을 묻는다.
+       reverse 는 면 이름을 주고 '보이는 모양'을 묻는다. error_find 는 오개념 문장을 고치게 한다.
+       → 어떤 kind 에서도 정답 문자열이 발문 안에 없다.
+   (2) unitConcept 은 '정답'이 아니라 '주제'로 묶는다. 한 개념군 안에서 kind 가 갈리므로
+       개념군마다 정답이 최소 2가지 이상 나온다(예전에는 개념군=정답이라 24/24 단일이었다). */
 function describeItem(item) {
+  const R = item.r, H = item.h;
   const vk = viewKo(item.gateView);
-  let prompt, unitConcept, answer, answerNumeric;
+  let prompt, unitConcept, answer, answerNumeric = null;
   let dist = [];
+
   if (item.solidType === 'cylinder') {
-    answer = faceAnswer(item);
-    answerNumeric = item.gateView === 'circle' ? 0 : 1;
-    unitConcept = item.gateView === 'circle' ? '원기둥의 밑면' : '원기둥의 옆면';
-    dist = [
-      { text: '꼭짓점', misconceptionId: MIS.CYL_HAS_VERTICES },
-      { text: '모서리', misconceptionId: MIS.CYL_HAS_VERTICES },
-      { text: item.gateView === 'circle' ? '옆면' : '밑면', misconceptionId: null },
-    ];
-    if (item.gateView === 'circle') {
-      prompt = `반지름 ${item.r} cm, 높이 ${item.h} cm인 원기둥의 밑면이 문 쪽을 향하고 원 윤곽이 보이게 돌려 봅시다.`;
-    } else {
-      prompt = `반지름 ${item.r} cm, 높이 ${item.h} cm인 원기둥의 옆면이 문 쪽을 향하고 직사각형 윤곽이 보이게 돌려 봅시다.`;
-    }
-    if (item.kind === 'reverse') {
-      prompt = `${vk} 윤곽은 원기둥(반지름 ${item.r} cm)의 어느 면을 본 모습일까요? 그 면이 문 쪽을 향하게 돌려 봅시다.`;
-    } else if (item.kind === 'error_find') {
-      prompt = `고스트는 원기둥에 꼭짓점이 있다고 생각했어요. 원기둥에는 꼭짓점이 없어요. ${vk} 윤곽이 보이게 ${answer}을 문 쪽으로 향하게 돌려 봅시다.`;
-    }
-  } else if (item.solidType === 'cone') {
-    answerNumeric = item.gateView === 'circle' ? 0 : 2;
-    if (item.gateView === 'circle') {
-      prompt = `반지름 ${item.r} cm, 높이 ${item.h} cm인 원뿔의 밑면이 문 쪽을 향하고 원 윤곽이 보이게 돌려 봅시다.`;
-      answer = '밑면이 보이게';
-      unitConcept = '원뿔의 밑면';
-      dist = [
-        { text: '옆에서 본 삼각형 모양이 보이게', misconceptionId: null },
-        { text: '꼭짓점만 보이게', misconceptionId: MIS.SLANT_AS_HEIGHT },
-        { text: '모선이 가로로 보이게', misconceptionId: MIS.SLANT_AS_HEIGHT },
-      ];
-      if (item.kind === 'reverse') {
-        prompt = `원 윤곽은 원뿔(반지름 ${item.r} cm)의 어느 면을 본 모습일까요? 그 면이 문 쪽을 향하게 돌려 봅시다.`;
+    unitConcept = item.kind === 'error_find' ? '원기둥의 구성 요소' : '원기둥의 밑면과 옆면';
+    if (item.kind === 'construct') {
+      /* 구멍 모양만 주고 면 이름은 학생이 판단한다 */
+      if (item.gateView === 'circle') {
+        /* 밑면은 평면이므로 '어느 면을 향하게' 로 물을 수 있다 */
+        prompt = `문의 구멍이 원 모양이에요. 반지름 ${R} cm, 높이 ${H} cm인 원기둥의 어느 면을 문 쪽으로 돌려야 할까요?`;
         answer = '밑면';
         dist = [
           { text: '옆면', misconceptionId: null },
-          { text: '꼭짓점', misconceptionId: MIS.SLANT_AS_HEIGHT },
-          { text: '모선', misconceptionId: MIS.SLANT_AS_HEIGHT },
+          { text: '꼭짓점', misconceptionId: MIS.CYL_HAS_VERTICES },
+          { text: '모서리', misconceptionId: MIS.CYL_HAS_VERTICES },
         ];
-      } else if (item.kind === 'error_find') {
-        prompt = `고스트는 모선을 높이처럼 댔어요. 반지름 ${item.r} cm 원뿔의 밑면이 문 쪽을 향하고 원 윤곽이 보이게 고쳐 봅시다.`;
-      }
-    } else {
-      prompt = `반지름 ${item.r} cm, 높이 ${item.h} cm인 원뿔을 옆에서 본 삼각형 모양이 문 쪽에 보이게 돌려 봅시다.`;
-      answer = '옆에서 본 삼각형 모양';
-      unitConcept = '원뿔을 옆에서 본 모양';
-      dist = [
-        { text: '밑면에서 본 원', misconceptionId: null },
-        { text: '위에서 본 점', misconceptionId: null },
-        { text: '옆에서 본 타원', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
-      ];
-      if (item.kind === 'reverse') {
-        prompt = `삼각형 윤곽은 원뿔(반지름 ${item.r} cm)을 어느 쪽에서 본 모양인가요? 옆에서 본 삼각형 모양이 문 쪽을 향하게 돌려 봅시다.`;
-      } else if (item.kind === 'error_find') {
-        prompt = `고스트는 모선을 높이처럼 댔어요. 반지름 ${item.r} cm인 원뿔에서 꼭짓점과 밑면 사이의 거리 ${item.h} cm를 무엇이라고 하나요?`;
-        answer = '높이';
-        answerNumeric = item.h;
-        unitConcept = '원뿔의 높이';
+      } else {
+        /* 옆면은 굽은 면이라 '정면을 향한다'가 성립하지 않는다. 보는 방향으로 묻는다 */
+        prompt = `문의 구멍이 직사각형 모양이에요. 반지름 ${R} cm, 높이 ${H} cm인 원기둥을 어느 쪽에서 본 모양이 문 쪽에 보이게 해야 할까요?`;
+        answer = '옆에서 본 모양';
         dist = [
-          { text: '모선', misconceptionId: MIS.SLANT_AS_HEIGHT },
-          { text: '밑면', misconceptionId: null },
-          { text: '반지름', misconceptionId: null },
+          { text: '위에서 본 모양', misconceptionId: null },
+          { text: '아래에서 본 모양', misconceptionId: null },
+          { text: '비스듬히 위에서 본 모양', misconceptionId: null },
+        ];
+      }
+    } else if (item.kind === 'reverse') {
+      /* 면 이름을 주고 보이는 모양을 묻는다 — 정답은 도형 이름 쪽으로 갈린다 */
+      /* 굽은 옆면 '자체'가 정면을 향한다고 쓰면 '옆면'과 '옆에서 본 모양'이 섞인다.
+         평면인 밑면만 '향하게' 쓰고, 옆면 쪽은 '옆에서 본 모양'으로 묻는다. */
+      prompt = item.gateView === 'circle'
+        ? `반지름 ${R} cm, 높이 ${H} cm인 원기둥의 밑면을 문 쪽으로 돌리면 어떤 모양이 보일까요?`
+        : `반지름 ${R} cm, 높이 ${H} cm인 원기둥을 옆에서 보면 어떤 모양일까요? 그 모양이 문 쪽에 보이게 돌려 보세요.`;
+      answer = item.gateView === 'circle' ? '원' : '직사각형';
+      dist = [
+        { text: item.gateView === 'circle' ? '직사각형' : '원', misconceptionId: null },
+        { text: '타원', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
+        { text: '삼각형', misconceptionId: null },
+      ];
+    } else {
+      if (item.gateView === 'circle') {
+        prompt = `고스트는 반지름 ${R} cm인 원기둥에도 각기둥처럼 꼭짓점이 있다고 말했어요. 이 말을 옳게 고치고, 구멍에 맞는 면을 문 쪽으로 돌려 보세요.`;
+        answer = '원기둥에는 꼭짓점이 없어요';
+        dist = [
+          { text: '원기둥에는 꼭짓점이 2개 있어요', misconceptionId: MIS.CYL_HAS_VERTICES },
+          { text: '원기둥에는 모서리가 4개 있어요', misconceptionId: MIS.CYL_HAS_VERTICES },
+          { text: '원기둥의 밑면은 굽은 면이에요', misconceptionId: null },
+        ];
+      } else {
+        prompt = `고스트는 반지름 ${R} cm인 원기둥의 옆면이 평평한 면이라고 말했어요. 이 말을 옳게 고치고, 구멍에 맞는 면을 문 쪽으로 돌려 보세요.`;
+        answer = '원기둥의 옆면은 굽은 면이에요';
+        dist = [
+          { text: '원기둥의 옆면은 삼각형이에요', misconceptionId: null },
+          { text: '원기둥의 밑면은 굽은 면이에요', misconceptionId: null },
+          { text: '원기둥에는 모서리가 4개 있어요', misconceptionId: MIS.CYL_HAS_VERTICES },
         ];
       }
     }
+
+  } else if (item.solidType === 'cone' && item.gateView === 'circle') {
+    unitConcept = '원뿔의 밑면과 옆면';
+    if (item.kind === 'construct') {
+      prompt = `문의 구멍이 원 모양이에요. 반지름 ${R} cm, 높이 ${H} cm인 원뿔의 어느 면을 문 쪽으로 돌려야 할까요?`;
+      answer = '밑면';
+      dist = [
+        { text: '옆면', misconceptionId: null },
+        { text: '원뿔의 꼭짓점', misconceptionId: MIS.SLANT_AS_HEIGHT },
+        { text: '모선', misconceptionId: MIS.SLANT_AS_HEIGHT },
+      ];
+    } else if (item.kind === 'reverse') {
+      prompt = `반지름 ${R} cm, 높이 ${H} cm인 원뿔의 밑면을 문 쪽으로 돌리면 어떤 모양이 보일까요?`;
+      answer = '원';
+      dist = [
+        { text: '삼각형', misconceptionId: null },
+        { text: '타원', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
+        { text: '직사각형', misconceptionId: null },
+      ];
+    } else {
+      prompt = `고스트는 반지름 ${R} cm인 원뿔은 어느 쪽에서 보아도 삼각형이라고 말했어요. 이 말을 옳게 고치고, 구멍에 맞는 면을 문 쪽으로 돌려 보세요.`;
+      answer = '밑면 쪽에서 보면 원이에요';
+      dist = [
+        { text: '어느 쪽에서 보아도 원이에요', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
+        { text: '밑면 쪽에서 보면 타원이에요', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
+        { text: '옆에서 보면 직사각형이에요', misconceptionId: null },
+      ];
+    }
+
+  } else if (item.solidType === 'cone') {
+    /* 삼각형 문 */
+    if (item.kind === 'construct') {
+      unitConcept = '원뿔을 옆에서 본 모양';
+      prompt = `문의 구멍이 위로 뾰족한 삼각형이에요. 반지름 ${R} cm, 높이 ${H} cm인 원뿔을 어떻게 세워야 할까요?`;
+      answer = '꼭짓점이 위로 오게 세워요';
+      dist = [
+        { text: '꼭짓점이 아래로 오게 뒤집어요', misconceptionId: null },
+        { text: '밑면이 문 쪽을 향하게 놓아요', misconceptionId: null },
+        { text: '꼭짓점이 문 쪽을 향하게 놓아요', misconceptionId: MIS.SLANT_AS_HEIGHT },
+      ];
+    } else if (item.kind === 'reverse') {
+      unitConcept = '원뿔을 옆에서 본 모양';
+      prompt = `반지름 ${R} cm, 높이 ${H} cm인 원뿔을 옆에서 보면 어떤 모양일까요? 그 모양이 문 쪽에 보이게 돌려 보세요.`;
+      answer = '삼각형';
+      dist = [
+        { text: '원', misconceptionId: null },
+        { text: '직사각형', misconceptionId: null },
+        { text: '사다리꼴', misconceptionId: null },
+      ];
+    } else {
+      /* 모선을 높이로 착각하는 오개념을 정면으로 묻는다 — 정답이 '모선'이라 '높이'와 갈린다 */
+      unitConcept = '원뿔의 높이와 모선';
+      prompt = `고스트는 꼭짓점과 밑면의 둘레 위의 한 점을 이은 선분을 높이라고 했어요. 반지름 ${R} cm인 원뿔에서 이 선분을 무엇이라고 하나요?`;
+      answer = '모선';
+      dist = [
+        { text: '높이', misconceptionId: MIS.SLANT_AS_HEIGHT },
+        { text: '반지름', misconceptionId: null },
+        { text: '지름', misconceptionId: null },
+      ];
+    }
+
   } else {
+    /* 구 — camDir 로 하위 발문을 갈라 개념군 안 정답을 흩는다 */
+    unitConcept = '구의 구성 요소와 성질';
     const dir = item.camDir || '앞';
-    prompt = `반지름 ${item.r} cm인 구를 ${dir}에서 본 모양을 말해 봅시다.`;
-    answer = '원';
-    answerNumeric = item.r;
-    unitConcept = '구의 반지름';
-    dist = [
-      { text: '타원', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
-      { text: '직사각형', misconceptionId: MIS.CYL_HAS_VERTICES },
-      { text: '반원', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
-    ];
     if (item.kind === 'error_find') {
-      prompt = `고스트는 구를 ${item.camDir || '옆'}에서 보면 타원이라고 했어요. 같은 원임을 이용해 중심에 맞춰 봅시다.`;
+      prompt = `고스트는 반지름 ${R} cm인 구를 옆에서 보면 타원이라고 말했어요. 이 말을 옳게 고치고, 구의 중심을 구멍에 맞추어 옮겨 보세요.`;
+      answer = '어느 방향에서 보아도 원이에요';
+      dist = [
+        { text: '위에서만 원이에요', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
+        { text: '옆에서 보면 반원이에요', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
+        { text: '앞에서 보면 직사각형이에요', misconceptionId: MIS.CYL_HAS_VERTICES },
+      ];
+    } else if (item.kind === 'reverse') {
+      prompt = `반지름 ${R} cm인 구에 구의 반지름을 몇 개나 그을 수 있나요? 구의 중심을 구멍에 맞추어 옮겨 보세요.`;
+      answer = '셀 수 없이 많아요';
+      dist = [
+        { text: '1개', misconceptionId: null },
+        { text: '2개', misconceptionId: null },
+        { text: '4개', misconceptionId: null },
+      ];
+    } else if (dir === '앞') {
+      prompt = `반지름 ${R} cm인 구의 지름은 몇 cm인지 구해 보세요. 구의 중심을 구멍에 맞추어 옮겨 보세요.`;
+      answer = `${R * 2} cm`;
+      answerNumeric = R * 2;
+      dist = [
+        { text: `${R} cm`, misconceptionId: null },
+        { text: `${R / 2} cm`, misconceptionId: null },
+        { text: `${R * 4} cm`, misconceptionId: null },
+      ];
+    } else if (dir === '옆') {
+      prompt = `구의 중심에서 겉면의 한 점을 이은 선분을 무엇이라고 하나요? 반지름 ${R} cm인 구를 구멍 중심에 맞추어 옮겨 보세요.`;
+      answer = '구의 반지름';
+      dist = [
+        { text: '구의 지름', misconceptionId: null },
+        { text: '구의 중심', misconceptionId: null },
+        { text: '모선', misconceptionId: MIS.SLANT_AS_HEIGHT },
+      ];
+    } else {
+      prompt = `반지름 ${R} cm인 구를 ${dir}에서 보면 어떤 모양인가요? 구의 중심을 구멍에 맞추어 옮겨 보세요.`;
+      answer = '원';
+      dist = [
+        { text: '타원', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
+        { text: '반원', misconceptionId: MIS.SPHERE_DIFF_VIEWS },
+        { text: '직사각형', misconceptionId: MIS.CYL_HAS_VERTICES },
+      ];
     }
   }
+
   const ch = finishChoices(answer, dist);
   return { prompt, answer, answerNumeric, unitConcept, choices: ch.map((c) => c.text), choiceMeta: ch };
 }
 
+/* 관문으로 만들지 않는 개념(원뿔의 높이·모선, 원기둥의 구성 요소, 원기둥의 전개도)은
+   텍스트 문항으로만 낸다. 템플릿을 (r,h) 순번으로 돌려 개념군 안 정답을 갈라 놓는다. */
+function extraProblems() {
+  const out = [];
+  let i = 0;
+  for (const r of R_CYL) for (const h of H_CYL) {
+    const t = i++ % 6;
+    if (t === 0) out.push({
+      id: `cone-height-${r}-${h}`,
+      prompt: `반지름 ${r} cm인 원뿔에서 꼭짓점에서 밑면에 수직으로 그은 선분의 길이 ${h} cm를 무엇이라고 하나요?`,
+      choices: ['높이', '모선', '밑면', '지름'], answer: '높이',
+      answerNumeric: null, unitConcept: '원뿔의 높이와 모선',
+    });
+    else if (t === 1) out.push({
+      id: `cone-slant-${r}-${h}`,
+      prompt: `반지름 ${r} cm, 높이 ${h} cm인 원뿔에서 꼭짓점과 밑면의 둘레 위의 한 점을 이은 선분을 무엇이라고 하나요?`,
+      choices: ['모선', '높이', '반지름', '지름'], answer: '모선',
+      answerNumeric: null, unitConcept: '원뿔의 높이와 모선',
+    });
+    else if (t === 2) out.push({
+      id: `cyl-vertex-${r}-${h}`,
+      prompt: `반지름 ${r} cm, 높이 ${h} cm인 원기둥에 각기둥처럼 꼭짓점과 모서리가 있나요?`,
+      choices: ['없어요', '있어요', '밑면에 4개 있어요', '모서리가 8개 있어요'], answer: '없어요',
+      answerNumeric: null, unitConcept: '원기둥의 구성 요소',
+    });
+    else if (t === 3) out.push({
+      id: `cyl-base-${r}-${h}`,
+      prompt: `반지름 ${r} cm, 높이 ${h} cm인 원기둥의 두 밑면은 서로 어떤 관계인가요?`,
+      choices: ['서로 합동이고 평행해요', '서로 합동이지만 만나요', '크기가 다른 두 원이에요', '한 점에서 만나요'],
+      answer: '서로 합동이고 평행해요', answerNumeric: null, unitConcept: '원기둥의 구성 요소',
+    });
+    else if (t === 4) out.push({
+      id: `cyl-net-side-${r}-${h}`,
+      prompt: `반지름 ${r} cm, 높이 ${h} cm인 원기둥의 전개도에서 옆면은 어떤 모양인가요?`,
+      choices: ['직사각형', '원', '삼각형', '사다리꼴'], answer: '직사각형',
+      answerNumeric: null, unitConcept: '원기둥의 전개도',
+    });
+    else out.push({
+      id: `cyl-net-width-${r}-${h}`,
+      prompt: `반지름 ${r} cm, 높이 ${h} cm인 원기둥의 전개도에서 옆면인 직사각형의 변 중 밑면과 맞닿는 변의 길이는 무엇과 같은가요?`,
+      choices: ['밑면의 둘레', '밑면의 지름', '밑면의 반지름', '원기둥의 높이'], answer: '밑면의 둘레',
+      answerNumeric: null, unitConcept: '원기둥의 전개도',
+    });
+  }
+  let k = 0;
+  for (const r of R_SPH) {
+    if (k++ % 2 === 0) out.push({
+      id: `sph-views-${r}`,
+      prompt: `반지름 ${r} cm인 구를 위, 앞, 옆에서 본 모양은 서로 어떠한가요?`,
+      choices: ['세 방향 모두 같은 원이에요', '위는 원, 옆은 타원이에요', '앞은 원, 위는 점이에요', '옆만 반원이에요'],
+      answer: '세 방향 모두 같은 원이에요', answerNumeric: null, unitConcept: '구의 구성 요소와 성질',
+    });
+    else out.push({
+      id: `sph-center-${r}`,
+      prompt: `반지름 ${r} cm인 구에서 구의 중심은 몇 개인가요?`,
+      choices: ['1개', '2개', '4개', '셀 수 없이 많아요'], answer: '1개',
+      answerNumeric: 1, unitConcept: '구의 구성 요소와 성질',
+    });
+  }
+  return out;
+}
+
 function sampleProblems(n) {
   n = Math.max(1, n | 0);
-  const extra = [];
-  for (const r of R_CYL) for (const h of H_CYL) {
-    extra.push({
-      id: `comp-h-${r}-${h}`,
-      prompt: `반지름 ${r} cm인 원뿔에서 꼭짓점과 밑면 사이의 거리 ${h} cm를 무엇이라고 하나요?`,
-      choices: ['높이', '모선', '밑면', '반지름'],
-      answer: '높이',
-      answerNumeric: h,
-      unitConcept: '원뿔의 높이',
-    });
-    extra.push({
-      id: `comp-v-${r}-${h}`,
-      prompt: `원기둥(반지름 ${r} cm, 높이 ${h} cm)에 각기둥처럼 꼭짓점과 모서리가 있나요?`,
-      choices: ['없어요', '있어요', '밑면에 4개 있어요', '모서리가 8개 있어요'],
-      answer: '없어요',
-      answerNumeric: 0,
-      unitConcept: '원기둥의 구성 요소',
-    });
-  }
-  for (const r of R_SPH) {
-    extra.push({
-      id: `sph-all-${r}`,
-      prompt: `반지름 ${r} cm인 구를 위, 앞, 옆에서 본 모양을 비교해 봅시다.`,
-      choices: ['세 방향 모두 같은 원', '위는 원, 옆은 타원', '앞은 원, 위는 점', '옆만 반원'],
-      answer: '세 방향 모두 같은 원',
-      answerNumeric: r,
-      unitConcept: '구의 성질',
-    });
-  }
+  const extra = extraProblems();
   const uniq = [];
   const seenKey = new Set();
   for (const bag of [POOL.cylinder, POOL.cone, POOL.sphere]) {
@@ -716,7 +851,7 @@ function buildSolid(g, type, r, h, ghost) {
   wipe(g);
   const op = ghost ? 0.28 : 1;
   if (type === 'cylinder') {
-    const geo = new THREE.CylinderGeometry(r, r, h, 18, 1, false);
+    const geo = new THREE.CylinderGeometry(r, r, h, 16, 1, false);
     const mats = [
       new THREE.MeshBasicMaterial({ color: 0xF05D5E, transparent: ghost, opacity: op }),
       new THREE.MeshBasicMaterial({ color: 0x159A9C, transparent: ghost, opacity: op }),
@@ -726,7 +861,7 @@ function buildSolid(g, type, r, h, ghost) {
     if (!ghost) addEdges(mesh, geo, 0x14383A);
     g.add(mesh);
   } else if (type === 'cone') {
-    const geo = new THREE.ConeGeometry(r, h, 18, 1, false);
+    const geo = new THREE.ConeGeometry(r, h, 16, 1, false);
     const mats = [
       new THREE.MeshBasicMaterial({ color: 0xF05D5E, transparent: ghost, opacity: op }),
       new THREE.MeshBasicMaterial({ color: 0x159A9C, transparent: ghost, opacity: op }),
@@ -735,7 +870,7 @@ function buildSolid(g, type, r, h, ghost) {
     if (!ghost) addEdges(mesh, geo, 0x14383A);
     g.add(mesh);
   } else {
-    const geo = new THREE.SphereGeometry(r, 18, 12);
+    const geo = new THREE.SphereGeometry(r, 16, 10);
     const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
       color: 0x6C4AB6, transparent: ghost, opacity: op,
     }));
@@ -764,10 +899,24 @@ const S = {
   fold: 0, tagT: 0, tagDone: false, hitStop: 0,
   ghostRotA: 80, ghostRotB: 10, ghostXA: 0, ghostXB: 0,
   lastFailKind: '', failCounts: {}, circleToday: 0, relayOk: 0, inRelay: false,
-  W: 390, H: 844, pointer: null, firstGhostHint: false, judged: false,
+  W: 390, H: 844, pointer: null, firstGhostHint: false, judged: false, resLock: 0,
 };
 
 function laneX(i) { return (S.worldShiftX || 0) + ([-1.5, -0.5, 0.5, 1.5][i] || 0) * S.laneW; }
+
+/* 레인 상자의 반폭(레인 단위). 바깥 레인(±1.5)에 가장 큰 입체가 서도 상자 안에 들어오도록
+   반지름을 더해 역산한다. 고정값 2.15 를 쓰던 때는 반지름 52~58 입체가 경계를 넘어 잘렸다. */
+const MAX_R = Math.max.apply(null, R_CYL.concat(R_SPH));
+function laneSpan() {
+  const lane = S.laneW || 70;
+  const cap = ((S.worldW || 360) / 2 - 6) / lane; // 상자가 카메라(무대) 밖으로 나가지 않는 상한
+  return Math.min(cap, Math.max(S.land ? 3.1 : 2.15, 1.5 + (MAX_R + 16) / lane));
+}
+/* 입체 중심이 갈 수 있는 최대 x — 윤곽이 상자 밖으로 나가지 않는 범위 */
+function solidLimit() {
+  const r = S.gate ? S.gate.r : MAX_R;
+  return Math.max(S.laneW * 1.5, laneSpan() * S.laneW - r - 4);
+}
 
 function layout() {
   const W = innerWidth, H = innerHeight;
@@ -832,7 +981,7 @@ function approachCurve(u) {
 }
 
 function observeOf(g, rot) {
-  if (g.solidType === 'sphere') return '구는 어느 방향에서도 원이에요. 중심을 구멍에 맞춰 봅시다.';
+  if (g.solidType === 'sphere') return '구는 어느 방향에서도 원이에요. 중심을 구멍에 맞추어 보세요.';
   if (g.solidType === 'cone') {
     if (coneErr(rot, 'circle') < coneErr(rot, 'triangle')) return '지금은 밑면이 보였어요.';
     if (angDiff(rot, 90) < 25) return '모선을 높이 쪽에 댔어요.'; // misconception: cone-slant-as-height
@@ -972,8 +1121,10 @@ function spawnGate(g) {
   S.tagT = 0; S.tagDone = false; S.judged = false;
   S.ghostRotA = g.solidType === 'cone' ? 90 : (g.gateView === 'circle' ? 0 : 90);
   S.ghostRotB = targetRots(g.solidType, g.gateView)[0];
-  S.ghostXA = S.land ? -S.laneW * 2.55 : laneX((g.gateLane + 1) % 4);
-  S.ghostXB = S.land ? S.laneW * 2.55 : laneX((g.gateLane + 3) % 4);
+  /* 세로 화면에서는 고스트를 '문도 시작 위치도 아닌' 두 레인에 둔다 — 입체와 겹쳐 가려지지 않게 */
+  const freeLanes = [0, 1, 2, 3].filter((i) => i !== g.gateLane && i !== g.startLane);
+  S.ghostXA = S.land ? -S.laneW * 2.55 : laneX(freeLanes[0]);
+  S.ghostXB = S.land ? S.laneW * 2.55 : laneX(freeLanes[1] != null ? freeLanes[1] : freeLanes[0]);
   buildSolid(playerG, g.solidType, g.r, g.h, false);
   buildSolid(ghostA, g.solidType, g.r * 0.82, g.h * 0.82, true);
   buildSolid(ghostB, g.solidType, g.r * 0.82, g.h * 0.82, true);
@@ -1067,11 +1218,11 @@ function applyFail() {
 
 function mostFailNote() {
   const map = {
-    [MIS.SLANT_AS_HEIGHT]: '모선은 꼭짓점과 밑면의 둘레를 잇는 선분이고, 높이는 꼭짓점과 밑면 사이의 거리예요.',
+    [MIS.SLANT_AS_HEIGHT]: '모선은 꼭짓점과 밑면의 둘레 위의 한 점을 잇는 선분이고, 높이는 꼭짓점에서 밑면에 수직으로 그은 선분의 길이예요.',
     [MIS.SPHERE_DIFF_VIEWS]: '구는 위·앞·옆 어느 쪽에서 보아도 같은 원이에요.',
     [MIS.CYL_HAS_VERTICES]: '원기둥에는 각기둥처럼 꼭짓점과 모서리가 없어요. 밑면은 평평한 원이고, 옆면은 굽은 면이에요.',
     [MIS.NETS_ON_CONE_SPHERE]: '이 단원에서는 원기둥·원뿔·구의 면과 여러 방향에서 본 모양을 다뤄요.',
-    'wrong-face': '문에 맞는 면이 정면이 되게 돌려 봅시다. 원은 밑면, 직사각형은 옆면, 삼각형은 원뿔을 옆에서 본 모양이에요.',
+    'wrong-face': '문에 맞는 모습이 보이게 돌려 보세요. 원은 밑면, 직사각형은 원기둥을 옆에서 본 모양, 삼각형은 원뿔을 옆에서 본 모양이에요.',
   };
   let best = 'wrong-face', n = 0;
   for (const k of Object.keys(S.failCounts)) if (S.failCounts[k] > n) { n = S.failCounts[k]; best = k; }
@@ -1086,11 +1237,14 @@ function endRun(closed) {
   const relayWin = !closed && S.relayOk >= 3;
   $('resTitle').textContent = closed ? '문이 닫혔어요' : (relayWin ? '결승 생존' : '여기까지 생존');
   $('resSub').textContent = closed
-    ? '하트가 없어 실루엣이 닫혔어요. 바로 다시 서 봅시다.'
+    ? '하트가 없어 실루엣이 닫혔어요. 바로 다시 서 보세요.'
     : (relayWin ? '마지막 3문을 통과했어요.' : '90초가 끝났어요. 마지막 3문을 다 열면 결승 생존이에요.');
   $('resNote').textContent = mostFailNote();
   S._resFrom = 0;
   $('resScore').textContent = '0';
+  /* 결과 화면 입력 잠금 0.8초 — 무작위 연타가 실패 피드백을 읽기 전에 재시작시키지 못하게 한다 */
+  S.resLock = 0.8;
+  $('againBtn').disabled = true;
   $('result').classList.remove('hidden');
   $('hud').classList.add('hidden');
   $('prompt').classList.add('hidden');
@@ -1107,6 +1261,7 @@ function startRun(diff) {
   S.elapsed = 0; S.fold = 0; S.stains = []; S.trails = [];
   S.failCounts = {}; S.lastFailKind = ''; S.relayOk = 0; S.inRelay = false;
   S.firstGhostHint = false; S.locked = false; S.timeScale = 1;
+  S.resLock = 0; $('againBtn').disabled = false;
   S.queue = makeRun(S.diff);
   $('title').classList.add('hidden');
   $('result').classList.add('hidden');
@@ -1122,9 +1277,9 @@ function startRun(diff) {
 }
 
 const ONB = [
-  { t: '돌려 봅시다', b: '입체 위를 손가락으로 밀어 밑면과 옆면이 바뀌는 모습을 봅시다.' },
-  { t: '옮겨 봅시다', b: '빈 곳을 좌우로 밀어 구멍 네 곳 중 문이 있는 중심에 입체를 옮겨 봅시다.' },
-  { t: '면을 대 봅시다', b: '원 문에는 밑면을, 직사각형 문에는 옆면을, 삼각형 문에는 원뿔을 옆에서 본 모양이 보이게 해 봅시다. 구는 돌려도 같은 원이에요.' },
+  { t: '돌려 보세요', b: '입체 위를 손가락으로 밀어 밑면과 옆면이 바뀌는 모습을 살펴보세요.' },
+  { t: '옮겨 보세요', b: '빈 곳을 좌우로 밀어 구멍 네 곳 중 문이 있는 중심에 입체를 옮겨 보세요.' },
+  { t: '면을 대 보세요', b: '원 문에는 밑면을, 직사각형 문에는 원기둥을 옆에서 본 모양을, 삼각형 문에는 원뿔을 옆에서 본 모양이 보이게 해 보세요. 구는 돌려도 같은 원이에요.' },
 ];
 let onbI = 0, onbThenPlay = false;
 function openOnb(thenPlay) {
@@ -1174,7 +1329,7 @@ function ptrMove(e) {
     if (S.trails.length > 14) S.trails.shift();
   } else {
     S.x += dx / pxPerWorld();
-    const lim = S.laneW * 2.2;
+    const lim = solidLimit();
     S.x = clamp(S.x, -lim, lim);
   }
   e.preventDefault();
@@ -1193,7 +1348,7 @@ window.addEventListener('keydown', (e) => {
   if (S.phase !== 'playing') return;
   if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') S.x -= S.laneW * 0.12;
   if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') S.x += S.laneW * 0.12;
-  S.x = clamp(S.x, -S.laneW * 2.2, S.laneW * 2.2);
+  S.x = clamp(S.x, -solidLimit(), solidLimit());
   if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); toggleLock(); }
 });
 
@@ -1218,7 +1373,7 @@ $('startBtn').onclick = () => {
 };
 $('howLink').onclick = () => { unlockAudio(); openOnb(false); };
 $('onbNext').onclick = () => { unlockAudio(); stepOnb(); };
-$('againBtn').onclick = () => { unlockAudio(); startRun(S.diff); };
+$('againBtn').onclick = () => { if (S.resLock > 0) return; unlockAudio(); startRun(S.diff); };
 $('muteBtn').onclick = () => {
   unlockAudio();
   muted = !muted;
@@ -1235,23 +1390,26 @@ function polyStr(pts, toPx) {
     return q.x + ',' + q.y;
   }).join(' ');
 }
-function holePath(g, gx, wallY, sc) {
-  const rr = g.r * pxPerWorld() * sc;
-  const hh2 = (g.h / 2) * pxPerWorld() * sc;
-  if (g.gateView === 'circle') {
-    return `M ${gx} ${wallY} m ${-rr} 0 a ${rr} ${rr} 0 1 0 ${rr * 2} 0 a ${rr} ${rr} 0 1 0 ${-rr * 2} 0`;
-  }
-  if (g.gateView === 'rectangle') {
-    return `M ${gx - rr} ${wallY - hh2} h ${rr * 2} v ${hh2 * 2} h ${-rr * 2} z`;
-  }
-  return `M ${gx} ${wallY - hh2} L ${gx - rr} ${wallY + hh2} L ${gx + rr} ${wallY + hh2} z`;
+/* 구멍은 판정 다각형(gatePolyWorld) 그 자체를 그린다.
+   전에는 r·h 만으로 그려 놓고 판정은 허용 오차(tiltPad+posBudget)를 더한 더 큰 다각형으로
+   해서, 통과하는 윤곽이 그려진 구멍보다 커 보이는 크기 불일치가 생겼다.
+   같은 함수·같은 스케일에서 뽑으므로 '윤곽을 구멍에 넣는다'가 눈으로도 성립한다. */
+function holeShape(g, gx, wallY, sc) {
+  const k = pxPerWorld() * sc;
+  const pts = gatePolyWorld(g.gateView, g.r, g.h, 0, gatePadWorld(g));
+  let maxY = 0;
+  const d = pts.map((p, i) => {
+    if (Math.abs(p.y) > maxY) maxY = Math.abs(p.y);
+    return `${i ? 'L' : 'M'} ${(gx + p.x * k).toFixed(1)} ${(wallY - p.y * k).toFixed(1)}`;
+  }).join(' ') + ' z';
+  return { d, halfH: maxY * k };
 }
 function drawFX() {
   const g = S.gate;
   const W = S.W, H = S.H;
   const SX = S.stageX || 0, SW = S.stageW || W;
   const ySolid = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
-  const span = S.land ? 3.1 : 2.15;
+  const span = laneSpan();
   const tl = w2p(-S.laneW * span, ySolid + S.worldH * 0.38);
   const br = w2p(S.laneW * span, ySolid - S.worldH * 0.28);
   const x0 = Math.max(SX + 4, Math.min(tl.x, br.x));
@@ -1278,12 +1436,14 @@ function drawFX() {
     const u = approachCurve(clamp(S.approach / S.travel, 0, 1));
     const solidP = w2p(S.x, ySolid);
     const wallY = lerp(y0 + 28, solidP.y, u);
-    const sc = lerp(0.46, 1, u);
+    const sc = lerp(0.62, 1, u); // 접근 초반에도 구멍과 입체의 크기 대응이 읽히도록
     const gx = w2p(laneX(g.gateLane), ySolid).x;
     const fold = S.fold > 0 ? (1 - S.fold) * 80 : 0;
     const wallL = x0, wallR = x1;
-    const hh = Math.max(36, (g.h * pxPerWorld() * 0.42 + 28) * sc);
-    const hole = holePath(g, gx, wallY, sc);
+    const shape = holeShape(g, gx, wallY, sc);
+    const hole = shape.d;
+    /* 벽 띠는 구멍보다 반드시 커야 한다 — 구멍의 실제 세로 반폭에서 역산한다 */
+    const hh = Math.max(36 * sc, shape.halfH + 16 * sc);
     html += `<g transform="translate(${fold},0)">`;
     html += `<path fill-rule="evenodd" fill="#DDF3F7" fill-opacity=".88" stroke="#14383A" stroke-width="3"
       d="M ${wallL} ${wallY - hh} H ${wallR} v ${hh * 2} H ${wallL} z ${hole}"/>`;
@@ -1389,11 +1549,11 @@ window.addEventListener('pointerdown', (e) => {
     if (s.id === MIS.CYL_HAS_VERTICES) {
       showObs('원기둥에는 꼭짓점과 모서리가 없어요. 밑면은 평평한 원이고, 옆면은 굽은 면이에요.');
     } else if (s.id === 'generatrix' && !s.ok) {
-      showObs('모선은 꼭짓점과 밑면의 둘레를 잇는 선분이에요. 높이는 꼭짓점과 밑면 사이의 거리예요.');
+      showObs('모선은 꼭짓점과 밑면의 둘레 위의 한 점을 잇는 선분이에요. 높이는 꼭짓점에서 밑면에 수직으로 그은 선분의 길이예요.');
     } else if (s.ok) {
       addScore(30);
       punchScore();
-      if (s.id === 'height' && S.gate.solidType === 'cone') showObs('높이는 꼭짓점과 밑면 사이의 거리예요.');
+      if (s.id === 'height' && S.gate.solidType === 'cone') showObs('높이는 꼭짓점에서 밑면에 수직으로 그은 선분의 길이예요.');
       else if (s.id === 'height') showObs('높이는 두 밑면 사이의 거리예요.');
       else if (s.id === 'radius') showObs('반지름은 중심과 겉면을 잇는 선분이에요.');
       else showObs('이유 별!');
@@ -1405,11 +1565,15 @@ window.addEventListener('pointerdown', (e) => {
 
 function poseGroups() {
   const ySolid = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
+  const lim = solidLimit();
+  S.x = clamp(S.x, -lim, lim); // 리사이즈로 상자가 좁아져도 입체가 밖으로 새지 않는다
   playerG.position.set(S.x, ySolid, 0);
   playerG.rotation.set(S.rot * DEG, 0, 0);
   const off = S.land ? S.laneW * 2.55 : S.laneW * 1.15;
-  ghostA.position.set(S.ghostXA || -off, ySolid, -8);
-  ghostB.position.set(S.ghostXB || off, ySolid, -8);
+  /* 고스트도 레인 상자 안쪽에 둔다 (0.82 배로 지은 축소 사본) */
+  const gEdge = Math.max(0, laneSpan() * S.laneW - (S.gate ? S.gate.r : MAX_R) * 0.82 - 6);
+  ghostA.position.set(clamp(S.ghostXA || -off, -gEdge, gEdge), ySolid, -8);
+  ghostB.position.set(clamp(S.ghostXB || off, -gEdge, gEdge), ySolid, -8);
   ghostA.rotation.set(S.ghostRotA * DEG, 0, 0);
   ghostB.rotation.set(S.ghostRotB * DEG, 0, 0);
   ghostA.visible = ghostB.visible = S.phase === 'playing';
@@ -1428,6 +1592,10 @@ function frame(now) {
   if (S.phase === 'result') {
     S._resFrom = Math.min(S.score, (S._resFrom || 0) + Math.max(12, S.score * 1.8 * dt));
     $('resScore').textContent = String(Math.round(S._resFrom));
+    if (S.resLock > 0) {
+      S.resLock -= dt;
+      if (S.resLock <= 0) { S.resLock = 0; $('againBtn').disabled = false; }
+    }
   }
   const ts = S.timeScale;
   if (S.hitStop > 0) {
@@ -1533,9 +1701,42 @@ window.__GAME_TEST__ = {
     S.tagT = 0;
     applyFail();
   },
+  /* answerNumeric 은 '정답을 수로 환산할 수 있을 때만' 그 수를 담는다.
+     정답이 이름·서술(밑면·모선·서로 합동이고 평행해요)이면 null 이다. 인덱스·치수를 섞어 넣지 않는다. */
   sampleProblems,
   getLayout() { return { land: S.land, playW: S.playW || S.play.w, stageW: S.stageW, stageX: S.stageX || 0 }; },
   simBots,
+  /* 발문 레지스터 전수 검사 — 생성 문항 + 화면에 나오는 모든 문구 */
+  verifyRegister() {
+    const bad = [];
+    for (const p of sampleProblems(400)) {
+      if (!registerOk(p.prompt)) bad.push(p.prompt);
+      for (const c of p.choices || []) if (!registerOk(c)) bad.push(c);
+    }
+    const ui = [];
+    for (const o of ONB) { ui.push(o.t, o.b); }
+    ui.push($('onbTitle').textContent, $('onbBody').textContent, $('contract').textContent);
+    ui.push(mostFailNote());
+    for (const t of ['cylinder', 'cone', 'sphere']) {
+      for (let d = 0; d < 360; d += 30) ui.push(observeOf({ solidType: t }, d));
+    }
+    for (const u of ui) if (!registerOk(u)) bad.push(u);
+    return { violations: bad.length, sample: bad.slice(0, 8) };
+  },
+  /* 개념군별 정답 분포 — 개념군 안에서 정답이 갈리는지 본다(퇴화 문항 회귀 방지) */
+  answerSpread(n) {
+    const map = {};
+    for (const p of sampleProblems(n || 400)) {
+      const k = p.unitConcept || '(없음)';
+      (map[k] = map[k] || {})[p.answer] = (map[k][p.answer] || 0) + 1;
+    }
+    const out = {};
+    for (const k of Object.keys(map)) {
+      const total = Object.values(map[k]).reduce((a, b) => a + b, 0);
+      out[k] = { total, distinct: Object.keys(map[k]).length, byAnswer: map[k] };
+    }
+    return out;
+  },
   verifyFit() {
     const fails = [];
     const items = [];
