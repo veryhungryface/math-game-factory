@@ -17,8 +17,24 @@
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:var(--paper);color:var(--ink)}
   body{position:fixed;inset:0;touch-action:none;user-select:none;-webkit-user-select:none}
-  #app{position:absolute;left:var(--stageX);top:0;width:var(--stageW);height:100%}
-  #cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+  /* 도면 모눈·테두리는 DOM 레이어로 뺐다 — 캔버스에 매 프레임 전면 블리팅하면
+     소프트웨어 렌더링(swiftshader)에서 프레임 시간의 절반을 잡아먹는다. */
+  #app{position:absolute;left:var(--stageX);top:0;width:var(--stageW);height:100%;
+       background-color:var(--paper);background-image:
+         repeating-linear-gradient(to right, rgba(220,234,242,.07) 0 1px, transparent 1px 28px),
+         repeating-linear-gradient(to bottom, rgba(220,234,242,.07) 0 1px, transparent 1px 28px)}
+  #frame{position:absolute;inset:10px;border:1px solid rgba(220,234,242,.18);pointer-events:none}
+  #frame i{position:absolute;width:17px;height:17px}
+  #frame i::before,#frame i::after{content:"";position:absolute;background:rgba(127,214,232,.55)}
+  #frame i::before{left:0;top:8px;width:17px;height:1.4px}
+  #frame i::after{top:0;left:8px;width:1.4px;height:17px}
+  #frame i:nth-child(1){left:-9px;top:-9px}
+  #frame i:nth-child(2){right:-9px;top:-9px}
+  #frame i:nth-child(3){left:-9px;bottom:-9px}
+  #frame i:nth-child(4){right:-9px;bottom:-9px}
+  /* 캔버스는 와이드에서 플레이필드 폭만 차지한다 — 우측 패널 아래까지 깔면
+     소프트웨어 래스터라이저가 쓸데없이 넓은 면적을 매 프레임 다시 칠한다. */
+  #cv{position:absolute;left:0;top:0;touch-action:none;display:block}
   .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 
   /* HUD — 범례 박스·인출선 (H축 문법: radius 0, 헤어라인, 그림자·광석 금지) */
@@ -33,7 +49,8 @@
   /* 문제 판넬 */
   #panel{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 8px);
          background:rgba(13,30,48,.92);border-top:var(--hair)}
-  #qtext{font-size:17px;line-height:1.55;min-height:44px;display:flex;flex-wrap:wrap;align-items:center;gap:2px}
+  #qtext{font-size:17px;line-height:1.6;min-height:44px;word-break:keep-all}
+  #qtext .nb{white-space:nowrap}
   #qtext .fx{display:inline-flex;align-items:center;vertical-align:middle}
   #qtext .fx .katex{font-size:1.15em}
   #curAns{font-size:13px;margin-top:4px;color:var(--cyan);font-family:ui-monospace,Menlo,monospace;min-height:16px}
@@ -142,7 +159,7 @@
 
   /* ── 와이드 (1280px+) : 플레이 영역 재배치 (playfield-spec)
      #app 이 이미 stageX 에 놓여 있으므로 자식 오프셋에 stageX 를 다시 쓰면 이중 보상된다 ── */
-  html.land #hud{left:0;width:min(460px,calc(var(--stageW)*0.38));right:auto}
+  html.land #hud{left:0;width:min(330px,calc(var(--stageW)*0.28));right:auto}
   html.land #panel{left:calc(var(--stageW) - min(340px,calc(var(--stageW)*0.27)) - 12px);
     width:min(340px,calc(var(--stageW)*0.27));bottom:auto;top:64px;border:var(--hair)}
   html.land #ctrl{flex-direction:column}
@@ -150,10 +167,11 @@
 </head>
 <body>
 <div id="app">
+  <div id="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
   <canvas id="cv"></canvas>
   <div id="hud">
-    <div class="legend">STAGE <b id="hStage">1</b></div>
-    <div class="legend">SCORE <b id="hScore">0</b></div>
+    <div class="legend">단계 <b id="hStage">1</b></div>
+    <div class="legend">점수 <b id="hScore">0</b></div>
     <div class="legend" id="hLives">♥♥♥</div>
     <button id="muteBtn" class="mono" aria-label="소리 끄기">♪</button>
   </div>
@@ -181,7 +199,7 @@
           <svg viewBox="0 0 340 14" preserveAspectRatio="none"><path d="M4 14 Q 170 -10 336 14"/></svg>
         </div>
         <p class="game-subtitle">판자를 놓아 몫을 짓는다</p>
-        <p class="title-unit">6학년 1학기 · 분수의 나눗셈</p>
+        <p class="title-unit">6학년 2학기 · 분수의 나눗셈</p>
       </div>
       <div class="title-cta-zone">
         <div class="title-best" id="bestPill" hidden></div>
@@ -194,7 +212,7 @@
       <div class="ob-card">
         <div class="ob-step" id="obStep">1 / 3</div>
         <div class="ob-title" id="obTitle">강의 폭 확인</div>
-        <div class="ob-body" id="obBody">치수선이 강의 폭(나누는 수)을 알려 준다.</div>
+        <div class="ob-body" id="obBody">치수선이 강의 폭을 알려 줘요. 나눗셈에서 나누어지는 수예요.</div>
         <button class="ob-next" id="obNext">다음</button>
       </div>
     </div>
@@ -223,6 +241,10 @@ const fStr = f=> f.d===1 ? String(f.n) : f.n+'/'+f.d;
 const fMixed = f=>{ if(f.d===1) return String(f.n);
   const w=Math.trunc(f.n/f.d), r=Math.abs(f.n%f.d);
   return w===0 ? `${r}/${f.d}` : `${w} ${r}/${f.d}`; };
+/* DOM 텍스트용 대분수 — 교과서 읽기 표기 '1과 1/3' */
+const fMixKo = f=>{ if(f.d===1) return String(f.n);
+  const w=Math.trunc(f.n/f.d), r=Math.abs(f.n%f.d);
+  return w===0 ? `${r}/${f.d}` : `${w}과 ${r}/${f.d}`; };
 const fNum = f=> f.n/f.d;
 const mulberry32 = s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
 const ri = (rng,a,b)=> a+Math.floor(rng()*(b-a+1));
@@ -231,76 +253,91 @@ const MONO = 'ui-monospace,Menlo,Consolas,monospace';
 
 /* ══════════════════ 문제 생성기 (순수 — 검산 표본 대상) ══════════════════ */
 const SNAP = 24;
-const rivers = ['시내','강','개울','계곡','시냇가'];
+/* 건널목 어휘는 폭에 따라 갈린다 — 폭이 1 m 미만인데 '강' 이라고 하면 말이 안 된다.
+   ('시냇가' 는 시내의 둑이라 폭을 잴 대상이 아니므로 아예 뺐다) */
+const wideCrossings = ['시내','강','개울','계곡'];
+const narrowCrossings = ['도랑','실개천','물길'];
 const planks = ['판자','널빤지','통나무판'];
-const objJ = p => p==='통나무판' ? '을' : '를';
-const subJ = p => p==='통나무판' ? '은' : '는';
+/* 받침 유무로 조사를 고른다 */
+const hasJong = w=>{ const c=w.charCodeAt(w.length-1); return c>=0xAC00 && c<=0xD7A3 && (c-0xAC00)%28!==0; };
+const jEul = w => hasJong(w) ? '을' : '를';
+const jI   = w => hasJong(w) ? '이' : '가';
+/* 길이 표기 — 이 게임의 모든 길이는 자연수 아니면 진분수다(가분수·대분수 미출제).
+   교과서 표기대로 수와 단위 사이를 띄운다: '2 m', '3/4 m' */
+const mLen = f => fStr(f);
+/* 발문 — 익힘책 레지스터(~인지 구해 보세요). 청유형('~봅시다')·해라체 금지.
+   '빈틈이나 겹침 없이' 가 있어야 문장만으로 답이 하나로 정해진다. */
+const askCount = (cross, plank, w, pl) =>
+  `폭이 ${mLen(w)} m인 ${cross}에 길이가 ${mLen(pl)} m인 ${plank}${jEul(plank)} 빈틈이나 겹침 없이 이어 놓으려고 합니다. ${plank}${jI(plank)} 몇 장 필요한지 구해 보세요.`;
+const askLength = (cross, plank, w, k) =>
+  `폭이 ${mLen(w)} m인 ${cross}${jEul(cross)} 길이가 같은 ${plank} ${k}장으로 빈틈이나 겹침 없이 덮었습니다. ${plank} 한 장의 길이는 몇 m인지 구해 보세요.`;
+/* 6-2 1단원(분수의 나눗셈) 범위 — 포함제(장수)는 (자연수)÷(분수)·(분수)÷(분수),
+   등분제(길이)는 (분수)÷(자연수). 6-1 전용인 (자연수)÷(자연수) 몫을 분수로 나타내기는 내지 않는다. */
 function genProblem(lv, rng){
-  const types = lv<=1 ? ['C1','C1','L1'] : lv===2 ? ['C1','L1','L1','C3'] :
-                lv===3 ? ['C1','L1','C2','C3','L3'] :
-                lv===4 ? ['C2','C3','L3','L2','C4','C1'] :
-                         ['C2','C3','C4','L2','L3','L1','C1'];
+  const types = lv<=1 ? ['C1','C1','L3'] : lv===2 ? ['C1','C1','C3','L3'] :
+                lv===3 ? ['C1','C3','C2','L3'] :
+                lv===4 ? ['C3','C2','C4','L3','C1'] :
+                         ['C2','C3','C4','C1','L3'];
   const t = pick(rng,types);
-  const river = pick(rng,rivers), plank = pick(rng,planks);
+  const plank = pick(rng,planks);
   let p=null, guard=0;
   while(!p && guard++<500){
-    if(t==='C1'){ const d=ri(rng,2,6), N=ri(rng,1,3), q=N*d;
+    if(t==='C1'){ const d=ri(rng,2,8), N=ri(rng,1,3), q=N*d;
       if(q<2||q>12) continue;
-      p={mode:'count', width:F(N,1), plank:F(1,d), q,
-         prompt:`폭 ${N}m ${river}에 ${fStr(F(1,d))}m ${plank}${objJ(plank)} 놓아라. ${plank}${subJ(plank)} 모두 몇 장?`,
-         concept:'(자연수)÷(단위분수)'};
-    } else if(t==='C2'){ const a=ri(rng,2,4), b=ri(rng,2,6); if(gcd(a,b)!==1) continue;
+      p={mode:'count', width:F(N,1), plank:F(1,d), q, concept:'(자연수)÷(단위분수)'};
+    } else if(t==='C2'){ const a=ri(rng,2,5), b=ri(rng,a+1,8); if(gcd(a,b)!==1) continue;
       const N=ri(rng,1,4), q=N*b/a; if(!Number.isInteger(q)||q<2||q>12) continue;
-      p={mode:'count', width:F(N,1), plank:F(a,b), q,
-         prompt:`폭 ${N}m ${river}에 ${fStr(F(a,b))}m ${plank}${objJ(plank)} 놓아라. ${plank}${subJ(plank)} 모두 몇 장?`,
-         concept:'(자연수)÷(분수)'};
+      p={mode:'count', width:F(N,1), plank:F(a,b), q, concept:'(자연수)÷(분수)'};
     } else if(t==='C3'){ const b=ri(rng,2,6), a=ri(rng,1,b-1); if(gcd(a,b)!==1) continue;
-      const d=ri(rng,Math.max(2,b),8), q=a*d/b; if(!Number.isInteger(q)||q<2||q>12) continue;
-      p={mode:'count', width:F(a,b), plank:F(1,d), q,
-         prompt:`폭 ${fStr(F(a,b))}m ${river}에 ${fStr(F(1,d))}m ${plank}${objJ(plank)} 놓아라. ${plank}${subJ(plank)} 모두 몇 장?`,
-         concept:'(분수)÷(단위분수)'};
-    } else if(t==='C4'){ const b=ri(rng,2,4), a=ri(rng,1,b-1); if(gcd(a,b)!==1) continue;
-      const d=ri(rng,2,8), c=ri(rng,1,d-1); if(gcd(c,d)!==1||d===b) continue;
+      const d=ri(rng,Math.max(2,b),10), q=a*d/b; if(!Number.isInteger(q)||q<2||q>12) continue;
+      p={mode:'count', width:F(a,b), plank:F(1,d), q, concept:'(분수)÷(단위분수)'};
+    } else if(t==='C4'){ const b=ri(rng,3,9), a=ri(rng,2,b-1); if(gcd(a,b)!==1) continue;
+      /* c>=2 — 제수가 단위분수면 C3 의 개념 태그와 겹친다.
+         d===b(분모가 같은 경우)는 6-2 1단원 1~2차시 그 자체이므로 허용한다. */
+      const d=ri(rng,3,12), c=ri(rng,2,d-1); if(gcd(c,d)!==1) continue;
       const q=a*d/(b*c); if(!Number.isInteger(q)||q<2||q>8) continue;
       p={mode:'count', width:F(a,b), plank:F(c,d), q,
-         prompt:`폭 ${fStr(F(a,b))}m ${river}에 ${fStr(F(c,d))}m ${plank}${objJ(plank)} 놓아라. ${plank}${subJ(plank)} 모두 몇 장?`,
-         concept:'(분수)÷(분수)'};
-    } else if(t==='L1'){ const M=pick(rng,[2,3,4,6,8,12]), N=ri(rng,1,M-1);
-      if(gcd(N,M)!==1 || 24*N%M!==0) continue;
-      p={mode:'length', width:F(N,1), count:M, ans:F(N,M),
-         prompt:`폭 ${N}m ${river}에 ${plank} ${M}장으로 꼭 채운다. 한 장의 길이는 몇 m?`,
-         concept:'(자연수)÷(자연수)의 몫을 분수로'};
-    } else if(t==='L2'){ const M=pick(rng,[2,3,4]), N=ri(rng,M+1,Math.min(9,4*M-1));
-      if(24*N%M!==0) continue;
-      p={mode:'length', width:F(N,1), count:M, ans:F(N,M),
-         prompt:`폭 ${N}m ${river}에 ${plank} ${M}장으로 꼭 채운다. 한 장의 길이는 몇 m?`,
-         concept:'(자연수)÷(자연수)의 몫을 대분수로'};
-    } else if(t==='L3'){ const b=ri(rng,2,4), a=ri(rng,1,b-1); if(gcd(a,b)!==1) continue;
-      const k=pick(rng,[2,3,4,6]), ans=F(a,b*k);
+         concept: d===b ? '(분수)÷(분수) 분모가 같은 경우' : '(분수)÷(분수)'};
+    } else if(t==='L3'){ const b=ri(rng,2,8), a=ri(rng,1,b-1); if(gcd(a,b)!==1) continue;
+      const k=pick(rng,[2,3,4,6,8]), ans=F(a,b*k);
       if(ans.d>SNAP || SNAP*ans.n%ans.d!==0 || !fLt1(ans)) continue;
-      p={mode:'length', width:F(a,b), count:k, ans,
-         prompt:`폭 ${fStr(F(a,b))}m ${river}에 ${plank} ${k}장으로 꼭 채운다. 한 장의 길이는 몇 m?`,
-         concept:'(분수)÷(자연수)'};
+      p={mode:'length', width:F(a,b), count:k, ans, concept:'(분수)÷(자연수)'};
     }
+    /* 현실성: 폭 1/4 m(25 cm) 미만인 '도랑' 은 다리를 놓을 대상으로 보기 어렵다 */
+    if(p && fLt(p.width, F(1,4))) p=null;
   }
-  if(!p) p={mode:'count', width:F(2,1), plank:F(1,2), q:4,
-    prompt:'폭 2m 강에 1/2m 판자를 놓아라. 판자는 모두 몇 장?', concept:'(자연수)÷(단위분수)'};
+  if(!p) p={mode:'count', width:F(2,1), plank:F(1,2), q:4, concept:'(자연수)÷(단위분수)'};
+  const cross = pick(rng, fLt1(p.width) ? narrowCrossings : wideCrossings);
+  p.prompt = p.mode==='count'
+    ? askCount(cross, plank, p.width, p.plank)
+    : askLength(cross, plank, p.width, p.count);
   p.answer = p.mode==='count' ? String(p.q) : fStr(p.ans);
   p.answerNumeric = p.mode==='count' ? p.q : fNum(p.ans);
+  p.unitConcept = p.concept;
+  p.id = `${t}-${p.width.n}_${p.width.d}-${p.mode==='count' ? p.plank.n+'_'+p.plank.d : 'x'+p.count}`;
   p.choices = null;
   return p;
 }
 function renderQuestion(el, prompt){
   el.innerHTML='';
-  for(const seg of prompt.split(/(\d+\/\d+)/)){
-    if(!seg) continue;
-    if(/^\d+\/\d+$/.test(seg) && window.katex){
-      const s=document.createElement('span'); s.className='fx';
-      try{ katex.render('\\tfrac{'+seg.replace('/','}{')+'}', s, {throwOnError:false}); }
-      catch(e){ s.textContent=seg; }
-      el.appendChild(s);
-    } else el.appendChild(document.createTextNode(seg));
+  /* 숫자와 단위 m 사이는 줄바꿈 금지 — 교과서 표기 '2 m' 를 붙여 읽히게 한다 */
+  const plain = t => t.replace(/(\d)\s m/g, '$1\u00a0m');
+  const re=/(\d+)\/(\d+)(\s*m[가-힣]*)?/g;
+  let last=0, m;
+  while((m=re.exec(prompt))!==null){
+    if(m.index>last) el.appendChild(document.createTextNode(plain(prompt.slice(last,m.index))));
+    const wrap=document.createElement('span'); wrap.className='nb';
+    const s=document.createElement('span'); s.className='fx';
+    if(window.katex){
+      try{ katex.render(`\\tfrac{${m[1]}}{${m[2]}}`, s, {throwOnError:false}); }
+      catch(e){ s.textContent=`${m[1]}/${m[2]}`; }
+    } else s.textContent=`${m[1]}/${m[2]}`;
+    wrap.appendChild(s);
+    if(m[3]) wrap.appendChild(document.createTextNode('\u00a0'+m[3].trim()));
+    el.appendChild(wrap);
+    last=re.lastIndex;
   }
+  if(last<prompt.length) el.appendChild(document.createTextNode(plain(prompt.slice(last))));
 }
 
 /* ══════════════════ 게임 상태 ══════════════════ */
@@ -330,7 +367,7 @@ const hud = ()=>{ $('hStage').textContent=S.level; $('hScore').textContent=S.sco
 function wrongPlankLen(p){
   const ansU = Math.round(SNAP*p.ans.n/p.ans.d);
   let u = ansU + (Math.random()<0.5?-1:1)*ri(Math.random,2,7);
-  u = Math.max(1, Math.min(Math.round(SNAP*fNum(p.width))+SNAP, u));
+  u = Math.max(1, Math.min(maxLenU(p), u));
   if(u===ansU) u = ansU>1 ? ansU-2 : ansU+2;
   return F(u,SNAP);
 }
@@ -339,21 +376,21 @@ function nextProblem(){
   S.prob = genProblem(S.level, rng);
   S.placed = []; S.overWarned=false;
   if(S.prob.mode==='length') S.plankLen = wrongPlankLen(S.prob);
-  updateLenLabel();
   renderQuestion($('qtext'), S.prob.prompt);
   $('undoBtn').disabled = S.prob.mode!=='count';
   $('submitBtn').textContent = S.prob.mode==='count' ? '건너기' : '완공';
   $('curAns').textContent='';
+  updateLenLabel();   /* 길이 모드는 시작 길이를 바로 보여 준다 (예전엔 첫 드래그 전까지 빈칸) */
   hud();
 }
 function updateLenLabel(){
   const p=S.prob; if(!p) return;
   if(p.mode==='length'){
-    $('curAns').textContent = `한 장 길이 = ${fMixed(S.plankLen)} m  (판자 ${p.count}장)`;
+    $('curAns').textContent = `한 장 길이 = ${fMixKo(S.plankLen)} m  (판자 ${p.count}장)`;
   } else {
     const used = S.placed.length ? fMul(p.plank, F(S.placed.length,1)) : F(0,1);
     const left = fAdd(p.width, F(-used.n,used.d));
-    $('curAns').textContent = S.placed.length ? `놓은 길이 ${fMixed(used)} m · 남은 ${fMixed(left)} m` : '';
+    $('curAns').textContent = S.placed.length ? `놓은 길이 ${fMixKo(used)} m · 남은 ${fMixKo(left)} m` : '';
   }
 }
 function startGame(){
@@ -372,11 +409,11 @@ function submit(){
     S.score += 10 + Math.min(S.streak,5)*2; S.streak++; S.solved++;
     if(S.solved % 6 === 0) S.level = Math.min(9, S.level+1);
     S.fx.pop=1; S.fx.bridgeFlash=1;
-    S.fx.msg = p.mode==='count' ? `${p.q}장 — 완공!` : `${fMixed(p.ans)}m — 완공!`;
+    S.fx.msg = p.mode==='count' ? `${p.q}장 — 완공!` : `${fMixKo(p.ans)} m — 완공!`;
     S.fx.msgT=1.4; beep(660,.08); setTimeout(()=>beep(880,.1),90);
     S.phase='reveal'; setTimeout(()=>{ if(S.phase==='reveal'){ S.phase='playing'; nextProblem(); } }, 1100);
   } else {
-    fail(p.mode==='count' ? `무너졌다! ${p.q}장이 필요했어요` : `무너졌다! 한 장은 ${fMixed(p.ans)}m`);
+    fail(p.mode==='count' ? `무너졌어요! ${p.q}장이 필요해요` : `무너졌어요! 한 장은 ${fMixKo(p.ans)} m예요`);
   }
   hud();
 }
@@ -397,29 +434,29 @@ function fail(msg){
 function gameOver(){
   S.phase='gameover';
   $('rTitle').textContent='공사 중단';
-  $('rStat').innerHTML=`STAGE ${S.level} · 완공 ${S.solved}개<br>SCORE ${S.score}`;
-  $('rMsg').textContent='설계를 다시 확인하고 다리를 놓아 봐요.';
+  $('rStat').innerHTML=`단계 ${S.level} · 완공한 다리 ${S.solved}개<br>점수 ${S.score}`;
+  $('rMsg').textContent='설계를 다시 확인하고 다리를 놓아 보세요.';
   $('result').style.display='flex';
 }
 function forceCorrect(){
   if(S.phase==='title'||S.phase==='gameover') startGame();
   const p=S.prob; S.score += 10; S.solved++; S.streak++;
   S.fx.pop=1; S.fx.bridgeFlash=1;
-  S.fx.msg = p.mode==='count' ? `${p.q}장 — 완공!` : `${fMixed(p.ans)}m — 완공!`; S.fx.msgT=1;
+  S.fx.msg = p.mode==='count' ? `${p.q}장 — 완공!` : `${fMixKo(p.ans)} m — 완공!`; S.fx.msgT=1;
   S.phase='reveal'; setTimeout(()=>{ if(S.phase==='reveal'){ S.phase='playing'; nextProblem(); } }, 250);
   hud();
 }
 function forceWrong(){
   if(S.phase==='title'||S.phase==='gameover') startGame();
-  fail('무너졌다!');
+  fail('무너졌어요!');
 }
 
 /* ══════════════════ 온보딩 (3단계 스포트라이트, §1.3) ══════════════════ */
 const OB_KEY='onboardingSeen:fraction-bridge';
 const OB_STEPS=[
-  {t:'강의 폭 확인', b:'치수선이 강의 폭 — 나누는 수를 알려 준다. 문장의 식과 같은 값이야.'},
-  {t:'몫을 손으로 만들기', b:'장수 모드: 판자를 탭해 강을 꼭 채워. 길이 모드: 판자 끝을 드래그해 한 장 길이를 맞춰.'},
-  {t:'건너기', b:'정확히 채우면 다리 완공! 남은 자리보다 긴 판자를 억지로 놓으면 무너진다.'}
+  {t:'강의 폭 확인', b:'치수선이 강의 폭을 알려 줘요. 나눗셈에서 나누어지는 수예요.'},
+  {t:'몫을 손으로 만들기', b:'장수 모드에서는 판자를 탭해 강을 꼭 채워요. 길이 모드에서는 판자 끝을 드래그해 한 장 길이를 맞춰요.'},
+  {t:'건너기', b:'빈틈이나 겹침 없이 꼭 채우면 다리가 완공돼요. 남은 자리보다 긴 판자를 놓으면 무너져요.'}
 ];
 let obIdx=0;
 function showOnboard(){
@@ -470,22 +507,20 @@ try{
 
 const cv=$('cv'), ctx=cv.getContext('2d');
 let W=0,H=0, land=false;
-let gridCv=null;
+/* 백킹 스토어 픽셀 예산 — 소프트웨어 래스터라이저는 캔버스 면적에 정비례해 느려진다.
+   데스크톱 1280x800 에서 dpr 2(=410만 px)면 15fps, 예산을 걸면 40fps 이상 나온다. */
+const PX_BUDGET = 1300000;
 function resize(){
-  const DPR=Math.min(devicePixelRatio||1, 2);
   const r = $('app').getBoundingClientRect();
-  W=r.width; H=r.height;
+  const appW=r.width; H=r.height;
+  land = (appW>=H && appW>=640) || appW>=1024;
+  document.documentElement.classList.toggle('land', land);
+  /* 와이드에서는 우측 문제 패널 자리를 캔버스에서 뺀다 (패널은 stageW*0.27 + 12) */
+  W = land ? Math.round(appW*0.72) : appW;
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  const DPR=Math.max(1, Math.min(devicePixelRatio||1, 2, Math.sqrt(PX_BUDGET/Math.max(1,W*H))));
   cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
   ctx.setTransform(DPR,0,0,DPR,0,0);
-  gridCv=document.createElement('canvas');
-  gridCv.width=cv.width; gridCv.height=cv.height;
-  const g2=gridCv.getContext('2d');
-  g2.setTransform(DPR,0,0,DPR,0,0);
-  g2.strokeStyle='rgba(220,234,242,0.07)'; g2.lineWidth=1;
-  for(let x=0;x<=W;x+=28){ g2.beginPath(); g2.moveTo(x,0); g2.lineTo(x,H); g2.stroke(); }
-  for(let y=0;y<=H;y+=28){ g2.beginPath(); g2.moveTo(0,y); g2.lineTo(W,y); g2.stroke(); }
-  land = (W>=H && W>=640) || W>=1024;
-  document.documentElement.classList.toggle('land', land);
 }
 addEventListener('resize', resize); resize();
 
@@ -494,7 +529,7 @@ cv.addEventListener('pointerdown', e=>{
   if(S.phase!=='playing' || !S.prob) return;
   if(S.prob.mode==='length'){
     const g=geom();
-    if(Math.abs(e.offsetX-g.plankEndX)<44 && Math.abs(e.offsetY-g.y0)<80){
+    if(Math.abs(e.offsetX-g.handleX)<44 && Math.abs(e.offsetY-g.y0)<Math.max(60,g.bh)){
       drag={lenU:Math.round(SNAP*fNum(S.plankLen))};
       cv.setPointerCapture(e.pointerId);
     }
@@ -505,7 +540,7 @@ cv.addEventListener('pointerdown', e=>{
 cv.addEventListener('pointermove', e=>{
   if(!drag || !S.prob) return;
   const g=geom();
-  const u = Math.max(1, Math.min(Math.round(SNAP*fNum(S.prob.width))+SNAP,
+  const u = Math.max(1, Math.min(maxLenU(S.prob),
              Math.round((e.offsetX-g.x0)/g.pxm*SNAP)));
   if(u!==Math.round(SNAP*fNum(S.plankLen))){
     S.plankLen=F(u,SNAP); beep(440+u*6,.02,'square',0.02); updateLenLabel();
@@ -523,7 +558,7 @@ addEventListener('keydown', e=>{
     e.preventDefault();
     const d = e.key==='ArrowRight' ? 1 : -1;
     const cur = Math.round(SNAP*fNum(S.plankLen));
-    const u = Math.max(1, Math.min(Math.round(SNAP*fNum(S.prob.width))+SNAP, cur+d));
+    const u = Math.max(1, Math.min(maxLenU(S.prob), cur+d));
     if(u!==cur){ S.plankLen=F(u,SNAP); beep(440+u*6,.02,'square',0.02); updateLenLabel(); }
   }
 });
@@ -535,10 +570,10 @@ function placePlank(){
     beep(180,.12,'sawtooth',0.05);
     if(!S.overWarned){
       S.overWarned=true; S.fx.shake=0.7;
-      S.fx.msg = left.n===0 ? '꽉 찼어요! 이제 건너기!' : '판자가 남은 자리보다 길어요!';
+      S.fx.msg = left.n===0 ? '꽉 찼어요! 이제 건너기!' : '남은 자리보다 판자가 길어요!';
       S.fx.msgT=1;
     } else {
-      fail('판자가 넘쳐흘러요! 다리가 무너졌다!');
+      fail('판자가 넘쳤어요! 다리가 무너졌어요!');
     }
     return;
   }
@@ -547,18 +582,31 @@ function placePlank(){
 
 /* ══════════════════ 렌더 (H축 청사진: 남색 도면지 + 흰 헤어라인 + 시안·주홍 별색) ══════════════════ */
 const INKC='#dceaf2', CYANC='#7fd6e8', ACCC='#ff9a52';
+/* 길이 모드 드래그 상한 — 강 폭의 2배. 정답(폭÷장수)의 최소 2배라 충분하고,
+   상한을 폭에 비례시켜야 좁은 폭도 화면을 꽉 채워 그릴 수 있다. */
+function maxLenU(p){
+  const w=fNum(p.width);
+  return Math.max(Math.round(SNAP*w*2), Math.round(SNAP*w)+4);
+}
 function geom(){
-  const panelH = land ? 0 : 200;
+  const panelH = land ? 0 : 208;
   const topH = 64;
-  const fieldW = land ? W*0.66 : W;
+  /* 와이드에서는 플레이필드가 넓어진 폭을 실제로 쓴다 (playfield-spec §1) */
+  const fieldW = W;
   const fieldY = topH, fieldH = H - topH - panelH;
-  const maxW = Math.max(S.prob? fNum(S.prob.width):2, 2) + 1.6;
-  const pxm = Math.min(fieldW*0.82/maxW, fieldH*0.28);
-  const bridgeW = S.prob ? fNum(S.prob.width)*pxm : fieldW*0.5;
-  const x0 = (fieldW - bridgeW)/2;
+  const p = S.prob;
+  const wNum = p ? fNum(p.width) : 2;
+  /* 가로로 확보해야 할 실제 구간: 장수 모드는 강 폭, 길이 모드는 드래그 상한까지 */
+  const need = Math.max(p && p.mode==='length' ? wNum*2 : wNum, 0.5);
+  const pxm = fieldW*0.9/(need*1.3);          // 양쪽 둑(56px)·치수선 여백 포함
+  const span = need*pxm;
+  const bridgeW = wNum*pxm;
+  const x0 = (fieldW - span)/2;
   const y0 = fieldY + fieldH*0.42;
-  return {fieldW, fieldX:0, fieldY, fieldH, pxm, bridgeW, x0, y0,
-          plankEndX: x0+bridgeW};
+  const bh = Math.max(24, Math.min(pxm*0.4, fieldH*0.20));
+  return {fieldW, fieldX:0, fieldY, fieldH, pxm, bridgeW, bh, span, x0, y0,
+          plankEndX: x0+bridgeW,
+          handleX: x0 + fNum(S.plankLen)*pxm};
 }
 function drawFracText(txt, x, y, size, color, align='left'){
   ctx.save(); ctx.fillStyle=color; ctx.textBaseline='middle';
@@ -617,6 +665,58 @@ function drawBridgeDeco(){ // 타이틀 뒤 도면 장식 (하단, 저투명 —
   drawFracText('3/4', x+w/2-30, y+h*2.3+16, 12, CYAN, 'center');
   ctx.restore();
 }
+/* 눈금자 (1/24 스냅) — 눈금 전부 하나의 패스. 두 모드에서 같이 쓴다. */
+function drawRuler(g, p, rulerY){
+  /* 눈금자가 오른쪽으로 잘리지 않게 화면 폭에 맞춰 자른다 */
+  const maxM=Math.max(0.5, Math.min(g.span/g.pxm, (g.fieldW-14-g.x0)/g.pxm));
+  if(rulerY+30 > H-(land?110:0)) return rulerY;
+  ctx.strokeStyle='rgba(220,234,242,0.8)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(g.x0, rulerY); ctx.lineTo(g.x0+maxM*g.pxm, rulerY); ctx.stroke();
+  ctx.beginPath();
+  for(let u=0; u<=Math.round(maxM*SNAP); u++){
+    const px=g.x0+u/SNAP*g.pxm, tall=u%SNAP===0, mid=u%12===0;
+    ctx.moveTo(px, rulerY); ctx.lineTo(px, rulerY+(tall?10:mid?7:3));
+  }
+  ctx.stroke();
+  ctx.font=`10px ${MONO}`; ctx.textAlign='center'; ctx.fillStyle=INKC;
+  for(let u=0; u<=Math.round(maxM*SNAP); u+=SNAP) ctx.fillText(String(u/SNAP), g.x0+u/SNAP*g.pxm, rulerY+24);
+  ctx.fillText('m', g.x0+maxM*g.pxm, rulerY-10);
+  return rulerY+28;
+}
+/* 와이드 하단 공백 활용 — 완공 대장(記) 스트립 (playfield-spec §1: 빈 거터 금지) */
+function drawLedger(g, rulerBottom){
+  /* 눈금자 아래 남는 세로 공백을 메운다 — 와이드뿐 아니라 태블릿 세로에서도 크다 */
+  const areaBottom = land ? H-40 : H-208-12;
+  const y = areaBottom - 14;
+  if(y - 40 - rulerBottom < 50) return;
+  const x0=Math.max(28, g.x0-40), x1=g.fieldW-28;
+  if(x1-x0 < 200) return;
+  ctx.save();
+  ctx.strokeStyle='rgba(220,234,242,0.28)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(x0,y-26); ctx.lineTo(x1,y-26); ctx.stroke();
+  ctx.font=`11px ${MONO}`; ctx.textAlign='left'; ctx.fillStyle='rgba(220,234,242,0.72)';
+  ctx.fillText('공사 대장 · 완공한 다리', x0, y-38);
+  ctx.font=`11px ${MONO}`; ctx.textAlign='right';
+  ctx.fillText(`${S.solved}개`, x1, y-38);
+  const n=Math.min(S.solved, Math.floor((x1-x0)/34));
+  ctx.strokeStyle='rgba(127,214,232,0.75)'; ctx.lineWidth=1.4;
+  ctx.beginPath();
+  for(let i=0;i<n;i++){
+    const ax=x0+i*34;
+    ctx.moveTo(ax, y+14); ctx.lineTo(ax+7, y); ctx.lineTo(ax+21, y); ctx.lineTo(ax+28, y+14);
+    ctx.moveTo(ax, y+14); ctx.lineTo(ax+28, y+14);
+  }
+  ctx.stroke();
+  if(S.solved>n){
+    ctx.font=`11px ${MONO}`; ctx.textAlign='left'; ctx.fillStyle='rgba(220,234,242,0.6)';
+    ctx.fillText(`+${S.solved-n}`, x0+n*34, y+12);
+  }
+  if(S.solved===0){
+    ctx.font=`11px ${MONO}`; ctx.textAlign='left'; ctx.fillStyle='rgba(220,234,242,0.45)';
+    ctx.fillText('아직 완공한 다리가 없어요', x0, y+12);
+  }
+  ctx.restore();
+}
 let lastT=performance.now(), tAcc=0;
 const riverCache={key:'', waves:[]};
 function draw(now){
@@ -631,23 +731,13 @@ function draw(now){
   ctx.save();
   if(S.fx.shake>0) ctx.translate((Math.random()-0.5)*10*S.fx.shake,(Math.random()-0.5)*8*S.fx.shake);
 
-  /* 도면 모눈 (오프스크린 캐시) */
-  if(gridCv) ctx.drawImage(gridCv, 0, 0, W, H);
-  /* 도면 테두리 프레임 + 코너 마크 (일괄 패스) */
-  ctx.strokeStyle='rgba(220,234,242,0.18)'; ctx.lineWidth=1;
-  ctx.strokeRect(10.5, 10.5, W-21, H-21);
-  ctx.strokeStyle='rgba(127,214,232,0.55)'; ctx.lineWidth=1.4;
-  ctx.beginPath();
-  for(const [cx,cy] of [[10.5,10.5],[W-10.5,10.5],[10.5,H-10.5],[W-10.5,H-10.5]]){
-    ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy);
-    ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8);
-  }
-  ctx.stroke();
+  /* 모눈·테두리·코너마크는 #app / #frame DOM 레이어가 그린다 (정적 = 프레임당 0 비용) */
 
   const p=S.prob;
   if(!p){ drawBridgeDeco(); ctx.restore(); requestAnimationFrame(draw); return; }
   const g=geom();
-  const bw=g.bridgeW, bh=Math.max(24,g.pxm*0.4), bx=g.x0, by=g.y0;
+  const bw=g.bridgeW, bh=g.bh, bx=g.x0, by=g.y0;
+  let rulerBottom = by+bh+40;
 
   /* 두 둑 */
   ctx.fillStyle='#142c44'; ctx.strokeStyle=INKC; ctx.lineWidth=1.6;
@@ -713,7 +803,8 @@ function draw(now){
       ctx.setLineDash([]);
     }
     ctx.font=`12px ${MONO}`; ctx.fillStyle=INKC; ctx.textAlign='center';
-    ctx.fillText(`↗ 탭 = ${fMixed(p.plank)}m 판자 1장`, bx+bw/2, by-bh-26);
+    ctx.fillText(`↗ 탭 = ${fMixed(p.plank)} m 판자 1장`, bx+bw/2, by-bh-26);
+    rulerBottom = drawRuler(g, p, by+bh+84);
   } else {
     const L=fNum(S.plankLen)*g.pxm;
     const active = S.phase==='playing';
@@ -744,24 +835,14 @@ function draw(now){
         ctx.strokeRect(px, by-bh, L, bh*2); ctx.setLineDash([]);
       }
     }
-    /* 눈금자 (1/24 스냅) — 눈금 전부 하나의 패스 */
-    const rulerY=by+bh+84, maxM=fNum(p.width)+1.2;
-    ctx.strokeStyle='rgba(220,234,242,0.8)'; ctx.lineWidth=1.2;
-    ctx.beginPath(); ctx.moveTo(g.x0, rulerY); ctx.lineTo(g.x0+maxM*g.pxm, rulerY); ctx.stroke();
-    ctx.beginPath();
-    for(let u=0; u<=Math.round(maxM*SNAP); u++){
-      const px=g.x0+u/SNAP*g.pxm, tall=u%SNAP===0, mid=u%12===0;
-      ctx.moveTo(px, rulerY); ctx.lineTo(px, rulerY+(tall?10:mid?7:3));
-    }
-    ctx.stroke();
-    ctx.font=`10px ${MONO}`; ctx.textAlign='center'; ctx.fillStyle=INKC;
-    for(let u=0; u<=Math.round(maxM*SNAP); u+=SNAP) ctx.fillText(String(u/SNAP), g.x0+u/SNAP*g.pxm, rulerY+24);
-    ctx.fillText('m', g.x0+maxM*g.pxm, rulerY-10);
+    rulerBottom = drawRuler(g, p, by+bh+84);
     if(active){
       ctx.font=`12px ${MONO}`; ctx.fillStyle=ACCC; ctx.textAlign='center';
       ctx.fillText('● 판자 끝을 좌우로 드래그', bx+bw/2, by-bh-76);
     }
   }
+
+  drawLedger(g, rulerBottom);
 
   /* 측량 로봇 */
   const cross = S.fx.bridgeFlash>0 ? (1-S.fx.bridgeFlash) : 0;
@@ -780,8 +861,8 @@ function draw(now){
   if(S.fx.msgT>0){
     ctx.font='bold 17px -apple-system,"Apple SD Gothic Neo",sans-serif';
     ctx.textAlign='center';
-    ctx.fillStyle = (S.fx.msg.includes('무너')||S.fx.msg.includes('넘쳐')) ? ACCC : INKC;
-    ctx.fillText(S.fx.msg, W/2, 40);
+    ctx.fillStyle = (S.fx.msg.includes('무너')||S.fx.msg.includes('넘쳤')) ? ACCC : INKC;
+    ctx.fillText(S.fx.msg, W/2, land ? 96 : 78);
   }
   ctx.restore();
   requestAnimationFrame(draw);
@@ -795,13 +876,14 @@ window.__GAME_TEST__ = {
   getState(){ return { score:S.score, lives:S.lives, level:S.level, phase:S.phase, solved:S.solved, mode:S.prob?S.prob.mode:'none' }; },
   answerCorrect(){ forceCorrect(); },
   answerWrong(){ forceWrong(); },
-  getLayout(){ return { land, playW: Math.round(land ? W*0.66 : W) }; },
+  getLayout(){ return { land, playW: Math.round(W) }; },
   sampleProblems(n){
     const out=[]; const rng=mulberry32(0xC0FFEE ^ ((n|0)*97));
     for(let i=0;i<n;i++) out.push(genProblem(1+Math.floor(rng()*9), rng));
     return out;
   },
-  placePlank
+  placePlank,
+  handlePos(){ const g=geom(); return { x:g.handleX, y:g.y0 }; }
 };
 </script>
 </body>
