@@ -42,11 +42,16 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rend
 #undo:active{transform:translateY(1px)}
 #prompt{
   position:absolute;left:10px;right:62px;top:max(8px,env(safe-area-inset-top));
-  min-height:52px;padding:8px 10px;border:2px solid var(--ink);background:var(--lcd);
-  font-weight:800;font-size:clamp(15px,4.2vw,20px);line-height:1.25;letter-spacing:.02em;
+  min-height:52px;padding:7px 10px 6px;border:2px solid var(--ink);background:var(--lcd);
+  font-weight:800;font-size:clamp(14px,3.9vw,19px);line-height:1.25;letter-spacing:.02em;
   pointer-events:none
 }
 #prompt b{font-size:1.15em}
+/* 좌표 규약은 발문 길이와 무관하게 항상 보이는 별도 줄로 고정한다 (잘림 방지) */
+#pconv{
+  display:block;margin-top:4px;padding-top:4px;border-top:2px dotted var(--ghost);
+  font-size:clamp(10.5px,2.9vw,13px);line-height:1.2;letter-spacing:0;color:var(--steel)
+}
 #failLine{
   position:absolute;left:10px;right:10px;bottom:max(66px,calc(env(safe-area-inset-bottom) + 54px));
   min-height:0;padding:0 8px;color:var(--miss);font-weight:800;font-size:14px;letter-spacing:.02em;
@@ -138,7 +143,7 @@ html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(10
 <div id="game">
   <canvas id="cv" aria-label="층수켜기 우물 스캐너"></canvas>
   <div id="chrome">
-    <div id="prompt">우물 스캐너가 멈췄어. 층이 잠기기 전에 칸을 켜 줘!</div>
+    <div id="prompt"><span id="pmain">우물 스캐너가 멈췄어. 층이 잠기기 전에 칸을 켜 줘!</span><span id="pconv">위에서 본 모양은 위쪽이 앞쪽 · 오른쪽에서 본 모양은 앞쪽이 왼쪽</span></div>
     <button id="mute" aria-label="소리 끄기">♪</button>
     <button id="undo" aria-label="이 층 되돌리기">되돌리기</button>
     <div id="failLine"></div>
@@ -273,6 +278,9 @@ function occupancy(H){ return H.map(r => r.map(v => v>0?1:0)); }
 function fmtGrid(H){ return H.map(r => r.join(' ')).join(' / '); }
 function packArr(a){ let n=0, p=1; for (let i=0;i<a.length;i++){ n+=a[i]*p; p*=4; } return n; }
 function layerMask(L){ let m=0, n=L.length; for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (L[z][x]) m|=1<<(z*n+x); return m; }
+/* 층수 격자(수)와 칸 유무 격자(있음/없음)를 절대 같은 표기로 쓰지 않는다.
+ * 수 격자는 fmtGrid, 유무 격자는 fmtFoot(■/□). */
+function fmtFoot(T){ return T.map(r => r.map(v => v?'■':'□').join('')).join(' / '); }
 function fmtCells(L){
   const n=L.length, out=[];
   for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (L[z][x]) out.push(`(${z},${x})`);
@@ -558,39 +566,50 @@ function minmaxMiscons(mm, which){
   ];
 }
 
+/* 위에서 본 모양의 각 칸에 층수를 쓴 격자를 소개하는 문구 — 유무 격자와 절대 겹치지 않게 못박는다 */
+const TOPNUM_LEAD = `위에서 본 모양의 각 칸에 그 자리에 쌓은 쌓기나무 수를 쓴 것입니다(${FRONT_ROW})`;
+const FOOT_LEAD = `위에서 본 모양입니다(${FRONT_ROW} · ■는 쌓기나무가 있는 칸, □는 없는 칸)`;
+
 function sampleProblems(n){
   n=Math.max(20, n|0);
   const out=[];
   const src3=POOL3.length?POOL3:[[[1,2,0],[0,2,1],[1,0,1]]];
   const src2=POOL2.length?POOL2:[[[2,1],[1,0]]];
-  let i=0, guard=0;
+  /* 실게임과 같은 무작위 추출. 예전엔 인덱스 0부터 순차라 표본이 전부
+   * '뒷줄 한 줄' 퇴화 형상이었고 옆모양·2·3층이 검수에서 한 번도 안 나왔다.
+   * n 마다 다른 씨앗을 써서 QA 가 n 을 변주하면 다른 표본이 나오게 한다. */
+  const rnd=rngFn((0x9E3779B9 ^ (n*2654435761)) >>> 0);
+  let guard=0;
   while (out.length<n && guard<n*80){
     guard++;
     const band=out.length%6;
-    const H=cloneH((band===0?src2:src3)[i % (band===0?src2:src3).length]);
-    i++;
+    /* band0(층별 모양)은 2×2·3×3 을 섞어 1~3층 층별 모양이 모두 표본에 들어오게 한다 */
+    const H=cloneH(pick(band===0 ? (rnd()<0.45?src2:src3) : src3, rnd));
     const nG=H.length, F=frontOf(H), R=rightOf(H), s=sumH(H);
     const idx=out.length;
     let item=null;
     if (band===0){
-      const L1=layerOf(H,1);
-      const visOnly=L1.map((row,z)=>row.map((v,x)=>(v && !isHidden(H,z,x,1))?1:0));
-      const flipX=L1.map(r=>r.slice().reverse());
-      const flipZ=L1.slice().reverse().map(r=>r.slice());
-      const backOff=L1.map((row,z)=> z===nG-1 ? row.map(()=>0) : row.slice());
-      const frontOnly=L1.map((row,z)=> z===0 ? row.slice() : row.map(()=>0));
-      const pack=finishChoices(fmtCells(L1), [
+      const mH=maxH(H), ly=1+((rnd()*mH)|0);
+      const Ly=layerOf(H,ly);
+      const visOnly=Ly.map((row,z)=>row.map((v,x)=>(v && !isHidden(H,z,x,ly))?1:0));
+      const flipX=Ly.map(r=>r.slice().reverse());
+      const flipZ=Ly.slice().reverse().map(r=>r.slice());
+      const backOff=Ly.map((row,z)=> z===nG-1 ? row.map(()=>0) : row.slice());
+      const frontOnly=Ly.map((row,z)=> z===0 ? row.slice() : row.map(()=>0));
+      const other=layerOf(H, ly===1?Math.min(mH,ly+1):ly-1);
+      const pack=finishChoices(fmtCells(Ly), [
         { value:fmtCells(visOnly), misconceptionId:'hidden-omit' },
-        { value:fmtCells(eqGrid(flipX,L1)?flipZ:flipX), misconceptionId:'side-flip' },
+        { value:fmtCells(eqGrid(flipX,Ly)?flipZ:flipX), misconceptionId:'side-flip' },
+        { value:fmtCells(other), misconceptionId:'layer-union' },
         { value:fmtCells(backOff), misconceptionId:'hidden-omit' },
         { value:fmtCells(frontOnly), misconceptionId:'hidden-omit' }
       ]);
-      if (pack) item={ id:'L1-'+idx, prompt:`쌓기나무 높이입니다(${FRONT_ROW}). ${fmtGrid(H)}. 1층에서 켜야 할 칸(행,열 · 0행이 앞줄, 0열이 왼쪽)을 골라 보세요.`,
-        choices:pack.choices, answer:fmtCells(L1), answerNumeric:layerMask(L1), unitConcept:'층별로 나타낸 모양',
-        heightMap:H, distractors:pack.distractors };
+      if (pack) item={ id:'L'+ly+'-'+idx, prompt:`${TOPNUM_LEAD}. ${fmtGrid(H)}. ${ly}층에서 켜야 할 칸(행,열 · 0행이 앞줄, 0열이 왼쪽)을 골라 보세요.`,
+        choices:pack.choices, answer:fmtCells(Ly), answerNumeric:layerMask(Ly), unitConcept:'층별로 나타낸 모양',
+        heightMap:H, layerIndex:ly, distractors:pack.distractors };
     } else if (band===1){
       const pack=finishChoices(String(s), countMiscons(H));
-      if (pack) item={ id:'CNT-'+idx, prompt:`위에서 본 모양의 각 칸에 쓴 수입니다(${FRONT_ROW}). ${fmtGrid(H)}. 쌓기나무는 모두 몇 개인지 구해 보세요.`,
+      if (pack) item={ id:'CNT-'+idx, prompt:`${TOPNUM_LEAD}. ${fmtGrid(H)}. 쌓기나무는 모두 몇 개인지 구해 보세요.`,
         choices:pack.choices, answer:String(s), answerNumeric:s, unitConcept:'위에서 본 모양에 수 써서 나타내기',
         heightMap:H, distractors:pack.distractors };
     } else if (band===2){
@@ -601,7 +620,7 @@ function sampleProblems(n){
         { value:H[0].join(','), misconceptionId:'layer-union' },
         { value:H[nG-1].join(','), misconceptionId:'hidden-omit' }
       ]);
-      if (pack) item={ id:'FR-'+idx, prompt:`위에서 본 모양의 각 칸에 쓴 수입니다(${FRONT_ROW}). ${fmtGrid(H)}. 앞에서 본 높이(왼쪽부터)를 구해 보세요.`,
+      if (pack) item={ id:'FR-'+idx, prompt:`${TOPNUM_LEAD}. ${fmtGrid(H)}. 앞에서 본 높이(왼쪽부터)를 구해 보세요.`,
         choices:pack.choices, answer:ans, answerNumeric:packArr(F), unitConcept:'앞에서 본 모양', heightMap:H, distractors:pack.distractors };
     } else if (band===3){
       const ans=R.join(',');
@@ -611,21 +630,23 @@ function sampleProblems(n){
         { value:H.map(r=>r[nG-1]).join(','), misconceptionId:'layer-union' },
         { value:H.map(r=>r[0]).join(','), misconceptionId:'hidden-omit' }
       ]);
-      if (pack) item={ id:'RT-'+idx, prompt:`위에서 본 모양의 각 칸에 쓴 수입니다(${FRONT_ROW}). ${fmtGrid(H)}. 오른쪽에서 본 높이(${RIGHT_AS_LEFT})를 구해 보세요.`,
+      if (pack) item={ id:'RT-'+idx, prompt:`${TOPNUM_LEAD}. ${fmtGrid(H)}. 오른쪽에서 본 높이(${RIGHT_AS_LEFT})를 구해 보세요.`,
         choices:pack.choices, answer:ans, answerNumeric:packArr(R), unitConcept:'옆에서 본 모양', heightMap:H, distractors:pack.distractors };
     } else if (band===4){
-      const mm = MINMAX.length ? MINMAX[i % MINMAX.length] : null;
+      const mm = MINMAX.length ? pick(MINMAX, rnd) : null;
       if (mm){
         const pack=finishChoices(String(mm.minSum), minmaxMiscons(mm,'min'));
-        if (pack) item={ id:'MIN-'+idx, prompt:`위에서 본 모양(${FRONT_ROW}) ${fmtGrid(mm.T)}, 앞에서 본 높이(왼쪽부터) ${mm.F.join(',')}, 오른쪽에서 본 높이(${RIGHT_AS_LEFT}) ${mm.R.join(',')} 일 때 쌓기나무 개수의 최솟값을 구해 보세요.`,
-          choices:pack.choices, answer:String(mm.minSum), answerNumeric:mm.minSum, unitConcept:'쌓기나무 개수의 최소와 최대', distractors:pack.distractors };
+        if (pack) item={ id:'MIN-'+idx, prompt:`${FOOT_LEAD} ${fmtFoot(mm.T)}. 앞에서 본 높이(왼쪽부터) ${mm.F.join(',')}, 오른쪽에서 본 높이(${RIGHT_AS_LEFT}) ${mm.R.join(',')} 일 때 쌓기나무 개수의 최솟값을 구해 보세요.`,
+          choices:pack.choices, answer:String(mm.minSum), answerNumeric:mm.minSum, unitConcept:'쌓기나무 개수의 최소와 최대',
+          footprint:mm.T, distractors:pack.distractors };
       }
     } else {
-      const mm = MINMAX.length ? MINMAX[i % MINMAX.length] : null;
+      const mm = MINMAX.length ? pick(MINMAX, rnd) : null;
       if (mm){
         const pack=finishChoices(String(mm.maxSum), minmaxMiscons(mm,'max'));
-        if (pack) item={ id:'MAX-'+idx, prompt:`위에서 본 모양(${FRONT_ROW}) ${fmtGrid(mm.T)}, 앞에서 본 높이(왼쪽부터) ${mm.F.join(',')}, 오른쪽에서 본 높이(${RIGHT_AS_LEFT}) ${mm.R.join(',')} 일 때 쌓기나무 개수의 최댓값을 구해 보세요.`,
-          choices:pack.choices, answer:String(mm.maxSum), answerNumeric:mm.maxSum, unitConcept:'쌓기나무 개수의 최소와 최대', distractors:pack.distractors };
+        if (pack) item={ id:'MAX-'+idx, prompt:`${FOOT_LEAD} ${fmtFoot(mm.T)}. 앞에서 본 높이(왼쪽부터) ${mm.F.join(',')}, 오른쪽에서 본 높이(${RIGHT_AS_LEFT}) ${mm.R.join(',')} 일 때 쌓기나무 개수의 최댓값을 구해 보세요.`,
+          choices:pack.choices, answer:String(mm.maxSum), answerNumeric:mm.maxSum, unitConcept:'쌓기나무 개수의 최소와 최대',
+          footprint:mm.T, distractors:pack.distractors };
       }
     }
     if (item) out.push(item);
@@ -729,11 +750,25 @@ function layout(){
   root.style.setProperty('--stageX', SX+'px');
   const dpr=Math.min(devicePixelRatio||1, 1.5);
   S.dpr=dpr;
-  cv.width=Math.floor(W*dpr); cv.height=Math.floor(H*dpr);
-  cv.style.width=W+'px'; cv.style.height=H+'px';
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.imageSmoothingEnabled=false;
-  const top=max(8, envTop())+62;
+  const bw=Math.floor(W*dpr), bh=Math.floor(H*dpr);
+  /* layout() 은 층이 바뀔 때마다 불린다. 크기가 그대로면 canvas.width 를 다시 대입하지
+   * 않는다 — 재대입은 버퍼 재할당 + 컨텍스트 상태 초기화라 층 전환마다 한 프레임 튄다. */
+  if (cv.width!==bw || cv.height!==bh){
+    cv.width=bw; cv.height=bh;
+    cv.style.width=W+'px'; cv.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.imageSmoothingEnabled=false;
+    _font='';   /* canvas.width 재대입은 컨텍스트 상태를 초기화한다 */
+  }
+  /* 발문 박스는 문장 길이에 따라 늘어난다. 캔버스 상단은 박스 실제 아래끝을 따라간다 —
+   * 고정 62px 로 두면 긴 발문이 '위에서 본 모양' 패널을 덮어 버린다. */
+  let promptBot=max(8, envTop())+62;
+  const pe=$('#prompt');
+  if (pe){
+    const pr=pe.getBoundingClientRect();
+    if (pr.height>0) promptBot=max(promptBot, pr.bottom+6);
+  }
+  const top=Math.min(promptBot, Math.round(H*0.34));
   const bot=max(12, envBot())+ (S.hard?8:56);
   if (S.land){
     S.stim={ x:SX+12, y:top, w:STAGE*0.56-10, h:H-top-16 };
@@ -748,16 +783,19 @@ function max(a,b){ return a>b?a:b; }
 function envTop(){ return parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding')||'0')||0; }
 function envBot(){ return 0; }
 
-function dwellFor(well){
-  if (S.hard) return well>=3?2.0 : well>=1?2.2 : 2.4;
-  return well>=3?3.2 : well>=1?3.6 : 4.0;
+/* 층에서 실제로 손봐야 하는 칸 수에 비례해 머무는 시간을 준다.
+ * 판단(실루엣 읽기) 시간을 하한으로 깔고, 칸이 많을수록 조작 시간을 더한다.
+ * 어려움은 하한 3.0초 — 그 아래로는 수학이 아니라 반응속도 시험이 된다. */
+function dwellFor(ops){
+  ops=Math.max(1, ops|0);
+  if (S.hard) return Math.min(6.0, Math.max(3.1, 2.3 + 0.36*ops));
+  return Math.min(7.5, Math.max(3.8, 2.8 + 0.50*ops));
 }
 
 function promptFor(sol, y){
   const w=WELLS[sol.well].title;
-  const conv=`위에서 본 모양은 위쪽이 앞쪽, 오른쪽에서 본 모양은 ${RIGHT_AS_LEFT}`;
-  if (sol.kind==='min') return `${w} · 위·앞·옆 모양을 지키며 가장 적게 쌓아 보세요. ${conv}.`;
-  if (sol.kind==='max') return `${w} · 위·앞·옆 모양을 지키며 가장 많게 쌓아 보세요. ${conv}.`;
+  if (sol.kind==='min') return `${w} · 위·앞·옆 모양을 지키며 가장 적게 쌓아 보세요.`;
+  if (sol.kind==='max') return `${w} · 위·앞·옆 모양을 지키며 가장 많게 쌓아 보세요.`;
   if (sol.kind==='layers'){
     if (y===2 && sol.errorKind==='layer-union' && makeErrorStart(sol.H,2,'layer-union'))
       return `${w} · 1층 카드를 겹쳐 켠 칸이 있어요. 겹친 칸을 끄고 ${y}층 카드만 남기세요.`;
@@ -772,7 +810,7 @@ function promptFor(sol, y){
       return `${w} · ${y}층 칸이 좌우로 뒤집혀 있어요. 켜고 꺼서 고쳐 보세요.`;
     return `${w} · ${y}층이 잘못 켜져 있어요. 켜거나 꺼서 고쳐 보세요.`;
   }
-  if (sol.promptKind==='sil') return `${w} · ${y}층 칸을 켜 위·앞·옆 모양을 맞춰 보세요. ${conv}.`;
+  if (sol.promptKind==='sil') return `${w} · ${y}층 칸을 켜 위·앞·옆 모양을 맞춰 보세요.`;
   return `${w} · ${y}층에 쌓기나무가 있는 칸을 켜 보세요. 가려진 칸도 켜요.`;
 }
 function verifyErrorFindRounds(trials){
@@ -833,7 +871,6 @@ function beginSolid(){
   S.floorY=1;
   S.locked=[];
   S.wellPerfect=true;
-  S.dwell=dwellFor(S.solid.well);
   beginFloor();
 }
 function beginFloor(){
@@ -845,11 +882,16 @@ function beginFloor(){
     if (u) start=u;
   }
   S.paint=start; S.paint0=cloneH(start);
+  {
+    const d=paintDiff(start, layerOf(sol.H,y));
+    S.dwell=dwellFor(d.on+d.off);
+  }
   S.scanPhase='approach'; S.scanT=0;
   S.undoLeft=S.hard?0:1;
   S.floorInteracted=false;
   S.cursor={z:0,x:0};
-  $('#prompt').innerHTML = promptFor(sol,y) + ` <b>${y}층</b>`;
+  $('#pmain').innerHTML = promptFor(sol,y) + ` <b>${y}층</b>`;
+  layout();
   $('#undo').classList.toggle('show', S.undoLeft>0);
   beep(220+y*40, .04, 'square', .03);
 }
@@ -1092,7 +1134,7 @@ function nextOnboard(){
 /* ── input ── */
 function cellAt(px,py){
   const rs=S.cellRects;
-  for (const r of rs) if (px>=r.x && px<=r.x+r.s && py>=r.y && py<=r.y+r.s) return r;
+  for (const r of rs) if (px>=r.px && px<=r.px+r.s && py>=r.py && py<=r.py+r.s) return r;
   return null;
 }
 function onDown(e){
@@ -1163,11 +1205,11 @@ function drawSeg7(ctx, d, x, y, w, h, on){
   if (E) bar(x, y+h/2+t/2, t, h/2-t-t/2);
   if (C) bar(x+w-t, y+h/2+t/2, t, h/2-t-t/2);
 }
-function drawNum7(ctx, num, x, y, dw, dh, digits){
+function drawNum7(ctx, num, x, y, dw, dh, digits, col){
   const s=String(Math.max(0,num|0)).padStart(digits,'0').slice(-digits);
   for (let i=0;i<digits;i++){
     const ch=s.charCodeAt(i)-48;
-    drawSeg7(ctx, SEG7[ch]||0, x+i*(dw+7), y, dw, dh, PAL.ink);
+    drawSeg7(ctx, SEG7[ch]||0, x+i*(dw+7), y, dw, dh, col||PAL.ink);
   }
 }
 function drawPix5(ctx, text, x, y, sc, col){
@@ -1185,8 +1227,11 @@ function drawPix5(ctx, text, x, y, sc, col){
   }
   return cx;
 }
+let _font='';
 function drawK(ctx, text, x, y, px, col){
-  ctx.font=`800 ${Math.max(11,px|0)}px ui-monospace,"SF Mono",Menlo,"Apple SD Gothic Neo",sans-serif`;
+  /* font 문자열 재대입은 소프트웨어 렌더러에서 매번 파싱 비용이 붙는다 — 바뀔 때만 세팅 */
+  const f=`800 ${Math.max(11,px|0)}px ui-monospace,"SF Mono",Menlo,"Apple SD Gothic Neo",sans-serif`;
+  if (f!==_font){ ctx.font=f; _font=f; }
   ctx.fillStyle=col||PAL.ink;
   ctx.textBaseline='top';
   ctx.fillText(String(text), x, y);
@@ -1218,25 +1263,10 @@ function drawCircuit(rect){
     ctx.fillRect(x+w-24, y+16+i*8, 2, 5);
   }
 }
-function drawFrontArrow(x, y, dir){
-  ctx.fillStyle=PAL.steel;
-  ctx.beginPath();
-  if (dir==='up'){
-    ctx.moveTo(x, y); ctx.lineTo(x-7, y+11); ctx.lineTo(x+7, y+11);
-    ctx.closePath(); ctx.fill();
-    drawK(ctx, '앞', x-8, y+12, 12, PAL.steel);
-  } else if (dir==='right'){
-    ctx.moveTo(x+12, y); ctx.lineTo(x, y-7); ctx.lineTo(x, y+7);
-    ctx.closePath(); ctx.fill();
-    drawK(ctx, '앞', x-22, y-8, 12, PAL.steel);
-  } else {
-    ctx.moveTo(x, y); ctx.lineTo(x+11, y-7); ctx.lineTo(x+11, y+7);
-    ctx.closePath(); ctx.fill();
-    drawK(ctx, '앞', x+12, y-7, 12, PAL.steel);
-  }
-}
+/* 층 눈금은 패널 아래 46px 을 비워 둔다 — 그 자리는 '앞' 방향 표시 전용이다.
+ * (예전엔 방향 화살표가 1층 눈금 위에 겹쳐 '1앞'으로 읽혔다) */
 function drawLayerScale(rect, floors, cur){
-  const x=rect.x+10, top=rect.y+22, bot=rect.y+rect.h-18;
+  const x=rect.x+10, top=rect.y+22, bot=rect.y+rect.h-46;
   const span=Math.max(40, bot-top);
   ctx.fillStyle=PAL.ghost;
   ctx.fillRect(x, top, 2, span);
@@ -1247,12 +1277,29 @@ function drawLayerScale(rect, floors, cur){
     drawK(ctx, k+'층', x+10, yy-8, 12, k===cur?PAL.ink:PAL.ghost);
   }
 }
+function drawFrontMark(rect){
+  const y=rect.y+rect.h-30;
+  drawK(ctx, '앞', rect.x+8, y-6, 12, PAL.steel);
+  ctx.fillStyle=PAL.steel;
+  ctx.beginPath();
+  ctx.moveTo(rect.x+42, y); ctx.lineTo(rect.x+30, y-7); ctx.lineTo(rect.x+30, y+7);
+  ctx.closePath(); ctx.fill();
+}
 
 function drawIso(H, rect, scanY, blink){
+  /* 아이소 블록이 옆 패널 위로 새면 패널이 다시 칠해 지워야 한다 — 클립으로 막고
+   * 대신 패널들의 전면 재도색을 없앤다(소프트웨어 렌더러 픽셀 절약). */
+  ctx.save();
+  ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.w, rect.h); ctx.clip();
   drawCircuit(rect);
   const n=H.length, m=Math.max(2, maxH(H));
-  const leftPad=56, rightPad=18, topPad=10, botPad=14;
-  const s=Math.max(40, Math.min(
+  /* 좁은 패널에서는 눈금 열을 줄이고 블록 하한도 낮춘다 — 안 그러면 블록이 층 눈금 위로
+   * 넘쳐 '1층/2층' 글자를 덮는다.
+   * 상한이 없으면 데스크톱에서 블록 하나가 240px 을 넘어 소프트웨어 렌더러 채우기
+   * 비용이 급증한다(30fps 게이트 위협). 보기에도 160px 이면 충분하다. */
+  const narrow=rect.w<260;
+  const leftPad=narrow?46:56, rightPad=narrow?12:18, topPad=10, botPad=14;
+  const s=Math.max(narrow?26:40, Math.min(160,
     (rect.w-leftPad-rightPad)/( (n-1)*1.24 + (n-1)*0.22 + 1.15 ),
     (rect.h-topPad-botPad)/( (m-1)*0.94 + (n-1)*0.16 + 1.2 )
   ));
@@ -1261,7 +1308,7 @@ function drawIso(H, rect, scanY, blink){
   const ox=rect.x+leftPad+(rect.w-leftPad-rightPad-spanX)/2 + s*0.5;
   const oy=rect.y+topPad+(rect.h-topPad-botPad+spanY)/2 - s*0.1;
   drawLayerScale(rect, m, scanY);
-  drawFrontArrow(Math.max(rect.x+22, ox - s*0.62), oy - s*0.2, 'right');
+  drawFrontMark(rect);
   for (let z=n-1;z>=0;z--){
     for (let x=0;x<n;x++){
       const h=H[z][x];
@@ -1281,12 +1328,12 @@ function drawIso(H, rect, scanY, blink){
     ctx.fillRect(rect.x+36, cy+5, rect.w-48, 6);
     ctx.globalAlpha=1;
   }
+  ctx.restore();
 }
 
 function drawSil(arr, x, y, w, h, label, flash, frontLeft){
   const n=arr.length, cw=(w-8)/n, ch=(h-22)/Math.max(3, n);
-  ctx.fillStyle=PAL.lcd;
-  ctx.fillRect(x,y,w,h);
+  /* 배경은 drawBezel 이 이미 같은 색으로 깔았다 — 재도색 생략 */
   ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
   drawK(ctx, label, x+4, y+2, 12, flash?PAL.miss:PAL.ink);
   for (let i=0;i<n;i++){
@@ -1298,26 +1345,37 @@ function drawSil(arr, x, y, w, h, label, flash, frontLeft){
       ctx.fillRect(bx+2, by+2, cw-6, ch-4);
     }
   }
-  if (frontLeft) drawFrontArrow(x+8, y+h-10, 'left');
+  /* 방향 표시는 칸 위에 겹치지 않게 라벨 줄 오른쪽 끝에 둔다 */
+  if (frontLeft){
+    ctx.fillStyle=PAL.steel;
+    ctx.beginPath();
+    ctx.moveTo(x+w-20, y+9); ctx.lineTo(x+w-9, y+3); ctx.lineTo(x+w-9, y+15);
+    ctx.closePath(); ctx.fill();
+  }
 }
-function drawTopGrid(H, x, y, w, h, showNum, flash){
-  const n=H.length, s=Math.min((w-8)/n, (h-28)/n);
-  ctx.fillStyle=PAL.lcd; ctx.fillRect(x,y,w,h);
+/* label: 이 격자의 수가 '층수'인지 '칸 유무'인지 한 게임 안에서 절대 섞이면 안 된다.
+ * 숫자 격자 = 각 칸의 층수, 칠한 격자 = 쌓기나무가 있는 칸(유무). 라벨로 못박는다. */
+function drawTopGrid(H, x, y, w, h, showNum, flash, label){
+  const n=H.length, s=Math.min((w-8)/n, (h-26)/n);
   ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
-  drawK(ctx, '위에서 본 모양 · 위=앞', x+4, y+2, 12, flash?PAL.miss:PAL.ink);
-  const ox=x+(w-s*n)/2, oy=y+22;
+  const lf = w<150 ? 11 : 12;
+  drawK(ctx, label || (showNum?'위 모양에 쓴 수=층수':'위에서 본 모양'), x+4, y+2, lf, flash?PAL.miss:PAL.ink);
+  /* 앞쪽 표시는 라벨 줄 오른쪽 끝 — 칸 위에 겹치면 안에 쓴 수를 가린다 */
   ctx.fillStyle=PAL.steel;
   ctx.beginPath();
-  ctx.moveTo(ox+s*n/2, oy-1); ctx.lineTo(ox+s*n/2-6, oy+8); ctx.lineTo(ox+s*n/2+6, oy+8);
+  ctx.moveTo(x+w-24, y+13); ctx.lineTo(x+w-30, y+4); ctx.lineTo(x+w-18, y+4);
   ctx.closePath(); ctx.fill();
+  drawK(ctx, '앞', x+w-15, y+2, 11, PAL.steel);
+  const ox=x+(w-s*n)/2, oy=y+20+Math.max(0, Math.min(36, (h-26-s*n)/2));
   for (let z=0;z<n;z++) for (let xx=0;xx<n;xx++){
     const v=H[z][xx];
     const bx=ox+xx*s, by=oy+z*s;
     ctx.fillStyle=v>0?PAL.ink:PAL.dim;
     ctx.fillRect(bx+2, by+2, s-4, s-4);
     if (showNum && v>0){
-      const dw=s*0.38, dh=s*0.56;
-      drawNum7(ctx, v, bx+(s-dw)/2, by+(s-dh)/2, dw, dh, 1);
+      /* 칸 배경이 ink 라 수도 ink 로 찍으면 보이지 않는다 — 켜진 세그먼트 색으로 뺀다 */
+      const dw=s*0.42, dh=s*0.62;
+      drawNum7(ctx, v, bx+(s-dw)/2, by+(s-dh)/2, dw, dh, 1, PAL.lcd);
     }
   }
 }
@@ -1339,8 +1397,11 @@ function layoutCells(n, rect){
   const size=Math.min((rect.w-pad*2-24)/n, (rect.h-head-foot-pad)/n);
   const ox=rect.x+(rect.w-size*n)/2, oy=rect.y+head;
   const rs=[];
+  /* z,x 는 격자 좌표, px,py 는 화면 좌표. 예전엔 두 x 를 한 객체에 같은 이름으로 넣어
+   * 열 번호가 화면 좌표로 덮여 있었고, 그 탓에 toggleCell 이 범위 밖으로 판단해
+   * 탭 입력이 통째로 먹히지 않았다. 절대 이름을 다시 겹치지 마라. */
   for (let z=0;z<n;z++) for (let x=0;x<n;x++){
-    rs.push({ z,x, x:ox+x*size, y:oy+z*size, s:size });
+    rs.push({ z, x, px:ox+x*size, py:oy+z*size, s:size });
   }
   S.cellRects=rs;
   return { ox, oy, size };
@@ -1414,9 +1475,11 @@ function drawPlay(){
   if (!sol){ drawHud(); if (sh) ctx.translate(-sh, 0); return; }
   const n=sol.n, y=S.floorY;
   const stim=S.stim, well=S.well;
-  ctx.fillStyle=PAL.lcd;
-  ctx.fillRect(stim.x, stim.y, stim.w, stim.h);
+  /* drawBezel() 이 이미 화면 전체를 LCD 색으로 덮었다. 같은 색 재도색은 소프트웨어
+   * 렌더러에서 그대로 비용이다 — 대신 자극 패널 밖으로 새지 않게 클립만 건다. */
   ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(stim.x, stim.y, stim.w, stim.h);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(stim.x-1, stim.y-1, stim.w+2, stim.h+2); ctx.clip();
 
   const flashView = S.failT>0 ? S.brokenView : null;
   const isoH = sol.promptKind==='minmax' ? occupancy(sol.H).map((r,z)=>r.map((t,x)=>t?1:0)) : sol.H;
@@ -1431,8 +1494,8 @@ function drawPlay(){
     drawCircuit(stim);
     const gap=8, colW=(stim.w-gap*4)/3, colH=stim.h-44;
     const gy=stim.y+36;
-    drawK(ctx, sol.kind==='min'?'가장 적게 쌓기':'가장 많게 쌓기', stim.x+12, stim.y+10, 18, PAL.ink);
-    drawTopGrid(sol.T.map(r=>r.map(v=>v)), stim.x+gap, gy, colW, colH, false, flashView==='top');
+    drawK(ctx, sol.kind==='min'?'가장 적게 쌓기':'가장 많게 쌓기', stim.x+28, stim.y+10, 18, PAL.ink);
+    drawTopGrid(sol.T.map(r=>r.map(v=>v)), stim.x+gap, gy, colW, colH, false, flashView==='top', '위에서 본 모양');
     drawSil(sol.F, stim.x+gap*2+colW, gy, colW, colH, '앞에서 본 모양', flashView==='front', false);
     drawSil(sol.R, stim.x+gap*3+colW*2, gy, colW, colH, '오른쪽(앞=왼)', flashView==='right', true);
   } else {
@@ -1443,15 +1506,16 @@ function drawPlay(){
     if (sol.promptKind!=='iso'){
       const sx=stim.x+isoW, sw=stim.w-isoW-6;
       const hh=(stim.h-16)/3;
-      drawTopGrid(sol.H, sx, stim.y+4, sw, hh, sol.kind==='topnum' && S.locked.length>0, flashView==='top');
+      const numOn = sol.kind==='topnum' && S.locked.length>0;
+      drawTopGrid(sol.H, sx, stim.y+4, sw, hh, numOn, flashView==='top',
+        numOn ? '위 모양에 쓴 수=층수' : '위에서 본 모양');
       drawSil(sol.F, sx, stim.y+8+hh, sw, hh, '앞에서 본 모양', flashView==='front', false);
       drawSil(sol.R, sx, stim.y+12+hh*2, sw, hh, '오른쪽(앞=왼)', flashView==='right', true);
     }
   }
+  ctx.restore();
 
   /* well */
-  ctx.fillStyle=PAL.lcd;
-  ctx.fillRect(well.x, well.y, well.w, well.h);
   ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(well.x, well.y, well.w, well.h);
   drawWellWalls(well);
   const dw=14, dh=24;
@@ -1466,7 +1530,7 @@ function drawPlay(){
   const {ox, oy, size} = layoutCells(n, well);
   drawK(ctx, '앞', ox+size*n/2-8, oy-16, 12, PAL.steel);
   drawK(ctx, '뒤', ox+size*n/2-8, oy+size*n+4, 12, PAL.ghost);
-  drawK(ctx, '왼', ox-18, oy+size*n/2-8, 12, PAL.ghost);
+  drawK(ctx, '왼', Math.max(well.x+10, ox-18), oy+size*n/2-8, 12, PAL.ghost);
   const need=layerOf(sol.H,y);
   const punch=S.punch>0 ? 1+S.punch*0.12 : 1;
   for (const r of S.cellRects){
@@ -1477,7 +1541,7 @@ function drawPlay(){
         if (((S.scanT*18)|0)%2===0) col = on?PAL.ink:PAL.lcd;
       }
     }
-    const cx=r.x+r.s/2, cy=r.y+r.s/2, hs=(r.s-8)*punch/2;
+    const cx=r.px+r.s/2, cy=r.py+r.s/2, hs=(r.s-8)*punch/2;
     ctx.fillStyle=col;
     ctx.fillRect(cx-hs, cy-hs, hs*2, hs*2);
     if (on){
@@ -1487,25 +1551,25 @@ function drawPlay(){
       ctx.fillRect(cx-hs+g, cy-hs+g*2+ih, iw, ih);
     } else if (S.floorY>1 && belowOn(r.z,r.x,S.floorY)){
       ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
-      ctx.strokeRect(r.x+r.s*0.3, r.y+r.s*0.3, r.s*0.4, r.s*0.4);
+      ctx.strokeRect(r.px+r.s*0.3, r.py+r.s*0.3, r.s*0.4, r.s*0.4);
     }
     ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
     ctx.strokeRect(cx-hs, cy-hs, hs*2, hs*2);
     if (S.cursor.z===r.z && S.cursor.x===r.x){
       ctx.strokeStyle=PAL.steel; ctx.lineWidth=3;
-      ctx.strokeRect(r.x+1, r.y+1, r.s-2, r.s-2);
+      ctx.strokeRect(r.px+1, r.py+1, r.s-2, r.s-2);
     }
   }
 
   /* scan bar */
-  const first=S.cellRects[0], last=S.cellRects[S.cellRects.length-1];
-  let ty=first.y;
+  const first=S.cellRects[0];
+  let ty=first.py;
   if (S.scanPhase==='approach'){
     const u=Math.min(1,S.scanT/0.38);
     const over=u<1 ? (u + 0.08*Math.sin(u*Math.PI)) : 1;
-    ty = well.y+well.h - over*(well.y+well.h - (first.y+size*0.15) - well.y);
+    ty = well.y+well.h - over*(well.y+well.h - (first.py+size*0.15) - well.y);
   } else {
-    ty = first.y + size*0.12;
+    ty = first.py + size*0.12;
   }
   S.trail.push(ty); if (S.trail.length>10) S.trail.shift();
   for (let i=0;i<S.trail.length;i++){
@@ -1546,8 +1610,9 @@ function drawPlay(){
   }
 
   if (S.wow && S.wow.t<1.6){
+    /* 자극 패널 좌하단은 '앞' 방향 표시 자리라 겹친다 — 우물 위쪽 빈 줄에 띄운다 */
     ctx.globalAlpha=Math.min(1, 1.6-S.wow.t);
-    drawK(ctx, '우물 점등', stim.x+12, stim.y+stim.h-28, 18, PAL.ink);
+    drawK(ctx, '우물 점등', well.x+112, well.y+34, 16, PAL.steel);
     ctx.globalAlpha=1;
   }
   if (sh) ctx.translate(-sh, 0);
@@ -1687,6 +1752,17 @@ window.__GAME_TEST__ = {
   answerWrong(){ forceWrong(); },
   sampleProblems,
   getLayout(){ return { land:S.land, playW:S.land?S.stageW:S.W }; },
+  /* 타이밍 검증용: 지금 층에서 손봐야 할 칸과 그 화면 좌표. 게임 진행에는 쓰지 않는다. */
+  getFloorPlan(){
+    if (S.phase!=='playing' || !S.solid || !S.cellRects.length) return null;
+    const need=layerOf(S.solid.H, S.floorY);
+    const todo=[];
+    for (const r of S.cellRects){
+      if ((S.paint[r.z][r.x]|0) !== need[r.z][r.x]) todo.push({ z:r.z, x:r.x, cx:r.px+r.s/2, cy:r.py+r.s/2 });
+    }
+    return { floorY:S.floorY, dwell:S.dwell, scanPhase:S.scanPhase, scanT:S.scanT,
+      hard:S.hard, kind:S.solid.kind, todo };
+  },
   simulateBot,
   verifyErrorFind: verifyErrorFindRounds
 };
