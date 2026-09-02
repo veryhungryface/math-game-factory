@@ -130,15 +130,15 @@ html.playing #muteBtn{right:max(12px, calc((100vw - var(--stageW)) / 2 + 12px))}
 #onboard.on,#lever.on,#over.on{display:block}
 /* 온보딩은 놀이판을 가리는 모달이 아니라 아래쪽 코치 띠다 —
    설명을 읽는 동안 실제 열차와 연결핀이 보이고, 바로 만질 수 있어야 한다. */
-#onboard{top:auto;bottom:max(96px,calc(84px + env(safe-area-inset-bottom)));width:min(calc(100% - 16px),470px)}
+#onboard{top:auto;bottom:max(var(--hudTop,96px),calc(84px + env(safe-area-inset-bottom)));width:min(calc(100% - 16px),470px)}
 #onboard .row2{margin-top:9px}
 #onboard .px-btn{min-height:48px}
-html.land #onboard{bottom:max(84px,calc(72px + env(safe-area-inset-bottom)))}
+html.land #onboard{bottom:max(var(--hudTop,84px),calc(72px + env(safe-area-inset-bottom)))}
 #lever{top:max(88px,22dvh)}
 #over{top:max(64px,14dvh);text-align:center}
-.px-k{font-size:11px;letter-spacing:.1em;color:var(--teal);font-weight:700}
-.px-t{margin-top:6px;font-size:clamp(15px,4.2vw,18px);font-weight:800;line-height:1.35;letter-spacing:.02em;word-break:keep-all}
-.px-s{margin-top:6px;font-size:12px;line-height:1.4;font-weight:700;opacity:.86}
+.px-k{font-size:clamp(12px,3.2vw,14px);letter-spacing:.1em;color:var(--teal);font-weight:700}
+.px-t{margin-top:6px;font-size:clamp(17px,4.6vw,21px);font-weight:800;line-height:1.35;letter-spacing:.02em;word-break:keep-all}
+.px-s{margin-top:7px;font-size:clamp(14px,3.7vw,16px);line-height:1.45;font-weight:700;opacity:.9;word-break:keep-all}
 .row2{display:flex;gap:8px;margin-top:12px}
 .px-btn{flex:1;min-height:56px;border:1px solid var(--ink);background:var(--cream);color:var(--ink);
   font-size:14px;font-weight:800;letter-spacing:.06em;box-shadow:1px 1px 0 var(--ink)}
@@ -648,6 +648,65 @@ function exposeSec(T){
   return t;
 }
 
+/* ── 전광판 칸 크기 ──────────────────────────────────────────────
+   비(比)는 이 게임의 핵심 수치다. 발문 본문보다 확실히 커야 한다. */
+function boardMetrics(p){
+  const f=S.fs;
+  const target=clamp(S.W*0.055*S.uiS, 28, 44);
+  const bpx=clamp(Math.round(target/7), 4, 6);
+  const pxF=Math.max(3, bpx-1);
+  const mb=measureFont(f.board);
+  if(!p) return {w:180, h:7*bpx+2*f.board+26, px:bpx, pxF, rw:0, rh:7*bpx, isFrac:false, sub:"", ratio:{text:"",tag:""}};
+  const rr=liveRatio(p);
+  const isFrac = p.kind==="expand" && p.mode==="frac" && !S.boardLit;
+  const rw = isFrac ? fracRatioW(pxF) : glyphW(rr.text, bpx);
+  const rh = isFrac ? fracRatioH(pxF) : 7*bpx;
+  const sub = boardSub(p, rr);
+  const subW=mb.measureText(sub).width;
+  const labW=mb.measureText(p.L+" : "+p.R).width;
+  const maxW = S.land ? Math.min(560, S.stageW*0.38) : S.W-20;
+  const w=Math.round(Math.min(maxW, Math.max(rw+20, subW+18, labW+18, 150)));
+  const h=rh+2*f.board+26;
+  /* 정답을 맞히면 전광판이 「간단한 자연수의 비」로 바뀌고 아래에 곱 확인판이 붙는다.
+     세로 화면에서는 풀이판과 같은 칸을 쓰므로, 그 높이를 미리 비워 둬야 겹치지 않는다. */
+  const prodPx=Math.max(3, bpx-1);
+  const prodH=7*prodPx+16;   /* 곱 확인은 한 줄로 — 두 줄로 쌓으면 세로 화면에서 선로가 밀려난다 */
+  const litH=7*bpx+2*f.board+26 + 6 + prodH;
+  return {w, h, res:Math.max(h, litH), prodPx, prodH, px:bpx, pxF, rw, rh, isFrac, sub, ratio:rr};
+}
+function boardSub(p, rr){
+  if(p.kind==="siding") return `${p.a} : ${p.b} = □ : ${p.c}`;
+  if(p.kind==="reverse") return `차이 ${p.D}칸 · ${rr.tag}`;
+  return `전체 ${p.T}칸 · ${rr.tag}`;
+}
+/* ── 머리 영역(발문 → 전광판 → 풀이판) 자리 계산 ─────────────────────────
+   글자를 키우면 상자가 커진다. 놀이판을 그 아래로 밀어 두지 않으면 겹친다.
+   풀이판은 아직 안 떠 있어도 자리를 미리 비워 둔다 — 설명이 뜰 때 선로가 밀리면
+   학생은 방금 무엇을 눌렀는지 놓친다. */
+function computeHead(){
+  const f=S.fs, land=S.land;
+  const px = land ? S.stageX+12 : 10;
+  const py = land ? 12 : 10;
+  const pw = land ? Math.round(clamp(S.stageW*0.50, 320, 660))
+                  : Math.max(160, S.W-20-S.muteGap);
+  const lead=Math.round(f.prompt*0.3);
+  const txt = S.problem ? S.problem.prompt : "";
+  const blk = txt ? textBlock(txt, pw-16, f.prompt, land?4:5, f.promptFloor) : null;
+  const ph = Math.round(Math.max(3*(f.prompt+lead)+14, (blk?blk.h:0)+14));
+  const bm = boardMetrics(S.problem);
+  const bx = land ? Math.round(Math.max(px+pw+16, S.stageX+S.stageW-bm.w-S.muteGap)) : 10;
+  const by = land ? py : py+ph+8;
+  /* 세로에서는 곱 확인판이 발문·풀이판과 같은 칸에 쌓이므로 그 자리까지 잡는다.
+     가로에서는 전광판이 오른쪽 칸에 따로 서 있어 풀이판과 부딪히지 않는다. */
+  const bres = land ? bm.h : bm.res;
+  const rowB = Math.max(land?py+ph:0, by+bres);
+  /* 풀이판(오답 설명 / 정답 칭찬)은 네 줄까지 나온다. 안 떠 있어도 자리를 비워 둔다 —
+     설명이 뜰 때 선로가 아래로 밀리면 학생은 방금 무엇을 눌렀는지 놓친다. */
+  const hh = 4*(f.ok+Math.round(f.ok*0.3))+Math.round(f.ok*0.6);
+  return {px,py,pw,ph, bx,by,bw:bm.w,bh:bm.h,bres,bm,
+          hx:px, hy:rowB+8, hw:(land?pw:S.W-20), hh, bottom:rowB+8+hh};
+}
+
 function layout(){
   const W=innerWidth, H=innerHeight;
   S.W=W; S.H=H;
@@ -659,11 +718,35 @@ function layout(){
   const root=document.documentElement;
   root.style.setProperty("--stageW", STAGE+"px");
   root.style.setProperty("--stageX", SX+"px");
-  const safeT=24;
+  /* ── 읽는 글자 크기 ──────────────────────────────────────────────
+     초등 5~6학년이 팔 뻗은 거리에서 읽어야 한다. 390 기준 **발문 18px** 을 바닥으로 잡고
+     넓은 화면에서는 비례로 키운다(캔버스 좌표는 CSS px 과 같은 단위다).
+     세로가 짧은 노트북(1280×800)에서 글자만 키우면 놀이판이 사라지므로
+     배율은 폭과 높이 중 작은 쪽을 따른다. */
+  const k=clamp(Math.min(W/390, H/600), 1, 1.55);
+  S.uiS=k;
+  const r=(n)=>Math.round(n*k);
+  S.fs={
+    prompt:r(18), promptFloor:r(16),   // 발문 본문 (최소 16px 보장)
+    board:r(13),                       // 전광판 위/아래 작은 줄
+    plaque:r(14), arrow:r(12),         // 승강장 이름 · 방향 안내
+    hint:r(15), ok:r(16),              // 풀이판 · 정답 칭찬
+    coach:r(14), coach2:r(13),         // 상시 목표 두 줄
+    hud:r(11), bar:r(12), pinTag:r(14) // HUD 라벨 · 이동막대 안내 · 핀 말풍선
+  };
+  S.hudPx=clamp(Math.round(3*k), 3, 5);
+  S.hudH=S.fs.hud+8+7*S.hudPx+10;
+  S.barH=Math.round(22*Math.min(k,1.3));
+  S.muteGap=Math.round(56*Math.min(k,1.3));
+  root.style.setProperty("--hudTop", (S.hudH+30)+"px");   /* 코치 띠가 HUD 위에 앉게 */
+  const head=computeHead();
+  S.head=head;
+  const py=head.bottom+8;
+  const bottom=S.hudH+24;   /* HUD + 노선도 띠 */
   if(S.land){
-    S.play={x:SX+10, y:78, w:STAGE-20, h:Math.max(180, H-86-78)};
+    S.play={x:SX+10, y:py, w:STAGE-20, h:Math.max(200, H-bottom-py)};
   }else{
-    S.play={x:0, y:168, w:W, h:Math.max(180, H-248)};
+    S.play={x:0, y:py, w:W, h:Math.max(200, H-bottom-py)};
   }
   const dpr=Math.min(devicePixelRatio||1, 2);
   S.dpr=dpr;
@@ -674,7 +757,20 @@ function layout(){
 }
 
 function forkX(){ return S.play.x + Math.max(22, S.play.w*0.08); }
-function trackY(){ return S.play.y + S.play.h*(S.land?0.50:0.46); }
+function plaqueH(){ return S.fs.plaque+14; }
+/* 기관차 크기는 **무대 폭**을 따른다. 창 폭을 쓰면 2000px 화면에서 260px 짜리 기관차가
+   되어 승강장 표지를 삼킨다(객차보다 커져 크기 비교도 망가진다). */
+function locoW(){ return Math.max(52, Math.min(S.stageW*0.13, 180)); }
+/* 선로가 앉는 높이는 고정 비율이 아니라 **위아래에 들어갈 글자**가 정한다.
+   위: 갈래 기둥(70) + 승강장 표지. 아래: 갈래 기둥(90) + 승강장 표지 + 이동막대 + 목표 두 줄.
+   글자를 키우면 이 요구가 같이 커진다 — 0.46 같은 고정 비율로는 반드시 겹친다. */
+function trackY(){
+  const f=S.fs, qh=plaqueH(), h=S.play.h;
+  const above = 84+qh+10;
+  const below = 84+qh+12+S.barH+(f.bar+10)+(f.coach+f.coach2+20);
+  const want = Math.max(above, Math.round(h*0.42));
+  return Math.round(S.play.y + Math.min(want, Math.max(above, h-below)));
+}
 
 function makeTrain(p){
   const T=p.T;
@@ -682,8 +778,7 @@ function makeTrain(p){
   const stride=Math.max(minStride, Math.min(56, (S.play.w*0.78)/Math.min(T, 12)));
   const carW=stride*0.84, pinSlot=stride-carW;
   const fx=forkX();
-  const locoW=Math.max(52, S.W*0.13);
-  const startFront=fx+locoW*0.72+10;
+  const startFront=fx+locoW()*0.72+10;
   const destFailX=fx+8;
   const dist=Math.max(70, S.play.w*0.16);
   const startX=destFailX+dist;
@@ -735,7 +830,8 @@ function railBar(){
   const tr=S.train; if(!tr) return null;
   const total=tr.T*tr.stride;
   if(total <= S.play.w-24) return null;
-  return {x:S.play.x+12, y:trackY()+64, w:Math.max(120, S.play.w-24), h:22, total};
+  /* 아래쪽 승강장 표지 밑으로 내린다 — 표지와 겹치면 둘 다 못 읽는다. */
+  return {x:S.play.x+12, y:trackY()+84+plaqueH()+12, w:Math.max(120, S.play.w-24), h:S.barH, total};
 }
 function railBarAt(px,py){
   const bar=railBar(); if(!bar) return false;
@@ -786,6 +882,10 @@ function spawnTrain(){
   const band=bandOf();
   S.level=band;
   S.problem=spawnFromBand(band);
+  /* 발문 길이에 따라 머리 상자 높이가 달라진다 — 열차를 놓기 **전에** 놀이판 자리를 다시 잡는다.
+     (열차가 달리는 중에 바꾸면 선로가 발밑에서 움직인다.) */
+  S.boardLit=false; S.productsOn=false;
+  layout();
   makeTrain(S.problem);
   if(S.ruleLeft>0) S.ruleLeft--;
   if(S.ruleLeft<=0) S.rule="normal";
@@ -1405,7 +1505,7 @@ function drawBg(dt){
 }
 
 function drawHeroStation(){
-  const w=Math.max(52, S.W*0.13), h=w*0.78;
+  const w=locoW(), h=w*0.78;
   const x=forkX()-w*0.15, y=trackY()-h+22;
   if(IMG.hero.ok){
     ctx.save();
@@ -1442,67 +1542,56 @@ function liveRatio(p){
 function drawBoards(){
   const p=S.problem;
   if(!p) return;
-  const muteGap=56;
-  const promptW = S.land ? Math.min(520, S.stageW*0.42) : Math.max(120, S.W-20-muteGap);
-  const promptX = S.land ? S.stageX+12 : 10;
-  const promptY = S.land ? 12 : 10;
-  const promptLines = S.land ? 3 : 4;
-  const promptH = S.land ? 62 : 74;
-  rpgBox(ctx, promptX, promptY, promptW, promptH, CREAM);
-  wrapPrompt(ctx, p.prompt, promptX+8, promptY+18, promptW-16, S.land?14:13, promptLines);
+  const f=S.fs, hd=S.head;
 
-  const rr=liveRatio(p);
-  const target=Math.max(22, Math.min(48, S.W*0.05));
-  const px=Math.max(3, Math.min(6, Math.round(target/7)));
-  const ratio=rr.text;
-  /* 분수 비는 세로 분수꼴로 조판한다(글자 크기는 칸이 너무 커지지 않게 낮춘다). */
-  const isFrac = p.kind==="expand" && p.mode==="frac" && !S.boardLit;
-  const pxF = Math.max(3, px-2);
-  const rw = isFrac ? fracRatioW(pxF) : glyphW(ratio, px);
-  const rh = isFrac ? fracRatioH(pxF) : 7*px;
+  /* ── 발문 ── 상자 높이는 실제 줄 수에서 나온다. 글자를 먼저 정하고 상자를 맞춘다. */
+  rpgBox(ctx, hd.px, hd.py, hd.pw, hd.ph, CREAM);
+  drawTextBlock(ctx, p.prompt, hd.px+8, hd.py+7, hd.pw-16, f.prompt, S.land?4:5, f.promptFloor);
 
-  /* 큰 숫자 줄과 소자막 줄을 따로 쌓는다 — 예전엔 두 줄이 겹쳐서 읽히지 않았다.
-     칸 높이: 위 라벨 18 + 숫자 7·px + 아래 소자막 18 + 여백 8 */
-  let sub="";
-  if(p.kind==="siding") sub=`${p.a} : ${p.b} = □ : ${p.c}`;
-  else if(p.kind==="reverse") sub=`차이 ${p.D}칸 · ${rr.tag}`;
-  else sub=`전체 ${p.T}칸 · ${rr.tag}`;
-  const subW=measureFont(11).measureText(sub).width;
-  const bw=Math.min(S.land?520:S.W-20, Math.max(rw+20, subW+18, 120));
-  const bh=rh+44;
-  const boardX = S.land ? (S.stageX + S.stageW - bw - muteGap) : 10;
-  const boardY = S.land ? 12 : promptY+promptH+8;
+  /* ── 전광판 ── 비는 핵심 수치라 발문 본문보다 크게 조판한다. */
+  const bm=boardMetrics(p);
+  const bw=Math.max(bm.w, hd.bw), bh=bm.h;
+  const boardX = S.land ? Math.round(S.stageX+S.stageW-bw-S.muteGap) : hd.bx;
+  const boardY = hd.by;
   const fill = S.boardLit ? TEAL : "#4A3A42";
   rpgBox(ctx, boardX, boardY, bw, bh, fill);
-  pxText(ctx, p.L+" : "+p.R, boardX+8, boardY+14, 11, S.boardLit?SIGNAL:CREAM);
-  const rx=boardX+Math.floor((bw-rw)/2);
-  if(isFrac) drawFracRatio(ctx, p, rx, boardY+18, pxF, CREAM);
-  else drawBits(ctx, ratio, rx, boardY+18, px, CREAM);
-  pxText(ctx, sub, boardX+8, boardY+bh-7, 11, CREAM);
-  S.boardBottom = boardY+bh;
+  pxText(ctx, p.L+" : "+p.R, boardX+8, boardY+f.board+6, f.board, S.boardLit?SIGNAL:CREAM);
+  const rx=boardX+Math.floor((bw-bm.rw)/2), ry=boardY+f.board+12;
+  if(bm.isFrac) drawFracRatio(ctx, p, rx, ry, bm.pxF, CREAM);
+  else drawBits(ctx, bm.ratio.text, rx, ry, bm.px, CREAM);
+  pxText(ctx, bm.sub, boardX+8, boardY+bh-8, f.board, CREAM);
 
   if(S.productsOn){
     const n=p.left, r=p.T-n;
-    const A=`${p.a}x${r}=${p.a*r}`;
-    const B=`${p.b}x${n}=${p.b*n}`;
-    const px2=Math.max(2, Math.min(4, px-1));
-    const ph=7*px2+16;
-    rpgBox(ctx, boardX, boardY+bh+6, bw, ph, TEAL);
-    drawBits(ctx, A, boardX+8, boardY+bh+12, px2, CREAM);
-    drawBits(ctx, B, boardX+8, boardY+bh+12+7*px2, px2, CREAM);
-    S.boardBottom = boardY+bh+6+ph;   /* 곱 확인판까지 포함해야 아래 안내판이 겹치지 않는다 */
+    const line=`${p.a}x${r}=${p.a*r}  ${p.b}x${n}=${p.b*n}`;
+    const px2=bm.prodPx;
+    const pwd=Math.min(S.land?S.stageW-S.muteGap-24:S.W-20, Math.max(bw, glyphW(line,px2)+16));
+    const pxx=Math.min(boardX, (S.land?S.stageX+S.stageW-S.muteGap:S.W-10)-pwd);
+    rpgBox(ctx, pxx, boardY+bh+6, pwd, bm.prodH, TEAL);
+    drawBits(ctx, line, pxx+8, boardY+bh+14, px2, CREAM);
   }
 
   // fork destination plaques
   const fx=forkX(), y=trackY();
-  const dw=Math.min(110, 128);
-  rpgBox(ctx, fx+36, y-108, dw, 26, S.boardLit?TEAL:CREAM);
-  pxText(ctx, p.L, fx+42, y-90, 11, S.boardLit?CREAM:INK);
-  rpgBox(ctx, fx+36, y+86, dw, 26, S.boardLit?TEAL:CREAM);
-  pxText(ctx, p.R, fx+42, y+104, 11, S.boardLit?CREAM:INK);
-  /* 「앞칸은 왼쪽」이라고 쓰여 있는데 실제로는 위·아래로 갈라진다 — 승강장 옆에 방향을 적어 둔다 */
-  pxText(ctx, "▲ 앞칸이 가는 곳", fx+36, y-114, 11, INK);
-  pxText(ctx, "▼ 남은 칸", fx+36+dw+8, y+104, 11, INK);
+  const mp=measureFont(f.plaque);
+  const dw=Math.round(Math.max(mp.measureText(p.L).width, mp.measureText(p.R).width))+18;
+  const qh=plaqueH();
+  const upY=Math.round(y-84-qh), dnY=Math.round(y+84);
+  rpgBox(ctx, fx+36, upY, dw, qh, S.boardLit?TEAL:CREAM);
+  pxText(ctx, p.L, fx+44, upY+qh-9, f.plaque, S.boardLit?CREAM:INK);
+  rpgBox(ctx, fx+36, dnY, dw, qh, S.boardLit?TEAL:CREAM);
+  pxText(ctx, p.R, fx+44, dnY+qh-9, f.plaque, S.boardLit?CREAM:INK);
+  /* 「앞칸은 왼쪽」이라고 쓰여 있는데 실제로는 위·아래로 갈라진다 — 승강장 **옆**에 방향을 적는다.
+     위에 얹으면 한 줄만큼 선로를 더 내려야 해서 세로 화면에서 놀이판이 사라진다.
+     기관차 그림 위로 겹칠 수 있으므로 바탕을 깔아 준다 — 맨 글자는 그림에 묻힌다. */
+  const ma=measureFont(f.arrow);
+  const ax0=fx+36+dw+10, ah=f.arrow+10;
+  const upW=Math.round(ma.measureText("▲ 앞칸이 가는 곳").width)+12;
+  const dnW=Math.round(ma.measureText("▼ 남은 칸").width)+12;
+  rpgBox(ctx, ax0-6, upY+qh-ah-4, upW, ah, CREAM);
+  pxText(ctx, "▲ 앞칸이 가는 곳", ax0, upY+qh-10, f.arrow, INK);
+  rpgBox(ctx, ax0-6, dnY+qh-ah-4, dnW, ah, CREAM);
+  pxText(ctx, "▼ 남은 칸", ax0, dnY+qh-10, f.arrow, INK);
 }
 
 /* 줄바꿈 계산 결과는 문장·폭·크기가 같으면 재사용한다(매 프레임 measureText 방지). */
@@ -1539,74 +1628,96 @@ function wrapLines(c, text, maxW, size){
 }
 /* 잘라 먹지 않는다 — 줄 수가 넘치면 글자를 한 단계씩 줄여서 전부 보여 준다.
    여러 줄 문장도 통째로 한 번만 굽는다(매 프레임 한글 fillText 를 다시 하지 않는다). */
+/* 줄 수가 cap 을 넘으면 글자를 한 단계씩 줄이되 **floor 아래로는 내리지 않는다**
+   — 예전엔 10px 까지 내려가서 「문제가 안 보인다」는 말을 들었다.
+   floor 에서도 넘치면 자르지 않고 줄을 더 쓴다(상자 높이는 이 블록에서 나온다). */
 const BLOCK_CACHE=new Map();
-function wrapPrompt(c, text, x, y, maxW, size, maxLines){
-  const cap=maxLines||3;
-  const key=text+"|"+Math.round(maxW)+"|"+size+"|"+cap;
+function textBlock(text, maxW, size, maxLines, minSize, color){
+  const cap=maxLines||3, floor=minSize||Math.max(12, size-4), col=color||INK;
+  const key=text+"|"+Math.round(maxW)+"|"+size+"|"+cap+"|"+floor+"|"+col;
   let img=BLOCK_CACHE.get(key);
-  if(!img){
-    const m=measureFont(size);
-    let sz=size, lines=wrapLines(m, text, maxW, sz);
-    while(lines.length>cap && sz>10){ sz--; lines=wrapLines(m, text, maxW, sz); }
-    lines=lines.slice(0, cap);
-    const off=document.createElement("canvas");
-    off.width=Math.max(1, Math.ceil(maxW)+2);
-    off.height=Math.max(1, lines.length*(sz+3)+sz);
-    const g=off.getContext("2d");
-    g.font=`800 ${sz}px ui-monospace,"Courier New",monospace`;
-    g.textBaseline="alphabetic";
-    g.fillStyle=INK;
-    let ly=sz;
-    for(const ln of lines){ g.fillText(ln, 0, ly); ly+=sz+3; }
-    img={c:off, base:sz};
-    if(BLOCK_CACHE.size>120) BLOCK_CACHE.clear();
-    BLOCK_CACHE.set(key, img);
-  }
-  c.drawImage(img.c, Math.round(x), Math.round(y-img.base));
+  if(img) return img;
+  const m=measureFont(size);
+  let sz=size, lines=wrapLines(m, text, maxW, sz);
+  while(lines.length>cap && sz>floor){ sz--; lines=wrapLines(m, text, maxW, sz); }
+  const lead=Math.round(sz*0.3);
+  const off=document.createElement("canvas");
+  off.width=Math.max(1, Math.ceil(maxW)+2);
+  off.height=Math.max(1, lines.length*(sz+lead)+Math.ceil(sz*0.4));
+  const g=off.getContext("2d");
+  g.font=`800 ${sz}px ui-monospace,"Courier New",monospace`;
+  g.textBaseline="alphabetic";
+  g.fillStyle=col;
+  let ly=sz;
+  for(const ln of lines){ g.fillText(ln, 0, ly); ly+=sz+lead; }
+  img={c:off, base:sz, lead, n:lines.length, h:lines.length*(sz+lead)};
+  if(BLOCK_CACHE.size>160) BLOCK_CACHE.clear();
+  BLOCK_CACHE.set(key, img);
+  return img;
+}
+/* 상자 안에 넣을 때는 첫 줄 베이스라인이 아니라 **상자 위쪽**을 기준으로 얹는다 —
+   글자 크기가 화면마다 달라지므로 베이스라인 상수는 그때마다 어긋난다. */
+function drawTextBlock(c, text, x, topY, maxW, size, maxLines, minSize, color){
+  const img=textBlock(text, maxW, size, maxLines, minSize, color);
+  c.drawImage(img.c, Math.round(x), Math.round(topY));
+  return img;
 }
 
 function drawHUD(){
+  const f=S.fs, hp=S.hudPx, hh=S.hudH;
+  const lab=measureFont(f.hud);
   const x=S.land? S.stageX+12 : 10;
-  const y=S.H - 64 - 8;
-  rpgBox(ctx, x, y, 132, 52, CREAM);
-  pxText(ctx, "SCORE", x+8, y+14, 10, TEAL);
-  const px=3;
-  const ds=String(Math.round(S.showScore));
-  drawBits(ctx, ds, x+8, y+20, px, INK);
-  rpgBox(ctx, x+140, y, 108, 52, CREAM);
-  pxText(ctx, "COMBO", x+148, y+14, 10, TEAL);
-  drawBits(ctx, "x"+String(S.combo), x+148, y+20, px, S.combo>=4?TEAL:INK);
-  rpgBox(ctx, x+256, y, 120, 52, CREAM);
-  pxText(ctx, "LIFE / SEC", x+264, y+14, 10, TEAL);
+  const y=S.H - hh - 20;
+  const ly=y+f.hud+5, dy=y+f.hud+9;   // 라벨 베이스라인 / 숫자 윗변
+  const w1=Math.round(Math.max(lab.measureText("SCORE").width, glyphW("999999",hp))+16);
+  const w2=Math.round(Math.max(lab.measureText("COMBO").width, glyphW("x99",hp))+16);
+  const heart=4*hp, gap=Math.max(3, Math.round(1.3*hp));
+  const w3=Math.round(Math.max(lab.measureText("LIFE / SEC").width,
+                               3*heart+2*gap+10+glyphW("99",hp))+16);
+  rpgBox(ctx, x, y, w1, hh, CREAM);
+  pxText(ctx, "SCORE", x+8, ly, f.hud, TEAL);
+  drawBits(ctx, String(Math.round(S.showScore)), x+8, dy, hp, INK);
+  const x2=x+w1+8;
+  rpgBox(ctx, x2, y, w2, hh, CREAM);
+  pxText(ctx, "COMBO", x2+8, ly, f.hud, TEAL);
+  drawBits(ctx, "x"+String(S.combo), x2+8, dy, hp, S.combo>=4?TEAL:INK);
+  const x3=x2+w2+8;
+  rpgBox(ctx, x3, y, w3, hh, CREAM);
+  pxText(ctx, "LIFE / SEC", x3+8, ly, f.hud, TEAL);
+  const hy0=dy+Math.round((7*hp-heart)/2);
   for(let i=0;i<3;i++){
+    const hx0=x3+8+i*(heart+gap);
     ctx.fillStyle=i<S.lives?DANGER:GREY;
-    ctx.fillRect(x+264+i*16, y+22, 12, 12);
-    ctx.fillStyle=INK; ctx.fillRect(x+264+i*16, y+22, 12, 1); ctx.fillRect(x+264+i*16, y+33, 12, 1);
+    ctx.fillRect(hx0, hy0, heart, heart);
+    ctx.fillStyle=INK;
+    ctx.fillRect(hx0, hy0, heart, 1); ctx.fillRect(hx0, hy0+heart-1, heart, 1);
   }
-  drawBits(ctx, String(Math.max(0,Math.ceil(S.timeLeft))), x+264, y+36, 2, INK);
+  drawBits(ctx, String(Math.max(0,Math.ceil(S.timeLeft))), x3+8+3*heart+2*gap+10, dy, hp, INK);
 
   // route map
   const mx=S.land? S.stageX+12 : 10;
-  const my=S.H-14;
+  const my=S.H-12;
   ctx.fillStyle=INK;
   ctx.fillRect(mx, my, 8*14-4, 2);
   for(let i=0;i<8;i++){
     ctx.fillStyle=i<Math.min(8,S.stations)?SIGNAL:GREY;
     ctx.fillRect(mx+i*14, my-3, 6, 8);
   }
+  /* ── 풀이판 ── 자리는 layout() 이 미리 잡아 뒀다(head.hy/hh). 여기서는 채우기만 한다. */
   const msg = S.okT>0 && S.okMsg ? S.okMsg : S.hint;
   if(msg){
-    const hx=S.land? S.stageX+12 : 10;
-    /* 세로형에서는 전광판이 플레이 영역 위쪽까지 내려올 수 있다 — 그 아래에 붙인다. */
-    const hy=S.land? S.play.y+8 : Math.max(S.play.y+8, (S.boardBottom||0)+6);
-    const ok=(S.okT>0&&S.okMsg);
-    rpgBox(ctx, hx, hy, Math.min(S.play.w-20, 420), ok?64:56, ok?SIGNAL:CREAM);
-    wrapPrompt(ctx, msg, hx+8, hy+(ok?19:16), Math.min(S.play.w-36, 404), ok?13:12, 3);
+    const hd=S.head, ok=(S.okT>0&&S.okMsg);
+    const sz=ok?f.ok:f.hint;
+    const blk=textBlock(msg, hd.hw-18, sz, 4, Math.max(13, sz-3));
+    /* 상자는 글 길이에 맞춘다. **자리**는 layout 이 네 줄만큼 잡아 뒀으니 선로는 안 밀린다. */
+    rpgBox(ctx, hd.hx, hd.hy, hd.hw, blk.h+14, ok?SIGNAL:CREAM);
+    ctx.drawImage(blk.c, Math.round(hd.hx+9), Math.round(hd.hy+7));
   }
-  /* (c) 목표 한 줄은 온보딩이 끝난 뒤에도 상시 남는다 */
+  /* (c) 목표 두 줄은 온보딩이 끝난 뒤에도 상시 남는다 */
   const gx=S.land? S.stageX+12 : 10;
-  pxText(ctx, "위로 보낼 칸 수를 세고, 그 칸 뒤의 연결핀을 눌러요", gx, S.play.y + S.play.h - 26, 12, INK);
-  pxText(ctx, "객차 한 칸은 모두 같은 크기예요", gx, S.play.y + S.play.h - 8, 11, INK);
+  const by=S.play.y+S.play.h;
+  pxText(ctx, "위로 보낼 칸 수를 세고, 그 칸 뒤의 연결핀을 눌러요", gx, by-(f.coach2+14), f.coach, INK);
+  pxText(ctx, "객차 한 칸은 모두 같은 크기예요", gx, by-4, f.coach2, INK);
 }
 
 function drawTrain(dt){
@@ -1717,16 +1828,17 @@ function drawTrain(dt){
       ctx.strokeRect(tx-pw/2-g, ty-g, pw+g*2, ph+g*2);
       /* 안내는 열차 **위**에 두고, 핀 머리까지 선으로 잇는다
          (아래쪽은 이동 막대 자리라 겹치면 둘 다 안 읽힌다) */
-      const topY=y-carH-42;
+      const tf=S.fs.pinTag, tbh=tf+9;
+      const topY=y-carH-28-tf;
       ctx.fillStyle=SIGNAL;
-      ctx.fillRect(ax-2, topY+18, 4, Math.max(0,(ty-14)-(topY+18)));
+      ctx.fillRect(ax-2, topY+tbh, 4, Math.max(0,(ty-14)-(topY+tbh)));
       ctx.fillRect(ax-7, ty-20, 14, 3);
       ctx.fillRect(ax-4, ty-17, 8, 3);
       const lab="여기를 눌러요 · 앞에서 "+p.left+"칸";
-      const lw=measureFont(12).measureText(lab).width;
-      const lx=Math.max(S.play.x+4, Math.min(ax-lw/2, S.play.x+S.play.w-lw-8));
-      rpgBox(ctx, lx-6, topY-4, lw+12, 21, SIGNAL);
-      pxText(ctx, lab, lx, topY+11, 12, INK);
+      const lw=measureFont(tf).measureText(lab).width;
+      const lx=Math.max(S.play.x+10, Math.min(ax-lw/2, S.play.x+S.play.w-lw-10));
+      rpgBox(ctx, lx-6, topY-4, lw+12, tbh, SIGNAL);
+      pxText(ctx, lab, lx, topY+tf, tf, INK);
     }
   }else if(live && S.sent===0){
     const x1=pinWorldX(1)-pan, x2=pinWorldX(tr.T-1)-pan;
@@ -1752,10 +1864,14 @@ function drawRailBar(){
   const bar=railBar(); if(!bar) return;
   const tr=S.train;
   const wl=tr.x-20, span=bar.total+40, k=bar.w/span;
+  /* 안내는 막대 **아래**에 둔다 — 위에 두면 승강장 표지와 겹친다(글자를 키운 뒤 실제로 겹쳤다). */
+  const bf=S.fs.bar;
   const tip="이 막대를 끌면 뒷칸이 보여요 (여기서는 끊지 않아요)";
-  const tipW=measureFont(11).measureText(tip).width;
-  pxText(ctx, tip, bar.x+bar.w-tipW, bar.y-5, 11, INK);   // 갈래 기둥과 겹치지 않게 오른쪽 정렬
-  pxText(ctx, "열차 전체 보기", bar.x+2, bar.y-5, 11, INK);   // 막대가 무엇인지 왼쪽 끝에도 이름을 붙인다
+  const tipW=measureFont(bf).measureText(tip).width;
+  const ty=bar.y+bar.h+bf+4;
+  pxText(ctx, "열차 전체 보기", bar.x+2, ty, bf, INK);        // 막대가 무엇인지 왼쪽 끝에 이름을 붙인다
+  if(bar.w > tipW + measureFont(bf).measureText("열차 전체 보기").width + 24)
+    pxText(ctx, tip, bar.x+bar.w-tipW, ty, bf, INK);        // 좁으면 이름만 남긴다
   rpgBox(ctx, bar.x, bar.y, bar.w, bar.h, CREAM);
   const cw=Math.max(1, tr.carW*k-1);
   for(let i=0;i<tr.T;i++){
