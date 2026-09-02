@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>내려탁 — 빗나가면 판이 잘려</title>
+<title>내려탁 — 평균 높이에서 판을 찍어요</title>
 <meta property="og:title" content="내려탁">
-<meta property="og:description" content="빗나가면 판이 잘려">
+<meta property="og:description" content="평균 높이에서 판을 찍어요">
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
@@ -33,6 +33,11 @@ button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparen
   border:0;background:var(--cream);color:var(--teal);font-size:18px;font-weight:800;
   box-shadow:4px 4px 0 rgba(58,42,34,.28);transform:skewX(-8deg)}
 #muteBtn:active{transform:skewX(-8deg) scaleY(.86) scaleX(1.06)}
+/* 음소거는 ✕(닫기로 오인)가 아니라 음표 위의 빗금으로 나타낸다 */
+#muteBtn{position:fixed;overflow:hidden}
+#muteBtn.is-muted{color:rgba(47,107,90,.45)}
+#muteBtn.is-muted::after{content:"";position:absolute;left:8px;right:8px;top:50%;height:3px;
+  background:var(--tomato);transform:rotate(-32deg)}
 html.land #muteBtn{right:calc(var(--stageX) + 14px)}
 
 #title{--title-col:min(100vw,640px);position:fixed;inset:0;min-height:100svh;height:100dvh;overflow:hidden;isolation:isolate;z-index:12;background:#C9A888}
@@ -70,6 +75,24 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
 @keyframes ctapulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 .title-howto,.title-diff{background:none;border:0;color:var(--ink);font-size:14px;font-weight:800;min-height:44px;padding:8px 12px;opacity:.82}
 .title-diff{opacity:.7}
+
+/* ── 목표 한 줄(상시) + 코치 카드(첫 판 안내) — docs/onboarding-spec.md (a)(b)(c)(e) ── */
+/* 왼쪽 목숨 칩(캔버스에 그린다)을 가리지 않도록 left 를 비워 둔다 */
+#goal{position:fixed;left:112px;right:10px;top:calc(62px + var(--safeT));z-index:11;pointer-events:none;
+  padding:7px 10px;background:var(--cream);color:var(--ink);font-size:13px;font-weight:800;text-align:center;
+  line-height:1.35;word-break:keep-all;box-shadow:4px 4px 0 rgba(58,42,34,.22)}
+#goal.now{background:var(--teal);color:var(--cream)}
+html.land #goal{left:calc(var(--stageX) + 14px);right:calc(var(--stageX) + 170px);top:calc(14px + var(--safeT))}
+#coach{position:fixed;left:10px;right:10px;bottom:calc(12px + var(--safeB));z-index:14;
+  background:var(--cream);color:var(--ink);padding:13px 14px 14px;box-shadow:4px 4px 0 rgba(58,42,34,.35);
+  word-break:keep-all}
+#coach .num{font-size:12px;font-weight:800;color:var(--teal);letter-spacing:.08em}
+#coach h3{font-size:19px;font-weight:800;margin:4px 0 5px;letter-spacing:-.02em}
+#coach p{font-size:14px;font-weight:700;line-height:1.45}
+#coach.pop{animation:coachPop .3s ease}
+@keyframes coachPop{0%{transform:translateY(10px);opacity:.72}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){#coach.pop{animation:none}}
+html.land #coach{left:calc(var(--stageX) + 14px);right:auto;width:min(52%,420px)}
 
 #onb{position:fixed;inset:0;z-index:16;background:rgba(42,30,24,.46);display:flex;align-items:flex-end;justify-content:center;padding:18px}
 #onb .card{width:min(100%,520px);background:var(--cream);color:var(--ink);padding:18px 18px 16px;box-shadow:4px 4px 0 rgba(58,42,34,.35)}
@@ -117,7 +140,7 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
   <div class="title-ui">
     <div class="title-logo-zone">
       <h1 class="game-logo" aria-label="내려탁"><span>내</span><span>려</span><span>탁</span></h1>
-      <p class="game-subtitle">빗나가면 판이 잘려</p>
+      <p class="game-subtitle">평균 높이에서 판을 찍어요</p>
       <p class="title-unit">5학년 2학기 · 평균과 가능성</p>
     </div>
     <div class="title-cta-zone">
@@ -127,6 +150,13 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       <button class="title-howto" id="howtoBtn" type="button">어떻게 놀아요? ›</button>
     </div>
   </div>
+</div>
+
+<div id="goal" class="hidden"></div>
+<div id="coach" class="hidden">
+  <div class="num" id="coachNum">1 / 3</div>
+  <h3 id="coachTitle"></h3>
+  <p id="coachBody"></p>
 </div>
 
 <div id="onb" class="hidden">
@@ -572,7 +602,12 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     comboPlates: [], lastMeans: [],
     hint: null, easyHintUsed: false, readyAt: 0, idle: 0,
     punch: 0, ambient: 0, reduce: REDUCE,
-    comparePhase: 0, gen: 0
+    comparePhase: 0, gen: 0,
+    /* ── 온보딩 레이어 (docs/onboarding-spec.md). 판정·문제 생성기와 분리 ── */
+    tutorial: false,   // 연습 라운드: 목숨이 깎이지 않고, 시간 초과도 없다
+    tutStep: 0,        // 1 탑 읽기 / 2 평균 찾기 / 3 직접 찍어 보기
+    tutIdle: 0, tutMiss: 0,
+    ripples: [], firstSolved: false
   };
 
   let IM = { chip: null, plate: null, titleOk: true };
@@ -687,8 +722,88 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     });
   }
 
+  /* ══ 연습 라운드 ═══════════════════════════════════════════════════
+     첫 판은 난수가 아니라 고정 자료(2·4·3·3, 평균 3)다. 화면과 안내 문구가
+     절대 어긋나지 않게 하기 위해서다(stone-hop 의 tutorialRow 와 같은 취지).
+     이 라운드에서는 목숨이 깎이지 않고 시간 초과도 없다 — 학생이 한 번
+     직접 찍어 볼 때까지 기다린다(요건 b). */
+  const TUT_VALS = [2, 4, 3, 3];
+  const TUT_ANS = 3;
+  function spawnTutorialRound() {
+    const ctx = CTX[0];
+    const names = ["가은", "도윤", "지민", "현우"];
+    const maxT = 9;
+    const dwell = 420;
+    S.towers = makeTowers(TUT_VALS, names, -1);
+    S.problem = {
+      kind: "mean", vals: TUT_VALS.slice(), m: TUT_ANS, answerTick: TUT_ANS, maxT: maxT,
+      prompt: "가은이, 도윤이, 지민이, 현우의 제기차기 기록은 2회, 4회, 3회, 3회예요. 평균을 구해 그 높이에 찍어 보세요.",
+      names: names, src: null, groups: null, unitConcept: "평균 구하기",
+      ghost: null, sum: 12, n: 4, ctx: ctx
+    };
+    S.ghost = null;
+    S.plate = { tick: 0, vis: 0, dir: 1, acc: 0, dwell: dwell / 1000, squash: 1, lockY: null, moving: false, from: 0, to: 0 };
+    S.readyAt = performance.now();
+    S.idle = 0;
+    S.trails.length = 0;
+    S.promptLines = null;
+    S.gen++;
+    towerLayout();
+    S.tutStep = 1; S.tutIdle = 0; S.tutMiss = 0;
+    showCoach(1);
+  }
+  const TUTC = {
+    1: { t: "탑 하나가 기록 하나예요", b: "칩은 모두 같은 크기라서 탑 높이가 곧 기록이에요. 왼쪽부터 2칸, 4칸, 3칸, 3칸이에요." },
+    2: { t: "평균은 3칸이에요", b: "2 + 4 + 3 + 3 = 12, 12 ÷ 4 = 3. 네 탑을 고르게 펴면 모두 3칸이 돼요." },
+    3: { t: "3칸 눈금에서 화면을 탭해요", b: "판이 오르내려요. 점선이 켜진 3칸 눈금에 판이 닿았을 때 화면 아무 곳이나 탭하세요." }
+  };
+  function showCoach(step) {
+    const c = TUTC[step];
+    if (!c) return;
+    document.getElementById("coachNum").textContent = step + " / 3";
+    document.getElementById("coachTitle").textContent = c.t;
+    document.getElementById("coachBody").textContent = c.b;
+    const el = document.getElementById("coach");
+    el.classList.remove("hidden", "pop");
+    void el.offsetWidth;
+    el.classList.add("pop");
+  }
+  function hideCoach() { document.getElementById("coach").classList.add("hidden"); }
+  function tutAdvance() {
+    if (!S.tutorial) return;
+    if (S.tutStep >= 3) return;
+    S.tutStep += 1;
+    S.tutIdle = 0;
+    beep("tick");
+    showCoach(S.tutStep);
+  }
+  function endTutorial() {
+    S.tutorial = false;
+    S.tutStep = 0;
+    hideCoach();
+    try { localStorage.setItem(LS_ONB, "1"); } catch (e) {}
+  }
+  /* (c) 목표 한 줄 — 온보딩이 끝난 뒤에도 남고, 상황에 따라 문장을 갈아 끼운다 */
+  function updateGoal() {
+    const el = document.getElementById("goal");
+    if (S.phase !== "playing" && S.phase !== "onb") return;
+    let msg, now = false;
+    if (S.tutorial && S.tutStep < 3) {
+      msg = S.tutStep === 1 ? "탑 높이가 곧 기록이에요" : "합 12 ÷ 자료 4개 = 평균 3칸";
+    } else if (S.locked) {
+      msg = "다음 기록을 올리는 중이에요";
+    } else if (S.problem && S.plate) {
+      const d = Math.abs(S.plate.vis - S.problem.answerTick);
+      if (S.tutorial && d < 0.4) { msg = "지금이에요! 화면을 탭하세요"; now = true; }
+      else msg = "평균 높이에 판이 왔을 때 화면을 탭해요";
+    } else msg = "평균 높이에 판이 왔을 때 화면을 탭해요";
+    if (el.textContent !== msg) el.textContent = msg;
+    el.classList.toggle("now", now);
+  }
+
   function spawnRound() {
     S.round++;
+    if (S.tutorial && S.round === 1) return spawnTutorialRound();
     S.level = Math.min(3, 1 + ((S.round - 1) / 4) | 0);
     S.locked = false;
     S.flyers.length = 0;
@@ -814,7 +929,16 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
   }
 
   function onTap() {
-    if (S.phase !== "playing" || S.locked || !S.plate || !S.problem) return;
+    if (S.phase !== "playing" || !S.plate || !S.problem) return;
+    /* (e) 지금 찍을 수 없는 상태에서도 무반응으로 두지 않는다 — 판을 흔들고 이유를 말한다 */
+    if (S.locked) {
+      S.plate.squash = 1.16;
+      S.pop = { text: "다음 기록 준비 중", t: 0, good: false };
+      beep("bad");
+      return;
+    }
+    /* 연습 라운드에서는 첫 두 안내를 다 읽기 전에 찍어도 벌하지 않고, 3단계로 데려간다 */
+    if (S.tutorial && S.tutStep < 3) { S.tutStep = 3; S.tutIdle = 0; showCoach(3); return; }
     resolveTap(judgeTick(), false);
   }
 
@@ -828,6 +952,7 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
 
   function onCorrect(forced) {
     const p = S.problem;
+    if (S.tutorial) endTutorial();
     S.locked = true;
     S.hit = S.reduce ? 0.03 : 0.06;
     S.timeScale = 0;
@@ -949,6 +1074,17 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     S.plate.squash = 1.18;
     beep("bad");
     spawnShards(tick, ans);
+    /* 연습 라운드: 목숨을 깎지 않고, 무엇이 어긋났는지 말한 뒤 그대로 다시 하게 둔다.
+       세 번 빗나가면 정답 눈금을 점선으로 켜 둔 채 계속 기다린다(요건 b·d). */
+    if (S.tutorial) {
+      S.tutMiss += 1;
+      S.locked = false;
+      S.combo = 0;
+      S.tutIdle = 0;
+      S.pop = { text: msg + " — 다시 해 봐요", t: 0, good: false };
+      if (S.tutMiss >= 3) showCoach(3);
+      return;
+    }
     // 탑은 절대 고르게 만들지 않는다
     if (S.easy && !S.easyHintUsed && !forced) {
       S.easyHintUsed = true;
@@ -975,6 +1111,8 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
   /* 무입력 시간 초과. 판정(judgeTick)을 절대 부르지 않으므로 점수가 생길 경로가 없다. */
   function timeoutMiss() {
     if (!S.problem || S.locked || S.phase !== "playing") return;
+    /* 연습 라운드에는 시간 압박이 없다 — 학생이 한 번 찍어 볼 때까지 기다린다 */
+    if (S.tutorial) { S.idle = 0; return; }
     S.idle = 0;
     S.pop = { text: "시간이 지났어요", t: 0, good: false };
     S.shake = S.reduce ? 0.1 : 0.2;
@@ -1058,6 +1196,9 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     refreshBest();
   }
   function showOver() {
+    S.overLock = performance.now() + 700;   // 게임오버 직전 연타가 곧바로 재시작시키지 않게
+    document.getElementById("goal").classList.add("hidden");
+    hideCoach();
     overEl.classList.remove("hidden");
     animateNum(document.getElementById("overScore"), S.score);
     document.getElementById("overSolved").textContent = String(S.solved);
@@ -1079,22 +1220,21 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     onbEl.classList.add("hidden");
     S.score = 0; S.scoreShown = 0; S.lives = 3; S.combo = 0; S.bestCombo = 0;
     S.solved = 0; S.hits = 0; S.completedRounds = 0; S.round = 0; S.level = 1; S.lastMeans = []; S.comboPlates = [];
+    S.ripples.length = 0; S.tutMiss = 0; S.tutIdle = 0;
     S.phase = "playing";
+    /* 첫 실행은 팝업 3장이 아니라 **연습 라운드**로 시작한다.
+       읽는 동안 판은 이미 움직이고, 마지막 단계는 반드시 직접 한 번 찍어 보기다. */
+    S.tutorial = !skipOnb && !localStorage.getItem(LS_ONB);
+    if (!S.tutorial) hideCoach();
+    document.getElementById("goal").classList.remove("hidden");
     spawnRound();
-    if (!skipOnb && !localStorage.getItem(LS_ONB)) {
-      S.phase = "onb";
-      S.locked = true;
-      onbStep = 0;
-      renderOnb();
-      onbEl.classList.remove("hidden");
-    }
   }
 
   let onbStep = 0;
   const ONB = [
-    { t: "탑 높이는 기록이에요", b: "칩은 모두 같은 크기예요. 높은 탑은 기록이 큰 거예요." },
-    { t: "평균 눈금에서 찍어요", b: "고르게 판이 오르내릴 때, 자룟값을 고르게 한 높이에서 화면을 탭하세요." },
-    { t: "빗나가면 판만 잘려요", b: "탑은 그대로예요. 높이 0인 빈 탑도 자료 하나예요." }
+    { t: "탑 하나가 기록 하나예요", b: "칩은 모두 같은 크기예요. 그래서 탑이 높을수록 기록이 커요." },
+    { t: "평균 높이에서 화면을 탭해요", b: "기록을 모두 더한 뒤 자료 수로 나누면 평균이에요. 판이 그 높이에 왔을 때 화면 아무 곳이나 탭하세요." },
+    { t: "빗나가면 판만 잘려요", b: "탑은 그대로 남아요. 높이가 0인 빈 탑도 자료 하나로 세어요." }
   ];
   function renderOnb() {
     document.getElementById("onbNum").textContent = (onbStep + 1) + "/3";
@@ -1116,8 +1256,10 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     document.getElementById("diffBtn").textContent = "난이도 " + (S.easy ? "쉬움" : "어려움");
   }
   function refreshMute() {
-    muteBtn.textContent = S.muted ? "×" : "♪";
+    /* ✕ 는 '닫기'로 오인된다. 글리프는 음표 그대로 두고 빗금만 얹는다. */
+    muteBtn.textContent = "\u266a";
     muteBtn.setAttribute("aria-label", S.muted ? "소리 켜기" : "소리 끄기");
+    muteBtn.classList.toggle("is-muted", S.muted);
     document.body.classList.toggle("is-muted", S.muted);
   }
 
@@ -1412,13 +1554,32 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       tr.a -= dt * 2.4;
       if (tr.a <= 0) { S.trails.splice(i, 1); continue; }
       const pw = S.towers.length ? (S.towers[S.towers.length - 1].x - S.towers[0].x) + cs.w : cs.w * 4;
-      drawPlateAt(tr.y, pw, tr.a * 0.14, 1);
+      drawPlateAt(tr.y, pw, tr.a * 0.08, 1);
     }
 
     if (S.plate) {
       const y = yOfTick(S.plate.vis);
       const pw = S.towers.length ? (S.towers[S.towers.length - 1].x - S.towers[0].x) + cs.w : cs.w * 4;
       drawPlateAt(y, pw, 0.92, S.plate.squash);
+      /* 판이 지금 몇 칸인지 항상 숫자로 붙인다 — 판정 기준(반올림한 칸)과 같은 값이다.
+         「기울어진 판의 어디를 기준으로 보느냐」가 모호하다는 첫플레이 지적을 없앤다. */
+      if (S.phase === "playing") {
+        const tick = Math.round(S.plate.vis);
+        const label = tick + "칸";
+        ctx.save();
+        ctx.font = "800 13px 'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+        const bw = ctx.measureText(label).width + 16;
+        const bx = Math.max(S.play.x + 2, S.play.x + (S.land ? 8 : 4));
+        ctx.fillStyle = "rgba(58,42,34,.25)";
+        ctx.fillRect(bx + 3, y - 10 + 3, bw, 21);
+        ctx.fillStyle = PAL.teal;
+        ctx.fillRect(bx, y - 10, bw, 21);
+        ctx.fillStyle = PAL.cream;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, bx + bw / 2, y + 1);
+        ctx.restore();
+      }
     }
 
     for (let i = 0; i < S.flyers.length; i++) {
@@ -1449,6 +1610,7 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       }
     }
 
+    drawGuide(dt);
     drawPrompt();
     if (S.gauge) drawGauge();
     if (S.pop) {
@@ -1472,6 +1634,98 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
       ctx.font = "800 16px 'Apple SD Gothic Neo',sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(S.hint, hx + hw / 2, hy + 24);
+    }
+  }
+
+  /* ══ 안내 오버레이 (a)(d)(e) ═══════════════════════════════════════
+     가리키는 좌표는 상수가 아니라 **지금 프레임의 탑·판 위치**에서 다시 계산한다. */
+  function drawGuide(dt) {
+    const now = performance.now();
+    const pulse = S.reduce ? 0.6 : 0.5 + 0.5 * Math.sin(now / 300);
+    /* 탭 리플 — 어디를 눌러도 그 자리가 바뀐다 */
+    for (let i = 0; i < S.ripples.length; i++) {
+      const r = S.ripples[i];
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, r.t) * 0.75;
+      ctx.strokeStyle = PAL.cream;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, (1 - r.t) * 44 + 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (!S.tutorial || !S.problem || !S.plate) return;
+    const lay = towerLayout();
+    const cs = lay.cs;
+    const p = S.play;
+    const x0 = p.x + cs.leftPad - 10;
+    const x1 = p.x + p.w - (S.land ? 150 : 16);
+
+    if (S.tutStep === 1) {
+      /* 조작 대상이 아니라 '읽을 것'을 가리킨다 — 탑마다 몇 칸인지 그 위에 못 박는다 */
+      for (let i = 0; i < S.towers.length; i++) {
+        const tw = S.towers[i];
+        const ty = yOfTick(tw.h);
+        ctx.save();
+        ctx.strokeStyle = PAL.teal;
+        ctx.lineWidth = 3 + pulse * 2;
+        ctx.globalAlpha = 0.5 + 0.4 * pulse;
+        ctx.strokeRect(tw.x - cs.w / 2 - 4, ty - 4, cs.w + 8, lay.base - ty + 8);
+        ctx.restore();
+        badge(tw.x, ty - 16, tw.h + "칸");
+      }
+    } else if (S.tutStep >= 2) {
+      /* 평균 눈금을 점선으로 켠다 + 그 자리에 계산식을 붙인다 (d) */
+      const ay = yOfTick(S.problem.answerTick);
+      ctx.save();
+      ctx.setLineDash([10, 8]);
+      ctx.lineDashOffset = S.reduce ? 0 : -((now / 26) % 18);
+      ctx.strokeStyle = PAL.teal;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.75 + 0.25 * pulse;
+      ctx.beginPath();
+      ctx.moveTo(x0, ay);
+      ctx.lineTo(x1, ay);
+      ctx.stroke();
+      ctx.restore();
+      badge((x0 + x1) / 2, ay - 14, "12 ÷ 4 = 3칸");
+    }
+
+    if (S.tutStep >= 3) {
+      /* 판을 따라다니는 손가락 + 글자 표지. 정지 화면에서도 "여기를 탭" 이 읽혀야 한다 */
+      const py = yOfTick(S.plate.vis);
+      const fx = x1 - 26;
+      const near = Math.abs(S.plate.vis - S.problem.answerTick) < 0.4;
+      ctx.save();
+      ctx.globalAlpha = near ? 1 : 0.85;
+      ctx.fillStyle = PAL.cream;
+      ctx.strokeStyle = PAL.ink;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(fx, py, near ? 17 + pulse * 4 : 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = near ? PAL.tomato : PAL.teal;
+      ctx.beginPath();
+      ctx.arc(fx, py, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      badge(fx - 62, py, near ? "지금 탭!" : "3칸에서 탭");
+    }
+
+    function badge(cx, cy, text) {
+      ctx.save();
+      ctx.font = "800 13px 'Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+      const w = ctx.measureText(text).width + 16;
+      ctx.fillStyle = "rgba(58,42,34,.25)";
+      ctx.fillRect(cx - w / 2 + 3, cy - 11 + 3, w, 22);
+      ctx.fillStyle = PAL.cream;
+      ctx.fillRect(cx - w / 2, cy - 11, w, 22);
+      ctx.fillStyle = PAL.ink;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, cx, cy + 1);
+      ctx.restore();
     }
   }
 
@@ -1539,8 +1793,19 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     }
     if (S.punch > 0) S.punch = Math.max(0, S.punch - dt * 4);
     if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 2.4);
-    if (S.pop) { S.pop.t += dt * 1.3; if (S.pop.t > 1.2) S.pop = null; }
+    if (S.pop) { S.pop.t += dt * (S.pop.good ? 1.3 : 0.6); if (S.pop.t > 1.2) S.pop = null; }
     if (S.gauge) S.gauge.fill = Math.min(1, S.gauge.fill + dt * 1.4);
+    for (let i = S.ripples.length - 1; i >= 0; i--) {
+      S.ripples[i].t -= dt * 1.6;
+      if (S.ripples[i].t <= 0) S.ripples.splice(i, 1);
+    }
+    /* 연습 라운드의 읽기 단계는 시간으로도, 탭으로도 넘어간다 — 어느 쪽이든 갇히지 않는다 */
+    if (S.tutorial && S.phase === "playing") {
+      S.tutIdle += dt;
+      if (S.tutStep === 1 && S.tutIdle > 4.5) tutAdvance();
+      else if (S.tutStep === 2 && S.tutIdle > 5) tutAdvance();
+    }
+    if (S.phase === "playing") updateGoal();
 
     if (S.phase !== "playing" && S.phase !== "onb") return;
     if (S.hit > 0) {
@@ -1579,7 +1844,7 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
             S.plate.to = next;
             S.plate.moving = true;
             if (!S.reduce) beep("tick");
-            if (S.trails.length > 8) S.trails.shift();
+            if (S.trails.length > 3) S.trails.shift();
             S.trails.push({ y: yOfTick(S.plate.vis), a: 1 });
           }
         }
@@ -1666,6 +1931,9 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     unlockAudio();
     if (S.phase !== "playing") return;
     if (e.target === muteBtn || (e.target.closest && e.target.closest("#muteBtn"))) return;
+    /* (e) 어디를 눌러도 그 자리에 리플이 남는다 */
+    S.ripples.push({ x: e.clientX, y: e.clientY, t: 1 });
+    if (S.ripples.length > 6) S.ripples.shift();
     onTap();
   });
   window.addEventListener("keydown", function (e) {
@@ -1679,7 +1947,7 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
   document.getElementById("startBtn").addEventListener("click", function () {
     unlockAudio();
     this.style.transform = "scaleY(.86) scaleX(1.06)";
-    setTimeout(function () { startPlay(false); }, 140);
+    startPlay(false);   // 지연 없이 바로 전환한다 — 누른 순간 화면이 바뀐다
   });
   document.getElementById("howtoBtn").addEventListener("click", function () {
     titleEl.classList.add("hidden");
@@ -1695,6 +1963,11 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
     try { localStorage.setItem(LS_EASY, S.easy ? "1" : "0"); } catch (e) {}
     refreshDiff();
   });
+  onbEl.addEventListener("pointerdown", function (e) {
+    /* 카드 바깥(어두운 배경)을 눌러도 진행된다 — 「다음」을 못 찾아 갇히는 일이 없게 한다 */
+    if (e.target !== onbEl) return;
+    document.getElementById("onbNext").click();
+  });
   document.getElementById("onbNext").addEventListener("click", function () {
     if (onbStep < 2) { onbStep++; renderOnb(); return; }
     try { localStorage.setItem(LS_ONB, "1"); } catch (e) {}
@@ -1708,10 +1981,15 @@ html.land #muteBtn{right:calc(var(--stageX) + 14px)}
   document.getElementById("diffHard").addEventListener("click", function () {
     S.easy = false; try { localStorage.setItem(LS_EASY, "0"); } catch (e) {} refreshDiff(); renderOnb();
   });
-  document.getElementById("retryBtn").addEventListener("click", function () {
+  function retryRun() {
+    if (S.phase !== "over" && S.phase !== "clear") return;
+    if (performance.now() < (S.overLock || 0)) return;
     overEl.classList.add("hidden");
     startPlay(true);
-  });
+  }
+  document.getElementById("retryBtn").addEventListener("click", retryRun);
+  /* 결과창은 버튼만 살아 있으면 "눌러도 아무 일 없다"가 된다 — 창 어디를 눌러도 다시 시작한다 */
+  overEl.addEventListener("pointerdown", retryRun);
   muteBtn.addEventListener("click", function (e) {
     e.stopPropagation();
     S.muted = !S.muted;
