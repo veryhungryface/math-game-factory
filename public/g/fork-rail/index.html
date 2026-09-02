@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>갈래기관차 — 한 핀이 두 길</title>
+<title>갈래기관차 — 비대로 열차를 나눠요</title>
 <meta name="description" content="연결핀 하나가 두 몫을 가른다. 비례배분을 기차로 끊어요.">
 <meta property="og:title" content="갈래기관차">
-<meta property="og:description" content="한 핀이 두 길">
+<meta property="og:description" content="비대로 열차를 나눠요">
 <meta property="og:image" content="./square.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
@@ -50,6 +50,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 }
 html.playing #muteBtn{right:max(12px, calc((100vw - var(--stageW)) / 2 + 12px))}
 #muteBtn:active{transform:translate(1px,1px);box-shadow:none}
+#muteBtn.off:after{content:"";position:absolute;left:7px;right:7px;top:50%;height:3px;background:var(--danger,#7A2030);transform:rotate(-38deg)}
 
 /* ── 타이틀 ── */
 #title{position:fixed;inset:0;z-index:20;min-height:100svh;height:100dvh;overflow:hidden;isolation:isolate;background:#3D5A80}
@@ -127,7 +128,12 @@ html.playing #muteBtn{right:max(12px, calc((100vw - var(--stageW)) / 2 + 12px))}
   width:min(calc(100% - 24px),420px);border:1px solid var(--ink);background:var(--cream);
   box-shadow:1px 1px 0 var(--ink);color:var(--ink);display:none;padding:14px 14px 12px}
 #onboard.on,#lever.on,#over.on{display:block}
-#onboard{top:max(72px,18dvh)}
+/* 온보딩은 놀이판을 가리는 모달이 아니라 아래쪽 코치 띠다 —
+   설명을 읽는 동안 실제 열차와 연결핀이 보이고, 바로 만질 수 있어야 한다. */
+#onboard{top:auto;bottom:max(96px,calc(84px + env(safe-area-inset-bottom)));width:min(calc(100% - 16px),470px)}
+#onboard .row2{margin-top:9px}
+#onboard .px-btn{min-height:48px}
+html.land #onboard{bottom:max(84px,calc(72px + env(safe-area-inset-bottom)))}
 #lever{top:max(88px,22dvh)}
 #over{top:max(64px,14dvh);text-align:center}
 .px-k{font-size:11px;letter-spacing:.1em;color:var(--teal);font-weight:700}
@@ -162,7 +168,7 @@ html.playing #muteBtn{right:max(12px, calc((100vw - var(--stageW)) / 2 + 12px))}
       <h1 class="game-logo" aria-label="갈래기관차">
         <span style="--i:0">갈</span><span style="--i:1">래</span><span style="--i:2">기</span><span style="--i:3">관</span><span style="--i:4">차</span>
       </h1>
-      <p class="game-subtitle">한 핀이 두 길</p>
+      <p class="game-subtitle">비대로 열차를 나눠요</p>
       <p class="title-unit">6학년 2학기 · 비례식과 비례배분</p>
     </div>
     <div class="title-cta-zone">
@@ -199,7 +205,7 @@ html.playing #muteBtn{right:max(12px, calc((100vw - var(--stageW)) / 2 + 12px))}
   <div class="px-k" id="overK">교대 종료</div>
   <div class="score-big" id="overScore">0</div>
   <p class="px-s" id="overSub"></p>
-  <button type="button" id="overRestart">다시 교대</button>
+  <button type="button" id="overRestart">다시 시작</button>
 </div>
 
 <script>
@@ -261,20 +267,35 @@ const F57={
   ".":[0x00,0x00,0x00,0x00,0x00,0x04,0x04]
 };
 function glyphW(s, px){ let w=0; for(const ch of s) w += (F57[ch]?6:6)*px; return w; }
+/* 비트맵 글자도 스프라이트로 굽는다 — 한 글자에 fillRect 가 최대 35번이라
+   40칸 열차의 칸 번호만으로 프레임당 수백 번이 나간다(소프트웨어 렌더러에서 치명적). */
+const BITS_CACHE=new Map();
 function drawBits(c, str, x, y, px, color){
-  c.fillStyle=color;
-  let ox=x;
-  for(const ch of str){
-    const g=F57[ch]||F57["□"];
-    for(let row=0;row<7;row++){
-      const bits=g[row];
-      for(let col=0;col<5;col++){
-        if(bits & (1<<(4-col))) c.fillRect(ox+col*px, y+row*px, px, px);
+  const key=str+"|"+px+"|"+color;
+  let img=BITS_CACHE.get(key);
+  if(!img){
+    const w=Math.max(1, glyphW(str,px)), h=Math.max(1, 7*px);
+    const off=document.createElement("canvas");
+    off.width=w; off.height=h;
+    const g=off.getContext("2d");
+    g.fillStyle=color;
+    let ox=0;
+    for(const ch of str){
+      const gl=F57[ch]||F57["□"];
+      for(let row=0;row<7;row++){
+        const bits=gl[row];
+        for(let col=0;col<5;col++){
+          if(bits & (1<<(4-col))) g.fillRect(ox+col*px, row*px, px, px);
+        }
       }
+      ox += 6*px;
     }
-    ox += 6*px;
+    img=off;
+    if(BITS_CACHE.size>500) BITS_CACHE.clear();
+    BITS_CACHE.set(key, img);
   }
-  return ox-x;
+  c.drawImage(img, Math.round(x), Math.round(y));
+  return glyphW(str,px);
 }
 
 function gcd(a,b){ a=Math.abs(a|0); b=Math.abs(b|0); while(b){ const t=a%b; a=b; b=t; } return a||1; }
@@ -539,7 +560,8 @@ function sfxOk(combo){
 }
 function sfxBad(){ beep(110, .16, "square", .06); setTimeout(()=>beep(82, .22, "square", .05), 80); }
 function sfxTick(){ beep(880, .03, "square", .025); }
-function refreshMute(){ muteBtn.textContent=muted?"✕":"♪"; muteBtn.setAttribute("aria-label", muted?"소리 켜기":"음소거"); }
+/* ✕ 로 바꾸면 「닫기」로 오인된다 — 음표는 두고 빗금만 긋는다 */
+function refreshMute(){ muteBtn.textContent="♪"; muteBtn.classList.toggle("off", muted); muteBtn.setAttribute("aria-label", muted?"소리 켜기":"음소거"); }
 
 /* ── 에셋 ── */
 function loadImg(src){
@@ -581,6 +603,9 @@ const S={
   signalBlink:0,
   birds:[],
   obI:0,
+  /* 온보딩 레이어 — 판정·생성기와 무관한 안내 상태만 담는다 */
+  obOn:false, obCard:true, obT:0, obIdle:0, frozen:false,
+  okMsg:"", okT:0, hintT:0, ripples:[],
   panX:0, dragPan:false, dragBar:false, ptrMoved:0, lastPX:0
 };
 function hiText(){ hiLine.textContent="최고 "+S.hi+"점"; }
@@ -675,7 +700,8 @@ function makeTrain(p){
   };
   S.panX=0; S.hoverPin=0; S.cursorPin=Math.max(1, Math.min(T-1, S.cursorPin||1));
   S.errorStep=p.kind==="error"?0:1;
-  S.usedRedo=false; S.boardLit=false; S.productsOn=false; S.hint="";
+  S.usedRedo=false; S.boardLit=false; S.productsOn=false;
+  if(S.hintT<=0) S.hint="";   /* 직전 오답 설명은 다음 열차가 와도 잠깐 더 남는다 */
   S.splitT=0; S.splitOk=false; S.shards.length=0;
 }
 /* 화면 x = 월드 x - panX.
@@ -735,7 +761,11 @@ function pinHit(n){
   const tr=S.train; if(!tr) return {x:0,y:0,w:0,h:0};
   const cx=pinWorldX(n)-S.panX, cy=trackY();
   const w=Math.max(44, tr.pinSlot+22), h=Math.max(52, tr.carW*1.35);
-  return {x:cx-w/2, y:cy-h*0.78, w, h};
+  /* 예전 판정 상자는 아래쪽이 cy+0.22h 에서 끝나서 **눈에 보이는 연결핀 그림보다 위**에 있었다.
+     학생이 핀을 정확히 눌러도 아무 일이 없던 이유다. 그려지는 핀(cy+16 ~ cy+38)까지 덮는다.
+     가로 폭·좌우 선택 규칙은 그대로다 — 어느 핀이 골라지는지는 바뀌지 않는다. */
+  const top=cy-h*0.78;
+  return {x:cx-w/2, y:top, w, h:(cy+46)-top};
 }
 function pinAt(px,py){
   const tr=S.train; if(!tr||tr.split) return 0;
@@ -784,7 +814,7 @@ function burstShards(px, py, ok){
 function applyCorrect(forced){
   if(S.phase==="over") return;
   if(S.phase==="lever") hideLever();
-  if(S.phase==="onboard"){ hideOnboard(); S.phase="playing"; }
+  if(S.obOn) hideOnboard();
   if(S.phase==="title") beginPlay(true);
   if(!S.problem || !S.train) spawnTrain();
   const p=S.problem, tr=S.train;
@@ -808,6 +838,9 @@ function applyCorrect(forced){
       tr.cars[i].scx=1.18; tr.cars[i].scy=0.82;
     }
   }
+  /* (d) 정답 순간에 「왜 그 핀이었는지」를 식으로 보여 준다.
+     맞았다는 신호만 주면 우연히 맞힌 것과 구별되지 않는다. */
+  S.okMsg=whyRight(p, n); S.okT=4.2; S.hint=""; S.hintT=0;
   sfxOk(S.combo);
   stampRatio(p.a,p.b);
   saveToday();
@@ -816,11 +849,25 @@ function applyCorrect(forced){
   }
 }
 
+/* 정답 한 줄. 비례배분은 「한 몫」을, 비례식은 외항·내항의 곱을 실제 수로 보여 준다. */
+function whyRight(p, n){
+  if(!p) return "정답!";
+  const r=p.T-n;
+  if(p.kind==="siding") return `정답! ${p.a} : ${p.b} = ${n} : ${p.c} — 외항의 곱 ${p.a}×${p.c}=${p.a*p.c}, 내항의 곱 ${p.b}×${n}=${p.b*n}로 같아요.`;
+  const den=p.a+p.b;
+  if(den>0 && p.T%den===0){
+    const u=p.T/den;
+    return `정답! 전체 ${p.T}칸 ÷ (${p.a}+${p.b}) = 한 몫 ${u}칸 → 위로 ${u}×${p.a}=${n}칸, 아래로 ${u}×${p.b}=${r}칸.`;
+  }
+  return `정답! 위쪽 ${n}칸 · 아래쪽 ${r}칸 = ${p.a} : ${p.b}`;
+}
 function whyWrong(n){
   const p=S.problem; if(!p) return "";
   const hit=p.misPins.find(d=>d.n===n);
   const want=p.left;
-  let msg=`누른 칸 ${n} · 목표 ${want}칸.`;
+  /* 아무것도 안 눌러 열차가 통째로 들어간 경우를 「누른 칸 0」이라고 말하면 안 된다 */
+  let msg = n>0 ? `지난 열차 — 누른 칸 ${n} · 목표 ${want}칸.`
+                : `지난 열차 — 시간 안에 못 눌렀어요. 열차가 통째로 들어갔어요(목표는 앞에서 ${want}칸).`;
   if(p.kind==="expand"){
     msg+=` ${rawRatioStr(p)}를 간단한 자연수의 비로 나타내면 ${p.a} : ${p.b}예요.`;
   }
@@ -848,7 +895,7 @@ function whyWrong(n){
 function applyWrong(n){
   if(S.phase==="over") { S.sent+=0; return; }
   if(S.phase==="lever") hideLever();
-  if(S.phase==="onboard"){ hideOnboard(); S.phase="playing"; }
+  if(S.obOn) hideOnboard();
   if(S.phase==="title") beginPlay(true);
   if(!S.problem || !S.train) spawnTrain();
   const p=S.problem, tr=S.train;
@@ -859,7 +906,8 @@ function applyWrong(n){
   S.hitStop=REDUCE?0.04:0.08;
   S.shake=REDUCE?0.08:0.16; S.shakeMag=S.lives===0?3:1;
   S.flash=0.22; S.flashCol=DANGER;
-  S.hint=whyWrong(cut);
+  S.hint=whyWrong(n?cut:0); S.hintT=3.6;   /* n===0 = 무입력(시간 초과). 「누른 칸 0」이라고 말하지 않는다 */
+  S.okMsg=""; S.okT=0;
   S.splitOk=false; S.splitT=0.001;
   if(S.easy && S.sent<=2){
     if(p.kind==="siding"){
@@ -891,7 +939,7 @@ function confirmPin(n){
   if(p.kind==="error" && S.errorStep===0){
     if(n===p.preCut){
       tr.preCut=0; S.errorStep=1; sfxTick();
-      S.hint="이제 바른 핀을 눌러 보세요.";
+      S.hint="이제 바른 핀을 눌러 보세요."; S.hintT=2.6;
       return;
     }
     applyWrong(n);
@@ -903,7 +951,7 @@ function confirmPin(n){
      단 오개념 핀(비의 한 항만 끊기 등)은 한 칸 옆이어도 봐주지 않는다.
      시간은 그대로 흐르므로 벌은 남아 있다(잠깐 멈춰 다시 누를 틈만 준다). */
   if(S.easy && Math.abs(n-p.left)===1 && !(p.misPins||[]).some(d=>d.n===n)){
-    S.hint="한 칸 옆이에요. 다시 눌러 보세요.";
+    S.hint="한 칸 옆이에요. 다시 눌러 보세요."; S.hintT=1.8;
     S.shake=REDUCE?0.06:0.1; S.shakeMag=1;
     S.hitStop=REDUCE?0.12:0.3;
     sfxTick();
@@ -950,31 +998,60 @@ function pickRule(rule){
   sfxTick();
 }
 
+/* ══ 온보딩 (docs/onboarding-spec.md (a)~(g)) ═══════════════════════════════
+   예전엔 놀이판을 덮는 3장짜리 모달이었고 「다음」을 누르지 않으면 90초 내내 갇혔다.
+   지금은 열차를 실제로 띄운 채 아래 코치 띠만 뜨고, 세계가 멈춰 있는 동안
+   연결핀이 크게 맥동하며, 마지막 단계는 「직접 한 번 눌러 보기」다.
+   화면 아무 곳이나 눌러도 넘어가고, 5초가 지나면 저절로 넘어간다.
+   문제 생성기·판정·점수는 손대지 않았다. */
 const OB=[
-  {t:"기차는 오른쪽에서 갈래를 향해 달려요.", s:"연결핀(객차 사이 작은 쇠)을 누르면 그 앞에서 끊겨요."},
-  {t:"앞칸은 왼쪽, 남은 칸은 오른쪽으로 가요.", s:"전체를 (전항+후항)으로 나누면 한 몫이에요. 0.4 : 0.6 이나 2분의 1 : 3분의 1 은 먼저 간단한 자연수의 비로 나타내요."},
-  {t:"한 칸만 어긋나면 탈선해요.", s:"목숨은 3개. 틀려도 다음 열차에서 만회할 수 있어요."}
+  {t:"객차 아래에 달린 붉은 쇠 = 연결핀이에요.", s:"객차와 객차 사이마다 하나씩 있어요. 그 핀을 누르면 열차가 바로 그 자리에서 끊겨요."},
+  {t:"앞칸은 위쪽 승강장, 남은 칸은 아래쪽 승강장으로 가요.", s:"전체 칸을 (앞의 수 + 뒤의 수)로 나누면 한 몫이에요. 0.4 : 0.6 이나 2분의 1 : 3분의 1 은 먼저 간단한 자연수의 비로 나타내요."},
+  {t:"직접 눌러 봐요 — 청록 테두리가 켜진 연결핀을 누르세요.", s:"연습이라 열차가 멈춰 있어요. 이번엔 정답 자리를 알려 줄게요. 누르고 나면 왜 그 자리인지 식으로 보여 줘요."}
 ];
 function showOnboard(){
-  S.phase="onboard"; S.obI=0;
+  S.obOn=true; S.obI=0; S.obT=0; S.obIdle=0; S.frozen=true;
+  if(!S.train) spawnTrain();
+  /* 가리키는 핀이 화면 밖이면 가리킨 게 아니다 — 첫 열차에서는 그 핀이 보이도록 시야를 옮긴다 */
+  if(S.train && S.problem && S.problem.left>=1 && S.problem.left<S.train.T){
+    S.cursorPin=S.problem.left; ensureCursorVisible();
+  }
   renderOb();
-  shade.classList.add("on"); onboard.classList.add("on");
+  onboard.classList.add("on");      /* shade 는 켜지 않는다 — 캔버스를 바로 만질 수 있어야 한다 */
+  shade.classList.remove("on");
+}
+/* 2단계 설명은 「이번 열차의 실제 수」로 바꿔 준다 — 규칙만 읽어서는 못 따라 한다 */
+function obWorked(){
+  const p=S.problem;
+  if(!p || p.kind==="siding") return null;
+  const den=p.a+p.b;
+  if(!(den>0 && p.T%den===0)) return null;
+  const u=p.T/den;
+  const raw=rawRatioStr(p);
+  const head=(raw && raw!==ratioStr(p.a,p.b)) ? `${raw} 를 간단한 자연수의 비로 나타내면 ${p.a} : ${p.b}. ` : "";
+  return `${head}전체 ${p.T}칸 ÷ (${p.a}+${p.b}) = 한 몫 ${u}칸. 위로 보낼 칸은 ${u}×${p.a} = ${u*p.a}칸이에요.`;
 }
 function renderOb(){
   document.getElementById("obStep").textContent=(S.obI+1)+"/3";
   document.getElementById("obText").textContent=OB[S.obI].t;
-  document.getElementById("obSub").textContent=OB[S.obI].s;
-  document.getElementById("obNext").textContent=S.obI===2?"해볼게요":"다음";
+  const worked=S.obI===1?obWorked():null;
+  document.getElementById("obSub").textContent=worked||OB[S.obI].s;
+  document.getElementById("obNext").textContent=S.obI===2?"알겠어요":"다음";
 }
 function hideOnboard(){
+  /* 「봤음」 표시는 실제로 온보딩이 떠 있었을 때만 남긴다.
+     beginPlay 가 청소용으로 부르는 경우까지 표시하면 첫 실행 온보딩이 통째로 사라진다. */
+  if(S.obOn){ try{ localStorage.setItem(LS_ONB,"1"); }catch(_){} }
+  S.obOn=false; S.frozen=false;
   onboard.classList.remove("on");
-  shade.classList.remove("on");
+  if(!over.classList.contains("on") && !lever.classList.contains("on")) shade.classList.remove("on");
 }
 function nextOb(){
-  if(S.obI<2){ S.obI++; renderOb(); return; }
-  try{ localStorage.setItem(LS_ONB,"1"); }catch(_){}
-  hideOnboard();
-  S.phase="playing";
+  if(S.obI<2){ S.obI++; S.obT=0; S.obIdle=0; renderOb(); return; }
+  /* 마지막 단계는 설명이 아니라 실습이다 — 카드만 닫고, 첫 연결핀을 누를 때까지
+     열차는 멈춘 채 핀 안내가 계속 켜져 있는다. */
+  onboard.classList.remove("on");
+  S.obCard=false;
   if(!S.train) spawnTrain();
 }
 
@@ -992,9 +1069,11 @@ function beginPlay(skipOb){
   resetRun();
   layout();
   S.phase="playing";
+  S.obOn=false; S.obCard=true; S.frozen=false; S.okMsg=""; S.okT=0; S.ripples.length=0;
+  /* 열차를 먼저 띄우고 그 위에 안내를 얹는다 — 설명을 읽는 동안 만질 것이 이미 살아 있어야 한다 */
+  spawnTrain();
   const seen=(()=>{ try{ return localStorage.getItem(LS_ONB)==="1"; }catch(_){ return true; } })();
-  if(!skipOb && !seen){ showOnboard(); }
-  else spawnTrain();
+  if(!skipOb && !seen) showOnboard();
 }
 function endShift(why){
   saveHi();
@@ -1003,8 +1082,10 @@ function endShift(why){
   shade.classList.add("on"); over.classList.add("on");
   document.getElementById("overK").textContent = why==="time" ? "교대 종료 · 시간" : "교대 종료 · 탈선";
   document.getElementById("overScore").textContent="0";
+  /* 왜 끝났는지를 먼저 말한다 — 결과 창이 이유 없이 뜨면 학생은 배울 게 없다 */
+  const reason = why==="time" ? "90초가 다 지났어요." : "칸 수가 어긋나 열차가 세 번 탈선했어요.";
   document.getElementById("overSub").textContent =
-    `보낸 열차 ${S.sent} · 맞힌 열차 ${S.solved} · 최고 ${S.hi}점`;
+    `${reason} 보낸 열차 ${S.sent} · 맞힌 열차 ${S.solved} · 최고 ${S.hi}점 · 화면 아무 곳이나 누르면 다시 시작해요`;
   S._overCount=0;
 }
 
@@ -1053,13 +1134,30 @@ cv.addEventListener("pointermove", e=>{
 });
 function endPtr(e){
   if(S.pointerId!==e.pointerId) return;
-  if(S.phase==="playing" && S.hoverPin && !S.dragPan && !S.dragBar) confirmPin(S.hoverPin);
+  const tapped = S.hoverPin && !S.dragPan && !S.dragBar;
+  if(S.phase==="playing" && tapped){
+    if(S.obOn) hideOnboard();            /* 실제로 핀을 눌렀다 = 온보딩 목표 달성 */
+    confirmPin(S.hoverPin);
+  }else if(S.phase==="playing" && !S.dragBar && S.ptrMoved<=10){
+    /* (e) 무반응 금지 — 핀이 아닌 곳을 톡 눌러도 물결과 한 줄 안내가 나간다 */
+    const p=pt(e);
+    S.ripples.push({x:p.x, y:p.y, t:0.5});
+    if(S.obOn && S.obCard){ nextOb(); }
+    else { S.hint="연결핀은 객차 아래에 달린 붉은 쇠예요. 그 자리를 눌러요."; S.hintT=2.4; S.obIdle=0; }
+  }else if(S.phase==="playing" && (S.dragPan||S.dragBar) && S.ptrMoved>10 && S.hintT<=0){
+    /* 끌기는 화면 이동일 뿐이라는 것을 그 순간에 말한다 — 정답 입력으로 오해하기 쉽다 */
+    S.hint="화면을 옮겼을 뿐이에요. 끊으려면 붉은 연결핀을 눌러요."; S.hintT=2.0;
+  }
   S.pointerId=null; S.hoverPin=0; S.dragPan=false; S.dragBar=false;
 }
 cv.addEventListener("pointerup", endPtr);
 cv.addEventListener("pointercancel", ()=>{ S.pointerId=null; S.hoverPin=0; S.dragBar=false; });
 /* 신호 레버는 바깥을 눌러도 닫힌다 — 모달에 갇히지 않게 (기본은 보통 운행). */
-shade.addEventListener("pointerdown", ()=>{ if(S.phase==="lever"){ hideLever(); sfxTick(); } });
+shade.addEventListener("pointerdown", ()=>{
+  if(S.phase==="lever"){ hideLever(); sfxTick(); return; }
+  /* 종료 창에 갇히지 않게 — 버튼을 못 찾아도 아무 데나 누르면 다시 시작한다 */
+  if(S.phase==="over" && S._overCount==null){ restart(); }
+});
 
 window.addEventListener("keydown", e=>{
   if(e.repeat) return;
@@ -1070,7 +1168,7 @@ window.addEventListener("keydown", e=>{
     if(e.key==="2"||e.key==="ArrowRight") pickRule("precise");
     return;
   }
-  if(S.phase==="onboard" && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); nextOb(); return; }
+  if(S.obOn && S.obCard && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); nextOb(); return; }
   if(S.phase!=="playing" || !S.train) return;
   const T=S.train.T;
   if(e.key==="ArrowLeft"){ S.cursorPin=Math.max(1, S.cursorPin-1); S.hoverPin=S.cursorPin; ensureCursorVisible(); e.preventDefault(); }
@@ -1091,12 +1189,15 @@ refreshMute();
 startBtn.addEventListener("click", ()=>{
   ensureAudio();
   startBtn.classList.add("is-pressed");
-  setTimeout(()=>{ startBtn.classList.remove("is-pressed"); beginPlay(false); }, REDUCE?80:160);
+  /* 「눌렀는데 타이틀이 그대로다」도, 「눌렀더니 빈 선로만 있다」도 안 된다 —
+     타이틀 제거와 첫 열차 배치를 같은 프레임에 끝낸다. */
+  beginPlay(false);
+  setTimeout(()=>startBtn.classList.remove("is-pressed"), 160);
 });
 howtoBtn.addEventListener("click", ()=>{
   ensureAudio();
   beginPlay(false);
-  if(S.phase!=="onboard") showOnboard();
+  if(!S.obOn) showOnboard();
 });
 document.getElementById("modeEasy").addEventListener("click", ()=>{
   S.easy=true;
@@ -1133,14 +1234,37 @@ function makeTiles(){
   for(let i=0;i<32;i+=16){ c.fillRect(i,0,1,32); c.fillRect(0,i,32,1); }
   tilePat=ctx.createPattern(off,"repeat");
 }
+/* ── 한글 텍스트는 오프스크린에 한 번만 굽는다 ──────────────────────────────
+   소프트웨어 렌더러(QA 브라우저)에서 한글 fillText 는 프레임당 비용이 크다.
+   문장은 판마다 몇 개뿐이고 잘 안 바뀌므로, 스프라이트로 구워 drawImage 로 얹는다. */
+const TXT_CACHE=new Map();
+let measCtx=null;
+function measureFont(size){
+  if(!measCtx) measCtx=document.createElement("canvas").getContext("2d");
+  measCtx.font=`800 ${size}px ui-monospace,"Courier New",monospace`;
+  return measCtx;
+}
+function bakeText(s, size, color){
+  const key=s+"|"+size+"|"+color;
+  let img=TXT_CACHE.get(key);
+  if(img) return img;
+  const m=measureFont(size);
+  const w=Math.max(1, Math.ceil(m.measureText(s).width)+3), h=Math.ceil(size*1.6)+3;
+  const off=document.createElement("canvas");
+  off.width=w; off.height=h;
+  const g=off.getContext("2d");
+  g.font=`800 ${size}px ui-monospace,"Courier New",monospace`;
+  g.textBaseline="alphabetic";
+  g.fillStyle=INK;  g.fillText(s, 1, size+1);
+  g.fillStyle=color; g.fillText(s, 0, size);
+  img={c:off, w, h, base:size};
+  if(TXT_CACHE.size>240) TXT_CACHE.clear();
+  TXT_CACHE.set(key, img);
+  return img;
+}
 function pxText(c, s, x, y, size, color){
-  c.save();
-  c.font=`800 ${size}px ui-monospace,"Courier New",monospace`;
-  c.fillStyle=INK;
-  c.fillText(s, x+1, y+1);
-  c.fillStyle=color;
-  c.fillText(s, x, y);
-  c.restore();
+  const img=bakeText(s, size, color);
+  c.drawImage(img.c, Math.round(x), Math.round(y-img.base));
 }
 function rpgBox(c,x,y,w,h,fill){
   c.fillStyle=INK;
@@ -1170,6 +1294,51 @@ function drawLocoFallback(c, x, y, w, h){
   c.fillStyle=INK;
   c.fillRect(x, y+h*0.35, 1, h*0.4); c.fillRect(x+w-1, y+h*0.18, 1, h*0.62);
   c.fillStyle=SIGNAL; c.fillRect(x+3, y+h*0.42, 5, 5);
+}
+/* 연결핀 스프라이트 — 맥동 4단계 × (연결/끊김) + 후광 없는 판.
+   크기가 바뀔 때만 다시 굽는다. */
+const PIN_STEPS=4;
+let pinSpr=null, pinSprKey="";
+function pinSprites(pw, ph){
+  const key=pw+"x"+ph;
+  if(pinSpr && pinSprKey===key) return pinSpr;
+  const pad=12, hw=pw+8, hh=10;
+  const make=(coupled, halo)=>{
+    const c=document.createElement("canvas");
+    c.width=pw+pad*2; c.height=ph+pad*2;
+    const k=c.getContext("2d");
+    k.imageSmoothingEnabled=false;
+    const x=pad, y=pad;
+    if(halo>0){
+      const g=Math.round(2+halo*2);
+      k.globalAlpha=0.30+0.45*halo;
+      k.fillStyle=CREAM;
+      k.fillRect(x-g, y-g, pw+g*2, ph+g*2);
+      k.globalAlpha=1;
+    }
+    /* 기둥은 객차 사이를 위아래로 관통한다 — 「여기서 끊긴다」를 열차 위에서 바로 읽게 한다 */
+    k.fillStyle=coupled?DANGER:GREY;
+    k.fillRect(x, y, pw, ph);
+    k.strokeStyle=CREAM; k.lineWidth=2;
+    k.strokeRect(x+1, y+1, pw-2, ph-2);
+    /* 머리(손잡이) — 객차 위로 튀어나와 작은 화면에서도 눈에 걸린다 */
+    k.fillStyle=coupled?DANGER:GREY;
+    k.fillRect(x-(hw-pw)/2, y-hh, hw, hh);
+    k.strokeStyle=CREAM; k.lineWidth=2;
+    k.strokeRect(x-(hw-pw)/2+1, y-hh+1, hw-2, hh);
+    k.fillStyle=CREAM;
+    k.fillRect(x+pw/2-2, y+10, 4, ph-20);
+    return c;
+  };
+  const lv=i=>(PIN_STEPS<2?1:i/(PIN_STEPS-1));
+  pinSpr={
+    pad,
+    on:Array.from({length:PIN_STEPS},(_,i)=>make(true, lv(i))),
+    off:Array.from({length:PIN_STEPS},(_,i)=>make(false, lv(i))),
+    flat:{on:make(true,0), off:make(false,0)}
+  };
+  pinSprKey=key;
+  return pinSpr;
 }
 function drawPinFallback(c, x, y, w, h, coupled){
   c.fillStyle=STEEL;
@@ -1298,10 +1467,7 @@ function drawBoards(){
   if(p.kind==="siding") sub=`${p.a} : ${p.b} = □ : ${p.c}`;
   else if(p.kind==="reverse") sub=`차이 ${p.D}칸 · ${rr.tag}`;
   else sub=`전체 ${p.T}칸 · ${rr.tag}`;
-  ctx.save();
-  ctx.font='800 11px ui-monospace,"Courier New",monospace';
-  const subW=ctx.measureText(sub).width;
-  ctx.restore();
+  const subW=measureFont(11).measureText(sub).width;
   const bw=Math.min(S.land?520:S.W-20, Math.max(rw+20, subW+18, 120));
   const bh=rh+44;
   const boardX = S.land ? (S.stageX + S.stageW - bw - muteGap) : 10;
@@ -1324,6 +1490,7 @@ function drawBoards(){
     rpgBox(ctx, boardX, boardY+bh+6, bw, ph, TEAL);
     drawBits(ctx, A, boardX+8, boardY+bh+12, px2, CREAM);
     drawBits(ctx, B, boardX+8, boardY+bh+12+7*px2, px2, CREAM);
+    S.boardBottom = boardY+bh+6+ph;   /* 곱 확인판까지 포함해야 아래 안내판이 겹치지 않는다 */
   }
 
   // fork destination plaques
@@ -1333,6 +1500,9 @@ function drawBoards(){
   pxText(ctx, p.L, fx+42, y-90, 11, S.boardLit?CREAM:INK);
   rpgBox(ctx, fx+36, y+86, dw, 26, S.boardLit?TEAL:CREAM);
   pxText(ctx, p.R, fx+42, y+104, 11, S.boardLit?CREAM:INK);
+  /* 「앞칸은 왼쪽」이라고 쓰여 있는데 실제로는 위·아래로 갈라진다 — 승강장 옆에 방향을 적어 둔다 */
+  pxText(ctx, "▲ 앞칸이 가는 곳", fx+36, y-114, 11, INK);
+  pxText(ctx, "▼ 남은 칸", fx+36+dw+8, y+104, 11, INK);
 }
 
 /* 줄바꿈 계산 결과는 문장·폭·크기가 같으면 재사용한다(매 프레임 measureText 방지). */
@@ -1367,17 +1537,32 @@ function wrapLines(c, text, maxW, size){
   WRAP_CACHE.set(key, lines);
   return lines;
 }
-/* 잘라 먹지 않는다 — 줄 수가 넘치면 글자를 한 단계씩 줄여서 전부 보여 준다. */
+/* 잘라 먹지 않는다 — 줄 수가 넘치면 글자를 한 단계씩 줄여서 전부 보여 준다.
+   여러 줄 문장도 통째로 한 번만 굽는다(매 프레임 한글 fillText 를 다시 하지 않는다). */
+const BLOCK_CACHE=new Map();
 function wrapPrompt(c, text, x, y, maxW, size, maxLines){
   const cap=maxLines||3;
-  let sz=size, lines=wrapLines(c, text, maxW, sz);
-  while(lines.length>cap && sz>10){ sz--; lines=wrapLines(c, text, maxW, sz); }
-  c.save();
-  c.font=`800 ${sz}px ui-monospace,"Courier New",monospace`;
-  c.fillStyle=INK;
-  let ly=y;
-  for(let i=0;i<Math.min(lines.length,cap);i++){ c.fillText(lines[i], x, ly); ly+=sz+3; }
-  c.restore();
+  const key=text+"|"+Math.round(maxW)+"|"+size+"|"+cap;
+  let img=BLOCK_CACHE.get(key);
+  if(!img){
+    const m=measureFont(size);
+    let sz=size, lines=wrapLines(m, text, maxW, sz);
+    while(lines.length>cap && sz>10){ sz--; lines=wrapLines(m, text, maxW, sz); }
+    lines=lines.slice(0, cap);
+    const off=document.createElement("canvas");
+    off.width=Math.max(1, Math.ceil(maxW)+2);
+    off.height=Math.max(1, lines.length*(sz+3)+sz);
+    const g=off.getContext("2d");
+    g.font=`800 ${sz}px ui-monospace,"Courier New",monospace`;
+    g.textBaseline="alphabetic";
+    g.fillStyle=INK;
+    let ly=sz;
+    for(const ln of lines){ g.fillText(ln, 0, ly); ly+=sz+3; }
+    img={c:off, base:sz};
+    if(BLOCK_CACHE.size>120) BLOCK_CACHE.clear();
+    BLOCK_CACHE.set(key, img);
+  }
+  c.drawImage(img.c, Math.round(x), Math.round(y-img.base));
 }
 
 function drawHUD(){
@@ -1409,14 +1594,19 @@ function drawHUD(){
     ctx.fillStyle=i<Math.min(8,S.stations)?SIGNAL:GREY;
     ctx.fillRect(mx+i*14, my-3, 6, 8);
   }
-  if(S.hint){
+  const msg = S.okT>0 && S.okMsg ? S.okMsg : S.hint;
+  if(msg){
     const hx=S.land? S.stageX+12 : 10;
     /* 세로형에서는 전광판이 플레이 영역 위쪽까지 내려올 수 있다 — 그 아래에 붙인다. */
     const hy=S.land? S.play.y+8 : Math.max(S.play.y+8, (S.boardBottom||0)+6);
-    rpgBox(ctx, hx, hy, Math.min(S.play.w-20, 420), 56, CREAM);
-    wrapPrompt(ctx, S.hint, hx+8, hy+16, Math.min(S.play.w-36, 404), 12, 3);
+    const ok=(S.okT>0&&S.okMsg);
+    rpgBox(ctx, hx, hy, Math.min(S.play.w-20, 420), ok?64:56, ok?SIGNAL:CREAM);
+    wrapPrompt(ctx, msg, hx+8, hy+(ok?19:16), Math.min(S.play.w-36, 404), ok?13:12, 3);
   }
-  pxText(ctx, "객차 한 칸은 모두 같은 크기예요", S.land? S.stageX+12 : 10, S.play.y + S.play.h - 8, 11, INK);
+  /* (c) 목표 한 줄은 온보딩이 끝난 뒤에도 상시 남는다 */
+  const gx=S.land? S.stageX+12 : 10;
+  pxText(ctx, "위로 보낼 칸 수를 세고, 그 칸 뒤의 연결핀을 눌러요", gx, S.play.y + S.play.h - 26, 12, INK);
+  pxText(ctx, "객차 한 칸은 모두 같은 크기예요", gx, S.play.y + S.play.h - 8, 11, INK);
 }
 
 function drawTrain(dt){
@@ -1483,35 +1673,89 @@ function drawTrain(dt){
     ctx.restore();
   }
   const blink=((S.elapsed*8)|0)%2===0;
+  /* 연결핀은 이 게임의 유일한 조작 대상인데 8×10px 이라 「어디를 눌러야 하는지 안 보인다」고
+     판정받았다. 크기를 키우고, 갈라지기 전에는 노란 테두리로 맥동시켜 「여기가 버튼」임을 말한다.
+     터치 판정(pinHit)은 그대로다 — 보이는 것만 실제 크기에 가까워졌다. */
+  /* 핀을 객차 **아래**에만 두면 열차에서 떨어진 작은 조각으로 보인다.
+     객차 사이를 위아래로 관통하는 기둥으로 그려 「여기서 갈린다」가 열차 위에서 바로 읽히게 한다.
+     터치 판정(pinHit)은 그대로다 — 보이는 것이 만질 수 있는 곳과 겹치게만 옮겼다. */
+  const pw=Math.max(10, Math.min(14, Math.round(tr.pinSlot)+6)), ph=36;
+  const pulse=0.5+0.5*Math.sin(S.elapsed*4.2);
+  const live=!tr.split && S.phase==="playing";
+  const py=Math.round(y+10);
+  /* 화면 안에 든 핀만 모아 색깔별 패스로 그린다 —
+     핀 하나마다 fillStyle 을 갈아 끼우면 40칸 열차에서 프레임 예산을 먹는다. */
+  const vis=[];
   for(let n=1;n<tr.T;n++){
-    const coupled = tr.preCut!==n && !(tr.split && tr.nCut===n);
-    const px=pinWorldX(n)-pan, py=y+20;
-    const pw=8, ph=10;
-    const hover=(S.hoverPin===n || S.cursorPin===n) && !tr.split;
-    if(hover && blink){
+    const px=pinWorldX(n)-pan;
+    if(px<S.play.x-30 || px>S.play.x+S.play.w+30) continue;
+    vis.push({n, px:Math.round(px), coupled: tr.preCut!==n && !(tr.split && tr.nCut===n)});
+  }
+  /* 핀은 스프라이트 하나로 얹는다(후광·테두리·홈을 매 프레임 다시 그리지 않는다) */
+  const spr=pinSprites(pw, ph), step=live?Math.min(PIN_STEPS-1, (pulse*PIN_STEPS)|0):-1;
+  for(const v of vis){
+    const img=(step<0) ? (v.coupled?spr.flat.on:spr.flat.off) : (v.coupled?spr.on[step]:spr.off[step]);
+    ctx.drawImage(img, v.px-pw/2-spr.pad, py-spr.pad);
+  }
+  const hoverPin=S.hoverPin;   /* 기본 커서까지 깜빡이면 「설명 없는 청록 사각형」이 하나 더 생긴다 */
+  if(hoverPin && !tr.split && blink){
+    const hv=vis.find(v=>v.n===hoverPin);
+    if(hv){ ctx.strokeStyle=SIGNAL; ctx.lineWidth=3; ctx.strokeRect(hv.px-pw/2-5, py-5, pw+10, ph+10); }
+  }
+  if(p.kind==="error" && !tr.split){
+    const pv=vis.find(v=>v.n===tr.preCut);
+    if(pv){ ctx.fillStyle=DANGER; ctx.fillRect(pv.px-3, py-12, 6, 6); }
+  }
+  /* (a) 첫 열차에서는 「바로 이 핀」을 손가락으로 짚어 준다.
+     정답을 숨긴 채 "어딘가를 눌러라"라고만 하면 첫 시도는 반드시 실패하고,
+     학생은 핀 번호와 칸 수의 관계를 배우지 못한 채 목숨만 잃는다. */
+  if(live && S.obOn && p && p.left>=1 && p.left<tr.T){
+    const tx=pinWorldX(p.left)-pan, ty=py;
+    if(tx>S.play.x-40 && tx<S.play.x+S.play.w+40){
+      const g=Math.round(7+pulse*5), ax=Math.round(tx);
+      ctx.strokeStyle=SIGNAL; ctx.lineWidth=3;
+      ctx.strokeRect(tx-pw/2-g, ty-g, pw+g*2, ph+g*2);
+      /* 안내는 열차 **위**에 두고, 핀 머리까지 선으로 잇는다
+         (아래쪽은 이동 막대 자리라 겹치면 둘 다 안 읽힌다) */
+      const topY=y-carH-42;
       ctx.fillStyle=SIGNAL;
-      ctx.fillRect(px-pw/2-2, py-2, pw+4, ph+4);
+      ctx.fillRect(ax-2, topY+18, 4, Math.max(0,(ty-14)-(topY+18)));
+      ctx.fillRect(ax-7, ty-20, 14, 3);
+      ctx.fillRect(ax-4, ty-17, 8, 3);
+      const lab="여기를 눌러요 · 앞에서 "+p.left+"칸";
+      const lw=measureFont(12).measureText(lab).width;
+      const lx=Math.max(S.play.x+4, Math.min(ax-lw/2, S.play.x+S.play.w-lw-8));
+      rpgBox(ctx, lx-6, topY-4, lw+12, 21, SIGNAL);
+      pxText(ctx, lab, lx, topY+11, 12, INK);
     }
-    drawPinFallback(ctx, px-pw/2, py, pw, ph, coupled);
-    if(p.kind==="error" && tr.preCut===n && !tr.split){
-      ctx.fillStyle=DANGER;
-      ctx.fillRect(px-3, py-8, 6, 6);
-    }
+  }else if(live && S.sent===0){
+    const x1=pinWorldX(1)-pan, x2=pinWorldX(tr.T-1)-pan;
+    const bx=Math.max(S.play.x+4, Math.min(x1,x2)-14), bw=Math.min(S.play.x+S.play.w-4, Math.max(x1,x2)+14)-bx;
+    const by=py+ph+7;
+    ctx.fillStyle=INK;
+    ctx.fillRect(bx, by, bw, 2);
+    ctx.fillRect(bx, by, 2, 8); ctx.fillRect(bx+bw-2, by, 2, 8);
   }
   ctx.restore();
   drawRailBar();
+  /* (e) 아무 데나 눌러도 물결이 남는다 — 500ms 동안 아무 픽셀도 안 바뀌면 「고장」으로 읽힌다 */
+  for(const r of S.ripples){
+    const k=1-r.t/0.5;
+    ctx.globalAlpha=Math.max(0, 1-k)*0.9;
+    ctx.strokeStyle=SIGNAL; ctx.lineWidth=3;
+    ctx.strokeRect(r.x-8-k*26, r.y-8-k*26, 16+k*52, 16+k*52);
+    ctx.globalAlpha=1;
+  }
 }
 
 function drawRailBar(){
   const bar=railBar(); if(!bar) return;
   const tr=S.train;
   const wl=tr.x-20, span=bar.total+40, k=bar.w/span;
-  const tip="이 막대를 끌면 뒷칸으로 갑니다";
-  ctx.save();
-  ctx.font='800 11px ui-monospace,"Courier New",monospace';
-  const tipW=ctx.measureText(tip).width;
-  ctx.restore();
+  const tip="이 막대를 끌면 뒷칸이 보여요 (여기서는 끊지 않아요)";
+  const tipW=measureFont(11).measureText(tip).width;
   pxText(ctx, tip, bar.x+bar.w-tipW, bar.y-5, 11, INK);   // 갈래 기둥과 겹치지 않게 오른쪽 정렬
+  pxText(ctx, "열차 전체 보기", bar.x+2, bar.y-5, 11, INK);   // 막대가 무엇인지 왼쪽 끝에도 이름을 붙인다
   rpgBox(ctx, bar.x, bar.y, bar.w, bar.h, CREAM);
   const cw=Math.max(1, tr.carW*k-1);
   for(let i=0;i<tr.T;i++){
@@ -1548,6 +1792,7 @@ function drawFlash(){
 /* ── 루프 ── */
 function stepTrain(dt){
   const tr=S.train; if(!tr) return;
+  if(S.frozen && !tr.split) return;   /* 온보딩 중에는 열차가 다가오지 않는다 — 안내는 벌이 아니다 */
   if(tr.split){
     S.splitT+=dt;
     if(S.splitT>(REDUCE?0.45:0.85) && S.phase==="playing"){
@@ -1571,8 +1816,19 @@ function loop(ts){
   if(S.flash>0) S.flash-=dt;
   if(S.camPull>0) S.camPull-=dt*1.6;
 
+  if(S.okT>0) S.okT-=dt;
+  if(S.hintT>0){ S.hintT-=dt; if(S.hintT<=0) S.hint=""; }
+  for(const r of S.ripples) r.t-=dt;
+  if(S.ripples.length) S.ripples=S.ripples.filter(r=>r.t>0);
+  if(S.obOn){
+    S.obT+=dt; S.obIdle+=dt;
+    /* 「다음」을 못 찾아도 갇히지 않는다 — 5초면 저절로 넘어간다 */
+    if(S.obCard && S.obI<2 && S.obT>7) nextOb();
+    /* 실습 단계에서 25초가 지나도록 핀을 못 찾으면 얼음을 풀어 준다 — 영영 멈춰 있는 것도 막힘이다 */
+    if(!S.obCard && S.frozen && S.obT>25){ S.frozen=false; S.hint="열차가 다시 움직여요. 연결핀을 눌러 끊어요."; S.hintT=2.6; }
+  }
   if(S.phase==="playing"){
-    S.elapsed+=dt; S.timeLeft=Math.max(0, SESSION-S.elapsed);
+    if(!S.frozen){ S.elapsed+=dt; S.timeLeft=Math.max(0, SESSION-S.elapsed); }
     if(S.timeLeft<=0){ endShift("time"); }
     else stepTrain(dt);
   }
@@ -1648,7 +1904,7 @@ window.__GAME_TEST__={
   getLayout(){ return {land:S.land, playW:S.play.w}; },
   answerCorrect(){
     if(S.phase==="title") beginPlay(true);
-    if(S.phase==="onboard"){ hideOnboard(); S.phase="playing"; }
+    if(S.obOn) hideOnboard();
     if(S.phase==="lever") hideLever();
     if(S.phase==="over"){ beginPlay(true); }
     if(!S.problem) spawnTrain();
@@ -1656,7 +1912,7 @@ window.__GAME_TEST__={
   },
   answerWrong(){
     if(S.phase==="title") beginPlay(true);
-    if(S.phase==="onboard"){ hideOnboard(); S.phase="playing"; }
+    if(S.obOn) hideOnboard();
     if(S.phase==="lever") hideLever();
     if(!S.problem) spawnTrain();
     const n = S.problem ? (S.problem.left===1?2:1) : 1;
