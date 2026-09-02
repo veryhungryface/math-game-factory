@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>울타리 한바퀴 — 한 변만 어긋나면 끝</title>
+<title>울타리 한바퀴 — 판을 끌어 울타리를 쳐요</title>
 <meta property="og:title" content="울타리 한바퀴">
-<meta property="og:description" content="한 변만 어긋나면 끝">
+<meta property="og:description" content="판을 끌어 울타리를 쳐요">
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../vendor/katex/katex.min.css">
@@ -50,7 +50,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--formica);color
 }
 #prompt .eq{font-size:clamp(20px,5.2vw,28px);min-height:36px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #prompt .say{font-size:clamp(13px,3.4vw,16px);margin-top:4px;word-break:keep-all}
-#prompt .axis{margin-top:3px;font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--teal)}
+#prompt .axis{margin-top:3px;font-size:11.5px;font-weight:800;letter-spacing:.02em;color:var(--ink);
+  word-break:keep-all;line-height:1.35}
+/* 분수 변 ↔ 격자 눈금을 같은 색으로 잇는다 — 가로(첫째 수)=토마토, 세로(둘째 수)=청록 */
+#prompt .axis .hx{color:var(--tomato)}
+#prompt .axis .vy{color:var(--teal)}
 #failNote{
   position:fixed;z-index:5;left:12px;right:12px;bottom:max(72px,calc(var(--safeB) + 60px));
   text-align:center;font-weight:800;font-size:15px;color:var(--formica);background:var(--ink);
@@ -95,8 +99,25 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--formica);color
 #titleMute{position:absolute;z-index:4;right:12px;top:max(10px,var(--safeT));
   width:48px;height:48px;border:4px solid #2A2622;border-radius:2px;background:#DDD6C8;color:#2A2622;font-size:16px;cursor:pointer}
 
-#help,#onboard,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(221,214,200,.72)}
-#help.show,#onboard.show,#result.show{display:grid}
+#help,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(221,214,200,.72)}
+#help.show,#result.show{display:grid}
+/* 온보딩은 화면을 덮지 않는다 — 덮으면 「팝업 3장」이 되고 학생은 판을 못 본다.
+   실전 판 아래에 붙는 코치 카드 한 장이고, 학생이 실제로 끌어야 다음으로 간다
+   (docs/onboarding-spec.md §1-a,b,g). */
+#onboard{position:fixed;z-index:29;left:8px;right:8px;bottom:max(8px,var(--safeB));
+  display:none;pointer-events:none}
+#onboard.show{display:block}
+.ob-card{margin:0 auto;width:min(100%,470px);padding:8px 11px 9px;background:#DDD6C8;color:#2A2622;
+  border:4px solid #2A2622;border-radius:2px;pointer-events:auto}
+.ob-card .step{font-size:11px;letter-spacing:.14em;color:#1F6F6A;font-weight:800}
+.ob-card h2{margin:4px 0 3px;font-size:16px;letter-spacing:.02em;line-height:1.2}
+.ob-card p{font-weight:800;line-height:1.35;font-size:12.5px;word-break:keep-all;margin:0}
+.ob-card .ob-skip{margin-top:6px;width:100%;min-height:34px;border:2px solid #9a9080;background:transparent;
+  color:#5a5348;font-weight:800;font-size:12px;letter-spacing:.06em;cursor:pointer}
+/* 가로에서는 판이 화면 아래끝까지 차므로, 카드를 오른쪽 계기판 아래에 붙인다 —
+   판(조작 대상)을 절대 가리지 않는다 */
+html.land #onboard{left:calc(var(--stageX) + var(--stageW) * .62 + 8px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 8px)}
 .cab-panel{width:min(88vw,480px);padding:20px 16px 16px;background:#DDD6C8;color:#2A2622;
   border:4px solid #2A2622;border-radius:2px}
 .cab-panel h2{margin:0 0 10px;font-size:22px;letter-spacing:.08em}
@@ -167,7 +188,7 @@ html.land #failNote{
 <div id="prompt">
   <div class="eq" id="eq"></div>
   <div class="say" id="say">원점에서 울타리로 둘러싸 보세요.</div>
-  <div class="axis">칸 값은 모두 같아요 · 가로는 첫째 수 · 세로는 둘째 수 · 모양은 달라도 곱은 같아요</div>
+  <div class="axis" id="axis">판을 손가락으로 끌면 왼쪽 아래 말뚝에서 울타리가 자라요</div>
 </div>
 <button id="mute" aria-label="소리 끄기">♪</button>
 <button id="undo" aria-label="이번 울타리 되돌리기">되돌리기</button>
@@ -185,7 +206,7 @@ html.land #failNote{
         <span>울타리</span>
         <span>한바퀴</span>
       </h1>
-      <div class="game-sub">한 변만 어긋나면 끝</div>
+      <div class="game-sub">판을 끌어 울타리를 쳐요</div>
     </div>
     <div class="cta-zone">
       <div class="meta-row">
@@ -193,7 +214,7 @@ html.land #failNote{
         <span class="yard-tag">분수의 곱셈</span>
       </div>
       <div id="best"></div>
-      <button id="start">한바퀴 닫기</button>
+      <button id="start">시작하기</button>
       <div class="meta-row">
         <button id="how">어떻게 놀아요?</button>
         <button id="diff">지금: 쉬움</button>
@@ -205,19 +226,20 @@ html.land #failNote{
 <div id="help">
   <div class="cab-panel">
     <div class="step">안내</div>
-    <h2>직교 울타리</h2>
-    <p>1. 왼쪽 아래 원점에서 반대 꼭짓점을 끌어 직사각형을 만들어요. 손을 떼면 닫힙니다.</p>
-    <p>2. 가로는 첫째 수 칸, 세로는 둘째 수 칸을 나타내도록 둘러싸요. 4×2와 2×4는 모양이 다르지만 곱은 같아요.</p>
-    <p>3. 칸 하나의 값은 모두 같아요. 스파크가 열린 선을 따라잡기 전에 둘러싸세요. 목숨은 3개이고, 곱은 늘 기약분수(1보다 크면 대분수)로 나타냅니다.</p>
+    <h2>울타리 치는 법</h2>
+    <p>1. 판 위 아무 곳이나 손가락으로 끌면 왼쪽 아래 말뚝에서 울타리가 자라요. 손을 떼면 그 크기로 닫혀요.</p>
+    <p>2. 가로 칸 수는 식의 첫째 수(빨강), 세로 칸 수는 둘째 수(청록)를 나타내요. 넓이가 같아도 모양이 다르면 안 돼요.</p>
+    <p>3. 판 아래 「가로 1칸 = ○」, 「세로 1칸 = ○」이 눈금 한 칸의 값이에요.</p>
+    <p>4. 오래 손을 놓고 있으면 목숨이 하나 줄어요. 6초가 남으면 판 위에 초읽기가 나와요. 목숨은 3개예요.</p>
     <button id="closeHelp">해볼게요</button>
   </div>
 </div>
 <div id="onboard">
-  <div class="cab-panel">
-    <div class="step" id="obStep">1/3</div>
-    <h2 id="obTitle">원점에서 끌어요</h2>
-    <p id="obBody">왼쪽 아래 말뚝에서 손가락을 끌어 반대 꼭짓점을 옮기세요. 울타리는 격자에 붙습니다.</p>
-    <button id="obNext">다음</button>
+  <div class="ob-card">
+    <div class="step" id="obStep">해 보기 1 / 2</div>
+    <h2 id="obTitle">판 위를 손가락으로 끌어 보세요</h2>
+    <p id="obBody">왼쪽 아래 말뚝에서 울타리가 자라요. 손가락을 오른쪽 위로 끌면 울타리가 커져요. 지금은 시간이 멈춰 있어요.</p>
+    <button class="ob-skip" id="obSkip">안내 닫기</button>
   </div>
 </div>
 <div id="result">
@@ -700,7 +722,10 @@ const S = {
   keys: Object.create(null), trail: [], gloss: 0, speckle: null,
   land: false, stageW: 0, stageX: 0, play: {x:0,y:0,w:0,h:0}, hud: {x:0,y:0,w:0,h:0},
   cell: 48, bx: 0, by: 0, bw: 0, bh: 0, W: 0, H: 0, dpr: 1,
-  punch: 1, marqFlash: 0, promptBottom: 0, badgeR: 0, idleT: 0, idleFail: false
+  punch: 1, marqFlash: 0, promptBottom: 0, badgeR: 0, idleT: 0, idleFail: false,
+  /* 온보딩·코치 (docs/onboarding-spec.md §1)
+     tut: 0=꺼짐 1=끌어 보기 2=손 떼기 안내. tut>0 이면 시간·스파크·방치 벌이 모두 멈춘다. */
+  tut: 0, tutT: 0, tutTried: 0, ripples: [], coachT: 0, whyMsg: '', whyT: 0
 };
 const IDLE_LIMIT = 14;   // 초. 무조작이 이 시간을 넘으면 목숨 1
 const IMG = { post: null, spark: null, postOk: false, sparkOk: false };
@@ -853,11 +878,28 @@ function displayPrompt(p){
     .replace(/, 가로는 첫째 수·세로는 둘째 수가 되게/g, '')
     .replace(/가로는 첫째 수·세로는 둘째 수가 되게 /g, '');
 }
+/* 격자 눈금 한 칸이 분수의 얼마인지 — 가로·세로를 따로 돌려준다.
+   hd*vd 는 언제나 cellD 다(한 칸의 값 = 1/(hd*vd)). 이 대응이 있어야
+   「3/4의 3」이 격자에서 몇 칸인지가 눈으로 이어진다 (§3 fence-lap). */
+function axisUnits(p){
+  let u = null;
+  if (p.unitW && p.unitH) u = { hd: p.unitW, vd: p.unitH };
+  else if (p.kind === 'fracNat') u = { hd: p.b, vd: 1 };
+  else if (p.kind === 'natFrac') u = { hd: 1, vd: p.b };
+  else if (p.b && p.d) u = { hd: p.b, vd: p.d };
+  if (!u || u.hd * u.vd !== p.cellD) u = { hd: p.cellD, vd: 1 };
+  return u;
+}
+function unitLabel(den){ return den === 1 ? '1' : '1/' + den; }
 function renderPrompt(){
   const p = S.cur;
-  const eq = $('#eq'), say = $('#say');
+  const eq = $('#eq'), say = $('#say'), ax = $('#axis');
   if (!p) { eq.textContent = ''; say.textContent = ''; return; }
-  const tex = p.tex || '';
+  /* 식의 첫째 수(가로)·둘째 수(세로)를 격자 눈금과 같은 색으로 칠한다 */
+  let tex = p.tex || '';
+  if (p.leftTex && p.rightTex) {
+    tex = '\\textcolor{#C73E3A}{' + p.leftTex + '} \\times \\textcolor{#1F6F6A}{' + p.rightTex + '}';
+  }
   if (window.katex) {
     try { katex.render(tex, eq, { throwOnError: false }); }
     catch { eq.textContent = displayPrompt(p); }
@@ -865,6 +907,13 @@ function renderPrompt(){
     eq.textContent = displayPrompt(p).replace('만큼을 울타리로 둘러싸 보세요.', '');
   }
   say.textContent = displayPrompt(p);
+  /* 상시 목표 문장 (§1-c) — 온보딩이 닫힌 뒤에도 남아 조작과 수학을 한 줄로 잇는다 */
+  if (ax) {
+    const u = axisUnits(p);
+    ax.innerHTML = '판을 끌면 왼쪽 아래 말뚝에서 울타리가 자라요 · '
+      + '<b class="hx">가로 눈금 1칸 = ' + unitLabel(u.hd) + '</b> · '
+      + '<b class="vy">세로 눈금 1칸 = ' + unitLabel(u.vd) + '</b>';
+  }
   S.promptBottom = $('#prompt').getBoundingClientRect().bottom;
 }
 
@@ -879,11 +928,12 @@ function startPlay(skipOnboard){
   S.lampLeft = 0; S.tLeft = SESSION; S.yard = 1; S.lastIds = [];
   S.hitStop = 0; S.timeScale = 1; S.tilt = 0; S.blackout = 0;
   S.mosaic = loadMosaic();
+  S.tut = 0; S.tutT = 0; S.tutTried = 0; S.ripples.length = 0;
+  S.whyMsg = ''; S.whyT = 0; S.coachT = 0;
+  $('#onboard').classList.remove('show');
   spawn();
-  if (!skipOnboard && !localStorage.getItem(LS_ONB)) {
-    S.phase = 'onboard';
-    obI = 0; showOnboard();
-  }
+  /* 첫 실행 = 자동 인게임 온보딩. 설명 팝업이 아니라 실전 판 위에서 직접 끌어 본다 (§1-g) */
+  if (!skipOnboard && !localStorage.getItem(LS_ONB)) startTutorial();
 }
 function endRun(){
   S.phase = 'result';
@@ -896,7 +946,11 @@ function endRun(){
   $('#resKicker').textContent = neu ? '새 기록' : '교대 종료';
   $('#resTitle').textContent = neu ? '마퀴가 새로 찍혔어요' : '캐비닛이 꺼졌어요';
   $('#resScore').textContent = '0';
-  $('#resSub').textContent = '두른 판 ' + S.solved + ' · 최고 ' + Math.max(best, S.score);
+  /* 왜 끝났는지를 사람 말로 남긴다 — 원인 없이 뜨는 팝업은 학생이 납득할 수 없다 */
+  const cause = S.lives <= 0
+    ? '목숨 3개를 다 썼어요. 울타리를 세 번 잘못 쳤거나 시간을 넘겼어요.'
+    : '90초가 다 됐어요.';
+  $('#resSub').innerHTML = '바르게 두른 울타리 ' + S.solved + '개 · 최고 ' + Math.max(best, S.score) + '<br>' + cause;
   $('#result').classList.add('show');
   countUp($('#resScore'), S.score, 700);
   refreshBest();
@@ -923,18 +977,33 @@ function cellXY(i, j){
   return { x: S.bx + i * S.cell, y: S.by + (S.cur.boardH - j) * S.cell };
 }
 
+/* 어떤 탭에도 반응한다 (§1-e) — 판 밖을 눌러도 그 자리에 리플이 남고 코치가 다시 켜진다.
+   500ms 안에 아무 픽셀도 안 바뀌는 입력을 학생은 「고장 났다」로 읽는다. */
+function ripple(x, y, col){
+  S.ripples.push({ x, y, t: 0, col: col || PAL.teal });
+  if (S.ripples.length > 6) S.ripples.shift();
+}
 function onPtrDown(e){
-  if (S.phase !== 'playing' || S.lock) return;
   unlock();
   const r = cv.getBoundingClientRect();
   const x = e.clientX - r.left, y = e.clientY - r.top;
-  if (x < S.play.x - 8 || y < S.play.y - 8 || x > S.play.x + S.play.w + 8 || y > S.play.y + S.play.h + 8) return;
+  if (S.phase !== 'playing' || S.lock) { ripple(x, y, PAL.tomato); return; }
+  if (x < S.play.x - 8 || y < S.play.y - 8 || x > S.play.x + S.play.w + 8 || y > S.play.y + S.play.h + 8) {
+    ripple(x, y, PAL.tomato);
+    S.coachT = 3.2;                       /* 진짜 조작 대상 쪽으로 손가락 시범을 즉시 재생 */
+    S.whyMsg = '울타리는 아래 판 위에서 끌어요';
+    S.whyT = 1.4;
+    beep(240, 0.07, 'square', 0.05);
+    return;
+  }
+  ripple(x, y, PAL.teal);
   S.dragging = true; S.pointerId = e.pointerId;
   try { cv.setPointerCapture(e.pointerId); } catch {}
   const g = gridFrom(x, y);
   S.cw = g.w; S.ch = g.h;
   S.fuse = 0; S.overshoot = 0.18;
   beep(180, 0.04, 'square', 0.03);
+  if (S.tut === 1 && S.cw > 0 && S.ch > 0) tutAdvance();
 }
 function onPtrMove(e){
   if (!S.dragging || S.phase !== 'playing' || S.lock) return;
@@ -943,6 +1012,7 @@ function onPtrMove(e){
   if (g.w !== S.cw || g.h !== S.ch) {
     S.cw = g.w; S.ch = g.h;
     S.overshoot = 0.12;
+    if (S.tut === 1 && S.cw > 0 && S.ch > 0) tutAdvance();
   }
 }
 function onPtrUp(e){
@@ -959,9 +1029,31 @@ function areaEqualsProduct(cw, ch, p){
 }
 function tryClose(){
   if (S.phase !== 'playing' || S.lock) return;
-  if (S.cw <= 0 || S.ch <= 0) return;
+  if (S.cw <= 0 || S.ch <= 0) {
+    /* 아무것도 안 두른 채 손을 뗐다 → 무반응이 아니라 거절로 답한다 (§1-e) */
+    S.whyMsg = '말뚝에서 오른쪽 위로 끌어 울타리를 만들어요';
+    S.whyT = 1.4; S.coachT = 3.2;
+    beep(240, 0.07, 'square', 0.05);
+    return;
+  }
   // 축 모델: 가로는 첫째 수, 세로는 둘째 수. 전치는 곱은 같아도 모양이 다르다.
   const ok = S.cw === S.cur.targetW && S.ch === S.cur.targetH;
+  /* 온보딩 중에는 목숨을 깎지 않는다 — 아직 배우는 중이면 벌이 아니라 거절이다 (§1-b,e).
+     판정 자체는 그대로다: 맞으면 맞은 것으로 처리하고, 틀리면 정답 칸 수를 보여 주고 다시 시킨다. */
+  if (!ok && S.tut > 0 && S.tutTried < 2) {
+    S.tutTried += 1;
+    S.pendingWrong = false; S.wrongT = 0;
+    S.cw = 0; S.ch = 0; S.dragging = false; S.fuse = 0;
+    S.tilt = 0.5; S.postSquash = 1.2;
+    S.whyMsg = '가로 ' + S.cur.targetW + '칸 · 세로 ' + S.cur.targetH + '칸이 되게 다시 끌어요';
+    S.whyT = 2.4;
+    $('#failNote').textContent = S.whyMsg;
+    $('#failNote').style.background = PAL.ink;
+    $('#failNote').classList.add('on');
+    setTimeout(() => $('#failNote').classList.remove('on'), 2400);
+    beep(200, 0.12, 'square', 0.05);
+    return;
+  }
   if (!ok && S.easy && S.undoLeft > 0 && !S.pendingWrong) {
     S.pendingWrong = true;
     S.wrongT = 1.6;
@@ -980,6 +1072,7 @@ function resolveClose(ok){
 function resolveCorrect(){
   const p = S.cur;
   const cells = p.targetW * p.targetH;
+  if (S.tut > 0) endTutorial();     /* 첫 성공이 온보딩의 마지막 단계다 */
   S.combo = Math.min(3, S.combo + 1);
   const mult = (S.combo >= 3 ? 3 : S.combo >= 2 ? 2 : 1) * (S.lampLeft > 0 ? 2 : 1);
   // 정답 보상 풀: 칸 수·콤보·램프만. 마이너스 이벤트 원천 차단.
@@ -1006,6 +1099,9 @@ function resolveCorrect(){
   }, S.hitStop * 1000);
 }
 function resolveWrong(why){
+  /* 여기까지 왔으면 온보딩은 끝난 것으로 본다 — 안 그러면 tut>0 인 채로 시간이 계속 멈춰
+     대기 상태(pendingWrong)가 영영 안 풀린다. 시범은 끝나고 진짜 판이 시작된다. */
+  if (S.tut > 0) endTutorial();
   S.combo = 0;
   S.lives = Math.max(0, S.lives - 1);
   S.postSquash = 1.25;
@@ -1024,21 +1120,23 @@ function showFailNote(ok){
   const p = S.cur;
   const unit = p.unit || '';
   if (ok) {
-    el.textContent = '가로 ' + p.targetW + '칸 × 세로 ' + p.targetH + '칸 × ' + p.cellN + '/' + p.cellD + ' = ' + fstr(p.product) + unit;
+    /* 왜 맞았는지를 실제 값과 함께 보여 준다 (§1-d) */
+    const u = axisUnits(p);
+    el.textContent = '가로 ' + p.targetW + '칸(' + unitLabel(u.hd) + '씩) × 세로 ' + p.targetH + '칸(' + unitLabel(u.vd) + '씩) = ' + fstr(p.product) + unit;
     el.style.background = PAL.teal;
     el.classList.add('on');
     setTimeout(() => el.classList.remove('on'), 1100);
   } else if (S.idleFail) {
     S.idleFail = false;
-    el.textContent = '너무 오래 기다렸어요. 스파크가 마당을 한 바퀴 돌았습니다. 가로는 첫째 수 ' + p.targetW + '칸, 세로는 둘째 수 ' + p.targetH + '칸이었어요';
+    el.textContent = '오래 기다려서 목숨이 하나 줄었어요. 가로 ' + p.targetW + '칸 · 세로 ' + p.targetH + '칸이었어요';
     el.style.background = PAL.ink;
     el.classList.add('on');
   } else if (areaEqualsProduct(S.cw, S.ch, p) && (S.cw !== p.targetW || S.ch !== p.targetH)) {
-    el.textContent = '곱의 값은 같아요. 하지만 가로는 첫째 수 ' + p.targetW + '칸, 세로는 둘째 수 ' + p.targetH + '칸이어야 해요. 모양은 달라도 곱은 같아요.';
+    el.textContent = '넓이는 같지만 모양이 달라요. 가로는 식의 첫째 수 ' + p.targetW + '칸, 세로는 둘째 수 ' + p.targetH + '칸이어야 해요.';
     el.style.background = PAL.ink;
     el.classList.add('on');
   } else {
-    el.textContent = '가로는 첫째 수 ' + p.targetW + '칸, 세로는 둘째 수 ' + p.targetH + '칸인데 지금은 ' + S.cw + '×' + S.ch + '였어요';
+    el.textContent = '가로 ' + p.targetW + '칸 · 세로 ' + p.targetH + '칸이어야 해요. 지금은 가로 ' + S.cw + '칸 · 세로 ' + S.ch + '칸이었어요';
     el.style.background = PAL.ink;
     el.classList.add('on');
   }
@@ -1137,25 +1235,42 @@ $('#titleMute').addEventListener('click', () => { unlock(); S.muted = !S.muted; 
 S.muted = localStorage.getItem(LS_MUTE) === '1';
 syncMute();
 
-const OB = [
-  { t:'원점에서 끌어요', b:'왼쪽 아래 말뚝에서 손가락을 끌어 반대 꼭짓점을 옮기세요. 울타리는 모든 칸 경계에 고르게 붙습니다.' },
-  { t:'가로는 첫째 수, 세로는 둘째 수', b:'가로는 첫째 수 칸, 세로는 둘째 수 칸을 나타내도록 둘러싸요. 4×2와 2×4는 모양이 다르지만 곱은 같아요.' },
-  { t:'칸 값은 모두 같아요', b:'칸 하나의 값은 모두 같습니다. 스파크가 열린 선을 따라잡기 전에 둘러싸세요. 목숨은 3개이고, 곱은 늘 기약분수(1보다 크면 대분수)로 나타냅니다.' }
-];
-let obI = 0;
-function showOnboard(){
-  $('#obStep').textContent = (obI+1) + '/3';
-  $('#obTitle').textContent = OB[obI].t;
-  $('#obBody').textContent = OB[obI].b;
+/* ══════ 온보딩 — 실전 판 위에서 직접 끌어 본다 (§1-a,b,e,g) ══════
+   설명 3장을 넘기는 게 아니라, 학생이 실제로 한 번 끌어야 다음으로 간다.
+   그때까지 세션 시간·스파크·방치 벌이 전부 멈춘다. */
+const TUT = {
+  1: { t:'판 위를 손가락으로 끌어 보세요',
+       b:'왼쪽 아래 말뚝에서 울타리가 자라요. 손가락을 오른쪽 위로 끌면 울타리가 커져요. 지금은 시간이 멈춰 있어요.' },
+  2: { t:'손을 떼면 그 크기로 닫혀요',
+       b:'가로 칸 수는 식의 첫째 수(빨강), 세로 칸 수는 둘째 수(청록)를 나타내요. 다 맞췄으면 손을 떼요.' }
+};
+function showTutCard(){
+  const s = TUT[S.tut];
+  if (!s) { $('#onboard').classList.remove('show'); return; }
+  $('#obStep').textContent = '해 보기 ' + S.tut + ' / 2';
+  $('#obTitle').textContent = s.t;
+  $('#obBody').textContent = s.b;
   $('#onboard').classList.add('show');
-  $('#obNext').textContent = obI === 2 ? '해볼게요' : '다음';
 }
-$('#obNext').addEventListener('click', () => {
-  if (obI < 2) { obI++; showOnboard(); return; }
-  localStorage.setItem(LS_ONB, '1');
+function startTutorial(){
+  S.tut = 1; S.tutT = 0; S.idleT = 0;
+  showTutCard();
+}
+/* 첫 조작에 성공하면 즉시 눈에 보이는 보상을 주고 다음 단계로 넘어간다 (§1-b) */
+function tutAdvance(){
+  if (S.tut !== 1) return;
+  S.tut = 2; S.tutT = 0;
+  S.marqFlash = 1; S.postSquash = 0.75;
+  beep(660, 0.07, 'square', 0.05);
+  setTimeout(() => beep(880, 0.09, 'square', 0.04), 80);
+  showTutCard();
+}
+function endTutorial(){
+  S.tut = 0;
+  try { localStorage.setItem(LS_ONB, '1'); } catch {}
   $('#onboard').classList.remove('show');
-  S.phase = 'playing';
-});
+}
+$('#obSkip').addEventListener('click', () => { beep(300, 0.05, 'square', 0.04); endTutorial(); });
 
 function refreshBest(){
   const b = Number(localStorage.getItem(LS_BEST) || 0);
@@ -1429,6 +1544,131 @@ function drawBoard(){
     ctx.strokeRect(S.bx, ty, p.targetW * cell, p.targetH * cell);
     ctx.setLineDash([]);
   }
+  drawAxisUnits(p);
+  drawIdleWarn();
+  drawCoach(p);
+  drawRipples();
+  drawWhy();
+}
+
+/* ══════ 분수 변 ↔ 격자 눈금 대응 (§3 fence-lap) ══════
+   눈금 수와 「한 칸이 얼마인가」를 판 옆에 같은 색으로 붙인다.
+   식의 첫째 수(가로)는 토마토, 둘째 수(세로)는 청록 — 발문의 색과 같다. */
+function drawAxisUnits(p){
+  const u = axisUnits(p);
+  const cell = S.cell;
+  const fs = Math.max(11, Math.min(15, cell * 0.24));
+  ctx.save();
+  /* 판의 아래·왼쪽 모서리에 색 띠 — 눈금이 어느 축인지 색으로 못박는다 */
+  ctx.fillStyle = PAL.tomato;
+  ctx.fillRect(S.bx, S.by + S.bh - 4, S.bw, 4);
+  ctx.fillStyle = PAL.teal;
+  ctx.fillRect(S.bx, S.by, 4, S.bh);
+  /* 눈금 1칸이 분수의 얼마인지를 눈금 줄 바로 아래 한 줄로 (§3 fence-lap) */
+  ctx.font = '800 ' + fs + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  const tickH = Math.max(12, cell * 0.22);
+  const ly = Math.min(S.play.y + S.play.h - fs - 2, S.by + S.bh + 4 + tickH + 3);
+  const a = '가로 1칸 = ' + unitLabel(u.hd);
+  const b = '세로 1칸 = ' + unitLabel(u.vd);
+  const wa = ctx.measureText(a).width, wb = ctx.measureText(b).width, wd = ctx.measureText(' · ').width;
+  let lx = S.bx + Math.max(0, (S.bw - (wa + wb + wd)) / 2);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = PAL.tomato; ctx.fillText(a, lx, ly); lx += wa;
+  ctx.fillStyle = PAL.ink; ctx.fillText(' · ', lx, ly); lx += wd;
+  ctx.fillStyle = PAL.teal; ctx.fillText(b, lx, ly);
+  /* 지금 두른 칸 수도 같은 색으로 — 「몇 칸 쳤는가」가 식의 어느 수인지 이어진다 */
+  if (S.cw > 0 || S.ch > 0) {
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = PAL.tomato;
+    ctx.fillText('가로 ' + S.cw + '칸', S.bx, S.by - 6);
+    ctx.fillStyle = PAL.teal;
+    ctx.fillText('세로 ' + S.ch + '칸', S.bx + S.bw * 0.54, S.by - 6);
+  }
+  ctx.restore();
+}
+/* 방치 벌은 눈에 보여야 한다 — 안 보이면 목숨이 저절로 준 것으로 읽힌다 */
+function drawIdleWarn(){
+  if (S.tut > 0 || S.phase !== 'playing') return;
+  const left = IDLE_LIMIT - S.idleT;
+  if (left > 6) return;
+  ctx.save();
+  ctx.font = '800 14px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = PAL.hot;
+  ctx.fillText(Math.max(0, Math.ceil(left)) + '초 안에 울타리를 쳐요', S.bx + S.bw / 2, Math.max(4, S.by - 30));
+  ctx.restore();
+}
+function drawFingerAt(x, y, s, col){
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = PAL.formica; ctx.strokeStyle = col; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, 13, 0, 6.28); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(0, 0, 5, 0, 6.28); ctx.fill();
+  ctx.restore();
+}
+/* 조작 대상을 실제 오브젝트 위에서 가리킨다 (§1-a).
+   드래그가 필요하므로 「시작점 → 도착점」 경로를 손가락이 실제로 이동하며 보여 준다.
+   도착점은 정답이 아니라 판 한가운데다 — 정답을 알려 주는 게 아니라 조작을 알려 준다. */
+function coachOn(){
+  if (S.phase !== 'playing' || !S.cur) return 0;
+  if (S.tut === 1) return 1;
+  if (S.coachT > 0) return 1;
+  if (S.solved === 0 && !S.dragging && S.cw === 0 && S.ch === 0) return 1;
+  return 0;
+}
+function drawCoach(p){
+  if (!coachOn()) return;
+  const t = S.gloss * 1.6;
+  const u = (Math.sin(t) * 0.5 + 0.5);
+  const o = cellXY(0, 0);
+  const midW = Math.max(1, Math.round(p.boardW / 2)), midH = Math.max(1, Math.round(p.boardH / 2));
+  const e = cellXY(midW, midH);
+  ctx.save();
+  /* 출발점(말뚝) 글로우 링 */
+  const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+  ctx.strokeStyle = PAL.hot;
+  ctx.lineWidth = 3 + 3 * pulse;
+  ctx.globalAlpha = 0.35 + 0.4 * pulse;
+  ctx.beginPath(); ctx.arc(o.x, o.y, S.cell * 0.42 + 6 * pulse, 0, 6.28); ctx.stroke();
+  ctx.globalAlpha = 1;
+  /* 손가락이 지나갈 길 + 도착 지점 유령 울타리 */
+  ctx.strokeStyle = 'rgba(224,74,60,.55)';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+  ctx.strokeStyle = 'rgba(224,74,60,.45)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(o.x, e.y, e.x - o.x, o.y - e.y);
+  drawFingerAt(o.x + (e.x - o.x) * u, o.y + (e.y - o.y) * u, 1, PAL.hot);
+  ctx.font = '800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = PAL.hot;
+  ctx.fillText('여기서 이렇게 끌어요', (o.x + e.x) / 2, Math.max(14, e.y - 12));
+  ctx.restore();
+}
+function drawRipples(){
+  for (const r of S.ripples) {
+    const k = r.t / 0.55;
+    ctx.save();
+    ctx.globalAlpha = (1 - k) * 0.7;
+    ctx.strokeStyle = r.col; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(r.x, r.y, 8 + k * 30, 0, 6.28); ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawWhy(){
+  if (S.whyT <= 0 || !S.whyMsg) return;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, S.whyT * 2);
+  ctx.font = '800 14px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = Math.min(S.play.w - 8, ctx.measureText(S.whyMsg).width + 22);
+  const bx = S.play.x + (S.play.w - tw) / 2;
+  const by = Math.min(S.H - 60, S.by + S.bh + 34);
+  ctx.fillStyle = PAL.ink; ctx.fillRect(bx, by, tw, 28);
+  ctx.strokeStyle = PAL.hot; ctx.lineWidth = 3; ctx.strokeRect(bx, by, tw, 28);
+  ctx.fillStyle = PAL.formica;
+  ctx.fillText(S.whyMsg, bx + tw / 2, by + 15);
+  ctx.restore();
 }
 
 function drawHud(){
@@ -1553,16 +1793,24 @@ function drawHud(){
     ctx.strokeStyle = PAL.ink; ctx.lineWidth = 2; ctx.stroke();
   }
   const tStr = String(Math.ceil(Math.max(0, S.tLeft))).padStart(2, '0');
-  drawMarqText(ctx, tStr, scoreEnd + 14 + 62, my, s, PAL.ink);
+  const tx = scoreEnd + 14 + 62;
+  drawMarqText(ctx, tStr, tx, my, s, PAL.ink);
+  /* 숫자만 있으면 무슨 수인지 모른다 — 작은 이름표를 붙인다 */
+  ctx.font = '800 10px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = PAL.ink;
+  ctx.fillText('점수', mx, my + 30);
+  ctx.fillText('목숨', scoreEnd + 14, my + 30);
+  ctx.fillText('남은 시간(초)', tx, my + 30);
   if (S.combo >= 2) {
     ctx.fillStyle = PAL.teal;
-    ctx.font = '800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('×' + Math.min(3, S.combo), mx, my + 36);
+    ctx.font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText('점수 ×' + Math.min(3, S.combo), mx, my + 42);
   }
   if (S.lampLeft > 0) {
     ctx.fillStyle = PAL.hot;
-    ctx.fillText('램프 ON', mx + 40, my + 36);
+    ctx.font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText('램프 ON', mx + 70, my + 42);
   }
 }
 
@@ -1620,8 +1868,21 @@ function step(dt){
   if (S.blackout > 0) S.blackout = Math.max(0, S.blackout - dt);
   if (S.punch > 1) S.punch = Math.max(1, S.punch - dt * 0.9);
   if (S.marqFlash > 0) S.marqFlash = Math.max(0, S.marqFlash - dt * 2.2);
+  if (S.whyT > 0) S.whyT = Math.max(0, S.whyT - dt);
+  if (S.coachT > 0) S.coachT = Math.max(0, S.coachT - dt);
+  for (let i = S.ripples.length - 1; i >= 0; i--) {
+    S.ripples[i].t += dt;
+    if (S.ripples[i].t > 0.55) S.ripples.splice(i, 1);
+  }
 
   if (S.phase !== 'playing') return;
+  /* 온보딩 중에는 세계가 멈춘다 — 안내를 읽는 동안 타이머가 흐르면 벌이지 안내가 아니다 (§1-b).
+     45초 안전핀: 아무 조작도 없으면 스스로 닫히고 판이 시작된다(영구 정지 방지). */
+  if (S.tut > 0) {
+    S.tutT += dt;
+    if (S.tutT > 45) endTutorial();
+    else { S.idleT = 0; S.fuse = 0; return; }
+  }
   if (S.hitStop > 0) {
     S.hitStop -= dt / Math.max(S.timeScale, 0.0001);
     if (S.hitStop <= 0) S.timeScale = 1;

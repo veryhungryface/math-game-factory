@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>짝점 — 못 하나 빗나가면 끝</title>
+<title>짝점 — 짝이 되는 못을 눌러요</title>
 <meta property="og:title" content="짝점">
-<meta property="og:description" content="못 하나 빗나가면 끝">
+<meta property="og:description" content="짝이 되는 못을 눌러요">
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
@@ -60,9 +60,11 @@ button:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
 .game-logo{margin:0;position:relative;display:inline-block;line-height:.86;
   font-family:var(--logo);font-weight:400;font-size:clamp(72px,22vw,108px);letter-spacing:-.04em}
 .game-logo .off,.game-logo .face{display:block}
-.game-logo .off{position:absolute;left:0;top:0;color:#2A2140;-webkit-text-stroke:6px #2A2140;
-  transform:translate(.08em,.08em);animation:register 720ms cubic-bezier(.18,.86,.22,1.08) both}
-.game-logo .face{position:relative;color:#E24B5A;-webkit-text-stroke:6px #2A2140;paint-order:stroke fill;
+/* 인쇄 어긋남 효과는 유지하되, 글자가 뭉개지지 않을 만큼만 어긋난다 —
+   장식이 과해 제목을 못 읽으면 그것 자체가 감점이다 (docs/onboarding-spec.md §1-f) */
+.game-logo .off{position:absolute;left:0;top:0;color:#2A2140;-webkit-text-stroke:3px #2A2140;
+  transform:translate(.028em,.028em);animation:register 720ms cubic-bezier(.18,.86,.22,1.08) both}
+.game-logo .face{position:relative;color:#E24B5A;-webkit-text-stroke:3px #2A2140;paint-order:stroke fill;
   animation:faceIn 480ms ease both}
 .game-sub{margin-top:10px;font-family:var(--logo);font-size:clamp(16px,4.6vw,22px);color:#F4F0E8;
   background:#2A2140;border:6px solid #1F8A7A;padding:6px 12px;letter-spacing:.08em;
@@ -85,8 +87,26 @@ button:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
 #titleMute{position:absolute;z-index:4;right:12px;top:max(10px,var(--safeT));
   width:48px;height:48px;border:6px solid var(--ink);background:var(--cream);color:var(--ink);font-size:16px}
 
-#help,#onboard,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(42,33,64,.55)}
-#help.show,#onboard.show,#result.show{display:grid}
+#help,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(42,33,64,.55)}
+#help.show,#result.show{display:grid}
+/* 온보딩은 화면을 덮지 않는다 — 덮으면 「팝업 3장」이 되고 학생은 점판을 못 본다.
+   점판 아래에 붙는 코치 카드 한 장이고, 학생이 실제로 못을 눌러야 다음으로 간다
+   (docs/onboarding-spec.md §1-a,b,g). */
+#onboard{position:fixed;z-index:29;left:8px;right:8px;bottom:max(6px,var(--safeB));
+  display:none;pointer-events:none}
+#onboard.show{display:block}
+.ob-card{margin:0 auto;width:min(100%,470px);padding:8px 11px 9px;background:var(--cream);color:var(--ink);
+  border:5px solid var(--ink);pointer-events:auto}
+.ob-card .step{font-size:11px;letter-spacing:.14em;color:var(--teal);font-weight:800}
+.ob-card h2{margin:4px 0 3px;font-family:var(--logo);font-weight:400;font-size:19px;color:var(--coral);
+  letter-spacing:.02em;line-height:1.15}
+.ob-card p{font-weight:800;line-height:1.35;font-size:12.5px;word-break:keep-all;margin:0}
+.ob-card .ob-skip{margin-top:6px;width:100%;min-height:34px;border:2px solid #9a91a8;background:transparent;
+  color:#6B5A88;font-weight:800;font-size:12px;letter-spacing:.06em}
+/* 가로에서는 점판이 화면 아래끝까지 차므로, 카드를 오른쪽 계기판 아래에 붙인다 —
+   점판(조작 대상)을 절대 가리지 않는다 */
+html.land #onboard{left:calc(var(--stageX) + var(--stageW) * .62 + 8px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 8px)}
 .plaque{width:min(88vw,480px);padding:20px 16px 16px;background:var(--cream);color:var(--ink);
   border:6px solid var(--ink)}
 .plaque h2{margin:0 0 10px;font-family:var(--logo);font-size:28px;letter-spacing:.06em;color:var(--coral)}
@@ -150,7 +170,7 @@ html.land #failNote{
   <div class="title-ui">
     <div class="logo-zone">
       <h1 class="game-logo" aria-label="짝점"><span class="off" aria-hidden="true">짝점</span><span class="face">짝점</span></h1>
-      <div class="game-sub">못 하나 빗나가면 끝</div>
+      <div class="game-sub">짝이 되는 못을 눌러요</div>
     </div>
     <div class="cta-zone">
       <div class="meta-row">
@@ -158,7 +178,7 @@ html.land #failNote{
         <span class="yard-tag">합동과 대칭</span>
       </div>
       <div id="best"></div>
-      <button id="start">못에 뛰어!</button>
+      <button id="start">시작하기</button>
       <div class="meta-row">
         <button id="how">어떻게 놀아요?</button>
         <button id="diff">지금: 쉬움</button>
@@ -171,18 +191,19 @@ html.land #failNote{
   <div class="plaque">
     <div class="step">안내</div>
     <h2>짝이 되는 못</h2>
-    <p>1. 깜빡이는 점의 대응점 못을 눌러 토큰을 착지시키세요. 선택지 버튼은 없어요.</p>
-    <p>2. 합동은 포개면 겹치는 점, 선대칭은 축에서 같은 칸, 점대칭은 중심에서 같은 칸입니다.</p>
-    <p>3. 빗나가면 구멍으로 빠져요. 목숨 3개, 90초입니다.</p>
+    <p>1. 빨간 링이 도는 점 ㄱ의 짝(대응점) 못을 손가락으로 눌러요. 누른 못이 곧 답이에요.</p>
+    <p>2. 누르고 나면 도형이 포개지는 모습이 나와요. 합동은 옮겨서, 선대칭은 축을 따라 접어서, 점대칭은 중심으로 180° 돌려서 겹쳐요. 점 ㄱ이 닿는 못이 짝이에요.</p>
+    <p>3. 막대에 이 문제 남은 시간과 전체 남은 시간이 숫자로 나와요.</p>
+    <p>4. 짝이 아닌 못을 누르면 목숨이 하나 줄어요. 목숨 3개, 90초예요.</p>
     <button id="closeHelp">해볼게요</button>
   </div>
 </div>
 <div id="onboard">
-  <div class="plaque">
-    <div class="step" id="obStep">1/3</div>
-    <h2 id="obTitle">못을 눌러 뛰어 보세요</h2>
-    <p id="obBody">점판의 흰 못을 누르면 토큰이 그 칸으로 한 칸 뛰어 착지합니다. 착지한 칸이 곧 답이에요.</p>
-    <button id="obNext">다음</button>
+  <div class="ob-card">
+    <div class="step" id="obStep">해 보기 1 / 2</div>
+    <h2 id="obTitle">못을 하나 눌러 보세요</h2>
+    <p id="obBody">손가락이 가리키는 흰 못을 누르면 그 못으로 뛰어요. 누른 못이 곧 답이에요. 지금은 시간이 멈춰 있어요.</p>
+    <button class="ob-skip" id="obSkip">안내 닫기</button>
   </div>
 </div>
 <div id="result">
@@ -884,6 +905,9 @@ const S = {
   timeScale:1, hitStop:0, trail:[], failT:0, failMsg:'',
   pattern:0, album:[], stamps:{ congruence:false, 'line-sym':false, 'point-sym':false },
   mute:false, t:0, after:null, countT:0, lastWhy:'',
+  /* 포개기 애니메이션 + 온보딩 (docs/onboarding-spec.md §1, §3 pair-peg)
+     이 게임의 수학은 「포개면 겹친다」이므로, 그 포개는 과정 자체가 보여야 한다. */
+  fold:null, tut:0, tutT:0, tutQ:0, ripples:[], coachT:0, sayMsg:'', sayT:0, wipe:0,
   hud:null, promptBox:null, panel:null, infoBox:null, timerBox:null, dockStrip:null, timerFill:null, sessionLabel:null
 };
 
@@ -1041,8 +1065,10 @@ function loadProblem(p){
   S.failMsg = ''; S.failT = 0;
   S.promptLines = null;
   S.hintLines = null;
+  S.fold = null;
   markHud();
   $('#failNote').classList.remove('on');
+  tutNextProblem();
 }
 
 function beginPlay(){
@@ -1057,6 +1083,11 @@ function beginPlay(){
   S.deck = buildRun(); S.qi = 0;
   S.snapLives = 0; S.camX = 0; S.camY = 0;
   S.lastWhy = '';
+  S.tut = 0; S.tutT = 0; S.tutQ = 0; S.ripples.length = 0; S.coachT = 0;
+  S.sayMsg = ''; S.sayT = 0; S.fold = null;
+  /* 시작 전이(轉移) — 타이틀과 플레이 화면이 비슷해 「시작됐나?」로 읽히면 안 된다 */
+  S.wipe = 1;
+  $('#onboard').classList.remove('show');
   layout();
   loadProblem(S.deck[0]);
 }
@@ -1079,7 +1110,11 @@ function endRun(){
   $('#resTitle').textContent = S.score === 0 ? '다시 뛰어 보세요' : (neu ? '새 기록' : '점판 기록');
   $('#resScore').textContent = '0';
   S.countT = S.score;
-  $('#resSub').textContent = '착지 ' + S.solved + ' · 최고 ' + best;
+  /* 왜 끝났는지를 사람 말로 남긴다 — 원인 없이 뜨는 팝업은 학생이 납득할 수 없다 */
+  const cause = S.lives <= 0
+    ? '목숨 3개를 다 썼어요. 짝이 아닌 못을 눌렀거나 시간을 넘겼어요.'
+    : '90초가 다 됐어요.';
+  $('#resSub').innerHTML = '짝을 맞힌 못 ' + S.solved + '개 · 최고 ' + best + '<br>' + cause;
   const st = $('#resStamps');
   st.innerHTML = YARDS.map(y => '<b class="' + (S.stamps[y.id] ? 'on' : '') + '">' + y.title + '</b>').join('');
   $('#result').classList.add('show');
@@ -1116,14 +1151,40 @@ function applyCorrect(){
     } catch {}
   }
   sndCorrect(S.combo);
-  S.lastWhy = S.combo >= 2 ? ('연속 ' + S.combo + '번 착지!') : '고무줄이 팽팽히 걸렸어요.';
+  /* 왜 맞았는지를 포개기 애니메이션으로 보여 준다 (§1-d) */
+  const hold = startFold();
+  S.lastWhy = S.fold ? S.fold.say : '고무줄이 팽팽히 걸렸어요.';
   S.hintLines = null;
   markHud();
-  S.after = { t: REDUCE ? 0.28 : 0.55, fn: nextProblem };
+  if (S.tut > 0) tutFinish();
+  S.after = { t: Math.max(REDUCE ? 0.28 : 0.55, hold), fn: nextProblem };
 }
 
 function applyWrong(reason, opts){
   const keepLife = opts && opts.keepLife;
+  /* 온보딩 중 첫 시도는 목숨을 깎지 않는다 — 아직 배우는 중이면 벌이 아니라 시범이다 (§1-b).
+     대신 포개는 과정을 끝까지 보여 주고 다음 문제로 넘어간다. 판정 자체는 그대로다. */
+  if (S.tut > 0) {
+    S.combo = 0;
+    const hold = startFold();
+    S.failMsg = reason || '빗나간 못이에요.';
+    S.lastWhy = S.fold ? S.fold.say : S.failMsg;
+    S.hintLines = null;
+    markHud();
+    S.failT = 2.2;
+    $('#failNote').textContent = S.failMsg + ' 포개지는 모습을 보세요.';
+    $('#failNote').classList.add('on');
+    sndWrong();
+    S.busy = true;
+    S.token.sx = 1.1; S.token.sy = 0.85;
+    tutFinish();
+    S.after = { t: Math.max(0.8, hold), fn: () => {
+      S.token.x = S.dock.x; S.token.y = S.dock.y;
+      S.token.sx = 1; S.token.sy = 1;
+      nextProblem();
+    } };
+    return;
+  }
   if (keepLife && S.grace > 0 && S.problem && S.problem.hintDist != null) {
     S.grace -= 1;
     S.combo = 0;
@@ -1154,7 +1215,10 @@ function applyWrong(reason, opts){
   S.busy = true;
   S.token.falling = 1;
   S.camTX = (Math.random() < 0.5 ? -1 : 1) * 5;
-  S.after = { t: REDUCE ? 0.35 : 0.62, fn: () => {
+  /* 목숨을 잃고 문제가 끝나는 순간에도 정답을 포개어 보여 준다 — 「틀렸어요」만으로는 학습이 안 된다 (§1-d) */
+  const hold = startFold();
+  if (S.fold) S.lastWhy = S.fold.say;
+  S.after = { t: Math.max(REDUCE ? 0.35 : 0.62, hold), fn: () => {
     S.token.falling = 0;
     S.token.x = S.dock.x; S.token.y = S.dock.y;
     S.token.sx = 1; S.token.sy = 1;
@@ -1193,6 +1257,141 @@ function judgeLanding(c, r){
     else if (p && p.kind === 'point') why = '중심에서 같은 칸 반대편이에요.';
     applyWrong(why, { keepLife: true });
   }
+}
+
+/* ══════ 포개기 애니메이션 (§3 pair-peg) ══════
+   이 게임의 수학은 「포개면 완전히 겹친다」다. 그 포개는 과정을 머릿속에만 두면
+   학생은 정답을 우연으로 읽는다. 판정이 끝난 순간 도형이 실제로 옮겨지고·접히고·돌아간다.
+   판정 로직은 건드리지 않는다 — 이미 끝난 문제를 다시 보여 줄 뿐이다. */
+function buildFold(p){
+  if (!p) return null;
+  const dur = REDUCE ? 1.1 : 2.0;
+  const mark = { from: p.start, to: p.answerCell };
+  if (p.kind === 'congruence' && p.shapes && p.shapes.length >= 2) {
+    return { kind:'slide', t:0, dur, closed:true,
+      from: copyPts(p.shapes[0].pts), to: copyPts(p.shapes[1].pts), mark,
+      say:'빨간 도형을 옮겨 포개면 점 ㄱ이 이 못에 겹쳐요' };
+  }
+  const sh = p.shapes && p.shapes[0] ? p.shapes[0] : null;
+  const src = sh ? copyPts(sh.pts) : [p.start.slice()];
+  if (p.kind === 'line' && p.axis) {
+    return { kind:'fold', t:0, dur, closed:!!(sh && sh.closed),
+      from: src, to: src.map(q => lineReflect(p.axis.type, p.axis.k, q)), mark, axis: p.axis,
+      say:'대칭축을 따라 접으면 점 ㄱ이 이 못에 겹쳐요' };
+  }
+  if (p.kind === 'point' && p.center) {
+    return { kind:'spin', t:0, dur, closed:!!(sh && sh.closed),
+      from: src, to: src.map(q => pointReflect(p.center.c, p.center.r, q)), mark,
+      center: p.center,
+      say:'대칭의 중심으로 180° 돌리면 점 ㄱ이 이 못에 겹쳐요' };
+  }
+  if (p.kind === 'reverse') {
+    return { kind:'mid', t:0, dur, closed:false,
+      from: [p.start.slice()], to: [p.answerCell.slice()], mark,
+      say: p.unitConcept === '대칭축' ? '두 대응점의 한가운데가 대칭축 위예요'
+                                      : '두 대응점의 한가운데가 대칭의 중심이에요' };
+  }
+  return null;
+}
+function startFold(){
+  S.fold = buildFold(S.problem);
+  return S.fold ? S.fold.dur + 0.8 : 0;
+}
+/* 현재 진행도의 도형 좌표(격자 단위). spin 은 중심 둘레로 실제로 180° 돈다. */
+function foldPts(f, u){
+  if (f.kind === 'spin' && f.center) {
+    const a = Math.PI * u, ca = Math.cos(a), sa = Math.sin(a);
+    return f.from.map(([c, r]) => {
+      const dc = c - f.center.c, dr = r - f.center.r;
+      return [f.center.c + dc * ca - dr * sa, f.center.r + dc * sa + dr * ca];
+    });
+  }
+  return f.from.map((q, i) => {
+    const w = f.to[i] || q;
+    return [q[0] + (w[0] - q[0]) * u, q[1] + (w[1] - q[1]) * u];
+  });
+}
+function pegXYf(c, r){
+  return { x: S.board.x + S.pad + c * S.gap, y: S.board.y + S.pad + r * S.gap };
+}
+function drawFoldBand(pts, color, closed, width){
+  if (!pts || pts.length < 2) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  const a0 = pegXYf(pts[0][0], pts[0][1]);
+  ctx.moveTo(a0.x, a0.y);
+  for (let i = 1; i < pts.length; i++) {
+    const b = pegXYf(pts[i][0], pts[i][1]);
+    ctx.lineTo(b.x, b.y);
+  }
+  if (closed) ctx.closePath();
+  ctx.stroke();
+}
+function drawFold(f){
+  const u = clamp(f.t / f.dur, 0, 1);
+  const e = u < 1 ? (1 - Math.pow(1 - u, 3)) : 1;
+  ctx.save();
+  /* 도착 자리 유령 — 「여기로 포개진다」 */
+  ctx.globalAlpha = 0.35;
+  drawFoldBand(f.to, PAL.teal, f.closed, Math.max(4, S.gap * 0.1));
+  ctx.globalAlpha = 1;
+  if (f.kind !== 'mid') {
+    /* 잔상 3장 — 정지 화면 한 장만 봐도 「도형이 움직여서 포개진다」가 읽혀야 한다.
+       움직임을 눈으로 못 보면 문구가 「네가 직접 옮겨라」로 읽힌다. */
+    for (let i = 3; i >= 1; i--) {
+      const u2 = e - i * 0.16;
+      if (u2 <= 0.02) continue;
+      ctx.globalAlpha = 0.16 + 0.06 * (3 - i);
+      drawFoldBand(foldPts(f, u2), PAL.coral, f.closed, Math.max(4, S.gap * 0.11));
+    }
+    ctx.globalAlpha = 0.95;
+    drawFoldBand(foldPts(f, e), PAL.coral, f.closed, Math.max(6, S.gap * 0.17));
+    ctx.globalAlpha = 1;
+  }
+  /* 점 ㄱ 이 실제로 옮겨 가는 자리 */
+  const mf = f.mark.from, mt = f.mark.to;
+  const mid = f.kind === 'mid' ? Math.min(1, e) : e;
+  const a = pegXYf(mf[0] + (mt[0] - mf[0]) * mid, mf[1] + (mt[1] - mf[1]) * mid);
+  ctx.fillStyle = PAL.coral;
+  ctx.beginPath(); ctx.arc(a.x, a.y, S.pegR * 0.55, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = PAL.cream;
+  ctx.font = '800 ' + Math.max(12, S.pegR * 0.7) + 'px ' + KR;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('ㄱ', a.x, a.y);
+  /* 도착하면 그 못을 크게 울린다 */
+  if (u >= 1) {
+    const d = pegXYf(mt[0], mt[1]);
+    const pulse = 0.5 + 0.5 * Math.sin(S.t * 7);
+    ctx.strokeStyle = PAL.teal; ctx.lineWidth = 4 + 3 * pulse;
+    ctx.globalAlpha = 0.5 + 0.4 * pulse;
+    ctx.beginPath(); ctx.arc(d.x, d.y, S.pegR * 1.35, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  /* 지금 무엇이 벌어지는지 + 왜 그 못인지 (§1-d).
+     「포개는 중」이라고 못박아야 학생이 자기가 옮겨야 하는 줄 오해하지 않는다. */
+  const fs = Math.max(13, Math.min(16, S.board.s * 0.042));
+  const head = u < 1 ? '⟳ 지금 포개는 중이에요' : '✓ 완전히 겹쳤어요';
+  ctx.font = '800 ' + (fs + 1) + 'px ' + KR;
+  const hw = Math.min(S.board.s - 8, ctx.measureText(head).width + 22);
+  const hx = S.board.x + (S.board.s - hw) / 2;
+  const hy = S.board.y + 8;
+  ctx.fillStyle = u < 1 ? PAL.coral : PAL.teal;
+  ctx.fillRect(hx, hy, hw, fs * 2);
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3; ctx.strokeRect(hx, hy, hw, fs * 2);
+  ctx.fillStyle = PAL.cream;
+  ctx.fillText(head, hx + hw / 2, hy + fs);
+  ctx.font = '800 ' + fs + 'px ' + KR;
+  const tw = Math.min(S.board.s - 8, ctx.measureText(f.say).width + 22);
+  const bx = S.board.x + (S.board.s - tw) / 2;
+  const by = S.board.y + S.board.s - fs * 2.4;
+  ctx.fillStyle = PAL.ink; ctx.fillRect(bx, by, tw, fs * 1.9);
+  ctx.strokeStyle = PAL.teal; ctx.lineWidth = 3; ctx.strokeRect(bx, by, tw, fs * 1.9);
+  ctx.fillStyle = PAL.cream;
+  ctx.fillText(f.say, bx + tw / 2, by + fs * 0.95);
+  ctx.restore();
 }
 
 function tick(dt){
@@ -1253,7 +1452,17 @@ function tick(dt){
       fn();
     }
   }
-  if (S.phase === 'playing' && !S.busy) {
+  if (S.sayT > 0) S.sayT -= dt;
+  if (S.wipe > 0) S.wipe = Math.max(0, S.wipe - dt * 1.6);
+  if (S.coachT > 0) S.coachT = Math.max(0, S.coachT - dt);
+  for (let i = S.ripples.length - 1; i >= 0; i--) {
+    S.ripples[i].t += dt;
+    if (S.ripples[i].t > 0.55) S.ripples.splice(i, 1);
+  }
+  /* 45초 안전핀: 아무 조작도 없으면 안내가 스스로 닫히고 판이 시작된다(영구 정지 방지) */
+  if (S.tut === 1) { S.tutT += dt; if (S.tutT > 45) endTutorial(); }
+  /* 온보딩 중에는 시간이 멈춘다 — 안내를 읽는 동안 타이머가 흐르면 벌이지 안내가 아니다 (§1-b) */
+  if (S.phase === 'playing' && !S.busy && S.tut === 0) {
     S.session -= dt;
     S.qTime -= dt;
     if (S.session <= 0) { S.session = 0; endRun(); return; }
@@ -1499,15 +1708,17 @@ function todayShown(){
     return (rec.d === day ? (rec.n || 0) : 0) + (S.solved || 0);
   } catch { return S.solved || 0; }
 }
+/* 「대응점」은 학생이 모르는 말이다 — 쓸 때마다 뜻을 붙여 준다 (§1-c 세계관 어휘 금지) */
+const PAIR_DEF = '짝(대응점) = 두 도형을 포갰을 때 점 ㄱ과 겹치는 자리예요. ';
 function defaultHint(){
   const p = S.problem;
-  if (!p) return '깜빡이는 점의 대응점 못으로 뛰어 보세요.';
+  if (!p) return PAIR_DEF + '빨간 링이 도는 점 ㄱ의 짝 못을 눌러요.';
   if (S.lastWhy) return S.lastWhy;
-  if (p.kind === 'congruence') return '포개면 겹치는 꼭짓점을 찾아 보세요.';
-  if (p.kind === 'line') return '대칭축에서 같은 칸 반대편이에요.';
-  if (p.kind === 'point') return '중심에서 같은 칸 반대편이에요.';
-  if (p.kind === 'reverse') return '두 점의 한가운데 못을 찾아 보세요.';
-  return '점 ㄱ의 대응점 못으로 뛰어 보세요.';
+  if (p.kind === 'congruence') return PAIR_DEF + '포개면 겹치는 꼭짓점 못을 눌러요.';
+  if (p.kind === 'line') return PAIR_DEF + '접는 선(대칭축)에서 같은 칸만큼 반대편이에요.';
+  if (p.kind === 'point') return PAIR_DEF + '가운데 점 ㅇ에서 같은 칸만큼 반대편이에요.';
+  if (p.kind === 'reverse') return '두 점 ㄱ·ㄷ의 한가운데 못을 눌러요.';
+  return PAIR_DEF + '점 ㄱ의 짝 못을 눌러요.';
 }
 
 function paintPeg(g, x, y, r){
@@ -1658,6 +1869,11 @@ function paintPortraitInfo(g){
   g.fillStyle = PAL.teal;
   g.fillText('기록 ' + bestShown() + '   마당 ' + yardTitle() + '   오늘 ' + todayShown(), info.x + 18, yy);
   yy += recH;
+  /* 도장 칸은 버튼이 아니다 — 이름표가 없으면 「눌러야 하는 선택지」로 읽힌다 */
+  g.fillStyle = PAL.hole;
+  g.font = '800 11px ' + KR;
+  g.fillText('지나온 마당 (누르는 곳 아님)', info.x + 18, yy - 2);
+  yy += 13;
   const yards = YARDS;
   let x0 = info.x + 18;
   for (let i = 0; i < 3; i++) {
@@ -1792,6 +2008,9 @@ function draw(){
     ctx.beginPath(); ctx.arc(sp.x, sp.y, S.pegR * 1.2, 0, Math.PI * 2); ctx.stroke();
     ctx.globalAlpha = 1;
   }
+  if (S.fold) drawFold(S.fold);
+  else drawCoach();
+  drawRipples();
 
   if (S.land) {
     const ring = pegXY(S.aimC, S.aimR);
@@ -1816,6 +2035,16 @@ function draw(){
     if (S.phase === 'playing') {
       ctx.fillStyle = PAL.coral;
       ctx.fillRect(t.x, t.y, t.w * clamp(S.qTime / S.qMax, 0, 1), t.h);
+      /* 막대가 시간인지 진행도인지 모호하지 않게 숫자로도 적는다 */
+      ctx.font = '800 11px ' + KR;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = PAL.cream;
+      ctx.fillText(S.tut > 0 ? '이 문제 시간 · 안내 중 멈춤'
+        : '이 문제 ' + Math.max(0, Math.ceil(S.qTime)) + '초', t.x + 6, t.y + t.h / 2);
+      ctx.textAlign = 'right';
+      ctx.fillText('전체 ' + Math.max(0, Math.ceil(S.session)) + '초', t.x + t.w - 6, t.y + t.h / 2);
+      ctx.textAlign = 'left';
     }
   } else if (S.timerFill && S.phase === 'playing') {
     const t = S.timerFill;
@@ -1835,8 +2064,93 @@ function draw(){
     ctx.moveTo(20, 40); ctx.lineTo(80, 70);
     ctx.stroke(); ctx.globalAlpha = 1;
   }
+  drawSay();
+  /* 시작 와이프 — 산호색 띠가 위에서 아래로 지나가며 「판이 시작됐다」를 알린다 */
+  if (S.wipe > 0) {
+    const u = 1 - S.wipe;
+    ctx.save();
+    ctx.fillStyle = PAL.coral;
+    ctx.fillRect(0, 0, W, H * Math.max(0, 1 - u * 1.6));
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = PAL.cream;
+    ctx.font = '800 ' + Math.max(20, W * 0.07) + 'px ' + LOGO;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (u < 0.55) ctx.fillText('짝 찾기 시작!', W / 2, H * 0.4);
+    ctx.restore();
+  }
 }
 
+/* ══════ 코치 — 무엇을 눌러야 하는지 실제 못 위에서 가리킨다 (§1-a,e) ══════
+   정답 못을 가리키지 않는다. 「못을 누르는 게 조작이다」만 알려 준다 — 손가락이
+   후보 못들 위를 옮겨 다니고, 문제의 점 ㄱ 못에는 이미 빨간 링이 돈다. */
+function coachOn(){
+  if (S.phase !== 'playing' || !S.problem || S.busy) return false;
+  if (S.tut === 1) return true;
+  if (S.coachT > 0) return true;
+  return S.solved === 0 && S.qTime > S.qMax - 3.5;
+}
+function drawCoach(){
+  if (!coachOn()) return;
+  const p = S.problem;
+  /* 점 ㄱ 과 다른 못들을 순서대로 짚는다 — 정답 못만 콕 집지 않는다 */
+  const cands = [];
+  for (let k = 0; k < 4; k++) {
+    const c = clamp(p.start[0] + [1, 0, -1, 2][k], 0, N - 1);
+    const r = clamp(p.start[1] + [0, 1, 1, 0][k], 0, N - 1);
+    if (c === p.answerCell[0] && r === p.answerCell[1]) continue;
+    cands.push([c, r]);
+  }
+  if (!cands.length) cands.push([p.start[0], p.start[1]]);
+  const k = cands[Math.floor(S.t * 1.1) % cands.length];
+  const q = pegXY(k[0], k[1]);
+  const bob = Math.abs(Math.sin(S.t * 3)) * 7;
+  ctx.save();
+  ctx.strokeStyle = PAL.coral; ctx.lineWidth = 3;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath(); ctx.arc(q.x, q.y, S.pegR * 1.1, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 1;
+  /* 손가락 */
+  ctx.translate(q.x, q.y - bob);
+  ctx.fillStyle = PAL.cream; ctx.strokeStyle = PAL.coral; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, 0, S.pegR * 0.55, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = PAL.coral;
+  ctx.beginPath(); ctx.arc(0, 0, S.pegR * 0.22, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  /* 문구가 점판 밖으로 새면 배경에 묻혀 안 읽힌다 — 못 위가 좁으면 아래에 붙인다 */
+  ctx.save();
+  ctx.font = '800 13px ' + KR;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = PAL.coral;
+  const above = q.y - S.pegR * 1.4 - bob;
+  if (above > S.board.y + 18) { ctx.textBaseline = 'bottom'; ctx.fillText('못을 눌러요', q.x, above); }
+  else { ctx.textBaseline = 'top'; ctx.fillText('못을 눌러요', q.x, q.y + S.pegR * 1.4); }
+  ctx.restore();
+}
+function drawRipples(){
+  for (const r of S.ripples) {
+    const k = r.t / 0.55;
+    ctx.save();
+    ctx.globalAlpha = (1 - k) * 0.7;
+    ctx.strokeStyle = r.col; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(r.x, r.y, 8 + k * 30, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawSay(){
+  if (S.sayT <= 0 || !S.sayMsg) return;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, S.sayT * 2);
+  ctx.font = '800 14px ' + KR;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = Math.min(S.board.s - 8, ctx.measureText(S.sayMsg).width + 22);
+  const bx = S.board.x + (S.board.s - tw) / 2;
+  const by = S.board.y + 10;
+  ctx.fillStyle = PAL.ink; ctx.fillRect(bx, by, tw, 30);
+  ctx.strokeStyle = PAL.coral; ctx.lineWidth = 3; ctx.strokeRect(bx, by, tw, 30);
+  ctx.fillStyle = PAL.cream;
+  ctx.fillText(S.sayMsg, bx + tw / 2, by + 16);
+  ctx.restore();
+}
 function pegAt(px, py){
   let best = null, bestD = S.gap * 0.48;
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
@@ -1847,12 +2161,34 @@ function pegAt(px, py){
   return best;
 }
 
+/* 어떤 탭에도 반응한다 (§1-e) — 못이 아닌 곳을 눌러도 그 자리에 리플이 남고
+   「무엇을 눌러야 하는지」를 한 줄로 말해 준다. 무반응은 「고장」으로 읽힌다. */
+function ripple(x, y, col){
+  S.ripples.push({ x, y, t: 0, col: col || PAL.teal });
+  if (S.ripples.length > 6) S.ripples.shift();
+}
 cv.addEventListener('pointerdown', ev => {
-  if (S.phase !== 'playing') return;
   unlockAudio();
   const r = cv.getBoundingClientRect();
-  const p = pegAt(ev.clientX - r.left, ev.clientY - r.top);
-  if (p) hopTo(p.c, p.r, false);
+  const px = ev.clientX - r.left, py = ev.clientY - r.top;
+  if (S.phase !== 'playing') { ripple(px, py, PAL.coral); return; }
+  const p = pegAt(px, py);
+  if (!p) {
+    ripple(px, py, PAL.coral);
+    S.coachT = 3.2;
+    S.sayMsg = '동그란 흰 못을 눌러요';
+    S.sayT = 1.4;
+    tone(200, 0.09, 'square', 0.05);
+    return;
+  }
+  ripple(px, py, PAL.teal);
+  if (S.busy) {
+    S.sayMsg = '잠깐만요 — 포개지는 모습을 보고 나서요';
+    S.sayT = 1.2;
+    tone(200, 0.08, 'square', 0.04);
+    return;
+  }
+  hopTo(p.c, p.r, false);
 }, { passive: true });
 
 window.addEventListener('keydown', ev => {
@@ -1884,33 +2220,53 @@ function tryStart(){
   unlockAudio();
   let seen = false;
   try { seen = localStorage.getItem(LS_ONB) === '1'; } catch {}
-  if (!seen) { showOnboard(0); return; }
   beginPlay();
+  /* 첫 실행 = 자동 인게임 온보딩. 설명 팝업이 아니라 실전 점판 위에서 직접 눌러 본다 (§1-g) */
+  if (!seen) startTutorial();
 }
 
-const OB = [
-  { t:'못을 눌러 뛰어 보세요', b:'점판의 흰 못을 누르면 토큰이 그 칸으로 한 칸 뛰어 착지합니다. 착지한 칸이 곧 답이에요.' },
-  { t:'짝이 되는 칸', b:'합동은 포개면 겹치는 점, 선대칭은 축에서 같은 칸, 점대칭은 중심에서 같은 칸이에요.' },
-  { t:'빗나가면 구멍', b:'빗나간 못은 구멍으로 빠져 목숨이 줄어요. 목숨 3개, 90초입니다. 연속 착지가 콤보가 됩니다.' }
-];
-let obI = 0;
-function showOnboard(i){
-  obI = i;
-  $('#obStep').textContent = (i + 1) + '/3';
-  $('#obTitle').textContent = OB[i].t;
-  $('#obBody').textContent = OB[i].b;
-  $('#obNext').textContent = i === 2 ? '해볼게요' : '다음';
+/* ══════ 온보딩 — 실전 점판 위에서 직접 눌러 본다 (§1-a,b,e,g) ══════
+   설명 3장을 넘기는 게 아니라, 학생이 못을 한 번 실제로 눌러야 다음으로 간다.
+   그때까지 문제 시간·세션 시간이 멈춘다. 첫 시도 뒤에는 포개는 과정을 끝까지 보여 준다. */
+const TUT = {
+  1: { t:'못을 하나 눌러 보세요',
+       b:'손가락이 가리키는 흰 못을 누르면 그 못으로 뛰어요. 누른 못이 곧 답이에요. 지금은 시간이 멈춰 있고 목숨도 안 줄어요.' },
+  2: { t:'도형이 저절로 포개져요',
+       b:'빨간 도형이 스스로 옮겨지거나 접히거나 돌아가서 초록 도형에 겹쳐요. 끌지 않아도 돼요. 점 ㄱ이 닿는 못이 바로 짝(대응점)이에요.' }
+};
+function showTutCard(){
+  const s = TUT[S.tut];
+  if (!s) { $('#onboard').classList.remove('show'); return; }
+  $('#obStep').textContent = '해 보기 ' + Math.min(2, S.tutQ + 1) + ' / 2';
+  $('#obTitle').textContent = s.t;
+  $('#obBody').textContent = s.b;
   $('#onboard').classList.add('show');
 }
-$('#obNext').onclick = () => {
-  unlockAudio();
-  if (obI < 2) showOnboard(obI + 1);
-  else {
-    try { localStorage.setItem(LS_ONB, '1'); } catch {}
-    $('#onboard').classList.remove('show');
-    beginPlay();
-  }
-};
+function startTutorial(){
+  S.tut = 1; S.tutT = 0; S.tutQ = 0;
+  showTutCard();
+}
+/* 첫 조작을 하면 2단계 카드(포개기 시범)로 바꾼다. 안내는 두 문제를 겪는 동안 남는다 —
+   한 번 보고 사라지면 학생은 그 사이 아무것도 못 배운다 (§1-b). */
+function tutFinish(){
+  if (S.tut <= 0) return;
+  S.tutQ++;
+  S.tut = 2; S.tutT = 0;
+  showTutCard();
+}
+/* 다음 문제로 넘어갈 때: 두 문제를 겪었으면 닫고, 아니면 다시 「눌러 보세요」로 돌아간다 */
+function tutNextProblem(){
+  if (S.tut !== 2) return;
+  if (S.tutQ >= 2) { endTutorial(); return; }
+  S.tut = 1; S.tutT = 0;
+  showTutCard();
+}
+function endTutorial(){
+  S.tut = 0;
+  try { localStorage.setItem(LS_ONB, '1'); } catch {}
+  $('#onboard').classList.remove('show');
+}
+$('#obSkip').onclick = () => { unlockAudio(); endTutorial(); };
 
 $('#start').onclick = () => {
   unlockAudio();
@@ -1994,6 +2350,8 @@ function loop(now){
     if (S.hitStop <= 0) S.timeScale = 1;
   }
   const dt = S.timeScale === 0 ? 0 : raw;
+  /* 포개기 애니메이션은 히트스톱과 무관하게 실제 시간으로 흐른다 */
+  if (S.fold && S.fold.t < S.fold.dur) S.fold.t = Math.min(S.fold.dur, S.fold.t + raw);
   if (S.phase === 'playing' || S.phase === 'over') tick(dt);
   if (S.phase === 'over') {
     const el = $('#resScore');

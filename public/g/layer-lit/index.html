@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta property="og:title" content="층수켜기">
-<meta property="og:description" content="잠기기 전에 켜">
+<meta property="og:description" content="쌓기나무가 있는 칸을 켜요">
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
-<title>층수켜기</title>
+<title>층수켜기 — 쌓기나무 칸을 켜요</title>
 <style>
 @font-face{
   font-family:"LogoBlackHan";
@@ -47,6 +47,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rend
   pointer-events:none
 }
 #prompt b{font-size:1.15em}
+/* 상시 목표 문장 (docs/onboarding-spec.md §1-c) — 온보딩이 닫힌 뒤에도 남는다.
+ * 팝업으로 스쳐 보내면 학생은 이미 잊었다. */
+#pgoal{
+  display:block;margin-top:4px;padding:3px 5px;border:2px solid var(--steel);
+  font-size:clamp(11.5px,3.1vw,14px);line-height:1.25;letter-spacing:0;color:var(--ink);background:var(--cream)
+}
+#pgoal b{font-size:1em;color:var(--miss)}
 /* 좌표 규약은 발문 길이와 무관하게 항상 보이는 별도 줄로 고정한다 (잘림 방지) */
 #pconv{
   display:block;margin-top:4px;padding-top:4px;border-top:2px dotted var(--ghost);
@@ -76,7 +83,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rend
   font-family:"LogoBlackHan","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-weight:400;
   font-size:clamp(52px,16vw,84px);line-height:.9;color:var(--cream);
   -webkit-text-stroke:4px var(--ink);paint-order:stroke fill;letter-spacing:-.06em}
+/* 붙여 쓴 조어는 저학년이 즉시 못 읽는다 — 「층수」와 「켜기」 사이를 띄운다
+   (docs/onboarding-spec.md §1-f) */
 .game-logo span{display:inline-block;animation:lcdOn .55s steps(2) both}
+.game-logo span:nth-child(3){margin-left:.22em}
 .game-logo span:nth-child(1){transform:translateY(0);animation-delay:0s}
 .game-logo span:nth-child(2){transform:translateY(.16em);animation-delay:.07s}
 .game-logo span:nth-child(3){transform:translateY(.32em);animation-delay:.14s}
@@ -98,8 +108,19 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rend
 #titleMute{position:absolute;z-index:4;right:12px;top:max(10px,env(safe-area-inset-top));
   width:48px;height:48px;border:2px solid var(--cream);background:var(--ink);color:var(--lcd);font-size:16px}
 
-#help,#onboard,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(44,51,36,.72)}
-#help.show,#onboard.show,#result.show{display:grid}
+#help,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(44,51,36,.72)}
+#help.show,#result.show{display:grid}
+/* 온보딩은 화면을 덮지 않는다 — 덮으면 「팝업 3장」이 되고 학생은 판을 못 본다.
+ * 발문 상자 안에 붙는 코치 줄이라 캔버스 상단이 그만큼 아래로 내려가고,
+ * 조작해야 할 네모 판을 절대 가리지 않는다 (docs/onboarding-spec.md §1-a,b,g). */
+#onboard{display:none;margin-top:5px;padding:7px 8px 8px;background:var(--cream);
+  border:3px solid var(--ink);color:var(--ink);pointer-events:auto}
+#onboard.show{display:block}
+#onboard .step{font-size:11px;letter-spacing:.14em;color:var(--steel);font-weight:800}
+#onboard h2{margin:4px 0 3px;font-size:15px;letter-spacing:.02em;line-height:1.2}
+#onboard p{font-weight:800;line-height:1.35;font-size:12.5px;word-break:keep-all;margin:0}
+#onboard .ob-skip{margin-top:6px;width:100%;min-height:34px;border:2px solid var(--ghost);background:transparent;
+  color:var(--steel);font-weight:800;font-size:12px;letter-spacing:.06em}
 .lcd-panel{width:min(88vw,480px);padding:22px 18px 18px;background:var(--lcd);border:2px solid var(--ink);color:var(--ink)}
 .lcd-panel h2{margin:0 0 12px;font-size:22px;letter-spacing:.12em}
 .lcd-panel p{font-weight:800;line-height:1.45;margin:0 0 10px;font-size:15px}
@@ -143,7 +164,13 @@ html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(10
 <div id="game">
   <canvas id="cv" aria-label="층수켜기 우물 스캐너"></canvas>
   <div id="chrome">
-    <div id="prompt"><span id="pmain">우물 스캐너가 멈췄어. 층이 잠기기 전에 칸을 켜 줘!</span><span id="pconv">위에서 본 모양은 위쪽이 앞쪽 · 오른쪽에서 본 모양은 앞쪽이 왼쪽</span></div>
+    <div id="prompt"><span id="pmain">아래 네모 판에서 쌓기나무가 있는 칸을 탭해 켜요.</span><span id="pgoal">아래 <b>네모 판</b>의 칸을 탭하면 켜져요 — 이번 층에 쌓기나무가 있는 칸만 켜요</span><span id="pconv">위에서 본 모양은 위쪽이 앞쪽 · 오른쪽에서 본 모양은 앞쪽이 왼쪽</span>
+      <div id="onboard">
+        <div class="step" id="obStep">해 보기 1 / 2</div>
+        <h2 id="obTitle">네모 판의 칸을 탭해 보세요</h2>
+        <p id="obBody">손가락이 가리키는 네모 판에서 칸을 한 번 탭하면 그 칸이 켜져요. 지금은 시간이 멈춰 있어요.</p>
+        <button class="ob-skip" id="obSkip">안내 닫기</button>
+      </div></div>
     <button id="mute" aria-label="소리 끄기">♪</button>
     <button id="undo" aria-label="이 층 되돌리기">되돌리기</button>
     <div id="failLine"></div>
@@ -166,7 +193,7 @@ html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(10
         <span aria-hidden="true">켜</span>
         <span aria-hidden="true">기</span>
       </h1>
-      <div class="game-sub">잠기기 전에 켜</div>
+      <div class="game-sub">쌓기나무 칸을 켜요</div>
     </div>
     <div class="cta-zone">
       <div class="meta-row">
@@ -174,7 +201,7 @@ html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(10
         <span class="bezel-tag">공간과 입체</span>
       </div>
       <div id="best"></div>
-      <button id="start">스캐너 켜기</button>
+      <button id="start">시작하기</button>
       <div class="meta-row">
         <button id="how">어떻게 놀아요?</button>
         <button id="hard">어려움</button>
@@ -186,19 +213,12 @@ html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(10
 <div id="help">
   <div class="lcd-panel">
     <div class="step">안내</div>
-    <h2>우물을 켜요</h2>
-    <p>1. 스캔 막대가 머무는 층의 칸만 켜고 끄세요.</p>
-    <p>2. 가려진 칸도 그 층에 있으면 켭니다. 아래가 꺼져 있으면 위층은 켜지지 않아요.</p>
-    <p>3. 위에서 본 모양은 위쪽이 앞쪽이고, 오른쪽에서 본 모양은 앞쪽이 왼쪽입니다. 미쓰가 세 번이면 우물이 닫혀요.</p>
+    <h2>칸을 켜는 법</h2>
+    <p>1. 아래 네모 판의 칸을 탭하면 켜져요. 위 그림에서 지금 층에 쌓기나무가 있는 칸만 켜요.</p>
+    <p>2. 앞 칸에 가려져 안 보이는 칸도 그 층에 있으면 켜야 해요. 아래층이 꺼져 있으면 위층 칸은 안 켜져요.</p>
+    <p>3. 「잠금까지」 막대가 다 차면 그 층이 그대로 잠겨요. 틀리면 켰어야 하는 칸이 점선으로, 껐어야 하는 칸이 ✕로 나와요.</p>
+    <p>4. 위에서 본 모양은 위쪽이 앞쪽, 오른쪽에서 본 모양은 앞쪽이 왼쪽이에요. 세 층을 틀리면 우물이 닫혀요.</p>
     <button id="closeHelp">해볼게요</button>
-  </div>
-</div>
-<div id="onboard">
-  <div class="lcd-panel">
-    <div class="step" id="obStep">1/3</div>
-    <h2 id="obTitle">지금 층만</h2>
-    <p id="obBody">스캔 막대가 머무는 층의 3×3 칸만 손가락으로 켜고 끄세요.</p>
-    <button id="obNext">다음</button>
   </div>
 </div>
 <div id="result">
@@ -722,7 +742,11 @@ const S={
   trail:[],
   cellRects:[],
   stim:null, well:null,
-  timeScale:1
+  timeScale:1,
+  /* 온보딩·코치 (docs/onboarding-spec.md §1)
+   * tut: 0=꺼짐 1=칸 한 번 켜 보기 2=닫는 안내. tut>0 이면 스캔·세션 시간이 멈춘다. */
+  tut:0, tutT:0, idle:0, ripples:[], padShake:0,
+  whyMsg:'', whyT:0, wrongGrid:null, isoBlinkT:0
 };
 try{
   const st=JSON.parse(localStorage.getItem(LS_STAMP)||'{}');
@@ -882,6 +906,7 @@ function beginFloor(){
     if (u) start=u;
   }
   S.paint=start; S.paint0=cloneH(start);
+  S.wrongGrid=null; S.whyT=0;
   {
     const d=paintDiff(start, layerOf(sol.H,y));
     S.dwell=dwellFor(d.on+d.off);
@@ -909,7 +934,12 @@ function toggleCell(z,x, val){
   if (S.scanPhase!=='dwell' && S.scanPhase!=='approach') return false;
   const want = val==null ? (S.paint[z][x]?0:1) : val;
   if (want===1 && !belowOn(z,x,S.floorY)){
-    S.flash=0.12;
+    /* 왜 안 되는지를 그 순간에 말해 준다 — 무반응은 「고장」으로 읽힌다 (§1-e) */
+    S.flash=0.12; S.padShake=1;
+    S.failMsg=`아래층이 꺼져 있어서 ${cellWords(z,x)}은 못 켜요`;
+    S.failT=1.3;
+    $('#failLine').textContent=S.failMsg;
+    $('#failLine').classList.add('show');
     beep(140,.07,'square',.04);
     return false;
   }
@@ -932,6 +962,11 @@ function firstMismatch(got, need){
   for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (got[z][x]!==need[z][x]) return {z,x, got:got[z][x], need:need[z][x]};
   return null;
 }
+/* 칸 위치를 초등학생이 읽는 말로 옮긴다. z=0 이 앞줄, x=0 이 왼쪽 칸이다.
+ * 좌표 「(0,0)」로 실패를 통보하면 학생은 읽지 못한다 (docs/onboarding-spec.md §1-d). */
+function cellWords(z,x){
+  return `앞에서 ${z+1}번째 줄, 왼쪽에서 ${x+1}번째 칸`;
+}
 function failText(sol, y, got, need){
   const mm=firstMismatch(got, need);
   if (!mm) return `${y}층이 잠겼어요.`;
@@ -939,16 +974,33 @@ function failText(sol, y, got, need){
   const layers=S.locked.concat([got]);
   const Hp=heightFromLayers(layers, n);
   const F=frontOf(Hp), R=rightOf(Hp);
-  let view='위모양';
-  if (F[mm.x]!==sol.F[mm.x]) view=`앞모양 ${mm.x+1}째 줄 높이가 ${F[mm.x]}`;
-  else if (R[mm.z]!==sol.R[mm.z]) view=`옆모양 ${mm.z+1}째 줄 높이가 ${R[mm.z]}`;
-  else view=`꼭대기 (${mm.z},${mm.x})`;
-  const hid=isHidden(sol.H, mm.z, mm.x, y) ? ' 가려진 칸이에요.' : '';
   S.brokenView = F[mm.x]!==sol.F[mm.x] ? 'front' : (R[mm.z]!==sol.R[mm.z] ? 'right' : 'top');
-  return `${y}층 (${mm.z},${mm.x})가 ${mm.got?'켜':'꺼'}져 ${view}이 됐어요.${hid}`;
+  /* 어긋난 곳이 어느 그림에서 티가 나는지도 사람 말로 붙인다 */
+  let view='';
+  if (F[mm.x]!==sol.F[mm.x]) view=` 그래서 앞에서 본 모양이 달라졌어요.`;
+  else if (R[mm.z]!==sol.R[mm.z]) view=` 그래서 오른쪽에서 본 모양이 달라졌어요.`;
+  const hid=(!mm.got && isHidden(sol.H, mm.z, mm.x, y)) ? ' 앞 칸에 가려져 안 보이는 칸이에요.' : '';
+  const where=cellWords(mm.z, mm.x);
+  if (mm.got) return `${y}층에는 ${where}이 없어요. 이 칸은 꺼야 해요.${view}`;
+  return `${y}층 ${where}을 켜야 했어요.${hid}${view}`;
+}
+/* 왜 맞았는지를 정답 순간에 한 줄로 알려 준다 — 설명이 없으면 정답도 학습이 아니다 (§1-d) */
+function whyCorrect(sol, y, need){
+  const on=gridOn(need);
+  if (sol.kind==='min') return `위·앞·옆 모양을 지키며 가장 적게 쌓았어요 — 모두 ${sol.minSum}개`;
+  if (sol.kind==='max') return `위·앞·옆 모양을 지키며 가장 많게 쌓았어요 — 모두 ${sol.maxSum}개`;
+  if (sol.kind==='topnum') return `${y}층에 쌓기나무가 있는 칸 ${on}개를 모두 켰어요 — 켠 층 수가 꼭대기 숫자예요`;
+  return `${y}층에 쌓기나무가 있는 칸 ${on}개를 모두 켰어요`;
 }
 
 function awardCorrect(){
+  if (S.solid){
+    S.whyMsg = whyCorrect(S.solid, S.floorY, layerOf(S.solid.H, S.floorY));
+    S.whyT = 1.5;
+    /* 위 그림에서 「그 층」이 깜빡인다 — 아래 판의 켠 칸과 눈으로 이어 준다 (§1-d) */
+    S.isoBlinkT = 1.1;
+  }
+  S.wrongGrid=null;
   S.combo++;
   const mul=S.combo>=2?2:1;
   const add=100*mul;
@@ -962,6 +1014,9 @@ function awardCorrect(){
   if (S.combo>=2){ beep(880,.09,'square',.05); beep(990,.12,'square',.04); }
 }
 function applyMiss(msg){
+  /* 오답도 정답 상태를 눈으로 보여 준다 — 「틀렸어요」만으로는 학습이 안 된다 (§1-d) */
+  if (S.solid) S.wrongGrid = layerOf(S.solid.H, S.floorY);
+  S.whyMsg=''; S.whyT=0;
   S.combo=0;
   S.wellPerfect=false;
   S.miss++;
@@ -969,7 +1024,7 @@ function applyMiss(msg){
   S.missFlash=1;
   S.ghostT=1;
   S.failMsg=msg||'층이 잠겼어요.';
-  S.failT=1.2;
+  S.failT=2.0;
   $('#failLine').textContent=S.failMsg;
   $('#failLine').classList.add('show');
   beep(160,.16,'square',.07);
@@ -1078,10 +1133,13 @@ function endRun(why){
   S.timeScale=1;
   saveBest();
   const kicker = why==='clear' ? '네 우물 점등' : (why==='time' ? '스캔이 끝났어요' : '우물이 닫혔어요');
-  const title = why==='clear' ? '검사등 점등' : (why==='time' ? '시간 종료' : '미쓰 세 번');
+  const title = why==='clear' ? '검사등 점등' : (why==='time' ? '시간 종료' : '틀린 층 세 번');
   $('#resKicker').textContent=kicker;
   $('#resTitle').textContent=title;
-  $('#resSub').textContent = `켠 층 ${S.solved} · 콤보 ${S.combo} · ${WELLS[Math.min(3,S.level-1)].title}`;
+  /* 왜 끝났는지를 마지막 줄에 사람 말로 남긴다 — 갑자기 뜨는 팝업은 원인을 알 수 없다 */
+  const cause = why==='clear' ? '네 우물을 모두 켰어요!'
+    : (why==='time' ? '90초가 다 됐어요.' : (S.failMsg || '층을 세 번 틀렸어요.'));
+  $('#resSub').innerHTML = `맞게 켠 층 ${S.solved}개<br>${cause}`;
   S.showScore=0;
   $('#result').classList.add('show');
   beep(why==='clear'?784:110, .2, 'square', .06);
@@ -1094,10 +1152,9 @@ function startGame(skipOnb, hard){
   $('#title').classList.add('gone');
   $('#result').classList.remove('show');
   $('#help').classList.remove('show');
-  if (!skipOnb && !localStorage.getItem(LS_ONB)){
-    S.phase='onboard'; S.ob=0; showOnboard(); return;
-  }
   actuallyStart();
+  /* 첫 실행 = 자동 인게임 온보딩. 설명 팝업이 아니라 실전 판 위에서 직접 켜 본다 (§1-g) */
+  if (!skipOnb && !localStorage.getItem(LS_ONB)) startTutorial();
 }
 function actuallyStart(){
   S.phase='playing';
@@ -1105,30 +1162,50 @@ function actuallyStart(){
   S.time=SESSION; S.runT=0; S.lamps=0; S.di=0; S.wow=null;
   S.failMsg=''; S.failT=0; S.flash=0; S.missFlash=0; S.ghostT=0; S.punch=0;
   S.trail=[]; S.timeScale=1; S.freeze=0;
+  S.tut=0; S.tutT=0; S.idle=0; S.ripples.length=0;
+  S.whyMsg=''; S.whyT=0; S.wrongGrid=null; S.padShake=0;
+  $('#onboard').classList.remove('show');
   S.deck=makeDeck(S.hard, Math.random);
   $('#failLine').classList.remove('show');
   layout();
   beginSolid();
 }
 
-const OB = [
-  { t:'지금 층만', b:'스캔 막대가 머무는 층의 칸만 손가락으로 켜고 끄세요.' },
-  { t:'가려진 칸도', b:'그림 뒤에 숨은 칸도 그 층에 있으면 켜요. 아래가 꺼져 있으면 위층은 켜지지 않아요.' },
-  { t:'미쓰 세 번', b:'틀리거나 그냥 잠기면 미쓰가 찍혀요. 세 번이면 우물이 닫힙니다. 위에서 본 모양은 위쪽이 앞쪽, 오른쪽에서 본 모양은 앞쪽이 왼쪽이에요.' }
-];
-function showOnboard(){
-  const o=OB[S.ob];
-  $('#obStep').textContent=(S.ob+1)+'/3';
-  $('#obTitle').textContent=o.t;
-  $('#obBody').textContent=o.b;
-  $('#obNext').textContent=S.ob===2?'해볼게요':'다음';
+/* ══════ 온보딩 — 실전 판 위에서 직접 켜 본다 (§1-a,b,e,g) ══════
+ * 설명 3장을 넘기는 게 아니라, 학생이 칸을 한 번 실제로 켜야 다음으로 간다.
+ * 그 전까지 스캔 막대도 세션 시간도 멈춘다 — 모달 뒤에서 타이머가 흐르면 벌이지 안내가 아니다. */
+const TUT = {
+  1:{ t:'네모 판의 칸을 탭해 보세요',
+      b:'손가락이 가리키는 네모 판에서 칸을 한 번 탭하면 그 칸이 켜져요. 지금은 시간이 멈춰 있어요.' },
+  2:{ t:'좋아요! 이제 이 층의 칸을 다 켜요',
+      b:'위 그림에서 이번 층에 쌓기나무가 있는 칸을 모두 켜요. 「잠금까지」 막대가 다 차면 그대로 잠겨요.' }
+};
+function showTutCard(){
+  const s=TUT[S.tut];
+  if (!s){ $('#onboard').classList.remove('show'); return; }
+  $('#obStep').textContent=`해 보기 ${S.tut} / 2`;
+  $('#obTitle').textContent=s.t;
+  $('#obBody').textContent=s.b;
   $('#onboard').classList.add('show');
+  layout();   /* 캔버스 상단은 발문 상자 아래끝을 따라간다 — 카드가 판을 가리지 않게 */
 }
-function nextOnboard(){
-  if (S.ob<2){ S.ob++; showOnboard(); return; }
-  localStorage.setItem(LS_ONB,'1');
+function startTutorial(){
+  S.tut=1; S.tutT=0; S.idle=0;
+  showTutCard();
+}
+/* 첫 조작에 성공하면 즉시 눈에 보이는 보상을 주고 안내를 닫는 쪽으로 넘어간다 (§1-b) */
+function tutAdvance(){
+  if (S.tut!==1) return;
+  S.tut=2; S.tutT=0;
+  S.flash=0.14; S.punch=0.8;
+  beep(760,.07,'square',.05); setTimeout(()=>beep(990,.09,'square',.04), 90);
+  showTutCard();
+}
+function endTutorial(){
+  S.tut=0;
+  try{ localStorage.setItem(LS_ONB,'1'); }catch(e){}
   $('#onboard').classList.remove('show');
-  actuallyStart();
+  layout();
 }
 
 /* ── input ── */
@@ -1137,26 +1214,46 @@ function cellAt(px,py){
   for (const r of rs) if (px>=r.px && px<=r.px+r.s && py>=r.py && py<=r.py+r.s) return r;
   return null;
 }
+/* 어떤 탭에도 반응한다 (§1-e) — 유효하지 않은 자리를 눌러도 그 자리에 리플이 남고
+ * 진짜 조작 대상(네모 판)이 흔들리며 코치가 다시 커진다. 500ms 안에 아무 픽셀도
+ * 안 바뀌는 입력을 학생은 「고장 났다」로 읽는다. */
+function ripple(x,y,col){
+  S.ripples.push({ x, y, t:0, col:col||PAL.steel });
+  if (S.ripples.length>6) S.ripples.shift();
+}
 function onDown(e){
-  if (S.phase!=='playing') return;
   unlockAudio();
   const x=e.clientX, y=e.clientY;
+  S.idle=0;
+  if (S.phase!=='playing'){ ripple(x,y); return; }
   const c=cellAt(x,y);
-  if (!c) return;
+  if (!c){
+    ripple(x,y,PAL.miss);
+    S.padShake=1;
+    S.idle=7.4;                       /* 손가락 포인터를 즉시 크게 다시 재생한다 */
+    S.failMsg='켜는 곳은 아래 네모 판이에요 — 판 안의 칸을 탭해요';
+    S.failT=1.3;
+    $('#failLine').textContent=S.failMsg;
+    $('#failLine').classList.add('show');
+    beep(240,.07,'square',.05);
+    return;
+  }
+  ripple(c.px+c.s/2, c.py+c.s/2, PAL.steel);
   S.ptr=e.pointerId;
   try{ cv.setPointerCapture(e.pointerId); }catch(err){}
   const cur=S.paint[c.z][c.x];
   const want=cur?0:1;
   S.dragOn=true; S.dragVal=want;
   S.cursor={z:c.z,x:c.x};
-  toggleCell(c.z,c.x,want);
+  if (toggleCell(c.z,c.x,want) && S.tut===1) tutAdvance();
 }
 function onMove(e){
   if (!S.dragOn || S.phase!=='playing') return;
   const c=cellAt(e.clientX,e.clientY);
   if (!c) return;
+  S.idle=0;
   S.cursor={z:c.z,x:c.x};
-  toggleCell(c.z,c.x,S.dragVal);
+  if (toggleCell(c.z,c.x,S.dragVal) && S.tut===1) tutAdvance();
 }
 function onUp(){ S.dragOn=false; S.ptr=null; }
 
@@ -1175,16 +1272,22 @@ window.addEventListener('keydown', e => {
   else if (e.key==='ArrowRight'){ S.cursor.x=Math.min(n-1,S.cursor.x+1); e.preventDefault(); }
   else if (e.key==='ArrowUp'){ S.cursor.z=Math.max(0,S.cursor.z-1); e.preventDefault(); }
   else if (e.key==='ArrowDown'){ S.cursor.z=Math.min(n-1,S.cursor.z+1); e.preventDefault(); }
-  else if (e.key===' ' || e.key==='Enter'){ e.preventDefault(); toggleCell(S.cursor.z,S.cursor.x); }
+  else if (e.key===' ' || e.key==='Enter'){ e.preventDefault(); if (toggleCell(S.cursor.z,S.cursor.x) && S.tut===1) tutAdvance(); }
   else if ((e.key==='z'||e.key==='Z') && S.undoLeft) undoFloor();
+  S.idle=0;
 });
 
 $('#start').addEventListener('click', () => startGame(false,false));
 $('#hard').addEventListener('click', () => startGame(false,true));
 $('#how').addEventListener('click', () => { $('#help').classList.add('show'); });
 $('#closeHelp').addEventListener('click', () => $('#help').classList.remove('show'));
-$('#obNext').addEventListener('click', nextOnboard);
+$('#obSkip').addEventListener('click', () => { beep(300,.05); endTutorial(); });
 $('#again').addEventListener('click', () => { $('#result').classList.remove('show'); startGame(true, S.hard); });
+/* 결과 팝업 바깥을 눌러도 다시 시작한다 — 팝업 뒤 게임 영역을 눌러 「무반응」으로 읽히면 안 된다 (§1-e) */
+$('#result').addEventListener('pointerdown', (e) => {
+  if (e.target.id!=='result') return;
+  $('#result').classList.remove('show'); startGame(true, S.hard);
+});
 $('#mute').addEventListener('click', toggleMute);
 $('#titleMute').addEventListener('click', toggleMute);
 $('#undo').addEventListener('click', undoFloor);
@@ -1393,7 +1496,9 @@ function drawLayerCard(L, x, y, w, h, title, active){
 }
 
 function layoutCells(n, rect){
-  const pad=8, head=72, foot=22;
+  /* head 는 우물 위쪽 정보 줄(점수·미쓰·목표 문장·잠금 게이지) 자리다.
+   * 여기가 좁으면 「잠금까지」 막대가 칸 위로 겹친다. */
+  const pad=8, head=104, foot=22;
   const size=Math.min((rect.w-pad*2-24)/n, (rect.h-head-foot-pad)/n);
   const ox=rect.x+(rect.w-size*n)/2, oy=rect.y+head;
   const rs=[];
@@ -1467,6 +1572,103 @@ function drawHud(){
   }
 }
 
+/* ══════ 코치 — 조작 대상을 실제 오브젝트 위에서 가리킨다 (§1-a,e) ══════
+ * 좌표를 박아 두지 않고 매 프레임 현재 셀 사각형에서 다시 계산하므로
+ * 리사이즈·가로세로 전환에도 허공을 가리키지 않는다. */
+function drawGlowRing(x,y,w,h,color,pulse,grow){
+  const pad=(5+4*pulse)*grow;
+  ctx.save();
+  ctx.globalAlpha=0.35+0.4*pulse;
+  ctx.strokeStyle=color; ctx.lineWidth=(3+2*pulse)*grow;
+  ctx.strokeRect(x-pad, y-pad, w+pad*2, h+pad*2);
+  ctx.restore();
+}
+function drawArrowHead(x,y,ang,size,col){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
+  ctx.fillStyle=col; ctx.beginPath();
+  ctx.moveTo(size,0); ctx.lineTo(-size*0.8,size*0.62); ctx.lineTo(-size*0.8,-size*0.62);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function drawFinger(x,y,s,col){
+  ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
+  ctx.fillStyle=PAL.cream; ctx.strokeStyle=col; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=col;
+  ctx.beginPath(); ctx.arc(0,0,4.5,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function coachAmt(){
+  if (S.phase!=='playing' || !S.solid) return 0;
+  if (S.scanPhase==='feedback') return 0;
+  if (S.tut>0) return 1;
+  /* 온보딩이 끝난 뒤에는 계속 가리키지 않는다 — 손가락이 상시로 떠 있으면
+   * 학생이 「저 칸이 정답이구나」로 읽고 스스로 판단하기를 그만둔다.
+   * 5초 넘게 멈췄을 때만 다시 나온다. */
+  if (S.idle>5) return Math.min(1,(S.idle-5)/0.6);
+  return 0;
+}
+function drawCoach(){
+  const amt=coachAmt(); if (amt<=0.02) return;
+  const rs=S.cellRects; if (!rs.length) return;
+  /* 8초 넘게 아무것도 안 하면 포인터를 더 크게 다시 재생한다 (§1-b) */
+  const grow = 1 + Math.min(1, Math.max(0,(S.idle-8))/6)*0.5;
+  const pulse = 0.5+0.5*Math.sin(S.runT*4.2);
+  const first=rs[0], last=rs[rs.length-1];
+  const px=first.px, py=first.py, pw=last.px+last.s-first.px, ph=last.py+last.s-first.py;
+  ctx.save(); ctx.globalAlpha=amt;
+  /* 위 그림(입체)과 아래 판을 선으로 잇는다 — 「저 층을 여기에 옮겨 그린다」가
+     화면에서 보여야 한다. 안내 중에만 그린다(끝난 뒤에는 화면만 복잡해진다). */
+  if (S.tut>0 && S.stim && S.well){
+    const sx=S.stim.x+S.stim.w*0.5, sy=S.stim.y+S.stim.h-4;
+    const ex=px+pw/2, ey=py-8;
+    ctx.strokeStyle='rgba(226,91,74,0.55)'; ctx.lineWidth=2.2*grow;
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+    drawArrowHead(ex, ey, Math.atan2(ey-sy, ex-sx), 10*grow, PAL.miss);
+    /* 문구는 붙이지 않는다 — 목표 문장(「위 그림의 ○층을 아래 판에 켜요」)이
+       바로 옆에 상시로 있어서, 여기에 또 글을 얹으면 화면만 복잡해진다. */
+  }
+  drawGlowRing(px, py, pw, ph, PAL.miss, pulse, grow);
+  /* 손가락은 한 칸에 멈추지 않고 판 위를 계속 미끄러진다 — 한 칸에 세우면
+     학생이 「저 칸이 정답이구나」로 읽고 스스로 판단하기를 그만둔다. 이건
+     "정답은 여기"가 아니라 "이 판의 칸들을 손가락으로 켜는 것"이라는 안내다. */
+  const u=(Math.sin(S.runT*1.5)*0.5+0.5);
+  const fx=px+pw*(0.12+0.76*u);
+  const fy=py+ph*(0.5+0.28*Math.sin(S.runT*2.3));
+  drawFinger(fx, fy, grow, PAL.miss);
+  const f=`800 ${Math.round(12*grow)}px ui-monospace,"SF Mono",Menlo,"Apple SD Gothic Neo",sans-serif`;
+  if (f!==_font){ ctx.font=f; _font=f; }
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const msg='이 판의 칸을 탭해요';
+  const tw=ctx.measureText(msg).width+16;
+  ctx.fillStyle=PAL.lcd;
+  ctx.fillRect(px+pw/2-tw/2, py+ph/2-11, tw, 22);
+  ctx.strokeStyle=PAL.miss; ctx.lineWidth=2;
+  ctx.strokeRect(px+pw/2-tw/2, py+ph/2-11, tw, 22);
+  ctx.fillStyle=PAL.miss;
+  ctx.fillText(msg, px+pw/2, py+ph/2);
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.restore();
+}
+function drawRipples(){
+  for (const r of S.ripples){
+    const k=r.t/0.55;
+    ctx.save();
+    ctx.globalAlpha=(1-k)*0.7;
+    ctx.strokeStyle=r.col; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(r.x, r.y, 8+k*28, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+}
+/* 잠금까지 남은 시간을 눈에 보이게 한다 — 안 보이면 층이 갑자기 잠긴 것으로 읽힌다 */
+function drawDwellGauge(well){
+  const w=well.w-20, x=well.x+10, y=well.y+62, h=10;
+  const u = S.scanPhase==='dwell' ? Math.min(1, S.scanT/Math.max(0.001,S.dwell)) : (S.scanPhase==='approach'?0:1);
+  ctx.fillStyle=PAL.dim; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = S.tut>0 ? PAL.ghost : (u>0.75?PAL.miss:PAL.steel);
+  ctx.fillRect(x, y, w*(S.tut>0?0:u), h);
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x, y, w, h);
+  drawK(ctx, S.tut>0 ? '잠금까지 (안내 중 멈춤)' : '잠금까지', x, y+13, 11, PAL.steel);
+}
 function drawPlay(){
   const sh = S.missFlash>0 ? ((((S.runT*40)|0)%2)?3:-3) : (S.punch>0? (S.punch*2)|0 : 0);
   if (sh) ctx.translate(sh, 0);
@@ -1502,7 +1704,7 @@ function drawPlay(){
     const isoW = sol.promptKind==='iso' ? stim.w : stim.w*0.52;
     const isoRect={ x:stim.x+4, y:stim.y+4, w:isoW-8, h:stim.h-8 };
     const showH = S.wow ? S.wow.H : sol.H;
-    drawIso(showH, isoRect, y, S.flash>0);
+    drawIso(showH, isoRect, y, S.flash>0 || S.isoBlinkT>0);
     if (sol.promptKind!=='iso'){
       const sx=stim.x+isoW, sw=stim.w-isoW-6;
       const hh=(stim.h-16)/3;
@@ -1519,13 +1721,23 @@ function drawPlay(){
   ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(well.x, well.y, well.w, well.h);
   drawWellWalls(well);
   const dw=14, dh=24;
-  drawNum7(ctx, S.showScore|0, well.x+10, well.y+6, dw, dh, 4);
-  drawNum7(ctx, Math.max(0, Math.ceil(S.time)), well.x+10+(dw+7)*4+12, well.y+6, dw, dh, 2);
-  drawPix5(ctx, 'x'+(S.combo>=2?'2':'1'), well.x+10+(dw+7)*6+20, well.y+10, 3, PAL.ink);
+  const scoreX=well.x+10, timeX=well.x+10+(dw+7)*4+12, comboX=well.x+10+(dw+7)*6+20;
+  drawNum7(ctx, S.showScore|0, scoreX, well.y+6, dw, dh, 4);
+  drawNum7(ctx, Math.max(0, Math.ceil(S.time)), timeX, well.y+6, dw, dh, 2);
+  drawPix5(ctx, 'x'+(S.combo>=2?'2':'1'), comboX, well.y+10, 3, PAL.ink);
+  /* 숫자만 있으면 무슨 수인지 모른다 — 작은 이름표를 붙인다 */
+  drawK(ctx, '점수', scoreX, well.y+32, 11, PAL.steel);
+  drawK(ctx, '남은 초', timeX, well.y+32, 11, PAL.steel);
+  drawK(ctx, '배수', comboX-2, well.y+32, 11, PAL.steel);
   const missS=44;
   const missX=well.x+well.w - 3*(missS+6) - 10;
-  drawMissHoles(Math.max(well.x+8, missX), well.y+4, missS);
-  drawK(ctx, y+'층 켜기', well.x+10, well.y+36, 14, PAL.ink);
+  const mhX=Math.max(well.x+8, missX);
+  drawMissHoles(mhX, well.y+4, missS);
+  /* 찡그린 얼굴이 무슨 뜻인지 이름표로 못박는다 */
+  drawK(ctx, '틀린 층', mhX, well.y+missS+6, 11, PAL.miss);
+  /* 목표 한 문장이 판 위에 상시 남는다 (§1-c) — 팝업으로 스쳐 보내지 않는다 */
+  drawK(ctx, `위 그림의 ${y}층을 아래 판에 켜요`, well.x+10, well.y+46, 13, PAL.ink);
+  drawDwellGauge(well);
 
   const {ox, oy, size} = layoutCells(n, well);
   drawK(ctx, '앞', ox+size*n/2-8, oy-16, 12, PAL.steel);
@@ -1533,6 +1745,9 @@ function drawPlay(){
   drawK(ctx, '왼', Math.max(well.x+10, ox-18), oy+size*n/2-8, 12, PAL.ghost);
   const need=layerOf(sol.H,y);
   const punch=S.punch>0 ? 1+S.punch*0.12 : 1;
+  /* 못 켜는 칸을 눌렀을 때 판 자체가 좌우로 흔들린다 (§1-e 거절) */
+  const pad0=S.padShake>0 ? Math.sin(S.runT*52)*6*S.padShake : 0;
+  if (pad0) ctx.translate(pad0, 0);
   for (const r of S.cellRects){
     const on=S.paint[r.z][r.x];
     let col=on?PAL.ink:PAL.dim;
@@ -1559,7 +1774,25 @@ function drawPlay(){
       ctx.strokeStyle=PAL.steel; ctx.lineWidth=3;
       ctx.strokeRect(r.px+1, r.py+1, r.s-2, r.s-2);
     }
+    /* 오답 뒤에는 「어디를 어떻게 했어야 했는지」를 칸 위에 직접 그린다 (§1-d).
+     * 켰어야 하는 칸 = 굵은 점선 테두리, 껐어야 하는 칸 = ✕ */
+    if (S.scanPhase==='feedback' && S.wrongGrid){
+      const nd=S.wrongGrid[r.z][r.x];
+      if (!on && nd){
+        ctx.strokeStyle=PAL.steel; ctx.lineWidth=4;
+        ctx.setLineDash([6,5]);
+        ctx.strokeRect(r.px+4, r.py+4, r.s-8, r.s-8);
+        ctx.setLineDash([]);
+      } else if (on && !nd){
+        ctx.strokeStyle=PAL.miss; ctx.lineWidth=4;
+        ctx.beginPath();
+        ctx.moveTo(r.px+r.s*0.28, r.py+r.s*0.28); ctx.lineTo(r.px+r.s*0.72, r.py+r.s*0.72);
+        ctx.moveTo(r.px+r.s*0.72, r.py+r.s*0.28); ctx.lineTo(r.px+r.s*0.28, r.py+r.s*0.72);
+        ctx.stroke();
+      }
+    }
   }
+  if (pad0) ctx.translate(-pad0, 0);
 
   /* scan bar */
   const first=S.cellRects[0];
@@ -1612,8 +1845,27 @@ function drawPlay(){
   if (S.wow && S.wow.t<1.6){
     /* 자극 패널 좌하단은 '앞' 방향 표시 자리라 겹친다 — 우물 위쪽 빈 줄에 띄운다 */
     ctx.globalAlpha=Math.min(1, 1.6-S.wow.t);
-    drawK(ctx, '우물 점등', well.x+112, well.y+34, 16, PAL.steel);
+    drawK(ctx, '우물 점등', well.x+well.w-92, well.y+44, 15, PAL.steel);
     ctx.globalAlpha=1;
+  }
+
+  drawCoach();
+  drawRipples();
+
+  /* 왜 맞았는지를 정답 순간에 판 위에 띄운다 (§1-d) — 이유 없는 정답은 우연으로 읽힌다 */
+  if (S.whyT>0 && S.whyMsg){
+    const fw=`800 13px ui-monospace,"SF Mono",Menlo,"Apple SD Gothic Neo",sans-serif`;
+    if (fw!==_font){ ctx.font=fw; _font=fw; }
+    const tw=Math.min(well.w-16, ctx.measureText(S.whyMsg).width+18);
+    const bx=well.x+(well.w-tw)/2, by=Math.max(well.y+70, S.cellRects.length? S.cellRects[0].py-34 : well.y+70);
+    ctx.save();
+    ctx.globalAlpha=Math.min(1, S.whyT*2);
+    ctx.fillStyle=PAL.cream; ctx.fillRect(bx, by, tw, 26);
+    ctx.strokeStyle=PAL.steel; ctx.lineWidth=2; ctx.strokeRect(bx, by, tw, 26);
+    ctx.fillStyle=PAL.ink; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(S.whyMsg, bx+tw/2, by+13);
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.restore();
   }
   if (sh) ctx.translate(-sh, 0);
 }
@@ -1642,27 +1894,48 @@ function tick(now){
   if (S.punch>0) S.punch=Math.max(0,S.punch-dt*5);
   if (S.missFlash>0) S.missFlash=Math.max(0,S.missFlash-dt*2.2);
   if (S.ghostT>0) S.ghostT=Math.max(0,S.ghostT-dt);
+  if (S.padShake>0) S.padShake=Math.max(0,S.padShake-dt*3.4);
+  if (S.isoBlinkT>0) S.isoBlinkT=Math.max(0,S.isoBlinkT-raw);
+  if (S.whyT>0) S.whyT=Math.max(0,S.whyT-dt);
+  for (let i=S.ripples.length-1;i>=0;i--){
+    const r=S.ripples[i]; r.t+=raw;
+    if (r.t>0.55) S.ripples.splice(i,1);
+  }
+  if (S.phase==='playing' && S.tut===0) S.idle+=dt; else S.idle=0;
+  if (S.tut===2){
+    /* 두 번째 카드는 3초 뒤 스스로 닫힌다 — 그때부터 다시 시간이 흐른다 */
+    S.tutT+=raw;
+    if (S.tutT>3.0) endTutorial();
+  } else if (S.tut===1){
+    /* 45초 안전핀: 아무 조작도 없으면 스스로 닫히고 판이 시작된다(영구 정지 방지) */
+    S.tutT+=raw;
+    if (S.tutT>45) endTutorial();
+  }
   if (S.failT>0){
     S.failT-=dt;
     if (S.failT<=0) $('#failLine').classList.remove('show');
   }
   if (S.wow) S.wow.t+=dt;
 
+  /* 온보딩 중에는 세계가 멈춘다 — 안내를 읽는 동안 타이머가 흐르면 벌이지 안내가 아니다 (§1-b).
+   * 스캔 막대는 층까지 올라와 멈춰 서서 「여기가 지금 층」임을 보여 준다. */
   if (S.phase==='playing' && S.solid){
-    S.time -= dt;
+    if (S.tut===0) S.time -= dt;
     if (S.time<=0){ S.time=0; endRun('time'); }
     else {
       if (S.scanPhase==='approach'){
         S.scanT+=dt;
         if (S.scanT>=0.38){ S.scanPhase='dwell'; S.scanT=0; }
       } else if (S.scanPhase==='dwell'){
-        S.scanT+=dt;
+        if (S.tut===0) S.scanT+=dt;
         if (S.scanT>=S.dwell){
           lockFloor(false, false);
         }
       } else if (S.scanPhase==='feedback'){
         S.scanT+=dt;
-        if (S.scanT>= (S.flash>0?0.55:0.9)) afterFeedback();
+        /* 오답이면 고쳐진 정답 격자를 충분히 보여 준 뒤 넘어간다 (§1-d) */
+        const dur = S.flash>0 ? 0.55 : (S.wrongGrid ? 1.9 : 0.9);
+        if (S.scanT>=dur) afterFeedback();
       }
     }
   }
