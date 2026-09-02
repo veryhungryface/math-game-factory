@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta property="og:title" content="층수켜기">
-<meta property="og:description" content="쌓기나무가 있는 칸을 켜요">
+<meta property="og:title" content="층수 켜기">
+<meta property="og:description" content="그림과 똑같이 쌓기나무를 쌓아요">
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
-<title>층수켜기 — 쌓기나무 칸을 켜요</title>
+<title>층수 켜기 — 그림과 똑같이 쌓아요</title>
 <style>
 @font-face{
   font-family:"LogoBlackHan";
@@ -17,184 +17,165 @@
 :root{
   --stageW:min(100vw,1280px);
   --stageX:calc((100vw - var(--stageW)) / 2);
-  --lcd:#C8D4A4;--ink:#2C3324;--miss:#E25B4A;--steel:#5B7F8A;--cream:#F4F0D8;--ghost:#9AA87A;
+  --lcd:#C8D4A4;--ink:#2C3324;--miss:#E25B4A;--steel:#3F6C79;--cream:#F4F0D8;--ghost:#9AA87A;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--lcd);color:var(--ink);
-  font-family:ui-monospace,"SF Mono",Menlo,"Courier New","Apple SD Gothic Neo","Malgun Gothic",monospace;
+  font-family:"Apple SD Gothic Neo","Malgun Gothic",ui-monospace,"SF Mono",Menlo,sans-serif;
   touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 button{font:inherit;color:inherit;cursor:pointer;border-radius:0}
-button:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+button:focus-visible{outline:3px solid var(--steel);outline-offset:2px}
 #game{position:fixed;inset:0;overflow:hidden;background:var(--lcd)}
-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
+/* #cv 로 한정한다 — 전역 canvas 선택자는 도움말·타이틀의 미리보기 캔버스까지
+   absolute·inset:0 으로 만들어 화면 밖으로 날려 버린다 */
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
 #chrome{position:absolute;z-index:5;inset:0;pointer-events:none}
+#mute.off,#titleMute.off{text-decoration:line-through;opacity:.55}
 #mute{
   pointer-events:auto;position:absolute;right:10px;top:max(8px,env(safe-area-inset-top));
-  width:48px;height:48px;border:2px solid var(--ink);background:var(--ink);color:var(--lcd);
-  font-size:18px;letter-spacing:.04em
+  width:46px;height:46px;border:2px solid var(--ink);background:var(--ink);color:var(--lcd);
+  font-size:18px
 }
-#undo{
-  pointer-events:auto;position:absolute;left:10px;bottom:max(12px,env(safe-area-inset-bottom));
-  min-width:120px;height:48px;border:2px solid var(--ink);background:var(--cream);color:var(--ink);
-  font-weight:800;font-size:14px;letter-spacing:.06em;display:none
-}
-#undo.show{display:block}
-#undo:active{transform:translateY(1px)}
+/* 발문은 한 줄. 예전엔 발문 + 목표줄 + 좌표규약줄 + 코치카드가 화면 위 3분의 1을 먹었다. */
 #prompt{
   position:absolute;left:10px;right:62px;top:max(8px,env(safe-area-inset-top));
-  min-height:52px;padding:7px 10px 6px;border:2px solid var(--ink);background:var(--lcd);
-  font-weight:800;font-size:clamp(14px,3.9vw,19px);line-height:1.25;letter-spacing:.02em;
-  pointer-events:none
+  padding:8px 10px;border:3px solid var(--ink);background:var(--cream);
+  font-weight:800;font-size:clamp(14px,3.9vw,18px);line-height:1.3;letter-spacing:-.01em;
+  word-break:keep-all;pointer-events:none
 }
-#prompt b{font-size:1.15em}
-/* 상시 목표 문장 (docs/onboarding-spec.md §1-c) — 온보딩이 닫힌 뒤에도 남는다.
- * 팝업으로 스쳐 보내면 학생은 이미 잊었다. */
-#pgoal{
-  display:block;margin-top:4px;padding:3px 5px;border:2px solid var(--steel);
-  font-size:clamp(11.5px,3.1vw,14px);line-height:1.25;letter-spacing:0;color:var(--ink);background:var(--cream)
-}
-#pgoal b{font-size:1em;color:var(--miss)}
-/* 좌표 규약은 발문 길이와 무관하게 항상 보이는 별도 줄로 고정한다 (잘림 방지) */
-#pconv{
-  display:block;margin-top:4px;padding-top:4px;border-top:2px dotted var(--ghost);
-  font-size:clamp(10.5px,2.9vw,13px);line-height:1.2;letter-spacing:0;color:var(--steel)
-}
+#pmain b{color:var(--miss)}
+/* 온보딩은 화면을 덮지 않는다 — 발문 상자 아래에 붙고, 조작할 판을 절대 가리지 않는다. */
+#onboard{display:none;margin-top:7px;padding:7px 8px 8px;background:var(--lcd);
+  border:3px solid var(--steel);color:var(--ink);pointer-events:auto}
+#onboard.show{display:block}
+#onboard p{font-weight:800;line-height:1.35;font-size:13.5px;word-break:keep-all;margin:0}
+#onboard .ob-skip{margin-top:7px;width:100%;min-height:44px;border:2px solid var(--ghost);background:transparent;
+  color:var(--ink);font-weight:800;font-size:12.5px}
 #failLine{
-  position:absolute;left:10px;right:10px;bottom:max(66px,calc(env(safe-area-inset-bottom) + 54px));
-  min-height:0;padding:0 8px;color:var(--miss);font-weight:800;font-size:14px;letter-spacing:.02em;
-  text-align:center;pointer-events:none;opacity:0
-}
-#failLine.show{opacity:1}
+  position:absolute;left:10px;right:10px;bottom:max(78px,calc(env(safe-area-inset-bottom) + 74px));
+  padding:6px 8px;color:var(--cream);background:var(--miss);font-weight:800;font-size:13.5px;
+  line-height:1.3;word-break:keep-all;text-align:center;pointer-events:none;display:none}
+#failLine.show{display:block}
+#failLine.good{background:var(--steel)}
+
+#actions{position:absolute;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));
+  display:flex;gap:8px;pointer-events:none}
+#undo{flex:0 0 32%;height:56px;border:3px solid var(--ink);background:var(--lcd);color:var(--ink);
+  font-weight:800;font-size:15px;pointer-events:auto;visibility:hidden}
+#undo.show{visibility:visible}
+#confirm{flex:1 1 auto;height:56px;border:3px solid var(--ink);background:var(--ink);color:var(--cream);
+  font-weight:800;font-size:19px;letter-spacing:.06em;pointer-events:auto}
+#confirm:active{transform:translateY(2px)}
+#confirm[disabled]{opacity:.45}
+#confirm.pulse{animation:cta 1.4s ease-in-out infinite}
 
 #title{position:fixed;z-index:20;inset:0;overflow:hidden;background:#1a1e14}
-.title-art{position:absolute;inset:-4%;width:108%;height:108%;object-fit:cover;object-position:center 72%;
-  animation:ken 20s ease-in-out infinite alternate}
-.title-fallback{position:absolute;inset:0;display:none;background:linear-gradient(180deg,#2C3324,#C8D4A4 40%,#9AA87A)}
-.title-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(44,51,36,.55) 0%,transparent 34%,rgba(44,51,36,.28) 100%);
+.title-art{position:absolute;z-index:1;inset:-4%;width:108%;height:108%;object-fit:cover;object-position:center 72%;
+  opacity:.3;filter:saturate(.6);animation:ken 20s ease-in-out infinite alternate}
+.title-fallback{position:absolute;z-index:0;inset:0;display:block;background:linear-gradient(180deg,#2C3324,#C8D4A4 40%,#9AA87A)}
+.title-shade{position:absolute;z-index:2;inset:0;background:linear-gradient(180deg,rgba(44,51,36,.78) 0%,rgba(44,51,36,.5) 40%,rgba(44,51,36,.8) 100%);
   pointer-events:none}
-.title-scan{position:absolute;left:8%;right:8%;height:3px;background:var(--steel);opacity:.55;animation:scanY 7s linear infinite;pointer-events:none}
-.title-bits{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.title-bits i{position:absolute;width:8px;height:8px;background:#2C3324;opacity:.22;animation:bit 6s steps(4) infinite}
 .title-ui{position:relative;z-index:3;width:min(100vw,640px);height:100%;margin-inline:auto;
   padding-inline:clamp(16px,5vw,32px);pointer-events:none}
-.logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
-  display:grid;place-content:start center;text-align:center;pointer-events:auto}
-.game-logo{margin:0;display:flex;justify-content:center;gap:.02em;
+.logo-zone{position:absolute;top:max(34px,4.5dvh);left:16px;right:16px;
+  display:block;text-align:center;pointer-events:auto}
+.game-logo{margin:0;padding-top:.14em;display:flex;justify-content:center;gap:.02em;
   font-family:"LogoBlackHan","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-weight:400;
-  font-size:clamp(52px,16vw,84px);line-height:.9;color:var(--cream);
-  -webkit-text-stroke:4px var(--ink);paint-order:stroke fill;letter-spacing:-.06em}
-/* 붙여 쓴 조어는 저학년이 즉시 못 읽는다 — 「층수」와 「켜기」 사이를 띄운다
-   (docs/onboarding-spec.md §1-f) */
-.game-logo span{display:inline-block;animation:lcdOn .55s steps(2) both}
-.game-logo span:nth-child(3){margin-left:.22em}
-.game-logo span:nth-child(1){transform:translateY(0);animation-delay:0s}
-.game-logo span:nth-child(2){transform:translateY(.16em);animation-delay:.07s}
-.game-logo span:nth-child(3){transform:translateY(.32em);animation-delay:.14s}
-.game-logo span:nth-child(4){transform:translateY(.48em);animation-delay:.21s}
-.game-sub{margin-top:58px;font-family:"LogoBlackHan","Apple SD Gothic Neo",sans-serif;font-size:clamp(16px,4.4vw,22px);
-  color:var(--ink);background:var(--lcd);border:2px solid var(--ink);padding:6px 12px;letter-spacing:.12em}
-.cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);
+  font-size:clamp(46px,14vw,72px);line-height:.95;color:var(--cream);
+  -webkit-text-stroke:4px var(--ink);paint-order:stroke fill;letter-spacing:-.05em}
+.game-logo span:nth-child(3){margin-left:.24em}
+.game-sub{margin-top:12px;display:inline-block;font-family:"LogoBlackHan","Apple SD Gothic Neo",sans-serif;font-size:clamp(15px,4.2vw,20px);
+  color:var(--ink);background:var(--lcd);border:3px solid var(--ink);padding:5px 12px}
+/* 타이틀에서 「무엇을 하는 게임인지」를 글이 아니라 그림으로 미리 보여 준다 */
+.title-demo{position:absolute;z-index:3;left:50%;transform:translateX(-50%);
+  top:clamp(210px,31dvh,300px);display:block;width:min(86%,336px);height:auto;
+  border:3px solid var(--ink);background:var(--lcd);pointer-events:none}
+.demo-cap{position:absolute;z-index:3;left:0;right:0;top:calc(clamp(210px,31dvh,300px) + min(86vw,336px) * 0.338 + 8px);
+  text-align:center;color:var(--cream);font-weight:800;font-size:13.5px;pointer-events:none}
+.cta-zone{position:absolute;left:50%;bottom:max(16px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);
   transform:translateX(-50%);display:grid;justify-items:center;gap:8px;pointer-events:auto}
 .meta-row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
-.bezel-tag{border:2px solid var(--cream);color:var(--cream);background:transparent;padding:4px 8px;font-size:11px;font-weight:800;letter-spacing:.08em}
-#best{min-height:28px;color:var(--cream);font-size:12px;font-weight:800;letter-spacing:.08em}
+.bezel-tag{border:2px solid var(--cream);color:var(--cream);background:transparent;padding:4px 8px;font-size:11px;font-weight:800}
+#best{min-height:24px;color:var(--cream);font-size:12px;font-weight:800}
 #start{
-  width:min(100%,420px);height:68px;border:2px solid var(--cream);background:var(--ink);color:var(--lcd);
-  font-size:22px;font-weight:800;letter-spacing:.18em;animation:ctaPulse 1.6s steps(2) infinite
+  width:min(100%,420px);height:66px;border:3px solid var(--cream);background:var(--ink);color:var(--lcd);
+  font-size:21px;font-weight:800;letter-spacing:.1em;animation:cta 1.7s ease-in-out infinite
 }
 #start:active{transform:scale(.97) translateY(1px);animation:none}
-#how,#hard{min-height:44px;border:0;background:transparent;color:var(--cream);text-decoration:underline;
-  text-underline-offset:3px;font-weight:800;font-size:14px;letter-spacing:.06em}
+#how,#hard{min-height:44px;padding:0 10px;border:0;background:transparent;color:var(--cream);text-decoration:underline;
+  text-underline-offset:3px;font-weight:800;font-size:14px}
 #titleMute{position:absolute;z-index:4;right:12px;top:max(10px,env(safe-area-inset-top));
-  width:48px;height:48px;border:2px solid var(--cream);background:var(--ink);color:var(--lcd);font-size:16px}
+  width:46px;height:46px;border:2px solid var(--cream);background:var(--ink);color:var(--lcd);font-size:16px}
 
-#help,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(44,51,36,.72)}
+#help,#result{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(44,51,36,.78)}
 #help.show,#result.show{display:grid}
-/* 온보딩은 화면을 덮지 않는다 — 덮으면 「팝업 3장」이 되고 학생은 판을 못 본다.
- * 발문 상자 안에 붙는 코치 줄이라 캔버스 상단이 그만큼 아래로 내려가고,
- * 조작해야 할 네모 판을 절대 가리지 않는다 (docs/onboarding-spec.md §1-a,b,g). */
-#onboard{display:none;margin-top:5px;padding:7px 8px 8px;background:var(--cream);
-  border:3px solid var(--ink);color:var(--ink);pointer-events:auto}
-#onboard.show{display:block}
-#onboard .step{font-size:11px;letter-spacing:.14em;color:var(--steel);font-weight:800}
-#onboard h2{margin:4px 0 3px;font-size:15px;letter-spacing:.02em;line-height:1.2}
-#onboard p{font-weight:800;line-height:1.35;font-size:12.5px;word-break:keep-all;margin:0}
-#onboard .ob-skip{margin-top:6px;width:100%;min-height:34px;border:2px solid var(--ghost);background:transparent;
-  color:var(--steel);font-weight:800;font-size:12px;letter-spacing:.06em}
-.lcd-panel{width:min(88vw,480px);padding:22px 18px 18px;background:var(--lcd);border:2px solid var(--ink);color:var(--ink)}
-.lcd-panel h2{margin:0 0 12px;font-size:22px;letter-spacing:.12em}
-.lcd-panel p{font-weight:800;line-height:1.45;margin:0 0 10px;font-size:15px}
-.lcd-panel .step{font-size:12px;letter-spacing:.16em;margin-bottom:8px}
-.lcd-panel button{width:100%;height:56px;border:2px solid var(--ink);background:var(--ink);color:var(--lcd);
-  font-weight:800;font-size:18px;letter-spacing:.12em;margin-top:8px}
-.lcd-panel button:active{transform:translateY(1px)}
-.result-score{font-size:56px;font-weight:800;letter-spacing:.08em;text-align:center;margin:8px 0 4px}
-.result-sub{text-align:center;font-weight:800;margin-bottom:12px}
+.lcd-panel{width:min(90vw,470px);max-height:88dvh;overflow:auto;padding:20px 16px 16px;background:var(--lcd);border:3px solid var(--ink);color:var(--ink)}
+.lcd-panel h2{margin:0 0 10px;font-size:21px}
+.lcd-panel p{font-weight:800;line-height:1.45;margin:0 0 9px;font-size:14.5px;word-break:keep-all}
+.lcd-panel .step{font-size:12px;letter-spacing:.1em;margin-bottom:6px;color:var(--steel);font-weight:800}
+.lcd-panel button{width:100%;height:54px;border:3px solid var(--ink);background:var(--ink);color:var(--lcd);
+  font-weight:800;font-size:18px;margin-top:8px}
+.lcd-panel canvas{display:block;width:100%;height:auto;border:2px solid var(--ink);background:var(--lcd);margin:0 0 10px}
+.result-score{font-size:50px;font-weight:800;text-align:center;margin:6px 0 2px}
+.result-sub{text-align:center;font-weight:800;margin-bottom:10px;line-height:1.45}
 
 html.ingame #title,#title.gone{display:none!important;visibility:hidden!important;pointer-events:none!important}
-html.land #prompt{left:calc(var(--stageX) + 12px);right:auto;width:calc(var(--stageW) * .56);top:max(10px,env(safe-area-inset-top))}
-html.land #mute{right:auto;left:calc(var(--stageX) + var(--stageW) - 58px)}
-html.land #undo{left:calc(var(--stageX) + var(--stageW) * .58);bottom:max(16px,env(safe-area-inset-bottom))}
-html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(100% - var(--stageX) - var(--stageW) + 10px);bottom:max(72px,calc(env(safe-area-inset-bottom) + 60px))}
+html.land #prompt{left:calc(var(--stageX) + 12px);right:auto;width:calc(var(--stageW) * .54);top:max(10px,env(safe-area-inset-top))}
+html.land #mute{right:auto;left:calc(var(--stageX) + var(--stageW) - 56px)}
+html.land #actions{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(100% - var(--stageX) - var(--stageW) + 12px)}
+html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(100% - var(--stageX) - var(--stageW) + 12px)}
 
 @keyframes ken{to{transform:scale(1.06) translateY(-1.2%)}}
-@keyframes scanY{from{top:12%}to{top:86%}}
-@keyframes bit{50%{opacity:.05;transform:translateY(6px)}}
-@keyframes lcdOn{0%{opacity:.12}45%{opacity:1}60%{opacity:.4}100%{opacity:1}}
-@keyframes ctaPulse{50%{transform:scale(1.03);background:#3a4330}}
-@media (min-width:641px){
-  .logo-zone{left:24px;right:24px}
-  .cta-zone{width:min(calc(100% - 48px),520px)}
-  .game-logo{font-size:84px}
-}
-@media (max-height:700px){
-  .logo-zone{top:max(38px,5dvh);min-height:150px}
-  .game-logo{font-size:clamp(44px,14vw,64px)}
-  .game-sub{margin-top:42px}
+@keyframes cta{50%{transform:scale(1.03)}}
+@media (max-height:720px){
+  .logo-zone{top:max(20px,2.5dvh)}
+  .game-logo{font-size:clamp(40px,12vw,56px)}
+  .title-demo{top:clamp(150px,25dvh,220px);width:min(76%,290px)}
+  .demo-cap{top:calc(clamp(150px,25dvh,220px) + min(76vw,290px) * 0.338 + 6px)}
 }
 @media (prefers-reduced-motion:reduce){
   .title-art{animation-duration:60s}
-  .game-logo span{animation-duration:.2s}
-  #start{animation-duration:4s}
-  .title-scan{animation:none;top:42%}
+  #start,#confirm.pulse{animation:none}
 }
 </style>
 </head>
 <body>
 <div id="game">
-  <canvas id="cv" aria-label="층수켜기 우물 스캐너"></canvas>
+  <canvas id="cv" aria-label="층수 켜기 놀이판"></canvas>
   <div id="chrome">
-    <div id="prompt"><span id="pmain">아래 네모 판에서 쌓기나무가 있는 칸을 탭해 켜요.</span><span id="pgoal">아래 <b>네모 판</b>의 칸을 탭하면 켜져요 — 이번 층에 쌓기나무가 있는 칸만 켜요</span><span id="pconv">위에서 본 모양은 위쪽이 앞쪽 · 오른쪽에서 본 모양은 앞쪽이 왼쪽</span>
+    <div id="prompt"><span id="pmain">왼쪽 〈만들 모양〉과 똑같아지게 아래 칸을 탭해 쌓기나무를 놓으세요.</span>
       <div id="onboard">
-        <div class="step" id="obStep">해 보기 1 / 2</div>
-        <h2 id="obTitle">네모 판의 칸을 탭해 보세요</h2>
-        <p id="obBody">손가락이 가리키는 네모 판에서 칸을 한 번 탭하면 그 칸이 켜져요. 지금은 시간이 멈춰 있어요.</p>
+        <p id="obBody">아래 네모 칸을 한 번 탭해 보세요.</p>
         <button class="ob-skip" id="obSkip">안내 닫기</button>
       </div></div>
     <button id="mute" aria-label="소리 끄기">♪</button>
-    <button id="undo" aria-label="이 층 되돌리기">되돌리기</button>
     <div id="failLine"></div>
+    <div id="actions">
+      <button id="undo" aria-label="이 층 처음으로 되돌리기">이 층 지우기</button>
+      <button id="confirm">확인</button>
+    </div>
   </div>
 </div>
 
-<section id="title" aria-label="층수켜기 타이틀 화면">
+<section id="title" aria-label="층수 켜기 타이틀 화면">
   <img class="title-art" src="./assets/title.png" alt=""
     onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
   <div class="title-fallback"></div>
   <div class="title-shade"></div>
-  <div class="title-scan"></div>
-  <div class="title-bits" id="titleBits"></div>
   <button id="titleMute" aria-label="소리 끄기">♪</button>
   <div class="title-ui">
     <div class="logo-zone">
-      <h1 class="game-logo" aria-label="층수켜기">
+      <h1 class="game-logo" aria-label="층수 켜기">
         <span aria-hidden="true">층</span>
         <span aria-hidden="true">수</span>
         <span aria-hidden="true">켜</span>
         <span aria-hidden="true">기</span>
       </h1>
-      <div class="game-sub">쌓기나무 칸을 켜요</div>
+      <div class="game-sub">그림과 똑같이 쌓아요</div>
     </div>
+    <canvas class="title-demo" id="tdemo" width="680" height="230"
+      aria-label="왼쪽 만들 모양 그림을 보고 오른쪽 칸을 켜서 똑같이 쌓는 게임"></canvas>
+    <div class="demo-cap">그림을 보고 칸을 탭해 똑같이 쌓아요</div>
     <div class="cta-zone">
       <div class="meta-row">
         <span class="bezel-tag">6학년 2학기</span>
@@ -204,7 +185,7 @@ html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(10
       <button id="start">시작하기</button>
       <div class="meta-row">
         <button id="how">어떻게 놀아요?</button>
-        <button id="hard">어려움</button>
+        <button id="hard">도전 모드(시간 제한)</button>
       </div>
     </div>
   </div>
@@ -213,21 +194,24 @@ html.land #failLine{left:calc(var(--stageX) + var(--stageW) * .58);right:calc(10
 <div id="help">
   <div class="lcd-panel">
     <div class="step">안내</div>
-    <h2>칸을 켜는 법</h2>
-    <p>1. 아래 네모 판의 칸을 탭하면 켜져요. 위 그림에서 지금 층에 쌓기나무가 있는 칸만 켜요.</p>
-    <p>2. 앞 칸에 가려져 안 보이는 칸도 그 층에 있으면 켜야 해요. 아래층이 꺼져 있으면 위층 칸은 안 켜져요.</p>
-    <p>3. 「잠금까지」 막대가 다 차면 그 층이 그대로 잠겨요. 틀리면 켰어야 하는 칸이 점선으로, 껐어야 하는 칸이 ✕로 나와요.</p>
-    <p>4. 위에서 본 모양은 위쪽이 앞쪽, 오른쪽에서 본 모양은 앞쪽이 왼쪽이에요. 세 층을 틀리면 우물이 닫혀요.</p>
+    <h2>어떻게 놀아요?</h2>
+    <canvas id="hdemo" width="680" height="230" aria-label="만들 모양과 내 모양을 똑같이 만드는 그림"></canvas>
+    <p>1. 왼쪽 <b>〈만들 모양〉</b>은 만들어야 할 쌓기나무예요.</p>
+    <p>2. 아래 네모 칸을 탭하면 그 자리에 쌓기나무가 놓여요. 오른쪽 <b>〈내 모양〉</b>에 바로 나타나요.</p>
+    <p>3. 두 그림이 똑같아지면 <b>〈확인〉</b>을 눌러요.</p>
+    <p>4. 1층을 끝내면 2층으로 올라가요. 위층은 아래층에 쌓기나무가 있는 자리에만 놓을 수 있어요.</p>
+    <p>5. 판의 <b>아래쪽이 앞쪽</b>이에요. 그림에서 앞에 있는 쌓기나무가 판에서도 아래쪽이에요.</p>
+    <p>6. 기본은 시간 제한이 없어요. 천천히 생각해도 돼요.</p>
     <button id="closeHelp">해볼게요</button>
   </div>
 </div>
 <div id="result">
   <div class="lcd-panel">
-    <div class="step" id="resKicker">스캔 종료</div>
-    <h2 id="resTitle">우물이 닫혔어요</h2>
+    <div class="step" id="resKicker">끝</div>
+    <h2 id="resTitle">다 쌓았어요</h2>
     <div class="result-score" id="resScore">0</div>
     <div class="result-sub" id="resSub"></div>
-    <button id="again">다시 켜기</button>
+    <button id="again">다시 하기</button>
   </div>
 </div>
 
@@ -475,55 +459,6 @@ function paintDiff(start, need){
   return { on, off };
 }
 
-function makeDeck(hard, rng){
-  const deck=[];
-  function add(H, meta){
-    if (!H) return;
-    deck.push(wrapSolid(H, meta));
-  }
-  const p2h = POOL2H.length?POOL2H:POOL2;
-  add(cloneH(pick(p2h, rng)), { well:0, kind:'construct', unitConcept:'쌓기나무의 개수 세기', promptKind:'iso' });
-  {
-    const src = POOL2H.length?POOL2H:POOL2;
-    const cands = src.filter(H => pickErrorStart(H,'hidden-omit'));
-    if (cands.length){
-      const H=cloneH(pick(cands, rng));
-      const err=pickErrorStart(H,'hidden-omit');
-      add(H, { well:0, kind:'error-find', errorY:err.errorY, errorKind:'hidden-omit',
-        startPaint:err.startPaint, unitConcept:'쌓기나무의 개수 세기', promptKind:'iso', misconceptionId:'hidden-omit' });
-    }
-  }
-  add(cloneH(pick(POOL3H.length?POOL3H:POOL3, rng)), { well:1, kind:'construct', unitConcept:'위, 앞, 옆에서 본 모양', promptKind:'sil' });
-  {
-    const cands=POOL3.filter(H => pickErrorStart(H,'side-flip'));
-    if (cands.length){
-      const H=cloneH(pick(cands, rng));
-      const err=pickErrorStart(H,'side-flip');
-      add(H, { well:1, kind:'error-find', errorY:err.errorY, errorKind:'side-flip',
-        startPaint:err.startPaint, unitConcept:'옆에서 본 모양', promptKind:'sil', misconceptionId:'side-flip' });
-    }
-  }
-  add(cloneH(pick(POOL3_3.length?POOL3_3:POOL3, rng)), { well:2, kind:'topnum', unitConcept:'위에서 본 모양에 수 써서 나타내기', promptKind:'top' });
-  {
-    const src=POOL3_3.length?POOL3_3:POOL3;
-    const cands=src.filter(H => makeErrorStart(H,2,'layer-union'));
-    if (cands.length){
-      const H=cloneH(pick(cands, rng));
-      add(H, { well:3, kind:'layers', unitConcept:'층별로 나타낸 모양', promptKind:'cards',
-        errorY:2, errorKind:'layer-union', misconceptionId:'layer-union' });
-    } else {
-      add(cloneH(pick(src, rng)), { well:3, kind:'layers', unitConcept:'층별로 나타낸 모양', promptKind:'cards' });
-    }
-  }
-  if (MINMAX.length){
-    const mm=pick(MINMAX, rng);
-    add(cloneH(mm.minH), { well:3, kind:'min', unitConcept:'쌓기나무 개수의 최소와 최대', promptKind:'minmax',
-      minSum:mm.minSum, maxSum:mm.maxSum, F:mm.F.slice(), R:mm.R.slice(), T:mm.T.map(r=>r.slice()), misconceptionId:'unique-stack' });
-    add(cloneH(mm.maxH), { well:3, kind:'max', unitConcept:'쌓기나무 개수의 최소와 최대', promptKind:'minmax',
-      minSum:mm.minSum, maxSum:mm.maxSum, F:mm.F.slice(), R:mm.R.slice(), T:mm.T.map(r=>r.slice()), misconceptionId:'unique-stack' });
-  }
-  return deck;
-}
 
 function choiceKind(v){
   v=String(v);
@@ -674,6 +609,97 @@ function sampleProblems(n){
   return out;
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════
+ * 첫 5분 재설계 (2026-09-02)
+ *  - 기본 모드는 시간 제한 없음. 스캔 타이머는 「도전 모드」로 분리했다.
+ *  - 자극을 「만들 모양」/「내 모양」 두 그림으로 나눴다. 목표가 글이 아니라
+ *    그림 두 장으로 보인다 — 똑같이 만들면 된다.
+ *  - 쌓기나무를 진짜 입체(윗면·앞면·옆면 3면)로 그린다. 예전 LCD 세그먼트
+ *    사각형은 성인도 「쌓기나무」로 못 읽었다.
+ *  - 판의 아래쪽이 앞쪽이다. 그림의 앞줄이 판의 아래줄과 같은 자리에 온다.
+ *  - 문제 순서를 1층 2×2 → 2층 → 3×3 → 층별/최소·최대 로 램프업.
+ * ══════════════════════════════════════════════════════════════════════ */
+
+PAL.dim   = '#B7C392';
+PAL.top   = '#F6F2DC';   /* 쌓기나무 윗면 */
+PAL.front = '#AFBE87';   /* 앞면 */
+PAL.side  = '#6C7B4C';   /* 오른쪽 옆면 */
+PAL.slot  = '#8E9C6C';   /* 아래층이 비어서 못 쌓는 칸 */
+
+/* ── 워밍업용 1층 2×2 모양 (결정론적 첫 판) ── */
+const WARM = [
+  [[1,1],[0,1]],
+  [[1,0],[1,1]],
+  [[0,1],[1,1]],
+  [[1,1],[1,0]]
+];
+
+function makeDeck(hard, rng){
+  const deck=[];
+  function add(H, meta){ if (H) deck.push(wrapSolid(H, meta)); }
+
+  /* 1~2. 1층 2×2 — 「그림 그대로 켜기」. 층 개념도, 가려진 칸도 없다. */
+  const w0=(rng()*WARM.length)|0;
+  add(cloneH(WARM[w0]), { view:'iso', kind:'warm', unitConcept:'위에서 본 모양', stage:'1층 2×2' });
+  add(cloneH(WARM[(w0+1+((rng()*3)|0))%WARM.length]), { view:'iso', kind:'warm', unitConcept:'위에서 본 모양', stage:'1층 2×2' });
+
+  /* 3. 2층 2×2 — 층이 생긴다 */
+  const p2=POOL2.length?POOL2:[[[2,1],[1,0]]];
+  add(cloneH(pick(p2, rng)), { view:'isoTop', kind:'construct', unitConcept:'쌓기나무의 개수 세기' });
+
+  /* 4. 2층 2×2 · 가려진 칸 있음 */
+  add(cloneH(pick(POOL2H.length?POOL2H:p2, rng)), { view:'isoTop', kind:'construct', unitConcept:'쌓기나무의 개수 세기' });
+
+  /* 5. 3×3 */
+  add(cloneH(pick(POOL3H.length?POOL3H:POOL3, rng)), { view:'isoTop', kind:'construct', unitConcept:'위, 앞, 옆에서 본 모양' });
+
+  /* 6. 3×3 3층 — 위에서 본 모양에 수 쓰기 */
+  add(cloneH(pick(POOL3_3.length?POOL3_3:POOL3, rng)), { view:'isoTop', kind:'topnum', unitConcept:'위에서 본 모양에 수 써서 나타내기' });
+
+  /* 7. 오개념: 가려진 칸을 빠뜨림 */
+  {
+    const src=POOL2H.length?POOL2H:POOL2;
+    const cands=src.filter(H => pickErrorStart(H,'hidden-omit'));
+    if (cands.length){
+      const H=cloneH(pick(cands, rng));
+      const err=pickErrorStart(H,'hidden-omit');
+      add(H, { view:'isoTop', kind:'error-find', errorY:err.errorY, errorKind:'hidden-omit',
+        startPaint:err.startPaint, unitConcept:'쌓기나무의 개수 세기', misconceptionId:'hidden-omit' });
+    }
+  }
+  /* 8. 오개념: 옆모양 좌우 뒤집기 */
+  {
+    const cands=POOL3.filter(H => pickErrorStart(H,'side-flip'));
+    if (cands.length){
+      const H=cloneH(pick(cands, rng));
+      const err=pickErrorStart(H,'side-flip');
+      add(H, { view:'isoTop', kind:'error-find', errorY:err.errorY, errorKind:'side-flip',
+        startPaint:err.startPaint, unitConcept:'옆에서 본 모양', misconceptionId:'side-flip' });
+    }
+  }
+  /* 9. 층별로 나타낸 모양 (오개념: 층을 겹쳐 켬) */
+  {
+    const src=POOL3_3.length?POOL3_3:POOL3;
+    const cands=src.filter(H => makeErrorStart(H,2,'layer-union'));
+    if (cands.length){
+      add(cloneH(pick(cands, rng)), { view:'cards', kind:'layers', unitConcept:'층별로 나타낸 모양',
+        errorY:2, errorKind:'layer-union', misconceptionId:'layer-union' });
+    } else {
+      add(cloneH(pick(src, rng)), { view:'cards', kind:'layers', unitConcept:'층별로 나타낸 모양' });
+    }
+  }
+  /* 10~11. 최소·최대 */
+  if (MINMAX.length){
+    const mm=pick(MINMAX, rng);
+    add(cloneH(mm.minH), { view:'views', kind:'min', unitConcept:'쌓기나무 개수의 최소와 최대',
+      minSum:mm.minSum, maxSum:mm.maxSum, F:mm.F.slice(), R:mm.R.slice(), T:mm.T.map(r=>r.slice()), misconceptionId:'unique-stack' });
+    add(cloneH(mm.maxH), { view:'views', kind:'max', unitConcept:'쌓기나무 개수의 최소와 최대',
+      minSum:mm.minSum, maxSum:mm.maxSum, F:mm.F.slice(), R:mm.R.slice(), T:mm.T.map(r=>r.slice()), misconceptionId:'unique-stack' });
+  }
+  return deck;
+}
+
 /* ── audio ── */
 let AC=null, muted=localStorage.getItem(LS_MUTE)==='1';
 function unlockAudio(){
@@ -695,8 +721,9 @@ function beep(freq, dur, type, vol){
   }catch(e){}
 }
 function syncMute(){
-  const t=muted?'×':'♪';
-  $('#mute').textContent=t; $('#titleMute').textContent=t;
+  /* 「×」로 바꾸면 닫기 버튼으로 읽힌다 — 음표는 그대로 두고 취소선만 긋는다 */
+  $('#mute').textContent='♪'; $('#titleMute').textContent='♪';
+  $('#mute').classList.toggle('off', muted); $('#titleMute').classList.toggle('off', muted);
   $('#mute').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
 }
 function toggleMute(){
@@ -705,137 +732,26 @@ function toggleMute(){
   syncMute(); if (!muted) beep(880,.06,'square',.04);
 }
 
-/* ── images ── */
-const IM={ brick:null, miss:null };
-function loadImg(src, key){
-  const im=new Image();
-  im.onload=()=>{
-    if (key==='brick'){
-      const c=document.createElement('canvas'); c.width=im.width; c.height=im.height;
-      const g=c.getContext('2d'); g.drawImage(im,0,0);
-      const d=g.getImageData(0,0,c.width,c.height);
-      for (let i=0;i<d.data.length;i+=4) if (d.data[i]>248 && d.data[i+1]>248 && d.data[i+2]>248) d.data[i+3]=0;
-      g.putImageData(d,0,0); IM.brick=c;
-    } else IM[key]=im;
-  };
-  im.onerror=()=>{ IM[key]=null; };
-  im.src=src;
-}
-loadImg('./assets/lcd-brick.png','brick');
-loadImg('./assets/miss-mark.png','miss');
-
-/* ── state ── */
-const S={
-  phase:'title', hard:false, land:false, stageW:0, stageX:0,
-  W:0, H:0, dpr:1,
-  score:0, showScore:0, lives:3, level:1, solved:0, combo:0,
-  miss:0, time:SESSION, runT:0,
-  deck:[], di:0, solid:null,
-  floorY:1, paint:null, paint0:null, locked:[],
-  scanPhase:'approach', scanT:0, dwell:4,
-  undoLeft:1, cursor:{z:0,x:0},
-  dragOn:false, dragVal:0, ptr:null,
-  freeze:0, flash:0, missFlash:0, ghostT:0, wow:null, punch:0,
-  failMsg:'', failT:0, brokenView:null,
-  lamps:0, stamps:{plant:false,hall:false,garden:false,hotel:false},
-  wellPerfect:true, floorInteracted:false,
-  trail:[],
-  cellRects:[],
-  stim:null, well:null,
-  timeScale:1,
-  /* 온보딩·코치 (docs/onboarding-spec.md §1)
-   * tut: 0=꺼짐 1=칸 한 번 켜 보기 2=닫는 안내. tut>0 이면 스캔·세션 시간이 멈춘다. */
-  tut:0, tutT:0, idle:0, ripples:[], padShake:0,
-  whyMsg:'', whyT:0, wrongGrid:null, isoBlinkT:0
-};
-try{
-  const st=JSON.parse(localStorage.getItem(LS_STAMP)||'{}');
-  if (st && typeof st==='object') S.stamps=Object.assign(S.stamps, st);
-}catch(e){}
-
-function bestScore(){ return Number(localStorage.getItem(LS_BEST)||0)|0; }
-function saveBest(){
-  if (S.score>bestScore()) localStorage.setItem(LS_BEST, String(S.score));
-}
-function showBest(){
-  const b=bestScore();
-  $('#best').textContent = b ? ('최고 '+b) : '최고 기록 없음';
-}
-
-function layout(){
-  const W=innerWidth, H=innerHeight;
-  S.W=W; S.H=H;
-  S.land=(W>=H && W>=640) || W>=1024;
-  document.documentElement.classList.toggle('land', S.land);
-  const STAGE=Math.min(W,1280), SX=Math.round((W-STAGE)/2);
-  S.stageW=STAGE; S.stageX=SX;
-  const root=document.documentElement;
-  root.style.setProperty('--stageW', STAGE+'px');
-  root.style.setProperty('--stageX', SX+'px');
-  const dpr=Math.min(devicePixelRatio||1, 1.5);
-  S.dpr=dpr;
-  const bw=Math.floor(W*dpr), bh=Math.floor(H*dpr);
-  /* layout() 은 층이 바뀔 때마다 불린다. 크기가 그대로면 canvas.width 를 다시 대입하지
-   * 않는다 — 재대입은 버퍼 재할당 + 컨텍스트 상태 초기화라 층 전환마다 한 프레임 튄다. */
-  if (cv.width!==bw || cv.height!==bh){
-    cv.width=bw; cv.height=bh;
-    cv.style.width=W+'px'; cv.style.height=H+'px';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.imageSmoothingEnabled=false;
-    _font='';   /* canvas.width 재대입은 컨텍스트 상태를 초기화한다 */
-  }
-  /* 발문 박스는 문장 길이에 따라 늘어난다. 캔버스 상단은 박스 실제 아래끝을 따라간다 —
-   * 고정 62px 로 두면 긴 발문이 '위에서 본 모양' 패널을 덮어 버린다. */
-  let promptBot=max(8, envTop())+62;
-  const pe=$('#prompt');
-  if (pe){
-    const pr=pe.getBoundingClientRect();
-    if (pr.height>0) promptBot=max(promptBot, pr.bottom+6);
-  }
-  const top=Math.min(promptBot, Math.round(H*0.34));
-  const bot=max(12, envBot())+ (S.hard?8:56);
-  if (S.land){
-    S.stim={ x:SX+12, y:top, w:STAGE*0.56-10, h:H-top-16 };
-    S.well={ x:SX+STAGE*0.58, y:top, w:STAGE*0.42-16, h:H-top-bot };
-  } else {
-    const mid=top + Math.max(180, (H-top-bot)*0.42);
-    S.stim={ x:10, y:top, w:W-20, h:mid-top-8 };
-    S.well={ x:10, y:mid, w:W-20, h:H-mid-bot };
-  }
-}
-function max(a,b){ return a>b?a:b; }
-function envTop(){ return parseInt(getComputedStyle(document.documentElement).getPropertyValue('padding')||'0')||0; }
-function envBot(){ return 0; }
-
-/* 층에서 실제로 손봐야 하는 칸 수에 비례해 머무는 시간을 준다.
- * 판단(실루엣 읽기) 시간을 하한으로 깔고, 칸이 많을수록 조작 시간을 더한다.
- * 어려움은 하한 3.0초 — 그 아래로는 수학이 아니라 반응속도 시험이 된다. */
-function dwellFor(ops){
-  ops=Math.max(1, ops|0);
-  if (S.hard) return Math.min(6.0, Math.max(3.1, 2.3 + 0.36*ops));
-  return Math.min(7.5, Math.max(3.8, 2.8 + 0.50*ops));
-}
-
+/* ── 발문 — 한 줄. 우물 이름·좌표 규약은 화면 그림이 대신한다 ── */
 function promptFor(sol, y){
-  const w=WELLS[sol.well].title;
-  if (sol.kind==='min') return `${w} · 위·앞·옆 모양을 지키며 가장 적게 쌓아 보세요.`;
-  if (sol.kind==='max') return `${w} · 위·앞·옆 모양을 지키며 가장 많게 쌓아 보세요.`;
+  if (sol.kind==='warm') return '왼쪽 〈만들 모양〉과 똑같아지게 아래 칸을 탭해 쌓기나무를 놓으세요.';
+  if (sol.kind==='min' || sol.kind==='max'){
+    if (y===1) return '1층은 〈위〉에서 본 모양과 같아요. 그 자리에 그대로 놓으세요.';
+    return sol.kind==='min'
+      ? '〈위〉·〈앞〉·〈오른쪽〉 모양을 지키며 가장 적게 쌓아 보세요.'
+      : '〈위〉·〈앞〉·〈오른쪽〉 모양을 지키며 가장 많게 쌓아 보세요.';
+  }
   if (sol.kind==='layers'){
     if (y===2 && sol.errorKind==='layer-union' && makeErrorStart(sol.H,2,'layer-union'))
-      return `${w} · 1층 카드를 겹쳐 켠 칸이 있어요. 겹친 칸을 끄고 ${y}층 카드만 남기세요.`;
-    return `${w} · 지금 ${y}층 카드만 켜 보세요. 카드를 겹쳐 켜면 안 돼요.`;
+      return `1층 카드를 겹쳐 켠 칸이 있어요. 겹친 칸을 끄고 ${y}층 카드만 남기세요.`;
+    return `지금 ${y}층 카드의 검은 칸에만 쌓기나무를 놓으세요.`;
   }
-  if (sol.kind==='topnum') return `${w} · ${y}층 칸을 켜 보세요. 켜진 층 수가 꼭대기 숫자가 됩니다.`;
-  /* error-find: 시작 상태와 같은 조작만 지시. 다른 층은 일반 켜기. */
   if (sol.kind==='error-find' && (sol.errorY||1)===y){
-    if (sol.errorKind==='hidden-omit')
-      return `${w} · ${y}층에 가려진 칸이 빠져 있어요. 빠진 칸을 켜 보세요.`;
-    if (sol.errorKind==='side-flip')
-      return `${w} · ${y}층 칸이 좌우로 뒤집혀 있어요. 켜고 꺼서 고쳐 보세요.`;
-    return `${w} · ${y}층이 잘못 켜져 있어요. 켜거나 꺼서 고쳐 보세요.`;
+    if (sol.errorKind==='hidden-omit') return `${y}층에 나무가 빠진 칸이 있어요. 빠진 칸을 켜 보세요(탭해서 놓기).`;
+    if (sol.errorKind==='side-flip') return `${y}층 칸이 좌우로 뒤집혀 있어요. 켜고 꺼서 고쳐 보세요.`;
+    return `${y}층이 잘못 켜져 있어요. 켜거나 꺼서 고쳐 보세요.`;
   }
-  if (sol.promptKind==='sil') return `${w} · ${y}층 칸을 켜 위·앞·옆 모양을 맞춰 보세요.`;
-  return `${w} · ${y}층에 쌓기나무가 있는 칸을 켜 보세요. 가려진 칸도 켜요.`;
+  return `${y}층에 쌓기나무가 있는 칸을 탭해 놓으세요.`;
 }
 function verifyErrorFindRounds(trials){
   trials=trials||80;
@@ -855,8 +771,7 @@ function verifyErrorFindRounds(trials){
           if (!start) fails.push({i,kind:'hidden-omit',why:'no startPaint'});
           else if (d.on<1) fails.push({i,kind:'hidden-omit',why:'no cells to turn on'});
           else if (d.off!==0) fails.push({i,kind:'hidden-omit',why:'start has extras'});
-          if (!/빠진 칸을 켜/.test(p) || /꺼서 고쳐/.test(p))
-            fails.push({i,kind:'hidden-omit',why:'prompt',p});
+          if (!/빠진 칸을 켜/.test(p) || /꺼서 고쳐/.test(p)) fails.push({i,kind:'hidden-omit',why:'prompt',p});
         } else if (sol.errorKind==='side-flip'){
           flip++;
           if (!start) fails.push({i,kind:'side-flip',why:'no startPaint'});
@@ -888,14 +803,255 @@ function verifyErrorFindRounds(trials){
   return { trials, hid, flip, union, fail:fails.length, fails:fails.slice(0,12) };
 }
 
+/* ══════ 쌓기나무 렌더러 — 진짜 입체로 그린다 ══════
+ * 캐비닛 투영: x 는 오른쪽, z(뒤쪽)는 오른쪽 위로, y(층)는 위로.
+ * 앞줄이 화면 아래·왼쪽에 온다 → 판의 아래줄과 같은 자리다. */
+const DXR=0.44, DYR=0.32;
+function cubeSpan(n, m){ return { sx:n*(1+DXR), sy:m + n*DYR }; }
+function drawCube(g, X, Y, s, alpha, mark){
+  const dx=s*DXR, dy=s*DYR;
+  g.globalAlpha=alpha;
+  g.lineJoin='round';
+  /* 윗면 */
+  g.beginPath(); g.moveTo(X,Y); g.lineTo(X+dx,Y-dy); g.lineTo(X+s+dx,Y-dy); g.lineTo(X+s,Y); g.closePath();
+  g.fillStyle=PAL.top; g.fill();
+  g.strokeStyle=PAL.ink; g.lineWidth=Math.max(1.5,s*0.055); g.stroke();
+  /* 앞면 */
+  g.beginPath(); g.rect(X,Y,s,s);
+  g.fillStyle=PAL.front; g.fill(); g.stroke();
+  /* 오른쪽 옆면 */
+  g.beginPath(); g.moveTo(X+s,Y); g.lineTo(X+s+dx,Y-dy); g.lineTo(X+s+dx,Y+s-dy); g.lineTo(X+s,Y+s); g.closePath();
+  g.fillStyle=PAL.side; g.fill(); g.stroke();
+  if (mark){
+    /* 「지금 층」 표시는 파랑 — 빨강은 이 게임에서 오답 색이라 층 강조에 쓰면 안 된다 */
+    g.strokeStyle=PAL.steel; g.lineWidth=Math.max(2.5,s*0.09);
+    g.beginPath(); g.moveTo(X,Y); g.lineTo(X+dx,Y-dy); g.lineTo(X+s+dx,Y-dy); g.lineTo(X+s,Y); g.closePath(); g.stroke();
+  }
+  g.globalAlpha=1;
+}
+/* 빈 자리(그 층에 아직 안 놓은 칸) — 얇은 점선 바닥판 */
+function drawSlot(g, X, Y, s){
+  const dx=s*DXR, dy=s*DYR;
+  g.globalAlpha=0.9;
+  g.setLineDash([Math.max(3,s*0.14), Math.max(3,s*0.12)]);
+  g.strokeStyle=PAL.side; g.lineWidth=Math.max(2,s*0.06);
+  g.beginPath(); g.moveTo(X,Y); g.lineTo(X+dx,Y-dy); g.lineTo(X+s+dx,Y-dy); g.lineTo(X+s,Y); g.closePath(); g.stroke();
+  g.setLineDash([]);
+  g.globalAlpha=1;
+}
+/* H: 높이 격자. curY: 강조할 층(0이면 없음). slots: 그 층에서 비어 있는 자리를 점선으로 */
+/* 투영 기하를 한 곳에서만 계산한다 — 판의 칸과 입체 나무를 잇는 선도 이 값을 쓴다 */
+function stackGeom(n, m, box){
+  const sp=cubeSpan(n, Math.max(1,m));
+  /* 상한이 없으면 태블릿에서 나무 하나가 200px 을 넘어 테두리 밖으로 삐져나온다 */
+  const s=Math.max(10, Math.min(110, (box.w)/sp.sx, (box.h)/sp.sy));
+  return { s,
+    ox: box.x+(box.w - s*sp.sx)/2,
+    oy: box.y+(box.h - s*sp.sy)/2 + (Math.max(1,m)-1)*s + n*s*DYR };
+}
+function drawStack(g, H, box, curY, mBase, slots, slotY){
+  const n=H.length, m=Math.max(1, mBase||maxH(H)||1);
+  const gm=stackGeom(n, m, box), s=gm.s, ox=gm.ox, oy=gm.oy;
+  const pos=(z,x,y)=>({ X: ox + x*s + z*s*DXR, Y: oy - (y-1)*s - z*s*DYR });
+  for (let z=n-1; z>=0; z--){
+    for (let x=0; x<n; x++){
+      const sy = slotY || curY;
+      if (slots && slots[z][x] && sy>0 && H[z][x] < sy){
+        const p=pos(z,x,sy);
+        drawSlot(g, p.X, p.Y, s);
+      }
+      const h=H[z][x];
+      for (let y=1; y<=h; y++){
+        const p=pos(z,x,y);
+        const cur = curY>0 && y===curY;
+        drawCube(g, p.X, p.Y, s, curY>0 ? (cur?1:0.42) : 1, cur);
+      }
+    }
+  }
+  return gm;
+}
+
+/* ── 작은 글자 ── */
+let _font='';
+function drawK(g, text, x, y, px, col, weight){
+  const f=`${weight||800} ${Math.max(10,px|0)}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+  if (g===ctx){ if (f!==_font){ g.font=f; _font=f; } } else g.font=f;
+  g.fillStyle=col||PAL.ink;
+  g.textBaseline='top';
+  g.fillText(String(text), x, y);
+}
+function drawSeg7(g, d, x, y, w, h, on){
+  const t=Math.max(2, w*0.16);
+  const A=d&1,B=d&2,C=d&4,D=d&8,E=d&16,F=d&32,G=d&64;
+  g.fillStyle=on||PAL.ink;
+  function bar(bx,by,bw,bh){ g.fillRect(bx|0,by|0,Math.max(1,bw|0),Math.max(1,bh|0)); }
+  if (A) bar(x+t, y, w-2*t, t);
+  if (G) bar(x+t, y+h/2-t/2, w-2*t, t);
+  if (D) bar(x+t, y+h-t, w-2*t, t);
+  if (F) bar(x, y+t, t, h/2-t-t/2);
+  if (B) bar(x+w-t, y+t, t, h/2-t-t/2);
+  if (E) bar(x, y+h/2+t/2, t, h/2-t-t/2);
+  if (C) bar(x+w-t, y+h/2+t/2, t, h/2-t-t/2);
+}
+function drawNum7(g, num, x, y, dw, dh, digits, col){
+  const s=String(Math.max(0,num|0)).padStart(digits,'0').slice(-digits);
+  for (let i=0;i<digits;i++) drawSeg7(g, SEG7[s.charCodeAt(i)-48]||0, x+i*(dw+5), y, dw, dh, col||PAL.ink);
+}
+
+/* ── 패널 틀 ── */
+function panelFrame(g, r, label, hi){
+  g.fillStyle=PAL.lcd; g.fillRect(r.x, r.y, r.w, r.h);
+  g.fillStyle=hi?PAL.steel:PAL.ink;
+  g.fillRect(r.x, r.y, r.w, 22);
+  g.strokeStyle=PAL.ink; g.lineWidth=3; g.strokeRect(r.x+1.5, r.y+1.5, r.w-3, r.h-3);
+  drawK(g, label, r.x+7, r.y+4, 13, PAL.cream);
+  return { x:r.x+6, y:r.y+26, w:r.w-12, h:r.h-32 };
+}
+/* 위에서 본 모양(수) — 아래줄이 앞줄 */
+function drawTopNums(g, H, r, showNum, flash, label){
+  g.strokeStyle=PAL.ink; g.lineWidth=2; g.strokeRect(r.x, r.y, r.w, r.h);
+  drawK(g, label || (showNum?'위에서 본 수 = 층수':'위에서 본 모양'), r.x+4, r.y+3, 11, flash?PAL.miss:PAL.ink);
+  const n=H.length;
+  const s=Math.min((r.w-10)/n, (r.h-30)/n);
+  const ox=r.x+(r.w-s*n)/2, oy=r.y+18;
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++){
+    const v=H[z][x];
+    const bx=ox+x*s, by=oy+(n-1-z)*s;
+    g.fillStyle=v>0?PAL.ink:PAL.dim;
+    g.fillRect(bx+1, by+1, s-2, s-2);
+    /* 작은 칸에서는 7-세그먼트 숫자가 안 읽힌다 — 보통 글자로 찍는다 */
+    if (showNum && v>0){
+      const fs=Math.max(11, s*0.62);
+      g.font=`800 ${fs|0}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+      g.fillStyle=PAL.top; g.textAlign='center'; g.textBaseline='middle';
+      g.fillText(String(v), bx+s/2, by+s/2+1);
+      g.textAlign='left'; g.textBaseline='top';
+    }
+  }
+  drawK(g, '↓앞', ox+s*n/2-11, oy+s*n+1, 11, PAL.steel);
+}
+function drawSil(g, arr, r, label, flash, frontLeft){
+  const n=arr.length, cw=(r.w-8)/n, ch=(r.h-26)/Math.max(3,n);
+  g.strokeStyle=PAL.ink; g.lineWidth=2; g.strokeRect(r.x, r.y, r.w, r.h);
+  drawK(g, label, r.x+4, r.y+3, 11, flash?PAL.miss:PAL.ink);
+  for (let i=0;i<n;i++){
+    for (let k=0;k<3;k++){
+      const on=k<arr[i];
+      g.fillStyle=on?(flash?PAL.miss:PAL.ink):PAL.dim;
+      g.fillRect(r.x+4+i*cw+2, r.y+r.h-6-(k+1)*ch+2, cw-6, ch-4);
+    }
+  }
+  if (frontLeft) drawK(g, '앞→', r.x+4, r.y+r.h-16, 10, PAL.steel);
+}
+function drawLayerCard(g, L, x, y, w, h, title, active){
+  const n=L.length, s=Math.min((w-8)/n,(h-20)/n);
+  g.fillStyle=active?PAL.cream:PAL.lcd; g.fillRect(x,y,w,h);
+  g.strokeStyle=active?PAL.miss:PAL.ink; g.lineWidth=active?3:2; g.strokeRect(x,y,w,h);
+  drawK(g, title, x+4, y+3, 11, active?PAL.miss:PAL.ink);
+  const ox=x+(w-s*n)/2, oy=y+17;
+  for (let z=0;z<n;z++) for (let xx=0;xx<n;xx++){
+    g.fillStyle=L[z][xx]?PAL.ink:PAL.dim;
+    g.fillRect(ox+xx*s+1, oy+(n-1-z)*s+1, s-2, s-2);
+  }
+}
+
+/* ── state ── */
+const S={
+  phase:'title', mode:'puzzle', land:false, stageW:0, stageX:0,
+  W:0, H:0, dpr:1,
+  score:0, showScore:0, lives:3, level:1, solved:0, combo:0,
+  miss:0, time:SESSION, runT:0,
+  deck:[], di:0, solid:null, totalFloors:0,
+  floorY:1, paint:null, paint0:null, locked:[],
+  scanPhase:'edit', scanT:0, dwell:5, tries:0,
+  undoLeft:1, cursor:{z:-1,x:-1},
+  dragOn:false, dragVal:0,
+  freeze:0, flash:0, missFlash:0, punch:0,
+  failT:0, brokenView:null,
+  floorInteracted:false,
+  cellRects:[], padBox:null, confirmBox:null,
+  stim:null, well:null, timeScale:1,
+  tut:0, tutT:0, idle:0, ripples:[], padShake:0, kbd:false,
+  floorT:0, nextHint:45, nudge:false,
+  link:null, mineRect:null,
+  whyMsg:'', whyT:0, wrongGrid:null,
+  cache:{ goal:null, mine:null }
+};
+
+function bestScore(){ return Number(localStorage.getItem(LS_BEST)||0)|0; }
+function saveBest(){ if (S.score>bestScore()) localStorage.setItem(LS_BEST, String(S.score)); }
+function showBest(){ const b=bestScore(); $('#best').textContent = b ? ('최고 '+b+'점') : '처음 오셨네요'; }
+
+function max(a,b){ return a>b?a:b; }
+function layout(){
+  const W=innerWidth, H=innerHeight;
+  S.W=W; S.H=H;
+  S.land=(W>=H && W>=640) || W>=1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE=Math.min(W,1280), SX=Math.round((W-STAGE)/2);
+  S.stageW=STAGE; S.stageX=SX;
+  const root=document.documentElement;
+  root.style.setProperty('--stageW', STAGE+'px');
+  root.style.setProperty('--stageX', SX+'px');
+  const dpr=Math.min(devicePixelRatio||1, 1.5);
+  S.dpr=dpr;
+  const bw=Math.floor(W*dpr), bh=Math.floor(H*dpr);
+  if (cv.width!==bw || cv.height!==bh){
+    cv.width=bw; cv.height=bh;
+    cv.style.width=W+'px'; cv.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    _font=''; S.cache.goal=null; S.cache.mine=null;
+  }
+  let top=70;
+  const pe=$('#prompt');
+  if (pe){ const pr=pe.getBoundingClientRect(); if (pr.height>0) top=pr.bottom+8; }
+  top=Math.min(top, Math.round(H*0.42));
+  const ae=$('#actions');
+  let bot=H-80;
+  if (ae){ const ar=ae.getBoundingClientRect(); if (ar.height>0) bot=ar.top-10; S.confirmBox=$('#confirm').getBoundingClientRect(); }
+  if (S.land){
+    /* 세로로 남는 공간을 패널이 다 먹으면 그림이 허공에 뜬다 — 높이를 묶는다 */
+    const sh=Math.min(H-top-16, Math.max(230, Math.round(STAGE*0.32)));
+    S.stim={ x:SX+12, y:top+Math.max(0,(H-top-16-sh)/2), w:STAGE*0.54-10, h:sh };
+    S.well={ x:SX+STAGE*0.58, y:top, w:STAGE*0.42-18, h:bot-top };
+  } else {
+    const avail=Math.max(220, bot-top);
+    const sh=Math.round(Math.min(310, Math.max(168, avail*0.47)));
+    S.stim={ x:10, y:top, w:W-20, h:sh };
+    S.well={ x:10, y:top+sh+8, w:W-20, h:bot-(top+sh+8) };
+  }
+  S.cache.goal=null; S.cache.mine=null;
+}
+
+/* ── 오프스크린 캐시 (소프트웨어 렌더러 대비) ── */
+function bake(slot, key, w, h, fn){
+  const c=S.cache[slot];
+  const dpr=S.dpr, bw=Math.max(1,Math.round(w*dpr)), bh=Math.max(1,Math.round(h*dpr));
+  if (c && c.key===key && c.cv.width===bw && c.cv.height===bh) return c.cv;
+  const cvs=(c && c.cv.width===bw && c.cv.height===bh) ? c.cv : document.createElement('canvas');
+  cvs.width=bw; cvs.height=bh;
+  const g=cvs.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,w,h);
+  fn(g, { x:0, y:0, w, h });
+  S.cache[slot]={ key, cv:cvs };
+  return cvs;
+}
+function gridKey(G){ return G ? G.map(r=>r.join('')).join('') : '-'; }
+
+/* ── 흐름 ── */
 function beginSolid(){
   if (S.di>=S.deck.length){ endRun('clear'); return; }
   S.solid=S.deck[S.di];
-  S.level=S.solid.well+1;
+  S.level=Math.min(4, 1+Math.floor(S.di/3));
   S.floorY=1;
   S.locked=[];
-  S.wellPerfect=true;
   beginFloor();
+  showFail(`새 쌓기나무 모양 ${S.di+1} / ${S.deck.length}`, true);
+}
+function dwellFor(ops){
+  ops=Math.max(1, ops|0);
+  return Math.min(9.0, Math.max(4.5, 3.4 + 0.7*ops));
 }
 function beginFloor(){
   const sol=S.solid, n=sol.n, y=S.floorY;
@@ -906,54 +1062,65 @@ function beginFloor(){
     if (u) start=u;
   }
   S.paint=start; S.paint0=cloneH(start);
-  S.wrongGrid=null; S.whyT=0;
-  {
-    const d=paintDiff(start, layerOf(sol.H,y));
-    S.dwell=dwellFor(d.on+d.off);
-  }
-  S.scanPhase='approach'; S.scanT=0;
-  S.undoLeft=S.hard?0:1;
+  S.wrongGrid=null; S.whyT=0; S.tries=0;
+  S.dwell=dwellFor(paintDiff(start, layerOf(sol.H,y)).on + paintDiff(start, layerOf(sol.H,y)).off);
+  S.scanPhase = S.mode==='arcade' ? 'approach' : 'edit';
+  S.scanT=0;
+  S.undoLeft=1;
   S.floorInteracted=false;
-  S.cursor={z:0,x:0};
-  $('#pmain').innerHTML = promptFor(sol,y) + ` <b>${y}층</b>`;
+  S.floorT=0; S.nextHint=45; S.nudge=false;
+  S.cursor={z:-1,x:-1};
+  const nf = sol.floors>1 ? ` <b>${y}층 / ${sol.floors}층</b>` : '';
+  const up = (sol.floors>1 && y<sol.floors) ? ` <span style="color:#3F6C79">${y}층을 다 놓고 〈확인〉하면 ${y+1}층으로 올라가요.</span>` : '';
+  $('#pmain').innerHTML = promptFor(sol,y) + nf + up;
+  $('#undo').classList.toggle('show', true);
+  $('#confirm').textContent='확인';
+  S.cache.goal=null; S.cache.mine=null;
   layout();
-  $('#undo').classList.toggle('show', S.undoLeft>0);
-  beep(220+y*40, .04, 'square', .03);
-}
-function isUniqueStack(sol){
-  return sol.kind!=='min' && sol.kind!=='max';
+  beep(300+y*50, .05, 'square', .03);
 }
 function belowOn(z,x,y){
   if (y<=1) return true;
   const L=S.locked[y-2];
   return !!(L && L[z][x]);
 }
-function toggleCell(z,x, val){
+function editable(){
+  return S.scanPhase==='edit' || S.scanPhase==='fix' || S.scanPhase==='approach' || S.scanPhase==='dwell';
+}
+function showFail(msg, good){
+  const el=$('#failLine');
+  el.textContent=msg;
+  el.classList.toggle('good', !!good);
+  el.classList.add('show');
+  S.failT=good?1.6:3.0;
+}
+function cellWords(z,x){ return `앞에서 ${z+1}번째 줄, 왼쪽에서 ${x+1}번째 칸`; }
+function toggleCell(z,x,val){
   const n=S.solid.n;
   if (z<0||x<0||z>=n||x>=n) return false;
-  if (S.scanPhase!=='dwell' && S.scanPhase!=='approach') return false;
+  if (!editable()) return false;
   const want = val==null ? (S.paint[z][x]?0:1) : val;
   if (want===1 && !belowOn(z,x,S.floorY)){
-    /* 왜 안 되는지를 그 순간에 말해 준다 — 무반응은 「고장」으로 읽힌다 (§1-e) */
     S.flash=0.12; S.padShake=1;
-    S.failMsg=`아래층이 꺼져 있어서 ${cellWords(z,x)}은 못 켜요`;
-    S.failT=1.3;
-    $('#failLine').textContent=S.failMsg;
-    $('#failLine').classList.add('show');
+    showFail(`${cellWords(z,x)}은 아래층이 비어 있어서 못 쌓아요`);
     beep(140,.07,'square',.04);
     return false;
   }
   if (S.paint[z][x]===want) return false;
   S.paint[z][x]=want;
   S.floorInteracted=true;
-  beep(want?620:280,.035,'square',.035);
+  S.cache.mine=null;
+  /* 방금 누른 칸과 〈내 모양〉의 그 나무를 선으로 잇는다 —
+   * 「판의 칸 = 입체의 그 자리」를 말이 아니라 눈으로 알려 준다 */
+  S.link={ z, x, on:want, t:0.8 };
+  beep(want?620:300,.04,'square',.035);
   return true;
 }
 function undoFloor(){
-  if (S.undoLeft<=0 || S.scanPhase==='lock' || S.scanPhase==='feedback') return;
+  if (S.scanPhase==='feedback') return;
   S.paint=cloneH(S.paint0);
-  S.undoLeft=0;
-  $('#undo').classList.remove('show');
+  S.cache.mine=null; S.link=null;
+  showFail('이 층에 놓은 쌓기나무를 모두 뺐어요', true);
   beep(300,.08,'square',.04);
 }
 
@@ -962,243 +1129,198 @@ function firstMismatch(got, need){
   for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (got[z][x]!==need[z][x]) return {z,x, got:got[z][x], need:need[z][x]};
   return null;
 }
-/* 칸 위치를 초등학생이 읽는 말로 옮긴다. z=0 이 앞줄, x=0 이 왼쪽 칸이다.
- * 좌표 「(0,0)」로 실패를 통보하면 학생은 읽지 못한다 (docs/onboarding-spec.md §1-d). */
-function cellWords(z,x){
-  return `앞에서 ${z+1}번째 줄, 왼쪽에서 ${x+1}번째 칸`;
-}
+/* 오답 안내는 좌표 문장이 아니라 「화면의 그 표시」를 가리킨다.
+ * 「앞에서 2번째 줄, 왼쪽에서 1번째 칸」은 초등학생이 화면과 못 잇는다. */
 function failText(sol, y, got, need){
   const mm=firstMismatch(got, need);
-  if (!mm) return `${y}층이 잠겼어요.`;
-  const n=sol.n;
-  const layers=S.locked.concat([got]);
-  const Hp=heightFromLayers(layers, n);
+  if (!mm) return `${y}층을 다시 봐요.`;
+  const layers=S.locked.slice(0,y-1).concat([got]);
+  const Hp=heightFromLayers(layers, sol.n);
   const F=frontOf(Hp), R=rightOf(Hp);
-  S.brokenView = F[mm.x]!==sol.F[mm.x] ? 'front' : (R[mm.z]!==sol.R[mm.z] ? 'right' : 'top');
-  /* 어긋난 곳이 어느 그림에서 티가 나는지도 사람 말로 붙인다 */
-  let view='';
-  if (F[mm.x]!==sol.F[mm.x]) view=` 그래서 앞에서 본 모양이 달라졌어요.`;
-  else if (R[mm.z]!==sol.R[mm.z]) view=` 그래서 오른쪽에서 본 모양이 달라졌어요.`;
-  const hid=(!mm.got && isHidden(sol.H, mm.z, mm.x, y)) ? ' 앞 칸에 가려져 안 보이는 칸이에요.' : '';
-  const where=cellWords(mm.z, mm.x);
-  if (mm.got) return `${y}층에는 ${where}이 없어요. 이 칸은 꺼야 해요.${view}`;
-  return `${y}층 ${where}을 켜야 했어요.${hid}${view}`;
+  S.brokenView = (sol.F && F[mm.x]!==sol.F[mm.x]) ? 'front' : ((sol.R && R[mm.z]!==sol.R[mm.z]) ? 'right' : 'top');
+  const d=paintDiff(got, need);
+  if (d.on && d.off) return '점선 칸에는 놓고, ✕ 칸에서는 빼세요.';
+  if (d.off) return '✕ 표시된 칸의 쌓기나무를 빼세요.';
+  const hid=isHidden(sol.H, mm.z, mm.x, y) ? ' 앞 나무에 가려 안 보이던 칸이에요.' : '';
+  return `점선 칸에 쌓기나무를 놓으세요.${hid}`;
 }
-/* 왜 맞았는지를 정답 순간에 한 줄로 알려 준다 — 설명이 없으면 정답도 학습이 아니다 (§1-d) */
 function whyCorrect(sol, y, need){
   const on=gridOn(need);
-  if (sol.kind==='min') return `위·앞·옆 모양을 지키며 가장 적게 쌓았어요 — 모두 ${sol.minSum}개`;
-  if (sol.kind==='max') return `위·앞·옆 모양을 지키며 가장 많게 쌓았어요 — 모두 ${sol.maxSum}개`;
-  if (sol.kind==='topnum') return `${y}층에 쌓기나무가 있는 칸 ${on}개를 모두 켰어요 — 켠 층 수가 꼭대기 숫자예요`;
-  return `${y}층에 쌓기나무가 있는 칸 ${on}개를 모두 켰어요`;
+  if (sol.kind==='min') return `가장 적게 쌓았어요 — 모두 ${sol.minSum}개`;
+  if (sol.kind==='max') return `가장 많게 쌓았어요 — 모두 ${sol.maxSum}개`;
+  const front=need[0].reduce((a,b)=>a+b,0), back=on-front;
+  const split = need.length>1 ? ` (앞줄 ${front}개, 뒤 ${back}개)` : '';
+  if (sol.kind==='warm') return `그림과 똑같아요 — 쌓기나무 ${on}개${split}`;
+  return `${y}층에 ${on}개${split} — 그림과 똑같아요`;
 }
-
 function awardCorrect(){
-  if (S.solid){
-    S.whyMsg = whyCorrect(S.solid, S.floorY, layerOf(S.solid.H, S.floorY));
-    S.whyT = 1.5;
-    /* 위 그림에서 「그 층」이 깜빡인다 — 아래 판의 켠 칸과 눈으로 이어 준다 (§1-d) */
-    S.isoBlinkT = 1.1;
-  }
+  const sol=S.solid;
+  if (sol){ S.whyMsg=whyCorrect(sol, S.floorY, layerOf(sol.H, S.floorY)); S.whyT=1.6; }
   S.wrongGrid=null;
-  S.combo++;
-  const mul=S.combo>=2?2:1;
-  const add=100*mul;
-  S.score+=add;
+  if (S.tries===0){ S.combo++; S.score += 100*(S.combo>=2?2:1); }
+  else { S.combo=0; S.score += 40; }
   S.solved++;
-  S.flash=0.08;
-  S.punch=1;
-  S.freeze=REDUCE?0.02:0.08;
-  S.timeScale=0.15;
+  S.flash=0.1; S.punch=1;
+  showFail(S.whyMsg, true);
   beep(660,.07,'square',.05);
-  if (S.combo>=2){ beep(880,.09,'square',.05); beep(990,.12,'square',.04); }
+  if (S.tries===0 && S.combo>=2) beep(920,.1,'square',.045);
 }
 function applyMiss(msg){
-  /* 오답도 정답 상태를 눈으로 보여 준다 — 「틀렸어요」만으로는 학습이 안 된다 (§1-d) */
-  if (S.solid) S.wrongGrid = layerOf(S.solid.H, S.floorY);
-  S.whyMsg=''; S.whyT=0;
   S.combo=0;
-  S.wellPerfect=false;
   S.miss++;
   S.lives=Math.max(0, 3-S.miss);
   S.missFlash=1;
-  S.ghostT=1;
-  S.failMsg=msg||'층이 잠겼어요.';
-  S.failT=2.0;
-  $('#failLine').textContent=S.failMsg;
-  $('#failLine').classList.add('show');
+  S.whyMsg=''; S.whyT=0;
+  showFail(msg + ' 정답을 켜 뒀어요.');
   beep(160,.16,'square',.07);
-  if (S.lives<=0){ endRun('miss'); return false; }
+  if (S.mode==='arcade' && S.lives<=0){ endRun('miss'); return false; }
   return true;
 }
 
-function lockFloor(forceOk, forceBad){
+function isUniqueStack(sol){ return sol.kind!=='min' && sol.kind!=='max'; }
+function evaluateFloor(){
   const sol=S.solid, y=S.floorY, n=sol.n;
   const need=layerOf(sol.H,y);
-  const got=cloneH(S.paint);
-  const last=y>=sol.floors;
-  const unique=isUniqueStack(sol);
-  S.scanPhase='feedback'; S.scanT=0;
-  $('#undo').classList.remove('show');
-
-  if (forceOk){
-    S.locked[y-1]=cloneH(need);
-    awardCorrect();
-    return;
-  }
-  if (forceBad){
-    let bad=cloneH(got);
-    if (eqGrid(bad,need)){
-      for (let z=0;z<n;z++) for (let x=0;x<n;x++) if (need[z][x]){ bad[z][x]=0; z=n; break; }
-    }
-    S.locked[y-1]=cloneH(need);
-    const alive=applyMiss(failText(sol,y,bad,need));
-    if (!alive) return;
-    return;
-  }
-
-  if (unique){
-    if (eqGrid(got, need)){
-      S.locked[y-1]=cloneH(need);
-      awardCorrect();
-    } else {
-      S.locked[y-1]=cloneH(need);
-      const alive=applyMiss(failText(sol,y,got,need));
-      if (!alive) return;
-    }
-    return;
-  }
-
-  /* min/max: 층별 대표 쌓기와 달라도, 투영·개수가 맞으면 정답 */
-  if (last){
-    S.locked[y-1]=got;
-    const Hp=heightFromLayers(S.locked, n);
-    const occOk=!sol.T || eqGrid(occupancy(Hp), sol.T);
-    const projOk=eqArr(frontOf(Hp), sol.F) && eqArr(rightOf(Hp), sol.R);
-    const sumOk=sol.kind==='min' ? sumH(Hp)===sol.minSum : sumH(Hp)===sol.maxSum;
-    if (occOk && projOk && sumOk){
-      awardCorrect();
-    } else {
-      const alive=applyMiss(sol.kind==='min'
-        ? '위·앞·옆 모양을 지키며 가장 적게 쌓지 못했어요.'
-        : '위·앞·옆 모양을 지키며 가장 많게 쌓지 못했어요.');
-      if (!alive) return;
-    }
-    return;
+  const got=S.paint;
+  if (isUniqueStack(sol)){
+    const ok=eqGrid(got,need);
+    return { ok, need, msg: ok?'':failText(sol,y,got,need) };
   }
   if (y===1 && sol.T){
-    if (eqGrid(got, sol.T)){
-      S.locked[y-1]=cloneH(sol.T);
-      awardCorrect();
-    } else {
-      S.locked[y-1]=cloneH(sol.T);
-      const alive=applyMiss('위에서 본 모양과 다른 칸을 켰어요.');
-      if (!alive) return;
-    }
+    const ok=eqGrid(got, sol.T);
+    return { ok, need:sol.T, msg: ok?'':'1층은 「위에서 본 모양」과 같아요. 다른 칸이 켜져 있어요.' };
+  }
+  if (y>=sol.floors){
+    const layers=S.locked.slice(0,y-1).concat([cloneH(got)]);
+    const Hp=heightFromLayers(layers, n);
+    const occOk=!sol.T || eqGrid(occupancy(Hp), sol.T);
+    const projOk=eqArr(frontOf(Hp), sol.F) && eqArr(rightOf(Hp), sol.R);
+    const sumOk= sol.kind==='min' ? sumH(Hp)===sol.minSum : sumH(Hp)===sol.maxSum;
+    const ok=occOk&&projOk&&sumOk;
+    return { ok, need, msg: ok?'' : (sol.kind==='min'
+      ? '위·앞·옆 모양을 지키며 가장 적게 쌓지 못했어요.'
+      : '위·앞·옆 모양을 지키며 가장 많게 쌓지 못했어요.') };
+  }
+  return { ok:true, need:cloneH(got), free:true };
+}
+function lockFloor(forceOk, forceBad){
+  const sol=S.solid, y=S.floorY;
+  const need=layerOf(sol.H,y);
+  if (forceOk){
+    S.paint=cloneH(need); S.locked[y-1]=cloneH(need);
+    S.scanPhase='feedback'; S.scanT=0; S.cache.mine=null;
+    awardCorrect(); return;
+  }
+  const ev = forceBad ? { ok:false, need, msg:failText(sol,y,zeros(sol.n),need) } : evaluateFloor();
+  if (ev.ok){
+    S.locked[y-1]=cloneH(S.paint);
+    S.scanPhase='feedback'; S.scanT=0;
+    awardCorrect(); return;
+  }
+  S.tries++;
+  const reveal = forceBad || S.mode==='arcade' || S.tries>=2;
+  if (!reveal){
+    S.wrongGrid=ev.need;
+    S.scanPhase='fix';
+    S.missFlash=0.6; S.padShake=1;
+    showFail(ev.msg + ' 고쳐서 다시 〈확인〉을 눌러요.');
+    beep(180,.12,'square',.05);
     return;
   }
-  S.locked[y-1]=got;
-  S.flash=0.06;
+  S.wrongGrid=ev.need;
+  S.paint=cloneH(ev.need);
+  S.locked[y-1]=cloneH(ev.need);
+  S.cache.mine=null;
+  S.scanPhase='feedback'; S.scanT=0;
+  applyMiss(ev.msg);
 }
-
+/* 한 층에서 오래 막히면 한 칸을 대신 고쳐 준다. 무한정 헤매게 두면
+ * 「아무 일도 안 일어난다」가 되고, 그건 시간 제한을 없앤 대가가 아니다. */
+function giveHint(){
+  const sol=S.solid; if (!sol || !editable()) return;
+  const need=layerOf(sol.H, S.floorY);
+  const cand=S.cellRects.filter(r => (S.paint[r.z][r.x]|0)!==need[r.z][r.x] && (need[r.z][r.x] ? belowOn(r.z,r.x,S.floorY) : true));
+  if (!cand.length) return;
+  const r=cand[0];
+  const want=need[r.z][r.x];
+  S.paint[r.z][r.x]=want;
+  S.cache.mine=null;
+  S.tries=Math.max(1, S.tries);
+  S.link={ z:r.z, x:r.x, on:want, t:1.4 };
+  showFail(want ? '한 칸 도와줄게요 — 여기에 쌓기나무가 있어요' : '한 칸 도와줄게요 — 이 칸은 빼요', true);
+  beep(520,.09,'square',.045);
+}
 function afterFeedback(){
   const sol=S.solid;
-  if (S.lives<=0) return;
+  if (S.mode==='arcade' && S.lives<=0) return;
   if (S.floorY < sol.floors){
-    S.floorY++;
-    beginFloor();
+    const done=S.floorY;
+    S.floorY++; beginFloor();
+    showFail(`${done}층 끝! 이제 ${S.floorY}층 — 아래층이 있는 칸 위에만 놓을 수 있어요`, true);
     return;
-  }
-  if (S.wellPerfect){
-    S.lamps=Math.min(4, S.lamps+1);
-    S.wow={ t:0, H:cloneH(sol.H), n:sol.n };
-    S.freeze=REDUCE?0.03:0.08;
-    S.timeScale=0.12;
-    S.stamps[WELLS[sol.well].id]=true;
-    try{ localStorage.setItem(LS_STAMP, JSON.stringify(S.stamps)); }catch(e){}
-    beep(520,.08,'square',.05);
-    setTimeoutTone();
   }
   S.di++;
   if (S.di>=S.deck.length){ endRun('clear'); return; }
   beginSolid();
 }
-function setTimeoutTone(){
-  /* chained LCD arpeggio without setInterval */
-  beep(392,.07,'square',.04);
-}
-
 function endRun(why){
   S.phase = why==='clear' ? 'clear' : 'gameover';
-  S.timeScale=1;
   saveBest();
-  const kicker = why==='clear' ? '네 우물 점등' : (why==='time' ? '스캔이 끝났어요' : '우물이 닫혔어요');
-  const title = why==='clear' ? '검사등 점등' : (why==='time' ? '시간 종료' : '틀린 층 세 번');
+  const kicker = why==='clear' ? '끝' : (why==='time' ? '시간 종료' : '세 번 틀렸어요');
+  const title = why==='clear' ? '다 쌓았어요!' : (why==='time' ? '시간이 다 됐어요' : '다시 해 볼까요');
   $('#resKicker').textContent=kicker;
   $('#resTitle').textContent=title;
-  /* 왜 끝났는지를 마지막 줄에 사람 말로 남긴다 — 갑자기 뜨는 팝업은 원인을 알 수 없다 */
-  const cause = why==='clear' ? '네 우물을 모두 켰어요!'
-    : (why==='time' ? '90초가 다 됐어요.' : (S.failMsg || '층을 세 번 틀렸어요.'));
-  $('#resSub').innerHTML = `맞게 켠 층 ${S.solved}개<br>${cause}`;
+  $('#resSub').innerHTML = `맞게 켠 층 <b>${S.solved}</b> / ${S.totalFloors}층`;
   S.showScore=0;
   $('#result').classList.add('show');
-  beep(why==='clear'?784:110, .2, 'square', .06);
+  beep(why==='clear'?784:200, .2, 'square', .06);
 }
 
-function startGame(skipOnb, hard){
+function startGame(skipOnb, arcade){
   unlockAudio();
-  S.hard=!!hard;
+  S.mode = arcade ? 'arcade' : 'puzzle';
   document.documentElement.classList.add('ingame');
   $('#title').classList.add('gone');
   $('#result').classList.remove('show');
   $('#help').classList.remove('show');
   actuallyStart();
-  /* 첫 실행 = 자동 인게임 온보딩. 설명 팝업이 아니라 실전 판 위에서 직접 켜 본다 (§1-g) */
   if (!skipOnb && !localStorage.getItem(LS_ONB)) startTutorial();
 }
 function actuallyStart(){
   S.phase='playing';
   S.score=0; S.showScore=0; S.lives=3; S.miss=0; S.combo=0; S.solved=0;
-  S.time=SESSION; S.runT=0; S.lamps=0; S.di=0; S.wow=null;
-  S.failMsg=''; S.failT=0; S.flash=0; S.missFlash=0; S.ghostT=0; S.punch=0;
-  S.trail=[]; S.timeScale=1; S.freeze=0;
+  S.time=SESSION; S.runT=0; S.di=0;
+  S.failT=0; S.flash=0; S.missFlash=0; S.punch=0; S.timeScale=1; S.freeze=0;
   S.tut=0; S.tutT=0; S.idle=0; S.ripples.length=0;
-  S.whyMsg=''; S.whyT=0; S.wrongGrid=null; S.padShake=0;
+  S.whyMsg=''; S.whyT=0; S.wrongGrid=null; S.padShake=0; S.link=null;
   $('#onboard').classList.remove('show');
-  S.deck=makeDeck(S.hard, Math.random);
   $('#failLine').classList.remove('show');
+  /* 첫 판은 결정론적 — 누가 열어도 같은 쉬운 순서로 배운다 */
+  const first = !localStorage.getItem(LS_ONB);
+  S.deck=makeDeck(false, rngFn(first ? 7 : ((Math.random()*1e9)|0)));
+  S.totalFloors=S.deck.reduce((a,s)=>a+s.floors, 0);
   layout();
   beginSolid();
 }
 
-/* ══════ 온보딩 — 실전 판 위에서 직접 켜 본다 (§1-a,b,e,g) ══════
- * 설명 3장을 넘기는 게 아니라, 학생이 칸을 한 번 실제로 켜야 다음으로 간다.
- * 그 전까지 스캔 막대도 세션 시간도 멈춘다 — 모달 뒤에서 타이머가 흐르면 벌이지 안내가 아니다. */
-const TUT = {
-  1:{ t:'네모 판의 칸을 탭해 보세요',
-      b:'손가락이 가리키는 네모 판에서 칸을 한 번 탭하면 그 칸이 켜져요. 지금은 시간이 멈춰 있어요.' },
-  2:{ t:'좋아요! 이제 이 층의 칸을 다 켜요',
-      b:'위 그림에서 이번 층에 쌓기나무가 있는 칸을 모두 켜요. 「잠금까지」 막대가 다 차면 그대로 잠겨요.' }
+/* ══════ 온보딩 — 판 위에서 두 번 움직여 보면 끝 ══════ */
+const TUT={
+  1:'아래 네모 칸을 한 번 탭해 보세요. 그 자리에 쌓기나무가 놓여요.',
+  2:'오른쪽 〈내 모양〉의 같은 자리에 나무가 생겼어요. 잘못 놓았으면 그 칸을 한 번 더 탭하면 없어져요.',
+  3:'왼쪽 〈만들 모양〉과 똑같이 만든 다음, 아래 〈확인〉을 눌러요.'
 };
 function showTutCard(){
   const s=TUT[S.tut];
-  if (!s){ $('#onboard').classList.remove('show'); return; }
-  $('#obStep').textContent=`해 보기 ${S.tut} / 2`;
-  $('#obTitle').textContent=s.t;
-  $('#obBody').textContent=s.b;
+  if (!s){ $('#onboard').classList.remove('show'); layout(); return; }
+  $('#obBody').textContent=s;
   $('#onboard').classList.add('show');
-  layout();   /* 캔버스 상단은 발문 상자 아래끝을 따라간다 — 카드가 판을 가리지 않게 */
+  layout();
 }
-function startTutorial(){
-  S.tut=1; S.tutT=0; S.idle=0;
-  showTutCard();
-}
-/* 첫 조작에 성공하면 즉시 눈에 보이는 보상을 주고 안내를 닫는 쪽으로 넘어간다 (§1-b) */
+function startTutorial(){ S.tut=1; S.tutT=0; S.idle=0; showTutCard(); }
 function tutAdvance(){
-  if (S.tut!==1) return;
-  S.tut=2; S.tutT=0;
-  S.flash=0.14; S.punch=0.8;
-  beep(760,.07,'square',.05); setTimeout(()=>beep(990,.09,'square',.04), 90);
+  if (S.tut!==1 && S.tut!==2) return;
+  S.tut++; S.tutT=0; S.flash=0.16; S.punch=0.8;
+  beep(700+S.tut*60,.07,'square',.05);
   showTutCard();
 }
 function endTutorial(){
@@ -1210,16 +1332,12 @@ function endTutorial(){
 
 /* ── input ── */
 function cellAt(px,py){
-  const rs=S.cellRects;
-  for (const r of rs) if (px>=r.px && px<=r.px+r.s && py>=r.py && py<=r.py+r.s) return r;
+  for (const r of S.cellRects) if (px>=r.px && px<=r.px+r.s && py>=r.py && py<=r.py+r.s) return r;
   return null;
 }
-/* 어떤 탭에도 반응한다 (§1-e) — 유효하지 않은 자리를 눌러도 그 자리에 리플이 남고
- * 진짜 조작 대상(네모 판)이 흔들리며 코치가 다시 커진다. 500ms 안에 아무 픽셀도
- * 안 바뀌는 입력을 학생은 「고장 났다」로 읽는다. */
 function ripple(x,y,col){
   S.ripples.push({ x, y, t:0, col:col||PAL.steel });
-  if (S.ripples.length>6) S.ripples.shift();
+  if (S.ripples.length>5) S.ripples.shift();
 }
 function onDown(e){
   unlockAudio();
@@ -1229,423 +1347,352 @@ function onDown(e){
   const c=cellAt(x,y);
   if (!c){
     ripple(x,y,PAL.miss);
-    S.padShake=1;
-    S.idle=7.4;                       /* 손가락 포인터를 즉시 크게 다시 재생한다 */
-    S.failMsg='켜는 곳은 아래 네모 판이에요 — 판 안의 칸을 탭해요';
-    S.failT=1.3;
-    $('#failLine').textContent=S.failMsg;
-    $('#failLine').classList.add('show');
+    S.padShake=1; S.idle=6.2;
+    showFail('쌓는 곳은 아래 네모 판이에요 — 판 안의 칸을 탭해요', true);
     beep(240,.07,'square',.05);
     return;
   }
   ripple(c.px+c.s/2, c.py+c.s/2, PAL.steel);
-  S.ptr=e.pointerId;
   try{ cv.setPointerCapture(e.pointerId); }catch(err){}
-  const cur=S.paint[c.z][c.x];
-  const want=cur?0:1;
+  const want=S.paint[c.z][c.x]?0:1;
   S.dragOn=true; S.dragVal=want;
   S.cursor={z:c.z,x:c.x};
-  if (toggleCell(c.z,c.x,want) && S.tut===1) tutAdvance();
+  if (toggleCell(c.z,c.x,want) && S.tut>0 && S.tut<3) tutAdvance();
 }
 function onMove(e){
   if (!S.dragOn || S.phase!=='playing') return;
   const c=cellAt(e.clientX,e.clientY);
   if (!c) return;
-  S.idle=0;
-  S.cursor={z:c.z,x:c.x};
-  if (toggleCell(c.z,c.x,S.dragVal) && S.tut===1) tutAdvance();
+  S.idle=0; S.cursor={z:c.z,x:c.x};
+  if (toggleCell(c.z,c.x,S.dragVal) && S.tut>0 && S.tut<3) tutAdvance();
 }
-function onUp(){ S.dragOn=false; S.ptr=null; }
-
+function onUp(){ S.dragOn=false; }
 cv.addEventListener('pointerdown', onDown);
 cv.addEventListener('pointermove', onMove);
 window.addEventListener('pointerup', onUp);
 window.addEventListener('pointercancel', onUp);
 
+function pressConfirm(){
+  if (S.phase!=='playing' || !S.solid) return;
+  S.idle=0;
+  if (S.tut>0 && S.tut<3){
+    /* 무반응은 「고장」으로 읽힌다 — 왜 아직 안 되는지 말해 준다 */
+    S.padShake=1;
+    showFail('먼저 아래 네모 칸을 한 번 탭해 보세요', true);
+    beep(220,.07,'square',.04);
+    return;
+  }
+  if (S.tut===3) endTutorial();
+  if (!editable()) return;
+  lockFloor(false,false);
+}
 window.addEventListener('keydown', e => {
   if (e.repeat) return;
-  if (e.key==='m' || e.key==='M') { toggleMute(); return; }
-  if (S.phase==='title' && (e.key==='Enter' || e.key===' ')) { e.preventDefault(); startGame(false,false); return; }
+  if (/^(Arrow|Enter| |z|Z)/.test(e.key)) S.kbd=true;
+  if (e.key==='m' || e.key==='M'){ toggleMute(); return; }
+  if (S.phase==='title' && (e.key==='Enter' || e.key===' ')){ e.preventDefault(); startGame(false,false); return; }
   if (S.phase!=='playing' || !S.solid) return;
   const n=S.solid.n;
+  if (S.cursor.z<0) S.cursor={z:0,x:0};
   if (e.key==='ArrowLeft'){ S.cursor.x=Math.max(0,S.cursor.x-1); e.preventDefault(); }
   else if (e.key==='ArrowRight'){ S.cursor.x=Math.min(n-1,S.cursor.x+1); e.preventDefault(); }
-  else if (e.key==='ArrowUp'){ S.cursor.z=Math.max(0,S.cursor.z-1); e.preventDefault(); }
-  else if (e.key==='ArrowDown'){ S.cursor.z=Math.min(n-1,S.cursor.z+1); e.preventDefault(); }
-  else if (e.key===' ' || e.key==='Enter'){ e.preventDefault(); if (toggleCell(S.cursor.z,S.cursor.x) && S.tut===1) tutAdvance(); }
-  else if ((e.key==='z'||e.key==='Z') && S.undoLeft) undoFloor();
+  else if (e.key==='ArrowUp'){ S.cursor.z=Math.min(n-1,S.cursor.z+1); e.preventDefault(); }
+  else if (e.key==='ArrowDown'){ S.cursor.z=Math.max(0,S.cursor.z-1); e.preventDefault(); }
+  else if (e.key===' '){ e.preventDefault(); if (toggleCell(S.cursor.z,S.cursor.x) && S.tut>0 && S.tut<3) tutAdvance(); }
+  else if (e.key==='Enter'){ e.preventDefault(); pressConfirm(); }
+  else if (e.key==='z'||e.key==='Z') undoFloor();
   S.idle=0;
 });
 
 $('#start').addEventListener('click', () => startGame(false,false));
 $('#hard').addEventListener('click', () => startGame(false,true));
-$('#how').addEventListener('click', () => { $('#help').classList.add('show'); });
+$('#how').addEventListener('click', () => $('#help').classList.add('show'));
 $('#closeHelp').addEventListener('click', () => $('#help').classList.remove('show'));
 $('#obSkip').addEventListener('click', () => { beep(300,.05); endTutorial(); });
-$('#again').addEventListener('click', () => { $('#result').classList.remove('show'); startGame(true, S.hard); });
-/* 결과 팝업 바깥을 눌러도 다시 시작한다 — 팝업 뒤 게임 영역을 눌러 「무반응」으로 읽히면 안 된다 (§1-e) */
+$('#again').addEventListener('click', () => { $('#result').classList.remove('show'); startGame(true, S.mode==='arcade'); });
 $('#result').addEventListener('pointerdown', (e) => {
   if (e.target.id!=='result') return;
-  $('#result').classList.remove('show'); startGame(true, S.hard);
+  $('#result').classList.remove('show'); startGame(true, S.mode==='arcade');
 });
 $('#mute').addEventListener('click', toggleMute);
 $('#titleMute').addEventListener('click', toggleMute);
 $('#undo').addEventListener('click', undoFloor);
+$('#confirm').addEventListener('click', pressConfirm);
 window.addEventListener('resize', layout);
 window.addEventListener('orientationchange', () => setTimeout(layout, 120));
 
-/* ── draw helpers ── */
-function drawSeg7(ctx, d, x, y, w, h, on){
-  const t=Math.max(2, w*0.16);
-  const A=d&1,B=d&2,C=d&4,D=d&8,E=d&16,F=d&32,G=d&64;
-  ctx.fillStyle=on||PAL.ink;
-  function bar(bx,by,bw,bh){ ctx.fillRect(bx|0,by|0,Math.max(1,bw|0),Math.max(1,bh|0)); }
-  if (A) bar(x+t, y, w-2*t, t);
-  if (G) bar(x+t, y+h/2-t/2, w-2*t, t);
-  if (D) bar(x+t, y+h-t, w-2*t, t);
-  if (F) bar(x, y+t, t, h/2-t-t/2);
-  if (B) bar(x+w-t, y+t, t, h/2-t-t/2);
-  if (E) bar(x, y+h/2+t/2, t, h/2-t-t/2);
-  if (C) bar(x+w-t, y+h/2+t/2, t, h/2-t-t/2);
-}
-function drawNum7(ctx, num, x, y, dw, dh, digits, col){
-  const s=String(Math.max(0,num|0)).padStart(digits,'0').slice(-digits);
-  for (let i=0;i<digits;i++){
-    const ch=s.charCodeAt(i)-48;
-    drawSeg7(ctx, SEG7[ch]||0, x+i*(dw+7), y, dw, dh, col||PAL.ink);
-  }
-}
-function drawPix5(ctx, text, x, y, sc, col){
-  ctx.fillStyle=col||PAL.ink;
-  let cx=x;
-  for (const ch of String(text)){
-    const g=G5[ch];
-    if (g){
-      for (let row=0;row<7;row++){
-        const bits=g[row];
-        for (let col=0;col<5;col++) if (bits & (1<<(4-col))) ctx.fillRect(cx+col*sc, y+row*sc, sc, sc);
-      }
-    }
-    cx += 6*sc;
-  }
-  return cx;
-}
-let _font='';
-function drawK(ctx, text, x, y, px, col){
-  /* font 문자열 재대입은 소프트웨어 렌더러에서 매번 파싱 비용이 붙는다 — 바뀔 때만 세팅 */
-  const f=`800 ${Math.max(11,px|0)}px ui-monospace,"SF Mono",Menlo,"Apple SD Gothic Neo",sans-serif`;
-  if (f!==_font){ ctx.font=f; _font=f; }
-  ctx.fillStyle=col||PAL.ink;
-  ctx.textBaseline='top';
-  ctx.fillText(String(text), x, y);
-}
-
-function drawLcdSprite(ctx, cx, cy, s, on){
-  const x=cx-s/2, y=cy-s;
-  ctx.fillStyle=on?PAL.ink:PAL.dim;
-  ctx.fillRect(x|0, y|0, s|0, s|0);
-  const g=Math.max(2, s*0.14), iw=s-g*2, ih=(s-g*3)/2;
-  ctx.fillStyle=on?PAL.lcd:PAL.ghost;
-  ctx.fillRect((x+g)|0, (y+g)|0, iw|0, ih|0);
-  ctx.fillRect((x+g)|0, (y+g*2+ih)|0, iw|0, ih|0);
-}
-
-function drawCircuit(rect){
-  const x=rect.x, y=rect.y, w=rect.w, h=rect.h;
-  ctx.strokeStyle=PAL.ghost; ctx.lineWidth=2;
-  const t=14;
-  ctx.beginPath();
-  ctx.moveTo(x+8, y+8+t); ctx.lineTo(x+8, y+8); ctx.lineTo(x+8+t, y+8);
-  ctx.moveTo(x+w-8-t, y+8); ctx.lineTo(x+w-8, y+8); ctx.lineTo(x+w-8, y+8+t);
-  ctx.moveTo(x+8, y+h-8-t); ctx.lineTo(x+8, y+h-8); ctx.lineTo(x+8+t, y+h-8);
-  ctx.moveTo(x+w-8-t, y+h-8); ctx.lineTo(x+w-8, y+h-8); ctx.lineTo(x+w-8, y+h-8-t);
-  ctx.stroke();
-  ctx.fillStyle=PAL.ghost;
-  for (let i=0;i<5;i++){
-    ctx.fillRect(x+18+i*10, y+h-12, 6, 2);
-    ctx.fillRect(x+w-24, y+16+i*8, 2, 5);
-  }
-}
-/* 층 눈금은 패널 아래 46px 을 비워 둔다 — 그 자리는 '앞' 방향 표시 전용이다.
- * (예전엔 방향 화살표가 1층 눈금 위에 겹쳐 '1앞'으로 읽혔다) */
-function drawLayerScale(rect, floors, cur){
-  const x=rect.x+10, top=rect.y+22, bot=rect.y+rect.h-46;
-  const span=Math.max(40, bot-top);
-  ctx.fillStyle=PAL.ghost;
-  ctx.fillRect(x, top, 2, span);
-  for (let k=1;k<=Math.max(3,floors);k++){
-    const yy=bot - (k-0.5)*(span/Math.max(3,floors));
-    ctx.fillStyle=k===cur?PAL.steel:PAL.ghost;
-    ctx.fillRect(x-3, yy, 10, 3);
-    drawK(ctx, k+'층', x+10, yy-8, 12, k===cur?PAL.ink:PAL.ghost);
-  }
-}
-function drawFrontMark(rect){
-  const y=rect.y+rect.h-30;
-  drawK(ctx, '앞', rect.x+8, y-6, 12, PAL.steel);
-  ctx.fillStyle=PAL.steel;
-  ctx.beginPath();
-  ctx.moveTo(rect.x+42, y); ctx.lineTo(rect.x+30, y-7); ctx.lineTo(rect.x+30, y+7);
-  ctx.closePath(); ctx.fill();
-}
-
-function drawIso(H, rect, scanY, blink){
-  /* 아이소 블록이 옆 패널 위로 새면 패널이 다시 칠해 지워야 한다 — 클립으로 막고
-   * 대신 패널들의 전면 재도색을 없앤다(소프트웨어 렌더러 픽셀 절약). */
-  ctx.save();
-  ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.w, rect.h); ctx.clip();
-  drawCircuit(rect);
-  const n=H.length, m=Math.max(2, maxH(H));
-  /* 좁은 패널에서는 눈금 열을 줄이고 블록 하한도 낮춘다 — 안 그러면 블록이 층 눈금 위로
-   * 넘쳐 '1층/2층' 글자를 덮는다.
-   * 상한이 없으면 데스크톱에서 블록 하나가 240px 을 넘어 소프트웨어 렌더러 채우기
-   * 비용이 급증한다(30fps 게이트 위협). 보기에도 160px 이면 충분하다. */
-  const narrow=rect.w<260;
-  const leftPad=narrow?46:56, rightPad=narrow?12:18, topPad=10, botPad=14;
-  const s=Math.max(narrow?26:40, Math.min(160,
-    (rect.w-leftPad-rightPad)/( (n-1)*1.24 + (n-1)*0.22 + 1.15 ),
-    (rect.h-topPad-botPad)/( (m-1)*0.94 + (n-1)*0.16 + 1.2 )
-  ));
-  const spanX=(n-1)*s*1.24 + (n-1)*s*0.22 + s;
-  const spanY=(m-1)*s*0.94 + (n-1)*s*0.16 + s;
-  const ox=rect.x+leftPad+(rect.w-leftPad-rightPad-spanX)/2 + s*0.5;
-  const oy=rect.y+topPad+(rect.h-topPad-botPad+spanY)/2 - s*0.1;
-  drawLayerScale(rect, m, scanY);
-  drawFrontMark(rect);
-  for (let z=n-1;z>=0;z--){
-    for (let x=0;x<n;x++){
-      const h=H[z][x];
-      for (let y=1;y<=h;y++){
-        const cx=ox + x*s*1.24 + z*s*0.22;
-        const cy=oy - (y-1)*s*0.94 + z*s*0.16;
-        const lit=!(blink && y===scanY && ((S.runT*10)|0)%2);
-        drawLcdSprite(ctx, cx, cy, s*0.9, lit);
-      }
-    }
-  }
-  if (scanY>=1){
-    const cy=oy - (scanY-1)*s*0.94 - s*0.5;
-    ctx.fillStyle=PAL.steel;
-    ctx.fillRect(rect.x+36, cy, rect.w-48, 4);
-    ctx.globalAlpha=0.25;
-    ctx.fillRect(rect.x+36, cy+5, rect.w-48, 6);
-    ctx.globalAlpha=1;
-  }
-  ctx.restore();
-}
-
-function drawSil(arr, x, y, w, h, label, flash, frontLeft){
-  const n=arr.length, cw=(w-8)/n, ch=(h-22)/Math.max(3, n);
-  /* 배경은 drawBezel 이 이미 같은 색으로 깔았다 — 재도색 생략 */
-  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
-  drawK(ctx, label, x+4, y+2, 12, flash?PAL.miss:PAL.ink);
-  for (let i=0;i<n;i++){
-    const ht=arr[i];
-    for (let k=0;k<3;k++){
-      const on=k<ht;
-      const bx=x+4+i*cw, by=y+h-6-(k+1)*ch;
-      ctx.fillStyle=on?(flash?PAL.miss:PAL.ink):PAL.dim;
-      ctx.fillRect(bx+2, by+2, cw-6, ch-4);
-    }
-  }
-  /* 방향 표시는 칸 위에 겹치지 않게 라벨 줄 오른쪽 끝에 둔다 */
-  if (frontLeft){
-    ctx.fillStyle=PAL.steel;
-    ctx.beginPath();
-    ctx.moveTo(x+w-20, y+9); ctx.lineTo(x+w-9, y+3); ctx.lineTo(x+w-9, y+15);
-    ctx.closePath(); ctx.fill();
-  }
-}
-/* label: 이 격자의 수가 '층수'인지 '칸 유무'인지 한 게임 안에서 절대 섞이면 안 된다.
- * 숫자 격자 = 각 칸의 층수, 칠한 격자 = 쌓기나무가 있는 칸(유무). 라벨로 못박는다. */
-function drawTopGrid(H, x, y, w, h, showNum, flash, label){
-  const n=H.length, s=Math.min((w-8)/n, (h-26)/n);
-  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
-  const lf = w<150 ? 11 : 12;
-  drawK(ctx, label || (showNum?'위 모양에 쓴 수=층수':'위에서 본 모양'), x+4, y+2, lf, flash?PAL.miss:PAL.ink);
-  /* 앞쪽 표시는 라벨 줄 오른쪽 끝 — 칸 위에 겹치면 안에 쓴 수를 가린다 */
-  ctx.fillStyle=PAL.steel;
-  ctx.beginPath();
-  ctx.moveTo(x+w-24, y+13); ctx.lineTo(x+w-30, y+4); ctx.lineTo(x+w-18, y+4);
-  ctx.closePath(); ctx.fill();
-  drawK(ctx, '앞', x+w-15, y+2, 11, PAL.steel);
-  const ox=x+(w-s*n)/2, oy=y+20+Math.max(0, Math.min(36, (h-26-s*n)/2));
-  for (let z=0;z<n;z++) for (let xx=0;xx<n;xx++){
-    const v=H[z][xx];
-    const bx=ox+xx*s, by=oy+z*s;
-    ctx.fillStyle=v>0?PAL.ink:PAL.dim;
-    ctx.fillRect(bx+2, by+2, s-4, s-4);
-    if (showNum && v>0){
-      /* 칸 배경이 ink 라 수도 ink 로 찍으면 보이지 않는다 — 켜진 세그먼트 색으로 뺀다 */
-      const dw=s*0.42, dh=s*0.62;
-      drawNum7(ctx, v, bx+(s-dw)/2, by+(s-dh)/2, dw, dh, 1, PAL.lcd);
-    }
-  }
-}
-function drawLayerCard(L, x, y, w, h, title, active){
-  const n=L.length, s=Math.min((w-8)/n,(h-16)/n);
-  ctx.fillStyle=active?PAL.cream:PAL.lcd;
-  ctx.fillRect(x,y,w,h);
-  ctx.strokeStyle=active?PAL.steel:PAL.ink; ctx.lineWidth=active?3:2; ctx.strokeRect(x,y,w,h);
-  drawK(ctx, title, x+4, y+2, 11, PAL.ink);
-  const ox=x+(w-s*n)/2, oy=y+14;
-  for (let z=0;z<n;z++) for (let xx=0;xx<n;xx++){
-    ctx.fillStyle=L[z][xx]?PAL.ink:PAL.dim;
-    ctx.fillRect(ox+xx*s+2, oy+z*s+2, s-4, s-4);
-  }
-}
-
+/* ══════ 그리기 ══════ */
 function layoutCells(n, rect){
-  /* head 는 우물 위쪽 정보 줄(점수·미쓰·목표 문장·잠금 게이지) 자리다.
-   * 여기가 좁으면 「잠금까지」 막대가 칸 위로 겹친다. */
-  const pad=8, head=104, foot=22;
-  const size=Math.min((rect.w-pad*2-24)/n, (rect.h-head-foot-pad)/n);
-  const ox=rect.x+(rect.w-size*n)/2, oy=rect.y+head;
+  const head=84, foot=44, pad=10;
+  const size=Math.max(30, Math.min((rect.w-pad*2-52)/n, (rect.h-head-foot-pad)/n));
+  const ox=rect.x+(rect.w-size*n)/2;
+  const oy=rect.y+head+Math.max(0, (rect.h-head-foot-size*n)/2);
   const rs=[];
-  /* z,x 는 격자 좌표, px,py 는 화면 좌표. 예전엔 두 x 를 한 객체에 같은 이름으로 넣어
-   * 열 번호가 화면 좌표로 덮여 있었고, 그 탓에 toggleCell 이 범위 밖으로 판단해
-   * 탭 입력이 통째로 먹히지 않았다. 절대 이름을 다시 겹치지 마라. */
-  for (let z=0;z<n;z++) for (let x=0;x<n;x++){
-    rs.push({ z, x, px:ox+x*size, py:oy+z*size, s:size });
-  }
+  /* 아래줄이 앞줄(z=0) — 그림의 앞쪽과 판의 아래쪽이 같은 자리다 */
+  for (let z=0;z<n;z++) for (let x=0;x<n;x++)
+    rs.push({ z, x, px:ox+x*size, py:oy+(n-1-z)*size, s:size });
   S.cellRects=rs;
+  S.padBox={ x:ox, y:oy, w:size*n, h:size*n };
   return { ox, oy, size };
 }
-
-function drawWellWalls(rect){
-  const tile=16, wrap=((S.runT*10)% (tile*8));
-  ctx.fillStyle=PAL.ink;
-  ctx.fillRect(rect.x, rect.y, 5, rect.h);
-  ctx.fillRect(rect.x+rect.w-5, rect.y, 5, rect.h);
-  ctx.fillStyle=PAL.lcd;
-  for (let i=0;i<8;i++){
-    const yy=rect.y + ((i*tile + wrap)%(rect.h-8));
-    ctx.fillRect(rect.x+1, yy, 3, 8);
-    ctx.fillRect(rect.x+rect.w-4, yy, 3, 8);
-  }
+/* 입체 그림에도 판과 같은 「앞」 표시를 단다 — 그림의 앞과 판의 앞이 같은 말이어야 한다 */
+function isoFrontMark(g, box){
+  g.fillStyle=PAL.steel;
+  g.beginPath();
+  g.moveTo(box.x+8, box.y+box.h-4); g.lineTo(box.x+2, box.y+box.h-14); g.lineTo(box.x+14, box.y+box.h-14);
+  g.closePath(); g.fill();
+  drawK(g, '앞', box.x+18, box.y+box.h-17, 12, PAL.steel);
 }
-
-function drawBezel(){
-  const W=S.W, H=S.H;
-  ctx.fillStyle=PAL.lcd;
-  ctx.fillRect(0,0,W,H);
-  if (S.land && S.stageW < W-2){
-    ctx.fillStyle='#1c2016';
-    ctx.fillRect(0,0,S.stageX,H);
-    ctx.fillRect(S.stageX+S.stageW,0, W-(S.stageX+S.stageW), H);
+function drawGoalPanel(g, r){
+  const sol=S.solid, y=S.floorY;
+  const flashView = S.failT>0 ? S.brokenView : null;
+  const inner=panelFrame(g, r, '만들 모양', false);
+  if (sol.view==='cards'){
+    /* 지금 켜야 할 층 카드를 크게, 나머지 층은 작은 미리보기로 */
+    const thumbH=Math.min(56, inner.h*0.3);
+    const bigH=inner.h-thumbH-8;
+    const bigW=Math.min(inner.w, bigH-18);
+      drawLayerCard(g, sol.layers[y-1]||zeros(sol.n), inner.x+(inner.w-bigW)/2, inner.y, bigW, bigH, y+'층 카드 (검은 칸을 켜요)', true);
+    const others=[];
+    for (let k=0;k<sol.floors;k++) if (k!==y-1) others.push(k);
+    const tw=Math.min(thumbH-6, (inner.w-8)/Math.max(1,others.length));
+    others.forEach((k,i) => drawLayerCard(g, sol.layers[k]||zeros(sol.n),
+      inner.x+(inner.w-tw*others.length-6*(others.length-1))/2 + i*(tw+6),
+      inner.y+bigH+8, tw, thumbH-2, (k+1)+'층', false));
+    return;
   }
-  /* 유리면 가로 반사 1px */
-  ctx.fillStyle='rgba(244,240,216,.22)';
-  ctx.fillRect(S.land?S.stageX:0, (S.runT*13)%H, S.land?S.stageW:W, 1);
+  if (sol.view==='views'){
+    const gap=5, colW=(inner.w-gap*2)/3;
+    const colH=Math.min(inner.h, Math.max(70, colW*1.5));
+    const vy=inner.y+(inner.h-colH)/2;
+    drawTopNums(g, sol.T.map(r2=>r2.map(v=>v)), { x:inner.x, y:vy, w:colW, h:colH }, false, flashView==='top', '위');
+    drawSil(g, sol.F, { x:inner.x+colW+gap, y:vy, w:colW, h:colH }, '앞', flashView==='front', false);
+    drawSil(g, sol.R, { x:inner.x+(colW+gap)*2, y:vy, w:colW, h:colH }, '오른쪽', flashView==='right', true);
+    drawK(g, '이 세 모양이 되도록 쌓아요', inner.x+2, vy+colH+6, 11.5, PAL.steel);
+    return;
+  }
+  let isoBox=inner;
+  if (sol.view==='isoTop'){
+    const gh=Math.min(96, Math.max(64, inner.h*0.4));
+    isoBox={ x:inner.x, y:inner.y, w:inner.w, h:inner.h-gh-4 };
+    drawTopNums(g, sol.H, { x:inner.x+inner.w*0.14, y:inner.y+inner.h-gh, w:inner.w*0.72, h:gh }, true, flashView==='top');
+  }
+  drawStack(g, sol.H, isoBox, sol.floors>1?y:0, sol.floors, null);
+  isoFrontMark(g, isoBox);
+  if (sol.floors>1) drawK(g, `${y}층만 진하게`, isoBox.x+2, isoBox.y+2, 11, PAL.steel);
 }
-
-function drawMissHoles(x,y,s){
-  s=Math.max(44, s||44);
-  for (let i=0;i<3;i++){
-    const bx=x+i*(s+6);
-    ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
-    ctx.strokeRect(bx,y,s,s);
-    ctx.fillStyle=PAL.dim; ctx.fillRect(bx+2,y+2,s-4,s-4);
-    if (i<S.miss){
-      if (IM.miss) ctx.drawImage(IM.miss, bx+2, y+2, s-4, s-4);
-      else {
-        ctx.fillStyle=PAL.miss;
-        ctx.fillRect(bx+s*0.2, y+s*0.2, s*0.18, s*0.18);
-        ctx.fillRect(bx+s*0.62, y+s*0.2, s*0.18, s*0.18);
-        ctx.fillRect(bx+s*0.28, y+s*0.62, s*0.44, s*0.12);
+function drawMinePanel(g, r){
+  const sol=S.solid, y=S.floorY;
+  const inner=panelFrame(g, r, '내 모양', true);
+  const layers=S.locked.slice(0, y-1).concat([S.paint]);
+  const Hp=heightFromLayers(layers, sol.n);
+  const empty=sumH(Hp)===0;
+  const slots=(y>1)? (S.locked[y-2]||zeros(sol.n)) : sol.H.map(row=>row.map(()=>1));
+  drawStack(g, Hp, inner, sol.floors>1?y:0, Math.max(sol.floors, maxH(Hp)), slots, y);
+  isoFrontMark(g, inner);
+  if (empty) drawK(g, '아직 비어 있어요', inner.x+6, inner.y+inner.h/2-8, 12, PAL.steel);
+}
+function drawPad(){
+  const sol=S.solid, y=S.floorY, well=S.well, n=sol.n;
+  ctx.fillStyle=PAL.lcd; ctx.fillRect(well.x, well.y, well.w, well.h);
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=3; ctx.strokeRect(well.x+1.5, well.y+1.5, well.w-3, well.h-3);
+  /* 머리줄: 지금 층 + 점수 (+도전 모드에서만 남은 초·틀린 층) */
+  ctx.fillStyle=PAL.ink; ctx.fillRect(well.x+1.5, well.y+1.5, well.w-3, 24);
+  drawK(ctx, `위에서 본 판 · ${y}층`, well.x+8, well.y+5, 14, PAL.cream);
+  let rx=well.x+well.w-8;
+  if (S.mode==='arcade'){
+    const t=`${Math.max(0,Math.ceil(S.time))}초 · 틀림 ${S.miss}/3`;
+    ctx.textAlign='right'; drawK(ctx, t, rx, well.y+6, 12, S.time<15?PAL.miss:PAL.cream); ctx.textAlign='left';
+  } else {
+    ctx.textAlign='right'; drawK(ctx, `놓은 나무 ${gridOn(S.paint)}개 · ${S.showScore|0}점`, rx, well.y+6, 12, PAL.cream); ctx.textAlign='left';
+  }
+  /* 조작 규칙 — 글로만 써 두면 안 읽힌다. 그림으로 보여 준다:
+   * [빈 칸] -탭→ [나무] -탭→ [빈 칸]. 「다시 누르면 쌓이나 빠지나」가 여기서 끝난다. */
+  ctx.fillStyle=PAL.cream; ctx.fillRect(well.x+1.5, well.y+25.5, well.w-3, 30);
+  ctx.strokeStyle=PAL.ink; ctx.lineWidth=1.5; ctx.strokeRect(well.x+1.5, well.y+25.5, well.w-3, 30);
+  {
+    const bs=20, gapw=42, tot=bs*3+gapw*2;
+    const bx=well.x+well.w/2-tot/2, by=well.y+30;
+    const box=(x,cube)=>{
+      ctx.fillStyle=PAL.dim; ctx.fillRect(x, by, bs, bs);
+      ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x, by, bs, bs);
+      if (cube){ const cs=bs*0.52; drawCube(ctx, x+(bs-cs*(1+DXR))/2, by+bs-3-cs, cs, 1, false); }
+    };
+    box(bx,false); box(bx+bs+gapw,true); box(bx+(bs+gapw)*2,false);
+    ctx.font='800 11px "Apple SD Gothic Neo","Malgun Gothic",sans-serif'; _font='';
+    ctx.fillStyle=PAL.ink; ctx.textAlign='center'; ctx.textBaseline='middle';
+    for (let k=0;k<2;k++){
+      const ax=bx+bs+k*(bs+gapw), aw=gapw;
+      ctx.fillText(k?'다시 탭':'탭', ax+aw/2, by+bs*0.28);
+      ctx.strokeStyle=PAL.steel; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(ax+5, by+bs*0.72); ctx.lineTo(ax+aw-8, by+bs*0.72); ctx.stroke();
+      ctx.fillStyle=PAL.steel;
+      ctx.beginPath();
+      ctx.moveTo(ax+aw-3, by+bs*0.72); ctx.lineTo(ax+aw-10, by+bs*0.72-4); ctx.lineTo(ax+aw-10, by+bs*0.72+4);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle=PAL.ink;
+    }
+    ctx.textAlign='left'; ctx.textBaseline='top';
+  }
+  const {ox, oy, size}=layoutCells(n, well);
+  const need=layerOf(sol.H,y);
+  const pad0=S.padShake>0 ? Math.sin(S.runT*52)*6*S.padShake : 0;
+  if (pad0) ctx.translate(pad0,0);
+  for (const r of S.cellRects){
+    const on=S.paint[r.z][r.x];
+    const blocked = !on && y>1 && !belowOn(r.z,r.x,y);
+    ctx.fillStyle = on ? PAL.front : (blocked?PAL.slot:PAL.dim);
+    ctx.fillRect(r.px, r.py, r.s, r.s);
+    if (on){
+      /* 켜진 칸은 진짜 쌓기나무 그림으로 — 판과 그림이 같은 물건임을 눈으로 잇는다 */
+      const cs=r.s*0.56;
+      drawCube(ctx, r.px+(r.s-cs*(1+DXR))/2, r.py+(r.s+cs*(1-DYR))/2 - cs, cs, 1, false);
+    } else if (blocked){
+      /* 아래층이 비어 못 쌓는 칸 — 빗금으로 확실히 다르게 */
+      ctx.save();
+      ctx.beginPath(); ctx.rect(r.px+2, r.py+2, r.s-4, r.s-4); ctx.clip();
+      ctx.strokeStyle='rgba(44,51,36,.28)'; ctx.lineWidth=3;
+      ctx.beginPath();
+      for (let k=-r.s; k<r.s*2; k+=11){ ctx.moveTo(r.px+k, r.py); ctx.lineTo(r.px+k+r.s, r.py+r.s); }
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.strokeStyle=PAL.ink; ctx.lineWidth=2.5;
+    ctx.strokeRect(r.px+1.25, r.py+1.25, r.s-2.5, r.s-2.5);
+    /* 키보드로 놀 때만 커서를 그린다 — 손가락으로 놀 때 남는 파란 테두리는
+       「선택된 칸」인지 「나무가 있는 칸」인지 헷갈리게 만든다 */
+    if (S.kbd && S.cursor.z===r.z && S.cursor.x===r.x){
+      ctx.strokeStyle=PAL.steel; ctx.lineWidth=3;
+      ctx.strokeRect(r.px+4, r.py+4, r.s-8, r.s-8);
+    }
+    if ((S.scanPhase==='feedback' || S.scanPhase==='fix') && S.wrongGrid){
+      const nd=S.wrongGrid[r.z][r.x];
+      if (!on && nd){
+        ctx.strokeStyle=PAL.steel; ctx.lineWidth=4; ctx.setLineDash([7,5]);
+        ctx.strokeRect(r.px+5, r.py+5, r.s-10, r.s-10);
+        ctx.setLineDash([]);
+        drawK(ctx, '여기 놓기', r.px+r.s/2-28, r.py+r.s/2-8, 13, PAL.steel);
+      } else if (on && !nd){
+        ctx.strokeStyle=PAL.miss; ctx.lineWidth=4.5;
+        ctx.beginPath();
+        ctx.moveTo(r.px+r.s*0.26, r.py+r.s*0.26); ctx.lineTo(r.px+r.s*0.74, r.py+r.s*0.74);
+        ctx.moveTo(r.px+r.s*0.74, r.py+r.s*0.26); ctx.lineTo(r.px+r.s*0.26, r.py+r.s*0.74);
+        ctx.stroke();
+        drawK(ctx, '여기 빼기', r.px+r.s/2-28, r.py+r.s-22, 13, PAL.miss);
       }
     }
   }
-}
-
-function drawHud(){
-  if (!S.stim) return;
-  ctx.fillStyle=PAL.lcd;
-  ctx.fillRect(S.stim.x, S.stim.y, S.stim.w, S.stim.h);
-  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
-  ctx.strokeRect(S.stim.x, S.stim.y, S.stim.w, S.stim.h);
-  drawCircuit(S.stim);
-  if (S.well){
-    ctx.fillRect(S.well.x, S.well.y, S.well.w, S.well.h);
-    ctx.strokeRect(S.well.x, S.well.y, S.well.w, S.well.h);
-    drawWellWalls(S.well);
+  if (pad0) ctx.translate(-pad0,0);
+  /* 방향 이름표 — 판의 아래가 앞쪽. 줄·칸 번호는 붙였다가 뺐다:
+   * 발문이 좌표를 안 쓰게 되니 숫자가 「이게 뭘 뜻하지?」라는 새 혼란만 만들었다. */
+  ctx.textAlign='center';
+  ctx.font='800 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif'; _font='';
+  ctx.fillStyle=PAL.ghost;
+  ctx.fillText('뒤', ox+size*n/2, oy-8);
+  ctx.fillStyle=PAL.steel;
+  ctx.fillText('앞', ox+size*n/2-13, oy+size*n+19);
+  ctx.beginPath();
+  ctx.moveTo(ox+size*n/2+14, oy+size*n+23); ctx.lineTo(ox+size*n/2+4, oy+size*n+12); ctx.lineTo(ox+size*n/2+24, oy+size*n+12);
+  ctx.closePath(); ctx.fill();
+  ctx.textAlign='left';
+  /* 「언제 확인을 누르나」를 판 아래에 상시로 붙여 둔다 (안내 띠와 겹칠 때는 양보) */
+  if (S.failT<=0){
+    const cap='두 그림이 같아지면 아래 〈확인〉';
+    ctx.font=`800 12.5px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`; _font='';
+    ctx.fillStyle=PAL.steel; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillText(cap, well.x+well.w/2, well.y+well.h-7);
+    ctx.textAlign='left'; ctx.textBaseline='top';
+  }
+  /* 도전 모드 잠금 게이지 */
+  if (S.mode==='arcade'){
+    const gw=well.w-20, gx=well.x+10, gy=well.y+60, gh=8;
+    const u = S.scanPhase==='dwell' ? Math.min(1, S.scanT/Math.max(0.001,S.dwell)) : (S.scanPhase==='approach'?0:1);
+    ctx.fillStyle=PAL.dim; ctx.fillRect(gx, gy, gw, gh);
+    ctx.fillStyle = S.tut>0 ? PAL.ghost : (u>0.75?PAL.miss:PAL.steel);
+    ctx.fillRect(gx, gy, gw*(S.tut>0?0:u), gh);
+    ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(gx, gy, gw, gh);
+  }
+  if (S.missFlash>0){
+    ctx.fillStyle='rgba(226,91,74,'+(S.missFlash*0.22)+')';
+    ctx.fillRect(well.x, well.y, well.w, well.h);
+  }
+  if (S.flash>0){
+    ctx.fillStyle='rgba(244,240,216,'+(S.flash*0.5)+')';
+    ctx.fillRect(well.x, well.y, well.w, well.h);
   }
 }
-
-/* ══════ 코치 — 조작 대상을 실제 오브젝트 위에서 가리킨다 (§1-a,e) ══════
- * 좌표를 박아 두지 않고 매 프레임 현재 셀 사각형에서 다시 계산하므로
- * 리사이즈·가로세로 전환에도 허공을 가리키지 않는다. */
-function drawGlowRing(x,y,w,h,color,pulse,grow){
-  const pad=(5+4*pulse)*grow;
+function drawGlowRing(x,y,w,h,color,pulse){
+  const pad=5+4*pulse;
   ctx.save();
-  ctx.globalAlpha=0.35+0.4*pulse;
-  ctx.strokeStyle=color; ctx.lineWidth=(3+2*pulse)*grow;
+  ctx.globalAlpha=0.45+0.4*pulse;
+  ctx.strokeStyle=color; ctx.lineWidth=4+2*pulse;
   ctx.strokeRect(x-pad, y-pad, w+pad*2, h+pad*2);
   ctx.restore();
 }
-function drawArrowHead(x,y,ang,size,col){
-  ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
-  ctx.fillStyle=col; ctx.beginPath();
-  ctx.moveTo(size,0); ctx.lineTo(-size*0.8,size*0.62); ctx.lineTo(-size*0.8,-size*0.62);
-  ctx.closePath(); ctx.fill(); ctx.restore();
-}
-function drawFinger(x,y,s,col){
-  ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
-  ctx.fillStyle=PAL.cream; ctx.strokeStyle=col; ctx.lineWidth=2.5;
-  ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill(); ctx.stroke();
+function drawFinger(x,y,col){
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle=PAL.cream; ctx.strokeStyle=col; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.stroke();
   ctx.fillStyle=col;
-  ctx.beginPath(); ctx.arc(0,0,4.5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0,0,6,0,Math.PI*2); ctx.fill();
   ctx.restore();
 }
-function coachAmt(){
-  if (S.phase!=='playing' || !S.solid) return 0;
-  if (S.scanPhase==='feedback') return 0;
-  if (S.tut>0) return 1;
-  /* 온보딩이 끝난 뒤에는 계속 가리키지 않는다 — 손가락이 상시로 떠 있으면
-   * 학생이 「저 칸이 정답이구나」로 읽고 스스로 판단하기를 그만둔다.
-   * 5초 넘게 멈췄을 때만 다시 나온다. */
-  if (S.idle>5) return Math.min(1,(S.idle-5)/0.6);
-  return 0;
-}
 function drawCoach(){
-  const amt=coachAmt(); if (amt<=0.02) return;
-  const rs=S.cellRects; if (!rs.length) return;
-  /* 8초 넘게 아무것도 안 하면 포인터를 더 크게 다시 재생한다 (§1-b) */
-  const grow = 1 + Math.min(1, Math.max(0,(S.idle-8))/6)*0.5;
-  const pulse = 0.5+0.5*Math.sin(S.runT*4.2);
-  const first=rs[0], last=rs[rs.length-1];
-  const px=first.px, py=first.py, pw=last.px+last.s-first.px, ph=last.py+last.s-first.py;
-  ctx.save(); ctx.globalAlpha=amt;
-  /* 위 그림(입체)과 아래 판을 선으로 잇는다 — 「저 층을 여기에 옮겨 그린다」가
-     화면에서 보여야 한다. 안내 중에만 그린다(끝난 뒤에는 화면만 복잡해진다). */
-  if (S.tut>0 && S.stim && S.well){
-    const sx=S.stim.x+S.stim.w*0.5, sy=S.stim.y+S.stim.h-4;
-    const ex=px+pw/2, ey=py-8;
-    ctx.strokeStyle='rgba(226,91,74,0.55)'; ctx.lineWidth=2.2*grow;
-    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
-    drawArrowHead(ex, ey, Math.atan2(ey-sy, ex-sx), 10*grow, PAL.miss);
-    /* 문구는 붙이지 않는다 — 목표 문장(「위 그림의 ○층을 아래 판에 켜요」)이
-       바로 옆에 상시로 있어서, 여기에 또 글을 얹으면 화면만 복잡해진다. */
+  if (S.phase!=='playing' || !S.padBox) return;
+  const pulse=0.5+0.5*Math.sin(S.runT*4.2);
+  /* 안내 중이거나 오래 멈춰 있으면 「다음에 눌러야 할 것」을 가리킨다 */
+  const placed = S.paint ? gridOn(S.paint)>0 : false;
+  /* 아무것도 안 놓았는데 〈확인〉을 가리키면 빈 판으로 확인을 누르게 만든다 */
+  const wantPad = (S.tut>0 && S.tut<3) || (S.tut===3 && !placed) || (S.tut===0 && S.idle>6 && !placed);
+  const wantBtn = (S.tut===3 && placed) || (S.tut===0 && (S.idle>6 || S.floorT>20) && placed);
+  if (!wantPad && !wantBtn) return;
+  if (wantPad){
+    const b=S.padBox;
+    drawGlowRing(b.x, b.y, b.w, b.h, PAL.miss, pulse);
+    const u=Math.sin(S.runT*1.6)*0.5+0.5;
+    drawFinger(b.x+b.w*(0.16+0.68*u), b.y+b.h*(0.5+0.26*Math.sin(S.runT*2.3)), PAL.miss);
   }
-  drawGlowRing(px, py, pw, ph, PAL.miss, pulse, grow);
-  /* 손가락은 한 칸에 멈추지 않고 판 위를 계속 미끄러진다 — 한 칸에 세우면
-     학생이 「저 칸이 정답이구나」로 읽고 스스로 판단하기를 그만둔다. 이건
-     "정답은 여기"가 아니라 "이 판의 칸들을 손가락으로 켜는 것"이라는 안내다. */
-  const u=(Math.sin(S.runT*1.5)*0.5+0.5);
-  const fx=px+pw*(0.12+0.76*u);
-  const fy=py+ph*(0.5+0.28*Math.sin(S.runT*2.3));
-  drawFinger(fx, fy, grow, PAL.miss);
-  const f=`800 ${Math.round(12*grow)}px ui-monospace,"SF Mono",Menlo,"Apple SD Gothic Neo",sans-serif`;
-  if (f!==_font){ ctx.font=f; _font=f; }
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  const msg='이 판의 칸을 탭해요';
-  const tw=ctx.measureText(msg).width+16;
-  ctx.fillStyle=PAL.lcd;
-  ctx.fillRect(px+pw/2-tw/2, py+ph/2-11, tw, 22);
-  ctx.strokeStyle=PAL.miss; ctx.lineWidth=2;
-  ctx.strokeRect(px+pw/2-tw/2, py+ph/2-11, tw, 22);
-  ctx.fillStyle=PAL.miss;
-  ctx.fillText(msg, px+pw/2, py+ph/2);
+  if (wantBtn && S.confirmBox){
+    const b=S.confirmBox;
+    drawGlowRing(b.left, b.top, b.width, b.height, PAL.miss, pulse);
+    drawFinger(b.left+b.width*0.5, b.top-14, PAL.miss);
+  }
+}
+/* 판의 칸 ↔ 〈내 모양〉의 나무 — 방금 조작한 자리를 선으로 잇는다 */
+function drawLink(){
+  const L=S.link;
+  if (!L || L.t<=0 || !S.mineRect || !S.cellRects.length || !S.solid) return;
+  const sol=S.solid, y=S.floorY, n=sol.n;
+  const r=S.cellRects.find(c => c.z===L.z && c.x===L.x);
+  if (!r) return;
+  const mR=S.mineRect;
+  const inner={ x:6, y:26, w:mR.w-12, h:mR.h-32 };
+  const Hp=heightFromLayers(S.locked.slice(0,y-1).concat([S.paint]), n);
+  const gm=stackGeom(n, Math.max(sol.floors, maxH(Hp)), inner);
+  const s=gm.s;
+  const cx=mR.x + gm.ox + L.x*s + L.z*s*DXR + s*(1+DXR)/2;
+  const cy=mR.y + gm.oy - (y-1)*s - L.z*s*DYR + s*0.4;
+  const px=r.px+r.s/2, py=r.py+r.s/2;
+  const a=Math.min(1, L.t*1.6);
+  ctx.save();
+  ctx.globalAlpha=a*0.9;
+  const col=L.on?PAL.steel:PAL.miss;
+  ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=2.5;
+  /* 점선은 「끌어라」로 읽힌다 — 실선 + 화살촉으로 「여기가 저기」임을 가리킨다 */
+  ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(cx,cy); ctx.stroke();
+  const ang=Math.atan2(cy-py, cx-px);
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-13,7); ctx.lineTo(-13,-7); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(px,py, 10+6*(1-a), 0, Math.PI*2); ctx.stroke();
+  /* 「같은 자리」라고 못박는다. 이름 없는 화살표는 드래그 조작으로 오해받는다 */
+  const mx=(px+cx)/2, my=(py+cy)/2;
+  ctx.font='800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif'; _font='';
+  const tw=ctx.measureText('같은 자리').width+12;
+  ctx.fillStyle=PAL.cream; ctx.fillRect(mx-tw/2, my-10, tw, 20);
+  ctx.strokeStyle=col; ctx.lineWidth=2; ctx.strokeRect(mx-tw/2, my-10, tw, 20);
+  ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('같은 자리', mx, my);
   ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.restore();
 }
@@ -1654,368 +1701,162 @@ function drawRipples(){
     const k=r.t/0.55;
     ctx.save();
     ctx.globalAlpha=(1-k)*0.7;
-    ctx.strokeStyle=r.col; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(r.x, r.y, 8+k*28, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle=r.col; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(r.x, r.y, 8+k*26, 0, Math.PI*2); ctx.stroke();
     ctx.restore();
   }
-}
-/* 잠금까지 남은 시간을 눈에 보이게 한다 — 안 보이면 층이 갑자기 잠긴 것으로 읽힌다 */
-function drawDwellGauge(well){
-  const w=well.w-20, x=well.x+10, y=well.y+62, h=10;
-  const u = S.scanPhase==='dwell' ? Math.min(1, S.scanT/Math.max(0.001,S.dwell)) : (S.scanPhase==='approach'?0:1);
-  ctx.fillStyle=PAL.dim; ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = S.tut>0 ? PAL.ghost : (u>0.75?PAL.miss:PAL.steel);
-  ctx.fillRect(x, y, w*(S.tut>0?0:u), h);
-  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(x, y, w, h);
-  drawK(ctx, S.tut>0 ? '잠금까지 (안내 중 멈춤)' : '잠금까지', x, y+13, 11, PAL.steel);
 }
 function drawPlay(){
-  const sh = S.missFlash>0 ? ((((S.runT*40)|0)%2)?3:-3) : (S.punch>0? (S.punch*2)|0 : 0);
-  if (sh) ctx.translate(sh, 0);
-  drawBezel();
+  const W=S.W, H=S.H;
+  ctx.fillStyle=PAL.lcd; ctx.fillRect(0,0,W,H);
+  if (S.land && S.stageW < W-2){
+    ctx.fillStyle='#1c2016';
+    ctx.fillRect(0,0,S.stageX,H);
+    ctx.fillRect(S.stageX+S.stageW,0, W-(S.stageX+S.stageW), H);
+  }
   const sol=S.solid;
-  if (!sol){ drawHud(); if (sh) ctx.translate(-sh, 0); return; }
-  const n=sol.n, y=S.floorY;
-  const stim=S.stim, well=S.well;
-  /* drawBezel() 이 이미 화면 전체를 LCD 색으로 덮었다. 같은 색 재도색은 소프트웨어
-   * 렌더러에서 그대로 비용이다 — 대신 자극 패널 밖으로 새지 않게 클립만 건다. */
-  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(stim.x, stim.y, stim.w, stim.h);
-  ctx.save();
-  ctx.beginPath(); ctx.rect(stim.x-1, stim.y-1, stim.w+2, stim.h+2); ctx.clip();
-
-  const flashView = S.failT>0 ? S.brokenView : null;
-  const isoH = sol.promptKind==='minmax' ? occupancy(sol.H).map((r,z)=>r.map((t,x)=>t?1:0)) : sol.H;
-  if (sol.promptKind==='cards'){
-    drawCircuit(stim);
-    const cw=(stim.w-24)/3, ch=Math.min(stim.h-28, cw+18);
-    const oy=stim.y+(stim.h-ch)/2;
-    for (let k=0;k<sol.floors;k++){
-      drawLayerCard(sol.layers[k]||zeros(n), stim.x+12+k*cw, oy, cw-8, ch, (k+1)+'층', k===y-1);
-    }
-  } else if (sol.promptKind==='minmax'){
-    drawCircuit(stim);
-    const gap=8, colW=(stim.w-gap*4)/3, colH=stim.h-44;
-    const gy=stim.y+36;
-    drawK(ctx, sol.kind==='min'?'가장 적게 쌓기':'가장 많게 쌓기', stim.x+28, stim.y+10, 18, PAL.ink);
-    drawTopGrid(sol.T.map(r=>r.map(v=>v)), stim.x+gap, gy, colW, colH, false, flashView==='top', '위에서 본 모양');
-    drawSil(sol.F, stim.x+gap*2+colW, gy, colW, colH, '앞에서 본 모양', flashView==='front', false);
-    drawSil(sol.R, stim.x+gap*3+colW*2, gy, colW, colH, '오른쪽(앞=왼)', flashView==='right', true);
-  } else {
-    const isoW = sol.promptKind==='iso' ? stim.w : stim.w*0.52;
-    const isoRect={ x:stim.x+4, y:stim.y+4, w:isoW-8, h:stim.h-8 };
-    const showH = S.wow ? S.wow.H : sol.H;
-    drawIso(showH, isoRect, y, S.flash>0 || S.isoBlinkT>0);
-    if (sol.promptKind!=='iso'){
-      const sx=stim.x+isoW, sw=stim.w-isoW-6;
-      const hh=(stim.h-16)/3;
-      const numOn = sol.kind==='topnum' && S.locked.length>0;
-      drawTopGrid(sol.H, sx, stim.y+4, sw, hh, numOn, flashView==='top',
-        numOn ? '위 모양에 쓴 수=층수' : '위에서 본 모양');
-      drawSil(sol.F, sx, stim.y+8+hh, sw, hh, '앞에서 본 모양', flashView==='front', false);
-      drawSil(sol.R, sx, stim.y+12+hh*2, sw, hh, '오른쪽(앞=왼)', flashView==='right', true);
-    }
-  }
-  ctx.restore();
-
-  /* well */
-  ctx.strokeStyle=PAL.ink; ctx.lineWidth=2; ctx.strokeRect(well.x, well.y, well.w, well.h);
-  drawWellWalls(well);
-  const dw=14, dh=24;
-  const scoreX=well.x+10, timeX=well.x+10+(dw+7)*4+12, comboX=well.x+10+(dw+7)*6+20;
-  drawNum7(ctx, S.showScore|0, scoreX, well.y+6, dw, dh, 4);
-  drawNum7(ctx, Math.max(0, Math.ceil(S.time)), timeX, well.y+6, dw, dh, 2);
-  drawPix5(ctx, 'x'+(S.combo>=2?'2':'1'), comboX, well.y+10, 3, PAL.ink);
-  /* 숫자만 있으면 무슨 수인지 모른다 — 작은 이름표를 붙인다 */
-  drawK(ctx, '점수', scoreX, well.y+32, 11, PAL.steel);
-  drawK(ctx, '남은 초', timeX, well.y+32, 11, PAL.steel);
-  drawK(ctx, '배수', comboX-2, well.y+32, 11, PAL.steel);
-  const missS=44;
-  const missX=well.x+well.w - 3*(missS+6) - 10;
-  const mhX=Math.max(well.x+8, missX);
-  drawMissHoles(mhX, well.y+4, missS);
-  /* 찡그린 얼굴이 무슨 뜻인지 이름표로 못박는다 */
-  drawK(ctx, '틀린 층', mhX, well.y+missS+6, 11, PAL.miss);
-  /* 목표 한 문장이 판 위에 상시 남는다 (§1-c) — 팝업으로 스쳐 보내지 않는다 */
-  drawK(ctx, `위 그림의 ${y}층을 아래 판에 켜요`, well.x+10, well.y+46, 13, PAL.ink);
-  drawDwellGauge(well);
-
-  const {ox, oy, size} = layoutCells(n, well);
-  drawK(ctx, '앞', ox+size*n/2-8, oy-16, 12, PAL.steel);
-  drawK(ctx, '뒤', ox+size*n/2-8, oy+size*n+4, 12, PAL.ghost);
-  drawK(ctx, '왼', Math.max(well.x+10, ox-18), oy+size*n/2-8, 12, PAL.ghost);
-  const need=layerOf(sol.H,y);
-  const punch=S.punch>0 ? 1+S.punch*0.12 : 1;
-  /* 못 켜는 칸을 눌렀을 때 판 자체가 좌우로 흔들린다 (§1-e 거절) */
-  const pad0=S.padShake>0 ? Math.sin(S.runT*52)*6*S.padShake : 0;
-  if (pad0) ctx.translate(pad0, 0);
-  for (const r of S.cellRects){
-    const on=S.paint[r.z][r.x];
-    let col=on?PAL.ink:PAL.dim;
-    if (S.scanPhase==='feedback' && !eqGrid(S.paint, need)){
-      if (on!==need[r.z][r.x]){
-        if (((S.scanT*18)|0)%2===0) col = on?PAL.ink:PAL.lcd;
-      }
-    }
-    const cx=r.px+r.s/2, cy=r.py+r.s/2, hs=(r.s-8)*punch/2;
-    ctx.fillStyle=col;
-    ctx.fillRect(cx-hs, cy-hs, hs*2, hs*2);
-    if (on){
-      const g=Math.max(4, r.s*0.14), iw=hs*2-g*2, ih=(hs*2-g*3)/2;
-      ctx.fillStyle=PAL.lcd;
-      ctx.fillRect(cx-hs+g, cy-hs+g, iw, ih);
-      ctx.fillRect(cx-hs+g, cy-hs+g*2+ih, iw, ih);
-    } else if (S.floorY>1 && belowOn(r.z,r.x,S.floorY)){
-      ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
-      ctx.strokeRect(r.px+r.s*0.3, r.py+r.s*0.3, r.s*0.4, r.s*0.4);
-    }
-    ctx.strokeStyle=PAL.ink; ctx.lineWidth=2;
-    ctx.strokeRect(cx-hs, cy-hs, hs*2, hs*2);
-    if (S.cursor.z===r.z && S.cursor.x===r.x){
-      ctx.strokeStyle=PAL.steel; ctx.lineWidth=3;
-      ctx.strokeRect(r.px+1, r.py+1, r.s-2, r.s-2);
-    }
-    /* 오답 뒤에는 「어디를 어떻게 했어야 했는지」를 칸 위에 직접 그린다 (§1-d).
-     * 켰어야 하는 칸 = 굵은 점선 테두리, 껐어야 하는 칸 = ✕ */
-    if (S.scanPhase==='feedback' && S.wrongGrid){
-      const nd=S.wrongGrid[r.z][r.x];
-      if (!on && nd){
-        ctx.strokeStyle=PAL.steel; ctx.lineWidth=4;
-        ctx.setLineDash([6,5]);
-        ctx.strokeRect(r.px+4, r.py+4, r.s-8, r.s-8);
-        ctx.setLineDash([]);
-      } else if (on && !nd){
-        ctx.strokeStyle=PAL.miss; ctx.lineWidth=4;
-        ctx.beginPath();
-        ctx.moveTo(r.px+r.s*0.28, r.py+r.s*0.28); ctx.lineTo(r.px+r.s*0.72, r.py+r.s*0.72);
-        ctx.moveTo(r.px+r.s*0.72, r.py+r.s*0.28); ctx.lineTo(r.px+r.s*0.28, r.py+r.s*0.72);
-        ctx.stroke();
-      }
-    }
-  }
-  if (pad0) ctx.translate(-pad0, 0);
-
-  /* scan bar */
-  const first=S.cellRects[0];
-  let ty=first.py;
-  if (S.scanPhase==='approach'){
-    const u=Math.min(1,S.scanT/0.38);
-    const over=u<1 ? (u + 0.08*Math.sin(u*Math.PI)) : 1;
-    ty = well.y+well.h - over*(well.y+well.h - (first.py+size*0.15) - well.y);
-  } else {
-    ty = first.py + size*0.12;
-  }
-  S.trail.push(ty); if (S.trail.length>10) S.trail.shift();
-  for (let i=0;i<S.trail.length;i++){
-    ctx.globalAlpha=0.08+i*0.04;
-    ctx.fillStyle=PAL.steel;
-    ctx.fillRect(well.x+8, S.trail[i], well.w-16, 5);
-  }
-  ctx.globalAlpha=1;
-  ctx.fillStyle=PAL.steel;
-  ctx.fillRect(well.x+6, ty, well.w-12, 4);
-
-  if (S.flash>0){
-    ctx.fillStyle='rgba(44,51,36,'+(S.flash*0.35)+')';
-    ctx.fillRect(well.x, well.y, well.w, well.h);
-  }
-  if (S.missFlash>0){
-    ctx.fillStyle='rgba(226,91,74,'+(S.missFlash*0.28)+')';
-    ctx.fillRect(well.x, well.y, well.w, well.h);
-  }
-  if (S.ghostT>0){
-    ctx.globalAlpha=S.ghostT*0.35;
-    ctx.fillStyle=PAL.ink;
-    ctx.fillRect(well.x+10, well.y+10, well.w-20, 8);
-    ctx.globalAlpha=1;
-  }
-
-  /* ambient idle: 꺼진 칸 잔상 깜빡 */
-  if (((S.runT*2)|0)%2===0){
-    ctx.globalAlpha=0.06;
-    ctx.fillStyle=PAL.ink;
-    ctx.fillRect(well.x+14, well.y+well.h*0.2, 3, well.h*0.5);
-    ctx.globalAlpha=1;
-  }
-
-  for (let i=0;i<4;i++){
-    ctx.fillStyle=i<S.lamps?PAL.steel:PAL.dim;
-    ctx.fillRect(well.x+8+i*16, well.y+well.h-12, 12, 6);
-  }
-
-  if (S.wow && S.wow.t<1.6){
-    /* 자극 패널 좌하단은 '앞' 방향 표시 자리라 겹친다 — 우물 위쪽 빈 줄에 띄운다 */
-    ctx.globalAlpha=Math.min(1, 1.6-S.wow.t);
-    drawK(ctx, '우물 점등', well.x+well.w-92, well.y+44, 15, PAL.steel);
-    ctx.globalAlpha=1;
-  }
-
+  if (!sol || !S.stim) return;
+  const stim=S.stim;
+  const gap=8;
+  const gw=Math.round((stim.w-gap)/2);
+  const gRect={ x:stim.x, y:stim.y, w:gw, h:stim.h };
+  const mRect={ x:stim.x+gw+gap, y:stim.y, w:stim.w-gw-gap, h:stim.h };
+  const goalKey=`${S.di}|${S.floorY}|${S.failT>0?S.brokenView:''}|${gRect.w}x${gRect.h}`;
+  const mineKey=`${S.di}|${S.floorY}|${gridKey(S.paint)}|${S.locked.length}|${mRect.w}x${mRect.h}`;
+  const gc=bake('goal', goalKey, gRect.w, gRect.h, (g,r)=>drawGoalPanel(g, r));
+  const mc=bake('mine', mineKey, mRect.w, mRect.h, (g,r)=>drawMinePanel(g, r));
+  ctx.drawImage(gc, gRect.x, gRect.y, gRect.w, gRect.h);
+  ctx.drawImage(mc, mRect.x, mRect.y, mRect.w, mRect.h);
+  S.mineRect=mRect;
+  drawLink();
+  /* 두 그림 사이 「똑같이」 표시 */
+  ctx.fillStyle=PAL.ink;
+  const my=stim.y+stim.h/2;
+  ctx.fillRect(stim.x+gw+1, my-9, gap-2, 3);
+  ctx.fillRect(stim.x+gw+1, my+3, gap-2, 3);
+  drawPad();
   drawCoach();
   drawRipples();
-
-  /* 왜 맞았는지를 정답 순간에 판 위에 띄운다 (§1-d) — 이유 없는 정답은 우연으로 읽힌다 */
-  if (S.whyT>0 && S.whyMsg){
-    const fw=`800 13px ui-monospace,"SF Mono",Menlo,"Apple SD Gothic Neo",sans-serif`;
-    if (fw!==_font){ ctx.font=fw; _font=fw; }
-    const tw=Math.min(well.w-16, ctx.measureText(S.whyMsg).width+18);
-    const bx=well.x+(well.w-tw)/2, by=Math.max(well.y+70, S.cellRects.length? S.cellRects[0].py-34 : well.y+70);
-    ctx.save();
-    ctx.globalAlpha=Math.min(1, S.whyT*2);
-    ctx.fillStyle=PAL.cream; ctx.fillRect(bx, by, tw, 26);
-    ctx.strokeStyle=PAL.steel; ctx.lineWidth=2; ctx.strokeRect(bx, by, tw, 26);
-    ctx.fillStyle=PAL.ink; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(S.whyMsg, bx+tw/2, by+13);
-    ctx.textAlign='left'; ctx.textBaseline='top';
-    ctx.restore();
-  }
-  if (sh) ctx.translate(-sh, 0);
-}
-
-function drawShutter(p){
-  const W=S.W, H=S.H;
-  ctx.fillStyle=PAL.ink;
-  ctx.fillRect(0,0,W, H*0.5*p);
-  ctx.fillRect(0, H-H*0.5*p, W, H*0.5*p);
 }
 
 /* ── loop ── */
 let last=performance.now();
 function tick(now){
   const raw=Math.min(0.05, (now-last)/1000); last=now;
-  if (S.freeze>0){ S.freeze-=raw; if (S.freeze<=0) S.timeScale=1; }
-  const dt=raw*(S.freeze>0?S.timeScale:1);
-  S.runT += dt;
-
-  if (S.showScore < S.score){
-    S.showScore = Math.min(S.score, S.showScore + Math.max(8, (S.score-S.showScore)*6*dt));
-    if (S.phase==='gameover' || S.phase==='clear') $('#resScore').textContent=String(S.showScore|0);
-  } else S.showScore=S.score;
-
-  if (S.flash>0) S.flash=Math.max(0,S.flash-dt*6);
-  if (S.punch>0) S.punch=Math.max(0,S.punch-dt*5);
-  if (S.missFlash>0) S.missFlash=Math.max(0,S.missFlash-dt*2.2);
-  if (S.ghostT>0) S.ghostT=Math.max(0,S.ghostT-dt);
-  if (S.padShake>0) S.padShake=Math.max(0,S.padShake-dt*3.4);
-  if (S.isoBlinkT>0) S.isoBlinkT=Math.max(0,S.isoBlinkT-raw);
-  if (S.whyT>0) S.whyT=Math.max(0,S.whyT-dt);
-  for (let i=S.ripples.length-1;i>=0;i--){
-    const r=S.ripples[i]; r.t+=raw;
-    if (r.t>0.55) S.ripples.splice(i,1);
+  S.runT += raw;
+  if (S.showScore < S.score) S.showScore=Math.min(S.score, S.showScore + Math.max(9, (S.score-S.showScore)*6*raw));
+  else S.showScore=S.score;
+  if (S.phase==='gameover' || S.phase==='clear') $('#resScore').textContent=String(S.showScore|0)+'점';
+  if (S.flash>0) S.flash=Math.max(0,S.flash-raw*5);
+  if (S.punch>0) S.punch=Math.max(0,S.punch-raw*5);
+  if (S.missFlash>0) S.missFlash=Math.max(0,S.missFlash-raw*2.2);
+  if (S.padShake>0) S.padShake=Math.max(0,S.padShake-raw*3.4);
+  if (S.whyT>0) S.whyT=Math.max(0,S.whyT-raw);
+  if (S.link){ S.link.t-=raw; if (S.link.t<=0) S.link=null; }
+  for (let i=S.ripples.length-1;i>=0;i--){ const r=S.ripples[i]; r.t+=raw; if (r.t>0.55) S.ripples.splice(i,1); }
+  if (S.phase==='playing' && S.tut===0) S.idle+=raw; else S.idle=0;
+  if (S.phase==='playing' && S.tut===0 && S.solid && editable()){
+    S.floorT+=raw;
+    if (S.floorT>20 && !S.nudge){ S.nudge=true; showFail('다 놓았으면 아래 〈확인〉을 눌러요', true); }
+    if (S.floorT>S.nextHint){ S.nextHint+=25; giveHint(); }
   }
-  if (S.phase==='playing' && S.tut===0) S.idle+=dt; else S.idle=0;
-  if (S.tut===2){
-    /* 두 번째 카드는 3초 뒤 스스로 닫힌다 — 그때부터 다시 시간이 흐른다 */
-    S.tutT+=raw;
-    if (S.tutT>3.0) endTutorial();
-  } else if (S.tut===1){
-    /* 45초 안전핀: 아무 조작도 없으면 스스로 닫히고 판이 시작된다(영구 정지 방지) */
-    S.tutT+=raw;
-    if (S.tutT>45) endTutorial();
-  }
-  if (S.failT>0){
-    S.failT-=dt;
-    if (S.failT<=0) $('#failLine').classList.remove('show');
-  }
-  if (S.wow) S.wow.t+=dt;
+  if (S.tut>0){ S.tutT+=raw;
+    /* 2단계는 스스로 넘어간다 — 「같은 칸 다시 탭」을 안 해도 막히면 안 된다 */
+    if (S.tut===2 && S.tutT>14) tutAdvance();
+    else if (S.tutT>(S.tut===3?40:90)) endTutorial(); }
+  if (S.failT>0){ S.failT-=raw; if (S.failT<=0) $('#failLine').classList.remove('show'); }
 
-  /* 온보딩 중에는 세계가 멈춘다 — 안내를 읽는 동안 타이머가 흐르면 벌이지 안내가 아니다 (§1-b).
-   * 스캔 막대는 층까지 올라와 멈춰 서서 「여기가 지금 층」임을 보여 준다. */
   if (S.phase==='playing' && S.solid){
-    if (S.tut===0) S.time -= dt;
-    if (S.time<=0){ S.time=0; endRun('time'); }
-    else {
-      if (S.scanPhase==='approach'){
-        S.scanT+=dt;
-        if (S.scanT>=0.38){ S.scanPhase='dwell'; S.scanT=0; }
-      } else if (S.scanPhase==='dwell'){
-        if (S.tut===0) S.scanT+=dt;
-        if (S.scanT>=S.dwell){
-          lockFloor(false, false);
-        }
-      } else if (S.scanPhase==='feedback'){
-        S.scanT+=dt;
-        /* 오답이면 고쳐진 정답 격자를 충분히 보여 준 뒤 넘어간다 (§1-d) */
-        const dur = S.flash>0 ? 0.55 : (S.wrongGrid ? 1.9 : 0.9);
-        if (S.scanT>=dur) afterFeedback();
-      }
+    if (S.mode==='arcade' && S.tut===0){
+      S.time-=raw;
+      if (S.time<=0){ S.time=0; endRun('time'); }
+    }
+    if (S.scanPhase==='approach'){
+      S.scanT+=raw;
+      if (S.scanT>=0.3){ S.scanPhase='dwell'; S.scanT=0; }
+    } else if (S.scanPhase==='dwell'){
+      if (S.tut===0) S.scanT+=raw;
+      if (S.scanT>=S.dwell) lockFloor(false,false);
+    } else if (S.scanPhase==='feedback'){
+      S.scanT+=raw;
+      if (S.scanT >= (S.wrongGrid?2.6:1.4)) afterFeedback();
     }
   }
-
-  if (S.phase==='playing' || S.phase==='gameover' || S.phase==='clear' || S.phase==='onboard'){
-    if (S.phase==='onboard' || S.phase==='playing' || S.phase==='gameover' || S.phase==='clear'){
-      if (S.phase!=='title'){
-        drawPlay();
-        if (S.phase==='gameover') drawShutter(Math.min(1, 1-S.lives));
-      }
-    }
-  } else {
-    /* title: keep lcd under for screenshot variance if canvas visible */
-    drawBezel();
-    drawPix5(ctx, '88', 20, 20, 3, PAL.ink);
+  if (S.phase!=='title') drawPlay();
+  else {
+    /* 타이틀 뒤 캔버스도 단색으로 두지 않는다 */
+    ctx.fillStyle=PAL.lcd; ctx.fillRect(0,0,S.W,S.H);
+    drawStack(ctx, [[1,1],[0,2]], { x:S.W*0.2, y:S.H*0.35, w:S.W*0.6, h:S.H*0.3 }, 0, 2, null);
   }
-
   requestAnimationFrame(tick);
 }
 
-/* ── title bits ── */
-{
-  const box=$('#titleBits');
-  for (let i=0;i<10;i++){
-    const el=document.createElement('i');
-    el.style.left=(8+Math.random()*84)+'%';
-    el.style.top=(20+Math.random()*70)+'%';
-    el.style.animationDelay=(Math.random()*4)+'s';
-    el.style.width=(6+(i%3)*4)+'px';
-    el.style.height=(6+(i%2)*4)+'px';
-    box.appendChild(el);
-  }
+/* ── 타이틀·도움말 미리보기 그림 ── */
+function drawDemo(cvs){
+  if (!cvs) return;
+  const g=cvs.getContext('2d');
+  const W=cvs.width, H=cvs.height;
+  g.fillStyle=PAL.lcd; g.fillRect(0,0,W,H);
+  const Hm=[[1,1],[0,2]];
+  const pw=(W-30)/2;
+  g.save();
+  g.strokeStyle=PAL.ink; g.lineWidth=4;
+  g.strokeRect(4,4,pw,H-8);
+  g.strokeRect(W-pw-4,4,pw,H-8);
+  g.fillStyle=PAL.ink; g.fillRect(4,4,pw,30); g.fillRect(W-pw-4,4,pw,30);
+  drawK(g,'만들 모양',14,10,19,PAL.cream);
+  drawK(g,'내 모양',W-pw+6,10,19,PAL.cream);
+  drawStack(g, Hm, { x:14, y:44, w:pw-20, h:H-58 }, 0, 2, null);
+  drawStack(g, [[1,1],[0,1]], { x:W-pw+6, y:44, w:pw-20, h:H-58 }, 0, 2, null);
+  g.fillStyle=PAL.ink;
+  g.fillRect(pw+12, H/2-10, 6, 4);
+  g.fillRect(pw+12, H/2+4, 6, 4);
+  g.restore();
 }
+
+showBest();
+syncMute();
+layout();
+drawDemo($('#tdemo'));
+drawDemo($('#hdemo'));
+requestAnimationFrame(tick);
 
 function forceCorrect(){
-  if (S.phase==='title') startGame(true, S.hard);
-  if (S.phase==='onboard'){ localStorage.setItem(LS_ONB,'1'); $('#onboard').classList.remove('show'); actuallyStart(); }
-  if (S.phase!=='playing' || !S.solid){ S.score+=100; return; }
+  if (S.phase!=='playing') startGame(true, S.mode==='arcade');
+  if (!S.solid){ S.score+=100; return; }
   if (S.scanPhase==='feedback'){ S.score+=100; S.solved++; return; }
-  S.paint=cloneH(layerOf(S.solid.H, S.floorY));
-  lockFloor(true, false);
+  lockFloor(true,false);
 }
 function forceWrong(){
-  if (S.phase==='title') startGame(true, S.hard);
-  if (S.phase==='onboard'){ localStorage.setItem(LS_ONB,'1'); $('#onboard').classList.remove('show'); actuallyStart(); }
-  if (S.phase!=='playing' || !S.solid){ S.lives=Math.max(0,S.lives-1); S.miss++; return; }
+  if (S.phase!=='playing') startGame(true, S.mode==='arcade');
+  if (!S.solid){ S.lives=Math.max(0,S.lives-1); S.miss++; return; }
   if (S.scanPhase==='feedback'){ applyMiss('강제 오답'); return; }
-  lockFloor(false, true);
+  lockFloor(false,true);
 }
-
+/* 무뇌 봇: 도전 모드 규칙(목숨 3)으로 완주율을, 기본 모드용으로 첫 시도 정답률을 잰다. */
 function simulateBot(type, runs){
   runs=runs||200;
-  let complete=0, totalScore=0;
+  let complete=0, totalScore=0, floors=0, firstTry=0;
   for (let r=0;r<runs;r++){
     const deck=makeDeck(false, rngFn(1000+r*97));
-    let lives=3, score=0, combo=0, dead=false, solved=0;
+    let lives=3, score=0, combo=0, dead=false;
     for (const sol of deck){
       if (dead) break;
       for (let y=1;y<=sol.floors;y++){
         const need=layerOf(sol.H,y), n=sol.n, got=zeros(n);
         if (type==='same'){ got[0][0]=1; }
-        else if (type==='cycle'){
-          for (let z=0;z<n;z++) for (let x=0;x<n;x++) got[z][x]=1;
-        } else if (type==='random'){
-          for (let z=0;z<n;z++) for (let x=0;x<n;x++) got[z][x]=Math.random()<0.5?1:0;
-        }
-        if (eqGrid(got, need)){ combo++; score+=100*(combo>=2?2:1); solved++; }
+        else if (type==='cycle'){ for (let z=0;z<n;z++) for (let x=0;x<n;x++) got[z][x]=1; }
+        else if (type==='random'){ for (let z=0;z<n;z++) for (let x=0;x<n;x++) got[z][x]=Math.random()<0.5?1:0; }
+        floors++;
+        if (eqGrid(got, need)){ combo++; score+=100*(combo>=2?2:1); firstTry++; }
         else { combo=0; lives--; if (lives<=0){ dead=true; break; } }
       }
     }
     if (!dead) complete++;
     totalScore+=score;
   }
-  return { completionRate: complete/runs, averageScore: totalScore/runs };
+  return { completionRate: complete/runs, averageScore: totalScore/runs, firstTryRate: floors?firstTry/floors:0 };
 }
-
-showBest();
-syncMute();
-layout();
-requestAnimationFrame(tick);
 
 window.__GAME_TEST__ = {
   ready: true,
@@ -2025,16 +1866,14 @@ window.__GAME_TEST__ = {
   answerWrong(){ forceWrong(); },
   sampleProblems,
   getLayout(){ return { land:S.land, playW:S.land?S.stageW:S.W }; },
-  /* 타이밍 검증용: 지금 층에서 손봐야 할 칸과 그 화면 좌표. 게임 진행에는 쓰지 않는다. */
   getFloorPlan(){
     if (S.phase!=='playing' || !S.solid || !S.cellRects.length) return null;
     const need=layerOf(S.solid.H, S.floorY);
     const todo=[];
-    for (const r of S.cellRects){
-      if ((S.paint[r.z][r.x]|0) !== need[r.z][r.x]) todo.push({ z:r.z, x:r.x, cx:r.px+r.s/2, cy:r.py+r.s/2 });
-    }
-    return { floorY:S.floorY, dwell:S.dwell, scanPhase:S.scanPhase, scanT:S.scanT,
-      hard:S.hard, kind:S.solid.kind, todo };
+    for (const r of S.cellRects) if ((S.paint[r.z][r.x]|0)!==need[r.z][r.x]) todo.push({ z:r.z, x:r.x, cx:r.px+r.s/2, cy:r.py+r.s/2 });
+    const cb=S.confirmBox;
+    return { floorY:S.floorY, mode:S.mode, dwell:S.dwell, scanPhase:S.scanPhase, scanT:S.scanT,
+      kind:S.solid.kind, todo, confirm: cb?{ cx:cb.left+cb.width/2, cy:cb.top+cb.height/2 }:null };
   },
   simulateBot,
   verifyErrorFind: verifyErrorFindRounds
