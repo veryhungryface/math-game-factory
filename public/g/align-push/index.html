@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>맞춰밀기 — 한 칸만 어긋나면 폐기</title>
+<title>맞춰밀기 — 소수점을 밀어 몫을 찍어요</title>
 <meta property="og:title" content="맞춰밀기">
-<meta property="og:description" content="한 칸만 어긋나면 폐기">
+<meta property="og:description" content="소수점을 밀어 몫을 찍어요">
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../vendor/katex/katex.min.css">
@@ -99,8 +99,9 @@ button,a{font-family:var(--serif)}
 .pad{width:16px;height:20px;border:1px solid var(--ink);background:var(--reg);position:relative}
 .pad.off{background:transparent}
 .pad.off::after{content:"";position:absolute;left:-3px;right:-3px;top:50%;height:1px;background:var(--ink);transform:rotate(-38deg)}
-#muteHud{pointer-events:auto;width:44px;height:44px;min-width:44px;margin-left:8px;border:1px solid var(--ink);
-  background:var(--paper);color:var(--ink);font-size:11px;letter-spacing:.06em;cursor:pointer}
+/* 소리 버튼이 화면에서 가장 또렷하면 학생 주의를 뺏는다 — 존재만 하고 눈에 띄지 않게 */
+#muteHud{pointer-events:auto;width:44px;height:44px;min-width:44px;margin-left:8px;border:1px solid var(--ink-18);
+  background:transparent;color:var(--ink-40);font-size:11px;letter-spacing:.06em;cursor:pointer}
 #prompt{position:fixed;left:0;right:0;top:calc(58px + var(--safeT));z-index:3;pointer-events:none;
   text-align:center;padding:0 14px}
 #prompt .line{display:inline-block;max-width:min(760px,94vw);padding:6px 10px 5px;
@@ -126,8 +127,44 @@ html.land #hudRight{display:flex}
   font-size:clamp(22px,6vw,36px);color:var(--ink);opacity:0}
 #katexLayer .eq.on{opacity:1}
 
-#onb{position:fixed;inset:0;z-index:20;pointer-events:auto}
-#onbHole{position:absolute;border:1px dashed var(--reg);box-shadow:0 0 0 9999px rgba(27,27,27,.55)}
+/* 온보딩 스포트라이트는 화면을 어둡게 덮되 입력은 통과시킨다 —
+   덮어 놓고 못 만지게 하면 온보딩이 아니라 팝업 3장이 된다 (§1-b) */
+#onb{position:fixed;inset:0;z-index:20;pointer-events:none}
+#onbCard,#onbDiff,#onbNext{pointer-events:auto}
+#onbHole{position:absolute;border:2px dashed var(--reg);box-shadow:0 0 0 9999px rgba(27,27,27,.5)}
+
+/* ── 코치: 지금 만질 물건을 그 자리에서 가리킨다 (§1-a,e) ──────────────
+   캔버스는 변화가 있을 때만 다시 그리는 게임이라, 늘 움직이는 포인터는
+   DOM 레이어(합성만 하면 되는 CSS 애니메이션)로 얹는다. */
+/* 온보딩 스포트라이트(z-index 20)보다 위 — 어둠에 묻히면 가리키는 뜻이 없다 */
+#coach{position:fixed;inset:0;z-index:21;pointer-events:none}
+#coach[hidden]{display:none}
+#coachRing{position:absolute;border:3px solid var(--reg);background:rgba(200,16,46,.07);
+  animation:coachPulse 1.15s ease-in-out infinite}
+@keyframes coachPulse{0%,100%{opacity:1}50%{opacity:.45}}
+#coachFinger{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+  background:var(--paper);border:3px solid var(--reg)}
+#coach.axis-x #coachFinger{animation:coachX 1.5s ease-in-out infinite}
+#coach.axis-y #coachFinger{animation:coachY 1.5s ease-in-out infinite}
+@keyframes coachX{0%,100%{transform:translateX(-30px)}50%{transform:translateX(30px)}}
+@keyframes coachY{0%,100%{transform:translateY(-26px)}50%{transform:translateY(26px)}}
+#coachTip{position:absolute;transform:translateX(-50%);max-width:92vw;white-space:nowrap;
+  background:var(--paper);border:2px solid var(--ink);padding:5px 9px;
+  font-size:13px;font-weight:700;color:var(--ink)}
+#coach.big #coachRing{border-width:5px}
+#coach.big #coachTip{font-size:15px;padding:7px 11px}
+#coach.big #coachFinger{width:34px;height:34px;margin:-17px 0 0 -17px}
+.ripple{position:fixed;z-index:22;pointer-events:none;width:20px;height:20px;margin:-10px 0 0 -10px;
+  border:2px solid var(--reg);border-radius:50%;animation:rip .55s ease-out forwards}
+@keyframes rip{to{transform:scale(3.6);opacity:0}}
+@media (prefers-reduced-motion:reduce){#coachRing,#coachFinger,.ripple{animation:none}}
+
+/* 상시 목표 문장 — 지금 몇 번째 할 일인지가 늘 화면에 있다 (§1-c) */
+#steps{display:flex;gap:4px;justify-content:center;margin-top:5px;flex-wrap:wrap}
+#steps span{border:1px solid var(--ink-40);background:var(--paper);color:var(--ink-70);
+  padding:2px 6px;font-size:11px;letter-spacing:0;line-height:1.3;white-space:nowrap}
+#steps span.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+html.land #steps span{font-size:13px;padding:3px 8px}
 #onbCard{position:absolute;left:50%;transform:translateX(-50%);width:min(calc(100vw - 34px),420px);
   background:var(--paper);border:1px solid var(--ink);padding:16px;text-align:left}
 #onbNum{display:inline-block;font-size:10px;letter-spacing:.22em;border:1px solid var(--ink);padding:3px 8px}
@@ -199,12 +236,12 @@ html.land #hudRight{display:flex}
         <span aria-hidden="true" data-ch="밀" style="--r:-2deg;--y:.02em;--s:1.00">밀</span>
         <span aria-hidden="true" data-ch="기" style="--r:4deg;--y:-.05em;--s:1.06">기</span>
       </h1>
-      <p class="game-subtitle">한 칸만 어긋나면 폐기</p>
+      <p class="game-subtitle">소수점을 밀어 몫을 찍어요</p>
       <div class="title-unit">6학년 2학기 · 소수의 나눗셈</div>
     </div>
     <div class="title-cta-zone">
       <div class="title-meta" id="bestLine"></div>
-      <button type="button" class="title-start" id="startBtn"><span>인쇄 시작</span></button>
+      <button type="button" class="title-start" id="startBtn"><span>게임 시작</span></button>
       <button type="button" class="title-howto" id="howtoBtn">어떻게 놀아요?</button>
     </div>
   </div>
@@ -222,7 +259,17 @@ html.land #hudRight{display:flex}
   <div class="rule"><span class="cap">오늘 장</span><span id="sheetV2">0</span></div>
   <div class="rule"><span class="cap">최고</span><span id="bestV">0</span></div>
 </div>
-<div id="prompt" class="hidden"><span class="line" id="promptLine"></span></div>
+<div id="prompt" class="hidden">
+  <span class="line" id="promptLine"></span>
+  <div id="steps">
+    <span data-s="bar">① 빨간 바 밀기</span><span data-s="drum">② 몫 드럼 굴리기</span><span data-s="platen">③ 손잡이 내려 찍기</span>
+  </div>
+</div>
+<div id="coach" hidden>
+  <div id="coachRing"></div>
+  <div id="coachFinger"></div>
+  <div id="coachTip"></div>
+</div>
 
 <div id="onb" class="hidden">
   <div id="onbHole"></div>
@@ -266,8 +313,11 @@ const el = {
   over: $("over"), overTitle: $("overTitle"), overScore: $("overScore"),
   overSheets: $("overSheets"), overCombo: $("overCombo"), retryBtn: $("retryBtn"),
   stars: $("stars"), toast: $("toast"), toastT: $("toastT"), inkEq: $("inkEq"),
-  inkFlash: $("inkFlash"), poster: $("poster"), katexLayer: $("katexLayer")
+  inkFlash: $("inkFlash"), poster: $("poster"), katexLayer: $("katexLayer"),
+  coach: $("coach"), coachRing: $("coachRing"), coachFinger: $("coachFinger"),
+  coachTip: $("coachTip"), steps: $("steps")
 };
+const { coach, coachRing, coachFinger, coachTip, steps } = el;
 const {
   cv, title, startBtn, howtoBtn, muteTitle, muteHud,
   hud, prompt, promptLine, scoreV, timeV, comboV, sheetV, sheetV2,
@@ -811,7 +861,10 @@ const S={
   hintDiv:0, missOnSheet:0, pick:null, tokens:null,
   paper:null, paperW:0, paperH:0, ambient:0,
   bits:[], punch:0, discardN:0, _dirty:true, _wg:null, _painted:false,
-  reduce:reduced
+  reduce:reduced,
+  /* 온보딩·코치 (docs/onboarding-spec.md §1)
+     tut 0=꺼짐 1=바 밀기 2=드럼 굴리기 3=압판 내리기 · idleUser=마지막 조작 이후 초 */
+  tut:0, idleUser:0, drumTouched:false, coachKey:"", barOk:false
 };
 let usedIds=new Set();
 let lastId="";
@@ -939,8 +992,10 @@ function loadSheet(p, isPractice){
   S.inkChars=0; S.inkText=""; S.missOnSheet=0; S.hintDiv=isPractice?1:0;
   S.pick=null; S.tokens=null; S.grab=null;
   S.bits.length=0; S.punch=0; S._dirty=true; S._wg=null;
+  S.drumTouched=false; S.idleUser=0; S.coachKey=""; S.barOk=false;
   setupDrums(p);
   paintPrompt();
+  updateCoach();
 }
 
 function paintPrompt(){
@@ -1070,6 +1125,7 @@ function beginRun(mode, practice){
   usedIds=new Set(); lastId="";
   S.discardN=0; S.bits.length=0; S.punch=0; S._dirty=true; S._wg=null;
   S.phase="playing";
+  S.tut=0; S.idleUser=0; S.drumTouched=false; S.coachKey="";
   title.classList.add("hidden");
   hud.classList.remove("hidden");
   prompt.classList.remove("hidden");
@@ -1093,12 +1149,43 @@ function startFromTitle(){
   }
 }
 
+/* 설명 3장을 넘기는 게 아니라, 각 단계를 학생이 실제로 해야 다음으로 간다 (§1-b).
+   스포트라이트는 입력을 통과시키므로 카드를 읽으면서 바로 그 물건을 만질 수 있다. */
 const ONB=[
-  {t:"점을 같은 칸만큼", b:"세로 바를 밀어 나누는 수의 숫자가 모두 줄 왼쪽에 오게 하세요. 나누는 수가 자연수가 되면 됩니다. 같은 칸만큼 더 밀어도 몫은 같아요."},
-  {t:"몫 드럼을 굴리기", b:"바뀐 나눗셈의 몫을 드럼을 위아래로 굴려 맞추세요. 코드가 채워 주지 않아요."},
-  {t:"압판으로 찍기", b:"손잡이를 아래로 끌어 한 장으로 찍으세요. 칸이나 몫이 틀리면 그 장은 폐기돼요."}
+  {t:"빨간 바를 오른쪽으로 끌어요", b:"바를 한 칸 밀면 두 수가 10배가 돼요. 나누는 수의 숫자가 모두 바 왼쪽에 오면 자연수가 됩니다. 직접 밀어 보세요."},
+  {t:"숫자 칸을 위아래로 굴려요", b:"바뀐 나눗셈의 몫을 직접 맞춰요. 숫자 칸을 위아래로 끌면 0~9가 굴러갑니다."},
+  {t:"손잡이를 아래로 끌어 찍어요", b:"압판 손잡이를 아래까지 끌면 한 장이 찍혀요. 지금 해 보세요."}
 ];
 let onbStep=0;
+/* 그 단계의 조작을 실제로 해냈으면 즉시 다음 단계로 — 성공은 눈에 보이는 보상과 함께 */
+/* 성공 표시가 없으면 학생은 자기 조작이 맞았는지 모른다 (§1-b 즉시 보상) */
+function barGoalCheck(){
+  const p=S.prob; if(!p || S.barOk) return;
+  const need = p.type==='reverse' ? (S.barPos===(p.targetBar||0)) : (S.barPos>=p.k);
+  if(!need) return;
+  S.barOk=true;
+  S.flash=Math.max(S.flash,0.3); S._dirty=true;
+  sfx('ok',1);
+  showToast(p.type==='reverse'
+    ? '처음 식으로 되돌렸어요! 이제 몫을 맞춰요.'
+    : '나누는 수가 자연수가 됐어요! 이제 몫을 맞춰요.');
+}
+function tutCheck(){
+  if(S.tut<=0) return;
+  const p=S.prob; if(!p) return;
+  if(S.tut===1 && S.barPos>=p.k){
+    S.tut=2; onbStep=1; S.flash=0.32; sfx("ok",1); showOnboard(1);
+  } else if(S.tut===2 && S.drumTouched){
+    S.tut=3; onbStep=2; S.flash=0.32; sfx("ok",1); showOnboard(2);
+  }
+}
+function endTutorial(){
+  S.tut=0;
+  saveStore({onboardingSeen:true});
+  onb.classList.add("hidden");
+  S.idleUser=0;
+  updateCoach();
+}
 
 function showDiffThenRun(){
   onb.classList.remove("hidden");
@@ -1112,13 +1199,14 @@ function showDiffThenRun(){
 }
 function showOnboard(step){
   onbStep=step;
+  S.tut=step+1;
   onb.classList.remove("hidden");
   onbDiff.classList.add("hidden");
   const o=ONB[step];
-  onbNum.textContent=(step+1)+"/3";
+  onbNum.textContent="해 보기 "+(step+1)+"/3";
   onbTitle.textContent=o.t;
   onbBody.textContent=o.b;
-  onbNext.textContent=step===2?"해볼게요":"다음";
+  onbNext.textContent="안내 닫기";
   title.classList.add("hidden");
   hud.classList.remove("hidden");
   prompt.classList.remove("hidden");
@@ -1134,22 +1222,23 @@ function showOnboard(step){
     renderPads(); updateHud(true);
   }
   placeOnbCard();
+  updateCoach();
 }
 function placeOnbCard(){
-  const g=railGeom();
+  /* 스포트라이트 구멍은 좌표를 박지 않고 현재 레이아웃에서 다시 계산한다 —
+     코치 포인터와 같은 사각형을 쓰므로 둘이 어긋날 수 없다. */
+  const t = onbStep===0 ? (S.prob && S.prob.type==="error" ? "row" : "bar")
+          : onbStep===1 ? "drum" : "platen";
+  const r = coachRect(t) || {x:20,y:120,w:200,h:120};
+  const pad = onbStep===0 ? 10 : 6;
   const hole=onbHole;
-  if(onbStep===0){ hole.style.left=g.left+"px"; hole.style.top=(g.y0-8)+"px"; hole.style.width=g.w+"px"; hole.style.height=(g.rowH*2+28)+"px"; }
-  else if(onbStep===1){
-    const dg=workGeom().drums[0]||{x:g.left,y:g.y1+g.rowH+8,w:g.w,h:88};
-    hole.style.left=dg.x+"px"; hole.style.top=dg.y+"px"; hole.style.width=Math.max(g.w*0.5, 88)+"px"; hole.style.height=(dg.h||88)+"px";
-  }
-  else {
-    const pg=workGeom().platen;
-    hole.style.left=pg.x+"px"; hole.style.top=pg.y+"px"; hole.style.width=pg.w+"px"; hole.style.height=pg.h+"px";
-  }
+  hole.style.left=(r.x-pad)+"px"; hole.style.top=(r.y-pad)+"px";
+  hole.style.width=(r.w+pad*2)+"px"; hole.style.height=(r.h+pad*2)+"px";
+  /* 카드는 구멍을 덮지 않는 쪽(위/아래 중 넓은 쪽)에 붙인다 */
   const card=onbCard;
-  const holeBottom=(parseFloat(hole.style.top)||0)+(parseFloat(hole.style.height)||0);
-  card.style.top=Math.min(S.H-220, holeBottom+12)+"px";
+  const above=r.y-16, below=S.H-(r.y+r.h)-16;
+  if(below>=190 || below>=above) card.style.top=Math.min(S.H-186, r.y+r.h+14)+"px";
+  else card.style.top=Math.max(56, r.y-190)+"px";
 }
 
 onbDiff.addEventListener("click",e=>{
@@ -1165,10 +1254,9 @@ onbNext.addEventListener("click",()=>{
     beginRun(S.mode);
     return;
   }
-  if(onbStep<2){ showOnboard(onbStep+1); return; }
-  saveStore({onboardingSeen:true});
-  onb.classList.add("hidden");
-  beginRun(S.mode);
+  /* 안내를 닫아도 실전으로 바로 이어진다 — 가리키기는 인게임 코치가 계속 맡는다 */
+  endTutorial();
+  if(S.prob && S.prob._practice) beginRun(S.mode);
 });
 
 function renderPads(){
@@ -1190,7 +1278,95 @@ function updateHud(force){
   if(sheetV2) sheetV2.textContent=String(S.solved);
   const st=loadStore();
   bestV.textContent=String(st.best||0);
-  bestLine.textContent=st.best?("최고 "+st.best+"점"): "판이 어긋났어! 점을 같은 칸만큼 밀어 줘.";
+  bestLine.textContent=st.best?("최고 "+st.best+"점"): "소수점을 밀어 몫을 찍어요";
+}
+
+/* ══════════ 코치 — 지금 만질 물건을 그 자리에서 가리킨다 (§1-a,c,e) ══════════
+   좌표는 매번 현재 레이아웃(railGeom/workGeom)에서 다시 계산한다 — 회전·리사이즈에도
+   허공을 가리키지 않는다. 캔버스를 다시 그리지 않으므로 프레임 비용이 없다. */
+/* 긴 문장은 숫자판을 덮어 오히려 방해가 된다 — 옆에 붙는 문구는 짧게 */
+const COACH_TIP={
+  bar:'→ 오른쪽으로',
+  row:'→ 오른쪽으로',
+  drum:'↕ 위아래로',
+  platen:'손잡이를 아래로 끌어 찍어요'
+};
+/* 지금 해야 할 한 가지. 상시 목표 문장(#steps)과 포인터가 같은 값을 쓴다. */
+function currentStep(){
+  const p=S.prob; if(!p) return null;
+  if(p.type==='error' && S.rowShift!==p.k) return 'row';
+  if(p.type==='reverse'){ if(S.barPos!==(p.targetBar||0)) return 'bar'; }
+  else if(S.barPos < p.k) return 'bar';
+  if(!S.drumTouched) return 'drum';
+  return 'platen';
+}
+function coachRect(t){
+  const g=railGeom(), wg=workGeom();
+  if(t==='bar'){
+    const bx=barPixel(g);
+    return {x:bx-30, y:g.y0-26, w:60, h:(g.y1+g.rowH+18)-(g.y0-26)};
+  }
+  if(t==='row') return {x:g.left-5, y:g.y0-7, w:g.w+10, h:g.rowH+14};
+  if(t==='drum'){
+    const d=(wg.drums||[]).find(d=>d.d && d.d.kind!=='dot') || (wg.drums||[])[0];
+    if(!d) return null;
+    return {x:d.x-8, y:d.y-8, w:d.w+16, h:d.h+16};
+  }
+  const pg=wg.platen;
+  return {x:pg.x+pg.w/2-80, y:pg.y-8, w:160, h:pg.h+16};
+}
+function paintSteps(){
+  const cur=currentStep();
+  const kids=steps.children;
+  for(let i=0;i<kids.length;i++){
+    const want = kids[i].getAttribute('data-s')===cur ||
+                 (cur==='row' && kids[i].getAttribute('data-s')==='bar');
+    kids[i].classList.toggle('on', want);
+  }
+}
+/* 처음 한 판은 계속 가리키고, 그 뒤에는 5초 이상 멈췄을 때만 다시 나온다.
+   즉시 알려 주면 스스로 해 보는 시간이 없어지고, 영영 안 나오면 학생이 멈춘다. */
+function coachOn(){
+  if(S.phase!=='playing' && S.phase!=='onboard') return false;
+  if(S.tut>0) return true;
+  if(S.solved===0) return true;   // 첫 장을 찍을 때까지는 계속 가리킨다 (§2 사례1 ①)
+  return S.idleUser>5;
+}
+function updateCoach(){
+  paintSteps();
+  if(!coachOn()){ if(!coach.hidden) coach.hidden=true; return; }
+  const t=currentStep();
+  const r=t && coachRect(t);
+  if(!r){ coach.hidden=true; return; }
+  coach.hidden=false;
+  /* 8초 넘게 아무것도 안 하면 포인터를 더 크게 다시 재생한다 (§1-b) */
+  coach.className=((t==='drum'||t==='platen')?'axis-y':'axis-x')+(S.idleUser>8?' big':'');
+  const key=t+'|'+Math.round(r.x)+'|'+Math.round(r.y)+'|'+Math.round(r.w)+'|'+Math.round(r.h);
+  if(key===S.coachKey) return;
+  S.coachKey=key;
+  coachRing.style.left=r.x+'px'; coachRing.style.top=r.y+'px';
+  coachRing.style.width=r.w+'px'; coachRing.style.height=r.h+'px';
+  coachFinger.style.left=(r.x+r.w/2)+'px';
+  coachFinger.style.top=(r.y+r.h/2)+'px';
+  coachTip.textContent=COACH_TIP[t];
+  /* 세로로 길거나(바) 좁은(드럼) 대상은 위·아래가 발문 카드·자릿수 줄과 겹친다 — 옆에 붙인다 */
+  if(r.h > r.w*1.4 || r.w < 140){
+    const right = r.x + r.w + 12 + 90;
+    const left  = r.x - 12 - 90;
+    coachTip.style.left=clamp(right < S.W-8 ? right : left, 96, S.W-96)+'px';
+    coachTip.style.top=(r.y + r.h*0.66)+'px';
+  } else {
+    coachTip.style.left=clamp(r.x+r.w/2, 96, S.W-96)+'px';
+    coachTip.style.top=(r.y>110 ? r.y-38 : r.y+r.h+8)+'px';
+  }
+}
+/* 어떤 탭에도 반응한다 (§1-e) — 눌러도 500ms 안에 아무 픽셀도 안 바뀌면 '고장'으로 읽힌다 */
+function ripple(x,y){
+  const d=document.createElement('div');
+  d.className='ripple';
+  d.style.left=x+'px'; d.style.top=y+'px';
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(), 620);
 }
 
 let toastTimer=0;
@@ -1257,8 +1433,11 @@ function applyCorrect(fromHook){
   const p=S.prob;
   if(p && p._practice && !fromHook){
     S.misreg=0; S.flash=0.3; sfx("ok",1);
-    showToast("맞아요. 다음 단계로 가 보세요.");
     S.platen=0; S.platenDown=false;
+    /* 마지막 단계를 직접 해냈다 → 보상(플래시+상승음) 주고 온보딩을 닫는다 (§1-b) */
+    showToast("좋아요! 이렇게 한 장이 찍혀요. 이제 진짜 판으로 갑니다.");
+    endTutorial();
+    setTimeout(()=>{ if(S.phase!=="over") beginRun(S.mode); }, 900);
     return;
   }
   const gain=100*S.combo;
@@ -1278,7 +1457,8 @@ function applyCorrect(fromHook){
   scoreV.classList.add("punch"); comboV.classList.add("punch");
   setTimeout(()=>{scoreV.classList.remove("punch"); comboV.classList.remove("punch");},280);
   sfx("ok", S.combo-1);
-  paintInkEq(false);
+  /* 왜 맞았는지를 정답 순간에 식으로 보여 준다 (§1-d) — 예전엔 false 라 아무것도 안 떴다 */
+  paintInkEq(true);
   if(S.solved>0 && S.solved%3===0){
     const acc=S.firstTryBundle>=3;
     const star=(acc && S.lives===S.livesMax)?3: acc?2:1;
@@ -1334,7 +1514,9 @@ function paintInkEq(on){
 function applyWrong(fromHook){
   if(S.phase==="over") return;
   if(S.phase==="title") beginRun("hard");
-  const easyFirst=S.mode==="easy" && S.missOnSheet===0 && !fromHook;
+  /* 온보딩 연습판에서는 목숨을 깎지 않는다 — 압박은 정지, 안내만 다시 (§1-b) */
+  const practice = !!(S.prob && S.prob._practice) && !fromHook;
+  const easyFirst=(practice || (S.mode==="easy" && S.missOnSheet===0)) && !fromHook;
   S.missOnSheet++;
   S.combo=1;
   S.shake=fromHook?0:7;
@@ -1345,10 +1527,19 @@ function applyWrong(fromHook){
   showToast(failReason(), true);
   if(easyFirst){
     S.hintDiv=1.2;
+    /* 압판을 원위치로 되돌린다 — 안 그러면 「찍는 중」에서 멈춘 채 고장처럼 보인다 */
+    S.platen=0; S.platenDown=false; S._dirty=true;
+    /* 다시 맞출 것은 몫이다 → 포인터를 드럼으로 되돌리고 즉시 크게 재생 (§1-b 재등장) */
+    S.drumTouched=false; S.idleUser=9;
+    /* 마지막 단계(찍기)를 몸으로 해 봤으면 안내 카드는 소임을 다했다 —
+       스포트라이트가 압판에 남아 있으면 포인터와 어긋나 오히려 헷갈린다 */
+    if(S.tut>=3) endTutorial();
     updateHud(true);
+    updateCoach();
     return;
   }
   S.lives=Math.max(0, S.lives-1);
+  S.drumTouched=false;    // 다음 장에서도 몫부터 다시 보게 한다
   S.discardN=Math.min(8, (S.discardN||0)+1);
   S._dirty=true;
   renderPads(); updateHud(true);
@@ -1369,6 +1560,7 @@ function nextSheet(){
 
 function endRun(why){
   S.phase="over";
+  S.tut=0; coach.hidden=true; onb.classList.add("hidden");
   const winSheets=S.solved;
   const st=loadStore();
   const best=Math.max(st.best||0, S.score);
@@ -1391,14 +1583,18 @@ function endRun(why){
 }
 
 /* ── 입력 ── */
-const ptr={id:null,x:0,y:0,lx:0,ly:0,kind:null,drum:-1,grabY:0,platenAvail:80};
+const ptr={id:null,x:0,y:0,lx:0,ly:0,kind:null,drum:-1,grabY:0,platenAvail:80,platenMax:0,moved:false};
 function hit(x,y){
   const g=railGeom();
   const bx=barPixel(g);
-  if(Math.abs(x-bx)<36 && y>g.y0-16 && y<g.y1+g.rowH+6) return {kind:"bar"};
+  const inRail = y>g.y0-16 && y<g.y1+g.rowH+6 && x>=g.left-10 && x<=g.left+g.w+10;
+  if(Math.abs(x-bx)<40 && y>g.y0-16 && y<g.y1+g.rowH+6) return {kind:"bar"};
   if(S.prob && S.prob.type==="error"){
     if(y>=g.y0 && y<=g.y0+g.rowH && x>=g.left && x<=g.left+g.w) return {kind:"row"};
   }
+  /* 손잡이를 정확히 못 잡아도 줄판 아무 데나 짚으면 바가 그 칸으로 따라온다.
+     36px 짜리 손잡이만 유효하면 학생은 「눌러도 아무 일이 없다」로 읽고 그만둔다 (§1-e). */
+  if(inRail) return {kind:"bar", snap:true};
   const wg=workGeom();
   const drums=wg.drums;
   for(let i=0;i<drums.length;i++){
@@ -1414,6 +1610,16 @@ function hit(x,y){
       if(x>=tx && x<=tx+tw && y>=ty && y<=ty+th) return {kind:"ticket", i};
     }
   }
+  /* 마지막 안전망: 지금 할 일이 「바 밀기」인데 빈 곳을 눌렀다면 바가 그 칸으로 따라온다.
+     줄판은 화면의 좁은 띠라, 이게 없으면 학생은 90초 내내 한 번도 진행하지 못한다
+     (실측: 순진한 학생 94초 무진행 → docs/onboarding-spec.md §3 align-push). */
+  if(currentStep()==="bar" && y < wg.platen.y - 10) return {kind:"bar", step:true};
+  /* 몫 차례에도 같은 안전망을 둔다 — 드럼 상자(작은 네모)를 정확히 못 짚어도
+     빈 곳을 누르면 첫 드럼이 한 칸 굴러간다. 탭이 죽으면 학생은 답을 못 만든다. */
+  if(currentStep()==="drum" && y < wg.platen.y - 10){
+    const di=drums.findIndex(d=>d.d && d.d.kind!=="dot");
+    if(di>=0) return {kind:"drum", i:di, tapOnly:true};
+  }
   return null;
 }
 function drumGeom(){ return workGeom().drums; }
@@ -1422,19 +1628,49 @@ function platenGeom(){ return workGeom().platen; }
 function onDown(x,y,id){
   ensureAudio();
   if(S.phase!=="playing" && S.phase!=="onboard") return;
-  if(S._hold) return;
+  S.idleUser=0;
+  ripple(x,y);
+  if(S._hold){ showToast("잠깐만요 — 이 장을 찍는 중이에요."); return; }
   S._wg=null; S._dirty=true;
-  const h=hit(x,y); if(!h) return;
+  const h=hit(x,y);
+  if(!h){
+    /* 유효하지 않은 자리를 눌렀다 → 지금 만질 것을 즉시 크게 다시 가리킨다 */
+    S.idleUser=9;
+    const t=currentStep();
+    showToast(COACH_TIP[t]||"화면의 빨간 바를 끌어 보세요.");
+    sfx("move");
+    updateCoach();
+    return;
+  }
   ptr.id=id; ptr.x=x; ptr.y=y; ptr.lx=x; ptr.ly=y; ptr.kind=h.kind; ptr.drum=h.i??-1;
+  ptr.moved=false;
   // 끌기는 누른 지점을 기준(anchor)으로 누적 거리를 본다.
   // 프레임마다의 미세 이동만 보면 천천히 끌 때 한 칸도 움직이지 않는다.
   ptr.x0=x; ptr.y0=y;
+  if(h.snap||h.step){
+    /* 짚은 칸으로 바를 즉시 옮긴다 — 탭 한 번에도 화면이 반드시 반응한다.
+       줄판 밖(빈 곳)을 눌렀다면 좌표에 뜻이 없으므로 한 칸씩 오른쪽으로 민다. */
+    const g2=railGeom();
+    const cell = h.step ? S.barPos+1 : Math.round((x-g2.left)/g2.cellW - g2.barBase);
+    const nb=clamp(cell, S.prob&&S.prob.type==="reverse"?-S.prob.k:0, g2.maxSnap);
+    let target=nb;
+    if(target===S.barPos && h.snap){
+      target=clamp(S.barPos+1, S.prob&&S.prob.type==="reverse"?-S.prob.k:0, g2.maxSnap);
+    }
+    if(target!==S.barPos){
+      S.barPos=target; sfx("move"); S.barGhosts.push({x:barPixel(g2),a:1});
+      updateCoach(); barGoalCheck(); tutCheck();
+    } else {
+      showToast("더 오른쪽으로는 못 가요.");
+    }
+  }
   ptr.barBase=S.barPos;
   ptr.rowBase=S.rowShift;
   ptr.drumBase=(h.kind==="drum" && S.drums[h.i]) ? S.drums[h.i].v : 0;
   if(h.kind==="platen"){
     ptr.grabY=y;
     ptr.platenAvail=Math.max(24, S.H-y-4);
+    ptr.platenMax=0;
   }
   if(h.kind==="ticket"){
     S._forceType=h.i===0?"calc":"calc";
@@ -1445,38 +1681,65 @@ function onDown(x,y,id){
 }
 function onMove(x,y){
   if(ptr.id==null) return;
+  if(Math.abs(x-ptr.x0)>6 || Math.abs(y-ptr.y0)>6) ptr.moved=true;
   ptr.lx=x; ptr.ly=y; ptr.x=x; ptr.y=y;
+  S.idleUser=0;
   S._wg=null; S._dirty=true;
   const g=railGeom();
   if(ptr.kind==="bar"){
     const nx=g.left+(g.barBase+ptr.barBase)*g.cellW + (x-ptr.x0);
     const cell=Math.round((nx-g.left)/g.cellW - g.barBase);
     const nb=clamp(cell, S.prob&&S.prob.type==="reverse"?-S.prob.k:0, g.maxSnap);
-    if(nb!==S.barPos){ S.barPos=nb; sfx("move"); S.barGhosts.push({x:barPixel(g),a:1}); }
+    if(nb!==S.barPos){ S.barPos=nb; sfx("move"); S.barGhosts.push({x:barPixel(g),a:1}); updateCoach(); barGoalCheck(); tutCheck(); }
   } else if(ptr.kind==="row"){
     // 나누어지는 수 줄은 오른쪽으로 끌면 왼쪽 칸으로 되돌아온다(자리 올리기).
     const step=Math.round((x-ptr.x0)/g.cellW);
     const nr=clamp(ptr.rowBase-step, 0, g.maxSnap);
-    if(nr!==S.rowShift){ S.rowShift=nr; sfx("move"); }
+    if(nr!==S.rowShift){ S.rowShift=nr; sfx("move"); updateCoach(); }
   } else if(ptr.kind==="drum"){
     const d=S.drums[ptr.drum];
     if(!d || d.kind==="dot") return;
     const step=Math.round((y-ptr.y0)/26);
     const nv=((ptr.drumBase+step)%10+10)%10;
-    if(nv!==d.v){ d.v=nv; sfx("drum"); }
+    if(nv!==d.v){ d.v=nv; sfx("drum"); S.drumTouched=true; updateCoach(); tutCheck(); }
   } else if(ptr.kind==="platen"){
     const pulled=Math.max(0, y-ptr.grabY);
     const need=Math.min(46, ptr.platenAvail*0.55);
     S.platen=clamp(need>0? pulled/need : 0, 0, 1.15);
+    // 끄는 동안 도달한 최대 깊이를 기억한다. loop() 의 되돌림(0으로 감쇠)이
+    // 손을 떼기 직전 한두 프레임 사이에 값을 갉아먹어 「끝까지 끌었는데 안 찍힘」이 됐다.
+    if(S.platen>ptr.platenMax) ptr.platenMax=S.platen;
   }
 }
 function onUp(){
   if(ptr.id==null) return;
-  if(ptr.kind==="platen" && S.platen>=1){
+  /* 끌지 않고 탭만 했을 때도 반응한다 (§1-e) */
+  if(ptr.kind==="drum" && !ptr.moved){
+    const d=S.drums[ptr.drum];
+    if(d && d.kind!=="dot"){
+      d.v=(d.v+1)%10; sfx("drum"); S.drumTouched=true; S._dirty=true;
+      showToast("숫자 칸은 위아래로 끌어도 굴러가요.");
+      updateCoach(); tutCheck();
+    }
+  }
+  if(ptr.kind==="platen" && !ptr.moved){
+    showToast("손잡이를 아래로 끝까지 끌어야 찍혀요.");
+    sfx("move"); S.idleUser=9; updateCoach();
+  }
+  const deep = Math.max(S.platen, ptr.platenMax||0);
+  if(ptr.kind==="platen" && deep>=1){
+    S.platen=deep;
     tryStamp();
   } else {
+    if(ptr.kind==="platen" && deep>0.15){
+      // 끌긴 했는데 얕았다 → 무반응으로 두지 않고 왜 안 찍혔는지 말해 준다 (§1-e)
+      showToast("손잡이를 끝까지 아래로 끌어야 찍혀요.");
+      sfx("move");
+      S.idleUser=9; updateCoach();
+    }
     S.platen=0;
   }
+  ptr.platenMax=0;
   ptr.id=null; ptr.kind=null;
 }
 function tryStamp(){
@@ -1493,14 +1756,16 @@ cv.addEventListener("pointerup",e=>{ onUp(); });
 cv.addEventListener("pointercancel",e=>{ onUp(); });
 window.addEventListener("keydown",e=>{
   if(S.phase!=="playing" && S.phase!=="onboard") return;
+  S.idleUser=0;
   S._dirty=true; S._wg=null;
   const g=railGeom();
   if(e.key==="ArrowLeft"){ S.barPos=clamp(S.barPos-1, S.prob&&S.prob.type==="reverse"?-S.prob.k:0, g.maxSnap); sfx("move"); }
   if(e.key==="ArrowRight"){ S.barPos=clamp(S.barPos+1, S.prob&&S.prob.type==="reverse"?-S.prob.k:0, g.maxSnap); sfx("move"); }
   if(e.key==="ArrowUp" || e.key==="ArrowDown"){
     const d=S.drums.find(x=>x.kind==="ones")||S.drums.find(x=>x.v!=null);
-    if(d && d.kind!=="dot"){ d.v=(d.v+(e.key==="ArrowDown"?1:-1)+10)%10; sfx("drum"); }
+    if(d && d.kind!=="dot"){ d.v=(d.v+(e.key==="ArrowDown"?1:-1)+10)%10; sfx("drum"); S.drumTouched=true; tutCheck(); }
   }
+  updateCoach();
   if(e.key===" " || e.key==="Enter"){ e.preventDefault(); tryStamp(); }
 });
 
@@ -1716,6 +1981,14 @@ function drawPlay(dt){
   drawBarAsset(bx, g.y0-16, (g.y1+g.rowH+16)-(g.y0-16));
 
   const dgs=wg.drums;
+  if(dgs.length){
+    const d0=dgs[0], dN=dgs[dgs.length-1];
+    ctx.fillStyle=TEAL; ctx.font="12px "+FONT;
+    ctx.textAlign="left"; ctx.textBaseline="bottom";
+    ctx.fillText((S.prob&&S.prob.remain)?"남는 양 — 여기에 답을 굴려 맞춰요":"몫 — 여기에 답을 굴려 맞춰요",
+      d0.x, d0.y-4);
+    ctx.textBaseline="alphabetic";
+  }
   for(const dg of dgs){
     const d=S.drums[dg.i];
     if(!d) continue;
@@ -1810,7 +2083,8 @@ function loop(now){
       S.platen=0; S.platenDown=false;
       if(S.lives>0 && S.phase!=="over") nextSheet();
     }
-  } else {
+  } else if(!(ptr.id!=null && ptr.kind==="platen")){
+    // 끄는 중에는 되돌리지 않는다 — 손가락이 잡고 있는 값을 코드가 뺏으면 안 된다
     if(!S.platenDown) S.platen += (0-S.platen)*Math.min(1,dt*8);
     else S.platen += (1-S.platen)*Math.min(1,dt*10);
   }
@@ -1841,7 +2115,10 @@ function loop(now){
     for(const b of S.bits) b.life-=dt*1.3;
     S.bits=S.bits.filter(b=>b.life>0);
   }
-  if((now/250|0)!==loop._hud){ loop._hud=now/250|0; updateHud(false); }
+  if(S.phase==="playing"||S.phase==="onboard"){
+    if(ptr.id==null) S.idleUser+=raw; else S.idleUser=0;
+  } else S.idleUser=0;
+  if((now/250|0)!==loop._hud){ loop._hud=now/250|0; updateHud(false); updateCoach(); }
 
   const anim=playingAnim();
   if(anim || S._dirty || !S._painted){
@@ -1953,7 +2230,7 @@ window.__GAME_TEST__={
 layout();
 updateHud(true);
 const st=loadStore();
-bestLine.textContent=st.best?("최고 "+st.best+"점"):"판이 어긋났어! 점을 같은 칸만큼 밀어 줘.";
+bestLine.textContent=st.best?("최고 "+st.best+"점"):"소수점을 밀어 몫을 찍어요";
 requestAnimationFrame(loop);
 window.__GAME_TEST__.ready=true;
 })();

@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>송판올려 — 열 장이면 올려</title>
+<title>송판올려 — 송판 10장씩 묶어 올려라</title>
 <meta property="og:title" content="송판올려">
-<meta property="og:description" content="열 장이면 올려">
+<meta property="og:description" content="송판 10장씩 묶어 올려라">
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
@@ -54,6 +54,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--floor);color:v
   border:2px solid var(--wood);border-radius:0;padding:8px 10px;opacity:0;pointer-events:none;word-break:keep-all
 }
 #failNote.on{opacity:1}
+/* 정답일 때도 '왜 맞았는지'를 같은 자리에서 1초 보여 준다 (§1-d) */
+#failNote.ok{background:#1E4B73;color:#F4EBD8}
 
 #title{--title-col:min(100vw,640px);position:fixed;inset:0;z-index:20;min-height:100svh;height:100dvh;
   overflow:hidden;isolation:isolate;background:#C8A36A}
@@ -67,15 +69,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--floor);color:v
   padding-inline:clamp(16px,5vw,32px);pointer-events:none}
 .logo-zone{position:absolute;top:max(54px,7dvh);left:16px;right:16px;min-height:190px;
   display:grid;place-content:start center;text-align:center;pointer-events:auto}
+/* 겹쳐 놓은 이중 글자(.stamp)는 자간이 좁아 옆 글자와 뭉쳐 잔상처럼 읽혔다.
+   글자 복제를 없애고, 흐림 0의 단단한 오프셋 그림자 한 겹으로만 인쇄 어긋남을 낸다. */
 .game-logo{margin:0;font-family:var(--logo);font-weight:400;
-  font-size:clamp(52px,16vw,88px);line-height:.9;color:#B3332A;
-  -webkit-text-stroke:4px #3D2B1F;paint-order:stroke fill;letter-spacing:-.04em;
+  font-size:clamp(48px,14.4vw,80px);line-height:1.02;color:#B3332A;
+  -webkit-text-stroke:2.5px #3D2B1F;paint-order:stroke fill;letter-spacing:.07em;
+  text-shadow:4px 4px 0 #1E4B73;
   position:relative;display:inline-block;transform:rotate(-2deg);
   animation:brandIn 720ms cubic-bezier(.2,.8,.2,1.15) both}
-.game-logo .stamp{
-  position:absolute;left:6px;top:6px;color:#1E4B73;
-  -webkit-text-stroke:4px #1E4B73;paint-order:stroke fill;
-  z-index:-1;pointer-events:none;user-select:none}
 .game-sub{margin-top:12px;font-family:var(--logo);font-size:clamp(16px,4.6vw,22px);color:#F4EBD8;
   background:#1E4B73;border:2px solid #3D2B1F;border-radius:0;padding:6px 12px;letter-spacing:.1em;
   display:inline-block;transform:rotate(-2deg)}
@@ -96,8 +97,27 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--floor);color:v
 #titleMute{position:absolute;z-index:4;right:12px;top:max(10px,var(--safeT));
   width:48px;height:48px;border:2px solid #3D2B1F;border-radius:0;background:#1E4B73;color:#F4EBD8;font-size:16px;cursor:pointer}
 
-#help,#onboard,#result,#choice{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(244,235,216,.78)}
-#help.show,#onboard.show,#result.show,#choice.show{display:grid}
+#help,#result,#choice{position:fixed;z-index:30;inset:0;display:none;place-items:center;background:rgba(244,235,216,.78)}
+#help.show,#result.show,#choice.show{display:grid}
+/* 온보딩은 실전 판 위에 얹히는 코치 띠다 — 화면을 덮으면 학생이 기둥을 못 본다 (§1-a,b,g) */
+/* 카드는 판 아래가 아니라 기둥 위 빈 공간에 둔다 — 아래에 두면 정작 가리켜야 할
+   손잡이를 카드가 덮어 버린다 */
+#onboard{position:fixed;z-index:29;left:8px;right:8px;top:max(184px,calc(var(--safeT) + 176px));
+  display:none;pointer-events:none}
+#onboard.show{display:block}
+/* 카드가 크면 정작 가리켜야 할 자르는 선·열 장 눈금을 덮는다 — 한 줄 띠로 압축한다 */
+#onboard .plaque{width:min(100%,520px);margin:0 auto;padding:8px 10px;pointer-events:auto;
+  border-width:3px;border-color:#B3332A;display:flex;align-items:center;gap:8px}
+#onboard .ob-text{flex:1;min-width:0}
+#onboard .plaque h2{font-size:16px;margin:0 0 2px;line-height:1.25}
+#onboard .plaque p{font-size:12.5px;margin:0;line-height:1.3;color:#3D2B1F}
+#onboard .step{margin:0 0 3px;font-size:10px}
+#onboard .plaque button{width:auto;min-width:44px;height:44px;margin:0;padding:0 10px;font-size:13px;
+  background:transparent;color:#3D2B1F;border-width:1px;letter-spacing:0;flex:0 0 auto}
+html.land #onboard{left:calc(var(--stageX) + var(--stageW) * .62 + 12px);
+  right:calc(100% - var(--stageX) - var(--stageW) + 16px);top:auto;bottom:max(90px,var(--safeB))}
+html.tall #onboard{top:max(210px,calc(var(--safeT) + 200px))}
+#mute.muted,#titleMute.muted{text-decoration:line-through;opacity:.6}
 .plaque{width:min(88vw,480px);padding:20px 16px 16px;background:#F4EBD8;color:#3D2B1F;
   border:2px solid #3D2B1F;border-radius:0}
 .plaque h2{margin:0 0 10px;font-family:var(--logo);font-size:26px;letter-spacing:.08em;color:#1E4B73}
@@ -167,7 +187,7 @@ html.tall #failNote{left:16px;right:16px;bottom:max(12px,var(--safeB))}
 <div id="prompt">
   <div class="eq" id="eq"></div>
   <div class="say" id="say">열 장씩 묶어 올려 보세요.</div>
-  <div class="axis">송판 열 장이 위 자리의 한 장이에요</div>
+  <div class="axis" id="axis">일의 자리부터 · 손잡이를 끌어 열 장 눈금에 놓고 손을 떼요 (열 장 = 위 자리 한 장)</div>
 </div>
 <button id="mute" aria-label="소리 끄기">♪</button>
 <div id="failNote"></div>
@@ -180,8 +200,8 @@ html.tall #failNote{left:16px;right:16px;bottom:max(12px,var(--safeB))}
   <button id="titleMute" aria-label="소리 끄기">♪</button>
   <div class="title-ui">
     <div class="logo-zone">
-      <h1 class="game-logo" aria-label="송판올려"><span class="stamp" aria-hidden="true">송판올려</span>송판올려</h1>
-      <div class="game-sub">열 장이면 올려</div>
+      <h1 class="game-logo" aria-label="송판올려">송판올려</h1>
+      <div class="game-sub">송판 10장씩 묶어 올려라</div>
     </div>
     <div class="cta-zone">
       <div class="meta-row">
@@ -201,19 +221,21 @@ html.tall #failNote{left:16px;right:16px;bottom:max(12px,var(--safeB))}
 <div id="help">
   <div class="plaque">
     <div class="step">안내</div>
-    <h2>열 장이면 올려</h2>
-    <p>1. 일의 자리 기둥을 손가락으로 짚으면 칼선이 따라옵니다. 열 장의 배수 높이에 놓고 손을 떼세요.</p>
-    <p>2. 열 장 묶음이 왼쪽 자리의 한 장이 됩니다. 남은 장은 아홉 장을 넘기면 안 됩니다.</p>
-    <p>3. 세 자리를 잠그면 목표 송판이 격파됩니다. 빗맞으면 송판에 금이 가고 목숨이 줄어요.</p>
+    <h2>송판 10장씩 묶어 올려라</h2>
+    <p>1. 기둥 오른쪽의 네모 손잡이를 잡고 <b>위아래로 끌어요</b>. 선 아래가 묶어 올릴 송판이에요.</p>
+    <p>2. 빨간 <b>열 장 눈금</b>에 맞춰 놓고 손을 떼면, 열 장 묶음이 왼쪽 자리의 한 장이 돼요. 남는 장은 아홉 장을 넘기면 안 돼요.</p>
+    <p>3. 일·십·백 세 기둥을 다 잠그면 목표 송판이 격파돼요.</p>
     <button id="closeHelp">해볼게요</button>
   </div>
 </div>
 <div id="onboard">
   <div class="plaque">
-    <div class="step" id="obStep">1/3</div>
-    <h2 id="obTitle">칼선을 놓아 보세요</h2>
-    <p id="obBody">일의 자리 기둥의 칼선 손잡이를 세로로 끌어 열 장의 배수 높이에 놓고 손을 떼세요. 송판 열 장이 위 자리의 한 장이에요.</p>
-    <button id="obNext">다음</button>
+    <div class="ob-text">
+      <div class="step" id="obStep">해 보기 1 / 2</div>
+      <h2 id="obTitle">손잡이를 위아래로 끌어요</h2>
+      <p id="obBody">반짝이는 손잡이를 잡고 위아래로 끌어요.</p>
+    </div>
+    <button id="obNext" aria-label="안내 닫기">닫기</button>
   </div>
 </div>
 <div id="choice">
@@ -564,7 +586,7 @@ function buildPools(){
           for (let at = 1; at <= 9; at++) {
             const a = at * 10 + ao;
             if (a < 12) continue;
-            // 한 기둥에 쌓이는 송판이 화면을 넘으면 칼선이 손에 닿지 않는다.
+            // 한 기둥에 쌓이는 송판이 화면을 넘으면 자르는 선이 손에 닿지 않는다.
             // Band 1~3 과 같은 상한(자리곱 45장)을 지킨다.
             const dmax = Math.max(at, ao);
             if (dmax * bo > 45 || dmax * bt > 45) continue;
@@ -705,6 +727,10 @@ const S = {
   idleT: 0, collapse: 0, broken: 0, offered4: false, offered8: false,
   continueMode: false, bestStamp: false,
   estimate: null, pegX: 0.5,
+  /* 온보딩·코치 (docs/onboarding-spec.md §1)
+     tut 1=자르는 선 끌어 보기 2=열 장 눈금에 맞춰 손 떼기, awaitFirstDrag 동안은 시간이 흐르지 않는다 */
+  ripples: [], idleAct: 0, awaitFirstDrag: true, tut: 0, coachSeen: false,
+  ghostH: -1, ghostT: 0,
   beltShift: 0, beltX: 0,
   cols: [], targetCrack: 0, targetBreak: 0,
   sun: 0
@@ -738,8 +764,11 @@ function brand(id){
 function setMute(on){
   S.mute = !!on;
   try { localStorage.setItem(LS_MUTE, S.mute ? '1' : '0'); } catch {}
-  $('#mute').textContent = S.mute ? '✕' : '♪';
-  $('#titleMute').textContent = S.mute ? '✕' : '♪';
+  /* 音 아이콘을 ✕ 로 바꾸면 '닫기'로 오인된다 — 음표에 사선만 긋는다 */
+  $('#mute').textContent = '♪';
+  $('#titleMute').textContent = '♪';
+  $('#mute').classList.toggle('muted', S.mute);
+  $('#titleMute').classList.toggle('muted', S.mute);
 }
 function unlockAudio(){
   if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
@@ -919,12 +948,15 @@ function beginPlay(opts){
   S.shield = 0; S.focus = 0; S.offered4 = false; S.offered8 = false;
   S.mixI = 0; S.collapse = 0; S.failT = 0; S.bestStamp = false;
   S.flyers.length = 0;
+  S.awaitFirstDrag = true; S.idleAct = 0; S.ripples.length = 0;
+  S.ghostH = -1; S.ghostT = 0;
   spawnBoard();
   layout();
 }
 
 function endSession(why){
   S.phase = 'result';
+  S.tut = 0; $('#onboard').classList.remove('show');
   const best = loadBest();
   let rec = false;
   if (S.broken > best) { saveBest(S.broken); rec = true; S.bestStamp = true; }
@@ -968,16 +1000,21 @@ function judgeKnife(){
   const h = Math.round(pl.knifeH);
   if (h === answerH) applyCorrect(pl, answerH, p);
   else {
+    // 왜 틀렸는지를 이 기둥의 실제 수로 말해 준다 + 옳은 높이를 눈으로 보여 준다 (§1-d)
+    const packs = Math.floor(p / 10);
+    const why = packs === 0
+      ? '이 기둥은 ' + p + '장뿐이라 열 장이 안 돼요. 자르는 선을 맨 아래 0에 놓아요.'
+      : '이 기둥은 ' + p + '장이에요. 열 장 묶음 ' + packs + '개 = ' + answerH
+        + '장을 올려요. 자르는 선을 ' + answerH + '에 놓아요.';
+    S.ghostH = answerH; S.ghostT = 1.8;
     if (S.easy && S.grace === 0) {
       S.grace = 1; S.tickFlash = 0.9;
-      S.failNote = '열 장 눈금을 살펴 보세요.'; S.failT = 1.2;
+      S.failNote = why + ' 다시 놓아 보세요.'; S.failT = 2.2; S.failOk = false;
       beep('wood');
       return;
     }
     const missCarry = b.errorFind || (pl.incoming > 0 && h === 10 * Math.floor((pl.digit * pl.m) / 10));
-    applyWrong(missCarry ? 'missIncomingCarry' : 'wrongHeight',
-      h > answerH ? '너무 많이 올렸어요. 남은 장은 아홉을 넘기면 안 돼요.' :
-      (answerH > 0 ? '열 장 묶음을 더 올려 보세요.' : '열 장이 안 되면 올리지 마세요.'));
+    applyWrong(missCarry ? 'missIncomingCarry' : 'wrongHeight', why);
   }
 }
 
@@ -1015,6 +1052,11 @@ function applyCorrect(pl, answerH, p){
   brand(b.spec.band === 1 ? 'noCarry' : b.spec.band === 2 ? 'oneCarry' : b.spec.band >= 3 ? 'chain' : 'lock');
   if (b.errorFind) brand('fix');
   if (b.shift) brand('shift');
+  S.ghostH = -1; S.ghostT = 0;
+  // 왜 맞았는지를 이 기둥의 실제 수로 1초 남긴다 (§1-d) — 정답에 설명이 없으면 정답도 학습이 아니다
+  S.failNote = pl.name + '의 자리 ' + p + '장 = 열 장 묶음 ' + carryOut + '개 올리고 ' + written + '장 남김';
+  S.failT = 1.6; S.failOk = true;
+  if (S.tut === 2) closeOnboard();   // 실제로 한 번 성공했다 = 온보딩 끝 (§1-b)
   advanceOrBreak();
 }
 
@@ -1181,10 +1223,13 @@ function applyWrong(misconceptionId, msg){
   if (b) b.perfect = false;
   if (pl) pl.cracked += 1;
   S.shake = 8;
-  S.failNote = msg; S.failT = 1.6;
+  S.failNote = msg; S.failT = 2; S.failOk = false;
   S.combo = 1;
   beep('crack');
   if (S.shield > 0) { S.shield = 0; S.failNote = '보호대가 실수를 막았어요.'; return; }
+  /* 첫 조작(자르는 선 끌기)을 아직 해 보지 않았다면 목숨을 깎지 않는다 —
+     그때까지는 압박도 벌도 없이 「직접 해 보기」 구간이다 (docs/onboarding-spec.md §1-b) */
+  if (S.awaitFirstDrag) return;
   S.lives -= 1;
   if (S.lives <= 0) {
     S.collapse = 1;
@@ -1271,7 +1316,7 @@ function colLayout(){
   for (let vis = 0; vis < n; vis++) {
     const i = n - 1 - vis; // 왼쪽이 높은 자리
     const pl = b.places[i];
-    // draw() 가 붙여 둔 칼선 히트박스를 이어받는다.
+    // draw() 가 붙여 둔 손잡이 히트박스를 이어받는다.
     // (이걸 버리면 pointerdown 시점에 col.knife 가 없어져 터치로 칼을 잡을 수 없다)
     const old = prev.find(c => c.pl === pl);
     out.push({
@@ -1454,10 +1499,9 @@ function drawColumns(){
     ctx.fillStyle = col.active ? PAL.navy : 'rgba(61,43,31,.2)';
     ctx.fillRect(col.x, floorY, col.w * 0.9, 4);
     ctx.fillStyle = PAL.navy;
-    ctx.fillRect(col.x, col.y - 22, Math.min(48, col.w * 0.5), 18);
-    ctx.fillStyle = PAL.floor;
-    ctx.font = '800 11px Copperplate, Futura, sans-serif';
-    ctx.fillText(pl.name, col.x + 8, col.y - 9);
+    ctx.fillRect(col.x, col.y - 22, Math.min(64, col.w * 0.62), 18);
+    // 한글 조판은 굽고 재사용한다 (매 프레임 font 설정 + fillText 가 프레임을 갉아먹는다)
+    ctx.drawImage(nameChip(pl.name), col.x + 4, col.y - 21);
 
     const w = col.w * 0.62;
     const x = col.x + 4;
@@ -1468,7 +1512,7 @@ function drawColumns(){
     }
     // 더미가 아주 높으면(45장 이상) 배지가 문제 카드 뒤로 숨는다 — 기둥 머리 위로 붙잡아 둔다
     const badgeY = Math.max(col.y + 2, floorY - total * bh * sq - 36);
-    const bw = 54, bhBadge = 30;
+    const bw = 66, bhBadge = 30;
     ctx.fillStyle = PAL.wood;
     ctx.fillRect(x, badgeY, bw, bhBadge);
     ctx.strokeStyle = PAL.navy;
@@ -1476,23 +1520,59 @@ function drawColumns(){
     ctx.strokeRect(x, badgeY, bw, bhBadge);
     // 두 자리 수가 배지를 넘지 않게 글자 크기를 자릿수에 맞춰 줄인다
     const numStr = String(total);
-    const numSc = clamp(Math.floor((bw - 14) / (numStr.length * 7)), 2, 4);
-    drawGlyph(numStr, x + 8, badgeY + 5, numSc, PAL.floor);
+    const numSc = clamp(Math.floor((bw - 26) / (numStr.length * 7)), 2, 4);
+    drawGlyph(numStr, x + 7, badgeY + 5, numSc, PAL.floor);
+    // 숫자만 떠 있으면 뜻을 알 수 없다 — '장'을 붙여 무엇을 센 수인지 밝힌다
+    ctx.drawImage(jangChip(), x + bw - 20, badgeY + 8);
 
     if (col.active || (!pl.locked && col.pl === activePlace())) {
-      // 열 장 눈금은 늘 보여 준다 — 칼선이 어디에 놓여야 하는지가 이 게임의 과제다
+      // 열 장 눈금은 늘 보여 준다 — 자르는 선이 어디에 놓여야 하는지가 이 게임의 과제다
       ctx.strokeStyle = PAL.ink;
       ctx.lineWidth = 2;
       const flash = S.tickFlash > 0 && S.easy;
-      for (let t = 10; t <= total; t += 10) {
-        const ty = floorY - t * bh;
-        ctx.globalAlpha = flash ? (0.5 + 0.4 * Math.sin(S.tickFlash * 20)) : 0.5;
-        ctx.beginPath(); ctx.moveTo(x - 2, ty); ctx.lineTo(x + w + 2, ty); ctx.stroke();
+      // 폰트 설정·한글 조판은 소프트웨어 렌더링에서 프레임을 잡아먹는다 — 필요할 때만 만진다
+      if (total >= 10) {
+        bakeCoach();
+        for (let t = 10; t <= total; t += 10) {
+          const ty = floorY - t * bh;
+          ctx.globalAlpha = flash ? (0.5 + 0.4 * Math.sin(S.tickFlash * 20)) : 0.55;
+          ctx.beginPath(); ctx.moveTo(x - 2, ty); ctx.lineTo(x + w + 2, ty); ctx.stroke();
+          const chip = tickChip(t);
+          ctx.drawImage(chip, x - 2, ty - chip.height - 1);
+        }
+      }
+      // 열 장이 안 되는 기둥에도 '열 장 자리'를 유령선으로 보여 준다 —
+      // 더미가 그 선에 못 미치는 것이 곧 「올리지 않는다」의 이유다
+      if (total < 10) {
+        const ty = floorY - 10 * bh;
+        ctx.globalAlpha = flash ? (0.5 + 0.4 * Math.sin(S.tickFlash * 20)) : 0.4;
+        guideLine(x - 2, ty, x + w + 2, 'rgba(179,51,42,.6)', 2);
+        bakeCoach();
+        ctx.globalAlpha = 1;
+        ctx.drawImage(tenChip, x - 2, ty - tenChip.height - 2);
       }
       ctx.globalAlpha = 1;
-      // 칼선은 판정과 똑같은 좌표에 그린다(squash 를 태우면 보이는 곳과 판정이 어긋난다)
+      // 자르는 선은 판정과 똑같은 좌표에 그린다(squash 를 태우면 보이는 곳과 판정이 어긋난다)
       const hgt = clamp(Math.round(pl.knifeH), 0, Math.max(total, 1));
       const ky = floorY - hgt * bh;
+      // 선 아래가 '묶어 올릴 몫'이다 — 끌 때마다 그 띠가 눈에 보이게 물들인다 (§1-e)
+      if (hgt > 0) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(30,75,115,.20)';
+        ctx.fillRect(x - 2, ky, w + 4, floorY - ky);
+        ctx.restore();
+      }
+      /* 손을 떼기 전에 「지금 놓으면 어떻게 되는지」를 말해 준다 (§1-d).
+         열 장 배수가 아니면 그 자리에서 이유가 보이므로 시행착오가 학습이 된다. */
+      {
+        const ok10 = hgt % 10 === 0;
+        const msg = hgt === 0
+          ? '안 올림 · ' + total + '장 남김'
+          : (ok10 ? '올릴 ' + hgt + '장 = 열 장 묶음 ' + (hgt / 10) + '개'
+                  : '올릴 ' + hgt + '장 — 열 장 묶음이 아니에요');
+        const c = textChip(msg, ok10 ? PAL.navy : PAL.ink);
+        ctx.drawImage(c, Math.max(4, Math.min(x + 2, S.W - c.width - 4)), floorY + 3);
+      }
       ctx.strokeStyle = PAL.wood;
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(x - 4, ky); ctx.lineTo(x + w + 8, ky); ctx.stroke();
@@ -1503,11 +1583,202 @@ function drawColumns(){
       ctx.strokeRect(x + w + 2, ky - 22, 44, 44);
       drawGlyph(String(hgt), x + w + 8, ky - 8, 2, PAL.floor);
       col.knife = { x: x - 6, y: ky - 26, w: w + 56, h: 52 };
+      // 목숨이 깎일 때 옳은 높이를 보여 준다 (§1-d) — 실패를 원인과 함께 남긴다
+      if (S.ghostT > 0 && S.ghostH >= 0) {
+        const gy = floorY - S.ghostH * bh;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, S.ghostT);
+        guideLine(x - 6, gy, x + w + 46, 'rgba(46,125,79,' + Math.min(1, S.ghostT).toFixed(2) + ')', 4);
+        ctx.fillStyle = '#2E7D4F';
+        ctx.font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+        ctx.fillText(S.ghostH === 0
+          ? '열 장이 안 되니 여기(0)에 놓아요'
+          : '여기(' + S.ghostH + '장)에 놓아요', x - 2, gy - 6);
+        ctx.restore();
+      }
+      drawKnifeCoach(col, x, w, ky, floorY, bh, total);
     }
     ctx.restore();
   }
   drawShiftBelt(cols);
   drawFlyers(cols);
+}
+
+/* ── 코치: '자르는 선'이 무엇이고 어디를 어떻게 끄는지를 그 물건 위에서 가리킨다 (§1-a,b,e)
+   좌표를 박아 두지 않고 매 프레임 현재 기둥 레이아웃에서 다시 계산한다. */
+function coachAmt(){
+  if (S.phase !== 'play') return 0;
+  if (S.awaitFirstDrag || S.tut > 0) return 1;
+  // 첫 자리를 한 번 잠글 때까지는 계속 가리킨다 (docs/onboarding-spec.md §2 사례1 ①)
+  if (S.lockedPlaces === 0) return 1;
+  if (S.idleAct > 5) return Math.min(1, (S.idleAct - 5) / 0.7);
+  return 0;
+}
+/* 소프트웨어 래스터라이저(swiftshader)에서는 매 프레임 스트로크·폰트 설정·measureText 가
+   프레임 예산을 통째로 먹는다. 코치 그림은 한 번만 구워 두고 drawImage 만 한다.
+   (움직임은 손가락 원 하나와 스프라이트 알파·스케일로 낸다) */
+const COACH_SPAN = 52;
+/* 안내는 상황에 따라 갈아 끼운다 — 이미 자르는 선을 옮겼는데 「끌어요」만 반복하면
+   학생은 자기 조작이 먹혔는지조차 알 수 없다 */
+const COACH_MSG = '여기를 위아래로 끌어요';
+const COACH_MSG2 = '열 장 눈금에 맞추고 손 떼기';
+let coachSprite = null, coachChip = null, coachChip2 = null, tenChip = null;
+function bakeCoach(){
+  if (coachSprite) return;
+  const S2 = COACH_SPAN;
+  const c = document.createElement('canvas');
+  c.width = 90; c.height = (S2 + 30) * 2;
+  const g = c.getContext('2d');
+  const cx = 45, cy = c.height / 2;
+  g.strokeStyle = PAL.ink;
+  g.setLineDash([7, 6]);
+  g.lineWidth = 2;
+  g.beginPath(); g.moveTo(cx, cy - S2); g.lineTo(cx, cy + S2); g.stroke();
+  g.setLineDash([]);
+  g.fillStyle = PAL.ink;
+  for (const [ay, dir] of [[cy - S2, 1], [cy + S2, -1]]) {
+    g.beginPath(); g.moveTo(cx, ay);
+    g.lineTo(cx - 8, ay + dir * 12); g.lineTo(cx + 8, ay + dir * 12);
+    g.closePath(); g.fill();
+  }
+  g.strokeStyle = PAL.ink; g.lineWidth = 5;
+  g.strokeRect(cx - 33, cy - 33, 66, 66);
+  coachSprite = c;
+
+  const font = '800 12px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  const chip = (txt) => {
+    const m0 = document.createElement('canvas'), mg = m0.getContext('2d');
+    mg.font = font;
+    const tw = Math.ceil(mg.measureText(txt).width);
+    const m = document.createElement('canvas');
+    m.width = tw + 16; m.height = 22;
+    const g2 = m.getContext('2d');
+    g2.fillStyle = 'rgba(244,235,216,.95)'; g2.fillRect(0, 0, m.width, m.height);
+    g2.strokeStyle = PAL.ink; g2.lineWidth = 2; g2.strokeRect(1, 1, m.width - 2, m.height - 2);
+    g2.fillStyle = PAL.ink; g2.font = font; g2.textBaseline = 'middle';
+    g2.fillText(txt, 8, m.height / 2 + 1);
+    return m;
+  };
+  coachChip = chip(COACH_MSG);
+  coachChip2 = chip(COACH_MSG2);
+
+  // '열 장 자리' 유령선 라벨 — 한글 조판은 소프트웨어 렌더링에서 비싸다. 한 번만 굽는다.
+  const T = '열 장까지 못 차면 안 올려요';
+  const t0 = document.createElement('canvas'), tg0 = t0.getContext('2d');
+  const f2 = '800 10px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  tg0.font = f2;
+  const tw2 = Math.ceil(tg0.measureText(T).width);
+  t0.width = tw2 + 8; t0.height = 15;
+  const tg = t0.getContext('2d');
+  tg.fillStyle = 'rgba(244,235,216,.9)'; tg.fillRect(0, 0, t0.width, t0.height);
+  tg.fillStyle = PAL.ink; tg.font = f2; tg.textBaseline = 'middle';
+  tg.fillText(T, 4, t0.height / 2 + 1);
+  tenChip = t0;
+}
+/* 한글 조판(font 설정 + measureText + fillText)은 소프트웨어 렌더링에서 프레임을
+   갉아먹는다. 매 프레임 같은 글자를 다시 그리지 말고 문구마다 한 번만 굽는다. */
+const TEXT_CHIPS = new Map();
+function textChip(txt, col, size){
+  const key = txt + '|' + col + '|' + (size || 11);
+  let c = TEXT_CHIPS.get(key);
+  if (c) return c;
+  const f = '800 ' + (size || 11) + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  const m = document.createElement('canvas'), mg = m.getContext('2d');
+  mg.font = f;
+  const tw = Math.ceil(mg.measureText(txt).width);
+  c = document.createElement('canvas');
+  c.width = tw + 8; c.height = (size || 11) + 6;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(244,235,216,.88)'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = col; g.font = f; g.textBaseline = 'middle';
+  g.fillText(txt, 4, c.height / 2 + 1);
+  if (TEXT_CHIPS.size > 120) TEXT_CHIPS.clear();
+  TEXT_CHIPS.set(key, c);
+  return c;
+}
+function tickChip(t){ return textChip(t + '장', PAL.ink, 10); }
+/* 기둥 머리표·배지의 한글도 한 번만 굽는다 (매 프레임 3열 × 2개 = 6회 조판을 없앤다) */
+const PLATE_CHIPS = new Map();
+function plateChip(txt, size){
+  const key = txt + '|' + size;
+  let c = PLATE_CHIPS.get(key);
+  if (c) return c;
+  const f = '800 ' + size + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  const m = document.createElement('canvas'), mg = m.getContext('2d');
+  mg.font = f;
+  const tw = Math.ceil(mg.measureText(txt).width);
+  c = document.createElement('canvas');
+  c.width = tw + 2; c.height = size + 5;
+  const g = c.getContext('2d');
+  g.fillStyle = PAL.floor; g.font = f; g.textBaseline = 'middle';
+  g.fillText(txt, 1, c.height / 2 + 1);
+  PLATE_CHIPS.set(key, c);
+  return c;
+}
+function nameChip(name){ return plateChip(name + '의 자리', 11); }
+function jangChip(){ return plateChip('장', 13); }
+/* 소프트웨어 렌더링(swiftshader)에서 '파선'은 프레임을 통째로 먹는다 — setLineDash 의
+   path effect든, 여러 선분(contour)을 한 패스에 stroke 하는 손수 파선이든 마찬가지다
+   (실측 60fps → 20fps). 안내선은 색으로 구분하고 선은 한 줄로만 긋는다. */
+function guideLine(x0, y, x1, rgba, lw){
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = rgba; ctx.lineWidth = lw || 2;
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.restore();
+}
+function drawKnifeCoach(col, x, w, ky, floorY, bh, total){
+  const amt = coachAmt();
+  if (amt <= 0.02) return;
+  bakeCoach();
+  // 8초 넘게 아무 조작도 없으면 더 크게 다시 재생한다 (§1-b)
+  const grow = 1 + Math.min(1, Math.max(0, S.idleAct - 8) / 7) * 0.45;
+  const t = S.idleT;
+  const pulse = REDUCE ? 0.5 : 0.5 + 0.5 * Math.sin(t * 4.2);
+  // 오른쪽 끝 기둥에서는 링이 화면 밖으로 잘린다 — 안쪽으로 붙잡아 둔다
+  const hx = clamp(x + w + 24, 40, S.W - 40), hy = ky;   // 손잡이 중심
+  ctx.save();
+  /* 확대 drawImage 는 소프트웨어 렌더링에서 리샘플링 비용이 크다 —
+     평상시(grow===1)에는 등배·정수 좌표로 찍고, 맥동은 알파로만 낸다. */
+  ctx.globalAlpha = amt * (0.55 + 0.45 * pulse);
+  if (grow === 1) {
+    ctx.drawImage(coachSprite, Math.round(hx - coachSprite.width / 2), Math.round(hy - coachSprite.height / 2));
+  } else {
+    ctx.translate(hx, hy); ctx.scale(grow, grow);
+    ctx.drawImage(coachSprite, -coachSprite.width / 2, -coachSprite.height / 2);
+  }
+  ctx.restore();
+  // 손가락이 실제로 오르내리는 루프 (드래그 경로 시범) — 원 두 개로 끝낸다
+  const fy = hy + (REDUCE ? 0 : Math.sin(t * 2.6)) * COACH_SPAN * 0.82 * grow;
+  ctx.save();
+  ctx.globalAlpha = amt;
+  ctx.beginPath(); ctx.arc(hx, fy, 12 * grow, 0, 6.28);
+  ctx.fillStyle = 'rgba(244,235,216,.94)'; ctx.fill();
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 2.4; ctx.stroke();
+  ctx.beginPath(); ctx.arc(hx, fy, 4.5 * grow, 0, 6.28);
+  ctx.fillStyle = PAL.ink; ctx.fill();
+  /* 한 줄 지시 (구워 둔 칩) — 기둥 머리 위 고정 자리에 둔다.
+     자르는 선을 따라다니면 손잡이·배지와 겹치고 화면 밖으로 잘린다. */
+  const chipImg = S.awaitFirstDrag ? coachChip : coachChip2;
+  const lw = chipImg.width * grow, lh = chipImg.height * grow;
+  const lx = clamp(hx - lw / 2, 6, S.W - lw - 6);
+  const ly = clamp(col.y - lh - 8, 4, floorY - lh - 4);
+  if (grow === 1) ctx.drawImage(chipImg, Math.round(lx), Math.round(ly));
+  else ctx.drawImage(chipImg, lx, ly, lw, lh);
+  ctx.restore();
+}
+function drawRipples(dt){
+  for (let i = S.ripples.length - 1; i >= 0; i--) {
+    const r = S.ripples[i];
+    r.t += dt;
+    if (r.t > 0.55) { S.ripples.splice(i, 1); continue; }
+    const k = r.t / 0.55;
+    ctx.save();
+    ctx.globalAlpha = (1 - k) * 0.75;
+    ctx.strokeStyle = PAL.ink; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(r.x, r.y, 9 + k * 32, 0, 6.28); ctx.stroke();
+    ctx.restore();
+  }
 }
 
 /* 둘째 부분곱(십의 자리 곱)은 한 칸 왼쪽에 써야 한다.
@@ -1643,6 +1914,7 @@ function draw(){
     drawTarget();
   }
   if (S.failT > 0) $('#failNote').textContent = S.failNote;
+  drawRipples(1 / 60);
   ctx.restore();
 }
 
@@ -1651,16 +1923,24 @@ function step(dt){
   if (S.hitStop > 0) { S.hitStop -= dt; S.timeScale = 0.08; }
   else S.timeScale = 1;
   const t = dt * (S.hitStop > 0 ? 0.08 : 1);
-  if (S.phase === 'play') {
+  // 첫 조작을 실제로 해 볼 때까지 시간(압박)을 멈춘다 (§1-b)
+  if (S.phase === 'play' && !S.awaitFirstDrag) {
     S.timeLeft -= t;
     if (S.timeLeft <= 0) { S.timeLeft = 0; endSession('time'); }
   }
+  if (S.phase === 'play' && !S.drag) S.idleAct += dt; else S.idleAct = 0;
+  if (S.ghostT > 0) S.ghostT = Math.max(0, S.ghostT - dt);
   S.scoreShow += (S.score - S.scoreShow) * Math.min(1, dt * 8);
   if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 28);
   if (S.stampT > 0) S.stampT = Math.max(0, S.stampT - dt * 2.2);
   if (S.tickFlash > 0) S.tickFlash = Math.max(0, S.tickFlash - dt);
   if (S.punch > 0) S.punch = Math.max(0, S.punch - dt * 3);
-  if (S.failT > 0) { S.failT -= dt; $('#failNote').classList.toggle('on', S.failT > 0); }
+  if (S.failT > 0) {
+    S.failT -= dt;
+    const n = $('#failNote');
+    n.classList.toggle('on', S.failT > 0);
+    n.classList.toggle('ok', !!S.failOk);
+  }
   if (S.collapse > 0) S.collapse = Math.min(1, S.collapse + dt * 1.6);
   if (S.impact) S.impact = Math.max(0, S.impact - dt * 40);
   for (const pl of (S.board ? S.board.places : [])) {
@@ -1703,11 +1983,11 @@ function yToKnife(col, py){
 }
 
 // 판이 막 바뀐 직후(다음 draw 전)에 손이 닿으면 S.cols 가 옛 판의 기둥일 수 있다.
-// colLayout() 은 이제 칼선 히트박스를 이어받으므로 항상 다시 계산해도 안전하다.
+// colLayout() 은 이제 손잡이 히트박스를 이어받으므로 항상 다시 계산해도 안전하다.
 function activeCol(){
   return colLayout().find(c => c.active) || null;
 }
-// 손가락이 칼선 손잡이를 놓쳐도 그 기둥 안이면 칼선을 잡게 해 준다(초등 손가락 기준).
+// 손가락이 손잡이를 놓쳐도 그 기둥 안이면 자르는 선을 잡게 해 준다(초등 손가락 기준).
 function grabZone(col){
   return { x: col.x - 14, y: col.y - 12, w: col.w + 28, h: col.h + 16 };
 }
@@ -1716,22 +1996,34 @@ function needBeltShift(){
   return !!(b && b.shift && b.phase2 && S.beltShift !== 1);
 }
 
+// 어떤 탭에도 반응한다 (§1-e) — 눌러도 아무 픽셀이 안 바뀌면 학생은 '고장'으로 읽고 나간다
+function ripple(p){
+  S.ripples.push({ x: p.x, y: p.y, t: 0 });
+  if (S.ripples.length > 6) S.ripples.shift();
+}
 function onDown(e){
   unlockAudio();
+  const pp = pt(e);
+  S.idleAct = 0;
+  ripple(pp);
   if (S.phase === 'estimate') {
-    const p = pt(e);
-    if (S.estBox && !hit(S.estBox, p)) return;
+    if (S.estBox && !hit(S.estBox, pp)) {
+      S.failNote = '아래 말뚝을 좌우로 끌어 어림한 곳에 세워요.'; S.failT = 1.4; S.failOk = false;
+      beep('wood');
+      return;
+    }
     S.drag = { kind: 'peg', id: e.pointerId };
     try { cv.setPointerCapture(e.pointerId); } catch {}
     onMove(e);
     return;
   }
   if (S.phase !== 'play') return;
-  const p = pt(e);
+  const p = pp;
   // 둘째 부분곱은 한 칸 왼쪽으로 밀어야 칼질을 할 수 있다 — 밀기가 먼저다
   if (needBeltShift()) {
     S.drag = { kind: 'belt', x0: p.x, s0: S.beltShift, moved: false, id: e.pointerId };
     try { cv.setPointerCapture(e.pointerId); } catch {}
+    S.failNote = '위의 띠를 왼쪽으로 미세요.'; S.failT = 1.2; S.failOk = false;
     return;
   }
   const col = activeCol();
@@ -1739,22 +2031,37 @@ function onDown(e){
   const onKnife = col.knife && hit(col.knife, p);
   const inCol = hit(grabZone(col), p);
   if (onKnife || inCol) {
-    // 손잡이가 아니라 기둥을 짚었으면 칼선이 손가락 높이로 따라온다
+    // 손잡이가 아니라 기둥을 짚었으면 자르는 선이 손가락 높이로 따라온다
     if (!onKnife) col.pl.knifeH = Math.round(yToKnife(col, p.y));
     S.drag = { kind: 'knife', col, moved: !onKnife, y0: p.y, h0: col.pl.knifeH, id: e.pointerId };
     try { cv.setPointerCapture(e.pointerId); } catch {}
+  } else {
+    // 엉뚱한 자리를 눌렀다 → 코치를 즉시 크게 되살리고 어디를 잡아야 하는지 말해 준다
+    S.idleAct = 9;
+    S.failNote = '지금은 〈' + col.pl.name + '〉 기둥의 손잡이를 위아래로 끌어요.';
+    S.failT = 1.5; S.failOk = false;
+    beep('wood');
   }
 }
 function onMove(e){
   if (!S.drag) return;
   const p = pt(e);
+  S.idleAct = 0;
   if (S.drag.kind === 'knife') {
     const col = S.drag.col || (S.cols || []).find(c => c.active);
     if (!col) return;
-    // 송판 한 장 단위로 딱딱 붙는다 — 보이는 칼선 자리와 채점 자리가 늘 같아진다
+    // 송판 한 장 단위로 딱딱 붙는다 — 보이는 자르는 선 자리와 채점 자리가 늘 같아진다
     const h = Math.round(yToKnife(col, p.y));
     if (Math.abs(h - S.drag.h0) > 0.2) S.drag.moved = true;
+    // 한 장 넘어갈 때마다 소리로도 알린다 — 끌고 있다는 사실이 손에 잡혀야 한다
+    if (h !== Math.round(col.pl.knifeH)) beep('wood');
     col.pl.knifeH = h;
+    // 첫 드래그를 실제로 해냈다 → 압박(시간)을 풀고 온보딩 1단계를 통과시킨다 (§1-b)
+    if (S.drag.moved && S.awaitFirstDrag) {
+      S.awaitFirstDrag = false;
+      S.punch = 0.8;
+      if (S.tut === 1) { S.tut = 2; paintOb(); }
+    }
   } else if (S.drag.kind === 'belt') {
     const dx = p.x - S.drag.x0;
     if (Math.abs(dx) > 8) S.drag.moved = true;
@@ -1808,34 +2115,36 @@ function specks(){
   }
 }
 
-let obI = 0;
-const OB = [
-  { t: '칼선을 놓아 보세요', b: '일의 자리 기둥을 손가락으로 짚으면 칼선이 따라옵니다. 열 장의 배수 높이에 놓고 손을 떼세요. 송판 열 장이 위 자리의 한 장이에요.' },
-  { t: '열 장을 올려 보세요', b: '칼선 아래 열 장씩이 왼쪽 기둥의 한 장으로 날아갑니다. 남은 장은 아홉 장을 넘기면 안 돼요.' },
-  { t: '세 자리를 잠그세요', b: '일·십·백을 잠그면 목표 송판이 격파됩니다. 빗맞으면 금이 가고 목숨이 줄어요. 목숨은 여러 개라 만회할 수 있습니다.' }
-];
+/* 온보딩 = 설명 3장 넘기기가 아니라, 실전 판 위에서 그 조작을 실제로 해 보는 것이다.
+   판을 가리지 않고 아래 한 줄 코치 띠만 띄우며, 가리키기는 캔버스의 자르는 선이 직접 한다. */
+const OB = {
+  1: { t: '손잡이를 위아래로 끌어요', b: '반짝이는 손잡이를 잡고 위아래로 끌면 자르는 선이 따라와요. 선 아래가 묶어 올릴 송판이에요.' },
+  2: { t: '열 장 눈금에 놓고 손을 떼요', b: '빨간 눈금이 열 장마다 있어요. 열 장 묶음만큼만 올리고 손을 떼요.' }
+};
 function openOnboard(){
-  obI = 0; paintOb(); $('#onboard').classList.add('show');
+  S.tut = 1; paintOb(); $('#onboard').classList.add('show');
 }
 function paintOb(){
-  $('#obStep').textContent = (obI + 1) + '/3';
-  $('#obTitle').textContent = OB[obI].t;
-  $('#obBody').textContent = OB[obI].b;
-  $('#obNext').textContent = obI === 2 ? '해볼게요' : '다음';
+  const o = OB[S.tut]; if (!o) { closeOnboard(); return; }
+  $('#obStep').textContent = '해 보기 ' + S.tut + ' / 2';
+  $('#obTitle').textContent = o.t;
+  $('#obBody').textContent = o.b;
+}
+function closeOnboard(){
+  S.tut = 0;
+  try { localStorage.setItem(LS_ONB, '1'); } catch {}
+  $('#onboard').classList.remove('show');
 }
 
 $('#start').onclick = () => {
   unlockAudio();
-  $('#start').style.transform = 'scaleY(.88)';
-  setTimeout(() => {
-    try { if (!localStorage.getItem(LS_ONB)) { openOnboard(); return; } } catch {}
-    beginPlay();
-  }, 120);
+  /* 지연을 두면 「시작을 눌렀는데 타이틀 그대로」로 읽힌다 — 즉시 판으로 넘어간다 */
+  let seen = false;
+  try { seen = !!localStorage.getItem(LS_ONB); } catch {}
+  beginPlay();
+  if (!seen) openOnboard();
 };
-$('#obNext').onclick = () => {
-  if (obI < 2) { obI++; paintOb(); }
-  else { try { localStorage.setItem(LS_ONB, '1'); } catch {} $('#onboard').classList.remove('show'); beginPlay(); }
-};
+$('#obNext').onclick = () => closeOnboard();
 $('#how').onclick = () => $('#help').classList.add('show');
 $('#closeHelp').onclick = () => $('#help').classList.remove('show');
 $('#diff').onclick = () => {
@@ -1917,6 +2226,8 @@ function forceCorrect(){
 
 function forceWrong(){
   if (S.phase === 'title') beginPlay();
+  // QA 훅은 '이미 한 판 굴린 상태'를 흉내 낸다 — 첫 조작 유예를 적용하지 않는다
+  S.awaitFirstDrag = false;
   applyWrong('force', '빗맞았습니다.');
 }
 
