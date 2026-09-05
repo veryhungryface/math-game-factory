@@ -14,9 +14,9 @@ export FORCE_PRODUCE="${FORCE_PRODUCE:-0}"     # 1 이면 오늘 게시작이 �
 export GATE_SCORE="${GATE_SCORE:-80}"          # 게시 커트라인 (100점 만점)
 export DESIGN_VARIANTS="${DESIGN_VARIANTS:-3}" # 병렬 기획 에이전트 수
 export FOCUS="${FOCUS:-3-2,4-2}"               # 집중 학년-학기 (2026-09-01: 3·4학년 2학기 전용 — 사용자 지시)
-# 검수 미달 시 수정→재검수 루프의 상한 (2026-08-31: 1회→3회, 폐기 전에 부족한 부분을 살린다).
-# 게이트(80)는 불변 — 상한이 있으므로 루프가 게이트를 무의미하게 만들지 않는다.
-# 라운드가 많아지면 사이클이 크론 주기(120m)를 넘을 수 있다 — run.lock 이 다음 틱을 스킵하므로 안전.
+# 수정 최대 3회는 비용 상한이다. 동일 산출물의 반복 채점이나 품질을 보증하지 않는다.
+# 다음 검사에는 정상 종료, 실제 변경, 지적별 해결 증거가 필요하다.
+# 이 조건과 총시간 예산은 run.sh 에서 집행한다 (2026-09-06 P0-1). 현재 lock 은 중복 실행의 일부만 방어한다.
 export MAX_FIX_ROUNDS="${MAX_FIX_ROUNDS:-3}"
 # 게임 수가 같은 단원들 사이의 우선순위 (design-bible 7.2 · 킹수학 시장 공백 기준):
 # 가능성 재도전 → 공간과 입체 → 원기둥·원뿔·구 → 원의 둘레와 넓이 → 비례식 → (과밀: 분수·소수 나눗셈은 마지막)
@@ -55,7 +55,12 @@ export BUILD_FALLBACK_RUNNER="${BUILD_FALLBACK_RUNNER:-codex_run}"
 export BUILD_FALLBACK_MODEL="${BUILD_FALLBACK_MODEL:-$CODEX_MODEL_SMART}"  # gpt-5.6-sol
 export REVIEW_RUNNER="${REVIEW_RUNNER:-codex_run}"  # 검수 — 빌드와 다른 회사(교차 검증)
 export REVIEW_MODEL="${REVIEW_MODEL:-$CODEX_MODEL_SMART}"  # codex 러너는 모델 인자 필수
-export FIX_RUNNER="${FIX_RUNNER:-grok_run}"         # 수정 — puppeteer 실측이 필요하다
+# 수정은 Codex 상위 티어. 브라우저 검증은 run.sh 의 호스트 QA·firstplay 가 담당한다.
+# 시작 환경에서 FIX_RUNNER 를 지정했다면 그 값이 우선한다. 실행 성공은 run.sh 가 별도로 확인한다
+# (rc·402/인증/쿼터·산출물 무변경 → 폴백 1회 → 그래도 실패면 인프라 실패로 회차 중단, P0-1).
+export FIX_RUNNER="${FIX_RUNNER:-codex_smart_run}"  # 수정
+export FIX_FALLBACK_RUNNER="${FIX_FALLBACK_RUNNER:-claude_run}"  # 다른 회사로 1회 대체
+export FIX_FALLBACK_MODEL="${FIX_FALLBACK_MODEL:-$CLAUDE_MODEL_SMART}"
 export SCOUT_RUNNER="${SCOUT_RUNNER:-grok_run}"     # 레퍼런스 스카우트 — 웹 접근 필요
 # 기획 3안은 서로 다른 관점이어야 한다. 기본값은 grok-4.6 / gpt-5.6-sol / gpt-5.6-terra —
 # 세 관점이 전부 클로드 밖에 있다. 클로드를 다시 넣고 싶으면 이 값만 바꿔라.
@@ -71,6 +76,9 @@ export T_REVIEW="${T_REVIEW:-1200}"    # 20분 — 900초에서 상향(2026-08-2
                                        # 실제로 1회 터졌고, 주기가 3시간이 되어 여유가 생겼다
 export T_FIX="${T_FIX:-1500}"          # 25분
 export T_SCOUT="${T_SCOUT:-900}"       # 15분 — 레퍼런스 스카우트 (게임 N개마다 1회)
+# 첫 플레이 증거 캡처 (P0-2). 45초 플레이 + 부팅으로 실측 ~1.5분이라 여유 있게 잡는다.
+export T_FIRSTPLAY="${T_FIRSTPLAY:-300}"
+export FIRSTPLAY_MS="${FIRSTPLAY_MS:-45000}"  # 하네스 플레이 길이(ms). 검수용 스모크는 45초
 
 # ── 레퍼런스 갱신 루프 ─────────────────────────────────────────
 export SCOUT_EVERY="${SCOUT_EVERY:-10}"  # 게임 몇 개 게시할 때마다 새 레퍼런스를 찾을지

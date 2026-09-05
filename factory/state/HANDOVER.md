@@ -3,6 +3,51 @@
 > 마지막 갱신: 2026-09-06. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-09-06 — 🔁 생산 체제 전환 「하루 1작」 + GPT-6 감사 P0-1~4 적용
+
+사용자 지시: **"하루 한 작품 목표"**. 아래는 적용 완료분이다. 크론은 이 작업 시점에 paused 였고,
+재개는 오케스트레이터가 한다(크론 잡 이름·주기 변경도 그쪽 소관 — `every 120m` 유지가 전제다).
+
+**A. 하루 1작 체제**
+- `factory/run.sh` 최상단 **하루 1작 가드**: `queue.json.produced` 에 오늘(KST) 게시작이 있으면
+  로그 한 줄만 남기고 `exit 0`(락도 안 잡고, 디스코드 보고도 없다). 즉 하루 최대 12회 시도하되
+  **첫 성공에서 그날은 끝난다.** 해제는 `DAILY_TARGET=0` / `FORCE_PRODUCE=1`, `RESUME_FROM` 재개 시 미적용.
+- 문서 3중 불일치 해소: `CLAUDE.md`(3시간마다)·`docs/OPERATIONS.md`(180m)·`AGENTS.md`(2시간) →
+  **「하루 1작 목표 · 크론 2시간마다 시도 · 성공하면 그날 종료」** 로 통일.
+- `config.sh`: 빌드 기본 러너 = **`codex_run` + `gpt-6-astra`**(수동 1호기 「접으면 입체」 87점 실적).
+  실패 시 `BUILD_FALLBACK_RUNNER/MODEL`(codex `gpt-5.6-sol`)로 결과 기반 1회 폴백.
+  grok 기본값은 402 연속 사망으로 폐기.
+
+**B. P0-1~4**
+- **P0-1 인프라 실패 분류**: 수정 러너에도 빌드와 같은 결과 검사 — `rc≠0` / 402·인증·쿼터 문자열 /
+  **산출물 무변경(해시 비교)** 이면 `FIX_FALLBACK_RUNNER`(claude)로 1회 대체하고, 그래도 실패면
+  **인프라 실패로 회차 즉시 중단**(재QA·재검산·재검수 미진입) + `queue.failed.reason` 기입.
+  게임 폴더는 지우지 않으므로 러너 복구 후 `RESUME_FROM=qa` 로 이어 돌릴 수 있다.
+  `45-fix.md` 는 「점수 수술」에서 **「결함 수리·재설계 분류」** 로 전면 교체(정답 흔들림 권장 삭제,
+  `qa_status`·`replan_required`·`next_experiment` 신설).
+- **P0-2 firstplay 증거 의무화**: QA 직후(및 매 수정 라운드 재QA 직후) `run_firstplay` 가
+  `factory/lib/firstplay/harness.mjs` 를 45초 돌려 `factory/work/qa/<slug>/firstplay/<slug>/` 에 프레임을
+  남기고 `logs/<RUN_ID>/firstplay-N/` 으로 복사한다. 검수 프롬프트에 `상태=captured|unverified`
+  를 실어 보내고, 캡처 실패는 **미검증 → 게시 보류**(통과 처리 금지).
+- **P0-3 게시 차단**: `run.sh` 게이트에 **검산 `verdict` 가 명시적 `pass` 가 아니면(=`unknown` 포함) 차단**,
+  **미해결 `must_fix` high 1건 이상이면 차단**을 추가. 차단 사유는 리포트·장부에 문자열로 남는다.
+- **P0-4 확정 모순 정리**: 정답 화면 흔들림(C07) · 타이틀 레이아웃 불변 ↔ 구성 발명(C03) ·
+  코드렌더 로고 완료조건 ↔ 생성 에셋 표준(C04) · 8px 압출 필수 ↔ 압출 2작 제한(C05) ·
+  CTA 기본값(C09) · 인게임 웹폰트 금지 ↔ 서체 성격 감점(C06) · 어림 AT_PLACE 예외(C02) ·
+  학년 고정(C12) · 수정 횟수(C13) · firstplay 출력 경로(C08) 판정·해소.
+  `fun_contract` 확장(`state_and_consequence`·`decision_example`·`mastery_example`·`math_necessity`·
+  `retry_reason`)과 `30-build` 누적손실 조항 교체(보이지 않는 손실 금지 / 보이는 누적 결과 허용),
+  작업 순서 「문제 생성기부터」 → 「플레이 상태부터」. 심사에 **D8·D9** 신설.
+  어제 커밋 `5281027`(독창성 강제)의 「타이틀 구성은 매 게임 발명」 방향과 충돌하지 않게,
+  타이틀 스펙의 **불변 규칙을 CTA 하나·터치 44/64px·정보 위계·접근성으로 축소**했다.
+
+**검증**: `bash -n` + `factory/preflight.sh` 이상 없음. 스텁 러너·스텁 QA 로 3케이스 실주행
+(`scratchpad/daily-regime/stub`, 격리): ① 오늘 게시작 있음 → 스킵 ② fix 402 → 폴백 402 →
+인프라 중단(재검사 미진입, 장부 기입) ③ 정상 경로 게시(무회귀). 추가로 무변경→폴백 성공,
+검산 unknown 차단, high 1건 차단, firstplay 실패 → unverified 도 확인.
+
+**남은 것**: P0-5(등불·겹쳐딱·내려탁 재검증)는 별도 작업. P1-6~15 미착수.
+
 ## 2026-09-06 — 🔍 GPT-6 공장 전면 감사 보고서 제출 (사용자 직접 지시, **개선안 미적용**)
 
 **산출물: `docs/gpt6-factory-audit-20260905.md`** (1,566줄). 저자는 **GPT-6**(`codex --model gpt-6-astra`)다.

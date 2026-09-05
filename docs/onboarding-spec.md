@@ -374,9 +374,11 @@ $('hintChip').textContent = first ? '왼쪽 10 · 오른쪽 ○'
 - `factory/prompts/30-build.md` — 온보딩 구현 체크리스트 (이 문서 §1 참조).
 - `factory/prompts/40-review.md` — **첫플레이 프레임 시퀀스를 보고 이해도를 채점.**
   `comprehensible` 이 `yes` 가 아니면 재미(게임성) 점수를 깎고 `must_fix` high 다.
-- `factory/run.sh` 는 **건드리지 않았다.** 하네스 90초 + codex 판정은 사이클당 약 5분을
-  더 먹는다. 자동화 편입은 백로그(`factory/state/HANDOVER.md`) — 다음 단계에서
-  `qa.mjs` 가 첫플레이 프레임을 산출물로 남기게 하는 통합부터 한다.
+- `factory/run.sh` — **2026-09-06 편입 완료(P0-2).** 자동 QA 직후(그리고 매 수정 라운드의
+  재QA 직후) `run_firstplay` 가 45초 하네스를 돌려 프레임을 남기고, 검수 프롬프트에
+  `첫 플레이 증거: 상태=captured|unverified (프레임 N장)` 로 실어 보낸다.
+  캡처에 실패하면 통과 처리하지 않고 **「미검증 → 게시 보류」** 로 넘긴다.
+  이전에는 검수관이 직접 돌리게 돼 있었고, 그래서 최근 9회의 전용 프레임이 0/9였다.
 
 ## 5. 도구 사용법
 
@@ -393,6 +395,12 @@ node factory/lib/firstplay/aggregate.mjs
 
 - 기본 출력 위치는 repo-root `scratchpad/firstplay/`(gitignored). `FIRSTPLAY_OUT` 로 바꾼다.
 - 짧게 돌려 보려면 `FIRSTPLAY_PLAY_MS=15000`.
-- **`factory/work/` 아래에 출력하지 마라** — 매 생산 사이클마다 지워진다.
+- **증거의 수명은 두 층이다** (2026-09-06 정리 — 예전 문장 「`factory/work/` 아래에 출력하지 마라」는
+  캠페인용 감사 기준이었고, 사이클 내 검수 증거와 충돌했다):
+  - **사이클 내 검수 증거**는 `factory/work/qa/<slug>/firstplay/<slug>/` 에 둔다. 검수관이 그 회차에서
+    읽는 것이라 다음 사이클에 지워져도 된다 — run.sh 가 여기에 쓴다.
+  - **영속 감사 증거**는 사이클 밖에 둔다. run.sh 는 같은 프레임을 `logs/<RUN_ID>/firstplay-N/` 로
+    복사해 남기고, 캠페인성 전수 조사는 기본값(`scratchpad/firstplay/`)을 그대로 쓴다.
+  - 즉 **`factory/work/` 를 영속 보관소로 쓰지 마라**는 것이 원래 취지다.
 - 하네스는 `__GAME_TEST__` 를 **ready 감지에만** 쓴다. 상태를 들여다보게 고치지 마라 —
   그 순간 "설명 없이 이해되는가"라는 질문이 무너진다.

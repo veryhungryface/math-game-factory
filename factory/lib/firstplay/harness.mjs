@@ -15,8 +15,11 @@
  * 상태를 들여다보거나 조작하는 데는 절대 쓰지 않는다 — 순진한 학생 시뮬레이션이
  * 이 도구의 전부다. 훅을 쓰면 "설명 없이도 이해되는가"라는 질문 자체가 무너진다.
  *
- * 출력 기본 위치는 repo-root `scratchpad/firstplay/`(gitignored)다.
- * **`factory/work/` 아래에 쓰지 마라** — 매 생산 사이클마다 rm -rf 된다.
+ * 출력 기본 위치는 repo-root `scratchpad/firstplay/`(gitignored)다. 캠페인성 전수 조사는
+ * 이 기본값을 쓴다 — **`factory/work/` 를 영속 보관소로 쓰지 마라**(매 사이클 rm -rf 된다).
+ * 다만 생산 사이클 안에서는 run.sh 가 `FIRSTPLAY_OUT=factory/work/qa/<slug>/firstplay` 로
+ * 불러서 그 회차 검수관에게 프레임을 준다(P0-2). 그 프레임은 `logs/<RUN_ID>/firstplay-N/`
+ * 으로도 복사되므로 영속 증거는 로그 쪽에 남는다.
  *
  * 다음 단계: `judge.mjs <slug>` 로 codex 판정 → `aggregate.mjs` 로 SUMMARY.json.
  * 규격은 `docs/onboarding-spec.md`.

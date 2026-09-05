@@ -133,6 +133,30 @@ stage_run() {
 
 jqv() { jq -r "$2 // empty" "$1" 2>/dev/null; }
 
+# ── 러너 장애 분류 (P0-1, 2026-09-06) ──────────────────────────────
+# 러너 바이너리는 살아 있는데 API 가 죽는 경우(grok 402 잔액 소진, 인증 만료, 쿼터 초과)는
+# resolve_runner 가 못 잡는다. 로그에서 이 패턴이 보이면 "모델이 못 고친 것"이 아니라
+# **인프라 실패**다 — 같은 러너로 재시도하거나 재검사 루프를 도는 것은 순수한 낭비다.
+# 2026-08-27~28 에 4회 연속으로, 2026-09-01~03 에 20회 연속으로 여기서 시간을 태웠다.
+RUNNER_ERR_RE='status 402|402 Payment Required|Payment Required|usage balance exhausted|insufficient_quota|quota exceeded|exceeded your current quota|rate limit exceeded|401 Unauthorized|invalid api key|invalid_api_key|authentication_error|Not authenticated|Please run .?login'
+runner_infra_err() { [ -f "$1" ] && grep -m1 -Eio "$RUNNER_ERR_RE" "$1" 2>/dev/null | head -1; }
+
+# 디렉터리 내용 해시. 수정 러너가 **실제로 파일을 바꿨는지** 확인하는 데 쓴다.
+# (rc=0 으로 끝났는데 아무것도 안 고친 회차를 재검수에 태우면 같은 코드를 다시 채점한다)
+# 최신 검수의 **미해결 must_fix high** 개수. 게시 게이트(P0-3)가 이걸 0으로 요구한다.
+# review.json 이 없거나 깨져 있으면 「검사하지 못했다」이므로 1로 친다 (통과시키지 않는다).
+open_high() {
+  local f="$WORK/review.json"
+  [ -f "$f" ] || { echo 1; return; }
+  jq -r '[.must_fix[]? | select((.severity // "") == "high")] | length' "$f" 2>/dev/null || echo 1
+}
+
+tree_hash() {
+  [ -d "$1" ] || { echo "none"; return; }
+  find "$1" -type f ! -name '.DS_Store' -print0 2>/dev/null \
+    | LC_ALL=C sort -z | xargs -0 shasum 2>/dev/null | shasum | awk '{print $1}'
+}
+
 # queue.json failed 장부 기입. $1=사유(비우면 생략).
 # 원래 폐기 단계에만 인라인으로 있어서 **빌드 단계에서 죽은 회차는 장부에 안 남았다**
 # (2026-08-27~28 grok 402 4연속 사망이 전부 미기록). 빌드 실패 경로도 이걸 거친다.
@@ -519,39 +543,70 @@ $(jq -c '.unit' "$WORK/slot.json")
 stage_run "${BUILD_RUNNER:-grok_run}" "${BUILD_MODEL:-}" "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT"
 BUILD_RC=$?
 
-# 러너 바이너리는 살아 있는데 API 쪽이 죽는 경우(대표: grok 402 잔액 소진)는
+# 러너 바이너리는 살아 있는데 API 쪽이 죽는 경우(402 잔액 소진·인증 만료·쿼터)는
 # resolve_runner 가 못 잡는다 — 2026-08-27~28 에 4회 연속으로 회차가 통째로 죽었다.
-# 그래서 빌드 단계는 실행 **결과**를 보고 한 번 더 폴백한다: 비정상 종료·402류 출력·
-# index.html 미생성이면 codex 상위 티어(sol)로 1회 재시도. 빌드는 어려운 단계라 sol 을 쓴다.
-BUILD_ERR="$(grep -m1 -Eo 'status 402|402 Payment Required|Payment Required|usage balance exhausted' "$LOG_DIR/build.log" 2>/dev/null | head -1)"
-BUILD_PRIMARY="$(resolve_runner "${BUILD_RUNNER:-grok_run}")"
-if { [ "$BUILD_RC" -ne 0 ] || [ -n "$BUILD_ERR" ] || [ ! -f "$ROOT/public/g/$SLUG/index.html" ]; } \
-   && [ "$BUILD_PRIMARY" != "codex_run" ] && [ "$BUILD_PRIMARY" != "codex_smart_run" ] \
-   && command -v codex >/dev/null 2>&1; then
-  if [ -n "$BUILD_ERR" ]; then
-    BUILD_FALLBACK_NOTE="grok 402 → codex 폴백 ($BUILD_ERR, 모델 $CODEX_MODEL_SMART)"
-  else
-    BUILD_FALLBACK_NOTE="빌드 러너($BUILD_PRIMARY) 실패(rc=$BUILD_RC) → codex 폴백 (모델 $CODEX_MODEL_SMART)"
-  fi
+# 그래서 빌드 단계는 실행 **결과**를 보고 한 번 더 폴백한다: 비정상 종료·인프라 오류 출력·
+# index.html 미생성이면 BUILD_FALLBACK_RUNNER/MODEL(기본 codex gpt-5.6-sol)로 1회 재시도.
+BUILD_ERR="$(runner_infra_err "$LOG_DIR/build.log")"
+if [ "$BUILD_RC" -ne 0 ] || [ -n "$BUILD_ERR" ] || [ ! -f "$ROOT/public/g/$SLUG/index.html" ]; then
+  BUILD_FALLBACK_NOTE="빌드 러너($(resolve_runner "${BUILD_RUNNER:-codex_run}") / ${BUILD_MODEL:-기본}) 실패(rc=$BUILD_RC${BUILD_ERR:+, $BUILD_ERR}) → ${BUILD_FALLBACK_RUNNER:-codex_run} / ${BUILD_FALLBACK_MODEL:-$CODEX_MODEL_SMART} 로 1회 재시도"
   log "⚠️  $BUILD_FALLBACK_NOTE — 재시도 로그 build-fallback.log"
-  codex_run "$T_BUILD" "$LOG_DIR/build-fallback.log" "$BUILD_PROMPT" "$CODEX_MODEL_SMART"
+  stage_run "${BUILD_FALLBACK_RUNNER:-codex_run}" "${BUILD_FALLBACK_MODEL:-$CODEX_MODEL_SMART}" \
+            "$T_BUILD" "$LOG_DIR/build-fallback.log" "$BUILD_PROMPT"
+  BUILD_ERR2="$(runner_infra_err "$LOG_DIR/build-fallback.log")"
+  [ -n "$BUILD_ERR2" ] && BUILD_FALLBACK_NOTE="$BUILD_FALLBACK_NOTE — 폴백도 인프라 실패($BUILD_ERR2)"
 fi
 
 if [ ! -f "$ROOT/public/g/$SLUG/index.html" ]; then
   BLOG="$LOG_DIR/build.log"
   [ -f "$LOG_DIR/build-fallback.log" ] && BLOG="$LOG_DIR/build-fallback.log"
-  record_failed "빌드 실패${BUILD_ERR:+ ($BUILD_ERR)}${BUILD_FALLBACK_NOTE:+ — codex 폴백도 실패}"
+  # 인프라 실패와 콘텐츠 실패를 장부에서 구분한다 — 러너가 죽어서 못 만든 회차를
+  # 「모델이 게임을 못 만든다」로 집계하면 슬롯 정책·모델 정책이 엉뚱하게 흔들린다.
+  if [ -n "$BUILD_ERR" ] || [ -n "${BUILD_ERR2:-}" ]; then
+    record_failed "인프라 실패(빌드): ${BUILD_ERR:-}${BUILD_ERR2:+ / 폴백 $BUILD_ERR2}"
+    die "빌드 러너 인프라 실패 — 폴백까지 실패했습니다 ($(tail -3 "$BLOG"))"
+  fi
+  record_failed "빌드 실패${BUILD_FALLBACK_NOTE:+ — 폴백도 실패}"
   die "게임 파일이 생성되지 않았습니다 — $(tail -5 "$BLOG")"
 fi
 fi
 
 # ════════════════════════════════════════════════════════════════
+# ── 첫 플레이 증거 캡처 (P0-2, 2026-09-06) ─────────────────────────
+# 검수 7번 게이트(첫 플레이 이해도)는 지금까지 **프레임 없이** 판정돼 왔다 —
+# 최근 9회의 전용 firstplay 프레임이 0/9 였는데도 이해도 판정이 나왔다(감사 §1-5).
+# 그래서 캡처를 검수관의 선택이 아니라 **호스트 단계**로 올린다.
+# 캡처에 실패하면 통과 처리하지 않고 「미검증」 상태로 검수에 전달한다.
+FIRSTPLAY_STATUS="미실행"
+FIRSTPLAY_FRAMES=0
+run_firstplay() {
+  local tag="$1"
+  local out="$WORK/qa/$SLUG/firstplay"
+  rm -rf "$out"; mkdir -p "$out"
+  step "6.2 첫 플레이 증거 캡처 ($tag)"
+  FIRSTPLAY_OUT="$out" FIRSTPLAY_PLAY_MS="${FIRSTPLAY_MS:-45000}" \
+    run_timeout "${T_FIRSTPLAY:-300}" node factory/lib/firstplay/harness.mjs "$SLUG" \
+    >"$LOG_DIR/firstplay-$tag.log" 2>&1
+  local rc=$?
+  FIRSTPLAY_FRAMES="$(find "$out" -name 'frame-*.png' 2>/dev/null | wc -l | tr -d ' ')"
+  if [ "$FIRSTPLAY_FRAMES" -gt 0 ]; then
+    FIRSTPLAY_STATUS="captured"
+    log "첫 플레이 프레임 ${FIRSTPLAY_FRAMES}장 → $out/$SLUG/"
+  else
+    FIRSTPLAY_STATUS="unverified"
+    log "⚠️  첫 플레이 캡처 실패(rc=$rc) — 검수에 「미검증」으로 전달한다: $(tail -2 "$LOG_DIR/firstplay-$tag.log" 2>/dev/null | tr '\n' ' ')"
+  fi
+  cp -r "$out" "$LOG_DIR/firstplay-$tag" 2>/dev/null
+}
+
 step "6. 자동 QA"
 node factory/lib/qa.mjs "$SLUG" > "$LOG_DIR/qa-1.log" 2>&1
 QA1=$?
 cp -r "$WORK/qa/$SLUG" "$LOG_DIR/qa-1" 2>/dev/null
 log "자동 QA 종료코드 $QA1"
 tail -25 "$LOG_DIR/qa-1.log" >&2
+
+run_firstplay 1
 
 # ════════════════════════════════════════════════════════════════
 # 수학 오류는 이 프로젝트에서 가장 치명적인 결함이라 종합 검수와 분리해
@@ -592,6 +647,11 @@ REVIEW_PROMPT="$(cat factory/prompts/40-review.md)
 - 자동 QA 리포트: \`factory/work/qa/$SLUG/report.json\`
 - 독립 수학 검산 결과: \`factory/work/mathcheck.json\` — 여기서 오류가 나왔다면 그대로 인정하고 반영해라
 - 스크린샷: \`factory/work/qa/$SLUG/mobile.png\`, \`tablet.png\`, \`desktop.png\` — **Read 툴로 실제로 봐라**
+- 첫 플레이 증거: 상태=**${FIRSTPLAY_STATUS}** (프레임 ${FIRSTPLAY_FRAMES}장)
+  - 경로: \`factory/work/qa/$SLUG/firstplay/$SLUG/\` (\`frame-*.png\` + \`manifest.json\`)
+  - 호스트가 이미 캡처했다. 네가 하네스를 다시 돌릴 필요는 없다 — **프레임을 Read 툴로 열어라.**
+  - 상태가 \`unverified\` 면 프레임이 없다는 뜻이다. 그때는 \`firstplay.comprehensible\` 을
+    \`null\`, \`frames_seen\` 을 빈 값으로 두고 **미검증으로 게시 보류**해라 (통과 처리 금지).
 ${USER_FEEDBACK:+
 $USER_FEEDBACK
 이 피드백을 채점에 직접 반영해라. 특히 지목된 문제가 이번 게임에도 있으면 must_fix 로 적어라.}"
@@ -605,12 +665,12 @@ REJECT="$(jqv "$WORK/review.json" .reject_immediately)"
 log "1차 검수: ${SCORE:-?}점 / passed=${PASSED:-false} / reject=${REJECT:-false}"
 
 # ════════════════════════════════════════════════════════════════
-# 수정 루프: 미달 시 최대 MAX_FIX_ROUNDS회 "수정 → 재QA → 재검산 → 재검수" (2026-08-31, 1회→3회)
-# 게이트(80)는 불변 — 상한이 있으므로 반복이 게이트를 무의미하게 만들지 않는다(loop-engineering §3.1).
-# 라운드가 늘면 사이클이 크론 주기(120m)를 넘을 수 있다 — run.lock 이 다음 틱을 스킵하므로 안전하다.
+# 수정 루프: 미달 시 최대 MAX_FIX_ROUNDS회 "수정 → 재QA → 재첫플레이 → 재검산 → 재검수".
+# MAX_FIX_ROUNDS 는 **비용 상한**이지 품질 보증이 아니다 — 다음 검사에 들어가려면
+# 정상 종료·실제 변경(해시)·지적별 해결 증거가 있어야 한다(P0-1, 2026-09-06).
 # 각 라운드의 검수 이력(review-N.json)을 다음 수정에 누적 주입해 같은 지적의 반복을 막는다.
 FIX_ROUNDS=0
-if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "$MATH_VERDICT" = "fail" ]; then
+if [ "$PASSED" != "true" ] || [ "$QA1" -ne 0 ] || [ "${MATH_VERDICT:-unknown}" != "pass" ] || [ "$(open_high)" -gt 0 ]; then
   # 누적 검수 이력 — 전 라운드 점수와 must_fix 를 요약해 반환
   fix_history() {
     local r out=""
@@ -622,10 +682,29 @@ $(jq -r '.must_fix[]? | "- [\(.severity)] \(.issue)"' "$LOG_DIR/review-$r.json" 
     done
     printf '%s' "$out"
   }
+  # 수정 러너 1회 실행 + 결과 검사. $1=로그파일. 반환: 0=실제 수정됨 / 1=무효(무변경·실패)
+  # 전역 FIX_ERR 에 인프라 오류 문자열을 남긴다.
+  fix_attempt() {
+    local logfile="$1" want="$2" model="$3" before after rc
+    before="$(tree_hash "$ROOT/public/g/$SLUG")"
+    stage_run "$want" "$model" "$T_FIX" "$logfile" "$FIX_PROMPT"
+    rc=$?
+    after="$(tree_hash "$ROOT/public/g/$SLUG")"
+    FIX_ERR="$(runner_infra_err "$logfile")"
+    if [ "$rc" -ne 0 ]; then log "⚠️  수정 러너 비정상 종료 (rc=$rc)"; return 1; fi
+    if [ -n "$FIX_ERR" ]; then log "⚠️  수정 러너 인프라 오류: $FIX_ERR"; return 1; fi
+    if [ "$before" = "$after" ]; then
+      log "⚠️  수정 러너가 산출물을 하나도 바꾸지 않았다 (해시 $before) — 실패로 친다"
+      FIX_ERR="${FIX_ERR:-산출물 무변경}"
+      return 1
+    fi
+    return 0
+  }
+
   while [ "$FIX_ROUNDS" -lt "$MAX_FIX_ROUNDS" ]; do
     FIX_ROUNDS=$((FIX_ROUNDS+1))
     step "8. 수정 (${FIX_ROUNDS}/${MAX_FIX_ROUNDS})"
-    stage_run "${FIX_RUNNER:-grok_run}" "${FIX_MODEL:-}" "$T_FIX" "$LOG_DIR/fix-$FIX_ROUNDS.log" "$(cat factory/prompts/45-fix.md)
+    FIX_PROMPT="$(cat factory/prompts/45-fix.md)
 
 ---
 - slug: \`$SLUG\`
@@ -636,10 +715,28 @@ $(jq -r '.must_fix[]? | "- [\(.severity)] \(.issue)"' "$LOG_DIR/review-$r.json" 
 - 누적 검수 이력 (이전 라운드 지적 — 같은 것을 다시 지적받지 않게 전부 반영해라):
 $(fix_history $((FIX_ROUNDS-1)))"
 
+    # P0-1: 빌드와 같은 결과 검사를 수정에도 건다.
+    # rc≠0 / 402·인증·쿼터 / **산출물 무변경** 중 하나면 러너를 1회 대체하고,
+    # 그래도 실패면 **인프라 실패**로 회차를 즉시 중단한다 — 재QA·재검산·재검수로
+    # 넘어가지 않는다. 안 고친 코드를 다시 채점하는 데 최근 20회가 8.77시간을 태웠다.
+    if ! fix_attempt "$LOG_DIR/fix-$FIX_ROUNDS.log" "${FIX_RUNNER:-codex_smart_run}" "${FIX_MODEL:-}"; then
+      FIX_ERR1="$FIX_ERR"
+      log "⚠️  수정 러너 대체 1회: ${FIX_RUNNER:-codex_smart_run} → ${FIX_FALLBACK_RUNNER:-claude_run}"
+      if ! fix_attempt "$LOG_DIR/fix-$FIX_ROUNDS-fallback.log" \
+             "${FIX_FALLBACK_RUNNER:-claude_run}" "${FIX_FALLBACK_MODEL:-$CLAUDE_MODEL_SMART}"; then
+        record_failed "인프라 실패(수정 ${FIX_ROUNDS}차): ${FIX_ERR1:-실패} / 대체 ${FIX_FALLBACK_RUNNER:-claude_run}: ${FIX_ERR:-실패}"
+        finish "실패" "수정 러너 인프라 실패 — ${FIX_ERR1:-실패} / 대체도 ${FIX_ERR:-실패}. 게임은 \`public/g/$SLUG/\` 에 그대로 두었다. 러너를 복구한 뒤 \`RESUME_FROM=qa bash factory/run.sh\` 로 이어서 돌려라."
+        exit 1
+      fi
+      BUILD_FALLBACK_NOTE="${BUILD_FALLBACK_NOTE:+$BUILD_FALLBACK_NOTE / }수정 러너 대체(${FIX_ERR1:-실패}) → ${FIX_FALLBACK_RUNNER:-claude_run}"
+    fi
+
     node factory/lib/qa.mjs "$SLUG" > "$LOG_DIR/qa-$((FIX_ROUNDS+1)).log" 2>&1
     QA1=$?
     cp -r "$WORK/qa/$SLUG" "$LOG_DIR/qa-$((FIX_ROUNDS+1))" 2>/dev/null
     log "재 QA(${FIX_ROUNDS}차) 종료코드 $QA1"
+
+    run_firstplay $((FIX_ROUNDS+1))
 
     step "8.5 수학 재검산 (${FIX_ROUNDS}/${MAX_FIX_ROUNDS})"
     run_mathcheck $((FIX_ROUNDS+1))
@@ -650,6 +747,8 @@ $(fix_history $((FIX_ROUNDS-1)))"
 
 이것은 **${FIX_ROUNDS}차 재검수**다 (수정 상한 ${MAX_FIX_ROUNDS}회 중 ${FIX_ROUNDS}차 시도 후).
 \`factory/work/fix.json\` 에 수정 내역이 있다. 수정이 실제로 반영됐는지 확인해라.
+호스트가 수정 후 산출물이 **실제로 바뀐 것을 해시로 확인**했다. 그래도 지적별 해결 증거는 네가 직접 봐라.
+첫 플레이 증거(재캡처): 상태=**${FIRSTPLAY_STATUS}** (프레임 ${FIRSTPLAY_FRAMES}장)
 봐주지 마라 — 이전 점수와 무관하게 기준대로 채점해라. 여전히 미달이면 그렇게 판정해라."
     cp "$WORK/review.json" "$LOG_DIR/review-$((FIX_ROUNDS+1)).json" 2>/dev/null
 
@@ -658,7 +757,8 @@ $(fix_history $((FIX_ROUNDS-1)))"
     REJECT="$(jqv "$WORK/review.json" .reject_immediately)"
     log "${FIX_ROUNDS}차 재검수: ${SCORE:-?}점 / passed=${PASSED:-false} / reject=${REJECT:-false}"
 
-    if [ "$PASSED" = "true" ] && [ "$QA1" -eq 0 ] && [ "${MATH_VERDICT:-unknown}" != "fail" ]; then
+    if [ "$PASSED" = "true" ] && [ "$QA1" -eq 0 ] && [ "${MATH_VERDICT:-unknown}" = "pass" ] \
+       && [ "$(open_high)" -eq 0 ]; then
       log "✅ ${FIX_ROUNDS}차 수정으로 게이트 통과"
       break
     fi
@@ -668,13 +768,26 @@ fi
 VERDICT="$(jqv "$WORK/review.json" .verdict)"
 
 # ════════════════════════════════════════════════════════════════
-if [ "$PASSED" != "true" ] || [ "$REJECT" = "true" ] || [ "$QA1" -ne 0 ] || [ "${MATH_VERDICT:-unknown}" = "fail" ]; then
+# 게시 게이트 (P0-3, 2026-09-06):
+#   ① 검수 passed  ② 즉시폐기 아님  ③ 자동 QA 치명 0
+#   ④ **독립 검산이 명시적으로 pass** — `unknown`(검산 산출물 누락)은 통과가 아니다.
+#      「검사하지 못했다」를 「문제 없다」로 읽어 온 것이 감사 §1-5 의 지적이다.
+#   ⑤ **미해결 high 0** — 검수가 must_fix high 를 남긴 채 총점만으로 통과시키지 않는다.
+GATE_BLOCK=""
+[ "$PASSED" != "true" ]                  && GATE_BLOCK="검수 미통과(passed=${PASSED:-false})"
+[ "$REJECT" = "true" ]                   && GATE_BLOCK="${GATE_BLOCK:+$GATE_BLOCK · }즉시 폐기 판정"
+[ "$QA1" -ne 0 ]                         && GATE_BLOCK="${GATE_BLOCK:+$GATE_BLOCK · }자동 QA 치명적 결함"
+[ "${MATH_VERDICT:-unknown}" != "pass" ] && GATE_BLOCK="${GATE_BLOCK:+$GATE_BLOCK · }독립 검산 verdict=${MATH_VERDICT:-unknown} (명시적 pass 아님)"
+OPEN_HIGH="$(open_high)"
+[ "$OPEN_HIGH" -gt 0 ]                   && GATE_BLOCK="${GATE_BLOCK:+$GATE_BLOCK · }미해결 must_fix high ${OPEN_HIGH}건"
+if [ -n "$GATE_BLOCK" ]; then
+  log "🚧 게시 차단: $GATE_BLOCK"
   step "폐기"
   ARCHIVE="$ROOT/factory/state/rejected/$RUN_ID-$SLUG"
   mkdir -p "$(dirname "$ARCHIVE")"
   mv "$ROOT/public/g/$SLUG" "$ARCHIVE" 2>/dev/null
-  record_failed
-  finish "폐기" "${VERDICT:-품질 게이트 미달}"
+  record_failed "$GATE_BLOCK"
+  finish "폐기" "${VERDICT:-품질 게이트 미달} — 차단 사유: $GATE_BLOCK"
   exit 0
 fi
 
