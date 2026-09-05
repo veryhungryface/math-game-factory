@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 #
-# 초등 수학 게임 1개 생산 사이클.  cron 이 2시간마다 이걸 호출한다.
+# 초등 수학 게임 1개 생산 사이클.
+#
+# 리듬: **하루 1작이 목표**다. cron 은 2시간마다 이걸 호출하지만, 오늘(KST) 이미 게시한
+# 게임이 있으면 최상단 「하루 1작 가드」가 신규 생산을 건너뛴다 — 하루 최대 12번 시도하되
+# 첫 성공에서 멈춘다. 가드 해제는 DAILY_TARGET=0 또는 FORCE_PRODUCE=1.
 #
 #   bash factory/run.sh              정상 생산
 #   DEPLOY=0 REPORT=0 bash factory/run.sh   드라이런 (배포·보고 생략)
@@ -144,6 +148,30 @@ record_failed() {
     fs.writeFileSync(p,JSON.stringify(q,null,2)+"\n");
   ' "$ROOT/factory/state/queue.json" "$RUN_ID" "${SLUG:-}" "${TITLE:-}" "${SCORE:-0}" "$(jqv "$WORK/slot.json" .unit.id)" "$reason"
 }
+
+# ── 하루 1작 가드 (2026-09-06 체제 전환) ───────────────────────────
+# 크론은 2시간마다 부르지만 목표는 **하루 1작**이다. 오늘(KST) 이미 게시한 게임이 있으면
+# 신규 생산을 시작하지 않는다 — 로그만 남기고 조용히 끝낸다(디스코드 중복 알림 없음).
+#   DAILY_TARGET=0        가드 해제 (무제한 시도)
+#   FORCE_PRODUCE=1       오늘 게시작이 있어도 강행
+#   RESUME_FROM=<stage>   진행 중이던 회차를 이어받는 것이므로 가드를 적용하지 않는다
+if [ "${DAILY_TARGET:-1}" -gt 0 ] && [ "${FORCE_PRODUCE:-0}" != "1" ] && [ -z "${RESUME_FROM:-}" ]; then
+  TODAY_DONE="$(node -e '
+    const fs=require("fs"), p=process.argv[1], target=Number(process.argv[2])||1;
+    if(!fs.existsSync(p)) process.exit(0);
+    let q; try{ q=JSON.parse(fs.readFileSync(p,"utf8")); }catch(e){ process.exit(0); }
+    const kst=(v)=>{ const t=new Date(v).getTime();
+      return Number.isFinite(t) ? new Date(t+9*3600e3).toISOString().slice(0,10) : null; };
+    const today=kst(Date.now());
+    const hit=(q.produced||[]).filter(e=>e && e.at && kst(e.at)===today);
+    if(hit.length>=target) console.log(hit.map(e=>`${e.title||e.slug}(${e.slug})`).join(", "));
+  ' "$ROOT/factory/state/queue.json" "${DAILY_TARGET:-1}" 2>/dev/null)"
+  if [ -n "$TODAY_DONE" ]; then
+    log "🎯 오늘 목표 달성 — 다음 발진은 내일 (오늘 게시: $TODAY_DONE)"
+    echo "🎯 오늘 목표 달성 — 다음 발진은 내일 (오늘 게시: $TODAY_DONE)"
+    exit 0
+  fi
+fi
 
 # ── 락 ────────────────────────────────────────────────────────────
 if [ -f "$LOCK" ]; then

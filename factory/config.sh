@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # 공장 설정 — run.sh 가 source 한다. 값만 바꾸면 파이프라인 동작이 바뀐다.
 
+# ── 생산 리듬 ─────────────────────────────────────────
+# 2026-09-06 체제 전환: 「틱마다 신작」 → **「하루 1작 목표」**.
+# 크론은 그대로 2시간마다 run.sh 를 부르지만, 오늘(KST) 이미 게시한 게임이 있으면
+# run.sh 최상단 가드가 신규 생산을 건너뛴다. 즉 하루 최대 12번 시도하되 첫 성공에서 멈춘다.
+# 근거: docs/gpt6-factory-audit-20260905.md §5 — 「2시간마다 새 게임」이라는 약속은
+# 실제 예산과 맞지 않았고, 실패를 생산량으로 덮는 유인이 됐다.
+export DAILY_TARGET="${DAILY_TARGET:-1}"       # 하루 게시 목표. 0 이면 가드를 끈다(무제한 시도)
+export FORCE_PRODUCE="${FORCE_PRODUCE:-0}"     # 1 이면 오늘 게시작이 있어도 강행 (수동 운영용)
+
 # ── 품질 ──────────────────────────────────────────────
 export GATE_SCORE="${GATE_SCORE:-80}"          # 게시 커트라인 (100점 만점)
 export DESIGN_VARIANTS="${DESIGN_VARIANTS:-3}" # 병렬 기획 에이전트 수
@@ -36,8 +45,14 @@ export GROK_MODEL="${GROK_MODEL:-grok-4.6}"             # 기획 3번(관점 다
 # 바이너리는 있는데 API 가 죽는 경우(grok 402 잔액 소진 — 2026-08-27~28 4연속 사망)는
 # resolve_runner 가 못 잡으므로, **빌드 단계는 실행 결과를 보고 codex(sol) 로 1회 폴백
 # 재시도**한다 (run.sh step 5, 2026-08-28 도입).
-export BUILD_RUNNER="${BUILD_RUNNER:-grok_run}"     # 게임 구현 — 로컬 무샌드박스라 qa.mjs 직접 실행 가능
-export BUILD_MODEL="${BUILD_MODEL:-}"               # 비우면 러너 기본 모델
+# 빌드 기본은 **GPT-6(astra)** 다 (2026-09-06). 근거: 수동 1호기 「접으면 입체」가
+# `codex exec --model gpt-6-astra` 빌드로 87점 게시됐다(HANDOVER 2026-09-05).
+# grok 기본값은 2026-08-27 이후 402(잔액 소진)로 계속 죽어 폐기한다.
+export BUILD_RUNNER="${BUILD_RUNNER:-codex_run}"    # 게임 구현
+export BUILD_MODEL="${BUILD_MODEL:-gpt-6-astra}"    # 비우면 러너 기본 모델
+# 결과 기반 폴백 1회(run.sh step 5): 비정상 종료·402/인증/쿼터·index.html 미생성이면 이 조합으로 재시도.
+export BUILD_FALLBACK_RUNNER="${BUILD_FALLBACK_RUNNER:-codex_run}"
+export BUILD_FALLBACK_MODEL="${BUILD_FALLBACK_MODEL:-$CODEX_MODEL_SMART}"  # gpt-5.6-sol
 export REVIEW_RUNNER="${REVIEW_RUNNER:-codex_run}"  # 검수 — 빌드와 다른 회사(교차 검증)
 export REVIEW_MODEL="${REVIEW_MODEL:-$CODEX_MODEL_SMART}"  # codex 러너는 모델 인자 필수
 export FIX_RUNNER="${FIX_RUNNER:-grok_run}"         # 수정 — puppeteer 실측이 필요하다

@@ -12,14 +12,19 @@
 > 게임 제작 규칙은 저장소 루트 `CLAUDE.md`, 디자인 철학은 `docs/design-bible.html`, 타이틀 규격은 `docs/title-screen-spec.md`.
 
 ## 1. 시스템 한 줄 요약
-3시간마다 크론이 `factory/run.sh`를 돌려 2022 개정 교육과정(초등 5-6학년 2학기 중심) 단원별 수학 게임을 자동 기획→제작→검증→게시하고, 사람(교사)의 실사용 피드백을 받아 즉시 수정하는 공장.
+**하루 1작을 목표로** 크론이 2시간마다 `factory/run.sh`를 돌려(성공하면 그날은 종료) 2022 개정 교육과정 단원별 수학 게임을 자동 기획→제작→검증→게시하고, 사람(교사)의 실사용 피드백을 받아 즉시 수정하는 공장. 대상 학년·학기는 고정값이 아니라 `factory/config.sh`의 `FOCUS`와 슬롯 선택(`pick-slot.mjs`)이 정한다.
+
+> **생산 리듬 (2026-09-06 체제 전환)** — 「틱마다 신작」을 폐기했다. `run.sh` 최상단 가드가
+> `queue.json.produced`에 오늘(KST) 게시작이 있으면 신규 생산을 건너뛰고 조용히 끝낸다
+> (디스코드 보고 없음). 해제: `DAILY_TARGET=0` 또는 `FORCE_PRODUCE=1`. `RESUME_FROM`으로
+> 재개할 때는 가드를 적용하지 않는다. 합격작이 없는 날은 0개가 정상이다.
 
 ## 2. 인프라 좌표
 | 항목 | 값 |
 |---|---|
 | 저장소 | `/Users/sitpo/math-game-factory` (GitHub: veryhungryface/math-game-factory, main 브랜치) |
 | 배포 | Vercel 단일 프로젝트 → https://math-game-factory.vercel.app (push 시 자동 배포, 게임은 `/g/<slug>/`) |
-| 크론 | Hermes cron job ID **`7c43f44b8c54`** ("초등 수학 게임 공장 (3시간마다 1개)", `every 180m`). `hermes cron pause|resume 7c43f44b8c54`. 크론은 `~/.hermes/scripts/math_game_factory.sh`(미러: `factory/cron-entry.sh`)를 호출 — 600초 제한 우회를 위해 nohup 백그라운드 발사 후 즉시 종료하는 래퍼다 |
+| 크론 | Hermes cron job ID **`7c43f44b8c54`** (`every 120m` — 하루 1작 목표로 2시간마다 시도, 오늘 게시작이 있으면 run.sh 가드가 스킵). `hermes cron pause|resume 7c43f44b8c54`. 크론은 `~/.hermes/scripts/math_game_factory.sh`(미러: `factory/cron-entry.sh`)를 호출 — 600초 제한 우회를 위해 nohup 백그라운드 발사 후 즉시 종료하는 래퍼다 |
 | 보고 채널 | Discord 스레드 **`1539073913777291344`** ("수학게임공장"). `hermes send discord:1539073913777291344 "메시지"` — 채널 본문은 403, 반드시 스레드 ID로 |
 | 교육과정 | `curriculum/2022-elementary-math.json` (45 성취기준, 24 단원, generation_constraints 18조) |
 | 상태 | `factory/state/queue.json` (produced/failed), `factory/state/rejected/` (폐기작 보관), `factory/state/salvage/` (수리용 스냅샷), `factory/state/feedback-archive/` |
