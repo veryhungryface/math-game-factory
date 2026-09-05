@@ -797,6 +797,9 @@ html.land #coach{left:calc(var(--stageX) + 14px);right:auto;width:min(52%,420px)
       if (S.tutorial && d < 0.4) { msg = "지금이에요! 화면을 탭하세요"; now = true; }
       else msg = "평균 높이에 판이 왔을 때 화면을 탭해요";
     } else msg = "평균 높이에 판이 왔을 때 화면을 탭해요";
+    /* 목표(12층)까지 몇 층 남았는지 늘 보이게 한다. 빗나간 층은 다시 쌓으면 되므로
+       이 숫자가 줄어들지 않는다는 사실 자체가 규칙 설명이 된다. */
+    if (!S.tutorial) msg = S.completedRounds + "/12층 · " + msg;
     if (el.textContent !== msg) el.textContent = msg;
     el.classList.toggle("now", now);
   }
@@ -1100,12 +1103,8 @@ html.land #coach{left:calc(var(--stageX) + 14px);right:auto;width:min(52%,420px)
       setTimeout(lose, 700);
       return;
     }
-    const gen = S.gen;
-    setTimeout(function () {
-      if (S.gen !== gen || S.phase !== "playing") return;
-      if (S.round >= 12) return finishRun();
-      spawnRound();
-    }, 800);
+    S.pop = { text: msg + " — 이 층은 다시", t: 0, good: false };
+    retryRound();
   }
 
   /* 무입력 시간 초과. 판정(judgeTick)을 절대 부르지 않으므로 점수가 생길 경로가 없다. */
@@ -1131,10 +1130,20 @@ html.land #coach{left:calc(var(--stageX) + 14px);right:auto;width:min(52%,420px)
       setTimeout(lose, 700);
       return;
     }
+    S.pop = { text: "시간이 지났어요 — 이 층은 다시", t: 0, good: false };
+    retryRound();
+  }
+
+  /* 빗나간 층은 사라지지 않는다.
+     승리 조건이 completedRounds>=12 인데 오답이 라운드를 소비해 버리면,
+     정규 오답 한 번으로 12층 완주가 산술적으로 불가능해진다(목숨이 남아 있어도).
+     그래서 라운드 번호를 되돌려 같은 층을 새 자료로 다시 쌓게 한다.
+     대가는 목숨 하나 · 콤보 초기화이며, 목숨이 0이 되면 그때 끝난다. */
+  function retryRound() {
     const gen = S.gen;
     setTimeout(function () {
       if (S.gen !== gen || S.phase !== "playing") return;
-      if (S.round >= 12) return finishRun();
+      S.round = Math.max(0, S.round - 1);
       spawnRound();
     }, 800);
   }
