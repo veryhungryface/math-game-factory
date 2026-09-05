@@ -44,30 +44,47 @@
 AI 회화 배경 → 하단 금색 광택 CTA). 최근 9작은 색을 뺀 CSS 선언의 47~78%가 문자 그대로 같다.
 **여기서 후하게 주면 25번째 같은 게임이 나간다.**
 
-- **선례 비유사 (4점)** — ⚠️ **반드시 눈으로 대조해라.**
-  `public/catalog.json` 에서 **최근 게시 3작**의 slug 를 뽑고, 그 게임들의
-  `factory/work/qa/<slug>/desktop-1280.png` 또는 `public/g/<slug>/thumb.png` 를
-  **Read 툴로 실제로 열어** 이번 게임의 스크린샷과 나란히 비교해라.
-  ```bash
-  python3 -c "import json;c=json.load(open('public/catalog.json'));print([g['slug'] for g in c['games'][:4]])"
-  grep -h '\"visual_axis\"' public/g/*/meta.json | sort | uniq -c   # 축 사용 이력
-  ```
-  아래 셋 중 **2개 이상이 최근 3작과 같으면 이 항목 0점**:
-  ① HUD 형태(상단 전폭 띠 + 둥근 칩) ② 배경 처리(생성 회화 배경 + 반투명 패널)
-  ③ 정답 연출(파티클 버스트 + 점수 팝업 + 화면 흔들림).
-  보고서 `visual_diff` 에 비교한 3작 slug 와 "무엇이 다른가"를 각각 한 줄로 적어라.
-- **축 준수 (4점)** — `chosen.json` 의 `art_direction.visual_axis` 와 `component_grammar`
-  를 읽고, 실제 CSS가 그 문법표(radius/border/shadow/gloss)를 지켰는지 **코드로 확인**해라.
+- **선례 비유사 (4점)** — ⚠️ **최근 3작이 아니라 카탈로그 전체와 대조해라 (2026-09-05 강화).**
+  최근 3작만 보던 이전 규칙은 "직전 5작과 다른 축을 고르면 통과"로 퇴화했고, 그 결과
+  **같은 축을 재사용한 게임끼리 형제처럼 보이는 가족**이 생겼다 — 사용자가 직접 지적한
+  재발 사례다(`docs/loop-engineering.md` §7.8).
+
+  절차:
+  1. `public/catalog.json` 의 **전 게시작** 목록을 뽑고, `art_direction.identity_name` /
+     `visual_axis` / `feedback_signature` 를 훑어 **이번 게임과 가장 닮은 후보 3작**을 지목해라.
+     ```bash
+     python3 -c "import json;c=json.load(open('public/catalog.json'));print([g['slug'] for g in c['games']])"
+     grep -h '\"visual_axis\"\|\"identity_name\"' public/g/*/meta.json | sort | uniq -c   # 정체성 이력
+     ```
+  2. 그 3작의 `factory/work/qa/<slug>/desktop-1280.png` 또는 `public/g/<slug>/thumb.png` 를
+     **Read 툴로 실제로 열어** 이번 게임의 스크린샷과 나란히 비교해라. (최근작이 아니어도
+     닮았으면 반드시 포함해라 — 그게 이 항목의 목적이다.)
+  3. **판정 — 가장 닮은 그 1작과 계열이 같으면 이 항목 0점이고 `must_fix` high 다.**
+     같은 계열의 정의: ① 배경 처리(생성 회화 배경 / 플랫 면 / 격자 / 공허 중 무엇인가)
+     ② 부품 물성(판지·펠트·네온선·유리·도면·픽셀 등) ③ 정답 연출의 물리적 사건 —
+     **이 셋 중 2개가 같으면 같은 계열이다.**
+  4. **타이틀 화면도 같이 본다.** 이번 게임의 타이틀이 기존작 템플릿(풀블리드 키 아트 →
+     상단 중앙 낱글자 로고 → 필형 태그라인 → 하단 중앙 광택 CTA)을 그대로 따랐으면
+     `must_fix` high 다. 기획서 `art_direction.title_composition` 이 실제 화면과 맞는지도 봐라.
+
+  보고서 `visual_diff` 에 **비교한 3작 slug(가장 닮은 것부터)와 "무엇이 다른가"** 를
+  각각 한 줄로, 그리고 `most_similar` 에 가장 닮은 1작과 계열 판정을 적어라.
+- **정체성 준수 (4점)** — `chosen.json` 의 `art_direction` (`visual_axis`/`identity_name`/
+  `component_grammar`)을 읽고, 실제 CSS가 그 문법표(radius/border/shadow/gloss)를 지켰는지
+  **코드로 확인**해라.
   ```bash
   grep -c 'border-radius:1[2-8]px' public/g/<slug>/index.html
   grep -n 'inset 0 1\(\.5\)\?px 0 rgba(255,255,255' public/g/<slug>/index.html
   grep -n 'box-shadow:[^;]*0 3px 0' public/g/<slug>/index.html
   ```
-  축이 **금지**한 그림자·radius·광택을 썼으면 이 항목 **0점**.
-  축 A·I 이외에서 `0 3px 0` + 상단 `inset` 흰 하이라이트 조합이 나오면 자동 0점이다.
+  정체성이 **금지**한 그림자·radius·광택을 썼으면 이 항목 **0점**.
+  `0 3px 0` + 상단 `inset` 흰 하이라이트 조합은 스티커/캔디 문법이라, 그 물성이
+  `component_grammar` 에 명시적으로 없으면 자동 0점이다.
   `.pill`/`.chip` CSS를 다른 게임에서 그대로 복사해 온 흔적(같은 rgba 값·같은 선언 순서)이
   보이면 `must_fix` 에 `severity: "high"` 로 적어라.
-  기획서에 `visual_axis` 가 아예 없으면 이 항목 0점이고 `must_fix` high 다.
+  기획서에 `visual_axis`·`identity_name` 이 아예 없거나, `axis_style_stanza` 가
+  `references/game-references.json` 의 어휘 축 스탠자와 **문자 그대로 같으면**
+  (= 기존 축을 그대로 재사용한 것) 이 항목 0점이고 `must_fix` high 다.
 
 **나머지 12점**
 - **스크린샷을 보고** 판단해라. 밋밋하면 솔직하게 낮게 줘라 (4)
@@ -174,13 +191,21 @@ review.json 에 `firstplay` 블록으로 근거를 남겨라.
     "curriculum": 22, "math": 24, "fun": 16, "visual": 15, "mobile": 6
   },
   "visual_diff": {
-    "visual_axis": "F",
-    "axis_compliance": "축 F 문법표 준수 — radius 0 / 헤어라인 / 그림자 없음. 0 3px 0 검출 0건",
+    "visual_axis": "R",
+    "identity_name": "조수 측량 야장",
+    "stanza_is_original": true,
+    "axis_compliance": "정체성 문법표 준수 — radius 0 / 헤어라인 / 그림자 없음. 0 3px 0 검출 0건",
+    "most_similar": {
+      "slug": "tide-checkpoint",
+      "same_family": false,
+      "why": "배경 처리 다름(회화 배경 없음 vs 있음) · 정답 연출 다름(물 자국 번짐 vs 파티클 버스트). 부품 물성만 인출선 계열로 겹침 → 3중 2 미만이므로 다른 계열"
+    },
     "compared_with": [
-      { "slug": "overlay-snap", "how_it_differs": "HUD가 알약 칩이 아니라 판형 괘선, 배경이 회화가 아니라 지면" },
+      { "slug": "tide-checkpoint", "how_it_differs": "HUD가 알약 칩이 아니라 야장 괘선, 배경이 회화가 아니라 갯벌 면" },
       { "slug": "twice-cut", "how_it_differs": "..." },
       { "slug": "boundary-rush", "how_it_differs": "..." }
-    ]
+    ],
+    "title_composition": "기존 템플릿(중앙 로고+태그라인+하단 CTA) 답습 여부와 실제 구성 한 줄"
   },
   "firstplay": {
     "comprehensible": "yes | partial | no",
@@ -212,6 +237,10 @@ review.json 에 `firstplay` 블록으로 근거를 남겨라.
   "억울하게 지는" 게임이다.
 - **디자인 분화(4번의 분화 8점)에서 8점 중 2점 이하**면 총점과 무관하게 `must_fix` 에
   `severity: "high"` 로 적어라. 25번째 같은 게임을 게시하는 것은 새 게임을 안 내는 것보다 나쁘다.
+- **`most_similar.same_family` 가 `true`**(카탈로그의 어떤 게시작과 같은 디자인 계열)이면
+  총점과 무관하게 `must_fix` high 이고, 수정 지시에 **"무엇을 바꾸면 계열이 갈리는가"** 를
+  배경 처리·부품 물성·정답 연출 중 최소 2개 축으로 구체적으로 적어라. "색을 바꿔라"는
+  수정 지시가 아니다 — 그건 지금까지 24작이 이미 해 온 일이다.
 - **첫 플레이 이해도(7번)가 `no`** → 총점과 무관하게 `passed: false`. `partial` 이면
   재미 점수를 깎고 `must_fix` high 로 적되 게시 자체를 막지는 마라 (2026-09-01 기준
   게시작 대부분이 `partial` 이라, 여기서 즉시 폐기로 걸면 생산이 멈춘다).

@@ -12,16 +12,20 @@
    적어라 — 예: "Fruit Ninja 의 '화면을 가로지르는 슬라이스 판정 + 콤보 배율 상승'
    중에서도 콤보가 끊기는 순간의 긴장감을 가져온다." 메커닉 카테고리가 아니라
    **왜 그 게임이 중독적인지**(hook)를 가져와야 한다.
-2. **비주얼 축을 하나 고르고, 원작의 아트 디렉션을 조사해라.** (아래 「아트 디렉션 의무」 절 전문 필독)
-   `references/game-references.json` 의 `art_directions.axes` 에서 축 하나(A~J)를 고르고,
-   `art_direction` 안에 `visual_axis` / `origin_art_notes` / `anti_reference` /
-   `component_grammar` / `feedback_signature` 를 **전부** 채워라.
-   `visual_reference`(기법 레퍼런스)는 계속 쓰되, 축을 대신하지 못한다 —
+2. **이 게임만의 비주얼 정체성을 새로 발명하고, 원작의 아트 디렉션을 조사해라.**
+   (아래 「고유 비주얼 정체성 발명 의무」 절 전문 필독)
+   `references/game-references.json` 의 `art_directions.axes` 는 **고를 메뉴가 아니라
+   참고 어휘 사전**이다(`status: "vocabulary"`). 기존 축을 그대로 재사용하는 것은 금지고,
+   이번 게임의 소재·세계에서 출발한 정체성을 새로 지어 `art_direction` 안에
+   `visual_axis`(이번 게임 고유 id) / `identity_name` / `identity_lineage` /
+   `real_world_refs` / `origin_art_notes` / `anti_reference` / `component_grammar` /
+   `feedback_signature` 를 **전부** 채워라.
+   `visual_reference`(기법 레퍼런스)는 계속 쓰되, 정체성을 대신하지 못한다 —
    `references/game-references.json` 의 `visual_refs` 는 전부 WebGL 테크 데모라
    **색·질감·타이포·부품을 결정해 주지 않는다.** 기법은 `visual_reference` 로,
-   화풍은 `visual_axis` 로 각각 정해라.
+   화풍은 이번 게임 고유 정체성으로 각각 정해라.
 3. 후보 목록에 마음에 드는 게 없으면 references 를 더 뒤져라 — 143개 사이트,
-   28개 메커닉, 46개 기법 레퍼런스, 10개 아트 디렉션 축이 있다. `mechanic_pool` 5개는 추천일 뿐이다.
+   28개 메커닉, 46개 기법 레퍼런스, 참고 어휘 축 10종이 있다. `mechanic_pool` 5개는 추천일 뿐이다.
 
 ## 잘 만든 실전 게임에서 검증된 패턴 (2026-08 vibe 시리즈 22종 실분석 — references/case-studies/)
 
@@ -112,7 +116,7 @@
 }
 ```
 
-## ⚠️ 아트 디렉션 의무 (2026-08-29 전수 감사 — `docs/design-diversity-plan.md`)
+## ⚠️ 고유 비주얼 정체성 발명 의무 (2026-08-29 전수 감사 → 2026-09-05 개정)
 
 게시작 24작을 전수 감사했더니 **24/24가 같은 화면**이었다:
 `상단 어두운 알약 칩 HUD → 크림색 문제 카드 → AI 회화 배경 위 플레이 → 하단 금색 광택 CTA`.
@@ -120,27 +124,55 @@
 기획서가 "이번 게임의 그림은 어떤 결인가"를 한 번도 결정하지 않았기 때문이다.
 그 빈칸을 아트·빌드 단계의 기본값 한 벌이 24번 채웠다.
 
-**그래서 이 단계에서 화풍을 확정한다. `art_direction` 은 이제 무드 문장이 아니라 계약이다.**
+**그리고 그 처방(축 10종 중 하나 고르기 + 직전 5작 중복 금지 + 축당 정원 3작)이
+이번엔 「가족 단위 닮음」을 제도화했다** — 2026-09-05, 사용자가 신작이 기존작과
+**같은 디자인 계열**(같은 축을 재사용해 배경·부품·타이틀 구성이 형제처럼 보임)이라고
+직접 지적했다. `docs/loop-engineering.md` §7.8 "게이트는 획일화를 낳는다"의 재발이다.
+**축을 고르는 순간 그 축을 이미 쓴 게임의 친척이 된다.** 그래서 규칙을 뒤집는다.
 
-### 필수 필드 5개 — 하나라도 비면 심사에서 탈락
+> **기본값 = 이번 게임의 비주얼 정체성을 새로 발명한다.**
+> 10개 축은 이제 **고를 메뉴가 아니라 참고 어휘 사전**이다
+> (`references/game-references.json` → `art_directions.status: "vocabulary"`).
 
-1. **`visual_axis`** — `references/game-references.json` 의 `art_directions.axes` 에서 축 id
-   하나(A~J). 그 축의 `image_style_stanza`·`component_grammar`·`background_policy`·
-   `feedback_grammar` 를 실제로 읽고 골라라. 10축으로 부족하면 **신규 축을 제안해도 된다** —
-   단 그때는 위 4개 항목을 같은 형식으로 직접 써 내야 하고, 기존 어느 축과도 겹치지 않음을
-   한 줄로 밝혀라.
+**그래서 이 단계에서 화풍을 확정한다. `art_direction` 은 무드 문장이 아니라 계약이다.**
 
-   **⛔ 직전 5작과 같은 축은 고를 수 없다 (하드 제약, 권고 아님).**
-   확인 절차 — 반드시 실행해라:
-   ```bash
-   # 최근 5작 slug
-   python3 -c "import json;q=json.load(open('factory/state/queue.json'));print([p['slug'] for p in q['produced'][-5:]])"
-   # 각 slug 의 축: meta.json 의 art_direction.visual_axis, 없으면 축 배정표에서 조회
-   grep -h '"visual_axis"' public/g/<slug>/meta.json
-   ```
-   `meta.json` 에 축이 안 적힌 구작은 `docs/design-diversity-plan.md` §3.1 축 배정표에서
-   그 slug 의 축을 찾아라. 또한 `art_directions.axes[].assigned` 에 **이미 3작이 찬 축**
-   (현재 축 C 네온: decimal-smash·jelly-gate·rounding-dash)은 정원 마감이라 고를 수 없다.
+### 상위 규칙 — 이 둘을 어기면 심사에서 즉시 실격
+
+- **⛔ 카탈로그의 어느 게시작과도 같은 디자인 계열이면 안 된다.** "직전 5작과 겹치지 않음"은
+  최소 조건일 뿐이고, 판정 기준은 **전 게시작 중 가장 닮은 한 작을 찾아 그것과도 계열이
+  다른가**다. 같은 계열의 정의: ①배경 처리(회화 배경/플랫 면/격자/공허 중 무엇인가)
+  ②부품 물성(판지·펠트·네온선·유리·도면 등) ③정답 연출의 물리적 사건 — **이 셋 중 2개가
+  같으면 같은 계열**이다.
+- **⛔ 기존 축(A~J 및 이후 신설된 K, L, M, N, P, Q…)을 그대로 재사용할 수 없다.**
+  축을 **참고**하는 것은 권장한다. 단 반드시 **구별되는 변형·둘 이상의 결합·신조** 중
+  하나여야 하고, 무엇을 빌리고 무엇을 바꿨는지 `identity_lineage` 에 한 줄로 밝혀라.
+  "축 H 그대로" 는 실격, "축 H의 인출선 문법 + 젖은 갯벌의 물성 = 조수 측량 야장" 은 통과다.
+
+### 필수 필드 — 하나라도 비면 심사에서 탈락
+
+1. **`visual_axis` + `identity_name` + `identity_lineage` + `real_world_refs`** —
+   이번 게임의 **고유 비주얼 정체성**이다. 소재·세계에서 출발해라 (단원 소재, 게임의
+   무대, 조작하는 물건). 다음을 전부 지어 내라:
+
+   - `visual_axis` — 이번 게임에만 붙는 **새 id 한 글자~두 글자**(기존 사용 id와 겹치지 않게).
+     사용 이력 확인:
+     ```bash
+     grep -h '"visual_axis"' public/g/*/meta.json | sort | uniq -c
+     python3 -c "import json;q=json.load(open('factory/state/queue.json'));print([p['slug'] for p in q['produced'][-5:]])"
+     ```
+   - `identity_name` — 이 정체성의 이름 (예: `조수 측량 야장`, `젖은 유약 도자 공방`,
+     `등사기로 민 학급 문집`). "축 H 블루프린트"처럼 기존 축 이름을 그대로 쓰면 실격.
+   - `identity_lineage` — 참고한 축 id(0~2개)와 **무엇을 빌리고 무엇을 바꿨는가** 한 줄.
+     축을 하나도 참고하지 않고 새로 지었다면 그렇게 써라 — 그게 최선이다.
+   - `real_world_refs` — 이 정체성이 실제로 존재하는 **실물 레퍼런스 2개**
+     (예: "1970년대 해양 조사선 야장", "젖은 갯벌의 물 자국"). 게임·앱 이름은 여기 쓰지 마라 —
+     실물·인쇄물·공예·자연물이어야 한다. 이 둘이 팔레트와 질감의 근거가 된다.
+   - `axis_style_stanza` — 위 정체성을 **영어 이미지 프롬프트 스타일 문구로 직접 작성**한다.
+     20-art 가 이 문장을 모든 에셋 프롬프트 끝에 붙인다. 기존 축 스탠자를 그대로 복사하면
+     실격이다. 형식은 축 스탠자와 같게: 재질·색·선·그림자·금지어를 쉼표로 나열한 6~12개 구.
+
+   **자가 검사**: 이 정체성 문장을 다른 게임 기획서에 그대로 붙여도 말이 되면 실패다.
+   이번 게임의 소재가 문장 안에 박혀 있어야 한다.
 
 2. **`origin_art_notes`** — `mechanic_origin` 으로 지목한 원작이 **실제로 어떤 그림인지** 3문장.
    색·질감·타이포·피드백 중 무엇을 가져오고 무엇을 버리는지 명시해라. (상표·에셋 복제 금지 —
@@ -152,18 +184,23 @@
    메커닉만 훔치고 그림을 버리는 것이 이 공장의 최대 결함이다.
 
 3. **`anti_reference`** — 이번 게임이 **닮지 않아야 할** 우리 게시작 2개와 그 이유 한 줄씩.
-   `public/catalog.json` 에서 최근작을 확인해라. "닮지 않는다"를 색 하나가 아니라
-   **HUD 형태·배경 처리·정답 연출** 중 최소 2개 축에서 말해라.
+   **최근작 2개를 아무거나 집지 마라 — `public/catalog.json` 전체를 훑어 이번 정체성과
+   가장 닮은 후보 2작**을 골라라(같은 물성·같은 배경 처리·같은 정답 연출을 가진 것).
+   "닮지 않는다"를 색 하나가 아니라 **HUD 형태·배경 처리·정답 연출** 중 최소 2개 축에서
+   말해라. 40-review 가 같은 방식으로 "카탈로그에서 가장 닮은 작"을 찾아 대조한다.
 
-4. **`component_grammar`** — 이 게임의 HUD·부품이 어떤 물건인지 한 문장 + 축의 문법표
-   (`radius` / `border` / `shadow` / `gloss`)를 그대로 옮겨 적어라. 빌드 에이전트가 이걸
-   CSS로 번역한다. **"알약 칩(pill/chip)"은 축 A·I 이외에서 금지다.**
+4. **`component_grammar`** — 이 게임의 HUD·부품이 **어떤 물건**인지 한 문장 +
+   `radius` / `border` / `shadow` / `gloss` / `typeface_character` 를 **이 정체성에 맞게
+   직접 결정**해라. 참고한 축의 문법표를 그대로 옮겨 적으면 실격이다 — 그 축을 쓴 게임과
+   CSS가 같아진다. 빌드 에이전트가 이걸 CSS로 번역한다.
+   **"알약 칩(pill/chip)"은 그 물성이 정체성상 필연일 때만 쓰고, 이유를 한 줄로 써라.**
 
 5. **`feedback_signature`** — 정답·오답 연출을 **이 게임 고유의 사건**으로 써라.
    `파티클 버스트 + 점수 팝업 + 화면 흔들림` 3종 세트는 현재 24/24가 쓰고 있는 범용
    축하 효과다. **그대로 적으면 탈락이다.** 유리가 부풀어 터진다 / 자물쇠가 딸깍 걸린다 /
-   잉크가 번지며 판이 어긋난다 / 실이 꿰매지며 팽팽해진다 — 축의 `feedback_grammar` 를
-   이 게임의 오브젝트로 구체화해라.
+   잉크가 번지며 판이 어긋난다 / 실이 꿰매지며 팽팽해진다 — **참고 축의
+   `feedback_grammar` 를 복사하지 말고**, 이 게임이 조작하는 오브젝트가 실제로 낼 법한
+   사건 하나를 새로 지어라.
 
 ### 팔레트는 빌드에서 관철돼야 한다
 
@@ -174,11 +211,33 @@ HUD·패널·버튼이 항상 어두운 반투명으로 덮어썼기 때문이�
 
 - **`palette` 의 첫 색이 실제 화면 픽셀의 최빈색이 된다**고 생각하고 골라라.
 - 강조색을 호박·금색으로 잡지 마라 — 현재 23/24작이 호박 강조색이다.
-- 축이 배경 일러스트를 금지(B·C·E·G·H)하면 `assets_needed` 에 `bg` 를 넣지 마라.
-  그 축들은 코드가 그리는 플랫 면·격자·공허가 배경이다.
+- **`background_policy` 에서 배경 일러스트를 쓸지 말지 네가 확정해라.** 안 쓰기로 했으면
+  `assets_needed` 에 `bg` 를 넣지 마라 — 코드가 그리는 플랫 면·격자·지면·공허가 배경이다.
+  (참고: 어휘 축 B·C·E·G·H 는 배경 일러스트를 금지하는 계열이다. 현재 24/24가 회화 배경을
+  깔았으니, 특별한 이유가 없으면 배경 없는 쪽이 분화에 유리하다.)
 - 마스코트는 **선택**이다. 현재 17/24작에 같은 화풍의 AI 동물·아동 캐릭터가 상주해서
   "한 가족처럼 보인다"는 인상의 가장 직접적 원인이 됐다. 최근 게시작들이 이미 마스코트를
   쓰고 있으면 이번엔 마스코트 없이 가라.
+
+### 타이틀 화면 구성도 발명한다 (`title_composition` 필드, 2026-09-05 신설)
+
+**기존작 타이틀 템플릿(풀블리드 키 아트 → 상단 중앙 낱글자 로고 → 필형 태그라인 →
+하단 중앙 광택 CTA → 밑줄 도움말) 답습을 금지한다.** 이것이 15작 진단에서 나온
+"색과 문구만 다르고 첫 1초의 실루엣이 같다"의 정체다(`docs/title-diversity-plan.md` §1).
+2026-09-05 사용자 지적의 절반이 타이틀이었다 — 신작이 기존 템플릿을 그대로 썼다.
+
+- **불변 규칙은 그대로 지켜라** — `docs/title-screen-spec.md` 와 `title-diversity-plan.md` §2:
+  주 CTA 단 하나, 클릭 영역 44×44px 이상, 로고 대비 4.5:1, 시작 화면에 난이도·모드
+  체크리스트 금지, `prefers-reduced-motion` 대응.
+- **그 안에서 구성 자체는 이 게임 세계에서 발명해라.** 시선의 시작점, 읽는 방향,
+  로고의 물성, "시작한다"는 행위가 무엇인지를 메커닉·소재에서 끌어와라.
+- **`title-diversity-plan.md` §3의 6원형(캐릭터 포스터형·세로 족자형·대각 분할형·
+  오브젝트 조립형·세계 진입형·메커닉 타이포형)은 이제 배정표가 아니라 참고 어휘다.**
+  그중 하나를 그대로 고르는 것은 축 재사용과 같은 실수다 — 참고하되 이 게임의 사물로
+  변형·결합하거나 새로 지어라. §4의 원형별 구현 규약은 "이런 수준의 구체성으로 쓰라"는
+  본보기로 읽어라.
+- `title_composition` 에 **한 문장**으로 확정해라: 시선 시작점 / 로고 물성 / 시작 행위.
+  30-build 가 이걸 그대로 구현하고, 40-review 가 기존작과 같은 구성인지 대조한다.
 
 ## 📘 교과서 차시 진도감을 가져와라 (2026-08-30 신설 — 교과서·익힘책 전수 반영)
 
@@ -319,29 +378,32 @@ HUD·패널·버튼이 항상 어두운 반투명으로 덮어썼기 때문이�
   "tech": ["canvas2d"],
   "wow_moment": "플레이어가 '와' 하는 순간 1개를 구체적으로 (연출·카메라·파티클·사운드)",
   "art_direction": {
-    "visual_axis": "F",
-    "visual_axis_name": "인쇄·리소그래프",
-    "axis_style_stanza": "references/game-references.json 의 해당 축 image_style_stanza 를 그대로 복사 (아트 단계가 이 문장을 이미지 프롬프트에 넣는다). 신규 축을 제안했으면 직접 작성",
-    "axis_recent_check": "최근 5작의 축 목록과 이번 축이 겹치지 않음을 확인한 한 줄 (예: '최근 5작 = A,I,J,G,D → F 는 미사용')",
+    "visual_axis": "R",
+    "identity_name": "조수 측량 야장 — 이 게임에만 쓰는 고유 정체성 이름. 기존 축 이름을 그대로 쓰면 실격",
+    "identity_lineage": "참고한 어휘 축 0~2개와 무엇을 빌리고 무엇을 바꿨는가 한 줄 (예: '축 H의 인출선·치수선 문법만 빌리고, 종이 대신 젖은 갯벌 진흙판에 눌러 쓴 흔적으로 물성을 바꿨다'). 축을 안 썼으면 '신조'라고 써라",
+    "real_world_refs": ["1970년대 해양 조사선 손글씨 야장", "썰물 갯벌에 남은 물 자국"],
+    "axis_style_stanza": "이 정체성을 직접 영어 이미지 프롬프트 스타일 문구로 작성 — 재질·색·선·그림자·금지어를 쉼표로 6~12개 구. 20-art 가 모든 에셋 프롬프트 끝에 이 문장을 붙인다. 기존 축 스탠자를 그대로 복사하면 실격",
+    "originality_check": "카탈로그 전 게시작 중 이번 정체성과 가장 닮은 1작 slug + 그것과도 계열이 다른 이유 한 줄 (배경 처리·부품 물성·정답 연출 중 최소 2개가 다를 것)",
     "origin_art_notes": "mechanic_origin 원작이 실제로 어떤 그림인지 3문장 + 무엇을 가져오고 무엇을 버리는지",
     "anti_reference": [
       { "slug": "twice-cut", "why": "HUD가 알약 칩 + 회화 배경 — 이번엔 판형 괘선 + 지면 배경으로 간다" },
       { "slug": "stone-hop", "why": "정답 연출이 파티클 버스트 — 이번엔 잉크 번짐 하나로 대체" }
     ],
     "component_grammar": {
-      "hud": "이 게임의 HUD가 어떤 물건인가 한 문장 (알약 칩은 축 A·I 외 금지)",
+      "hud": "이 게임의 HUD가 어떤 물건인가 한 문장. 알약 칩은 정체성상 필연일 때만, 이유를 함께",
       "radius": "0", "border": "헤어라인", "shadow": "금지", "gloss": "금지",
-      "typeface_character": "축이 요구하는 서체 성격 (비트맵/세리프/손글씨/모노스페이스/자수 등). '시스템 산세리프'는 답이 아니다"
+      "typeface_character": "이 정체성이 요구하는 서체 성격 (비트맵/세리프/손글씨/모노스페이스/자수 등). '시스템 산세리프'는 답이 아니다"
     },
-    "background_policy": "축의 background_policy 를 이 게임에 맞춰 한 문장. 배경 일러스트를 쓸지 말지 여기서 확정한다",
+    "background_policy": "배경 일러스트를 쓸지 말지 여기서 확정한다 + 안 쓰면 코드가 무엇을 그리는가 한 문장",
     "feedback_signature": "정답/오답 연출을 이 게임 고유의 사건으로. '파티클+점수팝업+화면흔들림'이면 탈락",
+    "title_composition": "타이틀 화면의 구성을 이 게임 세계에 맞게 발명한 한 문장 (시선 시작점·로고 물성·시작 행위). '중앙 로고+태그라인+하단 CTA'면 실격 — 규격은 docs/title-screen-spec.md 불변 규칙만 지킨다",
     "mood": "예: 채도 높은 대낮 놀이공원 — 아래 팔레트 규칙을 반드시 읽어라, 이 예시 색을 그대로 쓰지 마라",
     "palette": ["#fff4e0", "#ff6b35", "#2ec4b6"],
-    "visual_reference": "references/game-references.json 의 visual_refs 하나 + 어떤 **기법**을 가져오는지 한 문장 (예: 'Three.js Points Waves — 배경에 떠다니는 파티클 웨이브를 정답 판정 게이지로 재활용'). 이건 기법이지 화풍이 아니다 — 화풍은 visual_axis 가 정한다",
+    "visual_reference": "references/game-references.json 의 visual_refs 하나 + 어떤 **기법**을 가져오는지 한 문장 (예: 'Three.js Points Waves — 배경에 떠다니는 파티클 웨이브를 정답 판정 게이지로 재활용'). 이건 기법이지 화풍이 아니다 — 화풍은 이번 게임 고유 정체성이 정한다",
     "juice_techniques": ["이번 게임에서 실제로 쓸 game-feel 기법을 30-build.md의 목록에서 최소 6개 골라 적어라 (예: hit-stop, squash-stretch, screen-shake-tiered, particle-burst-scaled, color-flash, ambient-idle-motion, trail, anticipation-easing, sound-visual-sync)"],
     "assets_needed": [
       { "id": "hero", "prompt": "영어 이미지 생성 프롬프트 — 구도·피사체만 쓴다. 화풍 문구는 아트 단계가 axis_style_stanza 로 붙이니 여기에 중복해서 쓰지 마라", "size": "1024x1024", "transparent_bg": true },
-      { "id": "bg", "prompt": "축 B·C·E·G·H 를 골랐으면 이 bg 항목 자체를 삭제해라 — 배경은 코드가 그린다", "size": "1536x1024", "transparent_bg": false },
+      { "id": "bg", "prompt": "background_policy 가 배경 일러스트를 안 쓰기로 했으면 이 bg 항목 자체를 삭제해라 — 배경은 코드가 그린다", "size": "1536x1024", "transparent_bg": false },
       { "id": "thumb", "prompt": "1200x630 카드용 히어로 이미지 프롬프트", "size": "1536x1024", "transparent_bg": false }
     ]
   },

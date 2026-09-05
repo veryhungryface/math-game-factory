@@ -127,11 +127,19 @@ window.__GAME_TEST__ = {
 > 색 값 3개만 다르고 나머지 선언이 문자 그대로 같은 게임이 23작이다
 > (2026-08-29 전수 감사 — `docs/design-diversity-plan.md`). **그 지시는 폐기됐다.**
 
-**"게임 UI답게"의 정의는 하나가 아니다.** `chosen.json` 의 `art_direction.visual_axis` 와
-`art_direction.component_grammar` 를 읽고 그 문법으로 CSS를 써라. 축 정의 원본은
-`references/game-references.json` → `art_directions.axes[].component_grammar` 다.
+**"게임 UI답게"의 정의는 하나가 아니다.** `chosen.json` 의 `art_direction` 에서
+`identity_name` / `component_grammar` / `background_policy` / `feedback_signature` /
+`title_composition` 을 읽고 **그 문법 그대로** CSS를 써라. 기획서가 이 게임을 위해
+결정한 값이 유일한 근거다.
 
-| 축 | HUD 형태 | radius | 테두리 | 그림자 | 광택 |
+> **⚠️ 2026-09-05 — 아래 표는 참고 어휘지 정답표가 아니다.**
+> `references/game-references.json` 의 축 10종은 `status: "vocabulary"` 로 강등됐다
+> (기존 축 재사용이 「가족 단위 닮음」을 만들었다 — `docs/loop-engineering.md` §7.8).
+> **기획서 `component_grammar` 와 이 표가 다르면 기획서를 따라라.** 이 표는 기획서 값이
+> 비었을 때의 참고이자, "이 수준의 구체성으로 CSS를 결정하라"는 본보기다.
+> 다른 게임의 `.pill`/`.chip` CSS를 복사해 오는 것은 어떤 경우에도 금지다.
+
+| (참고) 축 | HUD 형태 | radius | 테두리 | 그림자 | 광택 |
 |---|---|---|---|---|---|
 | **A** 종이공작 | 판지 탭·펀치아웃 토큰 | 2~6px | 종이 절단면 | 오프셋 2~4px | **금지** |
 | **B** 플랫벡터 | 괘선 한 줄, 또는 HUD 없음 | 0 또는 999px | 3px 단색 | **금지** | **금지** |
@@ -283,15 +291,15 @@ window.__GAME_TEST__ = {
 (예: 맞는 위치에 조준하면 조준선이 초록 + '지금이야!' 라벨).
 
 그 외 기본 체크리스트:
-- [ ] **배경이 `art_direction` 의 `visual_axis`·`background_policy` 와 일치하고, 그 위의
+- [ ] **배경이 `art_direction.background_policy` 와 일치하고, 그 위의
       플레이 요소가 또렷하게 읽힌다.**
-      - 축 **B·C·E·G·H** 에서 회화풍 배경 일러스트를 깔았으면 **실격**이다 —
-        이 축들의 배경은 코드가 그리는 흰 캔버스·검은 공허·픽셀 타일·칠판면·도면지다.
+      - `background_policy` 가 "배경 일러스트 없음"인데 회화풍 배경을 깔았으면 **실격**이다 —
+        그때의 배경은 코드가 그리는 흰 캔버스·검은 공허·픽셀 타일·칠판면·도면지 같은 면이다.
         (단색이어도 된다. "배경이 단색이면 안 된다"는 옛 체크는 폐기됐다 —
         그 조항이 미니멀 배경을 24작에서 금지시켰다.)
-      - 축 **A·D·F·I·J** 에서 배경이 축의 물성(탁상 매트·무지 배경지·지면·천) 없이
-        밋밋하면 감점이다.
-      - 어느 축이든 배경 위에 **어두운 반투명 패널을 덮어 팔레트를 지우지 마라** —
+      - 반대로 배경을 두기로 했는데 그 물성(탁상 매트·무지 배경지·지면·천·갯벌 등
+        `identity_name` 이 약속한 것)이 안 보이고 밋밋하면 감점이다.
+      - 어떤 정체성이든 배경 위에 **어두운 반투명 패널을 덮어 팔레트를 지우지 마라** —
         기획서의 밝은 `palette[0]` 이 실제 화면 최빈색이 되지 못한 사고가 반복됐다.
 - [ ] 색 대비가 강하고 팔레트가 3~5색으로 통제되어 있다
 - [ ] 폰트 크기 위계가 뚜렷하다. 숫자는 굵고 크게
@@ -317,14 +325,17 @@ window.__GAME_TEST__ = {
 - `standards` 는 `curriculum/2022-elementary-math.json` 에 **실재하는 코드**만. 없는 코드를 쓰면 QA 자동 탈락.
 - `unit.id` 도 교육과정 파일에 실재해야 한다.
 - `qa` 필드는 `{"score":0,"gate":80,"passed":false,"reviewed_at":"","notes":[]}` 로 초기화해 둔다.
-- **`art_direction` 요약을 반드시 남겨라** — 다음 회차 기획자가 "직전 5작이 어떤 축을 썼는지"를
-  이 필드로 조회한다 (`docs/design-diversity-plan.md`). 없으면 축 중복 금지가 작동하지 않는다:
+- **`art_direction` 요약을 반드시 남겨라** — 다음 회차 기획자와 검수관이 "카탈로그의 어느
+  게시작과 같은 계열인가"를 이 필드로 대조한다. 없으면 독창성 게이트(15-judge D7 /
+  40-review `most_similar`)가 작동하지 않는다:
   ```json
   "art_direction": {
-    "visual_axis": "F",
-    "visual_axis_name": "인쇄·리소그래프",
-    "background_policy": "지면·괘선이 배경. 회화 배경 없음",
-    "feedback_signature": "자를 때 잉크가 번지고 판이 3px 어긋난다"
+    "visual_axis": "R",
+    "identity_name": "조수 측량 야장",
+    "identity_lineage": "축 H의 인출선·치수선 문법만 빌리고 물성을 젖은 갯벌 진흙판으로 바꿨다",
+    "background_policy": "갯벌 면·괘선이 배경. 회화 배경 없음",
+    "feedback_signature": "맞으면 물이 스며들며 눈금이 선명해지고, 틀리면 자국이 뭉개진다",
+    "title_composition": "야장 표지를 넘기는 동작이 곧 시작 — 로고는 표지에 눌러 쓴 압인"
   }
   ```
 

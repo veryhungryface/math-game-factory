@@ -27,6 +27,39 @@
 | **D4 이빨 없는 실패** | `fail_teeth` 가 비어 있거나 "게임오버 없음 / 항상 클리어"인가? |
 | **D5 곡선 없음** | `tension_curve` 가 "레벨 숫자가 오른다" 수준인가? 30초·90초·3분에 뭐가 달라지는지 구체적이지 않으면 해당 |
 | **D6 90분 초과 과욕** | 핵심 루프가 한 파일 HTML 90분 안에 안 끝나는 규모인가? (18단계 곡선, 물리 엔진, 다중 모드 등) |
+| **D7 기존 디자인 계열 답습** | `art_direction` 이 기존 게시작과 같은 디자인 계열인가? (아래 절차) |
+
+### D7 판정 절차 (2026-09-05 신설 — 사용자 지적 "심각한 문제, 독창적인 것을 원한다")
+
+기존 규칙(축 10종 중 하나 고르기 + 직전 5작 중복 금지)이 **가족 단위 닮음을 제도화**했다.
+같은 축을 재사용한 신작이 기존작과 형제처럼 보였다(`docs/loop-engineering.md` §7.8 재발).
+이제 축은 **고를 메뉴가 아니라 참고 어휘 사전**이고, 매 게임 고유 정체성을 발명해야 한다.
+
+각 컨셉의 `art_direction` 을 읽고 아래 중 **하나라도** 해당하면 **D7 실격**:
+
+1. `identity_name` / `identity_lineage` / `real_world_refs` 중 **하나라도 비어 있다.**
+2. `axis_style_stanza` 가 `references/game-references.json` 의 어휘 축 `image_style_stanza`
+   와 **문자 그대로 같다** (= 기존 축 그대로 재사용). 참고는 되지만 복사는 안 된다.
+   ```bash
+   python3 -c "
+   import json;d=json.load(open('references/game-references.json'))
+   print([ (a['id'],a['image_style_stanza']) for a in d['art_directions']['axes'] ])"
+   ```
+3. `identity_name` 이 기존 축 이름(종이공작·플랫 벡터 교구·네온 아케이드·클레이·레트로 픽셀·
+   인쇄 리소그래프·칠판·블루프린트·펠트·스테인드글라스 등)을 그대로 쓴다.
+4. **카탈로그 전 게시작 중 어느 하나와 같은 디자인 계열**이다 — ①배경 처리 ②부품 물성
+   ③정답 연출의 물리적 사건 중 **2개 이상이 같으면 같은 계열**이다.
+   ```bash
+   grep -h '"visual_axis"\|"identity_name"' public/g/*/meta.json | sort | uniq -c
+   ```
+   `originality_check` 필드에 적힌 "가장 닮은 1작"의 근거를 **믿지 말고 직접 확인**해라.
+5. `title_composition` 이 비어 있거나, 기존 템플릿(풀블리드 키 아트 → 상단 중앙 낱글자 로고
+   → 필형 태그라인 → 하단 중앙 광택 CTA)을 그대로 서술한다.
+
+3안 전부 D7 실격이면(다른 실격 사유가 없다면) 승자 컨셉의 `art_direction` 을 **네가 직접
+고쳐라** — `identity_name`·`identity_lineage`·`real_world_refs`·`axis_style_stanza`·
+`title_composition` 을 이 게임의 소재에서 새로 지어 채우고, `_judge.design_mandate` 에
+무엇을 어떻게 바꿨는지 적어라.
 
 **판정 규칙**
 
@@ -35,15 +68,19 @@
 3. **3안 전부 실격이면** 그중 최고점 안을 고르되, `chosen.json` 에 `fun_mandate` 를 추가해
    **해당 실격 사유를 없애는 구체적 수정 지시**를 적고, **승자 컨셉의 필드(`core_loop`,
    `fun_contract`, `fail_state`, `controls`)를 실제로 고쳐라.** 지시만 적고 필드를 안 고치면 무의미하다.
+   **D7 은 예외 없다** — 디자인 계열 답습은 D1~D6 과 달리 컨셉을 죽이지 않고도 고칠 수 있으니,
+   D7 이 걸린 안이 승자가 되면 `art_direction` 을 직접 다시 써서 반드시 해소해라(`design_mandate`).
 
 ```json
 "_judge": {
   "fun_gate": [
     { "n": 1, "disqualified": ["D3"], "evidence": "answer_action 이 '하단 4개 카드 중 고르기'" },
-    { "n": 2, "disqualified": [], "evidence": "붓는 양 자체가 답, 무뇌 성공률 12% 근거 있음" }
+    { "n": 2, "disqualified": ["D7"], "evidence": "axis_style_stanza 가 축 H 스탠자와 문자 그대로 동일 — tide-checkpoint 와 같은 계열" },
+    { "n": 3, "disqualified": [], "evidence": "붓는 양 자체가 답, 무뇌 성공률 12% 근거 있음. 정체성 '조수 측량 야장' 신조, 가장 닮은 tide-checkpoint 와 배경·연출 2축이 다름" }
   ],
   "predicted_fun": 16,
-  "fun_mandate": ["3안 전부 실격일 때만 — 무엇을 어떻게 바꿔 반영했는지"]
+  "fun_mandate": ["3안 전부 실격일 때만 — 무엇을 어떻게 바꿔 반영했는지"],
+  "design_mandate": ["3안 전부 D7 실격일 때만 — art_direction 을 어떻게 새로 지어 채웠는지"]
 }
 ```
 
@@ -64,6 +101,7 @@
     "fun_gate": [{ "n": 1, "disqualified": [], "evidence": "" }],
     "predicted_fun": 16,
     "fun_mandate": [],
+    "design_mandate": [],
     "improvements": ["진 컨셉들에서 가져올 좋은 아이디어 1~3개 — 이건 승자 컨셉에 실제로 반영해서 필드를 수정해라"]
   }
 }
