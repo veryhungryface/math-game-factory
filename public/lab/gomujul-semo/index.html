@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>고무줄 세모 가게</title>
+<style>
+  :root{
+    --paper:#f7efe0; --ink:#4a2f16; --ink2:#7a5a38;
+    --red:#e2493b; --red-d:#b93327;
+    --acute:#2f7fd1; --right:#1f9e6d; --obtuse:#e0662f;
+    --card:#fffdf7;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #fdf6e6 0%, var(--paper) 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    user-select:none;-webkit-user-select:none;
+    touch-action:manipulation;
+    word-break:keep-all;overflow-wrap:break-word;
+  }
+  #app{display:flex;flex-direction:column;height:100dvh;max-width:560px;margin:0 auto;position:relative}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:center;gap:8px;
+    padding:calc(env(safe-area-inset-top) + 8px) 14px 6px;
+    flex:0 0 auto;
+  }
+  #sign{
+    font-weight:800;font-size:17px;letter-spacing:-.5px;
+    background:linear-gradient(#8a5a2b,#6f4520);color:#ffe9c4;
+    padding:6px 12px;border-radius:10px;box-shadow:0 3px 0 #57351653;
+    white-space:nowrap;
+  }
+  #progress{font-weight:700;color:var(--ink2);font-size:14px;margin-left:auto;white-space:nowrap}
+  #coinBox{font-weight:800;font-size:15px;background:var(--card);border:2px solid #e8d9b8;
+    border-radius:99px;padding:4px 10px;white-space:nowrap}
+  #muteBtn{
+    width:40px;height:40px;border:2px solid #e8d9b8;border-radius:12px;background:var(--card);
+    font-size:18px;cursor:pointer;flex:0 0 auto;
+  }
+
+  /* ---------- customer ---------- */
+  #stage{flex:0 0 auto;display:flex;align-items:flex-start;gap:10px;padding:6px 14px 0;min-height:118px}
+  #blobWrap{flex:0 0 92px;height:110px;position:relative}
+  .blob{
+    position:absolute;left:4px;top:26px;width:84px;height:78px;
+    border-radius:48% 52% 55% 45% / 55% 48% 52% 45%;
+    box-shadow:inset -6px -8px 0 rgba(0,0,0,.10), 0 4px 8px rgba(90,60,20,.18);
+    animation:bounceIn .5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  .blob::before,.blob::after{ /* eyes */
+    content:"";position:absolute;top:26px;width:16px;height:18px;border-radius:50%;
+    background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);
+  }
+  .blob::before{left:18px}.blob::after{right:18px}
+  .blob .pupils::before,.blob .pupils::after{
+    content:"";position:absolute;top:33px;width:7px;height:8px;border-radius:50%;background:#2b1a0c;
+  }
+  .blob .pupils::before{left:23px}.blob .pupils::after{right:22px}
+  .blob .mouth{
+    position:absolute;left:50%;top:50px;width:18px;height:9px;transform:translateX(-50%);
+    border:3px solid #2b1a0c;border-top:none;border-radius:0 0 18px 18px;background:transparent;
+  }
+  .blob.sad .mouth{border-bottom:none;border-top:3px solid #2b1a0c;border-radius:18px 18px 0 0;height:8px;top:54px}
+  .blob.happy{animation:hop .5s ease 2}
+  .blob.sad{animation:shake .4s ease 1}
+  @keyframes bounceIn{0%{transform:translateX(120px) scale(.4);opacity:0}100%{transform:none;opacity:1}}
+  @keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-14px) scale(1.04,0.96)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  .hearts{position:absolute;left:36px;top:-4px;font-size:18px;animation:floatUp 1.2s ease-out both;pointer-events:none}
+  @keyframes floatUp{0%{transform:translateY(10px);opacity:0}25%{opacity:1}100%{transform:translateY(-26px);opacity:0}}
+
+  #bubble{
+    flex:1;background:var(--card);border:2px solid #e8d9b8;border-radius:16px;
+    padding:12px 14px;font-size:16.5px;line-height:1.45;font-weight:600;position:relative;
+    min-height:74px;box-shadow:0 3px 8px rgba(90,60,20,.10);
+    display:flex;align-items:center;
+  }
+  #bubble::before{
+    content:"";position:absolute;left:-11px;top:38px;border:8px solid transparent;
+    border-right:12px solid #e8d9b8;
+  }
+  #bubble::after{
+    content:"";position:absolute;left:-7px;top:40px;border:6px solid transparent;
+    border-right:10px solid var(--card);
+  }
+  #bubble b{color:var(--red-d)}
+  #bubble .nm{display:block;font-size:12.5px;color:var(--ink2);font-weight:700;margin-bottom:3px}
+
+  /* ---------- board ---------- */
+  #boardWrap{flex:1 1 auto;position:relative;min-height:0}
+  #board{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+
+  #toast{
+    position:absolute;left:50%;top:8px;transform:translateX(-50%) translateY(-8px);
+    width:min(92%,480px);background:#463019f2;color:#ffefd2;border-radius:14px;
+    padding:11px 14px;font-size:15px;line-height:1.5;font-weight:600;
+    opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:5;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast b{color:#ffd75e}
+
+  /* ---------- footer ---------- */
+  footer{flex:0 0 auto;padding:8px 14px calc(env(safe-area-inset-bottom) + 14px);display:flex;justify-content:center}
+  #serveBtn{
+    min-width:220px;padding:15px 34px;border:none;border-radius:99px;cursor:pointer;
+    font-family:inherit;font-size:20px;font-weight:800;letter-spacing:1px;color:#fff;
+    background:linear-gradient(#f0604f,var(--red) 55%,#cf3a2c);
+    box-shadow:0 5px 0 var(--red-d), 0 8px 16px rgba(190,60,40,.30);
+    transition:transform .08s, box-shadow .08s;
+    touch-action:manipulation;
+  }
+  #serveBtn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--red-d)}
+  #serveBtn:disabled{opacity:.45;transform:none}
+
+  /* ---------- overlays ---------- */
+  .overlay{
+    position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:24px;
+    background:
+      radial-gradient(900px 500px at 50% 0%, #fdf6e6 0%, var(--paper) 65%),
+      var(--paper);
+  }
+  .overlay[hidden]{display:none}
+  .logoTri{width:120px;height:120px;margin-bottom:10px}
+  h1{font-size:34px;letter-spacing:-1px;margin:4px 0 10px}
+  .sub{font-size:16px;line-height:1.65;color:var(--ink2);font-weight:600;max-width:330px}
+  .bigBtn{
+    margin-top:26px;min-width:210px;padding:16px 36px;border:none;border-radius:99px;cursor:pointer;
+    font-family:inherit;font-size:21px;font-weight:800;color:#fff;letter-spacing:1px;
+    background:linear-gradient(#f0604f,var(--red) 55%,#cf3a2c);
+    box-shadow:0 5px 0 var(--red-d), 0 10px 18px rgba(190,60,40,.28);
+  }
+  .bigBtn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--red-d)}
+  #endStats{font-size:19px;font-weight:800;margin:12px 0 4px}
+  .facts{
+    margin-top:16px;text-align:left;background:var(--card);border:2px solid #e8d9b8;
+    border-radius:16px;padding:14px 18px;font-size:14.5px;line-height:1.7;font-weight:600;
+    color:var(--ink);max-width:340px;
+  }
+  .facts b{color:var(--red-d)}
+  .facts li{margin:4px 0 4px 18px}
+  @media (max-height:700px){
+    .logoTri{width:84px;height:84px} h1{font-size:28px}
+    #stage{min-height:104px} .facts{font-size:13.5px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div id="sign">고무줄 세모 가게</div>
+    <div id="coinBox">🪙 <span id="coins">0</span></div>
+    <div id="progress">손님 1/12</div>
+    <button id="muteBtn" aria-label="소리 켜기/끄기">🔊</button>
+  </header>
+
+  <div id="stage">
+    <div id="blobWrap"></div>
+    <div id="bubble"><span id="bubbleText">…</span></div>
+  </div>
+
+  <div id="boardWrap">
+    <canvas id="board"></canvas>
+    <div id="toast"></div>
+  </div>
+
+  <footer><button id="serveBtn">이걸로 완성!</button></footer>
+
+  <!-- ---------- intro ---------- -->
+  <div class="overlay" id="intro">
+    <svg class="logoTri" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="52" fill="#d9a35f" stroke="#8a5a2b" stroke-width="5"/>
+      <g fill="#f5d9a8" stroke="#8a5a2b" stroke-width="1.5">
+        <circle cx="60" cy="14" r="4"/><circle cx="83" cy="20.2" r="4"/><circle cx="99.8" cy="37" r="4"/>
+        <circle cx="106" cy="60" r="4"/><circle cx="99.8" cy="83" r="4"/><circle cx="83" cy="99.8" r="4"/>
+        <circle cx="60" cy="106" r="4"/><circle cx="37" cy="99.8" r="4"/><circle cx="20.2" cy="83" r="4"/>
+        <circle cx="14" cy="60" r="4"/><circle cx="20.2" cy="37" r="4"/><circle cx="37" cy="20.2" r="4"/>
+      </g>
+      <path d="M60 14 L99.8 83 L20.2 83 Z" fill="none" stroke="#e2493b" stroke-width="6"
+            stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="60" cy="14" r="7" fill="#5b3a1d"/><circle cx="99.8" cy="83" r="7" fill="#5b3a1d"/>
+      <circle cx="20.2" cy="83" r="7" fill="#5b3a1d"/>
+    </svg>
+    <h1>고무줄 세모 가게</h1>
+    <p class="sub">둥근 못판 위에서 <b>고무줄을 쭉쭉 당겨</b><br>
+      손님이 원하는 삼각형을 만들어 주자!<br><br>
+      꼭짓점을 <b>손가락으로 끌면</b> 움직여.<br>
+      고무줄을 <b>톡 튕기면</b> 소리도 난다?</p>
+    <button class="bigBtn" id="startBtn">가게 열기</button>
+  </div>
+
+  <!-- ---------- ending ---------- -->
+  <div class="overlay" id="ending" hidden>
+    <div style="font-size:56px">🎉</div>
+    <h1>오늘 영업 끝!</h1>
+    <div id="endStats"></div>
+    <div id="endMsg" class="sub"></div>
+    <div class="facts">
+      오늘 가게에서 배운 것<br>
+      <li><b>정삼각형</b>은 세 변이 같으니 두 변도 같아 → <b>이등변삼각형</b>이기도 해!</li>
+      <li><b>예각삼각형</b>은 세 각이 <b>모두</b> 예각이어야 해.</li>
+      <li><b>직각·둔각삼각형</b>은 그런 각이 <b>하나</b>만 있으면 돼.</li>
+    </div>
+    <button class="bigBtn" id="restartBtn">다시 열기</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   고무줄 세모 가게 — 원형 지오보드(12못) 삼각형 공방
+   판정은 100% 정수 arc 연산: 못 12개, 호 a의 원주각 = 15a°,
+   호가 같으면 현(변)이 같다. a+b+c=12, a,b,c>=1 이므로 역例 없음.
+   ===================================================================== */
+
+/* ---------------- 정수 기하 코어 ---------------- */
+const N = 12, DEG = 15;               // 못 개수, 호 1칸의 원주각
+
+function classify(pegs){              // pegs: 서로 다른 못 번호 3개
+  const s = [...pegs].sort((a,b)=>a-b);
+  const arcs = [s[1]-s[0], s[2]-s[1], N-s[2]+s[0]];   // s0→s1, s1→s2, s2→s0
+  // 꼭짓점 s[i]의 각 = 자신을 지나지 않는 호의 원주각
+  const angleAt = new Map();
+  angleAt.set(s[0], arcs[1]*DEG);
+  angleAt.set(s[1], arcs[2]*DEG);
+  angleAt.set(s[2], arcs[0]*DEG);
+  const angles = [angleAt.get(s[0]), angleAt.get(s[1]), angleAt.get(s[2])];
+  const mx = Math.max(...angles);
+  const angleType = mx > 90 ? 'obtuse' : (mx === 90 ? 'right' : 'acute');
+  // 변 s0s1의 현 길이는 arcs[0]이 결정 (호가 같아야만 현이 같음)
+  const gapOf = new Map();            // "i-j" -> arc gap
+  gapOf.set(key(s[0],s[1]), arcs[0]);
+  gapOf.set(key(s[1],s[2]), arcs[1]);
+  gapOf.set(key(s[2],s[0]), arcs[2]);
+  const uniq = new Set(arcs).size;
+  const sideKind = uniq === 1 ? 'equi' : (uniq === 2 ? 'iso2' : 'sca');
+  return { sorted:s, arcs, angles, angleAt, gapOf,
+           angleType, sideKind,
+           isIso: sideKind !== 'sca', isEqui: sideKind === 'equi' };
+}
+function key(a,b){ return a<b ? a+'-'+b : b+'-'+a; }
+
+function korName(c){
+  const a = c.angleType==='acute' ? '예각' : c.angleType==='right' ? '직각' : '둔각';
+  if (c.isEqui) return '정삼각형';
+  const s = c.isIso ? '이등변삼각형' : '삼각형';
+  return a + s;
+}
+
+/* ---------------- 주문(손님) 정의 ---------------- */
+/* pred: 정수 분류로만 판정. why: 실패 이유(아이 말). hl: 강조할 각도값 */
+const hasDeg = (c,d)=>c.angles.includes(d);
+const listDeg = c=>c.angles.slice().sort((a,b)=>a-b).join('°, ')+'°';
+const maxDeg  = c=>Math.max(...c.angles);
+
+function whyAngle(want,c){
+  const mx = maxDeg(c);
+  if (want==='acute'){
+    if (c.angleType==='right')
+      return {msg:'여기 <b>90°</b>인 직각이 있어! 예각삼각형은 세 각이 <b>모두</b> 90°보다 작아야 해.', hl:90};
+    return {msg:`이 각은 <b>${mx}°</b> — 90°보다 큰 둔각이야. 예각이 몇 개 있어도, 세 각이 <b>모두</b> 예각이어야 예각삼각형이야!`, hl:mx};
+  }
+  if (want==='right'){
+    if (c.angleType==='acute')
+      return {msg:`지금 세 각(${listDeg(c)})은 모두 90°보다 작아. 딱 <b>90°</b>인 각이 하나 필요해!`};
+    return {msg:`이 각은 <b>${mx}°</b> — 90°를 넘어 버렸어. 딱 90°에 맞춰 봐!`, hl:mx};
+  }
+  // obtuse
+  if (c.angleType==='right')
+    return {msg:'<b>90°</b>는 둔각이 아니야! 둔각은 90°보다 <b>더 커야</b> 해. 조금만 더 벌려 봐.', hl:90};
+  return {msg:`지금 세 각(${listDeg(c)})은 모두 90°보다 작아. 90°보다 <b>큰</b> 각을 하나 만들어 봐!`};
+}
+function whySide(want,c){
+  if (want==='iso')
+    return {msg:'세 변의 길이가 모두 달라(같은 길이 눈금 표시가 하나도 없지?). 길이가 <b>같은 두 변</b>을 만들어 줘!', side:true};
+  if (want==='equi'){
+    if (c.sideKind==='iso2')
+      return {msg:'두 변만 같아. 정삼각형은 <b>세 변이 모두</b> 같아야 해! 세 각이 전부 60°가 되면 성공이야.', side:true};
+    return {msg:'변의 길이가 서로 달라. 정삼각형은 <b>세 변이 모두</b> 같아야 해!', side:true};
+  }
+  // sca
+  return {msg:'길이가 <b>같은 변</b>이 있어 — 같은 눈금 표시(⌇)가 붙은 변을 봐! 세 변이 <b>모두 다르게</b> 만들어 줘.', side:true};
+}
+
+const CUSTOMERS = [
+  { name:'반듯이', hue:16,
+    order:'각 하나가 반듯하게 꺾인 <b>직각삼각형</b> 주세요!',
+    pred:c=>c.angleType==='right',
+    why:c=>whyAngle('right',c),
+    praise:c=>'딱 90°! 반듯해서 마음에 들어~' },
+  { name:'뾰족이', hue:205,
+    order:'세 각이 전부 뾰족한 <b>예각삼각형</b>이 필요해!',
+    pred:c=>c.angleType==='acute',
+    why:c=>whyAngle('acute',c),
+    praise:c=>c.isEqui
+      ? '세 각이 모두 60°네! <b>정삼각형은 예각삼각형이기도 해.</b> 완벽해!'
+      : `${listDeg(c)} — 셋 다 90°보다 작아. 완벽한 예각삼각형!` },
+  { name:'느긋이', hue:265,
+    order:'한 각이 <b>느~긋하게 벌어진</b> 둔각삼각형 주세요.',
+    pred:c=>c.angleType==='obtuse',
+    why:c=>whyAngle('obtuse',c),
+    praise:c=>`${maxDeg(c)}°라니, 아주 느긋한 각이야. 둔각은 <b>하나면 충분</b>하지!` },
+  { name:'쌍둥이', hue:145,
+    order:'길이가 <b>같은 두 변</b>이 있는 이등변삼각형 주세요!',
+    pred:c=>c.isIso,
+    why:c=>whySide('iso',c),
+    praise:c=>c.isEqui
+      ? '우와, 정삼각형이잖아! 세 변이 같으면 두 변도 당연히 같지 — <b>정삼각형도 이등변삼각형이야!</b> 보너스 줄게 🪙'
+      : '두 변이 쌍둥이처럼 똑같아! 고마워~',
+    bonus:c=>c.isEqui ? 1 : 0 },
+  { name:'똑같이', hue:45,
+    order:'<b>세 변이 모두 똑같은</b> 정삼각형으로 부탁해!',
+    pred:c=>c.isEqui,
+    why:c=>whySide('equi',c),
+    praise:c=>'세 변도, 세 각(60°)도 모두 똑같아. 완벽한 정삼각형!' },
+  { name:'제각각', hue:330,
+    order:'난 똑같은 게 싫어. <b>세 변의 길이가 모두 다른</b> 삼각형!',
+    pred:c=>!c.isIso,
+    why:c=>whySide('sca',c),
+    praise:c=>'세 변이 다 달라서 제각각 멋져!' },
+  { name:'105°박사', hue:190,
+    order:'정확히 <b>105°인 각</b>이 들어간 삼각형을 찾고 있어.',
+    pred:c=>hasDeg(c,105),
+    why:c=>({msg:`지금 각은 ${listDeg(c)} — <b>105°</b>가 없네! 105는 90보다 크니까 둔각이야. 힌트: 못 <b>7칸짜리 호</b>를 마주 보는 꼭짓점!`}),
+    praise:c=>'105° 발견! 90°보다 크니까 이건 둔각삼각형이기도 하지. 역시 박사!' },
+  { name:'콕콕이', hue:95,
+    order:'<b>이등변</b>이면서 <b>예각삼각형</b>인 걸로 주세요!',
+    pred:c=>c.isIso && c.angleType==='acute',
+    why:c=>{
+      if (c.angleType!=='acute') return whyAngle('acute',c);
+      return whySide('iso',c);
+    },
+    praise:c=>c.isEqui
+      ? '정삼각형! 이등변이면서 세 각이 다 60°(예각) — 두 조건을 한 번에!'
+      : '두 변이 같고 세 각이 모두 예각. 두 가지 조건을 다 맞췄어!' },
+  { name:'반듯쌍', hue:15,
+    order:'<b>직각</b>도 있고 <b>같은 두 변</b>도 있는, 직각이등변삼각형!',
+    pred:c=>c.isIso && c.angleType==='right',
+    why:c=>{
+      if (c.angleType!=='right') return whyAngle('right',c);
+      return whySide('iso',c);
+    },
+    praise:c=>'90° 하나 + 쌍둥이 변 = 직각이등변삼각형. 45°, 45°, 90°가 됐지?' },
+  { name:'느긋쌍', hue:280,
+    order:'<b>둔각</b>이 있는 <b>이등변삼각형</b>은 없나요?',
+    pred:c=>c.isIso && c.angleType==='obtuse',
+    why:c=>{
+      if (c.angleType!=='obtuse') return whyAngle('obtuse',c);
+      return whySide('iso',c);
+    },
+    praise:c=>'둔각 하나에 쌍둥이 변까지. 느긋하고 반듯한 명작이야!' },
+  { name:'각도요정', hue:225,
+    order:'세 각이 <b>45°, 60°, 75°</b>인 삼각형을 만들 수 있어?',
+    pred:c=>{const a=c.angles.slice().sort((x,y)=>x-y);return a[0]===45&&a[1]===60&&a[2]===75;},
+    why:c=>({msg:`지금은 ${listDeg(c)}야. <b>45°, 60°, 75°</b>가 되게 바꿔 보자! 힌트: 호 3칸·4칸·5칸.`}),
+    praise:c=>'45+60+75=180! 세 각이 모두 예각이고 세 변은 다 다른, 귀한 삼각형이야.' },
+  { name:'육공공', hue:55,
+    order:'마지막 주문! 세 각이 <b>모두 60°</b>인 삼각형!',
+    pred:c=>c.angles.every(a=>a===60),
+    why:c=>({msg:`지금은 ${listDeg(c)}. 세 각이 <b>전부 60°</b>가 되려면… 세 변이 모두 같아야 해!`}),
+    praise:c=>'세 각이 모두 60°면 언제나 <b>정삼각형</b>! 각이 같으면 변도 같아지지. 오늘 최고의 작품이야!' },
+];
+
+/* ---------------- 상태 ---------------- */
+const S = {
+  phase:'intro',            // intro | playing | judging | done
+  pegs:[0,4,8],             // 각 꼭짓점의 목표 못 (초기: 정삼각형)
+  orderIdx:0,
+  coins:0, perfect:0, fails:0,
+  muted:false,
+  hlDeg:0, hlUntil:0, hlSide:false,
+  dragging:-1,
+};
+try{ S.muted = localStorage.getItem('gomujul-muted')==='1'; }catch(e){}
+
+/* ---------------- DOM ---------------- */
+const $ = id=>document.getElementById(id);
+const canvas=$('board'), ctx=canvas.getContext('2d');
+const bubbleText=$('bubbleText'), blobWrap=$('blobWrap'), toast=$('toast');
+const serveBtn=$('serveBtn'), muteBtn=$('muteBtn');
+
+/* ---------------- 오디오 (사용자 제스처 후에만) ---------------- */
+let AC=null;
+function audioInit(){
+  if (AC) return;
+  const C = window.AudioContext||window.webkitAudioContext;
+  if (C) { try{ AC = new C(); }catch(e){ AC=null; } }
+}
+function tone(freq,dur,type,vol,delay,slide){
+  if (!AC || S.muted) return;
+  try{
+    const t0 = AC.currentTime + (delay||0);
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type||'sine'; o.frequency.setValueAtTime(freq,t0);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0+dur);
+    g.gain.setValueAtTime(vol||0.12, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g).connect(AC.destination);
+    o.start(t0); o.stop(t0+dur+0.02);
+  }catch(e){}
+}
+const sndPluck = gap=>{ const f = 460 - 300*Math.sin(gap*Math.PI/12); tone(f,.35,'triangle',.16); tone(f*2,.12,'sine',.05); };
+const sndSnap  = ()=>tone(620,.07,'sine',.08);
+const sndGood  = ()=>{ tone(523,.14,'sine',.13); tone(659,.14,'sine',.13,.09); tone(784,.22,'sine',.13,.18); };
+const sndCoin  = ()=>{ tone(988,.08,'square',.05,.0); tone(1319,.16,'square',.05,.07); };
+const sndBad   = ()=>tone(230,.32,'sawtooth',.06,0,150);
+
+muteBtn.addEventListener('click',()=>{
+  S.muted=!S.muted;
+  muteBtn.textContent = S.muted?'🔇':'🔊';
+  try{ localStorage.setItem('gomujul-muted', S.muted?'1':'0'); }catch(e){}
+});
+muteBtn.textContent = S.muted?'🔇':'🔊';
+
+/* ---------------- 레이아웃/캔버스 ---------------- */
+let W=0,H=0,CX=0,CY=0,R=100,DPR=1;
+function resize(){
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = Math.max(1, rect.width); H = Math.max(1, rect.height);
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  canvas.width = Math.round(W*DPR); canvas.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  CX = W/2; CY = H/2 + 4;
+  R = Math.min(W*0.40, H*0.40);
+}
+window.addEventListener('resize', resize);
+
+const pegAngle = i => (i*30-90)*Math.PI/180;   // 못 0 = 12시, 시계방향
+const pegPos = i => [CX + R*Math.cos(pegAngle(i)), CY + R*Math.sin(pegAngle(i))];
+
+/* 꼭짓점 스프링 (표시용 — 판정은 S.pegs 정수만 사용) */
+const verts = [0,1,2].map(i=>({ phi:pegAngle(S.pegs[i]), vel:0 }));
+function shortestArc(from,to){
+  let d=(to-from)%(2*Math.PI);
+  if (d>Math.PI) d-=2*Math.PI;
+  if (d<-Math.PI) d+=2*Math.PI;
+  return d;
+}
+/* 변 진동 (튕기기) */
+const vibes=[{a:0,t:0},{a:0,t:0},{a:0,t:0}];  // 변 i = vert i ↔ vert (i+1)%3
+
+/* ---------------- 파티클 ---------------- */
+const parts=[];
+function confetti(x,y){
+  const cols=['#e2493b','#f4b942','#2f7fd1','#1f9e6d','#e0662f','#9457c9'];
+  for(let i=0;i<42;i++){
+    const a=Math.random()*Math.PI*2, sp=2+Math.random()*4.5;
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-3,
+      rot:Math.random()*6, vr:(Math.random()-.5)*.4,
+      c:cols[i%cols.length], life:1, w:5+Math.random()*5});
+  }
+}
+
+/* ---------------- 렌더 ---------------- */
+function vertPos(i){
+  if (S.dragging===i && dragPhi!==null) return [CX+R*Math.cos(dragPhi), CY+R*Math.sin(dragPhi)];
+  return [CX+R*Math.cos(verts[i].phi), CY+R*Math.sin(verts[i].phi)];
+}
+function isSettled(){
+  if (S.dragging>=0) return false;
+  return verts.every((v,i)=>{
+    return Math.abs(shortestArc(v.phi, pegAngle(S.pegs[i])))<0.02 && Math.abs(v.vel)<0.05;
+  });
+}
+const TYPE_COLOR = {acute:'#2f7fd1', right:'#1f9e6d', obtuse:'#e0662f'};
+
+let dragPhi=null, lastT=0;
+function frame(t){
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.033, (t-lastT)/1000||0.016); lastT=t;
+
+  // 스프링
+  for(let i=0;i<3;i++){
+    if (S.dragging===i) continue;
+    const v=verts[i], target=pegAngle(S.pegs[i]);
+    const d=shortestArc(v.phi,target);
+    v.vel += d*180*dt; v.vel *= Math.pow(0.0018, dt); // 강한 감쇠+오버슛
+    v.phi += v.vel*dt;
+  }
+  for(const vb of vibes){ if(vb.a>0.05){ vb.t+=dt; vb.a*=Math.pow(0.02,dt); } else vb.a=0; }
+
+  ctx.clearRect(0,0,W,H);
+  drawBoard();
+  drawBand();
+  drawMarks(t);
+  drawParticles(dt);
+}
+requestAnimationFrame(frame);
+
+function drawBoard(){
+  // 나무판
+  const g=ctx.createRadialGradient(CX-R*0.3,CY-R*0.4,R*0.2,CX,CY,R*1.28);
+  g.addColorStop(0,'#e0b070'); g.addColorStop(0.7,'#cd9354'); g.addColorStop(1,'#b97b3c');
+  ctx.beginPath(); ctx.arc(CX,CY,R*1.22,0,7);
+  ctx.fillStyle=g; ctx.fill();
+  ctx.lineWidth=6; ctx.strokeStyle='#8a5a2b'; ctx.stroke();
+  // 나뭇결 링
+  ctx.strokeStyle='rgba(138,90,43,.18)'; ctx.lineWidth=1.5;
+  for(const rr of [0.45,0.72,1.0]){ ctx.beginPath(); ctx.arc(CX,CY,R*rr*1.1,0,7); ctx.stroke(); }
+  // 못
+  const occupied=new Set(S.pegs);
+  let nearPeg=-1;
+  if (S.dragging>=0 && dragPhi!==null) nearPeg=nearestFreePeg(dragPhi,S.dragging);
+  for(let i=0;i<N;i++){
+    const [x,y]=pegPos(i);
+    if (i===nearPeg){ // 자석 하이라이트
+      ctx.beginPath(); ctx.arc(x,y,13,0,7);
+      ctx.fillStyle='rgba(255,215,94,.55)'; ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(x,y,5,0,7);
+    ctx.fillStyle= occupied.has(i)?'#c9a06a':'#f5d9a8';
+    ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle='#7a4e22'; ctx.stroke();
+  }
+}
+
+function drawBand(){
+  const P=[vertPos(0),vertPos(1),vertPos(2)];
+  // 그림자
+  bandPath(P,3.5,3.5); ctx.strokeStyle='rgba(80,40,10,.25)'; ctx.lineWidth=8; ctx.stroke();
+  bandPath(P,0,0); ctx.strokeStyle='#a02318'; ctx.lineWidth=8; ctx.stroke();
+  bandPath(P,0,0); ctx.strokeStyle='#e2493b'; ctx.lineWidth=5; ctx.stroke();
+  // 꼭짓점 손잡이(나무 단추)
+  for(let i=0;i<3;i++){
+    const [x,y]=P[i];
+    ctx.beginPath(); ctx.arc(x,y,15,0,7);
+    ctx.fillStyle='#5b3a1d'; ctx.fill();
+    ctx.lineWidth=3; ctx.strokeStyle='#3c2510'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x-4,y-5,4.5,0,7);
+    ctx.fillStyle='rgba(255,235,200,.5)'; ctx.fill();
+    if (S.dragging===i){
+      ctx.beginPath(); ctx.arc(x,y,22,0,7);
+      ctx.lineWidth=3; ctx.strokeStyle='rgba(255,215,94,.9)'; ctx.stroke();
+    }
+  }
+}
+function bandPath(P,ox,oy){
+  ctx.beginPath(); ctx.lineJoin='round'; ctx.lineCap='round';
+  for(let i=0;i<3;i++){
+    const a=P[i], b=P[(i+1)%3], vb=vibes[i];
+    const mx=(a[0]+b[0])/2+ox, my=(a[1]+b[1])/2+oy;
+    let cx=mx, cy=my;
+    if (vb.a>0.05){
+      const dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy)||1;
+      const off=Math.sin(vb.t*38)*vb.a*2;   // 컨트롤포인트 2배 → 실제 진폭 ≈ vb.a
+      cx=mx-dy/L*off; cy=my+dx/L*off;
+    }
+    if(i===0) ctx.moveTo(a[0]+ox,a[1]+oy);
+    ctx.quadraticCurveTo(cx,cy,b[0]+ox,b[1]+oy);
+  }
+  ctx.closePath();
+}
+
+/* 각 표시 + 변 눈금 + 라벨 */
+function drawMarks(t){
+  const P=[vertPos(0),vertPos(1),vertPos(2)];
+  const settled=isSettled();
+  const c = settled ? classify(S.pegs) : null;
+
+  for(let i=0;i<3;i++){
+    const p=P[i], a=P[(i+1)%3], b=P[(i+2)%3];
+    const u=norm(a[0]-p[0],a[1]-p[1]), v=norm(b[0]-p[0],b[1]-p[1]);
+    // 각도 (표시용)
+    let deg;
+    if (settled) deg = c.angleAt.get(S.pegs[i]);
+    else {
+      const d=Math.max(-1,Math.min(1,u[0]*v[0]+u[1]*v[1]));
+      deg=Math.round(Math.acos(d)*180/Math.PI);
+    }
+    const color = settled ? (deg>90?TYPE_COLOR.obtuse:deg===90?TYPE_COLOR.right:TYPE_COLOR.acute)
+                          : '#8d7657';
+    const hl = settled && S.hlDeg===deg && t<S.hlUntil && (Math.floor(t/240)%2===0);
+
+    if (settled && deg===90){
+      // 직각 표시(작은 정사각형)
+      const s=17;
+      ctx.beginPath();
+      ctx.moveTo(p[0]+u[0]*s, p[1]+u[1]*s);
+      ctx.lineTo(p[0]+(u[0]+v[0])*s, p[1]+(u[1]+v[1])*s);
+      ctx.lineTo(p[0]+v[0]*s, p[1]+v[1]*s);
+      ctx.lineWidth=hl?4.5:3; ctx.strokeStyle=hl?'#ff3b1f':color; ctx.stroke();
+    } else {
+      // 호(부채꼴 선)
+      const a1=Math.atan2(u[1],u[0]), a2=Math.atan2(v[1],v[0]);
+      let d=(a2-a1)%(2*Math.PI); if(d<0)d+=2*Math.PI;
+      const ccw = d>Math.PI;      // 작은 쪽(내각)으로
+      ctx.beginPath(); ctx.arc(p[0],p[1],21,a1,a2,ccw);
+      ctx.lineWidth=hl?4.5:3; ctx.strokeStyle=hl?'#ff3b1f':color; ctx.stroke();
+    }
+    // 각도 라벨 (내부 방향)
+    let bx=u[0]+v[0], by=u[1]+v[1];
+    const bl=Math.hypot(bx,by)||1; bx/=bl; by/=bl;
+    const lx=p[0]+bx*46, ly=p[1]+by*46;
+    ctx.font='800 15px -apple-system,"Apple SD Gothic Neo",sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineWidth=4; ctx.strokeStyle='rgba(253,244,224,.92)';
+    ctx.strokeText(deg+'°',lx,ly);
+    ctx.fillStyle=hl?'#ff3b1f':color;
+    ctx.fillText(deg+'°',lx,ly);
+  }
+
+  // 변 눈금(같은 길이 표시) — 스냅됐을 때만 (정수 판정과 동일 근거)
+  if (settled){
+    // 교과서 관습: 길이가 같은 변에만 같은 개수의 눈금 표시
+    const gaps=[...c.gapOf.values()];
+    const hlS = S.hlSide && t<S.hlUntil && (Math.floor(t/240)%2===0);
+    for(let i=0;i<3;i++){
+      const gp=c.gapOf.get(key(S.pegs[i],S.pegs[(i+1)%3]));
+      const dup=gaps.filter(g=>g===gp).length;
+      if (dup<2) continue;                       // 짝 없는 변은 표시 없음
+      const a=P[i], b=P[(i+1)%3];
+      const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
+      const dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy)||1;
+      const nx=-dy/L, ny=dx/L, tx=dx/L, ty=dy/L;
+      ctx.lineWidth=hlS?4:3;
+      ctx.strokeStyle=hlS?'#ff3b1f':'#5d2f0e';
+      const n = dup===3 ? 1 : 2;                 // 정삼각형: 한 눈금, 이등변 짝: 두 눈금
+      for(let k2=0;k2<n;k2++){
+        const off=(k2-(n-1)/2)*7;
+        ctx.beginPath();
+        ctx.moveTo(mx+tx*off-nx*8, my+ty*off-ny*8);
+        ctx.lineTo(mx+tx*off+nx*8, my+ty*off+ny*8);
+        ctx.stroke();
+      }
+    }
+  }
+}
+function norm(x,y){ const l=Math.hypot(x,y)||1; return [x/l,y/l]; }
+
+function drawParticles(dt){
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    p.vy+=14*dt; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; p.life-=dt*0.85;
+    if(p.life<=0){ parts.splice(i,1); continue; }
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+    ctx.globalAlpha=Math.min(1,p.life*1.6);
+    ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.w/2,p.w,p.w*0.62);
+    ctx.restore();
+  }
+  ctx.globalAlpha=1;
+}
+
+/* ---------------- 입력 ---------------- */
+function nearestFreePeg(phi, movingIdx){
+  let best=-1, bd=1e9;
+  for(let i=0;i<N;i++){
+    if (S.pegs.some((pg,vi)=>vi!==movingIdx && pg===i)) continue;
+    const d=Math.abs(shortestArc(phi, pegAngle(i)));
+    if(d<bd){bd=d;best=i;}
+  }
+  return best;
+}
+function distToSeg(px,py,ax,ay,bx,by){
+  const dx=bx-ax, dy=by-ay, L2=dx*dx+dy*dy||1;
+  let t=((px-ax)*dx+(py-ay)*dy)/L2; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(ax+dx*t), py-(ay+dy*t));
+}
+
+canvas.addEventListener('pointerdown', e=>{
+  if (S.phase!=='playing') return;
+  audioInit();
+  const rect=canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  // 1) 꼭짓점 잡기
+  let best=-1, bd=1e9;
+  for(let i=0;i<3;i++){
+    const [vx,vy]=vertPos(i);
+    const d=Math.hypot(x-vx,y-vy);
+    if(d<bd){bd=d;best=i;}
+  }
+  if (bd<56){
+    S.dragging=best; dragPhi=Math.atan2(y-CY,x-CX);
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+    return;
+  }
+  // 2) 고무줄 튕기기
+  const P=[vertPos(0),vertPos(1),vertPos(2)];
+  for(let i=0;i<3;i++){
+    const a=P[i], b=P[(i+1)%3];
+    if (distToSeg(x,y,a[0],a[1],b[0],b[1])<26){
+      vibes[i].a=7; vibes[i].t=0;
+      const c=classify(S.pegs);
+      sndPluck(c.gapOf.get(key(S.pegs[i],S.pegs[(i+1)%3]))||4);
+      if (navigator.vibrate) try{ navigator.vibrate(12); }catch(err){}
+      return;
+    }
+  }
+});
+canvas.addEventListener('pointermove', e=>{
+  if (S.dragging<0) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  dragPhi=Math.atan2(y-CY,x-CX);
+});
+function endDrag(){
+  if (S.dragging<0) return;
+  const i=S.dragging;
+  const peg=nearestFreePeg(dragPhi,i);
+  const changed = peg!==S.pegs[i];
+  S.pegs[i]=peg;
+  // 스프링 목표로 이동 (현재 표시각에서 출발)
+  verts[i].phi=dragPhi; verts[i].vel=0;
+  S.dragging=-1; dragPhi=null;
+  sndSnap();
+  vibes[i%3].a=3; vibes[i%3].t=0; vibes[(i+2)%3].a=3; vibes[(i+2)%3].t=0;
+  if (changed && navigator.vibrate) try{ navigator.vibrate(8); }catch(err){}
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+/* ---------------- 손님 / 진행 ---------------- */
+function showCustomer(i){
+  const cu=CUSTOMERS[i];
+  blobWrap.innerHTML='';
+  const b=document.createElement('div');
+  b.className='blob';
+  b.style.background=`hsl(${cu.hue} 62% 68%)`;
+  b.innerHTML='<div class="pupils"></div><div class="mouth"></div>';
+  blobWrap.appendChild(b);
+  bubbleText.innerHTML=`<span class="nm">${cu.name} 손님</span>${cu.order}`;
+  $('progress').textContent=`손님 ${i+1}/${CUSTOMERS.length}`;
+  S.fails=0;
+}
+function showToast(html, ms){
+  toast.innerHTML=html; toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t=setTimeout(()=>toast.classList.remove('show'), ms||4600);
+}
+function setCoins(n){ S.coins=n; $('coins').textContent=n; }
+
+function serve(){
+  if (S.phase!=='playing' || S.dragging>=0) return;
+  const cu=CUSTOMERS[S.orderIdx];
+  const c=classify(S.pegs);
+  const blob=blobWrap.querySelector('.blob');
+  if (cu.pred(c)){
+    S.phase='judging';
+    serveBtn.disabled=true;
+    const earned = S.fails===0?3 : S.fails===1?2 : 1;
+    const bonus = cu.bonus ? cu.bonus(c) : 0;
+    if (S.fails===0) S.perfect++;
+    sndGood(); setTimeout(sndCoin, 260);
+    confetti(CX,CY);
+    if (blob){ blob.classList.remove('sad'); blob.classList.add('happy');
+      const h=document.createElement('div'); h.className='hearts'; h.textContent='💛';
+      blobWrap.appendChild(h);
+    }
+    bubbleText.innerHTML=`<span class="nm">${cu.name} 손님</span>${cu.praise(c)}`;
+    setCoins(S.coins+earned+bonus);
+    showToast(`<b>${korName(c)}</b> 완성! 🪙 +${earned}${bonus?` <b>+${bonus} 보너스</b>`:''}`, 2600);
+    setTimeout(()=>{
+      S.orderIdx++;
+      if (S.orderIdx>=CUSTOMERS.length){ endGame(); return; }
+      S.phase='playing'; serveBtn.disabled=false;
+      showCustomer(S.orderIdx);
+    }, 2000);
+  } else {
+    S.fails++;
+    sndBad();
+    if (blob){ blob.classList.remove('happy','sad'); void blob.offsetWidth; blob.classList.add('sad'); }
+    const why=cu.why(c);
+    S.hlDeg = why.hl||0; S.hlSide = !!why.side;
+    S.hlUntil = performance.now()+2600;
+    showToast(`지금 만든 건 <b>${korName(c)}</b>이야.<br>${why.msg}`, 5200);
+  }
+}
+serveBtn.addEventListener('click', serve);
+
+function endGame(){
+  S.phase='done';
+  $('endStats').innerHTML=`🪙 ${S.coins}개 &nbsp;·&nbsp; 한 번에 성공 ${S.perfect}/12`;
+  const msg = S.perfect>=12 ? '삼각형 장인이야! 못판이 반짝반짝해.'
+            : S.perfect>=9  ? '멋진 솜씨! 손님들이 단골이 되겠는걸?'
+            : S.perfect>=5  ? '점점 늘고 있어. 내일도 가게를 열어 보자!'
+                            : '괜찮아, 고무줄은 몇 번이고 다시 걸 수 있으니까!';
+  $('endMsg').textContent=msg;
+  $('ending').hidden=false;
+}
+
+function startGame(){
+  audioInit();
+  if (AC && AC.state==='suspended') AC.resume().catch(()=>{});
+  $('intro').hidden=true; $('ending').hidden=true;
+  S.pegs=[0,4,8];
+  for(let i=0;i<3;i++){ verts[i].phi=pegAngle(S.pegs[i]); verts[i].vel=0; }
+  S.orderIdx=0; setCoins(0); S.perfect=0; S.phase='playing';
+  serveBtn.disabled=false;
+  showCustomer(0);
+  showToast('나무 단추(꼭짓점)를 <b>손가락으로 끌어서</b> 모양을 바꿔 봐!', 4200);
+}
+$('startBtn').addEventListener('click', startGame);
+$('restartBtn').addEventListener('click', startGame);
+
+resize();
+
+/* ---------------- 자체 검증 훅 (자동 테스트용) ---------------- */
+window.LAB_TEST = {
+  ready:true,
+  classify:p=>classify(p),
+  N, DEG,
+  orders: CUSTOMERS.map(c=>({name:c.name, order:c.order})),
+  setPegs(p){ S.pegs=[...p]; for(let i=0;i<3;i++){verts[i].phi=pegAngle(S.pegs[i]);verts[i].vel=0;} },
+  getPegs(){ return [...S.pegs]; },
+  judge(p){ return CUSTOMERS[S.orderIdx].pred(classify(p||S.pegs)); },
+  predAt(i,p){ return CUSTOMERS[i].pred(classify(p)); },
+  serve(){ serve(); },
+  start(){ startGame(); },
+  state(){ return {phase:S.phase, orderIdx:S.orderIdx, coins:S.coins, perfect:S.perfect, fails:S.fails, settled:isSettled()}; },
+};
+</script>
+</body>
+</html>

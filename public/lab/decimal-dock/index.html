@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>소수점 도킹</title>
+<style>
+:root{
+  --bg0:#070b1e; --bg1:#101736; --ink:#eef3ff; --dim:#8b97c9;
+  --cy:#4de8ff; --pk:#ff5d7e; --mint:#3ee6a8; --gold:#ffd75e;
+  --tile0:#25336b; --tile1:#1a2450; --tileb:#3a4d9a;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+html{height:100%;}
+body{
+  min-height:100dvh; overflow-x:hidden; overscroll-behavior:none;
+  background:radial-gradient(120% 90% at 50% -10%, #1b2a5e 0%, var(--bg1) 45%, var(--bg0) 100%);
+  color:var(--ink);
+  font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  user-select:none; -webkit-user-select:none; touch-action:manipulation;
+}
+button{font-family:inherit; user-select:none;}
+#stars{position:fixed; inset:0; pointer-events:none; z-index:0;}
+#stars i{position:absolute; border-radius:50%; background:#cfe4ff; animation:tw 3s ease-in-out infinite;}
+@keyframes tw{0%,100%{opacity:.15}50%{opacity:.9}}
+#app{position:relative; z-index:1; max-width:480px; margin:0 auto; min-height:100dvh;
+  display:flex; flex-direction:column; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
+section{flex:1; display:flex; flex-direction:column;}
+[hidden]{display:none !important;}
+
+/* ---------- title ---------- */
+#scr-title{align-items:center; justify-content:center; text-align:center; padding:24px 20px; gap:18px;}
+#scr-title h1{
+  margin:0; font-size:44px; font-weight:900; letter-spacing:-1px;
+  background:linear-gradient(180deg,#fff 20%, var(--cy) 70%, #2d9dc4);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 4px 18px rgba(77,232,255,.35));
+}
+#scr-title .sub{color:var(--dim); font-size:15px; margin-top:-8px;}
+.demo{position:relative; width:250px; height:120px; margin:6px auto;}
+.demo .drow{position:absolute; left:0; display:flex;}
+.demo .dcell{width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:22px;border-radius:9px;background:linear-gradient(180deg,var(--tile0),var(--tile1));
+  border:1.5px solid var(--tileb); margin:0 2px;}
+.demo .dcell.p{background:none;border:none;}
+.demo .dcell.p i{width:12px;height:12px;border-radius:50%;background:var(--pk);box-shadow:0 0 10px var(--pk);}
+.demo .r1{top:0; left:0;}
+.demo .r2{top:56px; animation:demoSlide 3.2s ease-in-out infinite;}
+.demo .dlaser{position:absolute; top:-8px; bottom:-8px; left:70px; width:3px; border-radius:2px;
+  background:linear-gradient(180deg,transparent,var(--pk),transparent); opacity:0; animation:demoLaser 3.2s ease-in-out infinite;}
+@keyframes demoSlide{0%,18%{transform:translateX(48px)} 55%,88%{transform:translateX(0)} 100%{transform:translateX(48px)}}
+@keyframes demoLaser{0%,50%{opacity:0} 60%,85%{opacity:1} 95%,100%{opacity:0}}
+.howto{display:flex; flex-direction:column; gap:10px; width:100%; max-width:320px; text-align:left;}
+.howto .step{display:flex; align-items:center; gap:12px; background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:10px 14px; font-size:14.5px;}
+.howto .n{flex:0 0 30px; height:30px; border-radius:50%; background:var(--cy); color:#04263a;
+  font-weight:900; display:flex; align-items:center; justify-content:center; font-size:15px;}
+.bigbtn{
+  margin-top:6px; padding:16px 54px; font-size:22px; font-weight:900; color:#04263a;
+  background:linear-gradient(180deg,#8ff2ff,var(--cy) 55%,#2ea8cc); border:none; border-radius:18px;
+  box-shadow:0 6px 0 #1a7396, 0 10px 26px rgba(77,232,255,.35); cursor:pointer;
+}
+.bigbtn:active{transform:translateY(4px); box-shadow:0 2px 0 #1a7396;}
+.credit{color:#5a6597; font-size:12px;}
+
+/* ---------- HUD ---------- */
+#hud{flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:12px 14px 4px;}
+#hearts{font-size:20px; letter-spacing:2px; color:var(--pk); text-shadow:0 0 8px rgba(255,93,126,.6);}
+#hearts .off{color:#3a3f5e; text-shadow:none;}
+#stagebadge{font-size:12.5px; font-weight:700; color:var(--cy); background:rgba(77,232,255,.1);
+  border:1px solid rgba(77,232,255,.35); padding:4px 10px; border-radius:99px; white-space:nowrap;}
+#score{margin-left:auto; font-size:20px; font-weight:900; font-variant-numeric:tabular-nums;}
+#combo{font-size:12px; font-weight:800; color:var(--gold); min-width:38px; text-align:right;}
+#muteBtn{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06); color:var(--ink); font-size:16px; cursor:pointer;}
+
+/* ---------- game ---------- */
+#prob{ text-align:center; font-size:26px; font-weight:900; padding:6px 10px 2px; font-variant-numeric:tabular-nums; letter-spacing:1px;}
+#prob b{color:var(--gold);}
+#tbarWrap{height:8px; margin:8px 22px; background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden;}
+#tbar{height:100%; width:100%; border-radius:99px; background:linear-gradient(90deg,var(--cy),#7ef2c7); transition:background .3s;}
+#tbar.low{background:linear-gradient(90deg,#ff8d5d,var(--pk));}
+
+#dockWrap{flex:1; display:flex; flex-direction:column; justify-content:center;}
+#dock{position:relative; margin:0 auto; overflow:hidden; border-radius:20px;
+  background:rgba(10,16,40,.55); border:1px solid rgba(90,110,200,.25);
+  box-shadow:inset 0 0 40px rgba(20,30,80,.6);}
+#dock.shake{animation:shake .45s;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+#dock .rail{position:absolute; left:0; right:0; height:1px; background:rgba(120,140,220,.14);}
+#laser{position:absolute; width:3px; border-radius:2px; opacity:0; transition:opacity .18s;
+  background:linear-gradient(180deg,transparent,var(--pk) 12%,var(--pk) 88%,transparent);
+  filter:drop-shadow(0 0 6px var(--pk)); pointer-events:none;}
+#laser.on{opacity:1;}
+#laser.pre{opacity:.35;}
+
+.strip{position:absolute; display:flex; will-change:transform;}
+.strip.snapback{transition:transform .16s cubic-bezier(.2,1.4,.4,1);}
+#stripB{cursor:grab; touch-action:none;}
+#stripB::before{content:''; position:absolute; inset:-16px -30px;}
+#stripB.locked, #stripA.locked{filter:drop-shadow(0 0 8px rgba(77,232,255,.45));}
+
+.tile{position:relative; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  width:calc(var(--w) - 6px); height:var(--th); margin:0 3px; border-radius:13px;
+  font-weight:900; font-size:calc(var(--th)*.5); font-variant-numeric:tabular-nums;}
+.tile.d{background:linear-gradient(180deg,var(--tile0),var(--tile1)); border:2px solid var(--tileb);
+  color:var(--ink); box-shadow:0 3px 0 #121a3c, inset 0 1px 0 rgba(255,255,255,.14);}
+.tile.pt{background:none; border:none;}
+.tile.pt i{width:calc(var(--w)*.26); height:calc(var(--w)*.26); border-radius:50%;
+  background:var(--pk); box-shadow:0 0 12px rgba(255,93,126,.7);}
+.tile.pt.dimpt{opacity:.32;}
+.tile.ph{border:2.5px dashed rgba(77,232,255,.5); background:rgba(77,232,255,.06);
+  color:rgba(77,232,255,.65); cursor:pointer; font-size:calc(var(--th)*.34);}
+.tile.ph.blink{animation:phblink .5s 3;}
+@keyframes phblink{50%{background:rgba(77,232,255,.35); border-color:var(--cy);}}
+.tile.zero{background:linear-gradient(180deg,#1d5f4c,#164a3c); border:2px solid var(--mint);
+  color:#9dfcdc; animation:popin .25s cubic-bezier(.2,1.6,.4,1);}
+.tile.a{background:linear-gradient(180deg,#ffe28e,#f5b93d); border:2px solid #ffd75e; color:#4a2e00;
+  box-shadow:0 3px 0 #8a6410, 0 0 14px rgba(255,215,94,.35); animation:popin .28s cubic-bezier(.2,1.6,.4,1);}
+.tile.a.pt{background:none; border:none; box-shadow:none;}
+.tile.a.pt i{background:var(--gold); box-shadow:0 0 12px rgba(255,215,94,.8);}
+.tile.hl{outline:3px solid rgba(77,232,255,.8); outline-offset:2px;}
+.tile.fadeout{transition:opacity .5s, transform .5s; opacity:0; transform:scale(.5);}
+@keyframes popin{0%{transform:scale(.3); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+
+.badge{position:absolute; z-index:3; font-size:12px; font-weight:900; border-radius:8px; padding:2px 5px; pointer-events:none;}
+.badge.m1{top:-9px; right:-7px; background:var(--pk); color:#fff; animation:popin .2s;}
+.badge.p10{top:-9px; left:-7px; background:var(--cy); color:#04263a; animation:popin .2s;}
+.tile.lend::after{content:''; position:absolute; left:12%; right:12%; top:48%; height:3px;
+  background:var(--pk); transform:rotate(-18deg); border-radius:2px;}
+
+.chip{position:absolute; z-index:4; width:24px; height:24px; border-radius:50%;
+  background:var(--cy); color:#04263a; font-size:14px; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 0 10px rgba(77,232,255,.8); transition:transform .4s ease, opacity .3s;}
+
+#opSign{position:absolute; display:flex; align-items:center; justify-content:center;
+  font-size:calc(var(--th)*.52); font-weight:900; color:var(--cy); width:var(--w); height:var(--th);
+  will-change:transform; pointer-events:none;}
+#opSign.snapback{transition:transform .16s cubic-bezier(.2,1.4,.4,1);}
+#ruleLine{position:absolute; height:5px; border-radius:3px;
+  background:linear-gradient(90deg,transparent,var(--cy) 12%,var(--cy) 88%,transparent); opacity:.85;}
+#ansRow{position:absolute; left:0; right:0;}
+#ansRow .tile{position:absolute; top:0; margin:0;}
+
+.colTap{position:absolute; z-index:5; border-radius:14px; cursor:pointer;
+  border:2px solid transparent;}
+.colTap.next{border-color:rgba(255,215,94,.75); background:rgba(255,215,94,.09);
+  animation:colpulse 1s ease-in-out infinite;}
+@keyframes colpulse{50%{background:rgba(255,215,94,.22); box-shadow:0 0 18px rgba(255,215,94,.35);}}
+.colTap.wiggle{animation:wig .3s;}
+@keyframes wig{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+#hint{flex:0 0 auto; min-height:46px; text-align:center; padding:4px 24px; font-size:15.5px; font-weight:700; color:#c9d6ff;
+  display:flex; align-items:center; justify-content:center; line-height:1.4;}
+#hint.warn{color:var(--pk);}
+#dockBtn{
+  flex:0 0 auto; margin:2px auto 18px; width:min(78%,300px); padding:15px 0; font-size:21px; font-weight:900;
+  color:#2b1d00; background:linear-gradient(180deg,#ffe9a8,var(--gold) 55%,#e5a92e);
+  border:none; border-radius:17px; box-shadow:0 6px 0 #96700f, 0 8px 22px rgba(255,215,94,.28); cursor:pointer;
+  transition:opacity .2s;
+}
+#dockBtn:active{transform:translateY(4px); box-shadow:0 2px 0 #96700f;}
+#dockBtn:disabled{opacity:.32; box-shadow:0 6px 0 #4a4a4a22;}
+#dockBtn.ready{animation:btnpulse 1s ease-in-out infinite;}
+@keyframes btnpulse{50%{box-shadow:0 6px 0 #96700f, 0 8px 34px rgba(255,215,94,.65);}}
+
+#fx{position:absolute; inset:0; pointer-events:none; z-index:9; overflow:visible;}
+.spark{position:absolute; width:8px; height:8px; border-radius:2px; transition:transform .7s cubic-bezier(.1,.8,.3,1), opacity .7s;}
+.floaty{position:absolute; font-size:22px; font-weight:900; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.6);
+  transition:transform 1s ease-out, opacity 1s; z-index:10; white-space:nowrap;}
+#toast{position:absolute; left:50%; transform:translateX(-50%) scale(.8); bottom:-4px; z-index:11;
+  background:rgba(8,14,36,.92); border:1.5px solid var(--mint); color:#c8ffe9; font-weight:800; font-size:15px;
+  border-radius:12px; padding:8px 16px; opacity:0; transition:opacity .25s, transform .25s; white-space:nowrap; pointer-events:none;}
+#toast.show{opacity:1; transform:translateX(-50%) scale(1);}
+
+/* ---------- game over ---------- */
+#scr-over{align-items:center; justify-content:center; text-align:center; gap:10px; padding:20px;}
+#scr-over h2{font-size:34px; margin:0; color:var(--pk);}
+#finalScore{font-size:56px; font-weight:900; color:var(--gold); font-variant-numeric:tabular-nums; margin:4px 0;}
+.overstat{color:var(--dim); font-size:16px;}
+.overstat b{color:var(--ink);}
+#newBest{color:var(--mint); font-weight:900; font-size:18px; min-height:24px;}
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<div id="app">
+
+  <section id="scr-title">
+    <h1>소수점 도킹</h1>
+    <div class="sub">4학년 2학기 · 소수의 덧셈과 뺄셈</div>
+    <div class="demo">
+      <div class="dlaser"></div>
+      <div class="drow r1">
+        <div class="dcell">0</div><div class="dcell p"><i></i></div><div class="dcell">3</div>
+      </div>
+      <div class="drow r2">
+        <div class="dcell">0</div><div class="dcell p"><i></i></div><div class="dcell">0</div><div class="dcell">5</div>
+      </div>
+    </div>
+    <div class="howto">
+      <div class="step"><span class="n">1</span><span>아래 숫자 우주선을 <b>좌우로 끌어</b> 빨간 소수점을 위아래로 맞춰!</span></div>
+      <div class="step"><span class="n">2</span><span>반짝이는 빈 칸을 눌러 <b>0을 채워</b>. (0.3과 0.30은 같은 수!)</span></div>
+      <div class="step"><span class="n">3</span><span><b>도킹!</b> 그리고 오른쪽 끝자리부터 눌러서 계산해.</span></div>
+    </div>
+    <button class="bigbtn" id="startBtn">시작하기</button>
+    <div class="credit">소수점만 맞추면 계산은 술술 풀려!</div>
+  </section>
+
+  <section id="scr-game" hidden>
+    <div id="hud">
+      <span id="hearts"></span>
+      <span id="stagebadge"></span>
+      <span id="combo"></span>
+      <span id="score">0</span>
+      <button id="muteBtn" aria-label="소리 켜기/끄기">&#9836;</button>
+    </div>
+    <div id="prob"></div>
+    <div id="tbarWrap"><div id="tbar"></div></div>
+    <div id="dockWrap">
+      <div id="dock">
+        <div id="laser"></div>
+        <div class="strip" id="stripA"></div>
+        <div id="opSign"></div>
+        <div class="strip" id="stripB"></div>
+        <div id="ruleLine"></div>
+        <div id="ansRow"></div>
+        <div id="fx"></div>
+        <div id="toast"></div>
+      </div>
+    </div>
+    <div id="hint"></div>
+    <button id="dockBtn">도킹!</button>
+  </section>
+
+  <section id="scr-over" hidden>
+    <h2>연료 소진!</h2>
+    <div id="finalScore">0</div>
+    <div id="newBest"></div>
+    <div class="overstat">푼 문제 <b id="ovSolved">0</b>개 · 도달 단계 <b id="ovStage"></b></div>
+    <div class="overstat">최고 기록 <b id="ovBest">0</b>점</div>
+    <button class="bigbtn" id="retryBtn" style="margin-top:18px">다시 도킹!</button>
+  </section>
+
+</div>
+<script>
+'use strict';
+/* =====================================================================
+   소수점 도킹 — 4-2 소수의 덧셈과 뺄셈 (g4s2-u3)
+   모든 수는 "백분의 일(hundredths)" 정수 스케일로 다룬다. 부동소수점 산술 금지.
+   ===================================================================== */
+(function(){
+const $ = s => document.querySelector(s);
+
+/* ---------- 정수 스케일 수학 코어 ---------- */
+// v: 0~999 (hundredths). prec: 0(자연수) | 1(소수 한 자리) | 2(소수 두 자리)
+const DG = v => ({ o:Math.floor(v/100)%10, t:Math.floor(v/10)%10, h:v%10 });
+function fmt(v,prec){
+  const o=Math.floor(v/100), r=v%100;
+  if(prec===0) return String(o);
+  if(prec===1) return o+'.'+Math.floor(r/10);
+  return o+'.'+String(r).padStart(2,'0');
+}
+function minPrec(v){ return v%100===0?0 : (v%10===0?1:2); }
+function fmtMin(v){ return fmt(v,minPrec(v)); }
+function carries(a,b){ const A=DG(a),B=DG(b);
+  const ch=A.h+B.h>=10; const ct=A.t+B.t+(ch?1:0)>=10; return {ch,ct}; }
+function borrows(a,b){ const A=DG(a),B=DG(b);
+  const bh=A.h<B.h; const bt=(A.t-(bh?1:0))<B.t; return {bh,bt}; }
+
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+function genNum(prec,oMin,oMax){
+  const o=ri(oMin,oMax);
+  if(prec===0) return {v:o*100, prec:0};
+  if(prec===1) return {v:o*100+ri(1,9)*10, prec:1};
+  return {v:o*100+ri(0,9)*10+ri(1,9), prec:2};
+}
+function makeP(op,a,b){
+  const ans = op==='+' ? a.v+b.v : a.v-b.v;
+  const union = Math.max(a.prec,b.prec,1);
+  return {op,a,b,ans,union,
+    aStr:fmt(a.v,a.prec), bStr:fmt(b.v,b.prec), ansStr:fmtMin(ans)};
+}
+function tryGen(stage){
+  if(stage===1){ // + / 둘 다 소수 한 자리 / 받아올림 없음
+    const a=genNum(1,0,3), b=genNum(1,0,3), A=DG(a.v),B=DG(b.v);
+    if(A.t+B.t<10 && A.o+B.o<=9) return makeP('+',a,b);
+  } else if(stage===2){ // + / 자릿수 섞임(함정) / 받아올림 없음
+    const p = Math.random()<.5?[1,2]:[2,1];
+    const a=genNum(p[0],0,2), b=genNum(p[1],0,2);
+    const c=carries(a.v,b.v), A=DG(a.v),B=DG(b.v);
+    if(!c.ch && !c.ct && A.o+B.o<=9 && a.prec!==b.prec) return makeP('+',a,b);
+  } else if(stage===3){ // + / 받아올림 1개 이상
+    const pa=ri(1,2), pb=(pa===1?2:ri(1,2));
+    const a=genNum(pa,0,4), b=genNum(pb,0,4);
+    const c=carries(a.v,b.v);
+    if((c.ch||c.ct) && a.v+b.v<=999) return makeP('+',a,b);
+  } else if(stage===4){ // - / a 두 자리, b 한 자리 / 받아내림 없음
+    const a=genNum(2,1,5), b=genNum(1,0,5), A=DG(a.v),B=DG(b.v);
+    if(A.o>=B.o && A.t>=B.t && a.v>b.v) return makeP('-',a,b);
+  } else if(stage===5){ // - / 받아내림 있음 (0을 채운 자리에서 빌려오기 포함)
+    const pa = Math.random()<.55?1:2;
+    const a=genNum(pa,1,6), b=genNum(2,0,5);
+    if(a.v>b.v){ const bo=borrows(a.v,b.v); if(bo.bh||bo.bt) return makeP('-',a,b); }
+  } else { // 6: 자연수 등장 (3 - 1.25 / 3 + 1.25)
+    if(Math.random()<.7){
+      const a=genNum(0,2,9), b=genNum(2,0,Math.min(5,ri(0,3)));
+      if(a.v>b.v) return makeP('-',a,b);
+    } else {
+      const a=genNum(0,1,5), b=genNum(2,0,3);
+      if(a.v+b.v<=999) return makeP('+',a,b);
+    }
+  }
+  return null;
+}
+function genProblem(stage){
+  const s = stage>=7 ? [3,5,6][ri(0,2)] : stage;
+  for(let i=0;i<500;i++){ const p=tryGen(s); if(p){ p.stage=s; return p; } }
+  const p=makeP('+',{v:30,prec:1},{v:5,prec:2}); p.stage=2; return p; // 안전망: 0.3+0.05
+}
+
+/* ---------- 상태 ---------- */
+const STAGE_NAMES=[null,'몸풀기','자릿수 함정','받아올림','빼기 도킹','받아내림','자연수 도킹','무한 궤도'];
+let phase='title';          // title | play | compute | anim | reveal | over
+let lives=3, score=0, combo=0, solved=0, best=0, muted=false;
+let cur=null;               // 현재 문제
+let k=0;                    // 아래 스트립 오프셋(칸 단위, 0=정렬)
+let zerosLeft=0;
+let els={A:{},B:{}};        // 자리별 타일 참조
+let ansEls={};
+let computeOrder=[], computeIdx=0;
+let cleanRun=true;
+let W=60, TH=64;            // 칸 폭 / 타일 높이
+let rows={};                // y 좌표들
+let timeMax=26000, timeLeft=26000, timerOn=false, lastTs=0, lastTickSec=99;
+let SPD=1;                  // 테스트용 애니 배속 (작을수록 빠름)
+
+try{ best = parseInt(localStorage.getItem('dotdock_best')||'0',10)||0; }catch(e){}
+try{ muted = localStorage.getItem('dotdock_mute')==='1'; }catch(e){}
+
+/* ---------- 오디오 (WebAudio 합성, 제스처 이후 초기화) ---------- */
+let AC=null;
+function auEnsure(){
+  try{
+    if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended') AC.resume();
+  }catch(e){}
+}
+function tone(f,dur,type,vol,delay,f2){
+  if(muted||!AC) return;
+  try{
+    const t0=AC.currentTime+(delay||0);
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type||'sine'; o.frequency.setValueAtTime(f,t0);
+    if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(vol||.15,t0+.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(t0); o.stop(t0+dur+.05);
+  }catch(e){}
+}
+const sfx={
+  click:()=>tone(520,.06,'square',.1),
+  snap:()=>{tone(430,.06,'square',.14); tone(860,.1,'square',.12,.05);},
+  zero:()=>tone(990,.08,'sine',.18,0,1320),
+  pop:()=>tone(720,.06,'triangle',.16),
+  carry:()=>tone(540,.12,'sine',.14,0,900),
+  wrongCol:()=>tone(300,.08,'square',.1),
+  good:c=>{ const up=Math.pow(1.059,Math.min(c,6));
+    [523,659,784].forEach((f,i)=>tone(f*up,.13,'triangle',.15,i*.07));
+    tone(1046*up,.2,'triangle',.13,.22); },
+  bad:()=>tone(200,.3,'sawtooth',.16,0,80),
+  tick:()=>tone(1250,.04,'square',.07),
+};
+function buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+
+/* ---------- 배경 별 ---------- */
+(function(){
+  const box=$('#stars'), n=64;
+  for(let i=0;i<n;i++){
+    const s=document.createElement('i');
+    const z=Math.random();
+    s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${1+z*2.2}px;height:${1+z*2.2}px;animation-delay:${Math.random()*3}s;animation-duration:${2+Math.random()*3}s`;
+    box.appendChild(s);
+  }
+})();
+
+/* ---------- 레이아웃 ---------- */
+// 레일 칸: 0(여백) 1(일) 2(점) 3(십분) 4(백분) 5(여백)
+const SLOT={o:1, pt:2, t:3, h:4};
+function layout(){
+  const vw=Math.min(window.innerWidth,480);
+  W=Math.min(66, Math.floor((vw-20)/6));
+  TH=Math.min(70, W+8);
+  const dock=$('#dock');
+  dock.style.setProperty('--w',W+'px');
+  dock.style.setProperty('--th',TH+'px');
+  dock.style.width=(6*W)+'px';
+  rows={carry:8, A:8+26, B:8+26+TH+14, rule:8+26+2*TH+14+9, ans:8+26+2*TH+14+9+5+9};
+  dock.style.height=(rows.ans+TH+12)+'px';
+  $('#stripA').style.top=rows.A+'px';
+  $('#stripB').style.top=rows.B+'px';
+  $('#stripA').style.left=(SLOT.o*W)+'px';
+  $('#stripB').style.left=(SLOT.o*W)+'px';
+  $('#opSign').style.left='2px';
+  $('#opSign').style.top=rows.B+'px';
+  const rl=$('#ruleLine');
+  rl.style.top=rows.rule+'px'; rl.style.left=(W*.55)+'px'; rl.style.right=(W*.35)+'px';
+  $('#ansRow').style.top=rows.ans+'px';
+  const lz=$('#laser');
+  lz.style.left=(SLOT.pt*W + W/2 - 1.5)+'px';
+  lz.style.top=(rows.carry-4)+'px';
+  lz.style.height=(rows.ans+TH-rows.carry+8)+'px';
+  applyOffset(false);
+}
+window.addEventListener('resize',layout);
+
+/* ---------- 스트립 렌더링 ---------- */
+function tileEl(cls,txt){
+  const d=document.createElement('div');
+  d.className='tile '+cls;
+  if(cls.indexOf('pt')>=0){ d.innerHTML='<i></i>'; }
+  else if(txt!=null) d.textContent=txt;
+  return d;
+}
+function buildStrip(container,num,union,strip){
+  container.innerHTML='';
+  const d=DG(num.v), ref={};
+  ref.o = tileEl('d', d.o); container.appendChild(ref.o);
+  ref.pt = tileEl('pt'+(num.prec===0?' dimpt':'')); container.appendChild(ref.pt);
+  if(union>=1){
+    if(num.prec>=1){ ref.t=tileEl('d', d.t); }
+    else { ref.t=tileEl('ph','0?'); ref.t.dataset.strip=strip; ref.t.dataset.place='t'; }
+    container.appendChild(ref.t);
+  }
+  if(union>=2){
+    if(num.prec>=2){ ref.h=tileEl('d', d.h); }
+    else { ref.h=tileEl('ph','0?'); ref.h.dataset.strip=strip; ref.h.dataset.place='h'; }
+    container.appendChild(ref.h);
+  }
+  return ref;
+}
+function renderProblem(){
+  const p=cur;
+  els.A=buildStrip($('#stripA'),p.a,p.union,'A');
+  els.B=buildStrip($('#stripB'),p.b,p.union,'B');
+  $('#opSign').textContent = p.op==='+' ? '+' : '−';
+  $('#ansRow').innerHTML='';
+  $('#stripA').classList.remove('locked');
+  $('#stripB').classList.remove('locked');
+  ansEls={};
+  zerosLeft = (p.union - p.a.prec>0 ? p.union-Math.max(p.a.prec,0) : 0)
+            + (p.union - p.b.prec>0 ? p.union-Math.max(p.b.prec,0) : 0);
+  // 위 식 명료화: 각 수마다 (union - prec)개의 빈 칸
+  zerosLeft = (p.union - p.a.prec) + (p.union - p.b.prec);
+  $('#prob').innerHTML = `${p.aStr} ${p.op==='+'?'+':'−'} ${p.bStr} = <b>?</b>`;
+  document.querySelectorAll('.colTap').forEach(e=>e.remove());
+  applyOffset(false);
+  updateLaser();
+  updateHint();
+}
+
+/* ---------- 오프셋 / 드래그 ---------- */
+let dragPx=null, dragStartX=0, dragBase=0, dragDownTarget=null, dragMoved=false;
+function applyOffset(smooth){
+  const b=$('#stripB');
+  if(smooth) b.classList.add('snapback'); else b.classList.remove('snapback');
+  const px = dragPx!=null ? dragPx : k*W;
+  b.style.transform=`translateX(${px}px)`;
+  // 연산 기호는 아래 우주선에 붙어 함께 움직인다 (가림 방지)
+  const op=$('#opSign');
+  if(op){ if(smooth) op.classList.add('snapback'); else op.classList.remove('snapback'); op.style.transform=`translateX(${px}px)`; }
+}
+function updateLaser(){
+  const lz=$('#laser');
+  lz.classList.toggle('on', k===0 && dragPx==null);
+  lz.classList.remove('pre');
+  const ready = (k===0 && zerosLeft===0 && phase==='play');
+  $('#dockBtn').classList.toggle('ready', ready);
+}
+function setOffset(nk,smooth){
+  const was=k; k=Math.max(-2,Math.min(2,nk)); dragPx=null;
+  applyOffset(smooth!==false);
+  if(k===0 && was!==0){ sfx.snap(); buzz(12); }
+  updateLaser(); updateHint();
+}
+(function(){
+  const b=$('#stripB');
+  b.addEventListener('pointerdown',e=>{
+    if(phase!=='play') return;
+    b.setPointerCapture(e.pointerId);
+    dragDownTarget=e.target; dragMoved=false;
+    dragStartX=e.clientX; dragBase=k*W; dragPx=dragBase;
+    b.classList.remove('snapback');
+    e.preventDefault();
+  });
+  b.addEventListener('pointermove',e=>{
+    if(dragPx==null||phase!=='play') return;
+    let px=dragBase+(e.clientX-dragStartX);
+    if(Math.abs(e.clientX-dragStartX)>6) dragMoved=true;
+    const lim=2*W;
+    if(px>lim) px=lim+(px-lim)*.25;
+    if(px<-lim) px=-lim+(px+lim)*.25;
+    dragPx=px; applyOffset(false);
+    const lz=$('#laser');
+    lz.classList.toggle('pre', Math.abs(px)<10);
+    lz.classList.remove('on');
+  });
+  const up=e=>{
+    if(dragPx==null) return;
+    const nk=Math.max(-2,Math.min(2,Math.round(dragPx/W)));
+    dragPx=null; setOffset(nk,true);
+    // 포인터 캡처 때문에 아래 스트립의 빈 칸(ph) 탭이 document 리스너에 안 잡힌다 → 여기서 처리
+    if(!dragMoved && dragDownTarget && dragDownTarget.classList &&
+       dragDownTarget.classList.contains('ph') && phase==='play'){
+      fillZero(dragDownTarget);
+    }
+    dragDownTarget=null;
+  };
+  b.addEventListener('pointerup',up);
+  b.addEventListener('pointercancel',up);
+})();
+
+/* ---------- 빈 칸 0 채우기 ---------- */
+document.addEventListener('pointerup',e=>{
+  const t=e.target;
+  if(phase!=='play'||!t.classList||!t.classList.contains('ph')) return;
+  fillZero(t);
+});
+function fillZero(el){
+  el.classList.remove('ph','blink'); el.classList.add('d','zero');
+  el.textContent='0';
+  el.removeAttribute('data-place');
+  zerosLeft--;
+  sfx.zero(); buzz(8);
+  const p=cur;
+  if(p.a.prec===0 && els.A.t && !els.A.t.classList.contains('ph') && els.A.h && !els.A.h.classList.contains('ph'))
+    els.A.pt.classList.remove('dimpt');
+  if(p.b.prec===0 && els.B.t && !els.B.t.classList.contains('ph') && els.B.h && !els.B.h.classList.contains('ph'))
+    els.B.pt.classList.remove('dimpt');
+  updateLaser(); updateHint();
+}
+
+/* ---------- 힌트 ---------- */
+function hint(msg,warn){
+  const h=$('#hint');
+  h.textContent=msg||'';
+  h.classList.toggle('warn',!!warn);
+}
+function updateHint(){
+  if(phase!=='play') return;
+  if(k!==0) hint('아래 우주선을 끌어서 빨간 소수점을 위아래로 맞춰!');
+  else if(zerosLeft>0) hint('좋아! 이제 빈 칸을 눌러 0을 채워. 0.3과 0.30은 같은 수야.');
+  else hint('완벽해! 도킹 버튼을 눌러!');
+}
+
+/* ---------- 도킹 버튼 ---------- */
+$('#dockBtn').addEventListener('click',()=>{
+  auEnsure();
+  if(phase!=='play') return;
+  if(k!==0){ jam(); return; }
+  if(zerosLeft>0){
+    document.querySelectorAll('.ph').forEach(e=>e.classList.add('blink'));
+    sfx.wrongCol();
+    hint('빈 칸이 남았어! 눌러서 0을 채우면 도킹 준비 끝.',true);
+    return;
+  }
+  startCompute();
+});
+function jam(){
+  cleanRun=false; combo=0; renderCombo();
+  lives--; renderHearts();
+  sfx.bad(); buzz([30,40,30]);
+  const d=$('#dock');
+  d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake');
+  sparksAt(SLOT.pt*W+W/2, rows.B+TH/2, '#ff5d7e', 10);
+  hint('앗! 소수점이 어긋난 채로 도킹하면 안 돼. 빨간 점끼리 위아래로!',true);
+  if(lives<=0){ phase='reveal'; timerOn=false; setTimeout(gameOver,800*SPD); }
+}
+
+/* ---------- 계산 단계 (열 탭) ---------- */
+function startCompute(){
+  phase='compute';
+  timerOn=true; // 시간은 계속 흐른다
+  $('#stripA').classList.add('locked');
+  $('#stripB').classList.add('locked');
+  $('#dockBtn').disabled=true;
+  $('#dockBtn').classList.remove('ready');
+  sfx.snap();
+  const p=cur;
+  computeOrder=[];
+  if(p.union>=2) computeOrder.push('h');
+  if(p.union>=1) computeOrder.push('t');
+  computeOrder.push('o');
+  computeIdx=0;
+  buildColTaps();
+  hint('오른쪽 끝자리부터 눌러서 계산해!');
+  carryState={carry:0,borrow:0};
+}
+let carryState={carry:0,borrow:0};
+function buildColTaps(){
+  document.querySelectorAll('.colTap').forEach(e=>e.remove());
+  const dock=$('#dock');
+  computeOrder.forEach(pl=>{
+    const c=document.createElement('div');
+    c.className='colTap';
+    c.dataset.place=pl;
+    c.style.left=(SLOT[pl]*W+1)+'px';
+    c.style.width=(W-2)+'px';
+    c.style.top=(rows.A-4)+'px';
+    c.style.height=(rows.ans+TH-rows.A+8)+'px';
+    c.addEventListener('pointerup',()=>onColTap(pl,c));
+    dock.appendChild(c);
+  });
+  markNextCol();
+}
+function markNextCol(){
+  document.querySelectorAll('.colTap').forEach(e=>{
+    e.classList.toggle('next', e.dataset.place===computeOrder[computeIdx]);
+  });
+}
+function onColTap(pl,el){
+  if(phase!=='compute') return;
+  if(pl!==computeOrder[computeIdx]){
+    el.classList.remove('wiggle'); void el.offsetWidth; el.classList.add('wiggle');
+    sfx.wrongCol();
+    hint('계산은 오른쪽 끝자리부터! 노란 칸을 눌러.',true);
+    return;
+  }
+  computeColumn(pl,el);
+}
+async function computeColumn(pl,tapEl){
+  phase='anim';
+  tapEl.classList.remove('next');
+  const p=cur, A=DG(p.a.v), B=DG(p.b.v);
+  const aEl=els.A[pl], bEl=els.B[pl];
+  aEl.classList.add('hl'); if(bEl) bEl.classList.add('hl');
+  await wait(140);
+  let d;
+  if(p.op==='+'){
+    const s=A[pl]+B[pl]+carryState.carry;
+    d=s%10;
+    spawnAns(pl,d); sfx.pop();
+    if(s>=10){ await carryFx(pl); carryState.carry=1; }
+    else carryState.carry=0;
+  } else {
+    let t0=A[pl]-carryState.borrow, took=false;
+    if(t0<B[pl]){ t0+=10; took=true; }
+    d=t0-B[pl];
+    if(took){ borrowFx(pl); sfx.carry(); await wait(300); }
+    spawnAns(pl,d); sfx.pop();
+    carryState.borrow=took?1:0;
+  }
+  await wait(220);
+  aEl.classList.remove('hl'); if(bEl) bEl.classList.remove('hl');
+  tapEl.remove();
+  computeIdx++;
+  if(computeIdx<computeOrder.length){
+    phase='compute'; markNextCol();
+  } else {
+    await finishAnswer();
+  }
+}
+function spawnAns(pl,digit){
+  const t=tileEl('d a', digit);
+  t.style.left=(SLOT[pl]*W+3)+'px';
+  $('#ansRow').appendChild(t);
+  ansEls[pl]=t;
+}
+function carryFx(pl){
+  return new Promise(res=>{
+    const from=SLOT[pl], to=SLOT[pl]==='undefined'?null:(pl==='h'?SLOT.t:SLOT.o);
+    const chip=document.createElement('div');
+    chip.className='chip'; chip.textContent='1';
+    chip.style.left=(from*W+W/2-12)+'px';
+    chip.style.top=(rows.A-6)+'px';
+    $('#fx').appendChild(chip);
+    sfx.carry();
+    requestAnimationFrame(()=>{
+      chip.style.transform=`translate(${(to-from)*W}px,-14px)`;
+    });
+    setTimeout(()=>{ chip.style.opacity='0'; setTimeout(()=>chip.remove(),300*SPD); res(); },420*SPD);
+  });
+}
+function borrowFx(pl){
+  const left = pl==='h'?'t':'o';
+  const lender=els.A[left];
+  lender.classList.add('lend');
+  const m=document.createElement('span');
+  m.className='badge m1'; m.textContent='−1';
+  lender.appendChild(m);
+  const rec=els.A[pl];
+  const p10=document.createElement('span');
+  p10.className='badge p10'; p10.textContent='+10';
+  rec.appendChild(p10);
+  setTimeout(()=>{ p10.style.opacity='0'; },900*SPD);
+}
+async function finishAnswer(){
+  // 소수점이 그대로 내려온다
+  const p=cur;
+  if(p.union>=1){
+    const pt=tileEl('pt a');
+    pt.classList.add('a');
+    pt.style.left=(SLOT.pt*W+3)+'px';
+    $('#ansRow').appendChild(pt);
+    ansEls.pt=pt;
+    const lz=$('#laser');
+    lz.classList.add('on');
+    sfx.snap();
+    await wait(260);
+  }
+  await success();
+}
+
+/* ---------- 성공 / 다음 문제 ---------- */
+async function success(){
+  phase='result'; timerOn=false;
+  const p=cur;
+  $('#prob').innerHTML=`${p.aStr} ${p.op==='+'?'+':'−'} ${p.bStr} = <b>${p.ansStr}</b>`;
+  const secLeft=Math.max(0,timeLeft/1000);
+  combo++;
+  const gain=100+Math.round(secLeft*6)+(combo-1)*25;
+  score+=gain; renderScore(); renderCombo();
+  sfx.good(combo); buzz(20);
+  floaty('+'+gain, 3*W, rows.rule-10);
+  confetti(SLOT.pt*W+W/2, rows.ans, 18);
+  solved++;
+  // 끝자리 0 정리 연출: 계산 결과와 최소 표기가 다르면 보여준다
+  const shownPrec=p.union, mp=minPrec(p.ans);
+  if(mp<shownPrec){
+    await wait(500);
+    if(shownPrec>=2 && mp<2 && ansEls.h){ ansEls.h.classList.add('fadeout'); }
+    if(mp===0){
+      if(ansEls.t) ansEls.t.classList.add('fadeout');
+      if(ansEls.pt) ansEls.pt.classList.add('fadeout');
+    }
+    toast(`${fmt(p.ans,shownPrec)} = ${p.ansStr} · 끝자리 0은 생략!`);
+    await wait(900);
+  } else {
+    await wait(650);
+  }
+  nextProblem();
+}
+function toast(msg){
+  const t=$('#toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1700*SPD);
+}
+function stageFor(n){ return Math.min(7, 1+Math.floor(n/3)); }
+function nextProblem(){
+  if(lives<=0){ gameOver(); return; }
+  phase='play'; cleanRun=true;
+  $('#dockBtn').disabled=false;
+  const st=stageFor(solved);
+  $('#stagebadge').textContent=`${st}단계 · ${STAGE_NAMES[st]}`;
+  cur=genProblem(st);
+  // 시작 오프셋: 자릿수가 다르면 "오른쪽 끝 맞추기" 함정 위치를 자주 보여준다
+  const lastSlot=n=> n.prec===0?SLOT.o : (n.prec===1?SLOT.t:SLOT.h);
+  let k0=lastSlot(cur.a)-lastSlot(cur.b);
+  if(k0===0 || Math.random()<0.3) k0=[-1,1][ri(0,1)];
+  if(st>=3 && Math.random()<0.3) k0=[-2,2][ri(0,1)];
+  k=Math.max(-2,Math.min(2,k0)); if(k===0) k=1;
+  $('#toast').classList.remove('show');
+  renderProblem();
+  timeMax=Math.max(14000, 27500-(st-1)*2000);
+  timeLeft=timeMax; lastTickSec=99;
+  $('#tbar').classList.remove('low');
+  timerOn=true;
+}
+
+/* ---------- 시간 초과 / 게임오버 ---------- */
+async function onTimeout(){
+  timerOn=false; phase='reveal';
+  cleanRun=false; combo=0; renderCombo();
+  lives--; renderHearts();
+  sfx.bad();
+  hint('시간 초과! 정답을 잘 봐 둬.',true);
+  // 정답 공개: 계산 중이던 흔적 정리 → 정렬 → 0 채움 → 답 표시
+  $('#ansRow').innerHTML=''; ansEls={};
+  document.querySelectorAll('.colTap').forEach(e=>e.remove());
+  setOffset(0,true);
+  document.querySelectorAll('.ph').forEach(e=>fillZero(e));
+  const p=cur, ansD=DG(p.ans);
+  const places = p.union>=2?['h','t','o']:['t','o'];
+  places.forEach(pl=>spawnAns(pl,ansD[pl]));
+  if(p.union>=1){
+    const pt=tileEl('pt a'); pt.classList.add('a');
+    pt.style.left=(SLOT.pt*W+3)+'px';
+    $('#ansRow').appendChild(pt);
+  }
+  $('#prob').innerHTML=`${p.aStr} ${p.op==='+'?'+':'−'} ${p.bStr} = <b>${p.ansStr}</b>`;
+  await wait(1500);
+  if(lives<=0) gameOver(); else nextProblem();
+}
+function gameOver(){
+  phase='over'; timerOn=false;
+  $('#scr-game').hidden=true;
+  $('#scr-over').hidden=false;
+  $('#finalScore').textContent=score;
+  $('#ovSolved').textContent=solved;
+  const st=stageFor(Math.max(0,solved-1));
+  $('#ovStage').textContent=`${st}단계 ${STAGE_NAMES[st]}`;
+  let nb='';
+  if(score>best){ best=score; nb='최고 기록 경신!'; try{localStorage.setItem('dotdock_best',String(best));}catch(e){} }
+  $('#newBest').textContent=nb;
+  $('#ovBest').textContent=best;
+}
+
+/* ---------- HUD ---------- */
+function renderHearts(){
+  let s='';
+  for(let i=0;i<3;i++) s+=`<span class="${i<lives?'':'off'}">♥</span>`;
+  $('#hearts').innerHTML=s;
+}
+function renderScore(){ $('#score').textContent=score; }
+function renderCombo(){ $('#combo').textContent = combo>=2?`×${combo}`:''; }
+$('#muteBtn').addEventListener('click',()=>{
+  muted=!muted;
+  try{localStorage.setItem('dotdock_mute',muted?'1':'0');}catch(e){}
+  renderMute(); auEnsure(); if(!muted) sfx.click();
+});
+function renderMute(){ $('#muteBtn').textContent = muted?'✖':'♫'; $('#muteBtn').style.opacity=muted?'.5':'1'; }
+
+/* ---------- 이펙트 ---------- */
+function sparksAt(x,y,color,n){
+  const fx=$('#fx');
+  for(let i=0;i<n;i++){
+    const s=document.createElement('div');
+    s.className='spark'; s.style.background=color;
+    s.style.left=x+'px'; s.style.top=y+'px';
+    fx.appendChild(s);
+    const a=Math.random()*Math.PI*2, r=30+Math.random()*70;
+    requestAnimationFrame(()=>{
+      s.style.transform=`translate(${Math.cos(a)*r}px,${Math.sin(a)*r}px) rotate(${Math.random()*360}deg)`;
+      s.style.opacity='0';
+    });
+    setTimeout(()=>s.remove(),750);
+  }
+}
+function confetti(x,y,n){
+  const cols=['#4de8ff','#ffd75e','#ff5d7e','#3ee6a8','#c39bff'];
+  const fx=$('#fx');
+  for(let i=0;i<n;i++){
+    const s=document.createElement('div');
+    s.className='spark';
+    s.style.background=cols[i%cols.length];
+    s.style.left=x+'px'; s.style.top=y+'px';
+    s.style.width=(5+Math.random()*6)+'px'; s.style.height=(5+Math.random()*6)+'px';
+    fx.appendChild(s);
+    const a=(-Math.PI/2)+(Math.random()-.5)*2.2, r=50+Math.random()*110;
+    requestAnimationFrame(()=>{
+      s.style.transform=`translate(${Math.cos(a)*r}px,${Math.sin(a)*r+40}px) rotate(${Math.random()*540}deg)`;
+      s.style.opacity='0';
+    });
+    setTimeout(()=>s.remove(),800);
+  }
+}
+function floaty(txt,x,y){
+  const f=document.createElement('div');
+  f.className='floaty'; f.textContent=txt;
+  f.style.left=x+'px'; f.style.top=y+'px';
+  $('#fx').appendChild(f);
+  requestAnimationFrame(()=>{ f.style.transform='translateY(-56px)'; f.style.opacity='0'; });
+  setTimeout(()=>f.remove(),1100);
+}
+function wait(ms){ return new Promise(r=>setTimeout(r,ms*SPD)); }
+
+/* ---------- 타이머 루프 ---------- */
+function loop(ts){
+  if(timerOn && (phase==='play'||phase==='compute'||phase==='anim')){
+    if(lastTs) timeLeft-=Math.min(50,ts-lastTs);
+    const ratio=Math.max(0,timeLeft/timeMax);
+    $('#tbar').style.width=(ratio*100)+'%';
+    $('#tbar').classList.toggle('low',timeLeft<5500);
+    if(timeLeft<5500){
+      const sec=Math.ceil(timeLeft/1000);
+      if(sec!==lastTickSec && sec>0){ lastTickSec=sec; sfx.tick(); }
+    }
+    if(timeLeft<=0 && phase!=='anim'){ onTimeout(); }
+  }
+  lastTs=ts;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- 화면 전환 ---------- */
+function startGame(){
+  auEnsure(); sfx.click();
+  lives=3; score=0; combo=0; solved=0;
+  renderHearts(); renderScore(); renderCombo(); renderMute();
+  $('#scr-title').hidden=true;
+  $('#scr-over').hidden=true;
+  $('#scr-game').hidden=false;
+  layout();
+  nextProblem();
+}
+$('#startBtn').addEventListener('click',startGame);
+$('#retryBtn').addEventListener('click',startGame);
+document.addEventListener('pointerdown',auEnsure,{once:true});
+layout(); renderMute();
+
+/* ---------- 테스트 훅 ---------- */
+window.__LAB_TEST__={
+  ready:true,
+  start(){ if(phase==='title'||phase==='over') startGame(); },
+  getState(){
+    return { phase, score, lives, combo, solved,
+      stage: cur?cur.stage:0, offset:k, zerosLeft,
+      problem: cur?{ op:cur.op, aV:cur.a.v, bV:cur.b.v, aPrec:cur.a.prec, bPrec:cur.b.prec,
+        ansV:cur.ans, union:cur.union, aStr:cur.aStr, bStr:cur.bStr, ansStr:cur.ansStr }:null };
+  },
+  setOffset(nk){ setOffset(nk,false); },
+  fillZeros(){ document.querySelectorAll('.ph').forEach(e=>fillZero(e)); },
+  dock(){ $('#dockBtn').click(); },
+  async solveColumns(){
+    while(phase==='compute'){
+      const pl=computeOrder[computeIdx];
+      const el=document.querySelector(`.colTap[data-place="${pl}"]`);
+      await computeColumn(pl,el);
+    }
+  },
+  tapColumn(pl){
+    const el=document.querySelector(`.colTap[data-place="${pl}"]`);
+    if(el) onColTap(pl,el);
+    return !!el;
+  },
+  setFast(f){ SPD = f?0.02:1; },
+  addTime(ms){ timeLeft+=ms; },
+  fmt, fmtMin, minPrec,
+  sampleProblems(n,stage){
+    const out=[];
+    for(let i=0;i<n;i++){
+      const st=stage||ri(1,7);
+      const p=genProblem(st);
+      out.push({ stageAsked:st, stage:p.stage, op:p.op,
+        aV:p.a.v, bV:p.b.v, aPrec:p.a.prec, bPrec:p.b.prec,
+        ansV:p.ans, union:p.union, aStr:p.aStr, bStr:p.bStr, ansStr:p.ansStr });
+    }
+    return out;
+  }
+};
+})();
+</script>
+</body>
+</html>
