@@ -93,6 +93,41 @@
   #bubble b{color:var(--red-d)}
   #bubble .nm{display:block;font-size:12.5px;color:var(--ink2);font-weight:700;margin-bottom:3px}
 
+  /* ---------- 자눈 측량대 캐스트 (docs/character-bible.md) ---------- */
+  .castfig{
+    position:absolute;left:0;top:2px;width:92px;height:108px;
+    object-fit:contain;object-position:center bottom;
+    filter:drop-shadow(0 4px 6px rgba(90,60,20,.20));
+    animation:bounceIn .5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  .castfig.happy{animation:hop .5s ease 2}
+  .castfig.sad{animation:shake .4s ease 1}
+  #bubble .nm.cast{font-size:12.5px;font-weight:800}
+  #bubble .mute{display:block;font-size:19px;font-weight:900;letter-spacing:2px;color:#c08a10;line-height:1.3}
+  #bubble .stage{display:block;font-size:12.5px;font-style:italic;color:var(--ink2);font-weight:700;margin-top:2px}
+  #bubble .note{
+    display:inline-block;margin-top:4px;padding:5px 10px;border-radius:10px;
+    background:#fff7e6;border:2px dashed #e2c489;font-size:15.5px;font-weight:800;color:var(--ink);
+  }
+  #bubble .lead{display:block;font-size:14.5px;font-weight:800;color:#12309C;margin-bottom:1px}
+  /* 토스트 — 캐릭터의 말과 가게의 힌트를 형태로 구분한다 */
+  #toast .say{display:block;margin-bottom:6px;font-weight:700}
+  #toast .who{
+    display:inline-block;padding:1px 7px;border-radius:99px;margin-right:6px;
+    font-size:12px;font-weight:900;color:#2a1a0c;background:#ffefd2;vertical-align:1px;
+  }
+  #toast .tipTag{
+    display:inline-block;padding:1px 7px;border-radius:99px;margin-right:6px;
+    font-size:12px;font-weight:900;color:#463019;background:#d8c49a;vertical-align:1px;
+  }
+  /* 인트로 안내 — 재이 */
+  .guideRow{display:flex;align-items:center;gap:10px;margin-top:16px;max-width:340px;text-align:left}
+  .guideRow img{width:62px;height:62px;object-fit:contain;flex:0 0 auto}
+  .guideRow p{font-size:14.5px;font-weight:700;color:var(--ink2);line-height:1.5}
+  /* 엔딩 — 목 기록관 */
+  #endMok{width:96px;height:96px;object-fit:contain;display:block;margin:0 auto}
+  #endMokSay{font-size:15px;font-weight:800;color:#0C6C78;letter-spacing:.5px;margin-top:2px}
+
   /* ---------- board ---------- */
   #boardWrap{flex:1 1 auto;position:relative;min-height:0}
   #board{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
@@ -128,6 +163,7 @@
       var(--paper);
   }
   .overlay[hidden]{display:none}
+  .overlay{overflow-y:auto}
   .logoTri{width:120px;height:120px;margin-bottom:10px}
   h1{font-size:34px;letter-spacing:-1px;margin:4px 0 10px}
   .sub{font-size:16px;line-height:1.65;color:var(--ink2);font-weight:600;max-width:330px}
@@ -149,6 +185,8 @@
   @media (max-height:700px){
     .logoTri{width:84px;height:84px} h1{font-size:28px}
     #stage{min-height:104px} .facts{font-size:13.5px}
+    .guideRow{margin-top:10px} .guideRow img{width:48px;height:48px} .guideRow p{font-size:13px}
+    #endMok{width:72px;height:72px}
   }
 </style>
 </head>
@@ -193,12 +231,17 @@
       손님이 원하는 삼각형을 만들어 주자!<br><br>
       꼭짓점을 <b>손가락으로 끌면</b> 움직여.<br>
       고무줄을 <b>톡 튕기면</b> 소리도 난다?</p>
+    <div class="guideRow">
+      <img src="../../vendor/cast/jaei/pose-measure.png" alt="" aria-hidden="true">
+      <p>저는 재이예요. 오늘 이 가게, 같이 재 볼까요?</p>
+    </div>
     <button class="bigBtn" id="startBtn">가게 열기</button>
   </div>
 
   <!-- ---------- ending ---------- -->
   <div class="overlay" id="ending" hidden>
-    <div style="font-size:56px">🎉</div>
+    <img id="endMok" src="../../vendor/cast/mok/pose-record.png" alt="" aria-hidden="true">
+    <div id="endMokSay">기록했다.</div>
     <h1>오늘 영업 끝!</h1>
     <div id="endStats"></div>
     <div id="endMsg" class="sub"></div>
@@ -289,6 +332,27 @@ function whySide(want,c){
   return {msg:'길이가 <b>같은 변</b>이 있어 — 같은 눈금 표시(⌇)가 붙은 변을 봐! 세 변이 <b>모두 다르게</b> 만들어 줘.', side:true};
 }
 
+/* ---------------- 자눈 측량대 캐스트 ----------------
+   정본: docs/character-bible.md · 에셋: public/vendor/cast/ (상대경로만).
+   손님 12명 중 4명이 파견대다. 주문 조건(pred)은 그대로 — 말투와 얼굴만 캐스트의 것이다. */
+const CAST_DIR = '../../vendor/cast/';
+const CAST = {
+  jaei:   { id:'jaei',    color:'#D84818', cuts:{idle:'think',   good:'joy', bad:'sad'},
+            fail:'…어? 한 번 더 잴게요. 이번엔 천천히.' },
+  tak:    { id:'tak',     color:'#12309C', cuts:{idle:'think',   good:'joy', bad:'sad'},
+            fail:'빗나갔네. 뭐, 나도 셋 중 하나는 빗나가.' },
+  mok:    { id:'mok',     color:'#0C6C78', cuts:{idle:'pose-assign', good:'joy', bad:'sad'},
+            fail:'빈칸이다.' },
+  mungchi:{ id:'mungchi', color:'#c08a10', cuts:{idle:'stand',   good:'joy', bad:'sad'},
+            fail:'…끙.' }
+};
+(function preloadCast(){
+  const need=[];
+  for(const k in CAST){ const c=CAST[k]; for(const t in c.cuts) need.push(c.id+'/'+c.cuts[t]); }
+  need.push('jaei/pose-measure','mok/pose-record');
+  need.forEach(p=>{ const im=new Image(); im.src=CAST_DIR+p+'.png'; });
+})();
+
 const CUSTOMERS = [
   { name:'반듯이', hue:16,
     order:'각 하나가 반듯하게 꺾인 <b>직각삼각형</b> 주세요!',
@@ -302,24 +366,30 @@ const CUSTOMERS = [
     praise:c=>c.isEqui
       ? '세 각이 모두 60°네! <b>정삼각형은 예각삼각형이기도 해.</b> 완벽해!'
       : `${listDeg(c)} — 셋 다 90°보다 작아. 완벽한 예각삼각형!` },
-  { name:'느긋이', hue:265,
-    order:'한 각이 <b>느~긋하게 벌어진</b> 둔각삼각형 주세요.',
+  /* --- 탁 반장 (자눈 측량대) — 어림으로 주문했다가 정확을 요구한다 --- */
+  { name:'탁 반장', cast:CAST.tak,
+    order:'<span class="lead">대충 벌어진 놈으로 하나. …아니, 정확히.</span>'
+        + '<b>90°보다 큰 각</b>이 하나 있는 둔각삼각형. 그거면 돼.',
     pred:c=>c.angleType==='obtuse',
     why:c=>whyAngle('obtuse',c),
-    praise:c=>`${maxDeg(c)}°라니, 아주 느긋한 각이야. 둔각은 <b>하나면 충분</b>하지!` },
-  { name:'쌍둥이', hue:145,
-    order:'길이가 <b>같은 두 변</b>이 있는 이등변삼각형 주세요!',
+    praise:c=>`${maxDeg(c)}°. 봐, 둔각은 <b>하나면 충분</b>하다니까.` },
+  /* --- 재이 (자눈 측량대) — 꼼꼼하다. 확인하지 않으면 못 넘어간다 --- */
+  { name:'재이', cast:CAST.jaei,
+    order:'이 세모, 아직 장부에 없어요. 길이가 <b>같은 두 변</b>이 있는 이등변삼각형으로 만들어 볼까요?',
     pred:c=>c.isIso,
     why:c=>whySide('iso',c),
     praise:c=>c.isEqui
-      ? '우와, 정삼각형이잖아! 세 변이 같으면 두 변도 당연히 같지 — <b>정삼각형도 이등변삼각형이야!</b> 보너스 줄게 🪙'
-      : '두 변이 쌍둥이처럼 똑같아! 고마워~',
+      ? '한 번 더 쟀는데 세 변이 모두 같아요. 세 변이 같으면 두 변도 같으니까 — <b>정삼각형도 이등변삼각형</b>이에요. 장부에 올려 주세요!'
+      : '맞았어요! 두 변이 꼭 같아요. 장부에 올려 주세요.',
     bonus:c=>c.isEqui ? 1 : 0 },
-  { name:'똑같이', hue:45,
-    order:'<b>세 변이 모두 똑같은</b> 정삼각형으로 부탁해!',
+  /* --- 뭉치 (자눈 측량대) — 말을 하지 않는다. 주문서를 밀어 놓는다 --- */
+  { name:'뭉치', cast:CAST.mungchi,
+    order:'<span class="mute">웅—</span><span class="note">세 변이 모두 같은 세모</span>'
+        + '<span class="stage">(주문서를 앞발로 밀어 놓는다)</span>',
     pred:c=>c.isEqui,
     why:c=>whySide('equi',c),
-    praise:c=>'세 변도, 세 각(60°)도 모두 똑같아. 완벽한 정삼각형!' },
+    praise:c=>'<span class="mute">웅—</span><span class="stage">(꼬리 큐브 한 칸이 매끈해진다)</span>',
+    toastFact:'세 변도, 세 각(60°)도 모두 똑같아.' },
   { name:'제각각', hue:330,
     order:'난 똑같은 게 싫어. <b>세 변의 길이가 모두 다른</b> 삼각형!',
     pred:c=>!c.isIso,
@@ -356,11 +426,12 @@ const CUSTOMERS = [
       return whySide('iso',c);
     },
     praise:c=>'둔각 하나에 쌍둥이 변까지. 느긋하고 반듯한 명작이야!' },
-  { name:'각도요정', hue:225,
-    order:'세 각이 <b>45°, 60°, 75°</b>인 삼각형을 만들 수 있어?',
+  /* --- 목 기록관 (자눈 측량대) — 장부에 올릴 값을 부른다 --- */
+  { name:'목 기록관', cast:CAST.mok,
+    order:'장부에 올릴 세모를 말해. 세 각이 <b>45°, 60°, 75°</b>다.',
     pred:c=>{const a=c.angles.slice().sort((x,y)=>x-y);return a[0]===45&&a[1]===60&&a[2]===75;},
-    why:c=>({msg:`지금은 ${listDeg(c)}야. <b>45°, 60°, 75°</b>가 되게 바꿔 보자! 힌트: 호 3칸·4칸·5칸.`}),
-    praise:c=>'45+60+75=180! 세 각이 모두 예각이고 세 변은 다 다른, 귀한 삼각형이야.' },
+    why:c=>({msg:`지금은 ${listDeg(c)}. <b>45°, 60°, 75°</b>로 맞춰라. 호 3칸·4칸·5칸이다.`}),
+    praise:c=>'기록했다. 45와 60과 75. 합은 180. 세 각 모두 90°보다 작다.' },
   { name:'육공공', hue:55,
     order:'마지막 주문! 세 각이 <b>모두 60°</b>인 삼각형!',
     pred:c=>c.angles.every(a=>a===60),
@@ -715,15 +786,32 @@ canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
 
 /* ---------------- 손님 / 진행 ---------------- */
+function castCut(cu,kind){
+  return `<img class="castfig" src="${CAST_DIR}${cu.cast.id}/${cu.cast.cuts[kind]}.png" alt="" aria-hidden="true">`;
+}
+function figure(){ return blobWrap.querySelector('.blob,.castfig'); }
+function setFace(cu,kind){                 // kind: idle | good | bad
+  if(cu.cast){ blobWrap.innerHTML=castCut(cu,kind); return figure(); }
+  return figure();
+}
+function nameTag(cu){
+  return cu.cast
+    ? `<span class="nm cast" style="color:${cu.cast.color}">${cu.name}</span>`
+    : `<span class="nm">${cu.name} 손님</span>`;
+}
 function showCustomer(i){
   const cu=CUSTOMERS[i];
   blobWrap.innerHTML='';
-  const b=document.createElement('div');
-  b.className='blob';
-  b.style.background=`hsl(${cu.hue} 62% 68%)`;
-  b.innerHTML='<div class="pupils"></div><div class="mouth"></div>';
-  blobWrap.appendChild(b);
-  bubbleText.innerHTML=`<span class="nm">${cu.name} 손님</span>${cu.order}`;
+  if(cu.cast){
+    blobWrap.innerHTML=castCut(cu,'idle');
+  }else{
+    const b=document.createElement('div');
+    b.className='blob';
+    b.style.background=`hsl(${cu.hue} 62% 68%)`;
+    b.innerHTML='<div class="pupils"></div><div class="mouth"></div>';
+    blobWrap.appendChild(b);
+  }
+  bubbleText.innerHTML=`${nameTag(cu)}${cu.order}`;
   $('progress').textContent=`손님 ${i+1}/${CUSTOMERS.length}`;
   S.fails=0;
 }
@@ -738,7 +826,7 @@ function serve(){
   if (S.phase!=='playing' || S.dragging>=0) return;
   const cu=CUSTOMERS[S.orderIdx];
   const c=classify(S.pegs);
-  const blob=blobWrap.querySelector('.blob');
+  let blob=figure();
   if (cu.pred(c)){
     S.phase='judging';
     serveBtn.disabled=true;
@@ -747,13 +835,15 @@ function serve(){
     if (S.fails===0) S.perfect++;
     sndGood(); setTimeout(sndCoin, 260);
     confetti(CX,CY);
+    if (cu.cast) blob=setFace(cu,'good');
     if (blob){ blob.classList.remove('sad'); blob.classList.add('happy');
       const h=document.createElement('div'); h.className='hearts'; h.textContent='💛';
       blobWrap.appendChild(h);
     }
-    bubbleText.innerHTML=`<span class="nm">${cu.name} 손님</span>${cu.praise(c)}`;
+    bubbleText.innerHTML=`${nameTag(cu)}${cu.praise(c)}`;
     setCoins(S.coins+earned+bonus);
-    showToast(`<b>${korName(c)}</b> 완성! 🪙 +${earned}${bonus?` <b>+${bonus} 보너스</b>`:''}`, 2600);
+    showToast(`<b>${korName(c)}</b> 완성! 🪙 +${earned}${bonus?` <b>+${bonus} 보너스</b>`:''}`
+      + (cu.toastFact?`<br>${cu.toastFact}`:''), 2600);
     setTimeout(()=>{
       S.orderIdx++;
       if (S.orderIdx>=CUSTOMERS.length){ endGame(); return; }
@@ -763,11 +853,17 @@ function serve(){
   } else {
     S.fails++;
     sndBad();
+    if (cu.cast) blob=setFace(cu,'bad');
     if (blob){ blob.classList.remove('happy','sad'); void blob.offsetWidth; blob.classList.add('sad'); }
     const why=cu.why(c);
     S.hlDeg = why.hl||0; S.hlSide = !!why.side;
     S.hlUntil = performance.now()+2600;
-    showToast(`지금 만든 건 <b>${korName(c)}</b>이야.<br>${why.msg}`, 5200);
+    /* 캐릭터의 말(say)과 가게의 힌트(tip)를 형태로 구분한다 — 힌트는 캐릭터의 대사가 아니다 */
+    const say = cu.cast
+      ? `<span class="say"><span class="who" style="background:${cu.cast.color};color:#fff">${cu.name}</span>${cu.cast.fail}</span>`
+      : '';
+    showToast(`${say}<span class="tipTag">힌트</span>지금 만든 건 <b>${korName(c)}</b>이야.<br>${why.msg}`, 5200);
+    if (cu.cast) setTimeout(()=>{ if(S.phase==='playing'&&CUSTOMERS[S.orderIdx]===cu) setFace(cu,'idle'); }, 2400);
   }
 }
 serveBtn.addEventListener('click', serve);
@@ -812,6 +908,21 @@ window.LAB_TEST = {
   serve(){ serve(); },
   start(){ startGame(); },
   state(){ return {phase:S.phase, orderIdx:S.orderIdx, coins:S.coins, perfect:S.perfect, fails:S.fails, settled:isSettled()}; },
+};
+
+/* 캐스트 대사 전수 — 톤 검사기가 읽는다 (docs/character-bible.md) */
+window.__CAST_LINES__=function(){
+  const out=[];
+  const samples=[[0,4,8],[0,3,7],[0,1,5],[0,3,6],[0,4,9]];
+  CUSTOMERS.forEach(cu=>{
+    if(!cu.cast) return;
+    out.push({char:cu.cast.id, html:cu.order});
+    out.push({char:cu.cast.id, html:cu.cast.fail});
+    samples.forEach(p=>{ out.push({char:cu.cast.id, html:cu.praise(classify(p))}); });
+  });
+  out.push({char:'jaei', html:document.querySelector('.guideRow p').textContent});
+  out.push({char:'mok',  html:document.getElementById('endMokSay').textContent});
+  return out;
 };
 </script>
 </body>
