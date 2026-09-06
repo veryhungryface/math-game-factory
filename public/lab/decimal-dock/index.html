@@ -9,6 +9,9 @@
   --bg0:#070b1e; --bg1:#101736; --ink:#eef3ff; --dim:#8b97c9;
   --cy:#4de8ff; --pk:#ff5d7e; --mint:#3ee6a8; --gold:#ffd75e;
   --tile0:#25336b; --tile1:#1a2450; --tileb:#3a4d9a;
+  /* 자눈 측량대 캐스트 토큰 (docs/character-bible.md §4.2) */
+  --cast-mok:#128490; --cast-mungchi:#F0C054; --cast-mu:#9C6CD8; --cast-mu-eye:#FFE0A0;
+  --world-paper:#E4E4D8;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;}
@@ -72,13 +75,15 @@ section{flex:1; display:flex; flex-direction:column;}
   border:1px solid rgba(77,232,255,.35); padding:4px 10px; border-radius:99px; white-space:nowrap;}
 #score{margin-left:auto; font-size:20px; font-weight:900; font-variant-numeric:tabular-nums;}
 #combo{font-size:12px; font-weight:800; color:var(--gold); min-width:38px; text-align:right;}
-#muteBtn{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.18);
+#muteBtn{width:44px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
   background:rgba(255,255,255,.06); color:var(--ink); font-size:16px; cursor:pointer;}
 
 /* ---------- game ---------- */
 #prob{ text-align:center; font-size:26px; font-weight:900; padding:6px 10px 2px; font-variant-numeric:tabular-nums; letter-spacing:1px;}
 #prob b{color:var(--gold);}
-#tbarWrap{height:8px; margin:8px 22px; background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden;}
+#timeRow{position:relative; flex:0 0 auto; height:42px; margin:2px 22px 4px;}
+#tbarWrap{position:absolute; left:0; right:0; top:30px; height:8px;
+  background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden;}
 #tbar{height:100%; width:100%; border-radius:99px; background:linear-gradient(90deg,var(--cy),#7ef2c7); transition:background .3s;}
 #tbar.low{background:linear-gradient(90deg,#ff8d5d,var(--pk));}
 
@@ -124,16 +129,32 @@ section{flex:1; display:flex; flex-direction:column;}
 .tile.fadeout{transition:opacity .5s, transform .5s; opacity:0; transform:scale(.5);}
 @keyframes popin{0%{transform:scale(.3); opacity:0;} 100%{transform:scale(1); opacity:1;}}
 
-.badge{position:absolute; z-index:3; font-size:12px; font-weight:900; border-radius:8px; padding:2px 5px; pointer-events:none;}
-.badge.m1{top:-9px; right:-7px; background:var(--pk); color:#fff; animation:popin .2s;}
-.badge.p10{top:-9px; left:-7px; background:var(--cy); color:#04263a; animation:popin .2s;}
+.badge{position:absolute; z-index:3; font-size:11px; font-weight:900; border-radius:7px; padding:1px 4px; pointer-events:none;
+  transition:opacity .4s;}
+.badge.m1{top:-7px; right:-5px; background:var(--pk); color:#fff; animation:popin .2s;}
+.badge.p10{top:-7px; left:-5px; background:var(--cy); color:#04263a; animation:popin .2s;}
+.badge.faded{opacity:.5;}
 .tile.lend::after{content:''; position:absolute; left:12%; right:12%; top:48%; height:3px;
   background:var(--pk); transform:rotate(-18deg); border-radius:2px;}
+.tile.lend{color:#8fa0d8;}
 
 .chip{position:absolute; z-index:4; width:24px; height:24px; border-radius:50%;
   background:var(--cy); color:#04263a; font-size:14px; font-weight:900;
   display:flex; align-items:center; justify-content:center;
   box-shadow:0 0 10px rgba(77,232,255,.8); transition:transform .4s ease, opacity .3s;}
+
+/* ---- 받아올림/받아내림 잔류 표기 (교과서 세로셈: 윗칸에 작게 쓰고 지우지 않는다) ---- */
+#dock .mark{position:absolute; z-index:6; pointer-events:none; text-align:center;
+  font-weight:900; font-size:15px; line-height:20px; font-variant-numeric:tabular-nums;
+  color:var(--cy); text-shadow:0 0 10px rgba(77,232,255,.6);
+  opacity:0; transition:opacity .2s;}
+#dock .mark::after{content:''; position:absolute; left:30%; right:30%; bottom:1px; height:2px;
+  border-radius:2px; background:currentColor; opacity:.4;}
+#dock .mark.borrow{color:var(--mint); text-shadow:0 0 10px rgba(62,230,168,.55);}
+#dock .mark.show{opacity:1;}
+#dock .mark.used{opacity:.6;}
+#dock .mark.pulse{animation:markPulse .5s ease-out;}
+@keyframes markPulse{0%{transform:scale(1)}35%{transform:scale(1.55)}100%{transform:scale(1)}}
 
 #opSign{position:absolute; display:flex; align-items:center; justify-content:center;
   font-size:calc(var(--th)*.52); font-weight:900; color:var(--cy); width:var(--w); height:var(--th);
@@ -175,6 +196,65 @@ section{flex:1; display:flex; flex-direction:column;}
   border-radius:12px; padding:8px 16px; opacity:0; transition:opacity .25s, transform .25s; white-space:nowrap; pointer-events:none;}
 #toast.show{opacity:1; transform:translateX(-50%) scale(1);}
 
+/* ---------- 자눈 측량대 캐스트 (docs/character-bible.md · vendor/cast) ---------- */
+.castimg{position:relative; display:block; pointer-events:none; flex:0 0 auto;}
+.castimg img{position:absolute; left:0; top:0; width:100%; height:100%; object-fit:contain;
+  object-position:bottom center; opacity:0; transition:opacity .2s;
+  -webkit-user-drag:none; user-select:none;}
+.castimg img.on{opacity:1;}
+.bubble{position:relative; border-radius:13px; padding:7px 12px; font-size:14px; font-weight:700;
+  line-height:1.35; letter-spacing:-.2px; word-break:keep-all;
+  background:rgba(18,132,144,.14); border:1px solid rgba(18,132,144,.5); color:#bfeef2;}
+.bubble::before{content:''; position:absolute; left:-6px; top:50%; margin-top:-5px;
+  width:10px; height:10px; transform:rotate(45deg);
+  background:rgba(18,132,144,.22); border-left:1px solid rgba(18,132,144,.5); border-bottom:1px solid rgba(18,132,144,.5);}
+.bubble.mu{background:rgba(156,108,216,.14); border-color:rgba(156,108,216,.5); color:#dcc9f5;}
+.bubble.mu::before{background:rgba(156,108,216,.22); border-left-color:rgba(156,108,216,.5); border-bottom-color:rgba(156,108,216,.5);}
+
+/* 목 기록관 — 관제탑 출제. 궤도 코스튬: 장부 낱장이 무중력에 떠다닌다 */
+#castTop{flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:2px 14px 0; min-height:58px;}
+#mokPort{width:54px; height:56px;}
+#mokPort .leaf, #mokTitle .leaf{position:absolute; width:9px; height:11px; border-radius:1px;
+  background:var(--world-paper); opacity:.5; box-shadow:0 0 6px rgba(228,228,216,.35);}
+#mokPort .leaf.l1, #mokTitle .leaf.l1{left:2px; top:10px; animation:leafDrift 5.5s ease-in-out infinite;}
+#mokPort .leaf.l2, #mokTitle .leaf.l2{right:0px; top:26px; animation:leafDrift 7s ease-in-out infinite reverse;}
+@keyframes leafDrift{0%,100%{transform:translate(0,0) rotate(-8deg)}50%{transform:translate(4px,-11px) rotate(14deg)}}
+#mokSay{flex:1 1 auto; min-width:0;}
+
+/* 무 — 제한시간의 얼굴. 눈금 위를 지우며 다가온다. 궤도 코스튬: 별먼지 */
+#muRider{position:absolute; left:0; top:2px; width:30px; height:28px; will-change:transform; z-index:2;}
+#muRider .dust{position:absolute; width:3px; height:3px; border-radius:50%;
+  background:var(--cast-mu-eye); opacity:.55;}
+#muRider .dust.d1{left:-4px; top:6px; animation:dustFloat 3.4s ease-in-out infinite;}
+#muRider .dust.d2{right:-3px; top:16px; animation:dustFloat 4.6s ease-in-out infinite reverse;}
+@keyframes dustFloat{0%,100%{transform:translate(0,0);opacity:.2}50%{transform:translate(-5px,-7px);opacity:.75}}
+#muRider.loom{filter:drop-shadow(0 0 9px rgba(156,108,216,.75));}
+#muSay{position:absolute; right:0; top:-1px; z-index:3; font-size:13px; padding:3px 9px;
+  opacity:0; transform:translateY(4px); transition:opacity .25s, transform .25s; pointer-events:none;}
+#muSay.show{opacity:1; transform:translateY(0);}
+#muSay::before{display:none;}
+
+/* 뭉치 — 도킹 성공 반응. 말하지 않는다. 궤도 코스튬: 큐브가 하나씩 떠오른다 */
+#mungPort{position:absolute; z-index:2;}
+#mungPort .cube{position:absolute; right:2px; top:0; width:7px; height:7px; border-radius:1.5px;
+  background:var(--cast-mungchi); opacity:.5; animation:cubeLift 4.2s ease-in-out infinite;}
+@keyframes cubeLift{0%,100%{transform:translateY(0) rotate(0deg);opacity:.25}50%{transform:translateY(-13px) rotate(28deg);opacity:.8}}
+#mungSay{position:absolute; z-index:7; font-size:13px; font-weight:900; color:var(--cast-mungchi);
+  text-shadow:0 2px 6px rgba(0,0,0,.7); opacity:0; transition:opacity .25s, transform .45s;
+  pointer-events:none; white-space:nowrap;}
+#mungSay.show{opacity:1; transform:translateY(-10px);}
+
+/* 타이틀 브리핑 줄 */
+.titlecast{display:flex; align-items:center; gap:9px; max-width:320px; width:100%;}
+.titlecast .bubble{flex:1 1 auto; min-width:0; text-align:left;}
+#mokTitle{width:56px; height:60px;}
+
+/* 게임오버 캐스트 */
+#overCast{display:flex; align-items:center; gap:10px; margin:6px 0 2px;}
+#muBow{width:76px; height:80px;}
+.overline{display:flex; align-items:center; gap:7px; color:#bfeef2; font-size:14px; font-weight:700;}
+.overline img{width:30px; height:30px; object-fit:contain; -webkit-user-drag:none;}
+
 /* ---------- game over ---------- */
 #scr-over{align-items:center; justify-content:center; text-align:center; gap:10px; padding:20px;}
 #scr-over h2{font-size:34px; margin:0; color:var(--pk);}
@@ -206,7 +286,10 @@ section{flex:1; display:flex; flex-direction:column;}
       <div class="step"><span class="n">3</span><span><b>도킹!</b> 그리고 오른쪽 끝자리부터 눌러서 계산해.</span></div>
     </div>
     <button class="bigbtn" id="startBtn">시작하기</button>
-    <div class="credit">소수점만 맞추면 계산은 술술 풀려!</div>
+    <div class="titlecast">
+      <div class="castimg" id="mokTitle"><span class="leaf l1"></span><span class="leaf l2"></span></div>
+      <div class="bubble">도킹 좌표를 말해. 장부의 빈 줄이 기다린다.</div>
+    </div>
   </section>
 
   <section id="scr-game" hidden>
@@ -217,8 +300,16 @@ section{flex:1; display:flex; flex-direction:column;}
       <span id="score">0</span>
       <button id="muteBtn" aria-label="소리 켜기/끄기">&#9836;</button>
     </div>
+    <div id="castTop">
+      <div class="castimg" id="mokPort"><span class="leaf l1"></span><span class="leaf l2"></span></div>
+      <div class="bubble" id="mokSay"></div>
+    </div>
     <div id="prob"></div>
-    <div id="tbarWrap"><div id="tbar"></div></div>
+    <div id="timeRow">
+      <div id="tbarWrap"><div id="tbar"></div></div>
+      <div class="castimg" id="muRider"><span class="dust d1"></span><span class="dust d2"></span></div>
+      <div class="bubble mu" id="muSay"></div>
+    </div>
     <div id="dockWrap">
       <div id="dock">
         <div id="laser"></div>
@@ -227,6 +318,8 @@ section{flex:1; display:flex; flex-direction:column;}
         <div class="strip" id="stripB"></div>
         <div id="ruleLine"></div>
         <div id="ansRow"></div>
+        <div class="castimg" id="mungPort"><span class="cube"></span></div>
+        <div id="mungSay"></div>
         <div id="fx"></div>
         <div id="toast"></div>
       </div>
@@ -241,7 +334,12 @@ section{flex:1; display:flex; flex-direction:column;}
     <div id="newBest"></div>
     <div class="overstat">푼 문제 <b id="ovSolved">0</b>개 · 도달 단계 <b id="ovStage"></b></div>
     <div class="overstat">최고 기록 <b id="ovBest">0</b>점</div>
-    <button class="bigbtn" id="retryBtn" style="margin-top:18px">다시 도킹!</button>
+    <div id="overCast">
+      <div class="castimg" id="muBow"></div>
+      <div class="bubble mu">…미안.</div>
+    </div>
+    <div class="overline"><img id="mokOverImg" alt=""><span id="mokOverSay">오늘 장부는 여기까지다.</span></div>
+    <button class="bigbtn" id="retryBtn" style="margin-top:14px">다시 도킹!</button>
   </section>
 
 </div>
@@ -399,7 +497,7 @@ function layout(){
   dock.style.setProperty('--w',W+'px');
   dock.style.setProperty('--th',TH+'px');
   dock.style.width=(6*W)+'px';
-  rows={carry:8, A:8+26, B:8+26+TH+14, rule:8+26+2*TH+14+9, ans:8+26+2*TH+14+9+5+9};
+  rows={carry:6, A:6+30, B:6+30+TH+14, rule:6+30+2*TH+14+9, ans:6+30+2*TH+14+9+5+9};
   dock.style.height=(rows.ans+TH+12)+'px';
   $('#stripA').style.top=rows.A+'px';
   $('#stripB').style.top=rows.B+'px';
@@ -414,9 +512,137 @@ function layout(){
   lz.style.left=(SLOT.pt*W + W/2 - 1.5)+'px';
   lz.style.top=(rows.carry-4)+'px';
   lz.style.height=(rows.ans+TH-rows.carry+8)+'px';
+  timeRowW=$('#timeRow').clientWidth||Math.max(60,Math.min(window.innerWidth,480)-44);
+  placeMarks();
+  placeMungchi();
   applyOffset(false);
 }
 window.addEventListener('resize',layout);
+
+/* =====================================================================
+   받아올림 · 받아내림 잔류 표기
+   교과서 세로셈과 같다: 올림 1 / 빌린 뒤의 수를 윗칸에 작게 쓰고,
+   그 자리를 계산한 뒤에도 지우지 않는다(사용됨 표시만 남긴다).
+   ===================================================================== */
+const marks={};                 // place -> element
+function markEl(pl){
+  let m=marks[pl];
+  if(!m){
+    m=document.createElement('div');
+    m.className='mark'; m.dataset.place=pl;
+    $('#dock').appendChild(m);
+    marks[pl]=m;
+  }
+  m.style.left=(SLOT[pl]*W)+'px';
+  m.style.width=W+'px';
+  m.style.top=rows.carry+'px';
+  return m;
+}
+function placeMarks(){ for(const pl in marks) markEl(pl); }
+function setMark(pl,txt,kind){
+  const m=markEl(pl);
+  m.textContent=txt;
+  m.classList.toggle('borrow',kind==='borrow');
+  m.classList.remove('used');
+  m.classList.add('show');
+  pulseMark(pl);
+  return m;
+}
+function pulseMark(pl){
+  const m=marks[pl]; if(!m) return;
+  m.classList.remove('pulse'); void m.offsetWidth; m.classList.add('pulse');
+}
+function useMark(pl){ const m=marks[pl]; if(m) m.classList.add('used'); }
+function clearMarks(){
+  for(const pl in marks){ marks[pl].remove(); delete marks[pl]; }
+  document.querySelectorAll('.badge').forEach(e=>e.remove());
+  document.querySelectorAll('.tile.lend').forEach(e=>e.classList.remove('lend'));
+}
+
+/* =====================================================================
+   자눈 측량대 캐스트 (docs/character-bible.md · public/vendor/cast)
+   목 기록관 = 관제탑 출제 / 무 = 시간바 / 뭉치 = 도킹 반응
+   대사는 DOM 텍스트로만 그린다. 이미지 위에 글자를 굽지 않는다.
+   ===================================================================== */
+const CAST_SRC = c => `../../vendor/cast/${c}.png`;
+function buildCast(box,who,cuts,initial){
+  cuts.forEach(c=>{
+    const im=document.createElement('img');
+    im.alt=''; im.draggable=false; im.dataset.cut=c;
+    im.src=CAST_SRC(who+'/'+c);
+    if(c===initial) im.className='on';
+    box.appendChild(im);
+  });
+}
+function setCut(box,cut){
+  if(!box) return;
+  box.querySelectorAll('img').forEach(im=>im.classList.toggle('on',im.dataset.cut===cut));
+}
+const MOK_CUTS=['think','joy','sad','surprise'];
+const MU_CUTS=['stand','pose-loom','sad','joy'];
+const MUNG_CUTS=['stand','think','joy','sad','surprise'];
+buildCast($('#mokTitle'),'mok',['think'],'think');
+buildCast($('#mokPort'),'mok',MOK_CUTS,'think');
+buildCast($('#muRider'),'mu',MU_CUTS,'stand');
+buildCast($('#mungPort'),'mungchi',MUNG_CUTS,'stand');
+buildCast($('#muBow'),'mu',['pose-bow'],'pose-bow');
+$('#mokOverImg').src=CAST_SRC('mok/sad');
+
+// 목 기록관 — 명령형·사실 진술만. 감탄·느낌표·이모지·물음표 없음.
+const MOK_ASSIGN=[
+  '도킹 좌표를 말해.',
+  '장부에 올릴 값을 말해.',
+  '소수점 자리를 맞춰라.',
+  '빈 자리는 0으로 채워라.',
+  '끝자리부터 세로로 내려라.'
+];
+let mokAssignIdx=0;
+function mok(line,cut){
+  $('#mokSay').textContent=line;
+  setCut($('#mokPort'),cut||'think');
+}
+// 무 — 지워진 글자처럼. 완전한 문장 금지. 말줄임표로 시작한다.
+let muSayTimer=null;
+function mu(line,cut){
+  const el=$('#muSay');
+  if(cut) setCut($('#muRider'),cut);
+  if(line==null){ el.classList.remove('show'); return; }
+  // 무가 서 있는 반대쪽에 말풍선을 둔다 (겹침 방지)
+  const rt = timeMax ? Math.max(0,Math.min(1,timeLeft/timeMax)) : 1;
+  if(rt>0.5){ el.style.left='0'; el.style.right='auto'; }
+  else { el.style.right='0'; el.style.left='auto'; }
+  el.textContent=line; el.classList.add('show');
+  clearTimeout(muSayTimer);
+  muSayTimer=setTimeout(()=>el.classList.remove('show'),1800*SPD);
+}
+let timeRowW=0;
+const muRiderEl=$('#muRider');
+function muRide(ratio){
+  // 폭은 layout() 에서만 읽는다 — 매 프레임 clientWidth 를 읽으면 강제 리플로우가 난다
+  if(!timeRowW) timeRowW=Math.max(60,Math.min(window.innerWidth,480)-44);
+  muRiderEl.style.transform=`translateX(${Math.max(0,Math.min(1,ratio))*(timeRowW-30)}px)`;
+}
+// 뭉치 — 말을 하지 않는다. 소리와 몸짓만.
+let mungTimer=null;
+function mung(cut,puff){
+  setCut($('#mungPort'),cut||'stand');
+  const el=$('#mungSay');
+  if(puff){
+    el.textContent=puff; el.classList.add('show');
+    clearTimeout(mungTimer);
+    mungTimer=setTimeout(()=>el.classList.remove('show'),1400*SPD);
+  }
+}
+function placeMungchi(){
+  const s=Math.round(W*0.92);
+  const p=$('#mungPort');
+  p.style.width=s+'px'; p.style.height=s+'px';
+  p.style.left=(5*W+(W-s)/2)+'px';
+  p.style.top=(rows.ans+TH-s)+'px';
+  const say=$('#mungSay');
+  say.style.left=(5*W-14)+'px';
+  say.style.top=(rows.ans+TH-s-16)+'px';
+}
 
 /* ---------- 스트립 렌더링 ---------- */
 function tileEl(cls,txt){
@@ -458,6 +684,7 @@ function renderProblem(){
   zerosLeft = (p.union - p.a.prec) + (p.union - p.b.prec);
   $('#prob').innerHTML = `${p.aStr} ${p.op==='+'?'+':'−'} ${p.bStr} = <b>?</b>`;
   document.querySelectorAll('.colTap').forEach(e=>e.remove());
+  clearMarks();
   applyOffset(false);
   updateLaser();
   updateHint();
@@ -578,6 +805,9 @@ function jam(){
   d.classList.remove('shake'); void d.offsetWidth; d.classList.add('shake');
   sparksAt(SLOT.pt*W+W/2, rows.B+TH/2, '#ff5d7e', 10);
   hint('앗! 소수점이 어긋난 채로 도킹하면 안 돼. 빨간 점끼리 위아래로!',true);
+  mok('자리가 어긋났다. 빈칸이다.','sad');
+  mu('…소수점의 자리.','sad');
+  mung('sad','…끙.');
   if(lives<=0){ phase='reveal'; timerOn=false; setTimeout(gameOver,800*SPD); }
 }
 
@@ -598,9 +828,13 @@ function startCompute(){
   computeIdx=0;
   buildColTaps();
   hint('오른쪽 끝자리부터 눌러서 계산해!');
-  carryState={carry:0,borrow:0};
+  mok('끝자리부터 세로로 내려라.','think');
+  mung('think');
+  carryState={carry:0};
+  aEff=DG(p.a.v);   // A(윗수)의 "현재 값" — 받아내림이 일어나면 여기가 줄고, 그 흔적이 윗칸에 남는다
 }
-let carryState={carry:0,borrow:0};
+let carryState={carry:0};
+let aEff={o:0,t:0,h:0};
 function buildColTaps(){
   document.querySelectorAll('.colTap').forEach(e=>e.remove());
   const dock=$('#dock');
@@ -638,28 +872,45 @@ async function computeColumn(pl,tapEl){
   const p=cur, A=DG(p.a.v), B=DG(p.b.v);
   const aEl=els.A[pl], bEl=els.B[pl];
   aEl.classList.add('hl'); if(bEl) bEl.classList.add('hl');
+  // 윗칸에 남아 있던 표기를 먼저 반짝여 준다 — "그 1이 지금 더해진다"를 보이게
+  if(marks[pl]){ pulseMark(pl); sfx.click(); await wait(320); }
   await wait(140);
   let d;
   if(p.op==='+'){
-    const s=A[pl]+B[pl]+carryState.carry;
+    const cin=carryState.carry;
+    const s=A[pl]+B[pl]+cin;
     d=s%10;
+    hint(cin ? `올림 ${cin} + ${A[pl]} + ${B[pl]} = ${s}` : `${A[pl]} + ${B[pl]} = ${s}`);
+    if(cin) useMark(pl);           // 사용됨 — 지우지 않는다
     spawnAns(pl,d); sfx.pop();
-    if(s>=10){ await carryFx(pl); carryState.carry=1; }
+    if(s>=10){
+      const to = pl==='h' ? 't' : (pl==='t' ? 'o' : null);
+      hint(`${A[pl]} + ${B[pl]}${cin?' + 올림 '+cin:''} = ${s} · ${d} 쓰고 1 올림`);
+      if(to){ await carryFx(pl,to); carryState.carry=1; }
+      else carryState.carry=0;
+    }
     else carryState.carry=0;
   } else {
-    let t0=A[pl]-carryState.borrow, took=false;
-    if(t0<B[pl]){ t0+=10; took=true; }
-    d=t0-B[pl];
-    if(took){ borrowFx(pl); sfx.carry(); await wait(300); }
+    const base=aEff[pl];                 // 이미 아랫자리에 빌려줬으면 줄어든 값
+    if(base<B[pl]){
+      hint(`${base}에서 ${B[pl]} 못 빼 · 윗자리에서 10 빌려와!`);
+      await doBorrow(pl);
+      hint(`10 빌려서 ${aEff[pl]} − ${B[pl]}`);
+      await wait(480);
+    }
+    d=aEff[pl]-B[pl];
+    hint(`${aEff[pl]} − ${B[pl]} = ${d}`);
     spawnAns(pl,d); sfx.pop();
-    carryState.borrow=took?1:0;
   }
   await wait(220);
+  useMark(pl);                 // 흔적은 남기고 "다 쓴 표기"로만 바꾼다
   aEl.classList.remove('hl'); if(bEl) bEl.classList.remove('hl');
   tapEl.remove();
   computeIdx++;
   if(computeIdx<computeOrder.length){
     phase='compute'; markNextCol();
+    const np=computeOrder[computeIdx];
+    hint(marks[np] ? `윗칸에 남은 ${marks[np].textContent}도 같이 계산해!` : '다음 노란 칸을 눌러!');
   } else {
     await finishAnswer();
   }
@@ -670,33 +921,55 @@ function spawnAns(pl,digit){
   $('#ansRow').appendChild(t);
   ansEls[pl]=t;
 }
-function carryFx(pl){
+// 올림 1이 윗칸으로 날아가 "남는다". 문제가 끝날 때까지 지우지 않는다.
+function carryFx(pl,to){
   return new Promise(res=>{
-    const from=SLOT[pl], to=SLOT[pl]==='undefined'?null:(pl==='h'?SLOT.t:SLOT.o);
+    const x0=SLOT[pl]*W+W/2-12, y0=rows.A-6;
+    const x1=SLOT[to]*W+W/2-12, y1=rows.carry-1;
     const chip=document.createElement('div');
     chip.className='chip'; chip.textContent='1';
-    chip.style.left=(from*W+W/2-12)+'px';
-    chip.style.top=(rows.A-6)+'px';
+    chip.style.left=x0+'px'; chip.style.top=y0+'px';
     $('#fx').appendChild(chip);
     sfx.carry();
-    requestAnimationFrame(()=>{
-      chip.style.transform=`translate(${(to-from)*W}px,-14px)`;
-    });
-    setTimeout(()=>{ chip.style.opacity='0'; setTimeout(()=>chip.remove(),300*SPD); res(); },420*SPD);
+    requestAnimationFrame(()=>{ chip.style.transform=`translate(${x1-x0}px,${y1-y0}px)`; });
+    setTimeout(()=>{
+      chip.remove();
+      setMark(to,'1','carry');    // ← 여기서부터 잔류. 다음 열을 계산할 때 반짝이며 더해진다.
+      res();
+    },440*SPD);
   });
 }
-function borrowFx(pl){
-  const left = pl==='h'?'t':'o';
+// 받아내림 실행. 빌려줄 자리가 0이면 그 자리가 먼저 윗자리에서 빌려온다(연쇄 받아내림).
+// 교과서와 같은 순서로 보여 준다 — 0에 그냥 −1 을 써 버리면 안 된다.
+async function doBorrow(pl){
+  const left = pl==='h' ? 't' : 'o';
+  if(aEff[left]===0 && left==='t'){      // 0인 자리는 줄 게 없다 → 먼저 위에서 10을 받아 온다
+    await doBorrow('t');
+    await wait(430);
+  }
+  aEff[left]-=1;
+  aEff[pl]+=10;
+  borrowFx(pl,left);
+  sfx.carry();
+}
+// 받아내림 표기: 빌려준 자리는 취소선 + 줄어든 수, 빌린 자리는 10을 받은 수를 윗칸에 남긴다.
+function borrowFx(pl,left){
   const lender=els.A[left];
   lender.classList.add('lend');
-  const m=document.createElement('span');
-  m.className='badge m1'; m.textContent='−1';
-  lender.appendChild(m);
+  if(!lender.querySelector('.badge.m1')){
+    const m=document.createElement('span');
+    m.className='badge m1'; m.textContent='−1';
+    lender.appendChild(m);
+  }
   const rec=els.A[pl];
-  const p10=document.createElement('span');
-  p10.className='badge p10'; p10.textContent='+10';
-  rec.appendChild(p10);
-  setTimeout(()=>{ p10.style.opacity='0'; },900*SPD);
+  if(!rec.querySelector('.badge.p10')){
+    const p10=document.createElement('span');
+    p10.className='badge p10'; p10.textContent='+10';
+    rec.appendChild(p10);
+    setTimeout(()=>{ p10.classList.add('faded'); },1100*SPD);
+  }
+  setMark(left,String(aEff[left]),'borrow');   // 빌려주고 남은 수 — 끝까지 남는다
+  setMark(pl,String(aEff[pl]),'borrow');       // 10을 받은 수 — 끝까지 남는다
 }
 async function finishAnswer(){
   // 소수점이 그대로 내려온다
@@ -725,6 +998,10 @@ async function success(){
   const gain=100+Math.round(secLeft*6)+(combo-1)*25;
   score+=gain; renderScore(); renderCombo();
   sfx.good(combo); buzz(20);
+  // 캐스트 반응 — 정답
+  mok(combo>=5?'장부가 빠르게 찬다.':'기록했다.', combo>=5?'surprise':'joy');
+  mu('…재었다.','joy');
+  mung(combo>=3?'surprise':'joy','웅—');
   floaty('+'+gain, 3*W, rows.rule-10);
   confetti(SLOT.pt*W+W/2, rows.ans, 18);
   solved++;
@@ -738,9 +1015,10 @@ async function success(){
       if(ansEls.pt) ansEls.pt.classList.add('fadeout');
     }
     toast(`${fmt(p.ans,shownPrec)} = ${p.ansStr} · 끝자리 0은 생략!`);
-    await wait(900);
+    await wait(1100);
   } else {
-    await wait(650);
+    // 완성된 세로셈(윗칸 표기 포함)을 한 박자 보여 준 뒤 다음 문제로 넘어간다
+    await wait(1200);
   }
   nextProblem();
 }
@@ -768,8 +1046,13 @@ function nextProblem(){
   timeMax=Math.max(14000, 27500-(st-1)*2000);
   timeLeft=timeMax; lastTickSec=99;
   $('#tbar').classList.remove('low');
+  // 캐스트 — 새 문제
+  mok(MOK_ASSIGN[mokAssignIdx++ % MOK_ASSIGN.length],'think');
+  mu(null,'stand'); $('#muRider').classList.remove('loom'); muWarned=false;
+  mung('stand');
   timerOn=true;
 }
+let muWarned=false;
 
 /* ---------- 시간 초과 / 게임오버 ---------- */
 async function onTimeout(){
@@ -778,9 +1061,13 @@ async function onTimeout(){
   lives--; renderHearts();
   sfx.bad();
   hint('시간 초과! 정답을 잘 봐 둬.',true);
+  mok('빈칸이다. 틀린 값도 값이다. 다시 재.','sad');
+  mu('…재지 않았다.','sad');
+  mung('sad','…끙.');
   // 정답 공개: 계산 중이던 흔적 정리 → 정렬 → 0 채움 → 답 표시
   $('#ansRow').innerHTML=''; ansEls={};
   document.querySelectorAll('.colTap').forEach(e=>e.remove());
+  clearMarks();
   setOffset(0,true);
   document.querySelectorAll('.ph').forEach(e=>fillZero(e));
   const p=cur, ansD=DG(p.ans);
@@ -803,10 +1090,13 @@ function gameOver(){
   $('#ovSolved').textContent=solved;
   const st=stageFor(Math.max(0,solved-1));
   $('#ovStage').textContent=`${st}단계 ${STAGE_NAMES[st]}`;
-  let nb='';
-  if(score>best){ best=score; nb='최고 기록 경신!'; try{localStorage.setItem('dotdock_best',String(best));}catch(e){} }
+  let nb='', isBest=false;
+  if(score>best){ best=score; nb='최고 기록 경신!'; isBest=true; try{localStorage.setItem('dotdock_best',String(best));}catch(e){} }
   $('#newBest').textContent=nb;
   $('#ovBest').textContent=best;
+  // 목 기록관 — 감탄하지 않는다. 사실만 적는다.
+  $('#mokOverImg').src=CAST_SRC(isBest?'mok/surprise':'mok/sad');
+  $('#mokOverSay').textContent=isBest?'새 값을 장부에 올렸다.':'오늘 장부는 여기까지다.';
 }
 
 /* ---------- HUD ---------- */
@@ -875,6 +1165,12 @@ function loop(ts){
     const ratio=Math.max(0,timeLeft/timeMax);
     $('#tbar').style.width=(ratio*100)+'%';
     $('#tbar').classList.toggle('low',timeLeft<5500);
+    muRide(ratio);   // 무는 남은 눈금의 끝에 서 있다 — 시간이 줄면 눈금을 지우며 다가온다
+    if(timeLeft<timeMax*0.34 && !muWarned){
+      muWarned=true;
+      muRiderEl.classList.add('loom');
+      mu('…곧.','pose-loom'); mung('think','그르…');
+    }
     if(timeLeft<5500){
       const sec=Math.ceil(timeLeft/1000);
       if(sec!==lastTickSec && sec>0){ lastTickSec=sec; sfx.tick(); }
@@ -894,6 +1190,9 @@ function startGame(){
   $('#scr-title').hidden=true;
   $('#scr-over').hidden=true;
   $('#scr-game').hidden=false;
+  mokAssignIdx=0;
+  mu(null,'stand'); muRiderEl.classList.remove('loom'); muWarned=false;
+  mung('stand');
   layout();
   nextProblem();
 }
@@ -929,6 +1228,23 @@ window.__LAB_TEST__={
   },
   setFast(f){ SPD = f?0.02:1; },
   addTime(ms){ timeLeft+=ms; },
+  // 검증용: 윗칸에 남아 있는 받아올림/받아내림 표기
+  getMarks(){
+    const out={};
+    for(const pl in marks){
+      const m=marks[pl];
+      out[pl]={ text:m.textContent, kind:m.classList.contains('borrow')?'borrow':'carry',
+        used:m.classList.contains('used'), visible:m.classList.contains('show'),
+        opacity:getComputedStyle(m).opacity };
+    }
+    return out;
+  },
+  getCast(){
+    const cut=sel=>{ const on=document.querySelector(sel+' img.on'); return on?on.dataset.cut:null; };
+    return { mok:{cut:cut('#mokPort'), say:$('#mokSay').textContent},
+             mu:{cut:cut('#muRider'), say:$('#muSay').textContent, saying:$('#muSay').classList.contains('show')},
+             mungchi:{cut:cut('#mungPort'), puff:$('#mungSay').textContent} };
+  },
   fmt, fmtMin, minPrec,
   sampleProblems(n,stage){
     const out=[];
