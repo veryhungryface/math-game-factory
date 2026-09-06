@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#6E355B">
+  <meta property="og:title" content="점콕부대">
+  <meta property="og:description" content="점 하나가 화력">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>점콕부대</title>
+  <style>
+    :root{--berry:#6E355B;--cream:#F8E7D1;--teal:#63C7C9;--coral:#FF6F61;--ink:#2C2734;--stageW:min(100vw,1360px);--stageX:calc((100vw - var(--stageW))/2)}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--berry);color:var(--cream);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    body{font-family:"Arial Rounded MT Bold","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+    button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}button:focus-visible{outline:4px solid var(--teal);outline-offset:3px}
+    .hidden{display:none!important}#weave{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+    #title{position:fixed;inset:0;z-index:20;overflow:hidden;background:var(--berry);isolation:isolate}
+    #titleArt{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;object-position:50% 48%;animation:titleBreath 20s ease-in-out infinite alternate;z-index:-2}
+    #titleFallback{position:absolute;inset:0;background:radial-gradient(circle at 50% 52%,#9b5079 0 19%,transparent 45%),repeating-linear-gradient(0deg,#6E355B 0 5px,#71395f 6px 7px);z-index:-3}
+    #title:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(#4e244a88 0%,transparent 30%,transparent 61%,#3a2035cc 100%);pointer-events:none}
+    .titleUI{width:min(100%,640px);height:100%;margin:auto;position:relative;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+    .logo{position:absolute;top:max(48px,7dvh);left:8px;right:8px;text-align:center;transform:rotate(-2deg);animation:logoStitch .8s cubic-bezier(.2,.8,.2,1) both}
+    .logo h1{margin:0;font-family:"Arial Rounded MT Bold","Apple SD Gothic Neo",sans-serif;font-size:clamp(54px,16vw,86px);font-weight:900;letter-spacing:-.11em;color:var(--cream);-webkit-text-stroke:5px var(--ink);paint-order:stroke fill;text-shadow:3px 3px 0 #a83d67,-3px 4px 0 #2C2734,0 10px 18px #251329aa}
+    .logo h1 span{display:inline-block}.logo h1 span:nth-child(2){transform:translateY(-.08em) rotate(4deg);color:var(--teal)}.logo h1 span:nth-child(3){transform:translateY(.06em) rotate(-3deg)}.logo h1 span:nth-child(4){transform:translateY(-.04em) rotate(3deg)}
+    .tagline{display:inline-block;margin:12px 0 0;padding:7px 17px;background:#F8E7D1;color:var(--ink);border:3px dashed var(--berry);border-radius:9px;font-size:18px;font-weight:900;box-shadow:0 6px 13px #2c172888;transform:rotate(1deg)}
+    .titleBottom{position:absolute;left:16px;right:16px;bottom:max(18px,env(safe-area-inset-bottom));display:grid;justify-items:center;gap:8px}
+    #bestLine{font-weight:800;text-shadow:0 2px 3px #2c2734;font-size:15px}.primary{width:min(100%,420px);min-height:68px;border:0;border-radius:10px;background:var(--teal);color:var(--ink);font-size:24px;font-weight:900;border:4px dashed #276d72;box-shadow:0 8px 16px #20132399;cursor:pointer;animation:ctaPulse 2.2s ease-in-out infinite}.primary:active{transform:scale(.94) rotate(-1deg);filter:saturate(1.25)}
+    .textBtn{min-width:160px;min-height:44px;border:0;background:transparent;text-decoration:underline;text-underline-offset:5px;font-size:15px;cursor:pointer;text-shadow:0 2px 2px #2c2734}
+    #mute{position:fixed;z-index:40;right:12px;top:max(12px,env(safe-area-inset-top));width:48px;height:48px;border-radius:10px;border:2px dashed var(--cream);background:#6E355B;color:var(--cream);font-size:22px;cursor:pointer}
+    #game{position:fixed;inset:0;z-index:2;overflow:hidden}
+    #hud{position:absolute;z-index:4;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;height:62px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;pointer-events:none}
+    .sewnLabel{background:#8d4b72;border:2px dashed #F8E7D1;border-radius:9px;box-shadow:0 4px 9px #3b1b31aa;display:grid;align-content:center;text-align:center;padding:4px;min-width:0}.sewnLabel small{font-size:11px}.sewnLabel b{font-size:clamp(18px,5vw,25px);line-height:1.05;font-variant-numeric:tabular-nums}.bump{animation:inkBump .28s ease-out}
+    #battle{position:absolute;left:0;right:0;top:78px;bottom:238px;overflow:hidden}
+    #battleBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.34;mix-blend-mode:soft-light;pointer-events:none}
+    #enemy{position:absolute;z-index:3;left:50%;top:10px;width:min(94vw,430px);min-height:190px;transform:translate(-50%,0);background:#F8E7D1;color:var(--ink);border-radius:11px;border:4px dashed #a83d67;box-shadow:0 9px 14px #30172988;padding:15px 16px;text-align:center;will-change:transform}
+    #enemy:before{content:"";position:absolute;inset:6px;border:1px dashed #c7859f;border-radius:6px;pointer-events:none}.enemyTop{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:900;color:#6E355B}.enemyType{border-bottom:2px dotted #6E355B}.danger{width:72px;height:10px;border:1px solid var(--ink);background:#e5cbbd;overflow:hidden}.danger i{display:block;height:100%;background:var(--coral);transform-origin:left}
+    #prompt{position:relative;margin:12px 0 2px;font-size:clamp(25px,7.2vw,38px);font-weight:900;letter-spacing:.01em;line-height:1.18;color:var(--ink);text-shadow:1px 1px 0 #fff}.natural{font-size:clamp(17px,4.8vw,23px);font-weight:900;color:#6E355B}.instruction{margin:8px 0 0;font-size:14px;font-weight:800}
+    #gridModel{display:none;width:76px;height:76px;grid-template-columns:repeat(10,1fr);margin:7px auto 0;border:2px solid var(--ink)}#gridModel.show{display:grid}#gridModel i{border:.5px solid #bca99e;background:#fff}#gridModel i.on{background:var(--teal)}
+    #sideLeft,#sideRight{display:none}
+    #defense{position:absolute;z-index:2;left:3%;right:3%;bottom:2px;height:30px;border-top:6px dashed var(--cream);filter:drop-shadow(0 3px 0 #341b2c);transition:transform .22s}#defense.torn{animation:tear .38s ease-out}
+    #flag{position:absolute;left:10px;bottom:42px;display:flex;gap:3px;align-items:flex-end;max-width:40%;height:55px}.patch{width:29px;height:29px;background:var(--teal);border:2px dashed var(--cream);border-radius:8px;animation:sewIn .45s cubic-bezier(.2,1.5,.4,1)}
+    #turret{position:absolute;z-index:1;left:50%;bottom:14px;width:clamp(86px,24vw,150px);height:clamp(86px,24vw,150px);object-fit:contain;transform:translateX(-50%);filter:drop-shadow(0 7px 6px #30172988);pointer-events:none}#turretFallback{display:none;position:absolute;z-index:1;left:50%;bottom:20px;width:74px;height:66px;transform:translateX(-50%);background:#F8E7D1;border:4px dashed #2C2734;border-radius:10px}#turretFallback:before{content:"";position:absolute;width:7px;height:82px;background:#d7d2cf;left:31px;top:-64px;transform:rotate(8deg);border-radius:999px}#turretFallback:after{content:"";position:absolute;width:20px;height:20px;background:var(--teal);border:3px solid #27777b;border-radius:50%;left:23px;top:-18px}
+    #controls{position:absolute;z-index:6;left:0;right:0;bottom:0;height:238px;background:#87436d;border-top:5px dashed #F8E7D1;box-shadow:0 -7px 14px #34192c77;padding:12px 10px max(10px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:9px}
+    #ammoCaption{font-size:14px;font-weight:900;letter-spacing:.03em}#railWrap{position:relative;width:min(96vw,520px);height:118px;background:#F8E7D1;color:var(--ink);border:3px dashed #2C2734;border-radius:11px;box-shadow:0 5px 10px #2c1728;padding:11px 8px 6px}
+    #digitStrip{position:absolute;left:7%;right:7%;top:11px;height:44px;display:flex;justify-content:center;align-items:center;font-family:ui-monospace,"Courier New",monospace;font-size:clamp(26px,8vw,43px);font-weight:900;letter-spacing:.32em;padding-left:.32em;white-space:nowrap;overflow:hidden}
+    #sockets{position:absolute;left:4%;right:4%;bottom:8px;height:55px;display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+    .socket{position:relative;min-width:44px;min-height:52px;border:2px dashed #6E355B;background:#ead7c6;border-radius:10px;cursor:pointer;color:#6E355B;font-size:12px;font-weight:900}.socket:after{content:"";position:absolute;width:10px;height:10px;border:2px solid #6E355B;border-radius:50%;left:50%;top:7px;transform:translateX(-50%)}.socket:active{border-style:solid;transform:scale(.97)}
+    #bead{position:absolute;z-index:9;width:48px;height:48px;border-radius:50%;background:var(--teal);border:4px solid #27777b;box-shadow:0 4px 8px #233, inset 0 0 0 4px #a9eff0;left:calc(10% - 24px);bottom:12px;cursor:grab;touch-action:none;will-change:transform,left}.dragging #bead{cursor:grabbing;transform:scale(1.12,.88)}#threadTrail{position:absolute;z-index:7;left:10%;bottom:34px;height:4px;background:var(--teal);transform-origin:left;opacity:.7;pointer-events:none}
+    #statusText{height:27px;font-size:clamp(15px,4.2vw,19px);font-weight:900;text-align:center}.good{color:#c9fffb}.bad{color:#ffd2ca}
+    #overlay{position:fixed;z-index:30;inset:0;background:#3a1d34dd;display:grid;place-items:center;padding:18px}
+    .feltDialog{width:min(100%,470px);background:var(--cream);color:var(--ink);border:5px dashed #6E355B;border-radius:11px;box-shadow:0 14px 30px #24101f;padding:22px;text-align:center}.feltDialog h2{font-size:clamp(28px,8vw,42px);margin:0 0 12px;color:#6E355B}.feltDialog p{font-size:17px;font-weight:800;line-height:1.5}.feltDialog .primary{margin-top:12px}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}.step{padding:10px 5px;border:2px dashed #6E355B;border-radius:9px;font-size:13px;font-weight:900}.step strong{display:block;color:#11868a;font-size:20px;margin-bottom:4px}
+    #upgradeChoices{display:grid;grid-template-columns:1fr 1fr;gap:10px}.upgrade{min-height:100px;background:#8b4b72;border:3px dashed var(--cream);border-radius:10px;color:var(--cream);font-weight:900;font-size:18px;cursor:grab}.upgrade:active{transform:scale(.96)}
+    #resultScore{font-size:54px;color:#11868a;font-weight:900;margin:6px 0;font-variant-numeric:tabular-nums}
+    html.land #hud{left:var(--stageX);right:auto;width:calc(var(--stageW)*.23);height:210px;grid-template-columns:1fr;top:90px}
+    html.land #battle{left:calc(var(--stageX) + var(--stageW)*.23);right:calc((100vw - var(--stageW))/2 + var(--stageW)*.22);top:18px;bottom:144px}
+    html.land #enemy{width:min(94%,680px);min-height:214px;padding:24px}html.land #controls{left:calc(var(--stageX) + var(--stageW)*.23);right:calc((100vw - var(--stageW))/2 + var(--stageW)*.22);height:145px;padding:8px 18px;display:grid;grid-template-columns:1fr minmax(420px,2fr);grid-template-rows:26px 1fr}html.land #ammoCaption{grid-column:1}html.land #railWrap{grid-column:2;grid-row:1/3;width:100%;height:126px}html.land #statusText{grid-column:1;grid-row:2;align-self:center}
+    html.land #sideLeft,html.land #sideRight{display:block;position:absolute;z-index:4;width:calc(var(--stageW)*.20);top:320px;padding:15px;color:var(--ink);background:var(--cream);border:3px dashed #6E355B;border-radius:10px;box-shadow:0 5px 12px #30172988;font-weight:800;line-height:1.55}html.land #sideLeft{left:calc(var(--stageX) + 14px)}html.land #sideRight{right:calc(var(--stageX) + 14px)}html.land #flag{left:24%;max-width:50%}
+    @keyframes titleBreath{to{transform:scale(1.045) translateY(-.5%)}}@keyframes logoStitch{0%{opacity:0;clip-path:inset(0 100% 0 0);transform:translateY(-14px) rotate(-2deg)}100%{opacity:1;clip-path:inset(0 0 0 0);transform:translateY(0) rotate(-2deg)}}@keyframes ctaPulse{50%{transform:scale(1.035)}}@keyframes inkBump{50%{transform:scale(1.2)}}@keyframes sewIn{0%{transform:translateY(-50px) scale(.4,.8) rotate(14deg);opacity:0}70%{transform:translateY(3px) scale(1.1,.9) rotate(-3deg)}100%{transform:none}}@keyframes tear{25%{transform:translateX(-7px) skewX(4deg)}60%{transform:translateX(5px) skewX(-5deg)}}
+    @media(max-height:700px) and (max-width:1023px){#battle{top:70px;bottom:205px}#controls{height:205px;padding-top:6px;gap:4px}#enemy{min-height:150px;padding:8px 13px}#prompt{margin-top:5px}.instruction{margin-top:3px}#railWrap{height:102px}#sockets{height:49px}.titleBottom{gap:4px}.logo{top:35px}.logo h1{font-size:50px}}
+    @media(prefers-reduced-motion:reduce){#titleArt{animation-duration:40s}.primary{animation-duration:4s}.patch{animation-duration:.2s}}
+  </style>
+</head>
+<body>
+<canvas id="weave" aria-hidden="true"></canvas>
+<button id="mute" aria-label="소리 끄기">🔊</button>
+<section id="title" aria-label="점콕부대 타이틀 화면">
+  <div id="titleFallback"></div><img id="titleArt" src="./assets/title.png" alt="바늘 포대가 소수점 구슬을 꿰는 베리색 직물 전장">
+  <div class="titleUI"><div class="logo"><h1 aria-label="점콕부대"><span>점</span><span>콕</span><span>부</span><span>대</span></h1><div class="tagline">점 하나가 화력</div></div>
+    <div class="titleBottom"><div id="bestLine">5학년 2학기 · 소수의 곱셈</div><button id="startBtn" class="primary">바늘 포대 가동!</button><button id="helpBtn" class="textBtn">어떻게 놀아요? 〉</button></div>
+  </div>
+</section>
+<main id="game" class="hidden">
+  <div id="hud"><div class="sewnLabel"><small>점수</small><b id="score">0</b></div><div class="sewnLabel"><small>방어선</small><b id="lives">♥ ♥ ♥ ♥</b></div><div class="sewnLabel"><small>남은 시간</small><b id="timer">90</b></div></div>
+  <aside id="sideLeft">자연수의 곱<br><b id="sideNatural">3 × 4 = 12</b><hr>오답 흔적<br><span id="lastMiss">아직 없어요</span></aside>
+  <aside id="sideRight">부대 깃발 <b id="sidePatches">0</b>칸<br>최고 점수 <b id="sideBest">0</b><hr>세 번 연속 막으면<br>새 바늘을 골라요.</aside>
+  <section id="battle"><img id="battleBg" src="./assets/bg.png" alt=""><div id="enemy"><div class="enemyTop"><span class="enemyType" id="enemyType">두 점 조각</span><span class="danger"><i id="dangerFill"></i></span></div><div id="prompt">0.3 × 0.4</div><div class="natural" id="natural">3 × 4 = 12</div><div class="instruction">자연수의 곱을 이용해 소수점을 알맞은 위치에 찍어 보세요.</div><div id="gridModel"></div></div><div id="flag"></div><img id="turret" src="./assets/hero.png" alt="소수점 구슬을 쏘는 바늘 포대"><div id="turretFallback" aria-hidden="true"></div><div id="defense"></div></section>
+  <div id="controls"><div id="ammoCaption">점 구슬을 끌어 첫 위치에서 놓아요</div><div id="railWrap"><div id="digitStrip">00120</div><div id="threadTrail"></div><div id="sockets"></div><div id="bead" role="button" aria-label="드래그할 소수점 구슬" tabindex="0"></div></div><div id="statusText">두 수의 소수 자릿수를 모두 세어 보세요</div></div>
+</main>
+<div id="overlay" class="hidden"><div class="feltDialog" id="dialog"></div></div>
+<script>
+(()=>{'use strict';
+  // 교과서 expression_traps: 소수의 오른쪽 끝자리 0은 생략 가능하며, 곱의 답은 반올림하지 않는다.
+  // 발문은 익힘책 지시형(~해 보세요)으로 통일한다. 큰 수에 세 자리 콤마를 찍지 않는다.
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+  const C={berry:'#6E355B',cream:'#F8E7D1',teal:'#63C7C9',coral:'#FF6F61',ink:'#2C2734'};
+  const els={weave:$('#weave'),title:$('#title'),game:$('#game'),overlay:$('#overlay'),dialog:$('#dialog'),score:$('#score'),lives:$('#lives'),timer:$('#timer'),enemy:$('#enemy'),prompt:$('#prompt'),natural:$('#natural'),enemyType:$('#enemyType'),danger:$('#dangerFill'),strip:$('#digitStrip'),sockets:$('#sockets'),bead:$('#bead'),trail:$('#threadTrail'),status:$('#statusText'),defense:$('#defense'),flag:$('#flag'),grid:$('#gridModel')};
+  const S={phase:'title',score:0,lives:4,level:1,solved:0,combo:0,bestCombo:0,time:90,enemyT:0,enemyLimit:5,current:null,locked:false,drag:false,dragX:0,last:performance.now(),timeScale:1,freeze:0,muted:false,audio:null,scoreShown:0,patches:0,double:false,shield:false,victory:false,land:false,stageW:0,stageX:0,round:0,deckIndex:0,slotBag:[],onboarding:false};
+  const POW10=[1,10,100,1000,10000,100000];
+  const valueString=(m,s,keep=false)=>{let neg=m<0;m=Math.abs(m);let z=String(m).padStart(s+1,'0');let out=s?z.slice(0,-s)+'.'+z.slice(-s):z;if(!keep&&out.includes('.'))out=out.replace(/0+$/,'').replace(/\.$/,'');return (neg?'-':'')+out};
+  const valKey=(m,s)=>{while(s>0&&m%10===0){m/=10;s--}return m+'/'+s};
+  const fmtFactor=(m,s)=>valueString(m,s);
+  const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+
+  function buildPool(){
+    const pool=[];let id=0;
+    // 제약 만족 풀: 자릿수 구조를 먼저 고정하고 허용 mantissa를 전수 생성한다. 재시도/사후 필터 없음.
+    for(let a=2;a<=19;a++)for(let b=2;b<=9;b++){
+      const sa=1,sb=1,raw=a*b,scale=2;
+      pool.push(makeProblem(++id,a,sa,b,sb,raw,scale,1,(id%5),'계산'));
+    }
+    for(let a=11;a<=199;a++)for(let b=2;b<=9;b++)if(a%10!==0){
+      const raw=a*b;pool.push(makeProblem(++id,a,2,b,1,raw,3,3,(id%5),raw%10===0?'끝자리 0 수리':'세 자리 탄환'));
+    }
+    return pool;
+  }
+  function makeProblem(id,a,sa,b,sb,raw,scale,band,slot,type){
+    const answer=valueString(raw,scale), displayRaw=String(raw), padLeft=slot;
+    const choices=[];const misconceptions=[];
+    // 오답 후처리 순서: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.
+    const candidates=[
+      {s:sa,id:'one-factor-scale',label:'한쪽 인수의 자릿수만 셈'},
+      {s:sb,id:'other-factor-scale',label:'다른 한쪽 인수의 자릿수만 셈'},
+      {s:Math.max(0,scale-1),id:'trailing-zero-shift',label:'끝자리 0을 잘못 처리'},
+      {s:Math.min(4,scale+1),id:'decimal-align',label:'소수점을 세로로 맞춤'},
+      {s:Math.max(0,scale-2),id:'always-bigger',label:'곱하면 항상 커짐'}
+    ];
+    // 문자열이 달라도 0.40과 0.4는 같은 수다. 오답이 정답과 수치상 우연히 같아지는 경우도 제거한다.
+    const answerKey=valKey(raw,scale),seen=new Set([answerKey]);
+    for(const c of candidates){const key=valKey(raw,c.s),v=valueString(raw,c.s,true);if(key!==answerKey&&Number(v)>=0&&Number(v)<10000&&!seen.has(key)){seen.add(key);choices.push(v);misconceptions.push({value:v,misconceptionId:c.id})}}
+    for(let s=0;choices.length<4&&s<=4;s++){const key=valKey(raw,s),v=valueString(raw,s,true);if(key!==answerKey&&!seen.has(key)){seen.add(key);choices.push(v);misconceptions.push({value:v,misconceptionId:'place-value-neighbor'})}}
+    choices.length=4;choices.splice(slot,0,answer);
+    return {id:'dds-'+id,prompt:`${fmtFactor(a,sa)} × ${fmtFactor(b,sb)}`,choices,answer,answerNumeric:raw/POW10[scale],unitConcept:'소수점 아래 자리 수의 합',a,sa,b,sb,raw,rawScale:scale,band,correctSlot:slot,type,misconceptions,natural:`${a} × ${b} = ${raw}`,strip:displayRaw};
+  }
+  const POOL=buildPool();
+  function deckProblem(){
+    const band=S.solved<5?1:S.solved<10?3:3;const list=POOL.filter(p=>p.band===band);const base=list[S.deckIndex++%list.length];
+    // 다섯 문제마다 0~4를 한 번씩 쓰는 셔플 백: 균등하지만 순환 봇과 동기화되지 않는다.
+    if(!S.slotBag.length)S.slotBag=shuffle([0,1,2,3,4]);
+    const slot=S.slotBag.pop();S.round++;
+    if(S.solved===11)return makeProblem(9999,125,2,4,1,500,3,3,slot,'마지막 깃발');
+    const p=makeProblem(base.id.replace(/\D/g,'')*1,base.a,base.sa,base.b,base.sb,base.raw,base.rawScale,base.band,slot,base.type);return p;
+  }
+  function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);S.stageW=Math.min(W,1360);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');resizeCanvas()}
+  function resizeCanvas(){const c=els.weave,d=Math.min(devicePixelRatio||1,2);c.width=Math.round(innerWidth*d);c.height=Math.round(innerHeight*d);c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';c.getContext('2d').setTransform(d,0,0,d,0,0)}
+  function drawWeave(t){const ctx=els.weave.getContext('2d'),W=innerWidth,H=innerHeight;ctx.clearRect(0,0,W,H);ctx.fillStyle=C.berry;ctx.fillRect(0,0,W,H);const wave=Math.sin(t*.0007)*1.5;ctx.globalAlpha=.16;ctx.strokeStyle=C.cream;ctx.lineWidth=1;for(let y=-8;y<H+8;y+=9){ctx.beginPath();ctx.moveTo(0,y+wave);ctx.bezierCurveTo(W*.3,y-wave,W*.7,y+wave,W,y-wave);ctx.stroke()}ctx.strokeStyle=C.ink;ctx.globalAlpha=.1;for(let x=0;x<W;x+=11){ctx.beginPath();ctx.moveTo(x+wave,0);ctx.lineTo(x-wave,H);ctx.stroke()}ctx.globalAlpha=1;if(S.land&&S.stageW<W-2){ctx.fillStyle='#4b2942';ctx.fillRect(0,0,S.stageX,H);ctx.fillRect(S.stageX+S.stageW,0,W-S.stageX-S.stageW,H)}}
+  function ensureAudio(){if(S.muted)return;try{if(!S.audio)S.audio=new (window.AudioContext||window.webkitAudioContext)();if(S.audio.state==='suspended')S.audio.resume()}catch(e){S.muted=true}}
+  function tone(freq=.03,dur=.08,type='triangle'){if(S.muted||!S.audio)return;const a=S.audio,o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.setValueAtTime(freq,a.currentTime);g.gain.setValueAtTime(.055,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+dur)}
+  function pulse(el){el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump')}
+  function updateHUD(){els.score.textContent=Math.round(S.scoreShown);els.lives.textContent='♥ '.repeat(Math.max(0,S.lives)).trim();els.timer.textContent=Math.max(0,Math.ceil(S.time));$('#sidePatches').textContent=S.patches;$('#sideBest').textContent=localStorage.getItem('decimalDotSquadBest')||0}
+  function setStatus(text,kind=''){els.status.textContent=text;els.status.className=kind}
+  function showProblem(){S.current=deckProblem();S.locked=false;S.enemyT=0;S.enemyLimit=S.solved<5?5:S.solved<10?4.2:3.4;els.enemy.style.opacity='1';els.enemy.style.transition='none';els.enemy.style.transform='translate(-50%,0)';els.prompt.textContent=S.current.prompt;els.natural.textContent=S.current.natural;$('#sideNatural').textContent=S.current.natural;els.enemyType.textContent=S.current.type;els.strip.textContent=makeStrip(S.current);renderSockets();setBead(0,false);setStatus('두 수의 소수 자릿수를 모두 세어 보세요');els.grid.className='';els.grid.innerHTML='';}
+  function makeStrip(p){const digits=p.strip.padStart(3,'0');return ('00'+digits).slice(-5)}
+  function renderSockets(){els.sockets.innerHTML='';S.current.choices.forEach((v,i)=>{const b=document.createElement('button');b.className='socket';b.dataset.socket=i;b.setAttribute('aria-label',`${i+1}번째 소수점 소켓, ${v}`);b.innerHTML=`<span>${i+1}</span>`;b.addEventListener('pointerdown',e=>{if(S.locked)return;e.preventDefault();ensureAudio();els.railWrap?.classList?.add('dragging');setBead(i,true)});b.addEventListener('pointerup',e=>{if(S.locked)return;e.preventDefault();commitSlot(i)});els.sockets.appendChild(b)})}
+  function socketX(i){return 4+(i+.5)*(92/5)}
+  function setBead(i,trail=true){const x=socketX(Math.max(0,Math.min(4,i)));els.bead.style.left=`calc(${x}% - 24px)`;els.trail.style.width=Math.abs(x-10)+'%';els.trail.style.transform=x<10?'scaleX(-1)':'none';if(trail){S.dragX=i;els.bead.animate([{transform:'translateX(4px) scale(1.08,.92)'},{transform:'translateX(-1px) scale(.98,1.02)'},{transform:'none'}],{duration:190,easing:'cubic-bezier(.2,.9,.3,1)'})}}
+  function nearestSlot(clientX){const r=els.sockets.getBoundingClientRect();return Math.max(0,Math.min(4,Math.floor((clientX-r.left)/(r.width/5))))}
+  els.bead.addEventListener('pointerdown',e=>{if(S.phase!=='playing'||S.locked)return;e.preventDefault();ensureAudio();S.drag=true;S.dragX=nearestSlot(e.clientX);els.bead.setPointerCapture(e.pointerId);$('#railWrap').classList.add('dragging');setBead(S.dragX,true)});
+  els.bead.addEventListener('pointermove',e=>{if(!S.drag)return;e.preventDefault();const i=nearestSlot(e.clientX);if(i!==S.dragX){S.dragX=i;setBead(i,true);tone(260+i*35,.025,'sine')}});
+  els.bead.addEventListener('pointerup',e=>{if(!S.drag)return;e.preventDefault();S.drag=false;$('#railWrap').classList.remove('dragging');commitSlot(S.dragX)});
+  function commitSlot(i){if(S.phase!=='playing'||S.locked||!S.current)return;S.locked=true;setBead(i,true);const correct=i===S.current.correctSlot;correct?resolveCorrect():resolveWrong(i,false)}
+  function resolveCorrect(forced=false){if(S.phase!=='playing'&&!forced)return;S.locked=true;S.freeze=S.current&&S.current.raw===500?90:70;const mult=(1+Math.floor(S.combo/3)*.5)*(S.double?2:1);S.double=false;S.combo++;S.bestCombo=Math.max(S.bestCombo,S.combo);S.solved++;S.patches++;S.score+=Math.round(100*mult);pulse(els.score);tone(620+Math.min(280,S.combo*25),.1,'triangle');setStatus(`딸깍! ${S.current?S.current.answer:'정답'} — 실이 단단히 잠겼어요`,'good');showGrid();els.trail.animate([{background:C.cream,filter:'brightness(1)'},{background:C.teal,filter:'brightness(1.8)'},{background:C.teal,filter:'brightness(1)'}],{duration:330});els.bead.animate([{transform:'scale(1.35,.65)'},{transform:'scale(.85,1.2)'},{transform:'none'}],{duration:320});els.enemy.animate([{transform:'translate(-50%,0) scale(1,1)'},{transform:'translate(-50%,-8px) scale(.94,1.08)'},{transform:'translate(-50%,-30px) scale(.35,.75)',opacity:0}],{duration:520,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'});const p=document.createElement('i');p.className='patch';p.title='막아 낸 숫자 조각';els.flag.appendChild(p);if(els.flag.children.length>10)els.flag.firstChild.remove();if(S.solved>=12){S.victory=true;setTimeout(endGame,720)}else if(S.combo%3===0)setTimeout(showUpgrade,620);else setTimeout(()=>{if(S.phase==='playing')showProblem()},720)}
+  function misconceptionFor(i){const v=S.current.choices[i];const m=S.current.misconceptions.find(x=>x.value===v);return m?m.misconceptionId:'place-value-neighbor'}
+  function resolveWrong(i=-1,timeout=false,forced=false){if(S.phase!=='playing'&&!forced)return;S.locked=true;const chosen=i>=0?S.current.choices[i]:'놓지 못함';const target=S.current.answer;const id=i>=0?misconceptionFor(i):'timeout';S.combo=0;if(S.shield){S.shield=false;setStatus(`매듭막이 실 한 올을 지켰어요. 목표는 ${target}`,'bad')}else{S.lives--;els.defense.classList.remove('torn');void els.defense.offsetWidth;els.defense.classList.add('torn');setStatus(timeout?`시간! 목표 ${target}였어요`:`${chosen}은 ${Number(chosen)>Number(target)?'너무 커요':'너무 작아요'} · 목표 ${target}`,'bad');tone(125,.19,'sawtooth')}$('#lastMiss').textContent=id;updateHUD();if(S.lives<=0){setTimeout(endGame,600);return}setTimeout(()=>{if(S.phase==='playing')showProblem()},S.level===1?1150:700)}
+  function showGrid(){const p=S.current;if(!p||p.b>=10)return;els.grid.innerHTML='';const cells=Math.min(100,Math.round((p.a/POW10[p.sa])*(p.b/POW10[p.sb])*100));for(let i=0;i<100;i++){const c=document.createElement('i');if(i<cells)c.className='on';els.grid.appendChild(c)}els.grid.className='show'}
+  function showUpgrade(){if(S.phase!=='playing')return;S.phase='upgrade';els.overlay.classList.remove('hidden');els.dialog.innerHTML=`<h2>세 조각이 이어졌어요!</h2><p>천 조각을 바늘 포대에 꿰어 보세요.</p><div id="upgradeChoices"><button class="upgrade" data-up="double">쌍바늘<br><small>다음 점수 2배</small></button><button class="upgrade" data-up="shield">매듭막<br><small>실수 한 번 보호</small></button></div>`;$$('.upgrade').forEach(b=>b.addEventListener('pointerup',()=>chooseUpgrade(b.dataset.up),{once:true}))}
+  function chooseUpgrade(x){if(x==='double')S.double=true;else S.shield=true;tone(760,.12);els.overlay.classList.add('hidden');S.phase='playing';showProblem()}
+  function onboarding(){S.onboarding=true;els.title.classList.add('hidden');els.game.classList.remove('hidden');els.overlay.classList.remove('hidden');els.dialog.innerHTML=`<h2>점 구슬 꿰기</h2><div class="steps"><div class="step"><strong>1</strong>자연수끼리 곱해요</div><div class="step"><strong>2</strong>소수 자릿수를 모두 세어요</div><div class="step"><strong>3</strong>오른쪽부터 세어 점을 놓아요</div></div><p>실수하면 방어선 한 칸이 바로 끊어져요.<br>그래도 네 번까지 다시 해 볼 수 있어요.</p><button id="onboardGo" class="primary">직접 꿰어 볼게요</button>`;$('#onboardGo').addEventListener('click',()=>{localStorage.setItem('onboardingSeen:decimal-dot-squad','1');els.overlay.classList.add('hidden');begin()},{once:true})}
+  function begin(){ensureAudio();els.title.classList.add('hidden');els.game.classList.remove('hidden');els.overlay.classList.add('hidden');S.phase='playing';S.score=0;S.scoreShown=0;S.lives=4;S.level=1;S.solved=0;S.combo=0;S.time=90;S.round=0;S.deckIndex=0;S.slotBag=[];S.patches=0;S.double=false;S.shield=false;S.victory=false;els.flag.innerHTML='';showProblem();updateHUD()}
+  function endGame(){if(S.phase==='gameover')return;S.phase='gameover';const best=Math.max(S.score,Number(localStorage.getItem('decimalDotSquadBest')||0));localStorage.setItem('decimalDotSquadBest',best);localStorage.setItem('decimalDotSquadCombo',Math.max(S.bestCombo,Number(localStorage.getItem('decimalDotSquadCombo')||0)));els.overlay.classList.remove('hidden');els.dialog.innerHTML=`<h2>${S.victory?'방어 성공!':S.lives<=0?'마지막 솔기가 풀렸어요':'여기까지 막았어요'}</h2><p>막아 낸 숫자 조각 ${S.solved}개</p><div id="resultScore">0</div><p>최고 점수 ${best}</p><button id="again" class="primary">다시 포대 가동!</button>`;let shown=0;const target=S.score;const count=()=>{shown+=(target-shown)*.18;if(target-shown<1)shown=target;$('#resultScore').textContent=Math.round(shown);if(shown<target)requestAnimationFrame(count)};count();$('#again').addEventListener('click',begin,{once:true})}
+  function loop(now){const real=Math.min(.05,(now-S.last)/1000);S.last=now;drawWeave(now);if(S.freeze>0){S.freeze-=real*1000}else if(S.phase==='playing'){const dt=real*S.timeScale;S.time-=dt;S.enemyT+=dt;const prog=Math.min(1,S.enemyT/S.enemyLimit);const maxY=Math.max(0,els.battle.clientHeight-els.enemy.offsetHeight-40);els.enemy.style.transform=`translate(-50%,${prog*maxY}px)`;els.danger.style.transform=`scaleX(${prog})`;if(S.enemyT>=S.enemyLimit&&!S.locked)resolveWrong(-1,true);if(S.time<=0)endGame()}S.scoreShown+=(S.score-S.scoreShown)*Math.min(1,real*10);updateHUD();requestAnimationFrame(loop)}
+  $('#startBtn').addEventListener('click',()=>{ensureAudio();$('#startBtn').animate([{transform:'scale(1)'},{transform:'scale(.9)'},{transform:'scale(1.08)'}],{duration:220});setTimeout(()=>localStorage.getItem('onboardingSeen:decimal-dot-squad')?begin():onboarding(),170)});
+  $('#helpBtn').addEventListener('click',()=>{ensureAudio();onboarding()});
+  $('#mute').addEventListener('click',()=>{S.muted=!S.muted;$('#mute').textContent=S.muted?'🔇':'🔊';$('#mute').setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기');if(!S.muted)ensureAudio()});
+  $('#titleArt').addEventListener('error',e=>{e.currentTarget.style.display='none'},{once:true});
+  $('#battleBg').addEventListener('error',e=>{e.currentTarget.style.display='none'},{once:true});$('#turret').addEventListener('error',e=>{e.currentTarget.style.display='none';$('#turretFallback').style.display='block'},{once:true});
+  addEventListener('keydown',e=>{if(S.phase!=='playing'||S.locked)return;if(e.key==='ArrowLeft'){S.dragX=Math.max(0,S.dragX-1);setBead(S.dragX,true);e.preventDefault()}else if(e.key==='ArrowRight'){S.dragX=Math.min(4,S.dragX+1);setBead(S.dragX,true);e.preventDefault()}else if(e.key===' '||e.key==='Enter'){commitSlot(S.dragX);e.preventDefault()}});
+  addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));layout();requestAnimationFrame(loop);
+  // 테스트 훅도 실제 판정 함수를 공유하되, 실제 입력 게이트는 위 pointer 경로로 별도 검증된다.
+  window.__GAME_TEST__={ready:true,start(){begin()},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase!=='playing')begin();resolveCorrect(true)},answerWrong(){if(S.phase!=='playing')begin();resolveWrong(-1,false,true)},sampleProblems(n){n=Math.max(0,Math.floor(Number(n)||0));const out=[];for(let i=0;i<n;i++){const p=POOL[(i*37+11)%POOL.length];out.push({id:p.id,prompt:`${p.prompt}, ${p.natural}. 자연수의 곱을 이용해 소수점을 알맞은 위치에 찍어 보세요.`,choices:p.choices.slice(),answer:p.answer,answerNumeric:p.answerNumeric,unitConcept:p.unitConcept})}return out},getLayout(){return{land:S.land,playW:S.land?S.stageW*.55:innerWidth}}};
+})();
+</script>
+</body>
+</html>

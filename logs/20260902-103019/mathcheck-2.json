@@ -1,0 +1,50 @@
+{
+  "slug": "quotient-dungeon",
+  "verified_count": 0,
+  "errors": [
+    {
+      "prompt": "d × q + □ = N에서 □ 안에 알맞은 수를 써넣으세요. (reverse_check 생성 문항 전체)",
+      "game_answer": "q⋯r",
+      "correct_answer": "r",
+      "why": "발문은 나머지에 해당하는 □ 한 칸만 묻지만 sampleProblems는 모든 문항의 정답을 몫과 나머지의 결합값으로 고정한다. 예를 들어 2 × 24 + □ = 49의 발문 정답은 1인데 코드상 표본 정답 형식은 24⋯1이다."
+    }
+  ],
+  "code_risks": [
+    {
+      "where": "index.html:85",
+      "risk": "map 콜백에서 선언되지 않은 i를 참조해 buildPool() 초기화가 ReferenceError로 중단된다. 그 결과 테스트 훅과 문제 표본이 생성되지 않아 QA report의 problems_sample이 0건이다.",
+      "severity": "high",
+      "how_to_fix": ".map((p, i) => makeProblem(...))처럼 콜백 인덱스를 선언하고 QA를 다시 실행해 비어 있지 않은 problems_sample을 만든 뒤 전수 재검산한다."
+    },
+    {
+      "where": "index.html:79,88-92",
+      "risk": "reverse_check 발문은 □의 값 하나만 요구하지만 정답 생성은 무조건 q⋯r로 고정되어 발문과 채점 정답이 다르다.",
+      "severity": "high",
+      "how_to_fix": "문항 유형별 answer 모델을 분리해 reverse_check의 정답을 r로 만들거나, 발문을 몫과 나머지를 모두 요구하도록 바꾸고 실제 조작·선택지와 일치시킨다."
+    },
+    {
+      "where": "index.html:79",
+      "risk": "error_find 발문이 '잘못된 몫 카드'를 고치라고 하지만 잘못 계산된 몫의 값이나 카드가 문제 데이터와 화면에 제시되지 않아 무엇을 고칠지 결정할 수 없다.",
+      "severity": "high",
+      "how_to_fix": "실제 오개념으로 만든 wrongQuotient를 문제 데이터에 저장해 발문이나 화면에 명시하고, 요구하는 답 형식을 그 값의 교정으로 한정한다."
+    }
+  ],
+  "grade_issues": [
+    "curriculum/textbook-crosswalk.json에 g3s2-u2 매핑이 없고 3-2 나눗셈 항목의 curriculum_unit_id가 null이어서 필수 단원 교차 대조 데이터가 누락되었다.",
+    "QA report의 problems_sample이 빈 배열이어서 실제 생성 표본을 한 문항도 전수 검산할 수 없다. 참조 데이터 누락으로 게이트를 통과시킬 수 없다."
+  ],
+  "phrasing_issues": [
+    {
+      "prompt": "d × q + □ = N에서 □ 안에 알맞은 수를 써넣으세요.",
+      "issue": "표준 빈칸 발문 자체는 자연스럽지만 게임은 몫 자리와 나머지를 모두 입력하게 하고 표본 정답도 q⋯r로 만든다. 문장이 요구하는 조작과 실제 정답 형식이 달라 답이 달라진다.",
+      "severity": "high"
+    },
+    {
+      "prompt": "서아가 계산한 N ÷ d의 잘못된 몫 카드를 옳게 고쳐 보세요.",
+      "issue": "고쳐야 할 잘못된 몫 카드가 발문이나 문제 데이터에 제시되지 않는다. 학생은 원래 계산을 새로 하라는 뜻인지, 보이지 않는 오답을 교정하라는 뜻인지 결정할 수 없다.",
+      "severity": "high"
+    }
+  ],
+  "verdict": "fail",
+  "note": "QA 표본이 0건이고 g3s2-u2 교차 매핑도 없어 필수 검산 입력이 갖춰지지 않았으므로 참조 데이터 누락으로 실패다. 정적 코드에서도 문제 생성기 초기화 예외와 발문-정답 형식 불일치라는 고위험 오류를 확인했다."
+}

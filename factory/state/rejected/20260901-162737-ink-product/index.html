@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta property="og:title" content="잉크곱">
+  <meta property="og:description" content="겹친 칸이 답이다">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>잉크곱</title>
+  <style>
+    :root{--paper:#f7f2e8;--teal:#147d8a;--mag:#a62b5b;--ink:#253038;--stageW:min(100vw,1280px);--hair:1px}
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    body{font-family:Georgia,"Times New Roman","Apple SD Gothic Neo","Malgun Gothic",serif;background-image:repeating-linear-gradient(0deg,rgba(37,48,56,.025) 0,rgba(37,48,56,.025) 1px,transparent 1px,transparent 5px)}
+    button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+    .screen{position:fixed;inset:0;width:100%;height:100dvh;overflow:hidden}
+    .hidden{display:none!important}
+    #titleScreen{isolation:isolate;background:var(--paper)}
+    .title-art{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;object-position:center 58%;animation:pressDrift 20s ease-in-out infinite alternate;filter:saturate(.95) contrast(1.03)}
+    .title-fallback{position:absolute;inset:0;background:radial-gradient(circle at 55% 60%,rgba(20,125,138,.28),transparent 30%),repeating-radial-gradient(circle at 20% 30%,rgba(166,43,91,.12) 0 2px,transparent 3px 14px),var(--paper)}
+    .title-vignette{position:absolute;inset:0;background:linear-gradient(180deg,rgba(247,242,232,.18),transparent 45%,rgba(37,48,56,.35));mix-blend-mode:multiply}
+    .float-mark{position:absolute;width:23px;height:23px;border:1px solid var(--ink);opacity:.35;animation:markFloat 7s ease-in-out infinite}
+    .float-mark:before,.float-mark:after{content:"";position:absolute;background:var(--ink)}
+    .float-mark:before{left:10px;top:-8px;width:1px;height:37px}.float-mark:after{top:10px;left:-8px;height:1px;width:37px}
+    .m1{left:9%;top:42%}.m2{right:8%;top:22%;animation-delay:-2s}.m3{right:17%;bottom:25%;animation-delay:-4s}
+    .title-ui{position:relative;z-index:3;width:min(100vw,640px);height:100%;margin:auto;padding:env(safe-area-inset-top) 18px env(safe-area-inset-bottom);pointer-events:none}
+    .logo-zone{position:absolute;top:max(52px,7dvh);left:16px;right:16px;text-align:center;pointer-events:auto;animation:inkStamp .7s cubic-bezier(.2,.9,.25,1.2) both}
+    .logo{margin:0;display:flex;justify-content:center;gap:.02em;font-size:clamp(72px,21vw,108px);font-weight:900;letter-spacing:-.12em;line-height:.9;transform:rotate(-3deg);color:var(--paper);-webkit-text-stroke:2px var(--ink);text-shadow:4px 3px 0 var(--teal),-4px -2px 0 var(--mag),8px 7px 0 rgba(37,48,56,.3)}
+    .logo span:nth-child(2){transform:translateY(.12em) rotate(5deg)}
+    .tagline{display:inline-block;margin:15px 0 0;padding:5px 14px;border-top:2px solid var(--ink);border-bottom:1px solid var(--ink);background:rgba(247,242,232,.86);font:700 17px/1.3 "Courier New","Apple SD Gothic Neo",monospace;letter-spacing:.12em}
+    .cta-zone{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:7px;pointer-events:auto}
+    .title-stat{background:rgba(247,242,232,.9);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);padding:5px 12px;font:700 13px "Courier New",monospace}
+    #startBtn{width:min(100%,420px);min-height:70px;border:0;border-radius:0;background:var(--ink);color:var(--paper);font-size:24px;font-weight:900;letter-spacing:.13em;clip-path:polygon(0 8%,96% 0,100% 88%,4% 100%);animation:ctaPulse 1.8s ease-in-out infinite}
+    #startBtn:active{transform:scale(.94) rotate(-1deg);background:var(--mag)}
+    #helpBtn{min-height:44px;border:0;background:rgba(247,242,232,.86);text-decoration:underline;font-weight:800}
+    .mute{position:fixed;z-index:20;right:max(12px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));width:48px;height:48px;border:1px solid var(--ink);border-radius:0;background:var(--paper);font-size:21px}
+    #gameScreen{background:var(--paper)}
+    .game-shell{width:var(--stageW);height:100%;margin:auto;display:grid;grid-template-rows:62px minmax(0,1fr);position:relative}
+    .hud{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:8px 62px 7px 14px;border-bottom:1px solid var(--ink);font-family:"Courier New","Apple SD Gothic Neo",monospace;background:rgba(247,242,232,.96)}
+    .job{font-size:11px;letter-spacing:.12em}.job strong{display:block;font-size:18px;letter-spacing:0}
+    .score-box{text-align:center;border-left:1px solid var(--ink);border-right:1px solid var(--ink);padding:0 16px;min-width:128px}.score-label{font-size:10px}.score{font-size:26px;font-weight:900;display:inline-block}.score.ink-punch{animation:inkPunch .35s}
+    .status{text-align:right;font-size:13px}.lives{font-size:20px;color:var(--mag);letter-spacing:.08em}
+    .work{min-height:0;display:grid;grid-template-rows:minmax(300px,60%) minmax(245px,40%)}
+    .press-zone{position:relative;min-height:0;border-bottom:1px solid var(--ink);overflow:hidden;background-image:radial-gradient(rgba(37,48,56,.12) .7px,transparent .7px);background-size:8px 8px}
+    #board{display:block;width:100%;height:100%;touch-action:none}
+    .tap-note{position:absolute;left:12px;bottom:10px;background:var(--paper);border-bottom:2px solid var(--ink);padding:5px 8px;font:700 13px "Courier New","Apple SD Gothic Neo",monospace;pointer-events:none}
+    .panel{min-height:0;display:grid;grid-template-columns:1fr;align-content:start;padding:10px 14px 16px;overflow:auto;background:var(--paper)}
+    .order{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:8px}
+    .kicker{font:700 10px "Courier New",monospace;letter-spacing:.15em}.prompt{font-size:clamp(16px,4.6vw,22px);font-weight:800;line-height:1.25}.equation{font-size:clamp(29px,8vw,48px);font-weight:900;white-space:nowrap;color:var(--ink)}
+    .phase-copy{margin:9px 0 6px;min-height:24px;font-weight:900;color:var(--mag)}
+    .rail-wrap{position:relative;height:108px;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);padding:26px 4px 4px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(20% - 1px),rgba(37,48,56,.15) calc(20% - 1px),rgba(37,48,56,.15) 20%)}
+    .rail{height:66px;display:grid;grid-template-columns:repeat(5,1fr);align-items:end}
+    .slot{height:62px;display:grid;place-items:end center;padding-bottom:5px;font:700 12px "Courier New","Apple SD Gothic Neo",monospace;border:0;background:transparent;position:relative;min-width:44px}
+    .slot:before{content:"";position:absolute;left:50%;top:4px;width:9px;height:9px;border:1px solid var(--ink);transform:translateX(-50%) rotate(45deg)}
+    .slot.hot:before{background:var(--teal);border-color:var(--teal)}
+    #decimalToken{position:absolute;z-index:5;left:calc(10% - 21px);top:3px;width:42px;height:42px;border:1px solid var(--ink);border-radius:0;background:var(--mag);color:var(--paper);font:900 32px/35px Georgia,serif;text-align:center;touch-action:none;cursor:grab;transition:filter .1s}
+    #decimalToken.dragging{filter:saturate(1.4);transform:scale(1.12)}
+    .natural{position:absolute;left:50%;top:7px;transform:translateX(-50%);font:900 20px "Courier New",monospace;letter-spacing:.15em;pointer-events:none}
+    .diagnosis{min-height:24px;margin-top:7px;font-weight:800;font-size:14px}.diagnosis.bad{color:var(--mag)}.diagnosis.good{color:var(--teal)}
+    .collection{display:flex;gap:4px;margin-top:7px}.plate{width:18px;height:13px;border:1px solid var(--ink);background:transparent}.plate.on{background:linear-gradient(135deg,var(--teal) 50%,var(--mag) 50%)}
+    .flash{position:absolute;inset:0;pointer-events:none;opacity:0}.flash.good{animation:warmFlash .42s}.flash.bad{animation:badFlash .35s}
+    .toast{position:absolute;z-index:7;left:50%;top:35%;transform:translate(-50%,-50%);font-size:clamp(27px,7vw,54px);font-weight:900;pointer-events:none;opacity:0;text-align:center}.toast.show-good{color:var(--teal);animation:riseInk .85s}.toast.show-bad{color:var(--mag);animation:slipInk .7s}
+    .onboarding,.result{position:absolute;z-index:12;inset:0;display:grid;place-items:center;background:rgba(247,242,232,.9);padding:18px}
+    .sheet{width:min(92vw,520px);border:1px solid var(--ink);background:var(--paper);padding:24px;position:relative;background-image:linear-gradient(90deg,transparent 27px,rgba(166,43,91,.18) 28px,transparent 29px)}
+    .sheet:before,.sheet:after{content:"+";position:absolute;font:20px monospace}.sheet:before{left:-10px;top:-15px}.sheet:after{right:-10px;bottom:-15px}
+    .sheet h2{font-size:30px;margin:0 0 12px}.sheet p{font-size:17px;line-height:1.55;min-height:80px}.sheet button{width:100%;min-height:60px;border:0;border-radius:0;background:var(--ink);color:var(--paper);font-size:20px;font-weight:900}
+    .step-no{font:700 12px "Courier New",monospace;color:var(--mag)}
+    .result .sheet{text-align:center}.final-score{font-size:62px;font-weight:900;color:var(--teal);font-variant-numeric:tabular-nums}.accordion{display:flex;justify-content:center;margin:15px 0;height:66px;perspective:500px}.print-page{width:46px;border:1px solid var(--ink);background:linear-gradient(135deg,rgba(20,125,138,.5) 50%,rgba(166,43,91,.5) 50%);transform-origin:left;animation:pageOpen .55s backwards}
+    @keyframes pressDrift{to{transform:scale(1.05) translate(-1%,1%)}}
+    @keyframes markFloat{50%{transform:translateY(-10px) rotate(5deg)}}
+    @keyframes inkStamp{0%{opacity:0;transform:scale(1.5) rotate(4deg);filter:blur(8px)}65%{opacity:1;filter:blur(0)}100%{transform:scale(1)}}
+    @keyframes ctaPulse{50%{transform:scale(1.035)}}
+    @keyframes inkPunch{50%{transform:scale(1.35);color:var(--mag)}}
+    @keyframes warmFlash{40%{opacity:.26;background:var(--teal)}}
+    @keyframes badFlash{35%{opacity:.3;background:var(--mag)}}
+    @keyframes riseInk{0%{opacity:0;transform:translate(-50%,20px) scale(.7)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,-70px) scale(1.15)}}
+    @keyframes slipInk{0%{opacity:1;transform:translate(-50%,-50%) skewX(0)}40%{transform:translate(-46%,-48%) skewX(10deg)}100%{opacity:0;transform:translate(-50%,40px) skewX(-12deg)}}
+    @keyframes pageOpen{from{transform:rotateY(-85deg);opacity:0}}
+    @media(min-width:1024px){html.land .game-shell{grid-template-rows:68px minmax(0,1fr)}html.land .work{grid-template-columns:minmax(0,68%) minmax(320px,32%);grid-template-rows:1fr}html.land .press-zone{border-bottom:0;border-right:1px solid var(--ink)}html.land .panel{padding:24px 28px}.prompt{font-size:21px}.equation{font-size:45px}.rail-wrap{margin-top:10px;height:126px}.rail{height:82px}.slot{height:80px}.tap-note{font-size:15px}}
+    @media(max-height:700px) and (max-width:1023px){.game-shell{grid-template-rows:54px minmax(0,1fr)}.work{grid-template-rows:minmax(230px,55%) minmax(190px,45%)}.hud{padding-top:4px;padding-bottom:4px}.panel{padding-top:6px}.rail-wrap{height:88px;padding-top:20px}.rail{height:58px}.slot{height:52px}.phase-copy{margin:4px 0}.collection{display:none}}
+    @media(prefers-reduced-motion:reduce){.title-art{animation-duration:60s}.float-mark{animation-duration:18s}#startBtn{animation-duration:4s}.toast{animation-duration:.35s!important}}
+  </style>
+</head>
+<body>
+  <section id="titleScreen" class="screen">
+    <div class="title-fallback" aria-hidden="true"></div>
+    <img class="title-art" src="./assets/title.png" alt="청록과 자주 잉크 롤러가 모눈 위에서 겹치는 인쇄 공방" onerror="this.style.display='none'">
+    <div class="title-vignette"></div><i class="float-mark m1"></i><i class="float-mark m2"></i><i class="float-mark m3"></i>
+    <div class="title-ui">
+      <div class="logo-zone"><h1 class="logo" aria-label="잉크곱"><span aria-hidden="true">잉</span><span aria-hidden="true">크</span><span aria-hidden="true">곱</span></h1><p class="tagline">겹친 칸이 답이다</p></div>
+      <div class="cta-zone"><div class="title-stat">5학년 2학기 · 소수의 곱셈　최고 <b id="bestTitle">0</b></div><button id="startBtn">첫 장 찍기</button><button id="helpBtn">어떻게 놀아요? 〉</button></div>
+    </div>
+  </section>
+  <section id="gameScreen" class="screen hidden">
+    <button id="muteBtn" class="mute" aria-label="소리 끄기">♪</button>
+    <main class="game-shell">
+      <header class="hud"><div class="job">INK WORKS / <span id="jobNo">001</span><strong>잉크곱 공방</strong></div><div class="score-box"><div class="score-label">PRINT SCORE</div><span id="score" class="score">0</span></div><div class="status"><span id="timer">90.0</span>s · COMBO <b id="combo">0</b><div id="lives" class="lives">◆ ◆ ◆</div></div></header>
+      <div class="work">
+        <section class="press-zone" id="pressZone"><canvas id="board"></canvas><div id="tapNote" class="tap-note">인쇄판을 눌러 가로 롤러를 멈춰요</div><div id="flash" class="flash"></div><div id="toast" class="toast"></div></section>
+        <aside class="panel">
+          <div class="order"><div><div class="kicker">ORDER / 정확한 값을 찍어 보세요</div><div id="prompt" class="prompt">모눈을 보고 두 롤러의 폭을 찍어 보세요.</div></div><div id="equation" class="equation">0.8 × 0.6</div></div>
+          <div id="phaseCopy" class="phase-copy">가로 폭부터 맞춰요.</div>
+          <div id="railWrap" class="rail-wrap" aria-label="소수점 활자 레일">
+            <div id="natural" class="natural">48</div><div id="decimalToken" role="button" aria-label="끌어서 소수점 자리를 정하기">.</div>
+            <div class="rail"><button class="slot" data-shift="0">0칸</button><button class="slot" data-shift="1">1칸</button><button class="slot" data-shift="2">2칸</button><button class="slot" data-shift="3">3칸</button><button class="slot" data-shift="4">4칸</button></div>
+          </div>
+          <div id="diagnosis" class="diagnosis">두 롤러를 먼저 정확히 찍어 보세요.</div><div id="collection" class="collection" aria-label="완성 인쇄물"></div>
+        </aside>
+      </div>
+    </main>
+    <div id="onboarding" class="onboarding hidden"><div class="sheet"><div id="stepNo" class="step-no">1 / 3</div><h2 id="stepTitle">롤러를 멈춰요</h2><p id="stepText">인쇄판을 탭해 움직이는 가로 롤러와 세로 롤러를 주문한 칸 수에 맞춰 멈춰요.</p><button id="nextStep">다음</button></div></div>
+    <div id="result" class="result hidden"><div class="sheet"><div class="kicker">WORKSHOP CLOSED / 오늘의 인쇄</div><h2 id="resultTitle">공방 기록</h2><div id="finalScore" class="final-score">0</div><div id="accordion" class="accordion"></div><p id="resultCopy">완성 인쇄물을 펼치는 중…</p><button id="restartBtn">다시 찍기</button></div></div>
+  </section>
+  <script>
+  (()=>{'use strict';
+    const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+    const title=$('#titleScreen'), game=$('#gameScreen'), canvas=$('#board'), ctx=canvas.getContext('2d',{alpha:false});
+    const C={paper:'#f7f2e8',teal:'#147d8a',mag:'#a62b5b',ink:'#253038'};
+    const S={score:0,lives:3,level:1,phase:'title',solved:0,combo:0,time:90,problem:null,rollPos:1,rollDir:1,rollSpeed:3.1,hStop:null,vStop:null,drag:false,dragX:0,dragY:0,hitStop:0,feedback:0,shake:0,flash:'',started:false,last:performance.now(),poolCursor:0,completed:[],audio:null,muted:false};
+    let W=0,H=0,dpr=1,dragPointer=null,loopRunning=false;
+
+    // 교과서 표현 함정: 소수의 곱은 정확한 값이며 오른쪽 끝자리 0을 기본 표기에서 지운다.
+    // 판정은 정수 가수 n1*n2와 자리 수 p1+p2로만 한다. 부동소수점 비교를 하지 않는다.
+    function pow10(p){return [1,10,100,1000,10000,100000][p]}
+    function decimalString(n,p){let s=String(Math.abs(n));if(p){s=s.padStart(p+1,'0');s=s.slice(0,-p)+'.'+s.slice(-p);s=s.replace(/0+$/,'').replace(/\.$/,'')}return (n<0?'-':'')+s}
+    function uniqueChoices(answer,candidates){const out=[answer];for(const c of candidates){if(c!==answer&&!out.includes(c)&&out.length<4)out.push(c)}let bump=1;while(out.length<4){const c=decimalString(Number(answer.replace('.',''))+bump,Math.max(0,(answer.split('.')[1]||'').length));if(c!==answer&&!out.includes(c))out.push(c);bump++}return out}
+    function makeProblem(n1,p1,n2,p2,band,type='grid'){
+      const product=n1*n2, places=p1+p2, answer=decimalString(product,places), a=decimalString(n1,p1), b=decimalString(n2,p2);
+      // 오개념 역산 1: 한쪽 소수 자릿수만 적용한다.
+      const oneSide=decimalString(product,p1);
+      // 오개념 역산 2: 소수점을 반대 방향으로 한 자리 옮겨 곱이 커진다고 본다.
+      const grows=decimalString(product,Math.max(0,places-1));
+      // 오개념 역산 3: 오른쪽 끝자리 0 처리 과정에서 한 자리를 더 지운다/옮긴다.
+      const zeroCleanup=decimalString(product,places+1);
+      const choices=uniqueChoices(answer,[oneSide,grows,zeroCleanup,decimalString(product,Math.max(0,places-2))]);
+      const cols=Math.max(10,Math.ceil(n1/10)*10), rows=Math.max(10,Math.ceil(n2/10)*10);
+      const distractors=[{value:oneSide,misconceptionId:'one-side-decimal-places'},{value:grows,misconceptionId:'product-always-grows'},{value:zeroCleanup,misconceptionId:'trailing-zero-cleanup'}].filter((d,i,a)=>d.value!==answer&&a.findIndex(x=>x.value===d.value)===i);
+      return {id:`b${band}-${n1}-${p1}-${n2}-${p2}`,n1,p1,n2,p2,product,places,a,b,answer,answerNumeric:product/pow10(places),band,type,cols,rows,targetX:n1,targetY:n2,prompt:type==='error'?`잘못 찍힌 ${a} × ${b}의 활자를 옳게 고쳐 보세요.`:`모눈을 보고 ${a} × ${b}의 정확한 값을 찍어 보세요.`,choices,distractors,unitConcept:band===1?'0.01 넓이 모델':band===2?'자연수 곱과 소수점 자리':'10·0.1·0.01배 소수점 이동'}
+    }
+    function buildPools(){
+      const bands=[[],[],[]];
+      // 제약 만족 풀: 핵심 길이를 자릿값에서부터 전수 생성한다. 무작위 생성/재시도 없음.
+      for(let a=2;a<=9;a++)for(let b=2;b<=9;b++)bands[0].push(makeProblem(a,1,b,1,1));
+      for(const a of [12,14,15,16,18,25,35])for(const b of [2,3,4,6,7,8])bands[1].push(makeProblem(a,a>=20?2:1,b,1,2));
+      for(const a of [12,14,18,23,27,31,35,37])for(const q of [{n:1,p:1},{n:1,p:2},{n:10,p:0}])bands[2].push(makeProblem(a,1,q.n,q.p,3,(a+q.p)%4===0?'error':'grid'));
+      return bands;
+    }
+    const POOLS=buildPools(), ALL=POOLS.flat();
+    function shuffledIndex(len,seed){let x=(seed*1664525+1013904223)>>>0;return x%len}
+    function nextProblem(){const elapsed=90-S.time;const band=(S.solved<3&&elapsed<30)?0:(S.solved<7&&elapsed<60)?1:2;S.level=band+1;const pool=POOLS[band];const p=pool[shuffledIndex(pool.length,S.poolCursor++ + S.solved*17)];return {...p}}
+    function sampleProblems(n){const count=Math.max(0,Math.floor(Number(n)||0)),out=[];const base=S.poolCursor++;for(let i=0;i<count;i++){const p=ALL[(base*29+i*37)%ALL.length];out.push({id:`${p.id}-s${base}-${i}`,prompt:p.prompt,choices:[...p.choices],answer:p.answer,answerNumeric:p.answerNumeric,unitConcept:p.unitConcept})}return out}
+    function readBest(){try{return Number(localStorage.getItem('ink-product:best')||0)}catch(_){return 0}}
+    function writeProgress(){try{const best=Math.max(readBest(),S.score);localStorage.setItem('ink-product:best',String(best));localStorage.setItem('ink-product:collection',JSON.stringify([...new Set(S.completed)].slice(-24)));$('#bestTitle').textContent=best}catch(_){}}
+    function initCollection(){let saved=[];try{saved=JSON.parse(localStorage.getItem('ink-product:collection')||'[]')}catch(_){}S.completed=saved;renderCollection()}
+    function renderCollection(){const el=$('#collection');el.innerHTML='';for(let i=0;i<24;i++){const p=document.createElement('i');p.className='plate'+(i<S.completed.length?' on':'');el.appendChild(p)}}
+    function audioStart(){if(S.audio||S.muted)return;try{S.audio=new (window.AudioContext||window.webkitAudioContext)()}catch(_){}}
+    function tone(freq,dur=.08,type='triangle',gain=.035,delay=0){if(!S.audio||S.muted)return;const t=S.audio.currentTime+delay,o=S.audio.createOscillator(),g=S.audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(gain,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(S.audio.destination);o.start(t);o.stop(t+dur+.02)}
+    function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);W=Math.max(1,r.width);H=Math.max(1,r.height);canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+    function setProblem(p){S.problem=p;S.hStop=null;S.vStop=null;S.rollPos=1;S.rollDir=1;S.phase='hRoll';S.feedback=0;$('#equation').textContent=`${p.a} × ${p.b}`;$('#prompt').textContent=p.prompt;$('#natural').textContent=String(p.product);$('#phaseCopy').textContent=`가로 롤러를 ${p.n1}칸 폭에 맞춰요.`;$('#tapNote').textContent='인쇄판을 눌러 가로 롤러를 멈춰요';$('#diagnosis').className='diagnosis';$('#diagnosis').textContent='두 롤러를 먼저 정확히 찍어 보세요.';$('#jobNo').textContent=String(S.solved+1).padStart(3,'0');resetToken();updateHud()}
+    function resetToken(){const t=$('#decimalToken');t.style.left='calc(10% - 21px)';t.style.top='3px';t.classList.remove('dragging');$$('.slot').forEach(x=>x.classList.remove('hot'))}
+    function begin(skipOnboarding=false){audioStart();title.classList.add('hidden');game.classList.remove('hidden');$('#result').classList.add('hidden');S.score=0;S.lives=3;S.level=1;S.solved=0;S.combo=0;S.time=90;S.started=true;S.phase='hRoll';S.completed=[];initCollection();resize();setProblem(nextProblem());if(!skipOnboarding){let seen=false;try{seen=localStorage.getItem('onboardingSeen:ink-product')==='1'}catch(_){}if(!seen)showOnboarding()}S.last=performance.now();if(!loopRunning){loopRunning=true;requestAnimationFrame(loop)}}
+    function updateHud(){const score=$('#score');if(score.textContent!==String(S.score)){score.textContent=S.score;score.classList.remove('ink-punch');void score.offsetWidth;score.classList.add('ink-punch')}$('#combo').textContent=S.combo;$('#lives').textContent=Array.from({length:3},(_,i)=>i<S.lives?'◆':'◇').join(' ');$('#timer').textContent=Math.max(0,S.time).toFixed(1)}
+    function stopRoller(){if(S.phase!=='hRoll'&&S.phase!=='vRoll')return;audioStart();const max=S.phase==='hRoll'?S.problem.cols:S.problem.rows;const stopped=Math.max(1,Math.min(max,Math.round(S.rollPos)));tone(165,.06,'square',.025);if(S.phase==='hRoll'){S.hStop=stopped;if(stopped!==S.problem.targetX){fail('가로 폭',`가로 폭이 주문과 달라요. 눈금을 다시 살펴봐요.`);return}S.phase='vRoll';S.rollPos=1;S.rollDir=1;$('#phaseCopy').textContent=`세로 롤러를 ${S.problem.n2}칸 폭에 맞춰요.`;$('#tapNote').textContent='한 번 더 눌러 세로 롤러를 멈춰요'}else{S.vStop=stopped;if(stopped!==S.problem.targetY){fail('세로 폭',`세로 폭이 주문과 달라요. 눈금을 다시 살펴봐요.`);return}S.phase='decimal';$('#phaseCopy').textContent='활자를 끌어 소수점 이동 칸을 정해요.';$('#tapNote').textContent='오른쪽 활자 레일에서 소수점을 끌어요';$('#diagnosis').textContent=`자연수 곱은 ${S.problem.n1} × ${S.problem.n2} = ${S.problem.product}. 두 수의 소수 자릿수를 세어 보세요.`;tone(220,.06,'square',.025);tone(330,.08,'triangle',.025,.06)}}
+    function judgeDecimal(shift){if(S.phase!=='decimal')return;if(shift===S.problem.places)success();else fail('소수 자릿수 합',`소수점 이동 칸이 달라요. 두 수의 소수 자릿수를 각각 세어 보세요.`)}
+    function success(){S.phase='feedback';const gain=100+S.combo*25;S.score+=gain;S.solved++;S.combo++;S.hitStop=.075;S.feedback=.95;S.flash='good';S.completed.push(S.problem.id);if(S.completed.length>24)S.completed.shift();$('#diagnosis').className='diagnosis good';$('#diagnosis').textContent=`등록 완료! ${S.problem.a} × ${S.problem.b} = ${S.problem.answer}`;showToast(S.combo>=3?'두 색 인쇄!':'정확 인쇄',true);tone(330,.09,'triangle',.04);tone(495,.12,'triangle',.045,.075);tone(660,.16,'sine',.04,.15);renderCollection();writeProgress();updateHud();setTimeout(()=>{if(S.phase==='feedback'&&S.lives>0&&S.time>0)setProblem(nextProblem())},900)}
+    function fail(kind,msg){if(S.phase==='feedback'||S.phase==='gameover')return;S.phase='feedback';S.lives--;S.combo=0;S.feedback=.78;S.flash='bad';S.shake=.32;$('#diagnosis').className='diagnosis bad';$('#diagnosis').textContent=`폐기 도장 · ${kind}: ${msg}`;showToast('번짐 · 폐기',false);tone(115,.16,'sawtooth',.05);updateHud();if(S.lives<=0){setTimeout(endGame,780)}else setTimeout(()=>{if(S.phase==='feedback')setProblem(nextProblem())},820)}
+    function showToast(text,good){const t=$('#toast'),f=$('#flash');t.textContent=text;t.className='toast '+(good?'show-good':'show-bad');f.className='flash '+(good?'good':'bad');void t.offsetWidth;void f.offsetWidth}
+    function endGame(){if(S.phase==='gameover')return;S.phase='gameover';S.started=false;writeProgress();const result=$('#result');result.classList.remove('hidden');$('#resultTitle').textContent=S.time<=0?'90초 인쇄 완료':'공방 문이 닫혔어요';const target=S.score,start=performance.now();function count(now){const k=Math.min(1,(now-start)/650);$('#finalScore').textContent=Math.round(target*(1-(1-k)**3));if(k<1)requestAnimationFrame(count)}requestAnimationFrame(count);const acc=$('#accordion');acc.innerHTML='';for(let i=0;i<Math.min(6,S.solved);i++){const p=document.createElement('i');p.className='print-page';p.style.animationDelay=`${i*.08}s`;acc.appendChild(p)}$('#resultCopy').textContent=`완성 ${S.solved}장 · 최고 콤보 ${S.combo} · 도감 ${Math.min(24,S.completed.length)}/24`}
+    function draw(){ctx.save();if(S.shake>0){const m=5*(S.shake/.32);ctx.translate((Math.random()-.5)*m,(Math.random()-.5)*m)}ctx.fillStyle=C.paper;ctx.fillRect(0,0,W,H);const p=S.problem;if(!p){ctx.restore();return}const margin=Math.max(34,Math.min(W,H)*.09), panelW=Math.min(W-margin*2,H-margin*1.45), x=(W-panelW)/2,y=(H-panelW)/2+8,cellW=panelW/p.cols,cellH=panelW/p.rows;
+      ctx.strokeStyle='rgba(37,48,56,.28)';ctx.lineWidth=1;ctx.beginPath();for(let i=0;i<=p.cols;i++){ctx.moveTo(x+i*cellW,y);ctx.lineTo(x+i*cellW,y+panelW)}for(let j=0;j<=p.rows;j++){ctx.moveTo(x,y+j*cellH);ctx.lineTo(x+panelW,y+j*cellH)}ctx.stroke();
+      const hx=S.hStop==null?(S.phase==='hRoll'?S.rollPos:0):S.hStop, vy=S.vStop==null?(S.phase==='vRoll'?S.rollPos:0):S.vStop;
+      if(hx>0){ctx.fillStyle='rgba(20,125,138,.56)';ctx.fillRect(x,y,hx*cellW,panelW)}if(vy>0){ctx.globalCompositeOperation='multiply';ctx.fillStyle='rgba(166,43,91,.52)';ctx.fillRect(x,y,panelW,vy*cellH);ctx.globalCompositeOperation='source-over'}
+      if(S.phase==='feedback'&&S.feedback>0&&S.flash==='good'){const k=1-S.feedback/.95;ctx.fillStyle='rgba(37,48,56,.28)';for(let j=0;j<Math.min(p.targetY,25);j++)for(let i=0;i<Math.min(p.targetX,40);i++){const delay=(i+j)/(p.targetX+p.targetY);if(k>delay*.7){const r=Math.max(1,Math.min(cellW,cellH)*.18);ctx.beginPath();ctx.arc(x+(i+.5)*cellW,y+(j+.5)*cellH,r,0,Math.PI*2);ctx.fill()}}}
+      drawRoller(x,y,panelW,cellW,cellH,hx,vy,p);drawMarks(x,y,panelW);ctx.restore()}
+    function drawRoller(x,y,size,cw,ch,hx,vy,p){ctx.lineWidth=7;ctx.lineCap='square';if(S.phase==='hRoll'){const rx=x+hx*cw;ctx.strokeStyle=C.teal;ctx.beginPath();ctx.moveTo(rx,y-20);ctx.lineTo(rx,y+size+20);ctx.stroke();trail(rx,y,size,'v')}else if(S.phase==='vRoll'){const ry=y+vy*ch;ctx.strokeStyle=C.mag;ctx.beginPath();ctx.moveTo(x-20,ry);ctx.lineTo(x+size+20,ry);ctx.stroke();trail(x,ry,size,'h')}ctx.lineCap='butt'}
+    function trail(a,b,size,dir){ctx.save();ctx.globalAlpha=.16;ctx.strokeStyle=dir==='v'?C.teal:C.mag;for(let i=1;i<=3;i++){ctx.lineWidth=Math.max(1,6-i);ctx.beginPath();if(dir==='v'){ctx.moveTo(a-i*5,b);ctx.lineTo(a-i*5,b+size)}else{ctx.moveTo(a,b-i*5);ctx.lineTo(a+size,b-i*5)}ctx.stroke()}ctx.restore()}
+    function drawMarks(x,y,size){ctx.strokeStyle=C.ink;ctx.lineWidth=1;for(const [mx,my] of [[x-17,y-17],[x+size+17,y-17],[x-17,y+size+17],[x+size+17,y+size+17]]){ctx.beginPath();ctx.moveTo(mx-9,my);ctx.lineTo(mx+9,my);ctx.moveTo(mx,my-9);ctx.lineTo(mx,my+9);ctx.stroke()}}
+    function update(dt){if(!S.started||S.phase==='title'||S.phase==='gameover')return;if(S.hitStop>0){S.hitStop-=dt;return}if(S.phase==='hRoll'||S.phase==='vRoll'){const max=S.phase==='hRoll'?S.problem.cols:S.problem.rows;S.rollPos+=S.rollDir*S.rollSpeed*dt*(S.level===1?1:S.level===2?1.2:1.4);if(S.rollPos>=max){S.rollPos=max;S.rollDir=-1}else if(S.rollPos<=1){S.rollPos=1;S.rollDir=1}}S.time-=dt;if(S.feedback>0)S.feedback-=dt;if(S.shake>0)S.shake-=dt;if(S.time<=0){S.time=0;endGame()}updateHud()}
+    function loop(now){const dt=Math.min(.05,(now-S.last)/1000);S.last=now;update(dt);draw();requestAnimationFrame(loop)}
+    function pointerPos(e){const r=$('#railWrap').getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,w:r.width,h:r.height}}
+    function dragStart(e){if(S.phase!=='decimal')return;audioStart();dragPointer=e.pointerId;S.drag=true;$('#decimalToken').setPointerCapture?.(e.pointerId);$('#decimalToken').classList.add('dragging');dragMove(e);e.preventDefault()}
+    function dragMove(e){if(!S.drag||e.pointerId!==dragPointer)return;const q=pointerPos(e),x=Math.max(21,Math.min(q.w-21,q.x));S.dragX=x;S.dragY=q.y;const t=$('#decimalToken');t.style.left=`${x-21}px`;t.style.top=`${Math.max(3,Math.min(60,q.y-21))}px`;const idx=Math.max(0,Math.min(4,Math.floor(x/q.w*5)));$$('.slot').forEach((s,i)=>s.classList.toggle('hot',i===idx));e.preventDefault()}
+    function dragEnd(e){if(!S.drag||e.pointerId!==dragPointer)return;const q=pointerPos(e),idx=Math.max(0,Math.min(4,Math.floor(Math.max(0,Math.min(q.w-1,q.x))/q.w*5)));S.drag=false;dragPointer=null;$('#decimalToken').classList.remove('dragging');judgeDecimal(idx);e.preventDefault()}
+    const onboard=[['롤러를 멈춰요','인쇄판을 탭해 움직이는 가로 롤러와 세로 롤러를 주문한 칸 수에 맞춰 멈춰요.'],['겹친 칸을 읽어요','청록 가로 잉크와 자주 세로 잉크가 겹친 한 칸은 0.01이에요. 롤러는 자동으로 맞춰 주지 않아요.'],['소수점을 직접 찍어요','자연수 곱을 확인한 뒤, 소수점 활자를 끌어 두 수의 소수 자릿수 합만큼 왼쪽으로 옮겨요.']];let onboardStep=0;
+    function showOnboarding(){onboardStep=0;$('#onboarding').classList.remove('hidden');paintOnboard()}
+    function paintOnboard(){const q=onboard[onboardStep];$('#stepNo').textContent=`${onboardStep+1} / 3`;$('#stepTitle').textContent=q[0];$('#stepText').textContent=q[1];$('#nextStep').textContent=onboardStep===2?'인쇄 시작':'다음'}
+    function advanceOnboard(){audioStart();onboardStep++;if(onboardStep>=3){$('#onboarding').classList.add('hidden');try{localStorage.setItem('onboardingSeen:ink-product','1')}catch(_){}return}paintOnboard()}
+    $('#startBtn').addEventListener('click',()=>{audioStart();$('#startBtn').animate([{transform:'scale(1)'},{transform:'scale(.9)'},{transform:'scale(1)'}],{duration:220});setTimeout(()=>begin(false),150)});
+    $('#helpBtn').addEventListener('click',()=>{if(game.classList.contains('hidden'))begin(true);showOnboarding()});$('#nextStep').addEventListener('click',advanceOnboard);$('#restartBtn').addEventListener('click',()=>begin(true));
+    $('#muteBtn').addEventListener('click',()=>{S.muted=!S.muted;$('#muteBtn').textContent=S.muted?'×':'♪';$('#muteBtn').setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기')});
+    canvas.addEventListener('pointerdown',e=>{if(S.phase==='hRoll'||S.phase==='vRoll'){stopRoller();e.preventDefault()}});$('#decimalToken').addEventListener('pointerdown',dragStart);window.addEventListener('pointermove',dragMove,{passive:false});window.addEventListener('pointerup',dragEnd,{passive:false});$$('.slot').forEach(s=>s.addEventListener('pointerup',()=>{if(S.phase==='decimal')judgeDecimal(Number(s.dataset.shift))}));
+    window.addEventListener('keydown',e=>{if((e.code==='Space'||e.code==='Enter')&&(S.phase==='hRoll'||S.phase==='vRoll')){e.preventDefault();stopRoller()}if(e.key.toLowerCase()==='r'&&S.started)setProblem(S.problem)});window.addEventListener('resize',()=>{document.documentElement.classList.toggle('land',innerWidth>=1024&&innerWidth>innerHeight);resize()});
+    document.documentElement.classList.toggle('land',innerWidth>=1024&&innerWidth>innerHeight);$('#bestTitle').textContent=readBest();resize();draw();
+    window.__GAME_TEST__={ready:true,start(){if(game.classList.contains('hidden'))begin(true);else{$('#onboarding').classList.add('hidden');$('#result').classList.add('hidden');S.started=true;if(S.phase==='title'||S.phase==='gameover')setProblem(nextProblem())}},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(game.classList.contains('hidden'))begin(true);if(S.phase==='gameover'){S.lives=3;setProblem(nextProblem())}if(S.phase==='feedback')setProblem(nextProblem());success()},answerWrong(){if(game.classList.contains('hidden'))begin(true);if(S.phase==='gameover'){S.lives=3;setProblem(nextProblem())}if(S.phase==='feedback')setProblem(nextProblem());fail('시험 인쇄','다시 살펴봐요.')},sampleProblems};
+  })();
+  </script>
+</body>
+</html>

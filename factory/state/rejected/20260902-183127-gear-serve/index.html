@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>톱니 배식</title>
+  <meta name="description" content="점토 톱니를 돌려 몫을 잠그는 나눗셈 게임">
+  <meta property="og:title" content="톱니 배식">
+  <meta property="og:description" content="톱니를 돌려 몫을 잠가라">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--paper:#7897b5;--clay:#6f5c9a;--cream:#f1e5d0;--red:#d85a5a;--ink:#26334a;--blue:#4f7597;--soft:rgba(38,51,74,.23)}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;font-family:"Arial Rounded MT Bold","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+    button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}button:focus-visible{outline:4px solid var(--cream);outline-offset:3px}
+    #game{position:fixed;inset:0;overflow:hidden;background:radial-gradient(circle at 28% 12%,rgba(241,229,208,.16),transparent 30%),linear-gradient(118deg,#88a5bf,#7897b5 52%,#6f8dab)}
+    #game:after{content:"";position:absolute;left:8%;right:8%;bottom:2%;height:8%;background:rgba(38,51,74,.16);filter:blur(22px);border-radius:50%;pointer-events:none}
+    .screen{position:absolute;inset:0;transition:opacity .24s ease,transform .24s ease}.hidden{opacity:0!important;visibility:hidden;pointer-events:none!important}
+    #titleScreen{z-index:30;background:#7897b5;overflow:hidden}
+    #titleArt{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;object-position:center 58%;animation:titleBreath 20s ease-in-out infinite alternate;filter:saturate(.95) contrast(1.02)}
+    #titleFallback{position:absolute;inset:0;background:radial-gradient(circle at 50% 62%,#91abc2,#7897b5 50%,#5d7894)}
+    .titleMist{position:absolute;width:14px;height:14px;background:var(--cream);border-radius:47% 53% 58% 42%;opacity:.64;animation:float 6s ease-in-out infinite;box-shadow:86px 92px 0 -3px rgba(241,229,208,.58),-110px 166px 0 -4px rgba(111,92,154,.65)}
+    .m1{left:18%;top:42%}.m2{right:20%;top:25%;animation-delay:-2.3s}.m3{left:64%;top:54%;animation-delay:-4.1s}
+    .titleLogo{position:absolute;z-index:2;top:max(50px,6dvh);left:50%;transform:translateX(-50%) rotate(-2deg);width:min(92vw,610px);text-align:center;animation:stampIn .7s cubic-bezier(.18,1.4,.34,1) both}
+    .titleLogo h1{margin:0;font-size:clamp(55px,15vw,92px);line-height:.86;letter-spacing:-.11em;font-weight:1000;color:#f1e5d0;-webkit-text-stroke:clamp(2px,.7vw,5px) #26334a;text-shadow:3px 4px 0 #6f5c9a,6px 8px 0 #394b65,0 15px 20px rgba(38,51,74,.25);transform:scaleX(1.06)}
+    .titleLogo p{display:inline-block;margin:15px 0 0;padding:8px 17px 10px;background:#6f5c9a;color:#fff7e9;font-weight:900;font-size:clamp(16px,4vw,22px);border-radius:47% 53% 44% 56%/55% 42% 58% 45%;box-shadow:0 12px 18px rgba(38,51,74,.24);transform:rotate(1deg)}
+    .titleBottom{position:absolute;z-index:3;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(100% - 32px),520px);display:grid;place-items:center;gap:8px}
+    .recordLine{font-weight:900;color:#fff;padding:7px 15px;background:rgba(38,51,74,.66);border-radius:54% 46% 52% 48%/45% 55% 45% 55%;text-shadow:0 2px 0 #26334a}
+    #startBtn{width:min(100%,420px);min-height:68px;border:0;background:#f1e5d0;color:#26334a;font-size:23px;font-weight:1000;border-radius:46% 54% 47% 53%/58% 44% 56% 42%;box-shadow:0 13px 22px rgba(38,51,74,.32);animation:pulseClay 1.7s ease-in-out infinite}
+    #startBtn:active{transform:scale(.91,.96);box-shadow:0 5px 11px rgba(38,51,74,.3)}
+    #helpBtn{min-width:150px;min-height:44px;border:0;background:transparent;color:white;font-weight:900;text-shadow:0 2px 2px #26334a;text-decoration:underline;text-underline-offset:4px}
+    #mute{position:fixed;z-index:80;right:max(12px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));width:48px;height:48px;border:0;background:#26334a;color:#fff;border-radius:48% 52% 44% 56%;box-shadow:0 8px 14px rgba(38,51,74,.25);font-size:22px}
+    #playScreen{z-index:5;display:grid;grid-template-rows:70px 1fr 148px;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)}
+    #hud{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;max-width:var(--stageW);margin:auto}
+    .clayLabel{background:#f1e5d0;padding:9px 13px;border-radius:42% 58% 45% 55%/55% 44% 56% 45%;box-shadow:0 9px 16px rgba(38,51,74,.21);font-weight:1000}.formula{font-size:clamp(22px,6.4vw,34px);letter-spacing:.03em}.stats{display:flex;gap:7px;align-items:center}.stat{min-width:70px;text-align:center;background:#6f5c9a;color:white;padding:8px 9px;border-radius:53% 47% 56% 44%/43% 59% 41% 57%;box-shadow:0 8px 14px rgba(38,51,74,.2);font-weight:900}.stat.bump{animation:inkBump .34s ease}.hearts{letter-spacing:2px;color:#fff;font-size:18px;text-shadow:0 2px 0 #8b3030}.hearts small{display:block;font-size:10px;letter-spacing:0;margin-top:2px}
+    #stage{position:relative;min-height:0;width:100%;max-width:var(--stageW);margin:auto;overflow:visible}
+    #leftPanel,#checkPanel{position:absolute;z-index:5;background:#f1e5d0;color:#26334a;box-shadow:0 13px 25px rgba(38,51,74,.24);padding:14px;border-radius:47% 53% 44% 56%/5% 6% 4% 5%}
+    #leftPanel{left:1%;top:7%;width:25%}#checkPanel{right:1%;top:8%;width:25%}.panelTitle{font-weight:1000;color:#6f5c9a;font-size:14px}.bigPrompt{font-size:clamp(22px,3vw,38px);font-weight:1000;margin:5px 0}.small{font-size:13px;line-height:1.35;font-weight:800}.checkEq{font-size:clamp(17px,2.1vw,25px);font-weight:1000;margin:8px 0;word-break:keep-all}.stampSlot{height:48px;display:grid;place-items:center;border:3px dashed #7897b5;color:#54718e;font-weight:1000;border-radius:50% 45% 52% 48%}.stampSlot.stamped{animation:stamp .55s ease;background:#7897b5;color:#fff;border-color:#7897b5}
+    #machine{position:absolute;left:50%;top:49%;transform:translate(-50%,-50%);width:min(48vw,410px);height:min(73vh,620px);filter:drop-shadow(0 18px 14px rgba(38,51,74,.25))}
+    #heroGhost{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.10;pointer-events:none}
+    .spine{position:absolute;left:20%;right:20%;top:2%;bottom:2%;background:#567692;border-radius:45% 55% 48% 52%/4% 5% 4% 6%;box-shadow:0 14px 16px rgba(38,51,74,.2)}
+    .gearRow{position:absolute;left:0;right:0;height:31%;display:flex;align-items:center;justify-content:center}.gearRow[data-i="0"]{top:1%}.gearRow[data-i="1"]{top:34%}.gearRow[data-i="2"]{top:67%}
+    .placeName{position:absolute;left:2%;top:45%;transform:translateY(-50%);background:#26334a;color:#fff;padding:6px 8px;font-weight:1000;font-size:14px;border-radius:52% 48% 45% 55%}.placeValue{position:absolute;right:0;top:8%;background:#f1e5d0;min-width:72px;text-align:center;padding:8px;font-weight:1000;font-size:clamp(17px,2vw,22px);border-radius:43% 57% 49% 51%;box-shadow:0 7px 12px rgba(38,51,74,.2)}
+    .gear{position:relative;width:min(29vw,150px);aspect-ratio:1;border:0;border-radius:50%;background:#6f5c9a;color:#f1e5d0;font-weight:1000;font-size:clamp(38px,10vw,62px);display:grid;place-items:center;box-shadow:0 15px 18px rgba(38,51,74,.3);transform:rotate(var(--rot,0deg)) scale(var(--sx,1),var(--sy,1));transition:transform .12s cubic-bezier(.2,1.5,.4,1),background .18s;touch-action:none}
+    .gear:before{content:"";position:absolute;inset:-13%;background:repeating-conic-gradient(from 0deg,#6f5c9a 0deg 12deg,transparent 12deg 24deg);border-radius:42%;z-index:-1;filter:drop-shadow(0 5px 3px rgba(38,51,74,.2))}.gear:after{content:"";position:absolute;inset:31%;border-radius:50%;background:#7897b5;box-shadow:inset 0 0 0 12px #f1e5d0}.gear span{position:relative;z-index:2;text-shadow:0 3px 0 #26334a}.gear.active{animation:activeClay 1.15s ease-in-out infinite}.gear.grab{--sx:1.08;--sy:.93}.gear.locked{background:#557994;--sx:1.06;--sy:.94}.gear.locked:before{background:repeating-conic-gradient(from 0deg,#557994 0deg 12deg,transparent 12deg 24deg)}.gear.crack{animation:crack .45s ease;background:#a34851}.gear.disabled{opacity:.42;filter:grayscale(.35)}#machine.shakeSmall{animation:machineShake .28s ease}#machine.shakeBig{animation:machineShakeBig .42s ease}.clayTrail{position:fixed;z-index:11;width:13px;height:10px;border-radius:47% 53%;background:#f1e5d0;pointer-events:none;animation:trailFade .38s ease-out forwards}
+    .carry{position:absolute;z-index:12;left:70%;bottom:-8px;min-width:76px;min-height:64px;border:0;background:#f1e5d0;color:#26334a;border-radius:47% 53% 55% 45%;box-shadow:0 10px 14px rgba(38,51,74,.25);font-weight:1000;padding:7px;touch-action:none;display:grid;place-items:center}.carry:before{content:"";position:absolute;width:15px;height:15px;background:#d85a5a;border-radius:50%;top:-8px;left:15px;box-shadow:19px 3px 0 #26334a,38px -1px 0 #7897b5}.carry.dragging{transform:scale(1.13,.9)}.carryLabel{font-size:12px}.carryCount{font-size:21px}.funnel{position:absolute;z-index:4;left:65%;top:3%;width:88px;height:55px;background:#4f7597;clip-path:polygon(0 0,100% 0,69% 100%,31% 100%);display:grid;place-items:start center;padding-top:7px;color:#fff;font-weight:1000;font-size:12px}.funnel.ready{animation:funnelPulse 1s ease-in-out infinite}.funnel.hit{background:#6f5c9a}.flowPath{position:absolute;z-index:10;left:74%;width:5px;height:14%;background:repeating-linear-gradient(to bottom,#f1e5d0 0 10px,transparent 10px 18px);filter:drop-shadow(0 2px 1px rgba(38,51,74,.3));animation:flowDown .55s linear infinite;pointer-events:none}.flowPath:after{content:"";position:absolute;left:-8px;bottom:-10px;border-left:10px solid transparent;border-right:10px solid transparent;border-top:15px solid #f1e5d0}
+    #remainderCup{position:absolute;right:-1%;bottom:0;width:94px;height:78px;background:#f1e5d0;border-radius:10% 10% 46% 54%;box-shadow:0 10px 15px rgba(38,51,74,.25);display:grid;place-items:center;font-weight:1000;text-align:center;font-size:13px}#remainderCup.ready{animation:funnelPulse 1s ease-in-out infinite}
+    #goalBanner{position:absolute;z-index:18;left:50%;top:0;transform:translateX(-50%);background:#26334a;color:#fff;padding:9px 18px;min-width:min(90%,430px);text-align:center;font-weight:1000;border-radius:45% 55% 48% 52%;box-shadow:0 10px 15px rgba(38,51,74,.24)}
+    #mathReveal{position:absolute;z-index:21;left:50%;top:42%;transform:translate(-50%,-50%) scale(.8);background:#f1e5d0;color:#26334a;padding:15px 22px;font-size:clamp(23px,6vw,40px);font-weight:1000;border-radius:48% 52% 46% 54%;box-shadow:0 15px 25px rgba(38,51,74,.28);opacity:0;pointer-events:none}#mathReveal.show{animation:reveal 1.05s ease both}
+    #coach{position:absolute;z-index:19;left:50%;bottom:4px;transform:translateX(-50%);background:#26334a;color:#fff;padding:10px 16px;max-width:92%;font-weight:900;text-align:center;border-radius:47% 53% 44% 56%;opacity:0;transition:opacity .16s}#coach.show{opacity:1}.ripple{position:fixed;z-index:50;width:18px;height:18px;border:4px solid #f1e5d0;border-radius:50%;pointer-events:none;animation:ripple .45s ease-out forwards}
+    #controls{position:relative;z-index:12;display:grid;place-items:center;width:100%;max-width:var(--stageW);margin:auto;padding:7px}
+    #lever{width:min(92%,420px);height:74px;border:0;background:#26334a;color:#fff;border-radius:53% 47% 50% 50%/18% 22% 28% 24%;box-shadow:0 13px 18px rgba(38,51,74,.28);font-size:21px;font-weight:1000;touch-action:none;position:relative;overflow:hidden}#lever:after{content:"↓";position:absolute;right:25px;top:13px;font-size:35px;color:#d85a5a}#lever.ready{animation:leverGlow 1.1s ease-in-out infinite}#lever.pulling{transform:scale(.97,.88) translateY(8px)}#lever:disabled{opacity:.4}
+    #onboard{position:fixed;z-index:60;inset:0;pointer-events:none}.spot{position:absolute;border:6px solid #f1e5d0;border-radius:50%;box-shadow:0 0 0 9999px rgba(38,51,74,.58),0 0 24px #f1e5d0;animation:spotPulse 1.1s ease-in-out infinite;transition:left .2s,top .2s,width .2s,height .2s}.finger{position:absolute;font-size:38px;filter:drop-shadow(0 5px 4px rgba(38,51,74,.35));animation:fingerDrag 1.2s ease-in-out infinite}.onbText{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:min(92%,470px);background:#f1e5d0;padding:13px 18px;text-align:center;font-weight:1000;border-radius:44% 56% 47% 53%;box-shadow:0 15px 22px rgba(38,51,74,.3)}
+    #result{z-index:70;display:grid;place-items:center;background:rgba(38,51,74,.86)}.resultClay{width:min(90%,500px);background:#f1e5d0;padding:26px;text-align:center;border-radius:45% 55% 47% 53%/8% 6% 9% 7%;box-shadow:0 20px 35px rgba(0,0,0,.3)}.resultClay h2{font-size:clamp(37px,10vw,60px);margin:0;color:#6f5c9a}.resultScore{font-size:52px;font-weight:1000;margin:10px}.resultClay button{min-height:64px;width:90%;border:0;background:#6f5c9a;color:#fff;font-size:21px;font-weight:1000;border-radius:47% 53% 49% 51%;box-shadow:0 10px 15px rgba(38,51,74,.25)}
+    #flash{position:fixed;z-index:45;inset:0;background:#f1e5d0;opacity:0;pointer-events:none}#flash.on{animation:flash .32s ease}
+    html.land #playScreen{grid-template-rows:74px 1fr 112px;padding-left:var(--stageX);padding-right:var(--stageX)}
+    html.land #stage{width:var(--stageW)}html.land #leftPanel{left:1%;top:12%;width:min(29%,330px)}html.land #checkPanel{right:1%;top:12%;width:min(29%,330px)}html.land #machine{width:min(38vw,430px);height:min(72vh,610px)}html.land #goalBanner{top:4px}
+    @media(max-width:639px){#playScreen{grid-template-rows:66px 1fr 118px;padding-left:6px;padding-right:6px}.formula{font-size:22px}.stats{gap:4px}.stat{min-width:57px;padding:7px 5px;font-size:13px}.hearts{font-size:15px}#leftPanel{left:1%;top:7%;width:35%;padding:9px}.bigPrompt{font-size:21px}#checkPanel{right:1%;top:7%;width:34%;padding:9px}.checkEq{font-size:14px}.small{font-size:11px}#machine{width:74vw;height:66vh;top:54%}.gear{width:min(29vw,122px)}.placeName{left:-2%;font-size:11px}.placeValue{right:-1%;min-width:62px;font-size:16px}.carry{left:68%;min-width:67px}.funnel{left:62%;width:74px}#remainderCup{right:-4%;width:77px}.panelTitle{font-size:11px}.stampSlot{height:38px;font-size:12px}#goalBanner{top:-2px;padding:7px;font-size:13px;min-width:74%}#coach{font-size:12px;bottom:-2px}}
+    @media(max-height:690px){.titleLogo{top:32px}.titleLogo h1{font-size:52px}.titleLogo p{margin-top:8px}.titleBottom{gap:3px}#startBtn{min-height:64px}#playScreen{grid-template-rows:60px 1fr 95px}#machine{height:72vh}.gear{width:min(24vh,125px)}#leftPanel,#checkPanel{top:5%;padding:8px}}
+    @media(prefers-reduced-motion:reduce){#titleArt{animation-duration:40s}.titleMist,.gear.active,.funnel.ready,#remainderCup.ready,.spot,#lever.ready{animation-duration:2.2s}.finger{animation-duration:2s}}
+    @keyframes titleBreath{to{transform:scale(1.045) translateY(-1%)}}@keyframes float{50%{transform:translateY(-14px) rotate(8deg)}}@keyframes stampIn{0%{opacity:0;transform:translateX(-50%) scale(1.35,.55) rotate(-8deg)}65%{opacity:1;transform:translateX(-50%) scale(.94,1.07) rotate(1deg)}}@keyframes pulseClay{50%{transform:scale(1.035,.96)}}@keyframes inkBump{50%{transform:scale(1.2,.86)}}@keyframes activeClay{50%{filter:brightness(1.13);transform:rotate(var(--rot)) scale(1.05,.96)}}@keyframes crack{25%{transform:translateX(-8px) scale(1.08,.83)}55%{transform:translateX(7px) scale(.93,1.05)}}@keyframes machineShake{20%{transform:translate(-53%,-50%) rotate(-1deg)}55%{transform:translate(-47%,-50%) rotate(1deg)}}@keyframes machineShakeBig{18%{transform:translate(-55%,-50%) rotate(-2deg)}36%{transform:translate(-45%,-50%) rotate(2deg)}60%{transform:translate(-53%,-50%)}}@keyframes trailFade{to{opacity:0;transform:translateY(18px) scale(.25)}}@keyframes flowDown{to{background-position:0 18px}}@keyframes funnelPulse{50%{transform:scale(1.09,.92)}}@keyframes reveal{0%{opacity:0;transform:translate(-50%,-50%) scale(1.25,.55)}22%,72%{opacity:1;transform:translate(-50%,-50%) scale(1,1)}100%{opacity:0;transform:translate(-50%,-65%) scale(.95)}}@keyframes ripple{to{width:70px;height:70px;opacity:0;transform:translate(-26px,-26px)}}@keyframes leverGlow{50%{background:#39536e;transform:translateY(2px)}}@keyframes spotPulse{50%{border-width:10px;filter:brightness(1.1)}}@keyframes fingerDrag{0%,100%{transform:translate(-30px,0) rotate(-12deg)}65%{transform:translate(54px,0) rotate(8deg)}}@keyframes stamp{0%{transform:scale(1.7,.5) rotate(-8deg);opacity:.3}55%{transform:scale(.9,1.08) rotate(2deg)}}@keyframes flash{40%{opacity:.28}100%{opacity:0}}
+  </style>
+</head>
+<body>
+<main id="game">
+  <section id="titleScreen" class="screen" aria-label="타이틀 화면">
+    <div id="titleFallback"></div><img id="titleArt" src="./assets/title.png" alt="점토 톱니와 구슬 배식기" onerror="this.style.display='none'">
+    <i class="titleMist m1"></i><i class="titleMist m2"></i><i class="titleMist m3"></i>
+    <div class="titleLogo"><h1>톱니 배식</h1><p>톱니를 돌려 몫을 잠가라</p></div>
+    <div class="titleBottom"><div class="recordLine">3학년 2학기 · 나눗셈　최고 <b id="bestTitle">0</b>점</div><button id="startBtn">배식기 돌리기</button><button id="helpBtn">어떻게 놀아요?</button></div>
+  </section>
+  <button id="mute" aria-label="소리 끄기">🔊</button>
+  <section id="playScreen" class="screen hidden" aria-label="게임 화면">
+    <header id="hud"><div class="clayLabel formula" id="formula">84 ÷ 4</div><div class="stats"><div class="stat">점수 <b id="score">0</b></div><div class="stat">연속 <b id="combo">0</b></div><div class="stat hearts"><span id="hearts">● ● ●</span><small id="time">90초</small></div></div></header>
+    <div id="stage">
+      <aside id="leftPanel"><div class="panelTitle">지금 할 일</div><div class="bigPrompt" id="prompt">84 ÷ 4</div><div class="small" id="stepText">십의 자리에서 몇 묶음인지 톱니로 나타내어 보세요.</div></aside>
+      <aside id="checkPanel"><div class="panelTitle">검산 기록</div><div class="checkEq" id="checkEq">4 × □ + □ = 84</div><div class="small">나누는 수 × 몫 + 나머지</div><div class="stampSlot" id="stampSlot">기어 도장 자리</div></aside>
+      <div id="goalBanner">톱니를 돌려 몫을 잠그세요</div>
+      <div id="machine"><img id="heroGhost" src="./assets/hero.png" alt="" onerror="this.style.display='none'"><div class="spine"></div><div id="flowPath" class="flowPath hidden"></div>
+        <div class="gearRow" data-i="0"><div class="placeName">백의 자리</div><div class="placeValue">구슬 <b>0</b>개</div><button class="gear disabled" data-i="0" aria-label="백의 자리 톱니"><span>0</span></button><div class="funnel">다음 자리</div><button class="carry hidden" data-i="0"><span class="carryLabel">내릴 구슬</span><span class="carryCount">0</span></button></div>
+        <div class="gearRow" data-i="1"><div class="placeName">십의 자리</div><div class="placeValue">구슬 <b>8</b>개</div><button class="gear" data-i="1" aria-label="십의 자리 톱니"><span>0</span></button><div class="funnel">다음 자리</div><button class="carry hidden" data-i="1"><span class="carryLabel">내릴 구슬</span><span class="carryCount">4</span></button></div>
+        <div class="gearRow" data-i="2"><div class="placeName">일의 자리</div><div class="placeValue">구슬 <b>4</b>개</div><button class="gear disabled" data-i="2" aria-label="일의 자리 톱니"><span>0</span></button><div class="funnel">다음 자리</div><button class="carry hidden" data-i="2" data-role="remainder"><span class="carryLabel">남는 구슬</span><span class="carryCount">0</span></button><div id="remainderCup">나머지 통<br><b id="remValue">0</b>개</div></div>
+      </div>
+      <div id="mathReveal">8십 ÷ 4 = 2십</div><div id="coach"></div>
+    </div>
+    <div id="controls"><button id="lever" disabled>검산 레버를 아래로 당겨요</button></div>
+  </section>
+  <section id="onboard" class="hidden"><div class="spot"></div><div class="finger">☝️</div><div class="onbText">십의 자리 톱니를 오른쪽으로 끌어 2에 놓으세요.</div></section>
+  <section id="result" class="screen hidden"><div class="resultClay"><h2 id="resultTitle">배식 완료!</h2><div class="resultScore"><span id="finalScore">0</span>점</div><p id="resultDetail">기어 5개를 맞물렸어요.</p><button id="retryBtn">다시 배식하기</button></div></section>
+  <div id="flash"></div>
+</main>
+<script>
+(()=>{'use strict';
+  const $=id=>document.getElementById(id), $$=s=>[...document.querySelectorAll(s)];
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const PLACE_NAMES=['백의 자리','십의 자리','일의 자리'];
+  let sampleSeed=90731;
+  const rand=()=>{sampleSeed=(sampleSeed*1664525+1013904223)>>>0;return sampleSeed/4294967296};
+  const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+
+  // 교과서 표현 함정: 익힘책 지시형(~해 보세요)으로 통일한다. 자연수 나눗셈은
+  // '몫 q, 나머지 r'로 쓰며, 나머지는 반드시 0 <= r < divisor를 만족한다.
+  // 후보를 무작위로 만든 뒤 거르지 않는다. d, 몫의 각 자리, r을 전수 열거해
+  // N=d*q+r로 역생성하고 long division 단계 데이터를 미리 계산해 밴드 풀에 넣는다.
+  function stepsFor(N,d){
+    const digits=String(N).split('').map(Number),steps=[];let rem=0;
+    for(let i=0;i<digits.length;i++){const value=rem*10+digits[i],qd=Math.floor(value/d);rem=value-qd*d;steps.push({digit:digits[i],value,qd,rem,bring:i<digits.length-1?digits[i+1]:null});}
+    return steps;
+  }
+  function makeProblem(N,d,level,kind='procedure'){
+    const q=Math.floor(N/d),r=N-d*q,steps=stepsFor(N,d),qDigits=String(q).padStart(String(N).length,'0').split('').map(Number);
+    const answer=`몫 ${q}, 나머지 ${r}`;
+    // 오개념 역산 ① 몫 자리 건너뜀: 마지막 몫 자리를 삭제한다(모든 값에서 정답과 다름).
+    const skipPlace=Math.floor(q/10);
+    // 오개념 역산 ② 나머지가 제수보다 커도 된다고 생각: r+d (항상 정규 나머지가 아님).
+    const remainderTooLarge=`몫 ${q}, 나머지 ${r+d}`;
+    // 오개념 역산 ③ 검산에서 나머지를 더하지 않음: r>0일 때만 사용한다.
+    const omitRemainder=`검산 ${d}×${q}=${d*q}`;
+    let distractors=[
+      {text:`몫 ${skipPlace}, 나머지 ${r}`,misconceptionId:'skip-zero-or-place'},
+      {text:remainderTooLarge,misconceptionId:'remainder-not-less-than-divisor'}
+    ];
+    if(r>0)distractors.push({text:omitRemainder,misconceptionId:'verification-omits-remainder'});
+    else distractors.push({text:`몫 ${q+1}, 나머지 0`,misconceptionId:'extra-group'});
+    // 후처리 순서: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.
+    distractors=distractors.filter(x=>x.text!==answer).filter(x=>x.text.length<40);
+    distractors=[...new Map(distractors.map(x=>[x.text,x])).values()];
+    for(let k=1;distractors.length<3;k++)distractors.push({text:`몫 ${q+k}, 나머지 ${r}`,misconceptionId:'quotient-one-step-too-far'});
+    const choiceRecords=shuffle([{text:answer,misconceptionId:null},...distractors.slice(0,3)]);
+    return {id:`L${level}-${N}-${d}-${kind}`,N,d,q,r,level,kind,steps,qDigits,prompt:`${N} ÷ ${d}의 몫과 나머지를 구해 보세요.`,choices:choiceRecords.map(x=>x.text),choiceRecords,answer,answerNumeric:q+r/d,unitConcept:level>=3?'(세 자리 수)÷(한 자리 수)':'(몇십몇)÷(한 자리 수)'};
+  }
+  const pools={1:[],2:[],3:[],4:[]};
+  for(let d=2;d<=9;d++)for(let qt=1;qt<=9;qt++)for(let qo=0;qo<=9;qo++)for(let r=0;r<d;r++){
+    const q=qt*10+qo,N=d*q+r;if(N<10||N>99)continue;const st=stepsFor(N,d);
+    if(r===0&&st[0].rem===0)pools[1].push(makeProblem(N,d,1));
+    if(r>0&&st[0].rem>0)pools[2].push(makeProblem(N,d,2));
+  }
+  for(let d=2;d<=9;d++)for(let qh=1;qh<=9;qh++)for(let qt=0;qt<=9;qt++)for(let qo=0;qo<=9;qo++)for(let r=0;r<d;r++){
+    const q=qh*100+qt*10+qo,N=d*q+r;if(N<100||N>999)continue;const p=makeProblem(N,d,qt===0?4:3,qt===0?'error-fix':'verification');
+    (qt===0?pools[4]:pools[3]).push(p);
+  }
+  const tutorial=makeProblem(84,4,1,'tutorial');
+  const S={score:0,lives:3,level:1,phase:'title',solved:0,combo:0,best:+localStorage.getItem('gearServeBest')||0,problem:tutorial,step:0,values:[0,0,0],locked:[false,false,false],mode:'gear',started:false,frozen:true,onboarding:true,time:90,lastSecond:90,drag:null,last:performance.now(),fx:[],screenShake:0,timeScale:1,mercy:true,problemIndex:{1:0,2:0,3:0,4:0}};
+  $('bestTitle').textContent=S.best;
+  let audio=null,muted=false,coachTimer=0,revealTimer=0,hitStopUntil=0;
+  function audioReady(){if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume().catch(()=>{})}
+  function tone(freq,dur=.08,type='sine',gain=.055,slide=0){if(muted||!audio)return;const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;o.type=type;o.frequency.setValueAtTime(freq,t);if(slide)o.frequency.linearRampToValueAtTime(freq+slide,t+dur);g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g).connect(audio.destination);o.start(t);o.stop(t+dur)}
+  function updateLayout(){const W=innerWidth,H=innerHeight,land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',land);const stageW=Math.min(W,1280),stageX=Math.round((W-stageW)/2);document.documentElement.style.setProperty('--stageW',stageW+'px');document.documentElement.style.setProperty('--stageX',stageX+'px');positionOnboard()}
+  addEventListener('resize',updateLayout);addEventListener('orientationchange',()=>setTimeout(updateLayout,120));updateLayout();
+  function activeStepIndex(){return String(S.problem.N).length===2?S.step+1:S.step}
+  function render(){
+    const p=S.problem,offset=String(p.N).length===2?1:0;
+    $('formula').textContent=`${p.N} ÷ ${p.d}`;$('prompt').textContent=`${p.N} ÷ ${p.d}`;
+    $('score').textContent=S.score;$('combo').textContent=S.combo;$('hearts').textContent=Array.from({length:3},(_,i)=>i<S.lives?'●':'○').join(' ');
+    $('checkEq').textContent=`${p.d} × ${S.locked.every((v,i)=>i<offset||v)?Number(S.values.join('')):'□'} + ${S.mode==='lever'?p.r:'□'} = ${p.N}`;
+    $$('.gearRow').forEach((row,i)=>{const local=i-offset,used=local>=0&&local<p.steps.length,active=i===activeStepIndex()&&S.mode==='gear';const gear=row.querySelector('.gear'),pv=row.querySelector('.placeValue b'),step=used?p.steps[local]:null;pv.textContent=step?step.value:0;gear.classList.toggle('disabled',!used||(!active&&!S.locked[i]));gear.classList.toggle('active',active);gear.classList.toggle('locked',S.locked[i]);gear.querySelector('span').textContent=S.values[i];gear.style.setProperty('--rot',`${S.values[i]*36}deg`);const carry=row.querySelector('.carry');if(carry){const isRem=carry.dataset.role==='remainder',show=used&&i===activeStepIndex()&&(isRem?S.mode==='remainder':S.mode==='carry');carry.classList.toggle('hidden',!show);if(show)carry.querySelector('.carryCount').textContent=isRem?p.r:step.bring;const funnel=row.querySelector('.funnel');if(funnel)funnel.classList.toggle('ready',show&&!isRem)}});
+    $('remValue').textContent=S.mode==='lever'?p.r:0;$('remainderCup').classList.toggle('ready',S.mode==='remainder');$('flowPath').classList.toggle('hidden',S.mode!=='carry');if(S.mode==='carry')$('flowPath').style.top=(activeStepIndex()*33+26)+'%';
+    $('lever').disabled=S.mode!=='lever';$('lever').classList.toggle('ready',S.mode==='lever');
+    const idx=activeStepIndex();
+    if(S.mode==='gear')$('stepText').textContent=`${PLACE_NAMES[idx]}에서 몇 묶음인지 톱니로 나타내어 보세요.`;
+    else if(S.mode==='carry')$('stepText').textContent='다음 숫자 구슬을 아래 자리로 내려 보세요.';
+    else if(S.mode==='remainder')$('stepText').textContent=`남는 ${p.r}개를 나머지 통에 넣어 보세요.`;
+    else $('stepText').textContent='검산 레버를 아래로 당겨 계산이 맞는지 확인해 보세요.';
+    positionOnboard();
+  }
+  function showCoach(msg,ms=1500){$('coach').textContent=msg;$('coach').classList.add('show');clearTimeout(coachTimer);coachTimer=setTimeout(()=>$('coach').classList.remove('show'),ms)}
+  function reveal(msg){$('mathReveal').textContent=msg;$('mathReveal').classList.remove('show');void $('mathReveal').offsetWidth;$('mathReveal').classList.add('show');clearTimeout(revealTimer);revealTimer=setTimeout(()=>$('mathReveal').classList.remove('show'),1100)}
+  function bump(id){const el=$(id);el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump')}
+  function flash(){const f=$('flash');f.classList.remove('on');void f.offsetWidth;f.classList.add('on')}
+  function ripple(x,y){const r=document.createElement('i');r.className='ripple';r.style.left=x+'px';r.style.top=y+'px';document.body.appendChild(r);setTimeout(()=>r.remove(),500)}
+  function positionOnboard(){if($('onboard').classList.contains('hidden'))return;const target=$(`.gear[data-i="${activeStepIndex()}"]`);if(!target)return;const r=target.getBoundingClientRect(),spot=$('.spot'),finger=$('.finger');spot.style.left=(r.left-12)+'px';spot.style.top=(r.top-12)+'px';spot.style.width=(r.width+24)+'px';spot.style.height=(r.height+24)+'px';finger.style.left=(r.left+r.width*.35)+'px';finger.style.top=(r.top+r.height*.66)+'px'}
+  function begin(skipOnboarding=false){$('titleScreen').classList.add('hidden');$('result').classList.add('hidden');$('playScreen').classList.remove('hidden');S.phase='playing';S.started=true;S.problem=tutorial;S.step=0;S.values=[0,0,0];S.locked=[false,false,false];S.mode='gear';S.frozen=!skipOnboarding;S.onboarding=!skipOnboarding;S.mercy=true;S.time=90;if(skipOnboarding){$('onboard').classList.add('hidden');$('goalBanner').textContent='톱니를 돌려 몫을 잠그세요'}else{$('onboard').classList.remove('hidden');$('goalBanner').textContent='십의 자리 톱니를 2에 맞출 때까지 기다릴게요'}render()}
+  function resetRun(skip=true){S.score=0;S.lives=3;S.level=1;S.solved=0;S.combo=0;S.problemIndex={1:0,2:0,3:0,4:0};begin(skip)}
+  function chooseProblem(){const level=S.solved<2?1:S.solved<4?2:S.solved<7?3:4,Sidx=S.problemIndex[level]++;S.level=level;return pools[level][Sidx%pools[level].length]}
+  function nextProblem(){S.problem=chooseProblem();S.step=0;S.values=[0,0,0];S.locked=[false,false,false];S.mode='gear';S.frozen=false;S.mercy=true;$('stampSlot').classList.remove('stamped');$('stampSlot').textContent='기어 도장 자리';$('goalBanner').textContent=S.level>=3?'세 자리 톱니를 차례로 잠그세요':'톱니를 돌려 몫을 잠그세요';render()}
+  function wrong(msg,gearEl,forcePenalty=false){if(S.phase!=='playing')return;S.combo=0;const spared=S.mercy&&!forcePenalty;if(spared)S.mercy=false;else S.lives=Math.max(0,S.lives-1);S.screenShake=1;if(gearEl){gearEl.classList.remove('crack');void gearEl.offsetWidth;gearEl.classList.add('crack')}const m=$('machine');m.classList.remove('shakeSmall','shakeBig');void m.offsetWidth;m.classList.add(S.lives<=1?'shakeBig':'shakeSmall');tone(190,.16,'square',.05,-70);showCoach(spared?`연습 기회예요. ${msg}`:msg,1800);bump('hearts');render();if(S.lives<=0)setTimeout(()=>finish(false),850)}
+  function lockGear(i,forcedCorrect=false){if(S.phase!=='playing'||S.mode!=='gear'||i!==activeStepIndex())return;const local=i-(String(S.problem.N).length===2?1:0),step=S.problem.steps[local],gear=$(`.gear[data-i="${i}"]`);if(forcedCorrect)S.values[i]=step.qd;if(S.values[i]!==step.qd){wrong(`${step.value}개를 ${S.problem.d}개씩 묶으면 ${step.qd}묶음이에요.`,gear);S.values[i]=0;render();return}S.locked[i]=true;gear.classList.add('locked');hitStopUntil=performance.now()+75;tone(430+S.combo*32,.09,'triangle',.06,90);flash();reveal(`${step.value} ÷ ${S.problem.d} = ${step.qd} … ${step.rem}`);if(S.onboarding){S.onboarding=false;S.frozen=false;$('onboard').classList.add('hidden');localStorage.setItem('onboardingSeen:gear-serve','1');$('goalBanner').textContent='좋아요! 이제 다음 숫자 구슬을 아래로 내려요'}if(local<S.problem.steps.length-1)S.mode='carry';else if(S.problem.r>0)S.mode='remainder';else S.mode='lever';render()}
+  function completeCarry(i){if(S.mode!=='carry'||i!==activeStepIndex())return;S.step++;S.mode='gear';tone(330,.08,'sine',.045,70);showCoach(`아래 자리에서 ${S.problem.steps[S.step].value}개가 되었어요.`);render()}
+  function completeRemainder(){if(S.mode!=='remainder')return;S.mode='lever';tone(360,.08,'sine',.05,50);showCoach(`${S.problem.r}개는 ${S.problem.d}개보다 적어서 나머지예요.`);render()}
+  function solveProblem(force=false){if(S.phase!=='playing')return;if(force){const offset=String(S.problem.N).length===2?1:0;S.problem.steps.forEach((st,j)=>{S.values[j+offset]=st.qd;S.locked[j+offset]=true});S.mode='lever'}if(S.mode!=='lever')return;const gained=100*Math.min(3,S.combo+1);S.score+=gained;S.combo=Math.min(3,S.combo+1);S.solved++;S.best=Math.max(S.best,S.score);localStorage.setItem('gearServeBest',String(S.best));$('stampSlot').textContent='맞물림!';$('stampSlot').classList.add('stamped');bump('score');bump('combo');flash();hitStopUntil=performance.now()+90;tone(520,.11,'triangle',.06,130);setTimeout(()=>tone(690,.13,'triangle',.05,100),85);reveal(`${S.problem.d} × ${S.problem.q} + ${S.problem.r} = ${S.problem.N}`);$('goalBanner').textContent=`완전 배식! +${gained}점`;render();if(S.solved>=9)setTimeout(()=>finish(true),1050);else setTimeout(nextProblem,1050)}
+  function finish(win){S.phase='gameover';S.frozen=true;$('resultTitle').textContent=win?'배식 완료!':'톱니가 멈췄어요';$('finalScore').textContent='0';$('resultDetail').textContent=`문제 ${S.solved}개 · 최고 ${S.best}점`;$('result').classList.remove('hidden');let shown=0;const tick=()=>{shown=Math.min(S.score,shown+Math.max(4,Math.ceil(S.score/18)));$('finalScore').textContent=shown;if(shown<S.score)requestAnimationFrame(tick)};requestAnimationFrame(tick)}
+  $$('.gear').forEach(g=>{g.addEventListener('pointerdown',e=>{audioReady();const i=+g.dataset.i;if(S.phase!=='playing'||S.mode!=='gear'||i!==activeStepIndex()){ripple(e.clientX,e.clientY);showCoach(S.mode==='carry'?'먼저 구슬을 아래로 내려요.':'지금 빛나는 톱니를 잡아 돌려 보세요.');return}g.setPointerCapture(e.pointerId);S.drag={kind:'gear',i,startX:e.clientX,lastNotch:S.values[i],moved:false};g.classList.add('grab');showCoach('45px마다 톱니가 한 칸 돌아가요.',700)});g.addEventListener('pointermove',e=>{if(!S.drag||S.drag.kind!=='gear'||S.drag.i!==+g.dataset.i)return;const dx=e.clientX-S.drag.startX,notches=Math.round(dx/45);if(Math.abs(dx)>8)S.drag.moved=true;S.values[S.drag.i]=((S.drag.lastNotch+notches)%10+10)%10;render()});g.addEventListener('pointerup',e=>{if(!S.drag||S.drag.i!==+g.dataset.i)return;g.classList.remove('grab');const moved=S.drag.moved,i=S.drag.i;S.drag=null;if(!moved){ripple(e.clientX,e.clientY);showCoach('톱니를 옆으로 끌고 손을 떼어 잠가요.');return}lockGear(i)})});
+  $$('.carry').forEach(c=>{c.addEventListener('pointerdown',e=>{audioReady();const isRem=c.dataset.role==='remainder',valid=(isRem?S.mode==='remainder':S.mode==='carry')&&+c.dataset.i===activeStepIndex();if(!valid){ripple(e.clientX,e.clientY);return}c.setPointerCapture(e.pointerId);S.drag={kind:'carry',i:+c.dataset.i,isRem,x:e.clientX,y:e.clientY};c.classList.add('dragging')});c.addEventListener('pointermove',e=>{if(!S.drag||S.drag.kind!=='carry')return;const row=c.closest('.gearRow'),rr=row.getBoundingClientRect();c.style.transform=`translate(${e.clientX-rr.left-rr.width*.7}px,${e.clientY-rr.bottom+25}px) scale(1.12,.9)`;const t=document.createElement('i');t.className='clayTrail';t.style.left=e.clientX+'px';t.style.top=e.clientY+'px';document.body.appendChild(t);setTimeout(()=>t.remove(),420)});c.addEventListener('pointerup',e=>{if(!S.drag||S.drag.kind!=='carry')return;const i=S.drag.i,isRem=S.drag.isRem,target=isRem?$('remainderCup'):$(`.gearRow[data-i="${i+1}"] .funnel`),r=target?target.getBoundingClientRect():null,hit=r&&e.clientX>=r.left-30&&e.clientX<=r.right+30&&e.clientY>=r.top-40&&e.clientY<=r.bottom+60;c.classList.remove('dragging');c.style.transform='';S.drag=null;if(hit){target.classList.add('hit');setTimeout(()=>target.classList.remove('hit'),300);isRem?completeRemainder():completeCarry(i)}else{wrong(isRem?'남는 구슬은 나머지 통에 넣어요.':'남은 구슬은 바로 아래 자리 깔때기로 내려가요.');showCoach(isRem?'나머지 통까지 끌어 넣어 주세요.':'점선이 가리키는 아래 깔때기로 끌어 주세요.',1900)}})});
+  $('remainderCup').addEventListener('pointerup',e=>{audioReady();ripple(e.clientX,e.clientY);showCoach(S.mode==='remainder'?'남는 구슬 덩어리를 잡아 통까지 끌어 주세요.':'마지막 자리 계산 뒤에 나머지를 넣어요.')});
+  $('lever').addEventListener('pointerdown',e=>{audioReady();if(S.mode!=='lever'){ripple(e.clientX,e.clientY);showCoach('톱니와 구슬부터 모두 맞춰 주세요.');return}S.drag={kind:'lever',y:e.clientY};$('lever').classList.add('pulling')});$('lever').addEventListener('pointerup',e=>{if(!S.drag||S.drag.kind!=='lever')return;const ok=e.clientY-S.drag.y>18;S.drag=null;$('lever').classList.remove('pulling');if(ok)solveProblem();else showCoach('레버를 아래로 쓸어 내려요.')});
+  $('stage').addEventListener('pointerup',e=>{if(e.target===$('stage')){ripple(e.clientX,e.clientY);showCoach(S.mode==='gear'?'빛나는 톱니를 잡아 돌려 보세요.':S.mode==='carry'?'구슬을 아래 깔때기로 끌어 주세요.':'검산 레버를 아래로 당겨요.')}});
+  $('startBtn').addEventListener('click',()=>{audioReady();const seen=localStorage.getItem('onboardingSeen:gear-serve');begin(!!seen)});$('helpBtn').addEventListener('click',()=>{audioReady();begin(false)});$('retryBtn').addEventListener('click',()=>{audioReady();resetRun(true)});$('mute').addEventListener('click',()=>{audioReady();muted=!muted;$('mute').textContent=muted?'🔇':'🔊';$('mute').setAttribute('aria-label',muted?'소리 켜기':'소리 끄기')});
+  addEventListener('keydown',e=>{if(S.phase!=='playing')return;const i=activeStepIndex();if(S.mode==='gear'&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){audioReady();S.values[i]=(S.values[i]+(e.key==='ArrowRight'?1:9))%10;render();e.preventDefault()}else if(S.mode==='gear'&&e.key==='Enter'){lockGear(i);e.preventDefault()}else if(S.mode==='carry'&&e.key==='ArrowDown'){completeCarry(i);e.preventDefault()}else if(S.mode==='remainder'&&e.key==='ArrowDown'){completeRemainder();e.preventDefault()}else if(S.mode==='lever'&&e.code==='Space'){solveProblem();e.preventDefault()}});
+  function loop(now){const dt=Math.min(.05,(now-S.last)/1000);S.last=now;S.timeScale=now<hitStopUntil?0:1;if(S.started&&S.phase==='playing'&&!S.frozen){S.time-=dt*S.timeScale;const sec=Math.max(0,Math.ceil(S.time));if(sec!==S.lastSecond){S.lastSecond=sec;$('time').textContent=sec+'초'}if(S.time<=0)finish(false)}requestAnimationFrame(loop)}requestAnimationFrame(loop);
+  function sampleProblems(n){const all=[tutorial,...pools[1],...pools[2],...pools[3],...pools[4]],out=[];sampleSeed=(n*2654435761)>>>0;const order=shuffle(all.slice());for(let i=0;i<n;i++){const p=order[i%order.length];out.push({id:p.id,prompt:p.prompt,choices:p.choices.slice(),answer:p.answer,answerNumeric:p.answerNumeric,unitConcept:p.unitConcept,choiceRecords:p.choiceRecords.map(x=>({...x}))})}return out}
+  // 실제 런과 같은 첫 실수 연습 1회·이후 3회 실패 종료·9문제 완주 규칙을 재생한다.
+  window.__BOT_TEST__=(strategy,runs=200)=>{let complete=0,totalScore=0;for(let run=0;run<runs;run++){let lives=3,solved=0,score=0,cycle=0,guard=0;while(lives>0&&solved<9&&guard++<180){const level=solved<2?1:solved<4?2:solved<7?3:4,p=pools[level][(run+solved)%pools[level].length];let mercy=true,problemOK=true;for(const step of p.steps){let digitOK=false;while(!digitOK&&lives>0){if(strategy==='none'){problemOK=false;lives=0;break}const guess=strategy==='repeat'?1:strategy==='cycle'?(cycle++)%10:Math.floor(rand()*10);if(guess===step.qd)digitOK=true;else if(mercy)mercy=false;else lives--}if(!digitOK){problemOK=false;break}}if(problemOK){solved++;score+=100}}if(solved>=9)complete++;totalScore+=score}return {strategy,runs,complete,completionRate:complete/runs,averageScore:totalScore/runs}};
+  window.__GAME_TEST__={ready:true,start(){resetRun(true)},getState(){return {score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase!=='playing')resetRun(true);solveProblem(true)},answerWrong(){if(S.phase!=='playing')resetRun(true);wrong('일부러 만든 오답이에요.',null,true)},sampleProblems};
+  render();
+})();
+</script>
+</body>
+</html>

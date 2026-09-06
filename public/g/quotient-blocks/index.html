@@ -1,0 +1,1241 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>몫 블록</title>
+    <meta property="og:title" content="몫 블록" />
+    <meta property="og:description" content="쟁반을 늘려 묶음을 채워라" />
+    <meta property="og:image" content="./square.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        --stageW: min(100vw, 1280px);
+        --stageX: calc((100vw - var(--stageW)) / 2);
+        --blue: #2d5bff;
+        --cream: #f6f1d1;
+        --red: #e94b3c;
+        --mint: #78d6b3;
+        --ink: #17214d;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--blue);
+        color: var(--cream);
+        font-family:
+          "Arial Black", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+        font-weight: 800;
+        user-select: none;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        min-width: 44px;
+        min-height: 44px;
+        border: 0;
+      }
+      button:focus-visible,
+      canvas:focus-visible {
+        outline: 3px solid var(--mint);
+        outline-offset: -3px;
+      }
+      button:active {
+        filter: brightness(0.85);
+        transform: scaleX(0.97);
+      }
+      #game {
+        position: relative;
+        width: var(--stageW);
+        height: 100dvh;
+        margin: auto;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+      }
+      #title {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        background: var(--blue);
+      }
+      h1 {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      #start,
+      #again {
+        background: var(--red);
+        min-height: 68px;
+        padding: 12px 34px;
+        border-radius: 3px;
+        border: 2px solid var(--ink);
+        font-size: 26px;
+      }
+      #start {
+        position: absolute;
+        bottom: 13%;
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        animation: latch 3s ease-in-out infinite;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      #start:active,
+      #start.punch {
+        animation: none;
+        transform: translateX(-50%) scale(0.9);
+      }
+      #latchArt {
+        width: 58px;
+        height: 58px;
+        object-fit: contain;
+        margin: -8px 0 -8px -24px;
+      }
+      #title small {
+        position: absolute;
+        bottom: 7%;
+        text-align: center;
+        left: 0;
+        width: 100%;
+        font-size: 12px;
+      }
+      #best {
+        display: block;
+        margin-top: 8px;
+      }
+      #mute,
+      #help {
+        position: absolute;
+        z-index: 8;
+        top: max(8px, env(safe-area-inset-top));
+        background: var(--blue);
+        border: 1px solid var(--cream);
+        border-radius: 3px;
+        font-size: 20px;
+        width: 44px;
+        height: 44px;
+      }
+      #mute {
+        right: 10px;
+      }
+      #help {
+        right: 62px;
+      }
+      #result {
+        position: absolute;
+        inset: 6% 5%;
+        background: var(--blue);
+        border: 2px solid var(--cream);
+        padding: 28px 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        border-radius: 14px;
+      }
+      #result[hidden],
+      #title[hidden],
+      #manual[hidden] {
+        display: none;
+      }
+      #result h2 {
+        font-size: clamp(32px, 7vw, 74px);
+        margin: 16px 0;
+      }
+      #resultBoard {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 2px;
+        width: 140px;
+        height: 140px;
+        border: 2px solid var(--cream);
+        padding: 4px;
+      }
+      #resultBoard span {
+        background: #2248d2;
+      }
+      #resultBoard span.filled {
+        background: var(--cream);
+      }
+      #resultBoard span.waste {
+        background: var(--red);
+      }
+      #resultNumber {
+        font: 900 64px monospace;
+        letter-spacing: -0.06em;
+      }
+      #resultText {
+        line-height: 1.7;
+        max-width: 600px;
+      }
+      #again {
+        margin-top: 24px;
+      }
+      #manual {
+        position: absolute;
+        inset: 15% 7%;
+        z-index: 10;
+        background: var(--cream);
+        color: var(--ink);
+        padding: 28px;
+        border: 2px solid var(--ink);
+        line-height: 1.8;
+        overflow: auto;
+      }
+      #manual h2 {
+        margin: 0;
+      }
+      #close {
+        background: var(--red);
+        padding: 8px 24px;
+      }
+      html.land #start {
+        left: 28%;
+        bottom: 25%;
+      }
+      html.land #title small {
+        left: 5%;
+        width: 45%;
+        bottom: 15%;
+      }
+      @keyframes latch {
+        50% {
+          margin-bottom: 4px;
+          filter: brightness(1.06);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #start {
+          animation-duration: 9s;
+        }
+      }
+      /* The title is one physical mold, not a full-bleed key-art poster. */
+      #title { background: var(--blue); }
+      .titleMold { position:absolute;left:-30vw;bottom:-11vw;width:min(112vw,780px);aspect-ratio:1;border:16px solid var(--ink);border-radius:50%;background:repeating-radial-gradient(circle,#2d5bff 0 12%,#244fdc 12.5% 13.5%,#2d5bff 14% 19%);transition:transform .65s cubic-bezier(.2,.8,.2,1); }
+      .titleMold::before { content:"";position:absolute;inset:12%;border:3px dashed var(--cream);border-radius:50%;opacity:.8; }
+      .titleArc { position:absolute;inset:-4%;width:108%;height:108%;overflow:visible;fill:var(--cream);stroke:var(--ink);stroke-width:1.5px;paint-order:stroke;letter-spacing:.02em;font-size:42px; }
+      .titleHoles { position:absolute;inset:25%;display:grid;grid-template-columns:repeat(5,1fr);gap:7px;transform:rotate(12deg); }
+      .titleHoles i { border-radius:42%;background:#2145c5;border:2px solid #4d77ff; }
+      .titleHoles i:nth-last-child(-n+3) { background:var(--ink);border-color:var(--red); }
+      #boardFold { position:absolute;right:-12%;top:17%;width:55%;aspect-ratio:1;display:grid;grid-template-columns:repeat(10,1fr);gap:3px;padding:10px;border:7px solid var(--ink);transform:perspective(700px) rotateY(-18deg);transform-origin:left center;transition:transform .65s cubic-bezier(.2,.8,.2,1); }
+      #boardFold i { background:#2248d2;border:1px solid #4d77ff; }
+      .titleCopy { position:absolute;right:5%;top:7%;width:48%;text-align:right; }
+      .titleCopy strong { display:block;font-size:clamp(20px,3vw,34px);line-height:1.25; }
+      .titleCopy span { display:block;margin-top:10px;font-size:14px;letter-spacing:.08em; }
+      #title #start { left:50%;bottom:12%;transform:translateX(-50%) rotate(-5deg); }
+      #title #start:active,#title #start.punch { transform:translateX(-50%) rotate(-5deg) scale(.9); }
+      #title small { left:auto;right:5%;bottom:5%;width:48%;text-align:right; }
+      #title.opening .titleMold { transform:translate(38vw,-5vh) rotate(95deg) scale(.48); }
+      #title.opening #boardFold { transform:perspective(700px) rotateY(0) scale(1.35); }
+      #manual::after { content:"아무 곳이나 눌러 돌아가기";display:block;margin-top:12px;font-size:12px;color:#526; }
+      #manual.nudge #close { animation:pointButton .35s ease 2; }
+      @keyframes pointButton { 50% { transform:translateX(8px);outline:4px solid var(--blue); } }
+      @media (min-width:700px) {
+        .titleMold { left:-10%;bottom:-38%;width:min(75vw,780px); }
+        .titleCopy { top:17%;right:6%;width:43%; }
+        #title #start { left:auto;right:18%;bottom:20%; }
+        #title small { right:7%;bottom:12%; }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="game">
+      <canvas
+        id="field"
+        tabindex="0"
+        aria-label="쟁반 손잡이를 가로로 끌고 남은 묶음을 아래로 내려 보세요. 완성 조각을 판으로 끌어 놓으세요."
+      ></canvas>
+      <section id="title">
+        <h1>몫 블록</h1>
+        <div class="titleMold" aria-hidden="true">
+          <svg class="titleArc" viewBox="0 0 400 400"><defs><path id="arc" d="M48 238 A158 158 0 0 1 352 238" /></defs><text><textPath href="#arc" startOffset="50%" text-anchor="middle">몫 블록</textPath></text></svg>
+          <div id="titleHoles" class="titleHoles"></div>
+        </div>
+        <div id="boardFold" aria-hidden="true"></div>
+        <div class="titleCopy"><strong>쟁반을 늘려<br />똑같이 나누기</strong><span>원형 금형이 보드로 펴져요</span></div>
+        <button id="start">
+          <img
+            id="latchArt"
+            src="./assets/mold-rotor.png"
+            alt=""
+            onerror="this.hidden = true"
+          /><span>마지막 걸쇠 닫기</span></button
+        ><small>3학년 2학기 · 나눗셈<span id="best"></span></small>
+      </section>
+      <button id="help" aria-label="어떻게 놀아요?">?</button
+      ><button id="mute" aria-label="소리 끄기">♪</button>
+      <section id="manual" hidden>
+        <h2>구슬 → 쟁반 → 블록</h2>
+        <p>
+          ① 빨간 손잡이를 가로로 끌어 똑같이 채워 보세요. 손을 떼면 검사해요.
+        </p>
+        <p>② 남은 십 묶음을 아래로 내려 보세요. 일의 자리도 직접 맞춰요.</p>
+        <p>③ 만든 조각을 판으로 끌어요. 가로나 세로 한 줄을 채우면 서로 다른 방향으로 지워져요!</p>
+        <p>
+          90초 안에 6주문 완성! 틀리면 핀 1개와 폐기 조각. 핀 3개가 부러지면
+          끝나요. 두 줄을 함께 지우면 핀 1개를 고쳐요.
+        </p>
+        <p>
+          키보드: ← → 쟁반 조절, Enter 검사, ↓ 내림. 배치: 방향키 이동, Space
+          놓기.
+        </p>
+        <button id="close">직접 해보기</button>
+      </section>
+      <section id="result" hidden>
+        <div id="resultBoard" aria-label="마지막 판의 빈칸과 조각"></div>
+        <h2 id="resultTitle"></h2>
+        <div id="resultNumber">0</div>
+        <p id="resultText"></p>
+        <button id="again">다시 만들기</button>
+      </section>
+    </main>
+    <script type="module">
+      import { Game, POOL, shuffle, sample } from "./engine.mjs";
+      const $ = (id) => document.getElementById(id),
+        canvas = $("field"),
+        ctx = canvas.getContext("2d"),
+        C = {
+          blue: "#2D5BFF",
+          cream: "#F6F1D1",
+          red: "#E94B3C",
+          mint: "#78D6B3",
+          ink: "#17214D",
+        };
+      const g = new Game();
+      let title = true,
+        muted = false,
+        ac = null,
+        W = 390,
+        H = 844,
+        land = false,
+        L = {},
+        drag = null,
+        ripple = null,
+        elapsed = 0,
+        last = 0,
+        shownScore = 0,
+        lastEvent = -1,
+        feedback = 0,
+        feedbackGood = true,
+        folds = [],
+        helpOpen = false,
+        resultShown = false,
+        keyboard = [0, 0];
+      const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let notice = "",
+        noticeTime = 0;
+      let best = 0;
+      try {
+        best = Number(localStorage.getItem("quotient-blocks-best")) || 0;
+      } catch {}
+      $("best").textContent = best ? `최고 ${best}점` : "";
+      if ($("titleHoles")) $("titleHoles").innerHTML = "<i></i>".repeat(15);
+      if ($("boardFold")) $("boardFold").innerHTML = "<i></i>".repeat(100);
+      function sound(kind) {
+        if (muted || !ac) return;
+        const o = ac.createOscillator(),
+          v = ac.createGain();
+        o.connect(v);
+        v.connect(ac.destination);
+        o.type = "triangle";
+        const t = ac.currentTime;
+        const f = kind === "wrong" ? 170 : kind === "fold" ? 510 : 370;
+        o.frequency.setValueAtTime(f, t);
+        o.frequency.exponentialRampToValueAtTime(
+          kind === "wrong" ? 90 : f * 1.6,
+          t + 0.12,
+        );
+        v.gain.setValueAtTime(0.07, t);
+        v.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        o.start(t);
+        o.stop(t + 0.19);
+      }
+      function unlock() {
+        if (!ac) {
+          try {
+            ac = new (window.AudioContext || window.webkitAudioContext)();
+          } catch {}
+        }
+        if (ac?.state === "suspended") ac.resume().catch(() => {});
+      }
+      function layout() {
+        W = Math.min(innerWidth, 1280);
+        H = innerHeight;
+        land = (W >= H && W >= 640) || W >= 1024;
+        document.documentElement.classList.toggle("land", land);
+        document.documentElement.style?.setProperty("--stageW", W + "px");
+        document.documentElement.style?.setProperty(
+          "--stageX",
+          Math.round((innerWidth - W) / 2) + "px",
+        );
+        const dpr = Math.min(devicePixelRatio || 1, 2);
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (land) {
+          const size = Math.min(W * 0.53, H - 180);
+          // Theater left zone: the panel owns its own height so the handle band,
+          // tick row, equation row and hint row can each take a separate line.
+          const th = Math.max(250, Math.min(350, H * 0.44));
+          L = {
+            tx: 20,
+            ty: 100,
+            tw: W * 0.235 - 26,
+            th,
+            bx: W * 0.25 + (W * 0.56 - size) / 2,
+            by: 100,
+            bs: size,
+            rx: W * 0.825,
+            rw: W * 0.165,
+            py: 100 + th + 96,
+          };
+        } else {
+          // The last term keeps the tray, hint and pending piece above the board
+          // on short phones; at 844 the 0.36 term still wins, so nothing moves.
+          const size = Math.min(W - 44, H * 0.36, Math.max(150, H - 520));
+          L = {
+            tx: 22,
+            ty: 100,
+            tw: W - 44,
+            th: Math.min(196, H * 0.235),
+            bx: (W - size) / 2,
+            by: H - size - 52,
+            bs: size,
+            rx: 22,
+            rw: W - 44,
+            py: Math.max(340, H * 0.4),
+          };
+          if (L.by + size + 52 > H) L.by = H - size - 52;
+        }
+        L.cell = L.bs / 10;
+        // One row per element, top to bottom: 식 / 구슬 / (극장형만) 몫 기록 /
+        // 손잡이 띠 / 0~9 눈금. The grip used to straddle the scale and hide "0".
+        L.handleH = 38;
+        L.trackY = L.ty + L.th - 46;
+        L.tickY = L.trackY + 34;
+        L.regY = L.trackY - 62;
+        L.dotTop = L.ty + 52;
+        L.dotBottom = L.trackY - (land ? 116 : 24);
+        L.eqY = L.ty + L.th + 21;
+        L.hintY = land ? L.ty + L.th + 52 : Math.max(L.eqY + 26, L.py - 6);
+        L.trackX = L.tx + 24;
+        L.trackW = L.tw - 48;
+        L.pieceX = L.tx + 10;
+        L.pieceY = Math.max(L.py + 26, L.hintY + 44);
+        // Right column in theater mode scales with height instead of fixed pixels.
+        L.cardGap = Math.min(110, Math.max(66, (H - 250) / 6));
+        L.r0 = L.ty + 10;
+        L.r1 = L.ty + 45;
+        L.r2 = L.r1 + 2 * L.cardGap + 40;
+        L.r3 = L.r2 + 80;
+        L.r4 = L.r3 + 85;
+      }
+      addEventListener("resize", layout);
+      addEventListener("orientationchange", () => setTimeout(layout, 120));
+      layout();
+      function rect(x, y, w, h, color, r = 3, stroke = null) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        ctx.fill();
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+      function text(s, x, y, size = 18, color = C.cream, align = "left") {
+        ctx.font = `900 ${size}px "Arial Black","Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+        ctx.textAlign = align;
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = color;
+        ctx.fillText(s, x, y);
+      }
+      function wrap(s, x, y, maxWidth, size = 15, line = 21) {
+        let row = "",
+          lineNo = 0;
+        for (const ch of s) {
+          ctx.font = `800 ${size}px "Apple SD Gothic Neo",sans-serif`;
+          if (ctx.measureText(row + ch).width > maxWidth) {
+            text(row, x, y + lineNo * line, size);
+            row = ch;
+            lineNo++;
+          } else row += ch;
+        }
+        text(row, x, y + lineNo * line, size);
+        return lineNo;
+      }
+      function line(x, y, x2, y2, color = C.cream, width = 2) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+      function stampCell(x, y, s, col, alpha = 1) {
+        ctx.globalAlpha = alpha;
+        rect(x + 1, y + 3, s - 3, s - 3, C.ink);
+        rect(x + 1, y + 1, s - 3, s - 4, col);
+        ctx.globalAlpha = 1;
+      }
+      function cue(x, y, x2, y2) {
+        ctx.save();
+        ctx.strokeStyle = C.red;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([7, 6]);
+        ctx.lineDashOffset = -elapsed * 24;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        const a = Math.atan2(y2 - y, x2 - x);
+        line(
+          x2,
+          y2,
+          x2 - 12 * Math.cos(a - 0.5),
+          y2 - 12 * Math.sin(a - 0.5),
+          C.red,
+          3,
+        );
+        line(
+          x2,
+          y2,
+          x2 - 12 * Math.cos(a + 0.5),
+          y2 - 12 * Math.sin(a + 0.5),
+          C.red,
+          3,
+        );
+        ctx.beginPath();
+        ctx.arc(
+          x,
+          y,
+          25 + Math.sin(elapsed * 4) * (reduced ? 1 : 4),
+          0,
+          Math.PI * 2,
+        );
+        ctx.stroke();
+        ctx.restore();
+      }
+      function instruction() {
+        if (noticeTime > 0) return notice;
+        if (g.hold > 0) return g.last;
+        if (g.step === "carry")
+          return `${g.p.rT}십을 아래로 내려 일의 자리와 합쳐 보세요.`;
+        if (g.step === "place")
+          return g.waste
+            ? "폐기 조각도 빈칸에 놓아야 해요."
+          : "조각을 판으로 끌어 가로나 세로줄을 채워 보세요.";
+        return g.frozen
+          ? "빨간 손잡이를 끌어 3줄에 똑같이 채워 보세요."
+          : g.step === "tens"
+            ? "십의 자리부터, 한 줄에 몇 묶음인지 맞춰 보세요."
+            : "내린 구슬까지 똑같이 나누어 보세요.";
+      }
+      function render() {
+        ctx.clearRect(0, 0, W, H);
+        rect(0, 0, W, H, C.blue, 0);
+        // Embedded HDPE flecks, stationary rather than particle bursts.
+        for (let i = 0; i < 220; i++) {
+          ctx.fillStyle =
+            i % 3 === 0 ? "#78a2ff" : i % 3 === 1 ? "#4773ff" : "#244fed";
+          const x = (i * 137.31) % W,
+            y = (i * 83.73) % H;
+          ctx.fillRect(x, y, 2 + (i % 3), 1 + (i % 2));
+        }
+        line(8, 60, W - 8, 60, "#2443bb", 2);
+        line(8, H - 9, W - 8, H - 9, "#2443bb", 2);
+        if (title) return;
+        const { tx, ty, tw, th, bx, by, bs, cell, rx, rw } = L;
+        const p = g.p;
+        text("몫 블록", 20, 31, 24);
+        text(
+          `${g.solved + 1 > 6 ? 6 : g.solved + 1} / 6`,
+          land ? W * 0.43 : W * 0.51,
+          31,
+          20,
+        );
+        const heading =
+          p.kind === "real_world"
+            ? `뚜껑 ${p.N}개를 ${p.d}상자에`
+            : p.kind === "representation"
+              ? "구슬 모양을 보고 쟁반을 만드세요"
+              : p.kind === "check"
+                ? `${p.d} × 몫 + 나머지 = ${p.N}`
+                : `몫과 나머지를 구해 보세요`;
+        text(heading, tx, ty - 25, land ? 15 : 16);
+        rect(
+          tx,
+          ty,
+          tw,
+          th,
+          C.blue,
+          14,
+          feedback > 0 && feedbackGood ? C.cream : C.ink,
+        );
+        text(`${p.N} ÷ ${p.d}`, tx + 12, ty + 27, 30);
+        text(
+          g.step === "tens"
+            ? "십의 자리"
+            : g.step === "ones"
+              ? "일의 자리"
+              : g.step === "carry"
+                ? "직접 내리기"
+                : "완성된 몫",
+          tx + tw - 10,
+          ty + 25,
+          14,
+          C.cream,
+          "right",
+        );
+        const n = ["tens", "carry"].includes(g.step) ? p.a : p.p,
+          rows = p.d;
+        // Beads settle on the tray floor: the block is bottom-anchored just above
+        // the handle, so a small divisor leaves headroom instead of a dead gap.
+        const span = L.dotBottom - L.dotTop,
+          dy = Math.min(15, span / rows),
+          top = L.dotBottom - dy * rows + dy / 2,
+          dot = Math.min(6, dy * 0.35),
+          dx = (tw - 44) / 10,
+          bandY = L.dotBottom - 26;
+        // Every hole represents one unit at the displayed place; rows are the divisor.
+        for (let row = 0; row < rows; row++)
+          for (let col = 0; col < 9; col++) {
+            const x = tx + 26 + col * dx,
+              y = top + row * dy;
+            ctx.beginPath();
+            ctx.ellipse(
+              x,
+              y,
+              dot + 1,
+              dot * (feedback > 0 && feedbackGood ? 0.64 : 1),
+              0,
+              0,
+              Math.PI * 2,
+            );
+            ctx.fillStyle = col < g.q ? C.cream : "#2145c5";
+            ctx.fill();
+          }
+        // Theater mode has a spare row: show the 세로셈 quotient as it is locked in,
+        // so the piece the student is about to build is never a surprise.
+        if (land && g.step !== "place") {
+          text("만드는 몫", tx + 10, L.regY - 34, 13);
+          ["십의 자리", "일의 자리"].forEach((label, i) => {
+            const bxr = tx + 10 + i * 66,
+              filled = g.digits.length > i;
+            rect(bxr, L.regY - 21, 54, 42, filled ? C.cream : C.blue, 3, C.ink);
+            text(
+              filled ? String(g.digits[i]) : "?",
+              bxr + 27,
+              L.regY,
+              25,
+              filled ? C.ink : C.cream,
+              "center",
+            );
+            text(label, bxr + 27, L.regY + 30, 11, C.cream, "center");
+          });
+          text("남는 구슬은", tx + 146, L.regY - 8, 12);
+          text("조각 끝에 붙어요", tx + 146, L.regY + 10, 12);
+        }
+        if (["tens", "ones"].includes(g.step)) {
+          if (g.hold > 0) {
+            const correctQ = Math.floor(n / p.d),
+              remainder = n % p.d;
+            rect(tx + 6, bandY - 18, tw - 12, 36, C.cream, 3);
+            text(
+              `${p.d}줄 × ${correctQ} · 남음 ${remainder}`,
+              tx + tw / 2,
+              bandY,
+              20,
+              C.ink,
+              "center",
+            );
+          }
+          const hx = L.trackX + (g.q / 9) * L.trackW;
+          line(L.trackX, L.trackY, L.trackX + L.trackW, L.trackY, C.ink, 5);
+          for (let i = 0; i <= 9; i++) {
+            line(
+              L.trackX + (i / 9) * L.trackW,
+              L.trackY - 6,
+              L.trackX + (i / 9) * L.trackW,
+              L.trackY + 6,
+            );
+            text(
+              i,
+              L.trackX + (i / 9) * L.trackW,
+              L.tickY,
+              16,
+              C.cream,
+              "center",
+            );
+          }
+          rect(
+            hx -
+              22 +
+              (feedback > 0 && feedbackGood ? Math.sin(feedback * 18) * 3 : 0),
+            L.trackY - L.handleH / 2,
+            44,
+            L.handleH,
+            C.red,
+            3,
+            C.ink,
+          );
+          text("↔", hx, L.trackY, 24, C.cream, "center");
+          text(
+            `${n}${g.step === "tens" ? "십" : "개"} ÷ ${p.d}줄`,
+            tx + 8,
+            L.eqY,
+            20,
+          );
+          text(`폭 ${g.q}`, tx + tw - 8, L.eqY, 20, C.cream, "right");
+          if (g.frozen)
+            cue(hx, L.trackY, hx + Math.min(32, L.trackW / 9), L.trackY);
+        } else if (g.step === "carry") {
+          rect(tx + 12, L.trackY - 24, tw - 24, 48, C.cream, 3);
+          text(
+            `${p.rT}십 ↓ + ${p.b}개`,
+            tx + tw / 2,
+            L.trackY,
+            25,
+            C.ink,
+            "center",
+          );
+          cue(tx + tw / 2, L.trackY + 8, tx + tw / 2, L.py + 40);
+        } else {
+          if (!land) {
+            const upcoming = g.deck
+              .slice(g.solved + 1, g.solved + 3)
+              .map((v) => `${v.N} ÷ ${v.d}`)
+              .join(" · ");
+            rect(tx + 6, bandY - 24, tw - 12, 48, C.blue, 3);
+            text(
+              upcoming ? `다음 ${upcoming}` : "마지막 주문이에요",
+              tx + tw / 2,
+              bandY,
+              18,
+              C.cream,
+              "center",
+            );
+          }
+          text(
+            g.waste ? "폐기 조각 2 × 2" : `몫 ${p.q}  ⋯  ${p.r}`,
+            tx + tw / 2,
+            L.trackY,
+            25,
+            C.cream,
+            "center",
+          );
+        }
+        // Instructions stay at one place; no transient toast is the only guidance.
+        wrap(instruction(), tx, L.hintY, tw, 15, 20);
+        if (g.step === "place") {
+          const pc = Math.min(25, (tw - 30) / 9);
+          text(
+            g.waste ? "폐기 조각" : "십의 몫 / 일의 몫 / 나머지",
+            tx,
+            L.pieceY - 12,
+            13,
+          );
+          for (const [dx, dy] of g.cells())
+            stampCell(
+              L.pieceX + dx * pc,
+              L.pieceY + dy * pc,
+              pc,
+              g.waste ? C.red : C.mint,
+            );
+          if (!drag)
+            cue(
+              L.pieceX + (Math.max(...g.piece) * pc) / 2,
+              L.pieceY + 25,
+              bx + bs * 0.35,
+              by + 35,
+            );
+        }
+        // Board instruments are molded into the rim, never an overlay panel.
+        rect(bx - 13, by - 35, bs + 26, bs + 73, C.blue, 14, C.ink);
+        text(`${Math.round(shownScore)}점`, bx, by - 17, 18);
+        text(`${Math.ceil(g.time)}초`, bx + bs, by - 17, 18, C.cream, "right");
+        for (let y = 0; y < 10; y++)
+          for (let x = 0; x < 10; x++) {
+            const px = bx + x * cell,
+              py = by + y * cell;
+            rect(px + 1, py + 1, cell - 2, cell - 2, "#2248d2", 3);
+            line(px + 3, py + 2, px + cell - 4, py + 2, "#4d77ff", 1);
+            if (g.board[y][x])
+              stampCell(px, py, cell, g.board[y][x] === 1 ? C.cream : C.mint);
+          }
+        // Conveyor contact shadow: a slow, narrow seam through the actual mold.
+        ctx.globalAlpha = 0.09;
+        rect(bx, by + ((elapsed * 11) % bs), bs, 3, C.ink, 0);
+        ctx.globalAlpha = 1;
+        for (let i = 0; i < 3; i++) {
+          const px = bx + i * 23;
+          rect(
+            px,
+            by + bs + 13,
+            13,
+            i < g.lives ? 17 : 6,
+            i < g.lives ? C.cream : C.red,
+            3,
+          );
+          if (i >= g.lives)
+            line(px, by + bs + 25, px + 13, by + bs + 17, C.red, 3);
+        }
+        text(
+          g.frozen ? "연습 · 시간 멈춤" : `핀 ${g.lives} · 두 줄 = 핀 +1`,
+          bx + bs,
+          by + bs + 23,
+          13,
+          C.cream,
+          "right",
+        );
+        for (const f of folds) {
+          const t = f.t;
+          ctx.globalAlpha = Math.max(0, 1 - t);
+          if (f.axis === "col") {
+            rect(bx + f.index * cell, by + bs * t, cell - 2, bs * (1 - t), C.cream, 3);
+            rect(bx + f.index * cell, by, cell - 2, Math.min(25, bs * t), C.red, 3);
+          } else {
+            rect(bx, by + f.index * cell, bs * (1 - t), cell - 2, C.cream, 3);
+            rect(bx + bs * (1 - t), by + f.index * cell, Math.min(25, bs * t), cell - 2, C.mint, 3);
+          }
+          ctx.globalAlpha = 1;
+        }
+        if (drag?.kind === "piece" && g.piece) {
+          const [gx, gy] = boardCoord(drag.x, drag.y);
+          const valid = g.canPlace(gx, gy);
+          for (const [dx, dy] of g.cells())
+            stampCell(
+              bx + (gx + dx) * cell,
+              by + (gy + dy) * cell,
+              cell,
+              valid ? C.mint : C.red,
+              0.65,
+            );
+          text(
+            valid ? "놓을 수 있어요" : "빈칸 안으로",
+            drag.x,
+            drag.y - 25,
+            16,
+            C.cream,
+            "center",
+          );
+        }
+        if (land) {
+          text("다음 주문", rx, L.r0, 20);
+          const cardH = Math.min(80, L.cardGap - 16);
+          g.deck.slice(g.solved + 1, g.solved + 3).forEach((p, i) => {
+            const cy = L.r1 + i * L.cardGap;
+            rect(rx, cy, rw - 12, cardH, C.blue, 3, C.cream);
+            text(`${p.N} ÷ ${p.d}`, rx + 12, cy + 24, 25);
+            text("모양은 직접 계산해요", rx + 12, cy + 55, 12);
+          });
+          wrap(
+            `단계 ${g.level} · ${g.level === 1 ? "나누어떨어져요" : g.level === 2 ? "남는 구슬도 조각으로" : "남은 공간을 지켜요"}`,
+            rx,
+            L.r2,
+            rw - 8,
+            17,
+            26,
+          );
+          wrap("가로·세로 한 줄 100점", rx, L.r3, rw - 8, 15, 24);
+          wrap("두 줄 함께 400점", rx, L.r3 + 26, rw - 8, 15, 24);
+          wrap("십 묶음 하나는", rx, L.r4, rw - 8, 14, 22);
+          wrap("낱개 10개예요.", rx, L.r4 + 22, rw - 8, 14, 22);
+          wrap("같은 자리 구슬은", rx, L.r4 + 48, rw - 8, 14, 22);
+          wrap("모두 같은 양이에요.", rx, L.r4 + 70, rw - 8, 14, 22);
+        } else {
+          text(
+            "십 묶음 1개 = 낱개 10개 · 같은 자리는 같은 양",
+            W / 2,
+            H - 16,
+            11,
+            C.cream,
+            "center",
+          );
+        }
+        if (ripple) {
+          if (noticeTime > 0) {
+            const target =
+              g.step === "place"
+                ? { x: L.pieceX + 12, y: L.pieceY + 12 }
+                : { x: L.trackX + (g.q / 9) * L.trackW, y: L.trackY };
+            cue(ripple.x, ripple.y, target.x, target.y);
+          }
+          ctx.strokeStyle = C.cream;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(ripple.x, ripple.y, 10 + ripple.t * 45, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      function begin() {
+        unlock();
+        title = false;
+        $("title").hidden = true;
+        $("result").hidden = true;
+        resultShown = false;
+        g.start();
+        shownScore = 0;
+        folds = [];
+        noticeTime = 0;
+        frame.prevLives = 3;
+        lastEvent = g.event;
+        canvas.focus();
+      }
+      $("start").onclick = () => {
+        unlock();
+        $("start").classList.add("punch");
+        $("title").classList.add("opening");
+        setTimeout(begin, reduced ? 120 : 650);
+      };
+      $("again").onclick = begin;
+      $("mute").onclick = () => {
+        unlock();
+        muted = !muted;
+        $("mute").textContent = muted ? "×" : "♪";
+        $("mute").setAttribute("aria-label", muted ? "소리 켜기" : "소리 끄기");
+      };
+      $("help").onclick = () => {
+        helpOpen = true;
+        $("manual").hidden = false;
+      };
+      function closeManual() {
+        helpOpen = false;
+        $("manual").hidden = true;
+        $("manual").classList.remove("nudge");
+        canvas.focus();
+      }
+      $("close").onclick = closeManual;
+      // Any stray input while the manual is open must point at the way out and
+      // then take it — a probe tapping the backdrop used to get no response at all.
+      function nudgeManual() {
+        const m = $("manual");
+        m.classList.remove("nudge");
+        void m.offsetWidth;
+        m.classList.add("nudge");
+        setTimeout(closeManual, 420);
+      }
+      $("manual").addEventListener("pointerdown", (event) => {
+        if (event.target === $("close")) return;
+        nudgeManual();
+      });
+      addEventListener("keydown", (e) => {
+        if (!helpOpen) return;
+        e.preventDefault();
+        if (["Escape", "Enter", " "].includes(e.key)) closeManual();
+        else nudgeManual();
+      });
+      function local(e) {
+        const b = canvas.getBoundingClientRect();
+        return { x: e.clientX - b.left, y: e.clientY - b.top };
+      }
+      function boardCoord(x, y) {
+        return [
+          Math.floor((x - L.bx) / L.cell),
+          Math.floor((y - L.by) / L.cell),
+        ];
+      }
+      function reject(x, y) {
+        ripple = { x, y, t: 0 };
+        notice =
+          g.hold > 0
+            ? "구슬이 앉는 중이에요. 잠깐 기다려 주세요."
+            : g.step === "place"
+              ? "위의 조각을 잡고 판으로 끌어 보세요."
+              : g.step === "carry"
+                ? "남은 십 묶음을 잡고 아래로 내려 보세요."
+                : "빨간 손잡이를 잡고 가로로 끌어 보세요.";
+        noticeTime = 1.1;
+        g.event++;
+        sound("wrong");
+      }
+      function changeWidth(x) {
+        g.q = Math.max(
+          0,
+          Math.min(9, Math.round(((x - L.trackX) / L.trackW) * 9)),
+        );
+        g.event++;
+      }
+      canvas.addEventListener("pointerdown", (e) => {
+        if (helpOpen) {
+          nudgeManual();
+          return;
+        }
+        if (title || g.phase !== "playing") return;
+        unlock();
+        const p = local(e);
+        ripple = { ...p, t: 0 };
+        canvas.setPointerCapture(e.pointerId);
+        if (g.hold > 0) {
+          reject(p.x, p.y);
+          return;
+        }
+        if (
+          ["tens", "ones"].includes(g.step) &&
+          Math.abs(p.y - L.trackY) <= 30 &&
+          Math.abs(p.x - (L.trackX + (g.q / 9) * L.trackW)) <= 30
+        ) {
+          drag = { kind: "tray", ...p };
+          noticeTime = 0;
+        } else if (
+          g.step === "carry" &&
+          p.x > L.tx &&
+          p.x < L.tx + L.tw &&
+          p.y > L.ty &&
+          p.y < L.py + 70
+        )
+          drag = { kind: "carry", ...p, startY: p.y };
+        else if (
+          g.step === "place" &&
+          p.y >= L.pieceY - 28 &&
+          p.y <= L.pieceY + 90 &&
+          p.x >= L.tx &&
+          p.x <= L.tx + L.tw
+        )
+          drag = { kind: "piece", ...p };
+        else reject(p.x, p.y);
+      });
+      canvas.addEventListener("pointermove", (e) => {
+        if (!drag) return;
+        const p = local(e);
+        Object.assign(drag, p);
+        if (drag.kind === "tray") changeWidth(p.x);
+      });
+      canvas.addEventListener("pointerup", (e) => {
+        const p = local(e);
+        if (!drag) {
+          reject(p.x, p.y);
+          return;
+        }
+        const kind = drag.kind;
+        if (kind === "tray") g.guess(g.q);
+        else if (kind === "carry") {
+          if (p.y - drag.startY >= 35) g.carry();
+          else reject(p.x, p.y);
+        } else if (kind === "piece") g.place(...boardCoord(p.x, p.y));
+        drag = null;
+      });
+      canvas.addEventListener("pointercancel", () => {
+        drag = null;
+      });
+      canvas.addEventListener("keydown", (e) => {
+        if (title || helpOpen) return;
+        if (
+          [
+            "ArrowLeft",
+            "ArrowRight",
+            "ArrowDown",
+            "ArrowUp",
+            "Enter",
+            " ",
+          ].includes(e.key)
+        )
+          e.preventDefault();
+        unlock();
+        if (g.step === "place") {
+          if (e.key === "ArrowLeft") keyboard[0] = Math.max(0, keyboard[0] - 1);
+          if (e.key === "ArrowRight")
+            keyboard[0] = Math.min(9, keyboard[0] + 1);
+          if (e.key === "ArrowUp") keyboard[1] = Math.max(0, keyboard[1] - 1);
+          if (e.key === "ArrowDown") keyboard[1] = Math.min(9, keyboard[1] + 1);
+          drag = {
+            kind: "piece",
+            x: L.bx + (keyboard[0] + 0.5) * L.cell,
+            y: L.by + (keyboard[1] + 0.5) * L.cell,
+          };
+          if (e.key === " ") {
+            g.place(...keyboard);
+            drag = null;
+          }
+        } else if (g.step === "carry" && e.key === "ArrowDown") g.carry();
+        else {
+          if (e.key === "ArrowLeft") g.q = Math.max(0, g.q - 1);
+          if (e.key === "ArrowRight") g.q = Math.min(9, g.q + 1);
+          if (e.key === "Enter") g.guess(g.q);
+        }
+        ripple = { x: L.trackX + (g.q / 9) * L.trackW, y: L.trackY, t: 0 };
+      });
+      function frame(ts) {
+        const dt = Math.min(0.05, (ts - last) / 1000 || 0.016);
+        last = ts;
+        elapsed += dt;
+        noticeTime = Math.max(0, noticeTime - dt);
+        if (!title && !helpOpen) g.tick(dt);
+        shownScore += (g.score - shownScore) * Math.min(1, dt * 9);
+        feedback = Math.max(0, feedback - dt);
+        folds = folds
+          .map((f) => ({ ...f, t: f.t + dt * (f.index % 2 ? 1.3 : 1) }))
+          .filter((f) => f.t < 1);
+        if (ripple) {
+          ripple.t += dt;
+          if (ripple.t > 0.5) ripple = null;
+        }
+        if (g.event !== lastEvent) {
+          feedbackGood = g.outcome !== "wrong";
+          feedback = 0.65;
+          frame.prevLives = g.lives;
+          lastEvent = g.event;
+          if (g.hold > 0) sound(feedbackGood ? "good" : "wrong");
+          if (g.cleared.length) {
+            folds = g.cleared.map((clear) => ({ ...clear, t: 0 }));
+            g.cleared = [];
+            sound("fold");
+          }
+        }
+        render();
+        if (!title && g.phase !== "playing") {
+          if (!resultShown) {
+            resultShown = true;
+            $("result").hidden = false;
+            $("resultBoard").innerHTML = g.board
+              .flat()
+              .map(
+                (v) =>
+                  `<span class="${v === 1 ? "filled" : v ? "waste" : ""}"></span>`,
+              )
+              .join("");
+            $("resultTitle").textContent =
+              g.phase === "clear" ? "여섯 주문 완성!" : "금형이 멈췄어요";
+            $("resultText").textContent =
+              `${g.last} · ${g.solved}/6 주문 · 남은 핀 ${g.lives}개. ${g.phase === "clear" ? "이번에 만든 식으로 구슬 수를 되살렸어요." : "다음에는 긴 조각이 들어갈 자리를 남겨 보세요."}`;
+            best = Math.max(best, g.score);
+            try {
+              localStorage.setItem("quotient-blocks-best", String(best));
+            } catch {}
+          }
+          $("resultNumber").textContent = `${Math.round(shownScore)}점`;
+        }
+        requestAnimationFrame(frame);
+      }
+      // Where a player who knows the rules would drop the piece: complete a line
+      // if possible, otherwise keep the stack low. Read-only — the caller still
+      // has to perform a real pointer drag to get there.
+      function bestPlacement() {
+        const cells = g.cells();
+        let best = null;
+        for (const [x, y] of g.positions()) {
+          const filled = new Set(cells.map(([dx, dy]) => (y + dy) * 10 + (x + dx)));
+          const rows = new Set(),
+            cols = new Set();
+          let deep = 0;
+          for (const [dx, dy] of cells) {
+            rows.add(y + dy);
+            cols.add(x + dx);
+            deep += y + dy;
+          }
+          let lines = 0,
+            packed = 0;
+          for (const r of rows) {
+            const n = g.board[r].filter((v, c) => v || filled.has(r * 10 + c))
+              .length;
+            if (n === 10) lines++;
+            packed += n * n;
+          }
+          for (const c of cols) {
+            const n = g.board.filter((row, r) => row[c] || filled.has(r * 10 + c))
+              .length;
+            if (n === 10) lines++;
+            packed += n * n;
+          }
+          // Prefer finishing a line, then packing rows tight, then staying low.
+          const score = lines * 10000 + packed * 4 + deep;
+          if (!best || score > best.score) best = { x, y, score };
+        }
+        return best;
+      }
+      window.__GAME_TEST__ = {
+        ready: true,
+        start: begin,
+        getState: () => g.state(),
+        answerCorrect() {
+          if (g.phase !== "playing") begin();
+          g.hold = 0;
+          if (g.step === "carry") g.carry();
+          if (g.step === "place") {
+            const before = g.score;
+            const pos = bestPlacement();
+            if (pos) g.place(pos.x, pos.y);
+            if (g.score === before && g.phase === "playing") {
+              g.hold = 0;
+              g.guess(Math.floor(g.currentN() / g.p.d));
+            }
+          } else g.guess(Math.floor(g.currentN() / g.p.d));
+        },
+        answerWrong() {
+          g.hold = 0;
+          g.wrong("쟁반을 다시 맞춰 보세요", true);
+        },
+        sampleProblems(n) {
+          const kinds = [
+            "procedural",
+            "procedural",
+            "representation",
+            "procedural",
+            "real_world",
+            "check",
+          ];
+          const a = [];
+          while (a.length < n) {
+            const batch = shuffle(POOL).slice(0, n - a.length);
+            a.push(
+              ...batch.map((p, i) =>
+                sample(p, Math.random, kinds[(a.length + i) % kinds.length]),
+              ),
+            );
+          }
+          return a;
+        },
+        getLayout: () => ({ land, playW: W }),
+        solutionHint() {
+          const result = { step: g.step };
+          if (g.step === "tens" || g.step === "ones") {
+            result.from = { x: L.trackX + (g.q / 9) * L.trackW, y: L.trackY };
+            result.to = {
+              x: L.trackX + (Math.floor(g.currentN() / g.p.d) / 9) * L.trackW,
+              y: L.trackY,
+            };
+          } else if (g.step === "carry") {
+            result.from = { x: L.tx + L.tw / 2, y: L.trackY };
+            result.to = { x: L.tx + L.tw / 2, y: L.trackY + 65 };
+          } else {
+            const pos = bestPlacement();
+            if (pos) {
+              result.from = { x: L.pieceX + 12, y: L.pieceY + 12 };
+              result.to = {
+                x: L.bx + (pos.x + 0.5) * L.cell,
+                y: L.by + (pos.y + 0.5) * L.cell,
+              };
+            }
+          }
+          return result;
+        },
+      };
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>

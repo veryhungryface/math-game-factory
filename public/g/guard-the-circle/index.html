@@ -1,0 +1,1713 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>원을 지켜</title>
+    <meta property="og:title" content="원을 지켜" />
+    <meta property="og:description" content="컴퍼스로 원을 그려라" />
+    <meta property="og:image" content="./square.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      :root {
+        --stageW: min(100vw, 1280px);
+        --stageX: calc((100vw - var(--stageW)) / 2);
+        color: #242424;
+        background: #b1d43a;
+        font-family: "Arial Narrow", "Apple SD Gothic Neo", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      button {
+        font:
+          800 18px "Arial Narrow",
+          "Apple SD Gothic Neo",
+          sans-serif;
+        color: inherit;
+        background: #fff6d8;
+        border: 2px solid #242424;
+        min-height: 48px;
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+      button:active {
+        background: #f05a47;
+        transform: rotate(-2deg);
+      }
+      button:focus-visible {
+        outline: 4px solid #3b5ccc;
+        outline-offset: 2px;
+      }
+      #app {
+        background: #c9f04a;
+        width: var(--stageW);
+        height: 100dvh;
+        margin: auto;
+        position: relative;
+        display: grid;
+        grid-template-rows: auto minmax(220px, 1fr) auto;
+        gap: 8px;
+        padding: 12px;
+      }
+      #order {
+        border-bottom: 2px solid;
+        padding: 0 64px 8px 0;
+      }
+      small {
+        font-size: 13px;
+        letter-spacing: 2px;
+      }
+      #prompt {
+        font-size: clamp(20px, 5.8vw, 28px);
+        font-weight: 900;
+        line-height: 1.25;
+        margin: 5px 0;
+      }
+      #hint {
+        min-height: 42px;
+        font-size: 16px;
+        line-height: 1.35;
+      }
+      #field {
+        position: relative;
+        min-height: 0;
+        overflow: hidden;
+      }
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+        display: block;
+      }
+      #readout {
+        font: 900 24px monospace;
+        border-bottom: 2px solid;
+        padding-bottom: 6px;
+      }
+      #slots {
+        display: flex;
+        gap: 6px;
+        margin: 8px 0;
+      }
+      #slots button {
+        flex: 1;
+        font-size: 15px;
+        clip-path: polygon(
+          8px 0,
+          100% 0,
+          100% calc(100% - 8px),
+          calc(100% - 8px) 100%,
+          0 100%,
+          0 8px
+        );
+      }
+      #slots button[aria-pressed="true"] {
+        background: #3b5ccc;
+        color: #fff6d8;
+      }
+      #note {
+        font-size: 13px;
+        margin: 6px 0;
+      }
+      #mute {
+        position: fixed;
+        right: max(12px, var(--stageX));
+        top: max(12px, env(safe-area-inset-top));
+        z-index: 20;
+        font-size: 21px;
+        width: 48px;
+        height: 48px;
+        padding: 0;
+        border-radius: 50%;
+        background: #fff6d8;
+      }
+      html.tutorial #mute {
+        opacity: 0.42;
+      }
+      html.tutorial #slots {
+        opacity: 0.42;
+        pointer-events: none;
+      }
+      #title,
+      #result {
+        position: fixed;
+        inset: 0 max(0px, var(--stageX));
+        z-index: 10;
+        background: #c9f04a;
+        overflow: hidden;
+      }
+      #title:after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          115deg,
+          transparent 48%,
+          rgba(255, 246, 216, 0.22) 50%,
+          transparent 52%
+        );
+        pointer-events: none;
+        mix-blend-mode: screen;
+      }
+      #title img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 48% 58%;
+        animation: drift 20s ease-in-out infinite alternate;
+      }
+      #title h1 {
+        position: absolute;
+        top: max(52px, 7dvh);
+        left: 7%;
+        font-size: clamp(72px, 22vw, 160px);
+        font-stretch: condensed;
+        letter-spacing: -0.12em;
+        line-height: 0.84;
+        margin: 0;
+        transform: rotate(-9deg);
+        color: #fff6d8;
+        -webkit-text-stroke: 2px #242424;
+        text-shadow:
+          3px 3px #242424,
+          7px 7px #3b5ccc;
+        animation: pressIn 0.72s both;
+      }
+      #start {
+        position: absolute;
+        right: 7%;
+        top: 38%;
+        font-size: 23px;
+        min-height: 78px;
+        padding: 12px 24px;
+        transform: rotate(8deg);
+        box-shadow: 4px 4px #242424;
+        clip-path: polygon(
+          13px 0,
+          100% 0,
+          100% calc(100% - 13px),
+          calc(100% - 13px) 100%,
+          0 100%,
+          0 13px
+        );
+        animation: needlePulse 2.4s infinite;
+      }
+      #title footer {
+        position: absolute;
+        bottom: max(62px, 7dvh);
+        left: 7%;
+        background: #c9f04a;
+        padding: 9px 11px;
+        border: 2px solid #242424;
+        font-weight: 800;
+        box-shadow: 4px 4px #242424;
+      }
+      #how {
+        position: absolute;
+        left: 7%;
+        bottom: max(12px, env(safe-area-inset-bottom));
+        min-width: 150px;
+        min-height: 44px;
+        background: transparent;
+        border: 0;
+        text-align: left;
+        text-decoration: underline;
+        text-underline-offset: 5px;
+      }
+      #help {
+        position: fixed;
+        z-index: 30;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        width: min(92vw, 520px);
+        padding: 18px 58px 18px 18px;
+        background: #fff6d8;
+        border: 2px solid #242424;
+        box-shadow: 6px 6px #3b5ccc;
+        clip-path: polygon(
+          14px 0,
+          100% 0,
+          100% calc(100% - 14px),
+          calc(100% - 14px) 100%,
+          0 100%,
+          0 14px
+        );
+        font-weight: 800;
+        line-height: 1.55;
+      }
+      #closeHelp {
+        position: absolute;
+        right: 7px;
+        top: 7px;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+      }
+      #result {
+        display: grid;
+        place-content: center;
+        text-align: center;
+        padding: 24px;
+        background: repeating-radial-gradient(
+          circle at 50% 48%,
+          #c9f04a 0 24px,
+          #aecf41 25px 26px
+        );
+      }
+      #result h2 {
+        font-size: 56px;
+        transform: rotate(-7deg);
+        margin: 20px 0;
+      }
+      #result strong {
+        font: 900 60px monospace;
+      }
+      #result button {
+        min-height: 70px;
+        margin-top: 24px;
+      }
+      #mode {
+        position: absolute;
+        inset: auto 10px 10px;
+        background: #fff6d8;
+        border: 2px solid;
+        padding: 12px;
+        z-index: 3;
+        clip-path: polygon(
+          12px 0,
+          100% 0,
+          100% calc(100% - 12px),
+          calc(100% - 12px) 100%,
+          0 100%,
+          0 12px
+        );
+      }
+      #mode button {
+        width: 48%;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      html.land #app {
+        grid-template-columns: minmax(210px, 24%) minmax(0, 1fr) minmax(
+            210px,
+            24%
+          );
+        grid-template-rows: 1fr;
+        align-items: center;
+        padding: 22px;
+        gap: 15px;
+      }
+      html.land #field {
+        height: min(92dvh, 740px);
+      }
+      html.land #slots {
+        flex-direction: column;
+      }
+      html.land #prompt {
+        font-size: 28px;
+      }
+      html.land #order {
+        padding-right: 0;
+      }
+      html.land #hint {
+        margin-top: 24px;
+      }
+      html.land #title img {
+        object-position: 50% 52%;
+      }
+      html.land #title h1 {
+        left: 5%;
+        top: 12%;
+        font-size: clamp(96px, 11vw, 160px);
+      }
+      html.land #start {
+        right: 8%;
+        top: 38%;
+      }
+      #readout.bump {
+        animation: ink 0.3s;
+      }
+      @keyframes ink {
+        50% {
+          transform: scale(1.06);
+          color: #3b5ccc;
+        }
+      }
+      @keyframes needlePulse {
+        0%,
+        72%,
+        100% {
+          scale: 1;
+        }
+        82% {
+          scale: 1.06;
+        }
+        90% {
+          scale: 0.98;
+        }
+      }
+      @keyframes drift {
+        to {
+          transform: scale(1.055) translate(-0.7%, 0.4%);
+        }
+      }
+      @keyframes pressIn {
+        from {
+          opacity: 0;
+          filter: blur(3px);
+          transform: rotate(-9deg) scale(1.18);
+        }
+        to {
+          opacity: 1;
+          filter: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #title img {
+          animation-duration: 45s;
+        }
+        #start {
+          animation-duration: 6s;
+        }
+        #title h1 {
+          animation-duration: 0.2s;
+        }
+      }
+      @media (min-width: 700px) and (orientation: portrait) {
+        #app {
+          grid-template-rows: auto minmax(340px, 58dvh) minmax(190px, 1fr);
+          padding-bottom: max(24px, env(safe-area-inset-bottom));
+        }
+        #field {
+          max-height: 58dvh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app">
+      <section id="order">
+        <small>COMPASS / 33 RPM</small>
+        <p id="prompt"></p>
+        <div id="hint" aria-live="polite">핀을 찍고 한 바퀴 그리면 막아요</div>
+      </section>
+      <section id="field">
+        <canvas
+          id="board"
+          aria-label="중심을 찍고 손잡이를 끌어 원을 그리는 작업판"
+          tabindex="0"
+        ></canvas>
+        <div id="mode" hidden>
+          첫 원 완성! 손의 여유를 골라요.<br /><button data-mode="easy">
+            쉬움 · 첫 실수 무료
+          </button>
+          <button data-mode="hard">어려움 · 정밀 작도</button>
+        </div>
+      </section>
+      <aside>
+        <div id="readout"></div>
+        <div id="slots"></div>
+        <p id="note">
+          원 3개를 남겨 벌레를 막아요.<br />실수 3번이면 끝 · 4연속 성공 시 1칸
+          회복(한 번)<br />눈금 한 칸은 1 cm예요.
+        </p>
+        <div id="status"></div>
+      </aside>
+    </main>
+    <div id="title">
+      <img
+        src="./assets/title.png"
+        alt="형광 매트 위 반투명 음반과 바늘"
+        onerror="this.style.display = 'none'"
+      />
+      <h1 aria-label="원을 지켜">원을<br />지켜</h1>
+      <button id="start">바늘 내려놓기 ↘</button>
+      <footer>3학년 2학기 · 원<br /><span id="best"></span></footer>
+      <button id="how">어떻게 놀아요? 〉</button>
+    </div>
+    <section id="help" hidden aria-label="놀이 방법">
+      중심 글자를 보고 핀을 찍어요.<br />중심에서 필요한 길이만큼 벌린 뒤, 손을
+      떼지 말고 한 바퀴 그려요.<button id="closeHelp" aria-label="도움말 닫기">
+        ×
+      </button>
+    </section>
+    <div id="result" hidden>
+      <small>나만의 음반</small>
+      <h2 id="ending"></h2>
+      <strong id="total"></strong>
+      <p id="reason"></p>
+      <button id="retry">다시 원 그리기 ↻</button>
+    </div>
+    <button id="mute" aria-label="소리 켜기">♪</button>
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id),
+        cv = $("board"),
+        ctx = cv.getContext("2d"),
+        TAU = Math.PI * 2,
+        labels = ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ"];
+      let audio = null,
+        muted = true,
+        best = 0,
+        onboardingSeen = false;
+      try {
+        best = +localStorage.getItem("guard-circle-best") || 0;
+        onboardingSeen =
+          localStorage.getItem("onboardingSeen:guard-the-circle") === "1";
+      } catch {}
+      $("best").textContent = best ? `최고 기록 ${best}점` : "";
+      function sound(good = true, n = 0) {
+        if (!audio || muted) return;
+        const o = audio.createOscillator(),
+          g = audio.createGain();
+        o.type = "sine";
+        o.frequency.setValueAtTime(
+          good ? 330 + n * 55 : 120,
+          audio.currentTime,
+        );
+        o.frequency.exponentialRampToValueAtTime(
+          good ? 660 + n * 55 : 70,
+          audio.currentTime + 0.12,
+        );
+        g.gain.setValueAtTime(0.06, audio.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.18);
+        o.connect(g).connect(audio.destination);
+        o.start();
+        o.stop(audio.currentTime + 0.2);
+      }
+      function gesture() {
+        if (!audio) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) audio = new AC();
+        }
+        if (audio?.state === "suspended") audio.resume().catch(() => {});
+      }
+      $("mute").onclick = () => {
+        gesture();
+        muted = !muted;
+        $("mute").textContent = muted ? "♪" : "×♪";
+        $("mute").setAttribute("aria-label", muted ? "소리 켜기" : "소리 끄기");
+        sound();
+      };
+      let S,
+        layout = { size: 360, x: 0, y: 0 },
+        clock = 0,
+        last = 0,
+        displayScore = 0;
+      // 첫 문제는 고정이다. 중심에서 3.4 cm 떨어뜨려 반지름 2 cm 시범 원이
+      // 가운데 막(반지름 0.72)과 겹치지 않게 한다 — 첫 화면 겹침 사고의 원인이었다.
+      const fixed = {
+        id: "first",
+        x: 3.6,
+        y: 3.6,
+        r: 2,
+        label: 0,
+        type: "radius",
+        variant: 0,
+        level: 1,
+      };
+      function start(tutorial = true) {
+        S = {
+          phase: "playing",
+          score: 0,
+          lives: 3,
+          level: 1,
+          solved: 0,
+          combo: 0,
+          time: 0,
+          wave: 0,
+          waveTime: 0,
+          frozen: tutorial,
+          tutorial,
+          mode: "easy",
+          free: false,
+          recovered: false,
+          // 반드시 길이 3 으로 시작한다. [] 로 두면 next() 의
+          // findIndex((g) => !g) 가 늘 -1 이라 0번 자리만 덮어써서
+          // 홈이 하나밖에 남지 않는다(세 홈 방어가 통째로 죽는다).
+          grooves: [null, null, null],
+          bugs: [],
+          scraps: [],
+          pin: null,
+          radius: 1,
+          trace: [],
+          drag: null,
+          selected: 0,
+          blocked: -1,
+          feedback: 0,
+          flash: 0,
+          hitStop: 0,
+          spawn: 0,
+          errors: {},
+          seen: new Set(),
+          deck: [],
+          problem: { ...fixed },
+          pulse: null,
+          guideAt: clock,
+          needle: null,
+          dent: null,
+          misses: 0,
+          arrow: null,
+        };
+        document.documentElement.classList.toggle("tutorial", tutorial);
+        $("title").hidden = true;
+        $("result").hidden = true;
+        $("mode").hidden = true;
+        displayScore = 0;
+        setProblem({ ...fixed });
+        ui();
+      }
+      // Fixed prototype loop: pin -> radial opening -> uncorrected pointer arc -> exact radius contract.
+      function setProblem(p) {
+        S.problem = p;
+        S.pin = null;
+        S.trace = [];
+        S.drag = null;
+        S.waveTime = 0;
+        S.misses = 0;
+        S.arrow = null;
+        const count = S.level === 1 ? 3 : S.level === 2 ? 6 : 9;
+        // 비목표 점은 (1) 목표 중심에서 1.9 cm 이상 떨어지고 (2) 가운데 막을 덮지 않으며
+        // (3) 그려야 할 원의 둘레 위에 얹히지 않아야 한다. 셋 다 만족하는 자리를 먼저 쓰고,
+        // 모자라면 (3)만 완화한다. 같은 좌표에 중심 글자가 둘 겹치는 사고를 막는다.
+        const clear = [],
+          near = [];
+        for (let y = 3.2; y <= 8.9; y += 1.4)
+          for (let x = 3.2; x <= 8.9; x += 1.4) {
+            const d = Math.hypot(x - p.x, y - p.y);
+            if (d < 1.9 || Math.hypot(x - 6, y - 6) < 1.6) continue;
+            (Math.abs(d - p.r) >= 0.75 ? clear : near).push({ x, y });
+          }
+        const spots = [...clear, ...near];
+        const otherLabels = Array.from({ length: count }, (_, i) => i).filter(
+          (i) => i !== p.label,
+        );
+        S.points = [
+          { x: p.x, y: p.y, label: p.label, target: true },
+          ...spots.slice(0, count - 1).map((q, i) => ({
+            ...q,
+            label: otherLabels[i % otherLabels.length],
+            target: false,
+          })),
+        ];
+        $("prompt").textContent = prompt(p);
+        hint(
+          S.tutorial
+            ? "① 파란 테두리의 중심 " + labels[p.label] + "에 핀을 찍어요"
+            : "핀을 찍고, 벌린 뒤 한 바퀴 끌어 보세요",
+        );
+        ui();
+      }
+      // 발문은 유형×변형 4가지 템플릿에서 나온다. variant 는 격자 좌표 4곳을 모두
+      // 구분하는 해시(variantOf)라서 같은 (유형·중심·길이) 조합이라도 문장이 겹치지 않는다.
+      function variantOf(p) {
+        return (
+          (Math.abs(Math.round(p.x) % 3) * 2 +
+            Math.abs(Math.round(p.y) % 3) +
+            p.label) %
+          4
+        );
+      }
+      function prompt(p) {
+        const center = labels[p.label];
+        const variant = p.variant ?? variantOf(p);
+        if (p.type === "diameter") {
+          const d = p.r * 2;
+          if (variant === 1)
+            return `지름 ${d} cm의 절반만큼 벌려 중심 ${center}에 원을 그려 보세요.`;
+          if (variant === 2)
+            return `지름이 ${d} cm인 원의 반지름을 구해 중심 ${center}에 그 원을 그려 보세요.`;
+          if (variant === 3)
+            return `원 위의 두 점을 이은 선분 중 가장 긴 것이 ${d} cm가 되도록 중심 ${center}에 원을 그려 보세요.`;
+          return `그림을 보고 중심 ${center}에 지름 ${d} cm인 원을 그려 보세요.`;
+        }
+        if (p.type === "error") {
+          if (variant === 1)
+            return `컴퍼스 두 다리 사이를 ${p.r} cm로 고쳐 중심 ${center}에 원을 그려 보세요.`;
+          if (variant === 2)
+            return `점선 원은 반지름이 너무 짧아요. 중심 ${center}에 반지름 ${p.r} cm인 원을 다시 그려 보세요.`;
+          if (variant === 3)
+            return `중심 ${center}은 그대로 두고 벌림만 ${p.r} cm로 바꾸어 원을 그려 보세요.`;
+          return `중심 ${center}의 잘못 그린 점선 원을 고쳐 반지름 ${p.r} cm인 원을 그려 보세요.`;
+        }
+        if (p.type === "pattern") {
+          const ref = p.refSlot || 1;
+          if (variant === 1)
+            return `${ref}번 원과 반지름이 같은 ${p.r} cm 원을 중심 ${center}에 그려 무늬를 이어 보세요.`;
+          if (variant === 2)
+            return `컴퍼스를 ${ref}번 원과 같은 ${p.r} cm로 벌려 중심 ${center}에 원을 겹쳐 그려 보세요.`;
+          if (variant === 3)
+            return `${ref}번 원의 반지름 ${p.r} cm를 그대로 써서 중심 ${center}에 원을 하나 더 그려 보세요.`;
+          return `${ref}번 원과 벌림 ${p.r} cm를 같게 하여 중심 ${center}에 겹친 원을 그려 보세요.`;
+        }
+        if (variant === 1)
+          return `컴퍼스를 ${p.r} cm로 벌리고 중심 ${center}에 원을 그려 보세요.`;
+        if (variant === 2)
+          return `한 원의 반지름은 모두 같아요. 중심 ${center}에서 어느 쪽으로도 ${p.r} cm인 원을 그려 보세요.`;
+        if (variant === 3)
+          return `중심 ${center}에서 원 위의 한 점까지가 ${p.r} cm가 되도록 원을 그려 보세요.`;
+        return `그림을 보고 중심 ${center}에 반지름 ${p.r} cm인 원을 그려 보세요.`;
+      }
+      function setText(id, value) {
+        const el = $(id);
+        if (el.textContent !== value) el.textContent = value;
+      }
+      function hint(s) {
+        $("hint").textContent = s;
+      }
+      function ui() {
+        if (!S) return;
+        setText(
+          "readout",
+          `${Math.round(displayScore)}점 ×${S.combo} / ${Math.ceil(90 - S.time)}초`,
+        );
+        setText(
+          "status",
+          `가운데 막 ${S.lives}/3 · ${S.solved}개 완성 · ${["반지름", "지름", "고쳐 그리기", "겹친 무늬"][S.level - 1]}`,
+        );
+        $("slots").replaceChildren(
+          ...Array.from({ length: 3 }, (_, i) => {
+            let b = document.createElement("button");
+            let g = S.grooves[i];
+            b.textContent =
+              S.blocked === i
+                ? "흠집 · 한 차례 쉼"
+                : g
+                  ? `${i + 1}번 원 ${g.r} cm · ${g.life}회`
+                  : `${i + 1}번 빈 자리`;
+            b.setAttribute("aria-pressed", S.selected === i);
+            b.onclick = () => {
+              gesture();
+              if (S.blocked === i) {
+                hint("이 자리는 다음 원까지 쉬어요. 다른 자리를 골라요.");
+                S.pulse = { x: 6, y: 6, t: clock };
+                sound(false);
+                return;
+              }
+              S.selected = i;
+              hint(`${i + 1}번 자리에 새 원을 남겨요. 있던 원은 사라져요.`);
+              ui();
+            };
+            return b;
+          }),
+        );
+      }
+      function finish() {
+        S.phase = S.lives > 0 && S.solved >= 6 ? "clear" : "gameover";
+        $("result").hidden = false;
+        $("ending").textContent =
+          S.phase === "clear" ? "음을 지켰어요!" : "바늘을 쉬어요";
+        $("total").textContent = S.score + "점";
+        $("reason").textContent =
+          S.phase === "clear"
+            ? "직접 그린 원들이 음반을 완성했어요."
+            : Object.keys(S.errors).sort(
+                (a, b) => S.errors[b] - S.errors[a],
+              )[0] || "원을 6개 이상 완성하고 90초를 지켜요.";
+        try {
+          best = Math.max(best, S.score);
+          localStorage.setItem("guard-circle-best", best);
+          localStorage.setItem("guard-circle-build", JSON.stringify(S.grooves));
+          let k = "guard-circle-" + new Date().toISOString().slice(0, 10);
+          localStorage.setItem(k, String((+localStorage.getItem(k) || 0) + 1));
+        } catch {}
+      }
+      function submit(ok, reason = "원이 덜 닫혔어요", force = false) {
+        if (S.phase !== "playing") return;
+        if (!ok) {
+          S.errors[reason] = (S.errors[reason] || 0) + 1;
+          S.combo = 0;
+          S.feedback = 1;
+          S.reveal = { ...S.problem };
+          hint(
+            reason +
+              ` · 중심 ${labels[S.problem.label]}, 반지름 ${S.problem.r} cm를 살펴요.`,
+          );
+          sound(false);
+          const livesBefore = S.lives;
+          if (!S.frozen) {
+            if (S.mode === "easy" && !S.free && !force) S.free = true;
+            else S.lives--;
+            S.blocked = S.selected;
+            S.grooves[S.selected] = null;
+          }
+          if (S.lives < livesBefore)
+            S.dent = { i: S.lives, t: clock, x: 6, y: 6 };
+          if (S.lives <= 0) {
+            finish();
+            return;
+          }
+          if (S.frozen) {
+            S.pin = null;
+            S.trace = [];
+            return;
+          }
+        } else {
+          S.combo++;
+          S.score += 100 * S.combo;
+          S.solved++;
+          S.hitStop = 0.07;
+          S.flash = 0.12;
+          S.needle = {
+            x: (S.pin?.x ?? S.problem.x) + S.problem.r,
+            y: S.pin?.y ?? S.problem.y,
+            t: clock,
+          };
+          S.feedback = 1;
+          S.reveal = { ...S.problem };
+          S.blocked = -1;
+          S.grooves = S.grooves.map((g) =>
+            g && g.life > 1 ? { ...g, life: g.life - 1 } : null,
+          );
+          S.grooves[S.selected] = {
+            x: S.pin?.x ?? S.problem.x,
+            y: S.pin?.y ?? S.problem.y,
+            r: S.problem.r,
+            life: 5,
+            born: S.wave,
+          };
+          if (S.time >= 80 && S.grooves.filter(Boolean).length === 3) {
+            S.wow = 1.5;
+            for (let i = 0; i < 3; i++)
+              for (let j = i + 1; j < 3; j++) {
+                const a = S.grooves[i],
+                  b = S.grooves[j],
+                  dx = b.x - a.x,
+                  dy = b.y - a.y,
+                  d = Math.hypot(dx, dy);
+                if (d > 0 && d < a.r + b.r && d > Math.abs(a.r - b.r)) {
+                  const t = (a.r * a.r - b.r * b.r + d * d) / (2 * d),
+                    h = Math.sqrt(Math.max(0, a.r * a.r - t * t));
+                  for (const sign of [-1, 1])
+                    S.scraps.push({
+                      x: a.x + (t * dx) / d - (sign * h * dy) / d,
+                      y: a.y + (t * dy) / d + (sign * h * dx) / d,
+                      v: 2,
+                      t: 0,
+                    });
+                }
+              }
+            sound(true, 3);
+          }
+          for (let i = 0; i < Math.min(8, S.combo + 2); i++)
+            S.scraps.push({
+              x: S.problem.x + S.problem.r,
+              y: S.problem.y,
+              v: i * 0.8,
+              t: 0,
+            });
+          if (S.combo >= 4 && !S.recovered && S.lives < 3) {
+            S.lives++;
+            S.recovered = true;
+          }
+          hint(`중심에서 원 위까지 ${S.problem.r} cm = 반지름`);
+          sound(true, S.combo);
+          $("readout").classList.remove("bump");
+          void $("readout").offsetWidth;
+          $("readout").classList.add("bump");
+          if (S.tutorial) {
+            S.tutorial = false;
+            document.documentElement.classList.remove("tutorial");
+            S.frozen = true;
+            $("mode").hidden = false;
+            S.pending = true;
+            ui();
+            return;
+          }
+        }
+        S.pending = true;
+        S.trace = [];
+        S.drag = null;
+        ui();
+      }
+      function next() {
+        S.pending = false;
+        S.wave++;
+        S.level = S.time < 25 ? 1 : S.time < 50 ? 2 : S.time < 65 ? 3 : 4;
+        let p;
+        if (S.level === 4) {
+          const oldIndex = S.grooves.findLastIndex(Boolean);
+          const old = S.grooves[oldIndex];
+          if (old && old.r <= 3) {
+            const target = [
+              { x: old.x + old.r, y: old.y },
+              { x: old.x - old.r, y: old.y },
+              { x: old.x, y: old.y + old.r },
+              { x: old.x, y: old.y - old.r },
+            ].find(
+              (q) =>
+                q.x >= old.r + 1 &&
+                q.x <= 11 - old.r &&
+                q.y >= old.r + 1 &&
+                q.y <= 11 - old.r &&
+                Math.hypot(q.x - 6, q.y - 6) >= 1.3,
+            );
+            if (target)
+              p = {
+                id: `pattern-${S.wave}`,
+                x: target.x,
+                y: target.y,
+                r: old.r,
+                label: S.wave % 9,
+                type: "pattern",
+                refSlot: oldIndex + 1,
+                level: 4,
+              };
+          }
+        }
+        if (!p) {
+          const band = POOL.filter(
+            (p) => p.level === S.level && !S.seen.has(p.id),
+          );
+          p =
+            band[Math.floor(random() * band.length)] ||
+            POOL.find((p) => p.level === S.level);
+          if (S.level === 4)
+            p = {
+              ...p,
+              r: 2,
+              type: S.grooves.some(Boolean) ? "pattern" : "radius",
+            };
+        }
+        S.seen.add(p.id);
+        if (S.blocked === S.selected) S.selected = (S.selected + 1) % 3;
+        else S.selected = S.grooves.findIndex((g) => !g);
+        if (S.selected < 0) S.selected = 0;
+        setProblem({ ...p });
+      }
+      let seed = 123;
+      function random() {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        return seed / 4294967296;
+      }
+      // Expression traps: ~해 보세요 only; cm spaced; labels ㄱㄴㄷ; no chord terminology,
+      // circumference/area/pi outside these lessons. Radius/diameter values are integer cm.
+      // Constraint pool is enumerated from radius inward: safe center bounds follow r, no retries.
+      const POOL = [];
+      for (let level = 1; level <= 4; level++)
+        for (let r = 2; r <= (level === 1 ? 3 : 4); r++)
+          for (
+            let x = Math.max(r + 1, 6 - Math.floor(r / 2));
+            x <= Math.min(11 - r, 6 + Math.floor(r / 2));
+            x++
+          )
+            for (
+              let y = Math.max(r + 1, 6 - Math.floor(r / 2));
+              y <= Math.min(11 - r, 6 + Math.floor(r / 2));
+              y++
+            )
+              for (
+                let label = 0;
+                label < (level === 1 ? 3 : level === 2 ? 6 : 9);
+                label++
+              )
+                if (Math.hypot(x - 6, y - 6) >= 1.3)
+                  POOL.push({
+                    id: `${level}-${r}-${x}-${y}-${label}`,
+                    level,
+                    r,
+                    x,
+                    y,
+                    label,
+                    type: ["radius", "diameter", "error", "pattern"][level - 1],
+                    variant: variantOf({ x, y, label }),
+                    refSlot: 1 + ((x + y + label) % 3),
+                  });
+      function shuffle(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+      function sample(n) {
+        let pool = shuffle([...POOL]);
+        return Array.from({ length: n }, (_, i) => {
+          let p = pool[i % pool.length];
+          let raw = [
+            { value: p.r * 0.5, misconceptionId: "inside_point_is_radius" },
+            { value: p.r * 2, misconceptionId: "diameter_is_opening" },
+            { value: p.r + 1, misconceptionId: "off_center_segment" },
+          ];
+          let seen = new Set();
+          /* 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플 */ let wrong =
+            raw
+              .filter((d) => d.value !== p.r)
+              .filter((d) => d.value > 0 && d.value <= 8)
+              .filter((d) => !seen.has(d.value) && seen.add(d.value));
+          for (let v = 1; wrong.length < 3; v++)
+            if (v !== p.r && !seen.has(v)) {
+              wrong.push({ value: v, misconceptionId: "unit_tick_offset" });
+              seen.add(v);
+            }
+          let choices = shuffle([p.r, ...wrong.map((d) => d.value)]).map(
+            (v) => `${v} cm`,
+          );
+          return {
+            ...p,
+            prompt: prompt(p),
+            choices,
+            answer: `${p.r} cm`,
+            answerNumeric: p.r,
+            unitConcept:
+              p.type === "diameter"
+                ? "지름과 반지름의 관계"
+                : "컴퍼스로 원 그리기",
+            distractors: wrong,
+          };
+        });
+      }
+      function point(e) {
+        let r = cv.getBoundingClientRect();
+        return {
+          x: ((e.clientX - r.left - layout.x) / layout.size) * 12,
+          y: ((e.clientY - r.top - layout.y) / layout.size) * 12,
+        };
+      }
+      function down(e) {
+        gesture();
+        if (S?.phase !== "playing") return;
+        let p = point(e);
+        S.pulse = { ...p, t: clock };
+        if (S.tutorial) S.guideAt = clock;
+        if (S.pending || S.feedback > 0) {
+          hint("방금 그린 원을 살펴요. 곧 다음 원을 그려요.");
+          return;
+        }
+        cv.setPointerCapture?.(e.pointerId);
+        if (!S.pin) {
+          let candidates = S.points
+            .map((q) => ({ ...q, d: Math.hypot(q.x - p.x, q.y - p.y) }))
+            .sort((a, b) => a.d - b.d);
+          // 손끝 판정은 화면 크기와 무관하게 최소 52px 지름을 보장한다.
+          // 튜토리얼에서는 헛탭이 쌓일수록 조금씩 넓혀 첫 핀을 반드시 찍게 한다.
+          const unitPx = Math.max(1, layout.size / 12);
+          let hitR = Math.max(0.7, 26 / unitPx);
+          if (S.tutorial)
+            hitR = Math.max(hitR, 1.05 + Math.min(2, S.misses || 0) * 0.3);
+          if (candidates[0].d < hitR) {
+            S.pin = { x: candidates[0].x, y: candidates[0].y };
+            S.radius = 1;
+            S.misses = 0;
+            hint("② 손잡이를 벌리고, 그대로 한 바퀴 끌어요.");
+            sound(true);
+          } else {
+            // 빨간 리플만 남기면 어디로 가야 하는지 알 수 없다. 누른 곳에서
+            // 목표 중심으로 향하는 화살표를 띄우고 시범을 1단계부터 다시 돌린다.
+            S.misses = (S.misses || 0) + 1;
+            S.arrow = { x: p.x, y: p.y, t: clock };
+            hint(
+              `여기가 아니에요. 화살표가 가리키는 중심 ${labels[S.problem.label]} 점을 눌러요.`,
+            );
+            S.guideAt = clock;
+            sound(false);
+          }
+          return;
+        }
+        S.drag = {
+          id: e.pointerId,
+          start: p,
+          angle: null,
+          total: 0,
+          bins: new Set(),
+          radii: [],
+          turn: false,
+        };
+        S.trace = [];
+      }
+      function move(e) {
+        if (!S?.drag || S.drag.id !== e.pointerId) return;
+        let p = point(e),
+          dx = p.x - S.pin.x,
+          dy = p.y - S.pin.y,
+          r = Math.hypot(dx, dy),
+          a = Math.atan2(dy, dx),
+          d = S.drag;
+        if (d.angle !== null) {
+          let da = Math.atan2(Math.sin(a - d.angle), Math.cos(a - d.angle));
+          if (Math.abs(da) > 0.018 && r > 0.6) d.turn = true;
+          if (d.turn) {
+            d.total += da;
+            d.radii.push(r);
+            d.bins.add(Math.floor(((a + Math.PI) / TAU) * 24) % 24);
+            S.trace.push(p);
+          }
+        }
+        d.angle = a;
+        S.radius = Math.max(0.1, Math.min(8, r));
+        hint(`벌림 ${S.radius.toFixed(1)} cm · ${d.bins.size}/24 바퀴 조각`);
+      }
+      function up(e) {
+        if (!S?.drag || S.drag.id !== e.pointerId) return;
+        const d = S.drag;
+        S.drag = null;
+        if (!d.turn) {
+          hint("손잡이를 놓지 말고 원 둘레로 한 바퀴 끌어 보세요.");
+          S.pulse = { ...S.pin, t: clock };
+          return;
+        }
+        const tol = S.mode === "easy" ? 0.35 : 0.18,
+          p = S.problem;
+        let reason =
+          Math.hypot(S.pin.x - p.x, S.pin.y - p.y) > 0.4
+            ? "중심이 달라요"
+            : d.radii.some((r) => Math.abs(r - p.r) > tol)
+              ? S.radius > p.r * 1.7
+                ? "지름을 그대로 벌렸어요"
+                : "벌림이 반지름과 달라요"
+              : d.bins.size < 22 || Math.abs(d.total) < (330 / 360) * TAU
+                ? "원이 덜 닫혔어요"
+                : "";
+        submit(!reason, reason);
+      }
+      cv.addEventListener("pointerdown", down);
+      cv.addEventListener("pointermove", move);
+      cv.addEventListener("pointerup", up);
+      cv.addEventListener("pointercancel", () => {
+        if (S) {
+          S.drag = null;
+          S.trace = [];
+          hint("손이 벗어났어요. 중심은 그대로, 다시 그려요.");
+        }
+      });
+      cv.onkeydown = (e) => {
+        if (!S) return;
+        if (e.key.startsWith("Arrow")) {
+          e.preventDefault();
+          S.radius = Math.max(
+            0.1,
+            S.radius +
+              (e.key === "ArrowRight" || e.key === "ArrowUp" ? 0.1 : -0.1),
+          );
+          hint(`벌림 ${S.radius.toFixed(1)} cm · 손잡이를 원 둘레로 끌어요.`);
+        }
+        if (e.key === "Enter") {
+          S.focus = ((S.focus ?? -1) + 1) % S.points.length;
+          S.pin = { ...S.points[S.focus] };
+          hint(`중심 ${labels[S.points[S.focus].label]}에 핀을 놓았어요.`);
+        }
+      };
+      function step(dt) {
+        if (!S || S.phase !== "playing") return;
+        S.wow = Math.max(0, (S.wow || 0) - dt);
+        S.feedback = Math.max(0, S.feedback - dt);
+        S.flash = Math.max(0, S.flash - dt);
+        if (S.hitStop > 0) {
+          S.hitStop -= dt;
+          return;
+        }
+        if (S.pending && S.feedback === 0 && !S.frozen) next();
+        if (S.frozen) return;
+        S.time += dt;
+        S.waveTime += dt;
+        S.spawn += dt;
+        if (S.time >= 90) {
+          finish();
+          return;
+        }
+        if (S.waveTime > 12 && !S.pending)
+          submit(false, "원이 늦게 완성됐어요");
+        if (S.spawn > 0.75 && S.bugs.length < 26) {
+          S.spawn = 0;
+          let a = random() * TAU;
+          S.bugs.push({
+            x: 6 + 6 * Math.cos(a),
+            y: 6 + 6 * Math.sin(a),
+            bounce: 0,
+          });
+        }
+        for (const b of S.bugs) {
+          let dx = 6 - b.x,
+            dy = 6 - b.y,
+            d = Math.hypot(dx, dy) || 1;
+          let speed = S.time > 60 ? 0.9 : 0.6;
+          if (b.bounce > 0) {
+            b.bounce -= dt;
+            b.x -= (dx / d) * dt * 4;
+            b.y -= (dy / d) * dt * 4;
+            continue;
+          }
+          b.x += (dx / d) * dt * speed;
+          b.y += (dy / d) * dt * speed;
+          let hits = S.grooves.filter(
+            (g) =>
+              g &&
+              g.born < S.wave &&
+              Math.abs(Math.hypot(b.x - g.x, b.y - g.y) - g.r) < 0.22,
+          );
+          if (hits.length) {
+            b.bounce = 0.5;
+            sound(true, hits.length);
+            if (hits.length > 1) {
+              let other = S.bugs.find((o) => o !== b && !o.bounce);
+              if (other) other.bounce = 0.5;
+            }
+          } else if (d < 0.5) {
+            b.bounce = 0.5;
+            if (!S.pending) {
+              S.lives--;
+              S.errors["원 사이로 벌레가 들어왔어요"] =
+                (S.errors["원 사이로 벌레가 들어왔어요"] || 0) + 1;
+              hint("벌레가 원 사이로 들어왔어요. 가운데를 덮는 원을 남겨요.");
+              if (S.lives <= 0) finish();
+            }
+          }
+        }
+        S.bugs = S.bugs.filter(
+          (b) => b.bounce >= 0 && Math.hypot(b.x - 6, b.y - 6) < 7,
+        );
+        for (const s of S.scraps) {
+          s.t += dt;
+          s.x += dt * (0.3 + s.v * 0.1);
+          s.y -= dt * 0.4;
+        }
+        S.scraps = S.scraps.filter((s) => s.t < 1.5);
+      }
+      let bg = null;
+      // swiftshader 에서 큰 원 fill 이 프레임마다 반복되면 30fps 를 못 넘긴다.
+      // 매 프레임 변하지 않는 격자·음반 판은 리사이즈 때 한 번만 구워 blit 한다.
+      function bakeBackground(d) {
+        bg = document.createElement("canvas");
+        bg.width = cv.width;
+        bg.height = cv.height;
+        const b = bg.getContext("2d");
+        b.setTransform(d, 0, 0, d, 0, 0);
+        b.translate(layout.x, layout.y);
+        b.scale(layout.size / 12, layout.size / 12);
+        b.lineWidth = 0.04;
+        b.strokeStyle = "#adc839";
+        for (let i = 0; i <= 12; i++) {
+          b.beginPath();
+          b.moveTo(i, 0);
+          b.lineTo(i, 12);
+          b.moveTo(0, i);
+          b.lineTo(12, i);
+          b.stroke();
+        }
+        for (const [r, fill] of [
+          [5.85, "#c1dd63"],
+          [5.65, "#cce678"],
+        ]) {
+          b.beginPath();
+          b.arc(6, 6, r, 0, TAU);
+          b.fillStyle = fill;
+          b.fill();
+          b.strokeStyle = "#242424";
+          b.stroke();
+        }
+      }
+      function resize() {
+        document.documentElement.classList.toggle(
+          "land",
+          (innerWidth >= innerHeight && innerWidth >= 640) ||
+            innerWidth >= 1024,
+        );
+        let r = cv.getBoundingClientRect(),
+          d = Math.min(devicePixelRatio || 1, 2);
+        if (!r.width || !r.height) return;
+        // 발문 줄 수가 바뀌면 #field 높이가 달라진다. 백업 버퍼 크기가 옛 높이로
+        // 남으면 화면에서 원이 타원으로 눌린다 — 실제 상자 크기와 항상 맞춘다.
+        if (cv.width === Math.round(r.width * d) && cv.height === Math.round(r.height * d))
+          return;
+        cv.width = Math.round(r.width * d);
+        cv.height = Math.round(r.height * d);
+        ctx.setTransform(d, 0, 0, d, 0, 0);
+        layout = {
+          size: Math.min(r.width, r.height),
+          x: (r.width - Math.min(r.width, r.height)) / 2,
+          y: (r.height - Math.min(r.width, r.height)) / 2,
+          w: r.width,
+          h: r.height,
+        };
+        bakeBackground(d);
+      }
+      function draw() {
+        ctx.clearRect(0, 0, layout.w, layout.h);
+        if (bg) ctx.drawImage(bg, 0, 0, layout.w, layout.h);
+        ctx.save();
+        ctx.translate(layout.x, layout.y);
+        ctx.scale(layout.size / 12, layout.size / 12);
+        ctx.lineWidth = 0.04;
+        // 시범 커서. 중심 점과 절대 헷갈리지 않도록 둥근 표지가 아닌
+        // 끝이 뾰족한 화살표 커서로 그린다(끝점이 실제로 누르는 자리다).
+        const drawCursor = (x, y) => {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(-0.3);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0.54, 0.31);
+          ctx.lineTo(0.31, 0.35);
+          ctx.lineTo(0.42, 0.64);
+          ctx.lineTo(0.25, 0.71);
+          ctx.lineTo(0.16, 0.42);
+          ctx.lineTo(0, 0.58);
+          ctx.closePath();
+          ctx.strokeStyle = "#FFF6D8";
+          ctx.lineWidth = 0.16;
+          ctx.stroke();
+          ctx.fillStyle = "#3B5CCC";
+          ctx.fill();
+          ctx.strokeStyle = "#242424";
+          ctx.lineWidth = 0.045;
+          ctx.stroke();
+          ctx.restore();
+        };
+        const circle = (x, y, r, fill, stroke = "#242424") => {
+          ctx.beginPath();
+          ctx.arc(x, y, Math.max(0.01, r), 0, TAU);
+          if (fill) {
+            ctx.fillStyle = fill;
+            ctx.fill();
+          }
+          if (stroke) {
+            ctx.strokeStyle = stroke;
+            ctx.stroke();
+          }
+        };
+        ctx.save();
+        ctx.translate(6, 6);
+        ctx.rotate(clock * 0.15);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, 5.6, 0.1, 0.19);
+        ctx.fillStyle = "#ffffff55";
+        ctx.fill();
+        ctx.restore();
+        if (!S) {
+          ctx.restore();
+          return;
+        }
+        ctx.strokeStyle = "#242424";
+        ctx.lineWidth = 0.08;
+        ctx.beginPath();
+        ctx.arc(
+          6,
+          6,
+          5.85,
+          -Math.PI / 2,
+          -Math.PI / 2 + (TAU * (90 - S.time)) / 90,
+        );
+        ctx.stroke();
+        for (let i = 0; i < 3; i++) {
+          // 방금 찌그러진 칸은 0.7초 동안 더 깊게 눌렸다가 제자리로 굳는다.
+          const age = S.dent && S.dent.i === i ? clock - S.dent.t : 99;
+          const crush = age < 0.7 ? 1 - age / 0.7 : 0;
+          ctx.beginPath();
+          ctx.moveTo(6, 6);
+          const a0 = (i * TAU) / 3;
+          const a1 = ((i + 1) * TAU) / 3;
+          for (let j = 0; j <= 12; j++) {
+            const a = a0 + ((a1 - a0) * j) / 12;
+            const dent = Math.sin((j / 12) * Math.PI);
+            const r =
+              i < S.lives
+                ? 0.72
+                : 0.62 - dent * 0.28 - dent * crush * 0.24;
+            ctx.lineTo(6 + Math.cos(a) * r, 6 + Math.sin(a) * r);
+          }
+          ctx.closePath();
+          ctx.fillStyle = i < S.lives ? "#3B5CCC" : "#F05A47";
+          ctx.fill();
+          ctx.stroke();
+          if (crush > 0) {
+            ctx.save();
+            ctx.globalAlpha = crush;
+            ctx.strokeStyle = "#F05A47";
+            ctx.lineWidth = 0.08;
+            const am = (a0 + a1) / 2;
+            ctx.beginPath();
+            ctx.arc(6, 6, 0.9 + (1 - crush) * 0.7, am - 0.5, am + 0.5);
+            ctx.stroke();
+            ctx.restore();
+            ctx.strokeStyle = "#242424";
+            ctx.lineWidth = 0.04;
+          }
+        }
+        // 가운데 부채꼴이 곧 '막 n/3' 이라는 것을 화면에서 바로 잇는다.
+        ctx.save();
+        ctx.strokeStyle = "#242424";
+        ctx.lineWidth = 0.035;
+        ctx.beginPath();
+        ctx.moveTo(6, 6.78);
+        ctx.lineTo(6, 7.15);
+        ctx.stroke();
+        ctx.font = "900 .4px sans-serif";
+        ctx.textAlign = "center";
+        ctx.lineWidth = 0.16;
+        ctx.strokeStyle = "#FFF6D8";
+        ctx.strokeText(`막 ${S.lives}/3`, 6, 7.6);
+        ctx.fillStyle = "#242424";
+        ctx.fillText(`막 ${S.lives}/3`, 6, 7.6);
+        ctx.restore();
+        S.grooves.forEach((g, i) => {
+          if (!g) return;
+          ctx.lineWidth = 0.045;
+          circle(g.x, g.y, g.r, null, S.flash ? "#FFF6D8" : "#3B5CCC");
+          let a = clock * (1.6 / g.r) + i;
+          circle(
+            g.x + g.r * Math.cos(a),
+            g.y + g.r * Math.sin(a),
+            0.09,
+            "#FFF6D8",
+          );
+          ctx.font = "bold .4px monospace";
+          ctx.fillStyle = "#242424";
+          ctx.fillText(String(i + 1), g.x, g.y - g.r);
+        });
+        if (S.problem.type === "error" && !S.pin) {
+          ctx.setLineDash([0.15, 0.12]);
+          circle(S.problem.x, S.problem.y, S.problem.r * 0.65, null, "#F05A47");
+          ctx.setLineDash([]);
+        }
+        for (const q of S.points) {
+          const lead = q.target && S.tutorial;
+          ctx.globalAlpha = S.tutorial && !q.target ? 0.32 : 1;
+          ctx.lineWidth = 0.05;
+          if (lead) {
+            // 목표 중심만 파란 맥박 고리를 두른다 — 시범 커서와 헷갈리지 않게.
+            circle(q.x, q.y, 0.44 + 0.14 * (1 + Math.sin(clock * 3.4)), null, "#3B5CCC");
+          }
+          ctx.lineWidth = 0.04;
+          circle(
+            q.x,
+            q.y,
+            lead ? 0.31 : 0.25,
+            lead ? "#FFF6D8" : "#e9efb0",
+            lead ? "#3B5CCC" : "#242424",
+          );
+          ctx.textAlign = "center";
+          ctx.font = "900 .56px sans-serif";
+          if (lead) {
+            // 판을 덧대는 대신 크림색 외곽선을 둘러 어떤 배경에서도 읽히게 한다.
+            ctx.lineWidth = 0.2;
+            ctx.strokeStyle = "#FFF6D8";
+            ctx.strokeText(labels[q.label], q.x, q.y - 0.52);
+            ctx.strokeStyle = "#242424";
+            ctx.lineWidth = 0.04;
+          }
+          ctx.fillStyle = lead ? "#3B5CCC" : "#242424";
+          ctx.fillText(labels[q.label], q.x, q.y - (lead ? 0.52 : 0.4));
+          ctx.globalAlpha = 1;
+        }
+        if (S.pin) {
+          circle(S.pin.x, S.pin.y, 0.18, "#F05A47");
+          const a = S.drag?.angle || 0;
+          const ex = S.pin.x + S.radius * Math.cos(a),
+            ey = S.pin.y + S.radius * Math.sin(a);
+          ctx.beginPath();
+          ctx.moveTo(S.pin.x, S.pin.y);
+          ctx.lineTo(ex, ey);
+          ctx.lineWidth = 0.09;
+          ctx.strokeStyle = "#242424";
+          ctx.stroke();
+          circle(ex, ey, 0.32, "#FFF6D8");
+          for (let i = 1; i <= 5; i++) {
+            ctx.lineWidth = 0.035;
+            ctx.beginPath();
+            ctx.moveTo(S.pin.x + i, S.pin.y - 0.12);
+            ctx.lineTo(S.pin.x + i, S.pin.y + 0.12);
+            ctx.stroke();
+            ctx.font = "bold .38px monospace";
+            ctx.fillText(i, S.pin.x + i, S.pin.y + 0.55);
+          }
+        }
+        if (S.wow) {
+          ctx.font = "900 .65px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillStyle = "#3B5CCC";
+          ctx.fillText("세 원이 함께 울려요!", 6, 1.2);
+        }
+        if (S.trace.length) {
+          ctx.beginPath();
+          S.trace.forEach((p, i) =>
+            i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y),
+          );
+          ctx.strokeStyle = "#3B5CCC";
+          ctx.lineWidth = 0.07;
+          ctx.stroke();
+        }
+        if (S.tutorial) {
+          const p = S.problem;
+          ctx.setLineDash([0.12, 0.14]);
+          ctx.lineDashOffset = -clock * 0.5;
+          ctx.lineWidth = 0.065;
+          circle(p.x, p.y, p.r, null, "#FFF6D8");
+          ctx.setLineDash([]);
+          const elapsed = (clock - S.guideAt) % 10;
+          let hx, hy, caption, phase;
+          if (elapsed < 3) {
+            const t = Math.min(1, elapsed / 1.8);
+            hx = p.x - 1.5 * (1 - t);
+            hy = p.y - 1.3 * (1 - t);
+            caption = `① 중심 ${labels[p.label]} 점을 누르기`;
+            phase = 1;
+          } else if (elapsed < 6) {
+            const t = (elapsed - 3) / 3;
+            hx = p.x + p.r * t;
+            hy = p.y;
+            caption = `② 눈금 ${p.r}칸(${p.r} cm)만큼 벌리기`;
+            phase = 2;
+          } else {
+            const a = ((elapsed - 6) / 4) * TAU;
+            hx = p.x + p.r * Math.cos(a);
+            hy = p.y + p.r * Math.sin(a);
+            caption = "③ 손을 떼지 않고 한 바퀴";
+            phase = 3;
+          }
+          ctx.save();
+          if (phase > 1) {
+            // 컴퍼스 벌림(중심→연필심)을 잇는 선. 1단계에서는 그리지 않는다.
+            ctx.strokeStyle = "#3B5CCC";
+            ctx.lineWidth = 0.09;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(hx, hy);
+            ctx.stroke();
+          } else {
+            // 누를 자리를 향해 좁혀 드는 고리
+            ctx.strokeStyle = "#3B5CCC";
+            ctx.lineWidth = 0.06;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 0.35 + 0.9 * (1 - Math.min(1, elapsed / 1.8)), 0, TAU);
+            ctx.stroke();
+          }
+          drawCursor(hx, hy);
+          // 자막은 크림색 판 위에 올려 어디서든 읽히게 한다.
+          ctx.font = "900 .48px sans-serif";
+          ctx.textAlign = "center";
+          const w = ctx.measureText(caption).width + 0.5;
+          ctx.fillStyle = "#FFF6D8";
+          ctx.fillRect(6 - w / 2, 0.78, w, 0.72);
+          ctx.strokeStyle = "#242424";
+          ctx.lineWidth = 0.05;
+          ctx.strokeRect(6 - w / 2, 0.78, w, 0.72);
+          ctx.fillStyle = "#242424";
+          ctx.fillText(caption, 6, 1.3);
+          ctx.restore();
+        }
+        // 헛탭한 곳 → 목표 중심으로 향하는 화살표. 리플만으로는 방향을 못 배운다.
+        if (S.arrow && clock - S.arrow.t < 1.8) {
+          const t = clock - S.arrow.t,
+            q = S.problem,
+            dx = q.x - S.arrow.x,
+            dy = q.y - S.arrow.y,
+            d = Math.hypot(dx, dy) || 1,
+            ux = dx / d,
+            uy = dy / d,
+            grow = Math.min(1, t * 2.6),
+            len = Math.max(0, d - 0.55) * grow,
+            ex = S.arrow.x + ux * len,
+            ey = S.arrow.y + uy * len;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, 1 - t / 1.8);
+          ctx.strokeStyle = "#F05A47";
+          ctx.lineWidth = 0.11;
+          ctx.setLineDash([0.26, 0.18]);
+          ctx.beginPath();
+          ctx.moveTo(S.arrow.x, S.arrow.y);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(ex + ux * 0.34, ey + uy * 0.34);
+          ctx.lineTo(ex - uy * 0.19, ey + ux * 0.19);
+          ctx.lineTo(ex + uy * 0.19, ey - ux * 0.19);
+          ctx.closePath();
+          ctx.fillStyle = "#F05A47";
+          ctx.fill();
+          ctx.restore();
+        }
+        if (S.needle && clock - S.needle.t < 0.9) {
+          const age = clock - S.needle.t;
+          const lift =
+            age < 0.18
+              ? -0.38 * (age / 0.18)
+              : -0.38 * Math.max(0, 1 - (age - 0.18) / 0.18);
+          const nx = S.needle.x;
+          const ny = S.needle.y + lift;
+          ctx.strokeStyle = "#242424";
+          ctx.fillStyle = "#FFF6D8";
+          ctx.lineWidth = 0.1;
+          ctx.beginPath();
+          ctx.moveTo(nx + 1.15, ny - 1.05);
+          ctx.lineTo(nx + 0.16, ny - 0.12);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(nx + 0.16, ny - 0.12);
+          ctx.lineTo(nx, ny);
+          ctx.lineTo(nx + 0.2, ny + 0.02);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          if (age > 0.3) {
+            ctx.strokeStyle = "#F05A47";
+            ctx.lineWidth = 0.07;
+            ctx.beginPath();
+            ctx.arc(nx, ny, 0.18 + age * 0.18, 0.15, Math.PI * 1.75);
+            ctx.stroke();
+          }
+        }
+        if (S.feedback > 0 && S.reveal) {
+          const p = S.reveal;
+          ctx.setLineDash([0.16, 0.1]);
+          circle(p.x, p.y, p.r, null, "#FFF6D8");
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + p.r, p.y);
+          ctx.strokeStyle = "#F05A47";
+          ctx.stroke();
+        }
+        for (const b of S.bugs) {
+          ctx.save();
+          ctx.translate(b.x, b.y);
+          ctx.scale(b.bounce ? 1.4 : 1, b.bounce ? 0.6 : 1);
+          circle(0, 0, 0.18, "#242424");
+          circle(-0.065, -0.05, 0.035, "#FFF6D8", null);
+          circle(0.065, -0.05, 0.035, "#FFF6D8", null);
+          ctx.restore();
+        }
+        for (const s of S.scraps) {
+          ctx.strokeStyle = "#FFF6D8";
+          ctx.lineWidth = 0.035;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 0.1 + s.t * 0.08, 0, Math.PI * 1.7);
+          ctx.stroke();
+        }
+        if (S.pulse && clock - S.pulse.t < 0.5) {
+          circle(
+            S.pulse.x,
+            S.pulse.y,
+            0.2 + (clock - S.pulse.t) * 1.3,
+            null,
+            "#F05A47",
+          );
+        }
+        ctx.restore();
+      }
+      function frame(t) {
+        let dt = Math.min(0.05, (t - last) / 1000 || 0);
+        last = t;
+        clock += dt;
+        step(dt);
+        if (S) {
+          displayScore += (S.score - displayScore) * Math.min(1, dt * 12);
+          if (Math.abs(S.score - displayScore) < 1) displayScore = S.score;
+          setText(
+            "readout",
+            `${Math.round(displayScore)}점 ×${S.combo} / ${Math.ceil(90 - S.time)}초`,
+          );
+          setText(
+            "status",
+            `가운데 막 ${S.lives}/3 · ${S.solved}개 완성 · ${["반지름", "지름", "고쳐 그리기", "겹친 무늬"][S.level - 1]}`,
+          );
+        }
+        draw();
+        requestAnimationFrame(frame);
+      }
+      $("start").onclick = () => {
+        gesture();
+        seed = 20260906;
+        start(!onboardingSeen);
+      };
+      $("retry").onclick = () => {
+        gesture();
+        seed = 20260906;
+        start(false);
+      };
+      $("how").onclick = () => {
+        $("help").hidden = false;
+      };
+      $("closeHelp").onclick = () => {
+        $("help").hidden = true;
+      };
+      document.querySelectorAll("[data-mode]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            S.mode = b.dataset.mode;
+            S.frozen = false;
+            $("mode").hidden = true;
+            S.feedback = 0;
+            onboardingSeen = true;
+            try {
+              localStorage.setItem("onboardingSeen:guard-the-circle", "1");
+            } catch {}
+            next();
+          }),
+      );
+      addEventListener("resize", resize);
+      // 발문·힌트 줄바꿈으로 판 크기가 바뀔 때도 다시 맞춘다.
+      if (window.ResizeObserver) new ResizeObserver(resize).observe($("field"));
+      resize();
+      requestAnimationFrame(frame);
+      window.__GAME_TEST__ = {
+        ready: true,
+        start() {
+          seed = 20260906;
+          start(false);
+        },
+        getState() {
+          return S
+            ? {
+                score: S.score,
+                lives: S.lives,
+                level: S.level,
+                phase: S.phase,
+                solved: S.solved,
+                time: S.time,
+                pin: S.pin,
+                selected: S.selected,
+                wave: S.wave,
+                bugs: S.bugs.length,
+                grooves: S.grooves.map(
+                  (g) => g && { x: g.x, y: g.y, r: g.r, life: g.life, born: g.born },
+                ),
+                problem: { ...S.problem },
+              }
+            : { score: 0, lives: 3, level: 1, phase: "title", solved: 0 };
+        },
+        solutionHint() {
+          if (!S || S.phase !== "playing") return null;
+          const rect = cv.getBoundingClientRect();
+          const toClient = (x, y) => ({
+            x: rect.left + layout.x + (x / 12) * layout.size,
+            y: rect.top + layout.y + (y / 12) * layout.size,
+          });
+          return {
+            pin: toClient(S.problem.x, S.problem.y),
+            radiusPx: (S.problem.r / 12) * layout.size,
+            center: { x: S.problem.x, y: S.problem.y },
+            radius: S.problem.r,
+          };
+        },
+        answerCorrect() {
+          if (!S || S.phase !== "playing") start(false);
+          S.feedback = 0;
+          S.pending = false;
+          submit(true);
+        },
+        answerWrong() {
+          if (!S || S.phase !== "playing") start(false);
+          S.feedback = 0;
+          S.pending = false;
+          submit(false, "원이 덜 닫혔어요", true);
+        },
+        sampleProblems: sample,
+      };
+    </script>
+  </body>
+</html>

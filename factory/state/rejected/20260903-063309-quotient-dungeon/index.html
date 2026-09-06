@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#4A62C8">
+  <meta property="og:title" content="몫 던전">
+  <meta property="og:description" content="숫자 패를 몫에 놓아요">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>몫 던전</title>
+  <style>
+    :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--cobalt:#4A62C8;--cream:#FFF1D6;--coral:#F05A4F;--mint:#38A89D;--ink:#2A2454}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--cobalt);color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;font-family:"Arial Rounded MT Bold","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+    button,select{font:inherit}button{touch-action:manipulation}.hidden{display:none!important}
+    #ambient{position:fixed;inset:0;pointer-events:none;overflow:hidden;background:radial-gradient(ellipse at 50% 28%,#6179dc 0 16%,#4A62C8 56%,#4057ba 100%)}
+    .blob{position:absolute;width:34vw;height:18vw;max-width:400px;max-height:210px;background:#3f55b6;filter:blur(28px);opacity:.25;border-radius:47% 53% 42% 58%;animation:drift 12s ease-in-out infinite alternate}.blob.a{left:-8%;top:12%}.blob.b{right:-7%;bottom:10%;animation-delay:-6s}
+    @keyframes drift{to{transform:translate(7vw,4vh) rotate(12deg) scale(1.08)}}
+    #title{position:fixed;inset:0;z-index:30;overflow:hidden;background:var(--cobalt);isolation:isolate}
+    #titleArt{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;object-position:50% 56%;animation:titleBreath 20s ease-in-out infinite alternate;z-index:-2}
+    #titleFallback{position:absolute;inset:0;z-index:-3;background:radial-gradient(circle at 50% 58%,#677ee0,#4A62C8 55%,#354aa8)}
+    #title::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(42,36,84,.08),transparent 38%,rgba(42,36,84,.45))}
+    @keyframes titleBreath{to{transform:scale(1.055) translateY(-1%)}}
+    .titleUI{height:100%;width:min(100%,640px);margin:auto;position:relative;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+    .logo{position:absolute;top:max(48px,6dvh);left:10px;right:10px;text-align:center;filter:drop-shadow(0 18px 15px rgba(42,36,84,.35));animation:logoPress .72s cubic-bezier(.16,1.5,.3,1) both}
+    .logo h1{margin:0;color:var(--cream);font-size:clamp(52px,16vw,90px);font-weight:1000;line-height:.88;letter-spacing:-.1em;transform:rotate(-2deg);-webkit-text-stroke:clamp(2px,.7vw,5px) var(--ink);text-shadow:3px 4px 0 #38A89D,-3px 8px 0 #2A2454,0 16px 22px rgba(20,18,50,.42)}
+    .logo p{display:inline-block;margin:18px 0 0;padding:8px 16px;color:var(--ink);background:var(--cream);border-radius:52% 48% 55% 45%/45% 54% 46% 55%;box-shadow:0 9px 18px rgba(42,36,84,.28);font-weight:900;font-size:15px;transform:rotate(1deg)}
+    @keyframes logoPress{0%{opacity:0;transform:translateY(-42px) scale(1.15)}65%{opacity:1;transform:translateY(8px) scale(.96,1.07)}100%{transform:none}}
+    .titleBottom{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(100% - 32px),440px);display:grid;gap:8px;justify-items:center}
+    .record{color:var(--cream);font-weight:900;text-shadow:0 2px 5px var(--ink);font-size:14px}
+    #modeSelect{height:44px;border:0;color:var(--cream);background:rgba(42,36,84,.72);padding:0 34px 0 16px;border-radius:46% 54% 43% 57%;box-shadow:0 7px 18px rgba(42,36,84,.26);font-weight:900;text-align:center}
+    #startBtn{width:100%;min-height:68px;border:0;color:var(--cream);background:var(--coral);border-radius:46% 54% 48% 52%/55% 47% 53% 45%;box-shadow:0 12px 24px rgba(42,36,84,.42);font-size:25px;font-weight:1000;letter-spacing:-.04em;animation:pulse 2.3s ease-in-out infinite;position:relative}
+    #startBtn::before{content:"";position:absolute;inset:7px 13px;border:3px solid rgba(255,241,214,.42);border-radius:inherit;pointer-events:none}
+    #startBtn:active{transform:scale(.92,.84);box-shadow:0 5px 13px rgba(42,36,84,.35);animation:none}
+    @keyframes pulse{72%,100%{transform:scale(1)}84%{transform:scale(1.035,.97)}}
+    #helpBtn{min-height:44px;border:0;background:transparent;color:var(--cream);font-weight:900;text-shadow:0 2px 4px var(--ink)}
+    #mute{position:fixed;right:12px;top:max(12px,env(safe-area-inset-top));z-index:60;width:48px;height:48px;border:0;background:var(--cream);color:var(--ink);border-radius:53% 47% 58% 42%;box-shadow:0 8px 18px rgba(42,36,84,.3);font-size:22px}
+    #game{position:fixed;inset:0;z-index:5;padding:10px max(10px,var(--stageX));display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:8px}
+    #hud{height:62px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:stretch}
+    .clayTag{background:var(--cream);border:0;border-radius:43% 57% 49% 51%/52% 43% 57% 48%;box-shadow:0 8px 18px rgba(42,36,84,.32);display:grid;place-content:center;text-align:center;font-weight:900;line-height:1.05;transform:rotate(var(--tilt,0deg))}.clayTag:nth-child(1){--tilt:-1.2deg}.clayTag:nth-child(3){--tilt:1deg}
+    .clayTag small{font-size:11px;color:#695f7d}.clayTag b{font-size:clamp(17px,5vw,23px)}#scoreVal.bump{animation:inkBump .35s ease}@keyframes inkBump{50%{transform:scale(1.28,.82);color:var(--mint)}}
+    #main{min-height:0;position:relative;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:8px}
+    #doorZone{min-height:0;position:relative;display:grid;place-items:center}
+    #door{width:min(92vw,470px);height:100%;max-height:550px;min-height:360px;position:relative;background:#e9c9a1;border-radius:20% 16% 9% 11%/13% 12% 6% 7%;box-shadow:0 25px 38px rgba(42,36,84,.38),inset 12px 3px 18px rgba(255,241,214,.28),inset -14px -8px 20px rgba(120,74,73,.18);overflow:hidden;transform-origin:50% 90%;transition:transform .3s cubic-bezier(.2,1.8,.4,1),filter .3s}
+    #door::before{content:"";position:absolute;inset:0;opacity:.28;background:radial-gradient(circle at 23% 18%,#fff 0 2px,transparent 3px),radial-gradient(circle at 74% 61%,#8b6b68 0 2px,transparent 3px);background-size:39px 43px,51px 47px}
+    #door.correct{animation:doorPress .48s cubic-bezier(.18,1.7,.3,1)}#door.wrong{animation:doorSlump .55s ease}
+    @keyframes doorPress{0%{transform:scale(1)}38%{transform:scale(1.035,.93)}75%{transform:scale(.985,1.025)}100%{transform:none}}
+    @keyframes doorSlump{20%{transform:translateX(-8px) rotate(-1deg)}43%{transform:translateX(7px) rotate(1deg)}80%{transform:translateY(7px) scaleY(.97)}100%{transform:none}}
+    #prompt{position:absolute;top:12px;left:12px;right:12px;min-height:52px;display:grid;place-items:center;text-align:center;color:var(--cream);background:var(--ink);border-radius:51% 49% 45% 55%/43% 56% 44% 57%;box-shadow:0 8px 16px rgba(42,36,84,.2);font-size:clamp(15px,4.2vw,20px);font-weight:900;padding:8px 14px;z-index:2}
+    #quotientSlots{position:absolute;top:79px;left:12%;right:12%;height:74px;display:flex;gap:8px;justify-content:flex-end;align-items:center}
+    .qslot{width:64px;height:66px;background:#c69e82;color:var(--ink);display:grid;place-items:center;border-radius:48% 52% 44% 56%/52% 43% 57% 48%;box-shadow:inset 0 7px 9px rgba(42,36,84,.2);font-size:37px;font-weight:1000;position:relative}.qslot.active{animation:slotPulse 1.1s ease-in-out infinite;outline:5px solid var(--mint);outline-offset:3px}.qslot.locked{opacity:.58}.qslot.filled{background:var(--mint);box-shadow:0 8px 14px rgba(42,36,84,.25);animation:squish .4s cubic-bezier(.15,1.6,.3,1)}
+    @keyframes slotPulse{50%{transform:scale(1.07,.94)}}@keyframes squish{35%{transform:scale(1.2,.72)}75%{transform:scale(.94,1.08)}}
+    #division{position:absolute;top:162px;left:10%;right:10%;font-weight:1000;color:var(--ink);font-size:clamp(36px,11vw,54px);display:flex;justify-content:center;align-items:center;gap:10px}.bar{width:58%;height:8px;background:var(--ink);border-radius:48% 52%}
+    #workSteps{position:absolute;top:225px;left:10%;right:10%;bottom:88px;overflow:hidden;display:flex;flex-direction:column;gap:4px;align-items:center;font-weight:900;font-size:clamp(17px,5vw,23px);color:#5d4960}.step{animation:stamp .4s ease both}.step b{color:var(--ink)}@keyframes stamp{0%{opacity:0;transform:scale(1.5,.6)}100%{opacity:1;transform:none}}
+    #remainderSlot{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);width:170px;height:58px;background:#c69e82;box-shadow:inset 0 7px 9px rgba(42,36,84,.2);border-radius:54% 46% 51% 49%/44% 57% 43% 56%;display:grid;place-items:center;font-size:20px;font-weight:1000}#remainderSlot.active{outline:5px solid var(--coral);outline-offset:3px;animation:slotPulse 1.1s ease infinite}#remainderSlot.filled{background:var(--coral);color:var(--cream)}
+    #downToken{position:absolute;z-index:9;min-width:156px;min-height:58px;padding:8px 16px;border:0;background:var(--mint);color:var(--cream);border-radius:43% 57% 48% 52%/55% 42% 58% 45%;box-shadow:0 10px 20px rgba(42,36,84,.35);font-size:18px;font-weight:1000;cursor:grab;animation:downBob .9s ease-in-out infinite alternate}@keyframes downBob{to{transform:translateY(8px) scale(1.03,.97)}}
+    #banner{position:absolute;z-index:18;left:50%;top:6px;transform:translateX(-50%);width:min(94%,480px);min-height:48px;padding:10px 14px;background:var(--ink);color:var(--cream);border-radius:45% 55% 48% 52%/54% 44% 56% 46%;box-shadow:0 10px 20px rgba(42,36,84,.28);display:grid;place-items:center;text-align:center;font-weight:900;pointer-events:none}
+    #mathReveal{position:absolute;z-index:17;left:8%;right:8%;top:44%;padding:13px;background:var(--cream);color:var(--ink);box-shadow:0 13px 30px rgba(42,36,84,.32);border-radius:49% 51% 42% 58%/53% 44% 56% 47%;text-align:center;font-size:clamp(18px,5.2vw,26px);font-weight:1000;opacity:0;transform:scale(.8,.55);pointer-events:none}#mathReveal.show{animation:reveal 1.15s ease both}@keyframes reveal{20%,75%{opacity:1;transform:scale(1.04,.96)}100%{opacity:0;transform:scale(.96,1.04) translateY(-12px)}}
+    #trail{position:fixed;z-index:45;width:58px;height:58px;border-radius:46% 54% 42% 58%;background:var(--cream);box-shadow:0 10px 20px rgba(42,36,84,.3);display:none;place-items:center;font-size:30px;font-weight:1000;pointer-events:none;transform:translate(-50%,-50%)}
+    #deck{height:148px;display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:8px 2px 2px}
+    .digit{min-width:0;min-height:58px;border:0;background:var(--cream);color:var(--ink);border-radius:var(--r,48% 52% 45% 55%/52% 45% 55% 48%);box-shadow:0 8px 15px rgba(42,36,84,.3);font-size:clamp(24px,7vw,34px);font-weight:1000;cursor:grab;position:relative}.digit:nth-child(3n){background:#f7dfbc}.digit:nth-child(4n){transform:rotate(1deg)}.digit:active,.digit.grabbed{transform:scale(.84,1.12);box-shadow:0 3px 8px rgba(42,36,84,.28)}.digit.nudge{animation:nudge .36s ease}@keyframes nudge{25%{transform:translateY(-8px) rotate(-2deg)}60%{transform:translateY(4px) rotate(2deg)}}
+    #tutorialPath{position:fixed;z-index:25;pointer-events:none;display:none}#tutorialPath.active{display:block}.guideLine{stroke:var(--cream);stroke-width:8;stroke-linecap:round;stroke-dasharray:12 13;fill:none;animation:dash .65s linear infinite;filter:drop-shadow(0 4px 4px rgba(42,36,84,.55))}.guideFinger{fill:var(--coral);stroke:var(--cream);stroke-width:4;animation:fingerPulse 1.2s ease-in-out infinite}@keyframes dash{to{stroke-dashoffset:-25}}@keyframes fingerPulse{50%{r:20}}
+    #overlay{position:fixed;inset:0;z-index:50;background:rgba(42,36,84,.58);display:grid;place-items:center;padding:18px}.modal{width:min(100%,520px);background:var(--cream);padding:24px 20px;border-radius:19% 13% 18% 14%/10% 16% 12% 17%;box-shadow:0 26px 60px rgba(42,36,84,.55);text-align:center}.modal h2{margin:0 0 10px;font-size:30px}.modal p{font-weight:800;line-height:1.55}.modal button{min-height:60px;width:100%;border:0;background:var(--coral);color:var(--cream);border-radius:47% 53% 45% 55%/54% 46% 56% 44%;font-size:20px;font-weight:1000;box-shadow:0 9px 17px rgba(42,36,84,.25)}
+    #rewardCards{display:grid;gap:10px;margin:16px 0}.reward{min-height:72px!important;background:var(--mint)!important;text-align:left;padding:10px 18px}.reward small{display:block;font-size:13px}
+    #flash{position:fixed;inset:0;z-index:40;pointer-events:none;opacity:0;background:rgba(255,241,214,.5)}#flash.on{animation:flash .26s ease}@keyframes flash{40%{opacity:1}}
+    .fingerprint{position:fixed;z-index:42;width:34px;height:25px;border:3px solid rgba(255,241,214,.55);border-radius:50%;pointer-events:none;animation:print .5s ease forwards}@keyframes print{to{opacity:0;transform:scale(1.5)}}
+    html.land #game{grid-template-columns:minmax(0,68fr) minmax(320px,32fr);grid-template-rows:auto minmax(0,1fr);column-gap:14px;padding:12px max(12px,var(--stageX))}
+    html.land #hud{grid-column:1/3;grid-row:1;height:64px}html.land #main{grid-column:1;grid-row:2}html.land #door{width:min(58vw,650px);max-height:none;min-height:560px}html.land #deck{grid-column:2;grid-row:2;align-self:stretch;height:auto;grid-template-columns:repeat(2,1fr);gap:12px;padding:18px;background:rgba(42,36,84,.18);border-radius:9% 7% 8% 6%}html.land .digit{font-size:40px}html.land #quotientSlots{left:24%;right:24%}html.land #division{left:22%;right:22%}
+    @media(max-height:720px) and (max-width:1023px){#hud{height:54px}.clayTag b{font-size:16px}#door{min-height:315px}#deck{height:132px}.digit{min-height:50px}.logo{top:34px}.logo h1{font-size:48px}}
+    @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important}.blob{transform:translateX(10px)!important}}
+  </style>
+</head>
+<body>
+  <div id="ambient"><i class="blob a"></i><i class="blob b"></i></div>
+  <section id="title" aria-label="몫 던전 타이틀">
+    <div id="titleFallback"></div><img id="titleArt" src="./assets/title.png" alt="점토 숫자 패와 나눗셈 문" onerror="this.style.display='none'">
+    <div class="titleUI"><div class="logo"><h1>몫 던전</h1><p>숫자 패를 몫에 놓아요</p></div><div class="titleBottom"><div class="record" id="bestText">최고 기록 0번 문</div><select id="modeSelect" aria-label="놀이 방식"><option value="challenge">도전 · 갑옷 3</option><option value="practice">연습 · 갑옷 4</option></select><button id="startBtn">점토 문 열기!</button><button id="helpBtn">어떻게 놀아요? 〉</button></div></div>
+  </section>
+  <button id="mute" aria-label="소리 끄기">♪</button>
+  <main id="game" class="hidden">
+    <header id="hud"><div class="clayTag"><small>문</small><b id="roomVal">1 / 12</b></div><div class="clayTag"><small>갑옷</small><b id="livesVal">● ● ●</b></div><div class="clayTag"><small>점수 ×<span id="comboVal">1</span></small><b id="scoreVal">0</b></div></header>
+    <section id="main"><div id="doorZone"><div id="banner">몫 패를 놓아 문을 열어요</div><div id="door"><div id="prompt"></div><div id="quotientSlots"></div><div id="division"><span id="divisorVal"></span><span>⌟</span><span id="dividendVal"></span></div><div id="workSteps"></div><div id="remainderSlot">나머지 홈</div></div><button id="downToken" class="hidden">남은 수 내리기 ↓</button><div id="mathReveal"></div></div></section>
+    <section id="deck" aria-label="숫자 패"></section>
+  </main>
+  <svg id="tutorialPath" width="100%" height="100%" aria-hidden="true"><path class="guideLine" id="guideLine"/><circle class="guideFinger" id="guideFinger" r="15"/></svg>
+  <div id="trail"></div><div id="flash"></div>
+  <section id="overlay" class="hidden"><div class="modal"><h2 id="modalTitle"></h2><p id="modalBody"></p><div id="rewardCards"></div><button id="modalBtn">계속하기</button></div></section>
+  <script>
+  (()=>{
+    'use strict';
+    // 교과서 표현 함정: 나눗셈의 '내림'은 윗자리의 남은 수를 다음 자리로 내려쓰는 조작이다.
+    // 답 표기는 몫 q, 나머지 r이며 반드시 0 <= r < divisor. 발문은 익힘책 지시형(~해 보세요)만 쓴다.
+    const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+    const E={title:$('#title'),game:$('#game'),deck:$('#deck'),door:$('#door'),slots:$('#quotientSlots'),prompt:$('#prompt'),divisor:$('#divisorVal'),dividend:$('#dividendVal'),steps:$('#workSteps'),rem:$('#remainderSlot'),down:$('#downToken'),banner:$('#banner'),reveal:$('#mathReveal'),trail:$('#trail'),overlay:$('#overlay'),modalTitle:$('#modalTitle'),modalBody:$('#modalBody'),modalBtn:$('#modalBtn'),rewards:$('#rewardCards'),score:$('#scoreVal'),lives:$('#livesVal'),room:$('#roomVal'),combo:$('#comboVal'),guide:$('#tutorialPath'),guideLine:$('#guideLine'),guideFinger:$('#guideFinger'),flash:$('#flash')};
+    const S={phase:'title',score:0,lives:3,level:1,solved:0,room:1,combo:1,mode:'challenge',problem:null,step:0,action:'digit',placed:[],work:[],frozen:false,tutorial:true,muted:false,audio:null,last:performance.now(),time:0,roomTime:18,tools:[],shieldUsed:false,drag:null,seed:7,hitStop:0,land:false};
+    const store={best:+localStorage.getItem('quotientDungeonBestRoom')||0,score:+localStorage.getItem('quotientDungeonBestScore')||0};
+    $('#bestText').textContent=`최고 기록 ${store.best}번 문 · ${store.score}점`;
+
+    function traceDivision(dividend,divisor){
+      const digits=String(dividend).split('').map(Number),steps=[];let partial=0,started=false;
+      for(let i=0;i<digits.length;i++){
+        partial=partial*10+digits[i];
+        if(!started&&partial<divisor&&i<digits.length-1)continue;
+        started=true;const q=Math.floor(partial/divisor),product=q*divisor,remainder=partial-product;
+        steps.push({place:digits.length-1-i,partialDividend:partial,chosenQuotientDigit:q,product,remainder,broughtDownDigit:digits[i+1]??null});partial=remainder;
+      }
+      return steps;
+    }
+    // 제약 만족 풀: q,d,r를 전수 생성한 뒤 밴드 조건으로 나눈다. 런타임 재시도/사후 랜덤 필터는 없다.
+    function buildPools(){
+      const p=[[],[],[]];
+      for(let d=2;d<=9;d++)for(let q=10;q<=249;q++)for(let r=0;r<d;r++){
+        const dividend=d*q+r;if(dividend<10||dividend>999)continue;const tr=traceDivision(dividend,d);if(tr.map(x=>x.chosenQuotientDigit).join('')!==String(q))continue;
+        const base={id:`${dividend}-${d}`,dividend,divisor:d,quotient:q,remainder:r,trace:tr};
+        if(dividend<100&&r>0&&Math.floor(dividend/10)%d===0)p[0].push({...base,band:1,concept:'나머지가 있는 두 자리 수 나눗셈'});
+        if(dividend<100&&r>0&&Math.floor(dividend/10)%d!==0)p[1].push({...base,band:2,concept:'내림이 있는 나눗셈과 검산'});
+        if(dividend>=100&&r===0&&String(q).length===3&&(String(q).includes('0')||q>=111))p[2].push({...base,band:3,concept:'세 자리 수 나눗셈과 몫의 0'});
+      }
+      return p;
+    }
+    const POOLS=buildPools();
+    const fixed={id:'64-3',dividend:64,divisor:3,quotient:21,remainder:1,trace:traceDivision(64,3),band:1,concept:'나머지가 있는 두 자리 수 나눗셈'};
+    function hashPick(pool,k){return pool[(k*37+S.seed*13)%pool.length]}
+    function problemForRoom(room){if(room===1)return fixed;const band=room<=4?0:room<=8?1:2;return hashPick(POOLS[band],room+S.seed)}
+    function choicesFor(p){
+      const correct=`몫 ${p.quotient}, 나머지 ${p.remainder}`;
+      // misconceptionId: remainderTooLarge — q를 1 줄이고 r+d로 둔 등식상 같지만 나머지 조건 위반.
+      const remainderTooLarge=`몫 ${p.quotient-1}, 나머지 ${p.remainder+p.divisor}`;
+      // misconceptionId: omittedZero / currentDigitTooLarge — 내부 0 생략 또는 몫을 1 크게 잡음.
+      const zeroDeleted=String(p.quotient).includes('0')?`몫 ${Number(String(p.quotient).replace('0',''))}, 나머지 ${p.remainder}`:`몫 ${p.quotient+1}, 나머지 ${p.remainder}`;
+      // misconceptionId: omittedRemainder — 검산에서 +r을 빠뜨림. r=0이면 몫을 한 자리 줄여 항상 거짓으로 만든다.
+      const omittedRemainder=p.remainder?`몫 ${p.quotient}, 나머지 0`:`몫 ${p.quotient-1}, 나머지 0`;
+      const raw=[correct,remainderTooLarge,zeroDeleted,omittedRemainder];
+      const out=[];for(const x of raw)if(x!==correct||out.length===0)if(!out.includes(x))out.push(x);
+      for(let delta=2;out.length<4;delta++){const x=`몫 ${p.quotient+delta}, 나머지 ${p.remainder}`;if(x!==correct&&!out.includes(x))out.push(x)}
+      return out.sort((a,b)=>((a.length*17+p.dividend)%7)-((b.length*17+p.dividend)%7));
+    }
+    function sampleProblems(n){
+      const all=[...POOLS[0],...POOLS[1],...POOLS[2]],out=[];
+      for(let i=0;i<n;i++){const p=all[(i*53+17)%all.length],answer=`몫 ${p.quotient}, 나머지 ${p.remainder}`;out.push({id:p.id,prompt:`${p.dividend}÷${p.divisor}의 몫과 나머지를 각각 구해 보세요`,choices:choicesFor(p),answer,answerNumeric:p.quotient+p.remainder/p.divisor,unitConcept:p.concept});}
+      return out;
+    }
+    function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);const sw=Math.min(W,1280),sx=Math.round((W-sw)/2);document.documentElement.style.setProperty('--stageW',sw+'px');document.documentElement.style.setProperty('--stageX',sx+'px');positionGuide()}
+    addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));
+    function initDeck(){E.deck.innerHTML='';for(let n=0;n<=9;n++){const b=document.createElement('button');b.className='digit tile';b.dataset.digit=n;b.textContent=n;b.setAttribute('aria-label',`숫자 ${n} 패`);b.addEventListener('pointerdown',dragStart);E.deck.appendChild(b)}}
+    function renderProblem(){const p=S.problem;E.prompt.textContent=`${p.dividend}÷${p.divisor}의 몫과 나머지를 각각 구해 보세요`;E.divisor.textContent=p.divisor;E.dividend.textContent=p.dividend;E.steps.innerHTML='';E.slots.innerHTML='';S.placed=[];S.work=[];S.step=0;S.action='digit';S.shieldUsed=false;
+      p.trace.forEach((x,i)=>{const d=document.createElement('div');d.className='qslot slot'+(i===0?' active':' locked');d.dataset.slot=i;d.textContent='□';E.slots.appendChild(d)});E.rem.className='';E.rem.textContent='나머지 홈';E.down.classList.add('hidden');updateHUD();
+      if(S.room===1&&S.tutorial){S.frozen=true;E.banner.textContent='2 패를 빛나는 십의 자리 몫 칸에 끌어 놓아요';E.guide.classList.add('active');setTimeout(positionGuide,60)}else{S.frozen=false;E.banner.textContent='빛나는 칸에 몫 패를 놓아요';E.guide.classList.remove('active')}
+    }
+    function startGame(skipTutorial=false){S.mode=$('#modeSelect').value;S.phase='playing';S.score=0;S.lives=S.mode==='practice'?4:3;S.level=1;S.solved=0;S.room=1;S.combo=1;S.roomTime=S.mode==='practice'?999:18;S.problem=problemForRoom(1);S.tutorial=!skipTutorial;E.title.classList.add('hidden');E.game.classList.remove('hidden');E.overlay.classList.add('hidden');ensureAudio();renderProblem();layout()}
+    function nextRoom(){S.room++;if(S.room>12)return finish(true);S.level=S.room<=4?1:S.room<=8?2:3;S.problem=problemForRoom(S.room);S.roomTime=S.mode==='practice'?999:Math.max(10,19-Math.floor(S.room/2));renderProblem()}
+    function dragStart(ev){if(S.phase!=='playing')return;const digit=+ev.currentTarget.dataset.digit;S.drag={digit,source:ev.currentTarget};ev.currentTarget.setPointerCapture?.(ev.pointerId);ev.currentTarget.classList.add('grabbed');E.trail.textContent=digit;E.trail.style.display='grid';moveTrail(ev);ev.currentTarget.addEventListener('pointermove',moveTrail);ev.currentTarget.addEventListener('pointerup',dragEnd,{once:true});tone(260,.035,'triangle')}
+    function moveTrail(ev){E.trail.style.left=ev.clientX+'px';E.trail.style.top=ev.clientY+'px'}
+    function dragEnd(ev){const src=S.drag?.source;src?.classList.remove('grabbed');src?.removeEventListener('pointermove',moveTrail);E.trail.style.display='none';const target=document.elementFromPoint(ev.clientX,ev.clientY);const digit=S.drag?.digit;S.drag=null;if(target?.closest('.qslot'))submitDigit(digit,target.closest('.qslot'));else if(target?.closest('#remainderSlot'))submitRemainder(digit);else refuse(ev.clientX,ev.clientY,'빛나는 홈까지 끌어 놓아요')}
+    E.down.addEventListener('pointerdown',ev=>{if(S.action!=='down')return;E.down.setPointerCapture?.(ev.pointerId);S.drag={down:true,startY:ev.clientY};E.trail.textContent='↓';E.trail.style.display='grid';moveTrail(ev);E.down.addEventListener('pointermove',moveTrail);E.down.addEventListener('pointerup',downEnd,{once:true})});
+    function downEnd(ev){E.down.removeEventListener('pointermove',moveTrail);E.trail.style.display='none';const moved=ev.clientY-(S.drag?.startY??ev.clientY),ok=moved>46;if(ok)acceptDown();else refuse(ev.clientX,ev.clientY,'남은 점토를 아래 홈으로 직접 내려요');S.drag=null}
+    function submitDigit(digit,slot){if(S.action!=='digit'){refuse(null,null,'먼저 남은 점토를 내려요');return}if(+slot.dataset.slot!==S.step){refuse(null,null,'빛난 칸부터 놓아요');return}const st=S.problem.trace[S.step];if(digit===st.chosenQuotientDigit)acceptDigit(digit,st,slot);else wrongDigit(digit,st)}
+    function acceptDigit(digit,st,slot){slot.textContent=digit;slot.className='qslot slot filled';S.placed.push(digit);S.work.push(`${S.problem.divisor}×${digit}=${st.product}, ${st.remainder} 남음`);appendStep(`${st.partialDividend}에서 <b>${S.problem.divisor}×${digit}=${st.product}</b> → ${st.remainder} 남음`);positive(`${S.problem.divisor}×${digit}=${st.product}, ${st.remainder}가 남아요`);S.score+=20*S.combo;S.combo=Math.min(3,S.combo+1);scoreBump();
+      if(S.tutorial&&S.room===1&&S.step===0){S.tutorial=false;S.frozen=false;E.guide.classList.remove('active');E.banner.textContent='좋아요! 이제 남은 0과 4를 아래로 내려요';localStorage.setItem('onboardingSeen:quotient-dungeon','1')}
+      if(S.step<S.problem.trace.length-1){S.action='down';E.down.textContent=`남은 ${st.remainder}과 ${st.broughtDownDigit} 내리기 ↓`;E.down.classList.remove('hidden');positionDown()}else{S.action='remainder';E.rem.classList.add('active');E.banner.textContent='마지막 남은 수를 나머지 홈에 놓아요'}updateHUD()}
+    function acceptDown(){const old=S.problem.trace[S.step],next=S.problem.trace[S.step+1];E.down.classList.add('hidden');appendStep(`↓ ${old.remainder}과 ${old.broughtDownDigit}을 내려 <b>${next.partialDividend}</b>`);S.step++;S.action='digit';const slots=$$('.qslot');slots[S.step].classList.remove('locked');slots[S.step].classList.add('active');E.banner.textContent='다음 몫 패를 빛나는 칸에 놓아요';positive(`${next.partialDividend}을 ${S.problem.divisor}로 나누어요`,false);S.score+=10;scoreBump()}
+    function submitRemainder(digit){if(S.action!=='remainder'){refuse(null,null,'몫부터 차례대로 놓아요');return}if(digit===S.problem.remainder){E.rem.textContent=`나머지 ${digit}`;E.rem.className='filled';roomClear()}else{const why=digit>=S.problem.divisor?`${digit}에서는 ${S.problem.divisor}을 한 묶음 더 만들 수 있어요`:`마지막에 남은 점토 수를 다시 세어 보세요`;penalty(why)}}
+    function wrongDigit(digit,st){const product=digit*S.problem.divisor;const why=product>st.partialDividend?`${S.problem.divisor}×${digit}=${product}, 너무 많이 묶었어요`:`${S.problem.divisor}×${digit}=${product}, 아직 더 묶을 수 있어요`;penalty(why)}
+    function penalty(msg){S.lives--;if(!(S.tools.includes('comboShield')&&!S.shieldUsed))S.combo=1;else S.shieldUsed=true;E.banner.textContent=msg;E.door.classList.remove('wrong');void E.door.offsetWidth;E.door.classList.add('wrong');tone(120,.16,'sawtooth');updateHUD();if(S.lives<=0)setTimeout(()=>finish(false),650)}
+    function positive(msg,flash=true){S.hitStop=.075;E.reveal.textContent=msg;E.reveal.classList.remove('show');void E.reveal.offsetWidth;E.reveal.classList.add('show');E.door.classList.remove('correct');void E.door.offsetWidth;E.door.classList.add('correct');if(flash){E.flash.classList.remove('on');void E.flash.offsetWidth;E.flash.classList.add('on')}tone(420+S.combo*90,.09,'sine')}
+    function appendStep(html){const d=document.createElement('div');d.className='step';d.innerHTML=html;E.steps.appendChild(d)}
+    function scoreBump(){E.score.textContent=S.score;E.score.classList.remove('bump');void E.score.offsetWidth;E.score.classList.add('bump')}
+    function roomClear(){S.solved++;S.score+=(100+(S.room>=7?50:0)+(S.tools.includes('verifyBonus')?50:0))*S.combo;positive(`${S.problem.divisor}×${S.problem.quotient}+${S.problem.remainder}=${S.problem.dividend}`);E.banner.textContent='검산도 맞아요! 점토 문이 열려요';scoreBump();S.phase='transition';setTimeout(()=>{if(S.room%3===0&&S.room<12)showRewards();else nextRoom()},1050)}
+    function showRewards(){S.phase='reward';E.overlay.classList.remove('hidden');E.modalTitle.textContent='점토 도구 하나 고르기';E.modalBody.textContent='계산을 대신하지 않고 이번 모험만 도와줘요.';E.modalBtn.classList.add('hidden');const rewards=[['첫 금 보호','방마다 첫 실수에 콤보를 지켜요','comboShield'],['검산 자국','문을 열면 50점을 더 받아요','verifyBonus'],['점토 갑옷','갑옷 한 조각을 바로 고쳐요','armor']];E.rewards.innerHTML='';rewards.forEach(([a,b,id])=>{const x=document.createElement('button');x.className='reward card';x.innerHTML=`${a}<small>${b}</small>`;x.onclick=()=>{S.tools.push(id);if(id==='armor')S.lives=Math.min(4,S.lives+1);E.overlay.classList.add('hidden');S.phase='playing';nextRoom()};E.rewards.appendChild(x)})}
+    function finish(win){S.phase=win?'clear':'gameover';store.best=Math.max(store.best,S.room-(win?0:1));store.score=Math.max(store.score,S.score);localStorage.setItem('quotientDungeonBestRoom',store.best);localStorage.setItem('quotientDungeonBestScore',store.score);E.overlay.classList.remove('hidden');E.modalTitle.textContent=win?'열두 문이 모두 열렸어요!':'점토 문이 굳었어요';E.modalBody.textContent=`${S.room}번 문 · ${S.score}점\n${win?'4×206+0처럼 검산까지 완성했어요.':'갑옷을 다시 빚어 도전해 보세요.'}`;E.rewards.innerHTML='';E.modalBtn.classList.remove('hidden');E.modalBtn.textContent='다시 열기';E.modalBtn.onclick=()=>startGame(true)}
+    function refuse(x,y,msg){E.banner.textContent=msg;const active=$('.digit[data-digit="'+(S.problem?.trace[S.step]?.chosenQuotientDigit??0)+'"]');active?.classList.remove('nudge');if(active){void active.offsetWidth;active.classList.add('nudge')}if(x!=null){const p=document.createElement('i');p.className='fingerprint';p.style.left=(x-17)+'px';p.style.top=(y-12)+'px';document.body.appendChild(p);setTimeout(()=>p.remove(),550)}tone(170,.05,'square')}
+    function positionDown(){const r=E.door.getBoundingClientRect();E.down.style.left=(r.left+r.width*.5-78)+'px';E.down.style.top=(r.top+r.height*.54)+'px'}
+    function positionGuide(){if(!S.tutorial||S.phase!=='playing')return;const a=$('.digit[data-digit="2"]')?.getBoundingClientRect(),b=$('.qslot.active')?.getBoundingClientRect();if(!a||!b)return;const x1=a.left+a.width/2,y1=a.top+a.height/2,x2=b.left+b.width/2,y2=b.top+b.height/2;E.guideLine.setAttribute('d',`M ${x1} ${y1} Q ${(x1+x2)/2+25} ${(y1+y2)/2} ${x2} ${y2}`);E.guideFinger.setAttribute('cx',x1);E.guideFinger.setAttribute('cy',y1)}
+    function updateHUD(){E.room.textContent=`${S.room} / 12`;E.lives.textContent=Array.from({length:S.mode==='practice'?4:3},(_,i)=>i<S.lives?'●':'○').join(' ');E.score.textContent=S.score;E.combo.textContent=S.combo}
+    function ensureAudio(){if(S.muted)return;try{S.audio=S.audio||new (window.AudioContext||window.webkitAudioContext)();if(S.audio.state==='suspended')S.audio.resume()}catch{S.muted=true}}
+    function tone(freq,dur,type){if(S.muted||!S.audio)return;const o=S.audio.createOscillator(),g=S.audio.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(.035,S.audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,S.audio.currentTime+dur);o.connect(g).connect(S.audio.destination);o.start();o.stop(S.audio.currentTime+dur)}
+    function tick(now){const dt=Math.min(.05,(now-S.last)/1000);S.last=now;if(S.hitStop>0)S.hitStop-=dt;else if(S.phase==='playing'&&!S.frozen&&S.mode==='challenge'){S.roomTime-=dt;if(S.roomTime<=0){S.roomTime=18;penalty('시간이 끝났어요. 갑옷 한 조각이 눌렸어요')}}S.time+=dt;requestAnimationFrame(tick)}
+    $('#startBtn').addEventListener('click',()=>{ensureAudio();$('#startBtn').style.transform='scale(.9,.78)';setTimeout(()=>startGame(false),120)});$('#helpBtn').addEventListener('click',()=>{E.overlay.classList.remove('hidden');E.modalTitle.textContent='손으로 해보는 나눗셈';E.modalBody.textContent='① 숫자 패를 몫 칸에 끌어요. ② 남은 수를 아래로 내려요. ③ 끝에 남은 수를 나머지 홈에 놓아요.';E.rewards.innerHTML='';E.modalBtn.classList.remove('hidden');E.modalBtn.textContent='알겠어요';E.modalBtn.onclick=()=>E.overlay.classList.add('hidden')});
+    $('#mute').addEventListener('click',()=>{S.muted=!S.muted;$('#mute').textContent=S.muted?'×':'♪';$('#mute').setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기');if(!S.muted)ensureAudio()});
+    document.addEventListener('pointerdown',ev=>{if(S.phase==='playing'&&!ev.target.closest('.digit,#downToken,#mute')){const r=E.game.getBoundingClientRect();if(ev.clientX>=r.left&&ev.clientX<=r.right)refuse(ev.clientX,ev.clientY,S.action==='down'?'남은 점토를 아래로 내려요':'숫자 패를 홈까지 끌어 놓아요')}});
+    function forceCorrect(){if(S.phase!=='playing')startGame(true);S.score+=25;S.solved++;scoreBump();positive('검산 성공!')}
+    function forceWrong(){if(S.phase!=='playing')startGame(true);penalty('다시 묶어 보세요')}
+    function runDegenerateBots(rounds=200){
+      const simulate=kind=>{let complete=0,totalScore=0;for(let run=0;run<rounds;run++){let lives=3,score=0;for(let room=1;room<=12&&lives>0;room++){const p=problemForRoom(room),answers=p.trace.map(x=>x.chosenQuotientDigit).concat(p.remainder);let ok=true;for(let i=0;i<answers.length;i++){let g=kind==='same'?5:kind==='cycle'?i%10:kind==='random'?((run*97+room*31+i*17)%10):-1;if(g!==answers[i]){lives--;ok=false;if(lives<=0)break}}if(ok)score+=100;if(room===12&&ok)complete++}totalScore+=score}return{completionRate:complete/rounds,averageScore:totalScore/rounds}};
+      return{same:simulate('same'),cycle:simulate('cycle'),random:simulate('random'),noInput:simulate('none')};
+    }
+    window.__GAME_TEST__={ready:true,start(){startGame(true)},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect:forceCorrect,answerWrong:forceWrong,sampleProblems,getLayout(){return{land:S.land,playW:Math.min(innerWidth,1280)}},runDegenerateBots};
+    initDeck();layout();requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>

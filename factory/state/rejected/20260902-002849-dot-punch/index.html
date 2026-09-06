@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>점박기 — 소수점 고정핀 인쇄소</title>
+  <meta name="description" content="숫자띠의 알맞은 틈에 소수점 고정핀을 박아 보세요.">
+  <meta property="og:title" content="점박기">
+  <meta property="og:description" content="점 하나가 답이다">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    :root{--paper:#f2e7d5;--blue:#183a63;--coral:#ef5b5b;--ink:#20201e;--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2)}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#d8c8b1;color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    body{font-family:Georgia,"Times New Roman","Apple SD Gothic Neo","Malgun Gothic",serif}
+    button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+    #game{position:fixed;inset:0;overflow:hidden;background:var(--paper)}
+    #paperTexture{position:absolute;inset:0;opacity:.32;pointer-events:none;background-image:repeating-linear-gradient(0deg,transparent 0 13px,rgba(32,32,30,.04) 14px),radial-gradient(circle at 12% 18%,rgba(24,58,99,.12) 0 1px,transparent 1.5px);background-size:auto,17px 17px;mix-blend-mode:multiply}
+    #playCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+    .off{display:none!important}
+    #mute{position:fixed;z-index:40;top:max(10px,env(safe-area-inset-top));right:max(12px,calc((100vw - min(100vw,1280px))/2 + 12px));width:46px;height:46px;border:1px solid currentColor;border-radius:50%;background:var(--paper);font:900 20px/1 ui-monospace,monospace}
+
+    /* 타이틀: 생성 키 아트를 풀블리드로 사용하며 실패 시 종이 그라디언트가 남는다. */
+    #titleScreen{position:fixed;z-index:30;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 46%,#fbf2e2 0 30%,#dbc7aa 100%)}
+    #titleArt{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;object-position:50% 50%;animation:artBreath 20s ease-in-out infinite alternate}
+    #titleScreen:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(242,231,213,.08),transparent 45%,rgba(32,32,30,.63) 100%);pointer-events:none}
+    .reg{position:absolute;width:22px;height:22px;border:1px solid var(--blue);border-radius:50%;opacity:.65;animation:drift 5s ease-in-out infinite}.reg:before,.reg:after{content:"";position:absolute;background:var(--blue)}.reg:before{width:30px;height:1px;left:-5px;top:10px}.reg:after{height:30px;width:1px;top:-5px;left:10px}.r1{left:8%;top:34%}.r2{right:9%;top:48%;animation-delay:-2s}.r3{left:16%;bottom:20%;animation-delay:-4s}
+    .titleUI{position:relative;z-index:2;width:min(100%,640px);height:100%;margin:auto;text-align:center;pointer-events:none}
+    .logoZone{position:absolute;top:max(46px,6dvh);left:12px;right:12px;animation:logoIn .8s cubic-bezier(.2,1.25,.3,1) both}
+    .logo{margin:0;color:var(--paper);font-size:clamp(76px,25vw,126px);font-weight:900;letter-spacing:-.12em;line-height:.9;transform:rotate(-2deg);-webkit-text-stroke:3px var(--ink);text-shadow:3px 2px 0 var(--coral),-3px -2px 0 var(--blue),6px 6px 0 var(--ink)}
+    .tagline{display:inline-block;margin-top:16px;padding:7px 13px;background:var(--paper);border:1px solid var(--ink);font:800 14px/1.1 ui-monospace,"Apple SD Gothic Neo",monospace;letter-spacing:.08em;transform:rotate(1deg)}
+    .ctaZone{position:absolute;z-index:3;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:6px;pointer-events:auto}
+    #record{min-height:28px;padding:6px 12px;background:rgba(242,231,213,.9);border:1px solid var(--ink);font:800 12px/1 ui-monospace,monospace}
+    #startBtn{width:min(100%,420px);min-height:68px;border:3px solid var(--ink);border-radius:0;background:var(--coral);color:var(--paper);font-size:26px;font-weight:900;letter-spacing:.04em;box-shadow:8px 8px 0 var(--blue);animation:ctaPulse 2.4s 1.1s ease-in-out infinite}
+    #startBtn:active{transform:translate(4px,4px) skewX(-2deg);box-shadow:3px 3px 0 var(--blue)}
+    #helpBtn{min-width:150px;min-height:44px;border:0;background:transparent;color:#fff;font:800 13px/1.2 ui-monospace,monospace;text-decoration:underline;text-underline-offset:4px;text-shadow:0 2px 3px #000}
+    .unitline{color:#fff;font:800 12px/1.2 ui-monospace,monospace;text-shadow:0 2px 3px #000}
+
+    #hud{position:absolute;z-index:4;left:12px;top:10px;right:70px;height:48px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(32,32,30,.62);font:800 12px/1 ui-monospace,"Apple SD Gothic Neo",monospace;pointer-events:none}
+    #hud strong{font-size:20px;color:var(--blue);display:inline-block;min-width:28px}.stampFlash{animation:inkStamp .3s steps(2)}
+    #side{position:absolute;z-index:4;left:12px;right:12px;bottom:10px;height:166px;border:1px solid rgba(32,32,30,.75);background:rgba(242,231,213,.94);display:grid;grid-template-columns:1.15fr .85fr;pointer-events:none}
+    .sideBlock{padding:12px;border-right:1px solid rgba(32,32,30,.55)}.sideBlock:last-child{border:0}
+    .caption{font:800 10px/1.2 ui-monospace,"Apple SD Gothic Neo",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
+    #formula{margin-top:8px;font-size:clamp(20px,6vw,30px);font-weight:900;white-space:nowrap}
+    #countGuide{margin-top:8px;font:800 13px/1.45 ui-monospace,"Apple SD Gothic Neo",monospace}
+    #holes{display:flex;gap:10px;margin-top:13px}.hole{width:48px;height:48px;border:2px solid var(--ink);border-radius:50%;display:grid;place-items:center;font:900 18px/1 ui-monospace,monospace;color:var(--blue)}.hole.blocked{border-color:var(--coral);background:repeating-radial-gradient(circle,var(--coral) 0 2px,transparent 3px 6px);color:var(--paper)}
+    #message{position:absolute;z-index:8;left:50%;top:19%;transform:translateX(-50%);min-width:min(86vw,480px);padding:9px 14px;text-align:center;background:var(--paper);border-top:3px double var(--ink);border-bottom:3px double var(--ink);font:900 clamp(14px,4vw,20px)/1.3 ui-monospace,"Apple SD Gothic Neo",monospace;opacity:0;pointer-events:none}.showMessage{animation:messageRise 1.1s ease-out}
+    #onboard,#result{position:fixed;z-index:25;inset:0;background:rgba(32,32,30,.62);display:grid;place-items:center;padding:18px}
+    .paperDialog{width:min(100%,520px);background:var(--paper);border:2px solid var(--ink);padding:24px 22px;text-align:center;position:relative}.paperDialog:before{content:"";position:absolute;inset:7px;border:1px solid var(--blue);pointer-events:none}
+    .paperDialog h2{margin:2px 0 12px;font-size:31px;color:var(--blue)}.paperDialog p{font:800 17px/1.55 "Apple SD Gothic Neo","Malgun Gothic",sans-serif;min-height:82px}.paperDialog button{position:relative;min-height:56px;min-width:180px;border:2px solid var(--ink);border-radius:0;background:var(--blue);color:var(--paper);font-weight:900;font-size:18px}.step{font:800 11px/1 ui-monospace,monospace;color:var(--coral)}
+    #result .paperDialog{background-image:radial-gradient(var(--coral) 1px,transparent 1.5px);background-size:12px 12px}#resultScore{font:900 58px/1 Georgia,serif;color:var(--blue);margin:15px 0}#retry{background:var(--coral)}
+
+    html.land #hud{left:var(--stageX);right:auto;width:calc(var(--stageW) - 24px)}
+    html.land #side{left:calc(var(--stageX) + var(--stageW)*.70 + 8px);right:auto;top:72px;bottom:14px;width:calc(var(--stageW)*.30 - 20px);height:auto;display:block}
+    html.land .sideBlock{border-right:0;border-bottom:1px solid rgba(32,32,30,.55);padding:18px}html.land .sideBlock:last-child{border:0}
+    html.land #formula{font-size:clamp(25px,2.4vw,36px);white-space:normal}html.land #holes{flex-wrap:wrap}
+    html.land #message{left:calc(var(--stageX) + var(--stageW)*.35)}
+    @keyframes artBreath{to{transform:scale(1.035) translateY(-.5%)}}@keyframes drift{50%{transform:translateY(-7px) rotate(8deg)}}@keyframes logoIn{from{opacity:0;transform:translateY(-24px) scale(.82)}to{opacity:1;transform:none}}@keyframes ctaPulse{0%,72%,100%{transform:none}82%{transform:scale(1.035)}90%{transform:none}}@keyframes inkStamp{50%{transform:scale(1.28) rotate(-2deg);color:var(--coral)}}@keyframes messageRise{0%{opacity:0;transform:translate(-50%,18px)}18%,72%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-18px)}}
+    @media(max-height:700px) and (max-width:1023px){#side{height:142px}.sideBlock{padding:8px}#formula{margin-top:4px}.logo{font-size:68px}.logoZone{top:32px}#startBtn{min-height:64px}}
+    @media(prefers-reduced-motion:reduce){#titleArt,.reg,#startBtn{animation-duration:40s}.logoZone{animation-duration:.15s}}
+  </style>
+</head>
+<body>
+<main id="game">
+  <canvas id="playCanvas" aria-label="움직이는 숫자띠의 소수점 틈에 핀을 놓는 게임판"></canvas>
+  <div id="paperTexture"></div>
+  <header id="hud" class="off"><span>판번호 <strong id="levelText">1</strong></span><span>인쇄점수 <strong id="scoreText">0</strong></span><span>연속 <strong id="comboText">0</strong></span></header>
+  <aside id="side" class="off">
+    <section class="sideBlock"><div class="caption">조판 지시 · 오른쪽부터 세기</div><div id="formula">2.7 × 4</div><div id="countGuide">소수 자릿수 1 + 0 = <b>1칸</b><br>자연수 곱의 알맞은 틈에 핀을 놓아 보세요.</div></section>
+    <section class="sideBlock"><div class="caption">예비 고정 구멍</div><div id="holes"><span class="hole">○</span><span class="hole">○</span><span class="hole">○</span></div><div class="caption" style="margin-top:15px">판 상태</div><div id="pressState" style="margin-top:7px;font-weight:900">단색 인쇄 대기</div></section>
+  </aside>
+  <div id="message" aria-live="polite"></div>
+</main>
+<button id="mute" aria-label="소리 끄기">♪</button>
+<section id="titleScreen" aria-label="점박기 타이틀 화면">
+  <img id="titleArt" src="./assets/title.png" alt="" onerror="this.style.display='none'">
+  <i class="reg r1"></i><i class="reg r2"></i><i class="reg r3"></i>
+  <div class="titleUI"><div class="logoZone"><h1 class="logo">점박기</h1><div class="tagline">점 하나가 답이다</div></div><div class="ctaZone"><div id="record"></div><button id="startBtn"><span>인쇄기 돌리기!</span></button><button id="helpBtn">어떻게 놀아요? 〉</button><div class="unitline">5학년 2학기 · 소수의 곱셈</div></div></div>
+</section>
+<section id="onboard" class="off" aria-modal="true"><div class="paperDialog"><div class="step" id="stepNo">1 / 3</div><h2 id="stepTitle">핀을 잡아요</h2><p id="stepBody">코발트색 고정핀을 누르고 숫자띠의 틈까지 끌어 보세요.</p><button id="nextStep">다음</button></div></section>
+<section id="result" class="off" aria-modal="true"><div class="paperDialog"><div class="caption">오늘의 인쇄 종료</div><h2 id="resultTitle">인쇄판이 찢어졌어요</h2><div id="resultScore">0</div><p id="resultNote">오른쪽부터 두 수의 소수 자릿수만큼 세어 보세요.</p><button id="retry">다시 인쇄!</button></div></section>
+<script>
+(()=>{'use strict';
+  const $=s=>document.querySelector(s), canvas=$('#playCanvas'),ctx=canvas.getContext('2d',{alpha:false});
+  const C={paper:'#f2e7d5',blue:'#183a63',coral:'#ef5b5b',ink:'#20201e'};
+  const S={phase:'title',score:0,scoreShown:0,lives:3,level:1,solved:0,combo:0,bestCombo:0,elapsed:0,band:1,problem:null,problemCursor:0,belt:0,selected:2,drag:false,pointerId:null,pinX:0,pinY:0,pinVX:0,pinVY:0,feedback:0,feedbackKind:'',timeScale:1,flash:0,ink:[],trails:[],lastT:0,land:false,stageW:390,stageX:0,play:{x:0,y:58,w:390,h:600},muted:false,audio:null,runId:0,locked:false};
+
+  // 교과서 표현 함정: 익힘책 지시형(~해 보세요)만 사용한다. 정확한 소수 곱이므로 '약'과 어림 자리 표현은 쓰지 않는다. 소수 오른쪽 끝 0은 표시에서 생략한다.
+  const pow10=n=>[1,10,100,1000,10000,100000][n];
+  const dec=(v,places)=>{const p=pow10(places),q=Math.floor(v/p),r=String(v%p).padStart(places,'0');return places?`${q}.${r}`:String(q)};
+  const trim=s=>s.includes('.')?s.replace(/0+$/,'').replace(/\.$/,''):s;
+  const operand=(v,p)=>trim(dec(v,p));
+  const resultAt=(product,p)=>trim(dec(product,p));
+  const seedMix=n=>{n|=0;n=Math.imul(n^(n>>>16),0x45d9f3b);n=Math.imul(n^(n>>>16),0x45d9f3b);return (n^(n>>>16))>>>0};
+  const POOLS={1:[],2:[],3:[]};
+  function addProblem(band,A,sa,B,sb,type='place'){
+    const product=A*B,required=sa+sb;
+    if(product<10||product>99999)return;
+    const choices=[];
+    // 오답 후처리 순서: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플. 각 후보에 오개념 ID를 보존한다.
+    const raw=[
+      {p:sa,misconceptionId:'ONE_FACTOR_PLACES'}, // 한쪽 수의 소수 자릿수만 사용
+      {p:sb,misconceptionId:'ONE_FACTOR_PLACES'}, // 다른 한쪽만 사용
+      {p:Math.max(0,required-1),misconceptionId:'DECIMAL_ALIGN'}, // 덧셈처럼 점 위치를 맞춤
+      {p:Math.min(5,required+1),misconceptionId:'ALWAYS_GROWS'}, // 배율과 무관한 크기 판단
+      {p:0,misconceptionId:'IGNORE_DECIMAL'},
+      {p:4,misconceptionId:'PLACE_SHIFT'},
+      {p:5,misconceptionId:'PLACE_SHIFT'}
+    ].filter(x=>x.p!==required&&x.p>=0&&x.p<=5);
+    const seen=new Set([resultAt(product,required)]);
+    raw.forEach(x=>{const value=resultAt(product,x.p);if(!seen.has(value)){seen.add(value);choices.push({...x,value})}});
+    for(let p=0;choices.length<5&&p<=5;p++){const value=resultAt(product,p);if(p!==required&&!seen.has(value)){seen.add(value);choices.push({p,value,misconceptionId:'PLACE_SHIFT'})}}
+    const correct={p:required,value:resultAt(product,required),misconceptionId:null};
+    const mixed=[correct,...choices.slice(0,5)].sort((x,y)=>seedMix(product+x.p*97+A*7)%101-seedMix(product+y.p*97+A*7)%101);
+    POOLS[band].push({id:`b${band}-${A}-${sa}-${B}-${sb}-${type}`,band,A,sa,B,sb,product,required,type,prompt:`${operand(A,sa)} × ${operand(B,sb)}의 곱이 되도록 소수점 핀을 놓아 보세요.`,choices:mixed,answer:correct.value,answerNumeric:product/pow10(required),unitConcept:band===1?'소수 한 자리 수와 자연수의 곱셈':band===2?'소수 한 자리 수끼리의 곱셈':'소수 두 자리 수와 소수 한 자리 수의 곱셈'});
+  }
+  // 제약 만족 풀: 각 밴드의 자릿수를 먼저 정하고 정수쌍을 전수 생성한다. 무작위 생성/사후 재시도 없음.
+  for(let A=11;A<=99;A+=2)for(let B=2;B<=9;B++)addProblem(1,A,1,B,0);
+  for(let A=2;A<=98;A+=2)for(let B=3;B<=99;B+=4)addProblem(2,A,1,B,1);
+  for(let A=101;A<=999;A+=7)for(let B=2;B<=9;B++)addProblem(3,A,2,B,1);
+  const ALL=[...POOLS[1],...POOLS[2],...POOLS[3]];
+  function pickProblem(band=S.band){const pool=POOLS[band],i=seedMix(S.problemCursor++ + S.runId*991)%pool.length;return pool[i]}
+
+  function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);S.stageW=Math.min(W,1280);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(d,0,0,d,0,0);S.play=S.land?{x:S.stageX+12,y:62,w:S.stageW*.70-20,h:H-76}:{x:0,y:58,w:W,h:H-232};if(S.problem)resetPin();}
+  function resetPin(){const p=S.play;S.pinX=p.x+Math.min(92,p.w*.18);S.pinY=p.y+Math.max(68,p.h*.18);S.selected=2;S.drag=false;}
+  addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));
+
+  function audio(){if(S.muted)return null;if(!S.audio)try{S.audio=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return null}if(S.audio.state==='suspended')S.audio.resume();return S.audio}
+  function tone(freq,dur=.09,type='sine',delay=0){const a=audio();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime+delay;o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(a.destination);o.start(t);o.stop(t+dur+.02)}
+  function updateHud(){const score=Math.round(S.scoreShown);$('#scoreText').textContent=score;$('#comboText').textContent=S.combo;$('#levelText').textContent=S.band;$('#formula').textContent=`${operand(S.problem.A,S.problem.sa)} × ${operand(S.problem.B,S.problem.sb)}`;$('#countGuide').innerHTML=`소수 자릿수 ${S.problem.sa} + ${S.problem.sb} = <b>${S.problem.required}칸</b><br>자연수 곱 ${S.problem.A} × ${S.problem.B} = ${S.problem.product}`;[...document.querySelectorAll('.hole')].forEach((h,i)=>{h.classList.toggle('blocked',i>=S.lives);h.textContent=i>=S.lives?'×':'○'});$('#pressState').textContent=S.combo>=10?'3색 포스터 인쇄':S.combo>=6?'관통 잉크 연결':S.combo>=3?'단색 잠금 완성':'단색 인쇄 대기'}
+  function message(text,kind){const m=$('#message');m.textContent=text;m.style.color=kind==='wrong'?C.coral:C.blue;m.classList.remove('showMessage');void m.offsetWidth;m.classList.add('showMessage')}
+  function nextProblem(){S.problem=pickProblem(S.band);S.belt=0;S.locked=false;resetPin();updateHud()}
+  function startGame(skipGuide=false){audio();S.phase='playing';S.score=0;S.scoreShown=0;S.lives=3;S.level=1;S.solved=0;S.combo=0;S.bestCombo=0;S.elapsed=0;S.band=1;S.runId++;S.problemCursor=0;S.ink.length=0;S.trails.length=0;$('#titleScreen').classList.add('off');$('#result').classList.add('off');$('#onboard').classList.add('off');$('#hud').classList.remove('off');$('#side').classList.remove('off');nextProblem();if(!skipGuide)message('오른쪽부터 1칸! 핀을 끌어 놓아 보세요.','ok')}
+  function endGame(reason){if(S.phase!=='playing')return;S.phase='gameover';S.drag=false;const best=Math.max(Number(localStorage.getItem('dotPunchBest')||0),Math.floor(S.score));localStorage.setItem('dotPunchBest',best);localStorage.setItem('dotPunchCombo',Math.max(Number(localStorage.getItem('dotPunchCombo')||0),S.bestCombo));$('#resultScore').textContent=Math.floor(S.score)+'점';$('#resultTitle').textContent=reason;$('#resultNote').textContent=S.solved?`${S.solved}장을 인쇄했어요. 최고 연속 ${S.bestCombo}!`:'두 수의 소수 자릿수를 모두 더해 오른쪽부터 세어 보세요.';$('#result').classList.remove('off');tone(150,.3,'sawtooth')}
+  function answer(correct,forced=false){if(S.phase!=='playing')startGame(true);if(S.locked&&!forced)return;S.locked=true;if(correct){const late=S.belt>.85,base=late?250:100,mult=S.combo>=10?3:S.combo>=6?2:S.combo>=3?1.5:1;S.score+=Math.round(base*mult);S.solved++;S.combo++;S.bestCombo=Math.max(S.bestCombo,S.combo);S.level=S.solved+1;S.feedback=1;S.feedbackKind='right';S.flash=.42;S.timeScale=S.combo===10?.08:.22;for(let i=0;i<Math.min(18,5+S.combo);i++)S.ink.push({x:S.pinX,y:S.pinY,vx:(i%2?1:-1)*(18+(i*17)%55),vy:-28-(i*13)%70,life:.7+(i%4)*.08,r:2+(i%3)});message(late?'막판 인쇄! +250':'철컥! 소수점 고정','ok');tone(330+Math.min(S.combo,10)*24,.09,'triangle');tone(500+Math.min(S.combo,10)*30,.12,'triangle',.07);$('#scoreText').classList.add('stampFlash');setTimeout(()=>$('#scoreText').classList.remove('stampFlash'),320);if(S.solved===4)S.band=2;if(S.solved===8)S.band=3;setTimeout(()=>{if(S.phase==='playing')nextProblem()},520)}else{S.lives--;S.combo=0;S.feedback=1;S.feedbackKind='wrong';S.flash=.55;S.timeScale=.35;message(`아쉬워요! ${S.problem.sa}+${S.problem.sb}=${S.problem.required}, 오른쪽부터 ${S.problem.required}칸`,'wrong');tone(180,.18,'square');if(S.lives<=0)setTimeout(()=>endGame('예비 구멍이 모두 막혔어요'),420);else setTimeout(()=>{if(S.phase==='playing')nextProblem()},650)}updateHud()}
+
+  function gapGeometry(){const p=S.play,cx=p.x+p.w*.54,cy=p.y+p.h*.54,span=Math.min(p.w*.82,570),left=cx-span/2;return{cx,cy,span,left,step:span/5}}
+  // 화면의 왼쪽 틈은 소수 자릿수가 많고 오른쪽 틈은 0칸이다. 판정값은 '오른쪽부터 p칸' 그 자체다.
+  function nearestGap(x){const g=gapGeometry(),screenIndex=Math.max(0,Math.min(5,Math.round((x-g.left)/g.step)));return 5-screenIndex}
+  function pointerPos(e){return{x:e.clientX,y:e.clientY}}
+  canvas.addEventListener('pointerdown',e=>{if(S.phase!=='playing')return;audio();canvas.setPointerCapture?.(e.pointerId);S.pointerId=e.pointerId;S.drag=true;const p=pointerPos(e);S.pinX=p.x;S.pinY=p.y;S.selected=nearestGap(p.x);S.trails.push({x:p.x,y:p.y,life:.35});e.preventDefault()});
+  canvas.addEventListener('pointermove',e=>{if(!S.drag||e.pointerId!==S.pointerId)return;const p=pointerPos(e);S.pinVX=(p.x-S.pinX)*14;S.pinVY=(p.y-S.pinY)*14;S.pinX=p.x;S.pinY=p.y;S.selected=nearestGap(p.x);S.trails.push({x:p.x,y:p.y,life:.32});e.preventDefault()});
+  canvas.addEventListener('pointerup',e=>{if(!S.drag||e.pointerId!==S.pointerId)return;S.drag=false;const g=gapGeometry(),slotX=g.left+(5-S.selected)*g.step;S.pinX=slotX;S.pinY=g.cy+10;answer(S.selected===S.problem.required);e.preventDefault()});
+  addEventListener('keydown',e=>{if(S.phase==='title'&&(e.key==='Enter'||e.key===' ')){startGame(true);return}if(S.phase!=='playing')return;if(['ArrowLeft','a','A'].includes(e.key)){S.selected=Math.min(5,S.selected+1);tone(240,.04)}if(['ArrowRight','d','D'].includes(e.key)){S.selected=Math.max(0,S.selected-1);tone(280,.04)}if(e.key===' '||e.key==='Enter')answer(S.selected===S.problem.required);const g=gapGeometry();S.pinX=g.left+(5-S.selected)*g.step;S.pinY=g.cy+10;e.preventDefault()});
+
+  function drawPaper(W,H){ctx.fillStyle=C.paper;ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(32,32,30,.12)';ctx.lineWidth=1;for(let y=28;y<H;y+=32){ctx.beginPath();ctx.moveTo(0,y+.5);ctx.lineTo(W,y+.5);ctx.stroke()}ctx.fillStyle='rgba(24,58,99,.08)';for(let y=17;y<H;y+=31)for(let x=(y*7)%29;x<W;x+=29)ctx.fillRect(x,y,1,1);if(S.land&&S.stageW<W-2){ctx.fillStyle='rgba(32,32,30,.15)';ctx.fillRect(0,0,S.stageX,H);ctx.fillRect(S.stageX+S.stageW,0,W-S.stageX-S.stageW,H)}}
+  function drawMachine(p){const x=p.x+12,y=p.y+20,w=Math.min(112,p.w*.24),h=Math.min(210,p.h*.48);ctx.fillStyle=C.blue;ctx.fillRect(x,y,w,h);ctx.fillStyle=C.paper;ctx.fillRect(x+12,y+16,w-24,h-32);ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.strokeRect(x+.5,y+.5,w-1,h-1);ctx.fillStyle=C.coral;ctx.fillRect(x+w*.25,y+h*.27,w*.5,13);ctx.fillStyle=C.ink;ctx.font='900 11px ui-monospace,monospace';ctx.textAlign='center';ctx.fillText('DOT PRESS',x+w/2,y+h-10);const spin=S.elapsed*2;ctx.beginPath();ctx.arc(x+w/2,y+h*.57,26,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(x+w/2,y+h*.57);ctx.lineTo(x+w/2+20*Math.cos(spin),y+h*.57+20*Math.sin(spin));ctx.stroke()}
+  function drawBelt(p){const g=gapGeometry(),y=g.cy-52;ctx.fillStyle='rgba(32,32,30,.1)';ctx.fillRect(g.left-30,y-9,g.span+60,118);ctx.strokeStyle=C.ink;ctx.lineWidth=1;ctx.strokeRect(g.left-30+.5,y-8.5,g.span+59,117);for(let x=g.left-22;x<g.left+g.span+20;x+=22){ctx.fillStyle=((x/22|0)&1)?C.blue:C.coral;ctx.fillRect(x,y+91,11,5)}const shift=(S.belt-.5)*Math.min(54,p.w*.08);ctx.save();ctx.translate(shift,S.feedbackKind==='wrong'?S.feedback*10:0);ctx.rotate(S.feedbackKind==='wrong'?S.feedback*.025:0);ctx.fillStyle='#fbf3e6';ctx.fillRect(g.left-22,y,g.span+44,82);ctx.strokeStyle=C.blue;ctx.strokeRect(g.left-21.5,y+.5,g.span+43,81);ctx.fillStyle=C.ink;ctx.textAlign='center';ctx.font=`900 ${Math.max(24,Math.min(54,p.w*.105))}px Georgia,serif`;ctx.fillText(String(S.problem.product),g.cx,y+56);ctx.font='800 11px ui-monospace,monospace';ctx.fillStyle=C.blue;ctx.fillText(`${S.problem.A} × ${S.problem.B} = 자연수 곱`,g.cx,y+76);ctx.restore();for(let i=0;i<6;i++){const x=g.left+i*g.step,p=5-i,sel=p===S.selected;ctx.strokeStyle=sel?C.coral:'rgba(32,32,30,.6)';ctx.lineWidth=sel?4:1;ctx.beginPath();ctx.moveTo(x,y+84);ctx.lineTo(x,y+112);ctx.stroke();ctx.fillStyle=sel?C.coral:C.paper;ctx.beginPath();ctx.arc(x,y+103,sel?11:7,0,Math.PI*2);ctx.fill();ctx.strokeStyle=C.ink;ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=C.ink;ctx.font='800 10px ui-monospace,monospace';ctx.fillText(String(p),x,y+127)}ctx.fillStyle=C.ink;ctx.font='800 10px ui-monospace,monospace';ctx.textAlign='right';ctx.fillText('← 소수점 아래 자릿수 →',g.left+g.span,y+144)}
+  function drawPin(){const g=gapGeometry(),targetX=g.left+(5-S.selected)*g.step,targetY=g.cy+10;if(!S.drag){S.pinX+=(targetX-S.pinX)*.17;S.pinY+=(targetY-S.pinY)*.17}const stretch=Math.min(1,Math.hypot(S.pinVX,S.pinVY)/450),squash=S.feedbackKind==='right'?1-S.feedback*.25:1;ctx.save();ctx.translate(S.pinX,S.pinY);ctx.rotate(S.elapsed*(S.drag?8:1.2));ctx.scale((1+stretch*.2)/squash,squash*(1-stretch*.12));ctx.fillStyle=C.blue;ctx.beginPath();ctx.arc(0,0,24,0,Math.PI*2);ctx.fill();ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.stroke();ctx.strokeStyle=C.paper;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-11,0);ctx.lineTo(11,0);ctx.moveTo(0,-11);ctx.lineTo(0,11);ctx.stroke();ctx.restore();ctx.fillStyle=C.blue;ctx.font='900 12px ui-monospace,monospace';ctx.textAlign='center';ctx.fillText(S.drag?'이 틈에 놓기':'고정핀',S.pinX,S.pinY+38)}
+  function drawInk(dt){for(const t of S.trails)t.life-=dt;S.trails=S.trails.filter(t=>t.life>0);for(const t of S.trails){ctx.globalAlpha=t.life*1.8;ctx.fillStyle=C.blue;ctx.beginPath();ctx.arc(t.x,t.y,5*t.life,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;for(const q of S.ink){q.life-=dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.vy+=110*dt}S.ink=S.ink.filter(q=>q.life>0);for(const q of S.ink){ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=(q.x|0)%2?C.blue:C.coral;ctx.beginPath();ctx.arc(q.x,q.y,q.r*(1.2-q.life*.25),0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1}
+  function draw(dt){const W=innerWidth,H=innerHeight;drawPaper(W,H);if(S.phase!=='title'){drawMachine(S.play);drawBelt(S.play);drawPin();drawInk(dt);if(S.flash>0){ctx.globalAlpha=S.flash*.22;ctx.fillStyle=S.feedbackKind==='right'?C.blue:C.coral;ctx.fillRect(S.play.x,S.play.y,S.play.w,S.play.h);ctx.globalAlpha=1}if(S.combo>=6){ctx.strokeStyle=S.combo>=10?C.coral:C.blue;ctx.lineWidth=S.combo>=10?5:2;ctx.setLineDash([8,7]);ctx.strokeRect(S.play.x+5,S.play.y+5,S.play.w-10,S.play.h-10);ctx.setLineDash([])}}}
+  function tick(t){const raw=Math.min(.04,(t-S.lastT||16)/1000);S.lastT=t;const dt=raw*S.timeScale;S.timeScale+=(1-S.timeScale)*Math.min(1,raw*9);S.feedback=Math.max(0,S.feedback-raw*2.1);S.flash=Math.max(0,S.flash-raw*2);S.scoreShown+=(S.score-S.scoreShown)*Math.min(1,raw*9);if(S.phase==='playing'){S.elapsed+=dt;const duration=S.band===1?9:S.band===2?7:5.5;S.belt+=dt/duration;if(S.belt>=1)endGame('숫자띠가 떨어졌어요');if((S.elapsed|0)%2===0)updateHud()}draw(raw);requestAnimationFrame(tick)}
+
+  const guide=[['핀을 잡아요','코발트색 고정핀을 누르고 숫자띠의 틈까지 끌어 보세요.'],['오른쪽부터 세어요','두 수의 소수 자릿수를 모두 더한 만큼 오른쪽부터 세어 보세요.'],['놓아서 잠가요','고른 틈에서 손을 떼면 바로 인쇄해요. 틀린 핀 3개면 판이 끝나요.']];let guideAt=0;
+  function showGuide(){S.phase='tutorial';S.score=0;S.scoreShown=0;S.lives=3;S.combo=0;S.band=1;S.problem=pickProblem(1);S.belt=.12;resetPin();updateHud();$('#hud').classList.remove('off');$('#side').classList.remove('off');guideAt=0;$('#onboard').classList.remove('off');paintGuide()}
+  function paintGuide(){const a=guide[guideAt];$('#stepNo').textContent=`${guideAt+1} / 3`;$('#stepTitle').textContent=a[0];$('#stepBody').textContent=a[1];$('#nextStep').textContent=guideAt===2?'해볼게요':'다음'}
+  $('#startBtn').addEventListener('click',()=>{audio();navigator.vibrate?.(18);if(localStorage.getItem('onboardingSeen:dot-punch'))startGame();else{$('#titleScreen').classList.add('off');showGuide()}});$('#helpBtn').addEventListener('click',()=>{$('#titleScreen').classList.add('off');showGuide()});$('#nextStep').addEventListener('click',()=>{if(guideAt<2){guideAt++;paintGuide()}else{localStorage.setItem('onboardingSeen:dot-punch','1');startGame()}});$('#retry').addEventListener('click',()=>startGame());$('#mute').addEventListener('click',()=>{S.muted=!S.muted;$('#mute').textContent=S.muted?'×':'♪';$('#mute').setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기')});
+  $('#titleArt').addEventListener('error',()=>{$('#titleArt').style.display='none'});
+  const best=Number(localStorage.getItem('dotPunchBest')||0);$('#record').textContent=best?`최고 인쇄 ${best}점`:'첫 포스터를 인쇄해 보세요';
+  layout();S.problem=pickProblem(1);resetPin();requestAnimationFrame(tick);
+  window.__GAME_TEST__={ready:true,start(){startGame(true)},getState(){return{score:Math.floor(S.score),lives:S.lives,level:S.level,phase:S.phase,solved:S.solved,inputGap:S.selected}},answerCorrect(){answer(true,true)},answerWrong(){answer(false,true)},sampleProblems(n){n=Math.max(0,Math.floor(Number(n)||0));return Array.from({length:n},(_,i)=>{const p=ALL[(seedMix(i*7919+n*104729)%ALL.length)];return{id:p.id,prompt:p.prompt,choices:p.choices.map(x=>x.value),answer:p.answer,answerNumeric:p.answerNumeric,unitConcept:p.unitConcept}})},getLayout(){return{land:S.land,playW:S.play.w}}};
+})();
+</script>
+</body>
+</html>

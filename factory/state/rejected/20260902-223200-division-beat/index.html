@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#B7C4D6">
+  <meta property="og:title" content="내림 박자">
+  <meta property="og:description" content="몫을 놓고 수를 내려요">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>내림 박자</title>
+  <style>
+    :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--bg:#B7C4D6;--berry:#E34F6F;--teal:#246B68;--cream:#F4EEE6;--ink:#3D405B}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    body{font-family:"Arial Rounded MT Bold","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+    button{font:inherit;cursor:pointer;touch-action:manipulation}
+    #game{position:fixed;inset:0;overflow:hidden;background:linear-gradient(180deg,#cbd5e1 0,#b7c4d6 58%,#a9b7ca 100%)}
+    #playBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.36;filter:saturate(.62) contrast(.9);pointer-events:none}
+    #playBg.fallback{display:none}
+    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+    #topbar{position:absolute;z-index:3;left:max(10px,var(--stageX));right:max(10px,var(--stageX));top:max(8px,env(safe-area-inset-top));height:48px;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
+    .clay-sign{pointer-events:auto;min-height:44px;padding:8px 14px;border:0;color:var(--cream);background:#3d405b;clip-path:polygon(3% 7%,96% 0,100% 88%,92% 100%,4% 94%,0 19%);box-shadow:0 8px 18px rgba(45,51,76,.28);font-weight:900;letter-spacing:-.04em}
+    #hud{display:flex;gap:8px;align-items:center}.stat{min-width:66px;text-align:center}.stat b{font-size:18px;display:inline-block}.stat.bump b{animation:clayBump .32s cubic-bezier(.2,1.55,.45,1)}
+    #mute{width:48px;height:48px;padding:0;display:grid;place-items:center;font-size:21px;clip-path:circle(48%);background:#246b68;color:white;border:0;pointer-events:auto;box-shadow:0 7px 15px rgba(36,107,104,.3)}
+    #goal{position:absolute;z-index:4;left:50%;top:64px;transform:translateX(-50%);width:min(92vw,560px);min-height:44px;display:grid;place-items:center;padding:7px 18px;text-align:center;color:#fff;background:#246b68;clip-path:polygon(2% 10%,98% 0,100% 83%,94% 100%,4% 94%,0 18%);font-weight:900;font-size:clamp(14px,4vw,18px);letter-spacing:-.035em;box-shadow:0 8px 20px rgba(36,107,104,.24)}
+    #toast{position:absolute;z-index:8;left:50%;top:116px;transform:translate(-50%,-12px);max-width:min(88vw,520px);padding:10px 18px;text-align:center;color:#3d405b;background:#f4eee6;clip-path:polygon(2% 8%,97% 0,100% 82%,94% 100%,4% 94%,0 19%);box-shadow:0 10px 28px rgba(61,64,91,.22);font-weight:900;font-size:16px;opacity:0;pointer-events:none;transition:opacity .14s,transform .2s cubic-bezier(.2,1.5,.4,1)}
+    #toast.show{opacity:1;transform:translate(-50%,0)}
+    #title{position:absolute;z-index:20;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:max(48px,env(safe-area-inset-top)) 18px max(24px,env(safe-area-inset-bottom));overflow:hidden;background:radial-gradient(circle at 50% 38%,#d9dfe9,#8d9db5 62%,#65758d)}
+    #title.hide{display:none}.title-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;animation:artBreathe 20s ease-in-out infinite alternate}.title-art.fallback{display:none}
+    .title-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(35,39,64,.35) 0,rgba(35,39,64,.04) 45%,rgba(35,39,64,.7) 100%);pointer-events:none}
+    .logo{position:relative;z-index:2;margin:3vh 0 0;display:flex;align-items:flex-start;justify-content:center;filter:drop-shadow(0 12px 8px rgba(38,40,60,.34));animation:logoIn .75s cubic-bezier(.18,1.55,.34,1) both}
+    .logo span{display:inline-block;color:#f4eee6;font-size:clamp(70px,22vw,118px);font-weight:1000;line-height:.9;letter-spacing:-.14em;-webkit-text-stroke:5px #3d405b;text-shadow:0 4px 0 #e34f6f,0 8px 0 #a82e4c,0 12px 0 #3d405b;transform:rotate(var(--r)) translateY(var(--y)) scale(var(--s))}.logo span:nth-child(1){--r:-5deg;--y:4px;--s:1.07}.logo span:nth-child(2){--r:3deg;--y:-4px;--s:.98}.logo span:nth-child(3){--r:-2deg;--y:2px;--s:1.03}.logo span:nth-child(4){--r:5deg;--y:-2px;--s:1}
+    .title-bottom{position:relative;z-index:2;width:min(92vw,430px);display:flex;flex-direction:column;align-items:center;gap:10px;color:white;text-align:center;text-shadow:0 2px 5px rgba(0,0,0,.6)}
+    .tagline{font-weight:900;font-size:17px}.meta{font-size:12px;font-weight:800;opacity:.9}
+    #startBtn{position:relative;width:100%;min-height:72px;border:0;color:#f4eee6;background:#e34f6f;clip-path:polygon(3% 5%,97% 0,100% 84%,92% 100%,4% 94%,0 18%);box-shadow:0 14px 28px rgba(58,27,48,.35);font-size:26px;font-weight:1000;letter-spacing:-.04em;text-shadow:0 3px 0 #9d2945;animation:ctaPulse 2.4s 1.1s ease-in-out infinite}
+    #startBtn:active{transform:scale(.94)}
+    #modeToggle{min-width:190px;min-height:44px;border:0;background:rgba(61,64,91,.82);color:white;font-weight:900;clip-path:polygon(4% 8%,97% 0,100% 80%,92% 100%,3% 94%,0 20%)}
+    #result{position:absolute;z-index:15;inset:0;display:none;place-items:center;background:rgba(183,196,214,.9)}#result.show{display:grid}
+    .result-clay{width:min(88vw,540px);padding:34px 24px;text-align:center;background:#f4eee6;clip-path:polygon(2% 2%,97% 0,100% 93%,92% 100%,4% 97%,0 7%);box-shadow:0 24px 48px rgba(61,64,91,.28)}.result-clay h2{font-size:42px;margin:0 0 12px}.result-clay p{font-weight:900;font-size:20px}.result-clay button{width:100%;min-height:64px;border:0;background:#246b68;color:white;font-weight:1000;font-size:22px;clip-path:polygon(3% 5%,97% 0,100% 84%,92% 100%,4% 94%,0 18%)}
+    @keyframes artBreathe{to{transform:scale(1.045) translateY(-.4%)}}@keyframes logoIn{from{opacity:0;transform:translateY(-70px) scale(.65)}to{opacity:1;transform:none}}@keyframes ctaPulse{0%,72%,100%{transform:scale(1)}82%{transform:scale(1.035)}90%{transform:scale(.99)}}@keyframes clayBump{0%{transform:scale(1)}45%{transform:scaleX(1.24) scaleY(.72)}100%{transform:scale(1)}}
+    html.land #goal{left:calc(var(--stageX) + 15%);top:80px;width:min(270px,22vw);transform:none;min-height:74px}
+    html.land #topbar{left:calc(var(--stageX) + var(--stageW) - 285px);right:calc(100vw - var(--stageX) - var(--stageW) + 14px);height:auto;align-items:flex-start}
+    html.land #hud{flex-direction:column;align-items:stretch;width:180px}html.land .stat{min-height:54px;padding-top:13px}html.land #mute{margin-left:8px}
+    @media (prefers-reduced-motion:reduce){.title-art{animation-duration:40s}.logo{animation-duration:.15s}#startBtn{animation-duration:5s}}
+  </style>
+</head>
+<body>
+<main id="game">
+  <img id="playBg" src="./assets/bg.png" alt="" onerror="this.classList.add('fallback')">
+  <canvas id="canvas" aria-label="숫자 퍽을 끌어 놓는 세로셈 리듬 무대"></canvas>
+  <div id="topbar"><div id="hud"><div class="clay-sign stat">점수 <b id="score">0</b></div><div class="clay-sign stat">기회 <b id="lives">♥♥♥</b></div><div class="clay-sign stat">콤보 <b id="combo">0</b></div></div><button id="mute" aria-label="소리 끄기">♪</button></div>
+  <div id="goal">몫 퍽을 몫 칸에 끌어 놓아요</div><div id="toast" role="status"></div>
+  <section id="title">
+    <img class="title-art" src="./assets/title.png" alt="점토 숫자 퍽이 세로셈판으로 내려오는 모습" onerror="this.classList.add('fallback')">
+    <div class="title-shade"></div>
+    <h1 class="logo" aria-label="내림 박자"><span>내</span><span>림</span><span>박</span><span>자</span></h1>
+    <div class="title-bottom"><div class="tagline">몫을 놓고 수를 내려요</div><div class="meta">3학년 2학기 · 나눗셈 <span id="best"></span></div><button id="startBtn">연주 시작!</button><button id="modeToggle">쉬움 · 박자가 기다려요</button></div>
+  </section>
+  <section id="result"><div class="result-clay"><h2 id="resultTitle">곡 완성!</h2><p id="resultText"></p><button id="again">다시 연주하기</button></div></section>
+</main>
+<script>
+(()=>{'use strict';
+  const $=s=>document.querySelector(s), canvas=$('#canvas'),ctx=canvas.getContext('2d',{alpha:true});
+  const C={bg:'#B7C4D6',berry:'#E34F6F',teal:'#246B68',cream:'#F4EEE6',ink:'#3D405B'};
+  const TAU=Math.PI*2, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  let DPR=1,W=390,H=844,last=performance.now(),audio=null,toastTimer=0,deck=[],deckIndex=0;
+  const S={phase:'title',score:0,lives:3,level:1,solved:0,combo:0,round:0,mode:'easy',land:false,stageW:390,stageX:0,play:null,problem:null,step:'quotient',digitIndex:0,drag:null,trail:[],ripples:[],anims:[],cracks:[],placed:[],mistakes:0,frozen:true,tutorial:true,tutorialStage:0,guideT:0,flash:0,hitStop:0,hardDeadline:0,measure:[],muted:false,inputLock:false,roundLocked:false};
+
+  // 교과서 표현 함정: '내림'은 윗자리에서 남은 수를 다음 자리와 합치는 절차이며 어림의 버림이 아니다.
+  // 익힘책 지시형(~해 보세요)만 사용하고, 몫과 나머지는 '몫 … 나머지'로 표기한다.
+  function makeProblem(n,d,band,id){
+    const tens=Math.floor(n/10),ones=n%10,q1=Math.floor(tens/d),carry1=tens-q1*d,partial2=carry1*10+ones,q2=Math.floor(partial2/d),p1=q1*d,p2=q2*d,q=q1*10+q2,r=partial2-p2;
+    return {id:`${band}-${d}-${n}-${id}`,n,d,band,tens,ones,q1,carry1,partial2,q2,p1,p2,q,r,prompt:`${n}÷${d}의 몫과 나머지를 구해 보세요.`,unitConcept:band===1?'내림이 없는 나눗셈':band===2?'내림이 있는 나눗셈':'나머지가 있는 나눗셈'};
+  }
+  function buildPools(){
+    const pools={1:[],2:[],3:[]};let id=0;
+    // 무작위 생성 뒤 검증하지 않고 d, 십의 자리, 일의 자리를 전수 생성하여 제약 만족 풀을 만든다.
+    for(let d=2;d<=9;d++)for(let tens=2;tens<=9;tens++)for(let ones=0;ones<=9;ones++){
+      const n=tens*10+ones,p=makeProblem(n,d,0,id++);if(p.q1===0||p.q1===p.q2)continue;
+      if(p.carry1===0&&ones%d===0)pools[1].push({...p,band:1,unitConcept:'내림이 없는 나눗셈'});
+      if(p.carry1>0&&p.r===0)pools[2].push({...p,band:2,unitConcept:'내림이 있는 나눗셈'});
+      if(p.carry1>0&&p.r>0&&p.r<d)pools[3].push({...p,band:3,unitConcept:'나머지가 있는 나눗셈'});
+    }
+    return pools;
+  }
+  const POOLS=buildPools();
+  function hashDay(){const s=new Date().toISOString().slice(0,10);let h=2166136261;for(const ch of s){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+  function rng(seed){return()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}}
+  function shuffled(a,rand=Math.random){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+  function makeDeck(){const r=rng(hashDay());return [makeProblem(52,4,2,'tutorial'),...shuffled(POOLS[1],r).slice(0,3),...shuffled(POOLS[2],r).slice(0,4),...shuffled(POOLS[3],r).slice(0,4)];}
+  function fmt(q,r){return r?`몫 ${q}, 나머지 ${r}`:`몫 ${q}, 나머지 0`}
+  function distractors(p){
+    const raw=[];
+    // 오개념 1: 남은 수를 다음 자리와 합치지 않는다.
+    const ignoreCarryQ=p.q1*10+Math.floor(p.ones/p.d),ignoreCarryR=p.ones%p.d;raw.push({value:fmt(ignoreCarryQ,ignoreCarryR),misconceptionId:'ignore-carry'});
+    // 오개념 2: 몫을 하나 줄여 나머지가 나누는 수보다 큰데도 끝낸다. 모든 파라미터에서 r+d>=d라 거짓이다.
+    raw.push({value:fmt(p.q-1,p.r+p.d),misconceptionId:'remainder-not-less-than-divisor'});
+    // 오개념 3: 몫의 십의 자릿값을 건너뛴다.
+    raw.push({value:fmt(p.q2,p.r),misconceptionId:'skip-quotient-place'});
+    // 오개념 4: 검산에서 나머지를 더하지 않아 나누어떨어진다고 본다.
+    if(p.r)raw.push({value:fmt(p.q,0),misconceptionId:'omit-remainder-in-check'});
+    const answer=fmt(p.q,p.r),seen=new Set([answer]);let out=[];
+    // 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.
+    for(const x of raw)if(x.value!==answer&&x.value.length<30&&!seen.has(x.value)){seen.add(x.value);out.push(x)}
+    for(let k=1;out.length<3;k++){const v=fmt(p.q+k,(p.r+k)%p.d);if(!seen.has(v)){seen.add(v);out.push({value:v,misconceptionId:'nearby-supplement'})}}
+    return shuffled([{value:answer,misconceptionId:'correct'},...out.slice(0,3)]);
+  }
+  function sampleProblems(n){const all=[...POOLS[1],...POOLS[2],...POOLS[3]],res=[];for(let i=0;i<n;i++){const p=all[(i*37+Math.floor(i/all.length)*19)%all.length],ds=distractors(p);res.push({id:`sample-${i}-${p.id}`,prompt:p.prompt,choices:ds.map(x=>x.value),answer:fmt(p.q,p.r),answerNumeric:p.q+p.r/100,unitConcept:p.unitConcept,distractors:ds.filter(x=>x.misconceptionId!=='correct')})}return res}
+
+  function layout(){W=innerWidth;H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);S.stageW=Math.min(W,1280);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');DPR=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
+    if(S.land)S.play={x:S.stageX+Math.max(285,S.stageW*.22),y:38,w:S.stageW-Math.max(570,S.stageW*.44),h:H-62};
+    else S.play={x:10,y:112,w:W-20,h:H-122};
+  }
+  function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r*.7,y);ctx.quadraticCurveTo(x+w*.55,y-2,x+w-r,y+2);ctx.quadraticCurveTo(x+w+2,y+h*.45,x+w-2,y+h-r);ctx.quadraticCurveTo(x+w*.45,y+h+3,x+r,y+h-1);ctx.quadraticCurveTo(x-2,y+h*.55,x,y+r);ctx.quadraticCurveTo(x+w*.2,y-2,x+r*.7,y);ctx.closePath()}
+  function clay(x,y,w,h,color,shadow=12){ctx.save();ctx.shadowColor='rgba(45,51,76,.28)';ctx.shadowBlur=shadow;ctx.shadowOffsetY=shadow*.45;rr(x,y,w,h,Math.min(w,h)*.16);ctx.fillStyle=color;ctx.fill();ctx.restore()}
+  function text(t,x,y,size,color=C.ink,align='center'){ctx.save();ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline='middle';ctx.font=`900 ${size}px "Arial Rounded MT Bold","Apple SD Gothic Neo",sans-serif`;ctx.fillText(t,x,y);ctx.restore()}
+  function geom(){const p=S.play,cx=p.x+p.w/2;const boardW=clamp(S.land?p.w*.76:p.w*.88,300,520),boardH=clamp(p.h*.54,340,470),boardX=cx-boardW/2,boardY=p.y+clamp(p.h*.06,36,58);const railY=Math.min(H-96,boardY+boardH+28),r=clamp(S.land?28:Math.min((p.w-22)/10*.39,25),21,30);return{...p,cx,boardW,boardH,boardX,boardY,railY,r,slotW:clamp(boardW*.18,58,92)}}
+  function expected(){const p=S.problem;if(!p)return{digits:[]};switch(S.step){case'quotient':return{digits:[p.q1],label:'십의 자리 몫'};case'product1':return{digits:String(p.p1).split('').map(Number),label:'나누는 수×몫'};case'lower':return{digits:[p.ones],label:'다음 자리 수'};case'quotient2':return{digits:[p.q2],label:'일의 자리 몫'};case'product2':return{digits:String(p.p2).split('').map(Number),label:'나누는 수×몫'};case'remainder':return{digits:[p.r],label:'나머지'};default:return{digits:[]}}}
+  function targetRect(g){const sw=g.slotW,center=g.cx;let y=g.boardY+65,x=center+sw*.36;if(S.step==='quotient')return{x:x-sw,y:y-28,w:sw,h:58};if(S.step==='product1')return{x:center-sw*.3-(expected().digits.length-1)*22,y:g.boardY+160,w:sw,h:58};if(S.step==='lower')return{x:center+sw*.38,y:g.boardY+218,w:sw,h:74};if(S.step==='quotient2')return{x:center+sw*.05,y:g.boardY+65-28,w:sw,h:58};if(S.step==='product2')return{x:center-sw*.3-(expected().digits.length-1)*22,y:g.boardY+292,w:sw,h:58};return{x:center+g.boardW*.28,y:g.boardY+g.boardH-63,w:sw,h:54}}
+  function puckPos(i,g){if(S.land){const side=i<5?-1:1,row=i%5;return{x:g.cx+side*(g.boardW*.58+48),y:g.boardY+80+row*Math.min(72,(g.boardH-90)/5)}}return{x:g.x+g.w*(.07+.095*i),y:g.railY}}
+  function drawBoard(g,t){clay(g.boardX,g.boardY,g.boardW,g.boardH,C.cream,18);ctx.save();ctx.globalAlpha=.11;for(let i=0;i<9;i++){ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.beginPath();ctx.arc(g.boardX+30+(i%3)*g.boardW*.34,g.boardY+28+Math.floor(i/3)*g.boardH*.38,13+Math.sin(i)*3,0,TAU);ctx.stroke()}ctx.restore();
+    const p=S.problem;if(!p)return;text(`${p.n} ÷ ${p.d}`,g.cx,g.boardY+28,clamp(g.boardW*.075,26,38),C.ink);
+    ctx.save();ctx.strokeStyle=C.ink;ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(g.cx-g.slotW*.8,g.boardY+88);ctx.quadraticCurveTo(g.cx-g.slotW*.9,g.boardY+112,g.cx-g.slotW*.88,g.boardY+132);ctx.moveTo(g.cx-g.slotW*.8,g.boardY+88);ctx.lineTo(g.cx+g.slotW*1.25,g.boardY+88);ctx.stroke();ctx.restore();text(String(p.d),g.cx-g.slotW*1.12,g.boardY+112,30,C.ink);text(String(p.tens),g.cx-g.slotW*.35,g.boardY+112,34,C.ink);text(String(p.ones),g.cx+g.slotW*.38,g.boardY+112,34,C.ink);
+    // 학생이 놓은 숫자만 그린다. 코드는 정답 칸을 자동 완성하지 않는다.
+    for(const v of S.placed){clay(v.x-25,v.y-25,50,50,v.color,8);text(String(v.digit),v.x,v.y+1,29,C.cream)}
+    const tr=targetRect(g),pulse=.5+.5*Math.sin(t*.006);ctx.save();ctx.strokeStyle=S.tutorial?`rgba(227,79,111,${.55+.35*pulse})`:C.teal;ctx.lineWidth=4+pulse*2;ctx.setLineDash([10,8]);ctx.lineDashOffset=-t*.03;rr(tr.x,tr.y,tr.w,tr.h,12);ctx.stroke();ctx.restore();text(expected().label,tr.x+tr.w/2,tr.y-12,13,C.ink);
+    if(S.step==='lower'){ctx.save();ctx.strokeStyle=C.berry;ctx.lineWidth=9;ctx.lineCap='round';ctx.globalAlpha=.35;ctx.beginPath();ctx.moveTo(g.cx+g.slotW*.38,g.boardY+116);ctx.lineTo(tr.x+tr.w/2,tr.y+tr.h*.72);ctx.stroke();ctx.restore()}
+    const beats=['몫','곱','내림'];for(let i=0;i<3;i++){const x=g.boardX+g.boardW*(.22+i*.28),y=g.boardY+g.boardH-25;ctx.fillStyle=i<Math.min(3,S.measure.length%4)?C.berry:'#aeb5c2';ctx.beginPath();ctx.arc(x,y,8+Math.sin(t*.005+i)*1.3,0,TAU);ctx.fill();text(beats[i],x,y-18,12,C.ink)}
+  }
+  function drawPucks(g,t){for(let i=0;i<10;i++){const p=puckPos(i,g),drag=S.drag&&S.drag.digit===i,hover=expected().digits[S.digitIndex]===i&&S.tutorial,sy=1+Math.sin(t*.003+i)*.025;if(drag)continue;ctx.save();ctx.translate(p.x,p.y);ctx.scale(1,sy);clay(-g.r,-g.r,g.r*2,g.r*2,i%2?C.teal:C.berry,9);text(String(i),0,1,g.r*1.15,C.cream);if(hover){ctx.strokeStyle=C.cream;ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,g.r+7+Math.sin(t*.01)*3,0,TAU);ctx.stroke()}ctx.restore()}
+    if(S.drag){ctx.save();ctx.translate(S.drag.x,S.drag.y);ctx.rotate(Math.sin(t*.02)*.03);clay(-g.r*1.08,-g.r*.92,g.r*2.16,g.r*1.84,S.drag.digit%2?C.teal:C.berry,16);text(String(S.drag.digit),0,0,g.r*1.25,C.cream);ctx.restore()}
+  }
+  function drawGuide(g,t){if(!S.tutorial||S.phase!=='playing')return;const exp=expected(),tr=targetRect(g);let from;if(S.step==='lower')from={x:g.cx+g.slotW*.38,y:g.boardY+112};else from=puckPos(exp.digits[S.digitIndex]||0,g);const q=(t%1200)/1200,e=q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2,x=from.x+(tr.x+tr.w/2-from.x)*e,y=from.y+(tr.y+tr.h/2-from.y)*e;ctx.save();ctx.strokeStyle='rgba(244,238,230,.84)';ctx.lineWidth=8;ctx.lineCap='round';ctx.setLineDash([8,14]);ctx.lineDashOffset=-t*.04;ctx.beginPath();ctx.moveTo(from.x,from.y);ctx.lineTo(tr.x+tr.w/2,tr.y+tr.h/2);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=C.berry;ctx.beginPath();ctx.arc(x,y,18+Math.sin(t*.012)*3,0,TAU);ctx.fill();text('☝',x,y-1,23,C.cream);ctx.restore()}
+  function drawEffects(t){if(S.trail.length>1){ctx.save();ctx.strokeStyle='rgba(227,79,111,.22)';ctx.lineWidth=11;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(S.trail[0].x,S.trail[0].y);for(const p of S.trail)ctx.lineTo(p.x,p.y);ctx.stroke();ctx.restore()}for(const r of S.ripples){ctx.save();ctx.globalAlpha=r.life;ctx.strokeStyle=r.color||C.berry;ctx.lineWidth=5;ctx.beginPath();ctx.arc(r.x,r.y,(1-r.life)*42+4,0,TAU);ctx.stroke();ctx.restore()}for(const a of S.anims){ctx.save();ctx.translate(a.x,a.y);const k=1-a.life,sy=a.kind==='ok'?(.55+Math.sin(k*Math.PI)*.65):(.45+k*.55),sx=a.kind==='ok'?1.2-.2*k:1.35-k*.35;ctx.scale(sx,sy);clay(-25,-25,50,50,a.color,7);text(String(a.digit),0,1,29,C.cream);ctx.restore()}for(const cr of S.cracks){ctx.save();ctx.globalAlpha=cr.life;ctx.strokeStyle='#9d2945';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cr.x-16,cr.y-14);ctx.lineTo(cr.x-3,cr.y);ctx.lineTo(cr.x-12,cr.y+16);ctx.moveTo(cr.x-3,cr.y);ctx.lineTo(cr.x+14,cr.y+7);ctx.stroke();ctx.restore()}if(S.flash>0){ctx.fillStyle=`rgba(244,238,230,${S.flash*.22})`;ctx.fillRect(0,0,W,H)}}
+  function render(t){ctx.clearRect(0,0,W,H);if(S.phase==='title')return;ctx.save();const g=geom();drawBoard(g,t);drawPucks(g,t);drawGuide(g,t);ctx.restore();drawEffects(t)}
+  function update(dt){if(S.hitStop>0){S.hitStop-=dt;return}S.guideT+=dt;S.flash=Math.max(0,S.flash-dt*2.2);for(const arr of [S.ripples,S.anims,S.cracks])for(const o of arr)o.life-=dt*(o.kind==='ok'?2.2:1.5);S.ripples=S.ripples.filter(x=>x.life>0);S.anims=S.anims.filter(x=>x.life>0);S.cracks=S.cracks.filter(x=>x.life>0);S.trail=S.trail.filter(x=>(x.life-=dt*2)>0);if(S.mode==='hard'&&S.hardDeadline&&performance.now()>S.hardDeadline&&S.phase==='playing'&&!S.frozen){S.hardDeadline=0;wrong('박자를 놓쳤어요. 다시 몫부터 읽어요.')}}
+  function frame(t){const dt=Math.min(.05,(t-last)/1000);last=t;update(dt);render(t);requestAnimationFrame(frame)}
+
+  function initAudio(){if(audio||S.muted)return;try{audio=new (window.AudioContext||window.webkitAudioContext)()}catch(_){audio=null}}
+  function tone(freq=300,dur=.12,type='sine',gain=.07){if(S.muted||!audio)return;const o=audio.createOscillator(),g=audio.createGain(),now=audio.currentTime;o.type=type;o.frequency.setValueAtTime(freq,now);g.gain.setValueAtTime(gain,now);g.gain.exponentialRampToValueAtTime(.001,now+dur);o.connect(g).connect(audio.destination);o.start(now);o.stop(now+dur)}
+  function bump(){for(const el of document.querySelectorAll('.stat')){el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump')}}
+  function toast(msg,ms=1300){clearTimeout(toastTimer);$('#toast').textContent=msg;$('#toast').classList.add('show');toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),ms)}
+  function setGoal(msg){$('#goal').textContent=msg}
+  function updateHud(){ $('#score').textContent=S.score;$('#lives').textContent='♥'.repeat(Math.max(0,S.lives))+'♡'.repeat(Math.max(0,3-S.lives));$('#combo').textContent=S.combo;bump() }
+  function loadRound(){if(deckIndex>=deck.length){finish(true);return}S.problem=deck[deckIndex++];S.round++;S.level=S.problem.band;S.step='quotient';S.digitIndex=0;S.placed=[];S.mistakes=0;S.frozen=S.tutorial;S.hardDeadline=0;S.inputLock=false;S.roundLocked=false;if(S.mode==='easy')S.lives=3;updateHud();setGoal(S.tutorial?'몫 1을 십의 자리 몫 칸에 끌어 놓아요':'십의 자리 몫 퍽을 끌어 놓아요');toast(`${S.problem.n} ÷ ${S.problem.d}를 계산해 보세요`,900)}
+  function startGame(){initAudio();$('#title').classList.add('hide');$('#result').classList.remove('show');S.phase='playing';S.score=0;S.lives=3;S.level=1;S.solved=0;S.combo=0;S.round=0;S.tutorial=true;S.tutorialStage=0;S.frozen=true;deck=makeDeck();deckIndex=0;updateHud();loadRound();tone(220,.08)}
+  function beginHardWindow(){if(S.mode==='hard'&&!S.frozen)S.hardDeadline=performance.now()+4000}
+  function advance(){const g=geom(),tr=targetRect(g),p=S.problem;S.digitIndex++;
+    if(S.digitIndex<expected().digits.length){setGoal('곱의 다음 숫자 퍽을 이어서 놓아요');return}
+    S.digitIndex=0;
+    if(S.step==='quotient'){S.step='product1';setGoal(`${p.d}×${p.q1}의 곱을 아래 칸에 놓아요`)}
+    else if(S.step==='product1'){S.step='lower';setGoal(`${p.carry1} 옆으로 ${p.ones}를 아래로 쓸어내려요`)}
+    else if(S.step==='lower'){S.step='quotient2';setGoal(`${p.partial2}÷${p.d}의 몫을 일의 자리에 놓아요`)}
+    else if(S.step==='quotient2'){S.step='product2';setGoal(`${p.d}×${p.q2}의 곱을 아래 칸에 놓아요`)}
+    else if(S.step==='product2'){if(p.r>0){S.step='remainder';setGoal(`남은 ${p.r}을 나머지 홈에 놓아요`)}else completeRound()}
+    else if(S.step==='remainder')completeRound();
+    if(S.tutorial){S.tutorialStage++;S.frozen=true}beginHardWindow();
+  }
+  function correct(digit,x,y){if(S.inputLock||S.roundLocked)return;S.inputLock=true;const g=geom(),tr=targetRect(g),color=digit%2?C.teal:C.berry;S.anims.push({x:tr.x+tr.w/2,y:tr.y+tr.h/2,digit,color,kind:'ok',life:1});S.ripples.push({x:tr.x+tr.w/2,y:tr.y+tr.h/2,color:C.cream,life:1});S.flash=.55;S.score+=10+S.combo*2;S.measure.push({step:S.step,digit});tone([246,329,392][S.measure.length%3],.13,'triangle',.055+Math.min(.04,S.combo*.005));updateHud();setTimeout(()=>{if(S.phase==='playing'&&!S.roundLocked){S.placed.push({x:tr.x+tr.w/2+(S.digitIndex*35),y:tr.y+tr.h/2,digit,color});S.inputLock=false;advance()}},110)}
+  function wrong(msg='그 숫자는 지금 칸에 맞지 않아요.'){if(S.roundLocked)return;const g=geom(),tr=targetRect(g);S.mistakes++;S.combo=0;if(!S.tutorial)S.lives=Math.max(0,S.lives-1);S.cracks.push({x:tr.x+tr.w/2,y:tr.y+tr.h/2,life:1});S.ripples.push({x:tr.x+tr.w/2,y:tr.y+tr.h/2,color:'#9d2945',life:1});tone(118,.22,'sawtooth',.04);toast(msg,1500);updateHud();if(S.mode==='hard'&&S.lives<=0){S.roundLocked=true;setTimeout(()=>finish(false),450);return}if(S.mode==='easy'&&!S.tutorial&&S.mistakes>=2){S.roundLocked=true;toast(`확인해요: ${S.problem.d}×${S.problem.q}+${S.problem.r}=${S.problem.n}`,1800);setTimeout(loadRound,1850)}}
+  function completeRound(){S.hitStop=.06;S.combo++;S.solved++;S.score+=100+S.combo*15;S.flash=1;tone(523,.17,'triangle',.08);setTimeout(()=>tone(659,.17,'triangle',.07),90);if(S.tutorial){toast(`5÷4=1, 4×1=4, 5-4=1 → 12`,1900);S.tutorial=false;S.frozen=false;setGoal('몫·곱·내림을 이어 한 마디를 완성해요')}else toast(`${S.problem.d}×${S.problem.q}+${S.problem.r}=${S.problem.n} · 한 마디 완성!`,1300);updateHud();const best=Math.max(Number(localStorage.getItem('division-beat-best')||0),S.score);localStorage.setItem('division-beat-best',String(best));setTimeout(loadRound,1250)}
+  function finish(win){S.phase='result';S.hardDeadline=0;const best=Math.max(Number(localStorage.getItem('division-beat-best')||0),S.score);localStorage.setItem('division-beat-best',String(best));$('#resultTitle').textContent=win?'나눗셈 곡 완성!':'박자가 멈췄어요';$('#resultText').textContent=`${S.solved}마디 · ${S.score}점 · 최고 ${best}점`;$('#result').classList.add('show');tone(win?523:130,.35,'triangle',.08)}
+  function canvasPoint(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+  function pointerDown(e){if(S.phase!=='playing'||S.roundLocked)return;initAudio();canvas.setPointerCapture?.(e.pointerId);const pos=canvasPoint(e),g=geom();S.ripples.push({...pos,color:C.cream,life:1});if(S.inputLock)return;
+    if(S.step==='lower'){const start={x:g.cx+g.slotW*.38,y:g.boardY+112};if(Math.hypot(pos.x-start.x,pos.y-start.y)<75){S.drag={type:'lower',digit:S.problem.ones,x:pos.x,y:pos.y,startY:pos.y};return}refuse(pos,'빛나는 다음 자리 수에서 아래로 쓸어내려요');return}
+    for(let i=0;i<10;i++){const p=puckPos(i,g);if(Math.hypot(pos.x-p.x,pos.y-p.y)<g.r+18){S.drag={type:'puck',digit:i,x:pos.x,y:pos.y,startX:pos.x,startY:pos.y};beginHardWindow();return}}
+    refuse(pos,'숫자 퍽을 빛나는 칸으로 끌어 놓아요')
+  }
+  function pointerMove(e){if(!S.drag)return;const pos=canvasPoint(e);S.drag.x=pos.x;S.drag.y=pos.y;S.trail.push({x:pos.x,y:pos.y,life:1})}
+  function pointerUp(e){if(!S.drag)return;const pos=canvasPoint(e),d=S.drag,g=geom(),tr=targetRect(g);S.drag=null;
+    if(d.type==='lower'){if(pos.y-d.startY>70&&Math.abs(pos.x-d.startX)<100){correct(S.problem.ones,pos.x,pos.y)}else wrong('다음 자리 수를 아래 칸까지 길게 쓸어내려요.');return}
+    const inside=pos.x>=tr.x-18&&pos.x<=tr.x+tr.w+18&&pos.y>=tr.y-18&&pos.y<=tr.y+tr.h+18,need=expected().digits[S.digitIndex];if(inside&&d.digit===need)correct(d.digit,pos.x,pos.y);else if(inside)wrong(`${expected().label}을 다시 계산해 보세요.`);else refuse(pos,'퍽을 빛나는 칸 안에 놓아요')
+  }
+  function refuse(pos,msg){S.ripples.push({...pos,color:C.berry,life:1});toast(msg,1000);tone(160,.07,'square',.025)}
+  canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointermove',pointerMove);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('pointercancel',()=>S.drag=null);
+  canvas.addEventListener('keydown',()=>{});window.addEventListener('keydown',e=>{if(S.phase!=='playing')return;const n=Number(e.key);if(Number.isInteger(n)&&n>=0&&n<=9){const g=geom(),p=puckPos(n,g),tr=targetRect(g);S.drag={type:'puck',digit:n,x:p.x,y:p.y,startX:p.x,startY:p.y};setTimeout(()=>{if(S.drag){S.drag.x=tr.x+tr.w/2;S.drag.y=tr.y+tr.h/2;pointerUp({clientX:S.drag.x,clientY:S.drag.y})}},80)}else if(e.key==='ArrowDown'&&S.step==='lower')correct(S.problem.ones,0,0)});
+  $('#startBtn').addEventListener('click',()=>{navigator.vibrate?.(16);startGame()});$('#again').addEventListener('click',startGame);$('#modeToggle').addEventListener('click',()=>{S.mode=S.mode==='easy'?'hard':'easy';$('#modeToggle').textContent=S.mode==='easy'?'쉬움 · 박자가 기다려요':'어려움 · 기회 3번';});$('#mute').addEventListener('click',()=>{S.muted=!S.muted;$('#mute').textContent=S.muted?'×':'♪';$('#mute').setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기');if(!S.muted)initAudio()});
+  window.addEventListener('resize',layout);window.addEventListener('orientationchange',()=>setTimeout(layout,120));layout();const best=Number(localStorage.getItem('division-beat-best')||0);$('#best').textContent=best?`· 최고 ${best}점`:'';
+  window.__GAME_TEST__={ready:true,start(){startGame();S.tutorial=false;S.frozen=false},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase!=='playing')startGame();S.tutorial=false;S.frozen=false;S.score+=25;S.solved++;S.combo++;updateHud();S.flash=.5},answerWrong(){if(S.phase!=='playing')startGame();S.tutorial=false;S.frozen=false;wrong('다시 계산해 보세요.')},sampleProblems,getLayout(){return{land:S.land,playW:S.play?.w||0}}};
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

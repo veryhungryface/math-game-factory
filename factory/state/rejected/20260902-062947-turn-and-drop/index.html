@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#4D7CC7">
+  <meta property="og:title" content="풀고 내려">
+  <meta property="og:description" content="한 칸 틀리면 꽉">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>풀고 내려</title>
+  <style>
+    :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--cobalt:#4D7CC7;--cream:#F4F1E8;--coral:#FF665C;--lime:#C9F04A;--ink:#233552}
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--cobalt);color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    body{font-family:"Arial Narrow","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-weight:700}
+    button{font:inherit;color:inherit;touch-action:manipulation}
+    #app{position:fixed;inset:0;overflow:hidden;background-color:var(--cobalt);background-image:radial-gradient(circle at 10px 10px,rgba(35,53,82,.28) 0 2px,rgba(244,241,232,.18) 2.5px 3px,transparent 3.5px);background-size:20px 20px}
+    #gameCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+    .hide{display:none!important}
+    .tool-label{background:var(--cream);border:2px solid var(--ink);border-radius:5px;box-shadow:0 3px 0 rgba(35,53,82,.42);position:absolute}
+    .tool-label:before,.tool-label:after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;background:var(--ink);top:5px}
+    .tool-label:before{left:5px}.tool-label:after{right:5px}
+    #hud{z-index:7;left:10px;right:10px;top:max(8px,env(safe-area-inset-top));height:58px;display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;text-align:center;padding:4px 22px}
+    #hud b{display:block;font:900 22px/1 "Arial Narrow","Apple SD Gothic Neo",sans-serif;transition:transform .15s,color .15s}
+    #hud b.punch{animation:inkPunch .3s steps(3)}
+    #hud small{font-size:10px;letter-spacing:.08em}
+    #mute{position:absolute;z-index:20;right:12px;top:max(76px,calc(env(safe-area-inset-top) + 70px));width:48px;height:48px;border:2px solid var(--ink);border-radius:5px;background:var(--cream);box-shadow:0 3px 0 rgba(35,53,82,.5);font-size:20px}
+    #mute:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(35,53,82,.5)}
+    #sideRule,#sideRecord{display:none;z-index:6;padding:28px 18px 16px;line-height:1.5}
+    #sideRule h2,#sideRecord h2{font-size:14px;letter-spacing:.08em;margin:0 0 12px;border-bottom:2px solid var(--ink);padding-bottom:7px}
+    #sideRule p,#sideRecord p{font-size:14px;margin:7px 0}
+    .jamRail{display:flex;gap:7px;justify-content:center;margin-top:7px}
+    .jamHole{width:29px;height:29px;border:3px solid var(--ink);border-radius:50%;background:#3665ad;position:relative}
+    .jamHole.blocked{background:var(--coral);transform:rotate(-9deg) scale(.92,1.08)}
+    .jamHole.blocked:after{content:"×";position:absolute;inset:-4px;text-align:center;font:900 27px/29px Arial;color:var(--cream)}
+    #message{position:absolute;z-index:8;left:50%;top:72px;transform:translateX(-50%);width:min(calc(100% - 82px),430px);min-height:44px;padding:9px 12px;text-align:center;background:var(--cream);border:2px solid var(--ink);border-radius:5px;box-shadow:0 3px 0 rgba(35,53,82,.45);font-size:14px;line-height:1.25;transition:opacity .2s,transform .2s}
+    #message.good{color:#285800;border-color:#285800;animation:liftNote .55s cubic-bezier(.18,.9,.25,1.2)}
+    #message.bad{color:#8c1814;border-color:#8c1814;animation:jamNote .34s ease}
+    #help{position:absolute;z-index:12;left:10px;bottom:max(8px,env(safe-area-inset-bottom));min-width:48px;height:48px;border:2px solid var(--ink);border-radius:5px;background:var(--cream);box-shadow:0 3px 0 rgba(35,53,82,.45);font-size:13px;padding:0 12px}
+    #helpPanel{z-index:16;left:12px;right:12px;bottom:70px;padding:27px 18px 16px;font-size:14px;line-height:1.65}
+    #helpPanel b{color:#9c1712}
+    @keyframes inkPunch{50%{transform:scale(1.22);color:#386900}}
+    @keyframes liftNote{45%{transform:translateX(-50%) translateY(-7px) scale(1.04)}100%{transform:translateX(-50%)}}
+    @keyframes jamNote{30%{transform:translateX(calc(-50% - 5px)) rotate(-1deg)}65%{transform:translateX(calc(-50% + 4px)) rotate(1deg)}}
+
+    #titleScreen{position:fixed;inset:0;z-index:40;overflow:hidden;background:linear-gradient(145deg,#4D7CC7,#233552)}
+    .titleArt{position:absolute;inset:0;overflow:hidden;background:linear-gradient(145deg,#4D7CC7 0 65%,#233552)}
+    .titleArt img{width:100%;height:100%;display:block;object-fit:cover;object-position:50% 50%;transform:scale(1.015);animation:artBreathe 20s ease-in-out infinite alternate}
+    .titleArt:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(35,53,82,.15),transparent 46%,rgba(35,53,82,.64) 100%),radial-gradient(ellipse at 50% 16%,rgba(77,124,199,.04),rgba(35,53,82,.26) 80%)}
+    .titleFallback{position:absolute;inset:0;background-color:#4D7CC7;background-image:radial-gradient(circle,#23355266 0 3px,transparent 3.5px);background-size:28px 28px}
+    .titleLogo{position:absolute;z-index:3;top:max(54px,7dvh);left:14px;right:14px;text-align:center;transform:rotate(-2deg);animation:logoIn .8s cubic-bezier(.16,1.35,.3,1) both}
+    .titleLogo h1{margin:0;color:#F4F1E8;font:1000 clamp(55px,16vw,88px)/.92 "Arial Black","Apple SD Gothic Neo",sans-serif;letter-spacing:-.1em;-webkit-text-stroke:4px #233552;text-shadow:0 2px 0 #C9F04A,0 5px 0 #476715,0 9px 0 #233552,0 16px 14px rgba(20,35,57,.55)}
+    .titleLogo p{display:inline-block;margin:17px 0 0;padding:7px 14px;background:#233552;color:#F4F1E8;border:2px solid #F4F1E8;border-radius:5px;box-shadow:0 3px 0 rgba(20,35,57,.7);font-size:15px;letter-spacing:.12em}
+    .titleBottom{position:absolute;z-index:4;left:50%;bottom:max(18px,env(safe-area-inset-bottom));width:min(calc(100% - 32px),520px);transform:translateX(-50%);display:grid;justify-items:center;gap:8px}
+    #startBtn{width:min(100%,420px);min-height:68px;border:4px solid #233552;border-radius:6px;background:#C9F04A;box-shadow:0 7px 0 #58781c,0 10px 0 #233552,0 16px 22px rgba(35,53,82,.45);font-size:25px;font-weight:1000;letter-spacing:-.04em;animation:ctaPulse 2.4s 1.2s infinite}
+    #startBtn:active{transform:translateY(7px);box-shadow:0 1px 0 #58781c,0 3px 0 #233552}
+    .titleMeta{color:#fff;font-size:12px;text-shadow:0 2px 4px #233552;letter-spacing:.04em}
+    #howBtn{min-height:44px;border:0;background:transparent;color:#fff;text-decoration:underline;text-underline-offset:4px;text-shadow:0 2px 4px #233552}
+    #howBox{width:min(100%,420px);padding:11px 14px;background:#F4F1E8;border:2px solid #233552;border-radius:5px;box-shadow:0 3px 0 #233552;font-size:13px;line-height:1.5}
+    .titleSpark{position:absolute;z-index:2;width:9px;height:9px;background:#C9F04A;border:2px solid #233552;animation:floatSpark 5s ease-in-out infinite}
+    .s1{left:10%;top:38%}.s2{right:12%;top:31%;animation-delay:-1.7s}.s3{left:18%;top:67%;animation-delay:-3.3s}
+    @keyframes artBreathe{to{transform:scale(1.05) translateY(-.5%)}}
+    @keyframes logoIn{from{opacity:0;transform:translateY(-70px) rotate(-8deg) scale(.72)}70%{transform:translateY(5px) rotate(1deg) scale(1.04)}to{opacity:1;transform:rotate(-2deg)}}
+    @keyframes ctaPulse{0%,72%,100%{transform:translateY(0) scale(1)}82%{transform:translateY(-3px) scale(1.025)}90%{transform:translateY(0) scale(1)}}
+    @keyframes floatSpark{50%{transform:translateY(-16px) rotate(45deg)}}
+
+    #onboard{position:fixed;inset:0;z-index:35;background:rgba(35,53,82,.72);display:grid;place-items:center;padding:22px}
+    .onCard{width:min(100%,430px);background:var(--cream);border:3px solid var(--ink);border-radius:6px;box-shadow:0 7px 0 var(--ink);padding:24px;text-align:center}
+    .onCard .stepIcon{font-size:60px}.onCard h2{margin:7px 0;font-size:25px}.onCard p{min-height:50px;line-height:1.5}
+    #onNext{width:100%;min-height:58px;background:var(--lime);border:3px solid var(--ink);border-radius:5px;box-shadow:0 4px 0 #58781c;font-size:19px;font-weight:900}
+
+    #result{position:fixed;inset:0;z-index:30;background:rgba(35,53,82,.94);display:grid;place-items:center;padding:20px}
+    .resultPlate{width:min(100%,470px);background:var(--cream);border:4px solid var(--ink);border-radius:6px;box-shadow:0 10px 0 #142339;padding:29px;text-align:center;animation:resultIn .55s cubic-bezier(.18,1.2,.3,1)}
+    .resultPlate h2{font-size:34px;margin:0 0 7px}.resultPlate .big{font:1000 58px/1 "Arial Narrow",sans-serif;color:#365f07;margin:18px 0}.resultPlate p{line-height:1.5}
+    #retry{width:100%;min-height:64px;border:3px solid var(--ink);border-radius:5px;background:var(--lime);box-shadow:0 5px 0 #58781c;font-size:21px;font-weight:1000}
+    @keyframes resultIn{from{transform:translateY(60px) scale(.8);opacity:0}}
+
+    html.land #hud{left:var(--stageX);right:auto;width:calc(var(--stageW));top:8px}
+    html.land #message{top:75px;width:min(36vw,470px)}
+    html.land #sideRule{display:block;left:calc(var(--stageX) + 18px);top:95px;width:min(240px,calc(var(--stageW)*.2));min-height:250px}
+    html.land #sideRecord{display:block;right:calc(var(--stageX) + 18px);top:95px;width:min(240px,calc(var(--stageW)*.2));min-height:250px}
+    html.land #help{left:calc(var(--stageX) + 20px)}
+    html.land #mute{right:calc(var(--stageX) + 18px);top:15px}
+    html.land #helpPanel{left:calc(var(--stageX) + 18px);right:auto;width:250px;bottom:78px}
+    @media(max-height:700px){#startBtn{min-height:64px}.titleLogo h1{font-size:50px}.titleLogo{top:35px}}
+    @media(prefers-reduced-motion:reduce){.titleArt img{animation-duration:40s}.titleLogo{animation-duration:.15s}.titleSpark{animation-duration:10s}#startBtn{animation-duration:4.8s}}
+  </style>
+</head>
+<body>
+<main id="app" aria-label="나눗셈 몫 다이얼 게임">
+  <canvas id="gameCanvas" aria-label="몫 다이얼을 돌리고 남은 토큰을 알맞은 홈으로 끌어 놓는 게임"></canvas>
+  <section id="hud" class="tool-label" aria-live="polite">
+    <div><small>해체</small><b id="solvedOut">0/10</b></div><div><small>점수</small><b id="scoreOut">0</b></div><div><small>남은 시간</small><b id="timeOut">3:30</b></div>
+  </section>
+  <button id="mute" aria-label="소리 끄기">🔊</button>
+  <aside id="sideRule" class="tool-label"><h2>작업 규칙</h2><p>① 큰 자리부터 몫 다이얼을 돌려요.</p><p>② 남은 토큰은 손으로 아래 자리에 내려요.</p><p>③ 마지막만 남김통에 넣어요.</p><div class="jamRail" id="jamRail"></div></aside>
+  <aside id="sideRecord" class="tool-label"><h2>작업 기록</h2><p>푼 몫 <strong id="quotientOut">—</strong></p><p>연속 해체 <strong id="comboOut">0</strong></p><p>최고 기록 <strong id="bestOut">0</strong></p><p id="verifyOut">검산 띠 대기</p></aside>
+  <div id="message">다이얼을 돌려 현재 수에 들어가는 묶음 수를 맞춰 보세요.</div>
+  <button id="help">작업법</button>
+  <div id="helpPanel" class="tool-label hide"><b>물리 약속:</b> 토큰은 모두 같은 크기예요.<br>다이얼을 둘레로 돌리고 손을 떼면 몫이 잠겨요. 남은 토큰은 아래 세 홈 중 알맞은 곳으로 직접 끌어 놓으세요.</div>
+</main>
+
+<section id="titleScreen" aria-label="풀고 내려 타이틀 화면">
+  <div class="titleArt"><div id="titleFallback" class="titleFallback hide"></div><img src="./assets/title.png" alt="겹친 수 판에서 몫 다이얼이 튀어나오는 모습" onerror="this.style.display='none';document.getElementById('titleFallback').classList.remove('hide')"></div>
+  <i class="titleSpark s1"></i><i class="titleSpark s2"></i><i class="titleSpark s3"></i>
+  <div class="titleLogo"><h1>풀고 내려</h1><p>한 칸 틀리면 꽉</p></div>
+  <div class="titleBottom">
+    <div class="titleMeta">3학년 2학기 · 나눗셈　|　최고 연속 <span id="titleBest">0</span>판</div>
+    <button id="startBtn">해체기 가동!</button>
+    <button id="howBtn" aria-expanded="false">어떻게 놀아요?</button>
+    <div id="howBox" class="hide">몫 다이얼을 직접 돌린 뒤, 남은 토큰을 다음 자리나 남김통으로 끌어 놓아요.</div>
+  </div>
+</section>
+
+<section id="onboard" class="hide" aria-label="게임 방법">
+  <div class="onCard"><div class="stepIcon" id="onIcon">⟳</div><h2 id="onTitle">몫을 돌려요</h2><p id="onText">현재 수에 나누는 수가 몇 묶음 들어가는지 다이얼로 골라 보세요.</p><button id="onNext">다음</button></div>
+</section>
+
+<section id="result" class="hide" aria-label="게임 결과">
+  <div class="resultPlate"><h2 id="resultTitle">기계가 멈췄어요</h2><p id="resultReason"></p><div class="big"><span id="resultCount">0</span>판</div><p>최장 정확 연속 <b id="resultCombo">0</b>판<br>가장 막힌 단계: <b id="resultWeak">몫 다이얼</b></p><button id="retry">다시 해체!</button></div>
+</section>
+
+<script>
+(() => {
+  'use strict';
+  // 교과서 표현 함정: 나눗셈의 '내림'은 윗자리 나머지를 아랫자리로 내려쓰는 조작이며 어림의 버림이 아니다.
+  // 답 표기는 '몫 q 나머지 r', 검산은 (나누는 수)×(몫)+(나머지)=(나누어지는 수), 항상 0≤r<d이다.
+  const $=s=>document.querySelector(s), canvas=$('#gameCanvas'), ctx=canvas.getContext('2d',{alpha:false});
+  const C={blue:'#4D7CC7',cream:'#F4F1E8',coral:'#FF665C',lime:'#C9F04A',ink:'#233552',deep:'#142339'};
+  const state={score:0,lives:5,level:1,phase:'title',solved:0,combo:0,bestCombo:+localStorage.getItem('turnDropBest')||0,time:210,easy:true,board:null,step:'dial',digit:0,dial:0,drag:null,shake:0,flash:0,dropAnim:0,unlockAnim:0,plateFall:0,inputNonce:0,lastTime:performance.now(),timeScale:1,errors:{dial:0,carry:0,remainder:0},recent:[],deckIndex:[0,0,0,0],startedAt:0,onboardingSeen:localStorage.getItem('turnDropOnboard')==='1',land:false,stageW:innerWidth,stageX:0,layout:{}};
+  const ui={score:$('#scoreOut'),solved:$('#solvedOut'),time:$('#timeOut'),msg:$('#message'),q:$('#quotientOut'),combo:$('#comboOut'),best:$('#bestOut'),verify:$('#verifyOut'),rail:$('#jamRail')};
+  let audio=null,muted=false,frame=0,bgPattern=null;
+
+  // 제약 만족 풀: 무작위 생성 후 거르지 않고, 자릿값(qT,rT,u)에서 역으로 모든 후보를 만든다.
+  const pools=[[],[],[],[]];
+  function addBand(level,ds,qTs,mode){
+    for(const d of ds) for(const qT of qTs) for(let rT=0;rT<d;rT++) for(let u=0;u<=9;u++){
+      if((mode==='carry'||mode==='carryTens')&&rT===0)continue;
+      if(mode==='carryTens'&&u!==0)continue;
+      if(mode==='noCarryRem'&&rT!==0)continue;
+      const tens=d*qT+rT,N=tens*10+u,c=rT*10+u,qO=Math.floor(c/d),rO=c-d*qO;
+      if(N<10||N>99||qO<0||qO>9||qT===qO)continue;
+      if(mode==='noCarryRem'&&rO===0)continue;
+      if(mode==='carryRem'&&(rT===0||rO===0))continue;
+      const p={id:`b${level}-${d}-${qT}-${rT}-${u}`,level,d,qT,rT,u,c,qO,rO,N,quotient:qT*10+qO,unitConcept:level<3?'내림이 있는 두 자리 수의 나눗셈':'몫과 나머지'};
+      if(d*p.quotient+p.rO!==N||p.rO<0||p.rO>=d)throw Error('pool invariant');
+      pools[level-1].push(p);
+    }
+  }
+  addBand(1,[2,3,5],[1,2,3],'carryTens');
+  addBand(2,[2,3,4,5],[1,2,3,4,5,6,7,8,9],'carry');
+  addBand(3,[2,3,4,5],[1,2,3,4,5,6,7,8,9],'noCarryRem');
+  addBand(4,[3,4,6,7,8,9],[1,2,3,4,5,6,7,8,9],'carryRem');
+  pools.forEach((p,i)=>{if(!p.length)throw Error(`empty pool ${i}`)});
+
+  function hashPick(pool,i){return pool[(i*47+i*i*13+17)%pool.length]}
+  function cloneProblem(p){return {...p}}
+  function pickProblem(level=state.level){
+    const b=Math.max(1,Math.min(4,level));let tries=0,p;
+    do{p=cloneProblem(hashPick(pools[b-1],state.deckIndex[b-1]++));tries++}while(state.recent.includes(p.id)&&tries<8);
+    state.recent.push(p.id);if(state.recent.length>5)state.recent.shift();return p;
+  }
+  function answerText(q,r){return r?`몫 ${q} 나머지 ${r}`:`몫 ${q}`}
+  function misconceptionChoices(p){
+    const correct=answerText(p.quotient,p.rO),items=[{value:correct,misconceptionId:'correct'}];
+    // misconceptionId carry-dropped: 십의 자리에서 남은 수를 버리고 일의 자리만 나눈 값.
+    items.push({value:answerText(p.qT*10+Math.floor(p.u/p.d),p.u%p.d),misconceptionId:'carry-dropped'});
+    // misconceptionId remainder-too-large: 일의 자리 몫을 하나 덜 잡아 나머지가 d 이상인 값.
+    if(p.qO>0)items.push({value:answerText(p.quotient-1,p.rO+p.d),misconceptionId:'remainder-too-large'});
+    // misconceptionId rounded-quotient: 현재 수를 반올림한 과다 몫으로 잡는 오류.
+    const rounded=Math.round(p.c/p.d);items.push({value:answerText(p.qT*10+rounded,p.c-p.d*rounded),misconceptionId:'rounded-quotient'});
+    // misconceptionId verify-without-remainder: 검산에서 나머지를 더하지 않아 몫을 억지로 한 칸 바꾸는 오류.
+    items.push({value:answerText(p.quotient,p.rO?0:p.d-1),misconceptionId:'verify-without-remainder'});
+    const seen=new Set([correct]),out=[items[0]];
+    for(const x of items.slice(1))if(x.value!==correct&&!seen.has(x.value)&&!/나머지 -/.test(x.value)){seen.add(x.value);out.push(x)}
+    let bump=1;while(out.length<4){const q=p.quotient+bump++,v=answerText(q,p.rO);if(!seen.has(v)){seen.add(v);out.push({value:v,misconceptionId:'place-value-offset'})}}
+    return out.slice(0,4);
+  }
+  function sampleProblems(n){
+    const count=Math.max(0,Math.floor(Number(n)||0)),out=[];
+    for(let i=0;i<count;i++){
+      const band=i%4+1,k=Math.floor(i/4),pool=pools[band-1],p=cloneProblem(pool[(k*47+band*13)%pool.length]),d=misconceptionChoices(p);
+      const prompt=band===4&&i%5===4?`${p.d}×${p.quotient}+${p.rO}=${p.N}이 되도록 잘못 잠긴 곳을 옳게 고쳐 보세요.`:`${p.N}÷${p.d}의 몫과 나머지를 구해 보세요.`;
+      const choices=d.map(x=>x.value);for(let k=choices.length-1;k>0;k--){const j=(i*7+k*3)% (k+1);[choices[k],choices[j]]=[choices[j],choices[k]]}
+      out.push({id:p.id+'-'+i,prompt,choices,answer:answerText(p.quotient,p.rO),answerNumeric:p.quotient+p.rO/p.d,unitConcept:p.unitConcept,misconceptions:d.filter(x=>x.misconceptionId!=='correct')});
+    }return out;
+  }
+
+  function initAudio(){if(audio||muted)return;try{audio=new (window.AudioContext||window.webkitAudioContext)()}catch(_){audio=null}}
+  function tone(freq,dur=.07,type='square',gain=.035,delay=0){if(!audio||muted)return;const t=audio.currentTime+delay,o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(audio.destination);o.start(t);o.stop(t+dur)}
+  function clickSound(q){tone(210+q*28,.045,'square',.025)}
+  function goodSound(combo=0){tone(360,.07,'triangle',.045);tone(480+Math.min(combo,6)*25,.11,'triangle',.04,.07)}
+  function badSound(){tone(125,.14,'sawtooth',.035)}
+  function updateHUD(punch=''){
+    ui.score.textContent=state.score;ui.solved.textContent=`${state.solved}/10`;ui.combo.textContent=state.combo;ui.best.textContent=state.bestCombo;$('#titleBest').textContent=state.bestCombo;
+    ui.q.textContent=state.board?`${state.board.qT}${state.digit?state.board.qO:'□'}`:'—';
+    ui.verify.textContent=state.board?`${state.board.d}×${state.board.quotient}+${state.board.rO}=${state.board.N}`:'검산 띠 대기';
+    const m=Math.floor(Math.max(0,state.time)/60),s=Math.floor(Math.max(0,state.time)%60);ui.time.textContent=`${m}:${String(s).padStart(2,'0')}`;
+    ui.rail.innerHTML='';for(let i=0;i<5;i++){const e=document.createElement('i');e.className='jamHole'+(i>=state.lives?' blocked':'');ui.rail.appendChild(e)}
+    if(punch){const el=punch==='score'?ui.score:ui.solved;el.classList.remove('punch');void el.offsetWidth;el.classList.add('punch')}
+  }
+  function say(text,kind=''){ui.msg.textContent=text;ui.msg.className=kind;state.inputNonce++}
+  function setLevel(){state.level=state.solved<2?1:state.solved<5?2:state.solved<7?3:4}
+  function newBoard(){setLevel();state.board=pickProblem();state.board.type=state.solved===6||state.solved===7?'error_find':'standard';state.step='dial';state.digit=0;state.dial=(state.board.qT+4)%10;state.drag=null;state.unlockAnim=0;state.plateFall=0;say(state.board.type==='error_find'?`오조립 수정판: ${state.board.N}÷${state.board.d}의 잘못 잠긴 몫을 직접 고쳐 보세요.`:`${state.board.N}÷${state.board.d}: 십의 자리 몫을 다이얼로 맞춰 보세요.`);updateHUD()}
+  function startGame(){
+    initAudio();$('#titleScreen').classList.add('hide');$('#result').classList.add('hide');$('#onboard').classList.add('hide');state.score=0;state.lives=5;state.level=1;state.phase='playing';state.solved=0;state.combo=0;state.time=210;state.timeScale=1;state.errors={dial:0,carry:0,remainder:0};state.startedAt=performance.now();newBoard();
+  }
+  function startWithOnboarding(){initAudio();$('#titleScreen').classList.add('hide');if(state.onboardingSeen)startGame();else{state.phase='onboarding';$('#onboard').classList.remove('hide');showOnStep(0)}}
+  const onSteps=[['⟳','몫을 돌려요','현재 수에 나누는 수가 몇 묶음 들어가는지 다이얼로 골라 보세요.'],['⬇','남은 수를 내려요','중간에 남은 토큰은 다음 자리 홈으로 직접 끌어 놓으세요.'],['▣','마지막만 남겨요','일의 자리까지 나눈 뒤 남은 토큰만 남김통에 넣어요.']];let onStep=0;
+  function showOnStep(i){onStep=i;$('#onIcon').textContent=onSteps[i][0];$('#onTitle').textContent=onSteps[i][1];$('#onText').textContent=onSteps[i][2];$('#onNext').textContent=i===2?'해체 시작!':'다음'}
+  function nextOn(){initAudio();if(onStep<2)showOnStep(onStep+1);else{localStorage.setItem('turnDropOnboard','1');state.onboardingSeen=true;startGame()}}
+  function currentValue(){return state.step==='verify'?state.board.N:state.digit===0?Math.floor(state.board.N/10):state.board.c}
+  function correctQ(){return state.step==='verify'?state.board.rO:state.digit===0?state.board.qT:state.board.qO}
+  function currentR(){return state.digit===0?state.board.rT:state.board.rO}
+  function lockDial(forcedCorrect=false){
+    if(state.phase!=='playing'||(state.step!=='dial'&&state.step!=='verify'))return;const chosen=forcedCorrect?correctQ():state.dial,val=currentValue(),d=state.board.d;
+    if(chosen===correctQ()){
+      state.dial=chosen;state.score+=10+state.combo;state.unlockAnim=.001;state.flash=.12;goodSound(state.combo);
+      if(state.step==='verify'){state.step='transition';state.timeScale=0;say(`${state.board.d}×${state.board.quotient}+${state.board.rO}=${state.board.N}! 네 구간이 모두 맞물렸어요.`,'good');setTimeout(()=>{state.timeScale=1;finishBoard()},80)}
+      else{state.step='place';say(`${chosen}묶음이 맞아요! 남은 ${currentR()}을 손으로 옮겨 보세요.`,'good')}
+      updateHUD('score');
+    }else{
+      if(state.step==='verify'){state.errors.remainder++;jam('검산에서는 나누는 수×몫에 마지막 나머지를 더해야 해요.');return}
+      const product=chosen*d,rem=val-product;let reason;
+      if(product>val)reason=`${chosen}×${d}=${product}: 현재 수보다 커요.`;
+      else if(rem>=d)reason=`${rem}개면 ${d}개씩 한 묶음을 더 만들 수 있어요.`;
+      else reason='현재 수에 들어가는 묶음 수를 다시 살펴보세요.';
+      state.errors.dial++;jam(reason);
+    }
+  }
+  function jam(reason){state.lives--;state.combo=0;state.shake=.32;state.dial=(state.dial+3)%10;badSound();say(`막힘 핀이 박혔어요. ${reason}`,'bad');updateHUD();if(state.lives<=0)endGame('대기 구멍이 모두 막혔어요.')}
+  function placeRemainder(target,forced=false){
+    if(state.phase!=='playing'||state.step!=='place')return;const expected=state.digit===0?'next':'remainder';if(forced)target=expected;
+    if(target===expected){
+      state.dropAnim=.001;goodSound(state.combo);if(state.digit===0){state.digit=1;state.step='dial';state.dial=(state.board.qO+5)%10;say(`${state.board.rT}십과 ${state.board.u}을 합쳐 ${state.board.c}. 일의 자리 몫을 돌려 보세요.`,'good');}
+      else if(state.solved===9){beginVerify()}else{finishBoard()}updateHUD('score');
+    }else{
+      if(state.digit===0&&target==='remainder'){state.errors.carry++;jam('중간에 남은 수는 마지막 나머지가 아니에요. 다음 자리로 내려요.');}
+      else if(target==='quotient'){state.errors.carry++;jam('남은 토큰은 몫 칸에 넣지 않아요.');}
+      else{state.errors.remainder++;jam('마지막에 남은 수는 남김통에 넣어요.');}
+    }
+  }
+  function beginVerify(){state.step='verify';state.dial=0;state.unlockAnim=0;say(`마지막 검산 띠: ${state.board.d}×${state.board.quotient}+□=${state.board.N}. 빠진 나머지 다이얼을 고쳐 보세요.`)}
+  function finishBoard(){state.score+=30+state.combo*3;state.solved++;state.combo++;state.bestCombo=Math.max(state.bestCombo,state.combo);localStorage.setItem('turnDropBest',String(state.bestCombo));state.plateFall=.001;state.step='transition';say(state.solved===10?'검산식까지 맞물렸어요. 완전 해체!':'판 한 겹이 아래 레일로 빠졌어요!','good');updateHUD('solved');if(state.solved>=10){state.timeScale=0;setTimeout(()=>{state.timeScale=1;endGame('10판을 모두 해체했어요!')},850)}else setTimeout(()=>{if(state.phase==='playing')newBoard()},700)}
+  function forceCorrect(){if(state.phase!=='playing')startGame();if(state.step==='dial'||state.step==='verify')lockDial(true);else if(state.step==='place')placeRemainder('',true);else{state.score+=1;updateHUD('score')}}
+  function forceWrong(){if(state.phase!=='playing')startGame();if(state.step==='dial'||state.step==='verify'){state.dial=(correctQ()+1)%10;lockDial(false)}else placeRemainder(state.digit===0?'remainder':'next')}
+  function endGame(reason){if(state.phase==='ended')return;state.phase='ended';state.timeScale=0;$('#resultReason').textContent=reason;$('#resultTitle').textContent=state.solved>=10?'완전 해체!':'기계가 잠겼어요';$('#resultCount').textContent='0';$('#resultCombo').textContent=state.bestCombo;const e=state.errors;$('#resultWeak').textContent=e.carry>e.dial&&e.carry>=e.remainder?'내림 홈':e.remainder>e.dial?'남김통':'몫 다이얼';$('#result').classList.remove('hide');let shown=0;const goal=state.solved,t0=performance.now();function count(now){shown=Math.min(goal,Math.round((now-t0)/450*goal));$('#resultCount').textContent=shown;if(shown<goal)requestAnimationFrame(count)}requestAnimationFrame(count)}
+
+  function layout(){
+    const W=innerWidth,H=innerHeight;state.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',state.land);state.stageW=Math.min(W,1280);state.stageX=Math.round((W-state.stageW)/2);document.documentElement.style.setProperty('--stageW',state.stageW+'px');document.documentElement.style.setProperty('--stageX',state.stageX+'px');
+    const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);const tile=document.createElement('canvas');tile.width=40;tile.height=40;const tc=tile.getContext('2d');tc.fillStyle=C.blue;tc.fillRect(0,0,40,40);tc.fillStyle='rgba(35,53,82,.22)';tc.beginPath();tc.arc(10,10,2.2,0,Math.PI*2);tc.arc(30,10,2.2,0,Math.PI*2);tc.arc(10,30,2.2,0,Math.PI*2);tc.arc(30,30,2.2,0,Math.PI*2);tc.fill();bgPattern=ctx.createPattern(tile,'repeat');
+    if(state.land){const centerW=state.stageW*.56,cx=state.stageX+state.stageW/2;state.layout={W,H,cx,top:125,plateW:Math.min(620,centerW),plateH:Math.min(510,H-175),dialR:74,zoneY:H-118,zoneW:140}}
+    else{state.layout={W,H,cx:W/2,top:128,plateW:Math.min(W-26,430),plateH:Math.min(475,H-250),dialR:58,zoneY:H-91,zoneW:Math.min(112,(W-34)/3)}}
+  }
+  addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));layout();
+
+  function roundRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+  function plasticPlate(x,y,w,h,fill,depth=7){ctx.fillStyle='rgba(20,35,57,.4)';roundRect(x+depth,y+depth,w,h,6);ctx.fill();ctx.fillStyle=fill;roundRect(x,y,w,h,6);ctx.fill();ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.stroke();ctx.strokeStyle='rgba(244,241,232,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x+6,y+5);ctx.lineTo(x+w-6,y+5);ctx.stroke()}
+  function drawHole(x,y,r,fill=C.deep){ctx.fillStyle='rgba(244,241,232,.3)';ctx.beginPath();ctx.arc(x-1,y-1,r+2,0,Math.PI*2);ctx.fill();ctx.fillStyle=fill;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()}
+  function drawDial(cx,cy,r,t){
+    const breathe=Math.sin(t*.00105)*.015,active=(state.step==='dial'||state.step==='verify')&&state.phase==='playing',lift=state.unlockAnim?Math.sin(Math.min(1,state.unlockAnim)*Math.PI)*12:0;ctx.save();ctx.translate(cx,cy-lift);ctx.rotate(state.dial*Math.PI/5+(active?breathe:0));
+    ctx.fillStyle='rgba(20,35,57,.42)';ctx.beginPath();ctx.arc(4,6,r+5,0,Math.PI*2);ctx.fill();ctx.fillStyle=state.flash>0?C.cream:C.lime;ctx.beginPath();for(let i=0;i<20;i++){const a=i*Math.PI/10,rr=i%2?r:r+6;const px=Math.cos(a)*rr,py=Math.sin(a)*rr;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fill();ctx.strokeStyle=C.ink;ctx.lineWidth=4;ctx.stroke();
+    ctx.rotate(-state.dial*Math.PI/5-(active?breathe:0));ctx.fillStyle=C.ink;ctx.font=`1000 ${Math.round(r*.78)}px "Arial Narrow",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(state.dial,0,2);ctx.font=`800 ${Math.round(r*.2)}px sans-serif`;ctx.fillText('몫',0,r*.5);ctx.restore();
+    if(active){ctx.strokeStyle=C.cream;ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,r+15,-2.5,.65);ctx.stroke();ctx.fillStyle=C.cream;ctx.beginPath();ctx.moveTo(cx+r+13,cy+4);ctx.lineTo(cx+r+4,cy-7);ctx.lineTo(cx+r+18,cy-8);ctx.fill()}
+  }
+  function drawTokens(cx,cy,count,dragging=false){const shown=Math.min(count,18),cols=Math.min(6,Math.max(1,shown));for(let i=0;i<shown;i++){const x=cx+(i%cols-(cols-1)/2)*15,y=cy+Math.floor(i/cols)*15;ctx.fillStyle=dragging?'rgba(201,240,74,.25)':C.coral;roundRect(x-6,y-6,12,12,3);ctx.fill();ctx.strokeStyle=C.ink;ctx.lineWidth=1.5;ctx.stroke()}if(count>18){ctx.fillStyle=C.ink;ctx.font='900 13px sans-serif';ctx.fillText(`+${count-18}`,cx+49,cy+14)}}
+  function draw(){
+    const {W,H,cx,top,plateW,plateH,dialR,zoneY,zoneW}=state.layout;ctx.fillStyle=bgPattern||C.blue;ctx.fillRect(0,0,W,H);
+    if(state.phase==='title'||state.phase==='onboarding')return;
+    if(state.land&&state.stageW<W-2){ctx.fillStyle='rgba(35,53,82,.38)';ctx.fillRect(0,0,state.stageX,H);ctx.fillRect(state.stageX+state.stageW,0,state.stageX,H)}
+    if(!state.board)return;const p=state.board,fall=state.plateFall?Math.pow(Math.min(1,state.plateFall),2)*(H*.55):0,squash=state.plateFall?Math.sin(Math.min(1,state.plateFall)*Math.PI):0;
+    ctx.save();if(state.shake>0)ctx.translate(Math.sin(frame*2.7)*5*state.shake/0.32,Math.cos(frame*3.1)*2*state.shake/0.32);ctx.translate(cx,top+plateH*.48+fall);ctx.scale(1-squash*.08,1+squash*.13);ctx.translate(-cx,-(top+plateH*.48));
+    const px=cx-plateW/2,py=top;plasticPlate(px+14,py+18,plateW-28,plateH,C.deep);plasticPlate(px+7,py+9,plateW-14,plateH-8,'#365f9f');plasticPlate(px,py,plateW,plateH,C.cream);
+    [[px+13,py+13],[px+plateW-13,py+13],[px+13,py+plateH-13],[px+plateW-13,py+plateH-13]].forEach(a=>drawHole(a[0],a[1],5));
+    ctx.fillStyle=C.ink;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`900 ${state.land?26:20}px "Arial Narrow",sans-serif`;ctx.fillText(`작업판 ${state.solved+1} · ${p.N} ÷ ${p.d}`,cx,py+31);
+    const cur=currentValue();ctx.font=`1000 ${state.land?48:38}px "Arial Narrow",sans-serif`;ctx.fillText(state.step==='verify'?`${p.d} × ${p.quotient} + ${state.dial} = ${p.N}`:`${cur} ÷ ${p.d}`,cx,py+78);ctx.font=`800 ${state.land?18:15}px sans-serif`;ctx.fillText(state.step==='verify'?'빠진 나머지를 다이얼로 고쳐요':`다이얼 묶음: ${state.dial} × ${p.d} = ${state.dial*p.d}`,cx,py+113);
+    const dialY=py+(state.land?215:195);drawDial(cx,dialY,dialR,performance.now());
+    const rem=currentR(),tokenY=dialY+dialR+42;ctx.fillStyle=C.ink;ctx.font='800 14px sans-serif';ctx.fillText(state.step==='place'?`남은 토큰 ${rem}개`:state.step==='verify'?'검산 띠의 한 곳만 고쳐요':'손을 떼면 몫이 잠겨요',cx,tokenY-17);if(state.step==='place')drawTokens(state.drag?state.drag.x:cx,state.drag?state.drag.y:tokenY,rem,!!state.drag);
+    ctx.restore();
+    const names=['다음 자리','몫으로','남김통'];const keys=['next','quotient','remainder'];for(let i=0;i<3;i++){const x=cx+(i-1)*(zoneW+8)-zoneW/2,y=zoneY,w=zoneW,h=61,hot=state.drag&&pointIn(state.drag.x,state.drag.y,{x,y,w,h});ctx.fillStyle=hot?C.lime:(i===1?'#d8d4ca':C.cream);roundRect(x,y,w,h,5);ctx.fill();ctx.strokeStyle=C.ink;ctx.lineWidth=hot?4:2;ctx.stroke();ctx.fillStyle=C.ink;ctx.font=`900 ${state.land?17:14}px sans-serif`;ctx.textAlign='center';ctx.fillText(names[i],x+w/2,y+25);ctx.font='700 10px sans-serif';ctx.fillText(i===0?'중간에 남았을 때':i===1?'여기는 아니에요':'마지막에 남았을 때',x+w/2,y+45);state.layout[keys[i]]={x,y,w,h}}
+    if(state.dropAnim>0&&state.dropAnim<1){const yy=top+plateH*.72+state.dropAnim*(zoneY-(top+plateH*.72));ctx.globalAlpha=1-state.dropAnim*.6;drawTokens(cx,yy,currentR());ctx.globalAlpha=1}
+  }
+  function tick(now){const dt=Math.min(.05,(now-state.lastTime)/1000);state.lastTime=now;frame++;if(state.phase==='playing'){if(state.timeScale>0){state.time-=dt*state.timeScale;if(state.time<=0)endGame('시간이 끝났어요.')}if(state.shake>0)state.shake=Math.max(0,state.shake-dt);if(state.flash>0)state.flash=Math.max(0,state.flash-dt);if(state.unlockAnim)state.unlockAnim=Math.min(1,state.unlockAnim+dt*3.8);if(state.dropAnim)state.dropAnim=Math.min(1,state.dropAnim+dt*2.7);if(state.plateFall)state.plateFall=Math.min(1,state.plateFall+dt*1.8);if(frame%15===0)updateHUD()}draw();requestAnimationFrame(tick)}requestAnimationFrame(tick);
+  function pointIn(x,y,r){return x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h}
+  function dialPos(){const l=state.layout,py=l.top,dy=py+(state.land?215:195);return{x:l.cx,y:dy,r:l.dialR+27}}
+  function pointerXY(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+  canvas.addEventListener('pointerdown',e=>{if(state.phase!=='playing')return;initAudio();const p=pointerXY(e),d=dialPos();state.inputNonce++;if((state.step==='dial'||state.step==='verify')&&Math.hypot(p.x-d.x,p.y-d.y)<=d.r){state.drag={type:'dial',lastAngle:Math.atan2(p.y-d.y,p.x-d.x),acc:0};canvas.setPointerCapture?.(e.pointerId);state.dial=(state.dial+1)%10;clickSound(state.dial);say(state.step==='verify'?`나머지 ${state.dial} 선택 · 검산식을 살펴보세요.`:`${state.dial}묶음 선택 · 둘레를 돌린 뒤 손을 떼세요.`)}else if(state.step==='place'){state.drag={type:'token',x:p.x,y:p.y};canvas.setPointerCapture?.(e.pointerId);say('남은 토큰을 어느 홈에 둘까요?')}else if(state.step==='dial'||state.step==='verify'){say('큰 다이얼 둘레를 잡아 돌려 보세요.')} });
+  canvas.addEventListener('pointermove',e=>{if(!state.drag)return;const p=pointerXY(e);if(state.drag.type==='dial'){const d=dialPos(),a=Math.atan2(p.y-d.y,p.x-d.x);let da=a-state.drag.lastAngle;if(da>Math.PI)da-=Math.PI*2;if(da<-Math.PI)da+=Math.PI*2;state.drag.acc+=da;state.drag.lastAngle=a;const notch=Math.PI/10;while(Math.abs(state.drag.acc)>=notch){const dir=Math.sign(state.drag.acc);state.dial=(state.dial+dir+10)%10;state.drag.acc-=dir*notch;clickSound(state.dial);say(`${state.dial}묶음 · ${state.dial}×${state.board.d}=${state.dial*state.board.d}`)}}else{state.drag.x=p.x;state.drag.y=p.y}state.inputNonce++});
+  canvas.addEventListener('pointerup',e=>{if(!state.drag)return;const drag=state.drag,p=pointerXY(e);state.drag=null;if(drag.type==='dial')lockDial();else{const target=['next','quotient','remainder'].find(k=>pointIn(p.x,p.y,state.layout[k]));if(target)placeRemainder(target);else say('홈 안까지 끌어 놓아 보세요.','bad')}state.inputNonce++});
+  canvas.addEventListener('pointercancel',()=>{state.drag=null});
+  addEventListener('keydown',e=>{if(state.phase!=='playing')return;if((state.step==='dial'||state.step==='verify')&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){state.dial=(state.dial+(e.key==='ArrowRight'?1:9))%10;clickSound(state.dial);say(state.step==='verify'?`나머지 ${state.dial} 선택`:`${state.dial}묶음 선택`);e.preventDefault()}else if((state.step==='dial'||state.step==='verify')&&e.key==='Enter'){lockDial();e.preventDefault()}else if(state.step==='place'&&e.key==='ArrowDown'){placeRemainder('next');e.preventDefault()}else if(state.step==='place'&&(e.key==='r'||e.key==='R')){placeRemainder('remainder');e.preventDefault()}});
+  $('#startBtn').addEventListener('click',startWithOnboarding);$('#retry').addEventListener('click',startGame);$('#onNext').addEventListener('click',nextOn);
+  $('#howBtn').addEventListener('click',()=>{const b=$('#howBox'),open=b.classList.toggle('hide')===false;$('#howBtn').setAttribute('aria-expanded',String(open))});
+  $('#help').addEventListener('click',()=>$('#helpPanel').classList.toggle('hide'));
+  $('#mute').addEventListener('click',()=>{muted=!muted;$('#mute').textContent=muted?'🔇':'🔊';$('#mute').setAttribute('aria-label',muted?'소리 켜기':'소리 끄기');if(!muted)initAudio()});
+  updateHUD();
+  window.__GAME_TEST__={ready:true,start:startGame,getState(){return{score:state.score,lives:state.lives,level:state.level,phase:state.phase,solved:state.solved,inputNonce:state.inputNonce}},answerCorrect:forceCorrect,answerWrong:forceWrong,sampleProblems,getLayout(){return{land:state.land,playW:state.land?state.layout.plateW:state.layout.W}}};
+})();
+</script>
+</body>
+</html>

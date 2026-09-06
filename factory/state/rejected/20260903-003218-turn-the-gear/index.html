@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta property="og:title" content="기어를 돌려">
+  <meta property="og:description" content="몫 기어를 돌리고 남은 판을 내려요">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>기어를 돌려</title>
+  <style>
+    :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--blue:#3156A3;--cyan:#C8F1F4;--paper:#F7F3E8;--coral:#F05D5E;--ink:#162A55}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--blue);color:var(--paper);font-family:"SFMono-Regular",Consolas,"Apple SD Gothic Neo","Malgun Gothic",monospace;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    button{font:inherit;color:inherit;touch-action:manipulation;min-width:44px;min-height:44px}
+    #game{position:fixed;inset:0;overflow:hidden;background:var(--blue)}canvas{display:block;width:100%;height:100%;touch-action:none}
+    #title{position:absolute;inset:0;z-index:20;display:grid;place-items:center;overflow:hidden;background:linear-gradient(165deg,#162A55,#3156A3 46%,#234483)}
+    #titleArt{position:absolute;inset:-3%;width:106%;height:106%;object-fit:cover;object-position:center 58%;animation:keyDrift 20s ease-in-out infinite alternate;opacity:.93}
+    #titleFallback{position:absolute;inset:0;background:repeating-linear-gradient(30deg,transparent 0 34px,rgba(200,241,244,.12) 35px 36px),linear-gradient(#3156A3,#162A55)}
+    .titleVeil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(22,42,85,.12),rgba(22,42,85,0) 52%,rgba(22,42,85,.7))}
+    .titleContent{position:relative;width:min(94vw,760px);height:100%;display:flex;flex-direction:column;align-items:center;text-align:center;padding:clamp(40px,7vh,76px) 16px max(22px,env(safe-area-inset-bottom))}
+    .logo{margin:0;line-height:.86;font-family:Impact,"Arial Black","Apple SD Gothic Neo",sans-serif;font-size:clamp(58px,18vw,132px);font-weight:900;letter-spacing:-.09em;transform:rotate(-2deg);color:#F7F3E8;-webkit-text-stroke:clamp(2px,.8vw,5px) #162A55;text-shadow:0 5px 0 #F05D5E,0 10px 0 #162A55,0 0 22px rgba(200,241,244,.65);animation:logoEnter .9s cubic-bezier(.18,.89,.32,1.28) both}
+    .logo span{display:inline-block}.logo span:nth-child(2){transform:translateY(-.08em) rotate(4deg);color:#C8F1F4}.logo span:nth-child(4){transform:translateY(.06em) rotate(-3deg);color:#F05D5E}
+    .tag{margin:18px 0 0;padding:7px 14px;border-top:1px solid var(--cyan);border-bottom:1px solid var(--cyan);font-size:clamp(15px,4vw,22px);font-weight:800;letter-spacing:.05em;background:rgba(49,86,163,.68)}
+    .titleBottom{margin-top:auto;width:min(88vw,420px)}
+    #startBtn,.bigBtn{position:relative;width:100%;min-height:68px;border:2px solid var(--cyan);border-radius:0;background:var(--paper);color:var(--ink);font-size:clamp(21px,6vw,28px);font-weight:950;letter-spacing:.05em;clip-path:polygon(0 0,96% 0,100% 24%,100% 100%,4% 100%,0 76%);animation:ctaPulse 1.8s ease-in-out infinite}
+    #startBtn::before,.bigBtn::before{content:"";position:absolute;left:8px;right:8px;top:8px;border-top:1px solid var(--blue)}#startBtn:active,.bigBtn:active{transform:scale(.94);filter:contrast(1.15)}
+    .titleMeta{display:flex;justify-content:space-between;margin-top:12px;font-size:12px;font-weight:800}.titleMeta b{padding:5px 8px;border:1px solid rgba(200,241,244,.7);font-weight:800}
+    #hud{position:absolute;z-index:4;top:max(8px,env(safe-area-inset-top));left:calc(var(--stageX) + 8px);width:calc(var(--stageW) - 16px);height:56px;display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:stretch;pointer-events:none}
+    .legend{border:1px solid rgba(200,241,244,.8);background:rgba(49,86,163,.9);padding:7px 9px;min-width:0;overflow:hidden}.legend small{display:block;font-size:9px;color:var(--cyan);letter-spacing:.08em}.legend strong{display:block;font-size:18px;line-height:23px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.legend.changed strong{animation:inkStamp .28s steps(2)}
+    #mute{pointer-events:auto;border:1px solid var(--cyan);border-radius:0;background:#3156A3;width:52px;font-size:19px}
+    #goal{position:absolute;z-index:5;top:70px;left:50%;transform:translateX(-50%);width:min(calc(100vw - 20px),620px);min-height:42px;padding:10px 14px;border-left:4px solid var(--paper);border-right:1px solid var(--cyan);background:rgba(22,42,85,.94);text-align:center;font-size:14px;font-weight:850;letter-spacing:-.02em;pointer-events:none}
+    #coach{position:absolute;z-index:7;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(100vw - 24px),640px);min-height:48px;padding:10px 14px;border:1px solid var(--cyan);background:#162A55;color:var(--paper);font-size:14px;font-weight:800;text-align:center;opacity:0;transition:opacity .12s;pointer-events:none}#coach.on{opacity:1}#coach.bad{border-color:var(--coral)}
+    #result{position:absolute;z-index:18;inset:0;display:none;place-items:center;background:rgba(22,42,85,.92);padding:20px}#result.on{display:grid}.resultPlate{width:min(94vw,520px);border:1px solid var(--cyan);background:#3156A3;padding:28px 22px;text-align:center;clip-path:polygon(0 0,92% 0,100% 9%,100% 100%,8% 100%,0 91%)}.resultPlate h2{font-size:34px;margin:0 0 15px}.resultScore{font-size:64px;font-weight:950;color:var(--cyan);font-variant-numeric:tabular-nums}.resultLine{height:1px;background:var(--cyan);margin:16px 0}.resultStats{font-size:16px;line-height:2}.bigBtn{margin-top:18px;animation:none}
+    #helpBtn{position:absolute;z-index:6;right:calc(var(--stageX) + 10px);bottom:max(12px,env(safe-area-inset-bottom));border:1px solid var(--cyan);border-radius:0;background:#3156A3;font-size:12px;padding:6px 10px;display:none}
+    @keyframes keyDrift{to{transform:scale(1.045) translateY(-1%)}}@keyframes logoEnter{from{opacity:0;transform:translateY(-45px) rotate(-5deg) scale(.78)}}@keyframes ctaPulse{50%{transform:scale(1.035);filter:brightness(1.08)}}@keyframes inkStamp{50%{transform:scale(1.24);color:var(--coral)}}
+    @media(min-width:1024px){html.land #hud{left:calc(var(--stageX) + 20px);width:calc(var(--stageW) - 40px)}html.land #goal{left:calc(var(--stageX) + var(--stageW)*.34);width:min(620px,calc(var(--stageW)*.62));transform:translateX(-50%)}html.land #coach{left:calc(var(--stageX) + var(--stageW)*.34);width:min(700px,calc(var(--stageW)*.64));transform:translateX(-50%)}html.land #helpBtn{right:calc(var(--stageX) + 18px);display:block}}
+    @media(prefers-reduced-motion:reduce){#titleArt{animation-duration:38s}.logo{animation-duration:.2s}#startBtn{animation-duration:3s}}
+  </style>
+</head>
+<body>
+<main id="game" aria-label="기어를 돌려 나눗셈 게임">
+  <canvas id="c" aria-label="몫 기어 작업대"></canvas>
+  <div id="hud" hidden>
+    <div class="legend" id="scoreBox"><small>SCORE / 점수</small><strong id="score">0000</strong></div>
+    <div class="legend"><small>JAM / 임시 구멍</small><strong id="lives">○ ○ ○</strong></div>
+    <button id="mute" aria-label="소리 끄기">♪</button>
+  </div>
+  <div id="goal" hidden>기어를 돌려 몫을 맞추고 남은 판을 내려요</div>
+  <div id="coach" role="status" aria-live="polite"></div>
+  <button id="helpBtn">어떻게 놀아요?</button>
+  <section id="title">
+    <div id="titleFallback"></div><img id="titleArt" src="./assets/title.png" alt="기어와 자리값 판이 그려진 청사진" onerror="this.style.display='none'">
+    <div class="titleVeil"></div>
+    <div class="titleContent">
+      <h1 class="logo" aria-label="기어를 돌려"><span>기</span><span>어</span><span>를</span><br><span>돌</span><span>려</span></h1>
+      <p class="tag">몫 기어를 돌리고 남은 판을 내려요</p>
+      <div class="titleBottom"><button id="startBtn">도면 풀기</button><div class="titleMeta"><b>3학년 2학기 · 나눗셈</b><b>최고 <span id="best">0</span></b></div></div>
+    </div>
+  </section>
+  <section id="result"><div class="resultPlate"><h2 id="resultTitle">도면 완성!</h2><div class="resultScore" id="resultScore">0</div><div class="resultLine"></div><div class="resultStats" id="resultStats"></div><button class="bigBtn" id="again">다시 돌리기</button></div></section>
+</main>
+<script>
+(()=>{'use strict';
+  const $=id=>document.getElementById(id), canvas=$('c'), ctx=canvas.getContext('2d',{alpha:false});
+  const C={blue:'#3156A3',cyan:'#C8F1F4',paper:'#F7F3E8',coral:'#F05D5E',ink:'#162A55'};
+  const TAU=Math.PI*2, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W=390,H=844,DPR=1,layout={},last=performance.now(),audio=null,muted=false,coachTimer=0;
+  const S={phase:'title',score:0,lives:3,level:1,solved:0,combo:0,bestCombo:0,problem:null,step:0,gear:1,gearAngle:0,drag:null,remainder:0,needsDrop:false,drop:{active:false,x:0,y:0},tutorial:true,tutorialDone:false,wrongAtStep:0,flash:0,hitStop:0,shake:0,shakeX:0,reveal:'',revealT:0,trail:[],ripples:[],locks:[],stamps:Number(localStorage.getItem('turnGearStamps')||0),elapsed:0,deckIndex:0,problemCount:0};
+
+  // 교과서 표현 함정: 나눗셈 기호는 ÷, 곱셈은 ×, 나머지는 나누는 수보다 항상 작게 생성한다.
+  // 익힘책 지시형(~해 보세요)만 쓰며 '구하시오'와 슬래시 나눗셈 표기는 쓰지 않는다.
+  function enumeratePools(){
+    const p1=[],p2=[],p3=[];
+    for(let d=2;d<=9;d++)for(let q=10;q<=49;q++)for(let r=0;r<d;r++){
+      const n=d*q+r;if(n<10||n>99)continue;
+      const tens=Math.floor(n/10), ones=n%10, qt=Math.floor(q/10), firstRem=tens-d*qt;
+      if(firstRem<0||firstRem>=d||10*firstRem+ones-d*(q%10)!==r)continue;
+      const base={d,q,r,n,tens,ones,qt,qo:q%10,firstRem};
+      if(r===0&&firstRem>0)p1.push({...base,band:1});
+      if(r>0)p2.push({...base,band:2});
+      if(r>0)p3.push({...base,band:3});
+    }
+    return [null,p1,p2,p3];
+  }
+  const POOLS=enumeratePools();
+  function mulberry(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  const rng=mulberry(20260903);
+  function shuffle(a,random=rng){for(let i=a.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+  const DECKS=[null,...[1,2,3].map(b=>shuffle(POOLS[b].slice()))];
+  function formatAnswer(p,q=p.q,r=p.r){return r?`몫 ${q}, 나머지 ${r}`:`몫 ${q}`}
+  function problemChoices(p){
+    // 오개념 역산 후보. 각 후보는 모든 파라미터에서 정답 문자열과 달라야 한다.
+    let raw=[
+      {value:formatAnswer(p,p.q-1,p.r+p.d),misconceptionId:'remainder_ge_divisor'},
+      {value:formatAnswer(p,p.q-1,p.r),misconceptionId:'quotient_digit_one_less'},
+      {value:formatAnswer(p,p.q,0),misconceptionId:'verification_omit_remainder'},
+      {value:formatAnswer(p,Math.max(1,p.q-10),p.r),misconceptionId:'discard_brought_down_tens'}
+    ];
+    const answer=formatAnswer(p);
+    // 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플
+    raw=raw.filter(x=>x.value!==answer).filter(x=>/^몫 \d+(, 나머지 \d+)?$/.test(x.value));
+    raw=[...new Map(raw.map(x=>[x.value,x])).values()];
+    let bump=1;while(raw.length<3){const v=formatAnswer(p,p.q+bump,p.r);if(v!==answer&&!raw.some(x=>x.value===v))raw.push({value:v,misconceptionId:'place_value_overshoot'});bump++}
+    const chosen=raw.slice(0,3);chosen.push({value:answer,misconceptionId:'correct'});return shuffle(chosen.slice());
+  }
+  function sampleProblems(n){
+    n=Math.max(0,Math.floor(Number(n)||0));const out=[];
+    for(let i=0;i<n;i++){
+      const band=1+(i%3),pool=POOLS[band],p=pool[(i*37+band*11)%pool.length],choiceMeta=problemChoices(p),answer=formatAnswer(p);
+      out.push({id:`gear-${band}-${p.n}-${p.d}-${i}`,prompt:band===3?`${p.n}÷${p.d}의 잘못된 계산을 옳게 고쳐 보세요.`:`${p.n}÷${p.d}를 계산해 보세요.`,choices:choiceMeta.map(x=>x.value),answer,answerNumeric:p.q+p.r/p.d,unitConcept:band===1?'내림이 있는 나눗셈':band===2?'몫과 나머지':'곱셈으로 나눗셈 확인하기',choiceMeta});
+    }return out;
+  }
+  function nextProblem(forceTutorial=false){
+    let p;if(forceTutorial)p={d:3,q:24,r:0,n:72,tens:7,ones:2,qt:2,qo:4,firstRem:1,band:1};
+    else{const band=S.problemCount<2?1:S.problemCount<5?2:3;const deck=DECKS[band];p=deck[(S.deckIndex++)%deck.length]}
+    S.problem={...p};S.level=p.band;S.step=0;S.gear=forceTutorial?1:(p.qt+3)%10;if(S.gear===p.qt)S.gear=(S.gear+1)%10;S.gearAngle=S.gear*TAU/10;S.remainder=0;S.needsDrop=false;S.drop.active=false;S.wrongAtStep=0;S.reveal='';S.locks=[];S.phase='gear';S.problemCount++;
+    $('goal').textContent=forceTutorial?'기어를 2에 맞추고 아래로 쓸어 잠가 보세요':'몫 기어를 돌려 이번 자리의 몫을 맞춰 보세요';
+  }
+  function startGame(){
+    initAudio();$('title').style.display='none';$('result').classList.remove('on');$('hud').hidden=false;$('goal').hidden=false;$('helpBtn').style.display='';
+    S.phase='gear';S.score=0;S.lives=3;S.level=1;S.solved=0;S.combo=0;S.bestCombo=0;S.elapsed=0;S.problemCount=0;S.deckIndex=0;S.tutorial=!localStorage.getItem('turnGearTutorial');S.tutorialDone=!S.tutorial;nextProblem(S.tutorial);updateHUD();
+    say(S.tutorial?'점선 길을 따라 기어를 돌려 직접 맞춰 보세요.':'기어를 돌리고 중심을 아래로 쓸어 잠가 보세요.',false,4200);
+  }
+  function finish(win=false){S.phase='result';const best=Math.max(Number(localStorage.getItem('turnGearBest')||0),S.score);localStorage.setItem('turnGearBest',best);$('best').textContent=best;$('resultTitle').textContent=win?'검산 도면 완성!':'기어가 걸렸어요';$('resultScore').textContent='0';$('resultStats').innerHTML=`완성한 도면 ${S.solved}개<br>최고 맞물림 ${S.bestCombo}회 · 청사진 ${S.stamps%7}/7`;$('result').classList.add('on');animateCount($('resultScore'),S.score)}
+  function animateCount(el,to){let t0=performance.now();const tick=t=>{const k=Math.min(1,(t-t0)/700);el.textContent=Math.round(to*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(tick)};requestAnimationFrame(tick)}
+  function currentValue(){return S.step===0?S.problem.tens:10*S.problem.firstRem+S.problem.ones}
+  function correctDigit(){return S.step===0?S.problem.qt:S.problem.qo}
+  function lockGear(forcedDigit=null){
+    if(S.phase!=='gear')return;if(forcedDigit!==null){S.gear=forcedDigit;S.gearAngle=S.gear*TAU/10}
+    const val=currentValue(),chosen=S.gear,d=S.problem.d,remain=val-chosen*d,correct=correctDigit();
+    if(chosen===correct&&remain>=0&&remain<d){
+      S.hitStop=.07;S.flash=1;S.combo++;S.bestCombo=Math.max(S.bestCombo,S.combo);S.score+=100*Math.min(4,S.combo);S.remainder=remain;S.locks.push(chosen);S.reveal=`${val}÷${d}=${chosen}, ${remain} 남음`;S.revealT=1.15;S.phase='measure';tone(520+.0,0.055,'square',.055);setTimeout(()=>tone(690,0.08,'sine',.06),65);updateHUD();
+      setTimeout(()=>{if(S.phase!=='measure')return;if(S.step===0){S.needsDrop=true;S.phase='drop';$('goal').textContent=`남은 ${remain}십 판을 ${S.problem.ones}가 있는 아래 칸으로 끌어 내려요`;say(`${remain}십을 아래로 내려 ${10*remain+S.problem.ones}를 만들어 보세요.`,false,3500)}else completeProblem()},420);
+    }else wrongLock(chosen,remain,correct);
+  }
+  function wrongLock(chosen,remain,correct){
+    S.combo=0;S.shake=.34;S.revealT=1.2;let msg;
+    if(remain<0){msg=`${chosen}묶음은 너무 커요. 판 밖으로 ${-remain}개가 나가요.`;S.reveal=`${chosen}×${S.problem.d}는 ${currentValue()}보다 큼`}
+    else if(remain>=S.problem.d){msg=`${S.problem.d}개 한 묶음이 더 들어가요. 몫을 1 크게 해 보세요.`;S.reveal=`${remain}은 ${S.problem.d}보다 작지 않음`}
+    else{msg=`이번 자리의 몫을 다시 살펴보세요.`;S.reveal='치수선이 맞지 않음'}
+    S.wrongAtStep++;if(!(S.tutorial&&S.wrongAtStep===1)){S.lives--;tone(210,.14,'sawtooth',.06);updateHUD()}say(msg,true,2600);if(S.lives<=0){setTimeout(()=>finish(false),650)}
+    else{S.phase='jam';setTimeout(()=>{if(S.phase==='jam')S.phase='gear'},520)}
+  }
+  function completeProblem(){
+    S.phase='verify';S.hitStop=.07;S.flash=1;const add=200+S.lives*30;S.score+=add;S.solved++;S.stamps++;localStorage.setItem('turnGearStamps',S.stamps);S.reveal=`${S.problem.d}×${S.problem.q}+${S.problem.r}=${S.problem.n}`;S.revealT=1.6;tone(392,.06,'square',.05);setTimeout(()=>tone(523,.07,'square',.05),90);setTimeout(()=>tone(659,.12,'sine',.065),180);updateHUD();
+    setTimeout(()=>{if(S.solved>=6)finish(true);else nextProblem(false)},1250)
+  }
+  function acceptDrop(){
+    if(S.phase!=='drop')return;const made=10*S.remainder+S.problem.ones;S.needsDrop=false;S.drop.active=false;S.reveal=`${S.remainder}십 = ${S.remainder*10}, ${S.remainder*10}+${S.problem.ones}=${made}`;S.revealT=1.25;S.flash=.7;S.score+=50;S.step=1;S.gear=(S.problem.qo+4)%10;if(S.gear===S.problem.qo)S.gear=(S.gear+1)%10;S.gearAngle=S.gear*TAU/10;S.phase='gear';tone(440,.06,'triangle',.05);updateHUD();
+    if(S.tutorial&&!S.tutorialDone){S.tutorialDone=true;S.tutorial=false;localStorage.setItem('turnGearTutorial','1');say('좋아요! 이제 일의 자리 몫 기어를 맞춰 보세요.',false,3500)}$('goal').textContent=`${made}÷${S.problem.d}의 몫 기어를 맞춰 보세요`;
+  }
+  function say(msg,bad=false,ms=1800){clearTimeout(coachTimer);$('coach').textContent=msg;$('coach').className='on'+(bad?' bad':'');coachTimer=setTimeout(()=>$('coach').className='',ms)}
+  function updateHUD(){$('score').textContent=String(S.score).padStart(4,'0');$('lives').textContent='● '.repeat(S.lives)+'○ '.repeat(3-S.lives);const b=$('scoreBox');b.classList.remove('changed');void b.offsetWidth;b.classList.add('changed')}
+  function initAudio(){if(audio||muted)return;try{audio=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume()}catch(e){audio=null}}
+  function tone(freq,dur,type='sine',vol=.04){if(muted||!audio)return;try{const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);g.gain.setValueAtTime(vol,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+dur);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+dur)}catch(e){}}
+  function resize(){W=innerWidth;H=innerHeight;DPR=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(DPR,0,0,DPR,0,0);const land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',land);const stageW=Math.min(W,1280),stageX=Math.round((W-stageW)/2);document.documentElement.style.setProperty('--stageW',stageW+'px');document.documentElement.style.setProperty('--stageX',stageX+'px');
+    if(land){const panel=Math.min(390,stageW*.32);layout={land,stageW,stageX,play:{x:stageX+18,y:92,w:stageW-panel-48,h:H-112},side:{x:stageX+stageW-panel-18,y:92,w:panel,h:H-112}}}
+    else layout={land,stageW,stageX,play:{x:8,y:112,w:W-16,h:H-178},side:{x:8,y:H-62,w:W-16,h:50}};
+    calcObjects();
+  }
+  function calcObjects(){const p=layout.play,cx=p.x+p.w*.5, gearR=clamp(Math.min(p.w*.265,p.h*.23),88,landValue(178,118)),cy=p.y+clamp(p.h*.34,180,270);layout.gear={x:cx,y:cy,r:gearR};layout.dropFrom={x:cx-gearR*.82,y:cy+gearR*.8,w:gearR*.72,h:gearR*.38};layout.dropTo={x:cx+gearR*.22,y:Math.min(p.y+p.h-72,cy+gearR*1.42),w:gearR*.82,h:gearR*.42}}
+  function landValue(a,b){return layout.land?a:b}
+  function line(x1,y1,x2,y2,color=C.cyan,w=1,dash=[]){ctx.save();ctx.strokeStyle=color;ctx.lineWidth=w;ctx.setLineDash(dash);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore()}
+  function poly(points,stroke=C.cyan,fill=null,w=1){ctx.beginPath();points.forEach((p,i)=>(i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])));ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}ctx.strokeStyle=stroke;ctx.lineWidth=w;ctx.stroke()}
+  function drawGrid(t){ctx.fillStyle=C.blue;ctx.fillRect(0,0,W,H);ctx.save();ctx.strokeStyle='rgba(200,241,244,.13)';ctx.lineWidth=1;const off=(t*8)%32;for(let x=-H;x<W+H;x+=32){ctx.beginPath();ctx.moveTo(x+off,0);ctx.lineTo(x-H+off,H);ctx.stroke()}for(let x=-H;x<W+H;x+=32){ctx.beginPath();ctx.moveTo(x-off,0);ctx.lineTo(x+H-off,H);ctx.stroke()}ctx.restore();if(layout.stageW<W-2){ctx.fillStyle='rgba(22,42,85,.35)';ctx.fillRect(0,0,layout.stageX,H);ctx.fillRect(layout.stageX+layout.stageW,0,W-layout.stageX-layout.stageW,H)}}
+  function drawPlate(x,y,w,h,label,active=true){ctx.save();ctx.strokeStyle=active?C.cyan:'rgba(200,241,244,.35)';ctx.lineWidth=active?2:1;ctx.strokeRect(x,y,w,h);ctx.strokeStyle='rgba(200,241,244,.25)';for(let k=-h;k<w;k+=12){ctx.beginPath();ctx.moveTo(x+Math.max(0,k),y+Math.max(0,-k));ctx.lineTo(x+Math.min(w,k+h),y+Math.min(h,h+k));ctx.stroke()}ctx.fillStyle=C.paper;ctx.font=`900 ${Math.max(20,Math.min(34,w*.18))}px Consolas,monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,x+w/2,y+h/2);ctx.restore()}
+  function drawGear(t){const g=layout.gear;if(!g)return;ctx.save();ctx.translate(g.x,g.y);ctx.rotate(S.gearAngle-TAU*S.gear/10);const teeth=20;ctx.strokeStyle=C.cyan;ctx.lineWidth=2;ctx.beginPath();for(let i=0;i<teeth*2;i++){const a=i*Math.PI/teeth,r=g.r*(i%2?1:.88),x=Math.cos(a)*r,y=Math.sin(a)*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();ctx.stroke();ctx.beginPath();ctx.arc(0,0,g.r*.72,0,TAU);ctx.stroke();ctx.beginPath();ctx.arc(0,0,g.r*.24,0,TAU);ctx.stroke();for(let i=0;i<10;i++){const a=-Math.PI/2+i*TAU/10;ctx.save();ctx.translate(Math.cos(a)*g.r*.58,Math.sin(a)*g.r*.58);ctx.rotate(-S.gearAngle+TAU*S.gear/10);ctx.fillStyle=i===S.gear?C.paper:'rgba(200,241,244,.72)';ctx.font=`900 ${g.r*.18}px Consolas,monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i,0,0);ctx.restore()}ctx.fillStyle=C.paper;ctx.font=`950 ${g.r*.28}px Consolas,monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(S.gear,0,0);ctx.strokeStyle=C.paper;ctx.beginPath();ctx.moveTo(-g.r*.16,g.r*.12);ctx.lineTo(0,g.r*.23);ctx.lineTo(g.r*.16,g.r*.12);ctx.stroke();ctx.restore();
+    if(S.tutorial&&!S.tutorialDone&&S.phase==='gear'){const pulse=.5+.5*Math.sin(t*5),a0=-Math.PI*.7,a1=-Math.PI*.2;ctx.save();ctx.strokeStyle=C.paper;ctx.lineWidth=3+pulse*2;ctx.setLineDash([9,7]);ctx.lineDashOffset=-t*24;ctx.beginPath();ctx.arc(g.x,g.y,g.r+11,a0,a1);ctx.stroke();ctx.setLineDash([]);const ex=g.x+Math.cos(a1)*(g.r+11),ey=g.y+Math.sin(a1)*(g.r+11);ctx.fillStyle=C.paper;ctx.beginPath();ctx.arc(ex,ey,9+pulse*3,0,TAU);ctx.fill();ctx.restore()}}
+  function drawWork(t){const p=layout.play,g=layout.gear;if(!g)return;ctx.save();if(S.shake>0){ctx.translate(S.shakeX,0)}ctx.strokeStyle='rgba(200,241,244,.5)';ctx.strokeRect(p.x,p.y,p.w,p.h);ctx.fillStyle=C.cyan;ctx.font='11px Consolas,monospace';ctx.textAlign='left';ctx.fillText(`DWG-${String(S.problemCount).padStart(2,'0')} / 자리값 조립`,p.x+10,p.y+18);ctx.textAlign='center';ctx.fillStyle=C.paper;ctx.font=`950 ${clamp(g.r*.22,24,42)}px Consolas,monospace`;ctx.fillText(`${S.problem.n} ÷ ${S.problem.d}`,g.x,p.y+50);ctx.font=`800 ${clamp(g.r*.11,14,20)}px "Apple SD Gothic Neo",sans-serif`;ctx.fillStyle=C.cyan;ctx.fillText(S.step===0?`십의 자리 ${S.problem.tens}을 ${S.problem.d}묶음으로 나눠요`:`내린 수 ${currentValue()}를 ${S.problem.d}묶음으로 나눠요`,g.x,p.y+78);drawGear(t);
+    const from=layout.dropFrom,to=layout.dropTo;if(S.phase==='drop'||S.step>0){drawPlate(from.x,from.y,from.w,from.h,`${S.remainder}십`,S.phase==='drop');drawPlate(to.x,to.y,to.w,to.h,`${S.problem.ones}`,true);line(from.x+from.w/2,from.y+from.h, to.x+to.w/2,to.y,C.paper,2,[8,7]);if(S.phase==='drop'&&!S.drop.active){const yy=from.y+from.h+(to.y-from.y-from.h)*((t*.65)%1);ctx.fillStyle=C.paper;ctx.beginPath();ctx.moveTo(to.x+to.w/2,yy+12);ctx.lineTo(to.x+to.w/2-8,yy);ctx.lineTo(to.x+to.w/2+8,yy);ctx.closePath();ctx.fill()}}
+    if(S.drop.active)drawPlate(S.drop.x-from.w/2,S.drop.y-from.h/2,from.w,from.h,`${S.remainder}십`,true);
+    if(S.revealT>0){const rw=Math.min(p.w-30,620),rx=g.x-rw/2,ry=Math.min(p.y+p.h-60,g.y+g.r+72);ctx.fillStyle='rgba(22,42,85,.94)';ctx.fillRect(rx,ry,rw,45);ctx.strokeStyle=S.phase==='jam'?C.coral:C.paper;ctx.strokeRect(rx,ry,rw,45);ctx.fillStyle=C.paper;ctx.font=`900 ${clamp(rw*.035,14,22)}px Consolas,monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(S.reveal,g.x,ry+22.5);line(rx,ry-9,rx+rw,ry-9,S.phase==='jam'?C.coral:C.cyan,2)}ctx.restore()}
+  function drawSide(t){const s=layout.side;if(!s)return;ctx.save();ctx.strokeStyle='rgba(200,241,244,.65)';ctx.strokeRect(s.x,s.y,s.w,s.h);if(layout.land){ctx.fillStyle=C.cyan;ctx.font='12px Consolas,monospace';ctx.fillText('LEGEND / 오늘의 도면',s.x+14,s.y+22);const holesY=s.y+64;for(let i=0;i<3;i++){ctx.strokeStyle=i<3-S.lives?C.coral:C.cyan;ctx.beginPath();ctx.arc(s.x+38+i*58,holesY,17,0,TAU);ctx.stroke();if(i<3-S.lives){line(s.x+27+i*58,holesY-11,s.x+49+i*58,holesY+11,C.coral,2);line(s.x+49+i*58,holesY-11,s.x+27+i*58,holesY+11,C.coral,2)}}ctx.fillStyle=C.paper;ctx.font='800 15px "Apple SD Gothic Neo",sans-serif';ctx.fillText(`완성 ${S.solved}/6`,s.x+14,s.y+116);ctx.fillText(`맞물림 ${S.combo}회`,s.x+14,s.y+148);ctx.fillText('청사진 선반',s.x+14,s.y+202);for(let i=0;i<7;i++){ctx.strokeStyle=C.cyan;ctx.strokeRect(s.x+14+i*((s.w-42)/7),s.y+218,(s.w-52)/7,34);if(i<S.stamps%7){ctx.fillStyle='rgba(200,241,244,.6)';ctx.fillRect(s.x+17+i*((s.w-42)/7),s.y+221,(s.w-52)/7-6,28)}}ctx.fillStyle='rgba(200,241,244,.6)';ctx.font='11px Consolas,monospace';ctx.fillText('PHYSICAL RULE',s.x+14,s.y+s.h-72);ctx.fillStyle=C.paper;ctx.font='700 14px "Apple SD Gothic Neo",sans-serif';ctx.fillText('같은 묶음은 모두 같은 수예요.',s.x+14,s.y+s.h-47)}ctx.restore()}
+  function drawEffects(t){for(let i=S.trail.length-1;i>=0;i--){const a=S.trail[i];a.life-=.04;if(a.life<=0){S.trail.splice(i,1);continue}ctx.strokeStyle=`rgba(200,241,244,${a.life*.45})`;ctx.beginPath();ctx.arc(a.x,a.y,8+(1-a.life)*18,0,TAU);ctx.stroke()}for(let i=S.ripples.length-1;i>=0;i--){const r=S.ripples[i];r.life-=.045;if(r.life<=0){S.ripples.splice(i,1);continue}ctx.strokeStyle=`rgba(247,243,232,${r.life})`;ctx.beginPath();ctx.arc(r.x,r.y,(1-r.life)*28,0,TAU);ctx.stroke()}if(S.flash>0){ctx.fillStyle=`rgba(200,241,244,${S.flash*.17})`;ctx.fillRect(0,0,W,H)}}
+  function frame(now){let dt=Math.min(.05,(now-last)/1000);last=now;if(S.hitStop>0){S.hitStop-=dt;dt*=.08}S.elapsed+=S.phase!=='title'&&S.phase!=='result'?dt:0;S.flash=Math.max(0,S.flash-dt*2.8);S.revealT=Math.max(0,S.revealT-dt);S.shake=Math.max(0,S.shake-dt);S.shakeX=S.shake>0?Math.sin(now*.11)*8*S.shake/.34:0;drawGrid(now/1000);if(S.phase!=='title'&&S.problem){drawWork(now/1000);drawSide(now/1000);drawEffects(now/1000)}requestAnimationFrame(frame)}
+  function pos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+  function pointerDown(e){if(S.phase==='title'||S.phase==='result')return;initAudio();canvas.setPointerCapture?.(e.pointerId);const p=pos(e),g=layout.gear,from=layout.dropFrom;if(S.phase==='gear'&&Math.hypot(p.x-g.x,p.y-g.y)<=g.r*1.15){S.drag={kind:'gear',x:p.x,y:p.y,a:Math.atan2(p.y-g.y,p.x-g.x),startY:p.y,startX:p.x,startGear:S.gear,moved:false};S.trail.push({x:p.x,y:p.y,life:1});return}if(S.phase==='drop'&&p.x>=from.x-24&&p.x<=from.x+from.w+24&&p.y>=from.y-24&&p.y<=from.y+from.h+24){S.drag={kind:'drop'};S.drop.active=true;S.drop.x=p.x;S.drop.y=p.y;return}refuse(p)}
+  function pointerMove(e){if(!S.drag)return;const p=pos(e),g=layout.gear;if(S.drag.kind==='gear'){
+      const a=Math.atan2(p.y-g.y,p.x-g.x),delta=Math.atan2(Math.sin(a-S.drag.a),Math.cos(a-S.drag.a));if(Math.abs(delta)>.055||Math.hypot(p.x-S.drag.startX,p.y-S.drag.startY)>8)S.drag.moved=true;const steps=Math.round(delta/(TAU/10));const ng=(S.drag.startGear+steps+100)%10;if(ng!==S.gear){S.gear=ng;S.gearAngle=ng*TAU/10;tone(300+ng*16,.025,'square',.018)}S.trail.push({x:p.x,y:p.y,life:1});if(S.trail.length>14)S.trail.shift()
+    }else{S.drop.x=p.x;S.drop.y=p.y}}
+  function pointerUp(e){if(!S.drag)return;const p=pos(e),d=S.drag;S.drag=null;if(d.kind==='gear'){const dy=p.y-d.startY;if(dy>Math.max(44,layout.gear.r*.35)&&Math.abs(p.x-d.startX)<layout.gear.r*.65){lockGear()}else if(!d.moved){say('기어 둘레를 돌린 뒤 중심을 아래로 쓸어 잠가 보세요.',false,2200);S.ripples.push({x:p.x,y:p.y,life:1})}}
+    else{const to=layout.dropTo;S.drop.active=false;if(p.x>=to.x-30&&p.x<=to.x+to.w+30&&p.y>=to.y-30&&p.y<=to.y+to.h+30)acceptDrop();else{S.shake=.18;say('남은 판을 숫자가 있는 아래 칸으로 내려요.',true,2000);tone(180,.08,'square',.035)}}}
+  function refuse(p){S.ripples.push({x:p.x,y:p.y,life:1});S.shake=.12;if(S.phase==='drop')say('남은 십 판을 잡아 아래 숫자 칸으로 끌어 보세요.',true,1800);else say('기어 둘레를 손가락으로 돌려 보세요.',true,1800);tone(170,.06,'square',.025)}
+  canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointermove',pointerMove);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('pointercancel',()=>{S.drag=null;S.drop.active=false});
+  addEventListener('keydown',e=>{if(S.phase==='gear'&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){S.gear=(S.gear+(e.key==='ArrowRight'?1:9))%10;S.gearAngle=S.gear*TAU/10;tone(330,.03,'square',.02);e.preventDefault()}else if(S.phase==='gear'&&e.key==='Enter'){lockGear();e.preventDefault()}else if(S.phase==='drop'&&e.key==='ArrowDown'){acceptDrop();e.preventDefault()}});
+  $('startBtn').addEventListener('click',()=>{initAudio();$('startBtn').style.transform='scale(.9)';setTimeout(startGame,100)});$('again').addEventListener('click',startGame);$('helpBtn').addEventListener('click',()=>say(S.phase==='drop'?'남은 십 판을 아래 숫자 칸으로 끌어 내려요.':'기어 둘레를 돌리고 중심을 아래로 쓸어 잠가요.',false,4200));$('mute').addEventListener('click',()=>{muted=!muted;$('mute').textContent=muted?'×':'♪';$('mute').ariaLabel=muted?'소리 켜기':'소리 끄기';if(!muted)initAudio()});
+  addEventListener('resize',resize);addEventListener('orientationchange',()=>setTimeout(resize,120));resize();$('best').textContent=localStorage.getItem('turnGearBest')||0;requestAnimationFrame(frame);
+  window.__GAME_TEST__={ready:true,start(){startGame()},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase==='title'||S.phase==='result')startGame();if(S.phase==='drop')acceptDrop();else if(S.phase==='gear')lockGear(correctDigit());else if(S.phase==='measure'||S.phase==='verify'||S.phase==='jam'){S.phase='gear';lockGear(correctDigit())}},answerWrong(){if(S.phase==='title'||S.phase==='result')startGame();if(S.phase==='gear'){const wrong=(correctDigit()+1)%10;lockGear(wrong)}else{S.lives=Math.max(0,S.lives-1);S.combo=0;S.shake=.25;updateHUD();if(S.lives===0)finish(false)}},sampleProblems,getLayout(){return{land:layout.land,playW:layout.play.w}}};
+})();
+</script>
+</body>
+</html>

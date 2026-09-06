@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta property="og:title" content="몫비트">
+  <meta property="og:description" content="딱 나눠야 음악이 산다">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>몫비트</title>
+  <style>
+    :root{--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);--plum:#7A4FA3;--ink:#251A33;--lime:#C8F24A;--coral:#FF6B64;--cream:#F5F2EA}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--plum);color:var(--cream);font-family:"SFMono-Regular","Roboto Mono","Apple SD Gothic Neo","Malgun Gothic",monospace;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+    button{font:inherit}button:focus-visible{outline:3px solid var(--lime);outline-offset:3px}
+    #game{position:fixed;inset:0;overflow:hidden;background:var(--plum)}
+    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+    .screen{position:absolute;inset:0}.hidden{display:none!important}
+    #title{z-index:20;display:grid;place-items:center;overflow:hidden;background:#7A4FA3}
+    .title-art{position:absolute;inset:0;background:#7A4FA3;overflow:hidden}
+    .title-art img{width:100%;height:100%;display:block;object-fit:cover;object-position:50% 50%;transform:scale(1.015);animation:artBreath 20s ease-in-out infinite alternate}
+    .title-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(37,26,51,.18),rgba(37,26,51,0) 45%,rgba(37,26,51,.72));pointer-events:none}
+    .title-dots{position:absolute;inset:0;pointer-events:none}
+    .title-dots i{position:absolute;width:7px;height:7px;border:2px solid var(--cream);border-radius:50%;opacity:.65;animation:drift 7s ease-in-out infinite alternate}
+    .title-dots i:nth-child(1){left:12%;top:25%}.title-dots i:nth-child(2){right:14%;top:34%;animation-delay:-2s}.title-dots i:nth-child(3){left:21%;bottom:25%;animation-delay:-4s}.title-dots i:nth-child(4){right:24%;bottom:31%;animation-delay:-1s}
+    .title-content{position:relative;z-index:2;width:min(92vw,560px);height:100%;display:flex;align-items:center;flex-direction:column;padding:max(34px,env(safe-area-inset-top)) 18px max(24px,env(safe-area-inset-bottom));text-align:center}
+    .logo{margin:5vh 0 0;display:flex;align-items:center;justify-content:center;color:var(--cream);font-size:clamp(76px,24vw,132px);font-weight:1000;line-height:.9;letter-spacing:-.13em;transform:rotate(-2deg);filter:none;animation:logoIn .72s cubic-bezier(.2,1.5,.3,1) both}
+    .logo span{display:inline-block;-webkit-text-stroke:clamp(3px,1.2vw,6px) var(--ink);text-shadow:2px 2px 0 #FF6B64,4px 4px 0 var(--ink)}
+    .logo span:first-child{transform:translateY(-4px) rotate(-4deg) scale(1.08)}.logo span:last-child{transform:translateY(5px) rotate(5deg)}
+    .tagline{margin:18px 0 0;padding:7px 12px;border:2px solid var(--ink);background:var(--cream);color:var(--ink);font-size:clamp(14px,4vw,18px);font-weight:900;letter-spacing:-.06em}
+    .title-bottom{margin-top:auto;width:min(100%,430px);display:flex;flex-direction:column;align-items:center;gap:10px}
+    #bestTitle{min-height:24px;font-size:12px;font-weight:800;text-shadow:1px 1px 0 var(--ink)}
+    #startBtn{position:relative;width:100%;min-height:70px;border:4px solid var(--ink);border-radius:2px;background:var(--lime);color:var(--ink);font-size:clamp(23px,6vw,29px);font-weight:1000;letter-spacing:-.06em;cursor:pointer;animation:ctaPulse 2.4s 1.1s ease-in-out infinite}
+    #startBtn::before,#startBtn::after{content:"";position:absolute;top:50%;width:18px;height:18px;border:4px solid var(--ink);border-radius:50%;background:var(--coral);transform:translateY(-50%)}#startBtn::before{left:13px}#startBtn::after{right:13px}
+    #startBtn:active{transform:scale(.96);border-width:6px}
+    .title-meta{font-size:11px;font-weight:800;text-shadow:1px 1px 0 var(--ink)}
+    #helpBtn{min-width:150px;min-height:44px;border:0;background:transparent;color:var(--cream);text-decoration:underline;text-underline-offset:5px;font-size:12px;font-weight:900;text-shadow:1px 1px 0 var(--ink);cursor:pointer}
+    .mute{position:fixed;z-index:40;top:max(10px,env(safe-area-inset-top));right:max(10px,calc(var(--stageX) + 10px));width:46px;height:46px;border:2px solid var(--cream);border-radius:50%;background:var(--ink);color:var(--cream);font-size:20px;cursor:pointer}
+    #hud{position:absolute;z-index:4;left:8px;right:8px;top:max(8px,env(safe-area-inset-top));height:94px;border:1px solid rgba(37,26,51,.55);background:#7A4FA3;color:var(--cream);display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:9px 56px 8px 11px;pointer-events:none}
+    #hud::before,#sideInfo::before{content:"";position:absolute;inset:5px;border:1px solid rgba(245,242,234,.35);pointer-events:none}
+    .formula{font-size:clamp(24px,7vw,36px);font-weight:1000;letter-spacing:-.05em;align-self:end}.place{font-size:12px;font-weight:900;color:var(--lime);letter-spacing:.08em}.stats{display:grid;grid-template-columns:auto auto;gap:2px 10px;align-content:center;text-align:right;font-size:12px;font-weight:900}.stats strong{font-size:18px;color:var(--lime);transition:transform .12s}.stats strong.punch{transform:scale(1.35)}
+    #fuses{grid-column:1/-1;display:flex;gap:7px;align-items:center}.fuse{width:34px;height:7px;border:1px solid var(--ink);background:var(--lime);position:relative}.fuse.off{background:transparent}.fuse.off::after{content:"";position:absolute;left:13px;top:-5px;width:8px;height:15px;background:var(--plum);transform:rotate(24deg)}
+    #sideInfo{display:none;position:absolute;z-index:4;background:#7A4FA3;border:2px solid var(--ink);pointer-events:none}
+    #sideInfo h2{margin:0 0 12px;font-size:12px;color:var(--lime);letter-spacing:.12em}#trackList{display:grid;gap:9px}.track{border-bottom:1px solid rgba(245,242,234,.45);padding:0 0 7px;font-size:13px}.track b{float:right;color:var(--lime)}
+    #message{position:absolute;z-index:5;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(100% - 24px),560px);min-height:52px;border:2px solid var(--ink);border-radius:1px;background:var(--cream);color:var(--ink);display:grid;place-items:center;padding:8px 12px;text-align:center;font-size:clamp(13px,3.7vw,17px);font-weight:1000;line-height:1.3;pointer-events:none;transition:background .12s,transform .12s}
+    #message.good{background:var(--lime);transform:translateX(-50%) translateY(-5px)}#message.bad{background:var(--coral)}
+    #overlay{z-index:30;display:grid;place-items:center;background:rgba(37,26,51,.9);padding:18px}
+    .result{width:min(94vw,560px);border:3px solid var(--cream);background:var(--plum);padding:24px 20px;text-align:center;position:relative}.result::before{content:"RESULT OUT";display:block;color:var(--lime);font-weight:1000;letter-spacing:.18em;font-size:12px}.result h2{font-size:clamp(34px,10vw,58px);margin:14px 0 4px;line-height:1}.result .numbers{margin:18px 0;display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--cream);border-bottom:1px solid var(--cream)}.result .numbers div{padding:12px 4px}.result .numbers div+div{border-left:1px solid var(--cream)}.result strong{display:block;font-size:30px;color:var(--lime)}#againBtn{min-height:64px;width:100%;border:4px solid var(--ink);border-radius:1px;background:var(--lime);color:var(--ink);font-size:23px;font-weight:1000;cursor:pointer}
+    #help{z-index:35;display:grid;place-items:center;background:rgba(37,26,51,.88);padding:18px}.helpbox{width:min(92vw,520px);border:3px solid var(--cream);background:var(--plum);padding:20px}.helpbox h2{margin:0 0 14px;color:var(--lime)}.helpbox ol{padding-left:24px;line-height:1.7;font-size:14px}.helpbox button{width:100%;min-height:52px;border:2px solid var(--ink);border-radius:1px;background:var(--cream);color:var(--ink);font-weight:1000}
+    html.land #hud{left:var(--stageX);right:auto;top:76px;width:min(250px,calc(var(--stageW)*.2));height:260px;grid-template-columns:1fr;padding:24px 18px}.land #hud .formula{font-size:32px}.land #hud .stats{text-align:left;grid-template-columns:1fr auto}.land #fuses{flex-wrap:wrap}.land #sideInfo{display:block;right:var(--stageX);top:76px;width:min(250px,calc(var(--stageW)*.2));height:260px;padding:24px 18px}.land #message{bottom:22px;width:600px}.land .mute{right:max(10px,calc(var(--stageX) + 10px))}
+    @keyframes artBreath{to{transform:scale(1.05) translateY(-.5%)}}@keyframes logoIn{from{opacity:0;transform:translateY(-70px) rotate(-8deg) scale(.6)}70%{opacity:1;transform:translateY(8px) rotate(1deg) scale(1.06)}to{transform:rotate(-2deg)}}@keyframes ctaPulse{0%,72%,100%{transform:scale(1)}82%{transform:scale(1.035)}90%{transform:scale(1)}}@keyframes drift{to{transform:translateY(-18px) rotate(90deg)}}
+    @media(prefers-reduced-motion:reduce){.title-art img{animation-duration:40s}.title-dots i{animation-duration:14s}.logo{animation-duration:.15s}#startBtn{animation-duration:5s}}
+  </style>
+</head>
+<body>
+<main id="game">
+  <canvas id="board" aria-label="비트를 나누는 원형 레일"></canvas>
+  <section id="title" class="screen">
+    <div class="title-art"><img id="titleImg" src="./assets/title.png" alt="몫비트 모듈러 비트 콘솔"></div><div class="title-shade"></div>
+    <div class="title-dots"><i></i><i></i><i></i><i></i></div>
+    <div class="title-content"><h1 class="logo" aria-label="몫비트"><span>몫</span><span>비트</span></h1><p class="tagline">딱 나눠야 음악이 산다</p><div class="title-bottom"><div id="bestTitle"></div><button id="startBtn" type="button">루프 연결!</button><div class="title-meta">3학년 2학기 · 나눗셈</div><button id="helpBtn" type="button">어떻게 놀아요?</button></div></div>
+  </section>
+  <section id="play" class="screen hidden">
+    <div id="hud"><div><div class="place" id="place">TENS CHANNEL</div><div class="formula" id="formula">72÷3</div></div><div class="stats"><span>SCORE</span><strong id="score">0</strong><span>LOOP</span><strong id="round">1/6</strong></div><div id="fuses" aria-label="남은 퓨즈"></div></div>
+    <aside id="sideInfo"><h2>PATCH MEMORY</h2><div id="trackList"></div></aside>
+    <div id="message" aria-live="polite">첫 비트부터 같은 수씩 훑어 보세요.</div>
+  </section>
+  <section id="overlay" class="screen hidden"><div class="result"><h2 id="resultTitle">루프 종료</h2><p id="resultWhy"></p><div class="numbers"><div>완성 판<strong id="resultSolved">0</strong></div><div>최고 연속<strong id="resultCombo">0</strong></div></div><button id="againBtn" type="button">다시 패치!</button></div></section>
+  <section id="help" class="screen hidden"><div class="helpbox"><h2>한 손가락 패치법</h2><ol><li>밝은 첫 비트에서 시작해, 나누는 수만큼 차례로 훑어요.</li><li>남은 십 비트는 아래 자리 잭까지 끌어 내려요.</li><li>마지막 남은 비트는 남김 잭에 연결해요.</li></ol><p>박자 타이밍은 점수 보너스일 뿐, 계산의 정답에는 영향을 주지 않아요.</p><button id="helpClose" type="button">알겠어요</button></div></section>
+  <button id="muteBtn" class="mute" type="button" aria-label="소리 끄기">♪</button>
+</main>
+<script>
+(()=>{'use strict';
+  // 교과서 표현 함정: 나눗셈의 '내림'은 윗자리의 남은 수를 아랫자리로 내려쓰는 조작이며 어림의 버림과 무관하다.
+  // 답은 항상 N÷d=q⋯r 및 '몫 q, 나머지 r'로 쓰고, 0≤r<d를 전수 풀에서 보장한다.
+  const $=s=>document.querySelector(s), canvas=$('#board'), ctx=canvas.getContext('2d',{alpha:false});
+  const C={plum:'#7A4FA3',ink:'#251A33',lime:'#C8F24A',coral:'#FF6B64',cream:'#F5F2EA'};
+  const S={phase:'title',score:0,lives:4,level:1,solved:0,round:0,combo:0,bestCombo:0,land:false,stageW:390,stageX:0,play:{x:0,y:110,w:390,h:650},problem:null,step:'groups',count:0,groupStart:0,groups:0,activeNodes:[],drag:null,cables:[],scars:[],trails:[],touchPulse:null,flash:0,expand:0,anticipate:0,cursor:0,lastT:performance.now(),timeLeft:180,audio:null,muted:false,runStart:0,forced:false,failCounts:{묶기:0,내림:0,남김:0,쉼표:0,검산:0}};
+  let pool=[], deck=[], sampleCursor=0, raf=0;
+
+  function buildPool(){
+    const out=[];
+    for(let d=2;d<=7;d++) for(let q=10;q<=49;q++) for(let r=0;r<d;r++){
+      const N=d*q+r;if(N<10||N>99)continue;
+      const a=Math.floor(N/10),b=N%10,qT=Math.floor(a/d),rT=a-d*qT,c=10*rT+b,qO=Math.floor(c/d),rO=c-d*qO;
+      if(a<d||a<5||qT<1||c>30||qO>6||q!==10*qT+qO||r!==rO)continue;
+      let band=0;
+      if((d===2||d===3)&&rT>0&&rO===0)band=1;
+      else if(rT===0&&rO>0)band=2;
+      else if(d>=3&&rT>0&&rO>0)band=3;
+      if(!band)continue;
+      out.push({id:`qb-${N}-${d}`,N,d,q,r,a,b,qT,rT,c,qO,rO,band,unitConcept:band===1?'내림이 있는 나눗셈':band===2?'나머지가 있는 나눗셈':'내림과 나머지가 있는 나눗셈'});
+    }
+    if(out.length<45)throw new Error('문제 풀이 너무 작습니다');
+    return out;
+  }
+  function shuffle(a){a=a.slice();for(let i=a.length-1;i;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+  function chooseProblem(round){const band=round<2?1:round<4?(round===2?2:3):3;let candidates=pool.filter(p=>p.band===band);const recent=new Set(deck.slice(-4).map(p=>p.id));candidates=candidates.filter(p=>!recent.has(p.id));const p=candidates[Math.floor(Math.random()*candidates.length)]||pool[0];deck.push(p);return p}
+
+  // 오답은 실제 오개념을 역산한다. 처리 순서: 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플.
+  function choicesFor(p){
+    const answer=`몫 ${p.q}, 나머지 ${p.r}`;
+    const raw=[
+      {value:`몫 ${p.qT*10+Math.floor(p.b/p.d)}, 나머지 ${p.b%p.d}`,misconceptionId:'DROP_TENS_REMAINDER'}, // 남은 십을 내리지 않고 버림
+      {value:`몫 ${p.qT+(p.qO||0)}, 나머지 ${p.r}`,misconceptionId:'SKIP_ZERO_PLACE'}, // 몫의 자릿값/0을 건너뜀
+      {value:`몫 ${Math.max(0,p.q-1)}, 나머지 ${p.r+p.d}`,misconceptionId:'REMAINDER_GE_DIVISOR'}, // 나머지가 나누는 수 이상이어도 끝냄
+      {value:`몫 ${p.q}, 나머지 0`,misconceptionId:'OMIT_REMAINDER_IN_CHECK'} // 검산에서 나머지를 더하지 않음
+    ];
+    let filtered=raw.filter(x=>x.value!==answer).filter(x=>/^몫 \d+, 나머지 \d+$/.test(x.value));
+    const seen=new Set();filtered=filtered.filter(x=>!seen.has(x.value)&&seen.add(x.value));
+    for(let k=1;filtered.length<3;k++){const v=`몫 ${p.q+k}, 나머지 ${p.r}`;if(v!==answer&&!seen.has(v)){seen.add(v);filtered.push({value:v,misconceptionId:'QUOTIENT_PLUS_ONE'})}}
+    return shuffle([{value:answer,misconceptionId:null},...filtered.slice(0,3)]);
+  }
+  function sampleProblems(n){const count=Math.max(0,Math.floor(Number(n)||0)),arr=[];for(let i=0;i<count;i++){const p=pool[(sampleCursor+i)%pool.length],opts=choicesFor(p);arr.push({id:p.id,prompt:`${p.N}÷${p.d}의 몫과 나머지를 구해 보세요.`,choices:opts.map(x=>x.value),choiceDetails:opts,answer:`몫 ${p.q}, 나머지 ${p.r}`,answerNumeric:p.q+p.r/p.d,unitConcept:p.unitConcept})}sampleCursor=(sampleCursor+count)%pool.length;return arr}
+
+  function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);S.stageW=Math.min(W,1280);S.stageX=Math.round((W-S.stageW)/2);document.documentElement.style.setProperty('--stageW',S.stageW+'px');document.documentElement.style.setProperty('--stageX',S.stageX+'px');S.play=S.land?{x:S.stageX+270,y:34,w:S.stageW-540,h:H-90}:{x:6,y:108,w:W-12,h:H-180};resizeCanvas();setNodes()}
+  function resizeCanvas(){const dpr=Math.min(devicePixelRatio||1,2),W=innerWidth,H=innerHeight;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+  function stageGeom(){const p=S.play,size=Math.min(p.w,p.h),r=Math.max(90,Math.min(size*.36,S.land?240:145));return{cx:p.x+p.w/2,cy:p.y+p.h*(S.land?.44:.49),r}}
+  function setNodes(){if(!S.problem)return;const g=stageGeom(),total=S.count||1,nodes=[];for(let i=0;i<total;i++){const a=-Math.PI/2+i*Math.PI*2/total;nodes.push({x:g.cx+Math.cos(a)*g.r,y:g.cy+Math.sin(a)*g.r,a,i})}S.activeNodes=nodes}
+  function currentCount(){const p=S.problem;if(!p)return 0;if(S.step==='tens')return p.a;if(S.step==='ones')return p.c;if(S.step==='verify')return p.r;return 0}
+  function setupRound(index){S.round=index;S.level=Math.min(4,Math.floor(index/2)+1);S.problem=chooseProblem(index);S.cables=[];S.scars=[];S.trails=[];S.groups=0;S.groupStart=0;S.cursor=0;S.expand=0;S.anticipate=0;
+    if(index===5){S.step='verify';S.count=S.problem.r||1;S.groups=S.problem.q;showMsg(`검산: ${S.problem.d}×${S.problem.q} 뒤에 ${S.problem.r}박 꼬리를 이어 보세요.`)}
+    else if(index===4){S.step='ones';S.count=S.problem.r+S.problem.d;S.problem.c=S.count;S.problem.qO=1;S.problem.rO=S.problem.r;showMsg(`오류 고치기: 남김 ${S.count}박에는 한 묶음이 더 숨어 있어요.`)}
+    else{S.step='tens';S.count=S.problem.a;showMsg(`첫 비트부터 ${S.problem.d}개씩 한 획으로 묶어 보세요.`)}
+    setNodes();updateUI()}
+  function startGame(){initAudio();$('#title').classList.add('hidden');$('#overlay').classList.add('hidden');$('#help').classList.add('hidden');$('#play').classList.remove('hidden');S.phase='playing';S.score=0;S.lives=4;S.solved=0;S.round=0;S.combo=0;S.bestCombo=0;S.timeLeft=180;S.runStart=performance.now();S.failCounts={묶기:0,내림:0,남김:0,쉼표:0,검산:0};deck=[];setupRound(0)}
+  function updateUI(){if(!S.problem)return;$('#formula').textContent=`${S.problem.N}÷${S.problem.d}`;$('#round').textContent=`${S.round+1}/6`;$('#score').textContent=S.score;$('#place').textContent=S.step==='tens'?'TENS CHANNEL · 십의 자리':S.step==='ones'?'ONES CHANNEL · 일의 자리':S.step==='verify'?'CHECK CHANNEL · 검산':'PATCH CHANNEL';$('#fuses').innerHTML=Array.from({length:4},(_,i)=>`<i class="fuse ${i>=S.lives?'off':''}"></i>`).join('');$('#trackList').innerHTML=`<div class="track">몫 트랙 <b>${S.groups}</b></div><div class="track">연속 패치 <b>${S.combo}</b></div><div class="track">남은 시간 <b>${Math.max(0,Math.ceil(S.timeLeft))}</b></div>`}
+  function showMsg(text,type=''){const m=$('#message');m.textContent=text;m.className=type;clearTimeout(showMsg.t);if(type)showMsg.t=setTimeout(()=>m.className='',520)}
+  function scoreAdd(base){S.combo++;S.bestCombo=Math.max(S.bestCombo,S.combo);S.score+=base+Math.min(50,S.combo*5);$('#score').classList.add('punch');setTimeout(()=>$('#score').classList.remove('punch'),130);updateUI()}
+  function fail(kind,actual,pts=[]){if(S.phase!=='playing')return;S.lives--;S.combo=0;S.failCounts[kind]=(S.failCounts[kind]||0)+1;S.scars.push({pts:pts.slice(),life:1});showMsg(`${actual} — 케이블이 끊겼어요. 다시 이어 보세요.`,'bad');tone('bad');updateUI();if(S.lives<=0)endGame(false)}
+  function finishRound(){S.solved++;scoreAdd(120);if(S.round>=5){S.flash=1;S.anticipate=1;S.phase='hitstop';setTimeout(()=>{S.phase='playing';tone('chorus');endGame(true)},70)}else{showMsg(`${S.problem.N}÷${S.problem.d} = ${S.problem.q}⋯${S.problem.r}  ·  다음 루프!`,'good');setTimeout(()=>{if(S.phase==='playing')setupRound(S.round+1)},650)}}
+  function advanceAfterGroup(){const p=S.problem;S.groups++;scoreAdd(35);S.flash=1;tone('good');
+    const full=S.step==='tens'?p.qT:(S.round===4?1:p.qO);if(S.groups>=full){const rem=S.step==='tens'?p.rT:(S.round===4?p.r:p.rO);if(S.step==='tens'){if(rem>0){S.step='down';S.count=rem;showMsg(`${rem}십이 남았어요. 아래 자리 잭으로 직접 내려 보세요.`)}else if(p.qO===0){S.step='zero';S.groups=0;S.groupStart=0;S.count=0;showMsg('일의 자리 몫은 0이에요. 0 쉼표를 몫 잭에 연결해 보세요.')}else{S.step='ones';S.groups=0;S.groupStart=0;S.count=p.b;showMsg(`일의 자리 ${p.b}개를 ${p.d}개씩 묶어 보세요.`)}}else if(rem>0){S.step='remainder';S.count=rem;showMsg(`${rem}개는 더 묶을 수 없어요. 남김 잭으로 옮겨 보세요.`)}else finishRound()}setNodes();updateUI()}
+  function tailSuccess(){const p=S.problem;if(S.step==='down'){S.expand=1;scoreAdd(50);tone('drop');S.groups=0;S.groupStart=0;if(p.qO===0){S.step='zero';S.count=0;showMsg(`${p.rT}십이 ${p.rT*10}개로 풀렸어요. 일의 자리 몫 0을 먼저 잠가 보세요.`,'good')}else{S.step='ones';S.count=p.c;showMsg(`${p.rT}십이 ${p.rT*10}개로 풀려 ${p.c}개가 됐어요!`,'good')}setNodes()}else if(S.step==='zero'){scoreAdd(55);if(p.rO>0){S.step='remainder';S.count=p.rO;showMsg(`몫의 0이 잠겼어요. 남은 ${p.rO}개를 남김 잭으로 옮겨 보세요.`,'good');setNodes()}else finishRound()}else if(S.step==='remainder'){scoreAdd(55);finishRound()}else if(S.step==='verify'){S.anticipate=1;scoreAdd(80);finishRound()}}
+  function jackPos(type){const g=stageGeom(),dy=Math.min(105,g.r*.72);if(type==='down')return{x:g.cx,y:g.cy+g.r+dy};if(type==='remainder')return{x:g.cx+Math.min(g.r*.82,150),y:g.cy+g.r+dy};if(type==='zero')return{x:g.cx-Math.min(g.r*.82,150),y:g.cy+g.r+dy};return{x:g.cx,y:g.cy+g.r+dy}}
+  function hitNode(x,y){for(const n of S.activeNodes)if(Math.hypot(x-n.x,y-n.y)<=18)return n;return null}
+  function segmentHits(a,b){const hits=[];for(const n of S.activeNodes){const vx=b.x-a.x,vy=b.y-a.y,l2=vx*vx+vy*vy||1,t=Math.max(0,Math.min(1,((n.x-a.x)*vx+(n.y-a.y)*vy)/l2)),px=a.x+t*vx,py=a.y+t*vy;if(Math.hypot(n.x-px,n.y-py)<=16)hits.push({n,t})}return hits.sort((u,v)=>u.t-v.t).map(h=>h.n)}
+  function pointerDown(e){if(S.phase!=='playing')return;initAudio();const p={x:e.clientX,y:e.clientY};S.touchPulse={x:p.x,y:p.y,life:1};canvas.setPointerCapture?.(e.pointerId);const node=hitNode(p.x,p.y),tail=['down','remainder','verify'].includes(S.step),zero=S.step==='zero';let valid=false;if(tail)valid=!!node&&node.i===0;else if(zero){const z=jackPos('zero');valid=Math.hypot(p.x-z.x,p.y-z.y)<30}else valid=!!node&&node.i===S.groupStart;if(!valid){S.trails.push({pts:[p],life:1});return}S.drag={id:e.pointerId,pts:[p],visited:node?[node.i]:[],last:p,mode:tail||zero?'tail':'group'};S.trails.push({pts:S.drag.pts,life:1})}
+  function pointerMove(e){if(!S.drag||e.pointerId!==S.drag.id)return;const p={x:e.clientX,y:e.clientY};for(const n of segmentHits(S.drag.last,p)){const last=S.drag.visited.at(-1);if(!S.drag.visited.includes(n.i)&&((last===undefined&&n.i===0)||n.i===last+1))S.drag.visited.push(n.i)}S.drag.pts.push(p);if(S.drag.pts.length>80)S.drag.pts.shift();S.drag.last=p}
+  function pointerUp(e){if(!S.drag||e.pointerId!==S.drag.id)return;const d=S.drag,p={x:e.clientX,y:e.clientY},step=S.step;S.drag=null;
+    if(d.mode==='group'){const actual=d.visited.length;if(actual===S.problem.d){const pts=d.visited.map(i=>S.activeNodes[i]);S.cables.push({pts,color:C.lime});S.groupStart+=actual;advanceAfterGroup()}else fail('묶기',`${actual}개를 지났어요`,d.pts)}
+    else{const target=jackPos(step),ok=Math.hypot(p.x-target.x,p.y-target.y)<=38;const need=step==='zero'?0:S.count;const actual=d.visited.length;if(ok&&(step==='zero'||actual===need)){S.cables.push({pts:d.pts.slice(),color:C.lime});tailSuccess()}else fail(step==='down'?'내림':step==='verify'?'검산':step==='zero'?'쉼표':'남김',ok?`${actual}개를 옮겼어요`:'잭에 닿지 않았어요',d.pts)}
+  }
+
+  function initAudio(){if(S.audio)return;try{S.audio=new (window.AudioContext||window.webkitAudioContext)()}catch{S.audio=null}}
+  function tone(kind){if(!S.audio||S.muted)return;const ac=S.audio;if(ac.state==='suspended')ac.resume();const now=ac.currentTime,notes=kind==='bad'?[120,78]:kind==='chorus'?[220,330,440]:kind==='drop'?[180,240]:[260+S.combo*8];notes.forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i?'square':'triangle';o.frequency.setValueAtTime(f,now+i*.035);g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(kind==='bad'?.05:.075,now+.008+i*.035);g.gain.exponentialRampToValueAtTime(.0001,now+.11+i*.05);o.connect(g).connect(ac.destination);o.start(now+i*.035);o.stop(now+.18+i*.05)})}
+  function drawPanel(W,H){ctx.fillStyle=C.plum;ctx.fillRect(0,0,W,H);ctx.strokeStyle='rgba(37,26,51,.36)';ctx.lineWidth=1;for(let x=S.stageX;x<=S.stageX+S.stageW;x+=160){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=0;y<H;y+=140){ctx.beginPath();ctx.moveTo(S.stageX,y);ctx.lineTo(S.stageX+S.stageW,y);ctx.stroke()}ctx.fillStyle=C.ink;for(let x=S.stageX+8;x<S.stageX+S.stageW;x+=160)for(let y=8;y<H;y+=140){ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill()}if(S.stageW<W){ctx.fillStyle='rgba(37,26,51,.48)';ctx.fillRect(0,0,S.stageX,H);ctx.fillRect(S.stageX+S.stageW,0,W-S.stageX-S.stageW,H)}}
+  function drawWave(g,t){ctx.strokeStyle=C.cream;ctx.lineWidth=2;ctx.globalAlpha=.35;ctx.beginPath();const w=Math.min(150,g.r);for(let i=0;i<=w;i+=3){const x=g.cx-w/2+i,y=g.cy+Math.sin(i*.18+t*.004)*8;ctx.lineTo(x,y)}ctx.stroke();ctx.globalAlpha=1}
+  function drawCable(points,color,width=7,alpha=1){if(!points||points.length<2)return;ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);ctx.stroke();ctx.restore()}
+  function draw(t){const W=innerWidth,H=innerHeight;drawPanel(W,H);if(S.phase==='title')return;const g=stageGeom();ctx.save();if(S.expand>0){const k=Math.sin((1-S.expand)*Math.PI);ctx.translate(g.cx,g.cy);ctx.scale(1+k*.18,1-k*.22);ctx.translate(-g.cx,-g.cy)}
+    ctx.strokeStyle=C.ink;ctx.lineWidth=9;ctx.beginPath();ctx.arc(g.cx,g.cy,g.r,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=C.cream;ctx.lineWidth=2;ctx.setLineDash([4,8]);ctx.beginPath();ctx.arc(g.cx,g.cy,g.r-16,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);drawWave(g,t);
+    S.activeNodes.forEach((n,i)=>{const done=i<S.groupStart,first=i===S.groupStart;ctx.fillStyle=done?C.ink:first?C.lime:C.cream;ctx.strokeStyle=C.ink;ctx.lineWidth=3;ctx.beginPath();ctx.arc(n.x,n.y,Math.max(11,Math.min(16,52/S.activeNodes.length+9)),0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle=done?C.cream:C.ink;ctx.font='900 11px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(i+1),n.x,n.y)});
+    for(const c of S.cables)drawCable(c.pts,c.color,7);for(const sc of S.scars)drawCable(sc.pts,C.coral,6,Math.max(.3,sc.life));if(S.drag)drawCable(S.drag.pts,C.cream,5,.85);for(const tr of S.trails)drawCable(tr.pts,C.lime,2,tr.life);
+    const types=['down','remainder','zero'];types.forEach(type=>{const j=jackPos(type),active=S.step===type;ctx.fillStyle=active?C.lime:C.ink;ctx.strokeStyle=C.cream;ctx.lineWidth=2;ctx.fillRect(j.x-24,j.y-24,48,48);ctx.strokeRect(j.x-24,j.y-24,48,48);ctx.fillStyle=active?C.ink:C.cream;ctx.font='900 10px monospace';ctx.textAlign='center';ctx.fillText(type==='down'?'아래':type==='remainder'?'남김':'0 쉼',j.x,j.y+3)});if(S.step==='verify'){const j=jackPos('verify');ctx.fillStyle=C.lime;ctx.strokeStyle=C.ink;ctx.lineWidth=4;ctx.fillRect(j.x-30,j.y-27,60,54);ctx.strokeRect(j.x-30,j.y-27,60,54);ctx.fillStyle=C.ink;ctx.font='900 11px monospace';ctx.fillText('검산',j.x,j.y+4)}
+    ctx.restore();if(S.flash>0){ctx.strokeStyle=S.flash>.5?C.cream:C.lime;ctx.lineWidth=4;ctx.strokeRect(g.cx-g.r-20,g.cy-g.r-20,(g.r+20)*2,(g.r+20)*2)}if(S.touchPulse&&S.touchPulse.life>0){ctx.strokeStyle=C.cream;ctx.lineWidth=2;ctx.beginPath();ctx.arc(S.touchPulse.x,S.touchPulse.y,10+(1-S.touchPulse.life)*18,0,Math.PI*2);ctx.stroke()}
+  }
+  function loop(t){const dt=Math.min(.05,(t-S.lastT)/1000);S.lastT=t;if(S.phase==='playing'){S.timeLeft=Math.max(0,180-(t-S.runStart)/1000);if(S.timeLeft<=0)endGame(false);if(Math.floor(S.timeLeft*2)!==Math.floor((S.timeLeft+dt)*2))updateUI()}S.flash=Math.max(0,S.flash-dt*7);S.expand=Math.max(0,S.expand-dt*2.8);S.anticipate=Math.max(0,S.anticipate-dt*5);if(S.touchPulse)S.touchPulse.life-=dt*2.6;for(const tr of S.trails)tr.life-=dt*3;S.trails=S.trails.filter(x=>x.life>0);for(const sc of S.scars)sc.life=Math.max(.4,sc.life-dt*.2);draw(t);raf=requestAnimationFrame(loop)}
+  function endGame(clear){if(S.phase==='over')return;S.phase='over';const bestSolved=Math.max(Number(localStorage.getItem('quotientBeatBestSolved')||0),S.solved),bestCombo=Math.max(Number(localStorage.getItem('quotientBeatBestCombo')||0),S.bestCombo);localStorage.setItem('quotientBeatBestSolved',bestSolved);localStorage.setItem('quotientBeatBestCombo',bestCombo);$('#resultTitle').textContent=clear?'검산 코러스 완성!':'루프가 멈췄어요';const top=Object.entries(S.failCounts).sort((a,b)=>b[1]-a[1])[0];$('#resultWhy').textContent=clear?'나누는 수×몫+나머지가 처음 수와 같아요.':`${top&&top[1]?top[0]:'시간'} 단계에서 가장 많이 끊겼어요.`;animateNumber($('#resultSolved'),S.solved);animateNumber($('#resultCombo'),S.bestCombo);$('#overlay').classList.remove('hidden')}
+  function animateNumber(el,target){let n=0;const tick=()=>{n=Math.min(target,n+Math.max(1,Math.ceil(target/12)));el.textContent=n;if(n<target)requestAnimationFrame(tick)};tick()}
+  function titleBest(){const b=Number(localStorage.getItem('quotientBeatBestSolved')||0);$('#bestTitle').textContent=b?`BEST PATCH · ${b}판 완성`:''}
+  function forceCorrect(){if(S.phase!=='playing')startGame();const before=S.score;scoreAdd(100);if(S.score<=before)S.score=before+1;updateUI()}
+  function forceWrong(){if(S.phase!=='playing')startGame();fail('묶기','시험 패치가 어긋났어요')}
+  $('#startBtn').addEventListener('click',startGame);$('#againBtn').addEventListener('click',startGame);$('#helpBtn').addEventListener('click',()=>$('#help').classList.remove('hidden'));$('#helpClose').addEventListener('click',()=>$('#help').classList.add('hidden'));$('#muteBtn').addEventListener('click',()=>{S.muted=!S.muted;$('#muteBtn').textContent=S.muted?'×':'♪';$('#muteBtn').setAttribute('aria-label',S.muted?'소리 켜기':'소리 끄기')});$('#titleImg').addEventListener('error',e=>{e.currentTarget.style.display='none';e.currentTarget.parentElement.style.background='#7A4FA3'});
+  canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointermove',pointerMove);canvas.addEventListener('pointerup',pointerUp);canvas.addEventListener('pointercancel',pointerUp);window.addEventListener('resize',layout);window.addEventListener('orientationchange',()=>setTimeout(layout,120));
+  pool=buildPool();layout();titleBest();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);
+  window.__GAME_TEST__={ready:true,start:startGame,getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect:forceCorrect,answerWrong:forceWrong,sampleProblems,getLayout(){return{land:S.land,playW:S.play.w}}};
+})();
+</script>
+</body>
+</html>

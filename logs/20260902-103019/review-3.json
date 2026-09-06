@@ -1,0 +1,110 @@
+{
+  "slug": "quotient-dungeon",
+  "score": 29,
+  "gate": 80,
+  "passed": false,
+  "reject_immediately": true,
+  "breakdown": {
+    "curriculum": 21,
+    "math": 0,
+    "fun": 0,
+    "visual": 8,
+    "mobile": 0
+  },
+  "visual_diff": {
+    "visual_axis": "F",
+    "axis_compliance": "축 F의 radius 0·헤어라인·무광 카드 문법은 일부 보이지만 shadow 금지와 달리 제목에 text-shadow 2겹을 쓰고 #paper:after에도 box-shadow를 썼다. 실제 플레이 화면은 85행 ReferenceError로 한 장도 생성되지 않아 HUD·정답 연출 준수 여부를 확인할 수 없다. 축 준수 0/4, 선례 비유사 2/4로 디자인 분화는 2/8이다.",
+    "compared_with": [
+      {
+        "slug": "fence-lap",
+        "how_it_differs": "최근작의 포마이카 격자·목재 캐비닛과 달리 청보라 리소 인쇄 세로셈판을 썼다. 다만 이번 게임은 타이틀만 보여 HUD와 정답 연출은 비교할 수 없다."
+      },
+      {
+        "slug": "fork-rail",
+        "how_it_differs": "픽셀아트 기차역 회화 배경과 달리 제한색 리소 인쇄 배경이다. 그러나 실제 플레이가 시작되지 않아 전폭 HUD·패널 구성의 비유사성은 입증되지 않았다."
+      },
+      {
+        "slug": "pair-peg",
+        "how_it_differs": "3D 라벤더 점판·고무줄 오브젝트와 달리 평면 종이·인쇄점·숫자 카드 조형이다. 정답 피드백은 이번 게임에서 관찰할 수 없어 코드 명세만으로 차이를 인정하지 않았다."
+      }
+    ]
+  },
+  "firstplay": {
+    "comprehensible": "no",
+    "frames_seen": "factory/work/qa/quotient-dungeon의 mobile.png, tablet.png, desktop-1280.png, desktop.png, wide.png 5장(모두 타이틀 고정). firstplay 전용 프레임은 0장이고 재생성 시도는 로컬 포트 listen EPERM으로 중단됨",
+    "goal_clear": false,
+    "control_clear": false,
+    "math_visible": false,
+    "dead_taps": "모든 QA 캡처가 같은 타이틀 화면이다. index.html:85의 ReferenceError로 시작 버튼 리스너와 __GAME_TEST__ 등록 전에 실행이 멈춰 실제 탭·드래그가 전혀 연결되지 않는다.",
+    "tagline_predicts_action": true,
+    "notes": "태그라인은 카드를 몫 칸에 놓는 행동을 예고하지만, 학생이 첫 방 열기를 눌러도 게임으로 전환되지 않는다. 목표·조작·수학 사용처를 플레이 프레임에서 하나도 확인할 수 없어 no다."
+  },
+  "math_verification": [
+    {
+      "prompt": "2 × 23 + □ = 47에서 □ 안에 알맞은 수를 써넣으세요.",
+      "claimed": "23⋯1",
+      "my_calculation": "47-2×23=1, 따라서 □=1",
+      "correct": false
+    }
+  ],
+  "strengths": [
+    "meta의 g3s2-u2와 [4수01-06]은 교육과정에 실제로 존재하며 몫의 자릿값·내림·나머지·검산을 정면으로 겨냥한다.",
+    "정수 N,d,q,r와 단계별 나머지를 정수 연산으로 계산해 부동소수점 비교 위험은 없다.",
+    "타이틀은 청보라·먹·빨강·파랑 4색 리소 인쇄 질감과 숫자 카드 도상을 일관되게 사용하고 모바일에서도 제목과 CTA가 읽힌다."
+  ],
+  "must_fix": [
+    {
+      "severity": "high",
+      "where": "index.html:85 buildPool",
+      "issue": "map 콜백에서 선언되지 않은 i를 참조해 ReferenceError가 발생한다. 초기화가 여기서 중단되어 시작 버튼, 입력, 테스트 훅이 모두 죽고 QA는 run.ready와 run.pageerror fatal로 실패했다.",
+      "how": "map((p,i)=>...)처럼 콜백 인덱스를 명시하고 페이지를 새로 로드해 콘솔 오류 0, ready=true, 실제 시작 버튼 전환을 확인한 뒤 QA 43개 전 항목을 다시 실행한다."
+    },
+    {
+      "severity": "high",
+      "where": "index.html:79,88-92 makeProblem/sampleProblems",
+      "issue": "reverse_check 발문은 검산식의 □ 값 하나를 요구하지만 표본 정답과 선택지는 무조건 '몫⋯나머지' 형식이다. 예를 들어 2×23+□=47의 정답은 1인데 코드는 23⋯1을 정답으로 주장한다. 수학 정답 오류이므로 즉시 폐기 조건이다.",
+      "how": "유형별 answer 모델을 분리해 reverse_check는 빈칸 값만, procedural/real_world는 몫과 나머지를 반환하게 하고 choices도 같은 응답 형식으로 생성한다. error_find도 실제로 고칠 자리 숫자와 응답 형식을 일치시킨 뒤 새 problems_sample 전부를 검산한다."
+    },
+    {
+      "severity": "high",
+      "where": "index.html:79,96-134 방 유형 구현",
+      "issue": "error_find와 reverse_check는 프롬프트 문자열만 바뀌고 실제 보드·판정은 모든 유형에서 빈 세로셈의 몫 전체와 나머지를 차례로 입력하게 한다. 기획서가 약속한 잘못된 카드 교체와 검산식 빈칸 채우기가 구현되지 않아 발문과 조작이 충돌한다.",
+      "how": "유형별 초기 보드 상태, 활성 드롭존, 정답 판정을 별도로 구현하거나 구현되지 않은 유형을 풀과 메타 설명에서 제거한다."
+    },
+    {
+      "severity": "high",
+      "where": "factory/work/mathcheck.json 및 QA report.json",
+      "issue": "problems_sample이 빈 배열이라 독립 검산은 verified_count 0, verdict fail이다. input.real, perf.fps, perf.fps1280, math.variety, run.score, run.penalty도 초기화 실패 때문에 아예 실행되지 않았다.",
+      "how": "런타임 오류와 유형별 정답 모델을 고친 뒤 n=40/17/63 합집합 표본을 끝까지 검산하고, 누락 없이 전체 QA 결과가 생성되는지 확인한다."
+    },
+    {
+      "severity": "high",
+      "where": "첫 플레이 및 시작 전이",
+      "issue": "5개 뷰포트 캡처가 모두 타이틀에 고정되어 목표·조작·수학을 전혀 경험할 수 없다. 첫 플레이 이해도 no이므로 점수와 무관하게 게시 불가다.",
+      "how": "게임이 실제 시작되게 고친 후 45초 firstplay 프레임을 다시 만들고, 시작 전이·1 카드에서 몫 칸으로의 포인팅·무효 입력 반응·첫 정답 설명이 연속 프레임에서 보이는지 재검수한다."
+    },
+    {
+      "severity": "high",
+      "where": "index.html:12-49 축 F CSS 및 실제 플레이 캡처",
+      "issue": "shadow 금지 축인데 제목 text-shadow와 #paper:after box-shadow가 남아 있고, 실제 HUD·정답 화면을 볼 수 없어 선례 비유사성을 입증하지 못했다. 디자인 분화가 2/8이라 독립 게시 차단 조건이다.",
+      "how": "그림자 선언을 리소 별색 오프셋용 별도 pseudo-element/평면 잉크 레이어로 바꾸고, 축 F의 radius 0·헤어라인·무광·판형 괘선이 드러나는 실제 플레이 캡처로 최근 3작과 다시 비교한다."
+    },
+    {
+      "severity": "high",
+      "where": "desktop-1280.png, wide.png 및 layout.wide1280",
+      "issue": "기획은 1280×800 2단 분할형을 약속하지만 QA는 layout.wide1280=false이고 두 스크린샷 모두 타이틀뿐이라 플레이 영역 활용과 2000px 초와이드 안정성을 검증할 수 없다.",
+      "how": "초기화 수정 후 1280×800에서 왼쪽 전투판·1행 손패와 오른쪽 경로 패널이 실제로 활성화되는지, 2000px에서 1280px 캡 안에서 요소가 겹치거나 과도하게 벌어지지 않는지 인게임 캡처로 확인한다."
+    },
+    {
+      "severity": "high",
+      "where": "factory/work/fix.json",
+      "issue": "2차 재검수라고 명시됐지만 fix.json이 존재하지 않아 이전 지적과 수정 내역을 대조할 수 없다.",
+      "how": "각 수정 항목, 변경 파일·행, 재검증 결과를 fix.json에 남기고 실제 코드와 일대일로 대조 가능하게 한다."
+    }
+  ],
+  "nice_to_have": [
+    "게임이 복구되면 8개로 명시된 juice 중 hit-stop, squash/stretch, anticipation, trail, color flash, ambient motion, sound sync를 실제 플레이 연속 캡처와 코드 경로로 다시 계수한다.",
+    "메타 tech에 canvas2d가 적혀 있으나 현재 게임 본문은 DOM 중심이므로 실제 사용 기술과 맞춰 정리한다."
+  ],
+  "verdict": "폐기 — 초기화 ReferenceError로 손가락 입력과 게임 시작이 완전히 죽었고 첫 플레이 이해도도 no다. 더구나 reverse_check 발문에 대한 정답 형식이 수학적으로 틀려 즉시 폐기 조건까지 충족한다."
+}

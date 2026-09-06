@@ -1,0 +1,122 @@
+{
+  "slug": "quotient-dungeon",
+  "score": 29,
+  "gate": 80,
+  "passed": false,
+  "reject_immediately": true,
+  "breakdown": {
+    "curriculum": 21,
+    "math": 0,
+    "fun": 0,
+    "visual": 8,
+    "mobile": 0
+  },
+  "visual_diff": {
+    "visual_axis": "F",
+    "axis_compliance": "축 F의 radius 0·각진 카드·헤어라인·무광 별색은 일부 지켰지만, component_grammar가 금지한 shadow를 제목의 2중 text-shadow와 #paper:after의 box-shadow에 사용했다. 실제 플레이는 초기화 예외로 한 프레임도 볼 수 없어 HUD·정답 연출의 축 준수도 입증되지 않았다. 축 준수 0/4, 선례 비유사 2/4로 디자인 분화는 2/8이다.",
+    "compared_with": [
+      {
+        "slug": "fence-lap",
+        "how_it_differs": "베이지 격자 종이와 어두운 목재 작업대 대신 청보라 2도 리소 인쇄와 세로셈 카드 도판을 쓴다. 다만 이번 게임은 타이틀만 보여 실제 HUD와 정답 연출은 비교할 수 없다."
+      },
+      {
+        "slug": "fork-rail",
+        "how_it_differs": "픽셀아트 철도 풍경과 입체 열차 대신 평면 하프톤 종이·판심선·숫자 카드를 쓴다. 실제 플레이가 시작되지 않아 인게임 배경 처리와 피드백의 차이는 검증할 수 없다."
+      },
+      {
+        "slug": "pair-peg",
+        "how_it_differs": "라벤더 3D 점판·둥근 못·고무줄 대신 모서리 0 카드와 제한색 세로셈 조판을 중심 오브젝트로 쓴다. 정답 피드백은 관찰할 수 없어 코드의 의도만으로 비유사성을 인정하지 않았다."
+      }
+    ]
+  },
+  "firstplay": {
+    "comprehensible": "no",
+    "frames_seen": "factory/work/qa/quotient-dungeon/mobile.png, tablet.png, desktop-1280.png, desktop.png, wide.png 5장 모두 타이틀 고정. FIRSTPLAY_PLAY_MS=45000 하네스는 listen EPERM으로 전용 프레임을 생성하지 못함",
+    "goal_clear": false,
+    "control_clear": false,
+    "math_visible": false,
+    "dead_taps": "5개 판형 캡처가 전부 같은 타이틀 화면이다. index.html:85의 ReferenceError가 index.html:145 시작 버튼 리스너 등록보다 먼저 발생하므로 '첫 방 열기' 뒤 전이와 입력 반응이 없다.",
+    "tagline_predicts_action": true,
+    "notes": "태그라인은 숫자 카드를 몫 칸에 놓는 행동을 예고한다. 그러나 학생은 타이틀을 벗어날 수 없어 목표, 조작 대상, 수학이 쓰이는 순간을 하나도 경험하지 못한다."
+  },
+  "math_verification": [
+    {
+      "prompt": "QA problems_sample 전체",
+      "claimed": "표본 0문항",
+      "my_calculation": "index.html:85 초기화 예외 때문에 sampleProblems 훅이 만들어지지 않아 n=40/17/63 합집합 검산 대상이 비어 있다. 필수 검산 데이터 누락은 통과가 아니다.",
+      "correct": false
+    },
+    {
+      "prompt": "67 ÷ 5의 몫과 나머지를 각각 구해 보세요.",
+      "claimed": "13⋯2",
+      "my_calculation": "67 = 5×13+2이고 0≤2<5이므로 몫 13, 나머지 2",
+      "correct": true
+    },
+    {
+      "prompt": "2 × 24 + □ = 49에서 □ 안에 알맞은 수를 써넣으세요.",
+      "claimed": "24⋯1",
+      "my_calculation": "49-2×24=1이므로 □에 들어갈 정답은 1이다. 발문이 요구하지 않은 몫 24를 포함한 24⋯1은 답 형식과 판정 대상이 틀렸다.",
+      "correct": false
+    },
+    {
+      "prompt": "서아가 계산한 41 ÷ 2의 잘못된 몫 카드를 옳게 고쳐 보세요.",
+      "claimed": "20⋯1",
+      "my_calculation": "41=2×20+1이지만 잘못 놓인 카드 값과 위치가 문제에 제시되지 않아 무엇을 고칠지 결정할 수 없다. 발문은 몫 카드 하나를 요구하는데 코드는 나머지까지 요구한다.",
+      "correct": false
+    }
+  ],
+  "strengths": [
+    "meta의 g3s2-u2와 [4수01-06]은 교육과정에 실재하고, 몫의 자릿값·내림·나머지·곱셈 검산을 단원 중심 개념으로 잡았다.",
+    "stepsFor와 N=d×q+r의 기본 산술은 정수 연산이며 실제 입력 판정도 정수 비교라 부동소수점 오차 위험이 없다.",
+    "타이틀의 청보라 종이, 하프톤, 빨강·파랑 별색은 최근 3작의 포마이카·픽셀 철도·3D 점판과 시각적으로 구분된다."
+  ],
+  "must_fix": [
+    {
+      "severity": "high",
+      "where": "index.html:85 buildPool",
+      "issue": "filter 콜백의 i를 다음 map 콜백에서 범위 밖으로 참조해 ReferenceError가 발생한다. 시작 버튼, 테스트 훅, 실입력, 오디오와 와이드 분기가 등록되기 전에 스크립트가 중단된다.",
+      "how": "map((p, i) => ...)로 인덱스를 선언하고 페이지 초기화·시작 전이를 확인한 뒤 QA를 재실행해 fatal 0을 입증한다."
+    },
+    {
+      "severity": "high",
+      "where": "index.html:79,88-92,96,102-126 유형별 문제 모델",
+      "issue": "reverse_check는 □ 하나, error_find는 잘못된 몫 카드 하나를 묻지만 sampleProblems와 실제 판정은 모든 유형에 몫 전체와 나머지를 강제한다. 학생에게 보인 발문과 정답·조작이 일치하지 않는다.",
+      "how": "유형별 requiredAnswer, 초기 보드 상태, 활성 드롭존과 판정을 한 데이터 모델에서 분리한다. reverse_check는 빈칸 값만, error_find는 화면에 실제로 제시한 오답 카드 하나만 고치게 하고 합집합 표본을 전수 재검산한다."
+    },
+    {
+      "severity": "high",
+      "where": "factory/work/qa/quotient-dungeon/report.json",
+      "issue": "run.ready와 run.pageerror가 fatal 실패했고 problems_sample이 비어 있다. input.real, perf.fps, perf.fps1280, run.score, run.penalty, math.variety도 초기화 실패로 수행되지 않아 자동 QA 최소 기준을 충족하지 못했다.",
+      "how": "초기화와 정답 모델 수정 후 node factory/lib/qa.mjs quotient-dungeon을 처음부터 다시 실행해 43개 전체 결과와 비어 있지 않은 problems_sample을 남긴다."
+    },
+    {
+      "severity": "high",
+      "where": "첫 플레이 전체",
+      "issue": "시작 전이가 없고 모든 캡처가 타이틀에 고정되어 comprehensible=no다. 목표·조작·수학의 쓰임을 첫 판에서 하나도 알 수 없다.",
+      "how": "게임 시작을 복구한 뒤 firstplay 45초 프레임에서 실제 1 카드→십의 자리 슬롯 포인팅, 무효 입력 리플, 첫 정답의 5×1=5와 6-5=1 설명이 보이도록 재검증한다."
+    },
+    {
+      "severity": "high",
+      "where": "index.html:20,24,15 축 F CSS",
+      "issue": "기획의 component_grammar가 shadow를 금지했지만 titleInk h1과 titleFoot에 text-shadow를, #paper:after에 box-shadow를 썼다. 디자인 분화가 2/8이라 별도 게시 차단 기준에도 걸린다.",
+      "how": "그림자를 평면 별색 오프셋 pseudo-element와 별도 괘선 요소로 바꿔 그림자 선언을 제거하고, 실제 인게임 캡처로 축 F 준수를 다시 입증한다."
+    },
+    {
+      "severity": "high",
+      "where": "desktop-1280.png, wide.png 및 layout.wide1280",
+      "issue": "기획은 2단 분할형을 약속하지만 QA는 land:false이고 두 캡처 모두 타이틀이라 플레이 영역 활용을 검증할 수 없다. 2000px에서는 1280px 타이틀 스테이지만 보일 뿐 인게임 안정성 증거가 없다.",
+      "how": "초기화 수정 후 1280×800과 2000px의 playing 상태를 다시 캡처해 왼쪽 68% 계산판·1행 손패와 오른쪽 32% 경로 패널이 활성화되고 겹침·과대 공백이 없는지 확인한다."
+    },
+    {
+      "severity": "high",
+      "where": "factory/work/fix.json 및 3회 수정 이력",
+      "issue": "3차 재검수인데 fix.json이 존재하지 않고, 이전 review-1~3이 반복 지적한 동일한 런타임·수학 결함이 현재 코드에 그대로 남아 있다.",
+      "how": "각 수정의 대상 파일·행·검증 결과를 fix.json에 기록하고 실제 diff와 일대일 대조한다. 수정 상한이 소진됐으므로 이번 산출물은 폐기 처리한다."
+    }
+  ],
+  "nice_to_have": [
+    "치명 오류가 해결된 별도 부활 작업을 한다면 기획의 보상 도장·오류 정정방·검산방이 실제로 서로 다른 플레이인지 확인한다.",
+    "메타의 tech에 canvas2d가 있으나 현재 본문은 DOM 중심이므로 실제 사용 기술에 맞게 정리한다."
+  ],
+  "verdict": "폐기. 3차 수정 상한까지 같은 초기화 ReferenceError와 유형별 발문·정답 불일치가 남아 게임이 시작조차 되지 않으며, 독립 수학 검산도 fail이다. 첫 플레이 no, 자동 QA fatal 2건, 디자인 분화 2/8까지 겹쳐 게시할 근거가 없다."
+}

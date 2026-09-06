@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta property="og:title" content="몫 던전">
+  <meta property="og:description" content="숫자 카드를 끌어 몫을 채워라">
+  <meta property="og:image" content="./square.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>몫 던전</title>
+  <style>
+    :root{--paper:#BBC7E6;--ink:#20243D;--red:#E8434A;--blue:#3557A8;--stageW:min(100vw,1280px);--stageX:calc((100vw - var(--stageW))/2);font-family:Georgia,"Nanum Myeongjo","Apple SD Gothic Neo",serif;color:var(--ink)}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#929fca;touch-action:none;user-select:none;-webkit-tap-highlight-color:transparent}button{font:inherit;color:inherit}button:focus-visible{outline:3px solid var(--red);outline-offset:3px}
+    #paper{position:fixed;left:var(--stageX);top:0;width:var(--stageW);height:100%;overflow:hidden;background-color:var(--paper);background-image:radial-gradient(#20243d18 .7px,transparent .8px),repeating-linear-gradient(87deg,transparent 0 13px,#fff1 14px 15px);background-size:7px 7px,100% 19px;animation:paperDrift 18s linear infinite alternate}
+    #paper:before,#paper:after{content:"";position:absolute;z-index:1;pointer-events:none}#paper:before{inset:12px;border:1px solid #20243d55}#paper:after{left:50%;top:0;height:16px;border-left:1px solid var(--ink);box-shadow:0 calc(100vh - 16px) 0 var(--ink)}
+    #titleScreen{position:absolute;inset:0;z-index:30;display:grid;place-items:center;overflow:hidden;background:linear-gradient(#aebce2,#bbc7e6)}
+    #titleArt{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;object-position:50% 54%;animation:drift 20s ease-in-out infinite alternate}
+    #titleFallback{position:absolute;inset:0;background:repeating-linear-gradient(45deg,#bbc7e6 0 30px,#aab8df 31px 32px)}
+    .titleInk{position:relative;z-index:2;align-self:start;margin-top:max(7vh,44px);text-align:center;transform:rotate(-2deg);animation:logoIn .8s cubic-bezier(.2,.9,.2,1.25)}
+    .titleInk h1{margin:0;color:#f5f0e4;font-size:clamp(62px,19vw,126px);line-height:.86;letter-spacing:-.12em;padding-right:.12em;-webkit-text-stroke:9px var(--ink);paint-order:stroke fill;text-shadow:5px 5px 0 var(--red),10px 10px 0 var(--blue)}
+    .titleInk p{display:inline-block;margin:25px 0 0;padding:7px 12px;background:var(--paper);border:2px solid var(--ink);font:800 16px/1.2 "Apple SD Gothic Neo",sans-serif;letter-spacing:.08em}
+    #startBtn{position:absolute;z-index:4;left:50%;bottom:max(12vh,88px);transform:translateX(-50%);min-width:230px;min-height:68px;border:3px solid var(--ink);border-radius:0;background:var(--red);color:#fff;font:900 24px/1 "Apple SD Gothic Neo",sans-serif;letter-spacing:.06em;animation:cta 1.5s ease-in-out infinite;cursor:pointer}
+    #startBtn:active{transform:translateX(-50%) scale(.94) rotate(-1deg);filter:saturate(1.3)}
+    .titleFoot{position:absolute;z-index:4;bottom:24px;left:0;right:0;text-align:center;color:#fff;font:800 13px/1.4 "Apple SD Gothic Neo",sans-serif;text-shadow:1px 1px 0 var(--ink),-1px -1px 0 var(--ink)}
+    .speck{position:absolute;z-index:3;width:7px;height:7px;background:var(--red);animation:float 5s ease-in-out infinite}.s1{left:12%;top:46%}.s2{right:16%;top:39%;animation-delay:-2s}.s3{left:28%;top:65%;animation-delay:-3s}
+    #game{position:absolute;inset:0;display:none;z-index:3}#game.show{display:block}
+    #hud{position:absolute;z-index:8;left:18px;right:18px;top:16px;height:54px;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);display:flex;align-items:center;gap:14px;font:800 14px/1 "Apple SD Gothic Neo",sans-serif}
+    .hudNum{font:900 22px/1 Georgia,serif;color:var(--blue);display:inline-block}.inkPulse{animation:inkPulse .28s steps(2)}#lives{letter-spacing:3px;color:var(--red)}#mute{margin-left:auto;width:46px;height:46px;border:1px solid var(--ink);border-radius:0;background:transparent;font-size:20px;cursor:pointer}
+    #goal{position:absolute;z-index:9;top:78px;left:50%;transform:translateX(-50%);width:min(92%,580px);min-height:42px;padding:10px 14px;text-align:center;background:var(--ink);color:#fff;font:800 15px/1.35 "Apple SD Gothic Neo",sans-serif;letter-spacing:.02em}
+    #main{position:absolute;left:10px;right:10px;top:130px;bottom:198px;display:grid;grid-template-rows:auto 1fr;gap:8px}
+    #prompt{min-height:40px;padding:8px 10px;border-bottom:2px solid var(--ink);font:800 clamp(16px,4.5vw,21px)/1.25 "Apple SD Gothic Neo",sans-serif;text-align:center}
+    #boardWrap{position:relative;min-height:0;display:grid;place-items:center;overflow:hidden}
+    #board{position:relative;width:min(94%,440px);height:100%;min-height:250px;border-left:1px solid #20243d66;border-right:1px solid #20243d66;background:linear-gradient(90deg,transparent 49.8%,#20243d18 50%,transparent 50.2%)}
+    #division{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);width:min(91%,390px);height:min(95%,430px)}
+    #quotientSlots{position:absolute;top:4px;right:12%;height:58px;display:flex;justify-content:flex-end;gap:7px}.slot{position:relative;width:58px;height:58px;border:2px solid var(--ink);background:#bbc7e6cc;display:grid;place-items:center;font:900 32px/1 Georgia,serif}.slot.active{border-color:var(--red);outline:2px dashed var(--red);outline-offset:3px}.slot.filled{color:var(--ink);background:#d1daf0;animation:register .38s cubic-bezier(.16,1.5,.4,1)}.slot.bad{animation:misregister .24s steps(2);color:var(--red);text-shadow:5px 0 var(--blue)}
+    #longLine{position:absolute;left:12%;right:8%;top:70px;border-top:4px solid var(--ink)}#divisor{position:absolute;left:3%;top:82px;width:55px;text-align:right;font:900 32px/1 Georgia,serif}#dividend{position:absolute;left:24%;right:6%;top:82px;font:900 34px/1 Georgia,serif;letter-spacing:.24em;text-align:right}
+    #workRows{position:absolute;left:19%;right:5%;top:126px;bottom:68px;overflow:hidden;font:800 20px/1.3 Georgia,serif}.work{height:48px;text-align:right;border-bottom:1px solid #20243d88;padding:2px 8px;animation:printIn .4s steps(3)}.work b{color:var(--red)}.work em{color:var(--blue);font-style:normal}.bring{position:absolute;width:4px;background:var(--blue);opacity:.55;animation:bringDown .55s ease-out forwards}
+    #remainder{position:absolute;right:5%;bottom:5px;width:110px;height:56px;border:3px solid var(--red);display:grid;place-items:center;color:var(--red);font:900 18px/1 "Apple SD Gothic Neo",sans-serif}#remainder.active{outline:3px dashed var(--red);outline-offset:4px;animation:plate 1s steps(2) infinite}#remainder .rnum{font-size:30px}
+    #explain{position:absolute;z-index:12;left:8%;right:8%;bottom:74px;min-height:46px;background:#f2eedf;border:2px solid var(--ink);padding:8px;text-align:center;font:900 17px/1.35 "Apple SD Gothic Neo",sans-serif;display:none}.showExplain{display:block!important;animation:printIn .35s steps(3)}
+    #hand{position:absolute;z-index:10;left:10px;right:10px;bottom:12px;height:176px;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(2,1fr);gap:7px;padding:8px;border-top:2px solid var(--ink);background:#bbc7e6ee}
+    .card{min-width:52px;min-height:66px;border:2px solid var(--ink);border-radius:0;background:#e8e4d9;color:var(--ink);font:900 clamp(26px,8vw,38px)/1 Georgia,serif;cursor:grab;position:relative}.card:before{content:"";position:absolute;inset:5px;border:1px solid var(--red);opacity:.55}.card.dragging{position:fixed;z-index:50;width:64px;height:78px;pointer-events:none;transform:translate(-50%,-58%) scale(1.08,.94) rotate(-2deg);color:var(--red)}.card.refuse{animation:refuse .24s linear}.card.guide{outline:5px solid var(--red);outline-offset:4px;animation:guide 1s ease-in-out infinite}
+    #guidePath{position:fixed;z-index:45;pointer-events:none;display:none;inset:0}#guidePath svg{width:100%;height:100%;overflow:visible}#guidePath path{fill:none;stroke:var(--red);stroke-width:4;stroke-dasharray:9 10;animation:dash .8s linear infinite}#finger{position:fixed;width:38px;height:48px;font-size:34px;transform:translate(-50%,-50%);animation:fingerMove 1.2s ease-in-out infinite}
+    #aside{display:none}#result{position:absolute;z-index:60;inset:0;background:var(--paper);display:none;place-items:center;text-align:center;padding:28px}#result.show{display:grid}.poster{border:4px double var(--ink);padding:28px;width:min(92%,520px);background:#d5ddf0;animation:poster .55s steps(4)}.poster h2{font-size:42px;margin:0 0 16px;color:var(--red)}.poster strong{font-size:56px;color:var(--blue)}#again{display:block;margin:28px auto 0;width:220px;height:64px;border:3px solid var(--ink);border-radius:0;background:var(--red);color:#fff;font:900 22px "Apple SD Gothic Neo",sans-serif}
+    #flash{position:absolute;z-index:25;inset:0;pointer-events:none;opacity:0;background:var(--red);mix-blend-mode:multiply}#flash.on{animation:flash .24s steps(2)}.ripple{position:fixed;z-index:55;width:12px;height:12px;border:3px solid var(--red);pointer-events:none;animation:ripple .45s ease-out forwards}
+    @keyframes paperDrift{to{background-position:2px 4px,0 8px}}@keyframes drift{to{transform:scale(1.06) translateY(-1%)}}@keyframes logoIn{from{opacity:0;transform:translateY(-40px) rotate(-7deg) scale(.8)}}@keyframes cta{50%{filter:saturate(1.25);transform:translateX(-50%) scale(1.045)}}@keyframes float{50%{transform:translateY(-22px) rotate(45deg)}}@keyframes inkPulse{50%{transform:scale(1.28);color:var(--red)}}@keyframes register{0%{transform:translate(7px,3px) scale(.72,1.2);color:var(--red)}65%{transform:translate(-2px,0) scale(1.08,.95)}to{transform:none}}@keyframes misregister{50%{transform:translateX(5px)}}@keyframes printIn{from{opacity:0;transform:translate(4px,3px)}50%{opacity:.5}to{opacity:1;transform:none}}@keyframes bringDown{from{height:0}to{height:65px;opacity:0}}@keyframes plate{50%{outline-offset:8px}}@keyframes refuse{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}@keyframes guide{50%{outline-offset:9px}}@keyframes dash{to{stroke-dashoffset:-38}}@keyframes flash{50%{opacity:.18}}@keyframes ripple{to{width:70px;height:70px;margin:-29px;opacity:0}}@keyframes poster{from{transform:scale(.5) rotate(-4deg);opacity:0}}@keyframes fingerMove{50%{transform:translate(-50%,-50%) scale(1.2)}}
+    html.land #main{left:2%;right:34%;top:86px;bottom:122px}html.land #hand{left:2%;right:34%;height:104px;grid-template-columns:repeat(10,1fr);grid-template-rows:1fr}html.land #aside{display:block;position:absolute;right:2%;top:86px;bottom:18px;width:29%;border-left:1px solid var(--ink);padding:20px}html.land #aside h3{font-size:28px;margin:8px 0 20px}html.land #path{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.room{height:48px;border:1px solid var(--ink);display:grid;place-items:center;font-weight:900}.room.done{background:var(--blue);color:#fff}.room.now{background:var(--red);color:#fff}html.land #log{margin-top:28px;border-top:2px solid var(--ink);padding-top:12px;font:700 15px/1.7 "Apple SD Gothic Neo",sans-serif}html.land #goal{left:34%;width:54%}html.land #hud{right:34%}
+    @media(max-height:700px) and (max-width:600px){#main{top:116px;bottom:158px}#goal{top:70px}#hud{top:9px}#hand{height:148px}.card{min-height:55px}#prompt{font-size:14px}.slot{width:50px;height:50px}}
+    .hitstop #game *{animation-play-state:paused!important}
+    @media(prefers-reduced-motion:reduce){#titleArt,.speck{animation-duration:40s}.card.guide,#startBtn{animation-duration:3s}}
+  </style>
+</head>
+<body>
+<main id="paper">
+  <section id="titleScreen">
+    <div id="titleFallback"></div><img id="titleArt" src="./assets/title.png" alt="숫자 카드가 세로셈판으로 날아가는 리소 인쇄 그림">
+    <i class="speck s1"></i><i class="speck s2"></i><i class="speck s3"></i>
+    <div class="titleInk"><h1>몫<br>던전</h1><p>숫자 카드를 몫 칸에 놓아요</p></div>
+    <button id="startBtn">첫 방 열기</button><div class="titleFoot">3학년 2학기 · 나눗셈<br>최고 기록 <span id="bestTitle">0</span>점</div>
+  </section>
+  <section id="game">
+    <header id="hud"><span>방 <b id="roomNum" class="hudNum">1</b>/12</span><span>점수 <b id="score" class="hudNum">0</b></span><span>콤보 <b id="combo" class="hudNum">1</b></span><span id="lives">◆◆◆</span><button id="mute" aria-label="소리 끄기">♫</button></header>
+    <div id="goal">숫자 카드를 몫 칸에 놓아 길을 열어요</div>
+    <div id="main"><div id="prompt">몫과 나머지를 각각 구해 보세요.</div><div id="boardWrap"><div id="board"><div id="division"><div id="quotientSlots"></div><div id="longLine"></div><div id="divisor"></div><div id="dividend"></div><div id="workRows"></div><div id="remainder">나머지</div></div><div id="explain"></div></div></div></div>
+    <div id="hand" data-input="hand"></div>
+    <aside id="aside"><h3>12방 인쇄 경로</h3><div id="path"></div><div id="log">현재 계산을 한 자리씩 완성해 보세요.<br>나머지는 나누는 수보다 항상 작습니다.</div></aside>
+    <div id="flash"></div><div id="guidePath"><svg><path id="guideLine" d=""/></svg><div id="finger">☝️</div></div>
+  </section>
+  <section id="result"><div class="poster"><h2 id="resultTitle">런 종료</h2><p>인쇄한 점수</p><strong id="finalScore">0</strong><p id="resultNote"></p><button id="again">다시 인쇄하기</button></div></section>
+</main>
+<script>
+(()=>{'use strict';
+// 교과서 표현 함정: 나눗셈의 '내림'은 윗자리의 남은 수를 아랫자리로 내려쓰는 뜻이다.
+// 자연수 나눗셈은 N ÷ d = q ⋯ r로 쓰고, 나머지는 반드시 0<=r<d이다. 발문은 익힘책 지시형만 쓴다.
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const E={title:$('#titleScreen'),game:$('#game'),hand:$('#hand'),slots:$('#quotientSlots'),divisor:$('#divisor'),dividend:$('#dividend'),rows:$('#workRows'),rem:$('#remainder'),prompt:$('#prompt'),goal:$('#goal'),explain:$('#explain'),flash:$('#flash'),guide:$('#guidePath'),guideLine:$('#guideLine'),finger:$('#finger'),path:$('#path')};
+const S={phase:'title',score:0,lives:3,level:1,solved:0,combo:1,room:0,problem:null,step:0,wrongInRoom:0,tutorial:true,drag:null,muted:false,audio:null,last:performance.now(),elapsed:0,fx:[],poolCursor:0,land:false};
+const fixed={N:67,d:5,band:1,type:'procedural'};
+function stepsFor(N,d){const digs=String(N).split('').map(Number),steps=[];let rem=0,started=false;for(let i=0;i<digs.length;i++){const partial=rem*10+digs[i],digit=Math.floor(partial/d);if(!started&&digit===0){rem=partial;continue}started=true;const product=d*digit;rem=partial-product;steps.push({place:digs.length-1-i,partial,digit,product,remainder:rem,brought:i<digs.length-1?digs[i+1]:null});}return steps}
+function makeProblem(N,d,band=1,type='procedural'){const q=Math.floor(N/d),r=N-d*q,steps=stepsFor(N,d);return{id:`${type}-${N}-${d}`,N,d,q,r,steps,band,type,prompt:type==='real_world'?`${N}개의 배지를 ${d}개씩 상자에 담습니다. 몇 상자까지 담을 수 있고, 남는 배지는 몇 개인지 구해 보세요.`:type==='error_find'?`서아가 계산한 ${N} ÷ ${d}의 잘못된 몫 카드를 옳게 고쳐 보세요.`:type==='reverse_check'?`${d} × ${q} + □ = ${N}에서 □ 안에 알맞은 수를 써넣으세요.`:`${N} ÷ ${d}의 몫과 나머지를 각각 구해 보세요.`}}
+function buildPool(){const bands=[[],[],[],[]];
+  // 무작위 생성 후 검증하지 않는다. d,q,r의 제약 만족 전수 풀에서 N=d*q+r로 역생성한다.
+  for(let d=2;d<=9;d++)for(let q=10;q<=99;q++)for(let r=1;r<d;r++){const N=d*q+r;if(N>=40&&N<=99&&String(q)[0]!==String(q)[1])bands[0].push(makeProblem(N,d,1,(N+d)%5===0?'real_world':'procedural'))}
+  for(let d=2;d<=9;d++)for(let q=20;q<=99;q++){const r=(q+d) % d,N=d*q+r;if(N>=100&&N<=999&&r===0&&new Set(String(q)).size>1)bands[2].push(makeProblem(N,d,3,(N%7===0)?'error_find':'procedural'))}
+  for(let d=2;d<=9;d++)for(let h=1;h<=9;h++)for(let u=1;u<=9;u++){const q=100*h+u,r=(h+u)%d,N=d*q+r;if(N<=999&&N>=100)bands[3].push(makeProblem(N,d,4,(N%11===0)?'reverse_check':'procedural'))}
+  bands[1]=bands[0].filter((_,i)=>i%3===0).map(p=>makeProblem(p.N,p.d,2,i%2?'reverse_check':'error_find'));return bands}
+const POOLS=buildPool();
+function deck(){const plan=[];for(let i=0;i<12;i++){const band=i<4?0:i<6?1:i<9?2:3, pool=POOLS[band];plan.push(i===0?makeProblem(67,5,1):pool[(i*137+S.poolCursor*29)%pool.length])}S.poolCursor++;return plan}let RUN=deck();
+function sampleProblems(n){const all=POOLS.flat(),out=[];for(let i=0;i<n;i++){const p=all[(i*173+S.poolCursor*41)%all.length],answer=`${p.q}⋯${p.r}`;
+    // misconceptionId를 가진 실제 오개념 역산 오답: 몫 1 작게/나머지를 d만큼 크게, 검산에서 나머지 누락.
+    const candidates=[{v:`${Math.max(0,p.q-1)}⋯${p.r+p.d}`,misconceptionId:'quotient-one-less-remainder-too-large'},{v:`${p.q+1}⋯${Math.max(0,p.r-p.d)}`,misconceptionId:'multiple-too-large'},{v:`${p.q}⋯0`,misconceptionId:'check-omits-remainder'},{v:`${String(p.q).replace('0','')}⋯${p.r}`,misconceptionId:'skip-zero-place'}];
+    // 정답 제거 → 범위 검사 → 중복 제거 → 부족분 보충 → 셔플
+    let wrong=candidates.filter(x=>x.v!==answer&&/^\d+⋯\d+$/.test(x.v));wrong=[...new Map(wrong.map(x=>[x.v,x])).values()];for(let k=1;wrong.length<3;k++){const v=`${p.q+k}⋯${p.r}`;if(v!==answer&&!wrong.some(x=>x.v===v))wrong.push({v,misconceptionId:'place-value-shift'})}const choices=[answer,...wrong.slice(0,3).map(x=>x.v)];const rot=i%4;out.push({id:p.id+'-'+i,prompt:p.prompt,choices:choices.slice(rot).concat(choices.slice(0,rot)),answer,answerNumeric:p.q+p.r/p.d,unitConcept:p.band>=3?'세 자리 수 나눗셈':'몫과 나머지',distractors:wrong.slice(0,3)})}return out}
+function layout(){const W=innerWidth,H=innerHeight;S.land=(W>=H&&W>=640)||W>=1024;document.documentElement.classList.toggle('land',S.land);const sw=Math.min(W,1280),sx=Math.round((W-sw)/2);document.documentElement.style.setProperty('--stageW',sw+'px');document.documentElement.style.setProperty('--stageX',sx+'px');if(S.tutorial&&S.phase==='playing')requestAnimationFrame(positionGuide)}addEventListener('resize',layout);addEventListener('orientationchange',()=>setTimeout(layout,120));layout();
+function initCards(){E.hand.innerHTML='';for(let n=0;n<=9;n++){const b=document.createElement('button');b.className='card';b.textContent=n;b.dataset.value=n;b.dataset.input='card';b.setAttribute('aria-label',`${n} 숫자 카드`);b.addEventListener('pointerdown',cardDown);E.hand.appendChild(b)}}
+function renderPath(){E.path.innerHTML='';for(let i=0;i<12;i++){const x=document.createElement('div');x.className='room '+(i<S.room?'done':i===S.room?'now':'');x.textContent=i+1;E.path.appendChild(x)}}
+function renderProblem(){const p=S.problem;E.prompt.textContent=p.prompt;E.divisor.textContent=p.d+' )';E.dividend.textContent=p.N;E.rows.innerHTML='';E.slots.innerHTML='';S.step=0;for(let i=0;i<p.steps.length;i++){const x=document.createElement('div');x.className='slot'+(i===0?' active':'');x.dataset.index=i;x.dataset.input='slot';E.slots.appendChild(x)}E.rem.className='';E.rem.innerHTML='나머지';E.explain.classList.remove('showExplain');renderPath();update();if(S.tutorial){$('.card[data-value="1"]').classList.add('guide');E.guide.style.display='block';requestAnimationFrame(positionGuide)}}
+function start(skip=false){E.title.style.display='none';E.game.classList.add('show');$('#result').classList.remove('show');S.phase='playing';S.score=0;S.lives=3;S.level=1;S.solved=0;S.combo=1;S.room=0;S.elapsed=0;S.wrongInRoom=0;S.tutorial=!skip;RUN=deck();RUN[0]=makeProblem(67,5,1);S.problem=RUN[0];renderProblem();if(skip){S.tutorial=false;E.guide.style.display='none'}unlockAudio();}
+function positionGuide(){if(!S.tutorial||S.phase!=='playing')return;const c=$('.card[data-value="1"]'),t=$('.slot.active');if(!c||!t)return;const a=c.getBoundingClientRect(),b=t.getBoundingClientRect(),x1=a.left+a.width/2,y1=a.top+a.height/2,x2=b.left+b.width/2,y2=b.top+b.height/2;E.guideLine.setAttribute('d',`M${x1},${y1} C${x1},${y1-90} ${x2},${y2+70} ${x2},${y2}`);const z=(performance.now()%1200)/1200,k=.5-.5*Math.cos(z*Math.PI*2),x=x1+(x2-x1)*k,y=y1+(y2-y1)*k;E.finger.style.left=x+'px';E.finger.style.top=y+'px';requestAnimationFrame(positionGuide)}
+function cardDown(ev){if(S.phase!=='playing')return;ev.preventDefault();unlockAudio();const src=ev.currentTarget,n=+src.dataset.value,r=src.getBoundingClientRect();S.drag={n,src,id:ev.pointerId,moved:false,x:ev.clientX,y:ev.clientY};src.setPointerCapture(ev.pointerId);src.classList.add('dragging');src.style.left=ev.clientX+'px';src.style.top=ev.clientY+'px';src.addEventListener('pointermove',cardMove);src.addEventListener('pointerup',cardUp,{once:true});src.addEventListener('pointercancel',cardUp,{once:true});tone(180+n*18,.035,'square')}
+function cardMove(ev){if(!S.drag||ev.pointerId!==S.drag.id)return;S.drag.moved=S.drag.moved||Math.hypot(ev.clientX-S.drag.x,ev.clientY-S.drag.y)>9;S.drag.src.style.left=ev.clientX+'px';S.drag.src.style.top=ev.clientY+'px'}
+function cardUp(ev){const d=S.drag;if(!d)return;const src=d.src;src.classList.remove('dragging');src.style.left=src.style.top='';src.removeEventListener('pointermove',cardMove);S.drag=null;const target=(S.step<S.problem.steps.length)?$('.slot.active'):E.rem, r=target.getBoundingClientRect(),inside=ev.clientX>=r.left-18&&ev.clientX<=r.right+18&&ev.clientY>=r.top-18&&ev.clientY<=r.bottom+18;if(!d.moved||!inside){refuse(src,ev.clientX,ev.clientY);return}placeDigit(d.n,target)}
+function placeDigit(n,target){
+  if(S.phase!=='playing')return;
+  const p=S.problem;
+  if(S.step<p.steps.length){
+    const st=p.steps[S.step];
+    if(n!==st.digit){wrongDigit(n,st,target);return;}
+    target.textContent=n;
+    target.classList.remove('active');
+    target.classList.add('filled');
+    S.score+=100*S.combo;S.solved++;
+    printStep(st);soundPlace(S.step);flash();
+    if(S.tutorial){
+      S.tutorial=false;E.guide.style.display='none';$('.card.guide')?.classList.remove('guide');
+      E.goal.textContent='다음 몫 카드도 같은 방법으로 놓아요';
+      showExplain(`${p.d}×${n}=${st.product}, ${st.partial}-${st.product}=${st.remainder}`,1200);
+    }
+    S.step++;
+    if(S.step<p.steps.length)$$('.slot')[S.step].classList.add('active');
+    else{E.rem.classList.add('active');E.goal.textContent='남은 수 카드를 빨강 나머지 칸에 놓아요';}
+    update();return;
+  }
+  if(n!==p.r){wrongRemainder(n);return;}
+  E.rem.classList.remove('active');E.rem.innerHTML=`나머지 <span class="rnum">${n}</span>`;
+  S.score+=200*S.combo;S.solved++;S.combo++;
+  showExplain(`${p.d}×${p.q}+${p.r}=${p.N}  검산 완료`,1050);chord();flash();
+  if(S.wrongInRoom===0){document.documentElement.classList.add('hitstop');setTimeout(()=>document.documentElement.classList.remove('hitstop'),180);}
+  setTimeout(completeRoom,850);update();
+}
+function printStep(st){const row=document.createElement('div');row.className='work';row.innerHTML=`<b>− ${st.product}</b><br><em>남은 수 ${st.remainder}</em>`;E.rows.appendChild(row);if(st.brought!==null){const line=document.createElement('i');line.className='bring';line.style.right=(25+S.step*35)+'px';line.style.top=(145+S.step*45)+'px';$('#division').appendChild(line);setTimeout(()=>line.remove(),650)}}
+function wrongDigit(n,st,target){S.wrongInRoom++;target.classList.remove('bad');void target.offsetWidth;target.classList.add('bad');const prod=S.problem.d*n;let msg;if(prod>st.partial)msg=`${S.problem.d}×${n}=${prod}. 현재 수 ${st.partial}보다 커서 뺄 수 없어요.`;else msg=`${S.problem.d}×${n}=${prod}. ${st.partial-prod}가 남아 한 묶음을 더 만들 수 있어요.`;penalty(msg);tone(105,.12,'sawtooth')}
+function wrongRemainder(n){S.wrongInRoom++;const msg=n>=S.problem.d?`${n}에는 ${S.problem.d}개 묶음이 아직 있어요. 나머지는 ${S.problem.d}보다 작아요.`:`계산판에 남은 수와 같은 카드를 놓아 보세요.`;penalty(msg);E.rem.classList.remove('bad');void E.rem.offsetWidth;E.rem.classList.add('bad');tone(92,.14,'sawtooth')}
+function penalty(msg,force=false){S.combo=1;if(force||S.wrongInRoom>=2){S.lives--;S.wrongInRoom=0}showExplain(msg,1100);update();if(S.lives<=0)setTimeout(()=>end(false),500)}
+function completeRoom(){if(S.phase!=='playing')return;S.room++;S.level=Math.min(4,1+Math.floor(S.room/3));S.wrongInRoom=0;if(S.room>=12){end(true);return}S.problem=RUN[S.room];E.goal.textContent=S.room>=9?'세 자리 몫과 나머지를 끝까지 인쇄해요':'숫자 카드를 몫 칸에 놓아 길을 열어요';renderProblem()}
+function end(win){S.phase=win?'clear':'gameover';E.game.classList.remove('show');$('#result').classList.add('show');$('#resultTitle').textContent=win?'검산 완료':'인쇄가 멈췄어요';$('#finalScore').textContent=S.score;$('#resultNote').textContent=win?'12개 방의 계산판이 한 장의 포스터가 되었어요.':`${S.room+1}번째 방부터 다시 도전할 수 있어요.`;const best=Math.max(S.score,+localStorage.getItem('quotient-dungeon-best')||0);localStorage.setItem('quotient-dungeon-best',best);$('#bestTitle').textContent=best}
+function showExplain(msg,ms=800){E.explain.textContent=msg;E.explain.classList.add('showExplain');clearTimeout(S.explainTimer);S.explainTimer=setTimeout(()=>E.explain.classList.remove('showExplain'),ms)}
+function refuse(el,x,y){el.classList.remove('refuse');void el.offsetWidth;el.classList.add('refuse');showExplain('카드를 현재 몫 칸까지 끌어 보세요.',750);ripple(x,y);tone(130,.05,'square');if(S.tutorial){E.guide.style.display='block';positionGuide()}}
+function ripple(x,y){const r=document.createElement('i');r.className='ripple';r.style.left=x+'px';r.style.top=y+'px';document.body.appendChild(r);setTimeout(()=>r.remove(),500)}
+function flash(){E.flash.classList.remove('on');void E.flash.offsetWidth;E.flash.classList.add('on')}
+function update(){$('#score').textContent=S.score;$('#roomNum').textContent=S.room+1;$('#combo').textContent=S.combo;$('#lives').textContent='◆'.repeat(Math.max(0,S.lives))+'◇'.repeat(Math.max(0,3-S.lives));['score','roomNum','combo'].forEach(id=>{const x=$('#'+id);x.classList.remove('inkPulse');void x.offsetWidth;x.classList.add('inkPulse')})}
+function unlockAudio(){if(!S.audio)try{S.audio=new (AudioContext||webkitAudioContext)()}catch{}if(S.audio?.state==='suspended')S.audio.resume()}
+function tone(f,d=.07,type='sine',gain=.045){if(S.muted||!S.audio)return;const o=S.audio.createOscillator(),g=S.audio.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(gain,S.audio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,S.audio.currentTime+d);o.connect(g).connect(S.audio.destination);o.start();o.stop(S.audio.currentTime+d)}
+function soundPlace(i){const f=[262,330,392,494][i%4];tone(f,.09,'triangle',.055);if(S.combo>1)tone(f*1.5,.1,'sine',Math.min(.04,.012*S.combo))}function chord(){[262,330,392,523].forEach((f,i)=>setTimeout(()=>tone(f,.25,'triangle',.035),i*25))}
+function frame(t){const dt=Math.min(.05,(t-S.last)/1000);S.last=t;if(S.phase==='playing'&&!S.tutorial){S.elapsed+=dt;if(S.elapsed>=180)end(false)}requestAnimationFrame(frame)}requestAnimationFrame(frame);
+$('#startBtn').addEventListener('click',()=>start(false));$('#again').addEventListener('click',()=>start(false));$('#mute').addEventListener('click',()=>{S.muted=!S.muted;$('#mute').textContent=S.muted?'×':'♫';unlockAudio()});
+$('#titleArt').onerror=()=>{$('#titleArt').style.display='none'};$('#boardWrap').addEventListener('pointerdown',ev=>{if(ev.target.closest('.slot,#remainder'))return;ripple(ev.clientX,ev.clientY);showExplain('아래 숫자 카드를 현재 몫 칸까지 끌어 보세요.',650)});
+addEventListener('keydown',ev=>{if(S.phase!=='playing')return;if(/^Digit[0-9]$/.test(ev.code)){S.keyDigit=+ev.key;showExplain(`${ev.key} 카드를 들었어요. Enter로 놓아요.`,500)}else if(ev.key==='Enter'&&Number.isInteger(S.keyDigit))placeDigit(S.keyDigit,S.step<S.problem.steps.length?$('.slot.active'):E.rem)});
+initCards();renderPath();$('#bestTitle').textContent=+localStorage.getItem('quotient-dungeon-best')||0;
+window.__GAME_TEST__={ready:true,start(){start(true)},getState(){return{score:S.score,lives:S.lives,level:S.level,phase:S.phase,solved:S.solved}},answerCorrect(){if(S.phase!=='playing')start(true);const p=S.problem,n=S.step<p.steps.length?p.steps[S.step].digit:p.r;placeDigit(n,S.step<p.steps.length?$('.slot.active'):E.rem)},answerWrong(){if(S.phase!=='playing')start(true);penalty('한 번 더 계산해 보세요.',true)},sampleProblems(n){return sampleProblems(Math.max(0,Number(n)||0))},getLayout(){return{land:S.land,playW:S.land?innerWidth*.66:innerWidth}}};
+})();
+</script>
+</body></html>
