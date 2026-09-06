@@ -36,3 +36,7 @@
 무대 3장은 이번 작업에서 OpenAI 이미지 생성 도구로 새로 생성한 오리지널 펠트 풍경이다. 캐스트는 기존 `public/vendor/cast/`를 상대 경로로 공유한다. 상용 게임 캐릭터·로고·음원은 사용하지 않았다. 음향은 사용자 입력 후 Web Audio로 합성한다. 철도 제목 서체는 게임 폴더에 포함된 Jua 서브셋이며 OFL 라이선스 파일을 동봉했다.
 
 각 게임 상세 기록은 같은 디렉터리의 `multiply-siege.md`, `fraction-rail.md`, `decimal-drift.md`를 참고한다. 최종 게시 증거는 `logs/manual-20260907-three-games/`에 보존한다.
+
+## 공개 배포 확인
+
+커밋 `9ba4c8d`를 main에 push하여 Vercel Production Ready 확인. `https://math-game-factory.vercel.app`의 카탈로그 42작에 세 게임이 모두 노출된다. 게임별 필수 7파일(총 21개)의 공개 응답 SHA-256이 로컬과 일치했고, 모바일 브라우저 실제 시작·안내 버튼으로 세 게임 모두 playing에 진입했다. 페이지 오류·실패 요청·가로 넘침 없음. `logs/manual-20260907-three-games/deployment.json`과 각 `production-play.png`를 참고한다.

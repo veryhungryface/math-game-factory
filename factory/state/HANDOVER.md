@@ -719,3 +719,5 @@ mathcheck 로그 20여 건에 "지정된 textbook-structure.json은 저장소에
 - 사용자 후속 지시로 80점 미만도 배포. `publish-game.mjs --manual-approval <사유>`는 이번 호출의 점수 예외만 허용하며 실제 점수·gate=80·passed=false를 보존한다. `qa.manual_release`와 queue에 사유 기록. 허브/정합성 검사가 명시 승인을 인식하도록 수정. 자동 run.sh와 80점 기본 게이트는 유지. 격리 회귀 검사 10건 통과.
 - 게시 단일 진입점으로 세 편 등록, 카탈로그 정합성 42/42. 배포 대상은 세 신규 게임과 게시 지원 코드·검증 기록. 상세 `docs/validation/three-games-20260907.md`, 증거 `logs/manual-20260907-three-games/`.
 - 독립 검수 점수는 상용 콘솔 대표작 수준을 달성했다는 뜻이 아니다. 철도의 재시도 자유도, 드리프트의 얕은 경쟁/조향 목표 및 생성 표지와 플레이 미술 차이가 남는다. 실제 어린이 사용자 조사는 하지 않았다.
+
+- 공개 배포 확인 완료: 게임 커밋 `9ba4c8d`, Vercel `dpl_2KhbNXgMbkeJ8Hb7R6ik4dx7JqqZ` Ready. 기본 도메인 카탈로그 42작·신작 3개 노출, 필수 21파일 SHA-256 일치, 실제 시작/안내 클릭 후 3편 모두 playing, 페이지 오류/누락 요청/가로 넘침 0. 배포 증거와 모바일 화면을 전용 로그에 보존.
