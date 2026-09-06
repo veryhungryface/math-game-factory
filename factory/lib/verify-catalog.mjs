@@ -26,6 +26,9 @@ function diagnoseMissingCatalog(slug) {
 
   try {
     const meta = readJSON(metaFile);
+    if (meta.qa?.manual_release?.approved === true) {
+      return `수동 게시 승인(${meta.qa.manual_release.reason || '사유 미기록'})이 있지만 catalog.json에 미반영 — 허브 재빌드 필요`;
+    }
     if (meta.qa?.passed !== true) return `meta.qa.passed !== true (현재 ${JSON.stringify(meta.qa?.passed)})`;
   } catch (err) {
     return `meta.json 읽기 실패 (${err.message})`;

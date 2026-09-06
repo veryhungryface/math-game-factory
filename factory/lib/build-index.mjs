@@ -24,7 +24,7 @@ const games = listGames()
     };
   })
   .filter(Boolean)
-  .filter((g) => g.qa?.passed !== false || process.env.INCLUDE_UNPUBLISHED === '1')
+  .filter((g) => g.qa?.passed !== false || g.qa?.manual_release?.approved === true || process.env.INCLUDE_UNPUBLISHED === '1')
   .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
 
 const catalog = {

@@ -3,6 +3,7 @@
  * 최초 게시와 폐기작 부활 게시의 단일 진입점.
  *
  *   node factory/lib/publish-game.mjs <slug> --score <N> [옵션]
+ *   --manual-approval <reason>: 이번 호출에만 점수 미달 게시를 명시 승인한다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { P, readJSON, writeJSON, nowKST } from './paths.mjs';
 
 const REQUIRED_FILES = ['index.html', 'meta.json', 'thumb.png', 'square.png'];
-const VALUE_OPTIONS = new Set(['score', 'gate', 'run', 'unit', 'mechanic', 'mood', 'bg', 'notes-from']);
+const VALUE_OPTIONS = new Set(['score', 'gate', 'run', 'unit', 'mechanic', 'mood', 'bg', 'notes-from', 'manual-approval']);
 
 function isFile(file) {
   try {
@@ -86,6 +87,10 @@ function main() {
   const metaFile = path.join(gameDir, 'meta.json');
   const meta = readJSON(metaFile);
   const score = parseNumber(options.score, '점수');
+  const manualReason = options.manualApproval?.trim();
+  if (options.manualApproval !== undefined && !manualReason) {
+    fail('게시 거부: --manual-approval에는 비어 있지 않은 승인 사유가 필요합니다.');
+  }
 
   let gate;
   if (options.gate !== undefined) {
@@ -95,11 +100,11 @@ function main() {
     const metaGate = Number(meta.qa?.gate);
     gate = Number.isFinite(metaGate) ? Math.max(80, metaGate) : 80;
   }
-  if (score < gate) {
+  if (score < gate && !manualReason) {
     fail(`게시 거부: ${score}점은 게이트 ${gate}점 미만입니다.`);
   }
 
-  // 게이트를 통과하기 전에는 아래 입력 파일이나 상태 파일도 쓰지 않는다.
+  // 이전 메타의 승인은 재사용하지 않는다. 게이트 통과 또는 이번 호출의 명시 승인이 필요하다.
   let notes = Array.isArray(meta.qa?.notes) ? meta.qa.notes : [];
   if (options.notesFrom !== undefined) {
     const review = readJSON(path.resolve(P.root, options.notesFrom));
@@ -124,6 +129,7 @@ function main() {
   const unit = options.unit ?? meta.unit?.id ?? '';
   const mechanic = options.mechanic ?? meta.mechanic ?? '';
   const publishedAt = nowKST();
+  const manualRelease = manualReason ? { approved: true, reason: manualReason, at: publishedAt } : undefined;
   const produced = {
     ...(previous || {}),
     run: options.run ?? previous?.run ?? '',
@@ -134,15 +140,19 @@ function main() {
     mechanic,
     at: publishedAt,
   };
+  // 재검수로 정상 통과한 재게시에는 지난 예외를 남겨 두지 않는다.
+  delete produced.manual_release;
+  if (manualRelease) produced.manual_release = manualRelease;
 
   const updatedMeta = {
     ...meta,
     qa: {
       score,
       gate,
-      passed: true,
+      passed: score >= gate,
       reviewed_at: publishedAt,
       notes,
+      ...(manualRelease ? { manual_release: manualRelease } : {}),
     },
   };
   writeJSON(metaFile, updatedMeta);
@@ -164,6 +174,7 @@ function main() {
     queue.palette_history = replaceBySlug(queue.palette_history, slug, palette);
   }
   writeJSON(P.queue, queue);
+  if (manualRelease) console.log(`수동 게시 승인: ${slug} ${score}점 / 게이트 ${gate}점 — ${manualReason}`);
 
   if (!options.noBuild) {
     const buildFile = path.join(P.root, 'factory/lib/build-index.mjs');

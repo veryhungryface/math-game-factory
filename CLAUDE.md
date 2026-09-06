@@ -268,6 +268,10 @@ window.__GAME_TEST__ = {
 
 ## 품질 게이트
 
+**수동 게시 예외(2026-09-07):** 사용자가 점수 미달 게시를 명시적으로 지시한 경우만
+`publish-game.mjs --manual-approval '<사유>'`를 쓴다. 실제 점수와 `qa.passed=false`를 보존하고
+`qa.manual_release`에 별도 기록한다. 자동 생산의 80점 게이트는 유지한다. 상세는 OPERATIONS §5.
+
 `factory/lib/qa.mjs`가 자동 검사 → `factory/prompts/40-review.md` 에이전트가 채점.
 **총점 80점 미만이면 게시하지 않는다.** 미달 시 "수정→재QA→재첫플레이→재검산→재검수" 루프를 **최대 3회**(`MAX_FIX_ROUNDS`) 돌리고, 그래도 미달이면 폐기하고 리포트만 보낸다. 게이트 자체는 불변이다.
 
