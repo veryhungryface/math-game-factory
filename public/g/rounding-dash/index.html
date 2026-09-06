@@ -113,6 +113,82 @@
     html.land #placelab, html.land #hint{display:none;}
   }
 
+  /* ══ 자눈 측량대 캐스트 (docs/character-bible.md · public/vendor/cast) ══
+     목 기록관=출제자(장부) / 무=제한시간 / 뭉치=정답 수집 / 탁 반장=기록 기준선.
+     전부 DOM 레이어다 — 캔버스 프레임 비용이 0 이고, 한글 대사도 fillText 가 아니라
+     DOM 텍스트라 매 프레임 굽지 않는다(30fps 게이트 방어).
+     배치 존: 좌상=목(장부) / 좌하=뭉치 / 우하=무 / 좌중=탁(일시 등장).
+     수직선·벽·칩·문제 배너가 쓰는 자리는 전부 비워 둔다. */
+  :root{
+    --cast-mok:#128490; --cast-mok-deep:#0C6C78;
+    --cast-mungchi:#F0C054; --cast-mu:#9C6CD8; --cast-mu-eye:#FFE0A0;
+    --cast-tak:#12309C; --cast-tak-ac:#F0641E;
+    --world-paper:#E4E4D8; --world-fog:#C0A8CC; --world-ink:#603024;
+  }
+  #cast{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;}
+  #cast img{display:block;width:auto;user-select:none;-webkit-user-select:none;
+    -webkit-user-drag:none;filter:drop-shadow(0 5px 10px rgba(0,0,0,.55));}
+  .c-say{flex:0 0 auto;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:800;
+    letter-spacing:-.2px;white-space:nowrap;opacity:0;transform:translateY(5px);
+    transition:opacity .2s ease, transform .2s ease;}
+  .c-say.on{opacity:1;transform:translateY(0);}
+  .c-say--mungchi{background:rgba(240,192,84,.18);border:1.5px solid var(--cast-mungchi);color:#ffeec2;}
+  .c-say--mu{background:rgba(156,108,216,.20);border:1.5px solid var(--cast-mu);color:#ecdfff;}
+  .c-say--tak{background:rgba(18,48,156,.72);border:1.5px solid var(--cast-tak-ac);color:#ffdcc6;
+    white-space:normal;line-height:1.4;font-size:11.5px;padding:6px 10px;border-radius:12px;}
+
+  /* 목 기록관은 DOM 이 아니라 캔버스에 그린다(§12 drawCastMok) —
+     벽 패널이 그의 앞을 지나가야 장부가 플레이를 가리지 않는다. */
+
+  /* 뭉치 — 정답이 쌓이는 쪽 / 무 — 남은 시간이 다가오는 쪽 */
+  /* 말풍선은 캐릭터 옆에 둔다 — 위로 쌓으면 눈금 아래 띠를 넘어 벽 바닥을 건드린다 */
+  #castMungchiSlot{position:absolute;left:6px;bottom:4px;display:flex;flex-direction:row;
+    align-items:center;gap:6px;max-width:64%;}
+  #castMuSlot{position:absolute;right:6px;bottom:4px;display:flex;flex-direction:row;
+    align-items:center;gap:6px;max-width:64%;justify-content:flex-end;}
+  /* 둘 다 수직선 아래 「땅」에만 있는다 — 플레이어(칩)와 헷갈리지 않게 작고 조용하게 */
+  #castMungchiSlot img,#castMuSlot img{height:clamp(46px,8.1vh,72px);}
+  #castMungchiSlot img{opacity:.94;}
+  #castMuSlot img{opacity:.46;transform-origin:bottom right;
+    transition:opacity .35s ease, transform .35s ease;}
+  #castMuSlot.near img{opacity:1;transform:scale(1.16) translateY(-2px);}
+  #castMungchiSlot img{transition:transform .25s cubic-bezier(.2,1.7,.4,1);transform-origin:bottom left;}
+  #castMungchiSlot.hop img{transform:translateY(-7px) scale(1.06);}
+
+  /* 탁 반장 — 판 시작의 기록 기준선. 우측 중단에 잠깐 들어왔다 나간다
+     (좌측 상단은 목 기록관의 장부, 하단 양끝은 뭉치·무가 쓴다) */
+  #castTakSlot{position:absolute;right:8px;top:44%;display:flex;align-items:center;gap:8px;
+    max-width:min(92%,352px);opacity:0;transform:translateX(16px);
+    transition:opacity .3s ease, transform .3s ease;}
+  #castTakSlot.on{opacity:1;transform:translateX(0);}
+  #castTakSlot img{height:clamp(66px,13vh,112px);flex:0 0 auto;}
+  #castTakSlot .c-say{opacity:1;transform:none;}
+
+  /* 게임 오버 — 장부를 닫는 목 기록관 · 기록을 확인하는 탁 반장 */
+  #overCast{position:absolute;inset:0;pointer-events:none;}
+  #overCast .oc{position:absolute;bottom:4px;display:flex;flex-direction:column;gap:4px;max-width:46%;}
+  #overCast .oc-mok{left:6px;align-items:flex-start;}
+  #overCast .oc-tak{right:6px;align-items:flex-end;}
+  #overCast img{height:clamp(60px,10.8vh,104px);width:auto;display:block;
+    filter:drop-shadow(0 5px 10px rgba(0,0,0,.55));}
+  #overCast .c-say{opacity:1;transform:none;white-space:normal;line-height:1.35;max-width:100%;}
+  .c-say--mok{background:rgba(18,132,144,.22);border:1.5px solid var(--cast-mok);color:#ccf3f7;}
+  @media (max-height:520px){ #overCast{display:none;} }
+
+  html.land #castTakSlot{top:30%;}
+  @media (max-height:480px){ #castTakSlot{top:22%;} html.land #castTakSlot{top:22%;} }
+
+  /* 타이틀 — 파견대 소개 (자눈 측량대) */
+  .t-cast{position:absolute;top:8dvh;left:0;right:0;display:flex;flex-direction:column;
+    align-items:center;gap:7px;pointer-events:none;}
+  .t-cast .t-line{display:flex;align-items:flex-end;justify-content:center;gap:2px;width:100%;}
+  .t-cast img{height:clamp(84px,17dvh,148px);width:auto;display:block;
+    filter:drop-shadow(0 8px 14px rgba(0,10,24,.6));}
+  .t-rec{margin:0;max-width:min(88%,330px);text-align:center;
+    padding:6px 12px;border-radius:13px;
+    background:rgba(18,48,156,.68);border:1.5px solid var(--cast-tak-ac);
+    color:#ffdcc6;font-size:11.5px;font-weight:800;line-height:1.35;letter-spacing:-.2px;}
+
   /* ── overlays ──────────────────────────── */
   .ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:12px;padding:22px;text-align:center;z-index:5;
@@ -279,6 +355,22 @@
   <div id="stage">
     <canvas id="cv"></canvas>
 
+    <!-- 자눈 측량대 캐스트 (vendor 공유 참조 — 게임 폴더로 복사하지 않는다) -->
+    <div id="cast">
+      <div id="castMungchiSlot">
+        <img id="castMungchiImg" src="../../vendor/cast/mungchi/stand.png" alt="뭉치">
+        <div id="castMungchiSay" class="c-say c-say--mungchi"></div>
+      </div>
+      <div id="castMuSlot">
+        <div id="castMuSay" class="c-say c-say--mu"></div>
+        <img id="castMuImg" src="../../vendor/cast/mu/stand.png" alt="무">
+      </div>
+      <div id="castTakSlot">
+        <div id="castTakSay" class="c-say c-say--tak"></div>
+        <img id="castTakImg" src="../../vendor/cast/tak/pose-challenge.png" alt="탁 반장">
+      </div>
+    </div>
+
     <div id="rewindwrap" class="hide">
       <button id="rewind" class="btn">⏪ 되감기 태엽</button>
       <div id="rwbar"><div id="rwfill"></div></div>
@@ -290,6 +382,16 @@
       <p id="overtip"></p>
       <div id="dex"></div>
       <button id="againBtn" class="big pulse">다시!</button>
+      <div id="overCast">
+        <div class="oc oc-mok">
+          <div id="overMokSay" class="c-say c-say--mok">장부를 닫는다.</div>
+          <img id="overMokImg" src="../../vendor/cast/mok/pose-record.png" alt="목 기록관">
+        </div>
+        <div class="oc oc-tak">
+          <div id="overTakSay" class="c-say c-say--tak"></div>
+          <img id="overTakImg" src="../../vendor/cast/tak/stand.png" alt="탁 반장">
+        </div>
+      </div>
     </div>
   </div>
 
@@ -312,6 +414,14 @@
   <div class="title-ui">
     <p class="title-unit">5학년 2학기<br>수의 범위와 올림, 버림, 반올림</p>
     <div class="title-meta" id="tBest" hidden></div>
+    <div class="t-cast">
+      <p class="t-rec" id="tRec">내 기록은 대략 1,200점. 넘어 봐.</p>
+      <div class="t-line">
+        <img src="../../vendor/cast/tak/pose-challenge.png" alt="탁 반장">
+        <img src="../../vendor/cast/mok/stand.png" alt="목 기록관">
+        <img src="../../vendor/cast/mungchi/stand.png" alt="뭉치">
+      </div>
+    </div>
     <h1 class="game-logo" aria-label="어림 대시">
       <img src="./assets/logo.png" alt="" aria-hidden="true">
     </h1>
@@ -686,6 +796,219 @@ var el = {
   pad: document.getElementById('pad'),
   titleMute: document.getElementById('btnTitleMute'), tBest: document.getElementById('tBest')
 };
+/* ══════════════════════════════════════════════════════════════
+   6.5 자눈 측량대 캐스트 — docs/character-bible.md 가 정본이다
+   ──────────────────────────────────────────────────────────────
+   배역: 목 기록관 = 출제자(문제는 그의 장부에서 나온다)
+         무        = 제한시간의 얼굴 (벽이 내려올수록 다가온다)
+         뭉치      = 정답 수집 반응 (말을 하지 않는다 — 소리와 몸짓뿐)
+         탁 반장   = 기록 기준선 (그의 답은 언제나 어림값이다)
+   재이는 이 파견에 나오지 않는다(바이블 cast 규칙: 2~4명이면 성립).
+
+   무·뭉치·탁은 DOM 레이어라 캔버스 프레임 비용이 0 이다(컷 전환 = 미리 로드해 둔
+   스프라이트의 src 스왑, 대사 = DOM 텍스트).
+   목 기록관만 캔버스에 그린다 — 그는 화면 상단, 즉 벽이 지나가는 길에 서야 하므로
+   **벽 패널보다 먼저** 그려서 장부가 구멍을 가리지 않게 한다. 장부 카드의 한글은
+   글자가 바뀔 때만 오프스크린에 굽고 매 프레임은 blit 만 한다(fillText 반복 금지).
+   ══════════════════════════════════════════════════════════════ */
+var CASTDIR = '../../vendor/cast/';
+var CAST_CUTS = {
+  mok:     ['pose-assign','joy','sad','pose-record'],
+  mu:      ['stand','think','pose-loom','sad','joy','pose-bow'],
+  mungchi: ['stand','joy','sad','surprise','pose-collect'],
+  tak:     ['pose-challenge','pose-broken','stand']
+};
+var castImg = {};
+(function preloadCast(){
+  for (var who in CAST_CUTS){
+    for (var i=0;i<CAST_CUTS[who].length;i++){
+      var cut = CAST_CUTS[who][i];
+      var im = new Image();
+      im.src = CASTDIR + who + '/' + cut + '.png';
+      castImg[who + '/' + cut] = im;   // 참조를 붙들어 둬야 캐시에서 안 밀린다
+    }
+  }
+})();
+
+var cel = {
+  mungchi: document.getElementById('castMungchiImg'),
+  mungchiSlot: document.getElementById('castMungchiSlot'),
+  mungchiSay: document.getElementById('castMungchiSay'),
+  mu: document.getElementById('castMuImg'),
+  muSlot: document.getElementById('castMuSlot'),
+  muSay: document.getElementById('castMuSay'),
+  tak: document.getElementById('castTakImg'),
+  takSlot: document.getElementById('castTakSlot'),
+  takSay: document.getElementById('castTakSay'),
+  overMok: document.getElementById('overMokImg'),
+  overMokSay: document.getElementById('overMokSay'),
+  overTak: document.getElementById('overTakImg'),
+  overTakSay: document.getElementById('overTakSay'),
+  tRec: document.getElementById('tRec')
+};
+var castCut = { mok:'pose-assign', mu:'stand', mungchi:'stand', tak:'pose-challenge' };
+var castTimer = {};
+
+function castSet(who, cut){
+  if (castCut[who] === cut) return;
+  castCut[who] = cut;
+  if (cel[who]) cel[who].src = CASTDIR + who + '/' + cut + '.png';   // 목은 캔버스라 노드가 없다
+}
+function castSay(node, key, text, ms){
+  if (!node) return;
+  node.textContent = text;
+  node.classList.add('on');
+  clearTimeout(castTimer[key]);
+  castTimer[key] = setTimeout(function(){ node.classList.remove('on'); }, ms || 1500);
+}
+function castHush(node, key){
+  if (!node) return;
+  clearTimeout(castTimer[key]);
+  node.classList.remove('on');
+}
+/* 목 기록관의 장부 카드 — mode 'rec' 은 값이 적힌 줄, 'blank' 는 빈 줄이다.
+   글자가 바뀔 때만 다시 굽는다(§12 bakeMok). 줄만 매 프레임 자란다. */
+var mokText = '장부에 올릴 값을 말해.', mokMode = '', mokLineT = 0, mokBakeKey = '';
+function mokCard(text, mode){
+  mode = mode || '';
+  if (text !== mokText || mode !== mokMode){
+    mokText = text; mokMode = mode; mokBakeKey = '';
+  }
+  mokLineT = 0;
+}
+function mungchiHop(){
+  if (!cel.mungchiSlot) return;
+  cel.mungchiSlot.classList.remove('hop'); void cel.mungchiSlot.offsetWidth;
+  cel.mungchiSlot.classList.add('hop');
+  clearTimeout(castTimer.hop);
+  castTimer.hop = setTimeout(function(){ cel.mungchiSlot.classList.remove('hop'); }, 320);
+}
+
+/* 목 기록관은 벽 종류에 따라 다른 줄을 내민다. 감탄사·느낌표·물음표를 쓰지 않는다. */
+var MOK_ASK = {
+  range: '장부에 올릴 값을 말해.',
+  round: '어림한 값을 장부에 올려.',
+  back:  '원래 값이 설 자리를 말해.',
+  life:  '쓸 수 있는 값을 말해.',
+  edge:  '다시 재. 그대로일 수도 있다.'
+};
+
+/* 탁 반장의 기록 — 그는 정확한 수치를 계산해 주지 않는다.
+   최고 기록을 반올림해서(=어림해서) 던지는 기준선이 곧 그의 답이다. */
+var takGoal = 1200, takBeaten = false;
+function takRecord(){
+  return Math.max(1200, roundTo(Math.floor((SAVE.best|0) * 1.1), 100));
+}
+function takLine(){
+  return '내 기록은 대략 ' + takRecord().toLocaleString('ko-KR') + '점. 넘어 봐.';
+}
+var takOn = false, takDuck = 1;
+function takToast(cut, text, ms, duckAt){
+  if (!cel.takSlot) return;
+  castSet('tak', cut);
+  cel.takSay.textContent = text;
+  cel.takSlot.classList.add('on');
+  takOn = true;
+  takDuck = duckAt;
+  clearTimeout(castTimer.tak);
+  castTimer.tak = setTimeout(takHide, ms);
+}
+/* 탁 반장은 벽이 내려오기 전에 비켜 준다 — 판을 가리는 캐릭터는 이 세계에 없다 */
+function takHide(){
+  if (!takOn) return;
+  takOn = false;
+  clearTimeout(castTimer.tak);
+  if (cel.takSlot) cel.takSlot.classList.remove('on');
+}
+
+/* 게임 상황 → 컷·대사 (바이블 §3 표정 문법)
+   ── 다음 벽은 90ms 뒤에 뜬다. 그 사이에 반응을 지워 버리면 아무도 못 본다.
+      그래서 리액션 컷에는 hold 를 걸고, 새 출제는 hold 가 끝난 뒤에 얹는다. */
+var muStage = -1, muHold = 0;
+function castHold(ms){ muHold = performance.now() + ms; }
+function castAsk(w, delay){
+  clearTimeout(castTimer.ask);
+  castTimer.ask = setTimeout(function(){
+    castSet('mok','pose-assign');
+    mokCard(MOK_ASK[w.kind] || MOK_ASK.range);
+    castSet('mungchi','stand');
+    castHush(cel.mungchiSay,'mungchi');
+  }, delay);
+}
+function castOnWall(w){
+  muStage = -1;
+  var wait = Math.max(0, muHold - performance.now());
+  castAsk(w, wait);
+}
+function castOnPass(isEdge){
+  castHold(1050);
+  clearTimeout(castTimer.ask);
+  castSet('mok','joy');
+  mokCard('기록했다.', 'rec');
+  castSet('mu','joy');                                   // 무는 환호하지 않는다 — 물러난다
+  if (cel.muSlot) cel.muSlot.classList.remove('near');
+  castSay(cel.muSay, 'mu', '…재었다.', 1300);
+  if (isEdge){ castSet('mungchi','pose-collect'); castSay(cel.mungchiSay,'mungchi','웅—',1500); }
+  else if (G.combo >= 4){ castSet('mungchi','surprise'); castSay(cel.mungchiSay,'mungchi','웅— 웅—',1500); }
+  else { castSet('mungchi','joy'); castSay(cel.mungchiSay,'mungchi','웅—',1300); }
+  mungchiHop();
+}
+function castOnCrash(place){
+  castHold(1500);
+  clearTimeout(castTimer.ask);
+  castSet('mok','sad');
+  mokCard('빈칸이다.', 'blank');                          // 「틀렸다」가 아니라 「빈칸」이다
+  castSet('mu','sad');                                   // 무는 사과한다
+  if (cel.muSlot) cel.muSlot.classList.remove('near');
+  castSay(cel.muSay, 'mu', '…' + (place === 10 ? '십' : '백') + '의 자리.', 2200);
+  castSet('mungchi','sad');
+  castSay(cel.mungchiSay, 'mungchi', '…끙.', 2000);
+}
+function castOnRewind(){
+  castHold(0);
+  clearTimeout(castTimer.ask);
+  castSet('mok','pose-assign');
+  mokCard('틀린 값도 값이다. 다시 재.');
+  castSet('mungchi','stand');
+  muStage = -1;
+}
+function castOnOver(beaten){
+  castHold(3000);
+  clearTimeout(castTimer.ask);
+  castSet('mok','pose-record');
+  mokCard('장부를 닫는다.');
+  castSet('mu','pose-bow');                              // 벌이 아니라 물리 법칙이라는 인사
+  if (cel.muSlot) cel.muSlot.classList.remove('near');
+  castSay(cel.muSay, 'mu', '…', 2600);
+  castSet('mungchi','sad');
+  castHush(cel.mungchiSay,'mungchi');
+  takHide();
+  if (cel.overTak){
+    cel.overTak.src = CASTDIR + 'tak/' + (beaten ? 'pose-broken' : 'stand') + '.png';
+    cel.overTakSay.textContent = beaten
+      ? '넘겼네. 그 정도면 산다니까.'
+      : '고민이 길다. 안개는 안 기다려.';
+  }
+}
+/* 무는 벽이 내려올수록 짙어진다 — 남은 시간이 곧 무의 거리다 */
+function castMuTick(t){
+  if (performance.now() < muHold) return;               // 직전 반응을 읽을 시간
+  var st = t > 0.78 ? 2 : (t > 0.5 ? 1 : 0);
+  if (st === muStage) return;
+  muStage = st;
+  if (st === 2){
+    castSet('mu','pose-loom');
+    if (cel.muSlot) cel.muSlot.classList.add('near');
+    castSay(cel.muSay, 'mu', '…곧.', 1200);
+  } else if (st === 1){
+    castSet('mu','think');
+    if (cel.muSlot) cel.muSlot.classList.remove('near');
+  } else {
+    castSet('mu','stand');
+    if (cel.muSlot) cel.muSlot.classList.remove('near');
+  }
+}
+
 var DEXLIST = ['이상','이하','초과','미만','올림','버림','반올림'];
 function renderDex(){
   el.dex.innerHTML = '';
@@ -843,6 +1166,7 @@ function spawnWall(same){
     G.slowT = Math.max(G.slowT, calc ? 1.15 : 0.7);
     w.readSlowDone = true;
   }
+  castOnWall(w);
   uiDirty = true;
 }
 
@@ -902,6 +1226,7 @@ function passWall(v){
   }
   if (noDashBonus) popup('노 대시 +50%', 14, TH.line, H * 0.32 + 40 * S);
 
+  castOnPass(isEdge);
   if (G.combo > 0 && G.combo % 5 === 0){ G.eyeT = 1.6; popup('어림의 눈!', 20, '#ffffff', H * 0.22); }
 
   var newTheme = Math.min(THEMES.length - 1, Math.floor(SAVE.passes / 100));
@@ -936,13 +1261,16 @@ function crashWall(v){
   G.combo = 0;
   G.lives--;
   G.shake = REDUCED ? 4 : 16;
-  G.flash = 0.5; G.flashCol = TH.warn;
-  burst(vx(v), lineY(), 34, [TH.warn, '#ffffff', '#ff9ec2'], 260 * S, 1.3);
+  /* 오답은 「틀렸다」가 아니라 「빈칸」이다 — 붉은 질책 대신 어림안개(라일락)가 스민다.
+     이 세계에서 사라짐은 벌이 아니라 날씨다(character-bible §1). */
+  G.flash = 0.5; G.flashCol = '#C0A8CC';
+  burst(vx(v), lineY(), 34, ['#C0A8CC', '#9C6CD8', '#e6dcf2'], 260 * S, 1.3);
   G.reveal = 1.0;
   G.revealTxt = reasonFor(w, v);
   G.revealRule = w.rule;
   G.invuln = 0.6;
   SFX.crash();
+  castOnCrash(w.place);
   uiDirty = true;
 
   if (G.lives <= 0){ setTimeout(gameOver, 520); return; }
@@ -964,6 +1292,7 @@ function doRewind(){
   G.rewindT = 0; G.stunned = 0; G.reveal = 0;
   el.rewrap.classList.add('hide');
   spawnWall(true);
+  castOnRewind();
   popup('되감기!', 24, THEMES[G.themeIdx].gold, H * 0.3);
   SFX.dash();
   uiDirty = true;
@@ -972,6 +1301,7 @@ function doRewind(){
 function gameOver(){
   G.phase = 'over';
   G.wall = null;
+  castOnOver(takBeaten || Math.floor(G.score) >= takGoal);
   if (Math.floor(G.score) > SAVE.best){ SAVE.best = Math.floor(G.score); }
   persist();
   el.rewrap.classList.add('hide');
@@ -1037,7 +1367,11 @@ function startGame(){
   el.intro.classList.add('hide');
   el.over.classList.add('hide');
   el.rewrap.classList.add('hide');
+  /* 탁 반장이 이번 판의 기준선을 던지고 물러난다 — 그의 답은 언제나 어림값이다 */
+  takGoal = takRecord();
+  takBeaten = false;
   spawnWall(false);
+  takToast('pose-challenge', takLine(), 3400, 0.40);
   uiDirty = true;
 }
 
@@ -1102,6 +1436,7 @@ function syncBestPill(){
   var n = SAVE.best | 0;
   if (n > 0){ el.tBest.hidden = false; el.tBest.textContent = '최고 ' + n.toLocaleString('ko-KR') + '점'; }
   else el.tBest.hidden = true;
+  if (cel.tRec) cel.tRec.textContent = takLine();
 }
 function syncMuteIcons(){
   var ic = muted ? '🔇' : '🔊', lbl = muted ? '소리 켜기' : '소리 끄기';
@@ -1237,6 +1572,7 @@ function update(dt){
   if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 46);
   if (G.reveal > 0) G.reveal = Math.max(0, G.reveal - dt);
   if (G.invuln > 0) G.invuln = Math.max(0, G.invuln - dt);
+  if (mokLineT < 1) mokLineT = Math.min(1, mokLineT + dt * 2.4);   // 장부의 줄이 그어지는 시간
 
   /* 점수는 실제 값을 향해 부드럽게 따라간다 — 큰 점프도 갑자기 바뀌어 보이지 않게 */
   var dScore = G.score - G.dispScore;
@@ -1307,6 +1643,14 @@ function update(dt){
   /* 벽 하강 */
   var mul = (G.peek && G.peek !== null && G.level >= 4) ? (G.level >= 6 ? 3 : 2) : 1;
   w.t += dt * G.timeScale * mul / fallTime();
+
+  /* 캐스트 — 정수 단계가 바뀔 때만 DOM 을 건드린다(프레임당 비교 두어 번) */
+  if (!w.done) castMuTick(w.t);
+  if (takOn && w.t > takDuck) takHide();      // 벽이 내려오기 전에 비켜 준다
+  if (!takBeaten && G.score >= takGoal){
+    takBeaten = true;
+    takToast('pose-broken', '넘겼네. 그 정도면 산다니까.', 2400, 0.74);
+  }
 
   /* 경계 슬로우 (와우 모먼트) */
   if (!REDUCED && w.t > 0.80 && w.t < 1 && G.slowT <= 0 && edgeHit(c.value, w.rule)) G.slowT = Math.max(G.slowT, 0.45);
@@ -1584,15 +1928,123 @@ function resize(){
   if (!heroHasImg && IMG.hero.ok) buildHero();
 }
 
-function rr(x,y,w,h,r){
-  ctx.beginPath();
+function rrc(c,x,y,w,h,r){
+  c.beginPath();
   var rad = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
-  ctx.moveTo(x+rad,y);
-  ctx.arcTo(x+w,y,x+w,y+h,rad);
-  ctx.arcTo(x+w,y+h,x,y+h,rad);
-  ctx.arcTo(x,y+h,x,y,rad);
-  ctx.arcTo(x,y,x+w,y,rad);
-  ctx.closePath();
+  c.moveTo(x+rad,y);
+  c.arcTo(x+w,y,x+w,y+h,rad);
+  c.arcTo(x+w,y+h,x,y+h,rad);
+  c.arcTo(x,y+h,x,y,rad);
+  c.arcTo(x,y,x+w,y,rad);
+  c.closePath();
+}
+function rr(x,y,w,h,r){ rrc(ctx,x,y,w,h,r); }
+
+/* ── 목 기록관 (캐스트) — 문제 배너 바로 아래, 벽보다 먼저 그린다 ──
+   그의 장부 카드가 곧 출제·기록·빈칸 UI 다. 한글은 글자가 바뀔 때만 굽는다. */
+var offMok = document.createElement('canvas'), mkc = offMok.getContext('2d');
+var mokUL = { x:0, y:0, w:0, h:2 };
+function mokLayout(){
+  var f1 = wallLabelFontPx();
+  /* 문제 배너(drawWall)의 최저 상단 + 배너 높이 아래에 자리를 잡는다 —
+     라벨이 길어 배너가 화면 폭을 다 먹어도 겹치지 않는다. */
+  var bannerBottom = (FIELD.land ? 92 * DPR : 6 * S) + f1 * 2.45;
+  return {
+    x: FIELD.x + 8 * S,
+    y: bannerBottom + 9 * S,
+    ch: Math.max(58 * DPR, Math.min(H * 0.145, 100 * DPR)),
+    cw: Math.min(FIELD.w * 0.47, 196 * DPR)
+  };
+}
+function bakeMok(L){
+  var fs = Math.max(9.5 * DPR, Math.min(11.8 * DPR, L.cw * 0.066));
+  var key = mokText + '|' + mokMode + '|' + Math.round(L.cw) + '|' + Math.round(fs);
+  if (mokBakeKey === key) return;
+  mokBakeKey = key;
+
+  var lb = Math.max(3, fs * 0.22), padx = fs * 0.62, pady = fs * 0.52;
+  var inner = L.cw - padx * 2 - lb;
+  ctx.save();
+  ctx.font = '800 ' + Math.round(fs) + 'px ' + FONT;
+  var lines = [], cur = '';
+  for (var i=0;i<mokText.length;i++){
+    var ch = mokText[i], t = cur + ch;
+    if (ctx.measureText(t).width > inner && cur){ lines.push(cur); cur = (ch === ' ') ? '' : ch; }
+    else cur = t;
+  }
+  if (cur) lines.push(cur);
+  ctx.restore();
+
+  var lh = fs * 1.36, ul = fs * 0.78;
+  var hgt = pady * 2 + lines.length * lh + ul;
+  offMok.width = Math.max(2, Math.ceil(L.cw));
+  offMok.height = Math.max(2, Math.ceil(hgt));
+
+  var c = mkc;
+  c.setTransform(1,0,0,1,0,0);
+  c.clearRect(0, 0, offMok.width, offMok.height);
+  var g = c.createLinearGradient(0, 0, 0, hgt);
+  g.addColorStop(0, '#f6eeda'); g.addColorStop(1, '#e2d7be');
+  c.fillStyle = g;
+  rrc(c, 1, 1, L.cw - 2, hgt - 2, fs * 0.34); c.fill();
+  c.strokeStyle = '#128490'; c.lineWidth = Math.max(1.2, 1.4 * DPR); c.stroke();
+  c.save(); c.clip();
+  c.fillStyle = '#128490'; c.fillRect(0, 0, lb, hgt);      // 장부의 청록 등지
+  c.restore();
+  c.fillStyle = '#2c2119';
+  c.font = '800 ' + Math.round(fs) + 'px ' + FONT;
+  c.textAlign = 'left'; c.textBaseline = 'middle';
+  for (var j=0;j<lines.length;j++) c.fillText(lines[j], lb + padx, pady + lh * (j + 0.5));
+
+  mokUL.x = lb + padx;
+  mokUL.y = hgt - ul * 0.62;
+  mokUL.w = inner;
+  mokUL.h = Math.max(2, fs * 0.14);
+}
+var mokAlpha = 1;
+function drawCastMok(){
+  var L = mokLayout();
+  bakeMok(L);
+  var cardH = offMok.height;
+  var im = castImg['mok/' + castCut.mok];
+  var hasIm = !!(im && im.complete && im.naturalWidth > 0);
+  /* 수직선 위 여백 안에만 선다 — 눈금 라벨을 절대 덮지 않는다.
+     세로가 모자라면(가로폰) 장부를 옆구리에 끼는 가로 배치로 접는다. */
+  var room = lineY() - 26 * S - L.y;
+  if (room < cardH * 0.9) return;
+  var ch = hasIm ? L.ch : 0, side = false;
+  if (hasIm && ch + cardH - 7 * S > room){
+    side = true;
+    ch = Math.min(ch, room);
+  }
+  var zh = side ? Math.max(ch, cardH) : (ch + cardH - (hasIm ? 7 * S : 0));
+
+  /* 벽이 그의 앞을 지날 때는 장부가 흐려진다 — 구멍 경계 ●/○ 의 대비를 뺏지 않기 위해서다.
+     (벽 패널은 어차피 목 기록관 위에 그려지지만, 밝은 종이 위의 마커는 읽기 어렵다) */
+  var gm = wallGeom();
+  var want = (gm && gm.bottom > L.y - 6 * S && gm.top < L.y + zh + 6 * S) ? 0.32 : 1;
+  mokAlpha += (want - mokAlpha) * 0.22;
+  if (mokAlpha < 0.03) return;
+  ctx.globalAlpha = mokAlpha;
+
+  var y = L.y, cx = L.x;
+  if (hasIm){
+    var w = ch * im.naturalWidth / im.naturalHeight;
+    ctx.drawImage(im, L.x, y, w, ch);
+    if (side) cx = L.x + w + 5 * S; else y += ch - 7 * S;
+  }
+  ctx.drawImage(offMok, cx, y);
+  if (mokMode){
+    /* 장부에 줄이 그어진다 — 'rec' 은 값이 적힌 줄, 'blank' 는 비어 있는 줄 */
+    var ux = cx + mokUL.x, uy = y + mokUL.y, uw = mokUL.w * mokLineT;
+    ctx.fillStyle = '#128490';
+    if (mokMode === 'rec') ctx.fillRect(ux, uy, uw, mokUL.h);
+    else {
+      var seg = mokUL.h * 3.4;
+      for (var k=0; k<uw; k += seg * 2) ctx.fillRect(ux + k, uy, Math.min(seg, uw - k), mokUL.h);
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawStars(){
@@ -1936,6 +2388,7 @@ function render(dt){
   drawStars();
   drawNumberLine(TH);
   drawChip(TH);      // 우주선 → 벽 순서: 반투명 패널이 우주선 위를 덮어 깊이가 읽힌다
+  drawCastMok();     // 목 기록관도 벽보다 뒤 — 장부가 구멍을 가리면 안 된다
   drawWall(TH);
   drawChipHUD(TH);
   drawFX(TH);
