@@ -42,6 +42,67 @@ public/g/<slug>/meta.json    ← 메타데이터 (필수)
    모든 합법 행동이 점수를 올릴 필요는 없다. `answerCorrect` 훅은 실제 성공 보상
    경로의 smoke 검사이며, 모든 행동에 보상을 강제하는 계약이 아니다.
 
+## 🎭 캐스트 에셋 사용법 (2026-09-06 리부트 2단계 — 필수)
+
+기획서 `chosen.json` 의 `cast` 필드가 이번 게임의 배역이다. 정본은 `docs/character-bible.md`,
+색인은 `public/vendor/cast/manifest.json`. **캐릭터 이미지를 새로 생성하지 마라 — vendor 에 이미 있다.**
+
+### 경로
+
+```html
+<img src="../../vendor/cast/mok/pose-assign.png" alt="목 기록관">
+```
+
+```js
+const CAST = '../../vendor/cast/';
+const img = new Image();
+img.src = CAST + 'jaei/joy.png';   // 절대경로 금지. 게임 폴더로 복사하지도 마라
+```
+
+- 5인 폴더: `jaei` 재이 / `tak` 탁 반장 / `mok` 목 기록관 / `mungchi` 뭉치 / `mu` 무
+- 컷 7종: `stand` `joy` `sad` `think` `surprise` + 캐릭터별 기능 포즈 2종
+  (`jaei` = `pose-measure`·`pose-cheer`, `tak` = `pose-challenge`·`pose-broken`,
+  `mok` = `pose-assign`·`pose-record`, `mungchi` = `pose-collect`·`pose-resolve`,
+  `mu` = `pose-loom`·`pose-bow`)
+- 전부 투명 PNG, 최대 변 512px. **`joy`/`sad`/`think`/`surprise` 는 사람 셋이 버스트(가슴 위)**,
+  뭉치·무는 전신, `stand` 과 모든 `pose-*` 는 전신이다. 버스트 컷은 화면 모서리 리액터로 배치해라.
+
+### 표정 상황 매핑 (바이블 §3)
+
+| 컷 | 언제 띄우나 |
+|---|---|
+| `<quizmaster>/pose-assign` 또는 `think` | 문제 제시 |
+| `<cheer>/joy` | 정답 |
+| `<cheer>/sad` | 오답 — **붉은 X·화면 적색 플래시 금지.** 이 세계의 오답은 「빈칸」이다 |
+| `mu/pose-loom` | 잔여 시간 경고 |
+| `mu/pose-bow` | 게임 오버 |
+| `tak/pose-challenge` | 기록 도전 시작 / `tak/pose-broken` = 플레이어가 그 기록을 넘었을 때 |
+| `mungchi/pose-collect` | 보상 획득 / `<any>/surprise` = 신기록·콤보 돌파 |
+
+### 대사 톤 (어기면 검수 감점)
+
+기획서 `cast.lines` 를 그대로 쓰되, 문구를 늘릴 때도 바이블 §2 를 지켜라.
+
+- **재이** 존댓말·확인형 — "한 번 더 잴게요." 단정하지 않는다.
+- **탁 반장** 반말·단정형 — "대략 백. 그거면 산다." 정확한 수치를 계산해 주지 않는다.
+- **목 기록관** 감정 없는 명령형 — "장부에 올릴 값을 말해." / 오답은 "빈칸이다."
+  **감탄사·느낌표·이모지 금지.**
+- **뭉치** **말을 하지 않는다.** "…끙." / "웅—" 같은 소리와 몸짓만.
+- **무** 지워진 글자처럼 — "…재지 않았다." **완전한 문장·위협·입·이빨 금지.**
+
+### 구현 규칙
+
+1. **최소 두 화면**(타이틀·온보딩·인게임·클리어 중)에 캐스트를 실제로 그려라.
+   기획서에만 있고 화면에 없으면 미구현이다.
+2. **캐릭터 이미지 위에 글자를 굽지 마라.** 말풍선·이름표는 DOM/캔버스 텍스트로 따로 그린다.
+3. **시그니처 색을 넘기지 마라**: 오렌지=재이 `#F08A3C`, 네이비=탁 `#12309C`,
+   청록=목 `#128490`, 노랑=뭉치 `#F0C054`, 라일락=무 `#9C6CD8`.
+4. 캔버스 게임은 **`Image` 를 초기화 때 한 번 로드해 캐싱**해라. 매 프레임 새 `Image` 를 만들면 30fps 게이트에서 죽는다.
+   정적 캐스트 레이어는 오프스크린 캔버스에 미리 구워라(QA 브라우저는 소프트웨어 렌더링이다).
+5. 시그니처 색과 `--world-paper #E4E4D8` / `--world-fog #C0A8CC` 를 CSS 변수로 선언하고 쓰면
+   무대 팔레트와 캐스트가 자동으로 붙는다.
+6. `20-art` 의 `axis_style_stanza` 는 **무대·소품·배경 에셋에만** 붙인다. 캐스트 컷은 vendor 원본을 그대로 쓴다.
+
 ## __GAME_TEST__ 계약
 
 ```js

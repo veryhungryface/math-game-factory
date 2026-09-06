@@ -11,6 +11,7 @@
 - `factory/work/qa/<slug>/report.json` — 자동 검사 결과
 - `factory/work/qa/<slug>/mobile.png`, `tablet.png`, `desktop-1280.png`, `desktop.png`, `wide.png` — **스크린샷을 Read 툴로 실제로 봐라.** 특히 `wide.png`(2000px 초와이드)에서 레이아웃이 깨지는지(요소 겹침, 늘어난 카드, 화면 끝까지 벌어진 UI) 반드시 확인해라 — 실사용자가 와이드 창에서 게임이 통째로 깨진 걸 발견한 적이 있다. 깨져 있으면 must_fix high 다.
 - `docs/playfield-spec.md` — 판형 규격 (와이드 원형 3종, 검증 기준)
+- `docs/character-bible.md` + `public/vendor/cast/manifest.json` — 고정 캐스트 정본 (§4.5 캐스트 게이트)
 - `curriculum/2022-elementary-math.json` — 해당 단원
 
 ## 채점 (총 100점)
@@ -38,6 +39,12 @@
   게임은 재미있을 수가 없다.
 
 ### 4. 비주얼 (20점) — 이 중 **8점이 「디자인 분화」**다
+
+> **⚠️ 2026-09-06 — 분화 판정 축이 이동했다.** 이 공장은 고정 캐스트
+> 「자눈 측량대」 5인(`docs/character-bible.md`, 에셋 `public/vendor/cast/`)을 쓴다.
+> **캐릭터·렌더 문법·시그니처 색이 기존작과 같은 것은 위반이 아니라 요구사항이다.**
+> 분화는 **① 무대(파견지의 재료·바닥·빛) ② 부품 물성·HUD ③ 정답/오답 연출의 물리적 사건**
+> — 이 셋으로만 판정해라. 캐릭터가 같다는 이유로 감점하면 이 검수가 틀린 것이다.
 
 **분화 8점 (2026-08-29 전수 감사 — `docs/design-diversity-plan.md`)**
 
@@ -101,9 +108,35 @@ AI 회화 배경 → 하단 금색 광택 CTA). 최근 9작은 색을 뺀 CSS �
   깔았으면 감점해라 — 24작 중 19작에서 반복된 결함이다 (2)
 - 팔레트 통제·타이포 위계·여백. 인게임 본문·수치가 `-apple-system` 시스템 스택뿐이고
   축이 요구한 서체 성격(비트맵/세리프/손글씨/모노스페이스)이 화면에 없으면 감점 (1)
-- **캐릭터/마스코트가 스크린샷에서 실제로 귀여워 보이는가.** 원본 에셋 품질과 무관하게
-  게임 안에서 너무 작거나 겹쳐서 뭉개져 보이면 감점해라. (마스코트가 없는 축이면
-  이 1점은 감점하지 말고 배경·오브젝트의 존재감으로 대체 채점해라) (1)
+- **캐스트가 스크린샷에서 실제로 살아 있는가.** 너무 작거나 겹쳐서 뭉개져 보이면 감점해라.
+  캐스트를 아예 안 그렸으면 이 1점은 0점이고 아래 캐스트 게이트에서 다시 걸린다 (1)
+
+### 4.5 캐스트 게이트 (2026-09-06 신설 — 배점 없음, 게이트)
+
+`docs/character-bible.md` 와 `public/vendor/cast/manifest.json` 을 읽고, `chosen.json` 의
+`cast` 필드와 실제 빌드를 대조해라. **아래 중 하나라도 위반이면 `must_fix` 에
+`severity: "high"` 로 적고, 보고서 `cast_check` 에 항목별 결과를 남겨라.**
+
+1. **에셋을 실제로 쓰는가.** vendor 참조가 코드에 있고 경로가 상대경로인가.
+   ```bash
+   grep -o '\.\./\.\./vendor/cast/[a-z]*/[a-z-]*\.png' public/g/<slug>/index.html | sort -u
+   grep -n '"/vendor/cast\|/vendor/cast' public/g/<slug>/index.html   # 절대경로 = 위반
+   ls public/g/<slug>/assets/ | grep -i 'jaei\|tak\|mok\|mungchi\|mu-'  # vendor 복사 = 위반
+   ```
+   기획서 `cast.cuts_used` 의 경로가 manifest 에 실재하고 코드에도 있는가.
+2. **화면에 상주하는가.** 타이틀·온보딩·인게임·클리어 중 **최소 두 화면**의 스크린샷을
+   Read 로 열어 캐스트가 눈에 보이는지 확인해라. 기획서에만 있으면 미구현이다.
+3. **새 캐릭터를 그리지 않았는가.** 5인 외의 마스코트·동물·아동 캐릭터를 새로 생성해
+   `assets/` 에 넣었으면 위반이다(바이블이 캐스팅으로 대체한 규칙).
+4. **대사 톤을 지켰는가.** 화면 문구와 코드의 문자열을 실제로 읽어라.
+   - 목 기록관이 감탄하거나 느낌표·이모지를 쓰면 위반 (그는 감탄하지 않는다)
+   - 뭉치에게 사람 말 대사를 줬으면 위반 (그는 말을 하지 않는다)
+   - 무가 완전한 문장을 말하거나 위협하거나, 입·이빨이 그려졌으면 위반
+   - 재이가 반말을 쓰거나 단정하면 위반 / 탁 반장이 존댓말을 쓰면 위반
+5. **오답 톤.** 붉은 X 대형 표시·화면 전체 적색 플래시·「틀렸습니다」류 질책 문구가 있으면 위반.
+   이 세계의 오답은 「빈칸이다」이고, 무는 사과한다.
+6. **시그니처 색을 넘기지 않았는가.** 오렌지=재이 `#F08A3C` / 네이비=탁 `#12309C` /
+   청록=목 `#128490` / 노랑=뭉치 `#F0C054` / 라일락=무 `#9C6CD8`.
 
 ### 5. 모바일 / 성능 (10점)
 - 390×844 스크린샷에서 잘리거나 겹치는 요소가 없는가 (3)
@@ -223,6 +256,16 @@ review.json 에 `firstplay` 블록으로 근거를 남겨라.
       { "slug": "boundary-rush", "how_it_differs": "..." }
     ],
     "title_composition": "기존 템플릿(중앙 로고+태그라인+하단 CTA) 답습 여부와 실제 구성 한 줄"
+  },
+  "cast_check": {
+    "cuts_used": ["mok/pose-assign", "jaei/joy", "jaei/sad"],
+    "paths_relative": true,
+    "vendor_copied_into_game": false,
+    "screens_with_cast": ["title", "ingame"],
+    "new_character_invented": false,
+    "voice_violations": [],
+    "wrong_answer_tone_ok": true,
+    "signature_colors_ok": true
   },
   "firstplay": {
     "comprehensible": "yes | partial | no",

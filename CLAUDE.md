@@ -12,6 +12,7 @@
 > 2. `docs/loop-engineering.md` — 이 공장의 5겹 피드백 루프(L0~L4)·횡단 원칙·모델 티어링·루프 설계 체크리스트. **게이트를 손대거나 새 자동화를 붙이기 전에 필독**
 > 3. `factory/state/HANDOVER.md` — 현재 상태·진행 중 작업·백로그 (**작업 상태가 바뀌면 갱신·커밋할 것**)
 > 4. `docs/design-bible.html` + `docs/title-screen-spec.md` — 디자인 철학·타이틀 규격
+> 5. `docs/character-bible.md` — **고정 캐스트 「자눈 측량대」 5인 정본** (2026-09-06 확정). 에셋은 `public/vendor/cast/` + `manifest.json`. 캐릭터를 새로 발명하지 마라 — 캐스팅해라
 
 ## 저장소 구조
 
