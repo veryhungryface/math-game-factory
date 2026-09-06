@@ -20,6 +20,16 @@
 
 set -uo pipefail
 
+# ⚠️ 이 스크립트는 **bash 전용**이다. zsh 로 돌리지 마라.
+# 이유: zsh 는 따옴표 없는 파라미터 확장을 단어 분리하지 않는다. 즉
+#   ASSET_IDS=$'thumb\nsquare\ntitle'; for aid in $ASSET_IDS   # bash: 3회, zsh: 1회
+# 처럼 여러 줄 문자열을 도는 루프(4단계 아트 생성)가 조용히 1회만 돈다 — 에러 없이
+# 에셋 2개가 사라진다. 아래 가드로 즉시 죽인다.
+if [ -z "${BASH_VERSION:-}" ]; then
+  echo "run.sh 는 bash 전용입니다 (zsh 워드분리 차이). 'bash factory/run.sh' 로 실행하세요." >&2
+  exit 1
+fi
+
 # 스냅샷으로 재실행될 때는 스크립트가 /tmp 에 있으므로 위치로 ROOT 를 유추하면 안 된다.
 # 그래서 최초 실행이 알아낸 ROOT 를 MGF_ROOT 로 물려준다.
 ROOT="${MGF_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -77,11 +87,22 @@ claude_run() {
     >"$logfile" 2>&1
 }
 
-# codex 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트 [$4=모델(기본 $CODEX_MODEL)]
+# 모델 이름으로 추론 등급을 고른다 (config.sh 「codex 추론 등급」 참조).
+# 상위 티어(astra/sol) = 판단이 어려운 단계 → ultra, 그 외(terra/luna) → medium.
+codex_reasoning_for() {
+  case "$1" in
+    *astra*|*sol*) echo "${CODEX_REASONING_SMART:-ultra}" ;;
+    *)             echo "${CODEX_REASONING:-medium}" ;;
+  esac
+}
+
+# codex 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트 [$4=모델(기본 $CODEX_MODEL)] [$5=추론등급]
 codex_run() {
   local secs="$1" logfile="$2" prompt="$3" model="${4:-$CODEX_MODEL}"
+  local effort="${5:-$(codex_reasoning_for "$model")}"
   run_timeout "$secs" env -u ANTHROPIC_API_KEY codex exec "$prompt" \
     --model "$model" \
+    -c model_reasoning_effort="$effort" \
     --sandbox workspace-write \
     --skip-git-repo-check \
     --cd "$ROOT" \
@@ -100,6 +121,7 @@ grok_run() {
 }
 
 # codex 를 상위 티어(sol)로 돌리는 단축 러너 — 기획 2번·검수처럼 판단이 어려운 단계용.
+# 추론 등급은 codex_run 이 모델 이름을 보고 ultra 로 올린다.
 codex_smart_run() {
   codex_run "$1" "$2" "$3" "${4:-$CODEX_MODEL_SMART}"
 }
@@ -465,6 +487,9 @@ $req"
 done
 
 ART_PIDS=()
+# ⚠️ 아래 `$ASSET_IDS` 는 **일부러 따옴표를 뺐다** — 줄바꿈으로 이어 붙인 id 목록을
+# IFS 워드분리로 도는 bash 관용구다. zsh 에서는 분리가 안 돼 루프가 1회만 돌고
+# thumb/square/title 이 조용히 누락된다. 최상단 bash 가드가 이걸 막는다. 건드리지 마라.
 for aid in $ASSET_IDS; do
   ASSET_JSON="$(jq -c --arg id "$aid" '.art_direction.assets_needed[]? | select(.id==$id)' "$WORK/chosen.json")"
   if [ -z "$ASSET_JSON" ] && [ "$aid" = "square" ]; then

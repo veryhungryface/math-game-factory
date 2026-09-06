@@ -36,6 +36,17 @@ export CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"      # codex_run 기본 (아�
 export CODEX_MODEL_SMART="${CODEX_MODEL_SMART:-gpt-5.6-sol}" # 수학 교차 검산용
 export GROK_MODEL="${GROK_MODEL:-grok-4.6}"             # 기획 3번(관점 다양화)
 
+# ── codex 추론 등급 (2026-09-07) ──────────────────────────────
+# codex CLI 는 `-c model_reasoning_effort=<등급>` 으로 추론 예산을 정한다.
+# 방침: **판단이 어려운 단계는 ultra, 경량 호출은 medium.**
+#   ultra  — 빌드(gpt-6-astra) · 심사 · 검수 · 수학 검산 (전부 상위 티어 모델)
+#   medium — 아트 생성 등 경량 호출 (terra/luna)
+# run.sh 의 codex_reasoning_for() 가 **모델 이름으로** 등급을 고른다 —
+# 호출부마다 인자를 더 넘길 필요가 없고, 새 단계가 상위 모델을 쓰면 자동으로 ultra 가 된다.
+# 강제로 바꾸고 싶으면 이 두 값을 환경변수로 덮어써라.
+export CODEX_REASONING="${CODEX_REASONING:-medium}"            # 경량 호출 기본
+export CODEX_REASONING_SMART="${CODEX_REASONING_SMART:-ultra}" # 상위 티어 모델 기본
+
 # ── 단계별 러너 (클로드 토큰 절약 · 2026-08-26 사용자 지시) ──
 # 방침: **클로드는 폴백으로만 쓴다.** 실작업은 codex·grok 이 맡는다.
 # 근거: 8/25 신작 3연작(유리를 불어 81 / 등불을 켜 92 / 칸자물쇠 88)이 클로드 무사용

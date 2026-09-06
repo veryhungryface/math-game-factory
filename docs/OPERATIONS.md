@@ -44,7 +44,7 @@
 **백그라운드 실행 패턴**: `nohup <cli> ... > /tmp/로그 2>&1 &` 후 PID를 잡고, 모니터로 `while kill -0 <PID>; do sleep 60; done` 감시. pgrep에 한글·괄호 패턴은 정규식 함정이 있으니 **PID 기준**으로 감시해라.
 
 ## 4. 생산 파이프라인 (`factory/run.sh`)
-단계: 슬롯 선택(pick-slot) → 기획 3안 병렬(grok/codex sol/codex) → 심사(codex sol) → 아트(codex 이미지: bg/hero/thumb 1200×630/square 1080×1080/title 세로) → 빌드(grok) → QA(`factory/lib/qa.mjs` 43항목, puppeteer 풀크롬) → 수학 검산(codex sol, `35-mathcheck.md`) → 검수(codex sol, `40-review.md`, **80점 게이트**) → 미달 시 수정→재QA→재검산→재검수 루프 **최대 3회**(`MAX_FIX_ROUNDS`, 2026-08-31 1회→3회 — 폐기 전에 부족한 부분을 살린다. 이전 라운드 검수 이력을 다음 수정에 누적 주입해 같은 지적의 반복을 막는다) → `publish-game.mjs` 게시 → `verify-catalog.mjs` 정합성 확인 → 커밋·푸시 → 디스코드 보고 → (10작마다) 레퍼런스 스카우트. 각 단계 러너는 `factory/config.sh` 값과 §3 폴백 규칙을 따른다.
+단계: 슬롯 선택(pick-slot) → 기획 3안 병렬(grok/codex sol/codex) → 심사(codex sol) → 아트(codex 이미지: bg/hero/thumb 1200×630/square 1080×1080/title 세로) → 빌드(grok) → QA(`factory/lib/qa.mjs` 44항목, puppeteer — 실 GPU 우선, 안 되면 swiftshader 폴백) → 수학 검산(codex sol, `35-mathcheck.md`) → 검수(codex sol, `40-review.md`, **80점 게이트**) → 미달 시 수정→재QA→재검산→재검수 루프 **최대 3회**(`MAX_FIX_ROUNDS`, 2026-08-31 1회→3회 — 폐기 전에 부족한 부분을 살린다. 이전 라운드 검수 이력을 다음 수정에 누적 주입해 같은 지적의 반복을 막는다) → `publish-game.mjs` 게시 → `verify-catalog.mjs` 정합성 확인 → 커밋·푸시 → 디스코드 보고 → (10작마다) 레퍼런스 스카우트. 각 단계 러너는 `factory/config.sh` 값과 §3 폴백 규칙을 따른다.
 - 프롬프트: `factory/prompts/10-design.md, 30-build.md, 35-mathcheck.md, 40-review.md, 50-reference-scout.md`
 - 설정: `factory/config.sh` (모델·타임아웃·GATE_SCORE=80·PRIORITY_UNITS·REPORT_TARGET)
 - 검수 제한 시간: `T_REVIEW=1200`초. 900초에서 실제 타임아웃 1회 후 2026-08-26 상향했다.
@@ -143,6 +143,9 @@ hermes send discord:1539073913777291344 "..."
 - **파이프라인 중지 시**: `pkill -f "factory/run.sh"` 만으로는 부족하다 — run.sh는 자신을 `/tmp/mgf-run-$$.sh` 스냅샷으로 복사해 실행하므로 **`pkill -f "mgf-run-"` 를 함께** 실행해야 한다. 스냅샷 좀비가 옛 코드로 완주하며 큐를 오염시킨 실제 사고(등불을 켜 1차)가 있었다.
 - **게시 경로 우회 금지**: `public/g/`에 복사만 하면 `qa.passed=false`가 남아 `build-index.mjs` 필터에 걸리고, 게시 커밋까지 있어도 허브에서 사라진다. 반드시 `publish-game.mjs`로 게시하고 `verify-catalog.mjs`로 실제 노출을 확인해라.
 - `public/g/`에서 인용부호 없는 변수 확장으로 슬러그 목록 전체가 폴더명이 된 빈 디렉터리 2개가 생긴 적이 있다. 경로 변수는 항상 인용하고 대상 경로를 확인해라.
+- **`codex exec` 는 stdin 이 열린 파이프면 프롬프트를 argv 로 줘도 EOF 를 기다리며 0% CPU 로 영원히 블록된다.** Node `spawn` 기본값(`stdio:'pipe'`)이 정확히 이 함정이다 — 프롬프트를 인자로 넘겼으니 stdin 은 안 쓴다고 생각해도 codex 는 파이프가 열려 있는 한 계속 기다린다. 로그도 안 남고 CPU 도 안 쓰니 "느린 모델"로 오진하기 쉽다(2026-09-06 해방 실험 중 실제 발생). Node 하네스에서 codex 를 부를 땐 **`child.stdin.end()` 또는 `stdio:['ignore','pipe','pipe']` 가 필수**다. `factory/lib/firstplay/judge.mjs` 와 bash 의 `run.sh` 는 이미 안전하다 — 새로 붙이는 Node 자동화가 밟을 함정이다.
+- **run.sh 는 bash 전용이다.** zsh 는 따옴표 없는 파라미터 확장을 워드분리하지 않아서 `for aid in $ASSET_IDS` 같은 여러 줄 루프가 조용히 1회만 돈다(에셋 누락). 최상단 `BASH_VERSION` 가드가 막는다.
+- **puppeteer 캐시에 다운로드가 깨진 스텁 디렉터리가 남을 수 있다** — 448KB 짜리 `chrome/mac_arm-148.0.7778.97` 이 몇 주 남아 있었다. `qa.mjs` 의 `resolveChrome()` 은 디렉터리 이름이 아니라 **실행파일 존재**로 고른다.
 
 ## 14. 루프 엔지니어링 원칙 (요약 — 전문은 `docs/loop-engineering.md`)
 이 공장의 강점은 단선 파이프라인이 아니라 **5겹 피드백 루프**다 — L0 생산(사이클) / L1 사이클 내 자기수정(수리 최대 3회·러너 폴백·무뇌봇 자가테스트) / L2 사이클 간 학습(폐기 패턴 → 프롬프트 게이트 승격) / L3 캠페인(사용자 지적 → 전수 감사 → 일괄 수리 → **재발 방지 게이트 신설**) / L4 부활(게시작 24편 중 9편이 부활 산물).

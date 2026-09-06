@@ -31,14 +31,26 @@ function pngSize(file) {
   }
 }
 
-/** puppeteer 캐시에서 풀 Chrome 실행파일을 찾는다 (WebGL2 지원용). 없으면 번들 기본값. */
+/**
+ * puppeteer 캐시에서 풀 Chrome 실행파일을 찾는다 (WebGL2 지원용). 없으면 번들 기본값.
+ *
+ * ⚠️ 캐시에는 **다운로드가 깨진 스텁 디렉터리**가 남을 수 있다(실제로 448KB 짜리
+ * `mac_arm-148.0.7778.97` 이 몇 주 동안 남아 있었다). 그래서 디렉터리 이름만 보고
+ * 고르지 말고 **실행파일이 실재하는지**까지 확인한다 — 아래 existsSync 가 그 방어다.
+ */
 function resolveChrome() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
   const base = path.join(process.env.HOME || '', '.cache/puppeteer/chrome');
   if (!fs.existsSync(base)) return undefined;
   const builds = fs
     .readdirSync(base)
-    .filter((d) => fs.statSync(path.join(base, d)).isDirectory())
+    .filter((d) => {
+      try {
+        return fs.statSync(path.join(base, d)).isDirectory();
+      } catch {
+        return false;
+      }
+    })
     .sort();
   for (const b of builds.reverse()) {
     for (const rel of [
@@ -54,7 +66,91 @@ function resolveChrome() {
 }
 
 const FPS_GATE = 30;
+/** fps 저하율 게이트 — 뒤 구간이 앞 구간의 이 비율 미만이면 치명. */
+const DECAY_GATE = 0.6;
+/** 저하율 측정에서 앞/뒤 구간 사이에 게임을 그냥 돌려 두는 시간(ms). */
+const DECAY_DWELL_MS = 15000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * 이번 실행이 어떤 렌더러로 돌고 있는지. launchBrowser() 가 채운다.
+ * `gpu` = 실 GPU(정본) / `swiftshader` = 소프트웨어 폴백(보정 대상).
+ */
+const RENDER = { mode: 'gpu', renderer: null, tried: [] };
+
+const BROWSER_BASE_ARGS = ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio', '--hide-scrollbars'];
+/** shell 헤드리스에는 WebGL2 가 없다. 실 GPU 를 못 잡을 때만 쓰는 소프트웨어 폴백. */
+const BROWSER_SW_ARGS = ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'];
+
+/** 페이지에서 실제 WebGL 렌더러 이름을 읽는다 (없으면 null). */
+async function probeRenderer(browser) {
+  let p = null;
+  try {
+    p = await browser.newPage();
+    return await p.evaluate(() => {
+      const c = document.createElement('canvas');
+      const gl = c.getContext('webgl2') || c.getContext('webgl');
+      if (!gl) return null;
+      const d = gl.getExtension('WEBGL_debug_renderer_info');
+      return String(d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    });
+  } catch {
+    return null;
+  } finally {
+    if (p) await p.close().catch(() => {});
+  }
+}
+
+/**
+ * **실 GPU 우선**으로 브라우저를 띄운다 (2026-09-07).
+ *
+ * 이전에는 항상 swiftshader 로 고정해 두고 fps 를 「보정」했다. 그건 추정이라
+ * 실 GPU 60fps 게임이 부당 탈락하기도 했고(`rounding-dash` 23fps → 보정 28fps),
+ * 반대로 느린 게임을 보정으로 살려 줄 위험도 있었다.
+ * macOS 헤드리스 크롬은 플래그 없이 그냥 두면 ANGLE/Metal 로 실 GPU 를 잡는다
+ * (2026-09-07 실측: `ANGLE (Apple, ANGLE Metal Renderer: Apple M4)`).
+ *
+ * 그래서 ① 플래그 없이 띄워 WebGL 렌더러 이름을 확인하고, 실 GPU 면 그것을 **정본**으로
+ * 쓴다. ② 렌더러가 SwiftShader/소프트웨어이거나 WebGL 자체가 없으면 swiftshader 플래그로
+ * 다시 띄우고, 그때만 머신 여유 보정을 적용한다.
+ * `QA_FORCE_SWIFTSHADER=1` 로 강제 폴백할 수 있다(재현·비교용).
+ */
+async function launchBrowser() {
+  const modes = process.env.QA_FORCE_SWIFTSHADER === '1' ? ['swiftshader'] : ['gpu', 'swiftshader'];
+  for (const mode of modes) {
+    let b = null;
+    try {
+      b = await puppeteer.launch({
+        headless: true,
+        executablePath: resolveChrome(),
+        args: [...BROWSER_BASE_ARGS, ...(mode === 'gpu' ? [] : BROWSER_SW_ARGS)],
+      });
+      const renderer = await probeRenderer(b);
+      const software = !renderer || /swiftshader|software|llvmpipe|basic render/i.test(renderer);
+      RENDER.tried.push({ mode, renderer, software });
+      if (mode === 'gpu' && software) {
+        // 실 GPU 가 아니다 — 명시적 swiftshader 로 내려가서 보정 경로를 쓴다.
+        await b.close().catch(() => {});
+        continue;
+      }
+      RENDER.mode = mode;
+      RENDER.renderer = renderer;
+      return { browser: b };
+    } catch (e) {
+      RENDER.tried.push({ mode, error: String(e).slice(0, 200) });
+      if (b) await b.close().catch(() => {});
+    }
+  }
+  // 둘 다 실패했으면 마지막으로 기본 설정으로 한 번 더 — 여기서 던지면 QA 가 크래시로 끝난다.
+  RENDER.mode = 'swiftshader';
+  return {
+    browser: await puppeteer.launch({
+      headless: true,
+      executablePath: resolveChrome(),
+      args: [...BROWSER_BASE_ARGS, ...BROWSER_SW_ARGS],
+    }),
+  };
+}
 const median = (arr) => {
   const s = [...arr].sort((a, b) => a - b);
   return s.length ? s[Math.floor(s.length / 2)] : 0;
@@ -65,14 +161,21 @@ const loadPerCore = () => os.loadavg()[0] / (os.cpus().length || 1);
 /**
  * 이 머신이 지금 얼마나 여유가 있는지를 같은 브라우저 안에서 잰다.
  *
- * QA 브라우저는 swiftshader(소프트웨어 렌더러)라서 머신이 바쁘면 게임 fps 가
- * 통째로 내려앉는다. 공장은 에이전트를 병렬로 돌리므로 "한가한 머신"을 기다릴 수
- * 없다. 그래서 고정 비용 캔버스 작업의 fps 를 재서 그 시점의 처리 능력을 추정하고,
- * 게임 fps 를 그 비율로 보정한다. 한가한 머신에서 이 벤치는 vsync 상한(≈60)에
- * 붙는다 — BENCH_IDLE 이 그 기준선이다.
+ * 고정 비용 캔버스 작업의 fps 를 재서 그 시점의 처리 능력을 추정하고, 게임 fps 를
+ * 그 비율로 보정한다. 공장은 에이전트를 병렬로 돌리므로 "한가한 머신"을 기다릴 수 없다.
+ *
+ * **기준선은 「한가한 실 GPU 브라우저」다 = vsync 상한 60.** (2026-09-07 실측,
+ * `scratchpad/diet/gpu-probe.mjs`, Apple M4 · 한가한 상태:
+ *   실 GPU(ANGLE Metal) 벤치 58~61  /  swiftshader 벤치 44~46)
+ * 그래서 BENCH_IDLE 하나로 **머신 부하와 소프트웨어 렌더러 손해가 함께** 보정된다:
+ *   - GPU 모드에서 한가하면 벤치 ≈60 → 보정계수 ≈1.0 → 보정 없음(그대로 탈락시킨다)
+ *   - swiftshader 폴백이면 벤치 ≈45 → 보정계수 ≈0.75 → 측정값 ×1.33
+ * 이전 값(55)은 swiftshader 손해를 과소평가해서, 실 GPU 60fps 로 도는 게임이
+ * swiftshader 23fps → 보정 28fps 로 **부당 탈락**했다(`rounding-dash` 실사례).
  */
-const BENCH_IDLE = 55;
-const BENCH_CONTENDED = 48; // 이보다 낮으면 "머신이 바쁘다"고 본다
+const BENCH_IDLE = 60;
+/** 이보다 낮으면 "머신이 바쁘다"고 본다. 렌더 모드마다 한가한 기준선이 다르다. */
+const BENCH_CONTENDED = { gpu: 50, swiftshader: 38 };
 let _capacityCache = null;
 async function machineCapacity(browser) {
   if (_capacityCache) return _capacityCache;
@@ -118,7 +221,8 @@ async function machineCapacity(browser) {
   _capacityCache = {
     bench,
     samples,
-    contended: bench < BENCH_CONTENDED,
+    render_mode: RENDER.mode,
+    contended: bench < (BENCH_CONTENDED[RENDER.mode] ?? 48),
     factor: Math.min(1, Math.max(0.25, bench / BENCH_IDLE)),
     load: +loadPerCore().toFixed(2),
   };
@@ -208,7 +312,7 @@ async function fpsMedian(page, browser, label) {
 /** fps 결과를 검사 항목 한 줄로 옮긴다. */
 function fpsDetail(r) {
   const parts = [
-    `중앙값 ${r.fps}fps · 표본 [${r.samples}]${r.retried ? ` · 재측정 [${r.samples_retry}]` : ''}`,
+    `[${RENDER.mode}] 중앙값 ${r.fps}fps · 표본 [${r.samples}]${r.retried ? ` · 재측정 [${r.samples_retry}]` : ''}`,
     `부하/코어 ${r.load_before}→${r.load_after}`,
   ];
   if (r.capacity)
@@ -217,6 +321,73 @@ function fpsDetail(r) {
         (r.fatal ? ' → 게임이 느리다(치명)' : ' → 머신 부하 가능성으로 판정 보류(비치명)')
     );
   return parts.join(' · ');
+}
+
+/**
+ * fps **저하율** — 오래 돌릴수록 느려지는 게임을 잡는다.
+ *
+ * 중앙값 한 번만 재면 "처음엔 59fps, 30초 뒤엔 16fps" 인 게임이 통과한다(2026-09-06
+ * 자유 빌드 실사례). 누적되는 DOM 노드·이벤트 리스너·파티클 배열·매 프레임 재생성되는
+ * 오프스크린 캔버스가 전형적 원인이고, 이건 실기기에서 그대로 재현된다 —
+ * 머신 부하 보정으로 덮을 수 있는 문제가 아니다.
+ *
+ * 앞 구간을 재고 DECAY_DWELL_MS 만큼 그냥 돌려 둔 뒤 뒤 구간을 잰다.
+ * 뒤/앞 < DECAY_GATE 면 **fatal**. (부하 스파이크 오탐을 막으려고 1회 재측정한다)
+ *
+ * 「앞 구간」은 **이번 실행에서 관측된 최고 fps**다 — 직전 `perf.fps` 측정값(baseline)과
+ * 여기서 새로 잰 구간 중 큰 쪽. 이렇게 하지 않으면 시작 직후에만 빠르고 몇 초 만에
+ * 주저앉는 게임이 「앞도 낮고 뒤도 낮으니 유지율 100%」로 빠져나간다
+ * (`decimal-drift` 실사례: perf.fps 32 → 8초 뒤 정상상태 14~15fps 로 고정).
+ */
+async function fpsDecayCheck(page, label, baseline = 0) {
+  const seg = async () => {
+    const s = [];
+    for (let i = 0; i < 3; i++) {
+      s.push(await fpsSample(page, 1200));
+      await sleep(120);
+    }
+    return s;
+  };
+  const early = await seg();
+  const mEarly = Math.max(median(early), baseline || 0);
+  await sleep(DECAY_DWELL_MS);
+  let late = await seg();
+  let mLate = median(late);
+  let lateRetry = null;
+  if (mEarly > 0 && mLate / mEarly < DECAY_GATE) {
+    await sleep(2500);
+    lateRetry = await seg();
+    mLate = Math.max(mLate, median(lateRetry));
+  }
+  // 앞 구간이 너무 낮으면 비율이 의미가 없다 — 그건 perf.fps 가 이미 판정한다.
+  const measurable = mEarly >= 20;
+  const ratio = mEarly > 0 ? +(mLate / mEarly).toFixed(2) : 1;
+  const ok = !measurable || ratio >= DECAY_GATE;
+  return {
+    label,
+    baseline,
+    early: mEarly,
+    late: mLate,
+    ratio,
+    gate: DECAY_GATE,
+    dwell_ms: DECAY_DWELL_MS,
+    samples_early: early,
+    samples_late: late,
+    samples_late_retry: lateRetry,
+    measurable,
+    ok,
+    fatal: !ok,
+  };
+}
+
+function decayDetail(r) {
+  if (!r.measurable) return `앞 구간 ${r.early}fps 로 이미 낮아 저하율 판정 생략 (perf.fps 가 판정)`;
+  return (
+    `앞 ${r.early}fps (perf.fps ${r.baseline} · 재측정 [${r.samples_early}]) → ${Math.round(r.dwell_ms / 1000)}초 방치 → ` +
+    `뒤 ${r.late}fps [${r.samples_late}]${r.samples_late_retry ? ` · 재측정 [${r.samples_late_retry}]` : ''} · ` +
+    `유지율 ${Math.round(r.ratio * 100)}% (기준 ${Math.round(r.gate * 100)}%)` +
+    (r.ok ? '' : ' → 오래 돌릴수록 느려진다(치명). 누적되는 DOM·리스너·배열·매 프레임 재생성 캔버스를 찾아라')
+  );
 }
 
 /**
@@ -651,20 +822,7 @@ const pageErrors = [];
 const failedRequests = [];
 
 const server = await serveStatic(P.publicDir);
-const browser = await puppeteer.launch({
-  // shell 헤드리스는 WebGL2 가 없다. three.js 게임을 검사하려면 풀 Chrome + swiftshader 가 필요하다.
-  headless: true,
-  executablePath: resolveChrome(),
-  args: [
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--mute-audio',
-    '--enable-unsafe-swiftshader',
-    '--use-gl=angle',
-    '--use-angle=swiftshader',
-    '--hide-scrollbars',
-  ],
-});
+const { browser } = await launchBrowser();
 
 try {
   const page = await browser.newPage();
@@ -843,8 +1001,25 @@ try {
 
     // 성능 — 모바일. 3회 표본의 중앙값 (단일 표본은 머신 부하로 요동친다)
     const fpsMobile = await fpsMedian(page, browser, 'mobile-390');
-    perf = { fps: fpsMobile.fps, mobile: fpsMobile, input: { hit: input.hit, via: input.via, reach: input.reach?.total ?? 0 } };
+    perf = {
+      fps: fpsMobile.fps,
+      render_mode: RENDER.mode,
+      renderer: RENDER.renderer,
+      mobile: fpsMobile,
+      input: { hit: input.hit, via: input.via, reach: input.reach?.total ?? 0 },
+    };
     add('perf.fps', `모바일 FPS 중앙값 ${FPS_GATE} 이상 (3회 측정)`, fpsMobile.ok, fpsDetail(fpsMobile), fpsMobile.fatal);
+
+    // 성능 — 저하율. 한 번의 중앙값으로는 "처음엔 59, 나중엔 16" 인 게임을 못 잡는다.
+    const decay = await fpsDecayCheck(page, 'mobile-390', fpsMobile.fps);
+    perf.decay = decay;
+    add(
+      'perf.fpsdecay',
+      `FPS 저하율 — ${Math.round(DECAY_DWELL_MS / 1000)}초 뒤 구간이 앞 구간의 ${Math.round(DECAY_GATE * 100)}% 이상`,
+      decay.ok,
+      decayDetail(decay),
+      decay.fatal
+    );
   }
 
   // 모바일 레이아웃
@@ -979,6 +1154,8 @@ function finish() {
     failed: failed.length,
     fatal: fatal.length,
     auto_pass: fatal.length === 0,
+    // fps 측정이 실 GPU 였는지 소프트웨어 폴백이었는지. 검수관이 fps 를 해석할 때 필요하다.
+    render: { mode: RENDER.mode, renderer: RENDER.renderer, tried: RENDER.tried },
     perf,
     // 검산 에이전트가 전수 검산할 표본. 줄이지 마라 — 이게 수학 오류를 잡는 근거다.
     problems_sample: Array.isArray(problems) ? problems : [],

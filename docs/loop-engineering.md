@@ -58,7 +58,7 @@
   → 심사 (codex sol, fun 예측 게이트)
   → 아트 (codex 이미지 생성 병렬: bg/hero/thumb/square/title)
   → 빌드 (grok, 한 파일 HTML)
-  → 자동 QA (qa.mjs, puppeteer 43항목)
+  → 자동 QA (qa.mjs, puppeteer 44항목)
   → 독립 수학 전수 검산 (codex sol — 만든 모델과 다른 회사)
   → 검수 채점 (codex sol, 100점 만점 / 80점 게이트)
   → [미달 시] 수정 루프(최대 3회) → 재QA → 재검산 → 재검수
@@ -81,7 +81,7 @@
    실제로 8/29 세 회차(pair-heist·decimal-dot-raiders·decimal-alchemy)가 `math: 0` 으로
    즉시 폐기됐다 — 나머지 항목은 다 통과였다.
 
-### 자동 QA는 43개 이진 검사다 (`factory/lib/qa.mjs`)
+### 자동 QA는 44개 이진 검사다 (`factory/lib/qa.mjs`)
 
 캔버스가 있는 게임 기준 `total: 43` (캔버스가 없으면 `visual.notblank` 가 빠져 42):
 
