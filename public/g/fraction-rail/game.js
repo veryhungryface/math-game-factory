@@ -24,7 +24,7 @@ let lastBackdropMode='';
 const mungchi=new Image();mungchi.src='../../vendor/cast/mungchi/stand.png';
 const jaei=new Image();jaei.src='../../vendor/cast/jaei/stand.png';
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-function frac(n,d,mixed=true){if(n===0)return '0';if(n%d===0)return String(n/d);const whole=mixed?Math.floor(n/d):0;const rem=whole?n%d:n;return `<span class="mixed">${whole?whole+' ':''}<span class="fraction"><span class="num">${rem}</span><span class="den">${d}</span></span></span>`}
+function frac(n,d,mixed=true){if(n===0)return '<span class="whole">0</span>';if(n%d===0)return `<span class="whole">${n/d}</span>`;const whole=mixed?Math.floor(n/d):0;const rem=whole?n%d:n;return `<span class="mixed">${whole?`<span class="whole">${whole}</span>`:''}<span class="fraction"><span class="num">${rem}</span><span class="den">${d}</span></span></span>`}
 function plain(n,d){return n%d===0?String(n/d):n>d?`${Math.floor(n/d)}와 ${n%d}/${d}`:`${n}/${d}`}
 function conf(){return activeStages[Math.min(level,11)]}function target(){return conf().t+(scenic?(conf().t>conf().b?1:-1):0)}function sign(){return conf().t>conf().b?1:-1}
 function domain(){return Math.max(1,Math.ceil(Math.max(conf().b,conf().t+(level>=2?1:0))/conf().d))}
