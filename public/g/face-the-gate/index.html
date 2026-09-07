@@ -290,7 +290,6 @@ html.land #observe{left:calc(var(--stageX) + 16px);
 }}</script>
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /* ══════════════════════════════════════════════════════════════
    면을 대! — 6학년 2학기 「원기둥, 원뿔, 구」 [6수03-07]
@@ -864,182 +863,417 @@ function sfxPass() { beep(920, 0.055, 'square', 0.07); beep(1380, 0.07, 'square'
 function sfxFail() { beep(170, 0.16, 'square', 0.08); }
 function sfxLock() { beep(480, 0.04, 'square', 0.05); }
 
-/* ── 3D ── */
+/* ══ 3D 무대 — 3/4 컨베이어 ═════════════════════════════════════════
+   판정 평면은 z=0 이다. 플레이어 입체가 그 위에 서고, 문 판이 -Z 원경에서 흘러와
+   이 평면을 지난다. 게임의 판정 좌표 (x, y) = 「벨트를 가로지르는 x · 입체 중심 기준 높이 y」이고
+   planePoint(x,y) 가 그것을 월드로 올린다. w2p 는 그 월드점을 카메라로 투영한다.
+   → 카메라 구도가 바뀌어도 소켓·안내 화살표·얼룩·히트테스트가 전부 따라온다.
+   판정 수학(judge/gatePolyWorld/projectWorld)은 이 파일 어디에서도 건드리지 않는다. */
 const gl = $('gl');
 const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.setClearColor(0xDDF3F7, 1);
-/* 톤매핑을 쓰지 않는다. ACES + 노출 2.2 는 밑면의 청록(#159A9C)을 흰색에 가깝게 날려
-   「청록 = 밑면 / 산호 = 옆면」이라는 색의 의미를 지웠다. 색은 교구의 의미이므로
-   대신 광량 합을 1.15 부근으로 묶어 확산 명암만 얹는다(정면 = 원래 색에 근사). */
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+/* 톤매핑을 쓰지 않는다 — ACES 는 밑면의 청록(#159A9C)을 흰색으로 날려
+   「청록 = 밑면 / 산호 = 옆면」이라는 색의 의미를 지운다. */
 renderer.toneMapping = THREE.NoToneMapping;
+renderer.shadowMap.enabled = false;
+renderer.localClippingEnabled = true;
+
+const C3 = { sky: 0xDDF3F7, ink: 0x14383A, coral: 0xF05D5E, teal: 0x159A9C, violet: 0x6C4AB6, lilac: 0xC0A8CC };
+const THICKNESS = 10, BELT_NEAR = 620, BELT_FAR = -2600, BELT_LENGTH = BELT_NEAR - BELT_FAR;
+const BELT_SPEED = 46;
+
 const scene = new THREE.Scene();
-/* 안개는 처음부터 한 번만 만든다. 리사이즈에서는 거리 유니폼만 바꾼다. */
-scene.fog = new THREE.Fog(0xE6E2F0, 1000, 2500);
-const FOV = 16;
-const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 6000);
-/* three r155+ 의 조명은 물리 단위다 — Lambert 는 BRDF 에서 1/π 를 곱하므로, 면이 원래
-   색 그대로 보이려면 조사량이 π 여야 한다. 세기를 1 근처로 두면 색이 0.28배로 어두워진다
-   (실측: #F05D5E → #8B312E). 그래서 아래 값은 전부 π 배율을 전제로 잡았다.
-   정면(법선 +Z) ≈ 0.91배 · 위를 향한 밑면 ≈ 1.12배 · 그늘 ≈ 0.62배 — 색의 의미는 살고
-   명암만 얹힌다. 톤매핑으로 밝기를 벌지 마라(하이라이트가 날아가 청록이 흰색이 된다). */
-const ambient = new THREE.AmbientLight(0xFFF4E8, 1.95);
-const hemisphere = new THREE.HemisphereLight(0xE8F6F8, 0xD8D2C0, 0.70);
-const keyLight = new THREE.DirectionalLight(0xFFF0DC, 1.15);
-keyLight.position.set(-550, 900, 600);
-const rimLight = new THREE.DirectionalLight(0xBFE6E8, 0.30);
-rimLight.position.set(700, 250, -800);
-scene.add(ambient, hemisphere, keyLight, rimLight);
+scene.background = new THREE.Color(C3.sky);
+scene.fog = new THREE.Fog(new THREE.Color(C3.sky).lerp(new THREE.Color(C3.lilac), 0.16), 1100, 2850);
+const camera = new THREE.PerspectiveCamera(38, 1, 1, 9000);
+/* Lambert 확산광. 조사량 합을 프로토타입에서 눈으로 맞춘 값 그대로 쓴다. */
+scene.add(new THREE.AmbientLight(0xFFFFFF, 1.45));
+scene.add(new THREE.HemisphereLight(0xFFFFFF, 0xD4E7EA, 0.6));
+const keyLight = new THREE.DirectionalLight(0xFFFFFF, 2.3);
+keyLight.position.set(-320, 650, 480);
+scene.add(keyLight);
+
+/* 벨트면 아래로 내려간 문 판은 잘라 낸다 — 얕은 홈이 파여 닫힌 아랫테가 보인다. */
+const clipAtBelt = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.05)];
+const M3 = {
+  coral: new THREE.MeshLambertMaterial({ color: C3.coral, flatShading: true }),
+  teal: new THREE.MeshLambertMaterial({ color: C3.teal, flatShading: true }),
+  violet: new THREE.MeshLambertMaterial({ color: C3.violet, flatShading: true }),
+  hull: new THREE.MeshBasicMaterial({ color: C3.ink, side: THREE.BackSide }),
+  ink: new THREE.LineBasicMaterial({ color: C3.ink, transparent: true, opacity: 0.7 }),
+  solidInk: new THREE.LineBasicMaterial({ color: C3.ink, transparent: true, opacity: 0.85 }),
+  equator: new THREE.LineBasicMaterial({ color: C3.coral, transparent: true, opacity: 0.75 }),
+  beltSide: new THREE.MeshBasicMaterial({ color: 0xD8D2C0 }),
+  beltInk: new THREE.LineBasicMaterial({ color: C3.ink }),
+  gate: new THREE.MeshBasicMaterial({ color: 0xF9FCFC, side: THREE.FrontSide, clippingPlanes: clipAtBelt, depthWrite: true }),
+  gateInk: new THREE.LineBasicMaterial({ color: C3.ink, clippingPlanes: clipAtBelt }),
+  border: new THREE.MeshBasicMaterial({ color: C3.ink, side: THREE.DoubleSide, clippingPlanes: clipAtBelt }),
+  fitRibbon: new THREE.MeshBasicMaterial({ color: C3.teal, side: THREE.DoubleSide, clippingPlanes: clipAtBelt }),
+  notFit: new THREE.LineDashedMaterial({ color: C3.lilac, dashSize: 5, gapSize: 3, clippingPlanes: clipAtBelt }),
+  trace: new THREE.LineBasicMaterial({ color: C3.lilac, clippingPlanes: clipAtBelt }),
+};
+
+const _v = new THREE.Vector3();
+const _q = new THREE.Vector3();
+const cameraTarget = new THREE.Vector3();
+const shadowStamp = new THREE.Object3D(); shadowStamp.rotation.x = -Math.PI / 2;
+
 const playerG = new THREE.Group();
-const ghostA = new THREE.Group();
-const ghostB = new THREE.Group();
-const laneMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(1, 1),
-  new THREE.MeshBasicMaterial({ color: 0xffffff })
-);
-laneMesh.position.z = -30;
-const blobShadow = new THREE.Mesh(
-  new THREE.CircleGeometry(1, 32),
-  new THREE.MeshBasicMaterial({ color: 0x14383A, transparent: true, opacity: 0.16, depthWrite: false })
-);
-blobShadow.name = 'player-blob-shadow';
-blobShadow.rotation.x = -Math.PI / 2;
-scene.add(laneMesh, blobShadow, playerG, ghostA, ghostB);
+scene.add(playerG);
+let solidGroup = null, solidType = 'cylinder', solidR = 44, solidH = 100;
+let originY = 51.4, poseRot = 40, poseX = 0;
+let beltW = 420, gateSpacing = 300;
 
-/* 원경 소품(props.glb)은 뺐다 — 이 게임은 레인 상자가 화면 폭의 94%를 차지해서
-   「판정 실루엣을 가리지 않는 원경」이 물리적으로 화면 밖에만 존재한다(실측 기여 0픽셀).
-   깊이는 원경 그림 대신 데크가 z 로 물러나며 어림안개에 잠기는 것으로 만든다. */
-const stageAssets = { stage: null, gateframe: null };
-const loader = new GLTFLoader();
-function loadGLB(url, onOk) {
-  loader.load(url, (g) => { try { onOk(g.scene); } catch (_) { /* 장식 실패는 플레이와 무관하다. */ } },
-    undefined, () => { /* 프로시저럴 무대를 계속 사용한다. */ });
+let belt, beltBase, beltTexture, blob, blobTexture, beltFrame, gateShadows, beltShadow;
+const beltSlices = [], rails = [], gatePool = [], activeGates = [], orderedGates = [];
+let currentFit = false, closestGate = null;
+
+function outline3(geometry, material, threshold) {
+  return new THREE.LineSegments(new THREE.EdgesGeometry(geometry, threshold || 24), material);
 }
-function mountStageAsset(name, root) {
-  /* 에셋별 실측은 로드 때 한 번뿐. 이후에는 캐시된 치수로 배치한다. */
-  const box = new THREE.Box3().setFromObject(root);
-  const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
-  if (box.isEmpty() || !Number.isFinite(size.x + size.y + size.z) || size.x <= 0 || size.y <= 0) return;
-  root.name = name;
-  root.traverse((node) => {
-    if (!node.isMesh) return;
-    const mats = Array.isArray(node.material) ? node.material : [node.material];
-    for (const mat of mats) {
-      if (mat.isMeshStandardMaterial) { mat.roughness = 0.9; mat.metalness = 0; }
+function line3(points, material, loop) {
+  const g = new THREE.BufferGeometry().setFromPoints(points);
+  return loop ? new THREE.LineLoop(g, material) : new THREE.Line(g, material);
+}
+function releaseGeometry(group) { group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
+
+function makeSolid(type, r, h) {
+  const group = new THREE.Group();
+  const geometry = type === 'sphere'
+    ? new THREE.SphereGeometry(r, 24, 16)
+    : new THREE.CylinderGeometry(type === 'cone' ? 0 : r, r, h, 32, 1, false);
+  if (type !== 'sphere') {
+    /* 윗면·아랫면은 같은 청록이므로 한 그룹으로 합친다 — 드로우콜 1회 절약 */
+    const side = geometry.groups[0], caps = geometry.groups.slice(1);
+    geometry.clearGroups();
+    geometry.addGroup(side.start, side.count, 0);
+    geometry.addGroup(caps[0].start, caps.reduce((n, g) => n + g.count, 0), 1);
+  }
+  const mesh = new THREE.Mesh(geometry, type === 'sphere' ? M3.violet : [M3.coral, M3.teal]);
+  const hull3 = new THREE.Mesh(geometry, M3.hull);
+  hull3.scale.setScalar(1.022);  // 뒷면 껍질이 연속된 실루엣을 만든다
+  group.add(hull3, mesh, outline3(geometry, M3.solidInk, 23));
+  if (type === 'sphere') {
+    const eq = new THREE.EllipseCurve(0, 0, r, r, 0, Math.PI * 2);
+    const eqm = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(eq.getPoints(28)), M3.equator);
+    eqm.rotation.x = Math.PI / 2;
+    group.add(eqm);
+  }
+  return group;
+}
+function makeBlobTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const ctx = c.getContext('2d'), gr = ctx.createRadialGradient(32, 32, 3, 32, 32, 31);
+  gr.addColorStop(0, 'rgba(20,56,58,.42)'); gr.addColorStop(0.36, 'rgba(20,56,58,.28)'); gr.addColorStop(1, 'rgba(20,56,58,0)');
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+/* 벨트 표면 텍스처. 세로줄 = 레인 홈(문 구멍이 어느 레인에 있는지 눈으로 잡는 단서),
+   가로 띠 = 흐름 눈금(오프셋을 밀어 컨베이어가 움직이는 것을 보여 준다).
+   레인 위치는 레이아웃마다 다르므로 폭이 바뀔 때 한 번만 다시 굽는다. */
+function paintBeltTexture(canvas, lanes) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#E4E4D8'; ctx.fillRect(0, 0, 128, 256);
+  ctx.fillStyle = '#CBD1C4';
+  for (const x of lanes || []) {
+    const u = 0.5 + x / Math.max(1, beltW);
+    if (u < 0.02 || u > 0.98) continue;
+    ctx.fillRect(Math.round(u * 128) - 1, 0, 2, 256);
+  }
+  ctx.fillStyle = '#B4BCAE'; ctx.fillRect(0, 0, 128, 5);
+  ctx.fillStyle = '#D2D8CB'; ctx.fillRect(0, 128, 128, 3);
+}
+function makeBeltTexture() {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+  paintBeltTexture(c, null);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1, BELT_LENGTH / 128); t.colorSpace = THREE.SRGBColorSpace;
+  t.userData = { canvas: c };
+  return t;
+}
+function addBeltSlice() {
+  const s = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), belt.userData.surface);
+  s.rotation.x = -Math.PI / 2; s.scale.x = beltW; belt.add(s); beltSlices.push(s);
+}
+function makeBelt() {
+  beltTexture = makeBeltTexture();
+  belt = new THREE.Group(); scene.add(belt);
+  belt.userData.surface = new THREE.MeshBasicMaterial({ map: beltTexture });
+  for (let i = 0; i < 8; i++) addBeltSlice();
+  beltBase = new THREE.Mesh(new THREE.BoxGeometry(1, 14, BELT_LENGTH), M3.beltSide);
+  beltBase.position.set(0, -7.3, (BELT_NEAR + BELT_FAR) / 2); scene.add(beltBase);
+  beltFrame = outline3(beltBase.geometry, M3.beltInk); beltBase.add(beltFrame);
+  for (const sign of [-1, 1]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(6, 5, BELT_LENGTH), M3.beltSide);
+    rail.position.set(sign, 2, (BELT_NEAR + BELT_FAR) / 2);
+    rail.add(outline3(rail.geometry, M3.beltInk)); scene.add(rail); rails.push(rail);
+  }
+  blobTexture = makeBlobTexture();
+  blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: blobTexture, transparent: true, depthWrite: false }));
+  blob.rotation.x = -Math.PI / 2; blob.position.y = 0.7; scene.add(blob);
+  gateShadows = new THREE.InstancedMesh(blob.geometry, blob.material, 16);
+  gateShadows.count = 0;
+  gateShadows.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  gateShadows.frustumCulled = false; scene.add(gateShadows);
+  /* 옅은 지면이 레일에 지평선을 준다. 원경을 그리지 않고 지워서 깊이를 만든다. */
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(18000, 18000), new THREE.MeshBasicMaterial({ color: 0xF0F3EC }));
+  ground.rotation.x = -Math.PI / 2; ground.position.set(0, -45, -2400); scene.add(ground);
+  beltShadow = new THREE.Mesh(blob.geometry,
+    new THREE.MeshBasicMaterial({ map: blobTexture, transparent: true, opacity: 0.5, depthWrite: false }));
+  beltShadow.rotation.x = -Math.PI / 2;
+  beltShadow.position.set(18, -44, (BELT_NEAR + BELT_FAR) / 2);
+  beltShadow.scale.set(beltW * 1.5, BELT_LENGTH * 1.14, 1); scene.add(beltShadow);
+  applyBeltWidth();
+}
+function applyBeltWidth(lanes) {
+  if (!belt) return;
+  if (lanes && beltTexture && beltTexture.userData.canvas) {
+    paintBeltTexture(beltTexture.userData.canvas, lanes);
+    beltTexture.needsUpdate = true;
+  }
+  for (const s of beltSlices) s.scale.x = beltW;
+  beltBase.scale.x = beltW + 16;
+  rails.forEach((r, i) => { r.position.x = (i === 0 ? -1 : 1) * (beltW / 2 + 3); });
+  if (beltShadow) beltShadow.scale.x = beltW * 1.5;
+}
+function updateBeltSlices() {
+  if (!beltBase) return;
+  orderedGates.length = 0;
+  for (const g of activeGates) orderedGates.push(g);
+  orderedGates.sort((a, b) => b.dist - a.dist);
+  let floor = -14;
+  for (const g of orderedGates) floor = Math.min(floor, originY + g.bottom - 6);
+  beltBase.position.y = floor - 7.3;
+  clipAtBelt[0].constant = -floor;
+  let cursor = BELT_FAR, index = 0;
+  const segment = (far, near) => {
+    if (near <= far || index >= beltSlices.length) return;
+    const s = beltSlices[index++];
+    s.visible = true; s.position.z = (far + near) / 2; s.scale.y = near - far;
+    const uv = s.geometry.attributes.uv;
+    uv.setY(0, (BELT_NEAR - far) / BELT_LENGTH); uv.setY(1, (BELT_NEAR - far) / BELT_LENGTH);
+    uv.setY(2, (BELT_NEAR - near) / BELT_LENGTH); uv.setY(3, (BELT_NEAR - near) / BELT_LENGTH);
+    uv.needsUpdate = true;
+  };
+  for (const g of orderedGates) {
+    const z = -g.dist, below = Math.max(0, -(originY + g.bottom));
+    /* 실제로 얕은 홈을 파야 접촉면 아래의 닫힌 구멍이 보인다. 카메라가 아랫테를 보는
+       시선까지 열어 준다 — y 좌표를 속이지 않는다. */
+    const reach = below * Math.max(0, camera.position.z - z) / Math.max(100, camera.position.y + below) + 10;
+    const far = Math.max(BELT_FAR, z - 10), near = Math.min(BELT_NEAR, z + Math.max(16, reach));
+    if (near <= BELT_FAR || far >= BELT_NEAR) continue;
+    segment(cursor, Math.min(BELT_NEAR, far));
+    cursor = Math.max(cursor, near);
+  }
+  segment(cursor, BELT_NEAR);
+  for (let i = index; i < beltSlices.length; i++) beltSlices[i].visible = false;
+  if (gateShadows) {
+    gateShadows.count = Math.min(activeGates.length, gateShadows.instanceMatrix.count);
+    for (let i = 0; i < gateShadows.count; i++) {
+      shadowStamp.position.set(0, 0.55, -activeGates[i].dist + 12);
+      shadowStamp.scale.set(beltW * 1.12, 62, 1);
+      shadowStamp.updateMatrix();
+      gateShadows.setMatrixAt(i, shadowStamp.matrix);
     }
-    node.frustumCulled = true;
-    node.updateMatrix();
-    node.matrixAutoUpdate = false;
-  });
-  root.matrixAutoUpdate = false;
-  stageAssets[name] = { root, box, size, center };
-  layoutStageAssets();
+    gateShadows.instanceMatrix.needsUpdate = true;
+  }
+}
+
+function gateSig(g) { return g.view + '|' + g.r + '|' + g.h + '|' + g.gx + '|' + g.pad.toFixed(2) + '|' + beltW; }
+function makeGate(g, key) {
+  const poly = gatePolyWorld(g.view, g.r, g.h, g.gx, g.pad);
+  const half = Math.max(beltW / 2 - 5, ...poly.map((p) => Math.abs(p.x) + 16));
+  const top = Math.max(106, ...poly.map((p) => p.y + 26));
+  const bottom = Math.min(...poly.map((p) => p.y)) - 18;
+  const shape = new THREE.Shape();
+  shape.moveTo(-half, bottom); shape.lineTo(half, bottom); shape.lineTo(half, top); shape.lineTo(-half, top); shape.closePath();
+  const hole = new THREE.Path();
+  /* 바깥 경계(CCW)와 반대 감김이어야 구멍이 뚫린다 */
+  const points = THREE.ShapeUtils.isClockWise(poly) ? poly : poly.slice().reverse();
+  hole.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) hole.lineTo(points[i].x, points[i].y);
+  hole.closePath();
+  shape.holes.push(hole);
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: THICKNESS, steps: 1, bevelEnabled: false, curveSegments: 1 });
+  geometry.translate(0, 0, -THICKNESS / 2);  // dist=0 은 판의 중심면이다
+  const root = new THREE.Group();
+  root.add(new THREE.Mesh(geometry, M3.gate), outline3(geometry, M3.gateInk, 20));
+  /* WebGL 선은 물리 1픽셀에 고정된다 — 같은 윤곽을 납작한 띠로 한 번 더 그려 두께를 만든다.
+     바깥 액자와 구멍 테두리가 드로우콜 하나를 나눠 쓴다. */
+  const bp = [];
+  const border = (contour, cx, cy, weight, rect) => {
+    const outer = contour.map((p) => {
+      const dx = p.x - cx, dy = p.y - cy, len = Math.hypot(dx, dy) || 1;
+      return { x: p.x + (rect ? Math.sign(dx) : dx / len) * weight, y: p.y + (rect ? Math.sign(dy) : dy / len) * weight };
+    });
+    for (const z of [THICKNESS / 2 + 0.18, -THICKNESS / 2 - 0.18]) {
+      for (let i = 0; i < contour.length; i++) {
+        const j = (i + 1) % contour.length, a = contour[i], b = contour[j], c = outer[j], d = outer[i];
+        for (const p of [a, b, c, a, c, d]) bp.push(p.x, p.y, z);
+      }
+    }
+  };
+  border([{ x: -half, y: bottom }, { x: half, y: bottom }, { x: half, y: top }, { x: -half, y: top }], 0, (bottom + top) / 2, 3, true);
+  border(poly, g.gx, 0, 5);
+  const bg = new THREE.BufferGeometry();
+  bg.setAttribute('position', new THREE.Float32BufferAttribute(bp, 3));
+  root.add(new THREE.Mesh(bg, M3.border));
+  const ringPoints = poly.map((p) => new THREE.Vector3(p.x, p.y, THICKNESS / 2 + 0.7));
+  /* 「맞음」은 잉크 테두리 안쪽에 청록 띠 하나로 켠다 */
+  const ribbonShape = new THREE.Shape();
+  ribbonShape.setFromPoints(poly.map((p) => new THREE.Vector2(g.gx + (p.x - g.gx) * 1.026, p.y * 1.026)));
+  const ribbonHole = new THREE.Path(); ribbonHole.setFromPoints(points); ribbonShape.holes.push(ribbonHole);
+  const correct = new THREE.Mesh(new THREE.ShapeGeometry(ribbonShape), M3.fitRibbon);
+  correct.position.z = THICKNESS / 2 + 0.55;
+  const wrong = line3(ringPoints.concat([ringPoints[0]]), M3.notFit); wrong.computeLineDistances();
+  const trace = line3(ringPoints, M3.trace, true); trace.visible = false;
+  root.add(correct, wrong, trace);
   scene.add(root);
-  if (name === 'stage') laneMesh.visible = false;
+  const entry = { key, root, correct, wrong, trace, bottom, dist: g.dist, active: false, used: false, wasNext: false, lastFit: false };
+  gatePool.push(entry);
+  return entry;
 }
-/* 깊이 z 에 놓인 물체를 「z=0 평면에서 크기 A 로 보이게」 하려면 실제로는 A·depthK(z) 여야 한다.
-   카메라가 +Z 축 위에서 원점을 정면으로 보므로 배율은 축과 무관한 단일 상수다.
-   이 한 줄이 무대 배치 전체의 기준이다 — 무대는 z 로 물러나도 레인 상자와 눈금이 맞는다. */
-function depthK(z) { return (S.camD - z) / S.camD; }
-
-function layoutStageAssets() {
-  const ySolid = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
-  const halfLane = laneSpan() * S.laneW;
-  /* 레인 상자(drawFX 가 그리는 사각형)의 위·아래 경계. 프레임 구멍을 여기에 맞춘다. */
-  const boxTop = ySolid + S.worldH * 0.38;
-  const boxBottom = ySolid - S.worldH * 0.28;
-  /* 데크 윗면은 가장 큰 입체의 바닥보다 조금 더 아래 — 판정 실루엣을 절대 침범하지 않으면서
-     입체가 바닥 위에 서 있는 것으로 읽히게 한다. */
-  const deckTop = Math.max(boxBottom + 6, ySolid - (MAX_R + 42));
-
-  const stage = stageAssets.stage;
-  if (stage) {
-    /* 데크는 입체(z=0)를 감싸도록 앞쪽 가장자리를 카메라 쪽으로 내민다. */
-    const scale = (halfLane / (stage.size.x / 2)) * depthK(-90);
-    const z = 40 - stage.box.max.z * scale;
-    const k = depthK(z);
-    const s = (halfLane / (stage.size.x / 2)) * k;
-    stage.root.scale.setScalar(s);
-    stage.root.position.set(-stage.center.x * s, deckTop * k - stage.box.max.y * s, z);
-    stage.root.updateMatrix();
-    blobShadow.position.set(S.x, deckTop + 1.5, 0);
-  } else {
-    blobShadow.position.set(S.x, boxBottom + 0.8, -90);
-  }
-
-  const gateframe = stageAssets.gateframe;
-  if (gateframe) {
-    /* 관문 액자는 레인 상자를 바깥에서 두른다 — 구멍(에셋 규격 ±5 × ±3.2)을
-       레인 상자에 정확히 맞추면 기둥·상인방이 플레이 면을 덮지 않는다.
-       구멍보다 큰 배율을 쓰면 기둥이 안쪽으로 들어와 판정 영역을 가린다(1차 시도의 실패). */
-    const z = -170;
-    const k = depthK(z);
-    const openHalfW = 5.0, openHalfH = 3.2;   // 에셋 계약의 빈 영역
-    const sx = (halfLane * k) / openHalfW;
-    const cy = (boxTop + boxBottom) / 2;
-    let sy = ((boxTop - boxBottom) / 2 * k) / openHalfH;
-    /* 세로/가로 비가 지나치게 벌어지면 기둥이 뭉개진다 — 완만하게 묶는다. */
-    sy = clamp(sy, sx * 0.62, sx * 2.6);
-    gateframe.root.scale.set(sx, sy, sx);
-    gateframe.root.position.set(-gateframe.center.x * sx, cy * k - gateframe.center.y * sy, z);
-    gateframe.root.updateMatrix();
-  }
-
-}
-
-function wipe(g) {
-  while (g.children.length) {
-    const c = g.children[0];
-    g.remove(c);
-    if (c.geometry) c.geometry.dispose();
-    const m = c.material;
-    if (m) (Array.isArray(m) ? m : [m]).forEach((x) => x.dispose());
+function applyFit() {
+  closestGate = null;
+  for (const g of activeGates) if (g.dist >= 0 && (!closestGate || g.dist < closestGate.dist)) closestGate = g;
+  for (const g of activeGates) {
+    const isNext = g === closestGate;
+    g.correct.visible = isNext && currentFit;
+    g.wrong.visible = isNext && !currentFit;
+    /* 라일락 자국 = 못 맞춘 채 지나간 문. 청록 = 지금 맞음 */
+    if (g.dist >= 0) g.trace.visible = false;
+    else if (g.wasNext) g.trace.visible = !g.lastFit;
+    g.wasNext = isNext || g.wasNext;
+    if (isNext) g.lastFit = currentFit;
   }
 }
-function addEdges(mesh, geo, color) {
-  const e = new THREE.EdgesGeometry(geo, 18);
-  mesh.add(new THREE.LineSegments(e, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85 })));
-}
-function buildSolid(g, type, r, h, ghost) {
-  wipe(g);
-  const op = ghost ? 0.28 : 1;
-  if (type === 'cylinder') {
-    const geo = new THREE.CylinderGeometry(r, r, h, 24, 1, false);
-    const mats = [
-      new THREE.MeshLambertMaterial({ color: 0xF05D5E, transparent: ghost, opacity: op, depthWrite: !ghost }),
-      new THREE.MeshLambertMaterial({ color: 0x159A9C, transparent: ghost, opacity: op, depthWrite: !ghost }),
-      new THREE.MeshLambertMaterial({ color: 0x159A9C, transparent: ghost, opacity: op, depthWrite: !ghost }),
-    ];
-    const mesh = new THREE.Mesh(geo, mats);
-    if (!ghost) addEdges(mesh, geo, 0x14383A);
-    g.add(mesh);
-  } else if (type === 'cone') {
-    const geo = new THREE.ConeGeometry(r, h, 24, 1, false);
-    const mats = [
-      new THREE.MeshLambertMaterial({ color: 0xF05D5E, transparent: ghost, opacity: op, depthWrite: !ghost }),
-      new THREE.MeshLambertMaterial({ color: 0x159A9C, transparent: ghost, opacity: op, depthWrite: !ghost }),
-    ];
-    const mesh = new THREE.Mesh(geo, mats);
-    if (!ghost) addEdges(mesh, geo, 0x14383A);
-    g.add(mesh);
-  } else {
-    const geo = new THREE.SphereGeometry(r, 16, 10);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
-      color: 0x6C4AB6, transparent: ghost, opacity: op, depthWrite: !ghost,
-    }));
-    if (!ghost) addEdges(mesh, geo, 0x14383A);
-    g.add(mesh);
-    if (!ghost) {
-      const eq = new THREE.EllipseCurve(0, 0, r, r, 0, Math.PI * 2);
-      const eg = new THREE.BufferGeometry().setFromPoints(eq.getPoints(24));
-      const eqm = new THREE.LineLoop(eg, new THREE.LineBasicMaterial({ color: 0xF05D5E, transparent: true, opacity: 0.7 }));
-      eqm.rotation.x = Math.PI / 2;
-      g.add(eqm);
+
+const Stage = {
+  planePoint(x, y, out) { return out.set(x, originY + y, 0); },
+  setSolid(type, r, h) {
+    if (solidGroup && type === solidType && r === solidR && h === solidH) return;
+    if (solidGroup) { playerG.remove(solidGroup); releaseGeometry(solidGroup); }
+    solidType = type; solidR = r; solidH = h;
+    solidGroup = makeSolid(type, r, h);
+    playerG.add(solidGroup);
+    Stage.setPose(poseRot, poseX);
+  },
+  /* 월드 규약: +X 벨트를 가로지름 · +Y 위 · -Z 문이 오는 방향. 플레이어 중심 z=0.
+     rot=0 은 축이 +Y(원뿔 꼭짓점 위), 양의 회전은 +X 축 오른손 방향 — projectWorld 의
+     rotXpt 와 같은 규약이라 판정 실루엣과 화면이 어긋나지 않는다.
+     y=0 중심은 전부 originY 를 공유한다: 입체가 벨트 위에 서고 문도 같은 만큼 올라간다. */
+  setPose(rotDeg, x) {
+    poseRot = rotDeg; poseX = x;
+    const angle = rotDeg * DEG, s = Math.abs(Math.sin(angle)), c = Math.cos(angle);
+    const support = solidType === 'sphere' ? solidR
+      : solidType === 'cone' ? Math.max(-solidH / 2 * c, solidH / 2 * c + solidR * s)
+        : solidH / 2 * Math.abs(c) + solidR * s;
+    originY = support + 1.4;
+    playerG.position.set(x, originY, 0);
+    if (solidGroup) solidGroup.rotation.x = angle;
+    if (blob) {
+      blob.position.x = x;
+      const depth = solidType === 'sphere' ? solidR : solidH / 2 * s + solidR * Math.abs(c);
+      blob.scale.set(solidR * 2.55, Math.max(36, depth) * 2.35, 1);
     }
+    for (const g of activeGates) g.root.position.y = originY;
+    updateBeltSlices();
+  },
+  setGates(list) {
+    while (beltSlices.length < list.length + 2) addBeltSlice();
+    for (const g of gatePool) g.used = false;
+    activeGates.length = 0;
+    for (const g of list) {
+      const key = gateSig(g);
+      let e = gatePool.find((p) => p.key === key && !p.used && p.active) || gatePool.find((p) => p.key === key && !p.used);
+      if (!e) e = makeGate(g, key);
+      if (!e.active) { e.wasNext = false; e.trace.visible = false; }
+      e.used = true; e.active = true; e.root.visible = true; e.dist = g.dist;
+      e.root.position.set(0, originY, -g.dist);
+      activeGates.push(e);
+    }
+    for (const g of gatePool) if (!g.used) { g.active = false; g.root.visible = false; }
+    /* 문항 치수가 끝없이 새로 와도 풀은 유한하다 */
+    for (let i = 0; gatePool.length > Math.max(20, list.length * 2) && i < gatePool.length;) {
+      if (gatePool[i].active) { i++; continue; }
+      const retired = gatePool.splice(i, 1)[0];
+      scene.remove(retired.root); releaseGeometry(retired.root);
+    }
+    applyFit(); updateBeltSlices();
+  },
+  setFit(ok) { currentFit = !!ok; applyFit(); },
+  update(dt) {
+    if (beltTexture && Number.isFinite(dt) && dt > 0) {
+      beltTexture.offset.y = (beltTexture.offset.y + BELT_SPEED * dt / 128) % 1;
+    }
+  },
+};
+
+/* 카메라 배치. viewH = 판정 평면에서 화면에 담기는 월드 높이 — 입체 실루엣 크기의 기준이다.
+   바깥 레인이 무대 밖으로 나가면 자동으로 물러난다(작은 화면에서도 잘리지 않는다). */
+const Y_REF = 60;
+/* cy = 판정 평면이 앉을 화면 세로 비율. 상단 HUD·하단 발문 카드를 피하고, 문이 줄지어
+   물러날 자리를 위쪽에 비워 둔다. az/elev = 카메라 방위·고도. lift/tz = 시선이 향하는 곳. */
+const CAM = {
+  /* az(방위각)가 이 구도의 전부다. 0°면 벨트를 정면에서 내려다봐 문이 계단처럼 쌓이고,
+     50° 부근에서야 레퍼런스의 「좌하단→우상단 대각선 컨베이어」가 된다.
+     프로토타입 검증값: 세로 50° / 가로 52°. 이 값을 낮추지 마라. */
+  /* viewH = 판정 평면에서 화면 세로에 담기는 월드 높이. 작을수록 확대된다.
+     ⚠ 상한이 있다. 가장 작은 입체는 반지름 36 인 구(월드 지름 72)이고, 세로 390×844 에서
+     실루엣이 70px 을 넘어야 한다 → 72 × (844/viewH) ≥ 70 → **viewH ≤ 868**.
+     1150 으로 물러났던 판(실측 최소 54px)은 이 게이트에 걸린다. 860 은 실측 최소 71px 이고
+     문 다섯 개가 여전히 줄지어 보인다. 가로도 같은 계산(72 × 800/viewH ≥ 70 → ≤ 823).
+     반대로 545/760 처럼 더 당기면 문 하나가 화면을 꽉 채워 줄이 안 보인다. */
+  portrait: { fov: 46, az: 50, elev: 28, viewH: 860, cy: 0.60, lift: 200, tz: -560, spacing: 280 },
+  landscape: { fov: 36, az: 52, elev: 27, viewH: 790, cy: 0.62, lift: 90, tz: -700, spacing: 360 },
+};
+function placeCamera() {
+  const cfg = S.land ? CAM.landscape : CAM.portrait;
+  gateSpacing = cfg.spacing;
+  const vw = Math.max(1, S.stageW || S.W), vh = Math.max(1, S.H);
+  camera.fov = cfg.fov;
+  camera.aspect = vw / vh;
+  const az = cfg.az * DEG, el = cfg.elev * DEG;
+  const tanF = Math.tan(cfg.fov * DEG / 2);
+  const dx = Math.sin(az) * Math.cos(el), dy = Math.sin(el), dz = Math.cos(az) * Math.cos(el);
+  let k = cfg.viewH / (2 * tanF);
+  let shiftX = 0, lift = cfg.lift;
+  /* 입체 실루엣이 갈 수 있는 최대 폭. solidLimit() 이 S.x 를 여기 안으로 묶는다. */
+  const spanX = laneSpan() * S.laneW + 8;
+  const wantY = 1 - 2 * cfg.cy;
+  for (let i = 0; i < 8; i++) {
+    const halfH = k * tanF, halfW = halfH * camera.aspect;
+    camera.position.set(shiftX + dx * k, Y_REF + dy * k, dz * k);
+    cameraTarget.set(shiftX, Y_REF + lift, cfg.tz);
+    camera.near = Math.max(1, k * 0.14);
+    camera.far = k + 5600;
+    camera.lookAt(cameraTarget);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+    const nl = _q.set(-spanX, Y_REF, 0).project(camera).x;
+    const nr = _q.set(spanX, Y_REF, 0).project(camera).x;
+    const cy = _q.set(0, Y_REF, 0).project(camera).y;
+    const mid = (nl + nr) / 2, half = Math.abs(nr - nl) / 2;
+    let done = true;
+    /* ① 3/4 카메라는 x 축을 비대칭으로 접는다 — 레인 띠를 화면 가운데로 되민다 */
+    if (Math.abs(mid) > 0.008) { shiftX += mid * halfW; done = false; }
+    /* ② 판정 평면을 원하는 세로 위치에 앉힌다 (시선 높이만 움직인다) */
+    if (Math.abs(cy - wantY) > 0.008) { lift += (cy - wantY) * halfH; done = false; }
+    /* ③ 그래도 바깥 레인이 무대 밖으로 나가면 그만큼만 물러난다 */
+    if (half > 0.94) { k *= half / 0.94; done = false; }
+    if (done) break;
   }
-  g.visible = true;
+  const distP = camera.position.distanceTo(_q.set(0, Y_REF, 0));
+  scene.fog.near = distP + 340;
+  scene.fog.far = distP + 2500;
+  updateBeltSlices();
 }
+makeBelt();
+Stage.setSolid('cylinder', 44, 100);
 
 /* ── 상태 ── */
 const S = {
@@ -1050,8 +1284,7 @@ const S = {
   rot: 40, x: 0, locked: false, timeScale: 1,
   t: 0, approach: 0, travel: 5.2, elapsed: 0, session: 90,
   gate: null, queue: [], stains: [], trails: [],
-  fold: 0, tagT: 0, tagDone: false, hitStop: 0,
-  ghostRotA: 80, ghostRotB: 10, ghostXA: 0, ghostXB: 0,
+  fold: 0, tagT: 0, tagDone: false, hitStop: 0, passing: false,
   lastFailKind: '', failCounts: {}, circleToday: 0, relayOk: 0, inRelay: false,
   W: 390, H: 844, pointer: null, firstGhostHint: false, judged: false, resLock: 0,
   /* ── 온보딩 레이어 (게임 로직·문항·판정과 분리) ── */
@@ -1097,34 +1330,20 @@ function layout() {
   S.playLeft = SX;
   S.playW = STAGE;
   S.play = { x: S.playLeft, y: top, w: S.playW, h: Math.max(160, H - top - bot) };
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
   renderer.setSize(W, H, false);
   gl.style.width = W + 'px'; gl.style.height = H + 'px';
-  /* 카메라·투영은 1280 무대에 맞춘다. 2000px면 양쪽 360px 거터는 클리어만. */
-  const viewW = STAGE;
+  /* 레인 폭은 예전 직교 무대와 같은 수치를 유지한다 — laneX()·posBudget() 이 이 값을
+     쓰므로 바꾸면 판정 난이도가 바뀐다. 바뀌는 것은 「어떻게 보이는가」뿐이다. */
   const worldW = S.land ? 640 : 360;
-  const worldH = worldW * (H / Math.max(1, viewW));
+  const worldH = worldW * (H / Math.max(1, STAGE));
   S.worldW = worldW; S.worldH = worldH;
   S.laneW = worldW / (S.land ? 6.6 : 5.2);
   S.worldShiftX = 0;
-  /* +Z 정면 원근: z=0의 SVG와 판정 좌표는 기존 직교 투영과 같다. */
-  const camD = (worldH / 2) / Math.tan(THREE.MathUtils.degToRad(FOV) / 2);
-  camera.fov = FOV;
-  camera.aspect = worldW / worldH;
-  camera.near = Math.max(1, camD - 900);
-  camera.far = camD + 2400;
-  camera.position.set(0, 0, camD);
-  camera.lookAt(0, 0, 0);
-  camera.updateProjectionMatrix();
-  S.camD = camD;
-  /* 어림안개: 데크의 먼 끝(z≈-240)과 관문 액자(z=-170)가 라일락으로 옅어져 깊이가 난다.
-     원경을 그려서가 아니라 지워서 깊이를 만든다(character-bible §5.5.1). */
-  scene.fog.near = camD + 60;
-  scene.fog.far = camD + 760;
-  const ly = S.land ? -worldH * 0.02 : -worldH * 0.04;
-  const fallbackDepth = (camD + 90) / camD;
-  laneMesh.scale.set(S.laneW * (S.land ? 6.2 : 4.3) * fallbackDepth, worldH * 0.7 * fallbackDepth, 1);
-  laneMesh.position.set(S.worldShiftX, ly * fallbackDepth, -90);
-  layoutStageAssets();
+  /* 벨트는 입체가 갈 수 있는 범위를 덮을 만큼만 넓다 */
+  beltW = Math.round(2 * laneSpan() * S.laneW + 56);
+  applyBeltWidth([laneX(0), laneX(1), laneX(2), laneX(3)]);
+  placeCamera();
   renderer.setViewport(SX, 0, STAGE, H);
   renderer.setScissor(SX, 0, STAGE, H);
   renderer.setScissorTest(SX > 0);
@@ -1140,14 +1359,28 @@ function layout() {
   $('fx').setAttribute('height', H);
 }
 
+/* 판정 평면(입체가 서 있는 z=0 평면)의 (x,y) → 화면 픽셀.
+   3/4 카메라의 진짜 투영이다 — 소켓·안내 화살표·얼룩·히트테스트가 전부 이 함수를 탄다.
+   렌더러 뷰포트가 무대 사각형(stageX, stageW)이므로 NDC 도 그 사각형 기준으로 편다. */
 function w2p(x, y) {
   const vw = S.stageW || S.W;
   const ox = S.stageX || 0;
-  const sx = ox + (x + S.worldW / 2) / S.worldW * vw;
-  const sy = (S.worldH / 2 - y) / S.worldH * S.H;
-  return { x: Math.round(sx), y: Math.round(sy) };
+  Stage.planePoint(x, y, _v).project(camera);
+  return {
+    x: Math.round(ox + (_v.x * 0.5 + 0.5) * vw),
+    y: Math.round((1 - (_v.y * 0.5 + 0.5)) * S.H),
+  };
 }
-function pxPerWorld() { return (S.stageW || S.W) / S.worldW; }
+/* 표시용 근사 배율. 입력 감도에는 절대 쓰지 마라 — 아래 DRAG_UNITS_PER_PX 를 쓴다. */
+function pxPerWorld() {
+  const a = w2p(-20, 0), b = w2p(20, 0);
+  return Math.max(0.05, Math.hypot(b.x - a.x, b.y - a.y) / 40);
+}
+/* ⚠ 조작 정밀도는 카메라 투영에서 분리한다.
+   3/4 카메라에서는 벨트를 가로지르는 방향이 원근으로 압축돼 1 월드단위가 1px 이 안 된다.
+   판정 허용오차 posBudget() 은 ±6 월드단위이므로 투영 배율로 나누면 손가락 창이 ±2px 가 되어
+   사람이 맞출 수 없다. 예전 직교 무대와 같은 조작감(1px ≈ 0.93 월드단위)을 고정으로 쓴다. */
+const DRAG_UNITS_PER_PX = 1 / 1.08;
 
 function approachCurve(u) {
   if (u < 0.8) {
@@ -1298,20 +1531,9 @@ function spawnGate(g) {
   S.locked = false;
   $('lockBtn').classList.remove('on');
   S.tagT = 0; S.tagDone = false; S.judged = false;
-  S.ghostRotA = g.solidType === 'cone' ? 90 : (g.gateView === 'circle' ? 0 : 90);
-  S.ghostRotB = targetRots(g.solidType, g.gateView)[0];
-  /* 세로 화면에서는 고스트를 '문도 시작 위치도 아닌' 두 레인에 둔다 — 입체와 겹쳐 가려지지 않게 */
-  const freeLanes = [0, 1, 2, 3].filter((i) => i !== g.gateLane && i !== g.startLane);
-  S.ghostXA = S.land ? -S.laneW * 2.55 : laneX(freeLanes[0]);
-  S.ghostXB = S.land ? S.laneW * 2.55 : laneX(freeLanes[1] != null ? freeLanes[1] : freeLanes[0]);
-  buildSolid(playerG, g.solidType, g.r, g.h, false);
-  buildSolid(ghostA, g.solidType, g.r * 0.82, g.h * 0.82, true);
-  buildSolid(ghostB, g.solidType, g.r * 0.82, g.h * 0.82, true);
-  if (g.solidType === 'sphere') {
-    /* 오개념 sphere-looks-different: 고스트만 타원으로 납작. 실제 구 투영 반지름은 r 유지 */
-    ghostA.scale.set(1, 0.55, 1);
-  } else ghostA.scale.set(1, 1, 1);
-  ghostB.scale.set(1, 1, 1);
+  S.passing = false;
+  Stage.setSolid(g.solidType, g.r, g.h);
+  Stage.setPose(S.rot, S.x);
   $('prompt').textContent = g.prompt;
   $('prompt').classList.remove('hidden');
   stackBanners();
@@ -1372,7 +1594,7 @@ function applyPass(info) {
   $('distV').textContent = String(S.solved);
   /* 윤곽 청록 되감기 — 파티클/흔들림/팝업 없음 */
   S.stains = S.stains.map((s) => ({ ...s, fix: true }));
-  if (!info.forced) S.tagT = 1.8;
+  if (!info.forced) { S.tagT = 1.8; S.passing = true; }  // 입체가 구멍을 빠져나가 문 뒤로 남는다
   else nextGate();
 }
 
@@ -1470,7 +1692,7 @@ function startRun(diff, withTutorial) {
   S.score = 0; S.showScore = 0; S.solved = 0; S.combo = 0; S.perfects = 0;
   S.maxLives = S.diff === 'hard' ? 3 : 4;
   S.lives = S.maxLives;
-  S.elapsed = 0; S.fold = 0; S.stains = []; S.trails = [];
+  S.elapsed = 0; S.fold = 0; S.stains = []; S.trails = []; S.passing = false;
   S.failCounts = {}; S.lastFailKind = ''; S.relayOk = 0; S.inRelay = false;
   S.firstGhostHint = false; S.locked = false; S.timeScale = 1;
   S.resLock = 0; $('againBtn').disabled = false;
@@ -1656,7 +1878,8 @@ function refuseTap() {
 /* ── 입력 ── */
 function onSolid(clientX, clientY) {
   const p = w2p(S.x, 0);
-  const rad = Math.max(48, (S.gate ? S.gate.r : 40) * pxPerWorld() * 1.35);
+  /* 투영 크기로 반경을 잡되 44px 하한을 지킨다(터치 타깃) */
+  const rad = Math.max(44, (S.gate ? S.gate.r : 40) * pxPerWorld() * 1.35);
   return Math.hypot(clientX - p.x, clientY - p.y) < rad;
 }
 function ptrDown(e) {
@@ -1703,7 +1926,7 @@ function ptrMove(e) {
     S.trails.push({ rot: S.rot, x: S.x, life: 1 });
     if (S.trails.length > 14) S.trails.shift();
   } else {
-    S.x += dx / pxPerWorld();
+    S.x += dx * DRAG_UNITS_PER_PX;
     const lim = solidLimit();
     S.x = clamp(S.x, -lim, lim);
     S.tutMove += Math.abs(dx);
@@ -1787,31 +2010,14 @@ function polyStr(pts, toPx) {
     return q.x + ',' + q.y;
   }).join(' ');
 }
-/* 구멍은 판정 다각형(gatePolyWorld) 그 자체를 그린다.
-   전에는 r·h 만으로 그려 놓고 판정은 허용 오차(tiltPad+posBudget)를 더한 더 큰 다각형으로
-   해서, 통과하는 윤곽이 그려진 구멍보다 커 보이는 크기 불일치가 생겼다.
-   같은 함수·같은 스케일에서 뽑으므로 '윤곽을 구멍에 넣는다'가 눈으로도 성립한다. */
-function holeShape(g, gx, wallY, sc) {
-  const k = pxPerWorld() * sc;
-  const pts = gatePolyWorld(g.gateView, g.r, g.h, 0, gatePadWorld(g));
-  let maxY = 0;
-  const d = pts.map((p, i) => {
-    if (Math.abs(p.y) > maxY) maxY = Math.abs(p.y);
-    return `${i ? 'L' : 'M'} ${(gx + p.x * k).toFixed(1)} ${(wallY - p.y * k).toFixed(1)}`;
-  }).join(' ') + ' z';
-  return { d, halfH: maxY * k };
-}
+/* 레인 상자·레인 점선·벽 띠·구멍 path·판정 실루엣 폴리곤·목표 고스트 점선은 전부 지웠다.
+   그 역할은 이제 3D 무대(벨트·문 판의 실제 구멍·구멍 테두리 하이라이트)가 한다.
+   여기 남은 것은 3D 로 대체할 수 없는 것들뿐이다: 거터 처리 · 탭 리플 · 안내 화살표 ·
+   보너스 소켓 · 오답 얼룩. 전부 새 w2p 로 자동으로 맞는다. */
 function drawFX() {
   const g = S.gate;
   const W = S.W, H = S.H;
   const SX = S.stageX || 0, SW = S.stageW || W;
-  const ySolid = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
-  const span = laneSpan();
-  const tl = w2p(-S.laneW * span, ySolid + S.worldH * 0.38);
-  const br = w2p(S.laneW * span, ySolid - S.worldH * 0.28);
-  const x0 = Math.max(SX + 4, Math.min(tl.x, br.x));
-  const x1 = Math.min(SX + SW - 4, Math.max(tl.x, br.x));
-  const y0 = Math.min(tl.y, br.y), y1 = Math.max(tl.y, br.y);
   let html = `<defs><clipPath id="stg"><rect x="${SX}" y="0" width="${SW}" height="${H}"/></clipPath></defs>`;
   if (SX > 0) {
     html += `<rect x="0" y="0" width="${SX}" height="${H}" fill="#DDF3F7"/>`;
@@ -1820,55 +2026,16 @@ function drawFX() {
     html += `<line x1="${SX + SW}" y1="0" x2="${SX + SW}" y2="${H}" stroke="#159A9C" stroke-width="3"/>`;
   }
   html += `<g clip-path="url(#stg)">`;
-  html += `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="none" stroke="#14383A" stroke-width="3"/>`;
-  for (let i = 0; i < 4; i++) {
-    const lx = w2p(laneX(i), ySolid).x;
-    html += `<line x1="${lx}" y1="${y0}" x2="${lx}" y2="${y1}" stroke="#159A9C" stroke-width="3" stroke-dasharray="7 10" opacity=".28"/>`;
-  }
   for (const tr of S.trails) {
-    const p = w2p(tr.x, ySolid);
+    const p = w2p(tr.x, 0);
     html += `<circle cx="${p.x}" cy="${p.y}" r="${10 + tr.life * 8}" fill="none" stroke="#F05D5E" stroke-width="3" opacity="${tr.life * 0.35}"/>`;
   }
-  if (g) {
-    const u = approachCurve(clamp(S.approach / S.travel, 0, 1));
-    const solidP = w2p(S.x, ySolid);
-    const wallY = lerp(y0 + 28, solidP.y, u);
-    const sc = lerp(0.62, 1, u); // 접근 초반에도 구멍과 입체의 크기 대응이 읽히도록
-    const gx = w2p(laneX(g.gateLane), ySolid).x;
-    const fold = S.fold > 0 ? (1 - S.fold) * 80 : 0;
-    const wallL = x0, wallR = x1;
-    const shape = holeShape(g, gx, wallY, sc);
-    const hole = shape.d;
-    /* 벽 띠는 구멍보다 반드시 커야 한다 — 구멍의 실제 세로 반폭에서 역산한다 */
-    const hh = Math.max(36 * sc, shape.halfH + 16 * sc);
-    html += `<g transform="translate(${fold},0)">`;
-    html += `<path fill-rule="evenodd" fill="#DDF3F7" fill-opacity=".88" stroke="#14383A" stroke-width="3"
-      d="M ${wallL} ${wallY - hh} H ${wallR} v ${hh * 2} H ${wallL} z ${hole}"/>`;
-    html += `<path fill="none" stroke="#F05D5E" stroke-width="3" d="${hole}"/>`;
-    html += `</g>`;
-    if (S.fold > 0) {
-      html += `<g transform="translate(${-fold},0)"><rect x="${gx - 6}" y="${wallY - hh}" width="12" height="${hh * 2}" fill="#159A9C"/></g>`;
-    }
-    const j = judge(g, S.rot, S.x);
-    S._lastJudge = j;
-    const pts = projectWorld(g.solidType, g.r, g.h, S.rot, S.x).map((p) => ({ x: p.x, y: p.y + ySolid }));
-    const col = j.ok ? '#159A9C' : '#F05D5E';
-    const dash = j.ok ? '0' : '8 6';
-    html += `<polygon points="${polyStr(pts, true)}" fill="none" stroke="${col}" stroke-width="3" stroke-dasharray="${dash}" opacity=".95"/>`;
-    if (S.diff === 'easy' && S.firstGhostHint && !j.ok) {
-      const tgt = targetRots(g.solidType, g.gateView)[0];
-      const gp = projectWorld(g.solidType, g.r, g.h, tgt, laneX(g.gateLane)).map((p) => ({ x: p.x, y: p.y + ySolid }));
-      html += `<polygon points="${polyStr(gp, true)}" fill="none" stroke="#159A9C" stroke-width="2" stroke-dasharray="3 5" opacity=".55"/>`;
-    }
-  }
-  const yS = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
   for (const st of S.stains) {
     const sy = 0.18 + st.squash * 0.82;
     const col = st.fix ? '#159A9C' : '#6C4AB6';
-    const shifted = st.pts.map((p) => ({ x: p.x, y: p.y + yS }));
-    const c = w2p(0, yS);
+    const c = w2p(0, 0);
     html += `<g transform="translate(0,${c.y}) scale(1,${sy}) translate(0,${-c.y})" opacity="${st.t}">
-      <polygon points="${polyStr(shifted, true)}" fill="${col}" fill-opacity=".45" stroke="${col}" stroke-width="3"/></g>`;
+      <polygon points="${polyStr(st.pts, true)}" fill="${col}" fill-opacity=".45" stroke="${col}" stroke-width="3"/></g>`;
   }
   /* 보너스 소켓 — 통과 직후 2초. 높이·모선 error_find는 접근 중에도 구간을 보여 구별 */
   const showSock = g && (S.tagT > 0 || (g.kind === 'error_find' && g.solidType === 'cone' && g.gateView === 'triangle'));
@@ -1894,8 +2061,7 @@ function drawFX() {
    레이아웃이 바뀌어도 허공을 가리키지 않는다. */
 function drawGuide(g) {
   const now = performance.now();
-  const ySolid = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
-  const sp = w2p(S.x, ySolid);
+  const sp = w2p(S.x, 0);
   const rPx = Math.max(34, (g ? g.r : 40) * pxPerWorld());
   const pulse = REDUCE ? 0.5 : 0.5 + 0.5 * Math.sin(now / 320);
   const big = S.hintBig ? 1.35 : 1;
@@ -1921,7 +2087,7 @@ function drawGuide(g) {
   if (!g) return out;
 
   /* 문 중심선 — 「위치가 얼마나 어긋났는가」를 눈으로 볼 수 있게 한다 */
-  const gxLine = w2p(laneX(g.gateLane), ySolid).x;
+  const gxLine = w2p(laneX(g.gateLane), 0).x;
   out += `<line x1="${gxLine}" y1="${(sp.y - rPx - 90).toFixed(0)}" x2="${gxLine}" y2="${(sp.y + rPx + 30).toFixed(0)}"
     stroke="#159A9C" stroke-width="3" stroke-dasharray="6 8" opacity=".55"/>`;
 
@@ -1957,7 +2123,7 @@ function drawGuide(g) {
     out += hintBadge(sp.x, y0 - 26, '↕ 위아래로 밀기');
   } else if (wantMove) {
     /* 어디로 옮기는지: 흐르는 점선 + 셰브론 + 도착 지점의 유령 실루엣 */
-    const gx = w2p(laneX(g.gateLane), ySolid).x;
+    const gx = w2p(laneX(g.gateLane), 0).x;
     const dir = gx >= sp.x ? 1 : -1;
     const sx = sp.x + dir * (rPx + 10), ex = gx - dir * 8;
     out += `<line x1="${sx}" y1="${sp.y}" x2="${ex}" y2="${sp.y}" stroke="#F05D5E" stroke-width="3"
@@ -1969,7 +2135,7 @@ function drawGuide(g) {
       out += `<path d="M ${cx - dir * 9} ${sp.y - 8} L ${cx} ${sp.y} L ${cx - dir * 9} ${sp.y + 8}"
         fill="none" stroke="#F05D5E" stroke-width="3" opacity="${(0.35 + 0.6 * Math.sin(t * Math.PI)).toFixed(2)}"/>`;
     }
-    const gp = projectWorld(g.solidType, g.r, g.h, S.rot, laneX(g.gateLane)).map((p) => ({ x: p.x, y: p.y + ySolid }));
+    const gp = projectWorld(g.solidType, g.r, g.h, S.rot, laneX(g.gateLane)).map((p) => ({ x: p.x, y: p.y }));
     out += `<polygon points="${polyStr(gp, true)}" fill="none" stroke="#159A9C" stroke-width="3"
       stroke-dasharray="4 6" opacity=".6"/>`;
     const u = REDUCE ? 0.5 : ((now / 1200) % 1);
@@ -2014,8 +2180,7 @@ function fingerMark(x, y, scale, op) {
 
 function tagSockets(g) {
   const rot = S.rot;
-  const yS = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
-  const put = (p) => { const q = rotXpt(p, rot); return { x: q.x + S.x, y: q.y + yS }; };
+  const put = (p) => { const q = rotXpt(p, rot); return { x: q.x + S.x, y: q.y }; };
   const seg = (a, b, label, ok, id) => ({
     x1: a.x, y1: a.y, x2: b.x, y2: b.y,
     x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
@@ -2093,27 +2258,43 @@ window.addEventListener('pointerdown', (e) => {
   }
 });
 
+/* 문 줄 세우기 — 가장 가까운 문은 approachCurve 로 판정 평면까지 다가오고,
+   그 뒤 문들은 gateSpacing 씩 원경으로 늘어선다. 타이밍 로직은 손대지 않는다:
+   dist 는 오직 S.approach / S.travel 을 거리로 환산한 값이다.
+   통과 연출에서는 dist 를 음수로 보내 판이 입체 앞(카메라 쪽)으로 지나간다 — 즉
+   입체가 구멍을 빠져나가 문 뒤에 남는다. */
+const GATE_BUF = [];
+function gateDesc(i, g, dist) {
+  const d = GATE_BUF[i] || (GATE_BUF[i] = {});
+  d.view = g.gateView; d.r = g.r; d.h = g.h;
+  d.gx = laneX(g.gateLane); d.pad = gatePadWorld(g); d.dist = dist;
+  return d;
+}
+const GATE_LIST = [];
+function stageGates() {
+  const g = S.gate;
+  GATE_LIST.length = 0;
+  if (g && (S.phase === 'playing' || S.phase === 'tag')) {
+    const u = approachCurve(clamp(S.approach / S.travel, 0, 1));
+    let d0 = (1 - u) * gateSpacing;
+    if (S.passing && S.tagT > 0) d0 = -(1 - S.tagT / 1.8) * 130;
+    GATE_LIST.push(gateDesc(0, g, d0));
+    for (let i = 0; i < 4 && i < S.queue.length; i++) {
+      GATE_LIST.push(gateDesc(i + 1, S.queue[i], d0 + gateSpacing * (i + 1)));
+    }
+  }
+  Stage.setGates(GATE_LIST);
+}
+
 function poseGroups() {
-  const ySolid = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
   const lim = solidLimit();
-  S.x = clamp(S.x, -lim, lim); // 리사이즈로 상자가 좁아져도 입체가 밖으로 새지 않는다
+  S.x = clamp(S.x, -lim, lim); // 리사이즈로 무대가 좁아져도 입체가 밖으로 새지 않는다
   /* 무효 탭 거절 — 대상이 좌우로 흔들린다(화면 전체를 흔들지 않는다). 판정용 S.x 는 그대로다. */
   const nx = S.nudge > 0 && !REDUCE ? Math.sin(S.nudge * 46) * 7 : 0;
-  playerG.position.set(S.x + nx, ySolid, 0);
-  playerG.rotation.set(S.rot * DEG, 0, 0);
-  const off = S.land ? S.laneW * 2.55 : S.laneW * 1.15;
-  /* 고스트도 레인 상자 안쪽에 둔다 (0.82 배로 지은 축소 사본) */
-  const gEdge = Math.max(0, laneSpan() * S.laneW - (S.gate ? S.gate.r : MAX_R) * 0.82 - 6);
-  ghostA.position.set(clamp(S.ghostXA || -off, -gEdge, gEdge), ySolid, -8);
-  ghostB.position.set(clamp(S.ghostXB || off, -gEdge, gEdge), ySolid, -8);
-  ghostA.rotation.set(S.ghostRotA * DEG, 0, 0);
-  ghostB.rotation.set(S.ghostRotB * DEG, 0, 0);
-  ghostA.visible = ghostB.visible = S.phase === 'playing' && !(S.tut === 1 || S.tut === 2);
-  playerG.visible = S.phase === 'playing' || S.phase === 'result';
-  blobShadow.position.x = playerG.position.x;
-  const shadowR = S.gate ? S.gate.r : MAX_R;
-  blobShadow.scale.set(shadowR * 1.12, shadowR * 0.78, 1);
-  blobShadow.visible = playerG.visible;
+  Stage.setPose(S.rot, S.x + nx);
+  const on = S.phase === 'playing' || S.phase === 'result' || S.phase === 'tag';
+  playerG.visible = on;
+  if (blob) blob.visible = on;
 }
 
 /* ── 루프 ── */
@@ -2164,7 +2345,6 @@ function frame(now) {
       st.t -= dt * 0.12;
     }
     S.stains = S.stains.filter((s) => s.t > 0.08);
-    S.ghostRotB += dt * 8; // ambient-idle: 고스트가 천천히 자세를 고침
     if (S.fold > 0) S.fold -= dt;
     if (S.tagT > 0) {
       S.tagT -= dt;
@@ -2180,9 +2360,17 @@ function frame(now) {
       }
     }
     if (!S.frozen && S.elapsed >= S.session && S.tagT <= 0) endRun(false);
-    updateGoal();
   }
+  /* 판정 상태는 매 프레임 갱신한다 — updateGoal()·drawGuide()·문 테두리가 전부 이걸 읽는다.
+     judge() 자체는 손대지 않는다. */
+  if (S.gate && (S.phase === 'playing' || S.phase === 'tag')) {
+    S._lastJudge = judge(S.gate, S.rot, S.x);
+  }
+  if (S.phase === 'playing' && S.gate) updateGoal();
   poseGroups();
+  stageGates();
+  Stage.setFit(S.tagT > 0 ? S.passing : !!(S._lastJudge && S._lastJudge.ok));
+  Stage.update(S.hitStop > 0 || S.frozen ? 0 : dt);
   S._fxSkip = (S._fxSkip || 0) + 1;
   if (S._fxSkip % 2 === 0) drawFX();
   if (S.stageX > 0) {
@@ -2201,8 +2389,8 @@ function frame(now) {
 window.addEventListener('resize', layout);
 window.addEventListener('orientationchange', () => setTimeout(layout, 120));
 layout();
-loadGLB('./assets/stage.glb', (root) => mountStageAsset('stage', root));
-loadGLB('./assets/gateframe.glb', (root) => mountStageAsset('gateframe', root));
+/* 라운드1의 정면 디오라마 GLB(stage/gateframe)는 3/4 컨베이어 구도에 맞지 않아 싣지 않는다.
+   무대는 전부 프로시저럴(벨트·레인 홈·문 판)이다. 파일은 남겨 두되 요청하지 않는다. */
 requestAnimationFrame(frame);
 
 /* ── 무뇌 봇 (B3) ── */
@@ -2260,6 +2448,31 @@ window.__GAME_TEST__ = {
      정답이 이름·서술(밑면·모선·서로 합동이고 평행해요)이면 null 이다. 인덱스·치수를 섞어 넣지 않는다. */
   sampleProblems,
   getLayout() { return { land: S.land, playW: S.playW || S.play.w, stageW: S.stageW, stageX: S.stageX || 0 }; },
+  /* 무대 구도 실측 — 입체 실루엣의 화면 크기·위치, 바깥 레인의 화면 x, 드로우콜.
+     읽기 전용이고 게임 상태를 바꾸지 않는다(세로 구도 회귀를 기계로 잡기 위한 창구). */
+  probeStage() {
+    const g = S.gate;
+    const pts = g ? projectWorld(g.solidType, g.r, g.h, S.rot, S.x) : [];
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const p of pts) {
+      const q = w2p(p.x, p.y);
+      x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x);
+      y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+    }
+    const span = laneSpan() * S.laneW;
+    return {
+      W: S.W, H: S.H, land: S.land, stageX: S.stageX, stageW: S.stageW,
+      solid: g ? { type: g.solidType, r: g.r, h: g.h, rot: Math.round(S.rot) } : null,
+      silhouette: pts.length ? { x0, x1, y0, y1, w: x1 - x0, h: y1 - y0, cyPct: +((y0 + y1) / 2 / S.H).toFixed(3) } : null,
+      center: w2p(S.x, 0),
+      laneEdge: [w2p(-span, 0).x, w2p(span, 0).x],
+      lanes: [0, 1, 2, 3].map((i) => w2p(laneX(i), 0).x),
+      pxPerWorld: +pxPerWorld().toFixed(3),
+      gates: activeGates.length, pool: gatePool.length,
+      calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
+      cam: camera.position.toArray().map((n) => Math.round(n)),
+    };
+  },
   simBots,
   /* 발문 레지스터 전수 검사 — 생성 문항 + 화면에 나오는 모든 문구 */
   verifyRegister() {
