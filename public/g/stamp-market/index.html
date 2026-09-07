@@ -48,6 +48,10 @@
   #questFace{width:44px;height:44px;flex:0 0 44px;}
   #questText{font-size:15px;line-height:1.45;font-weight:600;}
   #questText b{color:var(--red-dk);font-size:18px;}
+  /* 답의 형식(정규형) 제약을 학생에게 상시로 알리는 칩 */
+  .rule-chip{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;
+    background:#FBEFD6;border:1.5px solid var(--mustard);color:#7A5410;
+    font-size:12.5px;font-weight:800;line-height:1.5;}
 
   #legendCard{flex:0 0 auto;padding:7px 12px;display:flex;align-items:center;gap:14px;justify-content:center;
     background:#FFF6DF;}
@@ -321,6 +325,17 @@ const ITEMS = {
 };
 const VILLAGES = ['달빛 마을','별솔 마을','구름 마을','시내 마을','바람 마을','솔숲 마을'];
 
+/* 받침 유무로 조사를 고른다 — '사과은/우유을/20병를' 같은 어색한 문장을 막는다 */
+function josa(word, withJong, withoutJong){
+  const c = String(word).charCodeAt(String(word).length-1);
+  const hasJong = (c>=0xAC00 && c<=0xD7A3) ? ((c-0xAC00)%28)!==0 : true;
+  return word + (hasJong ? withJong : withoutJong);
+}
+/* 정규형(작은 그림 9개 이하)만 정답으로 받으므로, 그 제약을 발문에 반드시 밝힌다.
+   밝히지 않으면 '큰1+작10=20' 같은 값이 같은 표현을 근거 없이 오답 처리하게 된다. */
+const NORMAL_RULE_TEXT  = '작은 그림은 9개까지만 쓸 수 있어요.';
+const NORMAL_RULE_TEXT_C = '낱개는 9개까지만 실을 수 있어요.';
+
 function makeRng(seed){ let a=seed>>>0; return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
 function ri(rng,lo,hi){ return lo + Math.floor(rng()*(hi-lo+1)); }
 function pick(rng,arr){ return arr[Math.floor(rng()*arr.length)]; }
@@ -340,7 +355,7 @@ function genProblem(type, rng, opt){
     return {
       type:'draw', itemKey, village, bigUnit, smallUnit,
       value, expectBig:b, expectSmall:s,
-      prompt:`${village}에서 ${item.name} ${value}${item.unit}를 팔았어요. 그림그래프로 나타내세요. (큰 그림=${bigUnit}${item.unit}, 작은 그림=${smallUnit}${item.unit})`,
+      prompt:`${village}에서 ${item.name} ${josa(String(value)+item.unit,'을','를')} 팔았어요. 그림그래프로 나타내어 보세요. (큰 그림=${bigUnit}${item.unit}, 작은 그림=${smallUnit}${item.unit}, ${NORMAL_RULE_TEXT})`,
       choices:null,
       answer:`큰 그림 ${b}개, 작은 그림 ${s}개`,
       answerNumeric:value,
@@ -358,7 +373,7 @@ function genProblem(type, rng, opt){
     return {
       type:'read', itemKey, village, bigUnit, smallUnit,
       value, big:b, small:s,
-      prompt:`그림그래프에서 ${village}의 ${item.name}은 큰 그림 ${b}개, 작은 그림 ${s}개예요. 모두 몇 ${item.unit}일까요? (큰 그림=${bigUnit}${item.unit}, 작은 그림=${smallUnit}${item.unit})`,
+      prompt:`그림그래프에서 ${village}의 ${josa(item.name,'은','는')} 큰 그림 ${b}개, 작은 그림 ${s}개예요. 모두 몇 ${item.unit}일까요? (큰 그림=${bigUnit}${item.unit}, 작은 그림=${smallUnit}${item.unit})`,
       choices:null,
       answer:String(value),
       answerNumeric:value,
@@ -388,7 +403,7 @@ function genProblem(type, rng, opt){
     type:'compare', itemKey, rows, bigUnit:10, smallUnit:1,
     value:diff, expectBig:Math.floor(diff/10), expectSmall:diff%10,
     maxVillage:maxRow.village, minVillage:minRow.village,
-    prompt:`그림그래프(큰 그림=10${item.unit}, 작은 그림=1${item.unit}): ${rows.map(r=>`${r.village} 큰 그림 ${r.big}개·작은 그림 ${r.small}개`).join(', ')}. 가장 많이 판 마을은 가장 적게 판 마을보다 몇 ${item.unit} 더 팔았을까요?`,
+    prompt:`그림그래프(큰 그림=10${item.unit}, 작은 그림=1${item.unit}): ${rows.map(r=>`${r.village} 큰 그림 ${r.big}개·작은 그림 ${r.small}개`).join(', ')}. 가장 많이 판 마을은 가장 적게 판 마을보다 몇 ${item.unit} 더 팔았을까요? 그 차이만큼 상자를 실어 보세요. (${NORMAL_RULE_TEXT_C})`,
     choices:null,
     answer:`${diff}${item.unit} (10개들이 상자 ${Math.floor(diff/10)}개, 낱개 ${diff%10}개)`,
     answerNumeric:diff,
@@ -484,7 +499,7 @@ function renderLegend(p){
 /* ── 그리기 모드 ── */
 function renderDraw(p){
   const item = ITEMS[p.itemKey];
-  questEl.innerHTML = `${p.village}에서 ${item.name}을 <b>${p.value}${item.unit}</b> 팔았대!<br>도장을 찍어 그래프에 나타내 줘.`;
+  questEl.innerHTML = `${p.village}에서 ${josa(item.name,'을','를')} <b>${p.value}${item.unit}</b> 팔았대!<br>도장을 찍어 그래프에 나타내 줘.<br><span class="rule-chip">작은 그림은 9개까지만 쓸 수 있어!</span>`;
   asideTopEl.innerHTML = `
     <div class="card order-card">
       <div class="order-title">너구리 사장님의 주문서 — 표를 그림그래프로!</div>
@@ -620,7 +635,7 @@ function syncWheels(){
 /* ── 배달(비교) 모드 ── */
 function renderCompare(p){
   const item = ITEMS[p.itemKey];
-  questEl.innerHTML = `가장 많이 판 마을은 가장 적게 판 마을보다 <b>몇 ${item.unit}</b> 더 팔았을까?<br>그 차이만큼 상자를 트럭에 실어 줘!`;
+  questEl.innerHTML = `가장 많이 판 마을은 가장 적게 판 마을보다 <b>몇 ${item.unit}</b> 더 팔았을까?<br>그 차이만큼 상자를 트럭에 실어 줘!<br><span class="rule-chip">낱개는 9개까지만 실을 수 있어!</span>`;
   const rowsHtml = p.rows.map(r=>`
     <div class="grow">
       <div class="grow-label">${r.village}</div>
