@@ -10,7 +10,7 @@
 <meta property="og:image" content="./square.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
-/* 축 B 플랫 벡터 교구 — 3px 단색 괘선, radius 0|999, 그림자·광택 금지 */
+/* 교구의 의미색·3px 괘선을 유지하고, 무대와 입체만 부드러운 3D로 표현한다. */
 @font-face{font-family:"LogoDoHyeon";src:url("./assets/fonts/logo-dohyeon.woff2") format("woff2");
   font-weight:400;font-style:normal;font-display:swap}
 :root{
@@ -31,7 +31,7 @@ button{font-family:inherit;cursor:pointer;touch-action:manipulation;appearance:n
 #bg{position:fixed;inset:0;z-index:0;background:
   linear-gradient(var(--sky),var(--sky)) padding-box;
   pointer-events:none}
-#bg::before{content:"";position:absolute;inset:0;opacity:.35;background:
+#bg::before{content:"";position:absolute;inset:0;opacity:.10;background:
   linear-gradient(rgba(21,154,156,.18) 2px,transparent 2px) 50% 50%/100% 100% no-repeat,
   linear-gradient(90deg,rgba(21,154,156,.18) 2px,transparent 2px) 50% 50%/100% 100% no-repeat}
 #gl{position:fixed;inset:0;z-index:1;display:block;width:100%;height:100%}
@@ -107,8 +107,13 @@ button{font-family:inherit;cursor:pointer;touch-action:manipulation;appearance:n
   padding:8px 12px;opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s}
 #observe.on{opacity:1;transform:none}
 #observe.bad{background:var(--coral)}
-#contract{position:fixed;left:12px;z-index:5;font-size:11px;font-weight:700;color:var(--mute);
-  letter-spacing:.02em;pointer-events:none;max-width:70%}
+/* 도움말 한 줄. 리스킨 전에는 옅은 하늘색 배경 위라 배경 없이도 읽혔지만, 3D 데크와
+   청록 연석이 하단에 깔리면서 대비가 무너졌다. 크림 면을 깔아 「정보 배지」로 만든다
+   (character-bible §5.5.4 — 누를 수 없는 것이므로 두께 그림자는 없다).
+   색은 #42787A: 크림 위 대비 5.0:1 로 4.5:1 기준을 넘는다. 폭은 각도 잠금 버튼 자리를 비운다. */
+#contract{position:fixed;left:12px;z-index:5;font-size:11px;font-weight:700;color:#42787A;
+  letter-spacing:.02em;pointer-events:none;max-width:calc(100% - 24px - 116px);
+  background:var(--paper);padding:6px 9px;line-height:1.35}
 #lockBtn{position:fixed;z-index:7;min-width:52px;height:52px;padding:0 14px;border:3px solid var(--ink);
   background:var(--paper);color:var(--ink);font-family:var(--geo);font-weight:800;font-size:14px;border-radius:0}
 #lockBtn.on{background:var(--ink);color:#fff;border-width:5px}
@@ -172,7 +177,7 @@ html.land #prompt{left:calc(var(--stageX) + 12px);width:auto;
   right:calc(100% - var(--stageX) - var(--stageW) + 12px);
   top:calc(78px + var(--safeT));bottom:auto;border:3px solid var(--ink);
   font-size:clamp(16px,2vw,22px);padding:8px 14px}
-html.land #contract{left:calc(var(--stageX) + 14px);bottom:calc(16px + var(--safeB));max-width:min(70%,640px)}
+html.land #contract{left:calc(var(--stageX) + 14px);bottom:calc(16px + var(--safeB));max-width:min(60%,640px)}
 html.land #lockBtn{right:calc(100% - var(--stageX) - var(--stageW) + 14px);bottom:calc(18px + var(--safeB))}
 html.land #muteBtn{right:max(10px, calc(100% - var(--stageX) - var(--stageW) + 10px))}
 html.land #observe{left:calc(var(--stageX) + 16px);
@@ -277,9 +282,15 @@ html.land #observe{left:calc(var(--stageX) + 16px);
   </div>
 </div>
 
-<script type="importmap">{"imports":{"three":"../../vendor/three.module.js"}}</script>
+<script type="importmap">{"imports":{
+  "three":"../../vendor/three.module.js",
+  "three/addons/":"../../vendor/addons/",
+  "../../vendor/addons/utils/BufferGeometryUtils.js":"./assets/lib/BufferGeometryUtils.js",
+  "../../vendor/addons/utils/SkeletonUtils.js":"./assets/lib/SkeletonUtils.js"
+}}</script>
 <script type="module">
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /* ══════════════════════════════════════════════════════════════
    면을 대! — 6학년 2학기 「원기둥, 원뿔, 구」 [6수03-07]
@@ -856,12 +867,29 @@ function sfxLock() { beep(480, 0.04, 'square', 0.05); }
 /* ── 3D ── */
 const gl = $('gl');
 const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: false, preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.setClearColor(0xDDF3F7, 1);
+/* 톤매핑을 쓰지 않는다. ACES + 노출 2.2 는 밑면의 청록(#159A9C)을 흰색에 가깝게 날려
+   「청록 = 밑면 / 산호 = 옆면」이라는 색의 의미를 지웠다. 색은 교구의 의미이므로
+   대신 광량 합을 1.15 부근으로 묶어 확산 명암만 얹는다(정면 = 원래 색에 근사). */
+renderer.toneMapping = THREE.NoToneMapping;
 const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-160, 160, 160, -160, 0.1, 600);
-camera.position.set(0, 0, 240);
-camera.lookAt(0, 0, 0);
+/* 안개는 처음부터 한 번만 만든다. 리사이즈에서는 거리 유니폼만 바꾼다. */
+scene.fog = new THREE.Fog(0xE6E2F0, 1000, 2500);
+const FOV = 16;
+const camera = new THREE.PerspectiveCamera(FOV, 1, 1, 6000);
+/* three r155+ 의 조명은 물리 단위다 — Lambert 는 BRDF 에서 1/π 를 곱하므로, 면이 원래
+   색 그대로 보이려면 조사량이 π 여야 한다. 세기를 1 근처로 두면 색이 0.28배로 어두워진다
+   (실측: #F05D5E → #8B312E). 그래서 아래 값은 전부 π 배율을 전제로 잡았다.
+   정면(법선 +Z) ≈ 0.91배 · 위를 향한 밑면 ≈ 1.12배 · 그늘 ≈ 0.62배 — 색의 의미는 살고
+   명암만 얹힌다. 톤매핑으로 밝기를 벌지 마라(하이라이트가 날아가 청록이 흰색이 된다). */
+const ambient = new THREE.AmbientLight(0xFFF4E8, 1.95);
+const hemisphere = new THREE.HemisphereLight(0xE8F6F8, 0xD8D2C0, 0.70);
+const keyLight = new THREE.DirectionalLight(0xFFF0DC, 1.15);
+keyLight.position.set(-550, 900, 600);
+const rimLight = new THREE.DirectionalLight(0xBFE6E8, 0.30);
+rimLight.position.set(700, 250, -800);
+scene.add(ambient, hemisphere, keyLight, rimLight);
 const playerG = new THREE.Group();
 const ghostA = new THREE.Group();
 const ghostB = new THREE.Group();
@@ -870,7 +898,95 @@ const laneMesh = new THREE.Mesh(
   new THREE.MeshBasicMaterial({ color: 0xffffff })
 );
 laneMesh.position.z = -30;
-scene.add(laneMesh, playerG, ghostA, ghostB);
+const blobShadow = new THREE.Mesh(
+  new THREE.CircleGeometry(1, 32),
+  new THREE.MeshBasicMaterial({ color: 0x14383A, transparent: true, opacity: 0.16, depthWrite: false })
+);
+blobShadow.name = 'player-blob-shadow';
+blobShadow.rotation.x = -Math.PI / 2;
+scene.add(laneMesh, blobShadow, playerG, ghostA, ghostB);
+
+/* 원경 소품(props.glb)은 뺐다 — 이 게임은 레인 상자가 화면 폭의 94%를 차지해서
+   「판정 실루엣을 가리지 않는 원경」이 물리적으로 화면 밖에만 존재한다(실측 기여 0픽셀).
+   깊이는 원경 그림 대신 데크가 z 로 물러나며 어림안개에 잠기는 것으로 만든다. */
+const stageAssets = { stage: null, gateframe: null };
+const loader = new GLTFLoader();
+function loadGLB(url, onOk) {
+  loader.load(url, (g) => { try { onOk(g.scene); } catch (_) { /* 장식 실패는 플레이와 무관하다. */ } },
+    undefined, () => { /* 프로시저럴 무대를 계속 사용한다. */ });
+}
+function mountStageAsset(name, root) {
+  /* 에셋별 실측은 로드 때 한 번뿐. 이후에는 캐시된 치수로 배치한다. */
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  if (box.isEmpty() || !Number.isFinite(size.x + size.y + size.z) || size.x <= 0 || size.y <= 0) return;
+  root.name = name;
+  root.traverse((node) => {
+    if (!node.isMesh) return;
+    const mats = Array.isArray(node.material) ? node.material : [node.material];
+    for (const mat of mats) {
+      if (mat.isMeshStandardMaterial) { mat.roughness = 0.9; mat.metalness = 0; }
+    }
+    node.frustumCulled = true;
+    node.updateMatrix();
+    node.matrixAutoUpdate = false;
+  });
+  root.matrixAutoUpdate = false;
+  stageAssets[name] = { root, box, size, center };
+  layoutStageAssets();
+  scene.add(root);
+  if (name === 'stage') laneMesh.visible = false;
+}
+/* 깊이 z 에 놓인 물체를 「z=0 평면에서 크기 A 로 보이게」 하려면 실제로는 A·depthK(z) 여야 한다.
+   카메라가 +Z 축 위에서 원점을 정면으로 보므로 배율은 축과 무관한 단일 상수다.
+   이 한 줄이 무대 배치 전체의 기준이다 — 무대는 z 로 물러나도 레인 상자와 눈금이 맞는다. */
+function depthK(z) { return (S.camD - z) / S.camD; }
+
+function layoutStageAssets() {
+  const ySolid = S.land ? -S.worldH * 0.06 : -S.worldH * 0.08;
+  const halfLane = laneSpan() * S.laneW;
+  /* 레인 상자(drawFX 가 그리는 사각형)의 위·아래 경계. 프레임 구멍을 여기에 맞춘다. */
+  const boxTop = ySolid + S.worldH * 0.38;
+  const boxBottom = ySolid - S.worldH * 0.28;
+  /* 데크 윗면은 가장 큰 입체의 바닥보다 조금 더 아래 — 판정 실루엣을 절대 침범하지 않으면서
+     입체가 바닥 위에 서 있는 것으로 읽히게 한다. */
+  const deckTop = Math.max(boxBottom + 6, ySolid - (MAX_R + 42));
+
+  const stage = stageAssets.stage;
+  if (stage) {
+    /* 데크는 입체(z=0)를 감싸도록 앞쪽 가장자리를 카메라 쪽으로 내민다. */
+    const scale = (halfLane / (stage.size.x / 2)) * depthK(-90);
+    const z = 40 - stage.box.max.z * scale;
+    const k = depthK(z);
+    const s = (halfLane / (stage.size.x / 2)) * k;
+    stage.root.scale.setScalar(s);
+    stage.root.position.set(-stage.center.x * s, deckTop * k - stage.box.max.y * s, z);
+    stage.root.updateMatrix();
+    blobShadow.position.set(S.x, deckTop + 1.5, 0);
+  } else {
+    blobShadow.position.set(S.x, boxBottom + 0.8, -90);
+  }
+
+  const gateframe = stageAssets.gateframe;
+  if (gateframe) {
+    /* 관문 액자는 레인 상자를 바깥에서 두른다 — 구멍(에셋 규격 ±5 × ±3.2)을
+       레인 상자에 정확히 맞추면 기둥·상인방이 플레이 면을 덮지 않는다.
+       구멍보다 큰 배율을 쓰면 기둥이 안쪽으로 들어와 판정 영역을 가린다(1차 시도의 실패). */
+    const z = -170;
+    const k = depthK(z);
+    const openHalfW = 5.0, openHalfH = 3.2;   // 에셋 계약의 빈 영역
+    const sx = (halfLane * k) / openHalfW;
+    const cy = (boxTop + boxBottom) / 2;
+    let sy = ((boxTop - boxBottom) / 2 * k) / openHalfH;
+    /* 세로/가로 비가 지나치게 벌어지면 기둥이 뭉개진다 — 완만하게 묶는다. */
+    sy = clamp(sy, sx * 0.62, sx * 2.6);
+    gateframe.root.scale.set(sx, sy, sx);
+    gateframe.root.position.set(-gateframe.center.x * sx, cy * k - gateframe.center.y * sy, z);
+    gateframe.root.updateMatrix();
+  }
+
+}
 
 function wipe(g) {
   while (g.children.length) {
@@ -883,34 +999,34 @@ function wipe(g) {
 }
 function addEdges(mesh, geo, color) {
   const e = new THREE.EdgesGeometry(geo, 18);
-  mesh.add(new THREE.LineSegments(e, new THREE.LineBasicMaterial({ color })));
+  mesh.add(new THREE.LineSegments(e, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85 })));
 }
 function buildSolid(g, type, r, h, ghost) {
   wipe(g);
   const op = ghost ? 0.28 : 1;
   if (type === 'cylinder') {
-    const geo = new THREE.CylinderGeometry(r, r, h, 16, 1, false);
+    const geo = new THREE.CylinderGeometry(r, r, h, 24, 1, false);
     const mats = [
-      new THREE.MeshBasicMaterial({ color: 0xF05D5E, transparent: ghost, opacity: op }),
-      new THREE.MeshBasicMaterial({ color: 0x159A9C, transparent: ghost, opacity: op }),
-      new THREE.MeshBasicMaterial({ color: 0x159A9C, transparent: ghost, opacity: op }),
+      new THREE.MeshLambertMaterial({ color: 0xF05D5E, transparent: ghost, opacity: op, depthWrite: !ghost }),
+      new THREE.MeshLambertMaterial({ color: 0x159A9C, transparent: ghost, opacity: op, depthWrite: !ghost }),
+      new THREE.MeshLambertMaterial({ color: 0x159A9C, transparent: ghost, opacity: op, depthWrite: !ghost }),
     ];
     const mesh = new THREE.Mesh(geo, mats);
     if (!ghost) addEdges(mesh, geo, 0x14383A);
     g.add(mesh);
   } else if (type === 'cone') {
-    const geo = new THREE.ConeGeometry(r, h, 16, 1, false);
+    const geo = new THREE.ConeGeometry(r, h, 24, 1, false);
     const mats = [
-      new THREE.MeshBasicMaterial({ color: 0xF05D5E, transparent: ghost, opacity: op }),
-      new THREE.MeshBasicMaterial({ color: 0x159A9C, transparent: ghost, opacity: op }),
+      new THREE.MeshLambertMaterial({ color: 0xF05D5E, transparent: ghost, opacity: op, depthWrite: !ghost }),
+      new THREE.MeshLambertMaterial({ color: 0x159A9C, transparent: ghost, opacity: op, depthWrite: !ghost }),
     ];
     const mesh = new THREE.Mesh(geo, mats);
     if (!ghost) addEdges(mesh, geo, 0x14383A);
     g.add(mesh);
   } else {
     const geo = new THREE.SphereGeometry(r, 16, 10);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: 0x6C4AB6, transparent: ghost, opacity: op,
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
+      color: 0x6C4AB6, transparent: ghost, opacity: op, depthWrite: !ghost,
     }));
     if (!ghost) addEdges(mesh, geo, 0x14383A);
     g.add(mesh);
@@ -990,12 +1106,25 @@ function layout() {
   S.worldW = worldW; S.worldH = worldH;
   S.laneW = worldW / (S.land ? 6.6 : 5.2);
   S.worldShiftX = 0;
-  camera.left = -worldW / 2; camera.right = worldW / 2;
-  camera.top = worldH / 2; camera.bottom = -worldH / 2;
+  /* +Z 정면 원근: z=0의 SVG와 판정 좌표는 기존 직교 투영과 같다. */
+  const camD = (worldH / 2) / Math.tan(THREE.MathUtils.degToRad(FOV) / 2);
+  camera.fov = FOV;
+  camera.aspect = worldW / worldH;
+  camera.near = Math.max(1, camD - 900);
+  camera.far = camD + 2400;
+  camera.position.set(0, 0, camD);
+  camera.lookAt(0, 0, 0);
   camera.updateProjectionMatrix();
+  S.camD = camD;
+  /* 어림안개: 데크의 먼 끝(z≈-240)과 관문 액자(z=-170)가 라일락으로 옅어져 깊이가 난다.
+     원경을 그려서가 아니라 지워서 깊이를 만든다(character-bible §5.5.1). */
+  scene.fog.near = camD + 60;
+  scene.fog.far = camD + 760;
   const ly = S.land ? -worldH * 0.02 : -worldH * 0.04;
-  laneMesh.scale.set(S.laneW * (S.land ? 6.2 : 4.3), worldH * 0.7, 1);
-  laneMesh.position.set(S.worldShiftX, ly, -90);
+  const fallbackDepth = (camD + 90) / camD;
+  laneMesh.scale.set(S.laneW * (S.land ? 6.2 : 4.3) * fallbackDepth, worldH * 0.7 * fallbackDepth, 1);
+  laneMesh.position.set(S.worldShiftX, ly * fallbackDepth, -90);
+  layoutStageAssets();
   renderer.setViewport(SX, 0, STAGE, H);
   renderer.setScissor(SX, 0, STAGE, H);
   renderer.setScissorTest(SX > 0);
@@ -1004,6 +1133,7 @@ function layout() {
   $('lockBtn').style.right = S.land ? '' : '12px';
   $('lockBtn').style.bottom = `calc(18px + var(--safeB))`;
   $('contract').style.bottom = `calc(18px + var(--safeB))`;
+  stackBanners();
   placeCoach();
   $('fx').setAttribute('viewBox', `0 0 ${W} ${H}`);
   $('fx').setAttribute('width', W);
@@ -1013,8 +1143,8 @@ function layout() {
 function w2p(x, y) {
   const vw = S.stageW || S.W;
   const ox = S.stageX || 0;
-  const sx = ox + (x - camera.left) / (camera.right - camera.left) * vw;
-  const sy = (camera.top - y) / (camera.top - camera.bottom) * S.H;
+  const sx = ox + (x + S.worldW / 2) / S.worldW * vw;
+  const sy = (S.worldH / 2 - y) / S.worldH * S.H;
   return { x: Math.round(sx), y: Math.round(sy) };
 }
 function pxPerWorld() { return (S.stageW || S.W) / S.worldW; }
@@ -1184,6 +1314,7 @@ function spawnGate(g) {
   ghostB.scale.set(1, 1, 1);
   $('prompt').textContent = g.prompt;
   $('prompt').classList.remove('hidden');
+  stackBanners();
   drawNext(S.queue[0] || g);
   S.level = g.solidType === 'cylinder' ? 1 : g.solidType === 'cone' ? 3 : 4;
   if (g.tutorial) startTutorial();
@@ -1425,6 +1556,22 @@ function showCoach(step, bodyOverride) {
   requestAnimationFrame(placeCoach);
 }
 /* 코치 카드는 발문 상자를 절대 가리지 않는다 — 발문의 실제 위치에서 매번 다시 앉힌다 */
+/* 가로(land)에서는 발문(#prompt)·목표 한 줄(#goal)·관찰 토스트(#observe)가 모두 상단에
+   fixed 로 얹혀 서로를 덮었다 — #goal(z6, top 96px) 이 #prompt(z5, top 78px) 위에 그대로
+   포개져 발문이 반쯤 잘려 보였다. 높이가 글자 수·줄바꿈으로 변하므로 상수 top 을 더 주는
+   방식으로는 못 막는다. 실제 사각형을 재서 아래로 쌓는다. */
+function stackBanners() {
+  const pr = $('prompt'), go = $('goal'), ob = $('observe'), hud = $('hud');
+  if (!S.land) { go.style.top = ''; ob.style.top = ''; return; }
+  const bottomOf = (el) => {
+    if (!el || el.classList.contains('hidden')) return null;
+    const r = el.getBoundingClientRect();
+    return r.height > 0 ? r.bottom : null;
+  };
+  const base = bottomOf(pr) ?? bottomOf(hud) ?? 78;
+  go.style.top = Math.round(base + 8) + 'px';
+  ob.style.top = Math.round((bottomOf(go) ?? base + 8) + 8) + 'px';
+}
 function placeCoach() {
   const el = $('coach');
   if (el.classList.contains('hidden')) return;
@@ -1492,7 +1639,7 @@ function updateGoal() {
     else if (j && angOk && j.posOk) msg = '거의 다 됐어요 — 조금만 더 정확히 맞춰 보세요';
     else msg = '구멍과 같은 모양이 되게 화면을 위아래로 밀어요';
   }
-  if (el.textContent !== msg) el.textContent = msg;
+  if (el.textContent !== msg) { el.textContent = msg; stackBanners(); }
   el.classList.toggle('ok', ok);
 }
 /* (e) 어떤 탭에도 최소 반응 — 리플 + 입체 좌우 흔들림 + 한 줄 안내 + 손가락 재생 */
@@ -1963,6 +2110,10 @@ function poseGroups() {
   ghostB.rotation.set(S.ghostRotB * DEG, 0, 0);
   ghostA.visible = ghostB.visible = S.phase === 'playing' && !(S.tut === 1 || S.tut === 2);
   playerG.visible = S.phase === 'playing' || S.phase === 'result';
+  blobShadow.position.x = playerG.position.x;
+  const shadowR = S.gate ? S.gate.r : MAX_R;
+  blobShadow.scale.set(shadowR * 1.12, shadowR * 0.78, 1);
+  blobShadow.visible = playerG.visible;
 }
 
 /* ── 루프 ── */
@@ -2050,6 +2201,8 @@ function frame(now) {
 window.addEventListener('resize', layout);
 window.addEventListener('orientationchange', () => setTimeout(layout, 120));
 layout();
+loadGLB('./assets/stage.glb', (root) => mountStageAsset('stage', root));
+loadGLB('./assets/gateframe.glb', (root) => mountStageAsset('gateframe', root));
 requestAnimationFrame(frame);
 
 /* ── 무뇌 봇 (B3) ── */
