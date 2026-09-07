@@ -890,3 +890,4 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - docs/validation/twin-forts-art-v2.md, 독립 twin-forts-art-v2-review.md, logs/manual-20260907-twin-forts-art-v2/에 전후·검산·UI·원본검증과 재현스크립트 보존. 다양한 캐릭터/관절연기/질감·광원 조율의 상용차이는 남아있다.
 - 독립 게시회귀 검수87점·must_fix없음, 단일진입점 `publish-game.mjs` 기본80점 게이트로 version2 재게시·카탈로그52/52. 공장 점수를 상용아트 동등성에 사용하지 않는다.
 - 동시작업 주의: 공유작업폴더에서 기존 게시게임의 meta.qa를 미검수로 바꾸면 다른 작업의 허브재빌드가 해당게임을 제외할 수 있다. 이번 재게시로 로컬 카탈로그51→52 복원 확인. 이후 핫픽스는 별도체크아웃 검증 후 최종 QA메타를 함께 적용하는 편이 안전하다.
+- 공개 배포 검증 완료: 게임커밋7c93af0, Vercel dpl_6mK7d3bwKBGdP9xakistyMWHN9kV Ready. 기본도메인52작/version2·ZIP/meta포함21파일해시일치·390px실제터치12/18출격success·오류/실패요청/가로넘침0. 공개 계획화면 직접열람으로 새 디자인 확인; deployment.json/공개3화면보존.

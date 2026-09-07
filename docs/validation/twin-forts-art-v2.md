@@ -28,3 +28,10 @@
 ## 판단의 한계
 
 전장 구조와 형태 구분은 개선했으나 다양한 캐릭터 실루엣, 관절과 표정의 세밀한 연기, 질감/광원 조율에서는 상용 레퍼런스와 차이가 남는다. 독립 QA 통과는 상용 게임과 동급이라는 뜻이 아니다. 실제 아동 조사나 온라인 대전은 수행·구현하지 않았다.
+
+## 공개 배포 확인
+
+게임 커밋 `7c93af0`을 main에 push한 자동 배포가 Ready 상태다. Vercel ID `dpl_6mK7d3bwKBGdP9xakistyMWHN9kV`. 기본 도메인에서 카탈로그52작·쌍둥이 요새version2 노출, 원본 ZIP과 meta를 포함한21파일의 로컬 SHA-256 일치를 확인했다. 실제390px 터치 시작→12/18배분→출격success, 오류·실패요청·가로넘침0. 공개 계획 화면을 직접 열어 새 요새/병사/성벽/다리/HUD가 적용됐음을 확인했다. `deployment.json`과 `production-{title,planning,success}.png`에 보존했다.
+
+- [공개 플레이](https://math-game-factory.vercel.app/g/twin-forts/?v=2)
+- [Blender·GLB 원본 ZIP](https://math-game-factory.vercel.app/g/twin-forts/assets/twin-forts-source.zip?v=2)
