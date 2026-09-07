@@ -900,3 +900,4 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 첫플레이 실제GPU16프레임·오류0이나 첫주문 오답1회 후 일반진출0. 조작안내/오답설명보존을 확인했으며 아동 이해나 학습효과 증거로 주장하지 않는다. 실제 저가휴대전화 측정도 미실시.
 - 원본ZIP(.blend·생성기2·GLB) CRC 및10실사용모델 바이트일치. 최종26파일(meta제외)해시096ac6b398afdea6549f8c9b09ac5f0c11c6e42c3364262eac4c8a41fb596d69. docs/validation/sunbasket-farm.md·logs/manual-20260907-sunbasket-farm/·references/case-studies/hayday-sunbasket-20260907.md에 보존.
 - 독립 검수88점·must_fix없음·미해결high0, 단일진입점 publish-game.mjs 기본80점 게이트통과·카탈로그53/53. 독립 터치9완주840점/목숨3/첫시도8of8·144셀중복방지·실제탭전환입력해제·재로드성장 확인.4정책×3일반첫시도는 각각0/3이며 별도계산과일치(작은표본을모집단0%로해석하지않음).
+- 공개 배포 확인 완료: 게임커밋6926724, Vercel dpl_Fm1kZqQnDFAGaS2xfJ38kkHoHAWh Ready. 기본도메인53작/version1·ZIP/meta포함27파일해시일치·390px실제터치3m심기→12수확→배송success·목록링크이동·오류/실패요청/가로넘침0. 공개계획화면 직접열람, deployment.json·deployment-files.json·live/ 증거보존.
