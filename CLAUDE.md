@@ -111,7 +111,7 @@ public/                                Vercel 정적 배포 루트
 ```
 
 - `three.module.js` 는 옆의 `three.core.js` 를 상대경로로 가져간다. 둘 다 있어야 한다.
-- 보유 애드온: `addons/controls/OrbitControls.js`, `addons/loaders/GLTFLoader.js`. 그 외 애드온은 없으니 **직접 구현**하거나 쓰지 마라.
+- 보유 애드온: `addons/controls/OrbitControls.js`, `addons/loaders/GLTFLoader.js`(+의존 `addons/utils/BufferGeometryUtils.js`·`SkeletonUtils.js`, 2026-09-08 추가 — 그 전 게임 4작은 각자 `assets/lib/`에 사본을 동봉해 우회했다). 그 외 애드온은 없으니 **직접 구현**하거나 쓰지 마라.
 - import map은 `<script type="module">` **보다 먼저** 나와야 한다.
 - 3D 게임은 `renderer.setPixelRatio(Math.min(devicePixelRatio, 2))` 로 모바일 성능을 지켜라.
 
