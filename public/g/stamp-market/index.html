@@ -4,12 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>콩콩 도장 시장</title>
+<link rel="icon" href="data:,">
+<meta name="theme-color" content="#128490">
 <style>
   :root{
-    --paper:#F8EFDE; --card:#FFFDF6; --ink:#453626; --ink-soft:#7A6A55;
-    --line:#D9C9AD; --red:#E0563C; --red-dk:#B93F2A; --green:#6C9E52; --green-dk:#527C3C;
-    --blue:#5E97B8; --mustard:#EDA93B; --shadow:rgba(69,54,38,.16);
-    --r:14px;
+    --cast-jaei:#F08A3C; --cast-jaei-deep:#D84818;
+    --cast-tak:#12309C; --cast-tak-deep:#000C48;
+    --cast-mok:#128490; --cast-mok-deep:#0C6C78;
+    --cast-mungchi:#F0C054; --world-fog:#C0A8CC; --world-fog-deep:#B49CC0;
+    --world-paper:#E4E4D8; --world-ink:#603024; --accent-orange:#F0641E;
+    --paper:#F3EEDF; --card:#FFF8ED; --ink:var(--world-ink); --ink-soft:#6E7067;
+    --line:rgba(96,48,36,.2); --shadow:rgba(96,48,36,.18); --r:20px;
+    --felt-grain:repeating-linear-gradient(112deg,rgba(96,48,36,.014) 0 1px,transparent 1px 4px);
     /* 무대 폭 — JS layout() 의 Math.min(W,1280) 과 반드시 같은 상한을 쓴다 */
     --stageW:min(100vw, 1280px);
     --stageX:calc((100vw - var(--stageW)) / 2);
@@ -18,297 +24,438 @@
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
-  body{
-    background:var(--paper); color:var(--ink);
-    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
-    overflow:hidden; touch-action:manipulation;
-    -webkit-user-select:none; user-select:none;
-    background-image:radial-gradient(rgba(69,54,38,.05) 1.2px, transparent 1.2px);
-    background-size:22px 22px;
-  }
-  button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation;}
-  #app{height:100dvh;max-width:540px;margin:0 auto;display:flex;flex-direction:column;padding:8px 10px calc(10px + env(safe-area-inset-bottom));gap:8px;position:relative;z-index:1;}
+  body{background:var(--world-paper);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+  button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulation;min-height:44px;}
+  button:focus-visible,summary:focus-visible{outline:3px solid var(--cast-tak);outline-offset:3px;}
+  [hidden]{display:none!important;}
+  #scenery{position:fixed;inset:0;pointer-events:none;opacity:.32;
+    background:linear-gradient(180deg,rgba(243,238,223,.45),transparent 48%,rgba(243,238,223,.32)),url('./assets/backdrop.png') center 58%/cover no-repeat;}
+  #app{width:100%;max-width:600px;height:100dvh;margin:0 auto;display:flex;flex-direction:column;
+    padding:10px 16px calc(14px + env(safe-area-inset-bottom));gap:6px;position:relative;z-index:1;}
   #asideTop:empty,#asideBot:empty{display:none;}
-  #asideTop,#asideBot{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;}
+  #sidePanel,#sideTools{display:contents;}
+  #sideTools{order:3;}
+  #hud{order:0;}#questCard{order:2;}#legendCard{order:3;}
+  #asideTop{order:4;}#board{order:5;}#asideBot{order:6;}#controls{order:7;}
+  #asideTop,#asideBot{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;min-width:0;}
 
-  /* ── HUD ── */
-  #hud{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
-  .hud-box{background:var(--card);border:2px solid var(--ink);border-radius:10px;padding:4px 10px;
-    font-weight:800;font-size:14px;box-shadow:2px 2px 0 var(--shadow);display:flex;align-items:center;gap:5px;min-height:34px;}
-  #hudRound{letter-spacing:.5px;}
-  #hudHearts{color:var(--red);font-size:15px;letter-spacing:1px;}
-  #hudScore{margin-left:auto;font-variant-numeric:tabular-nums;}
-  #muteBtn{width:44px;height:44px;background:var(--card);border:2px solid var(--ink);border-radius:10px;
-    box-shadow:2px 2px 0 var(--shadow);font-size:16px;display:flex;align-items:center;justify-content:center;}
+  /* 부두의 기록표와 펠트 부표 — 정보에는 두께 그림자를 쓰지 않는다. */
+  #hud{display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+  .hud-box{background-color:var(--card);background-image:var(--felt-grain);border:0;border-radius:14px;padding:5px 7px;
+    font-size:12px;font-weight:800;display:flex;align-items:center;gap:4px;min-height:38px;}
+  #roundStatus{white-space:nowrap;}
+  #hudRound{color:var(--cast-mok-deep);font-size:14px;font-variant-numeric:tabular-nums;}
+  #hudHearts{gap:4px;padding-inline:7px;}
+  .buoy{display:block;width:13px;height:20px;position:relative;border-radius:45% 45% 42% 42%;background:var(--cast-mok);
+    border-bottom:3px solid var(--cast-mok-deep);}
+  .buoy::before{content:'';position:absolute;left:5px;top:-3px;width:3px;height:5px;border-radius:3px;background:var(--ink);}
+  .buoy::after{content:'';position:absolute;left:0;right:0;top:7px;height:4px;background:var(--card);}
+  .buoy.lost{background:var(--ink-soft);border-color:var(--ink-soft);opacity:.4;}
+  #takRecord{margin-left:auto;min-width:0;gap:4px;padding:4px 6px;}
+  #takRecord>img{width:22px;height:24px;object-fit:contain;flex:none;}
+  .record-values{display:flex;flex-direction:row;align-items:baseline;gap:3px;white-space:nowrap;}
+  #hudScore{font-size:13px;line-height:1;font-variant-numeric:tabular-nums;}
+  .record-sep{color:var(--ink-soft);font-size:10px;}
+  .record-target{font-size:10.5px;color:var(--cast-tak);white-space:nowrap;}
+  #takRecord.passed{background-color:var(--cast-mungchi);}
+  #muteBtn{width:44px;height:44px;min-width:44px;border-radius:50%;background-color:var(--card);background-image:var(--felt-grain);
+    font-family:Georgia,"Times New Roman",serif;font-size:0;font-weight:700;line-height:1;position:relative;}
+  #muteBtn::before{content:'♪';position:absolute;left:10px;top:10px;color:var(--ink);font-size:23px;line-height:1;}
+  #muteBtn[data-muted="true"]::after{content:'';position:absolute;width:15px;height:1.5px;left:20px;top:22px;background:var(--ink);opacity:.56;transform:rotate(-48deg);}
 
-  /* ── 카드 공통 ── */
-  .card{background:var(--card);border:2px solid var(--ink);border-radius:var(--r);box-shadow:3px 3px 0 var(--shadow);}
-
-  #questCard{flex:0 0 auto;padding:10px 12px;display:flex;gap:10px;align-items:center;}
-  #questFace{width:44px;height:44px;flex:0 0 44px;}
-  #questText{font-size:15px;line-height:1.45;font-weight:600;}
-  #questText b{color:var(--red-dk);font-size:18px;}
-  /* 답의 형식(정규형) 제약을 학생에게 상시로 알리는 칩 */
-  .rule-chip{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;
-    background:#FBEFD6;border:1.5px solid var(--mustard);color:#7A5410;
-    font-size:12.5px;font-weight:800;line-height:1.5;}
-
-  #legendCard{flex:0 0 auto;padding:7px 12px;display:flex;align-items:center;gap:14px;justify-content:center;
-    background:#FFF6DF;}
+  /* 근경: 무지 종이 장부, 청록 등지, 눌리는 목판 도장. */
+  .card{background:var(--card);border:0;border-radius:var(--r);box-shadow:0 3px 0 var(--shadow);}
+  #questCard{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .quest-speech{display:flex;gap:7px;align-items:center;padding:7px 10px 7px 6px;border-left:6px solid var(--cast-mok);
+    background-color:var(--card);background-image:var(--felt-grain);}
+  #questFace{width:54px;height:58px;object-fit:contain;flex:0 0 54px;}
+  .quest-copy{min-width:0;}
+  .speaker{display:block;color:var(--cast-mok-deep);font-size:12px;font-weight:800;margin-bottom:3px;letter-spacing:.04em;}
+  #questText{font-size:14px;line-height:1.4;font-weight:700;word-break:keep-all;}
+  #questText b{font-size:22px;line-height:1.15;font-weight:900;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap;}
+  /* 답의 형식(정규형) 제약을 학생에게 상시로 알리는 칩 — 대사 바깥의 독립 배지. */
+  #ruleRow{display:flex;justify-content:center;}
+  #ruleRow:empty{display:none;}
+  .rule-chip{display:inline-block;padding:3px 10px;border-radius:999px;background:var(--card);border:1.5px solid var(--cast-mungchi);
+    color:var(--ink);font-size:12.5px;font-weight:800;line-height:1.5;}
+  #legendCard{flex:0 0 auto;padding:7px 10px;display:flex;align-items:center;gap:12px;justify-content:center;border-left:6px solid var(--cast-mok);
+    background-color:var(--card);background-image:var(--felt-grain);}
+  #legendCard.has-order{display:grid;grid-template-columns:minmax(0,1.38fr) minmax(118px,.9fr);align-items:stretch;gap:9px;padding:7px 9px;}
+  .order-pane{min-width:0;display:flex;flex-direction:column;justify-content:center;}
+  .legend-pane{min-width:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:4px;padding-left:9px;border-left:1px solid var(--line);}
+  #legendCard.has-order .legend-item{font-size:13px;gap:4px;}
+  #legendCard.has-order .picto.big{width:34px;height:34px;}
+  #legendCard.has-order .picto.small{width:21px;height:21px;}
   #legendCard.flash{animation:legendFlash 1.2s ease 2;}
-  @keyframes legendFlash{0%,100%{background:#FFF6DF}50%{background:#FFDF9E;transform:scale(1.03)}}
-  .legend-item{display:flex;align-items:center;gap:6px;font-weight:800;font-size:15px;}
-  .legend-title{font-size:12px;font-weight:800;color:var(--ink-soft);border:1.5px solid var(--line);border-radius:8px;padding:2px 7px;background:var(--card);}
-
-  /* ── 보드 ── */
-  #board{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;justify-content:flex-start;}
-  /* 그래프 카드가 남는 세로 공간을 먹어 카드 사이 빈틈이 생기지 않게 한다 */
-  .graph-card{padding:10px;display:flex;flex-direction:column;gap:6px;flex:1 1 auto;min-height:0;justify-content:center;}
-  .graph-card .grow{flex:1 1 auto;min-height:0;max-height:max(calc(var(--picoBig) * 4.4 + 20px), 34vh);}
-  .graph-title{text-align:center;font-weight:900;font-size:15px;}
-  .graph-title small{font-weight:700;color:var(--ink-soft);font-size:11px;display:block;}
-  .grow{display:flex;align-items:stretch;border-top:1.5px dashed var(--line);}
-  .grow:last-child{border-bottom:1.5px dashed var(--line);}
-  .grow-label{flex:0 0 74px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;
-    border-right:1.5px dashed var(--line);padding:6px 4px;text-align:center;}
-  .grow-strip{flex:1;display:flex;flex-wrap:wrap;align-items:center;align-content:center;gap:3px;padding:7px 8px;min-height:calc(var(--picoBig) + 16px);}
-  .picto{display:inline-flex;align-items:center;justify-content:center;border:none;background:none;padding:0;}
+  @keyframes legendFlash{0%,100%{background-color:var(--card)}50%{background-color:var(--cast-mungchi)}}
+  .legend-item{display:flex;align-items:center;gap:5px;font-weight:800;font-size:16px;white-space:nowrap;}
+  .legend-title{font-size:12px;font-weight:800;color:var(--cast-mok-deep);}
+  #board{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:0;overflow-y:auto;overflow-x:hidden;padding:4px;
+    justify-content:flex-start;background:repeating-linear-gradient(102deg,rgba(96,48,36,.72) 0 2px,rgba(96,48,36,.58) 2px 5px);
+    border-radius:20px 23px 21px 18px;box-shadow:0 3px 0 var(--shadow);}
+  .graph-card{width:100%;padding:11px 10px;display:flex;flex-direction:column;gap:7px;flex:1 0 auto;min-height:min-content;justify-content:flex-start;
+    background:var(--card);border-left:8px solid var(--cast-mok);border-radius:16px 19px 18px 14px;box-shadow:none;position:relative;}
+  .graph-card .grow{flex:1 0 auto;min-height:min-content;}
+  .graph-title{text-align:center;font-weight:900;font-size:17px;color:var(--cast-mok-deep);}
+  .graph-title small{font-weight:700;color:var(--ink-soft);font-size:12px;display:block;margin-top:4px;}
+  .grow{display:flex;align-items:stretch;border-top:1px dashed var(--line);position:relative;isolation:isolate;}
+  .grow:last-child{border-bottom:1px dashed var(--line);}
+  .grow-label{flex:0 0 68px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;
+    border-right:1px dashed var(--line);padding:6px 4px;text-align:center;word-break:keep-all;}
+  .grow-field{flex:1;min-width:0;position:relative;display:flex;}
+  .grow-strip{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;align-content:center;gap:3px;padding:7px 8px;min-height:calc(var(--picoBig) + 16px);position:relative;z-index:1;}
+  .stamp-guides{position:absolute;z-index:0;left:8px;right:8px;top:50%;transform:translateY(-50%);display:grid;
+    grid-template-columns:repeat(10,minmax(0,1fr));gap:3px;pointer-events:none;}
+  .stamp-guide{width:min(21px,100%);aspect-ratio:1;justify-self:center;border:1px dashed rgba(96,48,36,.16);border-radius:50%;}
+  .picto{display:inline-flex;align-items:center;justify-content:center;border:none;background:none;padding:0;flex:none;color:var(--cast-mok);position:relative;z-index:1;}
   .picto.big{width:var(--picoBig);height:var(--picoBig);}
   .picto.small{width:var(--picoSmall);height:var(--picoSmall);}
-  .picto.placed{animation:stampIn .18s ease-out;}
-  @keyframes stampIn{0%{transform:scale(2.1) rotate(-14deg);opacity:0}70%{transform:scale(.92)}100%{transform:scale(1)}}
   .picto svg{width:100%;height:100%;display:block;pointer-events:none;}
-  .picto.removable{cursor:pointer;}
-  .strip-hint{font-size:12px;color:var(--ink-soft);font-weight:600;padding:4px 2px;}
-
-  /* 주문서(표) 카드 */
-  .order-card{padding:10px 12px;}
-  .order-title{font-size:12px;font-weight:800;color:var(--ink-soft);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
-  .order-title::before{content:'표';background:var(--mustard);color:#fff;border-radius:6px;padding:1px 7px;font-size:11px;}
-  .order-table{display:grid;grid-template-columns:1fr 1fr;border:2px solid var(--ink);border-radius:10px;overflow:hidden;text-align:center;font-weight:800;}
-  .order-table .th{background:#F1E5CC;font-size:13px;padding:6px 4px;border-bottom:2px solid var(--ink);}
-  .order-table .td{font-size:17px;padding:8px 4px;}
-  .order-table .th:first-child,.order-table .td:first-child{border-right:2px solid var(--ink);}
-  .order-table .td b{color:var(--red-dk);}
-
-  /* 읽기 모드: 가격표 휠 */
-  #wheelWrap{display:flex;justify-content:center;gap:10px;padding:12px 8px 14px;}
-  .wheel{display:flex;flex-direction:column;align-items:center;gap:4px;}
-  .wheel-name{font-size:12px;font-weight:800;color:var(--ink-soft);}
-  .wheel-btn{width:56px;height:44px;background:var(--card);border:2px solid var(--ink);border-radius:10px;
-    font-size:19px;font-weight:900;box-shadow:0 3px 0 var(--shadow);}
-  .wheel-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--shadow);}
-  .wheel-digit{width:56px;height:58px;background:var(--ink);color:#FFEFC9;border-radius:10px;
-    display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;font-variant-numeric:tabular-nums;}
-  #tagValue{text-align:center;font-weight:800;font-size:14px;color:var(--ink-soft);padding-bottom:8px;}
-  #tagValue b{color:var(--red-dk);font-size:18px;}
-
-  /* 트럭 (배달 모드) */
-  .truck-card{padding:8px 10px;}
-  .truck-head{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;margin-bottom:4px;}
-  .truck-head .truck-name{white-space:nowrap;flex:0 0 auto;}
-  .truck-head .strip-hint{flex:1 1 auto;font-size:11.5px;}
-  .truck-bed{border:2px dashed var(--ink-soft);border-radius:10px;min-height:56px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;padding:7px 8px;background:#FBF4E4;}
-
-  /* ── 컨트롤 ── */
-  #controls{flex:0 0 auto;display:flex;gap:8px;align-items:stretch;}
-  .stamp-pad{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 4px 8px;
-    background:var(--card);border:2px solid var(--ink);border-radius:var(--r);box-shadow:0 4px 0 var(--shadow);}
+  .picto.removable{cursor:pointer;min-width:44px;min-height:44px;color:var(--cast-jaei-deep);opacity:.88;}
+  .picto.removable.small svg{width:var(--picoSmall);height:var(--picoSmall);}
+  .picto.removable:nth-child(3n){opacity:.76;}
+  .picto.placed{animation:stampIn .18s ease-out;}
+  @keyframes stampIn{0%{transform:scale(1.06);opacity:.35}100%{transform:scale(1);opacity:.88}}
+  .strip-hint{font-size:12px;color:var(--ink-soft);font-weight:700;padding:4px 2px;}
+  .order-title{font-size:11px;font-weight:800;color:var(--cast-mok-deep);margin-bottom:4px;display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .order-title::before{content:'원부';background:var(--world-paper);color:var(--ink);border-radius:7px;padding:2px 5px;font-size:10px;white-space:nowrap;}
+  .order-table{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-radius:10px;text-align:center;font-weight:800;background:var(--paper);overflow:hidden;}
+  .order-table .th{font-size:11px;padding:4px 3px;color:var(--cast-mok-deep);border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .order-table .td{font-size:13px;padding:5px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .order-table .th:first-child,.order-table .td:first-child{border-right:1px solid var(--line);}
+  .order-table .td b{font-size:19px;color:var(--ink);font-variant-numeric:tabular-nums;}
+  #wheelWrap{display:flex;justify-content:center;gap:12px;padding:12px 8px 10px;}
+  .wheel{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--paper);border-radius:16px;padding:0 4px 5px;}
+  .wheel-name{font-size:12px;font-weight:800;color:var(--card);background:var(--cast-mok-deep);border-radius:10px 10px 4px 4px;padding:5px 6px;min-width:64px;text-align:center;}
+  .wheel-btn{width:56px;height:44px;background:var(--card);border-radius:12px;font-size:19px;font-weight:900;box-shadow:0 3px 0 var(--shadow);}
+  .wheel-btn:active{transform:translateY(3px);box-shadow:none;}
+  .wheel-digit{width:56px;height:48px;background:var(--card);color:var(--ink);border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;}
+  #tagValue{text-align:center;font-weight:800;font-size:13px;color:var(--ink-soft);padding-bottom:10px;}
+  #tagValue b{color:var(--ink);font-size:24px;font-variant-numeric:tabular-nums;}
+  .truck-card{padding:10px 12px;}
+  .truck-head{display:flex;align-items:center;gap:8px;font-weight:800;font-size:15px;margin-bottom:5px;}
+  .truck-name{white-space:nowrap;flex:0 0 auto;color:var(--cast-mok-deep);}
+  .truck-head .strip-hint{flex:1 1 auto;font-size:12px;}
+  .truck-bed{border:1px dashed var(--line);border-radius:14px;min-height:56px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;padding:7px 8px;background:var(--paper);}
+  #controls{flex:0 0 auto;display:flex;gap:7px;align-items:stretch;}
+  #app[data-mode="draw"] #controls{margin-top:-6px;padding:7px 5px 6px;background:rgba(96,48,36,.16);border-radius:0 0 20px 20px;}
+  .stamp-pad{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px 4px 8px;
+    background-color:var(--card);background-image:var(--felt-grain);border-radius:20px;box-shadow:0 4px 0 var(--shadow);}
   .stamp-pad:active{transform:translateY(3px);box-shadow:0 1px 0 var(--shadow);}
   .stamp-pad .pad-ic{pointer-events:none;}
-  .stamp-pad .pad-label{font-size:12px;font-weight:800;color:var(--ink-soft);pointer-events:none;}
-  .stamp-pad .pad-label b{color:var(--ink);font-size:13px;}
-  #confirmBtn{flex:1.1;background:var(--green);border:2px solid var(--ink);border-radius:var(--r);
-    color:#fff;font-size:18px;font-weight:900;box-shadow:0 4px 0 var(--green-dk);min-height:64px;
-    text-shadow:0 1px 0 rgba(0,0,0,.2);}
-  #confirmBtn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--green-dk);}
+  .stamp-pad .pad-label{font-size:12px;font-weight:800;color:var(--cast-mok-deep);pointer-events:none;}
+  .stamp-pad .pad-label b{font-size:16px;}
+  #confirmBtn,.big-btn{background:var(--accent-orange);color:var(--cast-tak-deep);font-size:19px;font-weight:900;box-shadow:0 5px 0 var(--cast-jaei-deep);
+    border:0;border-radius:20px;min-height:64px;padding:10px 16px;}
+  #confirmBtn{flex:1.1;}
+  #confirmBtn:active,.big-btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--cast-jaei-deep);}
+  .big-btn{margin-top:16px;padding:13px 28px;}
 
-  /* ── 오버레이 ── */
+  /* 전면 무대 위 조판. 캐스트는 서로 다른 높이에 선다. */
   .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;
-    background:rgba(69,54,38,.45);padding:20px;}
-  .overlay[hidden]{display:none;}
-  .panel{background:var(--card);border:3px solid var(--ink);border-radius:20px;box-shadow:6px 6px 0 var(--shadow);
-    max-width:420px;width:100%;padding:22px 18px;text-align:center;}
-  .panel h2{font-size:20px;margin-bottom:8px;}
-  .panel p{font-size:15px;line-height:1.55;color:var(--ink);font-weight:600;}
-  .panel .sub{font-size:13px;color:var(--ink-soft);margin-top:6px;font-weight:600;}
-  .big-btn{margin-top:14px;background:var(--red);color:#fff;font-size:18px;font-weight:900;
-    border:2px solid var(--ink);border-radius:14px;padding:13px 30px;box-shadow:0 4px 0 var(--red-dk);min-height:52px;}
-  .big-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--red-dk);}
-  .big-btn.green{background:var(--green);box-shadow:0 4px 0 var(--green-dk);}
-  .big-btn.green:active{box-shadow:0 1px 0 var(--green-dk);}
-
-  /* 타이틀 */
-  #titleScreen{background:var(--paper);background-image:radial-gradient(rgba(69,54,38,.05) 1.2px, transparent 1.2px);background-size:22px 22px;}
-  #titleArt{width:min(240px,60vw);margin:0 auto 6px;}
-  #titleScreen h1{font-size:34px;letter-spacing:1px;margin:4px 0 2px;}
-  #titleScreen .tagline{font-size:15px;font-weight:700;color:var(--ink-soft);}
-  .howto-row{display:flex;align-items:center;gap:10px;text-align:left;font-size:13.5px;font-weight:700;
-    background:#FFF6DF;border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;margin-top:7px;}
-  .howto-num{flex:0 0 24px;height:24px;border-radius:50%;background:var(--red);color:#fff;font-weight:900;
+    background:rgba(243,238,223,.78);padding:20px;}
+  .panel{background-color:var(--card);background-image:var(--felt-grain);border:0;border-radius:24px;box-shadow:0 4px 0 var(--shadow);max-width:430px;width:100%;padding:22px;text-align:center;max-height:calc(100dvh - 40px);overflow-y:auto;}
+  .panel h2{font-size:26px;letter-spacing:-.04em;margin-bottom:10px;}
+  .panel p{font-size:15px;line-height:1.55;color:var(--ink);font-weight:700;word-break:keep-all;}
+  .panel .sub{font-size:12px;color:var(--ink-soft);margin-top:10px;font-weight:700;}
+  .panel .big-btn{width:100%;}
+  #titleScreen{padding:0;background:var(--paper);display:block;overflow:hidden;}
+  #titleScreen::before{content:'';position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(243,238,223,.45),transparent 48%,rgba(243,238,223,.32)),url('./assets/backdrop.png') center 58%/cover no-repeat;}
+  .title-heading{position:absolute;top:8%;left:max(6%,calc(var(--stageX) + 50px));z-index:2;}
+  .eyebrow{font-size:12px;font-weight:800;letter-spacing:.18em;color:var(--cast-mok-deep);}
+  #titleScreen h1{display:flex;align-items:center;gap:22px;margin:18px 0 21px;font-size:clamp(58px,7.4vw,98px);line-height:1.05;letter-spacing:-.065em;}
+  #titleScreen h1 span{display:inline-block;color:var(--ink);transform:rotate(-3deg);padding:0 6px 8px;border-bottom:4px solid var(--cast-mok);}
+  #titleScreen h1 strong{display:inline-block;background:var(--cast-mok);color:var(--card);border-radius:26px;padding:13px 22px 18px;font-size:.82em;box-shadow:6px 8px 0 var(--cast-mok-deep);transform:rotate(2deg);}
+  #titleScreen .tagline{font-size:17px;font-weight:800;color:var(--ink);}
+  .title-figure{position:absolute;pointer-events:none;}
+  .title-figure::before{content:'';position:absolute;z-index:0;left:13%;right:13%;bottom:1%;height:8%;border-radius:50%;
+    background:radial-gradient(ellipse at center,rgba(96,48,36,.25) 0 38%,rgba(96,48,36,0) 72%);}
+  .title-figure>img{position:relative;z-index:1;width:100%;height:100%;display:block;object-fit:contain;}
+  .title-mok{height:39%;aspect-ratio:462/512;left:max(11%,calc(var(--stageX) + 100px));bottom:17%;}
+  .title-tak{height:32%;aspect-ratio:432/512;right:max(13%,calc(var(--stageX) + 100px));bottom:24%;}
+  .title-bottom{position:absolute;left:50%;bottom:max(22px,5%);transform:translateX(-50%);width:min(340px,calc(100% - 48px));text-align:center;}
+  .title-bottom>p{font-size:12px;font-weight:800;color:var(--cast-mok-deep);}
+  .title-bottom .big-btn{width:100%;margin-top:12px;font-size:22px;}
+  .text-button{background:none;color:var(--ink);font-size:13px;font-weight:800;padding:10px 16px;min-height:44px;}
+  .howto-row{display:flex;align-items:center;gap:10px;text-align:left;font-size:13px;font-weight:700;line-height:1.6;
+    background:var(--paper);border-radius:14px;padding:10px;margin-top:8px;}
+  .howto-num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--cast-mok-deep);color:var(--card);font-weight:900;
     display:flex;align-items:center;justify-content:center;font-size:13px;}
+  #helpOverlay{z-index:50;}
+  #helpOverlay .eyebrow{display:block;margin-bottom:9px;}
 
-  /* 라운드 표지 — 예전엔 화면 위에 떠서 범례 카드를 덮었다. 이제 흐름 안의 띠라 무엇도 가리지 않는다 */
-  #banner{flex:0 0 auto;align-self:center;max-width:100%;pointer-events:none;
-    background:var(--ink);color:#FFEFC9;font-weight:800;font-size:13px;padding:5px 16px;border-radius:999px;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.2px;}
+  #banner{max-width:86px;pointer-events:none;color:var(--ink);font-weight:800;font-size:11px;line-height:1.2;padding:2px 0;
+    border-radius:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #banner:empty{display:none;}
-  #banner.show{animation:bannerPop .45s ease-out;}
-  @keyframes bannerPop{0%{transform:scale(.6);opacity:0}55%{transform:scale(1.06);opacity:1}100%{transform:scale(1);opacity:1}}
-  #bigStamp{position:fixed;top:38%;left:50%;z-index:35;pointer-events:none;opacity:0;
-    transform:translate(-50%,-50%) scale(2.4) rotate(-10deg);
-    border:5px solid var(--red);color:var(--red);font-weight:900;font-size:30px;border-radius:14px;
-    padding:8px 18px;background:rgba(255,253,246,.92);}
-  #bigStamp.show{animation:slam .5s ease-out forwards;}
-  @keyframes slam{0%{opacity:0;transform:translate(-50%,-50%) scale(2.4) rotate(-10deg)}
-    60%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-8deg)}
-    100%{opacity:1;transform:translate(-50%,-50%) scale(1.04) rotate(-8deg)}}
+  #banner.fog{background-color:var(--world-fog);padding-inline:4px;}
+  #banner.show{animation:bannerPop .25s ease-out;}
+  @keyframes bannerPop{0%{transform:translateY(3px);opacity:0}100%{transform:translateY(0);opacity:1}}
+  #bigStamp{position:fixed;top:38%;left:50%;z-index:35;pointer-events:none;opacity:0;transform:translate(-50%,-50%);
+    min-width:92px;color:var(--card);font-weight:900;font-size:16px;letter-spacing:.05em;text-align:center;border-radius:12px 12px 7px 7px;
+    border-bottom:6px solid var(--cast-jaei-deep);padding:9px 12px 7px;background:var(--world-ink);}
+  #bigStamp::before{content:'';position:absolute;left:50%;top:-17px;width:34px;height:20px;transform:translateX(-50%);
+    border-radius:12px 12px 5px 5px;background:var(--world-ink);}
+  #bigStamp.show{animation:slam .62s ease-out forwards;}
+  @keyframes slam{0%{opacity:0;transform:translate(-50%,calc(-50% - 42px)) scale(1.05) rotate(-5deg)}
+    42%{opacity:1;transform:translate(-50%,-42%) scale(.96) rotate(-3deg)}
+    66%{opacity:1;transform:translate(-50%,-48%) scale(1) rotate(-3deg)}
+    100%{opacity:0;transform:translate(-50%,calc(-50% - 18px)) scale(1) rotate(-3deg)}}
+  .grow.recorded::before{content:'';position:absolute;z-index:0;inset:0;background:linear-gradient(90deg,rgba(216,72,24,.17),rgba(216,72,24,.05) 72%,transparent);
+    transform:scaleX(0);transform-origin:left center;animation:inkSpread .66s ease-out forwards;}
+  .grow.recorded::after{content:'검수';position:absolute;z-index:2;right:10px;bottom:8px;width:42px;height:42px;display:flex;align-items:center;
+    justify-content:center;border:2px solid var(--cast-jaei-deep);border-radius:50%;color:var(--cast-jaei-deep);font-size:11px;font-weight:900;
+    transform:rotate(-9deg) scale(1.45);opacity:0;animation:sealSet .58s .18s ease-out forwards;}
+  .grow.recorded>.grow-label,.grow.recorded>.grow-strip,.grow.recorded>.grow-field{position:relative;z-index:1;}
+  @keyframes inkSpread{0%{transform:scaleX(0);opacity:.25}65%,100%{transform:scaleX(1);opacity:1}}
+  @keyframes sealSet{0%{transform:rotate(-9deg) scale(1.45);opacity:0}70%,100%{transform:rotate(-9deg) scale(1);opacity:.82}}
+  #dispatch{position:fixed;bottom:18%;left:calc(var(--stageX) + 24px);z-index:36;display:flex;align-items:center;pointer-events:none;opacity:0;
+    padding:5px 6px 7px;background:var(--world-ink);border-radius:7px;box-shadow:0 4px 0 rgba(96,48,36,.34);}
+  #dispatch>img,#dispatch>span{display:none;}
+  #dispatch>svg{width:42px;height:42px;color:var(--ink);}
+  #dispatch.show{animation:crateAway .8s ease-out;}
+  @keyframes crateAway{0%{opacity:0;transform:translateX(0) translateY(5px)}18%,60%{opacity:1}100%{opacity:0;transform:translateX(-32vw) translateY(-5px)}}
 
-  /* 세로 여유가 있는 폰·태블릿에서는 도장을 키워 그래프가 화면을 채우게 한다 */
-  @media (min-height:720px){ :root{--picoBig:46px;--picoSmall:26px;} }
-  @media (min-width:700px){ #app{max-width:680px;} .grow-label{flex-basis:96px;} :root{--picoBig:clamp(46px,5.5vh,64px);--picoSmall:clamp(26px,3.1vh,36px);} }
+  /* 오답: 한 줄과 화면 가장자리에만 안개가 스민다. */
+  .grow.fogged,.truck-bed.fogged{background:rgba(192,168,204,.18);}
+  #fogEdge{position:fixed;inset:0;z-index:45;pointer-events:none;opacity:0;box-shadow:inset 0 0 0 7px var(--world-fog);}
+  #fogEdge.show{animation:fogEdge .6s ease-out;}
+  @keyframes fogEdge{0%,100%{opacity:0}35%{opacity:.7}}
+  #muVisit{position:fixed;right:max(8px,var(--stageX));bottom:12%;z-index:46;opacity:0;pointer-events:none;text-align:center;}
+  #muVisit>img{width:94px;height:100px;object-fit:contain;display:block;}
+  #muVisit>p{font-size:12px;font-weight:800;color:var(--ink);background:var(--card);border-radius:12px;padding:4px 8px;}
+  #muVisit.show{animation:muVisit .9s ease-out;}
+  @keyframes muVisit{0%,100%{opacity:0}20%,70%{opacity:.55}}
+  .sheet-cast{display:block;width:120px;height:136px;object-fit:contain;margin:0 auto 6px;}
+  #msgOverlay .panel{border-top:7px solid var(--world-fog);}
+  #msgTitle{margin-top:3px;}
+  .note-label{display:block;font-size:12px;color:var(--cast-mok-deep);font-weight:800;text-align:left;margin:14px 0 4px;}
+  #msgBody,#endBody{background:var(--paper);border-radius:14px;padding:12px;font-size:13px;text-align:left;line-height:1.7;}
+  .end-cast-row{display:flex;justify-content:center;gap:18px;align-items:flex-end;}
+  #endTak{width:88px;height:104px;object-fit:contain;}
+  #takLine{font-size:13px;color:var(--cast-tak);margin-top:12px;}
+  #takLine::before{content:'탁 반장';display:block;font-size:12px;margin-bottom:3px;}
+  #endSpeaker{margin:4px 0 7px;}
 
-  /* ══ 와이드 재배치 — ② 2단 분할형: 좌 그래프판 / 우 주문·범례·장부 ══ */
-  html.land{ --picoBig:clamp(46px, min(calc(var(--stageW) * .055), 9vh), 72px);
-             --picoSmall:clamp(25px, min(calc(var(--stageW) * .03), 5vh), 40px); }
-  html.land #board{justify-content:center;}
+  @media (min-height:720px){:root{--picoBig:46px;--picoSmall:26px;}}
+  @media (orientation:portrait) and (min-height:760px){
+    #app[data-mode="draw"] #board,#app[data-mode="read"] #board,#app[data-mode="compare"] #board{flex-basis:46dvh;min-height:46dvh;}
+    #app[data-mode="draw"] .graph-card,#app[data-mode="read"] .graph-card,#app[data-mode="compare"] .graph-card{min-height:calc(46dvh - 8px);}
+  }
+  @media (orientation:portrait){
+    #app[data-mode="read"] #questFace{width:48px;height:50px;flex-basis:48px;}
+    #app[data-mode="read"] #legendCard{padding-block:4px;}
+    #app[data-mode="read"] #legendCard .picto.big{width:36px;height:36px;}
+    #app[data-mode="read"] #legendCard .picto.small{width:21px;height:21px;}
+    #app[data-mode="read"] .legend-item{font-size:14px;}
+    #app[data-mode="read"] #wheelWrap{gap:8px;padding:5px 8px 3px;}
+    #app[data-mode="read"] .wheel{gap:2px;padding-bottom:3px;}
+    #app[data-mode="read"] .wheel-name{min-width:58px;padding:2px 4px;font-size:10px;line-height:16px;}
+    #app[data-mode="read"] .wheel-btn{width:54px;height:44px;}
+    #app[data-mode="read"] .wheel-digit{width:54px;height:34px;font-size:27px;}
+    #app[data-mode="read"] #tagValue{padding-bottom:4px;font-size:12px;line-height:18px;}
+    #app[data-mode="read"] #tagValue b{font-size:21px;}
+    #app[data-mode="compare"] .truck-card{padding:6px 10px;}
+    #app[data-mode="compare"] .truck-head{font-size:13px;margin-bottom:3px;}
+    #app[data-mode="compare"] .truck-bed{min-height:44px;padding:3px 6px;}
+  }
+  @media (min-width:700px){#app{max-width:680px;}.grow-label{flex-basis:96px;}:root{--picoBig:clamp(46px,5.5vh,64px);--picoSmall:clamp(26px,3.1vh,36px);}}
+  @media (max-width:699px){
+    .title-heading{top:8%;left:16px;right:16px;text-align:center;}
+    #titleScreen h1{display:flex;flex-direction:column;gap:14px;margin:18px 0 20px;font-size:68px;}
+    #titleScreen h1 strong{font-size:48px;padding:10px 17px 15px;border-radius:22px;}
+    #titleScreen .tagline{font-size:15px;}
+    .title-mok{height:38%;left:1%;bottom:22%;max-width:58%;}
+    .title-tak{height:31%;right:0;bottom:25%;max-width:43%;}
+    .title-bottom{bottom:max(18px,4%);}
+    #app[data-mode="compare"] #board{--picoBig:34px;--picoSmall:20px;}
+    #app[data-mode="compare"] .graph-card{padding:9px 7px;gap:4px;}
+    #app[data-mode="compare"] .grow-strip{gap:2px;padding:6px;}
+    #app[data-mode="compare"] .grow-label{flex-basis:62px;}
+    #app[data-mode="compare"] .graph-title{font-size:16px;}
+  }
+  @media (max-width:379px){#app{padding-inline:12px;}#hud{gap:4px;}.hud-box{padding-inline:5px;}#takRecord>img{width:19px;height:22px;}.record-target{font-size:9.5px;}#hudHearts{gap:3px;padding-inline:5px;}.buoy{width:12px;}.buoy::before{left:4px;}#questText{font-size:13px;}#questFace{width:48px;flex-basis:48px;}#legendCard{gap:7px;padding-inline:6px;}}
+  @media (max-height:720px){
+    #app{gap:6px;padding-top:6px;}.quest-speech{padding-block:6px;}#questFace{height:52px;width:48px;flex-basis:48px;}
+    #questText{font-size:14px;}#questText b{font-size:22px;}.graph-card{padding:8px;gap:4px;}
+    #titleScreen h1{font-size:55px;margin-top:12px;gap:9px;}#titleScreen h1 strong{font-size:42px;}.title-heading{top:5%;}
+    .title-mok{bottom:23%;}.title-tak{bottom:26%;}.title-bottom{bottom:14px;}
+    .wheel-digit{height:34px;font-size:28px;}#wheelWrap{padding-top:7px;padding-bottom:6px;}.wheel-name{padding-block:3px;}
+  }
+
+  /* 와이드 2단 분할: 좌 그래프판 / 우 원부·범례·장부. 판형 계약 유지. */
+  html.land{--picoBig:clamp(46px, min(calc(var(--stageW) * .055), 9vh), 72px);
+    --picoSmall:clamp(25px, min(calc(var(--stageW) * .03), 5vh), 40px);}
+  html.land #board{justify-content:flex-start;}
   html.land .graph-card{flex:1 1 auto;max-height:min(100%, 620px);}
   html.land .graph-card .grow{max-height:min(52vh, calc(var(--picoBig) * 6.5));}
-  html.land body::before{
-    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-    background:
-      linear-gradient(rgba(69,54,38,.13),rgba(69,54,38,.13)) left top/var(--stageX) 100% no-repeat,
-      linear-gradient(rgba(69,54,38,.13),rgba(69,54,38,.13)) right top/var(--stageX) 100% no-repeat;
-  }
-  html.land #app{
-    max-width:none;width:var(--stageW);
-    display:grid;
+  html.land #app{max-width:none;width:var(--stageW);display:grid;
     grid-template-columns:minmax(0,1fr) var(--panelW);
-    grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto;
-    grid-template-areas:
-      "hud    hud"
-      "banner banner"
-      "board  quest"
-      "board  legend"
-      "board  atop"
-      "board  abot"
-      "ctrl   abot";
-    column-gap:14px;row-gap:8px;padding:10px 14px calc(12px + env(safe-area-inset-bottom));
-  }
+    grid-template-rows:auto auto auto auto minmax(0,1fr) auto;
+    grid-template-areas:"hud hud" "board quest" "board legend" "board atop" "board abot" "ctrl abot";
+    column-gap:18px;row-gap:10px;padding:14px 20px calc(18px + env(safe-area-inset-bottom));}
   html.land #hud{grid-area:hud;}
-  html.land #banner{grid-area:banner;justify-self:center;font-size:14px;padding:6px 20px;}
   html.land #questCard{grid-area:quest;}
   html.land #legendCard{grid-area:legend;}
   html.land #asideTop{grid-area:atop;}
   html.land #asideBot{grid-area:abot;align-content:start;}
   html.land #board{grid-area:board;min-height:0;}
   html.land #controls{grid-area:ctrl;justify-content:center;}
-
-  html.land .hud-box{font-size:15px;padding:5px 12px;min-height:38px;}
-  html.land #questCard{padding:12px 14px;}
+  html.land .hud-box{font-size:13px;padding:5px 9px;min-height:40px;}
+  html.land #takRecord{padding-inline:6px;}
+  html.land #takRecord>img{width:22px;height:24px;}
+  html.land .record-values{flex-direction:row;align-items:baseline;gap:3px;}
+  html.land .record-target{font-size:11px;}
+  html.land .quest-speech{padding:12px 10px 12px 6px;}
   html.land #questText{font-size:16px;}
-  html.land #questText b{font-size:20px;}
-  html.land #legendCard{padding:10px 12px;}
+  html.land #questText b{font-size:26px;}
+  html.land #legendCard{padding:10px 8px;gap:10px;}
+  html.land #legendCard .picto.big{width:48px;height:48px;}
+  html.land #legendCard .picto.small{width:28px;height:28px;}
   html.land .legend-item{font-size:16px;}
-
-  html.land .graph-card{padding:14px 16px;gap:10px;}
-  html.land .graph-title{font-size:19px;}
-  html.land .graph-title small{font-size:12.5px;}
+  html.land #legendCard.has-order .legend-item{font-size:13px;}
+  html.land #legendCard.has-order .picto.big{width:34px;height:34px;}
+  html.land #legendCard.has-order .picto.small{width:21px;height:21px;}
+  html.land .graph-card{padding:16px 18px;gap:12px;}
+  html.land .graph-title{font-size:17px;}
+  html.land .graph-title small{font-size:12px;}
   html.land .grow-label{flex:0 0 clamp(96px, calc(var(--stageW) * .1), 136px);font-size:16px;}
   html.land .grow-strip{gap:5px;padding:10px 14px;}
   html.land .order-table .th{font-size:14px;padding:8px 4px;}
-  html.land .order-table .td{font-size:19px;padding:10px 4px;}
+  html.land .order-table .td{font-size:17px;padding:10px 4px;}
   html.land .wheel-btn{width:64px;height:46px;font-size:20px;}
-  html.land .wheel-digit{width:64px;height:64px;font-size:34px;}
+  html.land .wheel-digit{width:64px;height:56px;font-size:30px;}
   html.land #wheelWrap{padding:14px 8px 12px;}
   html.land .truck-bed{min-height:calc(var(--picoBig) + 20px);}
   html.land .stamp-pad{max-width:250px;}
   html.land #confirmBtn{max-width:290px;font-size:20px;}
+  @media (max-height:520px){
+    html.land{--panelW:min(360px,calc(var(--stageW) * .44));}
+    html.land #app{padding:8px 12px 12px;gap:6px 12px;
+      grid-template-rows:auto minmax(0,1fr) auto;
+      grid-template-areas:"hud hud" "board side" "ctrl side";}
+    html.land #sidePanel{grid-area:side;display:flex;flex-direction:column;gap:6px;min-height:0;min-width:0;}
+    html.land #sideTools{display:flex;flex-direction:column;gap:6px;min-height:0;overflow-y:auto;padding-bottom:4px;}
+    html.land #legendCard{position:sticky;top:0;z-index:2;padding:5px 8px;gap:10px;}
+    html.land #legendCard .picto.big{width:34px;height:34px;}
+    html.land #legendCard .picto.small{width:22px;height:22px;}
+    html.land .legend-item{font-size:15px;}
+    html.land .quest-speech{padding:6px;}
+    html.land #questText{font-size:15px;}
+    html.land #questText b{font-size:22px;}
+    html.land #questFace{width:44px;height:52px;flex-basis:44px;}
+    html.land .graph-card{max-height:none;}
+    html.land .graph-card .grow{max-height:none;}
+    html.land .grow-label{flex-basis:76px;}
+  }
+  @media (orientation:portrait){
+    html.land #app[data-mode="draw"] #board,html.land #app[data-mode="read"] #board,html.land #app[data-mode="compare"] #board{min-height:0;flex-basis:auto;}
+    html.land #app[data-mode="draw"] .graph-card,html.land #app[data-mode="read"] .graph-card,html.land #app[data-mode="compare"] .graph-card{min-height:min-content;}
+  }
+  @media (prefers-reduced-motion:reduce){.picto.placed,#bigStamp.show,.grow.recorded::before,.grow.recorded::after,#dispatch.show,#fogEdge.show,#muVisit.show,#banner.show{animation-duration:.01s;}}
 </style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <g id="ic-apple"><circle cx="12" cy="14" r="9" fill="#E0563C"/><circle cx="9" cy="11.5" r="2.4" fill="#F2917B" opacity=".8"/><path d="M12 6 Q11 2.5 8.5 2" stroke="#6b4a2b" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M12.5 5.5 Q16 2 18.5 4.5 Q15.5 7 12.5 5.8Z" fill="#6C9E52"/></g>
-    <g id="ic-gam"><circle cx="12" cy="13.5" r="9" fill="#ED8A3B"/><circle cx="9" cy="11" r="2.2" fill="#F6B27E" opacity=".85"/><path d="M12 8.5 L15 5.5 L12 6.5 L9 5.5 Z M12 8.5 L8 8 L10.5 9.8 Z M12 8.5 L16 8 L13.5 9.8 Z" fill="#557B3E"/></g>
-    <g id="ic-egg"><ellipse cx="12" cy="13" rx="8" ry="10" fill="#F3E3C3" stroke="#D9B98A" stroke-width="1.2"/><ellipse cx="9.5" cy="9.5" rx="2.4" ry="3.2" fill="#FBF3DF"/></g>
-    <g id="ic-milk"><path d="M8 3h8v3l2 4v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V10l2-4Z" fill="#F5F2E8" stroke="#5E97B8" stroke-width="1.5"/><path d="M6 10h12" stroke="#5E97B8" stroke-width="1.5"/><rect x="9" y="13" width="6" height="6" rx="1" fill="#5E97B8"/></g>
-    <g id="ic-fish"><path d="M3 12 Q9 5 15 9 L20 5.5 L18.5 12 L20 18.5 L15 15 Q9 19 3 12Z" fill="#5E97B8"/><circle cx="7.5" cy="11" r="1.4" fill="#2E4A5C"/><path d="M12 9.5 Q14 12 12 14.5" stroke="#3E6E8C" stroke-width="1.3" fill="none"/></g>
-    <g id="ic-crate"><rect x="3" y="6" width="18" height="14" rx="2" fill="#D9A55B" stroke="#8A6230" stroke-width="1.6"/><path d="M3 11h18M9 6v14M15 6v14" stroke="#8A6230" stroke-width="1.4"/></g>
-    <g id="ic-raccoon">
-      <circle cx="24" cy="26" r="19" fill="#9A8F80"/>
-      <path d="M8 12 L17 16 L11 22 Z" fill="#6E6355"/><path d="M40 12 L31 16 L37 22 Z" fill="#6E6355"/>
-      <ellipse cx="24" cy="30" rx="13" ry="10.5" fill="#EFE6D4"/>
-      <path d="M10 22 Q15 17 21 21 Q19 27 13 27 Q10.5 25 10 22Z" fill="#4A3B2C"/>
-      <path d="M38 22 Q33 17 27 21 Q29 27 35 27 Q37.5 25 38 22Z" fill="#4A3B2C"/>
-      <circle cx="16.5" cy="23" r="1.9" fill="#fff"/><circle cx="31.5" cy="23" r="1.9" fill="#fff"/>
-      <circle cx="16.9" cy="23.3" r="1" fill="#2A2119"/><circle cx="31.1" cy="23.3" r="1" fill="#2A2119"/>
-      <ellipse cx="24" cy="29.5" rx="2.6" ry="2" fill="#4A3B2C"/>
-      <path d="M20 34 Q24 37 28 34" stroke="#4A3B2C" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    </g>
+    <g id="ic-apple"><circle cx="12" cy="14" r="9" fill="currentColor"/><circle cx="9" cy="11.5" r="2.4" fill="var(--card)" opacity=".8"/><path d="M12 6 Q11 2.5 8.5 2" stroke="var(--ink)" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M12.5 5.5 Q16 2 18.5 4.5 Q15.5 7 12.5 5.8Z" fill="var(--cast-mok-deep)"/></g>
+    <g id="ic-gam"><circle cx="12" cy="13.5" r="9" fill="currentColor"/><circle cx="9" cy="11" r="2.2" fill="var(--card)" opacity=".85"/><path d="M12 8.5 L15 5.5 L12 6.5 L9 5.5 Z M12 8.5 L8 8 L10.5 9.8 Z M12 8.5 L16 8 L13.5 9.8 Z" fill="var(--cast-mok-deep)"/></g>
+    <g id="ic-egg"><ellipse cx="12" cy="13" rx="8" ry="10" fill="var(--paper)" stroke="currentColor" stroke-width="1.2"/><ellipse cx="9.5" cy="9.5" rx="2.4" ry="3.2" fill="var(--card)"/></g>
+    <g id="ic-milk"><path d="M8 3h8v3l2 4v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V10l2-4Z" fill="var(--paper)" stroke="currentColor" stroke-width="1.5"/><path d="M6 10h12" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="13" width="6" height="6" rx="1" fill="currentColor"/></g>
+    <g id="ic-fish"><path d="M3 12 Q9 5 15 9 L20 5.5 L18.5 12 L20 18.5 L15 15 Q9 19 3 12Z" fill="currentColor"/><circle cx="7.5" cy="11" r="1.4" fill="var(--ink)"/><path d="M12 9.5 Q14 12 12 14.5" stroke="var(--cast-mok-deep)" stroke-width="1.3" fill="none"/></g>
+    <g id="ic-crate"><rect x="3" y="6" width="18" height="14" rx="2" fill="var(--paper)" stroke="currentColor" stroke-width="1.6"/><path d="M3 11h18M9 6v14M15 6v14" stroke="currentColor" stroke-width="1.4"/></g>
   </defs>
 </svg>
 
+<div id="scenery" aria-hidden="true"></div>
 <div id="app">
   <header id="hud">
-    <div class="hud-box" id="hudRound">1/8</div>
-    <div class="hud-box" id="hudHearts">♥♥♥</div>
-    <div class="hud-box" id="hudScore">0점</div>
-    <button id="muteBtn" aria-label="소리 켜기/끄기">🔇</button>
+    <div class="hud-box" id="roundStatus"><span id="hudRound">1/8</span><span id="banner"></span></div>
+    <div class="hud-box" id="hudHearts" role="img" aria-label="남은 부표 3개"></div>
+    <div class="hud-box" id="takRecord">
+      <img src="../../vendor/cast/tak/stand.png" alt="탁 반장">
+      <div class="record-values"><b id="hudScore">0점</b><span class="record-sep">·</span><span class="record-target">탁 반장 기록 600점</span></div>
+    </div>
+    <button id="muteBtn" data-muted="true" aria-label="소리 켜기/끄기">♪</button>
   </header>
-  <div id="banner"></div>
-  <section class="card" id="questCard">
-    <svg id="questFace" viewBox="0 0 48 48"><use href="#ic-raccoon"/></svg>
-    <div id="questText"></div>
+  <div id="sidePanel">
+  <section id="questCard" aria-label="목 기록관의 검수 요청">
+    <div class="card quest-speech">
+      <img id="questFace" src="../../vendor/cast/mok/think.png" alt="목 기록관">
+      <div class="quest-copy"><span class="speaker">목 기록관</span><div id="questText" aria-live="polite"></div></div>
+    </div>
+    <div id="ruleRow" aria-label="장부 기록 규칙"></div>
   </section>
+  <div id="sideTools">
   <section class="card" id="legendCard"></section>
   <div id="asideTop"></div>
-  <main id="board"></main>
   <div id="asideBot"></div>
+  </div>
+  </div>
+  <main id="board"></main>
   <footer id="controls"></footer>
 </div>
 
 <div id="bigStamp"></div>
 
+<div id="dispatch" aria-hidden="true"><img src="../../vendor/cast/mok/pose-record.png" alt=""><span>장부 저장</span><svg viewBox="0 0 24 24"><use href="#ic-crate"/></svg></div>
+<div id="fogEdge" aria-hidden="true"></div>
+<div id="muVisit" aria-hidden="true"><img src="../../vendor/cast/mu/sad.png" alt=""><p>…빈 줄.</p></div>
+
 <div class="overlay" id="titleScreen">
-  <div class="panel">
-    <svg id="titleArt" viewBox="0 0 120 96">
-      <rect x="12" y="30" width="96" height="54" rx="8" fill="#FFFDF6" stroke="#453626" stroke-width="3"/>
-      <path d="M12 44 h96 M12 58 h96 M12 71 h96" stroke="#D9C9AD" stroke-width="2" stroke-dasharray="4 4"/>
-      <use href="#ic-apple" transform="translate(22,32) scale(1.1)"/>
-      <use href="#ic-apple" transform="translate(50,32) scale(1.1)"/>
-      <use href="#ic-apple" transform="translate(78,34) scale(0.6)"/>
-      <use href="#ic-apple" transform="translate(92,34) scale(0.6)"/>
-      <use href="#ic-gam" transform="translate(22,46) scale(1.1)"/>
-      <use href="#ic-gam" transform="translate(50,48) scale(0.6)"/>
-      <use href="#ic-raccoon" transform="translate(72,44) scale(0.95)"/>
-      <g transform="translate(30,2) rotate(-14)"><rect x="0" y="0" width="26" height="14" rx="3" fill="#E0563C"/><rect x="9" y="12" width="8" height="14" rx="2" fill="#B93F2A"/></g>
-    </svg>
-    <h1>콩콩 도장 시장</h1>
+  <div class="title-heading">
+    <p class="eyebrow">자눈 측량대 · 갯벌 부두 검수소</p>
+    <h1><span>콩콩</span> <strong>도장 시장</strong></h1>
     <p class="tagline">도장 콩콩! 그림그래프 완성!</p>
-    <div class="howto-row"><span class="howto-num">1</span><span>큰 도장 1개는 <b>10</b>, 작은 도장 1개는 <b>1</b>이에요. 범례를 꼭 확인!</span></div>
-    <div class="howto-row"><span class="howto-num">2</span><span>주문서의 수만큼 도장을 찍고, 그래프를 읽어 장부에 값을 적어요.</span></div>
-    <div class="howto-row"><span class="howto-num">3</span><span>작은 도장이 10개가 되면? 큰 도장 1개로 바꿔야 해요!</span></div>
-    <button class="big-btn" id="startBtn">가게 열기!</button>
+  </div>
+  <span class="title-figure title-mok"><img src="../../vendor/cast/mok/pose-assign.png" alt="장부의 빈 줄을 내미는 목 기록관"></span>
+  <span class="title-figure title-tak"><img src="../../vendor/cast/tak/pose-challenge.png" alt="부두에서 기록에 도전하는 탁 반장"></span>
+  <div class="title-bottom">
+    <p>여덟 줄의 장부 · 그림그래프</p>
+    <button class="big-btn" id="startBtn">검수 시작</button>
+    <button class="text-button" id="helpBtn">어떻게 놀아요?</button>
   </div>
 </div>
 
-<div class="overlay" id="msgOverlay" hidden>
+<div class="overlay" id="helpOverlay" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
   <div class="panel">
+    <span class="eyebrow">갯벌 부두 · 검수 안내</span>
+    <h2 id="helpTitle">장부에 도장 콩콩</h2>
+    <div class="howto-row"><span class="howto-num">1</span><span>큰 도장 1개는 <b>10</b>, 작은 도장 1개는 <b>1</b>이에요. 범례를 꼭 확인!</span></div>
+    <div class="howto-row"><span class="howto-num">2</span><span>원부의 수만큼 도장을 찍고, 그래프를 읽어 장부에 값을 적어요.</span></div>
+    <div class="howto-row"><span class="howto-num">3</span><span>작은 도장이 10개가 되면? 큰 도장 1개로 바꿔야 해요!</span></div>
+    <button class="big-btn" id="helpCloseBtn">알겠어요</button>
+  </div>
+</div>
+
+<div class="overlay" id="msgOverlay" role="dialog" aria-modal="true" aria-labelledby="msgTitle" hidden>
+  <div class="panel">
+    <img class="sheet-cast" src="../../vendor/cast/mok/sad.png" alt="빈 줄을 짚는 목 기록관">
+    <span class="speaker">목 기록관</span>
     <h2 id="msgTitle"></h2>
+    <span class="note-label">장부 메모</span>
     <p id="msgBody"></p>
     <p class="sub" id="msgSub"></p>
-    <button class="big-btn" id="msgBtn">다시 도전!</button>
+    <button class="big-btn" id="msgBtn">다시 기록</button>
   </div>
 </div>
 
-<div class="overlay" id="endScreen" hidden>
+<div class="overlay" id="endScreen" role="dialog" aria-modal="true" aria-labelledby="endTitle" hidden>
   <div class="panel">
-    <svg width="72" height="72" viewBox="0 0 48 48" style="margin:0 auto 4px;display:block"><use href="#ic-raccoon"/></svg>
+    <div class="end-cast-row">
+      <img class="sheet-cast" id="endCast" src="../../vendor/cast/mok/pose-record.png" alt="장부를 기록하는 목 기록관">
+      <img id="endTak" src="../../vendor/cast/tak/joy.png" alt="탁 반장">
+    </div>
+    <span class="speaker" id="endSpeaker">목 기록관</span>
     <h2 id="endTitle"></h2>
+    <span class="note-label">목 기록관의 메모</span>
     <p id="endBody"></p>
     <p class="sub" id="endSub"></p>
-    <button class="big-btn green" id="retryBtn">다시 하기</button>
+    <p id="endAdvice" hidden><span class="speaker">목 기록관</span>틀린 값도 값이다. 다시 재.</p>
+    <p id="takLine"></p>
+    <button class="big-btn" id="retryBtn">다시 하기</button>
   </div>
 </div>
 
@@ -458,6 +605,73 @@ const $ = (id)=>document.getElementById(id);
 const boardEl = $('board'), controlsEl = $('controls'), legendEl = $('legendCard'), questEl = $('questText');
 const asideTopEl = $('asideTop'), asideBotEl = $('asideBot');
 
+/* 화면 전용: 대사·표정·기록 연출. 수학과 진행 상태는 읽기만 한다. */
+let assignmentText = '';
+function say(text, mood='think'){
+  if (mood==='think') assignmentText = text;
+  questEl.innerHTML = text;
+  $('questFace').src = `../../vendor/cast/mok/${mood}.png`;
+}
+$('msgBtn').addEventListener('click', ()=>say(assignmentText));
+function ledgerNote(text){
+  return text.replace('그림 개수만 세었네!', '그림 개수와 값을 구분해.')
+    .replace('범례를 다시 봐요!', '범례를 다시 봐.')
+    .replace('다시 계산해 봐요!', '다시 계산해.')
+    .replace('로 맞아요!', '로 같다.')
+    .replace('작은 낱개', '낱개')
+    .replace('바꿔야 해요.', '바꿔.')
+    .replace('인 걸 기억해요.', '이다.')
+    .replaceAll('이에요.', '이다.').replaceAll('!', '.');
+}
+function markLedger(kind){
+  const rows = Array.from(boardEl.querySelectorAll('.grow'));
+  rows.forEach(row=>row.classList.remove('recorded','fogged'));
+  const row = G.problem.type==='compare'
+    ? rows.find(row=>row.querySelector('.grow-label').textContent===G.problem.maxVillage)
+    : rows[0];
+  if (row) row.classList.add(kind);
+  return row;
+}
+function recordPresentation(){
+  say('기록했다.', 'joy');
+  const row = markLedger('recorded');
+  if (row){
+    const r = row.getBoundingClientRect();
+    const stamp = $('bigStamp');
+    stamp.style.left = `${r.left + r.width * .72}px`;
+    stamp.style.top = `${r.top + r.height * .5}px`;
+    const dispatch = $('dispatch');
+    dispatch.style.left = `${r.left + r.width * .58}px`;
+    dispatch.style.top = `${Math.min(innerHeight - 82, Math.max(70, r.bottom - 78))}px`;
+    dispatch.style.bottom = 'auto';
+  }
+  $('dispatch').classList.add('show');
+}
+function fogPresentation(){
+  say('빈칸이다.', 'sad');
+  markLedger('fogged');
+  $('banner').classList.add('fog');
+  showBanner('빈칸이다.');
+  $('fogEdge').classList.add('show');
+  $('muVisit').classList.add('show');
+}
+function endPresentation(won){
+  const best = won && G.firstTryCorrect===ROUND_PLAN.length;
+  say(won ? '기록했다.' : '틀린 값도 값이다. 다시 재.', best ? 'surprise' : (won ? 'joy' : 'sad'));
+  $('endCast').src = `../../vendor/cast/${won ? (best ? 'mok/surprise' : 'mok/pose-record') : 'mu/pose-bow'}.png`;
+  $('endCast').alt = won ? '목 기록관' : '깊이 절하는 무';
+  $('endSpeaker').textContent = won ? '목 기록관' : '무';
+  $('endAdvice').hidden = won;
+  $('endTak').src = `../../vendor/cast/tak/${G.score>600 ? 'pose-broken' : 'joy'}.png`;
+  $('takLine').textContent = G.score>600 ? '…내 기록을 넘었네. 인정.' : '봐. 그 정도면 산다니까.';
+}
+['dispatch','fogEdge','muVisit'].forEach(id=>{
+  const el = $(id);
+  el.addEventListener('animationend', ()=>el.classList.remove('show'));
+});
+$('helpBtn').addEventListener('click', ()=>{ $('helpOverlay').hidden=false; $('helpCloseBtn').focus(); });
+$('helpCloseBtn').addEventListener('click', ()=>{ $('helpOverlay').hidden=true; $('helpBtn').focus(); });
+
 /* ── 판형: 세로 1단 / 와이드 2단 분할 (좌 그래프판 · 우 주문·범례·장부) ── */
 function layout(){
   const W = innerWidth, H = innerHeight;
@@ -475,7 +689,9 @@ function iconSvg(iconId, cls){ return `<span class="picto ${cls}"><svg viewBox="
 
 function updateHUD(){
   $('hudRound').textContent = `${Math.min(G.round+1, ROUND_PLAN.length)}/${ROUND_PLAN.length}`;
-  $('hudHearts').textContent = '♥'.repeat(G.lives) + '♡'.repeat(Math.max(0,3-G.lives));
+  $('hudHearts').innerHTML = Array.from({length:3}, (_,i)=>`<span class="buoy${i<G.lives ? '' : ' lost'}" aria-hidden="true"></span>`).join('');
+  $('hudHearts').setAttribute('aria-label', `남은 부표 ${G.lives}개`);
+  $('takRecord').classList.toggle('passed', G.score>600);
   $('hudScore').textContent = `${G.score}점`;
 }
 
@@ -488,6 +704,7 @@ function renderLegend(p){
   const item = ITEMS[p.type==='compare' ? 'crate' : p.itemKey];
   const gIcon = p.type==='compare' ? ITEMS[p.itemKey].icon : item.icon;
   const u = p.type==='compare' ? ITEMS[p.itemKey].unit : item.unit;
+  legendEl.classList.remove('has-order');
   legendEl.innerHTML =
     `<span class="legend-title">범례</span>
      <span class="legend-item">${iconSvg(gIcon,'big')} = ${p.bigUnit}${u}</span>
@@ -499,24 +716,32 @@ function renderLegend(p){
 /* ── 그리기 모드 ── */
 function renderDraw(p){
   const item = ITEMS[p.itemKey];
-  questEl.innerHTML = `${p.village}에서 ${josa(item.name,'을','를')} <b>${p.value}${item.unit}</b> 팔았대!<br>도장을 찍어 그래프에 나타내 줘.<br><span class="rule-chip">작은 그림은 9개까지만 쓸 수 있어!</span>`;
-  asideTopEl.innerHTML = `
-    <div class="card order-card">
-      <div class="order-title">너구리 사장님의 주문서 — 표를 그림그래프로!</div>
+  say(`${p.village} · ${item.name} <b>${p.value}${item.unit}</b>.<br>도장을 찍어 장부에 나타내.`);
+  $('app').dataset.mode = p.type;
+  $('ruleRow').innerHTML = '<span class="rule-chip">작은 그림은 9개까지만 쓸 수 있어!</span>';
+  const legendMarkup = legendEl.innerHTML;
+  legendEl.classList.add('has-order');
+  legendEl.innerHTML = `
+    <div class="order-pane">
+      <div class="order-title">장부 원부 — 표를 그림그래프로</div>
       <div class="order-table">
         <div class="th">마을</div><div class="th">${item.name} 판매량</div>
         <div class="td">${p.village}</div><div class="td"><b>${p.value}</b>${item.unit}</div>
       </div>
-    </div>`;
+    </div>
+    <div class="legend-pane">${legendMarkup}</div>`;
+  asideTopEl.innerHTML = '';
   asideBotEl.innerHTML = '';
   boardEl.innerHTML = `
     <div class="card graph-card">
-      <div class="graph-title">마을별 ${item.name} 판매량<small>내가 찍은 도장 (누르면 지워져요)</small></div>
+      <div class="graph-title">마을별 ${item.name} 판매량<small>도장을 눌러 찍기 · 찍은 그림을 누르면 지움</small></div>
       <div class="grow">
         <div class="grow-label">${p.village}</div>
-        <div class="grow-strip" id="strip"></div>
+        <div class="grow-field">
+          <div class="stamp-guides" aria-hidden="true">${Array.from({length:10},()=>'<i class="stamp-guide"></i>').join('')}</div>
+          <div class="grow-strip" id="strip"></div>
+        </div>
       </div>
-      <div class="strip-hint" id="stripHint">아래 도장을 눌러 찍어 보세요!</div>
     </div>`;
   controlsEl.innerHTML = `
     <button class="stamp-pad" id="padBig" aria-label="큰 도장">
@@ -527,7 +752,7 @@ function renderDraw(p){
       <span class="pad-ic">${iconSvg(item.icon,'small')}</span>
       <span class="pad-label">작은 도장 <b>${p.smallUnit}</b></span>
     </button>
-    <button id="confirmBtn">완성!</button>`;
+    <button id="confirmBtn">검수 도장</button>`;
   $('padBig').addEventListener('click', ()=>addStamp(true));
   $('padSmall').addEventListener('click', ()=>addStamp(false));
   $('confirmBtn').addEventListener('click', submit);
@@ -565,7 +790,7 @@ function syncStrip(animLast){
   const hint = $('stripHint');
   const isCmp = p.type==='compare';
   if (hint) hint.textContent = (G.placedBig+G.placedSmall===0)
-    ? (isCmp ? '아래 버튼으로 상자를 실어요! (실은 상자를 누르면 내려요)' : '아래 도장을 눌러 찍어 보세요! (찍은 그림을 누르면 지워져요)')
+    ? (isCmp ? '상자를 눌러 싣기 · 실은 상자를 누르면 내림' : '도장을 눌러 찍기 · 찍은 그림을 누르면 지움')
     : (isCmp ? `10개들이 ${G.placedBig}개 · 낱개 ${G.placedSmall}개` : `큰 그림 ${G.placedBig}개 · 작은 그림 ${G.placedSmall}개`);
 }
 
@@ -578,10 +803,12 @@ function rowIcons(iconId, big, small){
 }
 function renderRead(p){
   const item = ITEMS[p.itemKey];
-  questEl.innerHTML = `${p.village}의 그래프를 읽고<br>장부에 <b>몇 ${item.unit}</b>인지 적어 줘!`;
+  say(`${p.village}의 줄을 읽어 장부에 올릴 값을 말해.`);
+  $('app').dataset.mode = p.type;
+  $('ruleRow').innerHTML = '';
   boardEl.innerHTML = `
     <div class="card graph-card">
-      <div class="graph-title">마을별 ${item.name} 판매량<small>범례를 꼭 확인하세요</small></div>
+      <div class="graph-title">마을별 ${item.name} 판매량<small>범례 확인</small></div>
       <div class="grow">
         <div class="grow-label">${p.village}</div>
         <div class="grow-strip">${rowIcons(item.icon, p.big, p.small)}</div>
@@ -593,7 +820,7 @@ function renderRead(p){
       <div id="wheelWrap"></div>
       <div id="tagValue"></div>
     </div>`;
-  controlsEl.innerHTML = `<button id="confirmBtn" style="min-height:56px">장부에 적기!</button>`;
+  controlsEl.innerHTML = `<button id="confirmBtn">장부에 적기</button>`;
   $('confirmBtn').addEventListener('click', submit);
   G.wheelCount = (p.bigUnit >= 100) ? 3 : 2;
   G.digits = [0,0,0];
@@ -635,7 +862,9 @@ function syncWheels(){
 /* ── 배달(비교) 모드 ── */
 function renderCompare(p){
   const item = ITEMS[p.itemKey];
-  questEl.innerHTML = `가장 많이 판 마을은 가장 적게 판 마을보다 <b>몇 ${item.unit}</b> 더 팔았을까?<br>그 차이만큼 상자를 트럭에 실어 줘!<br><span class="rule-chip">낱개는 9개까지만 실을 수 있어!</span>`;
+  say(`가장 많은 마을과 가장 적은 마을의 차. <b>몇 ${item.unit}</b>인가.<br>그 수만큼 궤짝을 실어.`);
+  $('app').dataset.mode = p.type;
+  $('ruleRow').innerHTML = '<span class="rule-chip">낱개는 9개까지만 실을 수 있어!</span>';
   const rowsHtml = p.rows.map(r=>`
     <div class="grow">
       <div class="grow-label">${r.village}</div>
@@ -649,7 +878,7 @@ function renderCompare(p){
   asideTopEl.innerHTML = '';
   asideBotEl.innerHTML = `
     <div class="card truck-card">
-      <div class="truck-head"><span class="truck-name">🚚 배달 트럭</span><span class="strip-hint" id="stripHint" style="padding:0"></span></div>
+      <div class="truck-head"><span class="truck-name">출고 궤짝</span><span class="strip-hint" id="stripHint" style="padding:0"></span></div>
       <div class="truck-bed" id="strip"></div>
     </div>`;
   controlsEl.innerHTML = `
@@ -661,7 +890,7 @@ function renderCompare(p){
       <span class="pad-ic">${iconSvg('ic-crate','small')}</span>
       <span class="pad-label">낱개 <b>1</b></span>
     </button>
-    <button id="confirmBtn">출발!</button>`;
+    <button id="confirmBtn">출고 도장</button>`;
   $('padBig').addEventListener('click', ()=>addStamp(true));
   $('padSmall').addEventListener('click', ()=>addStamp(false));
   $('confirmBtn').addEventListener('click', submit);
@@ -680,8 +909,9 @@ function startRound(){
   else if (G.problem.type==='read') renderRead(G.problem);
   else renderCompare(G.problem);
   const label = {draw:'도장 찍기', read:'그래프 읽기', compare:'배달 준비'}[G.problem.type];
-  const extra = (G.problem.bigUnit>=100) ? ' — 범례가 바뀌었어요!' : '';
-  showBanner(`${G.round+1}라운드 · ${label}${extra}`);
+  const extra = (G.problem.bigUnit>=100) ? ' · 범례 변경' : '';
+  $('banner').classList.remove('fog');
+  showBanner(`${label}${G.round===ROUND_PLAN.length-1 ? ' · 마지막 줄' : ''}${extra}`);
 }
 
 function evaluate(){
@@ -731,7 +961,8 @@ function submit(){
     updateHUD();
     sndOK();
     const st = $('bigStamp');
-    st.textContent = '참 잘했어요!';
+    st.textContent = '검수 완료';
+    recordPresentation();
     st.classList.remove('show'); void st.offsetWidth; st.classList.add('show');
     advanceTimer = setTimeout(flushAdvance, 950);
   } else {
@@ -739,10 +970,11 @@ function submit(){
     G.lives--;
     updateHUD();
     sndBad();
+    fogPresentation();
     if (G.lives<=0){ lose(res.why); return; }
-    $('msgTitle').textContent = '앗, 다시 생각해 봐요!';
-    $('msgBody').textContent = res.why;
-    $('msgSub').textContent = `남은 하트 ${G.lives}개 · 같은 문제에 다시 도전!`;
+    $('msgTitle').textContent = '빈칸이다.';
+    $('msgBody').textContent = ledgerNote(res.why);
+    $('msgSub').textContent = `남은 부표 ${G.lives}개 · 같은 줄에 다시 기록`;
     $('msgOverlay').hidden = false;
   }
 }
@@ -751,16 +983,18 @@ $('msgBtn').addEventListener('click', ()=>{ $('msgOverlay').hidden = true; });
 function win(){
   G.phase='won';
   sndClear();
-  $('endTitle').textContent = '🎉 오늘 장사 끝! 대성공!';
-  $('endBody').textContent = `8개의 주문을 모두 처리했어요. 최종 점수 ${G.score}점!`;
-  $('endSub').textContent = `첫 시도 정답 ${G.firstTryCorrect}/${G.firstTryTotal} · 너구리 사장님이 감동했어요.`;
+  endPresentation(true);
+  $('endTitle').textContent = '기록했다.';
+  $('endBody').textContent = `여덟 줄의 장부를 모두 채웠다. 최종 점수 ${G.score}점.`;
+  $('endSub').textContent = `첫 시도 정답 ${G.firstTryCorrect}/${G.firstTryTotal} · 검수 기록 저장`;
   $('endScreen').hidden = false;
 }
 function lose(why){
   G.phase='lost';
-  $('endTitle').textContent = '가게 문을 닫았어요…';
-  $('endBody').textContent = why ? `마지막 실수: ${why}` : '하트를 모두 잃었어요.';
-  $('endSub').textContent = `점수 ${G.score}점 · ${G.round+1}라운드에서 멈췄어요. 범례(큰 그림=몇?)를 확인하면 이길 수 있어요!`;
+  endPresentation(false);
+  $('endTitle').textContent = '…아직.';
+  $('endBody').textContent = why ? ledgerNote(why) : '부표가 모두 안개에 잠겼다.';
+  $('endSub').textContent = `점수 ${G.score}점 · ${G.round+1}번째 줄 · 범례를 확인하고 다시 기록`;
   $('endScreen').hidden = false;
 }
 
@@ -774,12 +1008,12 @@ function startGame(){
   startRound();
 }
 
-$('startBtn').addEventListener('click', ()=>{ audioInit(); muted=false; $('muteBtn').textContent='🔊'; startGame(); });
+$('startBtn').addEventListener('click', ()=>{ audioInit(); muted=false; $('muteBtn').dataset.muted='false'; startGame(); });
 $('retryBtn').addEventListener('click', ()=>{ audioInit(); startGame(); });
 $('muteBtn').addEventListener('click', ()=>{
   muted = !muted;
   if (!muted) audioInit();
-  $('muteBtn').textContent = muted ? '🔇' : '🔊';
+  $('muteBtn').dataset.muted = String(muted);
 });
 
 /* ───────────────────────── QA 훅 ───────────────────────── */
