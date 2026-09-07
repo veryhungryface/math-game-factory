@@ -12,6 +12,9 @@
   /* 자눈 측량대 캐스트 토큰 (docs/character-bible.md §4.2) */
   --cast-mok:#128490; --cast-mungchi:#F0C054; --cast-mu:#9C6CD8; --cast-mu-eye:#FFE0A0;
   --world-paper:#E4E4D8;
+  /* 자릿수 다이얼 크기 — 눌림칸(--dn)은 44px 이상을 지킨다 */
+  --dn:46px;
+  --dd:clamp(196px, min(calc(100vw - 116px), calc(100dvh - 480px)), 228px);
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;}
@@ -173,11 +176,69 @@ section{flex:1; display:flex; flex-direction:column;}
 .colTap.wiggle{animation:wig .3s;}
 @keyframes wig{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 
+/* ---- 자릿수 다이얼: 그 자리에 쓸 숫자는 학생이 직접 고른다 ----
+   열을 눌러도 게임은 합·차를 대신 써 주지 않는다. 계기판 다이얼에서 숫자를 골라야 판정된다. */
+#console{flex:0 0 auto; height:calc(var(--dd) + 56px); padding-top:14px;
+  display:flex; align-items:flex-start; justify-content:center;
+  border-top:1px solid rgba(90,110,200,.18);
+  background:linear-gradient(180deg, rgba(10,16,40,0), rgba(10,16,40,.5));}
+#dockCol{width:100%; display:flex; flex-direction:column; align-items:center;}
+#dockNote{margin-top:16px; text-align:center; font-size:13px; font-weight:700; line-height:1.5;
+  color:#7f8cbe; word-break:keep-all;}
+#dockNote b{color:var(--gold); font-weight:800;}
+#dialPanel{display:flex; flex-direction:column; align-items:center; gap:7px;}
+#dialPanel.shake{animation:shake .42s;}
+#dialLabel{font-size:13.5px; font-weight:800; color:var(--gold); letter-spacing:-.2px;
+  background:rgba(255,215,94,.1); border:1px solid rgba(255,215,94,.35); border-radius:99px; padding:3px 12px;}
+#dial{position:relative; width:var(--dd); height:var(--dd); border-radius:50%; touch-action:manipulation;
+  background:radial-gradient(circle at 50% 38%, rgba(24,38,86,.95), rgba(8,13,34,.95) 72%);
+  border:2px solid rgba(90,110,200,.35);
+  box-shadow:0 0 26px rgba(24,48,120,.5), inset 0 0 34px rgba(8,14,40,.9);}
+#dial::before{content:''; position:absolute; inset:5px; border-radius:50%;
+  border:1.5px dashed rgba(120,140,220,.2);}
+.dnub{position:absolute; left:50%; top:50%; width:var(--dn); height:var(--dn); border-radius:50%;
+  margin:calc(var(--dn) / -2) 0 0 calc(var(--dn) / -2);
+  transform:rotate(var(--a)) translateY(calc(var(--dd) / -2 + var(--dn) / 2 + 6px)) rotate(calc(-1 * var(--a)));
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  font-weight:900; font-size:calc(var(--dn) * .5); font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,var(--tile0),var(--tile1)); border:2px solid var(--tileb);
+  color:var(--ink); box-shadow:0 3px 0 #121a3c, inset 0 1px 0 rgba(255,255,255,.14);
+  transition:filter .12s, background .15s, border-color .15s;}
+.dnub:active{filter:brightness(1.35);}
+.dnub.ok{background:linear-gradient(180deg,#ffe28e,#f5b93d); border-color:#ffd75e; color:#4a2e00;
+  box-shadow:0 3px 0 #8a6410, 0 0 16px rgba(255,215,94,.6);}
+.dnub.bad{background:linear-gradient(180deg,#ff8ba4,#e14167); border-color:#ff5d7e; color:#fff;
+  box-shadow:0 3px 0 #7d1730, 0 0 16px rgba(255,93,126,.6);}
+#dialCore{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:calc(var(--dd) - var(--dn) * 2 - 26px); height:calc(var(--dd) - var(--dn) * 2 - 26px);
+  border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  background:rgba(6,10,28,.8); border:1.5px solid rgba(77,232,255,.3);
+  box-shadow:inset 0 0 18px rgba(77,232,255,.12); pointer-events:none; text-align:center; overflow:hidden;}
+#dialExpr{font-size:clamp(13px, 4.6vw, 19px); font-weight:900; color:var(--cy);
+  font-variant-numeric:tabular-nums; white-space:nowrap;
+  text-shadow:0 0 10px rgba(77,232,255,.45);}
+#dialEq{font-size:clamp(15px, 5vw, 21px); font-weight:900; color:var(--gold); font-variant-numeric:tabular-nums;}
+.tile.pend{background:rgba(255,215,94,.08); border:2.5px dashed rgba(255,215,94,.65); color:var(--gold);
+  font-size:calc(var(--th) * .44); animation:pendblink 1.1s ease-in-out infinite;}
+@keyframes pendblink{50%{background:rgba(255,215,94,.2); border-color:var(--gold);}}
+
+/* 세로가 아주 짧은 화면(구형 폰·가로 낮은 창): 다이얼 자리를 확보하려고 위쪽 장식을 접는다 */
+@media (max-height:700px){
+  #castTop{min-height:40px; padding:0 14px;}
+  #mokPort{width:40px; height:42px;}
+  #mokSay{font-size:12.5px; padding:5px 10px;}
+  #prob{font-size:22px; padding:2px 10px 0;}
+  #hint{min-height:36px !important; font-size:14px; padding:2px 16px;}
+  #console{height:calc(var(--dd) + 40px); padding-top:8px;}
+  #dialLabel{font-size:12px; padding:2px 10px;}
+  #dialPanel{gap:4px;}
+  #dockNote{margin-top:10px; font-size:12px;}
+}
 #hint{flex:0 0 auto; min-height:46px; text-align:center; padding:4px 24px; font-size:15.5px; font-weight:700; color:#c9d6ff;
   display:flex; align-items:center; justify-content:center; line-height:1.4;}
 #hint.warn{color:var(--pk);}
 #dockBtn{
-  flex:0 0 auto; margin:2px auto 18px; width:min(78%,300px); padding:15px 0; font-size:21px; font-weight:900;
+  flex:0 0 auto; margin:0 auto; width:min(78%,300px); padding:15px 0; font-size:21px; font-weight:900;
   color:#2b1d00; background:linear-gradient(180deg,#ffe9a8,var(--gold) 55%,#e5a92e);
   border:none; border-radius:17px; box-shadow:0 6px 0 #96700f, 0 8px 22px rgba(255,215,94,.28); cursor:pointer;
   transition:opacity .2s;
@@ -283,7 +344,7 @@ section{flex:1; display:flex; flex-direction:column;}
     <div class="howto">
       <div class="step"><span class="n">1</span><span>아래 숫자 우주선을 <b>좌우로 끌어</b> 빨간 소수점을 위아래로 맞춰!</span></div>
       <div class="step"><span class="n">2</span><span>반짝이는 빈 칸을 눌러 <b>0을 채워</b>. (0.3과 0.30은 같은 수!)</span></div>
-      <div class="step"><span class="n">3</span><span><b>도킹!</b> 그리고 오른쪽 끝자리부터 눌러서 계산해.</span></div>
+      <div class="step"><span class="n">3</span><span><b>도킹!</b> 오른쪽 끝자리 칸부터 누르고, <b>다이얼에서 그 자리 숫자를 골라</b>!</span></div>
     </div>
     <button class="bigbtn" id="startBtn">시작하기</button>
     <div class="titlecast">
@@ -325,7 +386,21 @@ section{flex:1; display:flex; flex-direction:column;}
       </div>
     </div>
     <div id="hint"></div>
-    <button id="dockBtn">도킹!</button>
+    <div id="console">
+      <div id="dockCol">
+        <button id="dockBtn">도킹!</button>
+        <div id="dockNote">도킹하면 자리마다 <b>계산 다이얼</b>이 열려.<br>그 자리에 쓸 숫자는 네가 고른다.</div>
+      </div>
+      <div id="dialPanel" hidden>
+        <div id="dialLabel"></div>
+        <div id="dial">
+          <div id="dialCore">
+            <div id="dialExpr"></div>
+            <div id="dialEq">= ?</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section id="scr-over" hidden>
@@ -493,6 +568,14 @@ function layout(){
   const vw=Math.min(window.innerWidth,480);
   W=Math.min(66, Math.floor((vw-20)/6));
   TH=Math.min(70, W+8);
+  // 다이얼 계기판이 자리를 차지하므로 세로가 짧으면 타일 높이를 줄인다 (세로 스크롤 금지)
+  if(!$('#scr-game').hidden){
+    let fixed=12;   // 마진 여유
+    for(const e of $('#scr-game').children){ if(e.id!=='dockWrap') fixed+=e.offsetHeight; }
+    const availH=document.documentElement.clientHeight-fixed;
+    const maxTH=Math.floor((availH-85)/3);      // 도크 높이 = 3*TH + 85
+    if(maxTH<TH) TH=Math.max(36,maxTH);
+  }
   const dock=$('#dock');
   dock.style.setProperty('--w',W+'px');
   dock.style.setProperty('--th',TH+'px');
@@ -677,6 +760,7 @@ function renderProblem(){
   $('#ansRow').innerHTML='';
   $('#stripA').classList.remove('locked');
   $('#stripB').classList.remove('locked');
+  closeDial(); colCtx=null; pendEl=null;
   ansEls={};
   zerosLeft = (p.union - p.a.prec>0 ? p.union-Math.max(p.a.prec,0) : 0)
             + (p.union - p.b.prec>0 ? p.union-Math.max(p.b.prec,0) : 0);
@@ -827,7 +911,8 @@ function startCompute(){
   computeOrder.push('o');
   computeIdx=0;
   buildColTaps();
-  hint('오른쪽 끝자리부터 눌러서 계산해!');
+  hint('오른쪽 끝자리 칸을 눌러 계산을 시작해!');
+  dockNote(NOTE_COMPUTE);
   mok('끝자리부터 세로로 내려라.','think');
   mung('think');
   carryState={carry:0};
@@ -864,48 +949,125 @@ function onColTap(pl,el){
     hint('계산은 오른쪽 끝자리부터! 노란 칸을 눌러.',true);
     return;
   }
-  computeColumn(pl,el);
+  beginColumn(pl,el);
 }
-async function computeColumn(pl,tapEl){
+
+/* =====================================================================
+   열 계산 = 학생의 판단
+   1) 열을 누르면 그 자리의 식만 보여 준다 (합·차는 절대 미리 쓰지 않는다).
+      뺄셈에서 못 빼는 자리면 교과서 순서대로 먼저 10을 빌려 오는 것까지만 보여 준다.
+   2) 학생이 다이얼에서 "그 자리에 쓸 숫자"를 고른다.
+   3) 맞아야 숫자가 적히고, 합이 10을 넘으면 그때 올림 1이 윗칸으로 날아가 남는다.
+   ===================================================================== */
+const PLACE_NAME={o:'일의 자리', t:'십분의 일 자리', h:'백분의 일 자리'};
+let colCtx=null;          // {pl, tapEl, expected, sum, cin}
+let pendEl=null;          // 아직 못 채운 답 칸(?)
+let lastCommit=null;      // 정답 처리 애니메이션 프라미스 (테스트 훅에서 await)
+
+async function beginColumn(pl,tapEl){
   phase='anim';
-  tapEl.classList.remove('next');
+  document.querySelectorAll('.colTap').forEach(e=>e.classList.remove('next'));
   const p=cur, A=DG(p.a.v), B=DG(p.b.v);
   const aEl=els.A[pl], bEl=els.B[pl];
   aEl.classList.add('hl'); if(bEl) bEl.classList.add('hl');
   // 윗칸에 남아 있던 표기를 먼저 반짝여 준다 — "그 1이 지금 더해진다"를 보이게
   if(marks[pl]){ pulseMark(pl); sfx.click(); await wait(320); }
-  await wait(140);
-  let d;
+  await wait(120);
+  let expr, expected, sum=0, cin=0;
   if(p.op==='+'){
-    const cin=carryState.carry;
-    const s=A[pl]+B[pl]+cin;
-    d=s%10;
-    hint(cin ? `올림 ${cin} + ${A[pl]} + ${B[pl]} = ${s}` : `${A[pl]} + ${B[pl]} = ${s}`);
+    cin=carryState.carry;
+    sum=A[pl]+B[pl]+cin;
+    expected=sum%10;
+    expr = cin ? `${A[pl]} + ${B[pl]} + ${cin}` : `${A[pl]} + ${B[pl]}`;
+  } else {
+    if(aEff[pl]<B[pl]){                  // 못 빼는 자리 → 윗자리에서 10을 빌려 온다
+      hint(`${aEff[pl]}에서 ${B[pl]} 못 빼 · 윗자리에서 10 빌려와!`);
+      await doBorrow(pl);
+      await wait(460);
+    }
+    expected=aEff[pl]-B[pl];
+    expr=`${aEff[pl]} − ${B[pl]}`;
+  }
+  colCtx={pl,tapEl,expected,sum,cin};
+  showPend(pl);
+  openDial(pl,expr);
+  return true;
+}
+function showPend(pl){
+  removePend();
+  pendEl=tileEl('pend','?');
+  pendEl.style.left=(SLOT[pl]*W+3)+'px';
+  $('#ansRow').appendChild(pendEl);
+}
+function removePend(){ if(pendEl){ pendEl.remove(); pendEl=null; } }
+function openDial(pl,expr){
+  $('#dialExpr').textContent=expr;
+  $('#dialLabel').textContent=PLACE_NAME[pl];
+  document.querySelectorAll('.dnub').forEach(n=>n.classList.remove('ok','bad'));
+  $('#dockCol').hidden=true;
+  $('#dialPanel').hidden=false;
+  phase='dial';
+  hint(`${expr} = ? · 이 자리에 쓸 숫자를 다이얼에서 눌러!`);
+  mung('think');
+}
+const NOTE_PLAY='도킹하면 자리마다 <b>계산 다이얼</b>이 열려.<br>그 자리에 쓸 숫자는 네가 고른다.';
+const NOTE_COMPUTE='<b>노란 칸</b>을 누르면 그 자리 다이얼이 열려.<br>계산은 오른쪽 끝자리부터!';
+function dockNote(html){ const e=$('#dockNote'); if(e) e.innerHTML=html; }
+function closeDial(){
+  const panel=$('#dialPanel');
+  panel.hidden=true; panel.classList.remove('shake');
+  $('#dockCol').hidden=false;
+}
+function pickDigit(d,nub){
+  if(phase!=='dial'||!colCtx) return false;
+  auEnsure();
+  const {pl,expected}=colCtx;
+  if(d===expected){
+    if(nub) nub.classList.add('ok');
+    buzz(10);
+    closeDial();
+    lastCommit=commitColumn(d);
+    return true;
+  }
+  // 오답 — 하트 1 (도킹 실패·시간 초과와 같은 정책). 같은 열을 다시 시도한다.
+  if(nub){ nub.classList.add('bad'); setTimeout(()=>{ nub.classList.remove('bad'); },500*SPD); }
+  cleanRun=false; combo=0; renderCombo();
+  lives--; renderHearts();
+  sfx.bad(); buzz([30,40,30]);
+  const panel=$('#dialPanel');
+  panel.classList.remove('shake'); void panel.offsetWidth; panel.classList.add('shake');
+  hint(`아니야. ${$('#dialExpr').textContent} · 다시 세어 봐. 이 자리에 쓸 숫자는 하나뿐이야.`,true);
+  mok('값이 다르다. 다시 재라.','sad');
+  mu('…틀렸다.','sad');
+  mung('sad','…끙.');
+  if(lives<=0){ phase='reveal'; timerOn=false; closeDial(); removePend(); setTimeout(gameOver,800*SPD); }
+  return false;
+}
+async function commitColumn(d){
+  if(!colCtx) return;
+  phase='anim';
+  const {pl,tapEl,sum,cin}=colCtx; colCtx=null;
+  const p=cur, A=DG(p.a.v), B=DG(p.b.v);
+  removePend();
+  spawnAns(pl,d); sfx.pop();
+  if(p.op==='+'){
     if(cin) useMark(pl);           // 사용됨 — 지우지 않는다
-    spawnAns(pl,d); sfx.pop();
-    if(s>=10){
+    hint(cin ? `올림 ${cin} + ${A[pl]} + ${B[pl]} = ${sum}` : `${A[pl]} + ${B[pl]} = ${sum}`);
+    if(sum>=10){
       const to = pl==='h' ? 't' : (pl==='t' ? 'o' : null);
-      hint(`${A[pl]} + ${B[pl]}${cin?' + 올림 '+cin:''} = ${s} · ${d} 쓰고 1 올림`);
+      hint(`${A[pl]} + ${B[pl]}${cin?' + 올림 '+cin:''} = ${sum} · ${d} 쓰고 1 올림`);
       if(to){ await carryFx(pl,to); carryState.carry=1; }
       else carryState.carry=0;
     }
     else carryState.carry=0;
   } else {
-    const base=aEff[pl];                 // 이미 아랫자리에 빌려줬으면 줄어든 값
-    if(base<B[pl]){
-      hint(`${base}에서 ${B[pl]} 못 빼 · 윗자리에서 10 빌려와!`);
-      await doBorrow(pl);
-      hint(`10 빌려서 ${aEff[pl]} − ${B[pl]}`);
-      await wait(480);
-    }
-    d=aEff[pl]-B[pl];
     hint(`${aEff[pl]} − ${B[pl]} = ${d}`);
-    spawnAns(pl,d); sfx.pop();
   }
   await wait(220);
   useMark(pl);                 // 흔적은 남기고 "다 쓴 표기"로만 바꾼다
-  aEl.classList.remove('hl'); if(bEl) bEl.classList.remove('hl');
-  tapEl.remove();
+  if(els.A[pl]) els.A[pl].classList.remove('hl');
+  if(els.B[pl]) els.B[pl].classList.remove('hl');
+  if(tapEl) tapEl.remove();
   computeIdx++;
   if(computeIdx<computeOrder.length){
     phase='compute'; markNextCol();
@@ -915,6 +1077,27 @@ async function computeColumn(pl,tapEl){
     await finishAnswer();
   }
 }
+// 테스트·자동 플레이용: 열을 열고 정답 숫자를 골라 준다 (사람 조작 경로를 그대로 탄다)
+async function computeColumn(pl,tapEl){
+  await beginColumn(pl,tapEl);
+  if(phase!=='dial'||!colCtx) return;
+  const d=colCtx.expected;
+  lastCommit=null;
+  pickDigit(d, document.querySelector(`.dnub[data-digit="${d}"]`));
+  return lastCommit;
+}
+/* 다이얼 만들기 — 0~9를 원형으로 배치한 계기판 */
+(function buildDial(){
+  const d=$('#dial');
+  for(let i=0;i<10;i++){
+    const n=document.createElement('div');
+    n.className='dnub'; n.textContent=String(i);
+    n.dataset.digit=String(i);
+    n.style.setProperty('--a',(i*36)+'deg');
+    n.addEventListener('pointerup',()=>{ pickDigit(i,n); });
+    d.appendChild(n);
+  }
+})();
 function spawnAns(pl,digit){
   const t=tileEl('d a', digit);
   t.style.left=(SLOT[pl]*W+3)+'px';
@@ -1042,6 +1225,7 @@ function nextProblem(){
   if(st>=3 && Math.random()<0.3) k0=[-2,2][ri(0,1)];
   k=Math.max(-2,Math.min(2,k0)); if(k===0) k=1;
   $('#toast').classList.remove('show');
+  dockNote(NOTE_PLAY);
   renderProblem();
   timeMax=Math.max(14000, 27500-(st-1)*2000);
   timeLeft=timeMax; lastTickSec=99;
@@ -1065,6 +1249,7 @@ async function onTimeout(){
   mu('…재지 않았다.','sad');
   mung('sad','…끙.');
   // 정답 공개: 계산 중이던 흔적 정리 → 정렬 → 0 채움 → 답 표시
+  closeDial(); colCtx=null; pendEl=null;
   $('#ansRow').innerHTML=''; ansEls={};
   document.querySelectorAll('.colTap').forEach(e=>e.remove());
   clearMarks();
@@ -1084,6 +1269,7 @@ async function onTimeout(){
 }
 function gameOver(){
   phase='over'; timerOn=false;
+  closeDial(); colCtx=null; pendEl=null;
   $('#scr-game').hidden=true;
   $('#scr-over').hidden=false;
   $('#finalScore').textContent=score;
@@ -1160,7 +1346,7 @@ function wait(ms){ return new Promise(r=>setTimeout(r,ms*SPD)); }
 
 /* ---------- 타이머 루프 ---------- */
 function loop(ts){
-  if(timerOn && (phase==='play'||phase==='compute'||phase==='anim')){
+  if(timerOn && (phase==='play'||phase==='compute'||phase==='dial'||phase==='anim')){
     if(lastTs) timeLeft-=Math.min(50,ts-lastTs);
     const ratio=Math.max(0,timeLeft/timeMax);
     $('#tbar').style.width=(ratio*100)+'%';
@@ -1195,6 +1381,7 @@ function startGame(){
   mung('stand');
   layout();
   nextProblem();
+  layout();          // #prob 에 글이 들어간 뒤 실제 높이로 한 번 더 (짧은 화면 세로 넘침 방지)
 }
 $('#startBtn').addEventListener('click',startGame);
 $('#retryBtn').addEventListener('click',startGame);
@@ -1214,6 +1401,31 @@ window.__LAB_TEST__={
   setOffset(nk){ setOffset(nk,false); },
   fillZeros(){ document.querySelectorAll('.ph').forEach(e=>fillZero(e)); },
   dock(){ $('#dockBtn').click(); },
+  // 회귀 테스트용: 특정 문제를 강제로 세운다 (예: 연쇄 받아내림 5.01 − 3.12)
+  forceProblem(op,aV,bV){
+    if(phase==='title'||phase==='over') startGame();
+    cur=makeP(op,{v:aV,prec:minPrec(aV)},{v:bV,prec:minPrec(bV)});
+    cur.stage=0;
+    phase='play'; cleanRun=true;
+    $('#dockBtn').disabled=false;
+    $('#toast').classList.remove('show');
+    k=1;
+    renderProblem();
+    timeLeft=timeMax; lastTickSec=99; timerOn=true;
+    return window.__LAB_TEST__.getState();
+  },
+  // 자릿수 다이얼 — 정답은 알려 주지 않는다. 봇도 학생처럼 직접 계산해서 눌러야 한다.
+  getDial(){
+    return { open: phase==='dial' && !!colCtx,
+      place: colCtx?colCtx.pl:null,
+      expr: $('#dialExpr').textContent,
+      label: $('#dialLabel').textContent,
+      pending: !!pendEl };
+  },
+  pressDigit(d){
+    const n=document.querySelector(`.dnub[data-digit="${d}"]`);
+    return pickDigit(d,n||null);
+  },
   async solveColumns(){
     while(phase==='compute'){
       const pl=computeOrder[computeIdx];
@@ -1273,7 +1485,7 @@ window.__GAME_TEST__=Object.assign({},window.__LAB_TEST__,{
       document.querySelectorAll('.ph').forEach(e=>fillZero(e));   // 빈 자리 0 채우기
       $('#dockBtn').click();                                      // 도킹 → 자리별 계산 시작
       let guard=0;
-      while((phase==='compute'||phase==='anim') && guard++<24){
+      while((phase==='compute'||phase==='anim'||phase==='dial') && guard++<24){
         const pl=computeOrder[computeIdx];
         const el=document.querySelector(`.colTap[data-place="${pl}"]`);
         if(!el) break;
