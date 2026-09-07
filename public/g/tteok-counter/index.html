@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>달빛 떡집</title>
+<style>
+:root{
+  --night:#1c2142; --night2:#252c58; --night3:#303a6e;
+  --cream:#fff4e0; --cream2:#f6e7cc;
+  --cake:#f7ecd9; --cake-rim:#efdcbc;
+  --choco:#3d2b1d;
+  --amber:#f5b95e; --amber2:#e79a33;
+  --mint:#a8cf9a; --mint2:#7fb26e;
+  --berry:#ef8fa5; --berry2:#d96a84;
+  --wood:#8a5a3b; --wood2:#6f4529; --wood3:#5a3720;
+  --gold:#ffd98a;
+  /* 와이드 무대 — JS layout() 이 같은 값(Math.min(W,1280))으로 덮어쓴다 */
+  --stageW:min(100vw,1280px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  background:var(--night); color:var(--cream);
+  touch-action:manipulation; user-select:none; -webkit-user-select:none;
+  position:fixed; inset:0; width:100%;
+}
+button{font-family:inherit; border:none; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;}
+[hidden]{display:none !important;}
+#app{height:100dvh; width:100%; position:relative; overflow:hidden;
+  background:linear-gradient(180deg,#161a35 0%, #1c2142 45%, #2a2450 100%);}
+#app::before{content:""; position:absolute; inset:0; pointer-events:none; opacity:.55;
+  background-image:radial-gradient(1.4px 1.4px at 12% 18%,#fff8 50%,transparent 51%),
+  radial-gradient(1px 1px at 34% 9%,#fff7 50%,transparent 51%),
+  radial-gradient(1.6px 1.6px at 58% 22%,#fff6 50%,transparent 51%),
+  radial-gradient(1px 1px at 78% 12%,#fff8 50%,transparent 51%),
+  radial-gradient(1.3px 1.3px at 90% 30%,#fff5 50%,transparent 51%),
+  radial-gradient(1px 1px at 22% 34%,#fff5 50%,transparent 51%),
+  radial-gradient(1.2px 1.2px at 68% 38%,#fff4 50%,transparent 51%);}
+section{position:absolute; inset:0; display:flex; flex-direction:column;}
+
+/* ===== 타이틀 ===== */
+#title{align-items:center; justify-content:flex-start; overflow:hidden;}
+#titleArt{position:absolute; inset:0; pointer-events:none;}
+.moon{position:absolute; top:max(196px,23dvh); right:-52px; width:172px; height:172px; border-radius:50%;
+  background:radial-gradient(circle at 38% 34%, #fff3cf, var(--gold) 58%, #eab74e 100%);
+  box-shadow:0 0 70px 22px rgba(255,217,138,.32); animation:moonGlow 4s ease-in-out infinite alternate;}
+@keyframes moonGlow{from{box-shadow:0 0 60px 18px rgba(255,217,138,.26);}to{box-shadow:0 0 84px 30px rgba(255,217,138,.4);}}
+.tLogoZone{margin-top:max(54px,7dvh); text-align:center; z-index:2; padding:0 16px; width:min(100%,600px);}
+.tLogo{font-size:clamp(46px,14vw,72px); font-weight:900; letter-spacing:.02em; line-height:1.08;
+  color:var(--cream);
+  text-shadow:0 3px 0 #b4713f, 0 6px 0 #7c4a26, 0 10px 18px rgba(0,0,0,.55);}
+.tLogo .hl{color:var(--gold); text-shadow:0 3px 0 #b4713f,0 6px 0 #7c4a26,0 10px 18px rgba(0,0,0,.55);}
+.tSub{margin-top:12px; font-size:16px; font-weight:700; color:#cfd3f2; letter-spacing:.06em;}
+#titleCake{position:absolute; left:50%; top:44%; transform:translateX(-50%); width:min(72vw,330px); z-index:1;}
+#titleRabbit{position:absolute; left:4%; top:60%; width:96px; animation:bob 2.6s ease-in-out infinite;}
+#titleOwl{position:absolute; right:4%; top:58%; width:84px; animation:bob 3.1s .5s ease-in-out infinite;}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.ctaZone{position:absolute; bottom:max(18px, env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
+  width:min(calc(100% - 32px),520px); z-index:3; display:flex; flex-direction:column; gap:12px; align-items:center;}
+.statusPill{font-size:14px; font-weight:700; color:#e8d9b8; background:rgba(0,0,0,.3); border:1px solid rgba(255,217,138,.35);
+  padding:7px 16px; border-radius:999px;}
+#startBtn{width:100%; max-width:420px; height:68px; border-radius:22px; font-size:24px; font-weight:900; color:#3a2410;
+  background:linear-gradient(180deg,var(--gold),var(--amber2)); box-shadow:0 6px 0 #a5691f, 0 12px 24px rgba(0,0,0,.45);
+  transition:transform .08s;}
+#startBtn:active{transform:translateY(4px); box-shadow:0 2px 0 #a5691f;}
+#howLink{background:none; color:#b9bfe6; font-size:15px; font-weight:700; text-decoration:underline; text-underline-offset:3px; padding:8px;}
+
+/* ===== 공용 ===== */
+.mute{position:absolute; top:max(10px, env(safe-area-inset-top)); right:12px; width:44px; height:44px; border-radius:14px;
+  background:rgba(255,255,255,.1); color:var(--cream); font-size:20px; z-index:20; border:1px solid rgba(255,255,255,.18);}
+.overlay{position:absolute; inset:0; background:rgba(12,14,30,.78); z-index:40; display:flex; align-items:center; justify-content:center; padding:20px;}
+.panel{background:var(--night3); border:2px solid rgba(255,217,138,.35); border-radius:24px; padding:26px 22px; width:min(100%,420px);
+  box-shadow:0 18px 40px rgba(0,0,0,.5); text-align:center;}
+.panel h2{font-size:24px; font-weight:900; color:var(--gold); margin-bottom:14px;}
+.panel .steps{text-align:left; font-size:16px; line-height:1.65; color:#e6e9ff;}
+.panel .steps b{color:var(--gold);}
+.panel button.ok{margin-top:18px; width:100%; height:56px; border-radius:16px; font-size:19px; font-weight:900; color:#3a2410;
+  background:linear-gradient(180deg,var(--gold),var(--amber2)); box-shadow:0 4px 0 #a5691f;}
+
+/* ===== 게임 HUD ===== */
+#game{padding-top:max(8px, env(safe-area-inset-top));}
+#hud{display:flex; align-items:center; justify-content:space-between; padding:8px 60px 4px 14px; min-height:44px;}
+#hearts{font-size:22px; letter-spacing:2px; min-width:86px;}
+#hearts .off{opacity:.22; filter:grayscale(1);}
+#orderNo{font-size:15px; font-weight:800; color:#c3c9ef; background:rgba(255,255,255,.08); padding:5px 12px; border-radius:999px;}
+#score{font-size:17px; font-weight:900; color:var(--gold); min-width:70px; text-align:right;}
+.shake{animation:shake .45s;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+
+/* ===== 손님 ===== */
+#customerRow{display:flex; align-items:center; gap:10px; padding:6px 14px 2px; min-height:96px;}
+#custFace{width:76px; height:76px; flex:none; animation:bob 2.8s ease-in-out infinite;}
+#bubble{flex:1; background:var(--cream); color:#3a2c1c; border-radius:18px; border-bottom-left-radius:4px;
+  padding:10px 14px; font-size:17px; font-weight:800; line-height:1.45; box-shadow:0 4px 14px rgba(0,0,0,.35);
+  position:relative; min-height:58px; display:flex; align-items:center; flex-wrap:wrap; gap:2px;}
+#bubble::before{content:""; position:absolute; left:-9px; bottom:12px; border:9px solid transparent; border-right-color:var(--cream); border-left:0;}
+.fr{display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; margin:0 4px;
+  font-weight:900; line-height:1.05; color:#8a3d2a;}
+.fr b{padding:0 6px; font-size:1.02em;}
+.fr i{font-style:normal; border-top:2.5px solid #8a3d2a; padding:0 6px; font-size:1.02em;}
+.mx{display:inline-flex; align-items:center; gap:3px;}
+.mx em{font-style:normal; font-weight:900; font-size:1.5em; color:#8a3d2a;}
+
+/* ===== 카운터 ===== */
+#counter{flex:1; display:flex; align-items:flex-end; justify-content:center; position:relative; padding:4px 8px; min-height:0;}
+#counter::after{content:""; position:absolute; left:0; right:0; bottom:0; height:40%;
+  background:linear-gradient(180deg,var(--wood) 0 14px, var(--wood2) 14px 60%, var(--wood3));
+  border-top:4px solid var(--wood3); border-radius:6px 6px 0 0; z-index:0;}
+#stage{position:relative; z-index:1; width:100%; max-width:640px; display:flex; align-items:flex-end; justify-content:center; gap:2vw; flex-wrap:wrap; margin-bottom:11%;}
+.lantern{position:absolute; top:0; width:36px; height:46px; border-radius:12px 12px 14px 14px; z-index:0;
+  background:radial-gradient(circle at 50% 42%, #ffe9b0, var(--amber) 62%, var(--amber2));
+  border:2.5px solid var(--choco); box-shadow:0 0 26px 8px rgba(245,185,94,.28);
+  animation:sway 3.4s ease-in-out infinite alternate;}
+.lantern::before{content:""; position:absolute; left:50%; top:-16px; width:2.5px; height:16px; background:var(--choco); transform:translateX(-50%);}
+.lantern::after{content:""; position:absolute; left:50%; bottom:-9px; width:8px; height:9px; background:var(--berry2); border-radius:0 0 4px 4px; transform:translateX(-50%);}
+.lantern.l1{left:9%; top:6px;}
+.lantern.l2{right:9%; top:6px; animation-delay:1.2s;}
+@keyframes sway{from{transform:rotate(-3deg)}to{transform:rotate(3deg)}}
+.cakeWrap{position:relative; display:flex; flex-direction:column; align-items:center;}
+.cakeWrap svg{display:block; overflow:visible;}
+.slice{fill:var(--cake); stroke:var(--choco); stroke-width:2.5; stroke-linejoin:round; transition:transform .12s, fill .12s;}
+.slice.picked{fill:var(--amber); stroke:#8a4d17;}
+.hub{fill:var(--mint); stroke:var(--choco); stroke-width:2.5;}
+.hubTxt{font-size:13px; font-weight:900; fill:#26401c; text-anchor:middle; pointer-events:none;}
+.board{fill:var(--wood3); opacity:.9;}
+.plateTag{margin-top:2px; background:rgba(255,255,255,.12); border-radius:10px; padding:2px 10px; font-size:15px; font-weight:900; color:var(--cream);}
+.plateDone{position:absolute; top:2px; right:2px; width:30px; height:30px; border-radius:50%; background:var(--mint2); color:#fff;
+  font-size:16px; font-weight:900; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.4);}
+/* 꿀떡 묶음 */
+#candyArea{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; align-items:stretch; width:100%; padding:0 6px;}
+.bundle{border:3px solid rgba(255,244,224,.4); border-radius:18px; padding:10px; display:flex; flex-wrap:wrap; gap:8px;
+  justify-content:center; align-content:center; background:rgba(255,255,255,.05); transition:background .12s, border-color .12s; max-width:46%;}
+.bundle.picked{background:rgba(245,185,94,.28); border-color:var(--amber);}
+.bundle.bad{border-color:var(--berry2); border-style:dashed;}
+.candy{width:30px; height:30px; border-radius:50% 50% 46% 46%; position:relative;
+  background:radial-gradient(circle at 36% 30%, #fdf6e8, var(--cream2) 62%, #e3c795); border:2.5px solid var(--choco);}
+.candy::after{content:""; position:absolute; left:50%; top:-2px; transform:translateX(-50%); width:8px; height:7px;
+  border-radius:0 0 6px 6px; background:var(--mint2); border:2px solid var(--choco); border-top:none;}
+.badMark{width:100%; text-align:center; font-size:15px; font-weight:900; color:#f7a9bb; margin-top:2px;}
+
+/* ===== 조작부 ===== */
+#controls{padding:6px 14px calc(10px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:8px;}
+#dialRow{display:flex; align-items:center; justify-content:center; gap:14px;}
+.dialBtn{width:58px; height:58px; border-radius:18px; font-size:30px; font-weight:900; color:var(--cream);
+  background:linear-gradient(180deg,var(--night3),#262e5c); border:2px solid rgba(255,255,255,.16); box-shadow:0 4px 0 #141832;}
+.dialBtn:active{transform:translateY(3px); box-shadow:0 1px 0 #141832;}
+.dialBtn:disabled{opacity:.35;}
+#dialVal{min-width:118px; text-align:center; background:rgba(0,0,0,.3); border:2px solid rgba(255,217,138,.4); border-radius:16px; padding:7px 6px;}
+#dialVal b{font-size:30px; color:var(--gold);}
+#dialVal small{font-size:16px; font-weight:800; color:#d9def7; margin-left:2px;}
+#dialCap{font-size:12px; color:#9aa1cf; font-weight:700; margin-top:-2px;}
+#pickInfo{text-align:center; font-size:15px; font-weight:800; color:#cfe7c2; min-height:20px;}
+#serveBtn{height:62px; border-radius:20px; font-size:22px; font-weight:900; color:#3a2410;
+  background:linear-gradient(180deg,var(--mint),var(--mint2)); box-shadow:0 5px 0 #4c7040, 0 10px 20px rgba(0,0,0,.35);}
+#serveBtn:active{transform:translateY(3px); box-shadow:0 2px 0 #4c7040;}
+#serveBtn:disabled{opacity:.5;}
+
+/* ===== 토스트/피드백 ===== */
+#toast{position:absolute; left:50%; top:38%; transform:translate(-50%,-50%) scale(.8); z-index:30; pointer-events:none;
+  background:var(--cream); color:#3a2c1c; font-size:19px; font-weight:900; padding:16px 22px; border-radius:20px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5); opacity:0; transition:opacity .18s, transform .18s; max-width:86%; text-align:center; line-height:1.5;}
+#toast.show{opacity:1; transform:translate(-50%,-50%) scale(1);}
+#toast.good{background:#e9f6df; color:#2c4a20; border:3px solid var(--mint2);}
+#toast.bad{background:#fdeaee; color:#7c2f40; border:3px solid var(--berry2);}
+
+/* ===== 엔딩 ===== */
+#end{align-items:center; justify-content:center; z-index:35;}
+.endStars{font-size:44px; letter-spacing:6px; margin:8px 0 4px;}
+.endStars .off{opacity:.25; filter:grayscale(1);}
+#endMsg{font-size:16px; color:#d5daf5; line-height:1.6; margin-bottom:6px;}
+#endScore{font-size:30px; font-weight:900; color:var(--gold); margin-bottom:10px;}
+@media (min-width:700px){
+  #customerRow,#controls{width:640px; margin:0 auto;}
+}
+
+/* ===== 와이드 재배치 (원형 ① 파노라마) =====
+   존: 주문서=좌상, 하트/주문번호/점수=우상, 떡판 무대=중앙 전폭, 칼·서빙=하단 중앙.
+   무대 밖(스테이지 상한 1280 초과분)은 배경 톤을 눌러 표시한다.                */
+html.land #game{padding-top:0;}
+html.land #game::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:linear-gradient(90deg,
+    rgba(9,11,26,.5) 0, rgba(9,11,26,.5) var(--stageX),
+    rgba(9,11,26,0) var(--stageX), rgba(9,11,26,0) calc(100% - var(--stageX)),
+    rgba(9,11,26,.5) calc(100% - var(--stageX)), rgba(9,11,26,.5) 100%);
+}
+/* 좌상 존 — 손님 주문서 */
+html.land #customerRow{
+  position:absolute; z-index:2; top:calc(12px + env(safe-area-inset-top));
+  left:calc(var(--stageX) + 16px); width:min(600px, calc(var(--stageW)*0.47));
+  padding:0; margin:0; min-height:0; gap:12px;
+}
+html.land #custFace{width:84px; height:84px;}
+html.land #bubble{font-size:19px; padding:12px 18px; min-height:74px;}
+/* 우상 존 — 하트·주문번호·점수 */
+html.land #hud{
+  position:absolute; z-index:2; top:calc(12px + env(safe-area-inset-top));
+  left:auto; right:calc(var(--stageX) + 76px); width:auto;
+  padding:0; gap:16px; justify-content:flex-end;
+}
+html.land #hearts{font-size:26px; min-width:0;}
+html.land #orderNo{font-size:16px;}
+html.land #score{font-size:22px; min-width:0;}
+/* 중앙 무대 — 나무 카운터와 떡판이 함께 stageW 전폭을 쓴다 */
+html.land #counter{
+  position:absolute; z-index:1; left:0; right:0;
+  /* 화면이 높을수록 카운터를 내려 떡판 위 빈 하늘을 줄인다 */
+  top:clamp(calc(116px + env(safe-area-inset-top)), calc(100dvh - 620px), 40dvh);
+  bottom:calc(104px + env(safe-area-inset-bottom));
+  padding:0;
+}
+html.land #counter::after{left:var(--stageX); right:var(--stageX); height:44%;}
+html.land #stage{width:var(--stageW); max-width:var(--stageW); gap:26px;
+  margin-bottom:min(calc(6px + 9vh), 110px);}
+html.land .lantern{width:46px; height:58px; top:12px;}
+html.land .lantern.l1{left:calc(var(--stageX) + 14px);}
+html.land .lantern.l2{right:calc(var(--stageX) + 14px);}
+html.land .hubTxt{font-size:11px;}
+html.land .plateTag{font-size:19px; padding:3px 14px;}
+html.land .bundle{max-width:min(380px, calc(33.33% - 16px)); min-width:120px; padding:16px; gap:12px;}
+html.land .candy{width:48px; height:48px;}
+html.land .candy::after{width:11px; height:9px;}
+html.land .badMark{font-size:18px;}
+html.land #candyArea{gap:18px;}
+/* 하단 중앙 존 — 칼 다이얼 + 서빙 */
+html.land #controls{
+  position:absolute; z-index:2; left:50%; transform:translateX(-50%);
+  bottom:calc(18px + env(safe-area-inset-bottom));
+  width:min(780px, calc(var(--stageW)*0.62)); padding:0; margin:0;
+  flex-direction:row; align-items:center; justify-content:center; gap:18px;
+}
+html.land #dialRow{flex:none; gap:12px;}
+html.land #pickInfo{flex:1 1 auto; min-height:0; font-size:17px;}
+html.land #serveBtn{flex:none; width:min(260px, 34%); height:64px; font-size:21px;}
+html.land #toast{top:26%; max-width:min(560px, calc(var(--stageW)*0.5));}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 타이틀 -->
+  <section id="title">
+    <div id="titleArt">
+      <div class="moon"></div>
+      <svg id="titleRabbit" viewBox="0 0 100 110"></svg>
+      <svg id="titleOwl" viewBox="0 0 100 110"></svg>
+      <svg id="titleCake" viewBox="0 0 240 190">
+        <ellipse cx="120" cy="168" rx="112" ry="16" fill="#5a3720"/>
+        <ellipse cx="120" cy="162" rx="104" ry="13" fill="#8a5a3b"/>
+        <g id="titleCakeSlices"></g>
+      </svg>
+    </div>
+    <div class="tLogoZone">
+      <div class="tLogo">달빛 <span class="hl">떡집</span></div>
+      <div class="tSub">똑같이 썰어서, 주문만큼 집어 담자!</div>
+    </div>
+    <div class="ctaZone">
+      <div class="statusPill" id="bestPill">오늘 밤 첫 손님이 기다려요</div>
+      <button id="startBtn">가게 문 열기</button>
+      <button id="howLink">어떻게 놀아요?</button>
+    </div>
+  </section>
+
+  <!-- 게임 -->
+  <section id="game" hidden>
+    <div id="hud">
+      <div id="hearts"></div>
+      <div id="orderNo">주문 1/12</div>
+      <div id="score">0</div>
+    </div>
+    <div id="customerRow">
+      <svg id="custFace" viewBox="0 0 100 110"></svg>
+      <div id="bubble"></div>
+    </div>
+    <div id="counter"><div class="lantern l1"></div><div class="lantern l2"></div><div id="stage"></div></div>
+    <div id="controls">
+      <div id="dialRow">
+        <button class="dialBtn" id="dialMinus" aria-label="덜 나누기">−</button>
+        <div>
+          <div id="dialVal"><b>4</b><small>등분</small></div>
+          <div id="dialCap" style="text-align:center">칼로 똑같이 나눠요</div>
+        </div>
+        <button class="dialBtn" id="dialPlus" aria-label="더 나누기">＋</button>
+      </div>
+      <div id="pickInfo"></div>
+      <button id="serveBtn">손님께 드리기</button>
+    </div>
+    <div id="toast"></div>
+  </section>
+
+  <!-- 엔딩 -->
+  <section id="end" hidden>
+    <div class="panel">
+      <h2 id="endTitle">오늘 밤 영업 끝!</h2>
+      <div class="endStars" id="endStars"></div>
+      <div id="endMsg"></div>
+      <div id="endScore"></div>
+      <button class="ok" id="againBtn">다시 열기</button>
+    </div>
+  </section>
+
+  <button class="mute" id="muteBtn" aria-label="소리 켜기/끄기">🔊</button>
+
+  <!-- 도움말 -->
+  <div class="overlay" id="howOverlay" hidden>
+    <div class="panel">
+      <h2>이렇게 놀아요</h2>
+      <div class="steps">
+        <b>① 주문서를 읽어요.</b> 손님이 떡을 분수만큼 사 가요.<br>
+        <b>② 칼 다이얼로 똑같이 나눠요.</b> −/＋를 눌러 몇 등분할지 정해요.<br>
+        <b>③ 조각을 톡톡 집어요.</b> 가운데 잎사귀를 누르면 한 판을 통째로 담아요.<br>
+        <b>④ 손님께 드려요!</b> 딱 맞으면 점수, 틀리면 하트가 하나 깨져요.<br><br>
+        하트 3개가 다 깨지면 가게 문을 닫아요.
+      </div>
+      <button class="ok" id="howClose">알겠어요!</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= 유틸 ================= */
+const $=s=>document.querySelector(s);
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+const SVGNS="http://www.w3.org/2000/svg";
+
+/* ================= 사운드 ================= */
+let AC=null, muted=false;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} } return AC; }
+function tone(f,t,dur,type,vol){
+  if(muted) return; const c=ac(); if(!c) return;
+  if(c.state==="suspended") c.resume();
+  const o=c.createOscillator(), g=c.createGain();
+  o.type=type||"sine"; o.frequency.value=f;
+  g.gain.setValueAtTime(0.0001,c.currentTime+t);
+  g.gain.exponentialRampToValueAtTime(vol||0.16,c.currentTime+t+0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+t+dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(c.currentTime+t); o.stop(c.currentTime+t+dur+0.05);
+}
+const sTick=()=>tone(660,0,.07,"triangle",.1);
+const sPick=()=>tone(520,0,.08,"sine",.14);
+const sUnpick=()=>tone(390,0,.08,"sine",.1);
+const sGood=()=>{tone(523,0,.12,"triangle",.16);tone(659,.09,.12,"triangle",.16);tone(784,.18,.2,"triangle",.18);};
+const sBad=()=>{tone(220,0,.2,"sawtooth",.09);tone(180,.12,.25,"sawtooth",.09);};
+const sServe=()=>tone(440,0,.1,"square",.06);
+$("#muteBtn").addEventListener("pointerdown",e=>{
+  e.preventDefault(); muted=!muted; $("#muteBtn").textContent=muted?"🔇":"🔊";
+});
+
+/* ================= 문제 생성 (순수) ================= */
+/* 12개 주문 계획: 분수의 뜻 → 분수만큼(개수) → 단위분수 비교 → 가분수 → 대분수 */
+const PLAN=["A","A","D","A","E","B","D","B","E","C","D","C"];
+const UNIT_CONCEPTS={A:"전체에 대한 분수(진분수)",B:"가분수",C:"대분수",D:"어떤 양의 분수만큼",E:"단위분수의 크기 비교"};
+const CUSTOMERS=["rabbit","owl","hedgehog","cat"];
+const D_DIVS={6:[2,3],8:[2,4],12:[2,3,4,6]};
+
+function genOrder(type, idx){
+  const o={type, idx, customer:CUSTOMERS[idx%CUSTOMERS.length]};
+  if(type==="A"){
+    o.d = idx<2 ? pick([2,3,4]) : pick([4,5,6,8]);
+    o.n = ri(1,o.d-1);
+  }else if(type==="B"){
+    o.d = pick([3,4,5]);
+    do{ o.n = ri(o.d+1, 3*o.d-1); }while(o.n % o.d === 0);
+  }else if(type==="C"){
+    o.d = pick([3,4,5,6]);
+    o.a = ri(1,2); o.b = ri(1,o.d-1);
+    o.n = o.a*o.d + o.b;
+  }else if(type==="D"){
+    o.k = pick([6,8,12]);
+    o.d = pick(D_DIVS[o.k]);
+    o.n = idx<5 ? 1 : ri(1,o.d-1);
+    o.amount = o.k/o.d*o.n;
+  }else{ // E: 단위분수 비교
+    const pool=[2,3,4,6,8].slice();
+    o.ds=[];
+    for(let i=0;i<3;i++){ const j=Math.floor(Math.random()*pool.length); o.ds.push(pool.splice(j,1)[0]); }
+    o.dir = pick(["asc","desc"]);
+    // 정답 순서: asc=조각이 작은 것부터(분모 큰 것부터), desc=큰 것부터(분모 작은 것부터)
+    o.correctSeq = o.ds.map((d,i)=>i).sort((x,y)=> o.dir==="asc" ? o.ds[y]-o.ds[x] : o.ds[x]-o.ds[y]);
+  }
+  return o;
+}
+
+function fracHTML(n,d){ return '<span class="fr"><b>'+n+'</b><i>'+d+'</i></span>'; }
+function mixedHTML(a,b,d){ return '<span class="mx"><em>'+a+'</em>'+fracHTML(b,d)+'</span>'; }
+function orderPromptHTML(o){
+  if(o.type==="A") return '떡케이크의 '+fracHTML(o.n,o.d)+'만큼 주세요!';
+  if(o.type==="B") return '떡케이크로 '+fracHTML(o.n,o.d)+'만큼 담아 주세요!';
+  if(o.type==="C") return '떡케이크로 '+mixedHTML(o.a,o.b,o.d)+'만큼 주세요!';
+  if(o.type==="D") return '꿀떡 <b style="color:#8a3d2a">'+o.k+'개</b>의 '+fracHTML(o.n,o.d)+'만큼 주세요!';
+  return o.dir==="asc" ? '조각이 <b style="color:#8a3d2a">작은 것부터</b> 차례로 집어 주세요!' : '조각이 <b style="color:#8a3d2a">큰 것부터</b> 차례로 집어 주세요!';
+}
+function orderPromptText(o){
+  if(o.type==="A") return "떡케이크의 "+o.n+"/"+o.d+"만큼 주세요!";
+  if(o.type==="B") return "떡케이크로 "+o.n+"/"+o.d+"만큼 담아 주세요!";
+  if(o.type==="C") return "떡케이크로 "+o.a+"와 "+o.b+"/"+o.d+"만큼 주세요!";
+  if(o.type==="D") return "꿀떡 "+o.k+"개의 "+o.n+"/"+o.d+"만큼 주세요!";
+  const fr=o.ds.map(d=>"1/"+d).join(", ");
+  return (o.dir==="asc"?"조각이 작은 것부터":"조각이 큰 것부터")+" 차례로 집으세요! ("+fr+")";
+}
+
+/* ===== 채점 (순수 — 정수 연산만) =====
+   케이크/꿀떡 공통: 담은양/등분 = n/d  ⇔  picked × d === n × dial (교차곱, 정수)
+   꿀떡은 k % dial === 0 (똑같이 나눠져야) 추가.                         */
+function evalServe(o, at){
+  if(o.type==="E"){
+    const ok = at.seq.length===3 && at.seq.every((v,i)=>v===o.correctSeq[i]);
+    return {ok, code: ok?"":"order"};
+  }
+  if(o.type==="D" && o.k % at.dial !== 0) return {ok:false, code:"uneven"};
+  if(!at.picked) return {ok:false, code:"empty"};
+  const lhs = at.picked * o.d, rhs = o.n * at.dial;
+  if(lhs===rhs) return {ok:true, code:""};
+  return {ok:false, code: lhs>rhs ? "over" : "under", dialWrong: at.dial!==o.d};
+}
+
+/* ================= 캐릭터 SVG ================= */
+function faceSVG(kind){
+  const base='<circle cx="50" cy="62" r="34" fill="{F}" stroke="#3d2b1d" stroke-width="3"/>'+
+    '<circle cx="38" cy="58" r="4.2" fill="#3d2b1d"/><circle cx="62" cy="58" r="4.2" fill="#3d2b1d"/>'+
+    '<path d="M42 72 Q50 79 58 72" stroke="#3d2b1d" stroke-width="3" fill="none" stroke-linecap="round"/>'+
+    '<circle cx="30" cy="68" r="5.5" fill="{C}" opacity=".7"/><circle cx="70" cy="68" r="5.5" fill="{C}" opacity=".7"/>';
+  if(kind==="rabbit") return ('<ellipse cx="36" cy="22" rx="9" ry="21" fill="#f4f0ec" stroke="#3d2b1d" stroke-width="3"/>'+
+    '<ellipse cx="64" cy="22" rx="9" ry="21" fill="#f4f0ec" stroke="#3d2b1d" stroke-width="3"/>'+
+    '<ellipse cx="36" cy="24" rx="4" ry="14" fill="#efb6c3"/><ellipse cx="64" cy="24" rx="4" ry="14" fill="#efb6c3"/>'+
+    base).replace(/{F}/g,"#f4f0ec").replace(/{C}/g,"#efb6c3");
+  if(kind==="owl") return ('<path d="M26 34 L36 46 M74 34 L64 46" stroke="#3d2b1d" stroke-width="4" stroke-linecap="round"/>'+
+    base+'<circle cx="38" cy="58" r="8" fill="none" stroke="#3d2b1d" stroke-width="2.5"/>'+
+    '<circle cx="62" cy="58" r="8" fill="none" stroke="#3d2b1d" stroke-width="2.5"/>'+
+    '<path d="M46 64 L50 70 L54 64 Z" fill="#f5b95e" stroke="#3d2b1d" stroke-width="2"/>')
+    .replace(/{F}/g,"#cdb391").replace(/{C}/g,"#e8c98f");
+  if(kind==="hedgehog") return ('<path d="M50 14 L44 34 M32 22 L36 38 M68 22 L64 38 M20 38 L32 46 M80 38 L68 46" stroke="#6f4529" stroke-width="5" stroke-linecap="round"/>'+
+    base).replace(/{F}/g,"#e8cfa8").replace(/{C}/g,"#e79a33");
+  return ('<path d="M26 42 L29 20 L45 32 Z M74 42 L71 20 L55 32 Z" fill="#a6a6c9" stroke="#3d2b1d" stroke-width="3" stroke-linejoin="round"/>'+
+    base+'<path d="M44 66 L50 69 L56 66" stroke="#3d2b1d" stroke-width="2.5" fill="none"/>')
+    .replace(/{F}/g,"#a6a6c9").replace(/{C}/g,"#c9a6c9");
+}
+
+/* ================= 케이크 그리기 ================= */
+function sectorPath(cx,cy,r,a0,a1){
+  const x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0);
+  const x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+  const large=(a1-a0)>Math.PI?1:0;
+  return "M"+cx+" "+cy+" L"+x0.toFixed(2)+" "+y0.toFixed(2)+" A"+r+" "+r+" 0 "+large+" 1 "+x1.toFixed(2)+" "+y1.toFixed(2)+" Z";
+}
+/* 케이크 하나 = svg. d등분, onSlice(i), onHub() */
+function buildCake(sizePx, d, showHub){
+  const svg=document.createElementNS(SVGNS,"svg");
+  svg.setAttribute("viewBox","0 0 120 128");
+  svg.setAttribute("width",sizePx); svg.setAttribute("height",Math.round(sizePx*128/120));
+  const board=document.createElementNS(SVGNS,"ellipse");
+  board.setAttribute("cx",60); board.setAttribute("cy",116); board.setAttribute("rx",56); board.setAttribute("ry",9);
+  board.setAttribute("class","board");
+  svg.appendChild(board);
+  const slices=[];
+  for(let i=0;i<d;i++){
+    const a0=-Math.PI/2 + i*2*Math.PI/d, a1=-Math.PI/2 + (i+1)*2*Math.PI/d;
+    const p=document.createElementNS(SVGNS,"path");
+    if(d===1){ p.setAttribute("d","M60 60 m-52 0 a52 52 0 1 0 104 0 a52 52 0 1 0 -104 0"); }
+    else p.setAttribute("d",sectorPath(60,60,52,a0,a1));
+    p.setAttribute("class","slice");
+    const mid=(a0+a1)/2;
+    p.dataset.tx=(Math.cos(mid)*5).toFixed(2); p.dataset.ty=(Math.sin(mid)*5).toFixed(2);
+    svg.appendChild(p); slices.push(p);
+  }
+  let hub=null;
+  if(showHub && d>1){
+    hub=document.createElementNS(SVGNS,"circle");
+    hub.setAttribute("cx",60); hub.setAttribute("cy",60); hub.setAttribute("r",14);
+    hub.setAttribute("class","hub");
+    svg.appendChild(hub);
+    const t=document.createElementNS(SVGNS,"text");
+    t.setAttribute("x",60); t.setAttribute("y",64.5); t.setAttribute("class","hubTxt"); t.textContent="통째";
+    svg.appendChild(t);
+  }
+  return {svg, slices, hub};
+}
+function setPicked(path,on){
+  path.classList.toggle("picked",on);
+  path.style.transform = on ? "translate("+path.dataset.tx+"px,"+path.dataset.ty+"px)" : "";
+}
+
+/* ================= 게임 상태 ================= */
+const G={
+  phase:"title",       // title | playing | feedback | clear | over
+  orderIdx:0, lives:3, score:0, solved:0, combo:0,
+  order:null, dial:2,
+  picks:[],            // 케이크: [cake][slice] bool / 꿀떡: [bundle] bool
+  seq:[], plateEls:[], // E 모드
+  attempted:false, firstTryHits:0,
+  best: 0,
+  land:false, stageW:0, stageX:0
+};
+try{ G.best = Number(localStorage.getItem("tteok-best")||0)||0; }catch(e){}
+
+const elGame=$("#game"), elTitle=$("#title"), elEnd=$("#end");
+const elStage=$("#stage"), elBubble=$("#bubble"), elToast=$("#toast");
+const elDialVal=$("#dialVal"), elPickInfo=$("#pickInfo"), elServe=$("#serveBtn");
+const elDialRow=$("#dialRow"), elDialCap=$("#dialCap");
+
+/* ---- 판형(레이아웃) ----
+   land 에서는 떡판 무대가 stageW 전폭을 쓰고, 떡판 자체가 커진다.
+   조각을 손가락으로 집는 게임이라 판이 커지는 것이 곧 조작성이다. */
+const STAGE_MAX=1280;                       /* CSS --stageW 상한과 일치 */
+function cakeSize(){
+  if(!G.land) return Math.min(200, Math.floor((Math.min(window.innerWidth,640)-40)/3));
+  const byW = Math.floor((G.stageW - 72)/3) - 24;
+  const byH = Math.floor((window.innerHeight - 320)/1.07);
+  return Math.max(110, Math.min(360, byW, byH));
+}
+function plateSize(){                        /* E(비교) 라운드 접시 */
+  if(!G.land) return 112;
+  const byW = Math.floor((G.stageW - 72)/3) - 24;
+  const byH = Math.floor((window.innerHeight - 330)/1.07);
+  return Math.max(112, Math.min(260, byW, byH));
+}
+let lastCake=0;
+function layout(){
+  const W=window.innerWidth, H=window.innerHeight;
+  G.land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle("land", G.land);
+  G.stageW = Math.min(W, STAGE_MAX);
+  G.stageX = Math.round((W - G.stageW)/2);
+  const rs=document.documentElement.style;
+  rs.setProperty("--stageW", G.stageW+"px");
+  rs.setProperty("--stageX", G.stageX+"px");
+  const s=cakeSize();
+  if(s!==lastCake){
+    lastCake=s;
+    if(!elGame.hidden && G.order && G.phase==="playing") setupBoard(false);
+  }
+}
+window.addEventListener("resize",layout);
+window.addEventListener("orientationchange",()=>setTimeout(layout,120));
+
+function renderHUD(){
+  let h="";
+  for(let i=0;i<3;i++) h+='<span class="'+(i<G.lives?"":"off")+'">❤️</span>';
+  $("#hearts").innerHTML=h;
+  $("#orderNo").textContent="주문 "+Math.min(G.orderIdx+1,PLAN.length)+"/"+PLAN.length;
+  $("#score").textContent=G.score;
+}
+
+/* ---- 주문 세팅 ---- */
+function loadOrder(){
+  G.order=genOrder(PLAN[G.orderIdx], G.orderIdx);
+  G.attempted=false;
+  setupBoard(true);
+  $("#custFace").innerHTML=faceSVG(G.order.customer);
+  elBubble.innerHTML=orderPromptHTML(G.order);
+  renderHUD();
+}
+/* resetDial=true면 다이얼 2로 (매 주문 시작). 다이얼 변경 시엔 픽만 리셋 */
+function setupBoard(resetDial){
+  const o=G.order;
+  elStage.innerHTML="";
+  G.seq=[]; G.plateEls=[];
+  if(o.type==="E"){
+    elDialRow.style.display="none"; elDialCap.style.display="none";
+    elServe.style.display="none";
+    elPickInfo.textContent="접시를 차례대로 눌러요 (0/3)";
+    // 접시 3개: 각각 1/d 조각 하나가 담긴 케이크 그림
+    o.ds.forEach((d,i)=>{
+      const wrap=document.createElement("div"); wrap.className="cakeWrap";
+      const {svg,slices}=buildCake(plateSize(),d,false);
+      slices.forEach((p,si)=>{ if(si!==0){ p.style.opacity=".45"; } else { setPicked(p,true); } });
+      const tag=document.createElement("div"); tag.className="plateTag";
+      tag.innerHTML=fracHTML(1,d).replace('class="fr"','class="fr" style="color:#fff4e0"').replace(/8a3d2a/g,"fff4e0");
+      wrap.appendChild(svg); wrap.appendChild(tag);
+      wrap.addEventListener("pointerdown",ev=>{ ev.preventDefault(); tapPlate(i,wrap); });
+      elStage.appendChild(wrap); G.plateEls.push(wrap);
+    });
+    return;
+  }
+  elDialRow.style.display="flex"; elDialCap.style.display="block";
+  elServe.style.display="block";
+  if(resetDial) G.dial=2;
+  elDialVal.innerHTML="<b>"+G.dial+"</b><small>"+(o.type==="D"?"묶음":"등분")+"</small>";
+  elDialCap.textContent = o.type==="D" ? "똑같이 몇 묶음으로 나눌까?" : "칼로 똑같이 나눠요";
+  if(o.type==="D") buildCandy(); else buildCakes();
+  updatePickInfo();
+}
+function buildCakes(){
+  const o=G.order, d=G.dial;
+  G.picks=[[],[],[]];
+  const size = cakeSize();
+  for(let c=0;c<3;c++){
+    const wrap=document.createElement("div"); wrap.className="cakeWrap";
+    const {svg,slices,hub}=buildCake(size,d,true);
+    G.picks[c]=new Array(d).fill(false);
+    slices.forEach((p,si)=>{
+      p.addEventListener("pointerdown",ev=>{
+        ev.preventDefault(); if(G.phase!=="playing") return;
+        G.picks[c][si]=!G.picks[c][si];
+        setPicked(p,G.picks[c][si]);
+        G.picks[c][si]?sPick():sUnpick();
+        updatePickInfo();
+      });
+    });
+    if(hub) hub.addEventListener("pointerdown",ev=>{
+      ev.preventDefault(); if(G.phase!=="playing") return;
+      const all=G.picks[c].every(v=>v);
+      G.picks[c]=G.picks[c].map(()=>!all);
+      slices.forEach((p,si)=>setPicked(p,G.picks[c][si]));
+      all?sUnpick():sPick();
+      updatePickInfo();
+    });
+    wrap.appendChild(svg); elStage.appendChild(wrap);
+  }
+}
+function buildCandy(){
+  const o=G.order, dial=G.dial, k=o.k;
+  const area=document.createElement("div"); area.id="candyArea";
+  const even = k % dial === 0;
+  const per = Math.floor(k/dial), rem = k % dial;
+  G.picks=new Array(dial).fill(false);
+  let used=0;
+  for(let b=0;b<dial;b++){
+    const cnt = per + (b<rem?1:0); used+=cnt;
+    const box=document.createElement("div"); box.className="bundle"+(even?"":" bad");
+    for(let i=0;i<cnt;i++){ const cd=document.createElement("div"); cd.className="candy"; box.appendChild(cd); }
+    box.addEventListener("pointerdown",ev=>{
+      ev.preventDefault(); if(G.phase!=="playing") return;
+      G.picks[b]=!G.picks[b]; box.classList.toggle("picked",G.picks[b]);
+      G.picks[b]?sPick():sUnpick();
+      updatePickInfo();
+    });
+    area.appendChild(box);
+  }
+  elStage.appendChild(area);
+  if(!even){
+    const warn=document.createElement("div"); warn.className="badMark";
+    warn.textContent="⚠ 똑같이 나눠지지 않았어!";
+    elStage.appendChild(warn);
+  }
+}
+function pickedCount(){
+  const o=G.order;
+  if(o.type==="D") return G.picks.filter(Boolean).length;
+  return G.picks.reduce((s,c)=>s+c.filter(Boolean).length,0);
+}
+function updatePickInfo(){
+  const o=G.order, n=pickedCount();
+  if(o.type==="D"){
+    const even=o.k%G.dial===0;
+    elPickInfo.textContent = even ? "담은 묶음 "+n+"개 ("+(n*o.k/G.dial)+"개)" : "묶음이 고르지 않아요";
+  }else{
+    elPickInfo.textContent = "담은 조각 "+n+"개";
+  }
+}
+/* E: 접시 탭 */
+function tapPlate(i,wrap){
+  if(G.phase!=="playing") return;
+  if(G.seq.includes(i)) return;
+  sPick();
+  const expected=G.order.correctSeq[G.seq.length];
+  if(i!==expected){
+    G.seq.push(i);
+    resolveServe({ok:false, code:"order"});
+    return;
+  }
+  G.seq.push(i);
+  const done=document.createElement("div"); done.className="plateDone"; done.textContent=G.seq.length;
+  wrap.appendChild(done); wrap.style.opacity=".55";
+  elPickInfo.textContent="접시를 차례대로 눌러요 ("+G.seq.length+"/3)";
+  if(G.seq.length===3) resolveServe({ok:true, code:""});
+}
+
+/* ---- 다이얼 ---- */
+function setDial(v){
+  G.dial=Math.max(2,Math.min(9,v));
+  sTick();
+  setupBoard(false);
+}
+$("#dialMinus").addEventListener("pointerdown",e=>{e.preventDefault(); if(G.phase==="playing")setDial(G.dial-1);});
+$("#dialPlus").addEventListener("pointerdown",e=>{e.preventDefault(); if(G.phase==="playing")setDial(G.dial+1);});
+
+/* ---- 서빙 ---- */
+elServe.addEventListener("pointerdown",e=>{
+  e.preventDefault();
+  if(G.phase!=="playing"||!G.order||G.order.type==="E") return;
+  sServe();
+  const res=evalServe(G.order,{dial:G.dial, picked:pickedCount()});
+  resolveServe(res);
+});
+function hintFor(o,res){
+  if(res.code==="empty") return "아직 아무것도 안 담았어!";
+  if(res.code==="uneven") return "꿀떡 "+o.k+"개는 "+G.dial+"묶음으로 똑같이 나눌 수 없어!";
+  if(res.code==="order") return o.dir==="asc"
+    ? "그 조각이 아니야! 더 많이 나눌수록 한 조각은 작아져. 분모가 큰 것부터 집어 봐."
+    : "그 조각이 아니야! 조금 나눌수록 한 조각은 커. 분모가 작은 것부터 집어 봐.";
+  let msg = res.code==="over" ? "너무 많아! 담은 양이 주문보다 많아." : "조금 모자라! 담은 양이 주문보다 적어.";
+  if(res.dialWrong) msg+=" 주문서 아래 수(분모)만큼 똑같이 나누면 세기 쉬워.";
+  return msg;
+}
+function toast(html,kind,ms){
+  elToast.innerHTML=html; elToast.className=kind; elToast.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>elToast.classList.remove("show"),ms);
+}
+/* 피드백 연출 뒤 넘어가는 예약 — 훅(QA·봇)이 연출을 기다리지 않고 바로 넘길 수 있게 분리했다 */
+let pendingT=null, pendingFn=null;
+function schedule(fn,ms){ clearTimeout(pendingT); pendingFn=fn; pendingT=setTimeout(()=>{pendingT=null;pendingFn=null;fn();},ms); }
+function flushPending(){ if(!pendingFn)return; const f=pendingFn; clearTimeout(pendingT); pendingT=null; pendingFn=null; f(); }
+
+function resolveServe(res){
+  const o=G.order;
+  const firstTry=!G.attempted;
+  G.attempted=true;
+  if(res.ok){
+    G.phase="feedback";
+    const gain=firstTry?100:50; G.score+=gain; G.solved++;
+    if(firstTry){G.combo++; G.firstTryHits++;} else G.combo=0;
+    let extra="";
+    if(o.type==="D") extra="<br><small>"+o.k+"개의 "+o.n+"/"+o.d+" = <b>"+o.amount+"개</b>!</small>";
+    if(o.type==="C") extra="<br><small>"+o.a+"와 "+o.b+"/"+o.d+" = 조각 <b>"+o.n+"개</b>!</small>";
+    toast("딱 맞아요! +"+gain+extra,"good",900);
+    sGood();
+    renderHUD();
+    schedule(nextOrder,950);
+  }else{
+    G.lives--; G.combo=0;
+    sBad();
+    $("#hearts").classList.remove("shake"); void $("#hearts").offsetWidth; $("#hearts").classList.add("shake");
+    renderHUD();
+    if(G.lives<=0){
+      G.phase="feedback";
+      toast(hintFor(o,res),"bad",1200);
+      schedule(()=>endGame(false),1250);
+    }else{
+      G.phase="feedback";
+      toast(hintFor(o,res),"bad",1600);
+      schedule(()=>{
+        G.phase="playing";
+        if(o.type==="E"){ setupBoard(true); } // 접시 리셋
+      },1650);
+    }
+  }
+}
+function nextOrder(){
+  G.orderIdx++;
+  if(G.orderIdx>=PLAN.length){ endGame(true); return; }
+  G.phase="playing";
+  loadOrder();
+}
+
+/* ---- 시작/종료 ---- */
+function startGame(){
+  G.phase="playing"; G.orderIdx=0; G.lives=3; G.score=0; G.solved=0; G.combo=0; G.firstTryHits=0;
+  elTitle.hidden=true; elEnd.hidden=true; elGame.hidden=false;
+  loadOrder();
+}
+function endGame(clear){
+  G.phase=clear?"clear":"over";
+  elGame.hidden=true; elEnd.hidden=false;
+  const stars = clear ? Math.max(1,G.lives) : 0;
+  let s="";
+  for(let i=0;i<3;i++) s+='<span class="'+(i<stars?"":"off")+'">⭐</span>';
+  $("#endStars").innerHTML=s;
+  $("#endTitle").textContent = clear ? "오늘 밤 영업 끝!" : "앗, 가게 문을 닫았어요";
+  $("#endMsg").innerHTML = clear
+    ? "주문 "+G.solved+"개를 모두 해냈어요!<br>첫 번에 맞힌 주문: <b>"+G.firstTryHits+"개</b>"
+    : "하트가 다 깨졌어요.<br>주문 "+G.solved+"개까지 성공! 다시 도전해 볼까요?";
+  $("#endScore").textContent=G.score+"점";
+  if(G.score>G.best){ G.best=G.score; try{localStorage.setItem("tteok-best",String(G.best));}catch(e){} }
+}
+$("#startBtn").addEventListener("pointerdown",e=>{e.preventDefault(); ac(); sGood(); startGame();});
+$("#againBtn").addEventListener("pointerdown",e=>{e.preventDefault(); sTick(); startGame();});
+$("#howLink").addEventListener("pointerdown",e=>{e.preventDefault(); $("#howOverlay").hidden=false;});
+$("#howClose").addEventListener("pointerdown",e=>{e.preventDefault(); $("#howOverlay").hidden=true;});
+
+/* ---- 타이틀 아트 ---- */
+(function(){
+  $("#titleRabbit").innerHTML=faceSVG("rabbit");
+  $("#titleOwl").innerHTML=faceSVG("owl");
+  const g=$("#titleCakeSlices");
+  const cx=120, cy=96, r=86, d=8;
+  let html="";
+  for(let i=0;i<d;i++){
+    const a0=-Math.PI/2+i*2*Math.PI/d, a1=-Math.PI/2+(i+1)*2*Math.PI/d;
+    const midx=Math.cos((a0+a1)/2)*(i===1?14:0), midy=Math.sin((a0+a1)/2)*(i===1?14:0);
+    const fill=i===1?"#f5b95e":"#f7ecd9";
+    html+='<path d="'+sectorPath(cx,cy,r,a0,a1)+'" fill="'+fill+'" stroke="#3d2b1d" stroke-width="3.5" stroke-linejoin="round" transform="translate('+midx+','+midy+')" />';
+  }
+  g.innerHTML=html;
+  if(G.best>0) $("#bestPill").textContent="최고 기록 "+G.best+"점";
+})();
+layout();
+
+/* ================= __GAME_TEST__ ================= */
+window.__GAME_TEST__={
+  ready:true,
+  start(){ startGame(); },
+  getState(){
+    return { score:G.score, lives:G.lives, level:Math.min(G.orderIdx+1,PLAN.length),
+      phase:G.phase, solved:G.solved };
+  },
+  answerCorrect(){
+    if(G.phase==="title"||elGame.hidden) startGame();
+    flushPending();
+    if(G.phase!=="playing") return;
+    resolveServe({ok:true, code:""});
+  },
+  answerWrong(){
+    if(G.phase==="title"||elGame.hidden) startGame();
+    flushPending();
+    if(G.phase!=="playing") return;
+    resolveServe({ok:false, code:"over", dialWrong:false});
+  },
+  sampleProblems(n){
+    const out=[];
+    for(let i=0;i<n;i++){
+      const type=PLAN[i%PLAN.length];
+      const o=genOrder(type, i%PLAN.length);
+      let answer, answerNumeric, choices=null;
+      if(type==="A"||type==="B"){
+        answer=o.d+"등분으로 썰어 "+o.n+"조각 담기 ("+o.n+"/"+o.d+")";
+        answerNumeric=o.n/o.d;
+      }else if(type==="C"){
+        answer=o.d+"등분으로 썰어 "+o.n+"조각 담기 ("+o.a+"와 "+o.b+"/"+o.d+" = "+o.n+"/"+o.d+")";
+        answerNumeric=o.n/o.d;
+      }else if(type==="D"){
+        answer=o.d+"묶음으로 나눠 "+o.n+"묶음 담기 = "+o.amount+"개";
+        answerNumeric=o.amount;
+      }else{
+        // 비교 라운드의 답은 「집는 순서」다 — 접시 하나가 아니라 3개의 배열 순서(3!=6가지)가
+        // 선택지이므로, 순열 전체를 선택지로 싣고 정답 순서를 그 안에 둔다.
+        const frs=o.ds.map(d=>"1/"+d);
+        choices=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]].map(p=>p.map(i2=>frs[i2]).join(" → "));
+        const seqFr=o.correctSeq.map(i2=>frs[i2]);
+        answer=seqFr.join(" → ");
+        answerNumeric=1/o.ds[o.correctSeq[0]];
+      }
+      out.push({ id:"p"+(i+1), prompt:orderPromptText(o), choices, answer, answerNumeric,
+        unitConcept:UNIT_CONCEPTS[type] });
+    }
+    return out;
+  },
+  getLayout(){ return { land:G.land, playW:G.stageW, cake:cakeSize() }; },
+  /* 검증용 내부 훅 (QA/봇 시뮬레이션) */
+  _plan:PLAN.slice(),
+  _gen:genOrder,
+  _eval:evalServe,
+  _current(){ return G.order ? JSON.parse(JSON.stringify(G.order)) : null; },
+  _dial(v){ if(G.phase==="playing") setDial(v); },
+  _pickedCount(){ return G.order && G.order.type!=="E" ? pickedCount() : (G.seq?G.seq.length:0); }
+};
+</script>
+</body>
+</html>

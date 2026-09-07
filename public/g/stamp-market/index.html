@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>콩콩 도장 시장</title>
+<style>
+  :root{
+    --paper:#F8EFDE; --card:#FFFDF6; --ink:#453626; --ink-soft:#7A6A55;
+    --line:#D9C9AD; --red:#E0563C; --red-dk:#B93F2A; --green:#6C9E52; --green-dk:#527C3C;
+    --blue:#5E97B8; --mustard:#EDA93B; --shadow:rgba(69,54,38,.16);
+    --r:14px;
+    /* 무대 폭 — JS layout() 의 Math.min(W,1280) 과 반드시 같은 상한을 쓴다 */
+    --stageW:min(100vw, 1280px);
+    --stageX:calc((100vw - var(--stageW)) / 2);
+    --panelW:min(380px, calc(var(--stageW) * .32));
+    --picoBig:40px; --picoSmall:22px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    overflow:hidden; touch-action:manipulation;
+    -webkit-user-select:none; user-select:none;
+    background-image:radial-gradient(rgba(69,54,38,.05) 1.2px, transparent 1.2px);
+    background-size:22px 22px;
+  }
+  button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation;}
+  #app{height:100dvh;max-width:540px;margin:0 auto;display:flex;flex-direction:column;padding:8px 10px calc(10px + env(safe-area-inset-bottom));gap:8px;position:relative;z-index:1;}
+  #asideTop:empty,#asideBot:empty{display:none;}
+  #asideTop,#asideBot{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;}
+
+  /* ── HUD ── */
+  #hud{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+  .hud-box{background:var(--card);border:2px solid var(--ink);border-radius:10px;padding:4px 10px;
+    font-weight:800;font-size:14px;box-shadow:2px 2px 0 var(--shadow);display:flex;align-items:center;gap:5px;min-height:34px;}
+  #hudRound{letter-spacing:.5px;}
+  #hudHearts{color:var(--red);font-size:15px;letter-spacing:1px;}
+  #hudScore{margin-left:auto;font-variant-numeric:tabular-nums;}
+  #muteBtn{width:44px;height:44px;background:var(--card);border:2px solid var(--ink);border-radius:10px;
+    box-shadow:2px 2px 0 var(--shadow);font-size:16px;display:flex;align-items:center;justify-content:center;}
+
+  /* ── 카드 공통 ── */
+  .card{background:var(--card);border:2px solid var(--ink);border-radius:var(--r);box-shadow:3px 3px 0 var(--shadow);}
+
+  #questCard{flex:0 0 auto;padding:10px 12px;display:flex;gap:10px;align-items:center;}
+  #questFace{width:44px;height:44px;flex:0 0 44px;}
+  #questText{font-size:15px;line-height:1.45;font-weight:600;}
+  #questText b{color:var(--red-dk);font-size:18px;}
+
+  #legendCard{flex:0 0 auto;padding:7px 12px;display:flex;align-items:center;gap:14px;justify-content:center;
+    background:#FFF6DF;}
+  #legendCard.flash{animation:legendFlash 1.2s ease 2;}
+  @keyframes legendFlash{0%,100%{background:#FFF6DF}50%{background:#FFDF9E;transform:scale(1.03)}}
+  .legend-item{display:flex;align-items:center;gap:6px;font-weight:800;font-size:15px;}
+  .legend-title{font-size:12px;font-weight:800;color:var(--ink-soft);border:1.5px solid var(--line);border-radius:8px;padding:2px 7px;background:var(--card);}
+
+  /* ── 보드 ── */
+  #board{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;justify-content:flex-start;}
+  /* 그래프 카드가 남는 세로 공간을 먹어 카드 사이 빈틈이 생기지 않게 한다 */
+  .graph-card{padding:10px;display:flex;flex-direction:column;gap:6px;flex:1 1 auto;min-height:0;justify-content:center;}
+  .graph-card .grow{flex:1 1 auto;min-height:0;max-height:max(calc(var(--picoBig) * 4.4 + 20px), 34vh);}
+  .graph-title{text-align:center;font-weight:900;font-size:15px;}
+  .graph-title small{font-weight:700;color:var(--ink-soft);font-size:11px;display:block;}
+  .grow{display:flex;align-items:stretch;border-top:1.5px dashed var(--line);}
+  .grow:last-child{border-bottom:1.5px dashed var(--line);}
+  .grow-label{flex:0 0 74px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;
+    border-right:1.5px dashed var(--line);padding:6px 4px;text-align:center;}
+  .grow-strip{flex:1;display:flex;flex-wrap:wrap;align-items:center;align-content:center;gap:3px;padding:7px 8px;min-height:calc(var(--picoBig) + 16px);}
+  .picto{display:inline-flex;align-items:center;justify-content:center;border:none;background:none;padding:0;}
+  .picto.big{width:var(--picoBig);height:var(--picoBig);}
+  .picto.small{width:var(--picoSmall);height:var(--picoSmall);}
+  .picto.placed{animation:stampIn .18s ease-out;}
+  @keyframes stampIn{0%{transform:scale(2.1) rotate(-14deg);opacity:0}70%{transform:scale(.92)}100%{transform:scale(1)}}
+  .picto svg{width:100%;height:100%;display:block;pointer-events:none;}
+  .picto.removable{cursor:pointer;}
+  .strip-hint{font-size:12px;color:var(--ink-soft);font-weight:600;padding:4px 2px;}
+
+  /* 주문서(표) 카드 */
+  .order-card{padding:10px 12px;}
+  .order-title{font-size:12px;font-weight:800;color:var(--ink-soft);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .order-title::before{content:'표';background:var(--mustard);color:#fff;border-radius:6px;padding:1px 7px;font-size:11px;}
+  .order-table{display:grid;grid-template-columns:1fr 1fr;border:2px solid var(--ink);border-radius:10px;overflow:hidden;text-align:center;font-weight:800;}
+  .order-table .th{background:#F1E5CC;font-size:13px;padding:6px 4px;border-bottom:2px solid var(--ink);}
+  .order-table .td{font-size:17px;padding:8px 4px;}
+  .order-table .th:first-child,.order-table .td:first-child{border-right:2px solid var(--ink);}
+  .order-table .td b{color:var(--red-dk);}
+
+  /* 읽기 모드: 가격표 휠 */
+  #wheelWrap{display:flex;justify-content:center;gap:10px;padding:12px 8px 14px;}
+  .wheel{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .wheel-name{font-size:12px;font-weight:800;color:var(--ink-soft);}
+  .wheel-btn{width:56px;height:44px;background:var(--card);border:2px solid var(--ink);border-radius:10px;
+    font-size:19px;font-weight:900;box-shadow:0 3px 0 var(--shadow);}
+  .wheel-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--shadow);}
+  .wheel-digit{width:56px;height:58px;background:var(--ink);color:#FFEFC9;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;font-variant-numeric:tabular-nums;}
+  #tagValue{text-align:center;font-weight:800;font-size:14px;color:var(--ink-soft);padding-bottom:8px;}
+  #tagValue b{color:var(--red-dk);font-size:18px;}
+
+  /* 트럭 (배달 모드) */
+  .truck-card{padding:8px 10px;}
+  .truck-head{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;margin-bottom:4px;}
+  .truck-head .truck-name{white-space:nowrap;flex:0 0 auto;}
+  .truck-head .strip-hint{flex:1 1 auto;font-size:11.5px;}
+  .truck-bed{border:2px dashed var(--ink-soft);border-radius:10px;min-height:56px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;padding:7px 8px;background:#FBF4E4;}
+
+  /* ── 컨트롤 ── */
+  #controls{flex:0 0 auto;display:flex;gap:8px;align-items:stretch;}
+  .stamp-pad{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 4px 8px;
+    background:var(--card);border:2px solid var(--ink);border-radius:var(--r);box-shadow:0 4px 0 var(--shadow);}
+  .stamp-pad:active{transform:translateY(3px);box-shadow:0 1px 0 var(--shadow);}
+  .stamp-pad .pad-ic{pointer-events:none;}
+  .stamp-pad .pad-label{font-size:12px;font-weight:800;color:var(--ink-soft);pointer-events:none;}
+  .stamp-pad .pad-label b{color:var(--ink);font-size:13px;}
+  #confirmBtn{flex:1.1;background:var(--green);border:2px solid var(--ink);border-radius:var(--r);
+    color:#fff;font-size:18px;font-weight:900;box-shadow:0 4px 0 var(--green-dk);min-height:64px;
+    text-shadow:0 1px 0 rgba(0,0,0,.2);}
+  #confirmBtn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--green-dk);}
+
+  /* ── 오버레이 ── */
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;
+    background:rgba(69,54,38,.45);padding:20px;}
+  .overlay[hidden]{display:none;}
+  .panel{background:var(--card);border:3px solid var(--ink);border-radius:20px;box-shadow:6px 6px 0 var(--shadow);
+    max-width:420px;width:100%;padding:22px 18px;text-align:center;}
+  .panel h2{font-size:20px;margin-bottom:8px;}
+  .panel p{font-size:15px;line-height:1.55;color:var(--ink);font-weight:600;}
+  .panel .sub{font-size:13px;color:var(--ink-soft);margin-top:6px;font-weight:600;}
+  .big-btn{margin-top:14px;background:var(--red);color:#fff;font-size:18px;font-weight:900;
+    border:2px solid var(--ink);border-radius:14px;padding:13px 30px;box-shadow:0 4px 0 var(--red-dk);min-height:52px;}
+  .big-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--red-dk);}
+  .big-btn.green{background:var(--green);box-shadow:0 4px 0 var(--green-dk);}
+  .big-btn.green:active{box-shadow:0 1px 0 var(--green-dk);}
+
+  /* 타이틀 */
+  #titleScreen{background:var(--paper);background-image:radial-gradient(rgba(69,54,38,.05) 1.2px, transparent 1.2px);background-size:22px 22px;}
+  #titleArt{width:min(240px,60vw);margin:0 auto 6px;}
+  #titleScreen h1{font-size:34px;letter-spacing:1px;margin:4px 0 2px;}
+  #titleScreen .tagline{font-size:15px;font-weight:700;color:var(--ink-soft);}
+  .howto-row{display:flex;align-items:center;gap:10px;text-align:left;font-size:13.5px;font-weight:700;
+    background:#FFF6DF;border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;margin-top:7px;}
+  .howto-num{flex:0 0 24px;height:24px;border-radius:50%;background:var(--red);color:#fff;font-weight:900;
+    display:flex;align-items:center;justify-content:center;font-size:13px;}
+
+  /* 라운드 표지 — 예전엔 화면 위에 떠서 범례 카드를 덮었다. 이제 흐름 안의 띠라 무엇도 가리지 않는다 */
+  #banner{flex:0 0 auto;align-self:center;max-width:100%;pointer-events:none;
+    background:var(--ink);color:#FFEFC9;font-weight:800;font-size:13px;padding:5px 16px;border-radius:999px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.2px;}
+  #banner:empty{display:none;}
+  #banner.show{animation:bannerPop .45s ease-out;}
+  @keyframes bannerPop{0%{transform:scale(.6);opacity:0}55%{transform:scale(1.06);opacity:1}100%{transform:scale(1);opacity:1}}
+  #bigStamp{position:fixed;top:38%;left:50%;z-index:35;pointer-events:none;opacity:0;
+    transform:translate(-50%,-50%) scale(2.4) rotate(-10deg);
+    border:5px solid var(--red);color:var(--red);font-weight:900;font-size:30px;border-radius:14px;
+    padding:8px 18px;background:rgba(255,253,246,.92);}
+  #bigStamp.show{animation:slam .5s ease-out forwards;}
+  @keyframes slam{0%{opacity:0;transform:translate(-50%,-50%) scale(2.4) rotate(-10deg)}
+    60%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(-8deg)}
+    100%{opacity:1;transform:translate(-50%,-50%) scale(1.04) rotate(-8deg)}}
+
+  /* 세로 여유가 있는 폰·태블릿에서는 도장을 키워 그래프가 화면을 채우게 한다 */
+  @media (min-height:720px){ :root{--picoBig:46px;--picoSmall:26px;} }
+  @media (min-width:700px){ #app{max-width:680px;} .grow-label{flex-basis:96px;} :root{--picoBig:clamp(46px,5.5vh,64px);--picoSmall:clamp(26px,3.1vh,36px);} }
+
+  /* ══ 와이드 재배치 — ② 2단 분할형: 좌 그래프판 / 우 주문·범례·장부 ══ */
+  html.land{ --picoBig:clamp(46px, min(calc(var(--stageW) * .055), 9vh), 72px);
+             --picoSmall:clamp(25px, min(calc(var(--stageW) * .03), 5vh), 40px); }
+  html.land #board{justify-content:center;}
+  html.land .graph-card{flex:1 1 auto;max-height:min(100%, 620px);}
+  html.land .graph-card .grow{max-height:min(52vh, calc(var(--picoBig) * 6.5));}
+  html.land body::before{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      linear-gradient(rgba(69,54,38,.13),rgba(69,54,38,.13)) left top/var(--stageX) 100% no-repeat,
+      linear-gradient(rgba(69,54,38,.13),rgba(69,54,38,.13)) right top/var(--stageX) 100% no-repeat;
+  }
+  html.land #app{
+    max-width:none;width:var(--stageW);
+    display:grid;
+    grid-template-columns:minmax(0,1fr) var(--panelW);
+    grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto;
+    grid-template-areas:
+      "hud    hud"
+      "banner banner"
+      "board  quest"
+      "board  legend"
+      "board  atop"
+      "board  abot"
+      "ctrl   abot";
+    column-gap:14px;row-gap:8px;padding:10px 14px calc(12px + env(safe-area-inset-bottom));
+  }
+  html.land #hud{grid-area:hud;}
+  html.land #banner{grid-area:banner;justify-self:center;font-size:14px;padding:6px 20px;}
+  html.land #questCard{grid-area:quest;}
+  html.land #legendCard{grid-area:legend;}
+  html.land #asideTop{grid-area:atop;}
+  html.land #asideBot{grid-area:abot;align-content:start;}
+  html.land #board{grid-area:board;min-height:0;}
+  html.land #controls{grid-area:ctrl;justify-content:center;}
+
+  html.land .hud-box{font-size:15px;padding:5px 12px;min-height:38px;}
+  html.land #questCard{padding:12px 14px;}
+  html.land #questText{font-size:16px;}
+  html.land #questText b{font-size:20px;}
+  html.land #legendCard{padding:10px 12px;}
+  html.land .legend-item{font-size:16px;}
+
+  html.land .graph-card{padding:14px 16px;gap:10px;}
+  html.land .graph-title{font-size:19px;}
+  html.land .graph-title small{font-size:12.5px;}
+  html.land .grow-label{flex:0 0 clamp(96px, calc(var(--stageW) * .1), 136px);font-size:16px;}
+  html.land .grow-strip{gap:5px;padding:10px 14px;}
+  html.land .order-table .th{font-size:14px;padding:8px 4px;}
+  html.land .order-table .td{font-size:19px;padding:10px 4px;}
+  html.land .wheel-btn{width:64px;height:46px;font-size:20px;}
+  html.land .wheel-digit{width:64px;height:64px;font-size:34px;}
+  html.land #wheelWrap{padding:14px 8px 12px;}
+  html.land .truck-bed{min-height:calc(var(--picoBig) + 20px);}
+  html.land .stamp-pad{max-width:250px;}
+  html.land #confirmBtn{max-width:290px;font-size:20px;}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="ic-apple"><circle cx="12" cy="14" r="9" fill="#E0563C"/><circle cx="9" cy="11.5" r="2.4" fill="#F2917B" opacity=".8"/><path d="M12 6 Q11 2.5 8.5 2" stroke="#6b4a2b" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M12.5 5.5 Q16 2 18.5 4.5 Q15.5 7 12.5 5.8Z" fill="#6C9E52"/></g>
+    <g id="ic-gam"><circle cx="12" cy="13.5" r="9" fill="#ED8A3B"/><circle cx="9" cy="11" r="2.2" fill="#F6B27E" opacity=".85"/><path d="M12 8.5 L15 5.5 L12 6.5 L9 5.5 Z M12 8.5 L8 8 L10.5 9.8 Z M12 8.5 L16 8 L13.5 9.8 Z" fill="#557B3E"/></g>
+    <g id="ic-egg"><ellipse cx="12" cy="13" rx="8" ry="10" fill="#F3E3C3" stroke="#D9B98A" stroke-width="1.2"/><ellipse cx="9.5" cy="9.5" rx="2.4" ry="3.2" fill="#FBF3DF"/></g>
+    <g id="ic-milk"><path d="M8 3h8v3l2 4v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V10l2-4Z" fill="#F5F2E8" stroke="#5E97B8" stroke-width="1.5"/><path d="M6 10h12" stroke="#5E97B8" stroke-width="1.5"/><rect x="9" y="13" width="6" height="6" rx="1" fill="#5E97B8"/></g>
+    <g id="ic-fish"><path d="M3 12 Q9 5 15 9 L20 5.5 L18.5 12 L20 18.5 L15 15 Q9 19 3 12Z" fill="#5E97B8"/><circle cx="7.5" cy="11" r="1.4" fill="#2E4A5C"/><path d="M12 9.5 Q14 12 12 14.5" stroke="#3E6E8C" stroke-width="1.3" fill="none"/></g>
+    <g id="ic-crate"><rect x="3" y="6" width="18" height="14" rx="2" fill="#D9A55B" stroke="#8A6230" stroke-width="1.6"/><path d="M3 11h18M9 6v14M15 6v14" stroke="#8A6230" stroke-width="1.4"/></g>
+    <g id="ic-raccoon">
+      <circle cx="24" cy="26" r="19" fill="#9A8F80"/>
+      <path d="M8 12 L17 16 L11 22 Z" fill="#6E6355"/><path d="M40 12 L31 16 L37 22 Z" fill="#6E6355"/>
+      <ellipse cx="24" cy="30" rx="13" ry="10.5" fill="#EFE6D4"/>
+      <path d="M10 22 Q15 17 21 21 Q19 27 13 27 Q10.5 25 10 22Z" fill="#4A3B2C"/>
+      <path d="M38 22 Q33 17 27 21 Q29 27 35 27 Q37.5 25 38 22Z" fill="#4A3B2C"/>
+      <circle cx="16.5" cy="23" r="1.9" fill="#fff"/><circle cx="31.5" cy="23" r="1.9" fill="#fff"/>
+      <circle cx="16.9" cy="23.3" r="1" fill="#2A2119"/><circle cx="31.1" cy="23.3" r="1" fill="#2A2119"/>
+      <ellipse cx="24" cy="29.5" rx="2.6" ry="2" fill="#4A3B2C"/>
+      <path d="M20 34 Q24 37 28 34" stroke="#4A3B2C" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    </g>
+  </defs>
+</svg>
+
+<div id="app">
+  <header id="hud">
+    <div class="hud-box" id="hudRound">1/8</div>
+    <div class="hud-box" id="hudHearts">♥♥♥</div>
+    <div class="hud-box" id="hudScore">0점</div>
+    <button id="muteBtn" aria-label="소리 켜기/끄기">🔇</button>
+  </header>
+  <div id="banner"></div>
+  <section class="card" id="questCard">
+    <svg id="questFace" viewBox="0 0 48 48"><use href="#ic-raccoon"/></svg>
+    <div id="questText"></div>
+  </section>
+  <section class="card" id="legendCard"></section>
+  <div id="asideTop"></div>
+  <main id="board"></main>
+  <div id="asideBot"></div>
+  <footer id="controls"></footer>
+</div>
+
+<div id="bigStamp"></div>
+
+<div class="overlay" id="titleScreen">
+  <div class="panel">
+    <svg id="titleArt" viewBox="0 0 120 96">
+      <rect x="12" y="30" width="96" height="54" rx="8" fill="#FFFDF6" stroke="#453626" stroke-width="3"/>
+      <path d="M12 44 h96 M12 58 h96 M12 71 h96" stroke="#D9C9AD" stroke-width="2" stroke-dasharray="4 4"/>
+      <use href="#ic-apple" transform="translate(22,32) scale(1.1)"/>
+      <use href="#ic-apple" transform="translate(50,32) scale(1.1)"/>
+      <use href="#ic-apple" transform="translate(78,34) scale(0.6)"/>
+      <use href="#ic-apple" transform="translate(92,34) scale(0.6)"/>
+      <use href="#ic-gam" transform="translate(22,46) scale(1.1)"/>
+      <use href="#ic-gam" transform="translate(50,48) scale(0.6)"/>
+      <use href="#ic-raccoon" transform="translate(72,44) scale(0.95)"/>
+      <g transform="translate(30,2) rotate(-14)"><rect x="0" y="0" width="26" height="14" rx="3" fill="#E0563C"/><rect x="9" y="12" width="8" height="14" rx="2" fill="#B93F2A"/></g>
+    </svg>
+    <h1>콩콩 도장 시장</h1>
+    <p class="tagline">도장 콩콩! 그림그래프 완성!</p>
+    <div class="howto-row"><span class="howto-num">1</span><span>큰 도장 1개는 <b>10</b>, 작은 도장 1개는 <b>1</b>이에요. 범례를 꼭 확인!</span></div>
+    <div class="howto-row"><span class="howto-num">2</span><span>주문서의 수만큼 도장을 찍고, 그래프를 읽어 장부에 값을 적어요.</span></div>
+    <div class="howto-row"><span class="howto-num">3</span><span>작은 도장이 10개가 되면? 큰 도장 1개로 바꿔야 해요!</span></div>
+    <button class="big-btn" id="startBtn">가게 열기!</button>
+  </div>
+</div>
+
+<div class="overlay" id="msgOverlay" hidden>
+  <div class="panel">
+    <h2 id="msgTitle"></h2>
+    <p id="msgBody"></p>
+    <p class="sub" id="msgSub"></p>
+    <button class="big-btn" id="msgBtn">다시 도전!</button>
+  </div>
+</div>
+
+<div class="overlay" id="endScreen" hidden>
+  <div class="panel">
+    <svg width="72" height="72" viewBox="0 0 48 48" style="margin:0 auto 4px;display:block"><use href="#ic-raccoon"/></svg>
+    <h2 id="endTitle"></h2>
+    <p id="endBody"></p>
+    <p class="sub" id="endSub"></p>
+    <button class="big-btn green" id="retryBtn">다시 하기</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ───────────────────────── 데이터 ───────────────────────── */
+const ITEMS = {
+  apple:{name:'사과', unit:'개', icon:'ic-apple'},
+  gam:{name:'감', unit:'개', icon:'ic-gam'},
+  egg:{name:'달걀', unit:'개', icon:'ic-egg'},
+  milk:{name:'우유', unit:'병', icon:'ic-milk'},
+  fish:{name:'생선', unit:'마리', icon:'ic-fish'},
+  crate:{name:'상자', unit:'상자', icon:'ic-crate'},
+};
+const VILLAGES = ['달빛 마을','별솔 마을','구름 마을','시내 마을','바람 마을','솔숲 마을'];
+
+function makeRng(seed){ let a=seed>>>0; return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+function ri(rng,lo,hi){ return lo + Math.floor(rng()*(hi-lo+1)); }
+function pick(rng,arr){ return arr[Math.floor(rng()*arr.length)]; }
+
+/* 문제 생성기 — 게임 상태와 무관한 순수 함수 */
+function genProblem(type, rng, opt){
+  opt = opt || {};
+  const scale = opt.scale || 1;              // 1 → 큰그림10/작은그림1, 10 → 100/10
+  const bigUnit = 10*scale, smallUnit = 1*scale;
+  if (type === 'draw'){
+    const itemKey = opt.item || pick(rng, ['apple','gam','milk','fish']);
+    const item = ITEMS[itemKey];
+    const village = opt.village || pick(rng, VILLAGES);
+    const b = ri(rng,2,7);
+    const s = (opt.zeroSmall) ? 0 : ri(rng,1,9);
+    const value = b*bigUnit + s*smallUnit;
+    return {
+      type:'draw', itemKey, village, bigUnit, smallUnit,
+      value, expectBig:b, expectSmall:s,
+      prompt:`${village}에서 ${item.name} ${value}${item.unit}를 팔았어요. 그림그래프로 나타내세요. (큰 그림=${bigUnit}${item.unit}, 작은 그림=${smallUnit}${item.unit})`,
+      choices:null,
+      answer:`큰 그림 ${b}개, 작은 그림 ${s}개`,
+      answerNumeric:value,
+      unitConcept:'표를 그림그래프로 나타내기',
+    };
+  }
+  if (type === 'read'){
+    const itemKey = opt.item || pick(rng, ['apple','gam','egg','milk','fish']);
+    const item = ITEMS[itemKey];
+    const village = opt.village || pick(rng, VILLAGES);
+    const b = ri(rng,2,7);
+    let s = ri(rng,0,9);
+    if (s === b) s = (s+1)%10;               // 그림 개수 착각(b+s)과 자릿수 뒤집기 함정을 살리되 우연 일치 줄임
+    const value = b*bigUnit + s*smallUnit;
+    return {
+      type:'read', itemKey, village, bigUnit, smallUnit,
+      value, big:b, small:s,
+      prompt:`그림그래프에서 ${village}의 ${item.name}은 큰 그림 ${b}개, 작은 그림 ${s}개예요. 모두 몇 ${item.unit}일까요? (큰 그림=${bigUnit}${item.unit}, 작은 그림=${smallUnit}${item.unit})`,
+      choices:null,
+      answer:String(value),
+      answerNumeric:value,
+      unitConcept:'그림그래프의 값 읽기',
+    };
+  }
+  // compare: 3개 마을 그래프 → 최대-최소 차이만큼 상자 싣기 (항상 10/1 단위)
+  const itemKey = opt.item || pick(rng, ['apple','gam']);
+  const item = ITEMS[itemKey];
+  const names = VILLAGES.slice();
+  const rows = [];
+  const used = new Set();
+  while (rows.length < 3){
+    const b = ri(rng,1,7), s = ri(rng,0,9);
+    const v = b*10 + s;
+    if (used.has(v)) continue;
+    used.add(v);
+    const idx = Math.floor(rng()*names.length);
+    rows.push({ village:names.splice(idx,1)[0], big:b, small:s, value:v });
+  }
+  const vals = rows.map(r=>r.value);
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const diff = max - min;
+  if (diff < 12) return genProblem('compare', rng, opt);   // 너무 쉬운 차이는 다시 뽑기
+  const maxRow = rows.find(r=>r.value===max), minRow = rows.find(r=>r.value===min);
+  return {
+    type:'compare', itemKey, rows, bigUnit:10, smallUnit:1,
+    value:diff, expectBig:Math.floor(diff/10), expectSmall:diff%10,
+    maxVillage:maxRow.village, minVillage:minRow.village,
+    prompt:`그림그래프(큰 그림=10${item.unit}, 작은 그림=1${item.unit}): ${rows.map(r=>`${r.village} 큰 그림 ${r.big}개·작은 그림 ${r.small}개`).join(', ')}. 가장 많이 판 마을은 가장 적게 판 마을보다 몇 ${item.unit} 더 팔았을까요?`,
+    choices:null,
+    answer:`${diff}${item.unit} (10개들이 상자 ${Math.floor(diff/10)}개, 낱개 ${diff%10}개)`,
+    answerNumeric:diff,
+    unitConcept:'그림그래프 비교',
+  };
+}
+
+/* ───────────────────────── 오디오 ───────────────────────── */
+let AC = null, muted = true;
+function audioInit(){ if (!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if (AC && AC.state==='suspended') AC.resume(); }
+function beep(freq, dur, type, gain, when){
+  if (muted || !AC) return;
+  try{
+    const t = AC.currentTime + (when||0);
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type||'triangle'; o.frequency.value = freq;
+    g.gain.setValueAtTime(gain||0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(t); o.stop(t+dur+0.02);
+  }catch(e){}
+}
+const sndStamp = ()=>{ beep(220,0.07,'square',0.09); beep(140,0.09,'sine',0.1,0.02); };
+const sndSmall = ()=>{ beep(420,0.06,'square',0.07); };
+const sndRemove= ()=>{ beep(300,0.08,'sawtooth',0.05); };
+const sndOK    = ()=>{ [523,659,784].forEach((f,i)=>beep(f,0.14,'triangle',0.11,i*0.09)); };
+const sndBad   = ()=>{ beep(196,0.2,'sawtooth',0.09); beep(147,0.25,'sawtooth',0.09,0.12); };
+const sndClear = ()=>{ [523,659,784,1047].forEach((f,i)=>beep(f,0.2,'triangle',0.12,i*0.12)); };
+
+/* ───────────────────────── 게임 상태 ───────────────────────── */
+const ROUND_PLAN = [
+  {type:'draw',    scale:1},
+  {type:'read',    scale:1},
+  {type:'draw',    scale:1, zeroSmall:true},
+  {type:'compare', scale:1},
+  {type:'draw',    scale:10},
+  {type:'read',    scale:10},
+  {type:'compare', scale:1},
+  {type:'read',    scale:10},
+];
+const G = {
+  phase:'title',            // title | playing | won | lost
+  round:0, lives:3, score:0, solved:0, streak:0,
+  attempts:0,               // 현재 문제에 대한 시도 수
+  firstTryTotal:0, firstTryCorrect:0,
+  problem:null, rng:makeRng((Date.now()^0x9E3779B9)>>>0),
+  placedBig:0, placedSmall:0, digits:[0,0,0], wheelCount:2,
+  locked:false,
+};
+
+const $ = (id)=>document.getElementById(id);
+const boardEl = $('board'), controlsEl = $('controls'), legendEl = $('legendCard'), questEl = $('questText');
+const asideTopEl = $('asideTop'), asideBotEl = $('asideBot');
+
+/* ── 판형: 세로 1단 / 와이드 2단 분할 (좌 그래프판 · 우 주문·범례·장부) ── */
+function layout(){
+  const W = innerWidth, H = innerHeight;
+  const land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle('land', land);
+  const STAGE = Math.min(W, 1280);            // CSS --stageW 상한과 일치
+  const SX = Math.round((W - STAGE) / 2);
+  const root = document.documentElement;
+  root.style.setProperty('--stageW', STAGE + 'px');
+  root.style.setProperty('--stageX', SX + 'px');
+  G.land = land; G.stageW = STAGE; G.stageX = SX;
+}
+
+function iconSvg(iconId, cls){ return `<span class="picto ${cls}"><svg viewBox="0 0 24 24"><use href="#${iconId}"/></svg></span>`; }
+
+function updateHUD(){
+  $('hudRound').textContent = `${Math.min(G.round+1, ROUND_PLAN.length)}/${ROUND_PLAN.length}`;
+  $('hudHearts').textContent = '♥'.repeat(G.lives) + '♡'.repeat(Math.max(0,3-G.lives));
+  $('hudScore').textContent = `${G.score}점`;
+}
+
+function showBanner(text){
+  const b = $('banner'); b.textContent = text; b.classList.add('show');
+  clearTimeout(showBanner._t); showBanner._t = setTimeout(()=>b.classList.remove('show'), 1400);
+}
+
+function renderLegend(p){
+  const item = ITEMS[p.type==='compare' ? 'crate' : p.itemKey];
+  const gIcon = p.type==='compare' ? ITEMS[p.itemKey].icon : item.icon;
+  const u = p.type==='compare' ? ITEMS[p.itemKey].unit : item.unit;
+  legendEl.innerHTML =
+    `<span class="legend-title">범례</span>
+     <span class="legend-item">${iconSvg(gIcon,'big')} = ${p.bigUnit}${u}</span>
+     <span class="legend-item">${iconSvg(gIcon,'small')} = ${p.smallUnit}${u}</span>`;
+  legendEl.classList.remove('flash');
+  if (p.bigUnit !== 10){ void legendEl.offsetWidth; legendEl.classList.add('flash'); }
+}
+
+/* ── 그리기 모드 ── */
+function renderDraw(p){
+  const item = ITEMS[p.itemKey];
+  questEl.innerHTML = `${p.village}에서 ${item.name}을 <b>${p.value}${item.unit}</b> 팔았대!<br>도장을 찍어 그래프에 나타내 줘.`;
+  asideTopEl.innerHTML = `
+    <div class="card order-card">
+      <div class="order-title">너구리 사장님의 주문서 — 표를 그림그래프로!</div>
+      <div class="order-table">
+        <div class="th">마을</div><div class="th">${item.name} 판매량</div>
+        <div class="td">${p.village}</div><div class="td"><b>${p.value}</b>${item.unit}</div>
+      </div>
+    </div>`;
+  asideBotEl.innerHTML = '';
+  boardEl.innerHTML = `
+    <div class="card graph-card">
+      <div class="graph-title">마을별 ${item.name} 판매량<small>내가 찍은 도장 (누르면 지워져요)</small></div>
+      <div class="grow">
+        <div class="grow-label">${p.village}</div>
+        <div class="grow-strip" id="strip"></div>
+      </div>
+      <div class="strip-hint" id="stripHint">아래 도장을 눌러 찍어 보세요!</div>
+    </div>`;
+  controlsEl.innerHTML = `
+    <button class="stamp-pad" id="padBig" aria-label="큰 도장">
+      <span class="pad-ic">${iconSvg(item.icon,'big')}</span>
+      <span class="pad-label">큰 도장 <b>${p.bigUnit}</b></span>
+    </button>
+    <button class="stamp-pad" id="padSmall" aria-label="작은 도장">
+      <span class="pad-ic">${iconSvg(item.icon,'small')}</span>
+      <span class="pad-label">작은 도장 <b>${p.smallUnit}</b></span>
+    </button>
+    <button id="confirmBtn">완성!</button>`;
+  $('padBig').addEventListener('click', ()=>addStamp(true));
+  $('padSmall').addEventListener('click', ()=>addStamp(false));
+  $('confirmBtn').addEventListener('click', submit);
+  syncStrip();
+}
+function addStamp(isBig){
+  if (G.locked || G.phase!=='playing') return;
+  if (isBig && G.placedBig>=9) return;
+  if (!isBig && G.placedSmall>=15) return;
+  if (isBig) G.placedBig++; else G.placedSmall++;
+  isBig ? sndStamp() : sndSmall();
+  syncStrip(isBig ? 'big' : 'small');
+}
+function removeStamp(isBig){
+  if (G.locked || G.phase!=='playing') return;
+  if (isBig && G.placedBig>0) G.placedBig--;
+  if (!isBig && G.placedSmall>0) G.placedSmall--;
+  sndRemove();
+  syncStrip();
+}
+function syncStrip(animLast){
+  const strip = $('strip'); if (!strip) return;
+  const p = G.problem;
+  const iconId = (p.type==='compare') ? 'ic-crate' : ITEMS[p.itemKey].icon;
+  let html = '';
+  for (let i=0;i<G.placedBig;i++) html += `<button class="picto big removable" data-big="1" aria-label="큰 그림 지우기"><svg viewBox="0 0 24 24"><use href="#${iconId}"/></svg></button>`;
+  for (let i=0;i<G.placedSmall;i++) html += `<button class="picto small removable" data-big="0" aria-label="작은 그림 지우기"><svg viewBox="0 0 24 24"><use href="#${iconId}"/></svg></button>`;
+  strip.innerHTML = html;
+  strip.querySelectorAll('.picto').forEach(el=>el.addEventListener('click', ()=>removeStamp(el.dataset.big==='1')));
+  if (animLast){
+    // 방금 찍은 도장만 쿵 하고 등장 — 전체 재애니메이션 방지
+    const els = strip.querySelectorAll(animLast==='big' ? '.picto.big' : '.picto.small');
+    if (els.length) els[els.length-1].classList.add('placed');
+  }
+  const hint = $('stripHint');
+  const isCmp = p.type==='compare';
+  if (hint) hint.textContent = (G.placedBig+G.placedSmall===0)
+    ? (isCmp ? '아래 버튼으로 상자를 실어요! (실은 상자를 누르면 내려요)' : '아래 도장을 눌러 찍어 보세요! (찍은 그림을 누르면 지워져요)')
+    : (isCmp ? `10개들이 ${G.placedBig}개 · 낱개 ${G.placedSmall}개` : `큰 그림 ${G.placedBig}개 · 작은 그림 ${G.placedSmall}개`);
+}
+
+/* ── 읽기 모드 ── */
+function rowIcons(iconId, big, small){
+  let h = '';
+  for (let i=0;i<big;i++) h += iconSvg(iconId,'big');
+  for (let i=0;i<small;i++) h += iconSvg(iconId,'small');
+  return h;
+}
+function renderRead(p){
+  const item = ITEMS[p.itemKey];
+  questEl.innerHTML = `${p.village}의 그래프를 읽고<br>장부에 <b>몇 ${item.unit}</b>인지 적어 줘!`;
+  boardEl.innerHTML = `
+    <div class="card graph-card">
+      <div class="graph-title">마을별 ${item.name} 판매량<small>범례를 꼭 확인하세요</small></div>
+      <div class="grow">
+        <div class="grow-label">${p.village}</div>
+        <div class="grow-strip">${rowIcons(item.icon, p.big, p.small)}</div>
+      </div>
+    </div>`;
+  asideTopEl.innerHTML = '';
+  asideBotEl.innerHTML = `
+    <div class="card">
+      <div id="wheelWrap"></div>
+      <div id="tagValue"></div>
+    </div>`;
+  controlsEl.innerHTML = `<button id="confirmBtn" style="min-height:56px">장부에 적기!</button>`;
+  $('confirmBtn').addEventListener('click', submit);
+  G.wheelCount = (p.bigUnit >= 100) ? 3 : 2;
+  G.digits = [0,0,0];
+  renderWheels();
+}
+function renderWheels(){
+  const wrap = $('wheelWrap'); if (!wrap) return;
+  const names = ['백의 자리','십의 자리','일의 자리'].slice(3-G.wheelCount);
+  let h = '';
+  for (let i=0;i<G.wheelCount;i++){
+    h += `<div class="wheel">
+      <span class="wheel-name">${names[i]}</span>
+      <button class="wheel-btn" data-w="${i}" data-d="1" aria-label="${names[i]} 올리기">▲</button>
+      <div class="wheel-digit" id="wd${i}">${G.digits[i]}</div>
+      <button class="wheel-btn" data-w="${i}" data-d="-1" aria-label="${names[i]} 내리기">▼</button>
+    </div>`;
+  }
+  wrap.innerHTML = h;
+  wrap.querySelectorAll('.wheel-btn').forEach(b=>b.addEventListener('click', ()=>{
+    if (G.locked || G.phase!=='playing') return;
+    const i = +b.dataset.w;
+    G.digits[i] = (G.digits[i] + (+b.dataset.d) + 10) % 10;
+    sndSmall();
+    syncWheels();
+  }));
+  syncWheels();
+}
+function wheelValue(){
+  let v = 0;
+  for (let i=0;i<G.wheelCount;i++) v = v*10 + G.digits[i];
+  return v;
+}
+function syncWheels(){
+  for (let i=0;i<G.wheelCount;i++){ const el=$('wd'+i); if (el) el.textContent = G.digits[i]; }
+  const item = ITEMS[G.problem.itemKey];
+  const tv = $('tagValue'); if (tv) tv.innerHTML = `지금 장부: <b>${wheelValue()}</b>${item.unit}`;
+}
+
+/* ── 배달(비교) 모드 ── */
+function renderCompare(p){
+  const item = ITEMS[p.itemKey];
+  questEl.innerHTML = `가장 많이 판 마을은 가장 적게 판 마을보다 <b>몇 ${item.unit}</b> 더 팔았을까?<br>그 차이만큼 상자를 트럭에 실어 줘!`;
+  const rowsHtml = p.rows.map(r=>`
+    <div class="grow">
+      <div class="grow-label">${r.village}</div>
+      <div class="grow-strip">${rowIcons(item.icon, r.big, r.small)}</div>
+    </div>`).join('');
+  boardEl.innerHTML = `
+    <div class="card graph-card">
+      <div class="graph-title">마을별 ${item.name} 판매량<small>큰 그림=${p.bigUnit}${item.unit} · 작은 그림=${p.smallUnit}${item.unit}</small></div>
+      ${rowsHtml}
+    </div>`;
+  asideTopEl.innerHTML = '';
+  asideBotEl.innerHTML = `
+    <div class="card truck-card">
+      <div class="truck-head"><span class="truck-name">🚚 배달 트럭</span><span class="strip-hint" id="stripHint" style="padding:0"></span></div>
+      <div class="truck-bed" id="strip"></div>
+    </div>`;
+  controlsEl.innerHTML = `
+    <button class="stamp-pad" id="padBig" aria-label="10개들이 상자">
+      <span class="pad-ic">${iconSvg('ic-crate','big')}</span>
+      <span class="pad-label">10개들이 <b>10</b></span>
+    </button>
+    <button class="stamp-pad" id="padSmall" aria-label="낱개 상자">
+      <span class="pad-ic">${iconSvg('ic-crate','small')}</span>
+      <span class="pad-label">낱개 <b>1</b></span>
+    </button>
+    <button id="confirmBtn">출발!</button>`;
+  $('padBig').addEventListener('click', ()=>addStamp(true));
+  $('padSmall').addEventListener('click', ()=>addStamp(false));
+  $('confirmBtn').addEventListener('click', submit);
+  syncStrip();
+}
+
+/* ── 라운드 진행 ── */
+function startRound(){
+  const plan = ROUND_PLAN[G.round];
+  G.problem = genProblem(plan.type, G.rng, plan);
+  G.placedBig = 0; G.placedSmall = 0; G.digits = [0,0,0];
+  G.attempts = 0; G.locked = false;
+  updateHUD();
+  renderLegend(G.problem);
+  if (G.problem.type==='draw') renderDraw(G.problem);
+  else if (G.problem.type==='read') renderRead(G.problem);
+  else renderCompare(G.problem);
+  const label = {draw:'도장 찍기', read:'그래프 읽기', compare:'배달 준비'}[G.problem.type];
+  const extra = (G.problem.bigUnit>=100) ? ' — 범례가 바뀌었어요!' : '';
+  showBanner(`${G.round+1}라운드 · ${label}${extra}`);
+}
+
+function evaluate(){
+  const p = G.problem;
+  if (p.type==='read'){
+    const v = wheelValue();
+    if (v === p.value) return {ok:true};
+    if (v === p.big + p.small)
+      return {ok:false, why:`그림 개수만 세었네! 큰 그림 1개는 ${p.bigUnit}${ITEMS[p.itemKey].unit}이에요.`};
+    if (p.bigUnit>=100 && v === p.big*10 + p.small)
+      return {ok:false, why:`범례를 다시 봐요! 이 그래프는 큰 그림=${p.bigUnit}, 작은 그림=${p.smallUnit}이에요.`};
+    return {ok:false, why:`큰 그림 ${p.big}개는 ${p.big}×${p.bigUnit}, 작은 그림 ${p.small}개는 ${p.small}×${p.smallUnit}. 다시 계산해 봐요!`};
+  }
+  const u = (p.type==='compare') ? '상자·낱개' : '그림';
+  const made = G.placedBig*p.bigUnit + G.placedSmall*p.smallUnit;
+  if (G.placedBig===p.expectBig && G.placedSmall===p.expectSmall) return {ok:true};
+  if (made === p.value)
+    return {ok:false, why:`값은 ${p.value}로 맞아요! 하지만 작은 ${u === '상자·낱개' ? '낱개' : '그림'} 10개는 큰 ${u==='상자·낱개'?'상자':'그림'} 1개로 바꿔야 해요.`};
+  return {ok:false, why:`지금 실린 값은 ${made}이에요. 목표는 ${p.value}! 큰 것 1개=${p.bigUnit}인 걸 기억해요.`};
+}
+
+/* 정답 연출 뒤 라운드 넘김 — 훅(QA·봇)이 연출을 기다리지 않고 바로 넘길 수 있게 분리했다 */
+let advanceTimer = null;
+function flushAdvance(){
+  if (!advanceTimer) return;
+  clearTimeout(advanceTimer); advanceTimer = null;
+  $('bigStamp').classList.remove('show');
+  G.round++;
+  if (G.round >= ROUND_PLAN.length) win();
+  else startRound();
+}
+
+function submit(){
+  if (G.phase!=='playing' || G.locked) return;
+  G.attempts++;
+  const res = evaluate();
+  if (G.attempts===1){
+    G.firstTryTotal++;
+    if (res.ok) G.firstTryCorrect++;
+  }
+  if (res.ok){
+    G.locked = true;
+    G.solved++;
+    G.streak++;
+    const gain = (G.attempts===1 ? 100 : 50) + Math.min(G.streak-1,4)*20;
+    G.score += gain;
+    updateHUD();
+    sndOK();
+    const st = $('bigStamp');
+    st.textContent = '참 잘했어요!';
+    st.classList.remove('show'); void st.offsetWidth; st.classList.add('show');
+    advanceTimer = setTimeout(flushAdvance, 950);
+  } else {
+    G.streak = 0;
+    G.lives--;
+    updateHUD();
+    sndBad();
+    if (G.lives<=0){ lose(res.why); return; }
+    $('msgTitle').textContent = '앗, 다시 생각해 봐요!';
+    $('msgBody').textContent = res.why;
+    $('msgSub').textContent = `남은 하트 ${G.lives}개 · 같은 문제에 다시 도전!`;
+    $('msgOverlay').hidden = false;
+  }
+}
+$('msgBtn').addEventListener('click', ()=>{ $('msgOverlay').hidden = true; });
+
+function win(){
+  G.phase='won';
+  sndClear();
+  $('endTitle').textContent = '🎉 오늘 장사 끝! 대성공!';
+  $('endBody').textContent = `8개의 주문을 모두 처리했어요. 최종 점수 ${G.score}점!`;
+  $('endSub').textContent = `첫 시도 정답 ${G.firstTryCorrect}/${G.firstTryTotal} · 너구리 사장님이 감동했어요.`;
+  $('endScreen').hidden = false;
+}
+function lose(why){
+  G.phase='lost';
+  $('endTitle').textContent = '가게 문을 닫았어요…';
+  $('endBody').textContent = why ? `마지막 실수: ${why}` : '하트를 모두 잃었어요.';
+  $('endSub').textContent = `점수 ${G.score}점 · ${G.round+1}라운드에서 멈췄어요. 범례(큰 그림=몇?)를 확인하면 이길 수 있어요!`;
+  $('endScreen').hidden = false;
+}
+
+function startGame(){
+  G.phase='playing';
+  G.round=0; G.lives=3; G.score=0; G.solved=0; G.streak=0;
+  G.firstTryTotal=0; G.firstTryCorrect=0;
+  $('titleScreen').hidden = true;
+  $('endScreen').hidden = true;
+  $('msgOverlay').hidden = true;
+  startRound();
+}
+
+$('startBtn').addEventListener('click', ()=>{ audioInit(); muted=false; $('muteBtn').textContent='🔊'; startGame(); });
+$('retryBtn').addEventListener('click', ()=>{ audioInit(); startGame(); });
+$('muteBtn').addEventListener('click', ()=>{
+  muted = !muted;
+  if (!muted) audioInit();
+  $('muteBtn').textContent = muted ? '🔇' : '🔊';
+});
+
+/* ───────────────────────── QA 훅 ───────────────────────── */
+window.__GAME_TEST__ = {
+  ready:true,
+  start(){ if (G.phase!=='playing') startGame(); },
+  getState(){
+    return { score:G.score, lives:G.lives, level:G.round+1, phase:G.phase, solved:G.solved,
+             firstTryTotal:G.firstTryTotal, firstTryCorrect:G.firstTryCorrect };
+  },
+  answerCorrect(){
+    flushAdvance();
+    if (G.phase!=='playing' || G.locked) return;
+    $('msgOverlay').hidden = true;
+    const p = G.problem;
+    if (p.type==='read'){
+      const n = G.wheelCount;
+      const str = String(p.value).padStart(n,'0');
+      for (let i=0;i<n;i++) G.digits[i] = +str[i];
+      syncWheels();
+    } else {
+      G.placedBig = p.expectBig; G.placedSmall = p.expectSmall;
+      syncStrip();
+    }
+    submit();
+  },
+  answerWrong(){
+    flushAdvance();
+    if (G.phase!=='playing' || G.locked) return;
+    $('msgOverlay').hidden = true;
+    const p = G.problem;
+    if (p.type==='read'){
+      const n = G.wheelCount;
+      const wrong = (p.value + 1) % Math.pow(10,n);
+      const str = String(wrong).padStart(n,'0');
+      for (let i=0;i<n;i++) G.digits[i] = +str[i];
+      syncWheels();
+    } else {
+      G.placedBig = p.expectBig + 1; G.placedSmall = p.expectSmall;
+      syncStrip();
+    }
+    submit();
+  },
+  getLayout(){
+    const b = boardEl.getBoundingClientRect();
+    return { land:!!G.land, stageW:G.stageW||innerWidth, playW:Math.round(b.width) };
+  },
+  sampleProblems(n){
+    const rng = makeRng((Math.random()*0xFFFFFFFF)>>>0);
+    const out = [];
+    const types = ['draw','read','compare','draw','read'];
+    for (let i=0;i<(n||10);i++){
+      const t = types[i % types.length];
+      const scale = (t!=='compare' && i%4===3) ? 10 : 1;
+      const p = genProblem(t, rng, {scale, zeroSmall: (t==='draw' && i%6===5)});
+      out.push({ id:'p'+(i+1), prompt:p.prompt, choices:p.choices, answer:p.answer,
+                 answerNumeric:p.answerNumeric, unitConcept:p.unitConcept,
+                 _meta:{type:p.type, bigUnit:p.bigUnit, smallUnit:p.smallUnit,
+                        big:p.big!==undefined?p.big:p.expectBig, small:p.small!==undefined?p.small:p.expectSmall,
+                        rows:p.rows?p.rows.map(r=>({big:r.big,small:r.small,value:r.value})):null} });
+    }
+    return out;
+  },
+};
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', ()=>setTimeout(layout, 120));
+layout();
+updateHUD();
+</script>
+</body>
+</html>

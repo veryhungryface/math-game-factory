@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>몫 실은 로켓</title>
+<style>
+:root{
+  --bg:#131a3a; --bg2:#0d1330; --panel:#1d2650; --panel2:#232e63; --line:#3a4780;
+  --mint:#57f0c2; --amber:#ffb640; --coral:#ff6b7a; --cream:#f2efe6; --ink:#eaf0ff;
+  --dim:#8b97c6;
+  --c100:#f5b84b; --c10:#5ad6b0; --c1:#ff9db0;
+  /* 와이드 무대 폭 — JS layout()의 Math.min(W,1280)과 반드시 일치 */
+  --stageW:min(100vw,1280px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;}
+body{
+  background:var(--bg2);
+  color:var(--ink);
+  font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  user-select:none;-webkit-user-select:none;touch-action:manipulation;
+}
+#app{
+  position:relative;width:100%;height:100dvh;max-width:520px;margin:0 auto;
+  background:
+    radial-gradient(1.5px 1.5px at 18% 12%,#cfe3ff 50%,transparent 51%),
+    radial-gradient(1px 1px at 72% 8%,#9fb6ff 50%,transparent 51%),
+    radial-gradient(1.2px 1.2px at 88% 30%,#cfe3ff 50%,transparent 51%),
+    radial-gradient(1px 1px at 8% 42%,#8ea6ee 50%,transparent 51%),
+    radial-gradient(1.4px 1.4px at 55% 22%,#e6efff 50%,transparent 51%),
+    radial-gradient(1px 1px at 35% 6%,#9fb6ff 50%,transparent 51%),
+    linear-gradient(180deg,#101736 0%,#131a3a 55%,#182055 100%);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+section{position:absolute;inset:0;display:flex;flex-direction:column;}
+[hidden]{display:none !important;}
+button{
+  font-family:inherit;border:none;cursor:pointer;user-select:none;-webkit-user-select:none;
+  touch-action:manipulation;
+}
+
+/* ---------- title ---------- */
+#title{align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center;z-index:30;}
+#title .rocketArt{position:relative;width:120px;height:190px;animation:hover 3s ease-in-out infinite;}
+@keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.rk{position:relative;width:84px;margin:0 auto;}
+.rk .nose{width:0;height:0;border-left:42px solid transparent;border-right:42px solid transparent;border-bottom:46px solid var(--coral);border-radius:8px;}
+.rk .body{width:84px;height:96px;background:var(--cream);border-radius:0 0 14px 14px;display:flex;align-items:center;justify-content:center;}
+.rk .win{width:44px;height:34px;background:#0c1230;border-radius:9px;border:3px solid #b9b2a0;
+  color:var(--mint);font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;
+  font-variant-numeric:tabular-nums;text-shadow:0 0 8px rgba(87,240,194,.8);}
+.rk .fins{position:absolute;bottom:-2px;left:-18px;right:-18px;display:flex;justify-content:space-between;}
+.rk .fins i{width:22px;height:34px;background:var(--coral);border-radius:8px 8px 0 10px;display:block;}
+.rk .fins i:last-child{border-radius:8px 8px 10px 0;}
+.rk .flame{position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);width:26px;height:34px;
+  background:radial-gradient(circle at 50% 20%,#fff6c9,var(--amber) 55%,transparent 72%);
+  border-radius:50% 50% 60% 60%;opacity:0;}
+.launching .flame{opacity:1;animation:flick .12s linear infinite alternate;}
+@keyframes flick{from{transform:translateX(-50%) scaleY(1)}to{transform:translateX(-50%) scaleY(1.35)}}
+#title h1{font-size:44px;margin:0;letter-spacing:2px;font-weight:900;
+  text-shadow:0 4px 0 rgba(0,0,0,.35);}
+#title h1 .q{color:var(--amber);}
+#title .tag{color:var(--dim);font-size:16px;margin-top:-6px;}
+#title .how{background:rgba(29,38,80,.85);border:1px solid var(--line);border-radius:16px;
+  padding:14px 18px;font-size:15px;line-height:1.75;color:#cdd8ff;max-width:330px;text-align:left;}
+.bigBtn{
+  min-height:64px;padding:0 44px;border-radius:20px;font-size:22px;font-weight:900;color:#3c2500;
+  background:linear-gradient(180deg,#ffd070,var(--amber));
+  box-shadow:0 6px 0 #b97a12, 0 10px 22px rgba(0,0,0,.4);letter-spacing:1px;
+}
+.bigBtn:active{transform:translateY(4px);box-shadow:0 2px 0 #b97a12;}
+
+/* ---------- HUD ---------- */
+/* 세로에서는 래퍼가 없는 것처럼(HUD·식이 그대로 세로 스택), 와이드에서만 한 줄 존이 된다 */
+#topbar{display:contents;}
+#hud{display:flex;align-items:center;gap:10px;padding:10px 12px 6px;font-weight:800;font-size:14px;}
+#hud .chip{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 10px;
+  display:flex;align-items:center;gap:6px;white-space:nowrap;}
+#missionChip{color:var(--mint);}
+#battChip .b{font-style:normal;filter:none;transition:filter .3s,opacity .3s;}
+#battChip .b.off{filter:grayscale(1);opacity:.25;}
+#scoreChip{margin-left:auto;color:var(--amber);font-variant-numeric:tabular-nums;}
+#muteBtn{width:44px;height:44px;border-radius:12px;background:var(--panel);border:1px solid var(--line);
+  color:var(--ink);font-size:17px;}
+
+/* ---------- equation board ---------- */
+#board{
+  margin:4px 12px;background:#0b102b;border:2px solid var(--line);border-radius:16px;
+  padding:10px 12px;display:flex;align-items:center;justify-content:center;gap:8px;
+  font-weight:900;font-size:clamp(24px,7vw,32px);font-variant-numeric:tabular-nums;
+  color:var(--mint);text-shadow:0 0 10px rgba(87,240,194,.5);min-height:62px;flex-wrap:wrap;
+}
+#board .op{color:var(--dim);text-shadow:none;}
+#board .slot{
+  width:1.25em;height:1.45em;border-radius:8px;background:#141b40;border:2px dashed #33407a;
+  display:inline-flex;align-items:center;justify-content:center;color:var(--cream);text-shadow:none;
+}
+#board .slot.now{border-color:var(--amber);color:var(--amber);animation:slotPulse 1.1s ease-in-out infinite;}
+@keyframes slotPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,182,64,0)}50%{box-shadow:0 0 0 5px rgba(255,182,64,.22)}}
+#board .slot.done{border-style:solid;border-color:var(--mint);color:var(--mint);text-shadow:0 0 10px rgba(87,240,194,.6);}
+#board .remWrap{display:inline-flex;align-items:center;gap:6px;color:var(--coral);text-shadow:none;}
+#board .remWrap .slot.done{border-color:var(--coral);color:var(--coral);}
+
+/* ---------- depot ---------- */
+#depot{
+  flex:1;display:flex;gap:8px;margin:6px 12px;min-height:0;
+}
+.col{
+  flex:1;background:rgba(29,38,80,.6);border:2px solid var(--line);border-radius:16px;
+  display:flex;flex-direction:column;overflow:hidden;transition:border-color .25s, box-shadow .25s, opacity .25s;
+}
+.col.now{border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,182,64,.18), inset 0 0 30px rgba(255,182,64,.06);}
+.col.lockedCol{opacity:.55;}
+.col header{
+  display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 4px;font-weight:900;font-size:14px;
+  background:rgba(11,16,43,.65);border-bottom:1px solid var(--line);color:#cdd8ff;
+}
+.col header .cnt{
+  min-width:26px;padding:1px 7px;border-radius:10px;background:#0b102b;color:var(--cream);
+  font-variant-numeric:tabular-nums;text-align:center;border:1px solid var(--line);
+}
+.col.now header{color:var(--amber);}
+.col .pile{
+  flex:1;display:flex;flex-wrap:wrap;align-content:flex-start;justify-content:center;gap:4px;
+  padding:10px 5px;overflow:hidden;position:relative;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 16px, rgba(255,255,255,.025) 16px 32px);
+}
+.col .pile.big{gap:7px;align-content:center;}
+.pile.big .blk.h{width:46px;height:40px;font-size:14px;border-radius:7px;}
+.pile.big .blk.t{width:16px;height:54px;border-radius:7px;}
+.pile.big .blk.o{width:24px;height:24px;border-radius:8px;}
+.col .emptyTag{margin:auto;color:var(--dim);font-weight:800;font-size:14px;text-align:center;line-height:1.6;opacity:.8;}
+.col .lockTag{
+  margin:auto;font-weight:900;color:var(--mint);font-size:16px;text-align:center;line-height:1.5;
+  text-shadow:0 0 8px rgba(87,240,194,.5);
+}
+.blk{border-radius:5px;animation:popIn .28s cubic-bezier(.34,1.56,.64,1) backwards;position:relative;}
+@keyframes popIn{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+.blk.h{width:34px;height:30px;background:linear-gradient(180deg,#ffd67e,var(--c100));
+  border:2px solid #b97f18;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:900;color:#5d3c00;}
+.blk.t{width:11px;height:38px;background:linear-gradient(180deg,#8df0cf,var(--c10));border:2px solid #1e9a74;}
+.blk.o{width:15px;height:15px;background:linear-gradient(180deg,#ffc0cd,var(--c1));border:2px solid #cf5570;border-radius:5px;}
+.col .pile.shake{animation:shk .4s;}
+@keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+
+/* flying clone */
+.fly{position:fixed;z-index:60;pointer-events:none;transition:transform .38s cubic-bezier(.3,.7,.4,1), opacity .38s;margin:0;}
+
+/* ---------- rockets ---------- */
+#rockets{
+  display:flex;justify-content:center;align-items:flex-end;gap:6px;padding:6px 10px 2px;min-height:96px;
+}
+.mini{position:relative;width:46px;flex:0 1 46px;transition:transform .5s;}
+.mini .nose{width:0;height:0;border-left:19px solid transparent;border-right:19px solid transparent;border-bottom:20px solid var(--coral);margin:0 auto;}
+.mini .body{width:38px;height:52px;margin:0 auto;background:var(--cream);border-radius:0 0 8px 8px;
+  display:flex;align-items:flex-start;justify-content:center;padding-top:7px;}
+.mini .win{min-width:28px;height:24px;padding:0 3px;background:#0c1230;border-radius:6px;border:2px solid #b9b2a0;
+  color:var(--mint);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;
+  font-variant-numeric:tabular-nums;text-shadow:0 0 6px rgba(87,240,194,.8);}
+.mini .fins{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:56px;display:flex;justify-content:space-between;pointer-events:none;}
+.mini .fins i{width:11px;height:18px;background:var(--coral);border-radius:4px 4px 0 5px;display:block;}
+.mini .fins i:last-child{border-radius:4px 4px 5px 0;}
+.mini .flame{position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);width:15px;height:22px;
+  background:radial-gradient(circle at 50% 20%,#fff6c9,var(--amber) 55%,transparent 75%);
+  border-radius:50% 50% 60% 60%;opacity:0;}
+.mini.bump{animation:bump .3s;}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.14) translateY(-3px)}100%{transform:scale(1)}}
+#rockets.launch .mini{transform:translateY(-115vh);transition:transform 1s cubic-bezier(.5,0,.8,.4);}
+#rockets.launch .flame{opacity:1;animation:flick .1s linear infinite alternate;}
+#rockets.crowd{gap:2px;}
+#rockets.crowd .mini{width:40px;flex-basis:40px;}
+#rockets.crowd .mini .body{width:34px;}
+#rockets.crowd .mini .fins{width:44px;}
+#rockets.crowd .mini .nose{border-left-width:17px;border-right-width:17px;}
+#padBar{
+  height:14px;margin:2px 18px 0;border-radius:8px;position:relative;
+  background:linear-gradient(180deg,#2a3670,#1a2350);border:1px solid var(--line);
+  box-shadow:0 4px 12px rgba(0,0,0,.45);
+}
+#padBar::before{content:'';position:absolute;inset:4px 10px;border-radius:4px;
+  background:repeating-linear-gradient(90deg,var(--amber) 0 10px,transparent 10px 34px);opacity:.5;}
+
+/* ---------- controls ---------- */
+#controls{display:flex;gap:10px;padding:8px 12px calc(14px + env(safe-area-inset-bottom));}
+.ctl{
+  flex:1;min-height:68px;border-radius:18px;font-size:19px;font-weight:900;line-height:1.25;
+  display:flex;align-items:center;justify-content:center;gap:6px;letter-spacing:.5px;
+}
+#btnDeal{background:linear-gradient(180deg,#ffd070,var(--amber));color:#3c2500;
+  box-shadow:0 5px 0 #b97a12;}
+#btnDeal:active{transform:translateY(3px);box-shadow:0 2px 0 #b97a12;}
+#btnNext{background:linear-gradient(180deg,#79f5d0,#3fd6a8);color:#003a29;box-shadow:0 5px 0 #14795c;}
+#btnNext:active{transform:translateY(3px);box-shadow:0 2px 0 #14795c;}
+#btnNext.finish{background:linear-gradient(180deg,#ff98a5,var(--coral));color:#4b000b;box-shadow:0 5px 0 #a92c3b;}
+
+/* ---------- toast ---------- */
+#toast{
+  position:absolute;left:50%;bottom:112px;transform:translateX(-50%) translateY(20px);
+  background:#0b102b;border:2px solid var(--line);color:var(--ink);
+  padding:11px 18px;border-radius:14px;font-weight:800;font-size:15px;opacity:0;
+  transition:opacity .25s, transform .25s;pointer-events:none;z-index:40;white-space:nowrap;max-width:92%;
+  text-align:center;white-space:normal;line-height:1.45;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.bad{border-color:var(--coral);color:#ffd7dc;}
+#toast.good{border-color:var(--mint);color:#d8fff2;}
+
+/* ---------- mission card ---------- */
+#missionCard{
+  position:absolute;inset:0;background:rgba(9,12,32,.72);z-index:45;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+#missionCard .card{
+  background:var(--panel2);border:2px solid var(--line);border-radius:22px;padding:26px 24px;
+  max-width:330px;width:100%;text-align:center;animation:cardIn .35s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes cardIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+#missionCard .mnum{color:var(--amber);font-weight:900;font-size:15px;letter-spacing:2px;}
+#missionCard h2{margin:8px 0 10px;font-size:23px;}
+#missionCard p{margin:0 0 18px;color:#cdd8ff;font-size:15px;line-height:1.7;}
+
+/* ---------- check overlay ---------- */
+#checkOv{
+  position:absolute;inset:0;background:rgba(9,12,32,.8);z-index:45;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+#checkOv .card{
+  background:var(--panel2);border:2px solid var(--line);border-radius:22px;padding:24px 20px;
+  max-width:360px;width:100%;text-align:center;animation:cardIn .35s cubic-bezier(.34,1.56,.64,1);
+}
+#checkOv .lbl{font-size:14px;color:var(--dim);font-weight:800;letter-spacing:2px;}
+#checkOv .eq{
+  margin:14px 0 6px;font-size:clamp(20px,6vw,26px);font-weight:900;font-variant-numeric:tabular-nums;
+  color:var(--cream);line-height:1.6;
+}
+#checkOv .eq .m{color:var(--mint);} #checkOv .eq .a{color:var(--amber);} #checkOv .eq .r{color:var(--coral);}
+#checkOv .stamp{
+  display:inline-block;margin:10px 0 16px;padding:9px 16px;border-radius:12px;border:2px solid var(--mint);
+  color:var(--mint);font-weight:900;font-size:16px;transform:rotate(-2deg);
+  animation:stampIn .4s cubic-bezier(.34,1.56,.64,1) backwards;animation-delay:.55s;
+}
+#checkOv .stamp.remStamp{border-color:var(--coral);color:#ffb3bc;}
+@keyframes stampIn{from{transform:scale(2.2) rotate(-14deg);opacity:0}to{transform:scale(1) rotate(-2deg);opacity:1}}
+
+/* ---------- end screens ---------- */
+#endScr{align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;z-index:46;
+  background:rgba(9,12,32,.88);}
+#endScr h2{font-size:34px;margin:0;}
+#endScr .sub{color:#cdd8ff;font-size:17px;line-height:1.8;margin-bottom:8px;}
+#endScr .score{font-size:26px;color:var(--amber);font-weight:900;}
+
+@media (min-height:760px){
+  #board{min-height:70px;}
+  .mini{width:52px;flex-basis:52px;}
+}
+
+/* 세로형 태블릿(820폭 등)에서 컬럼을 조금 더 넓게 */
+@media (min-width:700px){
+  html:not(.land) #app{max-width:min(100vw,720px);}
+}
+
+/* =========================================================
+   와이드 재배치 — 원형 ① 파노라마
+   상단 전폭 존(HUD + 세로셈 식) / 중앙 전폭 화물칸 / 전폭 로켓 줄 / 하단 중앙 컨트롤
+   모든 규칙은 html.land 스코프 아래에만 둔다 (세로폰 회귀 방지).
+   ========================================================= */
+html.land{background:#060a1c;}
+html.land body{background:#060a1c;}
+html.land #app{
+  max-width:var(--stageW);
+  border-left:1px solid rgba(58,71,128,.5);
+  border-right:1px solid rgba(58,71,128,.5);
+}
+
+/* ---- 존 A: 상단 전폭 (HUD + 식) ---- */
+html.land #topbar{
+  display:flex;align-items:stretch;gap:16px;
+  padding:12px 68px 6px 20px;
+}
+html.land #hud{padding:0;gap:12px;font-size:16px;align-items:center;flex:0 0 auto;}
+html.land #hud .chip{padding:9px 13px;border-radius:14px;}
+html.land #muteBtn{position:absolute;top:12px;right:16px;z-index:5;}
+html.land #board{
+  flex:1;margin:0;min-height:66px;padding:8px 18px;gap:10px;
+  font-size:clamp(26px,2.3vw,38px);
+}
+
+/* ---- 존 B: 중앙 전폭 화물칸 ---- */
+html.land #depot{gap:16px;margin:10px 20px;}
+html.land .col header{font-size:18px;padding:10px 6px;gap:8px;}
+html.land .col header .cnt{min-width:34px;padding:2px 10px;font-size:18px;}
+html.land .col .pile{gap:8px;padding:16px 14px;align-content:center;}
+html.land .col .emptyTag{font-size:17px;}
+html.land .col .lockTag{font-size:21px;}
+html.land .blk.h{width:48px;height:40px;font-size:14px;border-radius:7px;}
+html.land .blk.t{width:16px;height:54px;border-radius:6px;}
+html.land .blk.o{width:23px;height:23px;border-radius:7px;}
+html.land .pile.big{gap:14px;}
+html.land .pile.big .blk.h{width:78px;height:64px;font-size:20px;border-radius:10px;}
+html.land .pile.big .blk.t{width:28px;height:96px;border-radius:10px;}
+html.land .pile.big .blk.o{width:42px;height:42px;border-radius:13px;}
+
+/* ---- 존 C: 전폭 로켓 줄 (--rkw/--rkgap = JS가 stageW·로켓 수에서 계산) ---- */
+html.land #rockets{gap:var(--rkgap,22px);padding:10px 20px 4px;min-height:150px;}
+html.land #rockets .mini{width:var(--rkw,90px);flex:0 0 var(--rkw,90px);}
+html.land #rockets .mini .nose{
+  border-left-width:calc(var(--rkw,90px) * .40);
+  border-right-width:calc(var(--rkw,90px) * .40);
+  border-bottom-width:calc(var(--rkw,90px) * .40);
+}
+html.land #rockets .mini .body{
+  width:calc(var(--rkw,90px) * .82);height:calc(var(--rkw,90px) * 1.10);
+  padding-top:calc(var(--rkw,90px) * .13);
+  border-radius:0 0 calc(var(--rkw,90px) * .17) calc(var(--rkw,90px) * .17);
+}
+html.land #rockets .mini .win{
+  min-width:calc(var(--rkw,90px) * .60);height:calc(var(--rkw,90px) * .50);
+  font-size:calc(var(--rkw,90px) * .27);padding:0 5px;
+  border-radius:calc(var(--rkw,90px) * .13);border-width:calc(var(--rkw,90px) * .035);
+}
+html.land #rockets .mini .fins{width:calc(var(--rkw,90px) * 1.22);}
+html.land #rockets .mini .fins i{
+  width:calc(var(--rkw,90px) * .24);height:calc(var(--rkw,90px) * .39);
+  border-radius:calc(var(--rkw,90px)*.09) calc(var(--rkw,90px)*.09) 0 calc(var(--rkw,90px)*.11);
+}
+html.land #rockets .mini .fins i:last-child{
+  border-radius:calc(var(--rkw,90px)*.09) calc(var(--rkw,90px)*.09) calc(var(--rkw,90px)*.11) 0;
+}
+html.land #rockets .mini .flame{
+  width:calc(var(--rkw,90px) * .30);height:calc(var(--rkw,90px) * .40);
+  bottom:calc(var(--rkw,90px) * -.32);
+}
+html.land #padBar{height:18px;margin:4px 24px 0;}
+
+/* ---- 존 D: 하단 중앙 컨트롤 ---- */
+html.land #controls{
+  width:min(760px, calc(var(--stageW) * .62));margin:0 auto;gap:18px;
+  padding:12px 0 calc(18px + env(safe-area-inset-bottom));
+}
+html.land .ctl{min-height:74px;font-size:21px;border-radius:20px;}
+
+/* ---- 타이틀·오버레이 ---- */
+html.land #title .how{max-width:440px;font-size:16px;}
+html.land #toast{bottom:132px;font-size:17px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== title ===== -->
+  <section id="title">
+    <div class="rocketArt">
+      <div class="rk">
+        <div class="nose"></div>
+        <div class="body"><div class="win">21</div></div>
+        <div class="fins"><i></i><i></i></div>
+        <div class="flame"></div>
+      </div>
+    </div>
+    <h1><span class="q">몫</span> 실은 로켓</h1>
+    <div class="tag">똑같이 나눠 실어야 발사할 수 있어!</div>
+    <div class="how">
+      🚛 <b>실어!</b> — 로켓 수만큼 한 개씩, 모든 로켓에 똑같이 실어요.<br>
+      ⬇ <b>내림!</b> — 남은 묶음을 풀어서 아랫자리로 내려요.<br>
+      ⚡ 모자란데 실으면 배터리가 닳아요. 남은 개수와 로켓 수를 비교!
+    </div>
+    <button id="startBtn" class="bigBtn">🚀 발사 준비!</button>
+  </section>
+
+  <!-- ===== game ===== -->
+  <section id="game" hidden>
+    <div id="topbar">
+      <div id="hud">
+        <div class="chip" id="missionChip">임무 1/8</div>
+        <div class="chip" id="battChip"><i class="b">⚡</i><i class="b">⚡</i><i class="b">⚡</i></div>
+        <div class="chip" id="scoreChip">0점</div>
+        <button id="muteBtn" aria-label="소리 켜기/끄기">🔊</button>
+      </div>
+      <div id="board"></div>
+    </div>
+    <div id="depot"></div>
+    <div id="rockets"></div>
+    <div id="padBar"></div>
+    <div id="controls">
+      <button id="btnDeal" class="ctl">🚛 4개씩 실어!</button>
+      <button id="btnNext" class="ctl">⬇ 내림!</button>
+    </div>
+    <div id="toast"></div>
+  </section>
+
+  <div id="missionCard" hidden>
+    <div class="card">
+      <div class="mnum" id="mcNum">임무 1</div>
+      <h2 id="mcTitle"></h2>
+      <p id="mcDesc"></p>
+      <button class="bigBtn" id="mcGo">출발!</button>
+    </div>
+  </div>
+
+  <div id="checkOv" hidden>
+    <div class="card">
+      <div class="lbl">✔ 검산 — 계산이 맞는지 확인!</div>
+      <div class="eq" id="ckEq"></div>
+      <div><span class="stamp" id="ckStamp"></span></div>
+      <div><button class="bigBtn" id="ckGo">🚀 발사!</button></div>
+    </div>
+  </div>
+
+  <section id="endScr" hidden>
+    <h2 id="endTitle"></h2>
+    <div class="sub" id="endSub"></div>
+    <div class="score" id="endScore"></div>
+    <button class="bigBtn" id="endBtn">다시 도전!</button>
+  </section>
+</div>
+
+<script>
+'use strict';
+/* =========================================================
+   몫 실은 로켓 — 3-2 나눗셈
+   세로 셈 알고리즘 = 화물 나눠 싣기.
+   실어(한 바퀴 배급) / 내림(묶음 풀어 내리기) / 나머지 선언 / 검산.
+   ========================================================= */
+
+/* ---------- 문제 생성기 ---------- */
+const rnd = (a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick = arr=>arr[rnd(0,arr.length-1)];
+
+/* 나눗셈을 시뮬레이션: 각 자리 pile 크기·몫 자릿수·내림 여부 계산 */
+function simulate(dividend, divisor){
+  const ds = String(dividend).split('').map(Number); // 높은 자리부터
+  let carry = 0;
+  const placePiles = [], qDigits = [];
+  let naerim = false;
+  for(const dg of ds){
+    const pile = carry*10 + dg;
+    placePiles.push(pile);
+    qDigits.push(Math.floor(pile/divisor));
+    carry = pile % divisor;
+  }
+  // 내림 = 마지막 자리 이전에 carry>0인 지점 존재
+  let c=0;
+  for(let i=0;i<ds.length-1;i++){
+    const pile=c*10+ds[i]; c=pile%divisor;
+    if(c>0) naerim=true;
+  }
+  const q = Math.floor(dividend/divisor), r = dividend % divisor;
+  return { q, r, qDigits, placePiles, naerim, maxPile: Math.max(...placePiles) };
+}
+
+/* 렌더링 한계: 어느 자리 pile도 29 초과 금지(화면에 다 그린다) */
+const PILE_CAP = 29;
+
+const TYPES = {
+  t1:{ // (몇십)÷(몇), 내림X 나누어떨어짐 — 몫 일의 자리 0 포함
+    name:'(몇십) ÷ (몇)', concept:'(몇십)÷(한 자리 수)',
+    brief:'몇십 묶음을 로켓에 똑같이 나눠 실어 봐. 일의 자리에 실을 게 없으면 몫에 0을 써!',
+    ok(n,d){ const t=Math.floor(n/10);
+      return n%10===0 && n>=20 && n<=90 && t%d===0 && t>=d; },
+    gen(){ const d=rnd(2,9); const k=rnd(1,Math.floor(9/d)); return [d*k*10, d]; }
+  },
+  t2:{ // (몇십몇)÷(몇), 내림X 나머지X
+    name:'(몇십몇) ÷ (몇) — 내림 없음', concept:'(몇십몇)÷(한 자리 수)',
+    brief:'십 막대 먼저, 그다음 낱개! 자리마다 딱 나누어떨어지는 임무야.',
+    ok(n,d){ const t=Math.floor(n/10), o=n%10;
+      return n>=21 && n<=99 && o>0 && t%d===0 && o%d===0 && t>=d; },
+    gen(){ const d=rnd(2,4); const t=d*rnd(1,Math.floor(9/d)); const o=d*rnd(1,Math.floor(9/d));
+      return [t*10+o, d]; }
+  },
+  t3:{ // 내림O 나머지X
+    name:'내림이 있는 나눗셈', concept:'내림이 있는 나눗셈',
+    brief:'십 막대가 남으면? 묶음을 풀어 낱개 10개로 내려! 그게 「내림」이야.',
+    ok(n,d){ const s=simulate(n,d); const t=Math.floor(n/10);
+      return n>=13 && n<=99 && n%d===0 && t%d!==0 && t>=d && s.maxPile<=PILE_CAP; },
+    gen(){ const d=rnd(2,6);
+      // 몫: 십의 자리 나눗셈에 나머지가 생기게 뽑는다
+      for(let i=0;i<200;i++){ const qq=rnd(12,Math.floor(99/d)); const n=qq*d;
+        if(this.ok(n,d)) return [n,d]; }
+      return [52,4]; }
+  },
+  t4:{ // 내림X 나머지O
+    name:'나머지가 있는 나눗셈', concept:'나머지가 있는 나눗셈',
+    brief:'끝까지 나눠도 남는 게 있어. 남은 것 = 나머지! 나머지는 로켓 수보다 항상 작아.',
+    ok(n,d){ const t=Math.floor(n/10), o=n%10;
+      return n>=21 && n<=99 && t%d===0 && t>=d && o%d>0; },
+    gen(){ for(let i=0;i<200;i++){ const d=rnd(2,6); const t=d*rnd(1,Math.floor(9/d));
+        const o=rnd(1,9); const n=t*10+o; if(this.ok(n,d)) return [n,d]; }
+      return [49,4]; }
+  },
+  t5:{ // 내림O 나머지O
+    name:'내림 + 나머지', concept:'내림이 있고 나머지가 있는 나눗셈',
+    brief:'내림도 하고 나머지도 남는 진짜 임무! 검산까지 완벽하게.',
+    ok(n,d){ const s=simulate(n,d); const t=Math.floor(n/10);
+      return n>=13 && n<=99 && n%d>0 && t%d!==0 && t>=d && s.maxPile<=PILE_CAP; },
+    gen(){ for(let i=0;i<400;i++){ const d=rnd(3,7); const n=rnd(d*10+1,99);
+        if(this.ok(n,d)) return [n,d]; }
+      return [67,5]; }
+  },
+  t6:{ // 세 자리, 나누어떨어짐 (내림 포함 가능)
+    name:'(세 자리 수) ÷ (한 자리 수)', concept:'(세 자리 수)÷(한 자리 수)',
+    brief:'이제 백 상자까지! 백 → 십 → 일, 높은 자리부터 차례로 나눠 실어.',
+    ok(n,d){ const s=simulate(n,d);
+      return n>=100 && n<=999 && n%d===0 && s.q>=100 && s.maxPile<=PILE_CAP && s.naerim; },
+    gen(){ for(let i=0;i<600;i++){ const d=rnd(2,4); const q=rnd(100,Math.floor(999/d));
+        const n=q*d; if(this.ok(n,d)) return [n,d]; }
+      return [936,4]; }
+  },
+  t7:{ // 세 자리, 몫 십의 자리에 0
+    name:'몫에 0이 있는 나눗셈', concept:'몫의 자릿값 — 몫에 0 쓰기',
+    brief:'십의 자리에서 나눌 수 없으면? 몫에 0을 꼭 쓰고 내려! 자리를 건너뛰면 안 돼.',
+    ok(n,d){ const s=simulate(n,d);
+      return n>=100 && n<=999 && s.q>=100 && s.qDigits[1]===0 && s.qDigits[0]>0
+        && s.maxPile<=PILE_CAP; },
+    gen(){ for(let i=0;i<600;i++){ const d=rnd(2,5); const h=d*rnd(1,Math.floor(9/d));
+        const t=rnd(0,Math.min(2,d-1)); const o=rnd(0,9); const n=h*100+t*10+o;
+        if(this.ok(n,d)) return [n,d]; }
+      return [621,3]; }
+  },
+  t8:{ // 세 자리, 나머지O
+    name:'나머지가 있는 (세 자리 수) ÷ (몇)', concept:'나머지가 있는 (세 자리 수)÷(한 자리 수)',
+    brief:'마지막 임무! 세 자리 수를 나누고, 남은 나머지까지 정확히 선언해.',
+    ok(n,d){ const s=simulate(n,d);
+      return n>=100 && n<=999 && n%d>0 && s.q>=100 && s.maxPile<=PILE_CAP; },
+    gen(){ for(let i=0;i<600;i++){ const d=rnd(2,5); const n=rnd(d*100+1,999);
+        if(this.ok(n,d)) return [n,d]; }
+      return [738,5]; }
+  }
+};
+const MISSION_SEQ = ['t1','t2','t3','t4','t5','t6','t7','t8'];
+
+function genProblem(typeKey){
+  const T = TYPES[typeKey];
+  for(let i=0;i<50;i++){
+    const [n,d] = T.gen();
+    if(T.ok(n,d)){
+      const s = simulate(n,d);
+      return { dividend:n, divisor:d, q:s.q, r:s.r, qDigits:s.qDigits,
+               placePiles:s.placePiles, type:typeKey, concept:T.concept };
+    }
+  }
+  throw new Error('gen fail '+typeKey);
+}
+
+/* ---------- 오디오 ---------- */
+const Snd = (()=>{
+  let ctx=null, muted=false;
+  function ac(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return ctx; }
+  function beep(f,dur,type,vol,when=0,slide=0){
+    const c=ac(); if(!c||muted) return;
+    const o=c.createOscillator(), g=c.createGain();
+    o.type=type; o.frequency.setValueAtTime(f,c.currentTime+when);
+    if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),c.currentTime+when+dur);
+    g.gain.setValueAtTime(vol,c.currentTime+when);
+    g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+when+dur);
+    o.connect(g).connect(c.destination);
+    o.start(c.currentTime+when); o.stop(c.currentTime+when+dur+.02);
+  }
+  return {
+    unlock(){ const c=ac(); if(c&&c.state==='suspended') c.resume(); },
+    get muted(){ return muted; }, set muted(v){ muted=v; },
+    tap(){ beep(660,.07,'triangle',.12); },
+    deal(i){ beep(440+i*70,.09,'triangle',.1); },
+    drop(){ beep(300,.12,'sine',.14,-0,-120); },
+    unbundle(){ beep(500,.16,'sawtooth',.06,0,-260); beep(760,.1,'triangle',.08,.05); },
+    err(){ beep(160,.22,'square',.12); beep(120,.24,'square',.1,.07); },
+    lock(){ beep(880,.1,'triangle',.12); beep(1174,.14,'triangle',.1,.08); },
+    stamp(){ beep(523,.1,'triangle',.14); beep(659,.1,'triangle',.13,.09); beep(784,.2,'triangle',.13,.18); },
+    launch(){ beep(90,.9,'sawtooth',.14,0,220); beep(50,1,'square',.07,0,90); },
+    over(){ beep(330,.25,'square',.1); beep(247,.3,'square',.1,.2); beep(165,.5,'square',.11,.42); }
+  };
+})();
+
+/* ---------- DOM ---------- */
+const $ = s=>document.querySelector(s);
+const elTitle=$('#title'), elGame=$('#game'), elBoard=$('#board'), elDepot=$('#depot'),
+      elRockets=$('#rockets'), btnDeal=$('#btnDeal'), btnNext=$('#btnNext'),
+      elToast=$('#toast'), elMC=$('#missionCard'), elCK=$('#checkOv'), elEnd=$('#endScr');
+
+/* ---------- 판형(스테이지) ---------- */
+const LAY = { land:false, stageW:0, stageX:0 };
+function sizeRockets(){
+  const d = (typeof G!=='undefined' && G.prob) ? G.prob.divisor : 0;
+  if(!d) return;
+  if(!LAY.land){
+    elRockets.style.removeProperty('--rkw');
+    elRockets.style.removeProperty('--rkgap');
+    return;
+  }
+  // 로켓 줄은 stageW 전폭을 쓴다: 폭은 (무대폭 ÷ 로켓 수), 높이 예산으로 상한을 건다.
+  const avail = LAY.stageW * 0.9 - 40;                       // 좌우 패딩 여유
+  const rowH = Math.max(150, Math.min(320, innerHeight*0.28));
+  const wMax = Math.min(170, rowH / 1.55);                   // 로켓 총높이 ≈ 1.5×폭
+  // 날개가 로켓 폭 밖으로 0.11×폭씩 튀어나오므로 간격은 최소 0.3×폭을 확보한다
+  const w = Math.max(64, Math.min(wMax, avail / (d + 0.3*(d-1))));
+  const gap = Math.max(0.3*w, Math.min(120, (avail - w*d) / Math.max(1, d-1)));
+  elRockets.style.setProperty('--rkw', Math.round(w)+'px');
+  elRockets.style.setProperty('--rkgap', Math.round(gap)+'px');
+}
+function layout(){
+  const W = innerWidth, H = innerHeight;
+  LAY.land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle('land', LAY.land);
+  const STAGE = Math.min(W, 1280);         // CSS --stageW 상한과 일치
+  const SX = Math.round((W - STAGE) / 2);
+  LAY.stageW = STAGE; LAY.stageX = SX;
+  const root = document.documentElement;
+  root.style.setProperty('--stageW', STAGE+'px');
+  root.style.setProperty('--stageX', SX+'px');
+  sizeRockets();
+}
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', ()=> setTimeout(layout,120));
+
+/* ---------- 게임 상태 ---------- */
+const PLACE_NAME = ['일','십','백'];
+const PLACE_UNIT = ['낱개','십 막대','백 상자'];
+const G = {
+  phase:'title',           // title | mission | playing | check | launch | gameover | clear
+  missionIdx:0, score:0, batteries:3,
+  prob:null,
+  placeSeq:[],             // 예: [2,1,0] (백→십→일) 자리 인덱스
+  seqPos:0,                // placeSeq에서 현재 위치
+  pile:0,                  // 현재 자리 화물 개수
+  dealt:0,                 // 현재 자리에서 나눠 실은 바퀴 수
+  lockedDigits:[],         // 확정된 몫 자릿수 (높은 자리부터)
+  mistakes:0,              // 이번 라운드 실수
+  solved:0,                // 완료한 라운드 수
+  roundsAttempted:0, roundsFirstTry:0,
+  busy:false
+};
+
+function curPlace(){ return G.placeSeq[G.seqPos]; }        // 2=백,1=십,0=일
+function isLastPlace(){ return G.seqPos === G.placeSeq.length-1; }
+
+/* ---------- 렌더 ---------- */
+function renderHud(){
+  $('#missionChip').textContent = `임무 ${G.missionIdx+1}/${MISSION_SEQ.length}`;
+  $('#scoreChip').textContent = `${G.score}점`;
+  [...$('#battChip').children].forEach((b,i)=> b.classList.toggle('off', i >= G.batteries));
+}
+
+function renderBoard(){
+  const p=G.prob;
+  const digits = String(p.dividend).length;
+  let html = `<span>${p.dividend}</span><span class="op">÷</span><span>${p.divisor}</span><span class="op">=</span>`;
+  for(let i=0;i<digits;i++){
+    const locked = i < G.lockedDigits.length;
+    const now = i === G.lockedDigits.length && G.phase==='playing';
+    html += `<span class="slot ${locked?'done':''} ${now?'now':''}">${locked?G.lockedDigits[i]:''}</span>`;
+  }
+  const remDone = G.lockedDigits.length===digits;
+  html += `<span class="remWrap"><span class="op">⋯</span><span class="slot ${remDone?'done':''}">${remDone?p.r:''}</span></span>`;
+  elBoard.innerHTML = html;
+}
+
+function blockHTML(place){
+  if(place===2) return '<div class="blk h">100</div>';
+  if(place===1) return '<div class="blk t"></div>';
+  return '<div class="blk o"></div>';
+}
+
+function renderDepot(){
+  const p=G.prob;
+  elDepot.innerHTML='';
+  G.placeSeq.forEach((place, idx)=>{
+    const col=document.createElement('div');
+    col.className='col'; col.dataset.place=place;
+    const isNow = idx===G.seqPos && G.phase==='playing';
+    const done = idx < G.seqPos;
+    if(isNow) col.classList.add('now');
+    if(done) col.classList.add('lockedCol');
+    const count = idx===G.seqPos ? G.pile : (idx>G.seqPos ? Number(String(p.dividend)[idx]) : 0);
+    col.innerHTML = `<header>${PLACE_NAME[place]}의 자리 <span class="cnt">${done?'✓':count}</span></header>
+      <div class="pile"></div>`;
+    const pileEl = col.querySelector('.pile');
+    if(done){
+      pileEl.innerHTML = `<div class="lockTag">몫 ${G.lockedDigits[idx]}<br><small style="color:var(--dim)">확정!</small></div>`;
+    }else if(count===0){
+      pileEl.innerHTML = `<div class="emptyTag">텅 비었어<br>0개</div>`;
+    }else{
+      const n = count;
+      if(n<=12) pileEl.classList.add('big');
+      let bh='';
+      for(let i=0;i<n;i++) bh += blockHTML(place);
+      pileEl.innerHTML = bh;
+      // 등장 애니메이션 시차
+      [...pileEl.children].forEach((b,i)=> b.style.animationDelay = (i*0.012)+'s');
+    }
+    elDepot.appendChild(col);
+  });
+}
+
+function renderRockets(){
+  const d=G.prob.divisor;
+  elRockets.classList.remove('launch');
+  elRockets.classList.toggle('crowd', d>=8);
+  elRockets.innerHTML='';
+  for(let i=0;i<d;i++){
+    const r=document.createElement('div');
+    r.className='mini';
+    r.innerHTML = `<div class="nose"></div><div class="body"><div class="win">0</div></div>
+      <div class="fins"><i></i><i></i></div><div class="flame"></div>`;
+    elRockets.appendChild(r);
+  }
+  sizeRockets();
+  updateRocketLEDs();
+}
+
+function loadStr(){
+  // 로켓 한 대에 실린 개수 = 확정 자릿수 + 현재 자리 실은 바퀴 수 (자릿값 반영)
+  let v=0;
+  G.lockedDigits.forEach((dg,i)=> v += dg * Math.pow(10, G.placeSeq[i]));
+  v += G.dealt * Math.pow(10, curPlace()===undefined?0:curPlace());
+  return v;
+}
+function updateRocketLEDs(){
+  const v = loadStr();
+  elRockets.querySelectorAll('.win').forEach(w=> w.textContent = v);
+}
+
+function renderButtons(){
+  const d = G.prob ? G.prob.divisor : 0;
+  btnDeal.textContent = `🚛 ${d}개씩 실어!`;
+  btnNext.classList.toggle('finish', isLastPlace());
+  if(isLastPlace()){
+    btnNext.textContent = '✅ 다 실었어!';
+  }else{
+    btnNext.textContent = G.pile>0 ? `⬇ ${PLACE_NAME[G.placeSeq[G.seqPos+1]]}의 자리로 내림!`
+                                   : `➡ ${PLACE_NAME[G.placeSeq[G.seqPos+1]]}의 자리로!`;
+  }
+}
+
+function renderAll(){ renderHud(); renderBoard(); renderDepot(); renderButtons(); }
+
+/* ---------- 토스트 ---------- */
+let toastTimer=null;
+function toast(msg, kind){
+  elToast.textContent=msg;
+  elToast.className='show'+(kind?' '+kind:'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ elToast.className=''; }, 1800);
+}
+
+/* ---------- 라운드 흐름 ---------- */
+function startMission(idx){
+  G.missionIdx = idx;
+  G.prob = genProblem(MISSION_SEQ[idx]);
+  const digits = String(G.prob.dividend).length;
+  G.placeSeq = digits===3 ? [2,1,0] : [1,0];
+  G.seqPos = 0;
+  G.pile = Number(String(G.prob.dividend)[0]);
+  G.dealt = 0;
+  G.lockedDigits = [];
+  G.mistakes = 0;
+  G.phase = 'mission';
+  renderAll(); renderRockets();
+  // 임무 카드
+  const T = TYPES[G.prob.type];
+  $('#mcNum').textContent = `임무 ${idx+1}`;
+  $('#mcTitle').textContent = T.name;
+  $('#mcDesc').textContent = T.brief;
+  elMC.hidden = false;
+}
+$('#mcGo').addEventListener('click', ()=>{
+  Snd.unlock(); Snd.tap();
+  elMC.hidden = true;
+  G.phase='playing';
+  renderAll();
+});
+
+function registerMistake(msg){
+  G.mistakes++;
+  G.batteries--;
+  Snd.err();
+  toast(msg,'bad');
+  const nowCol = elDepot.querySelector('.col.now .pile');
+  if(nowCol){ nowCol.classList.remove('shake'); void nowCol.offsetWidth; nowCol.classList.add('shake'); }
+  renderHud();
+  if(G.batteries<=0){
+    G.roundsAttempted++;
+    gameOver();
+    return true;
+  }
+  return false;
+}
+
+function actDeal(){
+  if(G.phase!=='playing'||G.busy) return;
+  Snd.unlock();
+  const d=G.prob.divisor;
+  if(G.pile < d){
+    registerMistake(`로켓은 ${d}대인데 남은 ${PLACE_UNIT[curPlace()]}는 ${G.pile}개 — 모자라!`);
+    return;
+  }
+  G.pile -= d;
+  G.dealt++;
+  G.score += 5;
+  flyBlocks(d);
+  Snd.drop();
+  // pile DOM 갱신(개수 배지 + 블록 제거는 flyBlocks에서), 버튼 라벨 갱신
+  const nowCol = elDepot.querySelector('.col.now .cnt');
+  if(nowCol) nowCol.textContent = G.pile;
+  if(G.pile===0){
+    setTimeout(()=>{
+      const pe = elDepot.querySelector('.col.now .pile');
+      if(pe && G.pile===0 && G.phase==='playing' && !pe.querySelector('.blk'))
+        pe.innerHTML='<div class="emptyTag">텅 비었어<br>0개</div>';
+    }, 430);
+  }
+  updateRocketLEDs();
+  renderButtons(); renderHud();
+}
+
+function actNext(){
+  if(G.phase!=='playing'||G.busy) return;
+  Snd.unlock();
+  const d=G.prob.divisor;
+  if(G.pile >= d){
+    registerMistake(`아직 ${d}개씩 더 실을 수 있어! 남은 것(${G.pile})과 로켓 수(${d})를 비교해 봐.`);
+    return;
+  }
+  // 자리 확정
+  G.lockedDigits.push(G.dealt);
+  Snd.lock();
+  if(G.dealt===0) toast('나눌 수 없으면 몫에 0을 써! 0도 소중한 자리야.','good');
+  if(isLastPlace()){
+    finishRound();
+    return;
+  }
+  // 내림: 남은 pile개 묶음 → 아랫자리로 (각 10개)
+  const leftover = G.pile;
+  const nextDigit = Number(String(G.prob.dividend)[G.seqPos+1]);
+  G.seqPos++;
+  G.pile = leftover*10 + nextDigit;
+  G.dealt = 0;
+  if(leftover>0){ Snd.unbundle(); toast(`내림! ${PLACE_UNIT[G.placeSeq[G.seqPos-1]]} ${leftover}개를 풀어서 ${leftover*10}개로 내렸어.`,'good'); }
+  renderAll();
+}
+
+function finishRound(){
+  G.phase='check';
+  G.solved++;
+  G.roundsAttempted++;
+  const perfect = G.mistakes===0;
+  if(perfect) G.roundsFirstTry++;
+  G.score += 50 + (perfect?50:0);
+  if(perfect && G.batteries<3){ G.batteries++; toast('퍼펙트! 배터리 +1 ⚡','good'); }
+  renderAll();
+  // 검산 카드
+  const p=G.prob;
+  const eq = `<span class="a">${p.divisor}</span> × <span class="m">${p.q}</span>`
+    + ` + <span class="r">${p.r}</span> = <span class="m">${p.divisor*p.q + p.r}</span>`;
+  $('#ckEq').innerHTML =
+    `로켓 <span class="a">${p.divisor}</span>대 × 한 대에 <span class="m">${p.q}</span>개<br>`
+    + `+ 남은 것 <span class="r">${p.r}</span>개<br>${eq} ✔`;
+  const st=$('#ckStamp');
+  if(p.r===0){ st.textContent='딱 나누어떨어졌어요!'; st.className='stamp'; }
+  else { st.textContent=`나머지 ${p.r} — 나누는 수 ${p.divisor}보다 작아요 ✓`; st.className='stamp remStamp'; }
+  Snd.stamp();
+  elCK.hidden=false;
+}
+
+$('#ckGo').addEventListener('click', ()=>{
+  if(G.phase!=='check') return;
+  Snd.unlock();
+  elCK.hidden=true;
+  G.phase='launch';
+  G.busy=true;
+  Snd.launch();
+  elRockets.classList.add('launch');
+  [...elRockets.children].forEach((r,i)=> r.style.transitionDelay = (i*0.06)+'s');
+  setTimeout(()=>{
+    G.busy=false;
+    [...elRockets.children].forEach(r=> r.style.transitionDelay='');
+    if(G.missionIdx+1 >= MISSION_SEQ.length) allClear();
+    else startMission(G.missionIdx+1);
+  }, 1150);
+});
+
+function gameOver(){
+  G.phase='gameover';
+  Snd.over();
+  $('#endTitle').textContent='배터리 방전! 🔋';
+  $('#endSub').innerHTML='로켓 수보다 남은 개수가 적으면<br>더 실을 수 없다는 뜻이야. 다시 가 보자!';
+  $('#endScore').textContent=`점수 ${G.score}점 · 임무 ${G.solved}개 완료`;
+  $('#endBtn').textContent='다시 도전!';
+  elEnd.hidden=false;
+}
+
+function allClear(){
+  G.phase='clear';
+  $('#endTitle').textContent='전 임무 완료! 🏆';
+  $('#endSub').innerHTML=`퍼펙트 배송 <b style="color:var(--mint)">${G.roundsFirstTry}</b> / ${MISSION_SEQ.length}<br>너는 이제 나눗셈 관제사!`;
+  $('#endScore').textContent=`최종 점수 ${G.score}점`;
+  $('#endBtn').textContent='한 번 더!';
+  elEnd.hidden=false;
+}
+
+$('#endBtn').addEventListener('click', ()=>{
+  Snd.unlock(); Snd.tap();
+  elEnd.hidden=true;
+  G.score=0; G.batteries=3; G.solved=0;
+  startMission(0);
+});
+
+/* ---------- 블록 비행 애니메이션 ---------- */
+function flyBlocks(d){
+  const pileEl = elDepot.querySelector('.col.now .pile');
+  const rockets = [...elRockets.children];
+  if(!pileEl) return;
+  const blocks = [...pileEl.querySelectorAll('.blk')].slice(-d);
+  blocks.forEach((b,i)=>{
+    const br = b.getBoundingClientRect();
+    const target = rockets[i % rockets.length];
+    const tr = target ? target.getBoundingClientRect() : br;
+    const clone = b.cloneNode(true);
+    clone.classList.add('fly');
+    clone.style.left = br.left+'px'; clone.style.top = br.top+'px';
+    clone.style.width = br.width+'px'; clone.style.height = br.height+'px';
+    clone.style.animation='none';
+    document.body.appendChild(clone);
+    b.remove();
+    requestAnimationFrame(()=>{
+      const dx = tr.left + tr.width/2 - br.left - br.width/2;
+      const dy = tr.top + tr.height/2 - br.top - br.height/2;
+      clone.style.transform = `translate(${dx}px,${dy}px) scale(.4)`;
+      clone.style.opacity = '0';
+    });
+    setTimeout(()=>{
+      clone.remove();
+      if(target){ target.classList.remove('bump'); void target.offsetWidth; target.classList.add('bump'); }
+    }, 400);
+    Snd.deal(i);
+  });
+}
+
+/* ---------- 입력 바인딩 ---------- */
+btnDeal.addEventListener('click', actDeal);
+btnNext.addEventListener('click', actNext);
+$('#startBtn').addEventListener('click', ()=>{
+  Snd.unlock(); Snd.tap();
+  startGame();
+});
+$('#muteBtn').addEventListener('click', ()=>{
+  Snd.muted = !Snd.muted;
+  $('#muteBtn').textContent = Snd.muted ? '🔇' : '🔊';
+});
+// 키보드 (데스크톱 편의)
+window.addEventListener('keydown', e=>{
+  if(e.repeat) return;
+  if(e.key===' '||e.key==='ArrowLeft'){ if(G.phase==='playing') actDeal(); }
+  if(e.key==='Enter'||e.key==='ArrowRight'){
+    if(G.phase==='playing') actNext();
+    else if(G.phase==='mission') $('#mcGo').click();
+    else if(G.phase==='check') $('#ckGo').click();
+  }
+});
+
+function startGame(){
+  elTitle.hidden = true;
+  elGame.hidden = false;
+  G.score=0; G.batteries=3; G.solved=0;
+  startMission(0);
+}
+
+/* ---------- QA 훅 ---------- */
+window.__GAME_TEST__ = {
+  ready: true,
+  start(){
+    elEnd.hidden=true; elCK.hidden=true;
+    if(G.phase==='title'){ startGame(); }
+    if(G.phase==='mission'){ elMC.hidden=true; G.phase='playing'; renderAll(); }
+  },
+  getState(){
+    return {
+      score:G.score, lives:G.batteries, level:G.missionIdx+1,
+      phase:G.phase, solved:G.solved,
+      mistakes:G.mistakes,
+      roundsAttempted:G.roundsAttempted, roundsFirstTry:G.roundsFirstTry,
+      problem: G.prob ? {dividend:G.prob.dividend, divisor:G.prob.divisor, q:G.prob.q, r:G.prob.r} : null
+    };
+  },
+  answerCorrect(){
+    // 현재 라운드를 완벽하게 해결한 것으로 처리
+    if(G.phase==='mission'){ elMC.hidden=true; G.phase='playing'; }
+    if(G.phase==='check'){ $('#ckGo').click(); return; }
+    if(G.phase!=='playing') return;
+    const p=G.prob;
+    G.seqPos = G.placeSeq.length-1;
+    G.dealt = p.qDigits[p.qDigits.length-1];
+    G.pile = p.r;
+    G.lockedDigits = p.qDigits.slice();
+    updateRocketLEDs();
+    finishRound();
+    // 오버레이 즉시 통과
+    elCK.hidden=true;
+    G.phase='launch';
+    if(G.missionIdx+1 >= MISSION_SEQ.length) allClear();
+    else startMission(G.missionIdx+1);
+  },
+  answerWrong(){
+    if(G.phase==='mission'){ elMC.hidden=true; G.phase='playing'; renderAll(); }
+    if(G.phase!=='playing') return;
+    registerMistake('테스트: 오답 처리');
+  },
+  sampleProblems(n=8){
+    const out=[];
+    for(let i=0;i<n;i++){
+      const tk = MISSION_SEQ[i % MISSION_SEQ.length];
+      const p = genProblem(tk);
+      out.push({
+        id:'p'+(i+1),
+        prompt:`${p.dividend} ÷ ${p.divisor} = ?  (몫과 나머지를 구하세요)`,
+        choices:null,
+        answer: p.r===0 ? `몫 ${p.q}, 나머지 0 (나누어떨어짐)` : `몫 ${p.q}, 나머지 ${p.r}`,
+        answerNumeric: p.q,
+        quotient: p.q,
+        remainder: p.r,
+        checkEquation: `${p.divisor}×${p.q}+${p.r}=${p.dividend}`,
+        unitConcept: p.concept
+      });
+    }
+    return out;
+  },
+  getLayout(){
+    const depot = elDepot.getBoundingClientRect();
+    return { land:LAY.land, stageW:LAY.stageW, stageX:LAY.stageX, playW:Math.round(depot.width) };
+  }
+};
+
+/* 생성기 자가검증 훅 (QA·개발용) */
+window.__GEN_TEST__ = { simulate, genProblem, TYPES, MISSION_SEQ, PILE_CAP, G };
+
+layout();
+renderHud();
+</script>
+</body>
+</html>

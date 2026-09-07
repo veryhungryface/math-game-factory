@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>컴퍼스 공방</title>
+<style>
+:root{
+  --paper:#F6EFDE; --paper-deep:#EFE5CC;
+  --grid:#DACBAB; --grid-major:#C9B68C;
+  --ink:#28364F; --ink-soft:#4C5B77;
+  --brass:#C9913F; --brass-dark:#8F6224;
+  --coral:#E2574C; --leaf:#3E8E5A;
+  --wood:#A9744A; --wood-dark:#7C5231;
+  --card:#FFFDF6;
+  /* 무대 판형 (playfield-spec §2) — JS layout() 이 매 리사이즈마다 덮어쓴다 */
+  --stageW: min(100vw, 1280px);
+  --stageX: calc((100vw - var(--stageW)) / 2);
+  --zoneL: 262px;   /* 좌 존 = 주문서 */
+  --zoneR: 220px;   /* 우 존 = 기록/진행 */
+  --zoneGap: 16px;
+  --appPadX: 18px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  background:var(--paper-deep); color:var(--ink);
+  overflow:hidden; touch-action:none;
+  -webkit-user-select:none; user-select:none;
+  overscroll-behavior:none;
+}
+button{font-family:inherit;}
+#app{position:fixed; inset:0; display:flex; flex-direction:column;
+  padding:calc(env(safe-area-inset-top) + 8px) 10px calc(env(safe-area-inset-bottom) + 8px);
+  max-width:720px; margin:0 auto;}
+/* ── HUD ─────────────────────────── */
+#hud{display:flex; gap:8px; align-items:stretch; flex:0 0 auto; padding-right:52px;}
+#orderCard{
+  flex:1 1 auto; min-width:0; background:var(--card);
+  border:2px solid var(--ink); border-radius:14px;
+  padding:8px 12px 9px; position:relative;
+  box-shadow:0 3px 0 rgba(40,54,79,.25);
+}
+#orderCard::before{content:""; position:absolute; left:14px; right:14px; top:-2px;
+  height:8px; background:
+   repeating-linear-gradient(90deg, transparent 0 14px, rgba(40,54,79,.14) 14px 22px);
+  border-radius:0 0 6px 6px; pointer-events:none;}
+#orderTop{display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; color:var(--ink-soft);}
+#orderName{background:var(--ink); color:var(--card); border-radius:999px; padding:2px 9px 3px;}
+#orderStep{letter-spacing:.06em;}
+#orderSpec{margin-top:4px; font-size:15px; font-weight:800; line-height:1.35; word-break:keep-all;}
+#orderSpec .num{color:var(--coral); font-size:18px;}
+#orderSpec .pt{color:#1F6FB2;}
+#sidePanel{flex:0 0 auto; display:flex; flex-direction:column; gap:6px; align-items:flex-end; justify-content:space-between;}
+#leads{display:flex; gap:4px; background:var(--card); border:2px solid var(--ink); border-radius:999px; padding:5px 9px;
+  box-shadow:0 3px 0 rgba(40,54,79,.25);}
+.lead{width:14px; height:20px; position:relative;}
+.lead::before{content:""; position:absolute; inset:0 4px 6px 4px; background:linear-gradient(#F3C64F,#DFa63a); border:1.5px solid var(--brass-dark); border-radius:2px;}
+.lead::after{content:""; position:absolute; left:50%; bottom:0; transform:translateX(-50%);
+  border:4px solid transparent; border-top:7px solid #4A4A4A; border-bottom:0;}
+.lead.off{opacity:.18; filter:grayscale(1);}
+#scorePill{background:var(--card); border:2px solid var(--ink); border-radius:999px; padding:3px 10px 4px;
+  font-size:13px; font-weight:900; box-shadow:0 3px 0 rgba(40,54,79,.25); min-width:64px; text-align:center;}
+/* timer */
+#timerWrap{flex:0 0 auto; height:8px; margin:7px 2px 0; border-radius:99px; background:rgba(40,54,79,.14); overflow:hidden;}
+#timerBar{height:100%; width:100%; border-radius:99px; background:linear-gradient(90deg,#57B27E,#3E8E5A); transition:background .3s;}
+#timerBar.low{background:linear-gradient(90deg,#E88D5A,#E2574C);}
+/* ── board ───────────────────────── */
+#boardWrap{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:8px 0 4px; position:relative;}
+#board{
+  background:var(--paper); border-radius:12px;
+  border:6px solid var(--wood);
+  box-shadow:inset 0 0 0 2px var(--wood-dark), 0 6px 0 rgba(124,82,49,.45), 0 12px 22px rgba(60,40,15,.25);
+  touch-action:none; display:block;
+}
+#feedback{
+  position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+  max-width:min(92%,460px); background:#FFF4E8; border:2px solid var(--coral); color:#8A2B20;
+  border-radius:14px; padding:9px 14px; font-size:14px; font-weight:800; line-height:1.4;
+  box-shadow:0 4px 0 rgba(226,87,76,.3); opacity:0; pointer-events:none;
+  transition:opacity .18s, transform .18s; word-break:keep-all; text-align:center; z-index:3;}
+#feedback.on{opacity:1; transform:translateX(-50%) translateY(-4px);}
+#feedback.good{background:#EAF6EC; border-color:var(--leaf); color:#20603A; box-shadow:0 4px 0 rgba(62,142,90,.3);}
+#banner{
+  position:absolute; left:50%; top:44%; transform:translate(-50%,-50%) scale(.8) rotate(-3deg);
+  background:var(--ink); color:#FFF7E6; padding:14px 26px; border-radius:16px;
+  font-size:clamp(20px,5.5vw,28px); font-weight:900; letter-spacing:.02em;
+  box-shadow:0 8px 24px rgba(20,28,45,.4); opacity:0; pointer-events:none; z-index:4;
+  transition:opacity .22s, transform .25s cubic-bezier(.2,1.6,.4,1); text-align:center; word-break:keep-all;}
+#banner.on{opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-3deg);}
+#banner small{display:block; font-size:13px; font-weight:800; opacity:.8; margin-top:4px; letter-spacing:.1em;}
+#hint{flex:0 0 auto; text-align:center; font-size:13px; font-weight:800; color:var(--ink-soft);
+  padding:4px 8px 2px; min-height:22px; word-break:keep-all;}
+#hint b{color:var(--brass-dark);}
+/* ── overlays 공통 ────────────────── */
+.overlay{position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:var(--paper); overflow:hidden;}
+.overlay[hidden]{display:none;}
+/* title */
+#titleArt{position:absolute; inset:0; pointer-events:none;}
+#titleUI{position:relative; z-index:2; width:min(100%,640px); height:100%; display:flex; flex-direction:column;
+  align-items:center; padding:calc(env(safe-area-inset-top) + max(44px,6dvh)) 20px calc(env(safe-area-inset-bottom) + 18px);}
+#logoPlate{
+  transform:rotate(-2.4deg);
+  background:var(--card);
+  border:3px solid var(--ink); border-radius:18px;
+  padding:16px 26px 18px; text-align:center; position:relative;
+  box-shadow:0 6px 0 rgba(40,54,79,.28), 0 14px 30px rgba(74,58,24,.18);
+  animation:stampIn .5s cubic-bezier(.2,1.8,.4,1) both;
+}
+#logoPlate::after{content:""; position:absolute; inset:5px; border:2px dashed rgba(40,54,79,.3); border-radius:12px; pointer-events:none;}
+@keyframes stampIn{0%{transform:rotate(-2.4deg) scale(1.7); opacity:0;} 60%{transform:rotate(-2.4deg) scale(.94); opacity:1;} 100%{transform:rotate(-2.4deg) scale(1);}}
+#gameLogo{margin:0; font-size:clamp(46px,13vw,72px); font-weight:900; line-height:1.04; letter-spacing:-.05em; color:var(--ink);
+  text-shadow:0 1px 0 #fff, 0 3px 0 rgba(40,54,79,.22);}
+#gameLogo .brass{color:var(--brass-dark);}
+#tagline{margin:8px 0 0; font-size:clamp(13px,3.6vw,16px); font-weight:800; color:var(--ink-soft); letter-spacing:.02em;}
+#titleMeta{margin-top:14px; font-size:12px; font-weight:800; color:rgba(40,54,79,.72);
+  background:rgba(255,253,246,.8); border:1px solid rgba(40,54,79,.25); border-radius:999px; padding:5px 12px;}
+#ctaZone{margin-top:auto; width:min(100%,420px); display:grid; justify-items:center; gap:8px;}
+#bestPill{font-size:12px; font-weight:900; color:var(--ink); background:rgba(255,253,246,.9);
+  border:1.5px solid var(--ink); border-radius:999px; padding:6px 14px;}
+#startBtn{
+  width:100%; min-height:68px; border-radius:20px; cursor:pointer;
+  border:3px solid var(--brass-dark);
+  background:linear-gradient(180deg,#F6D06B 0%,#E7AE45 55%,#D3922E 100%);
+  color:#4A2E08; font-size:clamp(21px,5.8vw,26px); font-weight:900; letter-spacing:-.02em;
+  box-shadow:0 7px 0 var(--brass-dark), 0 14px 24px rgba(90,60,15,.35), inset 0 3px 0 rgba(255,255,255,.55);
+  transition:transform .08s, box-shadow .08s; touch-action:manipulation;
+  animation:ctaPulse 2.6s ease-in-out 1.2s infinite;
+}
+#startBtn:active{transform:translateY(6px); box-shadow:0 1px 0 var(--brass-dark), 0 6px 12px rgba(90,60,15,.3), inset 0 3px 0 rgba(255,255,255,.4); animation-play-state:paused;}
+@keyframes ctaPulse{0%,74%,100%{transform:translateY(0) scale(1);} 82%{transform:translateY(-2px) scale(1.02);} 90%{transform:translateY(0) scale(1);}}
+#howtoLink{background:none; border:0; min-height:44px; min-width:44px; padding:8px 12px; cursor:pointer;
+  font-size:13px; font-weight:800; color:var(--ink-soft); text-decoration:underline; text-underline-offset:4px;}
+/* mute */
+#muteBtn{position:fixed; z-index:30; top:max(10px, env(safe-area-inset-top));
+  right:max(12px, calc((100vw - 720px)/2 + 12px));
+  width:44px; height:44px; border-radius:50%; border:1.5px solid rgba(40,54,79,.35);
+  background:rgba(255,253,246,.86); color:var(--ink); font-size:20px; cursor:pointer; display:grid; place-items:center;}
+/* onboarding */
+#onboard{background:rgba(24,32,48,.86); z-index:20;}
+#obCard{width:min(88%,380px); background:var(--card); border:2px solid var(--ink); border-radius:20px;
+  padding:22px 20px 18px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,.35);}
+#obStepNo{font-size:12px; font-weight:900; letter-spacing:.2em; color:var(--brass-dark);}
+#obPic{font-size:52px; line-height:1; margin:12px 0; min-height:60px; display:flex; align-items:center; justify-content:center; gap:6px;}
+#obPic svg{width:96px; height:96px;}
+#obText{font-size:16px; font-weight:800; line-height:1.5; word-break:keep-all; min-height:72px;}
+#obText .num{color:var(--coral);}
+#obNext{margin-top:10px; width:100%; min-height:52px; border-radius:14px; border:2.5px solid var(--ink);
+  background:var(--ink); color:#FFF7E6; font-size:17px; font-weight:900; cursor:pointer;}
+/* end overlays */
+.endCard{width:min(88%,400px); background:var(--card); border:3px solid var(--ink); border-radius:22px;
+  padding:26px 22px; text-align:center; box-shadow:0 8px 0 rgba(40,54,79,.25); position:relative; z-index:2;}
+.endCard h2{margin:0 0 6px; font-size:clamp(26px,7vw,34px); font-weight:900; letter-spacing:-.03em;}
+.endCard p{margin:6px 0; font-size:15px; font-weight:800; color:var(--ink-soft); line-height:1.5; word-break:keep-all;}
+.endCard .bigScore{font-size:clamp(34px,9vw,44px); font-weight:900; color:var(--brass-dark); margin:8px 0;}
+.endBtn{margin-top:14px; width:100%; min-height:60px; border-radius:16px; cursor:pointer;
+  border:3px solid var(--brass-dark); background:linear-gradient(180deg,#F6D06B,#D3922E);
+  color:#4A2E08; font-size:20px; font-weight:900; box-shadow:0 6px 0 var(--brass-dark);}
+.endBtn:active{transform:translateY(4px); box-shadow:0 2px 0 var(--brass-dark);}
+#gameover{background:rgba(46,38,30,.55); backdrop-filter:blur(3px);}
+#clear{background:rgba(24,32,48,.5); backdrop-filter:blur(3px);}
+/* ── 우 존 기록 카드 (land 전용) ───────────────────── */
+#progWrap{display:none;}
+#progWrap .pTitle{font-size:11px; font-weight:900; letter-spacing:.16em; color:var(--brass-dark);}
+#progOrder{margin-top:6px; font-size:15px; font-weight:900; color:var(--ink);}
+#progStep{margin-top:2px; font-size:13px; font-weight:800; color:var(--ink-soft);}
+#progTrack{margin-top:9px; height:8px; border-radius:99px; background:rgba(40,54,79,.14); overflow:hidden;}
+#progFill{height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#E8B33E,#C9913F); transition:width .3s;}
+#progCount{margin-top:6px; font-size:12px; font-weight:800; color:var(--ink-soft);}
+
+/* ── 와이드 = 극장형 (playfield-spec §3-③) ───────────
+   중앙 작도판을 세로 여유 끝까지 키우고, 세로폰에서 상단 HUD·오버레이에
+   있던 주문서를 좌 존으로, 진행·연필심·점수·타이머를 우 존으로 옮긴다. */
+html.land body{
+  background-color:var(--paper-deep);
+  background-image:linear-gradient(90deg,
+    rgba(40,26,8,.17) 0, rgba(40,26,8,.17) var(--stageX),
+    rgba(40,26,8,0) var(--stageX), rgba(40,26,8,0) calc(var(--stageX) + var(--stageW)),
+    rgba(40,26,8,.17) calc(var(--stageX) + var(--stageW)), rgba(40,26,8,.17) 100%);
+}
+html.land #app{
+  width:var(--stageW); max-width:none; margin:0 auto;
+  display:grid;
+  grid-template-columns:var(--zoneL) minmax(0,1fr) var(--zoneR);
+  grid-template-rows:minmax(0,1fr) auto auto minmax(0,1fr);
+  grid-template-areas:
+    "order board topgap"
+    "order board timer"
+    "order board panel"
+    "order board botgap";
+  column-gap:var(--zoneGap); row-gap:0;
+  padding:calc(env(safe-area-inset-top) + 12px) var(--appPadX) calc(env(safe-area-inset-bottom) + 12px);
+}
+html.land #hud{display:contents;}
+html.land #orderCard{grid-area:order; align-self:center; padding:16px 18px 20px;}
+html.land #orderTop{flex-direction:column; align-items:flex-start; gap:7px; font-size:12px;}
+html.land #orderName{font-size:14px; padding:4px 12px 5px;}
+html.land #orderStep{display:none;}
+html.land #orderSpec{margin-top:10px; font-size:clamp(16px,1.45vw,20px); line-height:1.55;}
+html.land #orderSpec .num{font-size:1.3em;}
+html.land #timerWrap{grid-area:timer; height:10px; margin:0 0 11px;}
+html.land #sidePanel{grid-area:panel; align-items:stretch; justify-content:flex-start; gap:12px;}
+html.land #progWrap{display:block; background:var(--card); border:2px solid var(--ink);
+  border-radius:14px; padding:11px 13px 13px;}
+html.land #leads{justify-content:center; border-radius:14px; padding:8px 10px;}
+html.land #leads::before{content:"연필심"; align-self:center; margin-right:8px;
+  font-size:12px; font-weight:900; color:var(--ink-soft);}
+html.land #scorePill{font-size:20px; padding:9px 12px 11px; border-radius:14px; min-width:0;}
+html.land #boardWrap{grid-area:board; padding:0; gap:8px; min-width:0;}
+html.land #hint{font-size:15px; padding:2px 8px;}
+html.land #feedback{bottom:var(--fbBottom,48px); max-width:min(86%,520px);}
+html.land #muteBtn{top:auto; bottom:calc(env(safe-area-inset-bottom) + 14px);
+  right:calc(var(--stageX) + 14px);}
+@media (max-height:560px){
+  html.land #orderCard{padding:11px 13px 13px;}
+  html.land #orderSpec{font-size:14px; margin-top:7px; line-height:1.45;}
+  html.land #progWrap{padding:8px 10px 10px;}
+  html.land #progTrack{margin-top:6px;}
+  html.land #scorePill{font-size:16px; padding:6px 10px 8px;}
+  html.land #hint{font-size:13px;}
+  html.land #sidePanel{gap:8px;}
+}
+@media (max-height:700px){
+  #orderSpec{font-size:14px;}
+  #logoPlate{padding:12px 20px 14px;}
+}
+@media (prefers-reduced-motion:reduce){
+  #logoPlate,#startBtn{animation:none;}
+}
+/* shot 모드 (표지 캡처 전용) */
+body.shot #app,body.shot #muteBtn{display:none;}
+#shotScene{position:fixed; inset:0; background:var(--paper);}
+#shotScene canvas{position:absolute; inset:0;}
+#shotLogo{position:absolute; z-index:2; text-align:center;}
+#shotLogo .plate{display:inline-block; transform:rotate(-2.4deg); background:var(--card);
+  border:4px solid var(--ink); border-radius:26px; padding:26px 46px 30px; position:relative;
+  box-shadow:0 10px 0 rgba(40,54,79,.28), 0 22px 44px rgba(74,58,24,.2);}
+#shotLogo .plate::after{content:""; position:absolute; inset:8px; border:3px dashed rgba(40,54,79,.3); border-radius:17px;}
+#shotLogo h1{margin:0; font-weight:900; letter-spacing:-.05em; color:var(--ink); line-height:1.04;
+  text-shadow:0 2px 0 #fff, 0 5px 0 rgba(40,54,79,.22);}
+#shotLogo h1 .brass{color:var(--brass-dark);}
+#shotLogo p{margin:12px 0 0; font-weight:900; color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<button id="muteBtn" type="button" aria-label="소리 끄기">🔊</button>
+
+<div id="app" aria-hidden="true">
+  <div id="hud">
+    <div id="orderCard">
+      <div id="orderTop"><span id="orderName">주문서</span><span id="orderStep"></span></div>
+      <div id="orderSpec"></div>
+    </div>
+    <div id="sidePanel">
+      <div id="progWrap">
+        <div class="pTitle">작업 기록</div>
+        <div id="progOrder">주문 1 / 3</div>
+        <div id="progStep">1 / 3번째 원</div>
+        <div id="progTrack"><div id="progFill"></div></div>
+        <div id="progCount">완성 0 / 10</div>
+      </div>
+      <div id="leads" aria-label="남은 연필심"><span class="lead"></span><span class="lead"></span><span class="lead"></span></div>
+      <div id="scorePill">0점</div>
+    </div>
+  </div>
+  <div id="timerWrap"><div id="timerBar"></div></div>
+  <div id="boardWrap">
+    <canvas id="board"></canvas>
+    <div id="hint"></div>
+    <div id="feedback" role="status"></div>
+    <div id="banner"></div>
+  </div>
+</div>
+
+<div id="title" class="overlay">
+  <canvas id="titleArt" aria-hidden="true"></canvas>
+  <div id="titleUI">
+    <div id="logoPlate">
+      <h1 id="gameLogo" aria-label="컴퍼스 공방">컴퍼스<br><span class="brass">공방</span></h1>
+      <p id="tagline">빙글 — 벌린 만큼이 반지름!</p>
+    </div>
+    <div id="titleMeta">3학년 2학기 · 원 · 컴퍼스로 그리기</div>
+    <div id="ctaZone">
+      <div id="bestPill" hidden></div>
+      <button id="startBtn" type="button">공방 열기!</button>
+      <button id="howtoLink" type="button">어떻게 놀아요? 〉</button>
+    </div>
+  </div>
+</div>
+
+<div id="onboard" class="overlay" hidden>
+  <div id="obCard">
+    <div id="obStepNo">1 / 3</div>
+    <div id="obPic"></div>
+    <div id="obText"></div>
+    <button id="obNext" type="button">다음</button>
+  </div>
+</div>
+
+<div id="gameover" class="overlay" hidden>
+  <div class="endCard">
+    <h2>연필심이 다 부러졌어…</h2>
+    <p id="goDetail"></p>
+    <div class="bigScore" id="goScore">0점</div>
+    <p>주문서의 <b>지름</b>은 컴퍼스를 벌릴 <b>반지름의 2배</b>라는 걸 기억해!</p>
+    <button class="endBtn" id="goRetry" type="button">다시 도전!</button>
+  </div>
+</div>
+
+<div id="clear" class="overlay" hidden>
+  <div class="endCard">
+    <h2>🎉 가게 오픈!</h2>
+    <p>주문받은 작품 3개를 모두 완성했어!</p>
+    <div class="bigScore" id="clScore">0점</div>
+    <p id="clDetail"></p>
+    <button class="endBtn" id="clRetry" type="button">한 번 더!</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   컴퍼스 공방 — g3s2-u3 「원」 (3-2)
+   조작 = 수학: 침 꽂기(중심) + 벌리기(반지름 결정) + 놓기(작도)
+   3학년이므로 원주율 없음. 지름 = 반지름 × 2 정수 관계만 사용.
+   ============================================================ */
+const $ = (id)=>document.getElementById(id);
+const N = 12;                 // 모눈 12×12칸
+const STEP_MS = 45000;        // 원 하나당 제한 시간
+const MAX_R = 8;              // 벌리기 스냅 상한 (칸)
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ── 문제(주문) 데이터 모델 ─────────────────────────────
+   spec.kind:
+     R    반지름 r칸               → 정답 r
+     D    지름 d칸 (d=2r)          → 정답 d/2   (오개념: 벌리기=지름)
+     REL  반지름 = 기준원의 지름    → 정답 2a    (지름=반지름×2 활용)
+     EQ   앞 원과 크기가 같은 원    → 정답 = 앞 원의 반지름
+   모든 정답은 정수 칸. 판정: 스냅된 정수 반지름 === answer.        */
+const ORDERS = [
+  { name:"눈사람 간판", ink:"#3E6FB0",
+    steps:[
+      { c:[6,8],  spec:{kind:"R", r:3},           cands:[[6,8],[4,7],[8,9],[6,5]] },
+      { c:[6,3],  spec:{kind:"D", d:4},           cands:[[6,3],[6,5],[4,3],[8,2]] },
+      { c:[6,8],  spec:{kind:"R", r:1, note:"몸통과 같은 중심이야."}, cands:[[6,8],[6,10],[4,7],[8,9]] },
+    ],
+    deco:(g,u)=>{ // 눈·단추·팔
+      inkDot(g,u,5.4,2.6,.13); inkDot(g,u,6.6,2.6,.13);
+      inkArc(g,u,6,3.1,.55,0.25*Math.PI,0.75*Math.PI);
+      inkLine(g,u,3.2,6.2,4.6,7.2); inkLine(g,u,8.8,6.2,7.4,7.2);
+    }},
+  { name:"무지개 과녁", ink:"#C9563C",
+    steps:[
+      { c:[6,6],  spec:{kind:"D", d:4},           cands:[[6,6],[4,5],[8,6],[6,9]] },
+      { c:[6,6],  spec:{kind:"REL", a:2, note:"과녁은 중심이 모두 같아!"}, cands:[[6,6],[6,4],[4,6],[8,8]] },
+      { c:[6,6],  spec:{kind:"R", r:5},           cands:[[6,6],[6,8],[4,7],[9,5]] },
+    ],
+    deco:(g,u)=>{ inkDot(g,u,6,6,.22); }},
+  { name:"꼬물이 애벌레", ink:"#3E8E5A",
+    steps:[
+      { c:[3,6],  spec:{kind:"R", r:2},           cands:[[3,6],[5,6],[3,4],[2,8]] },
+      { c:[5,6],  spec:{kind:"D", d:4, note:"먼저 그린 원이 지나는 점이지."}, cands:[[5,6],[3,6],[7,6],[5,4]] },
+      { c:[7,6],  spec:{kind:"EQ", r:2},          cands:[[7,6],[5,6],[7,8],[9,7]] },
+      { c:[9,6],  spec:{kind:"D", d:6, note:"머리는 조금 커!"}, cands:[[9,6],[7,6],[9,8],[11,6]] },
+    ],
+    deco:(g,u)=>{ // 눈·더듬이·미소
+      inkDot(g,u,8.2,4.6,.16); inkDot(g,u,10,4.6,.16);
+      inkArc(g,u,9.1,5.3,.7,0.2*Math.PI,0.8*Math.PI);
+      inkLine(g,u,8.2,3.2,7.6,1.9); inkDot(g,u,7.6,1.9,.14);
+      inkLine(g,u,9.9,3.2,10.6,1.9); inkDot(g,u,10.6,1.9,.14);
+    }},
+];
+const TOTAL_STEPS = ORDERS.reduce((s,o)=>s+o.steps.length,0);
+const LABELS = ["ㄱ","ㄴ","ㄷ","ㄹ"];
+
+function specAnswer(spec){
+  if (spec.kind==="R")   return spec.r;
+  if (spec.kind==="D")   return spec.d/2;
+  if (spec.kind==="REL") return spec.a*2;
+  return spec.r; // EQ
+}
+function specText(spec, label){
+  const P = `점 <b class="pt">${label}</b>에 침을 꽂고, `;
+  let body;
+  if (spec.kind==="R")        body = `<b>반지름</b>이 <span class="num">${spec.r}칸</span>인 원!`;
+  else if (spec.kind==="D")   body = `<b>지름</b>이 <span class="num">${spec.d}칸</span>인 원!`;
+  else if (spec.kind==="REL") body = `<b>반지름</b>이 방금 그린 원의 <b>지름</b>과 같은 원!`;
+  else                        body = `<b>앞의 원과 크기가 똑같은</b> 원!`;
+  return P + body + (spec.note?` <small style="font-weight:700;color:var(--ink-soft)">(${spec.note})</small>`:"");
+}
+function specPlain(spec, label){
+  const P = `점 ${label}에 중심을 찍고, `;
+  if (spec.kind==="R")   return P+`반지름이 ${spec.r}칸인 원을 그리세요.`;
+  if (spec.kind==="D")   return P+`지름이 ${spec.d}칸인 원을 그리세요.`;
+  if (spec.kind==="REL") return P+`반지름이 방금 그린 원(반지름 ${spec.a}칸)의 지름과 같은 원을 그리세요.`;
+  return P+`앞의 원(반지름 ${spec.r}칸)과 크기가 똑같은 원을 그리세요.`;
+}
+
+/* ── 오디오 (사용자 제스처 이후) ───────────────────── */
+let AC=null, muted = localStorage.getItem("ca-muted")==="1";
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(AC&&AC.state==="suspended")AC.resume(); return AC; }
+function tone(f,dur,type,vol,when=0,slide=0){
+  if(muted) return; const c=ac(); if(!c) return;
+  const t=c.currentTime+when, o=c.createOscillator(), g=c.createGain();
+  o.type=type||"sine"; o.frequency.setValueAtTime(f,t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),t+dur);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||.15,t+.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t+dur+.02);
+}
+const S = {
+  place(){ tone(190,.09,"triangle",.22); tone(950,.04,"square",.05,.01); },
+  tick(){ tone(1150,.03,"square",.07); },
+  cancel(){ tone(300,.08,"sine",.1,-0,-120); },
+  sweep(){ tone(340,.5,"sine",.05,0,220); },
+  good(){ [523,659,784,1047].forEach((f,i)=>tone(f,.14,"triangle",.14,i*.07)); },
+  crack(){ tone(140,.16,"sawtooth",.2,0,-70); tone(90,.2,"square",.14,.04,-40); },
+  order(){ [392,523].forEach((f,i)=>tone(f,.12,"triangle",.12,i*.09)); },
+  fanfare(){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,.22,"triangle",.15,i*.09)); },
+  over(){ [330,262,196].forEach((f,i)=>tone(f,.25,"triangle",.14,i*.16)); },
+};
+const muteBtn=$("muteBtn");
+function syncMute(){ muteBtn.textContent = muted?"🔇":"🔊"; muteBtn.setAttribute("aria-label", muted?"소리 켜기":"소리 끄기"); }
+muteBtn.addEventListener("click",()=>{ muted=!muted; localStorage.setItem("ca-muted",muted?"1":"0"); syncMute(); });
+syncMute();
+
+/* ── 캔버스 / 좌표계 ───────────────────────────────── */
+const board=$("board"), ctx=board.getContext("2d");
+let SIDE=300, CELL=20, PAD=18, DPR=1;
+let bg=null, inkL=null, inkCtx=null;   // 배경(모눈)·잉크(완성 원) 레이어
+/* 무대 판형 — CSS 존과 캔버스 그리기 좌표계가 같은 수에서 나온다 */
+const STAGE_MAX=1280;
+const ST={ land:false, stageW:0, stageX:0, centerW:0, boardPx:0 };
+function px(cx,cy){ return [PAD+cx*CELL, PAD+cy*CELL]; }
+function stageMetrics(){
+  const W=innerWidth, H=innerHeight;
+  const land=(W>=H && W>=640) || W>=1024;
+  const stageW=Math.min(W,STAGE_MAX);
+  const stageX=Math.round((W-stageW)/2);
+  ST.land=land; ST.stageW=stageW; ST.stageX=stageX;
+  const root=document.documentElement;
+  root.classList.toggle("land", land);
+  root.style.setProperty("--stageW", stageW+"px");
+  root.style.setProperty("--stageX", stageX+"px");
+  if(land){
+    // 좌·우 존 폭도 스테이지에서 파생 → 남는 폭이 곧 중앙 무대 폭이다.
+    const padX = stageW>=1120 ? 18 : 14;
+    const gap  = stageW>=1120 ? 16 : 14;
+    const zL = Math.round(clamp(stageW*0.205, 196, 300));
+    const zR = Math.round(clamp(stageW*0.172, 168, 250));
+    root.style.setProperty("--appPadX", padX+"px");
+    root.style.setProperty("--zoneGap", gap+"px");
+    root.style.setProperty("--zoneL", zL+"px");
+    root.style.setProperty("--zoneR", zR+"px");
+    ST.centerW = stageW - padX*2 - gap*2 - zL - zR;
+  }else{
+    ST.centerW = Math.min(W,720) - 20;
+  }
+  return ST;
+}
+function layout(){
+  stageMetrics();
+  const wrap=$("boardWrap");
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  // 가로: 스테이지에서 파생한 중앙 존 폭 / 세로: 남은 높이. 둘 중 작은 쪽이 한 변.
+  const availW = ST.land ? Math.min(ST.centerW, w) : (w-4);
+  const cap    = ST.land ? 860 : 700;
+  SIDE=Math.max(220, Math.min(availW, h-4, cap));
+  ST.boardPx=SIDE;
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  board.style.width=SIDE+"px"; board.style.height=SIDE+"px";
+  board.width=Math.round(SIDE*DPR); board.height=Math.round(SIDE*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  PAD=SIDE*0.055; CELL=(SIDE-2*PAD)/N;
+  bg=document.createElement("canvas"); bg.width=board.width; bg.height=board.height;
+  const g=bg.getContext("2d"); g.setTransform(DPR,0,0,DPR,0,0);
+  paintPaper(g,SIDE,SIDE,PAD,CELL,N);
+  const old=inkL;
+  inkL=document.createElement("canvas"); inkL.width=board.width; inkL.height=board.height;
+  inkCtx=inkL.getContext("2d"); inkCtx.setTransform(DPR,0,0,DPR,0,0);
+  if(old && state.run) redrawInk();   // 리사이즈 시 완성 원 다시 그림
+  // 피드백 토스트를 작도판 하단 안쪽에 붙인다 (무대 사각형에서 파생)
+  const br=board.getBoundingClientRect(), wr=wrap.getBoundingClientRect();
+  document.documentElement.style.setProperty("--fbBottom",
+    Math.round(Math.max(14, wr.bottom-br.bottom+40))+"px");
+}
+function paintPaper(g,w,h,pad,cell,n){
+  g.fillStyle="#F6EFDE"; g.fillRect(0,0,w,h);
+  // 은은한 종이 얼룩
+  for(let i=0;i<26;i++){
+    const x=(i*97)%w, y=(i*53)%h;
+    g.fillStyle="rgba(180,150,90,0.04)";
+    g.beginPath(); g.arc(x,y,10+(i%5)*7,0,7); g.fill();
+  }
+  for(let i=0;i<=n;i++){
+    const major=(i%4===0);
+    g.strokeStyle=major?"#C9B68C":"#DACBAB"; g.lineWidth=major?1.4:1;
+    g.beginPath(); g.moveTo(pad+i*cell,pad); g.lineTo(pad+i*cell,pad+n*cell); g.stroke();
+    g.beginPath(); g.moveTo(pad,pad+i*cell); g.lineTo(pad+n*cell,pad+i*cell); g.stroke();
+  }
+}
+
+/* 손그림 느낌 원 */
+function wobblyCircle(g,x,y,r,seed,frac=1,a0=-Math.PI/2){
+  const steps=72; g.beginPath();
+  const nn=Math.max(2,Math.floor(steps*clamp(frac,0,1)));
+  for(let i=0;i<=nn;i++){
+    const a=a0+ (i/steps)*Math.PI*2;
+    const rr=r + Math.sin(i*2.9+seed)*r*0.008 + Math.cos(i*5.3+seed*2)*r*0.006;
+    const X=x+Math.cos(a)*rr, Y=y+Math.sin(a)*rr;
+    if(i===0)g.moveTo(X,Y); else g.lineTo(X,Y);
+  }
+}
+function inkDot(g,u,cx,cy,rc){ const[x,y]=u(cx,cy); g.beginPath(); g.arc(x,y,rc*CELL*1.6,0,7); g.fill(); }
+function inkArc(g,u,cx,cy,rc,a1,a2){ const[x,y]=u(cx,cy); g.beginPath(); g.arc(x,y,rc*CELL,a1,a2); g.stroke(); }
+function inkLine(g,u,x1,y1,x2,y2){ const[a,b]=u(x1,y1),[c,d]=u(x2,y2); g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke(); }
+
+/* ── 게임 상태 ─────────────────────────────────────── */
+const state={
+  run:false, phase:"title",          // title|playing|gameover|clear
+  oi:0, si:0,                        // 주문/단계 인덱스
+  leads:3, score:0, solved:0,
+  attemptsThisStep:0, totalAttempts:0, firstTry:0,
+  deadline:0, timerPaused:false,
+  drawn:[],                          // {x,y,r,color,seed} (칸 좌표)
+  labels:[], correctLabel:"",
+  drag:null,                         // {cx,cy,px,py,pxTo,pyTo,snap}
+  anim:null,                         // {t0,dur,step,r,color,...} 스윕 애니메이션
+  banner:0, lock:false,
+};
+function curOrder(){ return ORDERS[state.oi]; }
+function curStep(){ return curOrder().steps[state.si]; }
+function publicPhase(){ return state.phase; }
+
+function assignLabels(){
+  const st=curStep();
+  const sorted=[...st.cands].map((c,i)=>({c,i}))
+    .sort((A,B)=> (A.c[1]-B.c[1]) || (A.c[0]-B.c[0]));
+  state.labels = sorted.map((s,k)=>({label:LABELS[k], cell:s.c,
+    correct: s.c[0]===st.c[0] && s.c[1]===st.c[1]}));
+  state.correctLabel = state.labels.find(l=>l.correct).label;
+}
+function showOrder(){
+  assignLabels();
+  const stepTxt=`${state.si+1} / ${curOrder().steps.length}번째 원`;
+  $("orderName").textContent = `주문 ${state.oi+1} · ${curOrder().name}`;
+  $("orderStep").textContent = stepTxt;
+  $("progOrder").textContent = `주문 ${state.oi+1} / ${ORDERS.length} · ${curOrder().name}`;
+  $("progStep").textContent = stepTxt;
+  $("orderSpec").innerHTML = specText(curStep().spec, state.correctLabel);
+  updateHUD();
+  state.attemptsThisStep=0;
+  state.deadline=performance.now()+STEP_MS;
+  setHint(`점 <b>${state.correctLabel}</b>을 눌러 컴퍼스 침을 꽂아 봐!`);
+}
+function setHint(html){ $("hint").innerHTML=html; }
+function updateHUD(){
+  $("scorePill").textContent=state.score+"점";
+  document.querySelectorAll("#leads .lead").forEach((el,i)=>el.classList.toggle("off", i>=state.leads));
+  $("progCount").textContent=`완성 ${state.solved} / ${TOTAL_STEPS}`;
+  $("progFill").style.width=(state.solved/TOTAL_STEPS*100).toFixed(1)+"%";
+}
+function showFeedback(msg,good){
+  const f=$("feedback"); f.innerHTML=msg; f.className=good?"good on":"on"; f.classList.add("on");
+  clearTimeout(showFeedback._t); showFeedback._t=setTimeout(()=>f.classList.remove("on"), good?1400:2600);
+}
+function showBanner(html,ms){
+  const b=$("banner"); b.innerHTML=html; b.classList.add("on");
+  clearTimeout(showBanner._t); showBanner._t=setTimeout(()=>b.classList.remove("on"),ms);
+}
+
+/* ── 진행 ─────────────────────────────────────────── */
+function startRun(){
+  state.run=true; state.phase="playing";
+  state.oi=0; state.si=0; state.leads=3; state.score=0; state.solved=0;
+  state.totalAttempts=0; state.firstTry=0; state.drawn=[]; state.drag=null; state.anim=null; state.lock=false;
+  inkCtx && inkCtx.clearRect(0,0,SIDE,SIDE);
+  $("title").hidden=true; $("gameover").hidden=true; $("clear").hidden=true;
+  $("app").setAttribute("aria-hidden","false");
+  layout(); showOrder(); updateHUD(); S.order();
+}
+function redrawInk(){
+  inkCtx.clearRect(0,0,SIDE,SIDE);
+  for(const d of state.drawn) commitCircle(d,false);
+}
+function commitCircle(d,sound){
+  inkCtx.strokeStyle=d.color; inkCtx.lineWidth=Math.max(2.5,CELL*0.14);
+  inkCtx.lineCap="round"; inkCtx.lineJoin="round";
+  const [x,y]=px(d.x,d.y);
+  inkCtx.globalAlpha=.92;
+  wobblyCircle(inkCtx,x,y,d.r*CELL,d.seed,1); inkCtx.stroke();
+  inkCtx.globalAlpha=.3;
+  wobblyCircle(inkCtx,x,y,d.r*CELL,d.seed+9,1); inkCtx.stroke();
+  inkCtx.globalAlpha=1;
+  // 중심점
+  inkCtx.fillStyle=d.color; inkCtx.beginPath(); inkCtx.arc(x,y,Math.max(2,CELL*0.09),0,7); inkCtx.fill();
+}
+function drawDeco(order){
+  const g=inkCtx;
+  g.strokeStyle=order.ink; g.fillStyle=order.ink;
+  g.lineWidth=Math.max(2.5,CELL*0.12); g.lineCap="round"; g.globalAlpha=.92;
+  const u=(cx,cy)=>px(cx,cy);
+  order.deco && order.deco(g,u);
+  g.globalAlpha=1;
+}
+function stepComplete(instant){
+  const st=curStep(), o=curOrder();
+  const r=specAnswer(st.spec);
+  const timeLeft=Math.max(0,state.deadline-performance.now());
+  const bonus=Math.round(timeLeft/STEP_MS*50);
+  state.score+=100+(instant?0:bonus);
+  state.solved++;
+  if(state.attemptsThisStep<=1) state.firstTry++;
+  state.drawn.push({x:st.c[0],y:st.c[1],r,color:o.ink,seed:state.solved*7.3});
+  commitCircle(state.drawn[state.drawn.length-1],true);
+  updateHUD();
+  const last = state.si===o.steps.length-1;
+  if(!instant){ showFeedback(`딱 맞아! 반지름 <b>${r}칸</b> ✏️`,true); S.good(); }
+  if(last){
+    drawDeco(o);
+    state.lock=true; state.timerPaused=true;
+    const next=()=>{
+      if(state.oi===ORDERS.length-1){ doClear(); return; }
+      state.oi++; state.si=0;
+      state.drawn=[]; inkCtx.clearRect(0,0,SIDE,SIDE);
+      state.lock=false; state.timerPaused=false;
+      showOrder(); S.order();
+      showBanner(`주문 ${state.oi+1}<br><small>${curOrder().name}</small>`, instant?200:1300);
+    };
+    if(instant){ next(); }
+    else{
+      showBanner(`《${o.name}》 완성!<br><small>주문 ${state.oi+1}/3 납품</small>`,1600);
+      S.fanfare();
+      setTimeout(next,1800);
+    }
+  }else{
+    state.si++;
+    showOrder();
+  }
+}
+function loseLead(reason,msg){
+  if(state.phase!=="playing") return;
+  state.leads--; updateHUD(); S.crack();
+  $("orderCard").animate([{transform:"translateX(0)"},{transform:"translateX(-6px)"},{transform:"translateX(5px)"},{transform:"translateX(0)"}],{duration:220});
+  if(msg) showFeedback(msg,false);
+  if(state.leads<=0){ doGameOver(reason); return; }
+  state.deadline=performance.now()+STEP_MS;   // 시간 리셋, 같은 문제 다시
+}
+function doGameOver(reason){
+  state.phase="gameover"; state.run=false;
+  $("goScore").textContent=state.score+"점";
+  $("goDetail").textContent=`원 ${state.solved}개 완성 · 주문 ${state.oi+1} 진행 중이었어.`;
+  saveBest(); S.over();
+  setTimeout(()=>{ $("gameover").hidden=false; },550);
+}
+function doClear(){
+  state.phase="clear"; state.run=false;
+  $("clScore").textContent=state.score+"점";
+  $("clDetail").textContent=`원 ${TOTAL_STEPS}개 전부 작도 성공! 한 번에 성공한 원 ${state.firstTry}개.`;
+  saveBest(); S.fanfare();
+  setTimeout(()=>{ $("clear").hidden=false; },900);
+}
+function saveBest(){
+  try{ const b=+localStorage.getItem("ca-best")||0;
+    if(state.score>b) localStorage.setItem("ca-best",String(state.score)); }catch(e){}
+}
+
+/* ── 판정 (조작 = 수학) ────────────────────────────── */
+function evaluate(cell, rSnap){
+  const st=curStep(), spec=st.spec;
+  const target=specAnswer(spec);
+  state.attemptsThisStep++; state.totalAttempts++;
+  const centerOK = cell[0]===st.c[0] && cell[1]===st.c[1];
+  if(!centerOK){
+    loseLead("center",`중심이 달라! 주문서를 봐 — <b>점 ${state.correctLabel}</b>에 침을 꽂아야 해.`);
+    return false;
+  }
+  if(rSnap===target) return true;
+  // 오개념 맞춤 피드백
+  let msg;
+  if(spec.kind==="D" && rSnap===spec.d){
+    msg=`컴퍼스를 <b>벌린 만큼이 반지름</b>이야! 지름 ${spec.d}칸인 원은 <b>${spec.d}÷2=${target}칸</b>만 벌려야 해.`;
+  }else if(spec.kind==="REL" && rSnap===spec.a){
+    msg=`그건 그 원의 <b>반지름</b>이잖아! 지름은 반지름의 <b>2배</b> → <b>${target}칸</b>을 벌려야 해.`;
+  }else if(spec.kind==="D"){
+    msg=`지금 벌린 건 ${rSnap}칸 — 그럼 지름이 ${rSnap*2}칸인 원이 돼. 주문은 지름 <b>${spec.d}칸</b>!`;
+  }else{
+    msg=`지금 벌린 건 <b>${rSnap}칸</b>. 주문서를 다시 읽고 몇 칸을 벌릴지 생각해 봐!`;
+  }
+  loseLead("radius",msg);
+  return false;
+}
+
+/* ── 입력 ─────────────────────────────────────────── */
+function canvasPos(e){
+  const r=board.getBoundingClientRect();
+  return [e.clientX-r.left, e.clientY-r.top];
+}
+board.addEventListener("pointerdown",(e)=>{
+  if(state.phase!=="playing"||state.lock||state.anim) return;
+  ac();
+  const [mx,my]=canvasPos(e);
+  // 후보점 히트 (반경 = 최소 22px)
+  const hitR=Math.max(22,CELL*0.75);
+  let best=null,bd=1e9;
+  for(const l of state.labels){
+    const [x,y]=px(l.cell[0],l.cell[1]);
+    const d=Math.hypot(mx-x,my-y);
+    if(d<hitR && d<bd){ bd=d; best=l; }
+  }
+  if(!best){ setHint(`이름표가 붙은 <b>점</b> 위를 눌러야 침이 꽂혀!`); return; }
+  board.setPointerCapture(e.pointerId);
+  state.drag={cell:best.cell,label:best.label,mx,my,snap:0,lastTick:0};
+  S.place();
+  setHint(`좋아! 이제 바깥으로 <b>끌어서</b> 컴퍼스를 벌려 봐. <b>벌린 만큼이 반지름</b>이야.`);
+});
+board.addEventListener("pointermove",(e)=>{
+  const d=state.drag; if(!d) return;
+  const [mx,my]=canvasPos(e);
+  d.mx=mx; d.my=my;
+  const [cx,cy]=px(d.cell[0],d.cell[1]);
+  const distCells=Math.hypot(mx-cx,my-cy)/CELL;
+  const snap=clamp(Math.round(distCells),0,MAX_R);
+  if(snap!==d.snap){ d.snap=snap; if(snap>0) S.tick(); }
+});
+function endDrag(e){
+  const d=state.drag; if(!d) return;
+  state.drag=null;
+  const [cx,cy]=px(d.cell[0],d.cell[1]);
+  const distCells=Math.hypot(d.mx-cx,d.my-cy)/CELL;
+  if(distCells<0.6){ S.cancel(); setHint(`침만 꽂고 놓았네. 점을 누른 채 <b>바깥으로 끌어</b> 벌려 봐!`); return; }
+  const rSnap=clamp(Math.round(distCells),1,MAX_R);
+  if(evaluate(d.cell,rSnap)){
+    // 스윕 애니메이션 후 완성
+    const a0=Math.atan2(d.my-cy,d.mx-cx);
+    state.anim={t0:performance.now(),dur:850,cell:d.cell,r:rSnap,a0,color:curOrder().ink};
+    state.timerPaused=true; S.sweep();
+  }
+}
+board.addEventListener("pointerup",endDrag);
+board.addEventListener("pointercancel",()=>{ state.drag=null; });
+
+/* ── 렌더 ─────────────────────────────────────────── */
+function drawCompass(g,nx,ny,px2,py2,ghost){
+  const d=Math.hypot(px2-nx,py2-ny);
+  const mx=(nx+px2)/2,my=(ny+py2)/2;
+  const L=Math.max(d*0.62,56);
+  const h=Math.sqrt(Math.max(L*L-(d/2)*(d/2),28*28));
+  // 다리 벌어짐 방향과 수직으로 apex
+  let ux=-(py2-ny)/(d||1), uy=(px2-nx)/(d||1);
+  if(uy>0){ux=-ux;uy=-uy;}                    // 항상 위쪽
+  const ax=mx+ux*h, ay=my+uy*h;
+  g.save();
+  g.globalAlpha=ghost?0.9:1;
+  g.lineCap="round";
+  // 그림자
+  g.strokeStyle="rgba(60,45,20,.15)"; g.lineWidth=7;
+  g.beginPath(); g.moveTo(ax+3,ay+5); g.lineTo(nx+3,ny+5); g.stroke();
+  g.beginPath(); g.moveTo(ax+3,ay+5); g.lineTo(px2+3,py2+5); g.stroke();
+  // 침 다리 (강철)
+  g.strokeStyle="#5A6B85"; g.lineWidth=5.5;
+  g.beginPath(); g.moveTo(ax,ay); g.lineTo(nx,ny-2); g.stroke();
+  g.fillStyle="#E2574C"; g.beginPath();
+  g.moveTo(nx,ny+1); g.lineTo(nx-3.4,ny-8); g.lineTo(nx+3.4,ny-8); g.closePath(); g.fill();
+  // 연필 다리 (황동 + 연필)
+  g.strokeStyle="#C9913F"; g.lineWidth=6;
+  g.beginPath(); g.moveTo(ax,ay); g.lineTo((ax+px2)/2,(ay+py2)/2); g.stroke();
+  g.strokeStyle="#E8B33E"; g.lineWidth=6.5;
+  g.beginPath(); g.moveTo((ax+px2)/2,(ay+py2)/2); g.lineTo(px2,py2-3); g.stroke();
+  g.fillStyle="#3B3B3B"; g.beginPath(); g.arc(px2,py2,2.6,0,7); g.fill();
+  // 힌지 + 손잡이
+  g.strokeStyle="#8F6224"; g.lineWidth=4;
+  g.beginPath(); g.moveTo(ax,ay); g.lineTo(ax,ay-14); g.stroke();
+  g.fillStyle="#28364F"; g.beginPath(); g.arc(ax,ay,7,0,7); g.fill();
+  g.fillStyle="#C9913F"; g.beginPath(); g.arc(ax,ay-16,5.5,0,7); g.fill();
+  g.restore();
+}
+function pill(g,x,y,text,bgc,fgc){
+  g.font=`900 ${Math.max(13,CELL*0.6)}px -apple-system,"Apple SD Gothic Neo",sans-serif`;
+  const w=g.measureText(text).width+18, h=Math.max(22,CELL*0.9);
+  const X=clamp(x-w/2,4,SIDE-w-4), Y=clamp(y,4,SIDE-h-4);
+  g.fillStyle=bgc; g.strokeStyle="rgba(40,54,79,.85)"; g.lineWidth=1.6;
+  g.beginPath(); g.roundRect(X,Y,w,h,h/2); g.fill(); g.stroke();
+  g.fillStyle=fgc; g.textAlign="center"; g.textBaseline="middle";
+  g.fillText(text,X+w/2,Y+h/2+0.5);
+}
+function render(now){
+  requestAnimationFrame(render);
+  if(!state.run && state.phase!=="gameover" && state.phase!=="clear") return;
+  ctx.clearRect(0,0,SIDE,SIDE);
+  ctx.drawImage(bg,0,0,SIDE,SIDE);
+  ctx.drawImage(inkL,0,0,SIDE,SIDE);
+  if(state.phase!=="playing" && !state.anim) return;
+
+  // 후보점
+  if(!state.anim){
+    for(const l of state.labels){
+      const [x,y]=px(l.cell[0],l.cell[1]);
+      const active=state.drag && state.drag.label===l.label;
+      ctx.fillStyle=active?"#E2574C":"#28364F";
+      ctx.beginPath(); ctx.arc(x,y,active?6:4.5,0,7); ctx.fill();
+      ctx.strokeStyle="rgba(255,253,246,.9)"; ctx.lineWidth=1.5; ctx.stroke();
+      // 라벨 배지
+      const bx=x+ (l.cell[0]>N/2?-1:1)*CELL*0.62, by=y-CELL*0.62;
+      ctx.fillStyle="#FFFDF6"; ctx.strokeStyle="#28364F"; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.arc(bx,by,Math.max(10,CELL*0.42),0,7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle="#28364F"; ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.font=`900 ${Math.max(12,CELL*0.5)}px -apple-system,"Apple SD Gothic Neo",sans-serif`;
+      ctx.fillText(l.label,bx,by+0.5);
+    }
+  }
+
+  // 드래그 중 — 컴퍼스 + 눈금 + 미리보기
+  const d=state.drag;
+  if(d){
+    const [cx,cy]=px(d.cell[0],d.cell[1]);
+    const dist=Math.hypot(d.mx-cx,d.my-cy);
+    const ang=Math.atan2(d.my-cy,d.mx-cx);
+    // 반지름 자 눈금
+    ctx.strokeStyle="rgba(40,54,79,.5)"; ctx.lineWidth=2; ctx.setLineDash([5,5]);
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(d.mx,d.my); ctx.stroke(); ctx.setLineDash([]);
+    for(let i=1;i<=Math.floor(dist/CELL+0.001);i++){
+      const tx=cx+Math.cos(ang)*i*CELL, ty=cy+Math.sin(ang)*i*CELL;
+      ctx.fillStyle="#C9563C"; ctx.beginPath(); ctx.arc(tx,ty,3.2,0,7); ctx.fill();
+    }
+    if(d.snap>0){
+      ctx.strokeStyle="rgba(201,145,63,.75)"; ctx.lineWidth=2.2; ctx.setLineDash([7,7]);
+      ctx.beginPath(); ctx.arc(cx,cy,d.snap*CELL,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    drawCompass(ctx,cx,cy,d.mx,d.my,false);
+    if(d.snap>0) pill(ctx,(cx+d.mx)/2,(cy+d.my)/2-CELL*1.4,`${d.snap}칸`,"#FFFDF6","#C9563C");
+  }
+
+  // 스윕 애니메이션
+  const A=state.anim;
+  if(A){
+    const t=clamp((now-A.t0)/A.dur,0,1);
+    const ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    const [cx,cy]=px(A.cell[0],A.cell[1]);
+    const R=A.r*CELL;
+    ctx.strokeStyle=A.color; ctx.lineWidth=Math.max(2.5,CELL*0.14); ctx.lineCap="round";
+    wobblyCircle(ctx,cx,cy,R,state.solved*7.3+7.3,ease,A.a0); ctx.stroke();
+    const a=A.a0+ease*Math.PI*2;
+    drawCompass(ctx,cx,cy,cx+Math.cos(a)*R,cy+Math.sin(a)*R,false);
+    pill(ctx,cx,cy-R-CELL*0.9,`반지름 ${A.r}칸`,"#FFFDF6","#20603A");
+    if(t>=1){
+      state.anim=null; state.timerPaused=false;
+      stepComplete(false);
+    }
+  }
+
+  // 타이머
+  if(state.phase==="playing" && !state.timerPaused && !state.lock){
+    const left=state.deadline-now;
+    const bar=$("timerBar");
+    bar.style.width=clamp(left/STEP_MS*100,0,100)+"%";
+    bar.classList.toggle("low",left<STEP_MS*0.25);
+    if(left<=0){
+      state.drag=null;
+      loseLead("time",`시간 초과! 주문서를 읽고 바로 그려 보자.`);
+    }
+  }
+}
+requestAnimationFrame(render);
+
+/* ── 타이틀 아트 (코드 렌더 키아트) ───────────────── */
+function paintTitleArt(){
+  const c=$("titleArt"); if(!c) return;
+  const w=innerWidth,h=innerHeight,dpr=Math.min(devicePixelRatio||1,2);
+  c.width=w*dpr; c.height=h*dpr; c.style.width=w+"px"; c.style.height=h+"px";
+  const g=c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+  const cell=Math.max(26,Math.min(w,h)/16);
+  paintPaper(g,w,h,0,cell,Math.ceil(Math.max(w,h)/cell));
+  // 장식 원들 (연습 낙서 느낌)
+  const rings=[
+    {x:w*0.16,y:h*0.24,r:cell*2.2,col:"#3E6FB0"},
+    {x:w*0.85,y:h*0.2,r:cell*1.5,col:"#C9563C"},
+    {x:w*0.82,y:h*0.55,r:cell*2.8,col:"#3E8E5A"},
+    {x:w*0.14,y:h*0.62,r:cell*1.8,col:"#C9913F"},
+    {x:w*0.3,y:h*0.85,r:cell*1.2,col:"#C9563C"},
+  ];
+  for(const R of rings){
+    g.strokeStyle=R.col; g.globalAlpha=.5; g.lineWidth=5; g.lineCap="round";
+    wobblyCircle(g,R.x,R.y,R.r,R.x,1); g.stroke();
+    g.globalAlpha=.9; g.fillStyle=R.col;
+    g.beginPath(); g.arc(R.x,R.y,4,0,7); g.fill();
+  }
+  g.globalAlpha=1;
+  // 큰 컴퍼스 (중앙 하단, CTA 위)
+  const bx=w*0.5,by=h*0.66,R=Math.min(w,h)*0.2;
+  g.strokeStyle="rgba(201,86,60,.85)"; g.lineWidth=6; g.setLineDash([12,10]);
+  g.beginPath(); g.arc(bx,by,R,Math.PI*0.15,Math.PI*1.2); g.stroke(); g.setLineDash([]);
+  drawCompassBig(g,bx,by,bx+R*Math.cos(Math.PI*0.15),by+R*Math.sin(Math.PI*0.15),Math.min(w,h)*0.007);
+}
+function drawCompassBig(g,nx,ny,px2,py2,s){
+  const d=Math.hypot(px2-nx,py2-ny), mx=(nx+px2)/2,my=(ny+py2)/2;
+  const L=Math.max(d*0.66,40*s), h=Math.sqrt(Math.max(L*L-(d/2)**2,(20*s)**2));
+  let ux=-(py2-ny)/(d||1),uy=(px2-nx)/(d||1); if(uy>0){ux=-ux;uy=-uy;}
+  const ax=mx+ux*h,ay=my+uy*h;
+  g.lineCap="round";
+  g.strokeStyle="rgba(60,45,20,.18)"; g.lineWidth=10*s;
+  g.beginPath(); g.moveTo(ax+4,ay+8); g.lineTo(nx+4,ny+8); g.stroke();
+  g.beginPath(); g.moveTo(ax+4,ay+8); g.lineTo(px2+4,py2+8); g.stroke();
+  g.strokeStyle="#5A6B85"; g.lineWidth=8*s;
+  g.beginPath(); g.moveTo(ax,ay); g.lineTo(nx,ny); g.stroke();
+  g.strokeStyle="#C9913F"; g.lineWidth=9*s;
+  g.beginPath(); g.moveTo(ax,ay); g.lineTo((ax+px2)/2,(ay+py2)/2); g.stroke();
+  g.strokeStyle="#E8B33E"; g.lineWidth=9*s;
+  g.beginPath(); g.moveTo((ax+px2)/2,(ay+py2)/2); g.lineTo(px2,py2); g.stroke();
+  g.fillStyle="#3B3B3B"; g.beginPath(); g.arc(px2,py2,4*s,0,7); g.fill();
+  g.fillStyle="#E2574C"; g.beginPath();
+  g.moveTo(nx,ny+2*s); g.lineTo(nx-5*s,ny-12*s); g.lineTo(nx+5*s,ny-12*s); g.closePath(); g.fill();
+  g.strokeStyle="#8F6224"; g.lineWidth=6*s;
+  g.beginPath(); g.moveTo(ax,ay); g.lineTo(ax,ay-20*s); g.stroke();
+  g.fillStyle="#28364F"; g.beginPath(); g.arc(ax,ay,10*s,0,7); g.fill();
+  g.fillStyle="#C9913F"; g.beginPath(); g.arc(ax,ay-24*s,8*s,0,7); g.fill();
+}
+
+/* ── 온보딩 ───────────────────────────────────────── */
+const OB=[
+  {pic:"📍", text:`주문서에 적힌 <b>점</b>을 눌러<br>컴퍼스 <b>침</b>을 꽂아!`},
+  {pic:"↔️", text:`누른 채 바깥으로 끌면 컴퍼스가 벌어져.<br><b>벌린 만큼이 반지름!</b><br>주문이 <span class="num">지름 6칸</span>이면? → <b>3칸</b>만 벌려.`},
+  {pic:"🌀", text:`손을 놓으면 <b>빙글</b> 돌며 원이 그려져.<br>주문과 다르면 <b>연필심이 뚝!</b> 3개뿐이야.`},
+];
+let obIdx=0, obThen=null;
+function openOnboard(then){
+  obIdx=0; obThen=then; renderOb(); $("onboard").hidden=false;
+}
+function renderOb(){
+  $("obStepNo").textContent=`${obIdx+1} / 3`;
+  $("obPic").textContent=OB[obIdx].pic;
+  $("obText").innerHTML=OB[obIdx].text;
+  $("obNext").textContent = obIdx===2 ? "해볼게요!" : "다음";
+}
+$("obNext").addEventListener("click",()=>{
+  if(obIdx<2){ obIdx++; renderOb(); return; }
+  $("onboard").hidden=true;
+  try{ localStorage.setItem("ca-onboard","1"); }catch(e){}
+  if(obThen) obThen();
+});
+$("onboard").addEventListener("click",(e)=>{ if(e.target.id==="onboard" && obIdx<2){ obIdx++; renderOb(); } });
+
+/* ── 버튼 배선 ────────────────────────────────────── */
+$("startBtn").addEventListener("click",()=>{
+  ac();
+  let seen=false; try{ seen=localStorage.getItem("ca-onboard")==="1"; }catch(e){}
+  if(seen) startRun(); else openOnboard(startRun);
+});
+$("howtoLink").addEventListener("click",()=>{ openOnboard(null); });
+$("goRetry").addEventListener("click",()=>{ startRun(); });
+$("clRetry").addEventListener("click",()=>{ startRun(); });
+function showBest(){
+  let b=0; try{ b=+localStorage.getItem("ca-best")||0; }catch(e){}
+  const p=$("bestPill");
+  if(b>0){ p.hidden=false; p.textContent=`최고 ${b}점`; } else p.hidden=true;
+}
+function relayout(){ layout(); if($("title") && !$("title").hidden) paintTitleArt(); }
+window.addEventListener("resize",relayout);
+window.addEventListener("orientationchange",()=>setTimeout(relayout,120));
+
+/* ── 표지 캡처(shot) 모드 ─────────────────────────── */
+const shotMode=new URLSearchParams(location.search).get("shot");
+function buildShot(kind){
+  document.body.classList.add("shot");
+  $("title").hidden=true; $("muteBtn").hidden=true;
+  const scene=document.createElement("div"); scene.id="shotScene";
+  const c=document.createElement("canvas"); scene.appendChild(c);
+  const logo=document.createElement("div"); logo.id="shotLogo";
+  logo.innerHTML=`<div class="plate"><h1>컴퍼스<br><span class="brass">공방</span></h1><p>빙글 — 벌린 만큼이 반지름!</p></div>`;
+  scene.appendChild(logo); document.body.appendChild(scene);
+  const w=innerWidth,h=innerHeight;
+  c.width=w; c.height=h;
+  const g=c.getContext("2d");
+  const cell=kind==="thumb"?h/13:w/15;
+  paintPaper(g,w,h,0,cell,Math.ceil(Math.max(w,h)/cell));
+  const strokeCircle=(x,y,r,col,dash)=>{
+    g.strokeStyle=col; g.lineWidth=Math.max(5,cell*0.16); g.lineCap="round";
+    if(dash) g.setLineDash([14,11]);
+    wobblyCircle(g,x,y,r,x*0.31,1); g.stroke(); g.setLineDash([]);
+    g.fillStyle=col; g.beginPath(); g.arc(x,y,cell*0.11,0,7); g.fill();
+  };
+  if(kind==="thumb"){
+    // 좌: 로고 / 우: 애벌레 + 과녁 + 컴퍼스
+    const h1=logo.querySelector("h1"); h1.style.fontSize="110px"; logo.querySelector("p").style.fontSize="26px";
+    logo.style.left="70px"; logo.style.top="50%"; logo.style.transform="translateY(-50%)";
+    const bx=w*0.66, by=h*0.56, r=cell*1.6;
+    for(let i=0;i<3;i++) strokeCircle(bx-r*2.6+i*r*1.05, by+r*1.4, r, "#3E8E5A");
+    const hx=bx+r*1.1, hy=by+r*1.25;
+    strokeCircle(hx, hy, r*1.45, "#3E8E5A");
+    // 눈 (머리 원 안)
+    g.fillStyle="#3E8E5A";
+    g.beginPath(); g.arc(hx-r*0.4,hy-r*0.4,cell*0.16,0,7); g.fill();
+    g.beginPath(); g.arc(hx+r*0.4,hy-r*0.4,cell*0.16,0,7); g.fill();
+    // 과녁
+    strokeCircle(w*0.85,h*0.24,cell*0.8,"#C9563C");
+    strokeCircle(w*0.85,h*0.24,cell*1.5,"#C9563C");
+    // 그리는 중인 원 + 대형 컴퍼스
+    const cx2=w*0.58,cy2=h*0.35,R2=cell*1.7;
+    g.strokeStyle="#3E6FB0"; g.lineWidth=cell*0.16; g.setLineDash([16,12]);
+    g.beginPath(); g.arc(cx2,cy2,R2,-.4,Math.PI*1.15); g.stroke(); g.setLineDash([]);
+    drawCompassBig(g,cx2,cy2,cx2+R2*Math.cos(-.4),cy2+R2*Math.sin(-.4),h*0.006);
+  }else{
+    const h1=logo.querySelector("h1"); h1.style.fontSize="150px"; logo.querySelector("p").style.fontSize="34px";
+    logo.style.left="50%"; logo.style.top="72px"; logo.style.transform="translateX(-50%)";
+    const by=h*0.68, r=cell*1.8;
+    for(let i=0;i<3;i++) strokeCircle(w*0.2+i*r*1.05, by+r*0.9, r, "#3E8E5A");
+    strokeCircle(w*0.2+3*r*1.05+r*0.35, by+r*0.75, r*1.4, "#3E8E5A");
+    g.fillStyle="#3E8E5A";
+    g.beginPath(); g.arc(w*0.2+3*r*1.05,by+r*0.3,cell*0.18,0,7); g.fill();
+    g.beginPath(); g.arc(w*0.2+3*r*1.05+r*0.8,by+r*0.3,cell*0.18,0,7); g.fill();
+    strokeCircle(w*0.15,h*0.42,cell*1.1,"#C9563C");
+    strokeCircle(w*0.15,h*0.42,cell*0.55,"#C9563C");
+    const cx2=w*0.62,cy2=h*0.44,R2=cell*2.1;
+    g.strokeStyle="#3E6FB0"; g.lineWidth=cell*0.16; g.setLineDash([18,13]);
+    g.beginPath(); g.arc(cx2,cy2,R2,-.4,Math.PI*1.15); g.stroke(); g.setLineDash([]);
+    drawCompassBig(g,cx2,cy2,cx2+R2*Math.cos(-.4),cy2+R2*Math.sin(-.4),h*0.0055);
+  }
+}
+
+/* ── __GAME_TEST__ ────────────────────────────────── */
+window.__GAME_TEST__={
+  ready:true,
+  start(){ startRun(); },
+  getState(){
+    return { score:state.score, lives:state.leads, level:state.oi+1,
+      phase:publicPhase(), solved:state.solved,
+      firstTry:state.firstTry, attempts:state.totalAttempts };
+  },
+  answerCorrect(){
+    if(state.phase!=="playing") return;
+    state.anim=null; state.timerPaused=false;
+    state.attemptsThisStep++; state.totalAttempts++;
+    stepComplete(true);
+  },
+  answerWrong(){
+    if(state.phase!=="playing") return;
+    state.attemptsThisStep++; state.totalAttempts++;
+    loseLead("forced","오답 처리 (테스트)");
+  },
+  sampleProblems(n){
+    const out=[]; let seed=12345;
+    const rnd=()=>{ seed=(seed*48271)%2147483647; return seed/2147483647; };
+    for(let i=0;i<(n||10);i++){
+      const t=i%3; const label=LABELS[Math.floor(rnd()*4)];
+      let spec;
+      if(t===0){ spec={kind:"R", r:1+Math.floor(rnd()*6)}; }
+      else if(t===1){ const r=1+Math.floor(rnd()*6); spec={kind:"D", d:2*r}; }
+      else { spec={kind:"REL", a:1+Math.floor(rnd()*3)}; }
+      const ans=specAnswer(spec);
+      out.push({
+        id:"p"+(i+1),
+        prompt:specPlain(spec,label)+" (컴퍼스를 몇 칸 벌려야 할까요?)",
+        choices:null,
+        answer:ans+"칸",
+        answerNumeric:ans,
+        unitConcept: spec.kind==="R"?"컴퍼스로 원 그리기":
+                     spec.kind==="D"?"지름과 반지름의 관계":"지름은 반지름의 2배",
+      });
+    }
+    return out;
+  },
+  // 판형 정보 (playfield-spec §2.4.5)
+  getLayout(){
+    return { land:ST.land, stageW:ST.stageW, stageX:ST.stageX,
+      playW:ST.land?ST.centerW:ST.boardPx, boardPx:ST.boardPx };
+  },
+  // QA 봇용 좌표 정보 (게임 로직과 무관, 읽기 전용)
+  debug(){
+    const r=board.getBoundingClientRect();
+    return {
+      phase:state.phase, cellPx:CELL, boardLeft:r.left, boardTop:r.top,
+      candidates:state.labels.map(l=>{ const[x,y]=px(l.cell[0],l.cell[1]); return {label:l.label,x,y}; }),
+      targetLabel:state.correctLabel, targetR:(state.run?specAnswer(curStep().spec):0),
+      leads:state.leads, oi:state.oi, si:state.si,
+    };
+  },
+};
+
+/* ── 부팅 ─────────────────────────────────────────── */
+if(shotMode){ buildShot(shotMode==="square"?"square":"thumb"); }
+else{
+  layout(); paintTitleArt(); showBest();
+}
+</script>
+</body>
+</html>
