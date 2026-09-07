@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createDay,isCorrect,sampleProblems,CROPS,POOL} from './math.mjs';
+import {decorateMeadow,decorateBuildings} from './assets/farm-polish.mjs?v=2';
 
 const $=id=>document.getElementById(id);
 const CELL=.7, BACK=-4.2, HANDLE_OFFSET=1.2, SAVE_KEY='sunbasket-farm-v1';
@@ -18,13 +19,13 @@ const order=()=>day[round];
 // The farm is a real scene. All interactive crop positions are projected from these meshes.
 const renderer=new THREE.WebGLRenderer({canvas:$('farm-canvas'),antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.outputColorSpace=THREE.SRGBColorSpace;
-renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.06;
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.04;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0xb5cf94);scene.fog=new THREE.Fog(0xb5cf94,35,75);
 const camera=new THREE.OrthographicCamera(-8,8,10,-10,.1,100);camera.position.set(11,18,17);camera.lookAt(0,0,-.3);let cameraBlend=0;
 function updateCamera(){const zoom=Math.max(1,Math.min(2.2,Math.sqrt(64/order().targetBoxes)));const offset=zoom>1?BACK+height*CELL/2+.3:0;camera.zoom=1+(zoom-1)*cameraBlend;camera.position.set(11,18,17+offset*cameraBlend);camera.lookAt(0,0,-.3+offset*cameraBlend);camera.updateProjectionMatrix();}
-scene.add(new THREE.HemisphereLight(0xfff7dc,0x527962,.9));
-const sun=new THREE.DirectionalLight(0xffdfa3,2.65);sun.position.set(-9,18,9);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.normalBias=.025;sun.shadow.bias=-.0008;Object.assign(sun.shadow.camera,{left:-17,right:17,top:18,bottom:-18,near:1,far:45});scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xfff6df,0x78876a,1.04));
+const sun=new THREE.DirectionalLight(0xffe5b9,2.30);sun.position.set(-9,18,9);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.radius=2.15;sun.shadow.normalBias=.025;sun.shadow.bias=-.0008;Object.assign(sun.shadow.camera,{left:-17,right:17,top:18,bottom:-18,near:1,far:45});scene.add(sun);
 const fill=new THREE.DirectionalLight(0xb7e3df,.75);fill.position.set(11,8,-10);scene.add(fill);
 const mat=(color,roughness=.9)=>new THREE.MeshStandardMaterial({color,roughness});
 const grassMat=mat(0xcde3bd),soilMat=mat(0xb77a47),woodMat=mat(0xb68145),trimMat=mat(0xe9c28b);
@@ -45,9 +46,7 @@ path([[4.7,5.2],[3,6.2],[1.4,7.4],[-.5,7.7]],1.15,0xe2c894);
 // Shared geometry batches keep decorative flowers/grass/stones cheap and plentiful.
 const decorMatrix=new THREE.Object3D();
 function instances(geometry,material,rows){const m=new THREE.InstancedMesh(geometry,material,rows.length);rows.forEach((r,i)=>{decorMatrix.position.set(r.x,r.y,r.z);decorMatrix.rotation.set(r.rx||0,r.ry||0,r.rz||0);decorMatrix.scale.set(r.sx||r.s||1,r.sy||r.s||1,r.sz||r.s||1);decorMatrix.updateMatrix();m.setMatrixAt(i,decorMatrix.matrix);if(r.color)m.setColorAt(i,new THREE.Color(r.color));});m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;}
-const tufts=[],flowers=[],smallStones=[];
-for(let i=0;i<145;i++){const a=i*2.399,rad=5.35+(i%13)*.26,x=Math.cos(a)*rad,z=Math.sin(a)*rad;if((x>-4.8&&x<4.8&&z>-4.8&&z<4.8)||Math.abs(z-6.5)<.65)continue;tufts.push({x,y:.07,z,sx:.14+(i%3)*.06,sy:.23+(i%4)*.06,sz:.12,ry:a,color:i%3?0x779d4c:0x89af52});if(i%3===0)flowers.push({x,y:.19,z,s:.09,color:i%2?0xf9de83:0xf2c7a1});if(i%8===0)smallStones.push({x:x+.25,y:.05,z:z-.1,sx:.19,sy:.09,sz:.15,ry:a,color:0xbdbe9e});}
-instances(new THREE.SphereGeometry(1,5,3),mat(0xffffff),tufts);instances(new THREE.IcosahedronGeometry(1,0),mat(0xffffff),flowers);instances(new THREE.DodecahedronGeometry(1,0),mat(0xffffff),smallStones);
+decorateMeadow(scene);
 for(const [x,z,s] of [[-15,-13,5.5],[-4,-18,7],[10,-15,6.5],[18,-6,5.2]]){const hill=mesh(new THREE.SphereGeometry(1,14,8),mat(0xa1bd7d),x,.4,z,false);hill.scale.set(s,s*.15,s*.8);hill.visible=false;}
 
 // The logical 1 m² cells stay exact. Only currently selected rows receive tilled soil.
@@ -137,7 +136,7 @@ export const gameTest={get ready(){return ready;},start,answerCorrect(){if(!read
  getLayout(){const w=order().width*CELL,front=BACK+height*CELL;return{wide:innerWidth>=900,stageWidth:innerWidth,mode:innerWidth>=900?'open-farm-and-tools':'portrait-farm',viewport:{...viewport},handle:$('field-handle').getBoundingClientRect().toJSON(),actualFieldCorners:[[-w/2,BACK],[w/2,BACK],[w/2,front],[-w/2,front]].map(([x,z])=>projectWorld(x,.15,z)),crops:phase==='harvest'?cropScreenPoints():[]};},poolSize:POOL.length};
 
 async function load(){try{const loader=new GLTFLoader();await Promise.all(['farmhouse','market-stall','cart','windmill','apple-tree','fence','carrot','strawberry','corn','crate'].map(async name=>{templates[name]=(await loader.loadAsync(`./assets/${name}.glb?v=1`)).scene;}));
- model('farmhouse',3.7,new THREE.Vector3(-5.6,0,-6.7),.1);market=model('market-stall',2.25,new THREE.Vector3(0,0,7.5),Math.PI/2);cart=model('cart',1.08,CART_HOME,-Math.PI/2);crateInstances=makeInstances('crate',144,.12,cart);
+ const farmhouse=model('farmhouse',3.7,new THREE.Vector3(-5.6,0,-6.7),.1);market=model('market-stall',2.25,new THREE.Vector3(0,0,7.5),Math.PI/2);cart=model('cart',1.08,CART_HOME,-Math.PI/2);crateInstances=makeInstances('crate',144,.12,cart);decorateBuildings(scene,farmhouse,market);
  const mill=model('windmill',3.45,new THREE.Vector3(4,0,-6.9),.2);windRotor=mill.getObjectByName('windmill-rotor');
  for(const [x,z,s,rot]of[[-7.2,-3.7,2.5,.5],[-7.2,.3,2.35,.8],[-7,3.5,2.6,1],[7.5,-3.8,2.65,-.8],[7.7,.5,2.4,.1],[6.8,7.1,2.2,.6]])model('apple-tree',s,new THREE.Vector3(x,0,z),rot);
  for(const [x,z]of[[-9.8,-9],[-7,-10.7],[-3.8,-11.8],[.1,-11.9],[3.8,-11.8],[7.2,-10],[10,-7.2]])model('apple-tree',2.1,new THREE.Vector3(x,0,z),x*.15);
