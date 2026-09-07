@@ -856,3 +856,4 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 게임 폴더에 Blender 원본·GLB·생성 스크립트 ZIP을 포함해 원격 MacBook에서도 공개 HTTPS 링크로 받도록 했다. 공용 vendor는 유지하고 GLTFLoader 필수 유틸리티 두 개를 게임 내부에 같은 r185 원본/MIT 라이선스로 포함했다.
 - 상세 `docs/validation/orbit-courier.md`, 증거 `logs/manual-20260907-orbit-courier/`.
 - 독립 검수 **88점·must_fix 없음**, 최종 QA 115문항 전수 검산도 오류 0. `publish-game.mjs`로 80점 기본 게이트를 통과해 게시했으며 카탈로그 정합성 **51/51**.
+- 공개 배포 확인 완료: 게임 커밋 `ea6cea9`, Vercel `dpl_EmG2SUuwngtRZ5BCT1LKGHmrj7QG` Ready. 기본 도메인에서 카탈로그 51작·신작 노출, ZIP 포함 18파일 SHA-256 일치, 실제 모바일 터치 시작→100 적재·playing·페이지 오류/누락 요청/가로 넘침 0. `deployment.json`과 공개 화면 보존.
