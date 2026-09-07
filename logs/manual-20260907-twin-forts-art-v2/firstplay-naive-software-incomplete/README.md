@@ -1,0 +1,1 @@
+Default firstplay harness used SwiftShader. Execution stalled after frame 06 at t=33s and was stopped by PID after over 2 minutes. This partial capture is not a completed test. The same naive policy is rerun with the real GPU in reproduce/firstplay-gpu.mjs. QA FPS measurements separately use actual GPU.
