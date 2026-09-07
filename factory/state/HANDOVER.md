@@ -909,3 +909,4 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 증거 docs/validation/two-game-detail-polish.md·logs/manual-20260907-two-game-polish/. meta제외 최종해시 요새01a5f7bebe4f4d974e0a3d7158cd22e2925d7e3a61b3e14fbbebb8d52eda2287(21파일), 농장d0aeacdcec8ff0ec088259837ce813fa4da7b8f391906e986bf4d3242ee70dd7(27파일). 기존 미검수qa로 리셋하지 않고 최종 게시 때만 갱신한다.
 - 독립 mathcheck 둘다pass: 요새111/농장81 최종QA표본 재계산 오류0, math 및 핵심13/21함수 동일·전체파일 해시 일치. 동일수학의 기존 대량감사는 재사용했으며 새로 돌렸다고 쓰지 않는다. scoped 실GPU첫플레이 요새16/농장15프레임·오류0, 최종 안내주문에서 오답설명보존; 자력성공/학생이해는 미증명.
 - 독립 실제오답후터치복구 두게임pass(요새130점/농장110점·각목숨2). 검수 요새87/농장88·high0·must_fix없음, 미세개선 확인하되 종합점수는 기존값유지. 단일진입점publish-game.mjs 기본80점 게이트로v3/v2재게시, 카탈로그53/53 정합성통과.
+- 공개 배포 완료: 게임커밋f854540, Vercel dpl_Htsr5AjaM6MLXwhGsuxxM4tUjERu Ready. 카탈로그53작·요새v3/농장v2, ZIP/meta포함22+28파일해시일치. 공개390px실제터치 요새12/18출격success·농장3m심기/12수확/배송success, 두목록링크이동·오류/실패요청/넘침0. 두공개계획화면 직접열람; deployment.json/게임별live증거 보존.
