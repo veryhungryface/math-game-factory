@@ -142,7 +142,24 @@
   #toast b{color:#ffd75e}
 
   /* ---------- footer ---------- */
-  footer{flex:0 0 auto;padding:8px 14px calc(env(safe-area-inset-bottom) + 14px);display:flex;justify-content:center}
+  footer{flex:0 0 auto;padding:8px 14px calc(env(safe-area-inset-bottom) + 14px);
+    display:flex;flex-direction:column;align-items:center;gap:7px}
+  /* 남은 고무줄 = 이 가게의 실패 예산. 다 떨어지면 오늘 장사는 끝난다. */
+  #bandStock{
+    display:flex;align-items:center;gap:7px;
+    font-size:13px;font-weight:800;color:var(--ink2);white-space:nowrap;
+  }
+  #bandStock .lbl{letter-spacing:-.3px}
+  #bandPips{display:flex;gap:3px}
+  #bandPips i{
+    width:9px;height:16px;border-radius:99px;display:block;
+    background:var(--red,#e2493b);box-shadow:0 2px 0 #00000022;
+    transition:background .2s,opacity .2s,transform .2s;
+  }
+  #bandPips i.gone{background:#d9cbb0;opacity:.55;transform:scaleY(.45)}
+  #bandStock.low .lbl,#bandStock.low #bandNum{color:#c0392b}
+  #bandNum{font-size:14px;font-weight:900;color:var(--ink)}
+  #bandStock.snap{animation:shake .4s ease 1}
   #serveBtn{
     min-width:220px;padding:15px 34px;border:none;border-radius:99px;cursor:pointer;
     font-family:inherit;font-size:20px;font-weight:800;letter-spacing:1px;color:#fff;
@@ -209,7 +226,14 @@
     <div id="toast"></div>
   </div>
 
-  <footer><button id="serveBtn">이걸로 완성!</button></footer>
+  <footer>
+    <div id="bandStock" aria-live="polite">
+      <span class="lbl">남은 고무줄</span>
+      <span id="bandPips"></span>
+      <b id="bandNum">10</b>
+    </div>
+    <button id="serveBtn">이걸로 완성!</button>
+  </footer>
 
   <!-- ---------- intro ---------- -->
   <div class="overlay" id="intro">
@@ -242,7 +266,7 @@
   <div class="overlay" id="ending" hidden>
     <img id="endMok" src="../../vendor/cast/mok/pose-record.png" alt="" aria-hidden="true">
     <div id="endMokSay">기록했다.</div>
-    <h1>오늘 영업 끝!</h1>
+    <h1 id="endTitle">오늘 영업 끝!</h1>
     <div id="endStats"></div>
     <div id="endMsg" class="sub"></div>
     <div class="facts">
@@ -295,6 +319,23 @@ function korName(c){
   if (c.isEqui) return '정삼각형';
   const s = c.isIso ? '이등변삼각형' : '삼각형';
   return a + s;
+}
+
+/* ---------------- 분류 이름의 포함관계 ----------------
+   한 삼각형은 여러 이름을 동시에 가진다 (교과서: 정삼각형은 이등변삼각형이기도 하다).
+   45°·45°·90° 는 「직각삼각형」이면서 「이등변삼각형」이고,
+   60°·60°·60° 는 「정삼각형」이면서 「이등변삼각형」이면서 「예각삼각형」이다.
+   → 객관식을 만들 때 참인 이름을 오답 후보로 쓰면 복수 정답이 되어 버린다.
+     아래 trueNames() 로 참인 이름을 전부 모아 오답 풀에서 빼고,
+     발문에는 「각의 크기에 따라」/「변의 길이에 따라」 분류 기준을 반드시 밝힌다. */
+const ANGLE_NAME = { acute:'예각삼각형', right:'직각삼각형', obtuse:'둔각삼각형' };
+const SIDE_NAME  = { equi:'정삼각형', iso2:'이등변삼각형', sca:'세 변의 길이가 모두 다른 삼각형' };
+const CLASS_POOL = ['예각삼각형','직각삼각형','둔각삼각형',
+                    '정삼각형','이등변삼각형','세 변의 길이가 모두 다른 삼각형'];
+function trueNames(c){
+  const t = new Set([ ANGLE_NAME[c.angleType], SIDE_NAME[c.sideKind] ]);
+  if (c.isEqui) t.add('이등변삼각형');     // 세 변이 같으면 두 변도 같다
+  return t;
 }
 
 /* ---------------- 주문(손님) 정의 ---------------- */
@@ -440,10 +481,15 @@ const CUSTOMERS = [
 ];
 
 /* ---------------- 상태 ---------------- */
+/* 실패 예산: 가게에 있는 고무줄 재고. 틀린 세모를 내면 고무줄이 한 개 툭 끊어진다.
+   재시도 자체는 계속 되지만(코지 톤 유지) 재고가 0이 되면 그날 장사는 끝난다(폐점). */
+const BANDS_MAX = 10;
 const S = {
-  phase:'intro',            // intro | playing | judging | done
+  phase:'intro',            // intro | playing | judging | done | lost
+  result:'',                // '' | 'clear' | 'lost'
   pegs:[0,4,8],             // 각 꼭짓점의 목표 못 (초기: 정삼각형)
   orderIdx:0,
+  bands:BANDS_MAX,          // 남은 고무줄 = 남은 실패 예산
   coins:0, perfect:0, fails:0,
   muted:false,
   hlDeg:0, hlUntil:0, hlSide:false,
@@ -822,6 +868,20 @@ function showToast(html, ms){
 }
 function setCoins(n){ S.coins=n; $('coins').textContent=n; }
 
+/* 남은 고무줄(실패 예산)을 화면·훅에 똑같이 표시한다 */
+function renderBands(snap){
+  const box=$('bandStock'), pips=$('bandPips');
+  $('bandNum').textContent=S.bands;
+  if(pips.childElementCount!==BANDS_MAX){
+    pips.innerHTML='';
+    for(let i=0;i<BANDS_MAX;i++) pips.appendChild(document.createElement('i'));
+  }
+  [...pips.children].forEach((el,i)=>el.classList.toggle('gone', i>=S.bands));
+  box.classList.toggle('low', S.bands<=3);
+  box.setAttribute('aria-label',`남은 고무줄 ${S.bands}개`);
+  if(snap){ box.classList.remove('snap'); void box.offsetWidth; box.classList.add('snap'); }
+}
+
 function serve(){
   if (S.phase!=='playing' || S.dragging>=0) return;
   const cu=CUSTOMERS[S.orderIdx];
@@ -852,30 +912,54 @@ function serve(){
     }, 2000);
   } else {
     S.fails++;
+    S.bands = Math.max(0, S.bands-1);   // 고무줄 한 개가 툭 끊어진다 = 실패 예산 소모
+    renderBands(true);
     sndBad();
     if (cu.cast) blob=setFace(cu,'bad');
     if (blob){ blob.classList.remove('happy','sad'); void blob.offsetWidth; blob.classList.add('sad'); }
     const why=cu.why(c);
     S.hlDeg = why.hl||0; S.hlSide = !!why.side;
     S.hlUntil = performance.now()+2600;
+    if (S.bands<=0){ loseGame(korName(c), why.msg); return; }
     /* 캐릭터의 말(say)과 가게의 힌트(tip)를 형태로 구분한다 — 힌트는 캐릭터의 대사가 아니다 */
     const say = cu.cast
       ? `<span class="say"><span class="who" style="background:${cu.cast.color};color:#fff">${cu.name}</span>${cu.cast.fail}</span>`
       : '';
-    showToast(`${say}<span class="tipTag">힌트</span>지금 만든 건 <b>${korName(c)}</b>이야.<br>${why.msg}`, 5200);
+    const left = S.bands<=3
+      ? `<br><span class="tipTag">고무줄</span>남은 고무줄 <b>${S.bands}개</b> — 다 떨어지면 오늘은 문을 닫아야 해!`
+      : '';
+    showToast(`${say}<span class="tipTag">힌트</span>지금 만든 건 <b>${korName(c)}</b>이야.<br>${why.msg}${left}`, 5200);
     if (cu.cast) setTimeout(()=>{ if(S.phase==='playing'&&CUSTOMERS[S.orderIdx]===cu) setFace(cu,'idle'); }, 2400);
   }
 }
 serveBtn.addEventListener('click', serve);
 
 function endGame(){
-  S.phase='done';
-  $('endStats').innerHTML=`🪙 ${S.coins}개 &nbsp;·&nbsp; 한 번에 성공 ${S.perfect}/12`;
+  S.phase='done'; S.result='clear';
+  $('endTitle').textContent='오늘 영업 끝!';
+  $('endMokSay').textContent='기록했다.';
+  $('endStats').innerHTML=`🪙 ${S.coins}개 &nbsp;·&nbsp; 한 번에 성공 ${S.perfect}/12`
+    + ` &nbsp;·&nbsp; 남은 고무줄 ${S.bands}개`;
   const msg = S.perfect>=12 ? '삼각형 장인이야! 못판이 반짝반짝해.'
             : S.perfect>=9  ? '멋진 솜씨! 손님들이 단골이 되겠는걸?'
             : S.perfect>=5  ? '점점 늘고 있어. 내일도 가게를 열어 보자!'
                             : '괜찮아, 고무줄은 몇 번이고 다시 걸 수 있으니까!';
   $('endMsg').textContent=msg;
+  $('ending').hidden=false;
+}
+
+/* 폐점 — 고무줄 재고가 0이 되면 도전이 끝난다(하드 불변: 실패 종료가 존재한다) */
+function loseGame(madeName, whyMsg){
+  S.phase='lost'; S.result='lost';
+  serveBtn.disabled=true;
+  sndBad();
+  renderBands(true);
+  $('endTitle').textContent='고무줄이 다 떨어졌어…';
+  $('endMokSay').textContent='재고 0. 오늘은 여기까지다.';
+  $('endStats').innerHTML=`🪙 ${S.coins}개 &nbsp;·&nbsp; 손님 ${S.orderIdx}/${CUSTOMERS.length}명 완료`
+    + ` &nbsp;·&nbsp; 고무줄 ${BANDS_MAX}개 다 씀`;
+  $('endMsg').innerHTML=`마지막으로 낸 건 <b>${madeName}</b>이었어. ${whyMsg||''}<br>`
+    + `새 고무줄을 들여왔으니 가게를 다시 열어 보자!`;
   $('ending').hidden=false;
 }
 
@@ -885,7 +969,8 @@ function startGame(){
   $('intro').hidden=true; $('ending').hidden=true;
   S.pegs=[0,4,8];
   for(let i=0;i<3;i++){ verts[i].phi=pegAngle(S.pegs[i]); verts[i].vel=0; }
-  S.orderIdx=0; setCoins(0); S.perfect=0; S.phase='playing';
+  S.orderIdx=0; setCoins(0); S.perfect=0; S.phase='playing'; S.result='';
+  S.bands=BANDS_MAX; renderBands(false);
   serveBtn.disabled=false;
   showCustomer(0);
   showToast('나무 단추(꼭짓점)를 <b>손가락으로 끌어서</b> 모양을 바꿔 봐!', 4200);
@@ -894,6 +979,7 @@ $('startBtn').addEventListener('click', startGame);
 $('restartBtn').addEventListener('click', startGame);
 
 resize();
+renderBands(false);
 
 /* ---------------- 자체 검증 훅 (자동 테스트용) ---------------- */
 window.LAB_TEST = {
@@ -907,15 +993,17 @@ window.LAB_TEST = {
   predAt(i,p){ return CUSTOMERS[i].pred(classify(p)); },
   serve(){ serve(); },
   start(){ startGame(); },
-  state(){ return {phase:S.phase, orderIdx:S.orderIdx, coins:S.coins, perfect:S.perfect, fails:S.fails, settled:isSettled()}; },
+  state(){ return {phase:S.phase, result:S.result, orderIdx:S.orderIdx, coins:S.coins,
+                   perfect:S.perfect, fails:S.fails, bands:S.bands, bandsMax:BANDS_MAX,
+                   settled:isSettled()}; },
 };
 
 /* ---------------- 공장 규격 훅 (__GAME_TEST__) ----------------
    LAB_TEST 위에 얹는 별칭이다. 게임 내부 판정(serve)을 그대로 통과시키므로
    정답/오답 처리가 실제 플레이와 같은 경로를 탄다. */
 (function(){
-  const NAME_POOL=['정삼각형','예각이등변삼각형','직각이등변삼각형','둔각이등변삼각형',
-                   '예각삼각형','직각삼각형','둔각삼각형'];
+  /* 오답 후보는 CLASS_POOL(단일 분류명)만 쓴다.
+     「직각이등변삼각형」 같은 합성어는 두 기준을 뭉뚱그려 복수 정답을 만들므로 표본에서 뺐다. */
   const TRIPLES=[];
   for(let a=0;a<N;a++) for(let b=a+1;b<N;b++) for(let c=b+1;c<N;c++) TRIPLES.push([a,b,c]);
 
@@ -930,7 +1018,7 @@ window.LAB_TEST = {
     return pool.length ? pool[Math.floor(Math.random()*pool.length)] : null;
   }
   function forceServe(match){
-    if(S.phase==='done') return false;
+    if(S.phase==='done'||S.phase==='lost') return false;
     /* 이전 판정 연출 중이면 즉시 조작 가능 상태로 되돌린다 (테스트 전용) */
     if(S.phase==='judging'){ S.phase='playing'; serveBtn.disabled=false; }
     if(S.phase!=='playing') return false;
@@ -948,9 +1036,11 @@ window.LAB_TEST = {
     getState(){
       return {
         phase:S.phase,
-        /* 공장 규격 별칭 — 이 게임은 목숨 대신 손님별 실패 횟수(최대 3회까지 보상 차감)를 쓴다 */
-        score:S.coins, lives:Math.max(0,3-S.fails), level:S.orderIdx+1, solved:S.orderIdx,
+        /* 공장 규격 별칭 — 이 게임의 목숨은 화면의 「남은 고무줄」과 같은 값이다.
+           0이 되면 phase='lost'(폐점)로 도전이 끝난다. */
+        score:S.coins, lives:S.bands, level:S.orderIdx+1, solved:S.orderIdx,
         coins:S.coins, perfect:S.perfect, fails:S.fails,
+        bands:S.bands, bandsMax:BANDS_MAX, result:S.result,
         orderIdx:S.orderIdx, total:CUSTOMERS.length, pegs:[...S.pegs]
       };
     },
@@ -960,24 +1050,53 @@ window.LAB_TEST = {
       n=n||10;
       const pool=shuffle(TRIPLES.slice());
       const out=[];
+      const SIDE_FACT={
+        equi:'세 변의 길이가 모두 같았다',
+        iso2:'두 변의 길이만 서로 같았다',
+        sca :'세 변의 길이가 모두 달랐다'
+      };
       for(let i=0;i<n;i++){
         const p=pool[i%pool.length];
         const c=classify(p);
-        const ans=korName(c);
         const angs=c.angles.slice().sort((x,y)=>x-y);
-        const choices=[ans];
-        shuffle(NAME_POOL.slice()).forEach(nm=>{ if(choices.length<4 && !choices.includes(nm)) choices.push(nm); });
-        shuffle(choices);
+        const degs=`${angs[0]}°, ${angs[1]}°, ${angs[2]}°`;
+        const truth=trueNames(c);              // 이 삼각형에 대해 참인 이름 전부
+        const byAngle=(i%2===0);               // 각 기준 / 변 기준을 번갈아 낸다
+        const ans = byAngle ? ANGLE_NAME[c.angleType] : SIDE_NAME[c.sideKind];
+
+        /* 오답 후보: 참인 이름은 전부 제외한다(복수 정답 원천 차단).
+           앞쪽일수록 오개념에서 역산한 매력적인 오답이다.
+           - 각 기준: 「예각이 하나라도 있으면 예각삼각형」, 그리고 기준을 바꿔치기해 변 이름으로 답하기
+           - 변 기준: 「정삼각형은 이등변삼각형이 아니다」류, 그리고 각 이름으로 답하기 */
+        const prefer = byAngle
+          ? ['예각삼각형','이등변삼각형','정삼각형','세 변의 길이가 모두 다른 삼각형','둔각삼각형','직각삼각형']
+          : ['정삼각형','이등변삼각형','세 변의 길이가 모두 다른 삼각형','직각삼각형','둔각삼각형','예각삼각형'];
+        const distract=[];
+        prefer.concat(CLASS_POOL).forEach(nm=>{
+          if(distract.length<3 && nm!==ans && !truth.has(nm) && !distract.includes(nm)) distract.push(nm);
+        });
+        const choices=shuffle([ans, ...distract]);
+
+        const prompt = byAngle
+          ? `고무줄을 ${p[0]}번·${p[1]}번·${p[2]}번 못에 걸었더니 세 각이 ${degs}인 삼각형이 되었다. `
+            + `이 삼각형을 각의 크기에 따라 분류하면 무엇일까?`
+          : `고무줄을 ${p[0]}번·${p[1]}번·${p[2]}번 못에 걸었더니 ${SIDE_FACT[c.sideKind]}. `
+            + `세 각은 ${degs}이다. 이 삼각형을 변의 길이에 따라 분류하면 무엇일까?`;
+
         out.push({
           id:'p'+(i+1),
-          prompt:`고무줄을 ${p[0]}번·${p[1]}번·${p[2]}번 못에 걸었더니 세 각이 `
-                +`${angs[0]}°, ${angs[1]}°, ${angs[2]}°인 삼각형이 되었다. 이 삼각형의 이름은?`,
+          prompt,
           choices,
           answer:ans,
-          answerNumeric:angs[2],          /* 가장 큰 각 (분류의 기준) */
-          unitConcept: c.isEqui ? '정삼각형'
-                     : c.isIso ? '이등변삼각형과 각의 크기에 따른 분류'
-                               : '각의 크기에 따른 삼각형 분류'
+          /* 분류형 문항이라 수치 등가가 없다. 대신 참인 이름 전부를 함께 남겨
+             자동 검사가 「선택지 중 참인 이름이 정확히 하나」임을 확인할 수 있게 한다. */
+          answerNumeric:null,
+          classifyBy: byAngle ? 'angle' : 'side',
+          allTrueNames:[...truth],
+          angles:angs,
+          sideKind:c.sideKind,
+          unitConcept: byAngle ? '각의 크기에 따른 삼각형 분류'
+                               : '변의 길이에 따른 삼각형 분류'
         });
       }
       return out;

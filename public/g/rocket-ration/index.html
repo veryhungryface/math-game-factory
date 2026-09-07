@@ -144,6 +144,18 @@ button{
   font-size:11px;font-weight:900;color:#5d3c00;}
 .blk.t{width:11px;height:38px;background:linear-gradient(180deg,#8df0cf,var(--c10));border:2px solid #1e9a74;}
 .blk.o{width:15px;height:15px;background:linear-gradient(180deg,#ffc0cd,var(--c1));border:2px solid #cf5570;border-radius:5px;}
+/* 현재 자리의 「내림」은 하단 버튼이 아니라 남은 화물 더미 자체를 눌러서 한다.
+   (하단 두 버튼 이지선다를 없애고, 판단이 「어느 것을 언제 건드리는가」로 남게) */
+.colAct{
+  flex:0 0 auto;min-height:46px;padding:8px 6px;border:0;border-top:2px dashed rgba(87,240,194,.45);
+  background:rgba(63,214,168,.14);color:#9ff7dc;font-size:12.5px;font-weight:800;line-height:1.35;
+  text-align:center;cursor:pointer;font-family:inherit;
+  word-break:keep-all;overflow-wrap:break-word;
+}
+.colAct b{color:var(--mint);font-weight:900;}
+.colAct:active{background:rgba(63,214,168,.3);}
+.col.now{cursor:pointer;}
+#rockets{cursor:pointer;}
 .col .pile.shake{animation:shk .4s;}
 @keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
 
@@ -189,20 +201,21 @@ button{
 .ctl{
   flex:1;min-height:68px;border-radius:18px;font-size:19px;font-weight:900;line-height:1.25;
   display:flex;align-items:center;justify-content:center;gap:6px;letter-spacing:.5px;
+  text-align:center;word-break:keep-all;overflow-wrap:break-word;padding:6px 10px;
 }
 #btnDeal{background:linear-gradient(180deg,#ffd070,var(--amber));color:#3c2500;
   box-shadow:0 5px 0 #b97a12;}
 #btnDeal:active{transform:translateY(3px);box-shadow:0 2px 0 #b97a12;}
-#btnNext{background:linear-gradient(180deg,#79f5d0,#3fd6a8);color:#003a29;box-shadow:0 5px 0 #14795c;}
-#btnNext:active{transform:translateY(3px);box-shadow:0 2px 0 #14795c;}
-#btnNext.finish{background:linear-gradient(180deg,#ff98a5,var(--coral));color:#4b000b;box-shadow:0 5px 0 #a92c3b;}
+#btnDeal b{font-weight:900;}
 
 /* ---------- toast ---------- */
 #toast{
   position:absolute;left:50%;bottom:112px;transform:translateX(-50%) translateY(20px);
   background:#0b102b;border:2px solid var(--line);color:var(--ink);
   padding:11px 18px;border-radius:14px;font-weight:800;font-size:15px;opacity:0;
-  transition:opacity .25s, transform .25s;pointer-events:none;z-index:40;white-space:nowrap;max-width:92%;
+  transition:opacity .25s, transform .25s;pointer-events:none;z-index:40;
+  white-space:normal;text-align:center;line-height:1.45;width:max-content;max-width:min(92%,420px);
+  word-break:keep-all;overflow-wrap:break-word;
   text-align:center;white-space:normal;line-height:1.45;
 }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -364,8 +377,10 @@ html.land #toast{bottom:132px;font-size:17px;}
     <h1><span class="q">몫</span> 실은 로켓</h1>
     <div class="tag">똑같이 나눠 실어야 발사할 수 있어!</div>
     <div class="how">
-      🚛 <b>실어!</b> — 로켓 수만큼 한 개씩, 모든 로켓에 똑같이 실어요.<br>
-      ⬇ <b>내림!</b> — 남은 묶음을 풀어서 아랫자리로 내려요.<br>
+      🚛 <b>실어!</b> — 로켓 한 대에 한 개씩, 모든 로켓에 똑같이 나눠 실어요.<br>
+      &nbsp;&nbsp;&nbsp;남은 개수가 <b>로켓 수만큼 있으면(같거나 많으면)</b> 실을 수 있어요.<br>
+      👆 더 못 나누면 <b>남은 화물 더미를 눌러</b> 아랫자리로 내려요.<br>
+      &nbsp;&nbsp;&nbsp;마지막 자리에서 남은 것이 <b>나머지</b>!<br>
       ⚡ 모자란데 실으면 배터리가 닳아요. 남은 개수와 로켓 수를 비교!
     </div>
     <button id="startBtn" class="bigBtn">🚀 발사 준비!</button>
@@ -383,11 +398,10 @@ html.land #toast{bottom:132px;font-size:17px;}
       <div id="board"></div>
     </div>
     <div id="depot"></div>
-    <div id="rockets"></div>
+    <div id="rockets" role="button" tabindex="0" aria-label="로켓에 한 개씩 나눠 싣기"></div>
     <div id="padBar"></div>
     <div id="controls">
-      <button id="btnDeal" class="ctl">🚛 4개씩 실어!</button>
-      <button id="btnNext" class="ctl">⬇ 내림!</button>
+      <button id="btnDeal" class="ctl"><span>🚛 로켓 <b>4대</b>에 낱개 1개씩!</span></button>
     </div>
     <div id="toast"></div>
   </section>
@@ -577,7 +591,7 @@ const Snd = (()=>{
 /* ---------- DOM ---------- */
 const $ = s=>document.querySelector(s);
 const elTitle=$('#title'), elGame=$('#game'), elBoard=$('#board'), elDepot=$('#depot'),
-      elRockets=$('#rockets'), btnDeal=$('#btnDeal'), btnNext=$('#btnNext'),
+      elRockets=$('#rockets'), btnDeal=$('#btnDeal'),
       elToast=$('#toast'), elMC=$('#missionCard'), elCK=$('#checkOv'), elEnd=$('#endScr');
 
 /* ---------- 판형(스테이지) ---------- */
@@ -690,6 +704,19 @@ function renderDepot(){
       // 등장 애니메이션 시차
       [...pileEl.children].forEach((b,i)=> b.style.animationDelay = (i*0.012)+'s');
     }
+    /* 현재 자리에만 「내림/나머지」 조작대를 붙인다. 하단 이지선다 대신
+       남은 화물 더미 자체가 조작 대상이 된다. 눌러도 되는 때인지는 알려주지 않는다 —
+       그 판단이 이 게임의 문제다. */
+    if(isNow){
+      const act=document.createElement('button');
+      act.type='button'; act.className='colAct';
+      act.innerHTML = isLastPlace()
+        ? '👆 남은 화물을 <b>나머지</b>로 확정'
+        : `👆 남은 묶음을 풀어 <b>${PLACE_NAME[G.placeSeq[G.seqPos+1]]}의 자리로 내림</b>`;
+      act.addEventListener('click', e=>{ e.stopPropagation(); actNext(); });
+      col.appendChild(act);
+      col.addEventListener('click', actNext);
+    }
     elDepot.appendChild(col);
   });
 }
@@ -722,16 +749,14 @@ function updateRocketLEDs(){
   elRockets.querySelectorAll('.win').forEach(w=> w.textContent = v);
 }
 
+/* 「실어!」 한 번 = 로켓 d대에 각각 1개씩(모두 d개). d는 한 대에 싣는 양이 아니라 로켓 수다. */
 function renderButtons(){
   const d = G.prob ? G.prob.divisor : 0;
-  btnDeal.textContent = `🚛 ${d}개씩 실어!`;
-  btnNext.classList.toggle('finish', isLastPlace());
-  if(isLastPlace()){
-    btnNext.textContent = '✅ 다 실었어!';
-  }else{
-    btnNext.textContent = G.pile>0 ? `⬇ ${PLACE_NAME[G.placeSeq[G.seqPos+1]]}의 자리로 내림!`
-                                   : `➡ ${PLACE_NAME[G.placeSeq[G.seqPos+1]]}의 자리로!`;
-  }
+  const unit = PLACE_UNIT[curPlace()] || '낱개';
+  /* .ctl 이 flex+gap 이라 자식이 여러 개면 글자 사이가 벌어진다 — 한 덩어리로 감싼다 */
+  btnDeal.innerHTML = `<span>🚛 로켓 <b>${d}대</b>에 ${unit} 1개씩!</span>`;
+  btnDeal.setAttribute('aria-label', `로켓 ${d}대에 ${unit}를 1개씩, 모두 ${d}개 싣기`);
+  elRockets.setAttribute('aria-label', `로켓 ${d}대에 ${unit}를 1개씩 싣기`);
 }
 
 function renderAll(){ renderHud(); renderBoard(); renderDepot(); renderButtons(); }
@@ -820,7 +845,9 @@ function actNext(){
   Snd.unlock();
   const d=G.prob.divisor;
   if(G.pile >= d){
-    registerMistake(`아직 ${d}개씩 더 실을 수 있어! 남은 것(${G.pile})과 로켓 수(${d})를 비교해 봐.`);
+    /* 남은 개수가 로켓 수와 「같거나 많으면」 한 바퀴 더 실을 수 있다 (> 가 아니라 ≥) */
+    registerMistake(`남은 ${PLACE_UNIT[curPlace()]} ${G.pile}개는 로켓 ${d}대와 같거나 많아 — `
+      + `로켓 ${d}대에 1개씩 한 바퀴 더 실을 수 있어!`);
     return;
   }
   // 자리 확정
@@ -837,7 +864,12 @@ function actNext(){
   G.seqPos++;
   G.pile = leftover*10 + nextDigit;
   G.dealt = 0;
-  if(leftover>0){ Snd.unbundle(); toast(`내림! ${PLACE_UNIT[G.placeSeq[G.seqPos-1]]} ${leftover}개를 풀어서 ${leftover*10}개로 내렸어.`,'good'); }
+  if(leftover>0){
+    Snd.unbundle();
+    const fromUnit = PLACE_UNIT[G.placeSeq[G.seqPos-1]];
+    const toUnit   = PLACE_UNIT[G.placeSeq[G.seqPos]];
+    toast(`내림! ${fromUnit} ${leftover}개를 풀어서 ${toUnit} ${leftover*10}개로 내렸어.`,'good');
+  }
   renderAll();
 }
 
@@ -940,7 +972,11 @@ function flyBlocks(d){
 
 /* ---------- 입력 바인딩 ---------- */
 btnDeal.addEventListener('click', actDeal);
-btnNext.addEventListener('click', actNext);
+/* 로켓 줄 자체도 조작 대상이다 — 화물을 로켓으로 보내는 행동을 로켓 위에서 한다 */
+elRockets.addEventListener('click', ()=>{ if(G.phase==='playing') actDeal(); });
+elRockets.addEventListener('keydown', e=>{
+  if(e.key===' '||e.key==='Enter'){ e.preventDefault(); if(G.phase==='playing') actDeal(); }
+});
 $('#startBtn').addEventListener('click', ()=>{
   Snd.unlock(); Snd.tap();
   startGame();
@@ -1014,7 +1050,7 @@ window.__GAME_TEST__ = {
       const p = genProblem(tk);
       out.push({
         id:'p'+(i+1),
-        prompt:`${p.dividend} ÷ ${p.divisor} = ?  (몫과 나머지를 구하세요)`,
+        prompt:`${p.dividend} ÷ ${p.divisor}의 몫과 나머지를 각각 구해 보세요.`,
         choices:null,
         answer: p.r===0 ? `몫 ${p.q}, 나머지 0 (나누어떨어짐)` : `몫 ${p.q}, 나머지 ${p.r}`,
         answerNumeric: p.q,
