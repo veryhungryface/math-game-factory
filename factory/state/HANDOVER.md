@@ -878,3 +878,4 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 첫 플레이의 오답후비활성손잡이안내와 전장탭무반응을 독립검수가 지적해 수리: 오답화면에서 즉시 드래그/정밀버튼/방향키로재배치, 전장탭엔접점반응+실제손잡이포인팅. 수정전후 증거보존. 최종순진한탐침은0문항이며 화면/조작 경로검수와 실제아동이해는 구분.
 - 최종QA44/44·치명0·AppleM4 실GPU 모바일60/데스크톱61FPS·15초유지100%. 독립검수86점·미해결high0, `publish-game.mjs` 기본80점 게이트통과·카탈로그52/52. 실제 저가휴대전화/아동조사는 미실시.
 - `references/case-studies/supercell-benchmark-20260907.md`, `docs/validation/twin-forts.md`, `logs/manual-20260907-twin-forts/`에 연구·검증·재현기록 보존.
+- 공개 배포 확인 완료: 게임 커밋 `689d0a6`, Vercel `dpl_EPuEin9U8GDs2ycLogqgCpxZCZEY` Ready. 기본 도메인 카탈로그52작·원본ZIP포함21파일해시일치, 실제390px터치 시작→12/18배분→출격success·오류/실패요청/가로넘침0. `deployment.json`·공개화면 보존.

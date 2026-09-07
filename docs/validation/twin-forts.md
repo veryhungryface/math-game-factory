@@ -51,3 +51,10 @@
 7정책의 일반 첫 시도 각3회, 총21회 실입력 판정이 오라클과 일치했다(이번 작은 표본 각0/3). 이는 모집단 정답률 추정이 아니며 40,000문항의 정책별 기준과 구분한다. 최종 순진한 탐침은 14프레임 동안 전장만 눌러 0문항을 해결했다. 검수의 이해도 yes는 화면 안내와 실제 손잡이 입력 경로를 본 판단이며, 어린이의 이해율이나 탐침의 자력 성공을 뜻하지 않는다.
 
 `publish-game.mjs --score 86 --run manual-20260907-twin-forts --notes-from logs/manual-20260907-twin-forts/review.json`으로 기본80점 게이트를 통과해 게시했다. 카탈로그 정합성52/52.
+
+## 공개 배포 확인
+
+게임 커밋 `689d0a6`, Vercel `dpl_EPuEin9U8GDs2ycLogqgCpxZCZEY` Ready. 기본 도메인 카탈로그52작·쌍둥이 요새 노출, 원본ZIP/모델/코드/표지/meta 포함21파일 SHA-256이 로컬과 일치한다. 공개 게임에서390px 실제 터치로 시작→30명12/18배분→출격 success 확인, 페이지/콘솔 오류·실패요청·가로넘침0. `deployment.json`과 `production-*.png` 보존.
+
+- [공개 플레이](https://math-game-factory.vercel.app/g/twin-forts/)
+- [Blender 원본·모델·생성 스크립트 ZIP](https://math-game-factory.vercel.app/g/twin-forts/assets/twin-forts-source.zip)
