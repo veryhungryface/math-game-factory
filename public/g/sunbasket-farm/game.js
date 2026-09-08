@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createDay,isCorrect,sampleProblems,CROPS,POOL} from './math.mjs';
-import {decorateMeadow,decorateBuildings} from './assets/farm-polish.mjs?v=2';
+import {decorateMeadow,decorateBuildings} from './assets/farm-polish.mjs?v=3';
+import {carrotGrowth,CARROT_STAGE_HEIGHTS} from './assets/crop-growth.mjs?v=3';
 
 const $=id=>document.getElementById(id);
 const CELL=.7, BACK=-4.2, HANDLE_OFFSET=1.2, SAVE_KEY='sunbasket-farm-v1';
@@ -19,16 +20,16 @@ const order=()=>day[round];
 // The farm is a real scene. All interactive crop positions are projected from these meshes.
 const renderer=new THREE.WebGLRenderer({canvas:$('farm-canvas'),antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.outputColorSpace=THREE.SRGBColorSpace;
-renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.04;
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
-const scene=new THREE.Scene();scene.background=new THREE.Color(0xb5cf94);scene.fog=new THREE.Fog(0xb5cf94,35,75);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xa9c997);scene.fog=new THREE.Fog(0xa9c997,32,72);
 const camera=new THREE.OrthographicCamera(-8,8,10,-10,.1,100);camera.position.set(11,18,17);camera.lookAt(0,0,-.3);let cameraBlend=0;
 function updateCamera(){const zoom=Math.max(1,Math.min(2.2,Math.sqrt(64/order().targetBoxes)));const offset=zoom>1?BACK+height*CELL/2+.3:0;camera.zoom=1+(zoom-1)*cameraBlend;camera.position.set(11,18,17+offset*cameraBlend);camera.lookAt(0,0,-.3+offset*cameraBlend);camera.updateProjectionMatrix();}
-scene.add(new THREE.HemisphereLight(0xfff6df,0x78876a,1.04));
-const sun=new THREE.DirectionalLight(0xffe5b9,2.30);sun.position.set(-9,18,9);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.radius=2.15;sun.shadow.normalBias=.025;sun.shadow.bias=-.0008;Object.assign(sun.shadow.camera,{left:-17,right:17,top:18,bottom:-18,near:1,far:45});scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xeaf6de,0x789169,1.28));
+const sun=new THREE.DirectionalLight(0xffe9c9,1.94);sun.position.set(-9,18,9);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.radius=3.5;sun.shadow.normalBias=.025;sun.shadow.bias=-.0008;Object.assign(sun.shadow.camera,{left:-17,right:17,top:18,bottom:-18,near:1,far:45});scene.add(sun);
 const fill=new THREE.DirectionalLight(0xb7e3df,.75);fill.position.set(11,8,-10);scene.add(fill);
 const mat=(color,roughness=.9)=>new THREE.MeshStandardMaterial({color,roughness});
-const grassMat=mat(0xcde3bd),soilMat=mat(0xb77a47),woodMat=mat(0xb68145),trimMat=mat(0xe9c28b);
+const grassMat=mat(0xc6dfac),soilMat=mat(0xa97143),woodMat=mat(0xb68145),trimMat=mat(0xe9c28b);
 
 function grassTexture(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');g.fillStyle='#8cb16b';g.fillRect(0,0,256,256);let seed=92;const rand=()=>((seed=seed*16807%2147483647)/2147483647);for(let i=0;i<3600;i++){g.fillStyle=i%3?'#d9dd8418':'#54774614';g.fillRect(rand()*256,rand()*256,1,2+rand()*2);}const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(12,12);t.anisotropy=4;return t;}
 grassMat.map=grassTexture();
@@ -38,16 +39,8 @@ const organicGround=mesh(new THREE.CylinderGeometry(8.2,8.7,.34,12),mat(0x9fb875
 const gardenBase=mesh(new THREE.BoxGeometry(8.7,.1,8.7),mat(0xb9aa72),0,-.03,0,false);
 const dormantSoil=mesh(new THREE.BoxGeometry(8.4,.035,8.4),mat(0xc5b783),0,.03,0,false);gardenBase.visible=false;dormantSoil.visible=false;
 
-// Curved, pale farm lanes connect the actual harvest cart to the little market.
-function path(points,width,color){const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(p[0],.005,p[1]))),vertices=[],uv=[],indices=[];const up=new THREE.Vector3(0,1,0),tangent=new THREE.Vector3(),normal=new THREE.Vector3();for(let i=0;i<=48;i++){const t=i/48,p=curve.getPoint(t);tangent.copy(curve.getTangent(t));normal.crossVectors(tangent,up).normalize();for(const side of [-1,1]){const wiggle=1+Math.sin(i*1.7)*.035;vertices.push(p.x+normal.x*side*width*.5*wiggle,p.y,p.z+normal.z*side*width*.5*wiggle);uv.push(t,side===1?1:0);}if(i<48){const a=i*2;indices.push(a,a+1,a+2,a+1,a+3,a+2);}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return mesh(g,mat(color),0,0,0,false);}
-path([[-7,-8],[-5,-5],[-5.2,0],[-5.3,4],[-2.5,6.3],[.5,7.3],[5.5,6.1],[8,3.8]],1.35,0xdcc78c);
-path([[4.7,5.2],[3,6.2],[1.4,7.4],[-.5,7.7]],1.15,0xe2c894);
-
-// Shared geometry batches keep decorative flowers/grass/stones cheap and plentiful.
-const decorMatrix=new THREE.Object3D();
-function instances(geometry,material,rows){const m=new THREE.InstancedMesh(geometry,material,rows.length);rows.forEach((r,i)=>{decorMatrix.position.set(r.x,r.y,r.z);decorMatrix.rotation.set(r.rx||0,r.ry||0,r.rz||0);decorMatrix.scale.set(r.sx||r.s||1,r.sy||r.s||1,r.sz||r.s||1);decorMatrix.updateMatrix();m.setMatrixAt(i,decorMatrix.matrix);if(r.color)m.setColorAt(i,new THREE.Color(r.color));});m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;}
-decorateMeadow(scene);
-for(const [x,z,s] of [[-15,-13,5.5],[-4,-18,7],[10,-15,6.5],[18,-6,5.2]]){const hill=mesh(new THREE.SphereGeometry(1,14,8),mat(0xa1bd7d),x,.4,z,false);hill.scale.set(s,s*.15,s*.8);hill.visible=false;}
+// The reusable landscape owns paths, planting islands and distant terrain.
+const environment=decorateMeadow(scene);
 
 // The logical 1 m² cells stay exact. Only currently selected rows receive tilled soil.
 const soilTiles=new THREE.InstancedMesh(new THREE.BoxGeometry(CELL-.025,.065,CELL-.025),soilMat,144);soilTiles.receiveShadow=true;scene.add(soilTiles);
@@ -57,7 +50,7 @@ const frameEdges=Array.from({length:4},()=>mesh(new THREE.BoxGeometry(1,.105,.1)
 const cornerStakes=Array.from({length:4},()=>mesh(new THREE.CylinderGeometry(.055,.065,.35,7),trimMat));
 const widthMeasure=mesh(new THREE.BoxGeometry(1,.025,.025),mat(0xffefc0),0,.19,0,false);
 const heightMeasure=mesh(new THREE.BoxGeometry(.025,.025,1),mat(0xffefc0),0,.19,0,false);const handleLead=mesh(new THREE.BoxGeometry(.06,.05,HANDLE_OFFSET),trimMat,0,.14,0,false);
-const dummy=new THREE.Object3D(),matrix=new THREE.Matrix4(),templates={},cropInstances={};
+const dummy=new THREE.Object3D(),matrix=new THREE.Matrix4(),templates={},cropInstances={},carrotStageInstances={};
 const growthGroups=[new THREE.Group(),new THREE.Group(),new THREE.Group()];growthGroups.forEach(g=>scene.add(g));
 let cart=null,market=null,windRotor=null,crateInstances=[],viewport={x:0,y:0,w:1,h:1,reserved:90,renderH:1};
 const CART_HOME=new THREE.Vector3(5.35,0,5.35),CART_END=new THREE.Vector3(.2,0,7.25);
@@ -81,7 +74,7 @@ function updateGrowth(){farmStage=Math.max(saved.growth,Math.min(3,Math.floor(so
 function setFeedback(title,text){$('feedback').replaceChildren();const b=document.createElement('b'),p=document.createElement('p');b.textContent=title;p.textContent=text;$('feedback').append(b,p);}
 function setGuiding(value){guiding=value;document.body.dataset.guiding=String(value);}
 function setPhase(value){phase=value;previewTiles.visible=value==='title';soilTiles.visible=value!=='title';furrows.visible=value!=='title';if(value==='playing'||value==='retry'||value==='title'){cameraBlend=0;updateCamera();}document.body.dataset.phase=value;const editable=value==='playing'||value==='retry';$('height-minus').disabled=!editable;$('height-plus').disabled=!editable;$('field-handle').hidden=!editable;handleLead.visible=editable;$('width-label').hidden=!['playing','retry'].includes(value);$('height-label').hidden=$('width-label').hidden;$('harvest-meter').hidden=value!=='harvest';$('field-guide').hidden=!editable;if(!editable)releaseInputs();}
-function planning(){setPhase('playing');growTime=0;deliveryTime=0;harvested=new Set();$('world-toast').textContent='';$('plant').disabled=false;$('plant').innerHTML='심기 <span>↗</span>';$('tool-tip').textContent='밭 끝을 드래그 · ↑↓ 키로 1m씩';$('order-number').textContent=`주문 ${round+1} / 9`;$('order-request').innerHTML=`${CROPS[order().crop].name} <strong>${order().targetBoxes}</strong>상자`;$('crop-icon').innerHTML=`<img src="./assets/icon-${order().crop}.png" alt="">`;$('order-width').innerHTML=`${order().width}<small>m</small>`;$('day-progress').innerHTML=Array.from({length:9},(_,i)=>`<i class="${i<solved?'done':i===round?'active':''}"></i>`).join('');if(cart){cart.position.copy(CART_HOME);cart.rotation.y=-Math.PI/2;}updatePlot();updateCargo();updateGrowth();if(!attempts)setFeedback(order().tutorial?'첫 주문 · 당근 12상자를 키워요':`${CROPS[order().crop].name} 주문이 왔어요`,order().tutorial?'가로 4m인 밭의 세로를 정해 보세요.':'주문만큼 수확하도록 세로를 정한 뒤 심으세요.');}
+function planning(){setPhase('playing');growTime=0;deliveryTime=0;harvested=new Set();$('world-toast').textContent='';$('plant').disabled=false;$('plant').innerHTML='심기 <span>↗</span>';$('tool-tip').textContent='밭 끝을 드래그 · ↑↓ 키로 1m씩';$('order-number').textContent=`주문 ${round+1} / 9`;$('order-request').innerHTML=`${CROPS[order().crop].name} <strong>${order().targetBoxes}</strong>상자`;$('crop-icon').innerHTML=`<img src="./assets/icon-${order().crop}.png?v=3" alt="">`;$('order-width').innerHTML=`${order().width}<small>m</small>`;$('day-progress').innerHTML=Array.from({length:9},(_,i)=>`<i class="${i<solved?'done':i===round?'active':''}"></i>`).join('');if(cart){cart.position.copy(CART_HOME);cart.rotation.y=-Math.PI/2;}updatePlot();updateCargo();updateGrowth();if(!attempts)setFeedback(order().tutorial?'첫 주문 · 당근 12상자를 키워요':`${CROPS[order().crop].name} 주문이 왔어요`,order().tutorial?'가로 4m인 밭의 세로를 정해 보세요.':'주문만큼 수확하도록 세로를 정한 뒤 심으세요.');}
 function start(){if(!ready)return;unlockAudio();releaseInputs();$('intro').hidden=true;$('ending').hidden=true;day=createDay();round=0;height=2;score=0;coins=0;lives=3;solved=0;attempts=0;allAttempts=0;firstTry=0;firstAttempts=0;startedAt=performance.now();duration=0;$('hearts').textContent='♥♥♥';$('hearts').setAttribute('aria-label','기회 3번');setGuiding(true);planning();}
 function setHeight(value,real=true){if(!['playing','retry'].includes(phase))return;const next=Math.max(1,Math.min(12,Math.round(Number(value))));if(!Number.isFinite(next))return;if(phase==='retry'){setPhase('playing');$('plant').innerHTML='다시 심기 <span>↗</span>';}if(next===height)return;height=next;if(real){inputCount++;setGuiding(false);}updatePlot();tone(240+height*22,.05,'triangle',.018);}
 function plant(){if(!ready||!['playing','retry'].includes(phase))return;unlockAudio();releaseInputs();setGuiding(false);inputCount++;attempts++;allAttempts++;const correct=isCorrect(order(),height);if(attempts===1&&!order().tutorial){firstAttempts++;if(correct)firstTry++;}if(!correct){lives--;$('hearts').textContent='♥'.repeat(lives)+'♡'.repeat(3-lives);$('hearts').setAttribute('aria-label',`기회 ${lives}번`);const made=order().width*height,diff=Math.abs(made-order().targetBoxes);setFeedback(made<order().targetBoxes?'밭이 조금 더 필요해요':'밭이 너무 넓어요',`${order().width}m × ${height}m = ${made}m². 주문보다 ${diff}상자 ${made<order().targetBoxes?'부족해요':'많아요'}.`);tone(165,.18,'triangle',.025);if(lives<=0){finish(false);return;}setPhase('retry');$('plant').innerHTML='다시 심기 <span>↗</span>';setGuiding(true);return;}score+=order().tutorial?40:attempts===1?100:70;setPhase('growing');growTime=0;$('plant').disabled=true;$('plant').textContent='자라는 중…';$('world-toast').textContent='햇살 먹고 쑥쑥!';setFeedback('딱 맞는 밭이에요',`${order().width}m × ${height}m = ${order().targetBoxes}m². 작물이 자라고 있어요.`);tone(523,.1,'sine',.035);tone(659,.14,'sine',.03,.1);}
@@ -124,7 +117,41 @@ $('sound').addEventListener('click',()=>{soundOn=!soundOn;unlockAudio();$('sound
 const flyers=[];for(let i=0;i<16;i++){const m=mesh(new THREE.OctahedronGeometry(.14,0),mat(0xe5a054),0,0,0,false);m.visible=false;flyers.push({mesh:m,life:0,start:new THREE.Vector3()});}
 function flyCrop(x,y,z,crop){const f=flyers.find(f=>f.life<=0);if(!f)return;f.life=.48;f.start.set(x,y,z);f.mesh.position.copy(f.start);f.mesh.material.color.set(CROPS[crop].color);f.mesh.visible=true;}
 function updateCargo(){if(!crateInstances.length)return;const count=harvested.size;crateInstances.forEach(p=>p.mesh.count=count);for(let i=0;i<count;i++){dummy.position.set(-.43+(i%6)*.175,.66+Math.floor(i/36)*.135,-.42+(Math.floor(i/6)%6)*.155);dummy.rotation.set(0,0,0);dummy.scale.setScalar(1);dummy.updateMatrix();applyInstance(crateInstances,i,dummy.matrix);}crateInstances.forEach(p=>p.mesh.instanceMatrix.needsUpdate=true);}
-function updateCrops(){if(!ready)return;if(phase==='title'){sprouts.count=0;for(const [block,key]of ['carrot','strawberry','corn'].entries()){const pieces=cropInstances[key];pieces.forEach(p=>p.mesh.count=24);for(let i=0;i<24;i++){dummy.position.set((i%8-3.5)*CELL,.105,BACK+(block*3+Math.floor(i/8)+.5)*CELL);dummy.rotation.set(0,Math.sin(i)*.1,Math.sin(worldTime+i)*.025);dummy.scale.setScalar(1);dummy.updateMatrix();applyInstance(pieces,i,dummy.matrix);}pieces.forEach(p=>p.mesh.instanceMatrix.needsUpdate=true);}return;}const active=['growing','harvest','delivering','success'].includes(phase),name=order().crop;for(const [key,pieces]of Object.entries(cropInstances))pieces.forEach(p=>p.mesh.count=active&&key===name?order().targetBoxes:0);sprouts.count=phase==='growing'?order().targetBoxes*2:0;if(!active)return;const pieces=cropInstances[name];for(let i=0;i<order().targetBoxes;i++){const c=cellPosition(i);let scale=harvested.has(i)?.001:1;if(phase==='growing'){const progress=Math.max(0,Math.min(1,(growTime-.22-(c.row%3)*.035)/.82));scale=progress<1?1-Math.pow(1-progress,3):1;}dummy.position.set(c.x,.105,c.z);dummy.rotation.set(0,Math.sin(i*2.1)*.11,Math.sin(worldTime*1.4+i)*.025);dummy.scale.set(scale,scale,scale);dummy.updateMatrix();applyInstance(pieces,i,dummy.matrix);if(phase==='growing'){const seedScale=Math.min(1,growTime*5)*Math.max(0,1-(growTime-.25)*2);for(let j=0;j<2;j++){dummy.position.set(c.x+(j?1:-1)*.065,.14+seedScale*.1,c.z);dummy.rotation.set(0,0,j?.7:-.7);dummy.scale.setScalar(seedScale);dummy.updateMatrix();sprouts.setMatrixAt(i*2+j,dummy.matrix);}}}pieces.forEach(p=>p.mesh.instanceMatrix.needsUpdate=true);if(phase==='growing')sprouts.instanceMatrix.needsUpdate=true;}
+function updateCrops(){
+ if(!ready)return;
+ for(const pieces of Object.values(carrotStageInstances))pieces.forEach(p=>p.mesh.count=0);
+ if(phase==='title'){
+  sprouts.count=0;
+  for(const [block,key]of ['carrot','strawberry','corn'].entries()){
+   const pieces=cropInstances[key];pieces.forEach(p=>p.mesh.count=24);
+   for(let i=0;i<24;i++){dummy.position.set((i%8-3.5)*CELL,.105,BACK+(block*3+Math.floor(i/8)+.5)*CELL);dummy.rotation.set(0,Math.sin(i)*.1,Math.sin(worldTime+i)*.025);dummy.scale.setScalar(1);dummy.updateMatrix();applyInstance(pieces,i,dummy.matrix);}
+   pieces.forEach(p=>p.mesh.instanceMatrix.needsUpdate=true);
+  }
+  return;
+ }
+ const active=['growing','harvest','delivering','success'].includes(phase),name=order().crop,stagedCarrots=phase==='growing'&&name==='carrot';
+ for(const[key,pieces]of Object.entries(cropInstances))pieces.forEach(p=>p.mesh.count=active&&key===name?order().targetBoxes:0);
+ sprouts.count=phase==='growing'&&!stagedCarrots?order().targetBoxes*2:0;
+ if(!active)return;
+ if(stagedCarrots)for(const pieces of Object.values(carrotStageInstances))pieces.forEach(p=>p.mesh.count=order().targetBoxes);
+ const pieces=cropInstances[name];
+ for(let i=0;i<order().targetBoxes;i++){
+  const c=cellPosition(i);let scale=harvested.has(i)?.001:1,appearance=null;
+  if(phase==='growing'){
+   if(stagedCarrots){appearance=carrotGrowth(Math.max(0,growTime-(c.row%3)*.035));scale=appearance.stage==='carrot'?appearance.scale:.001;}
+   else{const progress=Math.max(0,Math.min(1,(growTime-.22-(c.row%3)*.035)/.82));scale=progress<1?1-Math.pow(1-progress,3):1;}
+  }
+  dummy.position.set(c.x,.105,c.z);dummy.rotation.set(0,Math.sin(i*2.1)*.11,Math.sin(worldTime*1.4+i)*.025);dummy.scale.setScalar(scale);dummy.updateMatrix();applyInstance(pieces,i,dummy.matrix);
+  if(stagedCarrots){for(const[stage,stagePieces]of Object.entries(carrotStageInstances)){dummy.scale.setScalar(appearance.stage===stage?appearance.scale:.001);dummy.updateMatrix();applyInstance(stagePieces,i,dummy.matrix);}}
+  else if(phase==='growing'){
+   const seedScale=Math.min(1,growTime*5)*Math.max(0,1-(growTime-.25)*2);
+   for(let j=0;j<2;j++){dummy.position.set(c.x+(j?1:-1)*.065,.14+seedScale*.1,c.z);dummy.rotation.set(0,0,j?.7:-.7);dummy.scale.setScalar(seedScale);dummy.updateMatrix();sprouts.setMatrixAt(i*2+j,dummy.matrix);}
+  }
+ }
+ pieces.forEach(p=>p.mesh.instanceMatrix.needsUpdate=true);
+ if(stagedCarrots)for(const pieces of Object.values(carrotStageInstances))pieces.forEach(p=>p.mesh.instanceMatrix.needsUpdate=true);
+ else if(phase==='growing')sprouts.instanceMatrix.needsUpdate=true;
+}
 let previous=performance.now(),lastBird=0;
 function animate(now){requestAnimationFrame(animate);const dt=Math.min(.05,(now-previous)/1000);previous=now;if(paused)return;frames++;worldTime+=dt;if(phase==='growing'){growTime+=dt;if(growTime>.7)$('world-toast').textContent='';if(growTime>=1.14)beginHarvest();}else if(phase==='delivering'){deliveryTime+=dt;const t=Math.max(0,Math.min(1,deliveryTime/1.2)),smooth=t*t*(3-2*t);cart.position.lerpVectors(CART_HOME,CART_END,smooth);cart.position.y=Math.sin(t*Math.PI*10)*.025;cart.rotation.y=Math.atan2(CART_END.x-CART_HOME.x,CART_END.z-CART_HOME.z);if(deliveryTime>1.2)finishDelivery();}if(phase==='growing')cameraBlend=Math.min(1,growTime/1.14);else if(phase==='harvest')cameraBlend=1;else if(phase==='delivering')cameraBlend=1-Math.max(0,Math.min(1,deliveryTime/.85));else cameraBlend=0;updateCamera();if(windRotor)windRotor.rotation.z=worldTime*.23;updateCrops();for(const f of flyers){if(f.life<=0)continue;f.life-=dt;f.mesh.visible=f.life>0;const t=1-Math.max(0,f.life/.48);f.mesh.position.lerpVectors(f.start,CART_HOME,t);f.mesh.position.y=.3+Math.sin(t*Math.PI)*2.2;f.mesh.rotation.y+=dt*5;f.mesh.scale.setScalar(1-t*.55);}if(soundOn&&worldTime-lastBird>14&&['playing','harvest'].includes(phase)){lastBird=worldTime;tone(1568,.09,'sine',.007);tone(1760,.12,'sine',.006,.16);}renderer.render(scene,camera);}
 requestAnimationFrame(animate);
@@ -135,13 +162,14 @@ export const gameTest={get ready(){return ready;},start,answerCorrect(){if(!read
  getState:()=>({phase,round:round+1,level:round+1,score,coins,lives,solved,width:order().width,height,targetBoxes:order().targetBoxes,crop:order().crop,tutorial:order().tutorial,attempts,allAttempts,firstTry,firstAttempts,firstAttemptRate:firstAttempts?firstTry/firstAttempts:0,harvested:harvested.size,harvestTotal:order().targetBoxes,growth:farmStage,wins:saved.wins,visibleDecorations:growthGroups.filter(g=>g.visible).length,renderedFrames:frames,inputCount,elapsed:startedAt?(performance.now()-startedAt)/1000:0,duration,assetsLoaded:ready,storageAvailable,result:phase==='won'?'win':phase==='lost'?'loss':null}),
  getLayout(){const w=order().width*CELL,front=BACK+height*CELL;return{wide:innerWidth>=900,stageWidth:innerWidth,mode:innerWidth>=900?'open-farm-and-tools':'portrait-farm',viewport:{...viewport},handle:$('field-handle').getBoundingClientRect().toJSON(),actualFieldCorners:[[-w/2,BACK],[w/2,BACK],[w/2,front],[-w/2,front]].map(([x,z])=>projectWorld(x,.15,z)),crops:phase==='harvest'?cropScreenPoints():[]};},poolSize:POOL.length};
 
-async function load(){try{const loader=new GLTFLoader();await Promise.all(['farmhouse','market-stall','cart','windmill','apple-tree','fence','carrot','strawberry','corn','crate'].map(async name=>{templates[name]=(await loader.loadAsync(`./assets/${name}.glb?v=1`)).scene;}));
+async function load(){try{const loader=new GLTFLoader();await Promise.all(['farmhouse','market-stall','cart','windmill','apple-tree','fence','carrot','carrot-sprout','carrot-young','strawberry','corn','crate'].map(async name=>{templates[name]=(await loader.loadAsync(`./assets/${name}.glb?v=3`)).scene;}));
  const farmhouse=model('farmhouse',3.7,new THREE.Vector3(-5.6,0,-6.7),.1);market=model('market-stall',2.25,new THREE.Vector3(0,0,7.5),Math.PI/2);cart=model('cart',1.08,CART_HOME,-Math.PI/2);crateInstances=makeInstances('crate',144,.12,cart);decorateBuildings(scene,farmhouse,market);
  const mill=model('windmill',3.45,new THREE.Vector3(4,0,-6.9),.2);windRotor=mill.getObjectByName('windmill-rotor');
  for(const [x,z,s,rot]of[[-7.2,-3.7,2.5,.5],[-7.2,.3,2.35,.8],[-7,3.5,2.6,1],[7.5,-3.8,2.65,-.8],[7.7,.5,2.4,.1],[6.8,7.1,2.2,.6]])model('apple-tree',s,new THREE.Vector3(x,0,z),rot);
  for(const [x,z]of[[-9.8,-9],[-7,-10.7],[-3.8,-11.8],[.1,-11.9],[3.8,-11.8],[7.2,-10],[10,-7.2]])model('apple-tree',2.1,new THREE.Vector3(x,0,z),x*.15);
  for(const [x,z,rot]of[[-6.2,-8.4,0],[-4,-8.4,0],[-1.8,-8.4,0],[.4,-8.4,0],[2.6,-8.4,0],[4.8,-8.4,0],[-8.3,-5,Math.PI/2],[-8.3,-2.7,Math.PI/2],[-8.3,-.4,Math.PI/2],[8.5,-5,Math.PI/2],[8.5,-2.7,Math.PI/2],[8.5,-.4,Math.PI/2]])model('fence',.74,new THREE.Vector3(x,0,z),rot);
  for(const key of ['carrot','strawberry','corn'])cropInstances[key]=makeInstances(key,144,CROP_HEIGHT[key]);
+ for(const[stage,ratio]of Object.entries(CARROT_STAGE_HEIGHTS))carrotStageInstances[stage]=makeInstances(stage,144,CROP_HEIGHT.carrot*ratio);
  // Three permanent growth additions: flower baskets, new fruit trees, a second market awning.
  for(let i=0;i<3;i++){model('crate',.45,new THREE.Vector3(-1.8+i*.65,0,6.5),.2,growthGroups[0]);for(let j=0;j<4;j++){const flower=new THREE.Mesh(new THREE.IcosahedronGeometry(.13,0),mat(j%2?0xf1c272:0xe79987));flower.position.set(-1.98+i*.65+(j%2)*.3,.43,6.35+Math.floor(j/2)*.3);growthGroups[0].add(flower);}}
  model('apple-tree',2.35,new THREE.Vector3(-4.9,0,5.5),.5,growthGroups[1]);model('apple-tree',2.5,new THREE.Vector3(7.1,0,3.8),-.5,growthGroups[1]);
