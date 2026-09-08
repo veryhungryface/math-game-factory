@@ -91,22 +91,36 @@ button{font-family:inherit;cursor:pointer;touch-action:manipulation;appearance:n
 #scoreV{font-size:clamp(26px,6vw,40px);display:inline-block}
 #scoreV.roll{animation:digitRoll .28s steps(4,end)}
 @keyframes digitRoll{from{transform:translateY(8px);opacity:.4}to{transform:translateY(0);opacity:1}}
-#distV{font-size:clamp(18px,5vw,28px)}
+#distV{font-size:clamp(18px,5vw,28px);display:inline-block}
+/* (A5) 통과 카운터는 판정 프레임에 한 번 튄다 — 「지금 하나 늘었다」가 보여야 한다 */
+#distV.bump{animation:passBump .25s ease-out}
+@keyframes passBump{0%{transform:scale(1.34);color:var(--teal)}100%{transform:scale(1);color:var(--ink)}}
 #lives{display:flex;gap:6px;align-items:center}
 .life{width:16px;height:16px;border:3px solid var(--teal);border-radius:999px;background:var(--teal)}
 .life.off{background:transparent;border-color:var(--mute)}
+/* (A5) 방금 꺼진 하트는 라일락으로 깜빡였다 꺼진다 */
+.life.dying{animation:lifeGone .34s ease-out}
+@keyframes lifeGone{
+  0%{background:var(--violet);border-color:var(--violet);transform:scale(1.35)}
+  55%{background:#C0A8CC;border-color:#C0A8CC;transform:scale(1.1)}
+  100%{background:transparent;border-color:var(--mute);transform:scale(1)}}
 #passSlot{margin-left:auto;text-align:right}
 #nextMini{width:56px;height:56px;flex:0 0 auto;border:3px solid var(--ink);background:var(--paper);
   display:grid;place-items:center}
 #nextMini svg{width:44px;height:44px}
-#prompt{position:fixed;left:12px;right:12px;z-index:5;text-align:center;pointer-events:none;
-  font-weight:800;font-size:clamp(16px,4.4vw,22px);line-height:1.35;color:var(--ink);
-  background:var(--paper);border:3px solid var(--ink);padding:10px 14px;word-break:keep-all}
+/* 발문 카드. 3px 잉크 괘선이라는 이 게임의 문법은 지키되, 세로에서 무대를 덜 가리도록
+   위쪽 청록 괘선 한 줄만 두껍게 두고 나머지 테두리는 얇게 눕힌다. */
+#prompt{position:fixed;left:10px;right:10px;z-index:5;text-align:center;pointer-events:none;
+  font-weight:800;font-size:clamp(16px,4.2vw,22px);line-height:1.28;color:var(--ink);
+  background:var(--paper);border:2px solid var(--ink);border-top:5px solid var(--teal);
+  padding:8px 12px 9px;word-break:keep-all}
 #observe{position:fixed;left:12px;right:12px;top:calc(118px + var(--safeT));z-index:6;text-align:center;pointer-events:none;
   font-weight:800;font-size:15px;color:#fff;background:var(--violet);border:3px solid var(--ink);
   padding:8px 12px;opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s}
 #observe.on{opacity:1;transform:none}
-#observe.bad{background:var(--coral)}
+/* 오답·걸림은 라일락만 쓴다 — 산호는 「옆면(굽은 면)」이라는 개념색이라
+   실패에 쓰면 색이 가리키는 뜻이 무너진다. 라일락 위 잉크 글자로 대비를 잡는다. */
+#observe.bad{background:#C0A8CC;color:var(--ink)}
 /* 도움말 한 줄. 리스킨 전에는 옅은 하늘색 배경 위라 배경 없이도 읽혔지만, 3D 데크와
    청록 연석이 하단에 깔리면서 대비가 무너졌다. 크림 면을 깔아 「정보 배지」로 만든다
    (character-bible §5.5.4 — 누를 수 없는 것이므로 두께 그림자는 없다).
@@ -122,10 +136,11 @@ button{font-family:inherit;cursor:pointer;touch-action:manipulation;appearance:n
 #muteBtn:active{border-width:5px}
 
 /* ── 목표 한 줄(상시) · 코치(온보딩 중) ── */
-#goal{position:fixed;left:12px;right:12px;top:calc(76px + var(--safeT));z-index:6;pointer-events:none;
-  text-align:center;font-weight:800;font-size:14px;line-height:1.35;color:var(--ink);
-  background:var(--paper);border:3px solid var(--ink);padding:7px 10px;word-break:keep-all}
-#goal.ok{background:var(--teal);color:#fff}
+#goal{position:fixed;left:10px;right:10px;top:calc(74px + var(--safeT));z-index:6;pointer-events:none;
+  text-align:center;font-weight:800;font-size:14px;line-height:1.3;color:var(--ink);
+  background:var(--paper);border:2px solid var(--ink);padding:6px 10px;word-break:keep-all;
+  transition:background .12s,color .12s}
+#goal.ok{background:var(--teal);color:#fff;border-color:var(--teal)}
 #goal em{font-style:normal;color:var(--coral)}
 #goal.ok em{color:#fff}
 #coach{position:fixed;left:12px;right:12px;bottom:calc(152px + var(--safeB));z-index:24;
@@ -290,6 +305,7 @@ html.land #observe{left:calc(var(--stageX) + 16px);
 }}</script>
 <script type="module">
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /* ══════════════════════════════════════════════════════════════
    면을 대! — 6학년 2학기 「원기둥, 원뿔, 구」 [6수03-07]
@@ -888,12 +904,18 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(C3.sky);
 scene.fog = new THREE.Fog(new THREE.Color(C3.sky).lerp(new THREE.Color(C3.lilac), 0.16), 1100, 2850);
 const camera = new THREE.PerspectiveCamera(38, 1, 1, 9000);
+/* renderCam 은 평소 camera 다. __GAME_TEST__.debugSolid() 만 이걸 갈아 끼운다. */
+let renderCam = camera, orthoCam = null;
 /* Lambert 확산광. 조사량 합을 프로토타입에서 눈으로 맞춘 값 그대로 쓴다. */
-scene.add(new THREE.AmbientLight(0xFFFFFF, 1.45));
-scene.add(new THREE.HemisphereLight(0xFFFFFF, 0xD4E7EA, 0.6));
+const ambLight = new THREE.AmbientLight(0xFFFFFF, 1.45);
+const hemiLight = new THREE.HemisphereLight(0xFFFFFF, 0xD4E7EA, 0.6);
+scene.add(ambLight, hemiLight);
 const keyLight = new THREE.DirectionalLight(0xFFFFFF, 2.3);
 keyLight.position.set(-320, 650, 480);
 scene.add(keyLight);
+/* 조명도 카메라 레이어 필터를 탄다 — 디버그 레이어에서도 같은 빛을 받아야
+   실루엣이 아니라 「실제로 그려지는 모습」을 재는 것이 된다. */
+for (const l of [ambLight, hemiLight, keyLight]) l.layers.enable(1);
 
 /* 벨트면 아래로 내려간 문 판은 잘라 낸다 — 얕은 홈이 파여 닫힌 아랫테가 보인다. */
 const clipAtBelt = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.05)];
@@ -910,23 +932,35 @@ const M3 = {
   gate: new THREE.MeshBasicMaterial({ color: 0xF9FCFC, side: THREE.FrontSide, clippingPlanes: clipAtBelt, depthWrite: true }),
   gateInk: new THREE.LineBasicMaterial({ color: C3.ink, clippingPlanes: clipAtBelt }),
   border: new THREE.MeshBasicMaterial({ color: C3.ink, side: THREE.DoubleSide, clippingPlanes: clipAtBelt }),
-  fitRibbon: new THREE.MeshBasicMaterial({ color: C3.teal, side: THREE.DoubleSide, clippingPlanes: clipAtBelt }),
-  notFit: new THREE.LineDashedMaterial({ color: C3.lilac, dashSize: 5, gapSize: 3, clippingPlanes: clipAtBelt }),
+  fitRibbon: new THREE.MeshBasicMaterial({ color: C3.teal, side: THREE.DoubleSide, transparent: true, clippingPlanes: clipAtBelt }),
+  notFit: new THREE.LineDashedMaterial({ color: C3.lilac, dashSize: 5, gapSize: 3, transparent: true, clippingPlanes: clipAtBelt }),
   trace: new THREE.LineBasicMaterial({ color: C3.lilac, clippingPlanes: clipAtBelt }),
 };
+/* GLB(블렌더 단위 메시) 전용 머티리얼. 버텍스 컬러(COLOR_0, 0.94~1.00 회색조)를 곱해
+   부드러운 매트 음영을 만든다. 프로시저럴 폴백 지오메트리에는 COLOR 어트리뷰트가 없으므로
+   같은 머티리얼을 공유하면 색이 깨진다 — 반드시 분리한다. */
+const MG = {
+  side: new THREE.MeshLambertMaterial({ color: C3.coral, vertexColors: true }),
+  base: new THREE.MeshLambertMaterial({ color: C3.teal, vertexColors: true }),
+  sphere: new THREE.MeshLambertMaterial({ color: C3.violet, vertexColors: true }),
+};
+/* 레이어 1 = 「셰이딩된 입체만」. __GAME_TEST__.debugSolid() 가 카메라를 이 레이어로 옮겨
+   렌더 실루엣을 판정 치수와 기계로 대조할 수 있게 한다. 게임 로직은 레이어를 건드리지 않는다. */
+const DBG_LAYER = 1;
 
 const _v = new THREE.Vector3();
 const _q = new THREE.Vector3();
+const _lilac3 = new THREE.Color(C3.lilac);
 const cameraTarget = new THREE.Vector3();
 const shadowStamp = new THREE.Object3D(); shadowStamp.rotation.x = -Math.PI / 2;
 
 const playerG = new THREE.Group();
 scene.add(playerG);
 let solidGroup = null, solidType = 'cylinder', solidR = 44, solidH = 100;
-let originY = 51.4, poseRot = 40, poseX = 0;
+let originY = 51.4, poseRot = 40, poseX = 0, playerZ = 0;
 let beltW = 420, gateSpacing = 300;
 
-let belt, beltBase, beltTexture, blob, blobTexture, beltFrame, gateShadows, beltShadow;
+let belt, beltBase, beltTexture, blob, blobTexture, beltFrame, gateShadows, beltShadow, arrivalLine;
 const beltSlices = [], rails = [], gatePool = [], activeGates = [], orderedGates = [];
 let currentFit = false, closestGate = null;
 
@@ -937,24 +971,81 @@ function line3(points, material, loop) {
   const g = new THREE.BufferGeometry().setFromPoints(points);
   return loop ? new THREE.LineLoop(g, material) : new THREE.Line(g, material);
 }
-function releaseGeometry(group) { group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
+/* GLB 지오메트리는 3종 × 1벌만 존재하고 치수마다 스케일만 갈아 끼운다.
+   dispose 하면 다음 문에서 빈 메시가 되므로 __keep 표시가 있으면 건너뛴다. */
+function releaseGeometry(group) {
+  group.traverse((o) => { if (o.geometry && !o.geometry.userData.__keep) o.geometry.dispose(); });
+}
+
+/* ── 블렌더 단위 메시 (assets/solids.glb) ───────────────────────────────
+   unit_cylinder / unit_cone : XZ 반지름 1.0 · y ∈ [-0.5, +0.5] (원뿔 꼭짓점 y=+0.5)
+   unit_sphere               : 반지름 1.0 원점 중심
+   → 런타임 스케일 (r, h, r) / (r, r, r) 만으로 판정 치수와 정확히 일치한다.
+   머티리얼 이름(mat_side / mat_base / mat_sphere)으로 색을 배정한다 — 인덱스가 아니라
+   이름으로 잡아야 GLTFLoader 가 primitive 를 어떻게 쪼개든 색 약속이 유지된다. */
+const UNIT = { ok: false, cylinder: null, cone: null, sphere: null };
+function loadUnitSolids() {
+  let loader;
+  try { loader = new GLTFLoader(); } catch (e) { return; }
+  loader.load('./assets/solids.glb', (gltf) => {
+    const grab = (name) => {
+      const root = gltf.scene.getObjectByName(name);
+      if (!root) return null;
+      const parts = [];
+      root.traverse((n) => {
+        if (!n.isMesh || !n.geometry) return;
+        const ms = Array.isArray(n.material) ? n.material : [n.material];
+        const mn = (ms[0] && ms[0].name) || '';
+        n.geometry.userData.__keep = true;
+        parts.push({ geo: n.geometry, mat: mn === 'mat_base' ? MG.base : mn === 'mat_sphere' ? MG.sphere : MG.side });
+      });
+      return parts.length ? parts : null;
+    };
+    const cyl = grab('unit_cylinder'), cone = grab('unit_cone'), sph = grab('unit_sphere');
+    if (!cyl || !cone || !sph) return;   // 조용히 폴백을 유지한다
+    UNIT.cylinder = cyl; UNIT.cone = cone; UNIT.sphere = sph; UNIT.ok = true;
+    /* 이미 서 있는 입체를 조용히 교체한다 */
+    const t = solidType, r = solidR, h = solidH;
+    solidType = ''; Stage.setSolid(t, r, h);
+  }, undefined, () => { /* 404·파싱 실패 — 프로시저럴 폴백으로 계속 간다 */ });
+}
 
 function makeSolid(type, r, h) {
   const group = new THREE.Group();
-  const geometry = type === 'sphere'
+  /* 이상적 프리미티브. 잉크 윤곽선과 실루엣 껍질은 항상 여기서 뽑는다 —
+     베벨이 있는 GLB 에서 EdgesGeometry 를 뽑으면 이중선이 되어 선화 톤이 깨진다. */
+  const ideal = type === 'sphere'
     ? new THREE.SphereGeometry(r, 24, 16)
     : new THREE.CylinderGeometry(type === 'cone' ? 0 : r, r, h, 32, 1, false);
-  if (type !== 'sphere') {
-    /* 윗면·아랫면은 같은 청록이므로 한 그룹으로 합친다 — 드로우콜 1회 절약 */
-    const side = geometry.groups[0], caps = geometry.groups.slice(1);
-    geometry.clearGroups();
-    geometry.addGroup(side.start, side.count, 0);
-    geometry.addGroup(caps[0].start, caps.reduce((n, g) => n + g.count, 0), 1);
-  }
-  const mesh = new THREE.Mesh(geometry, type === 'sphere' ? M3.violet : [M3.coral, M3.teal]);
-  const hull3 = new THREE.Mesh(geometry, M3.hull);
+  const hull3 = new THREE.Mesh(ideal, M3.hull);
   hull3.scale.setScalar(1.022);  // 뒷면 껍질이 연속된 실루엣을 만든다
-  group.add(hull3, mesh, outline3(geometry, M3.solidInk, 23));
+  group.add(hull3);
+
+  const parts = UNIT.ok ? UNIT[type] : null;
+  if (parts) {
+    const unit = new THREE.Group();
+    unit.userData.__shaded = true;
+    unit.scale.set(r, type === 'sphere' ? r : h, r);
+    for (const p of parts) {
+      const m = new THREE.Mesh(p.geo, p.mat);
+      m.layers.enable(DBG_LAYER);
+      unit.add(m);
+    }
+    group.add(unit);
+  } else {
+    if (type !== 'sphere') {
+      /* 윗면·아랫면은 같은 청록이므로 한 그룹으로 합친다 — 드로우콜 1회 절약 */
+      const side = ideal.groups[0], caps = ideal.groups.slice(1);
+      ideal.clearGroups();
+      ideal.addGroup(side.start, side.count, 0);
+      ideal.addGroup(caps[0].start, caps.reduce((n, g) => n + g.count, 0), 1);
+    }
+    const mesh = new THREE.Mesh(ideal, type === 'sphere' ? M3.violet : [M3.coral, M3.teal]);
+    mesh.layers.enable(DBG_LAYER);
+    const wrap = new THREE.Group(); wrap.userData.__shaded = true; wrap.add(mesh);
+    group.add(wrap);
+  }
+  group.add(outline3(ideal, M3.solidInk, 23));
   if (type === 'sphere') {
     const eq = new THREE.EllipseCurve(0, 0, r, r, 0, Math.PI * 2);
     const eqm = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(eq.getPoints(28)), M3.equator);
@@ -1027,6 +1118,13 @@ function makeBelt() {
   beltShadow.rotation.x = -Math.PI / 2;
   beltShadow.position.set(18, -44, (BELT_NEAR + BELT_FAR) / 2);
   beltShadow.scale.set(beltW * 1.5, BELT_LENGTH * 1.14, 1); scene.add(beltShadow);
+  /* 판정선 — 벨트를 가로지르는 한 줄. 문이 여기에 닿는 순간이 판정 순간이다. */
+  arrivalLine = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ color: C3.ink, transparent: true, opacity: 0.2, depthWrite: false }));
+  arrivalLine.rotation.x = -Math.PI / 2;
+  arrivalLine.position.set(0, 1.1, 0);
+  arrivalLine.visible = false;
+  scene.add(arrivalLine);
   applyBeltWidth();
 }
 function applyBeltWidth(lanes) {
@@ -1173,9 +1271,10 @@ const Stage = {
       : solidType === 'cone' ? Math.max(-solidH / 2 * c, solidH / 2 * c + solidR * s)
         : solidH / 2 * Math.abs(c) + solidR * s;
     originY = support + 1.4;
-    playerG.position.set(x, originY, 0);
+    playerG.position.set(x, originY, playerZ);
     if (solidGroup) solidGroup.rotation.x = angle;
     if (blob) {
+      blob.position.z = playerZ;
       blob.position.x = x;
       const depth = solidType === 'sphere' ? solidR : solidH / 2 * s + solidR * Math.abs(c);
       blob.scale.set(solidR * 2.55, Math.max(36, depth) * 2.35, 1);
@@ -1206,6 +1305,19 @@ const Stage = {
     applyFit(); updateBeltSlices();
   },
   setFit(ok) { currentFit = !!ok; applyFit(); },
+  /* ⚠ 표시 전용 깊이. 판정·투영 좌표계는 z=0 으로 고정이며 judge()·projectWorld() 는
+     이 값을 절대 보지 않는다. 접근 중에는 반드시 0 이다(통과 통과·걸림 반동 때만 움직인다). */
+  setZ(z) { playerZ = z; Stage.setPose(poseRot, poseX); },
+  /* 판정선 — 문 판의 아랫변이 이 선에 겹치는 순간이 판정 순간이다.
+     near(0→1) 가 커질수록 두꺼워지고 진해져 「곧 닿는다」를 만든다. */
+  setArrival(near, fit) {
+    if (!arrivalLine) return;
+    const k = clamp(near, 0, 1);
+    arrivalLine.scale.set(beltW + 10, 3.5 + k * 9, 1);
+    arrivalLine.material.color.set(fit ? C3.teal : C3.ink);
+    arrivalLine.material.opacity = 0.18 + k * 0.52;
+    arrivalLine.visible = k > 0.001;
+  },
   update(dt) {
     if (beltTexture && Number.isFinite(dt) && dt > 0) {
       beltTexture.offset.y = (beltTexture.offset.y + BELT_SPEED * dt / 128) % 1;
@@ -1274,6 +1386,8 @@ function placeCamera() {
 }
 makeBelt();
 Stage.setSolid('cylinder', 44, 100);
+/* 비동기다 — 게임은 기다리지 않는다. 도착하면 조용히 프로시저럴 메시를 대체한다. */
+loadUnitSolids();
 
 /* ── 상태 ── */
 const S = {
@@ -1283,7 +1397,7 @@ const S = {
   combo: 0, perfects: 0, diff: 'easy',
   rot: 40, x: 0, locked: false, timeScale: 1,
   t: 0, approach: 0, travel: 5.2, elapsed: 0, session: 90,
-  gate: null, queue: [], stains: [], trails: [],
+  gate: null, queue: [], trails: [],
   fold: 0, tagT: 0, tagDone: false, hitStop: 0, passing: false,
   lastFailKind: '', failCounts: {}, circleToday: 0, relayOk: 0, inRelay: false,
   W: 390, H: 844, pointer: null, firstGhostHint: false, judged: false, resLock: 0,
@@ -1296,6 +1410,18 @@ const S = {
   frozen: false,     // 온보딩 중 문 접근·시간 정지 (벌이 아니라 안내다)
   hintBig: false,
   ripples: [], nudge: 0, firstPassShown: false, revealT: 0, revealMsg: '',
+  /* ── 판정 순간 레이어 (표시 전용 — 판정 수학과 완전히 분리) ── */
+  near: 0,           // 문까지의 임박도 0→1. 도달선·테두리 점멸·틱 소리가 전부 이걸 읽는다
+  pulse: 0,          // 점멸 위상 누적치(주파수가 변해도 위상이 튀지 않는다)
+  tickT: 0,          // 다음 틱 소리까지 남은 시간
+  failT: 0,          // 걸린 뒤 「멈춰서 보여 주는」 시간. 이게 0 이 되어야 다음 문으로 간다
+  failEnd: false,    // 이 실패가 마지막 목숨이었는가
+  ringT: 0,          // 통과 링 펄스 타이머
+  ringGate: null,    // 그 링을 그릴 구멍 정보 스냅샷
+  gateFlash: 0,      // 걸림 순간 문 판이 라일락으로 물드는 타이머
+  hitMarks: null,    // { segs: [[{x,y}...]], t } — 구멍 밖으로 튀어나와 걸린 구간
+  recoil: 0,         // 반동 경과 시간
+  zOff: 0,           // 표시 전용 깊이 (통과 = 뒤로, 걸림 = 튕김)
 };
 
 function laneX(i) { return (S.worldShiftX || 0) + ([-1.5, -0.5, 0.5, 1.5][i] || 0) * S.laneW; }
@@ -1347,7 +1473,7 @@ function layout() {
   renderer.setViewport(SX, 0, STAGE, H);
   renderer.setScissor(SX, 0, STAGE, H);
   renderer.setScissorTest(SX > 0);
-  $('prompt').style.bottom = S.land ? '' : `calc(88px + var(--safeB))`;
+  $('prompt').style.bottom = S.land ? '' : `calc(80px + var(--safeB))`;
   $('prompt').style.top = S.land ? '' : '';
   $('lockBtn').style.right = S.land ? '' : '12px';
   $('lockBtn').style.bottom = `calc(18px + var(--safeB))`;
@@ -1366,6 +1492,17 @@ function w2p(x, y) {
   const vw = S.stageW || S.W;
   const ox = S.stageX || 0;
   Stage.planePoint(x, y, _v).project(camera);
+  return {
+    x: Math.round(ox + (_v.x * 0.5 + 0.5) * vw),
+    y: Math.round((1 - (_v.y * 0.5 + 0.5)) * S.H),
+  };
+}
+/* 통과·반동 연출 중에만 쓰는 z 인지 투영. 판정은 언제나 z=0 이므로 w2p 는 그대로 두고
+   「지금 화면에서 입체가 실제로 어디 있는가」가 필요한 오버레이만 이걸 쓴다. */
+function w2pz(x, y) {
+  const vw = S.stageW || S.W;
+  const ox = S.stageX || 0;
+  _v.set(x, originY + y, S.zOff || 0).project(camera);
   return {
     x: Math.round(ox + (_v.x * 0.5 + 0.5) * vw),
     y: Math.round((1 - (_v.y * 0.5 + 0.5)) * S.H),
@@ -1495,12 +1632,14 @@ function showObs(msg, bad) {
   showObs._t = setTimeout(() => el.classList.remove('on'), bad ? 2900 : 1600);
 }
 
-function setLives() {
+/* blinkFrom 을 주면 그 자리의 하트가 라일락으로 잠깐 깜빡였다 꺼진다 —
+   생존이 줄었다는 사실이 판정 순간과 같은 프레임에 눈에 들어와야 한다 (A5). */
+function setLives(blinkFrom) {
   const el = $('lives');
   el.innerHTML = '';
   for (let i = 0; i < S.maxLives; i++) {
     const d = document.createElement('span');
-    d.className = 'life' + (i >= S.lives ? ' off' : '');
+    d.className = 'life' + (i >= S.lives ? ' off' : '') + (i === blinkFrom ? ' dying' : '');
     el.appendChild(d);
   }
 }
@@ -1510,6 +1649,13 @@ function punchScore() {
   el.classList.remove('roll');
   void el.offsetWidth;
   el.classList.add('roll');
+}
+/* (A5) 통과 카운터도 판정 프레임에 한 번 튄다 */
+function punchPass() {
+  const el = $('distV');
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
 }
 function drawNext(g) {
   const box = $('nextMini');
@@ -1532,6 +1678,10 @@ function spawnGate(g) {
   $('lockBtn').classList.remove('on');
   S.tagT = 0; S.tagDone = false; S.judged = false;
   S.passing = false;
+  S.near = 0; S.tickT = 0; S.failT = 0; S.failEnd = false;
+  S.ringT = 0; S.ringGate = null; S.gateFlash = 0; S.hitMarks = null;
+  S.recoil = 0; S.zOff = 0;
+  Stage.setZ(0);
   Stage.setSolid(g.solidType, g.r, g.h);
   Stage.setPose(S.rot, S.x);
   $('prompt').textContent = g.prompt;
@@ -1589,13 +1739,17 @@ function applyPass(info) {
     }
   } else S.perfects = 0;
   sfxPass();
-  S.hitStop = 0.09;
+  /* (A2) 판정 순간 정지감 — 통과는 짧게 끊는다 */
+  S.hitStop = 0.10;
   punchScore();
+  /* (A5) HUD 를 판정 프레임에 갱신하고, 갱신됐다는 것이 보이게 한다 */
   $('distV').textContent = String(S.solved);
-  /* 윤곽 청록 되감기 — 파티클/흔들림/팝업 없음 */
-  S.stains = S.stains.map((s) => ({ ...s, fix: true }));
+  punchPass();
+  S.hitMarks = null;
+  /* (A2)(A3) 구멍 테두리에서 퍼지는 청록 링 — 파티클·흔들림 없이 판정을 알린다 */
+  if (g) { S.ringT = 1; S.ringGate = { view: g.gateView, r: g.r, h: g.h, gx: laneX(g.gateLane), pad: gatePadWorld(g) }; }
   if (!info.forced) { S.tagT = 1.8; S.passing = true; }  // 입체가 구멍을 빠져나가 문 뒤로 남는다
-  else nextGate();
+  else { S.zOff = 0; Stage.setZ(0); nextGate(); }
 }
 
 function applyFail() {
@@ -1604,7 +1758,9 @@ function applyFail() {
      보여 준 뒤 같은 문을 처음부터 다시 보낸다 (boundary-rush 의 freezeWave 와 같은 취지). */
   if (g && g.tutorial) {
     sfxFail();
-    S.hitStop = 0.09;
+    S.hitStop = 0.14;
+    S.gateFlash = 1;
+    markHit(g);
     S.combo = 0; S.perfects = 0;
     S.tutFails = (S.tutFails || 0) + 1;
     /* 두 번 못 맞혀도 온보딩에 갇히지 않는다 — 문을 열어 주고 본 판으로 보낸다 */
@@ -1624,10 +1780,14 @@ function applyFail() {
   S.lives = Math.max(0, S.lives - 1);
   S.combo = 0;
   S.perfects = 0;
-  setLives();
+  setLives(S.lives);   // (A5) 방금 꺼진 하트가 라일락으로 깜빡였다 꺼진다
   sfxFail();
-  S.hitStop = 0.09;
+  /* (A2) 걸림은 통과보다 길게 멈춘다 — 「지금 걸렸다」를 읽을 시간을 준다 */
+  S.hitStop = 0.14;
+  S.gateFlash = 1;
+  S.recoil = 0.001;    // (A4) 문에 부딪혀 플레이어 쪽으로 튕긴다
   if (g) {
+    markHit(g);        // (A4) 구멍 밖으로 튀어나온 구간을 문 판에 라일락으로 남긴다
     S.lastFailKind = g.solidType;
     const msg = observeOf(g, S.rot);
     showObs('문을 못 지나갔어요 — ' + msg + ' ' + faceHint(g), true);
@@ -1636,16 +1796,35 @@ function applyFail() {
       : msg.indexOf('원') >= 0 ? MIS.SPHERE_DIFF_VIEWS
       : 'wrong-face';
     S.failCounts[kind] = (S.failCounts[kind] || 0) + 1;
-    const outline = resample(projectWorld(g.solidType, g.r, g.h, S.rot, S.x), 24);
-    S.stains.push({ pts: outline, t: 1, squash: 1, fix: false });
-    if (S.stains.length > 4) S.stains.shift();
     if (S.diff === 'easy' && !S.firstGhostHint) {
       S.firstGhostHint = true;
       showObs('문을 못 지나갔어요 — ' + msg + ' 점선이 딱 맞는 자세예요.', true);
     }
   }
-  if (S.lives <= 0) return endRun(true);
-  nextGate();
+  /* 예전에는 여기서 곧바로 nextGate() 를 불러 걸린 문이 즉시 사라졌다 —
+     그래서 「벽에 닿았는지」가 안 보였다. 0.8초 동안 걸린 문을 그 자리에 세워 둔다. */
+  S.failT = 0.8;
+  S.failEnd = S.lives <= 0;
+}
+
+/* (A4) 구멍 밖으로 튀어나온 외곽 구간을 찾아 둔다 — 「왜 걸렸는가」를 가리키는 자국이다.
+   judge()·gatePolyWorld()·pip() 는 읽기만 한다(수정 금지 대상). */
+function markHit(g) {
+  const j = judge(g, S.rot, S.x);
+  const poly = gatePolyWorld(g.gateView, g.r, g.h, j.gx, j.padW);
+  const flags = j.outline.map((p) => !pip(p.x, p.y, poly));
+  const segs = [];
+  let cur = null;
+  for (let i = 0; i < j.outline.length; i++) {
+    if (flags[i]) { if (!cur) { cur = []; segs.push(cur); } cur.push(j.outline[i]); }
+    else cur = null;
+  }
+  /* 폴리곤은 닫혀 있다 — 첫 조각과 끝 조각이 이어지면 하나로 합친다 */
+  if (segs.length > 1 && flags[0] && flags[flags.length - 1]) {
+    segs[0] = segs[segs.length - 1].concat(segs[0]);
+    segs.pop();
+  }
+  S.hitMarks = segs.length ? { segs, t: 1 } : null;
 }
 
 function mostFailNote() {
@@ -1692,7 +1871,10 @@ function startRun(diff, withTutorial) {
   S.score = 0; S.showScore = 0; S.solved = 0; S.combo = 0; S.perfects = 0;
   S.maxLives = S.diff === 'hard' ? 3 : 4;
   S.lives = S.maxLives;
-  S.elapsed = 0; S.fold = 0; S.stains = []; S.trails = []; S.passing = false;
+  S.elapsed = 0; S.fold = 0; S.trails = []; S.passing = false;
+  S.near = 0; S.tickT = 0; S.failT = 0; S.failEnd = false;
+  S.ringT = 0; S.ringGate = null; S.gateFlash = 0; S.hitMarks = null;
+  S.recoil = 0; S.zOff = 0; Stage.setZ(0);
   S.failCounts = {}; S.lastFailKind = ''; S.relayOk = 0; S.inRelay = false;
   S.firstGhostHint = false; S.locked = false; S.timeScale = 1;
   S.resLock = 0; $('againBtn').disabled = false;
@@ -1893,6 +2075,9 @@ function ptrDown(e) {
 }
 function ptrMove(e) {
   if (!S.pointer || S.phase !== 'playing') return;
+  /* 판정이 끝나고 결과를 보여 주는 구간(통과 통과·걸림 정지)에서는 자세를 못 바꾼다 —
+     학생이 방금 만든 자세와 화면의 자국이 어긋나면 왜 걸렸는지가 지워진다. */
+  if (S.tagT > 0 || S.failT > 0) return;
   const t = e.changedTouches ? e.changedTouches[0] : e;
   const dx = t.clientX - S.pointer.lx;
   const dy = t.clientY - S.pointer.ly;
@@ -2030,21 +2215,44 @@ function drawFX() {
     const p = w2p(tr.x, 0);
     html += `<circle cx="${p.x}" cy="${p.y}" r="${10 + tr.life * 8}" fill="none" stroke="#F05D5E" stroke-width="3" opacity="${tr.life * 0.35}"/>`;
   }
-  for (const st of S.stains) {
-    const sy = 0.18 + st.squash * 0.82;
-    const col = st.fix ? '#159A9C' : '#6C4AB6';
-    const c = w2p(0, 0);
-    html += `<g transform="translate(0,${c.y}) scale(1,${sy}) translate(0,${-c.y})" opacity="${st.t}">
-      <polygon points="${polyStr(st.pts, true)}" fill="${col}" fill-opacity=".45" stroke="${col}" stroke-width="3"/></g>`;
+  /* (A4) 걸린 자국 — 구멍 밖으로 튀어나와 문 판에 부딪힌 구간만 라일락으로 굵게 남긴다.
+     입체 실루엣 전체를 칠하던 예전 방식은 「왜 걸렸는지」를 못 가리켰다. */
+  if (S.hitMarks) {
+    const a = Math.min(1, S.hitMarks.t * 1.6);
+    for (const seg of S.hitMarks.segs) {
+      if (seg.length < 2) {
+        const p = w2p(seg[0].x, seg[0].y);
+        html += `<circle cx="${p.x}" cy="${p.y}" r="6" fill="#C0A8CC" opacity="${a.toFixed(2)}"/>`;
+        continue;
+      }
+      html += `<polyline points="${polyStr(seg, true)}" fill="none" stroke="#C0A8CC"
+        stroke-width="9" stroke-linecap="round" stroke-linejoin="round" opacity="${a.toFixed(2)}"/>`;
+      html += `<polyline points="${polyStr(seg, true)}" fill="none" stroke="#6C4AB6"
+        stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="${(a * 0.8).toFixed(2)}"/>`;
+    }
   }
-  /* 보너스 소켓 — 통과 직후 2초. 높이·모선 error_find는 접근 중에도 구간을 보여 구별 */
+  /* (A2)(A3) 통과 링 — 구멍 테두리에서 바깥으로 한 번 퍼진다 */
+  if (S.ringT > 0 && S.ringGate) {
+    const rg = S.ringGate;
+    const base = gatePolyWorld(rg.view, rg.r, rg.h, rg.gx, rg.pad);
+    for (const phase of [0, 0.28]) {
+      const t = S.ringT - phase;
+      if (t <= 0 || t >= 1) continue;
+      const k = 1 + (1 - t) * 0.42;
+      const pts = base.map((p) => ({ x: rg.gx + (p.x - rg.gx) * k, y: p.y * k }));
+      html += `<polygon points="${polyStr(pts, true)}" fill="none" stroke="#159A9C"
+        stroke-width="${(3 + t * 4).toFixed(1)}" opacity="${(t * 0.85).toFixed(2)}"/>`;
+    }
+  }
+  /* 보너스 소켓 — 통과 직후 2초. 높이·모선 error_find는 접근 중에도 구간을 보여 구별.
+     통과 연출 중에는 입체가 z 로 물러나므로 화면 좌표도 같이 옮긴다. */
   const showSock = g && (S.tagT > 0 || (g.kind === 'error_find' && g.solidType === 'cone' && g.gateView === 'triangle'));
   if (showSock) {
     const sockets = tagSockets(g);
     for (const s of sockets) {
-      const p = w2p(s.x, s.y);
+      const p = w2pz(s.x, s.y);
       if (s.x1 != null) {
-        const a = w2p(s.x1, s.y1), b = w2p(s.x2, s.y2);
+        const a = w2pz(s.x1, s.y1), b = w2pz(s.x2, s.y2);
         html += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#14383A" stroke-width="3"/>`;
       }
       html += `<circle cx="${p.x}" cy="${p.y}" r="18" fill="#fff" stroke="#14383A" stroke-width="3"/>
@@ -2092,7 +2300,9 @@ function drawGuide(g) {
     stroke="#159A9C" stroke-width="3" stroke-dasharray="6 8" opacity=".55"/>`;
 
   /* 지금 무엇이 맞고 무엇이 틀렸는지 — 정답 판정에는 손대지 않고 상태만 읽어 보여 준다 */
-  const j0 = (S.tut === 1 || S.tut === 2) ? null : S._lastJudge;
+  /* 판정이 끝난 뒤(통과 통과·걸림 정지)에는 상태 배지를 내린다 — 입체가 z 로 움직이는
+     동안 판정 좌표에 붙은 배지가 허공에 뜨고, 이미 끝난 판정을 되풀이해 말하기 때문이다. */
+  const j0 = (S.tut === 1 || S.tut === 2 || S.tagT > 0 || S.failT > 0) ? null : S._lastJudge;
   if (j0) {
     const angOk = j0.aerr <= g.toleranceDeg;
     const dir = j0.gx > S.x ? '오른쪽으로' : '왼쪽으로';
@@ -2340,26 +2550,79 @@ function frame(now) {
     S.elapsed += dt * (S.hitStop > 0 || S.frozen ? 0 : 1);
     for (const tr of S.trails) tr.life -= dt * 1.6;
     S.trails = S.trails.filter((t) => t.life > 0);
-    for (const st of S.stains) {
-      st.squash = Math.max(0.12, st.squash - dt * 1.8);
-      st.t -= dt * 0.12;
-    }
-    S.stains = S.stains.filter((s) => s.t > 0.08);
     if (S.fold > 0) S.fold -= dt;
     if (S.tagT > 0) {
       S.tagT -= dt;
-      if (S.tagT <= 0) nextGate();
+      if (S.tagT <= 0) { S.zOff = 0; Stage.setZ(0); nextGate(); }
+    } else if (S.failT > 0) {
+      /* (A2)(A4) 걸린 문을 그 자리에 세워 두고 자국·반동을 보여 주는 구간 */
+      S.failT -= dt;
+      if (S.failT <= 0) {
+        S.zOff = 0; Stage.setZ(0);
+        if (S.failEnd) endRun(true);   // ⚠ frame() 에서 return 하면 rAF 가 끊긴다
+        else nextGate();
+      }
     } else if (!S.frozen) {
       S.approach += dt * ts;
       if (S.approach >= S.travel && S.hitStop <= 0 && !S.judged) {
         S.judged = true;
         const j = judge(S.gate, S.rot, S.x);
-        S.hitStop = 0.09;
         if (j.ok) applyPass({ perfect: j.perfect });
         else applyFail();
       }
     }
-    if (!S.frozen && S.elapsed >= S.session && S.tagT <= 0) endRun(false);
+    if (!S.frozen && S.elapsed >= S.session && S.tagT <= 0 && S.failT <= 0) endRun(false);
+  }
+
+  /* ── 판정 순간 레이어 (표시 전용) ────────────────────────────────────
+     (A1) 임박도 near 하나가 도달선·테두리 점멸·틱 소리를 함께 몬다. */
+  if (S.phase === 'playing' && S.gate && S.tagT <= 0 && S.failT <= 0 && !S.frozen) {
+    const u = clamp(S.approach / S.travel, 0, 1);
+    S.near = clamp((u - 0.55) / 0.45, 0, 1);
+  } else if (S.tagT > 0 || S.failT > 0) S.near = 1;
+  else S.near = 0;
+  {
+    const fit = !!(S._lastJudge && S._lastJudge.ok);
+    Stage.setArrival(S.phase === 'playing' || S.phase === 'tag' ? S.near : 0, fit);
+    /* 문 테두리 점멸 가속: 2.2Hz → 7Hz. 위상을 누적해 주파수가 변해도 튀지 않는다. */
+    const hz = REDUCE ? 0 : lerp(2.2, 7.0, S.near);
+    S.pulse += dt * hz * Math.PI * 2;
+    const k = REDUCE ? 1 : 0.5 + 0.5 * Math.sin(S.pulse);
+    M3.fitRibbon.opacity = 0.6 + 0.4 * k;
+    M3.notFit.opacity = 0.42 + 0.58 * k;
+    /* (A2) 걸림 순간 문 판이 잠깐 라일락으로 물든다 */
+    if (S.gateFlash > 0) {
+      S.gateFlash = Math.max(0, S.gateFlash - dt / 0.14);
+      M3.gate.color.setHex(0xF9FCFC).lerp(_lilac3, 0.8 * S.gateFlash);
+    } else if (M3.gate.color.getHex() !== 0xF9FCFC) M3.gate.color.setHex(0xF9FCFC);
+  }
+  /* (A1) 틱 소리 가속 — 오디오는 사용자 제스처로 열린 뒤에만 울린다 */
+  if (S.near > 0 && S.phase === 'playing' && S.tagT <= 0 && S.failT <= 0 && !S.frozen && AC && !muted) {
+    S.tickT -= dt;
+    if (S.tickT <= 0) {
+      beep(600 + S.near * 220, 0.02, 'square', 0.028);
+      S.tickT = lerp(0.42, 0.10, S.near);
+    }
+  } else S.tickT = 0;
+  /* (A3) 통과 = 입체가 구멍을 빠져나가 문 뒤로 멀어진다 / (A4) 걸림 = 앞으로 튕긴다.
+     둘 다 표시 전용 z 이고 S.x·S.rot 은 건드리지 않는다. */
+  {
+    let z = 0;
+    if (S.tagT > 0) {
+      const p = clamp((1.8 - S.tagT) / 0.55, 0, 1);
+      z = -(THICKNESS + 70) * (1 - (1 - p) * (1 - p));
+    } else if (S.recoil > 0) {
+      if (S.hitStop <= 0) S.recoil += dt;   // 히트스톱이 끝난 뒤에 튕긴다
+      const t = S.recoil;
+      z = t < 0.35 ? 15 * Math.exp(-t * 9) * Math.cos(t * 26) : 0;
+      if (t >= 0.35) { S.recoil = 0; z = 0; }
+    }
+    if (z !== S.zOff) { S.zOff = z; Stage.setZ(z); }
+  }
+  if (S.ringT > 0) S.ringT = Math.max(0, S.ringT - dt / 0.9);
+  if (S.hitMarks) {
+    S.hitMarks.t -= dt / 1.5;
+    if (S.hitMarks.t <= 0) S.hitMarks = null;
   }
   /* 판정 상태는 매 프레임 갱신한다 — updateGoal()·drawGuide()·문 테두리가 전부 이걸 읽는다.
      judge() 자체는 손대지 않는다. */
@@ -2382,7 +2645,7 @@ function frame(now) {
     renderer.setViewport(S.stageX, 0, S.stageW, S.H);
     renderer.setScissor(S.stageX, 0, S.stageW, S.H);
   }
-  renderer.render(scene, camera);
+  renderer.render(scene, renderCam);
   requestAnimationFrame(frame);
 }
 
@@ -2443,6 +2706,11 @@ window.__GAME_TEST__ = {
     if (S.phase !== 'playing') startRun('easy');
     S.tagT = 0;
     applyFail();
+    /* 훅은 즉시 결과가 나와야 한다 — 사람에게 보여 주는 0.8초 정지 구간은 건너뛴다 */
+    if (S.failT > 0) {
+      S.failT = 0; S.zOff = 0; Stage.setZ(0);
+      if (S.failEnd) endRun(true); else nextGate();
+    }
   },
   /* answerNumeric 은 '정답을 수로 환산할 수 있을 때만' 그 수를 담는다.
      정답이 이름·서술(밑면·모선·서로 합동이고 평행해요)이면 null 이다. 인덱스·치수를 섞어 넣지 않는다. */
@@ -2454,26 +2722,69 @@ window.__GAME_TEST__ = {
     const g = S.gate;
     const pts = g ? projectWorld(g.solidType, g.r, g.h, S.rot, S.x) : [];
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    let wx0 = 1e9, wx1 = -1e9, wy0 = 1e9, wy1 = -1e9;
     for (const p of pts) {
       const q = w2p(p.x, p.y);
       x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x);
       y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+      wx0 = Math.min(wx0, p.x); wx1 = Math.max(wx1, p.x);
+      wy0 = Math.min(wy0, p.y); wy1 = Math.max(wy1, p.y);
     }
     const span = laneSpan() * S.laneW;
     return {
       W: S.W, H: S.H, land: S.land, stageX: S.stageX, stageW: S.stageW,
       solid: g ? { type: g.solidType, r: g.r, h: g.h, rot: Math.round(S.rot) } : null,
       silhouette: pts.length ? { x0, x1, y0, y1, w: x1 - x0, h: y1 - y0, cyPct: +((y0 + y1) / 2 / S.H).toFixed(3) } : null,
+      /* 판정 좌표계(z 축 정사영) 그대로의 외곽 상자 — debugSolid('ortho') 렌더와 1:1 로 대조된다 */
+      judgeBox: pts.length ? { x0: +wx0.toFixed(3), x1: +wx1.toFixed(3), y0: +wy0.toFixed(3), y1: +wy1.toFixed(3) } : null,
       center: w2p(S.x, 0),
       laneEdge: [w2p(-span, 0).x, w2p(span, 0).x],
       lanes: [0, 1, 2, 3].map((i) => w2p(laneX(i), 0).x),
       pxPerWorld: +pxPerWorld().toFixed(3),
+      glb: UNIT.ok ? 'ok' : 'fallback',
+      zOff: +(S.zOff || 0).toFixed(3),
       gates: activeGates.length, pool: gatePool.length,
       calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
       cam: camera.position.toArray().map((n) => Math.round(n)),
     };
   },
   simBots,
+  /* 검증 전용 — 셰이딩된 입체만 남기고 3D 무대를 전부 끈다(카메라 레이어 전환).
+     게임 상태(S.*)·판정·점수는 아무것도 바꾸지 않는다. 감독이 이 상태의 캔버스 픽셀
+     bbox 를 probeStage().silhouette(= projectWorld 기반 판정 치수)와 대조한다. */
+  debugSolid(mode) {
+    if (!mode) {
+      renderCam = camera; camera.layers.set(0);
+      return { mode: 'off', glb: UNIT.ok ? 'ok' : 'fallback' };
+    }
+    if (mode === 'ortho') {
+      /* 판정과 **완전히 같은 투영**으로 그린다: 판정은 z 축을 따라 XY 평면에 내리는
+         정사영(projectWorld)이므로, 여기서도 -Z 를 내려다보는 직교 카메라를 쓴다.
+         3/4 원근 카메라로 잰 화면 크기는 방위·고도 때문에 압축돼 있어 판정 치수와
+         직접 비교할 수 없다 — 그건 「크기가 틀린 것」이 아니라 「다른 양」이다. */
+      if (!orthoCam) orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 6000);
+      const half = 200;
+      const aspect = Math.max(1e-6, (S.stageW || S.W) / S.H);
+      orthoCam.left = -half * aspect; orthoCam.right = half * aspect;
+      orthoCam.top = half; orthoCam.bottom = -half;
+      orthoCam.near = 1; orthoCam.far = 6000;
+      orthoCam.up.set(0, 1, 0);
+      /* 바깥 레인에 선 입체가 잘리지 않도록 입체 중심에 맞춘다 */
+      const cx = poseX;
+      orthoCam.position.set(cx, originY, 1800);
+      orthoCam.lookAt(cx, originY, 0);
+      orthoCam.layers.set(DBG_LAYER);
+      orthoCam.updateProjectionMatrix(); orthoCam.updateMatrixWorld();
+      renderCam = orthoCam;
+      /* 판정 좌표 (x, y) → 화면 px 는 이 한 줄로 닫힌다:
+         px = stageX + ((x-cx) / (half*aspect) * .5 + .5) * stageW ;  py = (1 - (y/half*.5+.5)) * H */
+      return { mode: 'ortho', half, aspect, cx: +cx.toFixed(3), originY: +originY.toFixed(3),
+        stageX: S.stageX || 0, stageW: S.stageW || S.W, H: S.H,
+        k: +(S.H / (2 * half)).toFixed(6), glb: UNIT.ok ? 'ok' : 'fallback' };
+    }
+    camera.layers.set(DBG_LAYER); renderCam = camera;
+    return { mode: 'persp', glb: UNIT.ok ? 'ok' : 'fallback' };
+  },
   /* 발문 레지스터 전수 검사 — 생성 문항 + 화면에 나오는 모든 문구 */
   verifyRegister() {
     const bad = [];
