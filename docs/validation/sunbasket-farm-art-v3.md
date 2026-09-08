@@ -52,3 +52,5 @@ Hay Day·FarmVille 3·Farm Together 2·Township의 공식 이미지를 비교하
 ## 게시 구성
 
 `publish-game.mjs`의 기본80점 게이트로 v3를 게시했다. 실제 배포 구성인 격리 체크아웃에서 `verify-catalog.mjs`가 게시53/카탈로그53으로 통과했다. 공유 작업 폴더에는 다른 작업의 빈 게임 폴더2개와 장부 미기록 게임1개가 있어 전체 검사가 실패했지만, 그 미커밋 작업은 수정하거나 배포에 포함하지 않았다. [게시 기록](../../logs/manual-20260908-sunbasket-v3/root/publication.json).
+
+공개 배포 확인 완료: 게임 커밋 `215accf`, Vercel `dpl_8WbDeWiiWGPkTJPCf9WzNB8vyiT7` Ready. 기본 도메인의 카탈로그53작/v3 및 원본ZIP·meta를 포함한31파일 해시가 일치했다. 공개390px 실제 터치로 안내문항 오답→3m수정→심기→12칸쓸기→배송 성공, 목숨2/오류·실패요청·넘침0, 목록 복귀 확인. 공개 계획/수확 화면도 직접 열었다. [공개 검증 기록](../../logs/manual-20260908-sunbasket-v3/root/deployment.json).

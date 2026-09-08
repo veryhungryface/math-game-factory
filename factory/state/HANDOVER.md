@@ -924,3 +924,5 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 독립검수89점(시각18, 전보다+1)·must_fix/high0. 16첫플레이프레임을모두검수했지만 안내오답후일반진도0이며 아동이해/상용동급주장없음. 부모는전후390/1280·최대144·표지·스튜디오·재사용2장면 및첫플레이4프레임직접열람했다.
 - 단일진입점publish-game.mjs 기본80점게이트로v3재게시. 실제배포구성의격리체크아웃에서 verify-catalog 53/53 PASS. 공유폴더의다른작업(cider-line/juice-crate 빈폴더, one-can 미기록)은변경하지않았고해당미커밋자료는배포에서제외된다.
 - 증거 `docs/validation/sunbasket-farm-art-v3.md`, `logs/manual-20260908-sunbasket-v3/`. meta제외30파일 SHA f6430f5eb2ed51d4447888af80e8a8982c898ceb361060e2f8e491059b504c18. 공개배포확인은후속기록한다.
+
+- 햇살 바구니v3 공개배포 확인 완료: 게임커밋215accf, Vercel dpl_8WbDeWiiWGPkTJPCf9WzNB8vyiT7 Ready. 기본도메인53작/v3·ZIP/meta포함31파일해시일치. 공개390px 실제터치 안내오답→3m수정→12수확/배송success·목숨2·목록복귀·오류/실패요청/넘침0. 공개계획/수확화면직접열람; logs/manual-20260908-sunbasket-v3/root/deployment.json 및 live/ 증거보존.
