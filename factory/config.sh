@@ -62,8 +62,10 @@ export CODEX_REASONING_SMART="${CODEX_REASONING_SMART:-ultra}" # 상위 티어 �
 export BUILD_RUNNER="${BUILD_RUNNER:-codex_run}"    # 게임 구현
 export BUILD_MODEL="${BUILD_MODEL:-gpt-6-astra}"    # 비우면 러너 기본 모델
 # 결과 기반 폴백 1회(run.sh step 5): 비정상 종료·402/인증/쿼터·index.html 미생성이면 이 조합으로 재시도.
-export BUILD_FALLBACK_RUNNER="${BUILD_FALLBACK_RUNNER:-codex_run}"
-export BUILD_FALLBACK_MODEL="${BUILD_FALLBACK_MODEL:-$CODEX_MODEL_SMART}"  # gpt-5.6-sol
+# 2026-09-11: 폴백을 claude 로 교체 — codex→codex 는 같은 ChatGPT 구독 쿼터라 한도 소진 시 둘 다 죽는다
+# (9/9~9/10 11연속 「빌드 실패 — 폴백도 실패」의 원인. FIX 폴백이 이미 claude 인 것과 같은 원리).
+export BUILD_FALLBACK_RUNNER="${BUILD_FALLBACK_RUNNER:-claude_run}"
+export BUILD_FALLBACK_MODEL="${BUILD_FALLBACK_MODEL:-$CLAUDE_MODEL_SMART}"  # opus
 export REVIEW_RUNNER="${REVIEW_RUNNER:-codex_run}"  # 검수 — 빌드와 다른 회사(교차 검증)
 export REVIEW_MODEL="${REVIEW_MODEL:-$CODEX_MODEL_SMART}"  # codex 러너는 모델 인자 필수
 # 수정은 Codex 상위 티어. 브라우저 검증은 run.sh 의 호스트 QA·firstplay 가 담당한다.
