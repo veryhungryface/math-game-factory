@@ -1,0 +1,1515 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>구슬치기 — 수직과 평행</title>
+<meta name="description" content="기울어진 평행한 분필 선 위에서 구슬을 구멍 바로 맞은편으로 옮기고 두 선에 수직으로 쳐서 구멍에 넣는 운동장 구슬치기">
+<meta property="og:title" content="구슬치기">
+<meta property="og:description" content="수선으로 쳐라">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --cement:#C5C1B6;
+  --cement-dark:#A6A296;
+  --chalk:#F4F1EA;
+  --ink:#3A3A38;
+  --brick:#C0392B;
+  --glass:#5B8FA8;
+  --grit:none;
+  --stageW:min(100vw,1280px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#3A3A38}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  color:var(--ink);touch-action:none;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* 크롬 — 연석 위에 분필로 동그라미 친 자리 (네모 버튼·이중 테두리 없음) */
+.chalkbtn{
+  position:fixed;z-index:30;width:46px;height:46px;border-radius:50%;padding:0;
+  border:2.5px dashed rgba(244,241,234,.95);
+  background:rgba(58,58,56,.66);
+  color:var(--chalk);font-family:inherit;font-size:20px;font-weight:900;line-height:1;
+  cursor:pointer;
+}
+.chalkbtn:active{transform:rotate(-10deg) scale(.94)}
+.chalkbtn:focus-visible{outline:3px solid var(--brick);outline-offset:3px}
+.chalkbtn.hide{display:none}
+#mute{top:calc(5px + env(safe-area-inset-top));right:calc(var(--stageX) + 10px)}
+#helpbtn{top:calc(5px + env(safe-area-inset-top));right:calc(var(--stageX) + 62px)}
+
+.screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-end;padding:0 16px calc(20px + env(safe-area-inset-bottom))}
+.screen.hide{display:none}
+#title{display:block;padding:0;background:none}
+#title.hide{display:none}
+
+/* 타이틀 — 운동장 바닥 전체가 구슬 링이다. 시작 버튼은 링 가운데 놓인 진짜 구슬(당겼다 놓거나 톡 누른다) */
+.logowrap{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
+.logo{
+  font-size:clamp(62px,21vw,104px);font-weight:900;letter-spacing:-.045em;line-height:.92;
+  color:#F8F6F0;white-space:nowrap;
+  -webkit-text-stroke:2px rgba(58,58,56,.55);paint-order:stroke fill;
+  text-shadow:3px 4px 0 rgba(58,58,56,.30), -2px -2px 0 rgba(255,255,255,.5);
+  transform:rotate(-2.4deg);
+}
+.logo i{font-style:normal;display:inline-block;transform:rotate(4deg) translateY(-5px);color:#9FC3D4}
+.subtag{font-size:16px;font-weight:900;letter-spacing:.18em;color:#8E2A20;transform:rotate(-2.4deg);
+  text-shadow:0 0 2px #F4F1EA,0 0 6px rgba(244,241,234,.95)}
+#startbtn{position:absolute;left:50%;top:60%;width:240px;height:156px;margin:-56px 0 0 -120px;border:0;padding:0 0 4px;
+  background:transparent;cursor:grab;touch-action:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  font-family:inherit;font-size:16px;font-weight:900;letter-spacing:.03em;color:#3A3A38}
+#startbtn span{text-shadow:0 0 2px #F4F1EA,0 0 7px rgba(244,241,234,.95)}
+#startbtn:active{cursor:grabbing}
+#startbtn:focus-visible{outline:3px dashed #F4F1EA;outline-offset:2px;border-radius:24px}
+.curbnote{position:absolute;z-index:21;font-size:13px;font-weight:800;letter-spacing:.05em;color:#F4F1EA;white-space:nowrap;pointer-events:none}
+#gradeline{left:calc(var(--stageX) + 16px);top:calc(17px + env(safe-area-inset-top))}
+#bestline{left:calc(var(--stageX) + 16px);bottom:calc(22px + env(safe-area-inset-bottom))}
+.linkbtn{height:46px;border:0;background:transparent;color:#F4F1EA;font-family:inherit;font-size:14.5px;
+  font-weight:800;text-decoration:underline;text-decoration-style:dashed;text-underline-offset:5px;cursor:pointer}
+.linkbtn:focus-visible{outline:3px solid var(--brick);outline-offset:2px}
+#howbtn{position:absolute;z-index:21;right:calc(var(--stageX) + 10px);bottom:calc(8px + env(safe-area-inset-bottom))}
+
+/* 도움말·결과 — 상자 없이 어두운 아스팔트에 분필로 바로 쓴다 */
+#help,#over{justify-content:center;background:rgba(46,46,44,.86)}
+.chalkboard{width:min(100% - 28px,520px);max-height:86dvh;overflow:auto;color:#F4F1EA;padding:6px 4px;text-align:left}
+.chalkboard h2{margin:0 0 14px;font-size:24px;font-weight:900;padding-bottom:9px;border-bottom:3px dashed rgba(244,241,234,.5)}
+.chalkboard ul{margin:0;padding-left:19px}
+.chalkboard li{font-size:15px;line-height:1.66;font-weight:600;margin-bottom:5px}
+.chalkboard li b{color:#FFE3A0}
+.chalkstats{display:flex;align-items:flex-start;justify-content:center;gap:4px 16px;margin:10px 0 16px}
+.chalkstats div{display:flex;flex-direction:column;align-items:center;min-width:72px}
+.chalkstats b{font-size:42px;line-height:1;font-weight:900;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.chalkstats span{font-size:12.5px;font-weight:700;opacity:.8;margin-top:6px}
+.chalkstats i{font-style:normal;font-size:34px;line-height:1;opacity:.35}
+#overmsg{font-size:14.5px;font-weight:700;line-height:1.6;text-align:center}
+.marblebtn{margin:20px auto 0;display:flex;align-items:center;justify-content:center;gap:12px;height:64px;min-width:210px;padding:0 28px;
+  border:3px dashed rgba(244,241,234,.92);border-radius:32px;background:rgba(244,241,234,.07);color:#F4F1EA;
+  font-family:inherit;font-size:21px;font-weight:900;letter-spacing:.05em;cursor:pointer}
+.marblebtn .marble{width:26px;height:26px;border-radius:50%;
+  background:radial-gradient(circle at 34% 30%, #FFFFFF 0%, #CFE4EE 30%, #5B8FA8 70%, #2F5C70 100%)}
+.marblebtn:active{transform:translateY(2px)}
+.marblebtn:focus-visible{outline:3px solid var(--brick);outline-offset:3px}
+
+/* 플레이 중에는 크롬 버튼이 아래 연석(엄지 쪽 반대편 끝)으로 내려간다 — 위쪽 띠가 없다 */
+html.inplay #mute,html.inplay #helpbtn{top:auto;bottom:calc(17px + env(safe-area-inset-bottom))}
+html.inplay:not(.land) #mute,html.inplay:not(.land) #helpbtn{bottom:calc(8px + env(safe-area-inset-bottom))}
+@media (prefers-reduced-motion:reduce){ .marblebtn,.chalkbtn{transition:none} }
+html.land .logo{font-size:clamp(64px,8.6vw,112px)}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<button id="mute" class="chalkbtn" aria-label="소리 끄기">♪</button>
+<button id="helpbtn" class="chalkbtn hide" aria-label="어떻게 놀아요 도움말">?</button>
+
+<div id="title" class="screen">
+  <div class="curbnote" id="gradeline">4학년 2학기 · 사각형</div>
+  <div class="logowrap" id="logowrap">
+    <div class="logo">구슬<i>치기</i></div>
+    <div class="subtag">수선으로 쳐라</div>
+  </div>
+  <button id="startbtn" aria-label="구슬을 당겼다 놓아 시작하기"><span>구슬을 당겼다 놓으면 시작</span></button>
+  <div class="curbnote" id="bestline"></div>
+  <button id="howbtn" class="linkbtn" aria-label="어떻게 놀아요">어떻게 놀아요? 〉</button>
+</div>
+
+<div id="help" class="screen hide">
+  <div class="chalkboard">
+    <h2>어떻게 놀아요?</h2>
+    <ul>
+      <li>분필 선 두 개는 <b>서로 평행</b>해요. 가까운 선 위의 구슬을 <b>잡고 선을 따라 끌면</b> 자리가 옮겨져요. 선 위를 짚어도 돼요.</li>
+      <li>구슬을 <b>구멍 반대쪽으로 잡아당겼다 놓으면</b> 당긴 반대쪽으로 곧게 굴러가요.</li>
+      <li>구슬이 구멍에 들어가려면 <b>두 선에 수직인 방향</b>으로 쳐야 해요. 비스듬히 치면 빗나가요.</li>
+      <li>그래서 구슬을 먼저 <b>구멍 바로 맞은편 자리</b>로 옮겨야 해요.</li>
+      <li>선 위의 눈금은 두 선에 수직인 방향을 알려 줘요. 구멍 4개를 넣으면 눈금이 사라져요.</li>
+      <li>눈금이 사라지면 <b>빗금 분필 자국</b>이 그어져 있어요. 비스듬한 길이라 따라 치면 빗나가요.</li>
+      <li>마지막에는 <b>사다리꼴 틀</b>이 나와요. 구멍이 두 개인데 <b>평행한 두 변 사이</b>의 구멍에만 넣어야 해요.</li>
+      <li>처음 한 번은 연습이라 구슬이 줄지 않아요. 그다음부터 빗나간 구슬은 연석 밖으로 나가고, 주머니 구슬 5개를 다 잃으면 끝나요.</li>
+    </ul>
+    <button id="helpclose" class="marblebtn" aria-label="도움말 닫기">닫기</button>
+  </div>
+</div>
+
+<div id="over" class="screen hide">
+  <div class="chalkboard">
+    <h2 id="overtitle">오늘은 여기까지예요</h2>
+    <div class="chalkstats">
+      <div><b id="ovHoles">0</b><span>넣은 구멍</span></div><i>/</i>
+      <div><b id="ovCombo">0</b><span>최고 연속</span></div><i>/</i>
+      <div><b id="ovScore">0</b><span>점수</span></div>
+    </div>
+    <div id="overmsg"></div>
+    <button id="againbtn" class="marblebtn" aria-label="한 판 더"><span class="marble"></span>한 판 더</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+// ══════════════════════════════════════════════════════════════
+//  구슬치기 — 4학년 2학기 · 사각형
+//  [4수03-03] 수직과 평행 / [4수03-10] 여러 가지 사각형
+//  · 두 분필 선은 평행하다. 구슬을 「구멍 바로 맞은편」으로 옮기고 「두 선에 수직인 방향」으로 쳐야 구멍에 들어간다.
+//  · 판정은 정수로만: 각은 1° 틱, 자리는 cm 칸. 부동소수점 비교 없음.
+//  · 교과서 표현: 익힘책 지시형 「~해 보세요」, 「4 cm」 띄어 쓰기, 꼭짓점 ㄱㄴㄷㄹ.
+// ══════════════════════════════════════════════════════════════
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TAU=Math.PI*2, D2R=Math.PI/180;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function makeRng(seed){ let s=(seed>>>0)||362436069;
+  return ()=>{ s^=s<<13; s>>>=0; s^=s>>17; s^=s<<5; s>>>=0; return s/4294967296; }; }
+let rnd=makeRng((Date.now()^0x5f356495)>>>0);
+const pick=(a)=>a[Math.floor(rnd()*a.length)];
+const ri=(a,b)=>a+Math.floor(rnd()*(b-a+1));
+
+// ── 오디오
+let AC=null, muted=false;
+function audio(){ if(muted) return null;
+  if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
+  if(AC.state==='suspended') AC.resume().catch(()=>{});
+  return AC; }
+function tone(f,d,t,g,slide){ const ac=audio(); if(!ac) return;
+  const o=ac.createOscillator(), gg=ac.createGain();
+  o.type=t||'sine'; o.frequency.setValueAtTime(f,ac.currentTime);
+  if(slide) o.frequency.exponentialRampToValueAtTime(slide,ac.currentTime+d);
+  gg.gain.setValueAtTime(.0001,ac.currentTime);
+  gg.gain.exponentialRampToValueAtTime(g||.14,ac.currentTime+.008);
+  gg.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);
+  o.connect(gg); gg.connect(ac.destination); o.start(); o.stop(ac.currentTime+d+.02); }
+function grit(d,g,f0){ const ac=audio(); if(!ac) return;
+  const n=Math.floor(ac.sampleRate*d), b=ac.createBuffer(1,n,ac.sampleRate), c=b.getChannelData(0);
+  for(let i=0;i<n;i++) c[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.4);
+  const s=ac.createBufferSource(); s.buffer=b;
+  const f=ac.createBiquadFilter(); f.type='bandpass'; f.frequency.value=f0||2600; f.Q.value=.7;
+  const gg=ac.createGain(); gg.gain.value=g||.1;
+  s.connect(f); f.connect(gg); gg.connect(ac.destination); s.start(); }
+const SFX={
+  roll(){ grit(.28,.08,2200); },
+  hole(c){ tone(880*Math.pow(1.05,Math.min(c,6)),.09,'sine',.16);
+           setTimeout(()=>tone(1320,.12,'sine',.1),60); grit(.08,.1,3200); },
+  miss(){ tone(240,.16,'triangle',.08,150); grit(.3,.12,1400); },
+  move(){ grit(.05,.05,3000); },
+  pull(){ tone(360,.05,'sine',.05); },
+  refuse(){ tone(170,.08,'square',.05,140); },
+  over(){ tone(330,.18,'sine',.12,180); setTimeout(()=>tone(220,.32,'sine',.1,140),150); }
+};
+
+// ══════════ 기하 ══════════
+function angDiff(a,b){ let d=((Math.round(a)-Math.round(b))%360+360)%360; return Math.min(d,360-d); }
+const TOL=8;              // 수선 방향 허용 오차(도) — 눈금이 사라지는 밴드3부터는 TOL_BARE
+const TOL_BARE=6;
+const HOLE_R=0.95;        // 구멍 반지름(cm)
+const TRANS_SET=1.6;      // 자 연출을 보여 주는 세트 전환 시간(초) — 자·토스트 수명과 같다
+
+// ══════════ 상태 ══════════
+const GOAL=8, MARBLES=5, SESSION=90;
+const S={
+  phase:'title', marbles:MARBLES, holes:0, score:0, combo:0, bestCombo:0,
+  timeLeft:SESSION, band:1, setNo:0,
+  line:{ ang:0, d:4, len:20, cx:0, cy:0 },   // 가까운 선의 중심과 방향
+  marbleS:0, holeS:0, shot:null, pull:null, moving:false, grab:null,
+  transT:0, transTo:'', tapPulse:0, ghostBig:0,
+  lastHoleS:null, lastRuler:[], trap:null, frame:null,
+  moves:0, attempts:0, sunk:0, missed:0,
+  land:false, stageW:0, stageX:0,
+  board:{x:0,y:0,w:0,h:0}, panel:{x:0,y:0,w:0,h:0}, cmPx:10, boardCm:{w:30,h:18},
+  ripples:[], fx:[], marbleFalls:[], hitstop:0, shake:0,
+  banner:'', bannerSub:'', hintT:0, lastInput:0, frozen:false, onboardT:0,
+  best:0, over:{reason:''}
+};
+try{ S.best=Math.max(0,parseInt(localStorage.getItem('guseul.best')||'0',10)||0); }catch(e){}
+
+// ══════════ 캔버스 ══════════
+const cv=document.getElementById('stage');
+const ctx=cv.getContext('2d',{alpha:false});
+let DPR=1,W=0,H=0, groundPat=null, boardLayer=null, boardKey='';
+function bakePatterns(){
+  const c=document.createElement('canvas'); c.width=c.height=120;
+  const g=c.getContext('2d');
+  g.fillStyle='#C5C1B6'; g.fillRect(0,0,120,120);
+  // 골재
+  for(let i=0;i<2200;i++){
+    g.globalAlpha=.06+Math.random()*.16;
+    const r=Math.random();
+    g.fillStyle = r<.34 ? '#8E8A7E' : (r<.68 ? '#DDD9CE' : '#A6A296');
+    g.beginPath(); g.arc(Math.random()*120, Math.random()*120, .5+Math.random()*2.0, 0, TAU); g.fill();
+  }
+  g.globalAlpha=1;
+  groundPat=ctx.createPattern(c,'repeat');
+  // CSS 버튼용 — 골재 알갱이만(투명 바탕) 한 번 구워 data URL 로 쓴다
+  const c2=document.createElement('canvas'); c2.width=c2.height=96;
+  const g2=c2.getContext('2d');
+  for(let i=0;i<900;i++){
+    g2.globalAlpha=.10+Math.random()*.22;
+    g2.fillStyle = Math.random()<.5 ? '#8E8A7E' : '#F4F1EA';
+    g2.beginPath(); g2.arc(Math.random()*96, Math.random()*96, .5+Math.random()*1.6, 0, TAU); g2.fill();
+  }
+  try{ document.documentElement.style.setProperty('--grit', `url(${c2.toDataURL()})`); }catch(e){}
+}
+function layout(){
+  W=innerWidth; H=innerHeight;
+  DPR=Math.min(devicePixelRatio||1,2);
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  S.land=(W>=H && W>=640)||W>=1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE=Math.min(W,1280);
+  S.stageW=STAGE; S.stageX=Math.round((W-STAGE)/2);
+  const root=document.documentElement;
+  root.style.setProperty('--stageW',STAGE+'px');
+  root.style.setProperty('--stageX',S.stageX+'px');
+  // 위쪽 HUD 띠 없음 — 판이 화면 위까지 올라가고, 아래 연석 한 줄에 주머니·안내·버튼이 모인다
+  if (S.land){
+    S.boardCm={ w:30, h:17 };
+    const curb=80;
+    S.board={ x:S.stageX+12, y:10, w:STAGE-24, h:H-10-curb-6 };
+    S.panel={ x:S.stageX, y:H-curb, w:STAGE, h:curb };
+  } else {
+    S.boardCm={ w:20, h:34 };
+    const curb=124;
+    S.board={ x:8, y:8, w:W-16, h:H-8-curb-6 };
+    S.panel={ x:0, y:H-curb, w:W, h:curb };
+  }
+  S.cmPx=Math.min(S.board.w/S.boardCm.w, S.board.h/S.boardCm.h);
+  S.drawW=S.boardCm.w*S.cmPx; S.drawH=S.boardCm.h*S.cmPx;
+  S.ox=S.board.x+(S.board.w-S.drawW)/2;
+  S.oy=S.board.y+(S.board.h-S.drawH)/2;
+  // 타이틀 구슬 링 — 세로에서는 제목이 링 위, 가로에서는 링 안 윗부분
+  const R = S.land ? Math.min(W*0.3, H*0.36) : Math.min(W*0.46, H*0.26);
+  const cy = S.land ? H*0.55 : H*0.57;
+  S.ring={ cx:W/2, cy, R, mx:W/2, my:cy+R*(S.land?0.18:0.12), mR:clamp(R*0.15,24,38) };
+  const lw=document.getElementById('logowrap'), sb=document.getElementById('startbtn');
+  if (lw) lw.style.top = Math.round(S.land ? cy-R*0.46 : Math.max(118,(52+cy-R)/2+8))+'px';
+  if (sb){ sb.style.left=Math.round(S.ring.mx)+'px'; sb.style.top=Math.round(S.ring.my)+'px'; }
+  boardKey='';
+}
+const px=(x)=>S.ox+x*S.cmPx, py=(y)=>S.oy+y*S.cmPx;
+const marbleR=()=>Math.max(14, S.cmPx*0.45);   // 세로 화면에서도 지름 28px 이상으로 보이게
+const ux=(p)=>(p-S.ox)/S.cmPx, uy=(p)=>(p-S.oy)/S.cmPx;
+
+// 선 좌표계 — û 는 선 방향, n̂ 는 먼 선 쪽(수선 방향)
+function lineU(){ const a=S.line.ang*D2R; return [Math.cos(a), Math.sin(a)]; }
+function lineN(){ const a=S.line.ang*D2R; return [Math.sin(a), -Math.cos(a)]; }
+// G 는 선 스냅숏({ang,d,cx,cy}) — 연출은 만든 순간의 선으로 그려야 세트가 바뀌어도 자·cm 가 옮겨 가지 않는다
+function nearPtG(G,s){ const a=G.ang*D2R; return [G.cx+s*Math.cos(a), G.cy+s*Math.sin(a)]; }
+function farPtG(G,s){ const a=G.ang*D2R;
+  return [G.cx+s*Math.cos(a)+G.d*Math.sin(a), G.cy+s*Math.sin(a)-G.d*Math.cos(a)]; }
+const nearPt=(s)=>nearPtG(S.line,s), farPt=(s)=>farPtG(S.line,s);
+const bareBoard=()=>S.phase==='playing' && S.band>=3;   // 밴드3부터 눈금·상시 자를 지운다
+const normalDeg=()=>{ const [nx,ny]=lineN(); return (Math.atan2(ny,nx)/D2R+360)%360; };
+
+// ══════════ 판 만들기 ══════════
+// 분필 선은 화면 축(0°·90°)에 두지 않는다 — 축정렬만 깔면
+// 「가로·세로처럼 보일 때만 수직」 오개념을 강화하고 무뇌 입력이 우연히 맞는다.
+// 가로 화면에서는 완만하게, 세로 화면에서는 가파르게 — 어느 쪽이든 화면 축(0°·90°)은 쓰지 않는다.
+const BAND_TILT  ={ 1:[14,-14,18,-18], 2:[18,-18,24,-24], 3:[20,-20,26,-26,30,-30], 4:[22,-22,28,-28,34,-34] };
+const BAND_TILT_P={ 1:[58,-58,64,-64], 2:[56,-56,62,-62], 3:[54,-54,60,-60,68,-68], 4:[52,-52,62,-62,70,-70] };
+const DISTS={ 1:[4,5], 2:[3,4,5], 3:[3,4,5,6], 4:[3,4,5,6] };
+
+function fitLine(ang, d){
+  // 선 한 쌍(길이 len, 간격 d)이 판 안에 들어가도록 길이와 중심을 맞춘다
+  const BW=S.boardCm.w, BH=S.boardCm.h, M=2.0;
+  const a=ang*D2R, ux2=Math.abs(Math.cos(a)), uy2=Math.abs(Math.sin(a));
+  const nx2=Math.abs(Math.sin(a)), ny2=Math.abs(Math.cos(a));
+  const maxLx = ux2>1e-6 ? (BW-2*M-d*nx2)/ux2 : 999;
+  const maxLy = uy2>1e-6 ? (BH-2*M-d*ny2)/uy2 : 999;
+  const len = Math.max(8, Math.min(S.land?26:23, maxLx, maxLy));
+  return len;
+}
+function centerLine(){
+  // 두 선 전체의 바깥 상자를 판 한가운데에 놓는다
+  const [ux2,uy2]=lineU(), [nx,ny]=lineN();
+  const L=S.line.len/2, d=S.line.d;
+  const xs=[], ys=[];
+  for (const s of [-L,L]) for (const t of [0,d]){
+    xs.push(s*ux2+t*nx); ys.push(s*uy2+t*ny);
+  }
+  const minX=Math.min(...xs), maxX=Math.max(...xs);
+  const minY=Math.min(...ys), maxY=Math.max(...ys);
+  S.line.cx = S.boardCm.w/2 - (minX+maxX)/2;
+  S.line.cy = S.boardCm.h/2 - (minY+maxY)/2;
+}
+function newSet(){
+  S.setNo++;
+  S.band=Math.min(4, Math.max(S.setNo, 1+Math.floor(S.holes/2)));
+  const tiltSet = S.land ? BAND_TILT[Math.min(S.band,4)] : BAND_TILT_P[Math.min(S.band,4)];
+  const tilt=pick(tiltSet);
+  const d=pick(DISTS[Math.min(S.band,4)]);
+  S.line={ ang:tilt, d, len:0, cx:0, cy:0 };
+  S.line.len=fitLine(tilt, d);
+  centerLine();
+  S.marbleS = -S.line.len/2 + 2 + rnd()*(S.line.len-4);
+  // 옛 세트의 자·토스트·빗나감 표시는 새 선과 무관하다 — 한 화면에 cm 가 두 개 뜨지 않게 지운다
+  S.fx.length=0;
+  S.trap=null;
+  S.frame = S.band>=4 ? makeFrame() : null;
+  newHole();
+  S.lastRuler=[];
+  setBanner();
+}
+// 밴드4 — 사다리꼴 틀. 가까운 선이 아랫변, 먼 선이 (더 짧은) 윗변이고 옆변 두 개는 안쪽으로 기운다(서로 평행하지 않다).
+// 옆변 한쪽에 가짜 구멍이 있다. 가까운 변에서 그 구멍까지는 정수 cm(decoyT)지만 평행한 두 변 사이가 아니다.
+function makeFrame(){
+  const L=S.line.len, d=S.line.d;
+  const kMax=Math.max(2, Math.min(4, (L-8)/2));
+  const k1=2+rnd()*(kMax-2), k2=2+rnd()*(kMax-2);
+  const side = rnd()<.5 ? -1 : 1;
+  const tLo=Math.min(Math.ceil(d/2), d-1), decoyT=ri(tLo, d-1);
+  const k = side<0 ? k1 : k2;
+  const decoyS = side*L/2 - side*k*decoyT/d;
+  return { k1, k2, side, decoyT, decoyS, named:false };
+}
+function decoyPtG(G, F){ const a=G.ang*D2R;
+  return [G.cx+F.decoyS*Math.cos(a)+F.decoyT*Math.sin(a), G.cy+F.decoyS*Math.sin(a)-F.decoyT*Math.cos(a)]; }
+function newHole(){
+  const L=S.line.len, F=S.frame;
+  const lo = F ? -L/2+F.k1+1.6 : -L/2+2.2, hi = F ? L/2-F.k2-1.6 : L/2-2.2;
+  const bad=(v)=> (S.lastHoleS!==null && Math.abs(v-S.lastHoleS)<3.5) || (F && Math.abs(v-F.decoyS)<2.8);
+  let sh, guard=0;
+  do { sh = lo + rnd()*Math.max(0,hi-lo); guard++; } while (guard<60 && bad(sh));
+  const late = S.phase==='playing' && S.band>=3;
+  // 구슬 자리와도 떨어뜨려 「그 자리에서 그냥 치면 되는」 상황을 만들지 않는다
+  if (!late && Math.abs(sh-S.marbleS)<2.5) sh += (sh>S.marbleS?2.8:-2.8);
+  S.holeS = clamp(sh, -L/2+1.6, L/2-1.6);
+  S.lastHoleS=S.holeS;
+  if (late) placeLateMarble();
+}
+function placeLateMarble(){
+  const d=S.line.d, lim=S.line.len/2-0.8, F=S.frame;
+  S.trap=null;
+  if (F){
+    // 밴드4: 다음 구슬은 옆변 구멍 바로 맞은편에 놓인다 — 그대로 곧게 치면 옆변 구멍에 빠진다
+    S.marbleS=clamp(F.decoyS, -lim, lim);
+    setBanner(); return;
+  }
+  // 밴드3: 구슬을 구멍에서 비껴 두고, 구슬→구멍 빗금 분필(길이 d+1 또는 d+2 cm)을 미리 그어 둔다. 따라 치면 빗나간다
+  const opts=[];
+  for (const len of [d+1, d+2]) for (const sg of [-1,1]){
+    const s=S.holeS+sg*Math.sqrt(len*len-d*d);
+    if (s>=-lim && s<=lim) opts.push({ s, len });
+  }
+  if (opts.length){ const o=pick(opts); S.marbleS=o.s; S.trap={ s:o.s, len:o.len }; }
+  else S.marbleS=clamp(S.holeS + (S.holeS>0?-3:3), -lim, lim);   // 빗금을 그을 자리가 없으면 구멍에서 3 cm 비껴 둔다
+  setBanner();
+}
+function setBanner(){
+  if (S.phase==='onboard'){
+    // 화면 방향어(위·아래)를 쓰지 않는다 — 선이 기울어 있어서 틀린 방향이 된다
+    S.banner='연습 — 구슬이 줄지 않아요';
+    S.bannerSub = Math.abs(S.marbleS-S.holeS)>0.8
+      ? '구슬을 잡고 선을 따라 끌어 구멍 바로 맞은편으로 옮겨요'
+      : '구멍 반대쪽으로, 선 위 눈금과 나란히 당겼다 놓아요';
+    return;
+  }
+  const b=S.band;
+  if (b===1){ S.banner='구슬을 구멍 바로 맞은편 자리로 옮겨 쳐 보세요'; S.bannerSub='두 선에 수직인 방향으로 쳐야 들어가요'; }
+  else if (b===2){ S.banner='평행한 두 선 사이의 거리만큼 곧게 굴려 보세요'; S.bannerSub='비스듬히 치면 먼 선을 스치고 연석 밖으로 나가요'; }
+  else if (b===3){
+    S.banner=`두 선 사이 ${S.line.d} cm만 굴러가서 들어가는 자리를 찾아 보세요`;
+    S.bannerSub = S.trap ? `눈금이 없어요 · 빗금 분필 자국은 ${S.trap.len} cm예요` : '눈금이 없어요 · 두 선에 수직인 방향을 찾아 보세요';
+  }
+  else { S.banner='사다리꼴 틀 — 평행한 두 변 사이의 구멍에만 넣어 보세요'; S.bannerSub=`구멍은 두 개예요 · 두 선 사이 ${S.line.d} cm로 굴러가야 해요`; }
+}
+
+// ══════════ 온보딩 ══════════
+function startOnboard(){
+  S.phase='onboard'; S.frozen=true; S.band=1; S.setNo=0; S.onboardT=0;
+  S.transT=0; S.transTo=''; S.ghostBig=0; S.trap=null; S.frame=null;
+  S.line={ ang:S.land?14:60, d:4, len:0, cx:0, cy:0 };
+  S.line.len=fitLine(S.line.ang, 4);
+  centerLine();
+  S.holeS = 2.5;
+  S.marbleS = -3.5;          // 일부러 어긋난 자리에서 시작한다
+  S.lastHoleS=S.holeS;
+  S.lastRuler=[];
+  setBanner();
+}
+
+// ══════════ 판정 ══════════
+/**
+ * 순수 판정 — 구슬이 s 자리에서 dirDeg 방향으로 굴러가면 어떻게 되는가.
+ * 게임 플레이와 sampleProblems 가 같은 함수를 쓴다.
+ * kind: 'hole'(들어감) | 'skew'(수선이 아님) | 'short'(수선이지만 자리가 어긋남) | 'back'(먼 선 반대쪽)
+ */
+function classifyShot(lineAng, d, marbleS, holeS, dirDeg, tol){
+  const nx=Math.sin(lineAng*D2R), ny=-Math.cos(lineAng*D2R);
+  const ndeg=(Math.atan2(ny,nx)/D2R+360)%360;
+  const dd=angDiff(dirDeg, ndeg);
+  if (dd>90) return { kind:'back', d:dd };
+  if (dd>(tol==null?TOL:tol)) return { kind:'skew', d:dd, hit:null };
+  // 수선에 가까우면 먼 선에 닿는 자리를 계산한다
+  const a=dirDeg*D2R, vx=Math.cos(a), vy=Math.sin(a);
+  const along=vx*Math.cos(lineAng*D2R)+vy*Math.sin(lineAng*D2R);
+  const perp=vx*nx+vy*ny;
+  const t=d/perp;
+  const hit=marbleS + along*t;
+  if (Math.abs(hit-holeS) <= HOLE_R) return { kind:'hole', hit, d:dd };
+  return { kind:'short', hit, d:dd, gap:Math.abs(hit-holeS) };
+}
+
+// 사다리꼴 틀이 있으면 옆변 구멍을 먼저 본다. 같은 수직 판정(tol) 뒤, 가까운 변에서 decoyT cm 굴러간 자리가 옆변 구멍 안인가
+function classifyShotNow(dirDeg, tol){
+  const r0=classifyShot(S.line.ang, S.line.d, S.marbleS, S.holeS, dirDeg, tol);
+  const F=S.frame;
+  if (!F || (r0.kind!=='hole' && r0.kind!=='short')) return r0;
+  const a=dirDeg*D2R, la=S.line.ang*D2R, vx=Math.cos(a), vy=Math.sin(a);
+  const along=vx*Math.cos(la)+vy*Math.sin(la), perp=vx*Math.sin(la)-vy*Math.cos(la);
+  const hitD=S.marbleS+along*(F.decoyT/perp);
+  if (Math.abs(hitD-F.decoyS)<=HOLE_R) return { kind:'decoy', d:r0.d, hit:hitD };
+  return r0;
+}
+function shoot(dirDeg){
+  S.attempts++;
+  const tol = bareBoard() ? TOL_BARE : TOL;
+  const r=classifyShotNow(dirDeg, tol);
+  const a=dirDeg*D2R;
+  S.shot={ dir:[Math.cos(a),Math.sin(a)], t:0, res:r, from:S.marbleS, dirDeg };
+  SFX.roll();
+}
+function resolveShot(){
+  const sh=S.shot; S.shot=null;
+  const r=sh.res;
+  const geo={ ...S.line };
+  if (r.kind==='hole'){
+    S.holes++; S.sunk++; S.combo++; S.bestCombo=Math.max(S.bestCombo,S.combo);
+    S.score += 150 + 60*Math.min(S.combo,5);
+    SFX.hole(S.combo);
+    S.hitstop=Math.max(S.hitstop,.06);
+    const Hf=farPtG(geo, r.hit!=null ? r.hit : S.holeS);
+    addFx({ type:'sink', x:Hf[0], y:Hf[1], t:0, life:.34 });
+    // 잰 자리를 분필 자로 남긴다 — 두 번째부터는 「어디서 재도 같다」가 보인다
+    S.lastRuler.push(S.holeS);
+    if (S.lastRuler.length>2) S.lastRuler.shift();
+    // 선이 바뀌기 직전의 자·토스트는 전환(TRANS_SET)과 같은 시간에 사라진다 — 새 선 위에 옛 cm 가 남지 않게
+    const setEnds = S.phase==='onboard' || S.holes % 2 === 0;
+    const life = setEnds ? TRANS_SET : 2.0;
+    addFx({ type:'ruler', s:S.holeS, geo, t:0, life });
+    if (S.frame && !S.frame.named){
+      S.frame.named=true;
+      addFx({ type:'toast', text:'평행한 변이 한 쌍이라도 있는 사각형은 사다리꼴이에요', t:0, life });
+    } else if (S.lastRuler.length>=2)
+      addFx({ type:'toast', text:`두 곳에서 재도 ${geo.d} cm로 같아요`, t:0, life });
+    // 선이 바뀌는 전환은 자 연출 뒤로 미룬다(그동안 입력을 막는다) — 학생이 자기가 넣은 선 위에서 cm 를 읽게
+    if (S.phase==='onboard'){ S.transT=TRANS_SET; S.transTo='play'; return; }
+    if (S.holes>=GOAL) return endGame('clear');
+    if (S.holes % 2 === 0){ S.transT=TRANS_SET; S.transTo='set'; }
+    else newHole();
+    return;
+  }
+  if (r.kind==='decoy'){
+    // 사다리꼴 옆변 위의 구멍 — 들어가긴 하지만 평행한 두 변 사이가 아니라서 빗나감으로 센다
+    S.missed++; S.combo=0; SFX.miss(); S.shake=.45;
+    S.marbles--; S.marbleFalls.push({ idx:Math.max(0,S.marbles), t:0 });
+    const F=S.frame, Dp=decoyPtG(geo, F);
+    addFx({ type:'sink', x:Dp[0], y:Dp[1], t:0, life:.34 });
+    addFx({ type:'whydecoy', s:sh.from, fs:F.decoyS, ft:F.decoyT, geo, t:0, life:2.3,
+            msg:`옆변 위 구멍이에요 — 평행한 두 변 사이(${geo.d} cm)로 넣어야 해요` });
+    if (S.marbles<=0) return endGame('marbles');
+    return;
+  }
+  // 빗나감 — 구슬이 연석 밖으로 굴러 나간다. 연습(온보딩)에서는 주머니가 줄지 않는다
+  const practice = S.phase==='onboard';
+  S.missed++; S.combo=0;
+  SFX.miss(); S.shake=.45;
+  if (!practice){ S.marbles--; S.marbleFalls.push({ idx:Math.max(0,S.marbles), t:0 }); }
+  if (r.kind==='back')
+    // 입력 단계(onUp)에서 걸러지므로 여기 오지 않는다. 와도 각도는 말하지 않는다(직선끼리의 각은 90° 를 넘지 않는다)
+    addFx({ type:'why', s:sh.from, geo, t:0, life:1.9, msg:'구슬은 당긴 반대쪽으로 굴러가요 — 구멍 반대쪽으로 당겨 보세요' });
+  else if (r.kind==='skew'){
+    let msg=`두 선에 수직이 아니라 ${Math.min(r.d,180-r.d)}° 어긋났어요`;
+    if (S.trap && Math.abs(sh.from-S.trap.s)<0.8){
+      const A=nearPt(S.trap.s), B=farPt(S.holeS);
+      const hatchDeg=(Math.atan2(B[1]-A[1], B[0]-A[0])/D2R+360)%360;
+      if (angDiff(sh.dirDeg, hatchDeg)<=7)
+        msg=`빗금 분필(${S.trap.len} cm)을 따라 쳤어요 — 두 선 사이의 거리는 수직인 선분의 길이예요`;
+    }
+    addFx({ type:'why', s:sh.from, geo, t:0, life:1.9, msg });
+  }
+  else {
+    const off=Math.abs(sh.from-S.holeS);
+    addFx({ type:'whyfoot', s:sh.from, holeS:S.holeS, geo, t:0, life:2.1,
+            msg: off>=HOLE_R
+              ? `구슬 자리가 구멍 바로 맞은편에서 ${off.toFixed(1)} cm 벗어났어요`
+              : `자리가 ${off.toFixed(1)} cm, 방향이 ${r.d}° 어긋나 구멍 옆으로 지나갔어요` });
+  }
+  if (practice){ S.ghostBig=1.8; return; }
+  if (S.marbles<=0) return endGame('marbles');
+  S.marbleS = clamp(S.marbleS, -S.line.len/2+1, S.line.len/2-1);
+}
+function endGame(reason){
+  if (S.phase==='over') return;
+  S.phase='over'; S.over.reason=reason; S.shot=null; S.pull=null; S.grab=null; S.transT=0; S.transTo='';
+  SFX.over();
+  try{ if(S.holes>S.best){ S.best=S.holes; localStorage.setItem('guseul.best',String(S.best)); } }catch(e){}
+  document.getElementById('ovHoles').textContent=S.holes;
+  document.getElementById('ovCombo').textContent=S.bestCombo;
+  document.getElementById('ovScore').textContent=S.score;
+  document.getElementById('overtitle').textContent =
+    reason==='clear' ? `구멍 ${GOAL}개를 다 넣었어요` : '오늘은 여기까지예요';
+  document.getElementById('overmsg').textContent =
+    reason==='marbles' ? '구슬을 다 잃었어요. 구멍 바로 맞은편 자리로 옮긴 다음, 두 선에 수직으로 쳐 보세요.'
+    : reason==='time' ? '시간이 끝났어요. 선 위의 눈금이 두 선에 수직인 방향이에요.'
+    : '평행한 두 선 사이의 거리는 어디서 재도 같아요.';
+  document.getElementById('over').classList.remove('hide');
+  document.getElementById('helpbtn').classList.add('hide');
+}
+function addFx(o){
+  // 토스트는 한 번에 하나 — 같은 자리에 두 문장이 겹쳐 읽히지 않게 앞의 것을 지운다
+  if (o.type==='toast') for (let i=S.fx.length-1;i>=0;i--) if (S.fx[i].type==='toast') S.fx.splice(i,1);
+  S.fx.push(o); if (S.fx.length>30) S.fx.splice(0,S.fx.length-30);
+}
+
+// ══════════ 입력 ══════════
+function evPos(e){ const r=cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+let pointerId=null;
+const DECIDE_PX=14;       // 구슬을 잡은 뒤 이만큼 움직이면 「옮기기 / 당기기」를 정한다
+function alongOf(gx,gy){ const [ux2,uy2]=lineU(); return (gx-S.line.cx)*ux2+(gy-S.line.cy)*uy2; }
+function nudge(text, life){
+  // 무반응 금지 — 연습에서는 손가락 유령을 크게 다시 보여 주고, 본판에서는 구슬만 맥동한다(답은 알려 주지 않는다)
+  addFx({ type:'toast', text, t:0, life:life||1.6 });
+  SFX.refuse();
+  if (S.phase==='onboard') S.ghostBig=1.8; else S.tapPulse=1.2;
+}
+function onDown(e){
+  if (S.phase==='title'||S.phase==='over') return;
+  try{ if (cv.setPointerCapture && e.pointerId!=null) cv.setPointerCapture(e.pointerId); }catch(err){}
+  pointerId=e.pointerId;
+  const [sx,sy]=evPos(e);
+  S.moves++; S.lastInput=performance.now();
+  if (S.shot || S.transT>0){ S.ripples.push({x:sx,y:sy,t:0}); return; }
+  const gx=ux(sx), gy=uy(sy);
+  const [mx,my]=nearPt(S.marbleS);
+  if (Math.hypot(mx-gx,my-gy) <= 1.5){
+    // 구슬을 잡았다 — 첫 움직임이 선을 따라가면 옮기기, 선을 벗어나면 당기기
+    S.grab={ sx, sy, s0:S.marbleS, mode:'?' };
+    return;
+  }
+  // 가까운 선 위를 짚으면 구슬이 그 자리로 온다
+  const [ux2,uy2]=lineU(), [nx,ny]=lineN();
+  const rel=[gx-S.line.cx, gy-S.line.cy];
+  const along=rel[0]*ux2+rel[1]*uy2, off=rel[0]*nx+rel[1]*ny;
+  if (Math.abs(off) <= 1.6 && Math.abs(along) <= S.line.len/2){
+    S.moving=true;
+    S.marbleS=clamp(along, -S.line.len/2+0.8, S.line.len/2-0.8);
+    SFX.move();
+    return;
+  }
+  S.ripples.push({x:sx,y:sy,t:0});
+  S.hintT=2.4;
+  nudge('구슬을 잡고 선을 따라 끌어 옮기고, 구멍 반대쪽으로 당겼다 놓아요', 1.8);
+}
+function onMove(e){
+  if (pointerId!==e.pointerId) return;
+  const [x,y]=evPos(e);
+  const G=S.grab;
+  if (G){
+    const dx=(x-G.sx)/S.cmPx, dy=(y-G.sy)/S.cmPx;
+    const [ux2,uy2]=lineU(), [nx,ny]=lineN();
+    const along=dx*ux2+dy*uy2, perp=dx*nx+dy*ny;
+    if (G.mode==='?' && Math.hypot(x-G.sx,y-G.sy)<DECIDE_PX) return;
+    // 옮기기는 손가락이 가까운 선 띠(±0.6 cm, 최소 16px) 안에서 선을 따라갈 때만이다.
+    // 띠 밖으로 벗어나면 방향과 상관없이 당기기 — 구멍을 보고 비스듬히 겨눈 치기도 실제로 발사된다.
+    // 선을 따라 3 cm 넘게 끈 뒤에는 띠를 1.2 cm 로 넓혀 손떨림으로 치기가 되지 않게 한다.
+    const band = Math.max(16, S.cmPx*(Math.abs(along)>=3 ? 1.2 : 0.6))/S.cmPx;
+    const want = Math.abs(perp)>band ? 'pull' : (Math.abs(along)>Math.abs(perp) ? 'move' : 'pull');
+    if (want!==G.mode){
+      if (want==='move'){ S.pull=null; S.moving=true; SFX.move(); }
+      else { S.moving=false; S.marbleS=G.s0; S.pull={ x, y, sx:G.sx, sy:G.sy }; if (G.mode!=='pull') SFX.pull(); }
+      G.mode=want;
+    }
+    if (G.mode==='move') S.marbleS=clamp(G.s0+along, -S.line.len/2+0.8, S.line.len/2-0.8);
+    else { S.pull.x=x; S.pull.y=y; }
+    return;
+  }
+  if (S.moving) S.marbleS=clamp(alongOf(ux(x),uy(y)), -S.line.len/2+0.8, S.line.len/2-0.8);
+}
+function onUp(e){
+  if (pointerId!==e.pointerId) return;
+  pointerId=null;
+  const G=S.grab; S.grab=null;
+  const p=S.pull; S.pull=null;
+  if (S.moving){ S.moving=false; return; }
+  if (!G) return;
+  if (G.mode==='?'){
+    nudge(S.phase==='onboard' ? '구슬을 잡은 채로 구멍 반대쪽으로 당겼다 놓아요' : '구슬을 잡아당겼다 놓아야 굴러가요', 1.6);
+    return;
+  }
+  const dx=p.x-p.sx, dy=p.y-p.sy;
+  if (Math.hypot(dx,dy) < 16){ nudge('구슬을 더 많이 잡아당겼다 놓아 보세요', 1.3); return; }
+  const deg=(Math.atan2(-dy,-dx)/D2R+360)%360;   // 당긴 반대쪽으로 나간다
+  if (angDiff(deg, normalDeg()) > 90){
+    // 먼 선 반대쪽으로 나가는 치기 — 수직 판단이 아니라 조작 방향 착각이라 구슬을 잃지 않는다
+    nudge('구슬은 당긴 반대쪽으로 굴러가요 — 구멍 반대쪽으로 당겨 보세요', 2.2);
+    return;
+  }
+  shoot(deg);
+}
+cv.addEventListener('pointerdown', onDown, { passive:true });
+cv.addEventListener('pointermove', onMove, { passive:true });
+cv.addEventListener('pointerup', onUp, { passive:true });
+cv.addEventListener('pointercancel', ()=>{ S.pull=null; S.grab=null; S.moving=false; pointerId=null; }, { passive:true });
+
+// ══════════ 렌더 ══════════
+function chalkLine(g, ax, ay, bx, by, w, alpha){
+  g.save();
+  g.strokeStyle=`rgba(244,241,234,${alpha||0.92})`;
+  g.lineWidth=w; g.lineCap='round';
+  g.beginPath(); g.moveTo(ax,ay); g.lineTo(bx,by); g.stroke();
+  // 분필 거칠기
+  g.globalAlpha=0.45;
+  g.lineWidth=w*0.5;
+  const n=Math.max(6, Math.round(Math.hypot(bx-ax,by-ay)/7));
+  for(let i=0;i<n;i++){
+    const t0=i/n, t1=(i+0.6)/n;
+    const jx=(Math.random()-0.5)*w*0.9, jy=(Math.random()-0.5)*w*0.9;
+    g.beginPath();
+    g.moveTo(ax+(bx-ax)*t0+jx, ay+(by-ay)*t0+jy);
+    g.lineTo(ax+(bx-ax)*t1+jx, ay+(by-ay)*t1+jy);
+    g.stroke();
+  }
+  g.restore();
+}
+function bakeBoard(){
+  const key=`${S.setNo}|${Math.round(S.drawW)}|${S.line.ang}|${S.line.d}|${Math.round(S.line.cy*100)}|${S.phase==='onboard'?'o':'p'}|${bareBoard()?'b':'t'}`;
+  if (key===boardKey && boardLayer) return;
+  boardKey=key;
+  const w=Math.max(2,Math.round(S.drawW)), h=Math.max(2,Math.round(S.drawH));
+  if (!boardLayer) boardLayer=document.createElement('canvas');
+  boardLayer.width=Math.round(w*DPR); boardLayer.height=Math.round(h*DPR);
+  const g=boardLayer.getContext('2d');
+  g.setTransform(DPR,0,0,DPR,0,0);
+  const C=S.cmPx;
+  g.fillStyle=groundPat||'#C5C1B6'; g.fillRect(0,0,w,h);
+  const lit=g.createLinearGradient(0,0,0,h);
+  lit.addColorStop(0,'rgba(255,255,255,.16)');
+  lit.addColorStop(.55,'rgba(255,255,255,0)');
+  lit.addColorStop(1,'rgba(58,58,56,.18)');
+  g.fillStyle=lit; g.fillRect(0,0,w,h);
+  // 희미한 노란 원 페인트 (운동장 표시)
+  g.save();
+  g.strokeStyle='rgba(214,184,90,.30)'; g.lineWidth=Math.max(6,C*0.3);
+  g.beginPath(); g.arc(w*0.18, h*0.22, Math.min(w,h)*0.30, 0, TAU); g.stroke();
+  g.restore();
+  // 시멘트 이음매
+  g.strokeStyle='rgba(90,88,80,.22)'; g.lineWidth=2;
+  const tile=Math.max(80, w/5);
+  for(let x=tile;x<w;x+=tile){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke(); }
+  for(let y=tile;y<h;y+=tile){ g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke(); }
+  // 연석 (아래·위 가장자리)
+  g.fillStyle='rgba(58,58,56,.28)';
+  g.fillRect(0,0,w,C*0.5); g.fillRect(0,h-C*0.5,w,C*0.5);
+  g.fillStyle='rgba(192,57,43,.42)';
+  g.fillRect(0,C*0.5-3,w,3); g.fillRect(0,h-C*0.5,w,3);
+  // 분필 선 두 개
+  const L=S.line.len/2;
+  const [uxx,uyy]=lineU(), [nx,ny]=lineN();
+  const A=[(S.line.cx-L*uxx)*C, (S.line.cy-L*uyy)*C];
+  const B=[(S.line.cx+L*uxx)*C, (S.line.cy+L*uyy)*C];
+  const A2=[(S.line.cx-L*uxx+S.line.d*nx)*C, (S.line.cy-L*uyy+S.line.d*ny)*C];
+  const B2=[(S.line.cx+L*uxx+S.line.d*nx)*C, (S.line.cy+L*uyy+S.line.d*ny)*C];
+  const F=S.frame;
+  if (F){
+    // 사다리꼴 틀 — 윗변은 짧고 옆변 두 개는 안쪽으로 기운다
+    const T1=[(S.line.cx+(-L+F.k1)*uxx+S.line.d*nx)*C, (S.line.cy+(-L+F.k1)*uyy+S.line.d*ny)*C];
+    const T2=[(S.line.cx+(L-F.k2)*uxx+S.line.d*nx)*C, (S.line.cy+(L-F.k2)*uyy+S.line.d*ny)*C];
+    chalkLine(g, T1[0],T1[1],T2[0],T2[1], Math.max(4,C*0.16), .78);
+    chalkLine(g, A[0],A[1],T1[0],T1[1], Math.max(3.5,C*0.13), .74);
+    chalkLine(g, B[0],B[1],T2[0],T2[1], Math.max(3.5,C*0.13), .74);
+  } else chalkLine(g, A2[0],A2[1],B2[0],B2[1], Math.max(4,C*0.16), .78);
+  chalkLine(g, A[0],A[1],B[0],B[1], Math.max(5,C*0.2), .95);
+  // 밴드3부터는 눈금·상시 자 없이 선 두 개만 — 수직 방향을 스스로 찾아야 한다
+  if (bareBoard()){ boardLayer._w=w; boardLayer._h=h; return; }
+  // 가까운 선 위의 눈금 — 두 선에 수직인 방향 표시(자 대신 쓰는 도구다)
+  for (let s=-L+1; s<=L-1; s+=3){
+    const p0=[(S.line.cx+s*uxx)*C, (S.line.cy+s*uyy)*C];
+    const p1=[(S.line.cx+s*uxx+0.9*nx)*C, (S.line.cy+s*uyy+0.9*ny)*C];
+    chalkLine(g, p0[0],p0[1],p1[0],p1[1], Math.max(2.5,C*0.09), .62);
+  }
+  // 두 선 사이의 거리를 분필 자로 상시 표기 (왼쪽 끝)
+  {
+    const s=-L+0.6;
+    const p0=[(S.line.cx+s*uxx)*C, (S.line.cy+s*uyy)*C];
+    const p1=[(S.line.cx+s*uxx+S.line.d*nx)*C, (S.line.cy+s*uyy+S.line.d*ny)*C];
+    g.save();
+    g.strokeStyle='rgba(192,57,43,.85)'; g.lineWidth=Math.max(3,C*0.1);
+    g.beginPath(); g.moveTo(p0[0],p0[1]); g.lineTo(p1[0],p1[1]); g.stroke();
+    // 직각 표시
+    for (const [pt,sign] of [[p0,1],[p1,-1]]){
+      g.save(); g.translate(pt[0],pt[1]); g.rotate((S.line.ang + (sign>0?0:180))*D2R);
+      g.strokeStyle='rgba(58,58,56,.85)'; g.lineWidth=2.4;
+      g.beginPath(); g.moveTo(0,-C*0.42*sign); g.lineTo(0,0); g.lineTo(C*0.42,0); g.stroke();
+      g.restore();
+    }
+    const fs=Math.max(13,C*0.62);
+    g.font=`900 ${fs}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+    g.textAlign='center'; g.textBaseline='middle';
+    g.strokeStyle='rgba(244,241,234,.96)'; g.lineWidth=fs*0.3;
+    const mid=[(p0[0]+p1[0])/2, (p0[1]+p1[1])/2];
+    g.strokeText(`${S.line.d} cm`, mid[0]-C*1.25, mid[1]);
+    g.fillStyle='#3A3A38';
+    g.fillText(`${S.line.d} cm`, mid[0]-C*1.25, mid[1]);
+    g.textAlign='left'; g.textBaseline='alphabetic';
+    g.restore();
+  }
+  boardLayer._w=w; boardLayer._h=h;
+}
+function drawMarble(g,x,y,r,col){
+  g.save();
+  const grd=g.createRadialGradient(x-r*0.34,y-r*0.38,r*0.1, x,y,r);
+  grd.addColorStop(0,'#FFFFFF');
+  grd.addColorStop(.28,'#DCEAF1');
+  grd.addColorStop(.72,col||'#5B8FA8');
+  grd.addColorStop(1,'#2F5C70');
+  g.fillStyle=grd;
+  g.beginPath(); g.arc(x,y,r,0,TAU); g.fill();
+  g.strokeStyle='rgba(58,58,56,.5)'; g.lineWidth=1.4; g.stroke();
+  // 소용돌이
+  g.save(); g.beginPath(); g.arc(x,y,r,0,TAU); g.clip();
+  g.strokeStyle='rgba(255,255,255,.5)'; g.lineWidth=r*0.26;
+  g.beginPath(); g.arc(x+r*0.1,y+r*0.2,r*0.55, -0.7, 1.4); g.stroke();
+  g.restore();
+  g.fillStyle='rgba(255,255,255,.9)';
+  g.beginPath(); g.arc(x-r*0.33,y-r*0.36,r*0.20,0,TAU); g.fill();
+  g.restore();
+}
+const FONT_KR='-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+// 글이 판 폭을 넘으면 줄여서 맞춘다(최소 min px)
+function fitFont(text, weight, size, min, maxW){
+  let s=size; ctx.font=`${weight} ${s}px ${FONT_KR}`;
+  while (s>min && ctx.measureText(text).width>maxW){ s-=0.5; ctx.font=`${weight} ${s}px ${FONT_KR}`; }
+  return s;
+}
+function label(text,x,y,size,color){
+  ctx.save();
+  const L0=(S.land?S.stageX:0)+8, R0=(S.land?S.stageX+S.stageW:W)-8;
+  const s=fitFont(text, 900, size, 11, R0-L0);
+  const tw=ctx.measureText(text).width;
+  const cx=clamp(x, L0+tw/2, Math.max(L0+tw/2, R0-tw/2));   // 화면 가장자리에서 잘리지 않게
+  ctx.textAlign='center';
+  ctx.strokeStyle='rgba(244,241,234,.96)'; ctx.lineWidth=s*.32; ctx.strokeText(text,cx,y);
+  ctx.fillStyle=color||'#3A3A38'; ctx.fillText(text,cx,y);
+  ctx.restore();
+}
+function roundRectPath(g,x,y,w,h,r){
+  g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
+}
+const fmt=(t)=>{ const s=Math.max(0,Math.ceil(t)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+// ── 플레이 화면 크롬: 위쪽 띠 없음. 시간은 판 모서리 해시계, 넣은 수는 먼 선 너머 정(正)자, 주머니는 아래 연석 홈
+// (판 가장자리 2 cm 는 fitLine 여백이라 분필 선이 들어오지 않는다)
+function grooveXY(i){
+  const P=S.panel;
+  return S.land ? [P.x+30+i*26, P.y+52] : [P.x+24+i*24, P.y+P.h-27];
+}
+function drawSundial(){
+  const r=clamp(S.cmPx*0.8, 15, 28);
+  const cx=S.ox+r+6, cy=S.oy+r+6;
+  const practice=S.phase==='onboard', low=!practice && S.timeLeft<15;
+  const frac = practice ? 1 : clamp(S.timeLeft/SESSION,0,1);
+  ctx.save();
+  // 남은 시간은 햇빛(밝은 부채꼴), 지나간 시간은 그림자 — 막대 그림자 끝이 시계 방향으로 돈다
+  ctx.fillStyle='rgba(58,58,56,.34)'; ctx.beginPath(); ctx.arc(cx,cy,r,0,TAU); ctx.fill();
+  ctx.fillStyle= low ? 'rgba(232,150,132,.95)' : 'rgba(255,236,170,.9)';
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r-2,-Math.PI/2,-Math.PI/2+TAU*frac); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(244,241,234,.95)'; ctx.lineWidth=2.2;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,TAU); ctx.stroke();
+  ctx.lineWidth=1.6;
+  for (let i=0;i<6;i++){ const a=-Math.PI/2+i*TAU/6;
+    ctx.beginPath(); ctx.moveTo(cx+Math.cos(a)*(r-5),cy+Math.sin(a)*(r-5)); ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r); ctx.stroke(); }
+  const a=-Math.PI/2+TAU*frac;
+  ctx.strokeStyle='#3A3A38'; ctx.lineWidth=3; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*(r-3), cy+Math.sin(a)*(r-3)); ctx.stroke();
+  ctx.fillStyle='#3A3A38'; ctx.beginPath(); ctx.arc(cx,cy,3,0,TAU); ctx.fill();
+  const tx=cx+r+8;
+  ctx.textAlign='left'; ctx.lineJoin='round';
+  const head = practice ? '연습' : fmt(S.timeLeft);
+  ctx.font = practice ? `900 16px ${FONT_KR}` : '900 18px ui-monospace,SFMono-Regular,Menlo,monospace';
+  ctx.lineWidth=4; ctx.strokeStyle='rgba(244,241,234,.92)'; ctx.strokeText(head,tx,cy);
+  ctx.fillStyle=low?'#A5281C':'#3A3A38'; ctx.fillText(head,tx,cy);
+  const sub = practice ? '시간 멈춤' : (S.combo>1 ? `연속 ${S.combo}` : '남은 시간');
+  ctx.font=`800 12px ${FONT_KR}`; ctx.lineWidth=3.4; ctx.strokeText(sub,tx,cy+15);
+  ctx.fillStyle='#3A3A38'; ctx.fillText(sub,tx,cy+15);
+  ctx.restore();
+}
+function drawTally(){
+  const a=S.line.ang*D2R, n=[Math.sin(a),-Math.cos(a)];
+  const base=farPt(0), c=clamp(S.cmPx*0.95, 18, 36);
+  const X=px(base[0])+n[0]*S.cmPx*2.2, Y=py(base[1])+n[1]*S.cmPx*2.2;
+  // 정(正) 한 칸 = 획 5개. 목표 8획을 흐리게 깔고 넣은 만큼 진하게 긋는다. 선과 같은 방향으로 눕혀 쓴다
+  const cell=(ox)=>[[ox-c/2,-c/2,ox+c/2,-c/2],[ox,-c/2,ox,c/2],[ox,0,ox+c*.42,0],[ox-c*.38,0,ox-c*.38,c/2],[ox-c/2,c/2,ox+c/2,c/2]];
+  const strokes=[...cell(-c*0.72), ...cell(c*0.72)].slice(0,GOAL);
+  ctx.save();
+  ctx.translate(X,Y); ctx.rotate(a); ctx.lineCap='round';
+  strokes.forEach(([x1,y1,x2,y2],i)=>{
+    const on=i<S.holes;
+    if (on){ ctx.strokeStyle='rgba(58,58,56,.35)'; ctx.lineWidth=5.5;
+      ctx.beginPath(); ctx.moveTo(x1+1,y1+1.5); ctx.lineTo(x2+1,y2+1.5); ctx.stroke(); }
+    ctx.strokeStyle= on ? 'rgba(248,246,240,.98)' : 'rgba(244,241,234,.30)';
+    ctx.lineWidth= on ? 4 : 2.4;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  });
+  ctx.restore();
+  const k=c/2+16+52*Math.abs(n[0]);
+  label(`넣은 구멍 ${S.holes}/${GOAL}`, X+n[0]*k, Y+n[1]*k+5, 14);
+}
+function drawPanel(){
+  // 아래 연석 — 시멘트 블록 윗면. 붉은 페인트 띠, 주머니 구슬 홈(엄지 쪽), 두 선 사이 cm
+  const P=S.panel;
+  ctx.save();
+  ctx.fillStyle=groundPat||'#C5C1B6'; ctx.fillRect(P.x,P.y,P.w,P.h);
+  ctx.fillStyle='rgba(58,58,56,.55)'; ctx.fillRect(P.x,P.y,P.w,P.h);
+  ctx.fillStyle='rgba(192,57,43,.78)'; ctx.fillRect(P.x,P.y,P.w,5);
+  ctx.fillStyle='rgba(20,20,18,.35)'; ctx.fillRect(P.x,P.y+5,P.w,2);
+  const [g0x,g0y]=grooveXY(0), step=grooveXY(1)[0]-g0x;
+  ctx.fillStyle='rgba(20,20,18,.48)';
+  roundRectPath(ctx, g0x-14, g0y-12, (MARBLES-1)*step+28, 24, 12); ctx.fill();
+  for(let i=0;i<MARBLES;i++){
+    const [mx,my]=grooveXY(i);
+    if (i<S.marbles) drawMarble(ctx,mx,my,9.5);
+    else { ctx.fillStyle='rgba(20,20,18,.55)'; ctx.beginPath(); ctx.arc(mx,my,5,0,TAU); ctx.fill(); }
+  }
+  ctx.textAlign='left'; ctx.font=`800 12px ${FONT_KR}`; ctx.fillStyle='rgba(244,241,234,.86)';
+  ctx.fillText('주머니 구슬', g0x-13, g0y-19);
+  const right=`두 선 사이 ${S.line.d} cm`;
+  ctx.fillStyle='#F4F1EA';
+  if (S.land){
+    ctx.font='900 15px ui-monospace,SFMono-Regular,Menlo,monospace';
+    ctx.textAlign='right'; ctx.fillText(right, P.x+P.w-124, P.y+P.h/2+8);
+  } else {
+    const L0=g0x+(MARBLES-1)*step+18, R0=W-114;
+    ctx.font='900 14px ui-monospace,SFMono-Regular,Menlo,monospace';
+    ctx.textAlign='center'; ctx.fillText(right, (L0+R0)/2, g0y+5);
+  }
+  ctx.restore();
+}
+function drawBanner(){
+  // 연석 위에 분필로 바로 쓴다. 앞머리는 분필 동그라미(연습이면 붉은 분필)
+  if (!S.banner) return;
+  const P=S.panel, practice=S.phase==='onboard';
+  let x0, wid, y1, y2;
+  if (S.land){ x0=P.x+30+(MARBLES-1)*26+44; wid=P.x+P.w-124-176-x0; y1=P.y+37; y2=P.y+59; }
+  else { x0=P.x+12; wid=P.w-24; y1=P.y+28; y2=P.y+48; }
+  ctx.save();
+  ctx.strokeStyle= practice ? '#E08F80' : 'rgba(244,241,234,.9)'; ctx.lineWidth=2.4;
+  ctx.beginPath(); ctx.arc(x0+7, y1-5, 6.5, 0.4, TAU-0.25); ctx.stroke();
+  ctx.textAlign='left';
+  fitFont(S.banner, 800, 15.5, 11, wid-24);
+  ctx.fillStyle='#F4F1EA';
+  ctx.fillText(S.banner, x0+22, y1);
+  if (S.bannerSub){
+    fitFont(S.bannerSub, 700, 13.5, 10.5, wid-24);
+    ctx.fillStyle='rgba(244,241,234,.82)';
+    ctx.fillText(S.bannerSub, x0+22, y2);
+  }
+  ctx.restore();
+}
+function drawFx(dt){
+  for(let i=S.fx.length-1;i>=0;i--){
+    const f=S.fx[i]; f.t+=dt;
+    const k=f.t/f.life;
+    if (k>=1){ S.fx.splice(i,1); continue; }
+    ctx.save();
+    if (f.type==='ruler'){
+      const G=f.geo;
+      const a=Math.min(1,(1-k)*2);
+      ctx.globalAlpha=a;
+      const A=nearPtG(G,f.s), B=farPtG(G,f.s);
+      ctx.strokeStyle='#C0392B'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(px(A[0]),py(A[1])); ctx.lineTo(px(B[0]),py(B[1])); ctx.stroke();
+      for (const [pt,sg] of [[A,1],[B,-1]]){
+        ctx.save(); ctx.translate(px(pt[0]),py(pt[1])); ctx.rotate((G.ang+(sg>0?0:180))*D2R);
+        ctx.strokeStyle='rgba(58,58,56,.9)'; ctx.lineWidth=2.6;
+        ctx.beginPath(); ctx.moveTo(0,-S.cmPx*0.45*sg); ctx.lineTo(0,0); ctx.lineTo(S.cmPx*0.45,0); ctx.stroke();
+        ctx.restore();
+      }
+      // 라벨은 자 옆(선 방향)으로 구멍 반지름보다 멀리 민다 — 구멍·구슬과 겹치지 않게
+      const sg = f.s>0 ? -1 : 1, off = S.cmPx*(HOLE_R+0.7) + 16;
+      label(`${G.d} cm`, (px(A[0])+px(B[0]))/2 + Math.cos(G.ang*D2R)*off*sg,
+            (py(A[1])+py(B[1]))/2 + Math.sin(G.ang*D2R)*off*sg + 5, Math.max(15,S.cmPx*0.62));
+    } else if (f.type==='sink'){
+      // 구멍에 「톡」 — 구슬이 작아지며 가라앉는다
+      ctx.globalAlpha=1-k*0.7;
+      drawMarble(ctx, px(f.x), py(f.y)+k*S.cmPx*0.12, Math.max(13,S.cmPx*0.42)*(1-k*0.8));
+    } else if (f.type==='whydecoy'){
+      // 옆변 구멍까지 곧게 굴러간 길(점선)과 그 길이 — 평행한 두 변 사이의 거리와 다르다
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      const G=f.geo, a=G.ang*D2R, A=nearPtG(G,f.fs);
+      const D=[A[0]+f.ft*Math.sin(a), A[1]-f.ft*Math.cos(a)];
+      ctx.setLineDash([6,5]); ctx.strokeStyle='rgba(58,58,56,.8)'; ctx.lineWidth=2.6;
+      ctx.beginPath(); ctx.moveTo(px(A[0]),py(A[1])); ctx.lineTo(px(D[0]),py(D[1])); ctx.stroke();
+      ctx.setLineDash([]);
+      const sg = f.fs>0 ? -1 : 1, off=S.cmPx*(HOLE_R+0.7)+16;
+      label(`${f.ft} cm`, (px(A[0])+px(D[0]))/2 + Math.cos(a)*off*sg, (py(A[1])+py(D[1]))/2 + Math.sin(a)*off*sg + 5, 15, '#5A5850');
+      const M=nearPtG(G,f.s);
+      label(f.msg, px(M[0]), py(M[1])+S.cmPx*1.8, 15, '#8E2A20');
+    } else if (f.type==='why'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      const A=nearPtG(f.geo,f.s);
+      label(f.msg, px(A[0]), py(A[1])+S.cmPx*1.8, 15, '#8E2A20');
+    } else if (f.type==='whyfoot'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      const G=f.geo, A=nearPtG(G,f.s), Bf=farPtG(G,f.holeS), Hn=nearPtG(G,f.holeS);
+      // 맞았어야 할 수선(점선)과 구멍 바로 맞은편 자리
+      ctx.setLineDash([6,5]); ctx.strokeStyle='rgba(58,58,56,.8)'; ctx.lineWidth=2.6;
+      ctx.beginPath(); ctx.moveTo(px(Hn[0]),py(Hn[1])); ctx.lineTo(px(Bf[0]),py(Bf[1])); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle='rgba(192,57,43,.9)';
+      ctx.beginPath(); ctx.arc(px(Hn[0]),py(Hn[1]), 6, 0, TAU); ctx.fill();
+      label(f.msg, px(A[0]), py(A[1])+S.cmPx*2.4, 15, '#8E2A20');
+      label('여기가 구멍 바로 맞은편이에요', px(Hn[0]), py(Hn[1])+S.cmPx*1.1, 14, '#8E2A20');
+    } else if (f.type==='toast'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2.4);
+      const bx=S.land?S.stageX+S.stageW/2:W/2, by=S.oy+S.drawH-12;
+      fitFont(f.text, 800, 15, 11, (S.land?S.stageW:W)-44);
+      const tw=ctx.measureText(f.text).width+26;
+      ctx.fillStyle='#3A3A38'; ctx.fillRect(bx-tw/2, by-24, tw, 32);
+      ctx.fillStyle='#F4F1EA'; ctx.textAlign='center'; ctx.fillText(f.text, bx, by-3); ctx.textAlign='left';
+    }
+    ctx.restore();
+  }
+}
+function drawFinger(x,y,s){
+  // 손끝 유령 — 흰 손끝 + 손가락 몸통
+  ctx.save();
+  ctx.lineCap='round';
+  ctx.strokeStyle='#3A3A38'; ctx.lineWidth=17*s;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+13*s,y+24*s); ctx.stroke();
+  ctx.strokeStyle='rgba(244,241,234,.97)'; ctx.lineWidth=13*s;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+13*s,y+24*s); ctx.stroke();
+  ctx.restore();
+}
+function drawHint(){
+  if (S.shot || S.transT>0 || S.pull || S.grab) return;
+  const now=performance.now();
+  const M=nearPt(S.marbleS), mx=px(M[0]), my=py(M[1]);
+  if (S.phase==='playing'){
+    // 본판: 구슬만 맥동한다 — 자리·방향은 알려 주지 않는다(발 표시는 빗나간 뒤에만)
+    if (S.hintT<=0 && S.tapPulse<=0) return;
+    const pulse=.5+.5*Math.sin(now/200);
+    ctx.save();
+    ctx.strokeStyle=`rgba(192,57,43,${.45+.4*pulse})`; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(mx,my, S.cmPx*(1.0+pulse*0.5), 0, TAU); ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  if (S.phase!=='onboard') return;
+  // 연습: 손가락 유령이 할 일을 직접 보여 준다. 탭만 하거나 8초 가만있으면 크게 다시
+  const big=S.ghostBig>0 ? 1.5 : 1;
+  const Hn=nearPt(S.holeS);
+  ctx.save();
+  if (Math.abs(S.marbleS-S.holeS)>0.8){
+    // 1단계 — 구슬을 잡고 선을 따라 구멍 바로 맞은편으로
+    const t=(now%1500)/1500;
+    ctx.strokeStyle='rgba(192,57,43,.85)'; ctx.lineWidth=3;
+    ctx.setLineDash([8,8]); ctx.lineDashOffset=-t*32;
+    ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(px(Hn[0]),py(Hn[1])); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(192,57,43,.9)';
+    ctx.beginPath(); ctx.arc(px(Hn[0]),py(Hn[1]), 6, 0, TAU); ctx.fill();
+    const e=t<0.8 ? t/0.8 : 1;
+    const gx=mx+(px(Hn[0])-mx)*e, gy=my+(py(Hn[1])-my)*e;
+    ctx.globalAlpha=.55; drawMarble(ctx, gx, gy, marbleR()); ctx.globalAlpha=1;
+    // 손가락은 구슬 옆으로 비껴 그린다 — 구슬(목표)을 가리지 않게
+    drawFinger(gx+marbleR()*0.85, gy+marbleR()*0.85, big);
+  } else {
+    // 2단계 — 구멍 반대쪽으로 당겼다 놓으면 두 선에 수직으로 굴러간다 (1.4초 루프)
+    const t=(now%1400)/1400;
+    const [nx,ny]=lineN();
+    const pullLen=S.cmPx*2.0*big;
+    let e=0, ghostK=-1;
+    if (t>=0.15 && t<0.6){ const q=(t-0.15)/0.45; e=q*q*(3-2*q); }
+    else if (t>=0.6){ e=1; if (t>=0.68) ghostK=(t-0.68)/0.32; }
+    const fx=mx-nx*pullLen*e, fy=my-ny*pullLen*e;
+    if (t>=0.15 && t<0.68){
+      ctx.strokeStyle='rgba(192,57,43,.75)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(fx,fy); ctx.stroke();
+      ctx.setLineDash([7,6]); ctx.strokeStyle='rgba(58,58,56,.55)';
+      ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(mx+nx*S.cmPx*S.line.d, my+ny*S.cmPx*S.line.d); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (ghostK>=0){
+      ctx.globalAlpha=.55;
+      drawMarble(ctx, mx+nx*S.cmPx*S.line.d*ghostK, my+ny*S.cmPx*S.line.d*ghostK, marbleR());
+      ctx.globalAlpha=1;
+    }
+    if (ghostK<0.4){
+      ctx.globalAlpha = ghostK<0 ? 1 : 1-ghostK/0.4;
+      const fo = e<0.35 ? marbleR()*0.85*(1-e/0.35) : 0;   // 당기기 전에는 구슬 옆, 당기면 손끝이 고무줄 끝
+      drawFinger(fx+fo, fy+fo, big);
+    }
+  }
+  ctx.restore();
+}
+// 타이틀 — 운동장 바닥 전체가 구슬 링. 링·연석·작은 구슬은 한 번 구워 두고, 시작 구슬만 매 프레임 그린다
+let titleLayer=null, titleKey='';
+function bakeTitle(){
+  const key=`${W}x${H}x${DPR}x${groundPat?1:0}`;
+  if (key===titleKey && titleLayer) return;
+  titleKey=key;
+  if (!titleLayer) titleLayer=document.createElement('canvas');
+  titleLayer.width=Math.round(W*DPR); titleLayer.height=Math.round(H*DPR);
+  const g=titleLayer.getContext('2d');
+  g.setTransform(DPR,0,0,DPR,0,0);
+  g.fillStyle=groundPat||'#C5C1B6'; g.fillRect(0,0,W,H);
+  const lit=g.createRadialGradient(W*.42,H*.38,0,W*.5,H*.5,Math.max(W,H)*.75);
+  lit.addColorStop(0,'rgba(255,255,255,.18)'); lit.addColorStop(1,'rgba(58,58,56,.24)');
+  g.fillStyle=lit; g.fillRect(0,0,W,H);
+  const { cx, cy, R }=S.ring;
+  // 노란 페인트 원 위에 분필로 다시 그은 구슬치기 원
+  g.strokeStyle='rgba(214,184,90,.45)'; g.lineWidth=Math.max(10,R*0.07);
+  g.beginPath(); g.arc(cx,cy,R,0,TAU); g.stroke();
+  g.lineCap='round';
+  for (const [dr,al,w,ph] of [[-R*0.1,.92,Math.max(4,R*.018),0],[-R*0.092,.45,Math.max(2,R*.009),1.7]]){
+    g.strokeStyle=`rgba(244,241,234,${al})`; g.lineWidth=w;
+    g.beginPath();
+    for (let i=0;i<=72;i++){ const a=i/72*TAU, rr=R+dr+Math.sin(a*3+ph)*R*0.008;
+      const x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr; if (i) g.lineTo(x,y); else g.moveTo(x,y); }
+    g.stroke();
+  }
+  // 링 안의 구멍과 먼저 굴러와 멈춘 구슬들
+  g.fillStyle='rgba(58,58,56,.84)';
+  g.beginPath(); g.ellipse(cx+R*.6, cy+R*.14, R*.075, R*.058, -.25, 0, TAU); g.fill();
+  g.strokeStyle='rgba(244,241,234,.6)'; g.lineWidth=2; g.stroke();
+  drawMarble(g, cx-R*.66, cy-R*.12, Math.max(8,R*.05), '#B5654F');
+  drawMarble(g, cx+R*.4, cy+R*.8, Math.max(8,R*.048), '#6F9A5B');
+  drawMarble(g, cx-R*.45, cy+R*.8, Math.max(7,R*.04));
+  // 위·아래 연석
+  g.fillStyle='#3A3A38'; g.fillRect(0,0,W,52); g.fillRect(0,H-62,W,62);
+  g.fillStyle='rgba(192,57,43,.8)'; g.fillRect(0,48,W,4); g.fillRect(0,H-62,W,4);
+}
+function drawTitleScene(t){
+  bakeTitle();
+  ctx.drawImage(titleLayer,0,0,W,H);
+  const Rg=S.ring, bx=Rg.mx, by=Rg.my;
+  let mx=bx, my=by;
+  ctx.save(); ctx.lineCap='round';
+  if (TP.roll){
+    // 놓으면 당긴 반대쪽으로 곧게 굴러 나간다
+    const k=TP.roll.t*1500;
+    mx=bx+TP.roll.dir[0]*k; my=by+TP.roll.dir[1]*k;
+    ctx.strokeStyle='rgba(150,146,136,.55)'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(mx,my); ctx.stroke();
+  } else if (TP.pulling){
+    const dx=TP.x-TP.sx, dy=TP.y-TP.sy, L=Math.hypot(dx,dy);
+    if (L>4){
+      const c=Math.min(L,110)/L;
+      mx=bx+dx*c*.3; my=by+dy*c*.3;
+      ctx.setLineDash([8,7]); ctx.strokeStyle='rgba(58,58,56,.55)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx-dx/L*Rg.R*.8, by-dy/L*Rg.R*.8); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle='rgba(192,57,43,.75)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(TP.x,TP.y); ctx.stroke();
+    }
+  } else if (!REDUCED){
+    // 2.4초마다 끝에서 두 번 — 여기를 잡으라는 분필 동그라미
+    const ph=(t%2400)/2400;
+    if (ph>.72){ const q=(ph-.72)/.28;
+      ctx.strokeStyle=`rgba(244,241,234,${.85*(1-q)})`; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(bx,by,Rg.mR*(1.25+q*1.1),0,TAU); ctx.stroke(); }
+  }
+  ctx.restore();
+  drawMarble(ctx, mx, my, Rg.mR);
+}
+
+function render(dt){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if (S.phase==='title'){ drawTitleScene(performance.now()); return; }
+  ctx.fillStyle='#3A3A38'; ctx.fillRect(0,0,W,H);
+  ctx.save();
+  if (S.shake>0){ const m=S.shake*7; ctx.translate((Math.random()-.5)*m,(Math.random()-.5)*m); }
+  bakeBoard();
+  if (boardLayer) ctx.drawImage(boardLayer, S.ox, S.oy, boardLayer._w, boardLayer._h);
+
+  // 구멍 — 옆변 구멍(가짜)도 똑같은 어두운 원이다
+  {
+    const holes=[farPt(S.holeS)];
+    if (S.frame) holes.push(decoyPtG(S.line, S.frame));
+    ctx.save();
+    for (const Hf of holes){
+      ctx.fillStyle='rgba(58,58,56,.86)';
+      ctx.beginPath();
+      ctx.ellipse(px(Hf[0]), py(Hf[1]), HOLE_R*S.cmPx, HOLE_R*S.cmPx*0.78, S.line.ang*D2R, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle='rgba(244,241,234,.6)'; ctx.lineWidth=2.2; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // 밴드3 빗금 분필 자국 — 구슬 자리에서 구멍으로 비스듬히 그은 선과 그 길이
+  if (S.trap && (S.phase==='playing')){
+    const A=nearPt(S.trap.s), B=farPt(S.holeS);
+    ctx.save();
+    ctx.strokeStyle='rgba(244,241,234,.8)'; ctx.lineWidth=Math.max(2.5,S.cmPx*0.08); ctx.lineCap='round';
+    ctx.setLineDash([S.cmPx*0.35, S.cmPx*0.22]);
+    ctx.beginPath(); ctx.moveTo(px(A[0]),py(A[1])); ctx.lineTo(px(B[0]),py(B[1])); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
+    const [ux2,uy2]=lineU(), side=S.trap.s<S.holeS?-1:1;
+    label(`${S.trap.len} cm`, (px(A[0])+px(B[0]))/2 + ux2*side*S.cmPx*1.3, (py(A[1])+py(B[1]))/2 + uy2*side*S.cmPx*1.3,
+          Math.max(14,S.cmPx*0.55), '#5A5850');
+  }
+  // 사다리꼴 이름표 — 평행한 두 변 사이로 한 번 넣은 뒤에 켜진다
+  if (S.frame && S.frame.named){
+    // 구멍·지난 자·옆변 구멍에서 가장 먼 자리에 붙인다(자와 겹치지 않게)
+    const avoid=[S.holeS, S.frame.decoyS, ...S.lastRuler];
+    let s0=0, best=-1;
+    for (const s of [-0.28,-0.14,0,0.14,0.28].map(k=>k*S.line.len)){
+      const m=Math.min(...avoid.map(v=>Math.abs(v-s))); if (m>best){ best=m; s0=s; }
+    }
+    const c=nearPt(s0), [nx,ny]=lineN();
+    label('사다리꼴', px(c[0]+nx*S.line.d*0.5), py(c[1]+ny*S.line.d*0.5)+6, Math.max(15,S.cmPx*0.6), '#8E2A20');
+  }
+  // 지난 자 자국
+  for (const s of S.lastRuler){
+    const A=nearPt(s), B=farPt(s);
+    ctx.save(); ctx.globalAlpha=.28;
+    ctx.strokeStyle='#C0392B'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(px(A[0]),py(A[1])); ctx.lineTo(px(B[0]),py(B[1])); ctx.stroke();
+    ctx.restore();
+  }
+  // 굴러가는 구슬
+  if (S.shot){
+    const sh=S.shot; sh.t+=dt;
+    const speed=26;                                    // cm/s
+    const M0=nearPt(sh.from);
+    const x=M0[0]+sh.dir[0]*speed*sh.t, y=M0[1]+sh.dir[1]*speed*sh.t;
+    // 지나온 자국
+    ctx.save();
+    ctx.strokeStyle='rgba(150,146,136,.5)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(px(M0[0]),py(M0[1])); ctx.lineTo(px(x),py(y)); ctx.stroke();
+    ctx.restore();
+    drawMarble(ctx, px(x), py(y), Math.max(13,S.cmPx*0.42));
+    const [nx,ny]=lineN();
+    const travelled=(x-M0[0])*nx+(y-M0[1])*ny;
+    const done = sh.res.kind==='hole' ? travelled>=S.line.d
+               : sh.res.kind==='decoy' ? travelled>=S.frame.decoyT
+               : travelled>=S.line.d+3.0 || sh.t>1.6;
+    if (done) resolveShot();
+  } else if (S.phase==='playing' || S.phase==='onboard'){
+    const M=nearPt(S.marbleS);
+    // 당기는 중 — 나갈 방향을 보여 준다(수선인지는 알려 주지 않는다)
+    if (S.pull){
+      const dx=S.pull.x-S.pull.sx, dy=S.pull.y-S.pull.sy;
+      if (Math.hypot(dx,dy)>=10){
+        const ang=Math.atan2(-dy,-dx);
+        ctx.save();
+        ctx.strokeStyle='rgba(58,58,56,.55)'; ctx.lineWidth=3; ctx.setLineDash([7,6]);
+        ctx.beginPath();
+        ctx.moveTo(px(M[0]),py(M[1]));
+        ctx.lineTo(px(M[0])+Math.cos(ang)*S.cmPx*9, py(M[1])+Math.sin(ang)*S.cmPx*9);
+        ctx.stroke(); ctx.setLineDash([]);
+        // 당긴 고무줄
+        ctx.strokeStyle='rgba(192,57,43,.7)'; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.moveTo(px(M[0]),py(M[1])); ctx.lineTo(S.pull.x,S.pull.y); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    drawMarble(ctx, px(M[0]), py(M[1]), marbleR());
+  }
+  drawFx(dt);
+  drawHint();
+  for(let i=S.ripples.length-1;i>=0;i--){
+    const r=S.ripples[i]; r.t+=dt;
+    if (r.t>.7){ S.ripples.splice(i,1); continue; }
+    const k=r.t/.7;
+    ctx.save(); ctx.globalAlpha=(1-k)*.7;
+    ctx.strokeStyle='#F4F1EA'; ctx.lineWidth=4-k*2;
+    ctx.beginPath(); ctx.arc(r.x,r.y,10+k*46,0,TAU); ctx.stroke(); ctx.restore();
+  }
+  if (S.phase==='playing' || S.phase==='onboard'){ drawSundial(); drawTally(); }
+  ctx.restore();
+  drawPanel();
+  drawBanner();
+  // 잃은 구슬은 연석 홈에서 튀어 올라 옆으로 굴러 나간다
+  for(let i=S.marbleFalls.length-1;i>=0;i--){
+    const n=S.marbleFalls[i]; n.t+=dt;
+    if (n.t>1.0){ S.marbleFalls.splice(i,1); continue; }
+    ctx.save(); ctx.globalAlpha=Math.max(0,1-n.t);
+    const [hx,hy]=grooveXY(n.idx);
+    drawMarble(ctx, hx + n.t*70, hy - Math.sin(n.t*Math.PI)*22 + n.t*n.t*30, 9.5);
+    ctx.restore();
+  }
+}
+
+let last=performance.now();
+function frame(now){
+  let dt=Math.min(0.05,(now-last)/1000); last=now;
+  if (S.phase==='title' && TP.roll){ TP.roll.t+=dt; if (TP.roll.t>=0.42){ TP.roll=null; beginRun(false); } }
+  if (S.hitstop>0){ S.hitstop-=dt; dt=0; }
+  if (S.shake>0) S.shake=Math.max(0,S.shake-dt*2.2);
+  if (S.hintT>0) S.hintT-=dt;
+  if (S.tapPulse>0) S.tapPulse-=dt;
+  if (S.ghostBig>0) S.ghostBig-=dt;
+  if (S.transT>0){
+    // 자 연출을 보는 동안 — 입력·타이머 멈춤
+    S.transT-=dt;
+    if (S.transT<=0){ S.transT=0; finishTransition(); }
+  } else if (S.phase==='playing' && !S.frozen){
+    S.timeLeft-=dt;
+    if (S.timeLeft<=0){ S.timeLeft=0; endGame('time'); }
+    if (now-S.lastInput>8000){ S.hintT=2.0; S.lastInput=now; }
+  }
+  if (S.phase==='onboard'){
+    // 연습은 시간으로 끝나지 않는다 — 학생이 직접 한 구를 넣어야 닫힌다
+    S.onboardT+=dt;
+    setBanner();
+    if (now-S.lastInput>8000){ S.ghostBig=1.8; S.lastInput=now; }
+  }
+  render(dt);
+  requestAnimationFrame(frame);
+}
+function finishTransition(){
+  const to=S.transTo; S.transTo='';
+  if (to==='play' && S.phase==='onboard'){
+    // 연습 → 본판: 주머니·시간·기록을 새로 채운다
+    S.phase='playing'; S.frozen=false;
+    S.marbles=MARBLES; S.holes=0; S.score=0; S.combo=0; S.bestCombo=0;
+    S.timeLeft=SESSION; S.attempts=0; S.sunk=0; S.missed=0; S.setNo=0; S.lastHoleS=null;
+    S.marbleFalls.length=0; S.lastInput=performance.now();
+    newSet();
+  } else if (to==='set' && S.phase==='playing'){
+    newSet();
+  }
+}
+
+const $=(id)=>document.getElementById(id);
+function showTitle(){
+  S.phase='title';
+  $('title').classList.remove('hide'); $('over').classList.add('hide');
+  $('helpbtn').classList.add('hide');
+  document.documentElement.classList.remove('inplay');
+  TP.roll=null; TP.pulling=false;
+  $('bestline').textContent = S.best>0 ? `최고 기록 구멍 ${S.best}개` : '';
+}
+function beginRun(skip){
+  $('title').classList.add('hide'); $('over').classList.add('hide'); $('help').classList.add('hide');
+  $('helpbtn').classList.remove('hide');
+  document.documentElement.classList.add('inplay');
+  S.marbles=MARBLES; S.holes=0; S.score=0; S.combo=0; S.bestCombo=0;
+  S.timeLeft=SESSION; S.attempts=0; S.sunk=0; S.missed=0; S.setNo=0;
+  S.fx.length=0; S.ripples.length=0; S.marbleFalls.length=0; S.lastRuler=[];
+  S.shot=null; S.pull=null; S.moving=false; S.frozen=false; S.lastInput=performance.now();
+  S.grab=null; S.transT=0; S.transTo=''; S.tapPulse=0; S.ghostBig=0; S.hintT=0;
+  S.lastHoleS=null; S.trap=null; S.frame=null;
+  let seen=false; try{ seen=localStorage.getItem('guseul.seen')==='1'; }catch(e){}
+  if (skip||seen){ S.phase='playing'; newSet(); }
+  else { try{ localStorage.setItem('guseul.seen','1'); }catch(e){} startOnboard(); }
+}
+// 시작 = 링 가운데 구슬을 당겼다 놓기(톡 누르거나 Enter 도 된다)
+const TP={ id:null, sx:0, sy:0, x:0, y:0, pulling:false, roll:null, suppress:false };
+const sbtn=$('startbtn');
+sbtn.addEventListener('pointerdown', (e)=>{
+  if (S.phase!=='title' || TP.roll) return;
+  TP.id=e.pointerId; TP.sx=TP.x=e.clientX; TP.sy=TP.y=e.clientY; TP.pulling=true;
+  try{ sbtn.setPointerCapture(e.pointerId); }catch(err){}
+});
+sbtn.addEventListener('pointermove', (e)=>{ if (TP.pulling && e.pointerId===TP.id){ TP.x=e.clientX; TP.y=e.clientY; } });
+function titlePullEnd(e, cancel){
+  if (!TP.pulling || e.pointerId!==TP.id) return;
+  TP.pulling=false;
+  const dx=TP.x-TP.sx, dy=TP.y-TP.sy, L=Math.hypot(dx,dy);
+  if (cancel || L<26) return;                       // 짧으면 탭 — click 이 시작한다
+  TP.suppress=true; setTimeout(()=>{ TP.suppress=false; }, 700);
+  audio(); SFX.roll();
+  TP.roll={ t:0, dir:[-dx/L, -dy/L] };
+}
+sbtn.addEventListener('pointerup', (e)=>titlePullEnd(e,false));
+sbtn.addEventListener('pointercancel', (e)=>titlePullEnd(e,true));
+sbtn.addEventListener('click', ()=>{ if (TP.suppress || TP.roll || S.phase!=='title') return; audio(); beginRun(false); });
+$('againbtn').addEventListener('click', ()=>{ audio(); beginRun(true); });
+$('howbtn').addEventListener('click', ()=>$('help').classList.remove('hide'));
+$('helpbtn').addEventListener('click', ()=>$('help').classList.remove('hide'));
+$('helpclose').addEventListener('click', ()=>$('help').classList.add('hide'));
+$('mute').addEventListener('click', ()=>{
+  muted=!muted; $('mute').textContent=muted?'✕':'♪';
+  $('mute').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
+});
+addEventListener('resize', layout);
+addEventListener('orientationchange', ()=>setTimeout(layout,120));
+
+// ══════════ 문제 표본 ══════════
+// 치기 판정 문항은 게임이 쓰는 classifyShot() 으로 정답을 낸다.
+const OUT4=['구멍에 들어간다','두 선에 수직이 아니라 빗나간다',
+            '구멍 바로 맞은편이 아니어서 구멍 옆을 지나간다','먼 선 반대쪽으로 굴러간다'];
+function shotOutcome(ang, d, ms, hs, dir){
+  const r=classifyShot(ang, d, ms, hs, dir);
+  if (r.kind==='hole') return 1;
+  if (r.kind==='skew') return 2;
+  if (r.kind==='short') return 3;
+  return 4;
+}
+function buildPool(){
+  const pool=[];
+  // 기울기는 가로선과 이루는 예각으로만 쓴다(330° 같은 표기 금지)
+  const ANGS=[14,18,22,26,30];
+  for (const ang of ANGS) for (const d of [3,4,5]){
+    const ndeg=(Math.atan2(-Math.cos(ang*D2R), Math.sin(ang*D2R))/D2R+360)%360;
+    const head=`가로선과 ${ang}°를 이루는 평행한 두 분필 선이 있고, 두 선 사이의 거리는 ${d} cm입니다. 가까운 선 위에 구슬이, 먼 선 위에 구멍이 있습니다.`;
+    const tail='치면 어떻게 되는지 알맞은 것을 찾아 써 보세요.';
+    const add=(prompt, ms, hs, dir, concept, mis)=>{
+      const n=shotOutcome(ang,d,ms,hs,dir);
+      pool.push({ prompt, choices:OUT4.slice(), answer:OUT4[n-1], answerNumeric:n, unitConcept:concept, mis });
+    };
+    // 1) 구멍 바로 맞은편에서 두 선에 수직인 방향으로 친다
+    add(`${head} 구멍 바로 맞은편에 놓인 구슬을 두 선에 수직인 방향으로 ${tail}`,
+        0, 0, ndeg, '수직과 수선', ['M1-화면축추종']);
+    // 2) 자리는 맞는데 비스듬히 친다 — 15° 는 거리 4 cm 이상에서만(3 cm 면 착지점이 구멍 반지름 안이라 모호하다)
+    for (const e of (d>=4 ? [15,30] : [30])){
+      add(`${head} 구멍 바로 맞은편에 놓인 구슬을 두 선에 수직인 방향에서 ${e}° 어긋난 방향으로 ${tail}`,
+          0, 0, (ndeg+e)%360, '수직과 수선', ['M1-화면축추종']);
+    }
+    // 3) 수선 방향이지만 자리가 어긋나 있다
+    for (const off of [2,3]){
+      add(`${head} 구멍 바로 맞은편에서 선을 따라 ${off} cm 벗어난 자리의 구슬을 두 선에 수직인 방향으로 ${tail}`,
+          off, 0, ndeg, '평행선 사이의 거리', ['M2-빗금길이로잼']);
+    }
+  }
+  // 개념 문항
+  for (const d of [3,4,5,6,7,8]){
+    pool.push({ prompt:`직선 ㄱㄴ에 수직인 직선 ㄷㄹ과 직선 ㅁㅂ이 ${d} cm 떨어져 있습니다. 직선 ㄷㄹ과 직선 ㅁㅂ은 서로 어떤 관계인지 써 보세요.`,
+      choices:['평행하다','수직이다','한 점에서 만난다','알 수 없다'],
+      answer:'평행하다', answerNumeric:null, unitConcept:'평행과 평행선', mis:['M1-화면축추종'] });
+    pool.push({ prompt:`평행한 두 직선 사이의 거리가 ${d} cm입니다. 두 직선 사이의 거리를 다른 곳에서 재면 몇 cm인지 구해 보세요.`,
+      // 오답: 두 곳에서 잰 길이의 합(2×d) · 비스듬히 잰 더 긴 길이 · 「잰 곳마다 다르다」
+      choices:[`${d} cm`, `${2*d} cm`, `${d+2} cm`, '잰 곳마다 달라서 알 수 없다'],
+      answer:`${d} cm`, answerNumeric:d, unitConcept:'평행선 사이의 거리', mis:['M2-빗금길이로잼'] });
+  }
+  for (const a of [15,20,25,30,35,40,50,55,65,70]){
+    const ch=[...new Set([`${90-a}°`, `${a}°`, `${90+a}°`, `${180-a}°`])];
+    if (ch.length>=3)
+      pool.push({ prompt:`직선 ㄱㄴ과 구슬이 굴러간 길이 이루는 각이 ${a}°입니다. 구슬이 굴러간 길이 직선 ㄱㄴ과 수직이 되려면 이 각이 몇 도 더 커져야 하는지 구해 보세요.`,
+        choices:ch, answer:`${90-a}°`, answerNumeric:90-a, unitConcept:'수직과 수선', mis:['M1-화면축추종'] });
+  }
+  for (const d of [3,4,5,6]) for (const l of [5,6,7,8]){
+    if (l<=d) continue;
+    const ch=[...new Set([`${d} cm`, `${l} cm`, `${d+1} cm`, `${l-d} cm`])];
+    if (ch.length>=3)
+      pool.push({ prompt:`평행한 두 분필 선에 수직인 선분의 길이가 ${d} cm이고, 두 선을 비스듬히 이은 선분의 길이가 ${l} cm입니다. 두 선 사이의 거리는 몇 cm인지 구해 보세요.`,
+        choices:ch, answer:`${d} cm`, answerNumeric:d, unitConcept:'평행선 사이의 거리', mis:['M2-빗금길이로잼'] });
+  }
+  // 굴러간 길과 분필 선이 이루는 각 → 두 선에 수직인 방향에서 어긋난 각(= 90° − 각)
+  for (const b of [60,65,70,75,80,84]){
+    pool.push({ prompt:`평행한 두 분필 선 중 구슬이 놓여 있던 선과 구슬이 굴러간 길이 이루는 각이 ${b}°입니다. 구슬이 굴러간 길은 두 선에 수직인 방향에서 몇 도 어긋났는지 구해 보세요.`,
+      choices:[`${90-b}°`, `${b}°`, `${180-b}°`, '90°'],
+      answer:`${90-b}°`, answerNumeric:90-b, unitConcept:'수직과 수선', mis:['M1-화면축추종'] });
+  }
+  // 플레이가 다루는 수직·수선·평행·평행선 사이의 거리만 묻는다(사각형 분류는 플레이에 없어 뺐다)
+  const CLS=[
+    { p:'두 직선이 만나서 이루는 각이 직각일 때 두 직선의 관계를 무엇이라고 하는지 써 보세요.', a:'수직',
+      c:['수직','평행','수선','대각선'], u:'수직과 수선' },
+    { p:'두 직선이 서로 수직일 때 한 직선을 다른 직선에 대한 무엇이라고 하는지 써 보세요.', a:'수선',
+      c:['수선','평행선','대각선','밑변'], u:'수직과 수선' },
+    { p:'평행한 두 직선 사이의 거리를 재는 선분은 두 직선과 어떤 관계인지 써 보세요.', a:'수직이다',
+      c:['수직이다','평행하다','비스듬하다','겹쳐 있다'], u:'평행선 사이의 거리' },
+    { p:'평행한 두 직선 사이의 거리를 서로 다른 두 곳에서 재면 어떠한지 써 보세요.', a:'항상 같다',
+      c:['항상 같다','잰 곳마다 다르다','한쪽이 더 길다','잴 수 없다'], u:'평행선 사이의 거리' },
+    { p:'아무리 길게 늘여도 서로 만나지 않는 두 직선은 서로 어떠하다고 하는지 써 보세요.', a:'평행하다',
+      c:['평행하다','수직이다','수선이다','대각선이다'], u:'평행과 평행선' },
+    { p:'평행한 변이 한 쌍이라도 있는 사각형을 무엇이라고 하는지 써 보세요.', a:'사다리꼴',
+      c:['사다리꼴','수선','평행선','직각'], u:'사다리꼴' }
+  ];
+  // 사다리꼴 틀(밴드4) — 평행한 두 변 사이의 거리
+  for (const d of [3,4,5,6]){
+    pool.push({ prompt:`사다리꼴 모양 분필 틀에서 평행한 두 변 사이의 거리는 ${d} cm입니다. 한 평행한 변 위에 놓인 구슬이 다른 평행한 변 위 구멍의 바로 맞은편에 있습니다. 이 구슬을 두 변에 수직인 방향으로 굴리면 몇 cm 굴러가서 구멍에 닿는지 구해 보세요.`,
+      choices:[`${d} cm`, `${d+1} cm`, `${2*d} cm`, `${d-1} cm`],
+      answer:`${d} cm`, answerNumeric:d, unitConcept:'사다리꼴', mis:['M2-빗금길이로잼'] });
+    pool.push({ prompt:`사다리꼴에서 평행한 두 변 사이의 거리를 한 곳에서 재었더니 ${d+2} cm였습니다. 평행한 두 변 사이의 거리를 다른 곳에서 재면 몇 cm인지 구해 보세요.`,
+      choices:[`${d+2} cm`, `${2*(d+2)} cm`, `${d+4} cm`, '잰 곳마다 달라서 알 수 없다'],
+      answer:`${d+2} cm`, answerNumeric:d+2, unitConcept:'사다리꼴', mis:['M2-빗금길이로잼'] });
+  }
+  for (const c of CLS) pool.push({ prompt:c.p, choices:c.c, answer:c.a, answerNumeric:null, unitConcept:c.u, mis:['M3-배타분류'] });
+  const seen=new Set(), out=[];
+  for (const q of pool){ if (seen.has(q.prompt)) continue; seen.add(q.prompt); out.push(q); }
+  return out;
+}
+let POOL=null, sseed=20260911;
+function sampleProblems(n){
+  if (!POOL) POOL=buildPool();
+  n=Math.max(1,Math.min(400,Math.floor(Number(n)||20)));
+  const r=makeRng(sseed=(sseed*1103515245+12345)>>>0);
+  const idx=POOL.map((_,i)=>i);
+  for(let i=idx.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+  const out=[];
+  for(let i=0;i<n;i++){
+    const q=POOL[idx[i%idx.length]];
+    out.push({ id:'gc-'+(i+1),
+      prompt: i<idx.length ? q.prompt : `${q.prompt} (${Math.floor(i/idx.length)+1}번째 판)`,
+      choices:q.choices.slice(), answer:q.answer, answerNumeric:q.answerNumeric,
+      unitConcept:q.unitConcept, misconceptionIds:q.mis });
+  }
+  return out;
+}
+
+// ══════════ 테스트 훅 ══════════
+window.__GAME_TEST__={
+  ready:false,
+  start(){ beginRun(true); },
+  getState(){
+    return { score:S.score, lives:S.marbles, level:S.band, phase:S.phase, solved:S.holes,
+             moves:S.moves, attempts:S.attempts, sunk:S.sunk, missed:S.missed,
+             combo:S.combo, timeLeft:Math.round(S.timeLeft) };
+  },
+  answerCorrect(){
+    if (S.phase!=='playing' && S.phase!=='onboard') beginRun(true);
+    S.marbleS=S.holeS;
+    S.attempts++;
+    const r=classifyShot(S.line.ang,S.line.d,S.marbleS,S.holeS,normalDeg());
+    S.shot={ dir:[0,0], t:0, res:r, from:S.marbleS, dirDeg:normalDeg() };
+    resolveShot();
+    return true;
+  },
+  answerWrong(){
+    if (S.phase!=='playing' && S.phase!=='onboard') beginRun(true);
+    S.attempts++;
+    const dir=(normalDeg()+28)%360;
+    const r=classifyShot(S.line.ang,S.line.d,S.marbleS,S.holeS,dir);
+    S.shot={ dir:[0,0], t:0, res:r, from:S.marbleS, dirDeg:dir };
+    resolveShot();
+    return true;
+  },
+  sampleProblems,
+  getLayout(){ return { land:S.land, playW:S.land?Math.round(S.board.w):Math.round(W) }; },
+  __bot:{
+    stats(){ return { attempts:S.attempts, sunk:S.sunk, missed:S.missed, holes:S.holes,
+                      phase:S.phase, marbles:S.marbles, timeLeft:Math.round(S.timeLeft),
+                      shooting:!!S.shot }; },
+    reset(){ beginRun(true); },
+    boardRect(){ return { x:S.ox, y:S.oy, w:S.drawW, h:S.drawH }; },
+    /** 읽기 전용 — 밴드·빗금·사다리꼴·떠 있는 연출 (검증용) */
+    extra(){
+      const F=S.frame, D=F ? decoyPtG(S.line,F) : null, Dn=F ? nearPt(F.decoyS) : null;
+      const T=S.trap ? nearPt(S.trap.s) : null;
+      return { band:S.band, d:S.line.d, ang:S.line.ang, transT:S.transT, phase:S.phase,
+               trap:S.trap && { len:S.trap.len, x:px(T[0]), y:py(T[1]) },
+               frame:F && { decoyT:F.decoyT, named:F.named, x:px(D[0]), y:py(D[1]), footX:px(Dn[0]), footY:py(Dn[1]) },
+               fx:S.fx.map(f=>({ type:f.type, text:f.text||f.msg||'', d:f.geo?f.geo.d:null })) };
+    },
+    marble(){ const M=nearPt(S.marbleS); return { x:px(M[0]), y:py(M[1]) }; },
+    hole(){ const Hf=farPt(S.holeS), Hn=nearPt(S.holeS);
+            return { x:px(Hf[0]), y:py(Hf[1]), footX:px(Hn[0]), footY:py(Hn[1]) }; },
+    /** 정상 경로: 구멍 바로 맞은편으로 옮긴 뒤 수선 방향으로 당길 끝점 */
+    plan(){
+      if (S.phase!=='playing' || S.shot) return null;
+      const Hn=nearPt(S.holeS);
+      const a=normalDeg()*D2R;
+      const M=nearPt(S.holeS);
+      return { moveX:px(Hn[0]), moveY:py(Hn[1]),
+               pullX:px(M[0])-Math.cos(a)*70, pullY:py(M[1])-Math.sin(a)*70,
+               fromX:px(M[0]), fromY:py(M[1]) };
+    }
+  }
+};
+
+layout();
+bakePatterns();
+showTitle();
+requestAnimationFrame(frame);
+window.__GAME_TEST__.ready=true;
+})();
+</script>
+</body>
+</html>

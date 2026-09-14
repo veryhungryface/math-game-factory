@@ -1,0 +1,2435 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>도랑 점프</title>
+<meta name="description" content="장맛비 그친 운동장 도랑을, 턱과 직각인 쪽으로만 폴짝 건너는 90초 아케이드">
+<meta property="og:title" content="도랑 점프">
+<meta property="og:description" content="곧게 뛰어 건너라">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{
+    --earth:#9A9186; --earth-d:#7F776D; --earth-l:#A89E92;
+    --curb:#D8D3C8; --curb-d:#B4AEA1; --joint:#615D56;
+    --navy:#1A365D; --navy-l:#2C5285;
+    --brick:#C43B3B; --water:#4E6A75; --water-d:#38505A;
+    --lime:#F2F0E4; --ink:#3B372F;
+    --ff: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    --stageW: min(100vw, 1280px);
+    --stageX: calc((100vw - var(--stageW)) / 2);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; background:var(--earth); }
+  body{
+    font-family:-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none; user-select:none;
+    touch-action:none;
+    overscroll-behavior:none;
+  }
+  #stage{ position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+
+  /* ── 크롬(음소거·도움말) : 운동장 흙에 박아 둔 말뚝 표지 ── */
+  #chrome{
+    position:fixed; top:max(8px, env(safe-area-inset-top)); right:12px; z-index:40;
+    display:flex; gap:10px;
+  }
+  html.land #chrome{ right:calc(var(--stageX) + 14px); }
+  .signBtn{
+    position:relative; overflow:visible;
+    width:46px; height:46px; border:0; padding:0; cursor:pointer;
+    background:#E7E2D5; color:#1A365D; border-radius:1px;
+    border-bottom:4px solid #BDB6A8;
+    font:800 13px/1 var(--ff); letter-spacing:-.02em;
+    box-shadow: 2px 4px 0 rgba(60,54,46,.22);
+    display:flex; align-items:center; justify-content:center;
+    transform:rotate(-2.4deg);
+  }
+  #muteBtn{ transform:rotate(1.8deg); }
+  .signBtn::before{            /* 말뚝 */
+    content:''; position:absolute; left:50%; top:100%; width:7px; height:16px; margin-left:-3.5px;
+    background:#6E6154; pointer-events:none;
+  }
+  .signBtn::after{             /* 박힌 자리의 흙 자국 */
+    content:''; position:absolute; left:50%; top:calc(100% + 12px); width:24px; height:8px; margin-left:-12px;
+    border-radius:50%; background:rgba(58,52,44,.34); pointer-events:none;
+  }
+  .signBtn:active{ transform:rotate(-2.4deg) translateY(2px); }
+  #muteBtn:active{ transform:rotate(1.8deg) translateY(2px); }
+  .signBtn.off{ background:#B9B3A6; color:#5B554B; }
+
+  /* ── 타이틀 ── */
+  #title{
+    position:fixed; inset:0; z-index:30; display:flex; flex-direction:column;
+    padding: max(16px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+    pointer-events:none;
+  }
+  #title.hide{ display:none; }
+  #title > *{ pointer-events:auto; }
+  #logoWrap{
+    margin-top: 4dvh; margin-left:2px; width:min(94%, 560px);
+    transform: rotate(-3.2deg); transform-origin: 12% 50%;
+    animation: settle .72s cubic-bezier(.2,1.5,.4,1) both;
+  }
+  @keyframes settle{ from{ opacity:0; transform: rotate(-9deg) translateY(-26px) scale(.9);} to{opacity:1;} }
+  #logoCv{ width:100%; height:auto; display:block; }
+  #tag{
+    margin:6px 0 0 12px; transform:rotate(-2.4deg); align-self:flex-start; width:fit-content;
+    font:800 clamp(17px,5vw,26px)/1.25 var(--ff); color:#3E382F;
+    letter-spacing:.01em; padding-bottom:5px;
+    border-bottom:4px solid rgba(242,240,228,.85);
+    text-shadow: 0 1px 0 rgba(255,255,255,.42);
+  }
+  #titleSpacer{ flex:1 1 auto; min-height:8px; }
+  #titleFoot{ width:min(100%, 520px); margin:0 auto; }
+  html.land #titleFoot{ margin-right:calc(var(--stageX) + 24px); margin-left:auto; }
+  html.land #logoWrap{ margin-left:calc(var(--stageX) + 10px); }
+  #meterRow{
+    display:flex; align-items:baseline; gap:10px; margin:0 2px 10px;
+    font:700 13px/1.3 var(--ff); color:#4E483F;
+  }
+  #meterRow b{ font-weight:800; color:#2F2A24; }
+  #unitTag{
+    display:inline-block; background:#E7E2D5; color:#4A453C; padding:5px 9px; border-radius:2px;
+    font:700 12px/1 var(--ff); box-shadow:1px 2px 0 rgba(60,54,46,.25);
+  }
+  #startBtn{
+    display:block; width:100%; height:72px; border:0; cursor:pointer; padding:0;
+    position:relative; background:#DCD7CC; color:#33302A; border-radius:4px;
+    font:800 22px/1 var(--ff); letter-spacing:.02em;
+    box-shadow: 3px 6px 0 rgba(52,46,38,.34);
+    overflow:hidden;
+  }
+  #startBtn::before{
+    content:''; position:absolute; left:0; right:0; top:0; height:9px;
+    background:linear-gradient(#F0EBE0, #DCD7CC);
+  }
+  #startBtn::after{
+    content:''; position:absolute; left:17%; top:0; bottom:0; width:2px; background:var(--joint); opacity:.28;
+  }
+  #startBtn span{ position:relative; z-index:2; }
+  #startBtn:active{ transform:translate(2px,4px); box-shadow:1px 2px 0 rgba(52,46,38,.34); }
+  #howLink{
+    display:flex; align-items:center; justify-content:center; width:100%; height:46px; margin-top:6px;
+    background:none; border:0; cursor:pointer; color:#514A40; font:700 14px/1 var(--ff); text-decoration:underline;
+    text-underline-offset:4px;
+  }
+
+  /* ── 결과 화면 ── */
+  #over{
+    position:fixed; inset:0; z-index:34; display:none; flex-direction:column; justify-content:center;
+    padding: 24px 20px calc(20px + env(safe-area-inset-bottom));
+    background:rgba(148,139,128,.10);
+  }
+  #over.show{ display:flex; }
+  #overCard{
+    width:min(100%, 460px); margin:0 auto; background:#E7E2D5; border-radius:4px;
+    box-shadow: 4px 8px 0 rgba(52,46,38,.28); padding:22px 20px 18px;
+  }
+  html.land #overCard{ margin-right:calc(var(--stageX) + 30px); margin-left:auto; }
+  #overTtl{ font:800 26px/1.2 var(--ff); color:#2F2A24; margin:0 0 4px; }
+  #overSub{ font:600 14px/1.5 var(--ff); color:#5C554A; margin:0 0 16px; }
+  .statRow{ display:flex; justify-content:space-between; align-items:baseline; padding:7px 0; border-bottom:1px dashed #B7B0A2; }
+  .statRow span{ font:700 14px/1 var(--ff); color:#5C554A; }
+  .statRow b{ font:800 30px/1 var(--ff); color:#2F2A24; font-variant-numeric:tabular-nums; }
+  #bestNote{ margin:10px 0 0; font:700 13px/1.4 var(--ff); color:var(--brick); min-height:18px; }
+  #againBtn{
+    margin-top:14px; width:100%; height:66px; border:0; border-radius:4px; cursor:pointer;
+    background:#1A365D; color:#F2F0E4; font:800 20px/1 var(--ff);
+    box-shadow: 3px 5px 0 rgba(20,32,52,.42);
+  }
+  #againBtn:active{ transform:translate(2px,3px); box-shadow:1px 2px 0 rgba(20,32,52,.42); }
+
+  /* ── 도움말 ── */
+  #helpSheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:50; transform:translateY(102%);
+    transition:transform .28s cubic-bezier(.2,.9,.3,1);
+    background:#E7E2D5; border-radius:10px 10px 0 0; padding:18px 20px calc(20px + env(safe-area-inset-bottom));
+    box-shadow:0 -6px 0 rgba(52,46,38,.16);
+    max-height:74dvh; overflow:auto;
+  }
+  #helpSheet.show{ transform:translateY(0); }
+  #helpSheet h2{ font:800 19px/1.2 var(--ff); margin:0 0 10px; color:#2F2A24; }
+  #helpSheet li{ font:600 14px/1.7 var(--ff); color:#4E483F; margin-bottom:4px; }
+  #helpClose{ margin-top:12px; width:100%; height:50px; border:0; border-radius:4px; background:#C6C0B2; color:#3B372F; font:800 16px/1 var(--ff); cursor:pointer; }
+
+  @media (prefers-reduced-motion: reduce){
+    #logoWrap{ animation:none; }
+    #helpSheet{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div id="chrome">
+  <button id="helpBtn" class="signBtn" aria-label="어떻게 놀아요?">놀이법</button>
+  <button id="muteBtn" class="signBtn" aria-label="소리 끄기">소리</button>
+</div>
+
+<section id="title" aria-label="도랑 점프 시작 화면">
+  <div id="logoWrap"><canvas id="logoCv" width="1120" height="380" role="img" aria-label="도랑 점프"></canvas></div>
+  <p id="tag">곧게 뛰어 건너라</p>
+  <div id="titleSpacer"></div>
+  <div id="titleFoot">
+    <div id="meterRow">
+      <span id="unitTag">4학년 2학기 · 사각형</span>
+      <span id="bestRow"></span>
+    </div>
+    <button id="startBtn"><span>장화 신기</span></button>
+    <button id="howLink">어떻게 놀아요? 〉</button>
+  </div>
+</section>
+
+<section id="over" aria-live="polite">
+  <div id="overCard">
+    <h2 id="overTtl">오늘은 여기까지예요</h2>
+    <p id="overSub">장화가 다 젖었어요.</p>
+    <div class="statRow"><span>건넌 도랑</span><b id="stCross">0</b></div>
+    <div class="statRow"><span>점수</span><b id="stScore">0</b></div>
+    <div class="statRow"><span>가장 긴 연속</span><b id="stCombo">0</b></div>
+    <p id="bestNote"></p>
+    <button id="againBtn">다시 뛰기</button>
+  </div>
+</section>
+
+<div id="helpSheet" role="dialog" aria-label="놀이법">
+  <h2>도랑 점프 놀이법</h2>
+  <ul>
+    <li>장화에서 손가락을 <b>밀면</b> 그 방향으로 한 칸 뜁니다. 미는 길이는 상관없어요.</li>
+    <li>보폭은 늘 <b>4 cm</b>입니다. 두 턱 사이가 4 cm이고 <b>턱과 직각인 쪽</b>으로 밀어야 건넙니다.</li>
+    <li>턱과 <b>나란한 쪽</b>으로 밀면 턱을 따라 걷습니다. 넓은 곳은 걸어서 피하세요.</li>
+    <li>비스듬히 뛰면 흙탕에 빠지고 장화 한 켤레가 젖습니다.</li>
+    <li>90초 안에 도랑 8칸을 건너면 성공이에요.</li>
+  </ul>
+  <button id="helpClose">닫기</button>
+</div>
+
+<script>
+"use strict";
+(function(){
+
+/* ══════════════════════════════════════════════════════════════════════
+   도랑 점프 — 4학년 2학기 「사각형」 (수직과 수선 / 평행 / 평행선 사이의 거리 / 사다리꼴)
+   조작: 장화에서 손가락을 미는 「방향」이 곧 답이다. 길이는 읽지 않는다.
+   판정: 정수 벡터로 만든 턱 방향의 수선과, 민 방향의 정수 각도 차 (부동소수점 비교 없음)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 교과서 발문 규약 (curriculum/textbook-structure.json style_guide) ──
+   · 익힘책 지시형 '~해 보세요'로 통일한다. 교과서 청유형 '~해 봅시다'와 섞지 않는다.
+   · 꼭짓점은 ㄱ ㄴ ㄷ ㄹ, 직선·도형 개체는 가 나 다. A·B·C, ①②③ 금지.
+   · 길이는 '4 cm'처럼 수와 단위 기호를 띄어 쓴다.
+   · 수선은 어느 직선에 대한 것인지 밝힌다 ('직선 가에 대한 수선').
+   · 사다리꼴은 '평행한 변이 한 쌍이라도 있는 사각형'이다 — '한 쌍만'으로 좁히지 않는다.
+   · 포함관계: 정사각형은 마름모이자 직사각형이자 평행사변형이자 사다리꼴이다.
+     이 게임은 이름을 배타적으로 채점하지 않는다 (표시 전용).
+   · 금지: 하십시오체, '다음 중', '왜', '까닭', '적어도', x·y 미지수, 슬래시 분수. */
+
+/* ─────────────────────────── 상수 ─────────────────────────── */
+const STRIDE   = 4;    // 장화 보폭 (cm) — 고정
+const TOL      = 5;    // 건너기 허용 각도 (도). 우연 성공률 = (2*5+1)/360 ≈ 3.1%
+const WALK_TOL = 20;   // 걷기 허용 각도 — 넓혀도 「건너기」 우연 수준은 그대로다
+const TOL_ONB  = 14;   // 연습 허용 각도
+const TOL_ONB2 = 26;   // 연습에서 두 번 빗나가면 넓혀 준다
+const TOL_ONB3 = 40;   // 그래도 안 되면 한 번 더 넓혀 준다 (대신 건너 주지는 않는다)
+const WALK     = 2;    // 턱을 따라 한 번 걷는 거리 (cm)
+const GOAL     = 8;    // 목표 칸 수
+const TIME_S   = 90;
+const BOOTS    = 3;
+const MIN_DRAG = 24;   // 이보다 짧은 획은 「민 것」이 아니다 (px)
+const KEY_BEST = 'dorang-jump:best';
+const KEY_STAMP= 'dorang-jump:stamp';
+
+const C = {
+  earth:'#9A9186', earthD:'#837B70', earthL:'#A79D91', earthWet:'#8B8377',
+  curb:'#D8D3C8', curbTop:'#EAE5DA', curbD:'#B3ADA0', joint:'#615D56',
+  navy:'#1A365D', navyL:'#31578A', navyD:'#122744',
+  brick:'#C43B3B', water:'#4E6A75', waterD:'#374E58', waterL:'#5F808C',
+  lime:'#F2F0E4', limeD:'#D6D2C1', ink:'#3B372F', mud:'#6E6154'
+};
+
+/* ─────────────────────────── 잡 유틸 ─────────────────────────── */
+const DEG = 180 / Math.PI;
+const clamp = (v,a,b)=> v<a?a: v>b?b: v;
+const lerp = (a,b,t)=> a+(b-a)*t;
+
+/** 화면 좌표(y 아래쪽 +)에서 수학 방향(오른쪽 0°, 위 90°)의 정수 각도 */
+function angOf(dx, dy){
+  const a = Math.round(Math.atan2(-dy, dx) * DEG);
+  return ((a % 360) + 360) % 360;
+}
+/** 두 정수 각도의 최소 차 (0~180) */
+function angDiff(a, b){
+  let d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+function rotVec(v, deg){
+  const r = deg / DEG, c = Math.cos(r), s = Math.sin(r);
+  // 화면 좌표(y 아래) 에서 수학적 반시계 회전
+  return { x: v.x*c + v.y*s, y: -v.x*s + v.y*c };
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* ─────────────────────────── 도랑(칸) 생성 ───────────────────────────
+   턱 방향 u 는 정수 벡터라서 수선 n = (uy, −ux) 도 정수다.
+   ux > 0 으로 고정하면 n 이 언제나 화면 위쪽을 향한다.
+   난이도 밴드를 순서대로 소진한다 (무작위 전체 풀 추출 금지).                */
+
+const BANK_VECS = [
+  [4,1],[4,-1],[3,1],[3,-1],[5,2],[5,-2],[2,1],[2,-1],
+  [5,3],[5,-3],[3,2],[3,-2],[4,3],[4,-3],[1,1],[1,-1],[3,5],[3,-5]
+];
+
+function bandOf(idx){ return idx < 2 ? 1 : idx < 4 ? 2 : idx < 6 ? 3 : 4; }
+
+function makeBoard(idx, rng, prevPt){
+  const band = bandOf(idx);
+  const b = {
+    idx, band, kind:'open',
+    ivec:[1,0], bankAngle:0, perpAngle:90,
+    origin: prevPt ? { x:prevPt.x, y:prevPt.y } : { x:0, y:0 },
+    tMin:-11, tMax:11, startT:0,
+    stretches: [], legs: null, labels: null,
+    hazards: [], puddles: [],
+    prompt: '', note: ''
+  };
+
+  // ── 턱 방향
+  let iv;
+  if (idx === -1) iv = [1, 0];                       // 연습판은 가로 턱 고정
+  else iv = BANK_VECS[Math.floor(rng() * BANK_VECS.length)];
+  b.ivec = iv;
+  const len = Math.hypot(iv[0], iv[1]);
+  b.uh = { x: iv[0]/len, y: iv[1]/len };
+  b.nh = { x: iv[1]/len, y: -iv[0]/len };
+  b.bankAngle = angOf(iv[0], iv[1]);
+  b.perpAngle = angOf(iv[1], -iv[0]);
+
+  const pickGap = () => [6,7,6,8][Math.floor(rng()*4)];
+
+  if (idx === -1 || band === 1){
+    // 밴드 1 — 두 턱이 평행하고 사이가 4 cm. 오직 「수선 방향」만 묻는다.
+    b.kind = 'open';
+    b.stretches = [{ t0:-24, t1:24, gap:STRIDE, rot:0 }];
+    b.startT = 0;
+    b.prompt = idx === -1
+      ? '그림을 보고 직선 가에 대한 수선으로 곧게 뛰어 건너 보세요.'
+      : '두 턱은 서로 평행해요. 직선 가에 대한 수선으로 곧게 건너 보세요.';
+  } else if (band === 2){
+    // 밴드 2 — 맞은편 턱이 구간마다 다르다. 보폭 4 cm 로 닿는 구간을 찾아 걸어가야 한다.
+    b.kind = 'stretches';
+    b.stretches = makeStretches(rng, false);
+    b.startT = pickStartOffGood(b, rng);
+    b.prompt = '보폭은 4 cm예요. 두 턱 사이가 4 cm인 곳으로 걸어가 건너 보세요.';
+  } else if (band === 3){
+    // 밴드 3 — 평행하지 않은 턱이 섞이거나(치우기), 공이 착지를 가린다(오류 찾기).
+    b.kind = 'stretches';
+    const withSkew = idx === 4;
+    b.stretches = makeStretches(rng, withSkew);
+    b.startT = pickStartOffGood(b, rng);
+    if (withSkew){
+      b.prompt = '평행하지 않은 턱은 건널 수 없어요. 평행한 곳까지 걸어 보세요.';
+    } else {
+      const good = b.stretches.find(s=>s.rot===0 && s.gap===STRIDE);
+      b.hazards.push({ type:'ball', t: (good.t0+good.t1)/2, dir: rng()<0.5?-1:1, speed: 0.9, r: 1.05 });
+      b.prompt = '민재의 공을 피해 직선 가에 대한 수선으로 곧게 건너 보세요.';
+    }
+  } else {
+    // 밴드 4 — 닫힌 사각형. 사다리꼴(평행 한 쌍) → 45° 돌린 정사각형 모래밭.
+    if (idx === 6){
+      b.kind = 'quad';
+      b.stretches = [{ t0:-3, t1:3, gap:STRIDE, rot:0 }];
+      b.tMin = -8; b.tMax = 8;
+      b.legs = [{ nt:-8, ft:-3 }, { nt:8, ft:3 }];
+      b.startT = rng() < 0.5 ? -7 : 7;
+      b.labels = ['사다리꼴'];
+      b.prompt = '사다리꼴 운동장 금이에요. 평행한 두 금 사이를 건너 보세요.';
+      b.note = '평행한 변이 한 쌍이라도 있으면 사다리꼴이에요.';
+    } else {
+      b.kind = 'quad';
+      b.stretches = [{ t0:-2, t1:2, gap:STRIDE, rot:0 }];
+      b.tMin = -2; b.tMax = 2;
+      b.legs = [{ nt:-2, ft:-2 }, { nt:2, ft:2 }];
+      b.startT = rng() < 0.5 ? -2 : 2;
+      b.labels = ['사다리꼴','평행사변형','마름모','직사각형','정사각형'];
+      b.prompt = '네 변이 4 cm이고 네 각이 직각인 모래밭 금이에요. 곧게 건너 보세요.';
+      b.note = '이 사각형은 이 이름으로 모두 부를 수 있어요.';
+    }
+  }
+
+  if (b.kind === 'stretches'){
+    b.tMin = b.stretches[0].t0;
+    b.tMax = b.stretches[b.stretches.length-1].t1;
+  }
+  // 그리기 범위 — 도랑이 화면에서 어디까지 이어져 보이는가
+  if (b.kind === 'open'){ b.drawMin = -20; b.drawMax = 20; }
+  else { b.drawMin = b.tMin; b.drawMax = b.tMax; }
+  b.startT = clamp(Math.round(b.startT / WALK) * WALK, b.tMin + 1, b.tMax - 1);
+  return b;
+
+  function makeStretches(rnd, withSkew){
+    // 좋은 구간(평행 + 4 cm) 정확히 하나 + 나쁜 구간 4개. 전체 20 cm.
+    const N = 5, WID = 4;
+    const goodIdx = 1 + Math.floor(rnd() * (N - 2));   // 양 끝은 정답 구간이 아니다
+    const out = [];
+    let t = -(N*WID)/2;
+    for (let i = 0; i < N; i++){
+      const t0 = t, t1 = t + WID;
+      if (i === goodIdx) out.push({ t0, t1, gap:STRIDE, rot:0 });
+      else if (withSkew && (i === goodIdx-1 || i === goodIdx+1)){
+        // 평행하지 않은 턱 — 5 cm 에서 시작해 벌어진다. 어디서도 4 cm 가 되지 않는다.
+        out.push({ t0, t1, gap:5, rot: [11,14][Math.floor(rnd()*2)] * (rnd()<0.5?-1:1) });
+      } else out.push({ t0, t1, gap: pickGap(), rot:0 });
+      t = t1;
+    }
+    return out;
+  }
+  function pickStartOffGood(bb, rnd){
+    // 시작 자리는 절대 정답 구간이 아니다 (무뇌 봇이 서 있기만 해도 맞는 일을 막는다)
+    const bad = bb.stretches.filter(s => !(s.rot === 0 && s.gap === STRIDE));
+    const s = bad[Math.floor(rnd() * bad.length)];
+    return (s.t0 + s.t1) / 2;
+  }
+}
+
+/* 근처 턱 위 파라미터 t 의 좌표 */
+function bankPt(b, t){ return { x: b.origin.x + b.uh.x*t, y: b.origin.y + b.uh.y*t }; }
+/** t 에서 수선으로 g cm 떨어진 점 */
+function offPt(b, t, g){
+  const p = bankPt(b, t);
+  return { x: p.x + b.nh.x*g, y: p.y + b.nh.y*g };
+}
+/** 구간 s 의 먼 턱 위, 근처 t 에 대응하는 점 */
+function farPt(b, s, t){
+  if (s.rot === 0) return offPt(b, t, s.gap);
+  const A = offPt(b, s.t0, s.gap);
+  const d = rotVec(b.uh, s.rot);
+  return { x: A.x + d.x*(t - s.t0), y: A.y + d.y*(t - s.t0) };
+}
+function stretchAt(b, t){
+  let hit = null;
+  for (const s of b.stretches){
+    if (t < s.t0 - 1e-9 || t > s.t1 + 1e-9) continue;
+    if (s.rot === 0 && s.gap === STRIDE) return s;   // 경계에서는 건널 수 있는 구간을 우선
+    if (!hit) hit = s;
+  }
+  return hit;
+}
+
+/* ─────────────────────────── 판정 (순수 함수) ───────────────────────────
+   실제 입력 핸들러와 무뇌 봇 시뮬레이터가 「같은 함수」를 부른다.               */
+function judgeFlick(b, t, angle, tol, ctxInfo){
+  const dPerp = angDiff(angle, b.perpAngle);
+  const dBankF = angDiff(angle, b.bankAngle);
+  const dBankB = angDiff(angle, (b.bankAngle + 180) % 360);
+
+  if (dPerp <= tol){
+    const s = stretchAt(b, t);
+    if (!s) return { kind:'jump', ok:false, why:'nofar' };
+    if (s.rot !== 0) return { kind:'jump', ok:false, why:'notparallel', gap:s.gap };
+    if (s.gap !== STRIDE) return { kind:'jump', ok:false, why:'toofar', gap:s.gap };
+    if (ctxInfo && ctxInfo.blocked) return { kind:'jump', ok:false, why:'blocked' };
+    return { kind:'jump', ok:true, gap:s.gap };
+  }
+  if (angDiff(angle, (b.perpAngle + 180) % 360) <= tol){
+    return { kind:'back', ok:false, why:'backward' };
+  }
+  const wtol = Math.max(tol, WALK_TOL);
+  if (dBankF <= wtol) return { kind:'walk', ok:true, dir:+1 };
+  if (dBankB <= wtol) return { kind:'walk', ok:true, dir:-1 };
+  return { kind:'jump', ok:false, why:'skew' };
+}
+
+/* ─────────────────────────── 상태 ─────────────────────────── */
+const S = {
+  phase:'title',           // title | onboard | playing | over
+  land:false, W:390, H:844, dpr:1, px:24, stageW:390, stageX:0,
+  anchor:{x:195, y:540},
+  cam:{x:0, y:0}, camTarget:{x:0, y:0},
+  rng: mulberry32(1),
+  board:null, prevBoard:null, boardIdx:0,
+  t:0, tAnim:0,
+  playerPos:{x:0,y:0}, playerDraw:{x:0,y:0},
+  hop:null,                 // {from,to,t,dur,ok}
+  boots:BOOTS, score:0, crossed:0, combo:0, bestCombo:0,
+  timeLeft:TIME_S, hitStop:0, shake:0,
+  marks:[], drops:[], ripples:[], toast:null,
+  drag:null, aim:null,
+  onbTries:0, onbFlicks:0, onbDone:false, onbHintT:0, onbDemo:false,
+  best:0, muted:false, reduced:false,
+  flash:0, limeFlash:0, split:null, labelT:0, labelBoard:null,
+  hold:null,                // 착지 뒤 판을 바꾸기 전 잠깐 멈춤 {t, next, from}
+  stand:null,               // 착지한 먼 턱 위에 서 있을 때 그 판의 수선 방향
+  footOff:{x:0,y:0},
+  guideT:0, idleT:0, tapCount:0,
+  lastTime:0, started:false
+};
+
+try{ S.best = Number(localStorage.getItem(KEY_BEST) || 0) || 0; }catch(e){}
+try{ S.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+
+const cv = document.getElementById('stage');
+const ctx = cv.getContext('2d', { alpha:false });
+
+/* ─────────────────────────── 배경 텍스처 (한 번만 굽는다) ─────────────────────────── */
+let earthPat = null, earthTile = null, earthPat2 = null, earthTile2 = null;
+function bakeEarth(){
+  const n = 240;
+  const c = document.createElement('canvas'); c.width = n; c.height = n;
+  const g = c.getContext('2d');
+  g.fillStyle = C.earth; g.fillRect(0,0,n,n);
+  const rr = mulberry32(7);
+  // 젖은 자국 — 작고 옅게만 (큰 얼룩은 610px 저주파 층이 맡는다. 여기서 크게 그리면 240px 격자가 보인다)
+  for (let i=0;i<12;i++){
+    const x = rr()*n, y = rr()*n, w = 8+rr()*18, h = 5+rr()*10, rot = rr()*3;
+    g.fillStyle = 'rgba(105,97,88,'+(0.03+rr()*0.04).toFixed(3)+')';
+    for (const ox of [-n,0,n]) for (const oy of [-n,0,n]){
+      g.beginPath(); g.ellipse(x+ox,y+oy,w,h, rot, 0, 6.2832); g.fill();
+    }
+  }
+  // 흙 알갱이
+  for (let i=0;i<2600;i++){
+    const x = rr()*n, y = rr()*n, s = rr()<0.85 ? 1 : 2;
+    const v = rr();
+    g.fillStyle = v<0.42 ? 'rgba(126,118,108,.42)' : v<0.8 ? 'rgba(183,175,163,.34)' : 'rgba(96,88,80,.30)';
+    g.fillRect(x|0, y|0, s, s);
+  }
+  // 잔모래 결
+  for (let i=0;i<70;i++){
+    const x=rr()*n, y=rr()*n, L=8+rr()*26, a=rr()*6.2832;
+    g.strokeStyle='rgba(150,142,130,.22)'; g.lineWidth=1;
+    g.beginPath(); g.moveTo(x,y); g.lineTo(x+Math.cos(a)*L, y+Math.sin(a)*L); g.stroke();
+  }
+  earthTile = c;
+  earthPat = ctx.createPattern(c, 'repeat');
+
+  // 저주파 얼룩 한 겹 — 240px 타일과 주기가 맞지 않는 610px 로 반복 격자를 깬다
+  const m = 610;
+  const c2 = document.createElement('canvas'); c2.width = m; c2.height = m;
+  const g2 = c2.getContext('2d');
+  const r2 = mulberry32(19);
+  for (let i=0;i<14;i++){
+    const x = r2()*m, y = r2()*m, rad = 90+r2()*140, sy = 0.45+r2()*0.5, rot = r2()*3;
+    const dark = r2() < 0.6;
+    const a = (dark ? 0.07+r2()*0.07 : 0.05+r2()*0.06).toFixed(3);
+    const rgb = dark ? '92,85,76' : '178,170,158';
+    // 가장자리가 번지는 젖은 얼룩 (경계선이 보이면 다시 무늬가 된다)
+    const gr = g2.createRadialGradient(0, 0, 0, 0, 0, rad);
+    gr.addColorStop(0, 'rgba('+rgb+','+a+')');
+    gr.addColorStop(0.6, 'rgba('+rgb+','+(a*0.55).toFixed(3)+')');
+    gr.addColorStop(1, 'rgba('+rgb+',0)');
+    for (const ox of [-m,0,m]) for (const oy of [-m,0,m]){
+      g2.save(); g2.translate(x+ox, y+oy); g2.rotate(rot); g2.scale(1, sy);
+      g2.fillStyle = gr;
+      g2.beginPath(); g2.arc(0, 0, rad, 0, 6.2832); g2.fill();
+      g2.restore();
+    }
+  }
+  earthTile2 = c2;
+  earthPat2 = ctx.createPattern(c2, 'repeat');
+}
+
+/* ─────────────────────────── 레이아웃 ─────────────────────────── */
+function layout(){
+  const W = innerWidth, H = innerHeight;
+  S.W = W; S.H = H;
+  S.dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = Math.round(W * S.dpr); cv.height = Math.round(H * S.dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+
+  S.land = (W >= H && W >= 640) || W >= 1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE = Math.min(W, 1280);
+  S.stageW = STAGE; S.stageX = Math.round((W - STAGE) / 2);
+  const root = document.documentElement;
+  root.style.setProperty('--stageW', STAGE + 'px');
+  root.style.setProperty('--stageX', S.stageX + 'px');
+
+  if (S.land){
+    // 파노라마 — 두 턱이 무대 전폭을 가로지르고, 걸어 다닐 자리가 실제로 넓어진다
+    S.px = clamp(STAGE / 38, 22, 38);
+    S.anchor = { x: S.stageX + STAGE * 0.5, y: H * 0.66 };
+  } else {
+    S.px = clamp(W / 16.5, 18, 30);
+    S.anchor = { x: W * 0.5, y: H * 0.64 };
+  }
+  earthPat = earthTile ? ctx.createPattern(earthTile, 'repeat') : earthPat;
+  earthPat2 = earthTile2 ? ctx.createPattern(earthTile2, 'repeat') : earthPat2;
+}
+
+/* ─────────────────────────── 소리 ─────────────────────────── */
+let AC = null;
+function ac(){
+  if (S.muted) return null;
+  if (!AC){ try{ AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ return null; } }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function tone(f0, f1, dur, type, vol){
+  const a = ac(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f0, a.currentTime);
+  if (f1) o.frequency.exponentialRampToValueAtTime(Math.max(30,f1), a.currentTime + dur);
+  g.gain.setValueAtTime(0.0001, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(vol || 0.16, a.currentTime + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+  o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + dur + 0.02);
+}
+function noise(dur, lo, hi, vol){
+  const a = ac(); if (!a) return;
+  const n = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+  for (let i=0;i<n;i++) d[i] = (Math.random()*2-1) * (1 - i/n);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const bp = a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = lo;
+  bp.frequency.linearRampToValueAtTime(hi, a.currentTime + dur);
+  const g = a.createGain(); g.gain.value = vol || 0.2;
+  src.connect(bp); bp.connect(g); g.connect(a.destination); src.start();
+}
+const sfx = {
+  land(){ tone(240,120,0.14,'triangle',0.18); noise(0.10, 900, 300, 0.10); },
+  stamp(){ tone(1180,1560,0.09,'square',0.07); },
+  splash(){ noise(0.34, 420, 130, 0.20); tone(150,70,0.28,'sine',0.12); },
+  step(){ tone(420,330,0.05,'triangle',0.06); },
+  refuse(){ tone(200,180,0.08,'sawtooth',0.05); },
+  combo(k){ tone(520 + k*90, 780 + k*110, 0.16,'triangle',0.10); },
+  over(){ tone(300,140,0.5,'sine',0.14); }
+};
+
+/* ─────────────────────────── 게임 흐름 ─────────────────────────── */
+function resetRun(seed){
+  S.rng = mulberry32(seed || (Date.now() & 0x7fffffff));
+  S.boots = BOOTS; S.score = 0; S.crossed = 0; S.combo = 0; S.bestCombo = 0;
+  S.timeLeft = TIME_S; S.boardIdx = 0; S.prevBoard = null;
+  S.marks.length = 0; S.drops.length = 0; S.ripples.length = 0;
+  S.hop = null; S.toast = null; S.labelT = 0; S.labelBoard = null; S.split = null;
+  S.hold = null; S.stand = null;
+  S.guideT = 0; S.idleT = 0; S.tapCount = 0;
+  S.board = makeBoard(0, S.rng, { x:0, y:0 });
+  S.firstBoardHint = 1.5;
+  S.failStreak = 0;
+  S.t = S.board.startT;
+  S.playerPos = bankPt(S.board, S.t);
+  S.playerDraw = { ...S.playerPos };
+  S.cam = { ...S.playerPos }; S.camTarget = { ...S.playerPos };
+  snapFoot();
+}
+/** 장화 그림 위치를 가까운 턱 한가운데로 바로 맞춘다 */
+function snapFoot(){
+  const b = S.board;
+  S.footOff = b ? { x:-b.nh.x*1.7, y:-b.nh.y*1.7 } : { x:0, y:0 };
+}
+
+function startOnboarding(){
+  document.getElementById('title').classList.add('hide');
+  document.getElementById('over').classList.remove('show');
+  S.rng = mulberry32(Date.now() & 0x7fffffff);
+  S.boots = BOOTS; S.score = 0; S.crossed = 0; S.combo = 0; S.bestCombo = 0;
+  S.timeLeft = TIME_S; S.boardIdx = -1;
+  S.marks.length = 0; S.drops.length = 0; S.ripples.length = 0;
+  S.onbTries = 0; S.onbFlicks = 0; S.onbDone = false; S.onbHintT = 0; S.onbDemo = false;
+  S.prevBoard = null; S.hop = null; S.toast = null;
+  S.hold = null; S.stand = null; S.split = null; S.labelT = 0; S.labelBoard = null;
+  S.board = makeBoard(-1, mulberry32(11), { x:0, y:0 });
+  S.t = 0;
+  S.playerPos = bankPt(S.board, 0);
+  S.playerDraw = { ...S.playerPos };
+  S.cam = { ...S.playerPos }; S.camTarget = { ...S.playerPos };
+  snapFoot();
+  S.phase = 'onboard';
+  S.started = true;
+}
+
+/** __GAME_TEST__.start() — 타이틀·연습을 건너뛰고 바로 실전 */
+function startGame(){
+  document.getElementById('title').classList.add('hide');
+  document.getElementById('over').classList.remove('show');
+  resetRun();
+  S.phase = 'playing';
+  S.started = true;
+  S.onbDone = true;
+}
+
+function endRun(reason){
+  if (S.phase === 'over') return;
+  S.phase = 'over';
+  sfx.over();
+  const cleared = S.crossed >= GOAL;
+  document.getElementById('overTtl').textContent = cleared ? '운동장을 다 건넜어요' : '오늘은 여기까지예요';
+  document.getElementById('overSub').textContent =
+    cleared ? ('도랑 ' + GOAL + '칸을 모두 건넜어요.')
+    : reason === 'boots' ? '장화가 다 젖었어요.' : '시간이 다 됐어요.';
+  animateNum('stCross', S.crossed);
+  animateNum('stScore', S.score);
+  animateNum('stCombo', S.bestCombo);
+  const note = document.getElementById('bestNote');
+  if (S.score > S.best){
+    S.best = S.score;
+    try{ localStorage.setItem(KEY_BEST, String(S.best)); }catch(e){}
+    note.textContent = '최고 기록을 새로 세웠어요';
+  } else note.textContent = S.best ? ('최고 기록 ' + S.best + '점') : '';
+  if (cleared){
+    try{
+      const d = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+      localStorage.setItem(KEY_STAMP, d);
+    }catch(e){}
+  }
+  document.getElementById('over').classList.add('show');
+  refreshBestRow();
+}
+function animateNum(id, to){
+  const el = document.getElementById(id); if (!el) return;
+  if (S.reduced){ el.textContent = String(to); return; }
+  const t0 = performance.now(), dur = 620;
+  (function step(now){
+    const k = clamp((now - t0)/dur, 0, 1);
+    el.textContent = String(Math.round(to * (1 - Math.pow(1-k, 3))));
+    if (k < 1) requestAnimationFrame(step);
+  })(t0);
+}
+function refreshBestRow(){
+  const r = document.getElementById('bestRow');
+  let stamp = '';
+  try{
+    const d = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+    if (localStorage.getItem(KEY_STAMP) === d) stamp = ' · 오늘 도장 ✓';
+  }catch(e){}
+  r.textContent = S.best ? ('최고 ' + S.best + '점' + stamp) : '';
+}
+
+/* ─────────────────────────── 입력 → 판정 ─────────────────────────── */
+function currentTol(){
+  if (S.phase !== 'onboard') return TOL;
+  if (S.onbTries >= 4 || S.onbHintT > 22) return TOL_ONB3;
+  return (S.onbTries >= 2 || S.onbFlicks >= 3 || S.onbHintT > 12) ? TOL_ONB2 : TOL_ONB;
+}
+function ballBlocking(b, t, now){
+  for (const h of b.hazards){
+    if (h.type !== 'ball') continue;
+    if (Math.abs(h.t - t) < h.r) return true;
+  }
+  for (const p of b.puddles) if (Math.abs(p.t - t) < 1.0) return true;
+  return false;
+}
+
+function applyFlick(angle){
+  const b = S.board;
+  if (!b || S.hop || S.hold) return;
+  if (S.phase !== 'playing' && S.phase !== 'onboard') return;
+
+  const blocked = ballBlocking(b, S.t, 0);
+  if (S.phase === 'onboard') S.onbFlicks++;
+  const r = judgeFlick(b, S.t, angle, currentTol(), { blocked });
+
+  // 공·웅덩이에 막힌 자리는 「지금은 뛸 수 없다」이지 오답이 아니다.
+  // 장화를 깎지 않고 거절한다 (한 번의 실수로 두 켤레를 잃지 않게).
+  if (r.kind === 'jump' && !r.ok && r.why === 'blocked'){
+    refuse('착지 자리가 막혔어요. 턱을 따라 걸어 보세요');
+    return;
+  }
+
+  if (r.kind === 'walk'){
+    const nt = clamp(S.t + r.dir * WALK, b.tMin, b.tMax);
+    if (nt === S.t){ refuse('턱 끝이에요'); return; }
+    const was = bankPt(b, S.t);
+    S.t = nt;
+    S.playerPos = bankPt(b, S.t);
+    sfx.step();
+    S.marks.push({ type:'step', p:was, ang:b.bankAngle, t:2.2, born:0 });
+    splash(was, 5, C.mud);
+    if (S.phase === 'onboard'){
+      S.toast = { text:'턱과 나란히 밀면 걸어요. 직각인 쪽으로 밀면 건너요.', t:2.6 };
+    }
+    return;
+  }
+  if (r.kind === 'back'){
+    refuse('왔던 쪽이에요');
+    return;
+  }
+  // 점프
+  const from = bankPt(b, S.t);
+  const to = { x: from.x + b.nh.x*STRIDE, y: from.y + b.nh.y*STRIDE };
+  S.hop = { from, to, k:0, dur: r.ok ? 0.40 : 0.34, ok:r.ok, why:r.why, angle };
+  if (!r.ok && S.phase === 'onboard') S.onbTries++;
+}
+
+function refuse(msg){
+  S.toast = { text: msg, t: 1.5 };
+  S.shakeBoot = 0.34;
+  sfx.refuse();
+}
+
+/** 착지 뒤 멈춤을 끝낸다 — 연습이면 실전으로, 실전이면 다음 도랑으로 */
+function releaseHold(){
+  const h = S.hold; if (!h) return;
+  S.hold = null;
+  if (h.next === 'end'){ endRun('clear'); return; }
+  if (h.next === 'play'){
+    if (S.phase !== 'onboard') return;
+    S.phase = 'playing';
+    resetRun();
+    S.toast = { text:'이제 턱이 기울어져요. 화면 위가 아니라 턱과 직각인 쪽이에요.', t:3.2 };
+    return;
+  }
+  // 다음 칸 — 착지한 턱이 꺾여 다음 도랑의 가까운 턱이 된다.
+  // 지난 도랑과 그 위의 표시는 0.45초 안에 흐리게 지운다 (두 도랑이 겹쳐 보이지 않게)
+  S.prevBoard = { b: S.board, fade: 1 };
+  for (const m of S.marks) m.t = Math.min(m.t, 0.45);
+  S.split = null; S.stand = null;
+  S.boardIdx++;
+  S.board = makeBoard(S.boardIdx, S.rng, h.from);
+  S.t = S.board.startT;
+  S.playerPos = bankPt(S.board, S.t);
+  if (S.board.labels){ S.labelBoard = S.board; S.labelT = 3.0; }
+}
+
+/** 실전 첫 칸 안내 — 멈추거나 빗나갔을 때만 1.2초 한 번 경로를 민다 */
+function triggerGuide(){ S.guideT = 1.6; S.idleT = 0; }
+
+function finishHop(){
+  const h = S.hop, b = S.board;
+  S.hop = null;
+  if (h.ok){
+    // ── 성공: 흙탕물이 수선 띠로 갈라지고 양쪽 턱에 석회 ㄱ 가 찍힌다.
+    //    표시의 기하(턱 방향·수선 방향·끝점)는 「방금 건넌 판」에서 박제한다 —
+    //    그리는 순간의 S.board 를 읽으면 다음 도랑 각도로 틀어진다.
+    const a = bankPt(b, S.t), c2 = offPt(b, S.t, STRIDE);
+    const u = { x:b.uh.x, y:b.uh.y }, n = { x:b.nh.x, y:b.nh.y };
+    // 연습에서 허용각을 넓혀 착지시킨 획은 「수선」이라고 부르지 않는다
+    const exact = S.phase !== 'onboard' || angDiff(h.angle, b.perpAngle) <= TOL_ONB;
+    // 직전 오답의 이유 라벨·점선이 이번 성공 표시(4 cm)와 겹치지 않게 먼저 지운다
+    for (const m of S.marks) if (m.type === 'why' || m.type === 'dashPerp') m.t = Math.min(m.t, 0.2);
+    if (exact){
+      // 정답 공개는 「띠」가 아니라 발자국이다: 뜬 자리·내린 자리에 장화 발자국이 찍히고,
+      // 그 사이 물 위에 1 cm 마다 물방울 링이 차례로 떨어져 4 cm 를 센다. 석회 ㄱ 와 cm 는 뒤따라 찍힌다.
+      S.marks.push({ type:'print', p:{ x:a.x - n.x*0.85, y:a.y - n.y*0.85 }, n, t:2.4, born:0 });
+      for (let i=1;i<STRIDE;i++) S.marks.push({ type:'drip', p:{ x:a.x + n.x*i, y:a.y + n.y*i }, t:2.4, born:-0.03*i });
+      S.marks.push({ type:'print', p:{ x:c2.x + n.x*0.85, y:c2.y + n.y*0.85 }, n, t:2.5, born:-0.12 });
+      S.marks.push({ type:'giyeok', p:a, u, n, side:1, t:2.6, born:-0.14 });
+      S.marks.push({ type:'giyeok', p:c2, u, n, side:-1, t:2.6, born:-0.16 });
+      // cm 라벨은 수선 옆으로 비켜 놓는다 (장화·발자국에 가리지 않게)
+      S.marks.push({ type:'cm', p:{ x:(a.x+c2.x)/2 + u.x*1.7, y:(a.y+c2.y)/2 + u.y*1.7 }, text: STRIDE + ' cm', t:2.6, born:-0.18 });
+    } else {
+      S.marks.push({ type:'dashPerp', p0:a, p1:c2, t:2.6, born:0 });
+    }
+    S.limeFlash = 1;
+    S.hitStop = 0.075;
+    sfx.land(); setTimeout(()=>sfx.stamp(), 110);
+    splash(c2, 8, C.waterL);
+    S.playerPos = c2;
+    S.stand = n;                       // 먼 턱 위에 선다
+
+    if (S.phase === 'onboard'){
+      S.onbDone = true;
+      S.toast = exact
+        ? { text:'직선 가에 수직인 선분의 길이 4 cm — 이게 두 턱 사이의 거리예요.', t:3.0 }
+        : { text:'거의 맞았어요. 점선이 턱과 직각인 쪽이에요 — 실전에서는 이렇게 곧게 밀어야 건너요.', t:3.4 };
+      S.hold = { t:1.5, next:'play' };
+      return;
+    }
+
+    S.crossed++;
+    S.failStreak = 0;
+    S.combo++;
+    S.bestCombo = Math.max(S.bestCombo, S.combo);
+    const mult = Math.min(S.combo, 3);
+    let gained = 100 * mult;
+    if (b.kind === 'quad') gained += 80;
+    if (b.band >= 2) gained += 50;
+    S.score += gained;
+    if (S.combo > 1) sfx.combo(Math.min(S.combo,3));
+    if (b.labels){ S.labelBoard = b; S.labelT = 2.6; }
+
+    S.coverPop = 1;                     // 배수구 뚜껑 하나가 닫힌다
+    // 정답 연출을 방금 건넌 도랑 위에서 끝낸 뒤 다음 칸으로 넘긴다 (입력은 잠근다).
+    // 마지막 칸도 연출을 다 보여 준 뒤 결과 카드를 띄운다
+    if (S.crossed >= GOAL){ S.hold = { t:1.1, next:'end' }; return; }
+    S.hold = { t:0.8, next:'board', from:c2 };
+  } else {
+    // ── 실패: 빗각으로 미끄러져 도랑에 주저앉는다
+    const mid = { x:(h.from.x+h.to.x)/2, y:(h.from.y+h.to.y)/2 };
+    splash(mid, 14, C.mud);
+    sfx.splash();
+    S.shake = 0.3;
+    b.puddles.push({ t:S.t, born:0, life:1 });
+    if (S.phase !== 'onboard'){
+      S.boots--; S.combo = 0; S.bootLostT = 0.7;
+    }
+    // 오답 설명 — 무엇이 왜 안 맞았는지 그림으로 0.8초
+    const s = stretchAt(b, S.t);
+    const foot = bankPt(b, S.t);
+    if (h.why === 'skew'){
+      S.marks.push({ type:'dashPerp', p0:foot, p1:offPt(b, S.t, s && s.rot===0 ? s.gap : STRIDE), t:1.4, born:0 });
+      S.marks.push({ type:'why', p:foot, text:'비스듬해서 거리가 아니에요', t:1.6, born:0 });
+      if (S.phase === 'playing' && S.crossed === 0 && S.boardIdx === 0) triggerGuide();
+    } else if (h.why === 'toofar'){
+      S.marks.push({ type:'dashPerp', p0:foot, p1:offPt(b, S.t, s.gap), t:1.6, born:0 });
+      S.marks.push({ type:'why', p:bankPt(b,S.t), text:'여기는 ' + s.gap + ' cm — 보폭 4 cm로는 못 닿아요', t:1.9, born:0 });
+    } else if (h.why === 'notparallel'){
+      S.marks.push({ type:'why', p:bankPt(b,S.t), text:'평행하지 않은 턱이에요', t:1.9, born:0 });
+    } else if (h.why === 'blocked'){
+      S.marks.push({ type:'why', p:bankPt(b,S.t), text:'착지 자리가 막혀 있어요', t:1.6, born:0 });
+    } else {
+      S.marks.push({ type:'why', p:bankPt(b,S.t), text:'맞은편 턱이 없어요', t:1.6, born:0 });
+    }
+    if (S.phase === 'onboard'){
+      S.toast = { text: S.onbTries >= 2
+        ? '턱과 직각인 쪽으로 — 점선 방향으로 밀어 보세요.'
+        : '턱과 직각인 쪽으로 밀어야 건너요.', t:2.6 };
+
+    } else {
+      S.failStreak = (S.failStreak || 0) + 1;
+      if (S.boardIdx === 0 && S.failStreak >= 2){
+        S.marks.push({ type:'dashPerp', p0:foot, p1:offPt(b, S.t, STRIDE), t:1.6, born:0 });
+        S.toast = { text:'점선 쪽이 턱과 직각이에요.', t:2.4 };
+      }
+      if (S.boots <= 0) setTimeout(()=>endRun('boots'), 420);
+    }
+    S.playerPos = bankPt(b, S.t);
+  }
+}
+
+function splash(p, n, col){
+  const mult = Math.min(1 + S.combo*0.25, 2.2);
+  for (let i=0;i<n*mult;i++){
+    const a = Math.random()*6.2832, v = 2.4 + Math.random()*5.2;
+    S.drops.push({
+      x:p.x, y:p.y, vx:Math.cos(a)*v*0.09, vy:Math.sin(a)*v*0.09 - 0.16,
+      life: 0.45 + Math.random()*0.4, age:0,
+      r: 0.06 + Math.random()*0.12, col
+    });
+  }
+}
+
+/* ─────────────────────────── 포인터 ─────────────────────────── */
+function localPt(e){
+  const r = cv.getBoundingClientRect();
+  return { x:e.clientX - r.left, y:e.clientY - r.top };
+}
+cv.addEventListener('pointerdown', (e)=>{
+  if (S.phase === 'title' || S.phase === 'over') return;
+  try{ cv.setPointerCapture && cv.setPointerCapture(e.pointerId); }catch(err){}
+  const p = localPt(e);
+  S.drag = { x0:p.x, y0:p.y, x:p.x, y:p.y, id:e.pointerId };
+  S.aim = null;
+  S.guideT = 0; S.idleT = 0;          // 손을 대면 안내는 바로 숨긴다
+  ac();
+  e.preventDefault();
+}, { passive:false });
+
+cv.addEventListener('pointermove', (e)=>{
+  if (!S.drag || e.pointerId !== S.drag.id) return;
+  const p = localPt(e);
+  S.drag.x = p.x; S.drag.y = p.y;
+  const dx = p.x - S.drag.x0, dy = p.y - S.drag.y0;
+  if (Math.hypot(dx,dy) >= 10) S.aim = { ang: angOf(dx,dy) };
+  e.preventDefault();
+}, { passive:false });
+
+function endDrag(e){
+  if (!S.drag || (e && e.pointerId !== S.drag.id)) return;
+  const dx = S.drag.x - S.drag.x0, dy = S.drag.y - S.drag.y0;
+  const len = Math.hypot(dx,dy);
+  S.drag = null; S.aim = null;
+  if (S.hold) return;                 // 정답 연출 중에는 입력을 받지 않는다
+  if (len < MIN_DRAG){
+    // 「탭만 하고 밀지 않음」 — 무반응 금지. 장화가 흔들리고 물결이 인다
+    S.ripples.push({ x:(e?localPt(e).x:0), y:(e?localPt(e).y:0), r:0, t:0 });
+    refuse('장화를 밀어서 뛰어요');
+    if (S.phase === 'playing' && S.crossed === 0 && S.boardIdx === 0){
+      S.tapCount++;
+      if (S.tapCount >= 2){ S.tapCount = 0; triggerGuide(); }
+    }
+    return;
+  }
+  applyFlick(angOf(dx,dy));
+}
+cv.addEventListener('pointerup', (e)=>{ endDrag(e); e.preventDefault(); }, { passive:false });
+cv.addEventListener('pointercancel', ()=>{ S.drag=null; S.aim=null; });
+cv.addEventListener('contextmenu', e=>e.preventDefault());
+
+/* ─────────────────────────── 갱신 ─────────────────────────── */
+function update(dt){
+  if (S.hitStop > 0){ S.hitStop -= dt; dt = Math.min(dt, 0.001); }
+  S.shake = Math.max(0, S.shake - dt*1.9);
+  S.shakeBoot = Math.max(0, (S.shakeBoot||0) - dt*2.6);
+  S.limeFlash = Math.max(0, S.limeFlash - dt*1.5);
+  S.coverPop = Math.max(0, (S.coverPop||0) - dt*2.2);
+  S.bootLostT = Math.max(0, (S.bootLostT||0) - dt);
+  if (S.firstBoardHint > 0) S.firstBoardHint -= dt;
+  if (S.split){ S.split.k -= dt*1.1; if (S.split.k <= 0) S.split = null; }
+  S.labelT = Math.max(0, S.labelT - dt);
+  if (S.toast){ S.toast.t -= dt; if (S.toast.t <= 0) S.toast = null; }
+  if (S.prevBoard){ S.prevBoard.fade -= dt*2.2; if (S.prevBoard.fade <= 0) S.prevBoard = null; }
+  if (S.hold){ S.hold.t -= dt; if (S.hold.t <= 0) releaseHold(); }
+
+  if (S.phase === 'playing' && !S.hold){
+    S.timeLeft -= dt;
+    if (S.timeLeft <= 0){ S.timeLeft = 0; endRun('time'); }
+  }
+  if (S.phase === 'playing' && S.crossed === 0 && S.boardIdx === 0){
+    if (S.guideT > 0) S.guideT = Math.max(0, S.guideT - dt);
+    else if (!S.drag && !S.hop){
+      S.idleT += dt;
+      if (S.idleT >= 8) triggerGuide();
+    }
+  }
+  if (S.phase === 'onboard'){
+    S.onbHintT += dt;
+    if (!S.onbDone && !S.onbDemo && !S.hop && S.onbHintT > 34){
+      // 연습에 갇히지 않게 실전으로 넘긴다. 대신 건너 주지 않는다 —
+      // 실전에서도 첫 한 칸을 건널 때까지 손가락 안내가 계속 나온다.
+      S.onbDemo = true; S.onbDone = true;
+      S.phase = 'playing';
+      resetRun();
+      S.toast = { text:'실전에서도 멈추거나 빗나가면 점선이 다시 보여요. 턱과 직각인 쪽이에요.', t:3.4 };
+    }
+  }
+
+  const b = S.board;
+  if (b){
+    for (const h of b.hazards){
+      if (h.type === 'ball'){
+        h.t += h.dir * h.speed * dt;
+        const s = b.stretches[0], last = b.stretches[b.stretches.length-1];
+        if (h.t < s.t0 + 0.6){ h.t = s.t0 + 0.6; h.dir = 1; }
+        if (h.t > last.t1 - 0.6){ h.t = last.t1 - 0.6; h.dir = -1; }
+      }
+    }
+    for (const p of b.puddles){ p.born += dt; p.t += dt*0.34; }
+    while (b.puddles.length > 6) b.puddles.shift();
+  }
+
+  // 점프 애니메이션
+  if (S.hop){
+    S.hop.k += dt / S.hop.dur;
+    if (S.hop.k >= 1){ S.hop.k = 1; finishHop(); }
+  }
+
+  // 장화 위치 보간 (anticipation/overshoot)
+  const target = S.hop
+    ? (function(){
+        const k = S.hop.k, e = k*k*(3-2*k);
+        return { x: lerp(S.hop.from.x, S.hop.to.x, S.hop.ok ? e : Math.min(e,0.62)),
+                 y: lerp(S.hop.from.y, S.hop.to.y, S.hop.ok ? e : Math.min(e,0.62)) };
+      })()
+    : S.playerPos;
+  S.playerDraw.x = lerp(S.playerDraw.x, target.x, 1 - Math.pow(0.0008, dt));
+  S.playerDraw.y = lerp(S.playerDraw.y, target.y, 1 - Math.pow(0.0008, dt));
+
+  // 장화가 서는 턱 — 가까운 턱 한가운데(−1.7) → 착지하면 먼 턱 한가운데(+1.7)
+  if (b){
+    if (S.hop && S.hop.ok){
+      const k = S.hop.k, e = k*k*(3-2*k), s = -1.7 + 3.4*e;
+      S.footOff.x = b.nh.x*s; S.footOff.y = b.nh.y*s;
+    } else if (S.stand){
+      S.footOff.x = S.stand.x*1.7; S.footOff.y = S.stand.y*1.7;
+    } else {
+      const f = 1 - Math.pow(0.0008, dt);
+      S.footOff.x = lerp(S.footOff.x, -b.nh.x*1.7, f);
+      S.footOff.y = lerp(S.footOff.y, -b.nh.y*1.7, f);
+    }
+  }
+
+  // 카메라 — 장화와 도랑 한가운데를 함께 잡고, 수선 방향으로 살짝 밀어 맞은편 턱을 보여 준다
+  if (b){
+    const mid = bankPt(b, (b.tMin + b.tMax) / 2);
+    S.camTarget.x = lerp(S.playerDraw.x, mid.x, 0.62) + b.nh.x * 2.2;
+    S.camTarget.y = lerp(S.playerDraw.y, mid.y, 0.62) + b.nh.y * 2.2;
+  } else {
+    S.camTarget.x = S.playerDraw.x; S.camTarget.y = S.playerDraw.y - 1.4;
+  }
+  S.cam.x = lerp(S.cam.x, S.camTarget.x, 1 - Math.pow(0.002, dt));
+  S.cam.y = lerp(S.cam.y, S.camTarget.y, 1 - Math.pow(0.002, dt));
+
+  // 물방울
+  for (let i=S.drops.length-1;i>=0;i--){
+    const d = S.drops[i];
+    d.age += dt;
+    d.x += d.vx; d.y += d.vy; d.vy += 0.030;
+    if (d.age >= d.life) S.drops.splice(i,1);
+  }
+  for (let i=S.ripples.length-1;i>=0;i--){
+    const r = S.ripples[i]; r.t += dt; r.r = r.t * 190;
+    if (r.t > 0.5) S.ripples.splice(i,1);
+  }
+  for (let i=S.marks.length-1;i>=0;i--){
+    const m = S.marks[i]; m.born += dt; m.t -= dt;
+    if (m.t <= 0) S.marks.splice(i,1);
+  }
+}
+
+/* ─────────────────────────── 그리기 ─────────────────────────── */
+function SX(p){ return (p.x - S.cam.x) * S.px + S.anchor.x; }
+function SY(p){ return (p.y - S.cam.y) * S.px + S.anchor.y; }
+
+function drawEarth(){
+  ctx.fillStyle = C.earth; ctx.fillRect(0,0,S.W,S.H);
+  if (earthPat){
+    ctx.save();
+    const ox = -((S.cam.x * S.px) % 240 + 240) % 240;
+    const oy = -((S.cam.y * S.px) % 240 + 240) % 240;
+    ctx.translate(ox, oy);
+    ctx.fillStyle = earthPat;
+    ctx.fillRect(0, 0, S.W + 240, S.H + 240);
+    ctx.restore();
+  }
+  if (earthPat2){
+    ctx.save();
+    const ox = -((S.cam.x * S.px) % 610 + 610) % 610;
+    const oy = -((S.cam.y * S.px) % 610 + 610) % 610;
+    ctx.translate(ox, oy);
+    ctx.fillStyle = earthPat2;
+    ctx.fillRect(0, 0, S.W + 610, S.H + 610);
+    ctx.restore();
+  }
+  drawGroundBits();
+  // 하단 빛 감쇠 (흐린 날 젖은 흙)
+  const gd = ctx.createLinearGradient(0,0,0,S.H);
+  gd.addColorStop(0,'rgba(60,54,48,.10)');
+  gd.addColorStop(0.42,'rgba(60,54,48,0)');
+  gd.addColorStop(1,'rgba(60,54,48,.14)');
+  ctx.fillStyle = gd; ctx.fillRect(0,0,S.W,S.H);
+}
+
+/** 운동장 바닥의 자갈·풀포기·물웅덩이 — 월드 좌표 해시로 결정되어 카메라와 함께 흐른다 */
+function hash2(i, j){
+  let h = (i * 73856093) ^ (j * 19349663);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function drawGroundBits(){
+  const step = 5;                                   // cm 격자
+  const x0 = Math.floor((S.cam.x - (S.anchor.x)/S.px) / step) - 1;
+  const x1 = Math.ceil((S.cam.x + (S.W - S.anchor.x)/S.px) / step) + 1;
+  const y0 = Math.floor((S.cam.y - (S.anchor.y)/S.px) / step) - 1;
+  const y1 = Math.ceil((S.cam.y + (S.H - S.anchor.y)/S.px) / step) + 1;
+  if ((x1-x0)*(y1-y0) > 400) return;
+  for (let i=x0;i<=x1;i++) for (let j=y0;j<=y1;j++){
+    const h = hash2(i, j);
+    if (h > 0.55) continue;
+    const p = { x:(i + hash2(i+1,j)*0.9) * step, y:(j + hash2(i,j+1)*0.9) * step };
+    const X = SX(p), Y = SY(p);
+    if (X < -30 || X > S.W+30 || Y < -30 || Y > S.H+30) continue;
+    const r = S.px * (0.10 + h*0.34);
+    if (h < 0.20){
+      // 얕은 빗물 자국
+      ctx.fillStyle = 'rgba(96,90,82,.20)';
+      ctx.beginPath(); ctx.ellipse(X, Y, r*3.0, r*1.5, h*3, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = 'rgba(176,180,176,.14)';
+      ctx.beginPath(); ctx.ellipse(X-r*0.4, Y-r*0.3, r*1.8, r*0.8, h*3, 0, 6.2832); ctx.fill();
+    } else if (h < 0.42){
+      // 자갈
+      ctx.fillStyle = 'rgba(122,114,104,.55)';
+      ctx.beginPath(); ctx.ellipse(X, Y, r*0.9, r*0.62, h*6, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = 'rgba(186,178,166,.5)';
+      ctx.beginPath(); ctx.ellipse(X-r*0.2, Y-r*0.22, r*0.5, r*0.3, h*6, 0, 6.2832); ctx.fill();
+    } else {
+      // 마른 풀포기
+      ctx.strokeStyle = 'rgba(122,120,88,.42)'; ctx.lineWidth = 1.4;
+      for (let k=0;k<4;k++){
+        const a = -1.9 + k*0.34 + h;
+        ctx.beginPath(); ctx.moveTo(X, Y);
+        ctx.lineTo(X + Math.cos(a)*r*1.6, Y + Math.sin(a)*r*1.8);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+function bankPolyNear(b){
+  // 가까운 턱: 도랑 가장자리에서 바깥(-n) 쪽으로 CURBW
+  const CW = 3.4;
+  const ext = b.kind === 'quad' ? 0 : 2;
+  const a = bankPt(b, b.drawMin - ext), c2 = bankPt(b, b.drawMax + ext);
+  const n = b.nh;
+  return [
+    { x:a.x, y:a.y }, { x:c2.x, y:c2.y },
+    { x:c2.x - n.x*CW, y:c2.y - n.y*CW }, { x:a.x - n.x*CW, y:a.y - n.y*CW }
+  ];
+}
+function polyPath(pts){
+  ctx.beginPath();
+  ctx.moveTo(SX(pts[0]), SY(pts[0]));
+  for (let i=1;i<pts.length;i++) ctx.lineTo(SX(pts[i]), SY(pts[i]));
+  ctx.closePath();
+}
+
+function drawCurbSlab(pts, edgeA, edgeB, ang){
+  polyPath(pts);
+  ctx.fillStyle = C.curb; ctx.fill();
+  // 물기 띠 (도랑 쪽 가장자리)
+  ctx.save(); ctx.clip();
+  const eA = { x:SX(edgeA), y:SY(edgeA) }, eB = { x:SX(edgeB), y:SY(edgeB) };
+  ctx.strokeStyle = C.curbTop; ctx.lineWidth = Math.max(2, S.px*0.22);
+  ctx.beginPath(); ctx.moveTo(eA.x,eA.y); ctx.lineTo(eB.x,eB.y); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.34)'; ctx.lineWidth = Math.max(1, S.px*0.08);
+  ctx.beginPath(); ctx.moveTo(eA.x,eA.y); ctx.lineTo(eB.x,eB.y); ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle = C.curbD; ctx.lineWidth = 1.4; ctx.stroke();
+}
+
+/** 턱 위에 새겨진 1 cm 눈금 (거리를 「세어」 읽게 하는 장치) */
+function drawTicks(b, t0, t1, gapOff){
+  ctx.save();
+  const s0 = Math.ceil(t0), s1 = Math.floor(t1);
+  for (let t = s0; t <= s1; t++){
+    const isBig = (t % 5 === 0);
+    const p0 = offPt(b, t, gapOff);
+    const p1 = offPt(b, t, gapOff - (isBig ? 0.85 : 0.45));
+    ctx.strokeStyle = isBig ? 'rgba(96,90,82,.55)' : 'rgba(96,90,82,.30)';
+    ctx.lineWidth = isBig ? 1.6 : 1;
+    ctx.beginPath(); ctx.moveTo(SX(p0),SY(p0)); ctx.lineTo(SX(p1),SY(p1)); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawJoints(b, t0, t1, gapOff, depth){
+  ctx.save();
+  ctx.strokeStyle = 'rgba(97,93,86,.62)'; ctx.lineWidth = Math.max(1.4, S.px*0.09);
+  for (let t = Math.ceil(t0/3.5)*3.5; t <= t1; t += 3.5){
+    const p0 = offPt(b, t, gapOff), p1 = offPt(b, t, gapOff + depth);
+    ctx.beginPath(); ctx.moveTo(SX(p0),SY(p0)); ctx.lineTo(SX(p1),SY(p1)); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** 밴드 4 — 운동장 모래밭에 석회로 그은 닫힌 사각형 (사다리꼴 · 정사각형) */
+function drawQuad(b, alpha, opts){
+  const ghost = !!(opts && opts.ghost);
+  ctx.save();
+  if (alpha < 1) ctx.globalAlpha = alpha;
+  const s = b.stretches[0];
+  const near0 = bankPt(b, b.tMin), near1 = bankPt(b, b.tMax);
+  const far0 = farPt(b, s, s.t0), far1 = farPt(b, s, s.t1);
+  const poly = [near0, near1, far1, far0];
+
+  // 젖은 모래 면
+  polyPath(poly);
+  ctx.fillStyle = '#C6B896'; ctx.fill();
+  ctx.save(); ctx.clip();
+  ctx.fillStyle = 'rgba(150,136,108,.42)';
+  const r0 = mulberry32(b.idx*97 + 13);
+  for (let i=0;i<220;i++){
+    const t = b.tMin + r0()*(b.tMax-b.tMin), g = r0()*STRIDE;
+    const q = offPt(b, t, g);
+    ctx.fillRect(SX(q)|0, SY(q)|0, 2, 2);
+  }
+  ctx.fillStyle = 'rgba(120,106,80,.20)';
+  for (let i=0;i<9;i++){
+    const t = b.tMin + r0()*(b.tMax-b.tMin), g = r0()*STRIDE;
+    const q = offPt(b, t, g);
+    ctx.beginPath(); ctx.ellipse(SX(q), SY(q), S.px*(0.5+r0()), S.px*(0.3+r0()*0.5), r0()*3, 0, 6.2832); ctx.fill();
+  }
+  ctx.restore();
+
+  // 석회로 그은 네 금 — 굵고 살짝 번진다
+  const edges = [[near0,near1],[near1,far1],[far1,far0],[far0,near0]];
+  for (const [p,q] of edges){
+    ctx.strokeStyle = 'rgba(226,222,206,.42)'; ctx.lineWidth = Math.max(9, S.px*0.55);
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(SX(p),SY(p)); ctx.lineTo(SX(q),SY(q)); ctx.stroke();
+    ctx.strokeStyle = C.lime; ctx.lineWidth = Math.max(5, S.px*0.30);
+    ctx.beginPath(); ctx.moveTo(SX(p),SY(p)); ctx.lineTo(SX(q),SY(q)); ctx.stroke();
+  }
+  if (ghost){ ctx.restore(); return; }   // 지나간 판은 면과 금만 흐리게
+  // 평행한 한 쌍에 같은 화살깃 (교과서 표기)
+  for (const [p,q] of [[near0,near1],[far0,far1]]){
+    const mx = (SX(p)+SX(q))/2, my = (SY(p)+SY(q))/2;
+    const dx = SX(q)-SX(p), dy = SY(q)-SY(p), L = Math.hypot(dx,dy)||1;
+    const ux = dx/L, uy = dy/L;
+    ctx.strokeStyle = '#8E8878'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    for (const off of [-5, 5]){
+      ctx.beginPath();
+      ctx.moveTo(mx + ux*off - ux*7 - uy*7, my + uy*off - uy*7 + ux*7);
+      ctx.lineTo(mx + ux*off, my + uy*off);
+      ctx.lineTo(mx + ux*off - ux*7 + uy*7, my + uy*off - uy*7 - ux*7);
+      ctx.stroke();
+    }
+  }
+  // 근처 금의 1 cm 눈금
+  ctx.save();
+  for (let t = Math.ceil(b.tMin); t <= b.tMax; t++){
+    const big = t % 5 === 0;
+    const p0 = offPt(b, t, 0), p1 = offPt(b, t, -(big?0.8:0.42));
+    ctx.strokeStyle = big ? 'rgba(92,86,76,.60)' : 'rgba(92,86,76,.34)';
+    ctx.lineWidth = big ? 1.8 : 1.1;
+    ctx.beginPath(); ctx.moveTo(SX(p0),SY(p0)); ctx.lineTo(SX(p1),SY(p1)); ctx.stroke();
+  }
+  ctx.restore();
+
+  for (const p of b.puddles){
+    const q = offPt(b, p.t, STRIDE*0.5);
+    const r = S.px * 0.9;
+    ctx.fillStyle = 'rgba(90,74,52,.5)';
+    ctx.beginPath(); ctx.ellipse(SX(q), SY(q), r*1.4, r*0.7, 0, 0, 6.2832); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawBoard(b, alpha, opts){
+  if (b.kind === 'quad'){ drawQuad(b, alpha, opts); return; }
+  const ghost = !!(opts && opts.ghost);
+  const tags = !ghost && !(opts && opts.tags === false);
+  ctx.save();
+  if (alpha < 1) ctx.globalAlpha = alpha;
+
+  const CW = 3.4;
+  const tA = b.drawMin, tB = b.drawMax;
+
+  // ── 도랑 물 (가까운 턱 ~ 먼 턱 폴리라인 사이)
+  const water = [];
+  for (let t = tA; t <= tB + 1e-9; t += 0.5) water.push(bankPt(b, t));
+  const far = [];
+  for (let t = tB; t >= tA - 1e-9; t -= 0.5){
+    const s = stretchAt(b, t) || b.stretches[t < b.stretches[0].t0 ? 0 : b.stretches.length-1];
+    far.push(farPt(b, s, clamp(t, s.t0, s.t1)));
+  }
+  const poly = water.concat(far);
+  polyPath(poly);
+  ctx.fillStyle = C.water; ctx.fill();
+  ctx.save(); ctx.clip();
+  // 물살 — 턱과 나란히 흐른다 (평행 방향 힌트)
+  const ph = (performance.now()/1000) * (S.reduced ? 0.12 : 0.45);
+  for (let i=0;i<22;i++){
+    const off = ((i*0.9 + ph) % 22) - 3;
+    const t0 = tA + off, t1 = t0 + 2.1;
+    const gg = 0.4 + ((i*7)%9) * 0.42;
+    const q0 = offPt(b, t0, gg), q1 = offPt(b, t1, gg);
+    ctx.strokeStyle = i%3===0 ? 'rgba(150,178,188,.26)' : 'rgba(41,58,66,.30)';
+    ctx.lineWidth = Math.max(1, S.px*0.07);
+    ctx.beginPath(); ctx.moveTo(SX(q0),SY(q0)); ctx.lineTo(SX(q1),SY(q1)); ctx.stroke();
+  }
+  ctx.restore();
+  if (ghost){
+    // 지나간 판은 물과 턱 윤곽만 흐리게 — 눈금·줄눈·이름표·공은 그리지 않는다
+    for (const s of b.stretches){
+      const e0 = farPt(b, s, s.t0), e1 = farPt(b, s, s.t1), n = b.nh;
+      drawCurbSlab([ e0, e1, { x:e1.x + n.x*CW, y:e1.y + n.y*CW }, { x:e0.x + n.x*CW, y:e0.y + n.y*CW } ], e0, e1);
+    }
+    drawCurbSlab(bankPolyNear(b), bankPt(b,tA), bankPt(b,tB));
+    ctx.restore();
+    return;
+  }
+
+  // ── 먼 턱 (구간별)
+  for (const s of b.stretches){
+    const e0 = farPt(b, s, s.t0), e1 = farPt(b, s, s.t1);
+    const n = b.nh;
+    const slab = [ e0, e1, { x:e1.x + n.x*CW, y:e1.y + n.y*CW }, { x:e0.x + n.x*CW, y:e0.y + n.y*CW } ];
+    drawCurbSlab(slab, e0, e1);
+    // 눈금 — 먼 턱 가장자리
+    ctx.save();
+    for (let t = Math.ceil(s.t0); t <= s.t1; t++){
+      const isBig = (t % 5 === 0);
+      const q = farPt(b, s, t);
+      const d = rotVec(b.nh, 0);
+      const q2 = { x:q.x + d.x*(isBig?0.85:0.45), y:q.y + d.y*(isBig?0.85:0.45) };
+      ctx.strokeStyle = isBig ? 'rgba(96,90,82,.5)' : 'rgba(96,90,82,.28)';
+      ctx.lineWidth = isBig ? 1.6 : 1;
+      ctx.beginPath(); ctx.moveTo(SX(q),SY(q)); ctx.lineTo(SX(q2),SY(q2)); ctx.stroke();
+    }
+    ctx.restore();
+    drawJoints(b, s.t0, s.t1, s.gap + 0.4, CW - 0.8);
+  }
+
+  // ── 사다리꼴/정사각형의 빗변 금
+  if (b.legs){
+    for (const L of b.legs){
+      const p0 = bankPt(b, L.nt);
+      const s = b.stretches[0];
+      const p1 = farPt(b, s, clamp(L.ft, s.t0, s.t1));
+      ctx.strokeStyle = C.curb; ctx.lineWidth = Math.max(6, S.px*0.55);
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(SX(p0),SY(p0)); ctx.lineTo(SX(p1),SY(p1)); ctx.stroke();
+      ctx.strokeStyle = C.curbD; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(SX(p0),SY(p0)); ctx.lineTo(SX(p1),SY(p1)); ctx.stroke();
+    }
+  }
+
+  // ── 가까운 턱
+  const nearSlab = bankPolyNear(b);
+  drawCurbSlab(nearSlab, bankPt(b,tA), bankPt(b,tB));
+  drawTicks(b, tA, tB, 0);
+  drawJoints(b, tA, tB, -0.4, -(CW - 0.8));
+
+  // ── 직선 이름표 (발문이 「직선 가에 대한 수선」이라고 부르는 그 금이다).
+  //    장화 근처에 붙여 늘 화면 안에 보이게 한다.
+  if (tags){
+    const tg = clamp(S.t - 4.6, b.drawMin + 1.2, b.drawMax - 1.2);
+    const pNear = bankPt(b, tg);
+    drawBankTag(b, { x: pNear.x - b.nh.x*1.9, y: pNear.y - b.nh.y*1.9 }, '가');
+    // '나'는 직선 가와 평행한 조각에만 붙인다
+    let sF = stretchAt(b, clamp(tg, b.tMin, b.tMax)) || b.stretches[0];
+    if (sF.rot !== 0){
+      let bd = 1e9;
+      for (const s of b.stretches){
+        if (s.rot !== 0) continue;
+        const d = Math.abs((s.t0 + s.t1)/2 - tg);
+        if (d < bd){ bd = d; sF = s; }
+      }
+    }
+    if (sF.rot === 0){
+      const pFar = farPt(b, sF, clamp(tg, sF.t0 + 0.8, sF.t1 - 0.8));
+      drawBankTag(b, { x: pFar.x + b.nh.x*1.9, y: pFar.y + b.nh.y*1.9 }, '나');
+    }
+  }
+
+  // ── 웅덩이
+  for (const p of b.puddles){
+    const q = offPt(b, p.t, STRIDE*0.55);
+    const r = S.px * 0.9;
+    ctx.save();
+    ctx.fillStyle = 'rgba(58,44,34,.55)';
+    ctx.beginPath(); ctx.ellipse(SX(q), SY(q), r*1.5, r*0.75, 0, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(96,78,62,.5)';
+    ctx.beginPath(); ctx.ellipse(SX(q)-r*0.2, SY(q)-r*0.12, r*0.8, r*0.35, 0, 0, 6.2832); ctx.fill();
+    ctx.restore();
+  }
+
+  // ── 축구공
+  for (const h of b.hazards){
+    if (h.type !== 'ball') continue;
+    const s = stretchAt(b, clamp(h.t, b.tMin, b.tMax)) || b.stretches[0];
+    const q = farPt(b, s, clamp(h.t, s.t0, s.t1));
+    const R = S.px * 0.85;
+    const cx = SX(q), cy = SY(q) - R*0.35;
+    ctx.save();
+    ctx.fillStyle = 'rgba(50,44,38,.28)';
+    ctx.beginPath(); ctx.ellipse(cx, cy + R*0.85, R*0.95, R*0.32, 0,0,6.2832); ctx.fill();
+    ctx.fillStyle = '#CFC8BA';
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = '#7C7264';
+    for (let i=0;i<5;i++){
+      const a = i*1.2566 + h.t*0.5;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a)*R*0.5, cy + Math.sin(a)*R*0.5, R*0.24, 0, 6.2832); ctx.fill();
+    }
+    ctx.strokeStyle = '#8B8173'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/** 첫 실전 판에서만 1.5초 — 「턱과 직각」이 무엇인지 ㄱ자로 가리킨다 (방향 스냅 없음) */
+function drawFirstHint(){
+  if (S.phase !== 'playing' || S.boardIdx !== 0 || !(S.firstBoardHint > 0) || S.hop || S.hold) return;
+  const b = S.board; if (!b) return;
+  const a = clamp(S.firstBoardHint / 1.5, 0, 1);
+  const p = bankPt(b, S.t);
+  const L = 1.1, u = b.uh, n = b.nh;
+  ctx.save();
+  ctx.globalAlpha = a * 0.55;
+  ctx.strokeStyle = C.lime; ctx.lineWidth = Math.max(3, S.px*0.14);
+  ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.moveTo(SX({x:p.x+u.x*L, y:p.y+u.y*L}), SY({x:p.x+u.x*L, y:p.y+u.y*L}));
+  ctx.lineTo(SX(p), SY(p));
+  ctx.lineTo(SX({x:p.x+n.x*L, y:p.y+n.y*L}), SY({x:p.x+n.x*L, y:p.y+n.y*L}));
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 턱 위에 붙인 이름표 — 석회로 칠한 작은 명판 */
+function drawBankTag(b, p, name){
+  const x = SX(p), y = SY(p);
+  ctx.save();
+  ctx.font = '800 ' + Math.max(12, Math.min(17, S.px*0.52)) + 'px ' + FONT;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const tw = ctx.measureText(name).width + 14;
+  ctx.fillStyle = '#EDEADD';
+  ctx.fillRect(x - tw/2, y - 11, tw, 22);
+  ctx.strokeStyle = 'rgba(120,113,102,.45)'; ctx.lineWidth = 1;
+  ctx.strokeRect(x - tw/2, y - 11, tw, 22);
+  ctx.fillStyle = '#3C382F';
+  ctx.fillText(name, x, y + 1);
+  ctx.restore();
+}
+
+/** layer 'ground' — 바닥에 찍힌 표시(ㄱ·점선·발자국), 'top' — 장화 위에 뜨는 글자(cm·이유) */
+function drawMarks(layer){
+  for (const m of S.marks){
+    const top = (m.type === 'cm' || m.type === 'why');
+    if ((layer === 'top') !== top) continue;
+    if (m.born < 0) continue;            // 뒤따라 찍히는 표시는 차례가 올 때까지 숨긴다
+    const a = clamp(m.t, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a;
+    if (m.type === 'giyeok'){
+      // 젖은 석회로 찍은 직각 표시 — 찍힌 판의 턱·수선 방향(m.u·m.n)으로만 그린다
+      const L = 0.95 * Math.min(1, 0.3 + m.born*7);
+      const u = m.u, n = m.n, sd = m.side;
+      const p0 = { x:m.p.x + u.x*L, y:m.p.y + u.y*L };
+      const p1 = { x:m.p.x, y:m.p.y };
+      const p2 = { x:m.p.x + n.x*L*sd, y:m.p.y + n.y*L*sd };
+      ctx.strokeStyle = C.lime; ctx.lineWidth = Math.max(2.6, S.px*0.16);
+      ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+      ctx.beginPath(); ctx.moveTo(SX(p0),SY(p0)); ctx.lineTo(SX(p1),SY(p1)); ctx.lineTo(SX(p2),SY(p2)); ctx.stroke();
+    } else if (m.type === 'cm'){
+      const x = SX(m.p), y = SY(m.p);
+      const fs = Math.max(15, S.px*0.72);
+      ctx.font = '800 ' + fs + 'px ' + FONT;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.lineWidth = Math.max(3, fs*0.28); ctx.strokeStyle = 'rgba(46,58,64,.62)';
+      ctx.strokeText(m.text, x, y);
+      ctx.fillStyle = C.lime; ctx.fillText(m.text, x, y);
+    } else if (m.type === 'dashPerp'){
+      const p0 = m.p0, p1 = m.p1;       // 찍는 순간 박제한 끝점
+      ctx.setLineDash([6,5]);
+      ctx.strokeStyle = 'rgba(242,240,228,.92)'; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(SX(p0),SY(p0)); ctx.lineTo(SX(p1),SY(p1)); ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (m.type === 'step'){
+      // 젖은 콘크리트에 남은 장화 자국
+      const u={x:Math.cos(m.ang/DEG), y:-Math.sin(m.ang/DEG)};
+      const x=SX(m.p), y=SY(m.p);
+      ctx.globalAlpha = a*0.42;
+      ctx.fillStyle = 'rgba(96,80,62,.9)';
+      for (const k of [-0.26, 0.26]){
+        ctx.beginPath();
+        ctx.ellipse(x + u.x*S.px*k, y + u.y*S.px*k, S.px*0.20, S.px*0.34,
+                    -(m.ang/DEG), 0, 6.2832);
+        ctx.fill();
+      }
+    } else if (m.type === 'print'){
+      // 뜬 자리·내린 자리의 장화 발자국 — 코끝이 수선 방향(m.n)을 향한다
+      const s = S.px, pop = m.born < 0.12 ? 1 + (0.12 - m.born)*2.5 : 1;
+      ctx.translate(SX(m.p), SY(m.p));
+      ctx.rotate(Math.atan2(m.n.x, -m.n.y));
+      ctx.scale(pop, pop);
+      ctx.fillStyle = 'rgba(84,68,52,.80)';
+      for (const sd of [-1, 1]){
+        ctx.beginPath(); ctx.ellipse(sd*s*0.27, -s*0.20, s*0.17, s*0.26, sd*0.08, 0, 6.2832); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(sd*s*0.25, s*0.27, s*0.14, s*0.16, 0, 0, 6.2832); ctx.fill();
+      }
+    } else if (m.type === 'drip'){
+      // 1 cm 마다 떨어진 물방울 링 — 수선 위에서 4 cm 를 센다
+      const x = SX(m.p), y = SY(m.p);
+      const k = Math.min(1, m.born / 0.25);
+      ctx.strokeStyle = 'rgba(232,236,228,.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(x, y, S.px*(0.12 + 0.16*k), S.px*(0.08 + 0.10*k), 0, 0, 6.2832); ctx.stroke();
+      ctx.fillStyle = 'rgba(232,236,228,.95)';
+      ctx.beginPath(); ctx.arc(x, y, Math.max(1.8, S.px*0.07), 0, 6.2832); ctx.fill();
+    } else if (m.type === 'why'){
+      const fs = Math.max(13, Math.min(17, S.px*0.58));
+      ctx.font = '700 ' + fs + 'px ' + FONT;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      const w = ctx.measureText(m.text).width + 18;
+      // 화면(스테이지) 가장자리에서 잘리지 않게 안쪽으로 붙인다
+      const L0 = S.land ? S.stageX : 0, R0 = L0 + (S.land ? S.stageW : S.W);
+      const x = clamp(SX(m.p), L0 + w/2 + 8, R0 - w/2 - 8);
+      const y = clamp(SY(m.p) - S.px*1.9, 150, S.H - 120);
+      ctx.fillStyle = 'rgba(58,52,44,.86)';
+      roundRect(x-w/2, y-fs*0.95, w, fs*1.9, 3); ctx.fill();
+      ctx.fillStyle = '#F0EDE0'; ctx.fillText(m.text, x, y);
+    }
+    ctx.restore();
+  }
+}
+
+const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+/** 어절 단위 줄바꿈 (ctx.font 은 호출 전에 세팅돼 있어야 한다) */
+function wrapText(text, maxW){
+  const words = String(text).split(' ');
+  const out = []; let cur = '';
+  for (const wd of words){
+    const test = cur ? cur + ' ' + wd : wd;
+    if (cur && ctx.measureText(test).width > maxW){ out.push(cur); cur = wd; }
+    else cur = test;
+  }
+  if (cur) out.push(cur);
+  return out.slice(0, 3);
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+/** 장화 한 켤레 — 땅과 같은 탑다운 시점. 위에서 본 발바닥 윤곽 + 발목 입구 타원.
+    (코끝은 화면 위로 고정 — 턱 방향·수선 방향을 가리키지 않게) */
+function paintBoots(g, R, wet){
+  // wet — 흙탕에 젖은 여벌 장화 (HUD 목숨). 같은 붓, 흙빛 팔레트
+  const P = wet
+    ? { d:'#5A4E42', m:'#766756', l:'#8A7B68', hole:'#3E342B', mud:'rgba(52,42,32,.9)' }
+    : { d:C.navyD, m:C.navy, l:C.navyL, hole:'#0D1B2E', mud:'rgba(110,97,84,.85)' };
+  for (const sd of [-1, 1]){
+    g.save();
+    g.translate(sd*R*0.25, -R*0.36);
+    g.rotate(sd*0.07);                 // 코끝이 살짝 바깥으로
+    // 밑창 테두리
+    g.fillStyle = P.d;
+    g.beginPath(); g.ellipse(0, -R*0.20, R*0.21, R*0.30, 0, 0, 6.2832); g.fill();
+    g.beginPath(); g.ellipse(0, R*0.16, R*0.20, R*0.28, 0, 0, 6.2832); g.fill();
+    // 갑피
+    g.fillStyle = P.m;
+    g.beginPath(); g.ellipse(0, -R*0.21, R*0.175, R*0.26, 0, 0, 6.2832); g.fill();
+    g.beginPath(); g.ellipse(0, R*0.15, R*0.17, R*0.24, 0, 0, 6.2832); g.fill();
+    // 코끝 광택
+    g.fillStyle = P.l;
+    g.beginPath(); g.ellipse(-sd*R*0.03, -R*0.34, R*0.07, R*0.10, 0, 0, 6.2832); g.fill();
+    // 발목 입구 — 고무 테 + 어두운 안쪽
+    g.fillStyle = P.l;
+    g.beginPath(); g.ellipse(0, R*0.12, R*0.19, R*0.17, 0, 0, 6.2832); g.fill();
+    g.fillStyle = P.hole;
+    g.beginPath(); g.ellipse(0, R*0.13, R*0.13, R*0.115, 0, 0, 6.2832); g.fill();
+    // 흙탕 튄 자국
+    g.fillStyle = P.mud;
+    g.beginPath(); g.arc(sd*R*0.08, -R*0.42, R*0.035, 0, 6.2832); g.fill();
+    g.beginPath(); g.arc(-sd*R*0.10, -R*0.12, R*0.028, 0, 6.2832); g.fill();
+    g.restore();
+  }
+}
+
+/** 장화는 도랑 가장자리가 아니라 턱 위에 선다 — 그리기 좌표만 수선 반대쪽으로 물린다 */
+function footPos(){
+  const p = S.playerDraw;
+  if (!S.board) return p;
+  return { x: p.x + S.footOff.x, y: p.y + S.footOff.y };
+}
+
+function drawBoots(){
+  const p = footPos();
+  let x = SX(p), y = SY(p);
+  const R = S.px * 1.85;
+  let sq = 1, st = 1, lift = 0;
+  if (S.hop){
+    const k = S.hop.k;
+    lift = Math.sin(Math.PI*k) * R * 1.15;
+    sq = 1 - Math.sin(Math.PI*k)*0.10;
+    st = 1 + Math.sin(Math.PI*k)*0.16;
+    if (k < 0.16){ sq = 1 + (0.16-k)*1.3; st = 1 - (0.16-k)*0.9; }
+  } else if (S.shakeBoot > 0){
+    x += Math.sin(performance.now()/26) * S.shakeBoot * 8;
+  }
+  y -= lift;
+
+  ctx.save();
+  // 그림자
+  ctx.fillStyle = 'rgba(48,42,36,.30)';
+  ctx.beginPath(); ctx.ellipse(SX(p), SY(p)+R*0.16, R*0.62*sq, R*0.22, 0,0,6.2832); ctx.fill();
+  ctx.translate(x, y);
+  ctx.scale(sq, st);
+  paintBoots(ctx, R);
+  ctx.restore();
+}
+
+function drawAim(){
+  if (!S.aim || S.hop) return;
+  const p = footPos();
+  const x = SX(p), y = SY(p) - S.px*0.9;
+  const a = S.aim.ang / DEG;
+  const dx = Math.cos(a), dy = -Math.sin(a);
+  const L = Math.max(S.W, S.H);
+  ctx.save();
+  ctx.setLineDash([9, 7]);
+  ctx.lineDashOffset = -(performance.now()/26) % 16;
+  ctx.strokeStyle = 'rgba(242,240,228,.72)';
+  ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx*L, y + dy*L); ctx.stroke();
+  ctx.setLineDash([]);
+  // 화살촉
+  ctx.fillStyle = 'rgba(242,240,228,.9)';
+  const hx = x + dx*S.px*3.2, hy = y + dy*S.px*3.2;
+  ctx.beginPath();
+  ctx.moveTo(hx + dx*10, hy + dy*10);
+  ctx.lineTo(hx - dy*7 - dx*4, hy + dx*7 - dy*4);
+  ctx.lineTo(hx + dy*7 - dx*4, hy - dx*7 - dy*4);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawDrops(){
+  for (const d of S.drops){
+    const k = 1 - d.age/d.life;
+    ctx.globalAlpha = clamp(k, 0, 1) * 0.9;
+    ctx.fillStyle = d.col;
+    const r = Math.max(1.2, d.r * S.px * k);
+    ctx.beginPath();
+    ctx.ellipse(SX(d), SY(d), r*1.25, r*0.85, d.age*4, 0, 6.2832);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  for (const r of S.ripples){
+    ctx.globalAlpha = clamp(1 - r.t/0.5, 0, 1) * 0.5;
+    ctx.strokeStyle = C.lime; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, 6.2832); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ── HUD : 석회로 칠한 안내 띠 + 장화 아이콘 (알약 칩 없음) ── */
+function drawHUD(){
+  if (S.phase === 'title') return;
+  const b = S.board;
+  const padX = S.land ? S.stageX + 16 : 12;
+  const w = (S.land ? S.stageW - 32 : S.W - 24);
+  const top = 12;
+
+  // 발문 띠 — 운동장에 석회로 칠한 흰 띠 (우상단 표지판 자리는 비운다)
+  const bw = w - 112;
+  const txt = (S.phase === 'onboard' && !S.onbDone)
+    ? '도랑을 곧게 뛰어 건너요'
+    : (b ? b.prompt : '');
+  const fs = Math.max(12.5, Math.min(16.5, bw/17));
+  ctx.save();
+  ctx.font = '700 ' + fs + 'px ' + FONT;
+  const lines = wrapText(txt, bw - 22);
+  const lh = fs * 1.34;
+  const bandH = Math.round(lines.length * lh + 16);
+  let widest = 0;
+  for (const L of lines) widest = Math.max(widest, ctx.measureText(L).width);
+  const bandW = Math.min(bw, Math.max(240, widest + 26));
+  ctx.fillStyle = '#EDEADD';
+  ctx.beginPath();
+  ctx.moveTo(padX, top+2);
+  ctx.lineTo(padX + bandW, top);
+  ctx.lineTo(padX + bandW - 2, top + bandH);
+  ctx.lineTo(padX + 1, top + bandH - 2);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(120,113,102,.35)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#3C382F';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let i=0;i<lines.length;i++) ctx.fillText(lines[i], padX + 11, top + 9 + lh*(i+0.5));
+  ctx.restore();
+
+  // ── 여기부터 HUD 는 칩·막대가 아니라 운동장에 놓인 물건이다 ──
+  // 목숨 — 발문 띠 아래 흙바닥에 세워 둔 여벌 장화 세 켤레. 젖으면 흙탕 범벅으로 쓰러진다
+  drawBootRack(padX, top + bandH + 14);
+  // 남은 시간 — 오른쪽 가장자리에 박힌 빗물 수위 표척. 시간이 갈수록 빗물이 차오른다
+  drawRainGauge(padX + w);
+  // 건넌 칸 — 아래쪽 배수구 뚜껑 8개가 한 칸 건널 때마다 하나씩 닫힌다
+  drawDrainCovers(padX, w);
+
+  // 보폭 자 — 4 cm 가 화면에서 얼마인지 늘 보여 준다
+  const rulerY = S.H - (S.land ? 26 : 30) - (S.land ? 0 : 0);
+  const rx0 = padX + 2;
+  ctx.save();
+  // 젖은 흙 위에서도 읽히게 어두운 흙탕 바탕 띠를 깐다
+  ctx.fillStyle = 'rgba(58,52,44,.55)';
+  ctx.fillRect(rx0 - 7, rulerY - 29, Math.max(STRIDE*S.px, 78) + 14, 40);
+  ctx.strokeStyle = C.lime; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(rx0, rulerY); ctx.lineTo(rx0 + STRIDE*S.px, rulerY); ctx.stroke();
+  ctx.lineWidth = 2;
+  for (let i=0;i<=STRIDE;i++){
+    const x = rx0 + i*S.px;
+    ctx.beginPath(); ctx.moveTo(x, rulerY-5); ctx.lineTo(x, rulerY+5); ctx.stroke();
+  }
+  ctx.font = '800 15px ' + FONT; ctx.textAlign='left'; ctx.textBaseline='bottom';
+  ctx.lineWidth = 3.4; ctx.strokeStyle = 'rgba(58,52,44,.72)';
+  ctx.strokeText('보폭 4 cm', rx0, rulerY - 8);
+  ctx.fillStyle = C.lime; ctx.fillText('보폭 4 cm', rx0, rulerY - 8);
+  ctx.restore();
+
+  // 사각형 이름표 (표시 전용 — 배타 분류 채점 없음)
+  const lb = S.labelBoard;
+  if (S.labelT > 0 && lb && lb.labels){
+    const b = lb;                      // 이름표는 그 이름을 가진 판에 묶는다 (다음 판 이름을 미리 띄우지 않게)
+    ctx.save();
+    ctx.globalAlpha = clamp(S.labelT/2.6, 0, 1);
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    // 세로 화면에서는 오른쪽 빗물 표척 아래로 내린다 (이름표 줄이 표척·남은 초를 가리지 않게)
+    const cy = S.land ? S.H*0.30 : Math.max(S.H*0.30, 92 + gaugeH() + 66);
+    ctx.font = '800 15px ' + FONT;
+    let total = 0;
+    const wsz = b.labels.map(s => ctx.measureText(s).width + 18);
+    total = wsz.reduce((a,c)=>a+c,0) + (b.labels.length-1)*7;
+    let x = (S.land ? S.stageX + S.stageW/2 : S.W/2) - total/2;
+    for (let i=0;i<b.labels.length;i++){
+      ctx.fillStyle = '#EDEADD';
+      roundRect(x, cy-14, wsz[i], 28, 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(120,113,102,.4)'; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle = '#3C382F';
+      ctx.fillText(b.labels[i], x + wsz[i]/2, cy+1);
+      x += wsz[i] + 7;
+    }
+    if (b.note){
+      ctx.font = '700 13px ' + FONT;
+      ctx.lineWidth = 3.4; ctx.strokeStyle = 'rgba(58,52,44,.6)';
+      const nx = (S.land ? S.stageX + S.stageW/2 : S.W/2);
+      ctx.strokeText(b.note, nx, cy + 28);
+      ctx.fillStyle = C.lime; ctx.fillText(b.note, nx, cy + 28);
+    }
+    ctx.restore();
+  }
+
+  // 안내 토스트
+  if (S.toast){
+    ctx.save();
+    ctx.globalAlpha = clamp(S.toast.t, 0, 1);
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const tfs = Math.max(13, Math.min(16, S.W/25));
+    ctx.font = '700 ' + tfs + 'px ' + FONT;
+    const maxW = (S.land ? S.stageW : S.W) - 56;
+    const tl = wrapText(S.toast.text, maxW);
+    let tw = 0; for (const L of tl) tw = Math.max(tw, ctx.measureText(L).width);
+    tw += 26;
+    const tlh = tfs * 1.4;
+    const boxH = tl.length * tlh + 14;
+    const y = S.H - (S.land ? 72 : 96) - boxH/2;
+    const cx = S.land ? S.stageX + S.stageW/2 : S.W/2;
+    ctx.fillStyle = 'rgba(58,52,44,.88)';
+    roundRect(cx - tw/2, y, tw, boxH, 4); ctx.fill();
+    ctx.fillStyle = '#F1EEE1';
+    for (let i=0;i<tl.length;i++) ctx.fillText(tl[i], cx, y + 7 + tlh*(i+0.5));
+    ctx.restore();
+  }
+}
+
+/** 목숨 — 흙바닥에 세워 둔 여벌 장화 세 켤레 (플레이어 장화와 같은 붓) */
+function drawBootRack(x0, y0){
+  const R = S.land ? 30 : 26;
+  const gap = R * 1.25;
+  for (let i=0;i<BOOTS;i++){
+    const wet = i >= S.boots;
+    const cx = x0 + R*0.55 + i*gap, cy = y0 + R*0.5;
+    ctx.save();
+    if (wet){
+      ctx.fillStyle = 'rgba(70,58,46,.42)';            // 쓰러진 자리의 흙탕 웅덩이
+      ctx.beginPath(); ctx.ellipse(cx, cy + R*0.26, R*0.64, R*0.25, 0, 0, 6.2832); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(48,42,36,.28)';
+      ctx.beginPath(); ctx.ellipse(cx + 2, cy + R*0.42, R*0.50, R*0.15, 0, 0, 6.2832); ctx.fill();
+    }
+    ctx.translate(cx, cy);
+    if (wet){
+      // 방금 젖은 켤레는 쓰러지며 잠깐 흔들린다
+      const k = (i === S.boots && S.bootLostT > 0) ? S.bootLostT : 0;
+      ctx.rotate(1.2 * (1 - k*0.6) + Math.sin(k*30) * k * 0.35);
+    }
+    ctx.translate(0, R*0.39);
+    paintBoots(ctx, R, wet);
+    ctx.restore();
+  }
+}
+
+/** 남은 시간 — 빗물 수위 표척. 빗물이 차올라 붉은 칸(마지막 15초)에 닿으면 곧 넘친다 */
+function gaugeH(){ return Math.round(clamp(S.H * (S.land ? 0.30 : 0.21), 120, 210)); }
+function drawRainGauge(rx){
+  const gw = S.land ? 22 : 20;
+  const gh = gaugeH();
+  const x = rx - gw, y = 92;
+  const used = 1 - clamp(S.timeLeft / TIME_S, 0, 1);
+  const per = gh / TIME_S;
+  ctx.save();
+  ctx.fillStyle = 'rgba(52,46,38,.26)'; ctx.fillRect(x + 3, y + 4, gw, gh);
+  ctx.fillStyle = '#E7E2D5'; ctx.fillRect(x, y, gw, gh);
+  // 넘침 칸 — 위쪽 15초
+  ctx.fillStyle = 'rgba(196,59,59,.78)'; ctx.fillRect(x + gw*0.52, y, gw*0.48, 15*per);
+  // 10초 눈금 — 표척의 E자 칸
+  ctx.fillStyle = C.navy;
+  for (let s = 0; s < TIME_S; s += 10) ctx.fillRect(x, y + gh - (s + 5)*per, gw*0.48, 5*per - 1);
+  // 차오른 빗물
+  const fh = gh * used, wy = y + gh - fh;
+  if (fh > 0.5){
+    ctx.fillStyle = 'rgba(78,106,117,.84)'; ctx.fillRect(x, wy, gw, fh);
+    const wob = S.reduced ? 0 : Math.sin(performance.now()/260) * 1.2;
+    ctx.fillStyle = 'rgba(170,196,204,.95)'; ctx.fillRect(x, wy - 1 + wob, gw, 2);
+  }
+  ctx.strokeStyle = C.curbD; ctx.lineWidth = 1.2; ctx.strokeRect(x, y, gw, gh);
+  ctx.fillStyle = '#7C766B'; ctx.fillRect(x - 2, y - 5, gw + 4, 5);     // 말뚝 머리
+  // 수면 옆 남은 초
+  const late = S.timeLeft < 15;
+  ctx.font = '800 14px ' + FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 3.4; ctx.strokeStyle = 'rgba(58,52,44,.66)';
+  const ty = clamp(wy, y + 8, y + gh - 8), sec = Math.ceil(S.timeLeft) + '초';
+  ctx.strokeText(sec, x - 6, ty);
+  ctx.fillStyle = late ? '#F2B8A8' : C.lime; ctx.fillText(sec, x - 6, ty);
+  // 점수 · 연속 — 표척 밑동에 석회로 쓴 글씨
+  ctx.font = '700 13px ' + FONT; ctx.lineWidth = 3;
+  ctx.strokeText(S.score + '점', rx, y + gh + 16);
+  ctx.fillStyle = '#EAE6D6'; ctx.fillText(S.score + '점', rx, y + gh + 16);
+  if (S.combo > 1){
+    ctx.font = '800 15px ' + FONT; ctx.lineWidth = 3.4;
+    ctx.strokeText('연속 ×' + Math.min(S.combo,3), rx, y + gh + 36);
+    ctx.fillStyle = C.brick; ctx.fillText('연속 ×' + Math.min(S.combo,3), rx, y + gh + 36);
+  }
+  ctx.restore();
+}
+
+/** 건넌 칸 — 도랑 끝 콘크리트 턱에 박힌 배수구 뚜껑 8개. 한 칸 건널 때마다 하나가 닫히고 석회 ㄱ 가 찍힌다 */
+function drawDrainCovers(padX, w){
+  const g = S.land ? 24 : 20, gap = S.land ? 6 : 4;
+  const total = GOAL*g + (GOAL-1)*gap;
+  const x0 = padX + w - total, y = S.H - (S.land ? 44 : 46);
+  ctx.save();
+  ctx.fillStyle = 'rgba(52,46,38,.26)'; ctx.fillRect(x0 - 2, y - 1, total + 10, g + 10);
+  ctx.fillStyle = C.curb; ctx.fillRect(x0 - 5, y - 5, total + 10, g + 10);
+  ctx.strokeStyle = C.curbD; ctx.lineWidth = 1.2; ctx.strokeRect(x0 - 5, y - 5, total + 10, g + 10);
+  for (let i=0;i<GOAL;i++){
+    const x = x0 + i*(g + gap);
+    if (i < S.crossed){
+      const pop = (i === S.crossed - 1 && S.coverPop > 0) ? 1 + S.coverPop*0.4 : 1;
+      ctx.save();
+      ctx.translate(x + g/2, y + g/2); ctx.scale(pop, pop);
+      ctx.fillStyle = '#7C766B'; ctx.fillRect(-g/2, -g/2, g, g);
+      ctx.strokeStyle = C.lime; ctx.lineWidth = 2.4; ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+      ctx.beginPath(); ctx.moveTo(-g*0.26, -g*0.22); ctx.lineTo(g*0.24, -g*0.22); ctx.lineTo(g*0.24, g*0.28); ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.fillStyle = C.waterD; ctx.fillRect(x, y, g, g);
+      ctx.fillStyle = 'rgba(150,178,188,.26)'; ctx.fillRect(x + 2, y + g*0.62, g - 4, 2);
+      ctx.fillStyle = C.curbD;
+      for (let k=1;k<=2;k++) ctx.fillRect(x + k*g/3 - 1, y + 2, 2, g - 4);   // 쇠살
+    }
+  }
+  ctx.font = '800 12px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(58,52,44,.66)';
+  const cap = '건넌 도랑 ' + S.crossed + ' / ' + GOAL;
+  ctx.strokeText(cap, x0 - 5, y - 8);
+  ctx.fillStyle = C.lime; ctx.fillText(cap, x0 - 5, y - 8);
+  ctx.restore();
+}
+
+/* ── 온보딩 포인팅 : 실제 오브젝트 위에 맥동 링 + 수선 경로 ── */
+function drawOnboardPointer(){
+  // 연습판: 링 + 경로가 계속. 실전 첫 칸: 링만 상주하고, 경로·손가락은
+  // 8초 무획 · 빗각 실패 · 밀지 않은 탭 2회 뒤에 1.2초 한 번만 (정답 각 점선 상주 금지)
+  const practice = S.phase === 'onboard' && !S.onbDone;
+  const real = S.phase === 'playing' && S.crossed === 0 && S.boardIdx === 0;
+  if ((!practice && !real) || S.hop || S.hold) return;
+  const showPath = practice || S.guideT > 0;
+  const b = S.board;
+  const p = footPos();
+  const x = SX(p), y = SY(p) - S.px*0.9;
+  const now = performance.now()/1000;
+  const grow = (S.phase === 'playing' ? 1.15 : (S.onbHintT > 8 ? 1.35 : 1));
+  const pulse = 0.5 + 0.5*Math.sin(now*3.1);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(242,240,228,'+(0.45+0.45*pulse).toFixed(3)+')';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(x, y, S.px*(2.0 + 0.42*pulse)*grow, 0, 6.2832); ctx.stroke();
+  if (!showPath){ ctx.restore(); return; }
+  if (!practice) ctx.globalAlpha = clamp(S.guideT / 0.3, 0, 1);
+
+  // 수선 경로 — 점선 + 흐르는 셰브론 + 도착 화살촉
+  const q = offPt(b, S.t, STRIDE);
+  const qx = SX(q), qy = SY(q);
+  ctx.setLineDash([8,6]);
+  ctx.lineDashOffset = -(now*38) % 14;
+  ctx.strokeStyle = 'rgba(242,240,228,.85)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(qx,qy); ctx.stroke();
+  ctx.setLineDash([]);
+  const ux = (qx-x), uy = (qy-y), ul = Math.hypot(ux,uy)||1;
+  const nx2 = ux/ul, ny2 = uy/ul;
+  ctx.fillStyle = 'rgba(242,240,228,.95)';
+  ctx.beginPath();
+  ctx.moveTo(qx, qy);
+  ctx.lineTo(qx - nx2*13 - ny2*8, qy - ny2*13 + nx2*8);
+  ctx.lineTo(qx - nx2*13 + ny2*8, qy - ny2*13 - nx2*8);
+  ctx.closePath(); ctx.fill();
+
+  // 손가락 — 경로를 1.2초 루프로 민다
+  const k = practice ? (now % 1.6) / 1.2 : (1.6 - S.guideT) / 1.2;
+  if (k <= 1){
+    const fx = x + ux*k*0.92, fy = y + uy*k*0.92;
+    ctx.globalAlpha = practice ? 0.9 : 0.9 * clamp(S.guideT / 0.3, 0, 1);
+    ctx.fillStyle = '#F5F2E6';
+    ctx.beginPath(); ctx.arc(fx, fy, 11, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = 'rgba(58,52,44,.7)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(fx, fy, 11, 0, 6.2832); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawGutter(){
+  if (!S.land || S.stageW >= S.W - 2) return;
+  ctx.fillStyle = 'rgba(52,46,40,.30)';
+  ctx.fillRect(0, 0, S.stageX, S.H);
+  ctx.fillRect(S.stageX + S.stageW, 0, S.W - (S.stageX + S.stageW), S.H);
+}
+
+function render(){
+  ctx.save();
+  if (S.shake > 0){
+    const m = S.shake * 7;
+    ctx.translate((Math.random()-0.5)*m, (Math.random()-0.5)*m);
+  }
+  drawEarth();
+  // 판·장화·표시는 스테이지 폭 안에서만 그린다 (넓은 화면에서 거터로 새지 않게)
+  const clipStage = S.land && S.stageW < S.W - 2;
+  if (clipStage){ ctx.save(); ctx.beginPath(); ctx.rect(S.stageX, 0, S.stageW, S.H); ctx.clip(); }
+  if (S.prevBoard) drawBoard(S.prevBoard.b, clamp(S.prevBoard.fade,0,1)*0.5, { ghost:true });
+  if (S.board) drawBoard(S.board, 1);
+  drawMarks('ground');
+  drawFirstHint();
+  drawBoots();
+  drawMarks('top');
+  drawOnboardPointer();
+  drawAim();
+  drawDrops();
+  if (clipStage) ctx.restore();
+  if (S.limeFlash > 0){
+    ctx.fillStyle = 'rgba(242,240,228,' + (0.16*S.limeFlash).toFixed(3) + ')';
+    ctx.fillRect(0,0,S.W,S.H);
+  }
+  ctx.restore();
+  drawGutter();
+  drawHUD();
+}
+
+/* ── 타이틀 배경도 같은 붓으로 그린다 (한 물건으로 보이게) ── */
+function renderTitleScene(){
+  const b = titleBoard;
+  const saveCam = S.cam, saveAnchor = S.anchor, savePx = S.px;
+  const wide = S.W > S.H * 1.25;
+  S.cam = { x:0, y:0 };
+  S.anchor = { x:S.W*0.5, y: wide ? S.H*0.68 : S.H*0.66 };
+  S.px = clamp(Math.max(S.W, S.H)/(wide ? 21 : 17), 24, 62);
+  drawEarth();
+  ctx.save();
+  drawBoard(b, 1, { tags:false });   // 타이틀에는 명판을 두지 않는다 (CTA 뒤로 잘려 새지 않게)
+
+  const u = b.uh, n = b.nh;
+  const T_MEASURE = -5.2, T_HOP = 0.6;
+
+  // ── 두 턱 사이의 거리를 재는 수선 (수학적으로 옳은 상태: 4 cm)
+  const a0 = bankPt(b, T_MEASURE), a1 = offPt(b, T_MEASURE, STRIDE);
+  ctx.strokeStyle = 'rgba(242,240,228,.95)';
+  ctx.lineWidth = Math.max(3, S.px*0.11);
+  ctx.setLineDash([S.px*0.42, S.px*0.30]);
+  ctx.beginPath(); ctx.moveTo(SX(a0),SY(a0)); ctx.lineTo(SX(a1),SY(a1)); ctx.stroke();
+  ctx.setLineDash([]);
+  for (const [pt, sd] of [[a0,1],[a1,-1]]){
+    const L = 1.05;
+    ctx.strokeStyle = C.lime; ctx.lineWidth = Math.max(3.5, S.px*0.15);
+    ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.moveTo(SX({x:pt.x+u.x*L,y:pt.y+u.y*L}), SY({x:pt.x+u.x*L,y:pt.y+u.y*L}));
+    ctx.lineTo(SX(pt), SY(pt));
+    ctx.lineTo(SX({x:pt.x+n.x*L*sd,y:pt.y+n.y*L*sd}), SY({x:pt.x+n.x*L*sd,y:pt.y+n.y*L*sd}));
+    ctx.stroke();
+  }
+  const midp = offPt(b, T_MEASURE - 1.5, STRIDE/2);
+  const fs2 = Math.max(22, S.px*0.62);
+  ctx.font = '800 ' + fs2 + 'px ' + FONT;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.lineWidth = fs2*0.32; ctx.strokeStyle = 'rgba(46,58,64,.70)';
+  ctx.lineJoin = 'round';
+  ctx.strokeText('4 cm', SX(midp), SY(midp));
+  ctx.fillStyle = C.lime; ctx.fillText('4 cm', SX(midp), SY(midp));
+
+  // ── 수선을 타고 건너뛰는 장화 (진흙 자국이 수선 궤적으로 남는다)
+  const h0 = bankPt(b, T_HOP), h1 = offPt(b, T_HOP, STRIDE);
+  const k = 0.52;
+  const hp = { x: lerp(h0.x, h1.x, k), y: lerp(h0.y, h1.y, k) };
+  ctx.save();
+  ctx.globalAlpha = .55;
+  for (let i=1;i<=6;i++){
+    const kk = k * (i/7);
+    const q = { x: lerp(h0.x,h1.x,kk) - n.x*0.2, y: lerp(h0.y,h1.y,kk) - n.y*0.2 };
+    ctx.fillStyle = 'rgba(120,102,82,' + (0.16 + i*0.045).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(SX(q), SY(q), S.px*0.22, S.px*0.13, 0, 0, 6.2832); ctx.fill();
+  }
+  ctx.restore();
+  const R = S.px * 1.62;
+  const lift = S.px * 0.72;
+  ctx.fillStyle = 'rgba(48,42,36,.24)';
+  ctx.beginPath(); ctx.ellipse(SX(hp), SY(hp)+R*0.18, R*0.52, R*0.18, 0,0,6.2832); ctx.fill();
+  ctx.save();
+  ctx.translate(SX(hp), SY(hp) - lift);
+  ctx.scale(0.94, 1.12);
+  paintBoots(ctx, R);
+  ctx.restore();
+
+  S.cam = saveCam; S.anchor = saveAnchor; S.px = savePx;
+  ctx.restore();
+  // 흐린 날 빛
+  const gd = ctx.createLinearGradient(0,0,0,S.H);
+  gd.addColorStop(0,'rgba(232,228,216,.22)');
+  gd.addColorStop(0.5,'rgba(232,228,216,0)');
+  gd.addColorStop(1,'rgba(58,52,44,.10)');
+  ctx.fillStyle = gd; ctx.fillRect(0,0,S.W,S.H);
+}
+let titleBoard = null;
+
+/* ─────────────────────────── 로고 (석회 분필 워드마크) ─────────────────────────── */
+function drawLogo(){
+  const c = document.getElementById('logoCv');
+  const g = c.getContext('2d');
+  const W = c.width, H = c.height;
+  g.clearRect(0,0,W,H);
+  const text = '도랑 점프';
+  const fs = 190;
+  g.font = '900 ' + fs + 'px ' + FONT;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const cx = W/2, cy = H/2 + 6;
+
+  // 젖은 흙에 눌린 자국
+  g.save();
+  g.fillStyle = 'rgba(74,66,56,.42)';
+  for (let i=1;i<=5;i++) g.fillText(text, cx + i*1.6, cy + i*2.1);
+  g.restore();
+
+  // 석회 본체
+  g.lineJoin = 'round';
+  g.lineWidth = 16; g.strokeStyle = '#B9B4A2';
+  g.strokeText(text, cx, cy);
+  g.fillStyle = '#F6F4E9';
+  g.fillText(text, cx, cy);
+
+  // 분필 결 — 위쪽은 밝고 아래쪽은 눌려 있다
+  g.save();
+  g.globalCompositeOperation = 'source-atop';
+  const gr = g.createLinearGradient(0, cy - fs*0.6, 0, cy + fs*0.6);
+  gr.addColorStop(0, 'rgba(255,255,255,.55)');
+  gr.addColorStop(0.55, 'rgba(255,255,255,0)');
+  gr.addColorStop(1, 'rgba(150,143,128,.42)');
+  g.fillStyle = gr; g.fillRect(0,0,W,H);
+  g.restore();
+
+  // 가루가 떨어져 나간 자국 (destination-out 으로 갉아낸다)
+  g.save();
+  g.globalCompositeOperation = 'destination-out';
+  const rr = mulberry32(31);
+  for (let i=0;i<2200;i++){
+    const x = rr()*W, y = cy - fs*0.72 + rr()*fs*1.44;
+    const r = 0.8 + rr()*3.4;
+    g.globalAlpha = 0.14 + rr()*0.5;
+    g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fill();
+  }
+  g.restore();
+
+  // 흩날린 석회 가루
+  g.save();
+  const r2 = mulberry32(77);
+  for (let i=0;i<180;i++){
+    const x = r2()*W, y = cy - fs*0.9 + r2()*fs*1.8;
+    g.globalAlpha = 0.10 + r2()*0.34;
+    g.fillStyle = '#F6F4E9';
+    g.beginPath(); g.arc(x, y, 0.7 + r2()*2.0, 0, 6.2832); g.fill();
+  }
+  g.restore();
+}
+
+/* ─────────────────────────── 루프 ─────────────────────────── */
+function frame(now){
+  const dt = Math.min(0.05, (now - (S.lastTime || now)) / 1000);
+  S.lastTime = now;
+  if (S.phase === 'title'){
+    renderTitleScene();
+  } else {
+    update(dt);
+    render();
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ─────────────────────────── 문제 표본 ───────────────────────────
+   실제 판정에 쓰는 값(보폭 4 cm · 평행선 사이의 거리 · 사각형 관계)에서 뽑는다.
+   오답은 이 단원의 오개념을 역산한 값이다 (misconceptionId 로 표시).       */
+const TRIPLES = [[3,4,5],[4,3,5],[6,8,10],[8,6,10],[5,12,13],[12,5,13],[9,12,15],[12,9,15],[8,15,17],[15,8,17]];
+const LINE_NAMES = [['가','나'],['나','다'],['가','다'],['다','라'],['라','마'],['가','라']];
+const PT_NAMES = ['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ'];
+const PEOPLE = ['도윤','하은','민재','서연','지환','채원','우진','예린'];
+
+function subj(name){                     // 이름 + 주격 조사 (받침 유무로 이가/가)
+  const ch = name.charCodeAt(name.length-1) - 0xAC00;
+  const batchim = ch >= 0 && ch < 11172 && (ch % 28) !== 0;
+  return name + (batchim ? '이가' : '가');
+}
+function pick(rnd, arr){ return arr[Math.floor(rnd()*arr.length)]; }
+function buildChoices(rnd, answer, cands){
+  const out = [answer];
+  for (const c of cands) if (!out.includes(c)) out.push(c);
+  let guard = 0;
+  while (out.length < 4 && guard++ < 40){
+    const v = String(Math.max(1, Math.round(parseFloat(answer) + (Math.floor(rnd()*9)-4)))) + (String(answer).includes('cm') ? ' cm' : String(answer).includes('쌍') ? '쌍' : '');
+    if (!out.includes(v)) out.push(v);
+  }
+  // 셔플
+  for (let i=out.length-1;i>0;i--){ const j = Math.floor(rnd()*(i+1)); [out[i],out[j]] = [out[j],out[i]]; }
+  return out.slice(0,4);
+}
+
+/** 실제 판 생성기(makeBoard)에서 뽑은 도랑의 구간 폭으로 만든 문항.
+    학생이 판에서 실제로 하는 판단(어느 구간이 보폭 4 cm 로 닿는가)과 같은 수다. */
+function boardProblem(rnd){
+  const idx = 2 + Math.floor(rnd()*2);                 // 밴드 2 — 평행한 구간만 나온다
+  const b = makeBoard(idx, mulberry32(Math.floor(rnd()*1e9)), { x:0, y:0 });
+  const gaps = b.stretches.map(s => s.gap);
+  const who = pick(rnd, PEOPLE);
+  if (rnd() < 0.5){
+    const bad = gaps.filter(g => g !== STRIDE);
+    const g = bad[Math.floor(rnd()*bad.length)];
+    // 오개념: 거리 그대로(g) · 더함(g+4) · 보폭 자체(4 cm). 정답이 4 cm 와 겹치면(g=8)
+    // 1 cm 눈금을 하나 덜 센 값(g−5)으로 바꾼다
+    const strideWrong = (g - STRIDE === STRIDE) ? (g - STRIDE - 1) : STRIDE;
+    return {
+      prompt: subj(who) + ' 신은 장화의 보폭은 4 cm입니다. 평행한 두 콘크리트 턱 사이의 거리가 ' + g +
+        ' cm인 구간에서, 두 턱 사이의 거리는 보폭보다 몇 cm 더 긴지 구해 보세요.',
+      answer: (g-4) + ' cm', answerNumeric: g-4,
+      choices: buildChoices(rnd, (g-4)+' cm', [g+' cm', (g+4)+' cm', strideWrong + ' cm']),
+      unitConcept: '평행선 사이의 거리와 길이 비교',
+      misconceptionId: 'ignore-stride'
+    };
+  }
+  // 몇 번째 구간인지 묻는다 — 정답이 발문 속 보폭 수와 같아지지 않게.
+  // 판에서는 시작 자리 때문에 4 cm 구간이 양 끝에 오지 않지만, 표본에서 그대로 쓰면
+  // 「양 끝은 답이 아니다」만 알아도 풀린다. 같은 폭 목록을 돌려 정답 자리를 1~5번째에 고르게 둔다.
+  const rot = Math.floor(rnd()*gaps.length);
+  const gs = gaps.slice(rot).concat(gaps.slice(0, rot));
+  const goodNo = gs.indexOf(STRIDE) + 1;
+  // 오답 우선순위: 폭이 4 cm 에 가장 가까운 구간(「거의 닿는다」 오개념) → 정답 구간과 가까운 자리.
+  // 무작위 재시도 없이 [1..5] 에서 결정적으로 채운다 (선택지가 3개로 끝나는 일이 없다).
+  const bads = [];
+  for (let i=0;i<gs.length;i++) if (i+1 !== goodNo) bads.push(i+1);
+  bads.sort((p, q) => (Math.abs(gs[p-1]-STRIDE) - Math.abs(gs[q-1]-STRIDE)) || (Math.abs(p-goodNo) - Math.abs(q-goodNo)));
+  const order = [goodNo, bads[0], bads[1]];
+  const rest = bads.slice(2);
+  for (let i=rest.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [rest[i],rest[j]]=[rest[j],rest[i]]; }
+  order.push(rest[0]);
+  const ch = order.map(c => c + '번째');
+  for (let i=ch.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [ch[i],ch[j]]=[ch[j],ch[i]]; }
+  return {
+    // ⚠️ 「두 턱이 평행한데 거리가 구간마다 다르다」고 쓰면 안 된다 —
+    //    평행한 두 직선 사이의 거리는 어디에서 재어도 같다(3차시 핵심 성질).
+    //    맞은편 턱을 구간마다 따로 놓인 조각으로 말해야 참이 된다.
+    prompt: '도랑의 가까운 턱은 곧은 직선이고, 맞은편 턱은 구간마다 따로 놓인 조각입니다. 조각은 모두 가까운 턱과 평행합니다. ' +
+      '첫 번째 구간부터 차례로 가까운 턱과 조각 사이의 거리가 ' + gs.join(' cm, ') +
+      ' cm일 때, 두 턱 사이의 거리가 장화의 보폭 4 cm와 같은 구간은 몇 번째 구간인지 구해 보세요.',
+    answer: goodNo + '번째', answerNumeric: goodNo,
+    choices: ch,
+    unitConcept: '평행선 사이의 거리',
+    misconceptionId: 'pick-wrong-stretch'
+  };
+}
+
+function makeProblem(rnd){
+  const kind = Math.floor(rnd()*10);
+  if (kind < 3) return boardProblem(rnd);
+  if (kind < 5){
+    // T1 — 비스듬히 잰 선분은 거리가 아니다 (오개념 역산)
+    const [a,d,h] = pick(rnd, TRIPLES);
+    const [L1,L2] = pick(rnd, LINE_NAMES);
+    const P = pick(rnd, PT_NAMES);
+    let Q = pick(rnd, PT_NAMES); if (Q === P) Q = PT_NAMES[(PT_NAMES.indexOf(P)+1)%PT_NAMES.length];
+    return {
+      prompt: '직선 ' + L1 + '와 직선 ' + L2 + '는 서로 평행합니다. 직선 ' + L1 + ' 위의 점 ' + P +
+        '에서 직선 ' + L2 + '에 수직으로 그은 선분의 길이는 ' + d + ' cm이고, 점 ' + P + '에서 직선 ' + L2 +
+        ' 위의 점 ' + Q + '까지 비스듬히 그은 선분 ' + P + Q + '의 길이는 ' + h +
+        ' cm입니다. 직선 ' + L1 + '와 직선 ' + L2 + ' 사이의 거리는 몇 cm인지 구해 보세요.',
+      answer: d + ' cm', answerNumeric: d,
+      choices: buildChoices(rnd, d + ' cm', [h + ' cm', a + ' cm', (d+h) + ' cm']),
+      unitConcept: '평행선 사이의 거리',
+      misconceptionId: 'slant-as-distance'
+    };
+  }
+  if (kind < 7){
+    // T2 — 평행선 사이의 거리는 어디서 재도 같다
+    const d = 3 + Math.floor(rnd()*10);
+    const [L1,L2] = pick(rnd, LINE_NAMES);
+    const P = pick(rnd, PT_NAMES);
+    let Q = PT_NAMES[(PT_NAMES.indexOf(P)+1+Math.floor(rnd()*3))%PT_NAMES.length];
+    if (Q === P) Q = PT_NAMES[(PT_NAMES.indexOf(P)+2)%PT_NAMES.length];
+    return {
+      prompt: '직선 ' + L1 + '와 직선 ' + L2 + '는 서로 평행합니다. 직선 ' + L1 + ' 위의 점 ' + P +
+        '에서 직선 ' + L2 + '에 수직으로 그은 선분의 길이가 ' + d + ' cm입니다. 직선 ' + L1 + ' 위의 다른 점 ' + Q +
+        '에서 직선 ' + L2 + '에 수직으로 그은 선분의 길이는 몇 cm인지 구해 보세요.',
+      answer: d + ' cm', answerNumeric: d,
+      choices: buildChoices(rnd, d + ' cm', [(d+2) + ' cm', (2*d) + ' cm', Math.max(1,d-2) + ' cm']),
+      unitConcept: '평행선 사이의 거리',
+      misconceptionId: 'distance-varies-by-point'
+    };
+  }
+  if (kind < 8){
+    // T4 — 평행한 변의 쌍 세기
+    const two = rnd() < 0.5;
+    const V = pick(rnd, [['ㄱ','ㄴ','ㄷ','ㄹ'],['ㅁ','ㅂ','ㅅ','ㅇ']]);
+    const name = '사각형 ' + V.join('');
+    const p = two
+      ? name + '에서 마주 보는 두 쌍의 변이 각각 서로 평행합니다. 이 사각형에서 평행한 변은 몇 쌍인지 구해 보세요.'
+      : name + '에서 변 ' + V[0]+V[1] + '과 변 ' + V[2]+V[3] + '은 서로 평행하고, 변 ' + V[1]+V[2] + '과 변 ' + V[0]+V[3] + '은 평행하지 않습니다. 이 사각형에서 평행한 변은 몇 쌍인지 구해 보세요.';
+    const ans = two ? 2 : 1;
+    return {
+      prompt: p, answer: ans + '쌍', answerNumeric: ans,
+      choices: ['0쌍','1쌍','2쌍','4쌍'],
+      unitConcept: '사다리꼴과 평행사변형',
+      misconceptionId: 'count-parallel-pairs'
+    };
+  }
+  // T5 — 사각형 사이의 포함 관계 (배타 분류 금지)
+  const cases = [
+    { desc:'네 변의 길이가 모두 같고 네 각의 크기가 모두 직각인 사각형', n:5 },
+    { desc:'네 변의 길이가 모두 같은 평행사변형', n:3 },
+    { desc:'네 각의 크기가 모두 직각인 평행사변형', n:3 },
+    { desc:'마주 보는 두 쌍의 변이 각각 서로 평행한 사각형', n:2 },
+    { desc:'마주 보는 한 쌍의 변만 서로 평행한 사각형', n:1 }
+  ];
+  const c = pick(rnd, cases);
+  const who = pick(rnd, PEOPLE);
+  return {
+    prompt: subj(who) + ' ' + c.desc + '을 그렸습니다. 이 조건만으로 이 사각형을 반드시 부를 수 있는 이름은 사다리꼴, 평행사변형, 마름모, 직사각형, 정사각형 중에서 모두 몇 가지인지 구해 보세요.',
+    answer: c.n + '가지', answerNumeric: c.n,
+    choices: ['1가지','2가지','3가지','5가지'],
+    unitConcept: '사각형 사이의 포함 관계',
+    misconceptionId: 'exclusive-classification'
+  };
+}
+
+function genProblems(n){
+  const count = Math.max(1, Math.min(200, Math.floor(Number(n) || 20)));
+  const rnd = mulberry32((Date.now() ^ (count*2654435761)) >>> 0);
+  const out = [], seen = new Set();
+  let guard = 0;
+  while (out.length < count && guard++ < count*30){
+    const p = makeProblem(rnd);
+    if (seen.has(p.prompt)) continue;
+    seen.add(p.prompt);
+    p.id = 'p' + (out.length + 1);
+    out.push(p);
+  }
+  while (out.length < count){
+    const p = makeProblem(rnd); p.id = 'p' + (out.length+1); out.push(p);
+  }
+  return out;
+}
+
+/* ─────────────────────────── UI 배선 ─────────────────────────── */
+document.getElementById('startBtn').addEventListener('click', ()=>{ ac(); startOnboarding(); });
+document.getElementById('againBtn').addEventListener('click', ()=>{
+  document.getElementById('over').classList.remove('show');
+  startGame();
+});
+const helpSheet = document.getElementById('helpSheet');
+document.getElementById('helpBtn').addEventListener('click', ()=> helpSheet.classList.add('show'));
+document.getElementById('helpClose').addEventListener('click', ()=> helpSheet.classList.remove('show'));
+document.getElementById('howLink').addEventListener('click', ()=> helpSheet.classList.add('show'));
+const muteBtn = document.getElementById('muteBtn');
+muteBtn.addEventListener('click', ()=>{
+  S.muted = !S.muted;
+  muteBtn.classList.toggle('off', S.muted);
+  muteBtn.textContent = S.muted ? '음소거' : '소리';
+  muteBtn.setAttribute('aria-label', S.muted ? '소리 켜기' : '소리 끄기');
+});
+addEventListener('resize', layout);
+addEventListener('orientationchange', ()=> setTimeout(layout, 120));
+
+/* ─────────────────────────── 훅 ─────────────────────────── */
+function forceCross(){
+  if (S.phase === 'title' || S.phase === 'over') startGame();
+  if (S.hold){ releaseHold(); if (S.phase === 'over') startGame(); }
+  if (!S.board) return;
+  S.hop = null;
+  const b = S.board;
+  // 실제 성공 경로를 그대로 태운다 (좋은 구간으로 옮긴 뒤 수선 점프)
+  const good = b.stretches.find(s => s.rot === 0 && s.gap === STRIDE) || b.stretches[0];
+  S.t = clamp(Math.round(((good.t0 + good.t1)/2)/WALK)*WALK, b.tMin, b.tMax);
+  for (const h of b.hazards) h.t = good.t0 - 4;
+  b.puddles.length = 0;
+  S.playerPos = bankPt(b, S.t);
+  S.hop = { from: bankPt(b,S.t), to: offPt(b,S.t,STRIDE), k:1, dur:0.4, ok:true, why:null, angle:b.perpAngle };
+  finishHop();
+}
+function forceFail(){
+  if (S.phase === 'title' || S.phase === 'over') startGame();
+  if (S.hold){ releaseHold(); if (S.phase === 'over') startGame(); }
+  if (!S.board) return;
+  S.hop = null;
+  const b = S.board;
+  S.hop = { from: bankPt(b,S.t), to: offPt(b,S.t,STRIDE), k:1, dur:0.34, ok:false, why:'skew', angle:(b.perpAngle+30)%360 };
+  finishHop();
+}
+
+window.__GAME_TEST__ = {
+  ready: false,
+  start(){ startGame(); },
+  getState(){
+    return { score:S.score, lives:S.boots, level: S.board ? S.board.band : 0,
+             phase:S.phase, solved:S.crossed,
+             // 턱 위 위치와 칸 번호 — 걷기도 실제 상태 변화다
+             pos: Math.round(S.t*10)/10, board: S.boardIdx };
+  },
+  answerCorrect(){ forceCross(); },
+  answerWrong(){ forceFail(); },
+  sampleProblems(n){ return genProblems(n); },
+  getLayout(){ return { land:S.land, playW:S.stageW }; }
+};
+
+/* 무뇌 봇 자가 테스트용 순수 시뮬레이터 — 실제 판정 함수(judgeFlick)를 그대로 쓴다.
+   화면·애니메이션 없이 「보드 생성 → 획 판정 → 상태 전이」만 돌린다.           */
+window.__SIM__ = {
+  run(seed, policy, maxFlicks){
+    const rng = mulberry32(seed);
+    let idx = 0, boots = BOOTS, crossed = 0, flicks = 0;
+    const firstTry = [];           // 칸마다 「첫 획」이 곧바로 건넜는가
+    let board = makeBoard(0, rng, {x:0,y:0});
+    let t = board.startT, firstOnBoard = true;
+    const cap = maxFlicks || 400;
+    while (boots > 0 && crossed < GOAL && flicks < cap){
+      const ang = policy(flicks, board, t);
+      flicks++;
+      const blocked = (function(){
+        for (const h of board.hazards) if (Math.abs(h.t - t) < h.r) return true;
+        for (const p of board.puddles) if (Math.abs(p.t - t) < 1.0) return true;
+        return false;
+      })();
+      const r = judgeFlick(board, t, ang, TOL, { blocked });
+      // 막힌 자리는 거절이지 오답이 아니다 (실제 게임과 같은 규칙)
+      if (r.kind === 'jump' && !r.ok && r.why === 'blocked') continue;
+      if (firstOnBoard){ firstTry.push(r.kind === 'jump' && r.ok ? 1 : 0); firstOnBoard = false; }
+      if (r.kind === 'walk'){ t = clamp(t + r.dir*WALK, board.tMin, board.tMax); continue; }
+      if (r.kind === 'back'){ continue; }
+      if (r.ok){
+        crossed++;
+        if (crossed >= GOAL) break;
+        idx++;
+        board = makeBoard(idx, rng, offPt(board, t, STRIDE));
+        t = board.startT; firstOnBoard = true;
+      } else {
+        boots--;
+        board.puddles.push({ t, born:0, life:1 });
+      }
+    }
+    return { crossed, boots, flicks, firstTry };
+  },
+  /** 무뇌 봇 4종 — 이 게임의 조작(획의 방향) 언어로 표현한다 */
+  makePolicy(kind){
+    if (kind === 'repeat') return () => 90;                                  // 항상 화면 위로
+    if (kind === 'cycle')  return (i) => [90, 0, 270, 180][i % 4];            // 네 방향 순환
+    if (kind === 'random') return () => Math.floor(Math.random() * 360);      // 무작위 각
+    return () => 90;
+  },
+  TOL, GOAL, BOOTS
+};
+
+/* ─────────────────────────── 부팅 ─────────────────────────── */
+function boot(){
+  layout();
+  bakeEarth();
+  earthPat = ctx.createPattern(earthTile, 'repeat');
+  drawLogo();
+  refreshBestRow();
+  titleBoard = makeBoard(-1, mulberry32(5), { x:0, y:0 });
+  titleBoard.ivec = [5,-2];
+  const l2 = Math.hypot(5,2);
+  titleBoard.uh = { x:5/l2, y:-2/l2 };
+  titleBoard.nh = { x:-2/l2, y:-5/l2 };
+  titleBoard.bankAngle = angOf(5,-2);
+  titleBoard.perpAngle = angOf(-2,-5);
+  S.phase = 'title';
+  requestAnimationFrame(frame);
+  window.__GAME_TEST__.ready = true;
+}
+boot();
+
+})();
+</script>
+</body>
+</html>
