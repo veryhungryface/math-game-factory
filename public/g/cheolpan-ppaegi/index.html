@@ -1,0 +1,1858 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>철판 빼기 — 평행선 사이의 거리</title>
+<meta name="description" content="기울어진 오븐 레일로 철판을 평행한 변 쪽으로 밀어 빼내는 데크오븐 퍼즐">
+<meta property="og:title" content="철판 빼기">
+<meta property="og:description" content="평행한 쪽으로 밀어라">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --flour:#E4E0D8;
+  --flour-dark:#CFC9BD;
+  --tin:#3A3F45;
+  --tin-lit:#6B727A;
+  --ember:#C43C2C;
+  --steel:#8A9098;
+  --mint:#2E6B5A;
+  --stageW:min(100vw,1280px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#22262A}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  color:#22262A;touch-action:none;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* 크롬 — 오븐 손잡이 노브 (붉은 에나멜 + 흰 링) */
+.knob{
+  position:fixed;z-index:30;min-width:46px;min-height:46px;border:0;padding:0 12px;border-radius:0;
+  background:radial-gradient(circle at 34% 28%, #E0604E 0%, #C43C2C 52%, #8E2418 100%);
+  color:#FFF6EF;font-family:inherit;font-size:13px;font-weight:800;letter-spacing:.04em;
+  box-shadow:inset 0 0 0 3px rgba(255,246,239,.72), inset 0 0 0 5px rgba(0,0,0,.25);
+  cursor:pointer;
+}
+.knob:active{transform:scale(.94)}
+.knob:focus-visible{outline:3px solid #2E6B5A;outline-offset:3px}
+.knob.hide{display:none}
+#mute{top:calc(8px + env(safe-area-inset-top));right:calc(var(--stageX) + 10px);width:46px;height:46px;font-size:17px}
+#helpbtn{top:calc(8px + env(safe-area-inset-top));right:calc(var(--stageX) + 62px);height:46px}
+#skipbtn{top:calc(116px + env(safe-area-inset-top));right:calc(var(--stageX) + 10px);height:46px;
+  background:#3A3F45;box-shadow:inset 0 0 0 3px rgba(228,224,216,.6)}
+
+.screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-end;padding:0 16px calc(20px + env(safe-area-inset-bottom))}
+.screen.hide{display:none}
+#title{background:linear-gradient(180deg,rgba(34,38,42,0) 46%,rgba(34,38,42,.28) 70%,rgba(34,38,42,.60) 100%)}
+
+/* 로고 — 오븐 문 명판에 새긴 각인 (음각) */
+.logowrap{position:absolute;left:0;right:0;top:max(42px,6dvh);display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}
+.plate{
+  background:linear-gradient(168deg,#4B5158 0%,#3A3F45 44%,#2B3035 100%);
+  padding:14px 26px 18px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.22), inset 0 -3px 0 rgba(0,0,0,.45), 0 16px 0 rgba(34,38,42,.28);
+  clip-path:polygon(3% 0,97% 0,100% 12%,100% 88%,97% 100%,3% 100%,0 88%,0 12%);
+}
+.logo{
+  font-size:clamp(56px,19vw,96px);font-weight:900;letter-spacing:-.03em;line-height:.95;
+  color:#E4E0D8;white-space:nowrap;
+  text-shadow:0 2px 0 rgba(0,0,0,.65), 0 -1px 0 rgba(255,255,255,.28);
+}
+.logo b{color:#E0604E;font-weight:900}
+.rivets{display:flex;justify-content:space-between;margin-top:9px}
+.rivets i{width:7px;height:7px;border-radius:50%;background:rgba(228,224,216,.45);box-shadow:0 1px 0 rgba(0,0,0,.5)}
+.subtag{font-size:14px;font-weight:800;letter-spacing:.08em;color:#22262A;background:#E4E0D8;padding:7px 15px;
+  box-shadow:5px 5px 0 rgba(196,60,44,.9)}
+
+.ctazone{width:min(100% - 16px,470px);display:flex;flex-direction:column;gap:11px}
+.ticket{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:700;
+  color:#22262A;background:#E4E0D8;padding:9px 12px;
+  background-image:repeating-linear-gradient(90deg,transparent 0 8px,rgba(34,38,42,.07) 8px 9px);
+}
+.cta{
+  height:72px;border:0;cursor:pointer;
+  background:linear-gradient(180deg,#E0604E 0%,#C43C2C 48%,#94281C 100%);
+  color:#FFF6EF;font-family:inherit;font-size:25px;font-weight:900;letter-spacing:.06em;
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.3), inset 0 -4px 0 rgba(0,0,0,.35);
+}
+.cta .bar{width:30px;height:8px;background:#E4E0D8;box-shadow:0 14px 0 #E4E0D8}
+.cta:active{transform:translateY(3px)}
+.cta:focus-visible{outline:3px solid #E4E0D8;outline-offset:3px}
+.linkbtn{height:46px;border:0;background:transparent;color:#E4E0D8;font-family:inherit;font-size:14.5px;
+  font-weight:800;text-decoration:underline;text-underline-offset:5px;cursor:pointer}
+.linkbtn:focus-visible{outline:3px solid #C43C2C;outline-offset:2px}
+
+.sheet{width:min(100% - 24px,500px);max-height:82dvh;overflow:auto;background:#E4E0D8;color:#22262A;
+  padding:20px 18px;border-top:8px solid #C43C2C;box-shadow:0 16px 0 rgba(34,38,42,.24)}
+#help,#over{justify-content:center;background:rgba(34,38,42,.68)}
+.sheet h2{margin:0 0 12px;font-size:22px;font-weight:900}
+.sheet ul{margin:0;padding-left:19px}
+.sheet li{font-size:15px;line-height:1.66;font-weight:600;margin-bottom:5px}
+.dash{height:0;border-top:2px dashed #A9A396;margin:14px 0}
+.stats{display:flex;gap:10px;margin:4px 0 14px}
+.stats div{flex:1;background:#F3F0EA;border-bottom:5px solid #3A3F45;padding:9px 8px;text-align:center}
+.stats b{display:block;font-size:27px;font-weight:900;line-height:1.1;font-family:ui-monospace,Menlo,monospace}
+.stats span{font-size:12px;font-weight:700;opacity:.72}
+.sheet .cta{margin-top:8px;width:100%}
+@media (prefers-reduced-motion:reduce){ .cta,.knob{transition:none} }
+html.land .logo{font-size:clamp(58px,8vw,102px)}
+html.land .logowrap{top:max(26px,4dvh)}
+html.land .ctazone{width:min(100% - 16px,520px)}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<button id="mute" class="knob" aria-label="소리 끄기">♪</button>
+<button id="helpbtn" class="knob hide" aria-label="어떻게 놀아요 도움말">도움말</button>
+<button id="skipbtn" class="knob hide" aria-label="연습 건너뛰기">연습 건너뛰기</button>
+
+<div id="title" class="screen">
+  <div class="logowrap">
+    <div class="plate">
+      <div class="logo">철판 <b>빼기</b></div>
+      <div class="rivets"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="subtag">평행한 쪽으로 밀어라</div>
+  </div>
+  <div class="ctazone">
+    <div class="ticket"><span>4학년 2학기 · 사각형</span><span id="bestline">최고 0장</span></div>
+    <button id="startbtn" class="cta" aria-label="오븐 열기"><span class="bar"></span>오븐 열기</button>
+    <button id="howbtn" class="linkbtn" aria-label="어떻게 놀아요">어떻게 놀아요? 〉</button>
+  </div>
+</div>
+
+<div id="help" class="screen hide">
+  <div class="sheet">
+    <h2>어떻게 놀아요?</h2>
+    <ul>
+      <li>철판을 손가락으로 <b>밀어 보세요.</b> 철판은 <b>평행한 변과 나란한 쪽</b>으로만 밀려요.</li>
+      <li><b>먹 화살표</b>가 같은 쪽을 가리키는 두 변끼리 서로 평행해요. 평행사변형·직사각형·정사각형 철판은 마주 보는 <b>두 쌍</b>이 모두 평행해서 화살표가 네 변에 다 있어요.</li>
+      <li>가장자리의 <b>출구 레일</b>로 밀어 빼내요. 레일 두 줄 사이의 거리와 <b>철판의 두 평행한 변 사이의 거리가 같아야</b> 빠져요.</li>
+      <li>다른 철판이 앞을 막으면 거기서 멈춰요. 집게는 그대로예요 — 순서를 바꿔 보세요.</li>
+      <li>평행한 변과 나란하지 않은 쪽으로 밀거나, <b>레일과 나란하지 않은 채</b> 레일 벽에 닿거나, 너비가 다른 레일로 밀어 넣으면 <b>집게를 하나 잃어요.</b> 철판은 제자리로 돌아와요.</li>
+      <li>철판을 <b>톡 누르면</b> 누른 곳에서 가까운 평행한 두 변과 그 사이의 거리를 보여 줘요.</li>
+      <li>더 뺄 수 있는 철판이 없으면 오븐이 기울어 새 판이 들어와요.</li>
+    </ul>
+    <div class="dash"></div>
+    <button id="helpclose" class="cta" aria-label="도움말 닫기">닫기</button>
+  </div>
+</div>
+
+<div id="over" class="screen hide">
+  <div class="sheet">
+    <h2 id="overtitle">오늘 오븐은 여기까지예요</h2>
+    <div class="stats">
+      <div><b id="ovOut">0</b><span>뺀 철판</span></div>
+      <div><b id="ovCombo">0</b><span>최고 연속</span></div>
+      <div><b id="ovScore">0</b><span>점수</span></div>
+    </div>
+    <div id="overmsg" style="font-size:14.5px;font-weight:700;line-height:1.6"></div>
+    <div class="dash"></div>
+    <button id="againbtn" class="cta" aria-label="한 판 더">한 판 더</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+// ══════════════════════════════════════════════════════════════
+//  철판 빼기 — 4학년 2학기 · 사각형
+//  [4수03-03] 수직과 평행 / [4수03-10] 여러 가지 사각형
+//  판정은 전부 정수다: 각은 1° 틱, 길이는 cm 칸. 부동소수점 비교 없음.
+//  교과서 표현 규약: 익힘책 지시형 「~해 보세요」, 「4 cm」 띄어 쓰기, 꼭짓점 ㄱㄴㄷㄹ.
+//  사다리꼴 = 「평행한 변이 한 쌍이라도 있는 사각형」 — 배타 분류를 채점하지 않는다.
+// ══════════════════════════════════════════════════════════════
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TAU=Math.PI*2, D2R=Math.PI/180;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function makeRng(seed){ let s=(seed>>>0)||1973272912;
+  return ()=>{ s^=s<<13; s>>>=0; s^=s>>17; s^=s<<5; s>>>=0; return s/4294967296; }; }
+let rnd=makeRng((Date.now()^0x6d2b79f5)>>>0);
+const pick=(a)=>a[Math.floor(rnd()*a.length)];
+const ri=(a,b)=>a+Math.floor(rnd()*(b-a+1));
+
+// ── 오디오
+let AC=null, muted=false;
+function audio(){ if(muted) return null;
+  if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
+  if(AC.state==='suspended') AC.resume().catch(()=>{});
+  return AC; }
+function tone(f,d,t,g,slide){ const ac=audio(); if(!ac) return;
+  const o=ac.createOscillator(), gg=ac.createGain();
+  o.type=t||'triangle'; o.frequency.setValueAtTime(f,ac.currentTime);
+  if(slide) o.frequency.exponentialRampToValueAtTime(slide,ac.currentTime+d);
+  gg.gain.setValueAtTime(.0001,ac.currentTime);
+  gg.gain.exponentialRampToValueAtTime(g||.14,ac.currentTime+.01);
+  gg.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);
+  o.connect(gg); gg.connect(ac.destination); o.start(); o.stop(ac.currentTime+d+.02); }
+function scrape(d,g,f0){ const ac=audio(); if(!ac) return;
+  const n=Math.floor(ac.sampleRate*d), b=ac.createBuffer(1,n,ac.sampleRate), c=b.getChannelData(0);
+  for(let i=0;i<n;i++) c[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.6);
+  const s=ac.createBufferSource(); s.buffer=b;
+  const fl=ac.createBiquadFilter(); fl.type='bandpass'; fl.frequency.value=f0||1800; fl.Q.value=1.1;
+  const gg=ac.createGain(); gg.gain.value=g||.14;
+  s.connect(fl); fl.connect(gg); gg.connect(ac.destination); s.start(); }
+const SFX={
+  slide(){ scrape(.16,.1,1500); },
+  out(c){ const b=520*Math.pow(1.05,Math.min(c,6)); tone(b,.1,'triangle',.14); setTimeout(()=>tone(b*1.5,.14,'sine',.1),60); scrape(.18,.13,2200); },
+  jam(){ tone(150,.22,'sawtooth',.1,82); scrape(.2,.2,700); },
+  block(){ tone(260,.07,'square',.05); },
+  wall(){ tone(200,.06,'sine',.05); },
+  pull(){ tone(420,.07,'sine',.06,280); },
+  over(){ tone(320,.18,'triangle',.12,170); setTimeout(()=>tone(210,.34,'triangle',.11,120),150); }
+};
+
+// ══════════ 철판 ══════════
+// 평행한 한 쌍이 국소 x축과 나란하다. sep = 그 쌍 사이의 수선 거리(cm 정수),
+// len = 그 쌍의 방향으로 잰 길이(cm 정수).
+const KIND_NAME={ rect:'직사각형 철판', square:'정사각형 철판', para:'평행사변형 철판', trap:'사다리꼴 철판' };
+function plateVerts(kind,len,sep){
+  switch(kind){
+    case 'para': return [[1,0],[len,0],[len-1,sep],[0,sep]];
+    case 'trap': return [[0,0],[len,0],[len-1,sep],[1,sep]];
+    default:     return [[0,0],[len,0],[len,sep],[0,sep]];
+  }
+}
+let pid=1;
+function makePlate(kind,len,sep){
+  if (kind==='square') len=sep;
+  return { id:'p'+(pid++), kind, len, sep, verts:plateVerts(kind,len,sep), rot:0, x:0, y:0, jam:false };
+}
+// 철판이 밀릴 수 있는 「평행한 변 쌍」.
+//   off = 그 쌍의 방향이 국소 x축에서 몇 도 돌아가 있는가
+//   sep = 그 쌍 사이의 수선 거리(cm) — 출구 레일 너비와 같아야 빠진다
+// 직사각형·정사각형·평행사변형은 마주 보는 두 쌍이 각각 평행하므로 쌍이 둘이다(교과서 정의).
+// 사다리꼴만 평행한 쌍이 하나다.
+// 평행사변형의 두 번째 쌍은 사이 거리가 정수가 아니라 어떤 레일 너비와도 같아지지 않는다 —
+// 그래서 그 쪽으로 밀면 '평행하지 않다(skew)'가 아니라 '레일 너비와 다르다(jam)'가 맞다.
+// 좌표에서 직접 구해 「평행한 변이 한 쌍뿐」이라고 가르치지 않게 한다.
+function platePairs(p){
+  if (p._pairs) return p._pairs;
+  const V=p.verts, out=[], used=[false,false,false,false];
+  for (let i=0;i<4;i++){
+    if (used[i]) continue;
+    for (let j=i+1;j<4;j++){
+      if (used[j]) continue;
+      const a1=V[i], a2=V[(i+1)%4], b1=V[j];
+      const ux=a2[0]-a1[0], uy=a2[1]-a1[1];
+      const b2=V[(j+1)%4], wx=b2[0]-b1[0], wy=b2[1]-b1[1];
+      if (Math.abs(ux*wy-uy*wx) > 1e-9) continue;          // 평행하지 않은 쌍
+      const L=Math.hypot(ux,uy);
+      let sep=Math.abs(((b1[0]-a1[0])*uy-(b1[1]-a1[1])*ux)/L);
+      if (Math.abs(sep-Math.round(sep)) < 1e-6) sep=Math.round(sep);   // 정수 거리는 정수로
+      let off=Math.atan2(uy,ux)*180/Math.PI;
+      off=((off%180)+180)%180;
+      out.push({ off, sep, whole:Number.isInteger(sep), edges:[i,j] });
+      used[i]=used[j]=true; break;
+    }
+  }
+  p._pairs=out;
+  return out;
+}
+function plateWorld(p){
+  const ox=p.len/2, oy=p.sep/2, a=p.rot*D2R, ca=Math.cos(a), sa=Math.sin(a);
+  return p.verts.map(([vx,vy])=>{ const dx=vx-ox, dy=vy-oy;
+    return [p.x+dx*ca-dy*sa, p.y+dx*sa+dy*ca]; });
+}
+function polyAt(p, x, y){
+  const ox=p.len/2, oy=p.sep/2, a=p.rot*D2R, ca=Math.cos(a), sa=Math.sin(a);
+  return p.verts.map(([vx,vy])=>{ const dx=vx-ox, dy=vy-oy;
+    return [x+dx*ca-dy*sa, y+dx*sa+dy*ca]; });
+}
+function polyHit(A,B){
+  for (const poly of [A,B]){
+    for (let i=0;i<poly.length;i++){
+      const a=poly[i], b=poly[(i+1)%poly.length];
+      const ax=-(b[1]-a[1]), ay=b[0]-a[0];
+      let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+      for(const [x,y] of A){ const t=x*ax+y*ay; a0=Math.min(a0,t); a1=Math.max(a1,t); }
+      for(const [x,y] of B){ const t=x*ax+y*ay; b0=Math.min(b0,t); b1=Math.max(b1,t); }
+      if (a1<b0+1e-9 || b1<a0+1e-9) return false;
+    }
+  }
+  return true;
+}
+function pointInPoly(px,py,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const [xi,yi]=poly[i], [xj,yj]=poly[j];
+    if (((yi>py)!==(yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+function angDiff(a,b){ let d=((Math.round(a)-Math.round(b))%180+180)%180; return Math.min(d,180-d); }
+// 반올림 없는 각 차(0~90°). 출구 레일과 이동 방향이 「나란한가」는 이것으로 본다 —
+// 레일 각은 정수이고 철판은 레일 각(또는 +90°)으로 놓이므로 나란한 이동은 차가 정확히 0이다.
+// (반올림 비교 TOL=4 는 1~4° 비스듬히 들어온 이동을 '나란하다'로 받아 너비 탓(jam)으로 돌렸다 — 검산 지적)
+function angDiffReal(a,b){ const d=((a-b)%180+180)%180; return Math.min(d,180-d); }
+const RAIL_PARALLEL=0.5;
+// TOL_DRAG : 손가락 드래그가 철판의 평행한 변 쌍과 몇 도까지 어긋나도 「그 쪽으로 민 것」으로 받아 줄지.
+//            (손가락 오차를 받아 주는 값이지, 수학 판정을 느슨하게 하는 값이 아니다 —
+//             네 방향 중 어느 쪽을 골랐는지는 그대로 학생의 판단이다. 미는 중 미리보기 선이
+//             초록/빨강으로 지금 어느 쪽으로 밀리는지 보여 준다.)
+// TOL_EXIT : 철판이 도착한 벽의 레일 방향과 실제 이동 방향이 나란한지 보는 값(수학 판정).
+const TOL_DRAG=14, TOL=4;
+// 한 판 안의 레일 방향은 서로 정확히 같거나 MIN_RAIL_SEP 이상 떨어져 있어야 한다.
+// (22° 레일과 28° 레일이 한 판에 같이 깔리면 6° 차이라, 22° 철판이 28° 레일로도
+//  '나란하다'로 빠져 평행하지 않은 것을 평행하다고 가르친다 — 2026-09-11 검산 지적)
+const MIN_RAIL_SEP=12;
+
+// ══════════ 상태 ══════════
+const GOAL=8, TONGS=3, SESSION=90;
+const S={
+  phase:'title', tongs:TONGS, outCount:0, score:0, combo:0, bestCombo:0,
+  timeLeft:SESSION, band:1, boardNo:0,
+  plates:[], mouths:[], drag:null, anim:null,
+  moves:0, attempts:0, popped:0, jams:0,
+  land:false, stageW:0, stageX:0,
+  board:{x:0,y:0,w:0,h:0}, panel:{x:0,y:0,w:0,h:0}, cmPx:10,
+  boardCm:{w:24,h:24}, deck:{x:3,y:3,w:18,h:18},
+  ripples:[], fx:[], tongFalls:[], hitstop:0, shake:0,
+  rack:[], flyers:[], puffs:[], clearing:null, runBoards:0,
+  hintMove:null, hintStage:0, idleChecked:false, onboardBig:0, skipReady:false, skipPending:false,
+  banner:'', bannerSub:'', hintT:0, lastInput:0, frozen:false, onboardT:0,
+  best:0, over:{reason:''}
+};
+try{ S.best=Math.max(0,parseInt(localStorage.getItem('cheolpan.best')||'0',10)||0); }catch(e){}
+
+// ══════════ 캔버스 ══════════
+const cv=document.getElementById('stage');
+const ctx=cv.getContext('2d',{alpha:false});
+let DPR=1,W=0,H=0, flourPat=null, tinPat=null, boardLayer=null, boardKey='';
+function bakePatterns(){
+  const c=document.createElement('canvas'); c.width=c.height=110;
+  const g=c.getContext('2d');
+  g.fillStyle='#E4E0D8'; g.fillRect(0,0,110,110);
+  for(let i=0;i<1500;i++){ g.globalAlpha=.05+Math.random()*.13;
+    g.fillStyle=Math.random()<.55?'#FFFFFF':'#C2BCAE';
+    g.beginPath(); g.arc(Math.random()*110,Math.random()*110,.5+Math.random()*1.7,0,TAU); g.fill(); }
+  // 대리석 결
+  for(let i=0;i<7;i++){ g.globalAlpha=.07; g.strokeStyle='#A9A396'; g.lineWidth=.9+Math.random();
+    g.beginPath(); const y=Math.random()*110;
+    g.moveTo(0,y); g.bezierCurveTo(30,y+Math.random()*14-7,70,y+Math.random()*14-7,110,y+Math.random()*16-8); g.stroke(); }
+  g.globalAlpha=1;
+  flourPat=ctx.createPattern(c,'repeat');
+  const t=document.createElement('canvas'); t.width=t.height=40;
+  const tg=t.getContext('2d');
+  tg.fillStyle='#3A3F45'; tg.fillRect(0,0,40,40);
+  for(let i=0;i<40;i+=2){ tg.globalAlpha=.09; tg.fillStyle=i%4?'#5A6068':'#262B30'; tg.fillRect(0,i,40,1); }
+  tg.globalAlpha=1;
+  tinPat=ctx.createPattern(t,'repeat');
+}
+function layout(){
+  W=innerWidth; H=innerHeight;
+  DPR=Math.min(devicePixelRatio||1,2);
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  S.land=(W>=H && W>=640)||W>=1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE=Math.min(W,1280);
+  S.stageW=STAGE; S.stageX=Math.round((W-STAGE)/2);
+  const root=document.documentElement;
+  root.style.setProperty('--stageW',STAGE+'px');
+  root.style.setProperty('--stageX',S.stageX+'px');
+  const hud=56, top=hud+52;
+  if (S.land){
+    const bw=Math.round(STAGE*0.64)-16;
+    S.board={ x:S.stageX+12, y:top, w:bw, h:H-top-14 };
+    S.panel={ x:S.stageX+bw+24, y:top, w:STAGE-bw-36, h:H-top-14 };
+  } else {
+    const ph=Math.min(180, Math.max(140, Math.round(H*0.2)));
+    S.board={ x:8, y:top, w:W-16, h:H-top-ph-10 };
+    S.panel={ x:8, y:H-ph-4, w:W-16, h:ph-6 };
+  }
+  if (S.land){ S.boardCm={ w:30, h:22 }; S.deck={ x:3.4, y:3.4, w:23.2, h:15.2 }; }
+  else       { S.boardCm={ w:20, h:30 }; S.deck={ x:3.4, y:3.4, w:13.2, h:23.2 }; }
+  S.cmPx=Math.min(S.board.w/S.boardCm.w, S.board.h/S.boardCm.h);
+  S.drawW=S.boardCm.w*S.cmPx; S.drawH=S.boardCm.h*S.cmPx;
+  S.ox=S.board.x+(S.board.w-S.drawW)/2;
+  S.oy=S.board.y+(S.board.h-S.drawH)/2;
+  boardKey='';
+}
+const px=(x)=>S.ox+x*S.cmPx, py=(y)=>S.oy+y*S.cmPx;
+const ux=(p)=>(p-S.ox)/S.cmPx, uy=(p)=>(p-S.oy)/S.cmPx;
+
+// ══════════ 오븐 판 생성 ══════════
+// 출구 레일 축은 절대 화면 축(0°·90°)에 두지 않는다 — 축정렬만 깔면
+// 「가로·세로처럼 보일 때만 수직」 오개념을 강화하고 무뇌 입력이 우연히 맞는다.
+// 0° 출구는 온보딩 고정 문제에만 쓴다.
+const TILTS={ 1:[18,-18], 2:[22,-22,28,-28], 3:[18,-18,26,-26,34,-34], 4:[20,-20,28,-28,36,-36] };
+const GAPS=[3,4,5];
+const LENS=[4,5,6];
+const KINDS={ 1:['rect'], 2:['rect','square'], 3:['rect','square','trap'], 4:['rect','square','trap','para'] };
+let mid=1;
+
+/**
+ * 데크의 두세 벽에 출구 레일을 깐다.
+ * 한 벽 전체가 같은 간격(gap)의 평행한 레일 빗이고, 레일 방향은 벽 바깥쪽 법선에서
+ * tilt 만큼 기울어져 있다(화면 축 0°·90° 는 쓰지 않는다).
+ * 그 벽으로 나가려면 ① 미는 방향이 그 레일 방향과 나란하고 ② 철판의 평행한 두 변
+ * 사이의 거리가 레일 간격과 같아야 한다.
+ */
+function makeExits(band){
+  const BASE={ R:0, L:180, B:90, T:270 }, OPP={ R:'L', L:'R', B:'T', T:'B' };
+  const shuf=(a)=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+  const sides=shuf(['R','L','B','T']);
+  const gapPlan=shuf(GAPS);
+  const out=[];
+  // 이미 고른 레일과 0° 도 90° 도 아닌 어중간한 각(0<d<MIN_RAIL_SEP)으로 만나면 안 된다.
+  const angOk=(ang)=>{
+    for (const m of out) for (const k of [0,90]){
+      const d=angDiff(ang, m.ang+k);
+      if (d>0 && d<MIN_RAIL_SEP) return false;
+    }
+    return true;
+  };
+  const tiltFor=(side)=>{
+    for (const t of shuf(TILTS[Math.min(band,4)])){ const a=(BASE[side]+t+360)%360; if (angOk(a)) return a; }
+    return null;
+  };
+  const s0=sides[0], a0=tiltFor(s0);
+  out.push({ id:'m'+(mid++), side:s0, ang:a0, gap:gapPlan[0] });
+  // 너비 미끼(모든 밴드): 맞은편 벽에 「같은 방향」 레일을 「다른 너비」로 깐다.
+  // 먹 화살표 방향으로만 밀면 둘 중 한쪽은 너비가 달라 낀다 — 평행선 사이의 거리를 읽어야 한다.
+  out.push({ id:'m'+(mid++), side:OPP[s0], ang:(a0+180)%360, gap:gapPlan[1] });
+  // 옆 두 벽도 같은 방향·다른 너비의 짝 레일로 깐다. 레일 없는 벽을 두지 않는다 —
+  // 레일 없는 벽은 무비용이라, 먹 화살표를 따라 아무 쪽이나 밀어도 틀릴 일이 줄어든다(검수 high 4).
+  const s2=sides.find(s=>s!==s0 && s!==OPP[s0]);
+  const a2=tiltFor(s2);
+  if (a2!==null){
+    out.push({ id:'m'+(mid++), side:s2, ang:a2, gap:gapPlan[2] });
+    out.push({ id:'m'+(mid++), side:OPP[s2], ang:(a2+180)%360, gap:pick([gapPlan[0],gapPlan[1]]) });
+  }
+  return out;
+}
+/** 데크 가장자리 띠(출구 레일 빗이 깔리는 곳) — cm 좌표 */
+function stripOf(side){
+  const D=S.deck, BW=S.boardCm.w, BH=S.boardCm.h;
+  if (side==='R') return { x:D.x+D.w, y:D.y-0.7, w:BW-(D.x+D.w), h:D.h+1.4 };
+  if (side==='L') return { x:0, y:D.y-0.7, w:D.x, h:D.h+1.4 };
+  if (side==='B') return { x:D.x-0.7, y:D.y+D.h, w:D.w+1.4, h:BH-(D.y+D.h) };
+  return { x:D.x-0.7, y:0, w:D.w+1.4, h:D.y };
+}
+const SIDE_NAME={ R:'오른쪽', L:'왼쪽', B:'아래쪽', T:'위쪽' };
+const OPP_SIDE={ R:'L', L:'R', B:'T', T:'B' };
+/** 맞은편 벽에 같은 방향 레일(너비 미끼)이 깔린 출구인가 */
+function hasTwin(m){ return S.mouths.some(o=>o.side===OPP_SIDE[m.side] && angDiffReal(o.ang,m.ang)<RAIL_PARALLEL); }
+
+function platePlaceable(p, x, y, rot, ignore){
+  const save=[p.x,p.y,p.rot];
+  p.x=x; p.y=y; p.rot=rot;
+  const poly=plateWorld(p);
+  p.x=save[0]; p.y=save[1]; p.rot=save[2];
+  const D=S.deck;
+  for (const [vx,vy] of poly)
+    if (vx<D.x+.1||vx>D.x+D.w-.1||vy<D.y+.1||vy>D.y+D.h-.1) return false;
+  for (const q of S.plates){
+    if (q===p||q===ignore) continue;
+    if (polyHit(poly, plateWorld(q))) return false;
+  }
+  return true;
+}
+
+function makeLoad(band){
+  S.plates=[];
+  const kinds=KINDS[Math.min(band,4)];
+  const n = band===1?3:(band===2?4:5);
+  for(let i=0;i<n;i++){
+    let made=null, guard=0;
+    while(!made && guard++<400){
+      // 출구 하나를 정답 경로로 잡고, 그 레일로 나갈 수 있는 철판을 만든다.
+      let kind=pick(kinds);
+      // 사다리꼴(쌍 하나)·평행사변형은 맞은편에 같은 방향 레일(너비 미끼)이 있는 출구에만 둔다 —
+      // 아니면 그 쌍의 반대 방향이 레일 없는 벽으로 가서, 화살표만 따라 밀어도 틀릴 일이 없다.
+      const cand=(kind==='trap'||kind==='para') ? S.mouths.filter(hasTwin) : S.mouths;
+      const m=pick(cand.length?cand:S.mouths);
+      let sep, len, rot;
+      // 직사각형은 평행한 쌍이 둘이라 「다른 평행한 변 쌍과 나란하게 미는」 수가 정답이 되기도 한다
+      const useOther = kind==='rect' && rnd()<0.4;
+      if (kind==='square'){
+        sep=m.gap; len=m.gap; rot=m.ang;
+      } else if (useOther){
+        len=m.gap;                                            // off=90 쌍의 사이 거리 = len
+        const alt=GAPS.filter(g=>g!==m.gap);
+        sep=alt.length?pick(alt):m.gap;                       // off=0 쌍은 다른 값
+        rot=(m.ang-90+360)%360;
+      } else {
+        sep=m.gap; len=pick(LENS); rot=m.ang;
+      }
+      if ((kind==='para'||kind==='trap') && len<4) len=4;
+      const p=makePlate(kind, len, sep);
+      p.rot=rot;
+      const D=S.deck;
+      const x=D.x+1.6+rnd()*(D.w-3.2), y=D.y+1.6+rnd()*(D.h-3.2);
+      // 정답 방향(레일 방향)으로 밀면 실제로 「그 레일 벽」에 닿는 자리에만 놓는다.
+      // (모서리 근처에 놓으면 옆 벽에 먼저 닿아 영영 못 나가는 철판이 생긴다 — 특히 쌍이 하나뿐인 사다리꼴)
+      const ta=m.ang*D2R;
+      if (wallStep(x,y,Math.cos(ta),Math.sin(ta)).side!==m.side) continue;
+      if (!platePlaceable(p,x,y,p.rot)) continue;
+      p.x=x; p.y=y;
+      made=p;
+    }
+    if (made) S.plates.push(made);
+  }
+}
+
+/** 지금 바로 빼낼 수 있는 철판이 하나라도 있는가 (판이 처음부터 막혀 있지 않게) */
+function loadSolvable(){
+  for (const p of S.plates)
+    for (const pr of platePairs(p))
+      for (const sgn of [0,180])
+        if (classifyPush(p, p.rot+pr.off+sgn).kind==='out') return true;
+  return false;
+}
+function newBoard(){
+  S.boardNo++; S.runBoards++;
+  S.band=Math.min(4, 1+Math.floor(S.outCount/2));
+  let tries=0;
+  do {
+    S.mouths=makeExits(S.band);
+    makeLoad(S.band);
+    tries++;
+  } while (!loadSolvable() && tries<12);
+  S.clearing=null; S.hintMove=null; S.hintStage=0; S.idleChecked=false;
+  boardKey='';
+  setBanner();
+  // 본판 첫 판에서 한 번: 한 철판의 평행한 두 변 ↔ 그 쌍과 나란한 레일 빗을 같은 초록으로 대응시켜 보여 준다.
+  // (각 숫자·방향 화살표는 띄우지 않는다)
+  if (S.phase==='playing' && S.runBoards===1){
+    const mv=findOutMove();
+    if (mv) addFx({ type:'intro', p:mv.p, pr:mv.pr, m:mv.r.mouth, t:0, life:2.9 });
+  }
+}
+function setBanner(){
+  if (S.phase==='onboard'){ S.banner='철판을 밀어 출구로 빼 보세요'; S.bannerSub='평행한 변(먹 화살표)과 나란한 쪽으로만 밀려요'; return; }
+  const b=S.band;
+  if (b===1){ S.banner='평행한 변과 나란한 쪽으로 밀어 보세요'; S.bannerSub='레일 두 줄 사이의 거리와 철판의 두 변 사이의 거리가 같아야 빠져요'; }
+  else if (b===2){ S.banner='레일 너비에 맞는 쪽으로 빼 보세요'; S.bannerSub='직사각형은 다른 평행한 변 쌍과 나란하게 밀어도 돼요'; }
+  else if (b===3){ S.banner='앞을 막은 철판을 먼저 치워 보세요'; S.bannerSub='막히면 집게는 안 깎여요 — 순서를 바꿔 보세요'; }
+  // ⚠️ 여기서 도형 이름으로 일반화하지 마라 — 「사다리꼴은 평행한 변이 한 쌍」은
+  //    포함 관계를 뒤집는 좁힌 정의다(정사각형·평행사변형도 사다리꼴이다).
+  //    화면에는 실제로 보이는 먹 화살표만 가리킨다. 그런 철판이 없는 판에서는 띄우지 않는다.
+  else if (S.plates.some(p=>platePairs(p).length===1)){ S.banner='먹 화살표가 두 변에만 있는 철판을 살펴보세요'; S.bannerSub='그 두 변만 서로 평행해요 — 그 쪽으로만 밀려요'; }
+  else { S.banner='레일과 나란하고 너비가 같은 쪽을 골라 밀어 보세요'; S.bannerSub='같은 방향 레일이라도 너비가 다르면 끼어요'; }
+}
+
+// ══════════ 온보딩 ══════════
+function startOnboard(){
+  S.phase='onboard'; S.frozen=true; S.band=1; S.boardNo=0; S.onboardT=0;
+  const D=S.deck;
+  S.mouths=[{ id:'m0', side:'R', ang:0, gap:4 }];
+  const p=makePlate('rect',5,4);
+  p.rot=0; p.x=D.x+D.w*0.34; p.y=D.y+D.h*0.5;
+  S.plates=[p];
+  setBanner();
+}
+
+// ══════════ 판정 ══════════
+/**
+ * 순수 판정 — 철판 p 를 방향 dragDeg 로 밀면 어떻게 되는가.
+ * 게임 플레이와 sampleProblems 가 같은 함수를 쓴다. 비교는 전부 정수다.
+ * kind: 'out'(빠짐) | 'jam'(레일과 나란하지만 너비가 달라 낌 = 집게 손실)
+ *     | 'railskew'(출구 레일 벽에 닿았는데 레일과 나란하지 않음 = 집게 손실)
+ *     | 'skew'(평행한 변과 나란하지 않은 방향 = 집게 손실)
+ *     | 'block'(다른 철판에 막힘 — 무비용) | 'wall'(출구 레일이 없는 벽 — 무비용)
+ * 이동은 STEP cm 걸음 단위다(예전 한 걸음씩 전진하던 판정과 같은 결과를 식으로 바로 구한다 —
+ * 막힘 탐색이 매 수마다 수천 번 부르므로).
+ */
+const STEP=0.12;
+/** 중심이 (x,y)에서 (vx,vy) 로 걸어갈 때 데크 경계를 처음 넘는 걸음 수와 그 벽 */
+function wallStep(x,y,vx,vy){
+  const D=S.deck; let k=Infinity, side=null;
+  const tryK=(kk,sd)=>{ kk=Math.max(1,kk); if (kk<k){ k=kk; side=sd; } };
+  if (vx>1e-12) tryK(Math.floor((D.x+D.w-x)/(vx*STEP))+1,'R');
+  else if (vx<-1e-12) tryK(Math.floor((x-D.x)/(-vx*STEP))+1,'L');
+  if (vy>1e-12) tryK(Math.floor((D.y+D.h-y)/(vy*STEP))+1,'B');
+  else if (vy<-1e-12) tryK(Math.floor((y-D.y)/(-vy*STEP))+1,'T');
+  return { k, side };
+}
+/** 볼록 다각형 A 가 (vx,vy)·t 로 움직일 때 정지한 B 와 처음 겹치는 걸음 수 (분리축 구간 교집합) */
+function sweepStep(A, B, vx, vy){
+  let t0=-Infinity, t1=Infinity;
+  for (const poly of [A,B]){
+    for (let i=0;i<poly.length;i++){
+      const a=poly[i], b=poly[(i+1)%poly.length];
+      const ax=-(b[1]-a[1]), ay=b[0]-a[0];
+      let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+      for (const [x,y] of A){ const t=x*ax+y*ay; if(t<a0)a0=t; if(t>a1)a1=t; }
+      for (const [x,y] of B){ const t=x*ax+y*ay; if(t<b0)b0=t; if(t>b1)b1=t; }
+      const s=vx*ax+vy*ay;
+      if (Math.abs(s)<1e-12){ if (a1<b0+1e-9 || b1<a0+1e-9) return Infinity; continue; }
+      let lo=(b0+1e-9-a1)/s, hi=(b1-1e-9-a0)/s;
+      if (s<0){ const tmp=lo; lo=hi; hi=tmp; }
+      if (lo>t0) t0=lo;
+      if (hi<t1) t1=hi;
+      if (t0>t1) return Infinity;
+    }
+  }
+  const k=Math.max(1, Math.ceil(t0/STEP-1e-9));
+  return k*STEP<=t1+1e-9 ? k : Infinity;
+}
+function classifyPush(p, dragDeg){
+  const pairs=platePairs(p);
+  let use=null, nd=999;
+  for (const pr of pairs){
+    const d=angDiff(dragDeg, p.rot+pr.off);
+    if (d<nd){ nd=d; if (d<=TOL_DRAG) use=pr; }
+  }
+  if (!use) return { kind:'skew', d:nd };
+  const dirDeg=p.rot+use.off;
+  const fwd=Math.cos((dragDeg-dirDeg)*D2R) >= 0 ? 1 : -1;
+  const travel=(dirDeg + (fwd>0?0:180) + 360) % 360;
+  const a=travel*D2R, vx=Math.cos(a), vy=Math.sin(a);
+  const startX=p.x, startY=p.y;
+  const A=plateWorld(p);
+  let kBlock=Infinity;
+  for (const q of S.plates){
+    if (q===p) continue;
+    const k=sweepStep(A, plateWorld(q), vx, vy);
+    if (k<kBlock) kBlock=k;
+  }
+  const ws=wallStep(startX,startY,vx,vy);
+  if (Math.min(kBlock,ws.k)>600) return { kind:'wall', x:startX, y:startY, moved:0 };
+  const at=(k)=>[startX+vx*STEP*k, startY+vy*STEP*k];
+  if (kBlock<=ws.k){
+    const [lx,ly]=at(kBlock-1);
+    return { kind:'block', x:lx, y:ly, moved:STEP*(kBlock-1) };
+  }
+  const [lx,ly]=at(ws.k-1), [nx2,ny2]=at(ws.k);
+  const moved=STEP*(ws.k-1);
+  const ex=S.mouths.find(m=>m.side===ws.side);
+  if (!ex) return { kind:'wall', noexit:true, x:lx, y:ly, moved };
+  const rd=angDiffReal(ex.ang, travel);
+  if (rd>=RAIL_PARALLEL)
+    return { kind:'railskew', mouth:ex, d:rd, travel, sep:use.sep, dir:[vx,vy], x:lx, y:ly, moved };
+  if (ex.gap === use.sep)
+    return { kind:'out', mouth:ex, sep:use.sep, dir:[vx,vy], x:nx2, y:ny2 };
+  return { kind:'jam', mouth:ex, sep:use.sep, dir:[vx,vy], x:lx, y:ly, moved, reason:'gap' };
+}
+
+/** 집게 1개를 잃는다. 연습 판에서는 깎지 않는다(첫 동작 게이트) */
+function loseTong(){
+  if (S.phase==='onboard') return false;
+  S.tongs--;
+  S.tongFalls.push({ t:0, idx:S.tongs });
+  return true;
+}
+/** 오답 순간 밀가루 구름 — 수선이 아니라 들어온 빗금 방향으로 튄다 */
+function spawnPuff(x,y,deg){
+  if (REDUCED) return;
+  const a=deg*D2R;
+  for (let i=0;i<10;i++){
+    const s=1.2+Math.random()*2.6, sp=(Math.random()-.5)*0.55;
+    S.puffs.push({ x, y, vx:Math.cos(a+sp)*s, vy:Math.sin(a+sp)*s, t:0, life:.5+Math.random()*.35, r:.22+Math.random()*.34 });
+  }
+  if (S.puffs.length>60) S.puffs.splice(0,S.puffs.length-60);
+}
+function doPush(p, dragDeg){
+  const r=classifyPush(p, dragDeg);
+  S.attempts++;
+  S.hintMove=null;
+  if (r.kind==='skew'){
+    p.jam=true; S.jams++; S.combo=0;
+    const lost=loseTong();
+    SFX.jam(); if (!REDUCED) S.shake=.5; S.hitstop=Math.max(S.hitstop,.05);
+    addFx({ type:'why', x:p.x, y:p.y, t:0, life:1.6,
+            msg:`평행한 변과 ${Math.round(r.d)}° 어긋난 쪽으로 밀었어요` });
+    spawnPuff(p.x, p.y, dragDeg);
+    setTimeout(()=>{ p.jam=false; }, 700);
+    if (lost && S.tongs<=0) return endGame('tongs');
+    return;
+  }
+  if (r.kind==='block'){
+    p.x=r.x; p.y=r.y;
+    SFX.block();
+    addFx({ type:'toast', text:'다른 철판이 막고 있어요 — 순서를 바꿔 보세요', t:0, life:1.3 });
+    afterMove();
+    return;
+  }
+  if (r.kind==='wall'){
+    p.x=r.x; p.y=r.y;
+    SFX.wall();
+    addFx({ type:'toast', text:'그쪽 벽에는 출구 레일이 없어요', t:0, life:1.3 });
+    afterMove();
+    return;
+  }
+  if (r.kind==='out'){
+    S.anim={ p, from:[p.x,p.y], dir:r.dir, t:0, dur:.36, mouth:r.mouth, sep:r.sep, kind:'out' };
+    return;
+  }
+  // jam · railskew — 레일 립까지 미끄러져 부딪힌 뒤 제자리로 돌아온다(집게 1개).
+  // 제자리로 돌아오므로 비용을 치른 수로는 판 배치가 바뀌지 않는다.
+  S.anim={ p, from:[p.x,p.y], to:[r.x,r.y], dir:r.dir, t:0, dur:.62, mouth:r.mouth, sep:r.sep,
+           d:r.d, travel:r.travel, kind:r.kind, hit:false };
+}
+function animImpact(a){
+  a.hit=true;
+  const p=a.p;
+  p.jam=true; setTimeout(()=>{ p.jam=false; }, 900);
+  S.jams++; S.combo=0;
+  const lost=loseTong();
+  SFX.jam(); if (!REDUCED) S.shake=.5;
+  const [hx,hy]=a.to;
+  spawnPuff(hx, hy, Math.atan2(a.dir[1],a.dir[0])/D2R);
+  if (a.kind==='railskew')
+    addFx({ type:'whyrail', x:hx, y:hy, m:a.mouth, travel:a.travel, d:a.d, t:0, life:2.0 });
+  else
+    addFx({ type:'whygap', x:hx, y:hy, gap:a.mouth.gap, sep:a.sep, t:0, life:1.9 });
+  if (lost && S.tongs<=0) endGame('tongs');
+}
+function finishAnim(){
+  const a=S.anim; S.anim=null;
+  const p=a.p;
+  if (a.kind==='out'){
+    S.plates=S.plates.filter(q=>q!==p);
+    S.outCount++; S.popped++; S.combo++; S.bestCombo=Math.max(S.bestCombo,S.combo);
+    S.score += 140 + 60*Math.min(S.combo,5);
+    SFX.out(S.combo);
+    S.hitstop=Math.max(S.hitstop,.06);
+    addFx({ type:'perp', m:a.mouth, x:a.from[0]+a.dir[0]*2.4, y:a.from[1]+a.dir[1]*2.4, t:0, life:1.4, sep:a.sep });
+    addFx({ type:'measure', m:a.mouth, x:a.from[0]+a.dir[0]*2.4, y:a.from[1]+a.dir[1]*2.4, t:0, life:1.6 });
+    // 밀가루가 철판 너비(= 레일 사이의 거리)만큼 쓸려 나간 자국 — 가장 아래에 그리려고 마지막에 넣는다
+    addFx({ type:'sweep', from:a.from.slice(), dir:a.dir, sep:a.sep, t:0, life:1.8 });
+    // 빠진 철판은 식힘 선반으로 옮겨져 층층이 쌓인다
+    const ex=[a.from[0]+a.dir[0]*7.5, a.from[1]+a.dir[1]*7.5];
+    S.flyers.push({ verts:p.verts, len:p.len, sep:p.sep, rot:p.rot, x:px(ex[0]), y:py(ex[1]),
+                    size0:Math.max(p.len,p.sep)*S.cmPx*0.3, slot:Math.min(GOAL-1, S.outCount-1), t:0 });
+    if (S.phase==='onboard'){
+      S.frozen=false;
+      setTimeout(()=>{ if(S.phase==='onboard') enterPlay(); }, 1200);
+      return;
+    }
+    if (S.outCount>=GOAL) return endGame('clear');
+    afterMove();
+  } else {
+    if (!a.hit) animImpact(a);
+    if (S.phase==='over') return;
+    afterMove();
+  }
+}
+/** 연습 판 → 본판. 연습에서 쓴 기록·집게는 모두 되돌린다 */
+function enterPlay(){
+  if (S.phase!=='onboard') return;
+  $('skipbtn').classList.add('hide'); $('help').classList.add('hide');
+  S.phase='playing'; S.frozen=false; S.skipPending=false;
+  S.outCount=0; S.score=0; S.combo=0; S.bestCombo=0;
+  S.tongs=TONGS; S.jams=0; S.attempts=0; S.popped=0;
+  S.rack=[]; S.flyers=[]; S.timeLeft=SESSION; S.lastInput=performance.now(); S.runBoards=0;
+  newBoard();
+}
+// ── 판이 막혔는가: 「빠질 수 있는 철판이 남아 있는가」로 본다 (시간이 아니라 도달 가능성)
+function pairDirs(p){
+  const a=[];
+  for (const pr of platePairs(p)) for (const s of [0,180]) a.push({ pr, deg:p.rot+pr.off+s });
+  return a;
+}
+/** 지금 바로 빠지는 수 (철판, 평행한 변 쌍, 방향) */
+function findOutMove(){
+  for (const p of S.plates)
+    for (const { pr, deg } of pairDirs(p)){
+      const r=classifyPush(p, deg);
+      if (r.kind==='out') return { p, pr, deg, r };
+    }
+  return null;
+}
+/** 집게를 깎지 않고 판 배치를 바꾸는 수 (막힘·레일 없는 벽까지 옮기기) */
+function freeMoves(){
+  const a=[];
+  for (const p of S.plates)
+    for (const { deg } of pairDirs(p)){
+      const r=classifyPush(p, deg);
+      if ((r.kind==='block'||r.kind==='wall') && r.moved>0.4) a.push({ p, deg, x:r.x, y:r.y });
+    }
+  return a;
+}
+/** 지금, 또는 무비용 이동 depth 수 뒤에 빠지는 수가 생기는가 */
+function exitReachable(depth){
+  if (findOutMove()) return true;
+  if (depth<=0) return false;
+  for (const mv of freeMoves()){
+    const sx=mv.p.x, sy=mv.p.y;
+    mv.p.x=mv.x; mv.p.y=mv.y;
+    const ok=exitReachable(depth-1);
+    mv.p.x=sx; mv.p.y=sy;
+    if (ok) return true;
+  }
+  return false;
+}
+function afterMove(){
+  if (S.phase!=='playing' || S.clearing) return;
+  if (!S.plates.length){
+    newBoard();
+    addFx({ type:'toast', text:'새 오븐 판이 들어왔어요', t:0, life:1.4 });
+    return;
+  }
+  if (!exitReachable(2)) startClearing('dead');
+}
+/** 더 뺄 수 있는 철판이 없다 — 오븐이 기울며 남은 철판이 미끄러져 나가고(1초) 새 판이 들어온다 */
+function startClearing(why){
+  if (S.clearing || S.phase!=='playing') return;
+  S.drag=null; S.hintMove=null; S.hintStage=0;
+  S.clearing={ t:0, dur:1.0 };
+  SFX.slide();
+  addFx({ type:'toast', text: why==='idle' ? '오븐 판을 새로 바꿔요' : '이 판은 더 뺄 수 있는 철판이 없어요', t:0, life:1.9 });
+}
+function endGame(reason){
+  if (S.phase==='over') return;
+  S.phase='over'; S.over.reason=reason; S.drag=null; S.anim=null; S.clearing=null;
+  $('skipbtn').classList.add('hide');
+  SFX.over();
+  try{ if(S.outCount>S.best){ S.best=S.outCount; localStorage.setItem('cheolpan.best',String(S.best)); } }catch(e){}
+  document.getElementById('ovOut').textContent=S.outCount;
+  document.getElementById('ovCombo').textContent=S.bestCombo;
+  document.getElementById('ovScore').textContent=S.score;
+  document.getElementById('overtitle').textContent =
+    reason==='clear' ? `철판 ${GOAL}장을 다 뺐어요` : '오늘 오븐은 여기까지예요';
+  document.getElementById('overmsg').textContent =
+    reason==='tongs' ? '집게가 다 떨어졌어요. 먹 화살표가 그려진 두 변과 나란한 쪽으로 밀고, 그 두 변 사이의 거리와 같은 레일을 골라 보세요.'
+    : reason==='time' ? '시간이 끝났어요. 막힌 철판은 먼저 치우면 길이 열려요.'
+    : '평행한 두 레일 사이의 거리는 어디서 재도 같아요.';
+  document.getElementById('over').classList.remove('hide');
+  document.getElementById('helpbtn').classList.add('hide');
+}
+function addFx(o){
+  if (o.type==='toast') S.fx=S.fx.filter(f=>f.type!=='toast');   // 토스트는 겹쳐 쌓지 않는다
+  S.fx.push(o); if (S.fx.length>40) S.fx.splice(0,S.fx.length-40);
+}
+
+// ══════════ 입력 ══════════
+function evPos(e){ const r=cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+let pointerId=null;
+function onDown(e){
+  if (S.phase==='title'||S.phase==='over') return;
+  try{ if (cv.setPointerCapture && e.pointerId!=null) cv.setPointerCapture(e.pointerId); }catch(err){}
+  pointerId=e.pointerId;
+  const [sx,sy]=evPos(e);
+  S.moves++; S.lastInput=performance.now();
+  S.hintStage=0; S.hintMove=null; S.idleChecked=false;
+  const gx=ux(sx), gy=uy(sy);
+  if (S.anim || S.clearing) { S.ripples.push({x:sx,y:sy,t:0}); return; }
+  for (let i=S.plates.length-1;i>=0;i--){
+    const p=S.plates[i];
+    if (pointInPoly(gx,gy, plateWorld(p))){
+      S.drag={ p, sx, sy, x:sx, y:sy };
+      return;
+    }
+  }
+  S.ripples.push({x:sx,y:sy,t:0});
+  SFX.wall();
+  if (S.phase==='onboard') S.onboardBig=1.6;
+  else addFx({ type:'toast', text:'철판을 잡고 먹 화살표와 나란하게 밀어 보세요', t:0, life:1.3 });
+}
+/** 누른 곳에서 가장 가까운 변과, 그 변이 속한 평행한 변 쌍 */
+function nearestPair(p, gx, gy){
+  const poly=plateWorld(p); let best=0, bd=1e9;
+  for (let i=0;i<4;i++){
+    const [x1,y1]=poly[i], [x2,y2]=poly[(i+1)%4];
+    const dx=x2-x1, dy=y2-y1, L2=(dx*dx+dy*dy)||1;
+    const t=clamp(((gx-x1)*dx+(gy-y1)*dy)/L2,0,1);
+    const ex=x1+dx*t-gx, ey=y1+dy*t-gy, dd=ex*ex+ey*ey;
+    if (dd<bd){ bd=dd; best=i; }
+  }
+  return { edge:best, pr:platePairs(p).find(pr=>pr.edges.includes(best))||null };
+}
+function onMove(e){
+  if (!S.drag || pointerId!==e.pointerId) return;
+  const [x,y]=evPos(e);
+  S.drag.x=x; S.drag.y=y;
+}
+function onUp(e){
+  if (pointerId!==e.pointerId) return;
+  pointerId=null;
+  const d=S.drag; S.drag=null;
+  if (!d) return;
+  const dx=d.x-d.sx, dy=d.y-d.sy;
+  const dist=Math.hypot(dx,dy);
+  if (dist<14){
+    // 탭만 하면 밀리지 않는다 — 누른 곳에서 가까운 변의 평행한 짝과 그 사이 거리를 밝혀 준다
+    // (직사각형·평행사변형은 쌍이 둘이라 누른 자리에 따라 다른 쌍을 보여 준다)
+    const np=nearestPair(d.p, ux(d.sx), uy(d.sy));
+    addFx({ type:'showpair', p:d.p, pr:np.pr, edge:np.edge, t:0, life:1.5 });
+    SFX.wall();
+    return;
+  }
+  const deg=Math.atan2(dy,dx)/D2R;
+  doPush(d.p, deg);
+}
+cv.addEventListener('pointerdown', onDown, { passive:true });
+cv.addEventListener('pointermove', onMove, { passive:true });
+cv.addEventListener('pointerup', onUp, { passive:true });
+cv.addEventListener('pointercancel', ()=>{ S.drag=null; pointerId=null; }, { passive:true });
+
+// ══════════ 렌더 ══════════
+function mouthGeom(m){
+  const a=m.ang*D2R, vx=Math.cos(a), vy=Math.sin(a);
+  const nx=-Math.sin(a), ny=Math.cos(a);
+  return { vx, vy, nx, ny };
+}
+function bakeBoard(){
+  const key=`${S.boardNo}|${Math.round(S.drawW)}|${S.mouths.map(m=>m.id+m.ang+m.gap).join(',')}`;
+  if (key===boardKey && boardLayer) return;
+  boardKey=key;
+  const w=Math.max(2,Math.round(S.drawW)), h=Math.max(2,Math.round(S.drawH));
+  if (!boardLayer) boardLayer=document.createElement('canvas');
+  boardLayer.width=Math.round(w*DPR); boardLayer.height=Math.round(h*DPR);
+  const g=boardLayer.getContext('2d');
+  g.setTransform(DPR,0,0,DPR,0,0);
+  const C=S.cmPx, D=S.deck;
+  g.fillStyle=flourPat||'#E4E0D8'; g.fillRect(0,0,w,h);
+  const lit=g.createLinearGradient(0,0,0,h);
+  lit.addColorStop(0,'rgba(255,255,255,.28)');
+  lit.addColorStop(.62,'rgba(255,255,255,0)');
+  lit.addColorStop(1,'rgba(34,38,42,.14)');
+  g.fillStyle=lit; g.fillRect(0,0,w,h);
+  // 출구 레일 빗 — 한 벽 전체에 같은 간격의 평행한 레일이 깔린다
+  const BW=S.boardCm.w, BH=S.boardCm.h;
+  const strip=(side)=>{
+    if (side==='R') return { x:D.x+D.w, y:D.y-0.7, w:BW-(D.x+D.w), h:D.h+1.4 };
+    if (side==='L') return { x:0, y:D.y-0.7, w:D.x, h:D.h+1.4 };
+    if (side==='B') return { x:D.x-0.7, y:D.y+D.h, w:D.w+1.4, h:BH-(D.y+D.h) };
+    return { x:D.x-0.7, y:0, w:D.w+1.4, h:D.y };
+  };
+  for (const m of S.mouths){
+    const st=strip(m.side);
+    const a2=m.ang*D2R, vx=Math.cos(a2), vy=Math.sin(a2);
+    const nx=-Math.sin(a2), ny=Math.cos(a2);
+    const cx0=st.x+st.w/2, cy0=st.y+st.h/2;
+    g.save();
+    g.beginPath(); g.rect(st.x*C, st.y*C, st.w*C, st.h*C); g.clip();
+    g.fillStyle='rgba(34,38,42,.10)'; g.fillRect(st.x*C, st.y*C, st.w*C, st.h*C);
+    const span=Math.hypot(st.w,st.h)+m.gap*2;
+    const rw=Math.max(5, C*0.26);
+    for (let k=-Math.ceil(span/m.gap); k<=Math.ceil(span/m.gap); k++){
+      const ox=cx0+nx*k*m.gap, oy=cy0+ny*k*m.gap;
+      const ax=(ox-vx*span)*C, ay=(oy-vy*span)*C;
+      const bx=(ox+vx*span)*C, by=(oy+vy*span)*C;
+      g.strokeStyle='#22262A'; g.lineWidth=rw+3;
+      g.beginPath(); g.moveTo(ax,ay); g.lineTo(bx,by); g.stroke();
+      g.strokeStyle='#8A9098'; g.lineWidth=rw;
+      g.beginPath(); g.moveTo(ax,ay); g.lineTo(bx,by); g.stroke();
+      g.strokeStyle='rgba(255,255,255,.45)'; g.lineWidth=1.6;
+      g.beginPath(); g.moveTo(ax-nx*C*0.08, ay-ny*C*0.08); g.lineTo(bx-nx*C*0.08, by-ny*C*0.08); g.stroke();
+    }
+    // 간격 표시 자 (한 칸만)
+    const mx=cx0, my=cy0;
+    g.strokeStyle='#C43C2C'; g.lineWidth=3;
+    g.beginPath();
+    g.moveTo((mx-nx*m.gap/2)*C,(my-ny*m.gap/2)*C);
+    g.lineTo((mx+nx*m.gap/2)*C,(my+ny*m.gap/2)*C);
+    g.stroke();
+    g.font=`900 ${Math.max(12,C*0.62)}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+    g.textAlign='center'; g.textBaseline='middle';
+    g.strokeStyle='rgba(243,240,234,.96)'; g.lineWidth=Math.max(12,C*0.62)*0.3;
+    g.strokeText(`${m.gap} cm`, mx*C, my*C - C*0.1);
+    g.fillStyle='#22262A';
+    g.fillText(`${m.gap} cm`, mx*C, my*C - C*0.1);
+    g.textAlign='left'; g.textBaseline='alphabetic';
+    g.restore();
+  }
+  // 데크 (오븐 바닥)
+  g.fillStyle='rgba(34,38,42,.13)';
+  g.fillRect(D.x*C, D.y*C, D.w*C, D.h*C);
+  // 오븐 그을음
+  g.save();
+  g.beginPath(); g.rect(D.x*C, D.y*C, D.w*C, D.h*C); g.clip();
+  for (let i=0;i<5;i++){
+    g.globalAlpha=.05;
+    g.fillStyle='#22262A';
+    g.beginPath();
+    g.ellipse((D.x+rnd()*D.w)*C, (D.y+rnd()*D.h)*C, C*(1+rnd()*2), C*(0.6+rnd()*1.4), rnd()*TAU, 0, TAU);
+    g.fill();
+  }
+  g.globalAlpha=1;
+  g.restore();
+  // 벽 립: 출구가 없는 벽만 막혀 있다
+  const sides={ R:[[D.x+D.w,D.y],[D.x+D.w,D.y+D.h]], L:[[D.x,D.y],[D.x,D.y+D.h]],
+                T:[[D.x,D.y],[D.x+D.w,D.y]], B:[[D.x,D.y+D.h],[D.x+D.w,D.y+D.h]] };
+  for (const k of Object.keys(sides)){
+    const [A,B2]=sides[k];
+    const open=S.mouths.some(m=>m.side===k);
+    g.strokeStyle = open ? 'rgba(58,63,69,.35)' : '#3A3F45';
+    g.lineWidth = open ? Math.max(3,C*0.12) : Math.max(7,C*0.32);
+    if (open) g.setLineDash([C*0.4, C*0.3]);
+    g.beginPath(); g.moveTo(A[0]*C,A[1]*C); g.lineTo(B2[0]*C,B2[1]*C); g.stroke();
+    g.setLineDash([]);
+  }
+  // 밀가루 자국
+  g.globalAlpha=.5;
+  for (let i=0;i<5;i++){
+    g.fillStyle='rgba(255,255,255,.4)';
+    const rx=D.x*C+Math.random()*D.w*C, ry=D.y*C+Math.random()*D.h*C;
+    g.beginPath(); g.ellipse(rx,ry, C*(0.6+Math.random()), C*(0.3+Math.random()*0.5), Math.random()*TAU, 0, TAU); g.fill();
+  }
+  g.globalAlpha=1;
+  boardLayer._w=w; boardLayer._h=h;
+}
+
+function drawPlate(g,p,ox,oy,alpha,ghost){
+  const C=S.cmPx;
+  const poly=(ox!==undefined ? polyAt(p,ox,oy) : plateWorld(p)).map(([x,y])=>[px(x),py(y)]);
+  g.save();
+  if (alpha!==undefined) g.globalAlpha=alpha;
+  g.beginPath(); g.moveTo(poly[0][0],poly[0][1]);
+  for(let i=1;i<poly.length;i++) g.lineTo(poly[i][0],poly[i][1]);
+  g.closePath();
+  if (ghost){ g.setLineDash([6,5]); g.strokeStyle='rgba(34,38,42,.5)'; g.lineWidth=2; g.stroke(); g.restore(); return; }
+  g.fillStyle=tinPat||'#3A3F45'; g.fill();
+  if (p.jam){ g.fillStyle='rgba(196,60,44,.35)'; g.fill(); }
+  g.strokeStyle='#22262A'; g.lineWidth=2.4; g.stroke();
+  g.save(); g.clip();
+  g.strokeStyle='rgba(255,255,255,.30)'; g.lineWidth=3;
+  g.beginPath(); g.moveTo(poly[0][0],poly[0][1]); g.lineTo(poly[1][0],poly[1][1]); g.stroke();
+  g.strokeStyle='rgba(0,0,0,.35)'; g.lineWidth=3;
+  g.beginPath(); g.moveTo(poly[3][0],poly[3][1]); g.lineTo(poly[2][0],poly[2][1]); g.stroke();
+  g.restore();
+  // 평행한 쌍마다 먹 화살표 — 평행사변형·직사각형·정사각형은 두 쌍 모두에 그린다
+  g.strokeStyle='#E4E0D8'; g.lineWidth=Math.max(1.8,C*0.06);
+  const arrowEdges=[];
+  for (const pr of platePairs(p)){
+    const [e1,e2]=pr.edges;
+    arrowEdges.push([e1,(e1+1)%4], [(e2+1)%4,e2]);
+  }
+  for (const [i,j] of arrowEdges){
+    const ax=poly[i][0]+(poly[j][0]-poly[i][0])*.18, ay=poly[i][1]+(poly[j][1]-poly[i][1])*.18;
+    const bx=poly[i][0]+(poly[j][0]-poly[i][0])*.82, by=poly[i][1]+(poly[j][1]-poly[i][1])*.82;
+    g.beginPath(); g.moveTo(ax,ay); g.lineTo(bx,by); g.stroke();
+    const a=Math.atan2(by-ay,bx-ax), hl=Math.max(5,C*0.22);
+    g.beginPath();
+    g.moveTo(bx,by); g.lineTo(bx-hl*Math.cos(a-0.42), by-hl*Math.sin(a-0.42));
+    g.moveTo(bx,by); g.lineTo(bx-hl*Math.cos(a+0.42), by-hl*Math.sin(a+0.42));
+    g.stroke();
+  }
+  // 손잡이 홈
+  const cx=poly.reduce((s,q)=>s+q[0],0)/poly.length, cy=poly.reduce((s,q)=>s+q[1],0)/poly.length;
+  g.fillStyle='rgba(255,255,255,.16)';
+  g.beginPath(); g.arc(cx,cy,Math.max(4,C*0.22),0,TAU); g.fill();
+  g.strokeStyle='rgba(0,0,0,.4)'; g.lineWidth=1.6; g.stroke();
+  g.restore();
+}
+function drawPerpMark(g,x,y,angDeg,size,alpha){
+  g.save(); g.translate(x,y); g.rotate(angDeg*D2R);
+  g.strokeStyle=`rgba(34,38,42,${alpha})`; g.lineWidth=2.6;
+  g.beginPath(); g.moveTo(0,-size); g.lineTo(0,0); g.lineTo(size,0); g.stroke(); g.restore();
+}
+function label(text,x,y,size,color){
+  ctx.save();
+  ctx.font=`900 ${size}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+  ctx.textAlign='center';
+  ctx.strokeStyle='rgba(243,240,234,.96)'; ctx.lineWidth=size*.3; ctx.strokeText(text,x,y);
+  ctx.fillStyle=color||'#22262A'; ctx.fillText(text,x,y);
+  ctx.restore();
+}
+const fmt=(t)=>{ const s=Math.max(0,Math.ceil(t)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+function drawHud(){
+  const hud=56, x0=S.land?S.stageX:0, wid=S.land?S.stageW:W;
+  ctx.fillStyle='#3A3F45'; ctx.fillRect(x0,0,wid,hud);
+  ctx.fillStyle='rgba(255,255,255,.16)'; ctx.fillRect(x0,0,wid,3);
+  ctx.fillStyle='rgba(0,0,0,.34)'; ctx.fillRect(x0,hud-3,wid,3);
+  // 집게
+  for(let i=0;i<TONGS;i++){
+    const bx=x0+16+i*22, by=22, alive=i<S.tongs;
+    ctx.save(); ctx.translate(bx,by);
+    ctx.strokeStyle=alive?'#E4E0D8':'rgba(228,224,216,.18)'; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-5,-9); ctx.lineTo(0,4); ctx.lineTo(5,-9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,4); ctx.lineTo(0,11); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillStyle='#E4E0D8';
+  ctx.font='800 11px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.textAlign='left'; ctx.fillText('집게', x0+16, 48);
+  const cxm=x0+Math.max(112, Math.min(wid*0.40, wid-300));
+  ctx.textAlign='center';
+  ctx.font='900 22px ui-monospace,SFMono-Regular,Menlo,monospace';
+  ctx.fillStyle='#E4E0D8'; ctx.fillText(`${S.outCount} / ${GOAL}`, cxm, 27);
+  ctx.font='800 11px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.fillStyle='rgba(228,224,216,.78)'; ctx.fillText('뺀 철판', cxm, 43);
+  const tR=x0+wid-142;
+  ctx.textAlign='right';
+  ctx.font='900 19px ui-monospace,SFMono-Regular,Menlo,monospace';
+  ctx.fillStyle=S.timeLeft<15?'#E0604E':'#E4E0D8';
+  ctx.fillText(fmt(S.timeLeft), tR, 27);
+  ctx.font='800 11px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.fillStyle='rgba(228,224,216,.78)';
+  ctx.fillText(S.combo>1?`연속 ${S.combo}`:'남은 시간', tR, 43);
+  const gw=Math.max(40,Math.min(150,wid*0.24)), gx=tR-gw;
+  ctx.fillStyle='rgba(0,0,0,.34)'; ctx.fillRect(gx,48,gw,4);
+  ctx.fillStyle=S.timeLeft<15?'#C43C2C':'#8A9098';
+  ctx.fillRect(gx,48,gw*clamp(S.timeLeft/SESSION,0,1),4);
+  ctx.textAlign='left';
+}
+function drawBanner(){
+  if (!S.banner) return;
+  const x0=S.land?S.stageX+12:10, wid=S.land?Math.min(S.stageW-24,640):W-20, y=62;
+  ctx.save();
+  ctx.fillStyle='#E4E0D8'; ctx.fillRect(x0,y,wid,S.bannerSub?44:28);
+  ctx.fillStyle='#C43C2C'; ctx.fillRect(x0,y,6,S.bannerSub?44:28);
+  ctx.fillStyle='#22262A';
+  ctx.font='800 14px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+  ctx.fillText(S.banner, x0+14, y+19);
+  if (S.bannerSub){
+    ctx.fillStyle='rgba(34,38,42,.68)';
+    ctx.font='700 11.5px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText(S.bannerSub, x0+14, y+36);
+  }
+  ctx.restore();
+}
+/** 식힘 선반 칸 i 의 화면 위치·크기 (가로: 오른쪽 패널 4단×2칸 / 세로: 아래 패널 오른쪽 2단×4칸) */
+function rackSlot(i){
+  const P=S.panel;
+  if (S.land){
+    const top=P.y+52+S.mouths.length*58+34, bottom=P.y+P.h-58;
+    const rh=Math.max(34,(bottom-top)/4);
+    const r=Math.floor(i/2), c=i%2;
+    const s=Math.max(16, Math.min(rh-20, P.w*0.3));
+    return { x:P.x+P.w*(c?0.7:0.3), y:top+rh*r+rh/2-5, s, shelfY:top+rh*(r+1)-6, top };
+  }
+  const x0=P.x+P.w*0.60, w=P.w*0.40-12, top=P.y+30, h=P.h-64;
+  const cw=w/4, rh=h/2;
+  const r=Math.floor(i/4), c=i%4;
+  const s=Math.max(10, Math.min(cw-8, rh-12));
+  return { x:x0+cw*c+cw/2, y:top+rh*r+rh/2-3, s, shelfY:top+rh*(r+1)-3, top, x0, w };
+}
+function drawMini(g, f, cx, cy, size, rotDeg, alpha){
+  const sc=size/Math.max(f.len,f.sep), a=rotDeg*D2R, ca=Math.cos(a), sa=Math.sin(a);
+  g.save(); if (alpha!==undefined) g.globalAlpha=alpha;
+  g.beginPath();
+  f.verts.forEach(([vx,vy],i)=>{ const dx=(vx-f.len/2)*sc, dy=(vy-f.sep/2)*sc;
+    const X=cx+dx*ca-dy*sa, Y=cy+dx*sa+dy*ca; if (i) g.lineTo(X,Y); else g.moveTo(X,Y); });
+  g.closePath();
+  g.fillStyle='#565C63'; g.fill();
+  g.strokeStyle='rgba(228,224,216,.7)'; g.lineWidth=1.4; g.stroke();
+  g.restore();
+}
+function drawRack(){
+  const P=S.panel, F=(w,s)=>`${w} ${s}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+  const s0=rackSlot(0);
+  ctx.save();
+  ctx.fillStyle='rgba(228,224,216,.72)'; ctx.font=F(800, S.land?12:11);
+  ctx.textAlign=S.land?'center':'left';
+  ctx.fillText(`식힘 선반 · 뺀 철판 ${S.outCount}장`, S.land?P.x+P.w/2:s0.x0, S.land?s0.top-12:P.y+20);
+  const rows=S.land?4:2, perRow=S.land?2:4;
+  for (let r=0;r<rows;r++){
+    const sl=rackSlot(r*perRow);
+    const xa=S.land?P.x+22:sl.x0, xb=S.land?P.x+P.w-22:sl.x0+sl.w;
+    ctx.strokeStyle='#22262A'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.moveTo(xa,sl.shelfY+1); ctx.lineTo(xb,sl.shelfY+1); ctx.stroke();
+    ctx.strokeStyle='#8A9098'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(xa,sl.shelfY); ctx.lineTo(xb,sl.shelfY); ctx.stroke();
+    ctx.lineWidth=1.2; ctx.strokeStyle='rgba(138,144,152,.55)';
+    ctx.beginPath();
+    for (let x=xa+6;x<xb;x+=12){ ctx.moveTo(x,sl.shelfY); ctx.lineTo(x,sl.shelfY+6); }
+    ctx.stroke();
+  }
+  for (let i=0;i<GOAL;i++){
+    const sl=rackSlot(i);
+    if (S.rack[i]) drawMini(ctx, S.rack[i], sl.x, sl.y, sl.s, 0);
+    else {
+      ctx.strokeStyle='rgba(228,224,216,.16)'; ctx.lineWidth=1.2; ctx.setLineDash([4,4]);
+      ctx.strokeRect(sl.x-sl.s*0.4, sl.y-sl.s*0.3, sl.s*0.8, sl.s*0.6); ctx.setLineDash([]);
+    }
+  }
+  ctx.restore();
+}
+function drawPanel(){
+  const P=S.panel;
+  ctx.save();
+  ctx.fillStyle='#3A3F45'; ctx.fillRect(P.x,P.y,P.w,P.h);
+  ctx.fillStyle='rgba(255,255,255,.1)'; ctx.fillRect(P.x,P.y,P.w,3);
+  ctx.strokeStyle='#22262A'; ctx.lineWidth=2; ctx.strokeRect(P.x,P.y,P.w,P.h);
+  const F=(w,s)=>`${w} ${s}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+  // 주문표: 출구 레일 목록
+  const rows=S.mouths;
+  drawRack();
+  if (S.land){
+    ctx.textAlign='center';
+    ctx.fillStyle='rgba(228,224,216,.72)'; ctx.font=F(800,12);
+    ctx.fillText('오늘의 출구 레일', P.x+P.w/2, P.y+24);
+    let y=P.y+52;
+    for (const m of rows){
+      ctx.fillStyle='rgba(228,224,216,.10)';
+      ctx.fillRect(P.x+14, y-20, P.w-28, 46);
+      // 레일 두 줄 미니 그림
+      const mx=P.x+50, my=y+2, half=Math.min(16, m.gap*3.4);
+      ctx.strokeStyle='#8A9098'; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.moveTo(mx-20,my-half); ctx.lineTo(mx+20,my-half); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(mx-20,my+half); ctx.lineTo(mx+20,my+half); ctx.stroke();
+      ctx.strokeStyle='#C43C2C'; ctx.lineWidth=2.4;
+      ctx.beginPath(); ctx.moveTo(mx,my-half); ctx.lineTo(mx,my+half); ctx.stroke();
+      ctx.fillStyle='#E4E0D8'; ctx.font='900 17px ui-monospace,SFMono-Regular,Menlo,monospace';
+      ctx.textAlign='left';
+      ctx.fillText(`${m.gap} cm`, P.x+84, y+8);
+      ctx.fillStyle='rgba(228,224,216,.6)'; ctx.font=F(700,11.5);
+      ctx.fillText(`${SIDE_NAME[m.side]} 벽 · 레일 사이의 거리`, P.x+84, y+24);
+      ctx.textAlign='center';
+      y+=58;
+    }
+    ctx.fillStyle='rgba(228,224,216,.62)'; ctx.font=F(800,11.5);
+    ctx.fillText(`목표 · 철판 ${GOAL}장`, P.x+P.w/2, P.y+P.h-34);
+    ctx.fillText('철판을 밀어 같은 너비의 레일로', P.x+P.w/2, P.y+P.h-14);
+  } else {
+    ctx.textAlign='left';
+    ctx.fillStyle='rgba(228,224,216,.72)'; ctx.font=F(800,11.5);
+    ctx.fillText('오늘의 출구 레일', P.x+14, P.y+20);
+    let x=P.x+14;
+    for (const m of rows){
+      const cw=Math.min(112,(P.w*0.58-14)/rows.length);
+      ctx.fillStyle='rgba(228,224,216,.1)';
+      ctx.fillRect(x, P.y+30, cw-8, P.h-70);
+      const mx=x+(cw-8)/2, my=P.y+30+(P.h-70)/2, half=Math.min(20, m.gap*3.6), rw=Math.min(22,(cw-8)/2-4);
+      ctx.strokeStyle='#8A9098'; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.moveTo(mx-rw,my-half); ctx.lineTo(mx+rw,my-half); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(mx-rw,my+half); ctx.lineTo(mx+rw,my+half); ctx.stroke();
+      ctx.strokeStyle='#C43C2C'; ctx.lineWidth=2.4;
+      ctx.beginPath(); ctx.moveTo(mx,my-half); ctx.lineTo(mx,my+half); ctx.stroke();
+      ctx.fillStyle='#E4E0D8'; ctx.font='900 16px ui-monospace,SFMono-Regular,Menlo,monospace';
+      ctx.textAlign='center'; ctx.fillText(`${m.gap} cm`, mx, my+half+20);
+      ctx.textAlign='left';
+      x+=cw;
+    }
+    ctx.fillStyle='rgba(228,224,216,.62)'; ctx.font=F(800,11.5);
+    ctx.textAlign='right';
+    ctx.fillText(`목표 ${GOAL}장 · 철판을 밀어 같은 너비 레일로`, P.x+P.w-14, P.y+P.h-12);
+    ctx.textAlign='left';
+  }
+  ctx.restore();
+}
+
+function drawFx(dt){
+  for(let i=S.fx.length-1;i>=0;i--){
+    const f=S.fx[i]; f.t+=dt;
+    const k=f.t/f.life;
+    if (k>=1){ S.fx.splice(i,1); continue; }
+    ctx.save();
+    if (f.type==='perp'){
+      // 수선이 레일과 만나는 두 곳에 직각 표시(작은 초록 네모)
+      const m=f.m, { vx,vy,nx,ny }=mouthGeom(m);
+      ctx.globalAlpha=Math.min(1,(1-k)*2.2);
+      const A=[px(f.x+nx*m.gap/2), py(f.y+ny*m.gap/2)];
+      const B=[px(f.x-nx*m.gap/2), py(f.y-ny*m.gap/2)];
+      const s=S.cmPx*0.42;
+      drawRightSquare(ctx, A[0],A[1], vx,vy, -nx,-ny, s);
+      drawRightSquare(ctx, B[0],B[1], vx,vy, nx,ny, s);
+    } else if (f.type==='sweep'){
+      const [x0,y0]=f.from, [dx,dy]=f.dir, nx=-dy, ny=dx, h=f.sep/2, L=7.5;
+      const q=[[x0+nx*h,y0+ny*h],[x0+dx*L+nx*h,y0+dy*L+ny*h],[x0+dx*L-nx*h,y0+dy*L-ny*h],[x0-nx*h,y0-ny*h]]
+        .map(([x,y])=>[px(x),py(y)]);
+      const al=Math.min(1,(1-k)*1.5);
+      ctx.globalAlpha=al*0.5; ctx.fillStyle='#FFFFFF';
+      ctx.beginPath(); ctx.moveTo(q[0][0],q[0][1]); for (let i=1;i<4;i++) ctx.lineTo(q[i][0],q[i][1]); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha=al*0.8; ctx.strokeStyle='#A9A396'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(q[0][0],q[0][1]); ctx.lineTo(q[1][0],q[1][1]); ctx.moveTo(q[3][0],q[3][1]); ctx.lineTo(q[2][0],q[2][1]); ctx.stroke();
+    } else if (f.type==='intro'){
+      if (S.plates.includes(f.p)){
+        const on = f.t<1.8 ? (Math.sin(f.t*TAU/0.6-Math.PI/2)*.5+.5) : 1;
+        const fade=Math.min(1,(1-k)*4);
+        if (f.t>=1.6 && f.t<=2.3) railGlow(f.m, fade*0.9);
+        pairGlow(f.p, f.pr, fade*(0.2+0.8*on));
+      }
+    } else if (f.type==='whyrail'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      const ra=f.m.ang*D2R, ta=f.travel*D2R, L=S.cmPx*3;
+      const cx=px(f.x), cy=py(f.y);
+      if (f.t<1.2){
+        // 비교선: 레일 방향(쇠색 굵은 선) ↔ 철판이 들어온 방향(붉은 점선)
+        ctx.lineCap='round';
+        const seg=(a)=>{ ctx.beginPath(); ctx.moveTo(cx-Math.cos(a)*L, cy-Math.sin(a)*L); ctx.lineTo(cx+Math.cos(a)*L, cy+Math.sin(a)*L); ctx.stroke(); };
+        ctx.strokeStyle='#22262A'; ctx.lineWidth=9; seg(ra);
+        ctx.strokeStyle='#8A9098'; ctx.lineWidth=5; seg(ra);
+        ctx.strokeStyle='#C43C2C'; ctx.lineWidth=3.5; ctx.setLineDash([8,6]); seg(ta); ctx.setLineDash([]);
+      }
+      label(`레일과 ${Math.max(1,Math.round(f.d))}° 어긋나 있어요 — 나란하지 않아요`, lblX(cx), cy-S.cmPx*1.9, 12.5, '#94281C');
+    } else if (f.type==='measure'){
+      const m=f.m, { nx,ny }=mouthGeom(m);
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      const A=[px(f.x+nx*m.gap/2), py(f.y+ny*m.gap/2)];
+      const B=[px(f.x-nx*m.gap/2), py(f.y-ny*m.gap/2)];
+      ctx.strokeStyle='#C43C2C'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+      label(`${m.gap} cm`, (A[0]+B[0])/2, (A[1]+B[1])/2 - 12, Math.max(13,S.cmPx*0.66));
+    } else if (f.type==='why'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      label(f.msg, lblX(px(f.x)), py(f.y)-S.cmPx*1.6, 12.5, '#94281C');
+    } else if (f.type==='whygap'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      label(`레일은 ${f.gap} cm, 철판의 두 변 사이는 ${Number.isInteger(f.sep)?f.sep:'약 '+f.sep.toFixed(1)} cm예요`,
+            lblX(px(f.x)), py(f.y)-S.cmPx*1.8, 12.5, '#94281C');
+    } else if (f.type==='showpair'){
+      const p=f.p;
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      const poly=plateWorld(p).map(([x,y])=>[px(x),py(y)]);
+      const edgeLine=(i)=>{ const j=(i+1)%4; ctx.beginPath(); ctx.moveTo(poly[i][0],poly[i][1]); ctx.lineTo(poly[j][0],poly[j][1]); ctx.stroke(); };
+      if (f.pr){
+        ctx.strokeStyle='#2E6B5A'; ctx.lineWidth=5;
+        for (const i of f.pr.edges) edgeLine(i);
+        label(f.pr.whole ? `이 두 변이 평행해요 · 사이 ${f.pr.sep} cm` : '이 두 변이 평행해요',
+              lblX(px(p.x)), py(p.y)-S.cmPx*1.4, 12.5, '#2E6B5A');
+      } else {
+        ctx.strokeStyle='#94281C'; ctx.lineWidth=4; ctx.setLineDash([6,5]); edgeLine(f.edge); ctx.setLineDash([]);
+        label('이 변과 평행한 변은 없어요', lblX(px(p.x)), py(p.y)-S.cmPx*1.4, 12.5, '#94281C');
+      }
+    } else if (f.type==='toast'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2.4);
+      const bx=S.land?S.stageX+S.board.w/2+12:W/2, by=S.board.y+S.board.h-18;
+      ctx.font='800 14px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+      const tw=ctx.measureText(f.text).width+26;
+      ctx.fillStyle='#22262A'; ctx.fillRect(bx-tw/2, by-20, tw, 30);
+      ctx.fillStyle='#E4E0D8'; ctx.textAlign='center'; ctx.fillText(f.text, bx, by); ctx.textAlign='left';
+    }
+    ctx.restore();
+  }
+}
+function exitAnchor(m){
+  const D=S.deck;
+  if (m.side==='R') return [D.x+D.w+1.4, D.y+D.h/2];
+  if (m.side==='L') return [D.x-1.4, D.y+D.h/2];
+  if (m.side==='B') return [D.x+D.w/2, D.y+D.h+1.4];
+  return [D.x+D.w/2, D.y-1.4];
+}
+const lblX=(x)=>clamp(x, S.board.x+140, S.board.x+S.board.w-140);
+function drawRightSquare(g,x,y,ux0,uy0,wx,wy,s){
+  g.beginPath(); g.moveTo(x,y); g.lineTo(x+ux0*s,y+uy0*s); g.lineTo(x+ux0*s+wx*s,y+uy0*s+wy*s); g.lineTo(x+wx*s,y+wy*s); g.closePath();
+  g.fillStyle='rgba(46,107,90,.35)'; g.fill();
+  g.strokeStyle='#2E6B5A'; g.lineWidth=2.2; g.stroke();
+}
+/** 철판의 평행한 두 변을 초록으로 */
+function pairGlow(p, pr, alpha){
+  const poly=plateWorld(p).map(([x,y])=>[px(x),py(y)]);
+  ctx.save(); ctx.globalAlpha=clamp(alpha,0,1); ctx.lineCap='round';
+  for (const i of pr.edges){
+    const j=(i+1)%4;
+    for (const [c,w] of [['#E4E0D8',9],['#2E6B5A',5.5]]){
+      ctx.strokeStyle=c; ctx.lineWidth=w;
+      ctx.beginPath(); ctx.moveTo(poly[i][0],poly[i][1]); ctx.lineTo(poly[j][0],poly[j][1]); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+/** 출구 레일 빗을 같은 초록으로 */
+function railGlow(m, alpha){
+  const C=S.cmPx, st=stripOf(m.side);
+  const a=m.ang*D2R, vx=Math.cos(a), vy=Math.sin(a), nx=-vy, ny=vx;
+  const cx0=st.x+st.w/2, cy0=st.y+st.h/2, span=Math.hypot(st.w,st.h)+m.gap*2;
+  ctx.save(); ctx.globalAlpha=clamp(alpha,0,1);
+  ctx.beginPath(); ctx.rect(px(st.x),py(st.y),st.w*C,st.h*C); ctx.clip();
+  ctx.fillStyle='rgba(46,107,90,.18)'; ctx.fillRect(px(st.x),py(st.y),st.w*C,st.h*C);
+  ctx.strokeStyle='#2E6B5A'; ctx.lineWidth=Math.max(4,C*0.22);
+  const n=Math.ceil(span/m.gap);
+  for (let k=-n;k<=n;k++){
+    const ox=cx0+nx*k*m.gap, oy=cy0+ny*k*m.gap;
+    ctx.beginPath(); ctx.moveTo(px(ox-vx*span),py(oy-vy*span)); ctx.lineTo(px(ox+vx*span),py(oy+vy*span)); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawHint(){
+  if (S.phase==='onboard'){
+    // 연습 판: 레일이 0° 하나라 철판 중심 → 출구 가운데 선이 곧 레일 방향이다
+    const p=S.plates[0], m=S.mouths[0];
+    if (!p||!m||S.anim) return;
+    const big=S.onboardBig>0 ? 1.8 : 1;
+    const [ex,ey]=exitAnchor(m);
+    const t=(performance.now()%1400)/1400;
+    ctx.save();
+    ctx.strokeStyle='rgba(196,60,44,.9)'; ctx.lineWidth=3*big;
+    ctx.setLineDash([8*big,8*big]); ctx.lineDashOffset=-t*32*big;
+    ctx.beginPath(); ctx.moveTo(px(p.x),py(p.y)); ctx.lineTo(px(ex),py(ey)); ctx.stroke();
+    ctx.setLineDash([]);
+    const pulse=.5+.5*Math.sin(performance.now()/250);
+    ctx.strokeStyle=`rgba(196,60,44,${.5+.4*pulse})`; ctx.lineWidth=3*big;
+    ctx.beginPath(); ctx.arc(px(p.x),py(p.y), S.cmPx*(2.0+pulse*0.3)*(big>1?1.25:1), 0, TAU); ctx.stroke();
+    const hx=px(p.x)+(px(ex)-px(p.x))*t, hy=py(p.y)+(py(ey)-py(p.y))*t;
+    ctx.fillStyle='rgba(228,224,216,.96)';
+    ctx.beginPath(); ctx.arc(hx,hy,9*big,0,TAU); ctx.fill();
+    ctx.strokeStyle='#22262A'; ctx.lineWidth=2; ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  // 본판 힌트는 「실제로 빠지는 수」만 가리킨다 (출구 위치로 긋지 않는다)
+  if (S.phase!=='playing' || S.hintStage<1 || S.clearing || S.anim || S.drag) return;
+  const mv=S.hintMove;
+  if (!mv || !S.plates.includes(mv.p)) return;
+  const pulse=.5+.5*Math.sin(performance.now()/260);
+  railGlow(mv.r.mouth, .35+.35*pulse);
+  pairGlow(mv.p, mv.pr, .55+.45*pulse);
+  if (S.hintStage>=2){
+    const a=mv.deg*D2R, L=Math.max(mv.p.len,mv.p.sep)/2+2.4;
+    const x0=px(mv.p.x), y0=py(mv.p.y), x1=px(mv.p.x+Math.cos(a)*L), y1=py(mv.p.y+Math.sin(a)*L);
+    ctx.save(); ctx.lineCap='round';
+    ctx.strokeStyle='#E4E0D8'; ctx.lineWidth=8;
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+    ctx.strokeStyle='#2E6B5A'; ctx.lineWidth=4; ctx.setLineDash([9,7]); ctx.lineDashOffset=-(performance.now()/30)%16;
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke(); ctx.setLineDash([]);
+    const hl=Math.max(9,S.cmPx*0.55);
+    ctx.fillStyle='#2E6B5A';
+    ctx.beginPath(); ctx.moveTo(x1+Math.cos(a)*hl*0.6,y1+Math.sin(a)*hl*0.6);
+    ctx.lineTo(x1+Math.cos(a+2.5)*hl, y1+Math.sin(a+2.5)*hl); ctx.lineTo(x1+Math.cos(a-2.5)*hl, y1+Math.sin(a-2.5)*hl);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+}
+function drawTitleScene(t){
+  ctx.fillStyle=flourPat||'#E4E0D8'; ctx.fillRect(0,0,W,H);
+  const cyc=(t%3800)/3800;
+  ctx.save();
+  ctx.translate(W*0.5,H*0.58);
+  ctx.rotate(-0.22);
+  const u=Math.max(50,Math.min(W,H)*0.12);
+  // 레일 두 줄
+  ctx.strokeStyle='#22262A'; ctx.lineWidth=u*0.30+5;
+  for (const s of [-1,1]){
+    ctx.beginPath(); ctx.moveTo(-W, s*u*1.1); ctx.lineTo(W, s*u*1.1); ctx.stroke();
+  }
+  ctx.strokeStyle='#8A9098'; ctx.lineWidth=u*0.30;
+  for (const s of [-1,1]){
+    ctx.beginPath(); ctx.moveTo(-W, s*u*1.1); ctx.lineTo(W, s*u*1.1); ctx.stroke();
+  }
+  // 미끄러져 나오는 철판
+  const slide=REDUCED?0.6:Math.min(1,cyc*1.6);
+  const x=-u*3.0 + slide*u*4.4;
+  ctx.fillStyle='#3A3F45';
+  ctx.fillRect(x-u*1.5, -u*0.93, u*3.0, u*1.86);
+  ctx.strokeStyle='#22262A'; ctx.lineWidth=3;
+  ctx.strokeRect(x-u*1.5, -u*0.93, u*3.0, u*1.86);
+  ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=4;
+  ctx.beginPath(); ctx.moveTo(x-u*1.5,-u*0.93); ctx.lineTo(x+u*1.5,-u*0.93); ctx.stroke();
+  ctx.strokeStyle='#E4E0D8'; ctx.lineWidth=3;
+  for (const s of [-1,1]){
+    ctx.beginPath(); ctx.moveTo(x-u*1.1, s*u*0.75); ctx.lineTo(x+u*1.1, s*u*0.75); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x+u*1.1, s*u*0.75); ctx.lineTo(x+u*0.9, s*u*0.75-u*0.12);
+    ctx.moveTo(x+u*1.1, s*u*0.75); ctx.lineTo(x+u*0.9, s*u*0.75+u*0.12);
+    ctx.stroke();
+  }
+  ctx.restore();
+  const grad=ctx.createLinearGradient(0,H*0.42,0,H);
+  grad.addColorStop(0,'rgba(34,38,42,0)'); grad.addColorStop(1,'rgba(34,38,42,.5)');
+  ctx.fillStyle=grad; ctx.fillRect(0,H*0.42,W,H*0.58);
+}
+
+function render(dt){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if (S.phase==='title'){ drawTitleScene(performance.now()); return; }
+  if (W>S.stageW){
+    // 스테이지 밖: 밀가루 대리석을 옅게
+    ctx.fillStyle=flourPat||'#E4E0D8'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(34,38,42,.7)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#22262A'; ctx.fillRect(S.stageX,0,S.stageW,H);
+  } else { ctx.fillStyle='#22262A'; ctx.fillRect(0,0,W,H); }
+  ctx.save();
+  if (S.shake>0){ const m=S.shake*7; ctx.translate((Math.random()-.5)*m,(Math.random()-.5)*m); }
+  bakeBoard();
+  if (boardLayer) ctx.drawImage(boardLayer, S.ox, S.oy, boardLayer._w, boardLayer._h);
+
+  // 철판 (막힌 판을 비울 때는 오븐이 기울며 아래로 미끄러져 나간다)
+  const ck = S.clearing ? Math.min(1,S.clearing.t/S.clearing.dur) : 0;
+  for (const p of S.plates){
+    if (S.anim && S.anim.p===p) continue;
+    if (ck>0) drawPlate(ctx,p,p.x+ck*ck*1.5,p.y+ck*ck*10,1-ck);
+    else drawPlate(ctx,p);
+  }
+  // 미는 중 미리보기
+  if (S.drag){
+    const d=S.drag;
+    const dx=d.x-d.sx, dy=d.y-d.sy;
+    if (Math.hypot(dx,dy)>=14){
+      // ⚠ 미리보기에서 정오(빠지는가·끼는가)를 알려 주지 않는다. 미는 방향만 보여 준다.
+      //   (색으로 답을 알려 주면 「색만 따라 밀기」로 평행·거리 판단을 건너뛸 수 있다 — 하드 불변 3)
+      ctx.save();
+      ctx.strokeStyle='rgba(34,38,42,.55)';
+      ctx.lineWidth=4; ctx.setLineDash([7,6]);
+      ctx.beginPath(); ctx.moveTo(px(d.p.x),py(d.p.y)); ctx.lineTo(d.x,d.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
+  // 빠져나가는/끼는 애니메이션
+  if (S.anim){
+    const a=S.anim; a.t+=dt;
+    const k=Math.min(1,a.t/a.dur);
+    if (a.kind==='out'){
+      const dist=7.5*k;
+      drawPlate(ctx, a.p, a.from[0]+a.dir[0]*dist, a.from[1]+a.dir[1]*dist, 1-k*0.7);
+    } else {
+      // 립까지 미끄러져 부딪힘(55%) → 잠깐 박힘 → 제자리로
+      const f = k<.55 ? 1-Math.pow(1-k/.55,2) : k<.78 ? 1 : 1-(k-.78)/.22;
+      drawPlate(ctx, a.p, a.from[0]+(a.to[0]-a.from[0])*f, a.from[1]+(a.to[1]-a.from[1])*f, 1);
+      if (!a.hit && k>=.55) animImpact(a);
+    }
+    if (S.anim===a && k>=1) finishAnim();
+  }
+  // 밀가루 구름
+  for (let i=S.puffs.length-1;i>=0;i--){
+    const u=S.puffs[i]; u.t+=dt;
+    if (u.t>=u.life){ S.puffs.splice(i,1); continue; }
+    const q=u.t/u.life;
+    u.x+=u.vx*dt; u.y+=u.vy*dt; u.vx*=.9; u.vy*=.9;
+    ctx.globalAlpha=(1-q)*.75; ctx.fillStyle='#F3F0EA';
+    ctx.beginPath(); ctx.arc(px(u.x),py(u.y),(u.r+q*.5)*S.cmPx,0,TAU); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  drawFx(dt);
+  drawHint();
+  // 리플
+  for(let i=S.ripples.length-1;i>=0;i--){
+    const r=S.ripples[i]; r.t+=dt;
+    if (r.t>.42){ S.ripples.splice(i,1); continue; }
+    const k=r.t/.42;
+    ctx.save(); ctx.globalAlpha=(1-k)*.45;
+    ctx.strokeStyle='#22262A'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(r.x,r.y,8+k*26,0,TAU); ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
+  drawPanel();
+  drawHud();
+  // 잃은 집게: HUD 자리에서 붉은 고리가 번지며 꺼진다(바닥으로 떨어뜨리지 않는다)
+  for(let i=S.tongFalls.length-1;i>=0;i--){
+    const n=S.tongFalls[i]; n.t+=dt;
+    if (n.t>0.9){ S.tongFalls.splice(i,1); continue; }
+    const q=n.t/0.9, x0=(S.land?S.stageX:0)+16+n.idx*22;
+    ctx.save(); ctx.globalAlpha=1-q;
+    ctx.strokeStyle='#E0604E'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(x0,22,10+q*18,0,TAU); ctx.stroke();
+    ctx.restore();
+  }
+  drawBanner();
+  // 식힘 선반으로 옮겨지는 철판
+  for (let i=S.flyers.length-1;i>=0;i--){
+    const f=S.flyers[i]; f.t+=dt;
+    const q=Math.min(1,f.t/.6), e=1-Math.pow(1-q,3), sl=rackSlot(f.slot);
+    drawMini(ctx, f, f.x+(sl.x-f.x)*e, f.y+(sl.y-f.y)*e-Math.sin(q*Math.PI)*36, f.size0+(sl.s-f.size0)*e, f.rot*(1-e));
+    if (q>=1){ S.rack[f.slot]=f; S.flyers.splice(i,1); }
+  }
+}
+
+let last=performance.now();
+function frame(now){
+  let dt=Math.min(0.05,(now-last)/1000); last=now;
+  if (S.hitstop>0){ S.hitstop-=dt; dt=0; }
+  if (S.shake>0) S.shake=Math.max(0,S.shake-dt*2.2);
+  if (S.onboardBig>0) S.onboardBig-=dt;
+  if (S.clearing && S.phase==='playing'){
+    S.clearing.t+=dt;
+    if (S.clearing.t>=S.clearing.dur){
+      S.clearing=null; S.lastInput=now;
+      newBoard();
+      addFx({ type:'toast', text:'새 오븐 판이 들어왔어요', t:0, life:1.4 });
+    }
+  } else if (S.phase==='playing' && !S.frozen){
+    S.timeLeft-=dt;
+    if (S.timeLeft<=0){ S.timeLeft=0; endGame('time'); }
+    else if (!S.anim && !S.drag){
+      // 판 교체는 시간이 아니라 도달 가능성으로 정한다(afterMove → exitReachable).
+      // 여기서는 망설이는 학생만 돕는다: 12초 — 빠지는 철판의 평행한 두 변 ↔ 그와 나란한 레일 빗,
+      // 18초 — 그 쌍 방향 화살표. 힌트만 기다려서는 90초에 8장을 못 채우도록 늦게 뜬다.
+      const idle=now-S.lastInput;
+      const stage= idle>18000 ? 2 : idle>12000 ? 1 : 0;
+      if (stage>0 && S.hintStage===0){
+        S.hintMove=findOutMove();
+        if (!S.hintMove) addFx({ type:'toast', text:'앞을 막은 철판을 먼저 옮겨 보세요', t:0, life:2.4 });
+      }
+      S.hintStage=stage;
+      // 안전장치: 철판을 누르지도 않은 채 25초가 지났는데 지금 바로 빠지는 철판이 없으면 판을 바꾼다
+      if (idle>25000 && !S.idleChecked){ S.idleChecked=true; if (!findOutMove()) startClearing('idle'); }
+    }
+  }
+  if (S.phase==='onboard'){
+    S.onboardT+=dt;
+    if (S.onboardT>14) S.bannerSub='철판을 오른쪽 레일 쪽으로 끌어 보세요';
+    // 14초·24초에 손가락 경로를 크게 다시 보여 준다. 연습은 저절로 넘어가지 않는다 —
+    // 24초가 지나면 「연습 건너뛰기」가 나오고, 도움말을 닫은 뒤에만 본판으로 간다.
+    for (const at of [14,24]) if (S.onboardT-dt<at && S.onboardT>=at) S.onboardBig=2.6;
+    if (S.onboardT>=24 && !S.skipReady){ S.skipReady=true; $('skipbtn').classList.remove('hide'); }
+  }
+  render(dt);
+  requestAnimationFrame(frame);
+}
+
+const $=(id)=>document.getElementById(id);
+function showTitle(){
+  S.phase='title';
+  $('title').classList.remove('hide'); $('over').classList.add('hide');
+  $('helpbtn').classList.add('hide');
+  $('bestline').textContent=`최고 ${S.best}장`;
+}
+function beginRun(skip){
+  $('title').classList.add('hide'); $('over').classList.add('hide'); $('help').classList.add('hide');
+  $('helpbtn').classList.remove('hide');
+  S.tongs=TONGS; S.outCount=0; S.score=0; S.combo=0; S.bestCombo=0;
+  S.timeLeft=SESSION; S.attempts=0; S.popped=0; S.jams=0;
+  S.fx.length=0; S.ripples.length=0; S.tongFalls.length=0;
+  S.drag=null; S.anim=null; S.frozen=false; S.lastInput=performance.now();
+  S.rack=[]; S.flyers=[]; S.puffs.length=0; S.clearing=null; S.runBoards=0;
+  S.hintMove=null; S.hintStage=0; S.idleChecked=false; S.onboardBig=0; S.skipReady=false; S.skipPending=false;
+  $('skipbtn').classList.add('hide');
+  let seen=false; try{ seen=localStorage.getItem('cheolpan.seen')==='1'; }catch(e){}
+  if (skip||seen){ S.phase='playing'; newBoard(); }
+  else { try{ localStorage.setItem('cheolpan.seen','1'); }catch(e){} startOnboard(); }
+}
+$('startbtn').addEventListener('click', ()=>{ audio(); beginRun(false); });
+$('againbtn').addEventListener('click', ()=>{ audio(); beginRun(true); });
+$('howbtn').addEventListener('click', ()=>$('help').classList.remove('hide'));
+$('helpbtn').addEventListener('click', ()=>$('help').classList.remove('hide'));
+$('helpclose').addEventListener('click', ()=>{
+  $('help').classList.add('hide');
+  if (S.phase!=='onboard') return;
+  if (S.skipPending) return enterPlay();
+  // 도움말을 한 번 읽었으면 연습을 건너뛸 수 있다
+  if (!S.skipReady){ S.skipReady=true; $('skipbtn').classList.remove('hide'); }
+});
+$('skipbtn').addEventListener('click', ()=>{
+  if (S.phase!=='onboard') return;
+  // 넘김은 도움말을 닫은 뒤에만 — 규칙을 한 번 보고 본판으로 간다
+  S.skipPending=true;
+  $('help').classList.remove('hide');
+});
+$('mute').addEventListener('click', ()=>{
+  muted=!muted; $('mute').textContent=muted?'✕':'♪';
+  $('mute').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
+});
+addEventListener('resize', layout);
+addEventListener('orientationchange', ()=>setTimeout(layout,120));
+
+// ══════════ 문제 표본 ══════════
+// 배치 판정 문항은 게임이 쓰는 classifyPush() 로 정답을 낸다.
+const OUT4=['레일로 빠져나간다','평행한 변과 나란하지 않아 모서리가 박힌다',
+            '레일 너비가 달라 레일에 낀다','다른 철판에 막혀 멈춘다'];
+function pushOutcome(mouthAng, gap, plate, dragDeg){
+  const saveM=S.mouths, saveP=S.plates, saveD=S.deck;
+  S.deck={ x:3.4, y:3.4, w:17.2, h:17.2 };
+  S.mouths=[{ id:'t', side:'R', ang:(mouthAng+360)%360, gap }];
+  plate.x=S.deck.x+4; plate.y=S.deck.y+S.deck.h/2;
+  S.plates=[plate];
+  const r=classifyPush(plate, dragDeg);
+  S.mouths=saveM; S.plates=saveP; S.deck=saveD;
+  if (r.kind==='out') return 1;
+  if (r.kind==='skew') return 2;
+  if (r.kind==='jam') return 3;
+  if (r.kind==='block') return 4;
+  return 0;   // 'wall' — 선택지 4개로 참인 문장을 만들 수 없다. 이 문항은 버린다
+}
+function buildPool(){
+  const pool=[];
+  const ANGS=[14,18,22,26,32,-14,-18,-22,-26,-32];
+  for (const a of ANGS) for (const gap of [3,4,5]){
+    // 방향각(328° 같은 방위각식 표기)은 4학년 교과서에 없다 — 기준선(가로선)과 이루는 예각으로 쓴다.
+    // 위·아래로 기울어진 두 경우는 같은 문장이 된다. 판정이 상대각에만 달려 답이 같아야 하고,
+    // 만약 다르면 아래 중복 제거에서 그 문항을 버린다.
+    const tilt=Math.abs(a);
+    // railGap 을 생략하면 이 루프의 gap 을 쓴다. 발문에 다른 레일 너비를 적을 때는
+    // 반드시 같은 값을 railGap 으로 넘겨라 — 문장과 판정이 어긋나면 오답을 가르친다.
+    const add=(prompt, plate, drag, concept, mis, railGap)=>{
+      const n=pushOutcome(a, railGap===undefined?gap:railGap, plate, drag);
+      if (!n) return;
+      pool.push({ prompt, choices:OUT4.slice(), answer:OUT4[n-1], answerNumeric:n, unitConcept:concept, mis });
+    };
+    // 1) 평행한 변과 나란히 밀고 너비도 같다
+    add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap} cm입니다. 평행한 두 변 사이가 ${gap} cm인 직사각형 철판을 그 두 변과 나란한 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+        Object.assign(makePlate('rect',5,gap),{rot:a}), a, '평행선 사이의 거리', ['M2-빗금길이로잼']);
+    // 2) 나란하지만 너비가 다르다
+    add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap} cm입니다. 평행한 두 변 사이가 ${gap+1} cm인 직사각형 철판을 그 두 변과 나란한 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+        Object.assign(makePlate('rect',5,gap+1),{rot:a}), a, '평행선 사이의 거리', ['M2-빗금길이로잼']);
+    // 3) 평행하지 않은 쪽으로 민다
+    for (const e of [25,40]){
+      add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap} cm입니다. 평행한 두 변 사이가 ${gap} cm인 직사각형 철판을 그 두 변과 ${e}° 어긋난 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+          Object.assign(makePlate('rect',5,gap),{rot:a}), a+e, '평행과 평행선', ['M1-화면축추종']);
+    }
+    // 4) 사다리꼴은 평행한 한 쌍으로만 밀린다
+    add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap} cm입니다. 평행한 두 변 사이가 ${gap} cm인 사다리꼴 철판을 그 두 변과 나란한 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+        Object.assign(makePlate('trap',5,gap),{rot:a}), a, '사다리꼴', ['M3-배타분류']);
+    add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap} cm입니다. 평행한 두 변 사이가 ${gap} cm인 사다리꼴 철판을 그 두 변과 70° 어긋난 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+        Object.assign(makePlate('trap',5,gap),{rot:a}), a+70, '사다리꼴', ['M3-배타분류']);
+    // 5) 평행사변형·정사각형도 판에 나온다 — 실제 판 판정을 표본에 싣는다
+    add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap} cm입니다. 평행한 두 변 사이가 ${gap} cm인 평행사변형 철판을 그 두 변과 나란한 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+        Object.assign(makePlate('para',5,gap),{rot:a}), a, '평행사변형', ['M3-배타분류']);
+    add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap+1} cm입니다. 평행한 두 변 사이가 ${gap} cm인 평행사변형 철판을 그 두 변과 나란한 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+        Object.assign(makePlate('para',5,gap),{rot:a}), a, '평행선 사이의 거리', ['M2-빗금길이로잼'], gap+1);
+    add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap} cm입니다. 한 변의 길이가 ${gap} cm인 정사각형 철판을 마주 보는 두 변과 나란한 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+        Object.assign(makePlate('square',gap,gap),{rot:a}), a, '정사각형', ['M3-배타분류']);
+    add(`출구 레일이 가로선과 ${tilt}° 기울어져 있고 레일 두 줄 사이의 거리는 ${gap} cm입니다. 한 변의 길이가 ${gap} cm인 정사각형 철판을 마주 보는 두 변과 40° 어긋난 쪽으로 밀면 어떻게 되는지 구해 보세요.`,
+        Object.assign(makePlate('square',gap,gap),{rot:a}), a+40, '평행과 평행선', ['M1-화면축추종']);
+  }
+  // 개념 문항
+  // 한 직선에 수직인 두 직선은 서로 평행하다 (4학년 차시2 범위)
+  for (const d of [3,4,5,6,7,8]){
+    pool.push({ prompt:`직선 ㄱㄴ에 수직인 직선 ㄷㄹ과 직선 ㅁㅂ이 ${d} cm 떨어져 있습니다. 직선 ㄷㄹ과 직선 ㅁㅂ은 서로 어떤 관계인지 써 보세요.`,
+      choices:['평행하다','수직이다','한 점에서 만난다','알 수 없다'],
+      answer:'평행하다', answerNumeric:null, unitConcept:'평행과 평행선', mis:['M1-화면축추종'] });
+    pool.push({ prompt:`직선 ㄱㄴ에 수직인 두 직선 사이의 거리가 ${d} cm입니다. 두 직선 사이의 거리를 다른 곳에서 재면 몇 cm인지 구해 보세요.`,
+      choices:[...new Set([`${d} cm`, `${d+1} cm`, `${d-1} cm`, `${d+2} cm`])],
+      answer:`${d} cm`, answerNumeric:d, unitConcept:'평행선 사이의 거리', mis:['M2-빗금길이로잼'] });
+  }
+
+  for (const a of [15,20,25,30,35,40,50,55,65,70]){
+    const ch=[...new Set([`${90-a}°`, `${a}°`, `${90+a}°`, `${180-a}°`])];
+    if (ch.length>=3)
+      pool.push({ prompt:`직선 ㄱㄴ과 직선 ㄷㄹ이 이루는 각이 ${a}°입니다. 두 직선이 서로 수직이 되려면 이 각이 몇 도 더 커져야 하는지 구해 보세요.`,
+        choices:ch, answer:`${90-a}°`, answerNumeric:90-a, unitConcept:'수직과 수선', mis:['M1-화면축추종'] });
+  }
+  for (const d of [3,4,5,6]) for (const l of [5,6,7,8]){
+    if (l<=d) continue;
+    const ch=[...new Set([`${d} cm`, `${l} cm`, `${d+1} cm`, `${l-d} cm`])];
+    if (ch.length>=3)
+      pool.push({ prompt:`평행한 두 레일에 수직인 선분의 길이가 ${d} cm이고, 두 레일을 비스듬히 이은 선분의 길이가 ${l} cm입니다. 두 레일 사이의 거리는 몇 cm인지 구해 보세요.`,
+        choices:ch, answer:`${d} cm`, answerNumeric:d, unitConcept:'평행선 사이의 거리', mis:['M2-빗금길이로잼'] });
+  }
+  for (const d of [3,4,5]) for (const o of [4,6,8]){
+    if (o<=d) continue;
+    const ch=[...new Set([`${d} cm`, `${o} cm`, `${d+1} cm`, `${d+2} cm`])];
+    if (ch.length>=3)
+      pool.push({ prompt:`두 레일 사이의 거리가 ${d} cm인 출구가 있고, 두 레일을 비스듬히 이은 선분은 ${o} cm입니다. 평행한 두 변 사이의 거리가 몇 cm인 철판을 골라야 하는지 구해 보세요.`,
+        choices:ch, answer:`${d} cm`, answerNumeric:d, unitConcept:'평행선 사이의 거리', mis:['M2-빗금길이로잼'] });
+  }
+  for (const a of [20,28,34,44,52]) for (const e of [10,15,20,25]){
+    pool.push({ prompt:`하은이는 가로선과 ${a}° 기울어진 레일에 철판의 평행한 두 변을 같은 쪽으로 가로선과 ${a+e}°가 되게 맞추어 밀었습니다. 철판의 두 변이 레일과 몇 도 어긋났는지 구해 보세요.`,
+      choices:[...new Set([`${e}°`, `${a}°`, `${a+e}°`, `${90-e}°`])],
+      answer:`${e}°`, answerNumeric:e, unitConcept:'평행과 평행선', mis:['M1-화면축추종'] });
+  }
+  const CLS=[
+    { p:'평행한 변이 한 쌍이라도 있는 사각형을 무엇이라고 하는지 써 보세요.', a:'사다리꼴',
+      // 오답 선택지는 「평행한 변이 한 쌍이라도 있는」 조건을 만족하지 않는 것만 둔다
+      // (평행사변형·마름모·직사각형을 오답으로 두면 「그것들은 이 조건에 안 맞는다」로 읽힌다 — 포함 관계)
+      c:['사다리꼴','평행한 변이 없는 사각형','삼각형','오각형'], u:'사각형의 분류' },
+    // 「사다리꼴」은 이 사각형의 상위 이름이라 정답이 둘이 된다 — 선택지에서 뺐다(포함 관계).
+    // 「한 쌍만 있는 사다리꼴」 같은 좁힌 정의 문구는 쓰지 않는다.
+    { p:'마주 보는 두 쌍의 변이 각각 평행한 사각형을 무엇이라고 하는지 써 보세요.', a:'평행사변형',
+      c:['평행사변형','사다리꼴이지만 평행사변형은 아닌 사각형','평행한 변이 없는 사각형','삼각형'], u:'사각형의 분류' },
+    { p:'평행사변형 모양의 철판에서 서로 평행한 변은 몇 쌍인지 구해 보세요.', a:'2쌍',
+      c:['2쌍','1쌍','0쌍','4쌍'], u:'평행사변형' },
+    { p:'평행사변형 모양의 철판에서 마주 보는 두 쌍의 변은 각각 어떠한지 써 보세요.',
+      a:'두 쌍 모두 평행하다', c:['두 쌍 모두 평행하다','한 쌍만 평행하다','두 쌍 모두 수직이다','평행한 쌍이 없다'], u:'평행사변형' },
+    { p:'두 직선이 만나서 이루는 각이 직각일 때 두 직선의 관계를 무엇이라고 하는지 써 보세요.', a:'수직',
+      c:['수직','평행','수선','대각선'], u:'수직과 수선' },
+    { p:'두 직선이 서로 수직일 때 한 직선을 다른 직선에 대한 무엇이라고 하는지 써 보세요.', a:'수선',
+      c:['수선','평행선','대각선','밑변'], u:'수직과 수선' },
+    { p:'평행한 변이 한 쌍이라도 있으면 사다리꼴입니다. 정사각형을 사다리꼴이라고 할 수 있는지 써 보세요.',
+      a:'할 수 있다', c:['할 수 있다','할 수 없다','두 쌍이 평행할 때만 된다','네 변이 같을 때만 된다'], u:'사각형의 분류' },
+    { p:'평행한 변이 한 쌍이라도 있으면 사다리꼴입니다. 평행사변형을 사다리꼴이라고 할 수 있는지 써 보세요.',
+      a:'할 수 있다', c:['할 수 있다','할 수 없다','두 쌍이 평행할 때만 된다','네 변이 같을 때만 된다'], u:'사각형의 분류' },
+    { p:'평행한 두 레일 사이의 거리를 재는 선분은 두 레일과 어떤 관계인지 써 보세요.', a:'수직',
+      c:['수직','평행','비스듬함','같은 방향'], u:'평행선 사이의 거리' },
+    { p:'평행한 두 레일 사이의 거리를 서로 다른 두 곳에서 재면 어떠한지 써 보세요.', a:'항상 같다',
+      c:['항상 같다','잰 곳마다 다르다','한쪽이 더 길다','잴 수 없다'], u:'평행선 사이의 거리' },
+    { p:'아무리 늘여도 만나지 않는 한 평면 위의 두 직선은 서로 어떠하다고 하는지 써 보세요.', a:'평행하다',
+      c:['평행하다','수직이다','수선이다','대각선이다'], u:'평행과 평행선' }
+  ];
+  for (const c of CLS) pool.push({ prompt:c.p, choices:c.c, answer:c.a, answerNumeric:null, unitConcept:c.u, mis:['M3-배타분류'] });
+  const seen=new Map(), out=[];
+  for (const q of pool){
+    const prev=seen.get(q.prompt);
+    if (prev){ if (prev.answer!==q.answer) prev.conflict=true; continue; }   // 같은 문장인데 답이 다르면 버린다
+    seen.set(q.prompt,q); out.push(q);
+  }
+  const kept=out.filter(q=>!q.conflict);
+  buildPool.conflicts=out.length-kept.length;
+  return kept;
+}
+let POOL=null, sseed=20260911;
+function sampleProblems(n){
+  if (!POOL) POOL=buildPool();
+  n=Math.max(1,Math.min(400,Math.floor(Number(n)||20)));
+  const r=makeRng(sseed=(sseed*1103515245+12345)>>>0);
+  const idx=POOL.map((_,i)=>i);
+  for(let i=idx.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+  const out=[];
+  for(let i=0;i<n;i++){
+    const q=POOL[idx[i%idx.length]];
+    out.push({ id:'cp-'+(i+1),
+      prompt: i<idx.length ? q.prompt : `${q.prompt} (${Math.floor(i/idx.length)+1}번째 오븐 판)`,
+      choices:q.choices.slice(), answer:q.answer, answerNumeric:q.answerNumeric,
+      unitConcept:q.unitConcept, misconceptionIds:q.mis });
+  }
+  return out;
+}
+
+// ══════════ 테스트 훅 ══════════
+window.__GAME_TEST__={
+  ready:false,
+  start(){ beginRun(true); },
+  getState(){
+    return { score:S.score, lives:S.tongs, level:S.band, phase:S.phase, solved:S.outCount,
+             moves:S.moves, attempts:S.attempts, popped:S.popped, jams:S.jams,
+             combo:S.combo, timeLeft:Math.round(S.timeLeft), plates:S.plates.length };
+  },
+  answerCorrect(){
+    if (S.phase!=='playing' && S.phase!=='onboard') beginRun(true);
+    for (const p of S.plates){
+      for (const pr of platePairs(p)){
+        const m=S.mouths.find(x=>x.gap===pr.sep);
+        if (!m) continue;
+        // 정답 경로를 그대로 실행 (판정 함수를 건너뛰지 않는다)
+        p.rot=(m.ang-pr.off+360)%360;
+        const [ex,ey]=exitAnchor(m);
+        const a=m.ang*D2R;
+        p.x=ex-Math.cos(a)*3.0; p.y=ey-Math.sin(a)*3.0;
+        S.plates=S.plates.filter(q=>q===p || !polyHit(plateWorld(p), plateWorld(q)));
+        S.attempts++;
+        const r=classifyPush(p, m.ang);
+        if (r.kind==='out'){ S.anim={ p, from:[p.x,p.y], dir:r.dir, t:0, dur:.01, mouth:r.mouth, sep:r.sep, kind:'out' }; finishAnim(); return true; }
+      }
+    }
+    S.score+=140; S.outCount++; S.popped++;
+    return true;
+  },
+  answerWrong(){
+    if (S.phase!=='playing' && S.phase!=='onboard') beginRun(true);
+    const p=S.plates[0];
+    if (p){ S.attempts++; doPush(p, p.rot+45); }
+    else { S.tongs=Math.max(0,S.tongs-1); S.combo=0; S.jams++; if (S.tongs<=0) endGame('tongs'); }
+    return true;
+  },
+  sampleProblems,
+  getLayout(){ return { land:S.land, playW:S.land?Math.round(S.board.w):Math.round(W) }; },
+  __bot:{
+    stats(){ return { attempts:S.attempts, popped:S.popped, jams:S.jams, out:S.outCount,
+                      phase:S.phase, tongs:S.tongs, timeLeft:Math.round(S.timeLeft),
+                      plates:S.plates.length, animating:!!S.anim, clearing:!!S.clearing, boardNo:S.boardNo }; },
+    reset(){ beginRun(true); },
+    boardRect(){ return { x:S.ox+S.deck.x*S.cmPx, y:S.oy+S.deck.y*S.cmPx, w:S.deck.w*S.cmPx, h:S.deck.h*S.cmPx }; },
+    plates(){ return S.plates.map(p=>({ x:px(p.x), y:py(p.y), sep:p.sep, len:p.len, rot:p.rot, kind:p.kind })); },
+    /** 정상 경로 검증용: 지금 통하는 한 수(철판 중심 → 미는 끝점) */
+    /** 검증용: 철판마다 먹 화살표 방향(평행한 변 쌍 × 두 방향)과 그 판정 */
+    moves(){
+      const a=[];
+      for (const p of S.plates) for (const { deg } of pairDirs(p)){
+        const r=classifyPush(p,deg);
+        a.push({ x:px(p.x), y:py(p.y), deg, kind:r.kind, sig:`${p.kind}|${p.sep}|${p.len}|${p.rot}` });
+      }
+      return a;
+    },
+    /** 검증용: 지금 떠 있는 힌트 (단계, 가리키는 수) */
+    hint(){
+      const mv=S.hintMove;
+      return { stage:S.hintStage, move: mv && S.plates.includes(mv.p) ? { x:px(mv.p.x), y:py(mv.p.y), deg:mv.deg } : null };
+    },
+    plan(){
+      if (S.phase!=='playing' || S.anim || S.clearing) return null;
+      const toPlan=(p,deg,extra)=>{ const a=deg*D2R;
+        return Object.assign({ x:px(p.x), y:py(p.y), x2:px(p.x)+Math.cos(a)*60, y2:py(p.y)+Math.sin(a)*60 }, extra||{}); };
+      const mv=findOutMove();
+      if (mv) return toPlan(mv.p, mv.deg);
+      // 빠질 수 있는 수가 없으면 「옮긴 뒤 빠지는 수가 생기는」 무비용 이동을 고른다
+      const fm=freeMoves();
+      for (const f of fm){
+        const sx=f.p.x, sy=f.p.y; f.p.x=f.x; f.p.y=f.y;
+        const ok=exitReachable(1);
+        f.p.x=sx; f.p.y=sy;
+        if (ok) return toPlan(f.p, f.deg, { shuffle:true });
+      }
+      return fm.length ? toPlan(fm[0].p, fm[0].deg, { shuffle:true }) : null;
+    }
+  }
+};
+
+layout();
+bakePatterns();
+showTitle();
+requestAnimationFrame(frame);
+window.__GAME_TEST__.ready=true;
+})();
+</script>
+</body>
+</html>

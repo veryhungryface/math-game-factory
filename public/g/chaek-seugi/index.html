@@ -1,0 +1,1933 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>책 세우기 — 수직과 수선</title>
+<meta name="description" content="기울어진 철제 서가에서 흔들리는 책을 한 번에 눌러 수선으로 세우는 타이밍 아케이드">
+<meta property="og:title" content="책 세우기">
+<meta property="og:description" content="수선일 때 눌러요">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --lino:#C9A882;
+  --lino-dark:#A8875F;
+  --steel:#4E555C;
+  --steel-lit:#79828B;
+  --burgundy:#8B2E3A;
+  --page:#F3EDE3;
+  --ink:#2A2622;
+  --stageW:min(100vw,1280px);
+  --stageX:calc((100vw - var(--stageW)) / 2);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#2A2622}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  color:var(--ink);touch-action:none;-webkit-user-select:none;user-select:none;overscroll-behavior:none;
+}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* ── 크롬: 철제 명판 + 리벳 (스티커 알약 문법을 쓰지 않는다) ── */
+.steelbtn{
+  position:fixed;z-index:30;min-width:46px;min-height:46px;border:0;padding:0 12px;
+  background:linear-gradient(180deg,#79828B 0%,#4E555C 40%,#3A4046 100%);
+  color:var(--page);font-family:inherit;font-size:13px;font-weight:800;letter-spacing:.04em;
+  border-top:2px solid rgba(255,255,255,.22);
+  border-bottom:2px solid rgba(0,0,0,.5);
+  cursor:pointer;position:fixed;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%);
+}
+.steelbtn::after{
+  content:'';position:absolute;left:5px;top:50%;width:5px;height:5px;margin-top:-2.5px;
+  border-radius:50%;background:rgba(255,255,255,.34);box-shadow:0 0 0 1px rgba(0,0,0,.35) inset;
+}
+.steelbtn:active{transform:translateY(2px);filter:brightness(.9)}
+.steelbtn:focus-visible{outline:3px solid var(--burgundy);outline-offset:2px}
+#mute{top:calc(8px + env(safe-area-inset-top));right:calc(var(--stageX) + 10px);width:46px;height:46px;font-size:17px}
+#helpbtn{top:calc(8px + env(safe-area-inset-top));right:calc(var(--stageX) + 62px);height:46px}
+.steelbtn.hide{display:none}
+
+.screen{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-end;padding:0 16px calc(20px + env(safe-area-inset-bottom))}
+.screen.hide{display:none}
+#title{background:linear-gradient(180deg,rgba(42,38,34,0) 44%,rgba(42,38,34,.30) 68%,rgba(42,38,34,.62) 100%)}
+
+/* 로고 — 도서관 라벨 테이프 위에 찍은 활자 */
+.logowrap{position:absolute;left:0;right:0;top:max(40px,5.5dvh);display:flex;flex-direction:column;align-items:center;gap:0;pointer-events:none}
+.tape{
+  background:var(--page);
+  padding:10px 22px 14px;
+  border-top:3px solid rgba(0,0,0,.16);
+  border-bottom:5px solid #C9BFAE;
+  transform:rotate(-1.1deg);
+  box-shadow:14px 16px 0 rgba(42,38,34,.28);
+}
+.logo{
+  font-size:clamp(56px,19.5vw,96px);font-weight:900;letter-spacing:-.03em;line-height:.94;
+  color:var(--ink);white-space:nowrap;
+}
+.logo em{font-style:normal;color:var(--burgundy)}
+.callno{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:13px;font-weight:700;letter-spacing:.22em;color:#6C6459;text-align:left;margin-top:2px;
+}
+.subtag{margin-top:14px;font-size:14px;font-weight:800;letter-spacing:.06em;color:var(--page);
+  background:var(--burgundy);padding:7px 15px;transform:rotate(-1.1deg)}
+
+.ctazone{width:min(100% - 16px,470px);display:flex;flex-direction:column;gap:11px}
+.recordline{display:flex;justify-content:space-between;align-items:center;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12px;font-weight:700;color:var(--ink);letter-spacing:.04em;
+  background:var(--page);padding:9px 12px;border-left:6px solid var(--steel)}
+.cta{
+  height:72px;border:0;cursor:pointer;
+  background:linear-gradient(180deg,#A6404C 0%,#8B2E3A 48%,#6A2029 100%);
+  color:var(--page);font-family:inherit;font-size:25px;font-weight:900;letter-spacing:.06em;
+  border-top:3px solid rgba(255,255,255,.24);border-bottom:4px solid rgba(0,0,0,.48);
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);
+}
+.cta .edge{width:9px;height:38px;background:var(--page);box-shadow:3px 0 0 #C9BFAE}
+.cta:active{transform:translateY(3px);border-bottom-width:1px}
+.cta:focus-visible{outline:3px solid var(--page);outline-offset:3px}
+.linkbtn{height:46px;border:0;background:transparent;color:var(--page);
+  font-family:inherit;font-size:14.5px;font-weight:800;text-decoration:underline;text-underline-offset:5px;cursor:pointer}
+.linkbtn:focus-visible{outline:3px solid var(--burgundy);outline-offset:2px}
+
+.card{width:min(100% - 24px,500px);max-height:82dvh;overflow:auto;background:var(--page);
+  border-left:10px solid var(--burgundy);padding:20px 18px;box-shadow:0 18px 0 rgba(42,38,34,.22)}
+#help,#over{justify-content:center;background:rgba(42,38,34,.70)}
+.card h2{margin:0 0 12px;font-size:22px;font-weight:900}
+.card ul{margin:0;padding-left:19px}
+.card li{font-size:15px;line-height:1.66;font-weight:600;margin-bottom:5px}
+.rule{height:0;border-top:2px dashed #C9BFAE;margin:14px 0}
+.statgrid{display:flex;gap:10px;margin:4px 0 14px}
+.statgrid div{flex:1;background:#EFE6D8;border-bottom:4px solid var(--steel);padding:9px 8px;text-align:center}
+.statgrid b{display:block;font-size:27px;font-weight:900;line-height:1.1;font-family:ui-monospace,Menlo,monospace}
+.statgrid span{font-size:12px;font-weight:700;opacity:.72}
+.card .cta{margin-top:8px;width:100%}
+@media (prefers-reduced-motion:reduce){ .cta,.steelbtn{transition:none} }
+/* 결과 카드에서 「한 판 더」 밖을 누르면 버튼이 짧게 맥동한다(무효 입력 무반응 방지). 화면 흔들림이 아니다 */
+@keyframes ctanudge{0%{transform:scale(1)}35%{transform:scale(1.05)}70%{transform:scale(.985)}100%{transform:scale(1)}}
+.cta.nudge{animation:ctanudge .3s ease-out;filter:brightness(1.18);border-top-color:#F3EDE3;border-bottom-color:#2A2622}
+@media (prefers-reduced-motion:reduce){ .cta.nudge{animation:none;filter:none} }
+html.land .logo{font-size:clamp(60px,8.4vw,106px)}
+html.land .logowrap{top:max(26px,4dvh)}
+html.land .ctazone{width:min(100% - 16px,520px)}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<button id="mute" class="steelbtn" aria-label="소리 끄기">♪</button>
+<button id="helpbtn" class="steelbtn hide" aria-label="어떻게 놀아요 도움말">도움말</button>
+
+<div id="title" class="screen">
+  <div class="logowrap">
+    <div class="tape">
+      <div class="logo">책 <em>세우기</em></div>
+      <div class="callno">414.2 · 4-2 · 사각형</div>
+    </div>
+    <div class="subtag">수선일 때 눌러요</div>
+  </div>
+  <div class="ctazone">
+    <div class="recordline"><span>4학년 2학기 · 사각형</span><span id="bestline">최고 0권</span></div>
+    <button id="startbtn" class="cta" aria-label="서가 열기"><span class="edge"></span>서가 열기</button>
+    <button id="howbtn" class="linkbtn" aria-label="어떻게 놀아요">어떻게 놀아요? 〉</button>
+  </div>
+</div>
+
+<div id="help" class="screen hide">
+  <div class="card">
+    <h2>어떻게 놀아요?</h2>
+    <ul>
+      <li>책이 서가 위를 <b>왔다 갔다 하면서 기울어져요.</b> 화면을 <b>한 번 누르면</b> 그 순간의 기울기 그대로 아래로 떨어져요.</li>
+      <li>선반에 닿는 두 변이 <b>선반(직선 ㄱㄴ)과 평행해지는 순간</b>에 누르면 꽂혀요. 책을 세워 대면 그때 <b>책등이 선반에 대한 수선</b>이고, 눕혀 대면 책등이 선반과 평행해요. 화면에서 똑바로 선 순간이 아니라 <b>그 선반을 기준으로</b> 보세요.</li>
+      <li>선반에 닿는 <b>두 변 사이의 거리</b>가 두 선반 사이의 거리와 <b>같아야</b> 들어가요. 세우면 높이, 눕히면 두께가 그 거리예요.</li>
+      <li>비스듬히 이은 선분의 길이는 거리가 아니에요. <b>수선의 길이</b>를 보세요.</li>
+      <li>칸 밖으로 떨어지면 책이 카트로 돌아와요. 책갈피는 그대로예요.</li>
+      <li>칸 안에서 기울기나 높이가 틀리면 <b>책갈피가 하나 떨어져요.</b> 3개를 다 잃으면 끝나요.</li>
+      <li>비뚤게 끼인 책을 <b>톡 누르면</b> 빼낼 수 있어요(책갈피는 돌아오지 않아요).</li>
+    </ul>
+    <div class="rule"></div>
+    <button id="helpclose" class="cta" aria-label="도움말 닫기">닫기</button>
+  </div>
+</div>
+
+<div id="over" class="screen hide">
+  <div class="card">
+    <h2 id="overtitle">오늘 서가는 여기까지예요</h2>
+    <div class="statgrid">
+      <div><b id="ovBooks">0</b><span>세운 책</span></div>
+      <div><b id="ovCombo">0</b><span>최고 콤보</span></div>
+      <div><b id="ovScore">0</b><span>점수</span></div>
+    </div>
+    <div id="overmsg" style="font-size:14.5px;font-weight:700;line-height:1.6"></div>
+    <div class="rule"></div>
+    <button id="againbtn" class="cta" aria-label="한 판 더">한 판 더</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+// ══════════════════════════════════════════════════════════════
+//  책 세우기 — 4학년 2학기 · 사각형
+//  [4수03-03] 수직과 평행 / [4수03-10] 여러 가지 사각형
+//
+//  판정은 전부 정수다: 각은 1° 틱, 길이는 cm 칸 수. 부동소수점 비교 없음.
+//  교과서 표현 규약(textbook-structure.json style_guide):
+//   · 익힘책 지시형 「~해 보세요」로 통일. 길이는 「4 cm」처럼 띄어 쓴다. 꼭짓점 ㄱㄴㄷㄹ.
+//   · 사다리꼴 = 「평행한 변이 한 쌍이라도 있는 사각형」 — 정사각형·평행사변형도 통과시킨다.
+//   · 「○의 자리에서 반올림」류 어림 표현은 이 단원에 없다 — 생성하지 않는다.
+// ══════════════════════════════════════════════════════════════
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TAU = Math.PI*2, D2R = Math.PI/180;
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+function makeRng(seed){
+  let s = (seed>>>0) || 2463534242;
+  return () => { s ^= s<<13; s>>>=0; s ^= s>>17; s ^= s<<5; s>>>=0; return s/4294967296; };
+}
+let rnd = makeRng((Date.now() ^ 0x2545f491) >>> 0);
+const ri = (a,b) => a + Math.floor(rnd()*(b-a+1));
+const pick = (a) => a[Math.floor(rnd()*a.length)];
+
+// ── 오디오 (제스처 이후, 코드 생성음)
+let AC=null, muted=false;
+function audio(){ if (muted) return null;
+  if (!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
+  if (AC.state==='suspended') AC.resume().catch(()=>{});
+  return AC; }
+function tone(f,d,t,g,slide){ const ac=audio(); if(!ac) return;
+  const o=ac.createOscillator(), gg=ac.createGain();
+  o.type=t||'triangle'; o.frequency.setValueAtTime(f,ac.currentTime);
+  if (slide) o.frequency.exponentialRampToValueAtTime(slide, ac.currentTime+d);
+  gg.gain.setValueAtTime(.0001,ac.currentTime);
+  gg.gain.exponentialRampToValueAtTime(g||.15, ac.currentTime+.01);
+  gg.gain.exponentialRampToValueAtTime(.0001, ac.currentTime+d);
+  o.connect(gg); gg.connect(ac.destination); o.start(); o.stop(ac.currentTime+d+.02); }
+function thud(d,g,freq){ const ac=audio(); if(!ac) return;
+  const n=Math.floor(ac.sampleRate*d), b=ac.createBuffer(1,n,ac.sampleRate), c=b.getChannelData(0);
+  for(let i=0;i<n;i++) c[i]=(Math.random()*2-1)*Math.pow(1-i/n,3.2);
+  const s=ac.createBufferSource(); s.buffer=b;
+  const f=ac.createBiquadFilter(); f.type='lowpass'; f.frequency.value=freq||420;
+  const gg=ac.createGain(); gg.gain.value=g||.2;
+  s.connect(f); f.connect(gg); gg.connect(ac.destination); s.start(); }
+const SFX = {
+  seat(){ thud(.09,.24,520); tone(330,.07,'square',.07); },
+  lock(c){ const b=440*Math.pow(1.06,Math.min(c,6)); tone(b,.12,'triangle',.14); setTimeout(()=>tone(b*1.5,.16,'sine',.1),70); },
+  wrong(){ tone(180,.2,'sawtooth',.09,92); thud(.16,.22,260); },
+  miss(){ tone(220,.08,'sine',.06); },
+  drop(){ tone(520,.05,'sine',.05,300); },
+  refuse(){ tone(140,.09,'square',.055,110); },
+  mark(){ tone(760,.06,'sine',.07); },
+  over(){ tone(300,.2,'triangle',.12,150); setTimeout(()=>tone(200,.34,'triangle',.11,105),160); }
+};
+
+// ══════════ 책(사각형) 정의 ══════════
+// 평행한 한 쌍이 국소 x축과 나란하다. h = 그 쌍 사이의 수선 거리(= 책 높이, cm),
+// l = 책의 두께(선반 길이를 먹는 폭, cm). 판정에 쓰는 값은 (h,l) 정수뿐이다.
+const KIND_NAME = { rect:'직사각형 책', square:'정사각형 문고판', para:'평행사변형 문고판', trap:'사다리꼴 잡지' };
+function bookVerts(kind,l,h){
+  switch(kind){
+    case 'para': return [[0.7,0],[l,0],[l-0.7,h],[0,h]];
+    case 'trap': return [[0,0],[l,0],[l-0.6,h],[0.6,h]];
+    default:     return [[0,0],[l,0],[l,h],[0,h]];
+  }
+}
+let bidSeq = 1;
+function makeBook(kind,l,h){
+  if (kind==='square') l = h;
+  // 이름은 모양에서 정한다 — 네 각이 직각이고 높이와 두께가 같으면 정사각형이다
+  if (kind==='rect' && l===h) kind = 'square';
+  return { id:'b'+(bidSeq++), kind, l, h, verts:bookVerts(kind,l,h), rot:0, x:0, y:0 };
+}
+function bookWorldVerts(b, cx, cy, rotDeg){
+  const ox=b.l/2, oy=b.h/2, a=rotDeg*D2R, ca=Math.cos(a), sa=Math.sin(a);
+  return b.verts.map(([vx,vy])=>{ const dx=vx-ox, dy=vy-oy;
+    return [cx+dx*ca-dy*sa, cy+dx*sa+dy*ca]; });
+}
+
+// ══════════ 칸(bay) = 평행한 선반 한 쌍 ══════════
+function bayAxis(g){ const a=g.ang*D2R; return [Math.cos(a), Math.sin(a)]; }
+function bayNormal(g){ const a=g.ang*D2R; return [-Math.sin(a), Math.cos(a)]; }
+function bayWorld(g,s,t){ const [ux,uy]=bayAxis(g), [nx,ny]=bayNormal(g);
+  return [g.cx+s*ux+t*nx, g.cy+s*uy+t*ny]; }
+function bayLocal(g,x,y){ const [ux,uy]=bayAxis(g), [nx,ny]=bayNormal(g);
+  const dx=x-g.cx, dy=y-g.cy; return [dx*ux+dy*uy, dx*nx+dy*ny]; }
+function bayInside(g,x,y){ const [s,t]=bayLocal(g,x,y);
+  return Math.abs(s)<=g.len/2+.3 && Math.abs(t)<=g.gap/2+.3; }
+function freeRuns(g){
+  const occ = g.fills.map(f=>[f.o, f.o+f.len]).sort((a,b)=>a[0]-b[0]);
+  const runs=[]; let cur=0;
+  for(const [a,b] of occ){ if(a-cur>1e-6) runs.push([cur,a]); cur=Math.max(cur,b); }
+  if (g.len-cur>1e-6) runs.push([cur,g.len]);
+  return runs;
+}
+function canHost(g,l){ return !g.locked && freeRuns(g).some(([a,b])=>b-a>=l-1e-6); }
+// 잠금 길이에는 **바르게 꽂힌 책만** 센다. 비뚤게 끼인 책은 자리를 막을 뿐 칸을 채우지 못한다.
+function filled(g){ return g.fills.reduce((a,f)=> a + (f.wrong ? 0 : f.len), 0); }
+function hasWrong(g){ return g.fills.some(f => f.wrong); }
+function angDiff(a,b){ let d=((Math.round(a)-Math.round(b))%180+180)%180; return Math.min(d,180-d); }
+const TOL = 6;
+
+// 책이 선반에 댈 수 있는 「평행한 변 쌍」.
+//   off  = 그 쌍의 방향이 책 국소 x축에서 몇 도 돌아가 있는가
+//   sep  = 그 쌍 사이의 수선 거리(cm, 정수) — 선반 간격과 같아야 한다
+//   span = 그 쌍을 선반에 댔을 때 선반 길이를 먹는 값(cm, 정수)
+// 직사각형·정사각형은 평행한 쌍이 둘이므로 90° 돌려 눕혀 꽂는 것도 옳은 배치다.
+// 평행사변형·사다리꼴의 나머지 한 쌍은 사이 거리가 정수가 아니라 어떤 칸 너비와도
+// 같아질 수 없으므로 후보에서 뺀다(사다리꼴은 애초에 평행한 쌍이 하나뿐이다).
+function bookPairs(b){
+  if (b.kind==='rect' || b.kind==='square')
+    return [{ off:0, sep:b.h, span:b.l }, { off:90, sep:b.l, span:b.h }];
+  if (b.kind==='para'){
+    // 빗변 쌍도 평행하지만 그 사이 거리는 정수가 아니라 어떤 칸 너비와도 같아질 수 없다
+    // → sep 은 NaN(어떤 정수 칸과도 === 가 거짓). 반올림 값으로 비교하지 않는다.
+    const sk=0.7, h=b.h;
+    const off2=(Math.atan2(h,-sk)/D2R+360)%360;
+    return [{ off:0, sep:b.h, span:b.l }, { off:off2, sep:NaN, span:1e9 }];
+  }
+  return [{ off:0, sep:b.h, span:b.l }];
+}
+const cmText=(v)=>(Math.abs(v-Math.round(v))<1e-9 ? String(Math.round(v)) : v.toFixed(1));
+function bookFits(b,g){
+  if (g.locked) return false;
+  const runs=freeRuns(g);
+  return bookPairs(b).some(pr => pr.sep===g.gap && runs.some(([a,x])=>x-a>=pr.span-1e-6));
+}
+/**
+ * 순수 판정 — 칸 g 에 책 b 를 각 rotDeg 로, 선반 축 좌표 s 자리에 떨어뜨리면 어떻게 되는가.
+ * 게임 플레이와 sampleProblems 가 **같은 함수**를 쓴다. 비교는 전부 정수다.
+ */
+function classifyDrop(g, b, rotDeg, s){
+  const pairs=bookPairs(b);
+  let use=null;
+  // 설명에 쓰는 어긋남 각 nd 는 선반에 댈 수 있는(정수 거리) 변 쌍 중 가장 가까운 쌍 기준이고,
+  // 그 쌍이 어느 쌍인지(ndOff)도 함께 넘긴다 — 오답 문구가 「책등이 수직」인지 「책등이 평행」인지 가른다
+  let nd=999, ndOff=0;
+  for (const pr of pairs){
+    const d=angDiff(rotDeg+pr.off, g.ang);
+    if (d<nd && Number.isInteger(pr.sep)){ nd=d; ndOff=pr.off; }
+    if (d<=TOL && pr.sep===g.gap){ use=pr; break; }
+  }
+  if (!use){
+    const angOk = pairs.some(pr => angDiff(rotDeg+pr.off, g.ang) <= TOL);
+    return { kind:'wrong', g, reason: angOk?'gap':'ang', d:nd, off:ndOff,
+             sep: pairs.reduce((best,pr)=> angDiff(rotDeg+pr.off,g.ang) < angDiff(rotDeg+best.off,g.ang) ? pr : best, pairs[0]).sep };
+  }
+  const rawO=s+g.len/2-use.span/2, runs=freeRuns(g);
+  let bestO=null, err=1e9;
+  for(let o=0;o<=g.len-use.span;o++){
+    if(!runs.some(([a,x])=>o>=a-1e-6 && o+use.span<=x+1e-6)) continue;
+    const e=Math.abs(o-rawO); if(e<err){ err=e; bestO=o; }
+  }
+  if (bestO===null || err>1.6) return { kind:'miss', g };
+  const base=g.ang-use.off, alt=base+180;
+  const dist=(a)=>Math.abs(((rotDeg-a+540)%360)-180);
+  return { kind:'seat', g, o:bestO, ang: dist(alt)<dist(base)?alt:base, span:use.span, sep:use.sep, off:use.off };
+}
+
+// ══════════ 상태 ══════════
+const GOAL = 8, MARKS = 3, SESSION = 90;
+const S = {
+  phase:'title', marks:MARKS, books:0, locked:0, score:0, combo:0, bestCombo:0,
+  timeLeft:SESSION, band:1, boardNo:0,
+  bays:[], next:null, drop:null, oscT:0, rot:{ p:0, dir:1, v:36 },
+  travel:{ x:0, dir:1, speed:6, goal:null, dwell:0 },
+  moves:0, attempts:0, seated:0, wrongs:0,
+  land:false, stageW:0, stageX:0,
+  board:{x:0,y:0,w:0,h:0}, panel:{x:0,y:0,w:0,h:0}, cmPx:10, boardCm:{w:34,h:22},
+  ripples:[], fx:[], markFalls:[], hitstop:0, shake:0,
+  banner:'', bannerSub:'', hintT:0, lastInput:0, frozen:false, onboardT:0,
+  best:0, over:{reason:''}
+};
+try { S.best = Math.max(0, parseInt(localStorage.getItem('chaekseugi.best')||'0',10)||0); } catch(e){}
+
+// ══════════ 캔버스·레이아웃 ══════════
+const cv = document.getElementById('stage');
+const ctx = cv.getContext('2d', { alpha:false });
+let DPR=1, W=0, H=0, linoPat=null, linoTile=null, clothPat=null, boardLayer=null, boardKey='';
+let bgLayer=null, bgKey='';
+const NP = 54;   // 서가 명판 보 높이(px)
+const SANS='-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const MONO='ui-monospace,SFMono-Regular,Menlo,monospace';
+
+function bakePatterns(){
+  // 리놀륨 얼룩 — 초기화 때 한 번만 굽는다
+  const c=document.createElement('canvas'); c.width=c.height=100;
+  const g=c.getContext('2d');
+  g.fillStyle='#C9A882'; g.fillRect(0,0,100,100);
+  for(let i=0;i<1400;i++){
+    g.globalAlpha=.05+Math.random()*.12;
+    g.fillStyle = Math.random()<.5 ? '#A8875F' : '#E0C79E';
+    const r=.6+Math.random()*1.8;
+    g.beginPath(); g.arc(Math.random()*100, Math.random()*100, r, 0, TAU); g.fill();
+  }
+  g.globalAlpha=1;
+  linoTile = c;
+  linoPat = ctx.createPattern(c,'repeat');
+  // 버건디 클로스 제본 결
+  const b=document.createElement('canvas'); b.width=b.height=48;
+  const bg=b.getContext('2d');
+  bg.fillStyle='#8B2E3A'; bg.fillRect(0,0,48,48);
+  for(let i=0;i<48;i+=2){ bg.globalAlpha=.10; bg.fillStyle= i%4?'#A6404C':'#6A2029';
+    bg.fillRect(0,i,48,1); bg.fillRect(i,0,1,48); }
+  bg.globalAlpha=1;
+  clothPat = ctx.createPattern(b,'repeat');
+}
+
+function layout(){
+  W=innerWidth; H=innerHeight;
+  DPR=Math.min(devicePixelRatio||1,2);
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  S.land = (W>=H && W>=640) || W>=1024;
+  document.documentElement.classList.toggle('land', S.land);
+  const STAGE=Math.min(W,1280);
+  S.stageW=STAGE; S.stageX=Math.round((W-STAGE)/2);
+  const root=document.documentElement;
+  root.style.setProperty('--stageW', STAGE+'px');
+  root.style.setProperty('--stageX', S.stageX+'px');
+  // 서가(보드)는 위에 명판 보(NP)를 이고 철제 틀 안에 선다.
+  // 가로: 왼쪽 72% 서가 · 오른쪽 반납 카드+북트럭 / 세로: 위 반납 카드 · 가운데 서가 · 아래 북트럭
+  if (S.land){
+    S.boardCm={w:34,h:22};
+    const bw=Math.round(STAGE*0.72)-16;
+    S.board={ x:S.stageX+20, y:12+NP, w:bw-16, h:H-12-NP-22 };
+    S.panel={ x:S.stageX+bw+24, y:62, w:STAGE-bw-36, h:H-62-14 };
+  } else {
+    S.boardCm={w:20,h:26};
+    const ph=Math.min(190, Math.max(150, Math.round(H*0.215)));
+    S.board={ x:14, y:58+NP, w:W-28, h:H-58-NP-ph-18 };
+    S.panel={ x:8, y:H-ph-4, w:W-16, h:ph-6 };
+  }
+  S.cmPx=Math.min(S.board.w/S.boardCm.w, S.board.h/S.boardCm.h);
+  S.drawW=S.boardCm.w*S.cmPx; S.drawH=S.boardCm.h*S.cmPx;
+  S.ox=S.board.x+(S.board.w-S.drawW)/2;
+  S.oy=S.board.y+(S.board.h-S.drawH)/2;
+  const P=S.panel;
+  if (S.land){
+    const dueH = P.h<520 ? 60 : 92;
+    const cartCm = Math.min(S.cmPx, (P.w-40)/4.5);
+    const handleY = P.y+dueH+20;
+    const deckY = handleY + 46 + 5*cartCm;
+    const wheelY = P.y+P.h-14;
+    const slotH = clamp(Math.round((wheelY-24) - (deckY+40) - 130), 30, 66);
+    S.cart = { dueH, cartCm, handleY, deckY, wheelY, slotH, slotsY: wheelY-24-slotH };
+  } else {
+    const cartCm = Math.min(S.cmPx, (P.h-78)/5, (P.w*0.3)/4);
+    S.cart = { cartCm, deckY: P.y+14+5*cartCm+6 };
+  }
+  boardKey=''; bgKey='';
+}
+const px=(x)=>S.ox+x*S.cmPx, py=(y)=>S.oy+y*S.cmPx;
+const ux=(p)=>(p-S.ox)/S.cmPx, uy=(p)=>(p-S.oy)/S.cmPx;
+
+// ══════════ 서가 생성 ══════════
+// 선반은 절대 화면 축(0°·90°)에 두지 않는다 — 축정렬만 깔면
+// 「가로·세로처럼 보일 때만 수직」 오개념을 강화하고, 무뇌 연타가 우연히 맞는다.
+// 0° 선반은 온보딩 고정 문제에만 쓴다.
+const BAND_ANGS = {
+  1: [-32,-24,24,32],
+  2: [-44,-32,-22,22,32,44],
+  3: [-52,-40,-28,-18,18,28,40,52],
+  4: [-56,-44,-34,-22,22,34,44,56]
+};
+const BAND_KINDS = { 1:['rect'], 2:['rect'], 3:['rect','square'], 4:['rect','square','para','trap'] };
+const GAPS=[3,4,5], THICK=[2,3,4];
+const TRACK_Y = 3.2;   // 책이 오가는 높이(cm)
+const SWING_A = [0, 56, 62, 68, 74];   // 밴드별 흔들림 폭(°) — oscAmp·spawnNext 가 같이 쓴다
+const STOP_EDGE = 2.6;                 // 레일 양끝 여유(cm) — 책은 이 안에서만 오간다
+// 세로 판형(보드가 가로보다 세로로 긴 모양)은 x 폭이 좁아 칸을 2개만 둔다
+const tallBoard = () => S.boardCm.w < S.boardCm.h;
+// 칸마다 선반 끝에 꼭짓점 이름을 붙인다: 아래 선반 = 직선 ㄱㄴ, 위 선반 = 직선 ㄷㄹ …
+const NAMESETS = [['ㄱ','ㄴ','ㄷ','ㄹ'],['ㅁ','ㅂ','ㅅ','ㅇ'],['ㅈ','ㅊ','ㅋ','ㅌ']];
+const lineName = (g) => g.names ? g.names[0]+g.names[1] : 'ㄱㄴ';
+// 밴드 3 이상: 칸 안에 「비스듬히 이은 선분」을 cm 와 함께 그려 둔다 (M2 오개념 유혹).
+// 길이 o 는 정수, 선반 방향으로 밀린 거리 off = √(o²−d²).
+const SLANT_OPTS = { 3:[5,4], 4:[5,6], 5:[6,7] };
+function pickSlant(g){
+  const L=g.len/2;
+  for (const o of SLANT_OPTS[g.gap]||[]){
+    const off=Math.sqrt(o*o-g.gap*g.gap), sA=-L*0.58+0.9;
+    if (sA+off <= L-0.3) return { o, off, sA };
+  }
+  return null;
+}
+
+function obbHit(a,b){
+  const axes=[];
+  for (const o of [a,b]){ const r=o.ang*D2R; axes.push([Math.cos(r),Math.sin(r)],[-Math.sin(r),Math.cos(r)]); }
+  const corners=(o)=>{ const r=o.ang*D2R,c=Math.cos(r),s=Math.sin(r),out=[];
+    for(const [sx,sy] of [[-1,-1],[1,-1],[1,1],[-1,1]])
+      out.push([o.cx+sx*o.hw*c-sy*o.hh*s, o.cy+sx*o.hw*s+sy*o.hh*c]);
+    return out; };
+  const ca=corners(a), cb=corners(b);
+  for(const [axx,axy] of axes){
+    let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+    for(const [x,y] of ca){ const p=x*axx+y*axy; a0=Math.min(a0,p); a1=Math.max(a1,p); }
+    for(const [x,y] of cb){ const p=x*axx+y*axy; b0=Math.min(b0,p); b1=Math.max(b1,p); }
+    if (a1<b0||b1<a0) return false;
+  }
+  return true;
+}
+let gid=1;
+// 서가 한 장. 칸마다 「멈춤 자리에서 곧게 떨어뜨리면 바로 그 칸에 닿는」 x 가 있어야 하고
+// 칸끼리 x 투영 구간이 겹치지 않아야 한다(겹치면 아래 칸이 위 칸에 가려 규칙대로 해도 못 넣는다).
+// 조건을 못 채운 서가는 버리고 다시 배치한다.
+function makeBoard(band){
+  const want = band===1 ? 2 : (tallBoard() ? 2 : 3);
+  let best=null;
+  for (let tries=0; tries<60; tries++){
+    const bays=makeBoardOnce(band, want);
+    const ok=bays.filter(g=>bayStop(g, bays)!==null);
+    // 밴드 3 이상은 「비스듬히 이은 선분」 유혹이 있는 칸이 적어도 하나 있어야 한다
+    if (ok.length===bays.length && bays.length===want && (band<3 || bays.some(g=>g.slant))) return bays;
+    if (!best || ok.length>best.length) best=ok;
+  }
+  return best;
+}
+function makeBoardOnce(band, count){
+  const angs = BAND_ANGS[Math.min(band,4)];
+  const BW=S.boardCm.w, BH=S.boardCm.h;
+  const TOPM = TRACK_Y+2.6, BOTM=1.2, SIDE=1.4;
+  // 한 서가의 칸 너비는 되도록 서로 다르게 — 폭 판단이 진짜 판단이 되게 한다
+  const gapPlan=GAPS.slice();
+  for(let i=gapPlan.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [gapPlan[i],gapPlan[j]]=[gapPlan[j],gapPlan[i]]; }
+  while (gapPlan.length<count) gapPlan.push(gapPlan[Math.floor(rnd()*2)]);
+  const placed=[];
+  // 칸은 x 방향으로 나란히 편다 — 책이 위에서 곧게 떨어져 어느 칸에 닿을지 읽히게
+  const colW=(BW-SIDE*2)/count;
+  for(let n=0;n<count;n++){
+    let ok=null, guard=0;
+    while(!ok && guard++<300){
+      const ang=pick(angs), gap=gapPlan[n];
+      // 칸 길이: 책 한 권으로 차는 짧은 칸(3·4 cm)과 두세 권 칸을 섞는다. 밴드마다 2권씩 서가가 바뀌므로
+      // 짧은 칸이 있어야 한 서가 안에서 칸이 가득 차 잠기는 순간(「어디서 재도 같아요」)을 본다.
+      const lr=rnd(), len = lr<.35 ? pick([3,4]) : lr<.8 ? pick(THICK)+pick(THICK) : pick(THICK)+pick(THICK)+pick(THICK);
+      const hw=len/2+.5, hh=gap/2+.6;
+      const r=ang*D2R, ac=Math.abs(Math.cos(r)), as=Math.abs(Math.sin(r));
+      const exX=hw*ac+hh*as, exY=hw*as+hh*ac;
+      if (exX*2>colW-.4 || exY*2>BH-TOPM-BOTM-.4) continue;
+      const cx=SIDE+n*colW+exX+.2+rnd()*Math.max(0,colW-exX*2-.4);
+      const cy=TOPM+exY+.2+rnd()*Math.max(0,BH-TOPM-BOTM-exY*2-.4);
+      const box={cx,cy,ang,hw:hw+.6,hh:hh+.6};
+      if (placed.some(p=>obbHit(box,{cx:p.cx,cy:p.cy,ang:p.ang,hw:p.len/2+1.1,hh:p.gap/2+1.1}))) continue;
+      if (placed.some(p=>cx-exX < p.x1+.2 && cx+exX > p.x0-.2)) continue;
+      ok={ id:'k'+(gid++), ang, gap, len, cx, cy, fills:[], locked:false, lockT:0 };
+    }
+    // 칸 자리를 못 잡으면 보드 전체에서 빈자리를 찾는다 (칸 개수를 줄이지 않는다)
+    guard=0;
+    while(!ok && guard++<400){
+      const ang=pick(angs), gap=gapPlan[n];
+      const len=pick(THICK)+pick(THICK);
+      const hw=len/2+.5, hh=gap/2+.6;
+      const r=ang*D2R, ac=Math.abs(Math.cos(r)), as=Math.abs(Math.sin(r));
+      const exX=hw*ac+hh*as, exY=hw*as+hh*ac;
+      if (exX*2>BW-SIDE*2-.4 || exY*2>BH-TOPM-BOTM-.4) continue;
+      const cx=SIDE+exX+.2+rnd()*Math.max(0,BW-SIDE*2-exX*2-.4);
+      const cy=TOPM+exY+.2+rnd()*Math.max(0,BH-TOPM-BOTM-exY*2-.4);
+      const box={cx,cy,ang,hw:hw+.6,hh:hh+.6};
+      if (placed.some(pp=>obbHit(box,{cx:pp.cx,cy:pp.cy,ang:pp.ang,hw:pp.len/2+1.1,hh:pp.gap/2+1.1}))) continue;
+      // x 투영 구간이 이미 놓인 칸과 겹치면 안 된다 (위 칸이 아래 칸의 낙하 경로를 가린다)
+      if (placed.some(pp=>cx-exX < pp.x1+.2 && cx+exX > pp.x0-.2)) continue;
+      ok={ id:'k'+(gid++), ang, gap, len, cx, cy, fills:[], locked:false, lockT:0 };
+    }
+    if (ok){
+      const r=ok.ang*D2R, ex=(ok.len/2+.5)*Math.abs(Math.cos(r))+(ok.gap/2+.6)*Math.abs(Math.sin(r));
+      ok.x0=ok.cx-ex; ok.x1=ok.cx+ex;
+      placed.push(ok);
+    }
+  }
+  placed.sort((a,b)=>a.cx-b.cx);
+  // 붉은 수선 자는 밴드 1(개념 소개)에서만 칸에 미리 그린다. 밴드 2 부터는 꽂힘·잠금·오답 설명 때만 보인다.
+  placed.forEach((g,i)=>{ g.names=NAMESETS[i%NAMESETS.length]; g.slant = band>=3 ? pickSlant(g) : null; g.ruler = band===1; });
+  return placed;
+}
+
+// 칸 g 의 멈춤 자리 — 빈 구간(긴 것부터)을 0.2 cm 씩 훑어, 그 x 에서 곧게 떨어뜨리면
+// **바로 이 칸**이 첫 적중 칸인 x 들의 중앙값. 그런 x 가 없으면 null.
+function bayStop(g, bays){
+  if (g.locked) return null;
+  const [ax]=bayAxis(g);
+  const runs=freeRuns(g).sort((p,q)=>(q[1]-q[0])-(p[1]-p[0]));
+  for (const [a,b] of runs){
+    const xs=[];
+    for (let k=0, n=Math.round((b-a)/0.2); k<=n; k++){
+      const x=g.cx+(a+k*0.2-g.len/2)*ax;
+      if (x<STOP_EDGE || x>S.boardCm.w-STOP_EDGE) continue;
+      const t=fallTarget(x, TRACK_Y, bays);
+      if (t && t.g===g) xs.push(x);
+    }
+    if (xs.length){ xs.sort((p,q)=>p-q); const m=xs.length>>1; return xs.length%2 ? xs[m] : (xs[m-1]+xs[m])/2; }
+  }
+  return null;
+}
+// 책 bk 를 칸 g 의 멈춤 자리에서 흔들림 폭 안의 어떤 각으로 떨어뜨리면 꽂히는가
+function seatAtStop(g, bk){
+  const x=bayStop(g); if (x===null) return false;
+  const t=fallTarget(x, TRACK_Y); if (!t || t.g!==g) return false;
+  const A=SWING_A[Math.min(S.band,4)];
+  for (let r=-A; r<=A; r++) if (classifyDrop(g, bk, r, t.s).kind==='seat') return true;
+  return false;
+}
+
+// 밴드 3: 지우가 비스듬히 끼워 둔 책 (오류 찾기)
+function seedMistake(board, band){
+  if (band!==3 || !board.length) return;
+  const g = board.find(b=>b.len>=5) || board[0];
+  const l = Math.min(3, Math.floor(g.len-1));
+  if (l<2) return;
+  const [wx,wy]=bayWorld(g, -g.len/2+l/2, 0);
+  g.fills.push({ o:0, len:l, wrong:true, ang:g.ang+25, x:wx, y:wy,
+                 book:makeBook('rect', l, g.gap), byJiwoo:true });
+}
+
+// 다음 책 — 지금 서가가 실제로 받을 수 있고, **멈춤 자리에서 실제로 꽂을 수 있는** 책만 낸다
+function spawnNext(){
+  const kinds=BAND_KINDS[Math.min(S.band,4)];
+  const caps=[];
+  for (const g of S.bays){
+    if (bayStop(g)===null) continue;   // 멈춤 자리에서 닿지 않는 칸에는 책을 내지 않는다
+    for (const [a,b] of freeRuns(g)) if (b-a>=2) caps.push({ g, gap:g.gap, room:Math.floor(b-a) });
+  }
+  if (!caps.length) return null;
+  // 밴드 4 서가의 첫 책은 사다리꼴 잡지 (차시4 — 평행한 한 쌍을 선반에 대기)
+  const needTrap = S.band>=4 && !S.bays.some(g=>g.fills.some(f=>!f.wrong && f.book && (f.book.kind==='trap'||f.book.kind==='para')));
+  for (let tries=0; tries<24; tries++){
+    const c=caps[Math.floor(rnd()*caps.length)];
+    const cand=THICK.filter(t=>t<=Math.min(4,c.room));
+    if (!cand.length) continue;
+    let kind = needTrap && tries<12 ? 'trap' : pick(kinds), l=cand[Math.floor(rnd()*cand.length)], h=c.gap;
+    if (cand.includes(c.room) && rnd()<.6) l=c.room;   // 빈 구간을 딱 채우는 두께 — 칸 잠금이 나오게
+    if (kind==='square'){ if (cand.includes(h)) l=h; else kind='rect'; }
+    if ((kind==='para'||kind==='trap') && l<2) kind='rect';
+    const bk=makeBook(kind,l,h);
+    bk.rot=0;
+    if (S.bays.some(g=>bookFits(bk,g) && seatAtStop(g,bk))) return bk;
+  }
+  return null;
+}
+
+function newBoard(){
+  S.boardNo++; S.swapT=0;
+  S.band=Math.min(4, 1+Math.floor(S.books/2));
+  // 지난 서가의 칸을 가리키는 연출·토스트는 새 서가 위에 남기지 않는다
+  S.fx.length=0;
+  S.bays=makeBoard(S.band);
+  seedMistake(S.bays, S.band);
+  S.next=spawnNext();
+  S.travel.x = S.boardCm.w*0.25;
+  S.travel.dir = rnd()<.5?-1:1;
+  S.travel.speed = 5.2 + S.band*1.1;
+  S.oscT = rnd()*10;
+  S.travel.goal=null; S.travel.dwell=0;
+  resetRot();
+  boardKey='';
+  setBanner();
+}
+function setBanner(){
+  if (S.phase==='onboard'){ S.banner='책을 눌러 선반에 세워요'; S.bannerSub='책등이 직선 ㄱㄴ에 대한 수선이 될 때 눌러 보세요'; return; }
+  const b=S.band;
+  if (b===1){
+    const names=S.bays.map(g=>'직선 '+lineName(g));
+    S.banner=`책의 변이 ${names.join(', ')}에 대한 수선이 되게 꽂아 보세요`;
+    S.bannerSub='선반에 닿는 두 변 사이가 두 선반 사이의 거리와 같아야 꽂혀요';
+  }
+  else if (b===2){ S.banner='평행한 두 선반 사이의 거리에 맞게 세워 보세요'; S.bannerSub='화면에서 똑바로 선 순간이 아니라 선반과 수직인 순간이에요'; }
+  else if (b===3){
+    const jiwoo=S.bays.some(g=>g.fills.some(f=>f.byJiwoo));
+    S.banner= jiwoo ? '지우가 비스듬히 끼운 책을 빼고 다시 세워 보세요' : '두 선반 사이의 거리를 수선으로 읽고 세워 보세요';
+    S.bannerSub='점선처럼 비스듬히 이은 선분의 길이는 거리가 아니에요';
+  }
+  else { S.banner='사다리꼴 잡지는 평행한 두 변을 선반에 대 보세요'; S.bannerSub='평행한 변이 한 쌍이라도 있으면 사다리꼴이에요'; }
+}
+
+// ══════════ 온보딩 고정 문제 ══════════
+function startOnboard(){
+  S.phase='onboard'; S.frozen=true; S.band=1; S.boardNo=0; S.onboardT=0;
+  S.onboardFails=0; S.practiceRetry=0; S.swapT=0;
+  S.bays=[{ id:'k0', ang:0, gap:4, len:3, cx:S.boardCm.w/2, cy:S.boardCm.h*0.56,
+            fills:[], locked:false, lockT:0, names:NAMESETS[0], slant:null, ruler:true }];
+  S.next=practiceBook();
+  S.travel.x=S.boardCm.w/2; S.travel.dir=1; S.travel.speed=0;   // 연습은 좌우로 안 움직인다
+  S.oscT=0;
+  setBanner();
+}
+
+function practiceBook(){ const bk=makeBook('rect',3,4); bk.rot=0; return bk; }
+// 연습은 첫 꽂힘을 볼 때까지 끝나지 않는다. 대신 틀릴수록 흔들림 폭을 줄여 준다
+// (15° → 11° → 8° → 5°: 5° 면 어느 순간에 눌러도 수선 ±6° 안이다). 점수·통계에는 넣지 않는다.
+function practiceNext(){
+  for (const g of S.bays) g.fills = g.fills.filter(f=>!f.wrong);
+  if (!S.next && !S.drop) S.next = practiceBook();
+  S.practiceRetry = 0;
+  S.bannerSub = S.onboardFails>=2 ? '흔들림이 작아졌어요. 책등이 직선 ㄱㄴ에 대한 수선이 될 때 눌러 보세요'
+                                  : '다시 한 번! 책등이 직선 ㄱㄴ에 대한 수선이 될 때 눌러 보세요';
+}
+
+// ══════════ 흔들림 ══════════
+function oscAmp(){
+  if (S.phase==='onboard') return [15,15,11,8][Math.min(S.onboardFails||0,3)] - ((S.onboardFails||0)>=4 ? 3 : 0);
+  return SWING_A[Math.min(S.band,4)];
+}
+// 박자: 각은 일정한 속도로 끝에서 끝까지 쓸고 간다(Stack 의 등속 블록처럼) — 책이 수선에
+// 다가오는 것을 보고 기다렸다 누를 수 있다. 끝 6° 안에서만 살짝 느려지고(정답 각은 끝 근처에 없다),
+// 밴드 3~4 는 반환할 때마다 속도를 ±15% 바꿔 박자만 외워 연타하는 길을 막는다.
+// 정답 각 근처에서만 느려지게 하지 않는다(그건 정답 누설이다). 허용 오차 TOL 은 그대로다.
+// 30~36 °/s → 수선 창(정수 각 13칸)이 한 번 열릴 때 361~433 ms. 0~400 ms 반응 지연으로도 규칙대로 넣을 수 있게.
+const ROT_V = [0, 30, 32, 34, 36];   // °/s
+function resetRot(){
+  const A=oscAmp();
+  S.rot = { p:(rnd()*2-1)*A, dir: rnd()<.5?-1:1, v:ROT_V[Math.min(S.band,4)] };
+}
+function stepRot(dt){
+  const A=oscAmp(), R=S.rot;
+  const ease=clamp(0.3+(A-Math.abs(R.p))/6*0.7, 0.3, 1);
+  R.p += R.dir*R.v*ease*dt;
+  if (R.p>A || R.p<-A){
+    R.p=clamp(R.p,-A,A); R.dir=-R.dir;
+    if (S.band>=3) R.v=ROT_V[Math.min(S.band,4)]*(0.85+rnd()*0.3);
+  }
+}
+function currentRot(){
+  if (S.phase==='onboard') return Math.round(oscAmp()*Math.sin(S.oscT*1.2));
+  return Math.round(S.rot.p);
+}
+
+// 이동: 잠기지 않은 칸마다 가장 긴 빈 구간 위에서 한 번씩 멈췄다 간다. 멈추는 시간은
+// 각이 끝에서 끝까지 한 번 쓸고 가는 시간 + 0.3초 — 그 칸 위에 있는 동안 어떤 각이든 한 번은 지나간다.
+// 멈춤은 열린 칸 모두에 똑같이 준다(맞는 칸만 골라 멈추면 거리 판단을 대신해 주는 것이다).
+const MOVE = 10;   // cm/s
+// 멈춤 자리는 bayStop — 그 x 에서 떨어뜨리면 반드시 그 칸에 먼저 닿는다(다른 칸에 가려지지 않는다).
+function travelStops(){
+  const xs=[];
+  for (const g of S.bays){ const x=bayStop(g); if (x!==null) xs.push(x); }
+  return xs.sort((a,b)=>a-b);
+}
+function travelStep(dt){
+  const T=S.travel;
+  if (T.dwell>0){ T.dwell-=dt; if (T.dwell<=0) T.goal=null; return; }
+  if (T.goal==null){
+    const xs=travelStops();
+    if (!xs.length) return;
+    const ahead=(d)=> d>0 ? xs.find(x=>x>T.x+0.5) : [...xs].reverse().find(x=>x<T.x-0.5);
+    let nx=ahead(T.dir);
+    if (nx===undefined){ T.dir=-T.dir; nx=ahead(T.dir); }
+    T.goal = nx===undefined ? xs[0] : nx;
+  }
+  const d=T.goal-T.x, step=MOVE*dt;
+  if (Math.abs(d)<=step){ T.x=T.goal; T.dwell=2*oscAmp()/ROT_V[Math.min(S.band,4)]+0.3; }
+  else T.x+=Math.sign(d)*step;
+}
+
+// ══════════ 판정 ══════════
+/** 책이 지금 x 에서 곧게 떨어지면 어느 칸의 중심선에 닿는가 */
+function fallTarget(xCm, yCm, bays){
+  let best=null;
+  for (const g of (bays||S.bays)){
+    if (g.locked) continue;
+    const [ax,ay]=bayAxis(g);
+    if (Math.abs(ax)<1e-6) continue;
+    const s=(xCm-g.cx)/ax;
+    if (Math.abs(s) > g.len/2 + .2) continue;
+    const y=g.cy+s*ay;
+    if (y < yCm) continue;
+    if (!best || y<best.y) best={ g, s, y };
+  }
+  return best;
+}
+function judge(bk, tgt, rotDeg){
+  S.attempts++;
+  return classifyDrop(tgt.g, bk, rotDeg, tgt.s);
+}
+
+// 꽂힘 해설은 **실제로 선반에 댄 변 쌍(off)** 기준으로 쓴다.
+//  off 0  — 아래·위 변을 선반에 댐: 책등(책의 국소 y축)이 선반에 대한 수선, 두 변 사이 = 높이
+//  off 90 — 눕혀서 책등 쪽 두 변을 선반에 댐: 책등은 선반과 평행, 두 변 사이 = 두께
+// 평행사변형·사다리꼴은 옆 변이 비스듬하므로 「책등이 수선」이라고 쓰지 않는다.
+function seatReveal(bk,g,off){
+  const ln=lineName(g), box = bk.kind==='rect' || bk.kind==='square';
+  if (box && off===90) return [`눕힌 책 · 책등이 직선 ${ln}과 평행`, `두께 ${g.gap} cm = 평행선 사이의 거리`];
+  if (box) return [`책등이 직선 ${ln}에 대한 수선`, `평행선 사이의 거리 ${g.gap} cm`];
+  return [`선반에 닿은 두 변이 직선 ${ln}과 평행`, `평행선 사이의 거리 ${g.gap} cm`];
+}
+function doSeat(bk,g,o,ang,span,off){
+  span = span || bk.l;
+  const [wx,wy]=bayWorld(g, o+span/2-g.len/2, 0);
+  g.fills.push({ o, len:span, book:bk, ang, x:wx, y:wy, t:0 });
+  S.books++; S.seated++; S.score+=120;
+  SFX.seat();
+  S.hitstop=Math.max(S.hitstop,.05);
+  // 직각 ㄱ자는 「선반과 수선이 이루는 직각」 자리에 찍는다
+  // (사다리꼴 잡지처럼 모서리가 직각이 아닐 수 있으므로 책 모서리에 찍지 않는다)
+  const midS = o+span/2-g.len/2;
+  const [ax,ay]=bayWorld(g, midS, -g.gap/2);
+  const [bx,by]=bayWorld(g, midS, g.gap/2);
+  addFx({ type:'perp', x:ax, y:ay, ang:g.ang, t:0, life:1.1 });
+  addFx({ type:'perp', x:bx, y:by, ang:g.ang+180, t:0, life:1.1 });
+  // 이 권으로 칸이 잠기면 잠금 연출이 두 자리에서 재 보이므로 여기서는 재지 않는다(숫자 겹침 방지)
+  if (hasWrong(g) || Math.abs(filled(g)-g.len)>=1e-6) addFx({ type:'measure', g, s:midS, t:0, life:1.1 });
+  addFx({ type:'seatpop', x:wx, y:wy, l:bk.l, h:bk.h, ang, t:0, life:.55 });
+  if (S.phase==='onboard' || S.band<=2)
+    addFx({ type:'reveal', g, text:seatReveal(bk, g, off||0), t:0, life:1.8 });
+  // 포함 관계: 꽂힌 책이 동시에 가지는 이름을 한꺼번에 켠다 (배타 분류가 아니다)
+  if (S.phase==='playing' && (bk.kind!=='rect' ? S.band>=3 : S.band>=4))
+    addFx({ type:'names', x:wx, y:wy, h:bk.h, tags:NAME_TAGS[bk.kind], t:0, life:2.2 });
+  if (!hasWrong(g) && Math.abs(filled(g)-g.len)<1e-6) lockBay(g);
+  else { S.combo++; S.bestCombo=Math.max(S.bestCombo,S.combo); }
+  afterPlace();
+  if (S.phase==='playing' && S.books>=GOAL) endGame('clear');
+}
+function lockBay(g){
+  g.locked=true; g.lockT=0; S.locked++;
+  S.combo++; S.bestCombo=Math.max(S.bestCombo,S.combo);
+  S.score += 320*Math.min(S.combo,5);
+  SFX.lock(S.combo);
+  S.hitstop=Math.max(S.hitstop,.09);
+  addFx({ type:'lock', g, t:0, life:1.4 });
+  // 「평행선 사이의 거리는 어디서 재도 같다」 — 같은 칸의 서로 다른 두 자리에서 재 보인다
+  addFx({ type:'measure', g, s:-g.len*0.28, t:0, life:2.1 });
+  addFx({ type:'measure', g, s: g.len*0.28, t:0, life:2.1 });
+  addFx({ type:'toast', text:`이 칸은 어디서 재도 ${g.gap} cm로 같아요`, t:0, life:2.1 });
+  setTimeout(()=>SFX.mark(), 130);
+  if (S.phase==='onboard'){
+    S.frozen=false;
+    setTimeout(()=>{ if (S.phase==='onboard'){
+      // 연습 기록은 본판으로 넘기지 않는다 — 책갈피 3개·90초·통계 0 에서 시작
+      S.phase='playing'; S.books=0; S.locked=0; S.score=0; S.combo=0; S.bestCombo=0;
+      S.marks=MARKS; S.timeLeft=SESSION; S.attempts=0; S.seated=0; S.wrongs=0;
+      S.onboardFails=0; S.practiceRetry=0; S.lastInput=performance.now();
+      newBoard(); } }, 1200);
+  }
+}
+const NAME_TAGS = {
+  square:['사다리꼴','평행사변형','마름모','직사각형','정사각형'],
+  rect:['사다리꼴','평행사변형','직사각형'],
+  para:['사다리꼴','평행사변형'],
+  trap:['사다리꼴']
+};
+function doWrong(bk,g,tgt,reason,d,sep,off){
+  const s=tgt.s;
+  const half=(bk.l+bk.h)/4+.3;
+  let lo=clamp(s+g.len/2-half,0,g.len), hi=clamp(s+g.len/2+half,0,g.len);
+  lo=Math.floor(lo); hi=Math.ceil(hi);
+  for (const f of g.fills){
+    if (hi>f.o && lo<f.o+f.len){ if (lo>=f.o) lo=Math.min(g.len,f.o+f.len); else hi=Math.max(0,f.o); }
+  }
+  if (hi-lo<1){ lo=clamp(lo,0,Math.max(0,g.len-1)); hi=lo+1; }
+  const [wx,wy]=bayWorld(g,(lo+hi)/2-g.len/2,0);
+  g.fills.push({ o:lo, len:hi-lo, wrong:true, ang:bk.rot, x:wx, y:wy, book:bk });
+  S.combo=0;
+  SFX.wrong(); S.shake=REDUCED?0:.5; S.hitstop=Math.max(S.hitstop,.05);
+  addFx({ type:'why', g, reason, d, off:off||0, kind:bk.kind, x:wx, y:wy, t:0, life:1.6, bh: sep!==undefined?sep:bk.h });
+  if (S.phase==='onboard'){
+    // 연습: 책갈피를 깎지 않는다. 0.9초 동안 점선 수선과 비교해 보여 준 뒤
+    // 비뚤 책을 치우고 같은 연습 책을 카트에 다시 올린다.
+    S.onboardFails=(S.onboardFails||0)+1;
+    S.practiceRetry=0.9;
+    return;
+  }
+  S.wrongs++; S.marks--;
+  S.markFalls.push({ x:0, y:0, vy:0, t:0, idx:S.marks });
+  if (S.marks<=0){ endGame('marks'); return; }
+  afterPlace();
+}
+function afterPlace(){
+  if (S.phase==='onboard') return;
+  S.travel.goal=null; S.travel.dwell=0;   // 칸이 바뀌었으니 멈춤 자리를 다시 고른다
+  // 밴드는 세운 권수로 정한다(2권마다 한 단계, 차시 1→2→3→4). 밴드가 오르는 순간 남은 칸과 무관하게
+  // 그 밴드의 새 서가를 들인다 — 서가가 다 찰 때까지 기다리면 한 판에서 밴드를 건너뛴다.
+  const want=Math.min(4, 1+Math.floor(S.books/2));
+  if (want!==S.band && S.books<GOAL){ S.next=null; S.swapT=1.0; return; }
+  S.next = spawnNext();
+  if (!S.next) S.swapT=0.8;
+}
+function finishSwap(){
+  newBoard();
+  addFx({ type:'toast', text:`새 서가가 들어왔어요 · ${S.band}단계`, t:0, life:1.6 });
+}
+
+function endGame(reason){
+  if (S.phase==='over') return;
+  S.phase='over'; S.over.reason=reason; S.drop=null;
+  SFX.over();
+  try{ if (S.books>S.best){ S.best=S.books; localStorage.setItem('chaekseugi.best', String(S.best)); } }catch(e){}
+  document.getElementById('ovBooks').textContent=S.books;
+  document.getElementById('ovCombo').textContent=S.bestCombo;
+  document.getElementById('ovScore').textContent=S.score;
+  document.getElementById('overtitle').textContent =
+    reason==='clear' ? `책 ${GOAL}권을 다 세웠어요` : '오늘 서가는 여기까지예요';
+  document.getElementById('overmsg').textContent =
+    reason==='marks' ? '책갈피가 다 떨어졌어요. 선반의 기울기를 먼저 읽고, 선반에 닿을 두 변이 그 선반과 평행해지는 순간에 눌러 보세요. 세운 책이면 그때 책등이 선반에 대한 수선이에요.'
+    : reason==='time' ? '시간이 끝났어요. 선반에 닿는 두 변 사이의 거리가 두 선반 사이의 거리와 같은 칸을 먼저 찾으면 빨라져요.'
+    : '두 선반 사이의 거리는 어디서 재도 같아요.';
+  document.getElementById('over').classList.remove('hide');
+  document.getElementById('helpbtn').classList.add('hide');
+}
+function addFx(o){ S.fx.push(o); if (S.fx.length>40) S.fx.splice(0,S.fx.length-40); }
+
+// ══════════ 입력 — 화면을 한 번 누르면 그 순간의 각으로 떨어진다 ══════════
+function evPos(e){ const r=cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+function onDown(e){
+  if (S.phase==='title' || S.phase==='over') return;
+  const [pxx,pyy]=evPos(e);
+  S.moves++; S.lastInput=performance.now();
+  // 1) 비뚤게 끼인 책을 톡 누르면 빼낸다 (회복 경로)
+  const gx=ux(pxx), gy=uy(pyy);
+  for (const g of S.bays){
+    if (g.locked) continue;
+    for (let i=0;i<g.fills.length;i++){
+      const f=g.fills[i];
+      if (!f.wrong) continue;
+      if (Math.hypot(f.x-gx, f.y-gy) <= Math.max(f.book.l,f.book.h)/2+.4){
+        g.fills.splice(i,1);
+        SFX.miss();
+        addFx({ type:'toast', text:'비뚤 책을 빼냈어요', t:0, life:1.1 });
+        if (S.phase==='onboard') practiceNext();
+        return;
+      }
+    }
+  }
+  // 2) 떨어뜨리기 (낙하 중에는 새 입력을 받지 않는다)
+  if (S.drop || !S.next){ S.ripples.push({x:pxx,y:pyy,t:0}); SFX.refuse(); return; }
+  dropBook();
+}
+function dropBook(){
+  const bk=S.next;
+  if (!bk) return;
+  bk.rot = currentRot();
+  bk.x = S.travel.x; bk.y = TRACK_Y;
+  const tgt = fallTarget(bk.x, bk.y);
+  const endY = tgt ? tgt.y : S.boardCm.h + 3;
+  S.drop = { book:bk, y0:bk.y, y1:endY, t:0, dur:Math.max(.16, (endY-bk.y)/46), tgt };
+  S.next=null;
+  SFX.drop();
+}
+function resolveDrop(){
+  const d=S.drop; S.drop=null;
+  const bk=d.book;
+  if (!d.tgt){
+    SFX.miss();
+    addFx({ type:'toast', text:'칸 안에 놓아 보세요', t:0, life:1.1 });
+    S.next=bk;                 // 카트로 돌아온다 — 책갈피는 그대로
+    return;
+  }
+  const r=judge(bk, d.tgt, bk.rot);
+  if (r.kind==='miss'){
+    SFX.miss();
+    addFx({ type:'toast', text:'그 자리에는 들어갈 길이가 없어요', t:0, life:1.2 });
+    S.next=bk;
+    return;
+  }
+  if (r.kind==='seat') doSeat(bk, r.g, r.o, r.ang, r.span, r.off);
+  else doWrong(bk, r.g, d.tgt, r.reason, r.d, r.sep, r.off);
+}
+cv.addEventListener('pointerdown', onDown, { passive:true });
+addEventListener('keydown', (e)=>{
+  if (e.code==='Space'){ e.preventDefault();
+    if (S.phase==='playing'||S.phase==='onboard'){ S.moves++; S.lastInput=performance.now(); if(!S.drop&&S.next) dropBook(); } }
+});
+
+// ══════════ 렌더 ══════════
+function bakeBoard(){
+  const key=`${S.boardNo}|${Math.round(S.drawW)}x${Math.round(S.drawH)}|${S.bays.map(g=>g.id+g.ang+g.gap+g.len).join(',')}`;
+  if (key===boardKey && boardLayer) return;
+  boardKey=key;
+  const w=Math.max(2,Math.round(S.drawW)), h=Math.max(2,Math.round(S.drawH));
+  if (!boardLayer) boardLayer=document.createElement('canvas');
+  boardLayer.width=Math.round(w*DPR); boardLayer.height=Math.round(h*DPR);
+  const g=boardLayer.getContext('2d');
+  g.setTransform(DPR,0,0,DPR,0,0);
+  g.fillStyle=linoPat||'#C9A882'; g.fillRect(0,0,w,h);
+  const lit=g.createLinearGradient(0,0,0,h);
+  lit.addColorStop(0,'rgba(255,248,232,.24)');
+  lit.addColorStop(.6,'rgba(255,248,232,0)');
+  lit.addColorStop(1,'rgba(42,38,34,.16)');
+  g.fillStyle=lit; g.fillRect(0,0,w,h);
+  // 리놀륨 이음매
+  g.strokeStyle='rgba(120,96,64,.22)'; g.lineWidth=1.5;
+  const tile=Math.max(60, w/6);
+  for(let x=tile;x<w;x+=tile){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke(); }
+  for(let y=tile;y<h;y+=tile){ g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke(); }
+  // 책이 오가는 레일
+  const ty=TRACK_Y*S.cmPx;
+  g.strokeStyle='#4E555C'; g.lineWidth=5;
+  g.beginPath(); g.moveTo(6,ty); g.lineTo(w-6,ty); g.stroke();
+  g.strokeStyle='rgba(255,255,255,.2)'; g.lineWidth=1.4;
+  g.beginPath(); g.moveTo(6,ty-2.4); g.lineTo(w-6,ty-2.4); g.stroke();
+  // 칸 = 평행한 철제 선반 한 쌍
+  for (const bay of S.bays){
+    const [axx,axy]=bayAxis(bay), [nx,ny]=bayNormal(bay);
+    const L=bay.len/2, D=bay.gap/2;
+    const P=(s,t)=>[ (bay.cx+s*axx+t*nx)*S.cmPx, (bay.cy+s*axy+t*ny)*S.cmPx ];
+    // 칸 안쪽 그늘
+    g.save();
+    g.beginPath();
+    const c0=P(-L,-D),c1=P(L,-D),c2=P(L,D),c3=P(-L,D);
+    g.moveTo(c0[0],c0[1]); g.lineTo(c1[0],c1[1]); g.lineTo(c2[0],c2[1]); g.lineTo(c3[0],c3[1]); g.closePath();
+    g.fillStyle='rgba(42,38,34,.20)'; g.fill();
+    g.restore();
+    // 선반 두 장
+    const sw=Math.max(6,S.cmPx*0.34);
+    for (const t of [-D,D]){
+      const a=P(-L-.5,t), b=P(L+.5,t);
+      g.strokeStyle='#2A2622'; g.lineWidth=sw+3;
+      g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.stroke();
+      g.strokeStyle='#4E555C'; g.lineWidth=sw;
+      g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.stroke();
+      g.strokeStyle='rgba(230,238,242,.34)'; g.lineWidth=1.6;
+      g.beginPath(); g.moveTo(a[0]-nx*sw*.3, a[1]-ny*sw*.3); g.lineTo(b[0]-nx*sw*.3, b[1]-ny*sw*.3); g.stroke();
+      // 리벳
+      for (let s=-L; s<=L; s+=Math.max(1.6, bay.len/3)){
+        const m=P(s,t);
+        g.fillStyle='rgba(230,238,242,.5)';
+        g.beginPath(); g.arc(m[0],m[1],1.9,0,TAU); g.fill();
+      }
+    }
+    // 두 선반 사이의 거리: 밴드 1 은 붉은 수선 자 + 숫자(개념 소개), 밴드 2 부터는 선반 끝에 숫자만 둔다 —
+    // 칸에 수선을 미리 그려 두면 「선반에 대한 수선인 순간」 판단이 「붉은 선과 나란한 순간」 맞추기로 줄어든다.
+    {
+      if (bay.ruler){
+        const A=P(-L*0.58,-D), B2=P(-L*0.58,D);
+        g.strokeStyle='rgba(139,46,58,.92)'; g.lineWidth=2.8;
+        g.beginPath(); g.moveTo(A[0],A[1]); g.lineTo(B2[0],B2[1]); g.stroke();
+      }
+      // 「N cm」 글자는 비뚤 책에 가려지지 않게 매 프레임 책 위에 그린다 (drawGapLabels)
+      g.textAlign='center'; g.textBaseline='middle';
+      // 비스듬히 이은 선분(점선) — 길이는 적혀 있지만 거리가 아니다
+      if (bay.slant){
+        const sl=bay.slant, S0=P(sl.sA, D), S1=P(sl.sA+sl.off, -D);
+        g.strokeStyle='rgba(42,38,34,.62)'; g.lineWidth=2.2; g.setLineDash([6,5]);
+        g.beginPath(); g.moveTo(S0[0],S0[1]); g.lineTo(S1[0],S1[1]); g.stroke(); g.setLineDash([]);
+        const fs2=Math.max(12, S.cmPx*0.5);
+        g.font=`800 ${fs2}px ${SANS}`;
+        const mx=(S0[0]+S1[0])/2+axx*S.cmPx*0.85, my=(S0[1]+S1[1])/2+axy*S.cmPx*0.85;
+        g.strokeStyle='rgba(243,237,227,.92)'; g.lineWidth=fs2*0.3; g.strokeText(`${sl.o} cm`, mx, my);
+        g.fillStyle='#5A5148'; g.fillText(`${sl.o} cm`, mx, my);
+      }
+      // 꼭짓점 이름 — 아래 선반 ㄱ·ㄴ, 위 선반 ㄷ·ㄹ (어느 직선에 대한 수선인지 밝힌다)
+      if (bay.names){
+        const fs3=Math.max(13, S.cmPx*0.56);
+        g.font=`900 ${fs3}px ${SANS}`;
+        const spots=[[-L-1.05, D, 0],[L+1.05, D, 1],[-L-1.05, -D, 2],[L+1.05, -D, 3]];
+        for (const [s,t,k] of spots){
+          const q=P(s,t);
+          g.strokeStyle='rgba(243,237,227,.95)'; g.lineWidth=fs3*0.32; g.strokeText(bay.names[k], q[0], q[1]);
+          g.fillStyle='#2A2622'; g.fillText(bay.names[k], q[0], q[1]);
+        }
+      }
+      g.textAlign='left'; g.textBaseline='alphabetic';
+    }
+    // 옆판 (서가 기둥)
+    for (const s of [-L-.5, L+.5]){
+      const a=P(s,-D-.35), b=P(s,D+.35);
+      g.strokeStyle='#3A4046'; g.lineWidth=Math.max(4,S.cmPx*0.2);
+      g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.stroke();
+    }
+  }
+  boardLayer._w=w; boardLayer._h=h;
+}
+
+function drawBook(g, kind,l,h, cxp,cyp, rotDeg, scale, opt){
+  const verts=bookVerts(kind,l,h);
+  const ox=l/2, oy=h/2, a=rotDeg*D2R, ca=Math.cos(a), sa=Math.sin(a);
+  const pts=verts.map(([vx,vy])=>{ const dx=(vx-ox)*scale, dy=(vy-oy)*scale;
+    return [cxp+dx*ca-dy*sa, cyp+dx*sa+dy*ca]; });
+  g.save();
+  g.beginPath(); g.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) g.lineTo(pts[i][0],pts[i][1]);
+  g.closePath();
+  if (opt && opt.ghost){
+    g.strokeStyle='rgba(42,38,34,.5)'; g.lineWidth=2; g.setLineDash([6,5]); g.stroke();
+    g.setLineDash([]); g.restore(); return pts;
+  }
+  g.fillStyle=clothPat||'#8B2E3A'; g.fill();
+  if (opt && opt.wrong){ g.fillStyle='rgba(42,38,34,.34)'; g.fill(); }
+  g.strokeStyle='#2A2622'; g.lineWidth=2; g.stroke();
+  // 책배(페이지 단면) — 국소 x축의 한쪽 면
+  g.save(); g.clip();
+  g.fillStyle=opt&&opt.wrong ? '#CFC6B8' : '#F3EDE3';
+  const e0=pts[1], e1=pts[2];
+  const inx=(pts[0][0]-pts[1][0])*0.30, iny=(pts[0][1]-pts[1][1])*0.30;
+  g.beginPath();
+  g.moveTo(e0[0],e0[1]); g.lineTo(e1[0],e1[1]);
+  g.lineTo(e1[0]+inx, e1[1]+iny); g.lineTo(e0[0]+inx, e0[1]+iny);
+  g.closePath(); g.fill();
+  g.strokeStyle='rgba(42,38,34,.22)'; g.lineWidth=1;
+  for (let k=1;k<4;k++){
+    const fx=inx*k/4, fy=iny*k/4;
+    g.beginPath(); g.moveTo(e0[0]+fx,e0[1]+fy); g.lineTo(e1[0]+fx,e1[1]+fy); g.stroke();
+  }
+  g.restore();
+  // 책등 라벨(밴드 두 줄) — 정답 누설 없이 책의 방향을 읽게 한다
+  const sp0=[(pts[0][0]+pts[1][0])/2,(pts[0][1]+pts[1][1])/2];
+  const sp1=[(pts[3][0]+pts[2][0])/2,(pts[3][1]+pts[2][1])/2];
+  g.strokeStyle='rgba(243,237,227,.62)'; g.lineWidth=Math.max(1.4, scale*0.05);
+  for (const k of [0.24, 0.76]){
+    const ax=pts[0][0]+(pts[3][0]-pts[0][0])*k, ay=pts[0][1]+(pts[3][1]-pts[0][1])*k;
+    const bx=pts[1][0]+(pts[2][0]-pts[1][0])*k, by=pts[1][1]+(pts[2][1]-pts[1][1])*k;
+    g.beginPath(); g.moveTo(ax,ay); g.lineTo(bx,by); g.stroke();
+  }
+  g.restore();
+  return pts;
+}
+// 두 선반 사이의 거리(수선 자 옆 숫자) — 비뚤 책·지우의 책보다 위에 그려 늘 읽히게 한다
+function drawGapLabels(){
+  const fs=Math.max(12, S.cmPx*0.6), off=Math.max(16, S.cmPx*0.95);
+  ctx.save();
+  ctx.font=`900 ${fs}px ${SANS}`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.lineWidth=fs*0.3; ctx.strokeStyle='rgba(243,237,227,.96)'; ctx.fillStyle='#2A2622';
+  for (const g of S.bays){
+    if (g.locked) continue;
+    const t=`${g.gap} cm`;
+    let x, y;
+    if (g.ruler){
+      const [nx,ny]=bayNormal(g), [mx,my]=bayWorld(g, -g.len/2*0.58, 0);
+      x=px(mx)-nx*off; y=py(my)-ny*off;
+    } else {
+      // 선반 끝(ㄴ·ㄹ 사이) — 수선 자 없이 거리 숫자만
+      const [mx,my]=bayWorld(g, g.len/2+1.05, 0);
+      x=px(mx); y=py(my);
+    }
+    ctx.strokeText(t,x,y); ctx.fillText(t,x,y);
+  }
+  ctx.restore();
+}
+function drawPerp(g,x,y,angDeg,size,alpha){
+  g.save(); g.translate(x,y); g.rotate(angDeg*D2R);
+  g.strokeStyle=`rgba(42,38,34,${alpha})`; g.lineWidth=2.6;
+  g.beginPath(); g.moveTo(0,-size); g.lineTo(0,0); g.lineTo(size,0); g.stroke();
+  g.restore();
+}
+const fmt=(t)=>{ const s=Math.max(0,Math.ceil(t)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+// ══════════ 크롬 — 서가 명판 · 반납 카드 · 북트럭 ══════════
+// 화면 위를 가로지르는 공용 HUD 띠를 쓰지 않는다. 지시문은 서가 보에 리벳으로 박은 명판,
+// 남은 시간은 반납 카드의 날짜 도장 칸(10초 = 1칸), 책갈피는 북트럭 손잡이에 매단 리본,
+// 세운 권수는 트럭 아랫단의 책등 8칸과 분필판이다.
+function fitFont(text, weight, size, min, maxW, family){
+  let s=size; const fam=family||SANS;
+  ctx.font=`${weight} ${s}px ${fam}`;
+  while (s>min && ctx.measureText(text).width>maxW){ s-=0.5; ctx.font=`${weight} ${s}px ${fam}`; }
+  return s;
+}
+function ribbonAnchor(i){
+  const P=S.panel;
+  if (S.land) return [P.x+28+i*22, S.cart.handleY+5];
+  return [P.x+P.w-78+i*22, P.y+14];
+}
+function dueRect(){
+  if (S.land) return { x:S.panel.x, y:S.panel.y, w:S.panel.w, h:S.cart.dueH };
+  return { x:8, y:8, w:Math.max(150, W-156), h:44 };
+}
+function bakeBg(){
+  const key=`${W}x${H}@${DPR}|${S.land}|${Math.round(S.ox)},${Math.round(S.oy)},${Math.round(S.drawW)},${Math.round(S.drawH)}|${linoTile?1:0}`;
+  if (key===bgKey && bgLayer) return;
+  bgKey=key;
+  if (!bgLayer) bgLayer=document.createElement('canvas');
+  bgLayer.width=Math.round(W*DPR); bgLayer.height=Math.round(H*DPR);
+  const g=bgLayer.getContext('2d');
+  g.setTransform(DPR,0,0,DPR,0,0);
+  // 열람실 바닥 — 서가 밖도 같은 리놀륨이다(그늘진 쪽)
+  g.fillStyle = linoTile ? g.createPattern(linoTile,'repeat') : '#C9A882';
+  g.fillRect(0,0,W,H);
+  g.fillStyle='rgba(42,38,34,.66)'; g.fillRect(0,0,W,H);
+  // 철제 서가 틀 + 명판 보
+  const fx=S.ox-8, fy=S.oy-NP, fw=S.drawW+16, fh=S.drawH+NP+8;
+  g.fillStyle='rgba(0,0,0,.30)'; g.fillRect(fx+9,fy+11,fw,fh);
+  g.fillStyle='#3A4046'; g.fillRect(fx,fy,fw,fh);
+  const beam=g.createLinearGradient(0,fy,0,fy+NP-6);
+  beam.addColorStop(0,'#6E777F'); beam.addColorStop(1,'#464D54');
+  g.fillStyle=beam; g.fillRect(fx,fy,fw,NP-6);
+  g.fillStyle='rgba(255,255,255,.24)'; g.fillRect(fx,fy,fw,2);
+  g.fillStyle='rgba(0,0,0,.35)'; g.fillRect(fx,fy+NP-8,fw,2);
+  g.fillStyle='rgba(18,16,14,.6)';
+  for (let y=S.oy+10; y<S.oy+S.drawH-10; y+=18){ g.fillRect(fx+2.5,y,3,9); g.fillRect(fx+fw-5.5,y,3,9); }
+  g.fillStyle='#F3EDE3'; g.fillRect(fx+14, fy+5, fw-28, NP-16);
+  g.fillStyle='rgba(42,38,34,.22)'; g.fillRect(fx+14, fy+NP-13, fw-28, 2);
+  g.fillStyle='#C9CFD4';
+  for (const x of [fx+7, fx+fw-7]){ g.beginPath(); g.arc(x, fy+(NP-6)/2, 2.6, 0, TAU); g.fill(); }
+  // 반납 카드 몸체 — 위 가장자리에 펀치 구멍
+  const D=dueRect();
+  g.fillStyle='rgba(0,0,0,.30)'; g.fillRect(D.x+5,D.y+6,D.w,D.h);
+  g.fillStyle='#EFE6D8'; g.fillRect(D.x,D.y,D.w,D.h);
+  g.fillStyle='rgba(42,38,34,.55)';
+  g.beginPath(); g.arc(D.x+D.w/2, D.y+5, 3, 0, TAU); g.fill();
+  g.strokeStyle='rgba(42,38,34,.18)'; g.lineWidth=1;
+  for (let y=D.y+14; y<D.y+D.h-4; y+=12){ g.beginPath(); g.moveTo(D.x+6,y); g.lineTo(D.x+D.w-6,y); g.stroke(); }
+  // 북트럭 틀
+  const P=S.panel, C=S.cart;
+  if (S.land){
+    const x0=P.x+8, x1=P.x+P.w-8;
+    g.fillStyle='rgba(0,0,0,.26)'; g.fillRect(x0+8, C.handleY+8, x1-x0, C.wheelY-C.handleY);
+    g.fillStyle='#4E555C';
+    g.fillRect(x0, C.handleY, 7, C.wheelY-8-C.handleY);
+    g.fillRect(x1-7, C.handleY, 7, C.wheelY-8-C.handleY);
+    g.fillStyle='#79828B'; g.fillRect(x0-4, C.handleY-4, x1-x0+8, 9);
+    g.fillStyle='rgba(255,255,255,.3)'; g.fillRect(x0-4, C.handleY-4, x1-x0+8, 2);
+    for (const y of [C.deckY, C.slotsY+C.slotH]){
+      g.fillStyle='#3A4046'; g.fillRect(x0, y, x1-x0, 12);
+      g.fillStyle='rgba(255,255,255,.18)'; g.fillRect(x0, y, x1-x0, 2);
+    }
+    for (const x of [x0+16, x1-16]){
+      g.fillStyle='#1E1B18'; g.beginPath(); g.arc(x, C.wheelY, 9, 0, TAU); g.fill();
+      g.fillStyle='#8E9AA2'; g.beginPath(); g.arc(x, C.wheelY, 3, 0, TAU); g.fill();
+    }
+  } else {
+    const x0=P.x+4, x1=P.x+P.w-4, by=P.y+P.h-18;
+    g.fillStyle='rgba(0,0,0,.26)'; g.fillRect(x0+6, C.deckY+6, x1-x0, by-C.deckY+8);
+    g.fillStyle='#4E555C'; g.fillRect(x0, C.deckY, 6, by-C.deckY); g.fillRect(x1-6, P.y+6, 6, by-P.y-6);
+    g.fillStyle='#79828B'; g.fillRect(x1-98, P.y+6, 98, 8);
+    g.fillStyle='rgba(255,255,255,.3)'; g.fillRect(x1-98, P.y+6, 98, 2);
+    for (const y of [C.deckY, by]){
+      g.fillStyle='#3A4046'; g.fillRect(x0, y, x1-x0, y===by?8:12);
+      g.fillStyle='rgba(255,255,255,.18)'; g.fillRect(x0, y, x1-x0, 2);
+    }
+    for (const x of [x0+18, x1-18]){
+      g.fillStyle='#1E1B18'; g.beginPath(); g.arc(x, by+12, 6.5, 0, TAU); g.fill();
+    }
+  }
+}
+
+function drawHud(){
+  // 반납 카드 — 남은 시간 + 10초짜리 날짜 도장 9칸
+  const D=dueRect(), compact=D.h<70, used=clamp(SESSION-S.timeLeft,0,SESSION);
+  ctx.save();
+  ctx.textAlign='left';
+  ctx.fillStyle='#5A5148'; ctx.font=`800 ${compact?11.5:12.5}px ${SANS}`;
+  ctx.fillText(S.phase==='onboard'?'연습 · 시간 멈춤':'반납까지', D.x+12, D.y+(compact?17:26));
+  ctx.fillStyle=S.timeLeft<15?'#8B2E3A':'#2A2622';
+  ctx.font=`900 ${compact?19:32}px ${MONO}`;
+  ctx.fillText(fmt(S.timeLeft), D.x+12, D.y+(compact?38:66));
+  let bs, gx, gy, cols;
+  if (compact){ cols=9; gx=D.x+84; bs=Math.max(8, Math.min(18, (D.x+D.w-10-gx-8*3)/9)); gy=D.y+(D.h-bs)/2+2; }
+  else { cols=3; bs=Math.min(22,(D.h-22)/3-4); gx=D.x+D.w-14-(bs*3+8); gy=D.y+12; }
+  for (let i=0;i<9;i++){
+    const cx=gx+(i%cols)*(bs+(compact?3:4)), cy=gy+Math.floor(i/cols)*(bs+4);
+    ctx.strokeStyle='rgba(42,38,34,.45)'; ctx.lineWidth=1.2; ctx.strokeRect(cx+.5,cy+.5,bs-1,bs-1);
+    const k=clamp((used-i*10)/10,0,1);
+    if (k>=1){
+      ctx.strokeStyle='#8B2E3A'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(cx+bs/2,cy+bs/2,bs*0.34,0,TAU); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx+bs*0.22,cy+bs*0.78); ctx.lineTo(cx+bs*0.78,cy+bs*0.22); ctx.stroke();
+    } else if (k>0){
+      ctx.fillStyle='rgba(139,46,58,.28)'; ctx.fillRect(cx+1, cy+bs-1-(bs-2)*k, bs-2, (bs-2)*k);
+    }
+  }
+  // 책갈피 — 북트럭 손잡이에 매단 리본
+  for (let i=0;i<MARKS;i++){
+    const [ax,ay]=ribbonAnchor(i);
+    if (i<S.marks){
+      ctx.fillStyle='#8B2E3A';
+      ctx.beginPath(); ctx.moveTo(ax-6,ay); ctx.lineTo(ax+6,ay); ctx.lineTo(ax+6,ay+34); ctx.lineTo(ax,ay+27); ctx.lineTo(ax-6,ay+34); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='rgba(243,237,227,.4)'; ctx.fillRect(ax-6, ay+5, 12, 2);
+    } else {
+      ctx.fillStyle='rgba(243,237,227,.32)'; ctx.fillRect(ax-2, ay, 4, 8);
+    }
+  }
+  ctx.font=`800 12.5px ${SANS}`; ctx.fillStyle='rgba(243,237,227,.86)';
+  if (S.land){ ctx.textAlign='left'; ctx.fillText(`책갈피 ${S.marks}`, ribbonAnchor(MARKS-1)[0]+16, S.cart.handleY+26); }
+  else { ctx.textAlign='center'; ctx.fillText(`책갈피 ${S.marks}`, ribbonAnchor(1)[0], S.panel.y+64); }
+  ctx.restore();
+}
+function drawBanner(){
+  if (!S.banner) return;
+  const fx=S.ox-8, fy=S.oy-NP, fw=S.drawW+16, lx=fx+14, lw=fw-28;
+  ctx.save();
+  let tx=lx+10;
+  if (lw>520){
+    // 청구기호 칩
+    ctx.fillStyle='#8B2E3A'; ctx.fillRect(lx+6, fy+9, 74, NP-24);
+    ctx.fillStyle='#F3EDE3'; ctx.textAlign='center';
+    ctx.font=`800 11.5px ${MONO}`; ctx.fillText('414.2', lx+43, fy+22);
+    ctx.font=`800 11.5px ${SANS}`; ctx.fillText(S.phase==='onboard'?'연습 서가':`${S.boardNo}번 서가`, lx+43, fy+36);
+    tx=lx+92;
+  }
+  const maxW=lx+lw-10-tx;
+  ctx.textAlign='left'; ctx.fillStyle='#2A2622';
+  fitFont(S.banner, 900, 15, 11.5, maxW);
+  ctx.fillText(S.banner, tx, fy+(S.bannerSub?21:29));
+  if (S.bannerSub){
+    ctx.fillStyle='rgba(42,38,34,.76)';
+    fitFont(S.bannerSub, 700, 12.5, 10.5, maxW);
+    ctx.fillText(S.bannerSub, tx, fy+37);
+  }
+  ctx.restore();
+}
+function bookTag(bk){
+  return (bk.kind==='rect'||bk.kind==='square')
+    ? [`높이 ${bk.h} cm`, `두께 ${bk.l} cm`]
+    : ['평행한 두 변 사이', `${bk.h} cm`];
+}
+function drawSpineSlots(x, y, w, h, gap){
+  const sw=(w-gap*(GOAL-1))/GOAL;
+  for (let i=0;i<GOAL;i++){
+    const sx=x+i*(sw+gap);
+    if (i<Math.min(S.books,GOAL)){
+      ctx.fillStyle=clothPat||'#8B2E3A'; ctx.fillRect(sx,y,sw,h);
+      ctx.strokeStyle='#2A2622'; ctx.lineWidth=1.5; ctx.strokeRect(sx+.5,y+.5,sw-1,h-1);
+      ctx.fillStyle='rgba(243,237,227,.6)'; ctx.fillRect(sx+2,y+h*0.22,sw-4,1.6); ctx.fillRect(sx+2,y+h*0.74,sw-4,1.6);
+    } else {
+      ctx.strokeStyle='rgba(243,237,227,.28)'; ctx.lineWidth=1.4; ctx.setLineDash([4,3]);
+      ctx.strokeRect(sx+.5,y+.5,sw-1,h-1); ctx.setLineDash([]);
+    }
+  }
+}
+function drawPanel(){
+  const P=S.panel, C=S.cart, bk=S.next;
+  ctx.save();
+  if (S.land){
+    const x0=P.x+8, x1=P.x+P.w-8, cx=P.x+P.w/2+20;
+    if (bk) drawBook(ctx, bk.kind, bk.l, bk.h, cx, C.deckY-bk.h*C.cartCm/2, 0, C.cartCm, {});
+    else { ctx.fillStyle='rgba(243,237,227,.55)'; ctx.font=`700 12.5px ${SANS}`; ctx.textAlign='center';
+           ctx.fillText(S.drop?'떨어지는 중…':'책을 싣는 중…', cx, C.deckY-18); }
+    // 꼬리표 — 윗단 판에 끈으로 매단다
+    const tgY=C.deckY+22, tgW=x1-x0-24;
+    ctx.strokeStyle='rgba(243,237,227,.5)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(x0+30,C.deckY+12); ctx.lineTo(x0+30,tgY); ctx.stroke();
+    ctx.fillStyle='#F3EDE3'; ctx.fillRect(x0+12,tgY,tgW,44);
+    ctx.fillStyle='#2A2622'; ctx.textAlign='left';
+    if (bk){
+      const [a,b]=bookTag(bk);
+      fitFont(`${a} · ${b}`, 900, 16, 11, tgW-20, MONO);
+      ctx.fillText(`${a} · ${b}`, x0+22, tgY+20);
+      ctx.fillStyle='rgba(42,38,34,.72)'; fitFont(`다음 책 · ${KIND_NAME[bk.kind]||'책'}`, 700, 12.5, 10.5, tgW-20);
+      ctx.fillText(`다음 책 · ${KIND_NAME[bk.kind]||'책'}`, x0+22, tgY+37);
+    } else {
+      ctx.font=`700 12.5px ${SANS}`; ctx.fillText('다음 책', x0+22, tgY+27);
+    }
+    // 분필판 — 세운 권수 · 콤보 · 최고 기록
+    const top=tgY+56, bot=C.slotsY-10, ph=Math.min(124, bot-top);
+    if (ph>=64){
+      const py0=top+(bot-top-ph)/2;
+      ctx.fillStyle='#30353A'; ctx.fillRect(x0+12,py0,x1-x0-24,ph);
+      ctx.strokeStyle='#6A5A45'; ctx.lineWidth=5; ctx.strokeRect(x0+14.5,py0+2.5,x1-x0-29,ph-5);
+      ctx.textAlign='center'; ctx.fillStyle='rgba(243,237,227,.72)'; ctx.font=`800 12.5px ${SANS}`;
+      ctx.fillText('세운 책', (x0+x1)/2, py0+(ph>=100?26:19));
+      ctx.fillStyle='#F3EDE3'; ctx.font=`900 ${ph>=100?36:26}px ${MONO}`;
+      ctx.fillText(`${S.books} / ${GOAL}`, (x0+x1)/2, py0+(ph>=100?66:46));
+      if (ph>=100){
+        ctx.fillStyle='rgba(243,237,227,.72)'; ctx.font=`800 12.5px ${SANS}`;
+        ctx.fillText(S.combo>1?`콤보 ${S.combo} · 최고 ${S.best}권`:`최고 ${S.best}권`, (x0+x1)/2, py0+ph-18);
+      }
+    }
+    drawSpineSlots(x0+14, C.slotsY, x1-x0-28, C.slotH, 5);
+    if (ph<64){
+      ctx.textAlign='right'; ctx.fillStyle='#F3EDE3'; ctx.font=`900 14px ${MONO}`;
+      ctx.fillText(`${S.books} / ${GOAL}`, x1-14, C.slotsY-6);
+    }
+  } else {
+    const x0=P.x+4, x1=P.x+P.w-4, by=P.y+P.h-18;
+    const bx=P.x+22+2*C.cartCm;
+    if (bk) drawBook(ctx, bk.kind, bk.l, bk.h, bx, C.deckY-bk.h*C.cartCm/2, 0, C.cartCm, {});
+    const tx=P.x+22+4*C.cartCm+16, tw=Math.max(60, x1-104-tx);
+    ctx.textAlign='left';
+    ctx.fillStyle='rgba(243,237,227,.74)'; fitFont(bk?`다음 책 · ${KIND_NAME[bk.kind]||'책'}`:'다음 책', 800, 12.5, 10.5, tw);
+    ctx.fillText(bk?`다음 책 · ${KIND_NAME[bk.kind]||'책'}`:'다음 책', tx, P.y+24);
+    if (bk){
+      const [a,b]=bookTag(bk);
+      ctx.fillStyle='#F3EDE3';
+      fitFont(a, 900, 19, 12, tw, bk.kind==='rect'||bk.kind==='square'?MONO:SANS); ctx.fillText(a, tx, P.y+50);
+      fitFont(b, 900, 19, 12, tw, MONO); ctx.fillText(b, tx, P.y+75);
+    }
+    const sh=Math.max(12, Math.min(26, by-(C.deckY+16)-4));
+    const slotsW=Math.min(8*20, (x1-x0)*0.48);
+    drawSpineSlots(x0+12, C.deckY+16, slotsW, sh, 4);
+    ctx.textAlign='left'; ctx.fillStyle='#F3EDE3';
+    const lbl=`세운 책 ${S.books} / ${GOAL}${S.combo>1?` · 콤보 ${S.combo}`:''}`;
+    fitFont(lbl, 900, 14, 11, x1-12-(x0+24+slotsW));
+    ctx.fillText(lbl, x0+24+slotsW, C.deckY+16+sh/2+5);
+  }
+  ctx.textAlign='left';
+  ctx.restore();
+}
+function drawFx(dt){
+  let toastN=0;   // 토스트가 겹치면 새것부터 위로 쌓는다
+  for(let i=S.fx.length-1;i>=0;i--){
+    const f=S.fx[i]; f.t+=dt;
+    const k=f.t/f.life;
+    if (k>=1){ S.fx.splice(i,1); continue; }
+    ctx.save();
+    if (f.type==='perp'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2.2);
+      drawPerp(ctx, px(f.x), py(f.y), f.ang, S.cmPx*0.5, .9);
+    } else if (f.type==='seatpop'){
+      ctx.globalAlpha=(1-k)*.55;
+      ctx.strokeStyle='#F3EDE3'; ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.arc(px(f.x),py(f.y), S.cmPx*(f.l+f.h)*.26*(.7+k*.7), 0, TAU); ctx.stroke();
+    } else if (f.type==='lock'){
+      const g=f.g, a=1-k;
+      ctx.globalAlpha=a;
+      const [axx,axy]=bayAxis(g), [nx,ny]=bayNormal(g), L=g.len/2;
+      const P=(s,t)=>[px(g.cx+s*axx+t*nx), py(g.cy+s*axy+t*ny)];
+      ctx.strokeStyle='#F3EDE3'; ctx.lineWidth=3+5*a;
+      const A=P(-L,0),B=P(L,0);
+      ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+      // 책갈피가 위에서 꽂힌다 (overshoot)
+      const d=Math.min(1,k*2.4), ease = d<1 ? 1-Math.pow(1-d,3) : 1+Math.sin((d-1)*8)*.04;
+      const m=P(0,0);
+      ctx.globalAlpha=1; ctx.fillStyle='#8B2E3A';
+      const yy=m[1]-(1-ease)*S.cmPx*5;
+      ctx.fillRect(m[0]-3, yy-S.cmPx*0.5, 6, S.cmPx*0.9);
+    } else if (f.type==='measure'){
+      const g=f.g, a=Math.min(1,(1-k)*2);
+      ctx.globalAlpha=a;
+      const [nx,ny]=bayNormal(g);
+      const [mx,my]=bayWorld(g, f.s||0, 0);
+      const A=[px(mx-nx*g.gap/2), py(my-ny*g.gap/2)];
+      const B=[px(mx+nx*g.gap/2), py(my+ny*g.gap/2)];
+      ctx.strokeStyle='#8B2E3A'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+      drawPerp(ctx,A[0],A[1],g.ang,S.cmPx*0.42,a);
+      drawPerp(ctx,B[0],B[1],g.ang+180,S.cmPx*0.42,a);
+      label(`${g.gap} cm`, (A[0]+B[0])/2+22, (A[1]+B[1])/2-6, 15);
+    } else if (f.type==='why'){
+      const a=Math.min(1,(1-k)*2); ctx.globalAlpha=a;
+      const g=f.g, [nx,ny]=bayNormal(g);
+      const A=[px(f.x-nx*g.gap/2), py(f.y-ny*g.gap/2)];
+      const B=[px(f.x+nx*g.gap/2), py(f.y+ny*g.gap/2)];
+      ctx.setLineDash([5,4]); ctx.strokeStyle='#2A2622'; ctx.lineWidth=2.4;
+      ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+      ctx.setLineDash([]);
+      // 어긋남 각 d 는 가장 가까운 변 쌍(f.off) 기준이다 — 그 쌍에 맞는 주어로 말한다.
+      //  직사각형 off 0: 책등이 수선에서 d° / off 90(눕힌 자세): 책등이 평행에서 d° / 그 밖: 평행한 두 변이 d°
+      const dd=Math.round(f.d), box=f.kind==='rect'||f.kind==='square';
+      const msg = f.reason==='ang'
+        ? (!box ? `평행한 두 변이 직선 ${lineName(g)}과 ${dd}° 어긋났어요`
+          : f.off===90 ? `책등이 직선 ${lineName(g)}과 평행이 아니라 ${dd}° 어긋났어요`
+          : `책등이 직선 ${lineName(g)}과 수직이 아니라 ${dd}° 어긋났어요`)
+        : (g.slant && f.bh===g.slant.o)
+          ? `비스듬히 이은 ${g.slant.o} cm는 거리가 아니에요 · 이 칸은 ${g.gap} cm`
+          : Number.isNaN(f.bh)
+            ? `이 칸은 ${g.gap} cm인데 선반에 댄 두 변 사이는 ${g.gap} cm가 아니에요`
+            : `이 칸은 ${g.gap} cm인데 선반에 댄 두 변 사이는 ${cmText(f.bh)} cm예요`;
+      const wfs=fitFont(msg, 900, 13, 10, S.drawW-14);
+      const half=Math.min(ctx.measureText(msg).width/2, S.drawW/2-6);
+      label(msg, clamp(px(f.x), S.ox+half+4, S.ox+S.drawW-half-4), Math.max(S.oy+16, py(f.y)-S.cmPx*(g.gap/2+1.9)), wfs, '#6A2029');
+    } else if (f.type==='reveal'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2);
+      const lines=Array.isArray(f.text)?f.text:[f.text];
+      // 가장 긴 줄이 서가 폭 안에 들어오게 글자 크기를 줄이고, 그 폭만큼 안쪽으로 붙인다
+      let rfs=15; ctx.font=`900 ${rfs}px ${SANS}`;
+      const wide=Math.max(...lines.map(s=>ctx.measureText(s).width)), room=S.drawW-16;
+      if (wide>room) rfs=Math.max(11, rfs*room/wide);
+      const rh=Math.min(wide*rfs/15, room)/2+4;
+      const rx=clamp(px(f.g.cx), S.ox+rh, S.ox+S.drawW-rh), ry=py(f.g.cy)-S.cmPx*(f.g.gap/2+1.4)-(lines.length-1)*20;
+      lines.forEach((s,i)=>label(s, rx, Math.max(S.oy+16, ry)+i*20, rfs));
+    } else if (f.type==='names'){
+      // 이름표 줄 — 한 도형이 여러 이름을 동시에 가진다
+      ctx.globalAlpha=Math.min(1,(1-k)*2.5, k*8);
+      ctx.font=`800 13px ${SANS}`;
+      const ws=f.tags.map(s=>ctx.measureText(s).width+16), maxW=S.drawW-16;
+      const rows=[[]]; let rw=0;
+      f.tags.forEach((s,i)=>{ if (rw+ws[i]+6>maxW && rows[rows.length-1].length){ rows.push([]); rw=0; }
+        rows[rows.length-1].push(i); rw+=ws[i]+6; });
+      let yy=py(f.y)+S.cmPx*(f.h/2+0.9);
+      if (yy+rows.length*28>S.oy+S.drawH-4) yy=py(f.y)-S.cmPx*(f.h/2+0.9)-rows.length*28;
+      for (const row of rows){
+        const tw=row.reduce((a,i)=>a+ws[i]+6,-6);
+        let xx=clamp(px(f.x)-tw/2, S.ox+6, S.ox+S.drawW-6-tw);
+        for (const i of row){
+          ctx.fillStyle='#F3EDE3'; ctx.fillRect(xx,yy,ws[i],23);
+          ctx.fillStyle='#8B2E3A'; ctx.fillRect(xx,yy,ws[i],3);
+          ctx.strokeStyle='#2A2622'; ctx.lineWidth=1.5; ctx.strokeRect(xx+.5,yy+.5,ws[i]-1,22);
+          ctx.fillStyle='#2A2622'; ctx.textAlign='center'; ctx.fillText(f.tags[i], xx+ws[i]/2, yy+17);
+          xx+=ws[i]+6;
+        }
+        yy+=28;
+      }
+      ctx.textAlign='left';
+    } else if (f.type==='toast'){
+      ctx.globalAlpha=Math.min(1,(1-k)*2.4);
+      const bx=S.ox+S.drawW/2, by=S.oy+S.drawH-18-(toastN++)*36;
+      ctx.font='800 14px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+      const tw=ctx.measureText(f.text).width+26;
+      ctx.fillStyle='#2A2622'; ctx.fillRect(bx-tw/2, by-20, tw, 30);
+      ctx.fillStyle='#F3EDE3'; ctx.textAlign='center';
+      ctx.fillText(f.text, bx, by); ctx.textAlign='left';
+    }
+    ctx.restore();
+  }
+}
+function label(text,x,y,size,color){
+  ctx.save();
+  ctx.font=`900 ${size}px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+  ctx.textAlign='center';
+  ctx.strokeStyle='rgba(243,237,227,.95)'; ctx.lineWidth=size*0.3;
+  ctx.strokeText(text,x,y);
+  ctx.fillStyle=color||'#2A2622'; ctx.fillText(text,x,y);
+  ctx.restore();
+}
+
+function drawHint(){
+  if (S.phase!=='onboard' && S.hintT<=0) return;
+  const bk=S.next; if (!bk) return;
+  const bx=px(S.travel.x), by=py(TRACK_Y);
+  const t=(performance.now()%1400)/1400;
+  ctx.save();
+  if (S.phase!=='onboard'){
+    // 본판 힌트: 카트 책이 실제로 들어가고 멈춤 자리에서 닿는 칸의 테두리만 깜빡인다.
+    // 유령 책(정답 각)은 보여 주지 않는다. 그런 칸이 없으면 링·손가락만.
+    const hg=S.bays.find(b=>bookFits(bk,b) && seatAtStop(b,bk));
+    if (hg){
+      const [axx,axy]=bayAxis(hg), [nx,ny]=bayNormal(hg), L=hg.len/2+.5, D=hg.gap/2+.35;
+      const P=(s,u)=>[px(hg.cx+s*axx+u*nx), py(hg.cy+s*axy+u*ny)];
+      const c=[P(-L,-D),P(L,-D),P(L,D),P(-L,D)];
+      ctx.strokeStyle=`rgba(243,237,227,${.35+.6*Math.abs(Math.sin(performance.now()/260))})`; ctx.lineWidth=4;
+      ctx.setLineDash([10,7]); ctx.lineDashOffset=-t*34;
+      ctx.beginPath(); ctx.moveTo(c[0][0],c[0][1]); for (let i=1;i<4;i++) ctx.lineTo(c[i][0],c[i][1]); ctx.closePath(); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+  const g=S.phase==='onboard' ? S.bays.find(b=>!b.locked) : null;
+  if (g){
+    const tx=px(g.cx), ty=py(g.cy);
+    ctx.strokeStyle='rgba(243,237,227,.9)'; ctx.lineWidth=3;
+    ctx.setLineDash([8,8]); ctx.lineDashOffset=-t*32;
+    ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(tx,ty); ctx.stroke();
+    ctx.setLineDash([]);
+    drawBook(ctx, bk.kind, bk.l, bk.h, tx, ty, g.ang, S.cmPx, { ghost:true });
+  }
+  // 연습에서 8초 동안 입력이 없으면 손가락·링을 크게 다시 재생한다
+  const big = S.phase==='onboard' && performance.now()-S.lastInput>8000 ? 1.6 : 1;
+  const pulse=.5+.5*Math.sin(performance.now()/250);
+  ctx.strokeStyle=`rgba(139,46,58,${.55+.4*pulse})`; ctx.lineWidth=3*big;
+  ctx.beginPath(); ctx.arc(bx,by,(S.cmPx*2.4+pulse*6)*big,0,TAU); ctx.stroke();
+  // 손가락 — 책을 누른다
+  ctx.fillStyle='rgba(243,237,227,.95)';
+  const fy=by+ (Math.sin(performance.now()/300)>0 ? 0 : 5*big);
+  ctx.beginPath(); ctx.arc(bx, fy-S.cmPx*2.6*big, 10*big, 0, TAU); ctx.fill();
+  ctx.strokeStyle='#2A2622'; ctx.lineWidth=2; ctx.stroke();
+  ctx.restore();
+}
+
+function drawTitleScene(t){
+  ctx.fillStyle=linoPat||'#C9A882'; ctx.fillRect(0,0,W,H);
+  const cyc=(t%3600)/3600;
+  ctx.save();
+  ctx.translate(W*0.5, H*0.60);
+  ctx.rotate(-0.30);
+  const unit=Math.max(46, Math.min(W,H)*0.115);
+  // 큰 서가 두 칸
+  for (const row of [-1, 0.9]){
+    ctx.fillStyle='#3A4046';
+    ctx.fillRect(-W, row*unit*2.1, W*2, unit*0.36);
+    ctx.fillStyle='rgba(230,238,242,.24)';
+    ctx.fillRect(-W, row*unit*2.1, W*2, 3);
+  }
+  // 꽂힌 책들
+  for (let i=-6;i<=6;i++){
+    if (i===2) continue;
+    const w=unit*(0.34+((i*37)%5)*0.05);
+    ctx.fillStyle= (i%3===0) ? '#6A2029' : '#8B2E3A';
+    ctx.fillRect(i*unit*0.62, -unit*1.1+unit*0.36, w, unit*1.85);
+    ctx.fillStyle='#F3EDE3';
+    ctx.fillRect(i*unit*0.62+w-unit*0.09, -unit*1.1+unit*0.36, unit*0.09, unit*1.85);
+    ctx.strokeStyle='rgba(42,38,34,.5)'; ctx.lineWidth=1.6;
+    ctx.strokeRect(i*unit*0.62, -unit*1.1+unit*0.36, w, unit*1.85);
+  }
+  // 떨어지는 한 권
+  const fall=REDUCED?1:Math.min(1, cyc*1.9);
+  const yy=-unit*4.2 + fall*unit*2.8;
+  ctx.save();
+  ctx.translate(2*unit*0.62+unit*0.2, yy);
+  ctx.rotate(REDUCED?0:(1-fall)*0.5);
+  ctx.fillStyle='#8B2E3A'; ctx.fillRect(-unit*0.22,-unit*0.9,unit*0.44,unit*1.8);
+  ctx.fillStyle='#F3EDE3'; ctx.fillRect(unit*0.13,-unit*0.9,unit*0.09,unit*1.8);
+  ctx.strokeStyle='#2A2622'; ctx.lineWidth=2; ctx.strokeRect(-unit*0.22,-unit*0.9,unit*0.44,unit*1.8);
+  ctx.restore();
+  ctx.restore();
+  const grad=ctx.createLinearGradient(0,H*0.42,0,H);
+  grad.addColorStop(0,'rgba(42,38,34,0)'); grad.addColorStop(1,'rgba(42,38,34,.58)');
+  ctx.fillStyle=grad; ctx.fillRect(0,H*0.42,W,H*0.58);
+}
+
+function render(dt){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if (S.phase==='title'){ drawTitleScene(performance.now()); return; }
+  bakeBg();
+  if (bgLayer) ctx.drawImage(bgLayer, 0, 0, W, H); else { ctx.fillStyle='#2A2622'; ctx.fillRect(0,0,W,H); }
+  ctx.save();
+  if (S.shake>0 && !REDUCED){ const m=S.shake*7; ctx.translate((Math.random()-.5)*m,(Math.random()-.5)*m); }
+  bakeBoard();
+  if (boardLayer) ctx.drawImage(boardLayer, S.ox, S.oy, boardLayer._w, boardLayer._h);
+
+  // 꽂힌 책 · 비뚤 책
+  for (const g of S.bays){
+    for (const f of g.fills){
+      const bk=f.book;
+      const xx=px(f.x), yy=py(f.y);
+      if (f.t!==undefined) f.t+=dt;
+      const k=f.t!==undefined?Math.min(1,f.t/.22):1;
+      const squash=f.wrong?1:1+0.09*Math.sin(k*Math.PI);
+      drawBook(ctx, bk.kind, bk.l, bk.h, xx, yy, f.ang, S.cmPx*squash, { wrong:!!f.wrong });
+      if (f.wrong){
+        ctx.save();
+        const r=S.cmPx*0.55;
+        ctx.beginPath();
+        ctx.moveTo(xx-r,yy-r); ctx.lineTo(xx+r,yy+r);
+        ctx.moveTo(xx+r,yy-r); ctx.lineTo(xx-r,yy+r);
+        ctx.strokeStyle='rgba(243,237,227,.9)'; ctx.lineWidth=5.4; ctx.stroke();
+        ctx.strokeStyle='rgba(139,46,58,.98)'; ctx.lineWidth=2.6; ctx.stroke();
+        ctx.fillStyle='rgba(243,237,227,.9)';
+        ctx.font='800 10.5px -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+        ctx.textAlign='center'; ctx.fillText('톡 = 빼기', xx, yy+r+13); ctx.textAlign='left';
+        ctx.restore();
+      }
+    }
+    if (g.locked){
+      g.lockT+=dt;
+      const a=Math.max(0,1-g.lockT/1.2);
+      ctx.save();
+      const [axx,axy]=bayAxis(g), [nx,ny]=bayNormal(g), L=g.len/2, D=g.gap/2;
+      const P=(s,t)=>[px(g.cx+s*axx+t*nx), py(g.cy+s*axy+t*ny)];
+      ctx.beginPath();
+      const c0=P(-L,-D),c1=P(L,-D),c2=P(L,D),c3=P(-L,D);
+      ctx.moveTo(c0[0],c0[1]); ctx.lineTo(c1[0],c1[1]); ctx.lineTo(c2[0],c2[1]); ctx.lineTo(c3[0],c3[1]); ctx.closePath();
+      ctx.fillStyle=`rgba(139,46,58,${.12+a*.26})`; ctx.fill();
+      ctx.strokeStyle='#8B2E3A'; ctx.lineWidth=3; ctx.stroke();
+      const m=P(0,0);
+      label(`${g.gap} cm`, m[0], m[1]+5, Math.max(12,S.cmPx*0.7));
+      ctx.restore();
+    }
+  }
+
+  drawGapLabels();
+
+  // 떨어지는 책 / 대기 중인 책
+  if (S.drop){
+    const d=S.drop; d.t+=dt;
+    const k=Math.min(1,d.t/d.dur);
+    const yy=d.y0+(d.y1-d.y0)*(k*k*0.6+k*0.4);
+    drawBook(ctx, d.book.kind, d.book.l, d.book.h, px(d.book.x), py(yy), d.book.rot, S.cmPx, {});
+    // 낙하선
+    ctx.save();
+    ctx.strokeStyle='rgba(42,38,34,.28)'; ctx.lineWidth=2; ctx.setLineDash([4,6]);
+    ctx.beginPath(); ctx.moveTo(px(d.book.x), py(d.y0)); ctx.lineTo(px(d.book.x), py(yy)); ctx.stroke();
+    ctx.restore();
+    if (k>=1) resolveDrop();
+  } else if (S.next){
+    const bk=S.next;
+    const rot=currentRot();
+    const bx=px(S.travel.x), by=py(TRACK_Y);
+    // 낙하 예고선 — 어디로 떨어질지는 보여 주되, 맞는 각인지는 알려 주지 않는다
+    ctx.save();
+    ctx.strokeStyle='rgba(42,38,34,.30)'; ctx.lineWidth=2; ctx.setLineDash([4,7]);
+    ctx.beginPath(); ctx.moveTo(bx, by+S.cmPx*0.8); ctx.lineTo(bx, S.oy+S.drawH); ctx.stroke();
+    ctx.restore();
+    drawBook(ctx, bk.kind, bk.l, bk.h, bx, by, rot, S.cmPx, {});
+    // 매달린 고리
+    ctx.strokeStyle='#4E555C'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(bx, py(TRACK_Y)); ctx.lineTo(bx, py(TRACK_Y)-8); ctx.stroke();
+  }
+
+  drawFx(dt);
+  drawHint();
+
+  // 리플
+  for(let i=S.ripples.length-1;i>=0;i--){
+    const r=S.ripples[i]; r.t+=dt;
+    if (r.t>.42){ S.ripples.splice(i,1); continue; }
+    const k=r.t/.42;
+    ctx.save(); ctx.globalAlpha=(1-k)*.5;
+    ctx.strokeStyle='#2A2622'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(r.x,r.y,8+k*26,0,TAU); ctx.stroke(); ctx.restore();
+  }
+  // 떨어지는 책갈피
+  for(let i=S.markFalls.length-1;i>=0;i--){
+    const n=S.markFalls[i]; n.t+=dt; n.vy+=dt*900; n.y+=n.vy*dt; n.x+=dt*36;
+    if (n.t>1.1){ S.markFalls.splice(i,1); continue; }
+    const [ax0,ay0]=ribbonAnchor(n.idx);
+    ctx.save(); ctx.globalAlpha=Math.max(0,1-n.t);
+    ctx.translate(ax0-6+n.x, ay0+n.y); ctx.rotate(REDUCED?0:n.t*6);
+    ctx.fillStyle='#8B2E3A';
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(12,0); ctx.lineTo(12,34); ctx.lineTo(6,27); ctx.lineTo(0,34); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  drawPanel();
+  drawHud();
+  drawBanner();
+}
+
+// ══════════ 루프 ══════════
+let last=performance.now();
+function frame(now){
+  let dt=Math.min(0.05,(now-last)/1000); last=now;
+  if (S.hitstop>0){ S.hitstop-=dt; dt=0; }
+  if (S.shake>0) S.shake=Math.max(0,S.shake-dt*2.2);
+  if (S.hintT>0) S.hintT-=dt;
+  if (S.phase==='playing'||S.phase==='onboard'){
+    if (!S.frozen || S.phase==='onboard') S.oscT+=dt;
+    if (S.phase==='playing') stepRot(dt);
+    // 좌우 이동 — 열린 칸 위에서 멈췄다 간다
+    if (S.travel.speed>0 && !S.drop) travelStep(dt);
+  }
+  if (S.phase==='playing' && S.swapT>0){
+    // 서가 교체 중(잠금·꽂힘 연출을 보여 주는 짧은 틈) — 시간은 멈춘다
+    S.swapT-=dt; if (S.swapT<=0) finishSwap();
+  } else if (S.phase==='playing' && !S.frozen){
+    S.timeLeft-=dt;
+    if (S.timeLeft<=0){ S.timeLeft=0; endGame('time'); }
+    if (now-S.lastInput>8000){ S.hintT=2.0; S.lastInput=now; }
+  }
+  if (S.phase==='onboard'){
+    // 시간으로 연습을 강제 해제하지 않는다 — 첫 꽂힘을 직접 볼 때까지 머문다
+    S.onboardT+=dt;
+    if (S.practiceRetry>0){ S.practiceRetry-=dt; if (S.practiceRetry<=0) practiceNext(); }
+  }
+  render(dt);
+  requestAnimationFrame(frame);
+}
+
+// ══════════ 화면 전환 ══════════
+const $=(id)=>document.getElementById(id);
+function showTitle(){
+  S.phase='title';
+  $('title').classList.remove('hide'); $('over').classList.add('hide');
+  $('helpbtn').classList.add('hide');
+  $('bestline').textContent=`최고 ${S.best}권`;
+}
+function beginRun(skipOnboard){
+  $('title').classList.add('hide'); $('over').classList.add('hide'); $('help').classList.add('hide');
+  $('helpbtn').classList.remove('hide');
+  S.marks=MARKS; S.books=0; S.locked=0; S.score=0; S.combo=0; S.bestCombo=0;
+  S.timeLeft=SESSION; S.attempts=0; S.seated=0; S.wrongs=0;
+  S.fx.length=0; S.ripples.length=0; S.markFalls.length=0;
+  S.drop=null; S.frozen=false; S.swapT=0; S.lastInput=performance.now();
+  let seen=false; try{ seen=localStorage.getItem('chaekseugi.seen')==='1'; }catch(e){}
+  if (skipOnboard||seen){ S.phase='playing'; newBoard(); }
+  else { try{ localStorage.setItem('chaekseugi.seen','1'); }catch(e){} startOnboard(); }
+}
+$('startbtn').addEventListener('click', ()=>{ audio(); beginRun(false); });
+$('againbtn').addEventListener('click', ()=>{ audio(); beginRun(true); });
+// 결과 카드의 버튼 밖(카드 글자·어두운 바탕)을 누르면 「한 판 더」가 맥동하고 거절음이 난다
+$('over').addEventListener('click', (e)=>{
+  if (e.target.closest('#againbtn')) return;
+  const b=$('againbtn');
+  b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge');
+  clearTimeout(b._nudgeT); b._nudgeT=setTimeout(()=>b.classList.remove('nudge'), 340);
+  SFX.refuse();
+});
+$('howbtn').addEventListener('click', ()=>$('help').classList.remove('hide'));
+$('helpbtn').addEventListener('click', ()=>$('help').classList.remove('hide'));
+$('helpclose').addEventListener('click', ()=>$('help').classList.add('hide'));
+$('mute').addEventListener('click', ()=>{
+  muted=!muted;
+  $('mute').textContent=muted?'✕':'♪';
+  $('mute').setAttribute('aria-label', muted?'소리 켜기':'소리 끄기');
+});
+addEventListener('resize', layout);
+addEventListener('orientationchange', ()=>setTimeout(layout,120));
+
+// ══════════ 문제 표본 생성기 ══════════
+// 표본은 **게임이 실제로 쓰는 판정 함수 classifyDrop()** 으로 정답을 낸다.
+// 오답 보기는 오개념 역산이다:
+//  M1 「가로선·세로선처럼 보일 때만 수직」            → 화면 축을 답으로 고른 값
+//  M2 「평행선 사이의 거리를 비스듬히 이은 선분으로 잰다」 → 빗금 길이
+//  M3 「정사각형은 사다리꼴이 아니다」                 → 배타 분류 오답
+const OUT4 = ['칸에 꽂힌다', '선반과 평행한 변을 대지 못해 비뚤게 끼인다',
+              '두 변 사이의 거리가 달라 비뚤게 끼인다', '들어갈 길이가 없어 카트로 돌아온다'];
+function fakeBay(ang, gap, len){ return { id:'s', ang, gap, len, cx:0, cy:0, fills:[], locked:false, lockT:0 }; }
+function outcome(ang, gap, bk, rot){
+  const r = classifyDrop(fakeBay(ang, gap, 9), bk, rot, 0);
+  if (r.kind === 'seat') return 1;
+  if (r.kind === 'miss') return 4;
+  return r.reason === 'ang' ? 2 : 3;
+}
+function buildPool(){
+  const pool = [];
+  const ANGS = [18, 24, 32, 40, 44, 52];
+  const GAPS4 = [3, 4, 5];
+  for (const a of ANGS) for (const gap of GAPS4){
+    const add = (prompt, bk, rot, concept, mis) => {
+      const n = outcome(a, gap, bk, rot);
+      pool.push({ prompt, choices:OUT4.slice(), answer:OUT4[n-1], answerNumeric:n, unitConcept:concept, mis });
+    };
+    // 1) 세워서 아래·위 변을 선반에 대면 — 책 높이가 두 선반 사이의 거리다
+    add(`선반이 가로선과 ${a}°를 이루는 칸이 있고 두 선반 사이의 거리는 ${gap} cm입니다. 높이 ${gap} cm, 두께 3 cm인 책을 세워 책등이 선반에 수직이 되게 하면 어떻게 되는지 알아보세요.`,
+        makeBook('rect', 3, gap), a, '평행선 사이의 거리', ['M2-빗금길이로잼']);
+    // 2) 같은 책을 책등이 선반과 나란하게 눕혀 대면 — 그때 선반에 닿는 두 변 사이는 두께 3 cm 다
+    add(`선반이 가로선과 ${a}°를 이루는 칸이 있고 두 선반 사이의 거리는 ${gap} cm입니다. 높이 ${gap} cm, 두께 3 cm인 책을 책등이 선반과 나란하게 눕혀 선반에 대면 어떻게 되는지 알아보세요.`,
+        makeBook('rect', 3, gap), a - 90, '평행선 사이의 거리', ['M2-빗금길이로잼']);
+    // 3) 눕혀서 대도 사이 거리가 맞으면 꽂힌다 (배타 판정 금지)
+    add(`선반이 가로선과 ${a}°를 이루는 칸이 있고 두 선반 사이의 거리는 ${gap} cm입니다. 높이 ${gap + 2} cm, 두께 ${gap} cm인 책을 책등이 선반과 나란하게 눕혀 선반에 대면 어떻게 되는지 알아보세요.`,
+        makeBook('rect', gap, gap + 2), a - 90, '평행과 평행선', ['M1-화면축추종']);
+    // 4) 수선에서 어긋나면 비뚤게 끼인다
+    for (const e of [18, 34]){
+      add(`선반이 가로선과 ${a}°를 이루는 칸이 있고 두 선반 사이의 거리는 ${gap} cm입니다. 높이 ${gap} cm, 두께 3 cm인 책의 책등을 선반에 대한 수선에서 ${e}° 어긋나게 하여 떨어뜨리면 어떻게 되는지 알아보세요.`,
+          makeBook('rect', 3, gap), a + e, '수직과 수선', ['M1-화면축추종']);
+    }
+    // 5) 사다리꼴 잡지는 평행한 한 쌍만 선반에 댈 수 있다
+    add(`선반이 가로선과 ${a}°를 이루는 칸이 있고 두 선반 사이의 거리는 ${gap} cm입니다. 평행한 두 변 사이가 ${gap} cm인 사다리꼴 잡지의 그 두 변을 선반에 대면 어떻게 되는지 알아보세요.`,
+        makeBook('trap', 3, gap), a, '사다리꼴', ['M3-배타분류']);
+    add(`선반이 가로선과 ${a}°를 이루는 칸이 있고 두 선반 사이의 거리는 ${gap} cm입니다. 평행한 두 변 사이가 ${gap} cm인 사다리꼴 잡지의 평행하지 않은 변을 선반에 대면 어떻게 되는지 알아보세요.`,
+        // 평행하지 않은 변(다리)의 실제 방향 atan2(h, 0.6) 을 정수 각으로 뽑아 그 변을 선반과 나란히 둔다
+        makeBook('trap', 3, gap), a - Math.round(Math.atan2(gap, 0.6)/D2R), '사다리꼴', ['M3-배타분류']);
+  }
+  // 개념 문항
+  for (const a of [15, 20, 25, 30, 35, 40, 50, 55, 65, 70]){
+    const ch = [...new Set([`${90 - a}°`, `${a}°`, `${90 + a}°`, `${180 - a}°`])];
+    if (ch.length >= 3)
+      pool.push({ prompt:`직선 ㄱㄴ과 책등이 이루는 각이 ${a}°입니다. 책등이 직선 ㄱㄴ에 대한 수선이 되려면 이 각이 몇 도 더 커져야 하는지 구해 보세요.`,
+        choices:ch, answer:`${90 - a}°`, answerNumeric:90 - a, unitConcept:'수직과 수선', mis:['M1-화면축추종'] });
+  }
+  // 한 직선에 수직인 두 직선은 서로 평행하다 (4학년 차시2 범위)
+  for (const d of [3,4,5,6,7,8]){
+    pool.push({ prompt:`직선 ㄱㄴ에 수직인 직선 ㄷㄹ과 직선 ㅁㅂ이 ${d} cm 떨어져 있습니다. 직선 ㄷㄹ과 직선 ㅁㅂ은 서로 어떤 관계인지 써 보세요.`,
+      choices:['평행하다','수직이다','한 점에서 만난다','알 수 없다'],
+      answer:'평행하다', answerNumeric:null, unitConcept:'평행과 평행선', mis:['M1-화면축추종'] });
+    pool.push({ prompt:`직선 ㄱㄴ에 수직인 두 직선 사이의 거리가 ${d} cm입니다. 두 직선 사이의 거리를 다른 곳에서 재면 몇 cm인지 구해 보세요.`,
+      // 오개념 보기: 「잰 곳마다 다르다」(평행선 사이 거리 불변 부정) · 한쪽이 더 길다고 본 값
+      choices:[`${d} cm`, '잰 곳마다 달라서 알 수 없다', `${d+2} cm`, `${d-1} cm`],
+      answer:`${d} cm`, answerNumeric:d, unitConcept:'평행선 사이의 거리', mis:['M2-빗금길이로잼'] });
+  }
+
+  for (const d of [3, 4, 5, 6]) for (const l of [5, 6, 7, 8]){
+    if (l <= d) continue;
+    const ch = [...new Set([`${d} cm`, `${l} cm`, `${d + 1} cm`, `${l - d} cm`])];
+    if (ch.length >= 3)
+      pool.push({ prompt:`평행한 두 선반에 수직인 선분의 길이가 ${d} cm이고, 두 선반을 비스듬히 이은 선분의 길이가 ${l} cm입니다. 두 선반 사이의 거리는 몇 cm인지 구해 보세요.`,
+        choices:ch, answer:`${d} cm`, answerNumeric:d, unitConcept:'평행선 사이의 거리', mis:['M2-빗금길이로잼'] });
+  }
+  for (const d of [3, 4, 5]) for (const o of [4, 6, 8]){
+    if (o <= d) continue;   // 비스듬히 이은 선분은 수선보다 짧을 수 없다 (기하적으로 불가능)
+    // 오개념 보기: 빗금 길이 o(M2) · 빗금과 수선의 차 o−d · 둘을 더한 d+o
+    const ch = [...new Set([`${d} cm`, `${o} cm`, `${o - d} cm`, `${d + o} cm`])];
+    if (ch.length >= 3)
+      pool.push({ prompt:`두 선반 사이의 거리가 ${d} cm인 칸이 있고, 두 선반을 비스듬히 이은 선분은 ${o} cm입니다. 선반에 닿는 두 변 사이의 거리가 몇 cm인 책을 골라야 하는지 구해 보세요.`,
+        choices:ch, answer:`${d} cm`, answerNumeric:d, unitConcept:'평행선 사이의 거리', mis:['M2-빗금길이로잼'] });
+  }
+  for (const a of [20, 28, 34, 44, 52]) for (const e of [10, 15, 20, 25]){
+    pool.push({ prompt:`지우가 기울어진 선반의 칸에 책을 끼웠습니다. 가로선에서 같은 쪽으로 잰 각이 선반은 ${a}°, 책의 아래 변은 ${a + e}°입니다. 책의 아래 변이 선반과 몇 도 어긋났는지 구해 보세요.`,
+      choices:[...new Set([`${e}°`, `${a}°`, `${a + e}°`, `${90 - e}°`])],
+      answer:`${e}°`, answerNumeric:e, unitConcept:'평행과 평행선', mis:['M1-화면축추종'] });
+  }
+  const CLS = [
+    { p:'「평행한 변이 한 쌍이라도 있는 사각형」이라는 정의로 부르는 이름을 써 보세요.', a:'사다리꼴',
+      c:['사다리꼴','평행사변형','마름모','직사각형'], u:'사각형의 분류' },
+    { p:'「마주 보는 두 쌍의 변이 서로 평행한 사각형」이라는 정의로 부르는 이름을 써 보세요.', a:'평행사변형',
+      c:['평행사변형','사다리꼴','마름모','정사각형'], u:'사각형의 분류' },
+    { p:'두 직선이 만나서 이루는 각이 직각일 때 두 직선의 관계를 무엇이라고 하는지 써 보세요.', a:'수직',
+      c:['수직','평행','수선','대각선'], u:'수직과 수선' },
+    { p:'두 직선이 서로 수직일 때 한 직선을 다른 직선에 대한 무엇이라고 하는지 써 보세요.', a:'수선',
+      c:['수선','평행선','대각선','밑변'], u:'수직과 수선' },
+    { p:'평행한 변이 한 쌍이라도 있으면 사다리꼴입니다. 정사각형을 사다리꼴이라고 할 수 있는지 써 보세요.',
+      a:'할 수 있다', c:['할 수 있다','할 수 없다 — 평행한 변이 두 쌍이라서','할 수 없다 — 네 변의 길이가 같아서','할 수 없다 — 네 각이 모두 직각이라서'], u:'사각형의 분류' },
+    { p:'평행한 변이 한 쌍이라도 있으면 사다리꼴입니다. 평행사변형을 사다리꼴이라고 할 수 있는지 써 보세요.',
+      a:'할 수 있다', c:['할 수 있다','할 수 없다 — 평행한 변이 두 쌍이라서','할 수 없다 — 마주 보는 변의 길이가 같아서','할 수 없다 — 직각이 없어서'], u:'사각형의 분류' },
+    { p:'평행한 두 선반 사이의 거리를 재는 선분은 두 선반과 어떤 관계인지 써 보세요.', a:'수직',
+      c:['수직','평행','비스듬함','같은 방향'], u:'평행선 사이의 거리' },
+    { p:'평행한 두 선반 사이의 거리를 서로 다른 두 곳에서 재면 어떠한지 써 보세요.', a:'항상 같다',
+      c:['항상 같다','잰 곳마다 다르다','한쪽이 더 길다','잴 수 없다'], u:'평행선 사이의 거리' },
+    { p:'아무리 늘여도 만나지 않는 한 평면 위의 두 직선은 서로 어떠하다고 하는지 써 보세요.', a:'평행하다',
+      c:['평행하다','수직이다','수선이다','대각선이다'], u:'평행과 평행선' }
+  ];
+  for (const c of CLS)
+    pool.push({ prompt:c.p, choices:c.c, answer:c.a, answerNumeric:null, unitConcept:c.u, mis:['M3-배타분류'] });
+
+  const seen = new Set(), out = [];
+  for (const q of pool){ if (seen.has(q.prompt)) continue; seen.add(q.prompt); out.push(q); }
+  return out;
+}
+let POOL = null;
+let sseed = 20260911;
+function sampleProblems(n){
+  if (!POOL) POOL = buildPool();
+  n = Math.max(1, Math.min(400, Math.floor(Number(n) || 20)));
+  const r = makeRng(sseed = (sseed * 1103515245 + 12345) >>> 0);
+  const idx = POOL.map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  const out = [];
+  for (let i = 0; i < n; i++){
+    const q = POOL[idx[i % idx.length]];
+    out.push({
+      id:'cs-' + (i + 1),
+      prompt: i < idx.length ? q.prompt : `${q.prompt} (${Math.floor(i / idx.length) + 1}번째 서가)`,
+      choices:q.choices.slice(), answer:q.answer, answerNumeric:q.answerNumeric,
+      unitConcept:q.unitConcept, misconceptionIds:q.mis
+    });
+  }
+  return out;
+}
+
+// ══════════ 테스트 훅 ══════════
+window.__GAME_TEST__ = {
+  ready:false,
+  start(){ beginRun(true); },
+  getState(){
+    return { score:S.score, lives:S.marks, level:S.band, phase:S.phase, solved:S.books,
+             moves:S.moves, attempts:S.attempts, seated:S.seated, wrongs:S.wrongs,
+             combo:S.combo, timeLeft:Math.round(S.timeLeft), locked:S.locked };
+  },
+  answerCorrect(){
+    if (S.phase!=='playing' && S.phase!=='onboard') beginRun(true);
+    if (S.swapT>0) finishSwap();
+    const bk=S.next;
+    if (bk){
+      for (const g of S.bays){
+        if (g.locked) continue;
+        for (const pr of bookPairs(bk)){
+          if (pr.sep!==g.gap) continue;
+          const runs=freeRuns(g);
+          for(let o=0;o<=g.len-pr.span;o++){
+            if(!runs.some(([a,b])=>o>=a-1e-6 && o+pr.span<=b+1e-6)) continue;
+            S.next=null; S.attempts++;
+            doSeat(bk,g,o,g.ang-pr.off,pr.span,pr.off);
+            return true;
+          }
+        }
+      }
+    }
+    S.score+=120; S.books++; S.seated++;
+    return true;
+  },
+  answerWrong(){
+    if (S.phase!=='playing' && S.phase!=='onboard') beginRun(true);
+    if (S.swapT>0) finishSwap();
+    const g=S.bays.find(b=>!b.locked);
+    const bk=S.next;
+    if (g && bk){
+      S.next=null; S.attempts++;
+      bk.rot=g.ang+23;
+      doWrong(bk,g,{ g, s:0 },'ang',23,undefined,0);
+      if (!S.next) S.next=spawnNext();
+    } else {
+      S.marks=Math.max(0,S.marks-1); S.combo=0; S.wrongs++;
+      if (S.marks<=0) endGame('marks');
+    }
+    return true;
+  },
+  sampleProblems,
+  getLayout(){ return { land:S.land, playW:S.land?Math.round(S.board.w):Math.round(W) }; },
+  // 무뇌 봇 자가 테스트용 계측 (게임은 쓰지 않는다)
+  __bot:{
+    stats(){ return { attempts:S.attempts, seated:S.seated, wrongs:S.wrongs, books:S.books,
+                      locked:S.locked, phase:S.phase, marks:S.marks, timeLeft:Math.round(S.timeLeft),
+                      dropping:!!S.drop }; },
+    reset(){ beginRun(true); },
+    boardRect(){ return { x:S.ox, y:S.oy, w:S.drawW, h:S.drawH }; },
+    /** 지금 누르면 성공하는가 — 정상 경로 검증용 */
+    wouldSeat(){
+      const bk=S.next; if (!bk || S.drop || S.phase!=='playing') return false;
+      const tgt=fallTarget(S.travel.x, TRACK_Y);
+      if (!tgt) return false;
+      return classifyDrop(tgt.g, bk, currentRot(), tgt.s).kind === 'seat';
+    }
+  }
+};
+
+layout();
+bakePatterns();
+showTitle();
+requestAnimationFrame(frame);
+window.__GAME_TEST__.ready = true;
+})();
+</script>
+</body>
+</html>

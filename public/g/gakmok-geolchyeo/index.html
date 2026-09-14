@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>각목 걸쳐</title>
+<meta name="description" content="비 오는 밤 아스팔트 골목, 화면 끝에서 끝까지 기운 적벽돌 담장 사이에 흔들리는 각목을 잡은 채 밀어 돌려 직각 버팀목으로 세우는 90초 아케이드.">
+<meta property="og:title" content="각목 걸쳐">
+<meta property="og:description" content="담장에 직각으로 놓아라">
+<meta property="og:image" content="./square.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+/* 시스템: 「비 오는 밤 아스팔트 골목」
+   바닥 = 화면 전체를 덮는 젖은 아스팔트(띠 없음), 사물 = 적벽돌 담장·각목·쐐기,
+   글자 = 파란 법랑 번지판(흰 테) 과 아스팔트 위 분필. 종이·스티커·그림자 카드는 없다. */
+:root{
+  --sx:0px;
+  --asphalt:#3F4445; --slate:#262B2C; --chalk:#EEEBE2; --chalk-dim:#CBC6BA;
+  --enamel:#2A6485; --enamel-edge:#F7F3E8; --enamel-deep:#173E54;
+  --timber:#E6D4B8; --timber-dark:#3B2E20;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--asphalt)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  color:var(--chalk);touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none;
+  font-variant-numeric:tabular-nums}
+#alley{position:fixed;left:0;top:0;z-index:1;display:block;touch-action:none}
+
+/* 법랑 번지판 — 골목 담에 박힌 파란 철판. 흰 테 + 짙은 바깥 테, 모서리 둥긂 */
+.enamel{border-radius:8px;background:var(--enamel);color:var(--enamel-edge);
+  border:3px solid var(--enamel-edge);box-shadow:0 0 0 2px var(--enamel-deep)}
+
+#sign{position:absolute;z-index:5;left:10px;right:68px;top:10px;padding:7px 12px 0;overflow:hidden;pointer-events:none}
+#signKick{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;font-weight:700;letter-spacing:.1em;opacity:.8}
+#signTask{display:block;margin-top:3px;font-size:16px;font-weight:800;line-height:1.3;word-break:keep-all}
+#signCue{display:block;margin-top:3px;font-size:12.5px;font-style:normal;font-weight:600;line-height:1.35;color:#CFE6F1;word-break:keep-all}
+#signNote{margin:8px -12px 0;padding:6px 12px 8px;min-height:62px;font-size:13px;font-weight:700;line-height:1.38;
+  background:var(--slate);color:var(--chalk);border-top:2px dashed rgba(247,243,232,.4);word-break:keep-all}
+#signNote.good{color:#A8E0B8}
+#signNote.bad{color:#F3A594}
+#signNote.shiver{animation:shiver .3s linear}
+@keyframes shiver{30%{transform:translateX(-5px)}65%{transform:translateX(4px)}}
+#sign.swap{animation:swap .36s ease-out}
+@keyframes swap{0%{transform:rotate(-2.4deg) translateY(-8px);opacity:.25}}
+
+#knobs{position:absolute;z-index:7;top:10px;right:10px;display:grid;gap:9px}
+#knobs button{width:48px;height:48px;border-radius:50%;padding:0;cursor:pointer;font-family:inherit;font-size:18px;font-weight:800}
+#knobs button:active{filter:brightness(.8)}
+
+html.land #sign{left:calc(var(--sx) + 18px);right:auto;top:16px;width:372px}
+html.land #signTask{font-size:18px}
+html.land #knobs{top:16px;right:calc(var(--sx) + 18px);grid-auto-flow:column}
+
+/* ── 문 앞(타이틀) ─────────────────────────────────────────── */
+#gate{position:fixed;inset:0;z-index:20;background:var(--asphalt)}
+#gateArt{position:absolute;left:0;top:0}
+#gateCopy{position:absolute;z-index:2;left:0;right:0;top:8vh;display:grid;justify-items:center;gap:14px;padding:0 14px;text-align:center;pointer-events:none}
+#wordmark{margin:0;font-size:clamp(56px,17vw,116px);font-weight:900;letter-spacing:-.02em;line-height:1}
+#wordmark i{display:inline-block;font-style:normal;color:var(--timber);
+  text-shadow:0 5px 0 #9d8763,0 8px 0 #5c4b35,-3px -3px 0 #2B2017,3px -3px 0 #2B2017,-3px 3px 0 #2B2017,3px 3px 0 #2B2017;
+  animation:plank .55s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes plank{from{transform:translateX(-34px) skewX(-14deg);opacity:0}}
+#gateSign{padding:7px 18px 9px}
+#gateSign span{display:block;font-size:11px;font-weight:700;letter-spacing:.2em;opacity:.8}
+#gateSign strong{display:block;margin-top:2px;font-size:18px}
+.beamBtn{min-height:60px;min-width:236px;padding:0 32px;border:0;border-radius:2px;cursor:pointer;font-family:inherit;
+  font-size:21px;font-weight:900;letter-spacing:.08em;color:#35291C;
+  background:repeating-linear-gradient(90deg,#E9D8BC 0 30px,#B59C77 30px 32px);box-shadow:0 0 0 3px var(--timber-dark)}
+#liftBtn{position:absolute;z-index:3;left:50%;bottom:calc(70px + 4vh);transform:translateX(-50%) rotate(-2deg)}
+#liftBtn:active{transform:translateX(-50%) rotate(-2deg) translateY(3px)}
+#gateFoot{position:absolute;z-index:3;left:0;right:0;bottom:24px;margin:0;text-align:center;font-size:14px;font-weight:800;
+  letter-spacing:.03em;color:var(--chalk);text-shadow:0 0 6px #1E2122,0 0 2px #1E2122}
+#gateFoot b{color:#F3A594}
+/* 판자 버튼 밖을 누르면: 누른 자리 분필 동그라미(캔버스) + 판자가 한 번 흔들림 + 판자 위 분필 안내 */
+#gateHint{position:absolute;z-index:3;left:0;right:0;bottom:calc(70px + 4vh + 74px);margin:0;padding:0 14px;text-align:center;
+  font-size:19px;font-weight:900;letter-spacing:.02em;line-height:1.25;color:var(--chalk);word-break:keep-all;pointer-events:none;
+  text-shadow:0 0 7px #1E2122,0 0 3px #1E2122,0 2px 0 #1E2122;opacity:0;transform:translateY(8px);transition:opacity .16s,transform .16s}
+#gateHint.show{opacity:1;transform:none}
+#gateHint i{display:block;margin-top:3px;font-style:normal;font-size:15px;line-height:1}
+/* 가로 넓은 화면: 판자 위는 버팀목 루프 그림 자리라, 판자 오른쪽 아스팔트에 쓰고 화살표를 판자 쪽으로 돌린다 */
+@media (orientation:landscape) and (min-width:760px){
+  #gateHint{display:flex;flex-direction:row-reverse;justify-content:flex-end;align-items:center;gap:8px;
+    left:calc(50% + 146px);right:auto;bottom:calc(70px + 4vh + 18px);padding:0;white-space:nowrap;transform:translateX(10px)}
+  #gateHint.show{transform:none}
+  #gateHint i{display:inline-block;margin:0;transform:rotate(90deg)}
+}
+#liftBtn.nudge{animation:nudge .52s ease-out}
+@keyframes nudge{18%{transform:translateX(-50%) rotate(-7deg) scale(1.07)}42%{transform:translateX(-50%) rotate(4deg) scale(1.07)}
+  68%{transform:translateX(-50%) rotate(-4deg) scale(1.02)}}
+
+/* ── 해 질 녘(결과) — 분필 칠판을 세운 작업 끝 표시 ─────────── */
+#dusk{position:fixed;inset:0;z-index:22;display:none;place-items:center;padding:16px;background:rgba(24,27,28,.84)}
+#dusk.show{display:grid}
+#duskBoard{width:min(94vw,520px);padding:24px 22px 26px;text-align:center;background:var(--slate);
+  border:4px solid #6B5442;outline:5px solid #3A2E24}
+#duskHead{margin:0;font-size:clamp(28px,8vw,44px);font-weight:900;line-height:1.1}
+#duskSub{margin:6px 0 12px;font-size:14px;font-weight:700;color:var(--chalk-dim)}
+#duskScore{font-size:clamp(54px,17vw,96px);font-weight:900;line-height:1;color:#F3C48A}
+#duskTally{margin:12px 0 0;font-size:14px;font-weight:700;line-height:1.75;color:var(--chalk)}
+#againBeam{margin-top:20px}
+
+/* ── 작업 설명판 ────────────────────────────────────────── */
+#manual{position:fixed;inset:0;z-index:24;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(20,22,23,.84)}
+#manual.show{display:flex}
+#manualCard{max-width:540px;padding:16px 20px 18px}
+#manualCard h3{margin:0 0 8px;font-size:19px}
+#manualCard ol{margin:0;padding-left:20px}
+#manualCard li{margin:0 0 3px;font-size:14px;line-height:1.62}
+#manualShut{margin-top:12px;min-height:46px;padding:0 26px;border:3px solid var(--enamel-edge);border-radius:24px;
+  background:transparent;color:var(--enamel-edge);font-family:inherit;font-size:15px;font-weight:800;cursor:pointer}
+
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="alley"></canvas>
+
+<aside class="enamel" id="sign" aria-live="polite">
+  <span id="signKick"><span>벽돌골목 작업 지시</span><span id="signNo">연습 담장</span></span>
+  <strong id="signTask">각목을 버팀목으로 세워요</strong>
+  <em id="signCue"></em>
+  <p id="signNote"></p>
+</aside>
+
+<nav id="knobs">
+  <button class="enamel" id="sndKnob" type="button" aria-label="소리 켜고 끄기">♪</button>
+  <button class="enamel" id="manualKnob" type="button" aria-label="도움말">?</button>
+</nav>
+
+<section id="gate">
+  <canvas id="gateArt"></canvas>
+  <div id="gateCopy">
+    <h1 id="wordmark" aria-label="각목 걸쳐"></h1>
+    <div class="enamel" id="gateSign"><span>벽돌골목 버팀목 작업</span><strong>담장에 직각으로 놓아라</strong></div>
+  </div>
+  <p id="gateHint" aria-live="polite">나무판 〈각목 들기〉를 눌러요<i aria-hidden="true">▼</i></p>
+  <button class="beamBtn" id="liftBtn" type="button">각목 들기</button>
+  <p id="gateFoot">4학년 2학기 · 사각형 <b>/</b> 최고 기록 <span id="bestChalk">0</span></p>
+</section>
+
+<section id="dusk">
+  <div id="duskBoard">
+    <h2 id="duskHead">오늘 담장은 여기까지예요</h2>
+    <p id="duskSub"></p>
+    <div id="duskScore">0</div>
+    <p id="duskTally"></p>
+    <button class="beamBtn" id="againBeam" type="button">한 판 더</button>
+  </div>
+</section>
+
+<section id="manual">
+  <div class="enamel" id="manualCard">
+    <h3>각목 걸쳐 — 작업 방법</h3>
+    <ol>
+      <li>흔들리는 <b>각목을 잡은 채 밀어서</b> 돌리고, 각이 맞으면 손을 뗍니다.</li>
+      <li>담장과 <b>직각</b>이면 쐐기가 박혀 버팀목이 서고, 눈금 한 칸마다 벽돌 한 개(1 cm)가 쌓여 거리가 새겨집니다.</li>
+      <li>빗나가면 각목과 담장이 이룬 <b>실제 각</b>과 정답 수선이 분필로 보이고, 쐐기 하나가 진창에 빠집니다.</li>
+      <li>평행하지 않거나 주문과 거리가 다른 담장은 <b>빈 곳을 가로로 길게 밀어</b> 치웁니다.</li>
+      <li>담장의 <b>시멘트가 마르기 전에</b> 세우면 점수가 더 붙습니다(아래 걸쇠 줄의 파란 고리).</li>
+    </ol>
+    <button id="manualShut" type="button">닫기</button>
+  </div>
+</section>
+
+<script src="./engine.js"></script>
+<script>
+(function(){
+'use strict';
+var G = window.GakmokEngine, SUB = G.SUB;
+var calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+var byId = function(id){ return document.getElementById(id); };
+var VIEW_CM = 15, WET_SEC = 7, TAU = Math.PI * 2;
+var FONT = 'system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+var CHALK = '#EEEBE2', CHALK_DIM = '#CBC6BA', CHALK_RED = '#F3A594', CHALK_BLUE = '#9ED3EA', CHALK_GREEN = '#A8E0B8';
+
+var cv = byId('alley'), ctx = cv.getContext('2d', { alpha:false });
+var V = { W:0, H:0, sx:0, sw:0, unit:30, cx:0, cy:0, dpr:1, land:false, halfW:150, halfH:150, top:0, bottom:0, blocks:[] };
+var pave = document.createElement('canvas'), brickPat = null;
+
+function cmPx(cm){ return cm * V.unit; }
+function toScreen(p){ return { x: V.cx + p.x * V.unit / SUB, y: V.cy + p.y * V.unit / SUB }; }
+function rectOf(el){ var b = el.getBoundingClientRect(); return { l:b.left, t:b.top, r:b.right, b:b.bottom }; }
+function blocked(x, y, pad){
+  for (var i = 0; i < V.blocks.length; i++) {
+    var k = V.blocks[i];
+    if (x > k.l - pad && x < k.r + pad && y > k.t - pad && y < k.b + pad) return true;
+  }
+  return false;
+}
+
+/* ── 판형: 캔버스는 언제나 화면 전폭 파노라마 ─────────────────
+   담장은 화면 끝에서 끝까지 지나가고, 번지판(작업 지시)과 걸쇠 줄(시간·진도)은
+   그 골목 위에 놓인 사물이다. 좌우 기둥·액자 필드는 두지 않는다. */
+function fitAlley(){
+  var W = innerWidth, H = innerHeight;
+  var land = (W >= H && W >= 640) || W >= 1024;
+  var sw = Math.min(W, 1280), sx = (W - sw) / 2;
+  document.documentElement.classList.toggle('land', land);
+  document.documentElement.style.setProperty('--sx', sx + 'px');
+  var bottom = H - (land ? 82 : 100), top, cx;
+  if (land) { top = 18; cx = W / 2 + Math.min(64, sw * .05); }
+  else { top = Math.round((rectOf(byId('sign')).b || 190) + 6); cx = W / 2; }
+  var fh = Math.max(200, bottom - top);
+  var unit = Math.min(fh / VIEW_CM, sw / 11.2);
+  var dpr = Math.min(window.devicePixelRatio || 1, W * H > 900000 ? 1.25 : 1.5);
+  V.W = W; V.H = H; V.sx = sx; V.sw = sw; V.unit = unit; V.dpr = dpr; V.land = land;
+  V.top = top; V.bottom = bottom; V.cx = cx; V.cy = top + fh / 2;
+  V.halfW = Math.min(cx - sx, sx + sw - cx) / unit * SUB; V.halfH = fh / 2 / unit * SUB;
+  V.blocks = [rectOf(byId('sign')), rectOf(byId('knobs'))];
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  brickPat = ctx.createPattern(makeBrickTile(Math.max(8, Math.round(unit))), 'repeat');
+  paveAsphalt(pave, W, H, dpr, 47);
+  grip = null;
+}
+
+/* 벽돌 한 켜 = 1 cm */
+function makeBrickTile(c){
+  var t = document.createElement('canvas'), g;
+  t.width = c * 4; t.height = c * 2; g = t.getContext('2d');
+  g.fillStyle = '#3A3632'; g.fillRect(0, 0, c * 4, c * 2);
+  var tones = ['#B04A3C', '#A2443A', '#BC5446', '#9C4034'];
+  function lay(x, y, bw){
+    g.fillStyle = tones[Math.abs(Math.round(x / 7) + Math.round(y / 5)) % 4];
+    g.fillRect(x + 1, y + 1, bw - 2, c - 2);
+    g.fillStyle = 'rgba(255,235,225,.14)'; g.fillRect(x + 1, y + 1, bw - 2, Math.max(1, c * .16));
+    g.fillStyle = 'rgba(30,20,18,.18)'; g.fillRect(x + 1, y + c - 2, bw - 2, 1.5);
+  }
+  lay(0, 0, c * 2); lay(c * 2, 0, c * 2); lay(-c, c, c * 2); lay(c, c, c * 2); lay(c * 3, c, c * 2);
+  return t;
+}
+
+/* 젖은 아스팔트 — 골재 알갱이는 화면 전체에 고르게, 웅덩이 반사, 모서리만 어둡게 */
+function paveAsphalt(target, W, H, d, seed){
+  target.width = Math.round(W * d); target.height = Math.round(H * d);
+  var g = target.getContext('2d'), rnd = seeded(seed), i;
+  g.setTransform(d, 0, 0, d, 0, 0);
+  g.fillStyle = '#3F4445'; g.fillRect(0, 0, W, H);
+  var n = Math.round(W * H / 700);
+  for (i = 0; i < n; i++) {
+    var v = rnd();
+    g.fillStyle = v < .45 ? 'rgba(22,25,26,.42)' : v < .9 ? 'rgba(128,134,133,.2)' : 'rgba(190,196,192,.18)';
+    g.fillRect(rnd() * W, rnd() * H, 1 + rnd() * 2.2, 1 + rnd() * 1.8);
+  }
+  for (i = 0; i < 6; i++) {
+    var ox = rnd() * W, oy = rnd() * H, rx = 60 + rnd() * Math.max(80, W * .16), sq = .28 + rnd() * .2;
+    g.save(); g.translate(ox, oy); g.scale(1, sq);
+    var rg = g.createRadialGradient(0, 0, 0, 0, 0, rx);
+    rg.addColorStop(0, 'rgba(142,168,178,.2)'); rg.addColorStop(.7, 'rgba(110,134,144,.1)'); rg.addColorStop(1, 'rgba(110,134,144,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(0, 0, rx, 0, TAU); g.fill(); g.restore();
+  }
+  var vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .25, W / 2, H / 2, Math.hypot(W, H) * .62);
+  vg.addColorStop(0, 'rgba(12,14,15,0)'); vg.addColorStop(1, 'rgba(12,14,15,.5)');
+  g.fillStyle = vg; g.fillRect(0, 0, W, H);
+}
+function seeded(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0;
+  var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ── 상태 ───────────────────────────────────────────────── */
+var S = { phase:'title', idx:-1, round:null, score:0, shown:0, wedges:3, combo:0, solved:0, time:90, wet:1,
+          pile:[], locked:null, reveal:null, swing:0, lastInput:0, hitStop:0, best:0, drillFails:0, drillTime:0, hint:0 };
+var deck = G.deck(), grip = null, rings = [], motes = [], jolt = 0, animT = 0, lockT = 0;
+
+function readRecord(){ try { S.best = +(localStorage.getItem('gakmok.best') || 0) || 0; } catch(e){ S.best = 0; } }
+function writeRecord(){ try { localStorage.setItem('gakmok.best', String(S.best)); } catch(e){} }
+
+function swingPeriod(){ return S.combo >= 3 ? 1.6 : S.combo >= 1 ? 2.2 : 2.8; }
+function beamDir(){
+  var r = S.round; if (!r) return 0;
+  if (grip && grip.onBeam) return grip.dir;        // 잡고 있는 동안엔 손가락이 각을 정한다
+  var p = (S.swing / swingPeriod()) % 1, k = p < .5 ? p * 2 : 2 - p * 2;
+  return r.sweepStart + r.sweepRange * k;
+}
+function beamSeg(dirDeg){
+  var r = S.round, v = G.dirOf(dirDeg), L = r.d * SUB;
+  return { a: { x: r.hinge.x, y: r.hinge.y }, b: { x: r.hinge.x + v.x * L, y: r.hinge.y + v.y * L } };
+}
+// 시멘트가 젖어 있을수록 붙는 점수(0~100). 실패 경로는 늘리지 않는다 — 마르면 보너스만 0.
+function wetBonus(){ return S.phase === 'playing' ? Math.round(S.wet * 10) * 10 : 0; }
+
+function hangWall(r){
+  S.round = r; S.locked = null; S.reveal = null; S.swing = 0; S.wet = 1; S.lastInput = performance.now();
+  byId('signTask').textContent = keepUnit(r.task);
+  byId('signCue').textContent = keepUnit(r.cue + ' ' + (r.cue2 || ''));
+  byId('signNo').textContent = S.phase === 'playing' ? (S.idx + 1) + '번째 담장 / 8' : '연습 담장';
+  var s = byId('sign'); s.classList.remove('swap'); void s.offsetWidth; s.classList.add('swap');
+  fitAlley();
+  if (S.phase !== 'title') signSay(hintFor(r), '');
+}
+function hintFor(r){
+  if (r.kind === 'perp') return '각목을 잡은 채 밀어서 직선 ㄴㄷ과 직각이 되게 돌린 뒤 손을 떼세요.';
+  if (r.answer === 'sweep' || r.kind === 'discard' || r.kind === 'order')
+    return '버팀목을 세울 담장인지 먼저 보고, 아니면 빈 곳을 가로로 길게 밀어 치워 보세요.';
+  if (r.kind === 'shape') return '각목을 잡은 채 밀어서 변 ㄱㄴ과 직각이 되게 돌린 뒤 손을 떼세요.';
+  return '각목을 잡은 채 밀어서 담장과 직각이 되게 돌린 뒤 손을 떼세요.';
+}
+function openAlley(skipDrill){
+  S.phase = skipDrill ? 'playing' : 'tutorial';
+  S.idx = skipDrill ? 0 : -1;
+  S.score = 0; S.shown = 0; S.wedges = 3; S.combo = 0; S.solved = 0; S.time = 90;
+  S.pile = []; S.drillFails = 0; S.drillTime = 0;
+  deck = G.deck();
+  byId('gate').style.display = 'none';
+  byId('dusk').classList.remove('show');
+  hangWall(skipDrill ? deck[0] : G.practiceRound());
+}
+function signSay(msg, cls){
+  var n = byId('signNote'); n.textContent = keepUnit(msg); n.className = cls || '';
+  if (cls === 'bad') { void n.offsetWidth; n.classList.add('shiver'); }
+}
+
+/* ── 소리 ───────────────────────────────────────────────── */
+var actx = null, hushed = false;
+function ensureAudio(){ if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ actx = null; } } return actx; }
+function beep(f, dur, type, vol, glide){
+  var a = ensureAudio(); if (!a || hushed) return;
+  var o = a.createOscillator(), g = a.createGain(), t0 = a.currentTime;
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t0);
+  if (glide) o.frequency.exponentialRampToValueAtTime(Math.max(40, glide), t0 + dur);
+  g.gain.setValueAtTime(.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol || .14, t0 + .01);
+  g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  o.connect(g); g.connect(a.destination); o.start(); o.stop(t0 + dur + .02);
+}
+function hiss(dur, vol, f0, q){
+  var a = ensureAudio(); if (!a || hushed) return;
+  var n = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, n, a.sampleRate), ch = buf.getChannelData(0);
+  for (var i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  var src = a.createBufferSource(); src.buffer = buf;
+  var bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f0 || 1200; bp.Q.value = q || 1.6;
+  var g = a.createGain(); g.gain.value = vol || .12;
+  src.connect(bp); bp.connect(g); g.connect(a.destination); src.start();
+}
+var sfx = {
+  wedge: function(){ hiss(.07, .18, 1800, 2.6); beep(170, .12, 'triangle', .12, 120); },
+  brick: function(i){ beep(300 + i * 70, .08, 'square', .06); hiss(.04, .07, 700, 1.4); },
+  stone: function(){ hiss(.16, .1, 620, 1.1); },
+  slip: function(){ beep(120, .3, 'sawtooth', .12, 60); hiss(.24, .09, 380, .9); },
+  sweep: function(){ hiss(.34, .1, 900, .7); },
+  refuse: function(){ beep(260, .07, 'square', .05); },
+  grab: function(){ hiss(.05, .1, 900, 2.4); beep(190, .07, 'triangle', .06); },
+  win: function(){ [392, 523, 659, 784].forEach(function(f, i){ setTimeout(function(){ beep(f, .26, 'triangle', .11); }, i * 110); }); },
+  lose: function(){ [330, 262, 196].forEach(function(f, i){ setTimeout(function(){ beep(f, .32, 'sine', .11); }, i * 150); }); }
+};
+
+/* ── 그리기 도구 ─────────────────────────────────────────── */
+function chalkOn(g, text, x, y, size, color, align){
+  g.font = '800 ' + Math.round(size) + 'px ' + FONT;
+  g.textAlign = align || 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  g.lineWidth = Math.max(3, size * .22); g.strokeStyle = 'rgba(24,27,28,.88)'; g.strokeText(text, x, y);
+  g.fillStyle = color || CHALK; g.fillText(text, x, y);
+}
+function roundRect(x, y, w, h, r){
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// 꼭짓점·직선 이름은 파란 법랑 번지판에 쓴다
+function plate(x, y, txt, s){
+  ctx.fillStyle = '#F7F3E8'; roundRect(x - s / 2, y - s / 2, s, s, s * .22); ctx.fill();
+  ctx.fillStyle = '#2A6485'; roundRect(x - s / 2 + 2.5, y - s / 2 + 2.5, s - 5, s - 5, s * .15); ctx.fill();
+  ctx.fillStyle = '#F7F3E8'; ctx.font = '800 ' + Math.round(s * .56) + 'px ' + FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x, y + .5);
+}
+function plateSize(){ return Math.max(20, cmPx(.8)); }
+function pointTagAt(r){
+  var P = toScreen(r.point), s = plateSize(), lx = P.x - s * 1.15, ly = P.y - s * 1.15;
+  if (blocked(lx, ly, s * .6) || ly < V.top + s * .6) { lx = P.x + s * 1.15; ly = P.y + s * 1.15; }
+  return { x: Math.min(Math.max(lx, s), V.W - s), y: ly };
+}
+// 「1 cm」가 줄 끝에서 「1 / cm」로 갈라지지 않게 수와 단위를 붙인다(화면 표시만)
+function keepUnit(t){ return String(t).replace(/(\d) cm/g, '$1 cm'); }
+
+function drawWall(p, thetaDeg, outSign, thickCm, wetK){
+  var P = toScreen(p), L = Math.hypot(V.W, V.H) * 1.2 + cmPx(4), t = cmPx(thickCm), y0 = outSign > 0 ? 0 : -t;
+  ctx.save(); ctx.translate(P.x, P.y); ctx.rotate(thetaDeg * Math.PI / 180);
+  ctx.fillStyle = 'rgba(10,12,13,.35)'; ctx.fillRect(-L, y0 + outSign * 6, L * 2, t);     // 젖은 바닥에 진 그림자
+  ctx.fillStyle = brickPat || '#B04A3C'; ctx.fillRect(-L, y0, L * 2, t);
+  if (wetK > 0) {                                  // 아직 젖은 시멘트 — 담 전체가 고르게 번들거린다(정답 자리 표시 아님)
+    ctx.fillStyle = 'rgba(150,196,218,' + (.26 * wetK).toFixed(3) + ')'; ctx.fillRect(-L, y0, L * 2, t);
+    ctx.fillStyle = 'rgba(210,236,246,' + (.7 * wetK).toFixed(3) + ')'; ctx.fillRect(-L, outSign > 0 ? 3 : -5, L * 2, 2);
+  }
+  ctx.fillStyle = 'rgba(24,22,20,.92)'; ctx.fillRect(-L, -1.5, L * 2, 3);   // 안쪽 면 = 담장 선
+  ctx.restore();
+}
+// 닫힌 사각형 담장 — 변은 꼭짓점에서 꼭짓점까지만, 벽돌 띠는 바깥으로, 모서리는 사선 쐐기로 맞물린다
+function drawQuadWall(points, thickCm, wetK){
+  var t = cmPx(thickCm), n = points.length, P = points.map(toScreen), mx = 0, my = 0, i;
+  for (i = 0; i < n; i++) { mx += P[i].x; my += P[i].y; }
+  mx /= n; my /= n;
+  var D = [], N = [], O = [];
+  for (i = 0; i < n; i++) {
+    var A = P[i], B = P[(i + 1) % n], L = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+    var ux = (B.x - A.x) / L, uy = (B.y - A.y) / L, nx = -uy, ny = ux;
+    if (((A.x + B.x) / 2 - mx) * nx + ((A.y + B.y) / 2 - my) * ny < 0) { nx = -nx; ny = -ny; }
+    D.push({ x: ux, y: uy }); N.push({ x: nx, y: ny });
+  }
+  for (i = 0; i < n; i++) {
+    var j = (i + n - 1) % n;
+    var p = { x: P[i].x + N[j].x * t, y: P[i].y + N[j].y * t }, q = { x: P[i].x + N[i].x * t, y: P[i].y + N[i].y * t };
+    var cr = D[j].x * D[i].y - D[j].y * D[i].x;
+    if (Math.abs(cr) < 1e-6) { O.push(q); continue; }
+    var s = ((q.x - p.x) * D[i].y - (q.y - p.y) * D[i].x) / cr;
+    O.push({ x: p.x + D[j].x * s, y: p.y + D[j].y * s });
+  }
+  for (i = 0; i < n; i++) {
+    var k = (i + 1) % n;
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(P[i].x, P[i].y); ctx.lineTo(P[k].x, P[k].y);
+    ctx.lineTo(O[k].x, O[k].y); ctx.lineTo(O[i].x, O[i].y); ctx.closePath(); ctx.clip();
+    ctx.translate(P[i].x, P[i].y); ctx.rotate(Math.atan2(D[i].y, D[i].x));
+    var edge = Math.hypot(P[k].x - P[i].x, P[k].y - P[i].y);
+    ctx.fillStyle = brickPat || '#B04A3C'; ctx.fillRect(-t * 3, -t * 3, edge + t * 6, t * 6);
+    if (i === 2 && wetK > 0) { ctx.fillStyle = 'rgba(150,196,218,' + (.26 * wetK).toFixed(3) + ')'; ctx.fillRect(-t * 3, -t * 3, edge + t * 6, t * 6); }
+    ctx.restore();
+  }
+  ctx.save(); ctx.lineJoin = 'miter';
+  ctx.strokeStyle = 'rgba(24,22,20,.55)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); for (i = 0; i < n; i++) ctx[i ? 'lineTo' : 'moveTo'](O[i].x, O[i].y); ctx.closePath(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(24,22,20,.92)'; ctx.lineWidth = 3;
+  ctx.beginPath(); for (i = 0; i < n; i++) ctx[i ? 'lineTo' : 'moveTo'](P[i].x, P[i].y); ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+function wallTags(p, thetaDeg, txt, sign){
+  if (!txt) return;
+  var v = G.dirOf(thetaDeg), n = G.dirOf(thetaDeg + 90), reach = Math.min(V.halfW, V.halfH), s = plateSize();
+  [-1, 1].forEach(function(k, i){
+    var spot = null, fr = [.78, .6, .42];
+    for (var f = 0; f < fr.length; f++) {
+      spot = toScreen({ x: p.x + v.x * reach * fr[f] * k + n.x * sign * 22, y: p.y + v.y * reach * fr[f] * k + n.y * sign * 22 });
+      spot.x = Math.min(Math.max(spot.x, s), V.W - s);
+      spot.y = Math.min(Math.max(spot.y, V.top + s * .6), V.bottom - s * .6);
+      if (!blocked(spot.x, spot.y, s * .6)) break;
+    }
+    plate(spot.x, spot.y, txt[i] || '', s);
+  });
+}
+function drawBeam(a, b, mode, alpha, swell){
+  var A = toScreen(a), B = toScreen(b), w = cmPx(.62) * (swell || 1), cm = cmPx(1);
+  var dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1, junk = mode === 'junk';
+  ctx.save(); ctx.globalAlpha = alpha == null ? 1 : alpha;
+  ctx.translate(A.x, A.y); ctx.rotate(Math.atan2(dy, dx));
+  ctx.fillStyle = junk ? '#2E2A25' : '#3B2E20'; ctx.fillRect(-2, -w / 2 - 2, L + 4, w + 4);
+  ctx.fillStyle = junk ? '#8D7C63' : mode === 'brace' ? '#F2E4C8' : '#E6D4B8'; ctx.fillRect(0, -w / 2, L, w);
+  ctx.fillStyle = 'rgba(255,250,235,.4)'; ctx.fillRect(0, -w / 2, L, w * .22);
+  ctx.fillStyle = 'rgba(74,60,44,.6)';
+  // 각목에 새긴 1 cm 눈금 — 길이를 직접 세어 읽는 자다
+  for (var i = 1; i * cm < L - 1; i++) ctx.fillRect(i * cm - .8, -w / 2, 1.7, i % 5 === 0 ? w : w * .55);
+  ctx.restore();
+}
+function chalkDash(P1, P2, color, width){
+  ctx.save(); ctx.setLineDash([cmPx(.26), cmPx(.2)]); ctx.lineCap = 'round';
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(P1.x, P1.y); ctx.lineTo(P2.x, P2.y); ctx.stroke(); ctx.restore();
+}
+
+/* ── 정답 사건: 버팀목 조이기 ────────────────────────────────
+   ① 각목이 한 번 부풀며 담장 사이에 조여지고 ② 쐐기가 담장 결을 따라 양옆에서 박히고
+   ③ 눈금 한 칸이 밝아질 때마다 옆에 벽돌 한 개(1 cm)가 쌓여 ④ 분필 치수선으로 거리가 남는다. */
+function brickTime(i){ return .16 + (i - 1) * .11; }
+function raiseBrace(L){
+  var t = lockT, A = toScreen(L.a), B = toScreen(L.b), cm = cmPx(1);
+  var dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+  var nx = -uy * L.side, ny = ux * L.side;
+  drawBeam(L.a, L.b, 'brace', 1, t < .24 ? 1 + .2 * Math.sin(t / .24 * Math.PI) : 1);
+  var k = 1 - Math.pow(1 - Math.min(1, t / .2), 3);
+  var ends = L.kind === 'perp' ? [[B, -1]] : [[A, 1], [B, -1]];
+  for (var e = 0; e < ends.length; e++) {
+    var E0 = ends[e][0], inward = ends[e][1];
+    for (var sd = -1; sd <= 1; sd += 2) {
+      var off = cm * (.34 + .9 * (1 - k));
+      var bx = E0.x + ux * inward * cm * .26, by = E0.y + uy * inward * cm * .26;
+      var tipX = bx - uy * sd * off, tipY = by + ux * sd * off;
+      var baseX = tipX - uy * sd * cm * .5, baseY = tipY + ux * sd * cm * .5;
+      ctx.fillStyle = '#6E4F33'; ctx.strokeStyle = '#2B2017'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(tipX, tipY);
+      ctx.lineTo(baseX + ux * cm * .2, baseY + uy * cm * .2); ctx.lineTo(baseX - ux * cm * .2, baseY - uy * cm * .2);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+  }
+  var stacked = 0;
+  for (var i = 1; i <= L.d; i++) {
+    var ti = brickTime(i); if (t < ti) break; stacked = i;
+    var pk = Math.min(1, (t - ti) / .14), pop = pk < 1 ? .55 + .6 * Math.sin(pk * Math.PI * .75) : 1;
+    ctx.save();
+    ctx.translate(A.x + ux * cm * (i - .5) + nx * cm * .86, A.y + uy * cm * (i - .5) + ny * cm * .86);
+    ctx.rotate(Math.atan2(uy, ux)); ctx.scale(pop, pop);
+    ctx.fillStyle = i % 2 ? '#B04A3C' : '#9C4034'; ctx.fillRect(-cm * .46, -cm * .4, cm * .92, cm * .8);
+    ctx.strokeStyle = '#D9D1C1'; ctx.lineWidth = 1.5; ctx.strokeRect(-cm * .46, -cm * .4, cm * .92, cm * .8);
+    ctx.restore();
+    var gx0 = A.x + ux * cm * i, gy0 = A.y + uy * cm * i, hw = cmPx(.36);
+    ctx.strokeStyle = CHALK; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(gx0 - nx * hw, gy0 - ny * hw); ctx.lineTo(gx0 + nx * hw, gy0 + ny * hw); ctx.stroke();
+    // 몇 번째 벽돌인지는 버팀목 반대편에 쓴다(벽돌 쪽은 치수선 자리)
+    chalkOn(ctx, String(i), A.x + ux * cm * (i - .5) - nx * cm * 1.05, A.y + uy * cm * (i - .5) - ny * cm * 1.05, Math.max(11, cm * .38), CHALK_DIM);
+  }
+  if (stacked === L.d && t > brickTime(L.d) + .16) {
+    // 치수선은 벽돌 바로 바깥(1.5 cm) — 정사각형 장에서 2 cm 옆 꼭짓점 이름표를 긋지 않는다
+    var x1 = A.x + nx * cm * 1.5, y1 = A.y + ny * cm * 1.5, x2 = B.x + nx * cm * 1.5, y2 = B.y + ny * cm * 1.5, sr = cm * .22;
+    ctx.strokeStyle = CHALK; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.moveTo(x1 - nx * sr, y1 - ny * sr); ctx.lineTo(x1 + nx * sr, y1 + ny * sr);
+    ctx.moveTo(x2 - nx * sr, y2 - ny * sr); ctx.lineTo(x2 + nx * sr, y2 + ny * sr);
+    ctx.stroke();
+    var fs = Math.max(16, cm * .66);
+    var lx = Math.min(Math.max((x1 + x2) / 2 + nx * cm * 1.05, 44), V.W - 44);
+    var ly = Math.min(Math.max((y1 + y2) / 2 + ny * cm * 1.05, V.top + 14), V.bottom - 14);
+    chalkOn(ctx, L.d + ' cm', lx, ly, fs, CHALK);
+  }
+}
+// 벽돌을 쌓을 쪽: 화면 안·번지판 밖·점 ㄱ 이름표에서 먼 쪽
+function pickSide(seg){
+  var A = toScreen(seg.a), B = toScreen(seg.b), dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1, cm = cmPx(1);
+  var best = 1, bestScore = -1e9;
+  [1, -1].forEach(function(s){
+    var nx = -dy / len * s, ny = dx / len * s, mx = (A.x + B.x) / 2 + nx * cm * 3.2, my = (A.y + B.y) / 2 + ny * cm * 3.2;
+    var score = -(Math.abs(mx - V.cx) + Math.abs(my - V.cy)) * .1;
+    if (mx < 40 || mx > V.W - 40 || my < V.top + 10 || my > V.bottom - 10) score -= 500;
+    if (blocked(mx, my, 20)) score -= 500;
+    if (S.round && S.round.point) {             // 첫 벽돌·첫 숫자가 점 ㄱ 번지판을 덮지 않게
+      var tag = pointTagAt(S.round), ex = dx / len;
+      var fx = A.x + ex * cm * .6 + nx * cm * .86, fy = A.y + dy / len * cm * .6 + ny * cm * .86;
+      var gx1 = A.x + ex * cm * .5 - nx * cm * 1.05, gy1 = A.y + dy / len * cm * .5 - ny * cm * 1.05;
+      if (Math.hypot(fx - tag.x, fy - tag.y) < cm * 1.5) score -= 200;
+      if (Math.hypot(gx1 - tag.x, gy1 - tag.y) < cm * 1.0) score -= 100;
+    }
+    if (score > bestScore) { bestScore = score; best = s; }
+  });
+  return best;
+}
+
+// 빗나감: 각목과 담장이 실제로 이룬 각(90° 보다 큰 쪽)을 분필 호로
+function drawAngleArc(a){
+  var C = toScreen(a.c), R = cmPx(1.25);
+  if (C.x < -R || C.y < -R || C.x > V.W + R || C.y > V.H + R) return;
+  var a0 = Math.atan2(a.w.y, a.w.x), a1 = Math.atan2(a.ray.y, a.ray.x), dl = a1 - a0;
+  while (dl > Math.PI) dl -= TAU;
+  while (dl <= -Math.PI) dl += TAU;
+  ctx.save();
+  ctx.fillStyle = 'rgba(243,165,148,.2)';
+  ctx.beginPath(); ctx.moveTo(C.x, C.y); ctx.arc(C.x, C.y, R, a0, a0 + dl, dl < 0); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = CHALK_RED; ctx.lineWidth = Math.max(2.5, cmPx(.1)); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(C.x, C.y, R, a0, a0 + dl, dl < 0); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(C.x, C.y); ctx.lineTo(C.x + a.w.x * R * 1.45, C.y + a.w.y * R * 1.45);
+  ctx.moveTo(C.x, C.y); ctx.lineTo(C.x + a.ray.x * R * 1.45, C.y + a.ray.y * R * 1.45);
+  ctx.stroke();
+  ctx.restore();
+  var mid = a0 + dl / 2, fs = Math.max(16, cmPx(.66));
+  var lx = Math.min(Math.max(C.x + Math.cos(mid) * R * 1.95, 30), V.W - 30);
+  var ly = Math.min(Math.max(C.y + Math.sin(mid) * R * 1.95, V.top + 12), V.bottom - 12);
+  chalkOn(ctx, a.deg + '°', lx, ly, fs, CHALK_RED);
+}
+// 평행하게 뗀 각목: 호 대신 두 직선을 화면 끝까지 늘인 분필 점선
+function drawParallelGuides(g){
+  var far = Math.hypot(V.W, V.H) * 1.2, w = Math.max(2.5, cmPx(.1));
+  [[g.beamP, g.beamDir, CHALK_RED], [g.wallP, g.wallDir, CHALK]].forEach(function(l){
+    var P = toScreen(l[0]), v = G.dirOf(l[1]);
+    chalkDash({ x: P.x - v.x * far, y: P.y - v.y * far }, { x: P.x + v.x * far, y: P.y + v.y * far }, l[2], w);
+  });
+}
+function drawSquareTick(corner, d1, d2){
+  var s = cmPx(.5), C = toScreen(corner);
+  ctx.strokeStyle = CHALK; ctx.lineWidth = Math.max(2, cmPx(.08));
+  ctx.beginPath();
+  ctx.moveTo(C.x + d1.x * s, C.y + d1.y * s);
+  ctx.lineTo(C.x + (d1.x + d2.x) * s, C.y + (d1.y + d2.y) * s);
+  ctx.lineTo(C.x + d2.x * s, C.y + d2.y * s);
+  ctx.stroke();
+}
+function drawSlipShow(rv){
+  if (rv.correct) {
+    var CA = toScreen(rv.correct.a), CB = toScreen(rv.correct.b);
+    chalkDash(CA, CB, CHALK, Math.max(2.5, cmPx(.13)));
+    if (rv.sq) drawSquareTick(rv.sq.c, rv.sq.d1, rv.sq.d2);
+    var ux = CB.x - CA.x, uy = CB.y - CA.y, len = Math.hypot(ux, uy) || 1, nx = -uy / len, ny = ux / len, side = 1;
+    if (rv.arc) { var AC = toScreen(rv.arc.c); if ((AC.x - CA.x) * nx + (AC.y - CA.y) * ny > 0) side = -1; }
+    var lx = (CA.x + CB.x) / 2 + nx * side * cmPx(1.3), ly = (CA.y + CB.y) / 2 + ny * side * cmPx(1.3);
+    lx = Math.min(Math.max(lx, 44), V.W - 44); ly = Math.min(Math.max(ly, V.top + 14), V.bottom - 14);
+    chalkOn(ctx, rv.cm + ' cm', lx, ly, Math.max(15, cmPx(.58)), CHALK);
+  }
+  if (rv.par) drawParallelGuides(rv.par);
+  if (rv.arc) drawAngleArc(rv.arc);
+}
+// 연습·힌트: 손가락이 각목을 누르고 밀면 반투명 각목이 +26° 따라 돈다(정답 각과 무관한 상대 회전)
+function drawDemo(bd, seg){
+  var cyc = calm ? .6 : (animT % 1.8) / 1.8;
+  var push = cyc < .18 ? 0 : cyc < .72 ? (1 - Math.cos((cyc - .18) / .54 * Math.PI)) / 2 : 1;
+  var fade = cyc < .82 ? 1 : Math.max(0, 1 - (cyc - .82) / .18), pressed = cyc >= .1 && cyc < .82;
+  var gs = beamSeg(bd + 26 * push);
+  if (push > 0) drawBeam(gs.a, gs.b, 'live', .34 * fade);
+  var GM = toScreen({ x: gs.a.x + (gs.b.x - gs.a.x) * .62, y: gs.a.y + (gs.b.y - gs.a.y) * .62 });
+  ctx.save(); ctx.globalAlpha = fade;
+  ctx.strokeStyle = CHALK; ctx.lineWidth = Math.max(2, cmPx(.1));
+  ctx.beginPath(); ctx.arc(GM.x, GM.y, pressed ? cmPx(.42) : cmPx(.8), 0, TAU); ctx.stroke();
+  ctx.font = '700 ' + Math.max(18, cmPx(.85)) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = CHALK; ctx.fillText('☝', GM.x + cmPx(.3), GM.y + cmPx(.62) - (pressed ? 0 : cmPx(.3)));
+  ctx.restore();
+  // 분필 글씨는 각목 끝 너머에 쓴다 — 힌지 고리·이름표를 덮지 않게
+  var v = G.dirOf(bd), T = toScreen(seg.b), fs = Math.max(13, cmPx(.46)), txt = '잡은 채 밀어서 돌리기';
+  ctx.font = '800 ' + fs + 'px ' + FONT;
+  var tw = ctx.measureText(txt).width;
+  var hx = T.x + v.x * (cmPx(.9) + tw / 2 * Math.abs(v.x)), hy = T.y + v.y * (cmPx(.9) + fs * Math.abs(v.y));
+  hx = Math.min(Math.max(hx, tw / 2 + 8), V.W - tw / 2 - 8);
+  hy = Math.min(Math.max(hy, V.top + fs), V.bottom - fs);
+  if (blocked(hx, hy, fs)) hy = Math.min(V.bottom - fs, hy + fs * 4);
+  chalkOn(ctx, txt, hx, hy, fs, CHALK);
+}
+
+function paintYard(r){
+  var wk = (S.phase === 'playing' && !S.locked) ? S.wet : 0, i, s = plateSize();
+  if (r.quad) {
+    drawQuadWall(r.quad, V.land ? 1.1 : .9, wk);
+    var qn = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ'];
+    for (i = 0; i < 4; i++) {
+      var Q = toScreen(r.quad[i]);
+      plate(Math.min(Math.max(Q.x, s), V.W - s), Math.min(Math.max(Q.y, V.top + s * .6), V.bottom - s * .6), qn[i], s);
+    }
+  } else if (r.kind === 'perp') {
+    drawWall(r.wallA.p, r.theta, 1, 2.4, wk);
+    wallTags(r.wallA.p, r.theta, r.wallA.label, 1);
+  } else {
+    drawWall(r.wallA.p, r.theta, -1, 2.4, 0);
+    drawWall(r.wallB.p, r.wallB.theta, 1, 2.4, wk);
+    wallTags(r.wallA.p, r.theta, r.wallA.label, -1);
+    wallTags(r.wallB.p, r.wallB.theta, r.wallB.label, 1);
+  }
+  if (r.debris) {
+    drawBeam(r.debris.from, r.debris.to, 'junk', .95);
+    var DA = toScreen(r.debris.from), DB = toScreen(r.debris.to);
+    chalkOn(ctx, r.debris.len + ' cm', (DA.x + DB.x) / 2 + cmPx(.9), (DA.y + DB.y) / 2 - cmPx(.6), Math.max(14, cmPx(.52)), CHALK_DIM);
+  }
+  for (i = 0; i < S.pile.length; i++) drawBeam(S.pile[i].a, S.pile[i].b, 'junk', .8);
+
+  if (r.point) {
+    var P = toScreen(r.point);
+    ctx.fillStyle = '#C94A3A'; ctx.beginPath(); ctx.arc(P.x, P.y, cmPx(.28), 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#1E2122'; ctx.lineWidth = 1.5; ctx.stroke();
+    var tag = pointTagAt(r);
+    plate(tag.x, tag.y, 'ㄱ', s);
+  }
+
+  if (S.locked) {
+    raiseBrace(S.locked);
+    if (S.locked.names && lockT > .9) {
+      var fs = Math.max(13, cmPx(.44)), line = S.locked.names.join(' · ');
+      ctx.font = '800 ' + fs + 'px ' + FONT;
+      var lines = ctx.measureText(line).width > V.sw - 60
+        ? [S.locked.names.slice(0, 3).join(' · '), S.locked.names.slice(3).join(' · ')] : [line];
+      for (i = 0; i < lines.length; i++)
+        chalkOn(ctx, lines[i], V.sx + V.sw / 2, V.bottom - 14 - (lines.length - 1 - i) * fs * 1.45, fs, CHALK_GREEN);
+    }
+  } else if (S.reveal && !S.reveal.ok) {
+    drawSlipShow(S.reveal);
+  } else if (!S.reveal && (S.phase === 'playing' || S.phase === 'tutorial')) {
+    // ⚠️ 손을 떼기 전에는 정답 여부를 어떤 신호로도 알리지 않는다(고리 색·굵기는 잡았는지만 말한다).
+    var bd = beamDir(), seg = beamSeg(bd), holding = !!(grip && grip.onBeam);
+    drawBeam(seg.a, seg.b, 'live', 1);
+    var HA = toScreen(seg.a);
+    ctx.strokeStyle = holding ? 'rgba(238,235,226,.92)' : 'rgba(238,235,226,.5)';
+    ctx.lineWidth = Math.max(2, cmPx(holding ? .15 : .09));
+    ctx.beginPath(); ctx.arc(HA.x, HA.y, cmPx(.5), 0, TAU); ctx.stroke();
+    if ((S.phase === 'tutorial' || S.hint > 0) && !holding) drawDemo(bd, seg);
+  }
+
+  for (i = motes.length - 1; i >= 0; i--) {
+    var m = motes[i], MP = toScreen(m);
+    ctx.fillStyle = 'rgba(226,220,204,' + (.85 * (1 - m.t)).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(MP.x, MP.y, cmPx(.07) + m.t * cmPx(.1), 0, TAU); ctx.fill();
+  }
+  for (i = rings.length - 1; i >= 0; i--) {
+    var rg = rings[i];
+    ctx.strokeStyle = 'rgba(238,235,226,' + (.55 * (1 - rg.t)).toFixed(3) + ')'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(rg.x, rg.y, cmPx(.28) + rg.t * cmPx(1.3), 0, TAU); ctx.stroke();
+  }
+  if (grip && grip.sweep) {
+    ctx.strokeStyle = 'rgba(243,165,148,.75)'; ctx.lineWidth = Math.max(3, cmPx(.16)); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(grip.sx, grip.sy); ctx.lineTo(grip.cx, grip.sy); ctx.stroke();
+  }
+}
+
+/* ── 걸쇠 줄·분필 표시: 시간·진도·쐐기(목숨)를 골목 바닥 사물로 ─── */
+function paintTallies(){
+  var land = V.land, x0 = V.sx, x1 = V.sx + V.sw, y0 = V.bottom, H = V.H, i;
+  var shade = ctx.createLinearGradient(0, y0 - 24, 0, H);
+  shade.addColorStop(0, 'rgba(18,20,21,0)'); shade.addColorStop(1, 'rgba(18,20,21,.62)');
+  ctx.fillStyle = shade; ctx.fillRect(0, y0 - 24, V.W, H - y0 + 24);
+  var t = Math.max(0, Math.ceil(S.time)), warn = S.phase === 'playing' && S.time <= 15, sc = Math.round(S.shown);
+  var wireY, wx0, wx1, wedX, wedY, wedGap;
+  if (land) {
+    wireY = y0 + 34; wx0 = x0 + 170; wx1 = x1 - 290; wedX = x0 + 36; wedY = y0 + 46; wedGap = 38;
+    chalkOn(ctx, '쐐기', x0 + 74, y0 + 16, 12, CHALK_DIM);
+    chalkOn(ctx, '세운 버팀목 ' + S.solved + ' / 8', (wx0 + wx1) / 2, y0 + 12, 13, CHALK_DIM);
+    chalkOn(ctx, '남은 시간', x1 - 206, y0 + 16, 12, CHALK_DIM);
+    chalkOn(ctx, t + '초', x1 - 206, y0 + 46, 30, warn ? CHALK_RED : CHALK);
+    chalkOn(ctx, '점수', x1 - 64, y0 + 16, 12, CHALK_DIM);
+    chalkOn(ctx, String(sc), x1 - 64, y0 + 46, 25, CHALK);
+    ctx.strokeStyle = warn ? CHALK_RED : CHALK; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1 - 262, y0 + 72); ctx.lineTo(x1 - 262 + 112 * Math.max(0, S.time) / 90, y0 + 72); ctx.stroke();
+  } else {
+    wireY = y0 + 52; wx0 = 104; wx1 = V.W - 16; wedX = 22; wedY = y0 + 66; wedGap = 28;
+    chalkOn(ctx, '남은 시간 ' + t + '초', 14, y0 + 20, 17, warn ? CHALK_RED : CHALK, 'left');
+    chalkOn(ctx, '버팀목 ' + S.solved + '/8', V.W / 2 + 6, y0 + 20, 14, CHALK_DIM);
+    chalkOn(ctx, '점수 ' + sc, V.W - 14, y0 + 20, 17, CHALK, 'right');
+  }
+  ctx.strokeStyle = '#A7AFB0'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(wx0, wireY); ctx.quadraticCurveTo((wx0 + wx1) / 2, wireY + 8, wx1, wireY); ctx.stroke();
+  [wx0, wx1].forEach(function(bx){
+    ctx.fillStyle = '#6F787A'; ctx.beginPath(); ctx.arc(bx, wireY, 5, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#22272A'; ctx.lineWidth = 1.5; ctx.stroke();
+  });
+  for (i = 0; i < 8; i++) {
+    var f = (i + .5) / 8, hx = wx0 + (wx1 - wx0) * f, hy = wireY + 16 * (1 - f) * f;
+    ctx.strokeStyle = '#A7AFB0'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx, hy + 7); ctx.arc(hx - 3, hy + 7, 3, 0, Math.PI); ctx.stroke();
+    if (i < S.solved) {
+      ctx.fillStyle = '#3B2E20'; ctx.fillRect(hx - 8, hy + 10, 10, 22);
+      ctx.fillStyle = '#F2E4C8'; ctx.fillRect(hx - 6.5, hy + 11.5, 7, 19);
+      ctx.fillStyle = 'rgba(74,60,44,.6)'; ctx.fillRect(hx - 6.5, hy + 18, 4, 1.5); ctx.fillRect(hx - 6.5, hy + 24, 4, 1.5);
+    } else if (i === S.solved && S.phase === 'playing') {
+      var rx = hx - 3, ry = hy + 21;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(238,235,226,.3)'; ctx.beginPath(); ctx.arc(rx, ry, 9, 0, TAU); ctx.stroke();
+      if (S.wet > 0) { ctx.strokeStyle = CHALK_BLUE; ctx.beginPath(); ctx.arc(rx, ry, 9, -Math.PI / 2, -Math.PI / 2 + TAU * S.wet); ctx.stroke(); }
+      if (land) chalkOn(ctx, wetBonus() ? '+' + wetBonus() + ' 젖은 시멘트' : '시멘트 마름', rx + 15, ry, 11, CHALK_BLUE, 'left');
+    } else {
+      ctx.strokeStyle = 'rgba(238,235,226,.26)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(hx - 3, hy + 21, 6, 0, TAU); ctx.stroke();
+    }
+  }
+  for (i = 0; i < 3; i++) {
+    var alive = i < S.wedges;
+    ctx.save(); ctx.translate(wedX + i * wedGap, wedY); ctx.rotate(alive ? -.12 : .6);
+    ctx.beginPath(); ctx.moveTo(-11, 7); ctx.lineTo(11, 7); ctx.lineTo(11, -9); ctx.closePath();
+    if (alive) { ctx.fillStyle = '#8A6644'; ctx.fill(); ctx.strokeStyle = '#2B2017'; ctx.lineWidth = 1.6; ctx.stroke(); }
+    else { ctx.setLineDash([3, 3]); ctx.strokeStyle = 'rgba(238,235,226,.32)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+    ctx.restore();
+  }
+}
+
+function paint(dt){
+  animT += dt;
+  ctx.setTransform(V.dpr, 0, 0, V.dpr, 0, 0);
+  if (jolt > 0) ctx.translate((Math.random() - .5) * jolt, (Math.random() - .5) * jolt);
+  ctx.drawImage(pave, 0, 0, V.W, V.H);
+  if (S.phase === 'title' || !S.round) return;
+  paintYard(S.round);
+  paintTallies();
+}
+
+/* ── 진행 ───────────────────────────────────────────────── */
+function submit(action){
+  var r = S.round; if (!r || S.reveal || S.locked) return;
+  var v = G.judge(r, action);
+  if (String(v.reason).indexOf('refuse') === 0) { bounce(v.msg); return; }
+  if (v.ok) return braceLocked(v, action);
+  return braceSlipped(v, action);
+}
+function bounce(msg, x, y){
+  signSay(msg || '각목을 잡아 보세요.', 'bad');
+  if (x != null) rings.push({ x:x, y:y, t:0 });
+  sfx.refuse(); S.hint = 2.6; S.lastInput = performance.now();
+  // 연습판에서 거절만 반복하는 학습자도 실전으로 나갈 수 있어야 한다
+  if (S.phase === 'tutorial') { S.drillFails += .5; if (S.drillFails >= 3) finishDrill(); }
+}
+function finishDrill(){
+  S.phase = 'playing'; S.idx = 0; S.pile = [];
+  hangWall(deck[0]);
+  signSay('이제 진짜 골목이에요. 90초 안에 버팀목 8개를 세워 보세요. 시멘트가 마르기 전이면 점수가 더 붙어요.', '');
+}
+function braceLocked(v, action){
+  var r = S.round, bonus = wetBonus();
+  var pts = (S.combo >= 2 ? 200 : S.combo === 1 ? 150 : 100) + (r.kind === 'order' ? 50 : 0) + (r.kind === 'shape' ? 80 : 0) + bonus;
+  if (action.type === 'tap') {
+    var seg = beamSeg(r.correctDir);     // 판정은 끝났다. 세워지는 버팀목만 정확한 수선 방향으로 놓는다.
+    S.locked = { a: seg.a, b: seg.b, d: r.d, kind: r.kind, side: pickSide(seg), stamped: 0,
+                 names: r.labels && r.labels.length > 1 ? r.labels : null };
+    lockT = 0; S.hitStop = .09; sfx.wedge();
+    for (var i = 0; i < 10; i++) {
+      var k = Math.random();
+      motes.push({ x: seg.a.x + (seg.b.x - seg.a.x) * k + (Math.random() - .5) * 10,
+                   y: seg.a.y + (seg.b.y - seg.a.y) * k + (Math.random() - .5) * 10, t: 0 });
+    }
+  } else sfx.sweep();
+  if (S.phase === 'tutorial') {
+    S.reveal = { until: 2.4, ok: true };
+    signSay('버팀목이 섰어요. 두 담장에 수직으로 벽돌 ' + r.d + '개가 쌓였죠? 이 길이 ' + r.d + ' cm가 두 담장 사이의 거리예요.', 'good');
+    return;
+  }
+  S.score += pts; S.combo++; S.solved++;
+  var msg = action.type === 'sweep' ? v.msg
+    : r.kind === 'perp' ? '점 ㄱ의 각목이 직선 ㄴㄷ에 수직으로 섰어요. 수선의 길이는 벽돌 ' + r.d + '개, ' + r.d + ' cm예요.'
+    : r.kind === 'shape' ? '변 ㄱㄴ과 변 ㄹㄷ 사이에 높이 ' + r.d + ' cm 버팀목이 섰어요. ' + (r.labels && r.labels.length > 1
+        ? '이 담장은 ' + r.labels.join('·') + '이라고 모두 부를 수 있어요.'
+        : '평행한 변이 한 쌍 있으니 사다리꼴이에요.')
+    : r.kind === 'debris' ? '비스듬한 ' + r.slantCm + ' cm는 거리가 아니에요. 수직으로 세운 ' + r.d + ' cm가 거리예요.'
+    : '두 담장 사이에 버팀목이 섰어요. 벽돌 ' + r.d + '개만큼, 거리는 ' + r.d + ' cm예요.';
+  msg += (bonus ? ' 젖은 시멘트 +' + bonus : '') + (S.combo >= 2 ? ' · 내리 ' + S.combo + '번!' : '');
+  signSay(msg, 'good');
+  S.reveal = { until: 1.6, ok: true };
+}
+function arcAt(c, ray, un, deg){
+  var w = (ray.x * un.x + ray.y * un.y) <= 0 ? un : { x: -un.x, y: -un.y };
+  return { c: c, w: w, ray: ray, deg: deg };
+}
+// 빗나간 까닭을 그릴 재료. 수는 엔진 판정(v.angle)을 그대로 쓰고 여기서는 위치만 정한다.
+function slipGuide(r, v, dir, seg){
+  var out = { arc: null, par: null }, b = G.dirOf(dir), un = G.dirOf(r.theta);
+  if (v.reason === 'miss:parallel') {
+    var tw = r.kind === 'perp' ? r.wallA : r.wallB;
+    out.par = { beamP: r.hinge, beamDir: dir, wallP: tw.p, wallDir: tw.theta };
+    if (r.kind !== 'perp' && v.angle) out.arc = arcAt(seg.a, b, un, v.angle);
+    return out;
+  }
+  if (v.reason !== 'miss:notPerp') return out;
+  if (r.kind === 'perp') {
+    var nT = G.dirOf(r.correctDir), dt = b.x * nT.x + b.y * nT.y;      // 점 ㄱ 에서 직선 ㄴㄷ 까지 각목 선을 늘인다
+    if (Math.abs(dt) < .45) return out;
+    var s = r.d * SUB / dt;
+    out.arc = arcAt({ x: r.hinge.x + b.x * s, y: r.hinge.y + b.y * s }, dt > 0 ? { x: -b.x, y: -b.y } : b, un, v.angle);
+  } else out.arc = arcAt(seg.a, b, un, v.angle);
+  return out;
+}
+function braceSlipped(v, action){
+  var r = S.round, show = { ok: false, correct: null, cm: r.d, arc: null, par: null, sq: null };
+  if (action.type === 'tap') {
+    var seg = beamSeg(action.dir);
+    S.pile.push({ a: { x: seg.a.x, y: seg.a.y }, b: { x: seg.b.x, y: seg.b.y } });
+    if (S.pile.length > 6) S.pile.shift();
+    sfx.slip();
+    if (r.answer === 'lock') {
+      var cs = beamSeg(r.correctDir), un = G.dirOf(r.theta), nn = G.dirOf(r.correctDir);
+      show.sq = { c: cs.b, d1: { x: un.x, y: un.y }, d2: { x: -nn.x, y: -nn.y } };
+      var g = slipGuide(r, v, Math.round(action.dir), seg); show.arc = g.arc; show.par = g.par;
+    }
+  } else sfx.stone();
+  jolt = 7;                                        // 흔들림은 빗나감 전용
+  if (r.answer === 'lock' || S.phase === 'tutorial') show.correct = beamSeg(r.correctDir);
+  if (S.phase === 'tutorial') {
+    S.drillFails++;
+    signSay((v.msg || '빗나갔어요.') + ' 잡은 채로 밀어서 다시 맞춰 보세요.', 'bad');
+    S.hint = 6; show.until = 2.2; S.reveal = show;
+    return;
+  }
+  S.wedges--; S.combo = 0;
+  signSay(v.msg || '빗나갔어요.', 'bad');
+  show.until = action.type === 'tap' ? 2.0 : 1.3; S.reveal = show;
+}
+function nextAfterShow(rev){
+  if (S.phase === 'tutorial') {
+    if (S.locked || S.drillFails >= 3) finishDrill();
+    else { S.locked = null; S.reveal = null; }
+    return;
+  }
+  if (S.wedges <= 0) return closeAlley(false);
+  if (rev && rev.ok) {
+    if (S.solved >= 8) return closeAlley(true);
+    S.idx++; S.pile = [];
+    hangWall(deck[S.idx % deck.length]);
+  } else { S.locked = null; S.reveal = null; }
+}
+function closeAlley(won){
+  S.phase = won ? 'won' : 'lost';
+  if (won) S.score += Math.round(S.time) * 10 + S.wedges * 50;
+  if (S.score > S.best) { S.best = S.score; writeRecord(); }
+  (won ? sfx.win : sfx.lose)();
+  byId('duskHead').textContent = won ? '골목 담장 완성' : '오늘 담장은 여기까지예요';
+  byId('duskSub').textContent = won ? '버팀목 8개를 모두 직각으로 세웠어요.'
+    : (S.wedges <= 0 ? '쐐기가 모두 진창에 빠졌어요.' : '시간이 끝났어요.');
+  byId('duskTally').innerHTML = '세운 버팀목 <b>' + S.solved + '</b> / 8 · 남은 쐐기 <b>' + Math.max(0, S.wedges) +
+    '</b><br>남은 시간 <b>' + Math.max(0, Math.ceil(S.time)) + '</b>초 · 최고 기록 <b>' + S.best + '</b>';
+  byId('dusk').classList.add('show');
+  byId('bestChalk').textContent = S.best;
+  rollNumber(byId('duskScore'), S.score, 900);
+}
+function rollNumber(el, to, ms){
+  var t0 = performance.now();
+  function tick(now){
+    var k = Math.min(1, (now - t0) / ms);
+    el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ── 입력 ───────────────────────────────────────────────── */
+function eventPoint(ev){ var b = cv.getBoundingClientRect(); return { x: ev.clientX - b.left, y: ev.clientY - b.top }; }
+function onBeamAt(p){
+  var seg = beamSeg(beamDir()), A = toScreen(seg.a), B = toScreen(seg.b);
+  var vx = B.x - A.x, vy = B.y - A.y, L2 = vx * vx + vy * vy || 1;
+  var k = Math.max(0, Math.min(1, ((p.x - A.x) * vx + (p.y - A.y) * vy) / L2));
+  return Math.hypot(p.x - (A.x + vx * k), p.y - (A.y + vy * k)) <= Math.max(26, cmPx(1.1));
+}
+cv.addEventListener('pointerdown', function(ev){
+  if (S.phase === 'title' || S.phase === 'won' || S.phase === 'lost') return;
+  ensureAudio(); ev.preventDefault();
+  if (cv.setPointerCapture) cv.setPointerCapture(ev.pointerId);
+  var p = eventPoint(ev);
+  S.lastInput = performance.now(); S.hint = 0;
+  if (S.reveal || S.locked) { rings.push({ x: p.x, y: p.y, t: 0 }); return; }
+  var d0 = Math.round(beamDir());
+  grip = { sx: p.x, sy: p.y, cx: p.x, lx: p.x, ly: p.y, path: 0, moved: 0, sweep: false, onBeam: onBeamAt(p), dir: d0, dragged: false };
+  if (grip.onBeam) sfx.grab();
+}, { passive:false });
+cv.addEventListener('pointermove', function(ev){
+  if (!grip) return; ev.preventDefault();
+  var p = eventPoint(ev);
+  grip.cx = p.x;
+  grip.moved = Math.max(grip.moved, Math.abs(p.x - grip.sx));
+  if (grip.onBeam) {
+    // 손가락 이동을 각목의 법선 n=(−sinφ, cosφ)에 투영해 몸통을 민 쪽으로 돈다. 1 px = 0.3°.
+    var ph = grip.dir * Math.PI / 180, ddx = p.x - grip.lx, ddy = p.y - grip.ly;
+    grip.dir += (ddx * -Math.sin(ph) + ddy * Math.cos(ph)) * .3;
+    grip.path += Math.hypot(ddx, ddy);
+    if (grip.path > 6) grip.dragged = true;
+  } else if (grip.moved >= 60 && Math.abs(p.y - grip.sy) < 90) grip.sweep = true;
+  grip.lx = p.x; grip.ly = p.y;
+}, { passive:false });
+function letGo(){
+  if (!grip) return;
+  var g = grip; grip = null;
+  if (!g.onBeam) {
+    if (g.sweep && g.moved >= 80) { submit({ type: 'sweep' }); return; }
+    if (g.moved > 24) { bounce('치우려면 담장 빈 곳을 가로로 더 길게 밀어 보세요.', g.sx, g.sy); return; }
+    bounce('흔들리는 각목을 잡아 보세요.', g.sx, g.sy); return;
+  }
+  // 조작은 하나다: 잡은 채 밀어 돌리고 뗀다. 밀지 않고 바로 뗀 탭은 제출하지 않는다(쐐기는 빼지 않는다).
+  if (!g.dragged) { bounce('각목을 잡은 채로 밀어서 돌린 뒤 손을 떼 보세요.', g.sx, g.sy); return; }
+  submit({ type: 'tap', dir: Math.round(g.dir) });
+}
+cv.addEventListener('pointerup', letGo);
+cv.addEventListener('pointercancel', function(){ grip = null; });
+cv.addEventListener('pointerleave', function(){ if (grip) letGo(); });
+
+/* ── 루프 ───────────────────────────────────────────────── */
+var last = performance.now();
+function loop(now){
+  var dt = Math.min(.05, (now - last) / 1000), i; last = now;
+  if (S.hitStop > 0) { S.hitStop -= dt; dt = 0; }
+  if (jolt > 0) jolt = Math.max(0, jolt - dt * 34);
+  if (S.locked) {
+    lockT += dt;
+    while (S.locked.stamped < S.locked.d && lockT >= brickTime(S.locked.stamped + 1)) sfx.brick(++S.locked.stamped);
+  }
+  for (i = rings.length - 1; i >= 0; i--) { rings[i].t += dt * 1.7; if (rings[i].t >= 1) rings.splice(i, 1); }
+  for (i = motes.length - 1; i >= 0; i--) { motes[i].t += dt * .9; motes[i].y -= dt * 26; if (motes[i].t >= 1) motes.splice(i, 1); }
+  var live = (S.phase === 'playing' || S.phase === 'tutorial') && !S.reveal && !S.locked;
+  if (live && !(grip && grip.onBeam)) S.swing += dt;
+  if (S.phase === 'playing' && live) S.wet = Math.max(0, S.wet - dt / WET_SEC);   // 잡고 있어도 시멘트는 마른다
+  if (S.phase === 'playing' && !S.reveal) {
+    S.time -= dt;
+    if (S.time <= 0) { S.time = 0; closeAlley(false); }
+  }
+  if (S.reveal) {
+    S.reveal.until -= dt;
+    if (S.reveal.until <= 0) { var rev = S.reveal; S.reveal = null; nextAfterShow(rev); }
+  }
+  if (live && now - S.lastInput > 8000) S.hint = Math.max(S.hint || 0, 3);
+  if (S.phase === 'tutorial' && !S.reveal && !S.locked) {
+    S.drillTime += dt;                              // 연습 전용 시계(본 타이머·쐐기는 멈춰 있다)
+    if (S.drillTime >= 24) { S.drillTime = 0; finishDrill(); }
+  }
+  if (S.hint > 0) S.hint -= dt;
+  S.shown += (S.score - S.shown) * Math.min(1, dt * 7);
+  if (Math.abs(S.score - S.shown) < .5) S.shown = S.score;
+  paint(dt); paintGate(dt);
+  requestAnimationFrame(loop);
+}
+
+/* ── 문 앞 그림: 화면을 가로지르는 두 담장 사이에 버팀목이 서고 벽돌이 쌓인다 ── */
+var gc = byId('gateArt'), gx = gc.getContext('2d'), gbg = document.createElement('canvas'), gT = 0, gGeo = null;
+function fitGate(){
+  var d = Math.min(window.devicePixelRatio || 1, 1.5), W = innerWidth, H = innerHeight;
+  gc.width = Math.round(W * d); gc.height = Math.round(H * d); gc.style.width = W + 'px'; gc.style.height = H + 'px';
+  paveAsphalt(gbg, W, H, d, 19);
+  var g = gbg.getContext('2d'), c = Math.max(14, Math.round(Math.min(W, H) / 24)), gap = c * 4, thick = c * 2.4;
+  var ox = W * .5, oy = H * (W >= H ? .64 : .58), ang = -.42, far = Math.hypot(W, H) * 1.3;
+  var pat = g.createPattern(makeBrickTile(c), 'repeat');
+  g.save(); g.translate(ox, oy); g.rotate(ang);
+  [[-gap / 2 - thick, -1], [gap / 2, 1]].forEach(function(b){
+    g.fillStyle = 'rgba(10,12,13,.35)'; g.fillRect(-far, b[0] + b[1] * 6, far * 2, thick);
+    g.fillStyle = pat; g.fillRect(-far, b[0], far * 2, thick);
+    g.fillStyle = 'rgba(24,22,20,.92)'; g.fillRect(-far, b[1] * gap / 2 - 1.5, far * 2, 3);
+  });
+  g.restore();
+  gGeo = { ox: ox, oy: oy, ang: ang, c: c, gap: gap };
+}
+function paintGate(dt){
+  if (byId('gate').style.display === 'none' || !gGeo) return;
+  gT += dt;
+  var d = Math.min(window.devicePixelRatio || 1, 1.5), c = gGeo.c, gap = gGeo.gap, i;
+  gx.setTransform(d, 0, 0, d, 0, 0);
+  gx.drawImage(gbg, 0, 0, innerWidth, innerHeight);
+  var cyc = calm ? 2.2 : gT % 3.4, bx = -c * 2.6, bw = c * .9;
+  gx.save(); gx.translate(gGeo.ox, gGeo.oy); gx.rotate(gGeo.ang);
+  gx.fillStyle = '#3B2E20'; gx.fillRect(bx - bw / 2 - 3, -gap / 2, bw + 6, gap);
+  gx.fillStyle = '#F2E4C8'; gx.fillRect(bx - bw / 2, -gap / 2, bw, gap);
+  gx.fillStyle = 'rgba(74,60,44,.6)';
+  for (i = 1; i < 4; i++) gx.fillRect(bx - bw / 2, -gap / 2 + i * c - 1, bw * .55, 2);
+  [-1, 1].forEach(function(e){ [-1, 1].forEach(function(sd){
+    var y = e * (gap / 2 - c * .26), tip = bx + sd * (bw / 2 + 2);
+    gx.fillStyle = '#6E4F33'; gx.strokeStyle = '#2B2017'; gx.lineWidth = 1.5;
+    gx.beginPath(); gx.moveTo(tip, y); gx.lineTo(tip + sd * c * .5, y - c * .2); gx.lineTo(tip + sd * c * .5, y + c * .2);
+    gx.closePath(); gx.fill(); gx.stroke();
+  }); });
+  var fade = cyc > 3 ? Math.max(0, 1 - (cyc - 3) / .4) : 1, full = false;
+  for (i = 0; i < 4; i++) {
+    if (cyc < .3 + i * .3) break;
+    full = i === 3;
+    gx.globalAlpha = fade;
+    gx.fillStyle = i % 2 ? '#9C4034' : '#B04A3C';
+    gx.fillRect(bx + bw / 2 + c * .75, -gap / 2 + i * c + c * .08, c * .82, c * .84);
+    gx.strokeStyle = '#D9D1C1'; gx.lineWidth = 1.5;
+    gx.strokeRect(bx + bw / 2 + c * .75, -gap / 2 + i * c + c * .08, c * .82, c * .84);
+  }
+  gx.globalAlpha = 1;
+  gx.restore();
+  if (full && cyc > 1.6) {
+    var lx0 = bx + bw / 2 + c * 2.6, cs = Math.cos(gGeo.ang), sn = Math.sin(gGeo.ang);
+    gx.globalAlpha = fade;
+    chalkOn(gx, '4 cm', gGeo.ox + cs * lx0, gGeo.oy + sn * lx0, Math.max(18, c * .8), CHALK);
+    gx.globalAlpha = 1;
+  }
+  // 판자 밖을 누른 자리 — 분필 동그라미가 두 겹으로 퍼지고 사라진다
+  for (i = gateRings.length - 1; i >= 0; i--) {
+    var gr = gateRings[i]; gr.t += dt * 1.6;
+    if (gr.t >= 1) { gateRings.splice(i, 1); continue; }
+    gx.strokeStyle = 'rgba(238,235,226,' + (.9 * (1 - gr.t)).toFixed(3) + ')'; gx.lineWidth = 3;
+    gx.beginPath(); gx.arc(gr.x, gr.y, 12 + gr.t * 40, 0, TAU); gx.stroke();
+    gx.lineWidth = 2;
+    gx.beginPath(); gx.arc(gr.x, gr.y, 6 + gr.t * 20, 0, TAU); gx.stroke();
+  }
+}
+var gateRings = [], hintTimer = 0;
+// 타이틀에서 판자 버튼 밖을 누른 학생에게 「어디를 눌러야 하는지」 답한다(버튼은 click 이 맡는다)
+byId('gate').addEventListener('pointerdown', function(ev){
+  if (ev.target.closest && ev.target.closest('button')) return;
+  ensureAudio(); hiss(.06, .08, 2600, 2.2);
+  gateRings.push({ x: ev.clientX, y: ev.clientY, t: 0 });
+  if (gateRings.length > 6) gateRings.shift();
+  var btn = byId('liftBtn'), hint = byId('gateHint');
+  btn.classList.remove('nudge'); void btn.offsetWidth; btn.classList.add('nudge');
+  hint.classList.add('show');
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(function(){ hint.classList.remove('show'); }, 2600);
+});
+
+/* ── 배선 ───────────────────────────────────────────────── */
+(function(){ var el = byId('wordmark'), t = '각목 걸쳐';
+  for (var i = 0; i < t.length; i++) {
+    var ch = document.createElement('i');
+    ch.textContent = t[i] === ' ' ? ' ' : t[i];
+    ch.style.animationDelay = (.04 + i * .075) + 's';
+    el.appendChild(ch);
+  } })();
+byId('liftBtn').addEventListener('click', function(){ ensureAudio(); openAlley(false); });
+byId('againBeam').addEventListener('click', function(){ ensureAudio(); openAlley(true); });
+byId('manualKnob').addEventListener('click', function(){ byId('manual').classList.add('show'); });
+byId('manualShut').addEventListener('click', function(){ byId('manual').classList.remove('show'); });
+byId('sndKnob').addEventListener('click', function(){
+  hushed = !hushed; byId('sndKnob').textContent = hushed ? '✕' : '♪';
+  byId('sndKnob').setAttribute('aria-pressed', String(hushed));
+});
+addEventListener('resize', function(){ fitAlley(); fitGate(); });
+addEventListener('orientationchange', function(){ setTimeout(function(){ fitAlley(); fitGate(); }, 120); });
+
+readRecord(); byId('bestChalk').textContent = S.best;
+S.round = G.practiceRound();
+fitAlley(); fitGate();
+requestAnimationFrame(loop);
+
+window.__GAME_TEST__ = {
+  ready: true,
+  start: function(){ openAlley(true); },
+  getState: function(){
+    return { score: Math.round(S.score), lives: Math.max(0, S.wedges),
+             level: S.round ? S.round.level : 1, phase: S.phase, solved: S.solved };
+  },
+  answerCorrect: function(){
+    if (S.phase === 'won' || S.phase === 'lost') return;
+    if (S.phase === 'title') openAlley(true);
+    S.reveal = null; S.locked = null; grip = null;
+    submit(G.correctAction(S.round));
+  },
+  answerWrong: function(){
+    if (S.phase === 'won' || S.phase === 'lost') return;
+    if (S.phase === 'title') openAlley(true);
+    S.reveal = null; S.locked = null; grip = null;
+    var ws = G.wrongActions(S.round);
+    for (var i = 0; i < ws.length; i++) {
+      var v = G.judge(S.round, ws[i].action);
+      if (!v.ok && String(v.reason).indexOf('miss') === 0) { submit(ws[i].action); return; }
+    }
+    if (ws.length) submit(ws[0].action);
+  },
+  sampleProblems: function(n){ return G.sampleProblems(n); },
+  getLayout: function(){ return { land: V.land, playW: V.W, playCm: +(V.halfW * 2 / SUB).toFixed(1) }; }
+};
+})();
+</script>
+</body>
+</html>
