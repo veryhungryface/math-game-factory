@@ -191,7 +191,7 @@ judge_run() {
 # resolve_runner 가 못 잡는다. 로그에서 이 패턴이 보이면 "모델이 못 고친 것"이 아니라
 # **인프라 실패**다 — 같은 러너로 재시도하거나 재검사 루프를 도는 것은 순수한 낭비다.
 # 2026-08-27~28 에 4회 연속으로, 2026-09-01~03 에 20회 연속으로 여기서 시간을 태웠다.
-RUNNER_ERR_RE='status 402|402 Payment Required|Payment Required|usage balance exhausted|insufficient_quota|quota exceeded|exceeded your current quota|rate limit exceeded|401 Unauthorized|invalid api key|invalid_api_key|authentication_error|Not authenticated|Please run .?login'
+RUNNER_ERR_RE='hit your usage limit|usage limit reached|status 402|402 Payment Required|Payment Required|usage balance exhausted|insufficient_quota|quota exceeded|exceeded your current quota|rate limit exceeded|401 Unauthorized|invalid api key|invalid_api_key|authentication_error|Not authenticated|Please run .?login'
 runner_infra_err() { [ -f "$1" ] && grep -m1 -Eio "$RUNNER_ERR_RE" "$1" 2>/dev/null | head -1; }
 
 # 디렉터리 내용 해시. 수정 러너가 **실제로 파일을 바꿨는지** 확인하는 데 쓴다.
