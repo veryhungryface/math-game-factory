@@ -29,6 +29,8 @@ if [ "$SCHOOL" = "middle" ]; then
   export BUILD_SANDBOX_ARGS="${BUILD_SANDBOX_ARGS:---dangerously-bypass-approvals-and-sandbox}"
   export T_BUILD="${T_BUILD:-5400}"   # 90분 — Unity 빌드 1회 3~10분 × 반복
   export T_FIX="${T_FIX:-2700}"
+  # 심사(codex sol·ultra)가 중학교 기획서 3안(각 15~25KB)+카탈로그 대조에서 420초를 넘겼다(2026-09-26 첫 회차).
+  export T_JUDGE="${T_JUDGE:-900}"
 else
   export CURRICULUM_FILE="curriculum/2022-elementary-math.json"
   export SCHOOL_TAG=""

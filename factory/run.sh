@@ -171,6 +171,21 @@ stage_run() {
 
 jqv() { jq -r "$2 // empty" "$1" 2>/dev/null; }
 
+# 판정 단계(수학 검산·검수) 러너 + 인프라 실패 폴백 (2026-09-26).
+# codex 쿼터가 소진되면(402) 검산이 「unknown」, 검수가 결과 없음으로 끝나 수정 루프가 헛돈다
+# (9/9~10, 9/26 실제 발생). 로그에 인프라 오류가 보이면 JUDGE_FALLBACK_RUNNER(기본 grok —
+# 빌더(codex/claude)와 다른 회사라 교차 검증 원칙이 유지된다. 이미지 판독 가능 확인)로 1회 재시도한다.
+judge_run() {
+  local want="$1" model="$2" secs="$3" logfile="$4" prompt="$5" err
+  stage_run "$want" "$model" "$secs" "$logfile" "$prompt"
+  err="$(runner_infra_err "$logfile")"
+  [ -z "$err" ] && return 0
+  local fb="${JUDGE_FALLBACK_RUNNER:-grok_run}"
+  log "⚠️  판정 러너($want) 인프라 실패($err) → $fb 로 1회 재시도 — ${logfile%.log}-fallback.log"
+  JUDGE_FALLBACK_NOTE="${JUDGE_FALLBACK_NOTE:+$JUDGE_FALLBACK_NOTE; }$(basename "$logfile" .log): $want→$fb ($err)"
+  stage_run "$fb" "" "$secs" "${logfile%.log}-fallback.log" "$prompt"
+}
+
 # ── 러너 장애 분류 (P0-1, 2026-09-06) ──────────────────────────────
 # 러너 바이너리는 살아 있는데 API 가 죽는 경우(grok 402 잔액 소진, 인증 만료, 쿼터 초과)는
 # resolve_runner 가 못 잡는다. 로그에서 이 패턴이 보이면 "모델이 못 고친 것"이 아니라
@@ -312,6 +327,7 @@ finish() {
       [ -n "$fixes" ] && { echo ""; echo "**지적 사항**"; echo "$fixes"; }
     fi
     [ -n "${BUILD_FALLBACK_NOTE:-}" ] && { echo ""; echo "⚙️ **빌드 폴백**: $BUILD_FALLBACK_NOTE"; }
+    [ -n "${JUDGE_FALLBACK_NOTE:-}" ] && { echo ""; echo "⚙️ **판정 폴백**: $JUDGE_FALLBACK_NOTE"; }
     echo ""
     if [ -n "$DEPLOY_URL" ]; then
       echo "▶ **플레이**: $DEPLOY_URL/g/$SLUG/"
@@ -671,7 +687,7 @@ run_mathcheck() {
   rm -f "$WORK/mathcheck.json"
   # 게임을 만든 모델(claude)과 다른 회사 모델(GPT 상위 티어)로 검산한다 —
   # 같은 모델이 만들고 검산하면 같은 맹점을 공유한다.
-  codex_run "$T_MATHCHECK" "$LOG_DIR/mathcheck-$tag.log" "$MATHCHECK_PROMPT" "$CODEX_MODEL_SMART"
+  judge_run codex_run "$CODEX_MODEL_SMART" "$T_MATHCHECK" "$LOG_DIR/mathcheck-$tag.log" "$MATHCHECK_PROMPT"
   cp "$WORK/mathcheck.json" "$LOG_DIR/mathcheck-$tag.json" 2>/dev/null
   MATH_VERDICT="$(jqv "$WORK/mathcheck.json" .verdict)"
   MATH_ERRORS="$(jq -r '.errors | length' "$WORK/mathcheck.json" 2>/dev/null || echo '?')"
@@ -704,7 +720,7 @@ ${USER_FEEDBACK:+
 $USER_FEEDBACK
 이 피드백을 채점에 직접 반영해라. 특히 지목된 문제가 이번 게임에도 있으면 must_fix 로 적어라.}"
 
-stage_run "${REVIEW_RUNNER:-codex_run}" "${REVIEW_MODEL:-$CODEX_MODEL_SMART}" "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT"
+judge_run "${REVIEW_RUNNER:-codex_run}" "${REVIEW_MODEL:-$CODEX_MODEL_SMART}" "$T_REVIEW" "$LOG_DIR/review-1.log" "$REVIEW_PROMPT"
 cp "$WORK/review.json" "$LOG_DIR/review-1.json" 2>/dev/null
 
 SCORE="$(jqv "$WORK/review.json" .score)"
@@ -791,7 +807,7 @@ $(fix_history $((FIX_ROUNDS-1)))"
 
     step "9. 재검수 (${FIX_ROUNDS}/${MAX_FIX_ROUNDS})"
     rm -f "$WORK/review.json"
-    stage_run "${REVIEW_RUNNER:-codex_run}" "${REVIEW_MODEL:-$CODEX_MODEL_SMART}" "$T_REVIEW" "$LOG_DIR/review-$((FIX_ROUNDS+1)).log" "$REVIEW_PROMPT
+    judge_run "${REVIEW_RUNNER:-codex_run}" "${REVIEW_MODEL:-$CODEX_MODEL_SMART}" "$T_REVIEW" "$LOG_DIR/review-$((FIX_ROUNDS+1)).log" "$REVIEW_PROMPT
 
 이것은 **${FIX_ROUNDS}차 재검수**다 (수정 상한 ${MAX_FIX_ROUNDS}회 중 ${FIX_ROUNDS}차 시도 후).
 \`factory/work/fix.json\` 에 수정 내역이 있다. 수정이 실제로 반영됐는지 확인해라.
