@@ -182,7 +182,7 @@ judge_run() {
   [ -z "$err" ] && return 0
   local fb="${JUDGE_FALLBACK_RUNNER:-grok_run}"
   log "⚠️  판정 러너($want) 인프라 실패($err) → $fb 로 1회 재시도 — ${logfile%.log}-fallback.log"
-  JUDGE_FALLBACK_NOTE="${JUDGE_FALLBACK_NOTE:+$JUDGE_FALLBACK_NOTE; }$(basename "$logfile" .log): $want→$fb ($err)"
+  JUDGE_FALLBACK_NOTE="${JUDGE_FALLBACK_NOTE:+$JUDGE_FALLBACK_NOTE; }$(basename "$logfile" .log): ${want}→${fb} (${err})"
   stage_run "$fb" "" "$secs" "${logfile%.log}-fallback.log" "$prompt"
 }
 
