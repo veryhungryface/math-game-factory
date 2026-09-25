@@ -1,0 +1,9 @@
+import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import {spawn}from'node:child_process';
+const out=path.resolve('logs/jareul-beollyeo-build');const files=['public/g/jareul-beollyeo/index.html','public/g/jareul-beollyeo/engine.js','public/g/jareul-beollyeo/meta.json','factory/lib/qa.mjs','factory/lib/firstplay/harness.mjs'];
+const hashes=()=>Object.fromEntries(files.map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex')]));
+const report={at:new Date().toISOString(),before:hashes(),runs:[]};
+async function run(name,args,env={}){console.log('Starting '+name);const log=fs.createWriteStream(path.join(out,'browser-'+name+'.txt'));const start=Date.now();const c=spawn(process.execPath,args,{env:{...process.env,...env},stdio:['ignore','pipe','pipe']});c.stdout.on('data',d=>{log.write(d);process.stdout.write(d)});c.stderr.on('data',d=>{log.write(d);process.stderr.write(d)});const code=await new Promise((resolve,reject)=>{c.on('error',reject);c.on('close',resolve)});log.end();report.runs.push({name,args,env,code,elapsedMs:Date.now()-start});console.log('Finished '+name+': '+code);}
+await run('firstplay-final',['--loader','./logs/jareul-beollyeo-build/browser-loader.mjs','factory/lib/firstplay/harness.mjs','jareul-beollyeo'],{FIRSTPLAY_PLAY_MS:'45000',FIRSTPLAY_OUT:path.join(out,'browser-firstplay-final')});
+await run('qa-final',['--loader','./logs/jareul-beollyeo-build/browser-loader.mjs','factory/lib/qa.mjs','jareul-beollyeo','--out',path.join(out,'browser-qa-final')]);
+report.after=hashes();report.unchanged=JSON.stringify(report.before)===JSON.stringify(report.after);fs.writeFileSync(path.join(out,'browser-final-checks.json'),JSON.stringify(report,null,2)+'\n');
+console.log(JSON.stringify({unchanged:report.unchanged,runs:report.runs},null,2));

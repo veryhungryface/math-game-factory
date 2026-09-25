@@ -1,0 +1,31 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
+const out=path.resolve('logs/pane-wipe-build');
+const sourceHash=()=>Object.fromEntries(['factory/lib/qa.mjs','factory/lib/firstplay/harness.mjs'].map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex')]));
+const gameHash=()=>Object.fromEntries(['index.html','engine.js','meta.json'].map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync('public/g/pane-wipe/'+f)).digest('hex')]));
+const report={at:new Date().toISOString(),before:sourceHash(),gameBefore:gameHash(),runs:[]};
+async function run(name,args,env={}) {
+  console.log(`Starting ${name}`);
+  const log=fs.createWriteStream(path.join(out,`browser-${name}.txt`));
+  const start=Date.now();
+  const child=spawn(process.execPath,args,{cwd:process.cwd(),env:{...process.env,...env},stdio:['ignore','pipe','pipe']});
+  child.stdout.on('data',d=>{log.write(d);process.stdout.write(d)});
+  child.stderr.on('data',d=>{log.write(d);process.stderr.write(d)});
+  const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve)});
+  log.end();
+  report.runs.push({name,args,env,code,elapsedMs:Date.now()-start});
+  console.log(`Finished ${name}: ${code}`);
+  fs.writeFileSync(path.join(out,'browser-command-results-final.json'),JSON.stringify(report,null,2)+'\n');
+}
+await run('qa-official-final',['factory/lib/qa.mjs','pane-wipe']);
+await run('firstplay-official-final',['factory/lib/firstplay/harness.mjs','pane-wipe'],{FIRSTPLAY_PLAY_MS:'45000',FIRSTPLAY_OUT:path.join(out,'browser-firstplay-official-final')});
+await run('qa-final',['--loader','./logs/pane-wipe-build/browser-loader.mjs','factory/lib/qa.mjs','pane-wipe','--out',path.join(out,'browser-qa-final')]);
+await run('firstplay-final',['--loader','./logs/pane-wipe-build/browser-loader.mjs','factory/lib/firstplay/harness.mjs','pane-wipe'],{FIRSTPLAY_PLAY_MS:'45000',FIRSTPLAY_OUT:path.join(out,'browser-firstplay-final')});
+report.after=sourceHash();
+report.gameAfter=gameHash();
+report.gameUnchanged=JSON.stringify(report.gameBefore)===JSON.stringify(report.gameAfter);
+report.runtimeUnchanged=['index.html','engine.js'].every(f=>report.gameBefore[f]===report.gameAfter[f]);
+report.gatesUnchanged=JSON.stringify(report.before)===JSON.stringify(report.after);
+fs.writeFileSync(path.join(out,'browser-command-results-final.json'),JSON.stringify(report,null,2)+'\n');
