@@ -11,7 +11,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { P, readJSON, writeJSON, listGames, readMeta, nowKST } from './paths.mjs';
+import { P, readJSON, writeJSON, listGames, readMeta, nowKST, SCHOOL } from './paths.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, def = null) => {
@@ -33,12 +33,13 @@ const curriculum = readJSON(P.curriculum);
 const references = readJSON(P.references, { mechanics: [] });
 const queue = readJSON(P.queue, { produced: [], failed: [], mechanic_history: [] });
 
+// SCHOOL=middle 이면 P.curriculum 이 중학교 파일을 가리킨다 — FOCUS 의 학년은 그 학교급 안의 학년이다.
 const inFocus = (u) =>
   FOCUS.some((f) => f.grade === u.grade && f.semester === u.semester);
 
 const units = (curriculum.units || []).filter(inFocus);
 if (units.length === 0) {
-  console.error(`포커스(${FOCUS.map((f) => `${f.grade}-${f.semester}`).join(',')})에 해당하는 단원이 교육과정 파일에 없습니다.`);
+  console.error(`포커스(${SCHOOL} ${FOCUS.map((f) => `${f.grade}-${f.semester}`).join(',')})에 해당하는 단원이 교육과정 파일(${P.curriculum})에 없습니다.`);
   process.exit(2);
 }
 
@@ -113,9 +114,13 @@ const mechanicPool = candidates.slice(0, 5).map(({ _score, ...m }) => m);
 
 const slot = {
   picked_at: nowKST(),
+  school: SCHOOL,
+  school_label: SCHOOL === 'middle' ? `중학교 ${unit.grade}학년` : `초등학교 ${unit.grade}학년`,
+  curriculum_file: path.relative(P.root, P.curriculum),
   focus: FOCUS,
   unit: {
     id: unit.id,
+    school: SCHOOL,
     grade: unit.grade,
     semester: unit.semester,
     order: unit.order,
@@ -140,6 +145,11 @@ const slot = {
   // 교육부 고시 '성취기준 적용 시 고려 사항'에서 뽑은 문항 생성 제약(원문 근거).
   // 기획·빌드·검산 프롬프트에 SLOT_CTX 로 통째로 전달된다 — 문제 생성기는 이걸 지켜야 한다.
   generation_constraints: (curriculum.generation_constraints?.rules || []),
+  // 중학교 파일은 교과서 원문 대신 style_guide·expression_traps 를 자체에 담는다(textbook-structure.json 은 초등 전용).
+  ...(SCHOOL === 'middle' ? {
+    style_guide: curriculum.style_guide || null,
+    expression_traps: curriculum.expression_traps || null,
+  } : {}),
   // 최근 게임들이 전부 "어두운 배경 + 네온 시안/마젠타"로 수렴한 적이 있어서 추적한다.
   // 기획 에이전트는 이 목록에 있는 무드/배경색과 겹치지 않는 걸 골라야 한다.
   avoid_palette_moods: (queue.palette_history || []).slice(-6).map((p) => ({ mood: p.mood, bg: p.bg })),

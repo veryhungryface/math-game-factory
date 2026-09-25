@@ -5,9 +5,10 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { P, readJSON, writeJSON, listGames, readMeta, nowKST } from './paths.mjs';
+import { P, readJSON, writeJSON, listGames, readMeta, nowKST, loadAllCurricula, schoolOf } from './paths.mjs';
 
-const curriculum = readJSON(P.curriculum, { units: [], standards: [] });
+// 초·중 교육과정을 합쳐 읽는다 — 한 허브에 두 학교급이 공존한다(2026-09-26).
+const curriculum = loadAllCurricula();
 const unitById = new Map((curriculum.units || []).map((u) => [u.id, u]));
 
 const games = listGames()
@@ -17,6 +18,7 @@ const games = listGames()
     const dir = path.join(P.games, slug);
     return {
       ...m,
+      school: schoolOf(m),
       slug,
       url: `/g/${slug}/`,
       thumb: fs.existsSync(path.join(dir, 'thumb.png')) ? `/g/${slug}/thumb.png` : null,
@@ -35,13 +37,19 @@ const catalog = {
 };
 writeJSON(P.catalog, catalog);
 
-// ── 학년/학기/단원 그룹핑 ────────────────────────────────
+// ── 학교급/학년/학기/단원 그룹핑 ────────────────────────────────
+// 학교급 접두: 초등 g, 중학교 m — 앵커(#g4, #m2)와 단원 id 스킴(g4s2-u1, m2s2-u1)이 같은 규칙이다.
+const SCHOOL_PREFIX = { elementary: 'g', middle: 'm' };
+const SCHOOL_RANK = { elementary: 0, middle: 1 };
+const gradeLabel = (school, grade) => (school === 'middle' ? `중${grade}` : `${grade}학년`);
+const hasMiddle = games.some((g) => g.school === 'middle');
+const audience = hasMiddle ? '초·중등' : '초등';
 const groups = [];
 for (const g of games) {
-  const key = `${g.grade}-${g.semester}`;
+  const key = `${g.school}-${g.grade}-${g.semester}`;
   let grp = groups.find((x) => x.key === key);
   if (!grp) {
-    grp = { key, grade: g.grade, semester: g.semester, units: [] };
+    grp = { key, school: g.school, grade: g.grade, semester: g.semester, units: [] };
     groups.push(grp);
   }
   const uid = g.unit?.id || 'etc';
@@ -58,15 +66,16 @@ for (const g of games) {
   }
   u.games.push(g);
 }
-groups.sort((a, b) => a.grade - b.grade || a.semester - b.semester);
+groups.sort((a, b) => SCHOOL_RANK[a.school] - SCHOOL_RANK[b.school] || a.grade - b.grade || a.semester - b.semester);
 for (const g of groups) g.units.sort((a, b) => a.order - b.order);
 
 // 단원마다 새 행을 만들지 않고, 학기·단원 순서를 유지한 채 학년별 격자로 이어 붙인다.
 const grades = [];
 for (const grp of groups) {
-  let grade = grades.find((x) => x.grade === grp.grade);
+  let grade = grades.find((x) => x.school === grp.school && x.grade === grp.grade);
   if (!grade) {
-    grade = { grade: grp.grade, semesters: [], count: 0 };
+    const anchor = `${SCHOOL_PREFIX[grp.school]}${grp.grade}`;
+    grade = { school: grp.school, grade: grp.grade, anchor, label: gradeLabel(grp.school, grp.grade), semesters: [], count: 0 };
     grades.push(grade);
   }
   grade.semesters.push(grp);
@@ -77,7 +86,7 @@ const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const card = (g, u, semesterAnchor = '') => `
-        <a class="card"${semesterAnchor ? ` id="${esc(semesterAnchor)}"` : ''} href="${esc(g.url)}" data-grade="${esc(g.grade)}" data-sem="${esc(g.semester)}" data-unit="${esc(g.unit?.id)}" data-unit-order="${esc(u.order)}">
+        <a class="card"${semesterAnchor ? ` id="${esc(semesterAnchor)}"` : ''} href="${esc(g.url)}" data-school="${esc(g.school)}" data-grade="${esc(g.grade)}" data-sem="${esc(g.semester)}" data-unit="${esc(g.unit?.id)}" data-unit-order="${esc(u.order)}">
           <div class="card-unit">
             <span class="unit-order">${esc(g.semester)}학기 · ${u.order === 99 ? '단원 미지정' : `${esc(u.order)}단원`}</span>
             <span class="unit-title">${esc(u.title)}</span>
@@ -95,12 +104,14 @@ const card = (g, u, semesterAnchor = '') => `
         </a>`;
 
 const section = (grade) => `
-      <section class="grade-block" id="g${esc(grade.grade)}" aria-labelledby="grade-${esc(grade.grade)}">
+      <section class="grade-block" id="${esc(grade.anchor)}" aria-labelledby="grade-${esc(grade.anchor)}">
         <div class="grade-heading">
-          <h2 id="grade-${esc(grade.grade)}"><span class="grade-num">${esc(grade.grade)}</span>학년 <span class="grade-count">${grade.count}개 게임</span></h2>
+          <h2 id="grade-${esc(grade.anchor)}">${grade.school === 'middle'
+            ? `<span class="grade-num grade-num-wide">중${esc(grade.grade)}</span>중학교`
+            : `<span class="grade-num">${esc(grade.grade)}</span>학년`} <span class="grade-count">${grade.count}개 게임</span></h2>
           <span class="sort-label">학기 · 단원 순</span>
         </div>
-        <div class="grid">${grade.semesters.map((grp) => grp.units.map((u, unitIndex) => u.games.map((g, gameIndex) => card(g, u, unitIndex === 0 && gameIndex === 0 ? `g${grp.grade}s${grp.semester}` : '')).join('')).join('')).join('')}
+        <div class="grid">${grade.semesters.map((grp) => grp.units.map((u, unitIndex) => u.games.map((g, gameIndex) => card(g, u, unitIndex === 0 && gameIndex === 0 ? `${grade.anchor}s${grp.semester}` : '')).join('')).join('')).join('')}
         </div>
       </section>`;
 
@@ -110,9 +121,9 @@ const html = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>이것은 게임인가 공부인가</title>
-<meta name="description" content="2022 개정 교육과정 초등 수학 단원에 정확히 매핑된 브라우저 게임 모음. 설치 없이 바로 플레이.">
+<meta name="description" content="2022 개정 교육과정 ${audience} 수학 단원에 정확히 매핑된 브라우저 게임 모음. 설치 없이 바로 플레이.">
 <meta property="og:title" content="이것은 게임인가 공부인가">
-<meta property="og:description" content="교육과정에 딱 맞는 초등 수학 게임 ${games.length}종. 지금 바로 플레이.">
+<meta property="og:description" content="교육과정에 딱 맞는 ${audience} 수학 게임 ${games.length}종. 지금 바로 플레이.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
 <style>
@@ -154,6 +165,7 @@ const html = `<!doctype html>
   .grade-block{margin-top:34px;scroll-margin-top:24px}
   .grade-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
   .grade-heading h2{display:flex;align-items:center;gap:8px;margin:0;font-size:24px;font-weight:800;letter-spacing:-.04em}
+  .grade-num-wide{width:auto!important;padding:0 9px}
   .grade-num{display:grid;place-items:center;width:38px;height:38px;border:1px solid #4e6264;border-radius:11px;background:#233b3c;color:var(--accent);font-size:23px;font-weight:850}
   .grade-count{font-size:12px;font-weight:500;letter-spacing:0;color:var(--muted);margin-left:6px}
   .sort-label{font-size:11px;color:var(--muted)}
@@ -226,7 +238,7 @@ const html = `<!doctype html>
 <body>
 <div class="wrap">
   <nav class="topnav" aria-label="사이트 안내">
-    <span class="site-label"><span class="site-mark" aria-hidden="true">＋</span>초등 수학 게임 모음</span>
+    <span class="site-label"><span class="site-mark" aria-hidden="true">＋</span>${audience} 수학 게임 모음</span>
     <a href="/about/">제작 과정 <span aria-hidden="true">↗</span></a>
   </nav>
   <header>
@@ -243,7 +255,7 @@ const html = `<!doctype html>
 
   ${grades.length ? `<nav class="grade-nav" aria-label="학년 바로가기">
     <span class="nav-label">학년 바로가기</span>
-    ${grades.map((grade) => `<a href="#g${esc(grade.grade)}">${esc(grade.grade)}학년 <span>${grade.count}</span></a>`).join('\n    ')}
+    ${grades.map((grade) => `<a href="#${esc(grade.anchor)}">${esc(grade.label)} <span>${grade.count}</span></a>`).join('\n    ')}
   </nav>` : ''}
 
   <main aria-label="학년별 수학 게임">
@@ -251,7 +263,7 @@ const html = `<!doctype html>
   </main>
 
   <footer>
-    2022 개정 교육과정 초등 수학 기반 · 마지막 업데이트 ${esc(catalog.generated_at.slice(0, 16).replace('T', ' '))}<br>
+    2022 개정 교육과정 ${audience} 수학 기반 · 마지막 업데이트 ${esc(catalog.generated_at.slice(0, 16).replace('T', ' '))}<br>
     게임 메커닉은 참고하되 상표·캐릭터·에셋은 모두 오리지널 제작입니다.<br>
     <a href="/about/">이 게임들이 만들어지는 과정 보기 →</a>
   </footer>

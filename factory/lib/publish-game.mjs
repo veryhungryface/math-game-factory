@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { P, readJSON, writeJSON, nowKST } from './paths.mjs';
+import { P, readJSON, writeJSON, nowKST, schoolOf } from './paths.mjs';
 
 const REQUIRED_FILES = ['index.html', 'meta.json', 'thumb.png', 'square.png'];
 const VALUE_OPTIONS = new Set(['score', 'gate', 'run', 'unit', 'mechanic', 'mood', 'bg', 'notes-from', 'manual-approval']);
@@ -135,6 +135,7 @@ function main() {
     run: options.run ?? previous?.run ?? '',
     slug,
     title: meta.title || slug,
+    school: schoolOf(meta),   // 하루 1작 가드가 학교급별로 센다 (run.sh)
     score,
     unit,
     mechanic,

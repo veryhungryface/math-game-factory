@@ -3,9 +3,21 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+// 학교급 (2026-09-26 중학교 확장). 크론이 SCHOOL=middle 로 부르면 슬롯이 중학교 교육과정에서 나온다.
+// 허브·QA 는 학교급과 무관하게 두 파일을 합쳐 읽는다(loadAllCurricula) — 한 카탈로그에 공존하기 때문이다.
+export const CURRICULUM_FILES = {
+  elementary: path.join(ROOT, 'curriculum/2022-elementary-math.json'),
+  middle: path.join(ROOT, 'curriculum/2022-middle-math.json'),
+};
+export const SCHOOL = process.env.SCHOOL === 'middle' ? 'middle' : 'elementary';
+export const SCHOOL_LABEL = { elementary: '초', middle: '중' };
+/** meta·unit·queue 항목의 학교급. 필드가 없던 기존 초등 게임은 elementary 로 본다. */
+export const schoolOf = (x) => (x?.school === 'middle' || /^m\d/.test(x?.unit?.id || x?.id || '') ? 'middle' : 'elementary');
+
 export const P = {
   root: ROOT,
-  curriculum: path.join(ROOT, 'curriculum/2022-elementary-math.json'),
+  curriculum: CURRICULUM_FILES[SCHOOL],
   references: path.join(ROOT, 'references/game-references.json'),
   queue: path.join(ROOT, 'factory/state/queue.json'),
   games: path.join(ROOT, 'public/g'),
@@ -46,6 +58,19 @@ export function listGames() {
 
 export function readMeta(slug) {
   return readJSON(path.join(P.games, slug, 'meta.json'), null);
+}
+
+/** 두 학교급 교육과정을 합친 뷰 — 성취기준·단원 id 는 학교급 간에 겹치지 않는다([6수..] vs [9수..], g5s2 vs m2s2). */
+export function loadAllCurricula() {
+  const out = { standards: [], units: [], domains: [], meta: {} };
+  for (const [school, file] of Object.entries(CURRICULUM_FILES)) {
+    const c = readJSON(file, null);
+    if (!c) continue;
+    out.standards.push(...(c.standards || []).map((s) => ({ ...s, school })));
+    out.units.push(...(c.units || []).map((u) => ({ ...u, school })));
+    if (school === 'elementary') { out.domains = c.domains || []; out.meta = c.meta || {}; }
+  }
+  return out;
 }
 
 /** 한국 시간 ISO 문자열 */

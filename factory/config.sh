@@ -10,17 +10,44 @@
 export DAILY_TARGET="${DAILY_TARGET:-1}"       # 하루 게시 목표. 0 이면 가드를 끈다(무제한 시도)
 export FORCE_PRODUCE="${FORCE_PRODUCE:-0}"     # 1 이면 오늘 게시작이 있어도 강행 (수동 운영용)
 
+# ── 학교급 (2026-09-26 중학교 확장) ──────────────────────
+# 크론 진입점이 SCHOOL=middle 로 부르면 중학교 교육과정(curriculum/2022-middle-math.json)에서
+# 슬롯을 뽑는다. 하루 1작 가드는 학교급별로 따로 센다 — 초등이 게시한 날에도 중학교는 돈다.
+# 락·factory/work 는 공유한다(동시에 두 회차가 돌지 않는다 — 겹치면 뒤에 온 쪽이 한 틱 건너뛴다).
+export SCHOOL="${SCHOOL:-elementary}"
+case "$SCHOOL" in elementary|middle) ;; *) echo "SCHOOL 은 elementary|middle 이어야 한다: $SCHOOL" >&2; exit 2 ;; esac
+if [ "$SCHOOL" = "middle" ]; then
+  export CURRICULUM_FILE="curriculum/2022-middle-math.json"
+  export SCHOOL_TAG="[중학교]"
+  _FOCUS_DEFAULT="2-2"      # 중2 2학기 (2026-09-26 사용자 지시)
+  _PRIORITY_DEFAULT=""
+  # 중학교는 Unity(WebGL) 트랙으로 만든다 — 사용자 지시 2026-09-26 「unity cli 결과가 마음에 든다」.
+  # 계약·빌드 절차: docs/unity-track.md, factory/prompts/30-build-unity.md, factory/unity/.
+  export BUILD_TECH="${BUILD_TECH:-unity}"
+  # Unity 배치 빌드는 ~/UnityProjects 워크스페이스·라이선스·에디터 캐시에 쓴다 — codex 의
+  # workspace-write 샌드박스로는 못 돈다. 빌드·수정 단계에만 샌드박스를 푼다(claude 러너는 원래 무제한).
+  export BUILD_SANDBOX_ARGS="${BUILD_SANDBOX_ARGS:---dangerously-bypass-approvals-and-sandbox}"
+  export T_BUILD="${T_BUILD:-5400}"   # 90분 — Unity 빌드 1회 3~10분 × 반복
+  export T_FIX="${T_FIX:-2700}"
+else
+  export CURRICULUM_FILE="curriculum/2022-elementary-math.json"
+  export SCHOOL_TAG=""
+  _FOCUS_DEFAULT="3-2,4-2"  # 2026-09-01: 3·4학년 2학기 전용 — 사용자 지시
+  _PRIORITY_DEFAULT="g5s2-u6,g6s2-u2,g6s2-u6,g6s2-u5,g6s2-u4"
+  export BUILD_TECH="${BUILD_TECH:-html}"
+fi
+
 # ── 품질 ──────────────────────────────────────────────
 export GATE_SCORE="${GATE_SCORE:-80}"          # 게시 커트라인 (100점 만점)
 export DESIGN_VARIANTS="${DESIGN_VARIANTS:-3}" # 병렬 기획 에이전트 수
-export FOCUS="${FOCUS:-3-2,4-2}"               # 집중 학년-학기 (2026-09-01: 3·4학년 2학기 전용 — 사용자 지시)
+export FOCUS="${FOCUS:-$_FOCUS_DEFAULT}"        # 집중 학년-학기 — 학교급별 기본값은 위 「학교급」 절
 # 수정 최대 3회는 비용 상한이다. 동일 산출물의 반복 채점이나 품질을 보증하지 않는다.
 # 다음 검사에는 정상 종료, 실제 변경, 지적별 해결 증거가 필요하다.
 # 이 조건과 총시간 예산은 run.sh 에서 집행한다 (2026-09-06 P0-1). 현재 lock 은 중복 실행의 일부만 방어한다.
 export MAX_FIX_ROUNDS="${MAX_FIX_ROUNDS:-3}"
 # 게임 수가 같은 단원들 사이의 우선순위 (design-bible 7.2 · 킹수학 시장 공백 기준):
 # 가능성 재도전 → 공간과 입체 → 원기둥·원뿔·구 → 원의 둘레와 넓이 → 비례식 → (과밀: 분수·소수 나눗셈은 마지막)
-export PRIORITY_UNITS="${PRIORITY_UNITS:-g5s2-u6,g6s2-u2,g6s2-u6,g6s2-u5,g6s2-u4}"
+export PRIORITY_UNITS="${PRIORITY_UNITS-$_PRIORITY_DEFAULT}"
 
 # ── 모델 ──────────────────────────────────────────────
 # 티어 대응표 (사용자 확인, 2026-08-18):
@@ -111,4 +138,4 @@ export REPORT="${REPORT:-1}"           # 0 이면 에르메스 보고 생략
 # ── 기타 ──────────────────────────────────────────────
 unset ANTHROPIC_API_KEY                # 구독 CLI 인증을 쓴다 (API 키 아님)
 # cron/launchd 는 최소 PATH 로 실행된다. node·claude·codex·vercel 이 사는 곳을 전부 넣어둔다.
-export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/nodejs/bin:$HOME/.local/bin:$PATH"
+export PATH="$HOME/.unity/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/nodejs/bin:$HOME/.local/bin:$PATH"  # ~/.unity/bin = Unity CLI (중학교 Unity 트랙)

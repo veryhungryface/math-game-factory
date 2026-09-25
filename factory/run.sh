@@ -103,7 +103,7 @@ codex_run() {
   run_timeout "$secs" env -u ANTHROPIC_API_KEY codex exec "$prompt" \
     --model "$model" \
     -c model_reasoning_effort="$effort" \
-    --sandbox workspace-write \
+    ${CODEX_SANDBOX_ARGS:---sandbox workspace-write} \
     --skip-git-repo-check \
     --cd "$ROOT" \
     >"$logfile" 2>&1
@@ -124,6 +124,22 @@ grok_run() {
 # 추론 등급은 codex_run 이 모델 이름을 보고 ultra 로 올린다.
 codex_smart_run() {
   codex_run "$1" "$2" "$3" "${4:-$CODEX_MODEL_SMART}"
+}
+
+# 프롬프트 파일을 읽는다. 학교급이 중학교면 초등 교육과정 경로를 중학교 파일로 바꾸고
+# factory/prompts/_school-middle.md(학교급 보충 지시 — 본문과 충돌하면 이쪽이 이긴다)를 덧붙인다.
+# 빌드 프롬프트는 BUILD_TECH=unity 일 때 30-build-unity.md(Unity 트랙 계약)를 추가로 붙인다.
+# 초등 회차에서는 파일 내용을 그대로 돌려준다 — 초등 프롬프트는 한 글자도 바뀌지 않는다.
+prompt_file() {
+  local f="$1"
+  if [ "${SCHOOL:-elementary}" != "middle" ]; then cat "$f"; return; fi
+  sed 's#curriculum/2022-elementary-math\.json#curriculum/2022-middle-math.json#g' "$f"
+  printf '\n\n---\n\n'
+  cat factory/prompts/_school-middle.md
+  if { [ "$(basename "$f")" = "30-build.md" ] || [ "$(basename "$f")" = "45-fix.md" ]; } && [ "${BUILD_TECH:-html}" = "unity" ]; then
+    printf '\n\n---\n\n'
+    cat factory/prompts/30-build-unity.md
+  fi
 }
 
 # 원하는 러너가 실제로 쓸 수 있는지 확인하고, 없으면 codex → claude 순으로 폴백한다.
@@ -188,11 +204,11 @@ record_failed() {
     const fs=require("fs"),p=process.argv[1];
     const q=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{produced:[],failed:[],mechanic_history:[]};
     q.failed=q.failed||[];
-    const e={run:process.argv[2],slug:process.argv[3],title:process.argv[4],score:Number(process.argv[5])||0,unit:process.argv[6],at:new Date().toISOString()};
+    const e={run:process.argv[2],slug:process.argv[3],title:process.argv[4],score:Number(process.argv[5])||0,unit:process.argv[6],school:process.argv[8]||"elementary",at:new Date().toISOString()};
     if(process.argv[7]) e.reason=process.argv[7];
     q.failed.push(e);
     fs.writeFileSync(p,JSON.stringify(q,null,2)+"\n");
-  ' "$ROOT/factory/state/queue.json" "$RUN_ID" "${SLUG:-}" "${TITLE:-}" "${SCORE:-0}" "$(jqv "$WORK/slot.json" .unit.id)" "$reason"
+  ' "$ROOT/factory/state/queue.json" "$RUN_ID" "${SLUG:-}" "${TITLE:-}" "${SCORE:-0}" "$(jqv "$WORK/slot.json" .unit.id)" "$reason" "$SCHOOL"
 }
 
 # ── 하루 1작 가드 (2026-09-06 체제 전환) ───────────────────────────
@@ -208,10 +224,12 @@ if [ "${DAILY_TARGET:-1}" -gt 0 ] && [ "${FORCE_PRODUCE:-0}" != "1" ] && [ -z "$
     let q; try{ q=JSON.parse(fs.readFileSync(p,"utf8")); }catch(e){ process.exit(0); }
     const kst=(v)=>{ const t=new Date(v).getTime();
       return Number.isFinite(t) ? new Date(t+9*3600e3).toISOString().slice(0,10) : null; };
-    const today=kst(Date.now());
-    const hit=(q.produced||[]).filter(e=>e && e.at && kst(e.at)===today);
+    const today=kst(Date.now()), school=process.argv[3]||"elementary";
+    // 학교급별로 센다 (2026-09-26). school 필드가 없던 기존 항목은 단원 id 로 가른다(m2s2-… = 중학교).
+    const schoolOf=e=>e.school||(/^m\d/.test(e.unit||"")?"middle":"elementary");
+    const hit=(q.produced||[]).filter(e=>e && e.at && kst(e.at)===today && schoolOf(e)===school);
     if(hit.length>=target) console.log(hit.map(e=>`${e.title||e.slug}(${e.slug})`).join(", "));
-  ' "$ROOT/factory/state/queue.json" "${DAILY_TARGET:-1}" 2>/dev/null)"
+  ' "$ROOT/factory/state/queue.json" "${DAILY_TARGET:-1}" "$SCHOOL" 2>/dev/null)"
   if [ -n "$TODAY_DONE" ]; then
     log "🎯 오늘 목표 달성 — 다음 발진은 내일 (오늘 게시: $TODAY_DONE)"
     echo "🎯 오늘 목표 달성 — 다음 발진은 내일 (오늘 게시: $TODAY_DONE)"
@@ -255,13 +273,13 @@ finish() {
 
   {
     if [ "$status" = "게시" ]; then
-      echo "🎮 **새 게임이 나왔습니다** — ${TITLE:-?}"
+      echo "🎮 ${SCHOOL_TAG:+$SCHOOL_TAG }**새 게임이 나왔습니다** — ${TITLE:-?}"
     elif [ "$status" = "폐기" ]; then
-      echo "🗑 **게임 폐기** — 품질 게이트 미달"
+      echo "🗑 ${SCHOOL_TAG:+$SCHOOL_TAG }**게임 폐기** — 품질 게이트 미달"
     elif [ "$status" = "건너뜀" ]; then
       echo "⏭ **이번 회차 건너뜀**"
     else
-      echo "💀 **생산 실패**"
+      echo "💀 ${SCHOOL_TAG:+$SCHOOL_TAG }**생산 실패**"
     fi
     echo ""
     [ -n "$TITLE" ] && echo "**제목**: $TITLE"
@@ -272,7 +290,7 @@ finish() {
       u="$(jqv "$WORK/chosen.json" .unit_title)"; tl="$(jqv "$WORK/chosen.json" .tagline)"
       mech="$(jqv "$WORK/chosen.json" .mechanic_origin)"
       [ -n "$tl" ] && echo "**한 줄**: $tl"
-      [ -n "$u" ] && echo "**단원**: ${g}학년 ${s}학기 · $u"
+      [ -n "$u" ] && echo "**단원**: $([ "$SCHOOL" = middle ] && echo "중학교 ")${g}학년 ${s}학기 · $u"
       [ -n "$mech" ] && echo "**차용 메커닉**: $mech"
     fi
     if [ -f "$WORK/slot.json" ]; then
@@ -351,8 +369,8 @@ else
   rm -rf "$WORK"; mkdir -p "$WORK"
 fi
 RESUMED=$([ "$START_AT" -gt 2 ] && echo 1 || echo 0)
-[ -f "$ROOT/curriculum/2022-elementary-math.json" ] \
-  || die "교육과정 파일이 없습니다: $ROOT/curriculum/2022-elementary-math.json (ROOT=$ROOT 가 저장소를 가리키는지 확인해라)"
+[ -f "$ROOT/$CURRICULUM_FILE" ] \
+  || die "교육과정 파일이 없습니다: $ROOT/$CURRICULUM_FILE (SCHOOL=$SCHOOL, ROOT=$ROOT 가 저장소를 가리키는지 확인해라)"
 [ -d "$ROOT/node_modules/puppeteer" ] || { log "puppeteer 설치 중…"; npm install --silent >/dev/null 2>&1; }
 
 # ════════════════════════════════════════════════════════════════
@@ -365,7 +383,7 @@ cp "$WORK/slot.json" "$LOG_DIR/slot.json"
 UNIT_TITLE="$(jqv "$WORK/slot.json" .unit.title)"
 UNIT_GRADE="$(jqv "$WORK/slot.json" .unit.grade)"
 UNIT_SEM="$(jqv "$WORK/slot.json" .unit.semester)"
-log "슬롯: ${UNIT_GRADE}학년 ${UNIT_SEM}학기 · $UNIT_TITLE"
+log "슬롯: $(jqv "$WORK/slot.json" .school_label) ${UNIT_SEM}학기 · $UNIT_TITLE"
 
 SLOT_CTX="$(cat "$WORK/slot.json")"
 
@@ -395,7 +413,7 @@ else
 step "2. 기획 (병렬 ${DESIGN_VARIANTS}개)"
 DESIGN_PIDS=()
 for i in $(seq 1 "$DESIGN_VARIANTS"); do
-  PROMPT="$(cat factory/prompts/10-design.md)
+  PROMPT="$(prompt_file factory/prompts/10-design.md)
 
 ---
 ## 이번 슬롯
@@ -440,7 +458,7 @@ if [ "$CONCEPTS" -eq 1 ]; then
 else
   # 심사는 GPT 상위 티어로 — 사용자 요청(claude 편중 완화). 기획안이 claude/codex/grok
   # 3사에서 나오므로 어차피 어느 모델이 심사해도 자기 안이 하나는 섞여 있다.
-  codex_run "$T_JUDGE" "$LOG_DIR/judge.log" "$(cat factory/prompts/15-judge.md)
+  codex_run "$T_JUDGE" "$LOG_DIR/judge.log" "$(prompt_file factory/prompts/15-judge.md)
 
 ---
 ## 이번 슬롯
@@ -500,7 +518,7 @@ for aid in $ASSET_IDS; do
   fi
   [ -n "$ASSET_JSON" ] || ASSET_JSON="{\"id\":\"$aid\",\"prompt\":\"$(jqv "$WORK/chosen.json" .one_liner) key art\",\"size\":\"1536x1024\"}"
 
-  ART_PROMPT="$(cat factory/prompts/20-art.md)
+  ART_PROMPT="$(prompt_file factory/prompts/20-art.md)
 
 ---
 ## 네가 만들 에셋은 **딱 1개**다 (다른 에이전트가 나머지를 동시에 만들고 있다)
@@ -538,7 +556,7 @@ if [ "$START_AT" -gt 5 ]; then
   [ -f "$ROOT/public/g/$SLUG/index.html" ] || die "재개하려는데 게임 파일이 없습니다: public/g/$SLUG/index.html"
 else
 step "5. 게임 구현"
-BUILD_PROMPT="$(cat factory/prompts/30-build.md)
+BUILD_PROMPT="$(prompt_file factory/prompts/30-build.md)
 
 ---
 ## 기획서
@@ -560,12 +578,12 @@ $(jq -c '.unit' "$WORK/slot.json")
 
 ## 만들 위치
 - \`public/g/$SLUG/index.html\`
-- \`public/g/$SLUG/meta.json\`  (slug=\"$SLUG\", grade=$UNIT_GRADE, semester=$UNIT_SEM, unit.id=\"$(jqv "$WORK/slot.json" .unit.id)\")
+- \`public/g/$SLUG/meta.json\`  (slug=\"$SLUG\", grade=$UNIT_GRADE, semester=$UNIT_SEM, unit.id=\"$(jqv "$WORK/slot.json" .unit.id)\"$([ "$SCHOOL" = middle ] && echo ', school=\"middle\"'))
 
 ## 끝내기 전에 반드시
 \`node factory/lib/qa.mjs $SLUG\` 를 돌려서 **치명적 결함 0건**을 확인해라. 실패하면 고치고 다시 돌려라."
 
-stage_run "${BUILD_RUNNER:-grok_run}" "${BUILD_MODEL:-}" "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT"
+CODEX_SANDBOX_ARGS="${BUILD_SANDBOX_ARGS:-}" stage_run "${BUILD_RUNNER:-grok_run}" "${BUILD_MODEL:-}" "$T_BUILD" "$LOG_DIR/build.log" "$BUILD_PROMPT"
 BUILD_RC=$?
 
 # 러너 바이너리는 살아 있는데 API 쪽이 죽는 경우(402 잔액 소진·인증 만료·쿼터)는
@@ -576,7 +594,7 @@ BUILD_ERR="$(runner_infra_err "$LOG_DIR/build.log")"
 if [ "$BUILD_RC" -ne 0 ] || [ -n "$BUILD_ERR" ] || [ ! -f "$ROOT/public/g/$SLUG/index.html" ]; then
   BUILD_FALLBACK_NOTE="빌드 러너($(resolve_runner "${BUILD_RUNNER:-codex_run}") / ${BUILD_MODEL:-기본}) 실패(rc=$BUILD_RC${BUILD_ERR:+, $BUILD_ERR}) → ${BUILD_FALLBACK_RUNNER:-codex_run} / ${BUILD_FALLBACK_MODEL:-$CODEX_MODEL_SMART} 로 1회 재시도"
   log "⚠️  $BUILD_FALLBACK_NOTE — 재시도 로그 build-fallback.log"
-  stage_run "${BUILD_FALLBACK_RUNNER:-codex_run}" "${BUILD_FALLBACK_MODEL:-$CODEX_MODEL_SMART}" \
+  CODEX_SANDBOX_ARGS="${BUILD_SANDBOX_ARGS:-}" stage_run "${BUILD_FALLBACK_RUNNER:-codex_run}" "${BUILD_FALLBACK_MODEL:-$CODEX_MODEL_SMART}" \
             "$T_BUILD" "$LOG_DIR/build-fallback.log" "$BUILD_PROMPT"
   BUILD_ERR2="$(runner_infra_err "$LOG_DIR/build-fallback.log")"
   [ -n "$BUILD_ERR2" ] && BUILD_FALLBACK_NOTE="$BUILD_FALLBACK_NOTE — 폴백도 인프라 실패($BUILD_ERR2)"
@@ -636,7 +654,7 @@ run_firstplay 1
 # ════════════════════════════════════════════════════════════════
 # 수학 오류는 이 프로젝트에서 가장 치명적인 결함이라 종합 검수와 분리해
 # 독립 에이전트에게 전수 검산만 시킨다. 두 눈이 따로 보게 하는 것이 요점.
-MATHCHECK_PROMPT="$(cat factory/prompts/35-mathcheck.md)
+MATHCHECK_PROMPT="$(prompt_file factory/prompts/35-mathcheck.md)
 
 ---
 - slug: \`$SLUG\`
@@ -664,7 +682,7 @@ run_mathcheck 1
 
 # ════════════════════════════════════════════════════════════════
 step "7. 검수"
-REVIEW_PROMPT="$(cat factory/prompts/40-review.md)
+REVIEW_PROMPT="$(prompt_file factory/prompts/40-review.md)
 
 ---
 - slug: \`$SLUG\`
@@ -712,7 +730,7 @@ $(jq -r '.must_fix[]? | "- [\(.severity)] \(.issue)"' "$LOG_DIR/review-$r.json" 
   fix_attempt() {
     local logfile="$1" want="$2" model="$3" before after rc
     before="$(tree_hash "$ROOT/public/g/$SLUG")"
-    stage_run "$want" "$model" "$T_FIX" "$logfile" "$FIX_PROMPT"
+    CODEX_SANDBOX_ARGS="${BUILD_SANDBOX_ARGS:-}" stage_run "$want" "$model" "$T_FIX" "$logfile" "$FIX_PROMPT"
     rc=$?
     after="$(tree_hash "$ROOT/public/g/$SLUG")"
     FIX_ERR="$(runner_infra_err "$logfile")"
@@ -729,7 +747,7 @@ $(jq -r '.must_fix[]? | "- [\(.severity)] \(.issue)"' "$LOG_DIR/review-$r.json" 
   while [ "$FIX_ROUNDS" -lt "$MAX_FIX_ROUNDS" ]; do
     FIX_ROUNDS=$((FIX_ROUNDS+1))
     step "8. 수정 (${FIX_ROUNDS}/${MAX_FIX_ROUNDS})"
-    FIX_PROMPT="$(cat factory/prompts/45-fix.md)
+    FIX_PROMPT="$(prompt_file factory/prompts/45-fix.md)
 
 ---
 - slug: \`$SLUG\`
@@ -883,7 +901,7 @@ fi
 if node factory/lib/scout-references.mjs check >"$LOG_DIR/scout.log" 2>&1; then
   step "12. 레퍼런스 스카우트"
   node factory/lib/scout-references.mjs prepare >>"$LOG_DIR/scout.log" 2>&1
-  SCOUT_PROMPT="$(cat factory/prompts/50-reference-scout.md)
+  SCOUT_PROMPT="$(prompt_file factory/prompts/50-reference-scout.md)
 
 ---
 ## 이번 포커스

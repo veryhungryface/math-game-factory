@@ -17,7 +17,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import puppeteer from 'puppeteer';
-import { P, readJSON, writeJSON, nowKST } from './paths.mjs';
+import { P, readJSON, writeJSON, nowKST, loadAllCurricula } from './paths.mjs';
 import { serveStatic } from './static-server.mjs';
 
 /** PNG IHDR 청크에서 width/height 를 읽는다. 외부 라이브러리 없이 표지 이미지 규격을 검증하기 위함. */
@@ -767,7 +767,8 @@ if (meta) {
   add('meta.title', '제목 길이 2~24자', typeof meta.title === 'string' && meta.title.length >= 2 && meta.title.length <= 24, meta.title);
 
   // 성취기준이 교육과정에 실재하는지 대조
-  const curriculum = readJSON(P.curriculum, { standards: [], units: [] });
+  // 초·중 교육과정을 합쳐 대조한다 — 학교급이 달라도 코드·단원 id 는 겹치지 않는다.
+  const curriculum = loadAllCurricula();
   const known = new Set((curriculum.standards || []).map((s) => s.code));
   const bad = (meta.standards || []).filter((c) => !known.has(c));
   add(
@@ -780,6 +781,10 @@ if (meta) {
 
   const unitExists = (curriculum.units || []).some((u) => u.id === meta.unit?.id);
   add('meta.unit', '단원 id 가 교육과정에 실재', unitExists, meta.unit?.id, true);
+  // 중학교 게임은 meta.school 로 스스로를 밝혀야 한다 — 허브가 학교급을 이 필드로 나눈다.
+  if (/^m\d/.test(meta.unit?.id || '')) {
+    add('meta.school', '중학교 단원이면 meta.school="middle"', meta.school === 'middle', `school=${meta.school ?? '(없음)'}`, true);
+  }
 }
 
 // CDN / 절대경로 금지
