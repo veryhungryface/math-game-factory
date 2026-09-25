@@ -7,6 +7,11 @@
 > 합격작이 없으면 그날 0개여도 된다 — 미검증을 통과시켜 생산량을 채우는 것이 더 나쁘다.
 > 근거: `docs/gpt6-factory-audit-20260905.md` §5.
 
+> **2026-09-26 중학교 라인 신설.** `SCHOOL=middle` 회차는 `curriculum/2022-middle-math.json`(중2 2학기)에서
+> 슬롯을 뽑고 **Unity WebGL 트랙**(`docs/unity-track.md`, 소스 `factory/unity-src/<slug>/`)으로 만든다.
+> 하루 1작 가드는 학교급별, 락은 공유. 중학교 회차의 추가 계약은 `factory/prompts/_school-middle.md` 가 정본이다
+> (이 문서의 「초등 N학년」 서술은 그 회차에선 슬롯 학교급·학년으로 읽어라).
+
 > **새 세션/새 모델로 이 공장을 이어받았다면 가장 먼저 읽어라:**
 > 1. `docs/OPERATIONS.md` — 운영 매뉴얼 (크론·에이전트 CLI 규약·게이트·핫픽스/부활 절차·함정 목록)
 > 2. `docs/loop-engineering.md` — 이 공장의 5겹 피드백 루프(L0~L4)·횡단 원칙·모델 티어링·루프 설계 체크리스트. **게이트를 손대거나 새 자동화를 붙이기 전에 필독**

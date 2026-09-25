@@ -1,7 +1,37 @@
 # 인수인계 — 현재 상태 (갱신형 문서)
 
-> 마지막 갱신: 2026-09-14. 운영 규약은 `docs/OPERATIONS.md`.
+> 마지막 갱신: 2026-09-26. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
+
+## 2026-09-26 — 🏫 중학교 라인 신설 (중2 2학기 · Unity WebGL 트랙) — 첫 회차 진행 중
+
+사용자 지시: 「공장 상태점검하고 중학교 버전 만들어 보자 2학기」 → 중2 2학기 · **공장 전체 확장** · **중학교 전용 크론**.
+추가 지시: 「초반에 훅하고 끌어당기는 디자인과 퀄리티 있는 게임」이 최우선, **Unity CLI 결과가 마음에 든다 — 꼭 활용**,
+필요하면 gpt image2 · grok video/image · blender mcp.
+
+**점검 결과(9/26)**: 초등 크론 `7c43f44b8c54` 는 9/11 부터 paused(그대로 둠 — 사용자 결정). codex 쿼터 복구 확인.
+카탈로그 63작. 9/14 P0(부활 10작 codex 교차 검산 · 면을 대! 재제작 문의)는 **여전히 미처리**.
+
+**구조 (커밋 79000fe)**
+- `curriculum/2022-middle-math.json` — 고시 원문 중학교 성취기준 60개(`[9수..]`, `typical_grade`), 중2 단원 13개
+  (2학기 `m2s2-u1~u7`: 삼각형의 성질 / 사각형의 성질 / 도형의 닮음 / 평행선과 선분의 길이의 비 / 피타고라스 /
+  경우의 수 / 확률), `style_guide`·`expression_traps`(**중2 에는 √ 없음** — 피타고라스는 피타고라스 수만).
+  출판사 차례는 5종만 실물 확인(동아·지학사·신사고·금성·교학사 미확인).
+- `SCHOOL=elementary|middle`(config.sh): 교육과정 파일·FOCUS(중=`2-2`)·**하루 1작 가드 학교급별**·보고 `[중학교]` 태그·
+  첫플레이 판정 눈높이. **락·factory/work 는 공유**(두 크론이 겹치면 뒤에 온 쪽이 한 틱 건너뜀).
+  QA·허브는 `loadAllCurricula()` 로 초·중 합산 대조. 중학교 단원(`m…`)은 `meta.school="middle"` 필수(fatal).
+  허브는 학교급+학년 그룹(`#m2` 「중2」 섹션), 중학교 게임이 생기면 「초·중등」 문구로 자동 전환.
+- 프롬프트: `run.sh` 의 `prompt_file()` 이 중학교 회차에만 경로 치환 + `_school-middle.md` 부착,
+  빌드·수정 단계엔 `30-build-unity.md` 추가. **초등 회차 프롬프트는 바이트 단위로 동일**(검증함).
+- **Unity 트랙**(`BUILD_TECH=unity`, 중학교 기본): `factory/unity/`(킷·WebGL 템플릿·`build.sh`·`setup-workspace.sh`),
+  정본 `docs/unity-track.md`. 워크스페이스 `~/UnityProjects/MGF-Workspace`(Unity 6000.3.24f1), 게임 소스 정본
+  `factory/unity-src/<slug>/`. 스모크 QA 44/44(실 GPU), C# 변경 빌드 ~75초, gzip 산출 ~8MB.
+  codex 빌드·수정 단계만 샌드박스 해제(`BUILD_SANDBOX_ARGS`), T_BUILD 90분.
+- 크론 진입점 `factory/cron-entry-middle.sh`(→ `~/.hermes/scripts/` 복사 후 등록 예정).
+- 부수 수정: 피드백 인박스가 안내 주석 한 줄을 매 회차 가짜 피드백으로 주입하던 버그(아카이브 20여 개의 원인) 수정.
+
+**남은 것**: ① 첫 회차(`logs/cron-launch-middle-20260926-014714.log`) 결과 확인 ② 통과 경로 검증 후 hermes 크론 등록
+③ 실기기(아이폰) Unity 로딩·터치 확인 ④ `public/about/` 수작업 페이지의 「초등」 문구.
 
 ## 2026-09-14 — 🚑 부활 작전 종료: 12작 중 10작 생환 게시 (카탈로그 63작) · ⚠️ 크론 일시정지 중
 

@@ -393,7 +393,10 @@ SLOT_CTX="$(cat "$WORK/slot.json")"
 FEEDBACK_FILE="$ROOT/factory/state/feedback.md"
 USER_FEEDBACK=""
 if [ "$RESUMED" = "0" ] && [ -f "$FEEDBACK_FILE" ]; then
-  FB_BODY="$(grep -v '^<!--\|^사용자 피드백\|^여기에 적은\|^프롬프트에 그대로\|^쓰는 법\|^factory/state/feedback-archive\|^되게 하기\|^쓰면 된다\|^("젤리\|^-->' "$FEEDBACK_FILE" 2>/dev/null | sed '/^[[:space:]]*$/d')"
+  # 안내 주석 블록(<!-- … -->)을 통째로 걷어낸다. 예전 줄 단위 grep 필터는 주석 한 줄
+  # (「피드백이 매 사이클…」)을 놓쳐 매 회차 가짜 피드백을 주입하고 아카이브를 쌓았다.
+  # 닫는 `-->` 가 없는(아래 옛 head -8 이 잘라 먹은) 파일도 처리한다 (2026-09-26).
+  FB_BODY="$(perl -0pe 's/<!--.*?(-->|\z)//gs' "$FEEDBACK_FILE" 2>/dev/null | sed '/^[[:space:]]*$/d')"
   if [ -n "$FB_BODY" ]; then
     USER_FEEDBACK="## 사용자 피드백 (직접 반영해라 — 무시하지 마라)
 
@@ -401,7 +404,9 @@ $FB_BODY"
     mkdir -p "$ROOT/factory/state/feedback-archive"
     cp "$FEEDBACK_FILE" "$ROOT/factory/state/feedback-archive/$RUN_ID.md"
     # 안내 주석만 남기고 본문은 비운다
-    head -8 "$FEEDBACK_FILE" > "$FEEDBACK_FILE.new" && mv "$FEEDBACK_FILE.new" "$FEEDBACK_FILE"
+    printf '%s\n' '<!--' '사용자 피드백 인박스. 이 주석 아래에 적은 내용은 다음 생산 사이클의 기획·검수 프롬프트에' \
+      '그대로 끼워 넣어지고, 한 번 읽히면 factory/state/feedback-archive/<RUN_ID>.md 로 옮겨진 뒤 비워진다.' \
+      '초등·중학교 크론이 이 인박스를 공유한다 — 먼저 도는 회차가 가져간다.' '-->' > "$FEEDBACK_FILE"
     log "사용자 피드백 반영 — factory/state/feedback-archive/$RUN_ID.md 로 보관"
   fi
 fi
