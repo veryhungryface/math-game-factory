@@ -1,34 +1,35 @@
-# 원 찍어 — 에셋·출처 기록
+# 원 찍어 — 에셋·출처 기록 (v2, 2026-09-26)
 
 | 에셋 | 출처 |
 |---|---|
-| `Resources/WonJjigeo/pin.png` | 아트 단계 생성(codex 내장 이미지 생성, 프롬프트: `factory/work/chosen.json` → `art_direction.assets_needed[pin]`). `public/g/won-jjigeo/assets/pin.png` 사본. 타이틀 로고의 핀으로만 쓴다 |
-| 모래 베드·청동 녹청·철 텍스처 | 코드 생성(`WonJjigeoGame.SandTex/BronzeTex/IronTex`, value-noise fBm, 부팅 1회) |
-| 명판 메시 | 코드 생성(베벨 있는 삼각 판, `ShapePlate`) — 명판 14장 풀 재사용 |
-| 핀·트레이·랙·슈트·립·리벳 | 킷 둥근 상자 + 프리미티브 조합 |
-| 효과음(clang·thunk·scrape·seat·chime·tick·refuse·pull) | 코드 합성(`BuildSounds`) — 외부 음원 없음 |
-| 글꼴 | 킷 MgfKR(NotoSansKR Bold 서브셋, OFL) |
+| `Resources/WonJjigeo/pin.png` | 아트 단계 생성(codex 내장 이미지 생성, 프롬프트: `factory/work/chosen.json` → `art_direction.assets_needed[pin]`). 타이틀 로고의 핀으로만 쓴다 |
+| 모눈 트레이싱 필름 텍스처 | 코드 생성(`WonFilm.GridTex`, 5×5칸 타일 · 칸 경계 먹선 · 5칸마다 굵은 선). 1단계는 거의 투명, 2단계는 우윳빛 트레이싱지 |
+| 모래 베드·청동 녹청·철 텍스처 | 코드 생성(`WonWorld.SandTex/BronzeTex/IronTex`, value-noise fBm, 부팅 1회) |
+| 명판 메시 | 코드 생성(베벨 있는 삼각 판, `ShapePlate`) — 꼭짓점이 모눈 격자점에 놓인다 |
+| 필름 접기 | 코드 생성(`WonFilm.RenderFold`) — 필름 사각형을 접는 선으로 잘라 한쪽을 선 둘레로 회전(실제 종이접기 기하), 들린 쪽 음영·그림자 다각형, 주름 = 어두운 선 + 밝은 선(골 음영) |
+| 핀·트레이·랙·콘솔·립·리벳·집게 | 킷 둥근 상자 + 프리미티브 조합 |
+| 효과음 | 코드 합성(`BuildSounds`: clang·thunk·scrape·seat·chime·tick·refuse·match·fold·crease·unlock·ping·alarm) — 외부 음원 없음 |
+| 글꼴 | 킷 MgfKR(NotoSansKR Bold 서브셋, OFL). 화면 문자열의 비한글 기호는 전부 서브셋 안에 있음을 fontTools 로 확인(`—` 는 서브셋에 없어 쓰지 않는다) |
 
-`public/g/won-jjigeo/assets/title.png`·`hero.png`(아트 단계 산출)는 Unity 트랙에서 쓰지 않는다 — 타이틀은
-움직이는 3D 장면(데모 명판에 핀이 내리꽂히고 녹청 원이 스윕)으로 대신했다. 게임 폴더에는 남아 있다.
+`public/g/won-jjigeo/assets/title.png`·`hero.png`(v1 아트 단계 산출)는 Unity 트랙에서 쓰지 않는다.
 
-## B3 무뇌 봇 자가 테스트
+## v2 설계 요지 (정본: `DESIGN-v2.md`)
 
-`Editor/WonBotSelfTest.cs` — 게임과 같은 `Gen`·`Layout.Place`·`Geo.Hit` 로 봇 × 200판 + 명판 6000장 대표본.
+- **모눈**: 격자 x ∈ [−8, 8], y ∈ [−7, 7] (255점). 핀은 격자점에만 서고(2단계에서는 주름 교점에도) 초당 6걸음까지만 움직인다.
+- **1단계 — 거리로 찾기**: 핀에서 세 꼭짓점(외심) / 세 변에 내린 수선(내심)까지 선과 길이(모눈 칸, 소수 둘째 자리)가 실시간으로 따라온다.
+  두 길이가 같으면 그 두 선이 초록, 세 길이가 정확히 같아지면 세 선이 빨개진다(딩 + 핀 발밑 빛). 「핀 박기」로 확정.
+- **2단계 — 성질로 찾기**: 외심·내심 각각 연속 첫 시도 정답 2회면 해금(필름 집게가 튕겨 나감). 거리선 없음.
+  꼭짓점을 꼭짓점에 포개면 수직이등분선, 변을 이웃한 변에 포개면 각의 이등분선 주름. 주름 교점·변의 중점에 표식이 생기고 핀이 스냅된다.
+  세 번째 주름이 같은 점을 지나면 보너스. 틀리면 1단계 거리선이 1초 나타나 「거리가 같지 않다」를 보여 준다.
+- **판정**: `Prob.EqualPair`(거리² 정수 / (a·x+b·y−c)²·(a'²+b'²) 교차곱)와 `RP.Is(ans)`(유리수 좌표 = 정답 격자점). float 판정 없음.
+- **문제 풀**: 외심 = 반지름²이 같은 격자점 셋(588 모양), 내심 = 법선이 피타고라스 방향인 세 접선(32 모양). 모양을 격자 안에 평행이동·이름 회전.
 
-```bash
-bash factory/unity/build.sh won-jjigeo      # 워크스페이스에 소스 동기화
-/Applications/Unity/Hub/Editor/6000.3.24f1/Unity.app/Contents/MacOS/Unity -batchmode -nographics \
-  -projectPath ~/UnityProjects/MGF-Workspace -executeMethod Mgf.WonJjigeo.WonBotSelfTest.Run -wonOut /tmp/won-bots.json -quit
-```
+봇·전수 증명 결과: `bot-results-v2.md`.
 
-결과: `bot-selftest.json`. 우연 수준 = 허용원 넓이 ÷ 핀을 놓을 수 있는 베드 넓이(≈0.26%).
+## 명세(DESIGN-v2.md)와 다르게 한 것
 
-## 기획서와 다르게 한 것
-
-- 첫 문항 ∠A=50° → **∠A=30°(∠B=∠C=75°), 70° 회전.** ∠A=50° 이등변은 무게중심이 외심에서 0.1R 밖에 안 떨어져
-  허용원(0.08R) 안에 들어온다 — 「한가운데 탭」이 통과하는 문항이었다. 28° 회전은 상자 중심이 0.199R 로 기준(0.2R) 미달.
-- 허용 반지름 4.5%R → **8%R**(390폭 세로 화면에서 약 9px). 4.5%는 손가락으로 사실상 불가능했다.
-  함정 자리(무게중심·반대 중심·아래 변 중점·상자 중심)는 모두 2.5×tol 밖에 있도록 풀을 거른다(위반 0).
-- 조작: 끌어 놓기 외에 **베드 탭 → 조준 핀이 떠 있음 → 같은 자리 한 번 더 누르면 박힘**을 더했다(탭만 하는 학생도 진행).
-- 판정은 「세 거리 차 3%」 보조 조건 없이 |P−중심| ≤ tol 하나로 한다(정수 밀리단위 거리² 비교). 두 조건은 사실상 같다.
+- **2단계 변끼리 접기**는 「변 위 한 점을 잡아 이웃한 변 쪽으로 끌면, 두 변이 만나는 꼭짓점에서 같은 거리의 점에 맞춰 접힌다」로 구현했다.
+  종이를 실제로 포개면 두 변이 겹치는 순간이 그것이다(접는 선이 꼭짓점을 지나야 두 변이 포개진다).
+- 1단계 제한 시간 16초·핀 속도 초당 6걸음은 봇 결과로 정했다(훑기 27% vs 추론 97%). 첫 명판·첫 내심 명판(안내)은 제한 시간이 없고, 오답이면 무감점으로 2번까지 다시 박는다.
+- 1단계 오답은 「세 선의 길이 차이를 1초」 + 진짜 중심 표시 뒤 핀을 잃는다(명세 그대로). 안내 명판의 재시도에서는 진짜 중심을 보여 주지 않는다(정답 누설 방지).
+- 명판 수로 판을 끝낸다: 1단계(해금까지) + 2단계 6장. v1 의 「90초 한 판」과 「스크랩이 베드를 먹는다」는 모눈 격자와 맞지 않아 뺐다.
