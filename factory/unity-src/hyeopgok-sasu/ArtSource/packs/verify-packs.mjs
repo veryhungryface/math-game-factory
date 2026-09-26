@@ -18,6 +18,8 @@ function enumerate(p,probability){const a=p.args;let population,accepted;
  switch(p.kind){
  case'ball':population=range(a.red+a.blue);accepted=population.filter(i=>a.event==='red'?i<=a.red:i>a.red);break;
  case'multiples':population=range(a.total);accepted=population.filter(i=>i%a.divisor===0);break;
+ case'multiples-or':population=range(a.total);accepted=population.filter(i=>i%a.a===0||i%a.b===0);break;
+ case'single-color':population=range(a.n);accepted=population.filter(()=>a.certain);break;
  case'colors':population=range(a.red+a.blue+a.white);accepted=population.filter(i=>i<=a.red||i>a.red&&i<=a.red+a.blue);break;
  case'dice':population=pairs(range(6),range(6));accepted=population.filter(p=>diceEvent(p,a.test,a.k));break;
  case'replacement':population=pairs(range(a.red+a.blue),range(a.red+a.blue));accepted=population.filter(([x,y])=>a.event==='at-least-one'?(x<=a.red||y<=a.red):(x<=a.red&&y<=a.red));break;
@@ -36,7 +38,7 @@ function cardVariants(digits,m,variant){const arr=[];for(let value=0;value<=99;v
 function derived(w,p){const [a,b,c]=w.inputs;switch(w.rule){
  case'both-red':return[a*a,b*b];case'half':return[1,2];case'complement':return[b-a,b];case'one-outcome':return[1,a];case'success-counted-twice':return[a,b+a];case'inverse':return[b,a];case'count-only':return[a,1];
  case'multiply-disjoint-probabilities':return[a*b,c*c];case'first-part':return[a,b];case'unordered-dice':{const valid=pairs(range(6),range(6)).filter(v=>diceEvent(v,p.args.test,p.args.k));const n=new Set(valid.map(v=>v.slice().sort((x,y)=>x-y).join(','))).size;return[n,21];}
- case'one-die-denominator':return[a,6];case'single-stage':return[a,b];case'add-instead-multiply-probabilities':return[2*a,b];case'count-only-denominator':return[a,b];case'complement-count':return[b-a,1];case'total-only':return[a,1];case'multiply-count-again':return[a*b,1];case'constant-one':return[1,1];
+ case'one-die-denominator':return[a,6];case'single-stage':return[a,b];case'add-instead-multiply-probabilities':return[2*a,b];case'count-only-denominator':return[a,b];case'complement-count':return[b-a,1];case'total-only':return[a,1];case'multiply-count-again':return[a*b,1];case'constant-one':return[1,1];case'add-overlapping-counts':{const t=c;return[range(t).filter(i=>i%a===0).length+range(t).filter(i=>i%b===0).length,t];}case'certain-impossible-swap':return[1-a,1];
  case'sum':return[a+b,1];case'product':return[a*b,1];case'first-count':return[a,1];case'cards-leading-zero':return[cardVariants(a,b,'leading'),1];case'cards-reuse':return[cardVariants(a,b,'reuse'),1];case'cards-unordered':return[cardVariants(a,b,'unordered'),1];case'add-card-stages':return[2*(a-1),1];case'all-ordered-cards':return[a*(a-1),1];case'card-first-stage':return[a-1,1];case'opposite-role-order':return[b?a*(a-1)/2:a*(a-1),1];case'square':return[a*a,1];case'add-role-stages':return[2*a-1,1];case'unordered-count':{const valid=pairs(range(6),range(6)).filter(v=>diceEvent(v,p.args.test,p.args.k));return[new Set(valid.map(v=>v.slice().sort((x,y)=>x-y).join(','))).size,1];}case'unordered-all-dice':return[21,1];default:throw Error(`Unknown distractor rule ${w.rule}`);
 }}
 const index=JSON.parse(fs.readFileSync(path.join(out,'index.json'),'utf8'));check(index.default_pack==='m2s2-u7','default pack');const reports=[];
@@ -56,11 +58,12 @@ for(const entry of index.packs){
   check(p.distractors.length===3&&new Set(item.distractor_tags).size>=2,`${id}: >=2 misconception distractors`);
   for(const w of p.distractors){totals.distractorDerivations++;check(item.choices.includes(w.value),`${id}: distractor membership`);check(item.distractor_tags.includes(w.misconceptionId),`${id}: distractor tag`);check(same(parse(w.value),derived(w,p)),`${id}: distractor derivation ${w.rule}`);check(!same(parse(w.value),exact),`${id}: distractor accidentally correct`);}
   const text=[item.prompt,item.explain,...item.choices].join(' ');check(!/√|다시 넣지 않/.test(text),`${id}: forbidden scope`);check(!/\d+\s*\/\s*\d+/.test(text.replace(/\{frac:\d+\/\d+\}/g,'')),`${id}: plain fraction`);check(item.explain.length>4&&item.unitConcept.length>0,`${id}: explanation/concept`);
-  if(['ball','colors','replacement','reverse'].includes(p.kind))check(item.prompt.includes('임의로')&&item.prompt.endsWith('(단, 공의 모양과 크기는 모두 같다.)'),`${id}: equal ball premise`);
+  if(['ball','colors','replacement','reverse','single-color'].includes(p.kind))check(item.prompt.includes('임의로')&&item.prompt.endsWith('(단, 공의 모양과 크기는 모두 같다.)'),`${id}: equal ball premise`);
   if(p.kind==='dice')check(item.prompt.includes('서로 다른 두 개의 주사위'),`${id}: distinguished dice`);
-  if(['cards','multiples'].includes(p.kind))check(item.prompt.includes('임의로'),`${id}: arbitrary draw`);
+  if(p.kind==='multiples-or'){const listed=range(p.args.total).filter(i=>i%p.args.a===0||i%p.args.b===0);check(item.explain.startsWith(listed.join(', ')+'의 '),`${id}: overlap OR solved by direct listing`);}
+  if(['cards','multiples','multiples-or'].includes(p.kind))check(item.prompt.includes('임의로'),`${id}: arbitrary draw`);
   if(p.kind==='replacement')check(item.prompt.includes('확인한 후 다시 넣고'),`${id}: replacement explicit`);
-  if(item.prompt.includes('또는'))check(['sum','colors'].includes(p.kind),`${id}: OR guaranteed disjoint`);
+  if(item.prompt.includes('또는'))check(['sum','colors','multiples-or'].includes(p.kind),`${id}: OR disjoint, or overlapping OR posed as direct listing`);
   check(Number.isInteger(item.difficulty)&&item.difficulty>=1&&item.difficulty<=4,`${id}: difficulty band`);bands[item.difficulty]??={count:0,answerSlots:[0,0,0,0]};bands[item.difficulty].count++;bands[item.difficulty].answerSlots[item.choices.indexOf(item.answer)]++;concepts.add(item.unitConcept);
  }catch(e){failures.push(`${id}: ${e.message}`);}}
  for(const [band,stats]of Object.entries(bands))check(Math.max(...stats.answerSlots)-Math.min(...stats.answerSlots)<=1,`${pack.pack_id}: answer slot balance difficulty ${band}`);

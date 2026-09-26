@@ -8,13 +8,19 @@ export function rational(n,d=1) { if(!Number.isSafeInteger(n)||!Number.isSafeInt
 export function token(n,d=1) { const [a,b]=rational(n,d);return b===1?String(a):`{frac:${a}/${b}}`; }
 export function wrong(n,d,misconceptionId,rule,inputs) {return {value:token(n,d),misconceptionId,rule,inputs};}
 export function probabilityWrong(f,t,extra=[]) {
+  // The equal-likelihood 1/2 trap leads only on a fixed arithmetic third of items.
+  // Elsewhere it is a late fallback, so "never step on 1/2" is not a free elimination rule
+  // (round-1 review: 1/2 sat in 82% of choice sets while rarely being correct).
+  const half=wrong(1,2,'m2s2-u7.equal-likelihood-bias','half',[]);
+  const lead=(f*31+t)%3===0;
   return [
     ...extra,
-    wrong(1,2,'m2s2-u7.equal-likelihood-bias','half',[]),
+    ...(lead?[half]:[]),
     wrong(t-f,t,'m2s2-u7.event-complement-confusion','complement',[f,t]),
     wrong(1,t,'m2s2-u7.event-count-omitted','one-outcome',[t]),
     wrong(f,t+f,'m2s2-u7.wrong-sample-space','success-counted-twice',[f,t]),
     wrong(t,f,'m2s2-u7.ratio-reversed','inverse',[f,t]),
+    ...(lead?[]:[half]),
     wrong(f,1,'m2s2-u7.denominator-omitted','count-only',[f]),
   ];
 }

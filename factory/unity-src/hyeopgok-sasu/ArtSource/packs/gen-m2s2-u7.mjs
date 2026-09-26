@@ -2,7 +2,7 @@
 import {makeItem,probabilityWrong,wrong,token,diceCount,diceText,writePack} from './common.mjs';
 // Corpus traps: explicit 임의로 + equal balls, 서로 다른 dice, only replacement;
 // every OR below joins disjoint colors; all fractions are reduced integer pairs.
-const balls=[],cards=[],complement=[],colors=[],dice=[],replacement=[],atLeast=[],experiment=[],reverse=[];
+const balls=[],cards=[],complement=[],colors=[],dice=[],replacement=[],atLeast=[],experiment=[],reverse=[],overlap=[],basic=[];
 const equalBalls='(단, 공의 모양과 크기는 모두 같다.)';
 for(let red=1;red<=9;red++)for(let blue=1;blue<=9;blue++){
   const total=red+blue;
@@ -33,4 +33,19 @@ for(let total=10;total<=40;total+=5)for(let heads=2;heads<total;heads+=3){
 for(let total=5;total<=12;total++)for(let red=1;red<total;red++){
   reverse.push(makeItem({prompt:`빨간 공과 파란 공이 합해 ${total}개이다. 한 개를 임의로 꺼낼 때 빨간 공일 확률이 ${token(red,total)}이면, 빨간 공의 개수를 구하시오. ${equalBalls}`,n:red,explain:`전체 ${total}개에 빨간 공의 비율 ${token(red,total)}을 곱하면 ${red}개.`,unitConcept:'확률에서 경우의 수 역으로 구하기',difficulty:3,kind:'reverse',args:{total,red},distractors:[wrong(total-red,1,'m2s2-u7.event-complement-confusion','complement-count',[red,total]),wrong(total,1,'m2s2-u7.denominator-omitted','total-only',[total]),wrong(red*total,1,'m2s2-u7.denominator-omitted','multiply-count-again',[red,total]),wrong(1,1,'m2s2-u7.event-count-omitted','constant-one',[])]}));
 }
-writePack('m2s2-u7','확률',['[9수04-06]'],[[balls,80],[cards,60],[complement,56],[colors,48],[dice,48],[replacement,32],[atLeast,32],[experiment,24],[reverse,20]]);
+
+// Overlapping OR (curriculum misconception 4). The curriculum keeps inclusion-exclusion out of
+// the formula set, so these are direct-listing problems: the explanation lists every card and
+// the oracle enumerates. The trap distractor adds the two counts (double-counts the overlap).
+for(const [a,b] of [[2,3],[2,5],[3,4],[2,7],[3,5],[4,6]])for(let total=6;total<=16;total++){
+  const hits=[];for(let i=1;i<=total;i++)if(i%a===0||i%b===0)hits.push(i);
+  const both=hits.filter(i=>i%a===0&&i%b===0);if(!both.length)continue;
+  const ca=Math.floor(total/a),cb=Math.floor(total/b);
+  overlap.push(makeItem({prompt:`1부터 ${total}까지의 자연수가 각각 하나씩 적힌 카드 ${total}장 중 한 장을 임의로 뽑을 때, ${a}의 배수 또는 ${b}의 배수일 확률을 기약분수로 구하시오.`,n:hits.length,d:total,format:'frac',explain:`${hits.join(', ')}의 ${hits.length}장(겹치는 ${both.join(', ')}도 한 번만 센다)이므로 ${token(hits.length,total)}.`,unitConcept:'동시에 일어날 수 있는 두 사건 — 직접 세기',difficulty:3,kind:'multiples-or',args:{total,a,b},distractors:[wrong(ca+cb,total,'m2s2-u7.overlap-double-counted','add-overlapping-counts',[a,b,total]),...probabilityWrong(hits.length,total)]}));
+}
+// Basic property: impossible event 0, certain event 1.
+for(const [color,other] of [['흰','검은'],['빨간','파란'],['노란','초록']])for(let n=2;n<=9;n++)for(const certain of [false,true]){
+  const target=certain?color:other,p=certain?1:0;
+  basic.push(makeItem({prompt:`${color} 공만 ${n}개 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때, ${target} 공이 나올 확률을 구하시오. ${equalBalls}`,n:p,d:1,format:'frac',explain:certain?`꺼낸 공은 반드시 ${color} 공이므로 확률은 1.`:`${other} 공은 절대로 나오지 않으므로 확률은 0.`,unitConcept:'확률의 기본 성질',difficulty:1,kind:'single-color',args:{n,certain},distractors:[wrong(1-p,1,'m2s2-u7.basic-property','certain-impossible-swap',[p]),wrong(1,n,'m2s2-u7.event-count-omitted','one-outcome',[n]),wrong(1,2,'m2s2-u7.equal-likelihood-bias','half',[]),wrong(n,1,'m2s2-u7.denominator-omitted','count-only',[n])]}));
+}
+writePack('m2s2-u7','확률',['[9수04-06]'],[[balls,80],[cards,60],[complement,56],[colors,48],[dice,48],[replacement,32],[atLeast,32],[experiment,24],[reverse,20],[overlap,28],[basic,16]]);

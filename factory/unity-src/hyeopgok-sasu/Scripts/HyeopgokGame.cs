@@ -24,7 +24,7 @@ namespace Mgf.HyeopgokSasu
         Camera cam;HyeopgokBattle battle;Transform king;
         bool loaded,loading,playStarted,dragging;
         float feedbackLeft,cameraLanding,uiTick;
-        int runSerial;Vector3 cameraBase;Quaternion cameraRot;
+        int runSerial;bool rewardIsRatio;Vector3 cameraBase;Quaternion cameraRot;
         string feedback="";
 
         void Awake()
@@ -78,7 +78,7 @@ namespace Mgf.HyeopgokSasu
             var bank=new List<MgfProblem>();var chars=new StringBuilder();
             foreach(var p in pack.items){bank.Add(new MgfProblem{id=p.id,prompt=p.prompt,choices=p.choices,answer=p.answer,answerNumeric=p.format=="text"?double.NaN:p.answerNumeric,unitConcept=p.unitConcept});chars.Append(p.prompt).Append(p.explain).Append(p.answer);}
             bankJson=MgfJson.Bank(bank);
-            MgfText.Prewarm(chars.ToString()+"협곡사수출격전선수비성문정답오답왕끌어패드위에서잠깐멈추세요승리재도전문제확률경우의수화면누르면바로시작전투목표압박까지초마다남은지켜라명중시연달성했습니다더필요합니다");
+            MgfText.Prewarm(chars.ToString()+"협곡사수출격전선수비성문정답오답왕끌어패드위에서잠깐멈추세요승리재도전문제확률경우의수화면누르면바로시작전투목표압박까지초마다남은지켜라명중시연달성했습니다더필요합니다판단적중○");
             string schoolLabel=pack.school=="elementary"?"초":"중";
             loading=false;loaded=true;SetTitleInfo(pack.title+"  ·  "+schoolLabel+pack.grade+" "+pack.semester+"학기");
             // Refresh the same bridge when a user changes packs; QA samples the actual loaded pack.
@@ -125,11 +125,12 @@ namespace Mgf.HyeopgokSasu
             feedbackLeft=Rules.LastCorrect?1.25f:1.65f;
             Vector3 spot=Rules.LastPad>=0?HyeopgokRules.Pads[Rules.LastPad]:Rules.King;
             int hits=1,trials=1;long n=1,d=1;
-            bool ratio=Rules.Current.format=="frac"&&TryRational(Rules.Current.answer,out n,out d)&&n>=0&&d>0&&n<=d;
+            bool ratio=Rules.Current.format=="frac"&&TryRational(Rules.Current.answer,out n,out d)&&n>0&&d>1&&n<d;
             if(ratio){hits=(int)Math.Min(225,n);trials=(int)Math.Min(225,d);}
             if(Rules.LastCorrect){battle.Reward(Math.Max(0,Rules.LastPad),spot,hits,trials);MgfSfx.Play("correct");}
             else{battle.Punish(spot);MgfSfx.Play("wrong");}
-            string reward=ratio?"정답 · 석궁 "+Rules.Current.answer+" 명중 시연!":"정답 · 경우의 수만큼 지원!";
+            string reward=ratio?"정답 · 석궁 "+Rules.Current.answer+" 명중 시연!":Rules.Current.format=="frac"?"정답 · 확률 "+Rules.Current.answer+" 판단 적중!":"정답 · 경우의 수만큼 지원!";
+            rewardIsRatio=ratio;
             feedback=(Rules.LastCorrect?reward:"오답 · 성문 -18")+"\n"+Rules.Current.explain;
             HideTutorial();
             ShowFeedback(Rules.LastCorrect,feedback);SyncState();RefreshHud();

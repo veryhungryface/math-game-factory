@@ -16,6 +16,7 @@ namespace Mgf.HyeopgokSasu
         HyeopgokMathText[] padLabels=new HyeopgokMathText[4];
         RectTransform[] padLabelRoots=new RectTransform[4];
         TextMeshProUGUI[] tutorialRings=new TextMeshProUGUI[4];
+        TextMeshProUGUI answerRing;int answerMark=-1;
         Image hpFill,timeFill;
         float shownHp=100,bonusLife;
         string lastArmy="";int previousShownHp=-1;
@@ -77,6 +78,7 @@ namespace Mgf.HyeopgokSasu
                 tutorialRings[i].outlineColor=navy;tutorialRings[i].outlineWidth=.14f;
             }
             SetTutorial(false);
+            answerRing=Text("○",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(96,96),64,gold);answerRing.outlineColor=navy;answerRing.outlineWidth=.14f;answerRing.gameObject.SetActive(false);
             var resultCard=Box("Results banner",endRoot,new Vector2(.5f,.53f),Vector2.zero,new Vector2(352,312),navy);
             Box("Result edge",resultCard,new Vector2(.5f,1),Vector2.zero,new Vector2(352,5),gold);
             endTitle=Text("",resultCard,new Vector2(.5f,.79f),Vector2.zero,new Vector2(332,70),38,cream);
@@ -119,11 +121,13 @@ namespace Mgf.HyeopgokSasu
         }
         void ShowFeedback(bool ok,string s){
             feedbackPanel.gameObject.SetActive(true);feedbackText.Text.color=ok?cream:MgfLook.Hex("#ffb7a2");feedbackText.Set(s);
-            if(ok){bonusMath.Set(Rules.Current.format=="frac"?Rules.Current.answer+" 명중":"경우의 수 지원");bonusLife=2.2f;}
+            if(ok){bonusMath.Set(rewardIsRatio?Rules.Current.answer+" 명중":Rules.Current.format=="frac"?"판단 적중":"경우의 수 지원");bonusLife=2.2f;}
+            // After a miss, mark where the correct answer stood so the explanation line maps to a pad.
+            answerMark=ok?-1:Rules.AnswerPad();answerRing.gameObject.SetActive(answerMark>=0);
             if(Rules.LastPad>=0)padLabelRoots[Rules.LastPad].localScale=Vector3.one*(ok?1.3f:.7f);
             if(!ok&&Rules.LastPad>=0)cracks[Rules.LastPad].gameObject.SetActive(true);
         }
-        void HideFeedback(){feedbackPanel.gameObject.SetActive(false);bonusText.text="";}
+        void HideFeedback(){feedbackPanel.gameObject.SetActive(false);bonusText.text="";answerMark=-1;if(answerRing)answerRing.gameObject.SetActive(false);}
         void ShowEnd(bool won,bool fallen){
             endRoot.gameObject.SetActive(true);playRoot.gameObject.SetActive(false);
             endTitle.text=won?"협곡을 지켰다":fallen?"성문이 무너졌다":"버티기만 한 판";
@@ -178,6 +182,12 @@ namespace Mgf.HyeopgokSasu
                 for(int k=0;k<count;k++)padFill[i].SetPosition(k,PadEdge(i,Mathf.Min(progress,k/32f)));
             }
             AnimateTutorial();
+            if(answerMark>=0){
+                Vector3 rs=cam.WorldToScreenPoint(HyeopgokRules.Pads[answerMark]);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,rs,null,out Vector2 at);
+                answerRing.rectTransform.anchoredPosition=at;answerRing.rectTransform.localScale=Vector3.one*(1.05f+.08f*Mathf.Sin(Time.unscaledTime*7));
+                padLabelRoots[answerMark].localScale=Vector3.one*1.15f;
+            }
             if(bonusLife>0){bonusLife-=dt;bonusText.rectTransform.anchoredPosition=new Vector2(0,(2.2f-bonusLife)*18);if(bonusLife<=0)bonusText.text="";}
         }
         void AnimateTutorial(){
