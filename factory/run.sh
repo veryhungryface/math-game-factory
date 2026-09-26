@@ -192,7 +192,14 @@ judge_run() {
 # **인프라 실패**다 — 같은 러너로 재시도하거나 재검사 루프를 도는 것은 순수한 낭비다.
 # 2026-08-27~28 에 4회 연속으로, 2026-09-01~03 에 20회 연속으로 여기서 시간을 태웠다.
 RUNNER_ERR_RE='hit your usage limit|usage limit reached|status 402|402 Payment Required|Payment Required|usage balance exhausted|insufficient_quota|quota exceeded|exceeded your current quota|rate limit exceeded|401 Unauthorized|invalid api key|invalid_api_key|authentication_error|Not authenticated|Please run .?login'
-runner_infra_err() { [ -f "$1" ] && grep -m1 -Eio "$RUNNER_ERR_RE" "$1" 2>/dev/null | head -1; }
+# 러너 CLI 가 직접 찍는 오류 줄에서만 찾는다 — codex `ERROR: …`, grok JSON `"message": "API error (status 402 …)"`,
+# claude `API Error …`. 로그 전체를 grep 하면 러너가 읽은 문서(OPERATIONS.md 의 「402 Payment Required」)나
+# 러너의 최종 보고 인용까지 걸려, 멀쩡히 끝난 수정 라운드를 인프라 실패로 중단시켰다(2026-09-27 협곡 사수).
+RUNNER_ERR_LINE_RE='^[[:space:]]*(ERROR:|Error:|API Error|"message": *"API error|"error": *\{)'
+runner_infra_err() {
+  [ -f "$1" ] || return 0
+  grep -E "$RUNNER_ERR_LINE_RE" "$1" 2>/dev/null | grep -m1 -Eio "$RUNNER_ERR_RE" | head -1
+}
 
 # 디렉터리 내용 해시. 수정 러너가 **실제로 파일을 바꿨는지** 확인하는 데 쓴다.
 # (rc=0 으로 끝났는데 아무것도 안 고친 회차를 재검수에 태우면 같은 코드를 다시 채점한다)
