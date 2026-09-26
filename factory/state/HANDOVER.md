@@ -3,6 +3,33 @@
 > 마지막 갱신: 2026-09-27. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-09-27 — 「협곡 사수」 비주얼·타격감 강화 · 로컬 빌드 / push·배포 안 함
+
+사용자 요청 「최대한 비슷하게, 타격감 있게」에 따라 오리지널 모델·조명·전투 연출만 보강했다.
+변경 정본은 `factory/unity-src/hyeopgok-sasu/ArtSource/visual-pass-notes.md`, 비교 증거는
+`ArtSource/validation/visual-pass/artifacts/reference-comparison.png` 및 전후 캡처 2장이다.
+
+- Blender MCP scene info/viewport와 `Blender -b`를 왕복해 14종 FBX(522,760 bytes)를 재생성했다.
+  불규칙 남청 암반층·풀/흙길 음영·침엽/활엽 군집, 빨강 둥근 투구(218tri)·파랑 각진 투구/방패(194tri).
+  Unity의 따뜻한 키 라이트·면 방향 환경광을 보강했고 GPU 인스턴싱을 유지했다.
+- 흰 볼트 궤적, 전선의 흰 별·둥근 연기·금화·파편 고정 풀을 추가했다. 큰 사살마다 45ms 병사 렌더 유지와
+  작은 진동을 주되 신규 효과의 난수·시계는 시뮬레이션과 분리했다. 1차 캡처 후 전경 나무 가림·묻힌 섬광·
+  큰 배경 면의 색 경계를 다시 보정하고 최종 빌드(62초, warnings 0)를 캡처했다.
+- 표지 두 장을 **실제 WebGL 전투 캡처**와 게임 UI 제목으로 교체했다. 1200×630 / 1080×1080,
+  원본·crop·SHA는 `visual-pass/artifacts/provenance.json`. 회화풍 생성 표지를 현재 화면 증거로 쓰지 않는다.
+- 공식 QA **45/45, fatal 0**. Metal M4 모바일 **88fps**, 1280 **81fps**, 15초 유지율 **78%**
+  (하네스 자동 재측정 후 late 69fps; 첫 late 표본 55/52/48도 원본 보고서에 보존).
+  실제 입력·콘솔/page/요청 오류 검사 통과. `visual-pass/qa/report.json`.
+- 공개 게임 폴더 **9,552,892 bytes (9.55MB / 9.11MiB)**, Unity gzip 빌드+HTML 8,230,346 bytes.
+  이미 gzip인 unityweb을 유지하고 다른 파일을 gzip한 전송 합계 9,069,121 bytes, 12MB 미만.
+- 작업 시작 시 이미 있던 미커밋 Game/Ui·팩 수정을 보존했다. 규칙·UI·팩·봇 파일 10개 SHA 동일
+  (`visual-pass/source-preservation.json`). 봇/수학 결과를 갱신하거나 판정 규칙을 변경하지 않았다.
+  `factory/work/`, 공유 하네스·킷·허브·장부는 이 라운드에서 수정하지 않았다.
+
+남은 시각 차이: 레퍼런스보다 정면에 가까운 구도, 작은 포탑 비율, 간결한 절벽 외형·재질·접촉 그림자.
+**기존 검수 78점·핵심 조작 재기획 과제는 별도이며 이 QA 통과를 재검수/게시 승인으로 간주하지 않는다.**
+사용자 지시대로 push·배포하지 않았다. 기존 미커밋 팩/Game/Ui/장부/로그 수정은 이번 커밋에 섞지 않는다.
+
 ## 2026-09-27 — 「협곡 사수」 1차 수정 · QA 45/45 / 핵심 조작 재기획 필요
 
 최신 `review.json` 78점의 must_fix 6건과 `mathcheck.json` pass, 기존 QA 45/45를 대조해 1차 수정했다.

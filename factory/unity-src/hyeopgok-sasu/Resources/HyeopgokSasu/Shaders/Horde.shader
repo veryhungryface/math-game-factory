@@ -62,8 +62,14 @@ Shader "Mgf/HyeopgokHorde"
             fixed4 frag(v2f i) : SV_Target
             {
                 UNITY_LIGHT_ATTENUATION(attenuation,i,i.worldPos);
-                half diffuse = saturate(dot(normalize(i.worldNormal),normalize(_WorldSpaceLightPos0.xyz)));
-                half3 light = lerp(half3(.65,.65,.65) + .40 * diffuse * attenuation * _LightColor0.rgb, half3(1,1,1), _Unlit);
+                half3 normal = normalize(i.worldNormal);
+                half diffuse = saturate(dot(normal,normalize(_WorldSpaceLightPos0.xyz)));
+                // Cool skylight on side facets, warm key on the upper planes.
+                // Keep one forward pass and the existing instancing/team-mask contract.
+                half sky = saturate(normal.y * .5 + .5);
+                half3 ambient = lerp(half3(.20,.25,.29), half3(.43,.48,.48), sky);
+                half3 lit = ambient + .73 * diffuse * attenuation * _LightColor0.rgb;
+                half3 light = lerp(lit, half3(1,1,1), _Unlit);
                 return fixed4(lerp(i.color*light,fixed3(1,.97,.77),_Flash),1);
             }
             ENDCG

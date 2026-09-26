@@ -8,6 +8,7 @@ COLOR alpha is a team mask: 0 team tint * RGB; 1 fixed RGB.
 import bpy, math, json, random, sys
 from pathlib import Path
 from mathutils import Vector, Matrix
+from mathutils.geometry import tessellate_polygon
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent.parent / 'Resources' / 'HyeopgokSasu' / 'Models'
@@ -31,6 +32,9 @@ PAL = {
  'cliff_light': (.12,.24,.28,1), 'path': (.72,.64,.43,1),
  'path_light': (.78,.69,.47,1), 'pine': (.19,.45,.18,1),
  'pine_light': (.29,.56,.22,1), 'pine_dark': (.11,.34,.16,1),
+ 'leaf': (.26,.55,.21,1), 'leaf_light': (.36,.64,.26,1),
+ 'leaf_dark': (.16,.43,.20,1), 'cliff_mid': (.10,.21,.27,1),
+ 'cliff_rim': (.132,.245,.286,1), 'grass_edge': (.18,.70,.43,1),
  'black': (.035,.065,.07,1), 'ivory': (.98,.98,.86,1),
 }
 
@@ -67,6 +71,26 @@ class MeshMaker:
   x,y,z=center; sx,sy,sz=[t*.5 for t in scale]
   a=[(x-sx,y-sy,z-sz),(x+sx,y-sy,z-sz),(x,y+sy,z-sz),(x-sx,y-sy,z+sz),(x+sx,y-sy,z+sz),(x,y+sy,z+sz)]
   for f in [(0,2,1),(3,4,5),(0,1,4,3),(1,2,5,4),(2,0,3,5)]:self.face([a[i] for i in f],color)
+ def rings(self,center,rings,color,n=8,aspect=(1,1),phase=0):
+  x,y,z=center
+  rows=[[(x+math.cos(i*math.tau/n+phase)*r*aspect[0],y+h,z+math.sin(i*math.tau/n+phase)*r*aspect[1]) for i in range(n)] for h,r in rings]
+  self.face(rows[0],color)
+  for j in range(len(rows)-1):
+   for i in range(n):self.face([rows[j][i],rows[j+1][i],rows[j+1][(i+1)%n],rows[j][(i+1)%n]],color)
+  self.face(list(reversed(rows[-1])),color)
+ def foliage(self,center,scale,color='leaf',seed=0):
+  rng=random.Random(seed);x,y,z=center;sx,sy,sz=scale;n=7
+  rows=[]
+  for j,(h,r) in enumerate([(-.70,.38),(-.26,.92),(.27,1),(.72,.61),(.94,.19)]):
+   rows.append([(x+math.cos(i*math.tau/n+.11*j)*r*sx*(.90+rng.random()*.17),y+h*sy,z+math.sin(i*math.tau/n+.11*j)*r*sz) for i in range(n)])
+  self.face(rows[0],'leaf_dark')
+  base=PAL[color]
+  for j in range(4):
+   for i in range(n):
+    v=.90+j*.033+rng.random()*.06
+    c=tuple(min(1,t*v) for t in base[:3])+(1,)
+    self.face([rows[j][i],rows[j+1][i],rows[j+1][(i+1)%n],rows[j][(i+1)%n]],c)
+  self.face(list(reversed(rows[-1])),'leaf_light')
  def poly_extrude(self,poly,y0,y1,top='grass',side='cliff'):
   # x/z counter-clockwise polygons point DOWN in x/y/z coordinates.
   if sum(poly[i][0]*poly[(i+1)%len(poly)][1]-poly[(i+1)%len(poly)][0]*poly[i][1] for i in range(len(poly)))<0:poly=list(reversed(poly))
@@ -111,21 +135,38 @@ def emit(m):
  ob.hide_render=True;ob.hide_viewport=True
  return ob
 
-def soldier():
- m=MeshMaker('soldier')
- # Broad shoulders, readable squat helmet, tabard, leather boots; only 184 triangles.
- m.box((0,.30,0),(.23,.23,.14),'team')
+def soldier(blue=False):
+ m=MeshMaker('soldier_blue' if blue else 'soldier')
+ # Each army is one shared mesh: broader silhouettes, still under 250 triangles.
+ m.box((0,.30,0),(.25,.23,.16),'team')
  m.box((-.066,.135,0),(.072,.17,.095),'team_dark');m.box((.066,.135,0),(.072,.17,.095),'team_dark')
  m.box((-.066,.035,.025),(.083,.07,.14),'leather');m.box((.066,.035,.025),(.083,.07,.14),'leather')
  m.box((0,.275,.076),(.24,.027,.016),'leather')
- m.cylinder((0,.48,0),.101,.13,'skin',n=6)
- m.cylinder((0,.56,-.013),.135,.103,'team',n=6,radius_top=.105)
- m.box((0,.51,.095),(.17,.031,.025),'team_dark')
+ m.cylinder((0,.475,.007),.101,.12,'skin',n=6)
+ if blue:
+  # Octagonal bevels on a broad square helmet; the bright brow survives minification.
+  m.rings((0,0,-.015),[(.515,.174),(.615,.174),(.651,.134)],'team',n=4,aspect=(1,.91),phase=math.pi*.25)
+  m.box((0,.528,.104),(.224,.045,.025),'team_dark')
+  m.box((0,.553,.112),(.195,.022,.018),'steel')
+ else:
+  # Low domed round helmets, with a darker continuous rim above the face.
+  m.rings((0,0,-.01),[(.506,.141),(.553,.151),(.619,.117),(.652,.042)],'team',n=8,aspect=(1,.94))
+  m.box((0,.51,.108),(.198,.029,.027),'team_dark')
  # Elbows imply motion without an animated skeleton.
  m.beam((-.138,.37,0),(-.168,.24,.065),.065,.067,'team')
  m.beam((.138,.37,0),(.16,.27,.11),.065,.067,'team')
- # One low-poly shield with colour team mask and steel boss.
- m.box((-.19,.29,.105),(.032,.20,.15),'team_dark')
+ # Face-on shields make a readable silhouette at the game's small army scale.
+ if blue:
+  shield=[(-.288,.388,.147),(-.108,.388,.147),(-.108,.218,.147),(-.196,.151,.147),(-.288,.218,.147)]
+  m.face(shield,'team_dark');m.face([(x,y,z+.026) for x,y,z in reversed(shield)],'team')
+  for i in range(5):
+   a,b=shield[i],shield[(i+1)%5];m.face([a,b,(b[0],b[1],b[2]+.026),(a[0],a[1],a[2]+.026)],'steel')
+  m.box((-.196,.287,.184),(.036,.148,.018),'steel_light')
+ else:
+  cx,cy,cz=-.188,.292,.154
+  shield=[(cx+math.cos(i*math.tau/8)*.094,cy+math.sin(i*math.tau/8)*.105,cz) for i in range(8)]
+  m.face(shield,'team_dark');m.face(list(reversed(shield)),'team_dark')
+  m.box((cx,cy,cz+.012),(.037,.055,.022),'steel')
  # Sword tilted into the march; eight triangles in a diamond spear blade.
  a=(.157,.315,.145);b=(.17,.53,.19);w=.032
  pts=[(a[0]-w,a[1],a[2]),(a[0]+w,a[1],a[2]),(a[0],a[1],a[2]-.016),(a[0],a[1],a[2]+.016),b]
@@ -242,10 +283,20 @@ def gate(enemy):
 
 def tree():
  m=MeshMaker('tree')
- m.cylinder((0,.48,0),.10,.96,'wood_light',n=6,radius_top=.065)
- m.cylinder((0,.89,0),.48,.82,'pine',n=6,radius_top=.15)
- m.cylinder((.025,1.3,0),.38,.76,'pine_light',n=6,radius_top=.06)
- m.cylinder((.01,1.67,0),.24,.64,'pine',n=6,radius_top=0)
+ m.cylinder((0,.49,0),.09,.98,'wood_light',n=5,radius_top=.055)
+ m.rings((0,0,0),[(.48,.23),(.61,.52),(.87,.42),(1.35,.05)],'pine',n=7,aspect=(1,.89))
+ m.rings((.025,0,0),[(1.02,.22),(1.12,.43),(1.48,.27),(1.80,.02)],'pine_light',n=7,aspect=(1,.91))
+ m.rings((0,0,0),[(1.52,.19),(1.65,.29),(2.07,0)],'pine',n=7,aspect=(1,.87))
+ return emit(m)
+
+def broadleaf():
+ m=MeshMaker('tree_broadleaf')
+ m.cylinder((0,.52,0),.115,1.04,'wood_light',n=6,radius_top=.065)
+ m.beam((0,.62,0),(-.32,1.04,.04),.09,.09,'wood')
+ m.beam((0,.74,0),(.28,1.12,.04),.075,.075,'wood')
+ m.foliage((-.25,1.04,.03),(.53,.57,.50),'leaf',21)
+ m.foliage((.24,1.25,.06),(.51,.58,.52),'leaf',67)
+ m.foliage((-.04,1.57,-.03),(.51,.51,.49),'leaf_light',11)
  return emit(m)
 
 def rock():
@@ -256,7 +307,10 @@ def rock():
  m.face(rings[0],'cliff')
  for j in range(2):
   for i in range(7):m.face([rings[j][i],rings[j+1][i],rings[j+1][(i+1)%7],rings[j][(i+1)%7]],'cliff_light' if i%2 else 'cliff')
- m.face(list(reversed(rings[2])),'grass_dark')
+ m.face(list(reversed(rings[2])),'cliff_rim')
+ # One moss shoulder and a low chipped facet, baked in the same static mesh.
+ m.face([rings[2][0],rings[2][1],rings[2][2],(.12,.66,.05)],'grass_dark')
+ m.poly_extrude([(-.42,-.23),(-.15,-.33),(-.08,-.16),(-.28,-.07)],.0,.21,'cliff_rim','cliff')
  return emit(m)
 
 def catmull(points,steps=8):
@@ -271,10 +325,59 @@ def catmull(points,steps=8):
 PATH_POINTS=[(4.3,9.0),(4.3,5.0),(4.15,1.0),(3.7,-3.5),(2.7,-5.9),(.2,-7.1),(-2.6,-6.6),(-4.0,-4.8),(-4.1,-1.0)]
 PLATEAU=[(-3.05,-4.80),(-1.9,-5.45),(.10,-5.60),(1.75,-4.85),(2.35,-3.0),(2.70,0.10),(2.78,3.2),(2.58,5.85),(.70,7.15),(-1.75,6.85),(-3.30,5.3),(-3.40,1.0)]
 
+def tint(base,value):
+ c=PAL[base] if isinstance(base,str) else base
+ return tuple(max(0,min(1,v*value)) for v in c[:3])+(c[3],)
+
+def ground_top(m,poly,y,color,depth=2,variation=1):
+ # Small triangulated colour facets remove flat slabs without texture downloads.
+ points=[Vector((x,z,0)) for x,z in poly]
+ triangles=tessellate_polygon([points])
+ def face(a,b,c,level):
+  if level:
+   ab=(a+b)*.5;bc=(b+c)*.5;ca=(c+a)*.5
+   for tri in [(a,ab,ca),(ab,b,bc),(ca,bc,c),(ab,bc,ca)]:face(*tri,level-1)
+  else:
+   centre=(a+b+c)/3
+   v=1+variation*(.022*math.sin(centre.x*.73+centre.y*.31)+.016*math.sin(centre.y*1.37-centre.x*.84))
+   pts=[(p.x,y,p.y) for p in (a,b,c)]
+   if (b-a).cross(c-a).z>0:pts.reverse()
+   m.face(pts,tint(color,v))
+ for tri in triangles:face(*[points[p] if isinstance(p,int) else p for p in tri],depth)
+
+def cliff_bank(m,poly,y0,y1,top='grass',depth=2,variation=1):
+ # Exact gameplay polygon is the upper perimeter. Only the decorative lower
+ # rings retreat into the cliff, so the fixed road/pad clearance cannot shrink.
+ if sum(poly[i][0]*poly[(i+1)%len(poly)][1]-poly[(i+1)%len(poly)][0]*poly[i][1] for i in range(len(poly)))<0:poly=list(reversed(poly))
+ centre=Vector((sum(p[0] for p in poly)/len(poly),sum(p[1] for p in poly)/len(poly)))
+ edge=[]
+ for i,a in enumerate(poly):
+  b=poly[(i+1)%len(poly)];av,bv=Vector(a),Vector(b);n=max(1,math.ceil((bv-av).length/1.05))
+  for j in range(n):edge.append(av.lerp(bv,j/n))
+ # Variable ledges and hard planar normals are visible in the low navy wall.
+ profile=[(y0,.14),(y0+(y1-y0)*.32,.07),(y0+(y1-y0)*.37,.13),(y0+(y1-y0)*.72,.025),(y0+(y1-y0)*.77,.080),(y1-.07,.016),(y1,0)]
+ rings=[]
+ for j,(height,inset) in enumerate(profile):
+  row=[]
+  for i,p in enumerate(edge):
+   q=p+(centre-p).normalized()*inset
+   h=height if j in (0,len(profile)-1) else height+.062*math.sin(i*.71)+.032*math.sin(i*1.73)
+   row.append((q.x,h,q.y))
+  rings.append(row)
+ for j in range(len(rings)-1):
+  for i in range(len(edge)):
+   k=(i+1)%len(edge)
+   palette='grass_edge' if j==5 else ('cliff_rim' if j in (1,3) else 'cliff' if j==0 else 'cliff_mid')
+   if j in (1,3) and math.sin(i*.89+j*.77)<.12:palette='cliff_mid'
+   v=.94+.11*(.5+.5*math.sin(i*1.71+j*.91))
+   m.face([rings[j][i],rings[j+1][i],rings[j+1][k],rings[j][k]],tint(palette,v))
+ ground_top(m,poly,y1,top,depth,variation)
+
 def terrain():
  m=MeshMaker('terrain')
- m.poly_extrude([(-30,-30),(30,-30),(30,30),(-30,30)],-2,-1.52,'grass_dark','cliff')
- m.poly_extrude(PLATEAU,-1.5,1.20,'grass','cliff')
+ # Wide desktop exposes this 60 m background: keep its facets almost invisible.
+ cliff_bank(m,[(-30,-30),(30,-30),(30,30),(-30,30)],-2,-1.52,'grass_dark',3,.30)
+ cliff_bank(m,PLATEAU,-1.5,1.20,'grass',3)
  # Broad flowing yellow canyon floor. Separate facets at curves; no expensive textures.
  m.poly_extrude([(2.05,6.35),(6.45,6.35),(6.45,11.0),(2.05,11.0)],-1.5,.245,'path','cliff')
  # Left approach joins the defence endpoint z=-1 to the barracks doorway
@@ -286,7 +389,13 @@ def terrain():
   left.append(tuple(v+n*1.02));right.append(tuple(v-n*1.02))
  for i in range(len(path)-1):
   a,b,c,d=left[i],right[i],right[i+1],left[i+1]
-  m.face([(d[0],.25,d[1]),(c[0],.25,c[1]),(b[0],.25,b[1]),(a[0],.25,a[1])],'path' if i%7 else 'path_light')
+  # Lighter compacted track in the centre, darker weathered shoulders.
+  spans=[(-1.0,-.72),(-.72,.73),(.73,1.0)]
+  for lo,hi in spans:
+   av,bv,cv,dv=Vector(a),Vector(b),Vector(c),Vector(d)
+   q=[av.lerp(bv,(lo+1)*.5),av.lerp(bv,(hi+1)*.5),dv.lerp(cv,(hi+1)*.5),dv.lerp(cv,(lo+1)*.5)]
+   shade=(1.025 if lo==-.72 else .956)+.014*math.sin(i*1.8)
+   m.face([(p.x,.25,p.y) for p in reversed(q)],tint('path',shade))
   for side in [left,right]:
    a,b=side[i],side[i+1]
    m.face([(a[0],-.60,a[1]),(b[0],-.60,b[1]),(b[0],.25,b[1]),(a[0],.25,a[1])],'cliff_light')
@@ -299,11 +408,25 @@ def terrain():
  for i in range(len(path)-1):
   # With clockwise traversal, left lies outside of the U.
   a,b,c,d=left[i],left[i+1],outer[i+1],outer[i]
-  m.face([(d[0],.48,d[1]),(c[0],.48,c[1]),(b[0],.48,b[1]),(a[0],.48,a[1])],'grass_light')
-  m.face([(d[0],-1.52,d[1]),(c[0],-1.52,c[1]),(c[0],.48,c[1]),(d[0],.48,d[1])],'cliff')
+  m.face([(d[0],.48,d[1]),(c[0],.48,c[1]),(b[0],.48,b[1]),(a[0],.48,a[1])],tint('grass_light',.975+.023*math.sin(i*.84)))
+  # Three broad beds with narrow rock ledges on the front retaining cliff.
+  for j,(bottom,upper) in enumerate([(-1.52,-.83),(-.83,-.77),(-.77,-.14),(-.14,-.07),(-.07,.41),(.41,.48)]):
+   col='grass_edge' if j==5 else 'cliff_rim' if j in (1,3) else 'cliff'
+   if j in (1,3) and math.sin(i*.68+j*.77)<.12:col='cliff'
+   def height(h,k):return h if h in (-1.52,.48) else h+.043*math.sin(k*.57)+.021*math.sin(k*1.51)
+   m.face([(d[0],height(bottom,i),d[1]),(c[0],height(bottom,i+1),c[1]),(c[0],height(upper,i+1),c[1]),(d[0],height(upper,i),d[1])],tint(col,.91+.11*(.5+.5*math.sin(i*1.32))))
  # Background cliff masses frame the two entry gates without covering the map.
- m.poly_extrude([(-10,4),(-5.7,4),(-5.65,5.25),(-3.5,7),(-.5,9),(-1,14),(-10,14)],-1.5,3.1,'grass_dark','cliff')
- m.poly_extrude([(7.1,5.0),(9,5),(13,9),(13,16),(6.9,16)],-1.5,1.2,'grass_dark','cliff')
+ cliff_bank(m,[(-10,4),(-5.7,4),(-5.65,5.25),(-3.5,7),(-.5,9),(-1,14),(-10,14)],-1.5,3.1,'grass_dark',2)
+ cliff_bank(m,[(7.1,5.0),(9,5),(13,9),(13,16),(6.9,16)],-1.5,1.2,'grass_dark',2)
+ # Sparse tiny sandy chips, flattened into the road mesh: no decal materials,
+ # no alpha overdraw and no runtime particles needed for static surface detail.
+ rng=random.Random(77531)
+ for i in range(220):
+  j=rng.randrange(len(path)-1);p=Vector(path[j]).lerp(Vector(path[j+1]),rng.random())
+  direction=(Vector(path[j+1])-Vector(path[j])).normalized();side=Vector((-direction.y,direction.x))
+  p+=side*rng.uniform(-.92,.92);r=rng.uniform(.022,.059);angle=rng.random()*math.tau
+  pts=[(p.x+math.cos(angle+k*math.tau/3)*r,.254,p.y+math.sin(angle+k*math.tau/3)*r*.65) for k in range(3)]
+  m.face(list(reversed(pts)),tint('path',rng.uniform(.88,1.11)))
  return emit(m)
 
 def bolt():
@@ -317,18 +440,19 @@ def bolt():
 def make_preview():
  # World preview is a non-game provenance/QA artifact. Mirror preview X only
  # to match Unity's left-handed camera projection; exported meshes are untouched.
- for ob in bpy.data.objects:ob.hide_viewport=False
  for ob in bpy.data.objects:
-  if ob.type=='MESH':ob.hide_render=True
- terrain_ob=bpy.data.objects.get('terrain');terrain_ob.hide_render=False;terrain_ob.scale.x=-1
+  if ob.type=='MESH':ob.hide_render=True;ob.hide_viewport=True
+ terrain_ob=bpy.data.objects.get('terrain');terrain_ob.hide_render=False;terrain_ob.hide_viewport=False;terrain_ob.scale.x=-1
  def copy_asset(name,x,y,z,scale=1,turn=0):
-  src=bpy.data.objects[name];ob=src.copy();ob.data=src.data;bpy.context.collection.objects.link(ob);ob.hide_render=False;ob.location=bcoord((-x,y,z));ob.scale=(-scale,scale,scale);ob.rotation_euler.z=math.radians(-turn);return ob
+  src=bpy.data.objects[name];ob=src.copy();ob.data=src.data;bpy.context.collection.objects.link(ob);ob.hide_render=False;ob.hide_viewport=False;ob.location=bcoord((-x,y,z));ob.scale=(-scale,scale,scale);ob.rotation_euler.z=math.radians(-turn);return ob
  copy_asset('barracks',-4.1,.25,-.30,.85,180)
  copy_asset('castle_gate',-4.4,.25,2.0,.90,180)
  copy_asset('enemy_gate',3.1,.25,8.8,.9,180);copy_asset('enemy_gate',5.35,.25,8.8,.9,180)
  copy_asset('tower',1.45,1.2,-2.5,.95,110);copy_asset('tower',1.40,1.2,1.05,.95,100)
  copy_asset('king',-1.2,1.2,-1.2,1.1,150)
  for x,z,s in [(-5.7,-7,.8),(-6.5,-6,.8),(6,-4,.9),(6.8,-2,.8),(7.8,1,1),(-5,4,1),(-5.8,5.3,.8),(-1,9,1.2),(1,10,.9),(7,8,1)]:copy_asset('tree',x,-1.4,z,s)
+ for x,z,s in [(-6.2,-7.8,.8),(-6.2,-4.4,1),(6.6,-5.3,.9),(7.0,-.4,.8),(8.0,2.5,1),(-7,2,.8),(1.7,9.6,1.1)]:copy_asset('tree_broadleaf',x,-1.45,z,s)
+ for x,z,s in [(-2.7,-3.95,.55),(-2.9,3.9,.61),(-2.4,5.0,.54)]:copy_asset('tree_broadleaf',x,1.20,z,s)
  for x,z,s in [(5.8,-6,.7),(7.2,3,.6),(-5,7,1.6),(-7,-4,.6)]:copy_asset('rock',x,-1.5,z,s)
  for i in range(180):
   j=i%20;t=j/19
@@ -341,13 +465,14 @@ def make_preview():
     if no.bl_idname=='ShaderNodeMixRGB' and no.blend_type=='MULTIPLY':no.inputs[2].default_value=(.95,.025,.012,1)
   ob.data=ob.data.copy();ob.data.materials.clear();ob.data.materials.append(enemy_mat)
  for i in range(56):
-  t=(i//4)/13;copy_asset('soldier',-4.0+(i%4-1.5)*.15,.25,-2.6-t*3.0,1,180)
+  t=(i//4)/13;copy_asset('soldier_blue',-4.0+(i%4-1.5)*.15,.25,-2.6-t*3.0,1,180)
  world=bpy.context.scene.world;world.color=(.3,.3,.3);world.use_nodes=True;world.node_tree.nodes['Background'].inputs[0].default_value=(.38,.50,.56,1);world.node_tree.nodes['Background'].inputs[1].default_value=.65
- sun=bpy.data.lights.new('Sun','SUN');sun.energy=2.0;sun.angle=.10;light=bpy.data.objects.new('Sun',sun);bpy.context.collection.objects.link(light);light.rotation_euler=(math.radians(25),math.radians(-25),math.radians(-25))
+ sun=bpy.data.lights.new('Sun','SUN');sun.energy=2.0;sun.color=(1,.91,.76);sun.angle=.16;light=bpy.data.objects.new('Sun',sun);bpy.context.collection.objects.link(light);light.rotation_euler=(math.radians(25),math.radians(-25),math.radians(-25))
  camd=bpy.data.cameras.new('Camera');cam=bpy.data.objects.new('Camera',camd);bpy.context.collection.objects.link(cam);target=Vector(bcoord((0,0,0)));cam.location=bcoord((4.0,20,-18));cam.rotation_euler=(target-cam.location).to_track_quat('-Z','Y').to_euler();camd.type='ORTHO';camd.ortho_scale=21.5;bpy.context.scene.camera=cam
  scene=bpy.context.scene;scene.render.engine='CYCLES';scene.cycles.samples=16;scene.render.resolution_x=820;scene.render.resolution_y=1180;scene.render.resolution_percentage=100;scene.view_settings.view_transform='Standard';scene.render.image_settings.file_format='PNG';scene.render.filepath=str(HERE/'world-preview.png');scene.render.film_transparent=False
+ bpy.context.preferences.filepaths.save_version=0
  bpy.ops.wm.save_as_mainfile(filepath=str(HERE/'hyeopgok-assets.blend'))
- bpy.ops.render.render(write_still=True)
+ if '--no-render' not in sys.argv:bpy.ops.render.render(write_still=True)
 
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
 bpy.context.scene.unit_settings.system='METRIC';bpy.context.scene.unit_settings.scale_length=1
@@ -360,7 +485,7 @@ if '--only-terrain' in sys.argv:
  manifest_path.write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n')
  print('Terrain-only export complete')
  sys.exit(0)
-soldier();king();tower_base();crossbow();m=MeshMaker('tower');tower_base(m);crossbow(m,1.62);emit(m)
-barracks();gate(False);gate(True);tree();rock();terrain();bolt()
+soldier();soldier(True);king();tower_base();crossbow();m=MeshMaker('tower');tower_base(m);crossbow(m,1.62);emit(m)
+barracks();gate(False);gate(True);tree();broadleaf();rock();terrain();bolt()
 (HERE/'model-manifest.json').write_text(json.dumps({'license':'Original procedural art created for this game; no third-party assets','axes':'Unity x right / y up / z forward. FBX -Z forward +Y up bake transforms.','color':'COLOR sRGB authored values; alpha0 teamColor * RGB, alpha1 fixed RGB','palette':PAL,'path_control_points':PATH_POINTS,'plateau_polygon':PLATEAU,'left_approach':{'x':[-5.5,-3.25],'z':[-1.15,3.0],'top_y':.245,'castle':[-4.4,.25,2.0],'castle_scale':.9,'barracks':[-4.1,.25,-.30],'barracks_scale':.85,'building_yaw':180},'assets':ASSETS},indent=2,ensure_ascii=False)+'\n')
 make_preview()

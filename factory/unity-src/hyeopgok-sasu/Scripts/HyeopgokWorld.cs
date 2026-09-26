@@ -12,8 +12,9 @@ namespace Mgf.HyeopgokSasu
         LineRenderer[] cracks=new LineRenderer[4];
         void BuildWorld(){
             MgfLook.Sky(MgfLook.Hex("#9dd8c4"),MgfLook.Hex("#b4d2af"),MgfLook.Hex("#133f36"),.8f);
-            MgfLook.Sun(new Vector3(44,-36,0),MgfLook.Hex("#fff1cf"),1.15f,.6f);
-            RenderSettings.ambientIntensity=.85f;
+            var sun=MgfLook.Sun(new Vector3(48,-38,0),MgfLook.Hex("#fff0d2"),1.22f,.72f);
+            sun.shadowBias=.025f;sun.shadowNormalBias=.18f;
+            RenderSettings.ambientIntensity=.78f;
             cam=MgfLook.Camera(new Vector3(.5f,22,-13.6f),new Vector3(.5f,0,2.4f),36);cam.orthographic=true;cam.orthographicSize=14;
             cameraBase=cam.transform.position;cameraRot=cam.transform.rotation;
             worldMat=new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Horde"));worldMat.SetColor("_Color",Color.white);worldMat.enableInstancing=true;
@@ -27,14 +28,30 @@ namespace Mgf.HyeopgokSasu
             king.SetParent(null,true);
             // The scenery is instantiated once. Horde entities use no GameObjects.
             var rng=new System.Random(20260926);
-            for(int i=0;i<42;i++){
+            for(int i=0;i<48;i++){
                 float x=(i%2==0?-1:1)*(6.9f+(float)rng.NextDouble()*5);
                 float z=-14+(float)rng.NextDouble()*31;
-                var tree=SpawnModel("tree",new Vector3(x,-1.45f,z),.85f+(float)rng.NextDouble()*.8f);tree.transform.Rotate(0,rng.Next(360),0);
+                // Respect the background mesas, rather than burying trunks in them.
+                float ground=SceneryGround(x,z);
+                var tree=SpawnModel(i%3==0?"tree_broadleaf":"tree",new Vector3(x,ground,z),.72f+(float)rng.NextDouble()*.65f);tree.transform.Rotate(0,rng.Next(360),0);
             }
             for(int i=0;i<11;i++)SpawnModel("rock",new Vector3(-6.2f-(i%3)*.75f,-1.4f,-8+i*1.9f),.55f+(i%3)*.2f);
-            SpawnModel("tree",new Vector3(-2.45f,1.2f,4.35f),.66f);
-            SpawnModel("tree",new Vector3(-2.75f,1.2f,-3.95f),.62f);
+            // Small asymmetric groves follow the plateau rim. Leave the four pads,
+            // king approach, cannon sight lines and red/blue collision throat clear.
+            var rim=new Vector4[]{
+                new Vector4(-2.73f,1.2f,4.15f,.64f),new Vector4(-2.08f,1.2f,5.38f,.81f),
+                new Vector4(-1.31f,1.2f,6.05f,.67f),new Vector4(-.43f,1.2f,6.39f,.73f),
+                new Vector4(.48f,1.2f,6.38f,.51f),new Vector4(-2.91f,1.2f,-2.92f,.55f),
+                new Vector4(-2.50f,1.2f,-4.05f,.64f),new Vector4(-1.47f,1.2f,-4.82f,.48f),
+                new Vector4(5.73f,.48f,4.42f,.57f),new Vector4(5.70f,.48f,2.18f,.61f),
+                new Vector4(5.23f,.48f,-2.25f,.57f),new Vector4(4.18f,.48f,-5.05f,.50f),
+                new Vector4(3.05f,-1.52f,-10.45f,.60f),new Vector4(-3.10f,-1.52f,-10.55f,.58f)
+            };
+            for(int i=0;i<rim.Length;i++){
+                var p=rim[i];var tree=SpawnModel(i%3==1?"tree_broadleaf":"tree",new Vector3(p.x,p.y,p.z),p.w);
+                tree.transform.Rotate(0,rng.Next(360),0);
+                if(i<8&&i%2==0)SpawnModel("rock",new Vector3(p.x+.3f,p.y,p.z-.4f),.22f);
+            }
             StaticBatchingUtility.Combine(sceneryRoot.gameObject);
             for(int i=0;i<4;i++){
                 var root=new GameObject("Answer pad "+(i+1));root.transform.position=HyeopgokRules.Pads[i];padRoots[i]=root.transform;
@@ -55,6 +72,17 @@ namespace Mgf.HyeopgokSasu
                 cracks[i].gameObject.SetActive(false);
             }
         }
+        static readonly Vector2[] WestMesa={new Vector2(-10,4),new Vector2(-5.7f,4),new Vector2(-5.65f,5.25f),new Vector2(-3.5f,7),new Vector2(-.5f,9),new Vector2(-1,14),new Vector2(-10,14)};
+        static readonly Vector2[] EastMesa={new Vector2(7.1f,5),new Vector2(9,5),new Vector2(13,9),new Vector2(13,16),new Vector2(6.9f,16)};
+        static bool InPolygon(Vector2[] polygon,float x,float z){
+            bool inside=false;
+            for(int i=0,j=polygon.Length-1;i<polygon.Length;j=i++){
+                var a=polygon[i];var b=polygon[j];
+                if((a.y>z)!=(b.y>z)&&x<(b.x-a.x)*(z-a.y)/(b.y-a.y)+a.x)inside=!inside;
+            }
+            return inside;
+        }
+        static float SceneryGround(float x,float z)=>InPolygon(WestMesa,x,z)?3.1f:InPolygon(EastMesa,x,z)?1.2f:-1.52f;
         public GameObject SpawnModel(string name,Vector3 pos,float scale){
             var prefab=Resources.Load<GameObject>("HyeopgokSasu/Models/"+name);
             GameObject go;

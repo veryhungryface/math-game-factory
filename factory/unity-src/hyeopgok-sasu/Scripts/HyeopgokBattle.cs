@@ -67,13 +67,16 @@ namespace Mgf.HyeopgokSasu
         }
 
         Camera renderCamera;
-        Mesh soldierMesh, cubeMesh, shadowMesh, boltMesh;
+        Mesh soldierMesh, blueSoldierMesh, cubeMesh, shadowMesh, boltMesh, trailMesh;
         Material redMaterial, blueMaterial, whiteMaterial, goldMaterial, dustMaterial, shadowMaterial;
+        HyeopgokImpact impacts;
         int redCount = 400, blueCount = 100, chipCursor, corpseCursor, boltCursor, killCount, pendingDamage;
         int wave = 1, volleys, volleyHits, volleyTrials, volleyFired, laneCursor, displayedReds, displayedBlues;
         float pathLength, front, clock, sinceAnswer, pressureClock, battleTick, fireClock, salvoClock;
         float salvoSpacing = .035f;
         float enrage, hitStop, flash, shake, boost;
+        float visualHitStop, impactCooldown;
+        int cachedRedDraws, cachedBlueDraws, cachedShadowDraws;
         bool initialized, playing, questionActive;
         uint randomState = 0x5e3a07c1u;
 
@@ -89,14 +92,17 @@ namespace Mgf.HyeopgokSasu
             Shader shader = Resources.Load<Shader>("HyeopgokSasu/Shaders/Horde");
             redMaterial = MakeMaterial(shader, new Color(.92f,.028f,.045f), false);
             blueMaterial = MakeMaterial(shader, new Color(.025f,.24f,.94f), false);
-            whiteMaterial = MakeMaterial(shader, new Color(1,.965f,.78f), true);
+            whiteMaterial = MakeMaterial(shader, new Color(1,.995f,.95f), true);
             goldMaterial = MakeMaterial(shader, new Color(1,.59f,.028f), true);
             dustMaterial = MakeMaterial(shader, new Color(.89f,.81f,.66f), true);
             shadowMaterial = MakeMaterial(shader, new Color(.33f,.29f,.20f), true);
-            soldierMesh = LoadSoldier();
+            soldierMesh = LoadSoldier("soldier");
+            blueSoldierMesh = LoadSoldier("soldier_blue");
             cubeMesh = MakeChipMesh();
             shadowMesh = MakeShadowMesh();
             boltMesh = MakeBoltMesh();
+            trailMesh = MakeTrailMesh();
+            impacts = new HyeopgokImpact(cam,shader);
             BuildPath();
             BuildTowers();
             initialized = true;
@@ -180,6 +186,9 @@ namespace Mgf.HyeopgokSasu
             killCount = pendingDamage = volleys = volleyHits = volleyTrials = volleyFired = 0;
             clock = sinceAnswer = pressureClock = battleTick = fireClock = salvoClock = 0;
             hitStop = flash = shake = boost = enrage = 0;
+            visualHitStop = impactCooldown = 0;
+            cachedRedDraws = cachedBlueDraws = cachedShadowDraws = 0;
+            impacts.Clear();
             front = 19.0f;
             laneCursor = 0;
             for (int i = 0; i < RedCap; i++) redS[i] = front - .25f - (i / RedLanes) * RedSpacing - (i % RedLanes) * .018f;
@@ -198,6 +207,8 @@ namespace Mgf.HyeopgokSasu
         {
             if (!initialized) return;
             float realDt = Mathf.Min(Time.deltaTime, .04f);
+            visualHitStop = Mathf.Max(0,visualHitStop-realDt);
+            impactCooldown = Mathf.Max(0,impactCooldown-realDt);
             shake = Mathf.MoveTowards(shake, 0, realDt * .6f);
             flash = Mathf.MoveTowards(flash, 0, realDt * 9);
             redMaterial.SetFloat("_Flash", flash * .68f);
@@ -234,6 +245,7 @@ namespace Mgf.HyeopgokSasu
                 int lane = laneCursor++ % RedLanes;
                 Vector3 contact = PathPosition(front + Range(-.22f,.12f), (lane-3.5f) * .24f, out _);
                 Burst(contact + Vector3.up * .32f, 4, 1.6f);
+                impacts.Contact(contact + Vector3.up * .34f,false);
                 if (laneCursor % 2 == 0) KillRed(lane, .8f);
                 if (laneCursor % 5 == 0) KillBlue(lane % BlueLanes);
                 if (playing && laneCursor % 8 == 0) MgfSfx.Play("pop", .07f);
@@ -261,6 +273,7 @@ namespace Mgf.HyeopgokSasu
             UpdateBolts(dt);
             UpdateParticles(dt);
             RenderSoldiers();
+            impacts.UpdateAndDraw(visualHitStop > 0 ? 0 : realDt);
         }
 
         void MoveSoldiers(float dt)
@@ -289,6 +302,16 @@ namespace Mgf.HyeopgokSasu
             for (int i = lane; i < redCount; i += RedLanes)
                 redS[i] = i + RedLanes < redCount ? redS[i + RedLanes] : -.2f - Range(0,.7f);
             killCount++;
+            // A battlefield kill milestone owns this accent; answer submission does
+            // not. The simulation/HP/question clocks keep advancing during the
+            // 45 ms held army pose, so this cannot grant extra thinking time.
+            if (playing && killCount % 12 == 0 && impactCooldown <= 0)
+            {
+                visualHitStop = .045f;
+                impactCooldown = .85f;
+                shake = Mathf.Max(shake,.085f);
+                impacts.Contact(pos+Vector3.up*.43f,true);
+            }
         }
 
         void KillBlue(int lane)
@@ -351,16 +374,18 @@ namespace Mgf.HyeopgokSasu
                 b.age += dt;
                 float p = Mathf.Clamp01(b.age / b.duration);
                 Vector3 position = Vector3.LerpUnclamped(b.start,b.target,p) + Vector3.up * (Mathf.Sin(p*Mathf.PI) * .45f);
-                Vector3 direction = (b.target-b.start).normalized;
+                Vector3 direction = (b.target-b.start + Vector3.up*(Mathf.Cos(p*Mathf.PI)*Mathf.PI*.45f)).normalized;
                 Quaternion rot = Quaternion.LookRotation(direction);
-                boltMatrices[count] = Matrix4x4.TRS(position,rot,new Vector3(.065f,.065f,.62f));
-                trailMatrices[count] = Matrix4x4.TRS(position-direction*.7f,rot,new Vector3(.022f,.022f,1.4f));
+                float tail = Mathf.Min(b.heavy ? 2.0f : 1.65f,Vector3.Distance(b.start,position));
+                boltMatrices[count] = Matrix4x4.TRS(position,rot,new Vector3(.080f,.080f,.66f));
+                trailMatrices[count] = Matrix4x4.TRS(position-direction*(tail*.5f),rot,new Vector3(b.heavy?.052f:.039f,b.heavy?.052f:.039f,tail));
                 count++;
                 if (p >= 1)
                 {
                     Burst(b.target,b.heavy ? 12 : 8,b.heavy ? 3.2f : 2.2f);
                     if (b.hit)
                     {
+                        impacts.Contact(b.target,b.heavy);
                         KillRed((i+laneCursor)%RedLanes,b.heavy ? 1.7f : 1f);
                         if (b.heavy) KillRed((i+laneCursor+3)%RedLanes,1.5f);
                     }
@@ -370,7 +395,7 @@ namespace Mgf.HyeopgokSasu
                 bolts[i] = b;
             }
             Draw(boltMesh,goldMaterial,boltMatrices,count);
-            Draw(boltMesh,whiteMaterial,trailMatrices,count);
+            Draw(trailMesh,whiteMaterial,trailMatrices,count);
         }
 
         void UpdateParticles(float dt)
@@ -412,18 +437,29 @@ namespace Mgf.HyeopgokSasu
 
         void RenderSoldiers()
         {
+            if (visualHitStop > 0 && cachedRedDraws > 0)
+            {
+                Draw(shadowMesh,shadowMaterial,shadowMatrices,cachedShadowDraws);
+                Draw(soldierMesh,redMaterial,redMatrices,cachedRedDraws);
+                Draw(blueSoldierMesh,blueMaterial,blueMatrices,cachedBlueDraws);
+                return;
+            }
             int nr = 0, nb = 0, ns = 0;
             for (int i = 0; i < redCount; i++)
             {
                 if (redS[i] < 0) continue;
-                float lane = (i % RedLanes - 3.5f) * .245f;
+                // Small visual staggering and wider helmets make neighbouring rows
+                // overlap as a crowd. The ordered lane queues remain untouched.
+                float lane = (i % RedLanes - 3.5f) * .245f + Mathf.Sin(i*1.73f)*.028f;
                 Vector3 direction;
                 Vector3 p = PathPosition(redS[i],lane,out direction);
+                p += direction*(Mathf.Sin(i*2.113f)*.043f);
                 // Separate gates: eight narrow lanes form two red streams for 3 metres.
                 float step = Mathf.Sin(clock*(enrage>0 ? 16:11)+i*2.399f);
                 p.y += .024f + Mathf.Abs(step)*.035f;
-                float yaw = Mathf.Atan2(direction.x,direction.z)*Mathf.Rad2Deg;
-                redMatrices[nr++] = Matrix4x4.TRS(p,Quaternion.Euler(step*3,yaw,step*5),new Vector3(.87f,.91f+step*.035f,.87f));
+                float yaw = Mathf.Atan2(direction.x,direction.z)*Mathf.Rad2Deg+Mathf.Sin(i*1.29f)*5.5f;
+                float size = 1+Mathf.Sin(i*2.71f)*.045f;
+                redMatrices[nr++] = Matrix4x4.TRS(p,Quaternion.Euler(step*3,yaw,step*5),new Vector3(1.01f,1.035f+step*.035f,1.01f)*size);
                 shadowMatrices[ns++] = Matrix4x4.TRS(new Vector3(p.x+.08f,GroundY+.005f,p.z-.08f),Quaternion.identity,new Vector3(.24f,1,.20f));
             }
             displayedReds = nr;
@@ -431,11 +467,13 @@ namespace Mgf.HyeopgokSasu
             {
                 if (blueS[i] > pathLength) continue;
                 Vector3 direction;
-                Vector3 p = PathPosition(blueS[i],(i%BlueLanes-1.5f)*.285f,out direction);
+                Vector3 p = PathPosition(blueS[i],(i%BlueLanes-1.5f)*.285f+Mathf.Sin(i*1.31f)*.023f,out direction);
+                p += direction*(Mathf.Sin(i*2.117f)*.035f);
                 float step = Mathf.Sin(clock*12+i*2.399f);
                 p.y += .02f+Mathf.Abs(step)*.035f;
-                float yaw = Mathf.Atan2(-direction.x,-direction.z)*Mathf.Rad2Deg;
-                blueMatrices[nb++] = Matrix4x4.TRS(p,Quaternion.Euler(step*3,yaw,step*5),new Vector3(.90f,.94f+step*.04f,.90f));
+                float yaw = Mathf.Atan2(-direction.x,-direction.z)*Mathf.Rad2Deg+Mathf.Sin(i*1.37f)*4.5f;
+                float size = 1+Mathf.Sin(i*2.67f)*.035f;
+                blueMatrices[nb++] = Matrix4x4.TRS(p,Quaternion.Euler(step*3,yaw,step*5),new Vector3(.98f,1.055f+step*.04f,.98f)*size);
                 shadowMatrices[ns++] = Matrix4x4.TRS(new Vector3(p.x+.08f,GroundY+.005f,p.z-.08f),Quaternion.identity,new Vector3(.24f,1,.20f));
             }
             displayedBlues = nb;
@@ -449,7 +487,8 @@ namespace Mgf.HyeopgokSasu
             }
             Draw(shadowMesh,shadowMaterial,shadowMatrices,ns);
             Draw(soldierMesh,redMaterial,redMatrices,nr);
-            Draw(soldierMesh,blueMaterial,blueMatrices,nb);
+            Draw(blueSoldierMesh,blueMaterial,blueMatrices,nb);
+            cachedRedDraws = nr; cachedBlueDraws = nb; cachedShadowDraws = ns;
         }
 
         void Draw(Mesh mesh, Material material, Matrix4x4[] matrices, int count)
@@ -540,9 +579,10 @@ namespace Mgf.HyeopgokSasu
             return material;
         }
 
-        static Mesh LoadSoldier()
+        static Mesh LoadSoldier(string model)
         {
-            GameObject asset=Resources.Load<GameObject>("HyeopgokSasu/Models/soldier");
+            GameObject asset=Resources.Load<GameObject>("HyeopgokSasu/Models/"+model);
+            if (!asset && model != "soldier") asset=Resources.Load<GameObject>("HyeopgokSasu/Models/soldier");
             if (asset)
             {
                 MeshFilter[] filters=asset.GetComponentsInChildren<MeshFilter>();
@@ -616,6 +656,18 @@ namespace Mgf.HyeopgokSasu
             mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
         }
 
+        static Mesh MakeTrailMesh()
+        {
+            // A tapered cross remains a readable white streak from every view.
+            Vector3[] vertices={new Vector3(-.5f,0,.5f),new Vector3(.5f,0,.5f),new Vector3(0,0,-.5f),
+                new Vector3(0,-.5f,.5f),new Vector3(0,.5f,.5f),new Vector3(0,0,-.5f)};
+            Color[] colors=new Color[6];
+            for(int i=0;i<6;i++) colors[i]=new Color(1,1,1,0);
+            Mesh mesh=new Mesh {name="석궁 흰 궤적",vertices=vertices,colors=colors,
+                triangles=new[]{0,1,2,2,1,0,3,4,5,5,4,3}};
+            mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
+        }
+
         float Range(float min,float max)
         {
             randomState^=randomState<<13;randomState^=randomState>>17;randomState^=randomState<<5;
@@ -628,6 +680,8 @@ namespace Mgf.HyeopgokSasu
             if(whiteMaterial) Destroy(whiteMaterial); if(goldMaterial) Destroy(goldMaterial);
             if(dustMaterial) Destroy(dustMaterial); if(shadowMaterial) Destroy(shadowMaterial);
             if(cubeMesh) Destroy(cubeMesh); if(shadowMesh) Destroy(shadowMesh); if(boltMesh) Destroy(boltMesh);
+            if(trailMesh) Destroy(trailMesh); if(soldierMesh) Destroy(soldierMesh); if(blueSoldierMesh) Destroy(blueSoldierMesh);
+            if(impacts != null) impacts.Dispose();
         }
     }
 }

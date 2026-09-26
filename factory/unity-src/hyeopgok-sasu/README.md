@@ -31,14 +31,25 @@ node factory/unity-src/hyeopgok-sasu/ArtSource/validation/playthrough.mjs
 node factory/unity-src/hyeopgok-sasu/ArtSource/validation/pack-swap.mjs
 ```
 
+비주얼 라운드의 전후·레퍼런스 비교와 실제 렌더 표지는 다음 명령으로 재현한다.
+
+```bash
+node factory/unity-src/hyeopgok-sasu/ArtSource/validation/visual-pass-capture.mjs final
+python3 factory/unity-src/hyeopgok-sasu/ArtSource/validation/visual-pass/make_artifacts.py
+node factory/lib/qa.mjs hyeopgok-sasu --out factory/unity-src/hyeopgok-sasu/ArtSource/validation/visual-pass/qa
+```
+
+`visual-pass/artifacts/provenance.json`에는 표지에 사용한 원본 캡처와 해시를 남긴다.
+합성 스크립트는 `artifacts/`에 표지를 만든다. 공개 폴더에도 반영하려면 `--install-public`을 추가한다.
+
 봇은 같은 `HyeopgokRules.Move`·`Tick`으로 왕 이동과 정지를 실행한다. 고정 시드, 원시 결과, 통과하지 못한 조건은 `ArtSource/bot-results.md`에 그대로 남긴다. `Editor/HyeopgokBotSelfTest.cs`의 실행 주석을 참고한다.
 
 ## 구현과 증거
 
-- Blender 원본·스크립트·12종 FBX 목록: `ArtSource/blender/`, `ArtSource/model-notes.md`.
+- Blender 원본·스크립트·FBX 목록: `ArtSource/blender/`, `ArtSource/model-notes.md`.
 - 전투는 GPU 인스턴싱과 풀을 사용한다. 시작 시 적 400·아군 100, 적 최대 598·아군 최대 150이다. 히트 플래시, 넉백 사체, 파편, 화살, 0.05초 히트스톱과 카메라 흔들림을 결합한다.
 - 답 판정은 정수 또는 기약분수의 정규 문자열 일치로 처리한다. `answerNumeric`은 QA 호환 필드일 뿐 판정에 쓰지 않는다. 800문항과 34,024개 표본 사건을 독립 검증했다.
-- 표지 두 장만 내장 이미지 생성 도구를 사용했다. 게임 장면은 실시간 3D이며 기존 게임 캐릭터·에셋을 사용하지 않는다. 프롬프트와 원본 위치는 `ArtSource/image-prompts.md`에 있다.
+- 최초 표지는 이미지 생성 도구를 사용했으나, 비주얼 강화 라운드에서 실제 WebGL 전투 캡처와 게임 UI 색상·폰트의 제목으로 교체했다. 현재 표지의 캡처·합성 재현 스크립트와 비교 증거는 `ArtSource/validation/visual-pass/`에 있다. 기존 생성 기록은 `ArtSource/image-prompts.md`에 이력으로 보존한다.
 - `ArtSource/validation/playthrough.json`: 실제 터치 완주·오답 회복, 정지 취소, 승리 경계, 패배 유지, 팩 선택과 임시 팩 교체. 임시 JSON·목록 변경은 검증 후 복원하며 Build 해시가 같은지 확인한다.
 - `ArtSource/validation/pack-swap.json`: 최종 표시 수정 뒤 빌드에서 이름만 바꾼 팩의 재빌드 없는 교체를 다시 확인했다. 초등 학교급 표시와 글자 보기의 실제 터치 정답도 일시적인 표시 검사용 팩으로 확인했다. 이 팩은 새로운 교육과정 팩이 아니며 검증 후 삭제한다.
 - `ArtSource/validation/qa/report.json`: 공식 QA. `visual-review.md`와 PNG는 화면 검토 증거다.
