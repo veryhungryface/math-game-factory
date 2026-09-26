@@ -1,0 +1,56 @@
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace Mgf.HyeopgokSasu
+{
+    // Fractions are real stacked numerator/bar/denominator UI, never slash text.
+    public sealed class HyeopgokMathText
+    {
+        public readonly TextMeshProUGUI Text;
+        struct F { public string n,d; public int raw; public float w; }
+        readonly List<RectTransform> boxes=new List<RectTransform>();
+        readonly List<F> fractions=new List<F>();
+        static readonly Regex token=new Regex(@"\{frac:(-?\d+)/(\d+)\}");
+        public HyeopgokMathText(TextMeshProUGUI text){Text=text;}
+        public void Set(string content)
+        {
+            foreach(var b in boxes)b.gameObject.SetActive(false);fractions.Clear();
+            string result="";int end=0;
+            foreach(Match m in token.Matches(content)){
+                result+=content.Substring(end,m.Index-end);
+                int raw=result.Length;string n=m.Groups[1].Value,d=m.Groups[2].Value;
+                string placeholder=new string('0',Mathf.Max(n.Length,d.Length)+1);
+                result+="<color=#00000000>"+placeholder+"</color>";
+                fractions.Add(new F{n=n,d=d,raw=raw+17,w=placeholder.Length});
+                end=m.Index+m.Length;
+            }
+            result+=content.Substring(end);Text.text=result;
+            Text.ForceMeshUpdate(true,true);
+            for(int k=0;k<fractions.Count;k++){
+                F f=fractions[k];int ci=-1;
+                for(int j=0;j<Text.textInfo.characterCount;j++)if(Text.textInfo.characterInfo[j].index>=f.raw){ci=j;break;}
+                if(ci<0)continue;
+                var ch=Text.textInfo.characterInfo[ci];
+                var last=Text.textInfo.characterInfo[Mathf.Min(ci+(int)f.w-1,Text.textInfo.characterCount-1)];
+                float w=last.xAdvance-ch.origin;
+                RectTransform box;
+                if(k>=boxes.Count){
+                    var go=new GameObject("Stacked fraction",typeof(RectTransform));box=(RectTransform)go.transform;box.SetParent(Text.transform,false);boxes.Add(box);
+                    MakeNumber(box,"numerator");MakeNumber(box,"denominator");
+                    var line=new GameObject("fraction bar",typeof(RectTransform),typeof(Image));line.transform.SetParent(box,false);line.GetComponent<Image>().color=Text.color;
+                }else box=boxes[k];
+                box.gameObject.SetActive(true);box.anchorMin=box.anchorMax=new Vector2(.5f,.5f);box.pivot=new Vector2(.5f,.5f);
+                box.anchoredPosition=new Vector2(ch.origin+w*.5f,ch.baseLine+Text.fontSize*.3f);box.sizeDelta=new Vector2(w,Text.fontSize*1.3f);
+                var nT=box.GetChild(0).GetComponent<TextMeshProUGUI>();var dT=box.GetChild(1).GetComponent<TextMeshProUGUI>();
+                nT.text=f.n;dT.text=f.d;nT.fontSize=dT.fontSize=Text.fontSize*.67f;nT.color=dT.color=Text.color;
+                nT.rectTransform.anchoredPosition=new Vector2(0,Text.fontSize*.35f);dT.rectTransform.anchoredPosition=new Vector2(0,-Text.fontSize*.35f);
+                nT.rectTransform.sizeDelta=dT.rectTransform.sizeDelta=new Vector2(w+5,Text.fontSize*.8f);
+                var bar=(RectTransform)box.GetChild(2);bar.anchoredPosition=Vector2.zero;bar.sizeDelta=new Vector2(w*.9f,Mathf.Max(1.8f,Text.fontSize*.07f));bar.GetComponent<Image>().color=Text.color;
+            }
+        }
+        void MakeNumber(RectTransform parent,string name){var go=new GameObject(name,typeof(RectTransform));go.transform.SetParent(parent,false);var t=go.AddComponent<TextMeshProUGUI>();t.font=Mgf.MgfText.Font;t.alignment=TextAlignmentOptions.Center;t.raycastTarget=false;}
+    }
+}
