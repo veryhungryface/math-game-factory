@@ -1,4 +1,4 @@
-// 원 찍어 v2 — 월드·재질·텍스처·소리·UI 구성·카메라 (WonJjigeoGame 의 partial)
+// 원 찍어 v3 — 월드·재질·텍스처·소리·UI 구성·카메라 (WonJjigeoGame 의 partial)
 using System.Collections.Generic;
 using Mgf;
 using TMPro;
@@ -94,6 +94,8 @@ namespace Mgf.WonJjigeo
             filmMat.SetColor("_Color", Color.white);
             shadowMat = new Material(MgfLook.Shader("MgfAlpha")) { name = "WonShadow" };
             shadowMat.SetColor("_Color", Color.white);
+            // 필름은 다른 반투명(선·글자·표식)보다 먼저 그린다 — 거리순 정렬에 맡기면 우윳빛 필름이 선·라벨 위를 덮어 흐려진다(v3 캡처로 확인)
+            filmMat.renderQueue = 2950; shadowMat.renderQueue = 2951;
 
             staticRoot = new GameObject("Static").transform;
             staticRoot.SetParent(world, false);
@@ -520,8 +522,14 @@ namespace Mgf.WonJjigeo
         RectTransform titleRoot, hudRoot, endRoot, badgeRt, ctaRt, ctaShine, endCtaRt, endCtaShine, timerFill, gaugeRt, plantRt, plantShine, progRt;
         TextMeshProUGUI badgeBig, badgeSub, stageTxt, progTxt, scoreTxt, comboTxt, bannerTxt, hintTxt, bestTxt, gaugeHead, plantTxt;
         TextMeshProUGUI endTitle, endPlates, endScore, endCombo, endBest;
-        readonly TextMeshProUGUI[] gName = new TextMeshProUGUI[3], gVal = new TextMeshProUGUI[3];
-        readonly Image[] gBar = new Image[3];
+        readonly TextMeshProUGUI[] gName = new TextMeshProUGUI[3], gVal = new TextMeshProUGUI[3], listTxt = new TextMeshProUGUI[3];
+        readonly Image[] gBar = new Image[3], listBar = new Image[3];
+        readonly RectTransform[] gCell = new RectTransform[3];
+        RectTransform listRoot, cardRt, fingerRt;
+        Image fingerImg, cardBg;
+        TextMeshProUGUI cardBig, cardSub;
+        CanvasGroup cardGroup, gaugeGroup;
+        float cardT = 9f;
         readonly Image[] pipO = new Image[2], pipI = new Image[2];
         Image bannerBg, timerBg, plantFace, gaugeBg;
         Sprite roundSpr, ringSpr;
@@ -576,7 +584,7 @@ namespace Mgf.WonJjigeo
             logoT.outlineWidth = 0.22f; logoT.outlineColor = new Color32(120, 24, 18, 255);
             logoShadow.outlineWidth = 0.22f; logoShadow.outlineColor = new Color32(10, 6, 4, 220);
             var tagBg = Img("TagBg", titleRoot, new Vector2(0.5f, 1f), new Vector2(0, -262), new Vector2(280, 36), new Color(0.1f, 0.08f, 0.06f, 0.8f), roundSpr);
-            var tagT = Txt(tagBg.transform, "세 거리가 같아지면 빨개진다", new Vector2(0.5f, 0.5f), Vector2.zero, 19, Cream, 280);
+            var tagT = Txt(tagBg.transform, "세 거리가 같아지면 빨개진다", new Vector2(0.5f, 0.5f), Vector2.zero, 19, Cream, 280);   // 1단계의 훅(타이틀 데모와 같은 장면)
             tagT.characterSpacing = 2;
             ctaRt = Img("Cta", titleRoot, new Vector2(0.5f, 0f), new Vector2(0, 150), new Vector2(236, 70), Hex("B98A56"), roundSpr).rectTransform;
             Img("CtaEdge", ctaRt, new Vector2(0.5f, 0.5f), new Vector2(0, -5), new Vector2(236, 70), Hex("5A3E24"), roundSpr).transform.SetAsFirstSibling();
@@ -622,14 +630,17 @@ namespace Mgf.WonJjigeo
             }
             scoreTxt = Txt(hudRoot, "", new Vector2(1f, 1f), new Vector2(-56, -78), 20, Cream, 96, TextAlignmentOptions.Right);
             comboTxt = Txt(hudRoot, "", new Vector2(1f, 1f), new Vector2(-56, -97), 14, VerdLit, 96, TextAlignmentOptions.Right);
-            bannerBg = Img("Banner", hudRoot, new Vector2(0.5f, 1f), new Vector2(0, -130), new Vector2(372, 42), new Color(0.1f, 0.08f, 0.06f, 0.86f), roundSpr);
-            bannerTxt = Txt(bannerBg.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, 15.5f, Cream, 360);
-            bannerTxt.rectTransform.sizeDelta = new Vector2(360, 40);
-            bannerTxt.enableAutoSizing = true; bannerTxt.fontSizeMin = 10; bannerTxt.fontSizeMax = 15.5f; bannerTxt.textWrappingMode = TextWrappingModes.NoWrap;
+            bannerBg = Img("Banner", hudRoot, new Vector2(0.5f, 1f), new Vector2(0, -134), new Vector2(372, 50), new Color(0.1f, 0.08f, 0.06f, 0.88f), roundSpr);
+            bannerTxt = Txt(bannerBg.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, 15.5f, Cream, 356);
+            bannerTxt.rectTransform.sizeDelta = new Vector2(356, 46);
+            // 긴 성질 문장은 두 줄로(한 줄에 욱여넣어 글자가 작아지지 않게)
+            bannerTxt.enableAutoSizing = true; bannerTxt.fontSizeMin = 11; bannerTxt.fontSizeMax = 15.5f; bannerTxt.textWrappingMode = TextWrappingModes.Normal;
+            bannerTxt.lineSpacing = -8;
 
             // 계기판(1단계: 세 길이 / 2단계: 주름 기록)
             gaugeBg = Img("Gauge", hudRoot, new Vector2(0.5f, 0f), new Vector2(0, 152), new Vector2(372, 100), new Color(0.09f, 0.07f, 0.055f, 0.94f), roundSpr);
             gaugeRt = gaugeBg.rectTransform;
+            gaugeGroup = gaugeRt.gameObject.AddComponent<CanvasGroup>(); gaugeGroup.blocksRaycasts = false; gaugeGroup.interactable = false;
             Img("GaugeFace", gaugeRt, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(364, 92), new Color(0.16f, 0.13f, 0.11f, 1f), roundSpr);
             gaugeHead = Txt(gaugeRt, "", new Vector2(0.5f, 1f), new Vector2(0, -15), 13, Hex("BFAF94"), 350);
             gaugeHead.textWrappingMode = TextWrappingModes.NoWrap; gaugeHead.enableAutoSizing = true; gaugeHead.fontSizeMin = 9; gaugeHead.fontSizeMax = 13;
@@ -637,6 +648,7 @@ namespace Mgf.WonJjigeo
             for (int i = 0; i < 3; i++)
             {
                 var cell = R("G" + i, gaugeRt, new Vector2(0.5f, 0.5f), new Vector2(-118 + i * 118, -8), new Vector2(112, 64));
+                gCell[i] = cell;
                 gName[i] = Txt(cell, "", new Vector2(0.5f, 1f), new Vector2(0, -10), 13, Hex("CDBB9C"), 110);
                 gName[i].textWrappingMode = TextWrappingModes.NoWrap; gName[i].enableAutoSizing = true; gName[i].fontSizeMin = 8; gName[i].fontSizeMax = 13;
                 gName[i].rectTransform.sizeDelta = new Vector2(110, 18);
@@ -645,6 +657,17 @@ namespace Mgf.WonJjigeo
                 gVal[i].rectTransform.sizeDelta = new Vector2(110, 34);
                 gBar[i] = Img("Bar", cell, new Vector2(0.5f, 0f), new Vector2(0, 3), new Vector2(84, 4), Cream, roundSpr);
             }
+            // 2단계·다리 단계 계기판 목록 모드: 그은 선(또는 드러난 선) 이름 3줄
+            listRoot = R("List", gaugeRt, new Vector2(0.5f, 0.5f), new Vector2(0, -9), new Vector2(350, 72));
+            for (int i = 0; i < 3; i++)
+            {
+                listBar[i] = Img("LBar", listRoot, new Vector2(0f, 1f), new Vector2(10, -12 - i * 24), new Vector2(6, 18), Cream, roundSpr);
+                listTxt[i] = Txt(listRoot, "", new Vector2(0f, 1f), new Vector2(186, -12 - i * 24), 15, Cream, 330, TextAlignmentOptions.Left);
+                listTxt[i].rectTransform.sizeDelta = new Vector2(330, 22);
+                listTxt[i].textWrappingMode = TextWrappingModes.NoWrap; listTxt[i].enableAutoSizing = true; listTxt[i].fontSizeMin = 10; listTxt[i].fontSizeMax = 15;
+            }
+            listRoot.gameObject.SetActive(false);
+
             // 박기 버튼(유일한 확정 입력 — 하단 n지선다가 아니다)
             plantRt = Img("Plant", hudRoot, new Vector2(0.5f, 0f), new Vector2(0, 56), new Vector2(250, 70), Hex("6E2A1E"), roundSpr).rectTransform;
             plantFace = Img("PlantFace", plantRt, new Vector2(0.5f, 0.5f), new Vector2(0, 3), new Vector2(240, 60), Hex("C8452F"), roundSpr);
@@ -656,7 +679,26 @@ namespace Mgf.WonJjigeo
             plantTxt.outlineWidth = 0.18f; plantTxt.outlineColor = new Color32(70, 18, 10, 255);
             hintTxt = Txt(hudRoot, "", new Vector2(0.5f, 0f), new Vector2(0, 222), 15, Hex("E9D9BC"), 372);
             hintTxt.outlineWidth = 0.22f; hintTxt.outlineColor = new Color32(18, 14, 11, 255);
-            hintTxt.rectTransform.sizeDelta = new Vector2(372, 40);
+            hintTxt.rectTransform.sizeDelta = new Vector2(372, 44);
+            hintTxt.enableAutoSizing = true; hintTxt.fontSizeMin = 11; hintTxt.fontSizeMax = 15; hintTxt.lineSpacing = -6;
+
+            // 단계 전환 카드(판 위에 잠깐 — 입력을 막지 않는다. 다음 명판은 이미 떠 있다)
+            // 계기판 자리에 겹쳐 뜬다(판을 가리지 않는다) — DoLayout 이 세로/가로에 맞춰 옮긴다
+            cardBg = Img("Card", hudRoot, new Vector2(0.5f, 0f), new Vector2(0, 152), new Vector2(372, 100), new Color(0.12f, 0.09f, 0.07f, 0.97f), roundSpr);
+            cardRt = cardBg.rectTransform;
+            cardGroup = cardRt.gameObject.AddComponent<CanvasGroup>(); cardGroup.blocksRaycasts = false; cardGroup.interactable = false;
+            Img("CardEdge", cardRt, new Vector2(0.5f, 0f), new Vector2(0, 6), new Vector2(330, 3), Match, roundSpr);
+            cardBig = Txt(cardRt, "", new Vector2(0.5f, 0.5f), new Vector2(0, 14), 30, Cream, 350);
+            cardBig.outlineWidth = 0.2f; cardBig.outlineColor = new Color32(120, 24, 18, 255);
+            cardSub = Txt(cardRt, "", new Vector2(0.5f, 0.5f), new Vector2(0, -22), 17, Hex("E9D9BC"), 350);
+            cardRt.gameObject.SetActive(false);
+            // 유령 손가락(2단계 첫 외심·첫 내심 명판의 탭 시범)
+            var fingerSpr = FingerSprite();
+            fingerImg = Img("GhostFinger", hudRoot, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46, 69), Color.white, fingerSpr);
+            fingerImg.type = Image.Type.Simple;
+            fingerRt = fingerImg.rectTransform;
+            fingerRt.pivot = new Vector2(0.5f, 0.97f);   // 손가락 끝이 누르는 점
+            fingerRt.gameObject.SetActive(false);
 
             // ── 결과
             endRoot = R("End", ct, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero); Stretch(endRoot);
@@ -676,6 +718,70 @@ namespace Mgf.WonJjigeo
             endCtaShine = Img("Shine", m2, new Vector2(0.5f, 0.5f), new Vector2(-200, 0), new Vector2(30, 100), new Color(1, 1, 1, 0.35f)).rectTransform;
             endCtaShine.localRotation = Quaternion.Euler(0, 0, -22);
             Txt(endCtaRt, "다시 각인", new Vector2(0.5f, 0.5f), new Vector2(0, 2), 28, Hex("2A1A0E"), 220);
+        }
+
+        /// <summary>계기판: 세 칸(거리 값) ↔ 목록(선 이름 3줄).</summary>
+        void GaugeList(bool list)
+        {
+            if (listRoot.gameObject.activeSelf == list) return;
+            listRoot.gameObject.SetActive(list);
+            for (int i = 0; i < 3; i++) gCell[i].gameObject.SetActive(!list);
+            lastGaugeKey = list ? "list" : "";
+        }
+
+        void ShowCard(string big, string sub)
+        {
+            cardBig.text = big; cardSub.text = sub;
+            cardRt.gameObject.SetActive(true); cardT = 0f; cardGroup.alpha = 0f;
+            gaugeGroup.alpha = 0f;   // 카드가 계기판 자리에 뜨는 동안 계기판은 숨긴다
+            Play(clUnlock, 0.55f);
+        }
+
+        void HideCard() { cardT = 9f; if (cardRt) cardRt.gameObject.SetActive(false); if (gaugeGroup) gaugeGroup.alpha = 1f; }
+
+        void UpdateCard(float dt)
+        {
+            if (cardT > 3f) return;
+            cardT += dt;
+            float a = cardT < 0.2f ? cardT / 0.2f : cardT > 2.5f ? 1f - (cardT - 2.5f) / 0.5f : 1f;
+            cardGroup.alpha = Mathf.Clamp01(a);
+            gaugeGroup.alpha = cardT > 2.5f ? Mathf.Clamp01((cardT - 2.5f) / 0.5f) : 0f;
+            cardRt.localScale = Vector3.one * (cardT < 0.2f ? Mathf.Lerp(0.85f, 1.04f, cardT / 0.2f) : Mathf.Lerp(1.04f, 1f, Mathf.Clamp01((cardT - 0.2f) / 0.2f)));
+            if (cardT > 3f) { cardRt.gameObject.SetActive(false); gaugeGroup.alpha = 1f; }
+        }
+
+        /// <summary>유령 손가락 스프라이트(코드 생성, 64×96): 뻗은 검지 + 손바닥, 흰 면 + 먹선 테두리. 끝이 위쪽 가운데.</summary>
+        static Sprite FingerSprite()
+        {
+            const int W = 64, H = 96;
+            var t = new Texture2D(W, H, TextureFormat.RGBA32, false) { name = "Finger", wrapMode = TextureWrapMode.Clamp };
+            var px = new Color32[W * H];
+            float Cap(float x, float y, float ax, float ay, float bx, float by, float r)
+            {
+                float pax = x - ax, pay = y - ay, bax = bx - ax, bay = by - ay;
+                float h = Mathf.Clamp01((pax * bax + pay * bay) / (bax * bax + bay * bay));
+                float dx = pax - bax * h, dy = pay - bay * h; return Mathf.Sqrt(dx * dx + dy * dy) - r;
+            }
+            float Box(float x, float y, float cx, float cy, float hx, float hy, float r)
+            {
+                float qx = Mathf.Abs(x - cx) - hx + r, qy = Mathf.Abs(y - cy) - hy + r;
+                return Mathf.Sqrt(Mathf.Max(qx, 0) * Mathf.Max(qx, 0) + Mathf.Max(qy, 0) * Mathf.Max(qy, 0)) + Mathf.Min(Mathf.Max(qx, qy), 0) - r;
+            }
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    float fx = x + 0.5f, fy = y + 0.5f;
+                    float d = Cap(fx, fy, 30, 56, 30, 84, 9.5f);                        // 검지
+                    d = Mathf.Min(d, Box(fx, fy, 33, 30, 21, 24, 11));                // 손바닥
+                    d = Mathf.Min(d, Cap(fx, fy, 44, 44, 45, 52, 7.5f));              // 접은 가운뎃손가락
+                    d = Mathf.Min(d, Cap(fx, fy, 14, 36, 8, 48, 6.5f));               // 엄지
+                    float fill = Mathf.Clamp01(0.5f - d), edge = Mathf.Clamp01(0.5f - (d - 3.2f));
+                    var ink = new Color(0.1f, 0.08f, 0.07f);
+                    var c = Color.Lerp(ink, new Color(1f, 0.97f, 0.9f), Mathf.Clamp01(-d - 2.2f));
+                    px[y * W + x] = new Color(c.r, c.g, c.b, Mathf.Max(fill, edge));
+                }
+            t.SetPixels32(px); t.Apply(false, true);
+            return Sprite.Create(t, new Rect(0, 0, W, H), new Vector2(0.5f, 0.97f), 100);
         }
 
         bool Over(RectTransform rt, Vector2 screen, float padPx = 0)
@@ -706,14 +812,16 @@ namespace Mgf.WonJjigeo
             {
                 // 가로: 계기판·박기 버튼은 오른쪽 거터(철 콘솔 위), 안내 한 줄은 그 위
                 gaugeRt.anchorMin = gaugeRt.anchorMax = new Vector2(1f, 0.5f); gaugeRt.anchoredPosition = new Vector2(-196, 40);
+                cardRt.anchorMin = cardRt.anchorMax = new Vector2(1f, 0.5f); cardRt.anchoredPosition = new Vector2(-196, 40);
                 plantRt.anchorMin = plantRt.anchorMax = new Vector2(1f, 0.5f); plantRt.anchoredPosition = new Vector2(-196, -62);
                 var hr = hintTxt.rectTransform; hr.anchorMin = hr.anchorMax = new Vector2(1f, 0.5f); hr.anchoredPosition = new Vector2(-196, 124); hr.sizeDelta = new Vector2(360, 60);
             }
             else
             {
                 gaugeRt.anchorMin = gaugeRt.anchorMax = new Vector2(0.5f, 0f); gaugeRt.anchoredPosition = new Vector2(0, 152);
+                cardRt.anchorMin = cardRt.anchorMax = new Vector2(0.5f, 0f); cardRt.anchoredPosition = new Vector2(0, 152);
                 plantRt.anchorMin = plantRt.anchorMax = new Vector2(0.5f, 0f); plantRt.anchoredPosition = new Vector2(0, 58);
-                var hr = hintTxt.rectTransform; hr.anchorMin = hr.anchorMax = new Vector2(0.5f, 0f); hr.anchoredPosition = new Vector2(0, 222); hr.sizeDelta = new Vector2(372, 40);
+                var hr = hintTxt.rectTransform; hr.anchorMin = hr.anchorMax = new Vector2(0.5f, 0f); hr.anchoredPosition = new Vector2(0, 224); hr.sizeDelta = new Vector2(372, 44);
             }
         }
 

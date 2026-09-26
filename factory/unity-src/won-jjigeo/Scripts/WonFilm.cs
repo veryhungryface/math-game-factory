@@ -1,11 +1,9 @@
-// 원 찍어 v2 — 모눈 트레이싱 필름과 2단계 접기 (WonJjigeoGame 의 partial)
+// 원 찍어 v3 — 모눈 트레이싱 필름과 「선이 생길 때의 접기 연출」 (WonJjigeoGame 의 partial)
 //
-// 필름은 모눈이 인쇄된 반투명 시트다. 1단계에는 네 모서리 집게로 고정돼 있고(모눈 역할만), 2단계에서 집게가 튕겨 나가면 접을 수 있다.
-// 접기는 실제 종이접기 기하 그대로다: 필름의 점 P 를 잡아 Q 로 옮기면 접는 선은 선분 PQ 의 수직이등분선이다.
-//  - 꼭짓점 Vi 를 다른 꼭짓점 Vj 에 포개면 → 주름 = 변 ViVj 의 수직이등분선(Prob.PerpBisector, 정수 계수)
-//  - 변을 이웃한 변에 포개면(두 변이 만나는 꼭짓점 Vk 에서 같은 거리의 점끼리) → 주름 = ∠Vk 의 이등분선(Prob.AngleBisector)
-// 코드는 학생 대신 접지 않는다: 어떤 두 점/두 변을 포갤지는 학생이 끌어서 정하고, 포개는 순간의 정렬(스냅)만 돕는다.
-// 주름을 낸 뒤에는 필름을 다시 펴고, 주름 위 한 점이 두 꼭짓점(두 변)까지 같은 거리임을 1초 보여 준다(주름의 성질).
+// v3(DESIGN-v3.md): 2단계의 조작은 탭이다(변 = 수직이등분선, 꼭짓점 = 각의 이등분선 — WonBuild.cs). 접기는 선이 생길 때
+// 0.7초 연출로만 남는다: 필름 한쪽이 새 선을 축으로 들려 넘어가 A 를 B 에 포갰다가(수직이등분선) / 한 변을 다른 변에 포갰다가
+// (각의 이등분선) 펴진다. 연출은 입력을 막지 않는다(새 선을 바로 그으면 앞 연출은 즉시 끝난다).
+// 접기 기하는 실제 종이접기 그대로다: 점 P 를 Q 로 포개는 접는 선 = 선분 PQ 의 수직이등분선.
 using System.Collections;
 using System.Collections.Generic;
 using Mgf;
@@ -18,26 +16,11 @@ namespace Mgf.WonJjigeo
     {
         Mesh filmMesh, flapMesh, shadowMesh;
         GameObject filmGo, flapGo, shadowGo;
-        LineRenderer filmEdge, triStatic, triFlap, foldGuide, snapRing;
+        LineRenderer filmEdge, triStatic, triFlap, foldGuide;
         Transform carryDot;
         Texture2D gridTex1, gridTex2;
-
-        enum FoldKind { None, Vertex, Side }
-        FoldKind pressFold;           // 누른 곳이 꼭짓점/변 손잡이였나
-        int pressIdx;                 // 꼭짓점 i 또는 변 i
-        bool folding;                 // 실제로 끌기 시작함
-        double pX, pY;                // 잡은 점 P (격자 좌표)
-        double qX, qY;                // 지금 P 가 가 있는 점 Q
-        int snapJ = -1;               // 스냅된 꼭짓점 j 또는 변 j
-        float foldAng;                // 0 = 편 상태, 180 = 완전히 접힘
-        bool foldBusy;
-        Coroutine foldCo;            // 접기 연출(되돌아가기·주름 새기기) — 명판이 바뀌거나 시간이 끝나면 멈춘다
-
-        class Crease { public Line line; public bool perp; public int a, b; public LineRenderer dark, light; public string name; }
-        readonly List<Crease> creases = new List<Crease>();
-        readonly Crease[] creasePool = new Crease[Rules.MaxCreases];
-        readonly List<RP> markers = new List<RP>();
-        readonly LineRenderer[] markerRings = new LineRenderer[8];
+        double pX, pY;                // 접기 연출에서 들려 옮겨지는 점(격자 좌표)
+        Coroutine foldCo, clampCo;
 
         void BuildFilm()
         {
@@ -57,18 +40,10 @@ namespace Mgf.WonJjigeo
             triStatic = Line("TriStatic", 0.05f, 4, false);
             triFlap = Line("TriFlap", 0.05f, 4, false);
             foldGuide = Line("FoldGuide", 0.045f, 2, false, dashMat);
-            snapRing = Line("SnapRing", 0.06f, 33, true);
             var dot = MgfLook.Prim(PrimitiveType.Quad, "CarryDot", Vector3.zero, Vector3.one * 0.55f, glowMat, world, false);
             dot.transform.rotation = Quaternion.Euler(90, 0, 0);
             dot.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             carryDot = dot.transform; dot.SetActive(false);
-            for (int i = 0; i < Rules.MaxCreases; i++)
-            {
-                creasePool[i] = new Crease { dark = Line("CreaseDark" + i, 0.08f, 2, false), light = Line("CreaseLight" + i, 0.04f, 2, false) };
-                SetColor(creasePool[i].dark, new Color(0.05f, 0.06f, 0.08f, 0.92f));
-                SetColor(creasePool[i].light, new Color(1f, 0.98f, 0.92f, 0.9f));
-            }
-            for (int i = 0; i < markerRings.Length; i++) markerRings[i] = Line("Marker" + i, 0.055f, 25, true);
         }
 
         Mesh NewMesh(string name, Material mat, out GameObject go)
@@ -227,7 +202,7 @@ namespace Mgf.WonJjigeo
             BuildPoly(filmMesh, rectPoly, false, 0, Color.white);
             flapGo.SetActive(false); shadowGo.SetActive(false); carryDot.gameObject.SetActive(false); foldGuide.gameObject.SetActive(false);
             triFlap.gameObject.SetActive(false);
-            ShowTrace(st.stage == 2 && cur != null);
+            ShowTrace(step == Step.Build && cur != null);
         }
 
         void ShowTrace(bool on)
@@ -254,294 +229,54 @@ namespace Mgf.WonJjigeo
             t0 = Mathf.Max(t0, a); t1 = Mathf.Min(t1, b);
         }
 
-        // ─────────────────────────────── 접기 입력
-        /// <summary>누른 점(격자 좌표)이 꼭짓점 손잡이·변 손잡이인가.</summary>
-        FoldKind FoldHandleAt(double gx, double gy, out int idx, out double px, out double py)
+        // ─────────────────────────────── 선이 생길 때의 접기 연출(입력을 막지 않는다)
+        /// <summary>perp=true: 변 idx 의 수직이등분선 — 꼭짓점 idx 쪽 필름이 들려 idx+1 에 포개졌다 펴진다.
+        /// perp=false: ∠idx 의 이등분선 — 변 idx 쪽 필름이 들려 이웃한 변에 포개졌다 펴진다.</summary>
+        void FoldFx(bool perp, int idx)
         {
-            idx = -1; px = gx; py = gy;
-            if (st.stage != 2 || cur == null || creases.Count >= Rules.MaxCreases) return FoldKind.None;
-            double best = 1.25;   // 꼭짓점 반경 1.25칸
-            for (int i = 0; i < 3; i++)
+            if (cur == null) return;
+            if (foldCo != null) { StopCoroutine(foldCo); foldCo = null; FlatFilm(); }
+            Vector2 L0, U, N;
+            if (perp)
             {
-                double d = Dist(gx, gy, cur.V[i].x, cur.V[i].y);
-                if (d < best) { best = d; idx = i; }
-            }
-            if (idx >= 0) { px = cur.V[idx].x; py = cur.V[idx].y; return FoldKind.Vertex; }
-            best = 0.7;           // 변 반경 0.7칸(양 끝 꼭짓점 근처는 제외)
-            for (int i = 0; i < 3; i++)
-            {
-                cur.Foot(gx, gy, i, out double fx, out double fy, out double t);
-                if (t < 0.12 || t > 0.88) continue;
-                double d = Dist(gx, gy, fx, fy);
-                if (d < best) { best = d; idx = i; px = fx; py = fy; }
-            }
-            return idx >= 0 ? FoldKind.Side : FoldKind.None;
-        }
-
-        static double Dist(double ax, double ay, double bx, double by) { double dx = ax - bx, dy = ay - by; return System.Math.Sqrt(dx * dx + dy * dy); }
-
-        /// <summary>끌고 있는 동안: 스냅 대상을 찾고, 접는 선 = PQ 의 수직이등분선으로 필름을 들어 보인다.</summary>
-        void UpdateFoldDrag(double gx, double gy)
-        {
-            qX = gx; qY = gy; snapJ = -1;
-            if (pressFold == FoldKind.Vertex)
-            {
-                double best = 1.4;
-                for (int j = 0; j < 3; j++)
-                {
-                    if (j == pressIdx) continue;
-                    double d = Dist(gx, gy, cur.V[j].x, cur.V[j].y);
-                    if (d < best) { best = d; snapJ = j; }
-                }
-                if (snapJ >= 0) { qX = cur.V[snapJ].x; qY = cur.V[snapJ].y; }
+                var a = V2w(cur.V[idx]); var b = V2w(cur.V[(idx + 1) % 3]);
+                L0 = (a + b) * 0.5f; N = (a - b).normalized; U = new Vector2(-N.y, N.x);
+                pX = cur.V[idx].x; pY = cur.V[idx].y;
             }
             else
             {
-                // 이웃한 변 위로 가져가면, 두 변이 만나는 꼭짓점에서 같은 거리인 점으로 맞춘다(= 각의 이등분선으로 접힌다)
-                double best = 1.1;
-                for (int j = 0; j < 3; j++)
-                {
-                    if (j == pressIdx) continue;
-                    cur.Foot(gx, gy, j, out double fx, out double fy, out double t);
-                    if (t < -0.05 || t > 1.05) continue;
-                    double d = Dist(gx, gy, fx, fy);
-                    if (d < best) { best = d; snapJ = j; }
-                }
-                if (snapJ >= 0)
-                {
-                    int k = SharedVertex(pressIdx, snapJ);
-                    var vk = cur.V[k]; var other = cur.V[OtherEnd(snapJ, k)];
-                    double r = Dist(pX, pY, vk.x, vk.y), L = Dist(other.x, other.y, vk.x, vk.y);
-                    qX = vk.x + (other.x - vk.x) * r / L; qY = vk.y + (other.y - vk.y) * r / L;
-                }
+                var v = cur.V[idx]; var u = cur.V[(idx + 1) % 3] - v; var w = cur.V[(idx + 2) % 3] - v;
+                var du = new Vector2(u.x, u.y).normalized; var dw = new Vector2(w.x, w.y).normalized;
+                U = (du + dw).normalized; L0 = V2w(v);
+                N = new Vector2(-U.y, U.x); if (Vector2.Dot(N, du) < 0) N = -N;   // 변 idx 쪽이 들린다
+                float r = Mathf.Min(Mathf.Sqrt(u.Len2), Mathf.Sqrt(w.Len2)) * 0.6f;
+                pX = v.x + du.x * r; pY = v.y + du.y * r;
             }
-            SetFoldLine();
-            foldAng = Mathf.MoveTowards(foldAng, snapJ >= 0 ? 176f : 160f, Time.deltaTime * 900f);
-            RenderFold(foldAng);
-            // 스냅 대상 표시
-            snapRing.gameObject.SetActive(snapJ >= 0);
-            if (snapJ >= 0)
-            {
-                Vector3 c = pressFold == FoldKind.Vertex ? IW(cur.V[snapJ], FilmY + 0.03f) : GW(qX, qY, FilmY + 0.03f);
-                CirclePts(snapRing, c, 0.32f + Mathf.Sin(Time.time * 10f) * 0.04f, 33);
-                SetColor(snapRing, new Color(1f, 0.93f, 0.6f, 0.95f));
-            }
+            fL0 = L0; fU = U; fN = N;
+            foldCo = StartCoroutine(FoldFxCo());
         }
 
-        void SetFoldLine()
+        IEnumerator FoldFxCo()
         {
-            var P = new Vector2((float)pX * CELL, (float)pY * CELL); var Q = new Vector2((float)qX * CELL, (float)qY * CELL);
-            var d = Q - P;
-            if (d.sqrMagnitude < 1e-6f) d = new Vector2(0, 0.001f);
-            fL0 = (P + Q) * 0.5f;
-            var n = d.normalized;            // PQ 방향
-            fU = new Vector2(-n.y, n.x);     // 접는 선 방향
-            fN = -n;                         // P 쪽(플랩) 법선
+            Play(clFold, 0.45f);
+            for (float e = 0; e < 0.3f; e += Time.deltaTime) { float k = e / 0.3f; RenderFold(180f * (1 - (1 - k) * (1 - k))); yield return null; }
+            RenderFold(180f);
+            Play(clCrease, 0.6f);
+            yield return new WaitForSeconds(0.08f);
+            for (float e = 0; e < 0.32f; e += Time.deltaTime) { float k = e / 0.32f; RenderFold(180f * (1 - k * k * (3 - 2 * k))); yield return null; }
+            FlatFilm();
+            foldCo = null;
         }
 
-        int SharedVertex(int s1, int s2)
-        {
-            // 변 i = Vi→V(i+1). 두 변의 공통 꼭짓점
-            for (int k = 0; k < 3; k++)
-            {
-                bool in1 = k == s1 || k == (s1 + 1) % 3, in2 = k == s2 || k == (s2 + 1) % 3;
-                if (in1 && in2) return k;
-            }
-            return 0;
-        }
-        static int OtherEnd(int side, int k) => side == k ? (side + 1) % 3 : side;
-
-        /// <summary>손을 뗌: 스냅돼 있으면 주름을 새기고, 아니면 필름이 되돌아간다.</summary>
-        void EndFoldDrag()
-        {
-            snapRing.gameObject.SetActive(false);
-            if (snapJ < 0)
-            {
-                foldCo = StartCoroutine(SpringBack());
-                Refuse(null, pressFold == FoldKind.Vertex ? "꼭짓점은 다른 꼭짓점에 포개어 접어라" : "변은 이웃한 다른 변에 포개어 접어라");
-                return;
-            }
-            Crease c;
-            if (pressFold == FoldKind.Vertex)
-            {
-                int i = Mathf.Min(pressIdx, snapJ), j = Mathf.Max(pressIdx, snapJ);
-                foreach (var e in creases) if (e.perp && e.a == i && e.b == j) { foldCo = StartCoroutine(SpringBack()); Refuse(null, "이미 접은 주름이다"); return; }
-                c = creasePool[creases.Count];
-                c.perp = true; c.a = i; c.b = j; c.line = cur.PerpBisector(i, j);
-                c.name = $"{Geo.Names[i]}{Geo.Names[j]}의 수직이등분선";
-            }
-            else
-            {
-                int k = SharedVertex(pressIdx, snapJ);
-                foreach (var e in creases) if (!e.perp && e.a == k) { foldCo = StartCoroutine(SpringBack()); Refuse(null, "이미 접은 주름이다"); return; }
-                c = creasePool[creases.Count];
-                c.perp = false; c.a = k; c.b = -1; c.line = cur.AngleBisector(k);
-                c.name = $"∠{Geo.Names[k]}의 이등분선";
-            }
-            foldCo = StartCoroutine(CommitFold(c));
-        }
-
-        IEnumerator SpringBack()
-        {
-            foldBusy = true;
-            float a0 = foldAng;
-            for (float e = 0; e < 0.28f; e += Time.deltaTime)
-            {
-                float k = e / 0.28f;
-                foldAng = Mathf.Lerp(a0, 0, 1 - (1 - k) * (1 - k));
-                RenderFold(foldAng);
-                yield return null;
-            }
-            foldAng = 0; FlatFilm(); foldBusy = false; folding = false; foldCo = null;
-        }
-
-        IEnumerator CommitFold(Crease c)
-        {
-            foldBusy = true; folding = false;
-            Play(clFold, 0.6f);
-            // 완전히 포개기(오버슈트 없이 납작하게) → 주름 누르기 → 펴기
-            float a0 = foldAng;
-            for (float e = 0; e < 0.16f; e += Time.deltaTime) { foldAng = Mathf.Lerp(a0, 180f, e / 0.16f); RenderFold(foldAng); yield return null; }
-            foldAng = 180f; RenderFold(180f);
-            Play(clCrease, 0.8f);
-            MgfFx.Glow(GW(qX, qY, FilmY + 0.05f), new Color(1f, 0.95f, 0.8f), 5, 0.3f);
-            camPush = 1f;
-            yield return new WaitForSeconds(0.22f);
-            AddCrease(c);
-            for (float e = 0; e < 0.42f; e += Time.deltaTime)
-            {
-                float k = e / 0.42f;
-                foldAng = 180f * (1 - k * k * (3 - 2 * k));
-                RenderFold(foldAng);
-                yield return null;
-            }
-            foldAng = 0; FlatFilm();
-            foldBusy = false; foldCo = null;
-            StartCoroutine(TracerDemo(c));
-            RefreshFoldGauge();
-            MgfBridge.NotifyChanged();
-        }
-
-        /// <summary>주름을 새기고 교점 표식을 갱신한다(정수 교점).</summary>
-        void AddCrease(Crease c)
-        {
-            creases.Add(c);
-            st.creases = creases.Count;
-            DrawCrease(c);
-            if (c.perp) AddMarker(cur.SideMid(c.a, c.b));     // 꼭짓점끼리 포개면 주름이 그 변의 중점을 지난다
-            for (int i = 0; i < creases.Count - 1; i++)
-                if (Prob.Meet(creases[i].line, c.line, out var p) && System.Math.Abs(p.fx) <= Rules.GX + 0.5 && System.Math.Abs(p.fy) <= Rules.GY + 0.5)
-                    AddMarker(p);
-            // 세 주름이 한 점에서 만나는가(보너스) — 정수 판정
-            if (creases.Count == 3 && Prob.Meet(creases[0].line, creases[1].line, out var q) && creases[2].line.Through(q))
-            {
-                concurrentBonus = true;
-                ShowBanner(creases[0].perp && creases[1].perp && creases[2].perp ? "세 수직이등분선이 한 점에서 만난다 +50" :
-                           !creases[0].perp && !creases[1].perp && !creases[2].perp ? "세 각의 이등분선이 한 점에서 만난다 +50" : "세 주름이 한 점에서 만난다 +50", 2.2f);
-                Play(clMatch, 0.6f);
-                MgfFx.Glow(PW(q, FilmY + 0.1f), new Color(1f, 0.9f, 0.6f), 10, 0.45f);
-            }
-        }
-
-        void DrawCrease(Crease c)
-        {
-            // 직선 a·x+b·y=c (격자 좌표) → 필름 안 선분(월드)
-            double a = c.line.fa, b = c.line.fb, cc = c.line.fc, n2 = a * a + b * b;
-            var p0 = new Vector2((float)(a * cc / n2) * CELL, (float)(b * cc / n2) * CELL);
-            var u = new Vector2((float)-b, (float)a).normalized;
-            ClipLineToFilm(p0, u, out var e0, out var e1);
-            var nrm = new Vector2(-u.y, u.x) * 0.028f;
-            c.dark.SetPosition(0, new Vector3(e0.x, FilmY + 0.008f, e0.y)); c.dark.SetPosition(1, new Vector3(e1.x, FilmY + 0.008f, e1.y));
-            c.light.SetPosition(0, new Vector3(e0.x + nrm.x, FilmY + 0.01f, e0.y + nrm.y)); c.light.SetPosition(1, new Vector3(e1.x + nrm.x, FilmY + 0.01f, e1.y + nrm.y));
-            c.dark.gameObject.SetActive(true); c.light.gameObject.SetActive(true);
-        }
-
-        void AddMarker(RP p)
-        {
-            foreach (var m in markers) if (m.SameAs(p)) return;
-            if (markers.Count >= markerRings.Length) return;
-            markers.Add(p);
-            var r = markerRings[markers.Count - 1];
-            CirclePts(r, PW(p, FilmY + 0.02f), 0.2f, 25);
-            SetColor(r, new Color(0.1f, 0.12f, 0.16f, 0.95f));
-            r.gameObject.SetActive(true);
-            MgfFx.Punch(r.transform, 0.3f, 0.25f);
-        }
-
-        void ClearFolds()
+        void StopFoldFx()
         {
             if (foldCo != null) { StopCoroutine(foldCo); foldCo = null; }
-            tracerOn = false;
-            foreach (var c in creasePool) { c.dark.gameObject.SetActive(false); c.light.gameObject.SetActive(false); }
-            creases.Clear(); markers.Clear(); st.creases = 0; concurrentBonus = false;
-            foreach (var r in markerRings) r.gameObject.SetActive(false);
-            folding = false; foldBusy = false; foldAng = 0; pressFold = FoldKind.None;
-            snapRing.gameObject.SetActive(false);
             FlatFilm();
         }
 
-        /// <summary>주름의 성질을 1초 보여 준다: 주름 위를 미끄러지는 점에서 두 꼭짓점(두 변)까지 같은 길이의 선.
-        /// (어느 종류의 주름이 이번 미션에 맞는지는 말하지 않는다 — 주름이 무엇을 같게 하는지만 보인다.)</summary>
-        IEnumerator TracerDemo(Crease c)
+        /// <summary>2단계로 넘어갈 때: 집게가 튕겨 나가고 필름이 우윳빛 트레이싱지로 바뀐다. 다음 명판은 이미 떠 있다(빈 판 금지) — 입력도 막지 않는다.</summary>
+        IEnumerator ClampPopCo()
         {
-            tracerOn = true;
-            // 주름이 삼각형을 지나는 구간에서 점을 미끄러뜨린다
-            double a = c.line.fa, b = c.line.fb, cc = c.line.fc, n2 = a * a + b * b;
-            double px0 = a * cc / n2, py0 = b * cc / n2, ux = -b / System.Math.Sqrt(n2), uy = a / System.Math.Sqrt(n2);
-            var ctr = new Vector2((cur.V[0].x + cur.V[1].x + cur.V[2].x) / 3f, (cur.V[0].y + cur.V[1].y + cur.V[2].y) / 3f);
-            double t0 = (ctr.x - px0) * ux + (ctr.y - py0) * uy;
-            for (float e = 0; e < 1.1f && tracerOn; e += Time.deltaTime)
-            {
-                double t = t0 + System.Math.Sin(e / 1.1f * System.Math.PI * 2) * 1.6;
-                double x = px0 + ux * t, y = py0 + uy * t;
-                var P = GW(x, y, LineY);
-                for (int k = 0; k < 2; k++)
-                {
-                    Vector3 end;
-                    if (c.perp) end = IW(cur.V[k == 0 ? c.a : c.b], LineY);
-                    else
-                    {
-                        int side = k == 0 ? c.a : (c.a + 2) % 3;     // 꼭짓점 a 에 모인 두 변
-                        cur.Foot(x, y, side, out double fx, out double fy, out _);
-                        end = GW(fx, fy, LineY);
-                    }
-                    gl[k].SetPosition(0, P); gl[k].SetPosition(1, end);
-                    SetColor(gl[k], new Color(Cream.r, Cream.g, Cream.b, 0.95f));
-                    gl[k].gameObject.SetActive(true);
-                    TickAt(tk[k], P, end, 1, Cream);
-                }
-                yield return null;
-            }
-            for (int k = 0; k < 2; k++) { gl[k].gameObject.SetActive(false); tk[k].gameObject.SetActive(false); }
-            tracerOn = false;
-        }
-        bool tracerOn, concurrentBonus;
-
-        /// <summary>핀을 옮길 때 표식(주름 교점·변의 중점) 0.6칸 안이면 거기에 맞춘다.</summary>
-        RP SnapTarget(double gx, double gy)
-        {
-            if (st.stage == 2)
-            {
-                RP best = default; double bd = 0.6; bool found = false;
-                foreach (var m in markers) { double d = Dist(gx, gy, m.fx, m.fy); if (d < bd) { bd = d; best = m; found = true; } }
-                if (found) return best;
-            }
-            int x = Mathf.Clamp(Mathf.RoundToInt((float)gx), -Rules.GX, Rules.GX), y = Mathf.Clamp(Mathf.RoundToInt((float)gy), -Rules.GY, Rules.GY);
-            return RP.Of(new IP(x, y));
-        }
-
-        /// <summary>2단계 해금 연출: 집게가 튕겨 나가고 필름이 트레이싱지로 바뀐다.</summary>
-        IEnumerator UnlockCo()
-        {
-            busy = true;
-            HideMeasure(); HideMarks();
-            st.red = false;
-            badgeBig.text = "접기"; badgeSub.text = "필름 집게가 풀린다";
-            MgfFx.Punch(badgeRt, 0.2f, 0.35f);
-            lastGaugeKey = "unlock";
-            gaugeHead.text = "2단계: 거리선 대신 필름을 접는다 · 주름 3개까지";
-            for (int i = 0; i < 3; i++) { gName[i].text = $"주름 {i + 1}"; gVal[i].text = "·"; gVal[i].color = new Color(1, 1, 1, 0.3f); gBar[i].color = new Color(1, 1, 1, 0.12f); }
-            ShowBanner("2단계 해금 · 이제 거리선은 없다. 필름을 접어 찾아라", 0);
             Play(clUnlock, 0.7f);
             var from = new Vector3[4];
             for (int i = 0; i < 4; i++) from[i] = clamps[i].position;
@@ -554,18 +289,23 @@ namespace Mgf.WonJjigeo
                     var dir = new Vector3(Mathf.Sign(from[i].x), 0, Mathf.Sign(from[i].z));
                     clamps[i].position = from[i] + dir * d * 3.5f + Vector3.up * Mathf.Sin(d * Mathf.PI) * 2.2f;
                     clamps[i].rotation = Quaternion.Euler(d * 540f, 0, d * 200f);
-                    if (d > 0.02f && d < 0.06f) Play(clSeat, 0.4f);
                 }
                 if (k > 0.45f && filmMat.mainTexture != gridTex2) { filmMat.mainTexture = gridTex2; camPush = 1f; MgfFx.Glow(new Vector3(0, FilmY + 0.1f, 0), new Color(1f, 0.97f, 0.9f), 14, 0.9f); }
                 yield return null;
             }
+            FinishClampPop();
+        }
+
+        void FinishClampPop()
+        {
+            if (clampCo != null) { StopCoroutine(clampCo); clampCo = null; }
             for (int i = 0; i < 4; i++) clamps[i].gameObject.SetActive(false);
-            yield return new WaitForSeconds(0.5f);
-            busy = false;
+            filmMat.mainTexture = gridTex2;
         }
 
         void ResetClamps()
         {
+            if (clampCo != null) { StopCoroutine(clampCo); clampCo = null; }
             for (int i = 0; i < 4; i++)
             {
                 float sx = i % 2 == 0 ? -1 : 1, sz = i < 2 ? -1 : 1;

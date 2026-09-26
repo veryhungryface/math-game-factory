@@ -1,7 +1,10 @@
-// 원 찍어 v2 — 모눈(격자) 기하 · 문제 생성 · 정수 판정 · 길이 표시 (UnityEngine 의존 없음: 봇 자가 테스트도 이 코드를 그대로 쓴다)
+// 원 찍어 v3 — 모눈(격자) 기하 · 문제 생성 · 정수 판정 · 길이 표시 (UnityEngine 의존 없음: 봇 자가 테스트도 이 코드를 그대로 쓴다)
+//
+// v3(DESIGN-v3.md): 1단계(거리) → 다리 단계(거리가 같은 점 3개 → 수직이등분선/각의 이등분선) → 2단계(작도: 변 탭=수직이등분선,
+//   꼭짓점 탭=각의 이등분선, 두 선의 교점에 핀). 다리 단계 판정·생성도 정수 연산(Prob.BridgeOk / Gen.MakeBridge).
 //
 // 핵심 원칙(DESIGN-v2.md): 학생이 쓰는 정보 = 정의·성질 그 자체. 판정은 그 정보가 가리키는 점과 정확히 같은지(정수 연산)로만.
-//  - 모든 꼭짓점과 정답(외심 O·내심 I)은 **격자점**(정수 좌표)이다. 핀은 격자점(2단계에서는 주름 교점)에만 선다.
+//  - 모든 꼭짓점과 정답(외심 O·내심 I)은 **격자점**(정수 좌표)이다. 핀은 격자점(2단계에서는 그은 두 선의 교점)에만 선다.
 //  - 거리 비교는 거리²(정수). 변까지의 거리 비교는 (a·x+b·y−c)²·(a'²+b'²) 교차곱(정수). float 판정 없음.
 //  - 화면 길이 표시는 모눈 칸 단위 소수 둘째 자리(정수 연산으로 반올림). 「표시가 같다 ⇔ 실제로 같다」는
 //    WonBotSelfTest 가 격자 전체 × 문제 풀 전체로 전수 확인한다(불일치 0건).
@@ -17,9 +20,9 @@
 //  - 무게중심은 이 단원(m2s2-u1) 범위가 아니라 다루지 않는다.
 //  - v1 의 ∠BOC(둔각이면 360°−2∠A) 수치는 은행에서 뺐다.
 //
-// 오개념 역산(검산관용 misconceptionId) — 이 게임의 오답은 선택지가 아니라 핀을 박은 자리·접은 주름의 종류다.
-//   M1 swap   : 외심 미션에서 변끼리 포개어 접기(각의 이등분선) / 내심 미션에서 꼭짓점끼리 포개어 접기(수직이등분선)
-//               → 2단계 생성기는 「반대 종류 주름이 정답을 지나는」 삼각형(이등변)을 풀에서 뺀다(PassesStage2).
+// 오개념 역산(검산관용 misconceptionId) — 이 게임의 오답은 선택지가 아니라 핀을 박은 자리·그은 선의 종류다.
+//   M1 swap   : 외심 미션에서 꼭짓점을 탭(각의 이등분선) / 내심 미션에서 변을 탭(수직이등분선) → 그 교점은 내심/외심이라 오답
+//               → 2단계 생성기는 「반대 종류 선이 정답을 지나는」 삼각형(이등변)을 풀에서 뺀다(PassesStage2).
 //   M2 inside : 둔각삼각형의 외심을 삼각형 안에서 찾음 — 둔각 명판의 외심은 모눈 위 삼각형 바깥 격자점.
 //   M3 right  : 직각삼각형의 외심을 삼각형 안쪽에서 찾음 — 정답은 빗변의 중점(격자점).
 using System;
@@ -82,9 +85,14 @@ namespace Mgf.WonJjigeo
         public const int Lives = 3;                       // 핀 3개
         public const int UnlockStreak = 2;                // 1단계 외심·내심 각각 연속 첫 시도 정답 2회 → 2단계 해금
         public const int Stage2Plates = 6;                // 2단계 명판 수 → 모두 끝나면 완주
-        public const int MaxCreases = 3;                  // 명판 한 장에 낼 수 있는 주름 수
-        public const float ClearAccuracy = 0.7f;          // 첫 시도 정답률이 이 미만이면 승리 연출 없음
+        public const int MaxLines = 3;                    // 2단계 명판 한 장에 그을 수 있는 선 수
+        public const int BridgeDots = 3;                  // 다리 단계: 거리가 같은 점(발자국) 3개를 모으면 이등분선이 드러난다
+        public const int BridgeMinPts = 4;                // 다리 단계 삼각형: 그 이등분선 위의 판 안 격자점이 이만큼 이상
+        public const float ClearAccuracy = 0.7f;          // 첫 시도 정답률(전체, 그리고 2단계만 따로)이 이 미만이면 승리 연출 없음
+                                                          // — v3: 2단계에서 미션과 상관없이 한 종류 선만 긋는 봇(50%)이 1단계 점수로 승리하던 구멍을 막는다
         public static bool InGrid(IP p) => p.x >= -GX && p.x <= GX && p.y >= -GY && p.y <= GY;
+        /// <summary>꼭짓점 자리: 판 가장자리에서 최소 1칸 떨어진다(꼭짓점·이름표가 잘리지 않게 — v3).</summary>
+        public static bool InBoard(IP p) => p.x >= -GX + 1 && p.x <= GX - 1 && p.y >= -GY + 1 && p.y <= GY - 1;
     }
 
     public static class Geo
@@ -128,6 +136,7 @@ namespace Mgf.WonJjigeo
         public long R2;                   // 외심 문항: 외접원 반지름² (정수)
         public int inR;                   // 내심 문항: 내접원의 반지름(칸, 정수)
         public bool tutorial;             // 첫 명판·2단계 첫 외심/내심 명판: 안내 + 무감점 재시도
+        public bool bridge;               // 다리 단계 명판(외심 다리 = A·B 에서 같은 거리, 내심 다리 = 변 AB·AC 에서 같은 거리)
         public int rightV = -1, obtuseV = -1;
         // 변 i = V[i]→V[i+1] 을 품은 직선 a·x+b·y=c, N=a²+b², sq=√N (정수이면 >0, 아니면 0)
         public readonly long[] sa = new long[3], sb = new long[3], sc = new long[3], sN = new long[3], sq = new long[3];
@@ -216,15 +225,15 @@ namespace Mgf.WonJjigeo
             return n == 1;
         }
 
-        // ── 2단계 주름(접는 선)
-        /// <summary>꼭짓점 i 를 꼭짓점 j 에 포개어 접은 주름 = 변 ViVj 의 수직이등분선(정수 계수).</summary>
+        // ── 2단계 작도 선(v2 의 접는 선과 같은 직선 — v3 에서는 변/꼭짓점을 탭하면 그려지고 접기는 연출로만 남았다)
+        /// <summary>변 ViVj 의 수직이등분선(정수 계수) — 꼭짓점 i 를 j 에 포개어 접은 선과 같다.</summary>
         public Line PerpBisector(int i, int j)
         {
             var p = V[i]; var q = V[j];
             return Line.Int(2L * (q.x - p.x), 2L * (q.y - p.y), q.Len2 - p.Len2);
         }
 
-        /// <summary>꼭짓점 k 에 모인 두 변을 포개어 접은 주름 = ∠k 의 이등분선. 내심 문항은 V_k 와 I(격자점)를 지나는 정수 직선,
+        /// <summary>∠k 의 이등분선 — 꼭짓점 k 에 모인 두 변을 포개어 접은 선과 같다. 내심 문항은 V_k 와 I(격자점)를 지나는 정수 직선,
         /// 외심 문항은 두 단위벡터의 합 방향(무리수) — 외심 문항에서 이 주름은 오답 종류라 정답과 만날 수 없다(PassesStage2).</summary>
         public Line AngleBisector(int k)
         {
@@ -255,6 +264,41 @@ namespace Mgf.WonJjigeo
             if (Math.Abs(dd) < 1e-12) { p = default; return false; }
             p = RP.Approx((l1.fc * l2.fb - l2.fc * l1.fb) / dd, (l1.fa * l2.fc - l2.fa * l1.fc) / dd);
             return true;
+        }
+
+        // ── 다리 단계(정수 판정)
+        /// <summary>∠A(=V0) 의 안쪽(두 변 AB·AC 를 품은 직선의 삼각형 쪽, 경계 제외)인가 — 정수 부호 비교.</summary>
+        public bool InsideAngleA(RP p)
+        {
+            var c = RP.Of(V[2]); var b = RP.Of(V[1]);
+            long l0 = SideL(p, 0), l2 = SideL(p, 2);
+            return l0 != 0 && l2 != 0 && Math.Sign(l0) == Math.Sign(SideL(c, 0)) && Math.Sign(l2) == Math.Sign(SideL(b, 2));
+        }
+
+        /// <summary>다리 단계 발자국 판정(정수). 외심 다리: PA² = PB². 내심 다리: 변 AB·변 AC 까지 거리가 같고(교차곱) ∠A 안쪽.
+        /// (∠A 바깥에서 두 변의 연장선까지 거리가 같은 점은 바깥각의 이등분선 위라 받지 않는다.)</summary>
+        public bool BridgeOk(RP p)
+        {
+            if (!p.exact) return false;
+            if (m == Mission.Circum) return VertN(p, 0) == VertN(p, 1);
+            return EqualPair(p, 0, 2, Mission.In) && InsideAngleA(p);
+        }
+
+        /// <summary>다리 단계에서 드러나는 직선: 외심 다리 = 변 AB 의 수직이등분선, 내심 다리 = ∠A 의 이등분선(A 와 내심을 지나는 정수 직선).</summary>
+        public Line BridgeLine() => m == Mission.Circum ? PerpBisector(0, 1) : AngleBisector(0);
+
+        /// <summary>판 안에서 발자국이 될 수 있는 격자점 전부(핀 출발점 제외).</summary>
+        public List<IP> BridgePoints()
+        {
+            var r = new List<IP>();
+            for (int x = -Rules.GX; x <= Rules.GX; x++)
+                for (int y = -Rules.GY; y <= Rules.GY; y++)
+                {
+                    var q = new IP(x, y);
+                    if (q.Same(Rules.Start)) continue;
+                    if (BridgeOk(RP.Of(q))) r.Add(q);
+                }
+            return r;
         }
 
         /// <summary>2단계 조건: 반대 종류의 주름이 정답을 지나지 않는다(정수 판정).
@@ -315,7 +359,7 @@ namespace Mgf.WonJjigeo
             // 모눈 안에 들어갈 크기 + 너무 작지 않게
             int x0 = Math.Min(a.x, Math.Min(b.x, c.x)), x1 = Math.Max(a.x, Math.Max(b.x, c.x));
             int y0 = Math.Min(a.y, Math.Min(b.y, c.y)), y1 = Math.Max(a.y, Math.Max(b.y, c.y));
-            if (x1 - x0 > 2 * Rules.GX - 2 || y1 - y0 > 2 * Rules.GY - 2) return false;
+            if (x1 - x0 > 2 * Rules.GX - 2 || y1 - y0 > 2 * Rules.GY - 2) return false;   // = 꼭짓점 칸(Rules.InBoard) 폭
             if (Math.Abs(cr) < 30) return false;                        // 넓이의 두 배 ≥ 30
             return true;
         }
@@ -408,8 +452,10 @@ namespace Mgf.WonJjigeo
         static Prob Place(IP a, IP b, IP c, IP center, Mission m, int stage, Random rng, int labelShift)
         {
             var off = new[] { a, b, c };
-            int x0 = -Rules.GX - Math.Min(0, Math.Min(a.x, Math.Min(b.x, c.x))), x1 = Rules.GX - Math.Max(0, Math.Max(a.x, Math.Max(b.x, c.x)));
-            int y0 = -Rules.GY - Math.Min(0, Math.Min(a.y, Math.Min(b.y, c.y))), y1 = Rules.GY - Math.Max(0, Math.Max(a.y, Math.Max(b.y, c.y)));
+            // 꼭짓점은 판 가장자리에서 1칸 이상 안쪽(Rules.InBoard). 정답(외심 O)은 판 안 격자점이면 된다(Admissible).
+            int bx = Rules.GX - 1, by = Rules.GY - 1;
+            int x0 = Math.Max(-Rules.GX, -bx - Math.Min(a.x, Math.Min(b.x, c.x))), x1 = Math.Min(Rules.GX, bx - Math.Max(a.x, Math.Max(b.x, c.x)));
+            int y0 = Math.Max(-Rules.GY, -by - Math.Min(a.y, Math.Min(b.y, c.y))), y1 = Math.Min(Rules.GY, by - Math.Max(a.y, Math.Max(b.y, c.y)));
             if (x0 > x1 || y0 > y1) return null;
             for (int attempt = 0; attempt < 24; attempt++)
             {
@@ -427,7 +473,7 @@ namespace Mgf.WonJjigeo
         static bool Admissible(Prob p)
         {
             var s = Rules.Start;
-            for (int i = 0; i < 3; i++) if (p.V[i].Same(s)) return false;
+            for (int i = 0; i < 3; i++) if (p.V[i].Same(s) || !Rules.InBoard(p.V[i])) return false;
             if ((p.ans - s).Len2 < 16) return false;
             return Rules.InGrid(p.ans);
         }
@@ -464,6 +510,43 @@ namespace Mgf.WonJjigeo
                 return p;
             }
             throw new Exception("MakeI 실패");
+        }
+
+        /// <summary>다리 단계 명판 한 장. 외심 다리: 부등변 외심 모양(C 가 AB 의 수직이등분선 위에 있지 않다) · 내심 다리: 내심 모양.
+        /// 둘 다 그 이등분선 위에 판 안 격자점(출발점 제외)이 Rules.BridgeMinPts 개 이상인 배치만 쓴다.</summary>
+        public Prob MakeBridge(Mission m, Random rng)
+        {
+            for (int t = 0; t < 2000; t++)
+            {
+                Prob p;
+                if (m == Mission.Circum)
+                {
+                    var pool = t % 2 == 0 ? oAcute : oObtuse;
+                    var s = pool[rng.Next(pool.Count)];
+                    if (s.iso) continue;
+                    p = Place(s.a, s.b, s.c, default, Mission.Circum, 1, rng, rng.Next(3));
+                    if (p == null) continue;
+                    p.R2 = s.R2;
+                }
+                else
+                {
+                    var s = iShapes[rng.Next(iShapes.Count)];
+                    if (s.iso) continue;
+                    p = Place(s.a, s.b, s.c, default, Mission.In, 1, rng, rng.Next(3));
+                    if (p == null) continue;
+                    p.inR = s.r;
+                    if (!p.DisplayConsistent()) continue;
+                }
+                p.bridge = true; p.tutorial = true;
+                var pts = p.BridgePoints();
+                if (pts.Count < Rules.BridgeMinPts) continue;
+                // 핀 출발점에서 가장 가까운 발자국 자리가 너무 멀지 않게(격자 훑기가 아니라 길이를 보고 옮기게) — 9걸음 안
+                int near = int.MaxValue;
+                foreach (var q in pts) near = Math.Min(near, Math.Max(Math.Abs(q.x - Rules.Start.x), Math.Abs(q.y - Rules.Start.y)));
+                if (near > 9) continue;
+                return p;
+            }
+            throw new Exception("MakeBridge 실패");
         }
 
         /// <summary>첫 명판(온보딩 고정): 외심 O 는 격자점 (2, 1), 반지름² 25. A(−1, 5)·B(2, −4)·C(6, 4) — 예각 부등변.
@@ -509,16 +592,37 @@ namespace Mgf.WonJjigeo
         public static string TriText(Prob p) =>
             $"점 B는 점 A에서 {Rel(p.V[0], p.V[1])}, 점 C는 점 A에서 {Rel(p.V[0], p.V[2])} 떨어진 곳에 있다";
 
-        public static string Prompt(Prob p)
+        /// <summary>변 i(=V[i]→V[i+1]) 의 이름(알파벳 순): 「AB」「BC」「AC」.</summary>
+        public static string SideName(int i) { int a = i, b = (i + 1) % 3; return Geo.Names[Math.Min(a, b)] + Geo.Names[Math.Max(a, b)]; }
+        /// <summary>2단계 화면·문제 은행의 선 이름 — 교과서 용어 그대로.</summary>
+        public static string PerpName(int side) => $"{SideName(side)}의 수직이등분선";
+        public static string BisName(int k) => $"∠{Geo.Names[k]}의 이등분선";
+
+        /// <summary>게임 화면과 같은 발문. 2단계는 「알맞은 선 두 개」(어느 작도인지는 학생이 고른다).</summary>
+        public static string Prompt(Prob p) => Prompt(p, -1);
+
+        /// <summary>variant ≥ 0 이면 2단계 교과서형 발문: 「변 AB와 변 BC의 수직이등분선을 그어 … 외심 O를 찾으시오」.</summary>
+        public static string Prompt(Prob p, int variant)
         {
             string tri = TriText(p);
+            if (p.bridge)
+                return p.m == Mission.Circum
+                    ? $"모눈 위의 △ABC에서 {tri}. 두 꼭짓점 A, B에서 거리가 같은 점을 3개 찾고, 그 점들이 모두 놓이는 직선을 말하시오."
+                    : $"모눈 위의 △ABC에서 {tri}. ∠A의 안쪽에서 두 변 AB, AC까지의 거리가 같은 점을 3개 찾고, 그 점들이 모두 놓이는 직선을 말하시오.";
             if (p.stage == 1)
                 return p.m == Mission.Circum
                     ? $"모눈 위의 △ABC에서 {tri}. 세 꼭짓점에 이르는 거리를 재어 △ABC의 외심 O를 찾으시오."
                     : $"모눈 위의 △ABC에서 {tri}. 점에서 세 변까지의 거리를 재어 △ABC의 내심 I를 찾으시오.";
+            if (variant >= 0)
+            {
+                int a = variant % 3, b = (variant + 1) % 3;
+                return p.m == Mission.Circum
+                    ? $"모눈 위의 △ABC에서 {tri}. 변 {SideName(a)}와 변 {SideName(b)}의 수직이등분선을 그어 △ABC의 외심 O를 찾으시오."
+                    : $"모눈 위의 △ABC에서 {tri}. ∠{Geo.Names[a]}와 ∠{Geo.Names[b]}의 이등분선을 그어 △ABC의 내심 I를 찾으시오.";
+            }
             return p.m == Mission.Circum
-                ? $"트레이싱 필름에 그린 △ABC에서 {tri}. 필름을 접어 △ABC의 외심 O를 찾고, 두 주름의 교점에 핀을 박으시오."
-                : $"트레이싱 필름에 그린 △ABC에서 {tri}. 필름을 접어 △ABC의 내심 I를 찾고, 두 주름의 교점에 핀을 박으시오.";
+                ? $"모눈 위의 △ABC에서 {tri}. 변의 수직이등분선과 각의 이등분선 중 알맞은 선을 두 개 그어 △ABC의 외심 O를 찾으시오."
+                : $"모눈 위의 △ABC에서 {tri}. 변의 수직이등분선과 각의 이등분선 중 알맞은 선을 두 개 그어 △ABC의 내심 I를 찾으시오.";
         }
 
         public static string Where(Prob p)
@@ -534,29 +638,41 @@ namespace Mgf.WonJjigeo
 
         static bool IntRadius(Prob p, out long R) { R = Geo.ISqrt(p.R2); return R * R == p.R2; }
 
-        public static string Answer(Prob p)
+        public static string Answer(Prob p) => Answer(p, -1);
+
+        public static string Answer(Prob p, int variant)
         {
+            if (p.bridge)
+            {
+                var pts = p.BridgePoints();
+                var sb = new System.Text.StringBuilder();
+                sb.Append(p.m == Mission.Circum ? "변 AB의 수직이등분선(PA=PB인 점은 모두 이 직선 위에 있다). 예: " : "∠A의 이등분선(두 변 AB, AC까지의 거리가 같은 ∠A 안쪽의 점은 모두 이 직선 위에 있다). 예: ");
+                for (int k = 0; k < 3 && k < pts.Count; k++) { if (k > 0) sb.Append(", "); sb.Append($"점 A에서 {Rel(p.V[0], pts[k])} 떨어진 점"); }
+                return sb.ToString();
+            }
             string at = $"점 A에서 {Rel(p.V[0], p.ans)} 떨어진 점({Where(p)})";
             if (p.m == Mission.Circum)
             {
                 string eq = IntRadius(p, out long R) ? $"OA=OB=OC={R}" : "OA=OB=OC";
-                return p.stage == 1
-                    ? $"외심 O: {at}, {eq}"
-                    : $"두 꼭짓점을 포개어 접은 주름(변의 수직이등분선) 두 개의 교점. 외심 O: {at}, {eq}";
+                if (p.stage == 1) return $"외심 O: {at}, {eq}";
+                string lines = variant >= 0 ? $"{PerpName(variant % 3)}과 {PerpName((variant + 1) % 3)}의 교점" : "세 변의 수직이등분선 중 두 개의 교점";
+                return $"{lines}. 외심 O: {at}, {eq}";
             }
-            return p.stage == 1
-                ? $"내심 I: {at}, 세 변까지의 거리는 모두 {p.inR}"
-                : $"두 변을 포개어 접은 주름(각의 이등분선) 두 개의 교점. 내심 I: {at}, 세 변까지의 거리는 모두 {p.inR}";
+            if (p.stage == 1) return $"내심 I: {at}, 세 변까지의 거리는 모두 {p.inR}";
+            string ln = variant >= 0 ? $"{BisName(variant % 3)}과 {BisName((variant + 1) % 3)}의 교점" : "세 내각의 이등분선 중 두 개의 교점";
+            return $"{ln}. 내심 I: {at}, 세 변까지의 거리는 모두 {p.inR}";
         }
 
         public static double Numeric(Prob p)
         {
+            if (p.bridge) return double.NaN;
             if (p.m == Mission.In) return p.inR;
             return IntRadius(p, out long R) ? R : double.NaN;
         }
 
         public static string Concept(Prob p)
         {
+            if (p.bridge) return p.m == Mission.Circum ? "두 점에서 거리가 같은 점은 두 점을 잇는 선분의 수직이등분선 위에 있다" : "각의 두 변에서 거리가 같은 점은 그 각의 이등분선 위에 있다";
             if (p.stage == 2) return p.m == Mission.Circum ? "외심은 세 변의 수직이등분선의 교점" : "내심은 세 내각의 이등분선의 교점";
             if (p.m == Mission.In) return "삼각형의 내심에서 세 변에 이르는 거리는 같다";
             if (p.kind == Kind.Right) return "직각삼각형의 외심은 빗변의 중점";

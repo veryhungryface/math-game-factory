@@ -1,13 +1,15 @@
-// 원 찍어 v2 — 모눈 명판 위에서 외심·내심을 「정의」와 「성질」로 찾는다.
+// 원 찍어 v3 — 모눈 명판 위에서 외심·내심을 「정의」와 「성질」로 찾는다. (DESIGN-v3.md)
 //
 // 1단계(거리로 찾기): 핀을 끌어 모눈 격자점 위로 옮긴다(속도 상한 = 초당 6걸음). 핀이 설 때마다
 //   · 외심 명판: 핀 P 에서 세 꼭짓점까지 세 선과 길이(모눈 칸, 소수 둘째 자리)
 //   · 내심 명판: 핀 P 에서 세 변에 내린 수선(수선의 발·직각 표시)과 길이
-//   가 따라온다. 두 길이가 같으면 그 두 선이 옅게 강조되고, 세 길이가 정확히 같아지는 격자점에서 세 선이 빨개진다.
+//   가 따라온다. 두 길이가 같으면 그 두 선이 초록, 세 길이가 정확히 같아지는 격자점에서 세 선이 빨개진다.
 //   「핀 박기」로 확정 → 정답이면 외접원/내접원이 스윕하며 각인, 오답이면 세 길이의 차이를 보여 준 뒤 핀 하나를 잃는다.
-// 2단계(성질로 찾기): 외심·내심 각각 연속 첫 시도 정답 2회면 해금. 거리선이 사라지고 트레이싱 필름을 접는다(WonFilm.cs).
-//   꼭짓점끼리 포개면 수직이등분선, 변끼리 포개면 각의 이등분선 주름. 두 주름의 교점에 핀을 옮겨 박는다.
-// 판정은 WonGeo.cs 의 정수 연산(핀 좌표 = 정답 격자점인가)뿐이다. 코드는 정답 자리로 핀을 옮기거나 선을 대신 긋지 않는다.
+// 다리 단계(WonBridge.cs): 외심·내심 각각 연속 첫 시도 정답 2회면 열린다. 거리가 같은 점 3개를 찍으면 발자국이 한 줄로 서고
+//   「변 AB의 수직이등분선」/「∠A의 이등분선」이 드러난다(교과서 성질 문장 + 2단계 예고). 목숨·제한 시간 없음.
+// 2단계(작도로 찾기, WonBuild.cs): 거리선 없음. 변 탭 = 수직이등분선, 꼭짓점 탭 = 각의 이등분선. 두 선의 교점에 핀이 서면 「핀 박기」.
+//   필름 접기는 선이 생길 때의 0.7초 연출로만 남았다(WonFilm.cs).
+// 판정은 WonGeo.cs 의 정수 연산(핀 좌표 = 정답 격자점인가)뿐이다. 코드는 정답 자리로 핀을 옮기거나 선을 대신 고르지 않는다.
 using System.Collections;
 using System.Collections.Generic;
 using Mgf;
@@ -22,12 +24,19 @@ namespace Mgf.WonJjigeo
         [System.Serializable]
         class State : MgfState
         {
-            public int stage = 1, plates, attempts, firstTry, combo, maxCombo, px, py, creases;
+            public string stage = "1";               // "1"(거리) · "bridge"(다리 단계) · "2"(작도)
+            public int plates, attempts, firstTry, combo, maxCombo, px, py, dots;   // dots = 다리 단계 발자국 수
             public string mission = "", tri = "";   // tri = 명판 꼭짓점 격자 좌표(명판이 바뀔 때만 바뀐다)
+            public List<string> lines = new List<string>();   // 2단계: 그은 선 이름(「AB의 수직이등분선」「∠B의 이등분선」)
+            public string taps = "";                 // 2단계: 탭 대상 화면 위치(꼭짓점 A,B,C; 변 AB,BC,CA — 정규화, 명판마다 1회)
             public bool red, onboarding;
         }
 
         readonly State st = new State();
+        enum Step { Dist, Bridge, Build }
+        Step step = Step.Dist;
+        static readonly int[] MAll = { 0, 1, 2 }, MAB = { 0, 1 }, MAC = { 0, 2 };
+        int[] mIdx = MAll;       // 측정 선 번호: 1단계·오답 연출 = 셋, 외심 다리 = PA·PB, 내심 다리 = 변 AB·변 AC
         Gen gen;
         System.Random rng = new System.Random(20260926);
         readonly List<MgfProblem> bank = new List<MgfProblem>();
@@ -37,8 +46,8 @@ namespace Mgf.WonJjigeo
         int idx, streakO, streakI, tutRetries;
         bool attemptCounted;
         float plateT, plateLimit, plateEnterT = 9f, bannerT, idleT;
-        bool busy, roundPending, roundOk, roundRetry, unlocking;
-        Coroutine roundCo, unlockCo;
+        bool busy, roundPending, roundOk, roundRetry;
+        Coroutine roundCo;
         float hitStop;
         Vector3 shakeOffset;
         int onb;               // 첫 명판 온보딩 단계 0: 끌기 전 · 1: 옮겨 봄 · 2: 빨간색 봄 · 3: 끝
@@ -48,7 +57,7 @@ namespace Mgf.WonJjigeo
         Pin curPin, demoPin;
         RP pinPos, pinTarget, pinNext;
         bool stepping, pinReady;
-        float stepT, pinRiseT = 9f;
+        float stepT, pinRiseT = 9f, hopRate = Rules.StepRate;
         Vector3 stepFrom, stepTo, riseFrom;
         Transform pinGlow;
 
@@ -56,11 +65,13 @@ namespace Mgf.WonJjigeo
         readonly LineRenderer[] gl = new LineRenderer[3], ext = new LineRenderer[3], ra = new LineRenderer[3], tk = new LineRenderer[3];
         readonly TextMeshPro[] lbl = new TextMeshPro[3];
         readonly TextMeshPro[] vLabels = new TextMeshPro[3];
+        readonly LineRenderer[] lblPill = new LineRenderer[3];   // 길이 글자 뒤 어두운 알약(모래 위에서도 읽히게)
+        readonly float[] lblHalf = new float[3], lblH = new float[3];
         readonly long[] shownH = { -1, -1, -1 };
         bool measureOn, feedbackMode;
         readonly bool[] pairEq = new bool[3];
         float redT;
-        LineRenderer groove, grooveUnder, arm, trueRing, rightMark, pulseRing, onbPath, targetRing, ghostArc;
+        LineRenderer groove, grooveUnder, arm, trueRing, rightMark, pulseRing, onbPath, targetRing;
         readonly LineRenderer[] ripples = new LineRenderer[3];
         readonly float[] rippleT = { 9, 9, 9 };
         int rippleNext;
@@ -68,7 +79,7 @@ namespace Mgf.WonJjigeo
         Transform shimmer;
 
         // 입력
-        enum Press { None, Pin, Fold, PlantBtn }
+        enum Press { None, Pin, PlantBtn }
         Press press;
         Vector2 downScreen;
         bool ctaDown, endCtaDown;
@@ -95,37 +106,39 @@ namespace Mgf.WonJjigeo
             BuildWorld();
             BuildUi();
             BuildSounds();
-            MgfText.Prewarm("원찍어중심에핀을박아라각인시작외심내심의위치를찾으시오최고장점연속초시간종료명판이모두굽었다다시세꼭짓점까지거리가같지않다변그자리는둔각삼각형밖에있다직각빗변위뽑고잘못박힌먼저끌어놓아라원이끝날때까지다음투입등장부등변이등분선수직삼각형의성질중학교학년단계해금필름접기주름포개어교점트레이싱거리선없다옮겨라길이따라바뀐빨개진다눌러첫시도정답률완주판수선발모눈칸바깥안쪽이미이웃한다른되돌아간다만나는한점보너스·×=ABCOIP0123456789°∠△−→:,.!?()/+");
-            best = PlayerPrefs.GetInt("wonjjigeo.v2.best", 0);
-            bestScore = PlayerPrefs.GetInt("wonjjigeo.v2.bestScore", 0);
+            MgfText.Prewarm("다리작도발자국점찍기같은직선그러면만나는그은남은통과이제없이로찾는다✓개더사이흐리게다음→①②③곳골라어디에모일까보자원찍어중심에핀을박아라각인시작외심내심의위치를찾으시오최고장점연속초시간종료명판이모두굽었다다시세꼭짓점까지거리가같지않다변그자리는둔각삼각형밖에있다직각빗변위뽑고잘못박힌먼저끌어놓아라원이끝날때까지다음투입등장부등변이등분선수직삼각형의성질중학교학년단계해금필름접기주름포개어교점트레이싱거리선없다옮겨라길이따라바뀐빨개진다눌러첫시도정답률완주판수선발모눈칸바깥안쪽이미이웃한다른되돌아간다만나는한점보너스·×=ABCOIP0123456789°∠△−→:,.!?()/+");
+            best = PlayerPrefs.GetInt("wonjjigeo.v3.best", 0);
+            bestScore = PlayerPrefs.GetInt("wonjjigeo.v3.bestScore", 0);
             ShowTitle();
             MgfBridge.Register(this);
         }
 
-        // ── 문제 은행: 게임 판과 같은 Gen.Next · Words 로 만든다(별도 시험지 아님). 1단계·2단계, 외심·내심 모두.
+        // ── 문제 은행: 게임 판과 같은 Gen.Next · Gen.MakeBridge · Words 로 만든다(별도 시험지 아님).
+        //    1단계(거리)·다리 단계(거리가 같은 점 → 이등분선)·2단계(작도: 화면 발문 + 교과서형 「변 AB와 변 BC의 수직이등분선을 그어 …」).
         void BuildBank()
         {
             var r = new System.Random(777);
             var seen = new HashSet<string>();
-            AddBank(Gen.First(), seen);
-            for (int k = 0; k < 4000 && bank.Count < 420; k++)
+            AddBank(Gen.First(), -1, seen);
+            for (int k = 0; k < 6000 && bank.Count < 460; k++)
             {
-                int stage = k % 3 == 2 ? 2 : 1;
-                var p = gen.Next(stage, stage == 1 ? 1 + k % 6 : k % 6, r);
-                AddBank(p, seen);
+                int kind = k % 5;
+                if (kind == 0 || kind == 1) AddBank(gen.Next(1, 1 + k % 6, r), -1, seen);
+                else if (kind == 2) AddBank(gen.MakeBridge(k % 2 == 0 ? Mission.Circum : Mission.In, r), -1, seen);
+                else { var p = gen.Next(2, k % 6, r); AddBank(p, kind == 3 ? -1 : r.Next(3), seen); }
             }
         }
 
-        void AddBank(Prob p, HashSet<string> seen)
+        void AddBank(Prob p, int variant, HashSet<string> seen)
         {
-            string prompt = Words.Prompt(p);
+            string prompt = Words.Prompt(p, variant);
             if (!seen.Add(prompt)) return;
             bank.Add(new MgfProblem
             {
                 id = "w" + (bank.Count + 1),
                 prompt = prompt,
                 choices = null,
-                answer = Words.Answer(p),
+                answer = Words.Answer(p, variant),
                 answerNumeric = Words.Numeric(p),
                 unitConcept = Words.Concept(p)
             });
@@ -140,7 +153,11 @@ namespace Mgf.WonJjigeo
                 ra[i] = Line("RightAngle" + i, 0.035f, 3, false);
                 tk[i] = Line("Tick" + i, 0.045f, 2, false);
                 lbl[i] = FlatText("", 3.4f, Cream);
-                vLabels[i] = FlatText(Geo.Names[i], 4.2f, Cream);
+                vLabels[i] = FlatText(Geo.Names[i], 4.4f, Ink);
+                vLabels[i].outlineColor = new Color32(246, 238, 222, 255); vLabels[i].outlineWidth = 0.28f;
+                lblPill[i] = Line("LenPill" + i, 0.3f, 2, false);
+                lblPill[i].numCapVertices = 5;
+                SetColor(lblPill[i], new Color(0.1f, 0.075f, 0.06f, 0.72f));
                 ripples[i] = Line("Ripple" + i, 0.05f, 33, true);
             }
             groove = Line("Groove", 0.09f, 97, true);
@@ -151,7 +168,6 @@ namespace Mgf.WonJjigeo
             pulseRing = Line("Pulse", 0.07f, 49, true);
             onbPath = Line("OnbPath", 0.11f, 24, false, dashMat);
             targetRing = Line("Target", 0.04f, 25, true);
-            ghostArc = Line("GhostArc", 0.12f, 24, false, dashMat);
             revealText = FlatText("", 4.2f, Cream);
             centerLetter = FlatText("O", 4f, Match);
             var sh = MgfLook.Prim(PrimitiveType.Quad, "Shimmer", Vector3.zero, Vector3.one * 0.9f, glowMat, world, false);
@@ -162,6 +178,8 @@ namespace Mgf.WonJjigeo
             pg.transform.rotation = Quaternion.Euler(90, 0, 0);
             pg.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             pinGlow = pg.transform; pg.SetActive(false);
+            BuildConsViz();
+            BuildBridgeFx();
         }
 
         // ─────────────────────────────── 화면 전환
@@ -171,7 +189,8 @@ namespace Mgf.WonJjigeo
             titleRoot.gameObject.SetActive(true);
             hudRoot.gameObject.SetActive(false);
             endRoot.gameObject.SetActive(false);
-            bestTxt.text = best > 0 ? $"최고 {best}장 · {bestScore}점" : "1단계 거리로 · 2단계 접어서";
+            bestTxt.text = best > 0 ? $"최고 {best}장 · {bestScore}점" : "1단계 거리로 · 2단계 작도로";
+            mIdx = MAll;
             foreach (var p in pins) p.root.SetActive(false);
             demoProb = Gen.First();
             if (demoPlate == null) demoPlate = TakePlate();
@@ -188,9 +207,11 @@ namespace Mgf.WonJjigeo
         {
             FinishRound();
             StopAllCoroutines();
-            roundCo = null; unlockCo = null; roundPending = false; unlocking = false;
-            st.score = 0; st.lives = Rules.Lives; st.level = 1; st.stage = 1; st.solved = 0; st.combo = 0; st.maxCombo = 0;
-            st.plates = 0; st.attempts = 0; st.firstTry = 0; st.red = false; st.creases = 0;
+            roundCo = null; roundPending = false; foldCo = null; clampCo = null; ghostCo = null; bridgeCo = null;
+            step = Step.Dist;
+            st.score = 0; st.lives = Rules.Lives; st.level = 1; st.stage = "1"; st.solved = 0; st.combo = 0; st.maxCombo = 0;
+            st.plates = 0; st.attempts = 0; st.firstTry = 0; st.red = false; st.dots = 0; st.lines.Clear(); st.taps = "";
+            ghostPlays = 0; bridgeIdx = 0; bridgeDone = false; att2 = 0; ok2 = 0;
             st.phase = "playing";
             Time.timeScale = 1f; hitStop = 0;
             shownScore = 0; shownScoreInt = -1; lastGaugeKey = "";
@@ -207,7 +228,7 @@ namespace Mgf.WonJjigeo
             curPlate = null;
             ResetClamps();
             cur = null;
-            ClearFolds();
+            ClearBuild(); HideBridge(); StopFoldFx(); HideCard();
             HideRoundFx();
             for (int i = 0; i < 3; i++) { pins[i].bent = false; SetPinMat(pins[i], brassMat); pins[i].root.SetActive(true); pins[i].body.localRotation = Quaternion.identity; }
             curPin = null;
@@ -218,12 +239,14 @@ namespace Mgf.WonJjigeo
 
         void EndGame()
         {
-            bool done = st.lives > 0 && st.stage == 2 && idx >= Rules.Stage2Plates;
+            bool done = st.lives > 0 && step == Step.Build && idx >= Rules.Stage2Plates;
             st.phase = done ? "clear" : "gameover";
             MgfBridge.NotifyChanged();
         }
 
         float Accuracy => st.attempts > 0 ? (float)st.firstTry / st.attempts : 0f;
+        int att2, ok2;   // 2단계만의 첫 시도(승리 연출 조건)
+        float Accuracy2 => att2 > 0 ? (float)ok2 / att2 : 0f;
 
         void ShowEnd()
         {
@@ -231,16 +254,18 @@ namespace Mgf.WonJjigeo
             endRoot.gameObject.SetActive(true);
             bannerBg.gameObject.SetActive(false);
             hintTxt.text = "";
+            HideCard(); StopGhost(); ClearBuild(); HideBridge();
             HideMeasure();
-            bool victory = st.phase == "clear" && Accuracy >= Rules.ClearAccuracy;
+            bool victory = st.phase == "clear" && Accuracy >= Rules.ClearAccuracy && Accuracy2 >= Rules.ClearAccuracy;
             bool newBest = st.plates > best || (st.plates == best && st.score > bestScore && st.plates > 0);
-            if (newBest) { best = st.plates; bestScore = st.score; PlayerPrefs.SetInt("wonjjigeo.v2.best", best); PlayerPrefs.SetInt("wonjjigeo.v2.bestScore", bestScore); PlayerPrefs.Save(); }
-            endTitle.text = st.phase == "gameover" ? "핀이 모두 굽었다" : victory ? "완주 · 두 단계 모두 각인" : "완주 · 첫 시도 정답률이 낮다";
+            if (newBest) { best = st.plates; bestScore = st.score; PlayerPrefs.SetInt("wonjjigeo.v3.best", best); PlayerPrefs.SetInt("wonjjigeo.v3.bestScore", bestScore); PlayerPrefs.Save(); }
+            endTitle.text = st.phase == "gameover" ? "핀이 모두 굽었다" : victory ? "완주 · 두 단계 모두 각인"
+                : Accuracy2 < Rules.ClearAccuracy ? "완주 · 작도 선 고르기가 흔들렸다" : "완주 · 첫 시도 정답률이 낮다";
             endCountT = 0; endShownAt = Time.time; shownScoreInt = -1;
             endPlates.text = $"각인 {st.plates}장";
             endScore.text = "";
             endCombo.text = st.attempts == 0 ? "외심은 세 꼭짓점, 내심은 세 변까지 거리가 같다"
-                : $"첫 시도 정답 {st.firstTry}/{st.attempts} · 최대 연속 {st.maxCombo}" + (st.stage == 1 ? "\n2단계(필름 접기)는 외심·내심을 2번씩 연속으로 맞히면 열린다" : "");
+                : $"첫 시도 정답 {st.firstTry}/{st.attempts} · 최대 연속 {st.maxCombo}" + (step == Step.Dist ? "\n2단계(작도)는 외심·내심을 2번씩 연속으로 맞히면 열린다" : "");
             endBest.text = newBest && st.plates > 0 ? "최고 기록 갱신" : best > 0 ? $"최고 {best}장" : "";
             Play(victory ? clUnlock : st.phase == "gameover" ? clThunk : clChime, 0.7f);
             if (victory) MgfFx.Glow(new Vector3(0, 1f, 0), Match, 24, 0.8f);
@@ -250,7 +275,8 @@ namespace Mgf.WonJjigeo
         void SpawnPlate(Prob p)
         {
             cur = p;
-            st.mission = p.Center; st.level = st.stage;
+            st.mission = p.bridge ? (p.m == Mission.Circum ? "외심 다리" : "내심 다리") : p.Center;
+            st.level = step == Step.Dist ? 1 : step == Step.Bridge ? 2 : 3;
             st.tri = $"{p.V[0].x},{p.V[0].y},{p.V[1].x},{p.V[1].y},{p.V[2].x},{p.V[2].y}";
             curPlate = TakePlate();
             ShapePlate(curPlate, p.V);
@@ -260,8 +286,10 @@ namespace Mgf.WonJjigeo
             curPlate.go.transform.localScale = Vector3.one;
             curPlate.go.transform.position = curPlate.pivot + Vector3.down * 0.3f;
             plateEnterT = 0f;
+            ClearBuild();
+            HideBridge();
+            StopFoldFx();
             ShowPlateMarks();
-            ClearFolds();
             // 핀: 트레이의 첫 성한 핀이 출발점으로 올라온다
             curPin = FirstFreePin();
             pinPos = pinTarget = RP.Of(Rules.Start);
@@ -269,25 +297,41 @@ namespace Mgf.WonJjigeo
             riseFrom = SlotPos(curPin.slot) + Vector3.up * 0.18f;
             PlacePinsInTray();
             plateT = 0; lastAlarmSec = -1;
-            plateLimit = p.tutorial && st.stage == 1 ? 0f : st.stage == 1 ? Rules.T1 : Rules.T2;   // 0 = 무제한
-            tutRetries = 0; attemptCounted = false; idleT = 0;
+            // 0 = 무제한: 다리 단계(학습)·안내 명판(1단계 첫 외심·첫 내심, 2단계 첫 외심·첫 내심)
+            plateLimit = step == Step.Bridge || p.tutorial ? 0f : step == Step.Dist ? Rules.T1 : Rules.T2;
+            tutRetries = 0; attemptCounted = false; idleT = 0; tapsSet = false; st.taps = "";
             for (int i = 0; i < 3; i++) shownH[i] = -1;
             st.red = false; st.px = pinPos.Lattice.x; st.py = pinPos.Lattice.y;
-            badgeBig.text = p.Center;
             badgeBig.outlineColor = p.m == Mission.Circum ? new Color32(31, 107, 90, 255) : new Color32(120, 60, 20, 255);
-            badgeSub.text = st.stage == 1 ? $"△ABC의 {p.Center} {p.Letter}를 찾으시오" : $"필름을 접어 {p.Center} {p.Letter}를 찾으시오";
+            if (step == Step.Bridge)
+            {
+                badgeBig.text = "같은 거리";
+                badgeSub.text = p.m == Mission.Circum ? "A, B에서 거리가 같은 점 3개" : "변 AB, AC에서 거리가 같은 점 3개";
+            }
+            else
+            {
+                badgeBig.text = p.Center;
+                badgeSub.text = step == Step.Dist ? $"△ABC의 {p.Center} {p.Letter}를 찾으시오" : $"선 두 개를 그어 {p.Center} {p.Letter}를 찾으시오";
+            }
             MgfFx.Punch(badgeRt, 0.12f, 0.3f);
-            measureOn = st.stage == 1;
+            mIdx = step == Step.Bridge ? (p.m == Mission.Circum ? MAB : MAC) : MAll;
+            measureOn = step != Step.Build;
             feedbackMode = false;
-            if (measureOn) UpdateMeasure(true); else HideMeasure();
-            RefreshFoldGauge();
+            lastGaugeKey = "";
+            plantTxt.text = step == Step.Bridge ? "점 찍기" : "핀 박기";
+            if (step == Step.Bridge) SetupBridgePlate();
+            if (step == Step.Build) { LayoutHandles(); ShowTrace(true); }
+            if (measureOn) UpdateMeasure(true); else { HideMeasure(); RefreshBuildGauge(); }
             // 안내
-            if (st.stage == 1 && idx == 0) { onb = 0; ShowBanner("핀을 끌어 옮겨라 · 세 꼭짓점까지의 길이가 따라 바뀐다", 0); }
-            else if (st.stage == 1 && p.tutorial) ShowBanner("내심: 핀에서 세 변까지의 거리가 모두 같아지는 점", 0);
-            else if (st.stage == 2 && p.tutorial && p.m == Mission.Circum) ShowBanner("꼭짓점을 끌어 다른 꼭짓점에 포개면 → 두 꼭짓점에서 거리가 같은 주름", 0);
-            else if (st.stage == 2 && p.tutorial) ShowBanner("변을 끌어 이웃한 변에 포개면 → 두 변에서 거리가 같은 주름", 0);
+            if (step == Step.Dist && idx == 0) { onb = 0; ShowBanner("핀을 끌어 옮겨라 · 세 꼭짓점까지의 길이가 따라 바뀐다", 0); }
+            else if (step == Step.Dist && p.tutorial) ShowBanner("내심: 핀에서 세 변까지의 거리가 모두 같아지는 점", 0);
+            else if (step == Step.Bridge && p.m == Mission.Circum) ShowBanner("A, B에서 거리가 같은 점을 3개 찾아 찍어라\nPA=PB가 되면 선이 초록으로 바뀐다", 0);
+            else if (step == Step.Bridge) ShowBanner("두 변 AB, AC에서 거리가 같은 점을 3개 찾아 찍어라\n두 거리가 같아지면 선이 초록으로 바뀐다", 0);
+            else if (step == Step.Build && p.tutorial && p.m == Mission.Circum) ShowBanner("외심 = 세 변의 수직이등분선의 교점\n변을 누르면 그 변의 수직이등분선이 그어진다", 0);
+            else if (step == Step.Build && p.tutorial) ShowBanner("내심 = 세 내각의 이등분선의 교점\n꼭짓점을 누르면 그 각의 이등분선이 그어진다", 0);
             else if (bannerT == 0 && bannerBg.gameObject.activeSelf) bannerBg.gameObject.SetActive(false);
-            st.onboarding = st.stage == 1 && idx == 0;
+            if (step == Step.Build && p.tutorial) StartGhost();
+            st.onboarding = step == Step.Dist && idx == 0;
             hintTxt.text = "";
             MgfBridge.NotifyChanged();
         }
@@ -295,11 +339,18 @@ namespace Mgf.WonJjigeo
         /// <summary>명판 위 표시: 꼭짓점 이름(삼각형 바깥쪽)·직각 표시.</summary>
         void ShowPlateMarks()
         {
-            float cx = (cur.V[0].x + cur.V[1].x + cur.V[2].x) / 3f, cy = (cur.V[0].y + cur.V[1].y + cur.V[2].y) / 3f;
             for (int i = 0; i < 3; i++)
             {
-                var d = new Vector2(cur.V[i].x - cx, cur.V[i].y - cy).normalized;
-                vLabels[i].transform.position = GW(cur.V[i].x + d.x * 0.95f, cur.V[i].y + d.y * 0.95f, LineY + 0.01f);
+                // 이름표: 그 꼭짓점의 각을 반으로 나눈 방향의 반대쪽(삼각형 바깥) — 둔각에서도 변과 겹치지 않는다. 판 안으로 당긴다.
+                var u = cur.V[(i + 1) % 3] - cur.V[i]; var w = cur.V[(i + 2) % 3] - cur.V[i];
+                var d = -(new Vector2(u.x, u.y).normalized + new Vector2(w.x, w.y).normalized).normalized;
+                float off = cur.bridge && cur.m == Mission.Circum && i < 2 ? 1.3f : 0.95f;   // 외심 다리의 A·B 고리와 겹치지 않게
+                var pos = GW(cur.V[i].x + d.x * off, cur.V[i].y + d.y * off, LineY + 0.01f);
+                pos.x = Mathf.Clamp(pos.x, -FX + 0.3f, FX - 0.3f); pos.z = Mathf.Clamp(pos.z, -FZ + 0.3f, FZ - 0.3f);
+                vLabels[i].transform.position = pos;
+                // 외심 다리에서는 C 를 흐리게(A·B 만 쓴다)
+                bool dim = cur.bridge && cur.m == Mission.Circum && i == 2;
+                vLabels[i].color = dim ? new Color(Ink.r, Ink.g, Ink.b, 0.3f) : Ink;
                 vLabels[i].gameObject.SetActive(true);
             }
             rightMark.gameObject.SetActive(false);
@@ -381,17 +432,20 @@ namespace Mgf.WonJjigeo
             if (!pinReady || busy || roundPending) return;
             if (!stepping && !pinPos.SameAs(pinTarget))
             {
-                pinNext = NextStep();
+                // 2단계: 핀은 학생이 그은 두 선의 교점으로 한 번에 폴짝 옮겨 선다(격자 훑기가 없으니 걸음 상한이 필요 없다)
+                pinNext = step == Step.Build ? pinTarget : NextStep();
                 stepFrom = PW(pinPos, FilmY); stepTo = PW(pinNext, FilmY);
                 stepT = 0; stepping = true;
+                hopRate = step == Step.Build ? 1f / (0.26f + 0.025f * Vector3.Distance(stepFrom, stepTo) / CELL) : Rules.StepRate;
             }
             if (stepping)
             {
-                stepT += dt * Rules.StepRate;
+                stepT += dt * hopRate;
                 if (stepT >= 1f) { stepT = 1f; stepping = false; pinPos = pinNext; OnArrive(); }
             }
             float e = stepping ? stepT * stepT * (3 - 2 * stepT) : 1f;
-            var pos = stepping ? Vector3.Lerp(stepFrom, stepTo, e) + Vector3.up * Mathf.Sin(stepT * Mathf.PI) * 0.12f : PW(pinPos, FilmY);
+            float hopH = step == Step.Build ? 0.35f + 0.04f * Vector3.Distance(stepFrom, stepTo) : 0.12f;
+            var pos = stepping ? Vector3.Lerp(stepFrom, stepTo, e) + Vector3.up * Mathf.Sin(stepT * Mathf.PI) * hopH : PW(pinPos, FilmY);
             t.position = pos;
             float lean = stepping ? 9f : 0f;
             var dir = stepTo - stepFrom;
@@ -404,30 +458,45 @@ namespace Mgf.WonJjigeo
             var lp = pinPos.IsLattice ? pinPos.Lattice : new IP(Mathf.RoundToInt((float)pinPos.fx), Mathf.RoundToInt((float)pinPos.fy));
             st.px = lp.x; st.py = lp.y;
             if (pinPos.SameAs(pinTarget)) targetRing.gameObject.SetActive(false);
+            if (step == Step.Build && pinPos.SameAs(pinTarget)) { Play(clSeat, 0.45f); RefreshBuildGauge(); }
             if (measureOn) UpdateMeasure(false);
             // 안내 명판: 세 길이가 같아지는 격자점에 닿으면 그 칸에서 멈춘다(정답을 스쳐 지나가 「같다」 배너만 남는 일 방지)
-            if (st.red && cur != null && cur.tutorial && st.stage == 1 && !pinPos.SameAs(pinTarget))
+            if (st.red && cur != null && cur.tutorial && step == Step.Dist && !pinPos.SameAs(pinTarget))
             {
                 pinTarget = pinPos; targetRing.gameObject.SetActive(false);
                 if (press == Press.Pin) press = Press.None;   // 끌던 손가락이 계속 끌어도 이 명판에선 멈춘 자리를 지킨다
             }
-            if (onb == 0 && st.stage == 1 && idx == 0 && !pinPos.Is(Rules.Start)) { onb = 1; ShowBanner("세 길이가 모두 같아지는 점을 찾아라 · 같아지면 빨개진다", 0); }
+            if (onb == 0 && step == Step.Dist && idx == 0 && !pinPos.Is(Rules.Start)) { onb = 1; ShowBanner("세 길이가 모두 같아지는 점을 찾아라 · 같아지면 빨개진다", 0); }
             MgfBridge.NotifyChanged();
         }
 
         Vector3 PinTipWorld() => curPin != null ? curPin.root.transform.position : Vector3.zero;
 
-        // ─────────────────────────────── 측정 선(1단계·오답 연출)
-        /// <summary>핀이 격자점에 설 때: 세 길이(표시용 정수 반올림)와 정확한 같음(정수 판정)을 갱신한다. 문자열은 값이 바뀔 때만 만든다.</summary>
+        // ─────────────────────────────── 측정 선(1단계·다리 단계·오답 연출)
+        bool UsedIdx(int i) { foreach (var k in mIdx) if (k == i) return true; return false; }
+
+        /// <summary>핀이 격자점에 설 때: 길이(표시용 정수 반올림)와 정확한 같음(정수 판정)을 갱신한다. 문자열은 값이 바뀔 때만 만든다.</summary>
         void UpdateMeasure(bool force)
         {
             if (cur == null) return;
             var mode = cur.m;
-            bool changed = force;
-            for (int i = 0; i < 3; i++)
+            for (int k = 0; k < mIdx.Length; k++)
             {
+                int i = mIdx[k];
                 long h = cur.DistH(pinPos, i, mode);
-                if (h != shownH[i]) { shownH[i] = h; lbl[i].text = Geo.Fmt(h); gVal[i].text = Geo.Fmt(h); changed = true; }
+                if (h != shownH[i] || force)
+                {
+                    shownH[i] = h; lbl[i].text = Geo.Fmt(h); gVal[k].text = Geo.Fmt(h);
+                    var sz = lbl[i].GetPreferredValues(lbl[i].text); lblH[i] = sz.y; lblHalf[i] = Mathf.Max(0.01f, sz.x * 0.5f - sz.y * 0.2f);
+                }
+            }
+            if (step == Step.Bridge && !feedbackMode && st.phase != "title")
+            {
+                UpdateBridgeEq();
+                st.red = false;
+                PaintMeasure();
+                for (int i = 0; i < 3; i++) lbl[i].gameObject.SetActive(measureOn && UsedIdx(i));
+                return;
             }
             for (int i = 0; i < 3; i++) pairEq[i] = cur.EqualPair(pinPos, i, (i + 1) % 3, mode);
             bool red = pairEq[0] && pairEq[1];
@@ -437,18 +506,23 @@ namespace Mgf.WonJjigeo
                 redT = 0; Play(clMatch, 0.75f); camPush = 1f;
                 MgfFx.Glow(PinTipWorld() + Vector3.up * 0.1f, Match, 8, 0.35f);
                 MgfFx.Punch(gaugeRt, 0.08f, 0.25f);
-                if (onb <= 1 && st.stage == 1 && idx == 0) { onb = 2; ShowBanner("세 꼭짓점까지 거리가 같다! 「핀 박기」를 눌러라", 0); }
+                if (onb <= 1 && step == Step.Dist && idx == 0) { onb = 2; ShowBanner("세 꼭짓점까지 거리가 같다! 「핀 박기」를 눌러라", 0); }
             }
             // 빨간 상태에서 벗어났으면 첫 명판 안내도 「찾아라」로 되돌린다 — 「같다」 배너가 거짓으로 남지 않게
-            if (!red && st.red && onb == 2 && st.stage == 1 && idx == 0 && !feedbackMode && st.phase != "title")
+            if (!red && st.red && onb == 2 && step == Step.Dist && idx == 0 && !feedbackMode && st.phase != "title")
             { onb = 1; ShowBanner("세 길이가 모두 같아지는 점을 찾아라 · 같아지면 빨개진다", 0); }
             st.red = red;
-            if (changed || true) PaintMeasure();
+            PaintMeasure();
             for (int i = 0; i < 3; i++) { lbl[i].gameObject.SetActive(measureOn); }
         }
 
         Color LineColor(int i)
         {
+            if (step == Step.Bridge && !feedbackMode)
+            {
+                if (wobT < 0.6f) return Amber;
+                return bridgeGreen ? Pair : bridgeOutside ? Amber : new Color(Cream.r, Cream.g, Cream.b, 0.92f);
+            }
             if (st.red) return Match;
             bool pe = pairEq[i] || pairEq[(i + 2) % 3];   // 선 i 가 들어간 두 쌍: (i,i+1), (i-1,i)
             if (feedbackMode) return pe ? Pair : Amber;
@@ -457,30 +531,53 @@ namespace Mgf.WonJjigeo
 
         void PaintMeasure()
         {
-            string[] names = cur.m == Mission.Circum ? new[] { "PA", "PB", "PC" } : new[] { "변 AB까지", "변 BC까지", "변 CA까지" };
-            string key = cur.m + "" + st.stage;
+            GaugeList(false);
+            string key = cur.m + "" + step + (cur.bridge ? "b" : "");
             if (key != lastGaugeKey)
             {
                 lastGaugeKey = key;
-                for (int i = 0; i < 3; i++) gName[i].text = names[i];
-                gaugeHead.text = cur.m == Mission.Circum ? "점 P에서 세 꼭짓점까지의 거리(모눈 칸)" : "점 P에서 세 변까지의 거리(모눈 칸)";
+                if (step == Step.Bridge)
+                {
+                    gName[0].text = cur.m == Mission.Circum ? "PA" : "변 AB까지"; gName[1].text = cur.m == Mission.Circum ? "PB" : "변 AC까지"; gName[2].text = "발자국";
+                }
+                else
+                {
+                    string[] names = cur.m == Mission.Circum ? new[] { "PA", "PB", "PC" } : new[] { "변 AB까지", "변 BC까지", "변 CA까지" };
+                    for (int i = 0; i < 3; i++) gName[i].text = names[i];
+                }
+                gaugeHead.text = MeasureHead();
             }
-            for (int i = 0; i < 3; i++)
+            for (int k = 0; k < mIdx.Length; k++)
             {
+                int i = mIdx[k];
                 var c = LineColor(i);
                 SetColor(gl[i], c); SetColor(ra[i], c); SetColor(ext[i], new Color(c.r, c.g, c.b, 0.6f));
                 lbl[i].color = st.red ? new Color(1f, 0.85f, 0.8f) : c;
-                gVal[i].color = st.red ? new Color(1f, 0.5f, 0.42f) : c;
-                gBar[i].color = c;
+                gVal[k].color = st.red ? new Color(1f, 0.5f, 0.42f) : c;
+                gBar[k].color = c;
+            }
+            if (step == Step.Bridge && !feedbackMode)
+            {
+                gVal[2].text = $"{dots.Count}/{Rules.BridgeDots}";
+                gVal[2].color = dots.Count > 0 ? Pair : new Color(1, 1, 1, 0.5f);
+                gBar[2].color = dots.Count > 0 ? Pair : new Color(1, 1, 1, 0.15f);
+                gaugeHead.text = bridgeGreen ? (cur.m == Mission.Circum ? "PA = PB · 「점 찍기」를 눌러라" : "두 변까지 거리가 같다 · 「점 찍기」를 눌러라")
+                    : bridgeOutside ? "∠A의 바깥이다 · 두 변 사이에서 찾아라" : MeasureHead();
+                return;
             }
             if (st.red) gaugeHead.text = cur.m == Mission.Circum ? "PA = PB = PC  세 꼭짓점까지 거리가 같다" : "세 변까지 거리가 같다";
-            else if (cur.m == Mission.Circum && gaugeHead.text.StartsWith("PA =")) gaugeHead.text = "점 P에서 세 꼭짓점까지의 거리(모눈 칸)";
-            else if (cur.m == Mission.In && gaugeHead.text.StartsWith("세 변")) gaugeHead.text = "점 P에서 세 변까지의 거리(모눈 칸)";
+            else if (!feedbackMode) gaugeHead.text = MeasureHead();
+        }
+
+        string MeasureHead()
+        {
+            if (step == Step.Bridge) return cur.m == Mission.Circum ? "점 P에서 두 꼭짓점 A, B까지의 거리(모눈 칸)" : "점 P에서 두 변 AB, AC까지의 거리(모눈 칸)";
+            return cur.m == Mission.Circum ? "점 P에서 세 꼭짓점까지의 거리(모눈 칸)" : "점 P에서 세 변까지의 거리(모눈 칸)";
         }
 
         void HideMeasure()
         {
-            for (int i = 0; i < 3; i++) { gl[i].gameObject.SetActive(false); ext[i].gameObject.SetActive(false); ra[i].gameObject.SetActive(false); tk[i].gameObject.SetActive(false); lbl[i].gameObject.SetActive(false); }
+            for (int i = 0; i < 3; i++) { gl[i].gameObject.SetActive(false); ext[i].gameObject.SetActive(false); ra[i].gameObject.SetActive(false); tk[i].gameObject.SetActive(false); lbl[i].gameObject.SetActive(false); lblPill[i].gameObject.SetActive(false); }
             pinGlow.gameObject.SetActive(false);
             measureOn = false;
         }
@@ -491,8 +588,15 @@ namespace Mgf.WonJjigeo
             if (!measureOn || cur == null) return;
             var P = new Vector3(tip.x, LineY, tip.z);
             float pulse = st.red ? 1f + 0.35f * Mathf.Sin(redT * 14f) * Mathf.Exp(-redT * 2.5f) : 1f;
+            bool bridgeMode = step == Step.Bridge && !feedbackMode;
+            float wob = bridgeMode && wobT < 0.6f ? Mathf.Sin(wobT * 38f) * 0.12f * (1f - wobT / 0.6f) : 0f;
             for (int i = 0; i < 3; i++)
             {
+                if (!UsedIdx(i))
+                {
+                    gl[i].gameObject.SetActive(false); ext[i].gameObject.SetActive(false); ra[i].gameObject.SetActive(false); tk[i].gameObject.SetActive(false); lbl[i].gameObject.SetActive(false); lblPill[i].gameObject.SetActive(false);
+                    continue;
+                }
                 Vector3 end;
                 ext[i].gameObject.SetActive(false); ra[i].gameObject.SetActive(false);
                 if (cur.m == Mission.Circum) end = IW(cur.V[i], LineY);
@@ -520,19 +624,23 @@ namespace Mgf.WonJjigeo
                     }
                 }
                 gl[i].SetPosition(0, P); gl[i].SetPosition(1, end);
-                gl[i].widthMultiplier = (st.red ? 0.08f : 0.05f) * pulse;
+                gl[i].widthMultiplier = (st.red || (bridgeMode && bridgeGreen) ? 0.08f : 0.05f) * pulse;
                 gl[i].gameObject.SetActive(true);
-                // 길이 글자: 선의 가운데에서 선에 수직으로 조금 비켜서
+                // 길이 글자: 선의 가운데에서 선에 수직으로 조금 비켜서(다리 단계 오답이면 좌우로 흔들린다)
                 var mid = (P + end) * 0.5f; var d = end - P; float len = d.magnitude;
                 if (len > 0.45f)
                 {
                     var n = new Vector3(-d.z, 0, d.x) / len;
                     if (Vector3.Dot(n, mid - new Vector3(0, 0, -2)) < 0) n = -n;
-                    lbl[i].transform.position = mid + n * 0.3f + Vector3.up * 0.02f;
+                    var lp = mid + n * 0.34f + Vector3.up * 0.02f + Vector3.right * wob;
+                    lbl[i].transform.position = lp;
                     lbl[i].gameObject.SetActive(true);
+                    lblPill[i].widthMultiplier = lblH[i] + 0.06f;
+                    lblPill[i].SetPosition(0, lp + new Vector3(-lblHalf[i], -0.01f, 0)); lblPill[i].SetPosition(1, lp + new Vector3(lblHalf[i], -0.01f, 0));
+                    if (!lblPill[i].gameObject.activeSelf) lblPill[i].gameObject.SetActive(true);
                 }
-                else lbl[i].gameObject.SetActive(false);
-                bool eq = st.red || pairEq[i] || pairEq[(i + 2) % 3];
+                else { lbl[i].gameObject.SetActive(false); lblPill[i].gameObject.SetActive(false); }
+                bool eq = bridgeMode ? bridgeGreen : st.red || pairEq[i] || pairEq[(i + 2) % 3];
                 if (eq && len > 0.3f) TickAt(tk[i], P, end, 1, LineColor(i)); else tk[i].gameObject.SetActive(false);
             }
             pinGlow.gameObject.SetActive(st.red);
@@ -555,22 +663,6 @@ namespace Mgf.WonJjigeo
             t.gameObject.SetActive(true);
         }
 
-        // ─────────────────────────────── 2단계 계기판: 주름 기록
-        void RefreshFoldGauge()
-        {
-            if (st.stage != 2 || cur == null) return;
-            lastGaugeKey = "fold";
-            gaugeHead.text = $"주름 {creases.Count}/{Rules.MaxCreases} · 두 주름이 만나는 점에 핀을 옮겨 박아라";
-            for (int i = 0; i < 3; i++)
-            {
-                gName[i].text = $"주름 {i + 1}";
-                bool has = i < creases.Count;
-                gVal[i].text = has ? creases[i].name : "·";
-                gVal[i].color = has ? Cream : new Color(1, 1, 1, 0.3f);
-                gBar[i].color = has ? (creases[i].perp ? VerdLit : Amber) : new Color(1, 1, 1, 0.12f);
-            }
-        }
-
         // ─────────────────────────────── 매 프레임
         void Update()
         {
@@ -582,6 +674,9 @@ namespace Mgf.WonJjigeo
             dashMat.mainTextureOffset = new Vector2(-Time.time * 1.6f, 0);
             UpdateRipples(dt);
             UpdateWiggles(dt);
+            UpdateConsViz(dt);
+            UpdateBridgeFx(dt);
+            UpdateCard(dt);
 
             // 소프트웨어 렌더러: 타이틀(궤도 카메라로 넓게 보이는 화면)에서는 그림자를 끄고, 플레이에서만 단단한 그림자
             if (MgfBridge.LowGfx) { var want = st.phase == "title" ? LightShadows.None : LightShadows.Hard; if (keyLight.shadows != want) keyLight.shadows = want; }
@@ -598,7 +693,7 @@ namespace Mgf.WonJjigeo
             if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) bannerBg.gameObject.SetActive(false); }
 
             // 명판 제한 시간(연출 중·해금 연출 중·무제한 명판은 흐르지 않는다)
-            if (!busy && !roundPending && !unlocking && plateLimit > 0 && pinReady)
+            if (!busy && !roundPending && plateLimit > 0 && pinReady)
             {
                 plateT += dt;
                 int left = Mathf.CeilToInt(plateLimit - plateT);
@@ -614,6 +709,9 @@ namespace Mgf.WonJjigeo
                 DrawMeasure(tip, tip.x / CELL, tip.z / CELL);
             }
             UpdateOnboarding(dt);
+            UpdateHandles();
+            UpdateTaps();
+            UpdateGhostIdle();
             idleT += dt;
         }
 
@@ -703,12 +801,12 @@ namespace Mgf.WonJjigeo
 
         void PlayInput()
         {
-            // 키보드(데스크톱): 방향키로 한 칸, 스페이스·엔터로 박기
-            if (pinReady && !busy && !roundPending && !folding)
+            // 키보드(데스크톱): 방향키로 한 칸(1단계·다리 단계), 스페이스·엔터로 박기/찍기
+            if (pinReady && !busy && !roundPending)
             {
                 int kx = (Input.GetKeyDown(KeyCode.RightArrow) ? 1 : 0) - (Input.GetKeyDown(KeyCode.LeftArrow) ? 1 : 0);
                 int ky = (Input.GetKeyDown(KeyCode.UpArrow) ? 1 : 0) - (Input.GetKeyDown(KeyCode.DownArrow) ? 1 : 0);
-                if (kx != 0 || ky != 0)
+                if ((kx != 0 || ky != 0) && step != Step.Build)
                 {
                     var b = pinTarget.IsLattice ? pinTarget.Lattice : new IP(Mathf.RoundToInt((float)pinTarget.fx), Mathf.RoundToInt((float)pinTarget.fy));
                     SetTarget(RP.Of(new IP(Mathf.Clamp(b.x + kx, -Rules.GX, Rules.GX), Mathf.Clamp(b.y + ky, -Rules.GY, Rules.GY))));
@@ -724,19 +822,19 @@ namespace Mgf.WonJjigeo
                     press = Press.PlantBtn; plantRt.localScale = Vector3.one * 0.92f; Play(clTick, 0.4f);
                     return;
                 }
-                if (busy || roundPending || unlocking) { Refuse(null, unlocking ? "필름 집게가 풀리는 중이다" : "원이 끝날 때까지 기다려라"); press = Press.None; return; }
-                if (foldBusy || !pinReady) { press = Press.None; if (PointerGrid(out _, out _, out var w0)) Ripple(w0); return; }
+                if (busy || roundPending) { Refuse(null, step == Step.Bridge ? "직선이 드러나는 중이다" : "원이 끝날 때까지 기다려라"); press = Press.None; return; }
+                if (!pinReady) { press = Press.None; if (PointerGrid(out _, out _, out var w0)) Ripple(w0); return; }
                 if (!PointerGrid(out double gx, out double gy, out var w)) { press = Press.None; return; }
                 if (!NearFilm(w))
                 {
                     press = Press.None; Ripple(w);
-                    hintTxt.text = "모눈 위를 누르면 핀이 그쪽으로 옮겨 간다"; Play(clRefuse, 0.35f);
+                    hintTxt.text = step == Step.Build ? "변을 누르면 수직이등분선 · 꼭짓점을 누르면 각의 이등분선" : "모눈 위를 누르면 핀이 그쪽으로 옮겨 간다";
+                    Play(clRefuse, 0.35f);
                     return;
                 }
-                var fk = FoldHandleAt(gx, gy, out pressIdx, out pX, out pY);
-                if (fk != FoldKind.None) { press = Press.Fold; pressFold = fk; folding = false; foldAng = 0; return; }
+                if (step == Step.Build) { press = Press.None; BuildTap(gx, gy, w); return; }
                 press = Press.Pin;
-                SetTarget(SnapTarget(gx, gy));
+                SetTarget(SnapLattice(gx, gy));
                 Ripple(w);
                 return;
             }
@@ -754,24 +852,15 @@ namespace Mgf.WonJjigeo
             if (!PointerGrid(out double hx, out double hy, out _)) return;
             if (press == Press.Pin)
             {
-                SetTarget(SnapTarget(hx, hy));
+                SetTarget(SnapLattice(hx, hy));
                 if (released) press = Press.None;
             }
-            else if (press == Press.Fold)
-            {
-                if (!folding && (MgfPointer.Position - downScreen).magnitude > 14f)
-                {
-                    folding = true; Play(clFold, 0.35f);
-                    if (st.stage == 2 && cur != null && cur.tutorial) ghostArc.gameObject.SetActive(false);
-                }
-                if (folding) UpdateFoldDrag(hx, hy);
-                if (released)
-                {
-                    press = Press.None;
-                    if (folding) EndFoldDrag();
-                    else { SetTarget(SnapTarget(hx, hy)); pressFold = FoldKind.None; }
-                }
-            }
+        }
+
+        static RP SnapLattice(double gx, double gy)
+        {
+            int x = Mathf.Clamp(Mathf.RoundToInt((float)gx), -Rules.GX, Rules.GX), y = Mathf.Clamp(Mathf.RoundToInt((float)gy), -Rules.GY, Rules.GY);
+            return RP.Of(new IP(x, y));
         }
 
         // 거절 연출(대상 좌우 흔들림 + 이유 한 문장 + 전용 거절음) — 화면 흔들림은 오답 전용이라 쓰지 않는다
@@ -821,9 +910,11 @@ namespace Mgf.WonJjigeo
         // ─────────────────────────────── 온보딩: 핀 위 맥동 링 + 핀에서 모눈 안쪽으로 흐르는 점선(정답 자리를 가리키지 않는다)
         void UpdateOnboarding(float dt)
         {
-            bool first = st.stage == 1 && idx == 0 && onb == 0 && pinReady && !busy;
-            bool pulseBtn = (st.stage == 1 && idx == 0 && onb == 2) || (st.red && cur != null && cur.tutorial);
-            st.onboarding = st.stage == 1 && idx == 0 && onb < 3;
+            bool first = step == Step.Dist && idx == 0 && onb == 0 && pinReady && !busy;
+            bool canPlant = step != Step.Build || markers.Count > 0;
+            bool pulseBtn = (step == Step.Dist && idx == 0 && onb == 2) || (st.red && cur != null && cur.tutorial && step == Step.Dist)
+                || (step == Step.Bridge && (bridgeGreen || bridgeDone)) || (step == Step.Build && markers.Count > 0 && PinAtMarker() && !stepping);
+            st.onboarding = step == Step.Dist && idx == 0 && onb < 3;
             pulseRing.gameObject.SetActive(first);
             onbPath.gameObject.SetActive(first);
             if (first)
@@ -843,50 +934,41 @@ namespace Mgf.WonJjigeo
                 onbPath.widthMultiplier = big ? 0.16f : 0.11f;
                 SetColor(onbPath, new Color(Cream.r, Cream.g, Cream.b, 0.95f));
             }
-            // 2단계 안내 명판: 포개는 동작의 유령 궤적(꼭짓점→꼭짓점, 변→변)
-            bool ghost = st.stage == 2 && cur != null && cur.tutorial && creases.Count == 0 && !folding && !busy && !foldBusy;
-            ghostArc.gameObject.SetActive(ghost);
-            if (ghost)
-            {
-                Vector3 a, b;
-                if (cur.m == Mission.Circum) { a = IW(cur.V[0], LineY); b = IW(cur.V[1], LineY); }
-                else
-                {
-                    a = GW((cur.V[0].x + cur.V[1].x) * 0.5, (cur.V[0].y + cur.V[1].y) * 0.5, LineY);
-                    b = GW((cur.V[0].x + cur.V[2].x) * 0.5, (cur.V[0].y + cur.V[2].y) * 0.5, LineY);
-                }
-                int n = ghostArc.positionCount;
-                float grow = Mathf.Repeat(Time.time * 0.7f, 1f);
-                for (int i = 0; i < n; i++)
-                {
-                    float k = (float)i / (n - 1) * grow;
-                    ghostArc.SetPosition(i, Vector3.Lerp(a, b, k) + Vector3.up * Mathf.Sin(k * Mathf.PI) * 1.1f);
-                }
-                SetColor(ghostArc, new Color(1f, 0.95f, 0.8f, 0.85f));
-            }
             // 박기 버튼 맥동(빨간색이 떴을 때 안내 명판에서만)
             float s = pulseBtn ? 1f + 0.06f * Mathf.Sin(Time.time * 9f) : 1f;
             if (press != Press.PlantBtn) plantRt.localScale = Vector3.Lerp(plantRt.localScale, Vector3.one * s, dt * 12f);
             plantShine.anchoredPosition = new Vector2(-220 + (Time.time % 2.2f) / 2.2f * 480f, 0);
-            plantFace.color = st.red && st.stage == 1 ? Hex("E4513A") : Hex("C8452F");
+            plantFace.color = !canPlant ? Hex("6E5046") : (st.red && step == Step.Dist) ? Hex("E4513A") : step == Step.Bridge ? (bridgeGreen || bridgeDone ? Hex("2E9C7C") : Hex("3B6F60")) : Hex("C8452F");
         }
 
         // ─────────────────────────────── 박기 → 판정 → 연출
-        void Plant()
+        void Plant() => Plant(false);
+
+        /// <summary>1단계·2단계 「핀 박기」, 다리 단계 「점 찍기」(→ Stamp). force = QA 오답 훅(교점이 판 밖일 때 출발점에 박기).</summary>
+        void Plant(bool force)
         {
-            if (st.phase != "playing" || cur == null || busy || roundPending || curPin == null || !pinReady || folding || foldBusy || unlocking) { if (st.phase == "playing" && (busy || roundPending)) Refuse(null, "원이 끝날 때까지 기다려라"); return; }
+            if (step == Step.Bridge) { Stamp(); return; }
+            if (st.phase != "playing" || cur == null || busy || roundPending || curPin == null || !pinReady) { if (st.phase == "playing" && (busy || roundPending)) Refuse(null, "원이 끝날 때까지 기다려라"); return; }
+            if (step == Step.Build && !force)
+            {
+                // 2단계: 학생이 그은 두 선의 교점에서만 박는다(교점이 없으면 무감점 안내)
+                if (markers.Count == 0) { Refuse(plantRt, lines.Count < 2 ? "선 두 개를 그어 교점을 만들어라" : "두 선이 판 밖에서 만난다 · 다른 선을 그어라"); return; }
+                if (!PinAtMarker()) { Refuse(plantRt, "교점 표식을 눌러 핀을 옮겨라"); return; }
+                if (stepping) { stepping = false; pinPos = pinTarget; curPin.root.transform.position = PW(pinPos, FilmY); }
+            }
             if (stepping) { stepping = false; }          // 걸음 도중이면 마지막으로 선 격자점에 박는다
+            StopGhost();
             pinTarget = pinPos; targetRing.gameObject.SetActive(false);
             bool ok = pinPos.Is(cur.ans);                  // 정수 판정: 핀 좌표 = 정답 격자점
             roundOk = ok;
             roundRetry = !ok && cur.tutorial && tutRetries < 2;
-            if (!attemptCounted) { attemptCounted = true; st.attempts++; if (ok) st.firstTry++; }
+            if (!attemptCounted) { attemptCounted = true; st.attempts++; if (ok) st.firstTry++; if (step == Step.Build) { att2++; if (ok) ok2++; } }
             if (roundRetry) { tutRetries++; st.combo = 0; }
             else if (ok)
             {
                 st.combo++; st.maxCombo = Mathf.Max(st.maxCombo, st.combo);
                 int left = plateLimit > 0 ? Mathf.Max(0, Mathf.CeilToInt(plateLimit - plateT)) : 0;
-                st.score += ((st.stage == 1 ? 100 : 150) + 5 * left + (concurrentBonus ? 50 : 0)) * Mathf.Min(3, st.combo);
+                st.score += ((step == Step.Dist ? 100 : 150) + 5 * left + (concurrentBonus ? 50 : 0)) * Mathf.Min(3, st.combo);
                 st.solved++; st.plates++;
                 if (tutRetries == 0) { if (cur.m == Mission.Circum) streakO++; else streakI++; }
             }
@@ -907,10 +989,10 @@ namespace Mgf.WonJjigeo
         void Timeout()
         {
             if (roundPending || busy || cur == null || curPin == null) return;
-            if (folding || foldBusy || press == Press.Fold) { press = Press.None; ClearFolds(); }   // 접는 도중 시간이 끝나면 접기를 취소
+            StopGhost(); StopFoldFx();
             stepping = false; pinTarget = pinPos;
             roundOk = false; roundRetry = false;
-            if (!attemptCounted) { attemptCounted = true; st.attempts++; }
+            if (!attemptCounted) { attemptCounted = true; st.attempts++; if (step == Step.Build) att2++; }
             st.combo = 0; curPin.bent = true; st.lives--;
             if (cur.m == Mission.Circum) streakO = 0; else streakI = 0;
             busy = true; roundPending = true;
@@ -923,7 +1005,6 @@ namespace Mgf.WonJjigeo
             var spec = cur;
             var pt = curPin.root.transform;
             var tip = PW(pinPos, FilmY);
-            ghostArc.gameObject.SetActive(false);
             if (!timeout)
             {
                 // 예비 동작 → 내리꽂기 → 히트스톱 + 스쿼시
@@ -999,7 +1080,7 @@ namespace Mgf.WonJjigeo
                 }
                 shimmer.gameObject.SetActive(false);
                 MgfFx.Glow(c, Match, 6 + 4 * Mathf.Min(3, st.combo), 0.4f);
-                if (onb == 2 || (st.stage == 1 && idx == 0)) onb = 3;
+                if (onb == 2 || (step == Step.Dist && idx == 0)) onb = 3;
                 // 핀은 트레이로, 명판은 랙(가로) 또는 화면 위로
                 var from = pt.position; var plateFrom = curPlate.go.transform.position;
                 var to = land ? RackSlot(rack.Count) : new Vector3(-4.5f, 2.5f, 7.5f);
@@ -1018,6 +1099,7 @@ namespace Mgf.WonJjigeo
                 // 왜 틀렸는지 그림으로: 핀에서의 세 거리선(1단계 선) — 서로 다른 길이는 주황, 같은 쌍은 초록
                 Play(timeout ? clAlarm : clThunk, 0.6f);
                 measureOn = true; feedbackMode = true;
+                if (step == Step.Build) DimCons(true);   // 거리선(PA·PB·PC)이 돋보이게 작도 선은 잠깐 흐리게
                 for (int i = 0; i < 3; i++) shownH[i] = -1;
                 UpdateMeasure(true);
                 gaugeHead.text = spec.m == Mission.Circum ? "세 꼭짓점까지의 거리가 같지 않다" : "세 변까지의 거리가 같지 않다";
@@ -1038,11 +1120,19 @@ namespace Mgf.WonJjigeo
                 {
                     // 안내 명판: 핀은 굽지 않고 그 자리에서 다시 옮길 수 있다
                     pt.position = tip;
-                    feedbackMode = false; measureOn = st.stage == 1;
-                    if (!measureOn) HideMeasure(); else { for (int i = 0; i < 3; i++) shownH[i] = -1; UpdateMeasure(true); }
+                    feedbackMode = false; measureOn = step == Step.Dist;
                     var why = hintTxt.text;
+                    if (!measureOn)
+                    {
+                        // 2단계 안내 명판: 선을 지우고 핀을 출발점으로 — 다른 작도를 골라 다시
+                        HideMeasure(); ClearBuild();
+                        pinPos = pinTarget = RP.Of(Rules.Start); pt.position = PW(pinPos, FilmY);
+                        why += " · 선을 다시 골라 그어라";
+                    }
+                    else { for (int i = 0; i < 3; i++) shownH[i] = -1; UpdateMeasure(true); why += " · 다시 옮겨 박아라"; }
                     busy = false; roundPending = false; roundCo = null;
-                    hintTxt.text = why + " · 다시 옮겨 박아라";
+                    if (!measureOn) RefreshBuildGauge();
+                    hintTxt.text = why;
                     MgfBridge.NotifyChanged();
                     yield break;
                 }
@@ -1069,15 +1159,18 @@ namespace Mgf.WonJjigeo
         {
             var s = cur;
             var p = pinPos;
+            if (step == Step.Build && lines.Count >= 2)
+            {
+                // 핀이 선 교점을 지나는 두 선의 종류로 이유를 말한다(정수 판정 Line.Through)
+                int nP = 0, nB = 0;
+                foreach (var l in lines) if (l.geo.Through(p)) { if (l.perp) nP++; else nB++; }
+                if (s.m == Mission.Circum && nB >= 2 && nP == 0) return "각의 이등분선의 교점은 내심이다\n외심은 세 변의 수직이등분선의 교점";
+                if (s.m == Mission.In && nP >= 2 && nB == 0) return "수직이등분선의 교점은 외심이다\n내심은 세 내각의 이등분선의 교점";
+                if (nP > 0 && nB > 0) return "수직이등분선과 각의 이등분선이 만난 점은\n외심도 내심도 아니다";
+            }
             if (s.m == Mission.Circum && s.kind == Kind.Obtuse && p.IsLattice && s.InsideStrict(p.Lattice)) return "둔각삼각형의 외심은 삼각형 밖에 있다";
             if (s.m == Mission.Circum && s.kind == Kind.Right) return "직각삼각형의 외심은 빗변의 중점이다";
             if (s.m == Mission.In && p.IsLattice && !s.InsideStrict(p.Lattice)) return "내심은 언제나 삼각형 안에 있다";
-            if (st.stage == 2 && creases.Count >= 2)
-            {
-                bool allPerp = true, allBis = true; foreach (var c in creases) { if (c.perp) allBis = false; else allPerp = false; }
-                if (s.m == Mission.Circum && allBis) return "각의 이등분선의 교점은 내심이다. 외심은 수직이등분선의 교점";
-                if (s.m == Mission.In && allPerp) return "수직이등분선의 교점은 외심이다. 내심은 각의 이등분선의 교점";
-            }
             return s.m == Mission.Circum ? "세 꼭짓점까지의 거리가 같지 않다" : "세 변까지의 거리가 같지 않다";
         }
 
@@ -1088,14 +1181,13 @@ namespace Mgf.WonJjigeo
             trueRing.gameObject.SetActive(false); centerLetter.gameObject.SetActive(false); revealText.gameObject.SetActive(false);
             rightMark.gameObject.SetActive(false); targetRing.gameObject.SetActive(false);
             triStatic.gameObject.SetActive(false);
-            foreach (var c in creasePool) { c.dark.gameObject.SetActive(false); c.light.gameObject.SetActive(false); }
-            foreach (var r in markerRings) r.gameObject.SetActive(false);
+            ClearBuild();
         }
 
         void HideRoundFx()
         {
             HideMarks(); HideMeasure();
-            shimmer.gameObject.SetActive(false); ghostArc.gameObject.SetActive(false);
+            shimmer.gameObject.SetActive(false);
             pulseRing.gameObject.SetActive(false); onbPath.gameObject.SetActive(false);
         }
 
@@ -1125,14 +1217,10 @@ namespace Mgf.WonJjigeo
             busy = false;
             PlacePinsInTray();
             if (st.lives <= 0) { EndGame(); ShowEnd(); MgfBridge.NotifyChanged(); return; }
-            if (st.stage == 1)
+            if (step == Step.Dist)
             {
-                if (streakO >= Rules.UnlockStreak && streakI >= Rules.UnlockStreak)
-                {
-                    st.stage = 2; idx = 0; st.level = 2;
-                    unlocking = true;
-                    unlockCo = StartCoroutine(UnlockThenSpawn());
-                }
+                // 해금 → 다리 단계(다음 삼각형을 바로 띄운다 — 빈 판 금지)
+                if (streakO >= Rules.UnlockStreak && streakI >= Rules.UnlockStreak) StartBridge();
                 else { idx++; SpawnPlate(gen.Next(1, idx, rng)); }
             }
             else
@@ -1142,24 +1230,6 @@ namespace Mgf.WonJjigeo
                 else SpawnPlate(gen.Next(2, idx, rng));
             }
             MgfBridge.NotifyChanged();
-        }
-
-        IEnumerator UnlockThenSpawn()
-        {
-            cur = null;
-            yield return UnlockCo();
-            unlocking = false; unlockCo = null;
-            SpawnPlate(gen.Next(2, 0, rng));
-        }
-
-        void FinishUnlock()
-        {
-            if (!unlocking) return;
-            if (unlockCo != null) StopCoroutine(unlockCo);
-            unlockCo = null; unlocking = false; busy = false;
-            for (int i = 0; i < 4; i++) clamps[i].gameObject.SetActive(false);
-            filmMat.mainTexture = gridTex2;
-            SpawnPlate(gen.Next(2, 0, rng));
         }
 
         void FinishRound()
@@ -1188,17 +1258,17 @@ namespace Mgf.WonJjigeo
             if (si != shownScoreInt) { shownScoreInt = si; scoreTxt.text = $"{si}점"; scoreTxt.transform.localScale = Vector3.one * 1.15f; }
             scoreTxt.transform.localScale = Vector3.Lerp(scoreTxt.transform.localScale, Vector3.one, dt * 8f);
             if (st.combo != shownCombo) { shownCombo = st.combo; comboTxt.text = st.combo >= 2 ? $"연속 ×{Mathf.Min(3, st.combo)}" : ""; }
-            if (st.stage != shownStage)
+            if ((int)step != shownStage)
             {
-                shownStage = st.stage;
-                stageTxt.text = st.stage == 1 ? "1단계 · 거리" : "2단계 · 접기";
+                shownStage = (int)step;
+                stageTxt.text = step == Step.Dist ? "1단계 · 거리" : step == Step.Bridge ? "다리 단계" : "2단계 · 작도";
                 MgfFx.Punch(stageTxt.transform, 0.2f, 0.3f);
             }
-            int pk = st.stage * 100 + Mathf.Min(2, streakO) * 10 + Mathf.Min(2, streakI);
+            int pk = (int)step * 100 + Mathf.Min(2, streakO) * 10 + Mathf.Min(2, streakI);
             if (pk != shownPipKey)
             {
                 shownPipKey = pk;
-                bool s1 = st.stage == 1;
+                bool s1 = step == Step.Dist;
                 for (int j = 0; j < 2; j++)
                 {
                     pipO[j].gameObject.SetActive(s1); pipI[j].gameObject.SetActive(s1);
@@ -1207,31 +1277,34 @@ namespace Mgf.WonJjigeo
                 }
                 foreach (Transform ch in progRt) if (ch.GetComponent<TextMeshProUGUI>() != progTxt) ch.gameObject.SetActive(s1);
             }
-            int prog = st.stage == 2 ? idx : -1;
-            if (prog != shownProg) { shownProg = prog; progTxt.text = st.stage == 2 ? $"명판 {Mathf.Min(idx + 1, Rules.Stage2Plates)}/{Rules.Stage2Plates}" : ""; }
+            int prog = step == Step.Build ? idx : step == Step.Bridge ? 100 + bridgeIdx : -1;
+            if (prog != shownProg)
+            {
+                shownProg = prog;
+                progTxt.text = step == Step.Build ? $"명판 {Mathf.Min(idx + 1, Rules.Stage2Plates)}/{Rules.Stage2Plates}" : step == Step.Bridge ? $"다리 {bridgeIdx + 1}/2" : "";
+            }
             // 제한 시간 막대
             float frac = plateLimit > 0 ? Mathf.Clamp01(1 - plateT / plateLimit) : 1f;
             timerFill.localScale = new Vector3(frac, 1, 1);
             var tc = plateLimit <= 0 ? new Color(Cream.r, Cream.g, Cream.b, 0.35f) : frac < 0.3f ? Match : VerdLit;
             timerFill.GetComponent<Image>().color = tc;
-            // 계기판: 2단계에는 주름 기록, 1단계·연출 중에는 거리
-            if (st.stage == 2 && !feedbackMode && lastGaugeKey != "fold") RefreshFoldGauge();
-            if (st.red && st.stage == 1) gaugeBg.color = Color.Lerp(new Color(0.35f, 0.06f, 0.04f, 0.96f), new Color(0.09f, 0.07f, 0.055f, 0.94f), Mathf.Clamp01(redT * 0.8f) * 0.5f);
+            if (st.red && step == Step.Dist) gaugeBg.color = Color.Lerp(new Color(0.35f, 0.06f, 0.04f, 0.96f), new Color(0.09f, 0.07f, 0.055f, 0.94f), Mathf.Clamp01(redT * 0.8f) * 0.5f);
             else gaugeBg.color = new Color(0.09f, 0.07f, 0.055f, 0.94f);
         }
 
-        // ─────────────────────────────── IMgfGame (QA 훅) — 실제 입력과 같은 Plant() 경로를 탄다
+        // ─────────────────────────────── IMgfGame (QA 훅) — 실제 입력과 같은 경로(Plant·Stamp·TryAddLine)를 탄다
         public void TestStart() => Begin();
 
         void EnsurePlaying()
         {
             if (st.phase != "playing") Begin();
             FinishRound();
-            FinishUnlock();
+            FinishBridgeReveal();
             if (st.phase != "playing") Begin();
-            if (folding || foldBusy) ClearFolds();
+            StopGhost();
             press = Press.None;
             if (curPin != null && !pinReady) { pinRiseT = 1f; pinReady = true; }
+            if (curPlate != null && plateEnterT < 1f) { plateEnterT = 1f; curPlate.go.transform.position = curPlate.pivot; }
         }
 
         void TeleportPin(RP p)
@@ -1241,17 +1314,66 @@ namespace Mgf.WonJjigeo
             if (measureOn) UpdateMeasure(false);
         }
 
+        /// <summary>정답 경로: 1단계 = 정답 격자점에 박기 · 다리 단계 = 거리가 같은 새 격자점에 발자국(3개 뒤에는 「다음」) ·
+        /// 2단계 = 알맞은 두 선을 긋고(TryAddLine — 탭과 같은 함수) 그 교점에 박기.</summary>
         public void TestAnswerCorrect()
         {
             EnsurePlaying();
+            if (step == Step.Bridge)
+            {
+                if (!bridgeDone)
+                {
+                    IP best = default; int bd = int.MaxValue; bool got = false;
+                    var here = pinPos.IsLattice ? pinPos.Lattice : Rules.Start;
+                    foreach (var q in cur.BridgePoints())
+                    {
+                        bool used = false; foreach (var d in dots) if (d.Same(q)) used = true;
+                        if (used) continue;
+                        int dd = Mathf.Max(Mathf.Abs(q.x - here.x), Mathf.Abs(q.y - here.y));
+                        if (dd < bd) { bd = dd; best = q; got = true; }
+                    }
+                    if (got) TeleportPin(RP.Of(best));
+                }
+                Plant();
+                return;
+            }
+            if (step == Step.Build)
+            {
+                ClearBuild();
+                bool perp = cur.m == Mission.Circum;
+                TryAddLine(perp, 0); TryAddLine(perp, 1);
+                if (markers.Count > 0) TeleportPin(markers[0]);
+                Plant();
+                return;
+            }
             TeleportPin(RP.Of(cur.ans));
             Plant();
         }
 
+        /// <summary>오답 경로: 1단계 = 출발점(정답이 될 수 없다)에 박기 · 다리 단계 = 거리가 다른 점에 찍기(목숨 차감 없음) ·
+        /// 2단계 = 반대 종류 두 선을 긋고 그 교점에 박기(교점이 판 밖이면 출발점).</summary>
         public void TestAnswerWrong()
         {
             EnsurePlaying();
+            if (step == Step.Bridge)
+            {
+                if (bridgeDone) return;
+                var q = Rules.Start;
+                for (int x = -Rules.GX; x <= Rules.GX && cur.BridgeOk(RP.Of(q)); x++) q = new IP(x, -Rules.GY);
+                TeleportPin(RP.Of(q));
+                Plant();
+                return;
+            }
             cur.tutorial = false;                 // 훅은 안내 명판의 무감점 재시도를 건너뛰고 실제 오답 경로를 탄다
+            if (step == Step.Build)
+            {
+                ClearBuild();
+                bool perp = cur.m != Mission.Circum;
+                TryAddLine(perp, 0); TryAddLine(perp, 1);
+                if (markers.Count > 0 && !markers[0].Is(cur.ans)) { TeleportPin(markers[0]); Plant(); }
+                else { TeleportPin(RP.Of(Rules.Start)); Plant(true); }
+                return;
+            }
             TeleportPin(RP.Of(Rules.Start));      // 출발점은 정답이 될 수 없다(생성기 조건)
             Plant();
         }
