@@ -141,6 +141,7 @@ namespace Mgf.HyeopgokSasu
             // Budget depends on mode / difficulty, never on the hidden answer.
             TimeLimit=Current.Mode=="choice"?LimitForDifficulty(Current.difficulty):Current.Mode=="amount"?60+6*Math.Max(1,Current.difficulty):80+6*Math.Max(1,Current.difficulty);
             if(Attempts==0&&Current.Mode=="amount")TimeLimit=30;
+            if(Attempts==0&&Current.Mode=="choice")TimeLimit+=12; // first-ever question: time to find the pads
             for(int i=0;i<4;i++)Choices[i]=Current.Mode=="choice"?Current.choices[i]:"";
             if(Current.Mode=="choice")for(int i=3;i>0;i--){int j=placeRng.Next(i+1);string t=Choices[i];Choices[i]=Choices[j];Choices[j]=t;}
 

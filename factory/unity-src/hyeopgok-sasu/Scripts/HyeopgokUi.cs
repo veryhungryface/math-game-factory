@@ -72,8 +72,10 @@ namespace Mgf.HyeopgokSasu
             hpText=Text("성문 100",hpPill,new Vector2(.5f,.5f),new Vector2(0,2),new Vector2(102,29),17,cream);
             var hpBg=Box("Gate health",hpPill,new Vector2(.5f,0),new Vector2(0,7),new Vector2(80,4),MgfLook.Hex("#395054"));
             hpFill=Box("health remaining",hpBg,new Vector2(0,.5f),Vector2.zero,new Vector2(80,4),MgfLook.Hex("#77e3a5")).GetComponent<Image>();hpFill.rectTransform.pivot=new Vector2(0,.5f);
-            wavePill=Pill("Wave pill",playRoot,new Vector2(0,1),new Vector2(154,-28),new Vector2(69,42),navy);
-            waveText=Text("1 / 10",wavePill,new Vector2(.5f,.5f),Vector2.zero,new Vector2(65,30),17,cream);
+            wavePill=Pill("Wave pill",playRoot,new Vector2(0,1),new Vector2(158,-28),new Vector2(77,42),navy);
+            waveText=Text("S1 1/10",wavePill,new Vector2(.5f,.5f),Vector2.zero,new Vector2(71,30),17,cream);
+            // One line always: shrink to fit instead of wrapping out of the chip.
+            waveText.textWrappingMode=TextWrappingModes.NoWrap;waveText.enableAutoSizing=true;waveText.fontSizeMin=11;waveText.fontSizeMax=17;waveText.overflowMode=TextOverflowModes.Overflow;
             correctPill=Pill("Correct answers pill",playRoot,new Vector2(0,1),new Vector2(231,-28),new Vector2(76,42),navy);
             coinsText=Text("정답 0/7",correctPill,new Vector2(.5f,.5f),Vector2.zero,new Vector2(73,30),15,cream);
             treasuryPanel=Pill("Coin treasury",playRoot,new Vector2(1,1),new Vector2(-58,-28),new Vector2(101,42),navy);
@@ -258,7 +260,7 @@ namespace Mgf.HyeopgokSasu
             }
         }
         void RefreshHud(){
-            waveText.text="S"+Rules.Stage+" · "+Rules.StageQuestion+"/10";
+            waveText.text="S"+Rules.Stage+" "+Rules.StageQuestion+"/10";
             coinsText.text="정답 "+Rules.Correct;
             coinsText.color=gold;
         }
@@ -329,7 +331,7 @@ namespace Mgf.HyeopgokSasu
             tutorialKind=kind;tutorialVisible=kind>0;tutorialStarted=Time.unscaledTime;
             bool visible=tutorialVisible,choiceHint=kind==3;
             if(tutorialTrail)tutorialTrail.gameObject.SetActive(false);if(tutorialArrow)tutorialArrow.gameObject.SetActive(visible&&!choiceHint);
-            if(tutorialDot)tutorialDot.gameObject.SetActive(visible&&!choiceHint);
+            if(tutorialDot)tutorialDot.gameObject.SetActive(visible);
             if(tutorialLabel)tutorialLabel.gameObject.SetActive(visible);
             if(tutorialCoin)tutorialCoin.gameObject.SetActive(false);
             for(int i=0;i<tutorialRings.Length;i++)if(tutorialRings[i])tutorialRings[i].gameObject.SetActive(false);
@@ -340,7 +342,7 @@ namespace Mgf.HyeopgokSasu
             float width=wide?Mathf.Min(cw*.76f,1060):Mathf.Min(cw-16,520);
             questionPanel.anchorMin=questionPanel.anchorMax=new Vector2(.5f,1);questionPanel.sizeDelta=new Vector2(width,136);
             float pill=wide?1.25f:1;hpPill.localScale=wavePill.localScale=correctPill.localScale=treasuryPanel.localScale=Vector3.one*pill;
-            hpPill.anchoredPosition=new Vector2(wide?83:62,-29);wavePill.anchoredPosition=new Vector2(wide?201:154,-29);correctPill.anchoredPosition=new Vector2(wide?304:231,-29);
+            hpPill.anchoredPosition=new Vector2(wide?83:62,-29);wavePill.anchoredPosition=new Vector2(wide?203:158,-29);correctPill.anchoredPosition=new Vector2(wide?306:239,-29);
             treasuryPanel.anchoredPosition=new Vector2(wide?-145:-118,-29);
             correctPill.anchorMin=correctPill.anchorMax=wide?new Vector2(0,1):new Vector2(1,0);
             correctPill.anchoredPosition=wide?new Vector2(304,-29):new Vector2(-51,26);
@@ -432,7 +434,8 @@ namespace Mgf.HyeopgokSasu
                 for(int i=0;i<tutorialRings.Length;i++)tutorialRings[i].gameObject.SetActive(false);return;
             }
             bool choiceHint=tutorialKind==3;
-            tutorialDot.gameObject.SetActive(!choiceHint);tutorialLabel.gameObject.SetActive(Time.unscaledTime-tutorialStarted<(choiceHint?2.8f:6f));if(tutorialArrow)tutorialArrow.gameObject.SetActive(!choiceHint);
+            // The first choice hint stays up until the first pad command (HideTutorial).
+            tutorialDot.gameObject.SetActive(true);tutorialLabel.gameObject.SetActive(choiceHint||Time.unscaledTime-tutorialStarted<6f);if(tutorialArrow)tutorialArrow.gameObject.SetActive(!choiceHint);
             RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
             Vector3 fromWorld=Rules.King,toWorld=HyeopgokRules.Pads[0];
             float along=Mathf.SmoothStep(0,1,Mathf.PingPong(Time.unscaledTime*1.15f,1));
@@ -440,8 +443,11 @@ namespace Mgf.HyeopgokSasu
             string label="멈춰 서서 붓기";
 
             if(tutorialKind==3){
-                fromWorld=toWorld=Rules.King;
-                ringPad=-2;along=0;label="보기 패드를 탭하세요";
+                // Sweep the hand across all four pads in fixed order 0..3 at an
+                // equal pace: it shows *where* to tap without favouring any answer.
+                float t=Mathf.Repeat(Time.unscaledTime-tutorialStarted,3.6f);int k=Mathf.Min(3,(int)(t/.9f));float local=t-k*.9f;
+                fromWorld=k==0?Rules.King:HyeopgokRules.Pads[k-1];toWorld=HyeopgokRules.Pads[k];
+                along=Mathf.SmoothStep(0,1,Mathf.Clamp01(local/.45f));ringPad=-2;label="보기 패드를 탭하세요";
             }else if(tutorialKind==1){
                 if(Rules.Coins==0&&Rules.Poured[0]==0){
                     toWorld=battle.CollectionPoint;ringPad=-1;label="전선 가까이에서 코인 모으기";
@@ -471,10 +477,14 @@ namespace Mgf.HyeopgokSasu
             Vector2 start=TutorialPoint(fromWorld,canvas),target=TutorialPoint(toWorld,canvas);
             Vector2 dot=Vector2.Lerp(start,target,along),delta=target-start;
             tutorialDot.anchoredPosition=dot+new Vector2(22,-16);tutorialDot.localScale=Vector3.one*.72f;
-            // The first choice question uses only a neutral speech bubble above
-            // the king: no arrow, hand, sequence or pad-specific answer cue.
+            // Choice sweep: a full-size hand whose fingertip lands on the pad's lower-right
+            // corner (never over the fraction) and presses once per pad.
+            if(choiceHint){float press=Mathf.Repeat(Time.unscaledTime-tutorialStarted,.9f);tutorialDot.anchoredPosition=dot+new Vector2(40,-40);tutorialDot.localScale=Vector3.one*(press>.45f&&press<.65f?.86f:1.05f);}
+            // Choice mode: neutral bubble above the king plus the uniform pad sweep above.
             Vector2 guideAt=TutorialPoint(Rules.King,canvas)+new Vector2(0,62);
             if(Rules.Current.Mode!="choice")guideAt.y=Mathf.Max(guideAt.y,-185);
+            // The persistent choice bubble sits under the king so it never covers a pad's fraction.
+            if(choiceHint)guideAt=TutorialPoint(Rules.King,canvas)+new Vector2(0,-58);
             tutorialLabel.anchoredPosition=ClampWorldBubble(guideAt,145);
             if(tutorialKind!=2&&tutorialKind!=1)label="보기 패드를 탭하세요";
             tutorialCaption.fontSize=label.Length>12?12:14;

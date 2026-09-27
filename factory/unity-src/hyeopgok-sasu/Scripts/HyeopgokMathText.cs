@@ -60,7 +60,10 @@ namespace Mgf.HyeopgokSasu
                 nT.text=f.n;dT.text=f.d;nT.fontSize=dT.fontSize=Text.fontSize*.82f;nT.color=dT.color=Text.color;
                 nT.rectTransform.anchoredPosition=new Vector2(0,Text.fontSize*.35f);dT.rectTransform.anchoredPosition=new Vector2(0,-Text.fontSize*.35f);
                 nT.rectTransform.sizeDelta=dT.rectTransform.sizeDelta=new Vector2(w+5,Text.fontSize*.8f);
-                var bar=(RectTransform)box.GetChild(2);bar.anchoredPosition=Vector2.zero;bar.sizeDelta=new Vector2(w*.9f,Mathf.Max(1.8f,Text.fontSize*.07f));bar.GetComponent<Image>().color=Text.color;
+                var bar=(RectTransform)box.GetChild(2);bar.anchoredPosition=Vector2.zero;// Bar hugs the wider of numerator/denominator (+ symmetric margin) so it
+                // never juts out to one side and reads like a minus sign.
+                float ink=Mathf.Max(nT.GetPreferredValues(f.n).x,dT.GetPreferredValues(f.d).x)+Text.fontSize*.16f;
+                bar.sizeDelta=new Vector2(Mathf.Min(w*.95f,ink),Mathf.Max(1.8f,Text.fontSize*.07f));bar.GetComponent<Image>().color=Text.color;
             }
         }
         void MakeNumber(RectTransform parent,string name){var go=new GameObject(name,typeof(RectTransform));go.transform.SetParent(parent,false);var t=go.AddComponent<TextMeshProUGUI>();t.font=Text.font;t.fontSharedMaterial=Text.fontSharedMaterial;t.fontStyle=FontStyles.Normal;t.alignment=TextAlignmentOptions.Center;t.raycastTarget=false;}
