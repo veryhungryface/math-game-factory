@@ -6,6 +6,7 @@ namespace Mgf.HyeopgokSasu
     public partial class HyeopgokGame
     {
         Material worldMat;
+        Material kingAiMaterial,crownAiMaterial;
         Transform sceneryRoot;
         Transform[] padRoots=new Transform[4];
         LineRenderer[] padFill=new LineRenderer[4];
@@ -31,13 +32,22 @@ namespace Mgf.HyeopgokSasu
             BuildEnvironment();
             SpawnModel("enemy_gate",new Vector3(3.1f,.25f,9.0f),.93f).transform.Rotate(0,180,0);
             SpawnModel("enemy_gate",new Vector3(5.35f,.25f,9.0f),.93f).transform.Rotate(0,180,0);
-            king=SpawnModel("king",HyeopgokRules.Pads[2]+Vector3.back*2,1.25f).transform;king.rotation=Quaternion.Euler(0,180,0);
+            Vector3 kingPosition=HyeopgokRules.Pads[2]+Vector3.back*2;
+            kingAiMaterial=HyeopgokAiAssets.CreateMaterial("king",Color.white);kingAiMaterial.SetFloat("_Rim",.24f);
+            GameObject aiKing=HyeopgokAiAssets.InstantiateModel("king",kingPosition,Quaternion.Euler(0,180,0),1.25f,sceneryRoot,kingAiMaterial,true);
+            king=(aiKing?aiKing:SpawnModel("king",kingPosition,1.25f)).transform;king.rotation=Quaternion.Euler(0,180,0);
             king.SetParent(null,true);
-            var heroMat=new Material(worldMat);heroMat.SetFloat("_Rim",.24f);
-            foreach(var renderer in king.GetComponentsInChildren<Renderer>()){
-                renderer.sharedMaterial=heroMat;
-                renderer.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.On;
-                renderer.receiveShadows=true;
+            if(aiKing){
+                crownAiMaterial=HyeopgokAiAssets.CreateMaterial("king_crown",MgfLook.Hex("#F2B705").linear);
+                crownAiMaterial.SetFloat("_Metallic",.72f);crownAiMaterial.SetFloat("_Rim",.16f);
+                HyeopgokAiAssets.InstantiateModel("king_crown",king.position,king.rotation,1.25f,king,crownAiMaterial,true);
+            }else{
+                var heroMat=new Material(worldMat);heroMat.SetFloat("_Rim",.24f);
+                foreach(var renderer in king.GetComponentsInChildren<Renderer>()){
+                    renderer.sharedMaterial=heroMat;
+                    renderer.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.On;
+                    renderer.receiveShadows=true;
+                }
             }
             BuildKingRing();
             // Forests are authored in asymmetrical groups, then merged once.

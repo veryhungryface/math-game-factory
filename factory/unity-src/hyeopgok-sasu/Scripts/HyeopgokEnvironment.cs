@@ -12,12 +12,14 @@ namespace Mgf.HyeopgokSasu
         readonly Transform[] townBuildings=new Transform[2];
         readonly GameObject[,] townStages=new GameObject[2,3];
         readonly Renderer[,][] townRenderers=new Renderer[2,3][];
+        readonly float[,] townStageScale=new float[2,3];
         readonly GameObject[,] fences=new GameObject[3,2];
         readonly Transform[] fenceHealth=new Transform[3];
         readonly GameObject[] fenceHealthRoots=new GameObject[3];
         readonly int[] fenceDamageStage={-1,-1,-1};
         readonly Vector3[] fencePositions={new Vector3(-5.14f,.25f,.55f),new Vector3(-4.2f,.25f,.55f),new Vector3(-3.26f,.25f,.55f)};
         MaterialPropertyBlock constructionBlock;
+        Material barracksAiMaterial;
         Transform environmentRoot;
         int townStage,environmentCorrect,environmentHp=100;
         float constructionTime,nightTime,fireTime;
@@ -58,9 +60,15 @@ namespace Mgf.HyeopgokSasu
         {
             var root=new GameObject(id+" upgrade stages").transform;root.position=p;root.localScale=Vector3.one*scale;
             root.rotation=Quaternion.Euler(0,180,0);root.SetParent(environmentRoot,true);townBuildings[at]=root;
+            bool aiBarracks=id=="barracks";
+            if(aiBarracks&&barracksAiMaterial==null)barracksAiMaterial=HyeopgokAiAssets.CreateMaterial("barracks",Color.white);
             for(int level=0;level<3;level++){
-                var go=SpawnModel(id+"_l"+(level+1),p,1);go.transform.SetParent(root,false);go.transform.localPosition=Vector3.zero;
-                go.transform.localRotation=Quaternion.identity;go.transform.localScale=Vector3.one;go.SetActive(level==0);
+                GameObject go=aiBarracks?HyeopgokAiAssets.InstantiateModel("barracks",p,root.rotation,scale,root,barracksAiMaterial,false):null;
+                if(!go)go=SpawnModel(id+"_l"+(level+1),p,1);
+                go.transform.SetParent(root,false);go.transform.localPosition=Vector3.zero;
+                go.transform.localRotation=Quaternion.identity;
+                float stageScale=aiBarracks?.88f+level*.11f:1f;townStageScale[at,level]=stageScale;
+                go.transform.localScale=Vector3.one*stageScale;go.SetActive(level==0);
                 townStages[at,level]=go;townRenderers[at,level]=go.GetComponentsInChildren<Renderer>(true);
             }
         }
@@ -237,8 +245,10 @@ namespace Mgf.HyeopgokSasu
                 constructionTime=Mathf.Max(0,constructionTime-dt);float p=1-constructionTime/.82f;
                 constructionBlock.SetFloat("_Flash",Mathf.Clamp01(1-p*1.55f));
                 constructionBlock.SetFloat("_Unlit",Mathf.Clamp01(1-p*1.4f));
+                constructionBlock.SetFloat("_Blueprint",p<.48f?1-p/.48f:0);
                 for(int b=0;b<2;b++){
-                    townStages[b,townStage].transform.localScale=new Vector3(1,Mathf.Lerp(.06f,1,Mathf.SmoothStep(0,1,p)),1);
+                    float s=townStageScale[b,townStage];
+                    townStages[b,townStage].transform.localScale=new Vector3(s,s*Mathf.Lerp(.06f,1,Mathf.SmoothStep(0,1,p)),s);
                     var rs=townRenderers[b,townStage];for(int r=0;r<rs.Length;r++)rs[r].SetPropertyBlock(constructionBlock);
                 }
             }

@@ -10,11 +10,17 @@ namespace Mgf.HyeopgokSasu.Editor
     public sealed class HyeopgokModelImport : AssetPostprocessor
     {
         // Version bump invalidates the imported FBX cache when this correction changes.
-        public override uint GetVersion() { return 3; }
+        public override uint GetVersion() { return 4; }
+
+        static bool IsHyeopgokModel(string path)
+        {
+            return path.Contains("/Resources/HyeopgokSasu/Models/") ||
+                   path.Contains("/Resources/HyeopgokSasu/AI3D/");
+        }
 
         void OnPreprocessModel()
         {
-            if (!assetPath.Contains("/Resources/HyeopgokSasu/Models/")) return;
+            if (!IsHyeopgokModel(assetPath)) return;
             var importer = (ModelImporter)assetImporter;
             importer.globalScale = 1f;
             importer.useFileScale = true;
@@ -34,9 +40,26 @@ namespace Mgf.HyeopgokSasu.Editor
             importer.addCollider = false;
         }
 
+        void OnPreprocessTexture()
+        {
+            if (!assetPath.Contains("/Resources/HyeopgokSasu/AI3D/")) return;
+            var importer = (TextureImporter)assetImporter;
+            // AI atlases use alpha as a material/team mask, never transparency.
+            // Preserve it through WebGL compression and do not bleed RGB at edges.
+            importer.textureType = TextureImporterType.Default;
+            importer.sRGBTexture = true;
+            importer.alphaSource = TextureImporterAlphaSource.FromInput;
+            importer.alphaIsTransparency = false;
+            importer.mipmapEnabled = true;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 512;
+            importer.textureCompression = TextureImporterCompression.Compressed;
+        }
+
         void OnPostprocessModel(GameObject root)
         {
-            if (!assetPath.Contains("/Resources/HyeopgokSasu/Models/")) return;
+            if (!IsHyeopgokModel(assetPath)) return;
             var filters = root.GetComponentsInChildren<MeshFilter>();
             var toRoot = new Matrix4x4[filters.Length];
             for (int i = 0; i < filters.Length; i++)

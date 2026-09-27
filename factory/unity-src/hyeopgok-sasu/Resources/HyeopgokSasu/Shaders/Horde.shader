@@ -4,6 +4,8 @@ Shader "Mgf/HyeopgokHorde"
 {
     Properties
     {
+        _MainTex ("Authored atlas (A = team mask)", 2D) = "white" {}
+        _UseMainTex ("Use authored atlas", Range(0,1)) = 0
         _Color ("Team tint", Color) = (1,1,1,1)
         _Flash ("Impact flash", Range(0,1)) = 0
         _Unlit ("Unlit particles", Range(0,1)) = 0
@@ -15,6 +17,7 @@ Shader "Mgf/HyeopgokHorde"
         _InstancePhase ("Per instance gait phase", Float) = 0
         _Attack ("Per instance attack gate", Float) = 0
         _HitTime ("Per soldier hit time", Float) = -1000
+        _Blueprint ("Construction blueprint", Range(0,1)) = 0
     }
     SubShader
     {
@@ -32,11 +35,14 @@ Shader "Mgf/HyeopgokHorde"
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
+            sampler2D _MainTex;
+            half _UseMainTex;
             fixed4 _Color;
             half _Flash;
             half _Unlit;
             half _Rim;
             half _Metallic;
+            half _Blueprint;
             fixed4 _TeamRed;
             fixed4 _TeamBlue;
             UNITY_INSTANCING_BUFFER_START(HitProperties)
@@ -65,6 +71,9 @@ Shader "Mgf/HyeopgokHorde"
                 UNITY_FOG_COORDS(3)
                 half paintedArmor : TEXCOORD4;
                 half hitFlash : TEXCOORD5;
+                float2 uv : TEXCOORD6;
+                half team : TEXCOORD7;
+                half ao : TEXCOORD8;
             };
             v2f vert(appdata v)
             {
@@ -96,6 +105,7 @@ Shader "Mgf/HyeopgokHorde"
                     authored = GammaToLinearSpace(authored);
                 #endif
                 half baked=step(.5,v.bake.y);
+                baked*=1-step(.5,_UseMainTex);
                 half teamMask=lerp(v.color.a,v.bake.x,baked);
                 half ao=lerp(1,v.color.a,baked);
                 o.paintedArmor=(1-teamMask)*baked;
@@ -104,6 +114,11 @@ Shader "Mgf/HyeopgokHorde"
                 fixed3 troopColor=lerp(teamColor*authored,authored,teamMask);
                 baseColor=lerp(baseColor,troopColor,troop);
                 o.color = baseColor * ao;
+                o.uv=v.bake;
+                o.team=team;
+                // AI FBX COLOR.a carries baked ambient occlusion. Keep a modest
+                // floor so compressed vertex alpha cannot turn a facet black.
+                o.ao=lerp(1,lerp(.62,1,saturate(v.color.a)),_UseMainTex);
                 float sinceHit = _Time.y - UNITY_ACCESS_INSTANCED_PROP(HitProperties, _HitTime);
                 o.hitFlash = saturate(1-sinceHit/.06) * step(0,sinceHit);
                 TRANSFER_SHADOW(o);
@@ -112,6 +127,14 @@ Shader "Mgf/HyeopgokHorde"
             }
             fixed4 frag(v2f i) : SV_Target
             {
+                fixed4 atlas=tex2D(_MainTex,i.uv);
+                fixed3 teamColor=lerp(_TeamRed.rgb,_TeamBlue.rgb,saturate(i.team));
+                half value=dot(atlas.rgb,half3(.24,.68,.08));
+                fixed3 dyed=teamColor*lerp(.58,1.48,saturate(value));
+                // Atlas alpha is deliberately a dye mask, not opacity: 0 is
+                // team-coloured cloth/armour and 1 keeps the authored pixels.
+                fixed3 textured=lerp(dyed,atlas.rgb,saturate(atlas.a))*i.ao;
+                fixed3 surface=lerp(i.color,textured,_UseMainTex);
                 UNITY_LIGHT_ATTENUATION(attenuation,i,i.worldPos);
                 half3 normal = normalize(i.worldNormal);
                 half diffuse = saturate(dot(normal,normalize(_WorldSpaceLightPos0.xyz)));
@@ -123,13 +146,15 @@ Shader "Mgf/HyeopgokHorde"
                 half3 halfVector=normalize(normalize(_WorldSpaceLightPos0.xyz)+normalize(_WorldSpaceCameraPos-i.worldPos));
                 half armorGleam=pow(saturate(dot(normal,halfVector)),18)*.045*i.paintedArmor*attenuation;
                 half3 coolShade=half3(.0252,.1441,.1022); // linear #2C6A5A
-                half3 shaded=lerp(i.color*.62,coolShade,.23)*_HyeopgokNightTint.rgb;
-                half3 litColor=lerp(shaded,i.color*lit+armorGleam,attenuation);
-                litColor=lerp(litColor,i.color,_Unlit);
+                half3 shaded=lerp(surface*.62,coolShade,.23)*_HyeopgokNightTint.rgb;
+                half3 litColor=lerp(shaded,surface*lit+armorGleam,attenuation);
+                litColor=lerp(litColor,surface,_Unlit);
                 half metalGleam=pow(saturate(dot(normal,halfVector)),24)*_Metallic*attenuation;
                 litColor+=half3(1,.78,.22)*metalGleam*.72;
                 half rim=pow(1-saturate(dot(normal,normalize(_WorldSpaceCameraPos-i.worldPos))),3)*_Rim;
                 litColor+=half3(.82,.94,1)*rim;
+                half drafting=lerp(.78,1.05,step(.5,frac((i.worldPos.x+i.worldPos.y+i.worldPos.z)*5.5)));
+                litColor=lerp(litColor,half3(.08,.72,.94)*drafting,_Blueprint*.72);
                 fixed4 result=fixed4(lerp(litColor,fixed3(1,.995,1),max(_Flash,i.hitFlash)),1);
                 UNITY_APPLY_FOG(i.fogCoord,result);
                 return result;

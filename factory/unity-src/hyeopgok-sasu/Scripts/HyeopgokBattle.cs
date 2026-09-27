@@ -38,6 +38,12 @@ namespace Mgf.HyeopgokSasu
         readonly float[][] troopPhases={new float[TroopCapacity],new float[TroopCapacity],new float[TroopCapacity]};
         readonly float[][] troopAttacks={new float[TroopCapacity],new float[TroopCapacity],new float[TroopCapacity]};
         readonly int[] troopCounts=new int[TroopKinds];
+        readonly Matrix4x4[][] allyTroopMatrices={new Matrix4x4[BlueCap],new Matrix4x4[BlueCap],new Matrix4x4[BlueCap]};
+        readonly float[][] allyTroopHitTimes={new float[BlueCap],new float[BlueCap],new float[BlueCap]};
+        readonly float[][] allyTroopTeams={new float[BlueCap],new float[BlueCap],new float[BlueCap]};
+        readonly float[][] allyTroopPhases={new float[BlueCap],new float[BlueCap],new float[BlueCap]};
+        readonly float[][] allyTroopAttacks={new float[BlueCap],new float[BlueCap],new float[BlueCap]};
+        readonly int[] allyTroopCounts=new int[TroopKinds];
         readonly Matrix4x4[][] whiteTroopMatrices={new Matrix4x4[CorpseCap],new Matrix4x4[CorpseCap],new Matrix4x4[CorpseCap]};
         readonly int[] whiteTroopCounts=new int[TroopKinds];
         readonly int[] hitCandidates=new int[12];
@@ -104,8 +110,8 @@ namespace Mgf.HyeopgokSasu
 
         Camera renderCamera;
         Mesh cubeMesh, shadowMesh, boltMesh, trailMesh;
-        Mesh giantMesh,allyArcherMesh,bossMesh,hpMesh;
-        Material redMaterial, blueMaterial, troopMaterial, whiteMaterial, goldMaterial, dustMaterial, shadowMaterial;
+        Mesh giantMesh,giantGlowMesh,enemyAiTroopMesh,allyAiTroopMesh,allyArcherMesh,bossMesh,hpMesh;
+        Material redMaterial, blueMaterial, troopMaterial,allyTroopMaterial,giantMaterial,giantGlowMaterial,towerAiMaterial, whiteMaterial, goldMaterial, dustMaterial, shadowMaterial;
         Material silhouetteMaterial,swordMaterial,hpMaterial,hpBackgroundMaterial,boltTrailMaterial;
         HyeopgokImpact impacts;
         HyeopgokEconomyFx economy;
@@ -117,6 +123,8 @@ namespace Mgf.HyeopgokSasu
         float visualHitStop, impactCooldown;
         int cachedRedDraws, cachedBlueDraws, cachedShadowDraws;
         int recycledKind,upgradeCount;
+        Vector3 artSoldierShadowWorld;
+        bool artSoldierShadowValid;
         float questionGrace=PressureGrace;
         public float QuestionGrace=>questionGrace;
         bool initialized, playing, questionActive;
@@ -128,7 +136,17 @@ namespace Mgf.HyeopgokSasu
         public int Reds { get { return displayedReds; } }
         public int Blues { get { return displayedBlues; } }
         public float Shake { get { return shake; } }
-        public Vector3 FrontWorld => FrontPosition();
+        // Camera framing may use a small wide-screen lead beyond the actual melee;
+        // simulation and the diagnostic gate retain the exact contact point.
+        public Vector3 FrontWorld {
+            get {
+                Vector3 p=FrontPosition();
+                if((float)Screen.width/Mathf.Max(1,Screen.height)>1.2f)p.z-=2.0f;
+                return p;
+            }
+        }
+        public Vector3 ArtFrontWorld => FrontPosition();
+        public bool TryGetArtSoldierShadow(out Vector3 point){point=artSoldierShadowWorld;return artSoldierShadowValid;}
         public Vector3 CollectionPoint {
             get {
                 Vector3 p=FrontPosition();
@@ -160,14 +178,17 @@ namespace Mgf.HyeopgokSasu
             Shader shader = Resources.Load<Shader>("HyeopgokSasu/Shaders/Horde");
             redMaterial = MakeMaterial(shader, MgfLook.Hex("#D0060C").linear, false);
             blueMaterial = MakeMaterial(shader, MgfLook.Hex("#0C73D5").linear, false);
-            troopMaterial = MakeMaterial(shader, Color.white, false);
+            troopMaterial = HyeopgokAiAssets.CreateMaterial("enemy_soldier",Color.white,0);
+            allyTroopMaterial = HyeopgokAiAssets.CreateMaterial("ally_soldier",Color.white,1);
             troopMaterial.SetColor("_TeamRed",MgfLook.Hex("#D0060C").linear);
             troopMaterial.SetColor("_TeamBlue",MgfLook.Hex("#0C73D5").linear);
+            allyTroopMaterial.SetColor("_TeamRed",MgfLook.Hex("#D0060C").linear);
+            allyTroopMaterial.SetColor("_TeamBlue",MgfLook.Hex("#0C73D5").linear);
             whiteMaterial = MakeMaterial(shader, new Color(1,.995f,.95f), true);
             goldMaterial = MakeMaterial(shader, new Color(1,.59f,.028f), true);
             goldMaterial.SetFloat("_Metallic",.82f);
             dustMaterial = MakeMaterial(shader, new Color(.89f,.81f,.66f), true);
-            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));Color shadowTint=MgfLook.Hex("#2C6A5A").linear;shadowTint.a=.35f;shadowMaterial.SetColor("_Color",shadowTint);shadowMaterial.enableInstancing=true;
+            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));Color shadowTint=MgfLook.Hex("#244A48").linear;shadowTint.a=.48f;shadowMaterial.SetColor("_Color",shadowTint);shadowMaterial.enableInstancing=true;
             silhouetteMaterial=MakeMaterial(shader,Color.white,true);silhouetteMaterial.SetFloat("_Flash",1);
             swordMaterial=MakeMaterial(shader,new Color(1,.08f,.18f),true);
             hpMaterial=MakeMaterial(shader,new Color(.91f,.08f,.09f),true);
@@ -178,7 +199,13 @@ namespace Mgf.HyeopgokSasu
             troopMeshes[0]=LoadSoldier("troop_sword","soldier");
             troopMeshes[1]=LoadSoldier("troop_spear","soldier");
             troopMeshes[2]=LoadSoldier("troop_shield","soldier");
-            giantMesh=LoadSoldier("giant");
+            enemyAiTroopMesh=HyeopgokAiAssets.LoadInstancedMesh("enemy_soldier");
+            allyAiTroopMesh=HyeopgokAiAssets.LoadInstancedMesh("ally_soldier");
+            giantMesh=HyeopgokAiAssets.LoadInstancedMesh("giant");if(!giantMesh)giantMesh=LoadSoldier("giant");
+            giantMaterial=HyeopgokAiAssets.CreateMaterial("giant",Color.white,0);
+            giantGlowMesh=HyeopgokAiAssets.LoadInstancedMesh("giant_blade_glow");
+            giantGlowMaterial=HyeopgokAiAssets.CreateAdditiveMaterial("giant_blade_glow",new Color(1,.22f,.045f,.78f));
+            towerAiMaterial=HyeopgokAiAssets.CreateMaterial("crossbow_tower",Color.white,1);
             allyArcherMesh=LoadSoldier("archer_blue");bossMesh=LoadSoldier("boss");
             hpMesh=MakeBarMesh();
             cubeMesh = MakeChipMesh();
