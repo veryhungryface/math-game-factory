@@ -215,7 +215,7 @@ namespace Mgf.HyeopgokSasu
             BuildCrest(titleLogo,new Vector2(.5f,.5f),new Vector2(0,63),.7f);
             var titleShadow=DisplayText("협곡 사수",titleLogo,new Vector2(.5f,.5f),new Vector2(2,-5),new Vector2(370,92),63,navy);titleShadow.characterSpacing=-3;
             var title=DisplayText("협곡 사수",titleLogo,new Vector2(.5f,.5f),new Vector2(0,-1),new Vector2(370,92),63,cream);title.characterSpacing=-3;
-            titleSubline=Text("코인을 모아 · 답만큼 붓고 · 성문을 지켜라",titleLogo,new Vector2(.5f,.5f),new Vector2(0,-58),new Vector2(372,38),17,cream);
+            titleSubline=Text("답을 골라 보물상자를 열고 · 코인으로 타워를 키워라",titleLogo,new Vector2(.5f,.5f),new Vector2(0,-58),new Vector2(410,38),17,cream);
             // Royal parchment plaque with a gold ribbon: the selected expedition.
             titlePackBanner=RoyalPanel("Selected unit plaque",titleRoot,new Vector2(.5f,.265f),Vector2.zero,new Vector2(342,104));
             var packRibbon=Box("Selected unit gold ribbon",titlePackBanner,new Vector2(.5f,1),new Vector2(0,-2),new Vector2(170,30),MgfLook.Hex("#5a3a1e"));
@@ -286,17 +286,18 @@ namespace Mgf.HyeopgokSasu
         IEnumerator ReadCatalogueMetadata(){
             catalogueBusy=true;catalogueIndex=index;
             foreach(var entry in index.packs){
-                if(string.IsNullOrEmpty(entry.school)||entry.grade==0||entry.semester==0||entry.unit_order==0){
-                    string file=string.IsNullOrEmpty(entry.file)?entry.pack_id+".json":entry.file;
-                    if(file.Contains("..")||file.Contains(":")||file.Contains("/")||file.Contains("\\"))continue;
-                    using(var request=UnityWebRequest.Get(BaseUrl()+"packs/"+file)){
-                        request.timeout=10;yield return request.SendWebRequest();
-                        if(request.result==UnityWebRequest.Result.Success){PackHeader header=null;try{header=JsonUtility.FromJson<PackHeader>(request.downloadHandler.text);}catch{}if(header!=null)FillHeader(entry,header);}
+                string file=string.IsNullOrEmpty(entry.file)?entry.pack_id+".json":entry.file;
+                if(file.Contains("..")||file.Contains(":")||file.Contains("/")||file.Contains("\\")){entry.eligibilityChecked=true;continue;}
+                using(var request=UnityWebRequest.Get(BaseUrl()+"packs/"+file)){
+                    request.timeout=10;yield return request.SendWebRequest();entry.eligibilityChecked=true;
+                    if(request.result==UnityWebRequest.Result.Success){
+                        QuestionPack candidate=null;try{candidate=HyeopgokPackJson.Parse(request.downloadHandler.text);}catch{}
+                        if(candidate!=null){FillHeader(entry,new PackHeader{pack_id=candidate.pack_id,title=candidate.title,school=candidate.school,unit_id=candidate.unit_id,grade=candidate.grade,semester=candidate.semester,unit_order=candidate.unit_order});int skipped;QuestionPack filtered=FilterEligibleChoices(candidate,out skipped);entry.choiceCount=filtered==null?0:filtered.items.Length;entry.choicePlayable=entry.choiceCount>=10;}
                     }
                 }
                 if(entry.unit_order==0)entry.unit_order=UnitOrder(entry.pack_id);
             }
-            catalogueBusy=false;RefreshCatalogue();
+            cardCacheIndex=null;catalogueBusy=false;RefreshCatalogue();
         }
         static int UnitOrder(string id){if(string.IsNullOrEmpty(id))return 0;int at=id.LastIndexOf("-u",System.StringComparison.Ordinal);return at>=0&&int.TryParse(id.Substring(at+2),out int n)?n:0;}
         static void FillHeader(PackEntry entry,PackHeader header){
@@ -343,7 +344,9 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<packCards.Length;i++){
                 int row=first+i;var c=packCards[i];bool visible=row<filteredPacks.Count;c.root.gameObject.SetActive(visible);if(!visible)continue;
                 int at=filteredPacks[row];var e=index.packs[at];c.root.anchoredPosition=new Vector2(0,-44-(row*94-packScroll));
-                if(changed||c.packIndex!=at){c.packIndex=at;c.title.text=e.title;c.meta.text=at==packAt?cardSelectedMeta[at]:cardMeta[at];c.number.text=cardNumbers[at];c.face.color=at==packAt?MgfLook.Hex("#97c8ca"):MgfLook.Hex("#e5d4ad");}
+                if(changed||c.packIndex!=at){c.packIndex=at;c.title.text=e.title;c.number.text=cardNumbers[at];}
+                bool disabled=e.eligibilityChecked&&!e.choicePlayable;c.meta.text=disabled?"4지선다 준비 중":!e.eligibilityChecked?"문항 검사 중":at==packAt?cardSelectedMeta[at]:cardMeta[at];
+                c.face.color=disabled?MgfLook.Hex("#b9b3a6"):at==packAt?MgfLook.Hex("#97c8ca"):MgfLook.Hex("#e5d4ad");c.title.color=disabled?MgfLook.Hex("#817b70"):MgfLook.Hex("#49301c");
             }
             packEmpty.gameObject.SetActive(filteredPacks.Count==0);
             float total=Mathf.Max(336,filteredPacks.Count*94);packScrollThumb.gameObject.SetActive(total>336);packScrollThumb.sizeDelta=new Vector2(4,Mathf.Max(28,336*336/total));packScrollThumb.anchoredPosition=new Vector2(-12,-213-packScrollThumb.sizeDelta.y*.5f-(336-packScrollThumb.sizeDelta.y)*(total<=336?0:packScroll/(total-336)));
@@ -366,7 +369,7 @@ namespace Mgf.HyeopgokSasu
         void AnimateTitleUi(float dt){
             if(playStarted||!browserOpen)return;
             if(packDragging&&MgfPointer.Held){float delta=(MgfPointer.Position.y-packDragStart)*844f/Mathf.Max(1,Screen.height);packScroll=Mathf.Clamp(packScrollStart+delta,0,Mathf.Max(0,filteredPacks.Count*94-336));if(Mathf.Abs(delta)>9)pendingPack=-1;}
-            if(packDragging&&MgfPointer.Up){packDragging=false;if(pendingPack>=0&&!loading){int at=pendingPack;pendingPack=-1;browserOpen=false;packBrowser.gameObject.SetActive(false);MgfSfx.Play("tap");StartCoroutine(LoadPack(at));}}
+            if(packDragging&&MgfPointer.Up){packDragging=false;if(pendingPack>=0&&!loading){int at=pendingPack;pendingPack=-1;var entry=index.packs[at];if(entry.eligibilityChecked&&!entry.choicePlayable){MgfSfx.Play("wrong",.25f);RefreshCatalogue();}else{browserOpen=false;packBrowser.gameObject.SetActive(false);MgfSfx.Play("tap");StartCoroutine(LoadPack(at));}}}
             float wheel=Input.mouseScrollDelta.y;if(wheel!=0&&Hit(packViewport))packScroll=Mathf.Clamp(packScroll-wheel*36,0,Mathf.Max(0,filteredPacks.Count*94-336));
             if(Mathf.Abs(renderedScroll-packScroll)>.01f)RenderPackCards();
         }

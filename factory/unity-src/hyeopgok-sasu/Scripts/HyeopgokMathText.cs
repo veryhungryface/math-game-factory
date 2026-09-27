@@ -19,7 +19,9 @@ namespace Mgf.HyeopgokSasu
         public HyeopgokMathText(TextMeshProUGUI text){Text=text;Text.richText=true;}
         public void Set(string content)
         {
-            content=content??"";float width=Text.rectTransform.rect.width,height=Text.rectTransform.rect.height;
+            content=(content??"").Replace("<sup>","<voffset=0.28em><size=78%>").Replace("</sup>","</size></voffset>")
+                .Replace("<sub>","<voffset=-0.18em><size=78%>").Replace("</sub>","</size></voffset>");
+            float width=Text.rectTransform.rect.width,height=Text.rectTransform.rect.height;
             if(content==lastContent&&Text.fontSize==lastFont&&width==lastWidth&&height==lastHeight&&Text.color==lastColor&&Text.maxVisibleLines==lastVisibleLines&&Text.overflowMode==lastOverflow&&Text.textWrappingMode==lastWrapping&&Text.lineSpacing==lastLineSpacing)return;
             lastContent=content;lastFont=Text.fontSize;lastWidth=width;lastHeight=height;lastColor=Text.color;
             lastVisibleLines=Text.maxVisibleLines;lastOverflow=Text.overflowMode;lastWrapping=Text.textWrappingMode;lastLineSpacing=Text.lineSpacing;
@@ -55,7 +57,7 @@ namespace Mgf.HyeopgokSasu
                 box.anchoredPosition=new Vector2(ch.origin+w*.5f,ch.baseLine+Text.fontSize*.3f);box.sizeDelta=new Vector2(w,Text.fontSize*1.3f);
                 var nT=box.GetChild(0).GetComponent<TextMeshProUGUI>();var dT=box.GetChild(1).GetComponent<TextMeshProUGUI>();
                 nT.font=dT.font=Text.font;nT.fontSharedMaterial=dT.fontSharedMaterial=Text.fontSharedMaterial;
-                nT.text=f.n;dT.text=f.d;nT.fontSize=dT.fontSize=Text.fontSize*.67f;nT.color=dT.color=Text.color;
+                nT.text=f.n;dT.text=f.d;nT.fontSize=dT.fontSize=Text.fontSize*.82f;nT.color=dT.color=Text.color;
                 nT.rectTransform.anchoredPosition=new Vector2(0,Text.fontSize*.35f);dT.rectTransform.anchoredPosition=new Vector2(0,-Text.fontSize*.35f);
                 nT.rectTransform.sizeDelta=dT.rectTransform.sizeDelta=new Vector2(w+5,Text.fontSize*.8f);
                 var bar=(RectTransform)box.GetChild(2);bar.anchoredPosition=Vector2.zero;bar.sizeDelta=new Vector2(w*.9f,Mathf.Max(1.8f,Text.fontSize*.07f));bar.GetComponent<Image>().color=Text.color;

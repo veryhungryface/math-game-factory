@@ -227,9 +227,10 @@ namespace Mgf.HyeopgokSasu
             if(environmentRoot==null)return;
             float dt=Mathf.Min(Time.unscaledDeltaTime,.05f);
             if(kingContactShadow&&king)kingContactShadow.position=new Vector3(king.position.x,1.213f,king.position.z);
-            if(playStarted&&Rules.Correct!=environmentCorrect){
-                bool reset=Rules.Correct<environmentCorrect;
-                int stage=Mathf.Clamp(Rules.Correct/3,0,2);
+            int towerGrowth=battle==null?0:Mathf.Max(0,battle.BuiltTowers-1)+battle.UpgradeLevel;
+            if(playStarted&&towerGrowth!=environmentCorrect){
+                bool reset=towerGrowth<environmentCorrect;
+                int stage=Mathf.Clamp(towerGrowth/2,0,2);
                 if(stage!=townStage){
                     townStage=stage;constructionTime=reset?0:.82f;
                     for(int b=0;b<2;b++)for(int l=0;l<3;l++)townStages[b,l].SetActive(l==townStage);
@@ -239,7 +240,7 @@ namespace Mgf.HyeopgokSasu
                     nightTime=0;Shader.SetGlobalColor("_HyeopgokNightTint",Color.white);
                     environmentSun.color=daylight;RenderSettings.ambientIntensity=.68f;
                 }
-                environmentCorrect=Rules.Correct;
+                environmentCorrect=towerGrowth;
             }
             if(constructionTime>0){
                 constructionTime=Mathf.Max(0,constructionTime-dt);float p=1-constructionTime/.82f;

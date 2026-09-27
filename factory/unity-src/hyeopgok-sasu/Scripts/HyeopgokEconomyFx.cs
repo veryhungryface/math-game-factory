@@ -39,6 +39,13 @@ namespace Mgf.HyeopgokSasu
             // arcs stay visible in front of the king instead of behind him.
             for(int k=0;k<8;k++){float a=k*2.4f;decorations[decorCursor++%DecorCap]=new Coin{position=start,origin=start,target=target+new Vector3(Mathf.Sin(a)*.72f,.12f,Mathf.Cos(a)*.42f-.36f),age=-k*.065f,flight=.72f,mode=4,spin=k*43};}
         }
+        public void CelebrateReward(Vector3 origin,Vector3 target,int amount){
+            int shown=Mathf.Clamp(amount/2,8,24);
+            for(int k=0;k<shown;k++){
+                float a=k*2.399963f,spread=.22f+.035f*k;
+                decorations[decorCursor++%DecorCap]=new Coin{position=origin+Vector3.up*.65f,origin=origin+Vector3.up*.65f+new Vector3(Mathf.Cos(a)*spread,0,Mathf.Sin(a)*spread),target=target+Vector3.up*.82f,age=-k*.025f,flight=.78f,mode=4,spin=k*37};
+            }
+        }
         Vector3 Backpack()=>king.position-king.forward*.36f+Vector3.up*.52f;
         public void Simulate(float dt){Step(dt,false);}
         public void UpdateAndDraw(float dt){Step(dt,true);}

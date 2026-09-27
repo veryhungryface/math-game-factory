@@ -3,11 +3,18 @@
 
 The six Meshy-derived source FBX/PNG pairs below ``ArtSource/ai3d/out`` are
 immutable inputs.  This script copies them into the game Resources folder,
-cleans only the installed enemy texture, and creates two optional attachment
-meshes in the same model-space coordinates as their parents:
+cleans only the installed enemy texture, creates two optional attachment
+meshes in the same model-space coordinates as their parents, and derives nine
+upgrade-ready tower meshes from the AI crossbow tower:
 
 * ``king_crown``: a bold five-point crown using the R4 gold palette;
 * ``giant_blade_glow``: two crossed, additive-ready blade ribbons.
+* ``tower_{crossbow,cannon,magic}_lv{1,2,3}``: one-mesh/one-material towers.
+
+The cannon and magic towers keep the AI-authored stone/cloth lower body and
+replace only the weapon head.  The three levels add silhouette, material, and
+height changes rather than relying on a shader-only recolour.  All nine tower
+FBXs share ``tower_shared.png``; no level duplicates the 512px atlas.
 
 Unity attachment contract:
 
@@ -31,6 +38,8 @@ workspace generate and preserve them.
 from __future__ import annotations
 
 import argparse
+import bmesh
+import gzip
 import hashlib
 import json
 import math
@@ -62,6 +71,40 @@ ASSET_IDS = (
     "barracks",
     "giant",
 )
+
+TOWER_TYPES = ("crossbow", "cannon", "magic")
+TOWER_LEVELS = (1, 2, 3)
+TOWER_IDS = tuple(
+    f"tower_{tower_type}_lv{level}"
+    for tower_type in TOWER_TYPES
+    for level in TOWER_LEVELS
+)
+TOWER_TEXTURE_ID = "tower_shared"
+TOWER_ATLAS_SIZE = 512
+TOWER_CONTENT_SIZE = 480
+
+# The top 32px of tower_shared.png is a deterministic 16-swatch strip.  The
+# AI atlas is resampled into the lower-left 480px square and its UVs remapped;
+# generated pieces point at a swatch centre.  This lets nine models retain the
+# detailed AI base while importing exactly one texture.
+TOWER_SWATCHES = {
+    "stone": "#C9CCD1",
+    "stone_dark": "#596371",
+    "wood": "#87542F",
+    "wood_light": "#B97A45",
+    "blue": "#0C73D5",
+    "blue_dark": "#0658C7",
+    "gold": "#F2B705",
+    "gold_dark": "#A96500",
+    "iron": "#303844",
+    "iron_light": "#667181",
+    "bronze": "#A65D2C",
+    "muzzle": "#1B222B",
+    "magic_cyan": "#38DFF5",
+    "magic_blue": "#246DEB",
+    "magic_violet": "#7B4DE2",
+    "magic_core": "#E7FCFF",
+}
 
 EXPECTED = {
     "king": {"triangles": 5500, "height": 1.3275, "texture": 512},
@@ -95,6 +138,13 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--preview-dir", type=Path,
         help="optional local preview directory (recommended below /tmp)",
     )
+    parser.add_argument(
+        "--determinism-check", action="store_true",
+        help=(
+            "generate twice and require identical imported FBX geometry/material/bounds "
+            "plus byte-identical generated PNGs"
+        ),
+    )
     return parser.parse_args(list(argv) if argv is not None else blender_argv())
 
 
@@ -104,6 +154,25 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def target_binary_hashes() -> Dict[str, str]:
+    if not TARGET_DIR.is_dir():
+        return {}
+    return {
+        path.name: sha256(path)
+        for path in sorted(TARGET_DIR.iterdir())
+        if path.is_file() and path.suffix.lower() in {".fbx", ".png"}
+    }
+
+
+GENERATED_FBX_IDS = ("king_crown", "giant_blade_glow") + TOWER_IDS
+GENERATED_PNG_IDS = (
+    "enemy_soldier",
+    "king_crown",
+    "giant_blade_glow",
+    TOWER_TEXTURE_ID,
+)
 
 
 def round_vec(value: Iterable[float], digits: int = 6) -> List[float]:
@@ -123,7 +192,17 @@ def hex_linear(value: str, alpha: float = 1.0) -> Tuple[float, float, float, flo
 def reset_scene() -> None:
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
-    for datablocks in (bpy.data.meshes, bpy.data.curves, bpy.data.cameras, bpy.data.lights):
+    # Clear unused material/image datablocks too.  Without this, consecutive
+    # headless builds export ``AI3D_TowerShared.001``-style suffixes even
+    # though the intended shared material name is identical.
+    for datablocks in (
+        bpy.data.meshes,
+        bpy.data.curves,
+        bpy.data.cameras,
+        bpy.data.lights,
+        bpy.data.materials,
+        bpy.data.images,
+    ):
         for datablock in list(datablocks):
             if datablock.users == 0:
                 datablocks.remove(datablock)
@@ -363,8 +442,10 @@ def make_blade_glow() -> bpy.types.Object:
     tip = Vector((-1.035, -0.655, 0.180))
     base = Vector((-0.605, -0.105, 0.682))
     direction = (base - tip).normalized()
-    side_xz = Vector((-direction.z, 0.0, direction.x)).normalized() * 0.034
-    side_y = Vector((0.0, 0.029, 0.0))
+    # Broad enough to survive the gameplay camera's small on-screen sword,
+    # while remaining inside the original giant mesh bounds.
+    side_xz = Vector((-direction.z, 0.0, direction.x)).normalized() * 0.052
+    side_y = Vector((0.0, 0.044, 0.0))
     vertices: List[Tuple[float, float, float]] = []
     faces: List[Tuple[int, ...]] = []
     uvs: List[Tuple[float, float]] = []
@@ -391,6 +472,562 @@ def make_blade_glow() -> bpy.types.Object:
     return obj
 
 
+def create_tower_atlas(source: Path, target: Path) -> Dict[str, object]:
+    """Pack the AI tower atlas and generated-piece swatches into one 512 map."""
+
+    image = bpy.data.images.load(str(source), check_existing=False)
+    image.colorspace_settings.name = "sRGB"
+    width, height = (int(value) for value in image.size)
+    if (width, height) != (512, 512):
+        bpy.data.images.remove(image)
+        raise PipelineError(f"tower source atlas must be 512x512, got {width}x{height}")
+    source_pixels = list(image.pixels[:])
+    bpy.data.images.remove(image)
+
+    size = TOWER_ATLAS_SIZE
+    content = TOWER_CONTENT_SIZE
+    background = hex_linear("#23272D")
+    pixels = list(background) * (size * size)
+    # Nearest-neighbour resampling preserves the intentionally faceted AI bake.
+    for y in range(content):
+        source_y = min(height - 1, int(round(y * (height - 1) / (content - 1))))
+        for x in range(content):
+            source_x = min(width - 1, int(round(x * (width - 1) / (content - 1))))
+            source_index = (source_y * width + source_x) * 4
+            target_index = (y * size + x) * 4
+            pixels[target_index:target_index + 4] = source_pixels[source_index:source_index + 4]
+
+    names = list(TOWER_SWATCHES)
+    swatch_width = size // len(names)
+    for slot, name in enumerate(names):
+        rgba = hex_linear(TOWER_SWATCHES[name])
+        start_x = slot * swatch_width
+        end_x = size if slot == len(names) - 1 else (slot + 1) * swatch_width
+        for y in range(content, size):
+            for x in range(start_x, end_x):
+                index = (y * size + x) * 4
+                pixels[index:index + 4] = rgba
+    # The unused right strip is a neutral stone ramp, so bilinear samples at
+    # the packed AI atlas edge never pull transparent or magenta pixels.
+    stone = hex_linear(TOWER_SWATCHES["stone"])
+    stone_dark = hex_linear(TOWER_SWATCHES["stone_dark"])
+    for y in range(content):
+        blend = y / max(1, content - 1)
+        rgba = tuple(
+            stone_dark[channel] * (1.0 - blend) + stone[channel] * blend
+            for channel in range(3)
+        ) + (1.0,)
+        for x in range(content, size):
+            index = (y * size + x) * 4
+            pixels[index:index + 4] = rgba
+
+    atlas = bpy.data.images.new(
+        "tower_shared", width=size, height=size, alpha=True
+    )
+    atlas.colorspace_settings.name = "sRGB"
+    atlas.pixels[:] = pixels
+    atlas.update()
+    save_image(atlas, target)
+    bpy.data.images.remove(atlas)
+    return {
+        "source": source.name,
+        "source_size": [width, height],
+        "packed_content_size": [content, content],
+        "atlas_size": [size, size],
+        "swatch_count": len(names),
+        "swatches": TOWER_SWATCHES,
+        "level_texture_duplicates": 0,
+    }
+
+
+def tower_swatch_uv(name: str) -> Tuple[float, float]:
+    names = list(TOWER_SWATCHES)
+    slot = names.index(name)
+    swatch_width = TOWER_ATLAS_SIZE / len(names)
+    return (
+        (slot * swatch_width + swatch_width * 0.5) / TOWER_ATLAS_SIZE,
+        (TOWER_CONTENT_SIZE + (TOWER_ATLAS_SIZE - TOWER_CONTENT_SIZE) * 0.5)
+        / TOWER_ATLAS_SIZE,
+    )
+
+
+def active_object(obj: bpy.types.Object) -> None:
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+
+
+def apply_object_transform(obj: bpy.types.Object) -> None:
+    active_object(obj)
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+
+
+def tower_material() -> bpy.types.Material:
+    mat = material("AI3D_TowerShared", f"{TOWER_TEXTURE_ID}.png")
+    mat["r4_shared_texture_id"] = TOWER_TEXTURE_ID
+    mat["r4_level_texture_duplicates"] = 0
+    return mat
+
+
+def set_single_material(obj: bpy.types.Object, mat: bpy.types.Material) -> None:
+    obj.data.materials.clear()
+    obj.data.materials.append(mat)
+    for polygon in obj.data.polygons:
+        polygon.material_index = 0
+
+
+def set_generated_surface(
+    obj: bpy.types.Object,
+    mat: bpy.types.Material,
+    swatch: str,
+    ao: float = 0.94,
+) -> None:
+    mesh = obj.data
+    while len(mesh.uv_layers):
+        mesh.uv_layers.remove(mesh.uv_layers[0])
+    uv_layer = mesh.uv_layers.new(name="BaseColorUV")
+    uv = tower_swatch_uv(swatch)
+    for loop in uv_layer.data:
+        loop.uv = uv
+    while len(mesh.color_attributes):
+        mesh.color_attributes.remove(mesh.color_attributes[0])
+    colors = mesh.color_attributes.new(
+        name="Color", type="BYTE_COLOR", domain="CORNER"
+    )
+    rgba = (1.0, 1.0, 1.0, max(0.0, min(1.0, ao)))
+    for entry in colors.data:
+        entry.color_srgb = rgba
+    mesh.color_attributes.active_color = colors
+    mesh.color_attributes.render_color_index = 0
+    set_single_material(obj, mat)
+
+
+def add_box(
+    name: str,
+    location: Tuple[float, float, float],
+    dimensions: Tuple[float, float, float],
+    swatch: str,
+    mat: bpy.types.Material,
+    rotation: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+    bevel: float = 0.04,
+) -> bpy.types.Object:
+    bpy.ops.mesh.primitive_cube_add(location=location, rotation=rotation)
+    obj = bpy.context.object
+    obj.name = name
+    obj.dimensions = dimensions
+    apply_object_transform(obj)
+    if bevel > 0.0:
+        modifier = obj.modifiers.new("low_poly_bevel", "BEVEL")
+        modifier.width = min(bevel, min(dimensions) * 0.24)
+        modifier.segments = 1
+        modifier.limit_method = "ANGLE"
+        active_object(obj)
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+    set_generated_surface(obj, mat, swatch)
+    return obj
+
+
+def add_cylinder(
+    name: str,
+    location: Tuple[float, float, float],
+    radius: float,
+    depth: float,
+    swatch: str,
+    mat: bpy.types.Material,
+    vertices: int = 12,
+    rotation: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+    bevel: float = 0.0,
+) -> bpy.types.Object:
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=vertices, radius=radius, depth=depth,
+        end_fill_type="NGON", location=location, rotation=rotation,
+    )
+    obj = bpy.context.object
+    obj.name = name
+    apply_object_transform(obj)
+    if bevel > 0.0:
+        modifier = obj.modifiers.new("low_poly_bevel", "BEVEL")
+        modifier.width = bevel
+        modifier.segments = 1
+        modifier.limit_method = "ANGLE"
+        active_object(obj)
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+    set_generated_surface(obj, mat, swatch)
+    return obj
+
+
+def add_cone(
+    name: str,
+    location: Tuple[float, float, float],
+    radius1: float,
+    radius2: float,
+    depth: float,
+    swatch: str,
+    mat: bpy.types.Material,
+    vertices: int = 10,
+    rotation: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> bpy.types.Object:
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=vertices, radius1=radius1, radius2=radius2, depth=depth,
+        end_fill_type="NGON", location=location, rotation=rotation,
+    )
+    obj = bpy.context.object
+    obj.name = name
+    apply_object_transform(obj)
+    set_generated_surface(obj, mat, swatch)
+    return obj
+
+
+def add_torus(
+    name: str,
+    location: Tuple[float, float, float],
+    major_radius: float,
+    minor_radius: float,
+    swatch: str,
+    mat: bpy.types.Material,
+    rotation: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> bpy.types.Object:
+    bpy.ops.mesh.primitive_torus_add(
+        align="WORLD", major_segments=12, minor_segments=4,
+        location=location, rotation=rotation,
+        major_radius=major_radius, minor_radius=minor_radius,
+    )
+    obj = bpy.context.object
+    obj.name = name
+    apply_object_transform(obj)
+    set_generated_surface(obj, mat, swatch)
+    return obj
+
+
+def add_crystal(
+    name: str,
+    location: Tuple[float, float, float],
+    radius: float,
+    height: float,
+    swatch: str,
+    mat: bpy.types.Material,
+    sides: int = 6,
+) -> bpy.types.Object:
+    vertices: List[Tuple[float, float, float]] = []
+    faces: List[Tuple[int, ...]] = []
+    bottom_tip = len(vertices)
+    vertices.append((0.0, 0.0, -height * 0.50))
+    bottom_ring = len(vertices)
+    for index in range(sides):
+        angle = 2.0 * math.pi * index / sides
+        vertices.append((math.cos(angle) * radius * 0.72, math.sin(angle) * radius * 0.72, -height * 0.18))
+    top_ring = len(vertices)
+    for index in range(sides):
+        angle = 2.0 * math.pi * index / sides
+        vertices.append((math.cos(angle) * radius, math.sin(angle) * radius, height * 0.20))
+    top_tip = len(vertices)
+    vertices.append((0.0, 0.0, height * 0.50))
+    for index in range(sides):
+        nxt = (index + 1) % sides
+        faces.extend([
+            (bottom_tip, bottom_ring + nxt, bottom_ring + index),
+            (bottom_ring + index, bottom_ring + nxt, top_ring + nxt, top_ring + index),
+            (top_ring + index, top_ring + nxt, top_tip),
+        ])
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(vertices, [], faces)
+    mesh.validate(verbose=False, clean_customdata=False)
+    mesh.update(calc_edges=True)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.location = location
+    apply_object_transform(obj)
+    set_generated_surface(obj, mat, swatch, ao=1.0)
+    return obj
+
+
+def add_beam_between(
+    name: str,
+    start: Vector,
+    end: Vector,
+    thickness: float,
+    swatch: str,
+    mat: bpy.types.Material,
+) -> bpy.types.Object:
+    midpoint = (start + end) * 0.5
+    direction = end - start
+    obj = add_box(
+        name, tuple(midpoint), (thickness, thickness, direction.length),
+        swatch, mat, bevel=thickness * 0.22,
+    )
+    obj.rotation_euler = direction.to_track_quat("Z", "Y").to_euler()
+    apply_object_transform(obj)
+    return obj
+
+
+def import_tower_body(
+    mat: bpy.types.Material,
+    keep_ai_head: bool,
+) -> bpy.types.Object:
+    bpy.ops.import_scene.fbx(
+        filepath=str(SOURCE_DIR / "crossbow_tower.fbx"), use_custom_normals=True
+    )
+    objects = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
+    if len(objects) != 1:
+        raise PipelineError("AI crossbow tower must import as exactly one mesh")
+    body = objects[0]
+    body.name = "tower_ai_body"
+    apply_object_transform(body)
+
+    uv_layer = body.data.uv_layers.get("BaseColorUV") or body.data.uv_layers.active
+    if uv_layer is None:
+        raise PipelineError("AI crossbow tower has no UV0")
+    # Keep all samples inside the 480px content region, away from the swatch strip.
+    low = 0.5 / TOWER_ATLAS_SIZE
+    span = (TOWER_CONTENT_SIZE - 1.0) / TOWER_ATLAS_SIZE
+    for entry in uv_layer.data:
+        entry.uv = (
+            low + max(0.0, min(1.0, entry.uv.x)) * span,
+            low + max(0.0, min(1.0, entry.uv.y)) * span,
+        )
+    uv_layer.name = "BaseColorUV"
+
+    if not keep_ai_head:
+        mesh = body.data
+        work = bmesh.new()
+        work.from_mesh(mesh)
+        doomed = [
+            face for face in work.faces
+            if face.calc_center_median().z > 1.43
+        ]
+        bmesh.ops.delete(work, geom=doomed, context="FACES")
+        loose = [vertex for vertex in work.verts if not vertex.link_faces]
+        if loose:
+            bmesh.ops.delete(work, geom=loose, context="VERTS")
+        work.to_mesh(mesh)
+        work.free()
+        mesh.validate(verbose=False, clean_customdata=False)
+        mesh.update(calc_edges=True)
+    set_single_material(body, mat)
+    return body
+
+
+def add_upgrade_plinth(
+    parts: List[bpy.types.Object],
+    mat: bpy.types.Material,
+    level: int,
+) -> None:
+    if level < 2:
+        return
+    radius = 1.17 if level == 2 else 1.27
+    parts.append(add_cylinder(
+        "upgrade_plinth", (0.0, 0.0, 0.075), radius, 0.15,
+        "stone_dark", mat, vertices=12, bevel=0.025,
+    ))
+    if level >= 3:
+        parts.append(add_cylinder(
+            "upgrade_gold_band", (0.0, 0.0, 0.19), 1.19, 0.095,
+            "gold_dark", mat, vertices=12,
+        ))
+        # Two blue standards make Lv3 readable even when the weapon is occluded.
+        for side in (-1.0, 1.0):
+            parts.append(add_box(
+                f"standard_{side:+.0f}", (side * 0.93, 0.42, 1.20),
+                (0.075, 0.075, 1.20), "gold_dark", mat, bevel=0.015,
+            ))
+            parts.append(add_box(
+                f"standard_cloth_{side:+.0f}", (side * 0.93, 0.37, 1.50),
+                (0.34, 0.055, 0.54), "blue", mat, bevel=0.025,
+                rotation=(0.0, 0.0, math.radians(side * 5.0)),
+            ))
+
+
+def add_crossbow_upgrade(
+    parts: List[bpy.types.Object],
+    mat: bpy.types.Material,
+    level: int,
+) -> None:
+    if level >= 2:
+        # Reinforcement limbs sit just outside the AI bow and make Lv2 wider.
+        parts.append(add_beam_between(
+            "bow_reinforce_left", Vector((-0.12, -0.01, 1.78)),
+            Vector((-1.25, 0.03, 1.95)), 0.075, "iron_light", mat,
+        ))
+        parts.append(add_beam_between(
+            "bow_reinforce_right", Vector((0.12, -0.01, 1.78)),
+            Vector((1.25, 0.03, 1.95)), 0.075, "iron_light", mat,
+        ))
+        parts.append(add_cone(
+            "crossbow_bolt", (0.0, -0.38, 1.83), 0.075, 0.025, 1.18,
+            "gold", mat, vertices=8, rotation=(math.radians(90.0), 0.0, 0.0),
+        ))
+    if level >= 3:
+        for side in (-1.0, 1.0):
+            parts.append(add_cylinder(
+                f"bow_gold_cap_{side:+.0f}", (side * 1.26, 0.03, 1.95),
+                0.13, 0.18, "gold", mat, vertices=8,
+                rotation=(0.0, math.radians(90.0), 0.0),
+            ))
+        parts.append(add_crystal(
+            "crossbow_sight", (0.0, 0.03, 2.17), 0.115, 0.35,
+            "magic_core", mat, sides=6,
+        ))
+
+
+def add_cannon_head(
+    parts: List[bpy.types.Object],
+    mat: bpy.types.Material,
+    level: int,
+) -> None:
+    scale = (0.88, 1.0, 1.13)[level - 1]
+    parts.append(add_cylinder(
+        "cannon_deck", (0.0, 0.0, 1.43), 0.79 * scale, 0.24,
+        "stone", mat, vertices=12, bevel=0.035,
+    ))
+    parts.append(add_box(
+        "cannon_shield", (0.0, -0.18, 1.69),
+        (1.20 * scale, 0.16, 0.62 * scale), "blue_dark", mat,
+        bevel=0.07,
+    ))
+    barrel_length = (0.92, 1.18, 1.42)[level - 1]
+    barrel_radius = (0.16, 0.205, 0.245)[level - 1]
+    barrel_y = -0.20 - barrel_length * 0.34
+    barrel_z = 1.72 + 0.08 * (level - 1)
+    parts.append(add_cylinder(
+        "cannon_barrel", (0.0, barrel_y, barrel_z),
+        barrel_radius, barrel_length, "iron", mat, vertices=12,
+        rotation=(math.radians(90.0), 0.0, 0.0), bevel=0.025,
+    ))
+    muzzle_y = barrel_y - barrel_length * 0.5
+    parts.append(add_cylinder(
+        "cannon_muzzle", (0.0, muzzle_y, barrel_z),
+        barrel_radius * 1.33, 0.18 + level * 0.025, "muzzle", mat,
+        vertices=12, rotation=(math.radians(90.0), 0.0, 0.0),
+        bevel=0.018,
+    ))
+    parts.append(add_cylinder(
+        "cannon_breech", (0.0, 0.18, barrel_z),
+        barrel_radius * 1.18, 0.34, "bronze", mat, vertices=10,
+        rotation=(math.radians(90.0), 0.0, 0.0), bevel=0.025,
+    ))
+    for side in (-1.0, 1.0):
+        parts.append(add_cylinder(
+            f"cannon_wheel_{side:+.0f}", (side * (0.43 + level * 0.035), 0.08, 1.55),
+            0.27 + level * 0.025, 0.14, "wood", mat, vertices=10,
+            rotation=(0.0, math.radians(90.0), 0.0),
+        ))
+    if level >= 2:
+        parts.append(add_torus(
+            "cannon_gold_collar", (0.0, muzzle_y + 0.10, barrel_z),
+            barrel_radius * 1.12, 0.045, "gold", mat,
+            rotation=(math.radians(90.0), 0.0, 0.0),
+        ))
+    if level >= 3:
+        for side in (-1.0, 1.0):
+            parts.append(add_cylinder(
+                f"recoil_piston_{side:+.0f}", (side * 0.30, barrel_y + 0.10, barrel_z - 0.26),
+                0.07, barrel_length * 0.72, "bronze", mat, vertices=8,
+                rotation=(math.radians(90.0), 0.0, 0.0),
+            ))
+
+
+def add_magic_head(
+    parts: List[bpy.types.Object],
+    mat: bpy.types.Material,
+    level: int,
+) -> None:
+    scale = (0.84, 1.0, 1.15)[level - 1]
+    parts.append(add_cylinder(
+        "magic_deck", (0.0, 0.0, 1.43), 0.76 * scale, 0.25,
+        "stone", mat, vertices=12, bevel=0.035,
+    ))
+    core_z = 1.79 + 0.12 * (level - 1)
+    core_radius = 0.23 + 0.035 * (level - 1)
+    core_height = 0.62 + 0.11 * (level - 1)
+    parts.append(add_crystal(
+        "magic_core", (0.0, 0.0, core_z), core_radius, core_height,
+        "magic_cyan" if level < 3 else "magic_core", mat, sides=6,
+    ))
+    prongs = 2 + level
+    for index in range(prongs):
+        angle = 2.0 * math.pi * index / prongs + math.pi * 0.5
+        start = Vector((math.cos(angle) * 0.57 * scale, math.sin(angle) * 0.57 * scale, 1.50))
+        end = Vector((math.cos(angle) * 0.25 * scale, math.sin(angle) * 0.25 * scale, core_z + 0.06))
+        parts.append(add_beam_between(
+            f"magic_prong_{index}", start, end, 0.075,
+            "gold_dark" if level == 1 else "gold", mat,
+        ))
+    if level >= 2:
+        parts.append(add_torus(
+            "magic_orbit_a", (0.0, 0.0, core_z),
+            0.43 * scale, 0.045, "magic_blue", mat,
+            rotation=(math.radians(62.0), 0.0, math.radians(18.0)),
+        ))
+    if level >= 3:
+        parts.append(add_torus(
+            "magic_orbit_b", (0.0, 0.0, core_z + 0.03),
+            0.52 * scale, 0.04, "magic_violet", mat,
+            rotation=(math.radians(-55.0), math.radians(32.0), 0.0),
+        ))
+        for side in (-1.0, 1.0):
+            parts.append(add_crystal(
+                f"magic_satellite_{side:+.0f}",
+                (side * 0.61, 0.02, core_z + 0.04),
+                0.105, 0.30, "magic_violet", mat, sides=5,
+            ))
+
+
+def join_tower(parts: Sequence[bpy.types.Object], tower_id: str) -> bpy.types.Object:
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in parts:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0]
+    bpy.ops.object.join()
+    tower = bpy.context.object
+    tower.name = tower_id
+    for polygon in tower.data.polygons:
+        polygon.material_index = 0
+    while len(tower.data.materials) > 1:
+        tower.data.materials.pop(index=len(tower.data.materials) - 1)
+    triangulate = tower.modifiers.new("export_triangulate", "TRIANGULATE")
+    active_object(tower)
+    bpy.ops.object.modifier_apply(modifier=triangulate.name)
+    tower.data.validate(verbose=False, clean_customdata=False)
+    tower.data.update(calc_edges=True)
+    return tower
+
+
+def build_tower_variant(tower_type: str, level: int) -> Dict[str, object]:
+    reset_scene()
+    mat = tower_material()
+    keep_ai_head = tower_type == "crossbow"
+    body = import_tower_body(mat, keep_ai_head=keep_ai_head)
+    parts: List[bpy.types.Object] = [body]
+    add_upgrade_plinth(parts, mat, level)
+    if tower_type == "crossbow":
+        add_crossbow_upgrade(parts, mat, level)
+    elif tower_type == "cannon":
+        add_cannon_head(parts, mat, level)
+    elif tower_type == "magic":
+        add_magic_head(parts, mat, level)
+    else:
+        raise PipelineError(f"unknown tower type: {tower_type}")
+    tower_id = f"tower_{tower_type}_lv{level}"
+    tower = join_tower(parts, tower_id)
+    export_fbx([tower], TARGET_DIR / f"{tower_id}.fbx")
+    return {
+        "id": tower_id,
+        "tower_type": tower_type,
+        "level": level,
+        "texture_id": TOWER_TEXTURE_ID,
+        "ai_base": "crossbow_tower",
+        "head": "ai_crossbow" if keep_ai_head else f"procedural_{tower_type}",
+    }
+
+
+def build_tower_variants() -> List[Dict[str, object]]:
+    metadata = []
+    for tower_type in TOWER_TYPES:
+        for level in TOWER_LEVELS:
+            metadata.append(build_tower_variant(tower_type, level))
+    return metadata
+
+
 def export_fbx(objects: Sequence[bpy.types.Object], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
@@ -415,6 +1052,10 @@ def export_fbx(objects: Sequence[bpy.types.Object], path: Path) -> None:
 
 def install_assets() -> Dict[str, object]:
     TARGET_DIR.mkdir(parents=True, exist_ok=True)
+    for tower_id in TOWER_IDS:
+        duplicate_texture = TARGET_DIR / f"{tower_id}.png"
+        if duplicate_texture.exists():
+            duplicate_texture.unlink()
     for asset_id in ASSET_IDS:
         shutil.copy2(SOURCE_DIR / f"{asset_id}.fbx", TARGET_DIR / f"{asset_id}.fbx")
         if asset_id != "enemy_soldier":
@@ -475,7 +1116,16 @@ def install_assets() -> Dict[str, object]:
         TARGET_DIR / "giant_blade_glow.png", 128, 32,
         glow_pixel, "giant_blade_glow_texture",
     )
-    return {"enemy_cleanup": enemy_cleanup}
+    tower_atlas = create_tower_atlas(
+        SOURCE_DIR / "crossbow_tower.png",
+        TARGET_DIR / f"{TOWER_TEXTURE_ID}.png",
+    )
+    tower_variants = build_tower_variants()
+    return {
+        "enemy_cleanup": enemy_cleanup,
+        "tower_atlas": tower_atlas,
+        "tower_variants": tower_variants,
+    }
 
 
 def import_meshes(path: Path) -> List[bpy.types.Object]:
@@ -489,18 +1139,22 @@ def fbx_stats(path: Path) -> Dict[str, object]:
     if not objects:
         raise PipelineError(f"FBX has no mesh objects: {path}")
     triangle_count = 0
+    vertex_count = 0
     logical_points: List[Tuple[float, float, float]] = []
     uv_layers = 0
     color_layers = set()
     material_slots = 0
+    material_names = set()
     transforms = []
     for obj in objects:
         mesh = obj.data
         mesh.calc_loop_triangles()
         triangle_count += len(mesh.loop_triangles)
+        vertex_count += len(mesh.vertices)
         uv_layers = max(uv_layers, len(mesh.uv_layers))
         color_layers.update(layer.name for layer in mesh.color_attributes)
         material_slots += len(mesh.materials)
+        material_names.update(material.name for material in mesh.materials if material)
         transforms.append({
             "name": obj.name,
             "location": round_vec(obj.location),
@@ -516,15 +1170,50 @@ def fbx_stats(path: Path) -> Dict[str, object]:
         "bytes": path.stat().st_size,
         "sha256": sha256(path),
         "mesh_objects": len(objects),
+        "vertices": vertex_count,
         "triangles": triangle_count,
         "uv_layers": uv_layers,
         "color_layers": sorted(color_layers),
         "material_slots": material_slots,
+        "material_names": sorted(material_names),
         "unity_logical_bounds_min": round_vec(minimum),
         "unity_logical_bounds_max": round_vec(maximum),
         "unity_logical_height": round(maximum[1] - minimum[1], 6),
         "imported_transforms": transforms,
     }
+
+
+def generated_repro_signatures() -> Dict[str, object]:
+    """Return exporter-metadata-independent signatures for generated assets.
+
+    Blender's binary FBX exporter writes volatile creation metadata, so two
+    correct exports need not have the same file hash.  Freshly importing each
+    FBX and comparing the geometry, material, bounds, and transforms is the
+    meaningful reproducibility contract.  Generated PNGs remain byte exact.
+    """
+
+    semantic_keys = (
+        "mesh_objects",
+        "vertices",
+        "triangles",
+        "uv_layers",
+        "color_layers",
+        "material_slots",
+        "material_names",
+        "unity_logical_bounds_min",
+        "unity_logical_bounds_max",
+        "unity_logical_height",
+        "imported_transforms",
+    )
+    fbx = {}
+    for asset_id in GENERATED_FBX_IDS:
+        stats = fbx_stats(TARGET_DIR / f"{asset_id}.fbx")
+        fbx[asset_id] = {key: stats[key] for key in semantic_keys}
+    png = {
+        asset_id: sha256(TARGET_DIR / f"{asset_id}.png")
+        for asset_id in GENERATED_PNG_IDS
+    }
+    return {"fbx_semantic": fbx, "png_sha256": png}
 
 
 def png_stats(path: Path) -> Dict[str, object]:
@@ -593,6 +1282,135 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
             errors.append(f"{attachment_id}: unexpected texture dimensions")
         attachments.append({"id": attachment_id, "fbx": fbx, "png": png})
 
+    attachment_by_id = {item["id"]: item for item in attachments}
+    crown = attachment_by_id.get("king_crown")
+    glow = attachment_by_id.get("giant_blade_glow")
+    crown_above_head = False
+    glow_inside_parent = False
+    glow_alpha_ready = False
+    if crown:
+        crown_min = crown["fbx"]["unity_logical_bounds_min"]
+        crown_max = crown["fbx"]["unity_logical_bounds_max"]
+        crown_above_head = crown_min[1] >= 1.19 and crown_max[1] >= 1.45
+        if not crown_above_head:
+            errors.append("king_crown: crown does not sit visibly above the AI king head")
+    if glow:
+        glow_min = glow["fbx"]["unity_logical_bounds_min"]
+        glow_max = glow["fbx"]["unity_logical_bounds_max"]
+        giant = next((item for item in assets if item["id"] == "giant"), None)
+        glow_inside_parent = giant is not None
+        if giant:
+            giant_min = giant["fbx"]["unity_logical_bounds_min"]
+            giant_max = giant["fbx"]["unity_logical_bounds_max"]
+            for axis in range(3):
+                if glow_min[axis] < giant_min[axis] - 0.03 or glow_max[axis] > giant_max[axis] + 0.03:
+                    errors.append("giant_blade_glow: attachment falls outside giant bounds")
+                    glow_inside_parent = False
+                    break
+        glow_alpha_ready = (
+            glow["png"]["alpha_min"] < 0.1
+            and glow["png"]["alpha_max"] > 0.9
+        )
+        if not glow_alpha_ready:
+            errors.append("giant_blade_glow: texture lacks transparent edge or bright core")
+
+    tower_texture_path = TARGET_DIR / f"{TOWER_TEXTURE_ID}.png"
+    tower_texture = None
+    if not tower_texture_path.is_file():
+        errors.append(f"missing shared tower atlas: {TOWER_TEXTURE_ID}.png")
+    else:
+        tower_texture = png_stats(tower_texture_path)
+        if (tower_texture["width"], tower_texture["height"]) != (
+            TOWER_ATLAS_SIZE, TOWER_ATLAS_SIZE
+        ):
+            errors.append("tower_shared: unexpected texture dimensions")
+
+    tower_variants = []
+    tower_by_type: Dict[str, List[Dict[str, object]]] = {
+        tower_type: [] for tower_type in TOWER_TYPES
+    }
+    generated_meta = {
+        item["id"]: item for item in install_meta.get("tower_variants", [])
+    }
+    for tower_type in TOWER_TYPES:
+        for level in TOWER_LEVELS:
+            tower_id = f"tower_{tower_type}_lv{level}"
+            fbx_path = TARGET_DIR / f"{tower_id}.fbx"
+            duplicate_png = TARGET_DIR / f"{tower_id}.png"
+            if not fbx_path.is_file():
+                errors.append(f"missing tower variant: {tower_id}.fbx")
+                continue
+            if duplicate_png.exists():
+                errors.append(f"{tower_id}: per-level texture duplicate must not exist")
+            fbx = fbx_stats(fbx_path)
+            if fbx["mesh_objects"] != 1:
+                errors.append(f"{tower_id}: mesh objects {fbx['mesh_objects']} != 1")
+            if fbx["material_slots"] != 1:
+                errors.append(f"{tower_id}: material slots {fbx['material_slots']} != 1")
+            if fbx["material_names"] != ["AI3D_TowerShared"]:
+                errors.append(
+                    f"{tower_id}: shared material name is {fbx['material_names']}, "
+                    "expected AI3D_TowerShared"
+                )
+            if fbx["uv_layers"] != 1:
+                errors.append(f"{tower_id}: UV layers {fbx['uv_layers']} != 1")
+            if "Color" not in fbx["color_layers"]:
+                errors.append(f"{tower_id}: missing Color AO channel")
+            if not 1800 <= fbx["triangles"] <= 6200:
+                errors.append(f"{tower_id}: triangles {fbx['triangles']} outside 1800..6200")
+            if abs(fbx["unity_logical_bounds_min"][1]) > 0.012:
+                errors.append(
+                    f"{tower_id}: base is not grounded at Y=0 "
+                    f"({fbx['unity_logical_bounds_min'][1]})"
+                )
+            transforms_ok = all(
+                transform["location"] == [0.0, 0.0, 0.0]
+                and transform["scale"] == [1.0, 1.0, 1.0]
+                for transform in fbx["imported_transforms"]
+            )
+            if not transforms_ok:
+                errors.append(f"{tower_id}: imported transform is not unit/zero")
+            item = {
+                "id": tower_id,
+                "tower_type": tower_type,
+                "level": level,
+                "texture_id": TOWER_TEXTURE_ID,
+                "ai_base": "crossbow_tower",
+                "head": (
+                    generated_meta.get(tower_id, {}).get("head")
+                    or ("ai_crossbow" if tower_type == "crossbow" else f"procedural_{tower_type}")
+                ),
+                "fbx": fbx,
+            }
+            tower_variants.append(item)
+            tower_by_type[tower_type].append(item)
+
+    level_progression = {}
+    for tower_type, variants in tower_by_type.items():
+        variants.sort(key=lambda item: item["level"])
+        triangles = [item["fbx"]["triangles"] for item in variants]
+        heights = [item["fbx"]["unity_logical_height"] for item in variants]
+        triangle_pass = len(triangles) == 3 and triangles[0] < triangles[1] < triangles[2]
+        height_pass = len(heights) == 3 and heights[0] <= heights[1] <= heights[2]
+        if not triangle_pass:
+            errors.append(f"tower_{tower_type}: level triangle complexity does not increase")
+        if not height_pass:
+            errors.append(f"tower_{tower_type}: level height does not increase")
+        level_progression[tower_type] = {
+            "triangles": triangles,
+            "heights": heights,
+            "triangle_complexity_increases": triangle_pass,
+            "height_non_decreasing": height_pass,
+            "passed": triangle_pass and height_pass,
+        }
+
+    cleanup = install_meta.get("enemy_cleanup")
+    if cleanup and not 0.35 <= cleanup.get("team_ratio_after", 0.0) <= 0.55:
+        errors.append("enemy_soldier: cleaned team-mask coverage outside 35..55%")
+    reproducibility = install_meta.get("reproducibility")
+    if reproducibility and reproducibility.get("checked") and not reproducibility.get("passed"):
+        errors.append("headless regeneration changed imported FBX semantics or PNG bytes")
+
     # Immutable inputs must remain byte-identical after every run.
     after_hashes = {
         path.name: sha256(path)
@@ -606,12 +1424,17 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
         path.stat().st_size for path in TARGET_DIR.iterdir()
         if path.is_file() and path.suffix.lower() in {".fbx", ".png"}
     )
+    total_gzip_bytes = sum(
+        len(gzip.compress(path.read_bytes(), compresslevel=9, mtime=0))
+        for path in TARGET_DIR.iterdir()
+        if path.is_file() and path.suffix.lower() in {".fbx", ".png"}
+    )
     report = {
-        "schema_version": 1,
+        "schema_version": 3,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "generator": str(SCRIPT.relative_to(SCRIPT.parents[5])),
         "blender_version": bpy.app.version_string,
-        "scope": "Art R4 AI 3D asset installation only; no runtime code or public build",
+        "scope": "Art R4/V3 AI 3D assets and nine tower upgrades only; no runtime code or public build",
         "source": {
             "concept_generator": "OpenAI built-in image generation, 2026-09-27 KST",
             "mesh_generator": "Meshy 7.1 Image-to-3D plus Remesh",
@@ -629,12 +1452,28 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
             "soldier_texture_alpha": "data mask: 0=team tintable, 1=fixed authored colour; never opacity",
             "crown": f"separate opaque attachment, dominant gold {CROWN_GOLD}",
             "giant_glow": "separate crossed ribbons; transparent texture intended for additive unlit rendering, Cull Off, ZWrite Off",
+            "tower_variants": "tower_{crossbow,cannon,magic}_lv{1,2,3}; AI crossbow body, one mesh/material each",
+            "tower_texture": f"all nine variants share {TOWER_TEXTURE_ID}.png; per-level PNG duplicates forbidden",
             "unity_meta": "not committed by unity-track contract; warm workspace generates/preserves .meta files",
         },
-        "enemy_cleanup": install_meta.get("enemy_cleanup"),
+        "enemy_cleanup": cleanup,
+        "tower_atlas": install_meta.get("tower_atlas"),
         "assets": assets,
         "attachments": attachments,
+        "attachment_checks": {
+            "king_crown_above_head": crown_above_head,
+            "giant_glow_inside_parent_bounds": glow_inside_parent,
+            "giant_glow_alpha_ready": glow_alpha_ready,
+            "enemy_team_mask_ratio_35_55_percent": bool(
+                cleanup and 0.35 <= cleanup.get("team_ratio_after", 0.0) <= 0.55
+            ),
+        },
+        "tower_shared_texture": tower_texture,
+        "tower_variants": tower_variants,
+        "tower_level_progression": level_progression,
+        "reproducibility": reproducibility,
         "total_installed_binary_bytes": total_bytes,
+        "total_installed_gzip_bytes": total_gzip_bytes,
         "validation": {"passed": not errors, "errors": errors},
     }
     return report
@@ -744,6 +1583,34 @@ def render_previews(preview_dir: Path) -> None:
     configure_preview_material(glow, TARGET_DIR / "giant_blade_glow.png", emission=True)
     studio_render(preview_dir / "giant-glow.png", Vector((0.0, 0.0, 0.88)), 1.55)
 
+    for tower_type in TOWER_TYPES:
+        for level in TOWER_LEVELS:
+            tower_id = f"tower_{tower_type}_lv{level}"
+            reset_scene()
+            bpy.ops.import_scene.fbx(
+                filepath=str(TARGET_DIR / f"{tower_id}.fbx"), use_custom_normals=True
+            )
+            tower = max(
+                (obj for obj in bpy.context.scene.objects if obj.type == "MESH"),
+                key=lambda obj: len(obj.data.vertices),
+            )
+            configure_preview_material(
+                tower, TARGET_DIR / f"{TOWER_TEXTURE_ID}.png"
+            )
+            points = [tower.matrix_world @ vertex.co for vertex in tower.data.vertices]
+            minimum_z = min(point.z for point in points)
+            maximum_z = max(point.z for point in points)
+            extent = max(
+                maximum_z - minimum_z,
+                max(point.x for point in points) - min(point.x for point in points),
+                max(point.y for point in points) - min(point.y for point in points),
+            )
+            studio_render(
+                preview_dir / f"{tower_id}.png",
+                Vector((0.0, 0.0, (minimum_z + maximum_z) * 0.5)),
+                max(1.15, extent * 0.72),
+            )
+
 
 def write_report(report: Dict[str, object]) -> None:
     text = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
@@ -757,10 +1624,52 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     install_meta: Dict[str, object] = {}
     if not args.verify_only:
         install_meta = install_assets()
+        if args.determinism_check:
+            first_hashes = target_binary_hashes()
+            first_signatures = generated_repro_signatures()
+            install_meta = install_assets()
+            second_hashes = target_binary_hashes()
+            second_signatures = generated_repro_signatures()
+            fbx_byte_changed = sorted(
+                name for name in set(first_hashes) | set(second_hashes)
+                if name.endswith(".fbx")
+                and first_hashes.get(name) != second_hashes.get(name)
+            )
+            semantic_changed = sorted(
+                asset_id for asset_id in GENERATED_FBX_IDS
+                if first_signatures["fbx_semantic"].get(asset_id)
+                != second_signatures["fbx_semantic"].get(asset_id)
+            )
+            png_changed = sorted(
+                asset_id for asset_id in GENERATED_PNG_IDS
+                if first_signatures["png_sha256"].get(asset_id)
+                != second_signatures["png_sha256"].get(asset_id)
+            )
+            passed = not semantic_changed and not png_changed
+            install_meta["reproducibility"] = {
+                "checked": True,
+                "method": (
+                    "two consecutive Blender --background generations; fresh-import "
+                    "FBX geometry/material/bounds/transforms plus generated PNG bytes"
+                ),
+                "generated_files": len(GENERATED_FBX_IDS) + len(GENERATED_PNG_IDS),
+                "fbx_semantic_identical": not semantic_changed,
+                "fbx_semantic_changed": semantic_changed,
+                "png_byte_identical": not png_changed,
+                "png_changed": png_changed,
+                "fbx_byte_identical": not fbx_byte_changed,
+                "fbx_byte_changed": fbx_byte_changed,
+                "fbx_byte_note": (
+                    "informational only: Blender FBX creation metadata can vary while "
+                    "fresh-import content remains identical"
+                ),
+                "passed": passed,
+            }
     elif REPORT_PATH.is_file():
         previous = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
-        if previous.get("enemy_cleanup"):
-            install_meta["enemy_cleanup"] = previous["enemy_cleanup"]
+        for key in ("enemy_cleanup", "tower_atlas", "tower_variants", "reproducibility"):
+            if previous.get(key) is not None:
+                install_meta[key] = previous[key]
     report = verify(source_hashes, install_meta)
     write_report(report)
     if args.preview_dir:

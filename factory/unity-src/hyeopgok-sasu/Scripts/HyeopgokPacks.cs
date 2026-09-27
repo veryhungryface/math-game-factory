@@ -6,7 +6,11 @@ using UnityEngine;
 namespace Mgf.HyeopgokSasu
 {
     [Serializable] public sealed class PackIndex { public string default_pack; public PackEntry[] packs; }
-    [Serializable] public sealed class PackEntry { public string pack_id, title, file, school; public int grade, semester, unit_order; }
+    [Serializable] public sealed class PackEntry {
+        public string pack_id, title, file, school; public int grade, semester, unit_order;
+        [NonSerialized] public bool eligibilityChecked,choicePlayable;
+        [NonSerialized] public int choiceCount;
+    }
     [Serializable] public sealed class PackEconomy { public int carry_capacity,coin_per_kill,min_spawn_coins; }
     [Serializable] public sealed class QuestionPack {
         public string pack_id,title,school,unit_id;
@@ -40,13 +44,21 @@ namespace Mgf.HyeopgokSasu
         public string PublicAnswerToken=>Mode=="fraction_parts"&&accept=="exact_parts"?PartsToken:AnswerToken;
         public static int Gcd(int a,int b){a=Math.Abs(a);b=Math.Abs(b);while(b!=0){int t=a%b;a=b;b=t;}return Math.Max(1,a);}
         static long Gcd(long a,long b){a=Math.Abs(a);b=Math.Abs(b);while(b!=0){long t=a%b;a=b;b=t;}return Math.Max(1,a);}
-        static bool TryChoiceRational(string text,out long numerator,out long denominator){
-            numerator=0;denominator=1;if(string.IsNullOrEmpty(text))return false;
+        static bool TryChoiceValue(string text,out long numerator,out long denominator,out string kind,out string unit){
+            numerator=0;denominator=1;kind="";unit="";if(string.IsNullOrEmpty(text))return false;
             string s=text.Trim();
             if(s.StartsWith("{frac:")&&s.EndsWith("}")){
                 string[] parts=s.Substring(6,s.Length-7).Split('/');
                 if(parts.Length!=2||!long.TryParse(parts[0],out numerator)||!long.TryParse(parts[1],out denominator)||denominator==0)return false;
-            }else if(!long.TryParse(s,out numerator))return false;
+                kind="num";
+            }else {
+                Match ratio=Regex.Match(s,@"^(-?\d+):(-?\d+)$");
+                if(ratio.Success){if(!long.TryParse(ratio.Groups[1].Value,out numerator)||!long.TryParse(ratio.Groups[2].Value,out denominator)||denominator==0)return false;kind="ratio";}
+                else {
+                    Match number=Regex.Match(s,@"^(-?\d+)(?:\s*(°|cm²|cm³|cm|m))?$");
+                    if(!number.Success||!long.TryParse(number.Groups[1].Value,out numerator))return false;denominator=1;kind="num";unit=number.Groups[2].Value;
+                }
+            }
             if(denominator<0){numerator=-numerator;denominator=-denominator;}
             long g=Gcd(numerator,denominator);numerator/=g;denominator/=g;return true;
         }
@@ -54,7 +66,7 @@ namespace Mgf.HyeopgokSasu
         // integer-only policy. Text choices remain exact; rational tokens compare
         // after reduction without ever converting to float/double.
         public static bool EquivalentChoice(string a,string b){
-            if(TryChoiceRational(a,out long an,out long ad)&&TryChoiceRational(b,out long bn,out long bd))return an==bn&&ad==bd;
+            if(TryChoiceValue(a,out long an,out long ad,out string ak,out string au)&&TryChoiceValue(b,out long bn,out long bd,out string bk,out string bu))return ak==bk&&au==bu&&an==bn&&ad==bd;
             return a==b;
         }
         public bool Accepts(int denOrAmount,int num){

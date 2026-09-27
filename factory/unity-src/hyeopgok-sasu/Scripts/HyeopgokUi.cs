@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,7 +10,7 @@ namespace Mgf.HyeopgokSasu
     public partial class HyeopgokGame
     {
         readonly Color cream=MgfLook.Hex("#fff1ce"),navy=MgfLook.Hex("#142e35"),gold=MgfLook.Hex("#ffd05a");
-        RectTransform commandStrip,pressureMarker,treasuryPanel,hpPill,wavePill,correctPill,questionFace,questionLip,questionShadow,assembledHud;
+        RectTransform commandStrip,pressureMarker,treasuryPanel,hpPill,wavePill,correctPill,questionFace,questionLip,questionShadow,questionBackdrop,assembledHud;
         RectTransform timerBadge,scrollCurlLeft,scrollCurlRight,feedbackRewardIcon; TextMeshProUGUI gateLossText,feedbackSeal,feedbackExpand;
         float questionShownAt,gateLossLife,questionReadTime=3; int previousActualHp=100; bool questionAutoCollapsed,questionUserOpened,questionShowsAll;
         readonly RectTransform[] padPaint=new RectTransform[4]; Transform tutorialArrow;
@@ -31,6 +33,9 @@ namespace Mgf.HyeopgokSasu
         HyeopgokMathText[] padLabels=new HyeopgokMathText[4];
         RectTransform[] padLabelRoots=new RectTransform[4];
         TextMeshProUGUI[] tutorialRings=new TextMeshProUGUI[4];
+        readonly RectTransform[] upgradeLabelRoots=new RectTransform[HyeopgokBattle.TowerCount];
+        readonly TextMeshProUGUI[] upgradeLabels=new TextMeshProUGUI[HyeopgokBattle.TowerCount];
+        readonly int[] shownUpgradeLevel={-99,-99,-99},shownUpgradeRemaining={-99,-99,-99},shownUpgradeType={-99,-99,-99};
         TextMeshProUGUI answerRing,confirmRing;int answerMark=-1;
         Image hpFill,timeFill;
         float shownHp=100,bonusLife,fractionRevealLife,fractionRevealReduceAt;
@@ -69,6 +74,8 @@ namespace Mgf.HyeopgokSasu
             treasuryPanel=Pill("Coin treasury",playRoot,new Vector2(1,1),new Vector2(-58,-28),new Vector2(101,42),navy);
             BuildCoinIcon(treasuryPanel,new Vector2(-33,0),23);
             treasuryText=Text("0",treasuryPanel,new Vector2(.5f,.5f),new Vector2(11,1),new Vector2(62,34),24,Color.white);
+            questionBackdrop=Box("Question safe-area backdrop",playRoot,new Vector2(.5f,1),new Vector2(0,-90),new Vector2(4000,180),MgfLook.Hex("#18333f"));
+            questionBackdrop.SetAsFirstSibling();
             questionShadow=Box("Quest parchment soft shadow",playRoot,new Vector2(.5f,1),new Vector2(3,-110),new Vector2(374,94),new Color(.05f,.14f,.14f,.42f));
             questionPanel=Box("Quest parchment outline",playRoot,new Vector2(.5f,1),new Vector2(0,-106),new Vector2(372,92),MgfLook.Hex("#5a3a1e"));
             questionFace=Box("Cream quest parchment",questionPanel,new Vector2(.5f,.5f),Vector2.zero,new Vector2(366,86),MgfLook.Hex("#f6e7c8"));
@@ -76,8 +83,8 @@ namespace Mgf.HyeopgokSasu
             scrollCurlLeft=Box("Left parchment curl",questionPanel,new Vector2(0,.5f),new Vector2(3,0),new Vector2(11,72),MgfLook.Hex("#d7b982"));
             scrollCurlRight=Box("Right parchment curl",questionPanel,new Vector2(1,.5f),new Vector2(-3,0),new Vector2(11,72),MgfLook.Hex("#d7b982"));
             questionLip=Box("Parchment bottom edge",questionFace,new Vector2(.5f,0),new Vector2(0,4),new Vector2(340,3),MgfLook.Hex("#d6bb83"));
-            var q=Text("",questionFace,new Vector2(0,1),Vector2.zero,new Vector2(290,52),17.5f,MgfLook.Hex("#392b1d"));q.alignment=TextAlignmentOptions.TopLeft;q.lineSpacing=2;q.fontSharedMaterial=RoundBodyMaterial;
-            q.overflowMode=TextOverflowModes.Ellipsis;questionText=new HyeopgokMathText(q);
+            var q=Text("",questionFace,new Vector2(0,1),Vector2.zero,new Vector2(290,52),22f,MgfLook.Hex("#392b1d"));q.alignment=TextAlignmentOptions.TopLeft;q.lineSpacing=2;q.fontSharedMaterial=RoundBodyMaterial;
+            q.overflowMode=TextOverflowModes.Overflow;questionText=new HyeopgokMathText(q);
             var cq=Text("",questionFace,new Vector2(0,1),Vector2.zero,new Vector2(290,30),17.5f,MgfLook.Hex("#392b1d"));cq.alignment=TextAlignmentOptions.MidlineLeft;cq.fontSharedMaterial=RoundBodyMaterial;
             cq.textWrappingMode=TextWrappingModes.NoWrap;cq.overflowMode=TextOverflowModes.Ellipsis;cq.maxVisibleLines=1;collapsedQuestion=new HyeopgokMathText(cq);cq.gameObject.SetActive(false);
             questionExpand=Text("",questionFace,new Vector2(1,0),new Vector2(-77,14),new Vector2(104,24),12,MgfLook.Hex("#805329"));
@@ -110,6 +117,10 @@ namespace Mgf.HyeopgokSasu
                 padNames[i]=Text("",padNamePills[i],new Vector2(.5f,.5f),Vector2.zero,new Vector2(155,40),27,Color.white);padNames[i].fontSharedMaterial=MathFontMaterial;
                 padPaint[i].gameObject.SetActive(false);
                 var pt=Text("",p,new Vector2(.5f,.5f),Vector2.zero,new Vector2(68,56),29,Color.white);padLabels[i]=new HyeopgokMathText(pt);
+            }
+            for(int i=0;i<HyeopgokBattle.TowerCount;i++){
+                var root=Group("Upgrade pad label "+i,playRoot);root.anchorMin=root.anchorMax=new Vector2(.5f,.5f);root.sizeDelta=new Vector2(104,52);upgradeLabelRoots[i]=root;
+                var label=Text("",root,new Vector2(.5f,.5f),Vector2.zero,new Vector2(104,50),15,gold);label.fontSharedMaterial=MathFontMaterial;label.alignment=TextAlignmentOptions.Center;upgradeLabels[i]=label;root.gameObject.SetActive(false);
             }
             assembledHud=Pill("Assembled probability HUD",playRoot,new Vector2(1,1),new Vector2(-64,-298),new Vector2(112,88),navy);
             assembledCaption=Text("사건 ÷ 전체",assembledHud,new Vector2(.5f,1),new Vector2(0,-17),new Vector2(102,24),13,cream);assembledCaption.textWrappingMode=TextWrappingModes.NoWrap;
@@ -156,61 +167,40 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<4;i++)cracks[i].gameObject.SetActive(false);
             lastPoured[0]=lastPoured[1]=-1;lastVisited[0]=lastVisited[1]=true;lastAssembledDen=lastAssembledNum=-1;assembledMath.Set("");assembledHud.gameObject.SetActive(false);assembledText.gameObject.SetActive(false);confirmText.text="";confirmRing.gameObject.SetActive(false);
             LayoutUi();
-            hintText.text=Rules.Current.Mode=="choice"?"정답 패드 위에 0.8초 서기\n10문제 중 7문제 이상 맞히면 승리":IsCoinIntro?"처치 코인 → 등에 쌓기 → 2닢 붓기\n멈춰서 두 번 탭한 뒤 밖으로 이동":Rules.Current.Mode=="fraction_parts"?p.den_label+" → "+p.num_label+" 순서로 붓기\n두 패드에서 멈춘 뒤 밖으로 나와 확정":"탭 = 1닢 · 길게 서면 빠르게\n0은 패드에서 잠깐 멈춘 뒤 나오기";
-            bool firstFraction=Rules.Current.Mode=="fraction_parts"&&!firstFractionTutorialShown;
-            if(firstFraction)firstFractionTutorialShown=true;
-            SetTutorial(firstFraction?2:Rules.Wave==1&&st.moves==0?(Rules.Current.Mode=="choice"?3:1):0);
+            hintText.text="보기 패드를 탭하면 왕이 달려가 답을 확정해요\n전투 코인은 금빛 타워 패드에서만 사용";
+            SetTutorial(Rules.Wave==1&&st.moves==0?3:0);
         }
         void FitQuestion(string prompt){
-            bool wide=(float)Screen.width/Screen.height>1.2f;float font=wide?24:17.5f;
-            float available=questionPanel.sizeDelta.x-76;
-            string styled=(wide?"<line-height=30>":"<line-height=22>")+prompt+"</line-height>";
+            bool wide=(float)Screen.width/Screen.height>1.2f;float font=wide?36:24;
+            float available=questionPanel.sizeDelta.x-78;
+            string styled=(wide?"<line-height=45>":"<line-height=32>")+prompt+"</line-height>";
             var body=questionText.Text;
             body.gameObject.SetActive(true);collapsedQuestion.Text.gameObject.SetActive(false);
             body.fontSize=font;body.lineSpacing=0;body.textWrappingMode=TextWrappingModes.Normal;
-            // Keep the layout rectangle tall even while collapsed. A short TMP
-            // rect triggers vertical ellipsis BEFORE maxVisibleLines is applied,
-            // losing line two. Only maxVisibleLines performs the collapse.
-            body.rectTransform.sizeDelta=new Vector2(available,500);
-            body.rectTransform.anchoredPosition=new Vector2(available*.5f+14,-257);
+            body.rectTransform.sizeDelta=new Vector2(available,720);
+            body.rectTransform.anchoredPosition=new Vector2(available*.5f+14,-370);
             body.maxVisibleLines=100;body.overflowMode=TextOverflowModes.Overflow;
             questionText.Set(styled);body.ForceMeshUpdate(true,true);
-            int lines=Mathf.Max(1,body.textInfo.lineCount);
-            var firstLine=body.textInfo.lineInfo[0];
-            var lastLine=body.textInfo.lineInfo[lines-1];
-            questionNaturalHeight=Mathf.Max(font*1.4f,firstLine.ascender-lastLine.descender+7);
-            bool fullOverflow=body.isTextOverflowing;
-            // Portrait opens for a length-adjusted reading beat, then becomes a
-            // genuinely separate one-line label in a fixed clipped mask. This avoids
-            // TMP's former half-line/descender leak at the scroll edge.
-            questionCanExpand=!wide&&(lines>1||fullOverflow);
-            bool folded=questionCanExpand&&!questionExpanded;
-            questionShowsAll=!folded;
-            float shownHeight=questionNaturalHeight;
-            if(folded){
-                body.gameObject.SetActive(false);var compact=collapsedQuestion.Text;compact.gameObject.SetActive(true);
-                compact.fontSize=font;compact.rectTransform.sizeDelta=new Vector2(available,31);compact.rectTransform.anchoredPosition=new Vector2(available*.5f+14,-24);
-                compact.textWrappingMode=TextWrappingModes.NoWrap;compact.overflowMode=TextOverflowModes.Ellipsis;compact.maxVisibleLines=1;collapsedQuestion.Set(prompt);
-                shownHeight=31;
-            }
-            SetScrollSize(folded?66:Mathf.Max(66,Mathf.Min(410,shownHeight)+14+(questionCanExpand?12:0)));
+            questionNaturalHeight=Mathf.Max(font*1.35f,body.preferredHeight+6);
+            questionCanExpand=false;questionShowsAll=true;questionExpanded=true;
+            SetScrollSize(Mathf.Max(wide?86:78,questionNaturalHeight+24));
+            body.rectTransform.sizeDelta=new Vector2(available,questionNaturalHeight+4);
+            body.rectTransform.anchoredPosition=new Vector2(available*.5f+14,-14-questionNaturalHeight*.5f);
             body.maxVisibleLines=100;body.overflowMode=TextOverflowModes.Overflow;
-            questionExpand.text=questionCanExpand?(questionShowsAll?"접기":"더 읽기"):"";
-            // Layout flags are part of the math wrapper's cache identity so the
-            // stacked fractions hide/reappear together with their parent lines.
+            questionExpand.text="";questionExpand.gameObject.SetActive(false);
             questionText.Set(styled);body.ForceMeshUpdate(true,true);feedbackText.Text.fontSize=font;
-            if(Application.absoluteURL.Contains("artprobe=1"))Debug.Log("[HYEOPGOK_UI] lines="+lines+" shown="+(folded?1:lines)+" rectangle="+body.rectTransform.rect.size+" panel="+questionPanel.sizeDelta+" expandable="+questionCanExpand);
+            PushV3QuestionProbe(prompt);
         }
         void SetScrollSize(float height){
             float width=questionPanel.sizeDelta.x;questionPanel.sizeDelta=new Vector2(width,height);questionPanel.anchoredPosition=new Vector2(0,-60-height*.5f);
             questionShadow.sizeDelta=new Vector2(width+2,height+2);questionShadow.anchoredPosition=questionPanel.anchoredPosition+new Vector2(3,-4);
             questionFace.sizeDelta=new Vector2(width-6,height-6);questionLip.sizeDelta=new Vector2(width-28,3);
             scrollCurlLeft.sizeDelta=scrollCurlRight.sizeDelta=new Vector2(9,height-17);
+            questionBackdrop.sizeDelta=new Vector2(4000,height+70);questionBackdrop.anchoredPosition=new Vector2(0,-(height+70)*.5f);
+            ApplyWorldViewport(height);
         }
         bool HandleBattleUiPointer(){
             if(!questionPanel||!Hit(questionPanel))return false;
-            if(feedbackPanel.gameObject.activeSelf){if(feedbackCanExpand){feedbackExpanded=!feedbackExpanded;feedbackLeft=Mathf.Max(feedbackLeft,5f);RenderFeedback();MgfSfx.Play("tap",.4f);}}
-            else if(questionCanExpand){questionExpanded=!questionShowsAll;questionUserOpened=true;FitQuestion(Rules.Current.prompt);MgfSfx.Play("tap",.4f);}
             return true;
         }
         void SetChoices(string[] choices){
@@ -268,9 +258,9 @@ namespace Mgf.HyeopgokSasu
             feedbackPanel.gameObject.SetActive(true);questionText.Text.gameObject.SetActive(false);collapsedQuestion.Text.gameObject.SetActive(false);questionExpand.gameObject.SetActive(false);
             timerBadge.gameObject.SetActive(false);questionLip.gameObject.SetActive(false);
             feedbackSeal.text=ok?"정 답 !":"다시 생각해요";feedbackSeal.color=ok?MgfLook.Hex("#238757"):MgfLook.Hex("#bb503b");
-            feedbackFull=s;int split=s.IndexOf('\n');feedbackSummary=ok?(split<0?s:s.Substring(0,split)):s;feedbackCanExpand=ok&&split>=0;feedbackExpanded=false;feedbackWasCorrect=ok;
+            feedbackFull=s;feedbackSummary=s;feedbackCanExpand=false;feedbackExpanded=true;feedbackWasCorrect=ok;
             BeginFractionReveal();RenderFeedback();
-            if(ok){bonusMath.Set(Rules.Current.Mode=="choice"?"지원군 출격":"+"+Rules.TotalPoured+"닢 투자");bonusLife=2.2f;}
+            if(ok){bonusMath.Set(lastReward.kind==HyeopgokRewardKind.Tower?TowerKorean(lastReward.towerType)+" 낙하!":"코인 +"+lastReward.coinBonus);bonusLife=2.2f;}
             // After a miss, mark where the correct answer stood so the explanation line maps to a pad.
             answerMark=ok?-1:Rules.AnswerPad();answerRing.gameObject.SetActive(answerMark>=0);
             if(Rules.LastPad>=0)padLabelRoots[Rules.LastPad].localScale=Vector3.one*(ok?1.3f:.7f);
@@ -303,16 +293,17 @@ namespace Mgf.HyeopgokSasu
             if(restore)RefreshPadAmounts();
         }
         void RenderFeedback(){
-            string shown=feedbackExpanded?feedbackFull:feedbackSummary;feedbackRewardIcon.gameObject.SetActive(feedbackWasCorrect&&!feedbackExpanded);
-            feedbackExpand.text=feedbackCanExpand?(feedbackExpanded?"간단히":"해설 보기"):"";
+            string shown=feedbackFull;feedbackRewardIcon.gameObject.SetActive(false);
+            feedbackExpand.text="";
             feedbackText.Text.color=MgfLook.Hex("#49301c");feedbackText.Text.rectTransform.sizeDelta=new Vector2(questionPanel.sizeDelta.x-34,420);feedbackText.Set(shown);
-            float textHeight=Mathf.Min(400,feedbackText.Text.preferredHeight+7);float iconSpace=feedbackWasCorrect&&!feedbackExpanded?45:0;
-            SetScrollSize(Mathf.Max(feedbackWasCorrect&&!feedbackExpanded?124:102,textHeight+61+iconSpace));
+            float textHeight=feedbackText.Text.preferredHeight+7;float iconSpace=0;
+            SetScrollSize(Mathf.Max(feedbackWasCorrect?134:112,textHeight+61+iconSpace));
             feedbackText.Text.rectTransform.sizeDelta=new Vector2(questionPanel.sizeDelta.x-34,textHeight);
             feedbackText.Text.rectTransform.anchoredPosition=new Vector2(0,-47-iconSpace-textHeight*.5f);feedbackText.Set(shown);
         }
-        void HideFeedback(){EndFractionReveal(false);timerBadge.gameObject.SetActive(true);questionLip.gameObject.SetActive(true);feedbackPanel.gameObject.SetActive(false);questionExpand.gameObject.SetActive(true);bonusLife=0;bonusMath.Set("");answerMark=-1;if(answerRing)answerRing.gameObject.SetActive(false);if(Rules.Current!=null)FitQuestion(Rules.Current.prompt);}
+        void HideFeedback(){EndFractionReveal(false);timerBadge.gameObject.SetActive(true);questionLip.gameObject.SetActive(true);feedbackPanel.gameObject.SetActive(false);questionExpand.gameObject.SetActive(false);bonusLife=0;bonusMath.Set("");answerMark=-1;if(answerRing)answerRing.gameObject.SetActive(false);if(Rules.Current!=null)FitQuestion(Rules.Current.prompt);}
         void ShowEnd(bool won,bool fallen){
+            cam.rect=new Rect(0,0,1,1);
             endRoot.gameObject.SetActive(true);playRoot.gameObject.SetActive(false);resultStarted=Time.unscaledTime;for(int i=0;i<4;i++)padPaint[i].gameObject.SetActive(false);if(tutorialArrow)tutorialArrow.gameObject.SetActive(false);
             endTitle.text=won?"협곡을 지켰다":fallen?"성문이 무너졌다":"버티기만 한 판";
             int stars=won?(Rules.Correct>=9?3:Rules.Correct>=8?2:1):0;resultStars.text=stars==3?"★ ★ ★":stars==2?"★ ★ <color=#c9b99a>★</color>":stars==1?"★ <color=#c9b99a>★ ★</color>":"<color=#c9b99a>★ ★ ★</color>";
@@ -332,9 +323,7 @@ namespace Mgf.HyeopgokSasu
         void HideTutorial(){if(tutorialVisible)SetTutorial(0);}
         void LayoutUi(){
             if(!questionPanel)return;float cw=844f*Screen.width/Mathf.Max(1,Screen.height);bool wide=(float)Screen.width/Screen.height>1.2f;
-            // 570 keeps a hard gutter between the landscape answer HUD and timer
-            // medal; the body width already reserves 76 units for that medal.
-            float width=wide?Mathf.Min(cw*.44f,570):Mathf.Min(cw-16,510);
+            float width=wide?Mathf.Min(cw*.76f,1060):Mathf.Min(cw-16,520);
             questionPanel.anchorMin=questionPanel.anchorMax=new Vector2(.5f,1);questionPanel.sizeDelta=new Vector2(width,136);
             float pill=wide?1.25f:1;hpPill.localScale=wavePill.localScale=correctPill.localScale=treasuryPanel.localScale=Vector3.one*pill;
             hpPill.anchoredPosition=new Vector2(wide?83:62,-29);wavePill.anchoredPosition=new Vector2(wide?201:154,-29);correctPill.anchoredPosition=new Vector2(wide?304:231,-29);
@@ -344,7 +333,7 @@ namespace Mgf.HyeopgokSasu
             pressureText.fontSize=wide?18:17;
             assembledHud.anchoredPosition=wide?new Vector2(-72,-230):new Vector2(-64,-298);
             assembledHud.localScale=Vector3.one*(wide?1.08f:1);
-            questionExpand.fontSize=wide?12:11.5f;questionExpand.fontStyle=FontStyles.Bold;questionExpand.alignment=TextAlignmentOptions.Right;questionExpand.rectTransform.anchoredPosition=new Vector2(-96,10);questionExpand.rectTransform.sizeDelta=new Vector2(72,21);
+            questionExpand.gameObject.SetActive(false);
             LayoutTitleUi(cw,wide);
             for(int i=0;i<4;i++)if(padNames[i]!=null)LayoutPadName(i);
             if(Rules.Current!=null)FitQuestion(Rules.Current.prompt);
@@ -356,7 +345,6 @@ namespace Mgf.HyeopgokSasu
             ctaRect.localScale=Vector3.Lerp(ctaRect.localScale,Vector3.one,dt*10);
             if(!playStarted)return;
             if(feedbackPanel.gameObject.activeSelf&&feedbackRewardIcon.gameObject.activeSelf){float pulse=1+.08f*Mathf.Sin(Time.unscaledTime*12);feedbackRewardIcon.localScale=Vector3.one*pulse;}
-            if(!questionAutoCollapsed&&!questionUserOpened&&!feedbackPanel.gameObject.activeSelf&&Time.unscaledTime-questionShownAt>=questionReadTime&&(float)Screen.width/Screen.height<=1.2f){questionAutoCollapsed=true;questionExpanded=false;FitQuestion(Rules.Current.prompt);}
             if(Rules.Hp<previousActualHp){gateLossLife=1.15f;gateLossText.SetText("−{0}",previousActualHp-Rules.Hp);gateLossText.gameObject.SetActive(true);}previousActualHp=Rules.Hp;
             if(gateLossLife>0){gateLossLife-=dt;float t=1-gateLossLife/1.15f;gateLossText.rectTransform.anchoredPosition=hpPill.anchoredPosition+new Vector2(30,-12+t*45);gateLossText.alpha=Mathf.Clamp01(gateLossLife*2);if(gateLossLife<=0)gateLossText.gameObject.SetActive(false);}
             shownHp=Mathf.MoveTowards(shownHp,Rules.Hp,dt*70);
@@ -372,26 +360,19 @@ namespace Mgf.HyeopgokSasu
                 if(!fractionRevealReduced&&fractionRevealLife<=fractionRevealReduceAt){fractionRevealReduced=true;ApplyFractionReveal(true);}
                 if(fractionRevealLife<=0)EndFractionReveal(true);
             }
-            bool pouring=battle.Depositing&&Rules.Hover>=0;
-            bool stopPrompt=Rules.Current.Mode!="choice"&&Rules.IsMovingOnPad&&!Rules.Pending;
-            bool showDeposit=(pouring||stopPrompt)&&Rules.Wave==1&&Time.unscaledTime-questionShownAt<8&&!tutorialVisible;
-            if(depositBubble.gameObject.activeSelf!=showDeposit)depositBubble.gameObject.SetActive(showDeposit);
+            if(depositBubble.gameObject.activeSelf)depositBubble.gameObject.SetActive(false);
             RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
-            if(showDeposit){
-                string deposit=pouring?"-1닢 → 답":"멈춰 서서 붓기";if(depositText.text!=deposit)depositText.text=deposit;
-                Vector3 ds=cam.WorldToScreenPoint(HyeopgokRules.Pads[Rules.Hover]);
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,ds,null,out Vector2 dat);depositBubble.anchoredPosition=dat+new Vector2(0,-54);
-            }
             RefreshPadAmounts();
             for(int i=0;i<4;i++){
                 if(i>=Rules.PadCount)continue;
                 Vector3 p=cam.WorldToScreenPoint(HyeopgokRules.Pads[i]+new Vector3(0,.05f,Rules.Current.Mode=="choice"?0:-.43f));
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,p,null,out Vector2 local);padLabelRoots[i].anchoredPosition=local;padScreenLocals[i]=local;
                 padLabelRoots[i].localScale=Vector3.Lerp(padLabelRoots[i].localScale,Vector3.one,dt*8);
-                float progress=Rules.Current.Mode=="choice"&&Rules.Hover==i?Rules.Dwell/HyeopgokRules.Hold:0;
+                float progress=Rules.CommandedPad==i?Rules.Dwell/HyeopgokRules.Hold:0;
                 int count=progress>0?Mathf.CeilToInt(progress*32)+1:0;padFill[i].positionCount=count;
                 for(int k=0;k<count;k++)padFill[i].SetPosition(k,PadEdge(i,Mathf.Min(progress,k/32f)));
             }
+            RefreshUpgradePads();
             // Short role labels stay painted into each pad; the assembled value is
             // a fixed HUD badge so enemies and perspective cannot hide the fraction.
             Vector3 mid=Rules.PadCount==2?(HyeopgokRules.Pads[0]+HyeopgokRules.Pads[1])*.5f:HyeopgokRules.Pads[0];
@@ -436,7 +417,7 @@ namespace Mgf.HyeopgokSasu
 
             if(tutorialKind==3){
                 toWorld=(HyeopgokRules.Pads[0]+HyeopgokRules.Pads[1]+HyeopgokRules.Pads[2]+HyeopgokRules.Pads[3])*.25f;
-                ringPad=-2;label="정답에서 0.8초";
+                ringPad=-2;label="보기 패드를 탭!";
             }else if(tutorialKind==1){
                 if(Rules.Coins==0&&Rules.Poured[0]==0){
                     toWorld=battle.CollectionPoint;ringPad=-1;label="전선 가까이에서 코인 모으기";
@@ -471,7 +452,7 @@ namespace Mgf.HyeopgokSasu
             Vector2 guideAt=TutorialPoint(Rules.King,canvas)+new Vector2(0,Rules.Current.Mode=="choice"?-55:62);
             if(Rules.Current.Mode!="choice")guideAt.y=Mathf.Max(guideAt.y,-185);
             tutorialLabel.anchoredPosition=ClampWorldBubble(guideAt,145);
-            if(tutorialKind!=2&&tutorialKind!=1)label=Rules.Current.Mode=="choice"?"정답에서 0.8초":"멈춰 서서 붓기";
+            if(tutorialKind!=2&&tutorialKind!=1)label="보기 패드를 탭!";
             tutorialCaption.fontSize=label.Length>12?12:14;
             if(tutorialCaption.text!=label)tutorialCaption.text=label;
             tutorialTrail.gameObject.SetActive(false);
@@ -488,6 +469,64 @@ namespace Mgf.HyeopgokSasu
                 tutorialRings[i].gameObject.SetActive(active);if(!active)continue;
                 tutorialRings[i].rectTransform.anchoredPosition=TutorialPoint(HyeopgokRules.Pads[i],canvas);
                 tutorialRings[i].rectTransform.localScale=Vector3.one*(1.0f+.12f*Mathf.Sin(Time.unscaledTime*6+i*.7f));
+            }
+        }
+
+        void ApplyWorldViewport(float panelHeight){
+            if(!cam||!playStarted)return;
+            float reserved=Mathf.Clamp((70+panelHeight)/844f,.14f,.82f);
+            cam.rect=new Rect(0,0,1,1-reserved);
+        }
+
+        void RefreshUpgradePads(){
+            if(battle==null)return;RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
+            for(int i=0;i<HyeopgokBattle.TowerCount;i++){
+                int level=battle.TowerLevelAt(i);bool active=level>=0&&playStarted;
+                if(upgradePadRoots[i])upgradePadRoots[i].gameObject.SetActive(active);
+                if(upgradeLabelRoots[i])upgradeLabelRoots[i].gameObject.SetActive(active);
+                if(!active)continue;
+                int left=battle.UpgradeRemainingAt(i),towerType=battle.TowerTypeAt(i);
+                if(shownUpgradeLevel[i]!=level||shownUpgradeRemaining[i]!=left||shownUpgradeType[i]!=towerType){
+                    string type=towerType==1?"대포":towerType==2?"마법":"석궁";upgradeLabels[i].text=level>=2?type+" Lv3 · MAX":type+" Lv"+(level+1)+"\n코인 "+left;
+                    shownUpgradeLevel[i]=level;shownUpgradeRemaining[i]=left;shownUpgradeType[i]=towerType;
+                }
+                Vector3 screen=cam.WorldToScreenPoint(HyeopgokBattle.UpgradePads[i]);RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,screen,null,out Vector2 local);upgradeLabelRoots[i].anchoredPosition=local;
+                int total=level>=2?1:level==0?15:30;float progress=level>=2?1:1-left/(float)total;int count=progress>0?Mathf.CeilToInt(progress*24)+1:0;
+                upgradePadFill[i].positionCount=count;for(int k=0;k<count;k++)upgradePadFill[i].SetPosition(k,UpgradePadEdge(i,Mathf.Min(progress,k/24f)));
+            }
+        }
+
+        [Serializable] sealed class V3Rect {public float x,y,width,height;}
+        [Serializable] sealed class V3Glyph {public string @char,kind="body";public V3Rect rect;}
+        [Serializable] sealed class V3Question {
+            public string prompt;public V3Rect panelRect,bodyRect,renderedTextRect;public V3Glyph[] glyphs;
+            public bool isFolded,hasEllipsis,isTruncated,isOverflowing;public int visibleCharacters,totalCharacters;
+        }
+        [Serializable] sealed class V3Layout {public int version=3,screenWidth,screenHeight;public V3Question question;}
+        readonly Vector3[] debugCorners=new Vector3[4];
+        V3Rect ScreenRect(RectTransform rt){
+            rt.GetWorldCorners(debugCorners);float minX=float.MaxValue,minY=float.MaxValue,maxX=float.MinValue,maxY=float.MinValue;
+            for(int i=0;i<4;i++){Vector2 p=RectTransformUtility.WorldToScreenPoint(null,debugCorners[i]);minX=Mathf.Min(minX,p.x);maxX=Mathf.Max(maxX,p.x);float top=Screen.height-p.y;minY=Mathf.Min(minY,top);maxY=Mathf.Max(maxY,top);}
+            return new V3Rect{x=minX,y=minY,width=maxX-minX,height=maxY-minY};
+        }
+        void PushV3QuestionProbe(string prompt){
+            if(!Application.absoluteURL.Contains("artprobe=1"))return;
+            Canvas.ForceUpdateCanvases();var body=questionText.Text;body.ForceMeshUpdate(true,true);var glyphs=new List<V3Glyph>(220);
+            float minX=float.MaxValue,minY=float.MaxValue,maxX=float.MinValue,maxY=float.MinValue;int visible=0,expected=0;
+            AppendProbeGlyphs(body,glyphs,ref minX,ref minY,ref maxX,ref maxY,ref visible,ref expected,true);
+            var fractions=body.GetComponentsInChildren<TextMeshProUGUI>(true);for(int i=0;i<fractions.Length;i++)if(fractions[i]!=body&&fractions[i].gameObject.activeInHierarchy)AppendProbeGlyphs(fractions[i],glyphs,ref minX,ref minY,ref maxX,ref maxY,ref visible,ref expected,false);
+            if(visible==0){minX=minY=maxX=maxY=0;}
+            var q=new V3Question{prompt=prompt,panelRect=ScreenRect(questionPanel),bodyRect=ScreenRect(body.rectTransform),renderedTextRect=new V3Rect{x=minX,y=minY,width=maxX-minX,height=maxY-minY},glyphs=glyphs.ToArray(),
+                isFolded=false,hasEllipsis=false,isTruncated=visible<expected,isOverflowing=body.isTextOverflowing,visibleCharacters=visible,totalCharacters=expected};
+            HYEOPGOK_PushV3Layout(JsonUtility.ToJson(new V3Layout{screenWidth=Screen.width,screenHeight=Screen.height,question=q}));
+        }
+        void AppendProbeGlyphs(TextMeshProUGUI source,List<V3Glyph> glyphs,ref float minX,ref float minY,ref float maxX,ref float maxY,ref int visible,ref int expected,bool skipTransparent){
+            source.ForceMeshUpdate(true,true);var info=source.textInfo;
+            for(int i=0;i<info.characterCount;i++){
+                var c=info.characterInfo[i];bool ink=!char.IsWhiteSpace(c.character)&&!char.IsControl(c.character)&&(!skipTransparent||c.color.a>0);if(!ink)continue;expected++;if(!c.isVisible)continue;visible++;
+                Vector3 bl=source.transform.TransformPoint(c.bottomLeft),tr=source.transform.TransformPoint(c.topRight);Vector2 a=RectTransformUtility.WorldToScreenPoint(null,bl),b=RectTransformUtility.WorldToScreenPoint(null,tr);
+                float x=Mathf.Min(a.x,b.x),y=Screen.height-Mathf.Max(a.y,b.y),w=Mathf.Abs(b.x-a.x),h=Mathf.Abs(b.y-a.y);minX=Mathf.Min(minX,x);minY=Mathf.Min(minY,y);maxX=Mathf.Max(maxX,x+w);maxY=Mathf.Max(maxY,y+h);
+                if(glyphs.Count<220)glyphs.Add(new V3Glyph{@char=c.character.ToString(),rect=new V3Rect{x=x,y=y,width=w,height=h}});
             }
         }
     }

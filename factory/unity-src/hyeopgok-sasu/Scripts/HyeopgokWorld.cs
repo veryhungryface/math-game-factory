@@ -11,6 +11,8 @@ namespace Mgf.HyeopgokSasu
         Transform[] padRoots=new Transform[4];
         LineRenderer[] padFill=new LineRenderer[4];
         LineRenderer[] cracks=new LineRenderer[4];
+        Transform[] upgradePadRoots=new Transform[HyeopgokBattle.TowerCount];
+        LineRenderer[] upgradePadFill=new LineRenderer[HyeopgokBattle.TowerCount];
         void BuildWorld(){
             MgfLook.Sky(MgfLook.Hex("#bfe6e0"),MgfLook.Hex("#75bca8"),MgfLook.Hex("#315f58"),.8f);
             Shader.SetGlobalColor("_HyeopgokNightTint",Color.white);
@@ -92,10 +94,19 @@ namespace Mgf.HyeopgokSasu
                 var chalk=CreateDecoration("Answer pad chalk "+i,padStrokes,MgfLook.Unlit(MgfLook.Hex("#faf8e8")),false);
                 chalk.transform.SetParent(root.transform,true);
             }
+            Material upgradeStone=MgfLook.Alpha(new Color(.42f,.24f,.06f,.82f).linear);
+            for(int i=0;i<HyeopgokBattle.TowerCount;i++){
+                Vector3 center=HyeopgokBattle.UpgradePads[i];var root=new GameObject("Tower upgrade pad "+(i+1));root.transform.position=center;upgradePadRoots[i]=root.transform;
+                var surface=new DecorationMesh();surface.RoundedPad(center+Vector3.up*.012f,.70f,.56f,.14f,Color.white);
+                CreateDecoration("Gold upgrade ground "+i,surface,upgradeStone,false).transform.SetParent(root.transform,true);
+                var marks=new DecorationMesh();for(int k=0;k<12;k++)marks.Ribbon(UpgradePadEdge(i,k/12f),UpgradePadEdge(i,(k+.62f)/12f),.075f,Color.white);
+                CreateDecoration("Upgrade pad chalk "+i,marks,MgfLook.Unlit(MgfLook.Hex("#ffd55d")),false).transform.SetParent(root.transform,true);
+                upgradePadFill[i]=Line("Upgrade countdown "+i,MgfLook.Hex("#fff2a3"),.10f);upgradePadFill[i].positionCount=0;root.SetActive(false);
+            }
 
         }
         void SetPadVisibility(){
-            for(int i=0;i<4;i++){bool active=i<Rules.PadCount;padRoots[i].gameObject.SetActive(active);padFill[i].gameObject.SetActive(active);if(!active)cracks[i].gameObject.SetActive(false);}
+            for(int i=0;i<4;i++){bool active=i<Rules.PadCount;padRoots[i].gameObject.SetActive(active);padFill[i].gameObject.SetActive(active);if(!active)cracks[i].gameObject.SetActive(false);}RefreshUpgradePads();
         }
         static readonly Vector2[] WestMesa={new Vector2(-10,4),new Vector2(-5.7f,4),new Vector2(-5.65f,5.25f),new Vector2(-3.5f,7),new Vector2(-.5f,9),new Vector2(-1,14),new Vector2(-10,14)};
         static readonly Vector2[] EastMesa={new Vector2(7.1f,5),new Vector2(9,5),new Vector2(13,9),new Vector2(13,16),new Vector2(6.9f,16)};
@@ -141,6 +152,11 @@ namespace Mgf.HyeopgokSasu
             else if((along-=arc)<vertical)p=new Vector3(-x,.025f,-z+r+along);
             else {along-=vertical;float a=along/r;p=new Vector3(-x+r-Mathf.Cos(a)*r,.025f,z-r+Mathf.Sin(a)*r);}
             return HyeopgokRules.Pads[i]+p;
+        }
+        Vector3 UpgradePadEdge(int i,float t){
+            const float x=.72f,z=.58f,r=.14f;float a=Mathf.Repeat(t,1)*Mathf.PI*2;
+            float cx=Mathf.Sign(Mathf.Cos(a))*(x-r)+Mathf.Cos(a)*r,cz=Mathf.Sign(Mathf.Sin(a))*(z-r)+Mathf.Sin(a)*r;
+            return HyeopgokBattle.UpgradePads[i]+new Vector3(cx,.032f,cz);
         }
     }
 }

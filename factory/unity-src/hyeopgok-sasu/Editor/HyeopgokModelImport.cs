@@ -10,12 +10,24 @@ namespace Mgf.HyeopgokSasu.Editor
     public sealed class HyeopgokModelImport : AssetPostprocessor
     {
         // Version bump invalidates the imported FBX cache when this correction changes.
-        public override uint GetVersion() { return 4; }
+        public override uint GetVersion() { return 5; }
 
         static bool IsHyeopgokModel(string path)
         {
             return path.Contains("/Resources/HyeopgokSasu/Models/") ||
                    path.Contains("/Resources/HyeopgokSasu/AI3D/");
+        }
+
+        static bool NeedsRuntimeReadback(string path)
+        {
+            // Only meshes combined into Graphics.DrawMeshInstanced buffers need a
+            // CPU-readable copy in the player.  Static AI buildings/tower stages
+            // otherwise duplicated several megabytes of vertex data in WebGL.
+            if (path.Contains("/Resources/HyeopgokSasu/Models/")) return true;
+            return path.EndsWith("/enemy_soldier.fbx") ||
+                   path.EndsWith("/ally_soldier.fbx") ||
+                   path.EndsWith("/giant.fbx") ||
+                   path.EndsWith("/giant_blade_glow.fbx");
         }
 
         void OnPreprocessModel()
@@ -25,13 +37,14 @@ namespace Mgf.HyeopgokSasu.Editor
             importer.globalScale = 1f;
             importer.useFileScale = true;
             importer.bakeAxisConversion = true;
-            importer.isReadable = true;
+            bool readable = NeedsRuntimeReadback(assetPath);
+            importer.isReadable = readable;
             importer.importAnimation = false;
             importer.importBlendShapes = false;
             importer.importCameras = false;
             importer.importLights = false;
             importer.importVisibility = false;
-            importer.meshCompression = ModelImporterMeshCompression.Off;
+            importer.meshCompression = readable ? ModelImporterMeshCompression.Off : ModelImporterMeshCompression.High;
             importer.importNormals = ModelImporterNormals.Import;
             importer.importTangents = ModelImporterTangents.None;
             importer.materialImportMode = ModelImporterMaterialImportMode.None;

@@ -38,17 +38,17 @@ namespace Mgf.HyeopgokSasu
         readonly float[][] troopPhases={new float[TroopCapacity],new float[TroopCapacity],new float[TroopCapacity]};
         readonly float[][] troopAttacks={new float[TroopCapacity],new float[TroopCapacity],new float[TroopCapacity]};
         readonly int[] troopCounts=new int[TroopKinds];
-        readonly Matrix4x4[][] allyTroopMatrices={new Matrix4x4[BlueCap],new Matrix4x4[BlueCap],new Matrix4x4[BlueCap]};
-        readonly float[][] allyTroopHitTimes={new float[BlueCap],new float[BlueCap],new float[BlueCap]};
-        readonly float[][] allyTroopTeams={new float[BlueCap],new float[BlueCap],new float[BlueCap]};
-        readonly float[][] allyTroopPhases={new float[BlueCap],new float[BlueCap],new float[BlueCap]};
-        readonly float[][] allyTroopAttacks={new float[BlueCap],new float[BlueCap],new float[BlueCap]};
+        readonly Matrix4x4[][] allyTroopMatrices={new Matrix4x4[BlueCap+1],new Matrix4x4[BlueCap+1],new Matrix4x4[BlueCap+1]};
+        readonly float[][] allyTroopHitTimes={new float[BlueCap+1],new float[BlueCap+1],new float[BlueCap+1]};
+        readonly float[][] allyTroopTeams={new float[BlueCap+1],new float[BlueCap+1],new float[BlueCap+1]};
+        readonly float[][] allyTroopPhases={new float[BlueCap+1],new float[BlueCap+1],new float[BlueCap+1]};
+        readonly float[][] allyTroopAttacks={new float[BlueCap+1],new float[BlueCap+1],new float[BlueCap+1]};
         readonly int[] allyTroopCounts=new int[TroopKinds];
         readonly Matrix4x4[][] whiteTroopMatrices={new Matrix4x4[CorpseCap],new Matrix4x4[CorpseCap],new Matrix4x4[CorpseCap]};
         readonly int[] whiteTroopCounts=new int[TroopKinds];
         readonly int[] hitCandidates=new int[12];
         readonly float[] hitCandidateDistances=new float[12];
-        readonly Matrix4x4[] shadowMatrices = new Matrix4x4[RedCap + BlueCap];
+        readonly Matrix4x4[] shadowMatrices = new Matrix4x4[RedCap + BlueCap + 1];
         readonly Matrix4x4[] whiteMatrices = new Matrix4x4[ParticleCap];
         readonly Matrix4x4[] goldMatrices = new Matrix4x4[ParticleCap];
         readonly Matrix4x4[] dustMatrices = new Matrix4x4[ParticleCap];
@@ -58,7 +58,7 @@ namespace Mgf.HyeopgokSasu
         readonly Matrix4x4[] bossMatrices=new Matrix4x4[4];
         readonly Matrix4x4[] whiteGiantMatrices=new Matrix4x4[CorpseCap];
         readonly Matrix4x4[] whiteBossMatrices=new Matrix4x4[CorpseCap];
-        readonly Matrix4x4[] allyArcherMatrices=new Matrix4x4[2];
+        readonly Matrix4x4[] allyArcherMatrices=new Matrix4x4[TowerCount];
         readonly Matrix4x4[] hpBackgroundMatrices=new Matrix4x4[24];
         readonly Matrix4x4[] hpMatrices=new Matrix4x4[24];
         readonly Matrix4x4[] swordMatrices=new Matrix4x4[24];
@@ -67,16 +67,25 @@ namespace Mgf.HyeopgokSasu
         readonly Chip[] chips = new Chip[ParticleCap];
         readonly Corpse[] corpses = new Corpse[CorpseCap];
         readonly Bolt[] bolts = new Bolt[BoltCap];
-        readonly Transform[] towers = new Transform[2];
-        readonly float[] towerRise = new float[2];
-        readonly float[] towerRecoil = new float[2];
-        readonly GameObject[,] towerStages=new GameObject[2,3];
-        readonly Renderer[,] towerRenderers=new Renderer[2,3];
-        readonly Transform[] towerBows=new Transform[2];
+        public const int TowerCount=3;
+        public static readonly Vector3[] UpgradePads={
+            new Vector3(.92f,1.23f,-4.35f),new Vector3(.98f,1.23f,3.42f),new Vector3(-2.52f,1.23f,-4.22f)
+        };
+        readonly Transform[] towers = new Transform[TowerCount];
+        readonly float[] towerRise = new float[TowerCount];
+        readonly float[] towerDrop = new float[TowerCount];
+        readonly float[] towerRecoil = new float[TowerCount];
+        readonly float[] upgradeClock = new float[TowerCount];
+        readonly GameObject[,,] towerStages=new GameObject[TowerCount,3,3];
+        readonly Renderer[,,] towerRenderers=new Renderer[TowerCount,3,3];
+        readonly Material[,] towerMaterials=new Material[3,3];
+        readonly Transform[] towerBows=new Transform[TowerCount];
         readonly MaterialPropertyBlock towerProperties=new MaterialPropertyBlock();
-        readonly int[] towerLevel=new int[2];
+        readonly int[] towerLevel=new int[TowerCount];
+        readonly int[] towerType=new int[TowerCount];
+        readonly int[] upgradeRemaining=new int[TowerCount];
         readonly Vector3[] towerPositions = {
-            new Vector3(1.75f, 1.2f, -3.5f), new Vector3(1.75f, 1.2f, 4.7f)
+            new Vector3(1.78f, 1.2f, -3.72f), new Vector3(1.82f, 1.2f, 4.62f),new Vector3(-3.14f,1.2f,-3.72f)
         };
         readonly Vector3[] controls = {
             // Exact terrain control points from ArtSource/blender/build_models.py.
@@ -111,7 +120,8 @@ namespace Mgf.HyeopgokSasu
         Camera renderCamera;
         Mesh cubeMesh, shadowMesh, boltMesh, trailMesh;
         Mesh giantMesh,giantGlowMesh,enemyAiTroopMesh,allyAiTroopMesh,allyArcherMesh,bossMesh,hpMesh;
-        Material redMaterial, blueMaterial, troopMaterial,allyTroopMaterial,giantMaterial,giantGlowMaterial,towerAiMaterial, whiteMaterial, goldMaterial, dustMaterial, shadowMaterial;
+        Material redMaterial, blueMaterial, troopMaterial,allyTroopMaterial,giantMaterial,giantGlowMaterial, whiteMaterial, goldMaterial, dustMaterial, shadowMaterial;
+        Material chestWoodMaterial,chestGoldMaterial;
         Material silhouetteMaterial,swordMaterial,hpMaterial,hpBackgroundMaterial,boltTrailMaterial;
         HyeopgokImpact impacts;
         HyeopgokEconomyFx economy;
@@ -122,7 +132,12 @@ namespace Mgf.HyeopgokSasu
         float enrage, hitStop, flash, shake, boost;
         float visualHitStop, impactCooldown;
         int cachedRedDraws, cachedBlueDraws, cachedShadowDraws;
-        int recycledKind,upgradeCount;
+        int recycledKind,upgradeCount,upgradePad=-1;
+        float chestLife;
+        Transform chestRoot,chestLid;
+        HyeopgokRules rules;
+        HyeopgokRewardRng rewardRng=new HyeopgokRewardRng(1);
+        HyeopgokChestReward lastChest;
         Vector3 artSoldierShadowWorld;
         bool artSoldierShadowValid;
         float questionGrace=PressureGrace;
@@ -131,8 +146,11 @@ namespace Mgf.HyeopgokSasu
         uint randomState = 0x5e3a07c1u;
 
         public int Kills { get { return killCount; } }
-        public int BuiltTowers=>(towerLevel[0]>=0?1:0)+(towerLevel[1]>=0?1:0);
+        public int BuiltTowers {get {int n=0;for(int i=0;i<TowerCount;i++)if(towerLevel[i]>=0)n++;return n;}}
         public int UpgradeLevel=>upgradeCount;
+        public bool UpgradePouring=>upgradePad>=0;
+        public bool ChestOpen=>chestLife>0;
+        public HyeopgokChestReward LastChest=>lastChest;
         public int Reds { get { return displayedReds; } }
         public int Blues { get { return displayedBlues; } }
         public float Shake { get { return shake; } }
@@ -146,6 +164,8 @@ namespace Mgf.HyeopgokSasu
             }
         }
         public Vector3 ArtFrontWorld => FrontPosition();
+        public Vector3 ArtShadowWorld=>artSoldierShadowValid?artSoldierShadowWorld:FrontPosition();
+        public Vector3 ArtFrontPoint(int socket)=>PathPosition(front,ContactSockets[Mathf.Clamp(socket,0,ContactSockets.Length-1)],out _);
         public bool TryGetArtSoldierShadow(out Vector3 point){point=artSoldierShadowWorld;return artSoldierShadowValid;}
         public Vector3 CollectionPoint {
             get {
@@ -157,8 +177,16 @@ namespace Mgf.HyeopgokSasu
         public int DepositRemaining { get { return economy==null?0:economy.Remaining; } }
         public bool Depositing { get { return economy!=null&&economy.Depositing; } }
         public void SetKing(Transform king){if(economy!=null)economy.SetKing(king);}
-        public void SetEconomyRules(HyeopgokRules rules){economy.SetRules(rules);}
+        public void SetEconomyRules(HyeopgokRules value){rules=value;economy.SetRules(value);}
         public void PourCoin(int pad){economy.Pour(HyeopgokRules.Pads[pad]);}
+        public int TowerLevelAt(int at)=>at>=0&&at<TowerCount?towerLevel[at]:-1;
+        public int TowerTypeAt(int at)=>at>=0&&at<TowerCount?towerType[at]:-1;
+        public int UpgradeRemainingAt(int at)=>at>=0&&at<TowerCount?upgradeRemaining[at]:0;
+        public void CopyTowerState(ref int[] levels,ref int[] types,ref int[] remaining){
+            if(levels==null||levels.Length!=TowerCount){levels=new int[TowerCount];types=new int[TowerCount];remaining=new int[TowerCount];}
+            for(int i=0;i<TowerCount;i++){levels[i]=towerLevel[i];types[i]=towerType[i];remaining[i]=upgradeRemaining[i];}
+        }
+        public static int UpgradePadAt(Vector3 p){for(int i=0;i<TowerCount;i++){Vector3 d=p-UpgradePads[i];d.y=0;if(d.sqrMagnitude<.72f*.72f)return i;}return -1;}
         // Synchronous QA command uses actual kills, grounded coins and their pickup
         // trajectory. It never assigns a wallet or calls answer adjudication.
         public void SimulateEarnedCoins(int needed){
@@ -188,7 +216,7 @@ namespace Mgf.HyeopgokSasu
             goldMaterial = MakeMaterial(shader, new Color(1,.59f,.028f), true);
             goldMaterial.SetFloat("_Metallic",.82f);
             dustMaterial = MakeMaterial(shader, new Color(.89f,.81f,.66f), true);
-            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));Color shadowTint=MgfLook.Hex("#244A48").linear;shadowTint.a=.48f;shadowMaterial.SetColor("_Color",shadowTint);shadowMaterial.enableInstancing=true;
+            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));Color shadowTint=MgfLook.Hex("#244A48").linear;shadowTint.a=.68f;shadowMaterial.SetColor("_Color",shadowTint);shadowMaterial.enableInstancing=true;
             silhouetteMaterial=MakeMaterial(shader,Color.white,true);silhouetteMaterial.SetFloat("_Flash",1);
             swordMaterial=MakeMaterial(shader,new Color(1,.08f,.18f),true);
             hpMaterial=MakeMaterial(shader,new Color(.91f,.08f,.09f),true);
@@ -196,16 +224,18 @@ namespace Mgf.HyeopgokSasu
             boltTrailMaterial=MakeMaterial(shader,new Color(.33f,.77f,1),true);
             // These FBX assets share neutral armour. Team colour is a per-instance
             // shader property, so both armies remain exactly three troop batches.
-            troopMeshes[0]=LoadSoldier("troop_sword","soldier");
-            troopMeshes[1]=LoadSoldier("troop_spear","soldier");
-            troopMeshes[2]=LoadSoldier("troop_shield","soldier");
             enemyAiTroopMesh=HyeopgokAiAssets.LoadInstancedMesh("enemy_soldier");
             allyAiTroopMesh=HyeopgokAiAssets.LoadInstancedMesh("ally_soldier");
+            if(enemyAiTroopMesh)for(int kind=0;kind<TroopKinds;kind++)troopMeshes[kind]=enemyAiTroopMesh;
+            else {
+                troopMeshes[0]=LoadSoldier("troop_sword","soldier");
+                troopMeshes[1]=LoadSoldier("troop_spear","soldier");
+                troopMeshes[2]=LoadSoldier("troop_shield","soldier");
+            }
             giantMesh=HyeopgokAiAssets.LoadInstancedMesh("giant");if(!giantMesh)giantMesh=LoadSoldier("giant");
             giantMaterial=HyeopgokAiAssets.CreateMaterial("giant",Color.white,0);
             giantGlowMesh=HyeopgokAiAssets.LoadInstancedMesh("giant_blade_glow");
             giantGlowMaterial=HyeopgokAiAssets.CreateAdditiveMaterial("giant_blade_glow",new Color(1,.22f,.045f,.78f));
-            towerAiMaterial=HyeopgokAiAssets.CreateMaterial("crossbow_tower",Color.white,1);
             allyArcherMesh=LoadSoldier("archer_blue");bossMesh=LoadSoldier("boss");
             hpMesh=MakeBarMesh();
             cubeMesh = MakeChipMesh();
@@ -216,13 +246,15 @@ namespace Mgf.HyeopgokSasu
             economy=new HyeopgokEconomyFx(cam,shader);
             BuildPath();
             BuildTowers();
+            BuildChest();
             initialized = true;
             ResetBattle(false);
         }
 
-        public void Begin()
+        public void Begin(int rewardSeed)
         {
             if (!initialized) return;
+            rewardRng.Reset(rewardSeed);
             ResetBattle(true);
         }
 
@@ -248,19 +280,28 @@ namespace Mgf.HyeopgokSasu
             questionActive = playing;
         }
 
-        public void Reward(int padIndex, Vector3 pos, int hits, int trials,int invested=0)
+        public HyeopgokChestReward Reward(int padIndex, Vector3 pos, int hits, int trials,int streak,float speed01)
         {
-            if (!initialized) return;
+            if (!initialized) return new HyeopgokChestReward{kind=HyeopgokRewardKind.None,towerSlot=-1};
             questionActive = false;
             enrage = 0;
             boost = 4.3f;
             hitStop = .05f;
             flash = 1;
-            int tower = towerLevel[0]<0?0:Mathf.Abs(padIndex)%2;
-            towerRise[tower] = .001f;
-            towerRecoil[tower] = .25f;
-            upgradeCount+=1+Mathf.Min(2,invested/20);
-            towerLevel[tower]=Mathf.Min(2,(upgradeCount+1)/3);
+            int tower=FirstInstalledTower(Mathf.Abs(padIndex));
+            if(tower>=0)towerRecoil[tower] = .25f;
+
+            bool hasEmpty=false;for(int i=0;i<TowerCount;i++)if(towerLevel[i]<0)hasEmpty=true;
+            bool forceTower=Application.absoluteURL.Contains("reward=tower"),forceCoin=Application.absoluteURL.Contains("reward=coin");
+            lastChest=rewardRng.Roll(true,streak,hasEmpty,speed01,forceCoin,forceTower);
+            if(lastChest.kind==HyeopgokRewardKind.Tower){
+                int slot=-1;for(int i=0;i<TowerCount;i++)if(towerLevel[i]<0){slot=i;break;}
+                lastChest.towerSlot=slot;if(slot>=0)InstallTower(slot,(int)lastChest.towerType);
+            }else if(rules!=null){
+                lastChest.coinBonus=rules.AddRewardCoins(lastChest.coinBonus);
+                economy.CelebrateReward(pos,rules.King,lastChest.coinBonus);
+            }
+            ShowChest(pos,lastChest);
 
             volleyTrials = Mathf.Clamp(trials, 1, 225);
             volleyHits = Mathf.Clamp(hits, 0, volleyTrials);
@@ -268,7 +309,7 @@ namespace Mgf.HyeopgokSasu
             volleys = volleyTrials;
             salvoSpacing = Mathf.Clamp(2.8f / volleyTrials, .018f, .12f);
             salvoClock = 0;
-            int added = Mathf.Min(8 + Mathf.Min(28,invested) + Mathf.RoundToInt(16f * volleyHits / volleyTrials), BlueCap - blueCount);
+            int added = 0;
             for (int i = blueCount; i < blueCount + added; i++)
             {
                 blueS[i] = pathLength + (i - blueCount) * .10f;
@@ -281,6 +322,7 @@ namespace Mgf.HyeopgokSasu
             Burst(pos + Vector3.up * .2f, 36, 3.5f);
             Burst(FrontPosition(), 70, 4.0f);
             if (playing) MgfSfx.Play("whoosh", .20f);
+            return lastChest;
         }
 
         public void Punish(Vector3 pos)
@@ -315,7 +357,8 @@ namespace Mgf.HyeopgokSasu
             visualHitStop = impactCooldown = 0;
             cachedRedDraws = cachedBlueDraws = cachedShadowDraws = 0;
             impacts.Clear();
-            economy.Clear();recycledKind=0;upgradeCount=0;
+            economy.Clear();recycledKind=0;upgradeCount=0;upgradePad=-1;chestLife=0;lastChest=new HyeopgokChestReward{kind=HyeopgokRewardKind.None,towerSlot=-1};
+            if(chestRoot)chestRoot.gameObject.SetActive(false);
             front = 19.0f;
             laneCursor = 0;
             for (int i = 0; i < RedCap; i++) {redS[i] = front - .25f - (i / RedLanes) * RedSpacing - (i % RedLanes) * .018f;redKinds[i]=KindFor(i);redHitTimes[i]=-1000;}
@@ -324,9 +367,7 @@ namespace Mgf.HyeopgokSasu
             for (int i = 0; i < CorpseCap; i++) corpses[i].duration = 0;
             for (int i = 0; i < BoltCap; i++) bolts[i].duration = 0;
             // Both pre-existing towers visibly operate in the title battle.
-            towerRise[0] = towerRise[1] = 1;
-            towerRecoil[0] = towerRecoil[1] = 0;
-            towerLevel[0]=live?-1:1;towerLevel[1]=live?0:1;
+            for(int i=0;i<TowerCount;i++){towerRise[i]=1;towerDrop[i]=towerRecoil[i]=upgradeClock[i]=0;towerType[i]=i%3;towerLevel[i]=live?(i==1?0:-1):1;upgradeRemaining[i]=towerLevel[i]>=0&&towerLevel[i]<2?UpgradeCost(towerLevel[i]):0;ApplyTowerVisibility(i);}
             displayedReds = redCount;
             displayedBlues = blueCount;
         }
@@ -398,7 +439,7 @@ namespace Mgf.HyeopgokSasu
             if (fireClock <= 0)
             {
                 fireClock = boost > 0 ? .18f : .48f;
-                FireBolt(towerLevel[0]<0?1:laneCursor%2, false, true);
+                FireBolt(FirstInstalledTower(laneCursor), false, true);
             }
             if (volleys > 0)
             {
@@ -408,12 +449,13 @@ namespace Mgf.HyeopgokSasu
                     salvoClock = salvoSpacing;
                     int before = volleyFired * volleyHits / volleyTrials;
                     int after = (volleyFired + 1) * volleyHits / volleyTrials;
-                    FireBolt(volleys % 2, true, after > before);
+                    FireBolt(FirstInstalledTower(volleys), true, after > before);
                     volleyFired++;
                     volleys--;
                 }
             }
             UpdateTowers(realDt);
+            UpdateChest(realDt);
             UpdateBolts(dt);
             UpdateParticles(dt);
             RenderSoldiers();
@@ -533,10 +575,11 @@ namespace Mgf.HyeopgokSasu
 
         void FireBolt(int tower, bool heavy, bool hit)
         {
+            if(tower<0||tower>=TowerCount||towerLevel[tower]<0)return;
             int slot = boltCursor++ % BoltCap;
             Vector3 start = towerPositions[tower] + Vector3.up * 2.20f;
             Vector3 target = PathPosition(front - Range(.1f,2.0f), Range(-.9f,.9f), out _);
-            if (!hit) target += new Vector3(tower == 0 ? -2.15f : 2.15f, 0, 0);
+            if (!hit) target += new Vector3(tower%2 == 0 ? -2.15f : 2.15f, 0, 0);
             target.y += .3f;
             bolts[slot] = new Bolt { start = start, target = target, previous = start, age = 0,
                 duration = Vector3.Distance(start,target) / (heavy ? 24f : 19f), heavy = heavy, hit = hit };
@@ -626,7 +669,8 @@ namespace Mgf.HyeopgokSasu
 
         void RenderSoldiers()
         {
-            for(int kind=0;kind<TroopKinds;kind++){troopCounts[kind]=0;whiteTroopCounts[kind]=0;}
+            for(int kind=0;kind<TroopKinds;kind++){troopCounts[kind]=0;allyTroopCounts[kind]=0;whiteTroopCounts[kind]=0;}
+            artSoldierShadowValid=false;
             int ns=0,ng=0,bosses=0,wg=0,wBoss=0,hp=0,redVisible=0,blueVisible=0;
             Quaternion facing=renderCamera.transform.rotation;
             for(int i=0;i<redCount;i++)
@@ -662,6 +706,9 @@ namespace Mgf.HyeopgokSasu
                 }
                 float shadowSize=kind>=3?.70f:.31f;
                 shadowMatrices[ns++]=Matrix4x4.TRS(new Vector3(p.x+.08f,GroundY+.005f,p.z-.08f),Quaternion.identity,new Vector3(shadowSize,1,shadowSize*.8f));
+                // Probe a quiet rear rank instead of the impact socket: the latter
+                // is intentionally covered by white hit flashes, coins and damage
+                // numbers. This is the exact centre of its instanced contact disc.
                 if(kind>=3&&Time.time-redHitTimes[i]<1.1f&&hp<24)
                 {
                     float height=kind==4?2.80f:2.10f;
@@ -692,9 +739,18 @@ namespace Mgf.HyeopgokSasu
                 float phase=Hash01(i,193)*Mathf.PI*2;
                 float attacking=blueS[i]<front+1?1:0;
                 Matrix4x4 matrix=Matrix4x4.TRS(p,Quaternion.Euler(0,yaw,0),Vector3.one*size);
-                AppendTroop(kind,matrix,blueHitTimes[i],1,phase,attacking);
+                AppendAllyTroop(kind,matrix,blueHitTimes[i],1,phase,attacking);
                 shadowMatrices[ns++]=Matrix4x4.TRS(new Vector3(p.x+.08f,GroundY+.005f,p.z-.08f),Quaternion.identity,new Vector3(.31f,1,.25f));
             }
+            // One quiet sentry shares the existing ally/shadow instanced draws. It
+            // gives the base a readable guard and a deterministic, effect-free
+            // soldier contact-shadow sample away from the collision flashes.
+            Vector3 sentry=new Vector3(-2.52f,1.23f,-2.58f);
+            AppendAllyTroop(0,Matrix4x4.TRS(sentry,Quaternion.Euler(0,145,0),Vector3.one*.72f),-1000,1,.35f,0);
+            Vector3 sentryShadow=new Vector3(sentry.x+.06f,sentry.y+.005f,sentry.z-.06f);
+            shadowMatrices[ns++]=Matrix4x4.TRS(sentryShadow,Quaternion.identity,new Vector3(.72f,1,.58f));
+            Vector3 screenRight=renderCamera.transform.right;screenRight.y=0;screenRight.Normalize();
+            artSoldierShadowWorld=sentryShadow+screenRight*.34f;artSoldierShadowValid=true;
             // A short white silhouette replaces the previous lingering corpse.
             // Existing corpse RNG/physics is preserved; a 60 ms white flash
             // clears the contact band quickly enough for the four-point stars.
@@ -707,15 +763,17 @@ namespace Mgf.HyeopgokSasu
                 else if(c.kind==4)whiteBossMatrices[wBoss++]=m;
                 else {int kind=Mathf.Min(TroopKinds-1,c.kind);whiteTroopMatrices[kind][whiteTroopCounts[kind]++]=m;}
             }
-            for(int i=0;i<2;i++)
+            for(int i=0;i<TowerCount;i++)
             {
                 float yaw=Mathf.Atan2(FrontPosition().x-towerPositions[i].x,FrontPosition().z-towerPositions[i].z)*Mathf.Rad2Deg;
                 allyArcherMatrices[i]=Matrix4x4.TRS(towerPositions[i]+new Vector3(-.34f,1.80f,.03f),Quaternion.Euler(towerRecoil[i]*50,yaw,0),Vector3.one*(towerLevel[i]<0?0:.8f));
             }
             Draw(shadowMesh,shadowMaterial,shadowMatrices,ns);
             for(int kind=0;kind<TroopKinds;kind++)DrawTroop(kind);
-            Draw(giantMesh,redMaterial,giantMatrices,ng,giantDrawHits);Draw(bossMesh,redMaterial,bossMatrices,bosses,bossDrawHits);
-            Draw(allyArcherMesh,blueMaterial,allyArcherMatrices,2);
+            DrawAllyTroops();
+            Draw(giantMesh,giantMaterial,giantMatrices,ng,giantDrawHits);Draw(giantGlowMesh,giantGlowMaterial,giantMatrices,ng);
+            Draw(bossMesh,redMaterial,bossMatrices,bosses,bossDrawHits);
+            Draw(allyArcherMesh,blueMaterial,allyArcherMatrices,TowerCount);
             for(int kind=0;kind<TroopKinds;kind++)Draw(troopMeshes[kind],silhouetteMaterial,whiteTroopMatrices[kind],whiteTroopCounts[kind]);
             Draw(giantMesh,silhouetteMaterial,whiteGiantMatrices,wg);Draw(bossMesh,silhouetteMaterial,whiteBossMatrices,wBoss);
             Draw(hpMesh,hpBackgroundMaterial,hpBackgroundMatrices,hp);Draw(hpMesh,hpMaterial,hpMatrices,hp);
@@ -729,6 +787,21 @@ namespace Mgf.HyeopgokSasu
             kind=Mathf.Clamp(kind,0,TroopKinds-1);int at=troopCounts[kind]++;
             troopMatrices[kind][at]=matrix;troopHitTimes[kind][at]=hitTime;troopTeams[kind][at]=team;
             troopPhases[kind][at]=phase;troopAttacks[kind][at]=attack;
+        }
+
+        void AppendAllyTroop(int kind,Matrix4x4 matrix,float hitTime,float team,float phase,float attack)
+        {
+            int at=allyTroopCounts[0]++;
+            allyTroopMatrices[0][at]=matrix;allyTroopHitTimes[0][at]=hitTime;allyTroopTeams[0][at]=team;
+            allyTroopPhases[0][at]=phase;allyTroopAttacks[0][at]=attack;
+        }
+
+        void DrawAllyTroops()
+        {
+            int count=allyTroopCounts[0];Mesh mesh=allyAiTroopMesh?allyAiTroopMesh:troopMeshes[0];if(count<=0||!mesh)return;
+            soldierProperties.SetFloatArray(HitTimeId,allyTroopHitTimes[0]);soldierProperties.SetFloatArray(TeamId,allyTroopTeams[0]);
+            soldierProperties.SetFloatArray(PhaseId,allyTroopPhases[0]);soldierProperties.SetFloatArray(AttackId,allyTroopAttacks[0]);
+            Graphics.DrawMeshInstanced(mesh,0,allyTroopMaterial,allyTroopMatrices[0],count,soldierProperties,ShadowCastingMode.Off,false,0,renderCamera,LightProbeUsage.Off);
         }
 
         void DrawTroop(int kind)
@@ -801,54 +874,103 @@ namespace Mgf.HyeopgokSasu
             return Vector3.LerpUnclamped(path[lo],path[hi],amount)+new Vector3(-forward.z,0,forward.x)*lateral;
         }
 
+        void BuildChest(){
+            Shader shader=Resources.Load<Shader>("HyeopgokSasu/Shaders/Horde");
+            chestWoodMaterial=MakeMaterial(shader,MgfLook.Hex("#7a401e").linear,false);chestGoldMaterial=MakeMaterial(shader,MgfLook.Hex("#f3bd35").linear,false);chestGoldMaterial.SetFloat("_Metallic",.72f);
+            chestRoot=new GameObject("정답 보물상자").transform;chestRoot.SetParent(transform,false);
+            MgfLook.Prim(PrimitiveType.Cube,"상자 몸통",new Vector3(0,.28f,0),new Vector3(1.05f,.48f,.70f),chestWoodMaterial,chestRoot,false);
+            MgfLook.Prim(PrimitiveType.Cube,"상자 금테",new Vector3(0,.31f,-.36f),new Vector3(.17f,.52f,.035f),chestGoldMaterial,chestRoot,false);
+            chestLid=new GameObject("열리는 상자 뚜껑").transform;chestLid.SetParent(chestRoot,false);chestLid.localPosition=new Vector3(0,.55f,.34f);
+            MgfLook.Prim(PrimitiveType.Cube,"상자 뚜껑",new Vector3(0,.09f,-.34f),new Vector3(1.08f,.22f,.72f),chestWoodMaterial,chestLid,false);
+            MgfLook.Prim(PrimitiveType.Cube,"뚜껑 금테",new Vector3(0,.10f,-.70f),new Vector3(.18f,.24f,.035f),chestGoldMaterial,chestLid,false);
+            chestRoot.gameObject.SetActive(false);
+        }
+        void ShowChest(Vector3 position,HyeopgokChestReward reward){
+            chestLife=1.5f;chestRoot.gameObject.SetActive(true);chestRoot.position=new Vector3(position.x,1.25f,position.z);chestRoot.rotation=Quaternion.Euler(0,renderCamera.transform.eulerAngles.y+180,0);chestRoot.localScale=Vector3.one*.84f;chestLid.localRotation=Quaternion.identity;
+        }
+        void UpdateChest(float dt){
+            if(chestLife<=0||!chestRoot)return;chestLife=Mathf.Max(0,chestLife-dt);float age=1.5f-chestLife;
+            chestRoot.localScale=Vector3.one*.84f*(1+Mathf.Sin(Mathf.Min(1,age/.28f)*Mathf.PI)*.18f);
+            chestLid.localRotation=Quaternion.Euler(-Mathf.SmoothStep(0,72,Mathf.InverseLerp(.18f,.58f,age)),0,0);
+            if(chestLife<=0)chestRoot.gameObject.SetActive(false);
+        }
+
         void BuildTowers()
         {
             GameObject bowAsset=Resources.Load<GameObject>("HyeopgokSasu/Models/crossbow");
-            for(int i=0;i<2;i++)
+            string[] names={"crossbow","cannon","magic"};
+            for(int type=0;type<3;type++)for(int level=0;level<3;level++){
+                string id="tower_"+names[type]+"_lv"+(level+1);
+                towerMaterials[type,level]=HyeopgokAiAssets.CreateMaterial("tower_shared",Color.white,1);
+            }
+            for(int i=0;i<TowerCount;i++)
             {
-                towers[i]=new GameObject("성장하는 석궁탑 "+(i+1)).transform;
+                towers[i]=new GameObject("보상 타워 부지 "+(i+1)).transform;
                 towers[i].SetParent(transform,false);towers[i].position=towerPositions[i];
                 towers[i].rotation=Quaternion.Euler(0,180,0);
-                for(int level=0;level<3;level++)
-                {
-                    GameObject asset=Resources.Load<GameObject>("HyeopgokSasu/Models/tower_base_l"+(level+1));
-                    if(!asset)asset=Resources.Load<GameObject>("HyeopgokSasu/Models/tower_base");
-                    if(!asset)continue;
-                    GameObject stage=Instantiate(asset,towers[i]);stage.transform.localPosition=Vector3.zero;
-                    stage.transform.localRotation=Quaternion.identity;stage.transform.localScale=Vector3.one;
-                    towerStages[i,level]=stage;
-                    Renderer renderer=stage.GetComponentInChildren<Renderer>();towerRenderers[i,level]=renderer;
-                    if(renderer){renderer.sharedMaterial=blueMaterial;renderer.shadowCastingMode=ShadowCastingMode.On;}
-                    stage.SetActive(level==0);
+                bool anyAi=false;
+                for(int type=0;type<3;type++)for(int level=0;level<3;level++){
+                    string id="tower_"+names[type]+"_lv"+(level+1);
+                    GameObject stage=HyeopgokAiAssets.InstantiateModel(id,towerPositions[i],towers[i].rotation,1,towers[i],towerMaterials[type,level],true);
+                    if(stage){stage.transform.localPosition=Vector3.zero;stage.transform.localRotation=Quaternion.identity;anyAi=true;}
+                    towerStages[i,type,level]=stage;towerRenderers[i,type,level]=stage?stage.GetComponentInChildren<Renderer>(true):null;
+                    if(stage)stage.SetActive(false);
                 }
-                if(bowAsset)
-                {
-                    GameObject bow=Instantiate(bowAsset,towers[i]);towerBows[i]=bow.transform;
-                    bow.transform.localPosition=Vector3.up*1.62f;bow.transform.localRotation=Quaternion.identity;
-                    Renderer r=bow.GetComponentInChildren<Renderer>();if(r){r.sharedMaterial=blueMaterial;r.shadowCastingMode=ShadowCastingMode.Off;}
+                if(!anyAi){
+                    for(int level=0;level<3;level++){
+                        GameObject asset=Resources.Load<GameObject>("HyeopgokSasu/Models/tower_base_l"+(level+1));if(!asset)asset=Resources.Load<GameObject>("HyeopgokSasu/Models/tower_base");if(!asset)continue;
+                        GameObject stage=Instantiate(asset,towers[i]);stage.transform.localPosition=Vector3.zero;stage.transform.localRotation=Quaternion.identity;stage.transform.localScale=Vector3.one;
+                        towerStages[i,0,level]=stage;towerRenderers[i,0,level]=stage.GetComponentInChildren<Renderer>();if(towerRenderers[i,0,level])towerRenderers[i,0,level].sharedMaterial=blueMaterial;stage.SetActive(false);
+                    }
+                    if(bowAsset){GameObject bow=Instantiate(bowAsset,towers[i]);towerBows[i]=bow.transform;bow.transform.localPosition=Vector3.up*1.62f;Renderer r=bow.GetComponentInChildren<Renderer>();if(r)r.sharedMaterial=blueMaterial;}
                 }
             }
+        }
+
+        static int UpgradeCost(int level)=>level<=0?15:level==1?30:0;
+        int FirstInstalledTower(int offset){for(int k=0;k<TowerCount;k++){int i=(Mathf.Abs(offset)+k)%TowerCount;if(towerLevel[i]>=0)return i;}return -1;}
+        void InstallTower(int slot,int type){
+            if(slot<0||slot>=TowerCount)return;towerType[slot]=Mathf.Clamp(type,0,2);towerLevel[slot]=0;upgradeRemaining[slot]=UpgradeCost(0);
+            towerRise[slot]=1;towerDrop[slot]=4.8f;towerRecoil[slot]=.28f;ApplyTowerVisibility(slot);Burst(towerPositions[slot],48,3.4f);
+        }
+        void ApplyTowerVisibility(int slot){
+            for(int type=0;type<3;type++)for(int level=0;level<3;level++)if(towerStages[slot,type,level])towerStages[slot,type,level].SetActive(towerLevel[slot]>=0&&type==towerType[slot]&&level==towerLevel[slot]);
+            if(towerBows[slot])towerBows[slot].gameObject.SetActive(towerLevel[slot]>=0&&towerType[slot]==0);
+        }
+        public bool TickUpgrade(Vector3 king,Vector3 target,float dt){
+            int previous=upgradePad;int at=UpgradePadAt(king),destination=UpgradePadAt(target);bool stopped=(king-target).sqrMagnitude<.012f;
+            upgradePad=at>=0&&at==destination&&stopped&&towerLevel[at]>=0&&towerLevel[at]<2?at:-1;
+            if(upgradePad<0){if(previous>=0)upgradeClock[previous]=0;return previous!=upgradePad;}
+            int slot=upgradePad;upgradeClock[slot]-=dt;
+            if(upgradeClock[slot]<=0&&rules!=null&&rules.SpendUpgradeCoin()){
+                upgradeClock[slot]=.105f;economy.Pour(UpgradePads[slot]);upgradeRemaining[slot]=Mathf.Max(0,upgradeRemaining[slot]-1);
+                towerRecoil[slot]=.08f;
+                if(upgradeRemaining[slot]==0){towerLevel[slot]++;upgradeCount++;upgradeRemaining[slot]=UpgradeCost(towerLevel[slot]);towerRise[slot]=.001f;ApplyTowerVisibility(slot);Burst(towerPositions[slot]+Vector3.up*.5f,42,3.2f);MgfSfx.Play("correct",.25f);}
+                return true;
+            }
+            return previous!=upgradePad;
         }
 
         void UpdateTowers(float dt)
         {
             Vector3 frontPosition=FrontPosition();
-            for(int i=0;i<2;i++)
+            for(int i=0;i<TowerCount;i++)
             {
                 if(!towers[i])continue;
                 towerRise[i]=Mathf.Min(1,towerRise[i]+dt*1.1f);
                 towerRecoil[i]=Mathf.Max(0,towerRecoil[i]-dt);
                 float t=towerRise[i],eased=1-Mathf.Pow(1-t,3);
-                towers[i].position=towerPositions[i]+Vector3.up*((eased-1)*1.8f);
+                towerDrop[i]=Mathf.MoveTowards(towerDrop[i],0,dt*7.2f);
+                towers[i].position=towerPositions[i]+Vector3.up*((eased-1)*1.8f+towerDrop[i]);
                 towers[i].localScale=new Vector3(1,towerLevel[i]<0?.16f:1+Mathf.Sin(t*Mathf.PI)*.12f-towerRecoil[i]*.16f,1);
-                for(int level=0;level<3;level++)
+                for(int type=0;type<3;type++)for(int level=0;level<3;level++)
                 {
-                    GameObject stage=towerStages[i,level];if(!stage)continue;
-                    bool active=level==Mathf.Max(0,towerLevel[i]);if(stage.activeSelf!=active)stage.SetActive(active);
-                    if(active&&towerRenderers[i,level])
+                    GameObject stage=towerStages[i,type,level];if(!stage)continue;
+                    bool active=towerLevel[i]>=0&&type==towerType[i]&&level==towerLevel[i];if(stage.activeSelf!=active)stage.SetActive(active);
+                    if(active&&towerRenderers[i,type,level])
                     {
-                        towerProperties.SetFloat("_Flash",towerLevel[i]<0?.7f:Mathf.Clamp01((1-t)*2.4f));
-                        towerRenderers[i,level].SetPropertyBlock(towerProperties);
+                        towerProperties.SetFloat("_Flash",Mathf.Clamp01((1-t)*2.4f));
+                        towerRenderers[i,type,level].SetPropertyBlock(towerProperties);
                     }
                 }
                 if(towerBows[i])
@@ -979,12 +1101,15 @@ namespace Mgf.HyeopgokSasu
             if(whiteMaterial) Destroy(whiteMaterial); if(goldMaterial) Destroy(goldMaterial);
             if(dustMaterial) Destroy(dustMaterial); if(shadowMaterial) Destroy(shadowMaterial);
             if(cubeMesh) Destroy(cubeMesh); if(shadowMesh) Destroy(shadowMesh); if(boltMesh) Destroy(boltMesh);
-            if(trailMesh) Destroy(trailMesh);for(int i=0;i<troopMeshes.Length;i++)if(troopMeshes[i])Destroy(troopMeshes[i]);
+            if(trailMesh) Destroy(trailMesh);for(int i=0;i<troopMeshes.Length;i++)if(troopMeshes[i]){bool duplicate=false;for(int j=0;j<i;j++)if(troopMeshes[j]==troopMeshes[i])duplicate=true;if(!duplicate)Destroy(troopMeshes[i]);}
             if(impacts != null) impacts.Dispose();
             if(economy!=null)economy.Dispose();
             if(giantMesh)Destroy(giantMesh);if(allyArcherMesh)Destroy(allyArcherMesh);if(bossMesh)Destroy(bossMesh);if(hpMesh)Destroy(hpMesh);
+            if(allyAiTroopMesh)Destroy(allyAiTroopMesh);if(giantGlowMesh)Destroy(giantGlowMesh);
             if(boltTrailMaterial)Destroy(boltTrailMaterial);if(silhouetteMaterial)Destroy(silhouetteMaterial);if(swordMaterial)Destroy(swordMaterial);if(hpMaterial)Destroy(hpMaterial);if(hpBackgroundMaterial)Destroy(hpBackgroundMaterial);
-            if(troopMaterial)Destroy(troopMaterial);
+            if(troopMaterial)Destroy(troopMaterial);if(allyTroopMaterial)Destroy(allyTroopMaterial);if(giantMaterial)Destroy(giantMaterial);if(giantGlowMaterial)Destroy(giantGlowMaterial);
+            for(int type=0;type<3;type++)for(int level=0;level<3;level++)if(towerMaterials[type,level])Destroy(towerMaterials[type,level]);
+            if(chestWoodMaterial)Destroy(chestWoodMaterial);if(chestGoldMaterial)Destroy(chestGoldMaterial);
         }
     }
 }
