@@ -5,7 +5,7 @@ import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} fro
 const here=path.dirname(fileURLToPath(import.meta.url));const root=path.resolve(here,'../../../../..');
 const out=path.join(root,'public/g/hyeopgok-sasu/packs');
 const curriculum=JSON.parse(fs.readFileSync(path.join(root,'curriculum/2022-middle-math.json'),'utf8'));
-const failures=[],totals={items:0,choices:0,enumeratedOutcomes:0,distractorDerivations:0,acceptanceInputs:0};
+const failures=[],totals={items:0,choices:0,enumeratedOutcomes:0,distractorDerivations:0,acceptanceInputs:0,equivalentRawPairs:0,equivalentReducedPairs:0,equivalentNonCoprimeItems:0,explicitCaseItems:0,explicitCaseNonCoprimeItems:0};
 function check(ok,message){if(!ok)failures.push(message);}
 function gcd(a,b){return b?gcd(b,a%b):Math.abs(a)||1;}
 function reduce(n,d=1){const g=gcd(n,d);return [n/g,d/g];}
@@ -43,7 +43,9 @@ function derived(w,p){const [a,b,c]=w.inputs;switch(w.rule){
  case'sum':return[a+b,1];case'product':return[a*b,1];case'first-count':return[a,1];case'cards-leading-zero':return[cardVariants(a,b,'leading'),1];case'cards-reuse':return[cardVariants(a,b,'reuse'),1];case'cards-unordered':return[cardVariants(a,b,'unordered'),1];case'add-card-stages':return[2*(a-1),1];case'all-ordered-cards':return[a*(a-1),1];case'card-first-stage':return[a-1,1];case'opposite-role-order':return[b?a*(a-1)/2:a*(a-1),1];case'square':return[a*a,1];case'add-role-stages':return[2*a-1,1];case'unordered-count':{const valid=pairs(range(6),range(6)).filter(v=>diceEvent(v,p.args.test,p.args.k));return[new Set(valid.map(v=>v.slice().sort((x,y)=>x-y).join(','))).size,1];}case'unordered-all-dice':return[21,1];default:throw Error(`Unknown distractor rule ${w.rule}`);
 }}
 const index=JSON.parse(fs.readFileSync(path.join(out,'index.json'),'utf8'));check(index.default_pack==='m2s2-u7','default pack');const reports=[];
-for(const entry of index.packs){
+// This oracle covers the two counting/probability packs. Other indexed units
+// have their own independent algebra/geometry checkers and proof formats.
+for(const entry of index.packs.filter(e=>e.pack_id==='m2s2-u6'||e.pack_id==='m2s2-u7')){
  const pack=JSON.parse(fs.readFileSync(path.join(out,entry.file),'utf8'));const ledger=JSON.parse(fs.readFileSync(path.join(here,`${pack.pack_id}-proofs.json`),'utf8'));const proofMap=new Map(ledger.proofs.map(p=>[p.id,p]));
  check(pack.pack_id===entry.pack_id,`${entry.pack_id}: index match`);check(pack.items.length>=300,`${pack.pack_id}: at least 300`);check(pack.school==='middle'&&pack.grade===2&&pack.semester===2,`${pack.pack_id}: school scope`);
  check(curriculum.units.some(u=>u.id===pack.unit_id),`${pack.pack_id}: unit exists`);check(pack.standards.every(c=>curriculum.standards.some(s=>s.code===c)),`${pack.pack_id}: standards exist`);
@@ -67,9 +69,18 @@ for(const entry of index.packs){
    check(item.coin_budget<=pack.economy.carry_capacity&&item.coin_budget<=pack.economy.min_spawn_coins,`${id}: enough carrying/supply`);
    if(mode==='amount')check(Number.isSafeInteger(ans[0])&&ans[0]>=2&&ans[0]<60,`${id}: avoids fixed-one/fill-to-cap policy`);
    else {
-    check(['exact_parts','equivalent','reduced'].includes(accept),`${id}: fraction acceptance mode`);
-    if(accept==='exact_parts')check(ans.every((v,i)=>v===exact[i]),`${id}: exact_parts preserves counted parts`);
-    if(accept==='reduced')check(gcd(...ans)===1&&item.prompt.includes('기약분수'),`${id}: reduced requirement`);
+   check(['exact_parts','equivalent','reduced'].includes(accept),`${id}: fraction acceptance mode`);
+   if(accept==='exact_parts')check(ans.every((v,i)=>v===exact[i]),`${id}: exact_parts preserves counted parts`);
+   if(accept==='reduced')check(gcd(...ans)===1&&item.prompt.includes('기약분수'),`${id}: reduced requirement`);
+    if(accept==='equivalent'){
+     const reduced=reduce(...exact),accepted=([n,d])=>d>0&&n*ans[1]===ans[0]*d;
+     check(accepted(exact),`${id}: raw case counts rejected`);totals.equivalentRawPairs++;
+     check(accepted(reduced),`${id}: reduced equivalent rejected`);totals.equivalentReducedPairs++;
+     if(gcd(...exact)>1)totals.equivalentNonCoprimeItems++;
+     if(item.explain.includes('모든 경우')){totals.explicitCaseItems++;if(gcd(...exact)>1)totals.explicitCaseNonCoprimeItems++;}
+     check(!accepted([exact[0]+1,exact[1]]),`${id}: one-off numerator accepted`);
+     if(exact[0]!==exact[1])check(!accepted([exact[1],exact[0]]),`${id}: swapped parts accepted`);
+    }
     for(let n=0;n<=item.max;n++)for(let d=0;d<=item.max;d++){
      const matches=d>0&&(accept==='exact_parts'?n===ans[0]&&d===ans[1]:n*ans[1]===ans[0]*d&&(accept!=='reduced'||gcd(n,d)===1));
      const oracle=d>0&&(accept==='exact_parts'?n===exact[0]&&d===exact[1]:n*exact[1]===exact[0]*d&&(accept!=='reduced'||gcd(n,d)===1));
@@ -95,5 +106,5 @@ for(const entry of index.packs){
 }
 const result={verdict:failures.length?'fail':'pass',...totals,failures:failures.length,packs:reports,errors:failures};
 fs.writeFileSync(path.join(here,'verification-report.json'),JSON.stringify(result,null,2)+'\n');
-fs.writeFileSync(path.join(here,'verification-report.md'),`# 문제 팩 전수 검증\n\n판정: **${result.verdict}**\n\n- 문항 ${totals.items}개, 보기 ${totals.choices}개, 오답 도출 ${totals.distractorDerivations}개 전수 확인.\n- 독립 표본공간 ${totals.enumeratedOutcomes}개를 직접 열거해 정답을 정수 교차곱으로 대조.\n- 분수 입력 ${totals.acceptanceInputs}쌍(분모 0 포함)의 exact_parts/reduced 정오 경계를 전수 대조.\n- 모든 붓기 패드 max=60, 고정 예산 amount=60/fraction=120, 소지량120·웨이브 최소140 코인. 첫 문항은 두 팩 모두 amount=2.\n- 오류 ${failures.length}건. 정답 누락·중복·동치 보기·오답 우연 정답·표현 함정·교육과정 범위·기약분수·보기 위치 균형을 확인.\n- 생성기 공통 모듈을 가져오지 않는 독립 검증기. 예상 정답 필드는 검증 대상일 뿐 계산 입력으로 쓰지 않음.\n\n재현: \`node factory/unity-src/hyeopgok-sasu/ArtSource/packs/verify-packs.mjs\`\n`);
+fs.writeFileSync(path.join(here,'verification-report.md'),`# 문제 팩 전수 검증\n\n판정: **${result.verdict}**\n\n- 문항 ${totals.items}개, 보기 ${totals.choices}개, 오답 도출 ${totals.distractorDerivations}개 전수 확인.\n- 독립 표본공간 ${totals.enumeratedOutcomes}개를 직접 열거해 정답을 정수 교차곱으로 대조.\n- 분수 입력 ${totals.acceptanceInputs}쌍(분모 0 포함)의 exact_parts/equivalent/reduced 정오 경계를 전수 대조.\n- equivalent 문항은 raw ${totals.equivalentRawPairs}쌍과 기약 ${totals.equivalentReducedPairs}쌍을 모두 수락했다. 이 중 비서로소 raw 문항은 ${totals.equivalentNonCoprimeItems}개, 「모든 경우」를 명시한 문항은 ${totals.explicitCaseItems}개(비서로소 ${totals.explicitCaseNonCoprimeItems}개)다.\n- 모든 붓기 패드 max=60, 고정 예산 amount=60/fraction=120, 소지량120·웨이브 최소140 코인. 첫 문항은 두 팩 모두 amount=2.\n- 오류 ${failures.length}건. 정답 누락·중복·동치 보기·오답 우연 정답·표현 함정·교육과정 범위·기약분수·보기 위치 균형을 확인.\n- 생성기 공통 모듈을 가져오지 않는 독립 검증기. 예상 정답 필드는 검증 대상일 뿐 계산 입력으로 쓰지 않음.\n\n재현: \`node factory/unity-src/hyeopgok-sasu/ArtSource/packs/verify-packs.mjs\`\n`);
 console.log(JSON.stringify(result,null,2));if(failures.length)process.exitCode=1;

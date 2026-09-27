@@ -180,7 +180,9 @@ namespace Mgf.HyeopgokSasu
             // The Kingshot-style reward beat is deliberately brief: seal, coin and
             // building growth land together, then the battle resumes. A tap on the
             // scroll can still pin and expand the complete explanation.
-            feedbackLeft=Rules.LastCorrect?1.15f:3.4f;
+            // Fraction feedback gets a full reduction beat: raw case counts first,
+            // then the canonical fraction. Correct feedback never shakes the camera.
+            feedbackLeft=Rules.LastCorrect?(Rules.Current.Mode=="fraction_parts"?1.65f:1.15f):3.4f;
             Vector3 spot=Rules.LastPad>=0?HyeopgokRules.Pads[Rules.LastPad]:Rules.King;
             int hits=1,trials=1;long n=1,d=1;
             bool ratio=Rules.Current.format=="frac"&&TryRational(Rules.Current.answer,out n,out d)&&n>0&&d>1&&n<d;
@@ -190,7 +192,10 @@ namespace Mgf.HyeopgokSasu
             string reward=Rules.Current.Mode=="choice"?"정답 · 지원군 출격!":"정답 · "+Rules.TotalPoured+"닢 투자 · 건물 성장!";
             rewardIsRatio=ratio;
             string answer=Rules.Current.PublicAnswerToken;
-            feedback=Rules.LastCorrect?reward+"\n"+Rules.Current.explain:(Rules.LastPad<0?"시간 초과":"오답 · "+Rules.TotalPoured+"닢 소실")+" · 성문 -18\n정답 "+answer+" · "+Rules.Current.explain;
+            string answerLine=Rules.Current.Mode=="fraction_parts"
+                ?Rules.Current.den_label+" "+Rules.Current.answerParts.den+" · "+Rules.Current.num_label+" "+Rules.Current.answerParts.num+" → "+answer
+                :"정답 "+answer;
+            feedback=Rules.LastCorrect?reward+"\n"+Rules.Current.explain:(Rules.LastPad<0?"시간 초과":"오답 · "+Rules.TotalPoured+"닢 소실")+" · 성문 -18\n"+answerLine+"\n"+Rules.Current.explain;
             HideTutorial();
             ShowFeedback(Rules.LastCorrect,feedback);SyncState();RefreshHud();
         }

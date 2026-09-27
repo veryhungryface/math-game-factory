@@ -56,9 +56,9 @@ node factory/unity-src/hyeopgok-sasu/ArtSource/packs/validate-pack.mjs public/g/
 ```json
 {
   "id":"probability-001",
-  "prompt":"1부터 8까지의 자연수가 각각 하나씩 적힌 카드 8장 중 한 장을 임의로 뽑을 때, 3의 배수일 확률을 구하시오. 모든 경우와 사건의 경우를 세어 약분하지 말고 나타내시오.",
+  "prompt":"1부터 8까지의 자연수가 각각 하나씩 적힌 카드 8장 중 한 장을 임의로 뽑을 때, 3의 배수일 확률을 구하시오.",
   "answer_mode":"fraction_parts","answer":{"num":2,"den":8},
-  "accept":"exact_parts","num_label":"사건이 일어나는 경우의 수","den_label":"모든 경우의 수",
+  "accept":"equivalent","num_label":"사건","den_label":"전체",
   "max":60,"coin_budget":120,"answerNumeric":0.25,"choices":null,"format":"frac",
   "explain":"모든 경우 8가지 중 3, 6의 두 가지이므로 {frac:2/8}입니다.",
   "unitConcept":"경우의 수의 비율로서의 확률","difficulty":1
@@ -71,7 +71,7 @@ node factory/unity-src/hyeopgok-sasu/ArtSource/packs/validate-pack.mjs public/g/
 | `equivalent` | 1/4, 2/8, 3/12 등 값이 같으면 정답 | 분수의 값·동치, 정수 교차곱 판정 |
 | `reduced` | 답을 `{num:1,den:4}`로 저장. 1/4만 정답 | 발문에 **기약분수로** 명시. 교차곱과 최대공약수 1 확인 |
 
-확률 팩은 `exact_parts` 264문항, `reduced` 56문항입니다. 상대도수 문항은 라벨을 「전체 시행 횟수」「앞면이 나온 횟수」로 바꿉니다. 초등 분수 팩은 라벨을 「분모」「분자」로 바꾸고, 예를 들어 `1/6 + 1/3`을 기약분수로 구하는 답을 `{num:1,den:2}`, `accept:"reduced"`로 만듭니다. 음수 분수는 코인 입력으로 표현하지 못하므로 이 모드로 출제하지 않습니다.
+확률 팩의 407개 분수 문항은 `전체`·`사건`의 실제 경우의 수를 답에 보존하고 `equivalent`로 판정합니다. 따라서 2/8과 1/4를 모두 정답으로 받으며, 확정 피드백에서 2/8→1/4 약분을 보여 줍니다. 초등 분수 팩은 라벨을 「분모」「분자」로 바꾸고, 예를 들어 `1/6 + 1/3`을 기약분수로 구하는 답을 `{num:1,den:2}`, `accept:"reduced"`로 만듭니다. 음수 분수는 코인 입력으로 표현하지 못하므로 이 모드로 출제하지 않습니다.
 
 ## choice — 개념·성질 또는 v1 호환
 

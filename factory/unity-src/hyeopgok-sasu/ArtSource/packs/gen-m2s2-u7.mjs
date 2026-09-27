@@ -3,13 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {makeItem,probabilityWrong,wrong,token,diceCount,diceText,spread,introItem,gcd,here,output} from './common.mjs';
 // Corpus traps: explicit 임의로 + equal balls, 서로 다른 dice, only replacement;
-// every OR below joins disjoint colors; all fractions are reduced integer pairs.
-// v4: every ball sentence names the 주머니, and every probability answer follows
-// the middle-school canonical convention: a reduced fraction. Raw event/total
-// counts remain in each explanation, while the two input pads build 사건/전체.
+// every OR below joins disjoint colors. The two input pads always mean the raw
+// 사건/전체 counts; equivalent pairs are accepted and feedback performs the
+// textbook reduction after the learner commits the assembled probability.
 const balls=[],cards=[],complement=[],colors=[],dice=[],replacement=[],atLeast=[],experiment=[],reverse=[],overlap=[],basic=[];
 const equalBalls='(단, 공의 모양과 크기는 모두 같다.)';
-const ASK='확률을 기약분수로 구하시오.';
+const ASK='확률을 구하시오.';
 const bag=(parts)=>`${parts}가 들어 있는 주머니에서`;
 for(let red=1;red<=9;red++)for(let blue=1;blue<=9;blue++){
   const total=red+blue;
@@ -36,7 +35,7 @@ for(let red=1;red<=8;red++)for(let blue=1;blue<=8;blue++){
   atLeast.push(makeItem({prompt:`${bag(`빨간 공 ${red}개와 파란 공 ${blue}개`)} ${again} 적어도 한 번 빨간 공이 나올 ${ASK} ${equalBalls}`,n:some,d:all,format:'frac',explain:`모든 경우 ${total}×${total}=${all}가지에서 두 번 모두 파란 공인 ${blue}×${blue}=${blue*blue}가지를 빼면 ${some}가지이므로 @P입니다.`,unitConcept:'적어도 하나의 확률',difficulty:4,kind:'replacement',args:{red,blue,event:'at-least-one'},distractors:probabilityWrong(some,all,[wrong(red,total,'m2s2-u7.event-count-omitted','single-stage',[red,total]),wrong(red*2,total,'m2s2-u6.sum-product-confusion','add-instead-multiply-probabilities',[red,total]),wrong(red*red,all,'m2s2-u7.event-complement-confusion','both-red',[red,total])])}));
 }
 for(let total=10;total<=40;total+=5)for(let heads=2;heads<total;heads+=3){
-  experiment.push(makeItem({prompt:`동전을 ${total}번 던졌더니 앞면이 ${heads}번 나왔다. 이 실험에서 앞면의 상대도수를 기약분수로 구하시오.`,n:heads,d:total,format:'frac',explain:`상대도수는 (앞면이 나온 횟수)÷(전체 시행 횟수)이므로 @P입니다.`,unitConcept:'실험 결과의 상대도수',difficulty:2,kind:'experiment',args:{total,heads},distractors:probabilityWrong(heads,total,[wrong(1,2,'m2s2-u7.frequency-equals-theory','half',[])])}));
+  experiment.push(makeItem({prompt:`동전을 ${total}번 던졌더니 앞면이 ${heads}번 나왔다. 이 실험에서 앞면의 상대도수를 구하시오.`,n:heads,d:total,format:'frac',explain:`상대도수는 (앞면이 나온 횟수)÷(전체 시행 횟수)이므로 @P입니다.`,unitConcept:'실험 결과의 상대도수',difficulty:2,kind:'experiment',args:{total,heads},distractors:probabilityWrong(heads,total,[wrong(1,2,'m2s2-u7.frequency-equals-theory','half',[])])}));
 }
 for(let total=5;total<=12;total++)for(let red=2;red<total;red++){
   reverse.push(makeItem({prompt:`빨간 공과 파란 공이 합하여 ${total}개 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때 빨간 공이 나올 확률이 ${token(red,total)}이면, 빨간 공은 몇 개인지 구하시오. ${equalBalls}`,n:red,explain:`(빨간 공의 개수)=${total}×${token(red,total)}=${red}이므로 빨간 공은 ${red}개입니다.`,unitConcept:'확률에서 경우의 수 역으로 구하기',difficulty:3,kind:'reverse',args:{total,red},distractors:[wrong(total-red,1,'m2s2-u7.event-complement-confusion','complement-count',[red,total]),wrong(total,1,'m2s2-u7.denominator-omitted','total-only',[total]),wrong(red*total,1,'m2s2-u7.denominator-omitted','multiply-count-again',[red,total]),wrong(1,1,'m2s2-u7.event-count-omitted','constant-one',[])]}));
@@ -64,8 +63,8 @@ function coinInput(item,proof,packId){
   } else if(proof.kind==='single-color') item.answer_mode='choice';
   else {
     item.answer_mode='fraction_parts';item.max=60;item.coin_budget=120;item.choices=null;
-    item.accept='reduced';
-    const parts=proof.expected;
+    item.accept='equivalent';
+    const parts=proof.parts;
     item.answer={num:parts[0],den:parts[1]};
     if(parts.some(v=>v>60))throw Error(`Answer exceeds coin pad: ${item.prompt}`);
     const [nl,dl]=LAB.frac;item.num_label=nl;item.den_label=dl;

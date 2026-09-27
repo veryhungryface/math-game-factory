@@ -33,7 +33,8 @@ namespace Mgf.HyeopgokSasu
         TextMeshProUGUI[] tutorialRings=new TextMeshProUGUI[4];
         TextMeshProUGUI answerRing,confirmRing;int answerMark=-1;
         Image hpFill,timeFill;
-        float shownHp=100,bonusLife;
+        float shownHp=100,bonusLife,fractionRevealLife,fractionRevealReduceAt;
+        int fractionRevealDen=-1,fractionRevealNum=-1;bool fractionRevealReduced;
         int previousShownHp=-1,lastReds=-1,lastBlues=-1,lastKills=-1,lastClock=-1,lastTreasury=-1;
         bool tutorialVisible,firstFractionTutorialShown;
         int tutorialKind;
@@ -208,7 +209,7 @@ namespace Mgf.HyeopgokSasu
         }
         bool HandleBattleUiPointer(){
             if(!questionPanel||!Hit(questionPanel))return false;
-            if(feedbackPanel.gameObject.activeSelf&&feedbackCanExpand){feedbackExpanded=!feedbackExpanded;feedbackLeft=Mathf.Max(feedbackLeft,5f);RenderFeedback();MgfSfx.Play("tap",.4f);}
+            if(feedbackPanel.gameObject.activeSelf){if(feedbackCanExpand){feedbackExpanded=!feedbackExpanded;feedbackLeft=Mathf.Max(feedbackLeft,5f);RenderFeedback();MgfSfx.Play("tap",.4f);}}
             else if(questionCanExpand){questionExpanded=!questionShowsAll;questionUserOpened=true;FitQuestion(Rules.Current.prompt);MgfSfx.Play("tap",.4f);}
             return true;
         }
@@ -232,6 +233,9 @@ namespace Mgf.HyeopgokSasu
         }
         void RefreshPadAmounts(){
             if(Rules.Current==null||Rules.Current.Mode=="choice"||padLabels[0]==null)return;
+            // During feedback the pad numbers are the authored case counts, not the
+            // learner's last (possibly wrong or already-reduced) pour.
+            if(fractionRevealLife>0&&Rules.Current.Mode=="fraction_parts")return;
             for(int i=0;i<Rules.PadCount;i++)if(lastPoured[i]!=Rules.Poured[i]||lastVisited[i]!=Rules.Visited[i]){
                 lastPoured[i]=Rules.Poured[i];lastVisited[i]=Rules.Visited[i];padLabels[i].Set(Rules.Poured[i].ToString());
                 string caption=basePadNames[i];
@@ -264,7 +268,8 @@ namespace Mgf.HyeopgokSasu
             feedbackPanel.gameObject.SetActive(true);questionText.Text.gameObject.SetActive(false);collapsedQuestion.Text.gameObject.SetActive(false);questionExpand.gameObject.SetActive(false);
             timerBadge.gameObject.SetActive(false);questionLip.gameObject.SetActive(false);
             feedbackSeal.text=ok?"정 답 !":"다시 생각해요";feedbackSeal.color=ok?MgfLook.Hex("#238757"):MgfLook.Hex("#bb503b");
-            feedbackFull=s;int split=s.IndexOf('\n');feedbackSummary=split<0?s:s.Substring(0,split);feedbackCanExpand=split>=0;feedbackExpanded=false;feedbackWasCorrect=ok;RenderFeedback();
+            feedbackFull=s;int split=s.IndexOf('\n');feedbackSummary=ok?(split<0?s:s.Substring(0,split)):s;feedbackCanExpand=ok&&split>=0;feedbackExpanded=false;feedbackWasCorrect=ok;
+            BeginFractionReveal();RenderFeedback();
             if(ok){bonusMath.Set(Rules.Current.Mode=="choice"?"지원군 출격":"+"+Rules.TotalPoured+"닢 투자");bonusLife=2.2f;}
             // After a miss, mark where the correct answer stood so the explanation line maps to a pad.
             answerMark=ok?-1:Rules.AnswerPad();answerRing.gameObject.SetActive(answerMark>=0);
@@ -272,6 +277,30 @@ namespace Mgf.HyeopgokSasu
             if(!ok&&Rules.LastPad>=0)cracks[Rules.LastPad].gameObject.SetActive(true);
             if(!ok&&Rules.Current.Mode=="fraction_parts")for(int i=0;i<2;i++)cracks[i].gameObject.SetActive(true);
             RefreshPadAmounts();
+        }
+        void BeginFractionReveal(){
+            EndFractionReveal(false);
+            if(Rules.Current==null||Rules.Current.Mode!="fraction_parts"||Rules.Current.answerParts==null)return;
+            fractionRevealDen=Rules.Current.answerParts.den;fractionRevealNum=Rules.Current.answerParts.num;
+            fractionRevealLife=Mathf.Max(1.5f,feedbackLeft);fractionRevealReduceAt=fractionRevealLife-.72f;fractionRevealReduced=false;
+            ApplyFractionReveal(false);
+        }
+        void ApplyFractionReveal(bool reduced){
+            int g=PackItem.Gcd(fractionRevealNum,fractionRevealDen),n=reduced?fractionRevealNum/g:fractionRevealNum,d=reduced?fractionRevealDen/g:fractionRevealDen;
+            for(int i=0;i<2;i++){
+                padLabels[i].Text.color=gold;padLabels[i].Set((i==0?fractionRevealDen:fractionRevealNum).ToString());
+                padLabelRoots[i].localScale=Vector3.one*1.25f;
+            }
+            assembledHud.gameObject.SetActive(true);assembledText.gameObject.SetActive(true);
+            assembledCaption.text=reduced?(g>1?"약분한 확률":"이미 기약분수"):Rules.Current.num_label+" ÷ "+Rules.Current.den_label;
+            assembledMath.Set("{frac:"+n+"/"+d+"}");
+        }
+        void EndFractionReveal(bool restore){
+            fractionRevealLife=0;fractionRevealDen=fractionRevealNum=-1;fractionRevealReduced=false;
+            for(int i=0;i<2;i++)if(padLabels[i]!=null){padLabels[i].Text.color=Color.white;lastPoured[i]=-1;}
+            lastAssembledDen=lastAssembledNum=-1;
+            if(Rules.Current!=null&&Rules.Current.Mode=="fraction_parts")assembledCaption.text=Rules.Current.num_label+" ÷ "+Rules.Current.den_label;
+            if(restore)RefreshPadAmounts();
         }
         void RenderFeedback(){
             string shown=feedbackExpanded?feedbackFull:feedbackSummary;feedbackRewardIcon.gameObject.SetActive(feedbackWasCorrect&&!feedbackExpanded);
@@ -282,7 +311,7 @@ namespace Mgf.HyeopgokSasu
             feedbackText.Text.rectTransform.sizeDelta=new Vector2(questionPanel.sizeDelta.x-34,textHeight);
             feedbackText.Text.rectTransform.anchoredPosition=new Vector2(0,-47-iconSpace-textHeight*.5f);feedbackText.Set(shown);
         }
-        void HideFeedback(){timerBadge.gameObject.SetActive(true);questionLip.gameObject.SetActive(true);feedbackPanel.gameObject.SetActive(false);questionExpand.gameObject.SetActive(true);bonusLife=0;bonusMath.Set("");answerMark=-1;if(answerRing)answerRing.gameObject.SetActive(false);if(Rules.Current!=null)FitQuestion(Rules.Current.prompt);}
+        void HideFeedback(){EndFractionReveal(false);timerBadge.gameObject.SetActive(true);questionLip.gameObject.SetActive(true);feedbackPanel.gameObject.SetActive(false);questionExpand.gameObject.SetActive(true);bonusLife=0;bonusMath.Set("");answerMark=-1;if(answerRing)answerRing.gameObject.SetActive(false);if(Rules.Current!=null)FitQuestion(Rules.Current.prompt);}
         void ShowEnd(bool won,bool fallen){
             endRoot.gameObject.SetActive(true);playRoot.gameObject.SetActive(false);resultStarted=Time.unscaledTime;for(int i=0;i<4;i++)padPaint[i].gameObject.SetActive(false);if(tutorialArrow)tutorialArrow.gameObject.SetActive(false);
             endTitle.text=won?"협곡을 지켰다":fallen?"성문이 무너졌다":"버티기만 한 판";
@@ -338,6 +367,11 @@ namespace Mgf.HyeopgokSasu
             int clock=Mathf.CeilToInt(Mathf.Max(0,Rules.TimeLimit-Rules.Elapsed));
             if(clock!=lastClock){lastClock=clock;pressureText.fontSize=clock>=100?13:(float)Screen.width/Screen.height>1.2f?18:17;pressureText.SetText("{0}",clock);pressureText.color=clock<=8?MgfLook.Hex("#b94e34"):MgfLook.Hex("#49301c");}
             if(lastTreasury!=battle.Coins){lastTreasury=battle.Coins;treasuryText.SetText("{0}",lastTreasury);}
+            if(fractionRevealLife>0){
+                fractionRevealLife=Mathf.Max(0,fractionRevealLife-dt);
+                if(!fractionRevealReduced&&fractionRevealLife<=fractionRevealReduceAt){fractionRevealReduced=true;ApplyFractionReveal(true);}
+                if(fractionRevealLife<=0)EndFractionReveal(true);
+            }
             bool pouring=battle.Depositing&&Rules.Hover>=0;
             bool stopPrompt=Rules.Current.Mode!="choice"&&Rules.IsMovingOnPad&&!Rules.Pending;
             bool showDeposit=(pouring||stopPrompt)&&Rules.Wave==1&&Time.unscaledTime-questionShownAt<8&&!tutorialVisible;
