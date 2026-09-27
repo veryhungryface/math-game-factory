@@ -10,7 +10,8 @@ namespace Mgf.HyeopgokSasu
             var mesh=new DecorationMesh();
             for(int i=0;i<48;i++){
                 float a=i*Mathf.PI*2/48,b=(i+1)*Mathf.PI*2/48;
-                mesh.Ribbon(new Vector3(Mathf.Cos(a)*.44f,0,Mathf.Sin(a)*.44f),new Vector3(Mathf.Cos(b)*.44f,0,Mathf.Sin(b)*.44f),.052f,Color.white);
+                mesh.Ribbon(new Vector3(Mathf.Cos(a)*.51f,0,Mathf.Sin(a)*.51f),new Vector3(Mathf.Cos(b)*.51f,0,Mathf.Sin(b)*.51f),.064f,Color.white);
+                mesh.Ribbon(new Vector3(Mathf.Cos(a)*.405f,0,Mathf.Sin(a)*.405f),new Vector3(Mathf.Cos(b)*.405f,0,Mathf.Sin(b)*.405f),.018f,Color.white);
             }
             kingSelectionRing=CreateDecoration("King azure selection ring",mesh,MgfLook.Unlit(MgfLook.Hex("#68e6ff")),false).transform;
             kingSelectionRing.SetParent(null,true);AnimateKingRing();

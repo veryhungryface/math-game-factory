@@ -7,7 +7,7 @@ namespace Mgf.HyeopgokSasu
     // actual answer deposits. The rules own the balance; this class cannot mint it.
     sealed class HyeopgokEconomyFx
     {
-        const int Cap=192,StackCap=24,DecorCap=192;
+        const int Cap=192,StackCap=24,DecorCap=96;
         struct Coin { public Vector3 position,velocity,origin,target; public float age,flight,spin; public byte mode; }
         readonly Coin[] coins=new Coin[Cap];
         readonly Coin[] decorations=new Coin[DecorCap];
@@ -18,15 +18,16 @@ namespace Mgf.HyeopgokSasu
         public int Coins=>rules==null?0:rules.Coins;
         public int Remaining=>rules==null?0:rules.TotalPoured;
         public bool Depositing=>labelTime>0;
-        public HyeopgokEconomyFx(Camera cam,Shader shader){camera=cam;coin=HyeopgokImpact.MakeCoin();gold=new Material(shader);gold.SetColor("_Color",Color.white);gold.SetFloat("_Unlit",.85f);gold.enableInstancing=true;}
+        public HyeopgokEconomyFx(Camera cam,Shader shader){camera=cam;coin=HyeopgokImpact.MakeCoin();gold=new Material(shader);gold.SetColor("_Color",Color.white);gold.SetFloat("_Unlit",.28f);gold.SetFloat("_Metallic",1);gold.enableInstancing=true;}
         public void SetKing(Transform value){king=value;}
         public void SetRules(HyeopgokRules value){rules=value;}
         public void Clear(){for(int i=0;i<Cap;i++)coins[i].mode=0;for(int i=0;i<DecorCap;i++)decorations[i].mode=0;cursor=decorCursor=0;labelTime=0;rng=0x843aad3u;}
         int Slot(){for(int k=0;k<Cap;k++){int i=(cursor+k)%Cap;if(coins[i].mode==0){cursor=(i+1)%Cap;return i;}}return -1;}
-        public void Drop(Vector3 position){int i=Slot();if(i<0)return;float a=Range(0,6.283185f);coins[i]=new Coin{position=position+Vector3.up*.35f,velocity=new Vector3(Mathf.Sin(a)*Range(.5f,1.8f),Range(1.5f,2.8f),Mathf.Cos(a)*Range(.5f,1.8f)),spin=Range(0,360),mode=1};
+        public void Drop(Vector3 position){int i=Slot();if(i<0)return;float a=Range(0,6.283185f);coins[i]=new Coin{position=position+Vector3.up*.35f,velocity=new Vector3(Mathf.Sin(a)*Range(.7f,1.7f),Range(1.5f,2.8f),Mathf.Cos(a)*Range(.7f,1.7f)),age=-.07f,spin=Range(0,360),mode=1};
             // The spendable pickup retains its original timing. These visual
-            // spill discs never call AddCoins: their six-second carpet is art.
-            for(int k=0;k<2;k++){float angle=a+k*2.4f;decorations[decorCursor++%DecorCap]=new Coin{position=position+Vector3.up*.38f,velocity=new Vector3(Mathf.Sin(angle)*(.55f+k*.25f),2.1f+k*.4f,Mathf.Cos(angle)*(.55f+k*.25f)),spin=a*57.3f+k*35,mode=1};}
+            // spill discs never call AddCoins. A fixed 96-slot pool throws four
+            // flat discs across a 2-3 m band after the impact's 70 ms beat.
+            for(int k=0;k<4;k++){float angle=a+k*1.5708f+Range(-.16f,.16f),speed=Range(1.6f,3.0f);decorations[decorCursor++%DecorCap]=new Coin{position=position+Vector3.up*.38f,velocity=new Vector3(Mathf.Sin(angle)*speed,Range(1.8f,2.8f),Mathf.Cos(angle)*speed),age=-.07f-k*.012f,spin=a*57.3f+k*35,mode=1};}
         }
         public void Pour(Vector3 target){
             if(!king)return;labelTime=.42f;int i=Slot();if(i<0)return;
@@ -44,6 +45,7 @@ namespace Mgf.HyeopgokSasu
             if(!king)return;Vector3 backpack=Backpack();labelTime=Mathf.Max(0,labelTime-dt);int count=0;
             for(int i=0;i<Cap;i++){
                 Coin c=coins[i];if(c.mode==0)continue;c.age+=dt;
+                if(c.age<0){coins[i]=c;continue;}
                 if(c.mode==1){c.position+=c.velocity*dt;c.velocity.y-=dt*7;if(c.position.y<=.31f){c.position.y=.31f;c.velocity=Vector3.zero;c.mode=2;}}
                 if(c.mode==2){Vector3 delta=king.position-c.position;delta.y=0;
                     // Pickups rest on the lane first. The magnet reaches across the

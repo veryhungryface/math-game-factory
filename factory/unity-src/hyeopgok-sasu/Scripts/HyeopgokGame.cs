@@ -177,7 +177,10 @@ namespace Mgf.HyeopgokSasu
             SetQuestion(Rules.Current);SetChoices(Rules.Choices);SetPadVisibility();SyncState();RefreshHud();
         }
         void Resolve(){
-            feedbackLeft=Rules.LastCorrect?1.55f:3.4f;
+            // The Kingshot-style reward beat is deliberately brief: seal, coin and
+            // building growth land together, then the battle resumes. A tap on the
+            // scroll can still pin and expand the complete explanation.
+            feedbackLeft=Rules.LastCorrect?1.15f:3.4f;
             Vector3 spot=Rules.LastPad>=0?HyeopgokRules.Pads[Rules.LastPad]:Rules.King;
             int hits=1,trials=1;long n=1,d=1;
             bool ratio=Rules.Current.format=="frac"&&TryRational(Rules.Current.answer,out n,out d)&&n>0&&d>1&&n<d;
@@ -296,16 +299,23 @@ namespace Mgf.HyeopgokSasu
         void UpdateCamera(float dt){
             if(cameraLanding>0)cameraLanding=Mathf.Max(0,cameraLanding-dt);
             if(cameraReveal>0)cameraReveal=Mathf.Max(0,cameraReveal-dt);
-            // Stable 55-degree/32-degree lens. The dead zone preserves pad targeting,
-            // while a modest follow makes the settlement feel continuous offscreen.
+            // Stable strategy-game lens. Portrait is 17% closer than R2 and follows
+            // the hero/pad/front focal triangle instead of proving the whole U exists.
+            // Landscape is 1.8x closer than R2 and treats the battle front as the hero.
             float aspect=(float)Screen.width/Screen.height;
-            // Landscape frames the pads below the quest scroll (pads sit ~1/3 down).
-            Vector3 desired=new Vector3(.35f,0,aspect>1.2f?.15f:1.25f);
+            bool wide=aspect>1.2f;
+            float focalSpan=0;
+            Vector3 desired=new Vector3(-.15f,0,wide?.75f:-.35f);
             if(playStarted && king){
                 Vector3 k=Rules.King;
-                float dx=k.x-desired.x,dz=k.z+1.5f;
-                if(Mathf.Abs(dx)>1.15f)desired.x+=Mathf.Sign(dx)*(Mathf.Abs(dx)-1.15f)*.22f;
-                if(Mathf.Abs(dz)>1.2f)desired.z+=Mathf.Sign(dz)*(Mathf.Abs(dz)-1.2f)*.24f;
+                Vector3 f=battle?battle.FrontWorld:new Vector3(2.2f,0,-5.5f);
+                focalSpan=Vector2.Distance(new Vector2(k.x,k.z),new Vector2(f.x,f.z));
+                float frontWeight=wide?Mathf.Lerp(.20f,.42f,Mathf.InverseLerp(3.8f,8.0f,focalSpan)):.22f;
+                Vector3 triangle=Vector3.Lerp(new Vector3(k.x,0,k.z+.95f),new Vector3(f.x,0,f.z),frontWeight);
+                float dx=triangle.x-desired.x,dz=triangle.z-desired.z;
+                float deadX=wide?.48f:.72f,deadZ=wide?.75f:.82f;
+                if(Mathf.Abs(dx)>deadX)desired.x+=Mathf.Sign(dx)*(Mathf.Abs(dx)-deadX)*.52f;
+                if(Mathf.Abs(dz)>deadZ)desired.z+=Mathf.Sign(dz)*(Mathf.Abs(dz)-deadZ)*(wide?.28f:.48f);
             }
             // Lock the lens while a pointer is held so a tap remains the same
             // world target throughout the gesture.
@@ -314,14 +324,20 @@ namespace Mgf.HyeopgokSasu
             float reveal=Mathf.Sin((1-cameraReveal/.6f)*Mathf.PI)*.95f;
             if(cameraReveal<=0)reveal=0;
             float landscape=Mathf.SmoothStep(0,1,Mathf.InverseLerp(.85f,1.35f,aspect));
-            float distance=Mathf.Lerp(46.5f,22.5f,landscape)*framing+reveal+(playStarted?cameraLanding*.45f:.85f);
+            // If the hero walks all the way to a northern pad, temporarily dolly
+            // back just enough to retain the front; at rest landscape stays at the
+            // requested 12.5 distance (22.5 / 1.8).
+            // Keep projection invariant for the entire held gesture. Otherwise a
+            // fixed finger would raycast to a moving world point as the hero walks.
+            float spanDolly=wide&&!dragging?Mathf.Max(0,focalSpan-3.8f)*.90f:0;
+            float distance=Mathf.Lerp(38.6f,12.5f,landscape)*framing+spanDolly+reveal+(playStarted?cameraLanding*.35f:.65f);
             float shake=battle?battle.Shake:0;
-            cam.fieldOfView=32;
-            cam.transform.rotation=Quaternion.Euler(Mathf.Lerp(55,52,landscape),Mathf.Lerp(-10,-18,landscape),0);
+            cam.fieldOfView=Mathf.Lerp(32,42,landscape);
+            cam.transform.rotation=Quaternion.Euler(55,Mathf.Lerp(-9,-16,landscape),0);
             cam.transform.position=cameraFocus+cam.transform.rotation*(Vector3.back*distance)+new Vector3(Mathf.Sin(Time.unscaledTime*97)*shake,Mathf.Cos(Time.unscaledTime*83)*shake,0);
             // Distance fog starts beyond the playable plateau at either framing.
-            RenderSettings.fogStartDistance=distance+17.5f;RenderSettings.fogEndDistance=distance+62;
-            QualitySettings.shadowDistance=distance+10;
+            RenderSettings.fogStartDistance=distance+13.5f;RenderSettings.fogEndDistance=distance+46;
+            QualitySettings.shadowDistance=distance+8;
             AnimateKingRing();
             if(lastWidth!=Screen.width||lastHeight!=Screen.height){lastWidth=Screen.width;lastHeight=Screen.height;LayoutUi();UpdatePadScreen();}
         }

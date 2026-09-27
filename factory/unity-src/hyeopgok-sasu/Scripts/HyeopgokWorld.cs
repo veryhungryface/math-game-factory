@@ -11,16 +11,16 @@ namespace Mgf.HyeopgokSasu
         LineRenderer[] padFill=new LineRenderer[4];
         LineRenderer[] cracks=new LineRenderer[4];
         void BuildWorld(){
-            MgfLook.Sky(MgfLook.Hex("#bfe6e0"),MgfLook.Hex("#75bca8"),MgfLook.Hex("#3e7f66"),.8f);
+            MgfLook.Sky(MgfLook.Hex("#bfe6e0"),MgfLook.Hex("#75bca8"),MgfLook.Hex("#315f58"),.8f);
             Shader.SetGlobalColor("_HyeopgokNightTint",Color.white);
             var sun=MgfLook.Sun(new Vector3(50,-38,0),MgfLook.Hex("#fff3de"),1.03f,.62f);environmentSun=sun;
             sun.shadowBias=.025f;sun.shadowNormalBias=.085f;
-            sun.shadows=LightShadows.Soft;sun.shadowCustomResolution=1024;
+            sun.shadows=LightShadows.Soft;sun.shadowCustomResolution=1024;sun.shadowStrength=.46f;
             QualitySettings.shadowCascades=0;QualitySettings.shadowDistance=52;
             RenderSettings.ambientMode=UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor=MgfLook.Hex("#bfe6e0");RenderSettings.ambientEquatorColor=MgfLook.Hex("#6ea998");RenderSettings.ambientGroundColor=MgfLook.Hex("#3e7f66");
-            RenderSettings.ambientIntensity=.78f;
-            RenderSettings.fog=true;RenderSettings.fogColor=MgfLook.Hex("#bfe6e0");RenderSettings.fogMode=FogMode.Linear;RenderSettings.fogStartDistance=64;RenderSettings.fogEndDistance=110;
+            RenderSettings.ambientSkyColor=MgfLook.Hex("#a9d8d3");RenderSettings.ambientEquatorColor=MgfLook.Hex("#579384");RenderSettings.ambientGroundColor=MgfLook.Hex("#244f4d");
+            RenderSettings.ambientIntensity=.68f;
+            RenderSettings.fog=true;RenderSettings.fogColor=MgfLook.Hex("#9bcfc6");RenderSettings.fogMode=FogMode.Linear;RenderSettings.fogStartDistance=48;RenderSettings.fogEndDistance=82;
             Vector3 cameraFocus=new Vector3(.5f,0,2.4f);
             cam=MgfLook.Camera(cameraFocus+Quaternion.Euler(55,-8,0)*Vector3.back*46.5f,cameraFocus,32);cam.orthographic=false;cam.nearClipPlane=.2f;cam.farClipPlane=160;
             cam.transform.rotation=Quaternion.Euler(55,-8,0);
@@ -34,7 +34,11 @@ namespace Mgf.HyeopgokSasu
             king=SpawnModel("king",HyeopgokRules.Pads[2]+Vector3.back*2,1.25f).transform;king.rotation=Quaternion.Euler(0,180,0);
             king.SetParent(null,true);
             var heroMat=new Material(worldMat);heroMat.SetFloat("_Rim",.24f);
-            foreach(var renderer in king.GetComponentsInChildren<Renderer>())renderer.sharedMaterial=heroMat;
+            foreach(var renderer in king.GetComponentsInChildren<Renderer>()){
+                renderer.sharedMaterial=heroMat;
+                renderer.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.On;
+                renderer.receiveShadows=true;
+            }
             BuildKingRing();
             // Forests are authored in asymmetrical groups, then merged once.
             var rng=new System.Random(20260926);
@@ -101,7 +105,12 @@ namespace Mgf.HyeopgokSasu
             else{go=new GameObject("Missing "+name);go.transform.position=pos;Debug.LogWarning("Missing model "+name);}
             go.transform.localScale=Vector3.one*scale;
             go.transform.SetParent(sceneryRoot,true);
-            foreach(var r in go.GetComponentsInChildren<Renderer>()){var mats=new Material[r.sharedMaterials.Length];for(int i=0;i<mats.Length;i++)mats[i]=worldMat;r.sharedMaterials=mats;}
+            foreach(var r in go.GetComponentsInChildren<Renderer>()){
+                var mats=new Material[r.sharedMaterials.Length];for(int i=0;i<mats.Length;i++)mats[i]=worldMat;r.sharedMaterials=mats;
+                // Vertex AO and the merged teal contact mesh ground static scenery.
+                // Only the king and the two live battle towers spend shadow-map draws.
+                r.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.Off;r.receiveShadows=true;
+            }
             return go;
         }
         LineRenderer Line(string name,Color c,float w){

@@ -20,8 +20,8 @@ namespace Mgf.HyeopgokSasu
             // northern well; branches reach the barracks edge and both tower bases.
             // Ribbons sit below all pads and change no collider or walk bound.
             var paths=new DecorationMesh();
-            Color earth=Hex("#C8B59C").linear;earth.a=.86f;
-            Color rut=Hex("#E8D5B6").linear;rut.a=.10f;
+            Color earth=Hex("#C8B59C").linear;earth.a=.84f;
+            Color rut=Hex("#F3DDB8").linear;rut.a=.30f;
             Vector3[][] routes={
                 new[]{new Vector3(-.45f,1.205f,-4.55f),new Vector3(-.6f,1.205f,-2.7f),new Vector3(-.6f,1.205f,.45f),new Vector3(-.62f,1.205f,3.3f),new Vector3(-1.05f,1.205f,4.75f)},
                 new[]{new Vector3(-.6f,1.204f,.45f),new Vector3(-1.9f,1.204f,.42f),new Vector3(-3.05f,1.204f,.2f)},
@@ -34,16 +34,16 @@ namespace Mgf.HyeopgokSasu
                     Vector3 a0=knots[Mathf.Max(0,k-1)],b0=knots[k],c0=knots[k+1],d0=knots[Mathf.Min(knots.Length-1,k+2)];
                     points[i]=.5f*((2*b0)+(-a0+c0)*t+(2*a0-5*b0+4*c0-d0)*t*t+(-a0+3*b0-3*c0+d0)*t*t*t);
                 }
-                float width=r==0?.62f:.5f;
-                paths.CurvedFeatheredRibbon(points,width,.15f,earth,false);
+                float width=r==0?.78f:.62f;
+                paths.CurvedFeatheredRibbon(points,width,.20f,earth,false);
                 var leftRut=new Vector3[points.Length];var rightRut=new Vector3[points.Length];
                 for(int i=0;i<points.Length;i++){
                     Vector3 a1=points[Mathf.Max(0,i-1)],b1=points[Mathf.Min(points.Length-1,i+1)];
                     Vector3 side=Vector3.Cross(Vector3.up,b1-a1).normalized;
                     leftRut[i]=points[i]+side*width*.24f+Vector3.up*.002f;rightRut[i]=points[i]-side*width*.24f+Vector3.up*.002f;
                 }
-                paths.CurvedFeatheredRibbon(leftRut,.045f,.018f,rut,false);
-                paths.CurvedFeatheredRibbon(rightRut,.045f,.018f,rut,false);
+                paths.CurvedFeatheredRibbon(leftRut,.060f,.020f,rut,false);
+                paths.CurvedFeatheredRibbon(rightRut,.060f,.020f,rut,false);
                 // Soft worn junction discs hide ribbon joins where branches meet.
                 if(r>0)paths.SoftDisc(knots[0]+Vector3.up*.001f,.42f,.9f,earth);
             }
@@ -67,7 +67,7 @@ namespace Mgf.HyeopgokSasu
                     }
                 }
             }
-            CreateDecoration("Barracks yard blue painted rails",rails,worldMat,true);
+            CreateDecoration("Barracks yard blue painted rails",rails,worldMat,false);
             SpawnModel("torch",new Vector3(-5.28f,.25f,-.85f),.95f);
             SpawnModel("torch",new Vector3(-3.07f,.25f,-.84f),.95f);
         }
@@ -88,14 +88,14 @@ namespace Mgf.HyeopgokSasu
                 new Vector2(-2.57f,-3.91f),new Vector2(1.69f,-3.8f),new Vector2(2.11f,.24f)
             };
             for(int cluster=0;cluster<patches.Length;cluster++){
-                bool inner=cluster>=16;int count=inner?9:16;
+                bool inner=cluster>=16;int count=inner?12:16;
                 for(int i=0;i<count;i++){
                     float angle=(float)rng.NextDouble()*Mathf.PI*2;
                     float radius=Mathf.Sqrt((float)rng.NextDouble())*(inner?.66f:2.0f);
                     float x=patches[cluster].x+Mathf.Sin(angle)*radius,z=patches[cluster].y+Mathf.Cos(angle)*radius;
                     bool plateau=InPolygon(PlateauOutline,x,z);
                     if(inner&&!plateau)continue;
-                    bool pad=!PadClearForDressing(x,z,1.20f);
+                    bool pad=!PadClearForDressing(x,z,2.0f);
                     if(pad||z>-11.9f&&z<-8.1f)continue;
                     float y=plateau?1.202f:SceneryGround(x,z)+.003f;
                     string id=i%8==0?"flowers":i%5==0?"pebbles":"grass_tuft";
@@ -109,6 +109,30 @@ namespace Mgf.HyeopgokSasu
                 float x=-2.7f+i*.39f,z=4.23f+Mathf.Sin(i*.8f)*.08f;
                 detail.Disc(new Vector3(x,1.209f,z),.115f,.62f,Hex(i%2==0?"#b5b4a0":"#a0aa98"),7);
             }
+        }
+
+        void BuildGroundToneVariation()
+        {
+            // Large, low-alpha patches break the broad single-colour lawns without
+            // textures. They are authored once and remain one transparent draw.
+            var tones=new DecorationMesh();
+            Color cool=Hex("#0D7461").linear;cool.a=.075f;
+            Color warm=Hex("#73C892").linear;warm.a=.050f;
+            Vector4[] plateau={
+                new Vector4(-2.78f,1.203f,5.13f,1.46f),new Vector4(1.48f,1.203f,5.42f,1.18f),
+                new Vector4(-.18f,1.203f,-4.72f,1.34f),new Vector4(2.18f,1.203f,-3.63f,.92f),
+                new Vector4(-3.05f,1.203f,3.85f,.86f),new Vector4(2.48f,1.203f,3.63f,.70f)};
+            for(int i=0;i<plateau.Length;i++){
+                Vector4 p=plateau[i];tones.SoftDisc(new Vector3(p.x,p.y,p.z),p.w,.66f,i%2==0?cool:warm);
+            }
+            Vector4[] plain={
+                new Vector4(-9.4f,-1.514f,-5.1f,3.2f),new Vector4(8.6f,-1.514f,2.4f,3.0f),
+                new Vector4(-7.8f,-1.514f,-13.2f,2.8f),new Vector4(7.3f,-1.514f,-13.0f,2.5f),
+                new Vector4(-9.1f,-1.514f,8.2f,2.7f),new Vector4(9.0f,-1.514f,8.8f,2.6f)};
+            for(int i=0;i<plain.Length;i++){
+                Vector4 p=plain[i];tones.SoftDisc(new Vector3(p.x,p.y,p.z),p.w,.72f,i%2==0?cool:warm);
+            }
+            CreateDecoration("Low frequency meadow tone bake",tones,Mgf.MgfLook.Alpha(Color.white),false);
         }
 
         void PlaceSettlementProps()
@@ -175,6 +199,29 @@ namespace Mgf.HyeopgokSasu
             CreateDecoration("Workshop worn earth aprons",apron,Mgf.MgfLook.Alpha(Color.white),false);
         }
 
+        void DressPlateauClusters()
+        {
+            // Three readable edge clusters fill the empty lawn while preserving a
+            // strict two-metre clear circle around every answer pad.
+            string[] ids={
+                "crate","barrel","sack","torch","palisade","palisade",
+                "crate","barrel","sack","torch","palisade",
+                "logpile","crate","barrel","sack","torch","palisade"
+            };
+            Vector4[] points={
+                new Vector4(2.28f,1.2f,4.18f,.66f),new Vector4(2.07f,1.2f,4.62f,.60f),new Vector4(1.70f,1.2f,5.02f,.58f),
+                new Vector4(2.52f,1.2f,4.77f,.67f),new Vector4(2.44f,1.2f,5.27f,.42f),new Vector4(1.91f,1.2f,5.60f,.42f),
+                new Vector4(2.54f,1.2f,.73f,.55f),new Vector4(2.52f,1.2f,.30f,.52f),new Vector4(2.56f,1.2f,-.10f,.50f),
+                new Vector4(2.57f,1.2f,1.18f,.61f),new Vector4(2.64f,1.2f,.93f,.36f),
+                new Vector4(-3.10f,1.2f,4.37f,.61f),new Vector4(-3.03f,1.2f,3.92f,.53f),new Vector4(-3.18f,1.2f,4.82f,.53f),
+                new Vector4(-2.72f,1.2f,5.23f,.49f),new Vector4(-2.92f,1.2f,5.60f,.59f),new Vector4(-3.24f,1.2f,5.38f,.38f)};
+            for(int i=0;i<points.Length;i++){
+                Vector4 p=points[i];if(!PadClearForDressing(p.x,p.z,2.0f))continue;
+                var prop=SpawnModel(ids[i],new Vector3(p.x,p.y,p.z),p.w);
+                prop.transform.Rotate(0,i*67+19,0);
+            }
+        }
+
         void DressMesaToes()
         {
             // Round 2b: rim shoulders and wall/foot boulders are authored as clustered
@@ -221,6 +268,15 @@ namespace Mgf.HyeopgokSasu
                     float x=best.x,z=best.y,scale=.64f+(float)rng.NextDouble()*.34f;
                     var tree=SpawnModel((i+group)%3==0?"tree_broadleaf":"tree",new Vector3(x,SceneryGround(x,z),z),scale);
                     tree.transform.Rotate(0,rng.Next(360),0);
+                    // Each grove gets one or two nested mineral shapes, never an
+                    // isolated evenly-spaced boulder necklace.
+                    if(i==0||(i==count-1&&group%2==0)){
+                        float a=(float)rng.NextDouble()*Mathf.PI*2;
+                        float rx=x+Mathf.Sin(a)*(.34f+scale*.26f),rz=z+Mathf.Cos(a)*(.34f+scale*.26f);
+                        string id=(group+i)%5==0?"rock_medium":"rock_small";
+                        float rs=id=="rock_medium"?.32f+(float)rng.NextDouble()*.18f:.42f+(float)rng.NextDouble()*.24f;
+                        var rock=SpawnModel(id,new Vector3(rx,SceneryGround(rx,rz),rz),rs);rock.transform.Rotate(0,rng.Next(360),0);
+                    }
                 }
             }
             // Far mineral ridges are now authored in art_r2_environment.py and

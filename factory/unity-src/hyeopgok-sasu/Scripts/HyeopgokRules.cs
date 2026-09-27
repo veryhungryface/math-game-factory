@@ -96,7 +96,15 @@ namespace Mgf.HyeopgokSasu
                 }else{Dwell=0;wasStopped=false;}
                 // Walking out commits; going onto either pad during the ring cancels
                 // the confirmation and keeps every coin already poured.
-                if(Confirming&&near<0){Confirm+=dt;if(Confirm>=ConfirmTime){Commit(visitedPad);return Math.Max(0,visitedPad);}}
+                if(Confirming&&near<0){
+                    // A return tap can take almost the full ring duration on a
+                    // close portrait camera. Once the destination is a pad, hold
+                    // the ring until the king actually re-enters it; the existing
+                    // near-change branch above then cancels confirmation. This
+                    // preserves the documented "go back to cancel" contract.
+                    if(PadAt(Target)>=0)Confirm=0;
+                    else {Confirm+=dt;if(Confirm>=ConfirmTime){Commit(visitedPad);return Math.Max(0,visitedPad);}}
+                }
             }
             if(Elapsed>=TimeLimit){Commit(-1);return 4;}return -1;
         }

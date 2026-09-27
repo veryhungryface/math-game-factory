@@ -103,9 +103,48 @@ namespace Mgf.HyeopgokSasu
                         Vector2 a=points[i],b=points[j],d=b-a;float t=Mathf.Clamp01(Vector2.Dot(pt-a,d)/d.sqrMagnitude);nearest=Mathf.Min(nearest,(pt-(a+d*t)).magnitude);
                         if((a.y>pt.y)!=(b.y>pt.y)&&pt.x<(b.x-a.x)*(pt.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
                     }
-                    pixels[y*w+x]=inside?(nearest<3?new Color32(30,61,65,245):new Color32(255,255,244,235)):new Color32(0,0,0,0);
+                    if(!inside)pixels[y*w+x]=new Color32(0,0,0,0);
+                    else if(nearest<3)pixels[y*w+x]=new Color32(18,43,52,252);
+                    else if(y<14)pixels[y*w+x]=new Color32(12,91,173,248);
+                    else if(y<18)pixels[y*w+x]=new Color32(245,184,35,250);
+                    else {
+                        // Warm articulated knight glove: blue cuff, gold welt and
+                        // two subtle armour seams read at phone scale.
+                        bool seam=(y>31&&y<34&&x>15&&x<49)||(y>47&&y<50&&x>26&&x<48);
+                        pixels[y*w+x]=seam?new Color32(210,174,107,238):x>42?new Color32(225,211,177,242):new Color32(255,247,218,246);
+                    }
                 }
                 tex.SetPixels32(pixels);tex.Apply(false,true);holdHandSprite=Sprite.Create(tex,new Rect(0,0,w,h),new Vector2(.5f,.5f),100);return holdHandSprite;
+            }
+        }
+        void BuildRewardTower(Transform parent,Vector2 offset){
+            var root=Group("Reward building pictogram",parent);root.anchorMin=root.anchorMax=new Vector2(.5f,.5f);root.anchoredPosition=offset;root.sizeDelta=new Vector2(58,48);
+            Box("Tower stone",root,new Vector2(.5f,0),new Vector2(0,15),new Vector2(35,29),MgfLook.Hex("#d8d6c8"));
+            Box("Tower blue door",root,new Vector2(.5f,0),new Vector2(0,9),new Vector2(9,16),MgfLook.Hex("#0c73d5"));
+            var roof=Box("Tower roof",root,new Vector2(.5f,1),new Vector2(0,-5),new Vector2(43,15),MgfLook.Hex("#176fc7"));roof.localRotation=Quaternion.Euler(0,0,-2);
+            for(int i=0;i<3;i++)Box("Tower crown "+i,root,new Vector2(.5f,1),new Vector2((i-1)*13,-1),new Vector2(9,11),MgfLook.Hex("#f0c34f"));
+        }
+        void BuildPackGlyph(Transform parent,Vector2 offset){
+            var root=Group("Unit battle pictogram",parent);root.anchorMin=root.anchorMax=new Vector2(1,.5f);root.anchoredPosition=offset;root.sizeDelta=new Vector2(49,55);
+            var shield=Box("Unit shield",root,new Vector2(.5f,.5f),new Vector2(0,-1),new Vector2(31,38),MgfLook.Hex("#176fc7"));shield.localRotation=Quaternion.Euler(0,0,-3);
+            Box("Unit shield gold",shield,new Vector2(.5f,.5f),Vector2.zero,new Vector2(9,26),MgfLook.Hex("#ffd05a"));
+            var spear=Box("Unit spear",root,new Vector2(.5f,.5f),new Vector2(13,1),new Vector2(5,49),MgfLook.Hex("#744825"));spear.localRotation=Quaternion.Euler(0,0,-24);
+            Box("Unit spear tip",spear,new Vector2(.5f,1),new Vector2(0,3),new Vector2(9,10),MgfLook.Hex("#f5efe1"));
+        }
+        void BuildKeepVignette(Transform parent,Vector2 anchor,Vector2 offset,float scale,bool hero){
+            var root=Group(hero?"Victory hero and keep vignette":"Pack keep vignette",parent);root.anchorMin=root.anchorMax=anchor;root.anchoredPosition=offset;root.sizeDelta=new Vector2(270,112);root.localScale=Vector3.one*scale;
+            Color stone=new Color(.39f,.54f,.56f,.30f),deep=new Color(.08f,.24f,.29f,.34f),blue=new Color(.05f,.40f,.76f,.42f),g=new Color(1,.73f,.18f,.55f);
+            Box("Keep wall",root,new Vector2(.5f,0),new Vector2(0,28),new Vector2(128,48),stone);
+            for(int side=-1;side<=1;side+=2){
+                Box("Keep tower",root,new Vector2(.5f,0),new Vector2(side*64,37),new Vector2(38,66),stone);
+                var roof=Box("Keep blue roof",root,new Vector2(.5f,0),new Vector2(side*64,75),new Vector2(48,19),blue);roof.localRotation=Quaternion.Euler(0,0,side*3);
+                for(int i=0;i<3;i++)Box("Keep merlon",root,new Vector2(.5f,0),new Vector2(side*64+(i-1)*13,72),new Vector2(8,16),deep);
+            }
+            Box("Keep gate",root,new Vector2(.5f,0),new Vector2(0,21),new Vector2(30,39),deep);
+            if(hero){
+                Box("Hero cape",root,new Vector2(.5f,0),new Vector2(0,17),new Vector2(35,48),blue);
+                Box("Hero helm",root,new Vector2(.5f,0),new Vector2(0,51),new Vector2(27,25),MgfLook.Hex("#f3d06d"));
+                for(int i=0;i<3;i++)Box("Hero crown",root,new Vector2(.5f,0),new Vector2((i-1)*9,69+(i==1?4:0)),new Vector2(7,14),g);
             }
         }
         Transform BuildTutorialArrow(){
@@ -195,6 +234,7 @@ namespace Mgf.HyeopgokSasu
             packBrowser=Group("Unit collection",titleRoot);
             Box("Collection scrim",packBrowser,new Vector2(.5f,.5f),Vector2.zero,new Vector2(4000,1800),new Color(.025f,.08f,.1f,.40f));
             packWindow=RoyalPanel("Collection window",packBrowser,new Vector2(.5f,.5f),Vector2.zero,new Vector2(370,594));
+            BuildKeepVignette(packWindow,new Vector2(.5f,1),new Vector2(-132,-34),.29f,false);
             Box("Collection gold ribbon",packWindow,new Vector2(.5f,1),new Vector2(0,-35),new Vector2(379,59),gold);
             DisplayText("원정 단원 선택",packWindow,new Vector2(.5f,1),new Vector2(-10,-39),new Vector2(310,54),30,MgfLook.Hex("#49301c"));
             packClose=Pill("Close collection",packWindow,new Vector2(1,1),new Vector2(-28,-29),new Vector2(40,40),MgfLook.Hex("#8b4d39"));Text("×",packClose,new Vector2(.5f,.5f),Vector2.zero,new Vector2(36,38),26,cream);
@@ -213,8 +253,9 @@ namespace Mgf.HyeopgokSasu
                 card.face=card.root.GetChild(0).GetComponent<Image>();
                 var seal=Box("Unit seal",card.root,new Vector2(0,.5f),new Vector2(33,0),new Vector2(44,52),MgfLook.Hex("#173d52"));
                 card.number=Text("01",seal,new Vector2(.5f,.5f),Vector2.zero,new Vector2(42,43),25,gold);
-                card.title=Text("",card.root,new Vector2(.5f,.5f),new Vector2(28,13),new Vector2(228,40),22,MgfLook.Hex("#49301c"));card.title.fontSharedMaterial=RoundBodyMaterial;card.title.alignment=TextAlignmentOptions.MidlineLeft;card.title.overflowMode=TextOverflowModes.Ellipsis;card.title.textWrappingMode=TextWrappingModes.NoWrap;
-                card.meta=Text("",card.root,new Vector2(.5f,.5f),new Vector2(28,-22),new Vector2(228,27),14,MgfLook.Hex("#6d5835"));card.meta.fontSharedMaterial=RoundBodyMaterial;card.meta.alignment=TextAlignmentOptions.MidlineLeft;
+                BuildPackGlyph(card.root,new Vector2(-22,0));
+                card.title=Text("",card.root,new Vector2(.5f,.5f),new Vector2(14,13),new Vector2(202,40),21,MgfLook.Hex("#49301c"));card.title.fontSharedMaterial=RoundBodyMaterial;card.title.alignment=TextAlignmentOptions.MidlineLeft;card.title.overflowMode=TextOverflowModes.Ellipsis;card.title.textWrappingMode=TextWrappingModes.NoWrap;
+                card.meta=Text("",card.root,new Vector2(.5f,.5f),new Vector2(14,-22),new Vector2(202,27),14,MgfLook.Hex("#6d5835"));card.meta.fontSharedMaterial=RoundBodyMaterial;card.meta.alignment=TextAlignmentOptions.MidlineLeft;
                 packCards[i]=card;
             }
             packEmpty=Text("이 학년의 단원을 준비하고 있어요",packViewport,new Vector2(.5f,.6f),Vector2.zero,new Vector2(300,70),20,MgfLook.Hex("#49301c"));

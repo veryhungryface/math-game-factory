@@ -26,8 +26,8 @@ namespace Mgf.HyeopgokSasu
         readonly Color moonlight=new Color(150f/255,167f/255,238f/255);
         Mesh riverFoam;
         Material foamMaterial;
-        readonly Matrix4x4[] foamMatrices=new Matrix4x4[12];
-        readonly Vector3[] foamOrigins=new Vector3[12];
+        readonly Matrix4x4[] foamMatrices=new Matrix4x4[24];
+        readonly Vector3[] foamOrigins=new Vector3[24];
         static readonly Vector2[] PlateauOutline={
             new Vector2(-3.05f,-4.80f),new Vector2(-1.9f,-5.45f),new Vector2(.10f,-5.60f),new Vector2(1.75f,-4.85f),
             new Vector2(2.35f,-3.0f),new Vector2(2.70f,.10f),new Vector2(2.78f,3.2f),new Vector2(2.58f,5.85f),
@@ -45,9 +45,11 @@ namespace Mgf.HyeopgokSasu
             BuildEnemyGround(detail);
             BuildRiver(detail);
             CreateDecoration("Meadow accents and river banks",detail,worldMat,false);
+            BuildGroundToneVariation();
             PlaceSettlementProps();
             DressMesaToes();
             DressWorkshopVignettes();
+            DressPlateauClusters();
             BuildVillagePathsAndYard();
         }
         static Color Hex(string value)=>MgfLook.Hex(value);
@@ -124,6 +126,21 @@ namespace Mgf.HyeopgokSasu
                 int k=i/2;
                 foamOrigins[i]=Vector3.Lerp(nodes[k],nodes[k+1],i%2==0?.25f:.66f)+new Vector3(0,.013f,(i%3-1)*.35f);
             }
+            // A second staggered bank of foam makes the water read as a river rather
+            // than a flat teal strip; it shares the same fixed instanced draw.
+            for(int i=12;i<foamOrigins.Length;i++){
+                float u=(i-11.5f)/12f*(nodes.Length-1);int k=Mathf.Min(nodes.Length-2,Mathf.FloorToInt(u));float t=u-k;
+                foamOrigins[i]=Vector3.Lerp(nodes[k],nodes[k+1],t)+new Vector3(0,.015f,(i%2==0?-1:1)*.72f);
+            }
+            Vector4[] bankStones={
+                new Vector4(-8.35f,-1.49f,-10.65f,.42f),new Vector4(-7.82f,-1.49f,-10.35f,.31f),new Vector4(-7.30f,-1.49f,-10.82f,.37f),
+                new Vector4(-4.45f,-1.49f,-9.55f,.38f),new Vector4(-3.88f,-1.49f,-8.82f,.30f),new Vector4(-3.31f,-1.49f,-9.18f,.35f),
+                new Vector4(3.15f,-1.49f,-8.06f,.34f),new Vector4(3.68f,-1.49f,-8.78f,.43f),new Vector4(4.18f,-1.49f,-8.38f,.29f),
+                new Vector4(7.12f,-1.49f,-10.55f,.40f),new Vector4(7.68f,-1.49f,-9.73f,.32f),new Vector4(8.19f,-1.49f,-10.18f,.38f)};
+            for(int i=0;i<bankStones.Length;i++){
+                Vector4 p=bankStones[i];var rock=SpawnModel(i%4==0?"rock_medium":"rock_small",new Vector3(p.x,p.y,p.z),p.w);
+                rock.transform.Rotate(0,i*83+11,0);
+            }
         }
         void BuildSceneryContactShadows()
         {
@@ -132,8 +149,9 @@ namespace Mgf.HyeopgokSasu
             var ao=new DecorationMesh();var foundations=new DecorationMesh();
             // Alpha uses raw linear RGB. Decode the authored sRGB colours once so
             // the teal contact shadow does not become a pale green wash.
-            Color contact=Hex("#2C6A5A").linear;contact.a=.35f;
-            Color earth=new Color(200f/255,181f/255,156f/255,.20f).linear;
+            Color contact=Hex("#274F50").linear;contact.a=.38f;
+            Color core=Hex("#203E45").linear;core.a=.14f;
+            Color earth=new Color(200f/255,181f/255,156f/255,.23f).linear;
             Vector3 lightDirection=environmentSun?environmentSun.transform.forward:new Vector3(-.62f,-1,.78f);
             Vector3 castDirection=new Vector3(lightDirection.x,0,lightDirection.z).normalized;
             for(int i=0;i<sceneryRoot.childCount;i++){
@@ -148,8 +166,9 @@ namespace Mgf.HyeopgokSasu
                 // Grounded AO plus a broad directional lobe in the sun's cast
                 // direction reads as shade rather than a luminous beige halo.
                 ao.SoftDisc(p+Vector3.up*.018f,r*s,.72f,contact);
+                ao.SoftDisc(p+Vector3.up*.019f,r*s*.56f,.70f,core);
                 if(tree||tower||gate){
-                    Color cast=contact;cast.a=.23f;
+                    Color cast=contact;cast.a=.20f;
                     float reach=(tree?1.12f:tower?.86f:.70f)*s;
                     ao.SoftDisc(p+castDirection*(reach*.58f)+Vector3.up*.017f,r*s*.97f,.78f,cast);
                 }
@@ -159,6 +178,7 @@ namespace Mgf.HyeopgokSasu
                 Vector3 p=townBuildings[i].position;float r=i==0?1.12f:1.47f;
                 foundations.SoftDisc(p+Vector3.up*.009f,r*1.10f,.82f,earth);
                 ao.SoftDisc(p+Vector3.up*.019f,r,.78f,contact);
+                ao.SoftDisc(p+Vector3.up*.020f,r*.58f,.74f,core);
             }
             // These two friendly towers are created later by HyeopgokBattle,
             // outside sceneryRoot. Their fixed ground anchors also support the
@@ -167,14 +187,28 @@ namespace Mgf.HyeopgokSasu
                 Vector3 p=new Vector3(1.75f,1.2f,i==0?-3.5f:4.7f);
                 foundations.SoftDisc(p+Vector3.up*.010f,1.09f,.91f,earth);
                 ao.SoftDisc(p+Vector3.up*.020f,.84f,.83f,contact);
+                ao.SoftDisc(p+Vector3.up*.021f,.47f,.78f,core);
             }
             for(int i=0;i<fencePositions.Length;i++)ao.SoftDisc(fencePositions[i]+Vector3.up*.021f,.66f,.46f,contact);
-            Material contactMaterial=MgfLook.Alpha(Color.white);
+            AddCliffFootContact(ao,PlateauOutline,1.15f);
+            AddCliffFootContact(ao,WestMesa,1.32f);
+            AddCliffFootContact(ao,EastMesa,1.28f);
+            Shader contactShader=Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact");
+            Material contactMaterial=contactShader?new Material(contactShader):MgfLook.Alpha(Color.white);
+            contactMaterial.SetColor("_Color",Color.white);contactMaterial.enableInstancing=true;
             CreateDecoration("Feathered building earth foundations",foundations,contactMaterial,false);
             CreateDecoration("Teal settlement contact shadows",ao,contactMaterial,false);
-            var kingShadow=new DecorationMesh();kingShadow.SoftDisc(Vector3.zero,.63f,.77f,contact);
+            var kingShadow=new DecorationMesh();Color kingCore=core;kingCore.a=.20f;
+            kingShadow.SoftDisc(Vector3.zero,.76f,.73f,contact);kingShadow.SoftDisc(Vector3.zero,.41f,.70f,kingCore);
             kingContactShadow=CreateDecoration("King soft contact shadow",kingShadow,contactMaterial,false).transform;
             kingContactShadow.SetParent(null,true);kingContactShadow.position=new Vector3(king.position.x,1.213f,king.position.z);
+        }
+        void AddCliffFootContact(DecorationMesh ao,Vector2[] outline,float width)
+        {
+            var loop=new Vector3[outline.Length+1];
+            for(int i=0;i<outline.Length;i++)loop[i]=new Vector3(outline[i].x,-1.508f,outline[i].y);
+            loop[outline.Length]=loop[0];Color foot=Hex("#263F4A").linear;foot.a=.24f;
+            ao.CurvedFeatheredRibbon(loop,width,width*.42f,foot,true);
         }
         void LateUpdate(){
             long before=HyeopgokArtProbe.Begin();
@@ -195,7 +229,7 @@ namespace Mgf.HyeopgokSasu
                 }
                 if(reset){
                     nightTime=0;Shader.SetGlobalColor("_HyeopgokNightTint",Color.white);
-                    environmentSun.color=daylight;RenderSettings.ambientIntensity=.78f;
+                    environmentSun.color=daylight;RenderSettings.ambientIntensity=.68f;
                 }
                 environmentCorrect=Rules.Correct;
             }
@@ -234,14 +268,21 @@ namespace Mgf.HyeopgokSasu
                 float pulse=Mathf.Sin((1-nightTime/1.35f)*Mathf.PI)*.70f;
                 Shader.SetGlobalColor("_HyeopgokNightTint",Color.Lerp(Color.white,new Color(.46f,.49f,.80f),pulse));
                 environmentSun.color=Color.Lerp(daylight,moonlight,pulse);
-                RenderSettings.ambientIntensity=Mathf.Lerp(.78f,.46f,pulse);
+                RenderSettings.ambientIntensity=Mathf.Lerp(.68f,.42f,pulse);
+            }
+            if(cam){
+                // UpdateCamera owns the lens; the environment owns the atmospheric
+                // depth. Start just behind the focal plateau at every aspect ratio.
+                float focusDistance=(cam.transform.position-new Vector3(.25f,0,1.2f)).magnitude;
+                RenderSettings.fogStartDistance=focusDistance+6.0f;
+                RenderSettings.fogEndDistance=focusDistance+34.0f;
             }
             if(riverFoam&&foamMaterial){
                 float time=Time.unscaledTime;
                 for(int i=0;i<foamMatrices.Length;i++){
                     float t=Mathf.Repeat(time*.18f+i*.137f,1);
                     Vector3 pos=foamOrigins[i]+new Vector3(t*.56f,0,Mathf.Sin(time*.4f+i)*.055f);
-                    foamMatrices[i]=Matrix4x4.TRS(pos,Quaternion.Euler(0,i<6?-10:7,0),new Vector3(.4f+Mathf.Sin(t*Mathf.PI)*.6f,1,1));
+                    foamMatrices[i]=Matrix4x4.TRS(pos,Quaternion.Euler(0,i%2==0?-10:7,0),new Vector3(.34f+Mathf.Sin(t*Mathf.PI)*.72f,1,1));
                 }
                 Graphics.DrawMeshInstanced(riverFoam,0,foamMaterial,foamMatrices,foamMatrices.Length,null,ShadowCastingMode.Off,false,0,cam,LightProbeUsage.Off);
             }
@@ -259,7 +300,7 @@ namespace Mgf.HyeopgokSasu
                 if(r.shadowCastingMode==ShadowCastingMode.Off)ground.Add(combine);else solid.Add(combine);
                 r.enabled=false;
             }
-            MergeSceneryPart("Merged canyon buildings and forest",solid,true);
+            MergeSceneryPart("Merged canyon buildings and forest",solid,false);
             MergeSceneryPart("Merged grass and creek details",ground,false);
         }
         void MergeSceneryPart(string name,List<CombineInstance> parts,bool casts)
