@@ -103,6 +103,7 @@ codex_run() {
   run_timeout "$secs" env -u ANTHROPIC_API_KEY codex exec "$prompt" \
     --model "$model" \
     -c model_reasoning_effort="$effort" \
+    -c features.multi_agent=false \
     ${CODEX_SANDBOX_ARGS:---sandbox workspace-write} \
     --skip-git-repo-check \
     --cd "$ROOT" \

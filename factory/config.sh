@@ -76,7 +76,9 @@ export GROK_MODEL="${GROK_MODEL:-grok-4.6}"             # 기획 3번(관점 다
 # 호출부마다 인자를 더 넘길 필요가 없고, 새 단계가 상위 모델을 쓰면 자동으로 ultra 가 된다.
 # 강제로 바꾸고 싶으면 이 두 값을 환경변수로 덮어써라.
 export CODEX_REASONING="${CODEX_REASONING:-medium}"            # 경량 호출 기본
-export CODEX_REASONING_SMART="${CODEX_REASONING_SMART:-ultra}" # 상위 티어 모델 기본
+# 2026-09-28 사용자 지시 「추론 등급 하향」: ultra → high. 협곡 사수 작업에서 codex 가 라운드당 30만~164만 토큰을 썼다
+# (초등 HTML 빌드 중앙값 15만). 원인은 ultra·하위 에이전트 자동 분기·과한 검증 루프.
+export CODEX_REASONING_SMART="${CODEX_REASONING_SMART:-high}"  # 상위 티어 모델 기본
 
 # ── 단계별 러너 (클로드 토큰 절약 · 2026-08-26 사용자 지시) ──
 # 방침: **클로드는 폴백으로만 쓴다.** 실작업은 codex·grok 이 맡는다.
