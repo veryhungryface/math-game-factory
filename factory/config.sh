@@ -91,7 +91,7 @@ export CODEX_REASONING_SMART="${CODEX_REASONING_SMART:-ultra}" # 상위 티어 �
 # `codex exec --model gpt-6-astra` 빌드로 87점 게시됐다(HANDOVER 2026-09-05).
 # grok 기본값은 2026-08-27 이후 402(잔액 소진)로 계속 죽어 폐기한다.
 export BUILD_RUNNER="${BUILD_RUNNER:-codex_run}"    # 게임 구현
-export BUILD_MODEL="${BUILD_MODEL:-gpt-6-astra}"    # 비우면 러너 기본 모델
+export BUILD_MODEL="${BUILD_MODEL:-gpt-5.6-sol}"    # 비우면 러너 기본 모델 — 2026-09-27 사용자 지시: astra 대신 sol
 # 결과 기반 폴백 1회(run.sh step 5): 비정상 종료·402/인증/쿼터·index.html 미생성이면 이 조합으로 재시도.
 # 2026-09-11: 폴백을 claude 로 교체 — codex→codex 는 같은 ChatGPT 구독 쿼터라 한도 소진 시 둘 다 죽는다
 # (9/9~9/10 11연속 「빌드 실패 — 폴백도 실패」의 원인. FIX 폴백이 이미 claude 인 것과 같은 원리).
