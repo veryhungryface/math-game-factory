@@ -3,6 +3,25 @@
 > 마지막 갱신: 2026-09-27. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-09-27 — 「협곡 사수」 AI 3D A단계 6종 완료 / 로컬만 / Unity 미통합
+
+유료 AI 3D 승인을 사용해 왕·파란 병사·빨간 병사·석궁탑·병영·적 거인을 오리지널 디자인으로 제작했다.
+정본은 `factory/unity-src/hyeopgok-sasu/ArtSource/ai3d/README.md`, 최종 FBX/PNG와 수치·해시는
+`ArtSource/ai3d/out/`, 개별 렌더는 `ArtSource/ai3d/previews/`, 전체 비교는 `ArtSource/ai3d/lineup.png`다.
+**Resources/public/게임 코드/공장 파이프라인은 수정하지 않았고 push·배포·Unity 빌드는 하지 않았다.**
+
+- 내장 이미지 생성으로 선택 콘셉트 6장을 만들고, Meshy 7.1 Image-to-3D 8회와 기존 task 기반 Remesh 6회를
+  사용했다. A-pose가 검·방패·창을 제거한 병사 2회는 폐기하고 원본 포즈 v2를 선택했다.
+- Meshy 잔액은 **515→245**, 실제 사용 **270/400크레딧**(Image-to-3D 240 + Remesh 30)이다.
+  제출별 잔액·상태·해시는 `ArtSource/ai3d/meshy-session.json`; 키·signed URL은 없고 대용량 GLB는
+  gitignored `scratchpad/ai3d-raw/hyeopgok-sasu-a/`에만 있다.
+- 최종 triangle/atlas: 왕 5,500/512², 파란 병사 1,300/256², 빨간 병사 1,300/256²,
+  석궁탑 4,468/512², 병영 4,407/512², 거인 3,499/512². 모두 FBX fresh reimport에서
+  1 mesh/submesh/material, metre scale, 바닥 원점, UV0, COLOR.a AO를 통과했다.
+- 병사 PNG alpha에는 자동 HSV 진영 tint 후보 마스크가 있으며 수동 검토 표시를 남겼다.
+  현재 사실상 한계는 face 정점이 용접되지 않은 triangle-soup, 석궁 상부/기둥 단일 FBX,
+  거인 칼 실제 emissive 없음, 병사 UV1 motion mask 없음, 현 Horde 셰이더의 PNG 미샘플링이다.
+
 ## 2026-09-27 — 「협곡 사수」 76점 검수 후 1차 수정 완료 / QA 45·fatal 0 / 미게시
 
 최신 `review.json`의 high 1·medium 3·low 1을 모두 국소 수정했다. 분류·실행 증거는
