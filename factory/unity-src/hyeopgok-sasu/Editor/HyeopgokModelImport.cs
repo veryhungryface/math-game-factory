@@ -15,7 +15,8 @@ namespace Mgf.HyeopgokSasu.Editor
         static bool IsHyeopgokModel(string path)
         {
             return path.Contains("/Resources/HyeopgokSasu/Models/") ||
-                   path.Contains("/Resources/HyeopgokSasu/AI3D/");
+                   path.Contains("/Resources/HyeopgokSasu/AI3D/") ||
+                   path.Contains("/Resources/HyeopgokSasu/Maps/");
         }
 
         static bool NeedsRuntimeReadback(string path)

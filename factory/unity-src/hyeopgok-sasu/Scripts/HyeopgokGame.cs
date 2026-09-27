@@ -13,6 +13,14 @@ namespace Mgf.HyeopgokSasu
     {
         [Serializable] class State : MgfState {
             public int hp=100, coins, attempts, firstTry, moves, hover=-1;
+            public int stage=1,map=1,loop=1,stageQuestion,totalQuestions,maxHp=100,mapSerial=1,transitionSerial;
+            public int kills,bestQuestions,questionDifficulty,perkDamage,perkMagnet,perkHealth,upgradeSeqSerial,upgradeTargetLevel;
+            public float difficultyMultiplier=1,firstAttemptRate,bossProgress,upgradeSeqProgress;
+            public string mapName="초원 협곡",stagePhase="question",endReason="",upgradeSeqPhase="idle";
+            public string upgradeTargetType="",upgradeStatBefore="",upgradeStatAfter="";
+            public string[] perkChoices,questionHistory;
+            public float[] perkRects;
+            public bool bossWave,regionRecovered,perkSelection,rangeRing;
             public string pack_id="",packTitle="",questionId="",prompt="";
             public string[] choices;
             public float[] padScreen;
@@ -107,10 +115,13 @@ namespace Mgf.HyeopgokSasu
             // Only files inside this game's packs directory are accepted.
             string file=string.IsNullOrEmpty(entry.file)?entry.pack_id+".json":entry.file;
             if(file.Contains("..")||file.Contains(":")||file.Contains("/")||file.Contains("\\")){LoadError("팩 파일 이름을 확인해 주세요.");yield break;}
-            QuestionPack candidate=null;
+            QuestionPack candidate=null;string rawPackJson=null;
             using(var req=UnityWebRequest.Get(BaseUrl()+"packs/"+file)){
                 req.timeout=15;yield return req.SendWebRequest();
-                if(req.result==UnityWebRequest.Result.Success){try{candidate=HyeopgokPackJson.Parse(req.downloadHandler.text);}catch{}}
+                if(req.result==UnityWebRequest.Result.Success){
+                    rawPackJson=req.downloadHandler.text;
+                    try{candidate=HyeopgokPackJson.Parse(rawPackJson);}catch{}
+                }
             }
             QuestionPack eligible=FilterEligibleChoices(candidate,out int skipped);
             if(eligible==null||eligible.items==null||eligible.items.Length<10){LoadError("4지선다 문제가 10개 이상인 팩을 골라 주세요.");yield break;}
@@ -128,7 +139,11 @@ namespace Mgf.HyeopgokSasu
             loading=false;loaded=true;SetTitleInfo(pack.title+"  ·  "+schoolLabel+pack.grade+" "+pack.semester+"학기");
             // Refresh the same bridge when a user changes packs; QA samples the actual loaded pack.
             MgfBridge.Register(this);
-            HYEOPGOK_PushBank(bankJson);
+            // The shared bridge owns sampling and only needs the normalized six-field
+            // bank.  The game-local wrapper receives the untouched source JSON so a
+            // sampled item retains every pack field (including answerNumeric and the
+            // heterogeneous params object) byte-semantically after JSON parsing.
+            HYEOPGOK_PushBank(string.IsNullOrEmpty(rawPackJson)?bankJson:rawPackJson);
         }
         static long Gcd(long a,long b){a=Math.Abs(a);b=Math.Abs(b);while(b!=0){long t=a%b;a=b;b=t;}return Math.Max(1,a);}
         static bool TryRational(string text,out long numerator,out long denominator){
@@ -168,10 +183,11 @@ namespace Mgf.HyeopgokSasu
             if(!loaded)return;
             playStarted=true;dragging=false;st.phase="playing";st.moves=0;feedbackLeft=0;feedback="";answerStreak=0;rewardSerial=0;lastReward=new HyeopgokChestReward{kind=HyeopgokRewardKind.None,towerSlot=-1};
             ResetTutorialProgress();
-            int seed=Environment.TickCount^(++runSerial*7919);Rules.Start(pack,seed);battle.Begin(seed^unchecked((int)0x6d2b79f5));cameraLanding=.8f;
-            ShowPlaying();Present();MgfSfx.Play("whoosh");
+            int seed=Environment.TickCount^(++runSerial*7919);Rules.Start(pack,seed);ApplyV32Fixture();battle.Begin(seed^unchecked((int)0x6d2b79f5));StartV32Run();cameraLanding=.8f;
+            ShowPlaying();if(battle.ShowcaseMode){SetV32ShowcaseUi(true);SyncState();}else Present();MgfSfx.Play("whoosh");
         }
         void Present(){
+            SetV32QuestionPhase();
             battle.SetStage(Rules.Wave);battle.BeginQuestion(Rules.TimeLimit);king.position=Rules.King;
             cameraReveal=.6f;
             SetQuestion(Rules.Current);SetChoices(Rules.Choices);SetPadVisibility();SyncState();RefreshHud();
@@ -200,6 +216,7 @@ namespace Mgf.HyeopgokSasu
         void Advance(){
             feedbackLeft=0;Rules.Next();
             if(Rules.Ended){Finish();return;}
+            if(Rules.AwaitingBoss){HideFeedback();BeginV32Boss();return;}
             HideFeedback();Present();
         }
         public void TestAnswerCorrect(){TestSubmit(true);}
@@ -207,6 +224,7 @@ namespace Mgf.HyeopgokSasu
         static string TowerKorean(HyeopgokTowerKind kind)=>kind==HyeopgokTowerKind.Cannon?"대포탑":kind==HyeopgokTowerKind.Magic?"마법탑":"석궁탑";
         void TapChoicePad(int pad){if(Rules.CommandChoicePad(pad)){HideTutorial();st.moves++;SyncState();}}
         void TestSubmit(bool correct){
+            if(HandleV32TestSubmit())return;
             if(!playStarted)TestStart();if(!Rules.Active)return;
             if(Rules.Pending)Advance();if(!Rules.Active)return;
             int pad=Rules.AnswerPad();if(!correct)pad=(pad+1)%4;
@@ -218,7 +236,7 @@ namespace Mgf.HyeopgokSasu
         public string ProblemBankJson()=>bankJson;
         public string StateJson()=>JsonUtility.ToJson(st);
         void SyncState(){
-            st.score=Rules.Score;st.lives=Rules.Hp;st.hp=Rules.Hp;st.coins=Rules.Coins;st.level=Math.Max(1,Rules.Wave);
+            st.score=Rules.Score;st.lives=Rules.Hp;st.hp=Rules.Hp;st.coins=Rules.Coins;st.level=Math.Max(1,Rules.Stage);
             st.solved=Rules.Correct;st.attempts=Rules.Attempts;st.firstTry=Rules.Correct;
             st.padCount=Rules.PadCount;st.poured=Rules.Poured;st.visited=Rules.Visited;st.hover=Rules.Hover;st.pending=Rules.Pending;st.confirming=Rules.Confirming;st.confirm=Rules.Confirm;st.dwell=Rules.Dwell;st.tutorialBlocked=Rules.TutorialBlocked;
             st.builtTowers=battle.BuiltTowers;st.upgradeLevel=battle.UpgradeLevel;st.activeUpgradePad=battle.ActiveUpgradePad;st.upgradeDwell=battle.UpgradeDwell;st.earned=Rules.Earned;st.spent=Rules.Spent;st.investment=Rules.Invested;st.pourCount=Rules.PourCount;
@@ -236,6 +254,7 @@ namespace Mgf.HyeopgokSasu
             if(Rules.Current!=null){st.answerMode=Rules.Current.Mode;st.max=Rules.Current.Max;st.accept=Rules.Current.accept;}
             st.kingX=Rules.Target.x;st.kingZ=Rules.Target.z;st.screenWidth=Screen.width;st.screenHeight=Screen.height;st.redCount=battle.Reds;st.blueCount=battle.Blues;
             if(Rules.Current!=null){st.questionId=Rules.Current.id;st.prompt=Rules.Current.prompt;st.choices=Rules.Current.Mode=="choice"?Rules.Choices:null;}
+            SyncV32State();
             UpdatePadScreen();MgfBridge.NotifyChanged();
         }
         void UpdatePadScreen(){
@@ -270,7 +289,18 @@ namespace Mgf.HyeopgokSasu
                 Vector3 p=battle.ArtFrontPoint(i);Vector3 s=cam.WorldToScreenPoint(p);int at=i*3;
                 st.frontLineScreen[at]=s.x/Screen.width;st.frontLineScreen[at+1]=1-s.y/Screen.height;st.frontLineScreen[at+2]=s.z>0&&cam.pixelRect.Contains(s)?1:0;
             }
-            ProjectShadowSample(Rules.King,0,1.02f);ProjectShadowSample(battle.ArtShadowWorld,11,1.35f);ProjectShadowSample(new Vector3(1.82f,1.2f,4.62f),22,1.34f);ProjectShadowSample(new Vector3(-2.73f,1.2f,4.15f),33,1.08f);
+            bool wideArt=(float)Screen.width/Mathf.Max(1,Screen.height)>1.2f;
+            // The landscape camera sits south of the northern rim props, so their
+            // projected x/y can look valid while their camera depth is negative.
+            // Sample a real south-side tree/cactus in wide mode; portrait keeps
+            // the already-proven northern landmark.
+            Vector3 vegetationShadow=wideArt?
+                (visibleMap==2?new Vector3(-7.0f,1.2f,-3.0f):visibleMap==3?new Vector3(-7.2f,1.2f,-2.2f):new Vector3(-2.91f,1.2f,-2.92f)):
+                (visibleMap==2?new Vector3(-4.8f,1.2f,6.5f):visibleMap==3?new Vector3(-4.7f,1.2f,6.3f):new Vector3(-2.73f,1.2f,4.15f));
+            // Lv1 is an open timber watchtower in v3.2, so its geometric centre
+            // is intentionally empty. Sample the north-east support's true contact
+            // point rather than a patch of sunlit floor inside the four posts.
+            ProjectShadowSample(Rules.King,0,1.02f);ProjectShadowSample(battle.ArtShadowWorld,11,1.35f);ProjectShadowSample(new Vector3(2.37f,1.2f,5.30f),22,1.34f);ProjectShadowSample(vegetationShadow,33,1.08f);
             ProjectBodyRect(Rules.King,st.kingRect,0);
             CaptureWorldLabelRects(st.worldLabelRects,out st.worldLabelMask);
         }
@@ -306,9 +336,11 @@ namespace Mgf.HyeopgokSasu
             for(int k=0;k<4;k++){float a=k*Mathf.PI*.5f;Vector3 r=cam.WorldToScreenPoint(c+new Vector3(Mathf.Cos(a)*ringRadius,.01f,Mathf.Sin(a)*ringRadius));st.shadowSampleScreen[at+3+k*2]=r.x/Screen.width;st.shadowSampleScreen[at+4+k*2]=1-r.y/Screen.height;}
         }
         void Finish(){
-            if(st.phase=="clear"||st.phase=="gameover"||st.phase=="survived")return;
-            st.phase=Rules.Won?"clear":Rules.Hp<=0?"gameover":"survived";
-            SyncState();ShowEnd(Rules.Won,Rules.Hp<=0);MgfSfx.Play(Rules.Won?"win":"lose");
+            if(st.phase=="gameover")return;
+            if(Rules.Hp>0)return;
+            battle.FreezeForGameOver();
+            st.phase="gameover";FinishV32Record();
+            SyncState();ShowEnd(false,true);MgfSfx.Play("lose");
         }
         void Update(){
             long before=HyeopgokArtProbe.Begin();
@@ -319,6 +351,10 @@ namespace Mgf.HyeopgokSasu
             UpdateCamera(dt);AnimateUi(dt);
             if(!playStarted){if(MgfPointer.Down)TitleInput();return;}
             if(Rules.Ended){if(feedbackLeft>0){feedbackLeft-=dt;if(feedbackLeft<=0)Finish();}else if(st.phase=="playing")Finish();else if(MgfPointer.Down&&Hit(retryRect))TestStart();return;}
+            if(TickV32Campaign(dt)){
+                int phaseDamage=battle.DrainGateDamage();if(phaseDamage>0){Rules.Damage(phaseDamage);SyncState();RefreshHud();}
+                if(Rules.Ended)Finish();uiTick+=dt;if(uiTick>.15f){uiTick=0;UpdateBattleHud();SyncState();}return;
+            }
             if(MgfPointer.Down && !HandleBattleUiPointer()){
                 pointerStarted=Time.unscaledTime;pointerOrigin=MgfPointer.Position;movedDuringPress=false;
                 if(MgfPointer.Position.y>cam.pixelRect.yMax){MgfSfx.Play("tap");}
@@ -416,6 +452,10 @@ namespace Mgf.HyeopgokSasu
             // the parchment unless the world framing leads slightly north. The
             // southern contact line still retains more than the 6% safe margin.
             if(wide)desired.z+=.65f;
+            // Snow's fork rejoins farther south than the other routes. Re-centre
+            // that biome toward the fork in landscape so its last live contact
+            // socket retains a real margin inside the 94% acceptance boundary.
+            if(wide&&battle&&battle.MapIndex==2)desired.z-=.40f;
             // Lock the lens while a pointer is held so a tap remains the same
             // world target throughout the gesture.
             if(!dragging)cameraFocus=Vector3.Lerp(cameraFocus,desired,1-Mathf.Exp(-dt*2.8f));
@@ -431,9 +471,12 @@ namespace Mgf.HyeopgokSasu
             // Keep projection invariant for the entire held gesture. Otherwise a
             // fixed finger would raycast to a moving world point as the hero walks.
             float spanDolly=wide&&!dragging?Mathf.Max(0,focalSpan-3.8f)*.90f:0;
-            float distance=Mathf.Lerp(38.6f,11.0f,landscape)*framing+spanDolly+reveal+(playStarted?cameraLanding*.35f:.65f);
+            float distance=Mathf.Lerp(38.6f,14.8f,landscape)*framing+spanDolly+reveal+(playStarted?cameraLanding*.35f:.65f)-(battle?battle.UpgradePunch:0);
+            // A small landscape-only snow dolly shows both lateral branches while
+            // retaining the required 70% battlefield width.
+            if(wide&&battle&&battle.MapIndex==2)distance+=3f;
             float shake=battle?battle.Shake:0;
-            cam.fieldOfView=Mathf.Lerp(32,42,landscape);
+            cam.fieldOfView=32;
             cam.transform.rotation=Quaternion.Euler(55,Mathf.Lerp(-9,-40,landscape),0);
             cam.transform.position=cameraFocus+cam.transform.rotation*(Vector3.back*distance)+new Vector3(Mathf.Sin(Time.unscaledTime*97)*shake,Mathf.Cos(Time.unscaledTime*83)*shake,0);
             // Distance fog starts beyond the playable plateau at either framing.

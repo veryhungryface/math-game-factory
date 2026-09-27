@@ -59,7 +59,8 @@ namespace Mgf.HyeopgokSasu
                     // Ground coins only magnetise after the king approaches the
                     // battle line. The former 10 m radius filled a 120-coin wallet
                     // while the king stood still on the answer side of the plateau.
-                    if(rules!=null&&rules.Active&&Coins<rules.WalletCapacity&&c.age>.8f&&delta.sqrMagnitude<PickupRadius*PickupRadius){c.origin=c.position;c.flight=0;c.mode=3;}
+                    float radius=PickupRadius*(rules==null?1:rules.CoinRadiusMultiplier);
+                    if(rules!=null&&rules.Active&&Coins<rules.WalletCapacity&&c.age>.8f&&delta.sqrMagnitude<radius*radius){c.origin=c.position;c.flight=0;c.mode=3;}
                 }
                 if(c.mode==3){c.flight+=dt*2.8f;float t=Mathf.Clamp01(c.flight);c.position=Vector3.Lerp(c.origin,backpack,t*t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*1.15f;
                     if(t>=1){if(rules!=null&&rules.AddCoins(HyeopgokRules.CoinPerKill)>0)c.mode=0;else{c.mode=2;c.position=c.origin;}coins[i]=c;continue;}}

@@ -24,8 +24,6 @@ namespace Mgf.HyeopgokSasu
         int townStage,environmentCorrect,environmentHp=100;
         float constructionTime,nightTime,fireTime;
         Transform kingContactShadow;
-        readonly Color daylight=new Color(1f,243f/255,222f/255);
-        readonly Color moonlight=new Color(150f/255,167f/255,238f/255);
         Mesh riverFoam;
         Material foamMaterial;
         readonly Matrix4x4[] foamMatrices=new Matrix4x4[24];
@@ -237,8 +235,7 @@ namespace Mgf.HyeopgokSasu
                     if(!reset)nightTime=1.35f;
                 }
                 if(reset){
-                    nightTime=0;Shader.SetGlobalColor("_HyeopgokNightTint",Color.white);
-                    environmentSun.color=daylight;RenderSettings.ambientIntensity=.68f;
+                    nightTime=0;ApplyV32Map(visibleMap);
                 }
                 environmentCorrect=towerGrowth;
             }
@@ -269,7 +266,7 @@ namespace Mgf.HyeopgokSasu
                 }
             }
             fireTime-=dt;
-            if(fireTime<=0&&playStarted&&environmentHp<67&&battle){
+            if(visibleMap==1&&fireTime<=0&&playStarted&&environmentHp<67&&battle){
                 fireTime=.16f;
                 for(int i=0;i<3;i++)if(fenceDamageStage[i]>0)battle.EmitFire(fencePositions[i]+Vector3.up*.4f,1);
                 if(environmentHp<34)battle.EmitFire(townBuildings[1].position+Vector3.up*1.45f,1.2f);
@@ -277,9 +274,9 @@ namespace Mgf.HyeopgokSasu
             if(nightTime>0){
                 nightTime=Mathf.Max(0,nightTime-dt);
                 float pulse=Mathf.Sin((1-nightTime/1.35f)*Mathf.PI)*.70f;
-                Shader.SetGlobalColor("_HyeopgokNightTint",Color.Lerp(Color.white,new Color(.46f,.49f,.80f),pulse));
-                environmentSun.color=Color.Lerp(daylight,moonlight,pulse);
-                RenderSettings.ambientIntensity=Mathf.Lerp(.68f,.42f,pulse);
+                Shader.SetGlobalColor("_HyeopgokNightTint",Color.Lerp(Color.white,V32NightTintColor,pulse));
+                environmentSun.color=Color.Lerp(V32DaylightColor,V32MoonlightColor,pulse);
+                RenderSettings.ambientIntensity=Mathf.Lerp(V32DayAmbient,.42f,pulse);
             }
             if(cam){
                 // UpdateCamera owns the lens; the environment owns the atmospheric
@@ -288,7 +285,7 @@ namespace Mgf.HyeopgokSasu
                 RenderSettings.fogStartDistance=focusDistance+6.0f;
                 RenderSettings.fogEndDistance=focusDistance+34.0f;
             }
-            if(riverFoam&&foamMaterial){
+            if(visibleMap==1&&riverFoam&&foamMaterial){
                 float time=Time.unscaledTime;
                 for(int i=0;i<foamMatrices.Length;i++){
                     float t=Mathf.Repeat(time*.18f+i*.137f,1);

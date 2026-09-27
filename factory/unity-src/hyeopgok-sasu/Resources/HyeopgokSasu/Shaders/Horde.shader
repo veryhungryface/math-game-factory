@@ -20,6 +20,9 @@ Shader "Mgf/HyeopgokHorde"
         _Attack ("Per instance attack gate", Float) = 0
         _HitTime ("Per soldier hit time", Float) = -1000
         _Blueprint ("Construction blueprint", Range(0,1)) = 0
+        _BlueprintFill ("Blueprint bottom-up fill", Range(0,1)) = 1
+        _BlueprintBase ("Blueprint world base", Float) = 0
+        _BlueprintTop ("Blueprint world top", Float) = 1
     }
     SubShader
     {
@@ -45,6 +48,9 @@ Shader "Mgf/HyeopgokHorde"
             half _Rim;
             half _Metallic;
             half _Blueprint;
+            half _BlueprintFill;
+            float _BlueprintBase;
+            float _BlueprintTop;
             fixed4 _TeamRed;
             fixed4 _TeamRedDark;
             fixed4 _TeamBlue;
@@ -131,6 +137,8 @@ Shader "Mgf/HyeopgokHorde"
             }
             fixed4 frag(v2f i) : SV_Target
             {
+                if(_Blueprint>.5)
+                    clip(lerp(_BlueprintBase,_BlueprintTop,saturate(_BlueprintFill))-i.worldPos.y);
                 fixed4 atlas=tex2D(_MainTex,i.uv);
                 fixed3 teamPrimary=lerp(_TeamRed.rgb,_TeamBlue.rgb,saturate(i.team));
                 fixed3 teamDark=lerp(_TeamRedDark.rgb,_TeamBlueDark.rgb,saturate(i.team));
@@ -162,8 +170,9 @@ Shader "Mgf/HyeopgokHorde"
                 litColor+=half3(1,.78,.22)*metalGleam*.72;
                 half rim=pow(1-saturate(dot(normal,normalize(_WorldSpaceCameraPos-i.worldPos))),3)*_Rim;
                 litColor+=half3(.82,.94,1)*rim;
-                half drafting=lerp(.78,1.05,step(.5,frac((i.worldPos.x+i.worldPos.y+i.worldPos.z)*5.5)));
-                litColor=lerp(litColor,half3(.08,.72,.94)*drafting,_Blueprint*.72);
+                half drafting=step(.5,frac((i.worldPos.x+i.worldPos.y+i.worldPos.z)*5.5));
+                half3 blueprint=lerp(half3(.58,.88,1),half3(1,.99,.94),drafting);
+                litColor=lerp(litColor,blueprint,_Blueprint*.90);
                 fixed4 result=fixed4(lerp(litColor,fixed3(1,.995,1),max(_Flash,i.hitFlash)),1);
                 UNITY_APPLY_FOG(i.fogCoord,result);
                 return result;
@@ -182,21 +191,31 @@ Shader "Mgf/HyeopgokHorde"
             #pragma multi_compile_shadowcaster
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
+            half _Blueprint;
+            half _BlueprintFill;
+            float _BlueprintBase;
+            float _BlueprintTop;
             struct shadowInput
             {
                 float4 vertex : POSITION;
                 float3 normal : NORMAL;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
-            struct shadowOutput { V2F_SHADOW_CASTER; };
+            struct shadowOutput { V2F_SHADOW_CASTER; float3 worldPos : TEXCOORD1; };
             shadowOutput vertShadow(shadowInput v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
                 shadowOutput o;
                 TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+                o.worldPos=mul(unity_ObjectToWorld,v.vertex).xyz;
                 return o;
             }
-            float4 fragShadow(shadowOutput i) : SV_Target { SHADOW_CASTER_FRAGMENT(i) }
+            float4 fragShadow(shadowOutput i) : SV_Target
+            {
+                if(_Blueprint>.5)
+                    clip(lerp(_BlueprintBase,_BlueprintTop,saturate(_BlueprintFill))-i.worldPos.y);
+                SHADOW_CASTER_FRAGMENT(i)
+            }
             ENDCG
         }
     }

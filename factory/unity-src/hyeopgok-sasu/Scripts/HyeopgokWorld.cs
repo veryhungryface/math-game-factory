@@ -103,7 +103,7 @@ namespace Mgf.HyeopgokSasu
                 CreateDecoration("Upgrade pad chalk "+i,marks,MgfLook.Unlit(MgfLook.Hex("#ffd55d")),false).transform.SetParent(root.transform,true);
                 upgradePadFill[i]=Line("Upgrade countdown "+i,MgfLook.Hex("#fff2a3"),.10f);upgradePadFill[i].positionCount=0;root.SetActive(false);
             }
-
+            BuildV32Maps();
         }
         void SetPadVisibility(){
             for(int i=0;i<4;i++){bool active=i<Rules.PadCount;padRoots[i].gameObject.SetActive(active);padFill[i].gameObject.SetActive(active);if(!active)cracks[i].gameObject.SetActive(false);}RefreshUpgradePads();

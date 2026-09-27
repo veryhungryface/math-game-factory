@@ -81,6 +81,14 @@ namespace Mgf.HyeopgokSasu
             numbers[numberCursor++%NumberCap]=new Popup {position=position+Vector3.up*.95f,heavy=heavy,live=true};
         }
 
+        public void DamageNumberPerTarget(Vector3 position,bool heavy)
+        {
+            // Tower patterns call this once per enemy they actually remove. A
+            // Lv3 chain visibly promises four hits, so spatial de-duplication is
+            // deliberately disabled for this bounded (16-slot) effect pool.
+            numbers[numberCursor++%NumberCap]=new Popup {position=position+Vector3.up*.95f,heavy=heavy,live=true};
+        }
+
         public void Fire(Vector3 position,float intensity)
         {
             // Call at a fixed 0.12 s cadence, independent of battle randomness.
@@ -91,7 +99,7 @@ namespace Mgf.HyeopgokSasu
                     duration=Range(.38f,.72f),size=Range(.17f,.34f)*intensity,spin=Range(0,360),kind=(byte)(i==2?4:3)};
         }
 
-        public void Explosion(Vector3 position)
+        public void Explosion(Vector3 position,bool showDamageNumber=true)
         {
             Contact(position,true);
             for(int i=0;i<18;i++)
@@ -101,7 +109,7 @@ namespace Mgf.HyeopgokSasu
                     position=position+Vector3.up*.2f,velocity=new Vector3(Mathf.Sin(a)*speed,Range(.8f,3),Mathf.Cos(a)*speed),
                     duration=i<9?Range(.22f,.48f):Range(.55f,.95f),size=Range(.19f,.36f),spin=Range(0,360),kind=(byte)(i<9?3:4)};
             }
-            DamageNumber(position,true);
+            if(showDamageNumber)DamageNumber(position,true);
         }
 
         public void Contact(Vector3 position, bool heavy)

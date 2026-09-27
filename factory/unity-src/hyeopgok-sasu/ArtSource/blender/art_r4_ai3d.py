@@ -11,10 +11,13 @@ upgrade-ready tower meshes from the AI crossbow tower:
 * ``giant_blade_glow``: two crossed, additive-ready blade ribbons.
 * ``tower_{crossbow,cannon,magic}_lv{1,2,3}``: one-mesh/one-material towers.
 
-The cannon and magic towers keep the AI-authored stone/cloth lower body and
-replace only the weapon head.  The three levels add silhouette, material, and
-height changes rather than relying on a shader-only recolour.  All nine tower
-FBXs share ``tower_shared.png``; no level duplicates the 512px atlas.
+The three tower levels use deliberately different architectural bodies:
+an open timber watchtower, an AI-authored stone/blue-cloth keep, and a broad
+crenellated gold-trimmed fortress with standards and bright rune stones.  The
+weapon head still identifies crossbow/cannon/magic at every level.  Authored
+height is normalised because runtime applies the exact 1.0/1.2/1.44 level
+scale.  All nine tower FBXs share ``tower_shared.png``; no level duplicates
+the 512px atlas.
 
 Unity attachment contract:
 
@@ -32,6 +35,8 @@ Run from the repository root::
 Use ``-- --verify-only`` to verify installed files without rewriting them and
 ``-- --soldier-textures-only`` to reproducibly refresh just the two installed
 team-mask textures and their report, or
+``-- --towers-only --determinism-check`` to rebuild only the nine tower FBXs,
+or
 ``-- --preview-dir /tmp/hyeopgok-ai3d-r4`` for local visual proof renders.
 No ``.meta`` files are written; the Unity track intentionally lets the warm
 workspace generate and preserve them.
@@ -84,6 +89,13 @@ TOWER_IDS = tuple(
 TOWER_TEXTURE_ID = "tower_shared"
 TOWER_ATLAS_SIZE = 512
 TOWER_CONTENT_SIZE = 480
+TOWER_AUTHORED_HEIGHT = 2.10
+TOWER_RUNTIME_SCALE = (1.0, 1.2, 1.44)
+TOWER_BODY_STYLE = {
+    1: "open_timber_watchtower",
+    2: "stone_keep_blue_cloth",
+    3: "crenellated_gold_rune_fortress",
+}
 
 # The top 32px of tower_shared.png is a deterministic 16-swatch strip.  The
 # AI atlas is resampled into the lower-left 480px square and its UVs remapped;
@@ -139,6 +151,10 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--soldier-textures-only", action="store_true",
         help="refresh only installed ally/enemy mask textures and their report",
+    )
+    parser.add_argument(
+        "--towers-only", action="store_true",
+        help="rebuild only the nine tower FBXs and report/manifest",
     )
     parser.add_argument(
         "--preview-dir", type=Path,
@@ -846,10 +862,9 @@ def add_beam_between(
     return obj
 
 
-def import_tower_body(
-    mat: bpy.types.Material,
-    keep_ai_head: bool,
-) -> bpy.types.Object:
+def import_stone_keep_body(mat: bpy.types.Material) -> bpy.types.Object:
+    """Import only the AI-authored lower keep for Lv2/Lv3 architecture."""
+
     bpy.ops.import_scene.fbx(
         filepath=str(SOURCE_DIR / "crossbow_tower.fbx"), use_custom_normals=True
     )
@@ -873,84 +888,243 @@ def import_tower_body(
         )
     uv_layer.name = "BaseColorUV"
 
-    if not keep_ai_head:
-        mesh = body.data
-        work = bmesh.new()
-        work.from_mesh(mesh)
-        doomed = [
-            face for face in work.faces
-            if face.calc_center_median().z > 1.43
-        ]
-        bmesh.ops.delete(work, geom=doomed, context="FACES")
-        loose = [vertex for vertex in work.verts if not vertex.link_faces]
-        if loose:
-            bmesh.ops.delete(work, geom=loose, context="VERTS")
-        work.to_mesh(mesh)
-        work.free()
-        mesh.validate(verbose=False, clean_customdata=False)
-        mesh.update(calc_edges=True)
+    mesh = body.data
+    work = bmesh.new()
+    work.from_mesh(mesh)
+    doomed = [
+        face for face in work.faces
+        if face.calc_center_median().z > 1.43
+    ]
+    bmesh.ops.delete(work, geom=doomed, context="FACES")
+    loose = [vertex for vertex in work.verts if not vertex.link_faces]
+    if loose:
+        bmesh.ops.delete(work, geom=loose, context="VERTS")
+    work.to_mesh(mesh)
+    work.free()
+    mesh.validate(verbose=False, clean_customdata=False)
+    mesh.update(calc_edges=True)
     set_single_material(body, mat)
     return body
 
 
-def add_upgrade_plinth(
+def add_wood_watchtower_body(
     parts: List[bpy.types.Object],
     mat: bpy.types.Material,
-    level: int,
-) -> None:
-    if level < 2:
-        return
-    radius = 1.17 if level == 2 else 1.27
+) -> float:
+    """Build an unmistakably open, all-timber Lv1 watchtower."""
+
+    # Four massive posts and X braces keep the body readable at gameplay size.
+    for x in (-0.53, 0.53):
+        for y in (-0.47, 0.47):
+            parts.append(add_box(
+                f"timber_post_{x:+.0f}_{y:+.0f}", (x, y, 0.66),
+                (0.19, 0.19, 1.32), "wood", mat, bevel=0.035,
+            ))
+            parts.append(add_box(
+                f"timber_foot_{x:+.0f}_{y:+.0f}", (x, y, 0.08),
+                (0.31, 0.31, 0.16), "wood_light", mat, bevel=0.035,
+            ))
+    for y in (-0.49, 0.49):
+        parts.append(add_beam_between(
+            f"front_back_brace_a_{y:+.0f}", Vector((-0.52, y, 0.18)),
+            Vector((0.52, y, 1.12)), 0.095, "wood_light", mat,
+        ))
+        parts.append(add_beam_between(
+            f"front_back_brace_b_{y:+.0f}", Vector((0.52, y, 0.18)),
+            Vector((-0.52, y, 1.12)), 0.095, "wood", mat,
+        ))
+    for x in (-0.55, 0.55):
+        parts.append(add_beam_between(
+            f"side_brace_a_{x:+.0f}", Vector((x, -0.45, 0.18)),
+            Vector((x, 0.45, 1.12)), 0.09, "wood_light", mat,
+        ))
+        parts.append(add_beam_between(
+            f"side_brace_b_{x:+.0f}", Vector((x, 0.45, 0.18)),
+            Vector((x, -0.45, 1.12)), 0.09, "wood", mat,
+        ))
+    # Separated planks make the top read as a wooden platform rather than stone.
+    for index in range(5):
+        parts.append(add_box(
+            f"deck_plank_{index}", (-0.56 + index * 0.28, 0.0, 1.25),
+            (0.25, 1.34, 0.16), "wood_light" if index % 2 else "wood",
+            mat, bevel=0.025,
+        ))
+    for x in (-0.66, 0.66):
+        for y in (-0.55, 0.55):
+            parts.append(add_box(
+                f"rail_post_{x:+.0f}_{y:+.0f}", (x, y, 1.48),
+                (0.10, 0.10, 0.48), "wood", mat, bevel=0.02,
+            ))
+    for y in (-0.58, 0.58):
+        parts.append(add_box(
+            f"rail_x_{y:+.0f}", (0.0, y, 1.62),
+            (1.42, 0.10, 0.10), "wood_light", mat, bevel=0.02,
+        ))
+    # Front ladder is a second strong wooden read from the isometric camera.
+    for x in (-0.30, 0.30):
+        parts.append(add_box(
+            f"ladder_side_{x:+.0f}", (x, -0.63, 0.69),
+            (0.08, 0.08, 1.04), "wood_light", mat, bevel=0.015,
+        ))
+    for index in range(4):
+        parts.append(add_box(
+            f"ladder_rung_{index}", (0.0, -0.64, 0.29 + index * 0.25),
+            (0.67, 0.09, 0.075), "wood_light", mat, bevel=0.012,
+        ))
+    return 1.52
+
+
+def add_stone_keep_body(
+    parts: List[bpy.types.Object],
+    mat: bpy.types.Material,
+) -> float:
+    """Build the dense stone-and-blue-cloth Lv2 keep."""
+
+    body = import_stone_keep_body(mat)
+    parts.append(body)
     parts.append(add_cylinder(
-        "upgrade_plinth", (0.0, 0.0, 0.075), radius, 0.15,
-        "stone_dark", mat, vertices=12, bevel=0.025,
+        "stone_keep_crown", (0.0, 0.0, 1.43), 0.79, 0.18,
+        "stone", mat, vertices=12, bevel=0.035,
     ))
-    if level >= 3:
-        parts.append(add_cylinder(
-            "upgrade_gold_band", (0.0, 0.0, 0.19), 1.19, 0.095,
-            "gold_dark", mat, vertices=12,
+    parts.append(add_box(
+        "blue_keep_banner", (0.0, -0.735, 0.99),
+        (0.48, 0.075, 0.72), "blue", mat, bevel=0.035,
+    ))
+    parts.append(add_box(
+        "blue_banner_gold_header", (0.0, -0.78, 1.34),
+        (0.56, 0.09, 0.10), "gold_dark", mat, bevel=0.02,
+    ))
+    return 1.55
+
+
+def add_fortress_body(
+    parts: List[bpy.types.Object],
+    mat: bpy.types.Material,
+) -> float:
+    """Build a broad Lv3 fortress shell, battlements, standards and runes."""
+
+    # The AI keep remains an inner core, but a new broad wall mass owns the
+    # silhouette.  This is deliberately architectural, not a plinth add-on.
+    body = import_stone_keep_body(mat)
+    parts.append(body)
+    parts.append(add_cylinder(
+        "fortress_lower_wall", (0.0, 0.0, 0.57), 1.06, 1.14,
+        "stone_dark", mat, vertices=12, bevel=0.055,
+    ))
+    parts.append(add_cylinder(
+        "fortress_upper_wall", (0.0, 0.0, 1.27), 0.96, 0.70,
+        "stone", mat, vertices=12, bevel=0.045,
+    ))
+    parts.append(add_torus(
+        "fortress_gold_belt", (0.0, 0.0, 1.04), 1.02, 0.075,
+        "gold", mat,
+    ))
+    for index in range(8):
+        angle = 2.0 * math.pi * index / 8.0
+        parts.append(add_box(
+            f"battlement_{index}",
+            (math.cos(angle) * 0.84, math.sin(angle) * 0.84, 1.72),
+            (0.38, 0.36, 0.40), "stone", mat,
+            rotation=(0.0, 0.0, angle), bevel=0.045,
         ))
-        # Two blue standards make Lv3 readable even when the weapon is occluded.
-        for side in (-1.0, 1.0):
-            parts.append(add_box(
-                f"standard_{side:+.0f}", (side * 0.93, 0.42, 1.20),
-                (0.075, 0.075, 1.20), "gold_dark", mat, bevel=0.015,
-            ))
-            parts.append(add_box(
-                f"standard_cloth_{side:+.0f}", (side * 0.93, 0.37, 1.50),
-                (0.34, 0.055, 0.54), "blue", mat, bevel=0.025,
-                rotation=(0.0, 0.0, math.radians(side * 5.0)),
-            ))
+    # Four buttresses expand the footprint into a fortress, not a tall turret.
+    for index, (x, y) in enumerate(((-0.88, -0.72), (0.88, -0.72), (-0.88, 0.72), (0.88, 0.72))):
+        parts.append(add_box(
+            f"fortress_buttress_{index}", (x, y, 0.53),
+            (0.34, 0.40, 0.98), "stone_dark", mat,
+            rotation=(0.0, 0.0, math.radians(16.0 if x * y > 0 else -16.0)),
+            bevel=0.045,
+        ))
+    # A large cyan rune and gold halo remain readable even with the weapon head.
+    parts.append(add_crystal(
+        "fortress_glowing_rune", (0.0, -1.075, 0.91),
+        0.20, 0.62, "magic_core", mat, sides=6,
+    ))
+    parts.append(add_torus(
+        "fortress_rune_gold_halo", (0.0, -1.105, 0.91),
+        0.31, 0.045, "gold", mat,
+        rotation=(math.radians(90.0), 0.0, 0.0),
+    ))
+    for side in (-1.0, 1.0):
+        x = side * 1.13
+        parts.append(add_cylinder(
+            f"fortress_standard_pole_{side:+.0f}", (x, 0.16, 1.53),
+            0.055, 1.58, "gold_dark", mat, vertices=8,
+        ))
+        parts.append(add_box(
+            f"fortress_large_flag_{side:+.0f}",
+            (x - side * 0.25, 0.12, 2.02),
+            (0.55, 0.075, 0.64), "blue", mat,
+            rotation=(0.0, 0.0, math.radians(side * 6.0)), bevel=0.025,
+        ))
+        parts.append(add_box(
+            f"fortress_flag_gold_edge_{side:+.0f}",
+            (x - side * 0.25, 0.075, 2.32),
+            (0.58, 0.085, 0.075), "gold", mat,
+            rotation=(0.0, 0.0, math.radians(side * 6.0)), bevel=0.015,
+        ))
+    return 1.82
 
 
-def add_crossbow_upgrade(
+def add_level_body(
     parts: List[bpy.types.Object],
     mat: bpy.types.Material,
     level: int,
+) -> float:
+    if level == 1:
+        return add_wood_watchtower_body(parts, mat)
+    if level == 2:
+        return add_stone_keep_body(parts, mat)
+    return add_fortress_body(parts, mat)
+
+
+def add_crossbow_head(
+    parts: List[bpy.types.Object],
+    mat: bpy.types.Material,
+    level: int,
+    deck_z: float,
 ) -> None:
-    if level >= 2:
-        # Reinforcement limbs sit just outside the AI bow and make Lv2 wider.
+    width = (0.86, 1.04, 1.17)[level - 1]
+    z = deck_z + 0.27
+    limb_swatch = "wood_light" if level == 1 else "iron_light"
+    parts.append(add_cylinder(
+        "crossbow_pivot", (0.0, 0.0, deck_z + 0.10),
+        0.18, 0.25, "wood" if level == 1 else "gold_dark", mat,
+        vertices=10,
+    ))
+    for side in (-1.0, 1.0):
         parts.append(add_beam_between(
-            "bow_reinforce_left", Vector((-0.12, -0.01, 1.78)),
-            Vector((-1.25, 0.03, 1.95)), 0.075, "iron_light", mat,
+            f"crossbow_limb_{side:+.0f}", Vector((side * 0.08, 0.0, z - 0.05)),
+            Vector((side * width, 0.02, z + 0.15)),
+            0.105 if level == 1 else 0.09, limb_swatch, mat,
         ))
         parts.append(add_beam_between(
-            "bow_reinforce_right", Vector((0.12, -0.01, 1.78)),
-            Vector((1.25, 0.03, 1.95)), 0.075, "iron_light", mat,
+            f"crossbow_string_{side:+.0f}", Vector((side * width, 0.02, z + 0.15)),
+            Vector((0.0, 0.28, z - 0.03)), 0.025, "iron", mat,
         ))
-        parts.append(add_cone(
-            "crossbow_bolt", (0.0, -0.38, 1.83), 0.075, 0.025, 1.18,
-            "gold", mat, vertices=8, rotation=(math.radians(90.0), 0.0, 0.0),
+    rail_count = 1 if level == 1 else 2 if level == 2 else 3
+    for index in range(rail_count):
+        x = (index - (rail_count - 1) * 0.5) * 0.25
+        parts.append(add_box(
+            f"crossbow_rail_{index}", (x, -0.31, z),
+            (0.11, 1.06, 0.11), "wood" if level == 1 else "iron", mat,
+            rotation=(0.0, 0.0, math.radians((index - 1) * 4.0 if level == 3 else 0.0)),
+            bevel=0.025,
         ))
+    parts.append(add_cone(
+        "crossbow_bolt", (0.0, -0.40, z + 0.07), 0.075, 0.025, 1.16,
+        "gold" if level >= 2 else "wood_light", mat, vertices=8,
+        rotation=(math.radians(90.0), 0.0, 0.0),
+    ))
     if level >= 3:
         for side in (-1.0, 1.0):
             parts.append(add_cylinder(
-                f"bow_gold_cap_{side:+.0f}", (side * 1.26, 0.03, 1.95),
+                f"bow_gold_cap_{side:+.0f}", (side * width, 0.02, z + 0.15),
                 0.13, 0.18, "gold", mat, vertices=8,
                 rotation=(0.0, math.radians(90.0), 0.0),
             ))
         parts.append(add_crystal(
-            "crossbow_sight", (0.0, 0.03, 2.17), 0.115, 0.35,
+            "crossbow_rune_sight", (0.0, 0.02, z + 0.39), 0.12, 0.34,
             "magic_core", mat, sides=6,
         ))
 
@@ -959,21 +1133,23 @@ def add_cannon_head(
     parts: List[bpy.types.Object],
     mat: bpy.types.Material,
     level: int,
+    deck_z: float,
 ) -> None:
     scale = (0.88, 1.0, 1.13)[level - 1]
     parts.append(add_cylinder(
-        "cannon_deck", (0.0, 0.0, 1.43), 0.79 * scale, 0.24,
-        "stone", mat, vertices=12, bevel=0.035,
+        "cannon_turntable", (0.0, 0.0, deck_z + 0.03), 0.71 * scale, 0.18,
+        "wood" if level == 1 else "stone", mat, vertices=12, bevel=0.035,
     ))
     parts.append(add_box(
-        "cannon_shield", (0.0, -0.18, 1.69),
-        (1.20 * scale, 0.16, 0.62 * scale), "blue_dark", mat,
+        "cannon_shield", (0.0, -0.18, deck_z + 0.29),
+        (1.20 * scale, 0.16, 0.55 * scale),
+        "wood_light" if level == 1 else "blue_dark", mat,
         bevel=0.07,
     ))
     barrel_length = (0.92, 1.18, 1.42)[level - 1]
     barrel_radius = (0.16, 0.205, 0.245)[level - 1]
     barrel_y = -0.20 - barrel_length * 0.34
-    barrel_z = 1.72 + 0.08 * (level - 1)
+    barrel_z = deck_z + 0.33 + 0.06 * (level - 1)
     parts.append(add_cylinder(
         "cannon_barrel", (0.0, barrel_y, barrel_z),
         barrel_radius, barrel_length, "iron", mat, vertices=12,
@@ -993,7 +1169,8 @@ def add_cannon_head(
     ))
     for side in (-1.0, 1.0):
         parts.append(add_cylinder(
-            f"cannon_wheel_{side:+.0f}", (side * (0.43 + level * 0.035), 0.08, 1.55),
+            f"cannon_wheel_{side:+.0f}",
+            (side * (0.43 + level * 0.035), 0.08, deck_z + 0.13),
             0.27 + level * 0.025, 0.14, "wood", mat, vertices=10,
             rotation=(0.0, math.radians(90.0), 0.0),
         ))
@@ -1016,13 +1193,14 @@ def add_magic_head(
     parts: List[bpy.types.Object],
     mat: bpy.types.Material,
     level: int,
+    deck_z: float,
 ) -> None:
     scale = (0.84, 1.0, 1.15)[level - 1]
     parts.append(add_cylinder(
-        "magic_deck", (0.0, 0.0, 1.43), 0.76 * scale, 0.25,
-        "stone", mat, vertices=12, bevel=0.035,
+        "magic_deck", (0.0, 0.0, deck_z + 0.03), 0.70 * scale, 0.18,
+        "wood" if level == 1 else "stone", mat, vertices=12, bevel=0.035,
     ))
-    core_z = 1.79 + 0.12 * (level - 1)
+    core_z = deck_z + 0.39 + 0.08 * (level - 1)
     core_radius = 0.23 + 0.035 * (level - 1)
     core_height = 0.62 + 0.11 * (level - 1)
     parts.append(add_crystal(
@@ -1032,7 +1210,11 @@ def add_magic_head(
     prongs = 2 + level
     for index in range(prongs):
         angle = 2.0 * math.pi * index / prongs + math.pi * 0.5
-        start = Vector((math.cos(angle) * 0.57 * scale, math.sin(angle) * 0.57 * scale, 1.50))
+        start = Vector((
+            math.cos(angle) * 0.57 * scale,
+            math.sin(angle) * 0.57 * scale,
+            deck_z + 0.10,
+        ))
         end = Vector((math.cos(angle) * 0.25 * scale, math.sin(angle) * 0.25 * scale, core_z + 0.06))
         parts.append(add_beam_between(
             f"magic_prong_{index}", start, end, 0.075,
@@ -1058,7 +1240,42 @@ def add_magic_head(
             ))
 
 
+def normalize_tower_geometry(
+    tower: bpy.types.Object,
+    target_height: float = TOWER_AUTHORED_HEIGHT,
+) -> None:
+    """Ground, centre and height-normalise a joined tower mesh.
+
+    Runtime owns the exact +20% level scaling.  Keeping every authored FBX at
+    one logical height prevents asset geometry and runtime scale multiplying
+    into the previous 27-34% jumps.
+    """
+
+    vertices = tower.data.vertices
+    if not vertices:
+        raise PipelineError(f"{tower.name}: tower mesh has no vertices")
+    minimum_x = min(vertex.co.x for vertex in vertices)
+    maximum_x = max(vertex.co.x for vertex in vertices)
+    minimum_y = min(vertex.co.y for vertex in vertices)
+    maximum_y = max(vertex.co.y for vertex in vertices)
+    minimum_z = min(vertex.co.z for vertex in vertices)
+    maximum_z = max(vertex.co.z for vertex in vertices)
+    height = maximum_z - minimum_z
+    if height <= 0.001:
+        raise PipelineError(f"{tower.name}: invalid tower height {height}")
+    scale = target_height / height
+    centre_x = (minimum_x + maximum_x) * 0.5
+    centre_y = (minimum_y + maximum_y) * 0.5
+    for vertex in vertices:
+        vertex.co.x = (vertex.co.x - centre_x) * scale
+        vertex.co.y = (vertex.co.y - centre_y) * scale
+        vertex.co.z = (vertex.co.z - minimum_z) * scale
+    tower.data.update(calc_edges=True)
+
+
 def join_tower(parts: Sequence[bpy.types.Object], tower_id: str) -> bpy.types.Object:
+    if not parts:
+        raise PipelineError(f"{tower_id}: no tower parts")
     bpy.ops.object.select_all(action="DESELECT")
     for obj in parts:
         obj.select_set(True)
@@ -1066,6 +1283,10 @@ def join_tower(parts: Sequence[bpy.types.Object], tower_id: str) -> bpy.types.Ob
     bpy.ops.object.join()
     tower = bpy.context.object
     tower.name = tower_id
+    # Lv1 starts with an offset timber post rather than an origin-centred AI
+    # body.  Bake that active-object origin before grounding/centring.
+    active_object(tower)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     for polygon in tower.data.polygons:
         polygon.material_index = 0
     while len(tower.data.materials) > 1:
@@ -1075,22 +1296,21 @@ def join_tower(parts: Sequence[bpy.types.Object], tower_id: str) -> bpy.types.Ob
     bpy.ops.object.modifier_apply(modifier=triangulate.name)
     tower.data.validate(verbose=False, clean_customdata=False)
     tower.data.update(calc_edges=True)
+    normalize_tower_geometry(tower)
     return tower
 
 
 def build_tower_variant(tower_type: str, level: int) -> Dict[str, object]:
     reset_scene()
     mat = tower_material()
-    keep_ai_head = tower_type == "crossbow"
-    body = import_tower_body(mat, keep_ai_head=keep_ai_head)
-    parts: List[bpy.types.Object] = [body]
-    add_upgrade_plinth(parts, mat, level)
+    parts: List[bpy.types.Object] = []
+    deck_z = add_level_body(parts, mat, level)
     if tower_type == "crossbow":
-        add_crossbow_upgrade(parts, mat, level)
+        add_crossbow_head(parts, mat, level, deck_z)
     elif tower_type == "cannon":
-        add_cannon_head(parts, mat, level)
+        add_cannon_head(parts, mat, level, deck_z)
     elif tower_type == "magic":
-        add_magic_head(parts, mat, level)
+        add_magic_head(parts, mat, level, deck_z)
     else:
         raise PipelineError(f"unknown tower type: {tower_type}")
     tower_id = f"tower_{tower_type}_lv{level}"
@@ -1101,8 +1321,11 @@ def build_tower_variant(tower_type: str, level: int) -> Dict[str, object]:
         "tower_type": tower_type,
         "level": level,
         "texture_id": TOWER_TEXTURE_ID,
-        "ai_base": "crossbow_tower",
-        "head": "ai_crossbow" if keep_ai_head else f"procedural_{tower_type}",
+        "body_style": TOWER_BODY_STYLE[level],
+        "ai_base": "none" if level == 1 else "crossbow_tower_inner_keep",
+        "head": f"procedural_{tower_type}",
+        "authored_height": TOWER_AUTHORED_HEIGHT,
+        "runtime_scale": TOWER_RUNTIME_SCALE[level - 1],
     }
 
 
@@ -1218,6 +1441,29 @@ def install_assets() -> Dict[str, object]:
     }
 
 
+def install_towers_only() -> Dict[str, object]:
+    """Regenerate only tower FBXs while preserving the shared atlas and masks."""
+
+    TARGET_DIR.mkdir(parents=True, exist_ok=True)
+    atlas_path = TARGET_DIR / f"{TOWER_TEXTURE_ID}.png"
+    if not atlas_path.is_file():
+        raise PipelineError(
+            f"--towers-only requires existing shared atlas: {atlas_path}"
+        )
+    metadata: Dict[str, object] = {}
+    if REPORT_PATH.is_file():
+        previous = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
+        for key in ("ally_cleanup", "enemy_cleanup", "tower_atlas"):
+            if previous.get(key) is not None:
+                metadata[key] = previous[key]
+    for tower_id in TOWER_IDS:
+        duplicate_texture = TARGET_DIR / f"{tower_id}.png"
+        if duplicate_texture.exists():
+            duplicate_texture.unlink()
+    metadata["tower_variants"] = build_tower_variants()
+    return metadata
+
+
 def import_meshes(path: Path) -> List[bpy.types.Object]:
     reset_scene()
     bpy.ops.import_scene.fbx(filepath=str(path), use_custom_normals=True)
@@ -1273,7 +1519,10 @@ def fbx_stats(path: Path) -> Dict[str, object]:
     }
 
 
-def generated_repro_signatures() -> Dict[str, object]:
+def generated_repro_signatures(
+    fbx_ids: Sequence[str] = GENERATED_FBX_IDS,
+    png_ids: Sequence[str] = GENERATED_PNG_IDS,
+) -> Dict[str, object]:
     """Return exporter-metadata-independent signatures for generated assets.
 
     Blender's binary FBX exporter writes volatile creation metadata, so two
@@ -1296,12 +1545,12 @@ def generated_repro_signatures() -> Dict[str, object]:
         "imported_transforms",
     )
     fbx = {}
-    for asset_id in GENERATED_FBX_IDS:
+    for asset_id in fbx_ids:
         stats = fbx_stats(TARGET_DIR / f"{asset_id}.fbx")
         fbx[asset_id] = {key: stats[key] for key in semantic_keys}
     png = {
         asset_id: sha256(TARGET_DIR / f"{asset_id}.png")
-        for asset_id in GENERATED_PNG_IDS
+        for asset_id in png_ids
     }
     return {"fbx_semantic": fbx, "png_sha256": png}
 
@@ -1446,8 +1695,11 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
                 errors.append(f"{tower_id}: UV layers {fbx['uv_layers']} != 1")
             if "Color" not in fbx["color_layers"]:
                 errors.append(f"{tower_id}: missing Color AO channel")
-            if not 1800 <= fbx["triangles"] <= 6200:
-                errors.append(f"{tower_id}: triangles {fbx['triangles']} outside 1800..6200")
+            # Lv1 is intentionally an efficient procedural timber frame; Lv2/3
+            # retain the denser AI stone core.  The upper ceiling remains the
+            # meaningful WebGL budget guard.
+            if not 200 <= fbx["triangles"] <= 6200:
+                errors.append(f"{tower_id}: triangles {fbx['triangles']} outside 200..6200")
             if abs(fbx["unity_logical_bounds_min"][1]) > 0.012:
                 errors.append(
                     f"{tower_id}: base is not grounded at Y=0 "
@@ -1465,11 +1717,18 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
                 "tower_type": tower_type,
                 "level": level,
                 "texture_id": TOWER_TEXTURE_ID,
-                "ai_base": "crossbow_tower",
+                "body_style": generated_meta.get(tower_id, {}).get(
+                    "body_style", TOWER_BODY_STYLE[level]
+                ),
+                "ai_base": generated_meta.get(tower_id, {}).get(
+                    "ai_base", "none" if level == 1 else "crossbow_tower_inner_keep"
+                ),
                 "head": (
                     generated_meta.get(tower_id, {}).get("head")
-                    or ("ai_crossbow" if tower_type == "crossbow" else f"procedural_{tower_type}")
+                    or f"procedural_{tower_type}"
                 ),
+                "authored_height": TOWER_AUTHORED_HEIGHT,
+                "runtime_scale": TOWER_RUNTIME_SCALE[level - 1],
                 "fbx": fbx,
             }
             tower_variants.append(item)
@@ -1480,18 +1739,41 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
         variants.sort(key=lambda item: item["level"])
         triangles = [item["fbx"]["triangles"] for item in variants]
         heights = [item["fbx"]["unity_logical_height"] for item in variants]
+        effective_heights = [
+            round(height * TOWER_RUNTIME_SCALE[index], 6)
+            for index, height in enumerate(heights)
+        ]
+        effective_ratios = [
+            round(effective_heights[index] / effective_heights[index - 1], 6)
+            for index in range(1, len(effective_heights))
+        ]
         triangle_pass = len(triangles) == 3 and triangles[0] < triangles[1] < triangles[2]
-        height_pass = len(heights) == 3 and heights[0] <= heights[1] <= heights[2]
+        height_pass = len(heights) == 3 and all(
+            abs(height - TOWER_AUTHORED_HEIGHT) <= 0.006 for height in heights
+        )
+        runtime_scale_pass = len(effective_ratios) == 2 and all(
+            abs(ratio - 1.2) <= 0.006 for ratio in effective_ratios
+        )
         if not triangle_pass:
             errors.append(f"tower_{tower_type}: level triangle complexity does not increase")
         if not height_pass:
-            errors.append(f"tower_{tower_type}: level height does not increase")
+            errors.append(
+                f"tower_{tower_type}: authored heights are not normalised to "
+                f"{TOWER_AUTHORED_HEIGHT}m"
+            )
+        if not runtime_scale_pass:
+            errors.append(f"tower_{tower_type}: runtime effective height is not +20% per level")
         level_progression[tower_type] = {
             "triangles": triangles,
             "heights": heights,
+            "body_styles": [item["body_style"] for item in variants],
+            "runtime_scales": list(TOWER_RUNTIME_SCALE),
+            "effective_heights": effective_heights,
+            "effective_height_ratios": effective_ratios,
             "triangle_complexity_increases": triangle_pass,
-            "height_non_decreasing": height_pass,
-            "passed": triangle_pass and height_pass,
+            "authored_height_normalized": height_pass,
+            "runtime_twenty_percent_steps": runtime_scale_pass,
+            "passed": triangle_pass and height_pass and runtime_scale_pass,
         }
 
     ally_cleanup = install_meta.get("ally_cleanup")
@@ -1545,7 +1827,12 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
             "soldier_texture_alpha": "data mask: 0=team tintable, 1=fixed authored colour; never opacity",
             "crown": f"separate opaque attachment, dominant gold {CROWN_GOLD}",
             "giant_glow": "separate crossed ribbons; transparent texture intended for additive unlit rendering, Cull Off, ZWrite Off",
-            "tower_variants": "tower_{crossbow,cannon,magic}_lv{1,2,3}; AI crossbow body, one mesh/material each",
+            "tower_variants": (
+                "tower_{crossbow,cannon,magic}_lv{1,2,3}; "
+                "Lv1 timber watchtower, Lv2 stone/blue-cloth keep, "
+                "Lv3 crenellated gold/rune fortress; one mesh/material each"
+            ),
+            "tower_runtime_scale": "authored height 2.10m; runtime 1.0/1.2/1.44 gives exact +20% steps",
             "tower_texture": f"all nine variants share {TOWER_TEXTURE_ID}.png; per-level PNG duplicates forbidden",
             "unity_meta": "not committed by unity-track contract; warm workspace generates/preserves .meta files",
         },
@@ -1719,8 +2006,13 @@ def write_report(report: Dict[str, object]) -> None:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
-    if args.verify_only and args.soldier_textures_only:
-        raise PipelineError("--verify-only and --soldier-textures-only are mutually exclusive")
+    selected_modes = sum(bool(value) for value in (
+        args.verify_only, args.soldier_textures_only, args.towers_only,
+    ))
+    if selected_modes > 1:
+        raise PipelineError(
+            "--verify-only, --soldier-textures-only and --towers-only are mutually exclusive"
+        )
     source_hashes = assert_inputs()
     install_meta: Dict[str, object] = {}
     if args.soldier_textures_only:
@@ -1792,25 +2084,33 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "passed": prior_checked and prior_png_identical and not soldier_changed,
         }
     elif not args.verify_only:
-        install_meta = install_assets()
+        regenerate = install_towers_only if args.towers_only else install_assets
+        reproducible_fbx_ids = TOWER_IDS if args.towers_only else GENERATED_FBX_IDS
+        reproducible_png_ids: Sequence[str] = () if args.towers_only else GENERATED_PNG_IDS
+        install_meta = regenerate()
         if args.determinism_check:
             first_hashes = target_binary_hashes()
-            first_signatures = generated_repro_signatures()
-            install_meta = install_assets()
+            first_signatures = generated_repro_signatures(
+                reproducible_fbx_ids, reproducible_png_ids
+            )
+            install_meta = regenerate()
             second_hashes = target_binary_hashes()
-            second_signatures = generated_repro_signatures()
+            second_signatures = generated_repro_signatures(
+                reproducible_fbx_ids, reproducible_png_ids
+            )
             fbx_byte_changed = sorted(
                 name for name in set(first_hashes) | set(second_hashes)
                 if name.endswith(".fbx")
+                and name.removesuffix(".fbx") in reproducible_fbx_ids
                 and first_hashes.get(name) != second_hashes.get(name)
             )
             semantic_changed = sorted(
-                asset_id for asset_id in GENERATED_FBX_IDS
+                asset_id for asset_id in reproducible_fbx_ids
                 if first_signatures["fbx_semantic"].get(asset_id)
                 != second_signatures["fbx_semantic"].get(asset_id)
             )
             png_changed = sorted(
-                asset_id for asset_id in GENERATED_PNG_IDS
+                asset_id for asset_id in reproducible_png_ids
                 if first_signatures["png_sha256"].get(asset_id)
                 != second_signatures["png_sha256"].get(asset_id)
             )
@@ -1818,10 +2118,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             install_meta["reproducibility"] = {
                 "checked": True,
                 "method": (
-                    "two consecutive Blender --background generations; fresh-import "
+                    "two consecutive Blender --background generations"
+                    + (" of the nine tower FBXs only" if args.towers_only else "")
+                    + "; fresh-import "
                     "FBX geometry/material/bounds/transforms plus generated PNG bytes"
                 ),
-                "generated_files": len(GENERATED_FBX_IDS) + len(GENERATED_PNG_IDS),
+                "scope": "tower_fbx_only" if args.towers_only else "all_generated_assets",
+                "generated_files": len(reproducible_fbx_ids) + len(reproducible_png_ids),
                 "fbx_semantic_identical": not semantic_changed,
                 "fbx_semantic_changed": semantic_changed,
                 "png_byte_identical": not png_changed,

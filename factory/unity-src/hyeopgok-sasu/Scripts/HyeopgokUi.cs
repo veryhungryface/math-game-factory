@@ -65,7 +65,7 @@ namespace Mgf.HyeopgokSasu
             var canvas=MgfText.Canvas;canvas.GetComponent<CanvasScaler>().matchWidthOrHeight=1;
             // Korean wraps between words (spaces), never inside a word such as 구|하시오.
             if(TMP_Settings.instance!=null)TMP_Settings.useModernHangulLineBreakingRules=true;
-            MgfText.Font.TryAddCharacters("∠△°²∥⊥∽≡×÷①②③확정돌아가면취소먼저밖으로나오기코인부족전투에서모으기모든사건한번더탭패드하세요잠깐처치지원군투자시간초과압박남음지켜라");
+            MgfText.Font.TryAddCharacters("∠△°²∥⊥∽≡×÷①②③확정돌아가면취소먼저밖으로나오기코인부족전투에서모으기모든사건한번더탭패드하세요잠깐처치지원군투자시간초과압박남음지켜라보스웨이브지역수복영구강화타워공격력흡수반경성문최대체력초원협곡사막강다리설원요새연사부채꼴폭발연쇄발광룬최고기록버틴문제도달맵첫시도정답률원정끝났습니다");
             titleRoot=Group("Title",canvas.transform);playRoot=Group("Battle HUD",canvas.transform);endRoot=Group("Results",canvas.transform);
             BuildTitleUi();
             hpPill=Pill("Gate health pill",playRoot,new Vector2(0,1),new Vector2(62,-28),new Vector2(108,42),navy);
@@ -147,15 +147,16 @@ namespace Mgf.HyeopgokSasu
             var resultCard=RoyalPanel("Victory royal frame",endRoot,new Vector2(.5f,.52f),Vector2.zero,new Vector2(354,370));
             // Keep the victory illustration in the star field so it never masks
             // the score/explanation copy on the narrow result card.
-            BuildKeepVignette(resultCard,new Vector2(.5f,.5f),new Vector2(0,65),.45f,true);
+            BuildKeepVignette(resultCard,new Vector2(.5f,.5f),new Vector2(0,88),.27f,true);
             var resultRibbon=Box("Victory gold ribbon",resultCard,new Vector2(.5f,1),new Vector2(0,-45),new Vector2(372,66),gold);
             BuildCrest(resultCard,new Vector2(.5f,1),new Vector2(0,34),.82f);
             endTitle=DisplayText("",resultRibbon,new Vector2(.5f,.5f),Vector2.zero,new Vector2(346,62),32,MgfLook.Hex("#49301c"));
-            resultStars=DisplayText("★ ★ ★",resultCard,new Vector2(.5f,.69f),Vector2.zero,new Vector2(280,56),44,gold);
+            resultStars=DisplayText("최고 기록",resultCard,new Vector2(.5f,.63f),Vector2.zero,new Vector2(300,38),24,gold);
             endDetail=Text("",resultCard,new Vector2(.5f,.43f),Vector2.zero,new Vector2(314,130),18,MgfLook.Hex("#49301c"));endDetail.fontSharedMaterial=RoundBodyMaterial;
             retryRect=GameButton("Retry",resultCard,new Vector2(.5f,.12f),Vector2.zero,new Vector2(260,62),MgfLook.Hex("#0c73d5"),MgfLook.Hex("#074f9c"));
             DisplayText("다시 출격",retryRect,new Vector2(.5f,.5f),new Vector2(0,2),new Vector2(242,50),27,Color.white);
             for(int i=0;i<resultCoins.Length;i++){resultCoins[i]=Group("Reward coin "+i,endRoot);resultCoins[i].SetSiblingIndex(1);resultCoins[i].anchorMin=resultCoins[i].anchorMax=new Vector2(.5f,.5f);resultCoins[i].sizeDelta=new Vector2(26,26);BuildCoinIcon(resultCoins[i],Vector2.zero,18+i%3*4);}
+            BuildV32Ui();
             playRoot.gameObject.SetActive(false);endRoot.gameObject.SetActive(false);LayoutUi();
         }
         void SetTitleInfo(string s){
@@ -205,6 +206,7 @@ namespace Mgf.HyeopgokSasu
             ApplyWorldViewport(height);
         }
         bool HandleBattleUiPointer(){
+            if(HandleV32BattleUiPointer())return true;
             if(!questionPanel||!Hit(questionPanel))return false;
             return true;
         }
@@ -256,11 +258,9 @@ namespace Mgf.HyeopgokSasu
             }
         }
         void RefreshHud(){
-            waveText.text=Rules.Wave+" / 10";
-            bool reachable=Rules.Correct+(10-Rules.Attempts)>=7;
-            coinsText.text="정답 "+Rules.Correct+"/7";
-            coinsText.color=reachable?gold:MgfLook.Hex("#ffb27c");
-            if(!reachable&&!Rules.Ended)hintText.text="이번 판은 버티기\n남은 문제로 성문을 지켜라";
+            waveText.text="S"+Rules.Stage+" · "+Rules.StageQuestion+"/10";
+            coinsText.text="정답 "+Rules.Correct;
+            coinsText.color=gold;
         }
         void UpdateBattleHud(){
             if(lastReds!=battle.Reds||lastBlues!=battle.Blues||lastKills!=battle.Kills){
@@ -319,10 +319,10 @@ namespace Mgf.HyeopgokSasu
         void ShowEnd(bool won,bool fallen){
             cam.rect=new Rect(0,0,1,1);
             endRoot.gameObject.SetActive(true);playRoot.gameObject.SetActive(false);resultStarted=Time.unscaledTime;for(int i=0;i<4;i++)padPaint[i].gameObject.SetActive(false);if(tutorialArrow)tutorialArrow.gameObject.SetActive(false);
-            endTitle.text=won?"협곡을 지켰다":fallen?"성문이 무너졌다":"버티기만 한 판";
-            int stars=won?(Rules.Correct>=9?3:Rules.Correct>=8?2:1):0;resultStars.text=stars==3?"★ ★ ★":stars==2?"★ ★ <color=#c9b99a>★</color>":stars==1?"★ <color=#c9b99a>★ ★</color>":"<color=#c9b99a>★ ★ ★</color>";
-            string next=won?"판단이 전선을 바꿨습니다.":Rules.Correct>=7?"정답 목표는 달성했습니다. 다음 판에는 성문까지 지켜 보세요.":"목표까지 정답 "+(7-Rules.Correct)+"개가 더 필요합니다.";
-            endDetail.text="첫 시도 정답  "+Rules.Correct+" / "+Rules.Attempts+"\n"+"점수  "+Rules.Score+"   ·   격파  "+battle.Kills+"\n\n"+next;
+            endTitle.text="성문이 무너졌다";
+            resultStars.text="최고 기록  "+v32BestQuestions+"문제";
+            int rate=Rules.Attempts<=0?0:Mathf.RoundToInt(Rules.Correct*100f/Rules.Attempts);
+            endDetail.text="버틴 문제  "+Rules.Attempts+"   ·   스테이지 "+Rules.Stage+"\n도달 맵  "+V32MapName(Rules.Map)+"   ·   격파 "+battle.Kills+"\n첫 시도 정답률  "+rate+"%\n\n성문 HP가 0이 되어 원정이 끝났습니다.";
         }
         void ResetTutorialProgress(){firstFractionTutorialShown=false;SetTutorial(0);}
         void SetTutorial(int kind){
@@ -354,6 +354,7 @@ namespace Mgf.HyeopgokSasu
         }
         void AnimateUi(float dt){
             AnimateTitleUi(dt);
+            AnimateV32Ui(dt);
             if(endRoot.gameObject.activeSelf)AnimateRewardCoins();
             if(!loaded)return;
             ctaRect.localScale=Vector3.Lerp(ctaRect.localScale,Vector3.one,dt*10);
@@ -364,7 +365,7 @@ namespace Mgf.HyeopgokSasu
             shownHp=Mathf.MoveTowards(shownHp,Rules.Hp,dt*70);
             int h=Mathf.RoundToInt(shownHp);
             if(h!=previousShownHp){hpText.SetText("성문 {0}",h);previousShownHp=h;}
-            hpFill.rectTransform.sizeDelta=new Vector2(80*shownHp/100,4);
+            hpFill.rectTransform.sizeDelta=new Vector2(80*shownHp/Mathf.Max(1,Rules.MaxHp),4);
             timeFill.rectTransform.sizeDelta=new Vector2((questionPanel.sizeDelta.x-28)*Mathf.Clamp01(1-Rules.Elapsed/Rules.TimeLimit),3);
             int clock=Mathf.CeilToInt(Mathf.Max(0,Rules.TimeLimit-Rules.Elapsed));
             if(clock!=lastClock){lastClock=clock;pressureText.fontSize=clock>=100?13:(float)Screen.width/Screen.height>1.2f?18:17;pressureText.SetText("{0}",clock);pressureText.color=clock<=8?MgfLook.Hex("#b94e34"):MgfLook.Hex("#49301c");}
@@ -505,7 +506,7 @@ namespace Mgf.HyeopgokSasu
             if(battle==null)return;RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
             bool suppressLabels=feedbackPanel.gameObject.activeSelf&&feedbackWasCorrect&&bonusLife>0;
             for(int i=0;i<HyeopgokBattle.TowerCount;i++){
-                int level=battle.TowerLevelAt(i);bool active=level>=0&&playStarted;
+                int level=battle.TowerLevelAt(i);bool active=level>=0&&playStarted&&v32Phase=="question";
                 if(upgradePadRoots[i])upgradePadRoots[i].gameObject.SetActive(active);
                 if(upgradeLabelRoots[i])upgradeLabelRoots[i].gameObject.SetActive(active&&!suppressLabels);
                 if(!active)continue;

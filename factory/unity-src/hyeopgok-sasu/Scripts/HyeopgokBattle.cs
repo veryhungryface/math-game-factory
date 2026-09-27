@@ -9,12 +9,14 @@ namespace Mgf.HyeopgokSasu
     /// corpses, bolts and impact chips. A lane queue is a cheap one-dimensional
     /// separation solver over an arc-length-sampled Catmull-Rom flow field.
     /// </summary>
-    public sealed class HyeopgokBattle : MonoBehaviour
+    public sealed partial class HyeopgokBattle : MonoBehaviour
     {
         public const float PressureGrace = 18f;
         public const float PressureInterval = 4f;
         public const int PressureDamage = 3;
-        const int RedCap = 600, BlueCap = 150, RedLanes = 8, BlueLanes = 4;
+        // 850 + 150 allies stays below Unity's 1,023-instance property-array
+        // ceiling while allowing the full x1.25 loop curve far beyond v3.1.
+        const int RedCap = 850, BlueCap = 150, RedLanes = 8, BlueLanes = 4;
         const int ParticleCap = 384, CorpseCap = 54, BoltCap = 56, PathSamples = 320;
         const int TroopKinds = 3, TroopCapacity = RedCap + BlueCap;
         // Wider queues and deterministic per-instance offsets break the solid army
@@ -54,6 +56,7 @@ namespace Mgf.HyeopgokSasu
         readonly Matrix4x4[] dustMatrices = new Matrix4x4[ParticleCap];
         readonly Matrix4x4[] boltMatrices = new Matrix4x4[BoltCap];
         readonly Matrix4x4[] trailMatrices = new Matrix4x4[BoltCap];
+        readonly Matrix4x4[] whiteTrailMatrices = new Matrix4x4[BoltCap];
         readonly Matrix4x4[] giantMatrices=new Matrix4x4[RedCap];
         readonly Matrix4x4[] bossMatrices=new Matrix4x4[4];
         readonly Matrix4x4[] whiteGiantMatrices=new Matrix4x4[CorpseCap];
@@ -90,7 +93,7 @@ namespace Mgf.HyeopgokSasu
         readonly Vector3[] towerPositions = {
             new Vector3(1.78f, 1.2f, -3.72f), new Vector3(1.82f, 1.2f, 4.62f),new Vector3(-3.14f,1.2f,-3.72f)
         };
-        readonly Vector3[] controls = {
+        readonly Vector3[] grassControls = {
             // Exact terrain control points from ArtSource/blender/build_models.py.
             new Vector3(4.3f,GroundY,9), new Vector3(4.3f,GroundY,5),
             new Vector3(4.15f,GroundY,1), new Vector3(3.7f,GroundY,-3.5f),
@@ -98,6 +101,7 @@ namespace Mgf.HyeopgokSasu
             new Vector3(-2.6f,GroundY,-6.6f), new Vector3(-4,GroundY,-4.8f),
             new Vector3(-4.1f,GroundY,-1)
         };
+        Vector3[] controls;
         static readonly float[] ContactSockets={-.90f,-.30f,.30f,.90f};
 
         struct Chip
@@ -118,6 +122,7 @@ namespace Mgf.HyeopgokSasu
             public Vector3 start, target, previous;
             public float age, duration;
             public bool heavy, hit;
+            public byte pattern, chain;
         }
 
         Camera renderCamera;
@@ -257,9 +262,11 @@ namespace Mgf.HyeopgokSasu
             trailMesh = MakeTrailMesh();
             impacts = new HyeopgokImpact(cam,shader);
             economy=new HyeopgokEconomyFx(cam,shader);
+            controls=grassControls;
             BuildPath();
             BuildTowers();
             BuildChest();
+            InitializeV32();
             initialized = true;
             ResetBattle(false);
         }
@@ -275,12 +282,12 @@ namespace Mgf.HyeopgokSasu
         {
             bool finalBoss=wave<10&&nextWave>=10;
             wave = Mathf.Clamp(nextWave, 1, 10);
-            int nextCount = Mathf.Min(RedCap, 400 + (wave - 1) * 22);
+            int nextCount = Mathf.Min(RedCap, Mathf.RoundToInt((400 + (wave - 1) * 22) * difficultyMultiplier));
             for (int i = redCount; i < nextCount; i++) {redS[i] = -.15f * (i - redCount + 1);redKinds[i]=KindFor(i);}
             redCount = nextCount;
             // The final-wave leader enters several ranks back, so it stays
             // readable through the answer reveal instead of dying in one tick.
-            if(finalBoss)redKinds[120]=4;
+            if(finalBoss&&redCount>120)redKinds[120]=3;
         }
 
         public void BeginQuestion(float seconds=24)
@@ -372,7 +379,7 @@ namespace Mgf.HyeopgokSasu
             impacts.Clear();
             economy.Clear();recycledKind=0;upgradeCount=0;upgradePad=-1;upgradeDwell=0;chestLife=0;lastChest=new HyeopgokChestReward{kind=HyeopgokRewardKind.None,towerSlot=-1};
             if(chestRoot)chestRoot.gameObject.SetActive(false);
-            front = 19.0f;
+            front = Mathf.Min(19.0f,pathLength-4.2f);
             laneCursor = 0;
             for (int i = 0; i < RedCap; i++) {redS[i] = front - .25f - (i / RedLanes) * RedSpacing - (i % RedLanes) * .018f;redKinds[i]=KindFor(i);redHitTimes[i]=-1000;}
             for (int i = 0; i < BlueCap; i++) {blueS[i] = front + .38f + (i / BlueLanes) * BlueSpacing + (i % BlueLanes) * .03f;blueKinds[i]=(byte)(i%TroopKinds);blueHitTimes[i]=-1000;}
@@ -383,6 +390,7 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<TowerCount;i++){towerRise[i]=1;towerDrop[i]=towerRecoil[i]=upgradeClock[i]=0;towerType[i]=i%3;towerLevel[i]=live?(i==1?0:-1):1;upgradeRemaining[i]=towerLevel[i]>=0&&towerLevel[i]<2?UpgradeCost(towerLevel[i]):0;ApplyTowerVisibility(i);}
             displayedReds = redCount;
             displayedBlues = blueCount;
+            if(showcaseMode&&showcaseRoot){redCount=blueCount=displayedReds=displayedBlues=0;}
         }
 
         void Update(){
@@ -393,6 +401,7 @@ namespace Mgf.HyeopgokSasu
         {
             if (!initialized) return;
             float realDt = Mathf.Min(Time.deltaTime, .04f);
+            UpdateV32Fx(realDt);
             visualHitStop = Mathf.Max(0,visualHitStop-realDt);
             impactCooldown = Mathf.Max(0,impactCooldown-realDt);
             shake = Mathf.MoveTowards(shake, 0, realDt * .6f);
@@ -400,7 +409,7 @@ namespace Mgf.HyeopgokSasu
             redMaterial.SetFloat("_Flash", flash * .14f);
             troopMaterial.SetFloat("_Flash",flash*.14f);
             hitStop -= realDt;
-            float dt = hitStop > 0 ? 0 : realDt;
+            float dt = hitStop > 0 ? 0 : V32SimulationDelta(realDt);
             clock += dt;
             if (playing && questionActive)
             {
@@ -421,7 +430,7 @@ namespace Mgf.HyeopgokSasu
             }
             boost = Mathf.Max(0, boost - dt);
             enrage = Mathf.Max(0, enrage - dt);
-            float drift = enrage > 0 ? .18f : boost > 0 ? -.10f : .028f + .003f * wave;
+            float drift = (enrage > 0 ? .18f : boost > 0 ? -.10f : .028f + .003f * wave)*difficultyMultiplier;
             if (!playing) drift = Mathf.Sin(clock * .24f) * .035f;
             front = Mathf.Clamp(front + drift * dt, 15.2f, pathLength - 3.5f);
             MoveSoldiers(dt);
@@ -451,8 +460,8 @@ namespace Mgf.HyeopgokSasu
             fireClock -= dt;
             if (fireClock <= 0)
             {
-                fireClock = boost > 0 ? .18f : .48f;
-                FireBolt(FirstInstalledTower(laneCursor), false, true);
+                fireClock = (boost > 0 ? .18f : .48f)/Mathf.Max(1,rules==null?1:rules.TowerDamageMultiplier);
+                FireV32TowerPattern(FirstInstalledTower(laneCursor));
             }
             if (volleys > 0)
             {
@@ -478,7 +487,7 @@ namespace Mgf.HyeopgokSasu
 
         void MoveSoldiers(float dt)
         {
-            float redSpeed = enrage > 0 ? 2.2f : .88f + wave * .032f;
+            float redSpeed = (enrage > 0 ? 2.2f : .88f + wave * .032f)*difficultyMultiplier;
             for (int i = 0; i < redCount; i++)
             {
                 // Each lane has its own ordered queue. Its leader is the collider at
@@ -532,7 +541,7 @@ namespace Mgf.HyeopgokSasu
             }
         }
 
-        void MarkHit(Vector3 position)
+        void MarkHit(Vector3 position,bool showEliteNumber=true)
         {
             // Only an impact writes this visual state; no HP, lane order or RNG
             // changes. Each soldier carries its own GPU flash timestamp.
@@ -553,9 +562,19 @@ namespace Mgf.HyeopgokSasu
             }
             for(int k=0;k<hitCandidates.Length;k++){
                 int i=hitCandidates[k];if(i<0)continue;
-                if(redKinds[i]>=3&&now-redHitTimes[i]>.35f){Vector3 p=PathPosition(redS[i],(i%RedLanes-3.5f)*.245f,out _);impacts.DamageNumber(p+Vector3.up*(redKinds[i]==4?1.9f:1.25f),true);}
+                if(showEliteNumber&&redKinds[i]>=3&&now-redHitTimes[i]>.35f){Vector3 p=PathPosition(redS[i],(i%RedLanes-3.5f)*.245f,out _);impacts.DamageNumber(p+Vector3.up*(redKinds[i]==4?1.9f:1.25f),true);}
                 redHitTimes[i]=now;
             }
+        }
+
+        bool KillRedWithDamage(int lane,float force,bool heavy)
+        {
+            if(lane>=redCount||redS[lane]<0)return false;
+            Vector3 direction;
+            Vector3 pos=PathPosition(redS[lane],(lane-3.5f)*.245f,out direction);
+            impacts.DamageNumberPerTarget(pos+Vector3.up*(redKinds[lane]>=3?1.25f:.52f),heavy);
+            KillRed(lane,force);
+            return true;
         }
 
         void AddCorpse(Vector3 position, Vector3 velocity, bool blue, float yaw,byte kind=0)
@@ -586,22 +605,22 @@ namespace Mgf.HyeopgokSasu
             }
         }
 
-        void FireBolt(int tower, bool heavy, bool hit)
+        void FireBolt(int tower, bool heavy, bool hit,float lateralOffset=0,byte pattern=0,byte chain=0)
         {
             if(tower<0||tower>=TowerCount||towerLevel[tower]<0)return;
             int slot = boltCursor++ % BoltCap;
             Vector3 start = towerPositions[tower] + Vector3.up * 2.20f;
-            Vector3 target = PathPosition(front - Range(.1f,2.0f), Range(-.9f,.9f), out _);
+            Vector3 target = PathPosition(front - Range(.1f,2.0f), Mathf.Clamp(Range(-.9f,.9f)+lateralOffset,-2.1f,2.1f), out _);
             if (!hit) target += new Vector3(tower%2 == 0 ? -2.15f : 2.15f, 0, 0);
             target.y += .3f;
             bolts[slot] = new Bolt { start = start, target = target, previous = start, age = 0,
-                duration = Vector3.Distance(start,target) / (heavy ? 24f : 19f), heavy = heavy, hit = hit };
+                duration = Vector3.Distance(start,target) / (heavy ? 24f : pattern==2?27f:19f), heavy = heavy, hit = hit,pattern=pattern,chain=chain };
             towerRecoil[tower] = .13f;
         }
 
         void UpdateBolts(float dt)
         {
-            int count = 0;
+            int count = 0,whiteTrailCount=0,coloredTrailCount=0;
             for (int i = 0; i < BoltCap; i++)
             {
                 Bolt b = bolts[i];
@@ -613,7 +632,8 @@ namespace Mgf.HyeopgokSasu
                 Quaternion rot = Quaternion.LookRotation(direction);
                 float tail = Mathf.Min(b.heavy ? 2.0f : 1.65f,Vector3.Distance(b.start,position));
                 boltMatrices[count] = Matrix4x4.TRS(position,rot,new Vector3(.080f,.080f,.66f));
-                trailMatrices[count] = Matrix4x4.TRS(position-direction*(tail*.5f),rot,new Vector3(b.heavy?.095f:.074f,b.heavy?.095f:.074f,tail));
+                Matrix4x4 trail=Matrix4x4.TRS(position-direction*(tail*.5f),rot,new Vector3(b.heavy?.095f:.074f,b.heavy?.095f:.074f,tail));
+                if(b.pattern==0)whiteTrailMatrices[whiteTrailCount++]=trail;else trailMatrices[coloredTrailCount++]=trail;
                 count++;
                 if (p >= 1)
                 {
@@ -621,11 +641,18 @@ namespace Mgf.HyeopgokSasu
                     if (b.hit)
                     {
                         impacts.Contact(b.target,b.heavy);
-                        MarkHit(b.target);
-                        if(b.heavy)impacts.Explosion(b.target);
-                        else if(i%3==0)impacts.DamageNumber(b.target,false);
-                        KillRed((i+laneCursor)%RedLanes,b.heavy ? 1.7f : 1f);
-                        if (b.heavy) KillRed((i+laneCursor+3)%RedLanes,1.5f);
+                        MarkHit(b.target,false);
+                        if(b.heavy||b.pattern==1)impacts.Explosion(b.target,false);
+                        bool largeNumber=b.heavy||b.pattern==2;
+                        KillRedWithDamage((i+laneCursor)%RedLanes,b.heavy ? 1.7f : 1f,largeNumber);
+                        // Cannon levels own the area/chain kills. Crossbow and
+                        // magic levels express their hit counts as separate visible
+                        // projectiles, so they never multiply damage invisibly.
+                        if(b.pattern==1&&b.chain>=1)KillRedWithDamage((i+laneCursor+3)%RedLanes,1.5f,true);
+                        if(b.pattern==1&&b.chain>=2){
+                            KillRedWithDamage((i+laneCursor+5)%RedLanes,1.35f,true);
+                            impacts.Explosion(b.target+new Vector3(.68f,.05f,.42f),false);
+                        }
                     }
                     b.duration = 0;
                 }
@@ -633,7 +660,8 @@ namespace Mgf.HyeopgokSasu
                 bolts[i] = b;
             }
             Draw(boltMesh,goldMaterial,boltMatrices,count);
-            Draw(trailMesh,boltTrailMaterial,trailMatrices,count);
+            Draw(trailMesh,whiteMaterial,whiteTrailMatrices,whiteTrailCount);
+            Draw(trailMesh,boltTrailMaterial,trailMatrices,coloredTrailCount);
         }
 
         void UpdateParticles(float dt)
@@ -673,11 +701,13 @@ namespace Mgf.HyeopgokSasu
             }
         }
 
-        static byte KindFor(int i)
+        byte KindFor(int i)
         {
             // Three readable regular silhouettes dominate the line. Giants stay
-            // sparse; the final boss is assigned explicitly in SetStage.
-            return i%112==55?(byte)3:(byte)(i%TroopKinds);
+            // sparse; each endless-loop multiplier shortens their interval by the
+            // same factor, while the final boss is assigned explicitly.
+            int giantInterval=Mathf.Max(1,Mathf.RoundToInt(112f/Mathf.Max(1f,difficultyMultiplier)));
+            return i%giantInterval==giantInterval/2?(byte)3:(byte)(i%TroopKinds);
         }
 
         void RenderSoldiers()
@@ -872,8 +902,10 @@ namespace Mgf.HyeopgokSasu
             {
                 float blend = Mathf.Clamp01(distance/3);
                 float branch = lateral < 0 ? -1.0f : .9f;
-                Vector3 p = new Vector3(Mathf.Lerp(4.3f+branch,4.3f,blend),GroundY,9-distance);
-                forward = new Vector3(-branch/3,0,-1).normalized;
+                Vector3 start=controls[0],toward=(controls[1]-controls[0]).normalized;
+                Vector3 side=new Vector3(-toward.z,0,toward.x);
+                Vector3 p=start+toward*distance+side*(branch*(1-blend));
+                forward = toward;
                 return p + new Vector3(-forward.z,0,forward.x) * lateral * .7f;
             }
             int lo = 0, hi=PathSamples-1;
@@ -884,7 +916,11 @@ namespace Mgf.HyeopgokSasu
             }
             float amount = Mathf.Clamp01((distance-distances[lo])/Mathf.Max(.0001f,distances[hi]-distances[lo]));
             forward=(path[hi]-path[lo]).normalized;
-            return Vector3.LerpUnclamped(path[lo],path[hi],amount)+new Vector3(-forward.z,0,forward.x)*lateral;
+            Vector3 right=new Vector3(-forward.z,0,forward.x);
+            Vector3 result=Vector3.LerpUnclamped(path[lo],path[hi],amount)+right*lateral;
+            // Snow approaches from two readable lanes and merges before the keep.
+            if(mapIndex==2&&Mathf.Abs(lateral)>.05f){float merge=1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(pathLength*.28f,pathLength*.68f,distance));result+=right*Mathf.Sign(lateral)*1.45f*merge;}
+            return result;
         }
 
         void BuildChest(){
@@ -952,6 +988,11 @@ namespace Mgf.HyeopgokSasu
         }
         public bool TickUpgrade(Vector3 king,Vector3 target,float dt){
             int previous=upgradePad;int at=UpgradePadAt(king),destination=UpgradePadAt(target);bool stopped=(king-target).sqrMagnitude<.012f;
+            if(upgradeRequiresExit){
+                if(at<0||destination<0||!stopped)upgradeRequiresExit=false;
+                else{upgradePad=-1;upgradeDwell=0;return previous>=0;}
+            }
+            if(upgradeSequenceLeft>0){upgradePad=-1;upgradeDwell=0;return previous>=0;}
             upgradePad=at>=0&&at==destination&&stopped&&towerLevel[at]>=0&&towerLevel[at]<2?at:-1;
             if(upgradePad<0){if(previous>=0)upgradeClock[previous]=0;upgradeDwell=0;return previous!=upgradePad;}
             int slot=upgradePad;
@@ -963,8 +1004,9 @@ namespace Mgf.HyeopgokSasu
             upgradeClock[slot]-=dt;
             if(upgradeClock[slot]<=0&&rules!=null&&rules.SpendUpgradeCoin()){
                 upgradeClock[slot]=.105f;economy.Pour(UpgradePads[slot]);upgradeRemaining[slot]=Mathf.Max(0,upgradeRemaining[slot]-1);
+                PlayUpgradeCoinPitch(slot);
                 towerRecoil[slot]=.08f;
-                if(upgradeRemaining[slot]==0){towerLevel[slot]++;upgradeCount++;upgradeRemaining[slot]=UpgradeCost(towerLevel[slot]);towerRise[slot]=.001f;ApplyTowerVisibility(slot);Burst(towerPositions[slot]+Vector3.up*.5f,42,3.2f);MgfSfx.Play("correct",.25f);}
+                if(upgradeRemaining[slot]==0){int oldLevel=towerLevel[slot];towerLevel[slot]++;upgradeCount++;upgradeRemaining[slot]=UpgradeCost(towerLevel[slot]);towerRise[slot]=.001f;ApplyTowerVisibility(slot);StartUpgradeSequence(slot,oldLevel,towerLevel[slot]);}
                 return true;
             }
             return previous!=upgradePad;
@@ -981,14 +1023,28 @@ namespace Mgf.HyeopgokSasu
                 float t=towerRise[i],eased=1-Mathf.Pow(1-t,3);
                 towerDrop[i]=Mathf.MoveTowards(towerDrop[i],0,dt*7.2f);
                 towers[i].position=towerPositions[i]+Vector3.up*((eased-1)*1.8f+towerDrop[i]);
-                towers[i].localScale=new Vector3(1,towerLevel[i]<0?.16f:1+Mathf.Sin(t*Mathf.PI)*.12f-towerRecoil[i]*.16f,1);
+                float authored=towerLevel[i]<0?1:V32TowerScale(i);float squash=towerLevel[i]<0?.16f:1+Mathf.Sin(t*Mathf.PI)*.12f-towerRecoil[i]*.16f;
+                towers[i].localScale=new Vector3(authored,authored*squash,authored);
                 for(int type=0;type<3;type++)for(int level=0;level<3;level++)
                 {
                     GameObject stage=towerStages[i,type,level];if(!stage)continue;
                     bool active=towerLevel[i]>=0&&type==towerType[i]&&level==towerLevel[i];if(stage.activeSelf!=active)stage.SetActive(active);
                     if(active&&towerRenderers[i,type,level])
                     {
-                        towerProperties.SetFloat("_Flash",Mathf.Clamp01((1-t)*2.4f));
+                        float sequence=i==upgradeSequenceSlot&&upgradeSequenceLeft>0?UpgradeSequenceProgress:1;
+                        bool sequencing=i==upgradeSequenceSlot&&upgradeSequenceLeft>0;
+                        towerProperties.SetFloat("_Blueprint",sequencing&&sequence>=.09f&&sequence<.32f?1:0);
+                        float fill=sequence<=.09f?0:Mathf.Clamp01((sequence-.09f)/.23f);
+                        Bounds bounds=towerRenderers[i,type,level].bounds;
+                        towerProperties.SetFloat("_BlueprintFill",fill);
+                        towerProperties.SetFloat("_BlueprintBase",bounds.min.y-.03f);
+                        towerProperties.SetFloat("_BlueprintTop",bounds.max.y+.03f);
+                        // Do not bleach the cyan blueprint into an opaque white
+                        // blob. Two short flashes bookend it; the normal tower-rise
+                        // flash remains unchanged outside the v3.2 sequence.
+                        float sequenceFlash=sequence<.09f ? .72f :
+                            sequence>=.32f&&sequence<.40f ? Mathf.Lerp(.58f,0,(sequence-.32f)/.08f) : 0;
+                        towerProperties.SetFloat("_Flash",sequencing?sequenceFlash:Mathf.Clamp01((1-t)*2.4f));
                         towerRenderers[i,type,level].SetPropertyBlock(towerProperties);
                     }
                 }
@@ -998,6 +1054,7 @@ namespace Mgf.HyeopgokSasu
                     Vector3 direction=frontPosition-towerBows[i].position;direction.y=0;
                     if(direction.sqrMagnitude>.001f)towerBows[i].rotation=Quaternion.LookRotation(direction)*Quaternion.Euler(-towerRecoil[i]*35,0,0);
                 }
+                if(maxCrowns[i])maxCrowns[i].gameObject.SetActive(towerLevel[i]>=2);
             }
         }
 
@@ -1129,6 +1186,7 @@ namespace Mgf.HyeopgokSasu
             if(troopMaterial)Destroy(troopMaterial);if(allyTroopMaterial)Destroy(allyTroopMaterial);if(giantMaterial)Destroy(giantMaterial);if(giantGlowMaterial)Destroy(giantGlowMaterial);
             for(int type=0;type<3;type++)for(int level=0;level<3;level++)if(towerMaterials[type,level])Destroy(towerMaterials[type,level]);
             if(chestWoodMaterial)Destroy(chestWoodMaterial);if(chestGoldMaterial)Destroy(chestGoldMaterial);
+            if(upgradeCoinClip)Destroy(upgradeCoinClip);if(v32GoldLine)Destroy(v32GoldLine);
         }
     }
 }
