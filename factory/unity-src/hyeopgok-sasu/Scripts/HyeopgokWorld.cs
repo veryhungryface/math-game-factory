@@ -16,7 +16,7 @@ namespace Mgf.HyeopgokSasu
             var sun=MgfLook.Sun(new Vector3(51,-38,0),MgfLook.Hex("#fff1df"),1.16f,.62f);environmentSun=sun;
             sun.shadowBias=.025f;sun.shadowNormalBias=.18f;
             RenderSettings.ambientIntensity=.78f;
-            cam=MgfLook.Camera(new Vector3(.5f,27.5f,-17.6f),new Vector3(.5f,0,2.4f),33);cam.orthographic=false;cam.nearClipPlane=.2f;cam.farClipPlane=160;
+            cam=MgfLook.Camera(new Vector3(.5f,25.3f,-19.8f),new Vector3(.5f,0,2.4f),33);cam.orthographic=false;cam.nearClipPlane=.2f;cam.farClipPlane=160;
             cameraBase=cam.transform.position;cameraRot=cam.transform.rotation;
             worldMat=new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Horde"));worldMat.SetColor("_Color",Color.white);worldMat.enableInstancing=true;
             sceneryRoot=new GameObject("Static scenery").transform;
@@ -54,9 +54,10 @@ namespace Mgf.HyeopgokSasu
             }
             BuildSceneryContactShadows();
             CombineScenery();
-            var padStrokes=new DecorationMesh();
+
             Material padStone=MgfLook.Lit(MgfLook.Hex("#125f4c"));
             for(int i=0;i<4;i++){
+                var padStrokes=new DecorationMesh();
                 var root=new GameObject("Answer pad "+(i+1));root.transform.position=HyeopgokRules.Pads[i];padRoots[i]=root.transform;
                 MgfLook.Prim(PrimitiveType.Cube,"Green stone",new Vector3(0,-.025f,0),new Vector3(1.7f,.045f,1.65f),padStone,root.transform,false);
                 // One shared mesh replaces 64 independent LineRenderer draw calls.
@@ -67,8 +68,13 @@ namespace Mgf.HyeopgokSasu
                 Vector3 p=HyeopgokRules.Pads[i]+Vector3.up*.06f;
                 cracks[i].SetPositions(new[]{p+new Vector3(-.84f,0,.6f),p+new Vector3(-.3f,0,.12f),p+new Vector3(.1f,0,.28f),p+new Vector3(-.1f,0,-.25f),p+new Vector3(.65f,0,-.84f)});
                 cracks[i].gameObject.SetActive(false);
+                var chalk=CreateDecoration("Answer pad chalk "+i,padStrokes,MgfLook.Unlit(MgfLook.Hex("#faf8e8")),false);
+                chalk.transform.SetParent(root.transform,true);
             }
-            CreateDecoration("Answer pad chalk dashes",padStrokes,MgfLook.Unlit(MgfLook.Hex("#faf8e8")),false);
+
+        }
+        void SetPadVisibility(){
+            for(int i=0;i<4;i++){bool active=i<Rules.PadCount;padRoots[i].gameObject.SetActive(active);padFill[i].gameObject.SetActive(active);if(!active)cracks[i].gameObject.SetActive(false);}
         }
         static readonly Vector2[] WestMesa={new Vector2(-10,4),new Vector2(-5.7f,4),new Vector2(-5.65f,5.25f),new Vector2(-3.5f,7),new Vector2(-.5f,9),new Vector2(-1,14),new Vector2(-10,14)};
         static readonly Vector2[] EastMesa={new Vector2(7.1f,5),new Vector2(9,5),new Vector2(13,9),new Vector2(13,16),new Vector2(6.9f,16)};

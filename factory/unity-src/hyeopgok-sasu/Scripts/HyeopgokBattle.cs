@@ -99,10 +99,14 @@ namespace Mgf.HyeopgokSasu
         float visualHitStop, impactCooldown;
         int cachedRedDraws, cachedBlueDraws, cachedShadowDraws;
         int recycledKind,upgradeCount;
+        float questionGrace=PressureGrace;
+        public float QuestionGrace=>questionGrace;
         bool initialized, playing, questionActive;
         uint randomState = 0x5e3a07c1u;
 
         public int Kills { get { return killCount; } }
+        public int BuiltTowers=>(towerLevel[0]>=0?1:0)+(towerLevel[1]>=0?1:0);
+        public int UpgradeLevel=>upgradeCount;
         public int Reds { get { return displayedReds; } }
         public int Blues { get { return displayedBlues; } }
         public float Shake { get { return shake; } }
@@ -110,6 +114,17 @@ namespace Mgf.HyeopgokSasu
         public int DepositRemaining { get { return economy==null?0:economy.Remaining; } }
         public bool Depositing { get { return economy!=null&&economy.Depositing; } }
         public void SetKing(Transform king){if(economy!=null)economy.SetKing(king);}
+        public void SetEconomyRules(HyeopgokRules rules){economy.SetRules(rules);}
+        public void PourCoin(int pad){economy.Pour(HyeopgokRules.Pads[pad]);}
+        // Synchronous QA command uses actual kills, grounded coins and their pickup
+        // trajectory. It never assigns a wallet or calls answer adjudication.
+        public void SimulateEarnedCoins(int needed){
+            for(int tick=0;tick<400&&Coins<needed;tick++){
+                MoveSoldiers(.12f);
+                if(tick%2==0)KillRed((tick/2)%RedLanes,.8f);
+                economy.Simulate(.12f);
+            }
+        }
         public void EmitFire(Vector3 position,float intensity){if(impacts!=null)impacts.Fire(position,intensity);}
 
         public void Init(Camera cam)
@@ -162,13 +177,14 @@ namespace Mgf.HyeopgokSasu
             if(finalBoss)redKinds[120]=3;
         }
 
-        public void BeginQuestion()
+        public void BeginQuestion(float seconds=24)
         {
             sinceAnswer = pressureClock = 0;
+            questionGrace=Mathf.Max(PressureGrace,seconds-14);
             questionActive = playing;
         }
 
-        public void Reward(int padIndex, Vector3 pos, int hits, int trials)
+        public void Reward(int padIndex, Vector3 pos, int hits, int trials,int invested=0)
         {
             if (!initialized) return;
             questionActive = false;
@@ -176,19 +192,19 @@ namespace Mgf.HyeopgokSasu
             boost = 4.3f;
             hitStop = .05f;
             flash = 1;
-            int tower = Mathf.Abs(padIndex) % 2;
+            int tower = towerLevel[0]<0?0:Mathf.Abs(padIndex)%2;
             towerRise[tower] = .001f;
             towerRecoil[tower] = .25f;
-            upgradeCount++;
+            upgradeCount+=1+Mathf.Min(2,invested/20);
             towerLevel[tower]=Mathf.Min(2,(upgradeCount+1)/3);
-            economy.Deposit(pos);
+
             volleyTrials = Mathf.Clamp(trials, 1, 225);
             volleyHits = Mathf.Clamp(hits, 0, volleyTrials);
             volleyFired = 0;
             volleys = volleyTrials;
             salvoSpacing = Mathf.Clamp(2.8f / volleyTrials, .018f, .12f);
             salvoClock = 0;
-            int added = Mathf.Min(8 + Mathf.RoundToInt(16f * volleyHits / volleyTrials), BlueCap - blueCount);
+            int added = Mathf.Min(8 + Mathf.Min(28,invested) + Mathf.RoundToInt(16f * volleyHits / volleyTrials), BlueCap - blueCount);
             for (int i = blueCount; i < blueCount + added; i++)
                 blueS[i] = pathLength + (i - blueCount) * .10f;
             blueCount += added;
@@ -242,7 +258,7 @@ namespace Mgf.HyeopgokSasu
             // Both pre-existing towers visibly operate in the title battle.
             towerRise[0] = towerRise[1] = 1;
             towerRecoil[0] = towerRecoil[1] = 0;
-            towerLevel[0]=towerLevel[1]=live?0:1;
+            towerLevel[0]=live?-1:1;towerLevel[1]=live?0:1;
             displayedReds = redCount;
             displayedBlues = blueCount;
         }
@@ -264,7 +280,7 @@ namespace Mgf.HyeopgokSasu
                 sinceAnswer += dt;
                 // The HUD exposes the same grace, cadence and damage. One thoughtful
                 // 20-second solve takes no damage; pressure starts at 22 seconds.
-                if (sinceAnswer > PressureGrace)
+                if (sinceAnswer > questionGrace)
                 {
                     pressureClock += dt;
                     if (pressureClock >= PressureInterval)
@@ -298,7 +314,7 @@ namespace Mgf.HyeopgokSasu
             if (fireClock <= 0)
             {
                 fireClock = boost > 0 ? .18f : .48f;
-                FireBolt(laneCursor % 2, false, true);
+                FireBolt(towerLevel[0]<0?1:laneCursor%2, false, true);
             }
             if (volleys > 0)
             {
@@ -561,7 +577,7 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<2;i++)
             {
                 float yaw=Mathf.Atan2(FrontPosition().x-towerPositions[i].x,FrontPosition().z-towerPositions[i].z)*Mathf.Rad2Deg;
-                allyArcherMatrices[i]=Matrix4x4.TRS(towerPositions[i]+new Vector3(-.34f,1.80f,.03f),Quaternion.Euler(towerRecoil[i]*50,yaw,0),Vector3.one*.8f);
+                allyArcherMatrices[i]=Matrix4x4.TRS(towerPositions[i]+new Vector3(-.34f,1.80f,.03f),Quaternion.Euler(towerRecoil[i]*50,yaw,0),Vector3.one*(towerLevel[i]<0?0:.8f));
             }
             Draw(shadowMesh,shadowMaterial,shadowMatrices,ns);
             Draw(soldierMesh,redMaterial,redMatrices,nr);Draw(blueSoldierMesh,blueMaterial,blueMatrices,nb);
@@ -658,19 +674,20 @@ namespace Mgf.HyeopgokSasu
                 towerRecoil[i]=Mathf.Max(0,towerRecoil[i]-dt);
                 float t=towerRise[i],eased=1-Mathf.Pow(1-t,3);
                 towers[i].position=towerPositions[i]+Vector3.up*((eased-1)*1.8f);
-                towers[i].localScale=new Vector3(1,1+Mathf.Sin(t*Mathf.PI)*.12f-towerRecoil[i]*.16f,1);
+                towers[i].localScale=new Vector3(1,towerLevel[i]<0?.16f:1+Mathf.Sin(t*Mathf.PI)*.12f-towerRecoil[i]*.16f,1);
                 for(int level=0;level<3;level++)
                 {
                     GameObject stage=towerStages[i,level];if(!stage)continue;
-                    bool active=level==towerLevel[i];if(stage.activeSelf!=active)stage.SetActive(active);
+                    bool active=level==Mathf.Max(0,towerLevel[i]);if(stage.activeSelf!=active)stage.SetActive(active);
                     if(active&&towerRenderers[i,level])
                     {
-                        towerProperties.SetFloat("_Flash",Mathf.Clamp01((1-t)*2.4f));
+                        towerProperties.SetFloat("_Flash",towerLevel[i]<0?.7f:Mathf.Clamp01((1-t)*2.4f));
                         towerRenderers[i,level].SetPropertyBlock(towerProperties);
                     }
                 }
                 if(towerBows[i])
                 {
+                    towerBows[i].gameObject.SetActive(towerLevel[i]>=0);
                     Vector3 direction=frontPosition-towerBows[i].position;direction.y=0;
                     if(direction.sqrMagnitude>.001f)towerBows[i].rotation=Quaternion.LookRotation(direction)*Quaternion.Euler(-towerRecoil[i]*35,0,0);
                 }

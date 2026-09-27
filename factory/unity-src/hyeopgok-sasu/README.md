@@ -1,12 +1,16 @@
 # 협곡 사수
 
-사용자 직접 지시로 만든 중2 수학 협곡 디펜스. 정본 명세는 `ArtSource/DESIGN.md`이며, 현재는 게시작의 **v2 비주얼·요소 1단계 로컬 수정본**이다. 범위·검증·남은 차이는 `ArtSource/phase1-notes.md`에 있다. `meta.qa`는 요청대로 미심사 상태를 유지한다. push·배포하지 않았다.
+사용자 직접 지시로 만든 중2 수학 협곡 디펜스. 2단계 정본 명세는 `ArtSource/DESIGN-PHASE2.md`이며, 현재는 **v2 코인 경제 = 수학 입력 로컬 수정본**이다. 1단계 이력은 `ArtSource/phase1-notes.md`, 이번 범위·검증 상태는 `ArtSource/phase2-notes.md`에 있다. `meta.qa`는 요청대로 미심사 상태를 유지한다. push·배포하지 않았다.
 
 ## 플레이
 
-타이틀 뒤에서 전투가 시작된다. `출격`을 누르면 왕을 끌어 지상 답 패드로 이동할 수 있다. 패드 위에서 0.8초 정지해야 답이 확정되며, 그 전에 떠나면 취소된다. 정답은 석궁 건설·지원군·화살비, 오답은 균열·성문 피해·적의 돌진으로 이어진다. 성문 HP가 0이면 종료한다. 10문항을 버티고 첫 시도 정답이 7개 이상이어야 승리한다.
+타이틀 뒤에서 전투가 시작된다. `출격` 후 왕을 끌어 이동하고, 처치 코인을 가까이에서 모아 등에 쌓는다. `amount` 문항은 패드에 부은 코인 수가 답이다. 서 있으면 한 닢씩 붓고, 오래 서면 가속하며, 짧게 탭하면 한 닢만 붓는다. 패드에서 걸어 나온 뒤 0.6초 확인 링이 차면 확정된다. 링이 끝나기 전에 패드로 돌아오면 더 부을 수 있으나 덜어 낼 수는 없다.
 
-현재 확률은 444문항, 경우의 수는 400문항이다. 타이틀 팩 선택 또는 `?pack=m2s2-u6`으로 바꾼다. 새 JSON 팩 추가 방법은 `public/g/hyeopgok-sasu/packs/README.md`에 있다. 팩은 Unity 빌드에 포함되지 않으며 부팅 시 상대경로로 읽는다. 난도에 따라 제한 시간은 24·32·40초이며, 시간 초과는 오답이다. 코인 줍기·등 스택·패드 붓기는 시각 재화 연출이고 수학 답 판정은 기존 패드 선택을 유지한다.
+`fraction_parts`는 팩 라벨에 맞춰 두 패드에 각각 양을 붓는다. 확률 팩의 기본 라벨은 「모든 경우의 수」「사건이 일어나는 경우의 수」이며 확정 때 세로 분수로 조립된다. `exact_parts`는 센 수 그대로, `equivalent`는 정수 교차곱으로 값만, `reduced`는 값과 기약 여부를 판정한다. `choice` 문항과 `answer_mode`가 없는 v1 팩만 기존 지상 보기 패드의 0.8초 정지를 사용한다.
+
+정답이면 부은 코인이 건물 투자·출격으로 이어지고, 오답이면 부은 코인이 사라지며 정답과 풀이를 보여 준다. 코인이 부족하면 전투에서 더 모은다. 성문 HP 0이면 종료하며, 10문항 중 첫 시도 정답 7개 이상이어야 승리한다. 첫 문항은 작은 `amount`다. 제한 시간은 문항의 모드와 난도에 따라 달라지며 화면에 남은 시간이 표시된다.
+
+타이틀 팩 선택 또는 `?pack=m2s2-u6`으로 팩을 바꾼다. 팩은 Unity 빌드에 포함되지 않으며 부팅 시 상대경로로 읽는다. 세 가지 답 모드와 다른 학년·단원의 작성 예시는 `public/g/hyeopgok-sasu/packs/README.md`, 생성기·전수 검증기는 `ArtSource/packs/`에 있다. 현재 844문항으로, 경우의 수는 `amount` 400문항, 확률은 `amount` 21 / `fraction_parts` 407 / `choice` 16문항이다. 전수 검증과 입력 봇 결과는 `ArtSource/phase2-notes.md`와 해당 원시 JSON에서 확인한다.
 
 ## 재현
 
@@ -25,13 +29,13 @@ QA의 출력 위치를 게임 소스 안으로 지정해 `factory/work/`를 건�
 
 ```bash
 export PUPPETEER_EXECUTABLE_PATH="$HOME/.cache/puppeteer/chrome/mac_arm-151.0.7922.47/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
-node factory/lib/qa.mjs hyeopgok-sasu --out factory/unity-src/hyeopgok-sasu/ArtSource/validation/qa
-node factory/unity-src/hyeopgok-sasu/ArtSource/validation/capture.mjs
-node factory/unity-src/hyeopgok-sasu/ArtSource/validation/playthrough.mjs
-node factory/unity-src/hyeopgok-sasu/ArtSource/validation/pack-swap.mjs
+node factory/unity-src/hyeopgok-sasu/ArtSource/packs/verify-schema.mjs
+node factory/lib/qa.mjs hyeopgok-sasu --out factory/unity-src/hyeopgok-sasu/ArtSource/validation/phase2/qa
+node factory/unity-src/hyeopgok-sasu/ArtSource/validation/phase2/capture.mjs
+node factory/unity-src/hyeopgok-sasu/ArtSource/validation/phase2/summarize.mjs
 ```
 
-현재 1단계의 전후·레퍼런스 비교와 실제 렌더 표지는 다음 명령으로 재현한다. 위 팩 생성 명령은 팩을 다시 만들 때만 사용한다. 비주얼 수정에서 팩을 재생성하지 않는다.
+과거 1단계의 전후·레퍼런스 비교와 실제 렌더 표지는 다음 명령으로 재현한다. 위 팩 생성 명령은 팩을 다시 만들 때만 사용한다. 비주얼 수정에서 팩을 재생성하지 않는다.
 
 ```bash
 node factory/unity-src/hyeopgok-sasu/ArtSource/validation/phase1/capture.mjs final
@@ -42,17 +46,19 @@ node factory/lib/qa.mjs hyeopgok-sasu --out factory/unity-src/hyeopgok-sasu/ArtS
 `phase1/provenance.json`에는 표지에 사용한 원본 캡처와 해시를 남긴다.
 합성 스크립트는 `phase1/`에 표지와 `compare.png`를 만든다. `--install-public`은 공개 게임 폴더의 표지만 교체하며 배포하지 않는다.
 
-봇은 같은 `HyeopgokRules.Move`·`Tick`으로 왕 이동과 정지를 실행한다. 고정 시드, 원시 결과, 통과하지 못한 조건은 `ArtSource/bot-results.md`에 그대로 남긴다. `Editor/HyeopgokBotSelfTest.cs`의 실행 주석을 참고한다.
+2단계 봇은 같은 `HyeopgokRules.Move`·`Tick`으로 왕 이동·붓기·이탈 확정을 실행한다. 고정 시드, 원시 결과, 통과하지 못한 조건은 `ArtSource/bot-results.md`에 그대로 남긴다. `Editor/HyeopgokBotSelfTest.cs`의 실행 주석을 참고한다.
 
 ## 구현과 증거
 
 - Blender 원본·스크립트·FBX 목록: `ArtSource/blender/`, `ArtSource/model-notes.md`.
 - 전투는 GPU 인스턴싱과 풀을 사용한다. 시작 시 적 400·아군 100, 적 최대 598·아군 최대 150이다. 히트 플래시, 넉백 사체, 파편, 화살, 0.05초 히트스톱과 카메라 흔들림을 결합한다.
-- 답 판정은 정수 또는 기약분수의 정규 문자열 일치로 처리한다. `answerNumeric`은 QA 호환 필드일 뿐 판정에 쓰지 않는다. 현재 844문항과 34,472개 표본 사건을 독립 검증했다.
-- 최초 표지는 이미지 생성 도구를 사용했으나, 비주얼 강화 라운드에서 실제 WebGL 전투 캡처와 게임 UI 색상·폰트의 제목으로 교체했다. 현재 표지의 캡처·합성 재현 스크립트와 비교 증거는 `ArtSource/validation/phase1/`에 있다. 기존 생성 기록은 `ArtSource/image-prompts.md`에 이력으로 보존한다.
-- `ArtSource/validation/playthrough.json`: 실제 터치 완주·오답 회복, 정지 취소, 승리 경계, 패배 유지, 팩 선택과 임시 팩 교체. 임시 JSON·목록 변경은 검증 후 복원하며 Build 해시가 같은지 확인한다.
-- `ArtSource/validation/pack-swap.json`: 최종 표시 수정 뒤 빌드에서 이름만 바꾼 팩의 재빌드 없는 교체를 다시 확인했다. 초등 학교급 표시와 글자 보기의 실제 터치 정답도 일시적인 표시 검사용 팩으로 확인했다. 이 팩은 새로운 교육과정 팩이 아니며 검증 후 삭제한다.
-- `ArtSource/validation/phase1/qa/report.json`: 현재 공식 QA. `phase1/summary.json`은 빌드·크기·기능·성능 증거를 묶는다. 이전 라운드 증거는 해당 폴더에 보존한다.
+- 답 판정은 정수 양, 정확한 두 정수, 정수 교차곱과 최대공약수로 처리한다. `answerNumeric`은 QA 호환 필드일 뿐 판정에 쓰지 않는다. 2단계 844문항 전수 검산은 오류 0이며, 정수 입력 전체 영역과 별도로 실제 붓기 정답 동선도 844/844 통과했다.
+- 2단계 표지는 코인을 붓는 **실제 WebGL 원본 화면**이며 이미지 편집을 하지 않았다. 1200×630·1080×1080 표지의 SHA와 입력 상태는 `ArtSource/validation/phase2/integration.json`에 있다. 최초 이미지 생성 기록과 1단계 합성 표지는 각각 `ArtSource/image-prompts.md`, `ArtSource/validation/phase1/`에 이력으로 보존한다.
+- `ArtSource/validation/phase2/integration.json`: 실제 터치 완주·오답 회복, 재진입 확인 취소, 세 분수 판정, 0 입력, v1 호환과 최대 비용 문항의 빈 지갑 수급을 검증한다. fixture는 페이지의 HTTP 응답만 교체하며 공개 팩 파일을 수정하지 않는다. 입력 신뢰 여부·Build/팩/캡처 SHA를 기록한다.
+- `ArtSource/validation/playthrough.json`과 `pack-swap.json`은 코인 입력 이전 빌드의 이력이다. 해당 결과를 2단계 통과 증거로 재사용하지 않는다.
+- `ArtSource/validation/phase1/qa/report.json`과 `phase1/summary.json`은 과거 1단계 증거다. 2단계 공식 QA·캡처·크기는 `ArtSource/validation/phase2/`에 새로 기록하며, 이전 결과를 이번 빌드에 적용하지 않는다.
+- 최종 2단계 QA **45/45·fatal 0**, M4 실 GPU 모바일 **80fps**·1280 **62fps**·15초 유지율 **80%**. 실제 입력 통합 **895검사**, 첫 2닢 투자 **3.964초**, 빈 지갑에서 최대 94닢 정답 투자 **31.768초/제한 104초**. 게임 raw **9.84MB**, gzip 전송 합 **9.27MB**이며 SHA와 합산 방식은 `phase2/summary.json`에 있다.
+- 외곽 사암은 `build_models.py`의 `rounded_sandstone`으로 만든 36개 덩어리다. `-- --only-terrain`으로 다른 34종 FBX를 건드리지 않고 지형만 재생성한다. 고정 시드·정점색·기존 정적 메시 결합을 사용한다.
 
 코드로만 생성한 전투 렌더러의 인스턴싱 셰이더가 Unity의 미사용 변형 제거에 걸리는 문제를 발견했다. 게임 전용 `Editor/HyeopgokBuildSettings.cs`에서 빌드 동안 필요한 변형을 보존하고 이전 설정을 복원한다. 공유 킷·빌드 스크립트는 수정하지 않았다. FBX 좌표계 보정도 게임 전용 임포터에서 처리한다.
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Networking;
 using Mgf;
@@ -16,8 +17,25 @@ namespace Mgf.HyeopgokSasu
             public string[] choices;
             public float[] padScreen;
             public float kingX,kingZ;
-            public int redCount,blueCount;
+            public int redCount,blueCount,padCount,max,earned,spent,investment,pourCount,builtTowers,upgradeLevel;
+            public int[] poured;
+            public string answerMode="",accept="";
+            public bool pending,confirming;
+            public float confirm;
+            public float[] kingScreen,exitScreen;
         }
+        [Serializable] sealed class ProblemSample:MgfProblem {
+            public string answer_mode,accept,num_label,den_label,format,explain;
+            public int max,difficulty,coin_budget,answerValue;
+            public FractionAnswer answerParts;
+            public string[] distractor_tags;
+        }
+        [Serializable] sealed class ProblemSamples { public ProblemSample[] items; }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")] static extern void HYEOPGOK_PushBank(string json);
+#else
+        static void HYEOPGOK_PushBank(string json) { }
+#endif
         readonly State st=new State();
         public readonly HyeopgokRules Rules=new HyeopgokRules();
         QuestionPack pack;PackIndex index;int packAt;string bankJson="{\"items\":[]}";
@@ -26,12 +44,14 @@ namespace Mgf.HyeopgokSasu
         float feedbackLeft,cameraLanding,uiTick;
         int runSerial;bool rewardIsRatio;Vector3 cameraBase;Quaternion cameraRot;
         string feedback="";
+        float pointerStarted;Vector2 pointerOrigin;bool movedDuringPress;
 
         void Awake()
         {
             MgfLook.Quality(34); QualitySettings.pixelLightCount=1;
             BuildWorld(); BuildUi();
-            battle=gameObject.AddComponent<HyeopgokBattle>();battle.Init(cam);battle.SetKing(king);
+            battle=gameObject.AddComponent<HyeopgokBattle>();battle.Init(cam);battle.SetKing(king);battle.SetEconomyRules(Rules);
+            Rules.OnPour=(pad,amount)=>{battle.PourCoin(pad);RefreshPadAmounts();SyncState();MgfSfx.Play("tap",.18f);};
             StartCoroutine(BootPacks());
         }
         string BaseUrl(){
@@ -71,18 +91,23 @@ namespace Mgf.HyeopgokSasu
             QuestionPack candidate=null;
             using(var req=UnityWebRequest.Get(BaseUrl()+"packs/"+file)){
                 req.timeout=15;yield return req.SendWebRequest();
-                if(req.result==UnityWebRequest.Result.Success){try{candidate=JsonUtility.FromJson<QuestionPack>(req.downloadHandler.text);}catch{}}
+                if(req.result==UnityWebRequest.Result.Success){try{candidate=HyeopgokPackJson.Parse(req.downloadHandler.text);}catch{}}
             }
             if(!ValidPack(candidate)){LoadError("문제 팩 형식을 확인해 주세요.");yield break;}
             pack=candidate;packAt=at;st.pack_id=pack.pack_id;st.packTitle=pack.title;
-            var bank=new List<MgfProblem>();var chars=new StringBuilder();
-            foreach(var p in pack.items){bank.Add(new MgfProblem{id=p.id,prompt=p.prompt,choices=p.choices,answer=p.answer,answerNumeric=p.format=="text"?double.NaN:p.answerNumeric,unitConcept=p.unitConcept});chars.Append(p.prompt).Append(p.explain).Append(p.answer);}
-            bankJson=MgfJson.Bank(bank);
+            var bank=new List<ProblemSample>();var chars=new StringBuilder();
+            foreach(var p in pack.items){
+                bank.Add(new ProblemSample{id=p.id,prompt=p.prompt,choices=p.Mode=="choice"?p.choices:null,answer=p.AnswerToken,answerNumeric=p.format=="text"?double.NaN:p.answerNumeric,unitConcept=p.unitConcept,
+                    answer_mode=p.Mode,max=p.max,accept=p.accept,num_label=p.num_label,den_label=p.den_label,answerValue=p.answerValue,answerParts=p.answerParts,format=p.format,explain=p.explain,difficulty=p.difficulty,coin_budget=p.coin_budget,distractor_tags=p.distractor_tags});
+                chars.Append(p.prompt).Append(p.explain).Append(p.answer).Append(p.num_label).Append(p.den_label);
+            }
+            bankJson=JsonUtility.ToJson(new ProblemSamples{items=bank.ToArray()}).Replace(":NaN",":null");
             MgfText.Prewarm(chars.ToString()+"협곡사수출격전선수비성문정답오답왕끌어패드위에서잠깐멈추세요승리재도전문제확률경우의수화면누르면바로시작전투목표압박까지초마다남은지켜라명중시연달성했습니다더필요합니다판단적중○");
             string schoolLabel=pack.school=="elementary"?"초":"중";
             loading=false;loaded=true;SetTitleInfo(pack.title+"  ·  "+schoolLabel+pack.grade+" "+pack.semester+"학기");
             // Refresh the same bridge when a user changes packs; QA samples the actual loaded pack.
             MgfBridge.Register(this);
+            HYEOPGOK_PushBank(bankJson);
         }
         static long Gcd(long a,long b){a=Math.Abs(a);b=Math.Abs(b);while(b!=0){long t=a%b;a=b;b=t;}return Math.Max(1,a);}
         static bool TryRational(string text,out long numerator,out long denominator){
@@ -99,15 +124,37 @@ namespace Mgf.HyeopgokSasu
             if(TryRational(a,out long an,out long ad)&&TryRational(b,out long bn,out long bd))return an==bn&&ad==bd;
             return a==b;
         }
-        static bool ValidPack(QuestionPack p){
+        public static bool ValidPack(QuestionPack p){
             if(p==null||p.items==null||p.items.Length<10||string.IsNullOrEmpty(p.title))return false;
+            if(p.schema_version!=0&&p.schema_version!=1&&p.schema_version!=2)return false;
+            if(p.schema_version==2&&p.economy==null)return false;
+            if(p.economy!=null&&(p.economy.carry_capacity!=HyeopgokRules.CarryCapacity||p.economy.coin_per_kill!=HyeopgokRules.CoinPerKill||p.economy.min_spawn_coins!=HyeopgokRules.MinimumSpawnCoins))return false;
+            var ids=new HashSet<string>();
             foreach(var q in p.items){
-                if(q==null||string.IsNullOrEmpty(q.prompt)||string.IsNullOrEmpty(q.answer)||q.choices==null||q.choices.Length!=4)return false;
-                int found=0;for(int i=0;i<4;i++){
-                    if(string.IsNullOrEmpty(q.choices[i]))return false;
-                    if(EquivalentChoice(q.choices[i],q.answer))found++;
-                    for(int j=0;j<i;j++)if(EquivalentChoice(q.choices[i],q.choices[j]))return false;
-                }if(found!=1)return false;
+                if(q==null||string.IsNullOrEmpty(q.id)||!ids.Add(q.id)||string.IsNullOrEmpty(q.prompt)||string.IsNullOrEmpty(q.explain))return false;
+                if(q.Mode=="amount"){
+                    if(q.answer_type!="amount"||q.max<1||q.max>60||q.answerValue<0||q.answerValue>q.max)return false;
+                }else if(q.Mode=="fraction_parts"){
+                    if(q.answer_type!="fraction_parts"||q.answerParts==null||q.max<1||q.max>60||q.answerParts.num<0||q.answerParts.num>q.max||q.answerParts.den<1||q.answerParts.den>q.max)return false;
+                    if(q.accept!="exact_parts"&&q.accept!="equivalent"&&q.accept!="reduced")return false;
+                    if(string.IsNullOrEmpty(q.num_label)||string.IsNullOrEmpty(q.den_label))return false;
+                    if(q.accept=="reduced"&&PackItem.Gcd(q.answerParts.num,q.answerParts.den)!=1)return false;
+                }else if(q.Mode=="choice"){
+                    if(q.answer_type!="choice"||string.IsNullOrEmpty(q.answer)||q.choices==null||q.choices.Length!=4)return false;
+                    int found=0;for(int i=0;i<4;i++){
+                        if(string.IsNullOrEmpty(q.choices[i]))return false;if(EquivalentChoice(q.choices[i],q.answer))found++;
+                        for(int j=0;j<i;j++)if(EquivalentChoice(q.choices[i],q.choices[j]))return false;
+                    }if(found!=1)return false;
+                }else return false;
+                if(q.Mode!="choice"){
+                    // Budget is determined by input mode, never the hidden answer.
+                    // Every legal input in the public 0..max domain must be payable.
+                    int expected=q.Mode=="amount"?HyeopgokRules.AmountBudget:HyeopgokRules.FractionBudget;
+                    int budget=q.has_coin_budget||q.coin_budget!=0?q.coin_budget:expected;
+                    int domainCost=q.max*(q.Mode=="fraction_parts"?2:1);
+                    int answerCost=q.Mode=="amount"?q.answerValue:q.answerParts.num+q.answerParts.den;
+                    if(budget!=expected||domainCost>budget||answerCost>budget||budget>HyeopgokRules.CarryCapacity||budget>HyeopgokRules.MinimumSpawnCoins)return false;
+                }
             }return true;
         }
         void LoadError(string msg){loading=false;loaded=false;SetTitleInfo(msg);}
@@ -118,20 +165,21 @@ namespace Mgf.HyeopgokSasu
             ShowPlaying();Present();MgfSfx.Play("whoosh");
         }
         void Present(){
-            battle.SetStage(Rules.Wave);battle.BeginQuestion();king.position=Rules.King;
-            SetQuestion(Rules.Current);SetChoices(Rules.Choices);SyncState();RefreshHud();
+            battle.SetStage(Rules.Wave);battle.BeginQuestion(Rules.TimeLimit);king.position=Rules.King;
+            SetQuestion(Rules.Current);SetChoices(Rules.Choices);SetPadVisibility();SyncState();RefreshHud();
         }
         void Resolve(){
-            feedbackLeft=Rules.LastCorrect?1.25f:1.65f;
+            feedbackLeft=Rules.LastCorrect?1.55f:3.4f;
             Vector3 spot=Rules.LastPad>=0?HyeopgokRules.Pads[Rules.LastPad]:Rules.King;
             int hits=1,trials=1;long n=1,d=1;
             bool ratio=Rules.Current.format=="frac"&&TryRational(Rules.Current.answer,out n,out d)&&n>0&&d>1&&n<d;
             if(ratio){hits=(int)Math.Min(225,n);trials=(int)Math.Min(225,d);}
-            if(Rules.LastCorrect){battle.Reward(Math.Max(0,Rules.LastPad),spot,hits,trials);MgfSfx.Play("correct");}
+            if(Rules.LastCorrect){battle.Reward(Math.Max(0,Rules.LastPad),spot,hits,trials,Rules.TotalPoured);MgfSfx.Play("correct");}
             else{battle.Punish(spot);MgfSfx.Play("wrong");}
-            string reward=ratio?"정답 · 석궁 "+Rules.Current.answer+" 명중 시연!":Rules.Current.format=="frac"?"정답 · 확률 "+Rules.Current.answer+" 판단 적중!":"정답 · 경우의 수만큼 지원!";
+            string reward=Rules.Current.Mode=="choice"?"정답 · 지원군 출격!":"정답 · "+Rules.TotalPoured+"닢 투자 · 건물 성장!";
             rewardIsRatio=ratio;
-            feedback=(Rules.LastCorrect?reward:Rules.LastPad<0?"시간 초과 · 오답 · 성문 -18":"오답 · 성문 -18")+"\n"+Rules.Current.explain;
+            string answer=Rules.Current.Mode=="fraction_parts"?Rules.Current.PartsToken:Rules.Current.AnswerToken;
+            feedback=Rules.LastCorrect?reward+"\n"+Rules.Current.explain:(Rules.LastPad<0?"시간 초과":"오답 · "+Rules.TotalPoured+"닢 소실")+" · 성문 -18\n정답 "+answer+" · "+Rules.Current.explain;
             HideTutorial();
             ShowFeedback(Rules.LastCorrect,feedback);SyncState();RefreshHud();
         }
@@ -140,27 +188,60 @@ namespace Mgf.HyeopgokSasu
             if(Rules.Ended){Finish();return;}
             HideFeedback();Present();
         }
-        public void TestAnswerCorrect(){
+        public void TestAnswerCorrect(){TestSubmit(true);}
+        public void TestAnswerWrong(){TestSubmit(false);}
+        void TestSubmit(bool correct){
             if(!playStarted)TestStart();if(!Rules.Active)return;
             if(Rules.Pending)Advance();if(!Rules.Active)return;
-            Rules.Select(Rules.AnswerPad());Resolve();
+            if(Rules.Current.Mode=="choice"){
+                int pad=Rules.AnswerPad();if(!correct)pad=(pad+1)%4;
+                Rules.Move(HyeopgokRules.Pads[pad]);
+                for(int i=0;i<500&&!Rules.Pending;i++)Rules.Tick(.025f);
+            }else{
+                int a=Rules.Current.Mode=="amount"?Rules.Current.answerValue:Rules.Current.answerParts.den;
+                int n=Rules.Current.Mode=="fraction_parts"?Rules.Current.answerParts.num:0;
+                if(!correct){if(Rules.Current.Mode=="fraction_parts")n=n<Rules.Current.Max?n+1:n-1;else a=a<Rules.Current.Max?a+1:a-1;}
+                // Already poured amounts cannot be undone, including in QA commands.
+                // A fresh question is exercised by QA; partially played questions may
+                // therefore truthfully fail a correct command after an overpour.
+                battle.SimulateEarnedCoins(Mathf.Min(Rules.WalletCapacity,Mathf.Max(0,a-Rules.Poured[0])+Mathf.Max(0,n-Rules.Poured[1])));
+                TestPourPad(0,a);if(Rules.PadCount==2)TestPourPad(1,n);
+                Rules.Move(HyeopgokRules.Exit);
+                for(int i=0;i<300&&!Rules.Pending;i++)Rules.Tick(.025f);
+            }
+            king.position=Rules.King;
+            if(Rules.Pending)Resolve();else SyncState();
         }
-        public void TestAnswerWrong(){
-            if(!playStarted)TestStart();if(!Rules.Active)return;
-            if(Rules.Pending)Advance();if(!Rules.Active)return;
-            Rules.Select((Rules.AnswerPad()+1)%4);Resolve();
+        void TestPourPad(int pad,int wanted){
+            if(Rules.Pending)return;
+            if(wanted==0){
+                // Walk through without stopping: zero is a deliberate empty visit.
+                Rules.Move(HyeopgokRules.Pads[pad]+Vector3.back*1.05f,true);
+                for(int i=0;i<200&&!Rules.Pending&&(Rules.King-Rules.Target).sqrMagnitude>.012f;i++)Rules.Tick(.025f);
+                Rules.Move(HyeopgokRules.Pads[pad]+Vector3.forward*1.05f,true);
+                for(int i=0;i<200&&!Rules.Pending&&(Rules.King-Rules.Target).sqrMagnitude>.012f;i++)Rules.Tick(.025f);
+                return;
+            }
+            Rules.Move(HyeopgokRules.Pads[pad],true);
+            for(int i=0;i<250&&!Rules.Pending&&(Rules.King-Rules.Target).sqrMagnitude>.012f;i++)Rules.Tick(.025f);
+            for(int i=0;i<150&&!Rules.Pending&&Rules.Poured[pad]<wanted;i++){Rules.Move(HyeopgokRules.Pads[pad],true);Rules.Tick(.025f);}
         }
         public string ProblemBankJson()=>bankJson;
         public string StateJson()=>JsonUtility.ToJson(st);
         void SyncState(){
             st.score=Rules.Score;st.lives=Rules.Hp;st.hp=Rules.Hp;st.coins=Rules.Coins;st.level=Math.Max(1,Rules.Wave);
             st.solved=Rules.Correct;st.attempts=Rules.Attempts;st.firstTry=Rules.Correct;
+            st.padCount=Rules.PadCount;st.poured=Rules.Poured;st.pending=Rules.Pending;st.confirming=Rules.Confirming;st.confirm=Rules.Confirm;
+            st.builtTowers=battle.BuiltTowers;st.upgradeLevel=battle.UpgradeLevel;st.earned=Rules.Earned;st.spent=Rules.Spent;st.investment=Rules.Invested;st.pourCount=Rules.PourCount;
+            if(Rules.Current!=null){st.answerMode=Rules.Current.Mode;st.max=Rules.Current.Max;st.accept=Rules.Current.accept;}
             st.kingX=Rules.Target.x;st.kingZ=Rules.Target.z;st.redCount=battle.Reds;st.blueCount=battle.Blues;
-            if(Rules.Current!=null){st.questionId=Rules.Current.id;st.prompt=Rules.Current.prompt;st.choices=Rules.Choices;}
+            if(Rules.Current!=null){st.questionId=Rules.Current.id;st.prompt=Rules.Current.prompt;st.choices=Rules.Current.Mode=="choice"?Rules.Choices:null;}
             UpdatePadScreen();MgfBridge.NotifyChanged();
         }
         void UpdatePadScreen(){
-            if(st.padScreen==null)st.padScreen=new float[8];
+            if(st.padScreen==null){st.padScreen=new float[8];st.kingScreen=new float[2];st.exitScreen=new float[2];}
+            Vector3 kingPoint=cam.WorldToScreenPoint(Rules.King),exitPoint=cam.WorldToScreenPoint(HyeopgokRules.Exit);
+            st.kingScreen[0]=kingPoint.x/Screen.width;st.kingScreen[1]=1-kingPoint.y/Screen.height;st.exitScreen[0]=exitPoint.x/Screen.width;st.exitScreen[1]=1-exitPoint.y/Screen.height;
             for(int i=0;i<4;i++){Vector3 s=cam.WorldToScreenPoint(HyeopgokRules.Pads[i]);st.padScreen[i*2]=s.x/Screen.width;st.padScreen[i*2+1]=1-s.y/Screen.height;}
         }
         void Finish(){
@@ -174,12 +255,16 @@ namespace Mgf.HyeopgokSasu
             if(!playStarted){if(MgfPointer.Down)TitleInput();return;}
             if(Rules.Ended){if(feedbackLeft>0){feedbackLeft-=dt;if(feedbackLeft<=0)Finish();}else if(st.phase=="playing")Finish();else if(MgfPointer.Down&&Hit(retryRect))TestStart();return;}
             if(MgfPointer.Down){
-                if(MgfPointer.Position.y>Screen.height*.8f){MgfSfx.Play("tap");}
+                pointerStarted=Time.unscaledTime;pointerOrigin=MgfPointer.Position;movedDuringPress=false;
+                if(MgfPointer.Position.y>Screen.height*.85f){MgfSfx.Play("tap");}
                 else if(MgfPointer.OnPlane(cam,1.24f,out Vector3 p)){
-                    dragging=true;Rules.Move(p);st.moves++;HideTutorial();SyncState();MgfSfx.Play("tap");
+                    dragging=true;Rules.Move(p,true);st.moves++;SyncState();MgfSfx.Play("tap");
                 }
             }
-            if(dragging&&MgfPointer.Held&&MgfPointer.OnPlane(cam,1.24f,out Vector3 drag)){Rules.Move(drag);}
+            if(dragging&&MgfPointer.Held&&MgfPointer.OnPlane(cam,1.24f,out Vector3 drag)){
+                if((MgfPointer.Position-pointerOrigin).sqrMagnitude>100||Time.unscaledTime-pointerStarted>.25f)movedDuringPress=true;
+                if(movedDuringPress)Rules.Move(drag);
+            }
             if(MgfPointer.Up){dragging=false;SyncState();}
             if(feedbackLeft>0){feedbackLeft-=dt;if(feedbackLeft<=0)Advance();}
             else if(Rules.Tick(dt)>=0)Resolve();
@@ -187,7 +272,7 @@ namespace Mgf.HyeopgokSasu
             Vector3 toward=Rules.Target-Rules.King;if(toward.sqrMagnitude>.02f)king.rotation=Quaternion.Slerp(king.rotation,Quaternion.LookRotation(toward),dt*14);
             int damage=battle.DrainGateDamage();if(damage>0){Rules.Damage(damage);SyncState();RefreshHud();}
             if(Rules.Ended && feedbackLeft<=0)Finish();
-            uiTick+=dt;if(uiTick>.15f){uiTick=0;UpdateBattleHud();}
+            uiTick+=dt;if(uiTick>.15f){uiTick=0;UpdateBattleHud();SyncState();}
         }
         void UpdateCamera(float dt){
             if(cameraLanding>0)cameraLanding=Mathf.Max(0,cameraLanding-dt);

@@ -377,6 +377,39 @@ def cliff_bank(m,poly,y0,y1,top='grass',depth=2,variation=1):
    m.face([rings[j][i],rings[j+1][i],rings[j+1][k],rings[j][k]],tint(palette,v))
  ground_top(m,poly,y1,top,depth,variation)
 
+def rounded_sandstone(m,x,z,w,d,bottom,top,seed):
+ # Seven uneven rings round the silhouette without smooth normals or textures.
+ # Wide shelves and narrow dark seams read as worn sedimentary beds, not boxes.
+ rng=random.Random(seed);n=11;phase=rng.random()*.5;height=top-bottom
+ facets=[.91+rng.random()*.14 for _ in range(n)]
+ levels=[(0,.72),(.10,.96),(.31,1),(.34,.93),(.60,.92),(.64,.97),(.86,.89),(1,.66)]
+ rows=[]
+ for j,(h,r) in enumerate(levels):
+  row=[]
+  for i in range(n):
+   a=i*math.tau/n+phase
+   wobble=(math.sin(i*1.9+seed*.7)+math.cos(i*2.1+seed))*.025
+   yy=bottom+height*(h+(0 if j==0 else wobble*(.55 if j==len(levels)-1 else 1)))
+   row.append((x+math.cos(a)*w*.5*r*facets[i]+h*.12*w,yy,z+math.sin(a)*d*.5*r*facets[i]))
+  rows.append(row)
+ for j in range(len(rows)-1):
+  for i in range(n):
+   k=(i+1)%n;angle=i*math.tau/n+phase
+   # Warm bevels face the sun; cold grey-blue sides keep the temperature split.
+   if j==len(rows)-2:
+    col=(.80,.72,.64,1);shade=.95+.055*math.cos(angle-.7)
+   elif j in (2,4):
+    col=(.43,.49,.53,1);shade=.93+.055*math.cos(angle-.7)
+   else:
+    col=(.49+j*.014,.55+j*.012,.60+j*.010,1);shade=.92+.10*math.cos(angle-.7)
+   c=tuple(min(1,t*shade) for t in col[:3])+(1,)
+   m.face([rows[j][i],rows[j+1][i],rows[j+1][k],rows[j][k]],c)
+ center=(x+.12*w,top-height*.007,z)
+ for i in range(n):
+  # Fan facets softly vary the smaller cream cap instead of one giant flat face.
+  shade=.97+.035*math.sin(i*1.7+seed)
+  m.face([center,rows[-1][(i+1)%n],rows[-1][i]],tint('sandstone',shade))
+
 def terrain():
  m=MeshMaker('terrain')
  # Wide desktop exposes this 60 m background: keep its facets almost invisible.
@@ -425,11 +458,11 @@ def terrain():
  # Background cliff masses frame the two entry gates without covering the map.
  cliff_bank(m,[(-10,4),(-5.7,4),(-5.65,5.25),(-3.5,7),(-.5,9),(-1,14),(-10,14)],-1.5,3.1,'grass_dark',2)
  cliff_bank(m,[(7.1,5.0),(9,5),(13,9),(13,16),(6.9,16)],-1.5,1.2,'grass_dark',2)
- # Far decorative cliffs: warm caps / cool sides, kept well clear of the paths.
- for x,z,w,d,h in [(-12,10,4,6,4.8),(-9,14,5,5,5.3),(-4,17,6,5,4.7),(3,18,6,5,4.2),(10,15,5,5,4.8),(14,8,4,6,4.1),(-15,2,4,7,3.2),(-15,-6,4,5,2.8),(15,-2,4,6,2.8)]:
-  poly=[(x-w*.5,z-d*.5),(x+w*.33,z-d*.53),(x+w*.52,z-d*.18),(x+w*.45,z+d*.45),(x-w*.35,z+d*.5),(x-w*.53,z+d*.2)]
-  m.poly_extrude(poly,-1.50,h,'sandstone','sandstone_side')
-  m.poly_extrude([(xx*.99+(1-.99)*x,zz*.99+(1-.99)*z) for xx,zz in poly],h,h+.16,'sandstone','stone_shadow')
+ # Far rock groups frame the map with several rounded, stepped masses each.
+ # Their footprint stays outside the playable roads; only decorative silhouettes change.
+ for group,(x,z,w,d,h) in enumerate([(-12,10,4,6,4.8),(-9,14,5,5,5.3),(-4,17,6,5,4.7),(3,18,6,5,4.2),(10,15,5,5,4.8),(14,8,4,6,4.1),(-15,2,4,7,3.2),(-15,-6,4,5,2.8),(15,-2,4,6,2.8)]):
+  for part,(dx,dz,sx,sz,sy) in enumerate([(-.12,.12,.91,.78,.90),(.22,-.25,.62,.60,.56),(-.27,-.31,.56,.48,.41),(.31,.20,.48,.54,.70)]):
+   rounded_sandstone(m,x+dx*w,z+dz*d,w*sx,d*sz,-1.50,-1.50+(h+1.5)*sy,8321+group*17+part*139)
  # Sparse tiny sandy chips, flattened into the road mesh: no decal materials,
  # no alpha overdraw and no runtime particles needed for static surface detail.
  rng=random.Random(77531)

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {makeItem,wrong,diceCount,diceText,writePack} from './common.mjs';
+import {makeItem,wrong,diceCount,diceText,writePack,introItem} from './common.mjs';
 // Only two-step products/sums and directly enumerated pairs; no permutation or
 // combination notation, nonreplacement probability, or overlapping OR events.
 const product=[],sum=[],cards=[],roles=[],dice=[];
@@ -19,11 +19,11 @@ for(let mask=1;mask<512;mask++){
   }
 }
 for(let n=4;n<=18;n++)for(const ordered of [true,false]){
-  const count=ordered?n*(n-1):n*(n-1)/2;
+  const count=ordered?n*(n-1):n*(n-1)/2;if(count>=60)continue;
   roles.push(makeItem({prompt:`후보 ${n}명 중 ${ordered?'회장 한 명과 부회장 한 명':'서로 역할이 같은 대표 두 명'}을 뽑는 경우의 수를 구하시오. ${ordered?'(단, 한 사람이 두 역할을 맡지 않는다.)':''}`.trim(),n:count,explain:ordered?`회장 ${n}가지마다 부회장 ${n-1}가지, ${n} × ${n-1} = ${count}가지.`:`두 명의 순서를 바꿔도 같으므로 ${n} × ${n-1} ÷ 2 = ${count}가지.`,unitConcept:ordered?'역할이 다른 대표 뽑기':'역할이 같은 대표 뽑기',difficulty:4,kind:'roles',args:{n,ordered},distractors:[wrong(ordered?n*(n-1)/2:n*(n-1),1,'m2s2-u6.roles-order-confusion','opposite-role-order',[n,ordered]),wrong(n*n,1,'m2s2-u6.same-person-twice','square',[n]),wrong(2*n-1,1,'m2s2-u6.sum-product-confusion','add-role-stages',[n])]}));
 }
 for(const kind of ['sum-eq','sum-le','sum-ge','product-eq','difference-eq','product-multiple'])for(let k=kind==='difference-eq'?0:2;k<=(kind==='product-eq'?36:kind==='difference-eq'?5:kind==='product-multiple'?10:12);k++){
-  const [count,unordered]=diceCount(kind,k);if(count===0||count===36)continue;
+  const [count,unordered]=diceCount(kind,k);if(count<=1||count===36)continue;
   dice.push(makeItem({prompt:`서로 다른 두 개의 주사위를 동시에 던질 때, ${diceText(kind,k)} 경우의 수를 구하시오.`,n:count,explain:`첫째 주사위와 둘째 주사위를 구별해 조건에 맞는 순서쌍을 세면 ${count}가지.`,unitConcept:'서로 다른 두 주사위의 경우의 수',difficulty:2,kind:'dice',args:{test:kind,k},distractors:[wrong(unordered,1,'m2s2-u6.order-ignored','unordered-count',[unordered]),wrong(12,1,'m2s2-u6.sum-product-confusion','sum',[6,6]),wrong(6,1,'m2s2-u6.second-stage-omitted','first-count',[6]),wrong(21,1,'m2s2-u6.order-and-event-ignored','unordered-all-dice',[]),wrong(36,1,'m2s2-u6.event-condition-ignored','product',[6,6])]}));
 }
-writePack('m2s2-u6','경우의 수',['[9수04-05]'],[[product,90],[sum,90],[cards,130],[roles,30],[dice,60]]);
+writePack('m2s2-u6','경우의 수',['[9수04-05]'],[[[introItem()],1],[product.filter(q=>q&&q.answerNumeric<60),61],[sum,90],[cards,182],[roles,12],[dice,54]]);

@@ -37,7 +37,28 @@ export function makeItem({prompt,n,d=1,format='int',explain,unitConcept,difficul
   const answer=token(n,d), seen=new Set([answer]);const wrongs=[];
   for(const w of distractors)if(!seen.has(w.value)){seen.add(w.value);wrongs.push(w);if(wrongs.length===3)break;}
   if(wrongs.length!==3)return null;
-  return {prompt,answer,answerNumeric:n/d,format,explain,unitConcept,difficulty,_proof:{kind,args,expected:rational(n,d),distractors:wrongs}};
+  return {prompt,answer,answerNumeric:n/d,format,explain,unitConcept,difficulty,_proof:{kind,args,expected:rational(n,d),parts:[n,d],distractors:wrongs}};
+}
+export function introItem() {
+  return makeItem({prompt:'동전 한 개를 던질 때, 나올 수 있는 모든 경우의 수를 구하시오.',n:2,explain:'앞면과 뒷면의 2가지이므로 2닢을 붓습니다.',unitConcept:'한 사건의 경우의 수',difficulty:1,kind:'coin-intro',args:{},distractors:[wrong(1,1,'m2s2-u6.event-count-omitted','constant-one',[]),wrong(4,1,'m2s2-u6.extra-stage','product',[2,2]),wrong(3,1,'m2s2-u6.imaginary-outcome','sum',[2,1])]});
+}
+function coinInput(item,proof,packId) {
+  const isAmount=packId==='m2s2-u6'||['coin-intro','reverse'].includes(proof.kind);
+  if(isAmount) {
+    item.answer_mode='amount';item.answer=proof.parts[0];item.max=60;item.coin_budget=60;item.choices=null;
+    if(item.answer<2||item.answer>=60)throw Error(`Unbalanced amount answer ${item.answer}: ${item.prompt}`);
+  } else if(proof.kind==='single-color') item.answer_mode='choice';
+  else {
+    item.answer_mode='fraction_parts';item.max=60;item.coin_budget=120;item.choices=null;
+    item.accept=proof.kind==='ball'&&proof.args.event==='not-red'?'reduced':'exact_parts';
+    const parts=item.accept==='reduced'?proof.expected:proof.parts;
+    item.answer={num:parts[0],den:parts[1]};
+    if(parts.some(v=>v>60))throw Error(`Answer exceeds coin pad: ${item.prompt}`);
+    item.num_label=item.accept==='reduced'?'분자':proof.kind==='experiment'?'앞면이 나온 횟수':'사건이 일어나는 경우의 수';
+    item.den_label=item.accept==='reduced'?'분모':proof.kind==='experiment'?'전체 시행 횟수':'모든 경우의 수';
+    if(item.accept==='exact_parts')item.prompt=item.prompt.replace('확률을 기약분수로 구하시오.','확률을 구하시오. 모든 경우와 사건의 경우를 세어 약분하지 말고 나타내시오.').replace('상대도수를 기약분수로 구하시오.','상대도수를 구하시오. 약분하지 말고 시행 횟수와 앞면 횟수로 나타내시오.');
+  }
+  return item;
 }
 export function writePack(id,title,standards,groups) {
   // Deterministic interleaving avoids long same-template runs. No random rejection loops.
@@ -45,12 +66,12 @@ export function writePack(id,title,standards,groups) {
   for(let i=0;picked.some(g=>i<g.length);i++)for(const group of picked)if(group[i])ordered.push(group[i]);
   const counters=[0,0,0,0,0],proofs=[];const items=ordered.map((raw,i)=>{
     const {_proof,...item}=raw;item.id=`${id}-${String(i+1).padStart(3,'0')}`;
-    const slot=counters[item.difficulty]++%4;
+    const slot=_proof.kind==='single-color'?counters[item.difficulty]++%4:0;
     item.choices=_proof.distractors.map(w=>w.value);item.choices.splice(slot,0,item.answer);
     item.distractor_tags=_proof.distractors.map(w=>w.misconceptionId);
-    proofs.push({id:item.id,..._proof});return item;
+    proofs.push({id:item.id,..._proof});return coinInput(item,_proof,id);
   });
-  const pack={pack_id:id,title,school:'middle',grade:2,semester:2,unit_id:id,standards,items};
+  const pack={schema_version:2,pack_id:id,title,school:'middle',grade:2,semester:2,unit_id:id,standards,economy:{carry_capacity:120,coin_per_kill:1,min_spawn_coins:140},items};
   fs.mkdirSync(output,{recursive:true});fs.writeFileSync(path.join(output,`${id}.json`),JSON.stringify(pack));
   fs.writeFileSync(path.join(here,`${id}-proofs.json`),JSON.stringify({pack_id:id,proofs},null,2)+'\n');
   fs.writeFileSync(path.join(output,'index.json'),JSON.stringify({default_pack:'m2s2-u7',packs:[{pack_id:'m2s2-u7',title:'확률',file:'m2s2-u7.json'},{pack_id:'m2s2-u6',title:'경우의 수',file:'m2s2-u6.json'}]},null,2)+'\n');

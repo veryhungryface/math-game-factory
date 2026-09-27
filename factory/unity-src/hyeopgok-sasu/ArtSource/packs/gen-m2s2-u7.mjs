@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {makeItem,probabilityWrong,wrong,token,diceCount,diceText,writePack} from './common.mjs';
+import {makeItem,probabilityWrong,wrong,token,diceCount,diceText,writePack,introItem} from './common.mjs';
 // Corpus traps: explicit 임의로 + equal balls, 서로 다른 dice, only replacement;
 // every OR below joins disjoint colors; all fractions are reduced integer pairs.
 const balls=[],cards=[],complement=[],colors=[],dice=[],replacement=[],atLeast=[],experiment=[],reverse=[],overlap=[],basic=[];
@@ -22,7 +22,7 @@ for(const kind of ['sum-eq','sum-le','sum-ge','product-eq','difference-eq','prod
   dice.push(makeItem({prompt:`서로 다른 두 개의 주사위를 동시에 던질 때, ${diceText(kind,k)} 확률을 기약분수로 구하시오.`,n:count,d:36,format:'frac',explain:`서로 구별한 36가지 중 ${count}가지이므로 ${token(count,36)}.`,unitConcept:'서로 다른 두 주사위의 확률',difficulty:3,kind:'dice',args:{test:kind,k},distractors:probabilityWrong(count,36,[wrong(unordered,21,'m2s2-u7.equal-likelihood-bias','unordered-dice',[unordered]),wrong(count,6,'m2s2-u7.wrong-sample-space','one-die-denominator',[count])])}));
 }
 for(let red=1;red<=8;red++)for(let blue=1;blue<=8;blue++){
-  const total=red+blue,count=red*red,all=total*total;
+  const total=red+blue,count=red*red,all=total*total;if(all>60)continue;
   replacement.push(makeItem({prompt:`빨간 공 ${red}개와 파란 공 ${blue}개에서 임의로 한 개를 꺼내 확인한 후 다시 넣고 한 개를 임의로 꺼낸다. 두 번 모두 빨간 공일 확률을 기약분수로 구하시오. ${equalBalls}`,n:count,d:all,format:'frac',explain:`다시 넣으므로 ${token(red,total)} × ${token(red,total)} = ${token(count,all)}.`,unitConcept:'복원 추출에서 두 사건의 확률',difficulty:4,kind:'replacement',args:{red,blue,event:'both'},distractors:probabilityWrong(count,all,[wrong(red,total,'m2s2-u7.event-count-omitted','single-stage',[red,total]),wrong(red*2,total,'m2s2-u6.sum-product-confusion','add-instead-multiply-probabilities',[red,total]),wrong(count,total,'m2s2-u7.wrong-sample-space','count-only-denominator',[count,total])])}));
   const some=all-blue*blue;
   atLeast.push(makeItem({prompt:`빨간 공 ${red}개와 파란 공 ${blue}개에서 임의로 한 개를 꺼내 확인한 후 다시 넣고 한 개를 임의로 꺼낸다. 적어도 한 번 빨간 공일 확률을 기약분수로 구하시오. ${equalBalls}`,n:some,d:all,format:'frac',explain:`두 번 모두 파란 공일 확률을 1에서 빼면 ${token(some,all)}.`,unitConcept:'적어도 하나의 확률',difficulty:4,kind:'replacement',args:{red,blue,event:'at-least-one'},distractors:probabilityWrong(some,all,[wrong(red,total,'m2s2-u7.event-count-omitted','single-stage',[red,total]),wrong(red*2,total,'m2s2-u6.sum-product-confusion','add-instead-multiply-probabilities',[red,total]),wrong(red*red,all,'m2s2-u7.event-complement-confusion','both-red',[red,total])])}));
@@ -30,7 +30,7 @@ for(let red=1;red<=8;red++)for(let blue=1;blue<=8;blue++){
 for(let total=10;total<=40;total+=5)for(let heads=2;heads<total;heads+=3){
   experiment.push(makeItem({prompt:`동전을 ${total}번 던졌더니 앞면이 ${heads}번 나왔다. 이 실험에서 앞면의 상대도수를 기약분수로 구하시오.`,n:heads,d:total,format:'frac',explain:`실험의 상대도수는 앞면 횟수 ${heads} ÷ 전체 횟수 ${total} = ${token(heads,total)}.`,unitConcept:'실험 결과의 상대도수',difficulty:2,kind:'experiment',args:{total,heads},distractors:probabilityWrong(heads,total,[wrong(1,2,'m2s2-u7.frequency-equals-theory','half',[])])}));
 }
-for(let total=5;total<=12;total++)for(let red=1;red<total;red++){
+for(let total=5;total<=12;total++)for(let red=2;red<total;red++){
   reverse.push(makeItem({prompt:`빨간 공과 파란 공이 합해 ${total}개이다. 한 개를 임의로 꺼낼 때 빨간 공일 확률이 ${token(red,total)}이면, 빨간 공의 개수를 구하시오. ${equalBalls}`,n:red,explain:`전체 ${total}개에 빨간 공의 비율 ${token(red,total)}을 곱하면 ${red}개.`,unitConcept:'확률에서 경우의 수 역으로 구하기',difficulty:3,kind:'reverse',args:{total,red},distractors:[wrong(total-red,1,'m2s2-u7.event-complement-confusion','complement-count',[red,total]),wrong(total,1,'m2s2-u7.denominator-omitted','total-only',[total]),wrong(red*total,1,'m2s2-u7.denominator-omitted','multiply-count-again',[red,total]),wrong(1,1,'m2s2-u7.event-count-omitted','constant-one',[])]}));
 }
 
@@ -48,4 +48,4 @@ for(const [color,other] of [['흰','검은'],['빨간','파란'],['노란','초�
   const target=certain?color:other,p=certain?1:0;
   basic.push(makeItem({prompt:`${color} 공만 ${n}개 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때, ${target} 공이 나올 확률을 구하시오. ${equalBalls}`,n:p,d:1,format:'frac',explain:certain?`꺼낸 공은 반드시 ${color} 공이므로 확률은 1.`:`${other} 공은 절대로 나오지 않으므로 확률은 0.`,unitConcept:'확률의 기본 성질',difficulty:1,kind:'single-color',args:{n,certain},distractors:[wrong(1-p,1,'m2s2-u7.basic-property','certain-impossible-swap',[p]),wrong(1,n,'m2s2-u7.event-count-omitted','one-outcome',[n]),wrong(1,2,'m2s2-u7.equal-likelihood-bias','half',[]),wrong(n,1,'m2s2-u7.denominator-omitted','count-only',[n])]}));
 }
-writePack('m2s2-u7','확률',['[9수04-06]'],[[balls,80],[cards,60],[complement,56],[colors,48],[dice,48],[replacement,32],[atLeast,32],[experiment,24],[reverse,20],[overlap,28],[basic,16]]);
+writePack('m2s2-u7','확률',['[9수04-06]'],[[[introItem()],1],[balls,80],[cards,75],[complement,56],[colors,58],[dice,48],[replacement,19],[atLeast,19],[experiment,24],[reverse,20],[overlap,28],[basic,16]]);

@@ -73,6 +73,7 @@ namespace Mgf.HyeopgokSasu
             BuildRiver(detail);
             CreateDecoration("Meadow accents and river banks",detail,worldMat,false);
             PlaceSettlementProps();
+            PlantSandstoneRim();
         }
         static Color Hex(string value)=>MgfLook.Hex(value);
 
@@ -128,6 +129,25 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<7;i++){
                 SpawnModel("palisade",new Vector3(-5.58f,.25f,2.0f-i*.58f),.55f).transform.Rotate(0,90,0);
                 SpawnModel("stump",new Vector3(7.2f+i*.44f,-1.52f,-1.8f+(i%3)*.48f),.28f);
+            }
+        }
+        void PlantSandstoneRim()
+        {
+            // Smaller irregular groves soften the inner toes of the far sandstone groups.
+            // Keep the army road and every answer-pad approach completely open.
+            var edge=new[]{
+                new Vector3(-12.1f,-1.52f,-8.4f),new Vector3(-12.9f,-1.52f,-7.2f),
+                new Vector3(-12.4f,-1.52f,-4.3f),new Vector3(-12.3f,-1.52f,-1.4f),
+                new Vector3(-12.4f,-1.52f,1.4f),new Vector3(-11.8f,-1.52f,3.0f),
+                new Vector3(-10.5f,-1.52f,6.5f),new Vector3(-10.8f,-1.52f,8.5f),
+                new Vector3(11.5f,-1.52f,-4.5f),new Vector3(12.3f,-1.52f,-2.5f),
+                new Vector3(12.4f,-1.52f,.1f),new Vector3(11.9f,-1.52f,4.9f),
+                new Vector3(-5.6f,3.1f,12.2f),new Vector3(7.2f,1.2f,12.2f)
+            };
+            for(int i=0;i<edge.Length;i++){
+                var tree=SpawnModel(i%3==0?"tree_broadleaf":"tree",edge[i],.70f+(i%4)*.13f);
+                tree.transform.Rotate(0,i*113+31,0);
+                if(i%3==1)SpawnModel("rock",edge[i]+new Vector3(.38f,0,.34f),.28f);
             }
         }
         void BuildRiver(DecorationMesh detail)
