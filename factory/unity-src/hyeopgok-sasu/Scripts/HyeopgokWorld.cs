@@ -139,7 +139,7 @@ namespace Mgf.HyeopgokSasu
         }
         Vector3 PadEdge(int i,float t){
             // Uniform rounded perimeter keeps the white dashes thick at corners.
-            const float x=.87f,z=.85f,r=.16f;
+            const float x=HyeopgokRules.PadStrokeHalfX,z=HyeopgokRules.PadStrokeHalfZ,r=.16f;
             float perimeter=4*(x+z-2*r)+Mathf.PI*2*r;
             float along=Mathf.Repeat(t,1)*perimeter;Vector3 p;
             float horizontal=2*(x-r),vertical=2*(z-r),arc=Mathf.PI*.5f*r;
@@ -154,7 +154,7 @@ namespace Mgf.HyeopgokSasu
             return HyeopgokRules.Pads[i]+p;
         }
         Vector3 UpgradePadEdge(int i,float t){
-            const float x=.72f,z=.58f,r=.14f;float a=Mathf.Repeat(t,1)*Mathf.PI*2;
+            const float x=HyeopgokBattle.UpgradePadStrokeHalfX,z=HyeopgokBattle.UpgradePadStrokeHalfZ,r=.14f;float a=Mathf.Repeat(t,1)*Mathf.PI*2;
             float cx=Mathf.Sign(Mathf.Cos(a))*(x-r)+Mathf.Cos(a)*r,cz=Mathf.Sign(Mathf.Sin(a))*(z-r)+Mathf.Sin(a)*r;
             return HyeopgokBattle.UpgradePads[i]+new Vector3(cx,.032f,cz);
         }

@@ -68,6 +68,9 @@ namespace Mgf.HyeopgokSasu
         readonly Corpse[] corpses = new Corpse[CorpseCap];
         readonly Bolt[] bolts = new Bolt[BoltCap];
         public const int TowerCount=3;
+        public const float UpgradePadStrokeHalfX=.72f,UpgradePadStrokeHalfZ=.58f,UpgradePadStrokeWidth=.075f;
+        public const float UpgradePadVisualHalfX=UpgradePadStrokeHalfX+UpgradePadStrokeWidth*.5f,UpgradePadVisualHalfZ=UpgradePadStrokeHalfZ+UpgradePadStrokeWidth*.5f;
+        public const float UpgradePadHitHalfX=UpgradePadVisualHalfX*HyeopgokRules.PadHitPadding,UpgradePadHitHalfZ=UpgradePadVisualHalfZ*HyeopgokRules.PadHitPadding;
         public static readonly Vector3[] UpgradePads={
             new Vector3(.92f,1.23f,-4.35f),new Vector3(.98f,1.23f,3.42f),new Vector3(-2.52f,1.23f,-4.22f)
         };
@@ -133,7 +136,7 @@ namespace Mgf.HyeopgokSasu
         float visualHitStop, impactCooldown;
         int cachedRedDraws, cachedBlueDraws, cachedShadowDraws;
         int recycledKind,upgradeCount,upgradePad=-1;
-        float chestLife;
+        float chestLife,upgradeDwell;
         Transform chestRoot,chestLid;
         HyeopgokRules rules;
         HyeopgokRewardRng rewardRng=new HyeopgokRewardRng(1);
@@ -149,6 +152,8 @@ namespace Mgf.HyeopgokSasu
         public int BuiltTowers {get {int n=0;for(int i=0;i<TowerCount;i++)if(towerLevel[i]>=0)n++;return n;}}
         public int UpgradeLevel=>upgradeCount;
         public bool UpgradePouring=>upgradePad>=0;
+        public int ActiveUpgradePad=>upgradePad;
+        public float UpgradeDwell=>upgradePad>=0?upgradeDwell:0;
         public bool ChestOpen=>chestLife>0;
         public HyeopgokChestReward LastChest=>lastChest;
         public int Reds { get { return displayedReds; } }
@@ -186,7 +191,7 @@ namespace Mgf.HyeopgokSasu
             if(levels==null||levels.Length!=TowerCount){levels=new int[TowerCount];types=new int[TowerCount];remaining=new int[TowerCount];}
             for(int i=0;i<TowerCount;i++){levels[i]=towerLevel[i];types[i]=towerType[i];remaining[i]=upgradeRemaining[i];}
         }
-        public static int UpgradePadAt(Vector3 p){for(int i=0;i<TowerCount;i++){Vector3 d=p-UpgradePads[i];d.y=0;if(d.sqrMagnitude<.72f*.72f)return i;}return -1;}
+        public static int UpgradePadAt(Vector3 p){for(int i=0;i<TowerCount;i++){Vector3 d=p-UpgradePads[i];if(Mathf.Abs(d.x)<=UpgradePadHitHalfX&&Mathf.Abs(d.z)<=UpgradePadHitHalfZ)return i;}return -1;}
         // Synchronous QA command uses actual kills, grounded coins and their pickup
         // trajectory. It never assigns a wallet or calls answer adjudication.
         public void SimulateEarnedCoins(int needed){
@@ -365,7 +370,7 @@ namespace Mgf.HyeopgokSasu
             visualHitStop = impactCooldown = 0;
             cachedRedDraws = cachedBlueDraws = cachedShadowDraws = 0;
             impacts.Clear();
-            economy.Clear();recycledKind=0;upgradeCount=0;upgradePad=-1;chestLife=0;lastChest=new HyeopgokChestReward{kind=HyeopgokRewardKind.None,towerSlot=-1};
+            economy.Clear();recycledKind=0;upgradeCount=0;upgradePad=-1;upgradeDwell=0;chestLife=0;lastChest=new HyeopgokChestReward{kind=HyeopgokRewardKind.None,towerSlot=-1};
             if(chestRoot)chestRoot.gameObject.SetActive(false);
             front = 19.0f;
             laneCursor = 0;
@@ -948,8 +953,14 @@ namespace Mgf.HyeopgokSasu
         public bool TickUpgrade(Vector3 king,Vector3 target,float dt){
             int previous=upgradePad;int at=UpgradePadAt(king),destination=UpgradePadAt(target);bool stopped=(king-target).sqrMagnitude<.012f;
             upgradePad=at>=0&&at==destination&&stopped&&towerLevel[at]>=0&&towerLevel[at]<2?at:-1;
-            if(upgradePad<0){if(previous>=0)upgradeClock[previous]=0;return previous!=upgradePad;}
-            int slot=upgradePad;upgradeClock[slot]-=dt;
+            if(upgradePad<0){if(previous>=0)upgradeClock[previous]=0;upgradeDwell=0;return previous!=upgradePad;}
+            int slot=upgradePad;
+            if(previous!=slot){if(previous>=0)upgradeClock[previous]=0;upgradeClock[slot]=0;upgradeDwell=0;}
+            // Entering any upgrade rectangle uses the same deliberate 0.4 second
+            // confirmation dwell as an answer pad. Coin cadence and costs remain
+            // unchanged after that entry confirmation.
+            if(upgradeDwell<HyeopgokRules.Hold){upgradeDwell=Mathf.Min(HyeopgokRules.Hold,upgradeDwell+dt);return previous!=upgradePad;}
+            upgradeClock[slot]-=dt;
             if(upgradeClock[slot]<=0&&rules!=null&&rules.SpendUpgradeCoin()){
                 upgradeClock[slot]=.105f;economy.Pour(UpgradePads[slot]);upgradeRemaining[slot]=Mathf.Max(0,upgradeRemaining[slot]-1);
                 towerRecoil[slot]=.08f;

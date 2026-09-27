@@ -9,7 +9,12 @@ namespace Mgf.HyeopgokSasu
     {
         public static readonly Vector3[] Pads={new Vector3(-1.8f,1.23f,2),new Vector3(.6f,1.23f,2),new Vector3(-1.8f,1.23f,-1),new Vector3(.6f,1.23f,-1)};
         public static readonly Vector3 Exit=new Vector3(-.6f,1.24f,-1.3f);
-        public const float Speed=6.4f,Hold=.4f,Radius=.69f,Limit=24f,ConfirmTime=.6f,VisitHold=.35f,InitialPourDelay=1f;
+        public const float Speed=6.4f,Hold=.4f,Limit=24f,ConfirmTime=.6f,VisitHold=.35f,InitialPourDelay=1f;
+        // Hit geometry starts at the exact visible outside edge of the authored
+        // dashed ribbon, then adds the requested eight percent touch allowance.
+        public const float PadStrokeHalfX=.87f,PadStrokeHalfZ=.85f,PadStrokeWidth=.085f;
+        public const float PadVisualHalfX=PadStrokeHalfX+PadStrokeWidth*.5f,PadVisualHalfZ=PadStrokeHalfZ+PadStrokeWidth*.5f,PadHitPadding=1.08f;
+        public const float PadHitHalfX=PadVisualHalfX*PadHitPadding,PadHitHalfZ=PadVisualHalfZ*PadHitPadding;
         public const float MinX=-2.75f,MaxX=1.48f,MinZ=-5.25f,MaxZ=3.55f;
         public const int CarryCapacity=120,CoinPerKill=1,MinimumSpawnCoins=140,AmountBudget=60,FractionBudget=120;
         public float TimeLimit{get;private set;}=Limit;
@@ -36,7 +41,7 @@ namespace Mgf.HyeopgokSasu
         readonly int[] used=new int[10];
         float pourClock;
         int tapBudget=-1,visitedPad=-1,commandedPad=-1;
-        bool wasStopped;
+        bool wasStopped,suppressPadAuto;
         static int StreamSeed(int seed,ulong stream){unchecked{ulong z=(uint)seed+0x9e3779b97f4a7c15UL*(stream+1);z=(z^(z>>30))*0xbf58476d1ce4e5b9UL;z=(z^(z>>27))*0x94d049bb133111ebUL;return(int)(z^(z>>31));}}
         public void Start(QuestionPack pack,int seed){
             Pack=pack;orderRng=new System.Random(StreamSeed(seed,0));placeRng=new System.Random(StreamSeed(seed,1));
@@ -57,12 +62,12 @@ namespace Mgf.HyeopgokSasu
             if(Wave==0&&Current.Mode=="amount")TimeLimit=30;
             for(int i=0;i<4;i++)Choices[i]=Current.Mode=="choice"?Current.choices[i]:"";
             if(Current.Mode=="choice")for(int i=3;i>0;i--){int j=placeRng.Next(i+1);string t=Choices[i];Choices[i]=Choices[j];Choices[j]=t;}
-            King=Target=new Vector3(-.6f,1.24f,-3.1f);Dwell=Elapsed=Confirm=pourClock=0;Hover=LastPad=visitedPad=commandedPad=-1;
+            King=Target=new Vector3(-.6f,1.24f,-3.1f);Dwell=Elapsed=Confirm=pourClock=0;Hover=LastPad=visitedPad=commandedPad=-1;suppressPadAuto=false;
             Poured[0]=Poured[1]=0;Visited[0]=Visited[1]=false;Pending=Confirming=TutorialBlocked=wasStopped=false;tapBudget=-1;Wave++;
         }
-        public void Move(Vector3 target,bool tap=false){
+        public void Move(Vector3 target,bool tap=false,bool suppressChoiceAuto=false){
             if(!Active||Pending)return;
-            commandedPad=-1;
+            commandedPad=-1;suppressPadAuto=suppressChoiceAuto;
             Target=new Vector3(Mathf.Clamp(target.x,MinX,MaxX),1.24f,Mathf.Clamp(target.z,MinZ,MaxZ));
             if(tap){tapBudget=1;pourClock=0;wasStopped=false;}else tapBudget=-1;
         }
@@ -76,17 +81,21 @@ namespace Mgf.HyeopgokSasu
         public int AddCoins(int count){if(!Active||count<=0)return 0;int add=Math.Min(count,WalletCapacity-Coins);Coins+=add;Earned+=add;Collected+=add;return add;}
         public int AddRewardCoins(int count){if(!Active||count<=0)return 0;Coins+=count;Earned+=count;return count;}
         public bool SpendUpgradeCoin(){if(!Active||Pending||Coins<=0)return false;Coins--;Spent++;Invested++;return true;}
-        public int PadAt(Vector3 p){for(int i=0;i<PadCount;i++){Vector3 d=p-Pads[i];d.y=0;if(d.sqrMagnitude<Radius*Radius)return i;}return -1;}
+        public int PadAt(Vector3 p){for(int i=0;i<PadCount;i++){Vector3 d=p-Pads[i];if(Mathf.Abs(d.x)<=PadHitHalfX&&Mathf.Abs(d.z)<=PadHitHalfZ)return i;}return -1;}
         public int Tick(float dt){
             if(!Active||Pending)return -1;dt=Math.Max(0,dt);Elapsed+=dt;King=Vector3.MoveTowards(King,Target,Speed*dt);
             int near=PadAt(King);bool stopped=(King-Target).sqrMagnitude<.012f;
-            if(near!=Hover){Hover=near;if(commandedPad<0)Dwell=0;pourClock=0;wasStopped=false;}
-            // Merely crossing a pad never answers. Both a pointer release and the QA
-            // command first nominate a specific pad, then this shared arrival ring
-            // performs the only commit path.
+            if(near!=Hover){Hover=near;Dwell=0;pourClock=0;wasStopped=false;}
+            // A direct pad tap nominates its pad immediately. A generic move that
+            // finishes inside the same visible rectangle auto-nominates it here,
+            // so both paths share the exact same 0.4 second arrival ring. Merely
+            // crossing a pad while moving can never answer.
+            if(commandedPad<0&&!suppressPadAuto&&near>=0&&stopped){commandedPad=near;Dwell=0;}
             if(commandedPad>=0){
-                Dwell+=dt;
-                if(near==commandedPad&&stopped&&Dwell>=Hold){int selected=commandedPad;commandedPad=-1;Commit(selected);return selected;}
+                if(near==commandedPad&&stopped){
+                    Dwell+=dt;
+                    if(Dwell>=Hold){int selected=commandedPad;commandedPad=-1;Commit(selected);return selected;}
+                }else Dwell=0;
             }else Dwell=0;
             if(Elapsed>=TimeLimit){Commit(-1);return 4;}return -1;
         }

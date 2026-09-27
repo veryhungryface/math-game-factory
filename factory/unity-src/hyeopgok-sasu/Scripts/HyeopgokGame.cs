@@ -16,16 +16,19 @@ namespace Mgf.HyeopgokSasu
             public string pack_id="",packTitle="",questionId="",prompt="";
             public string[] choices;
             public float[] padScreen;
-            public float kingX,kingZ;
-            public int redCount,blueCount,padCount,max,earned,spent,investment,pourCount,builtTowers,upgradeLevel;
+            public float kingX,kingZ,lastPointerX,lastPointerY,lastPointerWorldX,lastPointerWorldZ;
+            public int screenWidth,screenHeight;
+            public int redCount,blueCount,padCount,max,earned,spent,investment,pourCount,builtTowers,upgradeLevel,activeUpgradePad=-1;
             public int[] poured;
             public string answerMode="",accept="";
             public bool pending,confirming,tutorialBlocked,assembledFractionVisible;
             public string assembledFractionText="";
             public bool[] visited;
-            public float confirm,dwell;
+            public float confirm,dwell,upgradeDwell;
             public float[] kingScreen,exitScreen,collectionScreen;
-            public float[] choicePadRects,upgradePadRects,frontLineScreen,shadowSampleScreen,kingRect,battlefieldRect;
+            public float[] choicePadRects,upgradePadRects,choicePadTapPoints,upgradePadTapPoints;
+            public float[] choicePadVisualCorners,upgradePadVisualCorners,choicePadHitCorners,upgradePadHitCorners;
+            public float[] frontLineScreen,shadowSampleScreen,kingRect,battlefieldRect;
             public float[] worldLabelRects;
             public int worldLabelMask;
             public int streak,chestCoins,upgradeCost;
@@ -33,6 +36,8 @@ namespace Mgf.HyeopgokSasu
             public int[] towerLevels,towerTypes,upgradeRemaining;
             public string rewardKind="none",rewardTowerType="none",upgradePhase="idle";
             public bool rewardPhase,chestOpen,upgradePouring,upgradeAffordable,victory,lastCorrect,feedbackVisible,wrongFeedback;
+            public string tutorialHint="";
+            public bool tutorialArrowVisible,tutorialHandVisible;
         }
         [Serializable] sealed class ProblemSample:MgfProblem {
             public string answer_mode,accept,num_label,den_label,format,explain;
@@ -59,7 +64,7 @@ namespace Mgf.HyeopgokSasu
         int runSerial,answerStreak,rewardSerial;bool rewardIsRatio;Vector3 cameraBase;Quaternion cameraRot;
         HyeopgokChestReward lastReward;
         string feedback="";
-        float pointerStarted;Vector2 pointerOrigin;bool movedDuringPress;
+        float pointerStarted;Vector2 pointerOrigin;Vector3 pointerWorldOrigin;bool movedDuringPress;int pointerChoicePad=-1,pointerUpgradePad=-1;
 
         void Awake()
         {
@@ -216,17 +221,20 @@ namespace Mgf.HyeopgokSasu
             st.score=Rules.Score;st.lives=Rules.Hp;st.hp=Rules.Hp;st.coins=Rules.Coins;st.level=Math.Max(1,Rules.Wave);
             st.solved=Rules.Correct;st.attempts=Rules.Attempts;st.firstTry=Rules.Correct;
             st.padCount=Rules.PadCount;st.poured=Rules.Poured;st.visited=Rules.Visited;st.hover=Rules.Hover;st.pending=Rules.Pending;st.confirming=Rules.Confirming;st.confirm=Rules.Confirm;st.dwell=Rules.Dwell;st.tutorialBlocked=Rules.TutorialBlocked;
-            st.builtTowers=battle.BuiltTowers;st.upgradeLevel=battle.UpgradeLevel;st.earned=Rules.Earned;st.spent=Rules.Spent;st.investment=Rules.Invested;st.pourCount=Rules.PourCount;
+            st.builtTowers=battle.BuiltTowers;st.upgradeLevel=battle.UpgradeLevel;st.activeUpgradePad=battle.ActiveUpgradePad;st.upgradeDwell=battle.UpgradeDwell;st.earned=Rules.Earned;st.spent=Rules.Spent;st.investment=Rules.Invested;st.pourCount=Rules.PourCount;
             st.streak=answerStreak;st.rewardKind=lastReward.KindName;st.rewardTowerType=lastReward.kind==HyeopgokRewardKind.Tower?lastReward.TowerName:"none";st.chestCoins=lastReward.coinBonus;
             st.rewardPhase=battle.ChestOpen;st.chestOpen=battle.ChestOpen;st.upgradePouring=battle.UpgradePouring;st.upgradePhase=battle.UpgradePouring?"pouring":"idle";st.victory=Rules.Won;
             st.lastCorrect=Rules.LastCorrect;st.feedbackVisible=feedbackLeft>0;st.wrongFeedback=feedbackLeft>0&&!Rules.LastCorrect;st.rewardSerial=rewardSerial;
             battle.CopyTowerState(ref st.towerLevels,ref st.towerTypes,ref st.upgradeRemaining);
             st.upgradeCost=0;for(int i=0;i<st.towerLevels.Length;i++)if(st.towerLevels[i]>=0&&st.towerLevels[i]<2&&(st.upgradeCost==0||st.upgradeRemaining[i]<st.upgradeCost))st.upgradeCost=st.upgradeRemaining[i];st.upgradeAffordable=Rules.Coins>0&&st.upgradeCost>0;
             st.nextUpgradeCost=st.upgradeCost;
+            st.tutorialHint=tutorialCaption!=null&&tutorialCaption.gameObject.activeInHierarchy?tutorialCaption.text:"";
+            st.tutorialArrowVisible=tutorialArrow!=null&&tutorialArrow.gameObject.activeInHierarchy;
+            st.tutorialHandVisible=tutorialDot!=null&&tutorialDot.gameObject.activeInHierarchy;
             st.assembledFractionVisible=assembledText!=null&&assembledText.gameObject.activeSelf;
             st.assembledFractionText=st.assembledFractionVisible?assembledText.text:"";
             if(Rules.Current!=null){st.answerMode=Rules.Current.Mode;st.max=Rules.Current.Max;st.accept=Rules.Current.accept;}
-            st.kingX=Rules.Target.x;st.kingZ=Rules.Target.z;st.redCount=battle.Reds;st.blueCount=battle.Blues;
+            st.kingX=Rules.Target.x;st.kingZ=Rules.Target.z;st.screenWidth=Screen.width;st.screenHeight=Screen.height;st.redCount=battle.Reds;st.blueCount=battle.Blues;
             if(Rules.Current!=null){st.questionId=Rules.Current.id;st.prompt=Rules.Current.prompt;st.choices=Rules.Current.Mode=="choice"?Rules.Choices:null;}
             UpdatePadScreen();MgfBridge.NotifyChanged();
         }
@@ -234,6 +242,9 @@ namespace Mgf.HyeopgokSasu
             if(st.padScreen==null){
                 st.padScreen=new float[8];st.kingScreen=new float[2];st.exitScreen=new float[2];st.collectionScreen=new float[2];
                 st.choicePadRects=new float[16];st.upgradePadRects=new float[HyeopgokBattle.TowerCount*4];st.frontLineScreen=new float[12];
+                st.choicePadTapPoints=new float[4*5*2];st.upgradePadTapPoints=new float[HyeopgokBattle.TowerCount*5*2];
+                st.choicePadVisualCorners=new float[4*4*2];st.upgradePadVisualCorners=new float[HyeopgokBattle.TowerCount*4*2];
+                st.choicePadHitCorners=new float[4*4*2];st.upgradePadHitCorners=new float[HyeopgokBattle.TowerCount*4*2];
                 st.shadowSampleScreen=new float[44];st.kingRect=new float[4];st.battlefieldRect=new float[4];st.worldLabelRects=new float[32];
             }
             Vector3 kingPoint=cam.WorldToScreenPoint(Rules.King),exitPoint=cam.WorldToScreenPoint(HyeopgokRules.Exit),collectionPoint=cam.WorldToScreenPoint(battle.CollectionPoint);
@@ -241,9 +252,17 @@ namespace Mgf.HyeopgokSasu
             st.collectionScreen[0]=collectionPoint.x/Screen.width;st.collectionScreen[1]=1-collectionPoint.y/Screen.height;
             for(int i=0;i<4;i++){
                 Vector3 s=cam.WorldToScreenPoint(HyeopgokRules.Pads[i]);st.padScreen[i*2]=s.x/Screen.width;st.padScreen[i*2+1]=1-s.y/Screen.height;
-                ProjectGroundRect(HyeopgokRules.Pads[i],.92f,.90f,st.choicePadRects,i*4);
+                ProjectGroundRect(HyeopgokRules.Pads[i],HyeopgokRules.PadVisualHalfX,HyeopgokRules.PadVisualHalfZ,st.choicePadRects,i*4);
+                ProjectTapGrid(HyeopgokRules.Pads[i],HyeopgokRules.PadVisualHalfX,HyeopgokRules.PadVisualHalfZ,st.choicePadTapPoints,i*10);
+                ProjectGroundQuad(HyeopgokRules.Pads[i],HyeopgokRules.PadVisualHalfX,HyeopgokRules.PadVisualHalfZ,st.choicePadVisualCorners,i*8);
+                ProjectGroundQuad(HyeopgokRules.Pads[i],HyeopgokRules.PadHitHalfX,HyeopgokRules.PadHitHalfZ,st.choicePadHitCorners,i*8);
             }
-            for(int i=0;i<HyeopgokBattle.TowerCount;i++)ProjectGroundRect(HyeopgokBattle.UpgradePads[i],.72f,.58f,st.upgradePadRects,i*4);
+            for(int i=0;i<HyeopgokBattle.TowerCount;i++){
+                ProjectGroundRect(HyeopgokBattle.UpgradePads[i],HyeopgokBattle.UpgradePadVisualHalfX,HyeopgokBattle.UpgradePadVisualHalfZ,st.upgradePadRects,i*4);
+                ProjectTapGrid(HyeopgokBattle.UpgradePads[i],HyeopgokBattle.UpgradePadVisualHalfX,HyeopgokBattle.UpgradePadVisualHalfZ,st.upgradePadTapPoints,i*10);
+                ProjectGroundQuad(HyeopgokBattle.UpgradePads[i],HyeopgokBattle.UpgradePadVisualHalfX,HyeopgokBattle.UpgradePadVisualHalfZ,st.upgradePadVisualCorners,i*8);
+                ProjectGroundQuad(HyeopgokBattle.UpgradePads[i],HyeopgokBattle.UpgradePadHitHalfX,HyeopgokBattle.UpgradePadHitHalfZ,st.upgradePadHitCorners,i*8);
+            }
             // The playable plateau plus enemy approach: west gate (-4.1), east
             // watchtower (6.8), southern contact bend (-7.1) and enemy gate (9.8).
             ProjectGroundRect(new Vector3(1.1f,.35f,1.35f),5.7f,8.45f,st.battlefieldRect,0);
@@ -261,6 +280,21 @@ namespace Mgf.HyeopgokSasu
             AccumulateProjection(c+new Vector3(rx,0,rz),ref minX,ref minY,ref maxX,ref maxY);AccumulateProjection(c+new Vector3(-rx,0,rz),ref minX,ref minY,ref maxX,ref maxY);
             output[at]=minX;output[at+1]=minY;output[at+2]=maxX-minX;output[at+3]=maxY-minY;
         }
+        void ProjectTapGrid(Vector3 c,float rx,float rz,float[] output,int at){
+            const float cornerInset=.90f;
+            ProjectTapPoint(c+new Vector3(-rx*cornerInset,0,rz*cornerInset),output,at);
+            ProjectTapPoint(c+new Vector3(rx*cornerInset,0,rz*cornerInset),output,at+2);
+            ProjectTapPoint(c+new Vector3(rx*cornerInset,0,-rz*cornerInset),output,at+4);
+            ProjectTapPoint(c+new Vector3(-rx*cornerInset,0,-rz*cornerInset),output,at+6);
+            ProjectTapPoint(c,output,at+8);
+        }
+        void ProjectGroundQuad(Vector3 c,float rx,float rz,float[] output,int at){
+            ProjectTapPoint(c+new Vector3(-rx,0,rz),output,at);
+            ProjectTapPoint(c+new Vector3(rx,0,rz),output,at+2);
+            ProjectTapPoint(c+new Vector3(rx,0,-rz),output,at+4);
+            ProjectTapPoint(c+new Vector3(-rx,0,-rz),output,at+6);
+        }
+        void ProjectTapPoint(Vector3 world,float[] output,int at){Vector3 s=cam.WorldToScreenPoint(world);output[at]=s.x/Screen.width;output[at+1]=1-s.y/Screen.height;}
         void AccumulateProjection(Vector3 world,ref float minX,ref float minY,ref float maxX,ref float maxY){Vector3 s=cam.WorldToScreenPoint(world);float x=s.x/Screen.width,y=1-s.y/Screen.height;minX=Mathf.Min(minX,x);minY=Mathf.Min(minY,y);maxX=Mathf.Max(maxX,x);maxY=Mathf.Max(maxY,y);}
         void ProjectBodyRect(Vector3 c,float[] output,int at){
             Vector3 a=cam.WorldToScreenPoint(c+new Vector3(-.45f,0,-.3f)),b=cam.WorldToScreenPoint(c+new Vector3(.45f,1.75f,.3f));
@@ -291,7 +325,15 @@ namespace Mgf.HyeopgokSasu
                 else if(MgfPointer.OnPlane(cam,1.24f,out Vector3 p)){
                     // A pointer-down may become a drag. Move immediately but do
                     // not spend a tap coin until release proves it stayed a tap.
-                    dragging=true;Rules.Press(p);st.moves++;SyncState();MgfSfx.Play("tap");
+                    dragging=true;pointerWorldOrigin=p;UpdatePadScreen();
+                    pointerChoicePad=CachedScreenPadAt(st.choicePadHitCorners,st.choicePadVisualCorners,4,MgfPointer.Position,false);
+                    pointerUpgradePad=CachedScreenPadAt(st.upgradePadHitCorners,st.upgradePadVisualCorners,HyeopgokBattle.TowerCount,MgfPointer.Position,true);
+                    if(pointerChoicePad>=0&&pointerUpgradePad>=0){
+                        float choiceInterior=CachedScreenPadInterior(st.choicePadVisualCorners,pointerChoicePad,MgfPointer.Position);
+                        float upgradeInterior=CachedScreenPadInterior(st.upgradePadVisualCorners,pointerUpgradePad,MgfPointer.Position);
+                        if(upgradeInterior>choiceInterior)pointerChoicePad=-1;else pointerUpgradePad=-1;
+                    }
+                    Rules.Press(p);st.moves++;SyncState();MgfSfx.Play("tap");
                 }
             }
             if(dragging&&MgfPointer.Held&&MgfPointer.OnPlane(cam,1.24f,out Vector3 drag)){
@@ -299,11 +341,23 @@ namespace Mgf.HyeopgokSasu
                 if(movedDuringPress)Rules.Move(drag);
             }
             if(MgfPointer.Up){
-                if(dragging&&MgfPointer.OnPlane(cam,1.24f,out Vector3 tap)){
-                    int pad=Rules.PadAt(tap);
-                    if(pad>=0)TapChoicePad(pad);else Rules.Move(tap,true);
+                Vector3 tap=pointerWorldOrigin;
+                bool hasTap=dragging&&(!movedDuringPress||MgfPointer.OnPlane(cam,1.24f,out tap));
+                if(hasTap){
+                    st.lastPointerX=MgfPointer.Position.x;st.lastPointerY=MgfPointer.Position.y;st.lastPointerWorldX=tap.x;st.lastPointerWorldZ=tap.z;
+                    bool cachedTap=!movedDuringPress&&(pointerChoicePad>=0||pointerUpgradePad>=0);
+                    int pad=cachedTap?pointerChoicePad:Rules.PadAt(tap);
+                    int upgrade=cachedTap?pointerUpgradePad:HyeopgokBattle.UpgradePadAt(tap);
+                    // The north-east answer pad and its tower pad have a tiny
+                    // visible-envelope overlap. Give the tap to the rectangle
+                    // whose visible border contains it more deeply; this keeps
+                    // both complete dotted rectangles tappable without moving art.
+                    bool upgradeTarget=cachedTap?pointerUpgradePad>=0:upgrade>=0&&battle.TowerLevelAt(upgrade)>=0&&battle.TowerLevelAt(upgrade)<2&&
+                        (pad<0||PadInterior(tap,HyeopgokBattle.UpgradePads[upgrade],HyeopgokBattle.UpgradePadVisualHalfX,HyeopgokBattle.UpgradePadVisualHalfZ)>
+                        PadInterior(tap,HyeopgokRules.Pads[pad],HyeopgokRules.PadVisualHalfX,HyeopgokRules.PadVisualHalfZ));
+                    if(upgradeTarget)Rules.Move(HyeopgokBattle.UpgradePads[upgrade],true,true);else if(pad>=0)TapChoicePad(pad);else Rules.Move(tap,true);
                 }
-                dragging=false;SyncState();
+                dragging=false;pointerChoicePad=pointerUpgradePad=-1;SyncState();
             }
             if(feedbackLeft>0){feedbackLeft-=dt;if(feedbackLeft<=0)Advance();}
             else {
@@ -316,6 +370,27 @@ namespace Mgf.HyeopgokSasu
             if(Rules.Ended && feedbackLeft<=0)Finish();
             uiTick+=dt;if(uiTick>.15f){uiTick=0;UpdateBattleHud();SyncState();}
         }
+        static float PadInterior(Vector3 point,Vector3 center,float halfX,float halfZ){return Mathf.Min(1-Mathf.Abs(point.x-center.x)/halfX,1-Mathf.Abs(point.z-center.z)/halfZ);}
+        int CachedScreenPadAt(float[] hitCorners,float[] visualCorners,int count,Vector2 pointer,bool upgrade){
+            if(hitCorners==null||visualCorners==null)return -1;float best=float.MinValue;int selected=-1;
+            for(int i=0;i<count;i++){
+                if(upgrade&&(battle.TowerLevelAt(i)<0||battle.TowerLevelAt(i)>=2))continue;
+                if(CachedScreenPadInterior(hitCorners,i,pointer)<-.002f)continue;
+                float interior=CachedScreenPadInterior(visualCorners,i,pointer);if(interior>best){best=interior;selected=i;}
+            }return selected;
+        }
+        static float CachedScreenPadInterior(float[] corners,int pad,Vector2 pointer){
+            int at=pad*8;if(corners==null||at+7>=corners.Length)return float.MinValue;
+            Vector2 p=new Vector2(pointer.x/Mathf.Max(1,Screen.width),1-pointer.y/Mathf.Max(1,Screen.height));
+            Vector2 center=Vector2.zero;for(int i=0;i<4;i++)center+=new Vector2(corners[at+i*2],corners[at+i*2+1]);center*=.25f;
+            float interior=float.MaxValue;
+            for(int i=0;i<4;i++){
+                Vector2 a=new Vector2(corners[at+i*2],corners[at+i*2+1]),b=new Vector2(corners[at+((i+1)&3)*2],corners[at+((i+1)&3)*2+1]);
+                float centerCross=Cross2(a,b,center),pointCross=Cross2(a,b,p);if(Mathf.Abs(centerCross)<.000001f)return float.MinValue;
+                interior=Mathf.Min(interior,pointCross/centerCross);
+            }return interior;
+        }
+        static float Cross2(Vector2 a,Vector2 b,Vector2 p){return(b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x);}
         void UpdateCamera(float dt){
             if(cameraLanding>0)cameraLanding=Mathf.Max(0,cameraLanding-dt);
             if(cameraReveal>0)cameraReveal=Mathf.Max(0,cameraReveal-dt);

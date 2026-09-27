@@ -65,7 +65,7 @@ namespace Mgf.HyeopgokSasu
             var canvas=MgfText.Canvas;canvas.GetComponent<CanvasScaler>().matchWidthOrHeight=1;
             // Korean wraps between words (spaces), never inside a word such as 구|하시오.
             if(TMP_Settings.instance!=null)TMP_Settings.useModernHangulLineBreakingRules=true;
-            MgfText.Font.TryAddCharacters("∠△°²∥⊥∽≡×÷①②③확정돌아가면취소먼저밖으로나오기코인부족전투에서모으기모든사건한번더탭패드잠깐처치지원군투자시간초과압박남음지켜라");
+            MgfText.Font.TryAddCharacters("∠△°²∥⊥∽≡×÷①②③확정돌아가면취소먼저밖으로나오기코인부족전투에서모으기모든사건한번더탭패드하세요잠깐처치지원군투자시간초과압박남음지켜라");
             titleRoot=Group("Title",canvas.transform);playRoot=Group("Battle HUD",canvas.transform);endRoot=Group("Results",canvas.transform);
             BuildTitleUi();
             hpPill=Pill("Gate health pill",playRoot,new Vector2(0,1),new Vector2(62,-28),new Vector2(108,42),navy);
@@ -327,9 +327,9 @@ namespace Mgf.HyeopgokSasu
         void ResetTutorialProgress(){firstFractionTutorialShown=false;SetTutorial(0);}
         void SetTutorial(int kind){
             tutorialKind=kind;tutorialVisible=kind>0;tutorialStarted=Time.unscaledTime;
-            bool visible=tutorialVisible;
-            if(tutorialTrail)tutorialTrail.gameObject.SetActive(false);if(tutorialArrow)tutorialArrow.gameObject.SetActive(visible);
-            if(tutorialDot)tutorialDot.gameObject.SetActive(visible);
+            bool visible=tutorialVisible,choiceHint=kind==3;
+            if(tutorialTrail)tutorialTrail.gameObject.SetActive(false);if(tutorialArrow)tutorialArrow.gameObject.SetActive(visible&&!choiceHint);
+            if(tutorialDot)tutorialDot.gameObject.SetActive(visible&&!choiceHint);
             if(tutorialLabel)tutorialLabel.gameObject.SetActive(visible);
             if(tutorialCoin)tutorialCoin.gameObject.SetActive(false);
             for(int i=0;i<tutorialRings.Length;i++)if(tutorialRings[i])tutorialRings[i].gameObject.SetActive(false);
@@ -430,7 +430,8 @@ namespace Mgf.HyeopgokSasu
                 tutorialTrail.gameObject.SetActive(false);if(tutorialArrow)tutorialArrow.gameObject.SetActive(false);tutorialDot.gameObject.SetActive(false);tutorialLabel.gameObject.SetActive(false);tutorialCoin.gameObject.SetActive(false);
                 for(int i=0;i<tutorialRings.Length;i++)tutorialRings[i].gameObject.SetActive(false);return;
             }
-            tutorialDot.gameObject.SetActive(true);tutorialLabel.gameObject.SetActive(Time.unscaledTime-tutorialStarted<6);if(tutorialArrow)tutorialArrow.gameObject.SetActive(true);
+            bool choiceHint=tutorialKind==3;
+            tutorialDot.gameObject.SetActive(!choiceHint);tutorialLabel.gameObject.SetActive(Time.unscaledTime-tutorialStarted<(choiceHint?2.8f:6f));if(tutorialArrow)tutorialArrow.gameObject.SetActive(!choiceHint);
             RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
             Vector3 fromWorld=Rules.King,toWorld=HyeopgokRules.Pads[0];
             float along=Mathf.SmoothStep(0,1,Mathf.PingPong(Time.unscaledTime*1.15f,1));
@@ -438,8 +439,8 @@ namespace Mgf.HyeopgokSasu
             string label="멈춰 서서 붓기";
 
             if(tutorialKind==3){
-                toWorld=(HyeopgokRules.Pads[0]+HyeopgokRules.Pads[1]+HyeopgokRules.Pads[2]+HyeopgokRules.Pads[3])*.25f;
-                ringPad=-2;label="보기 패드를 탭!";
+                fromWorld=toWorld=Rules.King;
+                ringPad=-2;along=0;label="보기 패드를 탭하세요";
             }else if(tutorialKind==1){
                 if(Rules.Coins==0&&Rules.Poured[0]==0){
                     toWorld=battle.CollectionPoint;ringPad=-1;label="전선 가까이에서 코인 모으기";
@@ -469,16 +470,16 @@ namespace Mgf.HyeopgokSasu
             Vector2 start=TutorialPoint(fromWorld,canvas),target=TutorialPoint(toWorld,canvas);
             Vector2 dot=Vector2.Lerp(start,target,along),delta=target-start;
             tutorialDot.anchoredPosition=dot+new Vector2(22,-16);tutorialDot.localScale=Vector3.one*.72f;
-            // A choice question uses all four pads. Put its short first-use hint
-            // below the king so it cannot cover the lower pair of answer pads.
-            Vector2 guideAt=TutorialPoint(Rules.King,canvas)+new Vector2(0,Rules.Current.Mode=="choice"?-55:62);
+            // The first choice question uses only a neutral speech bubble above
+            // the king: no arrow, hand, sequence or pad-specific answer cue.
+            Vector2 guideAt=TutorialPoint(Rules.King,canvas)+new Vector2(0,62);
             if(Rules.Current.Mode!="choice")guideAt.y=Mathf.Max(guideAt.y,-185);
             tutorialLabel.anchoredPosition=ClampWorldBubble(guideAt,145);
-            if(tutorialKind!=2&&tutorialKind!=1)label="보기 패드를 탭!";
+            if(tutorialKind!=2&&tutorialKind!=1)label="보기 패드를 탭하세요";
             tutorialCaption.fontSize=label.Length>12?12:14;
             if(tutorialCaption.text!=label)tutorialCaption.text=label;
             tutorialTrail.gameObject.SetActive(false);
-            if(tutorialArrow){tutorialArrow.position=toWorld+new Vector3(0,1.5f+.12f*Mathf.Sin(Time.unscaledTime*5),0);tutorialArrow.rotation=Quaternion.Euler(0,-8,0);}
+            if(tutorialArrow&&!choiceHint){tutorialArrow.position=toWorld+new Vector3(0,1.5f+.12f*Mathf.Sin(Time.unscaledTime*5),0);tutorialArrow.rotation=Quaternion.Euler(0,-8,0);}
             tutorialTrail.anchoredPosition=(start+target)*.5f;tutorialTrail.sizeDelta=new Vector2(delta.magnitude,5);
             tutorialTrail.localRotation=Quaternion.Euler(0,0,Mathf.Atan2(delta.y,delta.x)*Mathf.Rad2Deg);
             tutorialCoin.gameObject.SetActive(demoCoin);
@@ -515,7 +516,9 @@ namespace Mgf.HyeopgokSasu
                 }
                 Vector3 screen=cam.WorldToScreenPoint(HyeopgokBattle.UpgradePads[i]);RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,screen,null,out Vector2 local);
                 if(!suppressLabels)PlaceUpgradeLabel(i,local);
-                int total=level>=2?1:level==0?15:30;float progress=level>=2?1:1-left/(float)total;int count=progress>0?Mathf.CeilToInt(progress*24)+1:0;
+                int total=level>=2?1:level==0?15:30;float progress=level>=2?1:1-left/(float)total;
+                if(battle.ActiveUpgradePad==i&&battle.UpgradeDwell<HyeopgokRules.Hold)progress=battle.UpgradeDwell/HyeopgokRules.Hold;
+                int count=progress>0?Mathf.CeilToInt(progress*24)+1:0;
                 upgradePadFill[i].positionCount=count;for(int k=0;k<count;k++)upgradePadFill[i].SetPosition(k,UpgradePadEdge(i,Mathf.Min(progress,k/24f)));
             }
         }
