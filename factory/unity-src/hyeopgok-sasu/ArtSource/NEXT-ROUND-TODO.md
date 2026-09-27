@@ -8,3 +8,7 @@
 - [ ] u6 생성기 재실행 시 index.json 을 2팩으로 덮어씀 — 공용 writer 수정.
 - [ ] 발문 150자+ (u7 49개, u4 12개) 390×844 배너 실측.
 - [ ] 팩 생성기 공통 규칙: 정답이 발문에 나온 수와 같으면(정의 문항 제외) 파라미터 재추첨 — grok 교차검토 phrasing 12건(crosscheck-grok.json).
+
+# v3 팩(4지선다) 통합 후 확인 (2026-09-27)
+- [ ] 보기 패드 렌더: 단위 붙은 보기(「70°」「12 cm²」), 비(「2:3」), 정수·분수 혼합 확률 보기(0, 1, {frac:1/4}), 최장 보기 길이 — 390·1280 캡처.
+- [ ] `verify-packs.mjs`·`verify-schema.mjs` 는 v2 전제(u6·u7 v3 에서 실패) — v3 검산기(`check-m2s2-prob.mjs`, `check-m2s2-geo.mjs`, `check-m2s1.mjs`, `validate-pack-v3-*.mjs`)로 대체·정리, 팩 README 두 곳 v3 로 갱신.

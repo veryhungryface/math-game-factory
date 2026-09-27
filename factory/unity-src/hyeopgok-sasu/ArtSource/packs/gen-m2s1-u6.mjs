@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // 중2-1 단원6 일차함수와 일차방정식의 관계 [9수02-17]·[9수02-18].
-// Pour items: positive intercepts/slopes of ax+by+c=0, coordinates of intersection points built to be
-// positive, areas bounded by lines, and coefficient values (a+b, a) that make systems have none/infinitely
-// many solutions. Axis-parallel line equations (x=3 vs y=−1) and "해의 개수 ↔ 평행·일치" are choice items,
-// because they are statements about the graph rather than numbers.
+// Schema v3 (4-choice). Numeric items: intercepts/slopes of ax+by+c=0 (negative and fractional again),
+// intersection coordinates, areas bounded by lines, coefficient values for none/infinitely many solutions.
+// Wrong choices: 보이는 상수항을 절편으로 읽기, 이항 부호 실수, x·y절편 혼동, 기울기 비 뒤집기, 좌표 순서,
+// 배수 관계 무시. Axis-parallel lines (x=3 vs y=−1) and "해의 개수 ↔ 평행·일치" are text choices.
 // Points are written in words ("x좌표가 3이고 y좌표가 −1인 점") where the validator's parenthesis-stripping
 // dedupe would otherwise merge distinct prompts.
 import {amount, fraction, choice, writeUnitPack, j, gcd, reduce, num, rat, M} from './m2s1-lib.mjs';
@@ -17,6 +17,12 @@ function lin2(a, b, c = 0) { // a·x + b·y + c (c appended as constant term)
 const eq0 = (a, b, c) => `${lin2(a, b, c)}=0`, eqc = (a, b, c) => `${lin2(a, b)}=${num(c)}`;
 const yfx = (m, k) => { const s = m === 0 ? '' : `${m === 1 ? '' : m === -1 ? M : num(m)}x`; return `y=${s}${k === 0 ? (s ? '' : '0') : (k > 0 ? (s ? '+' : '') : M) + Math.abs(k)}`; };
 const det = (a1, b1, a2, b2) => a1 * b2 - a2 * b1;
+/** Misconception values for a coordinate of the intersection of [[a1,b1,c1],[a2,b2,c2]] (a·x+b·y=c). */
+function sysTraps([[a1, b1, c1], [a2, b2, c2]], x0, y0, ask) {
+  const D = det(a1, b1, a2, b2), v = ask === 'x' ? x0 : y0, other = ask === 'x' ? y0 : x0, Dp = a1 * b2 + a2 * b1;
+  const numP = ask === 'x' ? c1 * b2 + c2 * b1 : a1 * c2 + a2 * c1;
+  return [{v: other, tag: T('coordinate-swapped')}, {v: Dp ? [numP, Dp] : null, tag: T('elimination-sign-error')}, {v: -v, tag: T('sign-error-in-transposition')}, {v: Math.abs(D) !== 1 ? v * Math.abs(D) : null, tag: T('coefficient-not-divided')}];
+}
 const yForm = (sn, sd, yn, yd) => { const c = sd === 1 ? (sn === 1 ? '' : sn === -1 ? M : num(sn)) : rat(sn, sd); const k = rat(yn, yd); return `y=${c}x${yn === 0 ? '' : yn > 0 ? '+' + k : k}`; };
 
 // A. ax+by+c=0 의 절편·기울기
@@ -24,40 +30,45 @@ const eqInt = [], eqSlopeFrac = [];
 for (let a = -6; a <= 6; a++) for (let b = -6; b <= 6; b++) for (let c = -30; c <= 30; c++) {
   if (!a || !b || !c || b < 0 && a < 0 || gcd(gcd(a, b), c) !== 1 || (a * 7 + b * 5 + c) % 3) continue;
   const form = (a + b + c) % 2 ? eq0(a, b, c) : eqc(a, b, -c); const [yn, yd] = R(-c, b), [xn, xd] = R(-c, a), [sn, sd] = R(-a, b);
-  const E = `일차방정식 ${form}의 그래프의`;
-  if (yd === 1 && yn >= 2 && yn <= 59) eqInt.push(amount({prompt: `${E} y절편을 구하시오.`, answer: yn, explain: `y에 대하여 풀면 ${yForm(sn, sd, yn, yd)}이므로 y절편은 ${yn}입니다.`, concept: '일차방정식의 그래프', difficulty: 1, params: {t: 'eq-intercept', eq: form, ask: 'y'}, traps: [{v: Math.abs(c), tag: T('constant-as-intercept')}, {v: xd === 1 ? Math.abs(xn) : -1, tag: T('intercepts-confused')}]}));
-  if (xd === 1 && xn >= 2 && xn <= 59) eqInt.push(amount({prompt: `${E} x절편을 구하시오.`, answer: xn, explain: `y=0을 대입하면 ${lin2(a, 0)}=${num(-c)}이므로 x절편은 ${xn}입니다.`, concept: '일차방정식의 그래프', difficulty: 1, params: {t: 'eq-intercept', eq: form, ask: 'x'}, traps: [{v: Math.abs(c), tag: T('constant-as-intercept')}, {v: yd === 1 ? Math.abs(yn) : -1, tag: T('intercepts-confused')}]}));
-  if (sn > 0 && sd === 1 && sn >= 2) eqInt.push(amount({prompt: `${E} 기울기를 구하시오.`, answer: sn, explain: `y에 대하여 풀면 x의 계수가 ${sn}이므로 기울기는 ${sn}입니다.`, concept: '일차방정식의 그래프', difficulty: 1, params: {t: 'eq-intercept', eq: form, ask: 'slope'}, traps: [{v: Math.abs(a), tag: T('x-coefficient-as-slope')}]}));
-  if (sn > 0 && sd > 1) eqSlopeFrac.push(fraction({prompt: `${E} 기울기를 구하시오.`, n: sn, d: sd, accept: 'equivalent', explain: `${form}을 y에 대하여 풀면 x의 계수가 ${rat(sn, sd)}이므로 기울기는 ${rat(sn, sd)}입니다.`.replace(`${form}을`, j(form, '을')), concept: '일차방정식의 그래프', difficulty: 2, params: {t: 'eq-intercept', eq: form, ask: 'slope'}, traps: [{v: [Math.abs(b), Math.abs(a)], tag: T('ratio-reversed')}, {v: [Math.abs(a), 1], tag: T('x-coefficient-as-slope')}]}));
+  const E = `일차방정식 ${form}의 그래프의`, kc = (a + b + c) % 2 ? c : -c; // kc: the constant as printed
+  const Y = [yn, yd], X = [xn, xd], S = [sn, sd], neg = true;
+  const yTr = [{v: kc, tag: T('constant-as-intercept')}, {v: [-yn, yd], tag: T('sign-error-in-transposition')}, {v: X, tag: T('intercepts-confused')}];
+  const xTr = [{v: kc, tag: T('constant-as-intercept')}, {v: [-xn, xd], tag: T('sign-error-in-transposition')}, {v: Y, tag: T('intercepts-confused')}];
+  const sTr = [{v: a, tag: T('x-coefficient-as-slope')}, {v: [-sn, sd], tag: T('sign-error-in-transposition')}, {v: [-b, a], tag: T('ratio-reversed')}, {v: [b, a], tag: T('ratio-reversed')}];
+  const add = (d, ask, ans, tr, why) => (d === 1 ? eqInt : eqSlopeFrac).push(amount({neg, prompt: `${E} ${j(ask === 'slope' ? '기울기' : ask + '절편', '을')} 구하시오.`, answer: ans, explain: why, concept: '일차방정식의 그래프', difficulty: d === 1 ? 1 : 2, params: {t: 'eq-intercept', eq: form, ask}, traps: tr}));
+  if (Math.abs(yn / yd) <= 59) add(yd, 'y', Y, yTr, `y에 대하여 풀면 ${yForm(sn, sd, yn, yd)}이므로 y절편은 ${rat(yn, yd)}입니다.`);
+  if (Math.abs(xn / xd) <= 59) add(xd, 'x', X, xTr, `y=0을 대입하면 ${lin2(a, 0)}=${num(-c)}이므로 x절편은 ${rat(xn, xd)}입니다.`);
+  if (Math.abs(sn / sd) >= 2 || sd > 1) add(sd, 'slope', S, sTr, `${j(form, '을')} y에 대하여 풀면 x의 계수가 ${rat(sn, sd)}이므로 기울기는 ${rat(sn, sd)}입니다.`);
 }
 // B. 그래프가 지나는 점
 const eqPoint = [];
-for (let a = 1; a <= 6; a++) for (let b = -6; b <= 6; b++) for (let k = 2; k <= 30; k++) for (let m = -6; m <= 8; m++) {
-  if (!b || !m || (a * 5 + b * 3 + k * 7 + m) % 23) continue; const c = a * k + b * m; if (gcd(gcd(a, b), c) !== 1) continue;
+for (let a = 1; a <= 6; a++) for (let b = -6; b <= 6; b++) for (let k = -9; k <= 30; k++) for (let m = -6; m <= 8; m++) {
+  if (!b || !m || Math.abs(k) < 2 || (a * 5 + b * 3 + k * 7 + m) % 23) continue; const c = a * k + b * m; if (gcd(gcd(a, b), c) !== 1) continue;
   const e = eqc(a, b, c);
-  eqPoint.push(amount({prompt: `일차방정식 ${e}의 그래프가 점 (k, ${num(m)})를 지날 때, k의 값을 구하시오.`.replace(`(k, ${num(m)})를`, j(`(k, ${num(m)})`, '을')), answer: k, explain: `x=k, y=${num(m)}을 대입하면 ${a === 1 ? '' : a}k${b * m >= 0 ? '+' : M}${Math.abs(b * m)}=${num(c)}이므로 k=${k}입니다.`.replace(`y=${num(m)}을`, j(`y=${num(m)}`, '을')), concept: '일차방정식의 그래프', difficulty: 1, params: {t: 'eq-point', eq: e, y0: m}, traps: [{v: Math.abs(c), tag: T('constant-as-coordinate')}]}));
+  eqPoint.push(amount({neg: true, prompt: `일차방정식 ${e}의 그래프가 점 (k, ${num(m)})를 지날 때, k의 값을 구하시오.`.replace(`(k, ${num(m)})를`, j(`(k, ${num(m)})`, '을')), answer: k, explain: `x=k, y=${num(m)}을 대입하면 ${a === 1 ? '' : a}k${b * m >= 0 ? '+' : M}${Math.abs(b * m)}=${num(c)}이므로 k=${num(k)}입니다.`.replace(`y=${num(m)}을`, j(`y=${num(m)}`, '을')), concept: '일차방정식의 그래프', difficulty: 1, params: {t: 'eq-point', eq: e, y0: m},
+    traps: [{v: c, tag: T('constant-as-coordinate')}, {v: [c + b * m, a], tag: T('sign-error-in-transposition')}, {v: a !== 1 ? c - b * m : null, tag: T('coefficient-not-divided')}, {v: -k, tag: T('sign-error-in-transposition')}]}));
 }
 // C. 좌표축에 평행한 직선
 const rect = [], rectEq = [], axisChoice = [], descChoice = [];
 for (let x1 = -6; x1 <= 8; x1++) for (let x2 = x1 + 1; x2 <= 9; x2++) for (let y1 = -6; y1 <= 6; y1++) for (let y2 = y1 + 1; y2 <= 8; y2++) {
   const A = (x2 - x1) * (y2 - y1); if (A < 2 || A > 59 || (x1 * 7 + x2 * 5 + y1 * 3 + y2) % 11) continue;
-  rect.push(amount({prompt: `네 직선 x=${num(x1)}, x=${num(x2)}, y=${num(y1)}, y=${num(y2)}로 둘러싸인 도형의 넓이를 구하시오.`, answer: A, explain: `가로 ${x2 - x1}, 세로 ${y2 - y1}인 직사각형이므로 넓이는 ${A}입니다.`, concept: '좌표축에 평행한 직선', difficulty: 2, params: {t: 'rect-area4', xs: [x1, x2], ys: [y1, y2]}, traps: [{v: Math.abs(x2 * y2 - x1 * y1), tag: T('coordinates-multiplied')}, {v: 2 * (x2 - x1 + y2 - y1), tag: T('perimeter-for-area')}]}));
+  rect.push(amount({prompt: `네 직선 x=${num(x1)}, x=${num(x2)}, y=${num(y1)}, y=${num(y2)}로 둘러싸인 도형의 넓이를 구하시오.`, answer: A, explain: `가로 ${x2 - x1}, 세로 ${y2 - y1}인 직사각형이므로 넓이는 ${A}입니다.`, concept: '좌표축에 평행한 직선', difficulty: 2, params: {t: 'rect-area4', xs: [x1, x2], ys: [y1, y2]}, traps: [{v: Math.abs(x2 * y2 - x1 * y1), tag: T('coordinates-multiplied')}, {v: 2 * (x2 - x1 + y2 - y1), tag: T('perimeter-for-area')}, {v: x2 - x1 + y2 - y1, tag: T('sides-added')}, {v: Math.abs(x2 * y2), tag: T('coordinates-multiplied')}]}));
 }
 for (let px = -9; px <= 9; px++) for (let py = -9; py <= 9; py++) {
   const A = Math.abs(px * py); if (!px || !py || A < 2 || A > 59) continue;
-  rect.push(amount({prompt: `두 직선 x=${num(px)}, y=${num(py)}와 x축, y축으로 둘러싸인 도형의 넓이를 구하시오.`.replace(`y=${num(py)}와`, j(`y=${num(py)}`, '과')), answer: A, explain: `가로 ${Math.abs(px)}, 세로 ${Math.abs(py)}인 직사각형이므로 넓이는 ${A}입니다.`, concept: '좌표축에 평행한 직선', difficulty: 2, params: {t: 'rect-area-axes', px, py}, traps: [{v: Math.abs(px) + Math.abs(py), tag: T('coordinates-added')}]}));
+  rect.push(amount({prompt: `두 직선 x=${num(px)}, y=${num(py)}와 x축, y축으로 둘러싸인 도형의 넓이를 구하시오.`.replace(`y=${num(py)}와`, j(`y=${num(py)}`, '과')), answer: A, explain: `가로 ${Math.abs(px)}, 세로 ${Math.abs(py)}인 직사각형이므로 넓이는 ${A}입니다.`, concept: '좌표축에 평행한 직선', difficulty: 2, params: {t: 'rect-area-axes', px, py}, traps: [{v: Math.abs(px) + Math.abs(py), tag: T('coordinates-added')}, {v: 2 * (Math.abs(px) + Math.abs(py)), tag: T('perimeter-for-area')}, {v: [A, 2], tag: T('triangle-formula-used')}]}));
 }
 for (const p of [1, 2, 3, 4, 5]) for (let X = -9; X <= 9; X++) for (const r of [1, 2, 3, 4]) for (let Y = -9; Y <= 9; Y++) {
   const A = Math.abs(X * Y); if (!X || !Y || A < 2 || A > 59 || (p * 3 + X * 5 + r * 7 + Y) % 5) continue;
   const e1 = eq0(p, 0, -p * X), e2 = eq0(0, r, -r * Y); if (p === 1 && r === 1) continue;
-  rectEq.push(amount({prompt: `두 일차방정식 ${e1}, ${e2}의 그래프와 x축, y축으로 둘러싸인 도형의 넓이를 구하시오.`, answer: A, explain: `${e1}에서 x=${num(X)}, ${e2}에서 y=${num(Y)}이므로 넓이는 ${Math.abs(X)}×${Math.abs(Y)}=${A}입니다.`, concept: '좌표축에 평행한 직선', difficulty: 3, params: {t: 'rect-area-eqs', e1, e2}, traps: [{v: Math.abs(p * X * r * Y) <= 59 ? Math.abs(p * X * r * Y) : -1, tag: T('coefficient-kept')}, {v: Math.abs(X) + Math.abs(Y), tag: T('coordinates-added')}]}));
+  rectEq.push(amount({prompt: `두 일차방정식 ${e1}, ${e2}의 그래프와 x축, y축으로 둘러싸인 도형의 넓이를 구하시오.`, answer: A, explain: `${e1}에서 x=${num(X)}, ${e2}에서 y=${num(Y)}이므로 넓이는 ${Math.abs(X)}×${Math.abs(Y)}=${A}입니다.`, concept: '좌표축에 평행한 직선', difficulty: 3, params: {t: 'rect-area-eqs', e1, e2}, traps: [{v: Math.abs(p * X * r * Y), tag: T('coefficient-kept')}, {v: Math.abs(X) + Math.abs(Y), tag: T('coordinates-added')}, {v: [A, 2], tag: T('triangle-formula-used')}, {v: 2 * (Math.abs(X) + Math.abs(Y)), tag: T('perimeter-for-area')}]}));
 }
 for (let px = -9; px <= 9; px++) for (let py = -9; py <= 9; py++) for (const axis of ['x', 'y']) {
   if (!px || !py || Math.abs(px) === Math.abs(py)) continue;
   const ans = axis === 'y' ? `x=${num(px)}` : `y=${num(py)}`;
   axisChoice.push(choice({prompt: `x좌표가 ${num(px)}이고 y좌표가 ${num(py)}인 점을 지나고 ${axis}축에 평행한 직선의 방정식을 고르시오.`,
     answer: ans, distractors: [{v: axis === 'y' ? `y=${num(py)}` : `x=${num(px)}`, tag: T('axis-parallel-swapped')}, {v: axis === 'y' ? `x=${num(py)}` : `y=${num(px)}`, tag: T('coordinate-swapped')}, {v: axis === 'y' ? `y=${num(px)}` : `x=${num(py)}`, tag: T('axis-parallel-swapped')}],
-    explain: `${axis}축에 평행한 직선 위의 점은 ${axis === 'y' ? 'x' : 'y'}좌표가 모두 ${num(axis === 'y' ? px : py)}이므로 ${ans}입니다.`, concept: '좌표축에 평행한 직선', difficulty: 1, params: {t: 'axis-parallel-choice', px, py, axis}}));
+    explain: `${axis}축에 평행한 직선 위의 점은 ${axis === 'y' ? 'x' : 'y'}좌표가 모두 ${num(axis === 'y' ? px : py)}이므로 ${num(ans)}입니다.`, concept: '좌표축에 평행한 직선', difficulty: 1, params: {t: 'axis-parallel-choice', px, py, axis}}));
 }
 for (const v of ['x', 'y']) for (let k = -9; k <= 9; k++) {
   if (!k || Math.abs(k) === 1) continue; const other = v === 'x' ? 'y' : 'x', pt = v === 'x' ? `(0, ${num(k)})` : `(${num(k)}, 0)`;
@@ -71,40 +82,40 @@ for (let m1 = -4; m1 <= 5; m1++) for (let m2 = -4; m2 <= 5; m2++) for (const [x0
   if (m1 === m2 || !m1 || !m2 || (m1 * 5 + m2 * 3 + x0 * 7 + y0) % 3) continue;
   const f1 = yfx(m1, y0 - m1 * x0), f2 = yfx(m2, y0 - m2 * x0);
   for (const ask of ['x', 'y']) { const v = ask === 'x' ? x0 : y0; if (v < 2) continue;
-    inter.push(amount({prompt: `두 일차함수 ${f1}, ${f2}의 그래프의 교점의 ${ask}좌표를 구하시오.`, answer: v, explain: `연립방정식 ${f1}, ${f2}를 풀면 x=${x0}, y=${y0}이므로 교점은 (${x0}, ${y0})입니다.`.replace(`${f2}를`, j(f2, '을')), concept: '두 그래프의 교점과 연립방정식', difficulty: 2, params: {t: 'intersection', e1: f1, e2: f2, ask}, traps: [{v: ask === 'x' ? y0 : x0, tag: T('coordinate-swapped')}]})); }
+    inter.push(amount({prompt: `두 일차함수 ${f1}, ${f2}의 그래프의 교점의 ${ask}좌표를 구하시오.`, answer: v, explain: `연립방정식 ${f1}, ${f2}를 풀면 x=${x0}, y=${y0}이므로 교점은 (${x0}, ${y0})입니다.`.replace(`${f2}를`, j(f2, '을')), concept: '두 그래프의 교점과 연립방정식', difficulty: 2, params: {t: 'intersection', e1: f1, e2: f2, ask}, neg: true, traps: sysTraps([[-m1, 1, y0 - m1 * x0], [-m2, 1, y0 - m2 * x0]], x0, y0, ask)})); }
 }
 for (let a1 = 1; a1 <= 5; a1++) for (let b1 = -4; b1 <= 4; b1++) for (let a2 = 1; a2 <= 5; a2++) for (let b2 = -4; b2 <= 4; b2++) for (const [x0, y0] of [[2, 3], [3, 1], [4, 5], [5, 2], [1, 4], [6, 3], [2, 7], [8, 5], [3, 10]]) {
   if (!b1 || !b2 || !det(a1, b1, a2, b2) || (a1 * 7 + b1 * 5 + a2 * 3 + b2 + x0 * 11 + y0) % 17) continue;
   const c1 = a1 * x0 + b1 * y0, c2 = a2 * x0 + b2 * y0; if (gcd(gcd(a1, b1), c1) !== 1 || gcd(gcd(a2, b2), c2) !== 1) continue;
   const e1 = eqc(a1, b1, c1), e2 = eqc(a2, b2, c2);
   for (const ask of ['x', 'y']) { const v = ask === 'x' ? x0 : y0; if (v < 2) continue;
-    inter.push(amount({prompt: `두 일차방정식 ${e1}, ${e2}의 그래프의 교점의 ${ask}좌표를 구하시오.`, answer: v, explain: `두 그래프의 교점의 좌표는 연립방정식의 해와 같으므로 x=${x0}, y=${y0}입니다.`, concept: '두 그래프의 교점과 연립방정식', difficulty: 2, params: {t: 'intersection', e1, e2, ask}, traps: [{v: ask === 'x' ? y0 : x0, tag: T('coordinate-swapped')}]})); }
+    inter.push(amount({prompt: `두 일차방정식 ${e1}, ${e2}의 그래프의 교점의 ${ask}좌표를 구하시오.`, answer: v, explain: `두 그래프의 교점의 좌표는 연립방정식의 해와 같으므로 x=${x0}, y=${y0}입니다.`, concept: '두 그래프의 교점과 연립방정식', difficulty: 2, params: {t: 'intersection', e1, e2, ask}, neg: true, traps: sysTraps([[a1, b1, c1], [a2, b2, c2]], x0, y0, ask)})); }
 }
 // E. 교점이 주어졌을 때 계수 구하기
 const interCoef = [];
 for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) for (const [x0, y0] of [[2, 3], [3, 1], [1, 4], [4, 2], [2, 5], [5, 3], [3, 4], [1, 2], [6, 1]]) for (const [p, r] of [[1, 1], [2, 1], [1, 2], [3, 1]]) {
   if ((a * 5 + b * 3 + x0 * 7 + y0 + p) % 3) continue;
   const e1 = `ax${M}${p === 1 ? '' : p}y=${num(a * x0 - p * y0)}`, e2 = `${r === 1 ? '' : r}x+by=${num(r * x0 + b * y0)}`;
-  interCoef.push(amount({prompt: `두 일차방정식 ${e1}, ${e2}의 그래프의 교점의 좌표가 (${x0}, ${y0})일 때, a+b의 값을 구하시오.`, answer: a + b, explain: `${j(`x=${x0}, y=${y0}`, '을')} 두 식에 대입하면 a=${a}, b=${b}입니다.`, concept: '두 그래프의 교점과 연립방정식', difficulty: 3, params: {t: 'intersection-coef', e1, e2, x0, y0}, traps: [{v: x0 + y0, tag: T('coordinates-added')}, {v: a * b, tag: T('asked-quantity-misread')}]}));
+  interCoef.push(amount({prompt: `두 일차방정식 ${e1}, ${e2}의 그래프의 교점의 좌표가 (${x0}, ${y0})일 때, a+b의 값을 구하시오.`, answer: a + b, explain: `${j(`x=${x0}, y=${y0}`, '을')} 두 식에 대입하면 a=${num(a)}, b=${num(b)}입니다.`, concept: '두 그래프의 교점과 연립방정식', difficulty: 3, params: {t: 'intersection-coef', e1, e2, x0, y0}, neg: true, traps: [{v: x0 + y0, tag: T('coordinates-added')}, {v: a * b, tag: T('asked-quantity-misread')}, {v: a - b, tag: T('sign-dropped')}]}));
 }
 // F. 세 직선이 한 점에서 만날 때
 const three = [];
 for (const [[a1, b1], [a2, b2]] of [[[1, 1], [2, -1]], [[1, -1], [1, 2]], [[2, 1], [1, -1]], [[3, 1], [1, 1]], [[1, 2], [2, -3]], [[2, -1], [3, 1]]]) for (const [x0, y0] of [[2, 3], [1, 4], [3, 2], [4, 1], [2, 5], [5, 3], [3, 7], [1, 6]]) for (let a = 2; a <= 9; a++) for (const [b3, c3n] of [[1, 0], [-1, 0], [2, 0], [-2, 0]]) {
   void c3n; if ((a1 + a2 * 3 + x0 * 5 + y0 * 7 + a + b3) % 4) continue;
   const c3 = a * x0 + b3 * y0, e1 = eqc(a1, b1, a1 * x0 + b1 * y0), e2 = eqc(a2, b2, a2 * x0 + b2 * y0), e3 = `ax${b3 > 0 ? '+' : M}${Math.abs(b3) === 1 ? '' : Math.abs(b3)}y=${num(c3)}`;
-  three.push(amount({prompt: `세 직선 ${e1}, ${e2}, ${e3}가 한 점에서 만날 때, a의 값을 구하시오.`.replace(`${e3}가`, j(e3, '이')), answer: a, explain: `두 직선 ${e1}, ${e2}의 교점 (${x0}, ${y0})을 셋째 식에 대입하면 a=${a}입니다.`.replace(`(${x0}, ${y0})을`, j(`(${x0}, ${y0})`, '을')), concept: '두 그래프의 교점과 연립방정식', difficulty: 4, params: {t: 'three-lines', e1, e2, e3}, traps: [{v: Math.abs(c3 - b3 * y0 - x0) <= 59 ? Math.abs(c3 - b3 * y0 - x0) : -1, tag: T('substitution-incomplete')}]}));
+  three.push(amount({prompt: `세 직선 ${e1}, ${e2}, ${e3}가 한 점에서 만날 때, a의 값을 구하시오.`.replace(`${e3}가`, j(e3, '이')), answer: a, explain: `두 직선 ${e1}, ${e2}의 교점 (${x0}, ${y0})을 셋째 식에 대입하면 a=${a}입니다.`.replace(`(${x0}, ${y0})을`, j(`(${x0}, ${y0})`, '을')), concept: '두 그래프의 교점과 연립방정식', difficulty: 4, params: {t: 'three-lines', e1, e2, e3}, neg: true, traps: [{v: [c3 - b3 * x0, y0], tag: T('coordinate-swapped')}, {v: c3 - b3 * y0 - x0, tag: T('substitution-incomplete')}, {v: -a, tag: T('sign-error-in-transposition')}, {v: c3, tag: T('constant-as-answer')}]}));
 }
 // G. 해의 개수와 두 그래프의 위치 관계
 const infinite = [], none = [], countChoice = [];
 for (let a = 1; a <= 6; a++) for (const p of [-3, -2, -1, 1, 2, 3]) for (let q = -6; q <= 8; q++) for (const k of [2, 3, 4]) {
   if (!q || gcd(gcd(a, p), q) !== 1 || (a * 3 + p * 5 + q * 7 + k) % 3) continue; const b = k * q; if (a + b < 2 || a + b > 59) continue;
   const e1 = `ax${p > 0 ? '+' : M}${Math.abs(p) === 1 ? '' : Math.abs(p)}y=${num(q)}`, e2 = `${k * a}x${k * p > 0 ? '+' : M}${Math.abs(k * p)}y=b`;
-  infinite.push(amount({prompt: `연립방정식 ${e1}, ${e2}의 해가 무수히 많을 때, a+b의 값을 구하시오.`, answer: a + b, explain: `두 그래프가 일치해야 하므로 둘째 식은 첫째 식의 ${k}배입니다. a=${a}, b=${b}입니다.`, concept: '연립방정식의 해의 개수', difficulty: 4, params: {t: 'infinite-solutions', e1, e2}, traps: [{v: a + q <= 59 ? a + q : -1, tag: T('scale-factor-ignored')}]}));
+  infinite.push(amount({prompt: `연립방정식 ${e1}, ${e2}의 해가 무수히 많을 때, a+b의 값을 구하시오.`, answer: a + b, explain: `두 그래프가 일치해야 하므로 둘째 식은 첫째 식의 ${k}배입니다. a=${num(a)}, b=${num(b)}입니다.`, concept: '연립방정식의 해의 개수', difficulty: 4, params: {t: 'infinite-solutions', e1, e2}, neg: true, traps: [{v: a + q, tag: T('scale-factor-ignored')}, {v: k * a + b, tag: T('scale-factor-ignored')}, {v: a - b, tag: T('sign-dropped')}, {v: [a * k + q, k], tag: T('scale-applied-wrong-way')}]}));
 }
 for (let k = 2; k <= 4; k++) for (let a = 2; a <= 9; a++) for (const p of [-4, -3, -2, 2, 3, 4, 5]) for (let q = -6; q <= 6; q++) for (let c2 = -9; c2 <= 12; c2++) {
   if (!q || !c2 || c2 === k * q || (k * 7 + a * 3 + p * 5 + q + c2) % 29 || gcd(gcd(a, p), q) !== 1) continue;
   const e1 = `ax${p > 0 ? '+' : M}${Math.abs(p)}y=${num(q)}`, e2 = eqc(k * a, k * p, c2); if (gcd(gcd(k * a, k * p), c2) !== 1) continue;
-  none.push(amount({prompt: `연립방정식 ${e1}, ${e2}의 해가 없을 때, a의 값을 구하시오.`, answer: a, explain: `두 그래프가 평행해야 하므로 x, y의 계수의 비가 같고 상수항의 비는 달라야 합니다. a=${a}입니다.`, concept: '연립방정식의 해의 개수', difficulty: 4, params: {t: 'no-solution', e1, e2}, traps: [{v: k * a, tag: T('scale-factor-ignored')}]}));
+  none.push(amount({prompt: `연립방정식 ${e1}, ${e2}의 해가 없을 때, a의 값을 구하시오.`, answer: a, explain: `두 그래프가 평행해야 하므로 x, y의 계수의 비가 같고 상수항의 비는 달라야 합니다. a=${a}입니다.`, concept: '연립방정식의 해의 개수', difficulty: 4, params: {t: 'no-solution', e1, e2}, neg: true, traps: [{v: k * a, tag: T('scale-factor-ignored')}, {v: k, tag: T('scale-factor-as-answer')}, {v: -a, tag: T('sign-error-in-transposition')}]}));
 }
 const STMT = {one: '한 점, 해 한 쌍', none: '평행, 해 없음', inf: '일치, 해 무수히 많음', badNone: '평행, 해 무수히 많음', badInf: '일치, 해 없음'};
 for (let a1 = 1; a1 <= 5; a1++) for (let b1 = -4; b1 <= 4; b1++) for (let c1 = -6; c1 <= 8; c1++) for (const kind of ['none', 'inf', 'one']) for (const k of [2, 3]) {
@@ -127,7 +138,7 @@ for (let m1 = 1; m1 <= 4; m1++) for (let m2 = -4; m2 <= -1; m2++) for (let x1 = 
   const f1 = yfx(m1, b1), f2 = yfx(m2, b2);
   triangles.push(amount({prompt: `두 직선 ${f1}, ${f2}와 ${axis}축으로 둘러싸인 삼각형의 넓이를 구하시오.`.replace(`${f2}와`, j(f2, '과')), answer: A[0],
     explain: axis === 'x' ? `x절편은 ${num(x1)}, ${num(x2)}이고 교점의 y좌표는 ${rat(yn, yd)}이므로 넓이는 ${A[0]}입니다.` : `y절편은 ${num(b1)}, ${num(b2)}이고 교점의 x좌표는 ${rat(xn, xd)}이므로 넓이는 ${A[0]}입니다.`, concept: '두 그래프와 넓이', difficulty: 4,
-    params: {t: 'two-line-area', f1, f2, axis}, traps: [{v: 2 * A[0] <= 59 ? 2 * A[0] : -1, tag: T('half-omitted')}]}));
+    params: {t: 'two-line-area', f1, f2, axis}, traps: [{v: 2 * A[0], tag: T('half-omitted')}, {v: axis === 'x' ? [Math.abs((x2 - x1) * xn), 2 * xd] : [Math.abs((b2 - b1) * yn), 2 * yd], tag: T('height-coordinate-swapped')}, {v: [A[0], 2], tag: T('half-applied-twice')}]}));
 }
 // J. 일차함수의 그래프인 것의 개수
 const graphCount = [];
@@ -143,11 +154,12 @@ const graphCount = [];
     cnt = list.filter(s => { const hasX = /x/.test(s), hasY = /y/.test(s); return hasX && hasY; }).length; if (cnt < 2 || cnt > 5) continue;
     graphCount.push(amount({prompt: `다음 일차방정식의 그래프 중 일차함수의 그래프인 것의 개수를 구하시오.  ${list.join(',  ')}`, answer: cnt,
       explain: `x=p 꼴은 y축에 평행하고 y=q 꼴은 x축에 평행해 일차함수의 그래프가 아닙니다. x, y가 모두 있는 ${cnt}개가 일차함수의 그래프입니다.`, concept: '일차방정식과 일차함수', difficulty: 3, params: {t: 'linear-graph-count', eqs: list},
-      traps: [{v: list.length, tag: T('any-line-is-linear-function')}, {v: list.filter(s => /y/.test(s)).length, tag: T('horizontal-line-counted')}]}));
+      traps: [{v: list.length, tag: T('any-line-is-linear-function')}, {v: list.filter(s => /y/.test(s)).length, tag: T('horizontal-line-counted')}, {v: list.filter(s => /x/.test(s)).length, tag: T('vertical-line-counted')}, {v: list.length - cnt, tag: T('complement-counted')}]}));
   }
 }
 
-const intro = amount({prompt: '일차방정식 x+y−3=0의 그래프의 y절편을 구하시오.', answer: 3, explain: 'y에 대하여 풀면 y=−x+3이므로 y절편은 3입니다. 3닢을 붓습니다.', concept: '일차방정식의 그래프', difficulty: 1, params: {t: 'eq-intercept', eq: 'x+y−3=0', ask: 'y'}, intro: true});
+const intro = amount({prompt: '일차방정식 2x+y−4=0의 그래프의 y절편을 구하시오.', answer: 4, explain: 'y에 대하여 풀면 y=−2x+4이므로 y절편은 4입니다.', concept: '일차방정식의 그래프', difficulty: 1, params: {t: 'eq-intercept', eq: '2x+y−4=0', ask: 'y'}, neg: true,
+  traps: [{v: -4, tag: T('constant-as-intercept')}, {v: 2, tag: T('intercepts-confused')}, {v: -2, tag: T('slope-as-intercept')}]});
 const byT = (pool, t) => pool.filter(q => q && q.params.t === t);
 writeUnitPack({id: U, title: '일차함수와 일차방정식의 관계', unit: U, standards: ['[9수02-17]', '[9수02-18]'], intro, groups: [
   [eqInt, 40], [eqPoint, 25], [axisChoice, 20], [descChoice, 15],

@@ -102,30 +102,82 @@ function checkText(s, where) {
   if (s.includes('√')) throw Error(`${where}: 근호 금지`);
   if (/[⁰⁴⁵⁶⁷⁸⁹̇]/.test(s)) throw Error(`${where}: glyph missing from game font in "${s}"`);
   if (/\d\s*\/\s*\d/.test(s.replace(/\{frac:\d+\/\d+\}/g, ''))) throw Error(`${where}: plain fraction in "${s}"`);
-  if (/[0-9a-z)]-[0-9a-z(]/.test(s)) throw Error(`${where}: ASCII hyphen used as minus in "${s}"`);
+  if (/[0-9a-z)]-[0-9a-z(]|-\d/.test(s)) throw Error(`${where}: ASCII hyphen used as minus in "${s}"`);
+  if (/기울기을|절편를|[+−]{2}|=\+/.test(s)) throw Error(`${where}: josa/sign typo in "${s}"`);
 }
 export const normKey = p => p.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
 
-// ---------- item builders ----------
-function tagsOf(traps) { return [...new Set(traps.map(t => t.tag))]; }
-export function amount({prompt, answer, explain, concept, difficulty, params, traps = [], intro = false}) {
-  if (!Number.isSafeInteger(answer) || answer < (intro ? 1 : 2) || answer > 59) return null; // 2~59 콘텐츠 원칙(1닢·상한 붓기 자동정답 방지)
-  const tr = traps.filter(t => Number.isSafeInteger(t.v) && t.v >= 0 && t.v !== answer);
-  return {prompt, answer_mode: 'amount', answer, max: 60, coin_budget: 60, answerNumeric: answer, choices: null, format: 'int', explain, unitConcept: concept, difficulty, distractor_tags: tagsOf(tr), params: {...params, traps: tr}};
+// ---------- item builders (schema v3: every item is a 4-choice question) ----------
+// Numeric values are integers or [n, d] rationals. Wrong choices ("traps") must come from a named
+// misconception: {v, tag}. A trap with v === null / undefined is "not applicable" and is skipped.
+// The first three traps whose values differ from the answer AND from each other (as reduced rationals)
+// become the distractors, so list traps in order of preference.
+function tagsOf(ws) { return ws.map(w => w.tag); }
+const toR = v => Array.isArray(v) ? reduce(v[0], v[1]) : [v, 1];
+const rkey = v => { const [n, d] = toR(v); return `${n}/${d}`; };
+const isNumVal = v => Number.isSafeInteger(v) || (Array.isArray(v) && v.length === 2 && Number.isSafeInteger(v[0]) && Number.isSafeInteger(v[1]) && v[1] !== 0);
+const showV = v => { const [n, d] = toR(v); return rat(n, d); };
+/** Absolute values (as reduced rational keys) of every number visible in a prompt: integers, decimals, {frac} tokens. */
+export function promptNumbers(prompt) {
+  const out = new Set(); let t = prompt.replace(/\{frac:(\d+)\/(\d+)\}/g, (_, n, d) => { const [a, b] = reduce(+n, +d); out.add(`${a}/${b}`); return ' '; });
+  t = t.replace(/<\/?sup>/g, ' ');
+  for (const m of t.matchAll(/\d+(?:\.\d+)?/g)) { const [a, b = ''] = m[0].split('.'); const [x, y] = reduce(Number(a + b), 10 ** b.length); out.add(`${x}/${y}`); }
+  return out;
 }
-export function fraction({prompt, n, d, accept = 'reduced', explain, concept, difficulty, params, traps = []}) {
-  const [a, b] = reduce(n, d);
-  if (b === 1 || a <= 0 || a > 60 || b > 60) return null;
-  if (accept === 'reduced' && !prompt.includes('기약분수')) throw Error(`reduced needs 기약분수: ${prompt}`);
-  const tr = traps.filter(t => Array.isArray(t.v) && t.v[0] >= 0 && t.v[1] > 0 && t.v[0] * b !== a * t.v[1]);
-  return {prompt, answer_mode: 'fraction_parts', answer: {num: a, den: b}, accept, num_label: '분자', den_label: '분모', max: 60, coin_budget: 120, answerNumeric: a / b, choices: null, format: 'frac', explain, unitConcept: concept, difficulty, distractor_tags: tagsOf(tr), params: {...params, traps: tr}};
+const absKey = v => { const [n, d] = toR(v); return `${Math.abs(n)}/${d}`; };
+/**
+ * Copy guard (cross-check finding: the answer equals a number printed in the prompt, so copying it wins).
+ * An item is rejected when |answer| is printed in the prompt and no distractor's |value| is — copying would
+ * then single out the answer. When at least one distractor is also printed, copying no longer decides.
+ */
+export function copyVulnerable(prompt, answer, wrongs) { const nums = promptNumbers(prompt); return nums.has(absKey(answer)) && !wrongs.some(w => nums.has(absKey(w))); }
+
+/**
+ * Numeric 4-choice item. answer: integer or [n, d]. traps: [{v, tag}] (v integer | [n, d] | null).
+ * neg=false (default) drops negative distractors — for counts, lengths, times and other quantities that
+ * cannot be negative. far: distractors farther than max(100, 10·|answer|) from zero are dropped (an absurd
+ * magnitude would give the answer away). decimal=true shows non-integer distractors as terminating decimals
+ * (context problems whose data are decimals, e.g. 0.6 °C씩); non-terminating ones are skipped.
+ */
+const terminating = ([n, d]) => { while (d % 2 === 0) d /= 2; while (d % 5 === 0) d /= 5; return d === 1; };
+export function numChoice({prompt, answer, explain, concept, difficulty, params, traps = [], neg = false, copyOk = false, decimal = false}) {
+  if (!isNumVal(answer)) throw Error(`bad answer in ${prompt}`);
+  const [an, ad] = toR(answer); const aKey = `${an}/${ad}`, lim = Math.max(100, 10 * Math.abs(an / ad));
+  if (!neg && an < 0) throw Error(`negative answer needs neg:true: ${prompt}`);
+  const seen = new Set([aKey]), cands = [];
+  for (const t of traps) {
+    if (!t || t.v === null || t.v === undefined || !isNumVal(t.v)) continue;
+    const [n, d] = toR(t.v); const k = `${n}/${d}`;
+    if (seen.has(k) || (!neg && n < 0) || Math.abs(n / d) > lim || (decimal && !terminating([n, d]))) continue;
+    seen.add(k); cands.push({v: [n, d], tag: t.tag, text: decimal && d !== 1 ? dec(n, d) : showV([n, d])});
+  }
+  // Every admissible 3-subset (≥2 distinct misconception tags, not copy-vulnerable), in preference order.
+  const subsets = [];
+  for (let i = 0; i < cands.length; i++) for (let j = i + 1; j < cands.length; j++) for (let k = j + 1; k < cands.length; k++) {
+    const w = [cands[i], cands[j], cands[k]];
+    if (new Set(w.map(x => x.tag)).size < 2 || (!copyOk && copyVulnerable(prompt, [an, ad], w.map(x => x.v)))) continue;
+    subsets.push([i, j, k]);
+  }
+  if (!subsets.length) return null;
+  const picked = subsets[0].map(i => cands[i]);
+  return {prompt, answer_mode: 'choice', answer: rat(an, ad), choices: null, format: ad === 1 ? 'int' : 'frac', answerNumeric: an / ad, explain, unitConcept: concept, difficulty,
+    distractor_tags: tagsOf(picked), params: {...params}, _wrong: picked.map(w => w.text), _tags: tagsOf(picked), _num: {ans: [an, ad], cands, subsets}};
 }
-/** distractors: [{v:'text', tag}] — the first three distinct values that differ from the answer are used. */
+/** Rank (0 = smallest … 3 = largest) of the answer among itself and three distractor values. */
+const rankOf = (ans, ws) => ws.filter(([n, d]) => n * ans[1] < ans[0] * d).length;
+/** v2 amount items, now numeric choices (same call shape as before; `intro` kept for call compatibility). */
+export function amount({intro, ...o}) { void intro; return numChoice(o); }
+/** v2 fraction items, now numeric choices. The answer is always shown reduced; no equivalent distractor can appear. */
+export function fraction({prompt, n, d, accept, ...o}) {
+  void accept; if (accept === 'reduced' && !prompt.includes('기약분수')) throw Error(`reduced needs 기약분수: ${prompt}`);
+  return numChoice({prompt, answer: [n, d], ...o});
+}
+/** Text 4-choice item. distractors: [{v:'text', tag}] — the first three distinct values that differ from the answer are used. */
 export function choice({prompt, answer, distractors, explain, concept, difficulty, params, format = 'text', answerNumeric}) {
   const seen = new Set([answer]), picked = [];
   for (const w of distractors) if (w && !seen.has(w.v)) { seen.add(w.v); picked.push(w); if (picked.length === 3) break; }
   if (picked.length !== 3 || new Set(picked.map(w => w.tag)).size < 2) return null;
-  const item = {prompt, answer_mode: 'choice', answer, choices: null, format, explain, unitConcept: concept, difficulty, distractor_tags: picked.map(w => w.tag), params: {...params}, _wrong: picked.map(w => w.v)};
+  const item = {prompt, answer_mode: 'choice', answer, choices: null, format, explain, unitConcept: concept, difficulty, distractor_tags: picked.map(w => w.tag), params: {...params}, _wrong: picked.map(w => w.v), _tags: picked.map(w => w.tag)};
   if (format !== 'text') item.answerNumeric = answerNumeric;
   return item;
 }
@@ -157,11 +209,15 @@ export function uniq(pool, seed = 97) {
 /**
  * groups: [[pool, count], …]. pools are deduplicated by the validator's normalized prompt key, sampled
  * evenly, interleaved deterministically, and globally deduplicated. The intro item is always items[0].
+ * Answer slots are balanced (each of the 4 positions gets ⌊N/4⌋ or ⌈N/4⌉ answers, shuffled), and the
+ * three distractors are shuffled; distractor_tags[i] belongs to the i-th wrong choice in display order.
  */
-export function writeUnitPack({id, title, unit, standards, intro, groups, semester = 1, capShare = 0.045}) {
+export function writeUnitPack({id, title, unit, standards, intro, groups, semester = 1, capShare = 0.06}) {
+  if (!intro) throw Error(`${id}: intro item was rejected by the builder`);
   const total = 1 + groups.reduce((a, [, n]) => a + n, 0), cap = Math.ceil(total * capShare);
-  const lists = groups.map(([pool, n], gi) => { const u = uniq(pool); if (u.length < n) throw Error(`${id} group ${gi}: pool ${u.length} < ${n}`); return pickDiverse(u, u.length, 7919 * (gi + 1) + id.length); });
-  const ansKey = q => q.answer_mode === 'choice' ? null : JSON.stringify(q.answer);
+  if (process.env.POOLS) { for (const [gi, [pool, n]] of groups.entries()) { const u = uniq(pool); const t = u[0]?.params?.t ?? pool.find(Boolean)?.params?.t; console.log(`${u.length < n ? '!!' : '  '} group ${gi} ${t}: ${u.length} / need ${n} (raw ${pool.length}, built ${pool.filter(Boolean).length})`); } }
+  const lists = groups.map(([pool, n], gi) => { const u = uniq(pool); if (u.length < n) throw Error(`${id} group ${gi} (${u[0]?.params?.t}): pool ${u.length} < ${n}`); return pickDiverse(u, u.length, 7919 * (gi + 1) + id.length); });
+  const ansKey = q => q.format === 'text' ? null : q.answer;
   const ordered = [intro], seen = new Set([normKey(intro.prompt)]), count = new Map([[ansKey(intro), 1]]);
   const ptr = groups.map(() => 0), taken = groups.map(() => 0);
   for (let round = 0; taken.some((t, g) => t < groups[g][1]); round++) for (let g = 0; g < groups.length; g++) {
@@ -174,22 +230,35 @@ export function writeUnitPack({id, title, unit, standards, intro, groups, semest
       seen.add(k); if (a) count.set(a, (count.get(a) ?? 0) + 1); ordered.push(q); taken[g]++; break;
     }
   }
+  // Value-rank balancing: misconception distractors skew one way (e.g. "not divided" is always bigger), so a
+  // student who always picks the 2nd-largest number would beat chance. Greedily choose, for each numeric item,
+  // the admissible distractor subset that puts the answer at the rank used least so far (ties → preference order).
+  const rankCount = [0, 0, 0, 0];
+  for (const q of ordered) {
+    if (!q._num) continue; const {ans, cands, subsets} = q._num; let best = null, bestScore = Infinity;
+    for (const sub of subsets) { const r = rankOf(ans, sub.map(i => cands[i].v)); if (rankCount[r] < bestScore) { bestScore = rankCount[r]; best = [sub, r]; } }
+    rankCount[best[1]]++; const picked = best[0].map(i => cands[i]);
+    q._wrong = picked.map(w => w.text); q._tags = tagsOf(picked); q.distractor_tags = q._tags;
+  }
+  let st = (hash(id) ^ 0x9e3779b9) >>> 0; const rnd = () => (st = (Math.imul(st, 1664525) + 1013904223) >>> 0) / 2 ** 32;
+  const slots = ordered.map((_, i) => i % 4); for (let i = slots.length - 1; i > 0; i--) { const r = Math.floor(rnd() * (i + 1)); [slots[i], slots[r]] = [slots[r], slots[i]]; }
   const items = ordered.map((raw, i) => {
-    const {_wrong, ...q} = raw; const item = {id: `${id}-${String(i + 1).padStart(3, '0')}`, ...q};
-    if (q.answer_mode === 'choice') { const slot = hash(q.prompt) % 4; item.choices = [..._wrong]; item.choices.splice(slot, 0, q.answer); }
+    const {_wrong, _tags, _num, ...q} = raw; const item = {id: `${id}-${String(i + 1).padStart(3, '0')}`, ...q};
+    const order = [0, 1, 2]; for (let k = 2; k > 0; k--) { const r = Math.floor(rnd() * (k + 1)); [order[k], order[r]] = [order[r], order[k]]; }
+    item.choices = order.map(k => _wrong[k]); item.distractor_tags = order.map(k => _tags[k]); item.choices.splice(slots[i], 0, q.answer);
     for (const f of ['prompt', 'explain']) checkText(item[f], `${item.id}.${f}`);
-    for (const c of item.choices ?? []) checkText(c, `${item.id}.choice`);
+    for (const c of item.choices) checkText(c, `${item.id}.choice`);
+    if (/약분하지|코인|닢|붓/.test(item.prompt + item.explain)) throw Error(`${item.id}: pour-era wording`);
     scanKeys(item.params, item.id);
     return item;
   });
   if (items.length < 300) throw Error(`${id}: only ${items.length} unique items`);
-  const pack = {schema_version: 2, pack_id: id, title, school: 'middle', grade: 2, semester, unit_id: unit, standards, economy: {carry_capacity: 120, coin_per_kill: 1, min_spawn_coins: 140}, items};
+  // economy is kept byte-identical to the m2s2 v3 packs so the loader sees one pack shape (DESIGN-V3 §3 moves coins to
+  // tower upgrades; the pack no longer prices any answer).
+  const pack = {schema_version: 3, pack_id: id, title, school: 'middle', grade: 2, semester, unit_id: unit, standards, economy: {carry_capacity: 120, coin_per_kill: 1, min_spawn_coins: 140}, items};
   fs.mkdirSync(output, {recursive: true});
   fs.writeFileSync(path.join(output, `${id}.json`), JSON.stringify(pack));
-  const modes = {}, diff = {}; for (const q of items) { modes[q.answer_mode] = (modes[q.answer_mode] ?? 0) + 1; diff[q.difficulty] = (diff[q.difficulty] ?? 0) + 1; }
-  const pour = items.filter(q => q.answer_mode !== 'choice'), freq = {}; for (const q of pour) { const k = JSON.stringify(q.answer); freq[k] = (freq[k] ?? 0) + 1; }
-  const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
-  console.log(`${id}: most common pour answer ${top[0]} = ${top[1]}/${pour.length} (${(100 * top[1] / pour.length).toFixed(1)}%)`);
-  console.log(`${id}: ${items.length} items / ${Buffer.byteLength(JSON.stringify(pack))} bytes / modes ${JSON.stringify(modes)} / difficulty ${JSON.stringify(diff)}`);
+  const diff = {}, pos = [0, 0, 0, 0], fmt = {}; for (const q of items) { diff[q.difficulty] = (diff[q.difficulty] ?? 0) + 1; pos[q.choices.indexOf(q.answer)]++; fmt[q.format] = (fmt[q.format] ?? 0) + 1; }
+  console.log(`${id}: ${items.length} items / ${Buffer.byteLength(JSON.stringify(pack))} bytes / difficulty ${JSON.stringify(diff)} / answer slots ${pos.join(',')} / value ranks ${rankCount.join(',')} / formats ${JSON.stringify(fmt)}`);
   return pack;
 }

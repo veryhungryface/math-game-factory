@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // 중2-1 단원3 일차부등식 [9수02-11]·[9수02-12].
-// A solution set (x>−3) cannot be poured, so pour items ask for a natural number derived from the set:
-// 가장 작은 자연수 / 가장 큰 정수(양수일 때) / 자연수·음의 정수 해의 개수 / 활용의 최댓값·최솟값.
-// Negative bounds are kept (they are essential to the unit) and are asked through the count of negative
-// integer solutions or through choice items (x>−3 vs x<−3 vs x>3 vs x≥−3, 수직선 ●/○).
+// Schema v3 (4-choice). Numeric items ask for a number derived from the solution set:
+// 가장 작은 자연수 / 가장 큰 정수(음수 가능) / 자연수·음의 정수 해의 개수 / 활용의 최댓값·최솟값.
+// The solution set itself is asked as x>−3 vs x<−3 vs x>3 vs x≥−3, and on the number line (●/○).
+// Wrong choices are recomputed from a mis-solved inequality: direction not flipped, boundary in/out,
+// constant transposed without changing sign, parenthesis distributed to the first term only.
 // 연립일차부등식은 2015 개정 이후 중학교 범위가 아니므로 다루지 않는다.
 import {amount, choice, writeUnitPack, j, gcd, reduce, num, rat, dec, M} from './m2s1-lib.mjs';
 const U = 'm2s1-u3', T = s => `${U}.${s}`;
@@ -31,6 +32,12 @@ const maxInteger = s => { for (let x = 500; x >= -500; x--) if (sat(x, s)) retur
 const solTxt = ({rel, bound}) => `x${rel}${rat(...bound)}`;
 const ineqTxt = (L, rel, Rr, mode) => `${linTxt(L.a, L.b, mode)}${rel}${linTxt(Rr.a, Rr.b, mode)}`;
 const RELS = ['>', '<', '≥', '≤'];
+const OPEN = {'>': '≥', '≥': '>', '<': '≤', '≤': '<'};
+const solveT = (L, rel, Rr) => solve({a: L.a, b: R(-L.b[0], L.b[1])}, rel, Rr); // 이항할 때 상수항 부호를 안 바꿈
+const countIn = (sol, from, to) => { if (!sol) return null; let c = 0; for (let x = from; x <= to; x++) if (sat(x, sol)) c++; return c; };
+const fl = ([n, d]) => Math.floor(n / d), ce = ([n, d]) => Math.ceil(n / d);
+const natCount = sol => sol && !sat(501, sol) ? countIn(sol, 1, 500) : null; // finite only when bounded above
+const negCountOf = sol => sol && !sat(-501, sol) ? countIn(sol, -500, -1) : null;
 function lcg(seed) { let s = seed >>> 0; return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 2 ** 32; }
 
 // A1. 자연수 범위에서 해의 개수
@@ -42,7 +49,7 @@ for (let a = 1; a <= 5; a++) for (let b = -9; b <= 9; b++) for (let c = -5; c <=
   const loose = [...Array(N).keys()].map(i => i + 1).filter(x => sat(x, {rel: {'>': '≥', '≥': '>', '<': '≤', '≤': '<'}[s.rel], bound: s.bound})).length;
   countUpto.push(amount({prompt: `x의 값이 ${N} 이하의 자연수일 때, 부등식 ${ineq}의 해의 개수를 구하시오.`, answer: cnt,
     explain: `부등식을 풀면 ${solTxt(s)}이고, ${N} 이하의 자연수 중 이를 만족하는 수는 ${cnt}개입니다.`, concept: '부등식의 해', difficulty: 1,
-    params: {t: 'ineq-count-upto', ineq, N}, traps: [{v: loose, tag: T('boundary-inclusion')}, {v: N - cnt, tag: T('complement-counted')}]}));
+    params: {t: 'ineq-count-upto', ineq, N}, traps: [{v: loose, tag: T('boundary-inclusion')}, {v: countIn(solveT(L, rel, Rr), 1, N), tag: T('sign-error-in-transposition')}, {v: N - cnt, tag: T('complement-counted')}]}));
 }
 for (let a = 1; a <= 4; a++) for (let b = -6; b <= 6; b++) for (let c = -8; c <= 10; c++) for (const rel of RELS) for (const [lo, hi] of [[-3, 3], [-2, 4], [-4, 2], [-1, 5]]) {
   if ((a * 5 + b * 7 + c * 3 + lo + rel.charCodeAt(0)) % 9) continue;
@@ -50,7 +57,7 @@ for (let a = 1; a <= 4; a++) for (let b = -6; b <= 6; b++) for (let c = -8; c <=
   const L = {a: R(a), b: R(b)}, Rr = {a: R(0), b: R(c)}, s = solve(L, rel, Rr), ineq = ineqTxt(L, rel, Rr), cnt = list.filter(x => sat(x, s)).length;
   countList.push(amount({prompt: `x의 값이 ${list.map(num).join(', ')}일 때, 부등식 ${ineq}의 해의 개수를 구하시오.`, answer: cnt,
     explain: `각 값을 대입해 참이 되는 것은 ${list.filter(x => sat(x, s)).map(num).join(', ')}의 ${cnt}개입니다.`, concept: '부등식의 해', difficulty: 1,
-    params: {t: 'ineq-count-list', ineq, list}, traps: [{v: list.length - cnt, tag: T('complement-counted')}]}));
+    params: {t: 'ineq-count-list', ineq, list}, traps: [{v: list.filter(x => sat(x, {rel: OPEN[s.rel], bound: s.bound})).length, tag: T('boundary-inclusion')}, {v: list.filter(x => sat(x, solveT(L, rel, Rr))).length, tag: T('sign-error-in-transposition')}, {v: list.length - cnt, tag: T('complement-counted')}]}));
 }
 // B. 일차부등식을 풀어 가장 작은 자연수 / 가장 큰 정수
 const solveBasic = [];
@@ -59,15 +66,15 @@ for (let a = -6; a <= 7; a++) for (let c = -5; c <= 5; c++) for (let b = -12; b 
   const L = {a: R(a), b: R(b)}, Rr = {a: R(c), b: R(d)}, s = solve(L, rel, Rr), ineq = ineqTxt(L, rel, Rr);
   const flipNeg = a - c < 0, wrongDir = {rel: flipNeg ? FLIP[s.rel] : s.rel, bound: s.bound};
   if (s.rel === '>' || s.rel === '≥') {
-    const ans = minNatural(s); if (!ans || ans < 2) continue;
+    const ans = minNatural(s); if (!ans || ans > 59) continue;
     solveBasic.push(amount({prompt: `일차부등식 ${j(ineq, '을')} 만족하는 가장 작은 자연수 x를 구하시오.`, answer: ans,
       explain: `${flipNeg ? '양변을 음수로 나누면 부등호의 방향이 바뀌어 ' : ''}${solTxt(s)}이므로 가장 작은 자연수는 ${ans}입니다.`, concept: '일차부등식의 풀이', difficulty: 2,
-      params: {t: 'ineq-min-natural', ineq}, traps: [{v: minNatural({rel: s.rel === '>' ? '≥' : '>', bound: s.bound}) ?? -1, tag: T('boundary-inclusion')}, {v: flipNeg ? (maxInteger(wrongDir) ?? -1) : -1, tag: T('sign-not-flipped')}]}));
+      params: {t: 'ineq-min-natural', ineq}, traps: [{v: minNatural({rel: OPEN[s.rel], bound: s.bound}), tag: T('boundary-inclusion')}, {v: minNatural(solveT(L, rel, Rr)), tag: T('sign-error-in-transposition')}, {v: fl(s.bound) >= 0 ? fl(s.bound) : null, tag: T('bound-truncated')}, {v: flipNeg ? maxInteger(wrongDir) : null, tag: T('sign-not-flipped')}]}));
   } else {
-    const ans = maxInteger(s); if (ans === null || ans < 2 || ans > 59) continue;
+    const ans = maxInteger(s); if (ans === null || ans === 0 || Math.abs(ans) > 59) continue;
     solveBasic.push(amount({prompt: `일차부등식 ${j(ineq, '을')} 만족하는 가장 큰 정수 x를 구하시오.`, answer: ans,
-      explain: `${flipNeg ? '양변을 음수로 나누면 부등호의 방향이 바뀌어 ' : ''}${solTxt(s)}이므로 가장 큰 정수는 ${ans}입니다.`, concept: '일차부등식의 풀이', difficulty: 2,
-      params: {t: 'ineq-max-integer', ineq}, traps: [{v: maxInteger({rel: s.rel === '<' ? '≤' : '<', bound: s.bound}) ?? -1, tag: T('boundary-inclusion')}, {v: flipNeg ? (minNatural(wrongDir) ?? -1) : -1, tag: T('sign-not-flipped')}]}));
+      explain: `${flipNeg ? '양변을 음수로 나누면 부등호의 방향이 바뀌어 ' : ''}${solTxt(s)}이므로 가장 큰 정수는 ${num(ans)}입니다.`, concept: '일차부등식의 풀이', difficulty: 2,
+      params: {t: 'ineq-max-integer', ineq}, neg: true, traps: [{v: maxInteger({rel: OPEN[s.rel], bound: s.bound}), tag: T('boundary-inclusion')}, {v: maxInteger(solveT(L, rel, Rr)), tag: T('sign-error-in-transposition')}, {v: ce(s.bound), tag: T('bound-rounded-up')}, {v: -ans, tag: T('bound-sign-error')}]}));
   }
 }
 // C. 괄호가 있는 일차부등식 — 자연수 해의 개수, 음의 정수 해의 개수
@@ -75,18 +82,19 @@ const parenCount = [], negCount = [];
 for (const a of [2, 3, 4, 5, -2, -3]) for (let b = -6; b <= 6; b++) for (let c = -4; c <= 7; c++) for (let d = -20; d <= 20; d++) for (const rel of RELS) {
   if (b === 0 || a === c || (a * 11 + b * 7 + c * 5 + d * 3 + rel.charCodeAt(0)) % 13) continue;
   const lhs = `${a === -1 ? M : num(a)}(${linTxt(R(1), R(b))})`, rhs = linTxt(R(c), R(d));
-  const s = solve({a: R(a), b: R(a * b)}, rel, {a: R(c), b: R(d)}), ineq = `${lhs}${rel}${rhs}`;
+  const Lp = {a: R(a), b: R(a * b)}, Rp = {a: R(c), b: R(d)}, s = solve(Lp, rel, Rp), ineq = `${lhs}${rel}${rhs}`;
+  const partial = solve({a: R(a), b: R(b)}, rel, Rp), transp = solveT(Lp, rel, Rp);
   const wrongDir = {rel: a - c < 0 ? FLIP[s.rel] : s.rel, bound: s.bound};
   if (s.rel === '<' || s.rel === '≤') {
     let cnt = 0; for (let x = 1; x <= 500; x++) if (sat(x, s)) cnt++;
     if (cnt >= 2 && cnt <= 59) parenCount.push(amount({prompt: `일차부등식 ${j(ineq, '을')} 만족하는 자연수 x의 개수를 구하시오.`, answer: cnt,
       explain: `괄호를 풀어 정리하면 ${solTxt(s)}이므로 자연수 x는 1부터 ${cnt}까지 ${cnt}개입니다.`, concept: '괄호가 있는 일차부등식', difficulty: 3,
-      params: {t: 'ineq-count-natural', ineq}, traps: [{v: [...Array(500).keys()].filter(x => x >= 1 && sat(x, {rel: s.rel === '<' ? '≤' : '<', bound: s.bound})).length, tag: T('boundary-inclusion')}, {v: Math.abs(b * a), tag: T('distribution-partial')}]}));
+      params: {t: 'ineq-count-natural', ineq}, traps: [{v: natCount({rel: OPEN[s.rel], bound: s.bound}), tag: T('boundary-inclusion')}, {v: natCount(partial), tag: T('distribution-partial')}, {v: natCount(transp), tag: T('sign-error-in-transposition')}, {v: natCount(wrongDir.rel === s.rel ? null : wrongDir), tag: T('sign-not-flipped')}]}));
   } else if (s.bound[0] < 0) {
     let cnt = 0; for (let x = -500; x <= -1; x++) if (sat(x, s)) cnt++;
     if (cnt >= 2 && cnt <= 59) negCount.push(amount({prompt: `일차부등식 ${j(ineq, '을')} 만족하는 음의 정수 x의 개수를 구하시오.`, answer: cnt,
       explain: `괄호를 풀어 정리하면 ${solTxt(s)}이므로 음의 정수는 ${num(-cnt)}부터 −1까지 ${cnt}개입니다.`, concept: '괄호가 있는 일차부등식', difficulty: 4,
-      params: {t: 'ineq-count-negative', ineq}, traps: [{v: [...Array(500).keys()].map(x => -1 - x).filter(x => sat(x, {rel: s.rel === '>' ? '≥' : '>', bound: s.bound})).length, tag: T('boundary-inclusion')}, {v: cnt + 1, tag: T('zero-counted-as-negative')}]}));
+      params: {t: 'ineq-count-negative', ineq}, traps: [{v: negCountOf({rel: OPEN[s.rel], bound: s.bound}), tag: T('boundary-inclusion')}, {v: negCountOf(partial), tag: T('distribution-partial')}, {v: negCountOf(transp), tag: T('sign-error-in-transposition')}, {v: cnt + 1, tag: T('zero-counted-as-negative')}]}));
   }
 }
 // D. 계수가 소수·분수인 일차부등식
@@ -96,22 +104,27 @@ for (let a = 1; a <= 9; a++) for (let c = -5; c <= 5; c++) for (let b = -30; b <
   const L = {a: R(a, 10), b: R(b, 10)}, Rr = {a: R(c, 10), b: R(d, 10)}, s = solve(L, rel, Rr), ineq = ineqTxt(L, rel, Rr, 'dec');
   if (!/\./.test(ineq)) continue;
   const ask = s.rel === '>' || s.rel === '≥' ? 'min' : 'max', ans = ask === 'min' ? minNatural(s) : maxInteger(s);
-  if (!ans || ans < 2 || ans > 59) continue;
-  decimalIneq.push(amount({prompt: `일차부등식 ${j(ineq, '을')} 만족하는 ${ask === 'min' ? '가장 작은 자연수' : '가장 큰 정수'} x를 구하시오.`, answer: ans,
-    explain: `양변에 10을 곱하면 ${ineqTxt({a: R(a), b: R(b)}, rel, {a: R(c), b: R(d)})}이고, ${solTxt(s)}이므로 ${ans}입니다.`, concept: '계수가 소수인 일차부등식', difficulty: 3,
-    params: {t: ask === 'min' ? 'ineq-min-natural' : 'ineq-max-integer', ineq}, traps: [{v: ask === 'min' ? (minNatural({rel: {'>': '≥', '≥': '>'}[s.rel], bound: s.bound}) ?? -1) : (maxInteger({rel: {'<': '≤', '≤': '<'}[s.rel], bound: s.bound}) ?? -1), tag: T('boundary-inclusion')}]}));
+  if (!ans || Math.abs(ans) > 59) continue;
+  const flipNeg = a - c < 0, unscaled = solve({a: R(a), b: b % 10 === 0 ? R(b / 10) : R(b)}, rel, {a: R(c), b: d % 10 === 0 ? R(d / 10) : R(d)}); // 정수 상수항에는 10을 곱하지 않음
+  const pick = sol => !sol ? null : ask === 'min' ? minNatural(sol) : maxInteger(sol);
+  decimalIneq.push(amount({neg: ask === 'max', prompt: `일차부등식 ${j(ineq, '을')} 만족하는 ${ask === 'min' ? '가장 작은 자연수' : '가장 큰 정수'} x를 구하시오.`, answer: ans,
+    explain: `양변에 10을 곱하면 ${ineqTxt({a: R(a), b: R(b)}, rel, {a: R(c), b: R(d)})}이고, ${solTxt(s)}이므로 ${num(ans)}입니다.`, concept: '계수가 소수인 일차부등식', difficulty: 3,
+    params: {t: ask === 'min' ? 'ineq-min-natural' : 'ineq-max-integer', ineq}, traps: [{v: pick({rel: OPEN[s.rel], bound: s.bound}), tag: T('boundary-inclusion')}, {v: (b % 10 === 0 || d % 10 === 0) ? pick(unscaled) : null, tag: T('decimal-scaling-partial')}, {v: pick(solveT(L, rel, Rr)), tag: T('sign-error-in-transposition')},
+      {v: ask === 'min' ? (fl(s.bound) >= 0 ? fl(s.bound) : null) : ce(s.bound), tag: ask === 'min' ? T('bound-truncated') : T('bound-rounded-up')}, {v: ask === 'max' ? -ans : null, tag: T('bound-sign-error')}]}));
 }
 for (const [p, q] of [[2, 3], [3, 4], [2, 5], [4, 6], [3, 2], [5, 3], [6, 4]]) for (let u = 1; u <= 3; u++) for (let wv = 1; wv <= 3; wv++) for (let b = -6; b <= 6; b++) for (let d = -4; d <= 8; d++) for (const rel of RELS) {
   if (u * q === wv * p || b === 0 || (p * 3 + q * 5 + u * 7 + wv + b * 11 + d + rel.charCodeAt(0)) % 19) continue;
   // (u/p)(x+b) rel (w/q)x + d
   const coef = `{frac:${u}/${p}}`, lhs = `${coef}(${linTxt(R(1), R(b))})`, rhs = linTxt(R(wv, q), R(d), 'frac');
   if (u === p) continue;
-  const s = solve({a: R(u, p), b: R(u * b, p)}, rel, {a: R(wv, q), b: R(d)}), ineq = `${lhs}${rel}${rhs}`;
+  const Lf = {a: R(u, p), b: R(u * b, p)}, Rf = {a: R(wv, q), b: R(d)}, s = solve(Lf, rel, Rf), ineq = `${lhs}${rel}${rhs}`;
   const ask = s.rel === '>' || s.rel === '≥' ? 'min' : 'max', ans = ask === 'min' ? minNatural(s) : maxInteger(s);
-  if (!ans || ans < 2 || ans > 59) continue;
-  fracIneq.push(amount({prompt: `일차부등식 ${j(ineq, '을')} 만족하는 ${ask === 'min' ? '가장 작은 자연수' : '가장 큰 정수'} x를 구하시오.`, answer: ans,
-    explain: `양변에 분모의 최소공배수를 곱해 정리하면 ${solTxt(s)}이므로 ${ans}입니다.`, concept: '계수가 분수인 일차부등식', difficulty: 4,
-    params: {t: ask === 'min' ? 'ineq-min-natural' : 'ineq-max-integer', ineq}, traps: [{v: ask === 'min' ? (minNatural({rel: FLIP[s.rel], bound: s.bound}) ?? -1) : (maxInteger({rel: FLIP[s.rel], bound: s.bound}) ?? -1), tag: T('sign-not-flipped')}]}));
+  if (!ans || Math.abs(ans) > 59) continue;
+  const pick = sol => !sol ? null : ask === 'min' ? minNatural(sol) : maxInteger(sol), negCoef = u * q < wv * p;
+  fracIneq.push(amount({neg: ask === 'max', prompt: `일차부등식 ${j(ineq, '을')} 만족하는 ${ask === 'min' ? '가장 작은 자연수' : '가장 큰 정수'} x를 구하시오.`, answer: ans,
+    explain: `양변에 분모의 최소공배수를 곱해 정리하면 ${solTxt(s)}이므로 ${num(ans)}입니다.`, concept: '계수가 분수인 일차부등식', difficulty: 4,
+    params: {t: ask === 'min' ? 'ineq-min-natural' : 'ineq-max-integer', ineq}, traps: [{v: pick(solve({a: R(u, p), b: R(b)}, rel, Rf)), tag: T('distribution-partial')}, {v: pick({rel: OPEN[s.rel], bound: s.bound}), tag: T('boundary-inclusion')}, {v: pick(solveT(Lf, rel, Rf)), tag: T('sign-error-in-transposition')},
+      {v: ask === 'min' ? (fl(s.bound) >= 0 ? fl(s.bound) : null) : ce(s.bound), tag: ask === 'min' ? T('bound-truncated') : T('bound-rounded-up')}, {v: ask === 'max' ? -ans : null, tag: T('bound-sign-error')}]}));
 }
 // E. 일차부등식의 활용
 const wp3 = [], wp4 = [];
@@ -120,56 +133,56 @@ for (const [item, box] of GOODS) for (const p of [300, 400, 500, 600, 700, 800, 
   const n = Math.floor((Tt - b) / p); if (n < 2 || n > 59 || (p / 100 + b / 500 + Tt / 1000 + item.length) % 3) continue;
   wp3.push(amount({prompt: `한 개에 ${p}원인 ${j(item, '을')} ${b}원짜리 ${box} 하나에 담아 전체 가격이 ${Tt}원 이하가 되게 하려고 한다. ${j(item, '은')} 최대 몇 개까지 담을 수 있는지 구하시오.`, answer: n,
     explain: `${item} x개라 하면 ${p}x+${b}≤${Tt}, x≤${rat(Tt - b, p)}이므로 최대 ${n}개입니다.`, concept: '일차부등식의 활용', difficulty: 3,
-    params: {t: 'wp-budget', p, b, T: Tt}, traps: [{v: Math.ceil((Tt - b) / p), tag: T('round-up-count')}, {v: Math.floor(Tt / p), tag: T('fixed-cost-ignored')}]}));
+    params: {t: 'wp-budget', p, b, T: Tt}, traps: [{v: Math.ceil((Tt - b) / p), tag: T('round-up-count')}, {v: Math.floor(Tt / p), tag: T('fixed-cost-ignored')}, {v: Math.floor((Tt + b) / p), tag: T('sign-error-in-transposition')}]}));
 }
 for (const W of [400, 500, 600, 700, 800, 1000]) for (const m of [50, 60, 65, 70, 75, 80]) for (const w of [8, 12, 15, 18, 20, 25, 30]) {
   const n = Math.floor((W - m) / w); if (n < 2 || n > 59 || (W / 100 + m / 5 + w) % 2) continue;
   wp3.push(amount({prompt: `최대 ${W} kg까지 실을 수 있는 엘리베이터에 몸무게가 ${m} kg인 사람이 한 개에 ${w} kg인 상자를 싣고 함께 타려고 한다. 상자는 최대 몇 개까지 실을 수 있는지 구하시오.`, answer: n,
     explain: `상자 x개라 하면 ${m}+${w}x≤${W}, x≤${rat(W - m, w)}이므로 최대 ${n}개입니다.`, concept: '일차부등식의 활용', difficulty: 3,
-    params: {t: 'wp-elevator', W, m, w}, traps: [{v: Math.ceil((W - m) / w), tag: T('round-up-count')}, {v: Math.floor(W / w), tag: T('fixed-cost-ignored')}]}));
+    params: {t: 'wp-elevator', W, m, w}, traps: [{v: Math.ceil((W - m) / w), tag: T('round-up-count')}, {v: Math.floor(W / w), tag: T('fixed-cost-ignored')}, {v: Math.floor((W + m) / w), tag: T('sign-error-in-transposition')}]}));
 }
 for (let k = 1; k <= 9; k++) for (let P = 20; P <= 200; P += 2) {
   const x = Math.floor((P - 2 * k) / 4); if (x < 2 || x > 59 || (k + P) % 4) continue;
   wp3.push(amount({prompt: `세로의 길이가 가로의 길이보다 ${k} cm 긴 직사각형의 둘레의 길이가 ${P} cm 이하가 되게 하려고 한다. 가로의 길이는 최대 몇 cm인지 구하시오. (단, 가로의 길이는 자연수이다.)`, answer: x,
     explain: `가로를 x cm라 하면 2(x+x+${k})≤${P}, x≤${rat(P - 2 * k, 4)}이므로 최대 ${x} cm입니다.`, concept: '일차부등식의 활용', difficulty: 3,
-    params: {t: 'wp-rectangle', k, P}, traps: [{v: Math.floor((P - k) / 2), tag: T('perimeter-halved-wrong')}, {v: Math.floor(P / 4), tag: T('fixed-cost-ignored')}]}));
+    params: {t: 'wp-rectangle', k, P}, traps: [{v: Math.floor((P - k) / 2), tag: T('perimeter-halved-wrong')}, {v: Math.floor(P / 4), tag: T('fixed-cost-ignored')}, {v: Math.floor((P - k) / 4), tag: T('length-difference-counted-once')}, {v: Math.floor((P + 2 * k) / 4), tag: T('sign-error-in-transposition')}]}));
 }
 for (const a of [30000, 25000, 20000, 18000, 15000]) for (const b of [5000, 8000, 10000, 12000]) for (const pp of [1000, 1500, 2000, 2500]) for (const q of [3000, 3500, 4000, 5000, 6000]) {
   if (a <= b || q <= pp) continue; const n = Math.floor((a - b) / (q - pp)) + 1; if (n < 2 || n > 59 || (a / 1000 + b / 1000 + pp / 500 + q / 500) % 2) continue;
   wp3.push(amount({prompt: `현재 형의 저금액은 ${a}원, 동생의 저금액은 ${b}원이다. 다음 주부터 매주 형은 ${pp}원씩, 동생은 ${q}원씩 저금할 때, 동생의 저금액이 형의 저금액보다 많아지는 것은 몇 주 후부터인지 구하시오.`, answer: n,
     explain: `x주 후라 하면 ${b}+${q}x>${a}+${pp}x, x>${rat(a - b, q - pp)}이므로 ${n}주 후부터입니다.`, concept: '일차부등식의 활용', difficulty: 3,
-    params: {t: 'wp-savings', a, b, p: pp, q}, traps: [{v: Number.isInteger((a - b) / (q - pp)) ? (a - b) / (q - pp) : -1, tag: T('boundary-inclusion')}, {v: Math.ceil((a - b) / q), tag: T('rate-difference-ignored')}]}));
+    params: {t: 'wp-savings', a, b, p: pp, q}, traps: [{v: n - 1, tag: T('boundary-inclusion')}, {v: Math.ceil((a - b) / q), tag: T('rate-difference-ignored')}, {v: Math.floor((a - b) / (q + pp)) + 1, tag: T('rates-added')}]}));
 }
 for (let s1 = 8; s1 <= 20; s1++) for (let s2 = 6; s2 <= 20; s2++) for (let s3 = 5; s3 <= 20; s3++) for (const Mv of [12, 13, 14, 15, 16, 17]) {
   const need = 4 * Mv - s1 - s2 - s3; if (need < 2 || need > 20 || (s1 * 3 + s2 * 5 + s3 * 7 + Mv) % 29) continue;
   wp3.push(amount({prompt: `20점 만점인 쪽지 시험을 세 번 보았더니 점수가 ${s1}점, ${s2}점, ${s3}점이었다. 네 번의 점수의 평균이 ${Mv}점 이상이 되려면 네 번째 시험에서 몇 점 이상을 받아야 하는지 구하시오.`, answer: need,
     explain: `네 번째 점수를 x점이라 하면 ${j(`(${s1}+${s2}+${s3}+x)÷4`, '은')} ${Mv} 이상이므로 x≥${need}입니다.`, concept: '일차부등식의 활용', difficulty: 3,
-    params: {t: 'wp-average', s: [s1, s2, s3], M: Mv}, traps: [{v: 3 * Mv - s1 - s2 - s3 > 0 ? 3 * Mv - s1 - s2 - s3 : -1, tag: T('divisor-miscounted')}, {v: Mv, tag: T('average-as-answer')}]}));
+    params: {t: 'wp-average', s: [s1, s2, s3], M: Mv}, traps: [{v: 3 * Mv - s1 - s2 - s3 > 0 ? 3 * Mv - s1 - s2 - s3 : null, tag: T('divisor-miscounted')}, {v: Mv, tag: T('average-as-answer')}, {v: 5 * Mv - s1 - s2 - s3 <= 20 ? 5 * Mv - s1 - s2 - s3 : null, tag: T('divisor-miscounted')}, {v: need - 1, tag: T('boundary-inclusion')}]}));
 }
 for (let S = 12; S <= 180; S++) {
   const mid = Math.ceil(S / 3) - 1, top = mid + 1; if (top < 3 || top > 59 || S % 3 === 0 && S % 2) continue;
   wp3.push(amount({prompt: `연속하는 세 자연수의 합이 ${S}보다 작다. 이러한 세 자연수 중 가장 큰 수가 될 수 있는 가장 큰 자연수를 구하시오.`, answer: top,
     explain: `가운데 수를 x라 하면 (x−1)+x+(x+1)<${S}, x<${rat(S, 3)}이므로 x는 최대 ${mid}, 가장 큰 수는 ${top}입니다.`, concept: '일차부등식의 활용', difficulty: 3,
-    params: {t: 'wp-consecutive', S}, traps: [{v: mid, tag: T('middle-number-answered')}, {v: Math.floor(S / 3) + 1 !== top ? Math.floor(S / 3) + 1 : -1, tag: T('boundary-inclusion')}]}));
+    params: {t: 'wp-consecutive', S}, traps: [{v: mid, tag: T('middle-number-answered')}, {v: Math.floor(S / 3) + 1 !== top ? Math.floor(S / 3) + 1 : null, tag: T('boundary-inclusion')}, {v: mid - 1, tag: T('smallest-number-answered')}, {v: top + 1, tag: T('boundary-inclusion')}]}));
 }
 for (const A of [5000, 8000, 10000, 12000, 15000]) for (const B of [15000, 18000, 20000, 25000, 30000]) for (const a of [100, 120, 150, 180, 200, 250, 300]) for (const b of [20, 40, 50, 60, 80, 100]) {
   if (B <= A || a <= b) continue; const bound = (B - A) / (a - b), n = Math.floor(bound) + 1; if (n < 2 || n > 59 || (A / 1000 + B / 1000 + a / 10 + b / 10) % 3) continue;
   wp4.push(amount({prompt: `A 요금제는 기본요금이 ${A}원이고 통화 1분에 ${a}원, B 요금제는 기본요금이 ${B}원이고 통화 1분에 ${b}원이다. B 요금제가 A 요금제보다 저렴하려면 한 달 통화 시간이 최소 몇 분이어야 하는지 구하시오. (단, 통화 시간은 분 단위의 자연수이다.)`, answer: n,
     explain: `x분 통화한다고 하면 ${A}+${a}x>${B}+${b}x, x>${rat(B - A, a - b)}이므로 최소 ${n}분입니다.`, concept: '일차부등식의 활용', difficulty: 4,
-    params: {t: 'wp-plans', A, B, a, b}, traps: [{v: Number.isInteger(bound) ? bound : -1, tag: T('boundary-inclusion')}, {v: Math.floor((B - A) / a), tag: T('rate-difference-ignored')}]}));
+    params: {t: 'wp-plans', A, B, a, b}, traps: [{v: n - 1, tag: T('boundary-inclusion')}, {v: Math.floor((B - A) / a), tag: T('rate-difference-ignored')}, {v: Math.floor((B - A) / (a + b)) + 1, tag: T('rates-added')}]}));
 }
 for (const price of [3000, 4000, 5000, 6000, 8000]) for (const G of [20, 25, 30, 40, 50]) for (const r of [10, 20, 25, 30, 40]) {
   const lim = G * (100 - r) / 100, n = Math.floor(lim) + 1; if (n < 2 || n >= G || n > 59 || (price / 1000 + G + r / 5) % 2) continue;
   wp4.push(amount({prompt: `한 사람의 입장료가 ${price}원인 미술관에서 ${G}명 이상의 단체는 입장료의 ${r}%를 할인해 준다. ${G}명 미만인 단체가 ${G}명의 단체 입장권을 사는 것이 유리하려면 최소 몇 명이어야 하는지 구하시오.`, answer: n,
     explain: `x명이라 하면 ${price}x>${price}×${G}×${rat(100 - r, 100)}, x>${rat(G * (100 - r), 100)}이므로 최소 ${n}명입니다.`, concept: '일차부등식의 활용', difficulty: 4,
-    params: {t: 'wp-group', price, G, r}, traps: [{v: Number.isInteger(lim) ? lim : -1, tag: T('boundary-inclusion')}, {v: Math.floor(G * r / 100), tag: T('discount-rate-as-ratio')}]}));
+    params: {t: 'wp-group', price, G, r}, traps: [{v: n - 1, tag: T('boundary-inclusion')}, {v: Math.floor(G * r / 100), tag: T('discount-rate-as-ratio')}, {v: G, tag: T('group-size-copied')}]}));
 }
 for (const [u, w] of [[2, 3], [3, 4], [2, 4], [3, 6], [4, 6], [2, 6], [3, 5], [4, 5], [4, 12], [6, 12]]) for (let Tn = 1; Tn <= 12; Tn++) for (const Td of [1, 2]) {
   const Tq = R(Tn, Td), maxd = rdiv(rmul(Tq, R(u * w)), R(u + w)); if (maxd[1] !== 1 || maxd[0] < 2 || maxd[0] > 59 || gcd(Tn, Td) !== 1) continue;
   const timeTxt = Td === 1 ? `${Tn}시간` : `${(Tn - 1) / 2}시간 30분`; if (Td === 2 && Tn < 3) continue;
   wp4.push(amount({prompt: `등산을 하는데 올라갈 때는 시속 ${u} km로, 내려올 때는 같은 길을 시속 ${w} km로 걸어서 ${timeTxt} 이내에 돌아오려고 한다. 최대 몇 km 지점까지 올라갔다 올 수 있는지 구하시오.`, answer: maxd[0],
     explain: `x km 지점까지라 하면 x÷${u}+x÷${w}≤${rat(...Tq)}에서 x≤${maxd[0]}이므로 최대 ${maxd[0]} km입니다.`, concept: '일차부등식의 활용', difficulty: 4,
-    params: {t: 'wp-hiking', u, w, Tn, Td}, traps: [{v: Math.floor(Tn / Td * u / 2), tag: T('round-trip-ignored')}, {v: Math.floor(Tn / Td * (u + w) / 2), tag: T('average-speed-misused')}]}));
+    params: {t: 'wp-hiking', u, w, Tn, Td}, traps: [{v: Math.floor(Tn / Td * u / 2), tag: T('round-trip-ignored')}, {v: Math.floor(Tn / Td * (u + w) / 2), tag: T('average-speed-misused')}, {v: Number.isInteger(Tn * u / Td) ? Tn * u / Td : null, tag: T('one-way-only')}, {v: Number.isInteger(Tn * (u + w) / Td) ? Tn * (u + w) / Td : null, tag: T('speeds-added')}]}));
 }
 // F1. (선택) 일차부등식의 해 고르기
 const solveChoice = [];
@@ -207,7 +220,8 @@ for (let a = -5; a <= 5; a++) for (let b = -9; b <= 9; b++) for (let c = -12; c 
     explain: `해는 ${solTxt(s)}이므로 ${B}에 ${closed ? '●(포함)' : '○(제외)'}을 찍고 ${right ? '오른쪽' : '왼쪽'}으로 긋습니다.`, concept: '부등식의 해를 수직선에 나타내기', difficulty: 2, params: {t: 'ineq-numberline-choice', ineq}}));
 }
 
-const intro = amount({prompt: 'x의 값이 5 이하의 자연수일 때, 부등식 x+1>4의 해의 개수를 구하시오.', answer: 2, explain: 'x>3이므로 4, 5의 2개입니다. 2닢을 붓습니다.', concept: '부등식의 해', difficulty: 1, params: {t: 'ineq-count-upto', ineq: 'x+1>4', N: 5}, intro: true});
+const intro = amount({prompt: 'x의 값이 5 이하의 자연수일 때, 부등식 x+1>4의 해의 개수를 구하시오.', answer: 2, explain: 'x>3이므로 4, 5의 2개입니다.', concept: '부등식의 해', difficulty: 1, params: {t: 'ineq-count-upto', ineq: 'x+1>4', N: 5},
+  traps: [{v: 3, tag: T('boundary-inclusion')}, {v: 0, tag: T('sign-error-in-transposition')}, {v: 1, tag: T('solution-as-single-value')}]});
 const byT = (pool, t) => pool.filter(q => q && q.params.t === t);
 if (process.env.DBG) { const {uniq} = await import('./m2s1-lib.mjs'); for (const t of ['wp-budget', 'wp-elevator', 'wp-rectangle', 'wp-savings', 'wp-average', 'wp-consecutive']) console.log(t, uniq(byT(wp3, t)).length); for (const t of ['wp-plans', 'wp-group', 'wp-hiking']) console.log(t, uniq(byT(wp4, t)).length); process.exit(0); }
 writeUnitPack({id: U, title: '일차부등식', unit: U, standards: ['[9수02-11]', '[9수02-12]'], intro, groups: [

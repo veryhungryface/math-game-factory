@@ -1,93 +1,121 @@
 #!/usr/bin/env node
-import fs from 'node:fs';
-import path from 'node:path';
-import {makeItem,probabilityWrong,wrong,token,diceCount,diceText,spread,introItem,gcd,here,output} from './common.mjs';
-// Corpus traps: explicit 임의로 + equal balls, 서로 다른 dice, only replacement;
-// every OR below joins disjoint colors. The two input pads always mean the raw
-// 사건/전체 counts; equivalent pairs are accepted and feedback performs the
-// textbook reduction after the learner commits the assembled probability.
-const balls=[],cards=[],complement=[],colors=[],dice=[],replacement=[],atLeast=[],experiment=[],reverse=[],overlap=[],basic=[];
-const equalBalls='(단, 공의 모양과 크기는 모두 같다.)';
-const ASK='확률을 구하시오.';
-const bag=(parts)=>`${parts}가 들어 있는 주머니에서`;
-for(let red=1;red<=9;red++)for(let blue=1;blue<=9;blue++){
-  const total=red+blue;
-  balls.push(makeItem({prompt:`${bag(`빨간 공 ${red}개와 파란 공 ${blue}개`)} 공 한 개를 임의로 꺼낼 때, 빨간 공이 나올 ${ASK} ${equalBalls}`,n:red,d:total,format:'frac',explain:`모든 경우는 공 ${total}개 중 한 개를 꺼내는 ${total}가지, 빨간 공이 나오는 경우는 ${red}가지이므로 @P입니다.`,unitConcept:'경우의 수의 비율로서의 확률',difficulty:1,kind:'ball',args:{red,blue,event:'red'},distractors:probabilityWrong(red,total)}));
-  complement.push(makeItem({prompt:`${bag(`빨간 공 ${red}개와 파란 공 ${blue}개`)} 공 한 개를 임의로 꺼낼 때, 빨간 공이 나오지 않을 ${ASK} ${equalBalls}`,n:blue,d:total,format:'frac',explain:`모든 경우 ${total}가지 중 빨간 공이 나오지 않는 경우는 파란 공 ${blue}가지이므로 확률은 ${gcd(blue,total)>1?`{frac:${blue}/${total}}=`:''}${token(blue,total)}입니다.`,unitConcept:'어떤 사건이 일어나지 않을 확률',difficulty:2,kind:'ball',args:{red,blue,event:'not-red'},distractors:probabilityWrong(blue,total)}));
+// m2s2-u7 확률 ([9수04-06]) — schema v3: every item is a four-option choice. Probability answers
+// and options are reduced fractions (textbook convention); the only integer-answer family is
+// 「빨간 공은 몇 개」 (확률에서 개수 역산). Corpus traps: 「임의로」 + (단, 공의 모양과 크기는 모두 같다.),
+// 「서로 다른」 dice/coins, only with-replacement repeated trials (「확인한 후 다시 넣고」), OR events are
+// disjoint or posed as direct listing. Distractors come from named misconceptions (curriculum m2s2-u7).
+import {makeQ,wrong,probWrongs,writeProbPack,drops,token,gcd,josa} from './prob-kit-v3.mjs';
+const T='m2s2-u7.';
+const MC={half:T+'equal-likelihood-bias',comp:T+'event-complement-confusion',one:T+'event-count-omitted',space:T+'wrong-sample-space',
+  inv:T+'ratio-reversed',count:T+'denominator-omitted',sp:'m2s2-u7.sum-product-confusion',order:T+'order-ignored',single:T+'single-stage-only',
+  overlap:T+'overlap-double-counted',basic:T+'basic-property',freq:T+'frequency-equals-theory',numer:T+'numerator-as-count',partpart:T+'part-part-ratio'};
+const EQ='(단, 공의 모양과 크기는 모두 같다.)';
+const bag=parts=>`${parts}가 들어 있는 주머니에서`;
+const pools={};const add=(k,it)=>(pools[k]??=[]).push(it);
+
+// ── d1 ─────────────────────────────────────────────────
+for(let r=1;r<=9;r++)for(let b=1;b<=9;b++){const t=r+b;
+  add('balls',makeQ({prompt:`${bag(`빨간 공 ${r}개와 파란 공 ${b}개`)} 공 한 개를 임의로 꺼낼 때, 빨간 공이 나올 확률을 구하시오. ${EQ}`,n:r,d:t,probability:true,
+    explain:`모든 경우 ${t}가지 중 빨간 공이 나오는 경우는 ${r}가지이므로 @P입니다.`,unitConcept:'경우의 수의 비율로서의 확률',difficulty:1,kind:'ball',args:{r,b,event:'red'},distractors:probWrongs(r,t)}));
+  add('complement',makeQ({prompt:`${bag(`빨간 공 ${r}개와 파란 공 ${b}개`)} 공 한 개를 임의로 꺼낼 때, 빨간 공이 나오지 않을 확률을 구하시오. ${EQ}`,n:b,d:t,probability:true,
+    explain:`(빨간 공이 나오지 않을 확률)=1−(빨간 공이 나올 확률)=1−${token(r,t)}=@P입니다.`,unitConcept:'어떤 사건이 일어나지 않을 확률',difficulty:2,kind:'ball',args:{r,b,event:'not-red'},
+    distractors:[wrong(r,t,MC.comp,'complement',[b,t]),...probWrongs(b,t).filter(w=>w.rule!=='complement')]}));
 }
-for(let total=6;total<=20;total++)for(let divisor=2;divisor<=6;divisor++){
-  const count=Math.floor(total/divisor);
-  cards.push(makeItem({prompt:`1부터 ${total}까지의 자연수가 각각 하나씩 적힌 카드 ${total}장 중 한 장을 임의로 뽑을 때, ${divisor}의 배수일 ${ASK}`,n:count,d:total,format:'frac',explain:`모든 경우 ${total}가지 중 ${divisor}의 배수는 ${count}가지이므로 @P입니다.`,unitConcept:'경우의 수의 비율로서의 확률',difficulty:1,kind:'multiples',args:{total,divisor},distractors:probabilityWrong(count,total)}));
+for(let n=6;n<=20;n++)for(let k=2;k<=6;k++){const c=Math.floor(n/k);
+  add('multiples',makeQ({prompt:`1부터 ${n}까지의 자연수가 각각 하나씩 적힌 카드 ${n}장 중에서 한 장을 임의로 뽑을 때, ${k}의 배수가 나올 확률을 구하시오.`,n:c,d:n,probability:true,
+    explain:`모든 경우 ${n}가지 중 ${k}의 배수는 ${c}가지이므로 @P입니다.`,unitConcept:'경우의 수의 비율로서의 확률',difficulty:1,kind:'multiples',args:{n,k},distractors:probWrongs(c,n,[wrong(1,k,MC.space,'one-over-divisor',[k])])}));
 }
-for(let red=1;red<=5;red++)for(let blue=1;blue<=5;blue++)for(let white=1;white<=4;white++){
-  const total=red+blue+white,count=red+blue;
-  colors.push(makeItem({prompt:`${bag(`빨간 공 ${red}개, 파란 공 ${blue}개, 흰 공 ${white}개`)} 공 한 개를 임의로 꺼낼 때, 빨간 공 또는 파란 공이 나올 ${ASK} ${equalBalls}`,n:count,d:total,format:'frac',explain:`두 사건은 겹치지 않으므로 사건의 경우는 ${red}+${blue}=${count}가지, 모든 경우는 ${total}가지이고 확률은 @P입니다.`,unitConcept:'서로 겹치지 않는 두 사건의 확률',difficulty:2,kind:'colors',args:{red,blue,white},distractors:probabilityWrong(count,total,[wrong(red*blue,total*total,'m2s2-u6.sum-product-confusion','multiply-disjoint-probabilities',[red,blue,total]),wrong(red,total,'m2s2-u7.event-count-omitted','first-part',[red,total])])}));
+for(const [color,other] of [['흰','검은'],['빨간','파란'],['노란','초록']])for(let n=2;n<=9;n++)for(const certain of [true,false]){
+  const p=certain?1:0;
+  add('basic',makeQ({prompt:`${color} 공만 ${n}개 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때, ${certain?color:other} 공이 나올 확률을 구하시오. ${EQ}`,n:p,d:1,probability:true,
+    explain:certain?`꺼낸 공은 반드시 ${color} 공이므로 확률은 1입니다.`:`${other} 공은 절대로 나오지 않으므로 확률은 0입니다.`,unitConcept:'확률의 기본 성질',difficulty:1,kind:'single-color',args:{n,certain},
+    distractors:[wrong(1-p,1,MC.basic,'certain-impossible-swap',[p]),wrong(1,n,MC.one,'one-outcome',[n]),wrong(1,2,MC.half,'half',[]),wrong(n,1,MC.count,'count-only',[n])]}));
 }
-for(const kind of ['sum-eq','sum-le','sum-ge','product-eq','difference-eq','product-multiple'])for(let k=kind==='difference-eq'?0:2;k<=(kind==='product-eq'?36:kind==='difference-eq'?5:kind==='product-multiple'?10:12);k++){
-  const [count,unordered]=diceCount(kind,k);if(count===0||count===36)continue;
-  dice.push(makeItem({prompt:`서로 다른 두 개의 주사위를 동시에 던질 때, ${diceText(kind,k)} ${ASK}`,n:count,d:36,format:'frac',explain:`두 주사위를 구별한 모든 경우 36가지 중 사건이 일어나는 경우는 ${count}가지이므로 @P입니다.`,unitConcept:'서로 다른 두 주사위의 확률',difficulty:3,kind:'dice',args:{test:kind,k},distractors:probabilityWrong(count,36,[wrong(unordered,21,'m2s2-u7.equal-likelihood-bias','unordered-dice',[unordered]),wrong(count,6,'m2s2-u7.wrong-sample-space','one-die-denominator',[count])])}));
+// 주사위 한 개
+const DIE=[['짝수의',[2,4,6]],['홀수의',[1,3,5]],['3의 배수의',[3,6]],['소수의',[2,3,5]],['6의 약수의',[1,2,3,6]],['4의 약수의',[1,2,4]],['5 이상의',[5,6]],['2 이하의',[1,2]],['4 미만의',[1,2,3]],['4 초과의',[5,6]],['3보다 큰',[4,5,6]]];
+DIE.forEach(([txt,set],i)=>{const f=set.length;
+  add('dieOne',makeQ({prompt:`주사위 한 개를 던질 때, ${txt} 눈이 나올 확률을 구하시오.`,n:f,d:6,probability:true,explain:`모든 경우 6가지 중 ${set.join(', ')}의 ${f}가지이므로 @P입니다.`,
+    unitConcept:'경우의 수의 비율로서의 확률',difficulty:1,kind:'die-one',args:{i,set},distractors:probWrongs(f,6)}));});
+
+// ── d2 ─────────────────────────────────────────────────
+for(let r=1;r<=5;r++)for(let b=1;b<=5;b++)for(let w=1;w<=4;w++){const t=r+b+w,c=r+b;
+  add('colors',makeQ({prompt:`${bag(`빨간 공 ${r}개, 파란 공 ${b}개, 흰 공 ${w}개`)} 공 한 개를 임의로 꺼낼 때, 빨간 공 또는 파란 공이 나올 확률을 구하시오. ${EQ}`,n:c,d:t,probability:true,
+    explain:`두 사건은 동시에 일어나지 않으므로 ${token(r,t)}+${token(b,t)}=@P입니다.`,unitConcept:'두 사건 A 또는 B가 일어날 확률',difficulty:2,kind:'colors',args:{r,b,w},
+    distractors:[wrong(r*b,t*t,MC.sp,'multiply-disjoint-probabilities',[r,b,t]),wrong(r,t,MC.one,'first-part',[r,t]),...probWrongs(c,t)]}));
 }
-const again='공 한 개를 임의로 꺼내 확인한 후 다시 넣고 또 한 개를 꺼낼 때,';
-for(let red=1;red<=8;red++)for(let blue=1;blue<=8;blue++){
-  const total=red+blue,count=red*red,all=total*total;if(all>60)continue;
-  replacement.push(makeItem({prompt:`${bag(`빨간 공 ${red}개와 파란 공 ${blue}개`)} ${again} 두 번 모두 빨간 공이 나올 ${ASK} ${equalBalls}`,n:count,d:all,format:'frac',explain:`모든 경우는 ${total}×${total}=${all}가지, 두 번 모두 빨간 공인 경우는 ${red}×${red}=${count}가지이므로 @P입니다. 이는 {frac:${red}/${total}}×{frac:${red}/${total}}의 값과 같습니다.`,unitConcept:'복원 추출에서 두 사건의 확률',difficulty:4,kind:'replacement',args:{red,blue,event:'both'},distractors:probabilityWrong(count,all,[wrong(red,total,'m2s2-u7.event-count-omitted','single-stage',[red,total]),wrong(red*2,total,'m2s2-u6.sum-product-confusion','add-instead-multiply-probabilities',[red,total]),wrong(count,total,'m2s2-u7.wrong-sample-space','count-only-denominator',[count,total])])}));
-  const some=all-blue*blue;
-  atLeast.push(makeItem({prompt:`${bag(`빨간 공 ${red}개와 파란 공 ${blue}개`)} ${again} 적어도 한 번 빨간 공이 나올 ${ASK} ${equalBalls}`,n:some,d:all,format:'frac',explain:`모든 경우 ${total}×${total}=${all}가지에서 두 번 모두 파란 공인 ${blue}×${blue}=${blue*blue}가지를 빼면 ${some}가지이므로 @P입니다.`,unitConcept:'적어도 하나의 확률',difficulty:4,kind:'replacement',args:{red,blue,event:'at-least-one'},distractors:probabilityWrong(some,all,[wrong(red,total,'m2s2-u7.event-count-omitted','single-stage',[red,total]),wrong(red*2,total,'m2s2-u6.sum-product-confusion','add-instead-multiply-probabilities',[red,total]),wrong(red*red,all,'m2s2-u7.event-complement-confusion','both-red',[red,total])])}));
+for(let n=10;n<=50;n+=5)for(let h=2;h<n;h+=3){
+  add('experiment',makeQ({prompt:`동전 한 개를 ${n}번 던졌더니 앞면이 ${h}번 나왔다. 이때 앞면이 나온 상대도수를 구하시오.`,n:h,d:n,probability:true,
+    explain:`(상대도수)=(앞면이 나온 횟수)÷(전체 던진 횟수)=${h}÷${n}=@P입니다.`,unitConcept:'상대도수와 확률',difficulty:2,kind:'experiment',args:{n,h},
+    distractors:[wrong(1,2,MC.freq,'half',[]),wrong(n-h,n,MC.comp,'complement',[h,n]),wrong(h,n-h,MC.partpart,'part-to-part',[h,n]),wrong(n,h,MC.inv,'inverse',[h,n]),wrong(h,1,MC.count,'count-only',[h])]}));
 }
-for(let total=10;total<=40;total+=5)for(let heads=2;heads<total;heads+=3){
-  experiment.push(makeItem({prompt:`동전을 ${total}번 던졌더니 앞면이 ${heads}번 나왔다. 이 실험에서 앞면의 상대도수를 구하시오.`,n:heads,d:total,format:'frac',explain:`상대도수는 (앞면이 나온 횟수)÷(전체 시행 횟수)이므로 @P입니다.`,unitConcept:'실험 결과의 상대도수',difficulty:2,kind:'experiment',args:{total,heads},distractors:probabilityWrong(heads,total,[wrong(1,2,'m2s2-u7.frequency-equals-theory','half',[])])}));
-}
-for(let total=5;total<=12;total++)for(let red=2;red<total;red++){
-  reverse.push(makeItem({prompt:`빨간 공과 파란 공이 합하여 ${total}개 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때 빨간 공이 나올 확률이 ${token(red,total)}이면, 빨간 공은 몇 개인지 구하시오. ${equalBalls}`,n:red,explain:`(빨간 공의 개수)=${total}×${token(red,total)}=${red}이므로 빨간 공은 ${red}개입니다.`,unitConcept:'확률에서 경우의 수 역으로 구하기',difficulty:3,kind:'reverse',args:{total,red},distractors:[wrong(total-red,1,'m2s2-u7.event-complement-confusion','complement-count',[red,total]),wrong(total,1,'m2s2-u7.denominator-omitted','total-only',[total]),wrong(red*total,1,'m2s2-u7.denominator-omitted','multiply-count-again',[red,total]),wrong(1,1,'m2s2-u7.event-count-omitted','constant-one',[])]}));
-}
-// Overlapping OR (curriculum misconception 4): direct-listing problems, oracle enumerates.
-for(const [a,b] of [[2,3],[2,5],[3,4],[2,7],[3,5],[4,6]])for(let total=6;total<=16;total++){
-  const hits=[];for(let i=1;i<=total;i++)if(i%a===0||i%b===0)hits.push(i);
-  const both=hits.filter(i=>i%a===0&&i%b===0);if(!both.length)continue;
-  const ca=Math.floor(total/a),cb=Math.floor(total/b);
-  overlap.push(makeItem({prompt:`1부터 ${total}까지의 자연수가 각각 하나씩 적힌 카드 ${total}장 중 한 장을 임의로 뽑을 때, ${a}의 배수 또는 ${b}의 배수일 ${ASK}`,n:hits.length,d:total,format:'frac',explain:`${hits.join(', ')}의 ${hits.length}장(겹치는 ${both.join(', ')}도 한 번만 센다)이므로 모든 경우 ${total}가지 중 @P입니다.`,unitConcept:'동시에 일어날 수 있는 두 사건 — 직접 세기',difficulty:3,kind:'multiples-or',args:{total,a,b},distractors:[wrong(ca+cb,total,'m2s2-u7.overlap-double-counted','add-overlapping-counts',[a,b,total]),...probabilityWrong(hits.length,total)]}));
-}
-for(const [color,other] of [['흰','검은'],['빨간','파란'],['노란','초록']])for(let n=2;n<=9;n++)for(const certain of [false,true]){
-  const target=certain?color:other,p=certain?1:0;
-  basic.push(makeItem({prompt:`${color} 공만 ${n}개 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때, ${target} 공이 나올 확률을 구하시오. ${equalBalls}`,n:p,d:1,format:'frac',explain:certain?`꺼낸 공은 반드시 ${color} 공이므로 확률은 1.`:`${other} 공은 절대로 나오지 않으므로 확률은 0.`,unitConcept:'확률의 기본 성질',difficulty:1,kind:'single-color',args:{n,certain},distractors:[wrong(1-p,1,'m2s2-u7.basic-property','certain-impossible-swap',[p]),wrong(1,n,'m2s2-u7.event-count-omitted','one-outcome',[n]),wrong(1,2,'m2s2-u7.equal-likelihood-bias','half',[]),wrong(n,1,'m2s2-u7.denominator-omitted','count-only',[n])]}));
+// 서로 다른 두 개의 동전 (동전 두 개의 모든 경우를 3가지로 보는 오개념)
+for(const [txt,f,uf] of [['모두 앞면이',1,1],['모두 뒷면이',1,1],['앞면과 뒷면이 하나씩',2,1],['적어도 한 개는 앞면이',3,2],['적어도 한 개는 뒷면이',3,2],['서로 같은 면이',2,2]]){
+  add('coins2',makeQ({prompt:`서로 다른 두 개의 동전을 동시에 던질 때, ${txt} 나올 확률을 구하시오.`,n:f,d:4,probability:true,
+    explain:`모든 경우는 (앞, 앞), (앞, 뒤), (뒤, 앞), (뒤, 뒤)의 4가지이고 그중 ${f}가지이므로 @P입니다.`,unitConcept:'경우의 수의 비율로서의 확률',difficulty:2,kind:'coins',args:{coins:2,txt},
+    distractors:[wrong(uf,3,MC.order,'unordered-coins',[uf,3]),wrong(4-f,4,MC.comp,'complement',[f,4]),wrong(1,2,MC.half,'half',[]),wrong(1,4,MC.one,'one-outcome',[4]),wrong(f,1,MC.count,'count-only',[f])]}));
 }
 
-// ── acceptance policy ────────────────────────────────────────
-const LAB={frac:['사건','전체']};
-function coinInput(item,proof,packId){
-  const isAmount=['coin-intro','reverse'].includes(proof.kind);
-  const [n,d]=proof.parts,[rn,rd]=proof.expected;const reducedTok=`{frac:${rn}/${rd}}`,partsTok=`{frac:${n}/${d}}`;
-  if(isAmount){
-    item.answer_mode='amount';item.answer=proof.parts[0];item.max=60;item.coin_budget=60;item.choices=null;
-    if(item.answer<2||item.answer>=60)throw Error(`Unbalanced amount answer ${item.answer}: ${item.prompt}`);
-  } else if(proof.kind==='single-color') item.answer_mode='choice';
-  else {
-    item.answer_mode='fraction_parts';item.max=60;item.coin_budget=120;item.choices=null;
-    item.accept='equivalent';
-    const parts=proof.parts;
-    item.answer={num:parts[0],den:parts[1]};
-    if(parts.some(v=>v>60))throw Error(`Answer exceeds coin pad: ${item.prompt}`);
-    const [nl,dl]=LAB.frac;item.num_label=nl;item.den_label=dl;
-    item.explain=item.explain.replace('@P',n*rd===rn*d&&(n!==rn||d!==rd)?`${partsTok}=${reducedTok}`:partsTok);
-  }
-  if(item.explain.includes('@P'))throw Error(`unfilled explain ${item.explain}`);
-  return item;
+// ── d3 ─────────────────────────────────────────────────
+const range6=[1,2,3,4,5,6];
+const test=(kind,k)=>({'sum-eq':(x,y)=>x+y===k,'sum-le':(x,y)=>x+y<=k,'sum-ge':(x,y)=>x+y>=k,'product-eq':(x,y)=>x*y===k,'difference-eq':(x,y)=>Math.abs(x-y)===k,'product-multiple':(x,y)=>x*y%k===0,'same':(x,y)=>x===y})[kind];
+const diceText=(kind,k)=>({'sum-eq':`두 눈의 수의 합이 ${k}일`,'sum-le':`두 눈의 수의 합이 ${k} 이하일`,'sum-ge':`두 눈의 수의 합이 ${k} 이상일`,'product-eq':`두 눈의 수의 곱이 ${k}일`,
+  'difference-eq':`두 눈의 수의 차가 ${k}일`,'product-multiple':`두 눈의 수의 곱이 ${k}의 배수일`,'same':'두 눈의 수가 같을'})[kind];
+for(const [kind,lo,hi] of [['sum-eq',2,12],['sum-le',3,11],['sum-ge',3,11],['product-eq',2,30],['difference-eq',1,5],['product-multiple',2,6],['same',0,0]])for(let k=lo;k<=hi;k++){
+  let n=0,u=0;for(const x of range6)for(const y of range6)if(test(kind,k)(x,y)){n++;if(x<=y)u++;}if(n===0||n===36)continue;
+  add('dice',makeQ({prompt:`서로 다른 두 개의 주사위를 동시에 던질 때, ${diceText(kind,k)} 확률을 구하시오.`,n,d:36,probability:true,
+    explain:`모든 경우 6×6=36가지 중 사건이 일어나는 경우는 ${n}가지이므로 @P입니다.`,unitConcept:'서로 다른 두 주사위의 확률',difficulty:3,kind:'dice',args:{test:kind,k},
+    distractors:[wrong(u,21,MC.order,'unordered-dice',[kind,k]),...(n<=6?[wrong(n,6,MC.space,'one-die-denominator',[n])]:[]),wrong(n,12,MC.space,'sum-of-faces-denominator',[n]),...probWrongs(n,36)]}));
 }
-function writeU7Pack(id,title,standards,groups){
-  const picked=groups.map(([pool,n])=>spread(pool.filter(Boolean),n));const ordered=[];
-  for(let i=0;picked.some(g=>i<g.length);i++)for(const group of picked)if(group[i])ordered.push(group[i]);
-  const counters=[0,0,0,0,0],proofs=[];const items=ordered.map((raw,i)=>{
-    const {_proof,...item}=raw;item.id=`${id}-${String(i+1).padStart(3,'0')}`;
-    const slot=_proof.kind==='single-color'?counters[item.difficulty]++%4:0;
-    item.choices=_proof.distractors.map(w=>w.value);item.choices.splice(slot,0,item.answer);
-    item.distractor_tags=_proof.distractors.map(w=>w.misconceptionId);
-    proofs.push({id:item.id,..._proof});return coinInput(item,_proof,id);
-  });
-  const pack={schema_version:2,pack_id:id,title,school:'middle',grade:2,semester:2,unit_id:id,standards,economy:{carry_capacity:120,coin_per_kill:1,min_spawn_coins:140},items};
-  fs.mkdirSync(output,{recursive:true});fs.writeFileSync(path.join(output,`${id}.json`),JSON.stringify(pack));
-  fs.writeFileSync(path.join(here,`${id}-proofs.json`),JSON.stringify({pack_id:id,proofs},null,2)+'\n');
-  const acc={};for(const q of items)if(q.accept)acc[q.accept]=(acc[q.accept]??0)+1;
-  console.log(`${id}: ${items.length} items / ${Buffer.byteLength(JSON.stringify(pack))} bytes`,JSON.stringify(acc));
-  return pack;
+// 동시에 일어날 수 있는 두 사건: 직접 나열
+for(const [a,b] of [[2,3],[2,5],[3,4],[2,7],[3,5],[4,6],[2,9],[3,6]])for(let n=6;n<=20;n++){
+  const hits=[],both=[];for(let i=1;i<=n;i++){if(i%a===0||i%b===0)hits.push(i);if(i%a===0&&i%b===0)both.push(i);}if(!both.length)continue;
+  const ca=Math.floor(n/a),cb=Math.floor(n/b);
+  add('overlap',makeQ({prompt:`1부터 ${n}까지의 자연수가 각각 하나씩 적힌 카드 ${n}장 중에서 한 장을 임의로 뽑을 때, ${a}의 배수 또는 ${b}의 배수가 나올 확률을 구하시오.`,n:hits.length,d:n,probability:true,
+    explain:`${hits.join(', ')}의 ${hits.length}가지(겹치는 ${josa(both.join(', '),'은','는')} 한 번만 셉니다)이므로 @P입니다.`,unitConcept:'동시에 일어날 수 있는 두 사건 — 직접 세기',difficulty:3,kind:'multiples-or',args:{n,a,b},
+    distractors:[wrong(ca+cb,n,MC.overlap,'add-overlapping-counts',[a,b,n]),...probWrongs(hits.length,n)]}));
 }
-writeU7Pack('m2s2-u7','확률',['[9수04-06]'],[[[introItem()],1],[balls,80],[cards,75],[complement,56],[colors,58],[dice,48],[replacement,19],[atLeast,19],[experiment,24],[reverse,20],[overlap,28],[basic,16]]);
+// 확률에서 개수 역산 (정수 답)
+for(let t=6;t<=30;t++)for(let r=2;r<t;r++){if(gcd(r,t)===1)continue;const [a,d]=[r/gcd(r,t),t/gcd(r,t)];
+  add('reverse',makeQ({prompt:`빨간 공과 파란 공이 합하여 ${t}개 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때, 빨간 공이 나올 확률이 {frac:${a}/${d}}이다. 빨간 공은 몇 개인지 구하시오. ${EQ}`,n:r,
+    explain:`(빨간 공의 개수)=${t}×{frac:${a}/${d}}=${r}이므로 빨간 공은 ${r}개입니다.`,unitConcept:'확률에서 경우의 수 구하기',difficulty:3,kind:'reverse',args:{t,a,d},
+    distractors:[wrong(a,1,MC.numer,'numerator-as-count',[a]),wrong(t-r,1,MC.comp,'complement-count',[r,t]),wrong(t/d,1,MC.numer,'unit-fraction-share',[t,d]),wrong(d,1,MC.count,'denominator-as-count',[d]),wrong(t,1,MC.count,'total-only',[t])]}));
+}
+
+// ── d4 ─────────────────────────────────────────────────
+const again='공 한 개를 임의로 꺼내 확인한 후 다시 넣고 또 한 개를 꺼낼 때,';
+for(let r=1;r<=8;r++)for(let b=1;b<=8;b++){const t=r+b;
+  add('both',makeQ({prompt:`${bag(`빨간 공 ${r}개와 파란 공 ${b}개`)} ${again} 두 번 모두 빨간 공이 나올 확률을 구하시오. ${EQ}`,n:r*r,d:t*t,probability:true,
+    explain:`두 번의 시행은 서로 영향을 끼치지 않으므로 {frac:${r}/${t}}×{frac:${r}/${t}}=@P입니다.`,unitConcept:'두 사건 A와 B가 동시에 일어날 확률',difficulty:4,kind:'replacement',args:{r,b,event:'both'},
+    distractors:[wrong(r,t,MC.single,'single-stage',[r,t]),wrong(2*r,t,MC.sp,'add-instead-multiply-probabilities',[r,t]),wrong(r*r,t,MC.space,'count-only-denominator',[r,t]),wrong(r*r,t+t,MC.space,'add-denominators',[r,t]),...probWrongs(r*r,t*t)]}));
+  const some=t*t-b*b;
+  add('atLeast',makeQ({prompt:`${bag(`빨간 공 ${r}개와 파란 공 ${b}개`)} ${again} 적어도 한 번은 빨간 공이 나올 확률을 구하시오. ${EQ}`,n:some,d:t*t,probability:true,
+    explain:`1−(두 번 모두 파란 공이 나올 확률)=1−{frac:${b}/${t}}×{frac:${b}/${t}}=@P입니다.`,unitConcept:'적어도 하나가 일어날 확률',difficulty:4,kind:'replacement',args:{r,b,event:'at-least-one'},
+    distractors:[wrong(b*b,t*t,MC.comp,'complement-not-subtracted',[r,t]),wrong(r*r,t*t,MC.comp,'both-red',[r,t]),wrong(r,t,MC.single,'single-stage',[r,t]),wrong(2*r,t,MC.sp,'add-instead-multiply-probabilities',[r,t])]}));
+}
+// 동전 한 개와 주사위 한 개
+DIE.forEach(([txt,set],i)=>{for(const face of ['앞면','뒷면']){const f=set.length;
+  add('coinDie',makeQ({prompt:`동전 한 개와 주사위 한 개를 동시에 던질 때, 동전은 ${face}이 나오고 주사위는 ${txt} 눈이 나올 확률을 구하시오.`,n:f,d:12,probability:true,
+    explain:`두 사건은 서로 영향을 끼치지 않으므로 {frac:1/2}×{frac:${f}/6}=@P입니다.`,unitConcept:'두 사건 A와 B가 동시에 일어날 확률',difficulty:4,kind:'coin-die',args:{i,set,face},
+    distractors:[wrong(3+f,6,MC.sp,'add-instead-multiply-probabilities',[f]),wrong(f,6,MC.single,'coin-ignored',[f]),wrong(f,8,MC.space,'add-sample-spaces',[f]),wrong(1,12,MC.one,'one-outcome',[12]),wrong(12-f,12,MC.comp,'complement',[f,12])]}));}});
+// 서로 다른 세 개의 동전
+for(const [txt,f,uf] of [['적어도 한 개는 앞면이',7,3],['적어도 한 개는 뒷면이',7,3],['모두 앞면이',1,1],['앞면이 2개만',3,1],['앞면이 1개만',3,1],['모두 같은 면이',2,2],['앞면이 2개 이상',4,2]]){
+  add('coins3',makeQ({prompt:`서로 다른 세 개의 동전을 동시에 던질 때, ${txt} 나올 확률을 구하시오.`,n:f,d:8,probability:true,
+    explain:`모든 경우 2×2×2=8가지 중 ${f}가지이므로 @P입니다.`,unitConcept:f===7?'적어도 하나가 일어날 확률':'경우의 수의 비율로서의 확률',difficulty:4,kind:'coins',args:{coins:3,txt},
+    distractors:[wrong(uf,4,MC.order,'unordered-coins',[uf,4]),wrong(8-f,8,MC.comp,'complement',[f,8]),wrong(f,6,MC.space,'add-sample-spaces',[f]),wrong(1,2,MC.half,'half',[]),wrong(1,8,MC.one,'one-outcome',[8])]}));
+}
+// 카드를 다시 넣고 두 번 뽑기
+const CARD=[['홀수가',n=>n%2===1],['짝수가',n=>n%2===0],['3의 배수가',n=>n%3===0],['4의 배수가',n=>n%4===0],['소수가',n=>[2,3,5,7,11].includes(n)]];
+for(let n=4;n<=12;n++)CARD.forEach(([txt,ok],i)=>{const e=Array.from({length:n},(_,j)=>j+1).filter(ok).length;if(e<1||e===n)return;
+  add('cardsRep',makeQ({prompt:`1부터 ${n}까지의 자연수가 각각 하나씩 적힌 카드 ${n}장 중에서 한 장을 임의로 뽑아 확인하고 다시 넣은 후 또 한 장을 뽑을 때, 두 번 모두 ${txt} 적힌 카드가 나올 확률을 구하시오.`,n:e*e,d:n*n,probability:true,
+    explain:`두 번의 시행은 서로 영향을 끼치지 않으므로 {frac:${e}/${n}}×{frac:${e}/${n}}=@P입니다.`,unitConcept:'두 사건 A와 B가 동시에 일어날 확률',difficulty:4,kind:'cards-replacement',args:{n,i},
+    distractors:[wrong(e,n,MC.single,'single-stage',[e,n]),wrong(2*e,n,MC.sp,'add-instead-multiply-probabilities',[e,n]),wrong(e*e,n,MC.space,'count-only-denominator',[e,n]),wrong(e*e,2*n,MC.space,'add-denominators',[e,n]),...probWrongs(e*e,n*n)]}));});
+
+const intro=makeQ({prompt:'주사위 한 개를 던질 때, 3의 배수의 눈이 나올 확률을 구하시오.',n:2,d:6,probability:true,explain:'모든 경우 6가지 중 3의 배수의 눈은 3, 6의 2가지이므로 @P입니다.',
+  unitConcept:'경우의 수의 비율로서의 확률',difficulty:1,kind:'die-one',args:{i:2,set:[3,6]},distractors:[wrong(2,1,MC.count,'count-only',[2]),wrong(1,6,MC.one,'one-outcome',[6]),wrong(4,6,MC.comp,'complement',[2,6]),wrong(1,2,MC.half,'half',[])]});
+const P=pools;const len=k=>P[k].filter(Boolean).length;
+if(process.env.POOLS)console.log(Object.fromEntries(Object.keys(P).map(k=>[k,len(k)])),drops);
+writeProbPack('m2s2-u7','확률',['[9수04-06]'],intro,[
+  [P.balls,55],[P.multiples,35],[P.basic,10],[P.dieOne,len('dieOne')-1],
+  [P.complement,45],[P.colors,42],[P.experiment,26-len('coins2')],[P.coins2,len('coins2')],
+  [P.dice,50],[P.overlap,30],[P.reverse,30],
+  [P.both,28],[P.atLeast,28],[P.coinDie,len('coinDie')],[P.coins3,len('coins3')],[P.cardsRep,110-28-28-len('coinDie')-len('coins3')]]);

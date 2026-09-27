@@ -3,6 +3,7 @@
 // Decimals come from exact integer long division of p/q, so no 9-repeating decimal (0.49…) can appear
 // (교육과정: 유한소수를 순환소수로 나타내는 것은 다루지 않는다). The game font has no combining dot,
 // so repeating decimals are shown expanded ("0.2454545…"), with at least 3 visible periods (2 for 4+ digits).
+// Schema v3: every item is a 4-choice question; wrong choices are derived from named misconceptions.
 import {amount, fraction, choice, writeUnitPack, rat, j, gcd, reduce} from './m2s1-lib.mjs';
 const U = 'm2s1-u1', T = s => `${U}.${s}`;
 
@@ -13,6 +14,7 @@ function expand(p, q) {
   const s = seen.get(r); return {int, pre: digits.slice(0, s).join(''), rep: digits.slice(s).join('')};
 }
 function show({int, pre, rep}) { const reps = rep.length <= 3 ? 3 : 2; let body = pre, k = 0; while (k < reps || body.length < 5) { body += rep; k++; } return `${int}.${body}…`; }
+function rad(n) { let r = 1; for (let p = 2; p <= n; p++) if (n % p === 0) { r *= p; while (n % p === 0) n /= p; } return r; }
 function strip25(q) { while (q % 2 === 0) q /= 2; while (q % 5 === 0) q /= 5; return q; }
 const terminates = (p, q) => strip25(reduce(p, q)[1]) === 1;
 function factorText(q) { const f = []; let n = q; for (let p = 2; p <= n; p++) { let e = 0; while (n % p === 0) { n /= p; e++; } if (e) f.push(p + (e > 1 ? `<sup>${e}</sup>` : '')); } return f.join('×'); }
@@ -25,12 +27,13 @@ const fractionsUpTo = (qMax, pMax) => { const out = []; for (let q = 2; q <= qMa
 // A. 순환마디 찾기
 const blockPool = [];
 for (const [p, q, e] of fractionsUpTo(99, q => 4 * q)) {
-  if (e.int > 3 || e.rep.length > 2 || e.pre.length > 2 || e.rep[0] === '0') continue;
+  if (e.int > 3 || e.rep.length > 2 || e.pre.length > 2 || e.rep[0] === '0' || (e.rep.length === 1 && !e.pre && !e.int)) continue;
   const v = Number(e.rep), shown = show(e);
   blockPool.push(amount({prompt: `순환소수 ${shown}의 순환마디를 구하시오.`, answer: v,
     explain: `${e.pre ? `소수점 아래 ${j(e.pre, '은')} 되풀이되지 않고 ` : ''}${j(e.rep, '이')} 한없이 되풀이되므로 순환마디는 ${e.rep}입니다.`,
     concept: '순환마디', difficulty: 1, params: {t: 'period-block', p, q, shown},
-    traps: [{v: Number(e.pre + e.rep), tag: T('nonrepeating-included')}, {v: Number(e.rep + e.rep), tag: T('period-over-extended')}, {v: Number(e.rep.split('').reverse().join('')), tag: T('period-start-misread')}]}));
+    traps: [{v: Number(e.pre + e.rep), tag: T('nonrepeating-included')}, {v: e.pre ? Number(e.pre) : null, tag: T('nonrepeating-as-period')}, {v: Number(e.rep.split('').reverse().join('')), tag: T('period-start-misread')},
+      {v: e.int ? Number(e.int + e.pre + e.rep) : null, tag: T('integer-part-included')}, {v: Number(e.rep + e.rep), tag: T('period-over-extended')}, {v: Number(e.rep.repeat(3)), tag: T('period-over-extended')}]}));
 }
 // B. 순환마디를 이루는 숫자의 개수
 const lengthPool = [];
@@ -38,7 +41,7 @@ for (const [p, q, e] of fractionsUpTo(99, q => q - 1)) {
   const L = e.rep.length; if (L < 2 || L > 6 || e.pre.length > 1) continue;
   lengthPool.push(amount({prompt: `분수 ${j(frac(p, q), '을')} 소수로 나타낼 때, 순환마디를 이루는 숫자의 개수를 구하시오.`, answer: L,
     explain: `${frac(p, q)}=${show(e)}이므로 순환마디는 ${e.rep}, 숫자는 ${L}개입니다.`, concept: '순환소수와 순환마디', difficulty: 2,
-    params: {t: 'period-length', p, q}, traps: [{v: L + e.pre.length, tag: T('nonrepeating-included')}, {v: q - 1, tag: T('period-equals-denominator-minus-one')}]}));
+    params: {t: 'period-length', p, q}, traps: [{v: L + e.pre.length, tag: T('nonrepeating-included')}, {v: new Set(e.rep).size, tag: T('distinct-digits-counted')}, {v: 2 * L, tag: T('period-over-extended')}, {v: q - 1, tag: T('period-equals-denominator-minus-one')}]}));
 }
 // C. 소수점 아래 n번째 자리의 숫자
 const nthPure = [], nthMixed = [];
@@ -51,7 +54,7 @@ for (const [p, q, e] of fractionsUpTo(99, q => q - 1)) {
       explain: s ? `첫째 자리 ${j(e.pre, '을')} 빼면 순환마디 ${j(e.rep, '이')} ${n - s}번째 자리까지 이어지고, ${n - s}=${L}×${k}+${r}이므로 ${r}번째 숫자 ${d}입니다.`
                  : `순환마디 ${e.rep}의 숫자가 ${L}개이고 ${n}=${L}×${k}+${r}이므로 순환마디의 ${r}번째 숫자 ${d}입니다.`,
       concept: '소수점 아래 n번째 자리의 숫자', difficulty: s ? 4 : 3, params: {t: 'nth-digit', p, q, n},
-      traps: [{v: naive, tag: T('nonrepeating-ignored')}, {v: Number(e.rep[r % L]), tag: T('remainder-misread')}, {v: Number(e.rep[(r + L - 2) % L]), tag: T('remainder-misread')}]});
+      traps: [{v: s ? naive : null, tag: T('nonrepeating-ignored')}, {v: r, tag: T('remainder-as-digit')}, {v: Number(e.rep[r % L]), tag: T('remainder-misread')}, {v: Number(e.rep[(r + L - 2) % L]), tag: T('remainder-misread')}, {v: k <= 9 ? k : null, tag: T('quotient-as-digit')}]});
     (s ? nthMixed : nthPure).push(item);
   }
 }
@@ -67,7 +70,7 @@ for (let q = 6; q <= 240; q++) {
     const item = amount({prompt: `분수 ${frac(p, q)}에 자연수 a를 곱하여 유한소수가 되게 하려고 한다. a의 값 중 가장 작은 수를 구하시오.`, answer: m,
       explain: unreduced ? `${frac(p, q)}=${rat(p, q)}이고 분모 ${d}=${factorText(d)}에서 2, 5가 아닌 소인수의 곱이 ${m}입니다.` : `분모 ${q}=${factorText(q)}에서 2, 5가 아닌 소인수를 모두 곱한 ${m}입니다.`,
       concept: '유한소수가 되게 하는 수', difficulty: unreduced ? 4 : 3, params: {t: 'min-multiplier', p, q},
-      traps: [{v: strip25(q), tag: T('unreduced-denominator')}, {v: q, tag: T('whole-denominator')}]});
+      traps: [{v: strip25(q), tag: T('unreduced-denominator')}, {v: rad(m) !== m ? rad(m) : null, tag: T('prime-exponent-ignored')}, {v: d / m > 1 ? d / m : null, tag: T('wrong-primes-removed')}, {v: d, tag: T('integer-instead-of-terminating')}, {v: q, tag: T('whole-denominator')}]});
     (unreduced ? minUnreduced : minReduced).push(item);
   }
 }
@@ -89,7 +92,7 @@ for (let i = 0; i < 800; i++) {
   countPool.push(amount({prompt: `다음 중 유한소수로 나타낼 수 있는 분수의 개수를 구하시오.  ${list.map(([a, b]) => frac(a, b)).join(', ')}`, answer: count,
     explain: `약분한 뒤 분모의 소인수가 2나 5뿐인 것은 ${list.filter(([a, b]) => terminates(a, b)).map(([a, b]) => frac(a, b)).join(', ')}의 ${count}개입니다.`,
     concept: '유한소수로 나타낼 수 있는 분수', difficulty: 2, params: {t: 'count-terminating', list},
-    traps: [{v: naive, tag: T('unreduced-denominator')}, {v: loose, tag: T('factor-2-or-5-suffices')}]}));
+    traps: [{v: naive, tag: T('unreduced-denominator')}, {v: loose, tag: T('factor-2-or-5-suffices')}, {v: size - count, tag: T('complement-counted')}]}));
 }
 // F. 순환소수를 기약분수로
 const toFrac = {1: [], 2: [], 3: [], 4: []};
@@ -102,7 +105,10 @@ for (let q = 3; q <= 59; q++) for (let p = 1; p <= 59; p++) {
   toFrac[diff].push(fraction({prompt: `순환소수 ${j(shown, '을')} 기약분수로 나타내시오.`, n: p, d: q, accept: 'reduced',
     explain: `x=${j(shown, '이라')} 하면 ${A}x−${B === 1 ? '' : B}x=${D}이므로 x=${frac(D, A - B)}=${rat(p, q)}입니다.`,
     concept: '순환소수를 분수로 나타내기', difficulty: diff, params: {t: 'to-fraction', p, q, shown},
-    traps: [{v: [Number(e.rep), nines], tag: T('nonrepeating-ignored')}, {v: [whole, Number('9'.repeat(s + L))], tag: T('all-digits-over-nines')}]}));
+    traps: [{v: [Number(e.rep), nines], tag: T('nonrepeating-ignored')}, {v: [whole, Number('9'.repeat(s + L))], tag: T('all-digits-over-nines')},
+      {v: s ? [whole - Number(e.int + e.pre), Number('9'.repeat(s + L))] : null, tag: T('denominator-zeros-omitted')}, {v: [whole, 10 ** (s + L)], tag: T('truncated-as-terminating')},
+      {v: e.int ? [Number(e.pre + e.rep) - Number(e.pre || '0'), (10 ** L - 1) * 10 ** s] : null, tag: T('integer-part-ignored')},
+      {v: [whole - Number(e.int + e.pre), (10 ** (L + 1) - 1) * 10 ** s], tag: T('nines-count-mismatch')}, {v: [whole - Number(e.int + e.pre), (10 ** L - 1) * 10 ** (s + 1)], tag: T('denominator-zero-added')}]}));
 }
 // G. 10ᵃx−10ᵇx의 값
 const shiftPool = {1: [], 2: [], 3: []};
@@ -114,7 +120,7 @@ for (let q = 3; q <= 99; q++) for (let p = 1; p <= 6 * q; p++) {
   shiftPool[diff].push(amount({prompt: `x=${show(e)}일 때, ${expr}의 값을 구하시오.`, answer: V,
     explain: `${A}x와 ${B === 1 ? '' : B}x의 소수점 아래 부분이 같으므로 빼면 ${Math.floor(A * p / q)}−${Math.floor(B * p / q)}=${V}입니다.`,
     concept: '순환소수를 분수로 나타내기', difficulty: diff, params: {t: 'shift-subtract', p, q, A, B},
-    traps: [{v: Math.floor(A * p / q), tag: T('subtraction-skipped')}, {v: Number(e.rep), tag: T('integer-part-ignored')}]}));
+    traps: [{v: Math.floor(A * p / q), tag: T('subtraction-skipped')}, {v: A - B, tag: T('multipliers-subtracted')}, {v: Number(e.rep), tag: T('integer-part-ignored')}, {v: Number(e.int + e.pre + e.rep), tag: T('digits-read-as-integer')}]}));
 }
 // H. (선택) 계산 결과가 정수가 되는 식
 const CAND = [[10, 1], [100, 1], [1000, 1], [100, 10], [1000, 10], [1000, 100]], shiftChoice = [];
@@ -155,7 +161,7 @@ for (const N of [30, 40, 50, 60, 80, 99, 100]) for (let q = 6; q <= 120; q++) fo
   const c = Math.floor(N / m), unreduced = gcd(p, q) > 1; if (c < 2 || c > 59 || (unreduced && strip25(q) === m) || (!unreduced && (p * 7 + q + N) % 5)) continue;
   countMult.push(amount({prompt: `분수 ${frac(p, q)}에 자연수 x를 곱하여 유한소수가 되게 할 때, x가 될 수 있는 ${N} 이하의 자연수의 개수를 구하시오.`, answer: c,
     explain: `${unreduced ? `${frac(p, q)}=${rat(p, q)}이므로 ` : ''}x는 ${m}의 배수여야 하고 ${N} 이하에서 ${c}개입니다.`, concept: '유한소수가 되게 하는 수', difficulty: 4,
-    params: {t: 'count-multipliers', p, q, N}, traps: [{v: Math.floor(N / strip25(q)), tag: T('unreduced-denominator')}, {v: N - c, tag: T('complement-counted')}]}));
+    params: {t: 'count-multipliers', p, q, N}, traps: [{v: Math.floor(N / strip25(q)), tag: T('unreduced-denominator')}, {v: m, tag: T('smallest-multiplier-answered')}, {v: N - c, tag: T('complement-counted')}]}));
 }
 // K. (선택) 순환소수와 유리수의 관계
 const conceptChoice = [];
@@ -166,9 +172,10 @@ for (const [p, q, e] of fractionsUpTo(99, q => 2 * q)) {
     explain: `${shown}=${rat(p, q)}처럼 분수로 나타낼 수 있으므로 유리수입니다.`, concept: '유리수와 순환소수의 관계', difficulty: 1, params: {t: 'concept-rational', p, q, shown}}));
 }
 
-const intro = amount({prompt: '순환소수 0.33333…의 순환마디를 구하시오.', answer: 3, explain: '3이 한없이 되풀이되므로 순환마디는 3입니다. 3닢을 붓습니다.', concept: '순환마디', difficulty: 1, params: {t: 'period-block', p: 1, q: 3, shown: '0.33333…'}, intro: true});
+const intro = amount({prompt: '순환소수 0.27777…의 순환마디를 구하시오.', answer: 7, explain: '소수점 아래 2는 되풀이되지 않고 7이 한없이 되풀이되므로 순환마디는 7입니다.', concept: '순환마디', difficulty: 1, params: {t: 'period-block', p: 5, q: 18, shown: '0.27777…'},
+  traps: [{v: 27, tag: T('nonrepeating-included')}, {v: 2, tag: T('nonrepeating-as-period')}, {v: 77, tag: T('period-over-extended')}]});
 writeUnitPack({id: U, title: '유리수와 순환소수', unit: U, standards: ['[9수01-06]'], intro, groups: [
-  [blockPool, 52], [conceptChoice, 20], [toFrac[1], 8], [shiftPool[1], 7],
+  [blockPool, 59], [conceptChoice, 20], [toFrac[1], 8], // shiftPool[1] (x=0.aaa…, 10x−x=a) dropped in v3: no three misconception distractors
   [lengthPool, 18], [countPool, 25], [toFrac[2], 18], [shiftPool[2], 15], [termChoice, 22],
   [nthPure, 30], [minReduced, 25], [toFrac[3], 22], [shiftPool[3], 10], [shiftChoice, 30],
   [nthMixed, 22], [minUnreduced, 20], [toFrac[4], 22], [countMult, 25],

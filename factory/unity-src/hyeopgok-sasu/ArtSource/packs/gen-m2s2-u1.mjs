@@ -1,113 +1,171 @@
 #!/usr/bin/env node
-// m2s2-u1 삼각형의 성질 ([9수03-09] 이등변삼각형, [9수03-10] 외심·내심).
-// Every amount answer is an integer 2..59 (coin pad cap 60). Angles above 59° are never asked;
-// the inverse question is asked instead. No figure: every needed condition is in the text.
+// m2s2-u1 삼각형의 성질 ([9수03-09] 이등변삼각형, [9수03-10] 외심·내심) — schema v3 (전 문항 4지선다).
+// Numeric items: the correct value + three wrong values, each the result of a named misconception
+// (tag m2s2-u1.*). The 60-coin cap is gone, so large angles (∠BIC=125° …) are asked directly.
+// No figure: every needed condition is in the text. Items whose answer is printed in the prompt
+// are rejected by the kit (answer-by-copying), so those templates ask a derived quantity instead.
 import {amount,choice,W,writeGeoPack} from './geo-kit.mjs';
 const T='m2s2-u1.';
 const MC={center:T+'center-swap',inside:T+'circumcenter-always-inside',formula:T+'center-formula-swap',apex:T+'apex-by-position',ssa:T+'ssa-congruence',
-  half:T+'half-missed',sum:T+'angle-sum-error',ext:T+'exterior-angle-confusion',perp:T+'bisector-perpendicular-missed',hyp:T+'hypotenuse-leg-confusion',equi:T+'equilateral-overgeneralized',right:T+'right-triangle-center-missed'};
+  half:T+'half-missed',sum:T+'angle-sum-error',ext:T+'exterior-angle-confusion',perp:T+'bisector-perpendicular-missed',hyp:T+'hypotenuse-leg-confusion',equi:T+'equilateral-overgeneralized',right:T+'right-triangle-center-missed',
+  eq:T+'equal-sides-equation-error'};
 const V=['A','B','C'];const rest=X=>V.filter(v=>v!==X);
 const opp={A:'BC',B:'AC',C:'AB'}; // side opposite each vertex
 const pools={};const add=(k,it)=>(pools[k]??=[]).push(it);
 const inside='(단, 점 O는 △ABC의 내부에 있다.)';
+const TRI=179;
+const rot=(ws,i)=>ws.map((_,j)=>ws[(j+i)%ws.length]); // an interior angle of a triangle is below 180°
 
 // ── 이등변삼각형 ─────────────────────────────────────────────
 for(const X of V){const [Y,Z]=rest(X);
-  for(let a=62;a<=160;a+=2){const ask=(a/2)%2?Y:Z,ans=(180-a)/2;
+  for(let a=20;a<=116;a+=2){if(a===60)continue;const ask=(a/2)%2?Y:Z,ans=(180-a)/2;
     add('isoBase',amount({kind:'iso-base',params:{apex:X,apexAngle:a,ask},prompt:`${X}${Y}=${X}${Z}인 이등변삼각형 ABC에서 ∠${X}=${a}°일 때, ∠${ask}의 크기는 몇 도인지 구하시오.`,answer:ans,
-      explain:`두 밑각 ∠${Y}, ∠${Z}의 크기가 같으므로 ∠${ask}=(180°−${a}°)÷2=${ans}°입니다.`,concept:'이등변삼각형의 성질',d:1,wrongs:[W(180-a,MC.half,'no-halving'),W(a,MC.apex,'apex-as-base')]}));}
-  for(let b=61;b<=85;b++){const given=b%2?Y:Z,ans=180-2*b;
+      explain:`두 밑각 ∠${Y}, ∠${Z}의 크기가 같으므로 ∠${ask}=(180°−${a}°)÷2=${ans}°입니다.`,concept:'이등변삼각형의 성질',d:1,hi:TRI,
+      wrongs:rot([W(180-a,MC.half,'no-halving'),W(a/2,MC.perp,'bisected-apex-as-base'),W(a,MC.apex,'apex-as-base'),W(90-a,MC.half,'half-of-180-only'),W(180-2*a,MC.apex,'given-as-base'),W(90+a/2,MC.ext,'exterior-angle')],(a/2)%3)}));}
+  for(let b=20;b<=75;b++){if(b===60)continue;const given=b%2?Y:Z,ans=180-2*b;
     add('isoApex',amount({kind:'iso-apex',params:{apex:X,baseAngle:b,given},prompt:`${X}${Y}=${X}${Z}인 이등변삼각형 ABC에서 ∠${given}=${b}°일 때, ∠${X}의 크기는 몇 도인지 구하시오.`,answer:ans,
-      explain:`∠${Y}=∠${Z}=${b}°이므로 ∠${X}=180°−2×${b}°=${ans}°입니다.`,concept:'이등변삼각형의 성질',d:1,wrongs:[W(180-b,MC.half,'one-base-only'),W(b,MC.apex,'apex-equals-base')]}));}
+      explain:`∠${Y}=∠${Z}=${b}°이므로 ∠${X}=180°−2×${b}°=${ans}°입니다.`,concept:'이등변삼각형의 성질',d:1,hi:TRI,
+      wrongs:rot([W(b,MC.apex,'apex-equals-base'),W(180-b,MC.half,'one-base-only'),W(90-b,MC.half,'halved'),W((180-b)/2,MC.apex,'given-as-apex'),W(2*b,MC.ext,'exterior-as-apex')],b%3)}));}
 }
 const extStem='AB=AC인 이등변삼각형 ABC에서 변 BC를 점 C 쪽으로 연장한 직선 위에 점 D를 잡았더니';
-for(let z=95;z<=119;z++)add('isoExt',amount({kind:'iso-ext-apex',params:{z},prompt:`${extStem} ∠ACD=${z}°이었다. ∠A의 크기는 몇 도인지 구하시오.`,answer:2*z-180,
-  explain:`∠ACB=180°−${z}°=${180-z}°=∠B이므로 ∠A=180°−2×${180-z}°=${2*z-180}°입니다.`,concept:'이등변삼각형의 성질',d:2,wrongs:[W(180-z,MC.ext,'base-angle'),W(z-90,MC.ext,'minus-right')]}));
-for(let z=121;z<=170;z++)add('isoExt',amount({kind:'iso-ext-base',params:{z},prompt:`${extStem} ∠ACD=${z}°이었다. ∠B의 크기는 몇 도인지 구하시오.`,answer:180-z,
-  explain:`∠ACB=180°−${z}°=${180-z}°이고 두 밑각이 같으므로 ∠B=${180-z}°입니다.`,concept:'이등변삼각형의 성질',d:2,wrongs:[W(2*z-180,MC.ext,'apex'),W(Math.round(z/2),MC.ext,'half-exterior')]}));
+for(let z=95;z<=170;z++){if(2*z-180!==180-z)add('isoExt',amount({kind:'iso-ext-apex',params:{z},prompt:`${extStem} ∠ACD=${z}°이었다. ∠A의 크기는 몇 도인지 구하시오.`,answer:2*z-180,
+  explain:`∠ACB=180°−${z}°=${180-z}°=∠B이므로 ∠A=180°−2×${180-z}°=${2*z-180}°입니다.`,concept:'이등변삼각형의 성질',d:2,hi:TRI,
+  wrongs:[W(180-z,MC.ext,'base-angle'),W(z-90,MC.sum,'minus-right'),W(z/2,MC.apex,'apex-equals-base'),W(z,MC.ext,'exterior-as-interior'),W(360-2*z,MC.ext,'exterior-for-interior')]}));}
+for(let z=100;z<=172;z++)add('isoExt',amount({kind:'iso-ext-base',params:{z},prompt:`${extStem} ∠ACD=${z}°이었다. ∠B의 크기는 몇 도인지 구하시오.`,answer:180-z,
+  explain:`∠ACB=180°−${z}°=${180-z}°이고 두 밑각이 같으므로 ∠B=${180-z}°입니다.`,concept:'이등변삼각형의 성질',d:2,hi:TRI,
+  wrongs:[W(z-90,MC.sum,'minus-right'),W(z/2,MC.ext,'half-exterior'),W(2*z-180,MC.apex,'apex'),W(360-2*z,MC.ext,'apex-exterior')]}));
 const bisStem='AB=AC인 이등변삼각형 ABC에서 ∠A의 이등분선이 변 BC와 만나는 점을 D라고 하자.';
-for(let k=2;k<=29;k++){
-  add('isoBisLen',amount({kind:'iso-bis-half',params:{bc:2*k},prompt:`${bisStem} BC=${2*k} cm일 때, BD의 길이는 몇 cm인지 구하시오.`,answer:k,explain:`꼭지각의 이등분선은 밑변을 수직이등분하므로 BD=${2*k}÷2=${k} cm입니다.`,concept:'이등변삼각형의 성질',d:1,wrongs:[W(2*k,MC.perp,'no-halving')]}));
-  add('isoBisLen',amount({kind:'iso-bis-double',params:{bd:k},prompt:`${bisStem} BD=${k} cm일 때, BC의 길이는 몇 cm인지 구하시오.`,answer:2*k,explain:`점 D는 BC의 중점이므로 BC=2×${k}=${2*k} cm입니다.`,concept:'이등변삼각형의 성질',d:1,wrongs:[W(k,MC.perp,'same')]}));
+for(let k=2;k<=30;k++)for(const s of [k+1+(k*5)%9,k+3+(k*7)%11]){const P=k%2?'BD':'CD';
+  add('isoBisLen',amount({kind:'iso-bis-half',params:{ab:s,bc:2*k,ask:P},prompt:`${bisStem} AB=${s} cm, BC=${2*k} cm일 때, ${P}의 길이는 몇 cm인지 구하시오.`,answer:k,
+    explain:`꼭지각의 이등분선은 밑변을 수직이등분하므로 ${P}=${2*k}÷2=${k} cm입니다.`,concept:'이등변삼각형의 성질',d:1,
+    wrongs:rot([W(2*k,MC.perp,'no-halving'),W(s,MC.apex,'equal-side-as-half'),W(k/2,MC.perp,'halved-twice'),W(s/2,MC.perp,'half-of-equal-side'),W(4*k,MC.perp,'doubled-instead')],k%2)}));
+  add('isoBisLen',amount({kind:'iso-bis-double',params:{ab:s,bd:k,given:P},prompt:`${bisStem} AB=${s} cm, ${P}=${k} cm일 때, BC의 길이는 몇 cm인지 구하시오.`,answer:2*k,
+    explain:`점 D는 BC의 중점이므로 BC=2×${k}=${2*k} cm입니다.`,concept:'이등변삼각형의 성질',d:1,
+    wrongs:rot([W(k,MC.perp,'no-doubling'),W(4*k,MC.perp,'doubled-twice'),W(k/2,MC.perp,'halved-instead'),W(s,MC.apex,'equal-side'),W(2*s,MC.perp,'double-equal-side'),W(s+k,MC.sum,'add-given')],k%3)}));
+  add('isoBisPer',amount({kind:'iso-bis-perimeter',params:{ab:s,bd:k,given:P},prompt:`${bisStem} AB=${s} cm, ${P}=${k} cm일 때, △ABC의 둘레의 길이는 몇 cm인지 구하시오.`,answer:2*s+2*k,
+    explain:`AC=AB=${s} cm, BC=2×${k}=${2*k} cm이므로 둘레는 ${s}+${s}+${2*k}=${2*s+2*k} cm입니다.`,concept:'이등변삼각형의 성질',d:2,
+    wrongs:k%3?[W(2*s+k,MC.perp,'no-doubling'),W(2*s+4*k,MC.perp,'double-twice'),W(s+2*k,MC.apex,'one-equal-side'),W(s+k,MC.sum,'given-only')]:[W(2*s+k,MC.perp,'no-doubling'),W(s+2*k,MC.apex,'one-equal-side'),W(s+k,MC.sum,'given-only'),W(2*s+4*k,MC.perp,'double-twice')]}));
 }
-for(let b=31;b<=80;b++)add('isoBisAng',amount({kind:'iso-bis-angle',params:{b},prompt:`${bisStem} ∠B=${b}°일 때, ∠BAD의 크기는 몇 도인지 구하시오.`,answer:90-b,
-  explain:`AD⊥BC이므로 ∠ADB=90°, ∠BAD=180°−90°−${b}°=${90-b}°입니다.`,concept:'이등변삼각형의 성질',d:2,wrongs:[W(180-2*b,MC.perp,'whole-apex'),W(180-b,MC.sum,'no-right-angle')]}));
-// 두 내각이 같은 삼각형은 이등변삼각형: the equal angles are hidden behind an angle sum.
+for(let b=20;b<=85;b++)add('isoBisAng',amount({kind:'iso-bis-angle',params:{b},prompt:`${bisStem} ∠B=${b}°일 때, ∠BAD의 크기는 몇 도인지 구하시오.`,answer:90-b,
+  explain:`AD⊥BC이므로 ∠ADB=90°, ∠BAD=180°−90°−${b}°=${90-b}°입니다.`,concept:'이등변삼각형의 성질',d:2,hi:TRI,
+  wrongs:rot([W(180-2*b,MC.perp,'whole-apex'),W(b/2,MC.half,'bisected-base-angle'),W(b,MC.apex,'copy-base'),W(180-b,MC.sum,'no-right-angle'),W(90-b/2,MC.half,'halved-base'),W(45-b/2,MC.half,'halved-twice')],b%2)}));
+for(let x=10;x<=80;x++)add('isoBisAng',amount({kind:'iso-bis-angle-rev',params:{x},prompt:`${bisStem} ∠BAD=${x}°일 때, ∠C의 크기는 몇 도인지 구하시오.`,answer:90-x,
+  explain:`∠A=2×${x}°=${2*x}°이므로 ∠C=(180°−${2*x}°)÷2=${90-x}°입니다.`,concept:'이등변삼각형의 성질',d:2,hi:TRI,
+  wrongs:[W(2*x,MC.apex,'apex-as-base'),W(x,MC.perp,'copy-half'),W(180-2*x,MC.half,'no-halving'),W(180-x,MC.sum,'no-right-angle')]}));
+// 두 내각이 같은 삼각형은 이등변삼각형: the equal angles are hidden behind an angle sum, and the
+// equal side is given as an expression (so the answer is never a printed number).
 for(const P of V)for(const Q of V){if(P===Q)continue;const R=V.find(v=>v!==P&&v!==Q);
-  for(let p=20;p<=85;p+=5){if(p===60)continue;const r=180-2*p;const k=5+((p*7+V.indexOf(P)*11+V.indexOf(Q)*5)%50);
+  for(let p=20;p<=85;p+=5){if(p===60)continue;const r=180-2*p;const k=9+((p*7+V.indexOf(P)*11+V.indexOf(Q)*5)%40);
+    let c=1+((k+p)%(k-2));if((k-c)%2)c++;if(c>=k)c-=2;if(c<1)continue;const minus=(p/5+V.indexOf(Q))%2===1,x=minus?(k+c)/2:(k-c)/2,sg=minus?'−':'+';
     const [g1,g2]=[P,R].sort();const ang={[P]:p,[R]:r};
-    add('isoConv',amount({kind:'iso-converse',params:{angles:{[P]:p,[Q]:p,[R]:r},given:[g1,g2],side:opp[P],ask:opp[Q],k},
-      prompt:`△ABC에서 ∠${g1}=${ang[g1]}°, ∠${g2}=${ang[g2]}°이고 ${opp[P]}=${k} cm일 때, ${opp[Q]}의 길이는 몇 cm인지 구하시오.`,answer:k,
-      explain:`∠${Q}=180°−${p}°−${r}°=${p}°=∠${P}이므로 두 각의 대변의 길이가 같아 ${opp[Q]}=${opp[P]}=${k} cm입니다.`,concept:'이등변삼각형이 되는 조건',d:4,wrongs:[W(2*k,MC.sum,'double'),W(Math.floor(k/2),MC.sum,'half')]}));}}
+    add('isoConv',amount({kind:'iso-converse',params:{angles:{[P]:p,[Q]:p,[R]:r},given:[g1,g2],side:opp[P],ask:opp[Q],k,c,sign:sg},
+      prompt:`△ABC에서 ∠${g1}=${ang[g1]}°, ∠${g2}=${ang[g2]}°이고 ${opp[P]}=${k} cm, ${opp[Q]}=(2x${sg}${c}) cm일 때, x의 값을 구하시오.`,answer:x,
+      explain:`∠${Q}=180°−${p}°−${r}°=${p}°=∠${P}이므로 ${opp[Q]}=${opp[P]}, 2x${sg}${c}=${k}에서 x=${x}입니다.`,concept:'이등변삼각형이 되는 조건',d:4,
+      wrongs:minus?rot([W((k-c)/2,MC.eq,'sign-error'),W(k+c,MC.half,'no-halving'),W(k/2,MC.eq,'constant-dropped'),W(k/2+c,MC.eq,'partial-division'),W(k-c,MC.half,'sign-error-no-halving'),W(k,MC.eq,'side-as-x')],p%3):[W(k/2-c,MC.eq,'partial-division'),W(k-c,MC.half,'no-halving'),W((k+c)/2,MC.eq,'sign-error'),W(k/2,MC.eq,'constant-dropped'),W(k,MC.eq,'side-as-x')]}));}}
 
 // ── 직각삼각형의 합동 · 각의 이등분선 ─────────────────────────
 const T1=['A','B','C'],T2=['D','E','F'];
 for(let r=0;r<3;r++){const [u,v]=[0,1,2].filter(i=>i!==r);const R1=T1[r],R2=T2[r],U1=T1[u],V1=T1[v],U2=T2[u],V2=T2[v];
   const hyp1=U1+V1,hyp2=U2+V2;
-  for(let x=31;x<=80;x++){
+  for(let x=10;x<=80;x++){if(x===45)continue;
+    const ws=[W(x,MC.hyp,'wrong-correspondence'),W(180-x,MC.sum,'no-right-angle'),W(90+x,MC.ext,'exterior')];
     // RHA: 빗변 + ∠U. Given ∠V1 → ∠U2 = ∠U1 = 90−x.
     add('rhAngle',amount({kind:'rh-angle',params:{r,cond:'RHA',given:V1,x,ask:U2},prompt:`∠${R1}=∠${R2}=90°인 두 직각삼각형 ABC, DEF에서 ${hyp1}=${hyp2}, ∠${U1}=∠${U2}이다. ∠${V1}=${x}°일 때, ∠${U2}의 크기는 몇 도인지 구하시오.`,answer:90-x,
-      explain:`RHA 합동이므로 ∠${U2}=∠${U1}=90°−${x}°=${90-x}°입니다.`,concept:'직각삼각형의 합동 조건',d:2,wrongs:[W(x,MC.hyp,'wrong-correspondence'),W(180-x,MC.sum,'no-right-angle')]}));
+      explain:`RHA 합동이므로 ∠${U2}=∠${U1}=90°−${x}°=${90-x}°입니다.`,concept:'직각삼각형의 합동 조건',d:2,hi:TRI,wrongs:ws}));
     // RHS: 빗변 + 한 변(R-U). Given ∠U1 → ∠V2 = ∠V1 = 90−x.
     add('rhAngle',amount({kind:'rh-angle',params:{r,cond:'RHS',given:U1,x,ask:V2},prompt:`∠${R1}=∠${R2}=90°인 두 직각삼각형 ABC, DEF에서 ${hyp1}=${hyp2}, ${[R1,U1].sort().join('')}=${[R2,U2].sort((a,b)=>T2.indexOf(a)-T2.indexOf(b)).join('')}이다. ∠${U1}=${x}°일 때, ∠${V2}의 크기는 몇 도인지 구하시오.`,answer:90-x,
-      explain:`RHS 합동이므로 ∠${V2}=∠${V1}=90°−${x}°=${90-x}°입니다.`,concept:'직각삼각형의 합동 조건',d:2,wrongs:[W(x,MC.hyp,'wrong-correspondence'),W(180-x,MC.sum,'no-right-angle')]}));
+      explain:`RHS 합동이므로 ∠${V2}=∠${V1}=90°−${x}°=${90-x}°입니다.`,concept:'직각삼각형의 합동 조건',d:2,hi:TRI,wrongs:ws}));
   }}
 const bisPt='∠XOY의 이등분선 위의 한 점 P에서 두 변 OX, OY에 내린 수선의 발을 각각 A, B라고 하자.';
-for(let t=31;t<=80;t++)add('angBis',amount({kind:'bis-opa',params:{xoy:2*t},prompt:`${bisPt} ∠XOY=${2*t}°일 때, ∠OPA의 크기는 몇 도인지 구하시오.`,answer:90-t,
-  explain:`∠AOP=${2*t}°÷2=${t}°, ∠OAP=90°이므로 ∠OPA=90°−${t}°=${90-t}°입니다.`,concept:'각의 이등분선의 성질',d:2,wrongs:[W(90-2*t>0?90-2*t:180-2*t,MC.half,'no-halving'),W(t,MC.sum,'copy-half')]}));
-for(let t=61;t<=85;t++)add('angBis3',amount({kind:'bis-apb',params:{xoy:2*t},prompt:`${bisPt} ∠XOY=${2*t}°일 때, ∠APB의 크기는 몇 도인지 구하시오.`,answer:180-2*t,
-  explain:`□OAPB에서 ∠A=∠B=90°이므로 ∠APB=360°−90°−90°−${2*t}°=${180-2*t}°입니다.`,concept:'각의 이등분선의 성질',d:3,wrongs:[W(90-t,MC.half,'one-triangle'),W(180-t>59?0:180-t,MC.sum,'one-right-angle')]}));
-for(let t=5;t<=29;t++)add('angBis3',amount({kind:'bis-converse',params:{aop:t},prompt:`∠XOY의 내부의 한 점 P에서 두 변 OX, OY에 내린 수선의 발을 각각 A, B라고 하자. PA=PB이고 ∠AOP=${t}°일 때, ∠XOY의 크기는 몇 도인지 구하시오.`,answer:2*t,
-  explain:`△AOP≡△BOP (RHS 합동)이므로 OP는 ∠XOY의 이등분선, ∠XOY=2×${t}°=${2*t}°입니다.`,concept:'각의 이등분선의 성질',d:3,wrongs:[W(t,MC.half,'no-doubling'),W(90-t,MC.sum,'complement')]}));
+for(let t=10;t<=80;t++)add('angBis',amount({kind:'bis-opa',params:{xoy:2*t},prompt:`${bisPt} ∠XOY=${2*t}°일 때, ∠OPA의 크기는 몇 도인지 구하시오.`,answer:90-t,
+  explain:`∠AOP=${2*t}°÷2=${t}°, ∠OAP=90°이므로 ∠OPA=90°−${t}°=${90-t}°입니다.`,concept:'각의 이등분선의 성질',d:2,hi:TRI,
+  wrongs:[W(90-2*t,MC.half,'no-halving'),W(t,MC.sum,'copy-half'),W(180-t,MC.sum,'no-right-angle'),W(90+t,MC.ext,'exterior')]}));
+for(let t=10;t<=60;t++)add('angBis3',amount({kind:'bis-apb',params:{xoy:2*t},prompt:`${bisPt} ∠XOY=${2*t}°일 때, ∠APB의 크기는 몇 도인지 구하시오.`,answer:180-2*t,
+  explain:`□OAPB에서 ∠A=∠B=90°이므로 ∠APB=360°−90°−90°−${2*t}°=${180-2*t}°입니다.`,concept:'각의 이등분선의 성질',d:3,hi:359,
+  wrongs:rot([W(90-t,MC.half,'one-triangle'),W(180-t,MC.sum,'one-right-angle'),W(2*t,MC.sum,'opposite-angle-equal'),W(360-2*t,MC.perp,'right-angles-missed'),W(90-2*t,MC.half,'one-right-angle-and-whole-angle')],t%3)}));
+for(let t=5;t<=40;t++)add('angBis3',amount({kind:'bis-converse',params:{aop:t},prompt:`∠XOY의 내부의 한 점 P에서 두 변 OX, OY에 내린 수선의 발을 각각 A, B라고 하자. PA=PB이고 ∠AOP=${t}°일 때, ∠XOY의 크기는 몇 도인지 구하시오.`,answer:2*t,
+  explain:`△AOP≡△BOP (RHS 합동)이므로 OP는 ∠XOY의 이등분선, ∠XOY=2×${t}°=${2*t}°입니다.`,concept:'각의 이등분선의 성질',d:3,hi:TRI,
+  wrongs:[W(t,MC.half,'no-doubling'),W(90-t,MC.sum,'complement'),W(180-2*t,MC.ext,'angle-APB'),W(180-t,MC.sum,'no-right-angle')]}));
 
 // ── 외심 ────────────────────────────────────────────────────
+// ∠OAB+∠OBC+∠OCA=90°. The asked base angle is the middle one of the three, so a copied given
+// angle sits below the answer and 90°−(one angle) / 180°−(two angles) sit above it.
 const circNames={a:['OAB','OBA'],b:['OBC','OCB'],c:['OCA','OAC']};
-for(let a=8;a<=72;a+=4)for(let b=9;b<=72;b+=3){const c=90-a-b;if(c<8||c>59)continue;
-  const vals={a,b,c},askKey=['a','b','c'][(a+b)%3];if(vals[askKey]>59)continue;
-  const givenKeys=['a','b','c'].filter(k=>k!==askKey);const nm=(k,i)=>circNames[k][(a+b+i)%2];
-  const ask=circNames[askKey][(a*b)%2];
-  add('circSum',amount({kind:'circ-sum',params:{a,b,c,ask:askKey},prompt:`점 O가 △ABC의 외심이고 ∠${nm(givenKeys[0],0)}=${vals[givenKeys[0]]}°, ∠${nm(givenKeys[1],1)}=${vals[givenKeys[1]]}°일 때, ∠${ask}의 크기는 몇 도인지 구하시오. ${inside}`,answer:vals[askKey],
-    explain:`OA=OB=OC이므로 ∠OAB+∠OBC+∠OCA=90°, 구하는 각은 90°−${vals[givenKeys[0]]}°−${vals[givenKeys[1]]}°=${vals[askKey]}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(180-vals[givenKeys[0]]-vals[givenKeys[1]],MC.sum,'sum-to-180'),W(vals[givenKeys[0]],MC.formula,'copy')]}));}
-for(let x=5;x<=29;x++)add('circCentral',amount({kind:'circ-boc',params:{A:x},prompt:`점 O가 △ABC의 외심이고 ∠A=${x}°일 때, ∠BOC의 크기는 몇 도인지 구하시오. ${inside}`,answer:2*x,
-  explain:`외심에서 ∠BOC=2∠A이므로 ∠BOC=2×${x}°=${2*x}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(90+Math.floor(x/2),MC.formula,'incenter-formula'),W(x,MC.half,'no-doubling')]}));
-for(let y=20;y<=118;y+=2)add('circCentral',amount({kind:'circ-a-from-boc',params:{BOC:y},prompt:`점 O가 △ABC의 외심이고 ∠BOC=${y}°일 때, ∠A의 크기는 몇 도인지 구하시오. ${inside}`,answer:y/2,
-  explain:`∠BOC=2∠A이므로 ∠A=${y}°÷2=${y/2}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(2*y>59?Math.max(0,2*(y-90)):2*y,MC.formula,'incenter-formula'),W(180-y>59?0:180-y,MC.sum,'supplement')]}));
-for(let x=31;x<=80;x++)add('circCentral',amount({kind:'circ-obc',params:{A:x},prompt:`점 O가 △ABC의 외심이고 ∠A=${x}°일 때, ∠OBC의 크기는 몇 도인지 구하시오. ${inside}`,answer:90-x,
-  explain:`∠BOC=2×${x}°=${2*x}°, OB=OC이므로 ∠OBC=(180°−${2*x}°)÷2=${90-x}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(180-x>59?0:180-x,MC.formula,'no-doubling'),W(Math.max(0,90-Math.floor(x/2)),MC.formula,'incenter-formula')]}));
+for(let a=8;a<=72;a+=4)for(let b=9;b<=72;b+=3){const c=90-a-b;if(c<8)continue;
+  const vals={a,b,c},keys=['a','b','c'].sort((x,y)=>vals[x]-vals[y]);if(vals[keys[0]]===vals[keys[1]]||vals[keys[1]]===vals[keys[2]])continue;
+  const askKey=keys[(a+b)%3],givenKeys=['a','b','c'].filter(k=>k!==askKey);const nm=(k,i)=>circNames[k][(a+b+i)%2];
+  const ask=circNames[askKey][(a*b)%2],g=givenKeys.map(k=>vals[k]),ans=vals[askKey];
+  add('circSum',amount({kind:'circ-sum',params:{a,b,c,ask:askKey},prompt:`점 O가 △ABC의 외심이고 ∠${nm(givenKeys[0],0)}=${g[0]}°, ∠${nm(givenKeys[1],1)}=${g[1]}°일 때, ∠${ask}의 크기는 몇 도인지 구하시오. ${inside}`,answer:ans,
+    explain:`OA=OB=OC이므로 ∠OAB+∠OBC+∠OCA=90°, 구하는 각은 90°−${g[0]}°−${g[1]}°=${ans}°입니다.`,concept:'삼각형의 외심',d:3,hi:TRI,
+    wrongs:rot([W(180-g[0]-g[1],MC.sum,'sum-to-180'),W(g[0],MC.center,'copy-given'),W(g[1],MC.center,'copy-other-given'),W(90-g[0],MC.sum,'one-term-only'),W(90-g[1],MC.sum,'other-term-only'),W(2*ans,MC.formula,'whole-angle')],(a*b)%2)}));}
+for(let x=10;x<=85;x++)add('circCentral',amount({kind:'circ-boc',params:{A:x},prompt:`점 O가 △ABC의 외심이고 ∠A=${x}°일 때, ∠BOC의 크기는 몇 도인지 구하시오. ${inside}`,answer:2*x,
+  explain:`외심에서 ∠BOC=2∠A이므로 ∠BOC=2×${x}°=${2*x}°입니다.`,concept:'삼각형의 외심',d:3,hi:359,
+  wrongs:[W(90+x/2,MC.formula,'incenter-formula'),W(x,MC.half,'no-doubling'),W(180-2*x,MC.sum,'supplement'),W(360-2*x,MC.ext,'reflex-angle')]}));
+for(let y=20;y<=176;y+=2)add('circCentral',amount({kind:'circ-a-from-boc',params:{BOC:y},prompt:`점 O가 △ABC의 외심이고 ∠BOC=${y}°일 때, ∠A의 크기는 몇 도인지 구하시오. ${inside}`,answer:y/2,
+  explain:`∠BOC=2∠A이므로 ∠A=${y}°÷2=${y/2}°입니다.`,concept:'삼각형의 외심',d:3,hi:TRI,
+  wrongs:[W(2*(y-90),MC.formula,'incenter-formula'),W(90-y/2,MC.sum,'base-angle'),W(y,MC.half,'no-halving'),W(180-y,MC.sum,'supplement'),W(2*y,MC.half,'doubled-instead')]}));
+for(let x=10;x<=84;x+=2)add('circCentral',amount({kind:'circ-obc',params:{A:x},prompt:`점 O가 △ABC의 외심이고 ∠A=${x}°일 때, ∠OBC의 크기는 몇 도인지 구하시오. ${inside}`,answer:90-x,
+  explain:`∠BOC=2×${x}°=${2*x}°, OB=OC이므로 ∠OBC=(180°−${2*x}°)÷2=${90-x}°입니다.`,concept:'삼각형의 외심',d:3,hi:TRI,
+  wrongs:[W((180-x)/2,MC.formula,'no-doubling'),W(180-2*x,MC.half,'no-halving'),W(x,MC.center,'copy-A'),W(45-x/4,MC.formula,'incenter-formula')]}));
+// 직각삼각형의 외심 = 빗변의 중점. A leg is given too (unused data a student may wrongly halve).
+const triples=[[3,4,5],[5,12,13],[8,15,17],[7,24,25],[20,21,29],[12,35,37],[9,40,41]];
 for(let r=0;r<3;r++){const R=V[r],[P,Q]=rest(R);
-  for(let k=2;k<=29;k++)add('circRightLen',amount({kind:'circ-right-len',params:{right:R,hyp:2*k},prompt:`∠${R}=90°인 직각삼각형 ABC의 외심을 O라고 하자. ${P}${Q}=${2*k} cm일 때, O${R}의 길이는 몇 cm인지 구하시오.`,answer:k,
-    explain:`직각삼각형의 외심은 빗변 ${P}${Q}의 중점이므로 O${R}=O${P}=${2*k}÷2=${k} cm입니다.`,concept:'삼각형의 외심',d:2,wrongs:[W(2*k,MC.right,'hyp'),W(k+1,MC.inside,'guess')]}));
-  for(let x=10;x<=59;x++){if((x+r)%2)continue;
-    add('circRightAng',amount({kind:'circ-right-angle',params:{right:R,given:P,x,ask:`O${R}${P}`},prompt:`∠${R}=90°인 직각삼각형 ABC의 외심을 O라고 하자. ∠${P}=${x}°일 때, ∠O${R}${P}의 크기는 몇 도인지 구하시오.`,answer:x,
-      explain:`외심 O는 빗변의 중점이므로 O${P}=O${R}, △O${P}${R}는 이등변삼각형이라 ∠O${R}${P}=∠${P}=${x}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(90-x,MC.right,'complement'),W(180-2*x>59?0:180-2*x,MC.sum,'apex')]}));}}
-for(let k=2;k<=29;k++)add('circRadius',amount({kind:'circ-radius',params:{oa:k},prompt:`점 O가 △ABC의 외심이고 OA=${k} cm일 때, OB+OC의 길이는 몇 cm인지 구하시오.`,answer:2*k,
-  explain:`외심에서 세 꼭짓점까지의 거리는 같으므로 OB+OC=${k}+${k}=${2*k} cm입니다.`,concept:'삼각형의 외심',d:1,wrongs:[W(k,MC.center,'one'),W(3*k,MC.center,'three')]}));
+  for(const [x,y,z] of triples)for(let k=1;z*k<=100;k++){if((z*k)%2)continue;
+    for(const [leg,other,L] of [[x*k,y*k,P],[y*k,x*k,Q]]){const c=z*k;
+      add('circRightLen',amount({kind:'circ-right-len',params:{right:R,hyp:c,leg},prompt:`∠${R}=90°인 직각삼각형 ABC의 외심을 O라고 하자. ${P}${Q}=${c} cm, ${[L,R].sort().join('')}=${leg} cm일 때, O${R}의 길이는 몇 cm인지 구하시오.`,answer:c/2,
+        explain:`직각삼각형의 외심은 빗변 ${P}${Q}의 중점이므로 O${R}=O${P}=${c}÷2=${c/2} cm입니다.`,concept:'삼각형의 외심',d:2,
+        wrongs:rot([W(c,MC.right,'no-halving'),W(leg/2,MC.hyp,'leg-as-diameter'),W(2*c,MC.right,'hypotenuse-as-radius'),W(other/2,MC.hyp,'other-leg-halved'),W(leg,MC.center,'leg-as-radius'),W(other,MC.hyp,'other-leg')],(k+r)%3)}));}}
+  // ∠R=90°, ∠P=x: OP=OR=OQ, so △OPR and △OQR are isosceles. The copyable ∠ORP is not asked.
+  for(let x=10;x<=80;x++){
+    add('circRightAng',amount({kind:'circ-right-exterior',params:{right:R,given:P,x},prompt:`∠${R}=90°인 직각삼각형 ABC의 외심을 O라고 하자. ∠${P}=${x}°일 때, ∠${R}O${Q}의 크기는 몇 도인지 구하시오.`,answer:2*x,
+      explain:`O는 빗변의 중점이므로 OP=OR, ∠O${R}${P}=∠${P}=${x}°이고 ∠${R}O${Q}=${x}°+${x}°=${2*x}°입니다.`,concept:'삼각형의 외심',d:3,hi:TRI,
+      wrongs:rot([W(x,MC.ext,'one-remote-angle'),W(180-x,MC.sum,'supplement'),W(180-2*x,MC.ext,'interior-for-exterior'),W(90-x,MC.right,'complement'),W(90+x,MC.ext,'right-plus-remote')],x%3)}));
+    add('circRightAng',amount({kind:'circ-right-apex',params:{right:R,given:P,x},prompt:`∠${R}=90°인 직각삼각형 ABC의 외심을 O라고 하자. ∠${P}=${x}°일 때, ∠${P}O${R}의 크기는 몇 도인지 구하시오.`,answer:180-2*x,
+      explain:`O는 빗변의 중점이므로 OP=OR, △O${P}${R}에서 ∠${P}O${R}=180°−2×${x}°=${180-2*x}°입니다.`,concept:'삼각형의 외심',d:3,hi:TRI,
+      wrongs:[W(2*x,MC.ext,'exterior-for-interior'),W(90-x,MC.right,'complement'),W(x,MC.right,'isosceles-missed'),W(180-x,MC.sum,'one-base-angle')]}));
+    add('circRightAng',amount({kind:'circ-right-angle',params:{right:R,given:P,x},prompt:`∠${R}=90°인 직각삼각형 ABC의 외심을 O라고 하자. ∠${P}=${x}°일 때, ∠O${R}${Q}의 크기는 몇 도인지 구하시오.`,answer:90-x,
+      explain:`OP=OR이므로 ∠O${R}${P}=∠${P}=${x}°, ∠O${R}${Q}=90°−${x}°=${90-x}°입니다.`,concept:'삼각형의 외심',d:3,hi:TRI,
+      wrongs:[W(x,MC.right,'copy-given'),W(180-2*x,MC.sum,'apex'),W(2*x,MC.ext,'exterior'),W(180-x,MC.sum,'no-right-angle')]}));
+  }}
+for(let k=4;k<=40;k+=2)add('circRadius',amount({kind:'circ-radius',params:{oa:k},prompt:`점 O가 △ABC의 외심이고 OA=${k} cm일 때, OB+OC의 길이는 몇 cm인지 구하시오.`,answer:2*k,
+  explain:`외심에서 세 꼭짓점까지의 거리는 같으므로 OB+OC=${k}+${k}=${2*k} cm입니다.`,concept:'삼각형의 외심',d:1,
+  wrongs:rot([W(k,MC.center,'one'),W(3*k,MC.center,'three'),W(k/2,MC.formula,'diameter-as-radius'),W(4*k,MC.formula,'radius-as-diameter')],(k/2)%2)}));
+for(let k=5;k<=30;k++)for(const [m,alt] of [[k+1+(k%5),false],[2*k-1-(k%3),true]]){if(m>=2*k||m===k)continue;
+  add('circPer',amount({kind:'circ-obc-perimeter',params:{oa:k,bc:m},prompt:`점 O가 △ABC의 외심이고 OA=${k} cm, BC=${m} cm일 때, △OBC의 둘레의 길이는 몇 cm인지 구하시오.`,answer:2*k+m,
+    explain:`OB=OC=OA=${k} cm이므로 △OBC의 둘레는 ${k}+${k}+${m}=${2*k+m} cm입니다.`,concept:'삼각형의 외심',d:2,
+    wrongs:alt?[W(k+m,MC.center,'one-radius'),W(2*k,MC.sum,'side-omitted'),W(3*k,MC.equi,'equilateral-assumed')]:[W(k+m,MC.center,'one-radius'),W(2*m+k,MC.center,'distance-to-sides'),W(2*k,MC.sum,'side-omitted'),W(3*k+m,MC.center,'three-radii')]}));}
 
 // ── 내심 ────────────────────────────────────────────────────
-for(let y=95;y<=119;y++)add('inAngle',amount({kind:'in-a-from-bic',params:{BIC:y},prompt:`점 I가 △ABC의 내심이고 ∠BIC=${y}°일 때, ∠A의 크기는 몇 도인지 구하시오.`,answer:2*y-180,
-  explain:`∠BIC=90°+{frac:1/2}∠A이므로 ∠A=2×(${y}°−90°)=${2*y-180}°입니다.`,concept:'삼각형의 내심',d:3,wrongs:[W(y%2?0:y/2,MC.formula,'circumcenter-formula'),W(y-90,MC.half,'no-doubling')]}));
-for(let x=64;x<=160;x+=2)add('inAngle',amount({kind:'in-ibc-icb',params:{A:x},prompt:`점 I가 △ABC의 내심이고 ∠A=${x}°일 때, ∠IBC+∠ICB의 크기는 몇 도인지 구하시오.`,answer:90-x/2,
-  explain:`∠IBC+∠ICB={frac:1/2}(∠B+∠C)={frac:1/2}×(180°−${x}°)=${90-x/2}°입니다.`,concept:'삼각형의 내심',d:3,wrongs:[W(180-x,MC.half,'no-halving'),W(Math.max(0,x/2-90),MC.formula,'bic')]}));
+for(let x=20;x<=170;x+=2)add('inAngle',amount({kind:'in-bic',params:{A:x},prompt:`점 I가 △ABC의 내심이고 ∠A=${x}°일 때, ∠BIC의 크기는 몇 도인지 구하시오.`,answer:90+x/2,
+  explain:`∠BIC=90°+{frac:1/2}∠A=90°+${x/2}°=${90+x/2}°입니다.`,concept:'삼각형의 내심',d:3,hi:TRI,
+  wrongs:[W(2*x,MC.formula,'circumcenter-formula'),W(180-x,MC.half,'B+C'),W(90+x,MC.half,'no-halving'),W(90-x/2,MC.sum,'IBC+ICB')]}));
+for(let y=95;y<=175;y++)add('inAngle',amount({kind:'in-a-from-bic',params:{BIC:y},prompt:`점 I가 △ABC의 내심이고 ∠BIC=${y}°일 때, ∠A의 크기는 몇 도인지 구하시오.`,answer:2*y-180,
+  explain:`∠BIC=90°+{frac:1/2}∠A이므로 ∠A=2×(${y}°−90°)=${2*y-180}°입니다.`,concept:'삼각형의 내심',d:3,hi:TRI,
+  wrongs:[W(y-90,MC.half,'no-doubling'),W(y/2,MC.formula,'circumcenter-formula'),W(180-y,MC.sum,'supplement'),W(y,MC.half,'copy-BIC'),W(360-2*y,MC.sum,'B+C')]}));
+for(let x=20;x<=170;x+=2)add('inAngle',amount({kind:'in-ibc-icb',params:{A:x},prompt:`점 I가 △ABC의 내심이고 ∠A=${x}°일 때, ∠IBC+∠ICB의 크기는 몇 도인지 구하시오.`,answer:90-x/2,
+  explain:`∠IBC+∠ICB={frac:1/2}(∠B+∠C)={frac:1/2}×(180°−${x}°)=${90-x/2}°입니다.`,concept:'삼각형의 내심',d:3,hi:TRI,
+  wrongs:[W(180-x,MC.half,'no-halving'),W(90+x/2,MC.formula,'bic'),W(x/2,MC.sum,'half-A'),W(90-x,MC.half,'half-of-180-only')]}));
 const inNames={a:['IAB','IAC'],b:['IBC','IBA'],c:['ICA','ICB']};
-for(let a=10;a<=70;a+=5)for(let b=8;b<=72;b+=4){const c=90-a-b;if(c<8||c>59)continue;
-  const vals={a,b,c},askKey=['a','b','c'][(a+2*b)%3];if(vals[askKey]>59)continue;const givenKeys=['a','b','c'].filter(k=>k!==askKey);const nm=(k,i)=>inNames[k][(a+b+i)%2];
-  add('inSum',amount({kind:'in-sum',params:{a,b,c,ask:askKey},prompt:`점 I가 △ABC의 내심이고 ∠${nm(givenKeys[0],0)}=${vals[givenKeys[0]]}°, ∠${nm(givenKeys[1],1)}=${vals[givenKeys[1]]}°일 때, ∠${inNames[askKey][(a*b)%2]}의 크기는 몇 도인지 구하시오.`,answer:vals[askKey],
-    explain:`내심은 세 내각의 이등분선의 교점이므로 {frac:1/2}(∠A+∠B+∠C)=90°, 구하는 각은 90°−${vals[givenKeys[0]]}°−${vals[givenKeys[1]]}°=${vals[askKey]}°입니다.`,concept:'삼각형의 내심',d:3,wrongs:[W(180-vals[givenKeys[0]]-vals[givenKeys[1]],MC.half,'sum-to-180'),W(vals[givenKeys[0]],MC.center,'copy')]}));}
+for(let a=10;a<=70;a+=5)for(let b=8;b<=72;b+=4){const c=90-a-b;if(c<8)continue;
+  const vals={a,b,c},keys=['a','b','c'].sort((x,y)=>vals[x]-vals[y]);if(vals[keys[0]]===vals[keys[1]]||vals[keys[1]]===vals[keys[2]])continue;
+  const askKey=keys[(a+2*b)%3],givenKeys=['a','b','c'].filter(k=>k!==askKey);const nm=(k,i)=>inNames[k][(a+b+i)%2],g=givenKeys.map(k=>vals[k]),ans=vals[askKey];
+  add('inSum',amount({kind:'in-sum',params:{a,b,c,ask:askKey},prompt:`점 I가 △ABC의 내심이고 ∠${nm(givenKeys[0],0)}=${g[0]}°, ∠${nm(givenKeys[1],1)}=${g[1]}°일 때, ∠${inNames[askKey][(a*b)%2]}의 크기는 몇 도인지 구하시오.`,answer:ans,
+    explain:`내심은 세 내각의 이등분선의 교점이므로 {frac:1/2}(∠A+∠B+∠C)=90°, 구하는 각은 90°−${g[0]}°−${g[1]}°=${ans}°입니다.`,concept:'삼각형의 내심',d:3,hi:TRI,
+    wrongs:rot([W(2*ans,MC.half,'whole-angle'),W(g[0],MC.center,'copy-given'),W(g[1],MC.center,'copy-other-given'),W(180-g[0]-g[1],MC.sum,'sum-to-180'),W(90-g[0],MC.sum,'one-term-only'),W(90-g[1],MC.sum,'other-term-only')],(a*b)%2)}));}
 // 내접원의 반지름과 넓이: S = r × (둘레) ÷ 2. A triangle with perimeter p and inradius r exists iff p² ≥ 108r².
 for(let r=2;r<=6;r++)for(let p=12;p<=120;p++){if(p*p<=108*r*r)continue;
-  if((r*p)%2===0&&r*p/2<=59)add('inArea',amount({kind:'in-area',params:{r,p},prompt:`점 I가 △ABC의 내심이고 내접원의 반지름의 길이가 ${r} cm이다. △ABC의 둘레의 길이가 ${p} cm일 때, △ABC의 넓이는 몇 cm²인지 구하시오.`,answer:r*p/2,
-    explain:`△ABC=△IAB+△IBC+△ICA={frac:1/2}×${r}×${p}=${r*p/2} cm²입니다.`,concept:'삼각형의 내심',d:4,wrongs:[W(r*p>59?0:r*p,MC.half,'no-halving'),W(r+p,MC.formula,'add')]}));
-  if(p<=59&&(r*p)%2===0)add('inArea',amount({kind:'in-perimeter',params:{r,S:r*p/2},prompt:`점 I가 △ABC의 내심이고 내접원의 반지름의 길이가 ${r} cm이다. △ABC의 넓이가 ${r*p/2} cm²일 때, △ABC의 둘레의 길이는 몇 cm인지 구하시오.`,answer:p,
-    explain:`${r*p/2}={frac:1/2}×${r}×(둘레)이므로 둘레는 ${r*p/2}×2÷${r}=${p} cm입니다.`,concept:'삼각형의 내심',d:4,wrongs:[W(p/2,MC.half,'no-doubling'),W(r*p/2-r>1?r*p/2-r:0,MC.formula,'subtract')]}));
+  if((r*p)%2===0)add('inArea',amount({kind:'in-area',params:{r,p},prompt:`점 I가 △ABC의 내심이고 내접원의 반지름의 길이가 ${r} cm이다. △ABC의 둘레의 길이가 ${p} cm일 때, △ABC의 넓이는 몇 cm²인지 구하시오.`,answer:r*p/2,
+    explain:`△ABC=△IAB+△IBC+△ICA={frac:1/2}×${r}×${p}=${r*p/2} cm²입니다.`,concept:'삼각형의 내심',d:4,
+    wrongs:rot([W(r*p,MC.half,'no-halving'),W(p/2,MC.formula,'radius-dropped'),W(r*p/4,MC.half,'halved-twice'),W(r*r*p/2,MC.formula,'radius-squared'),W(r+p,MC.formula,'add'),W(p/r,MC.half,'radius-divided'),W(2*r*p,MC.half,'doubled')],p%3)}));
+  if(p%2===0)add('inPer',amount({kind:'in-perimeter',params:{r,S:r*p/2},prompt:`점 I가 △ABC의 내심이고 내접원의 반지름의 길이가 ${r} cm이다. △ABC의 넓이가 ${r*p/2} cm²일 때, △ABC의 둘레의 길이는 몇 cm인지 구하시오.`,answer:p,
+    explain:`${r*p/2}={frac:1/2}×${r}×(둘레)이므로 둘레는 ${r*p/2}×2÷${r}=${p} cm입니다.`,concept:'삼각형의 내심',d:4,
+    wrongs:rot([W(p/2,MC.half,'no-doubling'),W(r*p,MC.formula,'radius-dropped'),W(p/4,MC.half,'halved-twice'),W(r*r*p,MC.formula,'multiply'),W(p/r,MC.formula,'divided-by-radius-twice')],p%3)}));
 }
-for(const r of [2,3,4,5])for(let S=20;S<=400;S++){const p=2*S/r;if(!Number.isInteger(p)||p*p<=108*r*r||p%3)continue;
-  add('inArea',amount({kind:'in-radius',params:{S,p},prompt:`△ABC의 둘레의 길이가 ${p} cm이고 넓이가 ${S} cm²일 때, △ABC의 내접원의 반지름의 길이는 몇 cm인지 구하시오.`,answer:r,
-    explain:`${S}={frac:1/2}×r×${p}이므로 r=${S}×2÷${p}=${r} cm입니다.`,concept:'삼각형의 내심',d:4,wrongs:[W(S/p===Math.floor(S/p)&&S/p!==r?S/p:0,MC.half,'no-doubling')]}));}
-const triples=[[3,4,5],[5,12,13],[8,15,17],[7,24,25],[20,21,29],[12,35,37],[9,40,41]];
-for(const [x,y,z] of triples)for(let k=1;k*z<=60;k++){const a=x*k,b=y*k,c=z*k,r=a*b/(a+b+c);if(r<2)continue;
+for(const [x,y,z] of triples)for(let k=1;k*z<=100;k++){const a=x*k,b=y*k,c=z*k,r=a*b/(a+b+c);if(r<2)continue;
   const order=k%2?[a,b,c]:[c,a,b];
   add('inRight',amount({kind:'in-right',params:{a,b,c},prompt:`세 변의 길이가 ${order[0]} cm, ${order[1]} cm, ${order[2]} cm인 직각삼각형의 내접원의 반지름의 길이는 몇 cm인지 구하시오.`,answer:r,
-    explain:`넓이 {frac:1/2}×${a}×${b}=${a*b/2}={frac:1/2}×r×(${a}+${b}+${c})이므로 r=${r} cm입니다.`,concept:'삼각형의 내심',d:4,wrongs:[W(c/2===Math.floor(c/2)?c/2:0,MC.center,'circumradius'),W(a+b-c,MC.half,'no-halving')]}));}
+    explain:`넓이 {frac:1/2}×${a}×${b}=${a*b/2}={frac:1/2}×r×(${a}+${b}+${c})이므로 r=${r} cm입니다.`,concept:'삼각형의 내심',d:4,
+    wrongs:[W(a+b-c,MC.half,'no-halving'),W(r/2,MC.half,'area-not-doubled'),W((b+c-a)/2,MC.hyp,'tangent-from-wrong-vertex'),W(c/2,MC.center,'circumradius'),W((a+c-b)/2,MC.hyp,'tangent-from-other-vertex')]}));}
 
 // ── 선택형: 용어·위치·합동 조건 ─────────────────────────────
 const CH='삼각형의 외심';const CI='삼각형의 내심';
@@ -160,11 +218,14 @@ for(const X of V){const [Y,Z]=rest(X);
   add('cIso',choice({kind:'iso-equal-sides',params:{apex:X},stem:`△ABC에서 ∠${Y}=∠${Z}일 때, 길이가 같은 두 변을 고르시오.`,correct:c,wrongs:SG.filter(t=>t!==c).map(t=>({text:t,tag:t==='세 변 모두'?MC.equi:MC.apex})),explain:`두 내각이 같은 삼각형은 이등변삼각형이고, ∠${Y}, ∠${Z}의 대변 ${s[1]}, ${s[0]}의 길이가 같습니다.`,concept:'이등변삼각형이 되는 조건',d:1}));
 }
 
-const intro=amount({kind:'iso-bis-half',params:{bc:4},prompt:`${bisStem} BC=4 cm일 때, BD의 길이는 몇 cm인지 구하시오.`,answer:2,explain:'꼭지각의 이등분선은 밑변을 수직이등분하므로 BD=4÷2=2 cm입니다. 2닢을 붓습니다.',concept:'이등변삼각형의 성질',d:1,wrongs:[W(4,MC.perp,'no-halving')]});
+
+const intro=amount({kind:'iso-base',params:{apex:'A',apexAngle:40,ask:'B'},prompt:'AB=AC인 이등변삼각형 ABC에서 ∠A=40°일 때, ∠B의 크기는 몇 도인지 구하시오.',answer:70,
+  explain:'두 밑각 ∠B, ∠C의 크기가 같으므로 ∠B=(180°−40°)÷2=70°입니다.',concept:'이등변삼각형의 성질',d:1,hi:TRI,
+  wrongs:[W(140,MC.half,'no-halving'),W(40,MC.apex,'apex-as-base'),W(100,MC.apex,'given-as-base')]});
 const P=pools;
-if(process.env.POOLS)console.log(Object.fromEntries(Object.entries(P).map(([k,v])=>[k,v.length])));
+if(process.env.POOLS)console.log(Object.fromEntries(Object.entries(P).map(([k,v])=>[k,`${v.filter(Boolean).length}/${v.length}`])));
 writeGeoPack({id:'m2s2-u1',title:'삼각형의 성질',standards:['[9수03-09]','[9수03-10]'],intro,groups:[
-  [P.isoBase,34],[P.isoApex,20],[P.isoBisLen,18],[P.circRadius,8],[P.cTerm,6],[P.cIso,6],
-  [P.isoExt,18],[P.isoBisAng,10],[P.rhAngle,14],[P.angBis,8],[P.circRightLen,8],[P.cLoc,16],[P.cCong,34],
-  [P.circSum,18],[P.circCentral,18],[P.inAngle,14],[P.inSum,12],[P.angBis3,10],[P.circRightAng,8],
-  [P.isoConv,30],[P.inArea,34],[P.inRight,18]]});
+  [P.isoBase,36],[P.isoApex,22],[P.isoBisLen,22],[P.circRadius,12],[P.cTerm,6],[P.cIso,6],
+  [P.isoExt,16],[P.isoBisAng,14],[P.isoBisPer,18],[P.rhAngle,8],[P.angBis,8],[P.circRightLen,10],[P.circPer,12],[P.cLoc,12],[P.cCong,20],
+  [P.circSum,12],[P.circCentral,24],[P.inAngle,20],[P.inSum,10],[P.angBis3,12],[P.circRightAng,12],
+  [P.isoConv,24],[P.inArea,34],[P.inPer,18],[P.inRight,6]]});

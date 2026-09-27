@@ -8,11 +8,15 @@
 //     decimal→fraction from the displayed digits; termination by long division;
 //   - inequalities: integer brute force over [−400, 400] plus exact boundary probing;
 //   - linear systems: integer grid search + determinant; word problems: brute-force enumeration.
-// Structure is checked with validate-pack.mjs (the shared structural gate).
+// Schema v3 (every item 4-choice): the oracle value must match exactly one of the four choices BY VALUE
+// (choices are parsed by this file's parser; 2/4 = 1/2 = 0.5), the other three must all be wrong,
+// no two choices may be equal in value, answer positions must be balanced, and heuristic bots
+// (fixed slot, copy-a-number-from-the-prompt, min/max/rank, odd-sign-out) must stay near chance.
+// Structure is checked with validate-pack-v3-m2s1.mjs. `--selftest` plants errors and confirms each is caught.
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {validatePack} from './validate-pack.mjs';
+import {validatePackV3} from './validate-pack-v3-m2s1.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.resolve(here, '../../../../..');
 const packDir = path.join(root, 'public/g/hyeopgok-sasu/packs');
@@ -121,9 +125,9 @@ const numTxt = n => (n < 0 ? '−' + (-n) : String(n));
 
 // ---------------- per-type oracles ----------------
 // Each returns the oracle answer (number for amount, [n,d] for fractions, string for choice) or throws.
-function substBox(rhs, ans) { if (!rhs.includes('□')) throw Error('no box'); return rhs.split('□').join(String(ans)); }
-function boxAnswer(lhs, rhs, candidates = 70) { // the unique natural number that makes lhs ≡ rhs
-  const hits = []; for (let a = 0; a <= candidates; a++) { let ok; try { ok = identical(lhs, substBox(rhs, a)); } catch { ok = false; } if (ok) hits.push(a); }
+function substBox(rhs, ans) { if (!rhs.includes('□')) throw Error('no box'); const t = typeof ans === 'number' && ans < 0 ? `(${numTxt(ans)})` : String(ans); return rhs.split('□').join(t); }
+function boxAnswer(lhs, rhs, candidates = 150) { // the unique integer that makes lhs ≡ rhs
+  const hits = []; for (let a = -candidates; a <= candidates; a++) { let ok; try { ok = identical(lhs, substBox(rhs, a)); } catch { ok = false; } if (ok) hits.push(a); }
   if (hits.length !== 1) throw Error(`box has ${hits.length} solutions (${hits})`); return hits[0];
 }
 const ORACLE = {
@@ -144,7 +148,7 @@ const ORACLE = {
   'div-box'(q, P) { need(q.prompt.includes(P.dividend) && q.prompt.includes(P.divisor) && q.prompt.includes(P.rhs), 'prompt parts'); return boxAnswer(`(${P.dividend})÷(${P.divisor})`, P.rhs); },
   'subst-box'(q, P) {
     need(q.prompt.includes(`A=${P.A}, B=${P.B}`) && q.prompt.includes(P.form) && q.prompt.includes(P.rhs), 'prompt parts');
-    const hits = []; for (let a = 0; a <= 70; a++) { const R = parseExpr(substBox(P.rhs, a)), F = parseExpr(P.form), A = parseExpr(P.A), B = parseExpr(P.B); if (POINTS.every(p => qeq(evalNode(F, {A: evalNode(A, p), B: evalNode(B, p)}), evalNode(R, p)))) hits.push(a); }
+    const hits = []; for (let a = -150; a <= 150; a++) { const R = parseExpr(substBox(P.rhs, a < 0 ? `(${numTxt(a)})` : a)), F = parseExpr(P.form), A = parseExpr(P.A), B = parseExpr(P.B); if (POINTS.every(p => qeq(evalNode(F, {A: evalNode(A, p), B: evalNode(B, p)}), evalNode(R, p)))) hits.push(a); }
     need(hits.length === 1, 'unique'); return hits[0];
   },
   eval(q, P) { need(q.prompt.includes(P.expr), 'prompt expr'); for (const [k, val] of Object.entries(P.vals)) need(q.prompt.includes(`${k}=${numTxt(val)}`), 'prompt values'); const r = evalStr(P.expr, Object.fromEntries(Object.entries(P.vals).map(([k, val]) => [k, Q(val)]))); need(qint(r), 'integer'); return Number(r.n); },
@@ -314,55 +318,97 @@ addOracles({
   'wp-hiking'(q, P) { need(q.prompt.includes(`시속 ${P.u} km`) && q.prompt.includes(`시속 ${P.w} km`) && q.prompt.includes(P.Td === 1 ? `${P.Tn}시간 이내` : `${(P.Tn - 1) / 2}시간 30분 이내`), 'prompt'); const bound = qdiv(Q(P.Tn, P.Td), qadd(Q(1, P.u), Q(1, P.w))); need(qint(bound), 'integer distance'); const d = Number(bound.n); need(qcmp(qadd(Q(d, P.u), Q(d, P.w)), Q(P.Tn, P.Td)) <= 0 && qcmp(qadd(Q(d + 1, P.u), Q(d + 1, P.w)), Q(P.Tn, P.Td)) > 0, 'max'); return d; },
 });
 
-// ---------------- driver ----------------
-const packs = process.argv.slice(2).length ? process.argv.slice(2) : ['m2s1-u1', 'm2s1-u2', 'm2s1-u3', 'm2s1-u4', 'm2s1-u5', 'm2s1-u6'];
-const report = {generated_at: new Date().toISOString(), method: 'independent re-derivation from params + displayed text; imports no generator code', packs: []};
-let totalFail = 0;
-for (const id of packs) {
-  const file = path.join(packDir, `${id}.json`); if (!fs.existsSync(file)) { console.log(`${id}: missing`); totalFail++; continue; }
-  const pack = JSON.parse(fs.readFileSync(file, 'utf8')), failures = [], types = {}, modes = {}, diff = {};
-  const structure = validatePack(pack); for (const e of structure.errors) failures.push(`structure: ${e}`);
+// ---------------- choice values, copy guard, bots ----------------
+const NUMERIC = /^−?(?:\d+(?:\.\d+)?|\{frac:\d+\/\d+\})$/;
+const valueOf = c => NUMERIC.test(c) ? evalStr(c) : null; // this file's parser: "−{frac:3/4}" → −3/4, "23.8" → 119/5
+const canon = v => { if (qint(v)) return numTxt(Number(v.n)); const n = v.n < 0n ? -v.n : v.n; return `${v.n < 0n ? '−' : ''}{frac:${n}/${v.d}}`; };
+const absKey = v => `${v.n < 0n ? -v.n : v.n}/${v.d}`;
+function printedNumbers(prompt) { // |values| of integers, decimals and {frac} tokens visible in the prompt
+  const out = new Set(); const t = prompt.replace(/\{frac:(\d+)\/(\d+)\}/g, (_, n, d) => { out.add(absKey(Q(n, d))); return ' '; }).replace(/<\/?sup>/g, ' ');
+  for (const m of t.matchAll(/\d+(?:\.\d+)?/g)) out.add(absKey(evalStr(m[0]))); return out;
+}
+const BOTS = {
+  'slot-1': q => q.choices[0], 'slot-2': q => q.choices[1], 'slot-3': q => q.choices[2], 'slot-4': q => q.choices[3],
+  copy: (q, V, P) => q.choices.find((c, i) => V[i] && P.has(absKey(V[i]))) ?? q.choices[0],
+  'anti-copy': (q, V, P) => q.choices.find((c, i) => V[i] && !P.has(absKey(V[i]))) ?? q.choices[0],
+  ...Object.fromEntries([0, 1, 2, 3].map(r => [`rank-${r + 1}`, (q, V) => { const idx = [0, 1, 2, 3].sort((a, b) => qcmp(V[a], V[b])); return q.choices[idx[r]]; }])),
+  'odd-sign': (q, V) => { const neg = V.map(v => v.n < 0n); const k = neg.filter(Boolean).length; return k === 1 ? q.choices[neg.indexOf(true)] : k === 3 ? q.choices[neg.indexOf(false)] : q.choices[0]; },
+  'odd-kind': (q, V) => { const fr = V.map(v => !qint(v)); const k = fr.filter(Boolean).length; return k === 1 ? q.choices[fr.indexOf(true)] : k === 3 ? q.choices[fr.indexOf(false)] : q.choices[0]; },
+};
+const BOT_LIMIT = 0.35; // no heuristic may reach 35% on the numeric items of a pack (chance = 25%)
+
+// ---------------- per-pack check ----------------
+function checkPack(pack, id) {
+  const failures = [], types = {}, diff = {}, fmt = {}, slots = [0, 0, 0, 0], bot = Object.fromEntries(Object.keys(BOTS).map(k => [k, 0])); let numericItems = 0;
+  const structure = validatePackV3(pack); for (const e of structure.errors) failures.push(`structure: ${e}`);
   const unit = curriculum.units.find(u => u.id === pack.unit_id);
-  if (!unit || pack.grade !== 2 || pack.semester !== 1) failures.push('unit/grade/semester');
+  if (!unit || pack.grade !== 2 || pack.semester !== 1 || pack.unit_id !== id) failures.push('unit/grade/semester');
   for (const c of pack.standards) { if (!curriculum.standards.some(s => s.code === c)) failures.push(`standard ${c} missing`); if (!unit?.standards.includes(c)) failures.push(`standard ${c} not in unit`); }
-  let acceptanceInputs = 0;
-  pack.items.forEach((q, idx) => {
-    const P = q.params ?? {}, fn = ORACLE[P.t]; types[P.t] = (types[P.t] ?? 0) + 1; modes[q.answer_mode] = (modes[q.answer_mode] ?? 0) + 1; diff[q.difficulty] = (diff[q.difficulty] ?? 0) + 1;
+  pack.items.forEach(q => {
+    const P = q.params ?? {}, fn = ORACLE[P.t]; types[P.t] = (types[P.t] ?? 0) + 1; diff[q.difficulty] = (diff[q.difficulty] ?? 0) + 1; fmt[q.format] = (fmt[q.format] ?? 0) + 1;
     try {
+      need(q.answer_mode === 'choice' && Array.isArray(q.choices) && q.choices.length === 4, 'v3 four choices');
+      const slot = q.choices.indexOf(q.answer); need(slot >= 0 && q.choices.lastIndexOf(q.answer) === slot, 'answer listed exactly once'); slots[slot]++;
       if (!fn) throw Error(`no oracle for ${P.t}`);
       const exp = fn(q, P);
-      if (q.answer_mode === 'amount') {
-        need(q.answer === exp, `answer ${q.answer} vs oracle ${exp}`); need(q.answerNumeric === exp, 'answerNumeric');
-        need(idx === 0 ? exp >= 1 && exp <= 4 : exp >= 2 && exp <= 59, 'amount range policy');
-        for (const t of P.traps ?? []) need(t.v !== exp, `trap equals answer (${t.tag})`);
-      } else if (q.answer_mode === 'fraction_parts') {
-        const [n, d] = exp, g = Number(bgcd(BigInt(n), BigInt(d))), rn = n / g, rd = d / g;
-        need(q.answer.num === rn && q.answer.den === rd, `fraction ${q.answer.num}/${q.answer.den} vs ${rn}/${rd}`);
-        need(q.accept === 'reduced' ? q.prompt.includes('기약분수') : q.accept === 'equivalent', 'accept policy (no exact_parts in m2s1)');
-        need(Math.abs(q.answerNumeric - rn / rd) < 1e-12, 'answerNumeric');
-        for (const t of P.traps ?? []) need(t.v[0] * rd !== rn * t.v[1], `trap equals answer (${t.tag})`);
-        for (let nn = 0; nn <= q.max; nn++) for (let dd = 0; dd <= q.max; dd++) { // runtime acceptance rule vs oracle
-          const runtime = dd > 0 && (q.accept === 'exact_parts' ? nn === q.answer.num && dd === q.answer.den : nn * q.answer.den === q.answer.num * dd && (q.accept !== 'reduced' || Number(bgcd(BigInt(nn), BigInt(dd))) === 1));
-          const oracle = dd > 0 && nn * rd === rn * dd && (q.accept !== 'reduced' || Number(bgcd(BigInt(nn), BigInt(dd))) === 1);
-          need(runtime === oracle, `pair ${nn}/${dd}`); acceptanceInputs++;
-        }
+      if (typeof exp === 'string') { // statement / expression choices: the oracle itself proved exactly one choice true
+        need(q.answer === exp, `choice answer ${q.answer} vs oracle ${exp}`); need(q.format === 'text' || valueOf(q.answer), 'format');
+        need(new Set(q.choices.map(c => c.replace(/\s+/g, ''))).size === 4, '4 distinct choices');
       } else {
-        need(q.answer === exp, `choice answer ${q.answer} vs oracle ${exp}`); need(q.choices.length === 4 && new Set(q.choices).size === 4, '4 distinct choices');
+        const want = Array.isArray(exp) ? Q(exp[0], exp[1]) : Q(exp); const V = q.choices.map(valueOf);
+        need(V.every(Boolean), `non-numeric choice in a numeric item: ${q.choices.join(' | ')}`);
+        const right = V.map((v, i) => qeq(v, want) ? i : -1).filter(i => i >= 0);
+        need(right.length === 1, `${right.length} choices equal the oracle value ${canon(want)}`); need(q.choices[right[0]] === q.answer, `answer ${q.answer} but oracle value is choice ${q.choices[right[0]]}`);
+        need(q.answer === canon(want), `answer not in canonical reduced form (${q.answer} vs ${canon(want)})`);
+        need(new Set(V.map(v => `${v.n}/${v.d}`)).size === 4, `equal-valued choices ${q.choices.join(' | ')}`);
+        need(q.format === (qint(want) ? 'int' : 'frac'), 'format'); need(Math.abs(q.answerNumeric - qnum(want)) < 1e-9, 'answerNumeric');
+        const PN = printedNumbers(q.prompt), wrongIdx = [0, 1, 2, 3].filter(i => i !== right[0]);
+        need(!(PN.has(absKey(want)) && wrongIdx.every(i => !PN.has(absKey(V[i])))), 'copy-vulnerable: only the answer is printed in the prompt');
+        numericItems++; for (const [k, f] of Object.entries(BOTS)) if (f(q, V, PN) === q.answer) bot[k]++;
       }
-      const text = [q.prompt, q.explain, ...(q.choices ?? [])].join(' ');
+      need(Array.isArray(q.distractor_tags) && q.distractor_tags.length === 3 && q.distractor_tags.every(t => t.startsWith(`${id}.`)) && new Set(q.distractor_tags).size >= 2, 'distractor_tags');
+      const text = [q.prompt, q.explain, ...q.choices].join(' ');
+      need(!/약분하지|코인|닢|붓/.test(q.prompt + q.explain), 'pour-era wording');
       need(!text.includes('√') && !/[⁰⁴⁵⁶⁷⁸⁹̇]/.test(text), 'glyph/root policy');
+      need(!/-\d|[0-9a-z)]-[0-9a-z(]/.test(text), 'ASCII hyphen used as a minus sign'); need(!/기울기을|절편를|[+−]{2}|=\+/.test(text), 'josa/sign typo');
       need(!/\d\s*\/\s*\d/.test(text.replace(/\{frac:\d+\/\d+\}/g, '')), 'plain fraction');
       need(!/{frac:\d+\/1}/.test(text), 'integer written as fraction token');
       const noSup = text.replace(/<sup>\d+<\/sup>|<sup>[□x]<\/sup>/g, ''); need(!/<\/?(?:[A-Za-z-]+[\s=>]|#)/.test(noSup) && !/<\/?sup>/.test(noSup), 'TMP markup hazard or stray sup tag');
     } catch (e) { failures.push(`${q.id} [${P.t}] ${e.message} :: ${q.prompt}`); }
   });
-  const choiceShare = (modes.choice ?? 0) / pack.items.length;
-  if (choiceShare > 0.3) failures.push(`choice share ${choiceShare}`);
-  const freq = {}; for (const q of pack.items) if (q.answer_mode !== 'choice') { const k = JSON.stringify(q.answer); freq[k] = (freq[k] ?? 0) + 1; }
-  const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0] ?? ['-', 0];
-  const r = {pack_id: id, items: pack.items.length, modes, difficulty: diff, types, choice_share: +choiceShare.toFixed(3), best_constant_pour: {answer: top[0], share: +(top[1] / pack.items.length).toFixed(3)}, fraction_pairs_checked: acceptanceInputs, structural_errors: structure.structural_errors, failures: failures.length, failure_samples: failures.slice(0, 20), verdict: failures.length ? 'fail' : 'pass'};
+  const N = pack.items.length; slots.forEach((c, i) => { if (Math.abs(c - N / 4) > Math.max(2, 0.02 * N)) failures.push(`answer slot ${i + 1}: ${c}/${N}`); });
+  const botShare = Object.fromEntries(Object.entries(bot).map(([k, v]) => [k, +(v / Math.max(1, numericItems)).toFixed(3)]));
+  for (const [k, v] of Object.entries(botShare)) if (v > BOT_LIMIT) failures.push(`bot ${k} scores ${(100 * v).toFixed(1)}% on numeric items (limit ${100 * BOT_LIMIT}%)`);
+  return {failures, stats: {items: N, difficulty: diff, formats: fmt, answer_slots: slots, types, numeric_items: numericItems, bots: botShare}};
+}
+
+// ---------------- self-test: planted errors must all be caught ----------------
+function selftest(pack, id) {
+  const clone = () => JSON.parse(JSON.stringify(pack)), results = [];
+  const firstOfType = p => { const seen = new Set(), out = []; p.items.forEach((q, i) => { if (i && !seen.has(q.params.t)) { seen.add(q.params.t); out.push(i); } }); return out; };
+  const caught = (p, ids) => { const {failures} = checkPack(p, id); return ids.filter(x => failures.some(f => f.startsWith(`${x} `))).length; };
+  const plant = (name, mutate) => { const p = clone(), ids = []; for (const i of firstOfType(p)) { const q = p.items[i]; if (mutate(q) !== false) ids.push(q.id); } results.push({mutation: name, planted: ids.length, caught: caught(p, ids)}); };
+  plant('answer-points-at-a-distractor', q => { q.answer = q.choices.find(c => c !== q.answer); });
+  plant('answer-and-its-choice-changed-to-a-wrong-value', q => { const v = valueOf(q.answer); if (!v) return false; const w = canon(qadd(v, Q(1))); if (q.choices.includes(w)) return false; q.choices[q.choices.indexOf(q.answer)] = w; q.answer = w; });
+  plant('distractor-equivalent-to-answer', q => { const v = valueOf(q.answer), k = q.choices.findIndex(c => c !== q.answer); if (v) { const n = v.n < 0n ? -v.n : v.n; q.choices[k] = `${v.n < 0n ? '−' : ''}{frac:${2n * n}/${2n * v.d}}`; } else q.choices[k] = q.answer + ' '; });
+  plant('distractor-is-a-second-correct-value', q => { const v = valueOf(q.answer); if (!v || !qint(v)) return false; const k = q.choices.findIndex(c => c !== q.answer); q.choices[k] = `${numTxt(Number(v.n))}.0`; });
+  { const p = clone(); for (const q of p.items) { const i = q.choices.indexOf(q.answer); [q.choices[0], q.choices[i]] = [q.choices[i], q.choices[0]]; } const {failures} = checkPack(p, id); results.push({mutation: 'all-answers-in-slot-1', planted: 1, caught: failures.some(f => f.startsWith('answer slot')) ? 1 : 0}); }
+  return results;
+}
+
+// ---------------- driver ----------------
+const args = process.argv.slice(2), SELFTEST = args.includes('--selftest');
+const packs = args.filter(a => !a.startsWith('--')).length ? args.filter(a => !a.startsWith('--')) : ['m2s1-u1', 'm2s1-u2', 'm2s1-u3', 'm2s1-u4', 'm2s1-u5', 'm2s1-u6'];
+const report = {generated_at: new Date().toISOString(), schema_version: 3, method: 'independent re-derivation from params + displayed text; imports no generator code; choices compared by exact rational value', bot_limit: BOT_LIMIT, packs: []};
+let totalFail = 0;
+for (const id of packs) {
+  const file = path.join(packDir, `${id}.json`); if (!fs.existsSync(file)) { console.log(`${id}: missing`); totalFail++; continue; }
+  const pack = JSON.parse(fs.readFileSync(file, 'utf8')), {failures, stats} = checkPack(pack, id);
+  const r = {pack_id: id, ...stats, failures: failures.length, failure_samples: failures.slice(0, 20), verdict: failures.length ? 'fail' : 'pass'};
+  if (SELFTEST) { r.selftest = selftest(pack, id); const miss = r.selftest.filter(t => t.caught !== t.planted); if (miss.length) { r.verdict = 'fail'; failures.push(...miss.map(t => `selftest ${t.mutation}: caught ${t.caught}/${t.planted}`)); } }
   report.packs.push(r); totalFail += failures.length;
-  console.log(`${id}: ${r.verdict} (${failures.length} failures) — ${r.items} items, modes ${JSON.stringify(modes)}, difficulty ${JSON.stringify(diff)}, best constant ${top[0]} ${(100 * r.best_constant_pour.share).toFixed(1)}%${failures.length ? `\n  ${failures.slice(0, 12).join('\n  ')}` : ''}`);
+  const worstBot = Object.entries(stats.bots).sort((a, b) => b[1] - a[1])[0];
+  console.log(`${id}: ${r.verdict} (${failures.length} failures) — ${stats.items} items, difficulty ${JSON.stringify(stats.difficulty)}, slots ${stats.answer_slots.join('/')}, best bot ${worstBot[0]} ${(100 * worstBot[1]).toFixed(1)}%${SELFTEST ? `, selftest ${r.selftest.map(t => `${t.caught}/${t.planted}`).join(' ')}` : ''}${failures.length ? `\n  ${failures.slice(0, 12).join('\n  ')}` : ''}`);
 }
 report.verdict = totalFail ? 'fail' : 'pass';
 if (packs.length === 6) fs.writeFileSync(path.join(here, 'm2s1-check-report.json'), JSON.stringify(report, null, 2) + '\n');
