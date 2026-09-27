@@ -7,6 +7,8 @@ Shader "Mgf/HyeopgokHorde"
         _Color ("Team tint", Color) = (1,1,1,1)
         _Flash ("Impact flash", Range(0,1)) = 0
         _Unlit ("Unlit particles", Range(0,1)) = 0
+        _Rim ("Hero pearl rim", Range(0,1)) = 0
+        _HitTime ("Per soldier hit time", Float) = -1000
     }
     SubShader
     {
@@ -27,6 +29,10 @@ Shader "Mgf/HyeopgokHorde"
             fixed4 _Color;
             half _Flash;
             half _Unlit;
+            half _Rim;
+            UNITY_INSTANCING_BUFFER_START(HitProperties)
+                UNITY_DEFINE_INSTANCED_PROP(float, _HitTime)
+            UNITY_INSTANCING_BUFFER_END(HitProperties)
             half4 _HyeopgokNightTint;
             struct appdata
             {
@@ -45,6 +51,7 @@ Shader "Mgf/HyeopgokHorde"
                 SHADOW_COORDS(2)
                 UNITY_FOG_COORDS(3)
                 half paintedArmor : TEXCOORD4;
+                half hitFlash : TEXCOORD5;
             };
             v2f vert(appdata v)
             {
@@ -65,6 +72,8 @@ Shader "Mgf/HyeopgokHorde"
                 o.paintedArmor=(1-teamMask)*baked;
                 fixed3 baseColor = lerp(_Color.rgb * authored, authored, teamMask);
                 o.color = baseColor * ao;
+                float sinceHit = _Time.y - UNITY_ACCESS_INSTANCED_PROP(HitProperties, _HitTime);
+                o.hitFlash = saturate(1-sinceHit/.14) * step(0,sinceHit);
                 TRANSFER_SHADOW(o);
                 UNITY_TRANSFER_FOG(o,o.pos);
                 return o;
@@ -78,11 +87,16 @@ Shader "Mgf/HyeopgokHorde"
                 // Keep one forward pass and the existing instancing/team-mask contract.
                 half sky = saturate(normal.y * .5 + .5);
                 half3 ambient = lerp(half3(.080,.170,.140), half3(.300,.410,.400), sky);
-                half3 lit = (ambient + .85 * diffuse * attenuation * _LightColor0.rgb) * _HyeopgokNightTint.rgb;
+                half3 lit = (ambient + .85 * diffuse * _LightColor0.rgb) * _HyeopgokNightTint.rgb;
                 half3 halfVector=normalize(normalize(_WorldSpaceLightPos0.xyz)+normalize(_WorldSpaceCameraPos-i.worldPos));
                 half armorGleam=pow(saturate(dot(normal,halfVector)),18)*.045*i.paintedArmor*attenuation;
-                half3 light = lerp(lit, half3(1,1,1), _Unlit);
-                fixed4 result=fixed4(lerp(i.color*light+armorGleam,fixed3(1,.985,.94),_Flash),1);
+                half3 coolShade=half3(.0252,.1441,.1022); // linear #2C6A5A
+                half3 shaded=lerp(i.color*.62,coolShade,.23)*_HyeopgokNightTint.rgb;
+                half3 litColor=lerp(shaded,i.color*lit+armorGleam,attenuation);
+                litColor=lerp(litColor,i.color,_Unlit);
+                half rim=pow(1-saturate(dot(normal,normalize(_WorldSpaceCameraPos-i.worldPos))),3)*_Rim;
+                litColor+=half3(.82,.94,1)*rim;
+                fixed4 result=fixed4(lerp(litColor,fixed3(1,.995,1),max(_Flash,i.hitFlash)),1);
                 UNITY_APPLY_FOG(i.fogCoord,result);
                 return result;
             }

@@ -9,7 +9,7 @@ namespace Mgf.HyeopgokSasu
     /// </summary>
     sealed class HyeopgokImpact
     {
-        const int ParticleCap = 192, FlashCap = 20, NumberCap=8;
+        const int ParticleCap = 192, FlashCap = 64, NumberCap=16;
         struct Particle
         {
             public Vector3 position, velocity;
@@ -36,8 +36,10 @@ namespace Mgf.HyeopgokSasu
         readonly Popup[] numbers=new Popup[NumberCap];
         readonly Camera camera;
         readonly Mesh cloud, coin, fleck, star,smallNumber,bigNumber;
-        readonly Material smokeMaterial, coinMaterial, flashMaterial,starMaterial,fireMaterial,darkMaterial;
+        readonly Material smokeMaterial, coinMaterial, flashMaterial,starMaterial,fireMaterial,darkMaterial,numberMaterial;
+        readonly Texture2D numberAtlas;
         int particleCursor, flashCursor,numberCursor;
+        float visualClock,lastStar=-1;
         uint rng = 0x63b1874du;
 
         public HyeopgokImpact(Camera renderCamera, Shader shader)
@@ -47,12 +49,15 @@ namespace Mgf.HyeopgokSasu
             coin = MakeCoin();
             fleck = MakeFleck();
             star = MakeStar();
-            smallNumber=HyeopgokEconomyFx.NumberMesh(5,true);
-            bigNumber=HyeopgokEconomyFx.NumberMesh(15,true);
-            smokeMaterial = CreateMaterial(shader,new Color(1,.94f,.93f));
-            coinMaterial = CreateMaterial(shader,new Color(1,.70f,.035f));
+            numberAtlas=MakeNumberAtlas();
+            smallNumber=MakeNumberQuad(false);
+            bigNumber=MakeNumberQuad(true);
+            numberMaterial=new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/DamageNumber"));
+            numberMaterial.mainTexture=numberAtlas;numberMaterial.enableInstancing=true;
+            smokeMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Smoke"));smokeMaterial.SetColor("_Color",new Color(.93f,.96f,1,.30f));smokeMaterial.enableInstancing=true;
+            coinMaterial = CreateMaterial(shader,Color.white);
             flashMaterial = CreateMaterial(shader,new Color(1,1,.98f));
-            starMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Spark"));starMaterial.SetColor("_Color",new Color(.78f,.93f,1,.92f));starMaterial.enableInstancing=true;
+            starMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Spark"));starMaterial.SetColor("_Color",Color.white);starMaterial.enableInstancing=true;
             fireMaterial = CreateMaterial(shader,new Color(1,.31f,.018f));
             darkMaterial = CreateMaterial(shader,new Color(.69f,.73f,.73f));
         }
@@ -63,6 +68,7 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<FlashCap;i++) flashes[i].duration = 0;
             for(int i=0;i<NumberCap;i++) numbers[i].live=false;
             particleCursor = flashCursor = numberCursor=0;
+            visualClock=0;lastStar=-1;
             rng = 0x63b1874du;
         }
 
@@ -103,26 +109,29 @@ namespace Mgf.HyeopgokSasu
 
         public void Contact(Vector3 position, bool heavy)
         {
+            if(visualClock-lastStar>=.084f){
+            lastStar=visualClock;
             flashes[flashCursor++ % FlashCap] = new Flash {
                 // Lift the star above the helmet line and slightly toward the
                 // viewer, so its white rays survive the opaque smoke/depth test.
-                position = position+Vector3.up*.46f-camera.transform.forward*.10f,
-                age = 0, duration = heavy ? .26f : .20f,
-                size = Range(heavy ? .87f : .56f,heavy ? 1.14f : .82f),
-                angle = Range(0,180)
+                position = position+Vector3.up*.56f-camera.transform.forward*.15f,
+                age = 0, duration = .18f,
+                size = Range(heavy ? 1.12f : .78f,heavy ? 1.34f : .98f),
+                angle = Range(-18,18)
             };
+            }
             int count = heavy ? 14 : 6;
             for(int i=0;i<count;i++)
             {
-                byte kind = (byte)(i < (heavy?5:3) ? 0 : i < (heavy?10:4) ? 1 : 2);
+                byte kind = (byte)(i < (heavy?2:1) ? 0 : i < (heavy?5:3) ? 2 : i < (heavy?10:4) ? 1 : 2);
                 float angle = Range(0,Mathf.PI*2), speed = Range(.28f,heavy?2.7f:1.6f);
                 Vector3 velocity = new Vector3(Mathf.Cos(angle)*speed,Range(.8f,heavy?3.7f:2.3f),Mathf.Sin(angle)*speed);
                 if(kind == 0) velocity *= .34f;
                 particles[particleCursor++ % ParticleCap] = new Particle {
                     position = position+new Vector3(Range(-.16f,.16f),Range(0,.14f),Range(-.16f,.16f)),
                     velocity = velocity, age = 0,
-                    duration = kind == 0 ? Range(.32f,.55f) : kind == 1 ? Range(.38f,.68f) : Range(.16f,.30f),
-                    size = kind == 0 ? Range(.20f,.37f) : kind == 1 ? Range(.12f,.20f) : Range(.04f,.08f),
+                    duration = kind == 0 ? Range(.16f,.25f) : kind == 1 ? Range(.38f,.68f) : Range(.16f,.30f),
+                    size = kind == 0 ? Range(.13f,.22f) : kind == 1 ? Range(.12f,.20f) : Range(.04f,.08f),
                     spin = Range(-180,180), kind = kind
                 };
             }
@@ -130,6 +139,7 @@ namespace Mgf.HyeopgokSasu
 
         public void UpdateAndDraw(float dt)
         {
+            visualClock+=dt;
             int smokeCount=0, coinCount=0, fleckCount=0, flashCount=0,fireCount=0,darkCount=0;
             for(int i=0;i<ParticleCap;i++)
             {
@@ -180,14 +190,14 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<NumberCap;i++)
             {
                 Popup p=numbers[i];if(!p.live)continue;p.age+=dt;
-                if(p.age>.65f){p.live=false;numbers[i]=p;continue;}
-                float size=(p.heavy?.31f:.24f)*Mathf.Min(1,(.65f-p.age)*6);
-                Matrix4x4 m=Matrix4x4.TRS(p.position+Vector3.up*p.age*.65f,facing,Vector3.one*size);
+                if(p.age>.82f){p.live=false;numbers[i]=p;continue;}
+                float size=(p.heavy?.60f:.48f)*Mathf.Min(1,(.82f-p.age)*7);
+                Matrix4x4 m=Matrix4x4.TRS(p.position+Vector3.up*p.age*.95f-camera.transform.forward*.13f,facing,Vector3.one*size);
                 if(p.heavy)bigNumbers[big++]=m;else smallNumbers[small++]=m;
                 numbers[i]=p;
             }
-            Draw(smallNumber,flashMaterial,smallNumbers,small);
-            Draw(bigNumber,flashMaterial,bigNumbers,big);
+            Draw(smallNumber,numberMaterial,smallNumbers,small);
+            Draw(bigNumber,numberMaterial,bigNumbers,big);
         }
 
         void Draw(Mesh mesh,Material material,Matrix4x4[] matrices,int count)
@@ -207,21 +217,59 @@ namespace Mgf.HyeopgokSasu
 
         static Mesh MakeStar()
         {
-            Vector3[] vertices=new Vector3[17];
-            Color[] colors=new Color[17];
-            int[] triangles=new int[96];
+            // Four broad white points plus six blue radial rays, one additive draw.
+            Vector3[] vertices=new Vector3[42];Color[] colors=new Color[42];int[] triangles=new int[84];
             colors[0]=Color.white;
-            for(int i=0;i<16;i++)
-            {
-                float a=i*Mathf.PI/8;
-                float r=i%2==1 ? .10f : i%4==0 ? .74f : .24f;
+            for(int i=0;i<8;i++){
+                float a=i*Mathf.PI*.25f,r=i%2==0?.64f:.08f;
                 vertices[i+1]=new Vector3(Mathf.Sin(a)*r,Mathf.Cos(a)*r,0);
-                colors[i+1]=i%2==0 ? new Color(.56f,.84f,1,.02f) : new Color(1,1,1,.6f);
-                int j=(i+1)%16+1, k=i*6;
-                triangles[k]=0;triangles[k+1]=i+1;triangles[k+2]=j;
-                triangles[k+3]=0;triangles[k+4]=j;triangles[k+5]=i+1;
+                colors[i+1]=i%2==0?new Color(.20f,.68f,1,.72f):new Color(1,1,1,1);
+                triangles[i*3]=0;triangles[i*3+1]=i+1;triangles[i*3+2]=(i+1)%8+1;
             }
-            return CreateMesh("충돌 별 섬광",vertices,colors,triangles);
+            for(int i=0;i<6;i++){
+                float a=i*Mathf.PI/3+.22f;Vector3 d=new Vector3(Mathf.Cos(a),Mathf.Sin(a),0),r=new Vector3(-d.y,d.x,0);
+                int v=9+i*4,t=24+i*6;float length=i%2==0?1.12f:.89f;
+                vertices[v]=d*.23f-r*.047f;vertices[v+1]=d*.23f+r*.047f;
+                vertices[v+2]=d*length+r*.004f;vertices[v+3]=d*length-r*.004f;
+                colors[v]=colors[v+1]=new Color(.25f,.78f,1,.95f);colors[v+2]=colors[v+3]=new Color(.08f,.44f,1,0);
+                triangles[t]=v;triangles[t+1]=v+1;triangles[t+2]=v+2;triangles[t+3]=v;triangles[t+4]=v+2;triangles[t+5]=v+3;
+            }
+            // Soft cyan halo is part of the same instanced mesh; no bloom pass.
+            colors[33]=new Color(.08f,.48f,1,.65f);
+            for(int i=0;i<8;i++){
+                float a=i*Mathf.PI*.25f;vertices[34+i]=new Vector3(Mathf.Cos(a)*.38f,Mathf.Sin(a)*.38f,0);colors[34+i]=new Color(.04f,.36f,1,0);
+                int t=60+i*3;triangles[t]=33;triangles[t+1]=34+i;triangles[t+2]=34+(i+1)%8;
+            }
+            return CreateMesh("Four-point white star and six sky rays",vertices,colors,triangles);
+        }
+
+        static Texture2D MakeNumberAtlas()
+        {
+            // Hand-authored five-by-seven bitmap glyphs; baked once at startup.
+            // No text objects, dynamic font rebuilds or per-frame allocations.
+            const int width=128,height=32;bool[] ink=new bool[width*height];
+            string[] glyphs={"00000000000000011111000000000000000","00100011000010000100001000010001110","11111100001000011110000010000111110"};
+            int[][] words={new[]{0,2},new[]{0,1,2}};
+            for(int word=0;word<2;word++)for(int g=0;g<words[word].Length;g++){
+                int start=word*64+(64-words[word].Length*18+3)/2+g*18;string glyph=glyphs[words[word][g]];
+                for(int y=0;y<7;y++)for(int x=0;x<5;x++)if(glyph[y*5+x]=='1')
+                    for(int yy=0;yy<3;yy++)for(int xx=0;xx<3;xx++)ink[(5+(6-y)*3+yy)*width+start+x*3+xx]=true;
+            }
+            Color[] pixels=new Color[width*height];
+            for(int y=1;y<height-1;y++)for(int x=1;x<width-1;x++){
+                int k=y*width+x;if(ink[k])pixels[k]=Color.white;
+                else if(ink[k-1]||ink[k+1]||ink[k-width]||ink[k+width]||ink[k-width-1]||ink[k-width+1]||ink[k+width-1]||ink[k+width+1])pixels[k]=new Color(.045f,.12f,.16f,1);
+            }
+            Texture2D texture=new Texture2D(width,height,TextureFormat.RGBA32,false){name="Combat damage bitmap atlas",filterMode=FilterMode.Point,wrapMode=TextureWrapMode.Clamp};
+            texture.SetPixels(pixels);texture.Apply(false,true);return texture;
+        }
+
+        static Mesh MakeNumberQuad(bool heavy)
+        {
+            Mesh mesh=new Mesh{name=heavy?"Damage -15 bitmap quad":"Damage -5 bitmap quad",
+                vertices=new[]{new Vector3(-1,-.5f,0),new Vector3(1,-.5f,0),new Vector3(1,.5f,0),new Vector3(-1,.5f,0)},
+                uv=new[]{new Vector2(heavy?.5f:0,0),new Vector2(heavy?1:.5f,0),new Vector2(heavy?1:.5f,1),new Vector2(heavy?.5f:0,1)},
+                triangles=new[]{0,2,1,0,3,2}};mesh.RecalculateBounds();return mesh;
         }
 
         static Mesh MakeCloud()
@@ -250,29 +298,31 @@ namespace Mgf.HyeopgokSasu
 
         internal static Mesh MakeCoin()
         {
-            Vector3[] vertices=new Vector3[32*3];
-            Color[] colors=new Color[vertices.Length];
-            int[] triangles=new int[vertices.Length];
-            int n=0;
-            for(int i=0;i<8;i++)
-            {
-                float a=i*Mathf.PI*.25f,b=(i+1)*Mathf.PI*.25f;
-                Vector3 p=new Vector3(Mathf.Cos(a)*.5f,Mathf.Sin(a)*.5f,.10f);
-                Vector3 q=new Vector3(Mathf.Cos(b)*.5f,Mathf.Sin(b)*.5f,.10f);
-                Vector3 r=new Vector3(p.x,p.y,-.10f),s=new Vector3(q.x,q.y,-.10f);
-                Face(vertices,colors,triangles,ref n,new Vector3(0,0,.10f),p,q,false);
-                Face(vertices,colors,triangles,ref n,new Vector3(0,0,-.10f),s,r,false);
-                Face(vertices,colors,triangles,ref n,p,r,q,true);
-                Face(vertices,colors,triangles,ref n,q,r,s,true);
+            // Broad flat minted face, pale bevel and orange-gold rim. Coins are
+            // opaque discs, not orange point particles or a solid backpack tube.
+            Vector3[] vertices=new Vector3[216];Color[] colors=new Color[216];int[] triangles=new int[216];int n=0;
+            Color face=MgfLook.Hex("#F2B705"),rim=MgfLook.Hex("#DD9A1E"),bevel=MgfLook.Hex("#FFE58C");face.a=rim.a=bevel.a=0;
+            for(int i=0;i<12;i++){
+                float a=i*Mathf.PI/6,b=(i+1)*Mathf.PI/6;
+                Vector3 p=new Vector3(Mathf.Cos(a)*.43f,Mathf.Sin(a)*.43f,.075f),q=new Vector3(Mathf.Cos(b)*.43f,Mathf.Sin(b)*.43f,.075f);
+                Vector3 r=new Vector3(Mathf.Cos(a)*.5f,Mathf.Sin(a)*.5f,.040f),t=new Vector3(Mathf.Cos(b)*.5f,Mathf.Sin(b)*.5f,.040f);
+                Vector3 u=new Vector3(r.x,r.y,-.06f),v=new Vector3(t.x,t.y,-.06f);
+                CoinFace(vertices,colors,triangles,ref n,new Vector3(0,0,.075f),p,q,face);
+                CoinFace(vertices,colors,triangles,ref n,new Vector3(0,0,-.06f),v,u,rim);
+                CoinFace(vertices,colors,triangles,ref n,p,r,q,bevel);CoinFace(vertices,colors,triangles,ref n,q,r,t,bevel);
+                CoinFace(vertices,colors,triangles,ref n,r,u,t,rim);CoinFace(vertices,colors,triangles,ref n,t,u,v,rim);
             }
-            return CreateMesh("회전하는 금화",vertices,colors,triangles);
+            return CreateMesh("Minted gold disc",vertices,colors,triangles);
+        }
+        static void CoinFace(Vector3[] vertices,Color[] colors,int[] triangles,ref int n,Vector3 a,Vector3 b,Vector3 c,Color color){
+            vertices[n]=a;colors[n]=color;triangles[n]=n;n++;vertices[n]=b;colors[n]=color;triangles[n]=n;n++;vertices[n]=c;colors[n]=color;triangles[n]=n;n++;
         }
 
         static Mesh MakeFleck()
         {
             Vector3[] vertices={Vector3.up*.5f,Vector3.down*.5f,Vector3.left*.5f,Vector3.right*.5f,Vector3.forward*.5f,Vector3.back*.5f};
             Color[] colors=new Color[6];
-            for(int i=0;i<6;i++)colors[i]=new Color(1,1,1,0);
+            for(int i=0;i<6;i++)colors[i]=new Color(1,.80f,.22f,0);
             return CreateMesh("금빛 충돌 파편",vertices,colors,new[]{0,4,3,0,3,5,0,5,2,0,2,4,1,3,4,1,5,3,1,2,5,1,4,2});
         }
 
@@ -302,7 +352,7 @@ namespace Mgf.HyeopgokSasu
         {
             Object.Destroy(cloud);Object.Destroy(coin);Object.Destroy(fleck);Object.Destroy(star);
             Object.Destroy(smokeMaterial);Object.Destroy(coinMaterial);Object.Destroy(flashMaterial);Object.Destroy(starMaterial);
-            Object.Destroy(fireMaterial);Object.Destroy(darkMaterial);Object.Destroy(smallNumber);Object.Destroy(bigNumber);
+            Object.Destroy(fireMaterial);Object.Destroy(darkMaterial);Object.Destroy(smallNumber);Object.Destroy(bigNumber);Object.Destroy(numberMaterial);Object.Destroy(numberAtlas);
         }
     }
 }

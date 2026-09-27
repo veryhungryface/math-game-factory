@@ -15,12 +15,12 @@ namespace Mgf.HyeopgokSasu
             Shader.SetGlobalColor("_HyeopgokNightTint",Color.white);
             var sun=MgfLook.Sun(new Vector3(50,-38,0),MgfLook.Hex("#fff3de"),1.03f,.62f);environmentSun=sun;
             sun.shadowBias=.025f;sun.shadowNormalBias=.085f;
-            sun.shadows=LightShadows.Soft;sun.shadowResolution=UnityEngine.Rendering.LightShadowResolution.High;
-            QualitySettings.shadowDistance=65;
+            sun.shadows=LightShadows.Soft;sun.shadowCustomResolution=1024;
+            QualitySettings.shadowCascades=0;QualitySettings.shadowDistance=52;
             RenderSettings.ambientMode=UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor=MgfLook.Hex("#bfe6e0");RenderSettings.ambientEquatorColor=MgfLook.Hex("#6ea998");RenderSettings.ambientGroundColor=MgfLook.Hex("#3e7f66");
             RenderSettings.ambientIntensity=.78f;
-            RenderSettings.fog=true;RenderSettings.fogColor=MgfLook.Hex("#75bca8");RenderSettings.fogMode=FogMode.Linear;RenderSettings.fogStartDistance=48;RenderSettings.fogEndDistance=100;
+            RenderSettings.fog=true;RenderSettings.fogColor=MgfLook.Hex("#bfe6e0");RenderSettings.fogMode=FogMode.Linear;RenderSettings.fogStartDistance=64;RenderSettings.fogEndDistance=110;
             Vector3 cameraFocus=new Vector3(.5f,0,2.4f);
             cam=MgfLook.Camera(cameraFocus+Quaternion.Euler(55,-8,0)*Vector3.back*46.5f,cameraFocus,32);cam.orthographic=false;cam.nearClipPlane=.2f;cam.farClipPlane=160;
             cam.transform.rotation=Quaternion.Euler(55,-8,0);
@@ -31,8 +31,11 @@ namespace Mgf.HyeopgokSasu
             BuildEnvironment();
             SpawnModel("enemy_gate",new Vector3(3.1f,.25f,9.0f),.93f).transform.Rotate(0,180,0);
             SpawnModel("enemy_gate",new Vector3(5.35f,.25f,9.0f),.93f).transform.Rotate(0,180,0);
-            king=SpawnModel("king",HyeopgokRules.Pads[2]+Vector3.back*2,1.15f).transform;king.rotation=Quaternion.Euler(0,180,0);
+            king=SpawnModel("king",HyeopgokRules.Pads[2]+Vector3.back*2,1.25f).transform;king.rotation=Quaternion.Euler(0,180,0);
             king.SetParent(null,true);
+            var heroMat=new Material(worldMat);heroMat.SetFloat("_Rim",.24f);
+            foreach(var renderer in king.GetComponentsInChildren<Renderer>())renderer.sharedMaterial=heroMat;
+            BuildKingRing();
             // Forests are authored in asymmetrical groups, then merged once.
             var rng=new System.Random(20260926);
             PlantSandstoneRim();

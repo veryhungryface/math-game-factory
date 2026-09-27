@@ -11,7 +11,7 @@ namespace Mgf.HyeopgokSasu
 {
     public partial class HyeopgokGame
     {
-        Sprite roundSprite;TMP_FontAsset roundFont;Material roundFontMaterial,roundBodyMaterial;
+        Sprite roundSprite;TMP_FontAsset roundFont;Material roundFontMaterial,roundBodyMaterial,mathFontMaterial;Sprite holdHandSprite;
         Sprite RoundSprite {
             get {
                 if(roundSprite)return roundSprite;
@@ -50,10 +50,68 @@ namespace Mgf.HyeopgokSasu
         Material RoundBodyMaterial {
             get {
                 if(roundBodyMaterial)return roundBodyMaterial;
-                roundBodyMaterial=new Material(RoundFont.material);roundBodyMaterial.name="Hyeopgok clear body text";
+                roundBodyMaterial=new Material(MgfText.Font.material);roundBodyMaterial.name="Hyeopgok clear body text";
                 roundBodyMaterial.SetFloat(ShaderUtilities.ID_OutlineWidth,0f);roundBodyMaterial.SetFloat(ShaderUtilities.ID_FaceDilate,0f);
                 return roundBodyMaterial;
             }
+        }
+        Material MathFontMaterial {
+            get {
+                if(mathFontMaterial)return mathFontMaterial;
+                MgfText.Font.TryAddCharacters("∠△°²∥⊥∽≡×÷①②③★→−");
+                mathFontMaterial=new Material(MgfText.Font.material);mathFontMaterial.name="Math-safe warm outline";
+                mathFontMaterial.SetColor(ShaderUtilities.ID_OutlineColor,MgfLook.Hex("#253b36"));mathFontMaterial.SetFloat(ShaderUtilities.ID_OutlineWidth,.12f);
+                return mathFontMaterial;
+            }
+        }
+        TextMeshProUGUI DisplayText(string content,Transform parent,Vector2 anchor,Vector2 offset,Vector2 size,float font,Color color){
+            var text=Text(content,parent,anchor,offset,size,font,color);text.font=RoundFont;text.fontSharedMaterial=RoundFontMaterial;return text;
+        }
+        RectTransform Parchment(string name,Transform parent,Vector2 anchor,Vector2 offset,Vector2 size){
+            var rim=Box(name,parent,anchor,offset,size,MgfLook.Hex("#5a3a1e"));var face=Box(name+" cream",rim,new Vector2(.5f,.5f),Vector2.zero,size-new Vector2(5,5),MgfLook.Hex("#f6e7c8"));
+            face.anchorMin=Vector2.zero;face.anchorMax=Vector2.one;face.offsetMin=new Vector2(2.5f,2.5f);face.offsetMax=new Vector2(-2.5f,-2.5f);return rim;
+        }
+        RectTransform RoyalPanel(string name,Transform parent,Vector2 anchor,Vector2 offset,Vector2 size){
+            var rim=Box(name,parent,anchor,offset,size,MgfLook.Hex("#18333f"));
+            var blue=Box("Royal blue rail",rim,new Vector2(.5f,.5f),Vector2.zero,size-new Vector2(7,7),MgfLook.Hex("#0c73d5"));
+            var face=Box("Parchment center",rim,new Vector2(.5f,.5f),Vector2.zero,size-new Vector2(19,19),MgfLook.Hex("#f6e7c8"));return rim;
+        }
+        void BuildHourglass(Transform parent){
+            var h=Group("Hourglass",parent);h.anchorMin=h.anchorMax=new Vector2(.5f,.5f);h.anchoredPosition=new Vector2(-13,0);h.sizeDelta=new Vector2(14,23);
+            Box("Hourglass upper rim",h,new Vector2(.5f,.5f),new Vector2(0,10),new Vector2(14,3),MgfLook.Hex("#704b28"));
+            Box("Hourglass lower rim",h,new Vector2(.5f,.5f),new Vector2(0,-10),new Vector2(14,3),MgfLook.Hex("#704b28"));
+            var a=Box("Hourglass glass A",h,new Vector2(.5f,.5f),Vector2.zero,new Vector2(3,22),MgfLook.Hex("#f8f0d2"));a.localRotation=Quaternion.Euler(0,0,27);
+            var b=Box("Hourglass glass B",h,new Vector2(.5f,.5f),Vector2.zero,new Vector2(3,22),MgfLook.Hex("#f8f0d2"));b.localRotation=Quaternion.Euler(0,0,-27);
+            Box("Hourglass sand",h,new Vector2(.5f,.5f),new Vector2(0,-6),new Vector2(7,4),MgfLook.Hex("#b37724"));
+        }
+        Sprite HoldHandSprite {
+            get {
+                if(holdHandSprite)return holdHandSprite;
+                const int w=64,h=80;var tex=new Texture2D(w,h,TextureFormat.RGBA32,false);var pixels=new Color32[w*h];
+                var points=new Vector2[]{new Vector2(18,5),new Vector2(43,5),new Vector2(45,17),new Vector2(54,31),new Vector2(54,45),new Vector2(49,51),new Vector2(42,50),new Vector2(36,56),new Vector2(30,54),new Vector2(30,71),new Vector2(26,76),new Vector2(20,76),new Vector2(16,71),new Vector2(16,40),new Vector2(10,45),new Vector2(4,42),new Vector2(3,35),new Vector2(17,17)};
+                for(int y=0;y<h;y++)for(int x=0;x<w;x++){
+                    bool inside=false;float nearest=999;Vector2 pt=new Vector2(x+.5f,y+.5f);
+                    for(int i=0,j=points.Length-1;i<points.Length;j=i++){
+                        Vector2 a=points[i],b=points[j],d=b-a;float t=Mathf.Clamp01(Vector2.Dot(pt-a,d)/d.sqrMagnitude);nearest=Mathf.Min(nearest,(pt-(a+d*t)).magnitude);
+                        if((a.y>pt.y)!=(b.y>pt.y)&&pt.x<(b.x-a.x)*(pt.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+                    }
+                    pixels[y*w+x]=inside?(nearest<3?new Color32(30,61,65,245):new Color32(255,255,244,235)):new Color32(0,0,0,0);
+                }
+                tex.SetPixels32(pixels);tex.Apply(false,true);holdHandSprite=Sprite.Create(tex,new Rect(0,0,w,h),new Vector2(.5f,.5f),100);return holdHandSprite;
+            }
+        }
+        Transform BuildTutorialArrow(){
+            var go=new GameObject("Next pad emerald 3D arrow",typeof(MeshFilter),typeof(MeshRenderer));
+            Vector2[] profile={new Vector2(-.17f,.57f),new Vector2(.17f,.57f),new Vector2(.17f,0),new Vector2(.40f,0),new Vector2(0,-.5f),new Vector2(-.40f,0),new Vector2(-.17f,0)};
+            var vertices=new Vector3[14];var colors=new Color[14];
+            for(int i=0;i<7;i++){vertices[i]=new Vector3(profile[i].x,profile[i].y,-.08f);vertices[i+7]=new Vector3(profile[i].x,profile[i].y,.08f);colors[i]=MgfLook.Hex("#7aff29");colors[i+7]=MgfLook.Hex("#199444");}
+            var triangles=new List<int>{0,1,2,0,2,6,3,4,5,10,12,11,7,9,8,7,13,9};
+            for(int i=0;i<7;i++){int j=(i+1)%7;triangles.Add(i);triangles.Add(j+7);triangles.Add(j);triangles.Add(i);triangles.Add(i+7);triangles.Add(j+7);}
+            var mesh=new Mesh{name="Extruded tutorial arrow"};mesh.vertices=vertices;mesh.colors=colors;mesh.SetTriangles(triangles,0);mesh.RecalculateNormals();go.GetComponent<MeshFilter>().sharedMesh=mesh;go.GetComponent<MeshRenderer>().sharedMaterial=worldMat;go.SetActive(false);return go.transform;
+        }
+        void AnimateRewardCoins(){
+            float age=Time.unscaledTime-resultStarted;
+            for(int i=0;i<resultCoins.Length;i++){float t=Mathf.Repeat(age*.24f+i*.0833f,1);resultCoins[i].anchoredPosition=new Vector2(Mathf.Sin(i*2.4f)*205,430-t*875);resultCoins[i].localRotation=Quaternion.Euler(0,0,age*(35+i*7));}
         }
         RectTransform Pill(string name,Transform parent,Vector2 anchor,Vector2 offset,Vector2 size,Color color){
             var rim=Box(name,parent,anchor,offset,size,MgfLook.Hex("#e8e8d9"));
@@ -82,41 +140,10 @@ namespace Mgf.HyeopgokSasu
         // Re-measure only when a caption or viewport changes. Positioning below
         // only uses cached RectTransform sizes and value types during animation.
         void LayoutPadName(int i){
-            if(padNames[i]==null||!padNamePills[i].gameObject.activeSelf)return;
-            float textWidth=(float)Screen.width/Mathf.Max(1,Screen.height)>1.2f?152:132;
-            var label=padNames[i];label.textWrappingMode=TextWrappingModes.Normal;
-            Vector2 preferred=label.GetPreferredValues(label.text,textWidth,float.PositiveInfinity);
-            float textHeight=Mathf.Max(19,preferred.y+4);
-            label.rectTransform.sizeDelta=new Vector2(textWidth,textHeight);
-            label.rectTransform.anchoredPosition=Vector2.zero;
-            padNamePills[i].sizeDelta=new Vector2(textWidth+14,Mathf.Max(31,textHeight+12));
-        }
-        void AvoidPadLabelOverlap(RectTransform canvas){
-            if(Rules.Current==null||Rules.Current.Mode=="choice"||Rules.PadCount<1)return;
-            const float edge=8;
-            float unitsPerPixel=Mathf.Max(1,844f/Mathf.Max(1,Screen.height));
-            float numberGap=12*unitsPerPixel,labelGap=6*unitsPerPixel;
-            float canvasHalfWidth=422f*Screen.width/Mathf.Max(1,Screen.height);
-            float scaleA=Mathf.Max(.01f,padLabelRoots[0].localScale.x);
-            Vector2 sizeA=padNamePills[0].sizeDelta*scaleA;
-            float numberTop=padScreenLocals[0].y+padLabels[0].Text.rectTransform.sizeDelta.y*.5f*scaleA;
-            float scaleB=1;Vector2 sizeB=Vector2.zero;
-            if(Rules.PadCount==2){
-                scaleB=Mathf.Max(.01f,padLabelRoots[1].localScale.x);sizeB=padNamePills[1].sizeDelta*scaleB;
-                numberTop=Mathf.Max(numberTop,padScreenLocals[1].y+padLabels[1].Text.rectTransform.sizeDelta.y*.5f*scaleB);
-            }
-            Vector2 a=new Vector2(padScreenLocals[0].x+(Rules.PadCount==2?-29*scaleA:0),numberTop+numberGap+sizeA.y*.5f);
-            a.x=Mathf.Clamp(a.x,-canvasHalfWidth+sizeA.x*.5f+edge,canvasHalfWidth-sizeA.x*.5f-edge);
-            if(Rules.PadCount==2){
-                Vector2 b=new Vector2(padScreenLocals[1].x+29*scaleB,numberTop+numberGap+sizeB.y*.5f);
-                b.x=Mathf.Clamp(b.x,-canvasHalfWidth+sizeB.x*.5f+edge,canvasHalfWidth-sizeB.x*.5f-edge);
-                // Both captions begin ABOVE both number plates. When horizontal
-                // space is short, raise the first caption; never push one down.
-                if(Mathf.Abs(a.x-b.x)<(sizeA.x+sizeB.x)*.5f+labelGap)
-                    a.y=b.y+(sizeA.y+sizeB.y)*.5f+labelGap;
-                padNamePills[1].anchoredPosition=(b-padScreenLocals[1])/scaleB;
-            }
-            padNamePills[0].anchoredPosition=(a-padScreenLocals[0])/scaleA;
+            if(padNames[i]==null)return;
+            var label=padNames[i];label.textWrappingMode=TextWrappingModes.Normal;label.overflowMode=TextOverflowModes.Overflow;
+            label.fontSize=30;label.lineSpacing=0;label.rectTransform.sizeDelta=new Vector2(165,96);label.rectTransform.anchoredPosition=Vector2.zero;
+            label.text="<line-height=85%>"+basePadNames[i]+"</line-height>";
         }
 
         [System.Serializable] sealed class PackHeader {public string pack_id,title,school,unit_id;public int grade,semester,unit_order;}
@@ -137,8 +164,8 @@ namespace Mgf.HyeopgokSasu
         void BuildTitleUi(){
             titleLogo=Group("Title standard",titleRoot);titleLogo.anchorMin=titleLogo.anchorMax=new Vector2(.5f,.86f);titleLogo.sizeDelta=new Vector2(380,130);
             BuildCrest(titleLogo,new Vector2(.5f,.5f),new Vector2(0,63),.7f);
-            var titleShadow=Text("협곡 사수",titleLogo,new Vector2(.5f,.5f),new Vector2(2,-5),new Vector2(370,92),63,navy);titleShadow.characterSpacing=-3;
-            var title=Text("협곡 사수",titleLogo,new Vector2(.5f,.5f),new Vector2(0,-1),new Vector2(370,92),63,cream);title.characterSpacing=-3;
+            var titleShadow=DisplayText("협곡 사수",titleLogo,new Vector2(.5f,.5f),new Vector2(2,-5),new Vector2(370,92),63,navy);titleShadow.characterSpacing=-3;
+            var title=DisplayText("협곡 사수",titleLogo,new Vector2(.5f,.5f),new Vector2(0,-1),new Vector2(370,92),63,cream);title.characterSpacing=-3;
             titleSubline=Text("코인을 모아 · 답만큼 붓고 · 성문을 지켜라",titleLogo,new Vector2(.5f,.5f),new Vector2(0,-58),new Vector2(372,38),17,cream);
             titlePackBanner=Pill("Selected unit banner",titleRoot,new Vector2(.5f,.265f),Vector2.zero,new Vector2(342,99),navy);
             titleInfo=Text("문제 팩을 불러오는 중…",titlePackBanner,new Vector2(.5f,.5f),new Vector2(0,12),new Vector2(320,62),25,gold);
@@ -152,32 +179,33 @@ namespace Mgf.HyeopgokSasu
         }
         void BuildPackBrowser(){
             packBrowser=Group("Unit collection",titleRoot);
-            Box("Collection scrim",packBrowser,new Vector2(.5f,.5f),Vector2.zero,new Vector2(4000,1800),new Color(.025f,.08f,.1f,.72f));
-            packWindow=Pill("Collection window",packBrowser,new Vector2(.5f,.5f),Vector2.zero,new Vector2(370,594),navy);
-            Text("원정 단원 선택",packWindow,new Vector2(.5f,1),new Vector2(-10,-39),new Vector2(310,54),30,gold);
+            Box("Collection scrim",packBrowser,new Vector2(.5f,.5f),Vector2.zero,new Vector2(4000,1800),new Color(.025f,.08f,.1f,.40f));
+            packWindow=RoyalPanel("Collection window",packBrowser,new Vector2(.5f,.5f),Vector2.zero,new Vector2(370,594));
+            Box("Collection gold ribbon",packWindow,new Vector2(.5f,1),new Vector2(0,-35),new Vector2(379,59),gold);
+            DisplayText("원정 단원 선택",packWindow,new Vector2(.5f,1),new Vector2(-10,-39),new Vector2(310,54),30,MgfLook.Hex("#49301c"));
             packClose=Pill("Close collection",packWindow,new Vector2(1,1),new Vector2(-28,-29),new Vector2(40,40),MgfLook.Hex("#8b4d39"));Text("×",packClose,new Vector2(.5f,.5f),Vector2.zero,new Vector2(36,38),26,cream);
             for(int i=0;i<3;i++){
-                schoolTabs[i]=Pill("School tab "+i,packWindow,new Vector2(.5f,1),new Vector2((i-1)*112,-95),new Vector2(105,42),MgfLook.Hex("#365564"));
+                schoolTabs[i]=Pill("School tab "+i,packWindow,new Vector2(.5f,1),new Vector2((i-1)*112,-95),new Vector2(105,42),MgfLook.Hex("#1972a8"));
                 schoolTabText[i]=Text(schoolLabels[i],schoolTabs[i],new Vector2(.5f,.5f),Vector2.zero,new Vector2(99,38),18,cream);
             }
             for(int i=0;i<6;i++){
-                gradeTabs[i]=Pill("Grade tab "+(i+1),packWindow,new Vector2(.5f,1),new Vector2((i-2.5f)*54,-148),new Vector2(49,42),MgfLook.Hex("#284651"));
+                gradeTabs[i]=Pill("Grade tab "+(i+1),packWindow,new Vector2(.5f,1),new Vector2((i-2.5f)*54,-148),new Vector2(49,42),MgfLook.Hex("#237db0"));
                 gradeTabText[i]=Text((i+1)+"학년",gradeTabs[i],new Vector2(.5f,.5f),Vector2.zero,new Vector2(47,37),14,cream);
             }
-            packCount=Text("단원 목록을 읽는 중",packWindow,new Vector2(.5f,1),new Vector2(0,-185),new Vector2(326,27),14,cream);
+            packCount=Text("단원 목록을 읽는 중",packWindow,new Vector2(.5f,1),new Vector2(0,-185),new Vector2(326,27),14,MgfLook.Hex("#5a3a1e"));
             packViewport=Group("Scrollable unit cards",packWindow);packViewport.anchorMin=packViewport.anchorMax=new Vector2(.5f,.5f);packViewport.anchoredPosition=new Vector2(-3,-81);packViewport.sizeDelta=new Vector2(337,336);packViewport.gameObject.AddComponent<RectMask2D>();
             for(int i=0;i<packCards.Length;i++){
-                var card=new PackCard();card.root=Pill("Unit card "+i,packViewport,new Vector2(.5f,1),Vector2.zero,new Vector2(328,84),MgfLook.Hex("#416372"));
+                var card=new PackCard();card.root=Pill("Unit card "+i,packViewport,new Vector2(.5f,1),Vector2.zero,new Vector2(328,84),MgfLook.Hex("#e5d4ad"));
                 card.face=card.root.GetChild(0).GetComponent<Image>();
                 var seal=Box("Unit seal",card.root,new Vector2(0,.5f),new Vector2(33,0),new Vector2(44,52),MgfLook.Hex("#173d52"));
                 card.number=Text("01",seal,new Vector2(.5f,.5f),Vector2.zero,new Vector2(42,43),25,gold);
-                card.title=Text("",card.root,new Vector2(.5f,.5f),new Vector2(28,13),new Vector2(228,40),22,cream);card.title.alignment=TextAlignmentOptions.MidlineLeft;card.title.overflowMode=TextOverflowModes.Ellipsis;card.title.textWrappingMode=TextWrappingModes.NoWrap;
-                card.meta=Text("",card.root,new Vector2(.5f,.5f),new Vector2(28,-22),new Vector2(228,27),14,cream);card.meta.alignment=TextAlignmentOptions.MidlineLeft;
+                card.title=Text("",card.root,new Vector2(.5f,.5f),new Vector2(28,13),new Vector2(228,40),22,MgfLook.Hex("#49301c"));card.title.fontSharedMaterial=RoundBodyMaterial;card.title.alignment=TextAlignmentOptions.MidlineLeft;card.title.overflowMode=TextOverflowModes.Ellipsis;card.title.textWrappingMode=TextWrappingModes.NoWrap;
+                card.meta=Text("",card.root,new Vector2(.5f,.5f),new Vector2(28,-22),new Vector2(228,27),14,MgfLook.Hex("#6d5835"));card.meta.fontSharedMaterial=RoundBodyMaterial;card.meta.alignment=TextAlignmentOptions.MidlineLeft;
                 packCards[i]=card;
             }
-            packEmpty=Text("이 학년의 단원을 준비하고 있어요",packViewport,new Vector2(.5f,.6f),Vector2.zero,new Vector2(300,70),20,cream);
+            packEmpty=Text("이 학년의 단원을 준비하고 있어요",packViewport,new Vector2(.5f,.6f),Vector2.zero,new Vector2(300,70),20,MgfLook.Hex("#49301c"));
             packScrollThumb=Box("Collection scroll thumb",packWindow,new Vector2(1,1),new Vector2(-12,-257),new Vector2(4,50),gold);
-            Text("단원을 눌러 선택 · 위아래로 밀어 탐색",packWindow,new Vector2(.5f,0),new Vector2(0,23),new Vector2(330,28),14,cream);
+            Text("단원을 눌러 선택 · 위아래로 밀어 탐색",packWindow,new Vector2(.5f,0),new Vector2(0,23),new Vector2(330,28),14,MgfLook.Hex("#5a3a1e"));
             packBrowser.gameObject.SetActive(false);
         }
         void LayoutTitleUi(float canvasWidth,bool wide){
@@ -231,7 +259,7 @@ namespace Mgf.HyeopgokSasu
                 cardSelectedMeta[i]=cardMeta[i]+" · 선택됨";cardNumbers[i]=entry.unit_order.ToString("00");
                 // Titles of later rows must not trigger SDF glyph generation
                 // while the user scrolls into a newly recycled card.
-                if(!string.IsNullOrEmpty(entry.title))RoundFont.TryAddCharacters(entry.title);
+                if(!string.IsNullOrEmpty(entry.title))MgfText.Font.TryAddCharacters(entry.title);
             }
         }
         bool HitPackControl(RectTransform control){
@@ -249,9 +277,9 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<index.packs.Length;i++){var e=index.packs[i];if(e.school==selectedSchool&&e.grade==selectedGrade)filteredPacks.Add(i);}
             filteredPacks.Sort((a,b)=>{var x=index.packs[a];var y=index.packs[b];int s=x.semester.CompareTo(y.semester);return s!=0?s:x.unit_order.CompareTo(y.unit_order);});
             packCount.text=(selectedSchool=="elementary"?"초등":selectedSchool=="high"?"고등":"중등")+" "+selectedGrade+"학년 · "+filteredPacks.Count+"개 단원";
-            for(int i=0;i<schoolTabs.Length;i++){schoolTabs[i].GetChild(0).GetComponent<Image>().color=schools[i]==selectedSchool?MgfLook.Hex("#B97926"):MgfLook.Hex("#365564");}
+            for(int i=0;i<schoolTabs.Length;i++){schoolTabs[i].GetChild(0).GetComponent<Image>().color=schools[i]==selectedSchool?MgfLook.Hex("#B97926"):MgfLook.Hex("#1972a8");}
             for(int i=0;i<gradeTabs.Length;i++){
-                bool show=selectedSchool=="elementary"||i<3;gradeTabs[i].gameObject.SetActive(show);if(show){gradeTabs[i].anchoredPosition=new Vector2((i-(selectedSchool=="elementary"?2.5f:1f))*(selectedSchool=="elementary"?54:108),-148);gradeTabs[i].GetChild(0).GetComponent<Image>().color=i+1==selectedGrade?MgfLook.Hex("#B97926"):MgfLook.Hex("#284651");}
+                bool show=selectedSchool=="elementary"||i<3;gradeTabs[i].gameObject.SetActive(show);if(show){gradeTabs[i].anchoredPosition=new Vector2((i-(selectedSchool=="elementary"?2.5f:1f))*(selectedSchool=="elementary"?54:108),-148);gradeTabs[i].GetChild(0).GetComponent<Image>().color=i+1==selectedGrade?MgfLook.Hex("#B97926"):MgfLook.Hex("#237db0");}
             }
             packScroll=Mathf.Clamp(packScroll,0,Mathf.Max(0,filteredPacks.Count*94-336));renderedFirst=-1;RenderPackCards();
         }
@@ -260,7 +288,7 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<packCards.Length;i++){
                 int row=first+i;var c=packCards[i];bool visible=row<filteredPacks.Count;c.root.gameObject.SetActive(visible);if(!visible)continue;
                 int at=filteredPacks[row];var e=index.packs[at];c.root.anchoredPosition=new Vector2(0,-44-(row*94-packScroll));
-                if(changed||c.packIndex!=at){c.packIndex=at;c.title.text=e.title;c.meta.text=at==packAt?cardSelectedMeta[at]:cardMeta[at];c.number.text=cardNumbers[at];c.face.color=at==packAt?MgfLook.Hex("#186E87"):MgfLook.Hex("#416372");}
+                if(changed||c.packIndex!=at){c.packIndex=at;c.title.text=e.title;c.meta.text=at==packAt?cardSelectedMeta[at]:cardMeta[at];c.number.text=cardNumbers[at];c.face.color=at==packAt?MgfLook.Hex("#97c8ca"):MgfLook.Hex("#e5d4ad");}
             }
             packEmpty.gameObject.SetActive(filteredPacks.Count==0);
             float total=Mathf.Max(336,filteredPacks.Count*94);packScrollThumb.gameObject.SetActive(total>336);packScrollThumb.sizeDelta=new Vector2(4,Mathf.Max(28,336*336/total));packScrollThumb.anchoredPosition=new Vector2(-12,-213-packScrollThumb.sizeDelta.y*.5f-(336-packScrollThumb.sizeDelta.y)*(total<=336?0:packScroll/(total-336)));

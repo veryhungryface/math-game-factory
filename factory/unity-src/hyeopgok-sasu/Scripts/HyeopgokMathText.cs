@@ -14,21 +14,23 @@ namespace Mgf.HyeopgokSasu
         readonly List<RectTransform> boxes=new List<RectTransform>();
         readonly List<F> fractions=new List<F>();
         static readonly Regex token=new Regex(@"\{frac:(-?\d+)/(\d+)\}");
-        string lastContent;float lastFont=-1,lastWidth=-1,lastHeight=-1;Color lastColor;
-        public HyeopgokMathText(TextMeshProUGUI text){Text=text;}
+        string lastContent;float lastFont=-1,lastWidth=-1,lastHeight=-1,lastLineSpacing;Color lastColor;
+        int lastVisibleLines=-1;TextOverflowModes lastOverflow;TextWrappingModes lastWrapping;
+        public HyeopgokMathText(TextMeshProUGUI text){Text=text;Text.richText=true;}
         public void Set(string content)
         {
             content=content??"";float width=Text.rectTransform.rect.width,height=Text.rectTransform.rect.height;
-            if(content==lastContent&&Text.fontSize==lastFont&&width==lastWidth&&height==lastHeight&&Text.color==lastColor)return;
+            if(content==lastContent&&Text.fontSize==lastFont&&width==lastWidth&&height==lastHeight&&Text.color==lastColor&&Text.maxVisibleLines==lastVisibleLines&&Text.overflowMode==lastOverflow&&Text.textWrappingMode==lastWrapping&&Text.lineSpacing==lastLineSpacing)return;
             lastContent=content;lastFont=Text.fontSize;lastWidth=width;lastHeight=height;lastColor=Text.color;
+            lastVisibleLines=Text.maxVisibleLines;lastOverflow=Text.overflowMode;lastWrapping=Text.textWrappingMode;lastLineSpacing=Text.lineSpacing;
             foreach(var b in boxes)b.gameObject.SetActive(false);fractions.Clear();
             string result="";int end=0;
             foreach(Match m in token.Matches(content)){
                 result+=content.Substring(end,m.Index-end);
                 int raw=result.Length;string n=m.Groups[1].Value,d=m.Groups[2].Value;
                 string placeholder=new string('0',Mathf.Max(n.Length,d.Length)+1);
-                result+="<color=#00000000>"+placeholder+"</color>";
-                fractions.Add(new F{n=n,d=d,raw=raw+17,w=placeholder.Length});
+                result+="<nobr><color=#00000000>"+placeholder+"</color></nobr>";
+                fractions.Add(new F{n=n,d=d,raw=raw+23,w=placeholder.Length});
                 end=m.Index+m.Length;
             }
             result+=content.Substring(end);Text.text=result;
@@ -38,6 +40,9 @@ namespace Mgf.HyeopgokSasu
                 for(int j=0;j<Text.textInfo.characterCount;j++)if(Text.textInfo.characterInfo[j].index>=f.raw){ci=j;break;}
                 if(ci<0)continue;
                 var ch=Text.textInfo.characterInfo[ci];
+                // The parent can collapse to two lines. Fractions on hidden lines
+                // must disappear with it, including their separate bar/number quads.
+                if(ch.lineNumber>=Text.maxVisibleLines||!ch.isVisible)continue;
                 var last=Text.textInfo.characterInfo[Mathf.Min(ci+(int)f.w-1,Text.textInfo.characterCount-1)];
                 float w=last.xAdvance-ch.origin;
                 RectTransform box;

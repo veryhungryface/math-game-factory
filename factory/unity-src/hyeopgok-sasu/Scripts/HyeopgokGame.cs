@@ -299,7 +299,7 @@ namespace Mgf.HyeopgokSasu
             // Stable 55-degree/32-degree lens. The dead zone preserves pad targeting,
             // while a modest follow makes the settlement feel continuous offscreen.
             float aspect=(float)Screen.width/Screen.height;
-            Vector3 desired=new Vector3(.35f,0,1.25f);
+            Vector3 desired=new Vector3(.35f,0,aspect>1.2f?-1.05f:1.25f);
             if(playStarted && king){
                 Vector3 k=Rules.King;
                 float dx=k.x-desired.x,dz=k.z+1.5f;
@@ -312,11 +312,16 @@ namespace Mgf.HyeopgokSasu
             float framing=Mathf.Max(1,.46f/aspect);
             float reveal=Mathf.Sin((1-cameraReveal/.6f)*Mathf.PI)*.95f;
             if(cameraReveal<=0)reveal=0;
-            float distance=46.5f*framing+reveal+(playStarted?cameraLanding*.45f:.85f);
+            float landscape=Mathf.SmoothStep(0,1,Mathf.InverseLerp(.85f,1.35f,aspect));
+            float distance=Mathf.Lerp(46.5f,22.5f,landscape)*framing+reveal+(playStarted?cameraLanding*.45f:.85f);
             float shake=battle?battle.Shake:0;
             cam.fieldOfView=32;
-            cam.transform.rotation=Quaternion.Euler(55,-8,0);
+            cam.transform.rotation=Quaternion.Euler(Mathf.Lerp(55,52,landscape),Mathf.Lerp(-10,-18,landscape),0);
             cam.transform.position=cameraFocus+cam.transform.rotation*(Vector3.back*distance)+new Vector3(Mathf.Sin(Time.unscaledTime*97)*shake,Mathf.Cos(Time.unscaledTime*83)*shake,0);
+            // Distance fog starts beyond the playable plateau at either framing.
+            RenderSettings.fogStartDistance=distance+17.5f;RenderSettings.fogEndDistance=distance+62;
+            QualitySettings.shadowDistance=distance+10;
+            AnimateKingRing();
             if(lastWidth!=Screen.width||lastHeight!=Screen.height){lastWidth=Screen.width;lastHeight=Screen.height;LayoutUi();UpdatePadScreen();}
         }
         int lastWidth,lastHeight;

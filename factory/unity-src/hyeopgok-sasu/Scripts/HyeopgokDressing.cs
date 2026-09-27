@@ -4,6 +4,67 @@ namespace Mgf.HyeopgokSasu
 {
     public partial class HyeopgokGame
     {
+        static bool PadClearForDressing(float x,float z,float radius)
+        {
+            for(int i=0;i<HyeopgokRules.Pads.Length;i++){
+                Vector3 p=HyeopgokRules.Pads[i];float dx=x-p.x,dz=z-p.z;
+                if(dx*dx+dz*dz<radius*radius)return false;
+            }
+            return true;
+        }
+
+        void BuildVillagePathsAndYard()
+        {
+            // A connected loop gives the small learning courtyard an inhabited
+            // footprint. The ribbon sits below all pads and changes no collider.
+            Vector3[] knots={new Vector3(-.6f,1.205f,-3.1f),new Vector3(-1.8f,1.205f,-1),
+                new Vector3(-1.8f,1.205f,2),new Vector3(-.8f,1.205f,3.55f),
+                new Vector3(.6f,1.205f,2),new Vector3(.6f,1.205f,-1),
+                new Vector3(-.6f,1.205f,-3.1f)};
+            var paths=new DecorationMesh();
+            Color earth=Hex("#C8B59C").linear;earth.a=.82f;
+            Color rut=Hex("#E8D5B6").linear;rut.a=.08f;
+            var points=new Vector3[(knots.Length-1)*12+1];
+            for(int i=0;i<points.Length;i++){
+                float u=i/12f;int k=Mathf.Min(knots.Length-2,(int)u);float t=u-k;
+                Vector3 a=knots[k==0?knots.Length-2:k-1],b=knots[k],c=knots[k+1],d=knots[k+2>=knots.Length?1:k+2];
+                points[i]=.5f*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t*t+(-a+3*b-3*c+d)*t*t*t);
+            }
+            paths.CurvedFeatheredRibbon(points,.58f,.15f,earth,true);
+            var leftRut=new Vector3[points.Length];var rightRut=new Vector3[points.Length];
+            for(int i=0;i<points.Length;i++){
+                Vector3 a=points[i==0?points.Length-2:i-1],b=points[i>=points.Length-1?1:i+1];
+                Vector3 side=Vector3.Cross(Vector3.up,b-a).normalized;
+                leftRut[i]=points[i]+side*.14f+Vector3.up*.002f;
+                rightRut[i]=points[i]-side*.14f+Vector3.up*.002f;
+            }
+            paths.CurvedFeatheredRibbon(leftRut,.042f,.018f,rut,true);
+            paths.CurvedFeatheredRibbon(rightRut,.042f,.018f,rut,true);
+            // Feet and carts have worn the entry of each workshop, with soft edges.
+            Color apron=earth;apron.a=.20f;
+            paths.SoftDisc(new Vector3(-.50f,1.207f,-4.63f),1.42f,.55f,apron);
+            paths.SoftDisc(new Vector3(-1.05f,1.207f,5.17f),1.49f,.65f,apron);
+            CreateDecoration("Soft courtyard loop and two cart ruts",paths,Mgf.MgfLook.Alpha(Color.white),false);
+
+            var rails=new DecorationMesh();Color blue=Hex("#167DE0"),wood=Hex("#B78C50");
+            for(int side=0;side<2;side++){
+                float x=side==0?-5.65f:-3.03f;
+                for(int i=0;i<5;i++){
+                    float z=-.79f+i*.67f;
+                    if(side==1&&i<2)continue; // Barracks doorway remains open.
+                    rails.Box(new Vector3(x,.69f,z),new Vector3(.10f,.88f,.10f),wood);
+                    rails.Box(new Vector3(x,1.13f,z),new Vector3(.14f,.11f,.14f),blue);
+                    if(i<4){
+                        rails.Box(new Vector3(x,.92f,z+.335f),new Vector3(.08f,.09f,.70f),blue);
+                        rails.Box(new Vector3(x,.60f,z+.335f),new Vector3(.08f,.075f,.70f),wood);
+                    }
+                }
+            }
+            CreateDecoration("Barracks yard blue painted rails",rails,worldMat,true);
+            SpawnModel("torch",new Vector3(-5.28f,.25f,-.85f),.95f);
+            SpawnModel("torch",new Vector3(-3.07f,.25f,-.84f),.95f);
+        }
+
         // Art-only seeds never consume a rule, question or combat random number.
         // Every authored mesh below is merged once by CombineScenery, including
         // the small baked-AO grass/flower/pebble assets. Nothing is spawned in play.
@@ -27,8 +88,7 @@ namespace Mgf.HyeopgokSasu
                     float x=patches[cluster].x+Mathf.Sin(angle)*radius,z=patches[cluster].y+Mathf.Cos(angle)*radius;
                     bool plateau=InPolygon(PlateauOutline,x,z);
                     if(inner&&!plateau)continue;
-                    bool pad=false;
-                    for(int k=0;k<4;k++)if(Mathf.Abs(x-HyeopgokRules.Pads[k].x)<1.06f&&Mathf.Abs(z-HyeopgokRules.Pads[k].z)<1.07f){pad=true;break;}
+                    bool pad=!PadClearForDressing(x,z,1.20f);
                     if(pad||z>-11.9f&&z<-8.1f)continue;
                     float y=plateau?1.202f:SceneryGround(x,z)+.003f;
                     string id=i%8==0?"flowers":i%5==0?"pebbles":"grass_tuft";
@@ -71,7 +131,8 @@ namespace Mgf.HyeopgokSasu
                 new Vector4(7.28f,-1.52f,-2.04f,.34f),new Vector4(7.93f,-1.52f,-1.65f,.57f)
             };
             for(int i=0;i<points.Length;i++){
-                Vector4 p=points[i];float scale=p.w*(p.y>1?1.25f:1.1f);var go=SpawnModel(ids[i],new Vector3(p.x,p.y,p.z),scale);go.transform.Rotate(0,i*79+17,0);
+                Vector4 p=points[i];if(p.y>1&&!PadClearForDressing(p.x,p.z,2))continue;
+                float scale=p.w*(p.y>1?1.25f:1.1f);var go=SpawnModel(ids[i],new Vector3(p.x,p.y,p.z),scale);go.transform.Rotate(0,i*79+17,0);
             }
             for(int i=0;i<7;i++){
                 SpawnModel("palisade",new Vector3(-5.58f,.25f,2.0f-i*.58f),.55f).transform.Rotate(0,90,0);
@@ -96,10 +157,11 @@ namespace Mgf.HyeopgokSasu
                 new Vector4(-.14f,1.2f,5.15f,.75f),new Vector4(.78f,1.2f,5.29f,.74f)
             };
             for(int i=0;i<p.Length;i++){
-                Vector4 v=p[i];SpawnModel(ids[i],new Vector3(v.x,v.y,v.z),v.w).transform.Rotate(0,i*73+31,0);
+                Vector4 v=p[i];if(!PadClearForDressing(v.x,v.z,2))continue;
+                SpawnModel(ids[i],new Vector3(v.x,v.y,v.z),v.w).transform.Rotate(0,i*73+31,0);
             }
             var apron=new DecorationMesh();
-            Color earth=Hex("#C8B59C").linear;earth.a=.35f;
+            Color earth=Hex("#C8B59C").linear;earth.a=.18f;
             apron.SoftDisc(new Vector3(-.42f,1.209f,-4.66f),1.28f,.53f,earth);
             apron.SoftDisc(new Vector3(-1.25f,1.211f,4.67f),1.03f,.86f,earth);
             apron.SoftDisc(new Vector3(1.94f,1.211f,.45f),.63f,.86f,earth);
@@ -116,6 +178,12 @@ namespace Mgf.HyeopgokSasu
 
         void DressMesaToes()
         {
+            // Three broad rim shoulders break the long western wall silhouette.
+            // Their base is on the upper mesa, with modest height (1.17m) so they
+            // remain smaller than the barracks and leave the battle lane clear.
+            Vector3[] shoulders={new Vector3(-8.68f,3.10f,4.47f),new Vector3(-6.46f,3.10f,4.43f),new Vector3(-4.64f,3.10f,6.41f)};
+            for(int i=0;i<shoulders.Length;i++)
+                SpawnModel("rock_large",shoulders[i],.60f).transform.Rotate(0,31+i*67,0);
             // Freestanding, baked sandstone formations cover portions of the long
             // navy mesa faces. Their irregular shoulders replace the straight beam
             // impression while keeping terrain, road and collision geometry intact.
@@ -127,8 +195,8 @@ namespace Mgf.HyeopgokSasu
             };
             for(int i=0;i<wall.Length;i++){
                 Vector4 p=wall[i];var rock=SpawnModel("rock_large",new Vector3(p.x,p.y,p.z),1);
-                rock.transform.localScale=new Vector3(.62f+(i%3)*.09f,p.w*1.38f,.60f+(i%2)*.16f);rock.transform.Rotate(0,i*53+19,0);
-                SpawnModel("rock_medium",new Vector3(p.x-.57f,p.y,p.z-.63f),.78f+(i%3)*.14f).transform.Rotate(0,i*83,0);
+                rock.transform.localScale=new Vector3(.62f+(i%3)*.09f,p.w*.90f,.60f+(i%2)*.16f);rock.transform.Rotate(0,i*53+19,0);
+                SpawnModel("rock_medium",new Vector3(p.x-.57f,p.y,p.z-.63f),.59f+(i%3)*.10f).transform.Rotate(0,i*83,0);
             }
             Vector4[] ledge={
                 new Vector4(-2.92f,.23f,-4.45f,.87f),new Vector4(-1.66f,.22f,-5.25f,.84f),
@@ -156,28 +224,27 @@ namespace Mgf.HyeopgokSasu
                 new Vector2(-5.9f,25.1f),new Vector2(6.3f,25.4f),new Vector2(17.4f,21.1f),
                 new Vector2(23.1f,8.9f),new Vector2(23.4f,-3.2f)
             };
+            var placed=new Vector2[9];
             for(int group=0;group<groves.Length;group++){
-                int count=group<10?5+(group%3):4+(group%3);
+                int count=3+(group%7);
                 for(int i=0;i<count;i++){
-                    float angle=i*2.39996f+group*.37f;
-                    float radius=i==0?0:.65f+Mathf.Sqrt(i)*.55f;
-                    float x=groves[group].x+Mathf.Sin(angle)*radius,z=groves[group].y+Mathf.Cos(angle)*radius;
-                    float scale=.72f+(float)rng.NextDouble()*.52f;
-                    var tree=SpawnModel((i+group)%4==0?"tree_broadleaf":"tree",new Vector3(x,SceneryGround(x,z),z),scale);
+                    Vector2 best=groves[group];float bestDistance=-1;
+                    for(int trial=0;trial<12;trial++){
+                        float angle=(float)rng.NextDouble()*Mathf.PI*2;
+                        float radius=Mathf.Sqrt((float)rng.NextDouble())*1.72f;
+                        Vector2 candidate=groves[group]+new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*radius;
+                        float distance=99;
+                        for(int k=0;k<i;k++)distance=Mathf.Min(distance,(candidate-placed[k]).sqrMagnitude);
+                        if(distance>bestDistance){best=candidate;bestDistance=distance;}
+                    }
+                    placed[i]=best;
+                    float x=best.x,z=best.y,scale=.64f+(float)rng.NextDouble()*.34f;
+                    var tree=SpawnModel((i+group)%3==0?"tree_broadleaf":"tree",new Vector3(x,SceneryGround(x,z),z),scale);
                     tree.transform.Rotate(0,rng.Next(360),0);
                 }
             }
-            // Three deliberately different boulder sizes break up the old box-cliff silhouette.
-            // Foreground clusters stay low; the taller masses continue beyond either edge.
-            for(int group=0;group<18;group++){
-                float angle=group*Mathf.PI*2/18;
-                float x=Mathf.Sin(angle)*(24+(group%3)*1.5f),z=2+Mathf.Cos(angle)*(25+(group%2)*1.2f);
-                float y=SceneryGround(x,z);
-                string id=z<-10?"rock_medium":"rock_large";
-                var major=SpawnModel(id,new Vector3(x,y,z),1.05f+(group%3)*.24f);major.transform.Rotate(0,group*83+17,0);
-                var shoulder=SpawnModel("rock_medium",new Vector3(x+1.42f,y,z-.60f),.84f+(group%2)*.19f);shoulder.transform.Rotate(0,group*59,0);
-                SpawnModel("rock_small",new Vector3(x-.98f,y,z-.91f),.77f+(group%3)*.12f).transform.Rotate(0,group*31,0);
-            }
+            // Far mineral ridges are now authored in art_r2_environment.py and
+            // merged into terrain.fbx. No isolated large boulder scatters remain.
             // Visible inner toes use the same sandstone family, with grass growing between them.
             Vector3[] toes={new Vector3(-10.90f,-1.52f,-6.90f),new Vector3(-11.26f,-1.52f,-1.20f),new Vector3(-9.48f,3.1f,6.14f),new Vector3(11.2f,-1.52f,-4.12f),new Vector3(11.52f,-1.52f,1.2f),new Vector3(8.6f,1.2f,7.18f)};
             for(int i=0;i<toes.Length;i++){

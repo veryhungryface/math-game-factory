@@ -7,28 +7,35 @@ namespace Mgf.HyeopgokSasu
     // actual answer deposits. The rules own the balance; this class cannot mint it.
     sealed class HyeopgokEconomyFx
     {
-        const int Cap=192,StackCap=24;
+        const int Cap=192,StackCap=24,DecorCap=192;
         struct Coin { public Vector3 position,velocity,origin,target; public float age,flight,spin; public byte mode; }
         readonly Coin[] coins=new Coin[Cap];
-        readonly Matrix4x4[] matrices=new Matrix4x4[Cap+StackCap];
+        readonly Coin[] decorations=new Coin[DecorCap];
+        readonly Matrix4x4[] matrices=new Matrix4x4[Cap+DecorCap+StackCap];
         readonly Mesh coin;readonly Material gold;readonly Camera camera;
         Transform king;HyeopgokRules rules;
-        int cursor;float labelTime;uint rng=0x843aad3u;
+        int cursor,decorCursor;float labelTime;uint rng=0x843aad3u;
         public int Coins=>rules==null?0:rules.Coins;
         public int Remaining=>rules==null?0:rules.TotalPoured;
         public bool Depositing=>labelTime>0;
-        public HyeopgokEconomyFx(Camera cam,Shader shader){camera=cam;coin=HyeopgokImpact.MakeCoin();gold=new Material(shader);gold.SetColor("_Color",MgfLook.Hex("#F2B705").linear);gold.SetFloat("_Unlit",.65f);gold.enableInstancing=true;}
+        public HyeopgokEconomyFx(Camera cam,Shader shader){camera=cam;coin=HyeopgokImpact.MakeCoin();gold=new Material(shader);gold.SetColor("_Color",Color.white);gold.SetFloat("_Unlit",.85f);gold.enableInstancing=true;}
         public void SetKing(Transform value){king=value;}
         public void SetRules(HyeopgokRules value){rules=value;}
-        public void Clear(){for(int i=0;i<Cap;i++)coins[i].mode=0;cursor=0;labelTime=0;rng=0x843aad3u;}
+        public void Clear(){for(int i=0;i<Cap;i++)coins[i].mode=0;for(int i=0;i<DecorCap;i++)decorations[i].mode=0;cursor=decorCursor=0;labelTime=0;rng=0x843aad3u;}
         int Slot(){for(int k=0;k<Cap;k++){int i=(cursor+k)%Cap;if(coins[i].mode==0){cursor=(i+1)%Cap;return i;}}return -1;}
-        public void Drop(Vector3 position){int i=Slot();if(i<0)return;float a=Range(0,6.283185f);coins[i]=new Coin{position=position+Vector3.up*.35f,velocity=new Vector3(Mathf.Sin(a)*Range(.5f,1.8f),Range(1.5f,2.8f),Mathf.Cos(a)*Range(.5f,1.8f)),spin=Range(0,360),mode=1};}
+        public void Drop(Vector3 position){int i=Slot();if(i<0)return;float a=Range(0,6.283185f);coins[i]=new Coin{position=position+Vector3.up*.35f,velocity=new Vector3(Mathf.Sin(a)*Range(.5f,1.8f),Range(1.5f,2.8f),Mathf.Cos(a)*Range(.5f,1.8f)),spin=Range(0,360),mode=1};
+            // The spendable pickup retains its original timing. These visual
+            // spill discs never call AddCoins: their six-second carpet is art.
+            for(int k=0;k<2;k++){float angle=a+k*2.4f;decorations[decorCursor++%DecorCap]=new Coin{position=position+Vector3.up*.38f,velocity=new Vector3(Mathf.Sin(angle)*(1.1f+k*.35f),2.1f+k*.4f,Mathf.Cos(angle)*(1.1f+k*.35f)),spin=a*57.3f+k*35,mode=1};}
+        }
         public void Pour(Vector3 target){
             if(!king)return;labelTime=.42f;int i=Slot();if(i<0)return;
-            Vector3 start=Backpack()+Vector3.up*Mathf.Min(Coins,StackCap)*.055f;
+            Vector3 start=Backpack()+Vector3.up*.32f;
             coins[i]=new Coin{position=start,origin=start,target=target+Vector3.up*.20f,mode=4,spin=Range(0,360)};
+            // Eight discrete discs per actual deposit: no beam or extra currency.
+            for(int k=0;k<8;k++)decorations[decorCursor++%DecorCap]=new Coin{position=start,origin=start,target=target+new Vector3(Mathf.Sin(k*2.4f)*.15f,.20f,Mathf.Cos(k*2.4f)*.15f),age=-k*.038f,flight=.55f,mode=4,spin=k*43};
         }
-        Vector3 Backpack()=>king.position-king.forward*.31f+Vector3.up*.78f;
+        Vector3 Backpack()=>king.position-king.forward*.40f+Vector3.up*.78f;
         public void Simulate(float dt){Step(dt,false);}
         public void UpdateAndDraw(float dt){Step(dt,true);}
         void Step(float dt,bool draw){
@@ -44,11 +51,21 @@ namespace Mgf.HyeopgokSasu
                 if(c.mode==3){c.flight+=dt*2.8f;float t=Mathf.Clamp01(c.flight);c.position=Vector3.Lerp(c.origin,backpack,t*t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*1.15f;
                     if(t>=1){if(rules!=null&&rules.AddCoins(HyeopgokRules.CoinPerKill)>0)c.mode=0;else{c.mode=2;c.position=c.origin;}coins[i]=c;continue;}}
                 else if(c.mode==4){float t=Mathf.Clamp01(c.age/.38f);c.position=Vector3.Lerp(c.origin,c.target,t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*.9f;if(t>=1){c.mode=0;coins[i]=c;continue;}}
-                if(draw)matrices[count++]=Matrix4x4.TRS(c.position,c.mode==2?Quaternion.Euler(90,c.spin,0):Quaternion.Euler(c.age*390,c.spin,c.spin),Vector3.one*.25f);coins[i]=c;
+                if(draw)matrices[count++]=Matrix4x4.TRS(c.position,c.mode==2?Quaternion.Euler(-90,c.spin,0):Quaternion.Euler(c.age*390,c.spin,c.spin),Vector3.one*.25f);coins[i]=c;
+            }
+            for(int i=0;i<DecorCap;i++){
+                Coin c=decorations[i];if(c.mode==0)continue;c.age+=dt;
+                if(c.age<0){decorations[i]=c;continue;}
+                if(c.mode==1){c.position+=c.velocity*dt;c.velocity.y-=dt*7;if(c.position.y<=.318f){c.position.y=.318f;c.velocity=Vector3.zero;c.mode=2;c.flight=0;}}
+                if(c.mode==2){c.flight+=dt;if(c.flight>=6){c.origin=c.position;c.flight=0;c.mode=3;}}
+                if(c.mode==3){c.flight+=dt*1.8f;float t=Mathf.Clamp01(c.flight);c.position=Vector3.Lerp(c.origin,backpack,t*t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*1.1f;if(t>=1)c.mode=0;}
+                if(c.mode==4){float t=Mathf.Clamp01(c.age/c.flight);c.position=Vector3.Lerp(c.origin,c.target,t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*1.2f;if(t>=1)c.mode=0;}
+                if(draw&&c.mode!=0)matrices[count++]=Matrix4x4.TRS(c.position,c.mode==2?Quaternion.Euler(-90,c.spin,0):Quaternion.Euler(70+c.age*300,c.spin,c.spin),Vector3.one*(c.mode==4?.24f:.28f));
+                decorations[i]=c;
             }
             if(!draw)return;
             int stack=Mathf.Min(StackCap,Coins);
-            for(int i=0;i<stack;i++)matrices[count++]=Matrix4x4.TRS(backpack+Vector3.up*(i*.060f),Quaternion.Euler(90,0,0),Vector3.one*.34f);
+            for(int i=0;i<stack;i++)matrices[count++]=Matrix4x4.TRS(backpack+king.right*((i/8-1)*.20f)+Vector3.up*((i%8)*.054f),Quaternion.Euler(-90,0,0),Vector3.one*.28f);
             if(count>0)Graphics.DrawMeshInstanced(coin,0,gold,matrices,count,null,ShadowCastingMode.Off,false,0,camera,LightProbeUsage.Off);
         }
         // Seven-segment geometry keeps combat numbers in instanced mesh batches,

@@ -48,6 +48,7 @@ namespace Mgf.HyeopgokSasu
             PlaceSettlementProps();
             DressMesaToes();
             DressWorkshopVignettes();
+            BuildVillagePathsAndYard();
         }
         static Color Hex(string value)=>MgfLook.Hex(value);
 
@@ -70,9 +71,9 @@ namespace Mgf.HyeopgokSasu
                     go.transform.SetParent(environmentRoot,true);go.SetActive(d==0);fences[i,d]=go;
                 }
                 var root=new GameObject("Gate segment health "+i);root.transform.SetParent(environmentRoot);
-                root.transform.position=fencePositions[i]+new Vector3(0,1.05f,0);root.transform.rotation=cam.transform.rotation;
-                MgfLook.Prim(PrimitiveType.Cube,"Health back",Vector3.zero,new Vector3(.81f,.105f,.012f),back,root.transform,false);
-                fenceHealth[i]=MgfLook.Prim(PrimitiveType.Cube,"Health remaining",new Vector3(0,0,-.012f),new Vector3(.75f,.065f,.012f),hp,root.transform,false).transform;
+                root.transform.position=fencePositions[i]+new Vector3(0,1.18f,0);root.transform.rotation=cam.transform.rotation;
+                MgfLook.Prim(PrimitiveType.Cube,"Health back",Vector3.zero,new Vector3(.99f,.15f,.012f),back,root.transform,false);
+                fenceHealth[i]=MgfLook.Prim(PrimitiveType.Cube,"Health remaining",new Vector3(0,0,-.012f),new Vector3(.91f,.092f,.012f),hp,root.transform,false).transform;
                 root.SetActive(false);fenceHealthRoots[i]=root;
             }
         }
@@ -131,8 +132,10 @@ namespace Mgf.HyeopgokSasu
             var ao=new DecorationMesh();var foundations=new DecorationMesh();
             // Alpha uses raw linear RGB. Decode the authored sRGB colours once so
             // the teal contact shadow does not become a pale green wash.
-            Color contact=new Color(.035f,.18f,.135f,.35f).linear;
-            Color earth=new Color(200f/255,181f/255,156f/255,.65f).linear;
+            Color contact=Hex("#2C6A5A").linear;contact.a=.35f;
+            Color earth=new Color(200f/255,181f/255,156f/255,.20f).linear;
+            Vector3 lightDirection=environmentSun?environmentSun.transform.forward:new Vector3(-.62f,-1,.78f);
+            Vector3 castDirection=new Vector3(lightDirection.x,0,lightDirection.z).normalized;
             for(int i=0;i<sceneryRoot.childCount;i++){
                 var t=sceneryRoot.GetChild(i);if(t.name.StartsWith("terrain"))continue;
                 string name=t.name;
@@ -142,12 +145,19 @@ namespace Mgf.HyeopgokSasu
                 if(!tree&&!rock&&!gate&&!tower&&!prop&&!name.StartsWith("palisade"))continue;
                 var p=t.position;float s=t.localScale.x;
                 float r=tree?.74f:gate?1.48f:tower?1.02f:name.Contains("large")?1.68f:name.Contains("medium")?.88f:.47f;
-                ao.SoftDisc(p+Vector3.up*.018f,r*s,.78f,contact);
-                if(gate||tower||name.StartsWith("well"))foundations.SoftDisc(p+Vector3.up*.008f,r*s*1.34f,.89f,earth);
+                // Grounded AO plus a broad directional lobe in the sun's cast
+                // direction reads as shade rather than a luminous beige halo.
+                ao.SoftDisc(p+Vector3.up*.018f,r*s,.72f,contact);
+                if(tree||tower||gate){
+                    Color cast=contact;cast.a=.23f;
+                    float reach=(tree?1.12f:tower?.86f:.70f)*s;
+                    ao.SoftDisc(p+castDirection*(reach*.58f)+Vector3.up*.017f,r*s*.97f,.78f,cast);
+                }
+                if(gate||tower||name.StartsWith("well"))foundations.SoftDisc(p+Vector3.up*.008f,r*s*1.08f,.89f,earth);
             }
             for(int i=0;i<2;i++){
                 Vector3 p=townBuildings[i].position;float r=i==0?1.12f:1.47f;
-                foundations.SoftDisc(p+Vector3.up*.009f,r*1.31f,.82f,earth);
+                foundations.SoftDisc(p+Vector3.up*.009f,r*1.10f,.82f,earth);
                 ao.SoftDisc(p+Vector3.up*.019f,r,.78f,contact);
             }
             // These two friendly towers are created later by HyeopgokBattle,
@@ -162,7 +172,7 @@ namespace Mgf.HyeopgokSasu
             Material contactMaterial=MgfLook.Alpha(Color.white);
             CreateDecoration("Feathered building earth foundations",foundations,contactMaterial,false);
             CreateDecoration("Teal settlement contact shadows",ao,contactMaterial,false);
-            var kingShadow=new DecorationMesh();kingShadow.SoftDisc(Vector3.zero,.44f,.77f,contact);
+            var kingShadow=new DecorationMesh();kingShadow.SoftDisc(Vector3.zero,.63f,.77f,contact);
             kingContactShadow=CreateDecoration("King soft contact shadow",kingShadow,contactMaterial,false).transform;
             kingContactShadow.SetParent(null,true);kingContactShadow.position=new Vector3(king.position.x,1.213f,king.position.z);
         }
@@ -209,8 +219,8 @@ namespace Mgf.HyeopgokSasu
                         fenceDamageStage[i]=damage;
                     }
                     fenceHealthRoots[i].SetActive(health<1&&health>0);
-                    fenceHealth[i].localScale=new Vector3(.75f*health,.065f,.012f);
-                    fenceHealth[i].localPosition=new Vector3(-.375f*(1-health),0,-.012f);
+                    fenceHealth[i].localScale=new Vector3(.91f*health,.092f,.012f);
+                    fenceHealth[i].localPosition=new Vector3(-.455f*(1-health),0,-.012f);
                 }
             }
             fireTime-=dt;
@@ -281,6 +291,27 @@ namespace Mgf.HyeopgokSasu
             public void Ribbon(Vector3 a,Vector3 b,float width,Color color){
                 var d=b-a;var n=new Vector3(-d.z,0,d.x).normalized*(width*.5f);
                 Quad(a-n,a+n,b+n,b-n,color);
+            }
+            public void CurvedFeatheredRibbon(Vector3[] points,float width,float feather,Color color,bool closed){
+                // Shared join rows prevent per-segment alpha overlap, holes and
+                // bright crossbars. All five strips form one continuous surface.
+                int start=vertices.Count;Color edge=color;edge.a=0;
+                for(int i=0;i<points.Length;i++){
+                    int before=i==0?(closed?points.Length-2:0):i-1;
+                    int after=i==points.Length-1?(closed?1:i):i+1;
+                    Vector3 d=points[after]-points[before],side=new Vector3(-d.z,0,d.x).normalized;
+                    float half=width*.5f*(1+.08f*Mathf.Sin(points[i].x*1.4f+points[i].z*.81f));
+                    float inner=Mathf.Max(0,half-feather);
+                    vertices.Add(points[i]-side*half);vertices.Add(points[i]-side*inner);
+                    vertices.Add(points[i]+side*inner);vertices.Add(points[i]+side*half);
+                    colors.Add(edge);colors.Add(color);colors.Add(color);colors.Add(edge);
+                    if(i==0)continue;
+                    for(int k=0;k<3;k++){
+                        int a=start+(i-1)*4+k,b=a+1,c=start+i*4+k+1,e=c-1;
+                        triangles.Add(a);triangles.Add(b);triangles.Add(c);
+                        triangles.Add(a);triangles.Add(c);triangles.Add(e);
+                    }
+                }
             }
             public void CurvedRibbon(Vector3[] points,float width,float lift,Color color){
                 Vector3 left=Vector3.zero,right=Vector3.zero;

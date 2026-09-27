@@ -19,6 +19,11 @@ namespace Mgf.HyeopgokSasu
         const float RedSpacing = .335f, BlueSpacing = .325f, GroundY = .27f;
         readonly float[] redS = new float[RedCap];
         readonly float[] blueS = new float[BlueCap];
+        readonly float[] redHitTimes=new float[RedCap],blueHitTimes=new float[BlueCap];
+        readonly float[] redDrawHits=new float[RedCap+CorpseCap],blueDrawHits=new float[BlueCap+CorpseCap];
+        readonly float[] archerDrawHits=new float[RedCap],giantDrawHits=new float[RedCap],bossDrawHits=new float[4];
+        readonly MaterialPropertyBlock soldierProperties=new MaterialPropertyBlock();
+        static readonly int HitTimeId=Shader.PropertyToID("_HitTime");
         readonly byte[] redKinds=new byte[RedCap];
         readonly Matrix4x4[] redMatrices = new Matrix4x4[RedCap + CorpseCap];
         readonly Matrix4x4[] blueMatrices = new Matrix4x4[BlueCap + CorpseCap];
@@ -88,7 +93,7 @@ namespace Mgf.HyeopgokSasu
         Mesh soldierMesh, blueSoldierMesh, cubeMesh, shadowMesh, boltMesh, trailMesh;
         Mesh giantMesh,archerMesh,allyArcherMesh,bossMesh,hpMesh;
         Material redMaterial, blueMaterial, whiteMaterial, goldMaterial, dustMaterial, shadowMaterial;
-        Material silhouetteMaterial,swordMaterial,hpMaterial,hpBackgroundMaterial;
+        Material silhouetteMaterial,swordMaterial,hpMaterial,hpBackgroundMaterial,boltTrailMaterial;
         HyeopgokImpact impacts;
         HyeopgokEconomyFx economy;
         int redCount = 400, blueCount = 100, chipCursor, corpseCursor, boltCursor, killCount, pendingDamage;
@@ -137,11 +142,12 @@ namespace Mgf.HyeopgokSasu
             whiteMaterial = MakeMaterial(shader, new Color(1,.995f,.95f), true);
             goldMaterial = MakeMaterial(shader, new Color(1,.59f,.028f), true);
             dustMaterial = MakeMaterial(shader, new Color(.89f,.81f,.66f), true);
-            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));shadowMaterial.SetColor("_Color",new Color(.035f,.20f,.15f,.35f).linear);shadowMaterial.enableInstancing=true;
+            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));Color shadowTint=MgfLook.Hex("#2C6A5A").linear;shadowTint.a=.35f;shadowMaterial.SetColor("_Color",shadowTint);shadowMaterial.enableInstancing=true;
             silhouetteMaterial=MakeMaterial(shader,Color.white,true);silhouetteMaterial.SetFloat("_Flash",1);
             swordMaterial=MakeMaterial(shader,new Color(1,.08f,.18f),true);
             hpMaterial=MakeMaterial(shader,new Color(.91f,.08f,.09f),true);
             hpBackgroundMaterial=MakeMaterial(shader,new Color(.14f,.16f,.19f),true);
+            boltTrailMaterial=MakeMaterial(shader,new Color(.33f,.77f,1),true);
             soldierMesh = LoadSoldier("soldier");
             blueSoldierMesh = LoadSoldier("soldier_blue");
             giantMesh=LoadSoldier("giant");archerMesh=LoadSoldier("archer_red");
@@ -250,8 +256,8 @@ namespace Mgf.HyeopgokSasu
             economy.Clear();recycledKind=0;upgradeCount=0;
             front = 19.0f;
             laneCursor = 0;
-            for (int i = 0; i < RedCap; i++) {redS[i] = front - .25f - (i / RedLanes) * RedSpacing - (i % RedLanes) * .018f;redKinds[i]=KindFor(i);}
-            for (int i = 0; i < BlueCap; i++) blueS[i] = front + .38f + (i / BlueLanes) * BlueSpacing + (i % BlueLanes) * .03f;
+            for (int i = 0; i < RedCap; i++) {redS[i] = front - .25f - (i / RedLanes) * RedSpacing - (i % RedLanes) * .018f;redKinds[i]=KindFor(i);redHitTimes[i]=-1000;}
+            for (int i = 0; i < BlueCap; i++) {blueS[i] = front + .38f + (i / BlueLanes) * BlueSpacing + (i % BlueLanes) * .03f;blueHitTimes[i]=-1000;}
             for (int i = 0; i < ParticleCap; i++) chips[i].duration = 0;
             for (int i = 0; i < CorpseCap; i++) corpses[i].duration = 0;
             for (int i = 0; i < BoltCap; i++) bolts[i].duration = 0;
@@ -310,6 +316,9 @@ namespace Mgf.HyeopgokSasu
                 Vector3 contact = PathPosition(front + Range(-.22f,.12f), (lane-3.5f) * .24f, out _);
                 Burst(contact + Vector3.up * .32f, 4, 1.6f);
                 impacts.Contact(contact + Vector3.up * .34f,false);
+                MarkHit(contact);
+                blueHitTimes[lane%BlueLanes]=Time.time;
+                if(laneCursor%4==0)impacts.DamageNumber(contact+Vector3.up*.10f,false);
                 if (laneCursor % 2 == 0) KillRed(lane, .8f);
                 if (laneCursor % 5 == 0) KillBlue(lane % BlueLanes);
                 if (playing && laneCursor % 8 == 0) MgfSfx.Play("pop", .07f);
@@ -369,6 +378,7 @@ namespace Mgf.HyeopgokSasu
             {
                 redS[i] = i + RedLanes < redCount ? redS[i + RedLanes] : -.2f - Range(0,.7f);
                 redKinds[i]=i+RedLanes<redCount?redKinds[i+RedLanes]:KindFor(recycledKind++);
+                redHitTimes[i]=i+RedLanes<redCount?redHitTimes[i+RedLanes]:-1000;
             }
             killCount++;
             // A battlefield kill milestone owns this accent; answer submission does
@@ -389,8 +399,30 @@ namespace Mgf.HyeopgokSasu
             Vector3 direction;
             Vector3 pos = PathPosition(blueS[lane], (lane - 1.5f) * .28f, out direction);
             AddCorpse(pos, direction * Range(.6f,1.2f), true, Mathf.Atan2(-direction.x,-direction.z)*Mathf.Rad2Deg);
-            for (int i = lane; i < blueCount; i += BlueLanes)
+            for (int i = lane; i < blueCount; i += BlueLanes){
                 blueS[i] = i + BlueLanes < blueCount ? blueS[i + BlueLanes] : pathLength + Range(0,.5f);
+                blueHitTimes[i]=i+BlueLanes<blueCount?blueHitTimes[i+BlueLanes]:-1000;
+            }
+        }
+
+        void MarkHit(Vector3 position)
+        {
+            // Only an impact writes this visual state; no HP, lane order or RNG
+            // changes. Each soldier carries its own GPU flash timestamp.
+            float now=Time.time,best=.62f,secondBest=.62f;int first=-1,second=-1;
+            for(int i=0;i<redCount;i++){
+                if(redS[i]<front-3.2f||redS[i]<0)continue;
+                Vector3 p=PathPosition(redS[i],(i%RedLanes-3.5f)*.245f,out _);
+                float dx=p.x-position.x,dz=p.z-position.z;
+                float distance=dx*dx+dz*dz;
+                if(distance<best){second=first;secondBest=best;first=i;best=distance;}
+                else if(distance<secondBest){second=i;secondBest=distance;}
+            }
+            for(int k=0;k<2;k++){
+                int i=k==0?first:second;if(i<0)continue;
+                if(redKinds[i]>=2&&now-redHitTimes[i]>.35f){Vector3 p=PathPosition(redS[i],(i%RedLanes-3.5f)*.245f,out _);impacts.DamageNumber(p+Vector3.up*(redKinds[i]==3?1.9f:1.25f),true);}
+                redHitTimes[i]=now;
+            }
         }
 
         void AddCorpse(Vector3 position, Vector3 velocity, bool blue, float yaw,byte kind=0)
@@ -447,7 +479,7 @@ namespace Mgf.HyeopgokSasu
                 Quaternion rot = Quaternion.LookRotation(direction);
                 float tail = Mathf.Min(b.heavy ? 2.0f : 1.65f,Vector3.Distance(b.start,position));
                 boltMatrices[count] = Matrix4x4.TRS(position,rot,new Vector3(.080f,.080f,.66f));
-                trailMatrices[count] = Matrix4x4.TRS(position-direction*(tail*.5f),rot,new Vector3(b.heavy?.052f:.039f,b.heavy?.052f:.039f,tail));
+                trailMatrices[count] = Matrix4x4.TRS(position-direction*(tail*.5f),rot,new Vector3(b.heavy?.095f:.074f,b.heavy?.095f:.074f,tail));
                 count++;
                 if (p >= 1)
                 {
@@ -455,6 +487,7 @@ namespace Mgf.HyeopgokSasu
                     if (b.hit)
                     {
                         impacts.Contact(b.target,b.heavy);
+                        MarkHit(b.target);
                         if(b.heavy)impacts.Explosion(b.target);
                         else if(i%3==0)impacts.DamageNumber(b.target,false);
                         KillRed((i+laneCursor)%RedLanes,b.heavy ? 1.7f : 1f);
@@ -466,7 +499,7 @@ namespace Mgf.HyeopgokSasu
                 bolts[i] = b;
             }
             Draw(boltMesh,goldMaterial,boltMatrices,count);
-            Draw(trailMesh,whiteMaterial,trailMatrices,count);
+            Draw(trailMesh,boltTrailMaterial,trailMatrices,count);
         }
 
         void UpdateParticles(float dt)
@@ -531,13 +564,13 @@ namespace Mgf.HyeopgokSasu
                 byte kind=redKinds[i];
                 Quaternion rotation=Quaternion.Euler(step*3+attack,yaw,step*5);
                 Matrix4x4 matrix=Matrix4x4.TRS(p,rotation,new Vector3(1.01f,1.035f+step*.035f,1.01f)*size);
-                if(kind==1)archerMatrices[na++]=matrix;
-                else if(kind==2)giantMatrices[ng++]=matrix;
-                else if(kind==3&&bosses<4)bossMatrices[bosses++]=matrix;
-                else redMatrices[nr++]=matrix;
-                float shadowSize=kind>=2?.62f:.22f;
+                if(kind==1){archerDrawHits[na]=redHitTimes[i];archerMatrices[na++]=matrix;}
+                else if(kind==2){giantDrawHits[ng]=redHitTimes[i];giantMatrices[ng++]=matrix;}
+                else if(kind==3&&bosses<4){bossDrawHits[bosses]=redHitTimes[i];bossMatrices[bosses++]=matrix;}
+                else {redDrawHits[nr]=redHitTimes[i];redMatrices[nr++]=matrix;}
+                float shadowSize=kind>=2?.70f:.29f;
                 shadowMatrices[ns++]=Matrix4x4.TRS(new Vector3(p.x+.08f,GroundY+.005f,p.z-.08f),Quaternion.identity,new Vector3(shadowSize,1,shadowSize*.8f));
-                if(kind>=2&&redS[i]>front-1.4f&&hp<24)
+                if(kind>=2&&Time.time-redHitTimes[i]<1.1f&&hp<24)
                 {
                     float height=kind==3?2.80f:2.10f;
                     Vector3 at=p+Vector3.up*height;
@@ -563,16 +596,17 @@ namespace Mgf.HyeopgokSasu
                 float attack=blueS[i]<front+1?Mathf.Max(0,Mathf.Sin(clock*14+i))*18:0;
                 Matrix4x4 matrix=Matrix4x4.TRS(p,Quaternion.Euler(step*3+attack,yaw,step*5),new Vector3(.98f,1.055f+step*.04f,.98f)*size);
                 if(blueS[i]>pathLength-.52f)whiteBlueMatrices[wb++]=matrix;
-                else blueMatrices[nb++]=matrix;
-                shadowMatrices[ns++]=Matrix4x4.TRS(new Vector3(p.x+.08f,GroundY+.005f,p.z-.08f),Quaternion.identity,new Vector3(.22f,1,.18f));
+                else {blueDrawHits[nb]=blueHitTimes[i];blueMatrices[nb++]=matrix;}
+                shadowMatrices[ns++]=Matrix4x4.TRS(new Vector3(p.x+.08f,GroundY+.005f,p.z-.08f),Quaternion.identity,new Vector3(.29f,1,.23f));
             }
             displayedBlues=nb+wb;
             // A short white silhouette replaces the previous lingering corpse.
-            // Existing corpse RNG/physics is preserved, but hidden after 220 ms.
+            // Existing corpse RNG/physics is preserved; an 80 ms white flash
+            // clears the contact band quickly enough for the four-point stars.
             for(int i=0;i<CorpseCap;i++)
             {
-                Corpse c=corpses[i];if(c.duration<=0||c.age>.22f)continue;
-                float t=c.age/.22f;
+                Corpse c=corpses[i];if(c.duration<=0||c.age>.08f)continue;
+                float t=c.age/.08f;
                 Matrix4x4 m=Matrix4x4.TRS(c.position,Quaternion.Euler(t*65,c.yaw+c.spin*t,t*20),Vector3.one*(.85f*Mathf.Min(1,(1-t)*2)));
                 if(c.blue)whiteBlueMatrices[wb++]=m;
                 else if(c.kind==2)whiteGiantMatrices[wg++]=m;
@@ -585,8 +619,8 @@ namespace Mgf.HyeopgokSasu
                 allyArcherMatrices[i]=Matrix4x4.TRS(towerPositions[i]+new Vector3(-.34f,1.80f,.03f),Quaternion.Euler(towerRecoil[i]*50,yaw,0),Vector3.one*(towerLevel[i]<0?0:.8f));
             }
             Draw(shadowMesh,shadowMaterial,shadowMatrices,ns);
-            Draw(soldierMesh,redMaterial,redMatrices,nr);Draw(blueSoldierMesh,blueMaterial,blueMatrices,nb);
-            Draw(archerMesh,redMaterial,archerMatrices,na);Draw(giantMesh,redMaterial,giantMatrices,ng);Draw(bossMesh,redMaterial,bossMatrices,bosses);
+            Draw(soldierMesh,redMaterial,redMatrices,nr,redDrawHits);Draw(blueSoldierMesh,blueMaterial,blueMatrices,nb,blueDrawHits);
+            Draw(archerMesh,redMaterial,archerMatrices,na,archerDrawHits);Draw(giantMesh,redMaterial,giantMatrices,ng,giantDrawHits);Draw(bossMesh,redMaterial,bossMatrices,bosses,bossDrawHits);
             Draw(allyArcherMesh,blueMaterial,allyArcherMatrices,2);
             Draw(soldierMesh,silhouetteMaterial,whiteRedMatrices,wr);Draw(blueSoldierMesh,silhouetteMaterial,whiteBlueMatrices,wb);
             Draw(giantMesh,silhouetteMaterial,whiteGiantMatrices,wg);Draw(bossMesh,silhouetteMaterial,whiteBossMatrices,wBoss);
@@ -595,10 +629,11 @@ namespace Mgf.HyeopgokSasu
             cachedRedDraws=nr;cachedBlueDraws=nb;cachedShadowDraws=ns;
         }
 
-        void Draw(Mesh mesh, Material material, Matrix4x4[] matrices, int count)
+        void Draw(Mesh mesh, Material material, Matrix4x4[] matrices, int count,float[] hitTimes=null)
         {
             if (count == 0 || !mesh) return;
-            Graphics.DrawMeshInstanced(mesh,0,material,matrices,count,null,
+            if(hitTimes!=null)soldierProperties.SetFloatArray(HitTimeId,hitTimes);
+            Graphics.DrawMeshInstanced(mesh,0,material,matrices,count,hitTimes==null?null:soldierProperties,
                 ShadowCastingMode.Off,false,0,renderCamera,LightProbeUsage.Off);
         }
 
@@ -821,7 +856,7 @@ namespace Mgf.HyeopgokSasu
             if(impacts != null) impacts.Dispose();
             if(economy!=null)economy.Dispose();
             if(giantMesh)Destroy(giantMesh);if(archerMesh)Destroy(archerMesh);if(allyArcherMesh)Destroy(allyArcherMesh);if(bossMesh)Destroy(bossMesh);if(hpMesh)Destroy(hpMesh);
-            if(silhouetteMaterial)Destroy(silhouetteMaterial);if(swordMaterial)Destroy(swordMaterial);if(hpMaterial)Destroy(hpMaterial);if(hpBackgroundMaterial)Destroy(hpBackgroundMaterial);
+            if(boltTrailMaterial)Destroy(boltTrailMaterial);if(silhouetteMaterial)Destroy(silhouetteMaterial);if(swordMaterial)Destroy(swordMaterial);if(hpMaterial)Destroy(hpMaterial);if(hpBackgroundMaterial)Destroy(hpBackgroundMaterial);
         }
     }
 }
