@@ -26,16 +26,18 @@ namespace Mgf.HyeopgokSasu
         public void Drop(Vector3 position){int i=Slot();if(i<0)return;float a=Range(0,6.283185f);coins[i]=new Coin{position=position+Vector3.up*.35f,velocity=new Vector3(Mathf.Sin(a)*Range(.5f,1.8f),Range(1.5f,2.8f),Mathf.Cos(a)*Range(.5f,1.8f)),spin=Range(0,360),mode=1};
             // The spendable pickup retains its original timing. These visual
             // spill discs never call AddCoins: their six-second carpet is art.
-            for(int k=0;k<2;k++){float angle=a+k*2.4f;decorations[decorCursor++%DecorCap]=new Coin{position=position+Vector3.up*.38f,velocity=new Vector3(Mathf.Sin(angle)*(1.1f+k*.35f),2.1f+k*.4f,Mathf.Cos(angle)*(1.1f+k*.35f)),spin=a*57.3f+k*35,mode=1};}
+            for(int k=0;k<2;k++){float angle=a+k*2.4f;decorations[decorCursor++%DecorCap]=new Coin{position=position+Vector3.up*.38f,velocity=new Vector3(Mathf.Sin(angle)*(.55f+k*.25f),2.1f+k*.4f,Mathf.Cos(angle)*(.55f+k*.25f)),spin=a*57.3f+k*35,mode=1};}
         }
         public void Pour(Vector3 target){
             if(!king)return;labelTime=.42f;int i=Slot();if(i<0)return;
             Vector3 start=Backpack()+Vector3.up*.32f;
             coins[i]=new Coin{position=start,origin=start,target=target+Vector3.up*.20f,mode=4,spin=Range(0,360)};
             // Eight discrete discs per actual deposit: no beam or extra currency.
-            for(int k=0;k<8;k++)decorations[decorCursor++%DecorCap]=new Coin{position=start,origin=start,target=target+new Vector3(Mathf.Sin(k*2.4f)*.15f,.20f,Mathf.Cos(k*2.4f)*.15f),age=-k*.038f,flight=.55f,mode=4,spin=k*43};
+            // Eight discs fan out over the pad (biased toward the camera) so the
+            // arcs stay visible in front of the king instead of behind him.
+            for(int k=0;k<8;k++){float a=k*2.4f;decorations[decorCursor++%DecorCap]=new Coin{position=start,origin=start,target=target+new Vector3(Mathf.Sin(a)*.72f,.12f,Mathf.Cos(a)*.42f-.36f),age=-k*.065f,flight=.72f,mode=4,spin=k*43};}
         }
-        Vector3 Backpack()=>king.position-king.forward*.40f+Vector3.up*.78f;
+        Vector3 Backpack()=>king.position-king.forward*.36f+Vector3.up*.52f;
         public void Simulate(float dt){Step(dt,false);}
         public void UpdateAndDraw(float dt){Step(dt,true);}
         void Step(float dt,bool draw){
@@ -56,16 +58,18 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<DecorCap;i++){
                 Coin c=decorations[i];if(c.mode==0)continue;c.age+=dt;
                 if(c.age<0){decorations[i]=c;continue;}
-                if(c.mode==1){c.position+=c.velocity*dt;c.velocity.y-=dt*7;if(c.position.y<=.318f){c.position.y=.318f;c.velocity=Vector3.zero;c.mode=2;c.flight=0;}}
+                if(c.mode==1){c.position+=c.velocity*dt;c.velocity.y-=dt*7;if(c.position.y<=.318f){if(c.position.z<-8.0f){c.mode=0;decorations[i]=c;continue;}c.position.y=.318f;c.velocity=Vector3.zero;c.mode=2;c.flight=0;}}
                 if(c.mode==2){c.flight+=dt;if(c.flight>=6){c.origin=c.position;c.flight=0;c.mode=3;}}
                 if(c.mode==3){c.flight+=dt*1.8f;float t=Mathf.Clamp01(c.flight);c.position=Vector3.Lerp(c.origin,backpack,t*t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*1.1f;if(t>=1)c.mode=0;}
-                if(c.mode==4){float t=Mathf.Clamp01(c.age/c.flight);c.position=Vector3.Lerp(c.origin,c.target,t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*1.2f;if(t>=1)c.mode=0;}
-                if(draw&&c.mode!=0)matrices[count++]=Matrix4x4.TRS(c.position,c.mode==2?Quaternion.Euler(-90,c.spin,0):Quaternion.Euler(70+c.age*300,c.spin,c.spin),Vector3.one*(c.mode==4?.24f:.28f));
+                if(c.mode==4){float t=Mathf.Clamp01(c.age/c.flight);c.position=Vector3.Lerp(c.origin,c.target,t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*2.1f;if(t>=1)c.mode=0;}
+                if(draw&&c.mode!=0)matrices[count++]=Matrix4x4.TRS(c.position,c.mode==2?Quaternion.Euler(-90,c.spin,0):Quaternion.Euler(70+c.age*300,c.spin,c.spin),Vector3.one*(c.mode==4?.36f:.28f));
                 decorations[i]=c;
             }
             if(!draw)return;
+            // Compact two-column coin satchel below the crown line; it grows with the
+            // wallet (one disc per coin up to 24) without hiding the hero's head.
             int stack=Mathf.Min(StackCap,Coins);
-            for(int i=0;i<stack;i++)matrices[count++]=Matrix4x4.TRS(backpack+king.right*((i/8-1)*.20f)+Vector3.up*((i%8)*.054f),Quaternion.Euler(-90,0,0),Vector3.one*.28f);
+            for(int i=0;i<stack;i++)matrices[count++]=Matrix4x4.TRS(backpack+king.right*((i%2==0?-1:1)*.095f)+Vector3.up*((i/2)*.036f),Quaternion.Euler(-90,i*23,0),Vector3.one*.2f);
             if(count>0)Graphics.DrawMeshInstanced(coin,0,gold,matrices,count,null,ShadowCastingMode.Off,false,0,camera,LightProbeUsage.Off);
         }
         // Seven-segment geometry keeps combat numbers in instanced mesh batches,

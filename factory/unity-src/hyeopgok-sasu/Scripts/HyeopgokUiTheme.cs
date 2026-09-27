@@ -76,6 +76,14 @@ namespace Mgf.HyeopgokSasu
             var blue=Box("Royal blue rail",rim,new Vector2(.5f,.5f),Vector2.zero,size-new Vector2(7,7),MgfLook.Hex("#0c73d5"));
             var face=Box("Parchment center",rim,new Vector2(.5f,.5f),Vector2.zero,size-new Vector2(19,19),MgfLook.Hex("#f6e7c8"));return rim;
         }
+        // Chunky strategy-game button: dark outline, darker bottom lip, bright face, top gleam.
+        RectTransform GameButton(string name,Transform parent,Vector2 anchor,Vector2 offset,Vector2 size,Color face,Color lip){
+            var rim=Box(name,parent,anchor,offset,size,MgfLook.Hex("#18333f"));
+            Box(name+" lip",rim,new Vector2(.5f,.5f),new Vector2(0,-2),size-new Vector2(7,9),lip);
+            var top=Box(name+" face",rim,new Vector2(.5f,.5f),new Vector2(0,2.5f),size-new Vector2(7,13),face);
+            Box(name+" gleam",top,new Vector2(.5f,1),new Vector2(0,-6),new Vector2(size.x-26,4),new Color(1,1,1,.35f));
+            return rim;
+        }
         void BuildHourglass(Transform parent){
             var h=Group("Hourglass",parent);h.anchorMin=h.anchorMax=new Vector2(.5f,.5f);h.anchoredPosition=new Vector2(-13,0);h.sizeDelta=new Vector2(14,23);
             Box("Hourglass upper rim",h,new Vector2(.5f,.5f),new Vector2(0,10),new Vector2(14,3),MgfLook.Hex("#704b28"));
@@ -111,7 +119,9 @@ namespace Mgf.HyeopgokSasu
         }
         void AnimateRewardCoins(){
             float age=Time.unscaledTime-resultStarted;
-            for(int i=0;i<resultCoins.Length;i++){float t=Mathf.Repeat(age*.24f+i*.0833f,1);resultCoins[i].anchoredPosition=new Vector2(Mathf.Sin(i*2.4f)*205,430-t*875);resultCoins[i].localRotation=Quaternion.Euler(0,0,age*(35+i*7));}
+            float spread=(float)Screen.width/Screen.height>1.2f?1.55f:1f;
+            // Coins rain down both flanks behind the royal card, never across its text.
+            for(int i=0;i<resultCoins.Length;i++){float t=Mathf.Repeat(age*.24f+i*.0833f,1);float side=i%2==0?-1:1;resultCoins[i].anchoredPosition=new Vector2(side*(152+(i/2%3)*24)*spread,430-t*875);resultCoins[i].localRotation=Quaternion.Euler(0,0,age*(35+i*7));}
         }
         RectTransform Pill(string name,Transform parent,Vector2 anchor,Vector2 offset,Vector2 size,Color color){
             var rim=Box(name,parent,anchor,offset,size,MgfLook.Hex("#e8e8d9"));
@@ -167,13 +177,17 @@ namespace Mgf.HyeopgokSasu
             var titleShadow=DisplayText("협곡 사수",titleLogo,new Vector2(.5f,.5f),new Vector2(2,-5),new Vector2(370,92),63,navy);titleShadow.characterSpacing=-3;
             var title=DisplayText("협곡 사수",titleLogo,new Vector2(.5f,.5f),new Vector2(0,-1),new Vector2(370,92),63,cream);title.characterSpacing=-3;
             titleSubline=Text("코인을 모아 · 답만큼 붓고 · 성문을 지켜라",titleLogo,new Vector2(.5f,.5f),new Vector2(0,-58),new Vector2(372,38),17,cream);
-            titlePackBanner=Pill("Selected unit banner",titleRoot,new Vector2(.5f,.265f),Vector2.zero,new Vector2(342,99),navy);
-            titleInfo=Text("문제 팩을 불러오는 중…",titlePackBanner,new Vector2(.5f,.5f),new Vector2(0,12),new Vector2(320,62),25,gold);
-            titleSelectionMeta=Text("나의 학습 원정",titlePackBanner,new Vector2(.5f,.5f),new Vector2(0,-32),new Vector2(290,26),15,cream);
-            packRect=Pill("Open unit collection",titleRoot,new Vector2(.5f,.15f),new Vector2(-108,0),new Vector2(104,61),MgfLook.Hex("#16536c"));
-            Text("단원 선택",packRect,new Vector2(.5f,.5f),Vector2.zero,new Vector2(96,52),18,cream);
-            ctaRect=Pill("Deploy",titleRoot,new Vector2(.5f,.15f),new Vector2(59,0),new Vector2(207,66),gold);
-            ctaText=Text("출  격",ctaRect,new Vector2(.5f,.5f),new Vector2(0,1),new Vector2(196,56),30,cream);
+            // Royal parchment plaque with a gold ribbon: the selected expedition.
+            titlePackBanner=RoyalPanel("Selected unit plaque",titleRoot,new Vector2(.5f,.265f),Vector2.zero,new Vector2(342,104));
+            var packRibbon=Box("Selected unit gold ribbon",titlePackBanner,new Vector2(.5f,1),new Vector2(0,-2),new Vector2(170,30),MgfLook.Hex("#5a3a1e"));
+            Box("Ribbon gold face",packRibbon,new Vector2(.5f,.5f),Vector2.zero,new Vector2(164,24),gold);
+            Text("이번 원정",packRibbon,new Vector2(.5f,.5f),new Vector2(0,1),new Vector2(160,24),14,MgfLook.Hex("#49301c")).fontSharedMaterial=RoundBodyMaterial;
+            titleInfo=Text("문제 팩을 불러오는 중…",titlePackBanner,new Vector2(.5f,.5f),new Vector2(0,4),new Vector2(310,44),26,MgfLook.Hex("#3b2a18"));titleInfo.fontSharedMaterial=RoundBodyMaterial;titleInfo.fontStyle=FontStyles.Bold;
+            titleSelectionMeta=Text("나의 학습 원정",titlePackBanner,new Vector2(.5f,.5f),new Vector2(0,-31),new Vector2(290,24),15,MgfLook.Hex("#7a5431"));titleSelectionMeta.fontSharedMaterial=RoundBodyMaterial;
+            packRect=GameButton("Open unit collection",titleRoot,new Vector2(.5f,.15f),new Vector2(-108,0),new Vector2(108,64),MgfLook.Hex("#0c73d5"),MgfLook.Hex("#074f9c"));
+            DisplayText("단원 선택",packRect,new Vector2(.5f,.5f),new Vector2(0,2),new Vector2(100,52),21,Color.white);
+            ctaRect=GameButton("Deploy",titleRoot,new Vector2(.5f,.15f),new Vector2(59,0),new Vector2(207,68),MgfLook.Hex("#ffc93a"),MgfLook.Hex("#d88a12"));
+            ctaText=DisplayText("출 격",ctaRect,new Vector2(.5f,.5f),new Vector2(0,3),new Vector2(196,56),36,Color.white);
             Text("10번의 판단 · 7번의 정답 · 하나의 성문",titleRoot,new Vector2(.5f,.065f),Vector2.zero,new Vector2(370,27),15,cream);
             BuildPackBrowser();
         }

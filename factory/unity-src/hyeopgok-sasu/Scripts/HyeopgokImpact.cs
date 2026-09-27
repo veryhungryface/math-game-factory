@@ -59,7 +59,7 @@ namespace Mgf.HyeopgokSasu
             flashMaterial = CreateMaterial(shader,new Color(1,1,.98f));
             starMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Spark"));starMaterial.SetColor("_Color",Color.white);starMaterial.enableInstancing=true;
             fireMaterial = CreateMaterial(shader,new Color(1,.31f,.018f));
-            darkMaterial = CreateMaterial(shader,new Color(.69f,.73f,.73f));
+            darkMaterial = CreateMaterial(shader,new Color(1f,.90f,.88f));
         }
 
         public void Clear()
@@ -78,8 +78,8 @@ namespace Mgf.HyeopgokSasu
             // suppresses duplicate decoration; damage and rewards are resolved
             // by the battle before this visual callback runs.
             for(int i=0;i<NumberCap;i++)
-                if(numbers[i].live&&numbers[i].age<.18f&&
-                   (numbers[i].position-position-Vector3.up*.95f).sqrMagnitude<2.25f)
+                if(numbers[i].live&&numbers[i].age<.30f&&
+                   (numbers[i].position-position-Vector3.up*.95f).sqrMagnitude<4.0f)
                     return;
             numbers[numberCursor++%NumberCap]=new Popup {position=position+Vector3.up*.95f,heavy=heavy,live=true};
         }
@@ -191,7 +191,9 @@ namespace Mgf.HyeopgokSasu
             {
                 Popup p=numbers[i];if(!p.live)continue;p.age+=dt;
                 if(p.age>.82f){p.live=false;numbers[i]=p;continue;}
-                float size=(p.heavy?.60f:.48f)*Mathf.Min(1,(.82f-p.age)*7);
+                float pop=p.age<.09f?1+(.09f-p.age)*4.5f:1;float size=(p.heavy?.54f:.42f)*pop*Mathf.Min(1,(.82f-p.age)*7);
+                // Keep popups a similar on-screen size at the close landscape lens.
+                size*=Mathf.Clamp((p.position-camera.transform.position).magnitude/44f,.6f,1f);
                 Matrix4x4 m=Matrix4x4.TRS(p.position+Vector3.up*p.age*.95f-camera.transform.forward*.13f,facing,Vector3.one*size);
                 if(p.heavy)bigNumbers[big++]=m;else smallNumbers[small++]=m;
                 numbers[i]=p;
@@ -245,22 +247,27 @@ namespace Mgf.HyeopgokSasu
 
         static Texture2D MakeNumberAtlas()
         {
-            // Hand-authored five-by-seven bitmap glyphs; baked once at startup.
-            // No text objects, dynamic font rebuilds or per-frame allocations.
-            const int width=128,height=32;bool[] ink=new bool[width*height];
-            string[] glyphs={"00000000000000011111000000000000000","00100011000010000100001000010001110","11111100001000011110000010000111110"};
-            int[][] words={new[]{0,2},new[]{0,1,2}};
-            for(int word=0;word<2;word++)for(int g=0;g<words[word].Length;g++){
-                int start=word*64+(64-words[word].Length*18+3)/2+g*18;string glyph=glyphs[words[word][g]];
-                for(int y=0;y<7;y++)for(int x=0;x<5;x++)if(glyph[y*5+x]=='1')
-                    for(int yy=0;yy<3;yy++)for(int xx=0;xx<3;xx++)ink[(5+(6-y)*3+yy)*width+start+x*3+xx]=true;
+            // Rounded stroke glyphs rasterised once at startup (distance to line
+            // segments): chunky white numerals with a dark outline, bilinear
+            // filtered. Left half "-5", right half "-15". No per-frame work.
+            const int width=256,height=64;const float unit=3.55f,face=1.45f,outline=1.05f;
+            Vector2[][] minus={new[]{new Vector2(0,7),new Vector2(5.2f,7)}};
+            Vector2[][] one={new[]{new Vector2(2.6f,1.2f),new Vector2(2.6f,12.8f),new Vector2(.4f,10.9f)}};
+            Vector2[][] five={new[]{new Vector2(7.2f,12.8f),new Vector2(1.9f,12.8f),new Vector2(1.5f,7.9f),new Vector2(3.7f,8.7f),new Vector2(6.0f,8.4f),new Vector2(7.5f,6.6f),new Vector2(7.6f,4.0f),new Vector2(6.2f,1.8f),new Vector2(3.9f,1.1f),new Vector2(1.2f,2.1f)}};
+            var strokes=new System.Collections.Generic.List<Vector2>(64);
+            void Add(Vector2[][] glyph,float x0,float cx){foreach(var line in glyph)for(int i=0;i+1<line.Length;i++){strokes.Add(new Vector2(cx+(x0+line[i].x)*unit,4+line[i].y*unit));strokes.Add(new Vector2(cx+(x0+line[i+1].x)*unit,4+line[i+1].y*unit));}}
+            // Word widths in glyph units: "-5" = 5.2+1.8+7.6, "-15" = 5.2+1.6+2.6+1.9+7.6
+            Add(minus,0,64-14.6f*unit*.5f);Add(five,7.0f,64-14.6f*unit*.5f);
+            float left=192-18.9f*unit*.5f;Add(minus,0,left);Add(one,6.8f,left);Add(five,11.3f,left);
+            Color[] pixels=new Color[width*height];Color ink=Color.white,rim=new Color(.043f,.13f,.17f,1);
+            float faceR=face*unit,rimR=(face+outline)*unit;
+            for(int y=0;y<height;y++)for(int x=0;x<width;x++){
+                Vector2 p=new Vector2(x+.5f,y+.5f);float d=999;
+                for(int k=0;k<strokes.Count;k+=2){Vector2 a=strokes[k],b=strokes[k+1],ab=b-a;float t=Mathf.Clamp01(Vector2.Dot(p-a,ab)/Mathf.Max(1e-4f,ab.sqrMagnitude));d=Mathf.Min(d,(p-(a+ab*t)).magnitude);}
+                float inkA=Mathf.Clamp01(faceR-d+.5f),rimA=Mathf.Clamp01(rimR-d+.5f);
+                Color c=Color.Lerp(rim,ink,inkA);c.a=rimA;pixels[y*width+x]=c;
             }
-            Color[] pixels=new Color[width*height];
-            for(int y=1;y<height-1;y++)for(int x=1;x<width-1;x++){
-                int k=y*width+x;if(ink[k])pixels[k]=Color.white;
-                else if(ink[k-1]||ink[k+1]||ink[k-width]||ink[k+width]||ink[k-width-1]||ink[k-width+1]||ink[k+width-1]||ink[k+width+1])pixels[k]=new Color(.045f,.12f,.16f,1);
-            }
-            Texture2D texture=new Texture2D(width,height,TextureFormat.RGBA32,false){name="Combat damage bitmap atlas",filterMode=FilterMode.Point,wrapMode=TextureWrapMode.Clamp};
+            Texture2D texture=new Texture2D(width,height,TextureFormat.RGBA32,false){name="Combat damage stroke atlas",filterMode=FilterMode.Bilinear,wrapMode=TextureWrapMode.Clamp};
             texture.SetPixels(pixels);texture.Apply(false,true);return texture;
         }
 

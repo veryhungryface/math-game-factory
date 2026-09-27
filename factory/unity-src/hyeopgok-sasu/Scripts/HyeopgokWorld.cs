@@ -39,7 +39,8 @@ namespace Mgf.HyeopgokSasu
             // Forests are authored in asymmetrical groups, then merged once.
             var rng=new System.Random(20260926);
             PlantSandstoneRim();
-            for(int i=0;i<11;i++)SpawnModel("rock",new Vector3(-6.2f-(i%3)*.75f,-1.4f,-8+i*1.9f),.55f+(i%3)*.2f);
+            // Round 2b: the old near-black loose rocks west of the road are replaced by
+            // the clustered sandstone block ridge baked into terrain.fbx.
             // Small asymmetric groves follow the plateau rim. Leave the four pads,
             // king approach, cannon sight lines and red/blue collision throat clear.
             var rim=new Vector4[]{
@@ -54,7 +55,7 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<rim.Length;i++){
                 var p=rim[i];var tree=SpawnModel(i%3==1?"tree_broadleaf":"tree",new Vector3(p.x,p.y,p.z),p.w);
                 tree.transform.Rotate(0,rng.Next(360),0);
-                if(i<8&&i%2==0)SpawnModel("rock",new Vector3(p.x+.3f,p.y,p.z-.4f),.22f);
+                if(i<8&&i%2==0)SpawnModel("rock_small",new Vector3(p.x+.3f,p.y,p.z-.4f),.34f);
             }
             BuildSceneryContactShadows();
             CombineScenery();

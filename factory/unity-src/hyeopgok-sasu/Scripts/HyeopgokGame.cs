@@ -299,7 +299,8 @@ namespace Mgf.HyeopgokSasu
             // Stable 55-degree/32-degree lens. The dead zone preserves pad targeting,
             // while a modest follow makes the settlement feel continuous offscreen.
             float aspect=(float)Screen.width/Screen.height;
-            Vector3 desired=new Vector3(.35f,0,aspect>1.2f?-1.05f:1.25f);
+            // Landscape frames the pads below the quest scroll (pads sit ~1/3 down).
+            Vector3 desired=new Vector3(.35f,0,aspect>1.2f?.15f:1.25f);
             if(playStarted && king){
                 Vector3 k=Rules.King;
                 float dx=k.x-desired.x,dz=k.z+1.5f;

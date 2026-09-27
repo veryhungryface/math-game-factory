@@ -73,6 +73,67 @@ def cliff_bank(m,poly,y0,y1,top='grass',depth=2,variation=1):
    m.face([(c.x-d.x,y1+.013,c.y-d.y),(c.x+d.x,y1+.013,c.y+d.y),(c.x-da.x*.07,y1-.16,c.y-da.y*.07)],'grass_dark')
  ground_top(m,poly,y1,top,depth,variation)
 
+
+ROCK_LOW=hexcol('#56657A');ROCK_HIGH=hexcol('#A7ACB6');ROCK_TOP=hexcol('#EDD3BC');ROCK_BEVEL=hexcol('#CDBBAE')
+
+def mesa_block(m,x,z,r,bottom,top,seed,aspect=1.0):
+ """One convex faceted block: flat warm top, bevel, two-band pale slate sides."""
+ rng=random.Random(seed);h=top-bottom;n=6+seed%3;phase=rng.uniform(0,math.tau)
+ bevel=min(.20,h*.14);pts=[]
+ for level,(yy,rad,jit) in enumerate([(bottom,1.0,.10),(bottom+h*rng.uniform(.38,.52),.97,.07),(top-bevel,.93,.05),(top,.76,.05)]):
+  for i in range(n):
+   a=phase+i*math.tau/n+rng.uniform(-.22,.22)+level*.09
+   rr=r*rad*rng.uniform(1-jit,1+jit)
+   pts.append((x+math.cos(a)*rr,yy,z+math.sin(a)*rr*aspect))
+ bm=bmesh.new()
+ for q in pts:bm.verts.new(q)
+ bmesh.ops.convex_hull(bm,input=list(bm.verts),use_existing_faces=False)
+ bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.normal_update()
+ for f in bm.faces:
+  ny=f.normal.y;cy=sum(v.co.y for v in f.verts)/len(f.verts);noise=.95+rng.random()*.08
+  if ny>.93:col=tint(ROCK_TOP,.97+rng.random()*.05)
+  elif ny>.35:col=tint(ROCK_BEVEL,noise)
+  else:
+   t=max(0,min(1,(cy-bottom)/max(.01,h)))
+   col=tint(blend(ROCK_LOW,ROCK_HIGH,.18+.82*t),noise)
+  m.face([tuple(v.co) for v in f.verts],col)
+ bm.free()
+
+def block_ridge(m,points,bottom,hmin,hmax,rmin,rmax,seed,inward=None,step=1.15):
+ """Overlapping stepped blocks along a polyline; optional lower steps inward."""
+ rng=random.Random(seed);k=0
+ for (ax,az),(bx,bz) in zip(points,points[1:]):
+  a,b=Vector((ax,az)),Vector((bx,bz));count=max(1,math.ceil((b-a).length/step))
+  d=(b-a).normalized();side=Vector((-d.y,d.x))
+  for j in range(count):
+   p=a.lerp(b,j/count)+side*rng.uniform(-.25,.25);k+=1
+   wave=.5+.5*math.sin(k*1.37+seed)
+   r=rng.uniform(rmin,rmax);h=hmin+(hmax-hmin)*(.35+.65*wave)*rng.uniform(.85,1.0)
+   mesa_block(m,p.x,p.y,r,bottom,bottom+h,seed*131+k,rng.uniform(.8,1.15))
+   if inward is not None and k%2==0:
+    q=p+Vector(inward)*(r*rng.uniform(.75,1.0))+d*rng.uniform(-.3,.3)
+    mesa_block(m,q.x,q.y,r*rng.uniform(.55,.72),bottom,bottom+h*rng.uniform(.38,.55),seed*977+k,rng.uniform(.85,1.2))
+
+def build_block_ridges(m):
+ B=-1.52
+ # West lower wall: continuous canyon ridge beyond the red/blue road, stepping
+ # down toward the road; it hands over to the tall western mesa at z~4.
+ block_ridge(m,[(-11.2,-11.0),(-11.6,-7.5),(-11.9,-4.0),(-12.1,.6),(-11.2,3.2),(-11.3,7.5),(-11.2,12.4)],B,1.5,2.5,.95,1.35,11,inward=(1,0))
+ # Blocks leaning on the tall west mesa face break its long slab into masses.
+ block_ridge(m,[(-9.9,3.55),(-7.8,3.55),(-6.0,4.25),(-4.9,5.5),(-3.8,6.6)],B,1.6,2.5,.85,1.15,23,inward=(.2,-1))
+ # Low sandstone lip blocks on the west mesa top edge.
+ block_ridge(m,[(-9.2,4.55),(-6.9,4.5),(-5.3,5.6)],3.1,.7,1.15,.55,.85,31)
+ # East lower wall and east mesa face.
+ block_ridge(m,[(11.0,-11.0),(11.3,-7.0),(11.6,-3.5),(11.7,.9),(11.0,3.6),(9.9,5.0),(8.3,4.75)],B,1.5,2.5,.95,1.35,41,inward=(-1,0))
+ block_ridge(m,[(9.3,5.25),(10.9,6.6),(12.4,8.8)],B,1.4,2.2,.8,1.1,47,inward=(-.4,-1))
+ block_ridge(m,[(8.9,5.55),(10.2,7.2)],1.2,.6,1.0,.5,.75,53)
+ # Far north skyline masses (beyond fog start at portrait).
+ block_ridge(m,[(-8.9,14.2),(-5.5,15.6),(-2.2,16.4)],B,1.8,2.5,1.1,1.4,61)
+ block_ridge(m,[(1.9,17.0),(5.2,16.4),(8.4,15.2)],B,1.8,2.5,1.1,1.4,67)
+ # South of the creek: two low clusters frame the bridge from outside.
+ block_ridge(m,[(-9.5,-13.8),(-7.8,-14.6)],B,1.0,1.7,.8,1.1,71)
+ block_ridge(m,[(8.2,-14.4),(10.0,-13.6)],B,1.0,1.7,.8,1.1,73)
+
 def terrain_r2():
  m=MeshMaker('terrain')
  # 1 m cells across all camera-visible ground; coarse continuation beyond fog.
@@ -116,15 +177,10 @@ def terrain_r2():
    p=d.lerp(c,.5);m.face([(p.x-.10,.49,p.y),(p.x+.10,.49,p.y),(p.x,.27,p.y-.06)],'grass_dark')
  cliff_bank(m,[(-10,4),(-5.7,4),(-5.65,5.25),(-3.5,7),(-.5,9),(-1,14),(-10,14)],-1.5,3.1,'grass_dark')
  cliff_bank(m,[(7.1,5),(9,5),(13,9),(13,16),(6.9,16)],-1.5,1.2,'grass_dark')
- # Continuous low ridges hug the skirt. Highest outcrop is 2.0m, below 1.5x
- # barracks height, instead of the previous 6.1m freestanding background rocks.
- ridges=[(-9.6,3.6,-6.4,4.0),(-11.1,5,-11.1,12),(-8.9,14,-2.2,16.3),(1.9,17,8.4,15.2),(9.5,8.7,12,4.1),(-11.8,-4,-12.0,1),(11.0,-5,11.1,1.4)]
- for group,(ax,az,bx,bz) in enumerate(ridges):
-  a,b=Vector((ax,az)),Vector((bx,bz));count=max(3,math.ceil((a-b).length/1.25))
-  for j in range(count):
-   p=a.lerp(b,j/max(1,count-1));side=(-1 if j%2 else 1);w=1.52+(j%3)*.29;h=1.24+(j%3)*.38
-   convex_boulder(m,p.x+side*.22,p.y,w,1.64,-1.5,-1.5+h,5921+group*91+j)
-   if j%2==0:convex_boulder(m,p.x+.61,p.y-.65,.90,.81,-1.5,-.83,7291+group*73+j)
+ # Round 2b: Kingshot-style massed cliff blocks. Flat sandstone tops, faceted
+ # pale-slate faces, clustered along ridges so rocks read as canyon walls,
+ # never as isolated polka-dot boulders. Heights <= 2.5m (1.5x barracks).
+ build_block_ridges(m)
  return emit(m)
 
 # Clear this asset only in the shared live Blender scene.
@@ -132,6 +188,6 @@ for ob in list(bpy.data.objects):
  if ob.name=='terrain' or ob.name.startswith('terrain.'):
   bpy.data.objects.remove(ob,do_unlink=True)
 terrain_r2()
-report={'round':2,'assets':ASSETS,'surface_grid_m':1,'grass_variation':'+/-6% continuous low-frequency vertex RGB','cliff_top':'#E9C9B0','cliff_side_gradient':['#263945','#838894'],'lower_plain':['#208F61','#0D7461'],'max_baked_outcrop_height_m':2.0,'rules_path_and_pad_coordinates':'unchanged'}
+report={'round':2,'assets':ASSETS,'surface_grid_m':1,'grass_variation':'+/-6% continuous low-frequency vertex RGB','cliff_top':'#E9C9B0','cliff_side_gradient':['#263945','#838894'],'lower_plain':['#208F61','#0D7461'],'max_baked_outcrop_height_m':2.5,'rock_style':'clustered flat-top sandstone blocks (round 2b)','rules_path_and_pad_coordinates':'unchanged'}
 (HERE/'art-r2-environment-report.json').write_text(json.dumps(report,indent=2)+'\n')
 print('ART_R2_ENVIRONMENT_COMPLETE',json.dumps(report))

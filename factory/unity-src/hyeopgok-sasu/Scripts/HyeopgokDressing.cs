@@ -15,31 +15,38 @@ namespace Mgf.HyeopgokSasu
 
         void BuildVillagePathsAndYard()
         {
-            // A connected loop gives the small learning courtyard an inhabited
-            // footprint. The ribbon sits below all pads and changes no collider.
-            Vector3[] knots={new Vector3(-.6f,1.205f,-3.1f),new Vector3(-1.8f,1.205f,-1),
-                new Vector3(-1.8f,1.205f,2),new Vector3(-.8f,1.205f,3.55f),
-                new Vector3(.6f,1.205f,2),new Vector3(.6f,1.205f,-1),
-                new Vector3(-.6f,1.205f,-3.1f)};
+            // Round 2b: a purposeful dirt network instead of an oval loop. The spine
+            // runs from the south timber yard between the two pad columns to the
+            // northern well; branches reach the barracks edge and both tower bases.
+            // Ribbons sit below all pads and change no collider or walk bound.
             var paths=new DecorationMesh();
-            Color earth=Hex("#C8B59C").linear;earth.a=.82f;
-            Color rut=Hex("#E8D5B6").linear;rut.a=.08f;
-            var points=new Vector3[(knots.Length-1)*12+1];
-            for(int i=0;i<points.Length;i++){
-                float u=i/12f;int k=Mathf.Min(knots.Length-2,(int)u);float t=u-k;
-                Vector3 a=knots[k==0?knots.Length-2:k-1],b=knots[k],c=knots[k+1],d=knots[k+2>=knots.Length?1:k+2];
-                points[i]=.5f*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t*t+(-a+3*b-3*c+d)*t*t*t);
+            Color earth=Hex("#C8B59C").linear;earth.a=.86f;
+            Color rut=Hex("#E8D5B6").linear;rut.a=.10f;
+            Vector3[][] routes={
+                new[]{new Vector3(-.45f,1.205f,-4.55f),new Vector3(-.6f,1.205f,-2.7f),new Vector3(-.6f,1.205f,.45f),new Vector3(-.62f,1.205f,3.3f),new Vector3(-1.05f,1.205f,4.75f)},
+                new[]{new Vector3(-.6f,1.204f,.45f),new Vector3(-1.9f,1.204f,.42f),new Vector3(-3.05f,1.204f,.2f)},
+                new[]{new Vector3(-.6f,1.204f,-2.7f),new Vector3(.55f,1.204f,-3.05f),new Vector3(1.45f,1.204f,-3.45f)},
+                new[]{new Vector3(-.62f,1.204f,3.3f),new Vector3(.55f,1.204f,3.95f),new Vector3(1.45f,1.204f,4.55f)}};
+            for(int r=0;r<routes.Length;r++){
+                Vector3[] knots=routes[r];var points=new Vector3[(knots.Length-1)*10+1];
+                for(int i=0;i<points.Length;i++){
+                    float u=i/10f;int k=Mathf.Min(knots.Length-2,(int)u);float t=u-k;
+                    Vector3 a0=knots[Mathf.Max(0,k-1)],b0=knots[k],c0=knots[k+1],d0=knots[Mathf.Min(knots.Length-1,k+2)];
+                    points[i]=.5f*((2*b0)+(-a0+c0)*t+(2*a0-5*b0+4*c0-d0)*t*t+(-a0+3*b0-3*c0+d0)*t*t*t);
+                }
+                float width=r==0?.62f:.5f;
+                paths.CurvedFeatheredRibbon(points,width,.15f,earth,false);
+                var leftRut=new Vector3[points.Length];var rightRut=new Vector3[points.Length];
+                for(int i=0;i<points.Length;i++){
+                    Vector3 a1=points[Mathf.Max(0,i-1)],b1=points[Mathf.Min(points.Length-1,i+1)];
+                    Vector3 side=Vector3.Cross(Vector3.up,b1-a1).normalized;
+                    leftRut[i]=points[i]+side*width*.24f+Vector3.up*.002f;rightRut[i]=points[i]-side*width*.24f+Vector3.up*.002f;
+                }
+                paths.CurvedFeatheredRibbon(leftRut,.045f,.018f,rut,false);
+                paths.CurvedFeatheredRibbon(rightRut,.045f,.018f,rut,false);
+                // Soft worn junction discs hide ribbon joins where branches meet.
+                if(r>0)paths.SoftDisc(knots[0]+Vector3.up*.001f,.42f,.9f,earth);
             }
-            paths.CurvedFeatheredRibbon(points,.58f,.15f,earth,true);
-            var leftRut=new Vector3[points.Length];var rightRut=new Vector3[points.Length];
-            for(int i=0;i<points.Length;i++){
-                Vector3 a=points[i==0?points.Length-2:i-1],b=points[i>=points.Length-1?1:i+1];
-                Vector3 side=Vector3.Cross(Vector3.up,b-a).normalized;
-                leftRut[i]=points[i]+side*.14f+Vector3.up*.002f;
-                rightRut[i]=points[i]-side*.14f+Vector3.up*.002f;
-            }
-            paths.CurvedFeatheredRibbon(leftRut,.042f,.018f,rut,true);
-            paths.CurvedFeatheredRibbon(rightRut,.042f,.018f,rut,true);
             // Feet and carts have worn the entry of each workshop, with soft edges.
             Color apron=earth;apron.a=.20f;
             paths.SoftDisc(new Vector3(-.50f,1.207f,-4.63f),1.42f,.55f,apron);
@@ -166,38 +173,12 @@ namespace Mgf.HyeopgokSasu
             apron.SoftDisc(new Vector3(-1.25f,1.211f,4.67f),1.03f,.86f,earth);
             apron.SoftDisc(new Vector3(1.94f,1.211f,.45f),.63f,.86f,earth);
             CreateDecoration("Workshop worn earth aprons",apron,Mgf.MgfLook.Alpha(Color.white),false);
-            // Flat stepping stones connect the two pad rows without introducing
-            // a new obstacle, collision shape or change to mathematical input.
-            var steps=new DecorationMesh();
-            for(int i=0;i<8;i++){
-                float x=-2.3f+i*.43f,z=.46f+Mathf.Sin(i*.85f)*.07f;
-                steps.Disc(new Vector3(x,1.217f,z),i%3==0?.13f:.09f,.65f,Hex(i%2==0?"#b6b6a0":"#9eae94"),7);
-            }
-            CreateDecoration("Footworn stones between answer pads",steps,worldMat,false);
         }
 
         void DressMesaToes()
         {
-            // Three broad rim shoulders break the long western wall silhouette.
-            // Their base is on the upper mesa, with modest height (1.17m) so they
-            // remain smaller than the barracks and leave the battle lane clear.
-            Vector3[] shoulders={new Vector3(-8.68f,3.10f,4.47f),new Vector3(-6.46f,3.10f,4.43f),new Vector3(-4.64f,3.10f,6.41f)};
-            for(int i=0;i<shoulders.Length;i++)
-                SpawnModel("rock_large",shoulders[i],.60f).transform.Rotate(0,31+i*67,0);
-            // Freestanding, baked sandstone formations cover portions of the long
-            // navy mesa faces. Their irregular shoulders replace the straight beam
-            // impression while keeping terrain, road and collision geometry intact.
-            Vector4[] wall={
-                new Vector4(-9.72f,-1.50f,3.74f,1.14f),new Vector4(-7.77f,-1.50f,3.67f,1.38f),
-                new Vector4(-6.11f,-1.50f,4.37f,1.18f),new Vector4(-4.94f,-1.50f,5.55f,.98f),
-                new Vector4(-3.88f,-1.50f,6.64f,.82f),new Vector4(8.44f,-1.50f,4.89f,.90f),
-                new Vector4(9.94f,-1.50f,5.53f,.96f),new Vector4(11.22f,-1.50f,7.11f,1.08f)
-            };
-            for(int i=0;i<wall.Length;i++){
-                Vector4 p=wall[i];var rock=SpawnModel("rock_large",new Vector3(p.x,p.y,p.z),1);
-                rock.transform.localScale=new Vector3(.62f+(i%3)*.09f,p.w*.90f,.60f+(i%2)*.16f);rock.transform.Rotate(0,i*53+19,0);
-                SpawnModel("rock_medium",new Vector3(p.x-.57f,p.y,p.z-.63f),.59f+(i%3)*.10f).transform.Rotate(0,i*83,0);
-            }
+            // Round 2b: rim shoulders and wall/foot boulders are authored as clustered
+            // flat-top sandstone blocks in art_r2_environment.py (terrain.fbx).
             Vector4[] ledge={
                 new Vector4(-2.92f,.23f,-4.45f,.87f),new Vector4(-1.66f,.22f,-5.25f,.84f),
                 new Vector4(-.28f,.22f,-5.56f,.83f),new Vector4(1.05f,.22f,-5.15f,.81f),
@@ -207,22 +188,21 @@ namespace Mgf.HyeopgokSasu
                 Vector4 p=ledge[i];var rock=SpawnModel("rock_medium",new Vector3(p.x,p.y,p.z),1);
                 rock.transform.localScale=new Vector3(.70f,p.w*1.35f,.47f);rock.transform.Rotate(0,i*71+23,0);
             }
-            // Low talus outside the army banks adds another depth scale at the foot.
-            Vector3[] foot={new Vector3(-6.71f,-1.5f,-4.4f),new Vector3(-6.15f,-1.5f,.30f),new Vector3(6.72f,-1.5f,-3.9f),new Vector3(6.99f,-1.5f,.5f)};
-            for(int i=0;i<foot.Length;i++)SpawnModel("rock_medium",foot[i],1.08f+(i%2)*.22f).transform.Rotate(0,i*89+15,0);
         }
 
         void PlantSandstoneRim()
         {
             var rng=new System.Random(942817);
             Vector2[] groves={
-                new Vector2(-10.75f,-5.25f),new Vector2(-10.3f,-.45f),new Vector2(-10.0f,3.8f),
+                new Vector2(-8.45f,-5.25f),new Vector2(-8.35f,-.45f),new Vector2(-8.6f,2.1f),
                 new Vector2(-8.9f,8.45f),new Vector2(-3.9f,10.6f),new Vector2(8.8f,9.4f),
-                new Vector2(10.0f,3.6f),new Vector2(10.3f,-2.35f),new Vector2(7.1f,-13.25f),
+                new Vector2(8.2f,2.3f),new Vector2(8.4f,-2.35f),new Vector2(7.1f,-13.25f),
                 new Vector2(-6.15f,-13.3f),new Vector2(-17.2f,-13.8f),new Vector2(17.1f,-13.4f),
                 new Vector2(-22.1f,-3.2f),new Vector2(-22.3f,8.1f),new Vector2(-15.7f,20.5f),
                 new Vector2(-5.9f,25.1f),new Vector2(6.3f,25.4f),new Vector2(17.4f,21.1f),
-                new Vector2(23.1f,8.9f),new Vector2(23.4f,-3.2f)
+                new Vector2(23.1f,8.9f),new Vector2(23.4f,-3.2f),
+                // Round 2b: fill the empty portrait foreground around the creek.
+                new Vector2(6.6f,-6.3f),new Vector2(1.3f,-11.3f),new Vector2(-3.6f,-12.0f),new Vector2(4.4f,-12.6f)
             };
             var placed=new Vector2[9];
             for(int group=0;group<groves.Length;group++){
@@ -245,11 +225,6 @@ namespace Mgf.HyeopgokSasu
             }
             // Far mineral ridges are now authored in art_r2_environment.py and
             // merged into terrain.fbx. No isolated large boulder scatters remain.
-            // Visible inner toes use the same sandstone family, with grass growing between them.
-            Vector3[] toes={new Vector3(-10.90f,-1.52f,-6.90f),new Vector3(-11.26f,-1.52f,-1.20f),new Vector3(-9.48f,3.1f,6.14f),new Vector3(11.2f,-1.52f,-4.12f),new Vector3(11.52f,-1.52f,1.2f),new Vector3(8.6f,1.2f,7.18f)};
-            for(int i=0;i<toes.Length;i++){
-                SpawnModel(i%2==0?"rock_medium":"rock_small",toes[i],.75f+(i%3)*.12f).transform.Rotate(0,i*77,0);
-            }
         }
     }
 }

@@ -11,8 +11,8 @@ small=ImageFont.truetype(FONT,21)
 tag=sys.argv[1] if len(sys.argv)>1 else 'round1'
 rows=[
  ('scratchpad/kingshot-ref/img/as_12.jpg',tag+'/play-390-8s.png',940,'초반 전투 · 390×844'),
- ('scratchpad/kingshot-ref/img/gp_1.jpg',tag+'/play-390-after4correct.png',940,'성장한 기지 · 390×844'),
- ('scratchpad/kingshot-ref/frames/Vioib7IWvqc/f024.jpg',tag+'/play-1280-8s.png',760,'성장한 기지 · 1280×800'),
+ ('scratchpad/kingshot-ref/img/gp_1.jpg',tag+'/play-390-15s.png',940,'전투 15초 · 390×844'),
+ ('scratchpad/kingshot-ref/frames/Vioib7IWvqc/f024.jpg',tag+'/play-1280-8s.png',760,'전투 8초 · 1280×800'),
 ]
 sheet=Image.new('RGB',(2160,sum(r[2] for r in rows)+76),'#142e36')
 draw=ImageDraw.Draw(sheet)
