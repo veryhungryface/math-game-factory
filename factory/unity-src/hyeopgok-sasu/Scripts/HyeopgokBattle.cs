@@ -129,6 +129,12 @@ namespace Mgf.HyeopgokSasu
         public int Blues { get { return displayedBlues; } }
         public float Shake { get { return shake; } }
         public Vector3 FrontWorld => FrontPosition();
+        public Vector3 CollectionPoint {
+            get {
+                Vector3 p=FrontPosition();
+                return new Vector3(Mathf.Clamp(p.x,HyeopgokRules.MinX,HyeopgokRules.MaxX),1.24f,Mathf.Clamp(p.z,HyeopgokRules.MinZ,HyeopgokRules.MaxZ));
+            }
+        }
         public int Coins { get { return economy==null?0:economy.Coins; } }
         public int DepositRemaining { get { return economy==null?0:economy.Remaining; } }
         public bool Depositing { get { return economy!=null&&economy.Depositing; } }
@@ -138,7 +144,8 @@ namespace Mgf.HyeopgokSasu
         // Synchronous QA command uses actual kills, grounded coins and their pickup
         // trajectory. It never assigns a wallet or calls answer adjudication.
         public void SimulateEarnedCoins(int needed){
-            for(int tick=0;tick<400&&Coins<needed;tick++){
+            int target=Mathf.Min(HyeopgokRules.CarryCapacity,Coins+Mathf.Max(0,needed));
+            for(int tick=0;tick<400&&Coins<target;tick++){
                 MoveSoldiers(.12f);
                 if(tick%2==0)KillRed((tick/2)%RedLanes,.8f);
                 economy.Simulate(.12f);
@@ -207,7 +214,10 @@ namespace Mgf.HyeopgokSasu
         public void BeginQuestion(float seconds=24)
         {
             sinceAnswer = pressureClock = 0;
-            questionGrace=Mathf.Max(PressureGrace,seconds-14);
+            // Preserve an 18-second reading/solving window, then make the live
+            // defence matter during the middle of long pour questions instead of
+            // hiding all gate pressure inside their final 14 seconds.
+            questionGrace=Mathf.Clamp(seconds*.5f,PressureGrace,Mathf.Max(PressureGrace,seconds-12));
             questionActive = playing;
         }
 
@@ -314,8 +324,8 @@ namespace Mgf.HyeopgokSasu
             if (playing && questionActive)
             {
                 sinceAnswer += dt;
-                // The HUD exposes the same grace, cadence and damage. One thoughtful
-                // 20-second solve takes no damage; pressure starts at 22 seconds.
+                // The HUD exposes the same grace, cadence and damage. A quick solve
+                // stays safe; a long solve now visibly spends gate HP before timeout.
                 if (sinceAnswer > questionGrace)
                 {
                     pressureClock += dt;

@@ -24,7 +24,7 @@ namespace Mgf.HyeopgokSasu
             public string assembledFractionText="";
             public bool[] visited;
             public float confirm,dwell;
-            public float[] kingScreen,exitScreen;
+            public float[] kingScreen,exitScreen,collectionScreen;
         }
         [Serializable] sealed class ProblemSample:MgfProblem {
             public string answer_mode,accept,num_label,den_label,format,explain;
@@ -101,7 +101,7 @@ namespace Mgf.HyeopgokSasu
             pack=candidate;packAt=at;st.pack_id=pack.pack_id;st.packTitle=pack.title;
             var bank=new List<ProblemSample>();var chars=new StringBuilder();
             foreach(var p in pack.items){
-                bank.Add(new ProblemSample{id=p.id,prompt=p.prompt,choices=p.Mode=="choice"?p.choices:null,answer=p.AnswerToken,answerNumeric=p.format=="text"?double.NaN:p.answerNumeric,unitConcept=p.unitConcept,
+                bank.Add(new ProblemSample{id=p.id,prompt=p.prompt,choices=p.Mode=="choice"?p.choices:null,answer=p.PublicAnswerToken,answerNumeric=p.format=="text"?double.NaN:p.answerNumeric,unitConcept=p.unitConcept,
                     answer_mode=p.Mode,max=p.max,accept=p.accept,num_label=p.num_label,den_label=p.den_label,answerValue=p.answerValue,answerParts=p.answerParts,format=p.format,explain=p.explain,difficulty=p.difficulty,coin_budget=p.coin_budget,distractor_tags=p.distractor_tags});
                 chars.Append(p.prompt).Append(p.explain).Append(p.answer).Append(p.num_label).Append(p.den_label);
             }
@@ -189,7 +189,7 @@ namespace Mgf.HyeopgokSasu
             else{battle.Punish(spot);MgfSfx.Play("wrong");}
             string reward=Rules.Current.Mode=="choice"?"정답 · 지원군 출격!":"정답 · "+Rules.TotalPoured+"닢 투자 · 건물 성장!";
             rewardIsRatio=ratio;
-            string answer=Rules.Current.Mode=="fraction_parts"?Rules.Current.PartsToken:Rules.Current.AnswerToken;
+            string answer=Rules.Current.PublicAnswerToken;
             feedback=Rules.LastCorrect?reward+"\n"+Rules.Current.explain:(Rules.LastPad<0?"시간 초과":"오답 · "+Rules.TotalPoured+"닢 소실")+" · 성문 -18\n정답 "+answer+" · "+Rules.Current.explain;
             HideTutorial();
             ShowFeedback(Rules.LastCorrect,feedback);SyncState();RefreshHud();
@@ -215,6 +215,8 @@ namespace Mgf.HyeopgokSasu
                 // Already poured amounts cannot be undone, including in QA commands.
                 // A fresh question is exercised by QA; partially played questions may
                 // therefore truthfully fail a correct command after an overpour.
+                Rules.Move(battle.CollectionPoint);
+                for(int i=0;i<500&&!Rules.Pending&&(Rules.King-Rules.Target).sqrMagnitude>.012f;i++){Rules.Tick(.025f);king.position=Rules.King;}
                 battle.SimulateEarnedCoins(Mathf.Min(Rules.WalletCapacity,Mathf.Max(0,a-Rules.Poured[0])+Mathf.Max(0,n-Rules.Poured[1])));
                 TestPourPad(0,a);if(Rules.PadCount==2)TestPourPad(1,n);
                 Rules.Move(HyeopgokRules.Exit);
@@ -252,9 +254,10 @@ namespace Mgf.HyeopgokSasu
             UpdatePadScreen();MgfBridge.NotifyChanged();
         }
         void UpdatePadScreen(){
-            if(st.padScreen==null){st.padScreen=new float[8];st.kingScreen=new float[2];st.exitScreen=new float[2];}
-            Vector3 kingPoint=cam.WorldToScreenPoint(Rules.King),exitPoint=cam.WorldToScreenPoint(HyeopgokRules.Exit);
+            if(st.padScreen==null){st.padScreen=new float[8];st.kingScreen=new float[2];st.exitScreen=new float[2];st.collectionScreen=new float[2];}
+            Vector3 kingPoint=cam.WorldToScreenPoint(Rules.King),exitPoint=cam.WorldToScreenPoint(HyeopgokRules.Exit),collectionPoint=cam.WorldToScreenPoint(battle.CollectionPoint);
             st.kingScreen[0]=kingPoint.x/Screen.width;st.kingScreen[1]=1-kingPoint.y/Screen.height;st.exitScreen[0]=exitPoint.x/Screen.width;st.exitScreen[1]=1-exitPoint.y/Screen.height;
+            st.collectionScreen[0]=collectionPoint.x/Screen.width;st.collectionScreen[1]=1-collectionPoint.y/Screen.height;
             for(int i=0;i<4;i++){Vector3 s=cam.WorldToScreenPoint(HyeopgokRules.Pads[i]);st.padScreen[i*2]=s.x/Screen.width;st.padScreen[i*2+1]=1-s.y/Screen.height;}
         }
         void Finish(){

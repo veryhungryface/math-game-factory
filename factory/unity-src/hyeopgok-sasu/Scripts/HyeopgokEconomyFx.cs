@@ -8,6 +8,7 @@ namespace Mgf.HyeopgokSasu
     sealed class HyeopgokEconomyFx
     {
         const int Cap=192,StackCap=24,DecorCap=96;
+        const float PickupRadius=2.25f;
         struct Coin { public Vector3 position,velocity,origin,target; public float age,flight,spin; public byte mode; }
         readonly Coin[] coins=new Coin[Cap];
         readonly Coin[] decorations=new Coin[DecorCap];
@@ -48,9 +49,10 @@ namespace Mgf.HyeopgokSasu
                 if(c.age<0){coins[i]=c;continue;}
                 if(c.mode==1){c.position+=c.velocity*dt;c.velocity.y-=dt*7;if(c.position.y<=.31f){c.position.y=.31f;c.velocity=Vector3.zero;c.mode=2;}}
                 if(c.mode==2){Vector3 delta=king.position-c.position;delta.y=0;
-                    // Pickups rest on the lane first. The magnet reaches across the
-                    // plateau rim, but never collects distant coins automatically.
-                    if(rules!=null&&rules.Active&&Coins<rules.WalletCapacity&&c.age>.8f&&delta.sqrMagnitude<100){c.origin=c.position;c.flight=0;c.mode=3;}
+                    // Ground coins only magnetise after the king approaches the
+                    // battle line. The former 10 m radius filled a 120-coin wallet
+                    // while the king stood still on the answer side of the plateau.
+                    if(rules!=null&&rules.Active&&Coins<rules.WalletCapacity&&c.age>.8f&&delta.sqrMagnitude<PickupRadius*PickupRadius){c.origin=c.position;c.flight=0;c.mode=3;}
                 }
                 if(c.mode==3){c.flight+=dt*2.8f;float t=Mathf.Clamp01(c.flight);c.position=Vector3.Lerp(c.origin,backpack,t*t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*1.15f;
                     if(t>=1){if(rules!=null&&rules.AddCoins(HyeopgokRules.CoinPerKill)>0)c.mode=0;else{c.mode=2;c.position=c.origin;}coins[i]=c;continue;}}

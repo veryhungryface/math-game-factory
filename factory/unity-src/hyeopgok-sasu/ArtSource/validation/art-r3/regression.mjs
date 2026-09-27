@@ -43,7 +43,7 @@ async function auditBank(){
   for(const got of sample){
    const q=activeBank.items.find(q=>q.id===got.id);if(!q){errors.push(got.id+': stale pack id');continue;}
    const mode=q.answer_mode??'choice',g=mode==='fraction_parts'?gcd(q.answer.num,q.answer.den):1;
-   const answer=mode==='amount'?String(q.answer):mode==='fraction_parts'?'{frac:'+q.answer.num/g+'/'+q.answer.den/g+'}':q.answer;
+   const answer=mode==='amount'?String(q.answer):mode==='fraction_parts'?(q.accept==='exact_parts'?'{frac:'+q.answer.num+'/'+q.answer.den+'}':'{frac:'+q.answer.num/g+'/'+q.answer.den/g+'}'):q.answer;
    if(got.answer!==answer||typeof got.answer!=='string')errors.push(q.id+': v1 string answer');
    if(q.format==='text'?got.answerNumeric!==undefined:got.answerNumeric!==q.answerNumeric)errors.push(q.id+': v1 numeric answer');
    if(JSON.stringify(got.choices)!==JSON.stringify(mode==='choice'?q.choices:null))errors.push(q.id+': v1 choices');
@@ -58,7 +58,7 @@ async function auditBank(){
 }
 async function start(){await tap({x:viewport.width*(viewport.width/viewport.height>1.2?.23:.5)+59*viewport.height/844,y:viewport.height*(viewport.width/viewport.height>1.2?.83:.85)});await until(s=>s.phase==='playing');startMs=Date.now();}
 function current(s){const q=activeBank.items.find(q=>q.id===s.questionId);if(!q)throw Error('Unknown bank item '+s.questionId);return q;}
-async function waitCoins(amount,timeout=40000){if(amount<=0)return state();return until(s=>s.coins>=amount||s.pending||s.phase!=='playing',timeout).then(s=>{assert(!s.pending&&s.phase==='playing','coins earned before deadline');return s;});}
+async function waitCoins(amount,timeout=40000){if(amount<=0)return state();const before=await state();if(before.coins<amount)await tap(point(before.collectionScreen));return until(s=>s.coins>=amount||s.pending||s.phase!=='playing',timeout).then(s=>{assert(!s.pending&&s.phase==='playing','coins earned before deadline');return s;});}
 async function oneCoin(pad){let s=await state();const previous=s.poured[pad];await tap(point(s.padScreen,pad));return until(x=>x.poured[pad]>previous||x.pending,4000).then(x=>{assert(!x.pending&&x.poured[pad]===previous+1,'one real tap pours exactly one coin');return x;});}
 async function zeroVisit(pad){const s=await state();await drag(point(s.exitScreen),point(s.padScreen,pad));return until(x=>x.visited?.[pad]&&x.poured[pad]===0&&!x.pending,6000);}
 async function pour(pad,amount){if(amount===0)return zeroVisit(pad);const s=await state();await waitCoins(Math.max(0,amount-s.poured[pad]));while((await state()).poured[pad]<amount)await oneCoin(pad);return state();}

@@ -4,15 +4,9 @@ import path from 'node:path';
 import {makeItem,probabilityWrong,wrong,token,diceCount,diceText,spread,introItem,gcd,here,output} from './common.mjs';
 // Corpus traps: explicit 임의로 + equal balls, 서로 다른 dice, only replacement;
 // every OR below joins disjoint colors; all fractions are reduced integer pairs.
-// v3 (review-v2-2 high): every ball sentence names the 주머니, and the fraction acceptance
-// mode follows the prompt, not a blanket default:
-//   exact_parts — only when the prompt says to count 「모든 경우의 수와 그중 사건이 일어나는 경우의 수」
-//                 AND the natural sample space is unique (no attribute-based equally likely
-//                 coarsening such as colours with equal counts, parity/residue classes, or
-//                 event vs. non-event of equal size). Otherwise the p×q or colour-count
-//                 solution of an equally correct student would be rejected.
-//   reduced     — prompt says 기약분수.
-//   equivalent  — everything else, incl. every with-replacement item (textbook solves p×q).
+// v4: every ball sentence names the 주머니, and every probability answer follows
+// the middle-school canonical convention: a reduced fraction. Raw event/total
+// counts remain in each explanation, while the two input pads build 사건/전체.
 const balls=[],cards=[],complement=[],colors=[],dice=[],replacement=[],atLeast=[],experiment=[],reverse=[],overlap=[],basic=[];
 const equalBalls='(단, 공의 모양과 크기는 모두 같다.)';
 const ASK='확률을 기약분수로 구하시오.';
@@ -60,25 +54,7 @@ for(const [color,other] of [['흰','검은'],['빨간','파란'],['노란','초�
 }
 
 // ── acceptance policy ────────────────────────────────────────
-// Is there a natural, equally likely sample space other than "each object/ordered pair"?
-function altSpace(kind,a,[f,N]){
-  if(kind==='experiment')return null; // observed counts, not a sample space
-  if(2*f===N)return 'event-vs-complement';
-  if(kind==='ball')return a.red===a.blue?'equal-colours':null;
-  if(kind==='colors')return a.red===a.blue&&a.blue===a.white?'equal-colours':null;
-  if(kind==='multiples')return a.total%a.divisor===0?`residues-mod-${a.divisor}`:null;
-  if(kind==='multiples-or'){const l=a.a*a.b/gcd(a.a,a.b);return a.total%l===0?`residues-mod-${l}`:null;}
-  if(kind==='dice'){
-    const parts={id:[[1],[2],[3],[4],[5],[6]],parity:[[1,3,5],[2,4,6]],mod3:[[1,4],[2,5],[3,6]],whole:[[1,2,3,4,5,6]]};
-    const test=(x,y)=>({'sum-eq':x+y===a.k,'sum-le':x+y<=a.k,'sum-ge':x+y>=a.k,'product-eq':x*y===a.k,'difference-eq':Math.abs(x-y)===a.k,'product-multiple':x*y%a.k===0})[a.test];
-    for(const [n1,p1] of Object.entries(parts))for(const [n2,p2] of Object.entries(parts)){if(n1==='id'&&n2==='id')continue;
-      if(p1.every(B1=>p2.every(B2=>{const v=B1.flatMap(x=>B2.map(y=>test(x,y)));return v.every(Boolean)||!v.some(Boolean);})))return `dice-${n1}-${n2}`;}
-    return null;}
-  if(kind==='experiment')return null;
-  return 'multi-stage';
-}
-const LAB={exact:['사건이 일어나는 경우의 수','모든 경우의 수'],exp:['앞면이 나온 횟수','전체 시행 횟수'],frac:['분자','분모']};
-const policyLog=[];
+const LAB={frac:['사건','전체']};
 function coinInput(item,proof,packId){
   const isAmount=['coin-intro','reverse'].includes(proof.kind);
   const [n,d]=proof.parts,[rn,rd]=proof.expected;const reducedTok=`{frac:${rn}/${rd}}`,partsTok=`{frac:${n}/${d}}`;
@@ -88,16 +64,12 @@ function coinInput(item,proof,packId){
   } else if(proof.kind==='single-color') item.answer_mode='choice';
   else {
     item.answer_mode='fraction_parts';item.max=60;item.coin_budget=120;item.choices=null;
-    const alt=altSpace(proof.kind,proof.args,proof.parts);
-    item.accept=proof.kind==='ball'&&proof.args.event==='not-red'?'reduced':proof.kind==='replacement'||alt?'equivalent':'exact_parts';
-    const parts=item.accept==='reduced'?proof.expected:proof.parts;
+    item.accept='reduced';
+    const parts=proof.expected;
     item.answer={num:parts[0],den:parts[1]};
     if(parts.some(v=>v>60))throw Error(`Answer exceeds coin pad: ${item.prompt}`);
-    const [nl,dl]=item.accept==='exact_parts'?(proof.kind==='experiment'?LAB.exp:LAB.exact):LAB.frac;item.num_label=nl;item.den_label=dl;
-    if(item.accept==='exact_parts')item.prompt=item.prompt.replace(ASK,'확률을 구하시오. 모든 경우의 수와 그중 사건이 일어나는 경우의 수를 세어 약분하지 말고 나타내시오.').replace('상대도수를 기약분수로 구하시오.','상대도수를 구하시오. 약분하지 말고 전체 시행 횟수와 앞면이 나온 횟수로 나타내시오.');
-    if(item.accept==='equivalent')item.prompt=item.prompt.replace(ASK,'확률을 분수로 구하시오. 약분하지 않아도 된다.');
-    item.explain=item.explain.replace('@P',n*rd===rn*d&&(n!==rn)?`${partsTok}=${reducedTok}`:partsTok);
-    policyLog.push({id:item.id,kind:proof.kind,args:proof.args,accept:item.accept,why:item.accept==='equivalent'?(proof.kind==='replacement'?'multi-stage (p×q)':alt):item.accept==='reduced'?'기약분수':'unique sample space'});
+    const [nl,dl]=LAB.frac;item.num_label=nl;item.den_label=dl;
+    item.explain=item.explain.replace('@P',n*rd===rn*d&&(n!==rn||d!==rd)?`${partsTok}=${reducedTok}`:partsTok);
   }
   if(item.explain.includes('@P'))throw Error(`unfilled explain ${item.explain}`);
   return item;

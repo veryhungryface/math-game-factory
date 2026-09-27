@@ -10,6 +10,7 @@ namespace Mgf.HyeopgokSasu
         public static readonly Vector3[] Pads={new Vector3(-1.8f,1.23f,2),new Vector3(.6f,1.23f,2),new Vector3(-1.8f,1.23f,-1),new Vector3(.6f,1.23f,-1)};
         public static readonly Vector3 Exit=new Vector3(-.6f,1.24f,-1.3f);
         public const float Speed=6.4f,Hold=.8f,Radius=.69f,Limit=24f,ConfirmTime=.6f,VisitHold=.35f,InitialPourDelay=1f;
+        public const float MinX=-2.75f,MaxX=1.48f,MinZ=-5.25f,MaxZ=3.55f;
         public const int CarryCapacity=120,CoinPerKill=1,MinimumSpawnCoins=140,AmountBudget=60,FractionBudget=120;
         public float TimeLimit{get;private set;}=Limit;
         public static float LimitForDifficulty(int d)=>d<=1?24:d==2?32:40;
@@ -60,7 +61,7 @@ namespace Mgf.HyeopgokSasu
         }
         public void Move(Vector3 target,bool tap=false){
             if(!Active||Pending)return;
-            Target=new Vector3(Mathf.Clamp(target.x,-2.75f,1.48f),1.24f,Mathf.Clamp(target.z,-4.2f,3.55f));
+            Target=new Vector3(Mathf.Clamp(target.x,MinX,MaxX),1.24f,Mathf.Clamp(target.z,MinZ,MaxZ));
             if(tap){tapBudget=1;pourClock=0;wasStopped=false;}else tapBudget=-1;
         }
         // Pointer-down is not yet a tap or a hold: it may move the king but must

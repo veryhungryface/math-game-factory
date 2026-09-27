@@ -34,6 +34,10 @@ namespace Mgf.HyeopgokSasu
             }
         }
         public string PartsToken=>Mode=="fraction_parts"&&answerParts!=null?"{frac:"+answerParts.num+"/"+answerParts.den+"}":AnswerToken;
+        // Samples, feedback and the parsed runtime answer must describe the same
+        // value that Accepts() expects. Exact-parts fixtures expose their raw pair;
+        // every other fraction exposes the canonical reduced token.
+        public string PublicAnswerToken=>Mode=="fraction_parts"&&accept=="exact_parts"?PartsToken:AnswerToken;
         public static int Gcd(int a,int b){a=Math.Abs(a);b=Math.Abs(b);while(b!=0){int t=a%b;a=b;b=t;}return Math.Max(1,a);}
         static long Gcd(long a,long b){a=Math.Abs(a);b=Math.Abs(b);while(b!=0){long t=a%b;a=b;b=t;}return Math.Max(1,a);}
         static bool TryChoiceRational(string text,out long numerator,out long denominator){
@@ -105,7 +109,7 @@ namespace Mgf.HyeopgokSasu
             if(pack!=null&&pack.items!=null)foreach(var q in pack.items){
                 if(q==null)continue;
                 if(q.Mode=="amount"){q.answer=q.AnswerToken;q.answerNumeric=q.answerValue;q.format="int";}
-                else if(q.Mode=="fraction_parts"&&q.answerParts!=null){q.answer=q.AnswerToken;q.answerNumeric=q.answerParts.den==0?double.NaN:(double)q.answerParts.num/q.answerParts.den;q.format="frac";}
+                else if(q.Mode=="fraction_parts"&&q.answerParts!=null){q.answer=q.PublicAnswerToken;q.answerNumeric=q.answerParts.den==0?double.NaN:(double)q.answerParts.num/q.answerParts.den;q.format="frac";}
             }
             return pack;
         }

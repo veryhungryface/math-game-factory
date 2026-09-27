@@ -190,9 +190,9 @@ namespace Mgf.HyeopgokSasu
         // only uses cached RectTransform sizes and value types during animation.
         void LayoutPadName(int i){
             if(padNames[i]==null)return;
-            var label=padNames[i];label.textWrappingMode=TextWrappingModes.Normal;label.overflowMode=TextOverflowModes.Overflow;
-            label.fontSize=30;label.lineSpacing=0;label.rectTransform.sizeDelta=new Vector2(165,96);label.rectTransform.anchoredPosition=Vector2.zero;
-            label.text="<line-height=85%>"+basePadNames[i]+"</line-height>";
+            var label=padNames[i];label.textWrappingMode=TextWrappingModes.NoWrap;label.overflowMode=TextOverflowModes.Overflow;
+            label.fontSize=36;label.lineSpacing=0;label.rectTransform.sizeDelta=new Vector2(165,72);label.rectTransform.anchoredPosition=Vector2.zero;
+            label.text=basePadNames[i];
         }
 
         [System.Serializable] sealed class PackHeader {public string pack_id,title,school,unit_id;public int grade,semester,unit_order;}
@@ -357,7 +357,10 @@ namespace Mgf.HyeopgokSasu
                 return;
             }
             if(Hit(packRect)){OpenCatalogue();return;}
-            if(Hit(ctaRect)&&loaded&&!loading){TestStart();return;}
+            // The battlefield is the title background, so any tap outside the
+            // explicit unit picker deploys. This also keeps a portrait CTA near
+            // the bottom from turning the first, natural centre tap into a no-op.
+            if(loaded&&!loading){TestStart();return;}
             if(!loaded&&!loading)StartCoroutine(BootPacks());
         }
         void AnimateTitleUi(float dt){

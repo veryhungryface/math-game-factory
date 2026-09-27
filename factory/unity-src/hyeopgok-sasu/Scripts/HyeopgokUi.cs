@@ -8,7 +8,7 @@ namespace Mgf.HyeopgokSasu
     public partial class HyeopgokGame
     {
         readonly Color cream=MgfLook.Hex("#fff1ce"),navy=MgfLook.Hex("#142e35"),gold=MgfLook.Hex("#ffd05a");
-        RectTransform commandStrip,pressureMarker,treasuryPanel,hpPill,wavePill,correctPill,questionFace,questionLip,questionShadow;
+        RectTransform commandStrip,pressureMarker,treasuryPanel,hpPill,wavePill,correctPill,questionFace,questionLip,questionShadow,assembledHud;
         RectTransform timerBadge,scrollCurlLeft,scrollCurlRight,feedbackRewardIcon; TextMeshProUGUI gateLossText,feedbackSeal,feedbackExpand;
         float questionShownAt,gateLossLife,questionReadTime=3; int previousActualHp=100; bool questionAutoCollapsed,questionUserOpened,questionShowsAll;
         readonly RectTransform[] padPaint=new RectTransform[4]; Transform tutorialArrow;
@@ -22,7 +22,7 @@ namespace Mgf.HyeopgokSasu
         RectTransform tutorialDot,tutorialTrail,tutorialLabel,tutorialCoin;
         TextMeshProUGUI titleInfo,hpText,coinsText,waveText,armyText,hintText,endTitle,endDetail,bonusText,pressureText,treasuryText,depositText;
         HyeopgokMathText questionText,feedbackText,bonusMath,assembledMath;
-        TextMeshProUGUI assembledText,confirmText;
+        TextMeshProUGUI assembledText,assembledCaption,confirmText;
         readonly TextMeshProUGUI[] padNames=new TextMeshProUGUI[4];
         readonly int[] lastPoured={-1,-1};
         readonly bool[] lastVisited={false,false};
@@ -110,7 +110,10 @@ namespace Mgf.HyeopgokSasu
                 padPaint[i].gameObject.SetActive(false);
                 var pt=Text("",p,new Vector2(.5f,.5f),Vector2.zero,new Vector2(68,56),29,Color.white);padLabels[i]=new HyeopgokMathText(pt);
             }
-            assembledText=Text("",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(94,90),32,gold);assembledMath=new HyeopgokMathText(assembledText);
+            assembledHud=Pill("Assembled probability HUD",playRoot,new Vector2(1,1),new Vector2(-64,-298),new Vector2(112,88),navy);
+            assembledCaption=Text("사건 ÷ 전체",assembledHud,new Vector2(.5f,1),new Vector2(0,-17),new Vector2(102,24),13,cream);assembledCaption.textWrappingMode=TextWrappingModes.NoWrap;
+            assembledText=Text("",assembledHud,new Vector2(.5f,.5f),new Vector2(0,-10),new Vector2(94,62),36,gold);assembledMath=new HyeopgokMathText(assembledText);
+            assembledHud.gameObject.SetActive(false);assembledText.gameObject.SetActive(false);
             confirmText=Text("",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(235,48),16,cream);
             confirmRing=Text("○",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(132,132),88,gold);confirmRing.gameObject.SetActive(false);
             tutorialTrail=Box("Hidden gesture route",playRoot,new Vector2(.5f,.5f),Vector2.zero,Vector2.zero,Color.clear);
@@ -150,7 +153,7 @@ namespace Mgf.HyeopgokSasu
             questionReadTime=Mathf.Clamp(2.5f+p.prompt.Length*.03f,3,6.5f);
             pressureMarker.anchorMin=pressureMarker.anchorMax=new Vector2(1-battle.QuestionGrace/Rules.TimeLimit,.5f);
             for(int i=0;i<4;i++)cracks[i].gameObject.SetActive(false);
-            lastPoured[0]=lastPoured[1]=-1;lastVisited[0]=lastVisited[1]=true;lastAssembledDen=lastAssembledNum=-1;assembledMath.Set("");confirmText.text="";confirmRing.gameObject.SetActive(false);
+            lastPoured[0]=lastPoured[1]=-1;lastVisited[0]=lastVisited[1]=true;lastAssembledDen=lastAssembledNum=-1;assembledMath.Set("");assembledHud.gameObject.SetActive(false);assembledText.gameObject.SetActive(false);confirmText.text="";confirmRing.gameObject.SetActive(false);
             LayoutUi();
             hintText.text=Rules.Current.Mode=="choice"?"정답 패드 위에 0.8초 서기\n10문제 중 7문제 이상 맞히면 승리":IsCoinIntro?"처치 코인 → 등에 쌓기 → 2닢 붓기\n멈춰서 두 번 탭한 뒤 밖으로 이동":Rules.Current.Mode=="fraction_parts"?p.den_label+" → "+p.num_label+" 순서로 붓기\n두 패드에서 멈춘 뒤 밖으로 나와 확정":"탭 = 1닢 · 길게 서면 빠르게\n0은 패드에서 잠깐 멈춘 뒤 나오기";
             bool firstFraction=Rules.Current.Mode=="fraction_parts"&&!firstFractionTutorialShown;
@@ -224,6 +227,7 @@ namespace Mgf.HyeopgokSasu
                     padLabels[i].Text.fontSize=27;padLabels[i].Set("0");
                 }
             }
+            if(Rules.PadCount==2)assembledCaption.text=Rules.Current.num_label+" ÷ "+Rules.Current.den_label;
             RefreshPadAmounts();
         }
         void RefreshPadAmounts(){
@@ -237,6 +241,7 @@ namespace Mgf.HyeopgokSasu
             // result. Keep the assembled fraction hidden until the learner has
             // actually poured a positive number of "all cases" coins.
             bool show=Rules.PadCount==2&&Rules.Poured[0]>0;
+            assembledHud.gameObject.SetActive(show);
             assembledText.gameObject.SetActive(show);
             if(show&&(lastAssembledDen!=Rules.Poured[0]||lastAssembledNum!=Rules.Poured[1])){
                 lastAssembledDen=Rules.Poured[0];lastAssembledNum=Rules.Poured[1];assembledMath.Set("{frac:"+Rules.Poured[1]+"/"+Rules.Poured[0]+"}");
@@ -308,6 +313,8 @@ namespace Mgf.HyeopgokSasu
             correctPill.anchorMin=correctPill.anchorMax=wide?new Vector2(0,1):new Vector2(1,0);
             correctPill.anchoredPosition=wide?new Vector2(304,-29):new Vector2(-51,26);
             pressureText.fontSize=wide?18:17;
+            assembledHud.anchoredPosition=wide?new Vector2(-72,-230):new Vector2(-64,-298);
+            assembledHud.localScale=Vector3.one*(wide?1.08f:1);
             questionExpand.fontSize=wide?12:11.5f;questionExpand.fontStyle=FontStyles.Bold;questionExpand.alignment=TextAlignmentOptions.Right;questionExpand.rectTransform.anchoredPosition=new Vector2(-96,10);questionExpand.rectTransform.sizeDelta=new Vector2(72,21);
             LayoutTitleUi(cw,wide);
             for(int i=0;i<4;i++)if(padNames[i]!=null)LayoutPadName(i);
@@ -351,12 +358,11 @@ namespace Mgf.HyeopgokSasu
                 int count=progress>0?Mathf.CeilToInt(progress*32)+1:0;padFill[i].positionCount=count;
                 for(int k=0;k<count;k++)padFill[i].SetPosition(k,PadEdge(i,Mathf.Min(progress,k/32f)));
             }
-            // Role labels are painted into each pad, so screen-space chips cannot overlap.
+            // Short role labels stay painted into each pad; the assembled value is
+            // a fixed HUD badge so enemies and perspective cannot hide the fraction.
             Vector3 mid=Rules.PadCount==2?(HyeopgokRules.Pads[0]+HyeopgokRules.Pads[1])*.5f:HyeopgokRules.Pads[0];
             Vector3 middle=cam.WorldToScreenPoint(mid);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,middle,null,out Vector2 center);
-            // The assembled fraction sits beside the second pad, clear of both pad numbers.
-            if(Rules.PadCount==2)assembledText.rectTransform.anchoredPosition=TutorialPoint(HyeopgokRules.Pads[1],canvas)+new Vector2(86,6);
             if(Rules.Confirming){
                 Vector3 ks=cam.WorldToScreenPoint(Rules.King);
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,ks,null,out Vector2 kingAt);
@@ -398,9 +404,13 @@ namespace Mgf.HyeopgokSasu
                 toWorld=(HyeopgokRules.Pads[0]+HyeopgokRules.Pads[1]+HyeopgokRules.Pads[2]+HyeopgokRules.Pads[3])*.25f;
                 ringPad=-2;label="정답에서 0.8초";
             }else if(tutorialKind==1){
+                if(Rules.Coins==0&&Rules.Poured[0]==0){
+                    toWorld=battle.CollectionPoint;ringPad=-1;label="전선 가까이에서 코인 모으기";
+                }else{
                 bool exit=Rules.Visited[0]&&Rules.Poured[0]>=Rules.Current.answerValue;
                 toWorld=exit?HyeopgokRules.Exit:HyeopgokRules.Pads[0];ringPad=exit?-1:0;
                 label=Rules.TutorialBlocked?"1닢 붓고 나오기":exit?"③ 밖에서 확정":Rules.Poured[0]>0?"② 한 번 더 탭":"① 멈춰 서기";
+                }
             }else if(tutorialKind==2){
                 bool untouched=!Rules.Visited[0]&&!Rules.Visited[1];
                 if(untouched){
@@ -427,7 +437,7 @@ namespace Mgf.HyeopgokSasu
             Vector2 guideAt=TutorialPoint(Rules.King,canvas)+new Vector2(0,Rules.Current.Mode=="choice"?-55:62);
             if(Rules.Current.Mode!="choice")guideAt.y=Mathf.Max(guideAt.y,-185);
             tutorialLabel.anchoredPosition=ClampWorldBubble(guideAt,145);
-            if(tutorialKind!=2)label=Rules.Current.Mode=="choice"?"정답에서 0.8초":"멈춰 서서 붓기";
+            if(tutorialKind!=2&&tutorialKind!=1)label=Rules.Current.Mode=="choice"?"정답에서 0.8초":"멈춰 서서 붓기";
             tutorialCaption.fontSize=label.Length>12?12:14;
             if(tutorialCaption.text!=label)tutorialCaption.text=label;
             tutorialTrail.gameObject.SetActive(false);
