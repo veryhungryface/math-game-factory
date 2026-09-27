@@ -1,0 +1,170 @@
+#!/usr/bin/env node
+// m2s2-u1 삼각형의 성질 ([9수03-09] 이등변삼각형, [9수03-10] 외심·내심).
+// Every amount answer is an integer 2..59 (coin pad cap 60). Angles above 59° are never asked;
+// the inverse question is asked instead. No figure: every needed condition is in the text.
+import {amount,choice,W,writeGeoPack} from './geo-kit.mjs';
+const T='m2s2-u1.';
+const MC={center:T+'center-swap',inside:T+'circumcenter-always-inside',formula:T+'center-formula-swap',apex:T+'apex-by-position',ssa:T+'ssa-congruence',
+  half:T+'half-missed',sum:T+'angle-sum-error',ext:T+'exterior-angle-confusion',perp:T+'bisector-perpendicular-missed',hyp:T+'hypotenuse-leg-confusion',equi:T+'equilateral-overgeneralized',right:T+'right-triangle-center-missed'};
+const V=['A','B','C'];const rest=X=>V.filter(v=>v!==X);
+const opp={A:'BC',B:'AC',C:'AB'}; // side opposite each vertex
+const pools={};const add=(k,it)=>(pools[k]??=[]).push(it);
+const inside='(단, 점 O는 △ABC의 내부에 있다.)';
+
+// ── 이등변삼각형 ─────────────────────────────────────────────
+for(const X of V){const [Y,Z]=rest(X);
+  for(let a=62;a<=160;a+=2){const ask=(a/2)%2?Y:Z,ans=(180-a)/2;
+    add('isoBase',amount({kind:'iso-base',params:{apex:X,apexAngle:a,ask},prompt:`${X}${Y}=${X}${Z}인 이등변삼각형 ABC에서 ∠${X}=${a}°일 때, ∠${ask}의 크기는 몇 도인지 구하시오.`,answer:ans,
+      explain:`두 밑각 ∠${Y}, ∠${Z}의 크기가 같으므로 ∠${ask}=(180°−${a}°)÷2=${ans}°입니다.`,concept:'이등변삼각형의 성질',d:1,wrongs:[W(180-a,MC.half,'no-halving'),W(a,MC.apex,'apex-as-base')]}));}
+  for(let b=61;b<=85;b++){const given=b%2?Y:Z,ans=180-2*b;
+    add('isoApex',amount({kind:'iso-apex',params:{apex:X,baseAngle:b,given},prompt:`${X}${Y}=${X}${Z}인 이등변삼각형 ABC에서 ∠${given}=${b}°일 때, ∠${X}의 크기는 몇 도인지 구하시오.`,answer:ans,
+      explain:`∠${Y}=∠${Z}=${b}°이므로 ∠${X}=180°−2×${b}°=${ans}°입니다.`,concept:'이등변삼각형의 성질',d:1,wrongs:[W(180-b,MC.half,'one-base-only'),W(b,MC.apex,'apex-equals-base')]}));}
+}
+const extStem='AB=AC인 이등변삼각형 ABC에서 변 BC를 점 C 쪽으로 연장한 직선 위에 점 D를 잡았더니';
+for(let z=95;z<=119;z++)add('isoExt',amount({kind:'iso-ext-apex',params:{z},prompt:`${extStem} ∠ACD=${z}°이었다. ∠A의 크기는 몇 도인지 구하시오.`,answer:2*z-180,
+  explain:`∠ACB=180°−${z}°=${180-z}°=∠B이므로 ∠A=180°−2×${180-z}°=${2*z-180}°입니다.`,concept:'이등변삼각형의 성질',d:2,wrongs:[W(180-z,MC.ext,'base-angle'),W(z-90,MC.ext,'minus-right')]}));
+for(let z=121;z<=170;z++)add('isoExt',amount({kind:'iso-ext-base',params:{z},prompt:`${extStem} ∠ACD=${z}°이었다. ∠B의 크기는 몇 도인지 구하시오.`,answer:180-z,
+  explain:`∠ACB=180°−${z}°=${180-z}°이고 두 밑각이 같으므로 ∠B=${180-z}°입니다.`,concept:'이등변삼각형의 성질',d:2,wrongs:[W(2*z-180,MC.ext,'apex'),W(Math.round(z/2),MC.ext,'half-exterior')]}));
+const bisStem='AB=AC인 이등변삼각형 ABC에서 ∠A의 이등분선이 변 BC와 만나는 점을 D라고 하자.';
+for(let k=2;k<=29;k++){
+  add('isoBisLen',amount({kind:'iso-bis-half',params:{bc:2*k},prompt:`${bisStem} BC=${2*k} cm일 때, BD의 길이는 몇 cm인지 구하시오.`,answer:k,explain:`꼭지각의 이등분선은 밑변을 수직이등분하므로 BD=${2*k}÷2=${k} cm입니다.`,concept:'이등변삼각형의 성질',d:1,wrongs:[W(2*k,MC.perp,'no-halving')]}));
+  add('isoBisLen',amount({kind:'iso-bis-double',params:{bd:k},prompt:`${bisStem} BD=${k} cm일 때, BC의 길이는 몇 cm인지 구하시오.`,answer:2*k,explain:`점 D는 BC의 중점이므로 BC=2×${k}=${2*k} cm입니다.`,concept:'이등변삼각형의 성질',d:1,wrongs:[W(k,MC.perp,'same')]}));
+}
+for(let b=31;b<=80;b++)add('isoBisAng',amount({kind:'iso-bis-angle',params:{b},prompt:`${bisStem} ∠B=${b}°일 때, ∠BAD의 크기는 몇 도인지 구하시오.`,answer:90-b,
+  explain:`AD⊥BC이므로 ∠ADB=90°, ∠BAD=180°−90°−${b}°=${90-b}°입니다.`,concept:'이등변삼각형의 성질',d:2,wrongs:[W(180-2*b,MC.perp,'whole-apex'),W(180-b,MC.sum,'no-right-angle')]}));
+// 두 내각이 같은 삼각형은 이등변삼각형: the equal angles are hidden behind an angle sum.
+for(const P of V)for(const Q of V){if(P===Q)continue;const R=V.find(v=>v!==P&&v!==Q);
+  for(let p=20;p<=85;p+=5){if(p===60)continue;const r=180-2*p;const k=5+((p*7+V.indexOf(P)*11+V.indexOf(Q)*5)%50);
+    const [g1,g2]=[P,R].sort();const ang={[P]:p,[R]:r};
+    add('isoConv',amount({kind:'iso-converse',params:{angles:{[P]:p,[Q]:p,[R]:r},given:[g1,g2],side:opp[P],ask:opp[Q],k},
+      prompt:`△ABC에서 ∠${g1}=${ang[g1]}°, ∠${g2}=${ang[g2]}°이고 ${opp[P]}=${k} cm일 때, ${opp[Q]}의 길이는 몇 cm인지 구하시오.`,answer:k,
+      explain:`∠${Q}=180°−${p}°−${r}°=${p}°=∠${P}이므로 두 각의 대변의 길이가 같아 ${opp[Q]}=${opp[P]}=${k} cm입니다.`,concept:'이등변삼각형이 되는 조건',d:4,wrongs:[W(2*k,MC.sum,'double'),W(Math.floor(k/2),MC.sum,'half')]}));}}
+
+// ── 직각삼각형의 합동 · 각의 이등분선 ─────────────────────────
+const T1=['A','B','C'],T2=['D','E','F'];
+for(let r=0;r<3;r++){const [u,v]=[0,1,2].filter(i=>i!==r);const R1=T1[r],R2=T2[r],U1=T1[u],V1=T1[v],U2=T2[u],V2=T2[v];
+  const hyp1=U1+V1,hyp2=U2+V2;
+  for(let x=31;x<=80;x++){
+    // RHA: 빗변 + ∠U. Given ∠V1 → ∠U2 = ∠U1 = 90−x.
+    add('rhAngle',amount({kind:'rh-angle',params:{r,cond:'RHA',given:V1,x,ask:U2},prompt:`∠${R1}=∠${R2}=90°인 두 직각삼각형 ABC, DEF에서 ${hyp1}=${hyp2}, ∠${U1}=∠${U2}이다. ∠${V1}=${x}°일 때, ∠${U2}의 크기는 몇 도인지 구하시오.`,answer:90-x,
+      explain:`RHA 합동이므로 ∠${U2}=∠${U1}=90°−${x}°=${90-x}°입니다.`,concept:'직각삼각형의 합동 조건',d:2,wrongs:[W(x,MC.hyp,'wrong-correspondence'),W(180-x,MC.sum,'no-right-angle')]}));
+    // RHS: 빗변 + 한 변(R-U). Given ∠U1 → ∠V2 = ∠V1 = 90−x.
+    add('rhAngle',amount({kind:'rh-angle',params:{r,cond:'RHS',given:U1,x,ask:V2},prompt:`∠${R1}=∠${R2}=90°인 두 직각삼각형 ABC, DEF에서 ${hyp1}=${hyp2}, ${[R1,U1].sort().join('')}=${[R2,U2].sort((a,b)=>T2.indexOf(a)-T2.indexOf(b)).join('')}이다. ∠${U1}=${x}°일 때, ∠${V2}의 크기는 몇 도인지 구하시오.`,answer:90-x,
+      explain:`RHS 합동이므로 ∠${V2}=∠${V1}=90°−${x}°=${90-x}°입니다.`,concept:'직각삼각형의 합동 조건',d:2,wrongs:[W(x,MC.hyp,'wrong-correspondence'),W(180-x,MC.sum,'no-right-angle')]}));
+  }}
+const bisPt='∠XOY의 이등분선 위의 한 점 P에서 두 변 OX, OY에 내린 수선의 발을 각각 A, B라고 하자.';
+for(let t=31;t<=80;t++)add('angBis',amount({kind:'bis-opa',params:{xoy:2*t},prompt:`${bisPt} ∠XOY=${2*t}°일 때, ∠OPA의 크기는 몇 도인지 구하시오.`,answer:90-t,
+  explain:`∠AOP=${2*t}°÷2=${t}°, ∠OAP=90°이므로 ∠OPA=90°−${t}°=${90-t}°입니다.`,concept:'각의 이등분선의 성질',d:2,wrongs:[W(90-2*t>0?90-2*t:180-2*t,MC.half,'no-halving'),W(t,MC.sum,'copy-half')]}));
+for(let t=61;t<=85;t++)add('angBis3',amount({kind:'bis-apb',params:{xoy:2*t},prompt:`${bisPt} ∠XOY=${2*t}°일 때, ∠APB의 크기는 몇 도인지 구하시오.`,answer:180-2*t,
+  explain:`□OAPB에서 ∠A=∠B=90°이므로 ∠APB=360°−90°−90°−${2*t}°=${180-2*t}°입니다.`,concept:'각의 이등분선의 성질',d:3,wrongs:[W(90-t,MC.half,'one-triangle'),W(180-t>59?0:180-t,MC.sum,'one-right-angle')]}));
+for(let t=5;t<=29;t++)add('angBis3',amount({kind:'bis-converse',params:{aop:t},prompt:`∠XOY의 내부의 한 점 P에서 두 변 OX, OY에 내린 수선의 발을 각각 A, B라고 하자. PA=PB이고 ∠AOP=${t}°일 때, ∠XOY의 크기는 몇 도인지 구하시오.`,answer:2*t,
+  explain:`△AOP≡△BOP (RHS 합동)이므로 OP는 ∠XOY의 이등분선, ∠XOY=2×${t}°=${2*t}°입니다.`,concept:'각의 이등분선의 성질',d:3,wrongs:[W(t,MC.half,'no-doubling'),W(90-t,MC.sum,'complement')]}));
+
+// ── 외심 ────────────────────────────────────────────────────
+const circNames={a:['OAB','OBA'],b:['OBC','OCB'],c:['OCA','OAC']};
+for(let a=8;a<=72;a+=4)for(let b=9;b<=72;b+=3){const c=90-a-b;if(c<8||c>59)continue;
+  const vals={a,b,c},askKey=['a','b','c'][(a+b)%3];if(vals[askKey]>59)continue;
+  const givenKeys=['a','b','c'].filter(k=>k!==askKey);const nm=(k,i)=>circNames[k][(a+b+i)%2];
+  const ask=circNames[askKey][(a*b)%2];
+  add('circSum',amount({kind:'circ-sum',params:{a,b,c,ask:askKey},prompt:`점 O가 △ABC의 외심이고 ∠${nm(givenKeys[0],0)}=${vals[givenKeys[0]]}°, ∠${nm(givenKeys[1],1)}=${vals[givenKeys[1]]}°일 때, ∠${ask}의 크기는 몇 도인지 구하시오. ${inside}`,answer:vals[askKey],
+    explain:`OA=OB=OC이므로 ∠OAB+∠OBC+∠OCA=90°, 구하는 각은 90°−${vals[givenKeys[0]]}°−${vals[givenKeys[1]]}°=${vals[askKey]}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(180-vals[givenKeys[0]]-vals[givenKeys[1]],MC.sum,'sum-to-180'),W(vals[givenKeys[0]],MC.formula,'copy')]}));}
+for(let x=5;x<=29;x++)add('circCentral',amount({kind:'circ-boc',params:{A:x},prompt:`점 O가 △ABC의 외심이고 ∠A=${x}°일 때, ∠BOC의 크기는 몇 도인지 구하시오. ${inside}`,answer:2*x,
+  explain:`외심에서 ∠BOC=2∠A이므로 ∠BOC=2×${x}°=${2*x}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(90+Math.floor(x/2),MC.formula,'incenter-formula'),W(x,MC.half,'no-doubling')]}));
+for(let y=20;y<=118;y+=2)add('circCentral',amount({kind:'circ-a-from-boc',params:{BOC:y},prompt:`점 O가 △ABC의 외심이고 ∠BOC=${y}°일 때, ∠A의 크기는 몇 도인지 구하시오. ${inside}`,answer:y/2,
+  explain:`∠BOC=2∠A이므로 ∠A=${y}°÷2=${y/2}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(2*y>59?Math.max(0,2*(y-90)):2*y,MC.formula,'incenter-formula'),W(180-y>59?0:180-y,MC.sum,'supplement')]}));
+for(let x=31;x<=80;x++)add('circCentral',amount({kind:'circ-obc',params:{A:x},prompt:`점 O가 △ABC의 외심이고 ∠A=${x}°일 때, ∠OBC의 크기는 몇 도인지 구하시오. ${inside}`,answer:90-x,
+  explain:`∠BOC=2×${x}°=${2*x}°, OB=OC이므로 ∠OBC=(180°−${2*x}°)÷2=${90-x}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(180-x>59?0:180-x,MC.formula,'no-doubling'),W(Math.max(0,90-Math.floor(x/2)),MC.formula,'incenter-formula')]}));
+for(let r=0;r<3;r++){const R=V[r],[P,Q]=rest(R);
+  for(let k=2;k<=29;k++)add('circRightLen',amount({kind:'circ-right-len',params:{right:R,hyp:2*k},prompt:`∠${R}=90°인 직각삼각형 ABC의 외심을 O라고 하자. ${P}${Q}=${2*k} cm일 때, O${R}의 길이는 몇 cm인지 구하시오.`,answer:k,
+    explain:`직각삼각형의 외심은 빗변 ${P}${Q}의 중점이므로 O${R}=O${P}=${2*k}÷2=${k} cm입니다.`,concept:'삼각형의 외심',d:2,wrongs:[W(2*k,MC.right,'hyp'),W(k+1,MC.inside,'guess')]}));
+  for(let x=10;x<=59;x++){if((x+r)%2)continue;
+    add('circRightAng',amount({kind:'circ-right-angle',params:{right:R,given:P,x,ask:`O${R}${P}`},prompt:`∠${R}=90°인 직각삼각형 ABC의 외심을 O라고 하자. ∠${P}=${x}°일 때, ∠O${R}${P}의 크기는 몇 도인지 구하시오.`,answer:x,
+      explain:`외심 O는 빗변의 중점이므로 O${P}=O${R}, △O${P}${R}는 이등변삼각형이라 ∠O${R}${P}=∠${P}=${x}°입니다.`,concept:'삼각형의 외심',d:3,wrongs:[W(90-x,MC.right,'complement'),W(180-2*x>59?0:180-2*x,MC.sum,'apex')]}));}}
+for(let k=2;k<=29;k++)add('circRadius',amount({kind:'circ-radius',params:{oa:k},prompt:`점 O가 △ABC의 외심이고 OA=${k} cm일 때, OB+OC의 길이는 몇 cm인지 구하시오.`,answer:2*k,
+  explain:`외심에서 세 꼭짓점까지의 거리는 같으므로 OB+OC=${k}+${k}=${2*k} cm입니다.`,concept:'삼각형의 외심',d:1,wrongs:[W(k,MC.center,'one'),W(3*k,MC.center,'three')]}));
+
+// ── 내심 ────────────────────────────────────────────────────
+for(let y=95;y<=119;y++)add('inAngle',amount({kind:'in-a-from-bic',params:{BIC:y},prompt:`점 I가 △ABC의 내심이고 ∠BIC=${y}°일 때, ∠A의 크기는 몇 도인지 구하시오.`,answer:2*y-180,
+  explain:`∠BIC=90°+{frac:1/2}∠A이므로 ∠A=2×(${y}°−90°)=${2*y-180}°입니다.`,concept:'삼각형의 내심',d:3,wrongs:[W(y%2?0:y/2,MC.formula,'circumcenter-formula'),W(y-90,MC.half,'no-doubling')]}));
+for(let x=64;x<=160;x+=2)add('inAngle',amount({kind:'in-ibc-icb',params:{A:x},prompt:`점 I가 △ABC의 내심이고 ∠A=${x}°일 때, ∠IBC+∠ICB의 크기는 몇 도인지 구하시오.`,answer:90-x/2,
+  explain:`∠IBC+∠ICB={frac:1/2}(∠B+∠C)={frac:1/2}×(180°−${x}°)=${90-x/2}°입니다.`,concept:'삼각형의 내심',d:3,wrongs:[W(180-x,MC.half,'no-halving'),W(Math.max(0,x/2-90),MC.formula,'bic')]}));
+const inNames={a:['IAB','IAC'],b:['IBC','IBA'],c:['ICA','ICB']};
+for(let a=10;a<=70;a+=5)for(let b=8;b<=72;b+=4){const c=90-a-b;if(c<8||c>59)continue;
+  const vals={a,b,c},askKey=['a','b','c'][(a+2*b)%3];if(vals[askKey]>59)continue;const givenKeys=['a','b','c'].filter(k=>k!==askKey);const nm=(k,i)=>inNames[k][(a+b+i)%2];
+  add('inSum',amount({kind:'in-sum',params:{a,b,c,ask:askKey},prompt:`점 I가 △ABC의 내심이고 ∠${nm(givenKeys[0],0)}=${vals[givenKeys[0]]}°, ∠${nm(givenKeys[1],1)}=${vals[givenKeys[1]]}°일 때, ∠${inNames[askKey][(a*b)%2]}의 크기는 몇 도인지 구하시오.`,answer:vals[askKey],
+    explain:`내심은 세 내각의 이등분선의 교점이므로 {frac:1/2}(∠A+∠B+∠C)=90°, 구하는 각은 90°−${vals[givenKeys[0]]}°−${vals[givenKeys[1]]}°=${vals[askKey]}°입니다.`,concept:'삼각형의 내심',d:3,wrongs:[W(180-vals[givenKeys[0]]-vals[givenKeys[1]],MC.half,'sum-to-180'),W(vals[givenKeys[0]],MC.center,'copy')]}));}
+// 내접원의 반지름과 넓이: S = r × (둘레) ÷ 2. A triangle with perimeter p and inradius r exists iff p² ≥ 108r².
+for(let r=2;r<=6;r++)for(let p=12;p<=120;p++){if(p*p<=108*r*r)continue;
+  if((r*p)%2===0&&r*p/2<=59)add('inArea',amount({kind:'in-area',params:{r,p},prompt:`점 I가 △ABC의 내심이고 내접원의 반지름의 길이가 ${r} cm이다. △ABC의 둘레의 길이가 ${p} cm일 때, △ABC의 넓이는 몇 cm²인지 구하시오.`,answer:r*p/2,
+    explain:`△ABC=△IAB+△IBC+△ICA={frac:1/2}×${r}×${p}=${r*p/2} cm²입니다.`,concept:'삼각형의 내심',d:4,wrongs:[W(r*p>59?0:r*p,MC.half,'no-halving'),W(r+p,MC.formula,'add')]}));
+  if(p<=59&&(r*p)%2===0)add('inArea',amount({kind:'in-perimeter',params:{r,S:r*p/2},prompt:`점 I가 △ABC의 내심이고 내접원의 반지름의 길이가 ${r} cm이다. △ABC의 넓이가 ${r*p/2} cm²일 때, △ABC의 둘레의 길이는 몇 cm인지 구하시오.`,answer:p,
+    explain:`${r*p/2}={frac:1/2}×${r}×(둘레)이므로 둘레는 ${r*p/2}×2÷${r}=${p} cm입니다.`,concept:'삼각형의 내심',d:4,wrongs:[W(p/2,MC.half,'no-doubling'),W(r*p/2-r>1?r*p/2-r:0,MC.formula,'subtract')]}));
+}
+for(const r of [2,3,4,5])for(let S=20;S<=400;S++){const p=2*S/r;if(!Number.isInteger(p)||p*p<=108*r*r||p%3)continue;
+  add('inArea',amount({kind:'in-radius',params:{S,p},prompt:`△ABC의 둘레의 길이가 ${p} cm이고 넓이가 ${S} cm²일 때, △ABC의 내접원의 반지름의 길이는 몇 cm인지 구하시오.`,answer:r,
+    explain:`${S}={frac:1/2}×r×${p}이므로 r=${S}×2÷${p}=${r} cm입니다.`,concept:'삼각형의 내심',d:4,wrongs:[W(S/p===Math.floor(S/p)&&S/p!==r?S/p:0,MC.half,'no-doubling')]}));}
+const triples=[[3,4,5],[5,12,13],[8,15,17],[7,24,25],[20,21,29],[12,35,37],[9,40,41]];
+for(const [x,y,z] of triples)for(let k=1;k*z<=60;k++){const a=x*k,b=y*k,c=z*k,r=a*b/(a+b+c);if(r<2)continue;
+  const order=k%2?[a,b,c]:[c,a,b];
+  add('inRight',amount({kind:'in-right',params:{a,b,c},prompt:`세 변의 길이가 ${order[0]} cm, ${order[1]} cm, ${order[2]} cm인 직각삼각형의 내접원의 반지름의 길이는 몇 cm인지 구하시오.`,answer:r,
+    explain:`넓이 {frac:1/2}×${a}×${b}=${a*b/2}={frac:1/2}×r×(${a}+${b}+${c})이므로 r=${r} cm입니다.`,concept:'삼각형의 내심',d:4,wrongs:[W(c/2===Math.floor(c/2)?c/2:0,MC.center,'circumradius'),W(a+b-c,MC.half,'no-halving')]}));}
+
+// ── 선택형: 용어·위치·합동 조건 ─────────────────────────────
+const CH='삼각형의 외심';const CI='삼각형의 내심';
+const terms=[
+  ['삼각형의 세 변의 수직이등분선의 교점을 무엇이라고 하는지 고르시오.','외심',[['내심',MC.center],['무게중심',MC.formula],['수선의 발',MC.perp]],CH,'세 변의 수직이등분선의 교점은 외심입니다.'],
+  ['삼각형의 세 내각의 이등분선의 교점을 무엇이라고 하는지 고르시오.','내심',[['외심',MC.center],['무게중심',MC.formula],['수선의 발',MC.perp]],CI,'세 내각의 이등분선의 교점은 내심입니다.'],
+  ['삼각형의 외접원의 중심을 무엇이라고 하는지 고르시오.','외심',[['내심',MC.center],['무게중심',MC.formula],['한 변의 중점',MC.right]],CH,'외접원의 중심은 외심입니다.'],
+  ['삼각형의 내접원의 중심을 무엇이라고 하는지 고르시오.','내심',[['외심',MC.center],['무게중심',MC.formula],['한 변의 중점',MC.right]],CI,'내접원의 중심은 내심입니다.'],
+  ['삼각형의 외심에서 같은 거리에 있는 것을 고르시오.','세 꼭짓점',[['세 변',MC.center],['세 변의 중점',MC.right],['세 내각의 이등분선',MC.formula]],CH,'외심에서 세 꼭짓점까지의 거리가 같습니다(외접원의 반지름).'],
+  ['삼각형의 내심에서 같은 거리에 있는 것을 고르시오.','세 변',[['세 꼭짓점',MC.center],['세 변의 중점',MC.right],['세 변의 수직이등분선',MC.formula]],CI,'내심에서 세 변까지의 거리가 같습니다(내접원의 반지름).'],
+];
+for(const [stem,correct,ws,concept,explain] of terms)add('cTerm',choice({kind:'term',params:{stem},stem,correct,wrongs:ws.map(([text,tag])=>({text,tag})),explain,concept,d:1}));
+const LOC=['삼각형의 내부','삼각형의 외부','빗변의 중점','한 꼭짓점'];
+for(let a=15;a<=85;a+=5)for(let b=a;b<=150;b+=5){const c=180-a-b;if(c<b||c>150)continue;
+  const kind=c<90?0:c===90?2:1;const shown=[[a,b,c],[b,c,a],[c,a,b]][(a+b)%3];
+  const correct=LOC[kind],ws=LOC.filter(t=>t!==correct).map(t=>({text:t,tag:t==='삼각형의 내부'?MC.inside:t==='빗변의 중점'?MC.right:MC.center}));
+  add('cLoc',choice({kind:'circ-location',params:{angles:[a,b,c]},stem:`세 내각의 크기가 ${shown[0]}°, ${shown[1]}°, ${shown[2]}°인 삼각형의 외심의 위치를 고르시오.`,correct,wrongs:ws,
+    explain:c<90?'예각삼각형의 외심은 삼각형의 내부에 있습니다.':c===90?'직각삼각형의 외심은 빗변의 중점입니다.':'둔각삼각형의 외심은 삼각형의 외부에 있습니다.',concept:CH,d:2}));
+  if(c>=90&&(a+b)%10===0)add('cLoc',choice({kind:'in-location',params:{angles:[a,b,c]},stem:`세 내각의 크기가 ${shown[0]}°, ${shown[1]}°, ${shown[2]}°인 삼각형의 내심의 위치를 고르시오.`,correct:LOC[0],
+    wrongs:LOC.slice(1).map(t=>({text:t,tag:t==='삼각형의 외부'?MC.center:t==='빗변의 중점'?MC.right:MC.formula})),explain:'내심은 세 내각의 이등분선의 교점이므로 항상 삼각형의 내부에 있습니다.',concept:CI,d:2}));
+}
+// Congruence conditions. Right triangles: every combination of two extra parts (excluding a leg
+// with its opposite acute angle, whose name depends on convention). Non-right: SSA traps vs. SAS/ASA/SSS.
+const NAMES={RHA:'RHA 합동',RHS:'RHS 합동',SAS:'SAS 합동',ASA:'ASA 합동',SSS:'SSS 합동',NO:'합동이라고 할 수 없다'};
+const congWrongs={RHA:[['RHS',MC.hyp],['ASA',MC.ssa],['NO',MC.hyp]],RHS:[['RHA',MC.hyp],['SAS',MC.ssa],['NO',MC.ssa]],SAS:[['RHS',MC.hyp],['SSS',MC.ssa],['NO',MC.ssa]],ASA:[['RHA',MC.hyp],['SAS',MC.ssa],['NO',MC.ssa]],NO:[['SAS',MC.ssa],['RHS',MC.ssa],['SSS',MC.hyp]],SSS:[['SAS',MC.ssa],['RHS',MC.hyp],['NO',MC.ssa]]};
+const seg=(p,q,t)=>[p,q].sort((x,y)=>t.indexOf(x)-t.indexOf(y)).join('');
+function congItem(premise,parts,ans,d,params){const w=congWrongs[ans].map(([k,tag])=>({text:NAMES[k],tag}));
+  add('cCong',choice({kind:'congruence',params,stem:`${premise}${parts.join(', ')}일 때, 두 삼각형의 합동에 대하여 옳은 것을 고르시오.`,correct:NAMES[ans],wrongs:w,
+    explain:ans==='NO'?'두 변과 그 끼인각이 아닌 한 각이 같으면 합동이라고 할 수 없습니다.':`${NAMES[ans]}입니다.`,concept:'직각삼각형의 합동 조건',d}));}
+for(let r=0;r<3;r++){const [u,v]=[0,1,2].filter(i=>i!==r);const R1=T1[r],R2=T2[r];
+  const P=`∠${R1}=∠${R2}=90°인 두 직각삼각형 ABC, DEF에서 `;
+  const hyp=`${seg(T1[u],T1[v],T1)}=${seg(T2[u],T2[v],T2)}`,leg=i=>`${seg(T1[r],T1[i],T1)}=${seg(T2[r],T2[i],T2)}`,ang=i=>`∠${T1[i]}=∠${T2[i]}`;
+  congItem(P,[hyp,ang(u)],'RHA',2,{right:r,parts:['hyp',`angle${u}`]});congItem(P,[hyp,ang(v)],'RHA',2,{right:r,parts:['hyp',`angle${v}`]});
+  congItem(P,[hyp,leg(u)],'RHS',2,{right:r,parts:['hyp',`leg${u}`]});congItem(P,[hyp,leg(v)],'RHS',2,{right:r,parts:['hyp',`leg${v}`]});
+  congItem(P,[leg(u),leg(v)],'SAS',2,{right:r,parts:[`leg${u}`,`leg${v}`]});
+  congItem(P,[leg(u),ang(u)],'ASA',2,{right:r,parts:[`leg${u}`,`angle${u}`]});congItem(P,[leg(v),ang(v)],'ASA',2,{right:r,parts:[`leg${v}`,`angle${v}`]});
+}
+const NP='△ABC와 △DEF에서 ';const sd=(i,j)=>`${seg(T1[i],T1[j],T1)}=${seg(T2[i],T2[j],T2)}`,an=i=>`∠${T1[i]}=∠${T2[i]}`;
+for(const [s1,s2,common] of [[[0,1],[1,2],1],[[1,2],[2,0],2],[[2,0],[0,1],0]]){
+  const others=[0,1,2].filter(i=>i!==common);
+  congItem(NP,[sd(...s1),sd(...s2),an(common)],'SAS',3,{right:null,parts:['side','side','included-angle']});
+  for(const o of others)congItem(NP,[sd(...s1),sd(...s2),an(o)],'NO',3,{right:null,parts:['side','side','non-included-angle']});
+}
+for(const [i,j] of [[0,1],[1,2],[2,0]])congItem(NP,[sd(i,j),an(i),an(j)],'ASA',3,{right:null,parts:['side','adjacent-angles']});
+congItem(NP,[sd(0,1),sd(1,2),sd(2,0)],'SSS',3,{right:null,parts:['side','side','side']});
+const AG=['∠A와 ∠B','∠B와 ∠C','∠A와 ∠C','세 각 모두'],SG=['AB와 AC','AB와 BC','AC와 BC','세 변 모두'];
+for(const X of V){const [Y,Z]=rest(X);
+  add('cIso',choice({kind:'iso-equal-angles',params:{apex:X},stem:`△ABC에서 ${X}${Y}=${X}${Z}일 때, 크기가 같은 두 각을 고르시오.`,correct:`∠${Y}와 ∠${Z}`,wrongs:AG.filter(t=>t!==`∠${Y}와 ∠${Z}`).map(t=>({text:t,tag:t==='세 각 모두'?MC.equi:MC.apex})),explain:`길이가 같은 두 변 ${X}${Y}, ${X}${Z}의 대각인 ∠${Z}와 ∠${Y}의 크기가 같습니다.`,concept:'이등변삼각형의 성질',d:1}));
+  const s=[`${X}${Y}`,`${X}${Z}`].map(p=>p.split('').sort().join(''));const c=`${s[0]}와 ${s[1]}`;
+  add('cIso',choice({kind:'iso-equal-sides',params:{apex:X},stem:`△ABC에서 ∠${Y}=∠${Z}일 때, 길이가 같은 두 변을 고르시오.`,correct:c,wrongs:SG.filter(t=>t!==c).map(t=>({text:t,tag:t==='세 변 모두'?MC.equi:MC.apex})),explain:`두 내각이 같은 삼각형은 이등변삼각형이고, ∠${Y}, ∠${Z}의 대변 ${s[1]}, ${s[0]}의 길이가 같습니다.`,concept:'이등변삼각형이 되는 조건',d:1}));
+}
+
+const intro=amount({kind:'iso-bis-half',params:{bc:4},prompt:`${bisStem} BC=4 cm일 때, BD의 길이는 몇 cm인지 구하시오.`,answer:2,explain:'꼭지각의 이등분선은 밑변을 수직이등분하므로 BD=4÷2=2 cm입니다. 2닢을 붓습니다.',concept:'이등변삼각형의 성질',d:1,wrongs:[W(4,MC.perp,'no-halving')]});
+const P=pools;
+if(process.env.POOLS)console.log(Object.fromEntries(Object.entries(P).map(([k,v])=>[k,v.length])));
+writeGeoPack({id:'m2s2-u1',title:'삼각형의 성질',standards:['[9수03-09]','[9수03-10]'],intro,groups:[
+  [P.isoBase,34],[P.isoApex,20],[P.isoBisLen,18],[P.circRadius,8],[P.cTerm,6],[P.cIso,6],
+  [P.isoExt,18],[P.isoBisAng,10],[P.rhAngle,14],[P.angBis,8],[P.circRightLen,8],[P.cLoc,16],[P.cCong,34],
+  [P.circSum,18],[P.circCentral,18],[P.inAngle,14],[P.inSum,12],[P.angBis3,10],[P.circRightAng,8],
+  [P.isoConv,30],[P.inArea,34],[P.inRight,18]]});
