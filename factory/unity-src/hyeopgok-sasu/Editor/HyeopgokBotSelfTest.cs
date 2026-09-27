@@ -191,7 +191,7 @@ namespace Mgf.HyeopgokSasu
                 case Bot.Mash: return "항상 패드 1 같은 좌표를 0.2초마다 반복";
                 case Bot.Cycle: return "패드 1→2→3→4 순서, 문항 내에도 2.4초마다 순환";
                 case Bot.RandomCoordinates: return "1.5초마다 이동 가능 영역의 무작위 좌표, 빈 땅 포함";
-                case Bot.Idle: return "이동 명령 없음, 실제 24초 제한까지 방치";
+                case Bot.Idle: return "이동 명령 없음, 난도별 실제 24/32/40초 제한까지 방치";
                 case Bot.Nearest: return "정답을 읽지 않고 왕과의 거리 제곱이 최소인 패드";
                 case Bot.RandomPad: return "네 패드 중 균등 무작위 하나를 골라 정지";
                 case Bot.Fixed1: return "항상 패드 2";
@@ -227,7 +227,8 @@ namespace Mgf.HyeopgokSasu
                 controlPad = rules.AnswerPad();
                 if (bot == Bot.FirstWrong && wave == 1) controlPad = (controlPad + 1) % 4;
             }
-            for (int tick = 0; tick < 1500; tick++)
+            int tickLimit = (int)Math.Ceiling(rules.TimeLimit / Dt) + 60;
+            for (int tick = 0; tick < tickLimit; tick++)
             {
                 switch (bot)
                 {
@@ -250,8 +251,8 @@ namespace Mgf.HyeopgokSasu
                 rules.Tick(Dt);
                 if (rules.Pending || rules.Ended) return tick + 1;
             }
-            Failures.Add("Question did not resolve by 25 seconds: " + Label(bot));
-            return 1500;
+            Failures.Add("Question did not resolve within its difficulty deadline: " + Label(bot));
+            return tickLimit;
         }
         static void SymmetricReplay(Result result, PackItem item, string[] displayed, Bot bot, int gameSeed, int wave)
         {
@@ -331,6 +332,17 @@ namespace Mgf.HyeopgokSasu
             foreach (string id in new[] { "m2s2-u7", "m2s2-u6" })
             {
                 var pack = JsonUtility.FromJson<QuestionPack>(File.ReadAllText(Path.Combine(repo, "public/g/hyeopgok-sasu/packs/" + id + ".json")));
+                foreach (var item in pack.items)
+                {
+                    var timed = new HyeopgokRules();
+                    timed.Start(new QuestionPack { items = new[] { item } }, Seed);
+                    float expected = item.difficulty <= 1 ? 24 : item.difficulty == 2 ? 32 : 40;
+                    if (timed.TimeLimit != expected) Failures.Add(item.id + ": wrong deadline");
+                    timed.Tick(expected - .02f);
+                    if (timed.Pending || timed.Attempts != 0) Failures.Add(item.id + ": early timeout");
+                    timed.Tick(.03f);
+                    if (!timed.Pending || timed.LastCorrect || timed.LastPad != -1 || timed.Attempts != 1 || timed.Hp != 82) Failures.Add(item.id + ": timeout outcome changed");
+                }
                 foreach (Bot bot in Enum.GetValues(typeof(Bot))) Results.Add(RunBot(pack, bot));
             }
             bool nominal = true, symmetric = true, controls = true;
@@ -349,7 +361,7 @@ namespace Mgf.HyeopgokSasu
             md.AppendLine("- 고정 기준 시드: **20260926**. 각 팩·각 봇 **200판**, 판별 시드는 기준 시드 + 판 번호. 결과를 보고 시드나 입력 주기를 고르지 않았다.");
             md.AppendLine("- 기준 시드·200판·입력 주기는 이전과 동일하다. 수정 전 관련 시드 스트림 진단을 근거로 프로덕션은 고정된 표준 SplitMix64로 도메인 0(출제)·1(보기)을 분리했다. 결과에 맞춘 시드·상수 탐색은 하지 않았다. 수정 전 관측값은 `validation/bot-results-before-seed-fix.md/json`에 보존했다.");
             md.AppendLine("- 게임에서 쓰는 **HyeopgokRules**를 직접 실행. Move → Tick(1/60초) → 왕 이동 → 패드에서 0.8초 정지 → Select. 무뇌 봇은 Select·AnswerPad를 호출하지 않고 정답 문구도 읽지 않는다.");
-            md.AppendLine("- 문제별 첫 패드 확정만 분모에 포함. 24초 시간초과는 별도 집계하므로 무작위 좌표의 빈 땅 입력이 정답률을 인위적으로 낮추지 않는다. 오답·시간초과 후 1.55초 피드백 동안 중복 확정 금지도 검사했다.");
+            md.AppendLine("- 문제별 첫 패드 확정만 분모에 포함. 난도별 24/32/40초 시간초과는 별도 집계하므로 무작위 좌표의 빈 땅 입력이 정답률을 인위적으로 낮추지 않는다. 오답·시간초과 후 1.55초 피드백 동안 중복 확정 금지도 검사했다. 전 팩 문항에서 제한 0.02초 전 미확정, 제한 0.01초 후 오답·성문 -18 경계도 검사했다.");
             md.AppendLine("- HP 100, 오답 18, 10문항, 정답 7개 이상이면 승리. **전투의 DrainGateDamage는 이 모델 검증에서 제외**한다. 실제 전투 승패·회복 가능성은 브라우저 통합 검증에서 따로 확인해야 한다.");
             md.AppendLine("- 무입력의 학습 진도는 정답 수·점수 모두 0이다. 시간초과는 실패 처리되어 다음 웨이브로 가지만 정답·학습 보상을 주지 않는다.\n");
             md.AppendLine("| 팩 | 봇 | 첫 시도 정답/확정 | 정답률 | Wilson 95% 구간 | 시간초과 | 10문항 완료 | 승리 | 원시 ≤25% |\n|---|---|---:|---:|---|---:|---:|---:|---|");

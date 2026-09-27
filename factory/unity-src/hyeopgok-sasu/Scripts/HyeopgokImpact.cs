@@ -9,7 +9,7 @@ namespace Mgf.HyeopgokSasu
     /// </summary>
     sealed class HyeopgokImpact
     {
-        const int ParticleCap = 192, FlashCap = 20;
+        const int ParticleCap = 192, FlashCap = 20, NumberCap=20;
         struct Particle
         {
             public Vector3 position, velocity;
@@ -21,6 +21,7 @@ namespace Mgf.HyeopgokSasu
             public Vector3 position;
             public float age, duration, size, angle;
         }
+        struct Popup { public Vector3 position; public float age; public bool heavy,live; }
 
         readonly Particle[] particles = new Particle[ParticleCap];
         readonly Flash[] flashes = new Flash[FlashCap];
@@ -28,10 +29,15 @@ namespace Mgf.HyeopgokSasu
         readonly Matrix4x4[] coinMatrices = new Matrix4x4[ParticleCap];
         readonly Matrix4x4[] fleckMatrices = new Matrix4x4[ParticleCap];
         readonly Matrix4x4[] flashMatrices = new Matrix4x4[FlashCap];
+        readonly Matrix4x4[] fireMatrices = new Matrix4x4[ParticleCap];
+        readonly Matrix4x4[] darkMatrices = new Matrix4x4[ParticleCap];
+        readonly Matrix4x4[] smallNumbers = new Matrix4x4[NumberCap];
+        readonly Matrix4x4[] bigNumbers = new Matrix4x4[NumberCap];
+        readonly Popup[] numbers=new Popup[NumberCap];
         readonly Camera camera;
-        readonly Mesh cloud, coin, fleck, star;
-        readonly Material smokeMaterial, coinMaterial, flashMaterial;
-        int particleCursor, flashCursor;
+        readonly Mesh cloud, coin, fleck, star,smallNumber,bigNumber;
+        readonly Material smokeMaterial, coinMaterial, flashMaterial,fireMaterial,darkMaterial;
+        int particleCursor, flashCursor,numberCursor;
         uint rng = 0x63b1874du;
 
         public HyeopgokImpact(Camera renderCamera, Shader shader)
@@ -41,17 +47,50 @@ namespace Mgf.HyeopgokSasu
             coin = MakeCoin();
             fleck = MakeFleck();
             star = MakeStar();
+            smallNumber=HyeopgokEconomyFx.NumberMesh(5,true);
+            bigNumber=HyeopgokEconomyFx.NumberMesh(15,true);
             smokeMaterial = CreateMaterial(shader,new Color(.98f,.975f,.90f));
             coinMaterial = CreateMaterial(shader,new Color(1,.70f,.035f));
             flashMaterial = CreateMaterial(shader,new Color(1,1,.98f));
+            fireMaterial = CreateMaterial(shader,new Color(1,.31f,.018f));
+            darkMaterial = CreateMaterial(shader,new Color(.18f,.22f,.24f));
         }
 
         public void Clear()
         {
             for(int i=0;i<ParticleCap;i++) particles[i].duration = 0;
             for(int i=0;i<FlashCap;i++) flashes[i].duration = 0;
-            particleCursor = flashCursor = 0;
+            for(int i=0;i<NumberCap;i++) numbers[i].live=false;
+            particleCursor = flashCursor = numberCursor=0;
             rng = 0x63b1874du;
+        }
+
+        public void DamageNumber(Vector3 position,bool heavy)
+        {
+            numbers[numberCursor++%NumberCap]=new Popup {position=position+Vector3.up*.95f,heavy=heavy,live=true};
+        }
+
+        public void Fire(Vector3 position,float intensity)
+        {
+            // Call at a fixed 0.12 s cadence, independent of battle randomness.
+            for(int i=0;i<3;i++)
+                particles[particleCursor++%ParticleCap]=new Particle {
+                    position=position+new Vector3(Range(-.22f,.22f),Range(0,.28f),Range(-.18f,.18f)),
+                    velocity=new Vector3(Range(-.12f,.12f),Range(.6f,1.2f),Range(-.1f,.1f)),
+                    duration=Range(.38f,.72f),size=Range(.17f,.34f)*intensity,spin=Range(0,360),kind=(byte)(i==2?4:3)};
+        }
+
+        public void Explosion(Vector3 position)
+        {
+            Contact(position,true);
+            for(int i=0;i<18;i++)
+            {
+                float a=Range(0,Mathf.PI*2),speed=Range(.7f,3.1f);
+                particles[particleCursor++%ParticleCap]=new Particle {
+                    position=position+Vector3.up*.2f,velocity=new Vector3(Mathf.Sin(a)*speed,Range(.8f,3),Mathf.Cos(a)*speed),
+                    duration=i<9?Range(.22f,.48f):Range(.55f,.95f),size=Range(.25f,.55f),spin=Range(0,360),kind=(byte)(i<9?3:4)};
+            }
+            DamageNumber(position,true);
         }
 
         public void Contact(Vector3 position, bool heavy)
@@ -83,7 +122,7 @@ namespace Mgf.HyeopgokSasu
 
         public void UpdateAndDraw(float dt)
         {
-            int smokeCount=0, coinCount=0, fleckCount=0, flashCount=0;
+            int smokeCount=0, coinCount=0, fleckCount=0, flashCount=0,fireCount=0,darkCount=0;
             for(int i=0;i<ParticleCap;i++)
             {
                 Particle p=particles[i];
@@ -91,7 +130,7 @@ namespace Mgf.HyeopgokSasu
                 p.age+=dt;
                 if(p.age>=p.duration){p.duration=0;particles[i]=p;continue;}
                 p.position+=p.velocity*dt;
-                if(p.kind==0) p.velocity*=1-dt*1.4f;
+                if(p.kind==0||p.kind>=3) p.velocity*=1-dt*1.4f;
                 else p.velocity.y-=dt*8.5f;
                 float t=p.age/p.duration;
                 float size=p.size*Mathf.Min(1,(1-t)*4);
@@ -102,8 +141,12 @@ namespace Mgf.HyeopgokSasu
                 }
                 else if(p.kind==1)
                     coinMatrices[coinCount++]=Matrix4x4.TRS(p.position,Quaternion.Euler(65+t*240,p.spin+t*330,p.spin),Vector3.one*size);
-                else
+                else if(p.kind==2)
                     fleckMatrices[fleckCount++]=Matrix4x4.TRS(p.position,Quaternion.Euler(t*160,p.spin,t*230),new Vector3(size,size*2.6f,size));
+                else if(p.kind==3)
+                    fireMatrices[fireCount++]=Matrix4x4.TRS(p.position,Quaternion.Euler(0,p.spin,0),new Vector3(size,size*(1.8f+t),size));
+                else
+                    darkMatrices[darkCount++]=Matrix4x4.TRS(p.position,Quaternion.Euler(0,p.spin,0),Vector3.one*size*(1+t));
                 particles[i]=p;
             }
             Quaternion facing=camera.transform.rotation;
@@ -123,6 +166,20 @@ namespace Mgf.HyeopgokSasu
             Draw(coin,coinMaterial,coinMatrices,coinCount);
             Draw(fleck,coinMaterial,fleckMatrices,fleckCount);
             Draw(star,flashMaterial,flashMatrices,flashCount);
+            Draw(cloud,fireMaterial,fireMatrices,fireCount);
+            Draw(cloud,darkMaterial,darkMatrices,darkCount);
+            int small=0,big=0;
+            for(int i=0;i<NumberCap;i++)
+            {
+                Popup p=numbers[i];if(!p.live)continue;p.age+=dt;
+                if(p.age>.65f){p.live=false;numbers[i]=p;continue;}
+                float size=(p.heavy?.31f:.24f)*Mathf.Min(1,(.65f-p.age)*6);
+                Matrix4x4 m=Matrix4x4.TRS(p.position+Vector3.up*p.age*.65f,facing,Vector3.one*size);
+                if(p.heavy)bigNumbers[big++]=m;else smallNumbers[small++]=m;
+                numbers[i]=p;
+            }
+            Draw(smallNumber,flashMaterial,smallNumbers,small);
+            Draw(bigNumber,flashMaterial,bigNumbers,big);
         }
 
         void Draw(Mesh mesh,Material material,Matrix4x4[] matrices,int count)
@@ -183,7 +240,7 @@ namespace Mgf.HyeopgokSasu
             return new Vector3(Mathf.Sin(latitude)*Mathf.Cos(longitude),Mathf.Cos(latitude),Mathf.Sin(latitude)*Mathf.Sin(longitude))*.5f;
         }
 
-        static Mesh MakeCoin()
+        internal static Mesh MakeCoin()
         {
             Vector3[] vertices=new Vector3[32*3];
             Color[] colors=new Color[vertices.Length];
@@ -237,6 +294,7 @@ namespace Mgf.HyeopgokSasu
         {
             Object.Destroy(cloud);Object.Destroy(coin);Object.Destroy(fleck);Object.Destroy(star);
             Object.Destroy(smokeMaterial);Object.Destroy(coinMaterial);Object.Destroy(flashMaterial);
+            Object.Destroy(fireMaterial);Object.Destroy(darkMaterial);Object.Destroy(smallNumber);Object.Destroy(bigNumber);
         }
     }
 }

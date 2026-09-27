@@ -26,6 +26,7 @@ Shader "Mgf/HyeopgokHorde"
             fixed4 _Color;
             half _Flash;
             half _Unlit;
+            half4 _HyeopgokNightTint;
             struct appdata
             {
                 float4 vertex : POSITION;
@@ -68,7 +69,7 @@ Shader "Mgf/HyeopgokHorde"
                 // Keep one forward pass and the existing instancing/team-mask contract.
                 half sky = saturate(normal.y * .5 + .5);
                 half3 ambient = lerp(half3(.20,.25,.29), half3(.43,.48,.48), sky);
-                half3 lit = ambient + .73 * diffuse * attenuation * _LightColor0.rgb;
+                half3 lit = (ambient + .73 * diffuse * attenuation * _LightColor0.rgb) * _HyeopgokNightTint.rgb;
                 half3 light = lerp(lit, half3(1,1,1), _Unlit);
                 return fixed4(lerp(i.color*light,fixed3(1,.97,.77),_Flash),1);
             }

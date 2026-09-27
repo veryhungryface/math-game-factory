@@ -31,7 +31,7 @@ namespace Mgf.HyeopgokSasu
         {
             MgfLook.Quality(34); QualitySettings.pixelLightCount=1;
             BuildWorld(); BuildUi();
-            battle=gameObject.AddComponent<HyeopgokBattle>();battle.Init(cam);
+            battle=gameObject.AddComponent<HyeopgokBattle>();battle.Init(cam);battle.SetKing(king);
             StartCoroutine(BootPacks());
         }
         string BaseUrl(){
@@ -113,7 +113,7 @@ namespace Mgf.HyeopgokSasu
         void LoadError(string msg){loading=false;loaded=false;SetTitleInfo(msg);}
         public void TestStart(){
             if(!loaded)return;
-            playStarted=true;st.phase="playing";st.moves=0;feedbackLeft=0;feedback="";
+            playStarted=true;dragging=false;st.phase="playing";st.moves=0;feedbackLeft=0;feedback="";
             Rules.Start(pack,Environment.TickCount^(++runSerial*7919));battle.Begin();cameraLanding=.8f;
             ShowPlaying();Present();MgfSfx.Play("whoosh");
         }
@@ -131,7 +131,7 @@ namespace Mgf.HyeopgokSasu
             else{battle.Punish(spot);MgfSfx.Play("wrong");}
             string reward=ratio?"정답 · 석궁 "+Rules.Current.answer+" 명중 시연!":Rules.Current.format=="frac"?"정답 · 확률 "+Rules.Current.answer+" 판단 적중!":"정답 · 경우의 수만큼 지원!";
             rewardIsRatio=ratio;
-            feedback=(Rules.LastCorrect?reward:"오답 · 성문 -18")+"\n"+Rules.Current.explain;
+            feedback=(Rules.LastCorrect?reward:Rules.LastPad<0?"시간 초과 · 오답 · 성문 -18":"오답 · 성문 -18")+"\n"+Rules.Current.explain;
             HideTutorial();
             ShowFeedback(Rules.LastCorrect,feedback);SyncState();RefreshHud();
         }
@@ -192,9 +192,10 @@ namespace Mgf.HyeopgokSasu
         void UpdateCamera(float dt){
             if(cameraLanding>0)cameraLanding=Mathf.Max(0,cameraLanding-dt);
             float aspect=(float)Screen.width/Screen.height;
-            cam.orthographicSize=Mathf.Max(9.9f,6.5f/aspect)+(playStarted?cameraLanding*.65f:.65f);
+            float fit=Mathf.Max(1.12f,.66f/aspect)+(playStarted?cameraLanding*.03f:.03f);
+            Vector3 focus=new Vector3(.5f,0,2.4f);
             float shake=battle?battle.Shake:0;
-            cam.transform.position=cameraBase+new Vector3(aspect>1.2f?-3.0f:0,0,0)+new Vector3(Mathf.Sin(Time.unscaledTime*97)*shake,Mathf.Cos(Time.unscaledTime*83)*shake,0);
+            cam.transform.position=focus+(cameraBase-focus)*fit+new Vector3(aspect>1.2f?-3.0f:0,0,0)+new Vector3(Mathf.Sin(Time.unscaledTime*97)*shake,Mathf.Cos(Time.unscaledTime*83)*shake,0);
             if(lastWidth!=Screen.width||lastHeight!=Screen.height){lastWidth=Screen.width;lastHeight=Screen.height;LayoutUi();UpdatePadScreen();}
         }
         int lastWidth,lastHeight;

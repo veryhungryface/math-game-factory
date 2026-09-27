@@ -8,22 +8,22 @@ namespace Mgf.HyeopgokSasu
         Material worldMat;
         Transform sceneryRoot;
         Transform[] padRoots=new Transform[4];
-        LineRenderer[] padBorders=new LineRenderer[4],padFill=new LineRenderer[4];
+        LineRenderer[] padFill=new LineRenderer[4];
         LineRenderer[] cracks=new LineRenderer[4];
         void BuildWorld(){
-            MgfLook.Sky(MgfLook.Hex("#9dd8c4"),MgfLook.Hex("#b4d2af"),MgfLook.Hex("#133f36"),.8f);
-            var sun=MgfLook.Sun(new Vector3(48,-38,0),MgfLook.Hex("#fff0d2"),1.22f,.72f);
+            MgfLook.Sky(MgfLook.Hex("#a9d7d2"),MgfLook.Hex("#c3d4c5"),MgfLook.Hex("#205b50"),.8f);
+            Shader.SetGlobalColor("_HyeopgokNightTint",Color.white);
+            var sun=MgfLook.Sun(new Vector3(51,-38,0),MgfLook.Hex("#fff1df"),1.16f,.62f);environmentSun=sun;
             sun.shadowBias=.025f;sun.shadowNormalBias=.18f;
             RenderSettings.ambientIntensity=.78f;
-            cam=MgfLook.Camera(new Vector3(.5f,22,-13.6f),new Vector3(.5f,0,2.4f),36);cam.orthographic=true;cam.orthographicSize=14;
+            cam=MgfLook.Camera(new Vector3(.5f,27.5f,-17.6f),new Vector3(.5f,0,2.4f),33);cam.orthographic=false;cam.nearClipPlane=.2f;cam.farClipPlane=160;
             cameraBase=cam.transform.position;cameraRot=cam.transform.rotation;
             worldMat=new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Horde"));worldMat.SetColor("_Color",Color.white);worldMat.enableInstancing=true;
             sceneryRoot=new GameObject("Static scenery").transform;
             SpawnModel("terrain",Vector3.zero,1);
-            SpawnModel("barracks",new Vector3(-4.1f,.25f,-.30f),.85f).transform.Rotate(0,180,0);
-            SpawnModel("castle_gate",new Vector3(-4.4f,.25f,2.0f),.90f).transform.Rotate(0,180,0);
-            SpawnModel("enemy_gate",new Vector3(3.1f,.25f,9.0f),1.15f).transform.Rotate(0,180,0);
-            SpawnModel("enemy_gate",new Vector3(5.35f,.25f,9.0f),1.15f).transform.Rotate(0,180,0);
+            BuildEnvironment();
+            SpawnModel("enemy_gate",new Vector3(3.1f,.25f,9.0f),.93f).transform.Rotate(0,180,0);
+            SpawnModel("enemy_gate",new Vector3(5.35f,.25f,9.0f),.93f).transform.Rotate(0,180,0);
             king=SpawnModel("king",HyeopgokRules.Pads[2]+Vector3.back*2,1.4f).transform;king.rotation=Quaternion.Euler(0,180,0);
             king.SetParent(null,true);
             // The scenery is instantiated once. Horde entities use no GameObjects.
@@ -52,25 +52,23 @@ namespace Mgf.HyeopgokSasu
                 tree.transform.Rotate(0,rng.Next(360),0);
                 if(i<8&&i%2==0)SpawnModel("rock",new Vector3(p.x+.3f,p.y,p.z-.4f),.22f);
             }
-            StaticBatchingUtility.Combine(sceneryRoot.gameObject);
+            BuildSceneryContactShadows();
+            CombineScenery();
+            var padStrokes=new DecorationMesh();
+            Material padStone=MgfLook.Lit(MgfLook.Hex("#125f4c"));
             for(int i=0;i<4;i++){
                 var root=new GameObject("Answer pad "+(i+1));root.transform.position=HyeopgokRules.Pads[i];padRoots[i]=root.transform;
-                MgfLook.Prim(PrimitiveType.Cube,"Green stone",new Vector3(0,-.025f,0),new Vector3(1.7f,.045f,1.65f),MgfLook.Lit(MgfLook.Hex("#147855")),root.transform,false);
-                padBorders[i]=Line("Dashed construction outline",MgfLook.Hex("#eef4cd"),.055f);
-                var points=new Vector3[32];
-                for(int k=0;k<32;k++)points[k]=PadEdge(i,k/31f);
-                // Separate corner/dash strokes, sharing one material.
-                padBorders[i].positionCount=0;
-                for(int k=0;k<16;k++){
-                    var dash=Line("Construction dash",MgfLook.Hex("#ecf1cc"),.065f);dash.positionCount=2;
-                    dash.SetPosition(0,PadEdge(i,k/16f));dash.SetPosition(1,PadEdge(i,(k+.63f)/16f));dash.transform.SetParent(root.transform,true);
-                }
+                MgfLook.Prim(PrimitiveType.Cube,"Green stone",new Vector3(0,-.025f,0),new Vector3(1.7f,.045f,1.65f),padStone,root.transform,false);
+                // One shared mesh replaces 64 independent LineRenderer draw calls.
+                for(int k=0;k<16;k++)
+                    padStrokes.Ribbon(PadEdge(i,k/16f),PadEdge(i,(k+.65f)/16f),.075f,Color.white);
                 padFill[i]=Line("Hold progress",MgfLook.Hex("#ffd55d"),.095f);padFill[i].positionCount=0;
                 cracks[i]=Line("Broken answer stone",MgfLook.Hex("#082c30"),.075f);cracks[i].positionCount=5;
                 Vector3 p=HyeopgokRules.Pads[i]+Vector3.up*.06f;
                 cracks[i].SetPositions(new[]{p+new Vector3(-.84f,0,.6f),p+new Vector3(-.3f,0,.12f),p+new Vector3(.1f,0,.28f),p+new Vector3(-.1f,0,-.25f),p+new Vector3(.65f,0,-.84f)});
                 cracks[i].gameObject.SetActive(false);
             }
+            CreateDecoration("Answer pad chalk dashes",padStrokes,MgfLook.Unlit(MgfLook.Hex("#faf8e8")),false);
         }
         static readonly Vector2[] WestMesa={new Vector2(-10,4),new Vector2(-5.7f,4),new Vector2(-5.65f,5.25f),new Vector2(-3.5f,7),new Vector2(-.5f,9),new Vector2(-1,14),new Vector2(-10,14)};
         static readonly Vector2[] EastMesa={new Vector2(7.1f,5),new Vector2(9,5),new Vector2(13,9),new Vector2(13,16),new Vector2(6.9f,16)};

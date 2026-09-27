@@ -23,19 +23,22 @@ PAL = {
  'leather': (.24,.15,.105,1), 'wood': (.42,.23,.105,1),
  'wood_light': (.69,.43,.21,1), 'wood_gold': (.82,.59,.29,1),
  'gold': (1,.70,.08,1), 'gold_light': (1,.87,.29,1),
- 'navy': (.11,.22,.27,1), 'royal': (.06,.32,.68,1),
+ 'navy': (.11,.22,.27,1), 'royal': (.047,.435,.827,1),
  'stone': (.66,.69,.63,1), 'stone_light': (.82,.82,.72,1),
  'stone_shadow': (.43,.49,.47,1), 'mortar': (.30,.38,.37,1),
- 'red': (.79,.065,.065,1), 'roof': (.64,.21,.11,1),
- 'grass': (.06,.64,.36,1), 'grass_light': (.11,.72,.42,1),
- 'grass_dark': (.055,.48,.30,1), 'cliff': (.075,.17,.22,1),
- 'cliff_light': (.12,.24,.28,1), 'path': (.72,.64,.43,1),
- 'path_light': (.78,.69,.47,1), 'pine': (.19,.45,.18,1),
- 'pine_light': (.29,.56,.22,1), 'pine_dark': (.11,.34,.16,1),
- 'leaf': (.26,.55,.21,1), 'leaf_light': (.36,.64,.26,1),
+ 'red': (.816,.024,.047,1), 'roof': (.025,.286,.58,1),
+ 'grass': (.176,.667,.455,1), 'grass_light': (.184,.706,.478,1),
+ 'grass_dark': (.102,.541,.384,1), 'cliff': (.075,.17,.22,1),
+ 'cliff_light': (.12,.24,.28,1), 'path': (.784,.710,.612,1),
+ 'path_light': (.812,.761,.682,1), 'pine': (.122,.353,.29,1),
+ 'pine_light': (.18,.427,.30,1), 'pine_dark': (.085,.29,.22,1),
+ 'leaf': (.21,.47,.31,1), 'leaf_light': (.29,.56,.35,1),
  'leaf_dark': (.16,.43,.20,1), 'cliff_mid': (.10,.21,.27,1),
- 'cliff_rim': (.132,.245,.286,1), 'grass_edge': (.18,.70,.43,1),
- 'black': (.035,.065,.07,1), 'ivory': (.98,.98,.86,1),
+ 'cliff_rim': (.132,.245,.286,1), 'grass_edge': (.24,.706,.47,1),
+ 'black': (.035,.065,.07,1), 'ivory': (.98,.98,.91,1),
+ 'red_shadow': (.549,.102,.125,1), 'straw': (.72,.54,.29,1), 'straw_light': (.88,.70,.40,1),
+ 'plaster': (.82,.78,.66,1), 'giant_skin': (.88,.53,.48,1), 'blade_glow': (1,.15,.34,1),
+ 'sandstone': (.91,.79,.69,1), 'sandstone_side': (.52,.55,.59,1), 'water': (.27,.59,.72,1),
 }
 
 def bcoord(p): return (p[0], -p[2], p[1])
@@ -115,7 +118,7 @@ class MeshMaker:
   mat=bpy.data.materials.new(self.name+'_VertexPalette');mat.diffuse_color=(.6,.7,.6,1);mat.use_nodes=True
   nodes=mat.node_tree.nodes;links=mat.node_tree.links; bsdf=nodes.get('Principled BSDF')
   col=nodes.new('ShaderNodeVertexColor');col.layer_name='Color'
-  mix=nodes.new('ShaderNodeMixRGB');mix.blend_type='MULTIPLY';mix.inputs[0].default_value=1;mix.inputs[2].default_value=(.035,.35,.95,1)
+  mix=nodes.new('ShaderNodeMixRGB');mix.blend_type='MULTIPLY';mix.inputs[0].default_value=1;mix.inputs[2].default_value=(.047,.435,.827,1)
   links.new(col.outputs['Color'],mix.inputs[1])
   tint=nodes.new('ShaderNodeMixRGB');links.new(col.outputs['Alpha'],tint.inputs[0]);links.new(mix.outputs[0],tint.inputs[1]);links.new(col.outputs['Color'],tint.inputs[2]);links.new(tint.outputs[0],bsdf.inputs['Base Color']);bsdf.inputs['Roughness'].default_value=.85
   me.materials.append(mat)
@@ -184,11 +187,12 @@ def king():
  m.beam((.22,.58,0),(.28,.36,.10),.15,.15,'steel_light')
  m.cylinder((0,.75,0),.175,.22,'skin',n=8)
  m.box((0,.7,.145),(.26,.085,.095),'leather')
- m.cylinder((0,.87,0),.196,.075,'gold',n=8)
- for i in range(6):
-  angle=i*math.tau/6
-  m.cylinder((math.cos(angle)*.163,.954,math.sin(angle)*.163),.055,.10,'gold_light',n=4,radius_top=0)
- m.box((0,.885,.202),(.064,.074,.035),'royal')
+ # Original survey-king silhouette: ivory sallet and a single brass compass fin,
+ # not the reference's six-point gold crown + plain royal mantle.
+ m.rings((0,0,0),[(.80,.202),(.94,.192),(.995,.11)],'steel_light',n=6)
+ m.box((0,.858,.180),(.30,.045,.040),'navy')
+ m.wedge((0,1.01,-.02),(.075,.19,.25),'gold')
+ m.box((0,.94,.183),(.069,.073,.03),'royal')
  # Hero cape is a deliberately separate folded silhouette within the same mesh.
  m.face([(-.2,.64,-.17),(.2,.64,-.17),(.29,.16,-.29),(0,.19,-.35),(-.29,.16,-.29)],'royal')
  m.face([(-.2,.64,-.17),(-.29,.16,-.29),(0,.19,-.35),(0,.59,-.2)],'navy')
@@ -388,13 +392,15 @@ def terrain():
   before=Vector(path[max(0,i-1)]);after=Vector(path[min(len(path)-1,i+1)]);d=(after-before).normalized();n=Vector((-d[1],d[0]));v=Vector(p)
   left.append(tuple(v+n*1.02));right.append(tuple(v-n*1.02))
  for i in range(len(path)-1):
+  # The logical foot plane stays fixed; a runtime wooden bridge spans this opening.
+  if -1.35 < (path[i][0]+path[i+1][0])*.5 < 1.35 and (path[i][1]+path[i+1][1])*.5 < -6.3:continue
   a,b,c,d=left[i],right[i],right[i+1],left[i+1]
   # Lighter compacted track in the centre, darker weathered shoulders.
-  spans=[(-1.0,-.72),(-.72,.73),(.73,1.0)]
+  spans=[(-1.0,-.92),(-.92,-.80),(-.80,.80),(.80,.92),(.92,1.0)]
   for lo,hi in spans:
    av,bv,cv,dv=Vector(a),Vector(b),Vector(c),Vector(d)
    q=[av.lerp(bv,(lo+1)*.5),av.lerp(bv,(hi+1)*.5),dv.lerp(cv,(hi+1)*.5),dv.lerp(cv,(lo+1)*.5)]
-   shade=(1.025 if lo==-.72 else .956)+.014*math.sin(i*1.8)
+   shade=(1.022 if lo==-.80 else .96 if abs(lo)==.92 else .91)+.009*math.sin(i*1.8)
    m.face([(p.x,.25,p.y) for p in reversed(q)],tint('path',shade))
   for side in [left,right]:
    a,b=side[i],side[i+1]
@@ -406,6 +412,7 @@ def terrain():
   before=Vector(path[max(0,i-1)]);after=Vector(path[min(len(path)-1,i+1)]);d=(after-before).normalized();n=Vector((-d[1],d[0]));v=Vector(p)
   outer.append(tuple(v+n*1.65))
  for i in range(len(path)-1):
+  if -1.55 < (path[i][0]+path[i+1][0])*.5 < 1.55 and (path[i][1]+path[i+1][1])*.5 < -6.3:continue
   # With clockwise traversal, left lies outside of the U.
   a,b,c,d=left[i],left[i+1],outer[i+1],outer[i]
   m.face([(d[0],.48,d[1]),(c[0],.48,c[1]),(b[0],.48,b[1]),(a[0],.48,a[1])],tint('grass_light',.975+.023*math.sin(i*.84)))
@@ -418,6 +425,11 @@ def terrain():
  # Background cliff masses frame the two entry gates without covering the map.
  cliff_bank(m,[(-10,4),(-5.7,4),(-5.65,5.25),(-3.5,7),(-.5,9),(-1,14),(-10,14)],-1.5,3.1,'grass_dark',2)
  cliff_bank(m,[(7.1,5.0),(9,5),(13,9),(13,16),(6.9,16)],-1.5,1.2,'grass_dark',2)
+ # Far decorative cliffs: warm caps / cool sides, kept well clear of the paths.
+ for x,z,w,d,h in [(-12,10,4,6,4.8),(-9,14,5,5,5.3),(-4,17,6,5,4.7),(3,18,6,5,4.2),(10,15,5,5,4.8),(14,8,4,6,4.1),(-15,2,4,7,3.2),(-15,-6,4,5,2.8),(15,-2,4,6,2.8)]:
+  poly=[(x-w*.5,z-d*.5),(x+w*.33,z-d*.53),(x+w*.52,z-d*.18),(x+w*.45,z+d*.45),(x-w*.35,z+d*.5),(x-w*.53,z+d*.2)]
+  m.poly_extrude(poly,-1.50,h,'sandstone','sandstone_side')
+  m.poly_extrude([(xx*.99+(1-.99)*x,zz*.99+(1-.99)*z) for xx,zz in poly],h,h+.16,'sandstone','stone_shadow')
  # Sparse tiny sandy chips, flattened into the road mesh: no decal materials,
  # no alpha overdraw and no runtime particles needed for static surface detail.
  rng=random.Random(77531)
@@ -425,6 +437,7 @@ def terrain():
   j=rng.randrange(len(path)-1);p=Vector(path[j]).lerp(Vector(path[j+1]),rng.random())
   direction=(Vector(path[j+1])-Vector(path[j])).normalized();side=Vector((-direction.y,direction.x))
   p+=side*rng.uniform(-.92,.92);r=rng.uniform(.022,.059);angle=rng.random()*math.tau
+  if -1.35<p.x<1.35 and p.y<-6.3:continue
   pts=[(p.x+math.cos(angle+k*math.tau/3)*r,.254,p.y+math.sin(angle+k*math.tau/3)*r*.65) for k in range(3)]
   m.face(list(reversed(pts)),tint('path',rng.uniform(.88,1.11)))
  return emit(m)
@@ -474,7 +487,11 @@ def make_preview():
  bpy.ops.wm.save_as_mainfile(filepath=str(HERE/'hyeopgok-assets.blend'))
  if '--no-render' not in sys.argv:bpy.ops.render.render(write_still=True)
 
-bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
+# Hidden source objects must also be removed when replaying through live MCP.
+for ob in list(bpy.data.objects):bpy.data.objects.remove(ob,do_unlink=True)
+for datablocks in (bpy.data.meshes,bpy.data.materials):
+ for data in list(datablocks):
+  if data.users==0:datablocks.remove(data)
 bpy.context.scene.unit_settings.system='METRIC';bpy.context.scene.unit_settings.scale_length=1
 if '--only-terrain' in sys.argv:
  terrain()
@@ -485,7 +502,11 @@ if '--only-terrain' in sys.argv:
  manifest_path.write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n')
  print('Terrain-only export complete')
  sys.exit(0)
-soldier();soldier(True);king();tower_base();crossbow();m=MeshMaker('tower');tower_base(m);crossbow(m,1.62);emit(m)
-barracks();gate(False);gate(True);tree();broadleaf();rock();terrain();bolt()
+soldier();soldier(True);king();crossbow()
+exec(compile((HERE/'phase1_models.py').read_text(),str(HERE/'phase1_models.py'),'exec'))
+build_phase1_models();m=tower_stage(2,'tower',False);crossbow(m,1.62);emit(m)
+tree();broadleaf();rock();terrain();bolt()
+# Upgrade aliases deliberately replace legacy IDs; retain only final manifest entries.
+ASSETS[:]=list({a['id']:a for a in ASSETS}.values())
 (HERE/'model-manifest.json').write_text(json.dumps({'license':'Original procedural art created for this game; no third-party assets','axes':'Unity x right / y up / z forward. FBX -Z forward +Y up bake transforms.','color':'COLOR sRGB authored values; alpha0 teamColor * RGB, alpha1 fixed RGB','palette':PAL,'path_control_points':PATH_POINTS,'plateau_polygon':PLATEAU,'left_approach':{'x':[-5.5,-3.25],'z':[-1.15,3.0],'top_y':.245,'castle':[-4.4,.25,2.0],'castle_scale':.9,'barracks':[-4.1,.25,-.30],'barracks_scale':.85,'building_yaw':180},'assets':ASSETS},indent=2,ensure_ascii=False)+'\n')
 make_preview()

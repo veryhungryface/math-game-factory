@@ -12,6 +12,10 @@ namespace Mgf.HyeopgokSasu
             new Vector3(-1.8f,1.23f,-1.0f), new Vector3(.6f,1.23f,-1.0f)
         };
         public const float Speed=4.8f, Hold=.8f, Radius=.69f, Limit=24f;
+        // Keep pack JSON unchanged. Difficulty already describes calculation load:
+        // elementary single events 24s, counting two dice 32s, compound probability 40s.
+        public float TimeLimit {get; private set;}=Limit;
+        public static float LimitForDifficulty(int difficulty)=>difficulty<=1?24f:difficulty==2?32f:40f;
         public QuestionPack Pack {get; private set;}
         public PackItem Current {get; private set;}
         public readonly string[] Choices=new string[4];
@@ -59,6 +63,7 @@ namespace Mgf.HyeopgokSasu
             }
             if(Wave==0)at=0;
             used[Wave]=at; Current=Pack.items[at];
+            TimeLimit=LimitForDifficulty(Current.difficulty);
             for(int i=0;i<4;i++)Choices[i]=Current.choices[i];
             for(int i=3;i>0;i--){int j=placeRng.Next(i+1);string t=Choices[i];Choices[i]=Choices[j];Choices[j]=t;}
             King=Target=new Vector3(-.6f,1.24f,-3.1f);
@@ -75,7 +80,7 @@ namespace Mgf.HyeopgokSasu
             if(near!=Hover){Hover=near;Dwell=0;}
             if(near>=0 && (King-Target).sqrMagnitude<.03f){Dwell+=dt;if(Dwell>=Hold){Select(near);return near;}}
             else Dwell=0;
-            if(Elapsed>=Limit){Select(-1);return 4;}
+            if(Elapsed>=TimeLimit){Select(-1);return 4;}
             return -1;
         }
         public bool Select(int pad)

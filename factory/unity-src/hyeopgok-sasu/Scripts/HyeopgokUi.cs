@@ -8,10 +8,10 @@ namespace Mgf.HyeopgokSasu
     public partial class HyeopgokGame
     {
         readonly Color cream=MgfLook.Hex("#fff1ce"),navy=MgfLook.Hex("#142e35"),gold=MgfLook.Hex("#ffd05a");
-        RectTransform commandStrip;
+        RectTransform commandStrip,pressureMarker,treasuryPanel;
         RectTransform titleRoot,playRoot,endRoot,ctaRect,packRect,retryRect,questionPanel,feedbackPanel;
         RectTransform tutorialDot,tutorialTrail,tutorialLabel;
-        TextMeshProUGUI titleInfo,hpText,coinsText,waveText,armyText,hintText,endTitle,endDetail,bonusText,pressureText;
+        TextMeshProUGUI titleInfo,hpText,coinsText,waveText,armyText,hintText,endTitle,endDetail,bonusText,pressureText,treasuryText,depositText;
         HyeopgokMathText questionText,feedbackText,bonusMath;
         HyeopgokMathText[] padLabels=new HyeopgokMathText[4];
         RectTransform[] padLabelRoots=new RectTransform[4];
@@ -19,7 +19,7 @@ namespace Mgf.HyeopgokSasu
         TextMeshProUGUI answerRing;int answerMark=-1;
         Image hpFill,timeFill;
         float shownHp=100,bonusLife;
-        string lastArmy="";int previousShownHp=-1;
+        int previousShownHp=-1,lastReds=-1,lastBlues=-1,lastKills=-1,lastClock=-1,lastTreasury=-1,lastDeposit=-1;
         bool tutorialVisible;
         RectTransform Group(string name,Transform parent){var go=new GameObject(name,typeof(RectTransform));var r=(RectTransform)go.transform;r.SetParent(parent,false);r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=r.offsetMax=Vector2.zero;return r;}
         RectTransform Box(string name,Transform parent,Vector2 anchor,Vector2 offset,Vector2 size,Color color){
@@ -54,12 +54,16 @@ namespace Mgf.HyeopgokSasu
             hpFill=Box("health remaining",hpBg,new Vector2(0,.5f),Vector2.zero,new Vector2(110,4),MgfLook.Hex("#66d69f")).GetComponent<Image>();hpFill.rectTransform.pivot=new Vector2(0,.5f);
             questionPanel=Box("Question",playRoot,new Vector2(.5f,1),new Vector2(0,-125),new Vector2(365,126),cream);
             Box("question gold edge",questionPanel,new Vector2(0,.5f),new Vector2(3,0),new Vector2(6,126),gold);
-            var q=Text("",questionPanel,new Vector2(.5f,.5f),new Vector2(3,9),new Vector2(330,94),17,navy);q.alignment=TextAlignmentOptions.MidlineLeft;q.lineSpacing=5;
+            var q=Text("",questionPanel,new Vector2(.5f,.5f),new Vector2(3,14),new Vector2(330,85),17,navy);q.alignment=TextAlignmentOptions.MidlineLeft;q.lineSpacing=5;
             questionText=new HyeopgokMathText(q);
             var timeBg=Box("Pressure clock",questionPanel,new Vector2(.5f,0),new Vector2(0,-3),new Vector2(365,4),MgfLook.Hex("#354e40"));
             timeFill=Box("Time remaining",timeBg,new Vector2(0,.5f),Vector2.zero,new Vector2(365,4),gold).GetComponent<Image>();timeFill.rectTransform.pivot=new Vector2(0,.5f);
-            Box("Pressure begins at 18 seconds",timeBg,new Vector2(1-HyeopgokBattle.PressureGrace/HyeopgokRules.Limit,.5f),Vector2.zero,new Vector2(3,12),MgfLook.Hex("#ff895a"));
-            pressureText=Text("성문 압박까지 18초",questionPanel,new Vector2(.5f,0),new Vector2(0,9),new Vector2(345,18),11,navy);
+            pressureMarker=Box("Pressure begins at 18 seconds",timeBg,new Vector2(1-HyeopgokBattle.PressureGrace/HyeopgokRules.Limit,.5f),Vector2.zero,new Vector2(3,12),MgfLook.Hex("#ff895a"));
+            pressureText=Text("24초가 지나면 오답 · 남은 24초\n성문 압박까지 18초",questionPanel,new Vector2(.5f,0),new Vector2(0,15),new Vector2(345,29),10.5f,navy);
+            treasuryPanel=Box("Battle coins",playRoot,new Vector2(1,1),new Vector2(-67,-221),new Vector2(108,34),navy);
+            treasuryText=Text("코인 0",treasuryPanel,new Vector2(.5f,.5f),Vector2.zero,new Vector2(102,30),17,gold);
+            depositText=Text("",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(140,25),12,gold);depositText.outlineColor=navy;depositText.outlineWidth=.24f;
+            depositText.gameObject.SetActive(false);
             armyText=Text("",playRoot,new Vector2(.5f,.035f),Vector2.zero,new Vector2(360,27),14,cream);armyText.outlineColor=navy;armyText.outlineWidth=.22f;
             commandStrip=Box("Command strip",playRoot,new Vector2(.5f,.093f),Vector2.zero,new Vector2(355,56),navy);
             hintText=Text("왕을 끌어 답 위에서 멈추세요\n0.8초 서 있으면 확정",playRoot,new Vector2(.5f,.093f),Vector2.zero,new Vector2(340,53),15,cream);
@@ -97,11 +101,21 @@ namespace Mgf.HyeopgokSasu
         bool Hit(RectTransform rt)=>RectTransformUtility.RectangleContainsScreenPoint(rt,MgfPointer.Position);
         void ShowPlaying(){titleRoot.gameObject.SetActive(false);endRoot.gameObject.SetActive(false);playRoot.gameObject.SetActive(true);shownHp=100;HideFeedback();}
         void SetQuestion(PackItem p){
+            lastClock=-1;
+            pressureMarker.anchorMin=pressureMarker.anchorMax=new Vector2(1-HyeopgokBattle.PressureGrace/Rules.TimeLimit,.5f);
             for(int i=0;i<4;i++)cracks[i].gameObject.SetActive(false);
-            questionText.Text.fontSize=p.prompt.Length>100?15:p.prompt.Length>75?16:17;
-            questionText.Set(p.prompt);
+            FitQuestion(p.prompt);
             hintText.text=Rules.Wave==1?"왕을 끌어 답 위에서 멈추세요\n0.8초 서 있으면 확정":"정답 패드로 이동 · 0.8초 정지\n10문제 중 7문제 이상 맞히면 승리";
             SetTutorial(Rules.Wave==1&&st.moves==0);
+        }
+        void FitQuestion(string prompt){
+            questionText.Text.fontSize=prompt.Length>100?15:prompt.Length>75?16:17;
+            questionText.Set(prompt);
+            // Real text measurements keep long replacement-pack questions above
+            // the explicit deadline. Work runs only on question/viewport changes.
+            while(questionText.Text.preferredHeight>85 && questionText.Text.fontSize>13){
+                questionText.Text.fontSize-=.5f;questionText.Set(prompt);
+            }
         }
         void SetChoices(string[] choices){for(int i=0;i<4;i++){
             padLabelRoots[i].gameObject.SetActive(true);
@@ -116,8 +130,10 @@ namespace Mgf.HyeopgokSasu
             if(!reachable&&!Rules.Ended)hintText.text="이번 판은 버티기\n남은 문제로 성문을 지켜라";
         }
         void UpdateBattleHud(){
-            string s="적 "+battle.Reds+"     수비대 "+battle.Blues+"     격파 "+battle.Kills;
-            if(s!=lastArmy){lastArmy=s;armyText.text=s;}
+            if(lastReds!=battle.Reds||lastBlues!=battle.Blues||lastKills!=battle.Kills){
+                lastReds=battle.Reds;lastBlues=battle.Blues;lastKills=battle.Kills;
+                armyText.SetText("적 {0}     수비대 {1}     격파 {2}",lastReds,lastBlues,lastKills);
+            }
         }
         void ShowFeedback(bool ok,string s){
             feedbackPanel.gameObject.SetActive(true);feedbackText.Text.color=ok?cream:MgfLook.Hex("#ffb7a2");feedbackText.Set(s);
@@ -127,7 +143,7 @@ namespace Mgf.HyeopgokSasu
             if(Rules.LastPad>=0)padLabelRoots[Rules.LastPad].localScale=Vector3.one*(ok?1.3f:.7f);
             if(!ok&&Rules.LastPad>=0)cracks[Rules.LastPad].gameObject.SetActive(true);
         }
-        void HideFeedback(){feedbackPanel.gameObject.SetActive(false);bonusText.text="";answerMark=-1;if(answerRing)answerRing.gameObject.SetActive(false);}
+        void HideFeedback(){feedbackPanel.gameObject.SetActive(false);bonusLife=0;bonusMath.Set("");answerMark=-1;if(answerRing)answerRing.gameObject.SetActive(false);}
         void ShowEnd(bool won,bool fallen){
             endRoot.gameObject.SetActive(true);playRoot.gameObject.SetActive(false);
             endTitle.text=won?"협곡을 지켰다":fallen?"성문이 무너졌다":"버티기만 한 판";
@@ -158,8 +174,10 @@ namespace Mgf.HyeopgokSasu
             Vector2 hintAnchor=wide?new Vector2(.16f,.53f):new Vector2(.5f,.093f);
             commandStrip.anchorMin=commandStrip.anchorMax=hintText.rectTransform.anchorMin=hintText.rectTransform.anchorMax=hintAnchor;
             commandStrip.sizeDelta=new Vector2(wide?300:355,56);hintText.rectTransform.sizeDelta=new Vector2(wide?285:340,53);
-            questionPanel.sizeDelta=new Vector2(width,126);questionText.Text.rectTransform.sizeDelta=new Vector2(width-33,94);pressureText.rectTransform.sizeDelta=new Vector2(width-20,18);
-            if(Rules.Current!=null)questionText.Set(Rules.Current.prompt);
+            questionPanel.sizeDelta=new Vector2(width,126);questionText.Text.rectTransform.sizeDelta=new Vector2(width-33,85);pressureText.rectTransform.sizeDelta=new Vector2(width-20,29);
+            treasuryPanel.anchorMin=treasuryPanel.anchorMax=new Vector2(wide?1:0,1);
+            treasuryPanel.anchoredPosition=wide?new Vector2(-67,-84):new Vector2(67,-215);
+            if(Rules.Current!=null)FitQuestion(Rules.Current.prompt);
             if(feedbackPanel.gameObject.activeSelf)feedbackText.Set(feedback);
         }
         void AnimateUi(float dt){
@@ -168,11 +186,24 @@ namespace Mgf.HyeopgokSasu
             if(!playStarted)return;
             shownHp=Mathf.MoveTowards(shownHp,Rules.Hp,dt*70);
             int h=Mathf.RoundToInt(shownHp);
-            if(h!=previousShownHp){hpText.text="성문 "+h;previousShownHp=h;}
+            if(h!=previousShownHp){hpText.SetText("성문 {0}",h);previousShownHp=h;}
             hpFill.rectTransform.sizeDelta=new Vector2(110*shownHp/100,4);
-            timeFill.rectTransform.sizeDelta=new Vector2(questionPanel.sizeDelta.x*Mathf.Clamp01(1-Rules.Elapsed/HyeopgokRules.Limit),4);
-            pressureText.text=Rules.Elapsed<HyeopgokBattle.PressureGrace?"성문 압박까지 "+Mathf.CeilToInt(HyeopgokBattle.PressureGrace-Rules.Elapsed)+"초":"성문 압박 · 4초마다 -3";
+            timeFill.rectTransform.sizeDelta=new Vector2(questionPanel.sizeDelta.x*Mathf.Clamp01(1-Rules.Elapsed/Rules.TimeLimit),4);
+            int clock=Mathf.CeilToInt(Mathf.Max(0,Rules.TimeLimit-Rules.Elapsed));
+            if(clock!=lastClock){
+                lastClock=clock;
+                if(Rules.Elapsed<HyeopgokBattle.PressureGrace)pressureText.SetText("{0}초가 지나면 오답 · 남은 {1}초\n성문 압박까지 {2}초",Rules.TimeLimit,clock,Mathf.CeilToInt(HyeopgokBattle.PressureGrace-Rules.Elapsed));
+                else pressureText.SetText("{0}초가 지나면 오답 · 남은 {1}초\n성문 압박 · 4초마다 -3",Rules.TimeLimit,clock);
+            }
+            if(lastTreasury!=battle.Coins){lastTreasury=battle.Coins;treasuryText.SetText("코인 {0}",lastTreasury);}
+            bool pouring=battle.Depositing&&Rules.LastPad>=0;
+            if(depositText.gameObject.activeSelf!=pouring)depositText.gameObject.SetActive(pouring);
             RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
+            if(pouring){
+                if(lastDeposit!=battle.DepositRemaining){lastDeposit=battle.DepositRemaining;depositText.SetText("건설 코인 {0}",lastDeposit);}
+                Vector3 ds=cam.WorldToScreenPoint(HyeopgokRules.Pads[Rules.LastPad]);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,ds,null,out Vector2 dat);depositText.rectTransform.anchoredPosition=dat+new Vector2(0,-36);
+            }
             for(int i=0;i<4;i++){
                 Vector3 p=cam.WorldToScreenPoint(HyeopgokRules.Pads[i]+new Vector3(0,.05f,0));
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,p,null,out Vector2 local);padLabelRoots[i].anchoredPosition=local;
@@ -188,7 +219,7 @@ namespace Mgf.HyeopgokSasu
                 answerRing.rectTransform.anchoredPosition=at;answerRing.rectTransform.localScale=Vector3.one*(1.05f+.08f*Mathf.Sin(Time.unscaledTime*7));
                 padLabelRoots[answerMark].localScale=Vector3.one*1.15f;
             }
-            if(bonusLife>0){bonusLife-=dt;bonusText.rectTransform.anchoredPosition=new Vector2(0,(2.2f-bonusLife)*18);if(bonusLife<=0)bonusText.text="";}
+            if(bonusLife>0){bonusLife-=dt;bonusText.rectTransform.anchoredPosition=new Vector2(0,(2.2f-bonusLife)*18);if(bonusLife<=0)bonusMath.Set("");}
         }
         void AnimateTutorial(){
             if(!tutorialVisible)return;
