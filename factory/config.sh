@@ -31,6 +31,8 @@ if [ "$SCHOOL" = "middle" ]; then
   export T_FIX="${T_FIX:-2700}"
   # 심사(codex sol·ultra)가 중학교 기획서 3안(각 15~25KB)+카탈로그 대조에서 420초를 넘겼다(2026-09-26 첫 회차).
   export T_JUDGE="${T_JUDGE:-900}"
+  # Unity 게임은 C# 소스 + 팩(수백 문항)을 읽어야 해서 검산 600초가 모자랐다(2026-09-27 협곡 사수 v2 — 판정 직전 타임아웃).
+  export T_MATHCHECK="${T_MATHCHECK:-1200}"
 else
   export CURRICULUM_FILE="curriculum/2022-elementary-math.json"
   export SCHOOL_TAG=""
