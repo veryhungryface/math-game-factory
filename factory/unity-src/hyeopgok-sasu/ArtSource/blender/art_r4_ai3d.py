@@ -3,7 +3,7 @@
 
 The six Meshy-derived source FBX/PNG pairs below ``ArtSource/ai3d/out`` are
 immutable inputs.  This script copies them into the game Resources folder,
-cleans only the installed enemy texture, creates two optional attachment
+cleans the installed soldier team masks, creates two optional attachment
 meshes in the same model-space coordinates as their parents, and derives nine
 upgrade-ready tower meshes from the AI crossbow tower:
 
@@ -30,6 +30,8 @@ Run from the repository root::
       --python factory/unity-src/hyeopgok-sasu/ArtSource/blender/art_r4_ai3d.py
 
 Use ``-- --verify-only`` to verify installed files without rewriting them and
+``-- --soldier-textures-only`` to reproducibly refresh just the two installed
+team-mask textures and their report, or
 ``-- --preview-dir /tmp/hyeopgok-ai3d-r4`` for local visual proof renders.
 No ``.meta`` files are written; the Unity track intentionally lets the warm
 workspace generate and preserve them.
@@ -135,6 +137,10 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="verify installed assets without rewriting binaries",
     )
     parser.add_argument(
+        "--soldier-textures-only", action="store_true",
+        help="refresh only installed ally/enemy mask textures and their report",
+    )
+    parser.add_argument(
         "--preview-dir", type=Path,
         help="optional local preview directory (recommended below /tmp)",
     )
@@ -168,6 +174,7 @@ def target_binary_hashes() -> Dict[str, str]:
 
 GENERATED_FBX_IDS = ("king_crown", "giant_blade_glow") + TOWER_IDS
 GENERATED_PNG_IDS = (
+    "ally_soldier",
     "enemy_soldier",
     "king_crown",
     "giant_blade_glow",
@@ -329,6 +336,85 @@ def clean_enemy_texture(source: Path, target: Path) -> Dict[str, object]:
         "added_hot_neutral": added_hot_neutral,
         "added_red": added_red,
         "added_magenta": added_magenta,
+    }
+
+
+def clean_ally_texture(source: Path, target: Path) -> Dict[str, object]:
+    """Expand the ally mask over cobalt and blown-out armour bake islands.
+
+    The source mask covers only a few isolated blue facets, so the army reads
+    white at gameplay scale.  Cool blue/cyan/magenta pixels and bright neutral
+    armour become team-tintable luminance.  Warm skin/leather/gold and dark
+    neutral metal stay authored with alpha=1, preserving the face and weapon.
+    """
+
+    image = bpy.data.images.load(str(source), check_existing=False)
+    image.colorspace_settings.name = "sRGB"
+    width, height = (int(value) for value in image.size)
+    pixels = list(image.pixels[:])
+    before_team = 0
+    added_blue = 0
+    added_cyan = 0
+    added_cool_magenta = 0
+    added_bright_neutral = 0
+    for index in range(0, len(pixels), 4):
+        r, g, b, alpha = pixels[index:index + 4]
+        if alpha < 0.5:
+            before_team += 1
+        maximum = max(r, g, b)
+        minimum = min(r, g, b)
+        blue = b > 0.18 and b > r * 1.12 and b > g * 1.05
+        cyan = b > 0.25 and g > 0.18 and r < min(g, b) * 0.70
+        cool_magenta = (
+            b > 0.28 and r > 0.22 and g < min(r, b) * 0.55
+            and b >= r * 0.75
+        )
+        warm_authored = r > g * 1.06 and g > b * 1.04
+        bright_neutral = (
+            maximum > 0.50 and maximum - minimum < 0.18
+            and not warm_authored
+        )
+        make_team = (
+            alpha < 0.5 or blue or cyan or cool_magenta or bright_neutral
+        )
+        if make_team:
+            if alpha >= 0.5:
+                if blue:
+                    added_blue += 1
+                elif cyan:
+                    added_cyan += 1
+                elif cool_magenta:
+                    added_cool_magenta += 1
+                else:
+                    added_bright_neutral += 1
+            luminance = max(
+                0.075,
+                min(0.82, 0.2126 * r + 0.7152 * g + 0.0722 * b),
+            )
+            pixels[index:index + 4] = [luminance, luminance, luminance, 0.0]
+        else:
+            pixels[index + 3] = 1.0
+    image.pixels[:] = pixels
+    image.update()
+    save_image(image, target)
+    after_team = sum(value < 0.5 for value in pixels[3::4])
+    bpy.data.images.remove(image)
+    return {
+        "method": (
+            "deterministic blue/cyan/cool-magenta/bright-neutral expansion; "
+            "warm skin and dark metal retained; RGB neutralized"
+        ),
+        "width": width,
+        "height": height,
+        "pixels": width * height,
+        "team_pixels_before": before_team,
+        "team_pixels_after": after_team,
+        "team_ratio_before": round(before_team / (width * height), 6),
+        "team_ratio_after": round(after_team / (width * height), 6),
+        "added_blue": added_blue,
+        "added_cyan": added_cyan,
+        "added_cool_magenta": added_cool_magenta,
+        "added_bright_neutral": added_bright_neutral,
     }
 
 
@@ -1058,8 +1144,11 @@ def install_assets() -> Dict[str, object]:
             duplicate_texture.unlink()
     for asset_id in ASSET_IDS:
         shutil.copy2(SOURCE_DIR / f"{asset_id}.fbx", TARGET_DIR / f"{asset_id}.fbx")
-        if asset_id != "enemy_soldier":
+        if asset_id not in {"ally_soldier", "enemy_soldier"}:
             shutil.copy2(SOURCE_DIR / f"{asset_id}.png", TARGET_DIR / f"{asset_id}.png")
+    ally_cleanup = clean_ally_texture(
+        SOURCE_DIR / "ally_soldier.png", TARGET_DIR / "ally_soldier.png"
+    )
     enemy_cleanup = clean_enemy_texture(
         SOURCE_DIR / "enemy_soldier.png", TARGET_DIR / "enemy_soldier.png"
     )
@@ -1122,6 +1211,7 @@ def install_assets() -> Dict[str, object]:
     )
     tower_variants = build_tower_variants()
     return {
+        "ally_cleanup": ally_cleanup,
         "enemy_cleanup": enemy_cleanup,
         "tower_atlas": tower_atlas,
         "tower_variants": tower_variants,
@@ -1258,10 +1348,10 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
             errors.append(f"{asset_id}: unexpected texture dimensions")
         if fbx["sha256"] != source_contract[asset_id]["fbx_sha256"]:
             errors.append(f"{asset_id}: installed FBX is not byte-identical to immutable source")
-        if asset_id != "enemy_soldier" and png["sha256"] != source_contract[asset_id]["png_sha256"]:
+        if asset_id not in {"ally_soldier", "enemy_soldier"} and png["sha256"] != source_contract[asset_id]["png_sha256"]:
             errors.append(f"{asset_id}: installed PNG is not byte-identical to immutable source")
-        if asset_id == "enemy_soldier" and png["sha256"] == source_contract[asset_id]["png_sha256"]:
-            errors.append("enemy_soldier: cleanup did not change installed texture")
+        if asset_id in {"ally_soldier", "enemy_soldier"} and png["sha256"] == source_contract[asset_id]["png_sha256"]:
+            errors.append(f"{asset_id}: cleanup did not change installed texture")
         assets.append({"id": asset_id, "fbx": fbx, "png": png})
 
     attachments = []
@@ -1404,8 +1494,11 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
             "passed": triangle_pass and height_pass,
         }
 
-    cleanup = install_meta.get("enemy_cleanup")
-    if cleanup and not 0.35 <= cleanup.get("team_ratio_after", 0.0) <= 0.55:
+    ally_cleanup = install_meta.get("ally_cleanup")
+    enemy_cleanup = install_meta.get("enemy_cleanup")
+    if ally_cleanup and not 0.28 <= ally_cleanup.get("team_ratio_after", 0.0) <= 0.48:
+        errors.append("ally_soldier: cleaned team-mask coverage outside 28..48%")
+    if enemy_cleanup and not 0.35 <= enemy_cleanup.get("team_ratio_after", 0.0) <= 0.55:
         errors.append("enemy_soldier: cleaned team-mask coverage outside 35..55%")
     reproducibility = install_meta.get("reproducibility")
     if reproducibility and reproducibility.get("checked") and not reproducibility.get("passed"):
@@ -1456,7 +1549,8 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
             "tower_texture": f"all nine variants share {TOWER_TEXTURE_ID}.png; per-level PNG duplicates forbidden",
             "unity_meta": "not committed by unity-track contract; warm workspace generates/preserves .meta files",
         },
-        "enemy_cleanup": cleanup,
+        "ally_cleanup": ally_cleanup,
+        "enemy_cleanup": enemy_cleanup,
         "tower_atlas": install_meta.get("tower_atlas"),
         "assets": assets,
         "attachments": attachments,
@@ -1464,8 +1558,13 @@ def verify(source_hashes: Dict[str, str], install_meta: Dict[str, object]) -> Di
             "king_crown_above_head": crown_above_head,
             "giant_glow_inside_parent_bounds": glow_inside_parent,
             "giant_glow_alpha_ready": glow_alpha_ready,
+            "ally_team_mask_ratio_28_48_percent": bool(
+                ally_cleanup
+                and 0.28 <= ally_cleanup.get("team_ratio_after", 0.0) <= 0.48
+            ),
             "enemy_team_mask_ratio_35_55_percent": bool(
-                cleanup and 0.35 <= cleanup.get("team_ratio_after", 0.0) <= 0.55
+                enemy_cleanup
+                and 0.35 <= enemy_cleanup.get("team_ratio_after", 0.0) <= 0.55
             ),
         },
         "tower_shared_texture": tower_texture,
@@ -1620,9 +1719,79 @@ def write_report(report: Dict[str, object]) -> None:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
+    if args.verify_only and args.soldier_textures_only:
+        raise PipelineError("--verify-only and --soldier-textures-only are mutually exclusive")
     source_hashes = assert_inputs()
     install_meta: Dict[str, object] = {}
-    if not args.verify_only:
+    if args.soldier_textures_only:
+        previous_reproducibility = None
+        if REPORT_PATH.is_file():
+            previous = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
+            for key in (
+                "tower_atlas", "tower_variants",
+            ):
+                if previous.get(key) is not None:
+                    install_meta[key] = previous[key]
+            previous_reproducibility = previous.get("reproducibility")
+        install_meta["ally_cleanup"] = clean_ally_texture(
+            SOURCE_DIR / "ally_soldier.png", TARGET_DIR / "ally_soldier.png"
+        )
+        install_meta["enemy_cleanup"] = clean_enemy_texture(
+            SOURCE_DIR / "enemy_soldier.png", TARGET_DIR / "enemy_soldier.png"
+        )
+        first_soldier_hashes = {
+            asset_id: sha256(TARGET_DIR / f"{asset_id}.png")
+            for asset_id in ("ally_soldier", "enemy_soldier")
+        }
+        install_meta["ally_cleanup"] = clean_ally_texture(
+            SOURCE_DIR / "ally_soldier.png", TARGET_DIR / "ally_soldier.png"
+        )
+        install_meta["enemy_cleanup"] = clean_enemy_texture(
+            SOURCE_DIR / "enemy_soldier.png", TARGET_DIR / "enemy_soldier.png"
+        )
+        second_soldier_hashes = {
+            asset_id: sha256(TARGET_DIR / f"{asset_id}.png")
+            for asset_id in ("ally_soldier", "enemy_soldier")
+        }
+        soldier_changed = sorted(
+            asset_id for asset_id in first_soldier_hashes
+            if first_soldier_hashes[asset_id] != second_soldier_hashes[asset_id]
+        )
+        prior_checked = bool(
+            previous_reproducibility
+            and previous_reproducibility.get("checked")
+            and previous_reproducibility.get("passed")
+        )
+        prior_png_identical = bool(
+            previous_reproducibility
+            and previous_reproducibility.get("png_byte_identical")
+        )
+        prior_png_changed = (
+            previous_reproducibility.get("png_changed", [])
+            if previous_reproducibility else []
+        )
+        install_meta["reproducibility"] = {
+            **(previous_reproducibility or {}),
+            "checked": prior_checked,
+            "method": (
+                "composed reproducibility evidence: prior two consecutive full "
+                "generations for the existing 15 outputs, plus two consecutive "
+                "soldier-mask refreshes from immutable sources for the 16-output set"
+            ),
+            "generated_files": len(GENERATED_FBX_IDS) + len(GENERATED_PNG_IDS),
+            "png_byte_identical": prior_png_identical and not soldier_changed,
+            "png_changed": sorted(set(prior_png_changed) | set(soldier_changed)),
+            "soldier_texture_check": {
+                "checked": True,
+                "method": "two consecutive cleanup passes from immutable source PNGs",
+                "first_sha256": first_soldier_hashes,
+                "second_sha256": second_soldier_hashes,
+                "changed": soldier_changed,
+                "passed": not soldier_changed,
+            },
+            "passed": prior_checked and prior_png_identical and not soldier_changed,
+        }
+    elif not args.verify_only:
         install_meta = install_assets()
         if args.determinism_check:
             first_hashes = target_binary_hashes()
@@ -1667,7 +1836,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             }
     elif REPORT_PATH.is_file():
         previous = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
-        for key in ("enemy_cleanup", "tower_atlas", "tower_variants", "reproducibility"):
+        for key in (
+            "ally_cleanup", "enemy_cleanup", "tower_atlas",
+            "tower_variants", "reproducibility",
+        ):
             if previous.get(key) is not None:
                 install_meta[key] = previous[key]
     report = verify(source_hashes, install_meta)

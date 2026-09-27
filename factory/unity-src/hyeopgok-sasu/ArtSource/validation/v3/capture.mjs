@@ -154,12 +154,19 @@ async function captureWrong(view) {
   await shot(`wrong-feedback-${view.id}.png`, 'wrong pad feedback before the automatic 1.5 second advance');
 }
 
-async function readUpgradeTarget(view) {
+async function readUpgradeTarget(view, state = null) {
   const raw = await readDebugSnapshot(page);
   if (raw?.__error) throw new Error(raw.__error);
   const snapshot = normalizeSnapshot(raw, view);
-  const pad = snapshot.upgradePadRects.find(candidate => candidate.visible && candidate.active && candidate.rect);
-  if (!pad) throw new Error('No visible active upgradePadRects entry in v3 debug snapshot');
+  const visible = snapshot.upgradePadRects.filter(candidate => candidate.visible && candidate.active && candidate.rect);
+  const pad = state ? visible.find(candidate => {
+    const slot = Number(String(candidate.id).match(/(\d+)$/)?.[1]);
+    if (!Number.isInteger(slot)) return false;
+    const level = Array.isArray(state.towerLevels) ? Number(state.towerLevels[slot]) : 0;
+    const remaining = Array.isArray(state.upgradeRemaining) ? Number(state.upgradeRemaining[slot]) : 1;
+    return level >= 0 && remaining > 0;
+  }) : visible[0];
+  if (!pad) throw new Error('No visible built tower with a remaining upgrade cost in v3 debug snapshot');
   return { pad, point: centerOf(pad.rect) };
 }
 
@@ -171,7 +178,7 @@ async function captureUpgrade(view) {
   for (let attempt = 0; attempt < 10; attempt++) {
     const state = await currentState(page);
     const coins = stateNumber(state, 'coins', 'gold') ?? 0;
-    target = await readUpgradeTarget(view).catch(() => null);
+    target = await readUpgradeTarget(view, state).catch(() => null);
     const slot = target ? Number(String(target.pad.id).match(/(\d+)$/)?.[1]) : -1;
     const remaining = slot >= 0 && Array.isArray(state?.upgradeRemaining) ? Number(state.upgradeRemaining[slot]) : null;
     // A partial payment is a valid capture: the feature deliberately counts the
@@ -180,11 +187,25 @@ async function captureUpgrade(view) {
     if (state?.phase !== 'playing') break;
     await answer('answerCorrect', true);
   }
-  if (!target) target = await readUpgradeTarget(view);
-  await touch(page, target.point.x, target.point.y, 160);
-  const pouring = await waitUntil(state => state?.upgradePouring === true || state?.upgradePhase === 'pouring' ||
-    state?.upgradeCostCountdown === true || /pour|countdown|upgrade/i.test(String(state?.interactionPhase ?? '')), 12000);
-  await shot(`upgrade-pour-${view.id}.png`, 'real touch on an affordable tower upgrade pad during the cost countdown/pour', { pad: target.pad, observed: pouring });
+  if (!target) target = await readUpgradeTarget(view, await currentState(page));
+  const candidates = [[.5, .5], [.5, .38], [.5, .62], [.38, .5], [.62, .5], [.38, .38], [.62, .38], [.38, .62], [.62, .62]];
+  let pouring = null;
+  for (const [fx, fy] of candidates) {
+    const state = await currentState(page);
+    target = await readUpgradeTarget(view, state).catch(() => target);
+    const point = {
+      x: target.pad.rect.x + target.pad.rect.width * fx,
+      y: target.pad.rect.y + target.pad.rect.height * fy,
+    };
+    await touch(page, point.x, point.y, 160);
+    pouring = await waitUntil(candidate => candidate?.upgradePouring === true || candidate?.upgradePhase === 'pouring' ||
+      candidate?.upgradeCostCountdown === true || /pour|countdown|upgrade/i.test(String(candidate?.interactionPhase ?? '')), 2600).catch(() => null);
+    if (pouring) {
+      await shot(`upgrade-pour-${view.id}.png`, 'real touch on an affordable tower upgrade pad during the cost countdown/pour', { pad: target.pad, point, observed: pouring });
+      return;
+    }
+  }
+  throw new Error(`upgrade capture could not enter the pour state: ${JSON.stringify(await currentState(page))}`);
 }
 
 async function captureRewards(view) {
@@ -207,7 +228,10 @@ async function captureRewards(view) {
       } catch {}
       const kind = rewardKind(observed);
       if (kind && !captured.has(kind)) {
-        await sleep(90);
+        observed = await waitUntil(candidate => {
+          const mask = Number(candidate?.worldLabelMask) || 0;
+          return (mask & 0x80) !== 0 && (mask & 0x7f) === 0;
+        }, 2500);
         await shot(`chest-${kind}-${view.id}.png`, `naturally drawn ${kind} chest reward`, { observed });
         captured.add(kind);
       }

@@ -64,5 +64,26 @@ namespace Mgf.HyeopgokSasu
             }
         }
         void MakeNumber(RectTransform parent,string name){var go=new GameObject(name,typeof(RectTransform));go.transform.SetParent(parent,false);var t=go.AddComponent<TextMeshProUGUI>();t.font=Text.font;t.fontSharedMaterial=Text.fontSharedMaterial;t.fontStyle=FontStyles.Normal;t.alignment=TextAlignmentOptions.Center;t.raycastTarget=false;}
+
+        // Allocation-free visible-ink bounds for the v3 world-label gate. The
+        // transparent parent placeholders are ignored and the real stacked
+        // numerator/denominator glyphs are included.
+        public bool TryScreenBounds(out Rect rect){
+            float minX=float.MaxValue,minY=float.MaxValue,maxX=float.MinValue,maxY=float.MinValue;bool found=false;
+            AppendScreenBounds(Text,true,ref minX,ref minY,ref maxX,ref maxY,ref found);
+            for(int i=0;i<boxes.Count;i++)if(boxes[i].gameObject.activeInHierarchy){
+                AppendScreenBounds(boxes[i].GetChild(0).GetComponent<TextMeshProUGUI>(),false,ref minX,ref minY,ref maxX,ref maxY,ref found);
+                AppendScreenBounds(boxes[i].GetChild(1).GetComponent<TextMeshProUGUI>(),false,ref minX,ref minY,ref maxX,ref maxY,ref found);
+            }
+            rect=found?Rect.MinMaxRect(minX,minY,maxX,maxY):new Rect();return found;
+        }
+        static void AppendScreenBounds(TextMeshProUGUI source,bool skipTransparent,ref float minX,ref float minY,ref float maxX,ref float maxY,ref bool found){
+            var info=source.textInfo;for(int i=0;i<info.characterCount;i++){
+                var c=info.characterInfo[i];if(!c.isVisible||char.IsWhiteSpace(c.character)||char.IsControl(c.character)||(skipTransparent&&c.color.a==0))continue;
+                Vector3 bl=source.transform.TransformPoint(c.bottomLeft),tr=source.transform.TransformPoint(c.topRight);
+                Vector2 a=RectTransformUtility.WorldToScreenPoint(null,bl),b=RectTransformUtility.WorldToScreenPoint(null,tr);
+                minX=Mathf.Min(minX,Mathf.Min(a.x,b.x));minY=Mathf.Min(minY,Mathf.Min(a.y,b.y));maxX=Mathf.Max(maxX,Mathf.Max(a.x,b.x));maxY=Mathf.Max(maxY,Mathf.Max(a.y,b.y));found=true;
+            }
+        }
     }
 }

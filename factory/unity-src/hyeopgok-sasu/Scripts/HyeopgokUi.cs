@@ -35,6 +35,10 @@ namespace Mgf.HyeopgokSasu
         TextMeshProUGUI[] tutorialRings=new TextMeshProUGUI[4];
         readonly RectTransform[] upgradeLabelRoots=new RectTransform[HyeopgokBattle.TowerCount];
         readonly TextMeshProUGUI[] upgradeLabels=new TextMeshProUGUI[HyeopgokBattle.TowerCount];
+        static readonly Vector2[] UpgradeLabelOffsets={
+            new Vector2(0,58),new Vector2(76,30),new Vector2(-76,30),
+            new Vector2(82,-34),new Vector2(-82,-34),new Vector2(0,-62)
+        };
         readonly int[] shownUpgradeLevel={-99,-99,-99},shownUpgradeRemaining={-99,-99,-99},shownUpgradeType={-99,-99,-99};
         TextMeshProUGUI answerRing,confirmRing;int answerMark=-1;
         Image hpFill,timeFill;
@@ -42,6 +46,7 @@ namespace Mgf.HyeopgokSasu
         int fractionRevealDen=-1,fractionRevealNum=-1;bool fractionRevealReduced;
         int previousShownHp=-1,lastReds=-1,lastBlues=-1,lastKills=-1,lastClock=-1,lastTreasury=-1;
         bool tutorialVisible,firstFractionTutorialShown;
+        bool choiceProbePending;
         int tutorialKind;
         float tutorialStarted;
         bool IsCoinIntro=>Rules.Wave==1&&Rules.Current!=null&&Rules.Current.Mode=="amount"&&Rules.Current.answerValue==2&&(Rules.Current.id=="m2s2-u6-001"||Rules.Current.id=="m2s2-u7-001");
@@ -107,20 +112,20 @@ namespace Mgf.HyeopgokSasu
             armyText=Text("",playRoot,new Vector2(0,0),new Vector2(105,23),new Vector2(195,30),12,cream);
             depositBubble=Parchment("Pouring speech bubble",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(144,34));
             depositText=Text("",depositBubble,new Vector2(.5f,.5f),Vector2.zero,new Vector2(135,30),15,MgfLook.Hex("#49301c"));depositBubble.gameObject.SetActive(false);
-            bonusText=Text("",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(240,62),24,gold);bonusMath=new HyeopgokMathText(bonusText);
+            bonusText=Text("",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(200,42),22,gold);bonusText.textWrappingMode=TextWrappingModes.NoWrap;bonusMath=new HyeopgokMathText(bonusText);
             for(int i=0;i<4;i++){
-                var p=Group("Pad answer "+i,playRoot);p.anchorMin=p.anchorMax=new Vector2(.5f,.5f);p.sizeDelta=new Vector2(68,52);padLabelRoots[i]=p;
+                var p=Group("Pad answer "+i,playRoot);p.anchorMin=p.anchorMax=new Vector2(.5f,.5f);p.sizeDelta=new Vector2(52,58);padLabelRoots[i]=p;
                 var paintGo=new GameObject("Painted pad label "+i,typeof(RectTransform),typeof(Canvas));
                 var paintCanvas=paintGo.GetComponent<Canvas>();paintCanvas.renderMode=RenderMode.WorldSpace;paintCanvas.worldCamera=cam;paintCanvas.sortingOrder=20;
                 padPaint[i]=(RectTransform)paintGo.transform;padPaint[i].position=HyeopgokRules.Pads[i]+new Vector3(0,.047f,.37f);padPaint[i].rotation=Quaternion.Euler(90,0,0);padPaint[i].localScale=Vector3.one*.01f;padPaint[i].sizeDelta=new Vector2(165,96);
                 padNamePills[i]=Group("Painted role "+i,padPaint[i]);
                 padNames[i]=Text("",padNamePills[i],new Vector2(.5f,.5f),Vector2.zero,new Vector2(155,40),27,Color.white);padNames[i].fontSharedMaterial=MathFontMaterial;
                 padPaint[i].gameObject.SetActive(false);
-                var pt=Text("",p,new Vector2(.5f,.5f),Vector2.zero,new Vector2(68,56),29,Color.white);padLabels[i]=new HyeopgokMathText(pt);
+                var pt=Text("",p,new Vector2(.5f,.5f),Vector2.zero,new Vector2(52,58),29,Color.white);pt.maxVisibleLines=5;pt.lineSpacing=-5;padLabels[i]=new HyeopgokMathText(pt);
             }
             for(int i=0;i<HyeopgokBattle.TowerCount;i++){
-                var root=Group("Upgrade pad label "+i,playRoot);root.anchorMin=root.anchorMax=new Vector2(.5f,.5f);root.sizeDelta=new Vector2(104,52);upgradeLabelRoots[i]=root;
-                var label=Text("",root,new Vector2(.5f,.5f),Vector2.zero,new Vector2(104,50),15,gold);label.fontSharedMaterial=MathFontMaterial;label.alignment=TextAlignmentOptions.Center;upgradeLabels[i]=label;root.gameObject.SetActive(false);
+                var root=Group("Upgrade pad label "+i,playRoot);root.anchorMin=root.anchorMax=new Vector2(.5f,.5f);root.sizeDelta=new Vector2(130,30);upgradeLabelRoots[i]=root;
+                var label=Text("",root,new Vector2(.5f,.5f),Vector2.zero,new Vector2(130,28),14,gold);label.fontSharedMaterial=MathFontMaterial;label.alignment=TextAlignmentOptions.Center;label.textWrappingMode=TextWrappingModes.NoWrap;upgradeLabels[i]=label;root.gameObject.SetActive(false);
             }
             assembledHud=Pill("Assembled probability HUD",playRoot,new Vector2(1,1),new Vector2(-64,-298),new Vector2(112,88),navy);
             assembledCaption=Text("사건 ÷ 전체",assembledHud,new Vector2(.5f,1),new Vector2(0,-17),new Vector2(102,24),13,cream);assembledCaption.textWrappingMode=TextWrappingModes.NoWrap;
@@ -209,9 +214,9 @@ namespace Mgf.HyeopgokSasu
                 if(Rules.Current.Mode=="choice"){
                     basePadNames[i]=padNames[i].text="";padNamePills[i].gameObject.SetActive(false);
                     bool fractionOnly=choices[i].StartsWith("{frac:")&&choices[i].EndsWith("}");
-                    bool compoundFraction=!fractionOnly&&choices[i].Contains("{frac:");
-                    padLabels[i].Text.textWrappingMode=compoundFraction?TextWrappingModes.NoWrap:TextWrappingModes.Normal;
-                    padLabels[i].Text.fontSize=fractionOnly||choices[i].Length<=3?24:choices[i].Length<=5?18:13;padLabels[i].Set(choices[i]);
+                    int length=ChoiceDisplayLength(choices[i]);
+                    padLabels[i].Text.textWrappingMode=TextWrappingModes.Normal;
+                    padLabels[i].Text.fontSize=fractionOnly?24:length<=3?23:length<=6?16:length<=9?12:11;padLabels[i].Set(choices[i]);
                 }else{
                     padNamePills[i].gameObject.SetActive(true);
                     basePadNames[i]=Rules.PadCount==1?"코인":i==0?Rules.Current.den_label:Rules.Current.num_label;padNames[i].text=basePadNames[i];LayoutPadName(i);
@@ -220,6 +225,15 @@ namespace Mgf.HyeopgokSasu
             }
             if(Rules.PadCount==2)assembledCaption.text=Rules.Current.num_label+" ÷ "+Rules.Current.den_label;
             RefreshPadAmounts();
+            choiceProbePending=Application.absoluteURL.Contains("v3choices=1");
+        }
+        static int ChoiceDisplayLength(string value){
+            int length=0;for(int i=0;i<value.Length;){
+                if(i+6<value.Length&&value[i]=='{'&&value.Substring(i).StartsWith("{frac:")){
+                    int end=value.IndexOf('}',i+6);if(end>i){int slash=value.IndexOf('/',i+6,end-i-6);length+=slash>i?Mathf.Max(slash-i-6,end-slash-1)+1:1;i=end+1;continue;}
+                }
+                length++;i++;
+            }return length;
         }
         void RefreshPadAmounts(){
             if(Rules.Current==null||Rules.Current.Mode=="choice"||padLabels[0]==null)return;
@@ -363,8 +377,10 @@ namespace Mgf.HyeopgokSasu
             if(depositBubble.gameObject.activeSelf)depositBubble.gameObject.SetActive(false);
             RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
             RefreshPadAmounts();
+            bool rewardLabelActive=feedbackPanel.gameObject.activeSelf&&feedbackWasCorrect&&bonusLife>0;
             for(int i=0;i<4;i++){
                 if(i>=Rules.PadCount)continue;
+                padLabelRoots[i].gameObject.SetActive(!rewardLabelActive);
                 Vector3 p=cam.WorldToScreenPoint(HyeopgokRules.Pads[i]+new Vector3(0,.05f,Rules.Current.Mode=="choice"?0:-.43f));
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,p,null,out Vector2 local);padLabelRoots[i].anchoredPosition=local;padScreenLocals[i]=local;
                 padLabelRoots[i].localScale=Vector3.Lerp(padLabelRoots[i].localScale,Vector3.one,dt*8);
@@ -396,7 +412,13 @@ namespace Mgf.HyeopgokSasu
                 answerRing.rectTransform.anchoredPosition=at;answerRing.rectTransform.localScale=Vector3.one*(1.05f+.08f*Mathf.Sin(Time.unscaledTime*7));
                 padLabelRoots[answerMark].localScale=Vector3.one*1.15f;
             }
-            if(bonusLife>0){bonusLife-=dt;bonusText.rectTransform.anchoredPosition=TutorialPoint(Rules.King,canvas)+new Vector2(0,-78+(2.2f-bonusLife)*14);if(bonusLife<=0)bonusMath.Set("");}
+            if(bonusLife>0){
+                bonusLife-=dt;
+                Vector2 rewardScreen=new Vector2(cam.pixelRect.center.x,cam.pixelRect.yMax-Mathf.Max(28,Screen.height*.025f));
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,rewardScreen,null,out Vector2 rewardLocal);bonusText.rectTransform.anchoredPosition=rewardLocal;
+                if(bonusLife<=0)bonusMath.Set("");
+            }
+            if(choiceProbePending){choiceProbePending=false;PushV3QuestionProbe(Rules.Current.prompt);}
         }
         Vector2 TutorialPoint(Vector3 world,RectTransform canvas){
             Vector3 screen=cam.WorldToScreenPoint(world);
@@ -480,20 +502,56 @@ namespace Mgf.HyeopgokSasu
 
         void RefreshUpgradePads(){
             if(battle==null)return;RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
+            bool suppressLabels=feedbackPanel.gameObject.activeSelf&&feedbackWasCorrect&&bonusLife>0;
             for(int i=0;i<HyeopgokBattle.TowerCount;i++){
                 int level=battle.TowerLevelAt(i);bool active=level>=0&&playStarted;
                 if(upgradePadRoots[i])upgradePadRoots[i].gameObject.SetActive(active);
-                if(upgradeLabelRoots[i])upgradeLabelRoots[i].gameObject.SetActive(active);
+                if(upgradeLabelRoots[i])upgradeLabelRoots[i].gameObject.SetActive(active&&!suppressLabels);
                 if(!active)continue;
                 int left=battle.UpgradeRemainingAt(i),towerType=battle.TowerTypeAt(i);
                 if(shownUpgradeLevel[i]!=level||shownUpgradeRemaining[i]!=left||shownUpgradeType[i]!=towerType){
-                    string type=towerType==1?"대포":towerType==2?"마법":"석궁";upgradeLabels[i].text=level>=2?type+" Lv3 · MAX":type+" Lv"+(level+1)+"\n코인 "+left;
+                    string type=towerType==1?"대포":towerType==2?"마법":"석궁";upgradeLabels[i].text=level>=2?type+" Lv3 · MAX":type+" Lv"+(level+1)+" · 코인 "+left;
                     shownUpgradeLevel[i]=level;shownUpgradeRemaining[i]=left;shownUpgradeType[i]=towerType;
                 }
-                Vector3 screen=cam.WorldToScreenPoint(HyeopgokBattle.UpgradePads[i]);RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,screen,null,out Vector2 local);upgradeLabelRoots[i].anchoredPosition=local;
+                Vector3 screen=cam.WorldToScreenPoint(HyeopgokBattle.UpgradePads[i]);RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,screen,null,out Vector2 local);
+                if(!suppressLabels)PlaceUpgradeLabel(i,local);
                 int total=level>=2?1:level==0?15:30;float progress=level>=2?1:1-left/(float)total;int count=progress>0?Mathf.CeilToInt(progress*24)+1:0;
                 upgradePadFill[i].positionCount=count;for(int k=0;k<count;k++)upgradePadFill[i].SetPosition(k,UpgradePadEdge(i,Mathf.Min(progress,k/24f)));
             }
+        }
+
+        void PlaceUpgradeLabel(int index,Vector2 origin){
+            RectTransform root=upgradeLabelRoots[index];bool placed=false;
+            for(int candidate=0;candidate<UpgradeLabelOffsets.Length;candidate++){
+                root.anchoredPosition=origin+UpgradeLabelOffsets[candidate];Rect rect=WorldLabelScreenRect(root);bool blocked=!ContainsRect(cam.pixelRect,rect,2);
+                for(int i=0;i<4&&!blocked;i++)if(padLabelRoots[i].gameObject.activeInHierarchy)blocked=Expanded(WorldLabelScreenRect(padLabelRoots[i]),3).Overlaps(rect);
+                for(int i=0;i<index&&!blocked;i++)if(upgradeLabelRoots[i].gameObject.activeInHierarchy)blocked=Expanded(WorldLabelScreenRect(upgradeLabelRoots[i]),3).Overlaps(rect);
+                if(!blocked){placed=true;break;}
+            }
+            root.gameObject.SetActive(placed);
+        }
+        Rect WorldLabelScreenRect(RectTransform root){
+            root.GetWorldCorners(debugCorners);float minX=float.MaxValue,minY=float.MaxValue,maxX=float.MinValue,maxY=float.MinValue;
+            for(int i=0;i<4;i++){Vector2 point=RectTransformUtility.WorldToScreenPoint(null,debugCorners[i]);minX=Mathf.Min(minX,point.x);minY=Mathf.Min(minY,point.y);maxX=Mathf.Max(maxX,point.x);maxY=Mathf.Max(maxY,point.y);}
+            return Rect.MinMaxRect(minX,minY,maxX,maxY);
+        }
+        static Rect Expanded(Rect rect,float amount)=>new Rect(rect.xMin-amount,rect.yMin-amount,rect.width+amount*2,rect.height+amount*2);
+        static bool ContainsRect(Rect outer,Rect inner,float margin)=>inner.xMin>=outer.xMin+margin&&inner.xMax<=outer.xMax-margin&&inner.yMin>=outer.yMin+margin&&inner.yMax<=outer.yMax-margin;
+
+        void CaptureWorldLabelRects(float[] output,out int mask){
+            mask=0;if(output==null||output.Length<32)return;
+            for(int i=0;i<32;i++)output[i]=0;
+            for(int i=0;i<4;i++)CaptureChoiceWorldLabel(i,output,ref mask);
+            for(int i=0;i<HyeopgokBattle.TowerCount;i++)CaptureWorldLabel(upgradeLabelRoots[i],4+i,output,ref mask);
+            if(bonusLife>0&&!string.IsNullOrEmpty(bonusText.text))CaptureWorldLabel(bonusText.rectTransform,7,output,ref mask);
+        }
+        void CaptureWorldLabel(RectTransform root,int index,float[] output,ref int mask){
+            if(!root||!root.gameObject.activeInHierarchy)return;Rect rect=WorldLabelScreenRect(root);int at=index*4;
+            output[at]=rect.x/Screen.width;output[at+1]=1-rect.yMax/Screen.height;output[at+2]=rect.width/Screen.width;output[at+3]=rect.height/Screen.height;mask|=1<<index;
+        }
+        void CaptureChoiceWorldLabel(int index,float[] output,ref int mask){
+            if(!padLabelRoots[index].gameObject.activeInHierarchy||!padLabels[index].TryScreenBounds(out Rect rect))return;int at=index*4;
+            output[at]=rect.x/Screen.width;output[at+1]=1-rect.yMax/Screen.height;output[at+2]=rect.width/Screen.width;output[at+3]=rect.height/Screen.height;mask|=1<<index;
         }
 
         [Serializable] sealed class V3Rect {public float x,y,width,height;}
@@ -502,7 +560,11 @@ namespace Mgf.HyeopgokSasu
             public string prompt;public V3Rect panelRect,bodyRect,renderedTextRect;public V3Glyph[] glyphs;
             public bool isFolded,hasEllipsis,isTruncated,isOverflowing;public int visibleCharacters,totalCharacters;
         }
-        [Serializable] sealed class V3Layout {public int version=3,screenWidth,screenHeight;public V3Question question;}
+        [Serializable] sealed class V3Choice {
+            public string text;public V3Rect bodyRect,renderedTextRect;public V3Glyph[] glyphs;
+            public bool isTruncated,isOverflowing,hasMissingGlyph;public int visibleCharacters,totalCharacters;
+        }
+        [Serializable] sealed class V3Layout {public int version=3,screenWidth,screenHeight;public V3Question question;public V3Choice[] choices;}
         readonly Vector3[] debugCorners=new Vector3[4];
         V3Rect ScreenRect(RectTransform rt){
             rt.GetWorldCorners(debugCorners);float minX=float.MaxValue,minY=float.MaxValue,maxX=float.MinValue,maxY=float.MinValue;
@@ -518,12 +580,27 @@ namespace Mgf.HyeopgokSasu
             if(visible==0){minX=minY=maxX=maxY=0;}
             var q=new V3Question{prompt=prompt,panelRect=ScreenRect(questionPanel),bodyRect=ScreenRect(body.rectTransform),renderedTextRect=new V3Rect{x=minX,y=minY,width=maxX-minX,height=maxY-minY},glyphs=glyphs.ToArray(),
                 isFolded=false,hasEllipsis=false,isTruncated=visible<expected,isOverflowing=body.isTextOverflowing,visibleCharacters=visible,totalCharacters=expected};
-            HYEOPGOK_PushV3Layout(JsonUtility.ToJson(new V3Layout{screenWidth=Screen.width,screenHeight=Screen.height,question=q}));
+            V3Choice[] choices=Application.absoluteURL.Contains("v3choices=1")?BuildV3ChoiceProbes():null;
+            HYEOPGOK_PushV3Layout(JsonUtility.ToJson(new V3Layout{screenWidth=Screen.width,screenHeight=Screen.height,question=q,choices=choices}));
         }
-        void AppendProbeGlyphs(TextMeshProUGUI source,List<V3Glyph> glyphs,ref float minX,ref float minY,ref float maxX,ref float maxY,ref int visible,ref int expected,bool skipTransparent){
+        V3Choice[] BuildV3ChoiceProbes(){
+            var result=new V3Choice[4];
+            for(int i=0;i<4;i++){
+                var source=padLabels[i].Text;source.ForceMeshUpdate(true,true);var glyphs=new List<V3Glyph>(32);
+                float minX=float.MaxValue,minY=float.MaxValue,maxX=float.MinValue,maxY=float.MinValue;int visible=0,expected=0;bool missing=false;
+                AppendProbeGlyphs(source,glyphs,ref minX,ref minY,ref maxX,ref maxY,ref visible,ref expected,true,ref missing);
+                var fractions=source.GetComponentsInChildren<TextMeshProUGUI>(true);for(int j=0;j<fractions.Length;j++)if(fractions[j]!=source&&fractions[j].gameObject.activeInHierarchy)AppendProbeGlyphs(fractions[j],glyphs,ref minX,ref minY,ref maxX,ref maxY,ref visible,ref expected,false,ref missing);
+                if(visible==0){minX=minY=maxX=maxY=0;}
+                result[i]=new V3Choice{text=Rules.Choices[i],bodyRect=ScreenRect(source.rectTransform),renderedTextRect=new V3Rect{x=minX,y=minY,width=maxX-minX,height=maxY-minY},glyphs=glyphs.ToArray(),
+                    isTruncated=visible<expected,isOverflowing=source.isTextOverflowing,hasMissingGlyph=missing,visibleCharacters=visible,totalCharacters=expected};
+            }return result;
+        }
+        void AppendProbeGlyphs(TextMeshProUGUI source,List<V3Glyph> glyphs,ref float minX,ref float minY,ref float maxX,ref float maxY,ref int visible,ref int expected,bool skipTransparent){bool missing=false;AppendProbeGlyphs(source,glyphs,ref minX,ref minY,ref maxX,ref maxY,ref visible,ref expected,skipTransparent,ref missing);}
+        void AppendProbeGlyphs(TextMeshProUGUI source,List<V3Glyph> glyphs,ref float minX,ref float minY,ref float maxX,ref float maxY,ref int visible,ref int expected,bool skipTransparent,ref bool missing){
             source.ForceMeshUpdate(true,true);var info=source.textInfo;
             for(int i=0;i<info.characterCount;i++){
                 var c=info.characterInfo[i];bool ink=!char.IsWhiteSpace(c.character)&&!char.IsControl(c.character)&&(!skipTransparent||c.color.a>0);if(!ink)continue;expected++;if(!c.isVisible)continue;visible++;
+                if(c.character=='□'||c.character=='�'||c.textElement==null||c.textElement.unicode!=c.character)missing=true;
                 Vector3 bl=source.transform.TransformPoint(c.bottomLeft),tr=source.transform.TransformPoint(c.topRight);Vector2 a=RectTransformUtility.WorldToScreenPoint(null,bl),b=RectTransformUtility.WorldToScreenPoint(null,tr);
                 float x=Mathf.Min(a.x,b.x),y=Screen.height-Mathf.Max(a.y,b.y),w=Mathf.Abs(b.x-a.x),h=Mathf.Abs(b.y-a.y);minX=Mathf.Min(minX,x);minY=Mathf.Min(minY,y);maxX=Mathf.Max(maxX,x+w);maxY=Mathf.Max(maxY,y+h);
                 if(glyphs.Count<220)glyphs.Add(new V3Glyph{@char=c.character.ToString(),rect=new V3Rect{x=x,y=y,width=w,height=h}});

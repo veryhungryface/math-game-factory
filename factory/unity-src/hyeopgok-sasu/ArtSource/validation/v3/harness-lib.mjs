@@ -305,6 +305,43 @@ function normalizePad(source, viewport, fallbackId) {
   };
 }
 
+function normalizeGlyph(source, viewport, fallbackId, fallbackKind = 'body') {
+  return {
+    id: String(source?.id ?? fallbackId),
+    char: String(source?.char ?? source?.character ?? ''),
+    kind: String(source?.kind ?? fallbackKind).toLowerCase(),
+    visible: source?.visible !== false,
+    rect: readRect(source?.rect ?? source, viewport),
+    backgroundPoints: (Array.isArray(source?.backgroundPoints) ? source.backgroundPoints : []).map(point => readPoint(point, viewport)).filter(Boolean),
+  };
+}
+
+function normalizeChoiceLabel(source, viewport, index) {
+  const glyphSource = source?.glyphs ?? [];
+  return {
+    id: String(source?.id ?? `choice-${index}`),
+    text: String(source?.text ?? ''),
+    bodyRect: readRect(source?.bodyRect, viewport),
+    renderedTextRect: readRect(source?.renderedTextRect ?? source?.textRect, viewport),
+    glyphs: (Array.isArray(glyphSource) ? glyphSource : []).map((glyph, glyphIndex) => normalizeGlyph(glyph, viewport, `choice-${index}-char-${glyphIndex}`, 'choice')),
+    isTruncated: Boolean(source?.isTruncated),
+    isOverflowing: Boolean(source?.isOverflowing),
+    hasMissingGlyph: Boolean(source?.hasMissingGlyph),
+    visibleCharacters: Number(source?.visibleCharacters),
+    totalCharacters: Number(source?.totalCharacters),
+  };
+}
+
+function normalizeWorldLabel(source, viewport, index) {
+  return {
+    id: String(source?.id ?? `world-label-${index}`),
+    kind: String(source?.kind ?? '').toLowerCase(),
+    visible: source?.visible !== false,
+    active: source?.active !== false,
+    rect: readRect(source?.rect ?? source, viewport),
+  };
+}
+
 export function normalizeSnapshot(raw, viewport) {
   const shadowSource = raw?.shadowSamples ?? raw?.samples ?? raw?.groundSamples ?? [];
   const shadowSamples = (Array.isArray(shadowSource) ? shadowSource : []).map((sample, index) => {
@@ -350,16 +387,9 @@ export function normalizeSnapshot(raw, viewport) {
     glyphs: [],
   };
   const glyphSource = questionSource.glyphs ?? raw?.questionGlyphs ?? [];
-  question.glyphs = (Array.isArray(glyphSource) ? glyphSource : []).map((glyph, index) => ({
-    id: String(glyph?.id ?? index),
-    char: String(glyph?.char ?? glyph?.character ?? ''),
-    kind: String(glyph?.kind ?? 'body').toLowerCase(),
-    visible: glyph?.visible !== false,
-    rect: readRect(glyph?.rect ?? glyph, viewport),
-    backgroundPoints: (Array.isArray(glyph?.backgroundPoints) ? glyph.backgroundPoints : []).map(point => readPoint(point, viewport)).filter(Boolean),
-  }));
+  question.glyphs = (Array.isArray(glyphSource) ? glyphSource : []).map((glyph, index) => normalizeGlyph(glyph, viewport, index));
 
-  const choiceSource = raw?.choicePadRects ?? raw?.choices ?? raw?.choicePads ?? [];
+  const choiceSource = raw?.choicePadRects ?? raw?.choicePads ?? [];
   const upgradeSource = raw?.upgradePadRects ?? raw?.upgrades ?? raw?.upgradePads ?? [];
   let choicePadRects = (Array.isArray(choiceSource) ? choiceSource : []).map((pad, index) => normalizePad(pad, viewport, `choice-${index + 1}`));
   let upgradePadRects = (Array.isArray(upgradeSource) ? upgradeSource : []).map((pad, index) => normalizePad(pad, viewport, `upgrade-${index + 1}`));
@@ -367,14 +397,21 @@ export function normalizeSnapshot(raw, viewport) {
     const legacy = raw?.activePadRects ?? raw?.pads ?? raw?.padRects ?? [];
     choicePadRects = (Array.isArray(legacy) ? legacy : []).map((pad, index) => normalizePad(pad, viewport, `choice-${index + 1}`));
   }
+  const choicesSource = raw?.choices ?? raw?.choiceLabels ?? [];
+  const choices = (Array.isArray(choicesSource) ? choicesSource : []).map((choice, index) => normalizeChoiceLabel(choice, viewport, index));
+  const worldLabelSource = raw?.worldLabels ?? [];
+  const worldLabels = (Array.isArray(worldLabelSource) ? worldLabelSource : []).map((label, index) => normalizeWorldLabel(label, viewport, index));
 
   return {
     version: Number(raw?.version ?? raw?.schemaVersion ?? 0),
     shadowSamples,
     frontLine: { visible: raw?.frontLine?.visible !== false && raw?.frontContact?.visible !== false, points: frontLinePoints },
     question,
+    choices,
     choicePadRects,
     upgradePadRects,
+    worldLabels,
+    battlefieldRect: readRect(raw?.battlefieldRect, viewport),
     kingScreen: readPoint(raw?.kingScreen ?? raw?.king?.center ?? raw?.kingCenter, viewport),
   };
 }

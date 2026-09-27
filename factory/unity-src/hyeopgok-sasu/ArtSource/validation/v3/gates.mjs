@@ -35,6 +35,15 @@ import {
 
 const TIMES_MS = Object.freeze([3000, 8000, 15000]);
 const REQUIRED_SHADOW_TYPES = Object.freeze(['king', 'soldier', 'building', 'tree']);
+const CHOICE_FIXTURE_SPECS = Object.freeze([
+  { id: 'degree', packId: 'm2s2-u1', itemId: 'm2s2-u1-003', choices: ['70°', '80°', '140°', '40°'] },
+  { id: 'area-unit', packId: 'm2s2-u3', itemId: 'm2s2-u3-011', choices: ['6 cm²', '12 cm²', '24 cm²', '3 cm²'] },
+  { id: 'ratio', packId: 'm2s2-u3', itemId: 'm2s2-u3-067', choices: ['2:3', '8:27', '4:9', '9:4'] },
+  { id: 'negative-frac', packId: 'm2s1-u5', itemId: 'm2s1-u5-034', choices: ['{frac:4/3}', '{frac:3/4}', '−{frac:3/4}', '−6'] },
+  { id: 'decimal', packId: 'm2s1-u5', itemId: 'm2s1-u5-027', choices: ['12', '23.8', '13', '37'] },
+  { id: 'zero-one-frac', packId: 'm2s2-u7', itemId: 'm2s2-u7-020', choices: ['0', '{frac:1/4}', '{frac:1/2}', '1'] },
+  { id: 'longest', packId: 'm2s1-u6', itemId: 'm2s1-u6-022', choices: ['점 (−5, 0)을 지난다', 'y축에 평행하다', 'x축에 평행하다', '기울기가 −5이다'] },
+]);
 const THRESHOLDS = Object.freeze({
   shadowDarkness: 0.12,
   shadowPassRatio: 0.80,
@@ -47,11 +56,15 @@ const THRESHOLDS = Object.freeze({
   minimumMeasuredGlyphs: 4,
   glyphHeight: { '390': 14, '1280': 20 },
   expectedPackCount: 13,
+  expectedChoiceFixtures: CHOICE_FIXTURE_SPECS.length,
+  worldLabelIntersectionArea: 0,
+  landscapeBattlefieldWidthRatio: 0.70,
 });
 const KEEP_FRAMES = process.env.V3_KEEP_FRAMES !== '0';
 const SKIP_LONGEST = process.argv.includes('--quick') || process.env.V3_SKIP_LONGEST === '1';
 const OUT = path.join(HERE, 'gates.json');
 const FRAME_DIR = path.join(HERE, 'gate-frames');
+const FIX1_DIR = path.join(HERE, 'fix1');
 
 function commit() {
   try { return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: path.resolve(HERE, '../../../../../..'), encoding: 'utf8' }).trim(); }
@@ -116,6 +129,44 @@ function evaluatePads(snapshot, viewport) {
   };
 }
 
+function evaluateWorldLabels(snapshot, viewport, requirement = 'normal') {
+  const visible = snapshot.worldLabels.filter(label => label.visible && label.active);
+  const invalidLabels = visible.filter(label => !label.rect || !rectInFrame(label.rect, viewport));
+  const ids = new Set();
+  const duplicateIds = [];
+  for (const label of visible) {
+    if (ids.has(label.id)) duplicateIds.push(label.id);
+    ids.add(label.id);
+  }
+  const overlaps = [];
+  for (let left = 0; left < visible.length; left++) {
+    for (let right = left + 1; right < visible.length; right++) {
+      const overlap = intersection(visible[left].rect, visible[right].rect);
+      overlaps.push({
+        left: visible[left].id,
+        right: visible[right].id,
+        intersection: overlap,
+      });
+    }
+  }
+  const counts = Object.fromEntries(['choice', 'upgrade', 'reward'].map(kind => [kind, visible.filter(label => label.kind === kind).length]));
+  const inventoryPass = requirement === 'reward'
+    ? counts.reward >= 1
+    : counts.choice === THRESHOLDS.choicePadCount && counts.upgrade >= THRESHOLDS.minimumUpgradePadCount;
+  const totalIntersectionArea = overlaps.reduce((sum, overlap) => sum + (overlap.intersection.area ?? 0), 0);
+  return {
+    requirement,
+    labels: visible,
+    counts,
+    invalidLabels,
+    duplicateIds,
+    overlaps,
+    totalIntersectionArea,
+    pass: inventoryPass && invalidLabels.length === 0 && duplicateIds.length === 0 &&
+      overlaps.every(overlap => overlap.intersection.area === THRESHOLDS.worldLabelIntersectionArea),
+  };
+}
+
 function evaluateShadow(snapshot, pixels, viewport) {
   const relevant = pixels.shadows.filter(sample => REQUIRED_SHADOW_TYPES.includes(sample.type) && sample.visible && pointInFrame(sample.foot, viewport));
   const counts = Object.fromEntries(REQUIRED_SHADOW_TYPES.map(type => [type, relevant.filter(sample => sample.type === type).length]));
@@ -151,13 +202,20 @@ function evaluateFront(snapshot, viewport) {
   const points = snapshot.frontLine.points;
   const insideFrame = points.filter(point => pointInFrame(point, viewport));
   const insideSafeFrame = points.filter(point => pointInSafeFrame(point, viewport, THRESHOLDS.frontLineMargin));
+  const battlefieldWidthRatio = snapshot.battlefieldRect?.width / viewport.width;
+  const battlefieldCoveragePass = viewport.id !== '1280' ||
+    (Number.isFinite(battlefieldWidthRatio) && battlefieldWidthRatio >= THRESHOLDS.landscapeBattlefieldWidthRatio);
   return {
     declaredVisible: snapshot.frontLine.visible,
     points,
     marginPercent: THRESHOLDS.frontLineMargin * 100,
     insideFrame: insideFrame.length,
     insideSafeFrame: insideSafeFrame.length,
-    pass: snapshot.frontLine.visible && points.length > 0 && insideSafeFrame.length === points.length,
+    battlefieldRect: snapshot.battlefieldRect,
+    battlefieldWidthRatio,
+    requiredLandscapeBattlefieldWidthRatio: THRESHOLDS.landscapeBattlefieldWidthRatio,
+    battlefieldCoveragePass,
+    pass: snapshot.frontLine.visible && points.length > 0 && insideSafeFrame.length === points.length && battlefieldCoveragePass,
   };
 }
 
@@ -195,6 +253,62 @@ function evaluateClipping(snapshot, viewport, expectedPrompt) {
   };
 }
 
+function evaluateChoiceFixture(snapshot, viewport, fixture) {
+  const choices = snapshot.choices;
+  const actualChoices = choices.map(choice => choice.text);
+  const exactChoices = choices.length === THRESHOLDS.choicePadCount &&
+    JSON.stringify([...actualChoices].sort()) === JSON.stringify([...fixture.choices].sort());
+  const labels = choices.map(choice => {
+    const characterCountsComplete = Number.isFinite(choice.visibleCharacters) && Number.isFinite(choice.totalCharacters) &&
+      choice.visibleCharacters >= choice.totalCharacters && choice.totalCharacters > 0;
+    const tofuGlyphs = choice.glyphs.filter(glyph => glyph.char === '□' || glyph.char === '�');
+    const bodyInFrame = rectInFrame(choice.bodyRect, viewport);
+    const textInBody = rectContains(choice.bodyRect, choice.renderedTextRect);
+    return {
+      id: choice.id,
+      text: choice.text,
+      bodyRect: choice.bodyRect,
+      renderedTextRect: choice.renderedTextRect,
+      bodyInFrame,
+      textInBody,
+      isTruncated: choice.isTruncated,
+      isOverflowing: choice.isOverflowing,
+      hasMissingGlyph: choice.hasMissingGlyph,
+      visibleCharacters: choice.visibleCharacters,
+      totalCharacters: choice.totalCharacters,
+      characterCountsComplete,
+      glyphCount: choice.glyphs.length,
+      tofuGlyphs,
+      pass: bodyInFrame && textInBody && characterCountsComplete && choice.glyphs.length > 0 &&
+        tofuGlyphs.length === 0 && !choice.hasMissingGlyph && !choice.isTruncated && !choice.isOverflowing,
+    };
+  });
+  const labelOverlaps = [];
+  for (let left = 0; left < choices.length; left++) {
+    for (let right = left + 1; right < choices.length; right++) {
+      labelOverlaps.push({
+        left: choices[left].id,
+        right: choices[right].id,
+        intersection: intersection(choices[left].renderedTextRect, choices[right].renderedTextRect),
+      });
+    }
+  }
+  const worldLabels = evaluateWorldLabels(snapshot, viewport, 'normal');
+  const totalIntersectionArea = labelOverlaps.reduce((sum, overlap) => sum + (overlap.intersection.area ?? 0), 0);
+  return {
+    expectedChoices: fixture.choices,
+    actualChoices,
+    exactChoices,
+    labels,
+    labelOverlaps,
+    totalIntersectionArea,
+    tofuGlyphCount: labels.reduce((sum, label) => sum + label.tofuGlyphs.length, 0),
+    worldLabels,
+    pass: exactChoices && labels.length === THRESHOLDS.choicePadCount && labels.every(label => label.pass) &&
+      labelOverlaps.every(overlap => overlap.intersection.area === 0) && worldLabels.pass,
+  };
+}
+
 async function measureCase(page, viewport, label, expectedPrompt, timeMs, report) {
   const raw = await readDebugSnapshot(page);
   const png = await page.screenshot({ encoding: 'base64' });
@@ -211,6 +325,7 @@ async function measureCase(page, viewport, label, expectedPrompt, timeMs, report
     screenshot: pixels.screenshot,
     glyphHeight: evaluateGlyphs(snapshot, pixels, viewport),
     uiObstruction: evaluatePads(snapshot, viewport),
+    worldLabels: evaluateWorldLabels(snapshot, viewport, 'normal'),
     clipping: evaluateClipping(snapshot, viewport, expectedPrompt),
     raw,
   };
@@ -221,6 +336,12 @@ async function measureCase(page, viewport, label, expectedPrompt, timeMs, report
 const index = readPackIndex();
 const records = readPacks(index);
 const longest = longestChoiceCases(records);
+const choiceFixtures = CHOICE_FIXTURE_SPECS.map(spec => {
+  const record = records.find(candidate => candidate.id === spec.packId) ?? null;
+  const item = record?.pack?.items?.find(candidate => candidate.id === spec.itemId) ?? null;
+  const choicesMatch = Array.isArray(item?.choices) && JSON.stringify(item.choices) === JSON.stringify(spec.choices);
+  return { ...spec, record, item, choicesMatch };
+});
 const beforeHashes = packHashes(index);
 const packAudit = {
   count: records.length,
@@ -237,6 +358,18 @@ const packAudit = {
   })),
 };
 packAudit.pass = packAudit.count === packAudit.expectedCount && packAudit.cases.every(entry => entry.pass);
+const choiceFixtureAudit = {
+  expectedFixtures: THRESHOLDS.expectedChoiceFixtures,
+  cases: choiceFixtures.map(fixture => ({
+    id: fixture.id,
+    packId: fixture.packId,
+    itemId: fixture.itemId,
+    found: !!fixture.item,
+    choicesMatch: fixture.choicesMatch,
+    pass: fixture.record?.pack?.schema_version === 3 && !!fixture.item && fixture.choicesMatch,
+  })),
+};
+choiceFixtureAudit.pass = choiceFixtureAudit.cases.length === choiceFixtureAudit.expectedFixtures && choiceFixtureAudit.cases.every(entry => entry.pass);
 
 const report = {
   schemaVersion: 3,
@@ -252,9 +385,13 @@ const report = {
   },
   chrome: null,
   packAudit,
+  choiceFixtureAudit,
   packIntegrity: { before: beforeHashes, after: null, stable: false },
   baseline: [],
   longestPromptCases: [],
+  worldLabelRewardCases: [],
+  choiceCases: [],
+  choiceScreenshots: [],
   measurements: [],
   errors: [],
   consoleErrors: [],
@@ -265,6 +402,7 @@ const report = {
 };
 
 if (KEEP_FRAMES) fs.mkdirSync(FRAME_DIR, { recursive: true });
+fs.mkdirSync(FIX1_DIR, { recursive: true });
 let browser;
 let server;
 let overlay = null;
@@ -338,6 +476,85 @@ try {
       }
     }
   }
+
+  overlayPackId = defaultCase.packId;
+  overlay = { ...defaultCase.pack, items: [defaultCase.item, ...defaultCase.pack.items.filter(item => item.id !== defaultCase.item.id)] };
+  for (const viewport of VIEWPORTS) {
+    const label = `world-label-reward-${viewport.id}`;
+    try {
+      await loadGame(page, server, viewport, `pack=${encodeURIComponent(defaultCase.packId)}&artprobe=1&reward=tower&v3gate=${encodeURIComponent(label)}`);
+      await startGame(page);
+      await sleep(500);
+      const accepted = await page.evaluate(() => window.__GAME_TEST__?.answerCorrect?.());
+      if (!accepted) throw new Error(`${label}: __GAME_TEST__.answerCorrect() was not accepted`);
+      await page.waitForFunction(() => {
+        const state = window.__GAME_TEST__?.getState?.();
+        return state?.feedbackVisible === true && state?.rewardKind === 'tower';
+      }, { timeout: 12000, polling: 35 });
+      await page.waitForFunction(() => {
+        const state = window.__GAME_TEST__?.getState?.();
+        const mask = Number(state?.worldLabelMask ?? 0);
+        return (mask & 0x80) !== 0 && (mask & 0x7f) === 0;
+      }, { timeout: 3000, polling: 25 });
+      const raw = await readDebugSnapshot(page);
+      if (raw?.__error) throw new Error(`${label}: ${raw.__error}`);
+      const snapshot = normalizeSnapshot(raw, viewport);
+      if (snapshot.version < 3) throw new Error(`${label}: debug version ${snapshot.version || 'missing'}; v3 required`);
+      const state = await page.evaluate(() => window.__GAME_TEST__?.getState?.() ?? null);
+      const worldLabels = evaluateWorldLabels(snapshot, viewport, 'reward');
+      const value = {
+        label,
+        viewport: { id: viewport.id, width: viewport.width, height: viewport.height },
+        rewardKind: state?.rewardKind ?? null,
+        feedbackVisible: state?.feedbackVisible === true,
+        worldLabels,
+        pass: state?.rewardKind === 'tower' && state?.feedbackVisible === true && worldLabels.pass,
+      };
+      report.worldLabelRewardCases.push(value);
+      console.log(`${label} reward=${value.rewardKind} labels=${worldLabels.labels.length} overlap=${worldLabels.totalIntersectionArea}`);
+    } catch (error) {
+      report.errors.push(String(error?.stack || error));
+    }
+  }
+
+  for (const fixture of choiceFixtures) {
+    if (!fixture.record || !fixture.item) continue;
+    overlayPackId = fixture.packId;
+    overlay = { ...fixture.record.pack, items: [fixture.item, ...fixture.record.pack.items.filter(item => item.id !== fixture.itemId)] };
+    for (const viewport of VIEWPORTS) {
+      const label = `choices-${fixture.id}-${viewport.id}`;
+      const file = `${label}.png`;
+      try {
+        await loadGame(page, server, viewport, `pack=${encodeURIComponent(fixture.packId)}&artprobe=1&v3choices=1&v3gate=${encodeURIComponent(label)}`);
+        await startGame(page);
+        await sleep(850);
+        const raw = await readDebugSnapshot(page);
+        if (raw?.__error) throw new Error(`${label}: ${raw.__error}`);
+        const snapshot = normalizeSnapshot(raw, viewport);
+        if (snapshot.version < 3) throw new Error(`${label}: debug version ${snapshot.version || 'missing'}; v3 required`);
+        const state = await page.evaluate(() => window.__GAME_TEST__?.getState?.() ?? null);
+        const evidence = evaluateChoiceFixture(snapshot, viewport, fixture);
+        evidence.questionId = state?.questionId ?? null;
+        evidence.questionMatches = evidence.questionId === fixture.itemId;
+        evidence.pass = evidence.pass && evidence.questionMatches;
+        await page.screenshot({ path: path.join(FIX1_DIR, file) });
+        report.choiceScreenshots.push(file);
+        report.choiceCases.push({
+          label,
+          fixture: fixture.id,
+          packId: fixture.packId,
+          itemId: fixture.itemId,
+          viewport: { id: viewport.id, width: viewport.width, height: viewport.height },
+          screenshot: path.join('fix1', file),
+          evidence,
+          pass: evidence.pass,
+        });
+        console.log(`${label} exact=${evidence.exactChoices} clip=${evidence.labels.every(entry => entry.pass)} tofu=${evidence.tofuGlyphCount} overlap=${evidence.totalIntersectionArea}`);
+      } catch (error) {
+        report.errors.push(String(error?.stack || error));
+      }
+    }
+  }
 } catch (error) {
   report.errors.push(String(error?.stack || error));
 } finally {
@@ -407,12 +624,55 @@ const gateE = {
 };
 gateE.pass = !SKIP_LONGEST && packAudit.pass && gateE.measuredCases === gateE.expectedCases && gateE.clippedCases === 0;
 
+const normalWorldLabelCases = report.measurements;
+const expectedNormalWorldLabelCases = expectedBaseline + expectedLongest;
+const gateF = {
+  requiredIntersectionArea: THRESHOLDS.worldLabelIntersectionArea,
+  expectedNormalCases: expectedNormalWorldLabelCases,
+  measuredNormalCases: normalWorldLabelCases.length,
+  expectedRewardCases: VIEWPORTS.length,
+  measuredRewardCases: report.worldLabelRewardCases.length,
+  totalIntersectionArea: [...normalWorldLabelCases.map(entry => entry.worldLabels), ...report.worldLabelRewardCases.map(entry => entry.worldLabels)]
+    .reduce((sum, evidence) => sum + (evidence?.totalIntersectionArea ?? 0), 0),
+  normalFailures: normalWorldLabelCases.filter(entry => !entry.worldLabels?.pass).map(entry => ({ label: entry.label, evidence: entry.worldLabels })),
+  rewardFailures: report.worldLabelRewardCases.filter(entry => !entry.pass).map(entry => ({ label: entry.label, evidence: entry })),
+};
+gateF.pass = gateF.measuredNormalCases === gateF.expectedNormalCases && normalWorldLabelCases.every(entry => entry.worldLabels?.pass) &&
+  gateF.measuredRewardCases === gateF.expectedRewardCases && report.worldLabelRewardCases.every(entry => entry.pass) &&
+  gateF.totalIntersectionArea === THRESHOLDS.worldLabelIntersectionArea;
+
+const expectedChoiceCases = THRESHOLDS.expectedChoiceFixtures * VIEWPORTS.length;
+const expectedChoiceScreenshots = CHOICE_FIXTURE_SPECS.flatMap(fixture => VIEWPORTS.map(viewport => `choices-${fixture.id}-${viewport.id}.png`));
+const generatedChoiceScreenshots = new Set(report.choiceScreenshots);
+const missingChoiceScreenshots = expectedChoiceScreenshots.filter(file => !generatedChoiceScreenshots.has(file) || !fs.existsSync(path.join(FIX1_DIR, file)));
+const gateG = {
+  expectedFixtures: THRESHOLDS.expectedChoiceFixtures,
+  fixtureAuditPass: choiceFixtureAudit.pass,
+  expectedCases: expectedChoiceCases,
+  measuredCases: report.choiceCases.length,
+  expectedScreenshots: expectedChoiceScreenshots,
+  generatedScreenshots: report.choiceScreenshots,
+  missingScreenshots: missingChoiceScreenshots,
+  clippedCases: report.choiceCases.filter(entry => entry.evidence.labels.some(label => !label.pass)).length,
+  tofuGlyphs: report.choiceCases.reduce((sum, entry) => sum + entry.evidence.tofuGlyphCount, 0),
+  totalChoiceIntersectionArea: report.choiceCases.reduce((sum, entry) => sum + entry.evidence.totalIntersectionArea, 0),
+  totalWorldLabelIntersectionArea: report.choiceCases.reduce((sum, entry) => sum + entry.evidence.worldLabels.totalIntersectionArea, 0),
+  packIntegrityStable: report.packIntegrity.stable,
+  failures: report.choiceCases.filter(entry => !entry.pass).map(entry => ({ label: entry.label, evidence: entry.evidence })),
+};
+gateG.pass = choiceFixtureAudit.pass && gateG.measuredCases === gateG.expectedCases && report.choiceCases.every(entry => entry.pass) &&
+  report.choiceScreenshots.length === expectedChoiceCases && missingChoiceScreenshots.length === 0 && gateG.clippedCases === 0 &&
+  gateG.tofuGlyphs === 0 && gateG.totalChoiceIntersectionArea === 0 && gateG.totalWorldLabelIntersectionArea === 0 &&
+  report.packIntegrity.stable;
+
 report.gates = {
   a_groundShadow: gateA,
   b_frontLineVisibility: gateB,
   c_zeroUiObstruction: gateC,
   d_renderedGlyphHeight: gateD,
   e_longestPromptClipping: gateE,
+  f_zeroWorldLabelOverlap: gateF,
+  g_choiceRendering: gateG,
 };
 const harnessPass = report.errors.length === 0 && report.consoleErrors.length === 0 && report.failedRequests.length === 0 && report.packIntegrity.stable;
 report.overall = {

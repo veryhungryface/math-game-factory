@@ -25,7 +25,9 @@ namespace Mgf.HyeopgokSasu
             public bool[] visited;
             public float confirm,dwell;
             public float[] kingScreen,exitScreen,collectionScreen;
-            public float[] choicePadRects,upgradePadRects,frontLineScreen,shadowSampleScreen,kingRect;
+            public float[] choicePadRects,upgradePadRects,frontLineScreen,shadowSampleScreen,kingRect,battlefieldRect;
+            public float[] worldLabelRects;
+            public int worldLabelMask;
             public int streak,chestCoins,upgradeCost;
             public int nextUpgradeCost,rewardSerial;
             public int[] towerLevels,towerTypes,upgradeRemaining;
@@ -232,7 +234,7 @@ namespace Mgf.HyeopgokSasu
             if(st.padScreen==null){
                 st.padScreen=new float[8];st.kingScreen=new float[2];st.exitScreen=new float[2];st.collectionScreen=new float[2];
                 st.choicePadRects=new float[16];st.upgradePadRects=new float[HyeopgokBattle.TowerCount*4];st.frontLineScreen=new float[12];
-                st.shadowSampleScreen=new float[44];st.kingRect=new float[4];
+                st.shadowSampleScreen=new float[44];st.kingRect=new float[4];st.battlefieldRect=new float[4];st.worldLabelRects=new float[32];
             }
             Vector3 kingPoint=cam.WorldToScreenPoint(Rules.King),exitPoint=cam.WorldToScreenPoint(HyeopgokRules.Exit),collectionPoint=cam.WorldToScreenPoint(battle.CollectionPoint);
             st.kingScreen[0]=kingPoint.x/Screen.width;st.kingScreen[1]=1-kingPoint.y/Screen.height;st.exitScreen[0]=exitPoint.x/Screen.width;st.exitScreen[1]=1-exitPoint.y/Screen.height;
@@ -242,12 +244,16 @@ namespace Mgf.HyeopgokSasu
                 ProjectGroundRect(HyeopgokRules.Pads[i],.92f,.90f,st.choicePadRects,i*4);
             }
             for(int i=0;i<HyeopgokBattle.TowerCount;i++)ProjectGroundRect(HyeopgokBattle.UpgradePads[i],.72f,.58f,st.upgradePadRects,i*4);
+            // The playable plateau plus enemy approach: west gate (-4.1), east
+            // watchtower (6.8), southern contact bend (-7.1) and enemy gate (9.8).
+            ProjectGroundRect(new Vector3(1.1f,.35f,1.35f),5.7f,8.45f,st.battlefieldRect,0);
             for(int i=0;i<4;i++){
                 Vector3 p=battle.ArtFrontPoint(i);Vector3 s=cam.WorldToScreenPoint(p);int at=i*3;
                 st.frontLineScreen[at]=s.x/Screen.width;st.frontLineScreen[at+1]=1-s.y/Screen.height;st.frontLineScreen[at+2]=s.z>0&&cam.pixelRect.Contains(s)?1:0;
             }
             ProjectShadowSample(Rules.King,0,1.02f);ProjectShadowSample(battle.ArtShadowWorld,11,1.35f);ProjectShadowSample(new Vector3(1.82f,1.2f,4.62f),22,1.34f);ProjectShadowSample(new Vector3(-2.73f,1.2f,4.15f),33,1.08f);
             ProjectBodyRect(Rules.King,st.kingRect,0);
+            CaptureWorldLabelRects(st.worldLabelRects,out st.worldLabelMask);
         }
         void ProjectGroundRect(Vector3 c,float rx,float rz,float[] output,int at){
             float minX=1,minY=1,maxX=0,maxY=0;
@@ -319,7 +325,7 @@ namespace Mgf.HyeopgokSasu
             float aspect=cam.pixelRect.width/Mathf.Max(1,cam.pixelRect.height);
             bool wide=aspect>1.2f;
             float focalSpan=0;
-            Vector3 desired=new Vector3(-.15f,0,wide?-.75f:-.35f);
+            Vector3 desired=new Vector3(-.15f,0,wide?-.20f:-.35f);
             if(playStarted && king){
                 Vector3 k=Rules.King;
                 Vector3 f=battle?battle.FrontWorld:new Vector3(2.2f,0,-5.5f);
@@ -331,6 +337,10 @@ namespace Mgf.HyeopgokSasu
                 if(Mathf.Abs(dx)>deadX)desired.x+=Mathf.Sign(dx)*(Mathf.Abs(dx)-deadX)*.52f;
                 if(Mathf.Abs(dz)>deadZ)desired.z+=Mathf.Sign(dz)*(Mathf.Abs(dz)-deadZ)*(wide?.72f:.48f);
             }
+            // The stronger landscape yaw puts the northern rim tree just behind
+            // the parchment unless the world framing leads slightly north. The
+            // southern contact line still retains more than the 6% safe margin.
+            if(wide)desired.z+=.65f;
             // Lock the lens while a pointer is held so a tap remains the same
             // world target throughout the gesture.
             if(!dragging)cameraFocus=Vector3.Lerp(cameraFocus,desired,1-Mathf.Exp(-dt*2.8f));
@@ -340,14 +350,16 @@ namespace Mgf.HyeopgokSasu
             float landscape=Mathf.SmoothStep(0,1,Mathf.InverseLerp(.85f,1.35f,aspect));
             // If the hero walks all the way to a northern pad, temporarily dolly
             // back just enough to retain the front; at rest landscape stays at the
-            // requested 12.5 distance (22.5 / 1.8).
+            // 11.0 distance and stronger isometric yaw required by the 70%-wide
+            // battlefield framing. This also keeps the battlefield
+            // at least 70% wide on the required 1280x800 framing.
             // Keep projection invariant for the entire held gesture. Otherwise a
             // fixed finger would raycast to a moving world point as the hero walks.
             float spanDolly=wide&&!dragging?Mathf.Max(0,focalSpan-3.8f)*.90f:0;
-            float distance=Mathf.Lerp(38.6f,17.5f,landscape)*framing+spanDolly+reveal+(playStarted?cameraLanding*.35f:.65f);
+            float distance=Mathf.Lerp(38.6f,11.0f,landscape)*framing+spanDolly+reveal+(playStarted?cameraLanding*.35f:.65f);
             float shake=battle?battle.Shake:0;
             cam.fieldOfView=Mathf.Lerp(32,42,landscape);
-            cam.transform.rotation=Quaternion.Euler(55,Mathf.Lerp(-9,-16,landscape),0);
+            cam.transform.rotation=Quaternion.Euler(55,Mathf.Lerp(-9,-40,landscape),0);
             cam.transform.position=cameraFocus+cam.transform.rotation*(Vector3.back*distance)+new Vector3(Mathf.Sin(Time.unscaledTime*97)*shake,Mathf.Cos(Time.unscaledTime*83)*shake,0);
             // Distance fog starts beyond the playable plateau at either framing.
             RenderSettings.fogStartDistance=distance+13.5f;RenderSettings.fogEndDistance=distance+46;

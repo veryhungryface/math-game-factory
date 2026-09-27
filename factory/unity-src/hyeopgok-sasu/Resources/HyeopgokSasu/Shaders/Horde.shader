@@ -11,8 +11,10 @@ Shader "Mgf/HyeopgokHorde"
         _Unlit ("Unlit particles", Range(0,1)) = 0
         _Rim ("Hero pearl rim", Range(0,1)) = 0
         _Metallic ("Coin metal glint", Range(0,1)) = 0
-        _TeamRed ("Troop red", Color) = (.63,.001,.004,1)
-        _TeamBlue ("Troop blue", Color) = (.004,.17,.67,1)
+        _TeamRed ("Troop red primary", Color) = (.631,.002,.004,1)
+        _TeamRedDark ("Troop red shadow", Color) = (.262,.010,.014,1)
+        _TeamBlue ("Troop blue primary", Color) = (.004,.171,.665,1)
+        _TeamBlueDark ("Troop blue shadow", Color) = (.002,.098,.571,1)
         _Team ("Per instance team", Float) = -1
         _InstancePhase ("Per instance gait phase", Float) = 0
         _Attack ("Per instance attack gate", Float) = 0
@@ -44,7 +46,9 @@ Shader "Mgf/HyeopgokHorde"
             half _Metallic;
             half _Blueprint;
             fixed4 _TeamRed;
+            fixed4 _TeamRedDark;
             fixed4 _TeamBlue;
+            fixed4 _TeamBlueDark;
             UNITY_INSTANCING_BUFFER_START(HitProperties)
                 UNITY_DEFINE_INSTANCED_PROP(float, _HitTime)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Team)
@@ -128,9 +132,14 @@ Shader "Mgf/HyeopgokHorde"
             fixed4 frag(v2f i) : SV_Target
             {
                 fixed4 atlas=tex2D(_MainTex,i.uv);
-                fixed3 teamColor=lerp(_TeamRed.rgb,_TeamBlue.rgb,saturate(i.team));
+                fixed3 teamPrimary=lerp(_TeamRed.rgb,_TeamBlue.rgb,saturate(i.team));
+                fixed3 teamDark=lerp(_TeamRedDark.rgb,_TeamBlueDark.rgb,saturate(i.team));
                 half value=dot(atlas.rgb,half3(.24,.68,.08));
-                fixed3 dyed=teamColor*lerp(.58,1.48,saturate(value));
+                // Keep every dyed facet inside the exact requested two-colour
+                // palettes. Bright armour reaches primary cobalt/crimson while
+                // helmet/shield shadow facets retain the dark team colour.
+                half teamShade=saturate((value-.075)*2.0);
+                fixed3 dyed=lerp(teamDark,teamPrimary,teamShade);
                 // Atlas alpha is deliberately a dye mask, not opacity: 0 is
                 // team-coloured cloth/armour and 1 keeps the authored pixels.
                 fixed3 textured=lerp(dyed,atlas.rgb,saturate(atlas.a))*i.ao;

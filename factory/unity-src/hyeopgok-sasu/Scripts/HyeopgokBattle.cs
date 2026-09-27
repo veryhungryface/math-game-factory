@@ -208,15 +208,23 @@ namespace Mgf.HyeopgokSasu
             blueMaterial = MakeMaterial(shader, MgfLook.Hex("#0C73D5").linear, false);
             troopMaterial = HyeopgokAiAssets.CreateMaterial("enemy_soldier",Color.white,0);
             allyTroopMaterial = HyeopgokAiAssets.CreateMaterial("ally_soldier",Color.white,1);
-            troopMaterial.SetColor("_TeamRed",MgfLook.Hex("#D0060C").linear);
-            troopMaterial.SetColor("_TeamBlue",MgfLook.Hex("#0C73D5").linear);
-            allyTroopMaterial.SetColor("_TeamRed",MgfLook.Hex("#D0060C").linear);
-            allyTroopMaterial.SetColor("_TeamBlue",MgfLook.Hex("#0C73D5").linear);
+            Color teamRed=MgfLook.Hex("#D0060C").linear;
+            Color teamRedDark=MgfLook.Hex("#8C1A20").linear;
+            Color teamBlue=MgfLook.Hex("#0C73D5").linear;
+            Color teamBlueDark=MgfLook.Hex("#0658C7").linear;
+            troopMaterial.SetColor("_TeamRed",teamRed);
+            troopMaterial.SetColor("_TeamRedDark",teamRedDark);
+            troopMaterial.SetColor("_TeamBlue",teamBlue);
+            troopMaterial.SetColor("_TeamBlueDark",teamBlueDark);
+            allyTroopMaterial.SetColor("_TeamRed",teamRed);
+            allyTroopMaterial.SetColor("_TeamRedDark",teamRedDark);
+            allyTroopMaterial.SetColor("_TeamBlue",teamBlue);
+            allyTroopMaterial.SetColor("_TeamBlueDark",teamBlueDark);
             whiteMaterial = MakeMaterial(shader, new Color(1,.995f,.95f), true);
             goldMaterial = MakeMaterial(shader, new Color(1,.59f,.028f), true);
             goldMaterial.SetFloat("_Metallic",.82f);
             dustMaterial = MakeMaterial(shader, new Color(.89f,.81f,.66f), true);
-            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));Color shadowTint=MgfLook.Hex("#244A48").linear;shadowTint.a=.68f;shadowMaterial.SetColor("_Color",shadowTint);shadowMaterial.enableInstancing=true;
+            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));Color shadowTint=MgfLook.Hex("#244A48").linear;shadowTint.a=.76f;shadowMaterial.SetColor("_Color",shadowTint);shadowMaterial.enableInstancing=true;
             silhouetteMaterial=MakeMaterial(shader,Color.white,true);silhouetteMaterial.SetFloat("_Flash",1);
             swordMaterial=MakeMaterial(shader,new Color(1,.08f,.18f),true);
             hpMaterial=MakeMaterial(shader,new Color(.91f,.08f,.09f),true);
@@ -750,7 +758,7 @@ namespace Mgf.HyeopgokSasu
             Vector3 sentryShadow=new Vector3(sentry.x+.06f,sentry.y+.005f,sentry.z-.06f);
             shadowMatrices[ns++]=Matrix4x4.TRS(sentryShadow,Quaternion.identity,new Vector3(.72f,1,.58f));
             Vector3 screenRight=renderCamera.transform.right;screenRight.y=0;screenRight.Normalize();
-            artSoldierShadowWorld=sentryShadow+screenRight*.34f;artSoldierShadowValid=true;
+            artSoldierShadowWorld=sentryShadow+screenRight*.16f;artSoldierShadowValid=true;
             // A short white silhouette replaces the previous lingering corpse.
             // Existing corpse RNG/physics is preserved; a 60 ms white flash
             // clears the contact band quickly enough for the four-point stars.

@@ -12,7 +12,7 @@ node factory/unity-src/hyeopgok-sasu/ArtSource/validation/v3/bots.mjs
 node factory/unity-src/hyeopgok-sasu/ArtSource/validation/v3/capture.mjs
 ```
 
-- `gates.mjs`는 `gates.json`과 선택적으로 `gate-frames/`를 만든다. `V3_KEEP_FRAMES=0`으로 프레임 저장만 끌 수 있다. `--quick`은 개발용으로 13팩 최장 발문을 건너뛰며, 이 경우 (e)는 의도적으로 실패한다.
+- `gates.mjs`는 `gates.json`, 선택적으로 `gate-frames/`, 그리고 보기 실측 증거 `fix1/choices-*.png` 14장을 만든다. `V3_KEEP_FRAMES=0`으로 일반 게이트 프레임 저장만 끌 수 있으며 `fix1` 증거는 항상 현재 실행으로 덮어쓴다. `--quick`은 개발용으로 13팩 최장 발문을 건너뛰며, 이 경우 (e)는 의도적으로 실패한다.
 - `bots.mjs`는 기본 Unity 워크스페이스 `/Users/sitpo/UnityProjects/MGF-Workspace`를 실행한다. 다른 위치는 `--workspace PATH` 또는 `MGF_UNITY_WORKSPACE`로 지정한다. 이미 생성된 v3 결과만 검사하려면 `--report PATH`를 쓴다.
 - `capture.mjs`는 `final/`에 390×844와 1280×800 각각의 12개 장면, `final/report.json`, 그리고 전체 실행 성공 시 `compare.png`를 만든다. 일부만 다시 찍을 때는 `ONLY=title,packs,play,after4correct,upgrade,chest,wrong,geometry,victory`를 쓴다.
 - 최종 공용 QA 결과는 `final/qa/report.json`, 별도 15초 성능·드로콜·할당·gzip 결과는 `performance.json`에 보존한다.
@@ -37,6 +37,7 @@ node factory/unity-src/hyeopgok-sasu/ArtSource/validation/v3/capture.mjs
     visible: true,
     points: [{x, y}] // 전선 대표점 전부가 화면 6% 안쪽
   },
+  battlefieldRect: {x, y, width, height}, // 전장 기준 월드 범위의 투영 사각형
   question: {
     prompt: "실제 표시 중인 전체 발문",
     panelRect: {x, y, width, height},
@@ -59,12 +60,32 @@ node factory/unity-src/hyeopgok-sasu/ArtSource/validation/v3/capture.mjs
       }
     ]
   },
+  choices: [
+    {
+      id: "choice-0",
+      text: "−{frac:3/4}",
+      bodyRect: {x, y, width, height},
+      renderedTextRect: {x, y, width, height},
+      isTruncated: false,
+      isOverflowing: false,
+      visibleCharacters: 3,
+      totalCharacters: 3,
+      glyphs: [
+        {id: "choice-0-char-0", char: "−", kind: "choice", visible: true, rect: {x, y, width, height}}
+      ]
+    }
+  ], // v3choices=1에서 실제 TMP 보기 4개
   choicePadRects: [
     {id: "choice-0", visible: true, active: true, rect: {x, y, width, height}}
   ], // 플레이 중 정확히 4개
   upgradePadRects: [
     {id: "upgrade-0", visible: true, active: true, rect: {x, y, width, height}}
-  ] // 플레이 중 1개 이상
+  ], // 플레이 중 1개 이상
+  worldLabels: [
+    {id: "choice-0", kind: "choice", visible: true, active: true, rect: {x, y, width, height}},
+    {id: "upgrade-0", kind: "upgrade", visible: true, active: true, rect: {x, y, width, height}},
+    {id: "reward", kind: "reward", visible: false, active: false, rect: {x, y, width, height}}
+  ] // 고정 순서: choice 4, upgrade 3, reward 1
 }
 ```
 
@@ -90,7 +111,7 @@ node factory/unity-src/hyeopgok-sasu/ArtSource/validation/v3/capture.mjs
 }
 ```
 
-`answerCorrect()`와 `answerWrong()`은 상태를 직접 바꾸는 우회 명령이 아니라 실제 보기 패드 탭과 같은 왕 이동·도착·확정 경로를 실행해야 한다. 캡처 하네스는 그 명령 뒤 `attempts`/`solved` 변화를 기다리며, 업그레이드는 프로브의 `upgradePadRects` 중심을 실제 CDP 터치한다. 상자 종류는 강제하지 않고 자연 추첨에서 두 종류가 나올 때까지 새 판을 시도한다.
+`answerCorrect()`와 `answerWrong()`은 상태를 직접 바꾸는 우회 명령이 아니라 실제 보기 패드 탭과 같은 왕 이동·도착·확정 경로를 실행해야 한다. 캡처 하네스는 그 명령 뒤 `attempts`/`solved` 변화를 기다리며, 업그레이드는 강한 원근에서도 실제 패드 안쪽으로 역투영되는 `upgradePadRects` 내부 후보점을 CDP로 터치한다. 상자 종류는 강제하지 않고 자연 추첨에서 두 종류가 나올 때까지 새 판을 시도한다.
 
 ## 봇 결과 계약
 
@@ -130,9 +151,11 @@ Editor의 `Mgf.HyeopgokSasu.HyeopgokBotSelfTest.Run`은 `MGF_HYEOPGOK_VALIDATION
 `gates` 아래의 키는 최종 보고서 항목과 일치한다.
 
 - `a_groundShadow`: 발치가 인접 지면보다 12% 이상 어두운 표본 비율과 유형별 누락. 각 시점과 전체 모두 80% 이상이어야 한다.
-- `b_frontLineVisibility`: 두 판형의 3/8/15초 여섯 시점에서 전선 대표점이 6% 안전 여백 안에 있는지 기록한다.
+- `b_frontLineVisibility`: 두 판형의 3/8/15초 여섯 시점에서 전선 대표점이 6% 안전 여백 안에 있는지 기록한다. 1280에서는 `battlefieldRect.width / viewport.width`가 모든 시점에 70% 이상이어야 한다.
 - `c_zeroUiObstruction`: 문제판과 보기 4개·업그레이드 패드의 교차 면적 합. 모든 측정에서 0이어야 한다.
 - `d_renderedGlyphHeight`: 스크린샷 실측 본문 글리프 최솟값. 390은 14px, 1280은 20px 이상이다.
 - `e_longestPromptClipping`: 13팩 각각의 최장 choice 발문을 두 판형에서 렌더한 26건. 패널/본문 포함 관계, 접힘·말줄임·overflow, 문자 수를 보존한다.
+- `f_zeroWorldLabelOverlap`: 정상 플레이의 보기 4개·업그레이드 1개 이상과 실제 정답 보상 장면을 두 판형에서 측정한다. 활성 월드 라벨은 모두 화면 안에 있고 서로의 교차 면적이 0이어야 한다.
+- `g_choiceRendering`: 실팩의 `70°`, `12 cm²`, `2:3`, `−{frac:3/4}`, `23.8`, `0`·`1`·분수 혼합, 14자 최장 보기를 두 판형에서 렌더한다. 원문 일치, 컨테이너 포함, overflow·잘림·라벨 겹침·`□`/`�` 대체 글리프 0, 14개 캡처와 팩 SHA 불변을 확인한다.
 
-`overall.pass`는 다섯 게이트, 브라우저 오류 0, 13팩 v3 사전조건, 팩 해시 불변을 모두 만족할 때만 `true`다.
+`overall.pass`는 일곱 게이트, 브라우저 오류 0, 13팩 v3 사전조건, 팩 해시 불변을 모두 만족할 때만 `true`다.
