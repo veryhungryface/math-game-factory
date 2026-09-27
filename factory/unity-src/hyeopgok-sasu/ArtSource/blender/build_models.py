@@ -3,9 +3,9 @@
 Run with Blender -b --factory-startup --python ArtSource/blender/build_models.py.
 All constructor coordinates use Unity axes (x right, y up, z forward), metres.
 Export uses one joined, flat shaded, vertex-colour mesh / one material per asset.
-COLOR alpha is a team mask: 0 team tint * RGB; 1 fixed RGB.
+COLOR RGB is base colour, alpha is ray-baked AO. UV0.x is team mask; UV0.y=1.
 """
-import bpy, math, json, random, sys
+import bpy, bmesh, math, json, random, sys
 from pathlib import Path
 from mathutils import Vector, Matrix
 from mathutils.geometry import tessellate_polygon
@@ -22,23 +22,23 @@ PAL = {
  'steel_dark': (.22,.32,.36,1), 'skin': (.92,.68,.43,1),
  'leather': (.24,.15,.105,1), 'wood': (.42,.23,.105,1),
  'wood_light': (.69,.43,.21,1), 'wood_gold': (.82,.59,.29,1),
- 'gold': (1,.70,.08,1), 'gold_light': (1,.87,.29,1),
- 'navy': (.11,.22,.27,1), 'royal': (.047,.435,.827,1),
+ 'gold': (.949,.718,.020,1), 'gold_light': (1,.87,.29,1), 'gold_shadow': (.867,.604,.118,1),
+ 'navy': (.11,.22,.27,1), 'royal': (.047,.451,.835,1),
  'stone': (.66,.69,.63,1), 'stone_light': (.82,.82,.72,1),
  'stone_shadow': (.43,.49,.47,1), 'mortar': (.30,.38,.37,1),
  'red': (.816,.024,.047,1), 'roof': (.025,.286,.58,1),
  'grass': (.176,.667,.455,1), 'grass_light': (.184,.706,.478,1),
- 'grass_dark': (.102,.541,.384,1), 'cliff': (.075,.17,.22,1),
+ 'grass_dark': (.125,.561,.380,1), 'cliff': (.075,.17,.22,1),
  'cliff_light': (.12,.24,.28,1), 'path': (.784,.710,.612,1),
  'path_light': (.812,.761,.682,1), 'pine': (.122,.353,.29,1),
- 'pine_light': (.18,.427,.30,1), 'pine_dark': (.085,.29,.22,1),
+ 'pine_light': (.18,.427,.165,1), 'pine_dark': (.085,.29,.22,1),
  'leaf': (.21,.47,.31,1), 'leaf_light': (.29,.56,.35,1),
- 'leaf_dark': (.16,.43,.20,1), 'cliff_mid': (.10,.21,.27,1),
+ 'leaf_dark': (.16,.43,.20,1), 'cliff_mid': (.149,.224,.271,1),
  'cliff_rim': (.132,.245,.286,1), 'grass_edge': (.24,.706,.47,1),
  'black': (.035,.065,.07,1), 'ivory': (.98,.98,.91,1),
  'red_shadow': (.549,.102,.125,1), 'straw': (.72,.54,.29,1), 'straw_light': (.88,.70,.40,1),
  'plaster': (.82,.78,.66,1), 'giant_skin': (.88,.53,.48,1), 'blade_glow': (1,.15,.34,1),
- 'sandstone': (.91,.79,.69,1), 'sandstone_side': (.52,.55,.59,1), 'water': (.27,.59,.72,1),
+ 'sandstone': (.914,.788,.690,1), 'sandstone_side': (.514,.533,.580,1), 'water': (.27,.59,.72,1),
 }
 
 def bcoord(p): return (p[0], -p[2], p[1])
@@ -63,6 +63,22 @@ class MeshMaker:
   a,b=Vector(a),Vector(b); d=b-a
   rot=Vector((0,1,0)).rotation_difference(d).to_matrix()
   self.box((a+b)*.5,(width,d.length,depth),color,rot)
+ def capsule_box(self,center,scale,color,rot=None):
+  # Three six-sided sections keep the original box envelope while replacing
+  # sharp hands/boots with a soft, weighted toy silhouette (32 triangles).
+  c=Vector(center);sx,sy,sz=[v*.5 for v in scale];rows=[]
+  for h,r in [(-1,.68),(0,1),(1,.68)]:
+   row=[]
+   for i in range(6):
+    a=i*math.tau/6;p=Vector((math.cos(a)*sx*r,h*sy,math.sin(a)*sz*r/.866025403784))
+    row.append(c+(rot@p if rot is not None else p))
+   rows.append(row)
+  self.face(rows[0],color);self.face(list(reversed(rows[-1])),color)
+  for j in range(2):
+   for i in range(6):self.face([rows[j][i],rows[j+1][i],rows[j+1][(i+1)%6],rows[j][(i+1)%6]],color)
+ def capsule_beam(self,a,b,width,depth,color):
+  a,b=Vector(a),Vector(b);d=b-a;rot=Vector((0,1,0)).rotation_difference(d).to_matrix()
+  self.capsule_box((a+b)*.5,(width,d.length,depth),color,rot)
  def cylinder(self,center,radius,depth,color,n=8,radius_top=None):
   x,y,z=center; rt=radius if radius_top is None else radius_top
   a=[(x+radius*math.cos(i*math.tau/n),y-depth*.5,z+radius*math.sin(i*math.tau/n)) for i in range(n)]
@@ -120,20 +136,24 @@ class MeshMaker:
   col=nodes.new('ShaderNodeVertexColor');col.layer_name='Color'
   mix=nodes.new('ShaderNodeMixRGB');mix.blend_type='MULTIPLY';mix.inputs[0].default_value=1;mix.inputs[2].default_value=(.047,.435,.827,1)
   links.new(col.outputs['Color'],mix.inputs[1])
-  tint=nodes.new('ShaderNodeMixRGB');links.new(col.outputs['Alpha'],tint.inputs[0]);links.new(mix.outputs[0],tint.inputs[1]);links.new(col.outputs['Color'],tint.inputs[2]);links.new(tint.outputs[0],bsdf.inputs['Base Color']);bsdf.inputs['Roughness'].default_value=.85
+  uv=nodes.new('ShaderNodeTexCoord');separate=nodes.new('ShaderNodeSeparateXYZ');links.new(uv.outputs['UV'],separate.inputs[0])
+  tint=nodes.new('ShaderNodeMixRGB');links.new(separate.outputs['X'],tint.inputs[0]);links.new(mix.outputs[0],tint.inputs[1]);links.new(col.outputs['Color'],tint.inputs[2])
+  ao=nodes.new('ShaderNodeMixRGB');ao.name='Vertex AO x palette';ao.blend_type='MULTIPLY';ao.inputs[0].default_value=1;links.new(tint.outputs[0],ao.inputs[1]);links.new(col.outputs['Alpha'],ao.inputs[2]);links.new(ao.outputs[0],bsdf.inputs['Base Color']);bsdf.inputs['Roughness'].default_value=.85
   me.materials.append(mat)
   return ob
 
+exec(compile((HERE/'ao_bake.py').read_text(),str(HERE/'ao_bake.py'),'exec'))
 ASSETS=[]
 def emit(m):
  ob=m.object();bpy.ops.object.select_all(action='DESELECT');ob.select_set(True);bpy.context.view_layer.objects.active=ob
  # Triangulate by modifier so GPU triangle count is explicit and exported deterministic.
  tri=ob.modifiers.new('FlatTriangles','TRIANGULATE');bpy.ops.object.modifier_apply(modifier=tri.name)
+ ao_stats=bake_vertex_ao(ob)
  file=OUT/(m.name+'.fbx')
  bpy.ops.export_scene.fbx(filepath=str(file),use_selection=True,object_types={'MESH'},global_scale=1.0,apply_unit_scale=True,apply_scale_options='FBX_SCALE_UNITS',axis_forward='-Z',axis_up='Y',bake_space_transform=True,use_mesh_modifiers=True,mesh_smooth_type='OFF',use_tspace=False,add_leaf_bones=False,bake_anim=False,path_mode='AUTO',colors_type='SRGB',use_custom_props=False)
  # Source mesh has zero object transform. World coordinates already baked.
  vs=[(v.co.x,v.co.z,-v.co.y) for v in ob.data.vertices]
- info={'id':m.name,'resource':'HyeopgokSasu/Models/'+m.name,'fbx_bytes':file.stat().st_size,'triangles':len(ob.data.polygons),'vertices':len(ob.data.vertices),'bounds_min':[round(min(p[i] for p in vs),4) for i in range(3)],'bounds_max':[round(max(p[i] for p in vs),4) for i in range(3)]}
+ info={'id':m.name,'resource':'HyeopgokSasu/Models/'+m.name,'fbx_bytes':file.stat().st_size,'triangles':len(ob.data.polygons),'vertices':len(ob.data.vertices),'ao_bake':ao_stats,'bounds_min':[round(min(p[i] for p in vs),4) for i in range(3)],'bounds_max':[round(max(p[i] for p in vs),4) for i in range(3)]}
  ASSETS.append(info);print('MODEL',json.dumps(info))
  ob.hide_render=True;ob.hide_viewport=True
  return ob
@@ -148,13 +168,16 @@ def soldier(blue=False):
  m.cylinder((0,.475,.007),.101,.12,'skin',n=6)
  if blue:
   # Octagonal bevels on a broad square helmet; the bright brow survives minification.
-  m.rings((0,0,-.015),[(.515,.174),(.615,.174),(.651,.134)],'team',n=4,aspect=(1,.91),phase=math.pi*.25)
+  m.rings((0,0,-.015),[(.46,.182),(.61,.182),(.678,.134)],'team',n=4,aspect=(1,.91),phase=math.pi*.25)
   m.box((0,.528,.104),(.224,.045,.025),'team_dark')
   m.box((0,.553,.112),(.195,.022,.018),'steel')
  else:
   # Low domed round helmets, with a darker continuous rim above the face.
-  m.rings((0,0,-.01),[(.506,.141),(.553,.151),(.619,.117),(.652,.042)],'team',n=8,aspect=(1,.94))
+  m.rings((0,0,-.01),[(.46,.169),(.535,.180),(.637,.133),(.68,.049)],'team',n=8,aspect=(1,.94))
   m.box((0,.51,.108),(.198,.029,.027),'team_dark')
+ # Two quiet visor/eye slots sit under the helmet: four triangles total.
+ for eye in [-1,1]:
+  x=eye*.049;m.face([(x-.016,.431,.104),(x+.016,.431,.104),(x+.016,.453,.104),(x-.016,.453,.104)],'black')
  # Elbows imply motion without an animated skeleton.
  m.beam((-.138,.37,0),(-.168,.24,.065),.065,.067,'team')
  m.beam((.138,.37,0),(.16,.27,.11),.065,.067,'team')
@@ -178,18 +201,21 @@ def soldier(blue=False):
 
 def king():
  m=MeshMaker('king')
- m.box((-.105,.075,0),(.15,.15,.24),'leather');m.box((.105,.075,0),(.15,.15,.24),'leather')
+ m.capsule_box((-.105,.075,0),(.15,.15,.24),'leather');m.capsule_box((.105,.075,0),(.15,.15,.24),'leather')
  m.box((0,.22,0),(.30,.21,.19),'ivory')
  m.cylinder((0,.46,0),.245,.37,'royal',n=6,radius_top=.20)
  m.box((0,.41,.18),(.35,.05,.025),'gold')
  m.box((0,.51,.18),(.11,.15,.025),'gold_light')
- m.beam((-.22,.58,0),(-.27,.31,.1),.15,.15,'steel_light')
- m.beam((.22,.58,0),(.28,.36,.10),.15,.15,'steel_light')
+ m.capsule_beam((-.22,.58,0),(-.27,.31,.1),.15,.15,'steel_light')
+ m.capsule_beam((.22,.58,0),(.28,.36,.10),.15,.15,'steel_light')
+ for x in [-.224,.224]:m.capsule_box((x,.556,.018),(.205,.16,.205),'steel_light')
+ m.capsule_box((-.2739,.31,.10),(.20,.15,.17),'steel_light')
+ m.capsule_box((.2799,.36,.10),(.20,.15,.17),'steel_light')
  m.cylinder((0,.75,0),.175,.22,'skin',n=8)
- m.box((0,.7,.145),(.26,.085,.095),'leather')
+ m.capsule_box((0,.7,.145),(.26,.085,.095),'leather')
  # Original survey-king silhouette: ivory sallet and a single brass compass fin,
  # not the reference's six-point gold crown + plain royal mantle.
- m.rings((0,0,0),[(.80,.202),(.94,.192),(.995,.11)],'steel_light',n=6)
+ m.rings((0,0,0),[(.80,.202),(.89,.202),(.952,.184),(.995,.11)],'steel_light',n=8)
  m.box((0,.858,.180),(.30,.045,.040),'navy')
  m.wedge((0,1.01,-.02),(.075,.19,.25),'gold')
  m.box((0,.94,.183),(.069,.073,.03),'royal')
@@ -342,11 +368,14 @@ def ground_top(m,poly,y,color,depth=2,variation=1):
    ab=(a+b)*.5;bc=(b+c)*.5;ca=(c+a)*.5
    for tri in [(a,ab,ca),(ab,b,bc),(ca,bc,c),(ab,bc,ca)]:face(*tri,level-1)
   else:
-   centre=(a+b+c)/3
-   v=1+variation*(.022*math.sin(centre.x*.73+centre.y*.31)+.016*math.sin(centre.y*1.37-centre.x*.84))
    pts=[(p.x,y,p.y) for p in (a,b,c)]
    if (b-a).cross(c-a).z>0:pts.reverse()
-   m.face(pts,tint(color,v))
+   m.face(pts,color)
+   # Shared positions receive identical values across all neighbouring faces:
+   # continuous meadow mottling instead of one flat tint per large triangle.
+   for j,p in enumerate(pts):
+    v=1+variation*(.030*math.sin(p[0]*.73+p[2]*.31)+.020*math.sin(p[2]*1.37-p[0]*.84))
+    m.colors[-3+j]=tint(color,v)
  for tri in triangles:face(*[points[p] if isinstance(p,int) else p for p in tri],depth)
 
 def cliff_bank(m,poly,y0,y1,top='grass',depth=2,variation=1):
@@ -358,62 +387,67 @@ def cliff_bank(m,poly,y0,y1,top='grass',depth=2,variation=1):
  for i,a in enumerate(poly):
   b=poly[(i+1)%len(poly)];av,bv=Vector(a),Vector(b);n=max(1,math.ceil((bv-av).length/1.05))
   for j in range(n):edge.append(av.lerp(bv,j/n))
- # Variable ledges and hard planar normals are visible in the low navy wall.
- profile=[(y0,.14),(y0+(y1-y0)*.32,.07),(y0+(y1-y0)*.37,.13),(y0+(y1-y0)*.72,.025),(y0+(y1-y0)*.77,.080),(y1-.07,.016),(y1,0)]
+ # Broad broken faces use staggered heights and inward shoulders; no repeated
+ # horizontal colour rings. The final edge stays exactly on the logical top.
+ profile=[(y0,.32),(y0+(y1-y0)*.43,.09),(y1-.09,.026),(y1,0)]
  rings=[]
  for j,(height,inset) in enumerate(profile):
   row=[]
   for i,p in enumerate(edge):
-   q=p+(centre-p).normalized()*inset
-   h=height if j in (0,len(profile)-1) else height+.062*math.sin(i*.71)+.032*math.sin(i*1.73)
+   rough=.68+.55*(.5+.5*math.sin(i*1.63+j*.83))
+   q=p+(centre-p).normalized()*inset*rough
+   h=height if j in (0,len(profile)-1) else height+(y1-y0)*.12*math.sin(i*1.49+j*.63)
+   if j==len(profile)-2:h=min(y1-.038,h)
    row.append((q.x,h,q.y))
   rings.append(row)
  for j in range(len(rings)-1):
   for i in range(len(edge)):
    k=(i+1)%len(edge)
-   palette='grass_edge' if j==5 else ('cliff_rim' if j in (1,3) else 'cliff' if j==0 else 'cliff_mid')
-   if j in (1,3) and math.sin(i*.89+j*.77)<.12:palette='cliff_mid'
-   v=.94+.11*(.5+.5*math.sin(i*1.71+j*.91))
-   m.face([rings[j][i],rings[j+1][i],rings[j+1][k],rings[j][k]],tint(palette,v))
+   if j==len(rings)-2:
+    col=tint('grass_edge',.96+.025*math.sin(i*1.41))
+   else:
+    base=PAL['cliff_mid'];value=.94+.16*(.5+.5*math.sin(i*1.23+j*.73))
+    col=tuple(v*value for v in base[:3])+(1,)
+   q=[rings[j][i],rings[j+1][i],rings[j+1][k],rings[j][k]]
+   # Triangular chips alternate diagonals; lower points retreat into the cliff.
+   if i%2:
+    m.face([q[0],q[1],q[3]],col);m.face([q[1],q[2],q[3]],tint(col,1.025))
+   else:
+    m.face([q[0],q[1],q[2]],col);m.face([q[0],q[2],q[3]],tint(col,.975))
  ground_top(m,poly,y1,top,depth,variation)
 
+def convex_boulder(m,x,z,w,d,bottom,top,seed):
+ # A convex hull over offset, rotated, uneven shoulders produces irregular
+ # fractured planes. No bands or repeated concentric rock cylinders remain.
+ rng=random.Random(seed);height=top-bottom;n=8+(seed%3);points=[]
+ phase=rng.uniform(-.5,.5);lean=rng.uniform(-.14,.14)
+ for j,(level,radius) in enumerate([(0,.61),(.23,1),(.72,.91),(1,.54)]):
+  for i in range(n):
+   angle=phase+i*math.tau/n+j*.23+rng.uniform(-.11,.11)
+   r=radius*rng.uniform(.88,1.12)
+   yy=bottom if j==0 else bottom+height*(level+rng.uniform(-.065,.025))
+   points.append((x+math.cos(angle)*w*.5*r+lean*w*level,
+                  min(top,yy),z+math.sin(angle)*d*.5*r+math.sin(seed)*level*d*.055))
+ bm=bmesh.new()
+ for point in points:bm.verts.new(point)
+ bmesh.ops.convex_hull(bm,input=list(bm.verts),use_existing_faces=False)
+ bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.normal_update()
+ for f in bm.faces:
+  normal=f.normal;up=max(0,min(1,(normal.y-.18)/.58));noise=.95+rng.random()*.075
+  cool=PAL['sandstone_side'];warm=PAL['sandstone']
+  # Broad warm sloping upper facets transition to cool slate sides by direction,
+  # not by an artificial horizontal height boundary.
+  col=tuple((cool[k]*(1-up)+warm[k]*up)*noise for k in range(3))+(1,)
+  m.face([tuple(v.co) for v in f.verts],col)
+ bm.free()
+
 def rounded_sandstone(m,x,z,w,d,bottom,top,seed):
- # Seven uneven rings round the silhouette without smooth normals or textures.
- # Wide shelves and narrow dark seams read as worn sedimentary beds, not boxes.
- rng=random.Random(seed);n=11;phase=rng.random()*.5;height=top-bottom
- facets=[.91+rng.random()*.14 for _ in range(n)]
- levels=[(0,.72),(.10,.96),(.31,1),(.34,.93),(.60,.92),(.64,.97),(.86,.89),(1,.66)]
- rows=[]
- for j,(h,r) in enumerate(levels):
-  row=[]
-  for i in range(n):
-   a=i*math.tau/n+phase
-   wobble=(math.sin(i*1.9+seed*.7)+math.cos(i*2.1+seed))*.025
-   yy=bottom+height*(h+(0 if j==0 else wobble*(.55 if j==len(levels)-1 else 1)))
-   row.append((x+math.cos(a)*w*.5*r*facets[i]+h*.12*w,yy,z+math.sin(a)*d*.5*r*facets[i]))
-  rows.append(row)
- for j in range(len(rows)-1):
-  for i in range(n):
-   k=(i+1)%n;angle=i*math.tau/n+phase
-   # Warm bevels face the sun; cold grey-blue sides keep the temperature split.
-   if j==len(rows)-2:
-    col=(.80,.72,.64,1);shade=.95+.055*math.cos(angle-.7)
-   elif j in (2,4):
-    col=(.43,.49,.53,1);shade=.93+.055*math.cos(angle-.7)
-   else:
-    col=(.49+j*.014,.55+j*.012,.60+j*.010,1);shade=.92+.10*math.cos(angle-.7)
-   c=tuple(min(1,t*shade) for t in col[:3])+(1,)
-   m.face([rows[j][i],rows[j+1][i],rows[j+1][k],rows[j][k]],c)
- center=(x+.12*w,top-height*.007,z)
- for i in range(n):
-  # Fan facets softly vary the smaller cream cap instead of one giant flat face.
-  shade=.97+.035*math.sin(i*1.7+seed)
-  m.face([center,rows[-1][(i+1)%n],rows[-1][i]],tint('sandstone',shade))
+ convex_boulder(m,x,z,w,d,bottom,top,seed)
 
 def terrain():
  m=MeshMaker('terrain')
  # Wide desktop exposes this 60 m background: keep its facets almost invisible.
- cliff_bank(m,[(-30,-30),(30,-30),(30,30),(-30,30)],-2,-1.52,'grass_dark',3,.30)
+ cliff_bank(m,[(-80,-80),(80,-80),(80,80),(-80,80)],-2,-1.52,'grass_dark',5,.65)
  cliff_bank(m,PLATEAU,-1.5,1.20,'grass',3)
  # Broad flowing yellow canyon floor. Separate facets at curves; no expensive textures.
  m.poly_extrude([(2.05,6.35),(6.45,6.35),(6.45,11.0),(2.05,11.0)],-1.5,.245,'path','cliff')
@@ -429,12 +463,18 @@ def terrain():
   if -1.35 < (path[i][0]+path[i+1][0])*.5 < 1.35 and (path[i][1]+path[i+1][1])*.5 < -6.3:continue
   a,b,c,d=left[i],right[i],right[i+1],left[i+1]
   # Lighter compacted track in the centre, darker weathered shoulders.
-  spans=[(-1.0,-.92),(-.92,-.80),(-.80,.80),(.80,.92),(.92,1.0)]
+  spans=[(-1,-.94),(-.94,-.82),(-.82,-.59),(-.59,-.55),(-.55,-.51),(-.51,0),(0,.51),(.51,.55),(.55,.59),(.59,.82),(.82,.94),(.94,1)]
+  def road_color(t):
+   feather=max(0,min(1,(abs(t)-.82)/.18))
+   r=PAL['path'];g=PAL['grass_light']
+   centre=1.025-.028*abs(t)
+   rut=1-.09*max(0,1-abs(abs(t)-.55)/.04)
+   return tuple((r[k]*centre*rut*(1-feather)+g[k]*feather) for k in range(3))+(1,)
   for lo,hi in spans:
    av,bv,cv,dv=Vector(a),Vector(b),Vector(c),Vector(d)
    q=[av.lerp(bv,(lo+1)*.5),av.lerp(bv,(hi+1)*.5),dv.lerp(cv,(hi+1)*.5),dv.lerp(cv,(lo+1)*.5)]
-   shade=(1.022 if lo==-.80 else .96 if abs(lo)==.92 else .91)+.009*math.sin(i*1.8)
-   m.face([(p.x,.25,p.y) for p in reversed(q)],tint('path',shade))
+   m.face([(p.x,.25,p.y) for p in reversed(q)],'path')
+   m.colors[-4:]=[road_color(lo),road_color(hi),road_color(hi),road_color(lo)]
   for side in [left,right]:
    a,b=side[i],side[i+1]
    m.face([(a[0],-.60,a[1]),(b[0],-.60,b[1]),(b[0],.25,b[1]),(a[0],.25,a[1])],'cliff_light')
@@ -449,12 +489,15 @@ def terrain():
   # With clockwise traversal, left lies outside of the U.
   a,b,c,d=left[i],left[i+1],outer[i+1],outer[i]
   m.face([(d[0],.48,d[1]),(c[0],.48,c[1]),(b[0],.48,b[1]),(a[0],.48,a[1])],tint('grass_light',.975+.023*math.sin(i*.84)))
-  # Three broad beds with narrow rock ledges on the front retaining cliff.
-  for j,(bottom,upper) in enumerate([(-1.52,-.83),(-.83,-.77),(-.77,-.14),(-.14,-.07),(-.07,.41),(.41,.48)]):
-   col='grass_edge' if j==5 else 'cliff_rim' if j in (1,3) else 'cliff'
-   if j in (1,3) and math.sin(i*.68+j*.77)<.12:col='cliff'
-   def height(h,k):return h if h in (-1.52,.48) else h+.043*math.sin(k*.57)+.021*math.sin(k*1.51)
-   m.face([(d[0],height(bottom,i),d[1]),(c[0],height(bottom,i+1),c[1]),(c[0],height(upper,i+1),c[1]),(d[0],height(upper,i),d[1])],tint(col,.91+.11*(.5+.5*math.sin(i*1.32))))
+  # Two asymmetric strata form broad diagonal cliff planes. Colours vary by
+  # segment, rather than making dark/bright ribbons around the entire island.
+  def rim_y(level,k):
+   return (.43 if level==.42 else level) if level in (-1.52,.42,.48) else level+.24*math.sin(k*.91)+.11*math.sin(k*1.87)
+  for j,(bottom,upper) in enumerate([(-1.52,-.54),(-.54,.42),(.42,.48)]):
+   col=tint('grass_edge' if j==2 else 'cliff_mid',.92+.14*(.5+.5*math.sin(i*1.37+j*.19)))
+   q=[(d[0],rim_y(bottom,i),d[1]),(c[0],rim_y(bottom,i+1),c[1]),(c[0],rim_y(upper,i+1),c[1]),(d[0],rim_y(upper,i),d[1])]
+   if j==2:q=[(d[0],.43,d[1]),(c[0],.43,c[1]),(c[0],.48,c[1]),(d[0],.48,d[1])]
+   m.face([q[0],q[1],q[2]],col);m.face([q[0],q[2],q[3]],tint(col,1.018))
  # Background cliff masses frame the two entry gates without covering the map.
  cliff_bank(m,[(-10,4),(-5.7,4),(-5.65,5.25),(-3.5,7),(-.5,9),(-1,14),(-10,14)],-1.5,3.1,'grass_dark',2)
  cliff_bank(m,[(7.1,5.0),(9,5),(13,9),(13,16),(6.9,16)],-1.5,1.2,'grass_dark',2)
@@ -514,7 +557,7 @@ def make_preview():
   t=(i//4)/13;copy_asset('soldier_blue',-4.0+(i%4-1.5)*.15,.25,-2.6-t*3.0,1,180)
  world=bpy.context.scene.world;world.color=(.3,.3,.3);world.use_nodes=True;world.node_tree.nodes['Background'].inputs[0].default_value=(.38,.50,.56,1);world.node_tree.nodes['Background'].inputs[1].default_value=.65
  sun=bpy.data.lights.new('Sun','SUN');sun.energy=2.0;sun.color=(1,.91,.76);sun.angle=.16;light=bpy.data.objects.new('Sun',sun);bpy.context.collection.objects.link(light);light.rotation_euler=(math.radians(25),math.radians(-25),math.radians(-25))
- camd=bpy.data.cameras.new('Camera');cam=bpy.data.objects.new('Camera',camd);bpy.context.collection.objects.link(cam);target=Vector(bcoord((0,0,0)));cam.location=bcoord((4.0,20,-18));cam.rotation_euler=(target-cam.location).to_track_quat('-Z','Y').to_euler();camd.type='ORTHO';camd.ortho_scale=21.5;bpy.context.scene.camera=cam
+ camd=bpy.data.cameras.new('Camera');cam=bpy.data.objects.new('Camera',camd);bpy.context.collection.objects.link(cam);target=Vector(bcoord((0,0,0)));cam.location=bcoord((2.0,27.8,-19.46));cam.rotation_euler=(target-cam.location).to_track_quat('-Z','Y').to_euler();camd.type='PERSP';camd.lens_unit='FOV';camd.angle=math.radians(32);bpy.context.scene.camera=cam
  scene=bpy.context.scene;scene.render.engine='CYCLES';scene.cycles.samples=16;scene.render.resolution_x=820;scene.render.resolution_y=1180;scene.render.resolution_percentage=100;scene.view_settings.view_transform='Standard';scene.render.image_settings.file_format='PNG';scene.render.filepath=str(HERE/'world-preview.png');scene.render.film_transparent=False
  bpy.context.preferences.filepaths.save_version=0
  bpy.ops.wm.save_as_mainfile(filepath=str(HERE/'hyeopgok-assets.blend'))
@@ -539,7 +582,9 @@ soldier();soldier(True);king();crossbow()
 exec(compile((HERE/'phase1_models.py').read_text(),str(HERE/'phase1_models.py'),'exec'))
 build_phase1_models();m=tower_stage(2,'tower',False);crossbow(m,1.62);emit(m)
 tree();broadleaf();rock();terrain();bolt()
+exec(compile((HERE/'art_r1_models.py').read_text(),str(HERE/'art_r1_models.py'),'exec'))
+build_art_r1_models()
 # Upgrade aliases deliberately replace legacy IDs; retain only final manifest entries.
 ASSETS[:]=list({a['id']:a for a in ASSETS}.values())
-(HERE/'model-manifest.json').write_text(json.dumps({'license':'Original procedural art created for this game; no third-party assets','axes':'Unity x right / y up / z forward. FBX -Z forward +Y up bake transforms.','color':'COLOR sRGB authored values; alpha0 teamColor * RGB, alpha1 fixed RGB','palette':PAL,'path_control_points':PATH_POINTS,'plateau_polygon':PLATEAU,'left_approach':{'x':[-5.5,-3.25],'z':[-1.15,3.0],'top_y':.245,'castle':[-4.4,.25,2.0],'castle_scale':.9,'barracks':[-4.1,.25,-.30],'barracks_scale':.85,'building_yaw':180},'assets':ASSETS},indent=2,ensure_ascii=False)+'\n')
+(HERE/'model-manifest.json').write_text(json.dumps({'license':'Original procedural art created for this game; no third-party assets','axes':'Unity x right / y up / z forward. FBX -Z forward +Y up bake transforms.','color':'COLOR RGB sRGB authored base; alpha Blender ray-baked AO. UV0.x legacy team mask (0 team / 1 fixed); UV0.y=1 baked marker','palette':PAL,'path_control_points':PATH_POINTS,'plateau_polygon':PLATEAU,'left_approach':{'x':[-5.5,-3.25],'z':[-1.15,3.0],'top_y':.245,'castle':[-4.4,.25,2.0],'castle_scale':.9,'barracks':[-4.1,.25,-.30],'barracks_scale':.85,'building_yaw':180},'assets':ASSETS},indent=2,ensure_ascii=False)+'\n')
 make_preview()

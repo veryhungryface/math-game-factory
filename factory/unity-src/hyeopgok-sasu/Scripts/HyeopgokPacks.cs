@@ -6,11 +6,11 @@ using UnityEngine;
 namespace Mgf.HyeopgokSasu
 {
     [Serializable] public sealed class PackIndex { public string default_pack; public PackEntry[] packs; }
-    [Serializable] public sealed class PackEntry { public string pack_id, title, file; }
+    [Serializable] public sealed class PackEntry { public string pack_id, title, file, school; public int grade, semester, unit_order; }
     [Serializable] public sealed class PackEconomy { public int carry_capacity,coin_per_kill,min_spawn_coins; }
     [Serializable] public sealed class QuestionPack {
         public string pack_id,title,school,unit_id;
-        public int schema_version,grade,semester;
+        public int schema_version,grade,semester,unit_order;
         public bool has_economy;
         public string[] standards;
         public PackEconomy economy;

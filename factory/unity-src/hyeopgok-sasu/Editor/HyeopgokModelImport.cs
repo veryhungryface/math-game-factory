@@ -5,10 +5,12 @@ namespace Mgf.HyeopgokSasu.Editor
 {
     // Source FBX assets use metres, +Y up / +Z forward, one vertex-colour submesh.
     // Readability is required for the shared instanced troop mesh and diagnostics.
+    // FBX COLOR alpha is Blender-baked AO; UV0.x is team mask, UV0.y=1 marks it.
+    // Keep both channels intact when correcting FBX handedness.
     public sealed class HyeopgokModelImport : AssetPostprocessor
     {
         // Version bump invalidates the imported FBX cache when this correction changes.
-        public override uint GetVersion() { return 2; }
+        public override uint GetVersion() { return 3; }
 
         void OnPreprocessModel()
         {

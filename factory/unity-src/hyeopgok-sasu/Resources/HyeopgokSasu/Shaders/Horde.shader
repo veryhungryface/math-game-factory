@@ -1,5 +1,5 @@
-// Original flat-shaded army material. Vertex alpha is a *team mask*, not opacity.
-// alpha 0: white/shaded team cloth; alpha 1: fixed skin, wood and metal palette.
+// Blender AO is baked in COLOR.a; UV0=(teamMask,1) marks baked models.
+// Procedural FX without UV retain legacy COLOR.a team-mask compatibility.
 Shader "Mgf/HyeopgokHorde"
 {
     Properties
@@ -19,6 +19,7 @@ Shader "Mgf/HyeopgokHorde"
             #pragma fragment frag
             #pragma target 3.5
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
             #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap novertexlight
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
@@ -32,6 +33,7 @@ Shader "Mgf/HyeopgokHorde"
                 float4 vertex : POSITION;
                 float3 normal : NORMAL;
                 fixed4 color : COLOR;
+                float2 bake : TEXCOORD0;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             struct v2f
@@ -41,6 +43,8 @@ Shader "Mgf/HyeopgokHorde"
                 float3 worldPos : TEXCOORD0;
                 half3 worldNormal : TEXCOORD1;
                 SHADOW_COORDS(2)
+                UNITY_FOG_COORDS(3)
+                half paintedArmor : TEXCOORD4;
             };
             v2f vert(appdata v)
             {
@@ -55,9 +59,14 @@ Shader "Mgf/HyeopgokHorde"
                 #ifndef UNITY_COLORSPACE_GAMMA
                     authored = GammaToLinearSpace(authored);
                 #endif
-                fixed3 baseColor = lerp(_Color.rgb * authored, authored, v.color.a);
-                o.color = baseColor;
+                half baked=step(.5,v.bake.y);
+                half teamMask=lerp(v.color.a,v.bake.x,baked);
+                half ao=lerp(1,v.color.a,baked);
+                o.paintedArmor=(1-teamMask)*baked;
+                fixed3 baseColor = lerp(_Color.rgb * authored, authored, teamMask);
+                o.color = baseColor * ao;
                 TRANSFER_SHADOW(o);
+                UNITY_TRANSFER_FOG(o,o.pos);
                 return o;
             }
             fixed4 frag(v2f i) : SV_Target
@@ -68,10 +77,14 @@ Shader "Mgf/HyeopgokHorde"
                 // Cool skylight on side facets, warm key on the upper planes.
                 // Keep one forward pass and the existing instancing/team-mask contract.
                 half sky = saturate(normal.y * .5 + .5);
-                half3 ambient = lerp(half3(.20,.25,.29), half3(.43,.48,.48), sky);
-                half3 lit = (ambient + .73 * diffuse * attenuation * _LightColor0.rgb) * _HyeopgokNightTint.rgb;
+                half3 ambient = lerp(half3(.080,.170,.140), half3(.300,.410,.400), sky);
+                half3 lit = (ambient + .85 * diffuse * attenuation * _LightColor0.rgb) * _HyeopgokNightTint.rgb;
+                half3 halfVector=normalize(normalize(_WorldSpaceLightPos0.xyz)+normalize(_WorldSpaceCameraPos-i.worldPos));
+                half armorGleam=pow(saturate(dot(normal,halfVector)),18)*.045*i.paintedArmor*attenuation;
                 half3 light = lerp(lit, half3(1,1,1), _Unlit);
-                return fixed4(lerp(i.color*light,fixed3(1,.97,.77),_Flash),1);
+                fixed4 result=fixed4(lerp(i.color*light+armorGleam,fixed3(1,.985,.94),_Flash),1);
+                UNITY_APPLY_FOG(i.fogCoord,result);
+                return result;
             }
             ENDCG
         }

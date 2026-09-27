@@ -349,7 +349,10 @@ namespace Mgf.HyeopgokSasu
             bool legacy=Compatibility(),accept=AcceptanceFixtures(),coinEdges=CoinInteractionRegressions(),choiceEquivalence=ChoiceEquivalenceRegressions();
             bool packValidation=RuntimeValidationRegressions(repo,out PackValidationCase[] packValidationCases);var uniform=ExhaustUniformPaths(packs,domains);
             var report=new Report{nominalChanceGate=nominal,uniformChanceGate=uniform.exactUniformChance,uniformPaths=uniform,controlsPassed=controls,v1CompatibilityPassed=legacy,acceptModesPassed=accept,modelErrors=errorCount,coinInteractionRegressionsPassed=coinEdges,choiceEquivalenceRegressionsPassed=choiceEquivalence,runtimePackValidationPassed=packValidation,runtimePackValidation=packValidationCases,results=rows.ToArray(),domains=domains.ToArray(),failures=Failures.ToArray()};
-            string source=Path.Combine(repo,"factory/unity-src/hyeopgok-sasu"),output=Path.Combine(source,"ArtSource/validation/phase2");Directory.CreateDirectory(output);
+            string source=Path.Combine(repo,"factory/unity-src/hyeopgok-sasu"),output=Path.Combine(source,"ArtSource/validation/phase2");
+            string validationOutput=Environment.GetEnvironmentVariable("MGF_HYEOPGOK_VALIDATION_OUT");
+            if(!string.IsNullOrEmpty(validationOutput))output=Path.GetFullPath(validationOutput);
+            Directory.CreateDirectory(output);
             File.WriteAllText(Path.Combine(output,"bot-results.json"),JsonUtility.ToJson(report,true)+"\n");
             var md=new StringBuilder("# 협곡 사수 — 2단계 코인 붓기 봇\n\n");
             md.AppendLine("- 고정 시드 **20260926 + 판 번호**, 각 팩·전략 **200판**. 시드·표본 수를 결과에 맞춰 고르지 않았다.");
@@ -375,7 +378,7 @@ namespace Mgf.HyeopgokSasu
             md.AppendLine("- 대조군: **"+(controls?"통과":"실패")+"**, 모델 오류 **"+errorCount+"건**. 유한 무작위 표본은 기대값을 넘을 수 있으며, 기대값 증명을 원시 초과의 대체 통과로 쓰지 않는다.");
             md.AppendLine("- 이전 1단계 결과는 git 이력과 `validation/bot-results.json`에 남겨 두며 이번 결과는 `validation/phase2/bot-results.json`이다. 실제 화면·입력·전투·성능 증거와 구별한다.");
             foreach(string failure in Failures)md.AppendLine("- 오류: "+failure);
-            File.WriteAllText(Path.Combine(source,"ArtSource/bot-results.md"),md.ToString());
+            File.WriteAllText(string.IsNullOrEmpty(validationOutput)?Path.Combine(source,"ArtSource/bot-results.md"):Path.Combine(output,"bot-results.md"),md.ToString());
             Debug.Log("HYEOPGOK_PHASE2_BOTS "+JsonUtility.ToJson(report));
             EditorApplication.Exit(errorCount>0||!controls||!legacy||!accept||!coinEdges||!choiceEquivalence||!packValidation||!uniform.exactUniformChance?1:nominal?0:2);
         }

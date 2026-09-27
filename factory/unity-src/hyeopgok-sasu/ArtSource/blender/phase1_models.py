@@ -9,19 +9,54 @@ def diamond_badge(m,x,y,z,r=.16,color='gold_light'):
  m.face([(x,y+r*1.3,z+.002),(x+r,y,z+.002),(x,y-r*1.3,z+.002),(x-r,y,z+.002)],color)
  m.box((x,y,z+.014),(.034,r*1.05,.026),'ivory')
 
+def slate_tile(m,center,size,color,rot):
+ # Eight-corner slate with a bevelled lip, kept within the previous tile bounds.
+ sx,sy,sz=[v*.5 for v in size];cut=min(sx,sz)*.23
+ footprint=[(-sx+cut,-sz),(sx-cut,-sz),(sx,-sz+cut),(sx,sz-cut),(sx-cut,sz),(-sx+cut,sz),(-sx,sz-cut),(-sx,-sz+cut)]
+ c=Vector(center)
+ bottom=[c+rot@Vector((x,-sy,z)) for x,z in footprint]
+ top=[c+rot@Vector((x*.96,sy,z*.965)) for x,z in footprint]
+ m.face(bottom,tint(color,.66));m.face(list(reversed(top)),color)
+ for i in range(8):m.face([bottom[i],top[i],top[(i+1)%8],bottom[(i+1)%8]],tint(color,.83))
+
+def hanging_standard(m,position,width,height,angle=0):
+ # A cloth fold and swallowtail cut produce a readable silhouette in one mesh.
+ rot=Matrix.Rotation(angle,3,'Y');origin=Vector(position)
+ def p(x,y,z):return origin+rot@Vector((x,y,z))
+ xs=[-.5,-.25,0,.25,.5];top=[];bottom=[]
+ for i,x in enumerate(xs):
+  fold=.022*math.cos(i*math.pi*.65)
+  top.append(p(x*width,0,fold));bottom.append(p(x*width,-height+(.10 if i==2 else 0),fold+.012))
+ for i in range(4):
+  color=tint('royal',.88 if i%2 else 1.05)
+  q=[top[i],bottom[i],bottom[i+1],top[i+1]];m.face(q,color);m.face(list(reversed(q)),color)
+  m.beam(bottom[i],bottom[i+1],.023,.017,'gold')
+ m.beam(top[0],top[-1],.045,.045,'gold_shadow')
+
 def tiled_roof(m,y,w,d,h,stage=3,enemy=False):
- col='red_shadow' if enemy else ('straw' if stage==1 else 'wood' if stage==2 else 'roof')
+ col='red_shadow' if enemy else ('straw' if stage==1 else 'roof')
  m.wedge((0,y,0),(w,h,d),col)
- # A few broad offset slate courses retain a handmade read when minified.
+ # Stage 2 is already the finished blue settlement; stage 3 has brighter
+ # individually bevelled slate and brass ridge ends, never a brown placeholder.
  for side in [-1,1]:
-  for row in range(3):
-   xx=side*(row+.48)*w/6
-   yy=y+h*.5-(row+.48)*h/3+.024
-   for col_i in range(4):
-    zz=(col_i-1.5)*d/4+(row%2-.5)*.025
-    color='red' if enemy else ('straw_light' if stage==1 else 'wood_light' if stage==2 else 'royal')
-    m.box((xx,yy,zz),(w/5.7,.038,d/4-.014),color,Matrix.Rotation(side*math.atan2(-h,w*.5),3,'Z'))
- m.box((0,y+h*.5+.034,0),(.13,.10,d+.10),'red_shadow' if enemy else 'wood_gold')
+  for row in range(4):
+   xx=side*(row+.48)*w/8
+   yy=y+h*.5-(row+.48)*h/4+.026
+   for col_i in range(5):
+    zz=(col_i-2)*d/5+(row%2-.5)*.022
+    base='red' if enemy else ('straw_light' if stage==1 else 'royal')
+    brightness=(.98 if stage==3 else .87)+.055*math.sin(row*1.77+col_i*2.41+side)
+    color=tint(base,brightness) if stage>1 else base
+    rotation=Matrix.Rotation(side*math.atan2(-h,w*.5),3,'Z')
+    if stage==1:m.box((xx,yy,zz),(w/7.55,.044,d/5-.016),color,rotation)
+    else:slate_tile(m,(xx,yy,zz),(w/7.55,.044,d/5-.016),color,rotation)
+ if stage==1:m.box((0,y+h*.5+.034,0),(.13,.10,d+.10),'wood_gold')
+ else:
+  m.box((0,y+h*.5+.018,0),(.14,.064,d+.10),'roof')
+  for k in range(7):
+   m.wedge((0,y+h*.5+.051,(k-3)*d/7),(.19,.09,d/7-.013),tint('royal',.95+.035*(k%2)))
+  if stage==3:
+   for z in [-d*.5,d*.5]:m.box((0,y+h*.5+.061,z),(.19,.07,.07),'gold')
 
 def tower_stage(stage,name=None,export=True):
  m=MeshMaker(name or 'tower_base_l'+str(stage))
@@ -42,18 +77,22 @@ def tower_stage(stage,name=None,export=True):
   m.box((0,.10,0),(1.14,.20,1.08),'stone_shadow')
   m.box((0,.24,0),(1.04,.10,1.0),'stone_light')
   if stage==2:m.box((0,.86,0),(.80,1.16,.78),'stone')
-  else:m.cylinder((0,.83,0),.54,1.10,'stone',n=8)
+  else:m.cylinder((0,.83,0),.49,1.10,'stone',n=8)
   for y in [.54,.91,1.24]:
    m.box((0,y,.406),(.80,.027,.014),'stone_shadow')
    m.box((.406,y,0),(.014,.027,.79),'stone_shadow')
   for x,y in [(-.21,.36),(.18,.72),(-.17,1.07)]:m.box((x,y,.417),(.026,.31,.018),'stone_shadow')
+  for y in [.43,.79,1.14]:
+   for x in [-.385,.385]:m.box((x,y,.385),(.13,.19,.13),'stone_light')
   m.box((0,1.40,0),(1.11,.18,1.06),'stone_light')
   m.box((0,1.52,0),(1.0,.065,.95),'mortar')
   for x in [-.44,.44]:
    for z in [-.43,.43]:m.box((x,1.65,z),(.22,.24,.22),'stone_light')
   m.box((0,1.00,.433),(.33,.68,.025),'royal')
   m.box((0,.71,.447),(.33,.032,.022),'gold')
-  diamond_badge(m,0,1.02,.454,.095)
+  hanging_standard(m,(0,1.34,.505 if stage==3 else .456),.40,.75)
+  hanging_standard(m,(.505 if stage==3 else .448,1.30,0),.34,.63,math.pi*.5)
+  diamond_badge(m,0,1.02,.512,.095)
   if stage==3:
    for x in [-.43,.43]:
     m.box((x,1.45,0),(.10,.065,.91),'gold')
@@ -67,6 +106,11 @@ def barracks_stage(stage,name=None):
  m.box((0,.07,0),(1.5,.14,1.30),'stone_shadow')
  m.box((0,.22,0),(1.35,.17,1.15),'wood' if stage==1 else 'stone_light')
  m.box((0,.68,0),(1.18,.81,.94),'plaster' if stage>1 else 'wood_light')
+ if stage>1:
+  for y in [.35,.54]:
+   for x in [-.53,-.24,.07,.38]:m.box((x,y,-.477),(.255,.12,.035),'stone' if y<.4 else 'stone_light')
+  for side in [-1,1]:
+   for j in range(3):m.box((side*.598,.38,-.28+j*.29),(.038,.15,.235),'stone')
  # Big dark doorway, wooden lintel, short steps and dressed corners.
  m.box((0,.53,.482),(.45,.73,.029),'black')
  for x in [-.27,.27]:m.box((x,.57,.51),(.10,.83,.11),'wood')
@@ -86,9 +130,15 @@ def barracks_stage(stage,name=None):
   m.box((-.43,1.54,-.35),(.18,.50,.20),'stone_shadow')
   m.box((-.43,1.80,-.35),(.25,.09,.26),'stone_light')
   for z in [-.38,-.10,.18,.46]:m.box((.56,1.0,z),(.04,.08,.055),'gold')
+  hanging_standard(m,(.49,.97,.537),.20,.46)
+  for x in [-.55,.55]:m.beam((x,.78,.47),(x,1.03,.62),.055,.06,'wood_gold')
  if stage==3:
   # A secondary porch reads clearly as a final upgrade without growing footprint.
   m.wedge((0,1.01,.60),(.78,.26,.58),'roof')
+  for side in [-1,1]:
+   for row in range(2):
+    for col_i in range(3):
+     slate_tile(m,(side*(row+.48)*.78/4,1.14-(row+.48)*.13+.018,.60+(col_i-1)*.18),(.205,.035,.17),tint('royal',1.02+.04*(col_i%2)),Matrix.Rotation(side*math.atan2(-.26,.39),3,'Z'))
   for x in [-.34,.34]:m.box((x,.55,.80),(.075,.86,.08),'stone_light')
   m.box((.63,1.16,-.22),(.065,.65,.065),'wood_gold')
   m.box((.67,1.28,-.21),(.025,.37,.41),'royal')
@@ -146,6 +196,9 @@ def enemy_portal():
  for side in [-1,1]:
   for row in range(3):
    m.box((side*(row+.45)*.25,2.42-(row+.45)*.185,.005),(.25,.035,.98),'red',Matrix.Rotation(-side*.65,3,'Z'))
+ for x in [-.48,.48]:
+  m.face([(x-.13,1.66,.35),(x+.13,1.66,.35),(x+.12,1.25,.39),(x,1.15,.405),(x-.12,1.25,.39)],'red_shadow')
+  m.beam((x-.15,1.67,.36),(x+.15,1.67,.36),.04,.04,'gold_shadow')
  m.box((0,1.99,.49),(.52,.40,.055),'wood')
  diamond_badge(m,0,1.99,.527,.145,'ivory')
  # Open arch means the two spawn streams have a visually honest entrance.
@@ -181,18 +234,19 @@ def giant_unit(boss=False):
  def p(x,y,z):return(x*s,y*s,z*s)
  def box(c,size,col):m.box(p(*c),tuple(v*s for v in size),col)
  def beam(a,b,w,d,col):m.beam(p(*a),p(*b),w*s,d*s,col)
+ def rounded(c,size,col):m.capsule_box(p(*c),tuple(v*s for v in size),col)
  for x in [-.20,.20]:
-  box((x,.12,.035),(.30,.24,.42),'steel_dark')
-  box((x,.38,0),(.26,.31,.28),'red_shadow')
+  rounded((x,.12,.035),(.30,.24,.42),'steel_dark')
+  rounded((x,.38,0),(.26,.31,.28),'red_shadow')
  m.cylinder(p(0,.91,0),.47*s,.69*s,'red_shadow',n=6,radius_top=.53*s)
  box((0,.68,.34),(.72,.10,.08),'leather')
  box((0,.69,.395),(.18,.16,.045),'gold')
  for side in [-1,1]:
-  m.cylinder(p(side*.48,1.14,0),.22*s,.27*s,'steel_dark',n=5)
-  beam((side*.50,1.09,0),(side*.66,.75,.16),.25,.25,'giant_skin')
-  box((side*.66,.72,.18),(.27,.24,.28),'red' if boss else 'giant_skin')
+  rounded((side*.48,1.14,0),(.44,.27,.44),'steel_dark')
+  m.capsule_beam(p(side*.50,1.09,0),p(side*.66,.75,.16),.25*s,.25*s,'giant_skin')
+  rounded((side*.66,.72,.18),(.27,.24,.28),'red' if boss else 'giant_skin')
  m.cylinder(p(0,1.51,.02),.265*s,.37*s,'giant_skin',n=8)
- m.rings(p(0,0,0),[(1.67*s,.31*s),(1.86*s,.28*s),(1.95*s,.15*s)],'steel_dark',n=6)
+ m.rings(p(0,0,0),[(1.67*s,.31*s),(1.80*s,.31*s),(1.91*s,.235*s),(1.95*s,.15*s)],'steel_dark',n=8)
  # Broad split visor differs from the reference's bare head and black hair.
  box((0,1.64,.267),(.50,.12,.045),'red_shadow')
  box((-.115,1.65,.298),(.125,.026,.017),'ivory');box((.115,1.65,.298),(.125,.026,.017),'ivory')
@@ -253,6 +307,7 @@ def prop_assets():
    x=(i-3)*.24;h=(.38 if i in (2,3,5) else .69) if damaged else .90+.06*math.sin(i*2)
    m.cylinder((x,h*.5,0),.115,h,'wood' if damaged else 'wood_light',n=5)
    m.cylinder((x,h+.105,0),.116,.21,'wood_gold',n=5,radius_top=0)
+   if not damaged:m.cylinder((x,h-.11,0),.119,.16,'royal',n=5)
   for y in [.22,.57]:m.box((0,y,-.083),(1.64,.07,.09),'wood')
   for x in [-.58,0,.58]:m.beam((x,.1,.43),(x,.49,.14),.11,.105,'wood')
   emit(m)

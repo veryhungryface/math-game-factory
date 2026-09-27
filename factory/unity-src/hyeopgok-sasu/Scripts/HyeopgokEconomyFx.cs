@@ -17,7 +17,7 @@ namespace Mgf.HyeopgokSasu
         public int Coins=>rules==null?0:rules.Coins;
         public int Remaining=>rules==null?0:rules.TotalPoured;
         public bool Depositing=>labelTime>0;
-        public HyeopgokEconomyFx(Camera cam,Shader shader){camera=cam;coin=HyeopgokImpact.MakeCoin();gold=new Material(shader);gold.SetColor("_Color",new Color(.95f,.69f,.035f));gold.SetFloat("_Unlit",.65f);gold.enableInstancing=true;}
+        public HyeopgokEconomyFx(Camera cam,Shader shader){camera=cam;coin=HyeopgokImpact.MakeCoin();gold=new Material(shader);gold.SetColor("_Color",MgfLook.Hex("#F2B705").linear);gold.SetFloat("_Unlit",.65f);gold.enableInstancing=true;}
         public void SetKing(Transform value){king=value;}
         public void SetRules(HyeopgokRules value){rules=value;}
         public void Clear(){for(int i=0;i<Cap;i++)coins[i].mode=0;cursor=0;labelTime=0;rng=0x843aad3u;}
@@ -44,7 +44,7 @@ namespace Mgf.HyeopgokSasu
                 if(c.mode==3){c.flight+=dt*2.8f;float t=Mathf.Clamp01(c.flight);c.position=Vector3.Lerp(c.origin,backpack,t*t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*1.15f;
                     if(t>=1){if(rules!=null&&rules.AddCoins(HyeopgokRules.CoinPerKill)>0)c.mode=0;else{c.mode=2;c.position=c.origin;}coins[i]=c;continue;}}
                 else if(c.mode==4){float t=Mathf.Clamp01(c.age/.38f);c.position=Vector3.Lerp(c.origin,c.target,t)+Vector3.up*Mathf.Sin(t*Mathf.PI)*.9f;if(t>=1){c.mode=0;coins[i]=c;continue;}}
-                if(draw)matrices[count++]=Matrix4x4.TRS(c.position,Quaternion.Euler(c.mode==2?90:c.age*390,c.spin,c.spin),Vector3.one*.25f);coins[i]=c;
+                if(draw)matrices[count++]=Matrix4x4.TRS(c.position,c.mode==2?Quaternion.Euler(90,c.spin,0):Quaternion.Euler(c.age*390,c.spin,c.spin),Vector3.one*.25f);coins[i]=c;
             }
             if(!draw)return;
             int stack=Mathf.Min(StackCap,Coins);

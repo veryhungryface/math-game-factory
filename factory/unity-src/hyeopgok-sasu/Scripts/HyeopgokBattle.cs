@@ -132,12 +132,12 @@ namespace Mgf.HyeopgokSasu
             if (initialized) return;
             renderCamera = cam;
             Shader shader = Resources.Load<Shader>("HyeopgokSasu/Shaders/Horde");
-            redMaterial = MakeMaterial(shader, new Color(.816f,.024f,.047f).linear, false);
-            blueMaterial = MakeMaterial(shader, new Color(.047f,.435f,.827f).linear, false);
+            redMaterial = MakeMaterial(shader, MgfLook.Hex("#D0060C").linear, false);
+            blueMaterial = MakeMaterial(shader, MgfLook.Hex("#0C73D5").linear, false);
             whiteMaterial = MakeMaterial(shader, new Color(1,.995f,.95f), true);
             goldMaterial = MakeMaterial(shader, new Color(1,.59f,.028f), true);
             dustMaterial = MakeMaterial(shader, new Color(.89f,.81f,.66f), true);
-            shadowMaterial = MakeMaterial(shader, new Color(.12f,.32f,.25f), true);
+            shadowMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Contact"));shadowMaterial.SetColor("_Color",new Color(.035f,.20f,.15f,.35f).linear);shadowMaterial.enableInstancing=true;
             silhouetteMaterial=MakeMaterial(shader,Color.white,true);silhouetteMaterial.SetFloat("_Flash",1);
             swordMaterial=MakeMaterial(shader,new Color(1,.08f,.18f),true);
             hpMaterial=MakeMaterial(shader,new Color(.91f,.08f,.09f),true);
@@ -263,7 +263,11 @@ namespace Mgf.HyeopgokSasu
             displayedBlues = blueCount;
         }
 
-        void Update()
+        void Update(){
+            long before=HyeopgokArtProbe.Begin();
+            try{UpdateArtFrame();}finally{HyeopgokArtProbe.End(1,before);}
+        }
+        void UpdateArtFrame()
         {
             if (!initialized) return;
             float realDt = Mathf.Min(Time.deltaTime, .04f);
@@ -271,7 +275,7 @@ namespace Mgf.HyeopgokSasu
             impactCooldown = Mathf.Max(0,impactCooldown-realDt);
             shake = Mathf.MoveTowards(shake, 0, realDt * .6f);
             flash = Mathf.MoveTowards(flash, 0, realDt * 9);
-            redMaterial.SetFloat("_Flash", flash * .68f);
+            redMaterial.SetFloat("_Flash", flash * .14f);
             hitStop -= realDt;
             float dt = hitStop > 0 ? 0 : realDt;
             clock += dt;
@@ -514,15 +518,16 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<redCount;i++)
             {
                 if(redS[i]<0)continue;
-                float lane=(i%RedLanes-3.5f)*.245f+Mathf.Sin(i*1.73f)*.028f;
+                float row=i/RedLanes;
+                float lane=(i%RedLanes-3.5f)*.245f*(1+Mathf.Sin(row*.77f)*.12f)+Mathf.Sin(i*1.73f)*.055f+Mathf.Sin(row*.53f)*.085f;
                 Vector3 direction;
                 Vector3 p=PathPosition(redS[i],lane,out direction);
-                p+=direction*(Mathf.Sin(i*2.113f)*.043f);
+                p+=direction*(Mathf.Sin(i*2.113f)*.09f);
                 float step=Mathf.Sin(clock*(enrage>0?16:11)+i*2.399f);
                 p.y+=.024f+Mathf.Abs(step)*.035f;
-                float yaw=Mathf.Atan2(direction.x,direction.z)*Mathf.Rad2Deg+Mathf.Sin(i*1.29f)*5.5f;
+                float yaw=Mathf.Atan2(direction.x,direction.z)*Mathf.Rad2Deg+Mathf.Sin(i*1.29f)*12f;
                 float attack=redS[i]>front-.8f?Mathf.Max(0,Mathf.Sin(clock*13+i))*16:0;
-                float size=(1+Mathf.Sin(i*2.71f)*.045f)*.9f;
+                float size=(1+Mathf.Sin(i*2.71f)*.075f)*.85f;
                 byte kind=redKinds[i];
                 Quaternion rotation=Quaternion.Euler(step*3+attack,yaw,step*5);
                 Matrix4x4 matrix=Matrix4x4.TRS(p,rotation,new Vector3(1.01f,1.035f+step*.035f,1.01f)*size);
@@ -532,7 +537,7 @@ namespace Mgf.HyeopgokSasu
                 else redMatrices[nr++]=matrix;
                 float shadowSize=kind>=2?.62f:.22f;
                 shadowMatrices[ns++]=Matrix4x4.TRS(new Vector3(p.x+.08f,GroundY+.005f,p.z-.08f),Quaternion.identity,new Vector3(shadowSize,1,shadowSize*.8f));
-                if(kind>=2&&hp<24)
+                if(kind>=2&&redS[i]>front-1.4f&&hp<24)
                 {
                     float height=kind==3?2.80f:2.10f;
                     Vector3 at=p+Vector3.up*height;
@@ -550,11 +555,11 @@ namespace Mgf.HyeopgokSasu
                 if(blueS[i]>pathLength)continue;
                 Vector3 direction;
                 Vector3 p=PathPosition(blueS[i],(i%BlueLanes-1.5f)*.285f+Mathf.Sin(i*1.31f)*.023f,out direction);
-                p+=direction*(Mathf.Sin(i*2.117f)*.035f);
+                p+=direction*(Mathf.Sin(i*2.117f)*.055f);
                 float step=Mathf.Sin(clock*12+i*2.399f);
                 p.y+=.02f+Mathf.Abs(step)*.035f;
-                float yaw=Mathf.Atan2(-direction.x,-direction.z)*Mathf.Rad2Deg+Mathf.Sin(i*1.37f)*4.5f;
-                float size=(1+Mathf.Sin(i*2.67f)*.035f)*.9f;
+                float yaw=Mathf.Atan2(-direction.x,-direction.z)*Mathf.Rad2Deg+Mathf.Sin(i*1.37f)*7f;
+                float size=(1+Mathf.Sin(i*2.67f)*.035f)*.85f;
                 float attack=blueS[i]<front+1?Mathf.Max(0,Mathf.Sin(clock*14+i))*18:0;
                 Matrix4x4 matrix=Matrix4x4.TRS(p,Quaternion.Euler(step*3+attack,yaw,step*5),new Vector3(.98f,1.055f+step*.04f,.98f)*size);
                 if(blueS[i]>pathLength-.52f)whiteBlueMatrices[wb++]=matrix;
@@ -568,7 +573,7 @@ namespace Mgf.HyeopgokSasu
             {
                 Corpse c=corpses[i];if(c.duration<=0||c.age>.22f)continue;
                 float t=c.age/.22f;
-                Matrix4x4 m=Matrix4x4.TRS(c.position,Quaternion.Euler(t*65,c.yaw+c.spin*t,t*20),Vector3.one*(.9f*Mathf.Min(1,(1-t)*2)));
+                Matrix4x4 m=Matrix4x4.TRS(c.position,Quaternion.Euler(t*65,c.yaw+c.spin*t,t*20),Vector3.one*(.85f*Mathf.Min(1,(1-t)*2)));
                 if(c.blue)whiteBlueMatrices[wb++]=m;
                 else if(c.kind==2)whiteGiantMatrices[wg++]=m;
                 else if(c.kind==3)whiteBossMatrices[wBoss++]=m;
@@ -768,7 +773,7 @@ namespace Mgf.HyeopgokSasu
             Vector3[] vertices=new Vector3[9];
             Color[] colors=new Color[9];
             int[] triangles=new int[24];
-            colors[0]=new Color(1,1,1,0);
+            colors[0]=Color.white;
             for(int i=0;i<8;i++)
             {
                 float t=i*Mathf.PI*.25f;

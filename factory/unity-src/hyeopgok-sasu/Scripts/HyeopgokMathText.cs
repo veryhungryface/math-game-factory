@@ -14,9 +14,13 @@ namespace Mgf.HyeopgokSasu
         readonly List<RectTransform> boxes=new List<RectTransform>();
         readonly List<F> fractions=new List<F>();
         static readonly Regex token=new Regex(@"\{frac:(-?\d+)/(\d+)\}");
+        string lastContent;float lastFont=-1,lastWidth=-1,lastHeight=-1;Color lastColor;
         public HyeopgokMathText(TextMeshProUGUI text){Text=text;}
         public void Set(string content)
         {
+            content=content??"";float width=Text.rectTransform.rect.width,height=Text.rectTransform.rect.height;
+            if(content==lastContent&&Text.fontSize==lastFont&&width==lastWidth&&height==lastHeight&&Text.color==lastColor)return;
+            lastContent=content;lastFont=Text.fontSize;lastWidth=width;lastHeight=height;lastColor=Text.color;
             foreach(var b in boxes)b.gameObject.SetActive(false);fractions.Clear();
             string result="";int end=0;
             foreach(Match m in token.Matches(content)){
@@ -45,12 +49,13 @@ namespace Mgf.HyeopgokSasu
                 box.gameObject.SetActive(true);box.anchorMin=box.anchorMax=new Vector2(.5f,.5f);box.pivot=new Vector2(.5f,.5f);
                 box.anchoredPosition=new Vector2(ch.origin+w*.5f,ch.baseLine+Text.fontSize*.3f);box.sizeDelta=new Vector2(w,Text.fontSize*1.3f);
                 var nT=box.GetChild(0).GetComponent<TextMeshProUGUI>();var dT=box.GetChild(1).GetComponent<TextMeshProUGUI>();
+                nT.font=dT.font=Text.font;nT.fontSharedMaterial=dT.fontSharedMaterial=Text.fontSharedMaterial;
                 nT.text=f.n;dT.text=f.d;nT.fontSize=dT.fontSize=Text.fontSize*.67f;nT.color=dT.color=Text.color;
                 nT.rectTransform.anchoredPosition=new Vector2(0,Text.fontSize*.35f);dT.rectTransform.anchoredPosition=new Vector2(0,-Text.fontSize*.35f);
                 nT.rectTransform.sizeDelta=dT.rectTransform.sizeDelta=new Vector2(w+5,Text.fontSize*.8f);
                 var bar=(RectTransform)box.GetChild(2);bar.anchoredPosition=Vector2.zero;bar.sizeDelta=new Vector2(w*.9f,Mathf.Max(1.8f,Text.fontSize*.07f));bar.GetComponent<Image>().color=Text.color;
             }
         }
-        void MakeNumber(RectTransform parent,string name){var go=new GameObject(name,typeof(RectTransform));go.transform.SetParent(parent,false);var t=go.AddComponent<TextMeshProUGUI>();t.font=Mgf.MgfText.Font;t.alignment=TextAlignmentOptions.Center;t.raycastTarget=false;}
+        void MakeNumber(RectTransform parent,string name){var go=new GameObject(name,typeof(RectTransform));go.transform.SetParent(parent,false);var t=go.AddComponent<TextMeshProUGUI>();t.font=Text.font;t.fontSharedMaterial=Text.fontSharedMaterial;t.fontStyle=FontStyles.Normal;t.alignment=TextAlignmentOptions.Center;t.raycastTarget=false;}
     }
 }

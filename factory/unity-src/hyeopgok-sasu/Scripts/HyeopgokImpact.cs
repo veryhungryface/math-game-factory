@@ -9,7 +9,7 @@ namespace Mgf.HyeopgokSasu
     /// </summary>
     sealed class HyeopgokImpact
     {
-        const int ParticleCap = 192, FlashCap = 20, NumberCap=20;
+        const int ParticleCap = 192, FlashCap = 20, NumberCap=8;
         struct Particle
         {
             public Vector3 position, velocity;
@@ -36,7 +36,7 @@ namespace Mgf.HyeopgokSasu
         readonly Popup[] numbers=new Popup[NumberCap];
         readonly Camera camera;
         readonly Mesh cloud, coin, fleck, star,smallNumber,bigNumber;
-        readonly Material smokeMaterial, coinMaterial, flashMaterial,fireMaterial,darkMaterial;
+        readonly Material smokeMaterial, coinMaterial, flashMaterial,starMaterial,fireMaterial,darkMaterial;
         int particleCursor, flashCursor,numberCursor;
         uint rng = 0x63b1874du;
 
@@ -49,11 +49,12 @@ namespace Mgf.HyeopgokSasu
             star = MakeStar();
             smallNumber=HyeopgokEconomyFx.NumberMesh(5,true);
             bigNumber=HyeopgokEconomyFx.NumberMesh(15,true);
-            smokeMaterial = CreateMaterial(shader,new Color(.98f,.975f,.90f));
+            smokeMaterial = CreateMaterial(shader,new Color(1,.94f,.93f));
             coinMaterial = CreateMaterial(shader,new Color(1,.70f,.035f));
             flashMaterial = CreateMaterial(shader,new Color(1,1,.98f));
+            starMaterial = new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Spark"));starMaterial.SetColor("_Color",new Color(.78f,.93f,1,.92f));starMaterial.enableInstancing=true;
             fireMaterial = CreateMaterial(shader,new Color(1,.31f,.018f));
-            darkMaterial = CreateMaterial(shader,new Color(.18f,.22f,.24f));
+            darkMaterial = CreateMaterial(shader,new Color(.69f,.73f,.73f));
         }
 
         public void Clear()
@@ -67,6 +68,13 @@ namespace Mgf.HyeopgokSasu
 
         public void DamageNumber(Vector3 position,bool heavy)
         {
+            // Dense infantry contacts share a readable popup cadence. This only
+            // suppresses duplicate decoration; damage and rewards are resolved
+            // by the battle before this visual callback runs.
+            for(int i=0;i<NumberCap;i++)
+                if(numbers[i].live&&numbers[i].age<.18f&&
+                   (numbers[i].position-position-Vector3.up*.95f).sqrMagnitude<2.25f)
+                    return;
             numbers[numberCursor++%NumberCap]=new Popup {position=position+Vector3.up*.95f,heavy=heavy,live=true};
         }
 
@@ -88,7 +96,7 @@ namespace Mgf.HyeopgokSasu
                 float a=Range(0,Mathf.PI*2),speed=Range(.7f,3.1f);
                 particles[particleCursor++%ParticleCap]=new Particle {
                     position=position+Vector3.up*.2f,velocity=new Vector3(Mathf.Sin(a)*speed,Range(.8f,3),Mathf.Cos(a)*speed),
-                    duration=i<9?Range(.22f,.48f):Range(.55f,.95f),size=Range(.25f,.55f),spin=Range(0,360),kind=(byte)(i<9?3:4)};
+                    duration=i<9?Range(.22f,.48f):Range(.55f,.95f),size=Range(.19f,.36f),spin=Range(0,360),kind=(byte)(i<9?3:4)};
             }
             DamageNumber(position,true);
         }
@@ -100,7 +108,7 @@ namespace Mgf.HyeopgokSasu
                 // viewer, so its white rays survive the opaque smoke/depth test.
                 position = position+Vector3.up*.46f-camera.transform.forward*.10f,
                 age = 0, duration = heavy ? .26f : .20f,
-                size = Range(heavy ? 1.06f : .68f,heavy ? 1.48f : 1.00f),
+                size = Range(heavy ? .87f : .56f,heavy ? 1.14f : .82f),
                 angle = Range(0,180)
             };
             int count = heavy ? 14 : 6;
@@ -113,8 +121,8 @@ namespace Mgf.HyeopgokSasu
                 particles[particleCursor++ % ParticleCap] = new Particle {
                     position = position+new Vector3(Range(-.16f,.16f),Range(0,.14f),Range(-.16f,.16f)),
                     velocity = velocity, age = 0,
-                    duration = kind == 0 ? Range(.48f,.83f) : kind == 1 ? Range(.38f,.68f) : Range(.16f,.30f),
-                    size = kind == 0 ? Range(.30f,.52f) : kind == 1 ? Range(.12f,.20f) : Range(.04f,.08f),
+                    duration = kind == 0 ? Range(.32f,.55f) : kind == 1 ? Range(.38f,.68f) : Range(.16f,.30f),
+                    size = kind == 0 ? Range(.20f,.37f) : kind == 1 ? Range(.12f,.20f) : Range(.04f,.08f),
                     spin = Range(-180,180), kind = kind
                 };
             }
@@ -136,7 +144,7 @@ namespace Mgf.HyeopgokSasu
                 float size=p.size*Mathf.Min(1,(1-t)*4);
                 if(p.kind==0)
                 {
-                    size*=.75f+t*1.15f;
+                    size*=.74f+t*.88f;
                     smokeMatrices[smokeCount++]=Matrix4x4.TRS(p.position,Quaternion.Euler(0,p.spin,0),new Vector3(size,size*.88f,size));
                 }
                 else if(p.kind==1)
@@ -165,7 +173,7 @@ namespace Mgf.HyeopgokSasu
             Draw(cloud,smokeMaterial,smokeMatrices,smokeCount);
             Draw(coin,coinMaterial,coinMatrices,coinCount);
             Draw(fleck,coinMaterial,fleckMatrices,fleckCount);
-            Draw(star,flashMaterial,flashMatrices,flashCount);
+            Draw(star,starMaterial,flashMatrices,flashCount);
             Draw(cloud,fireMaterial,fireMatrices,fireCount);
             Draw(cloud,darkMaterial,darkMatrices,darkCount);
             int small=0,big=0;
@@ -202,13 +210,13 @@ namespace Mgf.HyeopgokSasu
             Vector3[] vertices=new Vector3[17];
             Color[] colors=new Color[17];
             int[] triangles=new int[96];
-            colors[0]=new Color(1,1,1,0);
+            colors[0]=Color.white;
             for(int i=0;i<16;i++)
             {
                 float a=i*Mathf.PI/8;
-                float r=i%2==1 ? .115f : i%4==0 ? .69f : .42f;
+                float r=i%2==1 ? .10f : i%4==0 ? .74f : .24f;
                 vertices[i+1]=new Vector3(Mathf.Sin(a)*r,Mathf.Cos(a)*r,0);
-                colors[i+1]=i%2==0 ? new Color(.92f,.98f,1,0) : new Color(1,1,1,0);
+                colors[i+1]=i%2==0 ? new Color(.56f,.84f,1,.02f) : new Color(1,1,1,.6f);
                 int j=(i+1)%16+1, k=i*6;
                 triangles[k]=0;triangles[k+1]=i+1;triangles[k+2]=j;
                 triangles[k+3]=0;triangles[k+4]=j;triangles[k+5]=i+1;
@@ -293,7 +301,7 @@ namespace Mgf.HyeopgokSasu
         public void Dispose()
         {
             Object.Destroy(cloud);Object.Destroy(coin);Object.Destroy(fleck);Object.Destroy(star);
-            Object.Destroy(smokeMaterial);Object.Destroy(coinMaterial);Object.Destroy(flashMaterial);
+            Object.Destroy(smokeMaterial);Object.Destroy(coinMaterial);Object.Destroy(flashMaterial);Object.Destroy(starMaterial);
             Object.Destroy(fireMaterial);Object.Destroy(darkMaterial);Object.Destroy(smallNumber);Object.Destroy(bigNumber);
         }
     }

@@ -44,13 +44,15 @@ namespace Mgf.HyeopgokSasu
         Camera cam;HyeopgokBattle battle;Transform king;
         bool loaded,loading,playStarted,dragging;
         float feedbackLeft,cameraLanding,uiTick;
+        Vector3 cameraFocus=new Vector3(.5f,0,1.5f);
+        float cameraReveal;
         int runSerial;bool rewardIsRatio;Vector3 cameraBase;Quaternion cameraRot;
         string feedback="";
         float pointerStarted;Vector2 pointerOrigin;bool movedDuringPress;
 
         void Awake()
         {
-            MgfLook.Quality(34); QualitySettings.pixelLightCount=1;
+            MgfLook.Quality(65); QualitySettings.pixelLightCount=1;
             BuildWorld(); BuildUi();
             battle=gameObject.AddComponent<HyeopgokBattle>();battle.Init(cam);battle.SetKing(king);battle.SetEconomyRules(Rules);
             Rules.OnPour=(pad,amount)=>{battle.PourCoin(pad);RefreshPadAmounts();SyncState();MgfSfx.Play("tap",.18f);};
@@ -171,6 +173,7 @@ namespace Mgf.HyeopgokSasu
         }
         void Present(){
             battle.SetStage(Rules.Wave);battle.BeginQuestion(Rules.TimeLimit);king.position=Rules.King;
+            cameraReveal=.6f;
             SetQuestion(Rules.Current);SetChoices(Rules.Choices);SetPadVisibility();SyncState();RefreshHud();
         }
         void Resolve(){
@@ -179,7 +182,7 @@ namespace Mgf.HyeopgokSasu
             int hits=1,trials=1;long n=1,d=1;
             bool ratio=Rules.Current.format=="frac"&&TryRational(Rules.Current.answer,out n,out d)&&n>0&&d>1&&n<d;
             if(ratio){hits=(int)Math.Min(225,n);trials=(int)Math.Min(225,d);}
-            if(Rules.LastCorrect){battle.Reward(Math.Max(0,Rules.LastPad),spot,hits,trials,Rules.TotalPoured);MgfSfx.Play("correct");}
+            if(Rules.LastCorrect){cameraReveal=.6f;battle.Reward(Math.Max(0,Rules.LastPad),spot,hits,trials,Rules.TotalPoured);MgfSfx.Play("correct");}
             else{battle.Punish(spot);MgfSfx.Play("wrong");}
             string reward=Rules.Current.Mode=="choice"?"정답 · 지원군 출격!":"정답 · "+Rules.TotalPoured+"닢 투자 · 건물 성장!";
             rewardIsRatio=ratio;
@@ -257,11 +260,15 @@ namespace Mgf.HyeopgokSasu
             SyncState();ShowEnd(Rules.Won,Rules.Hp<=0);MgfSfx.Play(Rules.Won?"win":"lose");
         }
         void Update(){
+            long before=HyeopgokArtProbe.Begin();
+            try{UpdateArtFrame();}finally{HyeopgokArtProbe.End(0,before);}
+        }
+        void UpdateArtFrame(){
             float dt=Mathf.Min(Time.unscaledDeltaTime,.05f);
             UpdateCamera(dt);AnimateUi(dt);
             if(!playStarted){if(MgfPointer.Down)TitleInput();return;}
             if(Rules.Ended){if(feedbackLeft>0){feedbackLeft-=dt;if(feedbackLeft<=0)Finish();}else if(st.phase=="playing")Finish();else if(MgfPointer.Down&&Hit(retryRect))TestStart();return;}
-            if(MgfPointer.Down){
+            if(MgfPointer.Down && !HandleBattleUiPointer()){
                 pointerStarted=Time.unscaledTime;pointerOrigin=MgfPointer.Position;movedDuringPress=false;
                 if(MgfPointer.Position.y>Screen.height*.85f){MgfSfx.Play("tap");}
                 else if(MgfPointer.OnPlane(cam,1.24f,out Vector3 p)){
@@ -288,11 +295,28 @@ namespace Mgf.HyeopgokSasu
         }
         void UpdateCamera(float dt){
             if(cameraLanding>0)cameraLanding=Mathf.Max(0,cameraLanding-dt);
+            if(cameraReveal>0)cameraReveal=Mathf.Max(0,cameraReveal-dt);
+            // Stable 55-degree/32-degree lens. The dead zone preserves pad targeting,
+            // while a modest follow makes the settlement feel continuous offscreen.
             float aspect=(float)Screen.width/Screen.height;
-            float fit=Mathf.Max(1.12f,.66f/aspect)+(playStarted?cameraLanding*.03f:.03f);
-            Vector3 focus=new Vector3(.5f,0,2.4f);
+            Vector3 desired=new Vector3(.35f,0,1.25f);
+            if(playStarted && king){
+                Vector3 k=Rules.King;
+                float dx=k.x-desired.x,dz=k.z+1.5f;
+                if(Mathf.Abs(dx)>1.15f)desired.x+=Mathf.Sign(dx)*(Mathf.Abs(dx)-1.15f)*.22f;
+                if(Mathf.Abs(dz)>1.2f)desired.z+=Mathf.Sign(dz)*(Mathf.Abs(dz)-1.2f)*.24f;
+            }
+            // Lock the lens while a pointer is held so a tap remains the same
+            // world target throughout the gesture.
+            if(!dragging)cameraFocus=Vector3.Lerp(cameraFocus,desired,1-Mathf.Exp(-dt*2.8f));
+            float framing=Mathf.Max(1,.46f/aspect);
+            float reveal=Mathf.Sin((1-cameraReveal/.6f)*Mathf.PI)*.95f;
+            if(cameraReveal<=0)reveal=0;
+            float distance=46.5f*framing+reveal+(playStarted?cameraLanding*.45f:.85f);
             float shake=battle?battle.Shake:0;
-            cam.transform.position=focus+(cameraBase-focus)*fit+new Vector3(aspect>1.2f?-3.0f:0,0,0)+new Vector3(Mathf.Sin(Time.unscaledTime*97)*shake,Mathf.Cos(Time.unscaledTime*83)*shake,0);
+            cam.fieldOfView=32;
+            cam.transform.rotation=Quaternion.Euler(55,-8,0);
+            cam.transform.position=cameraFocus+cam.transform.rotation*(Vector3.back*distance)+new Vector3(Mathf.Sin(Time.unscaledTime*97)*shake,Mathf.Cos(Time.unscaledTime*83)*shake,0);
             if(lastWidth!=Screen.width||lastHeight!=Screen.height){lastWidth=Screen.width;lastHeight=Screen.height;LayoutUi();UpdatePadScreen();}
         }
         int lastWidth,lastHeight;

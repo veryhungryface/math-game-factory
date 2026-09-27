@@ -11,12 +11,19 @@ namespace Mgf.HyeopgokSasu
         LineRenderer[] padFill=new LineRenderer[4];
         LineRenderer[] cracks=new LineRenderer[4];
         void BuildWorld(){
-            MgfLook.Sky(MgfLook.Hex("#a9d7d2"),MgfLook.Hex("#c3d4c5"),MgfLook.Hex("#205b50"),.8f);
+            MgfLook.Sky(MgfLook.Hex("#bfe6e0"),MgfLook.Hex("#75bca8"),MgfLook.Hex("#3e7f66"),.8f);
             Shader.SetGlobalColor("_HyeopgokNightTint",Color.white);
-            var sun=MgfLook.Sun(new Vector3(51,-38,0),MgfLook.Hex("#fff1df"),1.16f,.62f);environmentSun=sun;
-            sun.shadowBias=.025f;sun.shadowNormalBias=.18f;
+            var sun=MgfLook.Sun(new Vector3(50,-38,0),MgfLook.Hex("#fff3de"),1.03f,.62f);environmentSun=sun;
+            sun.shadowBias=.025f;sun.shadowNormalBias=.085f;
+            sun.shadows=LightShadows.Soft;sun.shadowResolution=UnityEngine.Rendering.LightShadowResolution.High;
+            QualitySettings.shadowDistance=65;
+            RenderSettings.ambientMode=UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor=MgfLook.Hex("#bfe6e0");RenderSettings.ambientEquatorColor=MgfLook.Hex("#6ea998");RenderSettings.ambientGroundColor=MgfLook.Hex("#3e7f66");
             RenderSettings.ambientIntensity=.78f;
-            cam=MgfLook.Camera(new Vector3(.5f,25.3f,-19.8f),new Vector3(.5f,0,2.4f),33);cam.orthographic=false;cam.nearClipPlane=.2f;cam.farClipPlane=160;
+            RenderSettings.fog=true;RenderSettings.fogColor=MgfLook.Hex("#75bca8");RenderSettings.fogMode=FogMode.Linear;RenderSettings.fogStartDistance=48;RenderSettings.fogEndDistance=100;
+            Vector3 cameraFocus=new Vector3(.5f,0,2.4f);
+            cam=MgfLook.Camera(cameraFocus+Quaternion.Euler(55,-8,0)*Vector3.back*46.5f,cameraFocus,32);cam.orthographic=false;cam.nearClipPlane=.2f;cam.farClipPlane=160;
+            cam.transform.rotation=Quaternion.Euler(55,-8,0);
             cameraBase=cam.transform.position;cameraRot=cam.transform.rotation;
             worldMat=new Material(Resources.Load<Shader>("HyeopgokSasu/Shaders/Horde"));worldMat.SetColor("_Color",Color.white);worldMat.enableInstancing=true;
             sceneryRoot=new GameObject("Static scenery").transform;
@@ -24,17 +31,11 @@ namespace Mgf.HyeopgokSasu
             BuildEnvironment();
             SpawnModel("enemy_gate",new Vector3(3.1f,.25f,9.0f),.93f).transform.Rotate(0,180,0);
             SpawnModel("enemy_gate",new Vector3(5.35f,.25f,9.0f),.93f).transform.Rotate(0,180,0);
-            king=SpawnModel("king",HyeopgokRules.Pads[2]+Vector3.back*2,1.4f).transform;king.rotation=Quaternion.Euler(0,180,0);
+            king=SpawnModel("king",HyeopgokRules.Pads[2]+Vector3.back*2,1.15f).transform;king.rotation=Quaternion.Euler(0,180,0);
             king.SetParent(null,true);
-            // The scenery is instantiated once. Horde entities use no GameObjects.
+            // Forests are authored in asymmetrical groups, then merged once.
             var rng=new System.Random(20260926);
-            for(int i=0;i<48;i++){
-                float x=(i%2==0?-1:1)*(6.9f+(float)rng.NextDouble()*5);
-                float z=-14+(float)rng.NextDouble()*31;
-                // Respect the background mesas, rather than burying trunks in them.
-                float ground=SceneryGround(x,z);
-                var tree=SpawnModel(i%3==0?"tree_broadleaf":"tree",new Vector3(x,ground,z),.72f+(float)rng.NextDouble()*.65f);tree.transform.Rotate(0,rng.Next(360),0);
-            }
+            PlantSandstoneRim();
             for(int i=0;i<11;i++)SpawnModel("rock",new Vector3(-6.2f-(i%3)*.75f,-1.4f,-8+i*1.9f),.55f+(i%3)*.2f);
             // Small asymmetric groves follow the plateau rim. Leave the four pads,
             // king approach, cannon sight lines and red/blue collision throat clear.
@@ -55,14 +56,16 @@ namespace Mgf.HyeopgokSasu
             BuildSceneryContactShadows();
             CombineScenery();
 
-            Material padStone=MgfLook.Lit(MgfLook.Hex("#125f4c"));
+            // The alpha shader has no sRGB decode, unlike the authored-model shader.
+            Material padStone=MgfLook.Alpha(new Color(14f/255,94f/255,68f/255,.7f).linear);
             for(int i=0;i<4;i++){
                 var padStrokes=new DecorationMesh();
                 var root=new GameObject("Answer pad "+(i+1));root.transform.position=HyeopgokRules.Pads[i];padRoots[i]=root.transform;
-                MgfLook.Prim(PrimitiveType.Cube,"Green stone",new Vector3(0,-.025f,0),new Vector3(1.7f,.045f,1.65f),padStone,root.transform,false);
+                var padSurface=new DecorationMesh();padSurface.RoundedPad(HyeopgokRules.Pads[i]+Vector3.up*.009f,.85f,.825f,.14f,Color.white);
+                var padGround=CreateDecoration("Dark green pad "+i,padSurface,padStone,false);padGround.transform.SetParent(root.transform,true);
                 // One shared mesh replaces 64 independent LineRenderer draw calls.
                 for(int k=0;k<16;k++)
-                    padStrokes.Ribbon(PadEdge(i,k/16f),PadEdge(i,(k+.65f)/16f),.075f,Color.white);
+                    padStrokes.Ribbon(PadEdge(i,k/16f),PadEdge(i,(k+.67f)/16f),.085f,Color.white);
                 padFill[i]=Line("Hold progress",MgfLook.Hex("#ffd55d"),.095f);padFill[i].positionCount=0;
                 cracks[i]=Line("Broken answer stone",MgfLook.Hex("#082c30"),.075f);cracks[i].positionCount=5;
                 Vector3 p=HyeopgokRules.Pads[i]+Vector3.up*.06f;
@@ -101,11 +104,19 @@ namespace Mgf.HyeopgokSasu
             var l=new GameObject(name).AddComponent<LineRenderer>();l.sharedMaterial=MgfLook.Unlit(c);l.startWidth=l.endWidth=w;l.useWorldSpace=true;l.numCapVertices=0;l.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.Off;return l;
         }
         Vector3 PadEdge(int i,float t){
-            float f=(t%1)*4;Vector3 p;
-            if(f<1)p=new Vector3(-.87f+1.74f*f,.025f,.85f);
-            else if(f<2)p=new Vector3(.87f,.025f,.85f-1.7f*(f-1));
-            else if(f<3)p=new Vector3(.87f-1.74f*(f-2),.025f,-.85f);
-            else p=new Vector3(-.87f,.025f,-.85f+1.7f*(f-3));
+            // Uniform rounded perimeter keeps the white dashes thick at corners.
+            const float x=.87f,z=.85f,r=.16f;
+            float perimeter=4*(x+z-2*r)+Mathf.PI*2*r;
+            float along=Mathf.Repeat(t,1)*perimeter;Vector3 p;
+            float horizontal=2*(x-r),vertical=2*(z-r),arc=Mathf.PI*.5f*r;
+            if(along<horizontal)p=new Vector3(-x+r+along,.025f,z);
+            else if((along-=horizontal)<arc){float a=along/r;p=new Vector3(x-r+Mathf.Sin(a)*r,.025f,z-r+Mathf.Cos(a)*r);}
+            else if((along-=arc)<vertical)p=new Vector3(x,.025f,z-r-along);
+            else if((along-=vertical)<arc){float a=along/r;p=new Vector3(x-r+Mathf.Cos(a)*r,.025f,-z+r-Mathf.Sin(a)*r);}
+            else if((along-=arc)<horizontal)p=new Vector3(x-r-along,.025f,-z);
+            else if((along-=horizontal)<arc){float a=along/r;p=new Vector3(-x+r-Mathf.Sin(a)*r,.025f,-z+r-Mathf.Cos(a)*r);}
+            else if((along-=arc)<vertical)p=new Vector3(-x,.025f,-z+r+along);
+            else {along-=vertical;float a=along/r;p=new Vector3(-x+r-Mathf.Cos(a)*r,.025f,z-r+Mathf.Sin(a)*r);}
             return HyeopgokRules.Pads[i]+p;
         }
     }
