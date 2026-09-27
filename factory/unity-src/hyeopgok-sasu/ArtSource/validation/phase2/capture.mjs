@@ -30,6 +30,7 @@ async function until(predicate,timeout=15000){const end=Date.now()+timeout;let s
 function point(pair,index=0){return{x:pair[index*2]*viewport.width,y:pair[index*2+1]*viewport.height};}
 async function touch(p,type='touchStart'){await cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x:p.x,y:p.y,id:1,radiusX:2,radiusY:2,force:1}]});}
 async function tap(p){await touch(p);await sleep(60);await touch(p,'touchEnd');await sleep(40);}
+async function drag(from,to,duration=360,steps=8){await touch(from);for(let i=1;i<=steps;i++){await sleep(duration/steps);await touch({x:from.x+(to.x-from.x)*i/steps,y:from.y+(to.y-from.y)*i/steps},'touchMove');}await touch(to,'touchEnd');await sleep(40);}
 async function frame(name){const file=name+'.png';await page.screenshot({path:path.join(out,file)});report.frames.push({file,sha256:hash(path.join(out,file)),elapsedMs:startMs?Date.now()-startMs:null,state:await state()});}
 async function load(packId='m2s2-u7',w=390,h=844,fixture=null){overlay=fixture;activeBank=fixture??bank[packId];viewport={width:w,height:h};await page.setViewport({width:w,height:h,deviceScaleFactor:1,isMobile:w<900,hasTouch:true});await page.goto(server.url+'/g/hyeopgok-sasu/?pack='+activeBank.pack_id,{waitUntil:'networkidle0',timeout:60000});await page.waitForFunction(()=>window.__GAME_TEST__?.ready,{timeout:60000});await sleep(200);startMs=0;assert((await state()).pack_id===activeBank.pack_id,'loaded '+activeBank.pack_id);await auditBank();}
 async function auditBank(){
@@ -58,7 +59,7 @@ async function start(){await tap({x:viewport.width*.5,y:viewport.height*.865});a
 function current(s){const q=activeBank.items.find(q=>q.id===s.questionId);if(!q)throw Error('Unknown bank item '+s.questionId);return q;}
 async function waitCoins(amount,timeout=40000){if(amount<=0)return state();return until(s=>s.coins>=amount||s.pending||s.phase!=='playing',timeout).then(s=>{assert(!s.pending&&s.phase==='playing','coins earned before deadline');return s;});}
 async function oneCoin(pad){let s=await state();const previous=s.poured[pad];await tap(point(s.padScreen,pad));return until(x=>x.poured[pad]>previous||x.pending,4000).then(x=>{assert(!x.pending&&x.poured[pad]===previous+1,'one real tap pours exactly one coin');return x;});}
-async function zeroVisit(pad){const s=await state(),from=pad===0?point(s.kingScreen):point(s.padScreen,0),p=point(s.padScreen,pad);const past={x:p.x+(p.x-from.x)*.34,y:p.y+(p.y-from.y)*.34};await tap(past);return until(x=>x.pending||x.confirming,6000);}
+async function zeroVisit(pad){const s=await state();await drag(point(s.exitScreen),point(s.padScreen,pad));return until(x=>x.visited?.[pad]&&x.poured[pad]===0&&!x.pending,6000);}
 async function pour(pad,amount){if(amount===0)return zeroVisit(pad);const s=await state();await waitCoins(Math.max(0,amount-s.poured[pad]));while((await state()).poured[pad]<amount)await oneCoin(pad);return state();}
 async function exitAndConfirm(before){let s=await state();if(!s.pending)await tap(point(s.exitScreen));s=await until(x=>x.attempts>before,6000);return s;}
 async function correct({capture=null,wrong=false}={}){
@@ -98,8 +99,32 @@ try{
    const final=await state();assert(final.phase==='clear'&&final.solved===(wrongFirst?9:10),name+' wins with actual movement/taps');await frame('victory-'+name);report.runs.push({name,elapsedMs:Date.now()-startMs,final,states,trust:await trust()});
   }
  }
- if(modes.has('fixtures')||modes.has('edges')){
-  if(modes.has('fixtures')){
+	 if(modes.has('fixtures')||modes.has('edges')){
+	  // Review regressions use the same real drag shape that used to submit an
+	  // accidental zero in firstplay. State and screenshots preserve before/after evidence.
+	  const introQuestion={...bank['m2s2-u6'].items[0]};
+	  const introPack=fixture('review-fly-through',introQuestion);
+	  await load('m2s2-u7',390,844,introPack);await start();await waitCoins(2);
+	  let beforeFly=await state(),flyFrom=point(beforeFly.kingScreen),flyPad=point(beforeFly.padScreen,0);
+	  const flyPast={x:flyPad.x+(flyPad.x-flyFrom.x)*.65,y:flyPad.y+(flyPad.y-flyFrom.y)*.65};
+	  await drag(flyFrom,flyPast,260);await sleep(1500);const afterFly=await state();
+	  assert(afterFly.attempts===0&&afterFly.hp===100&&!afterFly.pending&&!afterFly.confirming&&afterFly.poured[0]===0&&afterFly.spent===0&&!afterFly.visited[0],'same fly-through leaves attempts, hp and poured amount unchanged');
+	  await frame('fix-fly-through-safe');report.fixtures.push({name:'review-fly-through',beforeReference:'firstplay frame-03 -> frame-04 previously attempts 1 / hp 82',before:beforeFly,after:afterFly,trust:await trust()});
+	  const blockedPack=fixture('review-intro-empty-blocked',introQuestion);
+	  await load('m2s2-u7',390,844,blockedPack);await start();await waitCoins(2);let blocked=await state();
+	  await drag(point(blocked.kingScreen),point(blocked.padScreen,0));await until(s=>s.visited?.[0]&&s.poured[0]===0,6000);blocked=await state();await tap(point(blocked.exitScreen));await sleep(1400);const afterBlocked=await state();
+	  assert(afterBlocked.attempts===0&&afterBlocked.hp===100&&!afterBlocked.pending&&!afterBlocked.confirming&&afterBlocked.tutorialBlocked,'opening tutorial refuses an empty stop-and-leave');
+	  await frame('fix-intro-empty-blocked');report.fixtures.push({name:'review-intro-empty-blocked',result:afterBlocked,trust:await trust()});
+	  const fractionTutorial=fixture('review-fraction-tutorial',bank['m2s2-u7'].items.find(q=>q.answer_mode==='fraction_parts'));
+	  await load('m2s2-u7',390,844,fractionTutorial);await start();await sleep(1250);await frame('fix-fraction-tutorial-all-cases');await sleep(1100);await frame('fix-fraction-tutorial-event-cases');
+	  const fractionIdle=await state();assert(fractionIdle.attempts===0&&fractionIdle.poured[0]===0&&fractionIdle.poured[1]===0,'fraction tutorial demonstrates without changing the mathematical input');report.fixtures.push({name:'review-fraction-tutorial',result:fractionIdle,trust:await trust()});
+	  const fractionDisplay=fixture('review-fraction-zero-denominator-display',bank['m2s2-u7'].items.find(q=>q.answer_mode==='fraction_parts'));
+	  await load('m2s2-u7',390,844,fractionDisplay);await start();await waitCoins(3);await pour(1,1);await zeroVisit(0);const incompleteFraction=await state();
+	  assert(incompleteFraction.poured[0]===0&&incompleteFraction.poured[1]===1&&incompleteFraction.visited[0]&&incompleteFraction.visited[1],'numerator-first fixture reaches a deliberate n/0 intermediate input');
+	  assert(!incompleteFraction.assembledFractionVisible&&incompleteFraction.assembledFractionText==='','n/0 intermediate input never renders as an assembled fraction');await frame('fix-fraction-zero-denominator-hidden');
+	  await oneCoin(0);const completeFraction=await state();assert(completeFraction.assembledFractionVisible&&completeFraction.assembledFractionText.length>0,'assembled fraction appears after denominator becomes positive');
+	  report.fixtures.push({name:'review-fraction-zero-denominator-display',incomplete:incompleteFraction,complete:completeFraction,trust:await trust()});
+	  if(modes.has('fixtures')){
   const worst=bank['m2s2-u7'].items.filter(q=>q.answer_mode==='fraction_parts').sort((a,b)=>(b.answer.num+b.answer.den)-(a.answer.num+a.answer.den))[0];
   const worstPack=fixture('worst-cost-empty-wallet',worst);worstPack.items[0].difficulty=worst.difficulty;
   await load('m2s2-u7',390,844,worstPack);await start();const empty=await state();assert(empty.coins===0&&empty.earned===0&&empty.spent===0,'worst-cost fixture starts with an empty wallet');
@@ -132,7 +157,8 @@ try{
  }
  if(modes.has('covers')){
   for(const [name,w,h,file] of [['wide',1200,630,'thumb.png'],['square',1080,1080,'square.png']]){
-   await load('m2s2-u6',w,h);await start();await correct();await nextWave(1);await waitCoins(18);const s=await state(),q=current(s),amount=Math.min(q.answer,4);for(let i=0;i<amount;i++)await oneCoin(0);
+   // Cover the published default unit (m2s2-u7 확률), not the optional 경우의 수 pack.
+   await load('m2s2-u7',w,h);await start();await correct();await nextWave(1);await waitCoins(18);const s=await state(),q=current(s),amount=Math.min(typeof q.answer==='object'?q.answer.den:q.answer,4);for(let i=0;i<amount;i++)await oneCoin(0);
    // Capture during the final coin's flight; the screenshot is the complete original frame.
    const target=path.join(game,file);await page.screenshot({path:target});fs.copyFileSync(target,path.join(out,file));
    report.covers.push({file,width:w,height:h,sha256:hash(target),kind:'original WebGL screenshot, no image editing',state:await state(),trust:await trust()});

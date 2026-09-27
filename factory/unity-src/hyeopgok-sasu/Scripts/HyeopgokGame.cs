@@ -12,7 +12,7 @@ namespace Mgf.HyeopgokSasu
     public partial class HyeopgokGame : MonoBehaviour, IMgfGame
     {
         [Serializable] class State : MgfState {
-            public int hp=100, coins, attempts, firstTry, moves;
+            public int hp=100, coins, attempts, firstTry, moves, hover=-1;
             public string pack_id="",packTitle="",questionId="",prompt="";
             public string[] choices;
             public float[] padScreen;
@@ -20,8 +20,10 @@ namespace Mgf.HyeopgokSasu
             public int redCount,blueCount,padCount,max,earned,spent,investment,pourCount,builtTowers,upgradeLevel;
             public int[] poured;
             public string answerMode="",accept="";
-            public bool pending,confirming;
-            public float confirm;
+            public bool pending,confirming,tutorialBlocked,assembledFractionVisible;
+            public string assembledFractionText="";
+            public bool[] visited;
+            public float confirm,dwell;
             public float[] kingScreen,exitScreen;
         }
         [Serializable] sealed class ProblemSample:MgfProblem {
@@ -102,7 +104,7 @@ namespace Mgf.HyeopgokSasu
                 chars.Append(p.prompt).Append(p.explain).Append(p.answer).Append(p.num_label).Append(p.den_label);
             }
             bankJson=JsonUtility.ToJson(new ProblemSamples{items=bank.ToArray()}).Replace(":NaN",":null");
-            MgfText.Prewarm(chars.ToString()+"협곡사수출격전선수비성문정답오답왕끌어패드위에서잠깐멈추세요승리재도전문제확률경우의수화면누르면바로시작전투목표압박까지초마다남은지켜라명중시연달성했습니다더필요합니다판단적중○");
+            MgfText.Prewarm(chars.ToString()+"협곡사수출격전선수비성문정답오답왕끌어패드위에서잠깐멈추세요승리재도전문제확률경우의수화면누르면바로시작전투목표압박까지초마다남은지켜라명중시연달성했습니다더필요합니다판단적중모든사건붓는다이대로확정되돌아가면취소먼저코인을이상밖으로나오기선택○");
             string schoolLabel=pack.school=="elementary"?"초":"중";
             loading=false;loaded=true;SetTitleInfo(pack.title+"  ·  "+schoolLabel+pack.grade+" "+pack.semester+"학기");
             // Refresh the same bridge when a user changes packs; QA samples the actual loaded pack.
@@ -119,10 +121,6 @@ namespace Mgf.HyeopgokSasu
             }else if(!long.TryParse(s,out numerator))return false;
             if(denominator<0){numerator=-numerator;denominator=-denominator;}
             long g=Gcd(numerator,denominator);numerator/=g;denominator/=g;return true;
-        }
-        static bool EquivalentChoice(string a,string b){
-            if(TryRational(a,out long an,out long ad)&&TryRational(b,out long bn,out long bd))return an==bn&&ad==bd;
-            return a==b;
         }
         public static bool ValidPack(QuestionPack p){
             if(p==null||p.items==null||p.items.Length<10||string.IsNullOrEmpty(p.title))return false;
@@ -141,10 +139,16 @@ namespace Mgf.HyeopgokSasu
                     if(q.accept=="reduced"&&PackItem.Gcd(q.answerParts.num,q.answerParts.den)!=1)return false;
                 }else if(q.Mode=="choice"){
                     if(q.answer_type!="choice"||string.IsNullOrEmpty(q.answer)||q.choices==null||q.choices.Length!=4)return false;
-                    int found=0;for(int i=0;i<4;i++){
-                        if(string.IsNullOrEmpty(q.choices[i]))return false;if(EquivalentChoice(q.choices[i],q.answer))found++;
-                        for(int j=0;j<i;j++)if(EquivalentChoice(q.choices[i],q.choices[j]))return false;
-                    }if(found!=1)return false;
+                    int exact=0,equivalent=0;for(int i=0;i<4;i++){
+                        if(string.IsNullOrEmpty(q.choices[i]))return false;
+                        if(q.choices[i]==q.answer)exact++;
+                        if(PackItem.EquivalentChoice(q.choices[i],q.answer))equivalent++;
+                        for(int j=0;j<i;j++)if(PackItem.EquivalentChoice(q.choices[i],q.choices[j]))return false;
+                    }
+                    // Authored packs must include the authored token, not merely
+                    // another spelling of the same rational. Scoring still uses
+                    // rational equivalence as a defensive backstop.
+                    if(exact!=1||equivalent!=1)return false;
                 }else return false;
                 if(q.Mode!="choice"){
                     // Budget is determined by input mode, never the hidden answer.
@@ -161,6 +165,7 @@ namespace Mgf.HyeopgokSasu
         public void TestStart(){
             if(!loaded)return;
             playStarted=true;dragging=false;st.phase="playing";st.moves=0;feedbackLeft=0;feedback="";
+            ResetTutorialProgress();
             Rules.Start(pack,Environment.TickCount^(++runSerial*7919));battle.Begin();cameraLanding=.8f;
             ShowPlaying();Present();MgfSfx.Play("whoosh");
         }
@@ -215,11 +220,11 @@ namespace Mgf.HyeopgokSasu
         void TestPourPad(int pad,int wanted){
             if(Rules.Pending)return;
             if(wanted==0){
-                // Walk through without stopping: zero is a deliberate empty visit.
-                Rules.Move(HyeopgokRules.Pads[pad]+Vector3.back*1.05f,true);
-                for(int i=0;i<200&&!Rules.Pending&&(Rules.King-Rules.Target).sqrMagnitude>.012f;i++)Rules.Tick(.025f);
-                Rules.Move(HyeopgokRules.Pads[pad]+Vector3.forward*1.05f,true);
-                for(int i=0;i<200&&!Rules.Pending&&(Rules.King-Rules.Target).sqrMagnitude>.012f;i++)Rules.Tick(.025f);
+                // Zero is deliberate: stop long enough to select the empty pad,
+                // then leave before the first automatic coin. A fly-through is
+                // intentionally ignored by the production state machine.
+                Rules.Move(HyeopgokRules.Pads[pad]);
+                for(int i=0;i<200&&!Rules.Pending&&!Rules.Visited[pad];i++)Rules.Tick(.025f);
                 return;
             }
             Rules.Move(HyeopgokRules.Pads[pad],true);
@@ -231,8 +236,10 @@ namespace Mgf.HyeopgokSasu
         void SyncState(){
             st.score=Rules.Score;st.lives=Rules.Hp;st.hp=Rules.Hp;st.coins=Rules.Coins;st.level=Math.Max(1,Rules.Wave);
             st.solved=Rules.Correct;st.attempts=Rules.Attempts;st.firstTry=Rules.Correct;
-            st.padCount=Rules.PadCount;st.poured=Rules.Poured;st.pending=Rules.Pending;st.confirming=Rules.Confirming;st.confirm=Rules.Confirm;
+            st.padCount=Rules.PadCount;st.poured=Rules.Poured;st.visited=Rules.Visited;st.hover=Rules.Hover;st.pending=Rules.Pending;st.confirming=Rules.Confirming;st.confirm=Rules.Confirm;st.dwell=Rules.Dwell;st.tutorialBlocked=Rules.TutorialBlocked;
             st.builtTowers=battle.BuiltTowers;st.upgradeLevel=battle.UpgradeLevel;st.earned=Rules.Earned;st.spent=Rules.Spent;st.investment=Rules.Invested;st.pourCount=Rules.PourCount;
+            st.assembledFractionVisible=assembledText!=null&&assembledText.gameObject.activeSelf;
+            st.assembledFractionText=st.assembledFractionVisible?assembledText.text:"";
             if(Rules.Current!=null){st.answerMode=Rules.Current.Mode;st.max=Rules.Current.Max;st.accept=Rules.Current.accept;}
             st.kingX=Rules.Target.x;st.kingZ=Rules.Target.z;st.redCount=battle.Reds;st.blueCount=battle.Blues;
             if(Rules.Current!=null){st.questionId=Rules.Current.id;st.prompt=Rules.Current.prompt;st.choices=Rules.Current.Mode=="choice"?Rules.Choices:null;}
@@ -258,14 +265,19 @@ namespace Mgf.HyeopgokSasu
                 pointerStarted=Time.unscaledTime;pointerOrigin=MgfPointer.Position;movedDuringPress=false;
                 if(MgfPointer.Position.y>Screen.height*.85f){MgfSfx.Play("tap");}
                 else if(MgfPointer.OnPlane(cam,1.24f,out Vector3 p)){
-                    dragging=true;Rules.Move(p,true);st.moves++;SyncState();MgfSfx.Play("tap");
+                    // A pointer-down may become a drag. Move immediately but do
+                    // not spend a tap coin until release proves it stayed a tap.
+                    dragging=true;Rules.Press(p);st.moves++;SyncState();MgfSfx.Play("tap");
                 }
             }
             if(dragging&&MgfPointer.Held&&MgfPointer.OnPlane(cam,1.24f,out Vector3 drag)){
                 if((MgfPointer.Position-pointerOrigin).sqrMagnitude>100||Time.unscaledTime-pointerStarted>.25f)movedDuringPress=true;
                 if(movedDuringPress)Rules.Move(drag);
             }
-            if(MgfPointer.Up){dragging=false;SyncState();}
+            if(MgfPointer.Up){
+                if(dragging&&!movedDuringPress&&MgfPointer.OnPlane(cam,1.24f,out Vector3 tap))Rules.Move(tap,true);
+                dragging=false;SyncState();
+            }
             if(feedbackLeft>0){feedbackLeft-=dt;if(feedbackLeft<=0)Advance();}
             else if(Rules.Tick(dt)>=0)Resolve();
             king.position=Rules.King+Vector3.up*(Mathf.Sin(Time.unscaledTime*18)*.035f*Mathf.Min(1,(Rules.Target-Rules.King).magnitude));

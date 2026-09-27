@@ -10,21 +10,25 @@ namespace Mgf.HyeopgokSasu
         readonly Color cream=MgfLook.Hex("#fff1ce"),navy=MgfLook.Hex("#142e35"),gold=MgfLook.Hex("#ffd05a");
         RectTransform commandStrip,pressureMarker,treasuryPanel;
         RectTransform titleRoot,playRoot,endRoot,ctaRect,packRect,retryRect,questionPanel,feedbackPanel;
-        RectTransform tutorialDot,tutorialTrail,tutorialLabel;
+        RectTransform tutorialDot,tutorialTrail,tutorialLabel,tutorialCoin;
         TextMeshProUGUI titleInfo,hpText,coinsText,waveText,armyText,hintText,endTitle,endDetail,bonusText,pressureText,treasuryText,depositText;
         HyeopgokMathText questionText,feedbackText,bonusMath,assembledMath;
         TextMeshProUGUI assembledText,confirmText;
         readonly TextMeshProUGUI[] padNames=new TextMeshProUGUI[4];
         readonly int[] lastPoured={-1,-1};
+        readonly bool[] lastVisited={false,false};
+        readonly string[] basePadNames=new string[4];
         int lastAssembledDen=-1,lastAssembledNum=-1;
         HyeopgokMathText[] padLabels=new HyeopgokMathText[4];
         RectTransform[] padLabelRoots=new RectTransform[4];
         TextMeshProUGUI[] tutorialRings=new TextMeshProUGUI[4];
-        TextMeshProUGUI answerRing;int answerMark=-1;
+        TextMeshProUGUI answerRing,confirmRing;int answerMark=-1;
         Image hpFill,timeFill;
         float shownHp=100,bonusLife;
         int previousShownHp=-1,lastReds=-1,lastBlues=-1,lastKills=-1,lastClock=-1,lastTreasury=-1;
-        bool tutorialVisible;
+        bool tutorialVisible,firstFractionTutorialShown;
+        int tutorialKind;
+        float tutorialStarted;
         bool IsCoinIntro=>Rules.Wave==1&&Rules.Current!=null&&Rules.Current.Mode=="amount"&&Rules.Current.answerValue==2&&(Rules.Current.id=="m2s2-u6-001"||Rules.Current.id=="m2s2-u7-001");
         RectTransform Group(string name,Transform parent){var go=new GameObject(name,typeof(RectTransform));var r=(RectTransform)go.transform;r.SetParent(parent,false);r.anchorMin=Vector2.zero;r.anchorMax=Vector2.one;r.offsetMin=r.offsetMax=Vector2.zero;return r;}
         RectTransform Box(string name,Transform parent,Vector2 anchor,Vector2 offset,Vector2 size,Color color){
@@ -82,17 +86,19 @@ namespace Mgf.HyeopgokSasu
             }
             assembledText=Text("",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(140,100),32,gold);assembledText.outlineColor=navy;assembledText.outlineWidth=.22f;assembledMath=new HyeopgokMathText(assembledText);
             confirmText=Text("",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(230,44),17,gold);confirmText.outlineColor=navy;confirmText.outlineWidth=.25f;
+            confirmRing=Text("○",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(132,132),88,gold);confirmRing.outlineColor=navy;confirmRing.outlineWidth=.16f;confirmRing.gameObject.SetActive(false);
             tutorialTrail=Box("First drag route",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(100,5),gold);
             tutorialDot=Box("Drag ghost",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(21,20),cream);tutorialDot.localRotation=Quaternion.Euler(0,0,-24);
             Box("Ghost index finger",tutorialDot,new Vector2(.5f,.5f),new Vector2(5,15),new Vector2(7,24),cream);
             Box("Ghost thumb",tutorialDot,new Vector2(.5f,.5f),new Vector2(-13,2),new Vector2(9,9),cream);
             Box("Ghost wrist",tutorialDot,new Vector2(.5f,.5f),new Vector2(2,-14),new Vector2(15,11),gold);
-            tutorialLabel=Text("두 번 탭",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(108,28),16,cream).rectTransform;
+            tutorialCoin=Box("Tutorial demo coin",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(15,15),gold);tutorialCoin.localRotation=Quaternion.Euler(0,0,45);tutorialCoin.gameObject.SetActive(false);
+            tutorialLabel=Text("패드 위에 멈추기",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(210,32),16,cream).rectTransform;
             for(int i=0;i<4;i++){
                 tutorialRings[i]=Text("○",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(88,88),57,gold);
                 tutorialRings[i].outlineColor=navy;tutorialRings[i].outlineWidth=.14f;
             }
-            SetTutorial(false);
+            SetTutorial(0);
             answerRing=Text("○",playRoot,new Vector2(.5f,.5f),Vector2.zero,new Vector2(96,96),64,gold);answerRing.outlineColor=navy;answerRing.outlineWidth=.14f;answerRing.gameObject.SetActive(false);
             var resultCard=Box("Results banner",endRoot,new Vector2(.5f,.53f),Vector2.zero,new Vector2(352,312),navy);
             Box("Result edge",resultCard,new Vector2(.5f,1),Vector2.zero,new Vector2(352,5),gold);
@@ -115,10 +121,12 @@ namespace Mgf.HyeopgokSasu
             lastClock=-1;
             pressureMarker.anchorMin=pressureMarker.anchorMax=new Vector2(1-battle.QuestionGrace/Rules.TimeLimit,.5f);
             for(int i=0;i<4;i++)cracks[i].gameObject.SetActive(false);
-            lastPoured[0]=lastPoured[1]=-1;lastAssembledDen=lastAssembledNum=-1;assembledMath.Set("");confirmText.text="";
+            lastPoured[0]=lastPoured[1]=-1;lastVisited[0]=lastVisited[1]=true;lastAssembledDen=lastAssembledNum=-1;assembledMath.Set("");confirmText.text="";confirmRing.gameObject.SetActive(false);
             LayoutUi();
-            hintText.text=Rules.Current.Mode=="choice"?"정답 패드 위에 0.8초 서기\n10문제 중 7문제 이상 맞히면 승리":IsCoinIntro?"처치 코인 → 등에 쌓기 → 2닢 붓기\n패드 두 번 탭 후 밖으로 이동":Rules.Current.Mode=="fraction_parts"?"두 패드에 각각 답만큼 붓기\n두 곳을 채우고 밖으로 나와 확정":"탭 = 1닢 · 길게 서면 빠르게\n답만큼 붓고 밖으로 · 0은 지나가기";
-            SetTutorial(Rules.Wave==1&&st.moves==0);
+            hintText.text=Rules.Current.Mode=="choice"?"정답 패드 위에 0.8초 서기\n10문제 중 7문제 이상 맞히면 승리":IsCoinIntro?"처치 코인 → 등에 쌓기 → 2닢 붓기\n멈춰서 두 번 탭한 뒤 밖으로 이동":Rules.Current.Mode=="fraction_parts"?"모든 경우 → 사건의 경우 순서로 붓기\n두 패드에서 멈춘 뒤 밖으로 나와 확정":"탭 = 1닢 · 길게 서면 빠르게\n0은 패드에서 잠깐 멈춘 뒤 나오기";
+            bool firstFraction=Rules.Current.Mode=="fraction_parts"&&!firstFractionTutorialShown;
+            if(firstFraction)firstFractionTutorialShown=true;
+            SetTutorial(firstFraction?2:Rules.Wave==1&&st.moves==0?(Rules.Current.Mode=="choice"?3:1):0);
         }
         void FitQuestion(string prompt){
             bool wide=(float)Screen.width/Screen.height>1.2f;
@@ -141,9 +149,9 @@ namespace Mgf.HyeopgokSasu
             for(int i=0;i<4;i++){
                 bool active=i<Rules.PadCount;padLabelRoots[i].gameObject.SetActive(active);if(!active)continue;
                 if(Rules.Current.Mode=="choice"){
-                    padNames[i].text="";padLabels[i].Text.fontSize=choices[i].Contains("{frac:")||choices[i].Length<=3?24:choices[i].Length<=5?18:13;padLabels[i].Set(choices[i]);
+                    basePadNames[i]=padNames[i].text="";padLabels[i].Text.fontSize=choices[i].Contains("{frac:")||choices[i].Length<=3?24:choices[i].Length<=5?18:13;padLabels[i].Set(choices[i]);
                 }else{
-                    padNames[i].text=Rules.PadCount==1?"답만큼 붓기":i==0?Rules.Current.den_label:Rules.Current.num_label;
+                    basePadNames[i]=Rules.PadCount==1?"답만큼 붓기":i==0?Rules.Current.den_label:Rules.Current.num_label;padNames[i].text=basePadNames[i];
                     padLabels[i].Text.fontSize=30;padLabels[i].Set("0");
                 }
             }
@@ -151,10 +159,14 @@ namespace Mgf.HyeopgokSasu
         }
         void RefreshPadAmounts(){
             if(Rules.Current==null||Rules.Current.Mode=="choice"||padLabels[0]==null)return;
-            for(int i=0;i<Rules.PadCount;i++)if(lastPoured[i]!=Rules.Poured[i]){
-                lastPoured[i]=Rules.Poured[i];padLabels[i].Set(Rules.Poured[i].ToString());padLabelRoots[i].localScale=Vector3.one*1.17f;
+            for(int i=0;i<Rules.PadCount;i++)if(lastPoured[i]!=Rules.Poured[i]||lastVisited[i]!=Rules.Visited[i]){
+                lastPoured[i]=Rules.Poured[i];lastVisited[i]=Rules.Visited[i];padLabels[i].Set(Rules.Poured[i].ToString());
+                padNames[i].text=basePadNames[i]+(Rules.Visited[i]&&Rules.Poured[i]==0?" · 0 선택":"");padLabelRoots[i].localScale=Vector3.one*1.17f;
             }
-            bool show=Rules.PadCount==2&&Rules.Visited[0]&&Rules.Visited[1]&&(Rules.Confirming||Rules.Pending);
+            // A fraction with denominator 0 is not a meaningful intermediate
+            // result. Keep the assembled fraction hidden until the learner has
+            // actually poured a positive number of "all cases" coins.
+            bool show=Rules.PadCount==2&&Rules.Poured[0]>0;
             assembledText.gameObject.SetActive(show);
             if(show&&(lastAssembledDen!=Rules.Poured[0]||lastAssembledNum!=Rules.Poured[1])){
                 lastAssembledDen=Rules.Poured[0];lastAssembledNum=Rules.Poured[1];assembledMath.Set("{frac:"+Rules.Poured[1]+"/"+Rules.Poured[0]+"}");
@@ -197,14 +209,17 @@ namespace Mgf.HyeopgokSasu
             string next=won?"판단이 전선을 바꿨습니다.":Rules.Correct>=7?"정답 목표는 달성했습니다. 다음 판에는 성문까지 지켜 보세요.":"목표까지 정답 "+(7-Rules.Correct)+"개가 더 필요합니다.";
             endDetail.text="첫 시도 정답  "+Rules.Correct+" / "+Rules.Attempts+"\n"+"점수  "+Rules.Score+"   ·   격파  "+battle.Kills+"\n\n"+next;
         }
-        void SetTutorial(bool visible){
-            tutorialVisible=visible;
+        void ResetTutorialProgress(){firstFractionTutorialShown=false;SetTutorial(0);}
+        void SetTutorial(int kind){
+            tutorialKind=kind;tutorialVisible=kind>0;tutorialStarted=Time.unscaledTime;
+            bool visible=tutorialVisible;
             if(tutorialTrail)tutorialTrail.gameObject.SetActive(visible);
             if(tutorialDot)tutorialDot.gameObject.SetActive(visible);
             if(tutorialLabel)tutorialLabel.gameObject.SetActive(visible);
-            for(int i=0;i<tutorialRings.Length;i++)if(tutorialRings[i])tutorialRings[i].gameObject.SetActive(visible&&i<Rules.PadCount);
+            if(tutorialCoin)tutorialCoin.gameObject.SetActive(false);
+            for(int i=0;i<tutorialRings.Length;i++)if(tutorialRings[i])tutorialRings[i].gameObject.SetActive(false);
         }
-        void HideTutorial(){if(tutorialVisible)SetTutorial(false);}
+        void HideTutorial(){if(tutorialVisible)SetTutorial(0);}
         void LayoutUi(){
             if(!questionPanel)return;
             // CanvasScaler has not necessarily run at Awake/first Update. Its
@@ -248,10 +263,12 @@ namespace Mgf.HyeopgokSasu
             }
             if(lastTreasury!=battle.Coins){lastTreasury=battle.Coins;treasuryText.SetText("코인 {0}",lastTreasury);}
             bool pouring=battle.Depositing&&Rules.Hover>=0;
-            if(depositText.gameObject.activeSelf!=pouring)depositText.gameObject.SetActive(pouring);
+            bool stopPrompt=Rules.Current.Mode!="choice"&&Rules.IsMovingOnPad&&!Rules.Pending;
+            bool showDeposit=pouring||stopPrompt;
+            if(depositText.gameObject.activeSelf!=showDeposit)depositText.gameObject.SetActive(showDeposit);
             RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
-            if(pouring){
-                depositText.text="-1닢 → 답";
+            if(showDeposit){
+                depositText.text=pouring?"-1닢 → 답":"멈추면 붓는다";
                 Vector3 ds=cam.WorldToScreenPoint(HyeopgokRules.Pads[Rules.Hover]);
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,ds,null,out Vector2 dat);depositText.rectTransform.anchoredPosition=dat+new Vector2(0,-36);
             }
@@ -265,7 +282,7 @@ namespace Mgf.HyeopgokSasu
                 // middle free for the assembled vertical fraction.
                 if(Rules.PadCount==2)padNames[i].rectTransform.anchoredPosition=new Vector2(i==0?-27:27,43);
                 else padNames[i].rectTransform.anchoredPosition=new Vector2(0,38);
-                float progress=Rules.Confirming?Rules.Confirm/HyeopgokRules.ConfirmTime:Rules.Current.Mode=="choice"&&Rules.Hover==i?Rules.Dwell/HyeopgokRules.Hold:0;
+                float progress=Rules.Current.Mode=="choice"&&Rules.Hover==i?Rules.Dwell/HyeopgokRules.Hold:0;
                 int count=progress>0?Mathf.CeilToInt(progress*32)+1:0;padFill[i].positionCount=count;
                 for(int k=0;k<count;k++)padFill[i].SetPosition(k,PadEdge(i,Mathf.Min(progress,k/32f)));
             }
@@ -273,8 +290,17 @@ namespace Mgf.HyeopgokSasu
             Vector3 middle=cam.WorldToScreenPoint(mid);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,middle,null,out Vector2 center);
             assembledText.rectTransform.anchoredPosition=center+new Vector2(0,-6);
-            confirmText.rectTransform.anchoredPosition=center+new Vector2(0,-72);
-            confirmText.text=Rules.Confirming?"이 양으로? · 다시 올라서면 추가":!Rules.Pending&&Rules.Hover>=0&&Rules.Coins==0?"코인이 부족해요 · 전투에서 모으기":"";
+            if(Rules.Confirming){
+                Vector3 ks=cam.WorldToScreenPoint(Rules.King);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,ks,null,out Vector2 kingAt);
+                confirmRing.gameObject.SetActive(true);confirmRing.rectTransform.anchoredPosition=kingAt;
+                float pulse=1.05f+.1f*Mathf.Sin(Time.unscaledTime*9);confirmRing.rectTransform.localScale=Vector3.one*pulse;
+                confirmRing.color=Color.Lerp(gold,cream,Mathf.Clamp01(Rules.Confirm/HyeopgokRules.ConfirmTime));
+                confirmText.rectTransform.anchoredPosition=kingAt+new Vector2(0,-66);confirmText.text="이대로 확정 · 패드로 되돌아가면 취소";
+            }else{
+                confirmRing.gameObject.SetActive(false);confirmText.rectTransform.anchoredPosition=center+new Vector2(0,-72);
+                confirmText.text=Rules.TutorialBlocked&&!tutorialVisible?"먼저 코인을 1닢 이상 붓고 나오기":!Rules.Pending&&Rules.Hover>=0&&Rules.Coins==0?"코인이 부족해요 · 전투에서 모으기":"";
+            }
             AnimateTutorial();
             if(answerMark>=0){
                 Vector3 rs=cam.WorldToScreenPoint(HyeopgokRules.Pads[answerMark]);
@@ -284,25 +310,64 @@ namespace Mgf.HyeopgokSasu
             }
             if(bonusLife>0){bonusLife-=dt;bonusText.rectTransform.anchoredPosition=new Vector2(0,(2.2f-bonusLife)*18);if(bonusLife<=0)bonusMath.Set("");}
         }
+        Vector2 TutorialPoint(Vector3 world,RectTransform canvas){
+            Vector3 screen=cam.WorldToScreenPoint(world);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,screen,null,out Vector2 local);return local;
+        }
         void AnimateTutorial(){
             if(!tutorialVisible)return;
-            if(!IsCoinIntro&&Rules.PourCount>0){HideTutorial();return;}
+            if(Rules.Confirming||Rules.Pending){
+                tutorialTrail.gameObject.SetActive(false);tutorialDot.gameObject.SetActive(false);tutorialLabel.gameObject.SetActive(false);tutorialCoin.gameObject.SetActive(false);
+                for(int i=0;i<tutorialRings.Length;i++)tutorialRings[i].gameObject.SetActive(false);return;
+            }
+            tutorialDot.gameObject.SetActive(true);tutorialLabel.gameObject.SetActive(true);
             RectTransform canvas=(RectTransform)MgfText.Canvas.transform;
-            Vector3 ks=cam.WorldToScreenPoint(Rules.King);
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,ks,null,out Vector2 start);
-            Vector3 padCenter=Rules.Current.Mode=="choice"?(HyeopgokRules.Pads[0]+HyeopgokRules.Pads[1]+HyeopgokRules.Pads[2]+HyeopgokRules.Pads[3])*.25f:IsCoinIntro&&Rules.Poured[0]>=2?HyeopgokRules.Exit:HyeopgokRules.Pads[0];
-            tutorialLabel.GetComponent<TextMeshProUGUI>().text=Rules.Current.Mode=="choice"?"끌어 멈추기":IsCoinIntro?(Rules.Poured[0]>=2?"밖으로":"두 번 탭"):"답만큼 붓기";
-            Vector3 ps=cam.WorldToScreenPoint(padCenter);
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,ps,null,out Vector2 target);
-            float p=Mathf.SmoothStep(0,1,Mathf.PingPong(Time.unscaledTime*1.15f,1));
-            Vector2 dot=Vector2.Lerp(start,target,p),delta=target-start;
-            tutorialDot.anchoredPosition=dot;tutorialLabel.anchoredPosition=dot+new Vector2(55,-46);
+            Vector3 fromWorld=Rules.King,toWorld=HyeopgokRules.Pads[0];
+            float along=Mathf.SmoothStep(0,1,Mathf.PingPong(Time.unscaledTime*1.15f,1));
+            int ringPad=0;bool demoCoin=false;float coinDrop=0;
+            string label="패드 위에 멈추기";
+
+            if(tutorialKind==3){
+                toWorld=(HyeopgokRules.Pads[0]+HyeopgokRules.Pads[1]+HyeopgokRules.Pads[2]+HyeopgokRules.Pads[3])*.25f;
+                ringPad=-2;label="정답 패드에서 0.8초 멈추기";
+            }else if(tutorialKind==1){
+                bool exit=Rules.Visited[0]&&Rules.Poured[0]>=Rules.Current.answerValue;
+                toWorld=exit?HyeopgokRules.Exit:HyeopgokRules.Pads[0];ringPad=exit?-1:0;
+                label=Rules.TutorialBlocked?"패드로 돌아가 1닢 이상 붓기":exit?"③ 밖으로 나와 확정":Rules.Poured[0]>0?"② 한 번 더 탭":"① 패드 위에 멈추기";
+            }else if(tutorialKind==2){
+                bool untouched=!Rules.Visited[0]&&!Rules.Visited[1];
+                if(untouched){
+                    // A 4.8 second loop visibly rehearses both semantic pads:
+                    // move -> stop -> ghost coin, then repeat for the event pad.
+                    float t=Mathf.Repeat(Time.unscaledTime-tutorialStarted,4.8f);
+                    if(t<1f){fromWorld=Rules.King;toWorld=HyeopgokRules.Pads[0];along=Mathf.SmoothStep(0,1,t);ringPad=0;label="① 모든 경우 · 멈추기";}
+                    else if(t<1.8f){fromWorld=toWorld=HyeopgokRules.Pads[0];along=1;ringPad=0;demoCoin=true;coinDrop=(t-1f)/.8f;label="멈추면 1닢씩 붓기";}
+                    else if(t<2.8f){fromWorld=HyeopgokRules.Pads[0];toWorld=HyeopgokRules.Pads[1];along=Mathf.SmoothStep(0,1,t-1.8f);ringPad=1;label="② 사건의 경우 · 멈추기";}
+                    else if(t<3.6f){fromWorld=toWorld=HyeopgokRules.Pads[1];along=1;ringPad=1;demoCoin=true;coinDrop=(t-2.8f)/.8f;label="여기도 멈춰서 붓기";}
+                    else {fromWorld=HyeopgokRules.Pads[1];toWorld=HyeopgokRules.Exit;along=Mathf.SmoothStep(0,1,(t-3.6f)/1.2f);ringPad=-1;label="③ 밖으로 나와 확정";}
+                }else{
+                    int missing=!Rules.Visited[0]?0:!Rules.Visited[1]?1:-1;
+                    toWorld=missing>=0?HyeopgokRules.Pads[missing]:HyeopgokRules.Exit;ringPad=missing;
+                    label=missing==0?"① 모든 경우에서 멈추기":missing==1?"② 사건의 경우에서 멈추기":"③ 밖으로 나와 확정";
+                }
+            }
+
+            Vector2 start=TutorialPoint(fromWorld,canvas),target=TutorialPoint(toWorld,canvas);
+            Vector2 dot=Vector2.Lerp(start,target,along),delta=target-start;
+            tutorialDot.anchoredPosition=dot;tutorialLabel.anchoredPosition=dot+new Vector2(82,-46);
+            tutorialLabel.GetComponent<TextMeshProUGUI>().text=label;
+            tutorialTrail.gameObject.SetActive(delta.sqrMagnitude>16);
             tutorialTrail.anchoredPosition=(start+target)*.5f;tutorialTrail.sizeDelta=new Vector2(delta.magnitude,5);
             tutorialTrail.localRotation=Quaternion.Euler(0,0,Mathf.Atan2(delta.y,delta.x)*Mathf.Rad2Deg);
+            tutorialCoin.gameObject.SetActive(demoCoin);
+            if(demoCoin){
+                Vector2 pad=TutorialPoint(toWorld,canvas);tutorialCoin.anchoredPosition=Vector2.Lerp(pad+new Vector2(0,72),pad+new Vector2(0,8),Mathf.SmoothStep(0,1,coinDrop));
+                tutorialCoin.localScale=Vector3.one*(1+.2f*Mathf.Sin(Time.unscaledTime*12));
+            }
             for(int i=0;i<4;i++){
-                Vector3 rs=cam.WorldToScreenPoint(HyeopgokRules.Pads[i]);
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas,rs,null,out Vector2 local);
-                tutorialRings[i].rectTransform.anchoredPosition=local;
+                bool active=ringPad==-2&&i<Rules.PadCount||ringPad==i;
+                tutorialRings[i].gameObject.SetActive(active);if(!active)continue;
+                tutorialRings[i].rectTransform.anchoredPosition=TutorialPoint(HyeopgokRules.Pads[i],canvas);
                 tutorialRings[i].rectTransform.localScale=Vector3.one*(1.0f+.12f*Mathf.Sin(Time.unscaledTime*6+i*.7f));
             }
         }

@@ -40,11 +40,11 @@ namespace Mgf.HyeopgokSasu
         [Serializable] public sealed class Report {
             public int schema_version=2,seed=Seed,gamesPerBotPerPack=Games;
             public string seedDerivation="Fixed seed 20260926 + game index; blind input RNG uses fixed independent strategy/wave domains. No favorable seed search.";
-            public string model="Production Rules.Start/Move/Tick; dt 1/60; per-wave AddCoins(WalletCapacity) combat fixture independent of answer; 0.6s leave confirmation.";
+            public string model="Production Rules.Start/Move/Tick; dt 1/60; per-wave AddCoins(WalletCapacity) combat fixture independent of answer; 0.35s intentional empty selection; 0.6s leave confirmation.";
             public string limitation="Model fixture excludes battlefield damage, rendered pickup and browser pointer dispatch. Raw finite observations are not replaced by exact-domain expectations.";
             public bool nominalChanceGate,uniformChanceGate,controlsPassed,v1CompatibilityPassed,acceptModesPassed;
             public int modelErrors;
-            public bool coinInteractionRegressionsPassed,runtimePackValidationPassed;
+            public bool coinInteractionRegressionsPassed,choiceEquivalenceRegressionsPassed,runtimePackValidationPassed;
             public PackValidationCase[] runtimePackValidation;
             public Result[] results;
             public Domain[] domains;
@@ -85,10 +85,8 @@ namespace Mgf.HyeopgokSasu
         }
         static void BeginPad(HyeopgokRules r,int pad,int amount,bool tap){
             Vector3 destination=HyeopgokRules.Pads[pad];
-            if(amount==0){
-                // A pass through the pad marks the visit without stopping or pouring.
-                Vector3 approach=destination-r.King;approach.y=0;destination+=approach.normalized*1.25f;
-            }
+            // Zero follows the same route but stops for VisitHold; Play leaves as
+            // soon as Visited is set, before InitialPourDelay can spend a coin.
             r.Move(destination,tap);
         }
         static int Play(HyeopgokRules r,Bot bot,int game,int wave,int requested0=-1,int requested1=-1){
@@ -198,9 +196,10 @@ namespace Mgf.HyeopgokSasu
                 string key=source.Mode+":"+source.Max;
                 if(!seen.Add(key))continue;
                 var item=new PackItem{id="transport-"+key,answer_mode=source.Mode,max=source.Max,answerValue=2,answerParts=new FractionAnswer{num=2,den=4},accept="exact_parts",difficulty=1};
-                var fixture=new QuestionPack{pack_id="uniform-input-transport",items=new[]{item},economy=pack.economy};
+                var intro=new PackItem{id="transport-intro-"+key,answer_mode="amount",answerValue=2,max=60,difficulty=1};
+                var fixture=new QuestionPack{pack_id="uniform-input-transport",items=new[]{intro,item},economy=pack.economy};
                 for(int a=0;a<=item.Max;a++)for(int n=0;n<=(item.Mode=="fraction_parts"?item.Max:0);n++){
-                    var r=new HyeopgokRules();r.Start(fixture,Seed);r.AddCoins(r.WalletCapacity);
+                    var r=new HyeopgokRules();r.Start(fixture,Seed);r.Next();r.AddCoins(r.WalletCapacity);
                     Play(r,Bot.RandomAmount,Seed,1,a,n);
                     if(item.Mode=="amount")proof.amountPaths++;else proof.fractionPaths++;
                     // The path never reads correctness until its single exit commit;
@@ -216,6 +215,22 @@ namespace Mgf.HyeopgokSasu
         }
         static bool CoinInteractionRegressions(){
             int before=errorCount;
+            var zeroItem=new PackItem{id="zero-intent",answer_mode="amount",answerValue=0,max=60,difficulty=1};
+            var zeroPack=new QuestionPack{items=new[]{zeroItem}};
+            var fly=new HyeopgokRules();fly.Start(zeroPack,Seed);fly.AddCoins(fly.WalletCapacity);
+            Vector3 through=HyeopgokRules.Pads[0]-fly.King;through.y=0;through=HyeopgokRules.Pads[0]+through.normalized*1.25f;
+            fly.Move(through);int flyGuard=0;while((fly.King-fly.Target).sqrMagnitude>.012f&&flyGuard++<300)fly.Tick(Dt);
+            for(int i=0;i<90;i++)fly.Tick(Dt);
+            if(fly.Visited[0]||fly.Confirming||fly.Pending||fly.Attempts!=0||fly.Hp!=100||fly.Poured[0]!=0||fly.Spent!=0)Fail("Fly-through must not visit, confirm or submit zero");
+            var deliberate=new HyeopgokRules();deliberate.Start(zeroPack,Seed);deliberate.AddCoins(deliberate.WalletCapacity);deliberate.Move(HyeopgokRules.Pads[0]);
+            int zeroGuard=0;while(!deliberate.Visited[0]&&!deliberate.Pending&&zeroGuard++<300)deliberate.Tick(Dt);
+            deliberate.Move(HyeopgokRules.Exit);zeroGuard=0;while(!deliberate.Pending&&zeroGuard++<300)deliberate.Tick(Dt);
+            if(!deliberate.LastCorrect||deliberate.Attempts!=1||deliberate.Poured[0]!=0||deliberate.Spent!=0)Fail("Deliberate stop then leave must submit zero without spending");
+            var introItem=new PackItem{id="intro-must-pour",answer_mode="amount",answerValue=2,max=60,difficulty=1};
+            var intro=new HyeopgokRules();intro.Start(new QuestionPack{items=new[]{introItem}},Seed);intro.AddCoins(intro.WalletCapacity);intro.Move(HyeopgokRules.Pads[0]);
+            int introGuard=0;while(!intro.Visited[0]&&!intro.Pending&&introGuard++<300)intro.Tick(Dt);
+            intro.Move(HyeopgokRules.Exit);for(int i=0;i<180;i++)intro.Tick(Dt);
+            if(intro.Pending||intro.Confirming||intro.Attempts!=0||intro.Hp!=100||intro.Poured[0]!=0||!intro.TutorialBlocked)Fail("Opening tutorial must reject an empty stop-and-leave");
             var item=new PackItem{id="reentry",answer_mode="amount",answerValue=2,max=60,difficulty=1};
             var pack=new QuestionPack{items=new[]{item}};
             var r=new HyeopgokRules();r.Start(pack,Seed);r.AddCoins(r.WalletCapacity);r.Move(HyeopgokRules.Pads[0],true);
@@ -242,6 +257,15 @@ namespace Mgf.HyeopgokSasu
             guard=0;while(cap.Poured[0]<60&&!cap.Pending&&guard++<1200)cap.Tick(Dt);
             for(int i=0;i<60;i++)cap.Tick(Dt);
             if(cap.Poured[0]!=60||cap.Spent!=60||cap.Coins!=cap.WalletCapacity-60||cap.Pending)Fail("Holding at max must neither overpour nor auto-submit");
+            return errorCount==before;
+        }
+        static bool ChoiceEquivalenceRegressions(){
+            int before=errorCount;
+            var item=new PackItem{id="choice-equivalent-defense",answer_mode="choice",answer_type="choice",answer="{frac:1/2}",choices=new[]{"0","{frac:2/4}","1","2"},difficulty=1};
+            var r=new HyeopgokRules();r.Start(new QuestionPack{items=new[]{item}},Seed);
+            int pad=r.AnswerPad();
+            if(pad<0)Fail("Equivalent rational choice must remain highlightable defensively");
+            else {r.Select(pad);if(!r.LastCorrect||r.Attempts!=1)Fail("Equivalent rational choice must score by the same policy as AnswerPad");}
             return errorCount==before;
         }
         static void ValidateRuntimeCase(List<PackValidationCase> cases,string name,QuestionPack pack,bool expected){
@@ -273,6 +297,11 @@ namespace Mgf.HyeopgokSasu
             ValidateRuntimeCase(cases,"reject-pad-max-61",cap,false);
             var budget=HyeopgokPackJson.Parse(probability);budget.items[0].coin_budget=1;
             ValidateRuntimeCase(cases,"reject-underbudget-first-answer-2",budget,false);
+            var equivalentOnly=HyeopgokPackJson.Parse(probability);PackItem equivalentChoice=null;
+            foreach(var item in equivalentOnly.items)if(item.Mode=="choice"){equivalentChoice=item;break;}
+            if(equivalentChoice==null)Fail("Missing choice fixture source");
+            else {equivalentChoice.answer="{frac:1/2}";equivalentChoice.answer_type="choice";equivalentChoice.format="frac";equivalentChoice.answerNumeric=.5;equivalentChoice.choices=new[]{"0","1","{frac:2/4}","2"};}
+            ValidateRuntimeCase(cases,"reject-equivalent-only-choice-without-exact-token",equivalentOnly,false);
             var legacy=new StringBuilder("{\"pack_id\":\"legacy-validator-fixture\",\"title\":\"v1 validation\",\"items\":[");
             for(int i=0;i<10;i++){
                 if(i>0)legacy.Append(',');
@@ -317,9 +346,9 @@ namespace Mgf.HyeopgokSasu
                 packs.Add(pack);domains.Add(AuditDomain(pack));foreach(Bot bot in Enum.GetValues(typeof(Bot)))rows.Add(RunBot(pack,bot));
             }
             bool nominal=true,controls=true;foreach(var r in rows){if(r.blind&&!r.nominalChanceGate)nominal=false;if(!r.blind&&r.victories!=Games)controls=false;}
-            bool legacy=Compatibility(),accept=AcceptanceFixtures(),coinEdges=CoinInteractionRegressions();
+            bool legacy=Compatibility(),accept=AcceptanceFixtures(),coinEdges=CoinInteractionRegressions(),choiceEquivalence=ChoiceEquivalenceRegressions();
             bool packValidation=RuntimeValidationRegressions(repo,out PackValidationCase[] packValidationCases);var uniform=ExhaustUniformPaths(packs,domains);
-            var report=new Report{nominalChanceGate=nominal,uniformChanceGate=uniform.exactUniformChance,uniformPaths=uniform,controlsPassed=controls,v1CompatibilityPassed=legacy,acceptModesPassed=accept,modelErrors=errorCount,coinInteractionRegressionsPassed=coinEdges,runtimePackValidationPassed=packValidation,runtimePackValidation=packValidationCases,results=rows.ToArray(),domains=domains.ToArray(),failures=Failures.ToArray()};
+            var report=new Report{nominalChanceGate=nominal,uniformChanceGate=uniform.exactUniformChance,uniformPaths=uniform,controlsPassed=controls,v1CompatibilityPassed=legacy,acceptModesPassed=accept,modelErrors=errorCount,coinInteractionRegressionsPassed=coinEdges,choiceEquivalenceRegressionsPassed=choiceEquivalence,runtimePackValidationPassed=packValidation,runtimePackValidation=packValidationCases,results=rows.ToArray(),domains=domains.ToArray(),failures=Failures.ToArray()};
             string source=Path.Combine(repo,"factory/unity-src/hyeopgok-sasu"),output=Path.Combine(source,"ArtSource/validation/phase2");Directory.CreateDirectory(output);
             File.WriteAllText(Path.Combine(output,"bot-results.json"),JsonUtility.ToJson(report,true)+"\n");
             var md=new StringBuilder("# 협곡 사수 — 2단계 코인 붓기 봇\n\n");
@@ -337,8 +366,9 @@ namespace Mgf.HyeopgokSasu
             foreach(var d in domains)md.AppendLine("- "+d.pack+": "+d.items+"문항(amount "+d.amount+" / fraction_parts "+d.fraction+" / choice "+d.choice+"), 정수 입력 영역 "+d.enumeratedInputs+"개, 수용 "+d.acceptedInputs+"개, 독립 판정 불일치 "+d.acceptanceMismatches+"개, 실제 붓기 정답 경로 "+d.correctPaths+"/"+d.items+".");
             md.AppendLine("- 균등 입력 전수: amount 실제 동선 "+uniform.amountPaths+"개, fraction 실제 동선 "+uniform.fractionPaths+"개, 입력 운반 불일치 "+uniform.pathErrors+"개. 모드·max별 같은 동선은 정답을 읽지 않고 최종 양을 운반하므로 위 "+uniform.expandedItemInputs+"개 문항별 정수 영역에 그대로 대조한다. 이는 전체 입력 지지집합에서 정확히 우연 수준인지 확인하는 별도 검증이며 고정 시드 원시표를 대체하지 않는다.");
             md.AppendLine("- v1 answer_mode 누락 fixture의 실제 패드 선택: "+(legacy?"통과":"실패")+". exact_parts/equivalent/reduced fixture: "+(accept?"통과":"실패")+".");
-            md.AppendLine("- 런타임 팩 경제 검증 "+packValidationCases.Length+"건: "+(packValidation?"통과":"실패")+". 기본 v2 두 팩과 경제/answer_mode 없는 v1은 허용, v2 경제 누락·공급 100000·소지 241·패드 max 61·정답 2의 예산 1은 각각 독립 복제본에서 거부한다.");
-            md.AppendLine("- 확인 링 재진입 취소·기존 코인 보존·한 닢 추가→정답 투자, 과다 붓기 소실, 빈 지갑 유지→획득 후 붓기 재개, 상한에서 오래 서도 자동 제출/추가 소모 없음: "+(coinEdges?"통과":"실패")+".");
+            md.AppendLine("- 런타임 팩 검증 "+packValidationCases.Length+"건: "+(packValidation?"통과":"실패")+". 기본 v2 두 팩과 경제/answer_mode 없는 v1은 허용, v2 경제 누락·공급 100000·소지 241·패드 max 61·정답 2의 예산 1·exact 정답 토큰 없이 동치 보기만 있는 choice는 각각 독립 복제본에서 거부한다.");
+            md.AppendLine("- fly-through 무시·의도적 stop→0 확정·첫 튜토리얼 빈 제출 차단, 확인 링 재진입 취소·기존 코인 보존·한 닢 추가→정답 투자, 과다 붓기 소실, 빈 지갑 유지→획득 후 붓기 재개, 상한에서 오래 서도 자동 제출/추가 소모 없음: "+(coinEdges?"통과":"실패")+".");
+            md.AppendLine("- choice 로더 exact-token 강제와 유리수 동치 채점/정답 표시 공통 정책: "+(choiceEquivalence?"통과":"실패")+".");
             md.AppendLine("- 모든 문항의 제한 직전 미확정·직후 오답/-18, 피드백 중 중복 제출·추가 소모 금지를 검사한다.");
             md.AppendLine("\n## 판정\n\n- 전체 원시 첫 시도 정답률 ≤ 해당 문항 우연: **"+(nominal?"통과":"미충족")+"**. 구간별 초과도 위에 보존했다.");
             md.AppendLine("- 전체 균등 입력 지지집합의 실제 경로와 정확 우연 수준: **"+(uniform.exactUniformChance?"통과":"실패")+"**. 원시 표본 판정과 별도다.");
@@ -347,7 +377,7 @@ namespace Mgf.HyeopgokSasu
             foreach(string failure in Failures)md.AppendLine("- 오류: "+failure);
             File.WriteAllText(Path.Combine(source,"ArtSource/bot-results.md"),md.ToString());
             Debug.Log("HYEOPGOK_PHASE2_BOTS "+JsonUtility.ToJson(report));
-            EditorApplication.Exit(errorCount>0||!controls||!legacy||!accept||!coinEdges||!packValidation||!uniform.exactUniformChance?1:nominal?0:2);
+            EditorApplication.Exit(errorCount>0||!controls||!legacy||!accept||!coinEdges||!choiceEquivalence||!packValidation||!uniform.exactUniformChance?1:nominal?0:2);
         }
     }
 }

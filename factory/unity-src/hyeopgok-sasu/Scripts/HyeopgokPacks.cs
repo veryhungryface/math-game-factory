@@ -35,6 +35,24 @@ namespace Mgf.HyeopgokSasu
         }
         public string PartsToken=>Mode=="fraction_parts"&&answerParts!=null?"{frac:"+answerParts.num+"/"+answerParts.den+"}":AnswerToken;
         public static int Gcd(int a,int b){a=Math.Abs(a);b=Math.Abs(b);while(b!=0){int t=a%b;a=b;b=t;}return Math.Max(1,a);}
+        static long Gcd(long a,long b){a=Math.Abs(a);b=Math.Abs(b);while(b!=0){long t=a%b;a=b;b=t;}return Math.Max(1,a);}
+        static bool TryChoiceRational(string text,out long numerator,out long denominator){
+            numerator=0;denominator=1;if(string.IsNullOrEmpty(text))return false;
+            string s=text.Trim();
+            if(s.StartsWith("{frac:")&&s.EndsWith("}")){
+                string[] parts=s.Substring(6,s.Length-7).Split('/');
+                if(parts.Length!=2||!long.TryParse(parts[0],out numerator)||!long.TryParse(parts[1],out denominator)||denominator==0)return false;
+            }else if(!long.TryParse(s,out numerator))return false;
+            if(denominator<0){numerator=-numerator;denominator=-denominator;}
+            long g=Gcd(numerator,denominator);numerator/=g;denominator/=g;return true;
+        }
+        // Loader validation, scoring and answer highlighting all use this one
+        // integer-only policy. Text choices remain exact; rational tokens compare
+        // after reduction without ever converting to float/double.
+        public static bool EquivalentChoice(string a,string b){
+            if(TryChoiceRational(a,out long an,out long ad)&&TryChoiceRational(b,out long bn,out long bd))return an==bn&&ad==bd;
+            return a==b;
+        }
         public bool Accepts(int denOrAmount,int num){
             if(Mode=="amount")return denOrAmount==answerValue;
             if(Mode!="fraction_parts"||answerParts==null||denOrAmount<=0||num<0)return false;
