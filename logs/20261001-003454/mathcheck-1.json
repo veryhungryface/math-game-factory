@@ -1,0 +1,53 @@
+{
+  "slug": "sumun",
+  "verified_count": 108,
+  "errors": [
+    {
+      "prompt": "세 평행선 l, m, n이 두 직선과 만난다. AB=15 cm, AC=15 cm인 두 직선 위에서 l과 m 사이, m과 n 사이의 선분의 길이가 한 직선에서는 각각 6 cm, 6 cm이고, 다른 직선 위에서는 각각 6 cm, x cm일 때, x의 값을 구하시오.",
+      "game_answer": "3",
+      "correct_answer": "6",
+      "why": "Three() 고정 풀 4번째 행 {15,15,12,3,9,3,6,3}. 평행선 사이의 선분의 비는 6:6 = 6:x 이므로 x=6이다. 게임은 x=3을 넣고 asked=3으로 둔다. 같은 행의 세 구간 3:6:6과 3:6:3도 비례하지 않아 세 직선이 평행일 수 없다. Deck()·Any()가 이 행을 고르면 본판에 그대로 나온다. 이번 QA 표본 108장에는 이 행이 안 뽑혔을 뿐이다."
+    }
+  ],
+  "code_risks": [
+    {
+      "where": "factory/unity-src/sumun/Scripts/SumunRules.cs:483",
+      "risk": "Three() 풀 행 {15,15,12,3,9,3,6,3}이 평행선 분점 정리를 깨고 x=3을 정답으로 저장한다. 올바른 행은 끝값을 6으로 둔 {15,15,12,3,9,3,6,6}(AF:FD:DB=3:6:6=AE:ED:EC).",
+      "severity": "high",
+      "how_to_fix": "해당 행의 x를 6으로 고친다. 풀 전 행에 대해 (target-fAd):(ab-target) = ae:asked 교차곱과 AF:FD:DB=AE:ED:EC를 생성 직후 단언으로 막는다."
+    },
+    {
+      "where": "factory/unity-src/sumun/Scripts/SumunRules.cs:97-98",
+      "risk": "Kind.Three의 Satisfies가 ad==target 항등식이라 UniqueHits·자가검사가 틀린 x를 통과시킨다. 표본이 우연히 맞은 이유이기도 하다.",
+      "severity": "high",
+      "how_to_fix": "Satisfies(Three)를 Prop(target-fAd, ab-target, ae, asked)(또는 대응하는 세 구간 교차곱)로 바꾸고, asked가 그 비례를 만족하지 않으면 시트를 버린다."
+    },
+    {
+      "where": "factory/unity-src/sumun/Scripts/SumunRules.cs:618",
+      "risk": "NextFitted 폴백이 FitBroken 실패 시 target·asked만 (adHi+adLo)/2로 덮어 발문의 AD:DB 비와 어긋난 AD를 정답으로 만들 수 있다. 핀 3개·현 풀 길이에서는 잘 안 타지만 지뢰다.",
+      "severity": "medium",
+      "how_to_fix": "target을 바꾸지 말고 실패면 다른 시트를 다시 뽑거나, 덮어쓸 때 m·n·de·asked를 같은 비에서 다시 계산하라."
+    },
+    {
+      "where": "factory/unity-src/sumun/Scripts/SumunRules.cs:154",
+      "risk": "FixPart 발문에 AB 길이가 없다. AD:DB=2:1만으로는 AD가 정해지지 않는데 은행 정답은 8 cm(암묵 AB=12)다. 본판 눈금으로는 읽을 수 있으나 문장만으로는 답이 유일하지 않다.",
+      "severity": "medium",
+      "how_to_fix": "발문에 AB=12 cm를 명시하거나, 눈금에서 AB를 읽으라는 조건을 문장에 적어라."
+    }
+  ],
+  "grade_issues": [],
+  "phrasing_issues": [
+    {
+      "prompt": "△ABC에서 DE는 BC와 평행하고 AB=18 cm, AD:DB = 2:4일 때, AD의 길이를 구하시오.",
+      "issue": "주어진 비가 기약이 아니다(2:4, 표본 sm222·sm92는 2:4, sm162는 4:2). AD는 하나로 정해져 정답이 갈리지는 않는다. PartAny가 m,n을 약분하지 않는다.",
+      "severity": "low"
+    },
+    {
+      "prompt": "세 평행선 l, m, n이 두 직선과 만난다. AB=12 cm, AC=18 cm인 두 직선 위에서 l과 m 사이, m과 n 사이의 선분의 길이가 한 직선에서는 각각 4 cm, 6 cm이고, 다른 직선 위에서는 각각 6 cm, x cm일 때, x의 값을 구하시오.",
+      "issue": "교과서 예시는 평행선 사이 구간만 주고 AB·AC를 쓰지 않는다. 게임은 AB=12인데 제시 구간 합이 10이라 꼭짓점 쪽 자투리 2 cm가 문장에 없다. 표본 sm8·sm19의 교차곱 자체는 맞다(4:6=6:9, 3:4=6:8).",
+      "severity": "medium"
+    }
+  ],
+  "verdict": "fail",
+  "note": "표본 108문항은 닮음 교차곱·중점연결 ½·무게중심 2:1·△GBC 넓이 ⅓이 모두 맞고 근호·AT_PLACE·가정/결론은 없다. 다만 Three() 풀 한 행이 6:6=6:x의 정답을 3으로 내며 Satisfies가 이를 걸러내지 못해, 본판에서 틀린 비를 가르친다."
+}

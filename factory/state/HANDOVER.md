@@ -1,7 +1,38 @@
 # 인수인계 — 현재 상태 (갱신형 문서)
 
-> 마지막 갱신: 2026-09-28. 운영 규약은 `docs/OPERATIONS.md`.
+> 마지막 갱신: 2026-10-01. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
+
+## 2026-10-01 — 「깃 나눠」 1차 수정 (세 평행선·DE 드롭·밀대·옥색 면·2단) / QA 45·fatal 0 / 미게시
+
+중학교 Unity `git-nanwo` 1차. 검수 37점 must_fix high 6건. `replan_required=false`. 증거 `factory/work/fix.json`. publish/deploy 안 함.
+
+- MakeThree 답을 ed(m–n)로. Similar 드롭 칸=DE cm. Area는 △GBC 넓이(cm²).
+- 밀대 블레이드=BC 평행, 연습 hopAc 끔, 유령 밀대 4 cm. 삼각기 양면 와인딩으로 옥색 면.
+- 와이드 cam.rect 좌 스테이지 + 우 380px 주문서.
+- QA **45/45·fatal 0**, GPU 모바일 **79fps**·1280 **80fps**, 저하율 **99%**, input.real hit. gzip Unity **7.6MB**. firstplay 하네스 미재실행.
+
+## 2026-10-01 — 「석회 착지」 3차 재검수 74점 / passed false / 폐기
+
+중학교 Unity `seokhoe-chakji` 3차. `factory/work/review.json`. QA 45·fatal 0, mathcheck pass 107, 무뇌 봇 ≤우연. 연습 1탭 착지는 동작. 미해결 high 2: (1) `DrawGuide`가 EndPractice 뒤 `guideInk`를 안 지워 본판 삼각 2/3에 연습 원+셰브론이 남음(F7/오답 유도). (2) 첫 플레이 partial — 노란 '본판으로'가 포인터를 이기고, 본판은 hop+재탭이라 순진 탭이 착지 못 함. 상한 3회라 게시 불가.
+
+## 2026-10-01 — 「석회 착지」 1차 수정 (발문·착지·정체성·HUD) / QA 45·fatal 0 / 미게시
+
+중학교 Unity `seokhoe-chakji` 1차. 검수 39점 must_fix high 6건(FindAe AC 누락, 발문≠착지 칸, 우레탄=곧게 걸쳐 계열, 연습 2단, 와이드 잘림, 중선 풀 오류). `replan_required=false`. 증거 `factory/work/fix.json`. publish/deploy 안 함.
+
+- FindAe 발문에 AC. 착지는 항상 AD/AG(asked=target). 중선 풀은 {13,10,12,8,60}·{17,16,15,10,120}만.
+- 배경 콘크리트+배수구+스탠드, 부품 나무 쐐기. thumb/square 재생성.
+- 연습은 AD=4를 묻고 목표 칸 재탭=착지. 가로 HUD 좌 400px 패널.
+- QA **45/45·fatal 0**, GPU 모바일 fps 48(중앙, 표본 45/48/63)·1280 **81fps**, 저하율 **114%**, input.real hit. gzip Unity **7.6MB**. firstplay 하네스 미재실행.
+
+## 2026-10-01 — 「수문」 3차 수정 (잠금 제스처·라벨·해설) / QA 45·fatal 0 / 미게시
+
+중학교 Unity 트랙 `sumun` 3차. 검수 75점 must_fix high 2건(Held 중 42px 오잠금, 첫 플레이 라벨 겹침·해설 1.15초)을 국소 수정했다. `replan_required=false`. 증거는 `factory/work/fix.json`. publish/deploy는 실행하지 않았다.
+
+- 잠금은 포인터 Up의 가로 획만(폭 25%·|h|>|v|×1.5). 비 불일치 가로 획은 토스트만. 연습은 ad0 리셋 없음. 12초 시트 바 HUD.
+- 비 라벨을 수문 아래 사면 안쪽에. 연습 성공 2.25초 + AD:DB=AE:EC. 탭 리플. 세로 카메라 look-up으로 태블릿 A가 HUD 아래.
+- Unity WebGL 재빌드 warnings 4(미사용 필드, 기존). QA **45/45·fatal 0**, M4/Metal 모바일 **84fps**, 1280 **78fps**, 저하율 **94%**, input.real hit. gzip Unity 산출 **7.7MB**.
+- firstplay 18장: t017 drag에서 AD:DB=1:2(수정 전 16장 AD=1 고정 해소). 순진 봇은 25% 가로 쓸기를 안 해서 연습 미완주 — 의도된 확정 제스처.
 
 ## 2026-09-28 — 「협곡 사수」 v3 조작 결함 2건 수정 / 전 게이트 통과 / 로컬만·미게시
 

@@ -1,0 +1,52 @@
+{
+  "slug": "git-nanwo",
+  "verified_count": 116,
+  "errors": [
+    {
+      "prompt": "△ABC에서 DE는 BC와 평행하고 AD:AB = 1:3, AB=12 cm, BC=15 cm일 때, DE의 길이를 구하시오.",
+      "game_answer": "은행 답 5 cm(수치만 맞음). 정답 공개: AD:AB = DE:BC = 5:12  →  DE=5 cm",
+      "correct_answer": "AD:AB = DE:BC = 1:3  →  DE=5 cm",
+      "why": "Kind.Similar는 target을 DE로 두는데 Words.RevealRight가 Ratio(target, AB)를 호출해 AD:AB를 DE:AB=5:12로 표시한다. 실제 AD=4이므로 AD:AB=1:3, DE:BC=5:15=1:3이다. 같은 문장의 5:12와 DE=5 cm는 BC=15와 모순(15×5/12=6.25≠5). 표본 Similar 15문항 중 AB≠BC인 11문항에서 같은 버그가 난다. 맞춘 뒤 주문서가 틀린 닮음비를 정답처럼 가르친다."
+    }
+  ],
+  "code_risks": [
+    {
+      "where": "factory/unity-src/git-nanwo/Scripts/GitRules.cs:210",
+      "risk": "Kind.Similar 정답 공개가 Judge.Ratio(s.target, s.ab)를 쓴다. Similar의 target은 DE라서 AD:AB = DE:BC = DE:AB 가 된다. 예: AD:AB=1:3인데 5:12로 나옴. DeLen(target=AD) 분기를 그대로 재사용한 버그.",
+      "severity": "high",
+      "how_to_fix": "이미 있는 s.m:s.n(AD:AB)을 쓰거나 Ratio(givenAd 또는 AB*DE/BC, AB)로 AD:AB를 만들고, DE:BC는 Ratio(s.de, s.bc)로 따로 써라. 두 약분 비가 같아야 한다. 정답 공개는 GitNanwoGame.Commit 성공 시 goalTxt에 그대로 나간다."
+    },
+    {
+      "where": "factory/unity-src/git-nanwo/Scripts/GitRules.cs:277",
+      "risk": "연습장 FindAe는 AB=6, BC=8, AD=4인데 de=5로 박혀 있다. 닮음에서 DE=8×4/6=16/3이다. 발문(AE)에는 안 나오며 그림은 보간으로 그리므로 표본 오답은 아니지만 내부 값이 기하와 어긋난다.",
+      "severity": "medium",
+      "how_to_fix": "연습장은 BC를 6의 배수로 맞추거나(예: BC=9, DE=6) de를 Judge.De로 계산하고, 정수가 안 되면 변 길이를 바꿔라."
+    },
+    {
+      "where": "factory/unity-src/git-nanwo/Scripts/GitRules.cs:785",
+      "risk": "Area()는 Cent 이등변(넓이 60 또는 120)을 그린 채 발문 넓이만 {24,36,…,120}에서 뽑는다. △GBC=1/3 수치는 맞지만 그림 넓이와 발문이 다를 수 있다.",
+      "severity": "medium",
+      "how_to_fix": "발문 넓이를 Cent 풀의 area(60 또는 120)로 고정하거나, 그림 높이를 발문 넓이에 맞게 스케일하라."
+    }
+  ],
+  "grade_issues": [],
+  "phrasing_issues": [
+    {
+      "prompt": "△ABC에서 DE는 BC와 평행하고 AD:AB = 1:3, AB=12 cm, BC=15 cm일 때, DE의 길이를 구하시오.",
+      "issue": "맞춘 뒤 공개 문장 「AD:AB = DE:BC = 5:12  →  DE=5 cm」는 발문의 1:3과 모순이고, BC=15에 5:12를 적용하면 DE가 5가 아니다. 표현 때문에 정답 비가 달라진다.",
+      "severity": "high"
+    },
+    {
+      "prompt": "넓이가 120 cm²인 △ABC의 무게중심을 G라고 할 때, △GBC의 넓이를 구하시오.",
+      "issue": "발문은 넓이를 묻는데 조작 안내는 「꼭짓점으로부터 2:1 칸에서 눌러라」이다. 은행 답(40 cm²)과 탭 칸(중선의 2/3)이 다른 양이다. 넓이의 1/3 자체는 맞다.",
+      "severity": "medium"
+    },
+    {
+      "prompt": "△ABC에서 DE는 BC와 평행하고 …",
+      "issue": "교과서 기호는 DE∥BC. 게임은 두부(□)를 피해 「DE는 BC와 평행」으로 썼고 뜻은 같다. D·E가 각각 AB·AC 위의 점이라는 위치 조건은 발문에 없다.",
+      "severity": "low"
+    }
+  ],
+  "verdict": "fail",
+  "note": "표본 116문항의 길이·넓이 숫자는 교차곱으로 모두 맞는다. 그러나 Similar 정답 공개가 AD:AB를 DE:AB로 바꿔 틀린 닮음비를 정답처럼 보여 주므로 학생에게 잘못된 비를 가르친다."
+}
