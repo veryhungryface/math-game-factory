@@ -60,7 +60,7 @@ const captionLines = chosen
 // 학교급별 눈높이 (2026-09-26 중학교 확장). run.sh 가 SCHOOL 을 export 한다.
 // 중학교 학년은 슬롯에서 읽는다(2026-10-03 중3 회차 추가). 슬롯이 없으면 2학년.
 let MID_GRADE = 2;
-try { MID_GRADE = JSON.parse(fs.readFileSync(path.join(HERE, '../../work/slot.json'), 'utf8')).unit?.grade || 2; } catch {}
+try { MID_GRADE = JSON.parse(fs.readFileSync(path.join(process.env.MGF_WORK ? path.resolve(HERE, '../../..', process.env.MGF_WORK) : path.join(HERE, '../../work'), 'slot.json'), 'utf8')).unit?.grade || 2; } catch {}
 const AUDIENCE = process.env.SCHOOL === 'middle'
   ? { who: `중학교 ${MID_GRADE}학년`, eye: `중학교 ${MID_GRADE}학년, 교과서 용어는 알지만 게임 설명을 읽을 인내심은 낮음` }
   : { who: '초등 3~6학년', eye: '초등 3~6학년, 문해력 낮음' };

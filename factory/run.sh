@@ -49,9 +49,19 @@ fi
 # shellcheck source=/dev/null
 source "$ROOT/factory/config.sh"
 
-RUN_ID="$(date +%Y%m%d-%H%M%S)"
+# ── 3안 병렬 레인 (2026-10-03 사용자 지시 「병렬로 바꿔」) ─────────────────────
+# 부모 회차가 기획안 3개를 보완한 뒤 레인 3개를 동시에 띄운다(launch_lanes). 레인은 이 스크립트를
+# MGF_LANE_ITEM=<기획안 폴더> 로 다시 부른 것이다 — 작업 폴더(MGF_WORK)·RUN_ID 를 레인별로 나누고,
+# 전역 락·하루 1작 가드는 부모가 잡고 있으므로 건너뛴다. 머신 공용 자원은 잠금으로 직렬화한다:
+#   Unity 빌드(unity.lock.d — build.sh) · QA/첫 플레이 fps 측정(gpu.lock.d — machine-lock.mjs) ·
+#   게시·장부·git·배포(publish.lock.d — 아래 acquire_lock).
+MGF_LANE_ITEM="${MGF_LANE_ITEM:-}"
+RUN_ID="${MGF_RUN_ID:-$(date +%Y%m%d-%H%M%S)}"
 LOG_DIR="$ROOT/logs/$RUN_ID"
-WORK="$ROOT/factory/work"
+if [ -n "$MGF_LANE_ITEM" ]; then
+  export MGF_WORK="factory/work/lanes/$RUN_ID"
+fi
+WORK="$ROOT/${MGF_WORK:-factory/work}"
 LOCK="$ROOT/factory/state/run.lock"
 mkdir -p "$LOG_DIR" "$ROOT/factory/state"
 
@@ -77,9 +87,22 @@ run_timeout() {
   wait "$pid"; return $?
 }
 
+# 레인의 에이전트는 자기 작업 폴더를 봐야 한다. 프롬프트·문서가 「factory/work/」 를 글자로 박아 두었으므로
+# 러너에 넘기기 직전에 레인 경로로 바꿔 준다(레인이 아니면 그대로).
+lane_prompt() {
+  local p="$1"
+  if [ -n "${MGF_WORK:-}" ] && [ "$MGF_WORK" != "factory/work" ]; then
+    p="${p//factory\/work\//$MGF_WORK/}"
+    p="이 회차의 작업 폴더는 \`$MGF_WORK/\` 다(병렬 레인). 다른 레인의 \`factory/work/lanes/*\` 는 건드리지 마라. 환경 변수 MGF_WORK 가 이미 설정돼 있어 \`node factory/lib/qa.mjs\` 도 이 폴더에 쓴다.
+
+$p"
+  fi
+  printf '%s' "$p"
+}
+
 # claude 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트 [$4=모델(기본 $CLAUDE_MODEL)]
 claude_run() {
-  local secs="$1" logfile="$2" prompt="$3" model="${4:-$CLAUDE_MODEL}"
+  local secs="$1" logfile="$2" prompt; prompt="$(lane_prompt "$3")"; local model="${4:-$CLAUDE_MODEL}"
   run_timeout "$secs" env -u ANTHROPIC_API_KEY claude -p "$prompt" \
     --model "$model" \
     --dangerously-skip-permissions \
@@ -98,7 +121,7 @@ codex_reasoning_for() {
 
 # codex 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트 [$4=모델(기본 $CODEX_MODEL)] [$5=추론등급]
 codex_run() {
-  local secs="$1" logfile="$2" prompt="$3" model="${4:-$CODEX_MODEL}"
+  local secs="$1" logfile="$2" prompt; prompt="$(lane_prompt "$3")"; local model="${4:-$CODEX_MODEL}"
   local effort="${5:-$(codex_reasoning_for "$model")}"
   run_timeout "$secs" env -u ANTHROPIC_API_KEY codex exec "$prompt" \
     --model "$model" \
@@ -112,7 +135,7 @@ codex_run() {
 
 # grok 헤드리스 실행. $1=제한시간 $2=로그파일 $3=프롬프트
 grok_run() {
-  local secs="$1" logfile="$2" prompt="$3"
+  local secs="$1" logfile="$2" prompt; prompt="$(lane_prompt "$3")"
   run_timeout "$secs" grok -p "$prompt" \
     --model "$GROK_MODEL" \
     --always-approve \
@@ -129,7 +152,7 @@ _agy_exec() {
   exec agy -p "$2" --model "$1" --dangerously-skip-permissions --add-dir "$ROOT" </dev/null
 }
 agy_run() {
-  local secs="$1" logfile="$2" prompt="$3" model="${4:-$AGY_MODEL}"
+  local secs="$1" logfile="$2" prompt; prompt="$(lane_prompt "$3")"; local model="${4:-$AGY_MODEL}"
   run_timeout "$secs" env -u ANTHROPIC_API_KEY bash -c "$(declare -f _agy_exec); ROOT='$ROOT'; _agy_exec \"\$1\" \"\$2\"" _ "$model" "$prompt" \
     >"$logfile" 2>&1
 }
@@ -246,7 +269,9 @@ tree_hash() {
 # 원래 폐기 단계에만 인라인으로 있어서 **빌드 단계에서 죽은 회차는 장부에 안 남았다**
 # (2026-08-27~28 grok 402 4연속 사망이 전부 미기록). 빌드 실패 경로도 이걸 거친다.
 record_failed() {
-  local reason="${1:-}"
+  local reason="${1:-}" held=0
+  [ "$(cat "$ROOT/factory/state/publish.lock.d/pid" 2>/dev/null)" = "$$" ] && held=1
+  acquire_lock publish
   node -e '
     const fs=require("fs"),p=process.argv[1];
     const q=fs.existsSync(p)?JSON.parse(fs.readFileSync(p,"utf8")):{produced:[],failed:[],mechanic_history:[]};
@@ -256,6 +281,7 @@ record_failed() {
     q.failed.push(e);
     fs.writeFileSync(p,JSON.stringify(q,null,2)+"\n");
   ' "$ROOT/factory/state/queue.json" "$RUN_ID" "${SLUG:-}" "${TITLE:-}" "${SCORE:-0}" "$(jqv "$WORK/slot.json" .unit.id)" "$reason" "$SCHOOL"
+  [ "$held" = 1 ] || release_lock publish
 }
 
 # ── 하루 1작 가드 (2026-09-06 체제 전환) ───────────────────────────
@@ -268,7 +294,7 @@ record_failed() {
 # 그건 「새 생산」이 아니라 같은 세트의 나머지다 — 하루 1작 가드를 적용하지 않고 먼저 만든다.
 PENDING_ROOT="$ROOT/factory/state/pending/$SCHOOL"
 HAS_PENDING="$(ls -d "$PENDING_ROOT"/*/ 2>/dev/null | head -1)"
-if [ "${DAILY_TARGET:-1}" -gt 0 ] && [ "${FORCE_PRODUCE:-0}" != "1" ] && [ -z "${RESUME_FROM:-}" ] && [ -z "$HAS_PENDING" ]; then
+if [ "${DAILY_TARGET:-1}" -gt 0 ] && [ "${FORCE_PRODUCE:-0}" != "1" ] && [ -z "${RESUME_FROM:-}" ] && [ -z "$HAS_PENDING" ] && [ -z "$MGF_LANE_ITEM" ]; then
   TODAY_DONE="$(node -e '
     const fs=require("fs"), p=process.argv[1], target=Number(process.argv[2])||1;
     if(!fs.existsSync(p)) process.exit(0);
@@ -289,7 +315,10 @@ if [ "${DAILY_TARGET:-1}" -gt 0 ] && [ "${FORCE_PRODUCE:-0}" != "1" ] && [ -z "$
 fi
 
 # ── 락 ────────────────────────────────────────────────────────────
-if [ -f "$LOCK" ]; then
+# 레인은 부모가 잡은 전역 락 아래에서 돈다 — 락을 다시 잡지 않는다.
+if [ -n "$MGF_LANE_ITEM" ]; then
+  :
+elif [ -f "$LOCK" ]; then
   LOCK_PID="$(cat "$LOCK" 2>/dev/null)"
   if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
     echo "⏭  이전 사이클(pid $LOCK_PID)이 아직 실행 중입니다. 이번 회차는 건너뜁니다."
@@ -298,7 +327,7 @@ if [ -f "$LOCK" ]; then
   log "고아 락 발견 — 제거"
   rm -f "$LOCK"
 fi
-echo $$ > "$LOCK"
+[ -n "$MGF_LANE_ITEM" ] || echo $$ > "$LOCK"
 
 # ── 러너 사전 점검 ────────────────────────────────────────────────
 # 어떤 러너로 이번 회차를 돌리는지 로그 첫머리에 남긴다. grok 잔액 소진(402)이나
@@ -312,7 +341,23 @@ STARTED_AT="$(date +%s)"
 SLUG=""; TITLE=""; SCORE=""; VERDICT=""; DEPLOY_URL=""; STATUS="진행중"
 BUILD_FALLBACK_NOTE=""   # 빌드 러너 폴백이 발동하면 채워진다 — 리포트에 그대로 남긴다
 
-cleanup() { rm -f "$LOCK"; }
+cleanup() { release_lock publish; [ -n "$MGF_LANE_ITEM" ] || rm -f "$LOCK"; }
+
+# 머신 공용 자원 잠금(병렬 레인용). factory/state/<이름>.lock.d/pid — 잡은 pid 가 죽었으면 회수한다.
+# machine-lock.mjs·unity/build.sh 와 같은 규약. $1=이름 [$2=최대 대기초(기본 3600)]
+acquire_lock() {
+  local d="$ROOT/factory/state/$1.lock.d" waited=0 p
+  [ "$(cat "$d/pid" 2>/dev/null)" = "$$" ] && return 0   # 이미 이 프로세스가 쥐고 있다(재진입)
+  while ! mkdir "$d" 2>/dev/null; do
+    p="$(cat "$d/pid" 2>/dev/null)"
+    if [ -n "$p" ] && ! kill -0 "$p" 2>/dev/null; then rm -rf "$d"; continue; fi
+    [ "$waited" -eq 0 ] && log "⏳ 잠금 $1 대기 (pid ${p:-?})"
+    sleep 3; waited=$((waited+3))
+    if [ "$waited" -ge "${2:-3600}" ]; then log "⚠️  잠금 $1 대기 초과 — 강행"; mkdir -p "$d"; break; fi
+  done
+  echo $$ > "$d/pid"
+}
+release_lock() { [ "$(cat "$ROOT/factory/state/$1.lock.d/pid" 2>/dev/null)" = "$$" ] && rm -rf "$ROOT/factory/state/$1.lock.d"; return 0; }
 trap cleanup EXIT
 
 # ── 최종 보고 ──────────────────────────────────────────────────────
@@ -396,6 +441,34 @@ finish() {
   fi
 }
 
+# 대기열(factory/state/pending/<학교급>/*)의 기획안을 레인으로 동시에 띄우고 전부 끝날 때까지 기다린다.
+# 레인마다 이 스크립트를 새로 부른다(자기 스냅샷·RUN_ID·작업 폴더). 각 레인이 스스로 게시·배포·보고한다.
+# 꺼낸 기획안은 즉시 부모 로그 폴더로 옮긴다 — 레인이 죽어도 같은 안을 무한 재시도하지 않는다.
+launch_lanes() {
+  local items k=0 pids=() d dst
+  items="$(ls -d "$PENDING_ROOT"/*/ 2>/dev/null | sort | head -n "${PARALLEL_LANES:-3}")"
+  [ -n "$items" ] || return 0
+  step "병렬 레인 $(echo "$items" | wc -l | tr -d ' ')개"
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    d="${d%/}"; k=$((k+1))
+    dst="$LOG_DIR/lane-$k-$(basename "$d")"
+    mv "$d" "$dst" || continue
+    log "레인 $k: 「$(jqv "$dst/chosen.json" .title)」 ($(jqv "$dst/chosen.json" .slug)) → logs/$RUN_ID-L$k"
+    env -u MGF_SNAPSHOT MGF_LANE_ITEM="$dst" MGF_RUN_ID="$RUN_ID-L$k" MGF_LANE_NO="$k" \
+      bash "$ROOT/factory/run.sh" >"$LOG_DIR/lane-$k.out" 2>"$LOG_DIR/lane-$k.log" &
+    pids+=($!)
+    sleep 15   # 아트 생성·codex 세션이 한꺼번에 몰리지 않게 살짝 엇갈린다
+  done <<< "$items"
+  local rc fails=0
+  for k in "${!pids[@]}"; do
+    wait "${pids[$k]}"; rc=$?
+    [ "$rc" -eq 0 ] || fails=$((fails+1))
+    log "레인 $((k+1)) 종료 rc=$rc — $(grep -m1 -E '새 게임|폐기|실패' "$LOG_DIR/lane-$((k+1)).out" 2>/dev/null | head -c 120)"
+  done
+  echo "🛤 병렬 레인 ${#pids[@]}개 종료 (비정상 종료 ${fails}개) — 각 레인이 개별 보고했다. 로그: logs/$RUN_ID-L*"
+}
+
 # ════════════════════════════════════════════════════════════════
 step "0. 준비"
 # 단계 재개. 각 단계에 번호를 주고, 시작 번호보다 앞선 단계는 건너뛴다.
@@ -407,19 +480,20 @@ stage_no() {
   esac
 }
 RESUME_FROM="${RESUME_FROM:-}"
-# 3안 포트폴리오: 남은 보완 기획안이 있으면 가장 오래된 것 하나를 꺼내 아트 단계부터 만든다.
-# 꺼내는 즉시 로그 폴더로 옮긴다 — 이 회차가 죽어도 같은 안을 무한 재시도하지 않는다.
+# 3안 병렬 생산 (2026-10-03):
+#  - 레인(MGF_LANE_ITEM)이면 받은 기획안 폴더로 아트 단계부터 만든다.
+#  - 레인이 아닌데 대기열(factory/state/pending/<학교급>/)이 남아 있으면 전부 레인으로 동시에 띄우고 끝낸다.
 PORTFOLIO_ITEM=""
-if [ -z "$RESUME_FROM" ] && [ "${RESUME:-0}" != "1" ]; then
-  _pend="$(ls -d "$PENDING_ROOT"/*/ 2>/dev/null | sort | head -1)"
-  if [ -n "$_pend" ] && [ -f "$_pend/chosen.json" ] && [ -f "$_pend/slot.json" ]; then
-    PORTFOLIO_ITEM="$(basename "$_pend")"
-    rm -rf "$WORK"; mkdir -p "$WORK"
-    cp "$_pend/chosen.json" "$_pend/slot.json" "$WORK/"
-    mv "$_pend" "$LOG_DIR/pending-$PORTFOLIO_ITEM"
-    RESUME_FROM="art"
-    log "📦 3안 세트의 다음 안: 「$(jqv "$WORK/chosen.json" .title)」 ($PORTFOLIO_ITEM) — 남은 안 $(ls -d "$PENDING_ROOT"/*/ 2>/dev/null | wc -l | tr -d ' ')개"
-  fi
+if [ -n "$MGF_LANE_ITEM" ]; then
+  { [ -f "$MGF_LANE_ITEM/chosen.json" ] && [ -f "$MGF_LANE_ITEM/slot.json" ]; } || die "레인 기획안 폴더가 비었습니다: $MGF_LANE_ITEM"
+  PORTFOLIO_ITEM="$(basename "$MGF_LANE_ITEM")"
+  rm -rf "$WORK"; mkdir -p "$WORK"
+  cp "$MGF_LANE_ITEM/chosen.json" "$MGF_LANE_ITEM/slot.json" "$WORK/"
+  RESUME_FROM="art"
+  log "🛤  레인 ${MGF_LANE_NO:-?}: 「$(jqv "$WORK/chosen.json" .title)」 ($PORTFOLIO_ITEM) — 작업 폴더 $MGF_WORK"
+elif [ -z "$RESUME_FROM" ] && [ "${RESUME:-0}" != "1" ] && [ -n "$(ls -d "$PENDING_ROOT"/*/ 2>/dev/null)" ]; then
+  launch_lanes
+  exit 0
 fi
 # 예전 RESUME=1 은 art 부터 재개하는 것과 같다 (하위 호환)
 [ -z "$RESUME_FROM" ] && [ "${RESUME:-0}" = "1" ] && RESUME_FROM="art"
@@ -550,7 +624,7 @@ if [ "$CONCEPTS" -eq 1 ]; then
 elif [ "${PORTFOLIO:-1}" = "1" ]; then
   # 3안 포트폴리오 (2026-10-03 사용자 지시): 택일하지 않고 3안을 전부 보완해서 전부 만든다.
   # 보완은 심사와 같은 기준(D1~D10)으로 실격 사유를 「탈락」 대신 「수정」한다(16-refine.md).
-  # 이번 회차는 build_order_hint 1번 안을 만들고, 나머지는 pending 에 넣어 다음 회차들이 이어서 만든다.
+  # 보완한 안을 전부 대기열에 넣고 곧바로 레인으로 동시에 만든다(launch_lanes). build_order_hint 는 레인 번호 순서다.
   step "3. 기획 보완 (3안 전부 — 택일 없음)"
   codex_run "$T_JUDGE" "$LOG_DIR/refine.log" "$(prompt_file factory/prompts/16-refine.md)
 
@@ -566,19 +640,17 @@ $SLOT_CTX
   ORDERED="$(for f in "$WORK"/concept-*.json; do
       printf '%s\t%s\n' "$(jq -r '._refine.build_order_hint // .n // 9' "$f" 2>/dev/null || echo 9)" "$f"
     done | sort -n | cut -f2)"
-  FIRST=1; _k=0
+  _k=0
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     _k=$((_k+1))
-    if [ "$FIRST" = "1" ]; then
-      cp "$f" "$WORK/chosen.json"; FIRST=0
-      log "보완 1순위: 「$(jqv "$f" .title)」 — 이번 회차에 만든다"
-    else
-      _dst="$PENDING_ROOT/${RUN_ID}-$_k"
-      mkdir -p "$_dst"; cp "$f" "$_dst/chosen.json"; cp "$WORK/slot.json" "$_dst/slot.json"
-      log "보완 ${_k}순위: 「$(jqv "$f" .title)」 → 다음 회차 대기열"
-    fi
+    _dst="$PENDING_ROOT/${RUN_ID}-$_k"
+    mkdir -p "$_dst"; cp "$f" "$_dst/chosen.json"; cp "$WORK/slot.json" "$_dst/slot.json"
+    log "보완 ${_k}순위: 「$(jqv "$f" .title)」 → 레인 대기열"
   done <<< "$ORDERED"
+  # 3안을 레인으로 동시에 만든다(병렬, 2026-10-03). 이 부모 회차는 레인이 끝날 때까지 전역 락을 쥐고 기다린다.
+  launch_lanes
+  exit 0
 else
   # 심사는 GPT 상위 티어로 — 사용자 요청(claude 편중 완화). 기획안이 claude/codex/grok
   # 3사에서 나오므로 어차피 어느 모델이 심사해도 자기 안이 하나는 섞여 있다.
@@ -952,8 +1024,10 @@ if [ -n "$GATE_BLOCK" ]; then
   step "폐기"
   ARCHIVE="$ROOT/factory/state/rejected/$RUN_ID-$SLUG"
   mkdir -p "$(dirname "$ARCHIVE")"
+  acquire_lock publish
   mv "$ROOT/public/g/$SLUG" "$ARCHIVE" 2>/dev/null
   record_failed "$GATE_BLOCK"
+  release_lock publish
   finish "폐기" "${VERDICT:-품질 게이트 미달} — 차단 사유: $GATE_BLOCK"
   exit 0
 fi
@@ -966,6 +1040,8 @@ step "10. 게시 준비"
 # 남아 허브에서 사라졌다** — 실제로 5작(쩍쩍·첨벙·유리를 불어·등불을 켜·칸자물쇠)이
 # 게시됐는데도 카탈로그에 안 뜨는 사고가 났다(2026-08-26 복구). 사람이 손으로 부활시킬
 # 때도 똑같이 이 스크립트를 호출해야 한다 — docs/OPERATIONS.md §8 참조.
+# 병렬 레인(2026-10-03): queue.json·catalog·허브·git·배포는 공유 자원이라 게시~배포 전체를 한 레인씩 돈다.
+acquire_lock publish
 node factory/lib/publish-game.mjs "$SLUG" \
   --score "${SCORE:-0}" \
   --gate "$GATE_SCORE" \
@@ -983,7 +1059,10 @@ node factory/lib/verify-catalog.mjs >>"$LOG_DIR/verify-catalog.log" 2>&1 \
 # ════════════════════════════════════════════════════════════════
 if [ "$DEPLOY" = "1" ]; then
   step "11. GitHub + Vercel 배포"
-  git add -A >/dev/null 2>&1
+  # 병렬 레인이 있으므로 git add -A 금지 — 다른 레인이 만들고 있는 public/g/<slug> 반쪽짜리가 섞인다.
+  # 이 게임·허브·장부·폐기 보관소·레퍼런스만 담는다.
+  git add -- "public/g/$SLUG" public/index.html public/catalog.json factory/state references \
+    $( [ -d "factory/unity-src/$SLUG" ] && echo "factory/unity-src/$SLUG" ) >/dev/null 2>&1
   git -c user.name="math-game-factory" -c user.email="bot@localhost" \
       commit -q -m "게임 추가: $TITLE ($SLUG)
 
@@ -1015,6 +1094,7 @@ else
   log "DEPLOY=0 — 배포 생략"
   DEPLOY_URL="http://localhost (드라이런)"
 fi
+release_lock publish
 
 # ════════════════════════════════════════════════════════════════
 # 게임 게시가 끝난 뒤에만 시도한다 — 이 게임의 성공 여부와 완전히 무관한 부가
@@ -1022,7 +1102,7 @@ fi
 # 한 번, 새 카테고리에서 레퍼런스 후보를 찾아 references/pending/ 에 쌓아둔다.
 # 바로 game-references.json 에 섞이지 않는다 — 사람이 검토 후
 # merge-references.mjs 로 승인해야 실제 기획에 반영된다.
-if node factory/lib/scout-references.mjs check >"$LOG_DIR/scout.log" 2>&1; then
+if [ "${MGF_LANE_NO:-1}" = "1" ] && node factory/lib/scout-references.mjs check >"$LOG_DIR/scout.log" 2>&1; then
   step "12. 레퍼런스 스카우트"
   node factory/lib/scout-references.mjs prepare >>"$LOG_DIR/scout.log" 2>&1
   SCOUT_PROMPT="$(prompt_file factory/prompts/50-reference-scout.md)

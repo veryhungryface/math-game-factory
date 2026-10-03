@@ -34,6 +34,15 @@
 - 최종 공식 QA **45/45·fatal 0**, M4/Metal 모바일 **76fps**, 1280 **74fps**, 15초 유지율
   **95%**, 콘솔/예외/실패 요청 0. gzip Unity 산출물 **8.8MB**. meta `qa.passed=false` 유지, 미게시.
 
+## 2026-10-03 (저녁) — 3안 병렬 레인
+- 사용자 지시 「병렬로 바꿔」. 부모 회차가 3안을 보완(16-refine)한 뒤 `launch_lanes` 로 레인 3개를 **동시에** 띄우고, 끝날 때까지 전역 `run.lock` 을 쥐고 기다린다. 대기열(`factory/state/pending/<학교급>/`)이 남아 있으면 다음 회차가 하루 1작 가드 없이 그것들을 레인으로 띄운다(`PARALLEL_LANES`, 기본 3).
+- 레인 = `run.sh` 를 `MGF_LANE_ITEM=<기획안 폴더>` 로 다시 부른 것. `MGF_RUN_ID=<부모>-L<k>`, 작업 폴더 `MGF_WORK=factory/work/lanes/<RUN_ID>`(paths.mjs·qa.mjs·firstplay 가 따른다). 러너에 넘기는 프롬프트의 `factory/work/` 는 `lane_prompt()` 가 레인 경로로 바꾼다.
+- 공용 자원 잠금(`factory/state/<이름>.lock.d/pid`, 죽은 pid 회수): `unity`(build.sh — 워크스페이스 1개라 Unity 빌드 직렬), `gpu`(qa.mjs·firstplay harness — fps 측정 직렬, `machine-lock.mjs`), `publish`(run.sh — 게시·폐기·queue.json·git·vercel 직렬).
+- 레인의 git 은 `add -A` 금지 — 자기 `public/g/<slug>`·허브·`factory/state`·`references`·`factory/unity-src/<slug>` 만 담는다.
+- 각 레인이 스스로 게시·배포·디스코드 보고한다(세트당 보고 3건). 레퍼런스 스카우트는 레인 1만.
+- 검증: 가짜 레인으로 launch_lanes(3개 동시·4번째는 대기열 잔류)·publish 잠금 직렬·gpu 잠금 직렬 확인. 실제 Unity 3레인 동시 회차는 아직 — 첫 적용은 대기열의 삼각 릴레이·케이블 록(다음 크론 틱).
+- 빛 사수(bit-sasu) 19:17 게시, 84점(수정 2회, 1차 검산 fail 은 발문 모호 28건 → 수정으로 pass).
+
 ## 2026-10-03 — 3안 포트폴리오 체제 (택일 폐지)
 - 사용자 지시: 「기획안 버리지 마라, 세 개 다 만들고 싶다. 추후 인간 감수 — 택일이 아니라 나온 기획안을 보완해서 3개씩 간다.」
 - `PORTFOLIO=1`(기본): 3단계가 심사(15-judge, 택일) 대신 **보완**(`factory/prompts/16-refine.md`, codex sol). D1~D10 실격 사유를 탈락 대신 필드 수정으로 해소하고, 3안끼리 slug·동사·디자인 시스템을 다르게 만든다.

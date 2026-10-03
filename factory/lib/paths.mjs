@@ -24,7 +24,8 @@ export const P = {
   publicDir: path.join(ROOT, 'public'),
   catalog: path.join(ROOT, 'public/catalog.json'),
   hub: path.join(ROOT, 'public/index.html'),
-  work: path.join(ROOT, 'factory/work'),
+  // 3안 병렬 생산(2026-10-03): 레인마다 MGF_WORK=factory/work/lanes/<id> 로 작업 폴더를 나눈다.
+  work: process.env.MGF_WORK ? path.resolve(ROOT, process.env.MGF_WORK) : path.join(ROOT, 'factory/work'),
   logs: path.join(ROOT, 'logs'),
 };
 

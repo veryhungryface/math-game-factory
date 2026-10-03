@@ -19,6 +19,7 @@ import path from 'node:path';
 import puppeteer from 'puppeteer';
 import { P, readJSON, writeJSON, nowKST, loadAllCurricula } from './paths.mjs';
 import { serveStatic } from './static-server.mjs';
+import { acquireMachineLock } from './machine-lock.mjs';
 
 /** PNG IHDR 청크에서 width/height 를 읽는다. 외부 라이브러리 없이 표지 이미지 규격을 검증하기 위함. */
 function pngSize(file) {
@@ -679,6 +680,9 @@ if (!slug) {
   console.error('사용법: node factory/lib/qa.mjs <slug>');
   process.exit(2);
 }
+
+// 병렬 레인끼리 fps 측정이 겹치지 않게 QA 전체를 한 번에 하나씩 돌린다(machine-lock.mjs).
+await acquireMachineLock('gpu', { label: `QA ${slug}` });
 
 const outIdx = process.argv.indexOf('--out');
 const OUT = outIdx > 0 ? process.argv[outIdx + 1] : path.join(P.work, 'qa', slug);

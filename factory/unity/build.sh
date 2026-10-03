@@ -58,6 +58,20 @@ fi
 [ -n "$BG" ] || BG="#1B2440"
 
 # ── 1. 워크스페이스 ─────────────────────────────────────────────────────────
+# 3안 병렬 생산(2026-10-03): 워크스페이스가 하나라 Unity 배치 빌드는 한 번에 하나만 돈다.
+# 다른 레인이 빌드 중이면 기다린다(죽은 pid 의 잠금은 회수). run.sh·machine-lock.mjs 와 같은 규약.
+LOCKD="$ROOT/factory/state/unity.lock.d"
+_waited=0
+while ! mkdir "$LOCKD" 2>/dev/null; do
+  _p="$(cat "$LOCKD/pid" 2>/dev/null)"
+  if [ -n "$_p" ] && ! kill -0 "$_p" 2>/dev/null; then rm -rf "$LOCKD"; continue; fi
+  [ "$_waited" -eq 0 ] && echo "[build] 다른 레인이 Unity 빌드 중(pid ${_p:-?}) — 대기" >&2
+  sleep 5; _waited=$((_waited+5))
+  [ "$_waited" -ge 2400 ] && { echo "[build] Unity 잠금 40분 대기 초과 — 실패" >&2; exit 4; }
+done
+echo $$ > "$LOCKD/pid"
+trap 'rm -rf "$LOCKD"' EXIT
+
 editor_open() { ps -axo pid=,command= | grep -i "Unity.app/Contents/MacOS/Unity" | grep -v grep | grep -iF -- "$WS" || true; }
 OPEN="$(editor_open)"
 if [ -n "$OPEN" ]; then

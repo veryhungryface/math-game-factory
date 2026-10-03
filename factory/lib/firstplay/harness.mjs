@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
 import { serveStatic } from '../static-server.mjs';
+import { acquireMachineLock } from '../machine-lock.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
@@ -241,6 +242,7 @@ async function run(slug, browser, serverUrl) {
 
 const { url: serverUrl, close } = await serveStatic(PUBLIC_DIR);
 console.error(`[cfg] server=${serverUrl}`);
+await acquireMachineLock('gpu', { label: 'firstplay' });
 const browser = await puppeteer.launch({
   headless: true,
   executablePath: resolveChrome(),
