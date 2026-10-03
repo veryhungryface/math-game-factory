@@ -3,6 +3,14 @@
 > 마지막 갱신: 2026-10-01. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-03 — 중학교 크론 「기획안 0개」 연속 실패 원인·조치
+- 10/2 02:38 ~ 10/3 08:43 중학교 회차 12번 연속 「기획안이 하나도 나오지 않았습니다」. 원인 2겹:
+  (1) `~/.local/nodejs/bin/codex` 링크가 사라짐(npm 전역 갱신 중단 흔적 `.codex-OQiF77th`, `@openai/codex-darwin-arm64` 누락) → `resolve_runner` 가 codex 를 grok 으로 폴백,
+  (2) grok 잔액 소진(402) → 기획 3안 전부 사망. claude 는 살아 있었지만 기획 단계에 인프라 폴백이 없었다.
+- 조치: `npm install -g @openai/codex@latest`(0.160.0, sol 호출 확인). `run.sh` 기획 단계에 인프라 실패 기획자만 다른 회사 러너(codex→claude, 그 외→codex 없으면 claude)로 1회 재시도 추가.
+- 남은 것: grok 잔액 충전 전까지 기획 1번(grok)은 매번 폴백으로 돈다. 10/3 은 유적 발굴단 수동 게시가 중학교 하루 1작으로 잡혀 다음 회차는 10/4.
+- 같은 날 「배율 밀어」 끝 화면 멈춤(예비 인화지 소진 후 Resolve→EndRun 매 프레임 재호출) 수정·재배포(034b8f1).
+
 ## 2026-10-01 — 「깃 나눠」 1차 수정 (세 평행선·DE 드롭·밀대·옥색 면·2단) / QA 45·fatal 0 / 미게시
 
 중학교 Unity `git-nanwo` 1차. 검수 37점 must_fix high 6건. `replan_required=false`. 증거 `factory/work/fix.json`. publish/deploy 안 함.

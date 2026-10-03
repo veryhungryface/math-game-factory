@@ -440,7 +440,7 @@ if [ "$RESUMED" = "1" ]; then
   log "기획·심사 단계 건너뜀 (RESUME)"
 else
 step "2. 기획 (병렬 ${DESIGN_VARIANTS}개)"
-DESIGN_PIDS=()
+DESIGN_PIDS=(); declare -a DESIGN_USED DESIGN_PROMPT
 for i in $(seq 1 "$DESIGN_VARIANTS"); do
   PROMPT="$(prompt_file factory/prompts/10-design.md)
 
@@ -470,7 +470,26 @@ $USER_FEEDBACK
   # (쉼표 구분, i 번째가 i 번 기획자). 기본값은 클로드를 쓰지 않는다.
   IFS=',' read -ra _DR <<< "${DESIGN_RUNNERS:-grok_run,codex_smart_run,codex_run}"
   DESIGN_R="$(resolve_runner "${_DR[$((i-1))]:-codex_run}")"
+  DESIGN_USED[$i]="$DESIGN_R"; DESIGN_PROMPT[$i]="$PROMPT"
   "$DESIGN_R" "$T_DESIGN" "$LOG_DIR/design-$i.log" "$PROMPT" &
+  DESIGN_PIDS+=($!)
+done
+for pid in ${DESIGN_PIDS[@]+"${DESIGN_PIDS[@]}"}; do wait "$pid"; done
+
+# 인프라 실패(402·쿼터·인증)로 안이 안 나온 기획자만 다른 회사 러너로 1회 재시도 (2026-10-03).
+# 10/2~3 에 codex 설치가 깨지고(resolve_runner 가 grok 으로 폴백) grok 잔액이 소진돼 3안이 전부 402 로 죽었는데,
+# 살아 있던 claude 로 넘어가지 않아 2시간마다 「기획안 0개」 실패 알림만 12번 쌓였다.
+DESIGN_PIDS=()
+for i in $(seq 1 "$DESIGN_VARIANTS"); do
+  [ -f "$WORK/concept-$i.json" ] && continue
+  _err="$(runner_infra_err "$LOG_DIR/design-$i.log")"
+  [ -n "$_err" ] || continue
+  case "${DESIGN_USED[$i]}" in
+    codex*) _fb=claude_run ;;
+    *) command -v codex >/dev/null 2>&1 && _fb=codex_run || _fb=claude_run ;;
+  esac
+  log "⚠️  ${i}번 기획자 인프라 실패(${DESIGN_USED[$i]}: ${_err}) → ${_fb} 로 1회 재시도"
+  "$_fb" "$T_DESIGN" "$LOG_DIR/design-$i-fallback.log" "${DESIGN_PROMPT[$i]}" &
   DESIGN_PIDS+=($!)
 done
 for pid in ${DESIGN_PIDS[@]+"${DESIGN_PIDS[@]}"}; do wait "$pid"; done
