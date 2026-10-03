@@ -95,10 +95,11 @@ function main() {
   let gate;
   if (options.gate !== undefined) {
     gate = parseNumber(options.gate, '게이트');
-    if (gate < 80) fail(`게시 거부: 게이트를 80점 아래로 낮출 수 없습니다 — 요청값 ${gate}점`);
+    // 하한 70 — 2026-10-03 사용자 지시로 게시 커트라인 80→70 (3안 포트폴리오 + 사람 감수 체제)
+    if (gate < 70) fail(`게시 거부: 게이트를 70점 아래로 낮출 수 없습니다 — 요청값 ${gate}점`);
   } else {
     const metaGate = Number(meta.qa?.gate);
-    gate = Number.isFinite(metaGate) ? Math.max(80, metaGate) : 80;
+    gate = Number.isFinite(metaGate) ? Math.max(70, metaGate) : 70;
   }
   if (score < gate && !manualReason) {
     fail(`게시 거부: ${score}점은 게이트 ${gate}점 미만입니다.`);

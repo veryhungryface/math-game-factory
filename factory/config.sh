@@ -42,7 +42,7 @@ else
 fi
 
 # ── 품질 ──────────────────────────────────────────────
-export GATE_SCORE="${GATE_SCORE:-80}"          # 게시 커트라인 (100점 만점)
+export GATE_SCORE="${GATE_SCORE:-70}"          # 게시 커트라인 (100점 만점) — 2026-10-03 사용자 지시로 80→70 (사람 감수 체제)
 export DESIGN_VARIANTS="${DESIGN_VARIANTS:-3}" # 병렬 기획 에이전트 수
 export FOCUS="${FOCUS:-$_FOCUS_DEFAULT}"        # 집중 학년-학기 — 학교급별 기본값은 위 「학교급」 절
 # 수정 최대 3회는 비용 상한이다. 동일 산출물의 반복 채점이나 품질을 보증하지 않는다.

@@ -44,7 +44,7 @@
 **백그라운드 실행 패턴**: `nohup <cli> ... > /tmp/로그 2>&1 &` 후 PID를 잡고, 모니터로 `while kill -0 <PID>; do sleep 60; done` 감시. pgrep에 한글·괄호 패턴은 정규식 함정이 있으니 **PID 기준**으로 감시해라.
 
 ## 4. 생산 파이프라인 (`factory/run.sh`)
-단계: 슬롯 선택(pick-slot) → 기획 3안 병렬(grok/codex sol/codex) → 심사(codex sol) → 아트(codex 이미지: bg/hero/thumb 1200×630/square 1080×1080/title 세로) → 빌드(grok) → QA(`factory/lib/qa.mjs` 44항목, puppeteer — 실 GPU 우선, 안 되면 swiftshader 폴백) → 수학 검산(codex sol, `35-mathcheck.md`) → 검수(codex sol, `40-review.md`, **80점 게이트**) → 미달 시 수정→재QA→재검산→재검수 루프 **최대 3회**(`MAX_FIX_ROUNDS`, 2026-08-31 1회→3회 — 폐기 전에 부족한 부분을 살린다. 이전 라운드 검수 이력을 다음 수정에 누적 주입해 같은 지적의 반복을 막는다) → `publish-game.mjs` 게시 → `verify-catalog.mjs` 정합성 확인 → 커밋·푸시 → 디스코드 보고 → (10작마다) 레퍼런스 스카우트. 각 단계 러너는 `factory/config.sh` 값과 §3 폴백 규칙을 따른다.
+단계: 슬롯 선택(pick-slot) → 기획 3안 병렬(grok/codex sol/codex) → 심사(codex sol) → 아트(codex 이미지: bg/hero/thumb 1200×630/square 1080×1080/title 세로) → 빌드(grok) → QA(`factory/lib/qa.mjs` 44항목, puppeteer — 실 GPU 우선, 안 되면 swiftshader 폴백) → 수학 검산(codex sol, `35-mathcheck.md`) → 검수(codex sol, `40-review.md`, **70점 게이트**(2026-10-03 80→70)) → 미달 시 수정→재QA→재검산→재검수 루프 **최대 3회**(`MAX_FIX_ROUNDS`, 2026-08-31 1회→3회 — 폐기 전에 부족한 부분을 살린다. 이전 라운드 검수 이력을 다음 수정에 누적 주입해 같은 지적의 반복을 막는다) → `publish-game.mjs` 게시 → `verify-catalog.mjs` 정합성 확인 → 커밋·푸시 → 디스코드 보고 → (10작마다) 레퍼런스 스카우트. 각 단계 러너는 `factory/config.sh` 값과 §3 폴백 규칙을 따른다.
 - 프롬프트: `factory/prompts/10-design.md, 30-build.md, 35-mathcheck.md, 40-review.md, 50-reference-scout.md`
 - 설정: `factory/config.sh` (모델·타임아웃·GATE_SCORE=80·PRIORITY_UNITS·REPORT_TARGET)
 - 검수 제한 시간: `T_REVIEW=1200`초. 900초에서 실제 타임아웃 1회 후 2026-08-26 상향했다.
@@ -55,13 +55,13 @@
 ## 5. 게이트 원칙 (절대 우회 금지)
 > **2026-09-07 명시적 사용자 게시 예외:** 사용자가 점수 미달이어도 게시하라고 직접 지시한 수동 작업은
 > `publish-game.mjs <slug> --score <실제점수> --manual-approval '<사용자 지시와 사유>'`로 게시한다.
-> 실제 `qa.score`, 80점 `qa.gate`, 점수 기준 `qa.passed`는 그대로 기록하고, `qa.manual_release` 및 장부에
+> 실제 `qa.score`, `qa.gate`(70점), 점수 기준 `qa.passed`는 그대로 기록하고, `qa.manual_release` 및 장부에
 > 승인 사유·시각을 별도로 남긴다. 허브는 이 명시적 승인도 노출한다. 이전 승인은 다음 호출의 승인이 아니며,
 > 자동 생산 `run.sh`에는 이 옵션을 전달하지 않는다. 점수를 올려 적거나 `--gate`를 낮추는 방법은 쓰지 않는다.
 > 회귀 검사: `node factory/checks/manual-publish.mjs` (임시 저장소에서만 실행, 실제 장부 무변경).
 
-- 기본 자동 생산은 80점 미만·수학 오류 1건·실수 관용도 결함·퇴화 전략 성공 → 게시 불가.
-- 게시 단일 진입점은 `factory/lib/publish-game.mjs`다. 어떤 `--gate` 값으로도 80점 아래로 게이트를 내릴 수 없다.
+- 기본 자동 생산은 70점 미만·수학 오류 1건·실수 관용도 결함·퇴화 전략 성공 → 게시 불가.
+- 게시 단일 진입점은 `factory/lib/publish-game.mjs`다. 어떤 `--gate` 값으로도 70점 아래로 게이트를 내릴 수 없다(2026-10-03 사용자 지시로 하한 80→70).
 - 검수관 must_fix는 게시 후에도 **즉시 후속 수정**으로 소화한다 (아래 §7 패턴).
 - 폐기작이라도 검수관이 "원인이 국소적"이라 판단하면 부활 트랙(§8) 가치가 있다.
 
@@ -151,7 +151,7 @@ hermes send discord:1539073913777291344 "..."
 이 공장의 강점은 단선 파이프라인이 아니라 **5겹 피드백 루프**다 — L0 생산(사이클) / L1 사이클 내 자기수정(수리 최대 3회·러너 폴백·무뇌봇 자가테스트) / L2 사이클 간 학습(폐기 패턴 → 프롬프트 게이트 승격) / L3 캠페인(사용자 지적 → 전수 감사 → 일괄 수리 → **재발 방지 게이트 신설**) / L4 부활(게시작 24편 중 9편이 부활 산물).
 1. **신뢰하지 말고 실측하라** — 스크린샷은 Read 로 직접 보고, 퇴화 전략은 봇 수치로, 수학은 전수 검산으로 확인한다(§6).
 2. **판정자와 생산자를 분리하라** — 빌드 grok / 검수·수학검산 codex sol. 같은 모델은 같은 맹점을 공유한다.
-3. **게이트는 불변식이다** — 점수 유도 금지, 게시 진입점은 `publish-game.mjs` 하나, 80점 하한은 코드 상수(§5).
+3. **게이트는 불변식이다** — 점수 유도 금지, 게시 진입점은 `publish-game.mjs` 하나, 70점 하한은 코드 상수(§5).
 4. **모든 사고는 규범이 된다** — HANDOVER 기록 → 일반화되면 OPERATIONS §13 / CLAUDE.md / 프롬프트로 승격(§9).
 5. **게이트는 획일화를 낳는다** — 하한을 정의하면 생산자는 그 형태에 최적화한다. 재발 방지책이 다음 획일화의 원인이 된 사례가 3회 있다(640px 컬럼 표준, 고정 스타일 문구, 타이틀 CSS 레시피). 새 게이트에는 **다양성 게이트를 짝지어라.**
 
