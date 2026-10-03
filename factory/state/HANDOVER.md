@@ -3,6 +3,23 @@
 > 마지막 갱신: 2026-10-04. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-04 — 「빗변 철길」 2차 수정 (수학·화면 발문·신호실 재설계·증거 연결) / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u5` Unity 게임 `bitbyeon-cheolgil`의 2차 검수 high 3·medium 1을 모두 처리했다.
+정본은 `factory/unity-src/bitbyeon-cheolgil/`, WebGL 산출물은 `public/g/bitbyeon-cheolgil/`,
+분류·최종 증거는 병렬 레인 `factory/work/lanes/20261004-004722-L1/`이며 publish/deploy는 실행하지 않았다.
+
+- 사다리 발문은 벽⊥바닥을, 역산 발문은 직각삼각형의 빗변·직각변을 명시한다. 최종 WebGL
+  `sampleProblems(360)` 전수 독립 정수 검산은 **360/360·오류 0·고유 360**, 중2 금지 근호 0이다.
+- 학생 화면은 `current.prompt`를 직접 표시하고 실제 TMP 버퍼를 상태 훅에 노출한다. 실제 pointer-only
+  두 판 19회 제출에서 화면 발문이 문제은행 문자열과 전부 일치했다(`screen_prompt_matches_bank=true`).
+- 어두운 고립 작업대를 밝은 크림·민트 다층 신호실로 바꾸고 각진 캐비닛·에나멜 레버·천장 버스·
+  펀칭 티켓/케이블 뱅크로 채웠다. 원형 크랭크는 각진 콘솔 속 핵심 조작으로만 유지하고 타이틀 겹침을 해소했다.
+- 포인터 첫 판은 의도적 r02 오답 뒤 같은 문제 교정→**9/9**, 결과 화면 탭 재도전 두 번째 판은
+  첫 시도 **9/9**. 공식 QA **45/45·fatal 0**, M4/Metal 모바일 **70fps**, 1280 **75fps**,
+  15초 유지율 **86%**, Unity 산출물 **7.9MB**. QA·mathcheck·두 번째 플레이는 동일 final run_id와
+  artifact hash `53ba7e48…019bc`를 공유한다. `replan_required=false`.
+
 ## 2026-10-04 — 「다리 놓는 수달」 Unity WebGL 구현·검증 완료 / 미게시
 
 중2-2 `m2s2-u5` 피타고라스 정리 게임 `sudal-dari`를 병렬 레인
