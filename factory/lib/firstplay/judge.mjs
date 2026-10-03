@@ -58,8 +58,11 @@ const captionLines = chosen
   .join('\n');
 
 // 학교급별 눈높이 (2026-09-26 중학교 확장). run.sh 가 SCHOOL 을 export 한다.
+// 중학교 학년은 슬롯에서 읽는다(2026-10-03 중3 회차 추가). 슬롯이 없으면 2학년.
+let MID_GRADE = 2;
+try { MID_GRADE = JSON.parse(fs.readFileSync(path.join(HERE, '../../work/slot.json'), 'utf8')).unit?.grade || 2; } catch {}
 const AUDIENCE = process.env.SCHOOL === 'middle'
-  ? { who: '중학교 2학년', eye: '중학교 2학년, 교과서 용어는 알지만 게임 설명을 읽을 인내심은 낮음' }
+  ? { who: `중학교 ${MID_GRADE}학년`, eye: `중학교 ${MID_GRADE}학년, 교과서 용어는 알지만 게임 설명을 읽을 인내심은 낮음` }
   : { who: '초등 3~6학년', eye: '초등 3~6학년, 문해력 낮음' };
 
 const prompt = `너는 ${AUDIENCE.who} 학생 입장에서 "이 게임을 설명 없이 처음 봤을 때 이해할 수 있는가"를 냉정하게 판정하는 평가자다.
