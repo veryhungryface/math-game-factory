@@ -401,6 +401,9 @@ namespace Mgf.BaeyulMireo
 
         void Resolve()
         {
+            // 끝 화면에서는 아무것도 다시 풀지 않는다 — 마지막 인화지 애니메이션이 매 프레임 Resolve→EndRun 을 다시 불러
+            // endT 가 0 에 묶이고(끝 화면 투명·「다시 하기」 무반응) 멈춘 것처럼 보이던 결함
+            if (ph == Ph.End) return;
             if (ph == Ph.Title) { demoLoop++; NewDemo(); sp = Sp.Work; return; }
             if (ph == Ph.Practice)
             {
@@ -1002,6 +1005,7 @@ namespace Mgf.BaeyulMireo
 
         void Resolve2()
         {
+            if (ph == Ph.End) return;
             sheetScale = 1f; sheetRot = 0;
             if (spikeAfterWrong) { NextSheet(); return; }
             Resolve();
