@@ -3,6 +3,15 @@
 > 마지막 갱신: 2026-10-01. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-03 — 3안 포트폴리오 체제 (택일 폐지)
+- 사용자 지시: 「기획안 버리지 마라, 세 개 다 만들고 싶다. 추후 인간 감수 — 택일이 아니라 나온 기획안을 보완해서 3개씩 간다.」
+- `PORTFOLIO=1`(기본): 3단계가 심사(15-judge, 택일) 대신 **보완**(`factory/prompts/16-refine.md`, codex sol). D1~D10 실격 사유를 탈락 대신 필드 수정으로 해소하고, 3안끼리 slug·동사·디자인 시스템을 다르게 만든다.
+- `_refine.build_order_hint` 1순위를 이번 회차에 만들고, 나머지는 `factory/state/pending/<학교급>/<RUN_ID>-k/{chosen,slot}.json` 대기열(gitignore)로. 다음 크론 회차가 하루 1작 가드보다 먼저 대기열을 꺼내 **아트 단계부터** 만든다(꺼내는 즉시 `logs/<RUN_ID>/pending-*` 로 옮김 — 죽어도 무한 재시도 없음).
+- 게시 게이트(80점·QA 치명·검산 pass·high 0)는 그대로다. 미달 안은 기존처럼 폐기(rejected) 기록 — 사람 감수 때 살릴 수 있다.
+- 첫 적용: 10/3 중3 삼각비 회차는 구 스크립트로 「빛 사수」를 골랐고, 떨어진 2안(삼각 릴레이·크레인 각도기)은 수동 보완 후 대기열에 넣었다.
+- 중3 단원 10개를 `curriculum/2022-middle-math.json` 에 추가(사용자 지시 「중3 한번 돌려」). 중학교 라인 기본 시점 2.5D(`_school-middle.md` §6).
+- 기획자 3인: codex gpt-6.1-sol / agy Gemini 3.8 Flash High / claude sonnet 5.5 (config `DESIGN_RUNNERS`).
+
 ## 2026-10-03 — 중학교 크론 「기획안 0개」 연속 실패 원인·조치
 - 10/2 02:38 ~ 10/3 08:43 중학교 회차 12번 연속 「기획안이 하나도 나오지 않았습니다」. 원인 2겹:
   (1) `~/.local/nodejs/bin/codex` 링크가 사라짐(npm 전역 갱신 중단 흔적 `.codex-OQiF77th`, `@openai/codex-darwin-arm64` 누락) → `resolve_runner` 가 codex 를 grok 으로 폴백,

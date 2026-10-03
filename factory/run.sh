@@ -264,7 +264,11 @@ record_failed() {
 #   DAILY_TARGET=0        가드 해제 (무제한 시도)
 #   FORCE_PRODUCE=1       오늘 게시작이 있어도 강행
 #   RESUME_FROM=<stage>   진행 중이던 회차를 이어받는 것이므로 가드를 적용하지 않는다
-if [ "${DAILY_TARGET:-1}" -gt 0 ] && [ "${FORCE_PRODUCE:-0}" != "1" ] && [ -z "${RESUME_FROM:-}" ]; then
+# 3안 포트폴리오(2026-10-03): 앞 회차가 남긴 보완 기획안(factory/state/pending/<학교급>/)이 있으면
+# 그건 「새 생산」이 아니라 같은 세트의 나머지다 — 하루 1작 가드를 적용하지 않고 먼저 만든다.
+PENDING_ROOT="$ROOT/factory/state/pending/$SCHOOL"
+HAS_PENDING="$(ls -d "$PENDING_ROOT"/*/ 2>/dev/null | head -1)"
+if [ "${DAILY_TARGET:-1}" -gt 0 ] && [ "${FORCE_PRODUCE:-0}" != "1" ] && [ -z "${RESUME_FROM:-}" ] && [ -z "$HAS_PENDING" ]; then
   TODAY_DONE="$(node -e '
     const fs=require("fs"), p=process.argv[1], target=Number(process.argv[2])||1;
     if(!fs.existsSync(p)) process.exit(0);
@@ -346,6 +350,8 @@ finish() {
       [ -n "$std" ] && echo "**성취기준**: $std"
     fi
     [ -n "$SCORE" ] && echo "**검수 점수**: ${SCORE}/100 (커트라인 ${GATE_SCORE})"
+    local _left; _left="$(ls -d "${PENDING_ROOT:-/nonexistent}"/*/ 2>/dev/null | wc -l | tr -d ' ')"
+    [ "${_left:-0}" -gt 0 ] && echo "**3안 세트**: 같은 단원 보완 기획안 ${_left}개가 남아 다음 회차에 이어서 만든다"
     [ "${FIX_ROUNDS:-0}" -gt 0 ] && echo "**수정 루프**: ${FIX_ROUNDS}/${MAX_FIX_ROUNDS}회"
     if [ -f "$WORK/review.json" ]; then
       echo ""
@@ -401,6 +407,20 @@ stage_no() {
   esac
 }
 RESUME_FROM="${RESUME_FROM:-}"
+# 3안 포트폴리오: 남은 보완 기획안이 있으면 가장 오래된 것 하나를 꺼내 아트 단계부터 만든다.
+# 꺼내는 즉시 로그 폴더로 옮긴다 — 이 회차가 죽어도 같은 안을 무한 재시도하지 않는다.
+PORTFOLIO_ITEM=""
+if [ -z "$RESUME_FROM" ] && [ "${RESUME:-0}" != "1" ]; then
+  _pend="$(ls -d "$PENDING_ROOT"/*/ 2>/dev/null | sort | head -1)"
+  if [ -n "$_pend" ] && [ -f "$_pend/chosen.json" ] && [ -f "$_pend/slot.json" ]; then
+    PORTFOLIO_ITEM="$(basename "$_pend")"
+    rm -rf "$WORK"; mkdir -p "$WORK"
+    cp "$_pend/chosen.json" "$_pend/slot.json" "$WORK/"
+    mv "$_pend" "$LOG_DIR/pending-$PORTFOLIO_ITEM"
+    RESUME_FROM="art"
+    log "📦 3안 세트의 다음 안: 「$(jqv "$WORK/chosen.json" .title)」 ($PORTFOLIO_ITEM) — 남은 안 $(ls -d "$PENDING_ROOT"/*/ 2>/dev/null | wc -l | tr -d ' ')개"
+  fi
+fi
 # 예전 RESUME=1 은 art 부터 재개하는 것과 같다 (하위 호환)
 [ -z "$RESUME_FROM" ] && [ "${RESUME:-0}" = "1" ] && RESUME_FROM="art"
 START_AT=$(stage_no "${RESUME_FROM:-design}")
@@ -527,6 +547,38 @@ step "3. 컨셉 심사"
 if [ "$CONCEPTS" -eq 1 ]; then
   cp "$(ls "$WORK"/concept-*.json | head -1)" "$WORK/chosen.json"
   log "기획안이 1개뿐 — 심사 생략"
+elif [ "${PORTFOLIO:-1}" = "1" ]; then
+  # 3안 포트폴리오 (2026-10-03 사용자 지시): 택일하지 않고 3안을 전부 보완해서 전부 만든다.
+  # 보완은 심사와 같은 기준(D1~D10)으로 실격 사유를 「탈락」 대신 「수정」한다(16-refine.md).
+  # 이번 회차는 build_order_hint 1번 안을 만들고, 나머지는 pending 에 넣어 다음 회차들이 이어서 만든다.
+  step "3. 기획 보완 (3안 전부 — 택일 없음)"
+  codex_run "$T_JUDGE" "$LOG_DIR/refine.log" "$(prompt_file factory/prompts/16-refine.md)
+
+---
+## 이번 슬롯
+\`\`\`json
+$SLOT_CTX
+\`\`\`" "$CODEX_MODEL_SMART"
+  _err="$(runner_infra_err "$LOG_DIR/refine.log")"
+  [ -n "$_err" ] && log "⚠️  보완 러너 인프라 실패($_err) — 원안 그대로 3안을 만든다"
+  mkdir -p "$LOG_DIR/concepts"; cp "$WORK"/concept-*.json "$LOG_DIR/concepts/" 2>/dev/null || true
+  # build_order_hint 순(없으면 n 순)으로 정렬
+  ORDERED="$(for f in "$WORK"/concept-*.json; do
+      printf '%s\t%s\n' "$(jq -r '._refine.build_order_hint // .n // 9' "$f" 2>/dev/null || echo 9)" "$f"
+    done | sort -n | cut -f2)"
+  FIRST=1; _k=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    _k=$((_k+1))
+    if [ "$FIRST" = "1" ]; then
+      cp "$f" "$WORK/chosen.json"; FIRST=0
+      log "보완 1순위: 「$(jqv "$f" .title)」 — 이번 회차에 만든다"
+    else
+      _dst="$PENDING_ROOT/${RUN_ID}-$_k"
+      mkdir -p "$_dst"; cp "$f" "$_dst/chosen.json"; cp "$WORK/slot.json" "$_dst/slot.json"
+      log "보완 ${_k}순위: 「$(jqv "$f" .title)」 → 다음 회차 대기열"
+    fi
+  done <<< "$ORDERED"
 else
   # 심사는 GPT 상위 티어로 — 사용자 요청(claude 편중 완화). 기획안이 claude/codex/grok
   # 3사에서 나오므로 어차피 어느 모델이 심사해도 자기 안이 하나는 섞여 있다.
