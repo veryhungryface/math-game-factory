@@ -121,6 +121,19 @@ grok_run() {
     >"$logfile" 2>&1
 }
 
+# Antigravity CLI(agy) 헤드리스 실행 — Gemini. $1=제한시간 $2=로그파일 $3=프롬프트 [$4=모델(기본 $AGY_MODEL)]
+# (2026-10-03 사용자 지시: 2번 기획자 gpt-5.6-sol → Antigravity Gemini 3.8)
+# agy 는 작업 디렉터리 기준으로 파일을 쓰므로 서브셸에서 $ROOT 로 cd 한 뒤 실행한다. stdin 은 닫는다.
+_agy_exec() {
+  cd "$ROOT" || exit 1
+  exec agy -p "$2" --model "$1" --dangerously-skip-permissions --add-dir "$ROOT" </dev/null
+}
+agy_run() {
+  local secs="$1" logfile="$2" prompt="$3" model="${4:-$AGY_MODEL}"
+  run_timeout "$secs" env -u ANTHROPIC_API_KEY bash -c "$(declare -f _agy_exec); ROOT='$ROOT'; _agy_exec \"\$1\" \"\$2\"" _ "$model" "$prompt" \
+    >"$logfile" 2>&1
+}
+
 # codex 를 상위 티어(sol)로 돌리는 단축 러너 — 기획 2번·검수처럼 판단이 어려운 단계용.
 # 추론 등급은 codex_run 이 모델 이름을 보고 ultra 로 올린다.
 codex_smart_run() {
@@ -156,6 +169,7 @@ resolve_runner() {
     grok_run)                  command -v grok   >/dev/null 2>&1 && { echo grok_run;   return; } ;;
     codex_run|codex_smart_run|codex_design1_run) command -v codex  >/dev/null 2>&1 && { echo "$want";    return; } ;;
     claude_run)                command -v claude >/dev/null 2>&1 && { echo claude_run; return; } ;;
+    agy_run)                   command -v agy    >/dev/null 2>&1 && { echo agy_run;    return; } ;;
   esac
   command -v codex  >/dev/null 2>&1 && { echo codex_smart_run; return; }
   command -v grok   >/dev/null 2>&1 && { echo grok_run;        return; }
@@ -197,7 +211,7 @@ judge_run() {
 # resolve_runner 가 못 잡는다. 로그에서 이 패턴이 보이면 "모델이 못 고친 것"이 아니라
 # **인프라 실패**다 — 같은 러너로 재시도하거나 재검사 루프를 도는 것은 순수한 낭비다.
 # 2026-08-27~28 에 4회 연속으로, 2026-09-01~03 에 20회 연속으로 여기서 시간을 태웠다.
-RUNNER_ERR_RE='hit your usage limit|usage limit reached|status 402|402 Payment Required|Payment Required|usage balance exhausted|insufficient_quota|quota exceeded|exceeded your current quota|rate limit exceeded|401 Unauthorized|invalid api key|invalid_api_key|authentication_error|Not authenticated|Please run .?login'
+RUNNER_ERR_RE='RESOURCE_EXHAUSTED|hit your usage limit|usage limit reached|status 402|402 Payment Required|Payment Required|usage balance exhausted|insufficient_quota|quota exceeded|exceeded your current quota|rate limit exceeded|401 Unauthorized|invalid api key|invalid_api_key|authentication_error|Not authenticated|Please run .?login'
 # 러너 CLI 가 직접 찍는 오류 줄에서만 찾는다 — codex `ERROR: …`, grok JSON `"message": "API error (status 402 …)"`,
 # claude `API Error …`. 로그 전체를 grep 하면 러너가 읽은 문서(OPERATIONS.md 의 「402 Payment Required」)나
 # 러너의 최종 보고 인용까지 걸려, 멀쩡히 끝난 수정 라운드를 인프라 실패로 중단시켰다(2026-09-27 협곡 사수).
@@ -280,7 +294,7 @@ echo $$ > "$LOCK"
 # ── 러너 사전 점검 ────────────────────────────────────────────────
 # 어떤 러너로 이번 회차를 돌리는지 로그 첫머리에 남긴다. grok 잔액 소진(402)이나
 # claude 세션 한도처럼 러너 하나가 조용히 죽으면 원인을 찾느라 로그를 뒤져야 했다.
-for _c in grok codex claude; do
+for _c in grok codex claude agy; do
   command -v "$_c" >/dev/null 2>&1 && _AVAIL="${_AVAIL:-}$_c " || true
 done
 log "러너 가용: ${_AVAIL:-없음}| 빌드=$(resolve_runner "${BUILD_RUNNER:-grok_run}") 검수=$(resolve_runner "${REVIEW_RUNNER:-codex_run}") 수정=$(resolve_runner "${FIX_RUNNER:-grok_run}")"
