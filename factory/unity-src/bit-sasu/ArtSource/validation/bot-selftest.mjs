@@ -46,16 +46,16 @@ async function readyPage() {
 
 async function aim(page, target) {
   const before = await page.evaluate(() => window.__GAME_TEST__.getState());
-  const startY = 620;
-  const endY = target == null ? startY : startY - (target - before.selectedAngle) * 4;
+  const startY = 522; // 붉은 손잡이 중심(390×844, 등대 오른쪽)
+  const endY = target == null ? startY : startY - (target - before.selectedAngle) * 4.4; // 4.4 캔버스 단위 = 1°
   const touch = page.touchscreen;
-  await touch.touchStart(195, startY);
+  await touch.touchStart(323, startY);
   await new Promise(r => setTimeout(r, 40));
   if (target != null) {
     const midY = (startY + endY) * 0.5;
-    await touch.touchMove(195, midY);
+    await touch.touchMove(323, midY);
     await new Promise(r => setTimeout(r, 24));
-    await touch.touchMove(195, endY);
+    await touch.touchMove(323, endY);
     await new Promise(r => setTimeout(r, 40));
   }
   await touch.touchEnd();

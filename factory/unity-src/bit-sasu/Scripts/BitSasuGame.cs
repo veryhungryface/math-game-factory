@@ -48,6 +48,7 @@ namespace Mgf.BitSasu
         int consecutiveFirst;
         int ratioStart = -1;
         bool handleDrag;
+        bool handleMoved;
         float dragStartY;
         int dragStartAngle;
         int bestFirst;
@@ -113,7 +114,7 @@ namespace Mgf.BitSasu
             st.score = 0; st.lives = BitSasuRules.StartLives; st.level = 1; st.solved = 0;
             st.selectedAngle = 25; st.problemId = current.id; st.onboarding = false;
             st.ratioNumeratorId = ""; st.ratioDenominatorId = "";
-            endReason = ""; idleGuide = 0; handleDrag = false;
+            endReason = ""; idleGuide = 0; handleDrag = false; handleMoved = false;
             SetSelectedAngle(25, false);
             SetScreen();
             MgfBridge.NotifyChanged();
@@ -174,6 +175,7 @@ namespace Mgf.BitSasu
             shotT = 0;
             endReason = "";
             handleDrag = false;
+            handleMoved = false;
             ResetWorldForRun();
         }
 
@@ -367,6 +369,7 @@ namespace Mgf.BitSasu
                 if (IsHandleZone(MgfPointer.Position))
                 {
                     handleDrag = true;
+                    handleMoved = false;
                     dragStartY = MgfPointer.Position.y;
                     dragStartAngle = st.selectedAngle;
                     idleGuide = 0;
@@ -381,14 +384,21 @@ namespace Mgf.BitSasu
 
             if (MgfPointer.Held && handleDrag)
             {
-                int a = dragStartAngle + Mathf.RoundToInt((MgfPointer.Position.y - dragStartY) / 4f);
+                // 화면 물리 픽셀이 아니라 캔버스 논리 단위로 잰다. 기기 DPR과 무관하게
+                // 손잡이가 4.4 단위 움직이면 1°이고, 연습의 45° 눈금(+88)과 정확히 맞는다.
+                float units = (MgfPointer.Position.y - dragStartY) / Mathf.Max(0.01f, MgfText.Canvas.scaleFactor);
+                int a = dragStartAngle + Mathf.RoundToInt(units / HandleUnitsPerDegree);
+                // 연습은 25°→45° 손동작을 익히는 무손실 구간이다. 목표를 지나쳐도
+                // 45° 눈금에서 걸리게 해 첫 조작이 과민한 드래그 시험이 되지 않게 한다.
+                if (phase == Phase.Practice && dragStartAngle <= 45 && a > 45) a = 45;
                 if (a != st.selectedAngle)
                 {
                     int before = st.selectedAngle;
                     SetSelectedAngle(a, true);
-                    if (before != st.selectedAngle) TickLens();
+                    if (before != st.selectedAngle) { handleMoved = true; TickLens(); }
                 }
                 UpdateHandleTrail();
+                FollowHandle(st.selectedAngle - dragStartAngle);
             }
 
             if (MgfPointer.Up)
@@ -405,6 +415,15 @@ namespace Mgf.BitSasu
                 {
                     handleDrag = false;
                     HandleGrab(false);
+                    if (phase == Phase.Practice && !handleMoved)
+                    {
+                        RefuseInput("붉은 손잡이를 위로 끌어 45°에서 놓으시오");
+                        MgfBridge.NotifyChanged();
+                        return;
+                    }
+                    // 온보딩은 방향 정밀도가 아니라 '손잡이를 드래그하고 놓아 제출'하는
+                    // 한 동작을 가르친다. 실제 드래그가 있었으면 도착 눈금 45°에 자석처럼 붙인다.
+                    if (phase == Phase.Practice) SetSelectedAngle(45, false);
                     SubmitShot();
                 }
             }

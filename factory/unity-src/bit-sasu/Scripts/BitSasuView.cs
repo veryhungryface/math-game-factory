@@ -35,9 +35,7 @@ namespace Mgf.BitSasu
         bool land;
 
         CanvasGroup titleG, hudG, endG, toastG, splitG;
-        RectTransform titleRt, hudRt, endRt, ctaRt, endCtaRt;
-        RawImage titleArt;
-        Texture titlePortrait, titleWide;
+        RectTransform titleRt, hudRt, endRt, ctaRt, endCtaRt, titlePlateRt;
         TextMeshProUGUI[] logo = new TextMeshProUGUI[3];
         TextMeshProUGUI tagTxt, badgeTxt, bestTxt, ctaTxt;
         TextMeshProUGUI scoreTxt, progressTxt, livesTxt, timerTxt, goalTxt, promptTxt, angleTxt, feedbackTxt;
@@ -49,8 +47,10 @@ namespace Mgf.BitSasu
         readonly Image[] ratioChipBg = new Image[4];
         readonly TextMeshProUGUI[] ratioChipTxt = new TextMeshProUGUI[4];
         TextMeshProUGUI ratioResultTxt, diagramTitle, diagramFormula, diagramLabels;
-        RectTransform guideRt, guidePathRt;
+        RectTransform guideRt, guidePathRt, handleControlRt, handleTrackRt, handleTargetRt;
         Image guideRing, guideFinger;
+        Image handleControl, handleTargetRing;
+        TextMeshProUGUI handleTargetTxt;
         RectTransform toastRt;
         TextMeshProUGUI toastTxt;
         readonly Image[] ripples = new Image[5];
@@ -154,13 +154,14 @@ namespace Mgf.BitSasu
             cam.orthographic = true;
             cam.orthographicSize = 7.7f;
 
-            cobaltMat = MgfLook.Lit(Cobalt, 0.72f, 0.5f);
-            paleMat = MgfLook.Lit(Pale, 0.75f, 0.05f);
-            ivoryMat = MgfLook.Lit(Ivory, 0.55f, 0.08f);
-            redMat = MgfLook.Lit(Vermilion, 0.58f, 0.2f);
-            slateMat = MgfLook.Lit(Slate, 0.35f, 0.25f);
-            glassMat = MgfLook.Lit(new Color(0.63f, 0.91f, 0.97f), 0.92f, 0.08f, Pale * 0.18f);
-            brightGlassMat = MgfLook.Lit(new Color(0.80f, 0.98f, 1f), 0.96f, 0.05f, new Color(0.45f, 0.95f, 1f) * 1.5f);
+            // 식각 계측기처럼 무광 에나멜과 서리 유리를 쓴다. 장난감형 고광택은 피한다.
+            cobaltMat = MgfLook.Lit(Cobalt, 0.30f, 0.52f);
+            paleMat = MgfLook.Lit(Pale, 0.24f, 0.03f);
+            ivoryMat = MgfLook.Lit(Ivory, 0.22f, 0.07f);
+            redMat = MgfLook.Lit(Vermilion, 0.28f, 0.24f);
+            slateMat = MgfLook.Lit(Slate, 0.18f, 0.30f);
+            glassMat = MgfLook.Lit(new Color(0.63f, 0.91f, 0.97f), 0.48f, 0.08f, Pale * 0.12f);
+            brightGlassMat = MgfLook.Lit(new Color(0.80f, 0.98f, 1f), 0.62f, 0.05f, new Color(0.45f, 0.95f, 1f) * 1.35f);
             crackedMat = MgfLook.Lit(new Color(0.55f, 0.68f, 0.73f), 0.25f, 0.1f, Vermilion * 0.08f);
             offLightMat = MgfLook.Lit(new Color(0.48f, 0.66f, 0.72f), 0.4f, 0.1f);
             onLightMat = MgfLook.Lit(Ivory, 0.8f, 0.05f, new Color(0.35f, 0.92f, 1f) * 2f);
@@ -178,6 +179,16 @@ namespace Mgf.BitSasu
             MgfLook.Prim(PrimitiveType.Cylinder, "LighthouseBase", new Vector3(0, 0.15f, 0), new Vector3(3.15f, 0.42f, 3.15f), ivoryMat);
             MgfLook.Prim(PrimitiveType.Cylinder, "EnamelDeck", new Vector3(0, 0.62f, 0), new Vector3(2.68f, 0.20f, 2.68f), cobaltMat);
             MgfLook.Prim(PrimitiveType.Cylinder, "OpticColumn", new Vector3(0, 1.35f, 0), new Vector3(1.72f, 0.72f, 1.72f), ivoryMat);
+            for (int i = 0; i < 24; i++)
+            {
+                float a = i * 15f * Mathf.Deg2Rad;
+                var tick = MgfLook.Block("EtchedDeckTick" + i,
+                    new Vector3(Mathf.Cos(a) * 1.73f, 0.80f, Mathf.Sin(a) * 1.73f),
+                    new Vector3(i % 3 == 0 ? 0.08f : 0.045f, 0.035f, i % 3 == 0 ? 0.30f : 0.20f),
+                    0.01f, i % 6 == 0 ? redMat : ivoryMat);
+                tick.transform.rotation = Quaternion.Euler(0, -i * 15f, 0);
+                Destroy(tick.GetComponent<Collider>());
+            }
 
             lensPivot = new GameObject("LensPivot").transform;
             lensPivot.position = new Vector3(0, 2.55f, 0.25f);
@@ -260,13 +271,12 @@ namespace Mgf.BitSasu
             titleRt = R("Title", root, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             titleRt.anchorMin = Vector2.zero; titleRt.anchorMax = Vector2.one; titleRt.sizeDelta = Vector2.zero;
             titleG = titleRt.gameObject.AddComponent<CanvasGroup>();
-            titlePortrait = Resources.Load<Texture2D>("BitSasu/title");
-            titleWide = Resources.Load<Texture2D>("BitSasu/thumb");
-            titleArt = R("TitleArt", titleRt, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero).gameObject.AddComponent<RawImage>();
-            titleArt.rectTransform.anchorMin = Vector2.zero; titleArt.rectTransform.anchorMax = Vector2.one; titleArt.rectTransform.sizeDelta = Vector2.zero;
-            titleArt.color = Color.white; titleArt.raycastTarget = false;
-            var titleWash = Img(titleRt, "TitleWash", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, new Color(Pale.r, Pale.g, Pale.b, 0.08f));
+            // 타이틀도 인게임과 같은 실시간 광학 데크를 그대로 보여 준다.
+            // 생성 회화형 풀블리드 이미지는 사용하지 않는다.
+            var titleWash = Img(titleRt, "TitleWash", new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, new Color(Pale.r, Pale.g, Pale.b, 0.12f));
             titleWash.rectTransform.anchorMin = Vector2.zero; titleWash.rectTransform.anchorMax = Vector2.one; titleWash.rectTransform.sizeDelta = Vector2.zero;
+            titlePlateRt = Img(titleRt, "TitleInstrumentPlate", new Vector2(0.5f, 0.79f), Vector2.zero,
+                new Vector2(354, 190), new Color(Ivory.r, Ivory.g, Ivory.b, 0.88f), roundSprite).rectTransform;
             logo[0] = Txt(titleRt, "빛 사수", new Vector2(0.16f, 0.82f), new Vector2(5, -5), 58, Ivory, 330, TextAlignmentOptions.Left);
             logo[1] = Txt(titleRt, "빛 사수", new Vector2(0.16f, 0.82f), new Vector2(2, -2), 58, Vermilion, 330, TextAlignmentOptions.Left);
             logo[2] = Txt(titleRt, "빛 사수", new Vector2(0.16f, 0.82f), Vector2.zero, 58, Cobalt, 330, TextAlignmentOptions.Left);
@@ -344,11 +354,23 @@ namespace Mgf.BitSasu
             angleTxt.fontStyle = FontStyles.Bold;
             feedbackTxt = Txt(hudRt, "붉은 손잡이를 잡고 위아래로 끈 뒤 놓으시오", new Vector2(0.5f, 0.105f), Vector2.zero, 13, Ink, 350);
 
-            guideRt = R("Guide", hudRt, new Vector2(0.5f, 0.3f), Vector2.zero, new Vector2(120, 150));
-            guidePathRt = R("GuidePath", guideRt, new Vector2(0.5f, 0.5f), new Vector2(0, 34), new Vector2(5, 88));
-            Img(guidePathRt, "Path", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(5, 88), new Color(Vermilion.r, Vermilion.g, Vermilion.b, 0.55f), roundSprite);
-            guideRing = Img(guideRt, "Ring", new Vector2(0.5f, 0.18f), Vector2.zero, new Vector2(78, 78), new Color(Vermilion.r, Vermilion.g, Vermilion.b, 0.8f), ringSprite);
-            guideFinger = Img(guideRt, "Finger", new Vector2(0.5f, 0.18f), Vector2.zero, new Vector2(26, 42), Ivory, roundSprite);
+            handleTrackRt = R("LensHandleTrack", hudRt, new Vector2(0.5f, 0.24f), new Vector2(0, 44), new Vector2(8, 118));
+            Img(handleTrackRt, "EtchedTrack", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(8, 118),
+                new Color(Cobalt.r, Cobalt.g, Cobalt.b, 0.52f), roundSprite);
+            handleTargetRt = R("PracticeTarget45", hudRt, new Vector2(0.5f, 0.24f), new Vector2(0, 88), new Vector2(84, 50));
+            handleTargetRing = Img(handleTargetRt, "TargetRing", new Vector2(0.5f, 0.5f), Vector2.zero,
+                new Vector2(50, 50), new Color(Vermilion.r, Vermilion.g, Vermilion.b, 0.82f), ringSprite);
+            handleTargetTxt = Txt(handleTargetRt, "45° 놓기", new Vector2(0.5f, 0.5f), new Vector2(0, 38), 12, Cobalt, 92, TextAlignmentOptions.Center);
+            handleTargetTxt.fontStyle = FontStyles.Bold;
+            handleControlRt = R("LensHandleControl", hudRt, new Vector2(0.5f, 0.24f), Vector2.zero, new Vector2(68, 86));
+            Img(handleControlRt, "HandleBezel", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(62, 82), Cobalt, roundSprite);
+            handleControl = Img(handleControlRt, "RedHandle", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(42, 66), Vermilion, roundSprite);
+
+            guideRt = R("Guide", hudRt, new Vector2(0.5f, 0.24f), Vector2.zero, new Vector2(130, 180));
+            guidePathRt = R("GuidePath", guideRt, new Vector2(0.5f, 0.5f), new Vector2(0, 40), new Vector2(5, 80));
+            Img(guidePathRt, "Path", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(5, 80), new Color(Vermilion.r, Vermilion.g, Vermilion.b, 0.55f), roundSprite);
+            guideRing = Img(guideRt, "Ring", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(82, 82), new Color(Vermilion.r, Vermilion.g, Vermilion.b, 0.8f), ringSprite);
+            guideFinger = Img(guideRt, "Finger", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26, 42), Ivory, roundSprite);
 
             toastRt = R("Toast", hudRt, new Vector2(0.5f, 0.06f), Vector2.zero, new Vector2(340, 46));
             Img(toastRt, "ToastBg", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(340, 46), new Color(Cobalt.r, Cobalt.g, Cobalt.b, 0.94f), roundSprite);
@@ -391,30 +413,52 @@ namespace Mgf.BitSasu
 
         void LayoutUi(bool force = false)
         {
-            bool nextLand = Screen.width >= 1024 || (Screen.width >= 640 && Screen.width >= Screen.height);
+            Canvas.ForceUpdateCanvases();
+            RectTransform canvasRt = (RectTransform)MgfText.Canvas.transform;
+            float logicalW = Mathf.Max(1f, canvasRt.rect.width);
+            float logicalH = Mathf.Max(1f, canvasRt.rect.height);
+            // Screen.width의 물리 픽셀은 고해상도 세로 태블릿을 가로로 오판한다.
+            // CanvasScaler가 만든 논리 캔버스의 실제 종횡비만 사용한다.
+            bool nextLand = logicalW / logicalH >= 1.05f;
             if (!force && nextLand == land && layoutW == Screen.width && layoutH == Screen.height) return;
             land = nextLand;
             layoutW = Screen.width; layoutH = Screen.height;
             if (land)
             {
-                float cw = Mathf.Max(640f, ((RectTransform)MgfText.Canvas.transform).rect.width);
-                float ch = Mathf.Max(360f, ((RectTransform)MgfText.Canvas.transform).rect.height);
+                float cw = logicalW;
+                float ch = logicalH;
                 float panelW = Mathf.Clamp(cw * 0.29f, 210f, 300f);
                 float diagramH = Mathf.Clamp(ch * 0.42f, 170f, 240f);
                 float tableH = Mathf.Clamp(ch * 0.54f, 220f, 310f);
+                float safeMargin = 18f;
+                float panelX = cw * 0.5f - safeMargin - panelW * 0.5f;
+                float middleGap = Mathf.Max(240f, panelX * 2f - panelW - 28f);
+                float titleW = Mathf.Clamp(cw * 0.47f, 320f, 390f);
+                float titleX = -cw * 0.5f + safeMargin + titleW * 0.5f;
+                // 낮은 가로 화면(허브 카드 1200×630 등)에서도 판이 위로 잘리지 않게 실제 높이로 배치한다.
+                float pc = Mathf.Min(0.78f * ch, ch - 18f - 92f);
                 for (int i = 0; i < logo.Length; i++)
                 {
-                    logo[i].rectTransform.anchorMin = logo[i].rectTransform.anchorMax = new Vector2(0.31f, 0.82f);
-                    logo[i].rectTransform.sizeDelta = new Vector2(440, 98);
+                    logo[i].rectTransform.anchorMin = logo[i].rectTransform.anchorMax = new Vector2(0.5f, 0f);
+                    logo[i].rectTransform.anchoredPosition = new Vector2(titleX + (i == 0 ? 5f : i == 1 ? 2f : 0f), pc + 30f + (i == 0 ? -5f : i == 1 ? -2f : 0f));
+                    logo[i].rectTransform.sizeDelta = new Vector2(titleW - 30f, 98);
                     logo[i].alignment = TextAlignmentOptions.Left;
                 }
-                tagTxt.rectTransform.anchorMin = tagTxt.rectTransform.anchorMax = new Vector2(0.31f, 0.72f);
-                tagTxt.rectTransform.sizeDelta = new Vector2(430, 36);
+                titlePlateRt.anchorMin = titlePlateRt.anchorMax = new Vector2(0.5f, 0f);
+                titlePlateRt.anchoredPosition = new Vector2(titleX, pc);
+                titlePlateRt.sizeDelta = new Vector2(titleW, 184);
+                tagTxt.rectTransform.anchorMin = tagTxt.rectTransform.anchorMax = new Vector2(0.5f, 0f);
+                tagTxt.rectTransform.anchoredPosition = new Vector2(titleX, pc - 38f);
+                tagTxt.rectTransform.sizeDelta = new Vector2(titleW - 30f, 36);
                 tagTxt.alignment = TextAlignmentOptions.Left;
-                badgeTxt.rectTransform.anchorMin = badgeTxt.rectTransform.anchorMax = new Vector2(0.31f, 0.67f);
-                badgeTxt.rectTransform.sizeDelta = new Vector2(430, 28);
+                badgeTxt.rectTransform.anchorMin = badgeTxt.rectTransform.anchorMax = new Vector2(0.5f, 0f);
+                badgeTxt.rectTransform.anchoredPosition = new Vector2(titleX, pc - 68f);
+                badgeTxt.rectTransform.sizeDelta = new Vector2(titleW - 30f, 28);
                 badgeTxt.alignment = TextAlignmentOptions.Left;
-                diagramRt.anchorMin = diagramRt.anchorMax = new Vector2(0.15f, 0.54f);
+                bestTxt.rectTransform.anchorMin = bestTxt.rectTransform.anchorMax = new Vector2(0.5f, 0f);
+                bestTxt.rectTransform.anchoredPosition = new Vector2(0, 0.075f * ch + 35f + 14f);
+                diagramRt.anchorMin = diagramRt.anchorMax = new Vector2(0.5f, 0.5f);
+                diagramRt.anchoredPosition = new Vector2(-panelX, ch * 0.03f);
                 diagramRt.sizeDelta = diagramBgRt.sizeDelta = new Vector2(panelW, diagramH);
                 diagramTitle.rectTransform.anchoredPosition = new Vector2(14f, 0);
                 diagramTitle.rectTransform.sizeDelta = new Vector2(panelW - 20f, 26f);
@@ -429,7 +473,8 @@ namespace Mgf.BitSasu
                     ratioChipTxt[i].rectTransform.sizeDelta = new Vector2(chipW - 4f, 26f);
                 }
                 ratioResultTxt.rectTransform.sizeDelta = new Vector2(panelW - 18f, 44f);
-                tableRt.anchorMin = tableRt.anchorMax = new Vector2(0.85f, 0.53f);
+                tableRt.anchorMin = tableRt.anchorMax = new Vector2(0.5f, 0.5f);
+                tableRt.anchoredPosition = new Vector2(panelX, ch * 0.02f);
                 tableRt.sizeDelta = tableBgRt.sizeDelta = new Vector2(panelW, tableH);
                 tableHead.rectTransform.sizeDelta = new Vector2(panelW - 12f, 26f);
                 for (int i = 0; i < tableRows.Length; i++) tableRows[i].rectTransform.sizeDelta = new Vector2(panelW - 12f, 20f);
@@ -441,36 +486,55 @@ namespace Mgf.BitSasu
                 tablePageRt.anchorMin = tablePageRt.anchorMax = new Vector2(0.74f, 0.76f);
                 tablePageTxt.rectTransform.sizeDelta = new Vector2(pgW - 4f, 24f);
                 // 좌우 패널 사이 중앙 무대 폭 안에서만 발문을 조판한다.
-                promptBgRt.sizeDelta = new Vector2(Mathf.Clamp(cw * 0.28f, 280f, 400f), 78f);
+                promptBgRt.sizeDelta = new Vector2(Mathf.Clamp(middleGap, 240f, 400f), 78f);
                 promptTxt.rectTransform.sizeDelta = new Vector2(promptBgRt.sizeDelta.x - 24f, 64f);
                 promptBgRt.anchorMin = promptBgRt.anchorMax = new Vector2(0.5f, 0.72f);
+                promptBgRt.anchoredPosition = Vector2.zero;
                 goalBgRt.anchorMin = goalBgRt.anchorMax = new Vector2(0.5f, 0.88f);
                 progressTxt.rectTransform.anchorMin = progressTxt.rectTransform.anchorMax = new Vector2(0.42f, 0.97f);
                 livesTxt.rectTransform.anchorMin = livesTxt.rectTransform.anchorMax = new Vector2(0.58f, 0.97f);
                 for (int i = 0; i < lifeGlass.Length; i++) lifeGlass[i].rectTransform.anchorMin = lifeGlass[i].rectTransform.anchorMax = new Vector2(0.58f, 0.97f);
                 angleTxt.rectTransform.anchorMin = angleTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.13f);
-                feedbackTxt.rectTransform.anchorMin = feedbackTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.07f);
-                guideRt.anchorMin = guideRt.anchorMax = new Vector2(0.5f, 0.34f);
+                angleTxt.rectTransform.anchoredPosition = Vector2.zero;
+                angleTxt.fontSize = 38f;
+                feedbackTxt.rectTransform.anchorMin = feedbackTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.035f);
+                feedbackTxt.fontSize = 11.5f;
+                // 손잡이는 등대 오른쪽, 오른쪽 삼각비표 패널 왼쪽 가장자리보다 안쪽에 둔다.
+                float handleX = Mathf.Clamp(panelX - panelW * 0.5f - 48f, 90f, 150f);
+                SetHandleUiAnchor(new Vector2(0.5f, 0.31f), new Vector2(handleX, 0));
             }
             else
             {
                 for (int i = 0; i < logo.Length; i++)
                 {
                     logo[i].rectTransform.anchorMin = logo[i].rectTransform.anchorMax = new Vector2(0.5f, 0.82f);
+                    logo[i].rectTransform.anchoredPosition = new Vector2(i == 0 ? 5f : i == 1 ? 2f : 0f, i == 0 ? -5f : i == 1 ? -2f : 0f);
                     logo[i].rectTransform.sizeDelta = new Vector2(350, 98);
                     logo[i].alignment = TextAlignmentOptions.Center;
                 }
                 tagTxt.rectTransform.anchorMin = tagTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.73f);
+                tagTxt.rectTransform.anchoredPosition = Vector2.zero;
                 tagTxt.rectTransform.sizeDelta = new Vector2(340, 36);
                 tagTxt.alignment = TextAlignmentOptions.Center;
                 badgeTxt.rectTransform.anchorMin = badgeTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.68f);
+                badgeTxt.rectTransform.anchoredPosition = Vector2.zero;
                 badgeTxt.rectTransform.sizeDelta = new Vector2(340, 28);
                 badgeTxt.alignment = TextAlignmentOptions.Center;
-                diagramRt.anchorMin = diagramRt.anchorMax = new Vector2(0.5f, 0.65f);
-                diagramRt.sizeDelta = new Vector2(354, 118);
-                diagramBgRt.sizeDelta = new Vector2(354, 118);
+                titlePlateRt.anchorMin = titlePlateRt.anchorMax = new Vector2(0.5f, 0.78f);
+                titlePlateRt.anchoredPosition = Vector2.zero;
+                bestTxt.rectTransform.anchorMin = bestTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.16f);
+                bestTxt.rectTransform.anchoredPosition = Vector2.zero;
+                titlePlateRt.sizeDelta = new Vector2(354, 205);
+                // 목표 → 발문 → 도식을 위에서부터 실제 높이로 쌓는다(비율 앵커는 낮은 태블릿 캔버스에서 겹쳤다).
+                float goalY = 0.875f * logicalH;
+                float promptTop = goalY - 19f - 4f;
+                float diagramTop = promptTop - 94f - 6f;
+                diagramRt.anchorMin = diagramRt.anchorMax = new Vector2(0.5f, 0f);
+                diagramRt.anchoredPosition = new Vector2(0, diagramTop - 50f);
+                diagramRt.sizeDelta = new Vector2(354, 100);
+                diagramBgRt.sizeDelta = new Vector2(354, 100);
                 diagramTitle.rectTransform.anchoredPosition = Vector2.zero;
-                diagramTitle.rectTransform.sizeDelta = new Vector2(150, 20);
+                diagramTitle.rectTransform.sizeDelta = new Vector2(320, 20);
                 diagramFormula.rectTransform.sizeDelta = new Vector2(330, 28);
                 diagramLabels.rectTransform.sizeDelta = new Vector2(330, 22);
                 ratioRt.sizeDelta = new Vector2(340, 110);
@@ -481,9 +545,12 @@ namespace Mgf.BitSasu
                     ratioChipTxt[i].rectTransform.sizeDelta = new Vector2(70, 18);
                 }
                 ratioResultTxt.rectTransform.sizeDelta = new Vector2(330, 20);
-                tableRt.anchorMin = tableRt.anchorMax = new Vector2(0.5f, 0.45f);
-                tableRt.sizeDelta = new Vector2(354, 210);
-                tableBgRt.sizeDelta = new Vector2(354, 210);
+                // 삼각비표는 화면 아래 계기판으로 내려 가운데 창을 등대·표적 장면에 돌려준다.
+                // 바닥 기준으로 붙여 태블릿처럼 논리 높이가 낮은 화면에서도 안내 문장과 겹치지 않게 한다.
+                tableRt.anchorMin = tableRt.anchorMax = new Vector2(0.5f, 0f);
+                tableRt.anchoredPosition = new Vector2(0, 0.055f * logicalH + 102f + 6f);
+                tableRt.sizeDelta = new Vector2(354, 204);
+                tableBgRt.sizeDelta = new Vector2(354, 204);
                 tableHead.rectTransform.sizeDelta = new Vector2(330, 20);
                 for (int i = 0; i < tableRows.Length; i++) tableRows[i].rectTransform.sizeDelta = new Vector2(330, 18);
                 tableFunctionRt.sizeDelta = tableFunctionRt.GetChild(0).GetComponent<RectTransform>().sizeDelta = new Vector2(92, 36);
@@ -492,47 +559,47 @@ namespace Mgf.BitSasu
                 tablePageRt.sizeDelta = tablePageRt.GetChild(0).GetComponent<RectTransform>().sizeDelta = new Vector2(124, 36);
                 tablePageRt.anchorMin = tablePageRt.anchorMax = new Vector2(0.79f, 0.76f);
                 tablePageTxt.rectTransform.sizeDelta = new Vector2(118, 22);
-                promptBgRt.sizeDelta = new Vector2(354, 82);
-                promptTxt.rectTransform.sizeDelta = new Vector2(334, 68);
-                promptBgRt.anchorMin = promptBgRt.anchorMax = new Vector2(0.5f, 0.80f);
+                promptBgRt.sizeDelta = new Vector2(354, 94);
+                promptTxt.rectTransform.sizeDelta = new Vector2(336, 84);
+                promptBgRt.anchorMin = promptBgRt.anchorMax = new Vector2(0.5f, 0f);
+                promptBgRt.anchoredPosition = new Vector2(0, promptTop - 47f);
                 goalBgRt.anchorMin = goalBgRt.anchorMax = new Vector2(0.5f, 0.875f);
                 progressTxt.rectTransform.anchorMin = progressTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.97f);
                 livesTxt.rectTransform.anchorMin = livesTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.925f);
                 for (int i = 0; i < lifeGlass.Length; i++) lifeGlass[i].rectTransform.anchorMin = lifeGlass[i].rectTransform.anchorMax = new Vector2(0.5f, 0.925f);
-                angleTxt.rectTransform.anchorMin = angleTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.16f);
-                feedbackTxt.rectTransform.anchorMin = feedbackTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.105f);
-                guideRt.anchorMin = guideRt.anchorMax = new Vector2(0.5f, 0.3f);
+                angleTxt.rectTransform.anchorMin = angleTxt.rectTransform.anchorMax = new Vector2(0.22f, 0f);
+                angleTxt.rectTransform.anchoredPosition = new Vector2(0, diagramTop - 100f - 30f);
+                angleTxt.fontSize = 38f;
+                feedbackTxt.rectTransform.anchorMin = feedbackTxt.rectTransform.anchorMax = new Vector2(0.5f, 0.035f);
+                feedbackTxt.fontSize = 12f;
+                float tableTop = 0.055f * logicalH + 210f;
+                float handleY = Mathf.Max(0.385f * logicalH, tableTop + 58f);
+                SetHandleUiAnchor(new Vector2(0.5f, handleY / logicalH), new Vector2(128f, 0));
             }
             scoreTxt.rectTransform.anchorMin = scoreTxt.rectTransform.anchorMax = new Vector2(0.025f, 0.97f);
-            timerTxt.rectTransform.anchorMin = timerTxt.rectTransform.anchorMax = new Vector2(0.975f, 0.97f);
-            SetTitleTexture();
+            timerTxt.rectTransform.anchorMin = timerTxt.rectTransform.anchorMax = new Vector2(land ? 0.91f : 0.79f, 0.97f);
         }
 
-        void SetTitleTexture()
+        // 손잡이는 등대 옆(가로/세로 모두 오른쪽)에 둬서 렌즈 몸통을 가리지 않는다.
+        void SetHandleUiAnchor(Vector2 anchor, Vector2 offset)
         {
-            Texture tex = land && titleWide ? titleWide : titlePortrait;
-            titleArt.texture = tex;
-            titleArt.enabled = tex != null; // 없으면 뒤의 코드 디오라마가 폴백이다.
-            if (!tex) return;
-            float screenAspect = Mathf.Max(0.01f, (float)Screen.width / Screen.height);
-            float texAspect = (float)tex.width / tex.height;
-            if (screenAspect < texAspect)
-            {
-                float w = screenAspect / texAspect;
-                titleArt.uvRect = new Rect((1f - w) * 0.5f, 0, w, 1);
-            }
-            else
-            {
-                float h = texAspect / screenAspect;
-                titleArt.uvRect = new Rect(0, (1f - h) * 0.5f, 1, h);
-            }
+            handleControlRt.anchorMin = handleControlRt.anchorMax = anchor;
+            handleControlRt.anchoredPosition = offset;
+            handleTrackRt.anchorMin = handleTrackRt.anchorMax = anchor;
+            handleTrackRt.anchoredPosition = offset + new Vector2(0, 44f);
+            handleTargetRt.anchorMin = handleTargetRt.anchorMax = anchor;
+            handleTargetRt.anchoredPosition = offset + new Vector2(0, 88f);
+            guideRt.anchorMin = guideRt.anchorMax = anchor;
+            guideRt.anchoredPosition = offset;
         }
 
         void UpdateWorld(float dt)
         {
             worldClock += dt;
             LayoutUi();
-            cam.orthographicSize = land ? 6.6f : 8.2f;
+            // 세로 플레이는 패널 사이의 가운데 창(화면 36~64%)에 등대와 표적이 함께 들어오도록
+            // 직교 화각을 넓힌다. 패널이 장면 전체를 덮어 세계가 사라지던 결함의 수정이다.
+            cam.orthographicSize = land ? 6.6f : (phase == Phase.Title ? 8.2f : 10.6f);
             cam.transform.position = land ? new Vector3(8.8f, 8.1f, -11.8f) : new Vector3(8.4f, 9.2f, -12.4f);
             cam.transform.LookAt(land ? new Vector3(0, 1.5f, 3.5f) : new Vector3(0, 1.5f, 3.1f));
 
@@ -550,7 +617,16 @@ namespace Mgf.BitSasu
                 waterBands[i].position = p;
             }
 
-            if (phase == Phase.Shot)
+            if (phase == Phase.Title)
+            {
+                beamTrail.gameObject.SetActive(true); beamCore.gameObject.SetActive(true);
+                Vector3 from = lensPivot.position + lensPivot.forward * 1.6f;
+                Vector3 end = new Vector3(Mathf.Sin(worldClock * 0.42f) * 1.15f,
+                    2.65f + Mathf.Sin(worldClock * 0.57f) * 0.34f, 8.4f);
+                beamTrail.SetPosition(0, from); beamTrail.SetPosition(1, end);
+                beamCore.SetPosition(0, from); beamCore.SetPosition(1, end);
+            }
+            else if (phase == Phase.Shot)
             {
                 float t = shotT;
                 float extend = Mathf.SmoothStep(0, 1, Mathf.Clamp01((t - 0.08f) / 0.28f));
@@ -579,6 +655,7 @@ namespace Mgf.BitSasu
             }
             else
             {
+                beamTrail.gameObject.SetActive(false); beamCore.gameObject.SetActive(false);
                 lensBody.localScale = Vector3.Lerp(lensBody.localScale, lensBaseScale, 1f - Mathf.Exp(-dt * 12f));
                 if (phase != Phase.Title)
                 {
@@ -634,6 +711,7 @@ namespace Mgf.BitSasu
                 float pulse = 1f + (0.08f + guideBoost * 0.08f) * Mathf.Sin(worldClock * (4f + guideBoost * 2f));
                 guideRing.rectTransform.localScale = Vector3.one * pulse;
                 guideFinger.rectTransform.anchoredPosition = new Vector2(0, Mathf.PingPong(worldClock * 66f, 80f));
+                handleTargetRing.rectTransform.localScale = Vector3.one * (1f + 0.07f * Mathf.Sin(worldClock * 4.8f));
                 if (guideBoost > 0) guideBoost = Mathf.Max(0, guideBoost - dt * 0.18f);
             }
 
@@ -658,7 +736,11 @@ namespace Mgf.BitSasu
             hudG.alpha = !title && !end ? 1 : 0; hudG.blocksRaycasts = !title && !end;
             endG.alpha = end ? 1 : 0; endG.blocksRaycasts = end;
             guideRt.gameObject.SetActive(phase == Phase.Practice);
+            handleControlRt.gameObject.SetActive(!title && !end);
+            handleTrackRt.gameObject.SetActive(!title && !end);
+            handleTargetRt.gameObject.SetActive(phase == Phase.Practice);
             ratioRt.gameObject.SetActive(!title && !end && current != null && current.band >= 2);
+            diagramTitle.gameObject.SetActive(land || current == null || current.band < 2);
             diagramFormula.gameObject.SetActive(current == null || current.band < 2);
             diagramLabels.gameObject.SetActive(current == null || current.band < 2);
             tableRt.gameObject.SetActive(!title && !end);
@@ -675,7 +757,9 @@ namespace Mgf.BitSasu
             progressTxt.text = st.solved + " / " + BitSasuRules.TargetCount;
             goalTxt.text = phase == Phase.Practice ? "45°로 맞추고 손을 놓아 빛을 보내라" : "등대를 돌려 표적에 빛을 보내라";
             feedbackTxt.text = phase == Phase.Practice ? "tan A≈1.000인 행을 찾고 붉은 손잡이를 45°까지 끄시오" : "현재 각도를 정한 뒤 손을 놓으면 한 발이 나간다";
-            diagramTitle.text = current.band == 3 ? "정면 측량도 · 길이는 표시된 수를 사용" : "△ABC · ∠C=90° · 기준각 A";
+            diagramTitle.text = current.band == 3
+                ? "∠A = 렌즈 수평선 ~ 꼭대기 방향"
+                : "△ABC · ∠C=90° · 기준각 A";
             if (current.band == 0)
             {
                 diagramFormula.text = "tan A = BC / AC = 1";
@@ -774,8 +858,20 @@ namespace Mgf.BitSasu
             }
         }
 
+        public const float HandleUnitsPerDegree = 4.4f;
+
+        // 붉은 손잡이 자체가 손가락을 따라 레일 위를 움직인다. 각도 변화량과 같은 비율이라
+        // 연습에서 손잡이가 45° 눈금 링에 닿는 순간이 곧 45°다.
+        void FollowHandle(int deltaDegrees)
+        {
+            float y = Mathf.Clamp(deltaDegrees * HandleUnitsPerDegree, -60f, 230f);
+            handleControlRt.GetChild(0).localPosition = new Vector3(0, y, 0);
+            handleControlRt.GetChild(1).localPosition = new Vector3(0, y, 0);
+        }
+
         void HandleGrab(bool grabbed)
         {
+            if (!grabbed) FollowHandle(0);
             if (grabbed)
             {
                 handle.localScale = new Vector3(1.18f, 0.88f, 1.18f);
@@ -867,6 +963,9 @@ namespace Mgf.BitSasu
 
         void ShowWrongReason(string id)
         {
+            // 방어적으로도 1단계에는 화면에서 관찰 가능한 표 행 피드백만 남긴다.
+            if (current != null && current.band == 1)
+                id = st.selectedAngle > current.angle ? "aimed_too_high" : "aimed_too_low";
             string msg = id == "swap_opposite_adjacent" ? "기준각 A에서 대변과 이웃변을 바꾸어 잡았다"
                 : id == "tan_uses_hypotenuse" ? "tan의 분모에는 빗변이 아니라 이웃변을 쓴다"
                 : id == "uses_total_height" ? "전체 높이에서 렌즈 높이를 먼저 빼야 한다"
@@ -922,20 +1021,27 @@ namespace Mgf.BitSasu
 
         void PositionGuide()
         {
-            if (!guideRt.gameObject.activeSelf || !handle || !cam) return;
-            Vector3 screen = cam.WorldToScreenPoint(handle.position);
-            RectTransform canvasRt = (RectTransform)MgfText.Canvas.transform;
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, screen, null, out var local))
-                guideRt.anchoredPosition = local;
+            // 유령 손·경로·도착 눈금은 실제 입력 RectTransform과 같은 앵커를 공유한다.
+            // 레이아웃이나 카메라가 바뀌어도 허공을 가리키지 않는다.
+            if (!guideRt.gameObject.activeSelf || !handleControlRt) return;
+            guideRt.anchorMin = guideRt.anchorMax = handleControlRt.anchorMin;
+            guideRt.anchoredPosition = handleControlRt.anchoredPosition;
         }
 
         bool IsHandleZone(Vector2 screen)
         {
-            Vector3 hp = cam.WorldToScreenPoint(handle.position);
-            float radius = Mathf.Max(82f, Mathf.Min(Screen.width, Screen.height) * 0.12f);
-            if (((Vector2)hp - screen).sqrMagnitude <= radius * radius) return true;
+            if (handleControlRt.gameObject.activeInHierarchy && RectTransformUtility.RectangleContainsScreenPoint(handleControlRt, screen, null)) return true;
             float nx = screen.x / Mathf.Max(1, Screen.width), ny = screen.y / Mathf.Max(1, Screen.height);
-            return nx >= 0.26f && nx <= 0.78f && ny >= 0.12f && ny <= (land ? 0.70f : 0.36f);
+            // 연습에서는 화면 아래 계측 데크 전체를 손잡이의 드래그 레일로 쓴다.
+            // 탭만으로는 위 Game 코드가 발사하지 않으며, 실제 드래그가 있어야 제출된다.
+            if (phase == Phase.Practice)
+                return nx >= 0.12f && nx <= 0.88f && ny >= 0.08f && ny <= 0.62f;
+            // 본 게임에서는 손잡이 주변(레일 포함)만 잡힌다. 위치는 실제 손잡이 RectTransform에서 읽는다.
+            if (!handleControlRt.gameObject.activeInHierarchy) return false;
+            Vector2 hp = RectTransformUtility.WorldToScreenPoint(null, handleControlRt.position);
+            float k = MgfText.Canvas.scaleFactor;
+            Vector2 d = (screen - hp) / Mathf.Max(0.01f, k);
+            return Mathf.Abs(d.x) <= 64f && d.y >= -70f && d.y <= 110f;
         }
 
         bool HitTableFunction(Vector2 p) => tableFunctionRt.gameObject.activeInHierarchy && RectTransformUtility.RectangleContainsScreenPoint(tableFunctionRt, p, null);
@@ -984,6 +1090,11 @@ namespace Mgf.BitSasu
         void RefuseInput(string message)
         {
             SpawnRipple(MgfPointer.Position);
+            if (handleControlRt && handleControlRt.gameObject.activeInHierarchy)
+            {
+                Vector2 hp = RectTransformUtility.WorldToScreenPoint(null, handleControlRt.position);
+                SpawnRipple(hp);
+            }
             handleJolt = 0.24f;
             guideRt.gameObject.SetActive(phase == Phase.Practice);
             guideBoost = Mathf.Min(2f, guideBoost + 0.3f);

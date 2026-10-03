@@ -3,6 +3,21 @@
 > 마지막 갱신: 2026-10-03. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-03 — 「빛 사수」 2차 수정 (1단계 오답 진단·실수 회복 실입력 증거) / QA 45·fatal 0 / 미게시
+
+중학교 Unity `bit-sasu` 2차. 최신 검수 84점의 high 1·medium 1을 처리했고 `replan_required=false`다.
+분류와 실행 증거는 `factory/work/fix.json`, 실제 회복 플레이는
+`factory/unity-src/bit-sasu/ArtSource/validation/recovery-play-results.json`과 21프레임에 있다.
+
+- 1단계는 화면에 없는 내부 삼각형으로 변 선택 오개념을 진단하지 않고, 선택한 표 행이 정답보다
+  큰지/작은지만 말한다. 실제 `sin A≈0.891`에서 62° 오답은 「표의 행이 너무 작다, A≈63°」로 표시됐다.
+- 문제 id·정답 훅·플레이 중 상태 조회 없이 실제 포인터로 62° 오답→같은 문항 63° 재시도→9표적 완주.
+  최종 `clear/solved9/lives2/firstAttempt8of9/shots11`, 빌드 SHA를 증거 JSON에 연결했다.
+- Unity WebGL 재빌드 warnings 0, Unity 산출물 **7.9MB**. 공식 QA **45/45·fatal 0**, M4/Metal
+  모바일 **72fps**, 1280 **69fps**, 15초 유지율 **100%**. 수학 자가검산 표 180칸·60버킷·최근접 행 180건 통과.
+- 최종 빌드 무뇌 실제 포인터 200판: 고정 **0/200**, 순환 **1/208=0.48%**, 무작위
+  **4/209=1.91%**(우연 1/60=1.67%, 이항 p=0.461), 무입력 진도 0/200, 완주율 전부 0%.
+
 ## 2026-10-03 — 「빛 사수」 Unity WebGL 구현·검증 완료 / 미게시
 
 중3-2 `m3s2-u1` 삼각비 게임 `bit-sasu`를 `factory/work/chosen.json` 기획대로 구현했다. 정본은

@@ -44,10 +44,10 @@ async function touchTap(page, x, y) {
 
 async function aim(page, target) {
   const before = await page.evaluate(() => window.__GAME_TEST__.getState());
-  const y0 = 620, y1 = y0 - (target - before.selectedAngle) * 4;
-  await page.touchscreen.touchStart(195, y0); await sleep(35);
-  await page.touchscreen.touchMove(195, (y0 + y1) / 2); await sleep(24);
-  await page.touchscreen.touchMove(195, y1); await sleep(35);
+  const y0 = 522, y1 = y0 - (target - before.selectedAngle) * 4.4; // 4.4 캔버스 단위 = 1°
+  await page.touchscreen.touchStart(323, y0); await sleep(35);
+  await page.touchscreen.touchMove(323, (y0 + y1) / 2); await sleep(24);
+  await page.touchscreen.touchMove(323, y1); await sleep(35);
   await page.touchscreen.touchEnd();
   await page.waitForFunction(n => window.__GAME_TEST__.getState().shots > n, { timeout: 1500 }, before.shots);
   const after = await page.evaluate(() => window.__GAME_TEST__.getState());
@@ -117,6 +117,12 @@ try {
   if (recovery.phase !== 'clear' || recovery.solved !== 9 || recovery.firstAttemptCorrect !== 8 || recovery.lives !== 2) throw new Error(`recovery path failed ${JSON.stringify(recovery)}`);
   const report = {
     generatedAt: new Date().toISOString(),
+    evidenceClass: 'hook-assisted-regression-only',
+    validAsEvaluatorSecondPlay: false,
+    limitations: [
+      'problemId에서 목표 각도를 읽음',
+      'window.__GAME_TEST__.start()로 샷 연출을 건너뜀'
+    ],
     onboarding: { passed: !onboarding.onboarding && onboarding.presentedCount === 1 && onboarding.firstAttemptTotal === 0 },
     perfect: { phase: perfect.phase, solved: perfect.solved, firstAttemptCorrect: perfect.firstAttemptCorrect, lives: perfect.lives },
     recovery: { phase: recovery.phase, solved: recovery.solved, firstAttemptCorrect: recovery.firstAttemptCorrect, lives: recovery.lives },

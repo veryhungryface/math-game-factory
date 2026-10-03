@@ -175,10 +175,11 @@ namespace Mgf.BitSasu
                 p.totalHeight = p.eye + ps;
                 p.trig = TrigKind.Tan;
                 p.tableValue = Table(TrigKind.Tan, angle);
-                p.prompt = "표적의 전체 높이는 " + p.totalHeight + " cm, 렌즈 높이는 " + p.eye
-                    + " cm, 수평 거리는 " + p.distance
-                    + " cm이다. tan A와 삼각비표를 이용하여 조준각 A를 1° 단위로 구하시오. "
-                    + "(단, 지면은 수평이고 표적은 지면에 수직이다.)";
+                // 각의 두 변(렌즈 수평선·표적 꼭대기 방향)과 지면·표적 조건을 모두 남기고 군더더기만 줄인다.
+                p.prompt = "렌즈를 지나는 수평선과 렌즈에서 표적 꼭대기로 향하는 선이 이루는 각을 A라 하자. "
+                    + "지면은 수평, 표적은 지면에 수직이고 표적 높이 " + p.totalHeight + " cm, 렌즈 높이 " + p.eye
+                    + " cm, 렌즈에서 표적까지의 수평 거리 " + p.distance
+                    + " cm이다. tan A와 삼각비표를 이용하여 A를 1° 단위로 구하시오.";
                 p.unitConcept = "높이 차와 수평 거리를 이용한 삼각비 활용";
             }
             return p;
@@ -248,6 +249,10 @@ namespace Mgf.BitSasu
 
         public static string IdentifyMisconception(LightProblem p, int selected)
         {
+            if (p == null) return "aimed_too_low";
+            // 1단계 화면에는 삼각비의 근삿값과 표만 보인다. 생성에 사용한 내부
+            // 삼각형의 변은 학생에게 제시되지 않으므로 변 선택 오개념으로 진단하지 않는다.
+            if (p.band == 1) return selected > p.angle ? "aimed_too_high" : "aimed_too_low";
             if (selected == MisconceptionAngle(p, "swap_opposite_adjacent")) return "swap_opposite_adjacent";
             if (selected == MisconceptionAngle(p, "tan_uses_hypotenuse")) return "tan_uses_hypotenuse";
             if (selected == MisconceptionAngle(p, "uses_total_height")) return "uses_total_height";

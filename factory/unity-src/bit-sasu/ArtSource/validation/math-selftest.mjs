@@ -61,6 +61,12 @@ if (nearest(1, 4, 5) !== 37) fail('cos 4/5 example');
 if (nearest(2, 3, 4) !== 37) fail('tan 3/4 example');
 if (nearest(2, 5 - 2, 4) !== 37) fail('height difference example');
 
+// 높이 활용 발문은 tan A의 두 선과 조준점을 직접 정의해야 답이 유일하다.
+// 숫자 계산이 맞아도 이 문장이 빠지면 독립 검산에서 fail이다.
+for (const token of ['렌즈를 지나는 수평선', '렌즈에서 표적 꼭대기로 향하는 선', '이루는 각을 A라 하자']) {
+  if (!source.includes(token)) fail(`stage-3 angle definition missing: ${token}`);
+}
+
 // 런타임은 오답 제출에서만 IdentifyMisconception을 호출하므로 정답각과
 // 우연히 같은 역산값은 오개념으로 주장될 수 없다.
 const report = {
@@ -70,6 +76,7 @@ const report = {
   pythagoreanBucketsChecked: buckets.length,
   nearestRowChecks: buckets.length * 3,
   exampleChecks: 3,
+  stage3DefinitionChecks: 3,
   rawDistractorCollisions,
   claimedDistractorCollisions: 0,
   result: 'pass'
