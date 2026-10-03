@@ -108,13 +108,14 @@ export FIX_RUNNER="${FIX_RUNNER:-codex_smart_run}"  # 수정
 export FIX_FALLBACK_RUNNER="${FIX_FALLBACK_RUNNER:-claude_run}"  # 다른 회사로 1회 대체
 export FIX_FALLBACK_MODEL="${FIX_FALLBACK_MODEL:-$CLAUDE_MODEL_SMART}"
 export SCOUT_RUNNER="${SCOUT_RUNNER:-grok_run}"     # 레퍼런스 스카우트 — 웹 접근 필요
-# 기획 3안은 서로 다른 관점이어야 한다. 기본값은 gpt-6.1-sol / gemini-3.8-flash-high(agy) / gpt-5.6-terra —
-# 세 관점이 전부 클로드 밖에 있다. 클로드를 다시 넣고 싶으면 이 값만 바꿔라.
+# 기획 3안은 서로 다른 관점이어야 한다. 기본값은 gpt-6.1-sol / gemini-3.8-flash-high(agy) / claude-sonnet-5-5 — 세 회사로 관점을 나눈다.
 # 2026-10-03 사용자 지시: 1번 기획자 grok(잔액 소진 402) → codex gpt-6.1-sol.
 export DESIGN1_MODEL="${DESIGN1_MODEL:-gpt-6.1-sol}"
 # 2026-10-03 사용자 지시: 2번 기획자 gpt-5.6-sol → Antigravity CLI(agy) Gemini 3.8 Flash (High).
 export AGY_MODEL="${AGY_MODEL:-gemini-3.8-flash-high}"
-export DESIGN_RUNNERS="${DESIGN_RUNNERS:-codex_design1_run,agy_run,codex_run}"
+# 2026-10-03 사용자 지시: 3번 기획자 gpt-5.6-terra → claude sonnet 5.5.
+export DESIGN3_MODEL="${DESIGN3_MODEL:-claude-sonnet-5-5}"
+export DESIGN_RUNNERS="${DESIGN_RUNNERS:-codex_design1_run,agy_run,claude_design3_run}"
 
 # ── 단계별 제한 시간(초) ───────────────────────────────
 export T_DESIGN="${T_DESIGN:-900}"     # 15분 — grok 기획자가 claude 보다 오래 걸린다(실측 ~8분)

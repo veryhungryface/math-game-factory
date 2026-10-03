@@ -140,6 +140,11 @@ codex_smart_run() {
   codex_run "$1" "$2" "$3" "${4:-$CODEX_MODEL_SMART}"
 }
 
+# 3번 기획자 전용 (2026-10-03 사용자 지시: claude sonnet 5.5)
+claude_design3_run() {
+  claude_run "$1" "$2" "$3" "${4:-$DESIGN3_MODEL}"
+}
+
 # 1번 기획자 전용 (2026-10-03 사용자 지시: gpt-6.1-sol)
 codex_design1_run() {
   codex_run "$1" "$2" "$3" "${4:-$DESIGN1_MODEL}"
@@ -168,7 +173,7 @@ resolve_runner() {
   case "$want" in
     grok_run)                  command -v grok   >/dev/null 2>&1 && { echo grok_run;   return; } ;;
     codex_run|codex_smart_run|codex_design1_run) command -v codex  >/dev/null 2>&1 && { echo "$want";    return; } ;;
-    claude_run)                command -v claude >/dev/null 2>&1 && { echo claude_run; return; } ;;
+    claude_run|claude_design3_run) command -v claude >/dev/null 2>&1 && { echo "$want"; return; } ;;
     agy_run)                   command -v agy    >/dev/null 2>&1 && { echo agy_run;    return; } ;;
   esac
   command -v codex  >/dev/null 2>&1 && { echo codex_smart_run; return; }
@@ -486,7 +491,7 @@ $USER_FEEDBACK
 
   # 기획 3안을 서로 다른 회사·티어 모델로 나눠 돌린다 — 전부 같은 모델로만 기획하니
   # 게임들이 서로 비슷해 보인다는 지적을 받았다. 배정은 config.sh 의 DESIGN_RUNNERS
-  # (쉼표 구분, i 번째가 i 번 기획자). 기본값은 클로드를 쓰지 않는다.
+  # (쉼표 구분, i 번째가 i 번 기획자). 기본값은 codex·Gemini(agy)·claude 3사다.
   IFS=',' read -ra _DR <<< "${DESIGN_RUNNERS:-grok_run,codex_smart_run,codex_run}"
   DESIGN_R="$(resolve_runner "${_DR[$((i-1))]:-codex_run}")"
   DESIGN_USED[$i]="$DESIGN_R"; DESIGN_PROMPT[$i]="$PROMPT"
