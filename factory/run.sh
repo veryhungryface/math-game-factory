@@ -127,6 +127,11 @@ codex_smart_run() {
   codex_run "$1" "$2" "$3" "${4:-$CODEX_MODEL_SMART}"
 }
 
+# 1번 기획자 전용 (2026-10-03 사용자 지시: gpt-6.1-sol)
+codex_design1_run() {
+  codex_run "$1" "$2" "$3" "${4:-$DESIGN1_MODEL}"
+}
+
 # 프롬프트 파일을 읽는다. 학교급이 중학교면 초등 교육과정 경로를 중학교 파일로 바꾸고
 # factory/prompts/_school-middle.md(학교급 보충 지시 — 본문과 충돌하면 이쪽이 이긴다)를 덧붙인다.
 # 빌드 프롬프트는 BUILD_TECH=unity 일 때 30-build-unity.md(Unity 트랙 계약)를 추가로 붙인다.
@@ -149,7 +154,7 @@ resolve_runner() {
   local want="$1"
   case "$want" in
     grok_run)                  command -v grok   >/dev/null 2>&1 && { echo grok_run;   return; } ;;
-    codex_run|codex_smart_run) command -v codex  >/dev/null 2>&1 && { echo "$want";    return; } ;;
+    codex_run|codex_smart_run|codex_design1_run) command -v codex  >/dev/null 2>&1 && { echo "$want";    return; } ;;
     claude_run)                command -v claude >/dev/null 2>&1 && { echo claude_run; return; } ;;
   esac
   command -v codex  >/dev/null 2>&1 && { echo codex_smart_run; return; }
