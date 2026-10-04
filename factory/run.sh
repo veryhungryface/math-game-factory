@@ -59,7 +59,8 @@ MGF_LANE_ITEM="${MGF_LANE_ITEM:-}"
 RUN_ID="${MGF_RUN_ID:-$(date +%Y%m%d-%H%M%S)}"
 LOG_DIR="$ROOT/logs/$RUN_ID"
 if [ -n "$MGF_LANE_ITEM" ]; then
-  export MGF_WORK="factory/work/lanes/$RUN_ID"
+  # factory/work 밖에 둔다 — 일반 회차가 시작하며 factory/work 를 통째로 지워도 레인 작업이 살아남게.
+  export MGF_WORK="factory/work-lanes/$RUN_ID"
 fi
 WORK="$ROOT/${MGF_WORK:-factory/work}"
 LOCK="$ROOT/factory/state/run.lock"
@@ -93,7 +94,7 @@ lane_prompt() {
   local p="$1"
   if [ -n "${MGF_WORK:-}" ] && [ "$MGF_WORK" != "factory/work" ]; then
     p="${p//factory\/work\//$MGF_WORK/}"
-    p="이 회차의 작업 폴더는 \`$MGF_WORK/\` 다(병렬 레인). 다른 레인의 \`factory/work/lanes/*\` 는 건드리지 마라. 환경 변수 MGF_WORK 가 이미 설정돼 있어 \`node factory/lib/qa.mjs\` 도 이 폴더에 쓴다.
+    p="이 회차의 작업 폴더는 \`$MGF_WORK/\` 다(병렬 레인). 다른 레인의 \`factory/work-lanes/*\` 는 건드리지 마라. 환경 변수 MGF_WORK 가 이미 설정돼 있어 \`node factory/lib/qa.mjs\` 도 이 폴더에 쓴다.
 
 $p"
   fi
@@ -312,6 +313,15 @@ if [ "${DAILY_TARGET:-1}" -gt 0 ] && [ "${FORCE_PRODUCE:-0}" != "1" ] && [ -z "$
     echo "🎯 오늘 목표 달성 — 다음 발진은 내일 (오늘 게시: $TODAY_DONE)"
     exit 0
   fi
+fi
+
+# ── 배치 생산 중이면 일반 회차는 쉰다 (2026-10-05 batch-middle.sh) ──────────
+# 배치 지휘 스크립트가 factory/state/batch.active 에 pid 를 적어 둔다. 그 pid 가 살아 있으면
+# 크론의 일반 회차(기획부터 시작)는 자원을 다투지 않게 조용히 건너뛴다. 레인은 해당 없음.
+if [ -z "$MGF_LANE_ITEM" ] && [ -f "$ROOT/factory/state/batch.active" ] \
+   && kill -0 "$(cat "$ROOT/factory/state/batch.active" 2>/dev/null)" 2>/dev/null; then
+  echo "⏭ 배치 생산 중(pid $(cat "$ROOT/factory/state/batch.active")) — 일반 회차는 건너뜁니다."
+  exit 0
 fi
 
 # ── 락 ────────────────────────────────────────────────────────────

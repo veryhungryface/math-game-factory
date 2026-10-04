@@ -37,7 +37,11 @@ const queue = readJSON(P.queue, { produced: [], failed: [], mechanic_history: []
 const inFocus = (u) =>
   FOCUS.some((f) => f.grade === u.grade && f.semester === u.semester);
 
-const units = (curriculum.units || []).filter(inFocus);
+// --unit <id>: 배치 생산(2026-10-03 batch-middle.sh)이 단원을 직접 지정한다 — 포커스 무시.
+const UNIT_ID = flag('unit');
+const units = UNIT_ID
+  ? (curriculum.units || []).filter((u) => u.id === UNIT_ID)
+  : (curriculum.units || []).filter(inFocus);
 if (units.length === 0) {
   console.error(`포커스(${SCHOOL} ${FOCUS.map((f) => `${f.grade}-${f.semester}`).join(',')})에 해당하는 단원이 교육과정 파일(${P.curriculum})에 없습니다.`);
   process.exit(2);

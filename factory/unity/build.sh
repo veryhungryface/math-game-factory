@@ -58,21 +58,40 @@ fi
 [ -n "$BG" ] || BG="#1B2440"
 
 # ── 1. 워크스페이스 ─────────────────────────────────────────────────────────
-# 3안 병렬 생산(2026-10-03): 워크스페이스가 하나라 Unity 배치 빌드는 한 번에 하나만 돈다.
-# 다른 레인이 빌드 중이면 기다린다(죽은 pid 의 잠금은 회수). run.sh·machine-lock.mjs 와 같은 규약.
-LOCKD="$ROOT/factory/state/unity.lock.d"
+# 병렬 레인(2026-10-03~05): Unity 워크스페이스 풀. 같은 워크스페이스는 동시에 못 열므로 워크스페이스마다
+# 잠금(factory/state/unity-<이름>.lock.d)을 두고, MGF_UNITY_WORKSPACE 를 지정하지 않았으면 풀
+# (~/UnityProjects/MGF-Workspace, MGF-Workspace-2 … -$MGF_UNITY_POOL) 중 비어 있는 것을 잡는다.
+# 다 차 있으면 기다린다(죽은 pid 의 잠금은 회수). machine-lock.mjs·run.sh acquire_lock 과 같은 규약.
+_try_ws() {  # $1=워크스페이스 경로 → 잠금을 잡으면 0
+  local l="$ROOT/factory/state/unity-$(basename "$1").lock.d" p
+  if mkdir "$l" 2>/dev/null; then echo $$ > "$l/pid"; LOCKD="$l"; return 0; fi
+  p="$(cat "$l/pid" 2>/dev/null)"
+  if [ -n "$p" ] && ! kill -0 "$p" 2>/dev/null; then rm -rf "$l"; mkdir "$l" 2>/dev/null && { echo $$ > "$l/pid"; LOCKD="$l"; return 0; }; fi
+  return 1
+}
+LOCKD=""
 _waited=0
-while ! mkdir "$LOCKD" 2>/dev/null; do
-  _p="$(cat "$LOCKD/pid" 2>/dev/null)"
-  if [ -n "$_p" ] && ! kill -0 "$_p" 2>/dev/null; then rm -rf "$LOCKD"; continue; fi
-  [ "$_waited" -eq 0 ] && echo "[build] 다른 레인이 Unity 빌드 중(pid ${_p:-?}) — 대기" >&2
+while [ -z "$LOCKD" ]; do
+  if [ -n "${MGF_UNITY_WORKSPACE:-}" ]; then
+    _try_ws "$WS" || true
+  else
+    for _i in $(seq 1 "${MGF_UNITY_POOL:-3}"); do
+      _cand="$HOME/UnityProjects/MGF-Workspace"; [ "$_i" -gt 1 ] && _cand="$_cand-$_i"
+      [ -d "$_cand/Assets" ] || continue
+      if _try_ws "$_cand"; then WS="$_cand"; break; fi
+    done
+  fi
+  [ -n "$LOCKD" ] && break
+  [ "$_waited" -eq 0 ] && echo "[build] Unity 워크스페이스가 전부 사용 중 — 대기" >&2
   sleep 5; _waited=$((_waited+5))
   [ "$_waited" -ge 2400 ] && { echo "[build] Unity 잠금 40분 대기 초과 — 실패" >&2; exit 4; }
 done
-echo $$ > "$LOCKD/pid"
 trap 'rm -rf "$LOCKD"' EXIT
+export MGF_UNITY_WORKSPACE="$WS"   # setup-workspace.sh --sync 가 같은 워크스페이스를 보게
+echo "[build] 워크스페이스: $WS" >&2
 
-editor_open() { ps -axo pid=,command= | grep -i "Unity.app/Contents/MacOS/Unity" | grep -v grep | grep -iF -- "$WS" || true; }
+# MGF-Workspace 는 MGF-Workspace-2 의 접두사라 경로 뒤 경계까지 맞춘다.
+editor_open() { ps -axo pid=,command= | grep -i "Unity.app/Contents/MacOS/Unity" | grep -v grep | grep -iE -- "${WS}([[:space:]/]|\$)" || true; }
 OPEN="$(editor_open)"
 if [ -n "$OPEN" ]; then
   echo "[build] Unity 가 워크스페이스를 이미 열고 있다 — 에디터(또는 이전 빌드)를 닫고 다시 실행해라:" >&2
