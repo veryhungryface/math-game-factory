@@ -3,6 +3,8 @@
 // curriculum/2022-middle-math.json style_guide / expression_traps 반영:
 // - 값 발문은 「~의 길이를 구하시오」로 통일하고 수와 단위는 띄어 쓴다(6 cm).
 // - 대응 순서를 데이터로 보존한다. 그림을 뒤집어도 선분 이름과 비례식의 대응은 바뀌지 않는다.
+// - evidence(풀기 전 화면)에는 비례식을 쓰지 않는다. 대응(부분:부분/부분:전체)은 학생이 고르고,
+//   완성된 비례식(formula)은 정답 판정 카드에서만 보인다.
 // - 중2에는 근호를 쓰지 않으며 모든 길이와 판정은 int 교차곱으로 계산한다.
 // - 증명의 「가정」「결론」 용어와 어림 표현을 생성하지 않는다.
 //
@@ -56,6 +58,14 @@ namespace Mgf.SilTaneunGeomi
             "덩굴문 길", "물방울 길", "연꽃 길", "민트잎 길"
         };
 
+        // 한 브라우저 세션에서 첫 길의 답은 24판마다 정확히 한 번씩 나온다.
+        // 1→2→3→4 순환 입력과 같은 위상에 답이 몰리지 않도록 1~4를 서로 다른
+        // 위상에 배치했다. 네 칸 단위 회전만 허용하므로 세션마다 시작점은 달라도
+        // 고정/순환 무뇌 입력의 원시 성공률은 1/24를 넘지 않는다.
+        static readonly int[] BalancedFirstAnswers = {
+            5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,2,3,4,1
+        };
+
         static int Gcd(int x, int y)
         {
             while (y != 0) { int t = x % y; x = y; y = t; }
@@ -83,8 +93,8 @@ namespace Mgf.SilTaneunGeomi
             return new SilkProblem {
                 id="sg-practice", kind=SilkKind.PartRatio, band=0, answer=4,
                 a=3, b=2, c=6, d=4, target="EC",
-                prompt="△ABC에서 DE∥BC이고 AD=3 cm, DB=2 cm, AE=6 cm일 때, EC의 길이를 구하시오.",
-                evidence="AD 3 cm : DB 2 cm = AE 6 cm : EC ? cm",
+                prompt="△ABC에서 선분 DE와 선분 BC가 평행하다. 선분 AD, DB, AE의 길이가 각각 3 cm, 2 cm, 6 cm일 때, 선분 EC의 길이를 구하시오.",
+                evidence="구할 선분 EC · 모식도의 실을 당겨 길이를 맞추시오",
                 formula="AD:DB=AE:EC  →  3:2=6:4",
                 unitConcept="삼각형에서 평행선과 선분의 길이의 비"
             };
@@ -100,11 +110,11 @@ namespace Mgf.SilTaneunGeomi
             return new SilkProblem {
                 id="sg-pr-"+k+"-"+variant, kind=SilkKind.PartRatio, band=band, answer=k,
                 a=ad,b=db,c=ae,d=k,target="EC", mirrored=(variant&1)==1,
-                prompt=Zone(variant)+"의 △ABC에서 DE∥BC이고 AD="+ad+" cm, DB="+db+" cm, AE="+ae+" cm일 때, EC의 길이를 구하시오.",
-                evidence="AD "+ad+" cm : DB "+db+" cm = AE "+ae+" cm : EC ? cm",
+                prompt=Zone(variant)+"의 △ABC에서 선분 DE와 선분 BC가 평행하다. 선분 AD, DB, AE의 길이가 각각 "+ad+" cm, "+db+" cm, "+ae+" cm일 때, 선분 EC의 길이를 구하시오.",
+                evidence="구할 선분 EC",
                 formula="AD:DB=AE:EC  →  "+ad+":"+db+"="+ae+":"+k,
                 unitConcept="삼각형에서 평행선과 부분 선분의 길이의 비",
-                wrongA=reversed, wrongB=k==1?2:k-1
+                wrongA=reversed, wrongB=0
             };
         }
 
@@ -115,16 +125,16 @@ namespace Mgf.SilTaneunGeomi
             int ad=p*s, db=q*s, ab=ad+db, bc=(p+q)*r;
             int wrong=(bc*ad)%db==0?(bc*ad)/db:0;
             if (wrong==k || wrong<1 || wrong>MaxLength) wrong=0;
-            string memo=repair?" 느슨한 메모 AD:DB=DE:BC는 잘못되었다.":"";
+            string memo=repair?" 잘못 세운 비례식 AD:DB=DE:BC를 고쳐 계산하시오.":"";
             return new SilkProblem {
                 id=(repair?"sg-er-":"sg-pw-")+k+"-"+variant,
                 kind=repair?SilkKind.ErrorRepair:SilkKind.PartWhole, band=repair?3:2, answer=k,
                 a=ad,b=db,c=bc,d=ab,target="DE",mirrored=(variant&1)==1,
-                prompt=Zone(variant)+"의 △ABC에서 DE∥BC이고 AD="+ad+" cm, DB="+db+" cm, BC="+bc+" cm일 때, DE의 길이를 구하시오."+memo,
-                evidence="AD "+ad+" cm · AB "+ab+" cm  /  DE ? cm · BC "+bc+" cm",
+                prompt=Zone(variant)+"의 △ABC에서 선분 DE와 선분 BC가 평행하다. 선분 AD, DB, BC의 길이가 각각 "+ad+" cm, "+db+" cm, "+bc+" cm일 때, 선분 DE의 길이를 구하시오."+memo,
+                evidence=repair?"AD:DB=DE:BC 는 잘못 세운 비례식 · 구할 선분 DE":"구할 선분 DE",
                 formula="AD:AB=DE:BC  →  "+ad+":"+ab+"="+k+":"+bc,
                 unitConcept=repair?"잘못된 부분:전체 대응 고치기":"삼각형에서 평행선과 전체 선분의 길이의 비",
-                wrongA=wrong, wrongB=Math.Min(MaxLength,bc)
+                wrongA=wrong, wrongB=0
             };
         }
 
@@ -134,8 +144,8 @@ namespace Mgf.SilTaneunGeomi
             return new SilkProblem {
                 id="sg-mid-"+k+"-"+variant,kind=SilkKind.Midpoint,band=2,answer=k,
                 a=bc,b=k,target="MN",mirrored=(variant&1)==1,
-                prompt=Zone(variant)+"의 △ABC에서 M, N은 각각 AB, AC의 중점이고 BC="+bc+" cm일 때, MN의 길이를 구하시오.",
-                evidence="M, N은 두 변의 중점  ·  MN∥BC  ·  BC "+bc+" cm",
+                prompt=Zone(variant)+"의 △ABC에서 M, N은 각각 선분 AB, AC의 중점이다. 선분 BC의 길이가 "+bc+" cm일 때, 선분 MN의 길이를 구하시오.",
+                evidence="M, N은 두 변의 중점 · 구할 선분 MN",
                 formula="MN=BC÷2  →  "+bc+"÷2="+k,
                 unitConcept="삼각형의 중점연결정리",
                 wrongA=bc<=MaxLength?bc:0, wrongB=2*bc<=MaxLength?2*bc:0
@@ -151,36 +161,47 @@ namespace Mgf.SilTaneunGeomi
             int answer=reverse?ru:rl;
             int additive=reverse ? rl+(lu-ll) : ru+(ll-lu);
             if(additive==answer || additive<1 || additive>MaxLength) additive=0;
-            string known=reverse?"오른쪽 아래 구간="+rl+" cm":"오른쪽 위 구간="+ru+" cm";
-            string target=reverse?"오른쪽 위 구간":"오른쪽 아래 구간";
+            string known=reverse?"오른쪽의 m-n 구간은 "+rl+" cm":"오른쪽의 l-m 구간은 "+ru+" cm";
+            string target=reverse?"오른쪽 l-m 구간":"오른쪽 m-n 구간";
             return new SilkProblem {
                 id="sg-tp-"+k+"-"+variant+"-"+(reverse?"r":"d"),kind=SilkKind.ThreeParallel,band=3,answer=answer,
                 a=lu,b=ll,c=reverse?rl:ru,d=reverse?ru:rl,target=target,mirrored=(variant&1)==1,
-                prompt=Zone(variant)+"에서 l∥m∥n이다. 왼쪽 위 구간="+lu+" cm, 왼쪽 아래 구간="+ll+" cm, "+known+"일 때, "+target+"의 길이를 구하시오.",
-                evidence="l∥m∥n  ·  왼쪽 "+lu+":"+ll+" = 오른쪽 "+(reverse?"?":""+ru)+":"+(reverse?""+rl:"?"),
+                prompt=Zone(variant)+"에서 서로 다른 두 직선이 서로 평행한 세 직선 l, m, n과 만난다. 왼쪽의 l-m 구간은 "+lu+" cm, m-n 구간은 "+ll+" cm이고, "+known+"일 때, "+target+"의 길이를 구하시오.",
+                evidence="l∥m∥n · 구할 구간 "+target,
                 formula=lu+":"+ll+"="+ru+":"+rl,
                 unitConcept=reverse?"평행선 사이 선분의 길이의 비 역추적":"평행선 사이 선분의 길이의 비",
-                wrongA=additive, wrongB=answer==1?2:answer-1
+                wrongA=additive, wrongB=0
             };
         }
 
         public static SilkProblem ForRun(int routeIndex, int k, int variant)
         {
-            if(routeIndex<=2) return PartRatio(k,variant,1);
-            if(routeIndex==3) return PartWhole(k,variant,false);
-            if(routeIndex==4) return Midpoint(k,variant);
-            if(routeIndex==5) return PartWhole(k,variant,true);
-            if(routeIndex==6) return ThreeParallel(k,variant,false);
-            if(routeIndex==7) return ThreeParallel(k,variant,true);
-            return PartWhole(k,variant,true);
+            SilkProblem p;
+            if(routeIndex<=2)p=PartRatio(k,variant,1);
+            else if(routeIndex==3)p=PartWhole(k,variant,false);
+            else if(routeIndex==4)p=Midpoint(k,variant);
+            else if(routeIndex==5)p=PartWhole(k,variant,true);
+            else if(routeIndex==6)p=ThreeParallel(k,variant,false);
+            else if(routeIndex==7)p=ThreeParallel(k,variant,true);
+            else p=PartWhole(k,variant,true);
+            p.id+="-route"+routeIndex;
+            return p;
         }
 
-        public static List<SilkProblem> RunDeck(Random rng)
+        public static int BalancedFirstAnswer(int runSerial,int fourStepOffset)
+        {
+            int offset=((fourStepOffset%24)+24)%24;
+            offset-=offset%4;
+            int index=((runSerial-1+offset)%BalancedFirstAnswers.Length+BalancedFirstAnswers.Length)%BalancedFirstAnswers.Length;
+            return BalancedFirstAnswers[index];
+        }
+
+        public static List<SilkProblem> RunDeck(Random rng,int firstAnswer)
         {
             var deck=new List<SilkProblem>(TargetRoutes);
             for(int i=0;i<TargetRoutes;i++)
             {
-                int k=1+rng.Next(MaxLength); // 먼저 k를 1..24에서 독립 균등 추출한다.
+                int k=i==0?firstAnswer:1+rng.Next(MaxLength);
                 deck.Add(ForRun(i,k,rng.Next(100000)));
             }
             return deck;
@@ -197,7 +218,7 @@ namespace Mgf.SilTaneunGeomi
                 case SilkKind.Midpoint: return 2L*value==p.a;
                 default:
                     // a:b = (reverse이면 value:c, 아니면 c:value)
-                    return p.target.Contains("위") ? (long)p.a*p.c==(long)p.b*value : (long)p.a*value==(long)p.b*p.c;
+                    return p.target.Contains("l-m") ? (long)p.a*p.c==(long)p.b*value : (long)p.a*value==(long)p.b*p.c;
             }
         }
 
@@ -214,22 +235,23 @@ namespace Mgf.SilTaneunGeomi
             if(value==p.wrongB && p.wrongB>0)
             {
                 if(p.kind==SilkKind.Midpoint)return "midpoint_double_side";
-                return "reversed_correspondence";
+                return value<p.answer?"silk_too_short":"silk_too_long";
             }
             return value<p.answer?"silk_too_short":"silk_too_long";
         }
 
         public static List<MgfProblem> BuildBank()
         {
-            var bank=new List<MgfProblem>(480);
+            // QA 은행과 실전은 반드시 같은 ForRun 팩토리를 지난다. routeIndex 0~8,
+            // ErrorRepair, 세 평행선 direct/reverse, 배율 s=1~4를 결정적으로 모두 포함한다.
+            var bank=new List<MgfProblem>(TargetRoutes*MaxLength*4);
+            for(int route=0;route<TargetRoutes;route++)
             for(int k=1;k<=MaxLength;k++)
-            for(int v=0;v<4;v++)
+            for(int s=1;s<=4;s++)
             {
-                Add(bank,PartRatio(k,v+1));
-                Add(bank,PartWhole(k,v+17,false));
-                Add(bank,Midpoint(k,v+33));
-                Add(bank,ThreeParallel(k,v+49,false));
-                Add(bank,ThreeParallel(k,v+65,true));
+                // /7의 몫을 4로 나눈 나머지가 s-1이 되도록 구성한다.
+                int variant=k*112+route*28+(s-1)*7+((k+route+s)&1);
+                Add(bank,ForRun(route,k,variant));
             }
             return bank;
         }

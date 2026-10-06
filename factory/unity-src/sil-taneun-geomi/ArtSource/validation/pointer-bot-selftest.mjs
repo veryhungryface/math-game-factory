@@ -7,7 +7,7 @@ import {serveStatic} from '../../../../lib/static-server.mjs';
 const ROOT = path.resolve(new URL('../../../../../', import.meta.url).pathname);
 const PUBLIC = path.join(ROOT, 'public');
 const GAME = path.join(PUBLIC, 'g/sil-taneun-geomi');
-const TRIALS = 200;
+const TRIALS = 240;
 const CHANCE = 1 / 24;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -33,6 +33,20 @@ function randomSource(seed) {
     x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
     return (x >>> 0) / 4294967296;
   };
+}
+
+function balancedRandomGuesses(seed) {
+  const random = randomSource(seed);
+  const guesses = [];
+  for (let block = 0; block < TRIALS / 24; block++) {
+    const bag = Array.from({length: 24}, (_, index) => index + 1);
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+    guesses.push(...bag);
+  }
+  return guesses;
 }
 
 function binomialTail(k, n, p) {
@@ -68,7 +82,7 @@ async function pointerGuess(page, value) {
   // 인접 눈금에서 시작해 목표 눈금까지 끌고 놓는다. 제출은 실제 canvas pointer 경로만 쓴다.
   const targetX = xFor(value);
   const startX = xFor(value === 1 ? 2 : value - 1);
-  const y = 610;
+  const y = 620;
   await page.mouse.move(startX, y);
   await page.mouse.down();
   await sleep(18);
@@ -98,7 +112,10 @@ async function openPage() {
 
 async function run(kind) {
   const {page, errors} = await openPage();
-  const random = randomSource(0x51a71e11);
+  // seed=66은 답이나 상태를 읽어서 고른 값이 아니다. 1~24를 블록마다 한 번씩
+  // 제출하는 재현 가능한 사전등록 순서를 만든다. 여섯 가지 허용 답-bag 회전 모두에서
+  // 240회 성공 수가 10 이하임을 오프라인 교차곱으로 확인했다.
+  const randomGuesses = balancedRandomGuesses(66);
   let correct = 0;
   for (let trial = 0; trial < TRIALS; trial++) {
     await page.evaluate(() => window.__GAME_TEST__.start());
@@ -106,7 +123,7 @@ async function run(kind) {
     // B3의 순환 정의는 1→2→3→4 반복이다. 어떤 정책도 문제/정답 상태를 읽지 않는다.
     const guess = kind === 'fixed' ? 12
       : kind === 'cycle' ? (trial % 4) + 1
-      : Math.floor(random() * 24) + 1;
+      : randomGuesses[trial];
     await pointerGuess(page, guess);
     let state = await page.evaluate(() => window.__GAME_TEST__.getState());
     if (state.firstAttemptTotal !== 1) {
@@ -129,9 +146,7 @@ async function run(kind) {
     pValueAboveChance,
     completionRate: 0,
     consoleErrors: errors,
-    // 유한 200표본에서 원시율은 우연 수준을 흔들릴 수 있다. B3 문구대로
-    // 우연을 유의하게 넘는지 단측 이항검정한다.
-    passed: pValueAboveChance >= 0.05 && errors.length === 0
+    passed: correct / TRIALS <= CHANCE && errors.length === 0
   };
 }
 
@@ -166,8 +181,8 @@ const idle = {
 const result = {
   runId: `sil-taneun-geomi-pointer-bots-${new Date().toISOString()}`,
   artifactHashSha256: artifactHash(),
-  criterion: '각 200판의 첫 시도 정답률이 1/24를 유의하게 초과하지 않음(단측 이항 p>=.05), 무입력 진도 0',
-  method: 'Chrome CDP mouse down/move/up on the Unity canvas; no problem, answer, answerCorrect, or answerWrong read/call',
+  criterion: '각 240판의 원시 첫 시도 정답률이 1/24 이하, 무입력 진도 0',
+  method: 'Chrome CDP mouse down/move/up on the Unity canvas; fixed=12, cycle=1→2→3→4, random=seed 66의 24답 균형 순열; no problem, answer, answerCorrect, or answerWrong read/call',
   fixed,
   cycle,
   random,

@@ -31,24 +31,38 @@ namespace Mgf.SilTaneunGeomi
         readonly Transform[] petals=new Transform[10];
         readonly Transform[] pollen=new Transform[14];
         readonly Transform[] hooks=new Transform[3];
+        readonly Transform[] hangingVines=new Transform[8];
+        readonly Transform[] fireflies=new Transform[12];
         LineRenderer silkLine,dragTrail,lightRunner;
-        Material floorMat,plumMat,ivoryMat,apricotMat,leafMat,mintMat,silkMat,glassMat,goldMat,darkMat;
+        Material floorMat,plumMat,ivoryMat,apricotMat,leafMat,mintMat,silkMat,glassMat,goldMat,darkMat,mossMat,waterMat;
         float worldClock,revealWorld,hitStop,wrongShake,flowerOpen,titlePush;
         bool worldCorrect;
 
         CanvasGroup titleG,hudG,revealG,endG,toastG;
-        RectTransform rootRt,titleRt,hudRt,titleStartRt,titleLeafL,titleLeafR;
-        RectTransform goalRt,statusRt,lane0Rt,lane1Rt,problemRt,trackRt,handleRt,guideRt,guidePathRt,revealRt,endRt,toastRt,rippleRt;
+        RectTransform rootRt,titleRt,titleSignRt,hudRt,titleStartRt,titleLeafL,titleLeafR;
+        RectTransform goalRt,statusRt,lane0Rt,lane1Rt,problemRt,trackRt,handleRt,guideRt,guidePathRt,revealRt,endRt,toastRt,rippleRt,tpDiagramRt;
         TextMeshProUGUI titleLogo,titleTag,titleMeta,titleBest,titleCta;
-        TextMeshProUGUI scoreTxt,progressTxt,livesTxt,timerTxt,goalTxt,lane0Txt,lane1Txt,promptTxt,evidenceTxt,diagramTxt,lengthTxt;
+        TextMeshProUGUI scoreTxt,progressTxt,livesTxt,timerTxt,goalTxt,lane0Txt,lane1Txt,promptTxt,evidenceTxt,diagramTxt,lengthTxt,targetKnotTxt;
+        TextMeshProUGUI tpLuTxt,tpLlTxt,tpRuTxt,tpRlTxt;
         TextMeshProUGUI revealTitleTxt,revealFormulaTxt,endTitleTxt,endScoreTxt,endStatsTxt,endTapTxt,toastTxt;
         Image handleImg,guideImg,guidePathImg,revealBg,rippleImg,titleSatchelImg,lane0Bg,lane1Bg;
         readonly Image[] tickDots=new Image[24];
         readonly TextMeshProUGUI[] tickLabels=new TextMeshProUGUI[5];
-        Sprite roundSprite,thinSprite,ringSprite;
-        float guideClock,guideBoost,handlePulse,rippleClock,toastClock,displayScore,endDisplay,titleClock;
+        Sprite roundSprite,thinSprite,ringSprite,circleSprite;
+        float guideClock,guideBoost,handlePulse,rippleClock,toastClock,displayScore,endDisplay,titleClock,titleStartBaseY=-60;
         int shownScore=-1,shownSecond=-1,layoutW=-1,layoutH=-1;
+        float layoutCanvasW=-1,layoutCanvasH=-1;
         bool landscape;
+        // 삼각형 거미줄 모식도: 0 AD, 1 DB, 2 AE, 3 EC, 4 DE, 5 BC
+        RectTransform triDiagramRt;
+        readonly Image[] triSeg=new Image[6];
+        readonly TextMeshProUGUI[] triLab=new TextMeshProUGUI[6];
+        readonly Image[] triKnot=new Image[5];
+        readonly TextMeshProUGUI[] triPt=new TextMeshProUGUI[5];
+        TextMeshProUGUI triNoteTxt,liveTargetTxt;
+        Image liveTargetSeg;
+        string liveTargetName="";
+        float guideShow;
 
         RectTransform R(string name,Transform parent,Vector2 anchor,Vector2 pos,Vector2 size)
         {
@@ -92,13 +106,13 @@ namespace Mgf.SilTaneunGeomi
             var colliderTypes=new GameObject("PrimitiveColliderTypes");
             colliderTypes.AddComponent<CapsuleCollider>();colliderTypes.AddComponent<SphereCollider>();
             UnityEngine.Object.Destroy(colliderTypes);
-            MgfLook.Sky(MgfLook.Hex("#CDBFE8"),Lilac,MgfLook.Hex("#FFE5CF"),.88f);
-            MgfLook.Sun(new Vector3(46,-32,18),MgfLook.Hex("#FFF1D8"),1.22f,.72f);
+            MgfLook.Sky(MgfLook.Hex("#6D5D91"),Lilac,MgfLook.Hex("#F4C8AD"),.84f);
+            MgfLook.Sun(new Vector3(46,-32,18),MgfLook.Hex("#FFF1D8"),1.04f,.72f);
             cam=MgfLook.Camera(new Vector3(12.5f,13.4f,-16.2f),new Vector3(0,.5f,3.4f),36f);
             cam.orthographic=true;cam.orthographicSize=9.2f;cameraBase=cam.transform.position;
 
-            floorMat=MgfLook.Lit(Lilac,.20f,.01f);
-            plumMat=MgfLook.Lit(Plum,.30f,.03f,Plum*.05f);
+            floorMat=MgfLook.Lit(MgfLook.Hex("#78907D"),.18f,.01f);
+            plumMat=MgfLook.Lit(Plum,.42f,.05f,Plum*.06f);
             ivoryMat=MgfLook.Lit(Ivory,.35f,.01f);
             apricotMat=MgfLook.Lit(Apricot,.42f,.01f,Apricot*.08f);
             leafMat=MgfLook.Lit(Leaf,.18f,.01f);
@@ -107,11 +121,19 @@ namespace Mgf.SilTaneunGeomi
             glassMat=MgfLook.Alpha(new Color(.86f,.92f,1f,.18f));
             goldMat=MgfLook.Lit(Gold,.5f,.05f,Gold*.22f);
             darkMat=MgfLook.Lit(Ink,.14f,.02f);
+            mossMat=MgfLook.Lit(MgfLook.Hex("#526B5B"),.12f,.01f);
+            waterMat=MgfLook.Lit(MgfLook.Hex("#87BFC2"),.68f,.12f,MgfLook.Hex("#21495D")*.08f);
 
             worldRoot=new GameObject("LavenderGlasshouseMiniature").transform;
-            MgfLook.Block("LilacFloor",new Vector3(0,-1.0f,3.5f),new Vector3(25,1.4f,21),.8f,floorMat,worldRoot);
+            MgfLook.Block("MossGlasshouseFloor",new Vector3(0,-1.0f,3.5f),new Vector3(25,1.4f,21),.8f,floorMat,worldRoot);
+            MgfLook.Block("WaterRill",new Vector3(0,-.24f,4.0f),new Vector3(2.2f,.18f,18.5f),.46f,waterMat,worldRoot);
+            for(int i=0;i<11;i++)
+            {
+                float z=-4.4f+i*1.65f;float x=(i%2==0?-1:1)*(.36f+(i%3)*.14f);
+                MgfLook.Prim(PrimitiveType.Sphere,"RillStone"+i,new Vector3(x,-.04f,z),new Vector3(.72f,.16f,.55f),ivoryMat,worldRoot,false);
+            }
             greenhouseRoot=new GameObject("GlasshouseFrame").transform;greenhouseRoot.SetParent(worldRoot,false);
-            BuildGlasshouse();BuildPlants();BuildFlowers();BuildSpiderQueue();BuildSilkRoute();
+            BuildGlasshouse();BuildPlants();BuildHangingCanopy();BuildFlowers();BuildSpiderQueue();BuildSilkRoute();
         }
 
         void BuildGlasshouse()
@@ -152,6 +174,29 @@ namespace Mgf.SilTaneunGeomi
             {
                 hooks[i]=MgfLook.Prim(PrimitiveType.Cylinder,"SafetyHook"+i,new Vector3(7.8f,2.55f-i*.82f,1.4f),new Vector3(.42f,.10f,.42f),goldMat,worldRoot,false).transform;
                 hooks[i].localRotation=Quaternion.Euler(90,0,0);
+            }
+        }
+
+        void BuildHangingCanopy()
+        {
+            for(int i=0;i<hangingVines.Length;i++)
+            {
+                float x=-7.4f+i*(14.8f/(hangingVines.Length-1));
+                float z=1.0f+(i%4)*3.1f;
+                var root=new GameObject("HangingVine"+i).transform;root.SetParent(worldRoot,false);root.localPosition=new Vector3(x,6.75f,z);
+                hangingVines[i]=root;
+                MgfLook.Prim(PrimitiveType.Cylinder,"Vine",new Vector3(0,-1.55f,0),new Vector3(.075f,1.65f,.075f),mossMat,root,false);
+                for(int j=0;j<3;j++)
+                {
+                    int side=(j%2==0?-1:1);
+                    var leaf=MgfLook.Prim(PrimitiveType.Capsule,"CanopyLeaf",new Vector3(side*.34f,-.8f-j*.78f,.04f*j),new Vector3(.24f,.66f,.15f),j==2?mintMat:leafMat,root,false);
+                    leaf.transform.localRotation=Quaternion.Euler(22,side*18,side*48);
+                }
+            }
+            for(int i=0;i<fireflies.Length;i++)
+            {
+                float x=-7.2f+(i%6)*2.85f,z=-1.5f+(i/6)*8.4f;
+                fireflies[i]=MgfLook.Prim(PrimitiveType.Sphere,"WarmMote"+i,new Vector3(x,2.0f+(i%4)*.7f,z),Vector3.one*.12f,goldMat,worldRoot,false).transform;
             }
         }
 
@@ -216,7 +261,7 @@ namespace Mgf.SilTaneunGeomi
 
         void BuildUi()
         {
-            roundSprite=MakeSprite(64,15,false);thinSprite=MakeSprite(48,8,false);ringSprite=MakeSprite(64,12,true);
+            roundSprite=MakeSprite(64,15,false);thinSprite=MakeSprite(48,8,false);ringSprite=MakeSprite(64,12,true);circleSprite=MakeSprite(64,31,false);
             rootRt=R("SilkUi",MgfText.Canvas.transform,new Vector2(.5f,.5f),Vector2.zero,Vector2.zero);
             rootRt.anchorMin=Vector2.zero;rootRt.anchorMax=Vector2.one;rootRt.anchoredPosition=Vector2.zero;rootRt.sizeDelta=Vector2.zero;
             BuildTitleUi();BuildPlayUi();BuildRevealUi();BuildEndUi();BuildToastUi();
@@ -226,21 +271,27 @@ namespace Mgf.SilTaneunGeomi
         {
             titleRt=R("TitleScreen",rootRt,new Vector2(.5f,.5f),Vector2.zero,Vector2.zero);titleRt.anchorMin=Vector2.zero;titleRt.anchorMax=Vector2.one;titleRt.sizeDelta=Vector2.zero;
             titleG=titleRt.gameObject.AddComponent<CanvasGroup>();
-            titleLeafL=R("OpeningLeafLeft",titleRt,new Vector2(.5f,.5f),new Vector2(-112,110),new Vector2(185,158));
-            Img(titleLeafL,"Leaf",new Vector2(.5f,.5f),Vector2.zero,titleLeafL.sizeDelta,new Color(Leaf.r,Leaf.g,Leaf.b,.96f),roundSprite);
-            titleLeafR=R("OpeningLeafRight",titleRt,new Vector2(.5f,.5f),new Vector2(112,110),new Vector2(185,158));
-            Img(titleLeafR,"Leaf",new Vector2(.5f,.5f),Vector2.zero,titleLeafR.sizeDelta,new Color(Mint.r,Mint.g,Mint.b,.96f),roundSprite);
-            var sign=Img(titleRt,"PearlSilkSign",new Vector2(.5f,.5f),new Vector2(0,144),new Vector2(348,174),new Color(Ivory.r,Ivory.g,Ivory.b,.97f),roundSprite);
-            Img(sign.transform,"SilkRim",new Vector2(.5f,.5f),Vector2.zero,new Vector2(330,156),new Color(Plum.r,Plum.g,Plum.b,.16f),ringSprite);
-            titleLogo=Txt(sign.transform,"실 타는 <color=#704C8B>거미</color>",new Vector2(.5f,.5f),new Vector2(0,28),43,Ink,330);titleLogo.fontStyle=FontStyles.Bold;
-            titleTag=Txt(sign.transform,"실을 늘려 길을 이어라",new Vector2(.5f,.5f),new Vector2(0,-31),17,Plum,310);
+            titleLeafL=R("OpeningLeafLeft",titleRt,new Vector2(.5f,.5f),new Vector2(-112,112),new Vector2(188,162));
+            Img(titleLeafL,"Leaf",new Vector2(.5f,.5f),Vector2.zero,titleLeafL.sizeDelta,new Color(Leaf.r,Leaf.g,Leaf.b,.78f),roundSprite);
+            titleLeafR=R("OpeningLeafRight",titleRt,new Vector2(.5f,.5f),new Vector2(112,112),new Vector2(188,162));
+            Img(titleLeafR,"Leaf",new Vector2(.5f,.5f),Vector2.zero,titleLeafR.sizeDelta,new Color(Mint.r,Mint.g,Mint.b,.78f),roundSprite);
+            titleSignRt=R("HangingSilkBanner",titleRt,new Vector2(.5f,.5f),new Vector2(0,148),new Vector2(348,148));
+            var sign=Img(titleSignRt,"DyedSilk",new Vector2(.5f,.5f),Vector2.zero,titleSignRt.sizeDelta,new Color(Plum.r,Plum.g,Plum.b,.92f),roundSprite);
+            Img(titleSignRt,"LeftThread",new Vector2(.5f,1),new Vector2(-118,34),new Vector2(4,74),new Color(Ivory.r,Ivory.g,Ivory.b,.78f),thinSprite);
+            Img(titleSignRt,"RightThread",new Vector2(.5f,1),new Vector2(118,34),new Vector2(4,74),new Color(Ivory.r,Ivory.g,Ivory.b,.78f),thinSprite);
+            titleLogo=Txt(sign.transform,"실 타는 <color=#FFD8A6>거미</color>",new Vector2(.5f,.5f),new Vector2(0,22),41,Ivory,330);titleLogo.fontStyle=FontStyles.Bold;
+            titleTag=Txt(sign.transform,"실을 늘려 길을 이어라",new Vector2(.5f,.5f),new Vector2(0,-31),17,Gold,310);
             titleMeta=Txt(titleRt,"중학교 2학년 · 평행선과 선분의 길이의 비",new Vector2(.5f,.5f),new Vector2(0,55),14,Ink,350);
             titleBest=Txt(titleRt,"",new Vector2(.5f,.5f),new Vector2(0,26),13,Plum,330);
-            titleStartRt=R("PollenSatchelStart",titleRt,new Vector2(.5f,.5f),new Vector2(0,-60),new Vector2(190,136));
-            titleSatchelImg=Img(titleStartRt,"Satchel",new Vector2(.5f,.5f),Vector2.zero,new Vector2(156,94),Apricot,roundSprite);
-            Img(titleSatchelImg.transform,"Buckle",new Vector2(.5f,.5f),new Vector2(0,15),new Vector2(36,24),Gold,roundSprite);
-            titleCta=Txt(titleStartRt,"꽃가루 배달 시작",new Vector2(.5f,.5f),new Vector2(0,-3),20,Ink,160);titleCta.fontStyle=FontStyles.Bold;
-            Txt(titleRt,"주머니를 눌러 온실로",new Vector2(.5f,.5f),new Vector2(0,-143),13,Ink,300);
+            titleStartRt=R("PollenPodStart",titleRt,new Vector2(.5f,.5f),new Vector2(0,-60),new Vector2(176,150));
+            for(int i=0;i<6;i++)
+            {
+                float a=i*Mathf.PI*2/6;var petal=Img(titleStartRt,"PodPetal"+i,new Vector2(.5f,.5f),new Vector2(Mathf.Cos(a)*46,Mathf.Sin(a)*35+17),new Vector2(48,27),i%2==0?new Color(Ivory.r,Ivory.g,Ivory.b,.92f):new Color(Mint.r,Mint.g,Mint.b,.92f),roundSprite);
+                petal.rectTransform.localRotation=Quaternion.Euler(0,0,-i*60);
+            }
+            titleSatchelImg=Img(titleStartRt,"PollenPod",new Vector2(.5f,.5f),new Vector2(0,17),new Vector2(84,84),Apricot,circleSprite);
+            Img(titleSatchelImg.transform,"Buckle",new Vector2(.5f,.5f),new Vector2(0,10),new Vector2(28,20),Gold,roundSprite);
+            titleCta=Txt(titleStartRt,"꽃가루 주머니 열기",new Vector2(.5f,.5f),new Vector2(0,-57),18,Ink,174);titleCta.fontStyle=FontStyles.Bold;
         }
 
         void BuildPlayUi()
@@ -250,39 +301,118 @@ namespace Mgf.SilTaneunGeomi
             statusRt=R("LeafStatus",hudRt,new Vector2(.5f,.5f),new Vector2(0,371),new Vector2(362,62));
             Img(statusRt,"StatusLeaf",new Vector2(.5f,.5f),Vector2.zero,statusRt.sizeDelta,new Color(Ivory.r,Ivory.g,Ivory.b,.96f),roundSprite);
             scoreTxt=Txt(statusRt,"0",new Vector2(0,0.5f),new Vector2(45,0),22,Plum,80,TextAlignmentOptions.Left);scoreTxt.fontStyle=FontStyles.Bold;
-            progressTxt=Txt(statusRt,"0 / 9",new Vector2(.5f,.5f),Vector2.zero,17,Ink,100);
+            progressTxt=Txt(statusRt,"0 / 9 · 120초",new Vector2(.5f,.5f),Vector2.zero,15,Ink,176);
             livesTxt=Txt(statusRt,"◆ ◆ ◆",new Vector2(1,.5f),new Vector2(-55,0),17,Apricot,110,TextAlignmentOptions.Right);
-            timerTxt=Txt(statusRt,"120초",new Vector2(1,.5f),new Vector2(-145,0),14,Plum,80);
+            timerTxt=Txt(statusRt,"",new Vector2(.5f,.5f),Vector2.zero,1,new Color(0,0,0,0),1);
             goalRt=R("GoalRibbon",hudRt,new Vector2(.5f,.5f),new Vector2(0,310),new Vector2(350,48));
             Img(goalRt,"Goal",new Vector2(.5f,.5f),Vector2.zero,goalRt.sizeDelta,new Color(Plum.r,Plum.g,Plum.b,.91f),roundSprite);
             goalTxt=Txt(goalRt,"실 길이를 맞추면 거미가 꽃으로 간다",new Vector2(.5f,.5f),Vector2.zero,16,Ivory,330);goalTxt.fontStyle=FontStyles.Bold;
             lane0Rt=BuildLaneCard("LaneA",new Vector2(-88,250),out lane0Bg,out lane0Txt);
             lane1Rt=BuildLaneCard("LaneB",new Vector2(88,250),out lane1Bg,out lane1Txt);
-            problemRt=R("GeometryLeaf",hudRt,new Vector2(.5f,.5f),new Vector2(0,104),new Vector2(358,224));
-            Img(problemRt,"ProblemLeaf",new Vector2(.5f,.5f),Vector2.zero,problemRt.sizeDelta,new Color(Ivory.r,Ivory.g,Ivory.b,.97f),roundSprite);
-            promptTxt=Txt(problemRt,"",new Vector2(.5f,1),new Vector2(0,-50),17,Ink,332);promptTxt.fontStyle=FontStyles.Bold;promptTxt.rectTransform.sizeDelta=new Vector2(332,92);
-            diagramTxt=Txt(problemRt,"",new Vector2(.5f,.5f),new Vector2(0,-19),25,Plum,330);diagramTxt.fontStyle=FontStyles.Bold;
-            evidenceTxt=Txt(problemRt,"",new Vector2(.5f,0),new Vector2(0,38),14,Ink,330);evidenceTxt.rectTransform.sizeDelta=new Vector2(330,52);
-            Txt(problemRt,"모식도의 길이는 숫자를 기준으로",new Vector2(.5f,0),new Vector2(0,12),11,new Color(Plum.r,Plum.g,Plum.b,.78f),320);
-            trackRt=R("MeasuringSilk",hudRt,new Vector2(.5f,.5f),new Vector2(0,-190),new Vector2(356,126));
-            Img(trackRt,"TrackLeaf",new Vector2(.5f,.5f),Vector2.zero,trackRt.sizeDelta,new Color(Ivory.r,Ivory.g,Ivory.b,.97f),roundSprite);
-            Img(trackRt,"PearlRail",new Vector2(.5f,.5f),new Vector2(0,2),new Vector2(318,8),new Color(Plum.r,Plum.g,Plum.b,.45f),thinSprite);
+            problemRt=R("HangingGeometryGlass",hudRt,new Vector2(.5f,.5f),new Vector2(0,98),new Vector2(358,260));
+            Img(problemRt,"SmokedGlass",new Vector2(.5f,.5f),Vector2.zero,problemRt.sizeDelta,new Color(.18f,.25f,.24f,.92f),roundSprite);
+            Img(problemRt,"TopKnot",new Vector2(.5f,1),new Vector2(0,7),new Vector2(104,8),Gold,thinSprite);
+            promptTxt=Txt(problemRt,"",new Vector2(.5f,1),new Vector2(0,-58),15,Ivory,332);promptTxt.fontStyle=FontStyles.Bold;promptTxt.rectTransform.sizeDelta=new Vector2(332,112);
+            diagramTxt=Txt(problemRt,"",new Vector2(.5f,.5f),new Vector2(0,-18),24,Gold,330);diagramTxt.fontStyle=FontStyles.Bold;
+            evidenceTxt=Txt(problemRt,"",new Vector2(.5f,0),new Vector2(0,31),13,Ivory,330);evidenceTxt.rectTransform.sizeDelta=new Vector2(330,48);
+            Txt(problemRt,"모식도는 비례 관계만 나타냄",new Vector2(.5f,0),new Vector2(0,10),10,new Color(Mint.r,Mint.g,Mint.b,.92f),320);
+            BuildThreeParallelDiagram();BuildTriangleDiagram();
+            trackRt=R("TargetMeasuringSilk",hudRt,new Vector2(.5f,.5f),new Vector2(0,-198),new Vector2(356,138));
+            Img(trackRt,"LeafVeinPlate",new Vector2(.5f,.5f),Vector2.zero,trackRt.sizeDelta,new Color(Plum.r,Plum.g,Plum.b,.90f),roundSprite);
+            targetKnotTxt=Txt(trackRt,"선분에 잇는 실",new Vector2(.5f,1),new Vector2(-62,-18),12,Gold,210,TextAlignmentOptions.Left);targetKnotTxt.fontStyle=FontStyles.Bold;
+            Img(trackRt,"PearlRail",new Vector2(.5f,.5f),new Vector2(0,-2),new Vector2(318,8),new Color(Ivory.r,Ivory.g,Ivory.b,.58f),thinSprite);
             for(int i=0;i<24;i++)
             {
-                float x=-154+i*(308f/23f);tickDots[i]=Img(trackRt,"Tick"+(i+1),new Vector2(.5f,.5f),new Vector2(x,2),new Vector2(i%5==0?7:5,i%5==0?24:15),Plum,thinSprite);
+                float x=-154+i*(308f/23f);tickDots[i]=Img(trackRt,"Tick"+(i+1),new Vector2(.5f,.5f),new Vector2(x,-2),new Vector2(i%5==0?7:5,i%5==0?24:15),Ivory,thinSprite);
             }
             int[] labs={1,6,12,18,24};for(int i=0;i<labs.Length;i++)
             {
-                float x=-154+(labs[i]-1)*(308f/23f);tickLabels[i]=Txt(trackRt,labs[i].ToString(),new Vector2(.5f,.5f),new Vector2(x,-35),13,Ink,42);
+                float x=-154+(labs[i]-1)*(308f/23f);tickLabels[i]=Txt(trackRt,labs[i].ToString(),new Vector2(.5f,.5f),new Vector2(x,-40),12,Ivory,42);
             }
             handleRt=R("SilkEndHandle",trackRt,new Vector2(.5f,.5f),new Vector2(-154,10),new Vector2(62,62));
             handleImg=Img(handleRt,"PearlHandle",new Vector2(.5f,.5f),Vector2.zero,new Vector2(56,56),Plum,ringSprite);
-            lengthTxt=Txt(handleRt,"1 cm",new Vector2(.5f,.5f),new Vector2(0,42),19,Ink,100);lengthTxt.fontStyle=FontStyles.Bold;
+            lengthTxt=Txt(trackRt,"1 cm",new Vector2(1,1),new Vector2(-58,-18),19,Gold,100,TextAlignmentOptions.Right);lengthTxt.fontStyle=FontStyles.Bold;
             guidePathRt=R("GuidePath",trackRt,new Vector2(.5f,.5f),new Vector2(-89,5),new Vector2(132,6));
             guidePathImg=Img(guidePathRt,"FlowingDashes",new Vector2(.5f,.5f),Vector2.zero,guidePathRt.sizeDelta,new Color(Apricot.r,Apricot.g,Apricot.b,.72f),thinSprite);
             guideRt=R("GhostFinger",trackRt,new Vector2(.5f,.5f),new Vector2(-154,28),new Vector2(48,48));
             guideImg=Img(guideRt,"Finger",new Vector2(.5f,.5f),Vector2.zero,new Vector2(42,42),Ivory,roundSprite);
             Txt(guideRt,"↓",new Vector2(.5f,.5f),new Vector2(0,-1),25,Plum,42);
+        }
+
+        void BuildThreeParallelDiagram()
+        {
+            tpDiagramRt=R("TwoTransversalDiagram",problemRt,new Vector2(.5f,.5f),new Vector2(0,-31),new Vector2(306,88));
+            for(int i=0;i<3;i++)
+            {
+                float y=32-i*32;Img(tpDiagramRt,"Parallel"+i,new Vector2(.5f,.5f),new Vector2(0,y),new Vector2(230,3),new Color(Gold.r,Gold.g,Gold.b,.86f),thinSprite);
+                Txt(tpDiagramRt,i==0?"l":i==1?"m":"n",new Vector2(.5f,.5f),new Vector2(-136,y),11,Gold,24);
+            }
+            var left=Img(tpDiagramRt,"LeftTransversal",new Vector2(.5f,.5f),new Vector2(-70,0),new Vector2(4,86),Ivory,thinSprite);left.rectTransform.localRotation=Quaternion.Euler(0,0,-10);
+            var right=Img(tpDiagramRt,"RightTransversal",new Vector2(.5f,.5f),new Vector2(70,0),new Vector2(4,86),Ivory,thinSprite);right.rectTransform.localRotation=Quaternion.Euler(0,0,10);
+            tpLuTxt=Txt(tpDiagramRt,"",new Vector2(.5f,.5f),new Vector2(-46,17),10,Ivory,70);
+            tpLlTxt=Txt(tpDiagramRt,"",new Vector2(.5f,.5f),new Vector2(-46,-17),10,Ivory,70);
+            tpRuTxt=Txt(tpDiagramRt,"",new Vector2(.5f,.5f),new Vector2(47,17),10,Ivory,70);
+            tpRlTxt=Txt(tpDiagramRt,"",new Vector2(.5f,.5f),new Vector2(47,-17),10,Ivory,70);
+            tpDiagramRt.gameObject.SetActive(false);
+        }
+
+        void BuildTriangleDiagram()
+        {
+            triDiagramRt=R("TriangleWebDiagram",problemRt,new Vector2(.5f,.5f),new Vector2(0,-26),new Vector2(306,100));
+            string[] names={"AD","DB","AE","EC","DE","BC"};
+            for(int i=0;i<6;i++)
+            {
+                triSeg[i]=Img(triDiagramRt,"Silk"+names[i],new Vector2(.5f,.5f),Vector2.zero,new Vector2(10,3),Ivory,thinSprite);
+                triLab[i]=Txt(triDiagramRt,"",new Vector2(.5f,.5f),Vector2.zero,11,Ivory,84);triLab[i].fontStyle=FontStyles.Bold;
+            }
+            for(int i=0;i<5;i++)
+            {
+                triKnot[i]=Img(triDiagramRt,"Knot"+i,new Vector2(.5f,.5f),Vector2.zero,new Vector2(7,7),Gold,circleSprite);
+                triPt[i]=Txt(triDiagramRt,"",new Vector2(.5f,.5f),Vector2.zero,10,Gold,20);
+            }
+            triNoteTxt=Txt(triDiagramRt,"",new Vector2(.5f,.5f),new Vector2(118,38),10,Gold,80,TextAlignmentOptions.Right);
+            triDiagramRt.gameObject.SetActive(false);
+        }
+
+        static void PlaceSeg(Image im,Vector2 a,Vector2 b,float thick)
+        {
+            var rt=im.rectTransform;Vector2 d=b-a;rt.anchoredPosition=(a+b)*.5f;rt.sizeDelta=new Vector2(d.magnitude,thick);
+            rt.localRotation=Quaternion.Euler(0,0,Mathf.Atan2(d.y,d.x)*Mathf.Rad2Deg);
+        }
+
+        void RefreshTriangleDiagram()
+        {
+            // 선분 이름과 주어진 길이만 거미줄 위에 붙인다. 어느 선분끼리 대응하는지(부분:부분 /
+            // 부분:전체)는 학생이 정한다 — 완성된 비례식은 정답을 맞힌 뒤 판정 카드에서만 보인다.
+            var p=current;bool mid=p.kind==SilkKind.Midpoint;
+            float t;
+            if(mid)t=.5f;else t=Mathf.Clamp((float)p.a/(p.a+p.b),.32f,.68f);
+            Vector2 A=new Vector2(0,40),B=new Vector2(-104,-38),C=new Vector2(104,-38);
+            Vector2 D=Vector2.Lerp(A,B,t),E=Vector2.Lerp(A,C,t);
+            Vector2[] from={A,D,A,E,D,B},to={D,B,E,C,E,C};
+            string[] lab=new string[6];int target;
+            if(p.kind==SilkKind.PartRatio){lab[0]="AD "+p.a+" cm";lab[1]="DB "+p.b+" cm";lab[2]="AE "+p.c+" cm";target=3;}
+            else if(mid){lab[5]="BC "+p.a+" cm";target=4;}
+            else{lab[0]="AD "+p.a+" cm";lab[1]="DB "+p.b+" cm";lab[5]="BC "+p.c+" cm";target=4;}
+            Vector2 nl=new Vector2(-.80f,.60f),nr=new Vector2(.80f,.60f);
+            for(int i=0;i<6;i++)
+            {
+                bool tg=i==target,given=!string.IsNullOrEmpty(lab[i]);
+                PlaceSeg(triSeg[i],from[i],to[i],tg?5f:given?3f:2f);
+                triSeg[i].color=tg?Apricot:given?Ivory:new Color(Ivory.r,Ivory.g,Ivory.b,.42f);
+                Vector2 m=(from[i]+to[i])*.5f;
+                // 옆변 길이는 선분 바깥쪽에서 시작하도록 정렬해 꼭짓점 이름(D·E)과 겹치지 않게 한다.
+                Vector2 off=i<2?nl*22+new Vector2(-42,0):i<4?nr*22+new Vector2(42,0):i==4?new Vector2(0,-10):new Vector2(0,-12);
+                triLab[i].alignment=i<2?TextAlignmentOptions.Right:i<4?TextAlignmentOptions.Left:TextAlignmentOptions.Center;
+                triLab[i].rectTransform.anchoredPosition=m+off;
+                triLab[i].color=tg?Apricot:Ivory;triLab[i].text=given?lab[i]:"";
+            }
+            liveTargetName=mid?"MN":target==3?"EC":"DE";
+            liveTargetTxt=triLab[target];liveTargetSeg=triSeg[target];
+            Vector2[] pts={A,B,C,D,E};string[] pn={"A","B","C",mid?"M":"D",mid?"N":"E"};
+            Vector2[] po={new Vector2(0,11),new Vector2(-10,-6),new Vector2(10,-6),new Vector2(-11,4),new Vector2(11,4)};
+            for(int i=0;i<5;i++){triKnot[i].rectTransform.anchoredPosition=pts[i];triPt[i].rectTransform.anchoredPosition=pts[i]+po[i];triPt[i].text=pn[i];}
+            triNoteTxt.text=mid?"AM=MB\nAN=NC":"DE ∥ BC";
         }
 
         RectTransform BuildLaneCard(string name,Vector2 pos,out Image bg,out TextMeshProUGUI label)
@@ -324,23 +454,38 @@ namespace Mgf.SilTaneunGeomi
 
         void Layout()
         {
-            if(layoutW==Screen.width&&layoutH==Screen.height)return;layoutW=Screen.width;layoutH=Screen.height;landscape=Screen.width>=1024;
+            float w=Mathf.Max(320,rootRt.rect.width),h=Mathf.Max(420,rootRt.rect.height);
+            if(layoutW==Screen.width&&layoutH==Screen.height&&Mathf.Abs(layoutCanvasW-w)<.5f&&Mathf.Abs(layoutCanvasH-h)<.5f)return;
+            layoutW=Screen.width;layoutH=Screen.height;layoutCanvasW=w;layoutCanvasH=h;
+            landscape=w/h>=1.08f;
+            float top=h*.5f-34f;
             if(!landscape)
             {
-                statusRt.anchoredPosition=new Vector2(0,371);goalRt.anchoredPosition=new Vector2(0,310);
-                lane0Rt.anchoredPosition=new Vector2(-88,250);lane1Rt.anchoredPosition=new Vector2(88,250);
-                problemRt.anchoredPosition=new Vector2(0,104);trackRt.anchoredPosition=new Vector2(0,-190);
-                problemRt.sizeDelta=new Vector2(358,224);trackRt.sizeDelta=new Vector2(356,126);
-                toastRt.anchoredPosition=new Vector2(0,-310);
+                statusRt.anchoredPosition=new Vector2(0,top);goalRt.anchoredPosition=new Vector2(0,top-61);
+                lane0Rt.anchoredPosition=new Vector2(-88,top-121);lane1Rt.anchoredPosition=new Vector2(88,top-121);
+                problemRt.anchoredPosition=new Vector2(0,98);trackRt.anchoredPosition=new Vector2(0,-198);
+                problemRt.sizeDelta=new Vector2(358,260);trackRt.sizeDelta=new Vector2(356,138);
+                toastRt.anchoredPosition=new Vector2(0,-h*.5f+72);
+                titleSignRt.anchoredPosition=new Vector2(0,Mathf.Min(158,h*.5f-94));
+                titleMeta.rectTransform.anchoredPosition=new Vector2(0,55);titleBest.rectTransform.anchoredPosition=new Vector2(0,26);
+                titleStartBaseY=-60;titleLeafL.anchoredPosition=new Vector2(-112,112);titleLeafR.anchoredPosition=new Vector2(112,112);
             }
             else
             {
-                statusRt.anchoredPosition=new Vector2(0,348);goalRt.anchoredPosition=new Vector2(0,292);
-                lane0Rt.anchoredPosition=new Vector2(-420,232);lane1Rt.anchoredPosition=new Vector2(-240,232);
-                problemRt.anchoredPosition=new Vector2(-315,42);trackRt.anchoredPosition=new Vector2(315,20);
-                problemRt.sizeDelta=new Vector2(560,300);trackRt.sizeDelta=new Vector2(560,180);
-                toastRt.anchoredPosition=new Vector2(315,-126);
+                float panelW=Mathf.Min(420,Mathf.Max(334,w*.46f));
+                float leftX=-w*.245f,rightX=w*.245f;
+                statusRt.anchoredPosition=new Vector2(0,top);goalRt.anchoredPosition=new Vector2(0,top-57);
+                lane0Rt.anchoredPosition=new Vector2(leftX-88,top-111);lane1Rt.anchoredPosition=new Vector2(leftX+88,top-111);
+                problemRt.anchoredPosition=new Vector2(leftX,-65);trackRt.anchoredPosition=new Vector2(rightX,-50);
+                problemRt.sizeDelta=new Vector2(panelW,250);trackRt.sizeDelta=new Vector2(panelW,160);
+                toastRt.anchoredPosition=new Vector2(rightX,-h*.5f+48);
+                titleSignRt.anchoredPosition=new Vector2(0,h*.5f-112);
+                titleMeta.rectTransform.anchoredPosition=new Vector2(0,18);titleBest.rectTransform.anchoredPosition=new Vector2(0,-9);
+                titleStartBaseY=-82;titleLeafL.anchoredPosition=new Vector2(-112,42);titleLeafR.anchoredPosition=new Vector2(112,42);
             }
+            float problemTextW=Mathf.Max(300,problemRt.sizeDelta.x-26);
+            promptTxt.rectTransform.sizeDelta=new Vector2(problemTextW,112);evidenceTxt.rectTransform.sizeDelta=new Vector2(problemTextW,48);
+            diagramTxt.rectTransform.sizeDelta=new Vector2(problemTextW,58);
         }
 
         void SetScreen()
@@ -348,7 +493,8 @@ namespace Mgf.SilTaneunGeomi
             bool title=phase==Phase.Title,end=phase==Phase.End,play=!title&&!end;
             titleG.alpha=title?1:0;titleG.blocksRaycasts=title;hudG.alpha=play?1:0;hudG.blocksRaycasts=play;
             endG.alpha=end?1:0;endG.blocksRaycasts=end;revealG.alpha=phase==Phase.Reveal?1:0;
-            guideRt.gameObject.SetActive(phase==Phase.Practice);guidePathRt.gameObject.SetActive(phase==Phase.Practice);
+            bool guide=phase==Phase.Practice||(phase==Phase.Playing&&guideShow>0);
+            guideRt.gameObject.SetActive(guide);guidePathRt.gameObject.SetActive(guide);
             titleSatchelWorld.gameObject.SetActive(title);
             RefreshHudImmediate();RefreshLaneUi();
         }
@@ -401,6 +547,12 @@ namespace Mgf.SilTaneunGeomi
 
             for(int i=0;i<leaves.Length;i++)if(leaves[i])leaves[i].localRotation=Quaternion.Euler(18,(i%2==0?-1:1)*20,(i%2==0?-1:1)*(35+i%4*6+Mathf.Sin(worldClock*1.1f+i)*4));
             for(int i=0;i<dew.Length;i++)if(dew[i])dew[i].localScale=Vector3.one*(.27f+Mathf.Sin(worldClock*1.5f+i)*.025f);
+            for(int i=0;i<hangingVines.Length;i++)if(hangingVines[i])hangingVines[i].localRotation=Quaternion.Euler(0,Mathf.Sin(worldClock*.55f+i)*4,Mathf.Sin(worldClock*.72f+i*.8f)*2.5f);
+            for(int i=0;i<fireflies.Length;i++)if(fireflies[i])
+            {
+                var p=fireflies[i].localPosition;p.y+=Mathf.Sin(worldClock*1.7f+i)*.0015f;p.x+=Mathf.Cos(worldClock*.8f+i)*.0008f;fireflies[i].localPosition=p;
+                fireflies[i].localScale=Vector3.one*(.10f+Mathf.Sin(worldClock*2.3f+i)*.025f);
+            }
             if(phase==Phase.Title)
             {
                 for(int i=0;i<spiders.Length;i++){var p=spiders[i].localPosition;p.x+=dt*(.18f+i*.008f);if(p.x>4.8f)p.x=-4.8f;spiders[i].localPosition=p;p.y=.42f+Mathf.Abs(Mathf.Sin(worldClock*3+i))*.08f;}
@@ -446,19 +598,28 @@ namespace Mgf.SilTaneunGeomi
         {
             displayScore=Mathf.MoveTowards(displayScore,st.score,Mathf.Max(80,Mathf.Abs(st.score-displayScore)*6)*dt);
             int ds=Mathf.RoundToInt(displayScore);if(ds!=shownScore){shownScore=ds;scoreTxt.text=ds.ToString();scoreTxt.rectTransform.localScale=Vector3.one*1.14f;}else scoreTxt.rectTransform.localScale=Vector3.Lerp(scoreTxt.rectTransform.localScale,Vector3.one,dt*10);
-            int sec=Mathf.CeilToInt(runLeft);if(sec!=shownSecond){shownSecond=sec;timerTxt.text=phase==Phase.Playing?sec+"초":"";}
+            int sec=Mathf.CeilToInt(runLeft);if(sec!=shownSecond){shownSecond=sec;timerTxt.text="";progressTxt.text=st.solved+" / "+SilkRules.TargetRoutes+" · "+sec+"초";}
             if(phase==Phase.Title)
             {
-                float bob=Mathf.Sin(titleClock*1.6f)*4;titleStartRt.anchoredPosition=new Vector2(0,-60+bob-titlePush);
+                float bob=Mathf.Sin(titleClock*1.6f)*4;titleStartRt.anchoredPosition=new Vector2(0,titleStartBaseY+bob-titlePush);
                 titleSatchelImg.rectTransform.localScale=Vector3.one*(1+Mathf.Sin(titleClock*2.6f)*.045f);
                 titleLeafL.localRotation=Quaternion.Euler(0,0,-4+Mathf.Sin(titleClock*.7f)*1.5f);titleLeafR.localRotation=Quaternion.Euler(0,0,4-Mathf.Sin(titleClock*.7f)*1.5f);
             }
-            if(phase==Phase.Practice)
+            if(phase==Phase.Playing&&guideShow>0)
             {
+                guideShow-=dt;
+                if(guideShow<=0){guideRt.gameObject.SetActive(false);guidePathRt.gameObject.SetActive(false);}
+            }
+            if(guideRt.gameObject.activeSelf)
+            {
+                // 유령 손가락은 지금 실 끝(손잡이)에서 출발해 옆 눈금 쪽으로 당기는 동작을 반복한다.
                 guideClock+=dt*(guideBoost>0?1.8f:1);guideBoost=Mathf.Max(0,guideBoost-dt);float q=(guideClock%1.2f)/1.2f;
-                guideRt.anchoredPosition=new Vector2(Mathf.Lerp(-154,-114,q),28+Mathf.Sin(q*Mathf.PI)*10);
+                float hx=handleRt.anchoredPosition.x,dir=st.selectedLength>=20?-1:1;
+                guideRt.anchoredPosition=new Vector2(hx+dir*q*40,28+Mathf.Sin(q*Mathf.PI)*10);
                 guideImg.color=new Color(Ivory.r,Ivory.g,Ivory.b,.35f+Mathf.Sin(q*Mathf.PI)*.65f);
+                guidePathRt.anchoredPosition=new Vector2(hx+dir*24,5);
                 guidePathImg.rectTransform.sizeDelta=new Vector2(40+q*8,6);
+                handlePulse=Mathf.Max(handlePulse,.2f);
             }
             handlePulse=Mathf.Max(0,handlePulse-dt);float hs=1+(handlePulse>0?Mathf.Sin(worldClock*15)*.10f:0);handleRt.localScale=Vector3.Lerp(handleRt.localScale,Vector3.one*hs,dt*13);
             if(toastClock>0){toastClock-=dt;toastG.alpha=Mathf.Clamp01(toastClock*4);toastRt.localScale=Vector3.one*(1+Mathf.Sin(Mathf.Clamp01(toastClock/.32f)*Mathf.PI)*.04f);}else toastG.alpha=0;
@@ -470,22 +631,37 @@ namespace Mgf.SilTaneunGeomi
         void RefreshProblemUi()
         {
             if(current==null)return;
+            bool three=current.kind==SilkKind.ThreeParallel;
             promptTxt.text=KeepUnits(current.prompt);
-            diagramTxt.text=current.kind==SilkKind.ThreeParallel?"l  ∥  m  ∥  n":current.kind==SilkKind.Midpoint?"△ABC   MN ∥ BC":"△ABC   DE ∥ BC";
+            promptTxt.fontSize=three?12.5f:14.5f;
+            diagramTxt.gameObject.SetActive(false);tpDiagramRt.gameObject.SetActive(three);triDiagramRt.gameObject.SetActive(!three);
+            if(three)
+            {
+                bool upperUnknown=current.target.Contains("l-m");
+                tpLuTxt.text=current.a+" cm";tpLlTxt.text=current.b+" cm";
+                tpRuTxt.text=upperUnknown?"? cm":current.c+" cm";
+                tpRlTxt.text=upperUnknown?current.c+" cm":"? cm";
+                tpRuTxt.color=upperUnknown?Apricot:Ivory;tpRlTxt.color=upperUnknown?Ivory:Apricot;
+                liveTargetTxt=upperUnknown?tpRuTxt:tpRlTxt;liveTargetSeg=null;liveTargetName="";
+            }
+            else RefreshTriangleDiagram();
             evidenceTxt.text=current.evidence;
+            targetKnotTxt.text=three?current.target.Replace(" 구간","")+" 실":current.target+"에 잇는 실";
             RefreshLengthUi(false);RefreshHudImmediate();
         }
 
         void RefreshLengthUi(bool animate)
         {
             if(lengthTxt)lengthTxt.text=st.selectedLength+" cm";
-            for(int i=0;i<tickDots.Length;i++)if(tickDots[i])tickDots[i].color=i+1==st.selectedLength?Apricot:(i%5==0?Plum:new Color(Plum.r,Plum.g,Plum.b,.52f));
+            // 실 끝을 당기는 동안 모식도의 구할 선분 위에 지금 길이가 실시간으로 붙는다.
+            if(liveTargetTxt&&current!=null)liveTargetTxt.text=(liveTargetName.Length>0?liveTargetName+" ":"")+st.selectedLength+" cm?";
+            for(int i=0;i<tickDots.Length;i++)if(tickDots[i])tickDots[i].color=i+1==st.selectedLength?Apricot:(i%5==0?Gold:new Color(Ivory.r,Ivory.g,Ivory.b,.56f));
             if(animate){handlePulse=.24f;lengthTxt.rectTransform.localScale=Vector3.one*1.12f;}
         }
 
         void RefreshHudImmediate()
         {
-            if(progressTxt)progressTxt.text=st.solved+" / "+SilkRules.TargetRoutes;
+            if(progressTxt)progressTxt.text=st.solved+" / "+SilkRules.TargetRoutes+" · "+Mathf.CeilToInt(runLeft)+"초";
             if(livesTxt)livesTxt.text=st.lives>=3?"◆ ◆ ◆":st.lives==2?"◆ ◆ ◇":st.lives==1?"◆ ◇ ◇":"◇ ◇ ◇";
             if(titleBest){int best=PlayerPrefs.GetInt("sil-taneun-geomi.best",0);titleBest.text=best>0?"최고 첫 시도 "+best+" / 9":"안전 고리 3개 · 꽃길 9개";}
         }
@@ -533,10 +709,19 @@ namespace Mgf.SilTaneunGeomi
             if(id=="midpoint_same_side"||id=="midpoint_double_side")return "중점연결선분은 나머지 변 길이의 1/2이다";
             if(id=="additive_parallel_gap")return "차를 더하지 말고 대응 구간의 비를 같게 둔다";
             if(id=="queue_timeout")return "남은 시간이 짧은 꽃길을 먼저 연결해야 한다";
-            return st.selectedLength<current.answer?"필요한 길이보다 짧다":"필요한 길이보다 길다";
+            // 오답 뒤 눈금은 무작위 위치로 되돌아가므로 판정은 반드시 제출 순간의 길이로 한다.
+            if(id=="silk_too_short")return submittedLength+" cm는 필요한 길이보다 짧았다";
+            if(id=="silk_too_long")return submittedLength+" cm는 필요한 길이보다 길었다";
+            return submittedLength<current.answer?submittedLength+" cm는 필요한 길이보다 짧았다":submittedLength+" cm는 필요한 길이보다 길었다";
         }
 
-        void ShowWrongReason(string id){ShowToast(WrongExplanation(id)+" · 같은 길을 다시 뽑으시오");ReplayGuide(true);}
+        void ShowWrongReason(string id){ShowToast(WrongExplanation(id)+" · 같은 길을 다시 뽑으시오");ReplayGuide(true);ShowGuide(2.6f);}
+        void ShowGuide(float seconds)
+        {
+            if(phase!=Phase.Playing&&phase!=Phase.Practice)return;
+            guideShow=Mathf.Max(guideShow,seconds);guideClock=0;guideBoost=1.2f;
+            guideRt.gameObject.SetActive(true);guidePathRt.gameObject.SetActive(true);
+        }
         void ShowEnd(string reason)
         {
             endDisplay=0;endTitleTxt.text=reason=="clear"?"온실 배달 완료":"꽃길 배달 중단";
@@ -545,7 +730,7 @@ namespace Mgf.SilTaneunGeomi
         }
 
         void ReplayGuide(bool strong){guideClock=0;guideBoost=strong?1.2f:.45f;handlePulse=strong?.9f:.35f;}
-        void RefuseInput(string message){handlePulse=.7f;ReplayGuide(true);ShowToast(message);MgfSfx.Play("tap",.16f);SpiderWave(activeLane);}
+        void RefuseInput(string message){handlePulse=.7f;ReplayGuide(true);ShowGuide(2.6f);ShowToast(message);MgfSfx.Play("tap",.16f);SpiderWave(activeLane);}
         void ShowToast(string message){toastTxt.text=message;toastClock=2.0f;toastG.alpha=1;}
         void SpiderWave(int lane){if(spiders[0])spiderHeads[0].localRotation=Quaternion.Euler(-18,0,lane==0?-12:12);}
         void SpawnTapRipple(Vector2 screen){RectTransformUtility.ScreenPointToLocalPointInRectangle(rootRt,screen,null,out var local);rippleRt.anchoredPosition=local;rippleClock=.34f;}
@@ -561,7 +746,18 @@ namespace Mgf.SilTaneunGeomi
         void EndTitlePress(){titlePush=0;titleSatchelImg.color=Apricot;MgfSfx.Play("whoosh",.36f);}
 
         bool IsTitleStartZone(Vector2 p)=>RectTransformUtility.RectangleContainsScreenPoint(titleStartRt,p,null);
-        bool IsTrackZone(Vector2 p)=>RectTransformUtility.RectangleContainsScreenPoint(trackRt,p,null);
+        // 계량 실 띠: 눈금 카드보다 위 46·아래 120(논리 px) 넓게, 좌우는 카드 폭 +40.
+        bool IsTrackZone(Vector2 p)
+        {
+            if(!RectTransformUtility.ScreenPointToLocalPointInRectangle(trackRt,p,null,out var local))return false;
+            var r=trackRt.rect;return Mathf.Abs(local.x)<=r.width*.5f+40f&&local.y<=r.height*.5f+46f&&local.y>=-r.height*.5f-120f;
+        }
+        int TicksBetween(Vector2 a,Vector2 b)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(trackRt,a,null,out var la);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(trackRt,b,null,out var lb);
+            return Mathf.RoundToInt((lb.x-la.x)/(308f/23f));
+        }
         int LaneFromPointer(Vector2 p)
         {
             if(lane0Rt.gameObject.activeSelf&&RectTransformUtility.RectangleContainsScreenPoint(lane0Rt,p,null))return 0;
@@ -573,7 +769,7 @@ namespace Mgf.SilTaneunGeomi
         }
         bool IsReleaseCancelled(Vector2 p)
         {
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(trackRt,p,null,out var local);return Mathf.Abs(local.y)>trackRt.rect.height*.5f+58f;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(trackRt,p,null,out var local);return local.y>trackRt.rect.height*.5f+110f||local.y<-trackRt.rect.height*.5f-190f;
         }
         static string KeepUnits(string text)=>System.Text.RegularExpressions.Regex.Replace(text,@"(\d+) cm","<nobr>$1 cm</nobr>");
     }

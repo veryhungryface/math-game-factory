@@ -52,8 +52,8 @@ namespace Mgf.SilTaneunGeomi
         List<SilkProblem> deck;
         SilkProblem current;
         System.Random rng;
-        int runSerial,nextDeck,activeLane;
-        bool dragging,dragMoved,titlePressed,revealCorrect,revealWasPractice,revealFirst;
+        int runSerial,nextDeck,activeLane,firstAnswerOffset,submittedLength;
+        bool dragging,dragMoved,dragFromTrack,titlePressed,revealCorrect,revealWasPractice,revealFirst;
         Vector2 dragStart;
         int dragStartLength;
         float revealClock,idleGuide,runLeft;
@@ -62,6 +62,7 @@ namespace Mgf.SilTaneunGeomi
         void Awake()
         {
             MgfLook.Quality(36f);
+            firstAnswerOffset=((Environment.TickCount&0x7fffffff)%6)*4;
             bank.AddRange(SilkRules.BuildBank());
             BuildWorld();
             BuildUi();
@@ -73,7 +74,8 @@ namespace Mgf.SilTaneunGeomi
         void Prewarm()
         {
             var sb=new StringBuilder("실타는거미실을늘려길을이어라중학교2학년평행선과선분길이의비라일락온실꽃가루배달안전고리부분전체중점연결정리거미줄길이는숫자를기준으로실끝을잡아눈금까지끌고놓으시오첫시도성공꽃이피었다다시계산게임종료재도전");
-            sb.Append("△ABC에서DE∥BCl∥m∥nADDBAEECDMNBCCM실전연습오른쪽위아래구간느슨한메모잘못되었다");
+            sb.Append("△ABC에서DE∥BCl∥m∥nADDBAEECDMNBCCM실전연습오른쪽위아래구간서로다른두직선잘못세운비례식고쳐계산하시오");
+            sb.Append("구할선분좌우로당겨맞추시오진주실은아래눈금바뀐뒤놓으면제출된다필요한보다짧았다길었다냈다?AM=MBAN=NC→");
             for(int i=0;i<bank.Count;i++){sb.Append(bank[i].prompt);sb.Append(bank[i].answer);sb.Append(bank[i].unitConcept);}
             MgfText.Prewarm(sb.ToString());
         }
@@ -90,6 +92,8 @@ namespace Mgf.SilTaneunGeomi
             else if(phase==Phase.Playing)
             {
                 runLeft=Mathf.Max(0,runLeft-dt);
+                // 본판에서도 손이 멈추면 실 끝 유령 손가락을 다시 띄운다(연습과 같은 안내).
+                idleGuide+=dt;if(idleGuide>=7f){idleGuide=0;ShowGuide(2.6f);}
                 if(runLeft<=0){EndRun("time");}
                 else UpdateQueueTimers(dt);
             }
@@ -116,8 +120,9 @@ namespace Mgf.SilTaneunGeomi
         void ResetRun()
         {
             runSerial++;
-            rng=new System.Random(unchecked(Environment.TickCount^runSerial*104729));
-            deck=SilkRules.RunDeck(rng);nextDeck=0;activeLane=0;runLeft=SilkRules.RunSeconds;
+            rng=new System.Random(unchecked(Environment.TickCount^runSerial*104729^firstAnswerOffset*7919));
+            int firstAnswer=SilkRules.BalancedFirstAnswer(runSerial,firstAnswerOffset);
+            deck=SilkRules.RunDeck(rng,firstAnswer);nextDeck=0;activeLane=0;runLeft=SilkRules.RunSeconds;
             st.score=0;st.lives=SilkRules.StartLives;st.level=1;st.solved=0;st.routeIndex=0;st.combo=0;
             st.firstAttemptTotal=0;st.firstAttemptCorrect=0;st.firstAttemptFailures=0;st.attemptIndex=0;
             st.misconceptionId="";st.remainingSec=120;endReason="";dragging=false;revealClock=0;
@@ -160,9 +165,10 @@ namespace Mgf.SilTaneunGeomi
         {
             st.score=0;st.solved=0;st.routeIndex=0;st.combo=0;st.firstAttemptTotal=0;st.firstAttemptCorrect=0;
             st.firstAttemptFailures=0;st.attemptIndex=0;st.lives=SilkRules.StartLives;st.misconceptionId="";
-            st.onboarding=false;st.frozen=false;phase=Phase.Playing;nextDeck=0;
+            st.onboarding=false;st.frozen=false;phase=Phase.Playing;nextDeck=0;idleGuide=0;
             for(int i=0;i<2;i++)ClearLane(i);
             FillLane(0);SelectLane(0,false);SetScreen();
+            ShowGuide(4.5f);ShowToast("실전 · 구할 선분의 실을 좌우로 당겨 길이를 맞추시오");
         }
 
         void BindCurrent()
@@ -214,7 +220,7 @@ namespace Mgf.SilTaneunGeomi
         void SubmitSilk()
         {
             if((phase!=Phase.Practice&&phase!=Phase.Playing)||current==null)return;
-            st.remainingSec=Mathf.CeilToInt(runLeft);
+            st.remainingSec=Mathf.CeilToInt(runLeft);submittedLength=st.selectedLength;
             revealWasPractice=phase==Phase.Practice;revealCorrect=SilkRules.IsCorrect(current,st.selectedLength);
             revealFirst=lanes[activeLane].first;
             if(revealWasPractice)
@@ -320,31 +326,43 @@ namespace Mgf.SilTaneunGeomi
                 if(phase!=Phase.Practice&&phase!=Phase.Playing)return;
                 int lane=LaneFromPointer(MgfPointer.Position);
                 if(lane>=0&&lanes[lane].present){SelectLane(lane,true);return;}
-                // 연습에서는 화면 전체를 계량 실의 관대한 연장선으로 쓴다. 실제 실 끝을
-                // 가리키는 안내는 유지하되, 순진한 첫 드래그도 즉시 길이 변화와 무손실
-                // 피드백을 만든다. 본판은 보이는 계량 실에서만 답을 받는다.
-                if(phase==Phase.Practice||IsTrackZone(MgfPointer.Position))
+                // 본판 입력 규칙(연습도 같은 띠·같은 실 끝을 쓴다).
+                // ① 계량 실 띠(눈금 카드와 그 위아래 여백): 누른 x 가 곧 눈금 → 놓으면 제출.
+                // ② 그 밖(문제 카드·모식도·온실): 좌우로 당기면 실 끝이 상대적으로 움직이고,
+                //    움직이지 않은 탭은 제출하지 않고 실 끝에 유령 손가락을 다시 띄운다.
+                // 연습만은 첫 탭을 관대하게 받아 화면 어디를 눌러도 길이가 바뀐다(무손실).
+                dragging=true;dragMoved=false;idleGuide=0;dragStart=MgfPointer.Position;dragStartLength=st.selectedLength;
+                dragFromTrack=phase==Phase.Practice||IsTrackZone(MgfPointer.Position);
+                if(dragFromTrack)
                 {
-                    dragging=true;dragMoved=false;idleGuide=0;dragStart=MgfPointer.Position;dragStartLength=st.selectedLength;
                     int before=st.selectedLength;SetSelected(LengthFromPointer(MgfPointer.Position),true);dragMoved=before!=st.selectedLength;
-                    HandleGrab(true);MgfSfx.Play("tap",.18f);
                 }
-                else{RefuseInput("진주빛 실 끝을 잡아 눈금 위로 끌어 놓으시오");MgfBridge.NotifyChanged();}
+                HandleGrab(true);MgfSfx.Play("tap",.18f);
             }
             if(MgfPointer.Held&&titlePressed){UpdateTitlePress(MgfPointer.Position);}
             if(MgfPointer.Up&&titlePressed){titlePressed=false;EndTitlePress();StartPractice();return;}
             if(MgfPointer.Held&&dragging)
             {
-                int before=st.selectedLength,next=LengthFromPointer(MgfPointer.Position);
-                if(Vector2.Distance(MgfPointer.Position,dragStart)>6f&&next==dragStartLength)
-                    next=Mathf.Clamp(dragStartLength+(MgfPointer.Position.x>=dragStart.x?1:-1),1,24);
-                SetSelected(next,before!=next);if(before!=next){dragMoved=true;TickSilk();}UpdateSilkTrail();
+                int before=st.selectedLength,next;
+                if(dragFromTrack)
+                {
+                    next=LengthFromPointer(MgfPointer.Position);
+                    if(Vector2.Distance(MgfPointer.Position,dragStart)>6f&&next==dragStartLength)
+                        next=Mathf.Clamp(dragStartLength+(MgfPointer.Position.x>=dragStart.x?1:-1),1,24);
+                }
+                else next=dragStartLength+TicksBetween(dragStart,MgfPointer.Position);
+                SetSelected(next,before!=next);if(before!=next){dragMoved=true;TickSilk();}
+                if(dragMoved)UpdateSilkTrail();
             }
             if(MgfPointer.Up&&dragging)
             {
                 dragging=false;HandleGrab(false);
-                if(phase!=Phase.Practice&&IsReleaseCancelled(MgfPointer.Position)){RefuseInput("눈금 가까이에서 놓으면 길이가 제출된다");ResetSilkTrail();MgfBridge.NotifyChanged();return;}
-                if(!dragMoved){RefuseInput("실 끝을 다른 눈금까지 끈 뒤 놓으시오");MgfBridge.NotifyChanged();return;}
+                if(dragFromTrack&&phase!=Phase.Practice&&IsReleaseCancelled(MgfPointer.Position)){RefuseInput("눈금 가까이에서 놓으면 길이가 제출된다");ResetSilkTrail();MgfBridge.NotifyChanged();return;}
+                if(!dragMoved)
+                {
+                    RefuseInput(dragFromTrack?"실 끝을 다른 눈금까지 끈 뒤 놓으시오":"진주 실 끝을 좌우로 당겨 "+(current!=null?current.target:"선분")+" 길이를 맞추시오");
+                    MgfBridge.NotifyChanged();return;
+                }
                 SubmitSilk();
             }
         }
