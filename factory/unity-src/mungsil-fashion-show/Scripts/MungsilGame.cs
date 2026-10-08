@@ -57,7 +57,7 @@ namespace Mgf.MungsilFashionShow
 
         void Prewarm()
         {
-            var sb = new StringBuilder("뭉실패션쇼줄을끌어패턴랙을조립하라재단랙열기중학교2학년경우의수최고기록코디의경우의수만큼벨벳줄을끌고놓으시오모자리본룰렛핀쿠션바늘박수게이지앙코르연습주문정답오답부족초과빈옷걸이조립되지않은패턴심사위원무대폐막다시열기곱의법칙합의법칙서로다른두주사위동전순서쌍두자리자연수회장부회장대표직접나열");
+            var sb = new StringBuilder("뭉실패션쇼재단선을끌어패턴북을인쇄하라작업실열기중학교2학년경우의수최고기록의상의경우의수만큼등록선을끌고놓으시오모자리본룰렛잉크바늘박수게이지앙코르연습주문정답오답부족초과빈패턴칸조립되지않은의상재단사작업종료다시열기곱의법칙합의법칙서로다른두주사위동전순서쌍두자리자연수회장부회장대표직접나열");
             sb.Append("십의자리에는0이올수없습니다자격이다른역할은순서를구별합니다같은쌍은한번만셉니다");
             MgfText.Prewarm(sb.ToString());
         }
@@ -153,7 +153,7 @@ namespace Mgf.MungsilFashionShow
                 if (down)
                 {
                     if (HitTitleSpool(MgfPointer.Position)) BeginRun(true);
-                    else { Refuse("관객석 앞의 금색 줄 손잡이를 누르시오."); PointToTitleSpool(); }
+                    else { Refuse("화면 아래 등록선 손잡이를 누르시오."); PointToTitleSpool(); }
                 }
                 return;
             }
@@ -163,14 +163,14 @@ namespace Mgf.MungsilFashionShow
                 if (down)
                 {
                     if (HitEndSpool(MgfPointer.Position)) BeginRun(true);
-                    else { Refuse("금색 실패를 눌러 새 쇼를 여시오."); PulseEndSpool(); }
+                    else { Refuse("금색 인쇄판을 눌러 새 패턴북을 여시오."); PulseEndSpool(); }
                 }
                 return;
             }
 
             if (phase == ShowPhase.Feedback)
             {
-                if (down) Refuse("뭉실이들이 무대를 확인 중입니다.");
+                if (down) Refuse("패턴 인쇄 결과를 확인 중입니다.");
                 return;
             }
 
@@ -186,7 +186,7 @@ namespace Mgf.MungsilFashionShow
                 if (phase == ShowPhase.Practice && st.rouletteSpins == 0)
                 {
                     SpinRoulette(0);
-                    ShowToast("룰렛을 한 번 확인했습니다. 이제 줄을 6칸까지 끄시오.");
+                    ShowToast("룰렛을 한 번 확인했습니다. 이제 등록선을 6칸까지 끄시오.");
                     return;
                 }
                 if (HitRopeTrack(MgfPointer.Position))
@@ -228,7 +228,7 @@ namespace Mgf.MungsilFashionShow
                         Submit();
                         return;
                     }
-                    Refuse("줄을 다른 칸까지 끌어 놓으시오."); BoostGuide(); return;
+                    Refuse("등록선을 다른 칸까지 끌어 놓으시오."); BoostGuide(); return;
                 }
                 // 연습판은 조작을 배우는 곳이다. 룰렛 확인 뒤 첫 실제 드래그가 빗나가면
                 // 손잡이를 6칸으로 되짚어 주고 그 사용자의 드래그로 연습을 끝낸다.
@@ -275,7 +275,7 @@ namespace Mgf.MungsilFashionShow
         void Submit()
         {
             if (phase != ShowPhase.Practice && phase != ShowPhase.Playing) return;
-            if (st.rope <= 0) { Refuse("벨벳 줄을 한 칸 이상 끌어 놓으시오."); return; }
+            if (st.rope <= 0) { Refuse("등록선을 한 칸 이상 끌어 놓으시오."); return; }
             if (phase == ShowPhase.Practice && st.rouletteSpins < 1)
             {
                 Refuse("먼저 모자나 리본 룰렛을 한 번 돌려 조합을 확인하시오.");
@@ -345,7 +345,7 @@ namespace Mgf.MungsilFashionShow
                 if (feedbackCorrect)
                 {
                     phase = ShowPhase.Playing; st.onboarding = false; LoadOrder(); SetScreen();
-                    ShowToast("연습 완료. 이제 8개 주문의 줄 위치를 정하시오.");
+                    ShowToast("연습 완료. 이제 8개 주문의 등록선 위치를 정하시오.");
                 }
                 else
                 {
@@ -365,7 +365,7 @@ namespace Mgf.MungsilFashionShow
                     phase = ShowPhase.Playing; st.rope = 0;
                     problemLeft = st.level == 1 ? 42f : st.level == 2 ? 34f : 27f;
                     ResetWorldForProblem(); RefreshProblemUi(); SetRopeVisual(false);
-                    ShowToast("같은 주문입니다. 식을 고쳐 다시 줄을 놓으시오.");
+                    ShowToast("같은 주문입니다. 식을 고쳐 등록선을 다시 놓으시오.");
                 }
             }
             MgfBridge.NotifyChanged();

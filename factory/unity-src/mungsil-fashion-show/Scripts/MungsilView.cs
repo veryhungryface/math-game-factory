@@ -7,16 +7,16 @@ namespace Mgf.MungsilFashionShow
 {
     public partial class MungsilFashionShowGame
     {
-        // 선택안의 정체성: 햇빛 든 펠트 부티크, 플러시 생물, 자수와 나무 실패.
-        static readonly Color Mint = MgfLook.Hex("#9ADBCB");
-        static readonly Color MintDeep = MgfLook.Hex("#2B665E");
-        static readonly Color Plum = MgfLook.Hex("#A44878");
-        static readonly Color PlumDark = MgfLook.Hex("#50334F");
-        static readonly Color Butter = MgfLook.Hex("#FFD66E");
-        static readonly Color Coral = MgfLook.Hex("#F2776E");
-        static readonly Color Cream = MgfLook.Hex("#FFF7E8");
-        static readonly Color Ink = MgfLook.Hex("#35293A");
-        static readonly Color Gold = MgfLook.Hex("#D99745");
+        // 최종 선택안의 정체성: 짙은 잉크 바탕의 각진 실크스크린 패턴북.
+        static readonly Color Mint = MgfLook.Hex("#32B6AD");
+        static readonly Color MintDeep = MgfLook.Hex("#11645F");
+        static readonly Color Plum = MgfLook.Hex("#EE3F32");
+        static readonly Color PlumDark = MgfLook.Hex("#172034");
+        static readonly Color Butter = MgfLook.Hex("#F4D23C");
+        static readonly Color Coral = MgfLook.Hex("#FF6B4A");
+        static readonly Color Cream = MgfLook.Hex("#F4E7CB");
+        static readonly Color Ink = MgfLook.Hex("#111827");
+        static readonly Color Gold = MgfLook.Hex("#D7AA31");
 
         Camera cam;
         Vector3 cameraHome;
@@ -138,9 +138,9 @@ namespace Mgf.MungsilFashionShow
             colliderTypes.AddComponent<CapsuleCollider>();
             Destroy(colliderTypes);
 
-            MgfLook.Sky(MgfLook.Hex("#CDEFE8"), MgfLook.Hex("#FFF2D7"), MgfLook.Hex("#F7B7AE"), .72f);
-            MgfLook.Sun(new Vector3(48, -34, 18), MgfLook.Hex("#FFF0C4"), 1.18f, .72f);
-            cam = MgfLook.Camera(new Vector3(10.2f, 8.3f, -15.5f), new Vector3(0, .65f, 1.8f), 34f);
+            MgfLook.Sky(MgfLook.Hex("#12192A"), MgfLook.Hex("#26304A"), MgfLook.Hex("#0D1220"), .86f);
+            MgfLook.Sun(new Vector3(38, -24, 22), MgfLook.Hex("#FFF1C8"), 1.05f, .64f);
+            cam = MgfLook.Camera(new Vector3(9.4f, 9.3f, -16.4f), new Vector3(0, .5f, 1.7f), 33f);
             cameraHome = cam.transform.position;
 
             mintMat = MgfLook.Lit(Mint, .10f, 0f);
@@ -151,76 +151,74 @@ namespace Mgf.MungsilFashionShow
             coralMat = MgfLook.Lit(Coral, .10f, 0f);
             creamMat = MgfLook.Lit(Cream, .08f, 0f);
             goldMat = MgfLook.Lit(Gold, .16f, .02f, Gold * .025f);
-            blackMat = MgfLook.Lit(MgfLook.Hex("#6E5149"), .08f, 0f);
-            feltFloorMat = MgfLook.Lit(MgfLook.Hex("#EFA8A0"), .08f, 0f);
-            dimMat = MgfLook.Lit(MgfLook.Hex("#CBB7DA"), .08f, 0f);
-            glowMat = MgfLook.Lit(MgfLook.Hex("#FFF1A8"), .20f, 0f, Butter * .38f);
+            blackMat = MgfLook.Lit(Ink, .05f, 0f);
+            feltFloorMat = MgfLook.Lit(MgfLook.Hex("#242D43"), .05f, 0f);
+            dimMat = MgfLook.Lit(MgfLook.Hex("#758097"), .06f, 0f);
+            glowMat = MgfLook.Lit(Butter, .14f, 0f, Butter * .44f);
 
-            worldRoot = new GameObject("SunlitPlushBoutique").transform;
-            B("BoutiqueGarden", new Vector3(0, -1.02f, 2.1f), new Vector3(21f, 1.5f, 16.2f), .55f, creamMat, worldRoot);
-            B("CoralFeltRug", new Vector3(0, -.22f, 1.75f), new Vector3(16.2f, .22f, 12.6f), .65f, feltFloorMat, worldRoot);
-            B("MintRunway", new Vector3(0, .02f, 1.55f), new Vector3(13.9f, .30f, 10.8f), .45f, mintMat, worldRoot);
-            B("CreamPatchwork", new Vector3(0, .24f, .42f), new Vector3(10.2f, .18f, 8.15f), .26f, creamMat, worldRoot);
+            worldRoot = new GameObject("NightSilkscreenPatternLab").transform;
+            B("InkTableBase", new Vector3(0, -1.02f, 2.1f), new Vector3(21f, 1.5f, 16.2f), .06f, blackMat, worldRoot);
+            B("PrintTable", new Vector3(0, -.22f, 1.75f), new Vector3(16.2f, .22f, 12.6f), .04f, feltFloorMat, worldRoot);
+            var sheet = B("PatternBookSheet", new Vector3(-.15f, .05f, 1.55f), new Vector3(13.8f, .20f, 10.7f), .03f, creamMat, worldRoot);
+            sheet.transform.localRotation = Quaternion.Euler(0, -2.2f, 0);
+            B("VermilionBinding", new Vector3(-5.45f, .25f, 1.55f), new Vector3(.34f, .12f, 9.9f), .01f, coralMat, worldRoot);
             BuildCurtains(); BuildSewingProps(); BuildPedestals(); BuildMungsilPool(); BuildJudge(); BuildWorldRopes();
         }
 
         void BuildCurtains()
         {
-            B("OpenSkyBackdrop", new Vector3(0, 2.25f, 6.65f), new Vector3(17.0f, 4.7f, .42f), .32f, MgfLook.Lit(MgfLook.Hex("#F8D5BF"), .08f, 0f), worldRoot);
-            B("CanopyTop", new Vector3(0, 5.82f, 5.76f), new Vector3(15.3f, .48f, 1.25f), .22f, creamMat, worldRoot);
+            B("InkWall", new Vector3(0, 2.25f, 6.65f), new Vector3(17.0f, 4.7f, .28f), .02f, blackMat, worldRoot);
+            B("RegistrationHeader", new Vector3(0, 5.65f, 5.72f), new Vector3(15.4f, .34f, .82f), .01f, creamMat, worldRoot);
             for (int i = 0; i < 15; i++)
             {
                 float x = -6.8f + i * .97f;
-                B("AwningScallop", new Vector3(x, 5.52f, 5.12f), new Vector3(.83f, .58f, .26f), .25f,
-                    i % 2 == 0 ? coralMat : butterMat, worldRoot);
-            }
-            for (int side = -1; side <= 1; side += 2)
-            {
-                B("CanopyPost", new Vector3(side * 7.2f, 2.55f, 5.35f), new Vector3(.32f, 6.35f, .32f), .15f, goldMat, worldRoot);
-                B("RibbonTie", new Vector3(side * 7.2f, 3.35f, 5.0f), new Vector3(.72f, .34f, .18f), .16f, plumMat, worldRoot);
+                var tab = B("ColorTestTab", new Vector3(x, 5.38f, 5.18f), new Vector3(.72f, .42f, .14f), .01f,
+                    i % 3 == 0 ? coralMat : i % 3 == 1 ? mintMat : butterMat, worldRoot);
+                tab.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 8f : -8f);
             }
 
-            curtainLeft = new GameObject("LeftFeltDrape").transform; curtainLeft.SetParent(worldRoot, false);
-            curtainRight = new GameObject("RightFeltDrape").transform; curtainRight.SetParent(worldRoot, false);
+            curtainLeft = new GameObject("LeftPrintScreen").transform; curtainLeft.SetParent(worldRoot, false);
+            curtainRight = new GameObject("RightPrintScreen").transform; curtainRight.SetParent(worldRoot, false);
             for (int side = -1; side <= 1; side += 2)
             {
                 Transform parent = side < 0 ? curtainLeft : curtainRight;
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < 2; i++)
                 {
-                    float x = side * (4.95f + i * 1.02f);
-                    var panel = B("PleatedFelt", new Vector3(x, 3.08f, 5.68f),
-                        new Vector3(.92f, 4.65f, .34f), .28f, i % 2 == 0 ? plumMat : dimMat, parent).transform;
-                    panel.localRotation = Quaternion.Euler(0, 0, side * (5f - i));
-                    B("EmbroideredSeam", new Vector3(x, 3.08f, 5.47f), new Vector3(.08f, 3.76f, .045f), .04f,
-                        i % 2 == 0 ? butterMat : creamMat, parent).transform.localRotation = Quaternion.Euler(0, 0, side * 5f);
+                    float x = side * (5.35f + i * 1.14f);
+                    var panel = B("ScreenFrame", new Vector3(x, 3.0f, 5.62f),
+                        new Vector3(1.02f, 4.72f, .22f), .015f, i == 0 ? coralMat : mintMat, parent).transform;
+                    panel.localRotation = Quaternion.Euler(0, 0, side * (8f + i * 3f));
+                    B("ScreenMesh", new Vector3(x, 3.0f, 5.48f), new Vector3(.70f, 4.12f, .035f), .005f,
+                        i == 0 ? creamMat : butterMat, parent).transform.localRotation = Quaternion.Euler(0, 0, side * (8f + i * 3f));
                 }
             }
-            marquee = B("EmbroideredCanopySign", new Vector3(0, 4.75f, 5.21f), new Vector3(7.5f, 1.35f, .38f), .34f, plumMat, worldRoot).transform;
-            B("CreamEmbroideryField", new Vector3(0, 4.75f, 4.98f), new Vector3(6.85f, .86f, .08f), .26f, creamMat, worldRoot);
+            marquee = B("OffsetPatternMasthead", new Vector3(-1.55f, 4.62f, 5.20f), new Vector3(7.8f, 1.14f, .24f), .015f, coralMat, worldRoot).transform;
+            marquee.localRotation = Quaternion.Euler(0, 0, -5f);
+            B("MastheadInkSlash", new Vector3(1.25f, 4.54f, 5.05f), new Vector3(2.6f, .28f, .06f), .005f, butterMat, worldRoot).transform.localRotation = Quaternion.Euler(0, 0, 17f);
 
             for (int i = 0; i < tassels.Length; i++)
             {
                 float x = -6.6f + i * (13.2f / (tassels.Length - 1));
-                var t = B("CanopyTassel", new Vector3(x, 5.27f - (i % 2) * .12f, 5.02f),
-                    new Vector3(.28f, .52f, .16f), .13f, i % 3 == 0 ? coralMat : i % 3 == 1 ? mintMat : butterMat, worldRoot).transform;
+                var t = B("CropMark", new Vector3(x, 5.24f - (i % 2) * .11f, 5.02f),
+                    new Vector3(.10f, .46f, .10f), .005f, i % 3 == 0 ? coralMat : i % 3 == 1 ? mintMat : butterMat, worldRoot).transform;
                 tassels[i] = t;
             }
         }
 
         void BuildSewingProps()
         {
-            // 좌우 거터는 검은 기계함 대신 열린 실패 선반·쿠션·천 화분으로 채운다.
+            // 좌우 거터는 실크스크린 잉크통, 스퀴지, 재단 도면으로 채운다.
             for (int side = -1; side <= 1; side += 2)
             {
-                B("BirchShelfBack", new Vector3(side * 6.75f, 1.45f, 1.85f), new Vector3(2.45f, 3.9f, 7.7f), .38f, creamMat, worldRoot);
+                B("SteelRackBack", new Vector3(side * 6.75f, 1.45f, 1.85f), new Vector3(2.28f, 3.9f, 7.7f), .02f, blackMat, worldRoot);
                 for (int r = 0; r < 3; r++)
                 {
-                    B("WoodShelf", new Vector3(side * 6.72f, .42f + r * 1.18f, 1.8f), new Vector3(2.30f, .16f, 7.15f), .08f, goldMat, worldRoot);
+                    B("DryingRack", new Vector3(side * 6.72f, .42f + r * 1.18f, 1.8f), new Vector3(2.16f, .10f, 7.15f), .01f, dimMat, worldRoot);
                     for (int c = 0; c < 3; c++)
                     {
-                        var roll = MgfLook.Prim(PrimitiveType.Cylinder, "FeltRoll", new Vector3(side * (6.1f + c * .42f), .78f + r * 1.18f, -.30f + r * 2.05f),
-                            new Vector3(.42f, .66f, .42f), (r + c) % 3 == 0 ? coralMat : (r + c) % 3 == 1 ? mintMat : dimMat, worldRoot, false);
-                        roll.transform.localRotation = Quaternion.Euler(90, 0, side * (8f + c * 3f));
+                        B("PatternStack", new Vector3(side * (6.1f + c * .42f), .72f + r * 1.18f, -.30f + r * 2.05f),
+                            new Vector3(.52f, .22f, 1.18f), .01f, (r + c) % 3 == 0 ? coralMat : (r + c) % 3 == 1 ? mintMat : creamMat, worldRoot)
+                            .transform.localRotation = Quaternion.Euler(0, side * (7f + c * 4f), (c - 1) * 3f);
                     }
                 }
             }
@@ -228,22 +226,17 @@ namespace Mgf.MungsilFashionShow
             {
                 float side = i < 5 ? -1f : 1f;
                 int k = i % 5;
-                var root = new GameObject("ThreadSpool" + i).transform; root.SetParent(worldRoot, false);
+                var root = new GameObject("InkCan" + i).transform; root.SetParent(worldRoot, false);
                 root.localPosition = new Vector3(side * (7.15f + (k % 2) * .45f), .75f + (k / 2) * .7f, 4.5f - k * 1.5f);
-                B("SoftThread", Vector3.zero, new Vector3(.68f, .50f, .72f), .24f,
+                B("CanBody", Vector3.zero, new Vector3(.68f, .58f, .68f), .04f,
                     k % 3 == 0 ? coralMat : k % 3 == 1 ? mintMat : butterMat, root);
-                B("WoodCapA", new Vector3(0, 0, -.41f), new Vector3(.82f, .60f, .10f), .05f, goldMat, root);
-                B("WoodCapB", new Vector3(0, 0, .41f), new Vector3(.82f, .60f, .10f), .05f, goldMat, root);
+                B("InkLabel", new Vector3(0, 0, -.36f), new Vector3(.48f, .24f, .03f), .005f, creamMat, root);
                 spools[i] = root;
             }
-
-            var machine = new GameObject("PlushSewingMachine").transform; machine.SetParent(worldRoot, false);
-            machine.localPosition = new Vector3(-6.2f, .55f, 4.4f);
-            B("MachineCushion", Vector3.zero, new Vector3(2.05f, .42f, 1.30f), .20f, butterMat, machine);
-            B("MachineBody", new Vector3(-.45f, .72f, .1f), new Vector3(.70f, 1.38f, .86f), .28f, mintMat, machine);
-            B("MachineArm", new Vector3(.25f, 1.15f, .1f), new Vector3(1.28f, .46f, .76f), .20f, creamMat, machine);
-            var wheel = MgfLook.Prim(PrimitiveType.Cylinder, "WoodWheel", new Vector3(-.82f, 1.06f, -.48f), new Vector3(.58f, .13f, .58f), plumMat, machine, false);
-            wheel.transform.localRotation = Quaternion.Euler(90, 0, 0); spools[0] = wheel.transform;
+            var squeegee = B("VermilionSqueegee", new Vector3(-5.9f, .58f, 4.3f), new Vector3(2.55f, .30f, .42f), .02f, coralMat, worldRoot);
+            squeegee.transform.localRotation = Quaternion.Euler(0, 18f, -9f);
+            var handle = B("SqueegeeHandle", new Vector3(-5.85f, 1.03f, 4.3f), new Vector3(1.26f, .64f, .32f), .02f, creamMat, worldRoot);
+            handle.transform.localRotation = Quaternion.Euler(0, 18f, -9f); spools[0] = handle.transform;
         }
 
         void BuildPedestals()
@@ -255,82 +248,85 @@ namespace Mgf.MungsilFashionShow
                 float x = -3.75f + col * 1.50f;
                 float z = 3.58f - row * 1.33f;
                 Vector3 p = new Vector3(x, .47f, z); pedestalPositions[i] = p;
-                Material patch = (row + col) % 3 == 0 ? butterMat : (row + col) % 3 == 1 ? creamMat : dimMat;
-                var pedestal = B("QuiltPatch" + (i + 1), p, new Vector3(1.08f, .20f, .94f), .24f, patch, worldRoot);
-                pedestal.transform.localRotation = Quaternion.Euler(0, (row % 2 == 0 ? 1 : -1) * 3f, 0);
+                Material patch = (row + col) % 3 == 0 ? butterMat : (row + col) % 3 == 1 ? creamMat : mintMat;
+                var pedestal = B("PatternCell" + (i + 1), p, new Vector3(1.08f, .16f, .94f), .01f, patch, worldRoot);
+                pedestal.transform.localRotation = Quaternion.Euler(0, (row % 2 == 0 ? 1 : -1) * 5f, 0);
                 pedestalRenderers[i] = pedestal.GetComponent<Renderer>();
-                var light = MgfLook.Prim(PrimitiveType.Cylinder, "Spot" + (i + 1), p + Vector3.up * .16f,
-                    new Vector3(.36f, .025f, .36f), glowMat, worldRoot, false).transform;
+                B("CellCropH" + i, p + new Vector3(0, .10f, -.49f), new Vector3(.52f, .025f, .035f), .002f, blackMat, worldRoot);
+                B("CellCropV" + i, p + new Vector3(-.56f, .10f, 0), new Vector3(.035f, .025f, .42f), .002f, blackMat, worldRoot);
+                var light = B("PrintFlash" + (i + 1), p + Vector3.up * .13f,
+                    new Vector3(.72f, .025f, .62f), .01f, glowMat, worldRoot).transform;
                 light.gameObject.SetActive(false); spotlights[i] = light;
             }
         }
 
         void BuildMungsilPool()
         {
-            Material[] bodies = { creamMat, butterMat, mintMat, coralMat, dimMat };
-            Material[] accents = { plumMat, coralMat, butterMat, mintDarkMat };
+            Material[] bodies = { coralMat, mintMat, butterMat, creamMat };
+            Material[] accents = { blackMat, plumMat, mintDarkMat, dimMat };
             for (int i = 0; i < mungsils.Length; i++)
             {
-                var root = new GameObject("PlushMungsil" + i).transform; root.SetParent(worldRoot, false);
+                var root = new GameObject("CutPaperOutfit" + i).transform; root.SetParent(worldRoot, false);
                 root.localPosition = new Vector3(-5.7f, .4f, 4.6f); mungsils[i] = root;
-                var body = MgfLook.Prim(PrimitiveType.Sphere, "RoundBody", new Vector3(0, .53f, 0),
-                    new Vector3(.72f, .76f, .60f), bodies[i % bodies.Length], root, false).transform;
+                var body = B("AngularTorso", new Vector3(0, .58f, 0), new Vector3(.54f, .76f, .12f), .01f,
+                    bodies[i % bodies.Length], root).transform;
+                body.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? -4f : 4f);
                 mungsilBodies[i] = body;
-                MgfLook.Prim(PrimitiveType.Sphere, "Head", new Vector3(0, 1.04f, -.02f),
-                    new Vector3(.62f, .58f, .56f), bodies[i % bodies.Length], root, false);
-                MgfLook.Prim(PrimitiveType.Sphere, "EarL", new Vector3(-.25f, 1.31f, .0f), new Vector3(.20f, .25f, .18f), accents[i % accents.Length], root, false);
-                MgfLook.Prim(PrimitiveType.Sphere, "EarR", new Vector3(.25f, 1.31f, .0f), new Vector3(.20f, .25f, .18f), accents[i % accents.Length], root, false);
-                MgfLook.Prim(PrimitiveType.Sphere, "EyeL", new Vector3(-.12f, 1.09f, -.29f), new Vector3(.075f, .09f, .055f), blackMat, root, false);
-                MgfLook.Prim(PrimitiveType.Sphere, "EyeR", new Vector3(.12f, 1.09f, -.29f), new Vector3(.075f, .09f, .055f), blackMat, root, false);
-                B("StitchedScarf", new Vector3(0, .78f, -.31f), new Vector3(.52f, .14f, .07f), .065f, accents[(i + 1) % accents.Length], root);
-                B("FootL", new Vector3(-.22f, .17f, -.02f), new Vector3(.26f, .18f, .35f), .12f, accents[i % accents.Length], root);
-                B("FootR", new Vector3(.22f, .17f, -.02f), new Vector3(.26f, .18f, .35f), .12f, accents[i % accents.Length], root);
-                var hat = B("SoftBow", new Vector3(0, 1.48f, .02f), new Vector3(.48f, .16f, .18f), .08f,
+                var skirt = B("CutSkirt", new Vector3(0, .18f, .01f), new Vector3(.78f, .42f, .11f), .01f,
+                    accents[(i + 1) % accents.Length], root).transform;
+                skirt.localRotation = Quaternion.Euler(0, 0, i % 3 == 0 ? 7f : -5f);
+                var sleeveL = B("SleeveL", new Vector3(-.39f, .65f, .01f), new Vector3(.23f, .56f, .10f), .01f, bodies[(i + 1) % bodies.Length], root);
+                var sleeveR = B("SleeveR", new Vector3(.39f, .65f, .01f), new Vector3(.23f, .56f, .10f), .01f, bodies[(i + 2) % bodies.Length], root);
+                sleeveL.transform.localRotation = Quaternion.Euler(0, 0, -18f); sleeveR.transform.localRotation = Quaternion.Euler(0, 0, 18f);
+                B("PrintStripeA", new Vector3(0, .68f, -.075f), new Vector3(.42f, .09f, .025f), .002f, accents[i % accents.Length], root);
+                B("PrintStripeB", new Vector3(0, .48f, -.075f), new Vector3(.42f, .09f, .025f), .002f, accents[(i + 2) % accents.Length], root);
+                var hat = B("PatternTab", new Vector3(0, 1.08f, .02f), new Vector3(.44f, .13f, .10f), .005f,
                     accents[(i + 2) % accents.Length], root).transform;
-                hat.localRotation = Quaternion.Euler(0, 0, (i % 5 - 2) * 4f); mungsilHats[i] = hat;
-                var trail = B("FeltShadow", new Vector3(0, .24f, .35f),
-                    new Vector3(.72f, .06f, .58f), .24f, accents[(i + 2) % accents.Length], worldRoot).transform;
+                hat.localRotation = Quaternion.Euler(0, 0, (i % 5 - 2) * 7f); mungsilHats[i] = hat;
+                var trail = B("InkShadow", new Vector3(0, .24f, .35f),
+                    new Vector3(.72f, .035f, .58f), .01f, accents[(i + 2) % accents.Length], worldRoot).transform;
                 trail.gameObject.SetActive(false); trails[i] = trail;
                 root.gameObject.SetActive(false);
             }
 
             for (int i = 0; i < mannequins.Length; i++)
             {
-                var root = new GameObject("EmptyHanger" + i).transform; root.SetParent(worldRoot, false);
-                B("Hook", new Vector3(0, .86f, 0), new Vector3(.12f, .46f, .12f), .01f, goldMat, root);
-                var bar = B("Hanger", new Vector3(0, .55f, 0), new Vector3(.74f, .10f, .10f), .01f, goldMat, root).transform;
-                bar.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 13f : -13f);
+                var root = new GameObject("BlankPatternCell" + i).transform; root.SetParent(worldRoot, false);
+                B("BlankSheet", new Vector3(0, .52f, 0), new Vector3(.72f, .92f, .08f), .01f, creamMat, root);
+                var slashA = B("MissingSlashA", new Vector3(0, .52f, -.06f), new Vector3(.78f, .10f, .025f), .002f, coralMat, root).transform;
+                var slashB = B("MissingSlashB", new Vector3(0, .52f, -.06f), new Vector3(.78f, .10f, .025f), .002f, coralMat, root).transform;
+                slashA.localRotation = Quaternion.Euler(0, 0, 42f); slashB.localRotation = Quaternion.Euler(0, 0, -42f);
                 root.gameObject.SetActive(false); mannequins[i] = root;
             }
         }
 
         void BuildJudge()
         {
-            judgeRoot = new GameObject("PlushTailorJudge").transform; judgeRoot.SetParent(worldRoot, false);
-            judgeRoot.localPosition = new Vector3(5.45f, .65f, 3.9f);
-            judgeBody = MgfLook.Prim(PrimitiveType.Sphere, "JudgeBody", new Vector3(0, .72f, 0),
-                new Vector3(1.18f, 1.08f, .88f), creamMat, judgeRoot, false).transform;
-            MgfLook.Prim(PrimitiveType.Sphere, "JudgeEyeL", new Vector3(-.23f, .90f, -.46f), new Vector3(.10f, .13f, .07f), blackMat, judgeRoot, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "JudgeEyeR", new Vector3(.23f, .90f, -.46f), new Vector3(.10f, .13f, .07f), blackMat, judgeRoot, false);
-            B("PinCrown", new Vector3(0, 1.52f, 0), new Vector3(.82f, .20f, .64f), .10f, plumMat, judgeRoot).transform.localRotation = Quaternion.Euler(0, 0, -4f);
-            B("ScoreCard", new Vector3(.78f, .72f, -.05f), new Vector3(.76f, .62f, .14f), .16f, butterMat, judgeRoot);
+            judgeRoot = new GameObject("AngularDressForm").transform; judgeRoot.SetParent(worldRoot, false);
+            judgeRoot.localPosition = new Vector3(5.45f, .60f, 3.9f);
+            judgeBody = B("DressFormTorso", new Vector3(0, .92f, 0), new Vector3(.88f, 1.42f, .50f), .025f, blackMat, judgeRoot).transform;
+            judgeBody.localRotation = Quaternion.Euler(0, 0, -4f);
+            B("ShoulderBar", new Vector3(0, 1.55f, 0), new Vector3(1.46f, .18f, .38f), .01f, coralMat, judgeRoot).transform.localRotation = Quaternion.Euler(0, 0, -4f);
+            B("FormStand", new Vector3(0, .0f, 0), new Vector3(.12f, .90f, .12f), .01f, goldMat, judgeRoot);
+            B("FormBase", new Vector3(0, -.42f, 0), new Vector3(1.20f, .12f, .52f), .01f, goldMat, judgeRoot);
+            B("NumberCard", new Vector3(.80f, .78f, -.05f), new Vector3(.70f, .58f, .10f), .01f, butterMat, judgeRoot).transform.localRotation = Quaternion.Euler(0, 0, 8f);
         }
 
         void BuildWorldRopes()
         {
-            worldRope = BuildRope("VelvetLimitRope", plumMat);
-            ghostRope = BuildRope("CorrectGhostRope", butterMat);
+            worldRope = BuildRope("RegistrationLimit", plumMat);
+            ghostRope = BuildRope("CorrectRegistration", butterMat);
             worldRope.gameObject.SetActive(false); ghostRope.gameObject.SetActive(false);
         }
 
         Transform BuildRope(string name, Material ropeMat)
         {
             var root = new GameObject(name).transform; root.SetParent(worldRoot, false);
-            MgfLook.Prim(PrimitiveType.Cylinder, "PostL", new Vector3(-.48f, .58f, 0), new Vector3(.12f, .80f, .12f), goldMat, root, false);
-            MgfLook.Prim(PrimitiveType.Cylinder, "PostR", new Vector3(.48f, .58f, 0), new Vector3(.12f, .80f, .12f), goldMat, root, false);
-            B("Velvet", new Vector3(0, .54f, 0), new Vector3(.92f, .18f, .16f), .08f, ropeMat, root);
-            MgfLook.Prim(PrimitiveType.Sphere, "FinialL", new Vector3(-.48f, 1.04f, 0), new Vector3(.23f, .23f, .23f), goldMat, root, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "FinialR", new Vector3(.48f, 1.04f, 0), new Vector3(.23f, .23f, .23f), goldMat, root, false);
+            B("CropPostL", new Vector3(-.48f, .58f, 0), new Vector3(.10f, .82f, .10f), .005f, goldMat, root);
+            B("CropPostR", new Vector3(.48f, .58f, 0), new Vector3(.10f, .82f, .10f), .005f, goldMat, root);
+            B("RegistrationBar", new Vector3(0, .54f, 0), new Vector3(.94f, .14f, .12f), .005f, ropeMat, root);
+            B("CropCapL", new Vector3(-.48f, 1.02f, 0), new Vector3(.24f, .12f, .24f), .005f, creamMat, root);
+            B("CropCapR", new Vector3(.48f, 1.02f, 0), new Vector3(.24f, .12f, .24f), .005f, creamMat, root);
             return root;
         }
 
@@ -356,21 +352,23 @@ namespace Mgf.MungsilFashionShow
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.sizeDelta = Vector2.zero;
             titleG = rt.gameObject.AddComponent<CanvasGroup>();
 
-            // 떠 있는 CTA 카드가 아니라 3D 천막의 자수 현수막과 같은 폭·색으로 맞춘다.
-            titleSignRt = R("CanopyEmbroidery", rt, new Vector2(.5f, .80f), Vector2.zero, new Vector2(360, 126));
-            Img(titleSignRt, "PlumBanner", new Vector2(.5f, .5f), Vector2.zero, new Vector2(354, 112), new Color(Plum.r, Plum.g, Plum.b, .96f), roundSprite);
-            Img(titleSignRt, "CreamStitches", new Vector2(.5f, .5f), Vector2.zero, new Vector2(346, 106), new Color(Cream.r, Cream.g, Cream.b, .88f), stitchSprite);
-            titleLogo = Txt(titleSignRt, "뭉실 패션쇼", new Vector2(.5f, .62f), Vector2.zero, 43, Cream, 350);
-            titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineWidth = .06f; titleLogo.outlineColor = PlumDark;
-            titleTag = Txt(titleSignRt, "솜털 코디를 줄 끝까지 채워라", new Vector2(.5f, .23f), Vector2.zero, 17, Cream, 342);
-            titleMeta = Txt(rt, "중학교 2학년 · 경우의 수  |  최고 쇼 0", new Vector2(.5f, .685f), Vector2.zero, 15, Ink, 360);
+            // 화면 중앙을 막는 둥근 현수막 대신 좌측으로 치우친 실크스크린 표지와 재단 표시를 쓴다.
+            titleSignRt = R("OffsetSilkscreenLabel", rt, new Vector2(.34f, .80f), Vector2.zero, new Vector2(286, 142));
+            titleSignRt.localRotation = Quaternion.Euler(0, 0, -5f);
+            Img(titleSignRt, "VermilionPlate", new Vector2(.5f, .5f), Vector2.zero, new Vector2(280, 132), new Color(Coral.r, Coral.g, Coral.b, .98f));
+            Img(titleSignRt, "InkEdge", new Vector2(.04f, .5f), Vector2.zero, new Vector2(18, 132), Ink);
+            Img(titleSignRt, "YellowCrop", new Vector2(.86f, .92f), Vector2.zero, new Vector2(82, 12), Butter);
+            titleLogo = Txt(titleSignRt, "뭉실\n패션쇼", new Vector2(.46f, .61f), Vector2.zero, 39, Cream, 250, TextAlignmentOptions.Left);
+            titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineWidth = .035f; titleLogo.outlineColor = Ink;
+            titleTag = Txt(titleSignRt, "패턴북 30칸을 인쇄하라", new Vector2(.52f, .14f), Vector2.zero, 14, Ink, 250, TextAlignmentOptions.Left);
+            titleMeta = Txt(rt, "M2 / 경우의 수 / PRINT LAB", new Vector2(.63f, .60f), Vector2.zero, 14, Cream, 300);
 
-            // 시작 사물은 실제 벨벳 줄: 얇은 줄과 두 실패를 당기는 형태이며 알약 버튼이 아니다.
-            titleSpoolRt = R("WorldVelvetRopeStart", rt, new Vector2(.5f, .13f), Vector2.zero, new Vector2(300, 88));
-            Img(titleSpoolRt, "Rope", new Vector2(.5f, .42f), Vector2.zero, new Vector2(218, 14), Plum, roundSprite);
-            Img(titleSpoolRt, "LeftSpool", new Vector2(.15f, .42f), Vector2.zero, new Vector2(46, 70), Gold, discSprite);
-            Img(titleSpoolRt, "RightSpool", new Vector2(.85f, .42f), Vector2.zero, new Vector2(46, 70), Gold, discSprite);
-            titleStartText = Txt(titleSpoolRt, "금색 줄을 당겨 입장", new Vector2(.5f, .86f), Vector2.zero, 17, Ink, 294);
+            titleSpoolRt = R("RegistrationRailStart", rt, new Vector2(.5f, .13f), Vector2.zero, new Vector2(300, 88));
+            Img(titleSpoolRt, "Rail", new Vector2(.5f, .42f), Vector2.zero, new Vector2(232, 11), Cream);
+            Img(titleSpoolRt, "LeftCrop", new Vector2(.12f, .42f), Vector2.zero, new Vector2(18, 72), Coral);
+            Img(titleSpoolRt, "RightCrop", new Vector2(.88f, .42f), Vector2.zero, new Vector2(18, 72), Butter);
+            Img(titleSpoolRt, "Handle", new Vector2(.5f, .42f), Vector2.zero, new Vector2(50, 50), Mint);
+            titleStartText = Txt(titleSpoolRt, "등록선을 당겨 작업실 열기", new Vector2(.5f, .86f), Vector2.zero, 17, Cream, 294);
         }
 
         void BuildHudUi()
@@ -379,14 +377,14 @@ namespace Mgf.MungsilFashionShow
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.sizeDelta = Vector2.zero;
             hudG = rt.gameObject.AddComponent<CanvasGroup>();
 
-            orderShadowRt = Img(rt, "OrderShadow", new Vector2(.5f, .88f), new Vector2(0, -5), new Vector2(374, 224), new Color(PlumDark.r, PlumDark.g, PlumDark.b, .32f), roundSprite).rectTransform;
-            orderClothRt = Img(rt, "OrderCloth", new Vector2(.5f, .88f), Vector2.zero, new Vector2(374, 220), new Color(Cream.r, Cream.g, Cream.b, .98f), roundSprite).rectTransform;
-            orderStitchRt = Img(rt, "OrderStitch", new Vector2(.5f, .88f), Vector2.zero, new Vector2(374, 220), new Color(Plum.r, Plum.g, Plum.b, .64f), stitchSprite).rectTransform;
+            orderShadowRt = Img(rt, "OrderShadow", new Vector2(.5f, .88f), new Vector2(7, -7), new Vector2(374, 224), new Color(Ink.r, Ink.g, Ink.b, .82f)).rectTransform;
+            orderClothRt = Img(rt, "PatternBrief", new Vector2(.5f, .88f), Vector2.zero, new Vector2(374, 220), new Color(Cream.r, Cream.g, Cream.b, .98f)).rectTransform;
+            orderStitchRt = Img(rt, "BriefRegistration", new Vector2(.5f, .88f), new Vector2(-181, 0), new Vector2(10, 220), Coral).rectTransform;
             orderText = Txt(rt, "연습 주문", new Vector2(.12f, .965f), Vector2.zero, 14, Plum, 92);
             scoreText = Txt(rt, "0", new Vector2(.67f, .965f), Vector2.zero, 16, Ink, 72);
             livesText = Txt(rt, "바늘 ◆◆◆", new Vector2(.84f, .965f), Vector2.zero, 13, Coral, 104);
             applauseText = Txt(rt, "박수 0", new Vector2(.68f, .935f), Vector2.zero, 13, MintDeep, 86);
-            goalText = Txt(rt, "코디의 경우의 수만큼 줄을 끌어라", new Vector2(.5f, .815f), Vector2.zero, 15, Plum, 350);
+            goalText = Txt(rt, "의상의 경우의 수만큼 등록선을 끌어라", new Vector2(.5f, .815f), Vector2.zero, 15, Coral, 350);
             promptRt = R("OrderPrompt", rt, new Vector2(.5f, .885f), Vector2.zero, new Vector2(356, 94));
             promptText = Txt(promptRt, "", new Vector2(.5f, .5f), Vector2.zero, 18, Ink, 346);
             promptText.enableAutoSizing = true; promptText.fontSizeMin = 15; promptText.fontSizeMax = 20;
@@ -394,22 +392,22 @@ namespace Mgf.MungsilFashionShow
             conceptText = Txt(rt, "", new Vector2(.5f, .775f), Vector2.zero, 13, Plum, 354);
 
             roulettePanelRt = R("RoulettePanel", rt, new Vector2(.5f, .285f), Vector2.zero, new Vector2(280, 130));
-            rouletteClothRt = Img(roulettePanelRt, "Cloth", new Vector2(.5f, .5f), Vector2.zero, new Vector2(280, 126), new Color(Mint.r, Mint.g, Mint.b, .96f), roundSprite).rectTransform;
-            Img(roulettePanelRt, "Stitches", new Vector2(.5f, .5f), Vector2.zero, new Vector2(274, 120), new Color(Cream.r, Cream.g, Cream.b, .64f), stitchSprite);
+            rouletteClothRt = Img(roulettePanelRt, "InkMixPanel", new Vector2(.5f, .5f), Vector2.zero, new Vector2(280, 126), new Color(Ink.r, Ink.g, Ink.b, .97f)).rectTransform;
+            Img(roulettePanelRt, "YellowRule", new Vector2(.5f, .95f), Vector2.zero, new Vector2(274, 8), Butter);
             for (int i = 0; i < 2; i++)
             {
                 rouletteRt[i] = R(i == 0 ? "HatRoulette" : "RibbonRoulette", roulettePanelRt, new Vector2(.5f, .5f), new Vector2(i == 0 ? -68 : 68, 7), new Vector2(104, 104));
-                Img(rouletteRt[i], "Dial", new Vector2(.5f, .5f), Vector2.zero, new Vector2(98, 98), i == 0 ? Plum : Coral, discSprite);
-                Img(rouletteRt[i], "Inner", new Vector2(.5f, .5f), Vector2.zero, new Vector2(75, 75), Cream, discSprite);
-                rouletteValue[i] = Txt(rouletteRt[i], "2", new Vector2(.5f, .56f), Vector2.zero, 29, i == 0 ? Plum : Coral, 82);
-                Txt(rouletteRt[i], i == 0 ? "선택 A" : "선택 B", new Vector2(.5f, .23f), Vector2.zero, 12, Ink, 80);
+                Img(rouletteRt[i], "PrintPlate", new Vector2(.5f, .5f), Vector2.zero, new Vector2(94, 94), i == 0 ? Coral : Mint);
+                Img(rouletteRt[i], "InnerPaper", new Vector2(.5f, .5f), Vector2.zero, new Vector2(70, 70), Cream);
+                rouletteValue[i] = Txt(rouletteRt[i], "2", new Vector2(.5f, .56f), Vector2.zero, 29, Ink, 82);
+                Txt(rouletteRt[i], i == 0 ? "판 A" : "판 B", new Vector2(.5f, .23f), Vector2.zero, 12, Ink, 80);
             }
-            rouletteUsesText = Txt(roulettePanelRt, "룰렛을 한 번 돌려 조합을 확인", new Vector2(.5f, .05f), Vector2.zero, 12, Ink, 260);
+            rouletteUsesText = Txt(roulettePanelRt, "룰렛을 한 번 돌려 조합을 확인", new Vector2(.5f, .12f), Vector2.zero, 11, Cream, 260);
 
-            ropeTrackRt = R("VelvetRopeTrack", rt, new Vector2(.5f, .13f), Vector2.zero, new Vector2(364, 110));
-            ropeClothRt = Img(ropeTrackRt, "TrackCloth", new Vector2(.5f, .5f), Vector2.zero, new Vector2(364, 106), new Color(Cream.r, Cream.g, Cream.b, .98f), roundSprite).rectTransform;
-            Img(ropeTrackRt, "TrackStitches", new Vector2(.5f, .5f), Vector2.zero, new Vector2(358, 100), new Color(Coral.r, Coral.g, Coral.b, .55f), stitchSprite);
-            ropeRailRt = Img(ropeTrackRt, "VelvetRail", new Vector2(.5f, .47f), Vector2.zero, new Vector2(330, 13), Plum, roundSprite).rectTransform;
+            ropeTrackRt = R("RegistrationTrack", rt, new Vector2(.5f, .13f), Vector2.zero, new Vector2(364, 110));
+            ropeClothRt = Img(ropeTrackRt, "TrackPaper", new Vector2(.5f, .5f), Vector2.zero, new Vector2(364, 106), new Color(Cream.r, Cream.g, Cream.b, .98f)).rectTransform;
+            Img(ropeTrackRt, "TrackInkEdge", new Vector2(.02f, .5f), Vector2.zero, new Vector2(10, 100), Coral);
+            ropeRailRt = Img(ropeTrackRt, "RegistrationRail", new Vector2(.5f, .47f), Vector2.zero, new Vector2(330, 10), Ink).rectTransform;
             for (int i = 0; i < 30; i++)
             {
                 float x = -157f + i * (314f / 29f);
@@ -424,9 +422,9 @@ namespace Mgf.MungsilFashionShow
                 ropeLabelRt[i] = Txt(ropeTrackRt, labels[i], new Vector2(.5f, .5f), new Vector2(x, -31), 11, Ink, 34).rectTransform;
             }
             ropeHandleRt = R("RopeHandle", ropeTrackRt, new Vector2(.5f, .5f), new Vector2(-157, 22), new Vector2(62, 76));
-            ropeHandleImage = Img(ropeHandleRt, "GoldPost", new Vector2(.5f, .5f), Vector2.zero, new Vector2(58, 72), Gold, discSprite);
-            ropeValueText = Txt(ropeHandleRt, "0", new Vector2(.5f, .56f), Vector2.zero, 24, PlumDark, 58);
-            ropeInstructionText = Txt(ropeTrackRt, "벨벳 줄 손잡이를 끌고 놓아 제출", new Vector2(.5f, .95f), Vector2.zero, 13, Plum, 340);
+            ropeHandleImage = Img(ropeHandleRt, "SqueegeeHandle", new Vector2(.5f, .5f), Vector2.zero, new Vector2(56, 68), Gold);
+            ropeValueText = Txt(ropeHandleRt, "0", new Vector2(.5f, .56f), Vector2.zero, 24, Ink, 58);
+            ropeInstructionText = Txt(ropeTrackRt, "등록선 손잡이를 끌고 놓아 인쇄", new Vector2(.5f, .84f), Vector2.zero, 12, Coral, 340);
         }
 
         void BuildEndUi()
@@ -434,28 +432,28 @@ namespace Mgf.MungsilFashionShow
             var rt = R("EndScreen", rootRt, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.sizeDelta = Vector2.zero;
             endG = rt.gameObject.AddComponent<CanvasGroup>();
-            Img(rt, "FinalDrape", new Vector2(.5f, .60f), Vector2.zero, new Vector2(350, 390), new Color(Plum.r, Plum.g, Plum.b, .94f), roundSprite);
-            Img(rt, "FinalStitches", new Vector2(.5f, .60f), Vector2.zero, new Vector2(350, 390), new Color(Butter.r, Butter.g, Butter.b, .80f), stitchSprite);
-            endTitle = Txt(rt, "앙코르 쇼", new Vector2(.5f, .73f), Vector2.zero, 40, Butter, 338);
+            Img(rt, "FinalPrint", new Vector2(.5f, .60f), Vector2.zero, new Vector2(350, 390), new Color(Ink.r, Ink.g, Ink.b, .96f));
+            Img(rt, "FinalCrop", new Vector2(.31f, .60f), Vector2.zero, new Vector2(12, 390), Coral);
+            endTitle = Txt(rt, "패턴북 완성", new Vector2(.5f, .73f), Vector2.zero, 40, Butter, 338);
             endTitle.fontStyle = FontStyles.Bold; endTitle.outlineWidth = .08f; endTitle.outlineColor = PlumDark;
             endScore = Txt(rt, "0점", new Vector2(.5f, .61f), Vector2.zero, 44, Cream, 330);
             endStats = Txt(rt, "", new Vector2(.5f, .47f), Vector2.zero, 18, Cream, 320);
             endSpoolRt = R("EndSpool", rt, new Vector2(.5f, .22f), Vector2.zero, new Vector2(205, 118));
-            Img(endSpoolRt, "Gold", new Vector2(.5f, .5f), Vector2.zero, new Vector2(198, 108), Gold, discSprite);
-            Img(endSpoolRt, "Core", new Vector2(.5f, .5f), Vector2.zero, new Vector2(154, 70), Mint, discSprite);
-            endStartText = Txt(endSpoolRt, "새 쇼 열기", new Vector2(.5f, .5f), Vector2.zero, 20, PlumDark, 190);
+            Img(endSpoolRt, "GoldPlate", new Vector2(.5f, .5f), Vector2.zero, new Vector2(198, 108), Gold);
+            Img(endSpoolRt, "InkCore", new Vector2(.5f, .5f), Vector2.zero, new Vector2(154, 70), Ink);
+            endStartText = Txt(endSpoolRt, "새 패턴북", new Vector2(.5f, .5f), Vector2.zero, 20, Cream, 190);
         }
 
         void BuildOverlayUi()
         {
             feedbackRt = R("Feedback", rootRt, new Vector2(.5f, .66f), Vector2.zero, new Vector2(352, 132));
-            feedbackWash = feedbackRt.gameObject.AddComponent<Image>(); feedbackWash.sprite = roundSprite; feedbackWash.raycastTarget = false;
+            feedbackWash = feedbackRt.gameObject.AddComponent<Image>(); feedbackWash.raycastTarget = false;
             feedbackG = feedbackRt.gameObject.AddComponent<CanvasGroup>(); feedbackG.alpha = 0;
             feedbackTitle = Txt(feedbackRt, "", new Vector2(.5f, .72f), Vector2.zero, 27, PlumDark, 336);
             feedbackText = Txt(feedbackRt, "", new Vector2(.5f, .38f), Vector2.zero, 16, Ink, 332);
 
             toastRt = R("Toast", rootRt, new Vector2(.5f, .70f), Vector2.zero, new Vector2(350, 76));
-            Img(toastRt, "ToastCloth", new Vector2(.5f, .5f), Vector2.zero, new Vector2(350, 72), new Color(PlumDark.r, PlumDark.g, PlumDark.b, .94f), roundSprite);
+            Img(toastRt, "ToastInk", new Vector2(.5f, .5f), Vector2.zero, new Vector2(350, 72), new Color(PlumDark.r, PlumDark.g, PlumDark.b, .96f));
             toastText = Txt(toastRt, "", new Vector2(.5f, .5f), Vector2.zero, 15, Cream, 330);
             toastG = toastRt.gameObject.AddComponent<CanvasGroup>(); toastG.alpha = 0;
 
@@ -513,8 +511,8 @@ namespace Mgf.MungsilFashionShow
         string RopeGoal()
         {
             if (phase == ShowPhase.Practice && st.rouletteSpins == 0) return "먼저 룰렛을 한 번 눌러 조합을 확인하시오";
-            if (phase == ShowPhase.Practice) return "2×3의 경우의 수만큼 줄을 끌어 놓으시오";
-            return "코디의 경우의 수만큼 줄을 끌어 놓으시오";
+            if (phase == ShowPhase.Practice) return "2×3의 경우의 수만큼 등록선을 끌어 놓으시오";
+            return "의상의 경우의 수만큼 등록선을 끌어 놓으시오";
         }
 
         void ResetWorldForRun()
@@ -547,7 +545,7 @@ namespace Mgf.MungsilFashionShow
             {
                 mungsils[i].gameObject.SetActive(true);
                 int row = i / 5, col = i % 5;
-                mungsils[i].localPosition = new Vector3(-3.2f + col * 1.6f, .45f, 2.8f - row * 1.55f);
+                mungsils[i].localPosition = new Vector3(-3.2f + col * 1.6f, .48f, 2.8f - row * 1.55f);
                 mungsils[i].localScale = Vector3.one;
             }
         }
@@ -568,8 +566,8 @@ namespace Mgf.MungsilFashionShow
                 spools[i].localRotation = Quaternion.Euler(0, 0, worldClock * (i % 2 == 0 ? 13f : -9f));
             if (judgeRoot)
             {
-                judgeRoot.localPosition = new Vector3(5.45f, .65f + Mathf.Sin(worldClock * 2.3f) * .04f, 3.9f);
-                judgeBody.localScale = new Vector3(1f + Mathf.Sin(worldClock * 2f) * .018f, 1f - Mathf.Sin(worldClock * 2f) * .012f, 1f);
+                judgeRoot.localPosition = new Vector3(5.45f, .60f + Mathf.Sin(worldClock * 1.8f) * .018f, 3.9f);
+                judgeBody.localScale = new Vector3(1f + Mathf.Sin(worldClock * 1.7f) * .008f, 1f, 1f);
             }
 
             if (phase == ShowPhase.Title)
@@ -577,9 +575,9 @@ namespace Mgf.MungsilFashionShow
                 for (int i = 0; i < 10; i++)
                 {
                     Vector3 p = mungsils[i].localPosition;
-                    p.y = .45f + Mathf.Sin(worldClock * 2.5f + i * .7f) * .055f;
+                    p.y = .48f + Mathf.Sin(worldClock * 1.8f + i * .7f) * .025f;
                     mungsils[i].localPosition = p;
-                    mungsilHats[i].localRotation = Quaternion.Euler(0, 0, (i % 5 - 2) * 5f + Mathf.Sin(worldClock * 2f + i) * 3f);
+                    mungsilHats[i].localRotation = Quaternion.Euler(0, 0, (i % 5 - 2) * 7f + Mathf.Sin(worldClock * 1.7f + i) * 2f);
                 }
             }
 
@@ -606,14 +604,14 @@ namespace Mgf.MungsilFashionShow
                 float local = Mathf.Clamp01((t - i * .055f) / .58f);
                 Vector3 target = pedestalPositions[i] + Vector3.up * .13f;
                 float eased = EaseOutBack(local);
-                // 행렬 입장 대신 각 패턴 칸에서 의상이 접혔다가 제자리 조립된다.
+                // 생물 행렬 없이 각 패턴 칸에서 각진 의상 조각이 제자리 인쇄·조립된다.
                 Vector3 start = target + new Vector3(0, -.34f, .18f);
                 Vector3 p = Vector3.LerpUnclamped(start, target, eased);
                 p.y += Mathf.Sin(local * Mathf.PI) * (.28f + (i % 3) * .03f);
                 mungsils[i].localPosition = p;
                 float stretch = Mathf.Sin(local * Mathf.PI);
                 float land = Mathf.Clamp01((local - .78f) / .22f);
-                mungsils[i].localScale = new Vector3(.16f + local * .84f + land * .05f, .08f + local * .92f - stretch * .08f, 1f);
+                mungsils[i].localScale = new Vector3(.12f + local * .88f + land * .04f, .04f + local * .96f - stretch * .06f, 1f);
                 mungsils[i].localRotation = Quaternion.Euler(0, (1f - local) * (i % 2 == 0 ? 74f : -74f), 0);
                 trails[i].localPosition = target + new Vector3(0, -.03f, .06f);
                 trails[i].localScale = new Vector3(.35f + local * .65f, .35f + local * .65f, .35f + local * .65f);
@@ -666,7 +664,7 @@ namespace Mgf.MungsilFashionShow
             {
                 float p = .5f + .5f * Mathf.Sin(worldClock * 2.3f);
                 titleSpoolRt.localScale = Vector3.one * (1f + p * .045f);
-                titleSignRt.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(worldClock * .9f) * .7f);
+                titleSignRt.localRotation = Quaternion.Euler(0, 0, -5f + Mathf.Sin(worldClock * .9f) * .45f);
             }
             displayedScore = Mathf.MoveTowards(displayedScore, st.score, Mathf.Max(100f, Mathf.Abs(st.score - displayedScore) * 5f) * dt);
             scoreText.text = "점수 " + Mathf.RoundToInt(displayedScore);
@@ -733,7 +731,7 @@ namespace Mgf.MungsilFashionShow
                 float infoH = Mathf.Clamp(rootRt.rect.height * .68f, 282f, 336f);
                 SetPanel(orderShadowRt, new Vector2(.5f, .66f), new Vector2(infoX, -6), new Vector2(infoW, infoH));
                 SetPanel(orderClothRt, new Vector2(.5f, .66f), new Vector2(infoX, 0), new Vector2(infoW - 6, infoH - 6));
-                SetPanel(orderStitchRt, new Vector2(.5f, .66f), new Vector2(infoX, 0), new Vector2(infoW - 12, infoH - 12));
+                SetPanel(orderStitchRt, new Vector2(.5f, .66f), new Vector2(infoX - infoW * .5f + 8f, 0), new Vector2(10, infoH - 6));
                 Place(orderText.rectTransform, new Vector2(.5f, .87f), new Vector2(infoX - infoW * .31f, 0));
                 Place(scoreText.rectTransform, new Vector2(.5f, .865f), new Vector2(infoX, 0));
                 Place(livesText.rectTransform, new Vector2(.5f, .87f), new Vector2(infoX + infoW * .31f, 0));
@@ -749,20 +747,20 @@ namespace Mgf.MungsilFashionShow
                 SetPanel(roulettePanelRt, new Vector2(.5f, .62f), new Vector2(controlX, 0), new Vector2(controlW, 132));
                 rouletteClothRt.sizeDelta = new Vector2(controlW, 126);
                 rouletteRt[0].anchoredPosition = new Vector2(-68, 7); rouletteRt[1].anchoredPosition = new Vector2(68, 7);
-                rouletteUsesText.rectTransform.sizeDelta = new Vector2(controlW - 18f, 36);
+                rouletteUsesText.rectTransform.sizeDelta = new Vector2(controlW - 18f, 22);
                 SetPanel(ropeTrackRt, new Vector2(.5f, .31f), new Vector2(controlX, 0), new Vector2(controlW, 118));
                 ropeClothRt.sizeDelta = new Vector2(controlW, 112); ropeRailRt.sizeDelta = new Vector2(controlW - 34f, 13);
-                ropeInstructionText.rectTransform.sizeDelta = new Vector2(controlW - 18f, 39);
+                ropeInstructionText.rectTransform.sizeDelta = new Vector2(controlW - 18f, 24);
                 SetRopeScale((controlW - 48f) * .5f);
                 feedbackRt.anchorMin = feedbackRt.anchorMax = new Vector2(.50f, .54f); feedbackRt.sizeDelta = new Vector2(600, 142);
                 titleLogo.fontSize = 47; titleTag.fontSize = 18;
-                Place(titleMeta.rectTransform, new Vector2(.5f, .66f), Vector2.zero); titleMeta.color = Ink;
+                Place(titleMeta.rectTransform, new Vector2(.63f, .58f), Vector2.zero); titleMeta.color = Cream;
             }
             else
             {
                 SetPanel(orderShadowRt, new Vector2(.5f, .84f), new Vector2(0, -5), new Vector2(374, 272));
                 SetPanel(orderClothRt, new Vector2(.5f, .84f), Vector2.zero, new Vector2(374, 268));
-                SetPanel(orderStitchRt, new Vector2(.5f, .84f), Vector2.zero, new Vector2(368, 262));
+                SetPanel(orderStitchRt, new Vector2(.5f, .84f), new Vector2(-182, 0), new Vector2(10, 262));
                 Place(orderText.rectTransform, new Vector2(.13f, .955f), Vector2.zero);
                 Place(scoreText.rectTransform, new Vector2(.56f, .955f), Vector2.zero);
                 Place(livesText.rectTransform, new Vector2(.84f, .955f), Vector2.zero);
@@ -777,14 +775,14 @@ namespace Mgf.MungsilFashionShow
                 SetPanel(roulettePanelRt, new Vector2(.5f, .295f), Vector2.zero, new Vector2(280, 130));
                 rouletteClothRt.sizeDelta = new Vector2(280, 126);
                 rouletteRt[0].anchoredPosition = new Vector2(-68, 7); rouletteRt[1].anchoredPosition = new Vector2(68, 7);
-                rouletteUsesText.rectTransform.sizeDelta = new Vector2(260, 36);
+                rouletteUsesText.rectTransform.sizeDelta = new Vector2(260, 22);
                 SetPanel(ropeTrackRt, new Vector2(.5f, .115f), Vector2.zero, new Vector2(364, 110));
                 ropeClothRt.sizeDelta = new Vector2(364, 106); ropeRailRt.sizeDelta = new Vector2(330, 13);
-                ropeInstructionText.rectTransform.sizeDelta = new Vector2(340, 39);
+                ropeInstructionText.rectTransform.sizeDelta = new Vector2(340, 24);
                 SetRopeScale(157f);
                 feedbackRt.anchorMin = feedbackRt.anchorMax = new Vector2(.5f, .61f); feedbackRt.sizeDelta = new Vector2(352, 132);
                 titleLogo.fontSize = 43; titleTag.fontSize = 17;
-                Place(titleMeta.rectTransform, new Vector2(.5f, .685f), Vector2.zero); titleMeta.color = Ink;
+                Place(titleMeta.rectTransform, new Vector2(.62f, .60f), Vector2.zero); titleMeta.color = Cream;
             }
         }
 
@@ -873,10 +871,10 @@ namespace Mgf.MungsilFashionShow
                 mungsils[i].gameObject.SetActive(true); mungsils[i].localPosition = pedestalPositions[i] + new Vector3(0, -.21f, .18f);
                 mungsils[i].localScale = Vector3.one; trails[i].gameObject.SetActive(true); landed[i] = false;
             }
-            feedbackTitle.text = $"✓ {answer}칸 코디 완성";
+            feedbackTitle.text = $"✓ {answer}칸 의상 인쇄 완료";
             feedbackTitle.color = PlumDark;
             feedbackText.text = reveal;
-            feedbackWash.color = new Color(Mint.r, Mint.g, Mint.b, .96f);
+            feedbackWash.color = new Color(Butter.r, Butter.g, Butter.b, .97f);
             feedbackG.alpha = 1;
             MgfFx.Punch(feedbackRt, .18f + Mathf.Min(.10f, combo * .02f), .34f);
             MgfFx.Punch(judgeRoot, .16f, .38f);
@@ -893,10 +891,10 @@ namespace Mgf.MungsilFashionShow
                 mungsils[i].localScale = Vector3.one; trails[i].gameObject.SetActive(true); landed[i] = false;
             }
             ghostRope.gameObject.SetActive(true); ghostRope.localPosition = pedestalPositions[Mathf.Clamp(answer - 1, 0, 29)] + Vector3.up * .14f;
-            feedbackTitle.text = guessed < answer ? "△ 조립되지 않은 패턴이 남았습니다" : "△ 빈 옷걸이가 남았습니다";
+            feedbackTitle.text = guessed < answer ? "△ 인쇄되지 않은 의상이 남았습니다" : "△ 빈 패턴 칸이 남았습니다";
             feedbackTitle.color = Coral;
             feedbackText.text = MisconceptionMessage(misconception) + "\n" + explanation;
-            feedbackWash.color = new Color(Cream.r, Cream.g, Cream.b, .97f);
+            feedbackWash.color = new Color(Cream.r, Cream.g, Cream.b, .98f);
             feedbackG.alpha = 1;
             MgfFx.Shake(cam, .085f, .26f); // 화면 흔들림은 오답 전용.
             MgfFx.Punch(judgeBody, .10f, .28f);
@@ -932,10 +930,10 @@ namespace Mgf.MungsilFashionShow
         void ShowEnd(bool clear)
         {
             SetScreen(); displayedEndScore = 0f;
-            endTitle.text = clear ? "앙코르 쇼 확정" : "오늘의 무대 폐막";
+            endTitle.text = clear ? "패턴북 인쇄 완료" : "오늘의 작업 종료";
             string accuracy = st.firstAttemptTotal == 0 ? "0" : Mathf.RoundToInt(st.firstAttemptCorrect * 100f / st.firstAttemptTotal).ToString();
             endStats.text = $"완성 주문  {st.solved}/{MungsilRules.Goal}\n첫 시도 정확도  {accuracy}%\n최고 콤보  {st.combo}";
-            endStartText.text = clear ? "앙코르 다시 열기" : "새 쇼 다시 열기";
+            endStartText.text = clear ? "새 판 다시 인쇄" : "새 패턴북 열기";
             curtainOpen = clear ? 1f : .25f;
             if (clear)
             {

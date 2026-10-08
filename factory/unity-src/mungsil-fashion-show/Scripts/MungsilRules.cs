@@ -153,8 +153,12 @@ namespace Mgf.MungsilFashionShow
                 }));
             }
 
-            string[] dicePairs = { "빨간색과 파란색", "민트색과 자두색", "노란색과 흰색", "주황색과 남색", "분홍색과 초록색" };
-            for (int p = 0; p < dicePairs.Length; p++)
+            string[,] dicePairs =
+            {
+                { "빨간색", "파란색" }, { "민트색", "자두색" }, { "노란색", "흰색" },
+                { "주황색", "남색" }, { "분홍색", "초록색" }
+            };
+            for (int p = 0; p < dicePairs.GetLength(0); p++)
             for (int target = 3; target <= 11; target++)
             {
                 int answer = DiceSumCount(target);
@@ -163,7 +167,7 @@ namespace Mgf.MungsilFashionShow
                 {
                     id = "dice-sum-" + serial++, kind = OrderKind.DiceSum, band = 2,
                     a = target, b = p, answer = answer,
-                    prompt = $"서로 다른 {dicePairs[p]} 두 개의 주사위를 동시에 던질 때, 두 눈의 수의 합이 {target}인 경우의 수를 구하시오.",
+                    prompt = $"서로 다른 두 개의 주사위({dicePairs[p, 0]} 주사위와 {dicePairs[p, 1]} 주사위)를 동시에 던질 때, 두 눈의 수의 합이 {target}인 경우의 수를 구하시오.",
                     concept = "서로 다른 두 주사위의 순서쌍",
                     reveal = $"(첫째, 둘째)를 구별해 세면 {answer}가지",
                     distractorA = unordered, misconceptionA = "distinct-dice-unordered",
@@ -171,14 +175,18 @@ namespace Mgf.MungsilFashionShow
                 }));
             }
 
-            string[] coinPairs = { "금색과 은색", "민트색과 자두색", "줄무늬와 점무늬", "큰 글자와 작은 글자", "별과 달", "A와 B" };
-            for (int p = 0; p < coinPairs.Length; p++)
+            string[,] coinPairs =
+            {
+                { "금색", "은색" }, { "민트색", "자두색" }, { "줄무늬", "점무늬" },
+                { "큰 글자", "작은 글자" }, { "별", "달" }, { "A", "B" }
+            };
+            for (int p = 0; p < coinPairs.GetLength(0); p++)
             {
                 Add(result, seen, Finish(new FashionOrder
                 {
                     id = "coins-" + serial++, kind = OrderKind.CoinPair, band = 2,
                     a = p, b = 2, answer = 4,
-                    prompt = $"서로 다른 {coinPairs[p]} 두 개의 동전을 동시에 던질 때, 나오는 모든 경우의 수를 구하시오.",
+                    prompt = $"서로 다른 두 개의 동전({coinPairs[p, 0]} 동전과 {coinPairs[p, 1]} 동전)을 동시에 던질 때, 나오는 모든 경우의 수를 구하시오.",
                     concept = "서로 다른 두 동전의 순서쌍", reveal = "(앞, 뒤)와 (뒤, 앞)을 구별하면 4가지",
                     distractorA = 3, misconceptionA = "distinct-coins-unordered",
                     distractorB = 2, misconceptionB = "count-only-one-coin"
@@ -196,7 +204,7 @@ namespace Mgf.MungsilFashionShow
                 {
                     id = "zero-cards-" + serial++, kind = OrderKind.ZeroCards, band = 3,
                     a = count, b = shift, answer = answer,
-                    prompt = $"숫자 {string.Join(", ", digits)}을 각각 하나씩 적은 카드 {count}장 중 2장을 뽑아 만들 수 있는 두 자리 자연수의 개수를 구하시오.",
+                    prompt = $"숫자 {string.Join(", ", digits)}{ObjectParticle(digits[digits.Count - 1])} 각각 하나씩 적은 카드 {count}장 중 2장을 뽑아 만들 수 있는 두 자리 자연수의 개수를 구하시오.",
                     concept = "0이 포함된 카드로 두 자리 자연수 만들기",
                     reveal = $"십의 자리 {count - 1}가지 × 일의 자리 {count - 1}가지 = {answer}",
                     distractorA = count * (count - 1), misconceptionA = "leading-zero-included",
@@ -401,6 +409,16 @@ namespace Mgf.MungsilFashionShow
             int count = 0;
             for (int n = 1; n <= limit; n++) if (n % d1 == 0 || n % d2 == 0) count++;
             return count;
+        }
+
+        // 숫자를 한글로 읽었을 때 받침이 있으면 '을', 없으면 '를'을 쓴다.
+        static string ObjectParticle(int digit)
+        {
+            switch (digit)
+            {
+                case 0: case 1: case 3: case 6: case 7: case 8: return "을";
+                default: return "를";
+            }
         }
 
         static int StableCode(string s)
