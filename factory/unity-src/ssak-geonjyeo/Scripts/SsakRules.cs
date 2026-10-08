@@ -89,7 +89,27 @@ namespace Mgf.SsakGeonjyeo
             bool allX = xMask == 15, allY = yMask == 7;
             if (allY && CountBits(xMask) == 1) return "등번호가 " + Values(xMask, 4) + "인 경우";
             if (allX && CountBits(yMask) == 1) return "집게번호가 " + Values(yMask, 3) + "인 경우";
-            return "등번호가 " + Values(xMask, 4) + " 중 하나이고 집게번호가 " + Values(yMask, 3) + " 중 하나인 경우";
+            string x = CountBits(xMask) == 1
+                ? "등번호가 " + Values(xMask, 4) + "이고 "
+                : "등번호가 " + Values(xMask, 4) + " 중 하나이고 ";
+            string y = CountBits(yMask) == 1
+                ? "집게번호가 " + Values(yMask, 3) + "인 경우"
+                : "집게번호가 " + Values(yMask, 3) + " 중 하나인 경우";
+            return x + y;
+        }
+
+        // 받침에 맞춘 조사: 1(일)·3(삼)은 받침 있음, 2(이)·4(사)는 받침 없음.
+        static bool HasFinal(int mask) { int v = 0; for (int i = 0; i < 4; i++) if ((mask & (1 << i)) != 0) v = i + 1; return v == 1 || v == 3; }
+
+        static string ProductConditionText(int xMask, int yMask)
+        {
+            string x = CountBits(xMask) == 1
+                ? "등번호 " + Values(xMask, 4) + (HasFinal(xMask) ? "과 " : "와 ")
+                : "등번호 " + Values(xMask, 4) + " 중 하나와 ";
+            string y = CountBits(yMask) == 1
+                ? "집게번호 " + Values(yMask, 3) + (HasFinal(yMask) ? "을" : "를")
+                : "집게번호 " + Values(yMask, 3) + " 중 하나를";
+            return x + y;
         }
 
         public static string PairList(int mask)
@@ -119,7 +139,7 @@ namespace Mgf.SsakGeonjyeo
             return new TideProblem {
                 id = "sg-practice", kind = TideKind.Single, band = 0,
                 answerMask = answer, answerCount = 2, xMask = 1, yMask = 3,
-                prompt = "등번호가 1인 경우를 모두 건지시오.",
+                prompt = "연습 웅덩이의 네 마리 중 등번호가 1인 경우를 모두 건지시오.",
                 reveal = "집게번호 1, 2 → 2가지 · (1,1), (1,2)",
                 unitConcept = "한 사건의 경우의 수"
             };
@@ -179,7 +199,7 @@ namespace Mgf.SsakGeonjyeo
                 id = "product-" + serial + "-" + xMask + "-" + yMask, kind = TideKind.Product, band = 3,
                 answerMask = answer, answerCount = cx * cy, xMask = xMask, yMask = yMask,
                 firstCount = cx, secondCount = cy,
-                prompt = "등번호 " + Values(xMask, 4) + " 중 하나와 집게번호 " + Values(yMask, 3) + " 중 하나를 각각 고를 때의 모든 경우를 건지시오.",
+                prompt = ProductConditionText(xMask, yMask) + " 각각 고를 때의 모든 경우를 건지시오.",
                 reveal = cx + "×" + cy + "=" + (cx * cy) + " · " + PairList(answer),
                 unitConcept = "곱의 법칙"
             };
@@ -272,8 +292,13 @@ namespace Mgf.SsakGeonjyeo
         public static string MisconceptionId(TideProblem p, int capacity, int selectedMask)
         {
             if (p == null || IsCorrect(p, capacity, selectedMask)) return "";
-            if (p.kind == TideKind.Sum && capacity == p.firstCount * p.secondCount) return "sum_as_product";
-            if (p.kind == TideKind.Product && capacity == p.firstCount + p.secondCount) return "product_as_sum";
+            int mistakenCount = p.kind == TideKind.Sum
+                ? p.firstCount * p.secondCount
+                : p.kind == TideKind.Product ? p.firstCount + p.secondCount : -1;
+            // 2+2와 2×2처럼 오개념 계산값이 실제 정답 수와 같으면 수만으로 행동 원인을
+            // 단정할 수 없다. 그때는 아래의 실제 집합 차이를 먼저 설명한다.
+            if (mistakenCount != p.answerCount && capacity == mistakenCount)
+                return p.kind == TideKind.Sum ? "sum_as_product" : "product_as_sum";
             if (p.kind == TideKind.Product && selectedMask != p.answerMask &&
                 CollapsedRoleMask(selectedMask) == CollapsedRoleMask(p.answerMask)) return "unordered_pair_roles";
             if (p.kind == TideKind.Product && (selectedMask == Rectangle(p.xMask, 1) || selectedMask == Rectangle(1, p.yMask)))

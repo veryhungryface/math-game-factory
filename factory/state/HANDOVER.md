@@ -3,6 +3,24 @@
 > 마지막 갱신: 2026-10-09. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-09 — 「싹 건져」 2차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u6` Unity 게임 `ssak-geonjyeo`의 최신 검수 high 1건과 nice-to-have 1건을
+병렬 레인 `factory/work-lanes/20261009-013916-L1/`에서 수정했다. 정본은
+`factory/unity-src/ssak-geonjyeo/`, WebGL 산출물은 `public/g/ssak-geonjyeo/`이며 게시·배포는 실행하지 않았다.
+
+- 둥근 파스텔 웅덩이·플라스틱 게·줄로 생물을 이동시키는 정답 사건을 제거했다. 절단 층리 암반과
+  낮아지는 수면, 전용 각진 갑각·집게 메시로 물성을 갈랐고, 정답은 게를 제자리에 둔 채 집게 신호와
+  결과 암석 칸을 순차 점등한다. thumb/square도 최종 WebGL 타이틀 캡처로 다시 만들었다.
+- 동일 실제 pointer 절차를 새 빌드 `8e0426fb3ed1c8d1`에서 재실행했다. 1판은 의도적 누락 뒤
+  `clear/7/lives2/first6`, 결과 화면에서 재시작한 2판은 `clear/7/lives3/first7`; 정답 캡처에서
+  게 제자리·집게 신호·결과 칸 대응을 확인했다.
+- 무뇌 200판은 고정·순환·무작위·무입력 첫 시도 모두 0%, 보수적 우연 상한 **0.455%**,
+  무입력 진도 0이다. 수학 판정과 문제 생성기는 바꾸지 않았고 독립 `mathcheck.json` pass를 유지했다.
+- Unity 빌드 warnings 0, Unity 산출물 **7.9MB**(게임 폴더 **9,176KB**), 공식 QA
+  **45/45·fatal 0**, M4/Metal 모바일 **71fps**, 1280 **69fps**, 15초 유지율 **90%**.
+  `replan_required=false`; reduced-motion과 결과 카드 복습 진입 2건은 보류했다.
+
 ## 2026-10-09 — 「뭉실 패션쇼」 3차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u6` Unity 게임 `mungsil-fashion-show`의 3차 검수 high 1건·medium 1건과 누적

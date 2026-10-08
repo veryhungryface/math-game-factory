@@ -28,6 +28,10 @@ namespace Mgf.SsakGeonjyeo
             public string misconceptionId = "";
             public bool onboarding;
             public bool frozen;
+            // 실제 pointer 검증용: 화면에 보이는 라벨 위치(물리 px, 왼쪽 위 원점) [등, 집게, x, y]…
+            public int[] crabPx = new int[0];
+            public int[] controlPx = new int[0];
+            public int screenW, screenH;
         }
 
         enum GamePhase { Title, Practice, Playing, Reveal, End }
@@ -50,6 +54,9 @@ namespace Mgf.SsakGeonjyeo
         string endReason = "";
         Vector3 previousSweepPoint;
         bool hasPreviousSweepPoint;
+        Vector2 dragStartScreen;
+        bool practiceCapacityMoved, practiceSweepMoved;
+        int practiceMisses;
 
         void Awake()
         {
@@ -65,8 +72,8 @@ namespace Mgf.SsakGeonjyeo
 
         void Prewarm()
         {
-            var sb = new StringBuilder("싹건져경우를한번에건져라중학교2학년경우의수옥빛조수웅덩이건지기시작그물칸부터정하시오등번호집게번호사건합의법칙곱의법칙연습실전조수매듭점수남은시간모두건지시오정답다시시도게임종료재도전");
-            sb.Append("집게번호12가지한사건경우또는각각하나씩동시에일어나지않는두사건의합그물손잡이에서시작해게를쓸고놓으시오");
+            var sb = new StringBuilder("싹건져경우를한번에건져라중학교2학년경우의수층리암반조수수조황금표본웅덩이건지기시작그물칸부터정하시오등번호집게번호사건합의법칙곱의법칙연습실전조수매듭점수남은시간모두건지시오정답다시시도게임종료재도전");
+            sb.Append("집게번호12가지한사건경우또는각각하나씩동시에일어나지않는두사건의합그물손잡이에서시작해게를쓸고놓으시오연습웅덩이네마리밝은조개레일옆으로노란시작점시범등번호인두게를건졌다이제실전놓친경우잡은빠진");
             for (int i = 0; i < bridgeBank.Count; i++) { sb.Append(bridgeBank[i].prompt); sb.Append(bridgeBank[i].answer); sb.Append(bridgeBank[i].unitConcept); }
             MgfText.Prewarm(sb.ToString());
         }
@@ -150,12 +157,14 @@ namespace Mgf.SsakGeonjyeo
             st.level = 1;
             st.tide = 0;
             st.attempts = 0;
+            st.remainingSec = 90;
             st.firstCorrect = false;
             st.firstEvaluated = false;
             st.misconceptionId = "";
             st.onboarding = true;
             st.frozen = true;
             idleClock = 0f;
+            practiceMisses = 0;
             ResetCrabOrder(true);
             BindCurrent();
             ResetWorldForProblem(true);
@@ -267,7 +276,7 @@ namespace Mgf.SsakGeonjyeo
             revealPractice = gamePhase == GamePhase.Practice;
             revealCorrect = SsakRules.IsCorrect(current, st.capacity, selectedMask);
             st.attempts++;
-            st.remainingSec = Mathf.CeilToInt(runLeft);
+            if (!revealPractice) st.remainingSec = Mathf.CeilToInt(runLeft);
 
             if (revealPractice)
             {
@@ -319,11 +328,15 @@ namespace Mgf.SsakGeonjyeo
                 {
                     gamePhase = GamePhase.Practice;
                     selectedMask = 0;
-                    SetCapacity(0, false);
+                    // 연습 오답은 쓸기만 다시 한다. 이미 맞게 만든 그물 2칸은 유지한다.
+                    int keep = st.capacity == 2 ? 2 : 0;
+                    SetCapacity(keep, false);
                     BindCurrent();
                     ResetWorldForProblem(true);
-                    ReplayGuide(true);
                     SetScreen();
+                    practiceMisses++;
+                    if (practiceMisses >= 3) PracticeDemoCatch();
+                    else ReplayGuide(true);
                 }
                 return;
             }
@@ -371,8 +384,91 @@ namespace Mgf.SsakGeonjyeo
 
         void HandleInput()
         {
-            if (MgfPointer.Down)
+            // WebGL 첫 제스처가 오디오 컨텍스트를 깨우는 프레임에는 Down이 유실돼도
+            // Held/Up은 들어올 수 있다. 타이틀은 그 첫 실제 포인터 제스처를 놓치지 않는다.
+            if (gamePhase == GamePhase.Title && MgfPointer.Held && !titlePressed)
             {
+                titlePressed = true;
+                BeginTitlePress();
+            }
+            // 저사양(소프트웨어 렌더링)에서는 빠른 탭의 Down과 Up이 같은 프레임에 들어온다.
+            // Down 처리 뒤 함수를 끝내면 그 Up을 잃어 타이틀·손잡이가 반응하지 않았다 → Up도 같은 프레임에 처리한다.
+            if (MgfPointer.Down) HandlePointerDown();
+            if (MgfPointer.Held && titlePressed) UpdateTitlePress(MgfPointer.Position);
+            if (MgfPointer.Up && titlePressed)
+            {
+                titlePressed = false;
+                EndTitlePress();
+                StartPractice();
+                return;
+            }
+            if (MgfPointer.Up && gamePhase == GamePhase.Title)
+            {
+                EndTitlePress();
+                StartPractice();
+                return;
+            }
+            if (MgfPointer.Held && dragMode == DragMode.Capacity)
+            {
+                if (gamePhase == GamePhase.Practice)
+                {
+                    if (Vector2.Distance(dragStartScreen, MgfPointer.Position) >= 24f)
+                    {
+                        practiceCapacityMoved = true;
+                        SetCapacity(2, true);
+                    }
+                }
+                else UpdateCapacityFromPointer(MgfPointer.Position, true);
+            }
+            if (MgfPointer.Held && dragMode == DragMode.Sweep)
+            {
+                if (Vector2.Distance(dragStartScreen, MgfPointer.Position) >= 36f) practiceSweepMoved = true;
+                UpdateSweep(MgfPointer.Position);
+            }
+            if (MgfPointer.Up && dragMode == DragMode.Capacity)
+            {
+                dragMode = DragMode.None;
+                EndCapacityDrag();
+                if (gamePhase == GamePhase.Practice && practiceCapacityMoved && st.capacity == 2) AdvancePracticeGuideToSweep();
+                else if (gamePhase == GamePhase.Practice)
+                {
+                    // 실패한 첫 시도에는 검수 지시대로 손잡이를 실제 목표까지 시범 이동한다.
+                    // 사용자가 한 번은 레일을 눌러야 하며 본판에는 이 보조가 없다.
+                    SetCapacity(2, true);
+                    AdvancePracticeGuideToSweep();
+                    ShowToast("시범: 조개 손잡이가 2칸까지 이동했다 · 이제 ② 드래그", 3.0f);
+                }
+                return;
+            }
+            if (MgfPointer.Up && dragMode == DragMode.Sweep)
+            {
+                dragMode = DragMode.None;
+                EndSweep();
+                if (gamePhase == GamePhase.Playing && !practiceSweepMoved)
+                {
+                    // 본판에서 손잡이를 끌지 않고 톡 누른 것은 제출이 아니다(빈 그물로 매듭을 잃지 않게).
+                    selectedMask = 0;
+                    BindCurrent();
+                    sweepTrail.gameObject.SetActive(false);
+                    RefuseInput("그물 손잡이에서 게 쪽으로 끌어 건지시오");
+                    return;
+                }
+                if (gamePhase == GamePhase.Practice && (!practiceSweepMoved || selectedMask == 0))
+                {
+                    selectedMask = 0;
+                    BindCurrent();
+                    sweepTrail.gameObject.SetActive(false);
+                    practiceMisses++;
+                    if (practiceMisses >= 3) { PracticeDemoCatch(); return; }
+                    RefuseInput("노란 시작점에서 등번호 1인 게 쪽으로 드래그하시오");
+                    return;
+                }
+                SubmitSweep();
+            }
+        }
+
+        void HandlePointerDown()
+        {
                 st.pointerVersion++;
                 SpawnTapRipple(MgfPointer.Position);
                 MgfBridge.NotifyChanged();
@@ -391,14 +487,15 @@ namespace Mgf.SsakGeonjyeo
                 }
                 if (gamePhase != GamePhase.Practice && gamePhase != GamePhase.Playing) return;
                 idleClock = 0f;
-                if (IsCapacityHandle(MgfPointer.Position))
-                {
-                    dragMode = DragMode.Capacity;
-                    BeginCapacityDrag();
-                    UpdateCapacityFromPointer(MgfPointer.Position, true);
-                    return;
-                }
-                if (IsSweepHandle(MgfPointer.Position))
+                bool practiceControl = gamePhase == GamePhase.Practice && IsPracticeControlZone(MgfPointer.Position);
+                bool playing = gamePhase == GamePhase.Playing;
+                bool zone = IsPracticeControlZone(MgfPointer.Position);
+                // 본판: 조개 손잡이를 먼저 판정한다. 그물 칸을 정한 뒤에도 다시 잡아 고칠 수 있어야 한다.
+                bool capacityStart = (playing && (IsCapacityHandle(MgfPointer.Position) || st.capacity == 0 && zone))
+                    || (gamePhase == GamePhase.Practice && st.capacity == 0 && (practiceControl || IsCapacityHandle(MgfPointer.Position)));
+                bool sweepStart = !capacityStart && ((playing && st.capacity > 0 && zone) || IsSweepHandle(MgfPointer.Position)
+                    || (gamePhase == GamePhase.Practice && st.capacity == 2 && practiceControl));
+                if (sweepStart)
                 {
                     if (st.capacity <= 0)
                     {
@@ -410,10 +507,23 @@ namespace Mgf.SsakGeonjyeo
                     selectedMask = 0;
                     sweepPointCount = 0;
                     hasPreviousSweepPoint = false;
+                    dragStartScreen = MgfPointer.Position;
+                    practiceSweepMoved = false;
                     BeginSweep();
                     UpdateSweep(MgfPointer.Position);
                     return;
                 }
+                if (capacityStart)
+                {
+                    dragMode = DragMode.Capacity;
+                    dragStartScreen = MgfPointer.Position;
+                    practiceCapacityMoved = false;
+                    BeginCapacityDrag();
+                    if (gamePhase != GamePhase.Practice) UpdateCapacityFromPointer(MgfPointer.Position, true);
+                    return;
+                }
+                // 연습에서 엉뚱한 곳을 누른 것도 놓친 시도로 센다 — 세 번이면 게임이 시범으로 건진다.
+                if (gamePhase == GamePhase.Practice && st.capacity == 2 && ++practiceMisses >= 3) { PracticeDemoCatch(); return; }
                 int crab = CrabAtScreen(MgfPointer.Position);
                 if (crab >= 0)
                 {
@@ -421,32 +531,6 @@ namespace Mgf.SsakGeonjyeo
                     RefuseInput("그물 손잡이에서 시작해 번호 게들을 한 번에 쓸어 건지시오");
                 }
                 else RefuseInput(st.capacity <= 0 ? "조개 손잡이를 끌어 그물 칸부터 정하시오" : "그물 손잡이에서 드래그를 시작하시오");
-            }
-
-            if (MgfPointer.Held && titlePressed) UpdateTitlePress(MgfPointer.Position);
-            if (MgfPointer.Up && titlePressed)
-            {
-                titlePressed = false;
-                EndTitlePress();
-                StartPractice();
-                return;
-            }
-            if (MgfPointer.Held && dragMode == DragMode.Capacity) UpdateCapacityFromPointer(MgfPointer.Position, true);
-            if (MgfPointer.Held && dragMode == DragMode.Sweep) UpdateSweep(MgfPointer.Position);
-            if (MgfPointer.Up && dragMode == DragMode.Capacity)
-            {
-                dragMode = DragMode.None;
-                EndCapacityDrag();
-                if (gamePhase == GamePhase.Practice && st.capacity == 2) AdvancePracticeGuideToSweep();
-                else if (gamePhase == GamePhase.Practice) RefuseInput("연습에서는 그물 2칸을 만드시오");
-                return;
-            }
-            if (MgfPointer.Up && dragMode == DragMode.Sweep)
-            {
-                dragMode = DragMode.None;
-                EndSweep();
-                SubmitSweep();
-            }
         }
 
         void UpdateCapacityFromPointer(Vector2 screen, bool notify)
@@ -474,7 +558,8 @@ namespace Mgf.SsakGeonjyeo
             {
                 if (!IsCrabActive(i)) continue;
                 Vector3 c = CrabHitCenter(i);
-                if (DistancePointSegmentXZ(c, previousSweepPoint, p) <= 0.58f) AddSelected(i);
+                // 연습 웅덩이는 게가 네 마리뿐이라 판정 반경을 넓힌다. 본판은 원래 반경.
+                if (DistancePointSegmentXZ(c, previousSweepPoint, p) <= (practiceLayout ? 0.82f : 0.58f)) AddSelected(i);
             }
             previousSweepPoint = p;
         }
@@ -487,6 +572,19 @@ namespace Mgf.SsakGeonjyeo
             if (d < 0.0001f) return Vector2.Distance(pp, aa);
             float t = Mathf.Clamp01(Vector2.Dot(pp - aa, ab) / d);
             return Vector2.Distance(pp, aa + ab * t);
+        }
+
+        // 연습(채점 없음)에서 세 번 놓치면 게임이 직접 시범으로 건진다. 본판에는 이 보조가 없다.
+        void PracticeDemoCatch()
+        {
+            if (gamePhase != GamePhase.Practice || current == null) return;
+            SetCapacity(2, true);
+            selectedMask = current.answerMask;
+            BindCurrent();
+            for (int i = 0; i < SsakRules.UniverseCount; i++)
+                if ((selectedMask & (1 << i)) != 0) { previousSweepPoint = CrabHitCenter(i); CaptureCrab(i, 0); }
+            SubmitSweep();
+            ShowToast("시범: (1,1), (1,2) 두 게를 건졌다 · 이제 실전", 2.6f);
         }
 
         void FinishPendingReveal()
@@ -524,7 +622,31 @@ namespace Mgf.SsakGeonjyeo
             st.onboarding = gamePhase == GamePhase.Practice;
             st.frozen = gamePhase == GamePhase.Practice || gamePhase == GamePhase.Reveal || gamePhase == GamePhase.End;
             BindCurrent();
+            FillScreenProbe();
             return JsonUtility.ToJson(st);
+        }
+
+        void FillScreenProbe()
+        {
+            st.screenW = Screen.width; st.screenH = Screen.height;
+            int n = 0;
+            for (int i = 0; i < SsakRules.UniverseCount; i++) if (IsCrabActive(i)) n++;
+            if (st.crabPx.Length != n * 4) st.crabPx = new int[n * 4];
+            int w = 0;
+            for (int i = 0; i < SsakRules.UniverseCount; i++)
+            {
+                if (!IsCrabActive(i)) continue;
+                Vector3 sp = cam.WorldToScreenPoint(CrabHitCenter(i));
+                st.crabPx[w++] = SsakRules.BackOfIndex(i); st.crabPx[w++] = SsakRules.ClawOfIndex(i);
+                st.crabPx[w++] = Mathf.RoundToInt(sp.x); st.crabPx[w++] = Mathf.RoundToInt(Screen.height - sp.y);
+            }
+            if (st.controlPx.Length != 8) st.controlPx = new int[8];
+            Vector3 a = cam.WorldToScreenPoint(RailStart), b = cam.WorldToScreenPoint(RailEnd);
+            Vector3 h = cam.WorldToScreenPoint(capacityHandle.transform.position), sw = cam.WorldToScreenPoint(SweepHome);
+            st.controlPx[0] = Mathf.RoundToInt(a.x); st.controlPx[1] = Mathf.RoundToInt(Screen.height - a.y);
+            st.controlPx[2] = Mathf.RoundToInt(b.x); st.controlPx[3] = Mathf.RoundToInt(Screen.height - b.y);
+            st.controlPx[4] = Mathf.RoundToInt(h.x); st.controlPx[5] = Mathf.RoundToInt(Screen.height - h.y);
+            st.controlPx[6] = Mathf.RoundToInt(sw.x); st.controlPx[7] = Mathf.RoundToInt(Screen.height - sw.y);
         }
 
         public string ProblemBankJson() => MgfJson.Bank(bridgeBank);
