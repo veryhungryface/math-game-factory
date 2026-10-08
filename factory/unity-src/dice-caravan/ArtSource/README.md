@@ -9,3 +9,7 @@ The visible title and game world, salt-flat caravan, pressed-ceramic pins, woven
 ## Review round 2 procedural material pass
 
 No external asset or model was added. `DiceCaravanView.MakeSurfaceTexture` deterministically creates three 64×64 runtime textures: cross-woven indigo sail cloth, hairline-cracked pressed ceramic, and blotched oxidized brass. The world was changed from a static pale slab to a dark reflective brine horizon with reusable moving salt-current strips; the same materials continue from title into play.
+
+## Review round 3 structural differentiation pass
+
+No external asset or model was added. The live scene now builds a three-tier salt-market dispatch yard from Unity primitives: fifteen angular stalls, route parcels, fourteen animated porters, twin rails, a branching junction, and a five-lamp semaphore gate. Round ceramic UI pins were replaced by cut-corner enamel route tags. Correct feedback no longer unfolds cloth: Luma runs the chosen route, the gate lamps switch on, the semaphore lifts, and the caravan crosses a real branch. The practice overlay also renders the current integer sum and an animated pointer route; result statistics sit on their own opaque manifest panel.

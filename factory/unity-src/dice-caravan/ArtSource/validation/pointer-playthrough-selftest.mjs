@@ -167,10 +167,10 @@ async function solveCurrent(page, problemsById, log, label) {
   const resolved = await waitForState(page, current => current.phase === 'clear' || current.solved > before.solved, `${label} did not resolve correctly`);
   if (label === 'perfect-mission-1') {
     await sleep(320);
-    await page.screenshot({ path: path.join(FRAMES, '02-sail-unfurl-event.png') });
+    await page.screenshot({ path: path.join(FRAMES, '02-route-gate-event.png') });
     await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
     await sleep(260);
-    await page.screenshot({ path: path.join(FRAMES, '02b-sail-unfurl-event-wide.png') });
+    await page.screenshot({ path: path.join(FRAMES, '02b-route-gate-event-wide.png') });
     await page.setViewport(VIEWPORT);
     await sleep(100);
   }
@@ -225,15 +225,24 @@ try {
   const titleStartedMs = Date.now() - titleStartAt;
   actions.push({ action: 'title-invalid-tap-spatial-guide', point: [48, 720], after: afterWrongTitleTap, screenshot: '00b-title-spatial-guide.png' });
   actions.push({ action: 'title-centre-cover-pointer', point: [195, 422], titleStartedMs, after: await state(page) });
+  const practiceWrongIndex = 22; // (4,5): the exact dead-end observed by first-play review.
+  await click(page, pinPoint(practiceWrongIndex, 6, 6));
+  const practiceWrongSelected = await state(page);
+  if (practiceWrongSelected.selectedPins !== 1 || !practiceWrongSelected.onboarding) throw new Error(`practice wrong-pin selection was not visible: ${JSON.stringify(practiceWrongSelected)}`);
+  await page.screenshot({ path: path.join(FRAMES, '01-practice-wrong-remove.png') });
+  await click(page, pinPoint(practiceWrongIndex, 6, 6));
+  const practiceWrongRemoved = await state(page);
+  if (practiceWrongRemoved.selectedPins !== 0 || !practiceWrongRemoved.onboarding) throw new Error(`practice wrong-pin removal failed: ${JSON.stringify(practiceWrongRemoved)}`);
+  actions.push({ action: 'practice-wrong-pin-remove', pointer: pinPoint(practiceWrongIndex, 6, 6).map(Math.round), before: practiceWrongSelected, after: practiceWrongRemoved, screenshot: '01-practice-wrong-remove.png' });
   await finishPractice(page, actions, '01');
   const firstMissionId = (await state(page)).problemId;
   for (let mission = 0; mission < 6; mission++) await solveCurrent(page, problemsById, actions, `perfect-mission-${mission + 1}`);
   const perfect = await waitForState(page, current => current.phase === 'clear', 'perfect run did not clear');
   await page.screenshot({ path: path.join(FRAMES, '02-perfect-clear.png') });
 
-  await click(page, [195, 542]);
+  await click(page, [195, 590]);
   await waitForState(page, current => current.onboarding === true, 'restart board did not start second practice');
-  actions.push({ action: 'restart-pointer', point: [195, 542], after: await state(page) });
+  actions.push({ action: 'restart-pointer', point: [195, 590], after: await state(page) });
   await finishPractice(page, actions, '03');
 
   const wrongBefore = await state(page);
@@ -262,6 +271,7 @@ try {
     everyPointerEventTrusted: pointerAudit.length > 0 && pointerAudit.every(event => event.isTrusted),
     perfectClear: perfect.phase === 'clear' && perfect.solved === 6 && perfect.lives === 3 && perfect.firstAttemptTotal === 6 && perfect.firstAttemptCorrect === 6,
     recoveryClear: recovery.phase === 'clear' && recovery.solved === 6 && recovery.lives === 2 && recovery.firstAttemptTotal === 6 && recovery.firstAttemptCorrect === 5,
+    practiceWrongPinRemoved: practiceWrongSelected.selectedPins === 1 && practiceWrongRemoved.selectedPins === 0,
     titleStartsWithin10Seconds: titleStartedMs < 10000,
     unorderedMirrorsNotInteractive: unorderedHiddenProbeCount >= 2,
     noConsoleErrors: errors.length === 0

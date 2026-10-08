@@ -62,7 +62,7 @@ namespace Mgf.DiceCaravan
 
         void Prewarm()
         {
-            var sb = new StringBuilder("다이스캐러밴핀을엮어달길을열어라중학교2학년경우의수조건에맞는경우를모두핀으로표시하시오서로다른두개의주사위를동시에던질때두눈의수의합곱대표회장부회장십의자리일의자리자연수황동유리성도판돛끈바람등순풍매듭첫시도정답오답항로완주대상이염호를건넜다멈췄다다시출항덮개열기경우를먼저표시하시오");
+            var sb = new StringBuilder("다이스캐러밴핀을엮어달길을열어라중학교2학년경우의수조건에맞는경우를모두핀으로표시하시오서로다른두개의주사위를동시에던질때두눈의수의합곱대표회장부회장십의자리일의자리자연수황동유리성도판돛끈바람등순풍매듭첫시도정답오답항로완주대상이염호를건넜다멈췄다다시출항덮개열기경우를먼저표시하시오소금시장번배차구밀어표식단계누르기빼기손잡이아래로당기기");
             for (int i = 0; i < catalog.Count; i++) { sb.Append(catalog[i].prompt); sb.Append(catalog[i].reveal); sb.Append(catalog[i].concept); }
             MgfText.Prewarm(sb.ToString());
         }
@@ -220,6 +220,21 @@ namespace Mgf.DiceCaravan
         void TogglePin(int index)
         {
             if (index < 0 || index >= current.answerSet.Length) return;
+            if (phase == RunPhase.Practice)
+            {
+                int required = NextPracticeGuidePin();
+                bool removingExtra = required >= 0 && selected[required] && !current.answerSet[required];
+                if (removingExtra && index != required)
+                {
+                    Refuse("현재 잘못된 표식을 다시 눌러 먼저 빼시오.");
+                    MgfFx.Punch(pinRt[required], .12f, .26f); PositionGuide(); return;
+                }
+                if (!removingExtra && required >= 0 && current.answerSet[index] && !selected[index] && index != required)
+                {
+                    Refuse("빛나는 단계의 합부터 차례로 확인하시오.");
+                    MgfFx.Punch(pinRt[required], .12f, .26f); PositionGuide(); return;
+                }
+            }
             selected[index] = !selected[index];
             st.selectedPins += selected[index] ? 1 : -1;
             idleGuide = 0f; st.misconceptionId = "";
@@ -244,6 +259,7 @@ namespace Mgf.DiceCaravan
             bool practice = phase == RunPhase.Practice;
             feedbackPractice = practice; feedbackCorrect = correct; feedbackClock = 0f;
             phase = RunPhase.Feedback; st.misconceptionId = misconception; draggingCord = false;
+            UpdatePracticeHint();
             Array.Clear(feedbackMissing, 0, feedbackMissing.Length);
             Array.Clear(feedbackExtra, 0, feedbackExtra.Length);
             for (int i = 0; i < current.answerSet.Length; i++)
@@ -265,7 +281,7 @@ namespace Mgf.DiceCaravan
                     if (st.combo > 0 && st.combo % 2 == 0) st.windKnot = 1;
                 }
                 st.selectedPins = 0;
-                CorrectSailEvent(current.AnswerCount, st.combo); ShowReveal(current.reveal, true);
+                CorrectRouteEvent(current.AnswerCount, st.combo); ShowReveal(current.reveal, true);
                 MgfSfx.Play("correct", .42f); MgfBridge.NotifyChanged();
             }
             else
@@ -308,7 +324,7 @@ namespace Mgf.DiceCaravan
                 else if (st.solved >= DiceCaravanRules.Goal)
                 {
                     bool mastered = st.firstAttemptCorrect >= 4;
-                    EndRun(mastered, mastered ? "여섯 장의 성도 돛을 완성했다" : "첫 시도 정답이 4개에 미치지 못했다");
+                    EndRun(mastered, mastered ? "여섯 항로의 배차를 완료했다" : "첫 시도 정답이 4개에 미치지 못했다");
                 }
                 else { phase = RunPhase.Playing; LoadMission(); }
             }
@@ -319,7 +335,7 @@ namespace Mgf.DiceCaravan
                 {
                     phase = feedbackPractice ? RunPhase.Practice : RunPhase.Playing;
                     st.phase = "playing"; problemClock = 0f; idleGuide = 0f;
-                    RefreshAllPins(false); StartGuide(); MgfBridge.NotifyChanged();
+                    RefreshAllPins(false); UpdatePracticeHint(); StartGuide(); MgfBridge.NotifyChanged();
                 }
             }
         }

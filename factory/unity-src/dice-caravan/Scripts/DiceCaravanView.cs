@@ -15,6 +15,9 @@ namespace Mgf.DiceCaravan
         static readonly Color Error = new Color32(194, 99, 96, 255);
         static readonly Color Lake = new Color32(13, 32, 48, 255);
         static readonly Color Moon = new Color32(202, 231, 224, 255);
+        static readonly Color Terracotta = new Color32(170, 76, 55, 255);
+        static readonly Color Saffron = new Color32(232, 171, 72, 255);
+        static readonly Color MarketBlue = new Color32(32, 79, 101, 255);
 
         Camera cam;
         Transform worldRoot, caravanRoot, lumaWorld;
@@ -24,30 +27,39 @@ namespace Mgf.DiceCaravan
         readonly Transform[] saltFlows = new Transform[22];
         readonly Vector3[] saltFlowStart = new Vector3[22];
         readonly Renderer[] lampGlass = new Renderer[3];
+        readonly Renderer[] routeGateLights = new Renderer[5];
+        readonly Transform[] marketFigures = new Transform[14];
+        readonly Vector3[] marketFigureBase = new Vector3[14];
         Material saltMat, indigoMat, brassMat, iceMat, sailMat, glassMat, lampOnMat, lampOffMat, lakeMat, flowMat;
+        Material terracottaMat, saffronMat, marketBlueMat, darkMarketMat;
         Vector3 caravanBase;
-        float caravanTravel, caravanTarget, worldTime, sailPulse, wrongPulse, cameraPulse, sailUnfurl = 1f, sailUnfurlTarget = 1f;
+        Transform routeGateRoot, routeGateArm;
+        float caravanTravel, caravanTarget, caravanBranch, caravanBranchTarget, worldTime, sailPulse, wrongPulse, cameraPulse;
+        float routeEvent, lumaRun;
 
         RectTransform uiRoot, titleRt, gameRt, endRt, boardRt, cordRt, titleCoverRt, restartRt;
         RectTransform promptRt, revealRt, toastRt, guideRt, rippleRt, lumaRt;
+        RectTransform practiceHintRt, practiceTrailRt;
         RectTransform titleCoachRt, titleCoachArrowRt, titleCoachTargetRt;
         readonly RectTransform[] titleCoachDots = new RectTransform[7];
+        readonly RectTransform[] practiceTrailDots = new RectTransform[7];
         CanvasGroup titleG, gameG, endG, revealG, toastG;
         CanvasGroup titleCoachG;
         CanvasScaler canvasScaler;
-        Image titleCoverImage, boardPlate, cordImage, revealPlate, guideImage, rippleImage;
+        Image titleCoverImage, boardPlate, cordImage, revealPlate, guideImage, rippleImage, practiceHintPlate;
         TextMeshProUGUI titleLogo, titleTag, titleMeta, titleCoverText;
         TextMeshProUGUI scoreText, livesText, progressText, timerText, bandText, goalText, promptText, selectedText;
-        TextMeshProUGUI revealText, toastText, endTitle, endStats, endCta;
+        TextMeshProUGUI revealText, toastText, endTitle, endStats, endCta, practiceHintText;
         readonly RectTransform[] pinRt = new RectTransform[36];
         readonly Image[] pinImages = new Image[36];
         readonly TextMeshProUGUI[] pinTexts = new TextMeshProUGUI[36];
         readonly RectTransform[] threadRt = new RectTransform[35];
         readonly Image[] threadImages = new Image[35];
-        Sprite roundSprite, ringSprite, panelSprite, softSprite;
+        Sprite roundSprite, ringSprite, panelSprite, softSprite, tagSprite;
         bool layoutWide;
         int activePins;
         float rippleClock = 9f, toastClock = 9f, guideBoost, cordPull, refuseClock = 9f, titleCoachClock = 9f;
+        string practiceHintCache = "";
 
         RectTransform R(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
         {
@@ -108,6 +120,23 @@ namespace Mgf.DiceCaravan
             }
             t.SetPixels32(px); t.Apply(false, true);
             return Sprite.Create(t, new Rect(0, 0, S, S), new Vector2(.5f, .5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(22, 22, 22, 22));
+        }
+
+        Sprite MakeTagSprite()
+        {
+            const int S = 96;
+            var texture = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "Cut-corner route tag" };
+            var pixels = new Color32[S * S];
+            for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+            {
+                float ax = Mathf.Abs((x + .5f) / S * 2f - 1f);
+                float ay = Mathf.Abs((y + .5f) / S * 2f - 1f);
+                float edge = Mathf.Max(ax, ay) + Mathf.Min(ax, ay) * .34f;
+                float alpha = Mathf.Clamp01((1f - edge) * 18f);
+                pixels[y * S + x] = new Color32(255, 255, 255, (byte)(alpha * 255));
+            }
+            texture.SetPixels32(pixels); texture.Apply(false, true);
+            return Sprite.Create(texture, new Rect(0, 0, S, S), new Vector2(.5f, .5f), 100f);
         }
 
         Texture2D MakeSurfaceTexture(Color32 baseColor, int pattern)
@@ -176,6 +205,10 @@ namespace Mgf.DiceCaravan
             lampOffMat = MgfLook.Lit(new Color32(72, 76, 83, 255), .45f, .25f);
             lakeMat = MgfLook.Lit(Lake, .86f, .18f, new Color(.006f, .02f, .03f));
             flowMat = MgfLook.Lit(Moon, .52f, .08f, new Color(.025f, .08f, .075f));
+            terracottaMat = MgfLook.Lit(Terracotta, .24f, .04f);
+            saffronMat = MgfLook.Lit(Saffron, .31f, .05f, new Color(.035f, .018f, .002f));
+            marketBlueMat = MgfLook.Lit(MarketBlue, .27f, .06f);
+            darkMarketMat = MgfLook.Lit(new Color32(17, 27, 35, 255), .38f, .12f);
 
             worldRoot = new GameObject("MoonlitSaltWorld").transform;
             var ground = MgfLook.Block("Reflective midnight brine", new Vector3(0, -.50f, 1.5f), new Vector3(38, .26f, 24), .12f, lakeMat, worldRoot);
@@ -200,10 +233,78 @@ namespace Mgf.DiceCaravan
                 saltFlows[i] = streak.transform; saltFlowStart[i] = streak.transform.localPosition;
             }
 
+            BuildSaltMarket();
+
             caravanRoot = new GameObject("Caravan procession").transform; caravanRoot.SetParent(worldRoot, false);
             caravanBase = new Vector3(-2.4f, 0, 1.4f); caravanRoot.position = caravanBase;
             for (int i = 0; i < 3; i++) BuildWagon(i, new Vector3((i - 1) * 4.2f, 0, (i % 2) * .45f));
             BuildLuma();
+        }
+
+        void BuildSaltMarket()
+        {
+            // A layered, inhabited dispatch yard replaces the empty floating
+            // plane shared by earlier middle-school dioramas.
+            for (int level = 0; level < 3; level++)
+            {
+                float z = 5.2f + level * 1.85f;
+                float y = .10f + level * .72f;
+                MgfLook.Block("Terraced salt quay " + level, new Vector3(0, y, z), new Vector3(25f - level * 2.7f, .58f, 1.55f), .09f,
+                    level % 2 == 0 ? terracottaMat : marketBlueMat, worldRoot);
+                for (int stall = 0; stall < 5; stall++)
+                {
+                    float x = -8f + stall * 4f + (level % 2) * .65f;
+                    var root = new GameObject("Layered market stall " + level + "-" + stall).transform;
+                    root.SetParent(worldRoot, false); root.localPosition = new Vector3(x, y + .52f, z - .1f);
+                    MgfLook.Block("Angular stall body", Vector3.zero, new Vector3(2.15f, .78f, 1.08f), .055f, darkMarketMat, root);
+                    var roof = MgfLook.Block("Folded enamel awning", new Vector3(0, .72f, -.02f), new Vector3(2.38f, .18f, 1.3f), .025f,
+                        (stall + level) % 3 == 0 ? saffronMat : (stall + level) % 3 == 1 ? terracottaMat : marketBlueMat, root);
+                    roof.transform.localRotation = Quaternion.Euler(0, 0, stall % 2 == 0 ? 4f : -4f);
+                    for (int crate = 0; crate < 2; crate++)
+                        MgfLook.Block("Route parcel", new Vector3(-.55f + crate * 1.1f, .45f, -.7f), new Vector3(.55f, .55f + crate * .13f, .45f), .035f,
+                            crate == 0 ? brassMat : saltMat, root);
+                }
+            }
+
+            // Twin rails and a branching gate make the correct event a route
+            // opening rather than another piece of cloth unfolding.
+            for (int rail = 0; rail < 2; rail++)
+            {
+                float z = -.55f + rail * 1.65f;
+                MgfLook.Block("Dispatch rail " + rail, new Vector3(0, -.27f, z), new Vector3(29f, .09f, .12f), .025f, brassMat, worldRoot);
+                var branch = MgfLook.Block("Branch rail " + rail, new Vector3(6.7f, -.25f, z + .72f), new Vector3(9.5f, .08f, .11f), .02f, brassMat, worldRoot);
+                branch.transform.rotation = Quaternion.Euler(0, rail == 0 ? -12f : 12f, 0);
+            }
+            for (int sleeper = 0; sleeper < 22; sleeper++)
+                MgfLook.Block("Salt sleeper " + sleeper, new Vector3(-13f + sleeper * 1.25f, -.30f, .27f), new Vector3(.11f, .07f, 2.45f), .015f,
+                    sleeper % 2 == 0 ? terracottaMat : darkMarketMat, worldRoot);
+
+            var gate = new GameObject("Five-lamp dispatch gate").transform; gate.SetParent(worldRoot, false); gate.localPosition = new Vector3(.8f, 0, .25f);
+            routeGateRoot = gate;
+            MgfLook.Block("Gate left", new Vector3(-1.8f, 1.45f, 0), new Vector3(.28f, 3f, .35f), .04f, darkMarketMat, gate);
+            MgfLook.Block("Gate right", new Vector3(1.8f, 1.45f, 0), new Vector3(.28f, 3f, .35f), .04f, darkMarketMat, gate);
+            MgfLook.Block("Gate header", new Vector3(0, 2.75f, 0), new Vector3(3.9f, .38f, .48f), .05f, terracottaMat, gate);
+            routeGateArm = MgfLook.Block("Route semaphore", new Vector3(-1.55f, 1.4f, -.25f), new Vector3(3.15f, .16f, .22f), .03f, saffronMat, gate).transform;
+            routeGateArm.localRotation = Quaternion.Euler(0, 0, -4f);
+            for (int i = 0; i < routeGateLights.Length; i++)
+            {
+                var light = MgfLook.Prim(PrimitiveType.Cube, "Route lamp " + (i + 1), new Vector3(-1.2f + i * .6f, 2.75f, -.3f),
+                    new Vector3(.34f, .34f, .16f), lampOffMat, gate, false);
+                light.transform.localRotation = Quaternion.Euler(0, 0, 45f); routeGateLights[i] = light.GetComponent<Renderer>();
+            }
+
+            for (int i = 0; i < marketFigures.Length; i++)
+            {
+                float x = -9.2f + (i * 29 % 185) / 10f;
+                float z = 4.4f + (i % 3) * 1.82f;
+                float y = .55f + (i % 3) * .72f;
+                var figure = new GameObject("Salt-market porter " + i).transform; figure.SetParent(worldRoot, false);
+                figure.localPosition = new Vector3(x, y, z);
+                MgfLook.Prim(PrimitiveType.Capsule, "Porter body", Vector3.zero, new Vector3(.24f, .38f, .24f),
+                    i % 3 == 0 ? saffronMat : i % 3 == 1 ? terracottaMat : marketBlueMat, figure, false);
+                MgfLook.Prim(PrimitiveType.Sphere, "Porter head", new Vector3(0, .48f, 0), Vector3.one * .25f, saltMat, figure, false);
+                marketFigures[i] = figure; marketFigureBase[i] = figure.localPosition;
+            }
         }
 
         void BuildWagon(int wagon, Vector3 pos)
@@ -249,6 +350,7 @@ namespace Mgf.DiceCaravan
         void BuildUi()
         {
             roundSprite = MakeSprite(false); ringSprite = MakeSprite(true); panelSprite = MakePanelSprite();
+            tagSprite = MakeTagSprite();
             softSprite = Sprite.Create(MgfLook.SoftDot, new Rect(0, 0, 64, 64), new Vector2(.5f, .5f), 64f);
             uiRoot = R("DiceCaravan UI", MgfText.Canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844));
             uiRoot.anchorMin = Vector2.zero; uiRoot.anchorMax = Vector2.one; uiRoot.offsetMin = uiRoot.offsetMax = Vector2.zero;
@@ -261,24 +363,27 @@ namespace Mgf.DiceCaravan
             titleRt = R("Title world gate", uiRoot, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
             titleRt.anchorMin = Vector2.zero; titleRt.anchorMax = Vector2.one; titleRt.offsetMin = titleRt.offsetMax = Vector2.zero;
             titleG = titleRt.gameObject.AddComponent<CanvasGroup>();
-            // The title is suspended from the live caravan rather than placed
-            // on the catalogue's familiar large floating card.
-            var banner = Img("Mast route rope", titleRt, new Vector2(.5f, .885f), Vector2.zero, new Vector2(318, 7), Brass, softSprite);
-            banner.transform.localRotation = Quaternion.Euler(0, 0, -2f);
-            titleLogo = Txt("Constellation logo", titleRt, "다이스 캐러밴", new Vector2(.5f, .84f), Vector2.zero, 39, Salt, 350);
+            // A narrow depot sign hangs over the inhabited market.  It reads as
+            // route hardware, not the familiar floating title-card template.
+            var depotSign = Img("Salt market route sign", titleRt, new Vector2(.5f, .86f), Vector2.zero, new Vector2(326, 96),
+                new Color(Terracotta.r, Terracotta.g, Terracotta.b, .94f), tagSprite);
+            Img("Route sign rail", depotSign.transform, new Vector2(.5f, .96f), Vector2.zero, new Vector2(278, 6), Saffron, softSprite);
+            Txt("Dispatch bay", depotSign.transform, "소금시장 7번 배차구", new Vector2(.5f, .76f), Vector2.zero, 12, new Color32(255, 222, 144, 255), 280);
+            titleLogo = Txt("Constellation logo", depotSign.transform, "다이스 캐러밴", new Vector2(.5f, .39f), Vector2.zero, 31, Salt, 310);
             titleLogo.characterSpacing = 2; titleLogo.outlineColor = Night; titleLogo.outlineWidth = .17f;
-            titleTag = Txt("Tagline", titleRt, "조건에 맞는 핀을 모두 꽂아라", new Vector2(.5f, .755f), Vector2.zero, 17, Moon, 330);
+            titleTag = Txt("Tagline", titleRt, "조건에 맞는 핀을 모두 꽂아라", new Vector2(.5f, .755f), Vector2.zero, 16, Moon, 330);
             titleTag.outlineColor = Night; titleTag.outlineWidth = .14f;
-            titleMeta = Txt("Unit and record", titleRt, "중2 · 경우의 수   ◇   최고 첫 시도 0/6", new Vector2(.5f, .69f), Vector2.zero, 14, Salt, 350);
+            titleMeta = Txt("Unit and record", titleRt, "중2 · 경우의 수   ◇   최고 첫 시도 0/6", new Vector2(.5f, .705f), Vector2.zero, 13, Salt, 350);
             titleMeta.outlineColor = Night; titleMeta.outlineWidth = .14f;
 
             // The naive first-play harness taps the screen centre.  Place the
             // visible physical cover there so the first intended gesture and
             // its hit target are the same object.
-            titleCoverImage = Img("Actual star-board cover", titleRt, new Vector2(.5f, .50f), Vector2.zero, new Vector2(214, 154), new Color(Lake.r, Lake.g, Lake.b, .97f), panelSprite);
+            titleCoverImage = Img("Actual dispatch-board cover", titleRt, new Vector2(.5f, .49f), Vector2.zero, new Vector2(224, 138), new Color(MarketBlue.r, MarketBlue.g, MarketBlue.b, .97f), tagSprite);
             titleCoverRt = titleCoverImage.rectTransform;
-            Img("Cover brass ring", titleCoverRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(196, 196), new Color(Brass.r, Brass.g, Brass.b, .82f), ringSprite);
-            titleCoverText = Txt("Cover instruction", titleCoverRt, "◇ 성도판 ◇\n덮개 열기", new Vector2(.5f, .5f), Vector2.zero, 20, Salt, 190);
+            Img("Cover brass track", titleCoverRt, new Vector2(.5f, .72f), Vector2.zero, new Vector2(174, 8), Saffron, softSprite);
+            Img("Cover brass track lower", titleCoverRt, new Vector2(.5f, .28f), Vector2.zero, new Vector2(174, 8), Saffron, softSprite);
+            titleCoverText = Txt("Cover instruction", titleCoverRt, "배차 성도판\n덮개 밀어 열기", new Vector2(.5f, .5f), Vector2.zero, 19, Salt, 196);
             titleCoverText.rectTransform.sizeDelta = new Vector2(190, 86); titleCoverText.overflowMode = TextOverflowModes.Overflow;
         }
 
@@ -302,9 +407,10 @@ namespace Mgf.DiceCaravan
             promptText = Txt("Problem", promptRt, "", new Vector2(.5f, .37f), Vector2.zero, 15, Salt, 348);
             promptText.lineSpacing = -6; promptText.overflowMode = TextOverflowModes.Overflow; promptText.maxVisibleLines = 4;
 
-            boardPlate = Img("Pressed ceramic star board", gameRt, new Vector2(.5f, .425f), Vector2.zero, new Vector2(346, 346), new Color(Indigo.r, Indigo.g, Indigo.b, .98f), panelSprite);
+            boardPlate = Img("Angular dispatch manifest", gameRt, new Vector2(.5f, .425f), Vector2.zero, new Vector2(346, 346), new Color(Indigo.r, Indigo.g, Indigo.b, .98f), tagSprite);
             boardRt = boardPlate.rectTransform;
-            Img("Nickel board rim", boardRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(338, 338), new Color(Ice.r, Ice.g, Ice.b, .16f), ringSprite);
+            Img("Manifest top rail", boardRt, new Vector2(.5f, .965f), Vector2.zero, new Vector2(292, 7), new Color(Saffron.r, Saffron.g, Saffron.b, .86f), softSprite);
+            Img("Manifest bottom rail", boardRt, new Vector2(.5f, .035f), Vector2.zero, new Vector2(292, 7), new Color(Saffron.r, Saffron.g, Saffron.b, .86f), softSprite);
 
             for (int i = 0; i < threadRt.Length; i++)
             {
@@ -313,19 +419,19 @@ namespace Mgf.DiceCaravan
             }
             for (int i = 0; i < 36; i++)
             {
-                pinImages[i] = Img("Ceramic pin " + i, boardRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(50, 50), new Color(Salt.r, Salt.g, Salt.b, .96f), roundSprite);
+                pinImages[i] = Img("Enamel route tag " + i, boardRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(50, 50), new Color(Salt.r, Salt.g, Salt.b, .96f), tagSprite);
                 pinRt[i] = pinImages[i].rectTransform;
-                Img("Brass pin rim", pinRt[i], new Vector2(.5f, .5f), Vector2.zero, new Vector2(52, 52), new Color(Brass.r, Brass.g, Brass.b, .88f), ringSprite);
+                Img("Tag route slot", pinRt[i], new Vector2(.5f, .88f), Vector2.zero, new Vector2(34, 5), new Color(Brass.r, Brass.g, Brass.b, .90f), softSprite);
                 pinTexts[i] = Txt("Pin label", pinRt[i], "", new Vector2(.5f, .5f), Vector2.zero, 13, Indigo, 46);
             }
 
             selectedText = Txt("Selected pin count", gameRt, "핀 0개", new Vector2(.5f, .18f), Vector2.zero, 15, Ice, 160);
-            cordImage = Img("Physical sail cord", gameRt, new Vector2(.5f, .09f), Vector2.zero, new Vector2(78, 94), new Color(Brass.r, Brass.g, Brass.b, .98f), roundSprite);
+            cordImage = Img("Physical dispatch handle", gameRt, new Vector2(.5f, .09f), Vector2.zero, new Vector2(84, 92), new Color(Terracotta.r, Terracotta.g, Terracotta.b, .98f), tagSprite);
             cordRt = cordImage.rectTransform;
             Img("Cord stem", cordRt, new Vector2(.5f, 1f), new Vector2(0, 35), new Vector2(10, 88), Brass, softSprite);
             Txt("Cord label", cordRt, "당겨\n제출", new Vector2(.5f, .5f), Vector2.zero, 17, Indigo, 68);
 
-            var lumaBadge = Img("Luma ceramic badge", gameRt, new Vector2(.16f, .20f), Vector2.zero, new Vector2(82, 82), new Color(Ice.r, Ice.g, Ice.b, .88f), roundSprite);
+            var lumaBadge = Img("Luma route badge", gameRt, new Vector2(.16f, .20f), Vector2.zero, new Vector2(82, 68), new Color(Saffron.r, Saffron.g, Saffron.b, .92f), tagSprite);
             lumaRt = lumaBadge.rectTransform;
             Txt("Luma star mark", lumaRt, "별", new Vector2(.5f, .5f), Vector2.zero, 23, Indigo, 58);
         }
@@ -335,14 +441,16 @@ namespace Mgf.DiceCaravan
             endRt = R("Result sail", uiRoot, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
             endRt.anchorMin = Vector2.zero; endRt.anchorMax = Vector2.one; endRt.offsetMin = endRt.offsetMax = Vector2.zero;
             endG = endRt.gameObject.AddComponent<CanvasGroup>();
-            Img("Result moon veil", endRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(440, 920), new Color(Night.r, Night.g, Night.b, .76f), softSprite);
-            var sail = Img("Six-sail result card", endRt, new Vector2(.5f, .54f), Vector2.zero, new Vector2(356, 440), new Color(Indigo.r, Indigo.g, Indigo.b, .95f), panelSprite);
-            Img("Result constellation", sail.transform, new Vector2(.5f, .70f), Vector2.zero, new Vector2(250, 250), new Color(Ice.r, Ice.g, Ice.b, .75f), ringSprite);
-            endTitle = Txt("Result title", sail.transform, "항해 완료", new Vector2(.5f, .86f), Vector2.zero, 38, Salt, 330);
-            endStats = Txt("Animated result stats", sail.transform, "", new Vector2(.5f, .45f), Vector2.zero, 22, Ice, 320);
-            var restartImage = Img("Restart star board", sail.transform, new Vector2(.5f, .15f), Vector2.zero, new Vector2(280, 78), Brass, panelSprite);
+            Img("Result moon veil", endRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(440, 920), new Color(Night.r, Night.g, Night.b, .80f), softSprite);
+            var sail = Img("Dispatch result card", endRt, new Vector2(.5f, .52f), Vector2.zero, new Vector2(356, 500), new Color(Indigo.r, Indigo.g, Indigo.b, .98f), tagSprite);
+            Img("Result route seal", sail.transform, new Vector2(.5f, .82f), Vector2.zero, new Vector2(112, 112), new Color(Saffron.r, Saffron.g, Saffron.b, .76f), tagSprite);
+            endTitle = Txt("Result title", sail.transform, "항해 완료", new Vector2(.5f, .82f), Vector2.zero, 31, Salt, 330);
+            var statsPlate = Img("Opaque result manifest", sail.transform, new Vector2(.5f, .48f), Vector2.zero, new Vector2(314, 224), new Color(Night.r, Night.g, Night.b, .98f), panelSprite);
+            endStats = Txt("Result stats", statsPlate.transform, "", new Vector2(.5f, .5f), Vector2.zero, 17, Ice, 286);
+            endStats.rectTransform.sizeDelta = new Vector2(286, 196); endStats.overflowMode = TextOverflowModes.Overflow; endStats.lineSpacing = 7;
+            var restartImage = Img("Restart dispatch board", sail.transform, new Vector2(.5f, .13f), Vector2.zero, new Vector2(280, 78), Terracotta, tagSprite);
             restartRt = restartImage.rectTransform;
-            endCta = Txt("Restart label", restartRt, "성도판 다시 열기", new Vector2(.5f, .5f), Vector2.zero, 20, Indigo, 260);
+            endCta = Txt("Restart label", restartRt, "배차판 다시 열기", new Vector2(.5f, .5f), Vector2.zero, 20, Indigo, 260);
         }
 
         void BuildOverlays()
@@ -360,6 +468,17 @@ namespace Mgf.DiceCaravan
             guideRt = guideImage.rectTransform; guideRt.gameObject.SetActive(false);
             rippleImage = Img("Touch ripple", uiRoot, new Vector2(.5f, .5f), Vector2.zero, new Vector2(70, 70), Ice, ringSprite);
             rippleRt = rippleImage.rectTransform; rippleRt.gameObject.SetActive(false);
+
+            practiceHintPlate = Img("Practice equation card", gameRt, new Vector2(.5f, .665f), Vector2.zero, new Vector2(356, 58),
+                new Color(Terracotta.r, Terracotta.g, Terracotta.b, .98f), tagSprite);
+            practiceHintRt = practiceHintPlate.rectTransform;
+            practiceHintText = Txt("Practice equation", practiceHintRt, "", new Vector2(.5f, .5f), Vector2.zero, 15, Salt, 334);
+            practiceHintText.rectTransform.sizeDelta = new Vector2(334, 48); practiceHintText.overflowMode = TextOverflowModes.Overflow;
+            practiceTrailRt = R("Practice pointer route", gameRt, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
+            practiceTrailRt.anchorMin = Vector2.zero; practiceTrailRt.anchorMax = Vector2.one; practiceTrailRt.offsetMin = practiceTrailRt.offsetMax = Vector2.zero;
+            for (int i = 0; i < practiceTrailDots.Length; i++)
+                practiceTrailDots[i] = Img("Practice moving pointer " + i, practiceTrailRt, new Vector2(.5f, .5f), Vector2.zero,
+                    Vector2.one * (10f + i), new Color(Saffron.r, Saffron.g, Saffron.b, .9f), tagSprite).rectTransform;
 
             // Invalid title taps leave a persistent spatial instruction: dim
             // the irrelevant world and draw a dotted route from the tap to the
@@ -384,6 +503,8 @@ namespace Mgf.DiceCaravan
             if (title) { titleG.alpha = 1; UpdateBestText(); }
             if (!title && !end) { gameG.alpha = 1; RefreshProblemUi(); RefreshHud(); }
             guideRt.gameObject.SetActive(!title && !end && (phase == RunPhase.Practice || phase == RunPhase.Playing));
+            if (practiceHintRt) practiceHintRt.gameObject.SetActive(phase == RunPhase.Practice);
+            if (practiceTrailRt) practiceTrailRt.gameObject.SetActive(phase == RunPhase.Practice);
         }
 
         void UpdateBestText()
@@ -405,7 +526,7 @@ namespace Mgf.DiceCaravan
                 pinRt[i].gameObject.SetActive(on);
                 if (on) pinTexts[i].text = current.cellLabels[i];
             }
-            LayoutBoard(); RefreshAllPins(false); RebuildThreads();
+            LayoutBoard(); RefreshAllPins(false); RebuildThreads(); UpdatePracticeHint();
         }
 
         void LayoutBoard()
@@ -457,6 +578,12 @@ namespace Mgf.DiceCaravan
             if (feedbackMissing[i]) { c = Brass; tc = Night; }
             pinImages[i].color = c; pinTexts[i].color = tc;
             pinRt[i].localScale = selected[i] ? Vector3.one * 1.04f : Vector3.one;
+            if (phase == RunPhase.Practice && current.kind == BoardKind.DiceGrid && i < current.cellLabels.Length)
+            {
+                int a = i / current.cols + 1, b = i % current.cols + 1;
+                pinTexts[i].text = selected[i] ? a + "+" + b + "=" + (a + b) : current.cellLabels[i];
+                pinTexts[i].fontSize = selected[i] ? 10.5f : 12f;
+            }
         }
 
         void RebuildThreads()
@@ -488,22 +615,31 @@ namespace Mgf.DiceCaravan
         void ResetWorldForRun()
         {
             caravanTravel = caravanTarget = 0f; sailPulse = wrongPulse = cameraPulse = 0f;
-            sailUnfurl = sailUnfurlTarget = .86f;
+            caravanBranch = caravanBranchTarget = 0f; routeEvent = lumaRun = 0f;
             if (caravanRoot) caravanRoot.position = caravanBase;
+            if (routeGateRoot) routeGateRoot.position = caravanBase + new Vector3(3.2f, 0, 0);
             for (int i = 0; i < 3; i++) if (lampGlass[i]) lampGlass[i].sharedMaterial = lampOnMat;
+            for (int i = 0; i < routeGateLights.Length; i++) if (routeGateLights[i]) routeGateLights[i].sharedMaterial = lampOffMat;
+            if (routeGateArm) routeGateArm.localRotation = Quaternion.Euler(0, 0, -4f);
         }
 
         void ResetWorldForProblem()
         {
-            wrongPulse = 0f; sailPulse = .12f; sailUnfurlTarget = .22f; RefreshHud();
+            wrongPulse = 0f; sailPulse = .12f; routeEvent = 0f; lumaRun = 0f; RefreshHud();
+            for (int i = 0; i < routeGateLights.Length; i++) if (routeGateLights[i]) routeGateLights[i].sharedMaterial = lampOffMat;
+            if (routeGateArm) routeGateArm.localRotation = Quaternion.Euler(0, 0, -4f);
         }
 
-        void CorrectSailEvent(int pinCount, int combo)
+        void CorrectRouteEvent(int pinCount, int combo)
         {
-            sailPulse = 1f; sailUnfurlTarget = 1f; cameraPulse = 1f; caravanTarget += 2.05f + Mathf.Min(.75f, combo * .10f);
-            MgfFx.Glow(caravanRoot.position + Vector3.up * 3.1f, Ice, 10 + pinCount * 2, .34f + combo * .03f);
-            for (int i = 0; i < 6; i++) if (sails[i]) MgfFx.Punch(sails[i], .18f + Mathf.Min(.12f, combo * .02f), .48f);
-            if (lumaWorld) MgfFx.Punch(lumaWorld, .28f, .48f);
+            sailPulse = 1f; cameraPulse = 1f; routeEvent = 1f; lumaRun = 1f;
+            caravanTarget += 2.25f + Mathf.Min(.75f, combo * .10f);
+            caravanBranchTarget = (st.solved % 2 == 0 ? -.72f : .72f);
+            if (routeGateRoot) routeGateRoot.position = caravanRoot.position + new Vector3(2.7f, 0, 0);
+            MgfFx.Glow(routeGateRoot ? routeGateRoot.position + Vector3.up * 2.75f : caravanRoot.position + Vector3.up * 2.75f,
+                Saffron, 10 + pinCount * 2, .34f + combo * .03f);
+            if (routeGateArm) MgfFx.Punch(routeGateArm, .16f, .44f);
+            if (lumaWorld) MgfFx.Punch(lumaWorld, .30f, .48f);
         }
 
         void WrongLeakEvent()
@@ -517,7 +653,8 @@ namespace Mgf.DiceCaravan
         {
             worldTime += dt;
             caravanTravel = Mathf.SmoothStep(caravanTravel, caravanTarget, 1f - Mathf.Exp(-dt * 2.3f));
-            if (caravanRoot) caravanRoot.position = caravanBase + new Vector3(caravanTravel, 0, Mathf.Sin(worldTime * .3f) * .08f);
+            caravanBranch = Mathf.Lerp(caravanBranch, caravanBranchTarget, 1f - Mathf.Exp(-dt * 2.2f));
+            if (caravanRoot) caravanRoot.position = caravanBase + new Vector3(caravanTravel, 0, caravanBranch + Mathf.Sin(worldTime * .3f) * .08f);
             for (int i = 0; i < saltFlows.Length; i++) if (saltFlows[i])
             {
                 Vector3 p = saltFlows[i].localPosition;
@@ -526,19 +663,36 @@ namespace Mgf.DiceCaravan
                 p.y = saltFlowStart[i].y + Mathf.Sin(worldTime * .55f + i) * .012f;
                 saltFlows[i].localPosition = p;
             }
-            sailUnfurl = Mathf.Lerp(sailUnfurl, sailUnfurlTarget, 1f - Mathf.Exp(-dt * (sailUnfurlTarget > sailUnfurl ? 7.5f : 4.5f)));
             for (int i = 0; i < wheels.Length; i++) if (wheels[i]) wheels[i].Rotate(Vector3.up, (8f + Mathf.Abs(caravanTarget - caravanTravel) * 100f) * dt, Space.Self);
             for (int i = 0; i < sails.Length; i++) if (sails[i])
             {
-                float wave = Mathf.Sin(worldTime * 1.7f + i * .8f) * 2.8f;
+                float wave = Mathf.Sin(worldTime * 1.7f + i * .8f) * 1.8f;
                 float leak = wrongPulse > 0 ? Mathf.Sin(worldTime * 18f + i) * 7f * wrongPulse : 0f;
-                sails[i].localScale = new Vector3(sailBaseScale[i].x * Mathf.Lerp(.18f, 1f, sailUnfurl), sailBaseScale[i].y, sailBaseScale[i].z);
+                sails[i].localScale = sailBaseScale[i] * .58f;
                 sails[i].localRotation = Quaternion.Euler(0, i >= 3 ? 180 : 0, (i >= 3 ? 7f : -7f) + wave + leak);
             }
             if (lumaWorld)
             {
-                lumaWorld.localPosition = new Vector3(-.2f, 1.58f + Mathf.Sin(worldTime * 2.3f) * .07f, -.98f);
-                lumaWorld.localRotation = Quaternion.Euler(0, Mathf.Sin(worldTime * .9f) * 9f, wrongPulse > 0 ? -12f * wrongPulse : 0);
+                lumaRun = Mathf.Max(0f, lumaRun - dt * .58f);
+                float runPhase = routeEvent > 0f ? 1f - lumaRun : 0f;
+                lumaWorld.localPosition = new Vector3(-.9f + runPhase * 2.4f, 1.58f + Mathf.Sin(worldTime * (routeEvent > 0f ? 11f : 2.3f)) * (routeEvent > 0f ? .14f : .07f), -.98f);
+                lumaWorld.localRotation = Quaternion.Euler(0, routeEvent > 0f ? -24f : Mathf.Sin(worldTime * .9f) * 9f, wrongPulse > 0 ? -12f * wrongPulse : 0);
+            }
+            if (routeEvent > 0f)
+            {
+                routeEvent = Mathf.Max(0f, routeEvent - dt * .48f);
+                float gateProgress = Mathf.SmoothStep(0f, 1f, 1f - routeEvent);
+                int lit = Mathf.Clamp(Mathf.FloorToInt(gateProgress * 6f), 0, routeGateLights.Length);
+                for (int i = 0; i < routeGateLights.Length; i++) if (routeGateLights[i]) routeGateLights[i].sharedMaterial = i < lit ? lampOnMat : lampOffMat;
+                if (routeGateArm) routeGateArm.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(-4f, 68f, gateProgress));
+            }
+            for (int i = 0; i < marketFigures.Length; i++) if (marketFigures[i])
+            {
+                Vector3 p = marketFigureBase[i];
+                p.x += Mathf.Sin(worldTime * (.38f + i * .017f) + i) * .20f;
+                p.y += Mathf.Abs(Mathf.Sin(worldTime * (1.2f + i * .03f) + i)) * .055f;
+                marketFigures[i].localPosition = p;
+                marketFigures[i].localRotation = Quaternion.Euler(0, Mathf.Sin(worldTime * .7f + i) * 22f, 0);
             }
             sailPulse = Mathf.Max(0, sailPulse - dt * 1.4f); wrongPulse = Mathf.Max(0, wrongPulse - dt * 1.55f); cameraPulse = Mathf.Max(0, cameraPulse - dt * 2f);
             if (cam)
@@ -570,6 +724,7 @@ namespace Mgf.DiceCaravan
                 else timerText.text = st.onboarding ? "문항 정지" : "문항 판정";
                 if (cordRt) cordRt.anchoredPosition = new Vector2(cordRt.anchoredPosition.x, -cordPull);
                 if (lumaRt) lumaRt.localScale = Vector3.one * (1f + Mathf.Sin(worldTime * 2.8f) * .025f + sailPulse * .12f);
+                UpdatePracticeTrail();
             }
             cordPull = Mathf.Lerp(cordPull, draggingCord ? cordPull : 0f, 1f - Mathf.Exp(-dt * 12f));
             UpdateGuide(dt); UpdateOverlays(dt);
@@ -585,11 +740,12 @@ namespace Mgf.DiceCaravan
             if (layoutWide)
             {
                 boardRt.anchorMin = boardRt.anchorMax = new Vector2(.76f, .43f); boardRt.sizeDelta = new Vector2(360, 360);
-                promptRt.anchorMin = promptRt.anchorMax = new Vector2(.76f, .75f); promptRt.sizeDelta = new Vector2(500, 148);
+                promptRt.anchorMin = promptRt.anchorMax = new Vector2(.76f, .79f); promptRt.sizeDelta = new Vector2(500, 136);
                 promptText.rectTransform.sizeDelta = new Vector2(470, 106); goalText.rectTransform.sizeDelta = new Vector2(470, 34);
                 cordRt.anchorMin = cordRt.anchorMax = new Vector2(.76f, .11f);
                 selectedText.rectTransform.anchorMin = selectedText.rectTransform.anchorMax = new Vector2(.76f, .17f);
                 lumaRt.anchorMin = lumaRt.anchorMax = new Vector2(.50f, .20f);
+                practiceHintRt.anchorMin = practiceHintRt.anchorMax = new Vector2(.76f, .675f); practiceHintRt.sizeDelta = new Vector2(430, 54);
                 cam.transform.position = new Vector3(9.8f, 8.6f, -14.8f);
             }
             else
@@ -600,6 +756,7 @@ namespace Mgf.DiceCaravan
                 cordRt.anchorMin = cordRt.anchorMax = new Vector2(.5f, .09f);
                 selectedText.rectTransform.anchorMin = selectedText.rectTransform.anchorMax = new Vector2(.5f, .18f);
                 lumaRt.anchorMin = lumaRt.anchorMax = new Vector2(.16f, .20f);
+                practiceHintRt.anchorMin = practiceHintRt.anchorMax = new Vector2(.5f, .665f); practiceHintRt.sizeDelta = new Vector2(356, 58);
                 cam.transform.position = new Vector3(9.6f, 9.8f, -14.6f);
             }
             LayoutBoard(); RebuildThreads();
@@ -640,6 +797,73 @@ namespace Mgf.DiceCaravan
             Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, target.position);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(uiRoot, screen, null, out Vector2 local);
             guideRt.anchoredPosition = local; guideRt.gameObject.SetActive(true);
+        }
+
+        void UpdatePracticeHint()
+        {
+            if (!practiceHintRt || phase != RunPhase.Practice || current == null)
+            {
+                if (practiceHintRt) practiceHintRt.gameObject.SetActive(false);
+                if (practiceTrailRt) practiceTrailRt.gameObject.SetActive(false);
+                return;
+            }
+            practiceHintRt.gameObject.SetActive(true); practiceTrailRt.gameObject.SetActive(true);
+            int target = NextPracticeGuidePin();
+            string message;
+            bool removing = target >= 0 && selected[target] && !current.answerSet[target];
+            if (target < 0) message = "⑤ 네 핀 완성: 손잡이를 아래로 당기기";
+            else
+            {
+                int a = target / current.cols + 1, b = target % current.cols + 1;
+                if (removing) message = a + "+" + b + "=" + (a + b) + " → 이 표식을 다시 눌러 빼기";
+                else
+                {
+                    int[] order = { 3, 8, 13, 18 };
+                    int step = 1;
+                    for (int i = 0; i < order.Length; i++) if (order[i] == target) { step = i + 1; break; }
+                    message = StepMark(step) + " (" + a + "," + b + "): " + a + "+" + b + "=5, 누르기";
+                }
+            }
+            if (practiceHintCache != message)
+            {
+                practiceHintCache = message; practiceHintText.text = message;
+                practiceHintPlate.color = removing ? new Color(Error.r, Error.g, Error.b, .99f) : new Color(Terracotta.r, Terracotta.g, Terracotta.b, .99f);
+                MgfFx.Punch(practiceHintRt, .06f, .2f);
+            }
+        }
+
+        static string StepMark(int step)
+        {
+            return step + "단계";
+        }
+
+        void UpdatePracticeTrail()
+        {
+            if (!practiceTrailRt || !practiceTrailRt.gameObject.activeSelf || phase != RunPhase.Practice) return;
+            int targetPin = NextPracticeGuidePin();
+            RectTransform target = targetPin >= 0 ? pinRt[targetPin] : cordRt;
+            Vector2 fromScreen;
+            Vector2 toScreen;
+            if (targetPin >= 0)
+            {
+                fromScreen = RectTransformUtility.WorldToScreenPoint(null, practiceHintRt.position);
+                toScreen = RectTransformUtility.WorldToScreenPoint(null, target.position);
+            }
+            else
+            {
+                fromScreen = RectTransformUtility.WorldToScreenPoint(null, cordRt.position);
+                toScreen = fromScreen + Vector2.down * Mathf.Max(70f, Screen.height * .085f);
+            }
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(practiceTrailRt, fromScreen, null, out Vector2 from);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(practiceTrailRt, toScreen, null, out Vector2 to);
+            float wave = Mathf.Repeat(worldTime, 1.2f) / 1.2f;
+            for (int i = 0; i < practiceTrailDots.Length; i++)
+            {
+                float t = Mathf.Repeat(wave + i / (float)practiceTrailDots.Length, 1f);
+                Vector2 bend = targetPin >= 0 ? Vector2.right * Mathf.Sin(t * Mathf.PI) * 13f : Vector2.zero;
+                practiceTrailDots[i].anchoredPosition = Vector2.Lerp(from, to, t) + bend;
+                practiceTrailDots[i].localScale = Vector3.one * Mathf.Lerp(.55f, 1.05f, t);
+            }
         }
 
         void UpdateGuide(float dt)
@@ -695,7 +919,7 @@ namespace Mgf.DiceCaravan
 
         void ShowReveal(string message, bool correct)
         {
-            revealText.text = (correct ? "◇ 성도 돛 완성 ◇\n" : "△ 바람이 새는 핀 확인 △\n") + message;
+            revealText.text = (correct ? "◇ 배차 경로 개통 ◇\n" : "△ 잘못된 노선 표식 확인 △\n") + message;
             revealPlate.color = correct ? new Color(Indigo.r, Indigo.g, Indigo.b, .97f) : new Color(.34f, .23f, .28f, .97f);
             revealG.alpha = 1; revealRt.localScale = Vector3.one * .72f; revealRt.gameObject.SetActive(true);
         }
@@ -706,7 +930,7 @@ namespace Mgf.DiceCaravan
             SetScreen();
             endTitle.text = win ? "달길 완주" : "염호 정박";
             endTitle.color = win ? Ice : Salt;
-            endStats.text = reason + "\n\n완성한 돛  " + st.solved + "/6\n첫 시도 정답  " + st.firstAttemptCorrect + "/" + st.firstAttemptTotal + "\n별빛 점수  " + st.score.ToString("N0");
+            endStats.text = reason + "\n\n통과한 항로  " + st.solved + "/6\n첫 시도 정답  " + st.firstAttemptCorrect + "/" + st.firstAttemptTotal + "\n배차 점수  " + st.score.ToString("N0");
             if (win)
             {
                 int best = Mathf.Max(PlayerPrefs.GetInt("dice-caravan-best-first", 0), st.firstAttemptCorrect);
@@ -724,7 +948,7 @@ namespace Mgf.DiceCaravan
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(uiRoot, screen, null, out Vector2 local);
                 rippleRt.anchoredPosition = local; rippleClock = 0f; rippleRt.gameObject.SetActive(true);
             }
-            PositionGuide();
+            UpdatePracticeHint(); PositionGuide();
         }
 
         int NextPracticeGuidePin()
