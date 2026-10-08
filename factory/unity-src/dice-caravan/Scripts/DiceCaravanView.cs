@@ -9,24 +9,31 @@ namespace Mgf.DiceCaravan
     {
         static readonly Color Salt = new Color32(239, 232, 211, 255);
         static readonly Color Indigo = new Color32(47, 66, 82, 255);
-        static readonly Color Blue = new Color32(83, 120, 130, 255);
         static readonly Color Ice = new Color32(190, 218, 207, 255);
         static readonly Color Brass = new Color32(174, 125, 75, 255);
         static readonly Color Night = new Color32(25, 36, 45, 255);
         static readonly Color Error = new Color32(194, 99, 96, 255);
+        static readonly Color Lake = new Color32(13, 32, 48, 255);
+        static readonly Color Moon = new Color32(202, 231, 224, 255);
 
         Camera cam;
         Transform worldRoot, caravanRoot, lumaWorld;
         readonly Transform[] sails = new Transform[6];
+        readonly Vector3[] sailBaseScale = new Vector3[6];
         readonly Transform[] wheels = new Transform[12];
+        readonly Transform[] saltFlows = new Transform[22];
+        readonly Vector3[] saltFlowStart = new Vector3[22];
         readonly Renderer[] lampGlass = new Renderer[3];
-        Material saltMat, indigoMat, brassMat, iceMat, sailMat, glassMat, darkMat, lampOnMat, lampOffMat;
+        Material saltMat, indigoMat, brassMat, iceMat, sailMat, glassMat, lampOnMat, lampOffMat, lakeMat, flowMat;
         Vector3 caravanBase;
-        float caravanTravel, caravanTarget, worldTime, sailPulse, wrongPulse, cameraPulse;
+        float caravanTravel, caravanTarget, worldTime, sailPulse, wrongPulse, cameraPulse, sailUnfurl = 1f, sailUnfurlTarget = 1f;
 
         RectTransform uiRoot, titleRt, gameRt, endRt, boardRt, cordRt, titleCoverRt, restartRt;
         RectTransform promptRt, revealRt, toastRt, guideRt, rippleRt, lumaRt;
+        RectTransform titleCoachRt, titleCoachArrowRt, titleCoachTargetRt;
+        readonly RectTransform[] titleCoachDots = new RectTransform[7];
         CanvasGroup titleG, gameG, endG, revealG, toastG;
+        CanvasGroup titleCoachG;
         CanvasScaler canvasScaler;
         Image titleCoverImage, boardPlate, cordImage, revealPlate, guideImage, rippleImage;
         TextMeshProUGUI titleLogo, titleTag, titleMeta, titleCoverText;
@@ -40,7 +47,7 @@ namespace Mgf.DiceCaravan
         Sprite roundSprite, ringSprite, panelSprite, softSprite;
         bool layoutWide;
         int activePins;
-        float rippleClock = 9f, toastClock = 9f, guideBoost, cordPull, refuseClock = 9f;
+        float rippleClock = 9f, toastClock = 9f, guideBoost, cordPull, refuseClock = 9f, titleCoachClock = 9f;
 
         RectTransform R(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
         {
@@ -103,6 +110,42 @@ namespace Mgf.DiceCaravan
             return Sprite.Create(t, new Rect(0, 0, S, S), new Vector2(.5f, .5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(22, 22, 22, 22));
         }
 
+        Texture2D MakeSurfaceTexture(Color32 baseColor, int pattern)
+        {
+            const int S = 64;
+            var texture = new Texture2D(S, S, TextureFormat.RGBA32, false)
+            {
+                name = pattern == 0 ? "Woven indigo" : pattern == 1 ? "Cracked ceramic" : "Oxidized brass",
+                wrapMode = TextureWrapMode.Repeat,
+                filterMode = FilterMode.Bilinear
+            };
+            var pixels = new Color32[S * S];
+            for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+            {
+                float tone;
+                if (pattern == 0)
+                {
+                    bool warp = x % 5 == 0, weft = y % 4 == 0;
+                    tone = warp && weft ? 1.24f : warp || weft ? .86f : 1f;
+                }
+                else if (pattern == 1)
+                {
+                    int vein = (x * 11 + y * 17 + (x / 9) * 23) % 47;
+                    tone = vein < 2 || Mathf.Abs((x % 19) - (y % 19)) < 1 ? .55f : .98f + ((x + y) % 7) * .008f;
+                }
+                else
+                {
+                    float blotch = Mathf.Sin(x * .29f) * Mathf.Cos(y * .23f) + Mathf.Sin((x + y) * .13f);
+                    tone = blotch > .72f ? .48f : blotch < -.82f ? 1.16f : .91f;
+                }
+                pixels[y * S + x] = new Color32(
+                    (byte)Mathf.Clamp(baseColor.r * tone, 0, 255),
+                    (byte)Mathf.Clamp(baseColor.g * tone, 0, 255),
+                    (byte)Mathf.Clamp(baseColor.b * tone, 0, 255), 255);
+            }
+            texture.SetPixels32(pixels); texture.Apply(false, true); return texture;
+        }
+
         void BuildWorld()
         {
             // CreatePrimitive(Cylinder) adds CapsuleCollider by name internally. Explicit references keep
@@ -110,35 +153,51 @@ namespace Mgf.DiceCaravan
             var colliderTypes = new GameObject("Collider type keeper");
             colliderTypes.AddComponent<CapsuleCollider>(); colliderTypes.AddComponent<SphereCollider>(); colliderTypes.AddComponent<BoxCollider>(); colliderTypes.AddComponent<MeshCollider>();
             Object.Destroy(colliderTypes);
-            MgfLook.Sky(new Color32(39, 55, 68, 255), new Color32(111, 137, 144, 255), new Color32(226, 220, 197, 255));
-            MgfLook.Sun(new Vector3(42, -32, 18), new Color(1f, .88f, .70f), 1.08f);
-            RenderSettings.ambientLight = new Color(.39f, .42f, .40f);
-            RenderSettings.fog = true; RenderSettings.fogColor = new Color(.54f, .62f, .62f); RenderSettings.fogDensity = .007f;
+            MgfLook.Sky(new Color32(5, 12, 30, 255), new Color32(22, 61, 78, 255), new Color32(42, 91, 94, 255), .66f);
+            MgfLook.Sun(new Vector3(36, -28, 12), new Color(.70f, .89f, 1f), 1.18f, .76f);
+            RenderSettings.ambientLight = new Color(.16f, .25f, .31f);
+            RenderSettings.fog = true; RenderSettings.fogColor = new Color(.035f, .12f, .18f); RenderSettings.fogDensity = .010f;
             cam = MgfLook.Camera(new Vector3(9.6f, 9.8f, -14.6f), new Vector3(0, .5f, 0), 40f);
             cam.backgroundColor = Night;
 
             // A tactile miniature made from chalky salt, woven cloth and pressed
             // ceramic.  There is intentionally no emissive transparent-glass
             // material: that was the catalogue-family collision called out in review.
-            saltMat = MgfLook.Lit(Salt, .18f, .01f);
-            indigoMat = MgfLook.Lit(Indigo, .34f, .04f);
-            brassMat = MgfLook.Lit(Brass, .38f, .28f);
+            var weaveTex = MakeSurfaceTexture(new Color32(83, 115, 135, 255), 0);
+            var ceramicTex = MakeSurfaceTexture(new Color32(221, 213, 183, 255), 1);
+            var oxideTex = MakeSurfaceTexture(new Color32(174, 125, 75, 255), 2);
+            saltMat = MgfLook.Lit(Color.white, .24f, .01f, null, ceramicTex);
+            indigoMat = MgfLook.Lit(new Color32(25, 54, 69, 255), .28f, .07f);
+            brassMat = MgfLook.Lit(Color.white, .36f, .32f, null, oxideTex);
             iceMat = MgfLook.Lit(Ice, .22f, .01f);
-            sailMat = MgfLook.Lit(new Color32(81, 111, 125, 255), .16f, .01f);
-            glassMat = MgfLook.Lit(new Color32(231, 207, 166, 255), .32f, .02f);
-            darkMat = MgfLook.Lit(new Color32(35, 48, 56, 255), .24f, .03f);
+            sailMat = MgfLook.Lit(Color.white, .12f, .01f, null, weaveTex);
+            glassMat = MgfLook.Lit(Color.white, .28f, .02f, null, ceramicTex);
             lampOnMat = MgfLook.Lit(new Color32(239, 185, 96, 255), .42f, .08f, new Color(.14f, .065f, .01f));
             lampOffMat = MgfLook.Lit(new Color32(72, 76, 83, 255), .45f, .25f);
+            lakeMat = MgfLook.Lit(Lake, .86f, .18f, new Color(.006f, .02f, .03f));
+            flowMat = MgfLook.Lit(Moon, .52f, .08f, new Color(.025f, .08f, .075f));
 
             worldRoot = new GameObject("MoonlitSaltWorld").transform;
-            var ground = MgfLook.Block("Chalk salt flat", new Vector3(0, -.45f, 1.5f), new Vector3(34, .35f, 22), .18f, saltMat, worldRoot);
+            var ground = MgfLook.Block("Reflective midnight brine", new Vector3(0, -.50f, 1.5f), new Vector3(38, .26f, 24), .12f, lakeMat, worldRoot);
             ground.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            for (int i = 0; i < 24; i++)
+            for (int i = -5; i <= 5; i++)
             {
-                float x = -15f + (i * 37 % 300) / 10f;
-                float z = -7f + (i * 61 % 160) / 10f;
-                var ridge = MgfLook.Block("Carved salt marker", new Vector3(x, -.18f, z), new Vector3(.12f + (i % 3) * .06f, .35f + (i % 4) * .09f, .12f), .05f, iceMat, worldRoot);
-                ridge.transform.rotation = Quaternion.Euler(i % 2 == 0 ? -8 : 9, i * 19f, i % 3 * 7f);
+                float x = i * 4.15f;
+                var island = MgfLook.Block("Broken salt horizon", new Vector3(x, .08f + (Mathf.Abs(i) % 3) * .08f, 10.4f + Mathf.Sin(i * 1.7f) * .55f),
+                    new Vector3(3.35f + (Mathf.Abs(i) % 2) * .7f, .28f + (Mathf.Abs(i) % 3) * .12f, 1.0f + (Mathf.Abs(i) % 4) * .18f), .13f, saltMat, worldRoot);
+                island.transform.rotation = Quaternion.Euler(0, i * 7f, i % 2 == 0 ? 1.5f : -1.5f);
+            }
+            var moon = MgfLook.Prim(PrimitiveType.Sphere, "Low salt moon", new Vector3(-13.5f, 9.8f, 8.5f), Vector3.one * 1.7f,
+                MgfLook.Lit(Moon, .64f, .02f, new Color(.22f, .32f, .28f)), worldRoot, false);
+            moon.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            for (int i = 0; i < saltFlows.Length; i++)
+            {
+                float x = -17f + (i * 47 % 340) / 10f;
+                float z = -7f + (i * 71 % 175) / 10f;
+                var streak = MgfLook.Block("Drifting salt current", new Vector3(x, -.28f + (i % 3) * .025f, z),
+                    new Vector3(.07f + (i % 4) * .035f, .025f, .24f + (i % 6) * .095f), .02f, flowMat, worldRoot);
+                streak.transform.rotation = Quaternion.Euler(i % 3 - 1f, i * 47f % 180f, i % 2 == 0 ? 5f : -6f);
+                saltFlows[i] = streak.transform; saltFlowStart[i] = streak.transform.localPosition;
             }
 
             caravanRoot = new GameObject("Caravan procession").transform; caravanRoot.SetParent(worldRoot, false);
@@ -150,8 +209,8 @@ namespace Mgf.DiceCaravan
         void BuildWagon(int wagon, Vector3 pos)
         {
             var root = new GameObject("Star wagon " + (wagon + 1)).transform; root.SetParent(caravanRoot, false); root.localPosition = pos;
-            MgfLook.Block("Enamel cart", new Vector3(0, .55f, 0), new Vector3(3.05f, .78f, 1.85f), .24f, indigoMat, root);
-            MgfLook.Block("Nickel rim", new Vector3(0, 1.02f, 0), new Vector3(3.18f, .12f, 1.98f), .05f, brassMat, root);
+            MgfLook.Block("Cracked ceramic cart", new Vector3(0, .55f, 0), new Vector3(3.05f, .78f, 1.85f), .16f, indigoMat, root);
+            MgfLook.Block("Oxidized brass rim", new Vector3(0, 1.02f, 0), new Vector3(3.18f, .12f, 1.98f), .035f, brassMat, root);
             for (int side = 0; side < 2; side++)
             {
                 float z = side == 0 ? -1f : 1f;
@@ -164,9 +223,9 @@ namespace Mgf.DiceCaravan
             }
             MgfLook.Block("Mast", new Vector3(-.6f, 2.6f, 0), new Vector3(.12f, 3.4f, .12f), .04f, brassMat, root);
             var sail = MgfLook.Prim(PrimitiveType.Quad, "Woven constellation sail", new Vector3(.45f, 2.8f, 0), new Vector3(2.25f, 2.55f, 1), sailMat, root, false);
-            sail.transform.localRotation = Quaternion.Euler(0, 0, -7f); sails[wagon] = sail.transform;
+            sail.transform.localRotation = Quaternion.Euler(0, 0, -7f); sails[wagon] = sail.transform; sailBaseScale[wagon] = sail.transform.localScale;
             var reverse = MgfLook.Prim(PrimitiveType.Quad, "Sail reverse", new Vector3(.44f, 2.8f, .012f), new Vector3(2.25f, 2.55f, 1), sailMat, root, false);
-            reverse.transform.localRotation = Quaternion.Euler(0, 180, 7f); sails[wagon + 3] = reverse.transform;
+            reverse.transform.localRotation = Quaternion.Euler(0, 180, 7f); sails[wagon + 3] = reverse.transform; sailBaseScale[wagon + 3] = reverse.transform.localScale;
             for (int s = 0; s < 6; s++)
             {
                 float a = s / 6f * Mathf.PI * 2;
@@ -202,19 +261,25 @@ namespace Mgf.DiceCaravan
             titleRt = R("Title world gate", uiRoot, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
             titleRt.anchorMin = Vector2.zero; titleRt.anchorMax = Vector2.one; titleRt.offsetMin = titleRt.offsetMax = Vector2.zero;
             titleG = titleRt.gameObject.AddComponent<CanvasGroup>();
-            // The title uses the same live low-poly salt-flat world as play.
-            // No generated painting is placed in front of the Unity scene.
-            var banner = Img("Woven mast banner", titleRt, new Vector2(.5f, .80f), Vector2.zero, new Vector2(350, 132), new Color(Indigo.r, Indigo.g, Indigo.b, .90f), panelSprite);
+            // The title is suspended from the live caravan rather than placed
+            // on the catalogue's familiar large floating card.
+            var banner = Img("Mast route rope", titleRt, new Vector2(.5f, .885f), Vector2.zero, new Vector2(318, 7), Brass, softSprite);
             banner.transform.localRotation = Quaternion.Euler(0, 0, -2f);
-            titleLogo = Txt("Constellation logo", titleRt, "다이스 캐러밴", new Vector2(.5f, .82f), Vector2.zero, 43, Salt, 340);
-            titleLogo.characterSpacing = 2;
-            titleTag = Txt("Tagline", titleRt, "조건에 맞는 핀을 모두 꽂아라", new Vector2(.5f, .715f), Vector2.zero, 17, Ice, 330);
-            titleMeta = Txt("Unit and record", titleRt, "중2 · 경우의 수   ◇   최고 첫 시도 0/6", new Vector2(.5f, .625f), Vector2.zero, 14, Salt, 350);
+            titleLogo = Txt("Constellation logo", titleRt, "다이스 캐러밴", new Vector2(.5f, .84f), Vector2.zero, 39, Salt, 350);
+            titleLogo.characterSpacing = 2; titleLogo.outlineColor = Night; titleLogo.outlineWidth = .17f;
+            titleTag = Txt("Tagline", titleRt, "조건에 맞는 핀을 모두 꽂아라", new Vector2(.5f, .755f), Vector2.zero, 17, Moon, 330);
+            titleTag.outlineColor = Night; titleTag.outlineWidth = .14f;
+            titleMeta = Txt("Unit and record", titleRt, "중2 · 경우의 수   ◇   최고 첫 시도 0/6", new Vector2(.5f, .69f), Vector2.zero, 14, Salt, 350);
+            titleMeta.outlineColor = Night; titleMeta.outlineWidth = .14f;
 
-            titleCoverImage = Img("Actual star-board cover", titleRt, new Vector2(.5f, .35f), Vector2.zero, new Vector2(286, 92), new Color(Indigo.r, Indigo.g, Indigo.b, .96f), panelSprite);
+            // The naive first-play harness taps the screen centre.  Place the
+            // visible physical cover there so the first intended gesture and
+            // its hit target are the same object.
+            titleCoverImage = Img("Actual star-board cover", titleRt, new Vector2(.5f, .50f), Vector2.zero, new Vector2(214, 154), new Color(Lake.r, Lake.g, Lake.b, .97f), panelSprite);
             titleCoverRt = titleCoverImage.rectTransform;
-            Img("Cover brass ring", titleCoverRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(304, 108), new Color(Brass.r, Brass.g, Brass.b, .72f), ringSprite);
-            titleCoverText = Txt("Cover instruction", titleCoverRt, "◇  성도판 덮개 열기  ◇", new Vector2(.5f, .5f), Vector2.zero, 21, Salt, 270);
+            Img("Cover brass ring", titleCoverRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(196, 196), new Color(Brass.r, Brass.g, Brass.b, .82f), ringSprite);
+            titleCoverText = Txt("Cover instruction", titleCoverRt, "◇ 성도판 ◇\n덮개 열기", new Vector2(.5f, .5f), Vector2.zero, 20, Salt, 190);
+            titleCoverText.rectTransform.sizeDelta = new Vector2(190, 86); titleCoverText.overflowMode = TextOverflowModes.Overflow;
         }
 
         void BuildGameUi()
@@ -230,10 +295,11 @@ namespace Mgf.DiceCaravan
             timerText = Txt("Problem clock", hud, "문항 26초", new Vector2(.88f, .5f), Vector2.zero, 12, Salt, 72);
             bandText = Txt("Band", gameRt, "별지도 연습", new Vector2(.5f, .895f), Vector2.zero, 14, Brass, 340);
 
-            var promptPlate = Img("Tent prompt ribbon", gameRt, new Vector2(.5f, .795f), Vector2.zero, new Vector2(370, 146), new Color(Salt.r, Salt.g, Salt.b, .96f), panelSprite);
+            var promptPlate = Img("Woven prompt sail", gameRt, new Vector2(.5f, .795f), Vector2.zero, new Vector2(370, 146), new Color(Lake.r, Lake.g, Lake.b, .94f), panelSprite);
             promptRt = promptPlate.rectTransform;
-            goalText = Txt("Always visible goal", promptRt, "조건에 맞는 핀을 모두 꽂으시오", new Vector2(.5f, .80f), Vector2.zero, 14, Blue, 350);
-            promptText = Txt("Problem", promptRt, "", new Vector2(.5f, .37f), Vector2.zero, 15, Indigo, 348);
+            Img("Prompt sail stitch", promptRt, new Vector2(.5f, .04f), Vector2.zero, new Vector2(330, 4), new Color(Brass.r, Brass.g, Brass.b, .74f), softSprite);
+            goalText = Txt("Always visible goal", promptRt, "조건에 맞는 핀을 모두 꽂으시오", new Vector2(.5f, .80f), Vector2.zero, 14, Brass, 350);
+            promptText = Txt("Problem", promptRt, "", new Vector2(.5f, .37f), Vector2.zero, 15, Salt, 348);
             promptText.lineSpacing = -6; promptText.overflowMode = TextOverflowModes.Overflow; promptText.maxVisibleLines = 4;
 
             boardPlate = Img("Pressed ceramic star board", gameRt, new Vector2(.5f, .425f), Vector2.zero, new Vector2(346, 346), new Color(Indigo.r, Indigo.g, Indigo.b, .98f), panelSprite);
@@ -261,7 +327,7 @@ namespace Mgf.DiceCaravan
 
             var lumaBadge = Img("Luma ceramic badge", gameRt, new Vector2(.16f, .20f), Vector2.zero, new Vector2(82, 82), new Color(Ice.r, Ice.g, Ice.b, .88f), roundSprite);
             lumaRt = lumaBadge.rectTransform;
-            Txt("Luma star mark", lumaRt, "✦", new Vector2(.5f, .5f), Vector2.zero, 28, Indigo, 58);
+            Txt("Luma star mark", lumaRt, "별", new Vector2(.5f, .5f), Vector2.zero, 23, Indigo, 58);
         }
 
         void BuildEndUi()
@@ -283,7 +349,8 @@ namespace Mgf.DiceCaravan
         {
             revealPlate = Img("Math reveal sail", uiRoot, new Vector2(.5f, .54f), Vector2.zero, new Vector2(360, 150), new Color(Indigo.r, Indigo.g, Indigo.b, .96f), panelSprite);
             revealRt = revealPlate.rectTransform; revealG = revealRt.gameObject.AddComponent<CanvasGroup>(); revealG.alpha = 0;
-            revealText = Txt("Reveal text", revealRt, "", new Vector2(.5f, .5f), Vector2.zero, 20, Salt, 336);
+            revealText = Txt("Reveal text", revealRt, "", new Vector2(.5f, .5f), Vector2.zero, 18, Salt, 336);
+            revealText.rectTransform.sizeDelta = new Vector2(336, 116); revealText.overflowMode = TextOverflowModes.Overflow;
 
             toastRt = Img("Refusal glint", uiRoot, new Vector2(.5f, .69f), Vector2.zero, new Vector2(356, 68), new Color(Night.r, Night.g, Night.b, .94f), panelSprite).rectTransform;
             toastG = toastRt.gameObject.AddComponent<CanvasGroup>(); toastG.alpha = 0;
@@ -293,6 +360,21 @@ namespace Mgf.DiceCaravan
             guideRt = guideImage.rectTransform; guideRt.gameObject.SetActive(false);
             rippleImage = Img("Touch ripple", uiRoot, new Vector2(.5f, .5f), Vector2.zero, new Vector2(70, 70), Ice, ringSprite);
             rippleRt = rippleImage.rectTransform; rippleRt.gameObject.SetActive(false);
+
+            // Invalid title taps leave a persistent spatial instruction: dim
+            // the irrelevant world and draw a dotted route from the tap to the
+            // actual cover.  Text alone was not enough in first-play evidence.
+            titleCoachRt = R("Title tap route", titleRt, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
+            titleCoachRt.anchorMin = Vector2.zero; titleCoachRt.anchorMax = Vector2.one; titleCoachRt.offsetMin = titleCoachRt.offsetMax = Vector2.zero;
+            titleCoachG = titleCoachRt.gameObject.AddComponent<CanvasGroup>(); titleCoachG.alpha = 0;
+            var veil = Img("Title focus veil", titleCoachRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(430, 920), new Color(2f / 255f, 10f / 255f, 22f / 255f, .34f), panelSprite);
+            veil.rectTransform.anchorMin = Vector2.zero; veil.rectTransform.anchorMax = Vector2.one; veil.rectTransform.offsetMin = veil.rectTransform.offsetMax = Vector2.zero;
+            for (int i = 0; i < titleCoachDots.Length; i++)
+                titleCoachDots[i] = Img("Route chevron " + i, titleCoachRt, new Vector2(.5f, .5f), Vector2.zero,
+                    Vector2.one * (12f + i * 1.4f), new Color(Brass.r, Brass.g, Brass.b, .94f), roundSprite).rectTransform;
+            titleCoachTargetRt = Img("Cover target halo", titleCoachRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(238, 214), Moon, ringSprite).rectTransform;
+            titleCoachArrowRt = Txt("Cover route arrow", titleCoachRt, "◇  여기", new Vector2(.5f, .5f), Vector2.zero, 22, Moon, 150).rectTransform;
+            titleCoachRt.gameObject.SetActive(false);
         }
 
         void SetScreen()
@@ -406,18 +488,19 @@ namespace Mgf.DiceCaravan
         void ResetWorldForRun()
         {
             caravanTravel = caravanTarget = 0f; sailPulse = wrongPulse = cameraPulse = 0f;
+            sailUnfurl = sailUnfurlTarget = .86f;
             if (caravanRoot) caravanRoot.position = caravanBase;
             for (int i = 0; i < 3; i++) if (lampGlass[i]) lampGlass[i].sharedMaterial = lampOnMat;
         }
 
         void ResetWorldForProblem()
         {
-            wrongPulse = 0f; sailPulse = .12f; RefreshHud();
+            wrongPulse = 0f; sailPulse = .12f; sailUnfurlTarget = .22f; RefreshHud();
         }
 
         void CorrectSailEvent(int pinCount, int combo)
         {
-            sailPulse = 1f; cameraPulse = 1f; caravanTarget += 1.15f + Mathf.Min(.55f, combo * .08f);
+            sailPulse = 1f; sailUnfurlTarget = 1f; cameraPulse = 1f; caravanTarget += 2.05f + Mathf.Min(.75f, combo * .10f);
             MgfFx.Glow(caravanRoot.position + Vector3.up * 3.1f, Ice, 10 + pinCount * 2, .34f + combo * .03f);
             for (int i = 0; i < 6; i++) if (sails[i]) MgfFx.Punch(sails[i], .18f + Mathf.Min(.12f, combo * .02f), .48f);
             if (lumaWorld) MgfFx.Punch(lumaWorld, .28f, .48f);
@@ -435,11 +518,21 @@ namespace Mgf.DiceCaravan
             worldTime += dt;
             caravanTravel = Mathf.SmoothStep(caravanTravel, caravanTarget, 1f - Mathf.Exp(-dt * 2.3f));
             if (caravanRoot) caravanRoot.position = caravanBase + new Vector3(caravanTravel, 0, Mathf.Sin(worldTime * .3f) * .08f);
+            for (int i = 0; i < saltFlows.Length; i++) if (saltFlows[i])
+            {
+                Vector3 p = saltFlows[i].localPosition;
+                p.x -= dt * (.28f + (i % 5) * .055f);
+                if (p.x < -18f) p.x += 36f;
+                p.y = saltFlowStart[i].y + Mathf.Sin(worldTime * .55f + i) * .012f;
+                saltFlows[i].localPosition = p;
+            }
+            sailUnfurl = Mathf.Lerp(sailUnfurl, sailUnfurlTarget, 1f - Mathf.Exp(-dt * (sailUnfurlTarget > sailUnfurl ? 7.5f : 4.5f)));
             for (int i = 0; i < wheels.Length; i++) if (wheels[i]) wheels[i].Rotate(Vector3.up, (8f + Mathf.Abs(caravanTarget - caravanTravel) * 100f) * dt, Space.Self);
             for (int i = 0; i < sails.Length; i++) if (sails[i])
             {
                 float wave = Mathf.Sin(worldTime * 1.7f + i * .8f) * 2.8f;
                 float leak = wrongPulse > 0 ? Mathf.Sin(worldTime * 18f + i) * 7f * wrongPulse : 0f;
+                sails[i].localScale = new Vector3(sailBaseScale[i].x * Mathf.Lerp(.18f, 1f, sailUnfurl), sailBaseScale[i].y, sailBaseScale[i].z);
                 sails[i].localRotation = Quaternion.Euler(0, i >= 3 ? 180 : 0, (i >= 3 ? 7f : -7f) + wave + leak);
             }
             if (lumaWorld)
@@ -515,7 +608,23 @@ namespace Mgf.DiceCaravan
         void StartGuide() { guideBoost = 1f; PositionGuide(); }
         void BoostGuide() { guideBoost = 2f; PositionGuide(); MgfSfx.Play("pop", .14f); }
         void PointToBoard() { guideBoost = 2f; PositionGuide(true); }
-        void PointToTitleCover() { MgfFx.Punch(titleCoverRt, .15f, .36f); }
+        void PointToTitleCover(Vector2 tapScreen)
+        {
+            MgfFx.Punch(titleCoverRt, .15f, .36f);
+            if (!titleCoachRt) return;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(titleRt, tapScreen, null, out Vector2 from);
+            Vector2 targetScreen = RectTransformUtility.WorldToScreenPoint(null, titleCoverRt.position);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(titleRt, targetScreen, null, out Vector2 to);
+            for (int i = 0; i < titleCoachDots.Length; i++)
+            {
+                float t = (i + 1f) / (titleCoachDots.Length + 1f);
+                Vector2 bend = Vector2.up * Mathf.Sin(t * Mathf.PI) * 34f;
+                titleCoachDots[i].anchoredPosition = Vector2.Lerp(from, to, t) + bend;
+            }
+            titleCoachTargetRt.anchoredPosition = to;
+            titleCoachArrowRt.anchoredPosition = to + Vector2.up * 88f;
+            titleCoachClock = 0f; titleCoachG.alpha = 1f; titleCoachRt.gameObject.SetActive(true);
+        }
         void PulseRestart() { MgfFx.Punch(restartRt, .15f, .36f); }
 
         void PositionGuide(bool boardOnly = false)
@@ -567,6 +676,14 @@ namespace Mgf.DiceCaravan
                 toastRt.anchoredPosition = new Vector2(nudge, 0); refuseClock += dt;
             }
             else toastG.alpha = 0;
+            if (titleCoachRt && titleCoachRt.gameObject.activeSelf)
+            {
+                titleCoachClock += dt;
+                titleCoachG.alpha = titleCoachClock < 4.2f ? 1f : Mathf.Clamp01(1f - (titleCoachClock - 4.2f) / .8f);
+                float pulse = 1f + Mathf.Sin(worldTime * 5.5f) * .055f;
+                titleCoachTargetRt.localScale = Vector3.one * pulse;
+                if (titleCoachClock >= 5f) titleCoachRt.gameObject.SetActive(false);
+            }
             if (revealG.alpha > 0) revealRt.localScale = Vector3.Lerp(revealRt.localScale, Vector3.one, 1f - Mathf.Exp(-dt * 12f));
         }
 
@@ -578,7 +695,7 @@ namespace Mgf.DiceCaravan
 
         void ShowReveal(string message, bool correct)
         {
-            revealText.text = (correct ? "✦ 성도 돛 완성 ✦\n" : "△ 바람이 새는 핀 확인 △\n") + message;
+            revealText.text = (correct ? "◇ 성도 돛 완성 ◇\n" : "△ 바람이 새는 핀 확인 △\n") + message;
             revealPlate.color = correct ? new Color(Indigo.r, Indigo.g, Indigo.b, .97f) : new Color(.34f, .23f, .28f, .97f);
             revealG.alpha = 1; revealRt.localScale = Vector3.one * .72f; revealRt.gameObject.SetActive(true);
         }
@@ -636,7 +753,12 @@ namespace Mgf.DiceCaravan
         void ReleaseCord() { cordRt.localScale = Vector3.one; MgfFx.Punch(cordRt, .14f, .28f); MgfSfx.Play("whoosh", .22f); }
         void LooseCord() { cordRt.localRotation = Quaternion.Euler(0, 0, -9f); MgfFx.Punch(cordRt, -.1f, .3f); }
 
-        bool HitTitleCover(Vector2 p) { return titleCoverRt && RectTransformUtility.RectangleContainsScreenPoint(titleCoverRt, p, null); }
+        bool HitTitleCover(Vector2 p)
+        {
+            if (!titleCoverRt || !RectTransformUtility.ScreenPointToLocalPointInRectangle(titleCoverRt, p, null, out Vector2 local)) return false;
+            Rect hit = titleCoverRt.rect; hit.xMin -= 18f; hit.xMax += 18f; hit.yMin -= 14f; hit.yMax += 14f;
+            return hit.Contains(local);
+        }
         bool HitRestart(Vector2 p) { return restartRt && RectTransformUtility.RectangleContainsScreenPoint(restartRt, p, null); }
         bool HitCord(Vector2 p) { return cordRt && RectTransformUtility.RectangleContainsScreenPoint(cordRt, p, null); }
         int HitPin(Vector2 p)

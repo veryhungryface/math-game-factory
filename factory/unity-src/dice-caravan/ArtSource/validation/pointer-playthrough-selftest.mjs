@@ -12,6 +12,7 @@ const GAME = path.join(PUBLIC, 'g/dice-caravan');
 const FRAMES = path.join(HERE, 'pointer-playthrough');
 const VIEWPORT = { width: 390, height: 844, deviceScaleFactor: 1 };
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+let unorderedHiddenProbeCount = 0;
 fs.mkdirSync(FRAMES, { recursive: true });
 
 function chromePath() {
@@ -57,7 +58,7 @@ function boardFor(problem) {
     for (let y = 0; y < 6; y++) for (let x = 0; x < 6; x++) if (operation === '합' ? y + x + 2 === target : (y + 1) * (x + 1) === target) answers.push(y * 6 + x);
     return { rows: 6, cols: 6, answers };
   }
-  if ((match = prompt.match(/카드 꾸러미에서, ((?:\d, ){3}\d)이 각각 하나씩/))) {
+  if ((match = prompt.match(/카드 꾸러미에 ((?:\d, ){3}\d) 숫자 카드가 각각 한 장씩/))) {
     const digits = match[1].split(', ').map(Number), answers = [];
     for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) if (y !== x && digits[y] !== 0) answers.push(y * 4 + x);
     return { rows: 4, cols: 4, answers };
@@ -144,11 +145,35 @@ async function solveCurrent(page, problemsById, log, label) {
   if (!problem) throw new Error(`problem absent from live bank: ${before.problemId}`);
   const board = boardFor(problem);
   if (board.answers.length !== problem.answerNumeric) throw new Error(`board/answer mismatch for ${problem.id}`);
+  if (/대표 2명/.test(problem.prompt)) {
+    // Probe two different reverse-direction cells (B-A and C-A).  Both mirror
+    // visible canonical pins and must be physically absent, not merely marked wrong.
+    for (const hiddenReverseIndex of [board.cols, board.cols * 2]) {
+      const hiddenBefore = await state(page);
+      await click(page, pinPoint(hiddenReverseIndex, board.rows, board.cols));
+      const hiddenAfter = await state(page);
+      if (hiddenAfter.selectedPins !== hiddenBefore.selectedPins || hiddenAfter.problemId !== hiddenBefore.problemId) {
+        throw new Error(`hidden unordered mirror accepted pointer input for ${problem.id}: ${JSON.stringify({ hiddenBefore, hiddenAfter })}`);
+      }
+      unorderedHiddenProbeCount++;
+      log.push({ action: 'unordered-hidden-mirror-rejected', problemId: problem.id, hiddenReverseIndex,
+        pointer: pinPoint(hiddenReverseIndex, board.rows, board.cols).map(Math.round), before: hiddenBefore, after: hiddenAfter });
+    }
+  }
   await selectIndices(page, board, board.answers);
   const selected = await state(page);
   if (selected.selectedPins !== board.answers.length) throw new Error(`pointer selection mismatch for ${problem.id}: ${JSON.stringify(selected)}`);
   const gesture = await pullCord(page);
   const resolved = await waitForState(page, current => current.phase === 'clear' || current.solved > before.solved, `${label} did not resolve correctly`);
+  if (label === 'perfect-mission-1') {
+    await sleep(320);
+    await page.screenshot({ path: path.join(FRAMES, '02-sail-unfurl-event.png') });
+    await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
+    await sleep(260);
+    await page.screenshot({ path: path.join(FRAMES, '02b-sail-unfurl-event-wide.png') });
+    await page.setViewport(VIEWPORT);
+    await sleep(100);
+  }
   const after = resolved.phase === 'clear' ? resolved : await waitForState(page, current => current.phase === 'clear' || current.problemId !== before.problemId, `${label} feedback did not advance`);
   log.push({ action: label, problemId: problem.id, answerIndices: board.answers, pointer: gesture, before, selected, after });
   return after;
@@ -189,9 +214,17 @@ try {
   const actions = [];
   await page.screenshot({ path: path.join(FRAMES, '00-title.png') });
 
-  await click(page, [195, 549]);
+  const titleStartAt = Date.now();
+  await click(page, [48, 720]);
+  const afterWrongTitleTap = await state(page);
+  if (afterWrongTitleTap.phase !== 'title') throw new Error(`wrong title tap unexpectedly started: ${JSON.stringify(afterWrongTitleTap)}`);
+  await sleep(180);
+  await page.screenshot({ path: path.join(FRAMES, '00b-title-spatial-guide.png') });
+  await click(page, [195, 422]);
   await waitForState(page, current => current.onboarding === true, 'title cover did not start practice');
-  actions.push({ action: 'title-cover-pointer', point: [195, 549], after: await state(page) });
+  const titleStartedMs = Date.now() - titleStartAt;
+  actions.push({ action: 'title-invalid-tap-spatial-guide', point: [48, 720], after: afterWrongTitleTap, screenshot: '00b-title-spatial-guide.png' });
+  actions.push({ action: 'title-centre-cover-pointer', point: [195, 422], titleStartedMs, after: await state(page) });
   await finishPractice(page, actions, '01');
   const firstMissionId = (await state(page)).problemId;
   for (let mission = 0; mission < 6; mission++) await solveCurrent(page, problemsById, actions, `perfect-mission-${mission + 1}`);
@@ -229,6 +262,8 @@ try {
     everyPointerEventTrusted: pointerAudit.length > 0 && pointerAudit.every(event => event.isTrusted),
     perfectClear: perfect.phase === 'clear' && perfect.solved === 6 && perfect.lives === 3 && perfect.firstAttemptTotal === 6 && perfect.firstAttemptCorrect === 6,
     recoveryClear: recovery.phase === 'clear' && recovery.solved === 6 && recovery.lives === 2 && recovery.firstAttemptTotal === 6 && recovery.firstAttemptCorrect === 5,
+    titleStartsWithin10Seconds: titleStartedMs < 10000,
+    unorderedMirrorsNotInteractive: unorderedHiddenProbeCount >= 2,
     noConsoleErrors: errors.length === 0
   };
   result = {
@@ -239,6 +274,8 @@ try {
     live_bank_count: problems.length,
     perfect: { phase: perfect.phase, solved: perfect.solved, lives: perfect.lives, firstAttemptTotal: perfect.firstAttemptTotal, firstAttemptCorrect: perfect.firstAttemptCorrect },
     recovery: { phase: recovery.phase, solved: recovery.solved, lives: recovery.lives, firstAttemptTotal: recovery.firstAttemptTotal, firstAttemptCorrect: recovery.firstAttemptCorrect },
+    title_onboarding: { started_ms: titleStartedMs, wrong_tap_stayed_title: afterWrongTitleTap.phase === 'title', guide_screenshot: '00b-title-spatial-guide.png' },
+    unordered_hidden_mirror_probes: unorderedHiddenProbeCount,
     pointer_audit: { count: pointerAudit.length, trusted_count: pointerAudit.filter(event => event.isTrusted).length, events: pointerAudit },
     console_errors: errors,
     actions,

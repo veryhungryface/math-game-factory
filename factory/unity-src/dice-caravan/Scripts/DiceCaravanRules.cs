@@ -20,6 +20,7 @@ namespace Mgf.DiceCaravan
         public string[] colLabels = Array.Empty<string>();
         public string[] cellLabels = Array.Empty<string>();
         public bool[] answerSet = Array.Empty<bool>();
+        public int[] misconceptionCounts = Array.Empty<int>();
         public int AnswerCount
         {
             get
@@ -36,9 +37,10 @@ namespace Mgf.DiceCaravan
             var candidates = new List<int>();
             // expression_traps: 두 주사위는 반드시 '서로 다른'을 밝히고 순서쌍으로 센다.
             // 합의 법칙은 서로 배반인 사건만 생성하며, 카드의 0은 십의 자리에 올 수 없다.
-            if (kind == BoardKind.DiceGrid) candidates.Add(Math.Max(1, (correct + 1) / 2)); // symmetric-pair-half
-            if (kind == BoardKind.DigitCards) candidates.Add(correct + Math.Max(1, cols - 1)); // leading-zero-included
-            if (kind == BoardKind.Representatives) candidates.Add(Math.Min(rows * cols, correct * 2)); // ordered-duplicate
+            // Each factory method supplies at least two values tied to that
+            // problem's actual misconception.  Keep them ahead of generic
+            // +/-1 fillers so the exported QA choices retain diagnostic value.
+            for (int i = 0; i < misconceptionCounts.Length; i++) candidates.Add(misconceptionCounts[i]);
             candidates.Add(Math.Max(1, rows + cols)); // add-instead-of-multiply
             candidates.Add(Math.Max(1, rows * cols)); // multiply-instead-of-add / all-cells
             candidates.Add(Math.Max(1, correct - 1));
@@ -136,7 +138,8 @@ namespace Mgf.DiceCaravan
             BoardKind[] band = solved < 2
                 ? new[] { BoardKind.NumberCards }
                 : solved < 4 ? new[] { BoardKind.PairGrid, BoardKind.DiceGrid }
-                : new[] { BoardKind.DigitCards, BoardKind.Representatives };
+                : solved == 4 ? new[] { BoardKind.DigitCards }
+                : new[] { BoardKind.Representatives };
             var pool = new List<CaravanProblem>();
             for (int i = 0; i < all.Count; i++)
                 for (int k = 0; k < band.Length; k++) if (all[i].kind == band[k]) { pool.Add(all[i]); break; }
@@ -186,6 +189,7 @@ namespace Mgf.DiceCaravan
             p.concept = "한 사건의 경우의 수";
             p.reveal = divisor + "의 배수 " + (n / divisor) + "가지";
             p.misconceptionId = "multiple-count";
+            p.misconceptionCounts = new[] { n, divisor, n - n / divisor };
             for (int i = 1; i <= n; i++) p.answerSet[i - 1] = i % divisor == 0;
             return p;
         }
@@ -197,6 +201,8 @@ namespace Mgf.DiceCaravan
             p.concept = "두 사건이 동시에 일어나지 않을 때의 합의 법칙";
             p.reveal = a + "의 배수와 " + b + "의 배수는 겹치지 않아 " + (n / a + n / b) + "가지";
             p.misconceptionId = "sum-product-swapped";
+            int countA = n / a, countB = n / b;
+            p.misconceptionCounts = new[] { countA * countB, Math.Max(countA, countB), n };
             for (int i = 1; i <= n; i++) p.answerSet[i - 1] = i % a == 0 || i % b == 0;
             return p;
         }
@@ -219,6 +225,7 @@ namespace Mgf.DiceCaravan
             p.concept = "곱의 법칙";
             p.reveal = r + " × " + c + " = " + (r * c) + "가지";
             p.misconceptionId = "sum-product-swapped";
+            p.misconceptionCounts = new[] { r + c, Math.Max(r, c), (r + 1) * (c + 1) };
             for (int y = 0; y < p.rows; y++) p.rowLabels[y] = "망" + (y + 1);
             for (int x = 0; x < p.cols; x++) p.colLabels[x] = "나" + (x + 1);
             for (int y = 0; y < p.rows; y++) for (int x = 0; x < p.cols; x++)
@@ -244,6 +251,7 @@ namespace Mgf.DiceCaravan
                 p.answerSet[i] = y + x + 2 == sum;
             }
             p.reveal = OrderedList(p) + " → " + p.AnswerCount + "가지";
+            p.misconceptionCounts = new[] { Math.Max(1, (p.AnswerCount + 1) / 2), sum, 36 };
             return p;
         }
 
@@ -260,6 +268,7 @@ namespace Mgf.DiceCaravan
                 p.answerSet[i] = (y + 1) * (x + 1) == product;
             }
             p.reveal = OrderedList(p) + " → " + p.AnswerCount + "가지";
+            p.misconceptionCounts = new[] { Math.Max(1, (p.AnswerCount + 1) / 2), product, 36 };
             return p;
         }
 
@@ -267,10 +276,11 @@ namespace Mgf.DiceCaravan
         {
             int n = digits.Length;
             var p = Base(id, BoardKind.DigitCards, n, n);
-            p.prompt = JoinDigits(digits) + "이 각각 하나씩 적힌 카드 중 2장을 뽑아 만들 수 있는 두 자리 자연수를 모두 표시하시오.";
-            p.prompt = RouteNames[variant % RouteNames.Length] + " 카드 꾸러미에서, " + p.prompt;
+            p.prompt = RouteNames[variant % RouteNames.Length] + " 카드 꾸러미에 " + JoinDigits(digits) +
+                " 숫자 카드가 각각 한 장씩 있을 때, 그중 2장을 뽑아 만들 수 있는 두 자리 자연수를 모두 표시하시오.";
             p.concept = "0이 포함된 카드로 두 자리 자연수 만들기";
             p.misconceptionId = "leading-zero";
+            p.misconceptionCounts = new[] { n * (n - 1), n * n, (n - 1) * (n - 2) };
             for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
             {
                 int i = y * n + x;
@@ -288,11 +298,17 @@ namespace Mgf.DiceCaravan
             p.prompt = RouteNames[variant % RouteNames.Length] + "의 " + p.prompt;
             p.concept = roles ? "역할이 다른 대표 뽑기" : "역할이 같은 대표 2명 뽑기";
             p.misconceptionId = roles ? "role-order-missing" : "unordered-representatives";
+            p.misconceptionCounts = roles
+                ? new[] { n * (n - 1) / 2, n * n }
+                : new[] { n * (n - 1), n * (n + 1) / 2 };
             string[] names = { "A", "B", "C", "D", "E", "F" };
             for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
             {
                 int i = y * n + x;
-                p.cellLabels[i] = names[y] + "-" + names[x];
+                // A-B and B-A are the same unordered pair.  Showing both but
+                // accepting only y<x made an equivalent answer fail.  The
+                // no-role board now exposes one canonical physical pin only.
+                p.cellLabels[i] = !roles && y >= x ? "·" : names[y] + "-" + names[x];
                 p.answerSet[i] = roles ? y != x : y < x;
             }
             p.reveal = roles ? n + " × " + (n - 1) + " = " + p.AnswerCount + "가지" : "같은 쌍을 한 번만 세어 " + p.AnswerCount + "가지";

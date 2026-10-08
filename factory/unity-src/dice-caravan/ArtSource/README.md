@@ -5,3 +5,7 @@
 - The runtime copies are stored under `Resources/DiceCaravan/`; the public preview originals remain under `public/g/dice-caravan/assets/`.
 
 The visible title and game world, salt-flat caravan, pressed-ceramic pins, woven sails, wind lamps, mascot, and all feedback effects are built from Unity primitives and procedural UI at runtime. `thumb.png` and `square.png` are captured from that same live WebGL title scene after every final rebuild.
+
+## Review round 2 procedural material pass
+
+No external asset or model was added. `DiceCaravanView.MakeSurfaceTexture` deterministically creates three 64×64 runtime textures: cross-woven indigo sail cloth, hairline-cracked pressed ceramic, and blotched oxidized brass. The world was changed from a static pale slab to a dark reflective brine horizon with reusable moving salt-current strips; the same materials continue from title into play.

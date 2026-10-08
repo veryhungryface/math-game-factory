@@ -41,39 +41,43 @@ function expectedFromPrompt(problem) {
     const [, n, a, b] = match.map(Number);
     let count = 0;
     for (let value = 1; value <= n; value++) if (value % a === 0 || value % b === 0) count++;
-    return { family: 'disjoint-union', expected: count };
+    const countA = Math.floor(n / a), countB = Math.floor(n / b);
+    return { family: 'disjoint-union', expected: count, misconceptions: [countA * countB, Math.max(countA, countB), n] };
   }
   if ((match = prompt.match(/1부터 (\d+)까지의 자연수 중 (\d+)의 배수/))) {
     const [, n, divisor] = match.map(Number);
-    return { family: 'single-event', expected: Math.floor(n / divisor) };
+    const expected = Math.floor(n / divisor);
+    return { family: 'single-event', expected, misconceptions: [n, divisor, n - expected] };
   }
   if ((match = prompt.match(/(\d+)종류와 .+? (\d+)종류 중에서 각각 하나씩/))) {
     const [, rows, cols] = match.map(Number);
-    return { family: 'product-rule', expected: rows * cols };
+    return { family: 'product-rule', expected: rows * cols, misconceptions: [rows + cols, Math.max(rows, cols), (rows + 1) * (cols + 1)] };
   }
   if ((match = prompt.match(/두 눈의 수의 합이 (\d+)인/))) {
     const target = Number(match[1]);
     let count = 0;
     for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b === target) count++;
-    return { family: 'ordered-dice-sum', expected: count };
+    return { family: 'ordered-dice-sum', expected: count, misconceptions: [Math.max(1, Math.ceil(count / 2)), target, 36] };
   }
   if ((match = prompt.match(/두 눈의 수의 곱이 (\d+)인/))) {
     const target = Number(match[1]);
     let count = 0;
     for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a * b === target) count++;
-    return { family: 'ordered-dice-product', expected: count };
+    return { family: 'ordered-dice-product', expected: count, misconceptions: [Math.max(1, Math.ceil(count / 2)), target, 36] };
   }
-  if ((match = prompt.match(/카드 꾸러미에서, ((?:\d, ){3}\d)이 각각 하나씩/))) {
+  if ((match = prompt.match(/카드 꾸러미에 ((?:\d, ){3}\d) 숫자 카드가 각각 한 장씩/))) {
     const digits = match[1].split(', ').map(Number);
     let count = 0;
     for (let tens = 0; tens < digits.length; tens++) for (let ones = 0; ones < digits.length; ones++) {
       if (tens !== ones && digits[tens] !== 0) count++;
     }
-    return { family: 'digit-cards', expected: count, digits };
+    return { family: 'digit-cards', expected: count, digits, misconceptions: [digits.length * (digits.length - 1), digits.length ** 2, (digits.length - 1) * (digits.length - 2)] };
   }
   if ((match = prompt.match(/(\d+)명의 후보 중에서 (회장 1명과 부회장 1명|대표 2명)/))) {
     const n = Number(match[1]);
-    return { family: match[2].startsWith('회장') ? 'role-representatives' : 'unordered-representatives', expected: match[2].startsWith('회장') ? n * (n - 1) : n * (n - 1) / 2 };
+    const roles = match[2].startsWith('회장');
+    return { family: roles ? 'role-representatives' : 'unordered-representatives', expected: roles ? n * (n - 1) : n * (n - 1) / 2,
+      misconceptions: roles ? [n * (n - 1) / 2, n * n] : [n * (n - 1), n * (n + 1) / 2] };
   }
   throw new Error(`unrecognized prompt: ${problem.id}: ${prompt}`);
 }
@@ -106,6 +110,9 @@ try {
     if (!problem.choices.includes(problem.answer)) errors.push(`${problem.id}: answer absent from choices`);
     const numericChoices = problem.choices.map(choice => Number.parseInt(choice, 10));
     if (numericChoices.filter(value => value === independent.expected).length !== 1) errors.push(`${problem.id}: expected value is not unique in choices`);
+    const targeted = [...new Set(independent.misconceptions.filter(value => value > 0 && value !== independent.expected))]
+      .filter(value => numericChoices.includes(value));
+    if (targeted.length < 2) errors.push(`${problem.id}: only ${targeted.length} parameter-derived misconception distractor(s): ${numericChoices.join(',')}`);
   }
   report = {
     generated_at: new Date().toISOString(),
@@ -115,7 +122,7 @@ try {
     unique_ids: new Set(problems.map(problem => problem.id)).size,
     family_counts: familyCounts,
     digit_prompts_checked: digitPrompts,
-    checks: ['independent integer recomputation from every prompt', 'answerNumeric agreement', 'answer text and unique choice agreement', 'all digit prompts show four comma-separated one-digit cards'],
+    checks: ['independent integer recomputation from every prompt', 'answerNumeric agreement', 'answer text and unique choice agreement', 'at least two parameter-derived misconception distractors per problem', 'all digit prompts show four comma-separated one-digit cards without a dangling Korean particle'],
     errors,
     verdict: problems.length >= 300 && digitPrompts > 0 && errors.length === 0 ? 'pass' : 'fail'
   };

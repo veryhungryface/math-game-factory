@@ -156,7 +156,7 @@ namespace Mgf.DiceCaravan
                 if (down)
                 {
                     if (HitTitleCover(MgfPointer.Position)) BeginRun(true);
-                    else { Refuse("중앙 성도판 덮개를 눌러 항해를 시작하시오."); PointToTitleCover(); }
+                    else { Refuse("점선을 따라 성도판 덮개를 누르시오."); PointToTitleCover(MgfPointer.Position); }
                 }
                 return;
             }
