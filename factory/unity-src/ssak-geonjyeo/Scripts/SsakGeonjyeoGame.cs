@@ -73,7 +73,7 @@ namespace Mgf.SsakGeonjyeo
         void Prewarm()
         {
             var sb = new StringBuilder("싹건져경우를한번에건져라중학교2학년경우의수층리암반조수수조황금표본웅덩이건지기시작그물칸부터정하시오등번호집게번호사건합의법칙곱의법칙연습실전조수매듭점수남은시간모두건지시오정답다시시도게임종료재도전");
-            sb.Append("집게번호12가지한사건경우또는각각하나씩동시에일어나지않는두사건의합그물손잡이에서시작해게를쓸고놓으시오연습웅덩이네마리밝은조개레일옆으로노란시작점시범등번호인두게를건졌다이제실전놓친경우잡은빠진");
+            sb.Append("집게번호12가지한사건경우또는각각하나씩동시에일어나지않는두사건의합그물손잡이에서시작해게를쓸고놓으시오연습웅덩이네마리밝은조개레일옆으로노란시작점시범경로만표시했다직접지나놓으시오등번호인두게를건졌다이제실전놓친경우잡은빠진");
             for (int i = 0; i < bridgeBank.Count; i++) { sb.Append(bridgeBank[i].prompt); sb.Append(bridgeBank[i].answer); sb.Append(bridgeBank[i].unitConcept); }
             MgfText.Prewarm(sb.ToString());
         }
@@ -335,7 +335,7 @@ namespace Mgf.SsakGeonjyeo
                     ResetWorldForProblem(true);
                     SetScreen();
                     practiceMisses++;
-                    if (practiceMisses >= 3) PracticeDemoCatch();
+                    if (practiceMisses >= 3) PracticeDemoOnly();
                     else ReplayGuide(true);
                 }
                 return;
@@ -459,7 +459,7 @@ namespace Mgf.SsakGeonjyeo
                     BindCurrent();
                     sweepTrail.gameObject.SetActive(false);
                     practiceMisses++;
-                    if (practiceMisses >= 3) { PracticeDemoCatch(); return; }
+                    if (practiceMisses >= 3) { PracticeDemoOnly(); return; }
                     RefuseInput("노란 시작점에서 등번호 1인 게 쪽으로 드래그하시오");
                     return;
                 }
@@ -509,6 +509,7 @@ namespace Mgf.SsakGeonjyeo
                     hasPreviousSweepPoint = false;
                     dragStartScreen = MgfPointer.Position;
                     practiceSweepMoved = false;
+                    EndPracticeDemonstration();
                     BeginSweep();
                     UpdateSweep(MgfPointer.Position);
                     return;
@@ -522,8 +523,9 @@ namespace Mgf.SsakGeonjyeo
                     if (gamePhase != GamePhase.Practice) UpdateCapacityFromPointer(MgfPointer.Position, true);
                     return;
                 }
-                // 연습에서 엉뚱한 곳을 누른 것도 놓친 시도로 센다 — 세 번이면 게임이 시범으로 건진다.
-                if (gamePhase == GamePhase.Practice && st.capacity == 2 && ++practiceMisses >= 3) { PracticeDemoCatch(); return; }
+                // 연습에서 엉뚱한 곳을 누른 것도 놓친 시도로 센다. 세 번이면 정답 경로만
+                // 시범으로 보여 주되, 학생 대신 선택하거나 실전으로 넘기지는 않는다.
+                if (gamePhase == GamePhase.Practice && st.capacity == 2 && ++practiceMisses >= 3) { PracticeDemoOnly(); return; }
                 int crab = CrabAtScreen(MgfPointer.Position);
                 if (crab >= 0)
                 {
@@ -574,17 +576,23 @@ namespace Mgf.SsakGeonjyeo
             return Vector2.Distance(pp, aa + ab * t);
         }
 
-        // 연습(채점 없음)에서 세 번 놓치면 게임이 직접 시범으로 건진다. 본판에는 이 보조가 없다.
-        void PracticeDemoCatch()
+        // 세 번 놓치면 정답 게와 이동 경로만 시범으로 보여 준다. 선택 집합은 비워 두고
+        // 연습에 그대로 머물며, 실제 pointer로 두 게를 모두 지나 놓아야 SubmitSweep이 실행된다.
+        void PracticeDemoOnly()
         {
             if (gamePhase != GamePhase.Practice || current == null) return;
             SetCapacity(2, true);
-            selectedMask = current.answerMask;
+            selectedMask = 0;
             BindCurrent();
-            for (int i = 0; i < SsakRules.UniverseCount; i++)
-                if ((selectedMask & (1 << i)) != 0) { previousSweepPoint = CrabHitCenter(i); CaptureCrab(i, 0); }
-            SubmitSweep();
-            ShowToast("시범: (1,1), (1,2) 두 게를 건졌다 · 이제 실전", 2.6f);
+            dragMode = DragMode.None;
+            sweepPointCount = 0;
+            hasPreviousSweepPoint = false;
+            practiceSweepMoved = false;
+            practiceMisses = 0;
+            ResetWorldForProblem(true);
+            SetScreen();
+            ShowPracticeSweepDemonstration();
+            MgfBridge.NotifyChanged();
         }
 
         void FinishPendingReveal()

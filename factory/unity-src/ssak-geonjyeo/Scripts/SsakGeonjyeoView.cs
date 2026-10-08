@@ -33,7 +33,7 @@ namespace Mgf.SsakGeonjyeo
         Material waterMat, deepWaterMat, sandMat, shellMat, basaltMat, ivoryMat, coralMat, goldMat, netMat, ropeMat, barnacleMat, mossMat;
         Material shaleMat, ochreStoneMat, wetRockMat, signalMat;
         Material[] crabMats;
-        bool practiceLayout, currentLand, currentTabletPortrait;
+        bool practiceLayout, currentLand, currentTabletPortrait, practiceDemoVisible;
         int lastScreenW, lastScreenH, lastTimer = -1, lastScoreShown = -1;
         float displayScore, toastLeft, guideLeft, titlePulse;
         string toastMessage = "";
@@ -553,6 +553,7 @@ namespace Mgf.SsakGeonjyeo
 
         void ResetWorldForProblem(bool practice)
         {
+            EndPracticeDemonstration();
             practiceLayout = practice;
             PositionCrabsForLayout();
             for (int i = 0; i < crabs.Length; i++)
@@ -608,7 +609,11 @@ namespace Mgf.SsakGeonjyeo
             {
                 guideLeft -= dt;
                 AnimateGuide(t);
-                if (guideLeft <= 0f) { guideRing.SetActive(false); guideLine.gameObject.SetActive(false); ghostFinger.SetActive(false); }
+                if (guideLeft <= 0f)
+                {
+                    guideRing.SetActive(false); guideLine.gameObject.SetActive(false); ghostFinger.SetActive(false);
+                    EndPracticeDemonstration();
+                }
             }
         }
 
@@ -949,6 +954,30 @@ namespace Mgf.SsakGeonjyeo
             RefreshCapacityVisual(false);
             ShowGuide(guideLeft);
             ShowToast("② 같은 레일의 노란 시작점에서 두 게까지 드래그", 2.8f);
+        }
+
+        void ShowPracticeSweepDemonstration()
+        {
+            practiceDemoVisible = true;
+            guideLeft = 5.8f;
+            guideRing.SetActive(true); guideLine.gameObject.SetActive(true); ghostFinger.SetActive(true);
+            crabLabels[0].color = MgfLook.Hex("E4BE58");
+            crabLabels[1].color = MgfLook.Hex("E4BE58");
+            ShowToast("시범 경로만 표시했다 · 노란 시작점에서 (1,1), (1,2)를 직접 지나 놓으시오", 4.8f);
+            MgfSfx.Play("whoosh", .22f);
+        }
+
+        void EndPracticeDemonstration()
+        {
+            if (!practiceDemoVisible) return;
+            practiceDemoVisible = false;
+            guideLeft = 0f;
+            if (guideRing != null) guideRing.SetActive(false);
+            if (guideLine != null) guideLine.gameObject.SetActive(false);
+            if (ghostFinger != null) ghostFinger.SetActive(false);
+            if (crabLabels == null) return;
+            if (crabLabels.Length > 0 && crabLabels[0] != null) crabLabels[0].color = MgfLook.Hex("354A45");
+            if (crabLabels.Length > 1 && crabLabels[1] != null) crabLabels[1].color = MgfLook.Hex("354A45");
         }
 
         void ShowGuide(float seconds)

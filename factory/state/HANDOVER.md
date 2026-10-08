@@ -3,6 +3,24 @@
 > 마지막 갱신: 2026-10-09. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-09 — 「싹 건져」 3차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u6` Unity 게임 `ssak-geonjyeo`의 최신 검수 high 1건을 병렬 레인
+`factory/work-lanes/20261009-013916-L1/`에서 수정했다. 정본은
+`factory/unity-src/ssak-geonjyeo/`, WebGL 산출물은 `public/g/ssak-geonjyeo/`이며 게시·배포는 실행하지 않았다.
+
+- 연습 쓸기를 세 번 놓쳤을 때 정답 마스크를 주입하고 실전으로 자동 전환하던 경로를 제거했다.
+  이제 (1,1)·(1,2)와 이동 경로를 시범으로만 보여 주고 선택·점수·진도는 비운 채 연습에 남으며,
+  실제 pointer가 두 게를 직접 지나 놓은 경우에만 기존 `SubmitSweep` 판정을 거쳐 실전으로 넘어간다.
+- 동일 실제 pointer 짧은 실패 3회 뒤 `onboarding=true/tide=0/solved=0/score=0/selectedIds=[]`가
+  시범 종료 뒤에도 유지됐고, 실제 성공 쓸기 뒤에만 `onboarding=false/tide=1`이 됐다. 최종 firstplay는
+  50초까지 연습에 머물며 ready/콘솔 오류 0이고, 실제 pointer 두 판은 오답 회복
+  `clear/7/lives2/first6`, 무오답 `clear/7/lives3/first7`로 완주했다.
+- 최종 WebGL 해시는 `cb2b5a1491975e8f…`, Unity 빌드 warnings 0, Unity 산출물 **7.9MB**
+  (게임 폴더 **9,176KB**). 공식 QA **45/45·fatal 0**, M4/Metal 모바일 **75fps**,
+  1280 **71fps**, 15초 유지율 **95%**다. 무뇌 4정책×200판 첫 시도 0%(보수적 우연 상한
+  0.455%)를 유지했고 `replan_required=false`; nice-to-have 3건은 보류했다.
+
 ## 2026-10-09 — 「싹 건져」 2차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u6` Unity 게임 `ssak-geonjyeo`의 최신 검수 high 1건과 nice-to-have 1건을
