@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#191827">
+<title>뭉실 패션쇼</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#191827;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
+    touch-action:none;overscroll-behavior:none;
+    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#fff}
+  #unity-canvas{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none;background:#191827}
+  #mgf-loading{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    background:radial-gradient(120% 90% at 50% 40%,rgba(255,255,255,.10),rgba(0,0,0,.25)),#191827;transition:opacity .35s ease}
+  #mgf-loading.done{opacity:0;pointer-events:none}
+  #mgf-loading .ttl{font-size:22px;font-weight:800;letter-spacing:-.02em;text-align:center;padding:0 24px;text-shadow:0 2px 8px rgba(0,0,0,.25)}
+  #mgf-loading .bar{width:min(240px,70vw);height:8px;border-radius:8px;background:rgba(255,255,255,.22);overflow:hidden}
+  #mgf-loading .bar i{display:block;height:100%;width:0;border-radius:8px;background:#fff;transition:width .15s linear}
+  #mgf-loading .msg{font-size:14px;opacity:.85;min-height:20px;text-align:center;padding:0 24px;line-height:1.5;max-width:420px}
+  #mgf-mute{position:fixed;z-index:20;top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));
+    width:48px;height:48px;border:0;border-radius:14px;background:rgba(0,0,0,.28);color:#fff;font-size:22px;line-height:48px;
+    padding:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:none;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  body.mgf-ready #mgf-mute{display:block}
+  #mgf-mute:focus-visible{outline:3px solid #fff;outline-offset:2px}
+</style>
+</head>
+<body>
+<canvas id="unity-canvas" tabindex="-1"></canvas>
+<div id="mgf-loading" role="status" aria-live="polite">
+  <div class="ttl">뭉실 패션쇼</div>
+  <div class="bar"><i id="mgf-bar"></i></div>
+  <div class="msg" id="mgf-msg">게임을 불러오는 중이에요… 0%</div>
+</div>
+<button id="mgf-mute" class="mute" type="button" aria-label="소리 끄기">🔊</button>
+<script>
+/*
+ * MGF WebGL 템플릿 (factory/unity/kit/WebGLTemplates/MGF 가 정본 — docs/unity-track.md)
+ *  - window.__GAME_TEST__ : QA 동기 API. Unity 가 MgfBridge.Register 를 알리면 ready=true.
+ *    start/answerCorrect/answerWrong 는 unityInstance.SendMessage(동기) → C# 가 반환 전에 상태를 푸시한다.
+ *  - window.__MGF_HOST__  : MgfBridge.jslib 가 부르는 수신부(상태·문제 은행·ready·초기 음소거).
+ */
+(function () {
+  'use strict';
+  var canvas = document.getElementById('unity-canvas');
+  var loading = document.getElementById('mgf-loading');
+  var bar = document.getElementById('mgf-bar');
+  var msg = document.getElementById('mgf-msg');
+  var muteBtn = document.getElementById('mgf-mute');
+  var instance = null;
+  var bridgeReady = false;
+  var state = null;
+  var bank = [];
+  var DEFAULT_STATE = { score: 0, lives: 0, level: 1, phase: 'loading', solved: 0 };
+
+  function readMuted() { try { return localStorage.getItem('mgf-muted') === '1'; } catch (e) { return false; } }
+  function saveMuted(v) { try { localStorage.setItem('mgf-muted', v ? '1' : '0'); } catch (e) {} }
+
+  // GPU 없는 소프트웨어 렌더러(SwiftShader 등)면 저사양 모드: DPR 1 + C# 가 그림자·MSAA 를 끈다(MgfBridge.LowGfx).
+  function softwareRenderer() {
+    try {
+      if (/[?&]lowgfx=1/.test(location.search)) return true;
+      var c = document.createElement('canvas');
+      var gl = c.getContext('webgl2');
+      if (!gl) return false;
+      var d = gl.getExtension('WEBGL_debug_renderer_info');
+      var name = String(d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+      var lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
+      return /swiftshader|software|llvmpipe|basic render/i.test(name);
+    } catch (e) { return false; }
+  }
+  var lowGfx = softwareRenderer();
+  // 저사양 모드는 렌더 픽셀 수를 약 36만(≈690×520)으로 묶는다 — 소프트웨어 렌더러는 픽셀 수에 정비례해 느려진다.
+  function pixelRatio() {
+    if (!lowGfx) return Math.min(window.devicePixelRatio || 1, 2);
+    return Math.min(1, Math.sqrt(360000 / Math.max(1, innerWidth * innerHeight)));
+  }
+
+  var host = window.__MGF_HOST__ = {
+    muted: readMuted(),
+    lowGfx: lowGfx,
+    onReady: function () { bridgeReady = true; refreshReady(); },
+    onState: function (json) { try { state = JSON.parse(json); } catch (e) { console.warn('[MGF] 상태 JSON 파싱 실패', e); } },
+    onBank: function (json) {
+      try {
+        var parsed = JSON.parse(json);
+        var items = Array.isArray(parsed) ? parsed : (parsed && parsed.items) || [];
+        bank = items.map(normalizeProblem).filter(function (p) { return p && p.prompt; });
+      } catch (e) { console.warn('[MGF] 문제 은행 JSON 파싱 실패', e); bank = []; }
+    }
+  };
+
+  function normalizeProblem(p, i) {
+    if (!p) return null;
+    var out = {
+      id: String(p.id || ('p' + (i + 1))),
+      prompt: String(p.prompt == null ? '' : p.prompt),
+      choices: Array.isArray(p.choices) && p.choices.length ? p.choices.map(String) : null,
+      answer: p.answer == null ? '' : String(p.answer),
+      unitConcept: p.unitConcept == null ? '' : String(p.unitConcept)
+    };
+    if (typeof p.answerNumeric === 'number' && isFinite(p.answerNumeric)) out.answerNumeric = p.answerNumeric;
+    return out;
+  }
+
+  function send(t, extra) {
+    if (!instance || !bridgeReady) return false;
+    var cmd = { t: t };
+    if (extra) for (var k in extra) cmd[k] = extra[k];
+    instance.SendMessage('MgfBridge', 'OnCmd', JSON.stringify(cmd));
+    return true;
+  }
+
+  function refreshReady() {
+    var ok = !!(instance && bridgeReady);
+    api.ready = ok;
+    if (ok) {
+      document.body.classList.add('mgf-ready');
+      loading.classList.add('done');
+      setTimeout(function () { loading.style.display = 'none'; }, 400);
+    }
+  }
+
+  var api = window.__GAME_TEST__ = {
+    ready: false,
+    start: function () { return send('start'); },
+    getState: function () {
+      var s = {}, k;
+      for (k in DEFAULT_STATE) s[k] = DEFAULT_STATE[k];
+      if (state) for (k in state) s[k] = state[k];
+      return s;
+    },
+    answerCorrect: function () { return send('correct'); },
+    answerWrong: function () { return send('wrong'); },
+    sampleProblems: function (n) {
+      n = Math.max(0, Math.floor(Number(n) || 0));
+      var idx = bank.map(function (_, i) { return i; });
+      for (var i = idx.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = idx[i]; idx[i] = idx[j]; idx[j] = t;
+      }
+      return idx.slice(0, Math.min(n, idx.length)).map(function (i) { return JSON.parse(JSON.stringify(bank[i])); });
+    },
+    getLayout: function () {
+      return { land: innerWidth > innerHeight, playW: innerWidth, playH: innerHeight, canvas: 'fullscreen', lowGfx: lowGfx };
+    }
+  };
+
+  // 판형: 가로 화면이면 html.land (캔버스는 항상 전체 화면이라 Unity 카메라가 종횡비에 맞춘다)
+  function layout() {
+    document.documentElement.classList.toggle('land', innerWidth > innerHeight);
+    if (instance && instance.Module) instance.Module.devicePixelRatio = pixelRatio(); // Unity 가 매 프레임 이 값으로 캔버스 크기를 맞춘다
+  }
+  addEventListener('resize', layout);
+  layout();
+
+  function paintMute() {
+    muteBtn.textContent = host.muted ? '🔇' : '🔊';
+    muteBtn.setAttribute('aria-label', host.muted ? '소리 켜기' : '소리 끄기');
+    muteBtn.setAttribute('aria-pressed', host.muted ? 'true' : 'false');
+  }
+  muteBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    host.muted = !host.muted;
+    saveMuted(host.muted);
+    paintMute();
+    send('mute', { on: host.muted });
+  });
+  paintMute();
+
+  // 캔버스 밖으로 새는 스크롤·확대 제스처 차단(iOS 더블탭 확대 등)
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  function fail(text) {
+    loading.style.display = 'flex';
+    loading.classList.remove('done');
+    msg.textContent = text;
+  }
+
+  var buildUrl = 'Build';
+  var config = {
+    arguments: [],
+    dataUrl: buildUrl + '/2098495735c2a59b38e4df28332fbc69.data.unityweb',
+    frameworkUrl: buildUrl + '/a737b1e674017e6d2b81b22e3899ee7c.framework.js.unityweb',
+    codeUrl: buildUrl + '/eaa480a5c304f882537003e007f5858a.wasm.unityweb',
+    streamingAssetsUrl: 'StreamingAssets',
+    companyName: "MGF",
+    productName: "뭉실 패션쇼",
+    productVersion: "1.0",
+    devicePixelRatio: pixelRatio(),
+    // QA 가 캔버스 픽셀을 읽는다(input.real·visual.notblank). false 면 합성 뒤 버퍼가 비어 읽힌다.
+    webglContextAttributes: { preserveDrawingBuffer: true, powerPreference: 'high-performance' },
+    showBanner: function (text, type) {
+      if (type === 'error') fail('게임을 불러오지 못했어요. 새로고침해 주세요.');
+      else console.warn('[Unity] ' + text);
+    },
+    // 정적 서버가 .wasm 을 application/wasm 이 아닌 형식으로 주면 Unity 는 ArrayBuffer 방식으로
+    // 정상 폴백하면서 console.error 를 찍는다(로컬 QA 서버가 그렇다). 그 두 줄만 경고로 낮춘다.
+    printErr: function (text) {
+      if (typeof text === 'string' && /wasm streaming compile failed|falling back to ArrayBuffer instantiation/i.test(text)) {
+        console.warn('[Unity] ' + text);
+        return;
+      }
+      console.error(text);
+    }
+  };
+
+  var script = document.createElement('script');
+  script.src = buildUrl + '/253dd4c6de8665a11039cc8571949ac4.loader.js';
+  script.onload = function () {
+    createUnityInstance(canvas, config, function (p) {
+      var pct = Math.round(p * 100);
+      bar.style.width = pct + '%';
+      msg.textContent = pct < 90 ? '게임을 불러오는 중이에요… ' + pct + '%' : '거의 다 됐어요…';
+    }).then(function (inst) {
+      instance = inst;
+      if (host.muted) send('mute', { on: true });
+      refreshReady();
+    }).catch(function (e) {
+      console.error(e);
+      fail('이 브라우저에서는 게임을 열 수 없어요. 최신 크롬·사파리에서 다시 열어 주세요.');
+    });
+  };
+  script.onerror = function () { fail('게임 파일을 받지 못했어요. 인터넷 연결을 확인해 주세요.'); };
+  document.body.appendChild(script);
+})();
+</script>
+</body>
+</html>
