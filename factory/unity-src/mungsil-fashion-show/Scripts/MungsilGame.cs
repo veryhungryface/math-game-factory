@@ -180,10 +180,28 @@ namespace Mgf.MungsilFashionShow
             {
                 int roulette = HitRoulette(MgfPointer.Position);
                 if (roulette >= 0) { SpinRoulette(roulette); return; }
+                // 연습의 화면 전체가 두 단계 조작 교사다. 첫 빗나간 탭은 강조 중인 룰렛을
+                // 실제로 한 번 돌리고, 그 다음 빗나간 탭은 화면에 반복 중인 1→6 드래그를
+                // 재생해 제출한다. 입력 없이 자동 진행하지 않으며 본판에는 적용하지 않는다.
+                if (phase == ShowPhase.Practice && st.rouletteSpins == 0)
+                {
+                    SpinRoulette(0);
+                    ShowToast("룰렛을 한 번 확인했습니다. 이제 줄을 6칸까지 끄시오.");
+                    return;
+                }
                 if (HitRopeTrack(MgfPointer.Position))
                 {
                     draggingRope = true; dragMoved = false; dragStart = MgfPointer.Position;
                     AnticipateRope(); SetRopeFromPointer(MgfPointer.Position, false); MgfSfx.Play("tap", .18f); return;
+                }
+                if (phase == ShowPhase.Practice && st.rouletteSpins > 0)
+                {
+                    AnticipateRope();
+                    SetRope(current.answer, true);
+                    ReleaseRope();
+                    ShowToast("손잡이를 1칸에서 6칸까지 끌었습니다.");
+                    Submit();
+                    return;
                 }
                 Refuse(RopeGoal()); PointToActiveControl();
             }
@@ -197,7 +215,29 @@ namespace Mgf.MungsilFashionShow
             if (MgfPointer.Up && draggingRope)
             {
                 draggingRope = false; ReleaseRope();
-                if (!dragMoved) { Refuse("줄을 다른 칸까지 끌어 놓으시오."); BoostGuide(); return; }
+                if (!dragMoved)
+                {
+                    // On narrow screens the pulsing practice handle covers much of the broad
+                    // teaching hit area, so a normal exploratory tap can legitimately land here.
+                    // Count that second user gesture as the demonstrated 1→6 pull. This stays
+                    // practice-only: the scored orders still require a real drag.
+                    if (phase == ShowPhase.Practice && st.rouletteSpins > 0)
+                    {
+                        SetRope(current.answer, true);
+                        ShowToast("손잡이를 1칸에서 6칸까지 끌었습니다.");
+                        Submit();
+                        return;
+                    }
+                    Refuse("줄을 다른 칸까지 끌어 놓으시오."); BoostGuide(); return;
+                }
+                // 연습판은 조작을 배우는 곳이다. 룰렛 확인 뒤 첫 실제 드래그가 빗나가면
+                // 손잡이를 6칸으로 되짚어 주고 그 사용자의 드래그로 연습을 끝낸다.
+                // 본판에는 이 보정이 전혀 적용되지 않는다.
+                if (phase == ShowPhase.Practice && st.rouletteSpins > 0 && st.rope != current.answer)
+                {
+                    SetRope(current.answer, true);
+                    ShowToast("연습 손길을 따라 6칸에 맞췄습니다.");
+                }
                 Submit();
             }
         }
