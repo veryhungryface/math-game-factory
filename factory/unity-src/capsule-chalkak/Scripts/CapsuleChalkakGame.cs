@@ -23,6 +23,8 @@ namespace Mgf.CapsuleChalkak
             public int[] selectedIds = new int[0];
             public int[] tilePx = new int[0];
             public int[] controlPx = new int[0];
+            // prompt, goal, board, lever, rawFraction 순서의 [left,top,right,bottom] 실제 픽셀.
+            public int[] layoutPx = new int[0];
             public int screenW;
             public int screenH;
             public float leverPullRatio;
@@ -70,7 +72,7 @@ namespace Mgf.CapsuleChalkak
 
         void Prewarm()
         {
-            var sb = new StringBuilder("캡슐찰칵경우를엮어캡슐을뽑아라중학교2학년확률심해관측정광섬유표본공간수압레버주문점수산소첫시도남은시간반전링기약분수영업종료배송완료다시가동");
+            var sb = new StringBuilder("캡슐찰칵물살로경우를엮어확률을띄워라중학교2학년심해관측07관측창아무곳이나눌러잠수정광섬유표본공간수주레버상승주문점수산소첫시도남은시간반전링기약분수영업종료배송완료다시가동");
             sb.Append("조건에맞는경우를한붓으로엮고레버를아래로당기시오연습빨간공파란공전체선택누락조건밖경우포함앞면뒷면주사위서로다른동전임의로공의모양과크기는모두같다");
             for (int i = 0; i < bridgeBank.Count; i++)
             {
@@ -225,8 +227,11 @@ namespace Mgf.CapsuleChalkak
                 dragStart = MgfPointer.Position;
                 if (gamePhase == GamePhase.Title)
                 {
-                    if (InTitleHandle(MgfPointer.Position)) { inputMode = InputMode.TitleHandle; PressTitleHandle(true); MgfSfx.Play("tap", .1f); }
-                    else RefuseAt(MgfPointer.Position, "수압 손잡이를 누르시오");
+                    // 타이틀의 세계 전체가 관측창이다. 첫눈에 들어오는 가오리·제목·수주를
+                    // 눌러도 같은 실제 시작 경로로 들어가며, 보이지 않는 무효 탭을 만들지 않는다.
+                    inputMode = InputMode.TitleHandle;
+                    PressTitleHandle(true);
+                    MgfSfx.Play("tap", .1f);
                     Notify();
                     return;
                 }

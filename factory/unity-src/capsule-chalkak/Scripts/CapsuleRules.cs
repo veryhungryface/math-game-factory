@@ -89,6 +89,9 @@ namespace Mgf.CapsuleChalkak
         public const int StartLives = 3;
         public const int RequiredFirstCorrect = 4;
         public const float RunSeconds = 105f;
+        // 짧은 표본 타일은 색 이름(빨강/파랑/하양/검정), 발문은 자연스러운
+        // 관형형(빨간/파란/흰/검은)을 쓴다. 둘을 한 문자열로 재사용하면
+        // 「빨강 공」처럼 교과서 예문과 동떨어진 표현이 된다.
         static readonly string[] Colors = { "빨강", "파랑", "하양", "검정" };
 
         public static int CountBits(ulong mask)
@@ -177,6 +180,18 @@ namespace Mgf.CapsuleChalkak
 
         static ulong Bit(int index) => 1UL << index;
 
+        static string BallAdjective(string color)
+        {
+            switch (color)
+            {
+                case "빨강": return "빨간";
+                case "파랑": return "파란";
+                case "하양": return "흰";
+                case "검정": return "검은";
+                default: return color;
+            }
+        }
+
         static CapsuleProblem Bag(string id, int a, int b, string colorA, string colorB, int target, int band)
         {
             int total = a + b;
@@ -194,9 +209,9 @@ namespace Mgf.CapsuleChalkak
             }
             return FinalizeProblem(new CapsuleProblem {
                 id = id, kind = CapsuleKind.Bag, band = band, labels = labels, answerMask = mask,
-                prompt = colorA + " 공 " + a + "개와 " + colorB + " 공 " + b + "개가 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때, " + targetColor + " 공이 나올 확률을 구하시오. (단, 공의 모양과 크기는 모두 같다.)",
-                shortCondition = targetColor + " 공이 나오는 경우",
-                reveal = targetColor + " 공 " + favorable + "개 / 전체 " + total + "개",
+                prompt = BallAdjective(colorA) + " 공 " + a + "개와 " + BallAdjective(colorB) + " 공 " + b + "개가 들어 있는 주머니에서 공 한 개를 임의로 꺼낼 때, " + BallAdjective(targetColor) + " 공이 나올 확률을 구하시오. (단, 공의 모양과 크기는 모두 같다.)",
+                shortCondition = BallAdjective(targetColor) + " 공이 나오는 경우",
+                reveal = BallAdjective(targetColor) + " 공 " + favorable + "개 / 전체 " + total + "개",
                 unitConcept = "경우의 수의 비율로서의 확률"
             });
         }
@@ -296,7 +311,7 @@ namespace Mgf.CapsuleChalkak
             }
             return FinalizeProblem(new CapsuleProblem {
                 id = id, kind = CapsuleKind.CoinDie, band = band, labels = labels, answerMask = mask,
-                prompt = "서로 영향을 끼치지 않는 동전 한 개와 주사위 한 개를 동시에 던질 때, 동전은 앞면이 나오고 주사위는 " + (prime ? "소수" : "짝수") + "의 눈이 나올 확률을 구하시오.",
+                prompt = "동전 한 개와 주사위 한 개를 동시에 던진다. 동전의 결과와 주사위의 결과가 서로 영향을 끼치지 않을 때, 동전은 앞면이 나오고 주사위는 " + (prime ? "소수" : "짝수") + "의 눈이 나올 확률을 구하시오.",
                 shortCondition = "앞면 · " + (prime ? "소수" : "짝수") + "의 눈",
                 reveal = "동전 앞면 1/2 × 주사위 " + (prime ? "소수" : "짝수") + " 3/6 = 1/4",
                 unitConcept = "서로 영향을 끼치지 않는 두 사건의 확률"

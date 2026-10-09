@@ -79,28 +79,23 @@ async function chain(page, value, indices, dwell = 34) {
 }
 
 async function pullLever(page, value, dwell = 45) {
-  const x = value.controlPx[0];
-  const y = value.controlPx[1];
   for (let attempt = 0; attempt < 3; attempt++) {
+    const fresh = await state(page);
+    const x = fresh.controlPx[0];
+    const y = fresh.controlPx[1];
+    const endY = Math.min(fresh.screenH - 5, y + Math.max(92, Math.min(170, fresh.screenH - y - 5)));
     await page.mouse.move(x, y);
     await sleep(dwell);
     await page.mouse.down();
     await sleep(dwell);
-    // 브라우저/Unity 조합의 Y축 변환을 레버 당김 비율로 실측한다.
-    await page.mouse.move(x, Math.min(value.screenH - 4, y + 260), { steps: 8 });
+    await page.mouse.move(x, endY, { steps: 10 });
     await sleep(dwell);
-    let held = await state(page);
+    const held = await state(page);
+    await page.mouse.up();
     if (held.leverPullRatio < .99) {
-      await page.mouse.move(x, Math.max(4, y - 260), { steps: 8 });
-      await sleep(dwell);
-      held = await state(page);
-    }
-    if (held.leverPullRatio < .99) {
-      await page.mouse.up();
       await sleep(140);
       continue;
     }
-    await page.mouse.up();
     await sleep(140);
     const after = await state(page);
     if (after.phase === 'reveal' || after.phase === 'lost' || after.phase === 'clear') return after;
@@ -115,7 +110,13 @@ function correctIndices(value) {
   const bag = prompt.match(/,\s*([가-힣]+) 공이 나올 확률/);
   const dice = prompt.match(/합이\s*(\d+)일 확률/);
   if (bag) {
-    const target = bag[1] === '하얀' ? '하양' : bag[1] === '검은' ? '검정' : bag[1];
+    const target = {
+      빨간: '빨강',
+      파란: '파랑',
+      흰: '하양',
+      하얀: '하양',
+      검은: '검정',
+    }[bag[1]] ?? bag[1];
     predicate = label => label.startsWith(`${target} `);
   } else if (dice) {
     const target = Number(dice[1]);

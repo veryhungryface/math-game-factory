@@ -73,7 +73,11 @@ async function pullLever(page, value) {
   await page.mouse.move(x, Math.min(value.screenH - 4, y + 260), { steps: 8 });
   await sleep(70);
   const held = await state(page);
-  if (held.leverPullRatio < .99) throw new Error(`lever threshold not reached: ${JSON.stringify(held)}`);
+  if (held.leverPullRatio < .99) {
+    await page.screenshot({ path: path.join(OUT, 'debug-lever-held.png') });
+    await page.mouse.up();
+    throw new Error(`lever threshold not reached: ${JSON.stringify(held)}`);
+  }
   await page.mouse.up();
   return waitFor(page, next => next.phase === 'reveal', 2000);
 }

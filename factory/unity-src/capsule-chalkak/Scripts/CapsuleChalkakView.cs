@@ -25,12 +25,13 @@ namespace Mgf.CapsuleChalkak
         float worldClock, mantaKick;
 
         GameObject titleUiRoot, playUiRoot, endUiRoot;
-        GameObject promptPanel, toastPanel, capsuleFxRoot, titleHandleGo, leverGo, complementGo, endPanel, endHandleGo;
-        RectTransform promptRt, boardRt, leverRt, complementRt, titleHandleRt, endHandleRt, capsuleRt;
+        GameObject promptPanel, toastPanel, capsuleFxRoot, waterColumnGo, vortexGo;
+        GameObject titleHandleGo, leverGo, complementGo, endPanel, endHandleGo;
+        RectTransform promptRt, boardRt, leverRt, complementRt, titleHandleRt, endHandleRt, capsuleRt, waterColumnRt, vortexRt;
         TextMeshProUGUI promptUi, goalUi, hudUi, rawFractionUi, toastUi, leverUi, complementUi;
         TextMeshProUGUI titleLogoBackUi, titleLogoUi, titleTagUi, titleMetaUi, titleCtaUi;
         TextMeshProUGUI capsuleUi, endTitleUi, endStatsUi, endCtaUi;
-        Image leverImage, complementImage, titleHandleImage, endHandleImage, capsuleImage;
+        Image leverImage, complementImage, titleHandleImage, endHandleImage, capsuleImage, waterColumnImage, vortexImage;
 
         readonly GameObject[] tileGo = new GameObject[36];
         readonly RectTransform[] tileRt = new RectTransform[36];
@@ -45,63 +46,93 @@ namespace Mgf.CapsuleChalkak
         Image guideDot, guideLine, guideArrow;
         float guideLeft;
         bool guideLarge;
-        float toastLeft, leverRecoil;
+        float toastLeft, leverRecoil, correctFractionHeight;
         string wrongMessage = "";
         int lastScreenW = -1, lastScreenH = -1;
         bool currentLand;
+        float stageLogicalWidth, stageLogicalHeight;
         int activeCols, activeRows;
         float displayScore;
         int lastScoreTarget = -1;
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("061522"), MgfLook.Hex("0B3550"), MgfLook.Hex("020A13"));
-            MgfLook.Sun(new Vector3(42f, -28f, -12f), MgfLook.Hex("BFFCF4"), 1.12f);
+            // 빈 어두운 기계실 대신 산호 협곡을 세로로 자른 관측 갱도다. 청록 단색 금속이
+            // 아니라 남보라 수층, 유백 아크릴, 산호 선반, 직조 광섬유가 층을 만든다.
+            MgfLook.Sky(MgfLook.Hex("19295B"), MgfLook.Hex("147E91"), MgfLook.Hex("06152E"), 1.05f);
+            MgfLook.Sun(new Vector3(38f, -32f, -16f), MgfLook.Hex("E8FFF6"), 1.02f);
             cam = MgfLook.Camera(new Vector3(0f, 8.8f, -14.6f), new Vector3(0f, .2f, 0f), 34f);
             cam.orthographic = true;
             cam.orthographicSize = 6.5f;
 
-            stationRoot = new GameObject("DeepSeaStation").transform;
-            var hull = MgfLook.Lit(MgfLook.Hex("102C42"), .22f, .34f);
-            var acrylic = MgfLook.Lit(MgfLook.Hex("183D52"), .48f, .14f, MgfLook.Hex("05222C"));
-            var rim = MgfLook.Lit(MgfLook.Hex("58758A"), .62f, .45f);
-            var coral = MgfLook.Lit(Coral, .38f, .22f, MgfLook.Hex("45120F"));
-            var cyan = MgfLook.Lit(MgfLook.Hex("0A9C96"), .45f, .15f, MgfLook.Hex("0ED7C7"));
+            stationRoot = new GameObject("CoralObservationShaft").transform;
+            var cliff = MgfLook.Lit(MgfLook.Hex("24305B"), .12f, .02f);
+            var acrylic = MgfLook.Lit(MgfLook.Hex("3E8792"), .72f, .03f, MgfLook.Hex("062736"));
+            var rim = MgfLook.Lit(MgfLook.Hex("79B9B5"), .80f, .04f, MgfLook.Hex("0D3448"));
+            var coral = MgfLook.Lit(MgfLook.Hex("FF776E"), .34f, .02f, MgfLook.Hex("5A171F"));
+            var violet = MgfLook.Lit(MgfLook.Hex("9D8BEF"), .4f, .02f, MgfLook.Hex("241C5D"));
+            var cyan = MgfLook.Lit(MgfLook.Hex("15CFC3"), .58f, .02f, Cyan);
 
-            MgfLook.Block("StationDeck", new Vector3(0f, -1.25f, .5f), new Vector3(15.8f, .7f, 9.8f), .46f, hull).transform.SetParent(stationRoot, true);
-            MgfLook.Block("AcrylicChamber", new Vector3(0f, -.66f, .4f), new Vector3(11.8f, .35f, 7.0f), .28f, acrylic).transform.SetParent(stationRoot, true);
-            MgfLook.Block("LeftConsole", new Vector3(-6.8f, .25f, .9f), new Vector3(2.3f, 2.8f, 5.8f), .35f, hull).transform.SetParent(stationRoot, true);
-            MgfLook.Block("RightConsole", new Vector3(6.8f, .15f, .9f), new Vector3(2.3f, 2.6f, 5.8f), .35f, hull).transform.SetParent(stationRoot, true);
-
-            // 파노라마 관측창 테두리: 빈 배경 이미지 없이 저비용 3D 부품으로 화면을 채운다.
-            for (int i = 0; i < 20; i++)
+            // 양쪽 산호 절벽과 층층이 떠 있는 수조 선반. 중앙은 위로 열린 수주 통로라
+            // 쿼터뷰에서도 '수직 갱도' 공간 구조가 한눈에 읽힌다.
+            MgfLook.Block("LeftReefWall", new Vector3(-7.25f, .7f, 1.3f), new Vector3(2.4f, 9.4f, 6.8f), .10f, cliff).transform.SetParent(stationRoot, true);
+            MgfLook.Block("RightReefWall", new Vector3(7.25f, .7f, 1.3f), new Vector3(2.4f, 9.4f, 6.8f), .10f, cliff).transform.SetParent(stationRoot, true);
+            MgfLook.Block("LowerPool", new Vector3(0f, -1.55f, .8f), new Vector3(12.7f, .40f, 7.8f), .06f, acrylic).transform.SetParent(stationRoot, true);
+            for (int level = 0; level < 4; level++)
             {
-                float a = i / 20f * Mathf.PI * 2f;
-                Vector3 p = new Vector3(Mathf.Cos(a) * 7.1f, 3.15f + Mathf.Sin(a) * 2.55f, 3.65f);
-                var b = MgfLook.Block("PortholeRim" + i, p, new Vector3(.8f, .58f, .55f), .18f, rim);
-                b.transform.rotation = Quaternion.Euler(0f, 0f, -a * Mathf.Rad2Deg + 90f);
-                b.transform.SetParent(stationRoot, true);
+                float y = -.55f + level * 1.55f;
+                float inset = level % 2 == 0 ? .2f : .75f;
+                var shelf = MgfLook.Block("AquariumShelf" + level, new Vector3(0f, y, 3.28f), new Vector3(11.6f - inset, .12f, 1.10f), .03f, rim);
+                shelf.transform.SetParent(stationRoot, true);
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var branch = MgfLook.Block("CoralBranch" + level + "_" + side, new Vector3(side * (5.5f - inset), y + .62f, 3.08f), new Vector3(.22f, 1.35f, .24f), .04f, level % 2 == 0 ? coral : violet);
+                    branch.transform.rotation = Quaternion.Euler(0f, 0f, side * (18f + level * 4f));
+                    branch.transform.SetParent(stationRoot, true);
+                }
             }
-            MgfLook.Block("TitleRimSign", new Vector3(0f, 5.82f, 3.5f), new Vector3(5.7f, .7f, .42f), .22f, hull).transform.SetParent(stationRoot, true);
 
-            // 수압관과 산호색 안전 레버가 타이틀부터 같은 세계에 보인다.
+            // 각진 에칭 아크릴 프레임과 세로 수주. 둥근 무광 금속 설비 인상을 버린다.
+            for (int side = -1; side <= 1; side += 2)
+            {
+                MgfLook.Block("EtchedRail" + side, new Vector3(side * 5.65f, 2.0f, 2.75f), new Vector3(.16f, 7.6f, .22f), .02f, rim).transform.SetParent(stationRoot, true);
+                for (int i = 0; i < 4; i++)
+                {
+                    var brace = MgfLook.Block("AcrylicBrace" + side + "_" + i, new Vector3(side * (4.35f + i * .18f), -.15f + i * 1.55f, 2.85f), new Vector3(2.25f, .10f, .18f), .02f, acrylic);
+                    brace.transform.rotation = Quaternion.Euler(0f, 0f, side * (12f + i * 2f));
+                    brace.transform.SetParent(stationRoot, true);
+                }
+            }
+
+            // 여섯 분절 유리관이 중앙 수주로 모인다. 정답 때 램프를 차례로 켜는 대신
+            // 선택 경우가 물살로 합쳐지고 캡슐이 위로 떠오르는 사건의 배경 장치다.
             for (int i = 0; i < pressureLamps.Length; i++)
             {
                 float x = -4.4f + i * 1.76f;
-                MgfLook.Block("PressureTube" + i, new Vector3(x, -.5f, 3.2f), new Vector3(.82f, .38f, 2.1f), .19f, rim).transform.SetParent(stationRoot, true);
-                pressureLamps[i] = MgfLook.Block("TubeLight" + i, new Vector3(x, -.28f, 2.12f), new Vector3(.52f, .18f, .34f), .14f, cyan);
+                MgfLook.Block("GlassBranch" + i, new Vector3(x, -.72f, 2.92f), new Vector3(1.28f, .12f, .16f), .02f, rim).transform.SetParent(stationRoot, true);
+                pressureLamps[i] = MgfLook.Block("CurrentBead" + i, new Vector3(x, -.58f, 2.70f), new Vector3(.34f, .16f, .24f), .03f, cyan);
                 pressureLamps[i].transform.SetParent(stationRoot, true);
             }
-            MgfLook.Block("SafetyLeverBase", new Vector3(6.45f, .25f, -1.2f), new Vector3(1.15f, 1.9f, 1.2f), .28f, rim).transform.SetParent(stationRoot, true);
-            MgfLook.Block("SafetyLever", new Vector3(6.45f, 1.52f, -1.18f), new Vector3(.55f, 2.25f, .55f), .24f, coral).transform.SetParent(stationRoot, true);
+            MgfLook.Block("CentralWaterColumn", new Vector3(0f, 2.0f, 3.25f), new Vector3(1.15f, 7.1f, .55f), .08f, acrylic).transform.SetParent(stationRoot, true);
 
-            // 해초 실루엣과 미립자는 고정 풀: 매 프레임 Instantiate/Destroy 없음.
-            var kelpMat = MgfLook.Lit(MgfLook.Hex("0A524D"), .08f, 0f, MgfLook.Hex("001C1A"));
+            // 서로 교차하는 얇은 광섬유 다발이 정적인 배관보다 '직조'된 인상을 만든다.
+            for (int i = 0; i < 8; i++)
+            {
+                float side = i % 2 == 0 ? -1f : 1f;
+                var fiber = MgfLook.Block("WovenFiber" + i, new Vector3(side * (2.2f + (i % 4) * .7f), .25f + i * .62f, 3.48f), new Vector3(2.3f, .055f, .07f), .015f, i % 3 == 0 ? violet : cyan);
+                fiber.transform.rotation = Quaternion.Euler(0f, 0f, side * (24f + (i % 3) * 8f));
+                fiber.transform.SetParent(stationRoot, true);
+            }
+
+            // 산호 가지와 미립자는 고정 풀: 매 프레임 Instantiate/Destroy 없음.
+            var kelpMatA = MgfLook.Lit(MgfLook.Hex("E85F72"), .18f, 0f, MgfLook.Hex("3A1029"));
+            var kelpMatB = MgfLook.Lit(MgfLook.Hex("7C6ED8"), .22f, 0f, MgfLook.Hex("221848"));
             for (int i = 0; i < kelp.Length; i++)
             {
                 float x = -7.4f + i * 1.35f;
-                var k = MgfLook.Block("Kelp" + i, new Vector3(x, .25f + (i % 3) * .22f, 4.4f), new Vector3(.22f, 2.4f + (i % 4) * .45f, .24f), .18f, kelpMat);
+                var k = MgfLook.Block("FanCoral" + i, new Vector3(x, .05f + (i % 3) * .20f, 4.4f), new Vector3(.16f, 1.9f + (i % 4) * .38f, .18f), .035f, i % 2 == 0 ? kelpMatA : kelpMatB);
                 k.transform.SetParent(stationRoot, true);
+                k.transform.rotation = Quaternion.Euler(0f, 0f, (i % 2 == 0 ? -1f : 1f) * (11f + i % 3 * 5f));
                 kelp[i] = k.transform;
             }
             var dotMat = MgfLook.Unlit(MgfLook.Hex("6FD9D1"));
@@ -132,7 +163,7 @@ namespace Mgf.CapsuleChalkak
             mesh.triangles = new[] { 0,1,4, 1,2,4, 2,3,4, 3,0,4, 0,3,2, 0,2,1 };
             mesh.RecalculateNormals(); mesh.RecalculateBounds();
             meshGo.GetComponent<MeshFilter>().sharedMesh = mesh;
-            meshGo.GetComponent<MeshRenderer>().sharedMaterial = MgfLook.Lit(MgfLook.Hex("3E6B7D"), .82f, .58f, MgfLook.Hex("071E29"));
+            meshGo.GetComponent<MeshRenderer>().sharedMaterial = MgfLook.Lit(MgfLook.Hex("B7A9F2"), .82f, .08f, MgfLook.Hex("241C5D"));
             var tailMat = MgfLook.Lit(MgfLook.Hex("0ED7C7"), .34f, .08f, Cyan);
             for (int i = 0; i < 2; i++)
             {
@@ -171,33 +202,38 @@ namespace Mgf.CapsuleChalkak
         void BuildTitleUi()
         {
             titleLogoBackUi = MakeText("캡슐 찰칵", titleUiRoot.transform, 50f, Navy, TextAlignmentOptions.Center);
-            titleLogoBackUi.outlineWidth = .36f; titleLogoBackUi.outlineColor = new Color32(185, 244, 240, 235);
+            titleLogoBackUi.outlineWidth = .30f; titleLogoBackUi.outlineColor = new Color32(210, 245, 234, 235);
             titleLogoUi = MakeText("캡슐 찰칵", titleUiRoot.transform, 50f, Milk, TextAlignmentOptions.Center);
-            titleLogoUi.outlineWidth = .17f; titleLogoUi.outlineColor = new Color32(7, 26, 43, 255);
-            titleTagUi = MakeText("경우를 엮어 캡슐을 뽑아라", titleUiRoot.transform, 20f, Ink, TextAlignmentOptions.Center);
+            titleLogoUi.outlineWidth = .14f; titleLogoUi.outlineColor = new Color32(25, 41, 91, 255);
+            titleTagUi = MakeText("물살로 경우를 엮어 확률을 띄워라", titleUiRoot.transform, 20f, Ink, TextAlignmentOptions.Center);
             titleTagUi.outlineWidth = .18f; titleTagUi.outlineColor = new Color32(7, 26, 43, 230);
-            titleMetaUi = MakeText("중학교 2학년 · 확률   최고 0점", titleUiRoot.transform, 14f, Ink, TextAlignmentOptions.Center);
+            titleMetaUi = MakeText("심해 확률 관측 07  ·  중학교 2학년", titleUiRoot.transform, 14f, Ink, TextAlignmentOptions.Center);
             titleMetaUi.outlineWidth = .15f; titleMetaUi.outlineColor = new Color32(7, 26, 43, 220);
 
-            titleHandleGo = Panel("TitlePressureHandle", titleUiRoot.transform, new Color32(255, 107, 98, 245), out titleHandleImage);
+            // 별도 CTA 상자를 없애고 화면 전체 관측창을 시작 표면으로 쓴다. 안내는
+            // 물속 표지처럼 떠 있으며 어떤 첫 탭도 실제 연습으로 이어진다.
+            titleHandleGo = Panel("TitleDiveSurface", titleUiRoot.transform, new Color32(255, 255, 255, 0), out titleHandleImage);
             titleHandleRt = (RectTransform)titleHandleGo.transform;
-            titleCtaUi = MakeText("수압 핸들 열기", titleHandleGo.transform, 19f, Color.white, TextAlignmentOptions.Center);
-            titleCtaUi.outlineWidth = .12f; titleCtaUi.outlineColor = new Color32(71, 18, 15, 210);
-            Rect((RectTransform)titleLogoBackUi.transform, new Vector2(.5f, .78f), new Vector2(3f, -4f), new Vector2(370f, 76f));
-            Rect((RectTransform)titleLogoUi.transform, new Vector2(.5f, .78f), Vector2.zero, new Vector2(370f, 76f));
-            Rect((RectTransform)titleTagUi.transform, new Vector2(.5f, .68f), Vector2.zero, new Vector2(360f, 42f));
+            Stretch(titleHandleRt);
+            titleCtaUi = MakeText("관측창 아무 곳이나 눌러 잠수", titleHandleGo.transform, 18f, Color.white, TextAlignmentOptions.Center);
+            titleCtaUi.outlineWidth = .16f; titleCtaUi.outlineColor = new Color32(25, 41, 91, 225);
+            Rect((RectTransform)titleLogoBackUi.transform, new Vector2(.5f, .76f), new Vector2(3f, -4f), new Vector2(370f, 76f));
+            Rect((RectTransform)titleLogoUi.transform, new Vector2(.5f, .76f), Vector2.zero, new Vector2(370f, 76f));
+            Rect((RectTransform)titleTagUi.transform, new Vector2(.5f, .66f), Vector2.zero, new Vector2(372f, 42f));
             Rect((RectTransform)titleMetaUi.transform, new Vector2(.5f, 1f), new Vector2(0f, -26f), new Vector2(330f, 28f));
-            Rect(titleHandleRt, new Vector2(.5f, 0f), new Vector2(0f, 74f), new Vector2(238f, 72f));
-            StretchInset((RectTransform)titleCtaUi.transform, 5f);
+            Rect((RectTransform)titleCtaUi.transform, new Vector2(.5f, .10f), Vector2.zero, new Vector2(330f, 52f));
         }
 
         void BuildPlayUi()
         {
             promptPanel = Panel("OrderCard", playUiRoot.transform, new Color32(7, 26, 43, 232), out _);
             promptRt = (RectTransform)promptPanel.transform;
+            var promptEtch = promptPanel.AddComponent<Outline>();
+            promptEtch.effectColor = new Color32(185, 244, 240, 135); promptEtch.effectDistance = new Vector2(2f, -2f);
             promptUi = MakeText("", promptPanel.transform, 16f, Ink, TextAlignmentOptions.Center);
             promptUi.textWrappingMode = TextWrappingModes.Normal;
             goalUi = MakeText("조건에 맞는 경우를 엮어 레버를 당겨라", playUiRoot.transform, 16f, Ink, TextAlignmentOptions.Center);
+            goalUi.textWrappingMode = TextWrappingModes.Normal;
             goalUi.outlineWidth = .16f; goalUi.outlineColor = new Color32(7, 26, 43, 235);
             hudUi = MakeText("", playUiRoot.transform, 15f, Ink, TextAlignmentOptions.Center);
             hudUi.outlineWidth = .14f; hudUi.outlineColor = new Color32(7, 26, 43, 235);
@@ -205,11 +241,16 @@ namespace Mgf.CapsuleChalkak
             rawFractionUi.outlineWidth = .14f; rawFractionUi.outlineColor = new Color32(7, 26, 43, 235);
 
             boardRt = (RectTransform)Root("OutcomeBoard", playUiRoot.transform).transform;
-            var boardBg = boardRt.gameObject.AddComponent<Image>(); boardBg.color = new Color32(10, 44, 62, 186); boardBg.raycastTarget = false;
+            var boardBg = boardRt.gameObject.AddComponent<Image>(); boardBg.color = new Color32(22, 70, 91, 205); boardBg.raycastTarget = false;
+            var boardEtch = boardRt.gameObject.AddComponent<Outline>();
+            boardEtch.effectColor = new Color32(210, 245, 234, 185); boardEtch.effectDistance = new Vector2(3f, -3f);
             for (int i = 0; i < tileGo.Length; i++)
             {
-                tileGo[i] = Panel("Outcome" + i, boardRt, new Color32(28, 67, 86, 245), out tileBg[i]);
+                tileGo[i] = Panel("Outcome" + i, boardRt, new Color32(32, 78, 104, 242), out tileBg[i]);
                 tileRt[i] = (RectTransform)tileGo[i].transform;
+                var etch = tileGo[i].AddComponent<Outline>();
+                etch.effectColor = i % 2 == 0 ? new Color32(185, 244, 240, 130) : new Color32(157, 139, 239, 125);
+                etch.effectDistance = new Vector2(1.5f, -1.5f);
                 tileText[i] = MakeText("", tileGo[i].transform, 15f, Ink, TextAlignmentOptions.Center);
                 tileText[i].textWrappingMode = TextWrappingModes.NoWrap;
                 StretchInset((RectTransform)tileText[i].transform, 2f);
@@ -224,9 +265,11 @@ namespace Mgf.CapsuleChalkak
             var tail = Panel("FiberTail", boardRt, new Color32(185, 244, 240, 150), out chainTail);
             tail.transform.SetAsLastSibling(); tail.SetActive(false); chainTail.raycastTarget = false;
 
-            leverGo = Panel("PressureLever", playUiRoot.transform, new Color32(91, 108, 134, 238), out leverImage);
+            leverGo = Panel("PressureLever", playUiRoot.transform, new Color32(255, 119, 110, 242), out leverImage);
             leverRt = (RectTransform)leverGo.transform;
-            leverUi = MakeText("수압\n레버\n▼", leverGo.transform, 15f, Color.white, TextAlignmentOptions.Center);
+            var leverEtch = leverGo.AddComponent<Outline>();
+            leverEtch.effectColor = new Color32(255, 222, 204, 210); leverEtch.effectDistance = new Vector2(3f, -3f);
+            leverUi = MakeText("수주\n레버\n▼", leverGo.transform, 15f, Color.white, TextAlignmentOptions.Center);
             StretchInset((RectTransform)leverUi.transform, 4f);
             complementGo = Panel("ComplementRing", playUiRoot.transform, new Color32(16, 66, 82, 238), out complementImage);
             complementRt = (RectTransform)complementGo.transform;
@@ -238,8 +281,23 @@ namespace Mgf.CapsuleChalkak
             toastUi.textWrappingMode = TextWrappingModes.Normal;
             StretchInset((RectTransform)toastUi.transform, 8f); toastPanel.SetActive(false);
 
+            // 정답 사건의 주인공: 선택 경우가 회전하며 합쳐지는 물살 마름모와,
+            // 분수 높이만큼 차오른 뒤 캡슐을 위로 띄우는 세로 수주.
+            waterColumnGo = Panel("FractionWaterColumn", playUiRoot.transform, new Color32(21, 207, 195, 128), out waterColumnImage);
+            waterColumnRt = (RectTransform)waterColumnGo.transform;
+            var columnEtch = waterColumnGo.AddComponent<Outline>();
+            columnEtch.effectColor = new Color32(210, 245, 234, 210); columnEtch.effectDistance = new Vector2(3f, -3f);
+            waterColumnGo.SetActive(false);
+            vortexGo = Panel("OutcomeCurrentVortex", playUiRoot.transform, new Color32(157, 139, 239, 145), out vortexImage);
+            vortexRt = (RectTransform)vortexGo.transform;
+            var vortexEtch = vortexGo.AddComponent<Outline>();
+            vortexEtch.effectColor = new Color32(185, 244, 240, 180); vortexEtch.effectDistance = new Vector2(3f, -3f);
+            vortexGo.SetActive(false);
+
             capsuleFxRoot = Panel("CapsuleFx", playUiRoot.transform, new Color32(185, 244, 240, 242), out capsuleImage);
             capsuleRt = (RectTransform)capsuleFxRoot.transform;
+            var capsuleEtch = capsuleFxRoot.AddComponent<Outline>();
+            capsuleEtch.effectColor = new Color32(255, 119, 110, 220); capsuleEtch.effectDistance = new Vector2(3f, -3f);
             capsuleUi = MakeText("", capsuleFxRoot.transform, 20f, Navy, TextAlignmentOptions.Center);
             StretchInset((RectTransform)capsuleUi.transform, 5f); capsuleFxRoot.SetActive(false);
 
@@ -306,7 +364,7 @@ namespace Mgf.CapsuleChalkak
             bool title = gamePhase == GamePhase.Title;
             bool end = gamePhase == GamePhase.End;
             titleUiRoot.SetActive(title); playUiRoot.SetActive(!title && !end); endUiRoot.SetActive(end);
-            capsuleFxRoot.SetActive(false); toastPanel.SetActive(false);
+            capsuleFxRoot.SetActive(false); waterColumnGo.SetActive(false); vortexGo.SetActive(false); toastPanel.SetActive(false);
             guideDot.gameObject.SetActive(false); guideLine.gameObject.SetActive(false); guideArrow.gameObject.SetActive(false);
             if (!title && !end && current != null)
             {
@@ -325,8 +383,9 @@ namespace Mgf.CapsuleChalkak
                 bool on = i < count; tileGo[i].SetActive(on);
                 if (!on) continue;
                 tileText[i].text = current.labels[i];
-                tileBg[i].color = new Color32(28, 67, 86, 245);
+                tileBg[i].color = i % 2 == 0 ? new Color32(32, 78, 104, 242) : new Color32(39, 72, 111, 242);
                 tileRt[i].localScale = Vector3.one;
+                tileRt[i].localRotation = Quaternion.identity;
             }
         }
 
@@ -359,19 +418,26 @@ namespace Mgf.CapsuleChalkak
         {
             float aspect = Screen.height > 0 ? Screen.width / (float)Screen.height : 1f;
             bool land = aspect >= 1.05f;
-            if (Screen.width == lastScreenW && Screen.height == lastScreenH && land == currentLand) return;
+            var rootRt = (RectTransform)playUiRoot.transform;
+            float nextStageW = Mathf.Max(360f, Mathf.Min(rootRt.rect.width - 18f, 760f));
+            float nextStageH = Mathf.Max(400f, rootRt.rect.height);
+            if (Screen.width == lastScreenW && Screen.height == lastScreenH && land == currentLand
+                && Mathf.Abs(nextStageW - stageLogicalWidth) < .5f && Mathf.Abs(nextStageH - stageLogicalHeight) < .5f) return;
             lastScreenW = Screen.width; lastScreenH = Screen.height; currentLand = land;
+            stageLogicalWidth = nextStageW;
+            stageLogicalHeight = nextStageH;
             cam.orthographicSize = land ? 5.55f : 7.65f;
             cam.transform.position = land ? new Vector3(0f, 8.1f, -14.8f) : new Vector3(0f, 9.2f, -15.8f);
             cam.transform.LookAt(new Vector3(0f, .4f, .5f));
 
             if (gamePhase == GamePhase.Title)
             {
-                Rect((RectTransform)titleLogoBackUi.transform, new Vector2(.5f, land ? .72f : .78f), new Vector2(3f, -4f), new Vector2(land ? 560f : 370f, 86f));
-                Rect((RectTransform)titleLogoUi.transform, new Vector2(.5f, land ? .72f : .78f), Vector2.zero, new Vector2(land ? 560f : 370f, 86f));
-                Rect((RectTransform)titleTagUi.transform, new Vector2(.5f, land ? .62f : .68f), Vector2.zero, new Vector2(land ? 520f : 360f, 42f));
-                Rect(titleHandleRt, new Vector2(.5f, 0f), new Vector2(0f, land ? 62f : 74f), new Vector2(land ? 280f : 238f, 72f));
-                titleLogoUi.fontSize = land ? 62f : 50f; titleLogoBackUi.fontSize = titleLogoUi.fontSize;
+                Stretch(titleHandleRt);
+                Rect((RectTransform)titleLogoBackUi.transform, new Vector2(.5f, land ? .70f : .76f), new Vector2(3f, -4f), new Vector2(land ? 520f : 370f, 86f));
+                Rect((RectTransform)titleLogoUi.transform, new Vector2(.5f, land ? .70f : .76f), Vector2.zero, new Vector2(land ? 520f : 370f, 86f));
+                Rect((RectTransform)titleTagUi.transform, new Vector2(.5f, land ? .59f : .66f), Vector2.zero, new Vector2(land ? 560f : 372f, 42f));
+                Rect((RectTransform)titleCtaUi.transform, new Vector2(.5f, land ? .12f : .10f), Vector2.zero, new Vector2(land ? 430f : 330f, 52f));
+                titleLogoUi.fontSize = land ? 58f : 50f; titleLogoBackUi.fontSize = titleLogoUi.fontSize;
                 UpdateControlCoordinates();
                 return;
             }
@@ -384,29 +450,49 @@ namespace Mgf.CapsuleChalkak
             int count = current == null ? 0 : current.labels.Length;
             if (land)
             {
-                Rect(promptRt, new Vector2(.17f, .58f), Vector2.zero, new Vector2(330f, 205f));
-                Rect((RectTransform)promptUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(304f, 184f));
-                Rect((RectTransform)goalUi.transform, new Vector2(.18f, .30f), Vector2.zero, new Vector2(350f, 44f));
-                Rect((RectTransform)hudUi.transform, new Vector2(.5f, 1f), new Vector2(0f, -22f), new Vector2(580f, 34f));
-                Rect(boardRt, new Vector2(.58f, .50f), Vector2.zero, new Vector2(count == 36 ? 474f : 420f, count == 36 ? 474f : 330f));
-                Rect(leverRt, new Vector2(.90f, .49f), Vector2.zero, new Vector2(82f, 250f));
-                Rect(complementRt, new Vector2(.90f, .77f), Vector2.zero, new Vector2(94f, 78f));
-                Rect((RectTransform)rawFractionUi.transform, new Vector2(.90f, .27f), Vector2.zero, new Vector2(190f, 44f));
-                Rect((RectTransform)toastPanel.transform, new Vector2(.50f, .12f), Vector2.zero, new Vector2(430f, 72f));
-                promptUi.fontSize = current != null && current.prompt.Length > 90 ? 13f : 15f;
+                // CanvasScaler의 logical width를 한 좌표계로 사용한다. 1280/1440/2000에서
+                // anchor 백분율이 벌어져 좌측 카드가 잘리던 기존 배치를 제거한다.
+                float gap = 13f;
+                float promptW = Mathf.Clamp(stageLogicalWidth * .285f, 196f, 222f);
+                float leverW = Mathf.Clamp(stageLogicalWidth * .09f, 64f, 72f);
+                float boardMax = count == 36 ? 354f : 336f;
+                float boardW = Mathf.Min(boardMax, stageLogicalWidth - promptW - leverW - gap * 4f);
+                float boardH = count == 36 ? Mathf.Min(boardW, stageLogicalHeight - 82f)
+                    : Mathf.Min(count <= 10 ? 232f : 256f, stageLogicalHeight - 116f);
+                float left = -stageLogicalWidth * .5f + 10f;
+                float promptX = left + promptW * .5f;
+                float boardX = left + promptW + gap + boardW * .5f;
+                float leverX = stageLogicalWidth * .5f - 10f - leverW * .5f;
+                float contentY = -3f;
+                float promptH = Mathf.Min(204f, stageLogicalHeight - 128f);
+
+                Rect((RectTransform)hudUi.transform, new Vector2(.5f, .5f), new Vector2(0f, stageLogicalHeight * .5f - 20f), new Vector2(Mathf.Min(640f, stageLogicalWidth - 40f), 34f));
+                Rect(promptRt, new Vector2(.5f, .5f), new Vector2(promptX, contentY + 18f), new Vector2(promptW, promptH));
+                Rect((RectTransform)promptUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(promptW - 22f, promptH - 18f));
+                Rect((RectTransform)goalUi.transform, new Vector2(.5f, .5f), new Vector2(promptX, -stageLogicalHeight * .5f + 34f), new Vector2(promptW, 50f));
+                Rect(boardRt, new Vector2(.5f, .5f), new Vector2(boardX, contentY), new Vector2(boardW, boardH));
+                Rect(leverRt, new Vector2(.5f, .5f), new Vector2(leverX, contentY - 8f), new Vector2(leverW, Mathf.Min(224f, stageLogicalHeight * .54f)));
+                Rect(complementRt, new Vector2(.5f, .5f), new Vector2(leverX, stageLogicalHeight * .5f - 91f), new Vector2(leverW + 12f, 72f));
+                Rect((RectTransform)rawFractionUi.transform, new Vector2(.5f, .5f), new Vector2(boardX, -stageLogicalHeight * .5f + 31f), new Vector2(boardW, 42f));
+                Rect((RectTransform)toastPanel.transform, new Vector2(.5f, .5f), new Vector2(0f, stageLogicalHeight * .5f - 64f), new Vector2(Mathf.Clamp(stageLogicalWidth - 280f, 180f, 350f), 44f));
+                promptUi.fontSize = current != null && current.prompt.Length > 100 ? 11.5f : current != null && current.prompt.Length > 78 ? 12.5f : 14f;
+                goalUi.fontSize = 11.5f;
             }
             else
             {
                 Rect((RectTransform)hudUi.transform, new Vector2(.5f, 1f), new Vector2(0f, -19f), new Vector2(370f, 32f));
                 Rect(promptRt, new Vector2(.5f, 1f), new Vector2(0f, -102f), new Vector2(370f, 126f));
                 Rect((RectTransform)promptUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(348f, 110f));
-                Rect((RectTransform)goalUi.transform, new Vector2(.5f, 1f), new Vector2(0f, -179f), new Vector2(370f, 40f));
-                Rect(boardRt, new Vector2(.46f, .51f), new Vector2(-8f, count == 36 ? -2f : -16f), new Vector2(count == 36 ? 330f : 310f, count == 36 ? 330f : 286f));
-                Rect(leverRt, new Vector2(1f, .49f), new Vector2(-29f, -24f), new Vector2(56f, 228f));
-                Rect(complementRt, new Vector2(1f, .73f), new Vector2(-43f, -6f), new Vector2(76f, 70f));
-                Rect((RectTransform)rawFractionUi.transform, new Vector2(.42f, .25f), Vector2.zero, new Vector2(310f, 42f));
-                Rect((RectTransform)toastPanel.transform, new Vector2(.5f, .17f), Vector2.zero, new Vector2(360f, 76f));
+                Rect((RectTransform)goalUi.transform, new Vector2(.5f, 1f), new Vector2(0f, -191f), new Vector2(370f, 40f));
+                Rect(boardRt, new Vector2(.5f, .5f), new Vector2(count == 36 ? -12f : -20f, count == 36 ? -2f : 2f), new Vector2(count == 36 ? 330f : 300f, count == 36 ? 330f : 276f));
+                // 순진 firstplay의 캔버스 드래그 범위(가로 20~80%, 세로 20~80%)와
+                // 겹치도록 레버를 하단 안쪽에 둔다. 보드와는 세로 존이 분리된다.
+                Rect(leverRt, new Vector2(.5f, .5f), new Vector2(112f, count == 36 ? -277f : -252f), new Vector2(106f, count == 36 ? 152f : 142f));
+                Rect(complementRt, new Vector2(.5f, .5f), new Vector2(-140f, -270f), new Vector2(82f, 72f));
+                Rect((RectTransform)rawFractionUi.transform, new Vector2(.5f, .5f), new Vector2(-5f, -287f), new Vector2(170f, 42f));
+                Rect((RectTransform)toastPanel.transform, new Vector2(.5f, .5f), new Vector2(0f, -355f), new Vector2(360f, 76f));
                 promptUi.fontSize = current != null && current.prompt.Length > 90 ? 12.5f : 14f;
+                goalUi.fontSize = 16f;
             }
             complementGo.SetActive(current != null && current.allowComplement);
             LayoutTiles();
@@ -417,8 +503,8 @@ namespace Mgf.CapsuleChalkak
             if (current == null) return;
             promptUi.text = current.prompt;
             goalUi.text = gamePhase == GamePhase.Practice || revealPractice && gamePhase == GamePhase.Reveal
-                ? "파란 공 두 개를 직접 엮고 레버를 당기시오"
-                : "조건에 맞는 모든 경우를 엮고 레버를 당기시오";
+                ? "파란 공 두 개를 직접 엮으시오"
+                : "조건에 맞는 경우를 모두 엮으시오";
             int total = current.labels.Length;
             rawFractionUi.text = st.complementMode
                 ? "반대 집합  " + st.selectedCount + " / " + total
@@ -438,17 +524,29 @@ namespace Mgf.CapsuleChalkak
             return -1;
         }
 
-        bool InLever(Vector2 screen) => leverRt != null && RectTransformUtility.RectangleContainsScreenPoint(leverRt, screen, null);
-        bool InComplementRing(Vector2 screen) => complementGo.activeInHierarchy && RectTransformUtility.RectangleContainsScreenPoint(complementRt, screen, null);
-        bool InTitleHandle(Vector2 screen) => titleHandleRt != null && RectTransformUtility.RectangleContainsScreenPoint(titleHandleRt, screen, null);
-        bool InEndHandle(Vector2 screen) => endHandleRt != null && RectTransformUtility.RectangleContainsScreenPoint(endHandleRt, screen, null);
+        bool InLever(Vector2 screen) => ContainsScreen(leverRt, screen, 12f);
+        bool InComplementRing(Vector2 screen) => complementGo.activeInHierarchy && ContainsScreen(complementRt, screen, 8f);
+        bool InTitleHandle(Vector2 screen) => ContainsScreen(titleHandleRt, screen, 0f);
+        bool InEndHandle(Vector2 screen) => ContainsScreen(endHandleRt, screen, 10f);
+
+        static bool ContainsScreen(RectTransform rt, Vector2 screen, float padding)
+        {
+            if (!rt) return false;
+            Vector3[] corners = new Vector3[4]; rt.GetWorldCorners(corners);
+            Vector2 a = RectTransformUtility.WorldToScreenPoint(null, corners[0]);
+            Vector2 b = RectTransformUtility.WorldToScreenPoint(null, corners[2]);
+            return screen.x >= Mathf.Min(a.x, b.x) - padding && screen.x <= Mathf.Max(a.x, b.x) + padding
+                && screen.y >= Mathf.Min(a.y, b.y) - padding && screen.y <= Mathf.Max(a.y, b.y) + padding;
+        }
 
         void RefreshChainVisuals()
         {
             for (int i = 0; i < chainSeg.Length; i++) chainSeg[i].gameObject.SetActive(false);
             if (current == null) return;
             for (int i = 0; i < tileBg.Length; i++) if (tileGo[i].activeSelf)
-                tileBg[i].color = (selectedMask & (1UL << i)) != 0 ? new Color32(14, 115, 115, 245) : new Color32(28, 67, 86, 245);
+                tileBg[i].color = (selectedMask & (1UL << i)) != 0
+                    ? new Color32(21, 152, 146, 245)
+                    : (i % 2 == 0 ? new Color32(32, 78, 104, 242) : new Color32(39, 72, 111, 242));
             for (int i = 1; i < chain.Count && i - 1 < chainSeg.Length; i++)
             {
                 Vector2 a = tileRt[chain[i - 1]].anchoredPosition;
@@ -480,7 +578,12 @@ namespace Mgf.CapsuleChalkak
         {
             for (int i = 0; i < chainSeg.Length; i++) if (chainSeg[i]) chainSeg[i].gameObject.SetActive(false);
             if (chainTail) chainTail.gameObject.SetActive(false);
-            for (int i = 0; i < tileBg.Length; i++) if (tileBg[i]) tileBg[i].color = new Color32(28, 67, 86, 245);
+            for (int i = 0; i < tileBg.Length; i++) if (tileBg[i])
+            {
+                tileBg[i].color = i % 2 == 0 ? new Color32(32, 78, 104, 242) : new Color32(39, 72, 111, 242);
+                tileRt[i].localRotation = Quaternion.identity;
+                tileRt[i].localScale = Vector3.one;
+            }
         }
 
         void PulseTile(int index, bool add)
@@ -501,9 +604,9 @@ namespace Mgf.CapsuleChalkak
             float threshold = 64f * Mathf.Max(1f, MgfText.Canvas.scaleFactor);
             leverPull = Mathf.Clamp01(pixels / threshold);
             st.leverPullRatio = leverPull;
-            leverImage.color = Color.Lerp(new Color32(91, 108, 134, 238), new Color32(255, 107, 98, 250), leverPull);
+            leverImage.color = Color.Lerp(new Color32(208, 74, 82, 242), new Color32(255, 196, 149, 250), leverPull);
             leverRt.localScale = new Vector3(1f + leverPull * .08f, 1f - leverPull * .10f, 1f);
-            leverUi.text = leverPull >= 1f ? "손 떼어\n압축" : "수압\n레버\n" + (touching ? "▼" : "↓");
+            leverUi.text = leverPull >= 1f ? "손 떼어\n수주 상승" : "수주\n레버\n" + (touching ? "▼" : "↓");
         }
 
         void RecoilLever(bool hard)
@@ -513,8 +616,9 @@ namespace Mgf.CapsuleChalkak
 
         void PressTitleHandle(bool down)
         {
-            titleHandleRt.localScale = down ? new Vector3(1.04f, .88f, 1f) : Vector3.one;
-            titleHandleImage.color = down ? Cyan : new Color32(255, 107, 98, 245);
+            titleCtaUi.rectTransform.localScale = down ? new Vector3(1.05f, .90f, 1f) : Vector3.one;
+            titleCtaUi.color = down ? Milk : Color.white;
+            titleHandleImage.color = new Color32(255, 255, 255, 0);
         }
 
         void PressEndHandle(bool down)
@@ -559,21 +663,32 @@ namespace Mgf.CapsuleChalkak
         void ResetWorldForProblem()
         {
             for (int i = 0; i < pressureLamps.Length; i++) pressureLamps[i].transform.localScale = Vector3.one;
-            capsuleFxRoot.SetActive(false); leverRecoil = 0f; wrongMessage = "";
+            capsuleFxRoot.SetActive(false); waterColumnGo.SetActive(false); vortexGo.SetActive(false);
+            leverRecoil = 0f; wrongMessage = "";
             SetLeverPull(0f, false); BindTiles(); LayoutTiles();
         }
 
         void StartCorrectCompression(CapsuleProblem p, ulong mask, bool complement)
         {
-            capsuleFxRoot.SetActive(true);
+            capsuleFxRoot.SetActive(true); waterColumnGo.SetActive(true); vortexGo.SetActive(true);
             Fraction raw = complement ? new Fraction(p.labels.Length - p.answerCount, p.labels.Length) : new Fraction(p.answerCount, p.labels.Length);
             string rawText = complement ? "1 − " + (p.labels.Length - p.answerCount) + "/" + p.labels.Length : (complement ? "" : CapsuleRules.CountBits(mask) + "/" + p.labels.Length);
             if (gamePhase == GamePhase.Reveal && revealPractice) rawText = "2/4";
             capsuleUi.text = rawText + "  →  " + p.answer;
-            Rect(capsuleRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(210f, 76f));
+            Vector2 boardCenter = boardRt.anchoredPosition;
+            Rect(capsuleRt, new Vector2(.5f, .5f), boardCenter, new Vector2(210f, 76f));
             capsuleRt.localScale = new Vector3(.35f, .35f, 1f);
             capsuleImage.color = new Color32(185, 244, 240, 242);
-            mantaKick = 1f;
+            Rect(vortexRt, new Vector2(.5f, .5f), boardCenter, new Vector2(72f, 72f));
+            vortexRt.localRotation = Quaternion.identity;
+            vortexImage.color = new Color32(157, 139, 239, 150);
+            float boardH = Mathf.Max(180f, boardRt.rect.height);
+            correctFractionHeight = boardH * (.25f + .58f * Mathf.Clamp01((float)p.answer.Numeric));
+            waterColumnRt.anchorMin = waterColumnRt.anchorMax = new Vector2(.5f, .5f);
+            waterColumnRt.pivot = new Vector2(.5f, 0f);
+            waterColumnRt.anchoredPosition = boardCenter + new Vector2(0f, -boardH * .40f);
+            waterColumnRt.sizeDelta = new Vector2(currentLand ? 68f : 62f, 8f);
+            waterColumnImage.color = new Color32(21, 207, 195, 118);
         }
 
         void StartWrongRecoil(string message)
@@ -596,7 +711,10 @@ namespace Mgf.CapsuleChalkak
             worldClock += dt;
             float t = worldClock;
             for (int i = 0; i < kelp.Length; i++) if (kelp[i])
-                kelp[i].localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * (.55f + i * .015f) + i) * (8f + i % 4));
+            {
+                float baseAngle = (i % 2 == 0 ? -1f : 1f) * (11f + i % 3 * 5f);
+                kelp[i].localRotation = Quaternion.Euler(0f, 0f, baseAngle + Mathf.Sin(t * (.55f + i * .015f) + i) * (5f + i % 3));
+            }
             for (int i = 0; i < plankton.Length; i++) if (plankton[i])
                 plankton[i].position = planktonHome[i] + new Vector3(Mathf.Sin(t * .27f + i) * .18f, Mathf.Sin(t * .42f + i * .7f) * .12f, 0f);
             if (mantaRoot)
@@ -611,7 +729,8 @@ namespace Mgf.CapsuleChalkak
                 float pulse = 1f + Mathf.Sin(t * 1.35f) * .025f;
                 titleLogoUi.rectTransform.localScale = new Vector3(pulse, pulse, 1f);
                 titleLogoBackUi.rectTransform.localScale = titleLogoUi.rectTransform.localScale;
-                titleHandleRt.localScale = Vector3.one * (1f + Mathf.Max(0f, Mathf.Sin(t * 2.0f)) * .035f);
+                float hintPulse = 1f + Mathf.Max(0f, Mathf.Sin(t * 2.0f)) * .045f;
+                titleCtaUi.rectTransform.localScale = Vector3.one * hintPulse;
             }
         }
 
@@ -687,21 +806,40 @@ namespace Mgf.CapsuleChalkak
         void AnimateCompression()
         {
             float k = Mathf.Clamp01(revealClock / 1.5f);
-            float scale = k < .35f ? Mathf.Lerp(.35f, 1.12f, Mathf.SmoothStep(0f, 1f, k / .35f)) : Mathf.Lerp(1.12f, .82f, (k - .35f) / .65f);
+            float gather = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k / .42f));
+            float rise = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((k - .34f) / .66f));
+            float scale = k < .40f ? Mathf.Lerp(.35f, 1.08f, gather) : Mathf.Lerp(1.08f, .78f, rise);
             capsuleRt.localScale = new Vector3(scale, scale, 1f);
-            Vector2 start = currentLand ? new Vector2(0f, 0f) : new Vector2(-10f, -5f);
-            Vector2 end = currentLand ? new Vector2(-310f, 165f) : new Vector2(0f, 250f);
-            capsuleRt.anchoredPosition = Vector2.Lerp(start, end, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((k - .42f) / .58f)));
+            Vector2 start = boardRt.anchoredPosition;
+            Vector2 end = start + new Vector2(Mathf.Sin(rise * Mathf.PI * 2f) * 16f, correctFractionHeight + 52f);
+            capsuleRt.anchoredPosition = Vector2.Lerp(start, end, rise);
+
+            // 선택 경우가 보드 중앙의 물살 마름모로 모인 뒤, 답의 분수 크기만큼
+            // 수주가 실제로 차오르고 캡슐이 부력으로 상승한다.
+            vortexRt.anchoredPosition = start;
+            vortexRt.localRotation = Quaternion.Euler(0f, 0f, k * 330f);
+            float vortexScale = Mathf.Lerp(.45f, 1.55f, Mathf.Sin(Mathf.Clamp01(k / .72f) * Mathf.PI));
+            vortexRt.localScale = new Vector3(vortexScale, vortexScale, 1f);
+            vortexImage.color = new Color32(157, 139, 239, (byte)Mathf.Lerp(165f, 0f, rise));
+            waterColumnRt.sizeDelta = new Vector2(currentLand ? 68f : 62f, Mathf.Lerp(8f, correctFractionHeight, rise));
+            waterColumnImage.color = new Color32(21, 207, 195, (byte)Mathf.Lerp(105f, 205f, rise));
             for (int rank = 0; rank < chain.Count; rank++)
             {
                 int idx = chain[rank]; float on = Mathf.Clamp01((revealClock - rank * .045f) / .20f);
-                if (on > 0f) tileBg[idx].color = Color.Lerp(new Color32(14, 115, 115, 245), new Color32(185, 244, 240, 245), on);
+                if (on > 0f)
+                {
+                    tileBg[idx].color = Color.Lerp(new Color32(21, 152, 146, 245), new Color32(210, 245, 234, 245), on);
+                    float tileScale = Mathf.Lerp(1f, .72f, gather) + Mathf.Sin((k + rank * .11f) * Mathf.PI * 4f) * .035f;
+                    tileRt[idx].localScale = new Vector3(tileScale, tileScale, 1f);
+                    tileRt[idx].localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(0f, rank % 2 == 0 ? 12f : -12f, gather));
+                }
             }
             for (int i = 0; i < pressureLamps.Length; i++)
             {
-                float on = Mathf.Clamp01((revealClock - .35f - i * .07f) / .18f);
-                pressureLamps[i].transform.localScale = Vector3.one * (1f + Mathf.Sin(on * Mathf.PI) * .55f);
+                float wave = Mathf.Sin((k * 2f + i * .17f) * Mathf.PI);
+                pressureLamps[i].transform.localScale = Vector3.one * (1f + Mathf.Max(0f, wave) * .28f * (1f - rise * .45f));
             }
+            if (k > .82f) mantaKick = Mathf.Max(mantaKick, .35f);
         }
 
         void UpdateControlCoordinates()
@@ -726,6 +864,27 @@ namespace Mgf.CapsuleChalkak
                 Mathf.RoundToInt(t.x), Mathf.RoundToInt(Screen.height-t.y),
                 Mathf.RoundToInt(e.x), Mathf.RoundToInt(Screen.height-e.y)
             };
+            if (current != null)
+            {
+                st.layoutPx = new int[20];
+                WriteBoundsTop(st.layoutPx, 0, promptRt);
+                WriteBoundsTop(st.layoutPx, 4, (RectTransform)goalUi.transform);
+                WriteBoundsTop(st.layoutPx, 8, boardRt);
+                WriteBoundsTop(st.layoutPx, 12, leverRt);
+                WriteBoundsTop(st.layoutPx, 16, (RectTransform)rawFractionUi.transform);
+            }
+            else st.layoutPx = new int[0];
+        }
+
+        static void WriteBoundsTop(int[] target, int offset, RectTransform rt)
+        {
+            Vector3[] c = new Vector3[4]; rt.GetWorldCorners(c);
+            Vector2 a = RectTransformUtility.WorldToScreenPoint(null, c[0]);
+            Vector2 b = RectTransformUtility.WorldToScreenPoint(null, c[2]);
+            target[offset] = Mathf.RoundToInt(Mathf.Min(a.x, b.x));
+            target[offset + 1] = Mathf.RoundToInt(Screen.height - Mathf.Max(a.y, b.y));
+            target[offset + 2] = Mathf.RoundToInt(Mathf.Max(a.x, b.x));
+            target[offset + 3] = Mathf.RoundToInt(Screen.height - Mathf.Min(a.y, b.y));
         }
 
         static Vector2 RectCenterScreen(RectTransform rt)
