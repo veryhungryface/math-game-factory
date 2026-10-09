@@ -113,16 +113,17 @@ namespace Mgf.GuseulGyodae
             {
                 p.concept = "경우의 수의 비율로서의 확률";
                 p.prompt = "현재 B는 파랑 " + currentBlue + "개, 흰 " + (SlotCount - currentBlue)
-                    + "개이다. 파랑 공을 임의로 꺼낼 확률이 " + target.Display
+                    + "개이다. B에서 공 한 개를 임의로 꺼낼 때, 파랑 공이 나올 확률이 " + target.Display
                     + "이 되도록 구성하시오. (단, 공의 모양과 크기는 모두 같다.)";
             }
             else if (band == 2)
             {
                 p.concept = "어떤 사건이 일어나지 않을 확률";
-                p.prompt = "출고 기록 " + receiptNo + "번에서는 파랑이 " + observedTrials + "회 중 " + observedBlue
-                    + "회 나왔다. 현재 B는 파랑 " + currentBlue + "개, 흰 " + (SlotCount - currentBlue)
-                    + "개이다. 파랑 공이 나오지 않을 확률이 " + target.Display
-                    + "이 되도록 구성하시오. (단, 공을 확인한 후 다시 넣고, 모양과 크기는 모두 같다.)";
+                p.prompt = "같은 구성의 B에서 공 한 개를 꺼내 확인한 뒤 다시 넣는 시행을 " + observedTrials
+                    + "회 반복했더니 파랑 공이 " + observedBlue + "회 나왔다. 현재 B는 파랑 " + currentBlue
+                    + "개, 흰 " + (SlotCount - currentBlue) + "개이다. 관찰 상대도수와 비교하며, B에서 공 한 개를 임의로 꺼낼 때 "
+                    + "파랑 공이 나오지 않을 확률이 " + target.Display
+                    + "이 되도록 구성하시오. (단, 공의 모양과 크기는 모두 같다.)";
             }
             else
             {
@@ -150,8 +151,14 @@ namespace Mgf.GuseulGyodae
                 int band = order <= 3 ? 1 : order <= 6 ? 2 : 3;
                 int k = rng.Next(0, 7); // 목표와 현재 구성의 차이를 이유로 재추출하지 않는다.
                 int j = band == 3 ? rng.Next(1, 4) : 0;
-                int trials = 8 + rng.Next(0, 5);
-                int observed = rng.Next(0, trials + 1); // 기록은 새 목표 k와 독립.
+                // 보완사건의 관찰 기록은 정답 구성 k에서 얻은 반복 시행이다.
+                // 시행 횟수는 6의 배수, 관찰값은 이론값 k/6 부근의 정수로 만들어
+                // 상대도수와 이론확률을 비교할 근거가 되게 한다.
+                int trials = band == 2 ? 12 + rng.Next(0, 3) * 6 : 12;
+                int expectedBlue = k * (trials / SlotCount);
+                int observed = band == 2
+                    ? Math.Max(0, Math.Min(trials, expectedBlue + rng.Next(-1, 2)))
+                    : 0;
                 list.Add(Make(band, k, j, currentBlue, order, observed, trials,
                     "run-b" + band + "-o" + order + "-k" + k + "-j" + j));
             }
@@ -159,7 +166,7 @@ namespace Mgf.GuseulGyodae
         }
 
         // QA 은행도 실제 판정과 같은 Make/Probability/Target 경로에서 만든다.
-        // 문장 다양성을 괄호 꼬리표에 의존하지 않도록 현재 구성·출고 기록·관찰 수치를 본문에 넣는다.
+        // 문장 다양성을 괄호 꼬리표에 의존하지 않도록 현재 구성·관찰 기록·관찰 수치를 본문에 넣는다.
         public static List<MgfProblem> BuildBank()
         {
             var bank = new List<MgfProblem>(441);
@@ -173,8 +180,11 @@ namespace Mgf.GuseulGyodae
                 for (int history = 0; history < (band == 3 ? 1 : 3); history++)
                 {
                     int j = band == 3 ? jRaw : 0;
-                    int trials = 8 + history * 2;
-                    int observed = (k * 3 + current * 2 + history) % (trials + 1);
+                    int trials = band == 2 ? 12 + history * 6 : 12;
+                    int expectedBlue = k * (trials / SlotCount);
+                    int observed = band == 2
+                        ? Math.Max(0, Math.Min(trials, expectedBlue + (current % 3) - 1))
+                        : 0;
                     var p = Make(band, k, j, current, 20 + history * 17 + current, observed, trials,
                         "bank-" + serial);
                     bank.Add(new MgfProblem

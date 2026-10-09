@@ -54,6 +54,13 @@ async function drag(page, from, to) {
   await page.mouse.up();
   await sleep(70);
 }
+async function tap(page, at) {
+  await page.mouse.move(at[0], at[1]);
+  await page.mouse.down();
+  await sleep(80);
+  await page.mouse.up();
+  await sleep(100);
+}
 function point(array, offset) { return [array[offset], array[offset + 1]]; }
 function correctK(s) {
   if (s.currentBand === 1) return Math.round(6 * s.targetN / s.targetD);
@@ -118,14 +125,24 @@ try {
   if (!s.onboarding || s.currentBlue !== 2 || s.solved !== 0) throw new Error(`blank tap solved practice: ${JSON.stringify(s)}`);
   await page.screenshot({ path: path.join(FRAMES, '01-practice-guide.png') });
 
+  // 접근성 대체 입력도 실제 대상 두 개를 같은 순서로 누른다. 빈 탭/임의 드래그는 성공하지 않는다.
   const whiteSlot = s.slots.findIndex(x => x === 0);
-  await drag(page, point(s.supplyPx, 0), point(s.slotPx, whiteSlot * 2));
+  const blueSupply = point(s.supplyPx, 0);
+  await tap(page, blueSupply);
   s = await state(page);
-  if (s.currentBlue !== 3 || !s.onboarding) throw new Error(`practice marble drag failed: ${JSON.stringify(s)}`);
+  if (s.lastAction !== 'blue-picked' || s.currentBlue !== 2) throw new Error(`supply tap did not arm marble: ${JSON.stringify(s)}`);
+  await tap(page, point(s.slotPx, whiteSlot * 2));
+  s = await state(page);
+  if (s.currentBlue !== 3 || !s.onboarding) throw new Error(`practice supply-to-slot tap path failed: ${JSON.stringify(s)}`);
   await page.screenshot({ path: path.join(FRAMES, '02-practice-swapped.png') });
-  await dispatch(page);
+  const handle = point(s.dispatchPx, 0);
+  await tap(page, handle);
+  s = await state(page);
+  if (s.lastAction !== 'spin-handle-picked' || !s.onboarding) throw new Error(`handle tap did not arm spin: ${JSON.stringify(s)}`);
+  const orbit = point(s.dispatchPx, 2);
+  await tap(page, orbit);
   s = await waitFor(page, x => !x.onboarding && x.currentProblem.startsWith('run-') && !x.submissionLatched, 5000);
-  events.push({ name: 'practice-completed-with-two-pointer-drags', before: practiceBefore, after: s });
+  events.push({ name: 'practice-completed-with-two-visible-target-pairs', before: practiceBefore, after: s });
   await page.screenshot({ path: path.join(FRAMES, '03-first-order.png') });
 
   // 첫 판: 첫 주문 정답, 둘째 주문 오답→같은 구성 수리, 이후 실제 pointer로 완주.
@@ -204,7 +221,7 @@ try {
 
   const result = {
     generated_at: new Date().toISOString(), artifact_hash_sha256: artifactHash(), viewport: '390x844',
-    method: 'Chrome mouse down/move/up on Unity canvas; hooks used only to start second and third runs',
+    method: '연습은 보이는 공급→슬롯·손잡이→궤도 대상쌍 탭, 실전은 Chrome mouse down/move/up 드래그; hooks used only to start second and third runs',
     console_errors: errors, events, passed: errors.length === 0
   };
   fs.writeFileSync(path.join(HERE, 'pointer-playthrough-results.json'), `${JSON.stringify(result, null, 2)}\n`);

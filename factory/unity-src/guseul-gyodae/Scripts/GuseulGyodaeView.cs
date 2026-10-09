@@ -1,4 +1,4 @@
-// 구슬 교대 — 레몬 정비 트럭 2.5D 디오라마, UI, 실제 드래그, 피드백 연출.
+// 구슬 교대 — 심야 결정 관측실의 기계식 별자리 링, UI, 실제 드래그, 피드백 연출.
 using Mgf;
 using TMPro;
 using UnityEngine;
@@ -45,43 +45,52 @@ namespace Mgf.GuseulGyodae
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("FFF3A8"), MgfLook.Hex("F8D95D"), MgfLook.Hex("D3B83F"), .9f);
-            MgfLook.Sun(new Vector3(48f, -34f, -18f), MgfLook.Hex("FFF6D2"), 1.42f, .68f);
+            MgfLook.Sky(MgfLook.Hex("071126"), MgfLook.Hex("11264A"), MgfLook.Hex("050814"), .9f);
+            MgfLook.Sun(new Vector3(48f, -34f, -18f), MgfLook.Hex("BFE8FF"), 1.16f, .76f);
             cam = MgfLook.Camera(new Vector3(0f, 9.6f, -17.5f), new Vector3(0f, .5f, 1.2f), 38f);
             cam.orthographic = true;
             cam.orthographicSize = 7.2f;
-            cam.backgroundColor = MgfLook.Hex("F1D34F");
+            cam.backgroundColor = MgfLook.Hex("081225");
 
-            lemonMat = MgfLook.Lit(MgfLook.Hex("F1D34F"), .55f, .08f);
-            lemonDarkMat = MgfLook.Lit(MgfLook.Hex("D5A91E"), .32f, .10f);
-            cobaltMat = MgfLook.Lit(MgfLook.Hex("315CC8"), .84f, .12f, MgfLook.Hex("173D91") * .08f);
-            pearlMat = MgfLook.Lit(MgfLook.Hex("F7F7EC"), .88f, .08f);
-            graphiteMat = MgfLook.Lit(MgfLook.Hex("323B45"), .18f, .24f);
-            chromeMat = MgfLook.Lit(MgfLook.Hex("C2D4DE"), .82f, .72f);
-            beltMat = MgfLook.Lit(MgfLook.Hex("64717A"), .20f, .12f);
-            signalMat = MgfLook.Lit(MgfLook.Hex("FFE98A"), .72f, .04f, MgfLook.Hex("F1D34F") * .38f);
-            glassMat = MgfLook.Alpha(new Color(.78f, .90f, .95f, .25f), MgfLook.SoftDot);
-            clearBlueMat = MgfLook.Alpha(new Color(.16f, .36f, .82f, .28f), MgfLook.SoftDot);
-            clearWhiteMat = MgfLook.Alpha(new Color(.95f, .95f, .88f, .32f), MgfLook.SoftDot);
+            // 파스텔 야외 정원 대신 깊은 결정 동굴 속 관측실을 만든다.
+            // 둥근 젤리 물성은 쓰지 않고 절단 유리·현무암·황동 평면으로 통일한다.
+            lemonMat = MgfLook.Lit(MgfLook.Hex("C8872F"), .42f, .38f, MgfLook.Hex("C8872F") * .04f);
+            lemonDarkMat = MgfLook.Lit(MgfLook.Hex("17243D"), .24f, .05f);
+            cobaltMat = MgfLook.Lit(MgfLook.Hex("2CB7D9"), .72f, .08f, MgfLook.Hex("16A5D3") * .16f);
+            pearlMat = MgfLook.Lit(MgfLook.Hex("D7EFF5"), .68f, .04f, MgfLook.Hex("D7EFF5") * .05f);
+            graphiteMat = MgfLook.Lit(MgfLook.Hex("0C1325"), .24f, .18f);
+            chromeMat = MgfLook.Lit(MgfLook.Hex("72839D"), .52f, .34f);
+            beltMat = MgfLook.Lit(MgfLook.Hex("493A73"), .38f, .22f);
+            signalMat = MgfLook.Lit(MgfLook.Hex("62F0C8"), .54f, .02f, MgfLook.Hex("34E9B8") * .40f);
+            glassMat = MgfLook.Alpha(new Color(.16f, .72f, .90f, .24f), MgfLook.SoftDot);
+            clearBlueMat = MgfLook.Alpha(new Color(.12f, .66f, .90f, .30f), MgfLook.SoftDot);
+            clearWhiteMat = MgfLook.Alpha(new Color(.70f, .92f, 1f, .24f), MgfLook.SoftDot);
 
-            worldRoot = new GameObject("LemonTruckWorld").transform;
-            truckRoot = new GameObject("OpenServiceTruck").transform;
+            worldRoot = new GameObject("MidnightCrystalObservatory").transform;
+            truckRoot = new GameObject("SteppedBasaltChamber").transform;
             truckRoot.SetParent(worldRoot, false);
 
-            // 화면 대부분을 실제 레몬 트럭 외판이 차지한다. 별도 회화 배경은 없다.
-            MgfLook.Block("TruckBackWall", new Vector3(0f, .15f, 3.6f), new Vector3(17.5f, 8.2f, .72f), .48f, lemonMat, truckRoot);
-            MgfLook.Block("TruckRoof", new Vector3(0f, 4.35f, 1.0f), new Vector3(18.2f, .65f, 6.4f), .30f, lemonMat, truckRoot);
-            MgfLook.Block("TruckFloor", new Vector3(0f, -3.30f, .7f), new Vector3(18.2f, .76f, 6.6f), .28f, lemonDarkMat, truckRoot);
-            MgfLook.Block("ChromeTopRail", new Vector3(0f, 4.01f, .55f), new Vector3(17.4f, .17f, .20f), .07f, chromeMat, truckRoot).GetComponent<Collider>().enabled = false;
-            MgfLook.Block("ChromeFloorRail", new Vector3(0f, -2.91f, .30f), new Vector3(17.4f, .15f, .22f), .06f, chromeMat, truckRoot).GetComponent<Collider>().enabled = false;
+            MgfLook.Block("BasaltLowerDeck", new Vector3(0f, -2.75f, 1.45f), new Vector3(18.4f, .72f, 7.9f), .08f, graphiteMat, truckRoot);
+            MgfLook.Block("BasaltUpperDeck", new Vector3(0f, -2.20f, .25f), new Vector3(15.8f, .46f, 6.1f), .06f, lemonDarkMat, truckRoot);
+            MgfLook.Block("BrassMeridian", new Vector3(0f, -1.91f, -.56f), new Vector3(13.6f, .12f, .28f), .02f, lemonMat, truckRoot);
             for (int i = 0; i < 12; i++)
             {
-                float x = -8.0f + i * 1.45f;
-                var rivet = MgfLook.Prim(PrimitiveType.Sphere, "PanelRivet" + i, new Vector3(x, 3.7f, .05f), new Vector3(.16f, .16f, .10f), chromeMat, truckRoot, false);
-                rivet.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                float side = i < 6 ? -1f : 1f;
+                int q = i % 6;
+                float x = side * (6.8f + (q % 2) * .75f);
+                float y = -1.55f + q * .82f;
+                var crystal = MgfLook.Block("CaveCrystal" + i, new Vector3(x, y, 2.2f + q * .22f),
+                    new Vector3(.34f + (q % 3) * .12f, 1.4f + q * .28f, .42f), .015f,
+                    q % 2 == 0 ? cobaltMat : chromeMat, truckRoot);
+                crystal.transform.localRotation = Quaternion.Euler(0f, side * (12f + q * 5f), side * (18f + q * 4f));
             }
-            BuildWheel(-7.05f);
-            BuildWheel(7.05f);
+            for (int i = 0; i < 11; i++)
+            {
+                float x = -8.0f + i * 1.6f;
+                var mark = MgfLook.Block("ConstellationMark" + i, new Vector3(x, 3.2f + Mathf.Sin(i * 1.9f) * .65f, 2.9f),
+                    new Vector3(.18f, .18f, .05f), .01f, signalMat, truckRoot);
+                mark.transform.localRotation = Quaternion.Euler(0, 0, i * 23f);
+            }
             BuildSupplies();
             BuildCartridge();
             BuildBelt();
@@ -102,135 +111,158 @@ namespace Mgf.GuseulGyodae
 
         void BuildSupplies()
         {
-            var supplies = new GameObject("SupplyBins").transform;
+            var supplies = new GameObject("CrystalSampleRacks").transform;
             supplyRoot = supplies;
             supplies.SetParent(truckRoot, false);
-            supplies.localPosition = new Vector3(-5.65f, -.15f, -.05f);
-            MgfLook.Block("SupplyCabinet", new Vector3(0f, .2f, .55f), new Vector3(3.55f, 5.15f, 2.0f), .34f, lemonDarkMat, supplies);
-            MgfLook.Block("BlueBin", new Vector3(0f, 1.55f, -.38f), new Vector3(3.05f, 1.85f, 1.28f), .28f, cobaltMat, supplies);
-            MgfLook.Block("WhiteBin", new Vector3(0f, -1.05f, -.38f), new Vector3(3.05f, 1.85f, 1.28f), .28f, pearlMat, supplies);
+            supplies.localPosition = new Vector3(-5.65f, -.10f, -.05f);
+            MgfLook.Block("BlueRack", new Vector3(0f, 1.55f, .08f), new Vector3(2.80f, 1.86f, .92f), .05f, clearBlueMat, supplies);
+            MgfLook.Block("WhiteRack", new Vector3(0f, -1.05f, .08f), new Vector3(2.80f, 1.86f, .92f), .05f, clearWhiteMat, supplies);
+            MgfLook.Block("RackSpine", new Vector3(0f, .22f, .72f), new Vector3(.24f, 4.95f, .32f), .02f, lemonMat, supplies);
             blueSupply = MakeControlMarble("SupplyBlue", new Vector3(0f, 1.55f, -1.18f), true, supplies);
             whiteSupply = MakeControlMarble("SupplyWhite", new Vector3(0f, -1.05f, -1.18f), false, supplies);
             for (int i = 0; i < binMarbles.Length; i++)
             {
-                bool blue = i < 4;
-                float x = (i % 2 == 0 ? -.73f : .73f) + ((i / 2) % 2) * .16f;
-                float y = blue ? 1.95f - (i / 2) * .62f : -.64f - ((i - 4) / 2) * .62f;
-                var b = MgfLook.Prim(PrimitiveType.Sphere, "BinMarble" + i, new Vector3(x, y, -.82f), new Vector3(.56f, .56f, .56f), blue ? cobaltMat : pearlMat, supplies, false);
+                if (i >= 4) continue;
+                bool blue = i < 2;
+                int row = blue ? i : i - 2;
+                float x = row == 0 ? -.68f : .68f;
+                float y = blue ? 1.72f : -.88f;
+                var b = MgfLook.Block("BinCrystal" + i, new Vector3(x, y, -.82f), new Vector3(.52f, .52f, .38f), .025f, blue ? cobaltMat : pearlMat, supplies);
+                b.transform.localRotation = Quaternion.Euler(18f, 26f, 45f + i * 11f);
                 binMarbles[i] = b.transform;
             }
-            var blueLabel = MgfText.World("파랑 공급", new Vector3(0f, 2.74f, -1.08f), 2.5f, Color.white, supplies);
-            var whiteLabel = MgfText.World("흰색 공급", new Vector3(0f, .24f, -1.08f), 2.5f, MgfLook.Hex("323B45"), supplies);
-            blueLabel.outlineWidth = .14f; blueLabel.outlineColor = MgfLook.Hex("173D91");
-            whiteLabel.outlineWidth = .12f; whiteLabel.outlineColor = MgfLook.Hex("F7F7EC");
+            var blueLabel = MgfText.World("파랑 결정 공급", new Vector3(0f, 2.74f, -1.08f), 2.35f, MgfLook.Hex("DDF7FF"), supplies);
+            var whiteLabel = MgfText.World("흰 결정 공급", new Vector3(0f, .24f, -1.08f), 2.35f, MgfLook.Hex("DDF7FF"), supplies);
+            blueLabel.outlineWidth = .14f; blueLabel.outlineColor = MgfLook.Hex("071126");
+            whiteLabel.outlineWidth = .14f; whiteLabel.outlineColor = MgfLook.Hex("071126");
             blueLabel.transform.rotation = cam.transform.rotation;
             whiteLabel.transform.rotation = cam.transform.rotation;
         }
 
         Transform MakeControlMarble(string name, Vector3 pos, bool blue, Transform parent)
         {
-            var sphere = MgfLook.Prim(PrimitiveType.Sphere, name, pos, Vector3.one * 1.10f, blue ? cobaltMat : pearlMat, parent, true);
-            sphere.GetComponent<SphereCollider>().radius = 1.02f;
-            var dot = MgfLook.Prim(PrimitiveType.Sphere, name + "Mark", new Vector3(0, 0, -.52f), new Vector3(.30f, .30f, .12f), blue ? pearlMat : cobaltMat, sphere.transform, false);
-            dot.transform.localRotation = Quaternion.Euler(0, 0, 18);
-            return sphere.transform;
+            var crystal = MgfLook.Block(name, pos, new Vector3(1.16f, 1.16f, .72f), .035f, blue ? cobaltMat : pearlMat, parent);
+            crystal.transform.localRotation = Quaternion.Euler(18f, 24f, 45f);
+            crystal.GetComponent<BoxCollider>().size = Vector3.one * 1.62f;
+            var mark = MgfLook.Block(name + "Mark", new Vector3(0, 0, -.58f), new Vector3(.34f, .34f, .08f), .01f,
+                blue ? pearlMat : cobaltMat, crystal.transform);
+            mark.GetComponent<Collider>().enabled = false;
+            return crystal.transform;
         }
 
         void BuildCartridge()
         {
-            cartridgeRoot = new GameObject("TransparentCartridge").transform;
+            cartridgeRoot = new GameObject("MechanicalConstellationRing").transform;
             cartridgeRoot.SetParent(truckRoot, false);
             cartridgeRoot.localPosition = new Vector3(0f, .25f, -.48f);
             cartridgeHome = cartridgeRoot.localPosition;
-            MgfLook.Block("CartridgeBack", new Vector3(0f, .1f, .55f), new Vector3(5.20f, 4.85f, .58f), .34f, graphiteMat, cartridgeRoot);
-            MgfLook.Block("GlassFront", new Vector3(0f, .1f, -1.05f), new Vector3(5.45f, 5.10f, .20f), .34f, glassMat, cartridgeRoot).GetComponent<Collider>().enabled = false;
-            for (int r = 0; r < 2; r++)
-            for (int c = 0; c < 3; c++)
+            var domeBack = MgfLook.Prim(PrimitiveType.Cylinder, "AstrolabeBack", new Vector3(0f, .05f, .45f), new Vector3(3.05f, .20f, 3.05f), graphiteMat, cartridgeRoot, false);
+            domeBack.transform.localRotation = Quaternion.Euler(90, 0, 0);
+            var starGlass = MgfLook.Block("StarChartGlass", new Vector3(0f, .05f, -.80f), new Vector3(5.55f, 5.55f, .20f), .04f, glassMat, cartridgeRoot);
+            starGlass.transform.localRotation = Quaternion.Euler(0, 0, 45f);
+            starGlass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            starGlass.GetComponent<Collider>().enabled = false;
+            for (int i = 0; i < 6; i++)
             {
-                int i = r * 3 + c;
-                float x = -1.55f + c * 1.55f;
-                float y = 1.45f - r * 2.15f;
-                var socket = MgfLook.Prim(PrimitiveType.Cylinder, "Socket" + (i + 1), new Vector3(x, y, -.66f), new Vector3(.77f, .20f, .77f), chromeMat, cartridgeRoot, false);
-                socket.transform.localRotation = Quaternion.Euler(90, 0, 0);
-                var marble = MgfLook.Prim(PrimitiveType.Sphere, "Slot" + i, new Vector3(x, y, -1.18f), Vector3.one * 1.28f, cobaltMat, cartridgeRoot, true);
-                marble.GetComponent<SphereCollider>().radius = .78f;
+                float angle = (90f - i * 60f) * Mathf.Deg2Rad;
+                float x = Mathf.Cos(angle) * 1.72f;
+                float y = Mathf.Sin(angle) * 1.72f + .05f;
+                var socket = MgfLook.Block("OrbitSocket" + (i + 1), new Vector3(x, y, -.66f), new Vector3(.90f, .90f, .18f), .02f, chromeMat, cartridgeRoot);
+                socket.transform.localRotation = Quaternion.Euler(0, 0, 45f);
+                socket.GetComponent<Collider>().enabled = false;
+                var marble = MgfLook.Block("Slot" + i, new Vector3(x, y, -1.18f), new Vector3(1.12f, 1.12f, .68f), .035f, cobaltMat, cartridgeRoot);
+                marble.transform.localRotation = Quaternion.Euler(18f, 24f, 45f + i * 12f);
+                marble.GetComponent<BoxCollider>().size = Vector3.one * 1.45f;
                 slots[i] = marble.transform;
                 marbleRenderers[i] = marble.GetComponent<Renderer>();
-                var dot = MgfLook.Prim(PrimitiveType.Sphere, "SlotMark" + i, new Vector3(.25f, .15f, -.50f), new Vector3(.32f, .32f, .11f), pearlMat, marble.transform, false);
+                var dot = MgfLook.Block("SlotMark" + i, new Vector3(.25f, .15f, -.50f), new Vector3(.30f, .30f, .08f), .01f, pearlMat, marble.transform);
+                dot.GetComponent<Collider>().enabled = false;
                 marbleDots[i] = dot.GetComponent<Renderer>();
-                var plate = MgfLook.Block("SlotNumberPlate" + i, new Vector3(x, y - .82f, -1.18f), new Vector3(.60f, .32f, .12f), .09f, lemonMat, cartridgeRoot);
+                var plate = MgfLook.Block("SlotNumberPlate" + i, new Vector3(x, y - .72f, -1.18f), new Vector3(.58f, .28f, .10f), .01f, lemonMat, cartridgeRoot);
                 plate.GetComponent<Collider>().enabled = false;
                 var t = MgfText.World((i + 1).ToString(), new Vector3(0, 0, -.08f), 3.0f, MgfLook.Hex("323B45"), plate.transform);
                 t.transform.rotation = cam.transform.rotation;
             }
-            // 크롬 테두리와 실제 출고 손잡이.
-            MgfLook.Block("FrameTop", new Vector3(0f, 2.61f, -1.03f), new Vector3(5.75f, .28f, .34f), .12f, chromeMat, cartridgeRoot);
-            MgfLook.Block("FrameBottom", new Vector3(0f, -2.41f, -1.03f), new Vector3(5.75f, .28f, .34f), .12f, chromeMat, cartridgeRoot);
-            MgfLook.Block("FrameLeft", new Vector3(-2.73f, .10f, -1.03f), new Vector3(.28f, 5.05f, .34f), .12f, chromeMat, cartridgeRoot);
-            MgfLook.Block("FrameRight", new Vector3(2.73f, .10f, -1.03f), new Vector3(.28f, 5.05f, .34f), .12f, chromeMat, cartridgeRoot);
-            dispatchHandle = MgfLook.Block("DispatchHandle", new Vector3(3.38f, .1f, -1.20f), new Vector3(.82f, 2.25f, .62f), .28f, signalMat, cartridgeRoot).transform;
+            var orbitRim = MgfLook.Prim(PrimitiveType.Cylinder, "BrassAstrolabeRim", new Vector3(0f, .05f, -.64f), new Vector3(3.28f, .13f, 3.28f), lemonMat, cartridgeRoot, false);
+            orbitRim.transform.localRotation = Quaternion.Euler(90, 0, 0);
+            dispatchHandle = MgfLook.Block("DispatchHandle", new Vector3(3.38f, .1f, -1.20f), new Vector3(.92f, 2.35f, .62f), .04f, signalMat, cartridgeRoot).transform;
             handleHome = dispatchHandle.localPosition;
-            MgfText.World("출고", new Vector3(0f, .05f, -.36f), 2.3f, MgfLook.Hex("323B45"), dispatchHandle).transform.rotation = cam.transform.rotation;
-            latchRoot = new GameObject("LatchAssembly").transform;
+            MgfText.World("관측", new Vector3(0f, .05f, -.36f), 2.3f, MgfLook.Hex("071126"), dispatchHandle).transform.rotation = cam.transform.rotation;
+            latchRoot = new GameObject("OrbitHalo").transform;
             latchRoot.SetParent(cartridgeRoot, false);
-            latchRoot.localPosition = new Vector3(0f, 2.84f, -1.16f);
-            MgfLook.Block("LatchBar", Vector3.zero, new Vector3(2.20f, .30f, .30f), .12f, chromeMat, latchRoot);
-            MgfLook.Prim(PrimitiveType.Cylinder, "LatchPin", new Vector3(-1.05f, 0, 0), new Vector3(.34f, .26f, .34f), graphiteMat, latchRoot, false).transform.localRotation = Quaternion.Euler(90, 0, 0);
-            caseGlow = MgfLook.Block("CaseGlow", new Vector3(0f, .1f, -1.50f), new Vector3(5.9f, 5.35f, .06f), .30f, MgfLook.Additive(new Color(1f, .86f, .20f, .65f), MgfLook.SoftDot), cartridgeRoot);
+            latchRoot.localPosition = new Vector3(0f, .05f, -1.30f);
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = i * Mathf.PI * 2f / 8f;
+                var spark = MgfLook.Block("HaloMark" + i,
+                    new Vector3(Mathf.Cos(angle) * 2.72f, Mathf.Sin(angle) * 2.72f, 0f),
+                    Vector3.one * .20f, .01f, signalMat, latchRoot);
+                spark.transform.localRotation = Quaternion.Euler(0, 0, angle * Mathf.Rad2Deg + 45f);
+            }
+            caseGlow = MgfLook.Prim(PrimitiveType.Sphere, "OrbitGlow", new Vector3(0f, .05f, -1.50f), new Vector3(6.25f, 6.25f, .06f),
+                MgfLook.Additive(new Color(.45f, 1f, .84f, .58f), MgfLook.SoftDot), cartridgeRoot, false);
             caseGlow.GetComponent<Collider>().enabled = false;
             caseGlow.SetActive(false);
         }
 
         void BuildBelt()
         {
-            beltRoot = new GameObject("DispatchBelt").transform;
+            beltRoot = new GameObject("ProbabilityOrbitGate").transform;
             beltRoot.SetParent(truckRoot, false);
             beltRoot.localPosition = new Vector3(5.65f, -.2f, -.12f);
-            MgfLook.Block("BeltBed", new Vector3(0, -1.72f, -.10f), new Vector3(4.5f, .62f, 3.05f), .22f, graphiteMat, beltRoot);
-            MgfLook.Block("BeltSurface", new Vector3(0, -1.34f, -.48f), new Vector3(4.25f, .16f, 2.54f), .08f, beltMat, beltRoot);
+            var gateBack = MgfLook.Prim(PrimitiveType.Cylinder, "OrbitGateBack", new Vector3(0, -.45f, -.18f), new Vector3(2.18f, .22f, 2.18f), graphiteMat, beltRoot, false);
+            gateBack.transform.localRotation = Quaternion.Euler(90, 0, 0);
+            var gateGlass = MgfLook.Block("OrbitGateGlass", new Vector3(0, -.45f, -.62f), new Vector3(3.15f, 3.15f, .20f), .03f, clearBlueMat, beltRoot);
+            gateGlass.transform.localRotation = Quaternion.Euler(0, 0, 45f);
+            gateGlass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            gateGlass.GetComponent<Collider>().enabled = false;
             for (int i = 0; i < rollers.Length; i++)
             {
-                var roller = MgfLook.Prim(PrimitiveType.Cylinder, "BeltRoller" + i,
-                    new Vector3(-1.72f + i * .57f, -1.27f, -1.45f), new Vector3(.30f, 1.18f, .30f), chromeMat, beltRoot, false);
-                roller.transform.localRotation = Quaternion.Euler(90, 0, 0);
+                float angle = i * Mathf.PI * 2f / rollers.Length;
+                var roller = MgfLook.Block("OrbitRune" + i,
+                    new Vector3(Mathf.Cos(angle) * 1.72f, -.45f + Mathf.Sin(angle) * 1.72f, -1.05f),
+                    new Vector3(.34f, .34f, .16f), .01f, i % 2 == 0 ? signalMat : pearlMat, beltRoot);
+                roller.transform.localRotation = Quaternion.Euler(0, 0, angle * Mathf.Rad2Deg + 45f);
+                roller.GetComponent<Collider>().enabled = false;
                 rollers[i] = roller.transform;
             }
-            var target = MgfLook.Block("BeltTarget", new Vector3(0f, .25f, -.62f), new Vector3(4.25f, 3.15f, .14f), .28f, clearBlueMat, beltRoot);
-            target.GetComponent<Collider>().enabled = false;
-            var label = MgfText.World("출고 벨트", new Vector3(0f, 2.10f, -.9f), 3.3f, MgfLook.Hex("F7F7EC"), beltRoot);
-            label.outlineWidth = .16f; label.outlineColor = MgfLook.Hex("323B45"); label.transform.rotation = cam.transform.rotation;
+            var label = MgfText.World("관측 관문", new Vector3(0f, 2.15f, -1.0f), 3.3f, MgfLook.Hex("DDF7FF"), beltRoot);
+            label.outlineWidth = .16f; label.outlineColor = MgfLook.Hex("071126"); label.transform.rotation = cam.transform.rotation;
             for (int i = 0; i < bolts.Length; i++)
             {
-                var bolt = MgfLook.Prim(PrimitiveType.Cylinder, "LifeBolt" + i, new Vector3(-.72f + i * .72f, 2.92f, -.95f), new Vector3(.26f, .18f, .26f), chromeMat, beltRoot, false);
-                bolt.transform.localRotation = Quaternion.Euler(90, 0, 0);
+                var bolt = MgfLook.Block("LifeBolt" + i, new Vector3(-.72f + i * .72f, 2.92f, -.95f), new Vector3(.34f, .34f, .18f), .02f, lemonMat, beltRoot);
+                bolt.GetComponent<Collider>().enabled = false;
+                bolt.transform.localRotation = Quaternion.Euler(15, 0, 45f);
                 bolts[i] = bolt.transform;
             }
         }
 
         void BuildBeetle()
         {
-            beetleRoot = new GameObject("WindupBeetleMechanic").transform;
+            beetleRoot = new GameObject("SurveyDrone").transform;
             beetleRoot.SetParent(truckRoot, false);
             beetleRoot.localPosition = new Vector3(5.35f, 2.28f, -1.38f);
-            var body = MgfLook.Prim(PrimitiveType.Sphere, "RoundedShell", Vector3.zero, new Vector3(1.34f, .70f, 1.55f), lemonMat, beetleRoot, false);
-            body.transform.localRotation = Quaternion.Euler(10, 0, 0);
-            MgfLook.Prim(PrimitiveType.Sphere, "ShellBack", new Vector3(0f, .14f, .52f), new Vector3(1.18f, .62f, .86f), cobaltMat, beetleRoot, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "Head", new Vector3(0f, -.02f, -.88f), new Vector3(.72f, .56f, .62f), graphiteMat, beetleRoot, false);
+            var body = MgfLook.Block("DroneCore", Vector3.zero, new Vector3(.92f, 1.10f, .76f), .04f, lemonDarkMat, beetleRoot);
+            body.GetComponent<Collider>().enabled = false;
+            body.transform.localRotation = Quaternion.Euler(8, 18f, 45f);
+            var lens = MgfLook.Block("SurveyLens", new Vector3(0f, .58f, -.48f), new Vector3(.48f, .48f, .18f), .02f, signalMat, beetleRoot);
+            lens.GetComponent<Collider>().enabled = false;
+            lens.transform.localRotation = Quaternion.Euler(0, 0, 45f);
             for (int i = 0; i < beetleLegs.Length; i++)
             {
                 int side = i < 3 ? -1 : 1;
                 int leg = i % 3;
-                var foot = MgfLook.Block("ShortLeg" + i, new Vector3(side * (.72f + leg * .08f), -.35f, -.48f + leg * .48f), new Vector3(.62f, .16f, .18f), .08f, graphiteMat, beetleRoot);
-                foot.GetComponent<Collider>().enabled = false;
-                foot.transform.localRotation = Quaternion.Euler(0, side * (18 + leg * 10), side * 14);
-                beetleLegs[i] = foot.transform;
+                var wing = MgfLook.Block("ScannerArm" + i,
+                    new Vector3(side * (.76f + leg * .20f), .20f - leg * .42f, .16f + leg * .16f),
+                    new Vector3(.92f, .15f, .18f), .02f, side < 0 ? cobaltMat : chromeMat, beetleRoot);
+                wing.GetComponent<Collider>().enabled = false;
+                wing.transform.localRotation = Quaternion.Euler(12, side * (18 + leg * 9), side * (24 + leg * 8));
+                beetleLegs[i] = wing.transform;
             }
-            var keyStem = MgfLook.Prim(PrimitiveType.Cylinder, "WindingStem", new Vector3(0f, .76f, .30f), new Vector3(.16f, .42f, .16f), chromeMat, beetleRoot, false);
-            var key = MgfLook.Block("WindingKey", new Vector3(0f, 1.10f, .30f), new Vector3(1.0f, .18f, .22f), .07f, chromeMat, beetleRoot);
-            key.GetComponent<Collider>().enabled = false;
-            var claw = MgfLook.Block("SmallClaw", new Vector3(-.82f, -.03f, -.96f), new Vector3(.48f, .18f, .18f), .07f, chromeMat, beetleRoot);
-            claw.GetComponent<Collider>().enabled = false;
-            claw.transform.localRotation = Quaternion.Euler(0, -26, -15);
+            var antennaLeft = MgfLook.Block("AntennaLeft", new Vector3(-.23f, 1.18f, -.18f), new Vector3(.12f, .75f, .12f), .06f, signalMat, beetleRoot);
+            antennaLeft.GetComponent<Collider>().enabled = false; antennaLeft.transform.localRotation = Quaternion.Euler(0, 0, -24f);
+            var antennaRight = MgfLook.Block("AntennaRight", new Vector3(.23f, 1.18f, -.18f), new Vector3(.12f, .75f, .12f), .06f, signalMat, beetleRoot);
+            antennaRight.GetComponent<Collider>().enabled = false; antennaRight.transform.localRotation = Quaternion.Euler(0, 0, 24f);
         }
 
         void BuildGuideObjects()
@@ -278,44 +310,38 @@ namespace Mgf.GuseulGyodae
             titleUi = Root("TitleUI");
             endUi = Root("EndUI");
 
-            var art = new GameObject("TitleKeyArt", typeof(RectTransform), typeof(RawImage));
-            art.transform.SetParent(titleUi.transform, false);
-            Stretch((RectTransform)art.transform);
-            titleArt = art.GetComponent<RawImage>();
-            titleArt.texture = Resources.Load<Texture2D>("GuseulGyodae/title");
-            titleArt.color = Color.white;
-            titleArt.raycastTarget = false;
-            if (!titleArt.texture) titleArt.enabled = false; // 생성 원화 로드 실패 시 런타임 트럭이 폴백.
-
-            var sign = MakePanel("RooftopSign", titleUi.transform, new Color32(247, 247, 236, 246), out _);
-            logoUi = MakeText("구슬\n교대", sign.transform, 64f, MgfLook.Hex("315CC8"), TextAlignmentOptions.Center);
-            logoUi.outlineWidth = .24f; logoUi.outlineColor = MgfLook.Hex("F1D34F");
+            // 타이틀도 실제 플레이의 관측실을 가리지 않고 같은 월드를 그대로 보여 준다.
+            titleArt = null;
+            logoUi = MakeText("구슬 교대", titleUi.transform, 44f, MgfLook.Hex("DDF7FF"), TextAlignmentOptions.Center);
+            logoUi.outlineWidth = .16f; logoUi.outlineColor = MgfLook.Hex("071126");
             logoUi.fontStyle = FontStyles.Bold;
-            titleTagUi = MakeText("구슬을 바꿔 보내라", titleUi.transform, 22f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
-            titleMetaUi = MakeText("중학교 2학년 · 확률 · 최고 기록 0", titleUi.transform, 15f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
-            titleHandle = MakePanel("DoorHandle", titleUi.transform, new Color32(49, 92, 200, 244), out _).GetComponent<Image>();
-            titleStartUi = MakeText("문 손잡이 눌러 열기", titleHandle.transform, 18f, Color.white, TextAlignmentOptions.Center);
-            Rect((RectTransform)sign.transform, new Vector2(.5f, 1f), new Vector2(0, -124f), new Vector2(260f, 180f));
-            Rect((RectTransform)logoUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(245f, 160f));
-            Rect((RectTransform)titleTagUi.transform, new Vector2(.5f, 1f), new Vector2(0, -235f), new Vector2(350f, 46f));
-            Rect((RectTransform)titleMetaUi.transform, new Vector2(.5f, 0f), new Vector2(0, 36f), new Vector2(350f, 34f));
-            Rect((RectTransform)titleHandle.transform, new Vector2(.5f, 0f), new Vector2(0, 104f), new Vector2(278f, 64f));
-            Rect((RectTransform)titleStartUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(260f, 54f));
+            titleTagUi = MakeText("결정을 바꿔 별자리 확률을 맞춰라", titleUi.transform, 19f, MgfLook.Hex("62F0C8"), TextAlignmentOptions.Center);
+            titleTagUi.outlineWidth = .12f; titleTagUi.outlineColor = MgfLook.Hex("071126");
+            titleMetaUi = MakeText("중2 확률 · 심야 결정 관측실", titleUi.transform, 14f, MgfLook.Hex("DDF7FF"), TextAlignmentOptions.Center);
+            titleMetaUi.outlineWidth = .12f; titleMetaUi.outlineColor = MgfLook.Hex("071126");
+            titleHandle = MakePanel("OrbitStartGrip", titleUi.transform, new Color32(0, 0, 0, 0), out _).GetComponent<Image>();
+            titleStartUi = MakeText("관측 링을 눌러 시작", titleHandle.transform, 17f, MgfLook.Hex("62F0C8"), TextAlignmentOptions.Center);
+            titleStartUi.outlineWidth = .14f; titleStartUi.outlineColor = MgfLook.Hex("071126");
+            Rect((RectTransform)logoUi.transform, new Vector2(.5f, 1f), new Vector2(0, -72f), new Vector2(330f, 66f));
+            Rect((RectTransform)titleTagUi.transform, new Vector2(.5f, 1f), new Vector2(0, -125f), new Vector2(350f, 38f));
+            Rect((RectTransform)titleMetaUi.transform, new Vector2(.5f, 0f), new Vector2(0, 24f), new Vector2(350f, 30f));
+            Rect((RectTransform)titleHandle.transform, new Vector2(.5f, 0f), new Vector2(0, 68f), new Vector2(246f, 48f));
+            Rect((RectTransform)titleStartUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(232f, 46f));
 
-            var header = MakePanel("TruckHeader", playUi.transform, new Color32(241, 211, 79, 248), out _);
-            hudUi = MakeText("", header.transform, 15f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
-            Rect((RectTransform)header.transform, new Vector2(.5f, 1f), new Vector2(0, -28f), new Vector2(380f, 52f));
-            Rect((RectTransform)hudUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(370f, 42f));
+            var header = MakePanel("ObservatoryHeader", playUi.transform, new Color32(12, 19, 37, 224), out _);
+            hudUi = MakeText("", header.transform, 13f, MgfLook.Hex("DDF7FF"), TextAlignmentOptions.Center);
+            Rect((RectTransform)header.transform, new Vector2(.5f, 1f), new Vector2(0, -36f), new Vector2(380f, 68f));
+            Rect((RectTransform)hudUi.transform, new Vector2(.5f, .5f), new Vector2(-20f, 0), new Vector2(324f, 60f));
 
-            orderCard = MakePanel("OrderBoard", playUi.transform, new Color32(247, 247, 236, 246), out orderCardImage);
-            orderUi = MakeText("", orderCard.transform, 15f, MgfLook.Hex("315CC8"), TextAlignmentOptions.Center);
-            promptUi = MakeText("", orderCard.transform, 17f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
+            orderCard = MakePanel("ObservationSlate", playUi.transform, new Color32(12, 19, 37, 226), out orderCardImage);
+            orderUi = MakeText("", orderCard.transform, 15f, MgfLook.Hex("62F0C8"), TextAlignmentOptions.Center);
+            promptUi = MakeText("", orderCard.transform, 17f, MgfLook.Hex("DDF7FF"), TextAlignmentOptions.Center);
             promptUi.textWrappingMode = TextWrappingModes.Normal;
             Rect((RectTransform)orderCard.transform, new Vector2(.5f, 1f), new Vector2(0, -127f), new Vector2(370f, 142f));
             Rect((RectTransform)orderUi.transform, new Vector2(.5f, 1f), new Vector2(0, -21f), new Vector2(340f, 28f));
             Rect((RectTransform)promptUi.transform, new Vector2(.5f, .5f), new Vector2(-18f, -10f), new Vector2(295f, 96f));
 
-            targetRoot = MakePanel("TargetFraction", orderCard.transform, new Color32(49, 92, 200, 244), out _);
+            targetRoot = MakePanel("TargetFraction", orderCard.transform, new Color32(200, 135, 47, 238), out _);
             targetNumUi = MakeText("1", targetRoot.transform, 25f, Color.white, TextAlignmentOptions.Center);
             targetDenUi = MakeText("2", targetRoot.transform, 25f, Color.white, TextAlignmentOptions.Center);
             var lineGo = new GameObject("FractionLine", typeof(RectTransform), typeof(Image));
@@ -326,21 +352,22 @@ namespace Mgf.GuseulGyodae
             Rect((RectTransform)targetLine.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(46f, 4f));
             Rect((RectTransform)targetDenUi.transform, new Vector2(.5f, 0f), new Vector2(0, 21f), new Vector2(64f, 32f));
 
-            goalUi = MakeText("구슬을 바꿔 확률을 맞추면 출고된다", playUi.transform, 17f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
-            goalUi.outlineWidth = .12f; goalUi.outlineColor = new Color32(247, 247, 236, 230);
-            countUi = MakeText("", playUi.transform, 16f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
+            goalUi = MakeText("결정을 바꾸고 관측 링을 돌려 확률을 확인한다", playUi.transform, 17f, MgfLook.Hex("62F0C8"), TextAlignmentOptions.Center);
+            goalUi.outlineWidth = .14f; goalUi.outlineColor = MgfLook.Hex("071126");
+            countUi = MakeText("", playUi.transform, 16f, MgfLook.Hex("DDF7FF"), TextAlignmentOptions.Center);
+            countUi.outlineWidth = .12f; countUi.outlineColor = MgfLook.Hex("071126");
             Rect((RectTransform)goalUi.transform, new Vector2(.5f, 1f), new Vector2(0, -214f), new Vector2(376f, 38f));
             Rect((RectTransform)countUi.transform, new Vector2(.5f, 0f), new Vector2(0, 35f), new Vector2(376f, 38f));
 
-            toastPanel = MakePanel("ToastPanel", playUi.transform, new Color32(50, 59, 69, 235), out toastImage);
-            toastUi = MakeText("", toastPanel.transform, 16f, Color.white, TextAlignmentOptions.Center);
+            toastPanel = MakePanel("ToastPanel", playUi.transform, new Color32(12, 19, 37, 226), out toastImage);
+            toastUi = MakeText("", toastPanel.transform, 14f, MgfLook.Hex("62F0C8"), TextAlignmentOptions.Center);
             toastUi.textWrappingMode = TextWrappingModes.Normal;
-            Rect((RectTransform)toastPanel.transform, new Vector2(.5f, .5f), new Vector2(0, -72f), new Vector2(354f, 86f));
-            Rect((RectTransform)toastUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(334f, 74f));
+            Rect((RectTransform)toastPanel.transform, new Vector2(.5f, 1f), new Vector2(0, -294f), new Vector2(344f, 54f));
+            Rect((RectTransform)toastUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(326f, 48f));
             toastPanel.SetActive(false);
 
-            receiptPanel = MakePanel("Receipt", playUi.transform, new Color32(247, 247, 236, 248), out receiptImage);
-            receiptUi = MakeText("", receiptPanel.transform, 17f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
+            receiptPanel = MakePanel("ObservationReceipt", playUi.transform, new Color32(12, 19, 37, 236), out receiptImage);
+            receiptUi = MakeText("", receiptPanel.transform, 17f, MgfLook.Hex("DDF7FF"), TextAlignmentOptions.Center);
             receiptUi.textWrappingMode = TextWrappingModes.Normal;
             var receiptMath = new GameObject("ReceiptFractionEquation", typeof(RectTransform));
             receiptMath.transform.SetParent(receiptPanel.transform, false);
@@ -355,7 +382,7 @@ namespace Mgf.GuseulGyodae
             var targetLineGo = new GameObject("TargetFractionLine", typeof(RectTransform), typeof(Image));
             targetLineGo.transform.SetParent(receiptMath.transform, false);
             receiptTargetLine = targetLineGo.GetComponent<Image>(); receiptTargetLine.color = MgfLook.Hex("315CC8"); receiptTargetLine.raycastTarget = false;
-            receiptNoteUi = MakeText("", receiptPanel.transform, 13f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
+            receiptNoteUi = MakeText("", receiptPanel.transform, 13f, MgfLook.Hex("DDF7FF"), TextAlignmentOptions.Center);
             receiptNoteUi.textWrappingMode = TextWrappingModes.Normal;
             Rect((RectTransform)receiptPanel.transform, new Vector2(.5f, .5f), new Vector2(0, 100f), new Vector2(330f, 190f));
             Rect((RectTransform)receiptUi.transform, new Vector2(.5f, 1f), new Vector2(0, -25f), new Vector2(306f, 38f));
@@ -370,18 +397,18 @@ namespace Mgf.GuseulGyodae
             Rect((RectTransform)receiptNoteUi.transform, new Vector2(.5f, 0f), new Vector2(0, 23f), new Vector2(306f, 38f));
             receiptPanel.SetActive(false);
 
-            var endPanel = MakePanel("ResultPanel", endUi.transform, new Color32(247, 247, 236, 248), out endPanelImage);
-            endTitleUi = MakeText("", endPanel.transform, 32f, MgfLook.Hex("315CC8"), TextAlignmentOptions.Center);
-            endStatsUi = MakeText("", endPanel.transform, 19f, MgfLook.Hex("323B45"), TextAlignmentOptions.Center);
+            var endPanel = MakePanel("ResultPanel", endUi.transform, new Color32(7, 17, 38, 178), out endPanelImage);
+            endTitleUi = MakeText("", endPanel.transform, 30f, MgfLook.Hex("62F0C8"), TextAlignmentOptions.Center);
+            endStatsUi = MakeText("", endPanel.transform, 17f, MgfLook.Hex("DDF7FF"), TextAlignmentOptions.Center);
             endStatsUi.textWrappingMode = TextWrappingModes.Normal;
-            endHintUi = MakeText("트럭 문을 눌러 다시 출고", endPanel.transform, 18f, Color.white, TextAlignmentOptions.Center);
-            var restart = MakePanel("RestartHandle", endPanel.transform, new Color32(49, 92, 200, 248), out _);
+            endHintUi = MakeText("관측 링 다시 맞추기", endPanel.transform, 17f, MgfLook.Hex("62F0C8"), TextAlignmentOptions.Center);
+            var restart = MakePanel("RestartHandle", endPanel.transform, new Color32(23, 36, 61, 236), out _);
             restartRect = (RectTransform)restart.transform;
             endHintUi.transform.SetParent(restart.transform, false);
-            Rect((RectTransform)endPanel.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(356f, 410f));
-            Rect((RectTransform)endTitleUi.transform, new Vector2(.5f, 1f), new Vector2(0, -63f), new Vector2(330f, 90f));
-            Rect((RectTransform)endStatsUi.transform, new Vector2(.5f, .5f), new Vector2(0, -15f), new Vector2(322f, 174f));
-            Rect(restartRect, new Vector2(.5f, 0f), new Vector2(0, 52f), new Vector2(310f, 62f));
+            Rect((RectTransform)endPanel.transform, new Vector2(.5f, 0f), new Vector2(0, 194f), new Vector2(344f, 300f));
+            Rect((RectTransform)endTitleUi.transform, new Vector2(.5f, 1f), new Vector2(0, -46f), new Vector2(326f, 64f));
+            Rect((RectTransform)endStatsUi.transform, new Vector2(.5f, .5f), new Vector2(0, -4f), new Vector2(318f, 150f));
+            Rect(restartRect, new Vector2(.5f, 0f), new Vector2(0, 34f), new Vector2(292f, 50f));
             Rect((RectTransform)endHintUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(298f, 54f));
         }
 
@@ -428,7 +455,7 @@ namespace Mgf.GuseulGyodae
             titleUi.SetActive(title);
             playUi.SetActive(!title && !end);
             endUi.SetActive(end);
-            worldRoot.gameObject.SetActive(!title || titleArt == null || !titleArt.enabled);
+            worldRoot.gameObject.SetActive(true);
             if (!title && !end) RefreshProblemUi();
         }
 
@@ -449,8 +476,8 @@ namespace Mgf.GuseulGyodae
             if (integer) Rect((RectTransform)targetNumUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(64f, 58f));
             else Rect((RectTransform)targetNumUi.transform, new Vector2(.5f, 1f), new Vector2(0, -21f), new Vector2(64f, 32f));
             goalUi.text = phase == Phase.Practice
-                ? (!practiceSwapped ? "파랑 구슬 1개를 흰 슬롯으로 옮기시오" : "케이스 손잡이를 오른쪽 벨트로 끌어 보내시오")
-                : "구슬을 바꿔 확률을 맞추면 출고된다";
+                ? (!practiceSwapped ? "파랑 구슬샘→흰 슬롯: 끌거나 차례로 누르시오" : "회전 손잡이→확률 궤도: 끌거나 차례로 누르시오")
+                : "구슬을 바꾸고 돔을 돌려 확률을 확인한다";
             countUi.text = "현재  파랑 " + CountBlue() + "개 · 흰 " + (6 - CountBlue()) + "개 · 전체 6";
         }
 
@@ -461,7 +488,11 @@ namespace Mgf.GuseulGyodae
             if (hudUi && (phase == Phase.Practice || phase == Phase.Playing || phase == Phase.Reveal))
             {
                 string time = phase == Phase.Practice ? "연습 · 시간 정지" : (repairMode ? "수리 " : "주문 ") + timer + "초";
-                hudUi.text = "볼트 " + st.lives + "/3   ·   " + time + "   ·   점수 " + Mathf.RoundToInt(displayScore);
+                string mastery = phase == Phase.Practice
+                    ? "숙련 목표  첫 시도 8/10 · 동시 사건 3/4"
+                    : "첫 " + st.firstCorrect + "/10(목표 8) · 동시 " + st.band3FirstCorrect + "/4(목표 3) · "
+                        + (MasteryStillPossible() ? "가능" : "불가 · 연습 회전");
+                hudUi.text = "볼트 " + st.lives + "/3 · " + time + " · 점수 " + Mathf.RoundToInt(displayScore) + "\n" + mastery;
                 lastTimer = timer;
             }
             if (toastLeft > 0f)
@@ -479,7 +510,14 @@ namespace Mgf.GuseulGyodae
         void AnimateWorld(float dt)
         {
             ambientClock += dt;
-            for (int i = 0; i < rollers.Length; i++) if (rollers[i]) rollers[i].Rotate(Vector3.forward, (55f + i * 3f) * dt, Space.Self);
+            for (int i = 0; i < rollers.Length; i++) if (rollers[i])
+            {
+                Vector3 p = rollers[i].localPosition;
+                float angle = ambientClock * .55f + i * Mathf.PI * 2f / rollers.Length;
+                p.x = Mathf.Cos(angle) * 1.72f;
+                p.y = -.45f + Mathf.Sin(angle) * 1.72f;
+                rollers[i].localPosition = p;
+            }
             for (int i = 0; i < binMarbles.Length; i++) if (binMarbles[i])
             {
                 Vector3 p = binMarbles[i].localPosition;
@@ -493,8 +531,8 @@ namespace Mgf.GuseulGyodae
                 p.y = 2.28f + Mathf.Sin(ambientClock * 1.44f) * .05f;
                 if (phase == Phase.Reveal && revealCorrect) p.y += Mathf.Sin(Mathf.Clamp01(revealClock / .65f) * Mathf.PI) * .78f;
                 beetleRoot.localPosition = p;
-                Transform key = beetleRoot.Find("WindingKey"); if (key) key.Rotate(Vector3.up, 70f * dt, Space.Self);
-                for (int i = 0; i < beetleLegs.Length; i++) if (beetleLegs[i]) beetleLegs[i].localRotation *= Quaternion.Euler(0, 0, Mathf.Sin(ambientClock * 6f + i) * 12f * dt);
+                for (int i = 0; i < beetleLegs.Length; i++) if (beetleLegs[i])
+                    beetleLegs[i].localRotation *= Quaternion.Euler(0, 0, Mathf.Sin(ambientClock * 7f + i) * 20f * dt);
             }
             if (phase == Phase.Reveal && cartridgeRoot)
             {
@@ -502,16 +540,18 @@ namespace Mgf.GuseulGyodae
                 if (revealCorrect)
                 {
                     float eased = 1f - Mathf.Pow(1f - k, 3f);
-                    cartridgeRoot.localPosition = cartridgeHome + Vector3.right * (eased * 4.65f);
-                    latchRoot.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(-22f, 0f, Mathf.Clamp01(k * 2f)));
+                    cartridgeRoot.localPosition = cartridgeHome;
+                    cartridgeRoot.localRotation = Quaternion.Euler(0, 0, -eased * 360f);
+                    latchRoot.localRotation = Quaternion.Euler(0, 0, eased * 620f);
                     caseGlow.SetActive(revealClock < .9f);
                     float stretch = 1f + Mathf.Sin(k * Mathf.PI) * .05f;
-                    cartridgeRoot.localScale = new Vector3(1f + (stretch - 1f) * 1.8f, 1f - (stretch - 1f), 1f);
+                    cartridgeRoot.localScale = Vector3.one * stretch;
                 }
                 else
                 {
                     float shake = Mathf.Sin(revealClock * 42f) * .18f * (1f - k);
                     cartridgeRoot.localPosition = cartridgeHome + Vector3.left * Mathf.Sin(k * Mathf.PI) * 1.25f + Vector3.up * shake;
+                    cartridgeRoot.localRotation = Quaternion.Euler(0, 0, shake * 5f);
                 }
             }
             if (guideFinger && guideFinger.activeSelf)
@@ -546,35 +586,43 @@ namespace Mgf.GuseulGyodae
             float aspect = Screen.width / (float)Mathf.Max(1, Screen.height);
             currentLand = aspect >= 1.28f;
             cam.orthographicSize = currentLand ? 6.45f : 7.55f;
-            worldRoot.localScale = Vector3.one * (currentLand ? 1f : .55f);
-            worldRoot.localPosition = currentLand ? new Vector3(0, -.15f, 0) : new Vector3(0, -.65f, 0);
-            supplyRoot.localPosition = currentLand ? new Vector3(-5.65f, -.15f, -.05f) : new Vector3(-5.15f, -.15f, -.05f);
-            beltRoot.localPosition = currentLand ? new Vector3(5.65f, -.2f, -.12f) : new Vector3(5.15f, -.2f, -.12f);
-            if (titleArt && titleArt.texture)
-            {
-                float texAspect = titleArt.texture.width / (float)titleArt.texture.height;
-                if (aspect > texAspect)
-                {
-                    float h = texAspect / aspect;
-                    titleArt.uvRect = new Rect(0, (1f - h) * .5f, 1f, h);
-                }
-                else
-                {
-                    float w = aspect / texAspect;
-                    titleArt.uvRect = new Rect((1f - w) * .5f, 0, w, 1f);
-                }
-            }
+            worldRoot.localScale = Vector3.one * (currentLand ? .84f : .55f);
+            worldRoot.localPosition = currentLand ? new Vector3(2.25f, -.35f, 0) : new Vector3(0, -.65f, 0);
+            supplyRoot.localPosition = currentLand ? new Vector3(-5.65f, -.15f, -.05f) : new Vector3(-4.20f, -.15f, -.05f);
+            beltRoot.localPosition = currentLand ? new Vector3(5.65f, -.2f, -.12f) : new Vector3(4.20f, -.2f, -.12f);
             if (currentLand)
             {
-                Rect((RectTransform)orderCard.transform, new Vector2(.5f, 1f), new Vector2(0, -104f), new Vector2(760f, 116f));
-                Rect((RectTransform)promptUi.transform, new Vector2(.5f, .5f), new Vector2(-20f, -8f), new Vector2(650f, 78f));
-                Rect((RectTransform)goalUi.transform, new Vector2(.5f, 1f), new Vector2(0, -176f), new Vector2(760f, 38f));
+                // 1280×800~2000px는 왼쪽 정보 존과 오른쪽 월드 존으로 나눈다.
+                // 카드 폭을 고정해 초와이드에서 화면 대부분을 덮던 띠 배치를 없앤다.
+                Rect((RectTransform)hudUi.transform.parent, new Vector2(0f, 1f), new Vector2(164f, -34f), new Vector2(306f, 58f));
+                Rect((RectTransform)hudUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(286f, 52f));
+                Rect((RectTransform)orderCard.transform, new Vector2(0f, .5f), new Vector2(164f, -10f), new Vector2(306f, 224f));
+                Rect((RectTransform)orderUi.transform, new Vector2(.5f, 1f), new Vector2(0f, -24f), new Vector2(280f, 30f));
+                Rect((RectTransform)promptUi.transform, new Vector2(.5f, .5f), new Vector2(-30f, -10f), new Vector2(218f, 154f));
+                Rect((RectTransform)targetRoot.transform, new Vector2(1f, .5f), new Vector2(-40f, -8f), new Vector2(66f, 98f));
+                Rect((RectTransform)goalUi.transform, new Vector2(0f, .5f), new Vector2(164f, -143f), new Vector2(306f, 56f));
+                Rect((RectTransform)countUi.transform, new Vector2(.72f, 0f), new Vector2(0f, 28f), new Vector2(360f, 38f));
+                Rect((RectTransform)toastPanel.transform, new Vector2(0f, .5f), new Vector2(164f, -188f), new Vector2(306f, 54f));
+                Rect((RectTransform)toastUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(288f, 48f));
+                promptUi.fontSize = 12.5f;
+                goalUi.fontSize = 14f;
+                hudUi.fontSize = 11.5f;
             }
             else
             {
-                Rect((RectTransform)orderCard.transform, new Vector2(.5f, 1f), new Vector2(0, -127f), new Vector2(370f, 142f));
-                Rect((RectTransform)promptUi.transform, new Vector2(.5f, .5f), new Vector2(-18f, -10f), new Vector2(295f, 96f));
-                Rect((RectTransform)goalUi.transform, new Vector2(.5f, 1f), new Vector2(0, -214f), new Vector2(376f, 38f));
+                Rect((RectTransform)hudUi.transform.parent, new Vector2(.5f, 1f), new Vector2(0, -36f), new Vector2(380f, 68f));
+                Rect((RectTransform)hudUi.transform, new Vector2(.5f, .5f), new Vector2(-20f, 0), new Vector2(324f, 60f));
+                Rect((RectTransform)orderCard.transform, new Vector2(.5f, 1f), new Vector2(0, -151f), new Vector2(370f, 158f));
+                Rect((RectTransform)orderUi.transform, new Vector2(.5f, 1f), new Vector2(0, -21f), new Vector2(340f, 28f));
+                Rect((RectTransform)promptUi.transform, new Vector2(.5f, .5f), new Vector2(-42f, -10f), new Vector2(242f, 112f));
+                Rect((RectTransform)targetRoot.transform, new Vector2(1f, .5f), new Vector2(-42f, -7f), new Vector2(74f, 94f));
+                Rect((RectTransform)goalUi.transform, new Vector2(.5f, 1f), new Vector2(0, -244f), new Vector2(376f, 38f));
+                Rect((RectTransform)countUi.transform, new Vector2(.5f, 0f), new Vector2(0, 35f), new Vector2(376f, 38f));
+                Rect((RectTransform)toastPanel.transform, new Vector2(.5f, 1f), new Vector2(0, -294f), new Vector2(344f, 54f));
+                Rect((RectTransform)toastUi.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(326f, 48f));
+                promptUi.fontSize = 17f;
+                goalUi.fontSize = 17f;
+                hudUi.fontSize = 13f;
             }
         }
 
@@ -582,8 +630,9 @@ namespace Mgf.GuseulGyodae
         {
             cartridgeRoot.localPosition = cartridgeHome;
             cartridgeRoot.localScale = Vector3.one;
+            cartridgeRoot.localRotation = Quaternion.identity;
             dispatchHandle.localPosition = handleHome;
-            latchRoot.localRotation = Quaternion.Euler(0, 0, -22f);
+            latchRoot.localRotation = Quaternion.identity;
             caseGlow.SetActive(false);
             receiptPanel.SetActive(false);
             for (int i = 0; i < bolts.Length; i++)
@@ -644,6 +693,104 @@ namespace Mgf.GuseulGyodae
             return -1;
         }
 
+        // 보이는 오브젝트 주변을 넉넉히 잡되, 연습과 실전에 같은 판정을 쓴다.
+        bool WideSnapControl(Vector2 screen, out string control, out int slot)
+        {
+            control = ""; slot = -1;
+            float unit = Mathf.Max(.85f, Mathf.Min(Screen.width / 390f, Screen.height / 844f));
+            float radius = 112f * unit;
+            Vector3 blue = cam.WorldToScreenPoint(blueSupply.position);
+            Vector3 white = cam.WorldToScreenPoint(whiteSupply.position);
+            Vector3 spin = cam.WorldToScreenPoint(dispatchHandle.position);
+            if (!currentLand)
+            {
+                Vector3 center = cam.WorldToScreenPoint(cartridgeRoot.position);
+                float stationY = (blue.y + white.y + center.y + spin.y) * .25f;
+                if (Mathf.Abs(screen.y - stationY) <= 220f * unit)
+                {
+                    float leftMid = (blue.x + center.x) * .5f;
+                    float rightMid = (center.x + spin.x) * .5f;
+                    if (screen.x < leftMid)
+                    {
+                        control = Mathf.Abs(screen.y - blue.y) <= Mathf.Abs(screen.y - white.y) ? "blue" : "white";
+                        return true;
+                    }
+                    if (screen.x < rightMid)
+                    {
+                        slot = NearestSlotIndex(screen);
+                        control = "slot";
+                        return slot >= 0;
+                    }
+                    control = "dispatch";
+                    return true;
+                }
+            }
+            float best = float.MaxValue;
+            float d = Vector2.Distance(screen, new Vector2(blue.x, blue.y));
+            if (d <= radius && d < best) { best = d; control = "blue"; }
+            d = Vector2.Distance(screen, new Vector2(white.x, white.y));
+            if (d <= radius && d < best) { best = d; control = "white"; }
+            d = Vector2.Distance(screen, new Vector2(spin.x, spin.y));
+            if (d <= radius * 1.10f && d < best) { best = d; control = "dispatch"; }
+            for (int i = 0; i < slots.Length; i++)
+            {
+                Vector3 p = cam.WorldToScreenPoint(slots[i].position);
+                d = Vector2.Distance(screen, new Vector2(p.x, p.y));
+                if (d <= 96f * unit && d < best) { best = d; control = "slot"; slot = i; }
+            }
+            return best < float.MaxValue;
+        }
+
+        bool NearOrbitGate(Vector2 screen)
+        {
+            float unit = Mathf.Max(.85f, Mathf.Min(Screen.width / 390f, Screen.height / 844f));
+            Vector3 gate = cam.WorldToScreenPoint(BeltGuidePoint());
+            if (!currentLand)
+            {
+                Vector3 center = cam.WorldToScreenPoint(cartridgeRoot.position);
+                if (screen.x >= (center.x + gate.x) * .5f && Mathf.Abs(screen.y - gate.y) <= 150f * unit) return true;
+            }
+            return Vector2.Distance(screen, new Vector2(gate.x, gate.y)) <= 124f * unit;
+        }
+
+        int NearestSlotIndex(Vector2 screen)
+        {
+            int best = -1;
+            float bestDistance = float.MaxValue;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                Vector3 p = cam.WorldToScreenPoint(slots[i].position);
+                float d = Vector2.Distance(screen, new Vector2(p.x, p.y));
+                if (d < bestDistance) { bestDistance = d; best = i; }
+            }
+            return best;
+        }
+
+        int NearestSlotInWideSnap(Vector2 screen)
+        {
+            float unit = Mathf.Max(.85f, Mathf.Min(Screen.width / 390f, Screen.height / 844f));
+            float radius = 96f * unit;
+            if (!currentLand)
+            {
+                Vector3 center = cam.WorldToScreenPoint(cartridgeRoot.position);
+                Vector3 supply = cam.WorldToScreenPoint(blueSupply.position);
+                Vector3 spin = cam.WorldToScreenPoint(dispatchHandle.position);
+                float leftMid = (supply.x + center.x) * .5f;
+                float rightMid = (center.x + spin.x) * .5f;
+                if (screen.x >= leftMid && screen.x < rightMid && Mathf.Abs(screen.y - center.y) <= 220f * unit)
+                    return NearestSlotIndex(screen);
+            }
+            int best = -1;
+            float bestDistance = radius;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                Vector3 p = cam.WorldToScreenPoint(slots[i].position);
+                float d = Vector2.Distance(screen, new Vector2(p.x, p.y));
+                if (d < bestDistance) { bestDistance = d; best = i; }
+            }
+            return best;
+        }
+
         bool ScreenToWorld(Vector2 screen, float z, out Vector3 point)
         {
             var plane = new Plane(Vector3.forward, new Vector3(0, 0, z));
@@ -681,7 +828,7 @@ namespace Mgf.GuseulGyodae
 
         void BeginDispatchDrag()
         {
-            cartridgeRoot.localScale = new Vector3(.96f, 1.05f, .96f);
+            cartridgeRoot.localScale = Vector3.one * .97f;
             MgfSfx.Play("tap", .20f);
         }
 
@@ -689,8 +836,10 @@ namespace Mgf.GuseulGyodae
         {
             float logical = Mathf.Max(1f, Screen.width / 390f);
             float x = Mathf.Clamp((screen.x - start.x) / (90f * logical), 0f, 1f);
-            cartridgeRoot.localPosition = cartridgeHome + Vector3.right * (x * 1.25f);
-            cartridgeRoot.localScale = Vector3.Lerp(new Vector3(.96f, 1.05f, .96f), Vector3.one, x);
+            cartridgeRoot.localPosition = cartridgeHome;
+            cartridgeRoot.localRotation = Quaternion.Euler(0, 0, -x * 58f);
+            cartridgeRoot.localScale = Vector3.Lerp(Vector3.one * .97f, Vector3.one, x);
+            dispatchHandle.localPosition = handleHome + Vector3.right * (x * .42f);
         }
 
         void EndDispatchDrag(bool success)
@@ -699,6 +848,8 @@ namespace Mgf.GuseulGyodae
             {
                 cartridgeRoot.localPosition = cartridgeHome;
                 cartridgeRoot.localScale = Vector3.one;
+                cartridgeRoot.localRotation = Quaternion.identity;
+                dispatchHandle.localPosition = handleHome;
                 ShakeHandle();
             }
         }
@@ -713,17 +864,21 @@ namespace Mgf.GuseulGyodae
             receiptPanel.SetActive(true);
             if (correct)
             {
-                receiptUi.text = revealPractice ? "파랑 3개를 직접 만들었다" : "출고 검사 통과";
-                receiptNoteUi.text = revealPractice ? "전체 6개 중 파랑 3개" : "이론 확률과 관찰 상대도수는 다를 수 있다";
-                receiptImage.color = new Color32(247, 247, 236, 250);
+                receiptUi.text = revealPractice ? "파랑 3개를 직접 만들었다" : "궤도 검증 통과";
+                receiptNoteUi.text = revealPractice
+                    ? "전체 6개 중 파랑 3개"
+                    : current.band == 2
+                        ? "관찰 파랑 " + current.observedBlue + "/" + current.observedTrials + " · 이론 파랑 " + current.k + "/6"
+                        : "경우의 수를 정수 비율로 확인했다";
+                receiptImage.color = new Color32(12, 19, 37, 240);
                 MgfSfx.Play("correct", .45f);
                 MgfSfx.Play("whoosh", .24f);
             }
             else
             {
-                receiptUi.text = "수리 레일로 돌아온다";
+                receiptUi.text = "궤도가 열리지 않는다";
                 receiptNoteUi.text = "파랑 " + CountBlue() + "개 · 흰 " + (6 - CountBlue()) + "개";
-                receiptImage.color = new Color32(255, 226, 178, 250);
+                receiptImage.color = new Color32(54, 25, 38, 240);
                 DropBoltVisual();
                 MgfFx.Shake(cam, .07f, .20f); // 화면 흔들림은 오답 전용.
                 MgfSfx.Play("wrong", .36f);
@@ -755,7 +910,9 @@ namespace Mgf.GuseulGyodae
         {
             cartridgeRoot.localPosition = cartridgeHome;
             cartridgeRoot.localScale = Vector3.one;
-            latchRoot.localRotation = Quaternion.Euler(0, 0, -22f);
+            cartridgeRoot.localRotation = Quaternion.identity;
+            dispatchHandle.localPosition = handleHome;
+            latchRoot.localRotation = Quaternion.identity;
             caseGlow.SetActive(false);
             receiptPanel.SetActive(false);
         }
@@ -795,7 +952,7 @@ namespace Mgf.GuseulGyodae
             guideDispatch = true;
             ReplayGuide(false);
             RefreshProblemUi();
-            ShowToast("파랑 3개가 되었다 · 이제 케이스를 벨트로 보내시오", 2.8f);
+            ShowToast("파랑 3개가 되었다 · 돔 손잡이를 궤도 링까지 끌어 돌리시오", 2.8f);
         }
 
         Vector3 PracticeWhiteTarget()
@@ -804,7 +961,7 @@ namespace Mgf.GuseulGyodae
             return slots[5].position;
         }
 
-        Vector3 BeltGuidePoint() => beltRoot.TransformPoint(new Vector3(0f, .2f, -.85f));
+        Vector3 BeltGuidePoint() => beltRoot.TransformPoint(new Vector3(0f, -.45f, -1.05f));
 
         void ShowConceptBridge(string message)
         {
@@ -851,7 +1008,7 @@ namespace Mgf.GuseulGyodae
         {
             titlePulse = 0f;
             if (titleHandle) titleHandle.transform.localScale = new Vector3(.96f, .90f, 1f);
-            if (titleStartUi) titleStartUi.text = "트럭 문 여는 중";
+            if (titleStartUi) titleStartUi.text = "관측 링 기동 중";
         }
 
         void UpdateTitlePress(Vector2 screen)
@@ -863,16 +1020,16 @@ namespace Mgf.GuseulGyodae
         void EndTitlePress()
         {
             if (titleHandle) titleHandle.transform.localScale = Vector3.one;
-            if (titleStartUi) titleStartUi.text = "문 손잡이 눌러 열기";
+            if (titleStartUi) titleStartUi.text = "관측 링을 눌러 시작";
         }
 
         void ShowEnd(string reason)
         {
             bool clear = reason == "clear";
-            endTitleUi.text = clear ? "확률 검증 완료" : reason == "mastery" ? "출고 완료 · 검증 미달" : "트럭 정비 종료";
-            endTitleUi.color = clear ? MgfLook.Hex("315CC8") : MgfLook.Hex("8C4F36");
-            endStatsUi.text = "출고 " + st.solved + "/10\n첫 시도 " + st.firstCorrect + "/10\n동시 사건 첫 시도 " + st.band3FirstCorrect + "/4\n\n점수 " + st.score
-                + (clear ? "\n숙련 스탬프 획득" : "\n목표: 첫 시도 8개 · 마지막 단계 3개");
+            endTitleUi.text = clear ? "확률 궤도 완성" : reason == "mastery" ? "관측 완료 · 검증 미달" : "관측 장치 정지";
+            endTitleUi.color = clear ? MgfLook.Hex("62F0C8") : MgfLook.Hex("FFAF7A");
+            endStatsUi.text = "관측 " + st.solved + "/10\n첫 시도 " + st.firstCorrect + "/10 · 동시 사건 " + st.band3FirstCorrect + "/4\n점수 " + st.score
+                + (clear ? "\n숙련 인장 획득" : "\n목표: 첫 시도 8개 · 마지막 단계 3개");
             displayScore = 0f;
         }
 

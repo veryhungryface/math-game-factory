@@ -1,4 +1,4 @@
-// 구슬 교대 — 타이틀, 실제 두 드래그 연습, 10주문 상태 머신, 브리지.
+// 구슬 교대 — 심야 결정 관측실, 실제 두 대상쌍 연습, 10관측 상태 머신, 브리지.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -16,6 +16,7 @@ namespace Mgf.GuseulGyodae
             public int firstAttempts;
             public int firstCorrect;
             public int band3FirstCorrect;
+            public bool masteryPossible;
             public bool submissionLatched;
             public bool onboarding;
             public bool frozen;
@@ -54,7 +55,8 @@ namespace Mgf.GuseulGyodae
         Phase phase = Phase.Title;
         DragKind dragKind;
         bool dragBlue, currentFirst, revealCorrect, revealPractice, titlePressed;
-        bool practiceSwapped, repairMode;
+        bool practiceSwapped, repairMode, tapMarbleArmed, tapMarbleBlue, spinTapArmed;
+        int tapSlotArmed = -1;
         int orderIndex, runSerial;
         float orderLeft, globalLeft, revealClock, hitStopLeft, idleClock;
         Vector2 dragStartScreen;
@@ -82,8 +84,8 @@ namespace Mgf.GuseulGyodae
 
         void Prewarm()
         {
-            var sb = new StringBuilder("구슬교대구슬을바꿔보내라중학교2학년확률레몬노랑정비트럭문손잡이를눌러시작파랑흰색공급통투명카트리지출고벨트주문수리볼트점수남은시간연습실전다시하기출고완료확률검증미달게임오버");
-            sb.Append("임의로꺼낸다공의모양과크기는모두같다파랑공이나올나오지않을두공이모두파랑서로다른추첨각추첨은서로영향을끼치지않는다구성하시오현재전체개정비딱정벌레잠금쇠이론확률관찰상대도수");
+            var sb = new StringBuilder("구슬교대결정을바꿔별자리를맞춰라중학교2학년확률심야결정관측실궤도돔손잡이를끌어시작파랑흰색결정공급별자리링관측관문주문수리볼트점수남은시간연습실전다시하기관측완료확률검증미달게임오버");
+            sb.Append("임의로꺼낸다공의모양과크기는모두같다파랑공이나올나오지않을두공이모두파랑서로다른추첨각추첨은서로영향을끼치지않는다구성하시오현재전체개탐사드론궤적이론확률관찰상대도수");
             for (int i = 0; i < bank.Count; i++) { sb.Append(bank[i].prompt); sb.Append(bank[i].answer); sb.Append(bank[i].unitConcept); }
             MgfText.Prewarm(sb.ToString());
         }
@@ -130,6 +132,9 @@ namespace Mgf.GuseulGyodae
             orderIndex = 0;
             titlePressed = false;
             repairMode = false;
+            tapMarbleArmed = false;
+            spinTapArmed = false;
+            tapSlotArmed = -1;
             st.score = 0;
             st.lives = GuseulRules.StartLives;
             st.level = 1;
@@ -137,6 +142,7 @@ namespace Mgf.GuseulGyodae
             st.firstAttempts = 0;
             st.firstCorrect = 0;
             st.band3FirstCorrect = 0;
+            st.masteryPossible = true;
             st.submissionLatched = false;
             st.onboarding = false;
             st.frozen = true;
@@ -163,6 +169,9 @@ namespace Mgf.GuseulGyodae
             endReason = "";
             repairMode = false;
             practiceSwapped = false;
+            tapMarbleArmed = false;
+            spinTapArmed = false;
+            tapSlotArmed = -1;
             currentFirst = true;
             globalLeft = 180f;
             orderLeft = 999f;
@@ -174,6 +183,7 @@ namespace Mgf.GuseulGyodae
             st.firstAttempts = 0;
             st.firstCorrect = 0;
             st.band3FirstCorrect = 0;
+            st.masteryPossible = true;
             st.combo = 0;
             st.submissionLatched = false;
             st.onboarding = true;
@@ -196,6 +206,9 @@ namespace Mgf.GuseulGyodae
             phase = Phase.Playing;
             endReason = "";
             repairMode = false;
+            tapMarbleArmed = false;
+            spinTapArmed = false;
+            tapSlotArmed = -1;
             orderIndex = 0;
             globalLeft = 180f;
             idleClock = 0f;
@@ -206,6 +219,7 @@ namespace Mgf.GuseulGyodae
             st.firstAttempts = 0;
             st.firstCorrect = 0;
             st.band3FirstCorrect = 0;
+            st.masteryPossible = true;
             st.combo = 0;
             st.submissionLatched = false;
             st.onboarding = false;
@@ -252,6 +266,9 @@ namespace Mgf.GuseulGyodae
             current.targetD = refreshed.targetD;
             currentFirst = true;
             repairMode = false;
+            tapMarbleArmed = false;
+            spinTapArmed = false;
+            tapSlotArmed = -1;
             orderLeft = current.band == 1 ? 12f : current.band == 2 ? 14f : 18f;
             idleClock = 0f;
             st.level = current.band;
@@ -270,6 +287,15 @@ namespace Mgf.GuseulGyodae
             return st.solved >= GuseulRules.OrderCount
                 && st.firstCorrect >= GuseulRules.RequiredFirstCorrect
                 && st.band3FirstCorrect >= GuseulRules.RequiredBand3FirstCorrect;
+        }
+
+        bool MasteryStillPossible()
+        {
+            int remainingFirstAttempts = Mathf.Max(0, GuseulRules.OrderCount - st.firstAttempts);
+            int band3Attempts = Mathf.Clamp(st.firstAttempts - 6, 0, 4);
+            int remainingBand3Attempts = Mathf.Max(0, 4 - band3Attempts);
+            return st.firstCorrect + remainingFirstAttempts >= GuseulRules.RequiredFirstCorrect
+                && st.band3FirstCorrect + remainingBand3Attempts >= GuseulRules.RequiredBand3FirstCorrect;
         }
 
         void BindCurrent()
@@ -339,7 +365,7 @@ namespace Mgf.GuseulGyodae
             revealPractice = phase == Phase.Practice;
             revealCorrect = GuseulRules.IsCorrect(current, CountBlue());
             st.submissionLatched = true;
-            st.lastAction = "dispatch";
+            st.lastAction = "spin-submit";
             if (revealPractice)
             {
                 if (revealCorrect) { st.score = 100; st.solved = 1; }
@@ -436,7 +462,7 @@ namespace Mgf.GuseulGyodae
             if (st.lives <= 0) { EndRun("bolts"); return; }
             repairMode = true;
             orderLeft = 6f;
-            ShowToast("시간 초과 · 같은 케이스를 6초 안에 수리하시오", 2.2f);
+            ShowToast("시간 초과 · 같은 궤도 돔을 6초 안에 수리하시오", 2.2f);
             DropBoltVisual();
             MgfSfx.Play("wrong", .32f);
             MgfBridge.NotifyChanged();
@@ -486,9 +512,20 @@ namespace Mgf.GuseulGyodae
             {
                 dragKind = DragKind.None;
                 int slot = SlotAtPointer(MgfPointer.Position);
+                float moved = Vector2.Distance(MgfPointer.Position, dragStartScreen);
                 EndMarbleDrag();
+                if (slot < 0 && moved < 14f * Mathf.Max(1f, Screen.width / 390f))
+                {
+                    tapMarbleArmed = true;
+                    tapMarbleBlue = dragBlue;
+                    st.lastAction = dragBlue ? "blue-picked" : "white-picked";
+                    ShowToast("구슬을 집었다 · 바꿀 돔 슬롯을 누르시오", 2.8f);
+                    MgfBridge.NotifyChanged();
+                    return;
+                }
+                if (slot < 0) slot = NearestSlotInWideSnap(MgfPointer.Position);
                 if (slot >= 0) ChangeSlot(slot, dragBlue);
-                else { RefuseInput("구슬을 투명 케이스의 1~6 슬롯에 놓으시오"); ReplayGuide(true); }
+                else { RefuseInput("구슬을 유리 돔의 빛나는 슬롯에 놓으시오"); ReplayGuide(true); }
                 return;
             }
             if (MgfPointer.Up && dragKind == DragKind.Dispatch)
@@ -496,9 +533,38 @@ namespace Mgf.GuseulGyodae
                 dragKind = DragKind.None;
                 float logicalScale = Mathf.Max(1f, Screen.width / 390f);
                 float moved = MgfPointer.Position.x - dragStartScreen.x;
-                EndDispatchDrag(moved > 56f * logicalScale);
-                if (moved > 56f * logicalScale) SubmitCase();
-                else { RefuseInput("케이스 손잡이를 오른쪽 벨트까지 끌어 보내시오"); ReplayGuide(true); }
+                // 연습과 실전은 같은 손잡이→궤도 링 드래그만 인정한다.
+                if (Mathf.Abs(moved) < 14f * logicalScale)
+                {
+                    cartridgeRoot.localPosition = cartridgeHome;
+                    cartridgeRoot.localScale = Vector3.one;
+                    cartridgeRoot.localRotation = Quaternion.identity;
+                    dispatchHandle.localPosition = handleHome;
+                    spinTapArmed = true;
+                    st.lastAction = "spin-handle-picked";
+                    ShowToast("회전 손잡이를 잡았다 · 오른쪽 확률 궤도를 누르시오", 2.8f);
+                    MgfBridge.NotifyChanged();
+                    return;
+                }
+                bool dispatched = moved > 48f * logicalScale;
+                EndDispatchDrag(dispatched);
+                if (dispatched) SubmitCase();
+                else { RefuseInput("돔 손잡이를 오른쪽 궤도 링까지 끌어 돌리시오"); ReplayGuide(true); }
+                return;
+            }
+            if (MgfPointer.Up && tapSlotArmed >= 0)
+            {
+                float moved = Vector2.Distance(MgfPointer.Position, dragStartScreen);
+                if (moved >= 14f * Mathf.Max(1f, Screen.width / 390f)
+                    && WideSnapControl(MgfPointer.Position, out string releaseControl, out _)
+                    && (releaseControl == "blue" || releaseControl == "white"))
+                {
+                    int target = tapSlotArmed;
+                    tapSlotArmed = -1;
+                    bool pickedBlue = releaseControl == "blue";
+                    if (blueSlots[target] != pickedBlue) ChangeSlot(target, pickedBlue);
+                    else RefuseInput(pickedBlue ? "선택한 슬롯은 이미 파랑이다" : "선택한 슬롯은 이미 흰색이다");
+                }
             }
         }
 
@@ -529,18 +595,49 @@ namespace Mgf.GuseulGyodae
             }
             if (phase == Phase.Reveal)
             {
-                RefuseInput("잠금쇠와 벨트가 멈출 때까지 잠깐 기다리시오");
+                RefuseInput("구슬 궤적이 멈출 때까지 잠깐 기다리시오");
                 return;
             }
             if (phase != Phase.Practice && phase != Phase.Playing) return;
             idleClock = 0f;
-            if (RaycastControl(out string control, out int slot))
+            if (tapMarbleArmed)
+            {
+                int armedSlot = SlotAtPointer(MgfPointer.Position);
+                if (armedSlot < 0) armedSlot = NearestSlotInWideSnap(MgfPointer.Position);
+                if (armedSlot >= 0)
+                {
+                    if (blueSlots[armedSlot] != tapMarbleBlue)
+                    {
+                        tapMarbleArmed = false;
+                        ChangeSlot(armedSlot, tapMarbleBlue);
+                    }
+                    else RefuseInput(tapMarbleBlue ? "흰 슬롯을 누르시오" : "파랑 슬롯을 누르시오");
+                    return;
+                }
+            }
+            if (spinTapArmed && NearOrbitGate(MgfPointer.Position))
+            {
+                spinTapArmed = false;
+                SubmitCase();
+                return;
+            }
+            // 보이는 대상 주변의 넓은 스냅 영역은 연습과 실전에서 완전히 동일하다.
+            if (RaycastControl(out string control, out int slot) || WideSnapControl(MgfPointer.Position, out control, out slot))
             {
                 st.lastControl = control;
                 st.lastSlot = slot;
                 if (control == "blue" || control == "white")
                 {
-                    dragBlue = control == "blue";
+                    bool pickedBlue = control == "blue";
+                    if (tapSlotArmed >= 0)
+                    {
+                        int target = tapSlotArmed;
+                        tapSlotArmed = -1;
+                        if (blueSlots[target] != pickedBlue) ChangeSlot(target, pickedBlue);
+                        else RefuseInput(pickedBlue ? "선택한 슬롯은 이미 파랑이다 · 흰 결정을 누르시오" : "선택한 슬롯은 이미 흰색이다 · 파랑 결정을 누르시오");
+                        return;
+                    }
+                    dragBlue = pickedBlue;
                     dragKind = DragKind.Marble;
                     dragStartScreen = MgfPointer.Position;
                     BeginMarbleDrag(dragBlue);
@@ -548,16 +645,22 @@ namespace Mgf.GuseulGyodae
                 }
                 if (control == "slot")
                 {
+                    tapSlotArmed = slot;
+                    dragStartScreen = MgfPointer.Position;
                     PulseSlot(slot);
-                    RefuseInput("왼쪽 공급통의 구슬을 잡아 이 슬롯에 놓으시오");
+                    ShowToast(blueSlots[slot]
+                        ? "파랑 슬롯 선택 · 바꿀 흰 결정을 누르시오"
+                        : "흰 슬롯 선택 · 바꿀 파랑 결정을 누르시오", 2.8f);
+                    st.lastAction = "slot-picked";
                     ReplayGuide(true);
+                    MgfBridge.NotifyChanged();
                     return;
                 }
                 if (control == "dispatch")
                 {
                     if (phase == Phase.Practice && !practiceSwapped)
                     {
-                        RefuseInput("파랑 구슬을 흰 슬롯으로 먼저 옮기시오");
+                        RefuseInput("파랑 구슬샘에서 흰 슬롯으로 먼저 옮기시오");
                         ReplayGuide(true);
                         return;
                     }
@@ -568,8 +671,8 @@ namespace Mgf.GuseulGyodae
                 }
             }
             RefuseInput(phase == Phase.Practice && !practiceSwapped
-                ? "왼쪽 파랑 공급통에서 구슬을 끌어오시오"
-                : "케이스 오른쪽 손잡이를 벨트로 끌어 보내시오");
+                ? "왼쪽 파랑 구슬샘에서 시작해 흰 슬롯까지 끌어오시오"
+                : "돔 오른쪽 손잡이를 궤도 링까지 끌어 돌리시오");
             ReplayGuide(true);
         }
 
@@ -603,6 +706,7 @@ namespace Mgf.GuseulGyodae
             st.phase = phase == Phase.Title ? "title" : phase == Phase.End ? (endReason == "clear" ? "clear" : "gameover") : "playing";
             st.onboarding = phase == Phase.Practice;
             st.frozen = phase == Phase.Practice || phase == Phase.Reveal || phase == Phase.End;
+            st.masteryPossible = MasteryStillPossible();
             BindCurrent();
             FillScreenProbe();
             return JsonUtility.ToJson(st);
