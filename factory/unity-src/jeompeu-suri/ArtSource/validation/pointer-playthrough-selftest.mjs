@@ -82,7 +82,7 @@ async function submit(page, move) {
   return waitFor(page, x => x.frozen || x.phase === 'clear' || x.phase === 'gameover', 2500);
 }
 
-const errors = [], events = [];
+const errors = [], events = [], firstMoves = [], secondMoves = [];
 const server = await serveStatic(PUBLIC);
 const browser = await puppeteer.launch({ headless: true, executablePath: chromePath(), args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio'] });
 try {
@@ -112,7 +112,12 @@ try {
   if (s.lives !== 2 || s.firstAttempts !== 1 || s.firstCorrect !== 0) throw new Error(`wrong path failed: ${JSON.stringify(s)}`);
   await page.screenshot({ path: path.join(FRAMES, '03-wrong-evidence.png') });
   s = await waitFor(page, x => !x.frozen && x.currentProblem === beforeWrong.currentProblem, 5000);
+  if (JSON.stringify(s.vertices) !== JSON.stringify(beforeWrong.vertices) || s.changedVertices !== 0) {
+    throw new Error(`wrong reveal did not restore immutable start: ${JSON.stringify({ before: beforeWrong.vertices, after: s.vertices, changed: s.changedVertices })}`);
+  }
+  events.push({ name: 'wrong-restores-original-board', changedVertices: s.changedVertices, vertices: s.vertices });
   const recovery = repair(s, false);
+  firstMoves.push(recovery);
   await submit(page, recovery);
   s = await waitFor(page, x => !x.frozen && x.solved === 1, 5000);
   events.push({ name: 'wrong-then-repair-real-drag', wrong, recovery, state: s });
@@ -122,6 +127,7 @@ try {
   while (s.phase !== 'clear' && s.phase !== 'gameover') {
     const beforeProblem = s.currentProblem;
     const move = repair(s);
+    firstMoves.push(move);
     await submit(page, move);
     s = await waitFor(page, x => x.phase === 'clear' || x.phase === 'gameover' || (!x.frozen && x.currentProblem !== beforeProblem), 5000);
   }
@@ -131,12 +137,70 @@ try {
   events.push({ name: 'ten-board-clear-real-drag', state: s });
   await page.screenshot({ path: path.join(FRAMES, '05-clear.png') });
 
+  // 결과 화면에서 실제 pointer로 다시 시작해, 첫 판과 독립된 새 덱을 두 번째로 완주한다.
+  await page.mouse.move(195, 760); await page.mouse.down(); await sleep(90); await page.mouse.up();
+  s = await waitFor(page, x => x.onboarding && x.frozen, 5000);
+  await page.screenshot({ path: path.join(FRAMES, '06-second-practice.png') });
+  const practiceRepair2 = repair(s);
+  await submit(page, practiceRepair2);
+  s = await waitFor(page, x => !x.onboarding && !x.frozen && x.currentBand === 1, 6000);
+  const secondStart = { vertices: s.vertices.slice(), move: repair(s) };
+  await page.screenshot({ path: path.join(FRAMES, '07-second-course.png') });
+  while (s.phase !== 'clear' && s.phase !== 'gameover') {
+    const beforeProblem = s.currentProblem;
+    const move = repair(s);
+    secondMoves.push(move);
+    await submit(page, move);
+    s = await waitFor(page, x => x.phase === 'clear' || x.phase === 'gameover' || (!x.frozen && x.currentProblem !== beforeProblem), 5000);
+  }
+  if (s.phase !== 'clear' || s.solved !== 10 || s.lives !== 3 || s.firstCorrect !== 10 || s.band3FirstCorrect !== 4) {
+    throw new Error(`second clear gate failed: ${JSON.stringify(s)}`);
+  }
+  const differentActions = JSON.stringify(firstMoves) !== JSON.stringify(secondMoves);
+  if (!differentActions) throw new Error('second run repeated the first move sequence');
+  events.push({ name: 'independent-second-run', restart: 'result-screen-real-pointer', secondStart, moves: secondMoves, differentActions, state: s });
+  await page.screenshot({ path: path.join(FRAMES, '08-second-clear.png') });
+
+  // 이전 결함의 동일 반례: 밴드2에서 키보드로 서로 다른 두 꼭짓점을 누적 이동한 뒤 제출한다.
+  await page.reload({ waitUntil: 'networkidle2', timeout: 45000 });
+  await page.waitForFunction('window.__GAME_TEST__ && window.__GAME_TEST__.ready === true', { timeout: 30000 });
+  await page.evaluate(() => window.__GAME_TEST__.start());
+  for (let i = 0; i < 3; i++) {
+    await page.evaluate(() => window.__GAME_TEST__.answerCorrect());
+    await waitFor(page, x => x.frozen, 2500); await sleep(1750);
+    await waitFor(page, x => !x.frozen || x.phase === 'clear', 2500);
+  }
+  s = await waitFor(page, x => !x.frozen && x.currentBand === 2, 3500);
+  const keyboardStart = s.vertices.slice();
+  await page.mouse.click(8, 500); await sleep(80);
+  const answerVertex = repair(s).vertex;
+  await page.keyboard.press(s.vertices[answerVertex * 2] < 6 ? 'ArrowRight' : 'ArrowLeft');
+  s = await waitFor(page, x => x.changedVertices === 1, 1500);
+  await page.keyboard.press('Tab');
+  const secondVertex = (answerVertex + 1) & 3;
+  await page.keyboard.press(s.vertices[secondVertex * 2] < 6 ? 'ArrowRight' : 'ArrowLeft');
+  s = await waitFor(page, x => x.changedVertices === 2, 1500);
+  await page.keyboard.press('Space');
+  const rejectedTwoVertex = await waitFor(page, x => x.frozen && x.lastAction === 'repair-wrong', 2500);
+  if (rejectedTwoVertex.lives !== 2 || rejectedTwoVertex.changedVertices !== 2) throw new Error(`two-vertex keyboard path was not rejected: ${JSON.stringify(rejectedTwoVertex)}`);
+  const restoredKeyboard = await waitFor(page, x => !x.frozen && x.changedVertices === 0, 5000);
+  if (JSON.stringify(restoredKeyboard.vertices) !== JSON.stringify(keyboardStart)) throw new Error(`keyboard rejection did not restore start: ${JSON.stringify(restoredKeyboard)}`);
+  events.push({ name: 'two-vertex-keyboard-regression', before: keyboardStart, rejected: rejectedTwoVertex, restored: restoredKeyboard, passed: true });
+
   const result = {
     generated_at: new Date().toISOString(), viewport: '390x844',
     method: 'Chrome trusted mouse down/move/up; 정답은 공개 훅이 아니라 화면 상태의 정수 좌표를 독립 판정해 실제 격자 픽셀로 드래그',
     console_errors: errors, events, passed: errors.length === 0
   };
   fs.writeFileSync(path.join(HERE, 'pointer-playthrough-results.json'), `${JSON.stringify(result, null, 2)}\n`);
+  fs.writeFileSync(path.join(HERE, 'second-play-results.json'), `${JSON.stringify({
+    generated_at: result.generated_at,
+    method: result.method,
+    firstRun: events.find(x => x.name === 'ten-board-clear-real-drag'),
+    secondRun: events.find(x => x.name === 'independent-second-run'),
+    console_errors: errors,
+    passed: result.passed && differentActions
+  }, null, 2)}\n`);
   console.log(JSON.stringify(result, null, 2));
   if (!result.passed) process.exitCode = 1;
 } finally {

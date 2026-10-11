@@ -1,4 +1,4 @@
-// 점프 수리 — 자주색 고무 경기장, 수리 망, 스프링 토끼, 반응형 UI.
+// 점프 수리 — 노출 강철 구조 시험장, 직조 장력판, 하중 캡슐, 반응형 UI.
 using System;
 using Mgf;
 using TMPro;
@@ -10,13 +10,13 @@ namespace Mgf.JeompeuSuri
 {
     public partial class JeompeuSuriGame
     {
-        static readonly Color Plum = MgfLook.Hex("#643B70");
-        static readonly Color PlumDark = MgfLook.Hex("#35243D");
-        static readonly Color Apricot = MgfLook.Hex("#F3AD72");
-        static readonly Color Cream = MgfLook.Hex("#F8F2E7");
-        static readonly Color Lime = MgfLook.Hex("#B8E074");
-        static readonly Color Coral = MgfLook.Hex("#E55873");
-        static readonly Color Ink = MgfLook.Hex("#38233D");
+        static readonly Color Plum = MgfLook.Hex("#193849");       // 청회색 분체도장 강철
+        static readonly Color PlumDark = MgfLook.Hex("#091923");   // 구조 시험장 음영
+        static readonly Color Apricot = MgfLook.Hex("#F28A2E");    // 안전 주황
+        static readonly Color Cream = MgfLook.Hex("#D9E7E8");      // 아연도금/표시판
+        static readonly Color Lime = MgfLook.Hex("#58E0D1");       // 장력 센서 청록
+        static readonly Color Coral = MgfLook.Hex("#F04F4F");      // 파단 경고
+        static readonly Color Ink = MgfLook.Hex("#071218");
         const float BoardY = .74f;
         const float GridStep = .82f;
 
@@ -40,6 +40,7 @@ namespace Mgf.JeompeuSuri
 
         CanvasGroup titleG, hudG, revealG, endG, toastG;
         RectTransform rootRt, titleRt, hudRt, revealRt, endRt, toastRt, restartRt;
+        RectTransform titleSignRt, titleStartRt, topHudRt, promptPadRt, measurePadRt;
         RectTransform guideRingRt, guideTargetRt, guidePathRt, guideFingerRt, rippleRt;
         TextMeshProUGUI logoShadow, logoMain, titleTag, titleMeta, titleCta, titleHint;
         TextMeshProUGUI scoreTxt, progressTxt, livesTxt, timerTxt, goalTxt, promptTxt, measureTxt;
@@ -71,48 +72,62 @@ namespace Mgf.JeompeuSuri
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#80518A"), Plum, MgfLook.Hex("#3D2947"), .92f);
-            MgfLook.Sun(new Vector3(48, -28, 16), MgfLook.Hex("#FFE3BD"), 1.25f, .62f);
+            MgfLook.Sky(MgfLook.Hex("#335B67"), MgfLook.Hex("#122B38"), MgfLook.Hex("#07151E"), .88f);
+            MgfLook.Sun(new Vector3(52, -34, 18), MgfLook.Hex("#DDF7F1"), 1.15f, .48f);
             cam = MgfLook.Camera(new Vector3(8.8f, 11.8f, -11.8f), new Vector3(0, .1f, 1.35f), 32f);
             cam.orthographic = true; cam.orthographicSize = 6.4f;
 
-            plumMat = MgfLook.Lit(Plum, .28f, .01f);
-            plumDarkMat = MgfLook.Lit(PlumDark, .34f, .02f);
-            apricotMat = MgfLook.Lit(Apricot, .42f, .02f, Apricot * .05f);
-            creamMat = MgfLook.Lit(Cream, .28f, 0);
-            limeMat = MgfLook.Lit(Lime, .38f, 0, Lime * .15f);
-            coralMat = MgfLook.Lit(Coral, .35f, 0, Coral * .08f);
-            inkMat = MgfLook.Lit(Ink, .20f, .01f);
-            meshMat = MgfLook.Lit(MgfLook.Hex("#EFE5D5"), .55f, 0);
+            plumMat = MgfLook.Lit(Plum, .20f, .30f);
+            plumDarkMat = MgfLook.Lit(PlumDark, .24f, .38f);
+            apricotMat = MgfLook.Lit(Apricot, .32f, .52f, Apricot * .035f);
+            creamMat = MgfLook.Lit(Cream, .18f, .55f);
+            limeMat = MgfLook.Lit(Lime, .28f, .38f, Lime * .22f);
+            coralMat = MgfLook.Lit(Coral, .28f, .42f, Coral * .10f);
+            inkMat = MgfLook.Lit(Ink, .12f, .45f);
+            meshMat = MgfLook.Lit(MgfLook.Hex("#66838A"), .18f, .62f);
             lineMat = MgfLook.Unlit(Apricot);
-            diagMat = MgfLook.Unlit(MgfLook.Hex("#5B4771"));
+            diagMat = MgfLook.Unlit(Lime);
             ghostMat = MgfLook.Alpha(new Color(Lime.r, Lime.g, Lime.b, .52f));
 
-            arenaRoot = new GameObject("PlumRubberArena").transform;
-            MgfLook.Block("RubberFloor", new Vector3(0, -.45f, 2f), new Vector3(18f, .8f, 17f), .85f, plumMat, arenaRoot);
-            MgfLook.Block("BackWall", new Vector3(0, 2.6f, 9.3f), new Vector3(18f, 6f, 1.15f), .65f, plumDarkMat, arenaRoot);
-            MgfLook.Block("LeftTube", new Vector3(-8.1f, 1.2f, 2f), new Vector3(1.15f, 3.1f, 15f), .55f, apricotMat, arenaRoot);
-            MgfLook.Block("RightTube", new Vector3(8.1f, 1.2f, 2f), new Vector3(1.15f, 3.1f, 15f), .55f, apricotMat, arenaRoot);
-
-            // 배경 점프대와 스포츠 소품 — 회화 배경 없이 프리미티브만 쓴다.
-            BuildBackgroundTrampoline(-5.5f, 6.4f, 2.4f, .18f);
-            BuildBackgroundTrampoline(5.7f, 6.9f, 2.0f, -.20f);
-            BuildBackgroundTrampoline(-5.9f, -2.7f, 1.8f, -.12f);
+            arenaRoot = new GameObject("ExposedLoadLab").transform;
+            MgfLook.Block("SteelFloor", new Vector3(0, -.45f, 2f), new Vector3(18f, .8f, 17f), .08f, plumMat, arenaRoot);
+            MgfLook.Block("SectionWall", new Vector3(0, 2.6f, 9.3f), new Vector3(18f, 6f, .55f), .04f, plumDarkMat, arenaRoot);
+            // 노출 프레임과 사선 브레이스가 화면의 구조를 만든다. 둥근 미니어처 울타리는 쓰지 않는다.
+            for (int side = -1; side <= 1; side += 2)
+            {
+                float x = side * 7.35f;
+                MgfLook.Block("GantryColumn", new Vector3(x, 2.2f, 2.4f), new Vector3(.42f, 5.8f, .42f), .025f, creamMat, arenaRoot);
+                MgfLook.Block("SafetyRail", new Vector3(x, .25f, 2.4f), new Vector3(.75f, .55f, 14.2f), .03f, apricotMat, arenaRoot);
+                for (int z = -3; z <= 8; z += 3)
+                {
+                    Transform brace = MgfLook.Block("DiagonalBrace", new Vector3(x, 2.3f, z), new Vector3(.20f, 4.3f, .20f), .015f, meshMat, arenaRoot).transform;
+                    brace.localRotation = Quaternion.Euler(side * 34f, 0, side * 24f);
+                }
+            }
+            MgfLook.Block("GantryBeam", new Vector3(0, 5.15f, 5.9f), new Vector3(15.2f, .42f, .42f), .025f, creamMat, arenaRoot);
+            BuildInstrumentBay(-5.65f, 6.55f, 1.0f);
+            BuildInstrumentBay(5.65f, 6.55f, -1.0f);
+            BuildInstrumentBay(-5.65f, -2.35f, -1.0f);
             for (int i = 0; i < ribbons.Length; i++)
             {
                 float x = -6.4f + i * 2.1f;
-                ribbons[i] = MgfLook.Block("CeilingRibbon" + i, new Vector3(x, 5.0f + (i % 2) * .25f, 8.35f),
-                    new Vector3(.18f, 1.1f + (i % 3) * .2f, .12f), .07f, i % 2 == 0 ? apricotMat : limeMat, arenaRoot).transform;
+                ribbons[i] = MgfLook.Block("LoadIndicator" + i, new Vector3(x, 4.72f + (i % 2) * .18f, 8.72f),
+                    new Vector3(.14f, .65f + (i % 3) * .18f, .10f), .01f, i % 2 == 0 ? apricotMat : limeMat, arenaRoot).transform;
             }
-            MgfLook.Block("WaterBottle", new Vector3(6.5f, .3f, -.6f), new Vector3(.55f, 1.5f, .55f), .24f, creamMat, arenaRoot);
-            MgfLook.Block("Towel", new Vector3(5.7f, .0f, -.8f), new Vector3(1.2f, .18f, .72f), .09f, apricotMat, arenaRoot);
-            for (int i = 0; i < 2; i++)
-            {
-                MgfLook.Block("Shoe" + i, new Vector3(-6.5f + i * .72f, .05f, -.7f + i * .2f), new Vector3(.82f, .38f, 1.2f), .19f, coralMat, arenaRoot);
-            }
+            MgfLook.Block("CableTray", new Vector3(5.9f, .08f, -.7f), new Vector3(2.6f, .18f, .72f), .02f, inkMat, arenaRoot);
+            for (int i = 0; i < 5; i++) MgfLook.Block("Cable" + i, new Vector3(5.0f + i * .38f, .22f, -.72f), new Vector3(.10f, .14f, 1.7f), .02f, i % 2 == 0 ? limeMat : apricotMat, arenaRoot);
 
             BuildBoard();
             BuildRabbit();
+        }
+
+        void BuildInstrumentBay(float x, float z, float facing)
+        {
+            var root = new GameObject("InstrumentBay").transform;
+            root.SetParent(arenaRoot, false); root.localPosition = new Vector3(x, .0f, z);
+            MgfLook.Block("Cabinet", new Vector3(0, .72f, 0), new Vector3(2.15f, 1.55f, .78f), .035f, plumDarkMat, root);
+            MgfLook.Block("Display", new Vector3(0, .88f, -.42f * facing), new Vector3(1.45f, .55f, .06f), .01f, limeMat, root);
+            for (int i = 0; i < 4; i++) MgfLook.Block("ScaleTick", new Vector3(-.55f + i * .37f, .35f, -.47f * facing), new Vector3(.08f, .20f + i * .08f, .05f), .005f, i == 3 ? coralMat : apricotMat, root);
         }
 
         void BuildBackgroundTrampoline(float x, float z, float size, float rot)
@@ -133,8 +148,8 @@ namespace Mgf.JeompeuSuri
             boardRoot = new GameObject("RepairTrampoline").transform;
             boardRoot.SetParent(arenaRoot, false); boardHome = boardRoot.position;
 
-            // 7×7 정방 모눈. 선은 채점 색과 무관하게 항상 같은 크림색이다.
-            Material gridMat = MgfLook.Alpha(new Color(Plum.r, Plum.g, Plum.b, .32f));
+            // 7×7 정방 모눈. 청사진 눈금과 노출 직조 망은 채점 색과 무관하다.
+            Material gridMat = MgfLook.Alpha(new Color(Lime.r, Lime.g, Lime.b, .30f));
             for (int i = 0; i < 7; i++)
             {
                 float q = (i - 3) * GridStep;
@@ -143,12 +158,18 @@ namespace Mgf.JeompeuSuri
                 var b = Line("GridY" + i, gridMat, .035f, boardRoot);
                 b.SetPosition(0, new Vector3(-2.46f, BoardY + .16f, q + 1.15f)); b.SetPosition(1, new Vector3(2.46f, BoardY + .16f, q + 1.15f));
             }
-            MgfLook.Block("ApricotFrame", new Vector3(0, BoardY - .08f, 1.15f), new Vector3(5.75f, .26f, 5.75f), .40f, apricotMat, boardRoot);
-            MgfLook.Block("CreamMeshBed", new Vector3(0, BoardY, 1.15f), new Vector3(5.2f, .13f, 5.2f), .32f, meshMat, boardRoot);
+            MgfLook.Block("PowderCoatedFrame", new Vector3(0, BoardY - .08f, 1.15f), new Vector3(5.75f, .26f, 5.75f), .045f, apricotMat, boardRoot);
+            MgfLook.Block("WovenLoadBed", new Vector3(0, BoardY, 1.15f), new Vector3(5.2f, .13f, 5.2f), .025f, meshMat, boardRoot);
+            for (int i = 0; i < 4; i++)
+            {
+                float sx = (i & 1) == 0 ? -1 : 1, sz = i < 2 ? -1 : 1;
+                MgfLook.Prim(PrimitiveType.Cylinder, "FrameBolt", new Vector3(sx * 2.58f, BoardY + .13f, 1.15f + sz * 2.58f),
+                    new Vector3(.13f, .08f, .13f), creamMat, boardRoot, false);
+            }
 
             var meshGo = new GameObject("ElasticQuadrilateral"); meshGo.transform.SetParent(boardRoot, false);
             boardFilter = meshGo.AddComponent<MeshFilter>();
-            var mr = meshGo.AddComponent<MeshRenderer>(); mr.sharedMaterial = MgfLook.Lit(new Color(.96f, .84f, .70f, 1f), .46f, 0);
+            var mr = meshGo.AddComponent<MeshRenderer>(); mr.sharedMaterial = MgfLook.Lit(MgfLook.Hex("#2A5662"), .18f, .48f);
             boardMesh = new Mesh { name = "RepairMesh" };
             boardMesh.vertices = new Vector3[4]; boardMesh.triangles = new[]{0,1,2,0,2,3};
             boardMesh.normals = new[]{Vector3.up,Vector3.up,Vector3.up,Vector3.up};
@@ -158,8 +179,8 @@ namespace Mgf.JeompeuSuri
             for (int i = 0; i < 4; i++)
             {
                 edges[i] = Line("StitchedEdge" + i, lineMat, .13f, boardRoot);
-                handles[i] = MgfLook.Prim(PrimitiveType.Sphere, "Vertex" + RepairProblem.VertexName(i), Vector3.zero,
-                    new Vector3(.52f,.32f,.52f), apricotMat, boardRoot, true).transform;
+                handles[i] = MgfLook.Prim(PrimitiveType.Cylinder, "VertexClamp" + RepairProblem.VertexName(i), Vector3.zero,
+                    new Vector3(.46f,.20f,.46f), apricotMat, boardRoot, true).transform;
             }
             diagAC = Line("DiagonalAC", diagMat, .065f, boardRoot);
             diagBD = Line("DiagonalBD", diagMat, .065f, boardRoot);
@@ -173,8 +194,8 @@ namespace Mgf.JeompeuSuri
                 new Vector3(.24f,.16f,.24f), limeMat, boardRoot, false).transform;
 
             for (int i = 0; i < 3; i++)
-                straps[i] = MgfLook.Block("SafetyStrap" + i, new Vector3(-3.7f + i * .46f, .65f, 3.95f),
-                    new Vector3(.24f,.25f,2.0f), .10f, coralMat, boardRoot).transform;
+                straps[i] = MgfLook.Block("SafetyFuse" + i, new Vector3(-3.7f + i * .46f, .65f, 3.95f),
+                    new Vector3(.24f,.25f,2.0f), .025f, coralMat, boardRoot).transform;
 
             landingRingA = MakeRing("LandingWaveA", limeMat, boardRoot);
             landingRingB = MakeRing("LandingWaveB", apricotMat, boardRoot);
@@ -196,26 +217,27 @@ namespace Mgf.JeompeuSuri
 
         void BuildRabbit()
         {
-            rabbitRoot = new GameObject("SpringRabbit").transform; rabbitRoot.SetParent(arenaRoot, false);
+            // 정답 사건의 주인공은 생물이 아니라 시험 하중과 장력 전달이다.
+            // 기존 애니메이션 루트 이름은 호환을 위해 유지하지만 외형은 각진 계측 캡슐이다.
+            rabbitRoot = new GameObject("InstrumentedLoadCapsule").transform; rabbitRoot.SetParent(arenaRoot, false);
             rabbitHome = new Vector3(3.0f, .72f, 0.0f); rabbitRoot.position = rabbitHome; rabbitRoot.localScale=rabbitBaseScale;
-            rabbitBody = MgfLook.Prim(PrimitiveType.Cylinder, "RubberBody", new Vector3(0,.86f,0), new Vector3(.68f,.72f,.68f), creamMat, rabbitRoot, false).transform;
-            rabbitHead = MgfLook.Prim(PrimitiveType.Sphere, "RabbitHead", new Vector3(0,1.72f,0), new Vector3(.86f,.72f,.72f), creamMat, rabbitRoot, false).transform;
-            rabbitEarL = MgfLook.Prim(PrimitiveType.Capsule, "RubberEarL", new Vector3(-.28f,2.45f,.02f), new Vector3(.22f,.72f,.22f), apricotMat, rabbitRoot, false).transform;
-            rabbitEarR = MgfLook.Prim(PrimitiveType.Capsule, "RubberEarR", new Vector3(.28f,2.45f,.02f), new Vector3(.22f,.72f,.22f), apricotMat, rabbitRoot, false).transform;
-            rabbitEarL.localRotation = Quaternion.Euler(0,0,-12); rabbitEarR.localRotation = Quaternion.Euler(0,0,12);
-            MgfLook.Prim(PrimitiveType.Sphere, "EyeL", new Vector3(-.22f,1.83f,-.58f), new Vector3(.10f,.13f,.08f), inkMat, rabbitRoot, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "EyeR", new Vector3(.22f,1.83f,-.58f), new Vector3(.10f,.13f,.08f), inkMat, rabbitRoot, false);
-            rabbitFeet = new GameObject("CoilFeet").transform; rabbitFeet.SetParent(rabbitRoot, false);
+            rabbitBody = MgfLook.Block("LoadBody", new Vector3(0,.92f,0), new Vector3(1.05f,1.35f,.92f), .055f, creamMat, rabbitRoot).transform;
+            rabbitHead = MgfLook.Block("SensorCrown", new Vector3(0,1.75f,0), new Vector3(1.18f,.42f,1.02f), .035f, plumDarkMat, rabbitRoot).transform;
+            rabbitEarL = MgfLook.Block("SensorFinL", new Vector3(-.34f,2.12f,.02f), new Vector3(.18f,.62f,.62f), .02f, limeMat, rabbitRoot).transform;
+            rabbitEarR = MgfLook.Block("SensorFinR", new Vector3(.34f,2.12f,.02f), new Vector3(.18f,.62f,.62f), .02f, limeMat, rabbitRoot).transform;
+            rabbitEarL.localRotation = Quaternion.Euler(0,0,-7); rabbitEarR.localRotation = Quaternion.Euler(0,0,7);
+            MgfLook.Block("GaugeBar", new Vector3(0,1.16f,-.49f), new Vector3(.62f,.16f,.06f), .01f, limeMat, rabbitRoot);
+            rabbitFeet = new GameObject("HydraulicFeet").transform; rabbitFeet.SetParent(rabbitRoot, false);
             for (int foot = 0; foot < 2; foot++)
             {
                 float x = foot == 0 ? -.28f : .28f;
-                for (int c = 0; c < 4; c++) MgfLook.Prim(PrimitiveType.Cylinder, "Coil", new Vector3(x,.15f+c*.14f,0), new Vector3(.26f,.055f,.26f), plumDarkMat, rabbitFeet, false);
-                MgfLook.Block("ApricotShoe", new Vector3(x,.02f,-.16f), new Vector3(.55f,.22f,.78f), .16f, apricotMat, rabbitFeet);
+                MgfLook.Prim(PrimitiveType.Cylinder, "HydraulicPiston", new Vector3(x,.28f,0), new Vector3(.18f,.38f,.18f), plumDarkMat, rabbitFeet, false);
+                MgfLook.Block("LoadFoot", new Vector3(x,.02f,-.08f), new Vector3(.52f,.20f,.66f), .025f, apricotMat, rabbitFeet);
             }
             for (int i = 0; i < bunnyTrail.Length; i++)
             {
-                bunnyTrail[i] = MgfLook.Prim(PrimitiveType.Sphere, "RubberAfterimage" + i, Vector3.zero,
-                    new Vector3(.18f,.08f,.18f), i%2==0?apricotMat:limeMat, arenaRoot, false).transform;
+                bunnyTrail[i] = MgfLook.Block("TensionPacket" + i, Vector3.zero,
+                    new Vector3(.22f,.05f,.22f), .01f, i%2==0?apricotMat:limeMat, arenaRoot).transform;
                 bunnyTrail[i].gameObject.SetActive(false);
             }
         }
@@ -229,7 +251,10 @@ namespace Mgf.JeompeuSuri
 
         CanvasGroup Group(string name, Transform parent)
         {
-            var rt = R(name,parent,new Vector2(.5f,.5f),Vector2.zero,new Vector2(390,844));
+            var go = new GameObject(name, typeof(RectTransform)); go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(.5f, .5f); rt.anchoredPosition = Vector2.zero; rt.sizeDelta = Vector2.zero;
             return rt.gameObject.AddComponent<CanvasGroup>();
         }
 
@@ -273,28 +298,28 @@ namespace Mgf.JeompeuSuri
             endG=Group("EndUi",canvas.transform); endRt=(RectTransform)endG.transform;
             toastG=Group("ToastUi",canvas.transform); toastRt=(RectTransform)toastG.transform;
 
-            // 매달린 망 간판 같은 비대칭 로고: 텍스트를 단순 중앙 카드로 가두지 않는다.
-            Img(titleG.transform,"HangingNet",new Vector2(.5f,1),new Vector2(0,-145),new Vector2(344,160),new Color(Apricot.r,Apricot.g,Apricot.b,.90f),roundSprite);
-            Img(titleG.transform,"NetKnotL",new Vector2(.5f,1),new Vector2(-151,-68),new Vector2(10,145),Cream);
-            Img(titleG.transform,"NetKnotR",new Vector2(.5f,1),new Vector2(151,-68),new Vector2(10,145),Cream);
+            // 타이틀은 구조 시험장의 매달린 계측 패널이다. 둥근 장난감 간판/알약 CTA를 쓰지 않는다.
+            titleSignRt=Img(titleG.transform,"SuspendedBlueprint",new Vector2(.5f,1),new Vector2(0,-145),new Vector2(344,160),new Color(PlumDark.r,PlumDark.g,PlumDark.b,.94f)).rectTransform;
+            Img(titleG.transform,"GantryCableL",new Vector2(.5f,1),new Vector2(-151,-68),new Vector2(8,145),Cream);
+            Img(titleG.transform,"GantryCableR",new Vector2(.5f,1),new Vector2(151,-68),new Vector2(8,145),Cream);
             logoShadow=Txt(titleG.transform,"점프  수리",new Vector2(.5f,1),new Vector2(4,-141),58,PlumDark,350);
             logoMain=Txt(titleG.transform,"점프  수리",new Vector2(.5f,1),new Vector2(0,-135),58,Cream,350);
             logoMain.fontStyle=FontStyles.Bold; logoMain.characterSpacing=-2;
-            titleTag=Txt(titleG.transform,"꼭짓점을 끌어 점프대를 고쳐라",new Vector2(.5f,1),new Vector2(0,-215),19,Cream,350);
+            titleTag=Txt(titleG.transform,"꼭짓점을 끌어 장력판을 수리하라",new Vector2(.5f,1),new Vector2(0,-215),19,Cream,350);
             titleMeta=Txt(titleG.transform,"중학교 2학년 · 사각형의 성질",new Vector2(.5f,0),new Vector2(0,134),14,Cream,350);
-            Img(titleG.transform,"StartMesh",new Vector2(.5f,0),new Vector2(0,76),new Vector2(270,82),new Color(Cream.r,Cream.g,Cream.b,.96f),roundSprite);
-            titleCta=Txt(titleG.transform,"망을 눌러 출발",new Vector2(.5f,0),new Vector2(0,78),24,Ink,270); titleCta.fontStyle=FontStyles.Bold;
-            titleHint=Txt(titleG.transform,"대각선의 중점을 맞추면 토끼가 뛴다",new Vector2(.5f,0),new Vector2(0,28),13,Cream,350);
+            titleStartRt=Img(titleG.transform,"LoadTestLever",new Vector2(.5f,0),new Vector2(0,76),new Vector2(270,76),Apricot).rectTransform;
+            titleCta=Txt(titleG.transform,"하중 시험 시작",new Vector2(.5f,0),new Vector2(0,78),24,Ink,270); titleCta.fontStyle=FontStyles.Bold;
+            titleHint=Txt(titleG.transform,"대각선의 조건을 맞춰 장력판을 통과시키시오",new Vector2(.5f,0),new Vector2(0,28),13,Cream,350);
 
-            Img(hudG.transform,"TopRubber",new Vector2(.5f,1),new Vector2(0,-55),new Vector2(370,92),new Color(Cream.r,Cream.g,Cream.b,.96f),roundSprite);
+            topHudRt=Img(hudG.transform,"InstrumentRack",new Vector2(.5f,1),new Vector2(0,-55),new Vector2(350,92),new Color(Cream.r,Cream.g,Cream.b,.96f)).rectTransform;
             scoreTxt=Txt(hudG.transform,"0",new Vector2(0,1),new Vector2(64,-50),21,Ink,110);
             progressTxt=Txt(hudG.transform,"1 / 10",new Vector2(.5f,1),new Vector2(0,-50),18,Ink,130);
-            livesTxt=Txt(hudG.transform,"끈 3",new Vector2(1,1),new Vector2(-70,-50),18,Coral,100);
+            livesTxt=Txt(hudG.transform,"퓨즈 3",new Vector2(1,1),new Vector2(-120,-50),18,Coral,100);
             timerTxt=Txt(hudG.transform,"90초",new Vector2(.5f,1),new Vector2(0,-87),15,Plum,140);
-            goalTxt=Txt(hudG.transform,"꼭짓점을 맞추면 토끼가 건넌다",new Vector2(.5f,1),new Vector2(0,-123),18,Cream,370); goalTxt.fontStyle=FontStyles.Bold;
-            Img(hudG.transform,"PromptPad",new Vector2(.5f,1),new Vector2(0,-171),new Vector2(360,62),new Color(Apricot.r,Apricot.g,Apricot.b,.96f),roundSprite);
+            goalTxt=Txt(hudG.transform,"꼭짓점 하나를 옮겨 장력판을 수리하시오",new Vector2(.5f,1),new Vector2(0,-123),18,Cream,370); goalTxt.fontStyle=FontStyles.Bold;
+            promptPadRt=Img(hudG.transform,"PromptPlate",new Vector2(.5f,1),new Vector2(0,-171),new Vector2(360,62),new Color(Apricot.r,Apricot.g,Apricot.b,.96f)).rectTransform;
             promptTxt=Txt(hudG.transform,"",new Vector2(.5f,1),new Vector2(0,-171),17,Ink,335); promptTxt.fontStyle=FontStyles.Bold;
-            Img(hudG.transform,"MeasurePad",new Vector2(.5f,0),new Vector2(0,66),new Vector2(362,82),new Color(Cream.r,Cream.g,Cream.b,.94f),roundSprite);
+            measurePadRt=Img(hudG.transform,"MeasurementConsole",new Vector2(.5f,0),new Vector2(0,66),new Vector2(362,82),new Color(Cream.r,Cream.g,Cream.b,.94f)).rectTransform;
             measureTxt=Txt(hudG.transform,"",new Vector2(.5f,0),new Vector2(0,67),15,Ink,338);
             for(int i=0;i<4;i++)
             {
@@ -408,7 +433,7 @@ namespace Mgf.JeompeuSuri
             Vector3 w=BoardWorld(raw)+Vector3.up*.42f;handles[index].position=w;visualPoints[index]=w;RefreshBoardGeometry();
         }
 
-        void EndVertexDrag(int index){handles[index].localScale=new Vector3(.52f,.32f,.52f);}
+        void EndVertexDrag(int index){handles[index].localScale=new Vector3(.46f,.20f,.46f);}
 
         bool PointerGrid(Vector2 screen,out Vector2 grid)
         {
@@ -450,9 +475,9 @@ namespace Mgf.JeompeuSuri
         {
             if(promptTxt==null)return;
             if(current==null){promptTxt.text="";return;}
-            promptTxt.text=JeompeuRules.KindName(current.kind)+"이 되도록 꼭짓점을 옮기시오";
+            promptTxt.text=JeompeuRules.PromptFor(current.kind).TrimEnd('.').Replace(" 되도록 "," 되도록\n");
             progressTxt.text=(phase==Phase.Practice?"연습":(courseIndex+1)+" / 10");
-            livesTxt.text="끈 "+st.lives;
+            livesTxt.text="퓨즈 "+st.lives;
             BindMeasure();
         }
 
@@ -471,7 +496,8 @@ namespace Mgf.JeompeuSuri
         Vector2 UiPoint(Vector3 world)
         {
             Vector3 s=cam.WorldToScreenPoint(world);
-            return new Vector2(s.x/Mathf.Max(1,Screen.width)*390f-195f,s.y/Mathf.Max(1,Screen.height)*844f-422f);
+            Rect r=hudRt.rect;
+            return new Vector2(r.xMin+s.x/Mathf.Max(1,Screen.width)*r.width,r.yMin+s.y/Mathf.Max(1,Screen.height)*r.height);
         }
 
         void PositionGuide()
@@ -490,12 +516,24 @@ namespace Mgf.JeompeuSuri
         void PositionVertexLabels()
         {
             bool on=phase==Phase.Practice||phase==Phase.Playing||phase==Phase.Reveal;
+            Vector2 center=Vector2.zero;
+            if(on)for(int i=0;i<4;i++)center+=UiPoint(handles[i].position);
+            center*=.25f;
             for(int i=0;i<4;i++)
             {
                 vertexLabelTxt[i].enabled=on;
                 if(!on)continue;
                 Vector2 p=UiPoint(handles[i].position+new Vector3(0,.28f,0));
-                vertexLabelTxt[i].rectTransform.anchoredPosition=p+new Vector2(i%2==0?-15:15,10);
+                Vector2 radial=p-center;
+                if(radial.sqrMagnitude<4)radial=new Vector2(i<2?-1:1,(i==0||i==3)?1:-1);
+                radial.Normalize();
+                Vector2 placed=p+radial*27f+new Vector2(i%2==0?-3:3,8);
+                for(int j=0;j<i;j++)
+                {
+                    Vector2 prior=vertexLabelTxt[j].rectTransform.anchoredPosition;
+                    if(Vector2.Distance(placed,prior)<34f)placed+=new Vector2(radial.x>=0?20:-20,26);
+                }
+                vertexLabelTxt[i].rectTransform.anchoredPosition=placed;
             }
         }
 
@@ -503,7 +541,7 @@ namespace Mgf.JeompeuSuri
         {
             worldReveal=true;worldCorrect=correct;revealWorldClock=0;revealUiClock=0;
             revealPanelImg.color=correct?new Color(Lime.r,Lime.g,Lime.b,.96f):new Color(1f,.88f,.88f,.98f);
-            revealTitleTxt.text=correct?"망이 팽팽해졌다":"안전 끈이 풀렸다";
+            revealTitleTxt.text=correct?"장력 전달 완료":"안전 퓨즈가 끊어졌다";
             revealReasonTxt.text=correct?JeompeuRules.KindName(current.kind)+"의 조건을 만족했다":reason;
             bool p=JeompeuRules.Bisects(vertices);bool eq=JeompeuRules.DiagonalSquare(vertices,true)==JeompeuRules.DiagonalSquare(vertices,false);bool perp=JeompeuRules.DiagonalDot(vertices)==0;
             if(correct)
@@ -537,30 +575,34 @@ namespace Mgf.JeompeuSuri
             for(int i=0;i<ribbons.Length;i++)ribbons[i].localRotation=Quaternion.Euler(0,0,Mathf.Sin(worldClock*.8f+i*.7f)*(5+i%3));
             if(phase==Phase.Title)
             {
-                float hop=Mathf.Max(0,Mathf.Sin(worldClock*2.15f));rabbitRoot.position=rabbitHome+new Vector3(0,hop*1.15f,1f);
-                rabbitRoot.localScale=Vector3.Scale(rabbitBaseScale,new Vector3(1-.08f*hop,1+.15f*hop,1-.08f*hop));
+                float scan=.5f+.5f*Mathf.Sin(worldClock*2.15f);rabbitRoot.position=rabbitHome+new Vector3(0,scan*.32f,1f);
+                rabbitRoot.localScale=Vector3.Scale(rabbitBaseScale,new Vector3(1+.025f*scan,1-.035f*scan,1+.025f*scan));
                 boardRoot.localScale=Vector3.one*(1.04f-titlePress*.04f)+new Vector3(.01f,Mathf.Sin(worldClock*2f)*.025f,.01f);
             }
             else if(!worldReveal)
             {
                 float idle=Mathf.Sin(worldClock*3.2f)*.04f;rabbitRoot.position=rabbitHome+Vector3.up*Mathf.Abs(idle);
-                rabbitEarL.localRotation=Quaternion.Euler(0,0,-12+Mathf.Sin(worldClock*2.1f)*5);rabbitEarR.localRotation=Quaternion.Euler(0,0,12+Mathf.Sin(worldClock*2.1f+.5f)*5);
+                rabbitEarL.localRotation=Quaternion.Euler(0,0,-7+Mathf.Sin(worldClock*2.1f)*2);rabbitEarR.localRotation=Quaternion.Euler(0,0,7+Mathf.Sin(worldClock*2.1f+.5f)*2);
             }
             if(worldReveal)
             {
                 revealWorldClock+=dt;
                 if(worldCorrect)
                 {
-                    float t=Mathf.Clamp01(revealWorldClock/1.25f);float y=Mathf.Sin(t*Mathf.PI)*3.4f;
-                    float forward=t*4.0f;rabbitRoot.position=rabbitHome+new Vector3(forward,y,0);
-                    rabbitRoot.localRotation=Quaternion.Euler(0,0,-t*360f);
-                    float squash=t<.12f?Mathf.Lerp(1,.62f,t/.12f):Mathf.Lerp(.62f,1,Mathf.Clamp01((t-.12f)/.22f));
-                    rabbitRoot.localScale=Vector3.Scale(rabbitBaseScale,new Vector3(1.1f/squash,squash,1.1f/squash));
+                    float t=Mathf.Clamp01(revealWorldClock/1.25f);
+                    float press=Mathf.Sin(Mathf.Clamp01(t/.38f)*Mathf.PI)*.62f;
+                    float lift=Mathf.SmoothStep(0,1,Mathf.Clamp01((t-.38f)/.62f))*1.35f;
+                    rabbitRoot.position=rabbitHome+new Vector3(0,lift-press,0);
+                    rabbitRoot.localRotation=Quaternion.identity;
+                    float squash=1f-press*.18f;
+                    rabbitRoot.localScale=Vector3.Scale(rabbitBaseScale,new Vector3(1.06f/squash,squash,1.06f/squash));
                     for(int i=0;i<bunnyTrail.Length;i++)
                     {
-                        float tt=t-i*.055f;if(tt<=0){bunnyTrail[i].gameObject.SetActive(false);continue;}
-                        bunnyTrail[i].gameObject.SetActive(true);bunnyTrail[i].position=rabbitHome+new Vector3(tt*4f,Mathf.Sin(Mathf.Clamp01(tt)*Mathf.PI)*3.35f,.05f*i);
-                        bunnyTrail[i].localScale=Vector3.one*(.6f-i*.07f);
+                        float tt=t-i*.075f;if(tt<=0){bunnyTrail[i].gameObject.SetActive(false);continue;}
+                        bunnyTrail[i].gameObject.SetActive(true);
+                        Vector3 corner=visualPoints[i&3];
+                        bunnyTrail[i].position=Vector3.Lerp(new Vector3(0,BoardY+.24f,1.15f),corner,Mathf.Clamp01(tt*1.7f));
+                        bunnyTrail[i].localScale=Vector3.one*(.72f-i*.08f);
                     }
                     float wave=Mathf.Clamp01((t-.58f)/.42f);
                     landingRingA.position=new Vector3(0,BoardY+.15f,1.15f);landingRingB.position=landingRingA.position;
@@ -569,7 +611,7 @@ namespace Mgf.JeompeuSuri
                 else
                 {
                     rabbitRoot.position=rabbitHome+new Vector3(0,-Mathf.Sin(Mathf.Clamp01(revealWorldClock/.7f)*Mathf.PI)*.35f,0);
-                    rabbitEarL.localRotation=Quaternion.Euler(0,0,-55);rabbitEarR.localRotation=Quaternion.Euler(0,0,18);
+                    rabbitEarL.localRotation=Quaternion.Euler(0,0,-18);rabbitEarR.localRotation=Quaternion.Euler(0,0,18);
                 }
             }
             if(wrongBoardShake>0)
@@ -611,10 +653,46 @@ namespace Mgf.JeompeuSuri
         void ApplyLayout()
         {
             layoutW=Screen.width;layoutH=Screen.height;float aspect=(float)Screen.width/Mathf.Max(1,Screen.height);
+            var scaler=rootRt.GetComponent<CanvasScaler>();
+            if(scaler)scaler.matchWidthOrHeight=aspect>1.25f?1f:.5f;
             cam.orthographicSize=aspect<.72f?7.7f:aspect>1.3f?6.0f:6.65f;
             cam.transform.position=aspect<.72f?new Vector3(8.8f,12.3f,-12.7f):new Vector3(8.8f,11.2f,-11.4f);
             cam.transform.LookAt(new Vector3(0,.15f,1.35f));
-            if(aspect>1.25f){titleTag.rectTransform.anchoredPosition=new Vector2(0,-205);measureTxt.rectTransform.parent.GetComponent<RectTransform>();}
+            bool wide=aspect>1.25f;
+            if(wide)
+            {
+                // 극장형: 좌측 목표·측정, 중앙 조작장, 우측 코스·퓨즈. 남는 폭은 월드 관람석이다.
+                Place(topHudRt,new Vector2(1,.5f),new Vector2(-160,145),new Vector2(270,230));
+                Place(scoreTxt.rectTransform,new Vector2(1,.5f),new Vector2(-205,205),new Vector2(96,46));
+                Place(progressTxt.rectTransform,new Vector2(1,.5f),new Vector2(-112,205),new Vector2(112,42));
+                Place(livesTxt.rectTransform,new Vector2(1,.5f),new Vector2(-160,150),new Vector2(180,42));
+                Place(timerTxt.rectTransform,new Vector2(1,.5f),new Vector2(-160,105),new Vector2(180,36));
+                Place(goalTxt.rectTransform,new Vector2(0,.5f),new Vector2(178,218),new Vector2(330,76));
+                Place(promptPadRt,new Vector2(0,.5f),new Vector2(178,126),new Vector2(326,92));
+                Place(promptTxt.rectTransform,new Vector2(0,.5f),new Vector2(178,126),new Vector2(300,78));
+                Place(measurePadRt,new Vector2(0,.5f),new Vector2(178,-35),new Vector2(326,178));
+                Place(measureTxt.rectTransform,new Vector2(0,.5f),new Vector2(178,-35),new Vector2(300,150));
+                titleTag.rectTransform.anchoredPosition=new Vector2(0,-218);
+            }
+            else
+            {
+                Place(topHudRt,new Vector2(.5f,1),new Vector2(0,-55),new Vector2(350,92));
+                Place(scoreTxt.rectTransform,new Vector2(.5f,1),new Vector2(-125,-50),new Vector2(110,46));
+                Place(progressTxt.rectTransform,new Vector2(.5f,1),new Vector2(0,-50),new Vector2(130,40));
+                Place(livesTxt.rectTransform,new Vector2(.5f,1),new Vector2(75,-50),new Vector2(100,40));
+                Place(timerTxt.rectTransform,new Vector2(.5f,1),new Vector2(0,-87),new Vector2(140,32));
+                Place(goalTxt.rectTransform,new Vector2(.5f,1),new Vector2(0,-123),new Vector2(370,54));
+                Place(promptPadRt,new Vector2(.5f,1),new Vector2(0,-171),new Vector2(360,62));
+                Place(promptTxt.rectTransform,new Vector2(.5f,1),new Vector2(0,-171),new Vector2(335,44));
+                Place(measurePadRt,new Vector2(.5f,0),new Vector2(0,66),new Vector2(362,82));
+                Place(measureTxt.rectTransform,new Vector2(.5f,0),new Vector2(0,67),new Vector2(338,64));
+                titleTag.rectTransform.anchoredPosition=new Vector2(0,-215);
+            }
+        }
+
+        static void Place(RectTransform rt,Vector2 anchor,Vector2 pos,Vector2 size)
+        {
+            rt.anchorMin=rt.anchorMax=anchor;rt.pivot=new Vector2(.5f,.5f);rt.anchoredPosition=pos;rt.sizeDelta=size;
         }
 
         void BeginTitlePress(){titlePress=1;MgfFx.Punch(titleCta.transform,.10f,.22f);}
@@ -624,7 +702,8 @@ namespace Mgf.JeompeuSuri
         void SpawnTapRipple(Vector2 screen)
         {
             rippleImg.enabled=true;rippleClock=.28f;rippleRt.localScale=Vector3.one*.55f;
-            rippleRt.anchoredPosition=new Vector2(screen.x/Mathf.Max(1,Screen.width)*390f-195f,screen.y/Mathf.Max(1,Screen.height)*844f-422f);
+            Rect r=rootRt.rect;
+            rippleRt.anchoredPosition=new Vector2(r.xMin+screen.x/Mathf.Max(1,Screen.width)*r.width,r.yMin+screen.y/Mathf.Max(1,Screen.height)*r.height);
         }
 
         void PulseHandle(int index){if(index>=0&&index<4){handlePulse=.35f;MgfFx.Punch(handles[index],.20f,.30f);}}

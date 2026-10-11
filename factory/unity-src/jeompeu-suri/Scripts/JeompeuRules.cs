@@ -1,6 +1,6 @@
 // 점프 수리 — 중2 사각형의 대각선 성질, 정수 좌표 판정, 제약 만족 문항 은행.
 //
-// curriculum/textbook-structure.json expression_traps:
+// curriculum/2022-middle-math.json style_guide / expression_traps:
 // - 두 대각선의 교점을 무조건 중점이라고 부르지 않는다. 각 대각선의 중점을 따로 비교한다.
 // - 평행사변형: 두 대각선이 서로 다른 것을 이등분한다.
 // - 직사각형: 평행사변형이면서 두 대각선의 길이가 같다.
@@ -89,6 +89,12 @@ namespace Mgf.JeompeuSuri
 
         public static string KindName(QuadKind kind) => KindNames[(int)kind];
 
+        public static string PromptFor(QuadKind kind, string prefix = "")
+        {
+            string subject = kind == QuadKind.Rhombus ? "마름모가" : KindName(kind) + "이";
+            return prefix + subject + " 되도록 꼭짓점 하나를 옮기시오.";
+        }
+
         public static bool InGrid(Vector2Int p) => p.x >= 0 && p.x < GridSize && p.y >= 0 && p.y < GridSize;
 
         public static bool IsConvex(Vector2Int[] v)
@@ -136,6 +142,53 @@ namespace Mgf.JeompeuSuri
             if (kind == QuadKind.Rectangle) return equal;
             if (kind == QuadKind.Rhombus) return perp;
             return equal && perp;
+        }
+
+        // 발문의 핵심 제약이다. 현재 모양만 맞는지 보지 않고, 문항이 제시한 원래 좌표에서
+        // 정확히 한 꼭짓점만 달라졌는지를 모든 입력 경로에서 같은 정수 함수로 검사한다.
+        public static int ChangedVertexCount(Vector2Int[] start, Vector2Int[] submitted)
+        {
+            if (start == null || submitted == null || start.Length != 4 || submitted.Length != 4) return 4;
+            int changed = 0;
+            for (int i = 0; i < 4; i++) if (start[i] != submitted[i]) changed++;
+            return changed;
+        }
+
+        public static bool IsValidRepair(RepairProblem problem, Vector2Int[] submitted)
+        {
+            return problem != null
+                && ChangedVertexCount(problem.start, submitted) == 1
+                && Matches(submitted, problem.kind);
+        }
+
+        public static int CountValidSingleVertexRepairs(RepairProblem problem)
+        {
+            if (problem == null) return 0;
+            int count = 0;
+            var candidate = (Vector2Int[])problem.start.Clone();
+            for (int vertex = 0; vertex < 4; vertex++)
+            {
+                if ((problem.allowedMask & (1 << vertex)) == 0) continue;
+                Vector2Int original = candidate[vertex];
+                for (int y = 0; y < GridSize; y++) for (int x = 0; x < GridSize; x++)
+                {
+                    Vector2Int p = new Vector2Int(x, y);
+                    if (p == original) continue;
+                    candidate[vertex] = p;
+                    if (IsValidRepair(problem, candidate)) count++;
+                }
+                candidate[vertex] = original;
+            }
+            return count;
+        }
+
+        public static string SubmissionFailureReason(RepairProblem problem, Vector2Int[] submitted)
+        {
+            int changed = ChangedVertexCount(problem == null ? null : problem.start, submitted);
+            if (changed != 1) return changed == 0
+                ? "처음 도형에서 꼭짓점 하나를 다른 격자점으로 옮겨야 한다"
+                : "처음 도형에서 꼭짓점 하나만 옮겨야 한다";
+            return MissingReason(submitted, problem.kind);
         }
 
         public static string MissingReason(Vector2Int[] v, QuadKind kind)
@@ -211,7 +264,7 @@ namespace Mgf.JeompeuSuri
                 kind = kind,
                 band = kind == QuadKind.Parallelogram ? 1 : kind == QuadKind.Square ? 3 : 2,
                 start = c2, target = t2, answerVertex = answerVertex, allowedMask = 15,
-                prompt = n + "번 점프대가 " + KindName(kind) + "이 되도록 꼭짓점 하나를 옮기시오.",
+                prompt = PromptFor(kind, n + "번 점프대가 "),
                 unitConcept = KindName(kind) + "의 대각선 성질"
             };
         }
@@ -222,20 +275,38 @@ namespace Mgf.JeompeuSuri
         {
             if(bankCache!=null)return bankCache;
             var bank = new List<RepairProblem>(384);
+            var seen = new HashSet<string>();
             QuadKind[] kinds = { QuadKind.Parallelogram, QuadKind.Rectangle, QuadKind.Rhombus, QuadKind.Square };
+            // 7×7 경계까지 포함해 유일해인 평행사변형 변환은 80개다. 나머지 유형으로
+            // 균형을 보완하되 모든 문항은 아래 동일한 전수 4×49 필터를 통과한다.
+            int[] wanted = { 80, 100, 100, 104 };
             for (int k = 0; k < kinds.Length; k++)
             {
                 int[][] seeds = k == 0 ? PSeeds : k == 1 ? RSeeds : k == 2 ? HSeeds : SSeeds;
-                for(int variant=0;variant<96;variant++)
+                int accepted = 0;
+                for(int variant=0;variant<8192 && accepted<wanted[k];variant++)
                 {
                     int cycle=variant&3, sym=(variant/4)&7, seed=(variant/32)%seeds.Length;
                     int shift=variant*17+sym*5+seed*11;
                     var p = FromSeed(seeds[seed], kinds[k], sym, cycle, shift, bank.Count);
-                    if (!Matches(p.target, p.kind)) throw new Exception("문항 목표 판정 실패: " + p.id);
+                    if (!IsGeneratedProblemValid(p)) continue;
+                    string key = ProblemKey(p);
+                    if (!seen.Add(key)) continue;
                     bank.Add(p);
+                    accepted++;
                 }
+                if (accepted < wanted[k]) throw new Exception("문항 은행 부족: " + KindName(kinds[k]) + " " + accepted);
             }
             bankCache=bank;return bankCache;
+        }
+
+        static string ProblemKey(RepairProblem p)
+        {
+            var s = new System.Text.StringBuilder(80);
+            s.Append((int)p.kind).Append('|').Append(p.allowedMask);
+            for (int i = 0; i < 4; i++) s.Append('|').Append(p.start[i].x).Append(',').Append(p.start[i].y);
+            s.Append('>').Append(p.answerVertex).Append(',').Append(p.AnswerPoint.x).Append(',').Append(p.AnswerPoint.y);
+            return s.ToString();
         }
 
         static RepairProblem P(string id, QuadKind kind, int band, int allowedMask, int answerVertex,
@@ -247,7 +318,7 @@ namespace Mgf.JeompeuSuri
             target[answerVertex] = new Vector2Int(answerX, answerY);
             return new RepairProblem {
                 id=id, kind=kind, band=band, start=v, target=target, answerVertex=answerVertex, allowedMask=allowedMask,
-                prompt=KindName(kind) + "이 되도록 꼭짓점 하나를 옮기시오.",
+                prompt=PromptFor(kind),
                 unitConcept=KindName(kind) + "의 대각선 성질"
             };
         }
@@ -275,7 +346,7 @@ namespace Mgf.JeompeuSuri
             // 밴드 안에서만 순서를 섞어 3→3→4 정보량 곡선을 보존한다.
             ShuffleRange(deck, 0, 3, rng); ShuffleRange(deck, 3, 3, rng); ShuffleRange(deck, 6, 4, rng);
             for (int i = 0; i < deck.Count; i++)
-                if (!Matches(deck[i].target, deck[i].kind)) throw new Exception("코스 목표 판정 실패: " + deck[i].id);
+                ValidateGeneratedProblem(deck[i]);
             return deck;
         }
 
@@ -303,13 +374,24 @@ namespace Mgf.JeompeuSuri
                 for(int i=0;i<4;i++){start[i]=s1[(i+cycle)&3];target[i]=t1[(i+cycle)&3];}
                 var p=new RepairProblem{
                     id="js-run-"+order,kind=kind,band=band,start=start,target=target,answerVertex=wantedVertex,
-                    allowedMask=onlyAnswer?1<<wantedVertex:15,prompt=KindName(kind)+"이 되도록 꼭짓점 하나를 옮기시오.",
+                    allowedMask=onlyAnswer?1<<wantedVertex:15,prompt=PromptFor(kind),
                     unitConcept=KindName(kind)+"의 대각선 성질"
                 };
-                if(!Matches(p.target,p.kind))throw new Exception("런타임 목표 판정 실패: "+order);
+                if (!Matches(p.target, p.kind) || CountValidSingleVertexRepairs(p) != 1) continue;
                 return p;
             }
             throw new Exception("요청한 정답 위치에 문항을 배치할 수 없음: "+wantedPoint);
+        }
+
+        static void ValidateGeneratedProblem(RepairProblem problem)
+        {
+            if (!IsGeneratedProblemValid(problem))
+                throw new Exception("문항 생성 제약 실패: " + problem.id + " solutions=" + CountValidSingleVertexRepairs(problem));
+        }
+
+        static bool IsGeneratedProblemValid(RepairProblem problem)
+        {
+            return IsValidRepair(problem, problem.target) && CountValidSingleVertexRepairs(problem) == 1;
         }
 
         static void ShuffleRange(List<RepairProblem> a, int start, int count, System.Random rng)

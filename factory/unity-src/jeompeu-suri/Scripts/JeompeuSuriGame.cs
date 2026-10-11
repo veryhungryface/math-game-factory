@@ -33,6 +33,8 @@ namespace Mgf.JeompeuSuri
             public string prompt = "";
             public string targetPredicate = "";
             public string misconceptionId = "";
+            public int changedVertices;
+            public int solutionCount;
             public string lastAction = "boot";
         }
 
@@ -53,6 +55,7 @@ namespace Mgf.JeompeuSuri
         bool currentFirst;
         bool revealCorrect;
         bool revealPractice;
+        string revealReason = "";
         string endReason = "";
         Vector2 dragStartScreen;
         Vector2Int dragStartGrid;
@@ -79,8 +82,8 @@ namespace Mgf.JeompeuSuri
 
         void Prewarm()
         {
-            var sb = new StringBuilder("점프수리꼭짓점을끌어맞춰라중학교2학년사각형의성질평행사변형직사각형마름모정사각형두대각선서로다른것을이등분길이같음수직안전끈남은시간첫시도연습실전경기장스프링토끼다시하기코스통과수리연습종료");
-            sb.Append("꼭짓점을맞추면토끼가건넌다다른격자점에놓으시오두대각선의중점이겹쳤다서로이등분한다정사각형은직사각형이면서마름모이다");
+            var sb = new StringBuilder("점프수리꼭짓점을끌어맞춰라중학교2학년사각형의성질평행사변형직사각형마름모정사각형두대각선서로다른것을이등분길이같음수직안전퓨즈남은시간첫시도연습실전구조시험장장력판하중캡슐다시하기코스통과수리연습종료");
+            sb.Append("꼭짓점을맞추면하중시험이통과된다다른격자점에놓으시오두대각선의중점이겹쳤다서로이등분한다정사각형은직사각형이면서마름모이다");
             for (int i = 0; i < bank.Count; i++) { sb.Append(bank[i].prompt); sb.Append(bank[i].unitConcept); }
             MgfText.Prewarm(sb.ToString());
         }
@@ -217,6 +220,8 @@ namespace Mgf.JeompeuSuri
             st.currentBand = current == null ? 0 : current.band;
             st.allowedMask = current == null ? 0 : current.allowedMask;
             st.courseIndex = courseIndex;
+            st.changedVertices = current == null ? 0 : JeompeuRules.ChangedVertexCount(current.start, vertices);
+            st.solutionCount = current == null ? 0 : JeompeuRules.CountValidSingleVertexRepairs(current);
             for (int i = 0; i < 4; i++) { st.vertices[i * 2] = vertices[i].x; st.vertices[i * 2 + 1] = vertices[i].y; }
             RefreshProblemUi();
         }
@@ -225,7 +230,8 @@ namespace Mgf.JeompeuSuri
         {
             if ((phase != Phase.Practice && phase != Phase.Playing) || current == null) return;
             revealPractice = phase == Phase.Practice;
-            revealCorrect = JeompeuRules.Matches(vertices, current.kind);
+            revealCorrect = JeompeuRules.IsValidRepair(current, vertices);
+            revealReason = revealCorrect ? "" : JeompeuRules.SubmissionFailureReason(current, vertices);
             st.lastAction = revealCorrect ? "repair-correct" : "repair-wrong";
 
             if (revealPractice)
@@ -259,7 +265,7 @@ namespace Mgf.JeompeuSuri
             }
             phase = Phase.Reveal; revealClock = 0f; dragVertex = -1; hitStop = revealCorrect ? .08f : 0f;
             BindCurrent();
-            BeginRevealVisual(revealCorrect, JeompeuRules.MissingReason(vertices, current.kind));
+            BeginRevealVisual(revealCorrect, revealReason);
             ShowPhaseUi();
             MgfBridge.NotifyChanged();
         }
@@ -281,8 +287,13 @@ namespace Mgf.JeompeuSuri
             if (!revealCorrect)
             {
                 if (st.lives <= 0) { EndRun("straps"); return; }
+                // 오답 좌표는 근거 공개 동안만 보존한다. 다음 제출은 반드시 같은 원래 도형에서
+                // 다시 시작해, 서로 다른 두 꼭짓점을 누적 변경할 수 없게 한다.
+                CopyStart();
+                BindCurrent();
+                ResetBoardVisual(false);
                 phase = Phase.Playing;
-                ShowToast(JeompeuRules.MissingReason(vertices, current.kind) + " · 같은 점프대를 다시 수리하시오", 3.2f);
+                ShowToast(revealReason + " · 원래 점에서 다시 수리하시오", 3.2f);
                 ShowPhaseUi(); MgfBridge.NotifyChanged();
                 return;
             }
@@ -312,7 +323,7 @@ namespace Mgf.JeompeuSuri
                 MgfBridge.NotifyChanged();
                 if (phase == Phase.Title) { BeginTitlePress(); MgfSfx.Play("tap", .22f); return; }
                 if (phase == Phase.End) { PunchRestart(); return; }
-                if (phase == Phase.Reveal) { RefuseInput("토끼가 착지할 때까지 잠깐 기다리시오"); return; }
+                if (phase == Phase.Reveal) { RefuseInput("하중 시험이 끝날 때까지 잠깐 기다리시오"); return; }
                 if (phase != Phase.Practice && phase != Phase.Playing) return;
                 idleClock = 0f;
                 int picked = NearestHandle(MgfPointer.Position, out float distance);
@@ -411,7 +422,7 @@ namespace Mgf.JeompeuSuri
             for (int y = 0; y < 7; y++) for (int x = 0; x < 7; x++)
             {
                 vertices[v] = new Vector2Int(x, y);
-                if (!JeompeuRules.Matches(vertices, current.kind)) { SetVertexVisual(v, vertices[v]); BindCurrent(); SubmitRepair(); return; }
+                if (!JeompeuRules.IsValidRepair(current, vertices)) { SetVertexVisual(v, vertices[v]); BindCurrent(); SubmitRepair(); return; }
             }
         }
 
