@@ -31,14 +31,28 @@ function artifactHash() {
 }
 
 function targetFromPrompt(prompt) {
-  if (prompt.includes('직사각형이면서 마름모')) return 5;
-  if (prompt.includes('두 대각선의 길이가 같')) return 5;
-  if (prompt.includes('직사각형이 되도록')) return 5;
   const m = prompt.match(/∠([ABCD])=(\d+)°/);
   if (!m) throw new Error(`발문 해석 불가: ${prompt}`);
   const value = Number(m[2]);
   const angleA = m[1] === 'A' || m[1] === 'C' ? value : 180 - value;
   return (angleA - 40) / 10;
+}
+
+function targetFromState(s) {
+  if (propertyKind(s.prompt)) {
+    const parts = s.problemId.split('-');
+    return Number(parts.at(-2));
+  }
+  return targetFromPrompt(s.prompt);
+}
+
+function propertyKind(prompt) {
+  if (prompt.includes('직사각형이면서 마름모')) return 'include-both';
+  if (prompt.includes('AO=CO')) return 'bisect-ac';
+  if (prompt.includes('BO=DO')) return 'bisect-bd';
+  if (prompt.includes('AC=BD')) return 'equal-diagonals';
+  if (prompt.includes('AC⊥BD')) return 'perpendicular-diagonals';
+  return '';
 }
 
 function xFor(detent) { return 390 * (.10 + .80 * detent / 10); }
@@ -81,24 +95,40 @@ await page.screenshot({path: path.join(FRAMES, '01-practice-a.png')});
 
 // 고정 연습 2문도 화면 발문만 읽어 실제 손잡이로 푼다.
 for (let practice = 0; practice < 2; practice++) {
-  const s = await state(page); const target = targetFromPrompt(s.prompt);
+  const s = await state(page); const target = targetFromState(s);
   await dragDetent(page, s.selectedDetent, target);
   await sleep(1450);
 }
 await page.screenshot({path: path.join(FRAMES, '02-first-real.png')});
 
-async function solveRun(makeOneMistake) {
-  let mistakeDone = false, guard = 0;
+const capturedProperties = new Set();
+async function solveRun(mistakesRequested = 0) {
+  let mistakesMade = 0, guard = 0;
   while (guard++ < 30) {
     const s = await state(page);
     if (s.phase === 'clear' || s.phase === 'gameover') return s;
-    const target = targetFromPrompt(s.prompt);
+    const kind = propertyKind(s.prompt);
+    if (kind && !capturedProperties.has(kind)) {
+      capturedProperties.add(kind);
+      await page.screenshot({path: path.join(FRAMES, `05-${kind}.png`)});
+    }
+    const target = targetFromState(s);
     let guess = target;
-    if (makeOneMistake && !mistakeDone) { guess = (target + 1) % 11; mistakeDone = true; }
+    if (mistakesMade < mistakesRequested) {
+      const property = [1,5,8,10];
+      guess = property.includes(target)
+        ? property.find(d => d !== target && d !== s.selectedDetent)
+        : (target + 1) % 11;
+      if (guess === s.selectedDetent) guess = (target + 2) % 11;
+    }
     const id = s.problemId, solved = s.solved;
     await dragDetent(page, s.selectedDetent, guess);
-    if (makeOneMistake && mistakeDone && guess !== target) {
-      await sleep(1450);
+    if (guess !== target) {
+      mistakesMade++;
+      await sleep(300);
+      if (mistakesMade === 1) await page.screenshot({path: path.join(FRAMES, '06-after-one-wrong.png')});
+      if (mistakesMade === 2) await page.screenshot({path: path.join(FRAMES, '07-one-needle.png')});
+      await sleep(1150);
       const retry = await state(page);
       await dragDetent(page, retry.selectedDetent, target);
     }
@@ -109,7 +139,7 @@ async function solveRun(makeOneMistake) {
   throw new Error('완주 guard 초과');
 }
 
-const clean = await solveRun(false);
+const clean = await solveRun();
 await page.screenshot({path: path.join(FRAMES, '03-clean-clear.png')});
 
 // 결과 종끈을 실제로 눌러 두 번째 판 연습으로 돌아간 뒤, 테스트 훅은 연습만 건너뛴다.
@@ -117,16 +147,16 @@ await page.mouse.click(195, 844 * .80);
 await sleep(150);
 await page.evaluate(() => window.__GAME_TEST__.start());
 await sleep(150);
-const recovery = await solveRun(true);
+const recovery = await solveRun(2);
 await page.screenshot({path: path.join(FRAMES, '04-recovery-clear.png')});
 
 const result = {
   runId: `ppittul-daemun-pointer-${new Date().toISOString()}`,
   artifactHashSha256: artifactHash(),
-  method: '타이틀 종끈·연습 2문·실전 정답 제출을 Chrome CDP 실제 mouse down/move/up으로 수행. 실전 목표는 화면 prompt를 중2 각 관계로 계산.',
+  method: '타이틀 종끈·연습 2문·실전 11문을 Chrome CDP 실제 mouse down/move/up으로 수행. 각 문제는 화면 각 관계를 계산하고, 대각선 문제는 항상/∠A=90°/네 변 같음/둘 다 조건 걸쇠를 판별.',
   clean, recovery, consoleErrors: errors,
   passed: clean.phase === 'clear' && clean.solved === 11 && clean.lives === 3 &&
-    recovery.phase === 'clear' && recovery.solved === 11 && recovery.lives === 2 && errors.length === 0
+    recovery.phase === 'clear' && recovery.solved === 11 && recovery.lives === 1 && errors.length === 0
 };
 fs.writeFileSync(path.join(HERE, 'pointer-playthrough-results.json'), JSON.stringify(result, null, 2));
 console.log(JSON.stringify(result, null, 2));

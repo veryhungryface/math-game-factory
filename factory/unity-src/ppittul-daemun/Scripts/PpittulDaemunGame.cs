@@ -28,6 +28,9 @@ namespace Mgf.PpittulDaemun
             public string misconceptionId = "";
             public bool onboarding;
             public int practiceStep;
+            public int promptLeftPx;
+            public int relationRightPx;
+            public bool hudNeedlesVisible;
         }
 
         enum Flow { Title, Practice, Playing, Reveal, End }
@@ -73,7 +76,7 @@ namespace Mgf.PpittulDaemun
 
         void Prewarm()
         {
-            var s = new StringBuilder("삐뚤대문틀을밀어문을맞춰라중학교2학년사각형의성질평행사변형대각이웃각대각선직사각형마름모정사각형포함관계대문을밀어문표에맞는각으로잠그시오연습실전퍼레이드바늘점수첫시도재도전시간초과공연완료숙련통과문이닫혔다다시계산하시오");
+            var s = new StringBuilder("삐뚤대문틀을밀어문을맞춰라중학교2학년사각형의성질평행사변형대각이웃각대각선직사각형마름모정사각형포함관계대문을밀어문표에맞는각으로잠그시오연습실전퍼레이드바늘점수첫시도재도전시간초과공연완료숙련통과문이닫혔다다시계산하시오항상조건네변같음둘다이등분수직비수직최소cm");
             for (int i = 0; i < bank.Count; i++) { s.Append(bank[i].prompt); s.Append(bank[i].answer); }
             MgfText.Prewarm(s.ToString());
         }
@@ -198,9 +201,20 @@ namespace Mgf.PpittulDaemun
             st.level = current.band; st.problemId = current.id; st.prompt = current.prompt;
             st.misconceptionId = ""; firstAttempt = true; idleGuide = 0;
 
-            // 정답과 독립인 시작 상태. 이전 문의 실제 잠금 위치가 있으면 그대로 유지하되,
-            // 첫 문은 균등한 비정답에서 시작해 90°/고정 위치 반복을 막는다.
-            if (index == 0)
+            // 정답과 독립인 시작 상태. 조건 판별 문항은 네 의미 있는 걸쇠 중
+            // 오답 위치에서 시작해 화면의 측정값을 읽고 반드시 실제로 움직이게 한다.
+            if (PpittulRules.IsPropertyProblem(current))
+            {
+                int[] propertyStarts = {
+                    PpittulRules.AlwaysDetent, PpittulRules.RightAngleDetent,
+                    PpittulRules.EqualSidesDetent, PpittulRules.BothDetent
+                };
+                int start = propertyStarts[(index + runSerial) % propertyStarts.Length];
+                if (start == current.targetDetent)
+                    start = propertyStarts[(index + runSerial + 1) % propertyStarts.Length];
+                SetDetent(start, false);
+            }
+            else if (index == 0)
             {
                 int start = rng.Next(PpittulRules.DetentCount - 1);
                 if (start >= target) start++;
@@ -208,7 +222,6 @@ namespace Mgf.PpittulDaemun
             }
             else if (st.selectedDetent == current.targetDetent)
             {
-                // 대각선→직사각형→정사각형 문항은 모두 90°가 정답이다.
                 // 이전 정답 위치를 그대로 두면 정답이 노출되고 실제 드래그 제출도 막히므로
                 // 매 문항을 결정적인 비정답 걸쇠에서 시작한다.
                 int start = (current.targetDetent + 2 + index) % PpittulRules.DetentCount;
@@ -225,7 +238,7 @@ namespace Mgf.PpittulDaemun
             detent = PpittulRules.ClampDetent(detent);
             int before = st.selectedDetent;
             st.selectedDetent = detent;
-            st.selectedAngle = PpittulRules.AngleFromDetent(detent);
+            st.selectedAngle = PpittulRules.AngleForSelection(current, detent);
             SetGateDetent(detent, before != detent);
             if (before != detent)
             {

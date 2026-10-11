@@ -47,13 +47,14 @@ namespace Mgf.PpittulDaemun
         RawImage titleArt;
         RectTransform bellRopeRt, bellKnobRt;
         TextMeshProUGUI titleLogoBack, titleLogoMid, titleLogoFront, titleTag, titleBadge, titleBest, titlePull;
-        TextMeshProUGUI scoreTxt, progressTxt, needlesTxt, timerTxt, goalTxt, promptTxt, relationTxt, angleTxt;
+        TextMeshProUGUI scoreTxt, progressTxt, needlesTxt, timerTxt, goalTxt, promptTxt, relationTxt, angleTxt, handleLabelTxt;
         TextMeshProUGUI feedbackTxt, endTitleTxt, endScoreTxt, endStatsTxt, endHintTxt;
-        RectTransform scoreRt, promptRt, relationRt, trackRt, handleRt, guideFingerRt, guideArrowRt, toastRt, restartRt;
+        RectTransform scoreRt, goalRt, promptRt, relationRt, trackRt, handleRt, guideFingerRt, guideArrowRt, toastRt, restartRt;
         Image handleImage, guideFingerImage, guideArrowImage, toastImage, flashImage;
         readonly RectTransform[] detentRt = new RectTransform[11];
         readonly TextMeshProUGUI[] detentTxt = new TextMeshProUGUI[11];
         readonly Image[] detentMark = new Image[11];
+        readonly Image[] hudNeedleIcons = new Image[3];
         readonly RectTransform[] guideDots = new RectTransform[7];
         readonly RectTransform[] ripples = new RectTransform[6];
         readonly Image[] rippleImages = new Image[6];
@@ -66,7 +67,9 @@ namespace Mgf.PpittulDaemun
         float toastT, guideBoost, bellPullPx;
         float displayedScore, displayedEndScore;
         int lastDisplayedScore = -1;
+        int lastRelationDetent = -999;
         bool guideTargetMode;
+        readonly Vector3[] uiCorners = new Vector3[4];
 
         RectTransform R(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
         {
@@ -371,8 +374,15 @@ namespace Mgf.PpittulDaemun
             needlesTxt = Txt(hudRt, "바늘 3", new Vector2(.96f, .97f), Vector2.zero, 14, Brass, 96, TextAlignmentOptions.Right);
             needlesTxt.rectTransform.pivot = new Vector2(1, .5f);
             timerTxt = Txt(hudRt, "90초", new Vector2(.78f, .97f), Vector2.zero, 13, Cyan, 76);
+            for (int i = 0; i < hudNeedleIcons.Length; i++)
+            {
+                hudNeedleIcons[i] = Img(hudRt, "HudNeedle" + i, new Vector2(.865f + i * .018f, .955f),
+                    Vector2.zero, new Vector2(4, 19), Brass, roundSprite);
+                hudNeedleIcons[i].rectTransform.localRotation = Quaternion.Euler(0, 0, -18);
+            }
 
             var goal = Img(hudRt, "GoalRibbon", new Vector2(.5f, .91f), Vector2.zero, new Vector2(360, 38), Wine, roundSprite);
+            goalRt = goal.rectTransform;
             Img(goal.transform, "GoalTailL", new Vector2(0, .5f), new Vector2(-10, 0), new Vector2(28, 28), Coral, diamondSprite);
             Img(goal.transform, "GoalTailR", new Vector2(1, .5f), new Vector2(10, 0), new Vector2(28, 28), Coral, diamondSprite);
             goalTxt = Txt(goal.transform, "대문을 밀어 문표에 맞는 각으로 잠그시오", new Vector2(.5f, .5f), Vector2.zero, 14, Ivory, 335);
@@ -399,7 +409,8 @@ namespace Mgf.PpittulDaemun
             handleRt = Img(trackRt, "BHandle", new Vector2(.5f, .5f), new Vector2(-93.6f, 4), new Vector2(68, 68), Brass, roundSprite).rectTransform;
             handleImage = handleRt.GetComponent<Image>();
             Img(handleRt, "ThreadCross", new Vector2(.5f, .5f), Vector2.zero, new Vector2(42, 10), Coral, roundSprite);
-            Txt(handleRt, "B", new Vector2(.5f, .5f), Vector2.zero, 22, Plum, 46).fontStyle = FontStyles.Bold;
+            handleLabelTxt = Txt(handleRt, "B", new Vector2(.5f, .5f), Vector2.zero, 22, Plum, 58);
+            handleLabelTxt.fontStyle = FontStyles.Bold;
             for (int i = 0; i < handleTrails.Length; i++)
             {
                 handleTrailImages[i] = Img(trackRt, "ThreadTrail" + i, new Vector2(.5f, .5f), Vector2.zero,
@@ -481,8 +492,9 @@ namespace Mgf.PpittulDaemun
 
         void SetGateGeometry(float detent)
         {
-            float angle = Mathf.Lerp(40f, 140f, detent / 10f);
-            bool equalSides = current != null && current.allSidesEqual;
+            int selected = Mathf.Clamp(Mathf.RoundToInt(detent), 0, 10);
+            float angle = PpittulRules.AngleForSelection(current, selected);
+            bool equalSides = PpittulRules.SelectionHasEqualSides(current, selected);
             float baseLength = equalSides ? 3.8f : 5.2f;
             float sideLength = equalSides ? baseLength : 2.4f / Mathf.Sin(angle * Mathf.Deg2Rad);
             float h = sideLength * Mathf.Sin(angle * Mathf.Deg2Rad);
@@ -629,7 +641,14 @@ namespace Mgf.PpittulDaemun
             progressTxt.text = "문 " + st.solved + "/11 · 첫 시도 " + st.firstAttemptCorrect + "/" + st.firstAttemptTotal;
             needlesTxt.text = "바늘 " + Mathf.Max(0, st.lives);
             timerTxt.text = flow == Flow.Practice ? "연습" : Mathf.Max(0, Mathf.CeilToInt(90 - playTime)) + "초";
-            angleTxt.text = "∠A  " + st.selectedAngle + "°";
+            bool propertyMode = PpittulRules.IsPropertyProblem(current);
+            angleTxt.text = propertyMode ? "조건  " + PpittulRules.ConditionLabel(current, st.selectedDetent) : "∠A=" + st.selectedAngle + "°";
+            for (int i = 0; i < hudNeedleIcons.Length; i++)
+            {
+                bool remaining = i < st.lives;
+                hudNeedleIcons[i].color = remaining ? Brass : new Color(Coral.r, Coral.g, Coral.b, .28f);
+                hudNeedleIcons[i].rectTransform.localRotation = Quaternion.Euler(0, 0, remaining ? -18 : 55);
+            }
             handleRt.anchoredPosition = new Vector2(Mathf.Lerp(-156, 156, st.selectedDetent / 10f), 4);
             for (int i = 0; i < handleTrails.Length; i++)
             {
@@ -644,6 +663,11 @@ namespace Mgf.PpittulDaemun
                 bool here = i == st.selectedDetent;
                 detentMark[i].color = here ? Coral : Brass;
                 detentTxt[i].color = here ? Ivory : new Color(Ivory.r, Ivory.g, Ivory.b, .72f);
+            }
+            if (propertyMode && lastRelationDetent != st.selectedDetent)
+            {
+                lastRelationDetent = st.selectedDetent;
+                RefreshPropertyReadout();
             }
 
             if (flow == Flow.Practice || guideBoost > 0)
@@ -694,11 +718,37 @@ namespace Mgf.PpittulDaemun
             float trackY = land ? .205f : .245f;
             trackRt.anchorMin = trackRt.anchorMax = new Vector2(.5f, trackY);
             angleTxt.rectTransform.anchorMin = angleTxt.rectTransform.anchorMax = new Vector2(.5f, land ? .305f : .35f);
-            promptRt.anchorMin = promptRt.anchorMax = new Vector2(land ? .23f : .5f, land ? .74f : .79f);
-            promptRt.sizeDelta = land ? new Vector2(390, 96) : new Vector2(356, 88);
-            relationRt.anchorMin = relationRt.anchorMax = new Vector2(land ? .77f : .5f, land ? .74f : .695f);
-            relationRt.sizeDelta = land ? new Vector2(390, 58) : new Vector2(332, 38);
+            promptRt.anchorMin = promptRt.anchorMax = new Vector2(land ? .30f : .5f, land ? .74f : .79f);
+            promptRt.sizeDelta = land ? new Vector2(280, 96) : new Vector2(356, 88);
+            relationRt.anchorMin = relationRt.anchorMax = new Vector2(land ? .70f : .5f, land ? .74f : .695f);
+            relationRt.sizeDelta = land ? new Vector2(280, 58) : new Vector2(332, 38);
             relationTxt.fontSize = land ? 15 : 13;
+            promptTxt.rectTransform.sizeDelta = new Vector2(land ? 246 : 308, land ? 72 : 64);
+            relationTxt.rectTransform.sizeDelta = new Vector2(land ? 250 : 318, land ? 48 : 24);
+            bool portrait = Screen.height > Screen.width;
+            if (portrait)
+            {
+                // 우상단 64px은 HTML 음소거 버튼의 안전영역이다. 바늘 수와 아이콘을 그 왼쪽에 둔다.
+                needlesTxt.rectTransform.anchorMin = needlesTxt.rectTransform.anchorMax = new Vector2(.62f, .975f);
+                needlesTxt.rectTransform.sizeDelta = new Vector2(62, 25);
+                timerTxt.rectTransform.anchorMin = timerTxt.rectTransform.anchorMax = new Vector2(.78f, .97f);
+                progressTxt.rectTransform.anchorMin = progressTxt.rectTransform.anchorMax = new Vector2(.35f, .97f);
+                progressTxt.rectTransform.sizeDelta = new Vector2(170, 25);
+                for (int i = 0; i < hudNeedleIcons.Length; i++)
+                    hudNeedleIcons[i].rectTransform.anchorMin = hudNeedleIcons[i].rectTransform.anchorMax = new Vector2(.58f + i * .024f, .946f);
+                goalRt.sizeDelta = new Vector2(360, 38);
+            }
+            else
+            {
+                needlesTxt.rectTransform.anchorMin = needlesTxt.rectTransform.anchorMax = new Vector2(.91f, .97f);
+                needlesTxt.rectTransform.sizeDelta = new Vector2(96, 25);
+                timerTxt.rectTransform.anchorMin = timerTxt.rectTransform.anchorMax = new Vector2(.78f, .97f);
+                progressTxt.rectTransform.anchorMin = progressTxt.rectTransform.anchorMax = new Vector2(.50f, .97f);
+                progressTxt.rectTransform.sizeDelta = new Vector2(250, 25);
+                for (int i = 0; i < hudNeedleIcons.Length; i++)
+                    hudNeedleIcons[i].rectTransform.anchorMin = hudNeedleIcons[i].rectTransform.anchorMax = new Vector2(.842f + i * .014f, .955f);
+                goalRt.sizeDelta = new Vector2(450, 38);
+            }
             // cover 방식 UV. 이미지가 없으면 절차적 무대가 그대로 보인다.
             if (titleArt.texture)
             {
@@ -713,6 +763,25 @@ namespace Mgf.PpittulDaemun
                     float w = scrA / texA; titleArt.uvRect = new Rect((1 - w) * .5f, 0, w, 1);
                 }
             }
+            Canvas.ForceUpdateCanvases();
+            MeasureUiBounds();
+        }
+
+        void MeasureUiBounds()
+        {
+            promptRt.GetWorldCorners(uiCorners);
+            st.promptLeftPx = Mathf.RoundToInt(uiCorners[0].x);
+            relationRt.GetWorldCorners(uiCorners);
+            st.relationRightPx = Mathf.RoundToInt(uiCorners[2].x);
+            needlesTxt.rectTransform.GetWorldCorners(uiCorners);
+            bool textSafe = uiCorners[0].x >= 0 && uiCorners[2].x <= Screen.width - (Screen.height > Screen.width ? 58 : 42);
+            bool iconsSafe = true;
+            for (int i = 0; i < hudNeedleIcons.Length; i++)
+            {
+                hudNeedleIcons[i].rectTransform.GetWorldCorners(uiCorners);
+                if (uiCorners[0].x < 0 || uiCorners[2].x > Screen.width - (Screen.height > Screen.width ? 58 : 42)) iconsSafe = false;
+            }
+            st.hudNeedlesVisible = textSafe && iconsSafe;
         }
 
         void LoadProblemUi()
@@ -720,16 +789,53 @@ namespace Mgf.PpittulDaemun
             if (current == null) return;
             promptTxt.text = current.prompt;
             promptTxt.enableAutoSizing = true; promptTxt.fontSizeMin = 12; promptTxt.fontSizeMax = 18;
-            if (current.type == GatePromptType.RectangleAndRhombus)
-                relationTxt.text = "네 변 같음 + 네 각 90° → 정사각형 ⊂ 직사각형·마름모·평행사변형";
-            else if (current.type == GatePromptType.Rectangle)
-                relationTxt.text = "네 각이 모두 90°인 평행사변형 → 직사각형";
-            else if (current.type == GatePromptType.EqualDiagonals)
-                relationTxt.text = "항상 AO=CO · BO=DO / 직사각형이면 AC=BD";
+            bool propertyMode = PpittulRules.IsPropertyProblem(current);
+            for (int i = 0; i < detentRt.Length; i++)
+            {
+                bool visible = !propertyMode || PpittulRules.IsPropertyDetent(i);
+                detentRt[i].gameObject.SetActive(visible);
+                if (!visible) continue;
+                detentTxt[i].text = propertyMode ? PpittulRules.ConditionLabel(current, i) : (40 + i * 10).ToString();
+                detentTxt[i].fontSize = propertyMode ? 8 : 10;
+                detentTxt[i].rectTransform.sizeDelta = new Vector2(propertyMode ? 82 : 34, propertyMode ? 30 : 18);
+            }
+            handleLabelTxt.text = propertyMode ? "조건" : "B";
+            handleLabelTxt.fontSize = propertyMode ? 13 : 22;
+            lastRelationDetent = -999;
+            if (propertyMode)
+                RefreshPropertyReadout();
             else if (current.type == GatePromptType.AdjacentB || current.type == GatePromptType.AdjacentD)
                 relationTxt.text = "이웃한 두 각의 합은 180° · A+B=180°";
             else relationTxt.text = "마주 보는 두 각의 크기는 같다 · ∠A=∠C";
-            goalTxt.text = flow == Flow.Practice ? "손잡이를 실제로 밀어 첫 문을 여시오" : "대문을 밀어 문표에 맞는 각으로 잠그시오";
+            goalTxt.text = flow == Flow.Practice ? "손잡이를 실제로 밀어 첫 문을 여시오" :
+                propertyMode ? "측정값을 읽고 최소 조건 걸쇠에 잠그시오" : "대문을 밀어 문표에 맞는 각으로 잠그시오";
+        }
+
+        void RefreshPropertyReadout()
+        {
+            if (current == null || !PpittulRules.IsPropertyProblem(current)) return;
+            float ac = Vector3.Distance(gateA, gateC);
+            float bd = Vector3.Distance(gateB, gateD);
+            float ao = Vector3.Distance(gateA, gateO);
+            float co = Vector3.Distance(gateC, gateO);
+            float bo = Vector3.Distance(gateB, gateO);
+            float dO = Vector3.Distance(gateD, gateO);
+            float ab = Vector3.Distance(gateA, gateB);
+            float bc = Vector3.Distance(gateB, gateC);
+            if (current.type == GatePromptType.BisectAC)
+                relationTxt.text = "AO=" + ao.ToString("0.0") + " cm · CO=" + co.ToString("0.0") + " cm";
+            else if (current.type == GatePromptType.BisectBD)
+                relationTxt.text = "BO=" + bo.ToString("0.0") + " cm · DO=" + dO.ToString("0.0") + " cm";
+            else if (current.type == GatePromptType.EqualDiagonals)
+                relationTxt.text = "AC=" + ac.ToString("0.0") + " cm · BD=" + bd.ToString("0.0") + " cm";
+            else if (current.type == GatePromptType.PerpendicularDiagonals)
+            {
+                Vector3 u = (gateC - gateA).normalized, v = (gateD - gateB).normalized;
+                bool perpendicular = Mathf.Abs(Vector3.Dot(u, v)) < .03f;
+                relationTxt.text = "AB=" + ab.ToString("0.0") + " · BC=" + bc.ToString("0.0") + " · " + (perpendicular ? "AC⊥BD" : "AC와 BD 비수직");
+            }
+            else
+                relationTxt.text = "AB" + (Mathf.Abs(ab - bc) < .03f ? "=BC" : "≠BC") + " · ∠A=" + st.selectedAngle + "°";
         }
 
         void RefreshHudImmediate()
@@ -763,9 +869,11 @@ namespace Mgf.PpittulDaemun
                 MgfSfx.Play("correct", .54f);
                 MgfFx.Glow(gateO + new Vector3(0, .2f, -.4f), Cyan, 14 + Mathf.Min(18, st.firstAttemptCorrect * 2), .28f);
                 feedbackTxt.text = current != null && current.type == GatePromptType.RectangleAndRhombus
-                    ? "정사각형은 직사각형이면서 마름모이다"
-                    : current != null && current.type == GatePromptType.Rectangle
-                        ? "네 각이 모두 90°인 평행사변형은 직사각형이다"
+                    ? "∠A=90°이고 네 변이 같으므로 정사각형이다"
+                    : current != null && (current.type == GatePromptType.BisectAC || current.type == GatePromptType.BisectBD)
+                        ? "평행사변형의 대각선은 항상 서로를 이등분한다"
+                    : current != null && current.type == GatePromptType.PerpendicularDiagonals
+                        ? "네 변이 같은 평행사변형의 대각선은 서로 수직이다"
                     : current != null && current.type == GatePromptType.EqualDiagonals
                         ? "두 대각선의 길이가 같은 평행사변형은 직사각형이다"
                     : current != null && (current.type == GatePromptType.AdjacentB || current.type == GatePromptType.AdjacentD)
@@ -781,7 +889,8 @@ namespace Mgf.PpittulDaemun
                 if (flow == Flow.Reveal && current != null && current.band > 0 && needles[broken])
                     needles[broken].localRotation = Quaternion.Euler(0, 0, 62);
                 MgfSfx.Play("wrong", .46f);
-                feedbackTxt.text = WrongReasonText(st.misconceptionId, current, submitted) + " · 필요한 A는 " + current.angleA + "°";
+                feedbackTxt.text = WrongReasonText(st.misconceptionId, current, submitted) +
+                    (PpittulRules.IsPropertyProblem(current) ? " · 최소 조건은 " + current.answer : " · 필요한 A는 " + current.angleA + "°");
                 toastImage.color = new Color(Wine.r, Wine.g, Wine.b, .97f);
                 toastT = 1.32f;
             }
@@ -803,8 +912,19 @@ namespace Mgf.PpittulDaemun
         {
             if (misconception == "adjacent_angles_equal") return "B·D는 A와 같지 않고 합이 180°이다";
             if (misconception == "bisected_means_equal_diagonals") return "이등분과 두 대각선의 길이 같음은 다른 성질이다";
-            if (misconception == "square_not_rectangle") return "정사각형은 직사각형과 마름모에 모두 포함된다";
             if (misconception == "adjacent_instead_of_opposite") return "마주 보는 ∠A와 ∠C의 크기는 같다";
+            if (misconception == "halved_opposite_angle") return "마주 보는 각은 반으로 줄이지 않고 그대로 같다";
+            if (misconception == "used_90_sum_instead_of_180") return "이웃각은 90°가 아니라 180°를 이룬다";
+            if (misconception == "only_rectangles_bisect" || misconception == "only_rhombi_bisect" || misconception == "only_squares_bisect")
+                return "대각선의 서로 이등분은 모든 평행사변형에서 성립한다";
+            if (misconception == "perpendicular_means_equal_diagonals") return "수직인 대각선과 길이가 같은 대각선은 다른 성질이다";
+            if (misconception == "square_only_equal_diagonals") return "정사각형뿐 아니라 직사각형의 대각선도 길이가 같다";
+            if (misconception == "all_parallelograms_perpendicular") return "모든 평행사변형의 대각선이 수직인 것은 아니다";
+            if (misconception == "equal_diagonals_means_perpendicular") return "길이가 같은 대각선이 반드시 수직인 것은 아니다";
+            if (misconception == "square_only_perpendicular") return "정사각형뿐 아니라 마름모의 대각선도 서로 수직이다";
+            if (misconception == "rectangle_not_rhombus") return "90°만으로는 네 변의 길이가 같다고 할 수 없다";
+            if (misconception == "rhombus_not_rectangle") return "네 변이 같아도 네 각이 90°가 아닐 수 있다";
+            if (misconception == "parallelogram_is_square") return "정사각형에는 직각과 네 변 같음이 모두 필요하다";
             return "문표가 말한 각과 A 눈금의 관계를 다시 확인하시오";
         }
 
@@ -935,7 +1055,8 @@ namespace Mgf.PpittulDaemun
         int DetentFromScreen(Vector2 p)
         {
             float x = p.x / Mathf.Max(1, Screen.width);
-            return Mathf.Clamp(Mathf.RoundToInt((x - .10f) / .80f * 10f), 0, 10);
+            int detent = Mathf.Clamp(Mathf.RoundToInt((x - .10f) / .80f * 10f), 0, 10);
+            return PpittulRules.IsPropertyProblem(current) ? PpittulRules.SnapPropertyDetent(detent) : detent;
         }
     }
 }
