@@ -337,14 +337,19 @@ namespace Mgf.YeonTtwiwo
                 }
 
                 int cart = CartridgeAtScreen(MgfPointer.Position);
+                // 고정 연습에서는 하단 절반 전체를 연습 살대의 넓은 시작 영역으로 쓴다.
+                // 짧은 원호를 그리는 학생이 작은 3D 손잡이를 정확히 찍지 못해도 같은
+                // 실제 drag 경로로 회전·삽입을 배울 수 있고, 탭만으로는 제출되지 않는다.
+                if (cart < 0 && gamePhase == GamePhase.Practice)
+                    cart = 0;
                 if (cart >= 0 && (gamePhase != GamePhase.Practice || cart == 0))
                 {
                     BeginCartridgeGrab(cart);
                     MgfBridge.NotifyChanged();
                     return;
                 }
-                RefuseAt(MgfPointer.Position, "아래 살대 손잡이를 눌러 원호로 돌리시오");
-                ReplayGuide(false);
+                    RefuseAt(MgfPointer.Position, "손잡이에서 시작해 원호로 돌린 뒤 가운데 연틀까지 이으시오");
+                    ReplayGuide(false);
                 MgfBridge.NotifyChanged();
             }
 
@@ -409,24 +414,39 @@ namespace Mgf.YeonTtwiwo
             if (!inserting)
             {
                 Vector2 v = now - cartScreenCenter;
-                if (v.sqrMagnitude >= 100f)
+                // 연습에서는 한 grab이 한 번의 90° 회전만 만든다. 이전 구현은 18°를
+                // 넘을 때마다 계속 회전시켜 자연스러운 긴 원호가 180°/270°로 과진행했다.
+                // 실전은 여러 사분면을 의도적으로 돌릴 수 있어 기존 누적 회전을 유지한다.
+                bool mayRotate = gamePhase != GamePhase.Practice || !rotatedThisGrab;
+                if (mayRotate && v.sqrMagnitude >= 100f)
                 {
                     float angle = Mathf.Atan2(v.y, v.x) * Mathf.Rad2Deg;
                     arcAccumulator += Mathf.DeltaAngle(lastPointerAngle, angle);
                     lastPointerAngle = angle;
-                    if (Mathf.Abs(arcAccumulator) >= 28f)
+                    if (Mathf.Abs(arcAccumulator) >= 18f)
                     {
                         int step = arcAccumulator > 0 ? 1 : -1;
-                        cartridgeRotation[selectedCartridge] = (cartridgeRotation[selectedCartridge] + step + 4) % 4;
+                        cartridgeRotation[selectedCartridge] = gamePhase == GamePhase.Practice
+                            ? 1
+                            : (cartridgeRotation[selectedCartridge] + step + 4) % 4;
                         arcAccumulator = 0f;
                         rotatedThisGrab = true;
                         RotateCartridgeVisual(selectedCartridge, cartridgeRotation[selectedCartridge], true);
                         MgfSfx.Play("pop", .20f);
                     }
                 }
+                // 첫 연습은 어느 방향으로든 충분히 끌면 안내 궤적을 따라 90° 홈에 잠긴다.
+                // 실전에서는 아래 보정이 없고 실제 원호 각도만 판정한다.
+                if (gamePhase == GamePhase.Practice && !rotatedThisGrab && dragDistance >= 28f)
+                {
+                    cartridgeRotation[selectedCartridge] = 1;
+                    rotatedThisGrab = true;
+                    RotateCartridgeVisual(selectedCartridge, 1, true);
+                    MgfSfx.Play("pop", .20f);
+                }
                 bool hasTurn = rotatedThisGrab || cartridgeRotation[selectedCartridge] != 0;
                 float upward = now.y - pointerDown.y;
-                if (hasTurn && (upward > 42f * Mathf.Max(1f, MgfText.Canvas.scaleFactor) || Vector2.Distance(now, cartScreenCenter) > 92f))
+                if (hasTurn && (upward > 30f * Mathf.Max(1f, MgfText.Canvas.scaleFactor) || Vector2.Distance(now, cartScreenCenter) > 76f))
                     inserting = true;
             }
             if (inserting)

@@ -140,6 +140,29 @@ async function rotateAndInsert(page, snapshot, placement) {
   await page.mouse.up();
 }
 
+// 3차 수정 회귀 입력: 수정 전에는 한 grab의 긴 원호가 18°마다 반복 회전되어
+// 180°(짝수 사분면)로 끝나 연습 오답이 났다. 같은 입력을 보존해 한 번의
+// 90° 홈에 잠긴 뒤 실전으로 넘어가는지 검사한다.
+async function longArcPracticeAndInsert(page, snapshot) {
+  const cx = snapshot.cartridgePx[0];
+  const cy = snapshot.cartridgePx[1];
+  const dx = snapshot.dockPx[8];
+  const dy = snapshot.dockPx[9];
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await sleep(55);
+  await page.mouse.move(cx + 44, cy);
+  for (const degrees of [30, 60, 90, 120, 150, 180]) {
+    const rad = degrees * Math.PI / 180;
+    await page.mouse.move(cx + Math.cos(rad) * 44, cy - Math.sin(rad) * 44);
+    await sleep(55);
+  }
+  await page.mouse.move((cx + dx) / 2, (cy + dy) / 2, {steps: 3});
+  await page.mouse.move(dx, dy, {steps: 4});
+  await sleep(70);
+  await page.mouse.up();
+}
+
 async function waitForNextBundle(page, placements) {
   await page.waitForFunction(previous => {
     const s = window.__GAME_TEST__.getState();
@@ -195,7 +218,9 @@ try {
   const uniquePrompts = new Set(bank.map(item => item.prompt)).size;
   const promptStyleOk = bank.every(item => item.prompt.includes('두 대각선의 교점을 O라 할 때') &&
     item.prompt.includes('AO=CO=') && item.prompt.includes('BO=') && item.prompt.includes('DO=') &&
-    !item.prompt.includes('AC 반쪽') && !/살대\s+[A-Z]\s+\d+·\d+/.test(item.prompt));
+    !item.prompt.includes('AC 반쪽') && !/살대\s+[A-Z]는/.test(item.prompt) &&
+    !/BO=\d+(?!\d)(?!\s+cm)/.test(item.prompt) && !/DO=\d+(?!\d)(?!\s+cm)/.test(item.prompt) &&
+    !/살대\s+[A-Z]\s+\d+·\d+/.test(item.prompt));
   // WebGL 브리지는 공개 sampleProblems에서 확장 기하 필드를 의도적으로 숨긴다. 부팅 전
   // YeonRules.ValidateAll이 360개 legal/accepted/chance와 480개 오개념 조합을 전수 검사하며,
   // ready=true가 그 검사를 통과했다는 증거다. 여기서는 공개 계약의 개수·핵심 발문 다양성을 재확인한다.
@@ -209,11 +234,13 @@ try {
   await sleep(150);
   await page.screenshot({path: path.join(FRAMES, '01-practice-guide.png')});
   const practice = await state(page);
-  await rotateAndInsert(page, practice, {dock: 4, cart: 0, rotation: 1});
+  const practiceStartedAt = Date.now();
+  await longArcPracticeAndInsert(page, practice);
   await page.waitForFunction(() => {
     const s = window.__GAME_TEST__.getState();
     return s.onboarding === false && s.lastAction?.startsWith('bundle-');
   }, {timeout: 5000});
+  const longArcPracticeToRunMs = Date.now() - practiceStartedAt;
   await page.screenshot({path: path.join(FRAMES, '02-first-run.png')});
 
   const clean = await solveRun(page, false);
@@ -312,6 +339,7 @@ try {
     method: 'Chrome 실제 mouse down/move/up으로 타이틀 1탭, 연습 원호 회전·삽입, 무실수 완주, 오답 1회 뒤 완주를 수행. 정답 계산은 StateJson의 화면 표시 정수 벡터를 독립 재계산. B3는 동일 C# 생성기 RunBotAudit를 정책별 200판 실행.',
     bank: {count: bank.length, uniquePrompts, promptStyleOk, wrongExplanationChecks: boot.wrongExplanationChecks, mathBankOk},
     firstTap: {titleTapToPracticeMs, passed: titleTapToPracticeMs <= 500},
+    longArcPractice: {longArcPracticeToRunMs, expected: '한 grab에서 90° 1회로 잠기고 실전 진입', passed: longArcPracticeToRunMs <= 5000},
     degenerateWrong: {placement: degeneratePlacement, before: degenerateBefore, after: degenerateAfter,
       expected: '두 대각선이 한 직선에 놓여 사각형이 만들어지지 않는다', passed: degenerateExplanationOk},
     layouts,
@@ -319,7 +347,7 @@ try {
     recovery,
     bots,
     consoleErrors: errors,
-    passed: mathBankOk && titleTapToPracticeMs <= 500 && degenerateExplanationOk && layouts.every(item => item.panelsInside) &&
+    passed: mathBankOk && titleTapToPracticeMs <= 500 && longArcPracticeToRunMs <= 5000 && degenerateExplanationOk && layouts.every(item => item.panelsInside) &&
       clean.phase === 'clear' && clean.launched >= 12 && clean.lives === 3 &&
       recovery.phase === 'clear' && recovery.launched >= 12 && recovery.lives === 2 &&
       bots.every(bot => bot.passed) && errors.length === 0

@@ -15,6 +15,16 @@ namespace Mgf.YeonTtwiwo
         public int y;
         public IVec2(int px, int py) { x = px; y = py; }
         public int Sqr => x * x + y * y;
+        public int Length
+        {
+            get
+            {
+                int sqr = Sqr;
+                for (int n = 0; n * n <= sqr; n++)
+                    if (n * n == sqr) return n;
+                throw new InvalidOperationException("정수 길이가 아닌 대각선 벡터: " + x + "," + y);
+            }
+        }
         public IVec2 Rotate(int quarter)
         {
             quarter = ((quarter % 4) + 4) % 4;
@@ -48,8 +58,10 @@ namespace Mgf.YeonTtwiwo
         public int q;
         public string misconceptionId;
         public IVec2 V => new IVec2(vx, vy);
-        public int BOLength => p * 5;
-        public int DOLength => q * 5;
+        // 화면 라벨, 문제 은행, 판정이 모두 같은 정수 벡터의 실제 길이를 쓴다.
+        // 일반 문항은 |V|=5이고 연습 문항은 |V|=1이므로 고정 배율 5를 쓰면 안 된다.
+        public int BOLength => p * V.Length;
+        public int DOLength => q * V.Length;
     }
 
     [Serializable]
@@ -405,9 +417,9 @@ namespace Mgf.YeonTtwiwo
             // 문항 다양성은 일련번호가 아니라 실제 목표 위치·AC 측정값·살대 이름과 BO/DO 측정값에서 나온다.
             string bd = "";
             for (int i = 0; i < carts.Length; i++)
-                bd += (i == 0 ? "" : " / ") + carts[i].id + "는 BO=" + carts[i].BOLength
+                bd += (i == 0 ? "" : " / ") + carts[i].id + ": BO=" + carts[i].BOLength
                     + " cm, DO=" + carts[i].DOLength + " cm";
-            return instruction + bd + "이다.";
+            return instruction + bd + ".";
         }
 
         public static List<YeonBankItem> BuildBank(int count = 360)

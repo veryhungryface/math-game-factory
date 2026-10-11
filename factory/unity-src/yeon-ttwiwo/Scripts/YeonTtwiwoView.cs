@@ -1,4 +1,4 @@
-// 연 띄워 — 햇빛 드는 종이바람 공방 2.5D 월드, 3×3 연틀, 비단 발사와 반응형 UI.
+// 연 띄워 — 먹구름을 가르는 흑칠 연 관측옥상 2.5D 월드, 3×3 연틀, 비단 발사와 반응형 UI.
 using System;
 using Mgf;
 using TMPro;
@@ -9,16 +9,16 @@ namespace Mgf.YeonTtwiwo
 {
     public partial class YeonTtwiwoGame
     {
-        static readonly Color Night = MgfLook.Hex("243A43");
-        static readonly Color Slate = MgfLook.Hex("6B8F8A");
-        static readonly Color Pearl = MgfLook.Hex("FFF4D8");
-        static readonly Color Vermilion = MgfLook.Hex("E96B4C");
-        static readonly Color RainBlue = MgfLook.Hex("5FA8B8");
-        static readonly Color InkBlack = MgfLook.Hex("173239");
-        static readonly Color Brass = MgfLook.Hex("C98B45");
-        static readonly Color Bamboo = MgfLook.Hex("B9864E");
-        static readonly Color Leaf = MgfLook.Hex("83AA6B");
-        static readonly Color Sky = MgfLook.Hex("BFE8ED");
+        static readonly Color Night = MgfLook.Hex("151B26");
+        static readonly Color Slate = MgfLook.Hex("33435C");
+        static readonly Color Pearl = MgfLook.Hex("E7E0CF");
+        static readonly Color Vermilion = MgfLook.Hex("D94A38");
+        static readonly Color RainBlue = MgfLook.Hex("87B9C8");
+        static readonly Color InkBlack = MgfLook.Hex("090D14");
+        static readonly Color Brass = MgfLook.Hex("BDA56F");
+        static readonly Color Bamboo = MgfLook.Hex("352826");
+        static readonly Color Leaf = MgfLook.Hex("52687B");
+        static readonly Color Sky = MgfLook.Hex("0C1422");
 
         Camera cam;
         Transform worldRoot, roofRoot, boardRoot, rackRoot, flagRoot;
@@ -35,7 +35,10 @@ namespace Mgf.YeonTtwiwo
         TextMeshPro[] frameMeasureText = new TextMeshPro[9];
         Transform[] cartridgeRoots = new Transform[3];
         Transform[] cartridgeBars = new Transform[3];
+        Transform[] cartridgeNotches = new Transform[3];
         Transform[] cartridgeHandles = new Transform[3];
+        Transform[] cartridgeLeftMarks = new Transform[3];
+        Transform[] cartridgeRightMarks = new Transform[3];
         TextMeshPro[] cartridgeLabels = new TextMeshPro[3];
         Vector3[] cartridgeHomes = new Vector3[3];
         Transform[] kiteRoots = new Transform[6];
@@ -63,7 +66,7 @@ namespace Mgf.YeonTtwiwo
         readonly float[] rippleLife = new float[8];
         int rippleCursor;
         Image guideDot, guideLine, guideArrow;
-        float guideLeft;
+        float guideLeft, guideTotal;
         bool guideLarge;
         int previewDock = -1;
         float toastLeft, titleCordPull, endCordPull, scoreDisplay, endScoreDisplay;
@@ -73,24 +76,24 @@ namespace Mgf.YeonTtwiwo
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("A9DDE4"), MgfLook.Hex("EAF4DF"), MgfLook.Hex("D7C895"), .82f);
-            MgfLook.Sun(new Vector3(52f, -28f, -24f), MgfLook.Hex("FFF1C7"), 1.18f, .76f);
+            MgfLook.Sky(MgfLook.Hex("080D18"), MgfLook.Hex("18263B"), MgfLook.Hex("050810"), .78f);
+            MgfLook.Sun(new Vector3(44f, -32f, -18f), MgfLook.Hex("CDE8F1"), 1.10f, .72f);
             cam = MgfLook.Camera(new Vector3(0f, 15.5f, -18.5f), new Vector3(0f, .3f, .1f), 35f);
             cam.orthographic = true;
             cam.orthographicSize = 7.3f;
 
-            lacquerMat = MgfLook.Lit(MgfLook.Hex("7C573A"), .16f, .02f);
-            lacquerGlowMat = MgfLook.Lit(MgfLook.Hex("A56F43"), .20f, .01f);
-            frameMat = MgfLook.Lit(Bamboo, .12f, 0f);
-            fixedMat = MgfLook.Lit(MgfLook.Hex("466F73"), .18f, .02f);
-            silkMat = MgfLook.Lit(Pearl, .10f, 0f);
-            knotMat = MgfLook.Lit(MgfLook.Hex("3C3446"), .10f, .01f);
-            vermilionMat = MgfLook.Lit(Vermilion, .16f, .01f);
-            tileMatA = MgfLook.Lit(MgfLook.Hex("D7B77C"), .12f, 0f);
-            tileMatB = MgfLook.Lit(MgfLook.Hex("F4DFAD"), .10f, 0f);
+            lacquerMat = MgfLook.Lit(MgfLook.Hex("0C121C"), .62f, .42f);
+            lacquerGlowMat = MgfLook.Lit(MgfLook.Hex("20334B"), .68f, .36f);
+            frameMat = MgfLook.Lit(Bamboo, .34f, .08f);
+            fixedMat = MgfLook.Lit(MgfLook.Hex("8CBBC8"), .56f, .18f);
+            silkMat = MgfLook.Lit(Pearl, .22f, .02f);
+            knotMat = MgfLook.Lit(MgfLook.Hex("1B1220"), .30f, .08f);
+            vermilionMat = MgfLook.Lit(Vermilion, .42f, .10f);
+            tileMatA = MgfLook.Lit(MgfLook.Hex("111A29"), .38f, .22f);
+            tileMatB = MgfLook.Lit(MgfLook.Hex("26354B"), .28f, .12f);
 
-            worldRoot = new GameObject("SunnyPaperWindWorkshop").transform;
-            roofRoot = new GameObject("MiniatureKiteCourtyard").transform; roofRoot.SetParent(worldRoot, false);
+            worldRoot = new GameObject("StormKiteObservatory").transform;
+            roofRoot = new GameObject("WetTileWindTower").transform; roofRoot.SetParent(worldRoot, false);
             boardRoot = new GameObject("NineKiteFrames").transform; boardRoot.SetParent(worldRoot, false);
             rackRoot = new GameObject("LacquerCartridgeRail").transform; rackRoot.SetParent(worldRoot, false);
             flagRoot = new GameObject("WindVanesAndFlags").transform; flagRoot.SetParent(worldRoot, false);
@@ -100,47 +103,42 @@ namespace Mgf.YeonTtwiwo
             BuildFrames();
             BuildRack();
             BuildKites();
-            BuildWindBirds();
+            BuildTensionVanes();
             BuildTrail();
         }
 
         void BuildRoof()
         {
-            // 밝은 낮의 미니어처 종이바람 공방. 큰 무광 한지 마당과 대나무 작업대,
-            // 종이 조각·실패·화분이 화면을 채워 이전 우중 산업 무대와 물성을 분리한다.
-            var grass = MgfLook.Lit(MgfLook.Hex("9FBE78"), .10f, 0f);
-            var paperBlue = MgfLook.Lit(MgfLook.Hex("D7EEF0"), .08f, 0f);
-            var paperCoral = MgfLook.Lit(MgfLook.Hex("F4A681"), .08f, 0f);
-            var thread = MgfLook.Lit(MgfLook.Hex("3D7778"), .12f, 0f);
-            MgfLook.Block("GrassDiorama", new Vector3(0f,-.42f,.2f), new Vector3(25f,.58f,17.5f), .55f, grass, roofRoot);
-            MgfLook.Block("HanjiWorkMat", new Vector3(0f,-.06f,.7f), new Vector3(13.0f,.18f,13.2f), .38f, tileMatB, roofRoot);
-            for(int i=-5;i<=5;i++)
-                MgfLook.Block("BambooSlat"+i,new Vector3(i*1.12f,.05f,.7f),new Vector3(.065f,.06f,12.8f),.02f,frameMat,roofRoot);
+            // 선택안의 핵심인 깊은 하늘 공허와 수직 바람탑을 화면 가장자리까지 잇는다.
+            MgfLook.Block("RoofVoid", new Vector3(0f,-.70f,.4f), new Vector3(26f,.55f,18.5f), .35f, lacquerMat, roofRoot);
+            MgfLook.Block("WetTileDeck", new Vector3(0f,-.10f,.7f), new Vector3(13.8f,.28f,13.8f), .22f, tileMatA, roofRoot);
+            for(int z=-6;z<=6;z++)
+            for(int x=-6;x<=6;x++)
+            {
+                if(((x+z)&1)!=0)continue;
+                var tile=MgfLook.Block("RoofScale"+x+"_"+z,new Vector3(x*1.08f,.08f,z*1.03f+.7f),new Vector3(1.02f,.10f,.92f),.12f,((x+z)&2)==0?tileMatA:tileMatB,roofRoot);
+                tile.transform.localRotation=Quaternion.Euler(0f,0f,(x&1)==0?1.5f:-1.5f);
+            }
             for(int side=-1;side<=1;side+=2)
             {
-                MgfLook.Block("LowShelf"+side,new Vector3(side*8.7f,.38f,.3f),new Vector3(2.5f,.65f,13.5f),.25f,tileMatA,roofRoot);
-                for(int i=0;i<6;i++)
+                float x=side*9.1f;
+                MgfLook.Block("WindTowerBase"+side,new Vector3(x,1.25f,1.0f),new Vector3(2.4f,2.7f,12.8f),.30f,lacquerMat,roofRoot);
+                MgfLook.Block("WindTowerSpine"+side,new Vector3(x,4.9f,1.0f),new Vector3(.52f,7.2f,.52f),.16f,frameMat,roofRoot);
+                for(int i=0;i<5;i++)
                 {
-                    float z=-5.5f+i*2.2f;
-                    var spool=MgfLook.Block("ThreadSpool"+side+"_"+i,new Vector3(side*(8.35f+(i%2)*.42f),.92f,z),new Vector3(.62f,.62f,.62f),.28f,i%2==0?thread:vermilionMat,roofRoot);
-                    spool.transform.localRotation=Quaternion.Euler(0f,i*17f,0f);
-                    var scrap=MgfLook.Block("PaperScrap"+side+"_"+i,new Vector3(side*(7.0f+(i%3)*.45f),.14f,z+.35f),new Vector3(.75f,.05f,.75f),.03f,i%2==0?paperBlue:paperCoral,roofRoot);
-                    scrap.transform.localRotation=Quaternion.Euler(0f,45f+i*9f,0f);
+                    float z=-4.5f+i*2.35f;
+                    MgfLook.Block("TensionDrum"+side+"_"+i,new Vector3(x-side*.82f,2.05f,z),new Vector3(.72f,.72f,.72f),.31f,i%2==0?vermilionMat:fixedMat,roofRoot);
+                    CreateBar("TensionCord"+side+"_"+i,new Vector3(x-side*.55f,2.35f,z),new Vector3(side*6.9f,.45f,z*.45f),.035f,i%2==0?vermilionMat:fixedMat,roofRoot);
                 }
-            }
-            for(int i=-6;i<=6;i+=2)
-            {
-                MgfLook.Block("GardenStake"+i,new Vector3(i*1.55f,.65f,7.2f),new Vector3(.13f,1.5f,.13f),.04f,frameMat,roofRoot);
-                var leaf=MgfLook.Block("PinwheelLeaf"+i,new Vector3(i*1.55f,1.48f,7.2f),new Vector3(.82f,.07f,.82f),.04f,i%4==0?paperCoral:paperBlue,roofRoot);
-                leaf.transform.localRotation=Quaternion.Euler(0f,45f,0f);
+                MgfLook.Block("TowerLantern"+side,new Vector3(x,7.6f,1.0f),new Vector3(1.25f,1.45f,1.25f),.22f,MgfLook.Lit(MgfLook.Hex("B9DCE4"),.26f,0f,MgfLook.Hex("B9DCE4")*.18f),roofRoot);
             }
             for (int i = 0; i < flags.Length; i++)
             {
                 float side = (i & 1) == 0 ? -1f : 1f;
                 MgfLook.Block("WindPole" + i, new Vector3(side * (9.5f + (i % 2) * .7f), 2.25f, -5.5f + i * 1.85f),
-                    new Vector3(.11f, 4.7f, .11f), .025f, frameMat, flagRoot);
-                var flag = MgfLook.Block("HanjiStreamer" + i, new Vector3(side * (8.9f + (i % 2) * .7f), 3.65f, -5.5f + i * 1.85f),
-                    new Vector3(1.12f, .06f, .42f), .02f, i%3==0?paperBlue:i%3==1?paperCoral:silkMat, flagRoot);
+                    new Vector3(.11f, 4.7f, .11f), .025f, lacquerGlowMat, flagRoot);
+                var flag = MgfLook.Block("VermilionStormPennant" + i, new Vector3(side * (8.9f + (i % 2) * .7f), 3.65f, -5.5f + i * 1.85f),
+                    new Vector3(1.12f, .06f, .42f), .02f, i%3==0?vermilionMat:i%3==1?fixedMat:silkMat, flagRoot);
                 flag.transform.rotation = Quaternion.Euler(0f, side < 0 ? 12f : -12f, side < 0 ? 8f : -8f);
                 flags[i] = flag.transform;
             }
@@ -148,7 +146,7 @@ namespace Mgf.YeonTtwiwo
 
         void BuildCloudsAndRain()
         {
-            var cloudMat = MgfLook.Lit(MgfLook.Hex("F8F0D8"), .08f, 0f);
+            var cloudMat = MgfLook.Lit(MgfLook.Hex("222D40"), .18f, .04f);
             for (int i = 0; i < cloudPlates.Length; i++)
             {
                 float x = -14f + (i * 43 % 101) / 100f * 28f;
@@ -159,7 +157,7 @@ namespace Mgf.YeonTtwiwo
                 c.transform.rotation = Quaternion.Euler(0f, -8f + i * 3f, 0f);
                 cloudPlates[i] = c.transform;
             }
-            var rainMat = MgfLook.Unlit(new Color(Pearl.r, Pearl.g, Pearl.b, .76f));
+            var rainMat = MgfLook.Unlit(new Color(RainBlue.r, RainBlue.g, RainBlue.b, .74f));
             for (int i = 0; i < rainNeedles.Length; i++)
             {
                 float x = -12f + ((i * 47) % 97) / 96f * 24f;
@@ -170,9 +168,9 @@ namespace Mgf.YeonTtwiwo
                 needle.transform.rotation = Quaternion.Euler(0f, 0f, 58f);
                 rainNeedles[i] = needle.transform;
             }
-            var sunDisk = MgfLook.Block("PaperSun", new Vector3(8.2f, 9.0f, 9.4f), new Vector3(1.15f, 1.15f, .20f), .50f,
-                MgfLook.Lit(MgfLook.Hex("FFD783"), .08f, 0f), worldRoot);
-            sunDisk.transform.rotation = Quaternion.Euler(15f, 0f, 0f);
+            var moonDisk = MgfLook.Block("MoonSignal", new Vector3(8.2f, 9.0f, 9.4f), new Vector3(1.15f, 1.15f, .20f), .50f,
+                MgfLook.Lit(MgfLook.Hex("D7EEF2"), .16f, 0f, MgfLook.Hex("D7EEF2")*.24f), worldRoot);
+            moonDisk.transform.rotation = Quaternion.Euler(15f, 0f, 0f);
         }
 
         void BuildFrames()
@@ -185,7 +183,7 @@ namespace Mgf.YeonTtwiwo
                 root.localPosition = new Vector3((col - 1) * 3.05f, .22f, (row - 1) * 2.86f + .6f);
                 frameRoots[i] = root;
 
-                MgfLook.Block("HanjiFrameBoard", Vector3.zero, new Vector3(2.65f, .22f, 2.38f), .18f, tileMatB, root);
+                MgfLook.Block("LacquerTensionFrame", Vector3.zero, new Vector3(2.65f, .22f, 2.38f), .18f, tileMatB, root);
                 Vector3[] pts = {
                     new Vector3(0f,.18f,-1.02f), new Vector3(1.13f,.18f,0f),
                     new Vector3(0f,.18f,1.02f), new Vector3(-1.13f,.18f,0f)
@@ -216,30 +214,34 @@ namespace Mgf.YeonTtwiwo
                 }
                 previewRings[i].SetActive(false);
 
-                frameGoalText[i] = MgfText.World("", new Vector3(0f,.34f,1.32f), .62f, InkBlack, root);
+                frameGoalText[i] = MgfText.World("", new Vector3(0f,.36f,1.32f), .72f, Pearl, root);
                 frameGoalText[i].transform.localRotation = Quaternion.Euler(90f,0f,0f);
-                frameMeasureText[i] = MgfText.World("A — O — C", new Vector3(0f,.35f,-1.27f), .48f, Night, root);
+                frameGoalText[i].outlineWidth=.16f;frameGoalText[i].outlineColor=InkBlack;
+                frameMeasureText[i] = MgfText.World("A — O — C", new Vector3(0f,.37f,-1.27f), .58f, Pearl, root);
                 frameMeasureText[i].transform.localRotation = Quaternion.Euler(90f,0f,0f);
+                frameMeasureText[i].outlineWidth=.18f;frameMeasureText[i].outlineColor=InkBlack;
             }
             boardRoot.position = new Vector3(0f, .25f, .75f);
         }
 
         void BuildRack()
         {
-            MgfLook.Block("BambooToolTray", new Vector3(0f,.40f,0f), new Vector3(10.4f,.62f,2.4f), .24f, tileMatA, rackRoot);
+            MgfLook.Block("BlackLacquerRail", new Vector3(0f,.40f,0f), new Vector3(10.4f,.62f,2.4f), .24f, lacquerGlowMat, rackRoot);
             for (int i = 0; i < cartridgeRoots.Length; i++)
             {
                 var root = new GameObject("DiagonalCartridge" + i).transform; root.SetParent(rackRoot, false);
                 root.localPosition = new Vector3((i - 1) * 3.05f, .86f, 0f);
                 cartridgeRoots[i] = root;
                 cartridgeHomes[i] = root.localPosition;
-                cartridgeBars[i] = MgfLook.Block("BambooSpar", Vector3.zero, new Vector3(2.25f,.26f,.42f), .12f, frameMat, root).transform;
-                MgfLook.Block("MidpointNotch", new Vector3(0f,.17f,0f), new Vector3(.22f,.32f,.62f), .07f, vermilionMat, root);
+                cartridgeBars[i] = MgfLook.Block("EngravedLacquerSpar", Vector3.zero, new Vector3(2.25f,.26f,.42f), .12f, lacquerMat, root).transform;
+                cartridgeNotches[i] = MgfLook.Block("IntersectionONotch", new Vector3(0f,.17f,0f), new Vector3(.22f,.32f,.62f), .07f, vermilionMat, root).transform;
                 cartridgeHandles[i] = MgfLook.Block("Handle", new Vector3(1.28f,.16f,0f), new Vector3(.62f,.38f,.72f), .18f, vermilionMat, root).transform;
-                MgfLook.Block("PaperTestLeft", new Vector3(-1.35f,.05f,0f), new Vector3(.52f,.06f,.86f), .03f, silkMat, root);
-                MgfLook.Block("PaperTestRight", new Vector3(1.35f,.05f,0f), new Vector3(.52f,.06f,.86f), .03f, silkMat, root);
-                cartridgeLabels[i] = MgfText.World("", new Vector3(0f,.42f,-.72f), .52f, InkBlack, root);
+                cartridgeLeftMarks[i] = MgfLook.Block("PointBPaperMark", new Vector3(-1.01f,.05f,0f), new Vector3(.52f,.06f,.86f), .03f, silkMat, root).transform;
+                cartridgeRightMarks[i] = MgfLook.Block("PointDPaperMark", new Vector3(1.01f,.05f,0f), new Vector3(.52f,.06f,.86f), .03f, silkMat, root).transform;
+                // 측정값은 회전하는 살대의 자식이 아니라 레일에 고정해 항상 정방향으로 읽힌다.
+                cartridgeLabels[i] = MgfText.World("", new Vector3((i-1)*3.05f,1.32f,-.82f), 1.02f, Pearl, rackRoot);
                 cartridgeLabels[i].transform.localRotation = Quaternion.Euler(90f,0f,0f);
+                cartridgeLabels[i].outlineWidth=.20f;cartridgeLabels[i].outlineColor=InkBlack;
             }
             rackRoot.position = new Vector3(0f,.18f,-5.0f);
         }
@@ -258,25 +260,23 @@ namespace Mgf.YeonTtwiwo
             }
         }
 
-        void BuildWindBirds()
+        void BuildTensionVanes()
         {
-            // 종이 연에서 태어난 작은 바람새 세 마리. 정답에는 위로 폴짝이고,
-            // 오답에는 뒤로 움츠러들어 수학 사건의 살아 있는 주인공이 된다.
-            var eyeMat = MgfLook.Lit(InkBlack, .08f, 0f);
+            // 캐릭터 대신 관측옥상의 장력 풍향계가 정답·오답에 반응한다.
             for(int i=0;i<windBirds.Length;i++)
             {
-                var root=new GameObject("PaperWindBird"+i).transform;root.SetParent(worldRoot,false);
-                windBirdHomes[i]=new Vector3(-7.0f+i*7.0f,1.15f,5.2f-(i%2)*.7f);root.position=windBirdHomes[i];
-                var body=MgfLook.Block("FoldedPaperBody",Vector3.zero,new Vector3(.78f,.13f,.78f),.06f,i==1?silkMat:i==0?vermilionMat:tileMatB,root);
-                body.transform.localRotation=Quaternion.Euler(0f,45f,0f);
-                var left=MgfLook.Block("LeftWing",new Vector3(-.58f,.02f,0f),new Vector3(.70f,.07f,.42f),.04f,i==1?vermilionMat:silkMat,root);
-                var right=MgfLook.Block("RightWing",new Vector3(.58f,.02f,0f),new Vector3(.70f,.07f,.42f),.04f,i==1?vermilionMat:silkMat,root);
-                left.transform.localRotation=Quaternion.Euler(0f,-18f,8f);right.transform.localRotation=Quaternion.Euler(0f,18f,-8f);
-                MgfLook.Block("EyeL",new Vector3(-.16f,.18f,-.36f),new Vector3(.09f,.09f,.06f),.04f,eyeMat,root);
-                MgfLook.Block("EyeR",new Vector3(.16f,.18f,-.36f),new Vector3(.09f,.09f,.06f),.04f,eyeMat,root);
+                var root=new GameObject("TensionVane"+i).transform;root.SetParent(worldRoot,false);
+                windBirdHomes[i]=new Vector3(-7.0f+i*7.0f,1.2f,5.2f-(i%2)*.7f);root.position=windBirdHomes[i];
+                MgfLook.Block("GaugeHub",Vector3.zero,new Vector3(.44f,.46f,.44f),.18f,brassMat(),root);
+                var needle=MgfLook.Block("Needle",new Vector3(0f,.18f,-.42f),new Vector3(.16f,.12f,1.15f),.05f,i==1?vermilionMat:fixedMat,root);
+                needle.transform.localRotation=Quaternion.Euler(0f,(i-1)*16f,0f);
+                var vane=MgfLook.Block("PearlVane",new Vector3(0f,.12f,.62f),new Vector3(1.05f,.08f,.48f),.04f,silkMat,root);
+                vane.transform.localRotation=Quaternion.Euler(0f,45f,0f);
                 windBirds[i]=root;
             }
         }
+
+        Material brassMat(){return MgfLook.Lit(Brass,.52f,.34f);}
 
         void BuildTrail()
         {
@@ -308,8 +308,8 @@ namespace Mgf.YeonTtwiwo
         {
             var artGo = new GameObject("TitleKeyArt", typeof(RectTransform), typeof(RawImage)); artGo.transform.SetParent(titleRoot.transform, false);
             titleArt = artGo.GetComponent<RawImage>(); titleArtRt = (RectTransform)artGo.transform; Stretch(titleArtRt);
-            // 회화형 생성 이미지는 사용하지 않는다. 같은 런타임 공방 월드가 타이틀부터 보인다.
-            titleArt.texture = null; titleArt.color = new Color(Sky.r,Sky.g,Sky.b,.07f);
+            // 같은 런타임 관측옥상이 타이틀부터 보이도록 얇은 청회색 기상 막만 얹는다.
+            titleArt.texture = null; titleArt.color = new Color(Slate.r,Slate.g,Slate.b,.16f);
             titleArt.raycastTarget = false;
 
             for (int i = 0; i < titleRain.Length; i++)
@@ -320,33 +320,32 @@ namespace Mgf.YeonTtwiwo
                 titleRainOffset[i] = (i * 53 % 97) / 97f;
             }
 
-            var banner = Panel("KiteSign", titleRoot.transform, new Color32(255,244,216,246), out titleBannerImage);
+            var banner = Panel("TowerPennant", titleRoot.transform, new Color32(18,27,42,235), out titleBannerImage);
             titleBannerRt = (RectTransform)banner.transform;
             titleBannerImage.raycastTarget = false;
-            var outline = banner.AddComponent<Outline>(); outline.effectColor = new Color32(21,27,38,230); outline.effectDistance = new Vector2(3f,-3f);
-            titleLogoShadow = MakeText("연 띄워", banner.transform, 50f, Night, TextAlignmentOptions.Center);
-            titleLogoShadow.outlineWidth = .35f; titleLogoShadow.outlineColor = new Color32(217,74,56,255);
-            titleLogo = MakeText("연 띄워", banner.transform, 50f, Vermilion, TextAlignmentOptions.Center);
-            titleLogo.outlineWidth = .12f; titleLogo.outlineColor = new Color32(255,244,216,255);
-            titleTag = MakeText("대각선 살대를 맞춰 바람길을 열어라", banner.transform, 16f, Night, TextAlignmentOptions.Center);
-            titleMeta = MakeText("중학교 2학년 · 사각형의 성질", titleRoot.transform, 14f, Night, TextAlignmentOptions.Center);
-            titleMeta.outlineWidth=.16f; titleMeta.outlineColor=new Color32(9,13,20,230);
-            Rect((RectTransform)titleLogoShadow.transform,new Vector2(.5f,.62f),new Vector2(3f,-3f),new Vector2(360f,84f));
-            Rect((RectTransform)titleLogo.transform,new Vector2(.5f,.62f),Vector2.zero,new Vector2(360f,84f));
-            Rect((RectTransform)titleTag.transform,new Vector2(.5f,.20f),Vector2.zero,new Vector2(360f,42f));
+            var outline = banner.AddComponent<Outline>(); outline.effectColor = new Color32(217,74,56,230); outline.effectDistance = new Vector2(0f,-3f);
+            titleLogoShadow = MakeText("연 띄워", banner.transform, 46f, InkBlack, TextAlignmentOptions.Center);
+            titleLogo = MakeText("연 띄워", banner.transform, 46f, Pearl, TextAlignmentOptions.Center);
+            titleLogo.outlineWidth = .16f; titleLogo.outlineColor = new Color32(217,74,56,255);
+            titleTag = MakeText("대각선 살대로 먹구름을 가르시오", banner.transform, 15f, RainBlue, TextAlignmentOptions.Center);
+            titleMeta = MakeText("중학교 2학년 · 사각형의 성질", titleRoot.transform, 14f, Pearl, TextAlignmentOptions.Center);
+            titleMeta.outlineWidth=.18f; titleMeta.outlineColor=new Color32(9,13,20,245);
+            Rect((RectTransform)titleLogoShadow.transform,new Vector2(.5f,.64f),new Vector2(2f,-2f),new Vector2(340f,64f));
+            Rect((RectTransform)titleLogo.transform,new Vector2(.5f,.64f),Vector2.zero,new Vector2(340f,64f));
+            Rect((RectTransform)titleTag.transform,new Vector2(.5f,.22f),Vector2.zero,new Vector2(340f,36f));
 
             var cord = Panel("LaunchCord", titleRoot.transform, new Color32(217,74,56,245), out titleCordImage);
             titleCordRt = (RectTransform)cord.transform; titleCordImage.raycastTarget=false;
             var handle = Panel("LaunchCordHandle", titleRoot.transform, new Color32(231,224,207,250), out titleHandleImage);
             titleHandleRt = (RectTransform)handle.transform; titleHandleImage.raycastTarget=false;
-            titleCordText = MakeText("화면을 탭해 종이바람 공방을 연다", titleRoot.transform, 18f, Night, TextAlignmentOptions.Center);
-            titleCordText.outlineWidth=.18f; titleCordText.outlineColor=new Color32(9,13,20,240);
+            titleCordText = MakeText("주홍 발사줄을 눌러 관측을 시작하시오", titleRoot.transform, 17f, Pearl, TextAlignmentOptions.Center);
+            titleCordText.outlineWidth=.20f; titleCordText.outlineColor=new Color32(9,13,20,245);
         }
 
         void BuildPlayUi()
         {
             var goalPanel = Panel("GoalBanner", playRoot.transform, new Color32(21,27,38,226), out _); goalRt=(RectTransform)goalPanel.transform;
-            goalUi = MakeText("살대를 돌려 꽂고 바람줄 세 칸을 이으시오", goalPanel.transform, 17f, Pearl, TextAlignmentOptions.Center);
+            goalUi = MakeText("살대를 돌려 꽂고 바람줄 3칸을 이으시오", goalPanel.transform, 17f, Pearl, TextAlignmentOptions.Center);
             goalUi.outlineWidth=.10f; goalUi.outlineColor=new Color32(0,0,0,220); StretchInset((RectTransform)goalUi.transform,5f);
 
             var promptPanel = Panel("OrderPlaque", playRoot.transform, new Color32(42,56,76,232), out _); promptRt=(RectTransform)promptPanel.transform;
@@ -409,14 +408,14 @@ namespace Mgf.YeonTtwiwo
                 frameGoalText[i].text=YeonRules.GoalName(d.goal);
                 bool focus=i==current.preferredDock;
                 frameMeasureText[i].text=focus?"AO=CO="+d.uLength+" cm":"";
-                frameGoalText[i].fontSize=focus?.78f:.50f;
-                frameMeasureText[i].fontSize=focus?.56f:.42f;
+                frameGoalText[i].fontSize=focus?1.18f:.66f;
+                frameMeasureText[i].fontSize=focus?.88f:.52f;
                 float len=Mathf.Lerp(1.45f,2.02f,(d.uLength-10)/10f);
                 fixedBars[i].localScale=new Vector3(len,.095f,.095f);
                 fixedBars[i].localRotation=Quaternion.Euler(0f,d.ux==0?90f:0f,0f);
                 bool active=gamePhase!=GamePhase.Practice||i==4;
-                frameGoalText[i].color=active?(focus?Vermilion:InkBlack):new Color(InkBlack.r,InkBlack.g,InkBlack.b,.20f);
-                frameMeasureText[i].color=active?Night:new Color(Night.r,Night.g,Night.b,.18f);
+                frameGoalText[i].color=active?(focus?Vermilion:Pearl):new Color(Pearl.r,Pearl.g,Pearl.b,.20f);
+                frameMeasureText[i].color=active?Pearl:new Color(Pearl.r,Pearl.g,Pearl.b,.18f);
             }
             for(int i=0;i<3;i++)
             {
@@ -424,17 +423,32 @@ namespace Mgf.YeonTtwiwo
                 st.cartridgeGeometry[i*4]=c.vx;st.cartridgeGeometry[i*4+1]=c.vy;st.cartridgeGeometry[i*4+2]=c.p;st.cartridgeGeometry[i*4+3]=c.q;
                 float len=1.45f+(c.p+c.q)*.16f;
                 cartridgeBars[i].localScale=new Vector3(len,.26f,.42f);
+                // 막대 끝을 B(-)와 D(+)로 두고 교점 O를 BO:DO 비에 맞춰 옮긴다.
+                // p=q일 때만 O가 중앙이며, 오개념 살대의 p!=q는 도식에서도 즉시 보인다.
+                float oX=len*(c.p-c.q)/(2f*(c.p+c.q));
+                cartridgeNotches[i].localPosition=new Vector3(oX,.17f,0f);
+                cartridgeLeftMarks[i].localPosition=new Vector3(-len*.46f,.05f,0f);
+                cartridgeRightMarks[i].localPosition=new Vector3(len*.46f,.05f,0f);
                 cartridgeHandles[i].localPosition=new Vector3(len*.55f+.22f,.16f,0f);
-                cartridgeLabels[i].text=c.id+"\nBO="+c.BOLength+"  DO="+c.DOLength+" cm";
+                cartridgeLabels[i].text=c.id+"\nBO="+c.BOLength+" cm · DO="+c.DOLength+" cm";
                 cartridgeRoots[i].gameObject.SetActive(gamePhase!=GamePhase.Practice||i==0);
                 RotateCartridgeVisual(i,cartridgeRotation[i],false);
             }
-            promptUi.text=current.prompt;
+            promptUi.text=DisplayPrompt(current);
             evidenceUi.text=gamePhase==GamePhase.Practice
                 ?"연습 · AO=CO=3 cm  |  BO=DO=4 cm\n두 대각선이 서로 다른 것을 이등분하는지 확인하시오"
-                :"활성 연틀과 잡은 살대의 AO=CO / BO=DO / AC²=BD² / 내적을 크게 표시한다";
+                :"연틀·살대의 AO=CO / BO=DO / AC²=BD² / 수직 여부를 비교하시오";
             evidenceImage.color=new Color32(231,224,207,238);
             UpdateControlCoordinates();
+        }
+
+        string DisplayPrompt(BundleSpec bundle)
+        {
+            if(bundle==null)return "";
+            DockSpec d=bundle.docks[bundle.preferredDock];
+            int row=bundle.preferredDock/3+1,col=bundle.preferredDock%3+1;
+            return row+"행 "+col+"열 · "+YeonRules.GoalName(d.goal)+" · AO=CO="+d.uLength+" cm · AC "+(d.ux!=0?"가로":"세로")
+                +"\n아래 살대의 BO·DO를 읽고 돌려 꽂으시오";
         }
 
         void ResetAllVisuals(){ResetBoardVisuals();for(int i=0;i<kiteRoots.Length;i++)kiteRoots[i].gameObject.SetActive(false);skyOpenTarget=0f;}
@@ -449,7 +463,7 @@ namespace Mgf.YeonTtwiwo
         {
             bool title=gamePhase==GamePhase.Title,play=gamePhase==GamePhase.Practice||gamePhase==GamePhase.Playing||gamePhase==GamePhase.Reveal,end=gamePhase==GamePhase.End;
             titleRoot.SetActive(title);playRoot.SetActive(play);endRoot.SetActive(end);
-            // 타이틀도 실제 공방과 연틀을 보여 주어 플레이 화면과 같은 세계로 잇는다.
+            // 타이틀도 실제 관측옥상과 연틀을 보여 주어 플레이 화면과 같은 세계로 잇는다.
             boardRoot.gameObject.SetActive(true);rackRoot.gameObject.SetActive(play); 
             if(title){roofRoot.gameObject.SetActive(true);flagRoot.gameObject.SetActive(true);}
             if(play&&current!=null)BindBundle();
@@ -472,41 +486,41 @@ namespace Mgf.YeonTtwiwo
                 float stageW=Mathf.Min(1328f,logicalW-32f);
                 Rect(goalRt,new Vector2(.5f,1f),new Vector2(0f,-23f),new Vector2(Mathf.Min(700f,stageW-40f),42f));
                 Rect(hudRt,new Vector2(.5f,1f),new Vector2(0f,-61f),new Vector2(Mathf.Min(620f,stageW-40f),38f));
-                Rect(promptRt,new Vector2(.5f,1f),new Vector2(0f,-132f),new Vector2(Mathf.Min(940f,stageW-40f),104f));
-                Rect(evidenceRt,new Vector2(.5f,0f),new Vector2(0f,78f),new Vector2(Mathf.Min(820f,stageW-40f),112f));
+                Rect(promptRt,new Vector2(.5f,1f),new Vector2(0f,-120f),new Vector2(Mathf.Min(860f,stageW-40f),78f));
+                Rect(evidenceRt,new Vector2(.5f,0f),new Vector2(0f,62f),new Vector2(Mathf.Min(820f,stageW-40f),84f));
                 Rect(toastRt,new Vector2(.5f,.5f),new Vector2(0f,-logicalH*.34f),new Vector2(480f,64f));
-                promptUi.fontSize=16.5f;evidenceUi.fontSize=17.5f;hudUi.fontSize=16f;
+                goalUi.fontSize=17f;promptUi.fontSize=17f;evidenceUi.fontSize=17.5f;hudUi.fontSize=16f;
             }
             else
             {
-                cam.orthographicSize=10.6f;cam.transform.position=new Vector3(0f,18.8f,-13.8f);cam.transform.LookAt(new Vector3(0f,.2f,.25f));
-                boardRoot.localScale=Vector3.one*.84f;boardRoot.position=new Vector3(0f,.25f,1.1f);rackRoot.position=new Vector3(0f,.18f,-5.4f);rackRoot.localScale=Vector3.one*.88f;
-                Rect(goalRt,new Vector2(.5f,1f),new Vector2(0f,-22f),new Vector2(Mathf.Min(370f,logicalW-16f),42f));
-                Rect(promptRt,new Vector2(.5f,1f),new Vector2(0f,-103f),new Vector2(Mathf.Min(374f,logicalW-12f),114f));
-                Rect(hudRt,new Vector2(.5f,1f),new Vector2(0f,-171f),new Vector2(Mathf.Min(365f,logicalW-18f),42f));
-                Rect(evidenceRt,new Vector2(.5f,0f),new Vector2(0f,154f),new Vector2(Mathf.Min(374f,logicalW-12f),118f));
+                cam.orthographicSize=10.1f;cam.transform.position=new Vector3(0f,18.8f,-13.8f);cam.transform.LookAt(new Vector3(0f,.2f,.25f));
+                boardRoot.localScale=Vector3.one*.90f;boardRoot.position=new Vector3(0f,.25f,1.1f);rackRoot.position=new Vector3(0f,.18f,-5.4f);rackRoot.localScale=Vector3.one*.92f;
+                Rect(goalRt,new Vector2(.5f,1f),new Vector2(-28f,-29f),new Vector2(Mathf.Min(306f,logicalW-82f),56f));
+                Rect(promptRt,new Vector2(.5f,1f),new Vector2(0f,-103f),new Vector2(Mathf.Min(370f,logicalW-20f),82f));
+                Rect(hudRt,new Vector2(.5f,1f),new Vector2(0f,-153f),new Vector2(Mathf.Min(350f,logicalW-38f),38f));
+                Rect(evidenceRt,new Vector2(.5f,0f),new Vector2(0f,118f),new Vector2(Mathf.Min(370f,logicalW-20f),96f));
                 Rect(toastRt,new Vector2(.5f,.5f),new Vector2(0f,-logicalH*.23f),new Vector2(Mathf.Min(370f,logicalW-14f),68f));
-                promptUi.fontSize=15.5f;evidenceUi.fontSize=17.5f;hudUi.fontSize=15f;
+                goalUi.fontSize=15.5f;promptUi.fontSize=16.5f;evidenceUi.fontSize=16.5f;hudUi.fontSize=14.5f;
             }
             LayoutTitle(logicalW,logicalH);LayoutEnd(logicalW,logicalH);UpdateControlCoordinates();
         }
 
         void LayoutTitle(float w,float h)
         {
-            float kiteSize=Mathf.Min(270f,w*.66f);
-            Rect(titleBannerRt,new Vector2(.5f,.68f),Vector2.zero,new Vector2(kiteSize,kiteSize));
-            titleBannerRt.localRotation=Quaternion.Euler(0f,0f,45f);
-            titleLogo.rectTransform.localRotation=Quaternion.Euler(0f,0f,-45f);
-            titleLogoShadow.rectTransform.localRotation=Quaternion.Euler(0f,0f,-45f);
-            titleTag.rectTransform.localRotation=Quaternion.Euler(0f,0f,-45f);
-            titleLogo.rectTransform.sizeDelta=new Vector2(kiteSize*.92f,82f);
+            float bannerW=Mathf.Min(360f,w*.76f),bannerH=118f;
+            Rect(titleBannerRt,new Vector2(.5f,.74f),Vector2.zero,new Vector2(bannerW,bannerH));
+            titleBannerRt.localRotation=Quaternion.identity;
+            titleLogo.rectTransform.localRotation=Quaternion.identity;
+            titleLogoShadow.rectTransform.localRotation=Quaternion.identity;
+            titleTag.rectTransform.localRotation=Quaternion.identity;
+            titleLogo.rectTransform.sizeDelta=new Vector2(bannerW*.94f,64f);
             titleLogoShadow.rectTransform.sizeDelta=titleLogo.rectTransform.sizeDelta;
-            titleTag.rectTransform.sizeDelta=new Vector2(kiteSize*.94f,68f);
-            Rect((RectTransform)titleMeta.transform,new Vector2(.5f,.95f),Vector2.zero,new Vector2(Mathf.Min(350f,w-40f),34f));
-            Rect(titleCordRt,new Vector2(.5f,.18f),new Vector2(0f,-titleCordPull*.16f),new Vector2(Mathf.Min(w*.94f,620f),10f));
-            Rect(titleHandleRt,new Vector2(.5f,.18f),new Vector2(0f,-titleCordPull*.42f),new Vector2(82f,82f));
+            titleTag.rectTransform.sizeDelta=new Vector2(bannerW*.94f,38f);
+            Rect((RectTransform)titleMeta.transform,new Vector2(.5f,.96f),Vector2.zero,new Vector2(Mathf.Min(350f,w-72f),34f));
+            Rect(titleCordRt,new Vector2(.5f,.15f),new Vector2(0f,-titleCordPull*.16f),new Vector2(Mathf.Min(w*.88f,620f),8f));
+            Rect(titleHandleRt,new Vector2(.5f,.15f),new Vector2(0f,-titleCordPull*.42f),new Vector2(72f,72f));
             titleHandleRt.localRotation=Quaternion.Euler(0,0,45f);
-            Rect((RectTransform)titleCordText.transform,new Vector2(.5f,.09f),new Vector2(0f,-titleCordPull*.18f),new Vector2(Mathf.Min(360f,w-26f),52f));
+            Rect((RectTransform)titleCordText.transform,new Vector2(.5f,.065f),new Vector2(0f,-titleCordPull*.18f),new Vector2(Mathf.Min(360f,w-34f),44f));
         }
 
         void LayoutEnd(float w,float h)
@@ -576,7 +590,7 @@ namespace Mgf.YeonTtwiwo
             if(guideLeft<=0f)return;guideLeft-=dt;
             if(guideLeft<=0f){guideDot.gameObject.SetActive(false);guideLine.gameObject.SetActive(false);guideArrow.gameObject.SetActive(false);return;}
             Vector2 start=CartridgeCenterScreen(0);Vector2 end=gamePhase==GamePhase.Practice?DockCenterScreen(4):new Vector2(Screen.width*.5f,Screen.height*.54f);
-            float cycle=1f-(guideLeft%1.65f)/1.65f;Vector2 p;
+            float cycle=1f-Mathf.Clamp01(guideLeft/Mathf.Max(.01f,guideTotal));Vector2 p;
             if(cycle<.42f){float a=Mathf.Lerp(0f,90f,cycle/.42f)*Mathf.Deg2Rad;p=start+new Vector2(Mathf.Cos(a),Mathf.Sin(a))*Mathf.Max(34f,Screen.width*.085f);}
             else p=Vector2.Lerp(start+Vector2.up*Mathf.Max(34f,Screen.width*.085f),end,Mathf.SmoothStep(0,1,(cycle-.42f)/.58f));
             PositionScreen(guideDot.rectTransform,p);PositionScreen(guideArrow.rectTransform,end);
@@ -609,7 +623,7 @@ namespace Mgf.YeonTtwiwo
             {
                 int sec=Mathf.CeilToInt(runLeft);
                 hudUi.text="연 "+st.launched+"/12   매듭 여유 "+st.lives+"   "+sec+"초   "+Mathf.RoundToInt(scoreDisplay)+"점";
-                if(gamePhase==GamePhase.Playing&&current!=null)promptUi.text=current.prompt;
+                if(gamePhase==GamePhase.Playing&&current!=null)promptUi.text=DisplayPrompt(current);
             }
             if(toastLeft>0f){toastLeft-=dt;toastRt.localScale=Vector3.Lerp(toastRt.localScale,Vector3.one,dt*12f);if(toastLeft<=0f)toastRt.gameObject.SetActive(false);}
             if(endRoot.activeSelf)
@@ -633,7 +647,7 @@ namespace Mgf.YeonTtwiwo
 
         int CartridgeAtScreen(Vector2 p)
         {
-            float radius=Mathf.Max(56f,Screen.width*.09f);int best=-1;float dist=float.MaxValue;
+            float radius=Mathf.Max(gamePhase==GamePhase.Practice?92f:76f,Screen.width*(gamePhase==GamePhase.Practice?.16f:.12f));int best=-1;float dist=float.MaxValue;
             for(int i=0;i<3;i++)if(cartridgeRoots[i].gameObject.activeSelf){float d=Vector2.Distance(p,CartridgeCenterScreen(i));if(d<radius&&d<dist){best=i;dist=d;}}
             return best;
         }
@@ -642,7 +656,8 @@ namespace Mgf.YeonTtwiwo
 
         int DockAtScreen(Vector2 p,bool requireEmpty)
         {
-            int best=-1;float bestD=Mathf.Max(62f,Screen.width*.095f);
+            if(gamePhase==GamePhase.Practice)return 4;
+            int best=-1;float bestD=Mathf.Max(66f,Screen.width*.10f);
             for(int i=0;i<9;i++){if(requireEmpty&&cells[i]!=0)continue;float d=Vector2.Distance(p,DockCenterScreen(i));if(d<bestD){bestD=d;best=i;}}
             return best;
         }
@@ -669,9 +684,9 @@ namespace Mgf.YeonTtwiwo
         void UpdateEvidence(int cart,int dock)
         {
             if(current==null||cart<0||cart>=3)return;CartridgeSpec c=current.cartridges[cart];
-            if(dock<0||dock>=9){evidenceUi.text=c.id+" · BO="+c.BOLength+" cm  |  DO="+c.DOLength+" cm\n활성 연틀 가까이 가져가 AC²·BD²와 내적을 비교하시오";return;}
-            DockSpec d=current.docks[dock];int r=cartridgeRotation[cart];string right=YeonRules.Perpendicular(d,c,r)?"0 (수직)":YeonRules.DotValue(d,c,r).ToString();
-            evidenceUi.text=YeonRules.GoalName(d.goal)+" 연틀\nAO=CO="+d.uLength+" cm   |   BO="+c.BOLength+" cm, DO="+c.DOLength+" cm\nAC²="+YeonRules.AcSquared(d)+"   |   BD²="+YeonRules.BdSquared(c)+"   |   내적="+right;
+            if(dock<0||dock>=9){evidenceUi.text=c.id+" · BO="+c.BOLength+" cm  |  DO="+c.DOLength+" cm\n연틀 가까이 가져가 길이와 수직 여부를 비교하시오";return;}
+            DockSpec d=current.docks[dock];int r=cartridgeRotation[cart];string right=YeonRules.Perpendicular(d,c,r)?"예":"아니요";
+            evidenceUi.text=YeonRules.GoalName(d.goal)+" · AO=CO="+d.uLength+" cm · BO="+c.BOLength+" cm, DO="+c.DOLength+" cm\nAC²="+YeonRules.AcSquared(d)+" · BD²="+YeonRules.BdSquared(c)+" · 두 대각선이 수직: "+right;
             evidenceImage.color=new Color32(231,224,207,238);
         }
 
@@ -679,7 +694,7 @@ namespace Mgf.YeonTtwiwo
         void SpawnRipple(Vector2 screen){int i=rippleCursor++%ripples.Length;PositionScreen(ripples[i].rectTransform,screen);ripples[i].rectTransform.sizeDelta=Vector2.one*22f;ripples[i].color=new Color32(135,185,200,190);ripples[i].gameObject.SetActive(true);rippleLife[i]=.48f;}
         void ShakeNearestDock(Vector2 screen){int dock=DockAtScreen(screen,false);if(dock>=0)ShakeDock(dock);}
         void ShakeDock(int dock){if(dock<0)return;MgfFx.Punch(frameRoots[dock],.10f,.24f);}
-        void ReplayGuide(bool large){guideLeft=large?3.4f:2.5f;guideLarge=large;guideDot.gameObject.SetActive(true);guideLine.gameObject.SetActive(true);guideArrow.gameObject.SetActive(true);}
+        void ReplayGuide(bool large){guideTotal=guideLeft=large?1.55f:1.25f;guideLarge=large;guideDot.gameObject.SetActive(true);guideLine.gameObject.SetActive(true);guideArrow.gameObject.SetActive(true);}
 
         void PlacePracticeSilk(int dock,int cart,int rotation){PlaceWindToken(dock,cart,rotation);}
         void ShowPracticeReveal(){evidenceUi.text="AO=CO=3 cm   |   BO=DO=4 cm\n두 대각선이 서로 다른 것을 이등분 → 평행사변형";evidenceImage.color=new Color32(231,224,207,252);ShowToast("대각선 길이는 달라도 서로 이등분하면 평행사변형이다",1.45f);LaunchPracticeKite();}
@@ -694,7 +709,7 @@ namespace Mgf.YeonTtwiwo
         void ShowCorrectEvidence(DockSpec d,CartridgeSpec c,int rotation)
         {
             string extra=d.goal==FrameGoal.Parallelogram&&!YeonRules.EqualDiagonals(d,c)?" · 길이가 달라도 성립한다":"";
-            evidenceUi.text="성립 · BO=DO"+(d.goal==FrameGoal.Rectangle||d.goal==FrameGoal.Square?" · AC²=BD²":"")+(d.goal==FrameGoal.Rhombus||d.goal==FrameGoal.Square?" · 내적 0":"")+extra;
+            evidenceUi.text="성립 · BO=DO"+(d.goal==FrameGoal.Rectangle||d.goal==FrameGoal.Square?" · AC²=BD²":"")+(d.goal==FrameGoal.Rhombus||d.goal==FrameGoal.Square?" · 두 대각선이 수직":"")+extra;
             evidenceImage.color=new Color32(214,230,220,248);
         }
         void ShowWrongEvidence(DockSpec d,CartridgeSpec c,int rotation,bool practice)
