@@ -3,6 +3,22 @@
 > 마지막 갱신: 2026-10-12. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-13 — 「그림자 극장」 신규 제작 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u3` Unity 게임 `geurimja-geukjang`을 병렬 레인
+`factory/work-lanes/20261013-055311-L3/`에서 제작했다. 정본은
+`factory/unity-src/geurimja-geukjang/`, WebGL 산출물은 `public/g/geurimja-geukjang/`이며 게시·배포는 실행하지 않았다.
+
+- L=12 cm와 d=2~10 cm를 정수로 판정하는 길이비·대응변 역추적·넓이비 432문항 은행을 만들고,
+  9개 입력 전수검사에서 정답 유일성과 오개념 역산값 우연 정답 0건을 확인했다.
+- 흑백 절지광 2.5D 무대, 황동 레일·등불·캠, 실시간 그림자와 종이층 결합 연출을 구현했다.
+  답 입력은 인형 레일 drag와 막 손잡이 pull뿐이며, 45초 firstplay는 14프레임·ready true·콘솔 오류 0이다.
+- 동일 최종 WebGL에서 실제 pointer 정상판은 `clear/8/lives3/first8`, 첫 오답 회복판은
+  `clear/8/lives2/first7`이었다. B3 각 200판은 고정·순환·무작위 모두 22/200(11.00%, 우연 1/9=11.11%)이고
+  무입력은 0/200·진도 0, 모든 정책 완주율 0%다.
+- Unity 빌드 warnings 0·산출물 **8.4MB**(게임 폴더 약 **10.7MB**), 공식 QA **45/45·fatal 0**,
+  모바일·1280 **60fps**, 15초 유지율 **100%**다.
+
 ## 2026-10-12 — 「연 띄워」 1차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u2` Unity 게임 `yeon-ttwiwo`의 mathcheck fail과 high 4건·medium 2건을 병렬 레인
