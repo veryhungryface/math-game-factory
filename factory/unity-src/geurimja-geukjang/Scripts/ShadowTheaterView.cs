@@ -1,4 +1,4 @@
-// 그림자 극장 — 흑백 절지광·황동 캠의 2.5D 무대와 화면 UI.
+// 그림자 극장 — 열린 코발트 채광 마당·도자기 조리개의 2.5D 무대와 화면 UI.
 using System;
 using Mgf;
 using TMPro;
@@ -9,12 +9,12 @@ namespace Mgf.GeurimjaGeukjang
 {
     public partial class ShadowTheaterGame
     {
-        static readonly Color Ink = MgfLook.Hex("18130F");
-        static readonly Color Paper = MgfLook.Hex("C9B996");
-        static readonly Color Ivory = MgfLook.Hex("F4E8CA");
-        static readonly Color Brass = MgfLook.Hex("A87028");
-        static readonly Color Vermilion = MgfLook.Hex("C9412D");
-        static readonly Color Ash = MgfLook.Hex("72685B");
+        static readonly Color Ink = MgfLook.Hex("17223B");
+        static readonly Color Paper = MgfLook.Hex("DDE9F2");
+        static readonly Color Ivory = MgfLook.Hex("F4F1E6");
+        static readonly Color Brass = MgfLook.Hex("7C5C3A");
+        static readonly Color Vermilion = MgfLook.Hex("F2D64B");
+        static readonly Color Ash = MgfLook.Hex("243B9B");
 
         Camera cam;
         Transform worldRoot;
@@ -77,45 +77,48 @@ namespace Mgf.GeurimjaGeukjang
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("B7A67F"), MgfLook.Hex("EFE1BF"), Paper, .86f);
-            MgfLook.Sun(new Vector3(44f, -34f, -12f), MgfLook.Hex("FFF0C8"), 1.08f, .78f);
+            MgfLook.Sky(MgfLook.Hex("4A9BD4"), MgfLook.Hex("B9DCF1"), MgfLook.Hex("E6F0F5"), .82f);
+            MgfLook.Sun(new Vector3(38f, -28f, -18f), MgfLook.Hex("FFF2C8"), 1.16f, .82f);
             cam = MgfLook.Camera(new Vector3(0f, 6.8f, -17.8f), new Vector3(0f, 1.8f, .5f), 32f);
-            worldRoot = new GameObject("CutPaperOpticalTheater").transform;
+            worldRoot = new GameObject("OpenAirShadowCourtyard").transform;
 
-            blackMat = MgfLook.Lit(Ink, .08f);
-            paperMat = MgfLook.Lit(Paper, .05f);
-            ivoryMat = MgfLook.Lit(Ivory, .18f);
-            brassMat = MgfLook.Lit(Brass, .62f, .72f);
-            vermilionMat = MgfLook.Lit(Vermilion, .32f, .18f, Vermilion * .14f);
-            ashMat = MgfLook.Lit(Ash, .18f);
-            screenMat = MgfLook.Lit(Ivory, .16f, 0f, Color.black);
+            blackMat = MgfLook.Lit(Ink, .52f, .12f);
+            paperMat = MgfLook.Lit(Paper, .10f);
+            ivoryMat = MgfLook.Lit(Ivory, .20f);
+            brassMat = MgfLook.Lit(Brass, .24f, .05f);
+            vermilionMat = MgfLook.Lit(Vermilion, .36f, .05f, Vermilion * .08f);
+            ashMat = MgfLook.Lit(Ash, .66f, .08f);
+            screenMat = MgfLook.Lit(Ivory, .22f, 0f, Color.black);
 
-            // 어두운 광학 공연장 대신 낮빛 아래 절지 등록 작업대를 쓴다. 검은 종이는
-            // 배경 전체가 아니라 절단된 날개로만 남아 prism-mobil 계열과 장면 문법을 가른다.
-            MgfLook.Block("WarmPaperBack", new Vector3(0f, 3.1f, 4.5f), new Vector3(24f, 9.8f, .5f), .03f, paperMat, worldRoot);
-            for (int i = 0; i < 9; i++)
+            // 밝은 종이 작업면 대신 하늘이 열린 코발트 채광 마당을 만든다. 낮은 콘크리트 벽,
+            // 깊은 차양 기둥, 도자기 조리개가 세계를 채워 neoguri-oncheon의 종이/슬롯 문법과 가른다.
+            MgfLook.Block("CourtyardFloor", new Vector3(0f, -.72f, 1.2f), new Vector3(25f, .55f, 8.6f), .12f, ivoryMat, worldRoot);
+            MgfLook.Block("BlueConcreteWall", new Vector3(0f, 1.25f, 4.5f), new Vector3(24f, 4.4f, .55f), .08f, paperMat, worldRoot);
+            MgfLook.Block("OpenSkyLintel", new Vector3(0f, 5.65f, 4.35f), new Vector3(21f, .38f, .62f), .09f, ashMat, worldRoot);
+            for (int i = 0; i < 5; i++)
             {
-                float x = -7.2f + i * 1.8f;
-                MgfLook.Block("RegistrationLine" + i, new Vector3(x, 3.0f, 4.18f), new Vector3(.025f, 8.2f, .03f), .005f, ivoryMat, worldRoot);
+                float x = -8.2f + i * 4.1f;
+                MgfLook.Block("CourtyardColumn" + i, new Vector3(x, 3.15f, 4.12f), new Vector3(.42f, 5.0f, .72f), .12f, i % 2 == 0 ? ashMat : ivoryMat, worldRoot);
+                MgfLook.Block("SunNotch" + i, new Vector3(x + .48f, 1.0f + (i % 2) * .35f, 3.78f), new Vector3(.38f, 1.4f, .18f), .10f, vermilionMat, worldRoot);
             }
             for (int i = 0; i < paperLayers.Length; i++)
             {
-                var layer = new GameObject("PerforatedPaperLayer" + i).transform;
+                var layer = new GameObject("CeramicShadeFin" + i).transform;
                 layer.SetParent(worldRoot, false);
                 float side = i < 3 ? -1f : 1f;
                 int j = i % 3;
-                layer.localPosition = new Vector3(side * (6.7f + j * 1.15f), 2.4f + j * .25f, 2.7f + j * .42f);
-                layer.localRotation = Quaternion.Euler(0f, side * (8f + j * 5f), side * (j - 1) * 2f);
-                MgfLook.Block("PaperBlade", Vector3.zero, new Vector3(2.2f + j * .55f, 6.7f - j * .55f, .16f), .02f, i % 2 == 0 ? blackMat : paperMat, layer);
-                for (int k = 0; k < 7; k++)
-                    MgfLook.Block("Perforation", new Vector3(side * (.65f + j * .1f), -2.55f + k * .82f, -.12f), new Vector3(.11f, .11f, .05f), .045f, brassMat, layer);
+                layer.localPosition = new Vector3(side * (7.0f + j * 1.1f), 2.35f + j * .18f, 2.6f + j * .40f);
+                layer.localRotation = Quaternion.Euler(0f, side * (13f + j * 7f), side * (j - 1) * 1.5f);
+                MgfLook.Block("GlazedFin", Vector3.zero, new Vector3(1.35f + j * .28f, 6.1f - j * .45f, .30f), .14f, i % 2 == 0 ? ashMat : ivoryMat, layer);
+                for (int k = 0; k < 4; k++)
+                    MgfLook.Block("SunTile", new Vector3(side * (.34f + j * .06f), -1.9f + k * 1.25f, -.19f), new Vector3(.22f, .50f, .07f), .08f, k % 2 == 0 ? vermilionMat : brassMat, layer);
                 paperLayers[i] = layer;
                 paperLayerBaseRotations[i] = layer.localRotation;
             }
 
-            // 아이보리 스크린과 노출 레일.
-            MgfLook.Block("IvoryProjectionScreen", new Vector3(4.15f, 2.45f, 1.6f), new Vector3(3.65f, 5.6f, .18f), .04f, screenMat, worldRoot);
-            MgfLook.Block("ScreenTopBrass", new Vector3(4.15f, 5.35f, 1.52f), new Vector3(3.95f, .18f, .30f), .05f, brassMat, worldRoot);
+            // 백색 콘크리트 그림자 벽과 무광 목재 레일.
+            MgfLook.Block("WhiteShadowWall", new Vector3(4.15f, 2.45f, 1.6f), new Vector3(3.65f, 5.6f, .24f), .10f, screenMat, worldRoot);
+            MgfLook.Block("WallCoping", new Vector3(4.15f, 5.35f, 1.52f), new Vector3(3.95f, .22f, .34f), .08f, ashMat, worldRoot);
             MgfLook.Block("OpticalRail", new Vector3(0f, .25f, -.55f), new Vector3(10.8f, .28f, .72f), .06f, brassMat, worldRoot);
             MgfLook.Block("RailShadow", new Vector3(0f, -.02f, -.35f), new Vector3(11.6f, .42f, 1.1f), .04f, blackMat, worldRoot);
             for (int d = ShadowRules.MinD; d <= ShadowRules.MaxD; d++)
@@ -139,11 +142,11 @@ namespace Mgf.GeurimjaGeukjang
 
         void BuildLamp()
         {
-            lampRoot = new GameObject("BrassLamp").transform; lampRoot.SetParent(worldRoot, false);
+            lampRoot = new GameObject("CeramicSunProjector").transform; lampRoot.SetParent(worldRoot, false);
             lampRoot.localPosition = new Vector3(-4.55f, 1.5f, -.45f);
-            MgfLook.Block("LampBody", Vector3.zero, new Vector3(.86f, .86f, .86f), .30f, brassMat, lampRoot);
+            MgfLook.Block("LampBody", Vector3.zero, new Vector3(.86f, .86f, .86f), .30f, ashMat, lampRoot);
             MgfLook.Block("LensGlow", new Vector3(.58f, 0f, 0f), new Vector3(.45f, .62f, .62f), .20f, MgfLook.Lit(MgfLook.Hex("FFD77E"), .5f, 0f, MgfLook.Hex("FFB533")), lampRoot);
-            MgfLook.Block("LampStand", new Vector3(-.2f, -.88f, .1f), new Vector3(.34f, 1.55f, .45f), .08f, brassMat, lampRoot);
+            MgfLook.Block("LampStand", new Vector3(-.2f, -.88f, .1f), new Vector3(.34f, 1.55f, .45f), .08f, blackMat, lampRoot);
             lampLight = new GameObject("LampPoint").AddComponent<Light>();
             lampLight.transform.SetParent(lampRoot, false); lampLight.transform.localPosition = new Vector3(.62f, .1f, -.45f);
             lampLight.type = LightType.Point; lampLight.color = MgfLook.Hex("FFD99B"); lampLight.range = 9f; lampLight.intensity = 2.5f; lampLight.shadows = LightShadows.None;
@@ -151,7 +154,7 @@ namespace Mgf.GeurimjaGeukjang
 
         void BuildPuppet()
         {
-            puppetRoot = new GameObject("SlidingPaperPuppet").transform; puppetRoot.SetParent(worldRoot, false);
+            puppetRoot = new GameObject("SlidingWoodPuppet").transform; puppetRoot.SetParent(worldRoot, false);
             MgfLook.Block("Carriage", new Vector3(0f, .12f, 0f), new Vector3(1.05f, .42f, .74f), .06f, brassMat, puppetRoot);
             MgfLook.Block("WheelA", new Vector3(-.34f, -.12f, -.38f), new Vector3(.34f, .34f, .18f), .15f, blackMat, puppetRoot);
             MgfLook.Block("WheelB", new Vector3(.34f, -.12f, -.38f), new Vector3(.34f, .34f, .18f), .15f, blackMat, puppetRoot);
@@ -211,16 +214,16 @@ namespace Mgf.GeurimjaGeukjang
             {
                 var root = new GameObject("ExposedCam" + i).transform; root.SetParent(worldRoot, false);
                 root.localPosition = new Vector3(-1.9f + i * 1.35f, -.55f, -.2f);
-                MgfLook.Block("CamWheel", Vector3.zero, new Vector3(1.08f, 1.08f, .24f), .46f, brassMat, root);
-                MgfLook.Block("CamLobe", new Vector3(.32f, .0f, -.18f), new Vector3(.62f, .22f, .24f), .06f, brassMat, root);
+                MgfLook.Block("ApertureWheel", Vector3.zero, new Vector3(1.08f, 1.08f, .24f), .46f, ashMat, root);
+                MgfLook.Block("ApertureLobe", new Vector3(.32f, .0f, -.18f), new Vector3(.62f, .22f, .24f), .06f, ivoryMat, root);
                 camWheels[i] = root;
             }
             for (int i = 0; i < fuses.Length; i++)
             {
-                var root = new GameObject("RegistrationClip" + i).transform; root.SetParent(worldRoot, false);
+                var root = new GameObject("CeramicLens" + i).transform; root.SetParent(worldRoot, false);
                 root.localPosition = new Vector3(2.4f + i * .65f, -.55f, -.55f);
-                MgfLook.Block("ClipBody", Vector3.zero, new Vector3(.42f, .56f, .18f), .05f, brassMat, root);
-                MgfLook.Block("ClipMark", new Vector3(0f, .02f, -.12f), new Vector3(.20f, .30f, .04f), .02f, vermilionMat, root);
+                MgfLook.Block("LensBody", Vector3.zero, new Vector3(.42f, .56f, .18f), .14f, ashMat, root);
+                MgfLook.Block("LensMark", new Vector3(0f, .02f, -.12f), new Vector3(.20f, .30f, .04f), .08f, vermilionMat, root);
                 fuses[i] = root;
             }
         }
@@ -229,13 +232,12 @@ namespace Mgf.GeurimjaGeukjang
         {
             for (int i = 0; i < completedLayers.Length; i++)
             {
-                var ticket = new GameObject("SceneTicket" + i); ticket.transform.SetParent(worldRoot, false);
-                ticket.transform.localPosition = new Vector3(6.2f, 4.62f, 1.20f - i * .01f);
-                MgfLook.Block("TicketPaper", Vector3.zero, new Vector3(.72f, .44f, .08f), .035f, i % 2 == 0 ? ivoryMat : brassMat, ticket.transform);
-                MgfLook.Block("TicketInk", new Vector3(0f, 0f, -.07f), new Vector3(.34f, .12f, .03f), .015f, i % 2 == 0 ? vermilionMat : blackMat, ticket.transform);
-                MgfLook.Block("PunchL", new Vector3(-.26f, .15f, -.08f), new Vector3(.08f, .08f, .03f), .03f, blackMat, ticket.transform);
-                MgfLook.Block("PunchR", new Vector3(.26f, -.15f, -.08f), new Vector3(.08f, .08f, .03f), .03f, blackMat, ticket.transform);
-                ticket.SetActive(false); completedLayers[i] = ticket;
+                var tile = new GameObject("CyanotypeMosaic" + i); tile.transform.SetParent(worldRoot, false);
+                tile.transform.localPosition = new Vector3(RewardTargetX(i), 4.62f, 3.82f - i * .01f);
+                MgfLook.Block("BlueTile", Vector3.zero, new Vector3(.72f, .52f, .10f), .10f, i % 2 == 0 ? ashMat : blackMat, tile.transform);
+                MgfLook.Block("SunPrint", new Vector3(0f, 0f, -.075f), new Vector3(.42f, .09f, .035f), .035f, ivoryMat, tile.transform);
+                MgfLook.Block("RayMark", new Vector3((i % 3 - 1) * .10f, .13f, -.08f), new Vector3(.10f, .22f, .035f), .035f, vermilionMat, tile.transform);
+                tile.SetActive(false); completedLayers[i] = tile;
             }
         }
 
@@ -275,7 +277,13 @@ namespace Mgf.GeurimjaGeukjang
 
         void ResetWorldForRun()
         {
-            for (int i = 0; i < completedLayers.Length; i++) if (completedLayers[i]) completedLayers[i].SetActive(false);
+            for (int i = 0; i < completedLayers.Length; i++) if (completedLayers[i])
+            {
+                completedLayers[i].SetActive(false);
+                completedLayers[i].transform.localPosition = new Vector3(RewardTargetX(i), 4.62f, 3.82f - i * .01f);
+                completedLayers[i].transform.localScale = Vector3.one;
+                completedLayers[i].transform.localRotation = Quaternion.identity;
+            }
             for (int i = 0; i < fuses.Length; i++) if (fuses[i]) { fuses[i].gameObject.SetActive(true); fuses[i].localRotation = Quaternion.identity; }
             activeLayerAnim = -1; finaleClock = -1;
             if (shadowRoot) { shadowRoot.localPosition = new Vector3(4.34f, 1.75f, 1.26f); shadowRoot.localRotation = Quaternion.identity; }
@@ -323,10 +331,11 @@ namespace Mgf.GeurimjaGeukjang
             if (correct)
             {
                 wrongEdge.SetActive(false);
-                screenMat.SetColor("_EmissionColor", MgfLook.Hex("8A5426") * .42f);
+                screenMat.SetColor("_EmissionColor", MgfLook.Hex("243B9B") * .48f);
                 activeLayerAnim = Math.Max(0, Math.Min(ShadowRules.TargetActs - 1, practice ? 0 : st.solved - 1));
                 completedLayers[activeLayerAnim].SetActive(true);
-                completedLayers[activeLayerAnim].transform.localPosition = new Vector3(6.2f, 4.62f, 1.20f - activeLayerAnim * .01f);
+                completedLayers[activeLayerAnim].transform.localPosition = new Vector3(RewardTargetX(activeLayerAnim), 4.62f, 3.82f - activeLayerAnim * .01f);
+                completedLayers[activeLayerAnim].transform.localScale = new Vector3(.04f, .18f, 1f);
                 layerAnimClock = 0;
                 MgfSfx.Play("correct", first ? .52f : .38f);
             }
@@ -349,6 +358,11 @@ namespace Mgf.GeurimjaGeukjang
         void CompleteRevealVisual(bool correct)
         {
             if (screenMat) screenMat.SetColor("_EmissionColor", Color.black);
+            if (correct && activeLayerAnim >= 0)
+            {
+                completedLayers[activeLayerAnim].transform.localScale = Vector3.one;
+                completedLayers[activeLayerAnim].transform.localRotation = Quaternion.identity;
+            }
             activeLayerAnim = -1;
             UpdateCurtainPull(0f);
         }
@@ -365,8 +379,13 @@ namespace Mgf.GeurimjaGeukjang
         void BeginFinale()
         {
             finaleClock = 0;
-            for (int i = 0; i < completedLayers.Length; i++) completedLayers[i].SetActive(true);
-            screenMat.SetColor("_EmissionColor", MgfLook.Hex("8D6A27") * .28f);
+            for (int i = 0; i < completedLayers.Length; i++)
+            {
+                completedLayers[i].SetActive(true);
+                completedLayers[i].transform.localScale = Vector3.one;
+                completedLayers[i].transform.localRotation = Quaternion.identity;
+            }
+            screenMat.SetColor("_EmissionColor", MgfLook.Hex("243B9B") * .34f);
         }
 
         void UpdateWorld(float dt)
@@ -375,7 +394,7 @@ namespace Mgf.GeurimjaGeukjang
             float t = worldClock;
             if (lampLight) lampLight.intensity = 2.35f + Mathf.Sin(t * 3.4f) * .12f;
             for (int i = 0; i < paperLayers.Length; i++)
-                if (paperLayers[i]) paperLayers[i].localRotation = paperLayerBaseRotations[i] * Quaternion.Euler(0f, Mathf.Sin(t * .32f + i) * 1.2f, 0f);
+                if (paperLayers[i]) paperLayers[i].localRotation = paperLayerBaseRotations[i] * Quaternion.Euler(0f, Mathf.Sin(t * .42f + i) * 1.6f, 0f);
             for (int i = 0; i < camWheels.Length; i++)
                 if (camWheels[i]) camWheels[i].localRotation = Quaternion.Euler(0f, 0f, t * (5f + i * 1.4f) * (i % 2 == 0 ? 1f : -1f));
             if (puppetBody && !puppetDragging && gamePhase != GamePhase.Reveal)
@@ -386,10 +405,9 @@ namespace Mgf.GeurimjaGeukjang
                 layerAnimClock += dt;
                 float u = Mathf.Clamp01(Mathf.Max(0f, layerAnimClock - .08f) / .62f); // 80ms hit-stop
                 float eased = 1f - Mathf.Pow(1f - u, 3f);
-                float overshoot = Mathf.Sin(u * Mathf.PI) * .22f;
-                var p = completedLayers[activeLayerAnim].transform.localPosition;
-                p.x = Mathf.Lerp(6.2f, RewardTargetX(activeLayerAnim), eased) - overshoot;
-                completedLayers[activeLayerAnim].transform.localPosition = p;
+                float overshoot = Mathf.Sin(u * Mathf.PI) * .10f;
+                completedLayers[activeLayerAnim].transform.localScale = new Vector3(Mathf.Min(1.08f, eased + overshoot), Mathf.Lerp(.18f, 1f, eased), 1f);
+                completedLayers[activeLayerAnim].transform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(u * Mathf.PI) * (activeLayerAnim % 2 == 0 ? 4f : -4f));
             }
             if (finaleClock >= 0)
             {
@@ -398,8 +416,9 @@ namespace Mgf.GeurimjaGeukjang
                 {
                     Vector3 p = completedLayers[i].transform.localPosition;
                     p.y = 4.62f + Mathf.Sin(finaleClock * (1.05f + i * .08f) + i) * .08f;
-                    p.x = RewardTargetX(i) + Mathf.Sin(finaleClock * .7f + i * .55f) * .04f;
+                    p.x = RewardTargetX(i) + Mathf.Sin(finaleClock * .7f + i * .55f) * .025f;
                     completedLayers[i].transform.localPosition = p;
+                    completedLayers[i].transform.localScale = Vector3.one;
                 }
                 shadowRoot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(finaleClock * 1.4f) * 3f);
             }
@@ -446,21 +465,21 @@ namespace Mgf.GeurimjaGeukjang
 
         void BuildPlayUi()
         {
-            var goal = Panel("GoalBanner", playRoot.transform, new Color32(17,17,17,232), out _); goalRt = (RectTransform)goal.transform;
+            var goal = Panel("GoalBanner", playRoot.transform, new Color32(23,34,59,238), out _); goalRt = (RectTransform)goal.transform;
             goalUi = Txt(goal.transform, "등불에서 인형까지의 거리를 정해 주문한 비의 그림자를 만드시오.", new Vector2(.5f,.5f), Vector2.zero, 15.5f, Ivory, 350f); StretchInset(goalUi.rectTransform, 7f);
-            var go = goal.AddComponent<Outline>(); go.effectColor = new Color32(181,138,69,230); go.effectDistance = new Vector2(0,-2);
+            var go = goal.AddComponent<Outline>(); go.effectColor = new Color32(242,214,75,235); go.effectDistance = new Vector2(0,-2);
 
-            var prompt = Panel("OrderCard", playRoot.transform, new Color32(242,232,207,242), out _); promptRt=(RectTransform)prompt.transform;
+            var prompt = Panel("OrderCard", playRoot.transform, new Color32(244,241,230,246), out _); promptRt=(RectTransform)prompt.transform;
             promptUi = Txt(prompt.transform, "", new Vector2(.5f,.5f), Vector2.zero, 16f, Ink, 350f); promptUi.textWrappingMode=TextWrappingModes.Normal; StretchInset(promptUi.rectTransform, 9f);
-            var po=prompt.AddComponent<Outline>();po.effectColor=new Color32(211,74,54,220);po.effectDistance=new Vector2(3,-3);
+            var po=prompt.AddComponent<Outline>();po.effectColor=new Color32(36,59,155,235);po.effectDistance=new Vector2(3,-3);
 
             hudUi = Txt(playRoot.transform, "", new Vector2(.5f,.5f), Vector2.zero, 13f, Ink, 350f); hudRt=hudUi.rectTransform;
-            hudUi.textWrappingMode=TextWrappingModes.NoWrap;hudUi.overflowMode=TextOverflowModes.Ellipsis;
-            hudUi.outlineWidth=.14f;hudUi.outlineColor=new Color32(242,232,207,245);
+            hudUi.textWrappingMode=TextWrappingModes.Normal;hudUi.overflowMode=TextOverflowModes.Overflow;
+            hudUi.outlineWidth=.14f;hudUi.outlineColor=new Color32(244,241,230,245);
             distanceUi = Txt(playRoot.transform, "OA = 3 cm", new Vector2(.5f,.5f), Vector2.zero, 22f, Ivory, 190f); distanceRt=distanceUi.rectTransform;
             distanceUi.outlineWidth=.2f;distanceUi.outlineColor=new Color32(17,17,17,255);
 
-            var evidence=Panel("RayDiagramCard",playRoot.transform,new Color32(17,17,17,232),out _);evidenceRt=(RectTransform)evidence.transform;
+            var evidence=Panel("RayDiagramCard",playRoot.transform,new Color32(23,34,59,238),out _);evidenceRt=(RectTransform)evidence.transform;
             evidenceUi=Txt(evidence.transform,"등불 O · OA=d cm · 인형 AB  |  OC=12 cm · 스크린 CD\n△OAB∽△OCD",new Vector2(.5f,.5f),Vector2.zero,14.5f,Ivory,350f);
             evidenceUi.textWrappingMode=TextWrappingModes.Normal;StretchInset(evidenceUi.rectTransform,6f);
 
@@ -485,11 +504,11 @@ namespace Mgf.GeurimjaGeukjang
                 fuseImages[i].transform.localRotation=Quaternion.Euler(0,0,i%2==0?4f:-4f);
             }
 
-            var toast=Panel("Toast",playRoot.transform,new Color32(17,17,17,245),out _);toastRt=(RectTransform)toast.transform;toastGroup=toast.AddComponent<CanvasGroup>();
+            var toast=Panel("Toast",playRoot.transform,new Color32(23,34,59,246),out _);toastRt=(RectTransform)toast.transform;toastGroup=toast.AddComponent<CanvasGroup>();
             toastUi=Txt(toast.transform,"",new Vector2(.5f,.5f),Vector2.zero,14f,Ivory,350f);toastUi.textWrappingMode=TextWrappingModes.Normal;StretchInset(toastUi.rectTransform,6f);toastGroup.alpha=0;
-            var reveal=Panel("MathReveal",playRoot.transform,new Color32(242,232,207,248),out _);revealRt=(RectTransform)reveal.transform;revealGroup=reveal.AddComponent<CanvasGroup>();
+            var reveal=Panel("MathReveal",playRoot.transform,new Color32(244,241,230,250),out _);revealRt=(RectTransform)reveal.transform;revealGroup=reveal.AddComponent<CanvasGroup>();
             revealUi=Txt(reveal.transform,"",new Vector2(.5f,.5f),Vector2.zero,19f,Ink,350f);revealUi.textWrappingMode=TextWrappingModes.Normal;StretchInset(revealUi.rectTransform,8f);revealGroup.alpha=0;
-            var ro=reveal.AddComponent<Outline>();ro.effectColor=new Color32(181,138,69,245);ro.effectDistance=new Vector2(4,-4);
+            var ro=reveal.AddComponent<Outline>();ro.effectColor=new Color32(36,59,155,245);ro.effectDistance=new Vector2(4,-4);
 
             var hand=Panel("GuideHand",playRoot.transform,new Color32(242,232,207,245),out guideHand);guideHandRt=(RectTransform)hand.transform;
             var line=Panel("GuidePath",playRoot.transform,new Color32(211,74,54,185),out guideLine);guideLineRt=(RectTransform)line.transform;
@@ -577,8 +596,8 @@ namespace Mgf.GeurimjaGeukjang
 
         void ShowEnd(string reason)
         {
-            string title=reason=="clear"?"앙코르 · 기하 새 비행":reason=="mastery"?"프리즈는 완성됐지만 앙코르 보류":"폐막";
-            string why=reason=="time"?"110초가 지나 막이 닫혔다.":reason=="fuses"?"등록 클립 세 개가 모두 꺾였다.":reason=="mastery"?"첫 시도 6/8, 마지막 3막 2/3을 채우면 앙코르가 열린다.":"여덟 장면표가 등록 레일에 이어졌다.";
+            string title=reason=="clear"?"앙코르 · 햇빛 새 비행":reason=="mastery"?"청사진은 완성됐지만 앙코르 보류":"폐막";
+            string why=reason=="time"?"110초가 지나 채광벽이 닫혔다.":reason=="fuses"?"도자기 렌즈 세 개가 모두 깨졌다.":reason=="mastery"?"첫 시도 6/8, 마지막 3막 2/3을 채우면 앙코르가 열린다.":"여덟 청사진 패널이 햇빛 벽에 현상됐다.";
             endTitleUi.text=title;
             endWhy=why;endDisplayScore=0;RefreshEndStats(0);
             endPanelImage.color=reason=="clear"?new Color32(242,232,207,248):new Color32(206,194,171,248);
@@ -606,7 +625,7 @@ namespace Mgf.GeurimjaGeukjang
             if(score!=lastHudScore||timer!=lastTimer||st.lives!=lastHudLives||st.solved!=lastHudSolved)
             {
                 lastHudScore=score;lastTimer=timer;lastHudLives=st.lives;lastHudSolved=st.solved;
-                if(hudUi)hudUi.text=(gamePhase==GamePhase.Practice?"연습 · 정지":"막 "+Math.Min(8,st.solved+1)+"/8 · "+timer+"초")+" · "+score+"점 · 클립 "+Math.Max(0,st.lives);
+                if(hudUi)hudUi.text=(gamePhase==GamePhase.Practice?"연습 · 정지":"막 "+Math.Min(8,st.solved+1)+"/8 · "+timer+"초")+"\n"+score+"점 · 렌즈 "+Math.Max(0,st.lives);
                 for(int i=0;i<fuseImages.Length;i++)if(fuseImages[i])fuseImages[i].color=i<st.lives?Vermilion:new Color(.20f,.18f,.16f,1f);
             }
             if(toastClock>0){toastClock-=dt;float life=Mathf.Max(.001f,toastDuration);toastGroup.alpha=Mathf.Clamp01(Mathf.Min(toastClock*5f,(life-toastClock)*8f));}else toastGroup.alpha=0;
@@ -644,6 +663,17 @@ namespace Mgf.GeurimjaGeukjang
                 float p=.5f+.5f*Mathf.Sin(titleClock*2.2f);titleLeverKnob.localScale=Vector3.one*(1f+p*.045f);
                 if(titleArt&&titleArt.texture)UpdateTitleUv();
             }
+            // 레일 연습을 마치면 손잡이 자체가 반복해서 아래로 움직인다. 가이드 손만 움직여
+            // 별개의 장식처럼 보였던 1차 수정의 학습 경로 불일치를 없앤다.
+            if(gamePhase==GamePhase.Practice&&practiceRailDone&&!curtainDragging)
+            {
+                float demo=.18f+.62f*(.5f+.5f*Mathf.Sin(titleClock*4.2f));
+                float y=curtainHandleBaseY()-demo*76f;
+                curtainHandleRt.anchoredPosition=new Vector2(curtainHandleRt.anchoredPosition.x,y);
+                leverUi.rectTransform.anchoredPosition=new Vector2(leverUi.rectTransform.anchoredPosition.x,y);
+                curtainHandleRt.localScale=Vector3.one*(1.08f+.10f*Mathf.Sin(titleClock*4.2f));
+            }
+            else if(curtainHandleRt) curtainHandleRt.localScale=Vector3.one;
             if(gamePhase==GamePhase.End)
             {
                 int before=Mathf.RoundToInt(endDisplayScore);
@@ -665,10 +695,12 @@ namespace Mgf.GeurimjaGeukjang
             {
                 cam.transform.position=new Vector3(0f,6.5f,-18.2f);cam.transform.LookAt(new Vector3(0f,1.65f,.55f));cam.fieldOfView=32f;
                 worldRoot.localScale=Vector3.one;worldRoot.localPosition=new Vector3(0f,-.15f,0f);
-                float safeW=Mathf.Min(1440f,w-40f);
-                Rect(goalRt,new Vector2(.5f,.94f),new Vector2(-safeW*.37f,0f),new Vector2(Mathf.Min(370f,safeW*.28f),58f));
-                Rect(promptRt,new Vector2(.5f,.94f),Vector2.zero,new Vector2(Mathf.Min(600f,safeW*.43f),82f));
-                Rect(hudRt,new Vector2(.5f,.94f),new Vector2(safeW*.35f,0f),new Vector2(Mathf.Min(350f,safeW*.27f),46f));
+                float safeW=Mathf.Min(1340f,w-150f);
+                goalUi.fontSize=14.5f;promptUi.fontSize=15.5f;hudUi.fontSize=12.5f;
+                // 상단 anchor 비율이 아니라 실제 카드 반높이+8 px를 safe top에서 뺀다.
+                Rect(goalRt,new Vector2(.5f,1f),new Vector2(-safeW*.37f,-42f),new Vector2(Mathf.Min(370f,safeW*.28f),68f));
+                Rect(promptRt,new Vector2(.5f,1f),new Vector2(0f,-56f),new Vector2(Mathf.Min(600f,safeW*.43f),96f));
+                Rect(hudRt,new Vector2(.5f,1f),new Vector2(safeW*.35f,-39f),new Vector2(Mathf.Min(320f,safeW*.27f),62f));
                 Rect(distanceRt,new Vector2(.50f,.31f),Vector2.zero,new Vector2(220f,46f));
                 Rect(evidenceRt,new Vector2(.5f,.075f),Vector2.zero,new Vector2(Mathf.Min(760f,w*.62f),72f));
                 Rect(toastRt,new Vector2(.5f,.54f),Vector2.zero,new Vector2(Mathf.Min(620f,w*.52f),64f));
@@ -678,6 +710,7 @@ namespace Mgf.GeurimjaGeukjang
             {
                 cam.transform.position=new Vector3(0f,7.8f,-18.3f);cam.transform.LookAt(new Vector3(0f,1.55f,.55f));
                 MgfLook.FitWidth(cam,32f,1.42f);worldRoot.localScale=Vector3.one*.95f;worldRoot.localPosition=new Vector3(0f,-.05f,0f);
+                goalUi.fontSize=15.5f;promptUi.fontSize=16f;hudUi.fontSize=13f;
                 Rect(goalRt,new Vector2(.5f,.955f),new Vector2(-23f,0f),new Vector2(Mathf.Min(330f,w-62f),56f));
                 Rect(promptRt,new Vector2(.5f,.855f),Vector2.zero,new Vector2(Mathf.Min(374f,w-16f),94f));
                 Rect(hudRt,new Vector2(.5f,.775f),Vector2.zero,new Vector2(Mathf.Min(350f,w-38f),38f));
@@ -686,8 +719,30 @@ namespace Mgf.GeurimjaGeukjang
                 Rect(toastRt,new Vector2(.5f,.55f),Vector2.zero,new Vector2(Mathf.Min(374f,w-16f),74f));
                 Rect(revealRt,new Vector2(.5f,.56f),Vector2.zero,new Vector2(Mathf.Min(374f,w-16f),120f));
             }
-            LayoutRailAndLever(w,h);LayoutTitle(w,h);LayoutEnd(w,h);UpdateTitleUv();
+            LayoutRailAndLever(w,h);LayoutTitle(w,h);LayoutEnd(w,h);UpdateTitleUv();AuditUiBounds();
         }
+
+        void AuditUiBounds()
+        {
+            UnityEngine.Rect a=ScreenBounds(goalRt),b=ScreenBounds(promptRt),c=ScreenBounds(hudRt);
+            bool inside=InsideScreen(a,6f)&&InsideScreen(b,6f)&&InsideScreen(c,6f);
+            bool separated=!a.Overlaps(b)&&!b.Overlaps(c)&&!a.Overlaps(c);
+            st.layoutSafe=inside&&(!land||separated);
+            st.layoutInfo=Screen.width+"x"+Screen.height+" goal="+BoundsText(a)+" prompt="+BoundsText(b)+" hud="+BoundsText(c);
+        }
+
+        UnityEngine.Rect ScreenBounds(RectTransform rt)
+        {
+            Vector3[] corners=new Vector3[4];rt.GetWorldCorners(corners);
+            Vector2 p0=RectTransformUtility.WorldToScreenPoint(null,corners[0]);
+            Vector2 p2=RectTransformUtility.WorldToScreenPoint(null,corners[2]);
+            return UnityEngine.Rect.MinMaxRect(Mathf.Min(p0.x,p2.x),Mathf.Min(p0.y,p2.y),Mathf.Max(p0.x,p2.x),Mathf.Max(p0.y,p2.y));
+        }
+
+        bool InsideScreen(UnityEngine.Rect r,float margin)
+        {return r.xMin>=margin&&r.yMin>=margin&&r.xMax<=Screen.width-margin&&r.yMax<=Screen.height-margin;}
+        string BoundsText(UnityEngine.Rect r)
+        {return Mathf.RoundToInt(r.xMin)+","+Mathf.RoundToInt(r.yMin)+","+Mathf.RoundToInt(r.xMax)+","+Mathf.RoundToInt(r.yMax);}
 
         void LayoutRailAndLever(float w,float h)
         {

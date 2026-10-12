@@ -1,4 +1,4 @@
-// 그림자 극장 — 한 인형 레일 밀기와 황동 막 손잡이로만 답하는 중심투영 퍼즐.
+// 그림자 극장 — 한 인형 레일 밀기와 주황 막 손잡이로만 답하는 중심투영 퍼즐.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -27,8 +27,10 @@ namespace Mgf.GeurimjaGeukjang
             public string misconceptionId = "";
             public string feedback = "";
             public string guideStep = "";
+            public string layoutInfo = "";
             public bool onboarding;
             public bool frozen;
+            public bool layoutSafe;
         }
 
         enum GamePhase { Title, Practice, Playing, Reveal, End }
@@ -48,8 +50,10 @@ namespace Mgf.GeurimjaGeukjang
         bool revealFirst;
         bool puppetDragging;
         bool curtainDragging;
+        bool curtainAssist;
         bool titlePressed;
         bool practiceRailDone;
+        bool practiceRailAssistUsed;
         bool dragMoved;
         int dragStartD;
         Vector2 dragStart;
@@ -78,7 +82,7 @@ namespace Mgf.GeurimjaGeukjang
         void PrewarmText()
         {
             var chars = new HashSet<char>();
-            string fixedText = "그림자극장인형을밀어비를맞춰중학교2학년도형의닮음등불에서인형까지의거리를정해주문한비의그림자를만드시오빛을켜고막올리기황동손잡이를아래로당겨제출하시오△OAB∽△OCDOAOCcm길이의비넓이의비첫시도등록클립막앙코르폐막다시공연하기맞았다선택한목표수리완료";
+            string fixedText = "그림자극장인형을밀어비를맞춰중학교2학년도형의닮음등불에서인형까지의거리를정해주문한비의그림자를만드시오빛을켜고막올리기주황손잡이를아래로당겨제출하시오△OAB∽△OCDOAOCcm닮음비넓이의비첫시도청사진렌즈막앙코르폐막다시공연하기맞았다선택한목표수리완료햇빛마당";
             for (int i = 0; i < fixedText.Length; i++) chars.Add(fixedText[i]);
             for (int i = 0; i < bank.Count; i++)
             {
@@ -122,8 +126,8 @@ namespace Mgf.GeurimjaGeukjang
         {
             gamePhase = GamePhase.Title;
             deck = null; current = null; endReason = "";
-            puppetDragging = false; curtainDragging = false; titlePressed = false;
-            practiceRailDone = false;
+            puppetDragging = false; curtainDragging = false; curtainAssist = false; titlePressed = false;
+            practiceRailDone = false; practiceRailAssistUsed = false;
             st.score = 0; st.lives = ShadowRules.StartLives; st.level = 1; st.solved = 0;
             st.selectedD = 3; st.act = 1; st.combo = 0; st.firstAttemptTotal = 0;
             st.firstAttemptCorrect = 0; st.lateFirstCorrect = 0; st.attemptIndex = 0;
@@ -144,7 +148,7 @@ namespace Mgf.GeurimjaGeukjang
             st.score = 0; st.lives = ShadowRules.StartLives; st.level = 1; st.solved = 0;
             st.act = 1; st.combo = 0; st.firstAttemptTotal = 0; st.firstAttemptCorrect = 0;
             st.lateFirstCorrect = 0; st.attemptIndex = 0; st.misconceptionId = "";
-            endReason = ""; revealClock = 0; curtainPull = 0; idleGuide = 0;
+            endReason = ""; revealClock = 0; curtainPull = 0; idleGuide = 0; curtainAssist = false;
             ResetWorldForRun();
         }
 
@@ -153,7 +157,7 @@ namespace Mgf.GeurimjaGeukjang
             ResetRun();
             gamePhase = GamePhase.Practice;
             st.onboarding = true; st.frozen = true;
-            practiceRailDone = false;
+            practiceRailDone = false; practiceRailAssistUsed = false; curtainAssist = false;
             current = ShadowRules.Practice();
             firstAttempt = true;
             SetSelectedD(3, false);
@@ -373,7 +377,7 @@ namespace Mgf.GeurimjaGeukjang
                 {
                     titlePressed = IsTitleStartZone(pos);
                     if (titlePressed) { BeginTitlePress(); MgfSfx.Play("tap", .2f); }
-                    else RefuseInput("아래 황동 조광 레버를 눌러 빛을 켜시오");
+                    else RefuseInput("아래 주황 조광 레버를 눌러 빛을 켜시오");
                     MgfBridge.NotifyChanged();
                     return;
                 }
@@ -392,9 +396,17 @@ namespace Mgf.GeurimjaGeukjang
                 }
                 if (gamePhase != GamePhase.Practice && gamePhase != GamePhase.Playing) return;
                 idleGuide = 0;
-                if (IsCurtainZone(pos))
+                // 고정 연습의 두 번째 조작은 첫 실패 입력도 손잡이에 흡착시킨다.
+                // 정답 위치(6 cm)를 먼저 만든 뒤에만 작동하므로 실전 판정이나 무뇌 확률에는 영향이 없다.
+                if (gamePhase == GamePhase.Practice && practiceRailDone)
                 {
-                    curtainDragging = true; dragStart = pos; curtainPull = 0f;
+                    curtainDragging = true; curtainAssist = true; dragStart = pos; curtainPull = 0f;
+                    BeginCurtainGrab(); MgfSfx.Play("tap", .16f);
+                    ShowToast("손잡이가 손가락에 붙었다. 아래로 당겨 놓으시오", 1.8f);
+                }
+                else if (IsCurtainZone(pos))
+                {
+                    curtainDragging = true; curtainAssist = false; dragStart = pos; curtainPull = 0f;
                     BeginCurtainGrab(); MgfSfx.Play("tap", .16f);
                 }
                 else if (IsRailZone(pos))
@@ -439,6 +451,16 @@ namespace Mgf.GeurimjaGeukjang
                         ShowToast("6 cm 확인 · 이제 오른쪽 막 손잡이를 아래로 당기시오", 3.2f);
                         ReplayGuide(true);
                     }
+                    else if (!practiceRailAssistUsed)
+                    {
+                        // 첫 연습 드래그는 목표 눈금이 이미 공개된 조작 학습이다. 한 번 빗나가면
+                        // 받침이 6 cm 자석 눈금에 붙어, 곧바로 제출 손잡이 학습으로 넘어간다.
+                        practiceRailAssistUsed = true;
+                        SetSelectedD(current.answerD, true);
+                        practiceRailDone = true;
+                        ShowToast("연습 자석이 6 cm에 붙었다. 이제 움직이는 손잡이를 당기시오", 2.8f);
+                        ReplayGuide(true);
+                    }
                     else
                     {
                         ShowToast("연습 목표는 6 cm이다. 인형을 6 눈금에 놓으시오", 2.6f);
@@ -457,11 +479,18 @@ namespace Mgf.GeurimjaGeukjang
             if (MgfPointer.Up && curtainDragging)
             {
                 curtainDragging = false; EndCurtainGrab();
-                if (curtainPull >= .94f) SubmitCurtain();
+                if (curtainPull >= .94f || (gamePhase == GamePhase.Practice && curtainAssist))
+                {
+                    // 첫 짧은/비스듬한 드래그는 화면에 보이는 자동 당김으로 끝까지 보조한다.
+                    if (curtainPull < .94f) { curtainPull = 1f; UpdateCurtainPull(curtainPull); }
+                    curtainAssist = false;
+                    SubmitCurtain();
+                }
                 else
                 {
+                    curtainAssist = false;
                     curtainPull = 0; UpdateCurtainPull(0);
-                    RefuseInput("황동 막 손잡이를 64 px 이상 아래로 당기시오");
+                    RefuseInput("주황 막 손잡이를 아래로 끝까지 당기시오");
                     MgfSfx.Play("wrong", .16f);
                     MgfBridge.NotifyChanged();
                 }
