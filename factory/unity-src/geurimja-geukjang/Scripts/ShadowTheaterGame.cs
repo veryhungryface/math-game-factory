@@ -25,6 +25,8 @@ namespace Mgf.GeurimjaGeukjang
             public string problemKind = "";
             public string targetRatio = "";
             public string misconceptionId = "";
+            public string feedback = "";
+            public string guideStep = "";
             public bool onboarding;
             public bool frozen;
         }
@@ -47,6 +49,7 @@ namespace Mgf.GeurimjaGeukjang
         bool puppetDragging;
         bool curtainDragging;
         bool titlePressed;
+        bool practiceRailDone;
         bool dragMoved;
         int dragStartD;
         Vector2 dragStart;
@@ -75,7 +78,7 @@ namespace Mgf.GeurimjaGeukjang
         void PrewarmText()
         {
             var chars = new HashSet<char>();
-            string fixedText = "그림자극장인형을밀어비를맞춰중학교2학년도형의닮음등불에서인형까지의거리를정해주문한비의그림자를만드시오빛을켜고막올리기황동손잡이를아래로당겨제출하시오△OAB∽△OCDOAOCcm길이의비넓이의비첫시도퓨즈막앙코르폐막다시공연하기맞았다선택한목표수리완료";
+            string fixedText = "그림자극장인형을밀어비를맞춰중학교2학년도형의닮음등불에서인형까지의거리를정해주문한비의그림자를만드시오빛을켜고막올리기황동손잡이를아래로당겨제출하시오△OAB∽△OCDOAOCcm길이의비넓이의비첫시도등록클립막앙코르폐막다시공연하기맞았다선택한목표수리완료";
             for (int i = 0; i < fixedText.Length; i++) chars.Add(fixedText[i]);
             for (int i = 0; i < bank.Count; i++)
             {
@@ -120,11 +123,12 @@ namespace Mgf.GeurimjaGeukjang
             gamePhase = GamePhase.Title;
             deck = null; current = null; endReason = "";
             puppetDragging = false; curtainDragging = false; titlePressed = false;
+            practiceRailDone = false;
             st.score = 0; st.lives = ShadowRules.StartLives; st.level = 1; st.solved = 0;
             st.selectedD = 3; st.act = 1; st.combo = 0; st.firstAttemptTotal = 0;
             st.firstAttemptCorrect = 0; st.lateFirstCorrect = 0; st.attemptIndex = 0;
             st.problemId = ""; st.prompt = ""; st.problemKind = ""; st.targetRatio = "";
-            st.misconceptionId = ""; st.onboarding = false; st.frozen = false;
+            st.misconceptionId = ""; st.feedback = ""; st.guideStep = ""; st.onboarding = false; st.frozen = false;
             curtainPull = 0; revealClock = 0; idleGuide = 0;
             ResetWorldForRun();
             SetPhaseVisuals();
@@ -149,6 +153,7 @@ namespace Mgf.GeurimjaGeukjang
             ResetRun();
             gamePhase = GamePhase.Practice;
             st.onboarding = true; st.frozen = true;
+            practiceRailDone = false;
             current = ShadowRules.Practice();
             firstAttempt = true;
             SetSelectedD(3, false);
@@ -179,6 +184,7 @@ namespace Mgf.GeurimjaGeukjang
             st.score = 0; st.lives = ShadowRules.StartLives; st.solved = 0; st.combo = 0;
             st.firstAttemptTotal = 0; st.firstAttemptCorrect = 0; st.lateFirstCorrect = 0;
             st.attemptIndex = 0; st.misconceptionId = "";
+            st.feedback = ""; st.guideStep = "";
             deckIndex = 0; runLeft = ShadowRules.RunSeconds;
             gamePhase = GamePhase.Playing; st.onboarding = false; st.frozen = false;
             LoadNextProblem();
@@ -196,6 +202,7 @@ namespace Mgf.GeurimjaGeukjang
         {
             if (deck == null || deckIndex >= deck.Count) { EndRun("mastery"); return; }
             current = deck[deckIndex];
+            st.feedback = "";
             st.act = deckIndex + 1;
             firstAttempt = true;
             int initial = current.answerD == 3 ? 4 : 3;
@@ -238,7 +245,11 @@ namespace Mgf.GeurimjaGeukjang
             if (revealPractice)
             {
                 if (revealCorrect) { st.score = 100; st.solved = 1; }
-                else st.misconceptionId = ShadowRules.MisconceptionId(current, st.selectedD);
+                else
+                {
+                    st.misconceptionId = ShadowRules.MisconceptionId(current, st.selectedD);
+                    practiceRailDone = false;
+                }
             }
             else
             {
@@ -270,6 +281,7 @@ namespace Mgf.GeurimjaGeukjang
             st.frozen = true;
             revealClock = 0;
             curtainPull = 1f;
+            st.feedback = revealCorrect ? current.revealFormula : WrongRevealText();
             BeginRevealVisual(revealCorrect, revealPractice, revealFirst);
             RefreshProblemUi();
             SetPhaseVisuals();
@@ -419,6 +431,20 @@ namespace Mgf.GeurimjaGeukjang
                     RefuseInput("인형을 다른 눈금까지 민 뒤 놓으시오");
                     ReplayGuide(true);
                 }
+                else if (gamePhase == GamePhase.Practice)
+                {
+                    practiceRailDone = st.selectedD == current.answerD;
+                    if (practiceRailDone)
+                    {
+                        ShowToast("6 cm 확인 · 이제 오른쪽 막 손잡이를 아래로 당기시오", 3.2f);
+                        ReplayGuide(true);
+                    }
+                    else
+                    {
+                        ShowToast("연습 목표는 6 cm이다. 인형을 6 눈금에 놓으시오", 2.6f);
+                        ReplayGuide(true);
+                    }
+                }
                 MgfBridge.NotifyChanged();
             }
 
@@ -459,6 +485,8 @@ namespace Mgf.GeurimjaGeukjang
             if (gamePhase != GamePhase.Playing || current == null) StartRunDirect();
             int wrong = current.wrongAreaLinear > 0 ? current.wrongAreaLinear :
                         current.wrongDistanceScale > 0 ? current.wrongDistanceScale :
+                        current.wrongInverseDirection > 0 ? current.wrongInverseDirection :
+                        current.wrongOneTick > 0 ? current.wrongOneTick :
                         current.answerD == ShadowRules.MaxD ? current.answerD - 1 : current.answerD + 1;
             if (wrong == current.answerD) wrong = current.answerD == ShadowRules.MinD ? 3 : 2;
             SetSelectedD(wrong, false);
@@ -470,6 +498,7 @@ namespace Mgf.GeurimjaGeukjang
             st.phase = gamePhase == GamePhase.Title ? "title" : gamePhase == GamePhase.End ? (endReason == "clear" ? "clear" : "gameover") : "playing";
             st.onboarding = gamePhase == GamePhase.Practice;
             st.frozen = gamePhase == GamePhase.Practice || gamePhase == GamePhase.Reveal || gamePhase == GamePhase.End;
+            st.guideStep = gamePhase == GamePhase.Practice ? (practiceRailDone ? "curtain" : "rail") : "";
             st.lives = Math.Max(0, st.lives);
             BindCurrent();
             return JsonUtility.ToJson(st);

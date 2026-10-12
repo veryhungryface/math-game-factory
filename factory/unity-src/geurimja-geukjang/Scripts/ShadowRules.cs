@@ -9,8 +9,9 @@
 //
 // 오개념 역산 id:
 // - area_ratio_used_as_length_ratio: 넓이의 비 P:Q를 길이의 비에 그대로 적용한다.
-// - reversed_ratio_order: 그림자:인형의 순서를 인형:그림자로 거꾸로 읽는다(이 레일 범위 밖이면 이론값만 보존).
 // - distance_equals_ratio_front: 기약 길이비의 앞항 p를 거리 d와 같은 수로 본다.
+// - inverse_scale_direction: 거리가 멀수록 그림자가 작아지는 방향을 거꾸로 읽는다.
+// - one_tick_estimate: 비례식을 계산하지 않고 정답 이웃 눈금으로 추측한다.
 // 선택지는 없고 2~10 cm의 연속 레일이 답 공간이다. 아래 오개념 좌표는 오답 설명용이며,
 // 정답 제거 → 범위 검사 → 중복 제거 순서로 보존한다.
 using System;
@@ -33,8 +34,9 @@ namespace Mgf.GeurimjaGeukjang
         public int puppetLength;
         public int shadowLength;
         public int wrongAreaLinear;
-        public int wrongReverse;
         public int wrongDistanceScale;
+        public int wrongInverseDirection;
+        public int wrongOneTick;
         public string scene;
         public string prompt;
         public string targetRatio;
@@ -111,7 +113,7 @@ namespace Mgf.GeurimjaGeukjang
             {
                 band = 1;
                 target = lp + ":" + lq;
-                prompt = "장면 ‘" + scene + "’에서 그림자와 인형의 길이의 비가 " + target + "가 되도록 인형을 놓으시오.";
+                prompt = "장면 ‘" + scene + "’에서 그림자와 인형의 길이의 비를 " + target + "로 맞추도록 인형을 놓으시오.";
                 formula = "그림자:인형 = OC:OA = 12:" + d + " = " + target;
                 concept = "닮음비 직접 구성";
             }
@@ -127,7 +129,7 @@ namespace Mgf.GeurimjaGeukjang
             {
                 band = 3;
                 target = ap + ":" + aq;
-                prompt = "장면 ‘" + scene + "’에서 그림자와 인형의 넓이의 비가 " + target + "가 되도록 인형을 놓으시오.";
+                prompt = "장면 ‘" + scene + "’에서 그림자와 인형의 넓이의 비를 " + target + "로 맞추도록 인형을 놓으시오.";
                 formula = "넓이의 비 = 144:" + (d * d) + " = " + target + "  ·  길이의 비 = " + lp + ":" + lq;
                 concept = "닮은 평면도형의 넓이의 비";
             }
@@ -136,17 +138,25 @@ namespace Mgf.GeurimjaGeukjang
             // 정확한 정수가 아니어도 학생이 레일의 가장 가까운 눈금에 놓는 행동을 재현한다.
             int areaLinear = kind == ShadowKind.AreaRatio ? RoundRatio(L * aq, ap) : 0;
             areaLinear = ValidWrong(areaLinear, d);
-            // 오개념 2: 그림자:인형=p:q를 인형:그림자로 뒤집으면 d=12p/q이다.
-            // 2~10 cm 밖이면 0으로 남겨 화면에서 허위 진단하지 않는다.
-            int reverse = ValidWrong(RoundRatio(L * lp, lq), d, areaLinear);
-            // 오개념 3: 비의 앞항 p를 거리와 같은 수로 읽는다.
-            int distanceScale = ValidWrong(kind == ShadowKind.AreaRatio ? ap : lp, d, areaLinear, reverse);
+            // 오개념 2: 비의 앞항 p를 거리와 같은 수로 읽는다.
+            int distanceScale = ValidWrong(kind == ShadowKind.AreaRatio ? ap : lp, d, areaLinear);
+            // 오개념 3: 거리와 그림자 크기의 증감 방향을 거꾸로 읽는다.
+            // 12-d는 2~10 레일 안에서 대칭 위치이며, 중심 6은 끝 눈금으로 방향 오류를 드러낸다.
+            int inverseDirection = ValidWrong(d == 6 ? MaxD : L - d, d, areaLinear, distanceScale);
+            // 계산 없이 가장 가까운 눈금을 고르는 행동. 앞 좌표와 겹치면 반대 이웃,
+            // 그래도 겹치면 남은 첫 눈금을 택해 문항마다 실제 진단 좌표 2개 이상을 보장한다.
+            int oneTick = ValidWrong(d < MaxD ? d + 1 : d - 1, d, areaLinear, distanceScale, inverseDirection);
+            if (oneTick == 0) oneTick = ValidWrong(d > MinD ? d - 1 : d + 1, d, areaLinear, distanceScale, inverseDirection);
+            if (oneTick == 0)
+                for (int x = MinD; x <= MaxD && oneTick == 0; x++)
+                    oneTick = ValidWrong(x, d, areaLinear, distanceScale, inverseDirection);
 
             return new ShadowProblem {
                 id = "gg-" + (kind == ShadowKind.LengthRatio ? "len" : kind == ShadowKind.ReverseLength ? "rev" : "area") + "-d" + d + "-v" + variant,
                 kind = kind, band = band, answerD = d, p = kind == ShadowKind.AreaRatio ? ap : lp,
                 q = kind == ShadowKind.AreaRatio ? aq : lq, puppetLength = h, shadowLength = s,
-                wrongAreaLinear = areaLinear, wrongReverse = reverse, wrongDistanceScale = distanceScale,
+                wrongAreaLinear = areaLinear, wrongDistanceScale = distanceScale,
+                wrongInverseDirection = inverseDirection, wrongOneTick = oneTick,
                 scene = scene, prompt = prompt, targetRatio = target, revealFormula = formula,
                 unitConcept = concept, rotated = (variant & 1) == 1
             };
@@ -164,8 +174,9 @@ namespace Mgf.GeurimjaGeukjang
         {
             if (p == null || d == p.answerD) return "";
             if (d == p.wrongAreaLinear && p.wrongAreaLinear > 0) return "area_ratio_used_as_length_ratio";
-            if (d == p.wrongReverse && p.wrongReverse > 0) return "reversed_ratio_order";
             if (d == p.wrongDistanceScale && p.wrongDistanceScale > 0) return "distance_equals_ratio_front";
+            if (d == p.wrongInverseDirection && p.wrongInverseDirection > 0) return "inverse_scale_direction";
+            if (d == p.wrongOneTick && p.wrongOneTick > 0) return "one_tick_estimate";
             return d < p.answerD ? "puppet_too_close" : "puppet_too_far";
         }
 
@@ -175,6 +186,18 @@ namespace Mgf.GeurimjaGeukjang
             int b = p != null && p.kind == ShadowKind.AreaRatio ? d * d : d;
             int x, y; Reduce(a, b, out x, out y);
             return x + ":" + y;
+        }
+
+        // 현재 비 a:b와 목표 p:q를 같은 종류(길이/넓이)끼리만 외적으로 비교한다.
+        // 오답 설명도 IsCorrect와 동일한 정수 경로를 쓰므로 넓이비 문항에서 12:d를
+        // 목표 넓이비와 직접 비교하는 잘못된 안내가 생기지 않는다.
+        public static int CompareActualToTarget(ShadowProblem p, int d)
+        {
+            if (p == null || d < MinD || d > MaxD) return 0;
+            long a = p.kind == ShadowKind.AreaRatio ? (long)L * L : L;
+            long b = p.kind == ShadowKind.AreaRatio ? (long)d * d : d;
+            long delta = a * p.q - b * p.p;
+            return delta == 0 ? 0 : delta > 0 ? 1 : -1;
         }
 
         public static int FirstD(int runSerial, int offset)
@@ -230,9 +253,17 @@ namespace Mgf.GeurimjaGeukjang
                 int truths = 0;
                 for (int x = MinD; x <= MaxD; x++) if (IsCorrect(p, x)) truths++;
                 if (truths != 1 || !IsCorrect(p, d)) throw new InvalidOperationException("정답 비유일: " + p.id);
-                int[] wrongs = { p.wrongAreaLinear, p.wrongReverse, p.wrongDistanceScale };
+                int[] wrongs = { p.wrongAreaLinear, p.wrongDistanceScale, p.wrongInverseDirection, p.wrongOneTick };
+                int validWrongs = 0;
                 for (int i = 0; i < wrongs.Length; i++)
-                    if (wrongs[i] > 0 && IsCorrect(p, wrongs[i])) throw new InvalidOperationException("오개념 우연 정답: " + p.id);
+                {
+                    if (wrongs[i] <= 0) continue;
+                    validWrongs++;
+                    if (IsCorrect(p, wrongs[i])) throw new InvalidOperationException("오개념 우연 정답: " + p.id);
+                    for (int j = 0; j < i; j++)
+                        if (wrongs[j] == wrongs[i]) throw new InvalidOperationException("오개념 좌표 중복: " + p.id);
+                }
+                if (validWrongs < 2) throw new InvalidOperationException("오개념 좌표 2개 미만: " + p.id);
             }
         }
     }

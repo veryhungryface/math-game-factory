@@ -34,7 +34,7 @@ function artifactHash() {
 }
 
 function solve(prompt) {
-  const area = prompt.match(/넓이의 비가 (\d+):(\d+)/);
+  const area = prompt.match(/넓이의 비(?:가|를) (\d+):(\d+)(?:가 되도록|로 맞추도록)/);
   if (area) {
     const p = Number(area[1]), q = Number(area[2]);
     for (let d = 2; d <= 10; d++) if (144 * q === d * d * p) return d;
@@ -44,7 +44,7 @@ function solve(prompt) {
     const h = Number(reverse[1]), s = Number(reverse[2]);
     if ((12 * h) % s === 0) return 12 * h / s;
   }
-  const length = prompt.match(/길이의 비가 (\d+):(\d+)/);
+  const length = prompt.match(/길이의 비(?:가|를) (\d+):(\d+)(?:가 되도록|로 맞추도록)/);
   if (length) {
     const p = Number(length[1]), q = Number(length[2]);
     if ((12 * q) % p === 0) return 12 * q / p;
