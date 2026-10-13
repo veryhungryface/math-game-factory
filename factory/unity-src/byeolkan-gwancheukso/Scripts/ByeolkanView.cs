@@ -9,17 +9,17 @@ namespace Mgf.ByeolkanGwancheukso
 {
     public partial class ByeolkanGame
     {
-        // 1차 수정: 어두운 금속 관측소를 밝은 도자기 별마을로 바꾼다.
-        // 저광택 세라믹·목재·천의 같은 재질 체계를 타이틀부터 플레이까지 유지한다.
-        static readonly Color Night = new Color32(45, 58, 70, 255);
-        static readonly Color Cobalt = new Color32(63, 122, 130, 255);
-        static readonly Color Opal = new Color32(244, 229, 194, 255);
-        static readonly Color Violet = new Color32(105, 91, 147, 255);
-        static readonly Color Star = new Color32(226, 125, 79, 255);
-        static readonly Color Bubble = new Color32(111, 84, 103, 255);
-        static readonly Color Pale = new Color32(255, 250, 232, 255);
-        static readonly Color Basalt = new Color32(205, 151, 100, 255);
-        static readonly Color Nickel = new Color32(113, 79, 55, 255);
+        // 2차 수정: 둥근 파스텔 원반을 화면 폭 전체의 계단식 천문 마을로 교체한다.
+        // 거친 테라코타 모자이크·각진 황동 궤도·남색 밤하늘을 타이틀부터 결과까지 유지한다.
+        static readonly Color Night = new Color32(25, 31, 46, 255);
+        static readonly Color Cobalt = new Color32(38, 77, 100, 255);
+        static readonly Color Opal = new Color32(239, 220, 174, 255);
+        static readonly Color Violet = new Color32(87, 67, 101, 255);
+        static readonly Color Star = new Color32(246, 168, 67, 255);
+        static readonly Color Bubble = new Color32(95, 57, 72, 255);
+        static readonly Color Pale = new Color32(255, 243, 207, 255);
+        static readonly Color Basalt = new Color32(143, 68, 48, 255);
+        static readonly Color Nickel = new Color32(145, 103, 48, 255);
         static readonly Color Wrong = new Color32(174, 72, 79, 255);
         static readonly Color SkyTeal = new Color32(119, 190, 196, 255);
         static readonly Color Leaf = new Color32(93, 145, 101, 255);
@@ -30,6 +30,9 @@ namespace Mgf.ByeolkanGwancheukso
         readonly Transform[] novaLimbs = new Transform[4];
         readonly Transform[] domeShards = new Transform[6];
         readonly Quaternion[] domeShardBaseRot = new Quaternion[6];
+        readonly Transform[] towerHeads = new Transform[7];
+        readonly Transform[] towerRays = new Transform[7];
+        readonly Renderer[] towerLamps = new Renderer[7];
         readonly Transform[] starNodes = new Transform[36];
         readonly Renderer[] starRenderers = new Renderer[36];
         readonly Vector3[] starWorld = new Vector3[36];
@@ -37,16 +40,17 @@ namespace Mgf.ByeolkanGwancheukso
         readonly Quaternion[] rackTargetRot = new Quaternion[2];
         readonly Vector3[] rackVelocity = new Vector3[2];
         Material basaltMat, basaltLightMat, nickelMat, opalMat, opalGlowMat, starOffMat, starOnMat, bubbleMat, cobaltMat, glassMat;
-        float worldTime, wrongShake, novaRun = -1f, dockPulse, crankVisual, pavilionFold, pavilionFoldTarget;
+        float worldTime, wrongShake, novaRun = -1f, dockPulse, crankVisual, pavilionFold, pavilionFoldTarget, towerAim = -1f;
         Vector3 camBase;
 
         RectTransform uiRoot, titleUi, gameUi, endUi, titleBannerRt, titleHandleRt, restartRt, boardRt, crankRt, foldRt;
+        RectTransform hudStripRt, promptPlateRt, goalRt, actionRt;
         RectTransform rackHandleA, rackHandleB, guideRt, guideTrailRt, guideHandRt, guideCaptionRt, rippleRt, toastRt, revealRt;
         RectTransform endDockLeft, endDockRight, crossDock;
         CanvasGroup titleGroup, gameGroup, endGroup, toastGroup, revealGroup;
         CanvasScaler scaler;
         RawImage titleArt;
-        Image titleHandleImage, crankImage, foldImage, guideImage, rippleImage, toastPlate, revealPlate;
+        Image titleHandleImage, crankImage, foldImage, boardPlateImage, guideImage, rippleImage, toastPlate, revealPlate;
         Image sealImage;
         TextMeshProUGUI logoText, taglineText, titleMetaText, titleHandleText;
         TextMeshProUGUI scoreText, livesText, timerText, progressText, goalText, promptText, conceptText, actionText;
@@ -74,25 +78,26 @@ namespace Mgf.ByeolkanGwancheukso
             colliderTypes.AddComponent<SphereCollider>();
             colliderTypes.AddComponent<BoxCollider>();
             UnityEngine.Object.Destroy(colliderTypes);
-            MgfLook.Sky(MgfLook.Hex("#78C6CF"), MgfLook.Hex("#F5D7A8"), MgfLook.Hex("#D98F6A"), .58f);
-            MgfLook.Sun(new Vector3(48f, -38f, 20f), new Color(1f, .83f, .62f), 1.20f, .78f);
-            cam = MgfLook.Camera(new Vector3(0f, 16.5f, -17.5f), new Vector3(0f, .5f, 1.2f), 40f);
+            MgfLook.Sky(MgfLook.Hex("#101A31"), MgfLook.Hex("#304866"), MgfLook.Hex("#9A4D38"), .48f);
+            MgfLook.Sun(new Vector3(42f, -32f, 18f), new Color(1f, .72f, .43f), 1.16f, .82f);
+            cam = MgfLook.Camera(new Vector3(0f, 17.8f, -18.8f), new Vector3(0f, 1.0f, 2.0f), 38f);
             cam.orthographic = true; cam.orthographicSize = 9.1f; camBase = cam.transform.position;
 
             basaltMat = MgfLook.Lit(Basalt, .14f, 0f);
-            basaltLightMat = MgfLook.Lit(new Color32(238, 202, 153, 255), .12f, 0f);
-            nickelMat = MgfLook.Lit(Nickel, .16f, 0f);
-            opalMat = MgfLook.Lit(Opal, .18f, 0f);
-            opalGlowMat = MgfLook.Lit(new Color32(250, 241, 205, 255), .22f, 0f, new Color(.08f, .045f, .015f));
-            starOffMat = MgfLook.Lit(new Color32(181, 143, 112, 255), .12f, 0f);
-            starOnMat = MgfLook.Lit(Star, .18f, 0f, Star * .18f);
+            basaltLightMat = MgfLook.Lit(new Color32(190, 108, 70, 255), .07f, 0f);
+            nickelMat = MgfLook.Lit(Nickel, .24f, .12f);
+            opalMat = MgfLook.Lit(Opal, .08f, 0f);
+            opalGlowMat = MgfLook.Lit(new Color32(255, 225, 155, 255), .16f, 0f, new Color(.12f, .06f, .01f));
+            starOffMat = MgfLook.Lit(new Color32(91, 73, 65, 255), .06f, 0f);
+            starOnMat = MgfLook.Lit(Star, .14f, .04f, Star * .26f);
             bubbleMat = MgfLook.Lit(Bubble, .12f, 0f);
             cobaltMat = MgfLook.Lit(Cobalt, .16f, 0f);
-            glassMat = MgfLook.Lit(new Color32(115, 101, 154, 255), .10f, 0f);
+            glassMat = MgfLook.Lit(new Color32(49, 80, 96, 255), .18f, .04f);
 
-            worldRoot = new GameObject("Sunlit Ceramic Star Village").transform;
+            worldRoot = new GameObject("Stepped Terracotta Observatory Town").transform;
             BuildCrater();
             BuildObservatoryRings();
+            BuildAimTowers();
             rackWorldA = BuildRack("Opal Rack A", 6);
             rackWorldB = BuildRack("Opal Rack B", 6);
             rackWorldA.SetParent(worldRoot); rackWorldB.SetParent(worldRoot);
@@ -107,59 +112,79 @@ namespace Mgf.ByeolkanGwancheukso
 
         void BuildCrater()
         {
-            MgfLook.Prim(PrimitiveType.Cylinder, "Terracotta Hill", new Vector3(0, -.7f, 1.8f), new Vector3(16f, .55f, 16f), basaltMat, worldRoot);
-            MgfLook.Prim(PrimitiveType.Cylinder, "Cream Plaza", new Vector3(0, -.25f, 2.3f), new Vector3(8.5f, .5f, 8.5f), basaltLightMat, worldRoot);
-            for (int i = 0; i < 28; i++)
+            // Three long terraces replace the familiar circular diorama silhouette and fill
+            // both desktop gutters with playable-world architecture.
+            MgfLook.Block("Lower mosaic terrace", new Vector3(0, -.72f, 1.4f), new Vector3(25f, .85f, 11f), .12f, basaltMat, worldRoot);
+            MgfLook.Block("Middle observatory street", new Vector3(0, -.18f, 3.1f), new Vector3(21f, .72f, 7.2f), .10f, basaltLightMat, worldRoot);
+            MgfLook.Block("Upper telescope walk", new Vector3(0, .28f, 5.8f), new Vector3(17f, .62f, 3.4f), .08f, cobaltMat, worldRoot);
+            for (int i = 0; i < 36; i++)
             {
-                float a = i * Mathf.PI * 2f / 28f;
-                float r = 7.4f + Mathf.Sin(i * 5.1f) * .42f;
-                float h = 1.0f + (i % 4) * .22f;
-                var house = MgfLook.Block("Plaster observatory house", new Vector3(Mathf.Cos(a) * r, h * .5f - .35f, 2.2f + Mathf.Sin(a) * r),
-                    new Vector3(.72f + (i % 3) * .24f, h, .86f), .17f, i % 3 == 0 ? opalMat : basaltLightMat, worldRoot);
-                house.transform.localRotation = Quaternion.Euler(0, -a * Mathf.Rad2Deg + i * 2f, 0);
-                var roof = MgfLook.Block("Cloth roof", new Vector3(0, h * .53f, 0), new Vector3(.88f, .16f, 1.02f), .08f,
-                    i % 2 == 0 ? cobaltMat : glassMat, house.transform);
-                roof.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 5f : -5f);
+                int row = i % 3;
+                float x = -11.4f + (i / 3) * 2.05f + (row == 1 ? .62f : 0f);
+                float z = row == 0 ? -.5f : row == 1 ? 4.9f : 7.3f;
+                float h = 1.0f + (i % 5) * .20f;
+                var house = MgfLook.Block("Chiseled mosaic house", new Vector3(x, h * .5f, z),
+                    new Vector3(1.28f + (i % 2) * .22f, h, 1.05f), .05f, i % 4 == 0 ? opalMat : basaltLightMat, worldRoot);
+                var roof = MgfLook.Block("Angular brass roof", new Vector3(0, h * .54f, 0), new Vector3(1.48f, .14f, 1.20f), .025f,
+                    i % 3 == 0 ? nickelMat : glassMat, house.transform);
+                roof.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 7f : -7f);
+                MgfLook.Block("Carved scale mark", new Vector3(0, .05f, -.54f), new Vector3(.55f, .12f, .035f), .01f, starOnMat, house.transform);
             }
-            for (int i = 0; i < 12; i++)
+            for (int i = 0; i < 18; i++)
             {
-                float a = i * Mathf.PI * 2f / 12f;
-                var trunk = MgfLook.Prim(PrimitiveType.Cylinder, "Olive tree trunk", new Vector3(Mathf.Cos(a) * 6.1f, .40f, 2.2f + Mathf.Sin(a) * 6.1f),
-                    new Vector3(.14f, .72f, .14f), nickelMat, worldRoot);
-                var crown = MgfLook.Prim(PrimitiveType.Sphere, "Olive crown", new Vector3(0, .72f, 0), new Vector3(.72f, .48f, .58f), MgfLook.Lit(Leaf,.08f,0f), trunk.transform, false);
-                crown.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.On;
+                float x = -10.8f + i * 1.27f;
+                MgfLook.Block("Brass alley rail", new Vector3(x, .48f, 2.0f + (i % 2) * 1.1f), new Vector3(.08f, .72f, 1.05f), .02f, nickelMat, worldRoot);
+            }
+        }
+
+        void BuildAimTowers()
+        {
+            for (int i = 0; i < towerHeads.Length; i++)
+            {
+                float x = -9.0f + i * 3.0f;
+                float z = 5.7f + (i % 2) * 1.15f;
+                float h = 2.0f + (i % 3) * .42f;
+                var tower = MgfLook.Block("Terracotta observation tower " + i, new Vector3(x, h * .5f, z),
+                    new Vector3(1.15f, h, 1.15f), .04f, i % 2 == 0 ? basaltMat : basaltLightMat, worldRoot).transform;
+                towerHeads[i] = new GameObject("Aiming brass head " + i).transform;
+                towerHeads[i].SetParent(tower, false); towerHeads[i].localPosition = new Vector3(0, h * .55f, 0);
+                MgfLook.Block("Angular telescope " + i, new Vector3(0, .10f, -.72f), new Vector3(.34f, .34f, 1.55f), .035f, nickelMat, towerHeads[i]);
+                towerRays[i] = MgfLook.Block("Starlight ray " + i, new Vector3(0, .10f, -1.72f), new Vector3(.055f, .055f, 2.0f), .01f, starOffMat, towerHeads[i]).transform;
+                var lamp = MgfLook.Prim(PrimitiveType.Sphere, "Tower star lens " + i, new Vector3(0, .10f, -2.72f), Vector3.one * .28f, starOffMat, towerHeads[i]);
+                towerLamps[i] = lamp.GetComponent<Renderer>();
             }
         }
 
         void BuildObservatoryRings()
         {
-            titleRing = NewMeshObject("Village Festival Arch", Torus(5.5f, .18f, 64, 8), nickelMat, worldRoot).transform;
-            titleRing.localPosition = new Vector3(0, 4.2f, 3.8f);
+            titleRing = NewMeshObject("Great brass meridian", Torus(5.5f, .18f, 64, 8), nickelMat, worldRoot).transform;
+            titleRing.localPosition = new Vector3(0, 5.0f, 5.8f);
             titleRing.localRotation = Quaternion.Euler(68f, 0, 0);
-            orbitA = NewMeshObject("Ribbon rail A", Torus(7.0f, .045f, 64, 5), nickelMat, worldRoot).transform;
-            orbitB = NewMeshObject("Ribbon rail B", Torus(5.9f, .035f, 64, 5), MgfLook.Lit(Violet, .12f, 0f), worldRoot).transform;
-            orbitA.localPosition = new Vector3(0, 3f, 4f); orbitA.localRotation = Quaternion.Euler(72f, 12f, 0);
-            orbitB.localPosition = new Vector3(0, 3.4f, 4f); orbitB.localRotation = Quaternion.Euler(62f, -20f, 0);
+            orbitA = NewMeshObject("Outer brass calendar rail", Torus(8.7f, .055f, 64, 5), nickelMat, worldRoot).transform;
+            orbitB = NewMeshObject("Inner cobalt calendar rail", Torus(6.7f, .045f, 64, 5), MgfLook.Lit(Violet, .10f, 0f), worldRoot).transform;
+            orbitA.localPosition = new Vector3(0, 3.9f, 6f); orbitA.localRotation = Quaternion.Euler(74f, 12f, 0);
+            orbitB.localPosition = new Vector3(0, 4.3f, 6f); orbitB.localRotation = Quaternion.Euler(64f, -20f, 0);
             for (int i = 0; i < orbiters.Length; i++)
             {
                 float a = i * Mathf.PI * 2f / orbiters.Length;
-                orbiters[i] = MgfLook.Prim(PrimitiveType.Sphere, "Cloth pennant bead", new Vector3(Mathf.Cos(a) * (i % 2 == 0 ? 7f : 5.9f), 0, Mathf.Sin(a) * (i % 2 == 0 ? 7f : 5.9f)),
-                    Vector3.one * (.15f + (i % 3) * .06f), i % 3 == 0 ? starOnMat : opalMat, i % 2 == 0 ? orbitA : orbitB).transform;
+                orbiters[i] = MgfLook.Block("Engraved calendar marker", new Vector3(Mathf.Cos(a) * (i % 2 == 0 ? 8.7f : 6.7f), 0, Mathf.Sin(a) * (i % 2 == 0 ? 8.7f : 6.7f)),
+                    Vector3.one * (.22f + (i % 3) * .05f), .025f, i % 3 == 0 ? starOnMat : opalMat, i % 2 == 0 ? orbitA : orbitB).transform;
             }
         }
 
         Transform BuildRack(string name, int teeth)
         {
             var root = new GameObject(name).transform;
-            MgfLook.Block("wood rack spine", Vector3.zero, new Vector3(6.0f, .34f, .58f), .13f, nickelMat, root);
+            MgfLook.Block("angular brass rack spine", Vector3.zero, new Vector3(6.0f, .34f, .58f), .035f, nickelMat, root);
             for (int i = 0; i < teeth; i++)
             {
                 float x = (i - (teeth - 1) * .5f) * .92f;
-                var tooth = MgfLook.Block("ceramic outcome tile", new Vector3(x, -.24f, .32f), new Vector3(.54f, .72f, 1.05f), .16f, opalMat, root);
-                tooth.transform.localRotation = Quaternion.Euler(0, 0, (i % 2 == 0 ? -1.5f : 1.5f));
+                var tooth = MgfLook.Block("engraved terracotta tooth", new Vector3(x, -.24f, .32f), new Vector3(.54f, .72f, 1.05f), .035f, i % 2 == 0 ? basaltLightMat : opalMat, root);
+                tooth.transform.localRotation = Quaternion.Euler(0, 0, (i % 2 == 0 ? -2.5f : 2.5f));
+                MgfLook.Block("tooth scale mark", new Vector3(0, -.20f, -.54f), new Vector3(.28f, .07f, .03f), .005f, starOnMat, tooth.transform);
             }
-            MgfLook.Prim(PrimitiveType.Cylinder, "wood peg", new Vector3(-3.08f, 0, 0), new Vector3(.5f, .4f, .5f), nickelMat, root).transform.localRotation = Quaternion.Euler(90, 0, 0);
-            MgfLook.Prim(PrimitiveType.Cylinder, "wood peg", new Vector3(3.08f, 0, 0), new Vector3(.5f, .4f, .5f), nickelMat, root).transform.localRotation = Quaternion.Euler(90, 0, 0);
+            MgfLook.Block("brass latch left", new Vector3(-3.08f, 0, 0), new Vector3(.48f, .48f, .48f), .025f, nickelMat, root);
+            MgfLook.Block("brass latch right", new Vector3(3.08f, 0, 0), new Vector3(.48f, .48f, .48f), .025f, nickelMat, root);
             return root;
         }
 
@@ -175,40 +200,40 @@ namespace Mgf.ByeolkanGwancheukso
 
         void BuildNova()
         {
-            nova = new GameObject("Bori ceramic star lizard").transform;
+            nova = new GameObject("Gakso angular observatory runner").transform;
             nova.SetParent(worldRoot, false); nova.localPosition = new Vector3(-4.6f, 1.15f, 2.6f);
-            var body = MgfLook.Prim(PrimitiveType.Sphere, "Bori clay body", Vector3.zero, new Vector3(1.35f, .48f, .68f), basaltMat, nova);
+            var body = MgfLook.Block("Gakso faceted body", Vector3.zero, new Vector3(1.35f, .48f, .68f), .04f, cobaltMat, nova);
             body.transform.localRotation = Quaternion.Euler(0, 0, -8f);
-            var head = MgfLook.Prim(PrimitiveType.Sphere, "Bori cream head", new Vector3(.75f, .12f, 0), new Vector3(.72f, .62f, .64f), opalMat, nova);
-            MgfLook.Prim(PrimitiveType.Sphere, "Bori eye L", new Vector3(.18f, .22f, -.30f), Vector3.one * .22f, nickelMat, head.transform);
-            MgfLook.Prim(PrimitiveType.Sphere, "Bori eye R", new Vector3(.18f, .22f, .30f), Vector3.one * .22f, nickelMat, head.transform);
-            novaTail = new GameObject("Cloth ribbon tail").transform; novaTail.SetParent(nova, false); novaTail.localPosition = new Vector3(-.7f, 0, 0);
+            var head = MgfLook.Block("Gakso prism head", new Vector3(.75f, .12f, 0), new Vector3(.72f, .62f, .64f), .035f, opalMat, nova);
+            MgfLook.Block("Gakso eye L", new Vector3(.18f, .20f, -.31f), Vector3.one * .18f, .015f, starOnMat, head.transform);
+            MgfLook.Block("Gakso eye R", new Vector3(.18f, .20f, .31f), Vector3.one * .18f, .015f, starOnMat, head.transform);
+            novaTail = new GameObject("Brass segmented tail").transform; novaTail.SetParent(nova, false); novaTail.localPosition = new Vector3(-.7f, 0, 0);
             for (int i = 0; i < 4; i++)
             {
-                var seg = MgfLook.Prim(PrimitiveType.Cylinder, "tail segment", new Vector3(-.34f - i * .38f, .05f + i * .08f, 0),
-                    new Vector3(.13f - i * .018f, .42f, .13f - i * .018f), i == 3 ? starOnMat : cobaltMat, novaTail);
+                var seg = MgfLook.Block("tail segment", new Vector3(-.34f - i * .38f, .05f + i * .08f, 0),
+                    new Vector3(.13f - i * .018f, .42f, .13f - i * .018f), .015f, i == 3 ? starOnMat : nickelMat, novaTail);
                 seg.transform.localRotation = Quaternion.Euler(0, 0, 70f - i * 8f);
             }
-            MgfLook.Prim(PrimitiveType.Sphere, "tail tassel", new Vector3(-1.85f, .56f, 0), Vector3.one * .48f, starOnMat, novaTail);
+            MgfLook.Block("tail prism", new Vector3(-1.85f, .56f, 0), Vector3.one * .38f, .025f, starOnMat, novaTail);
             for (int i = 0; i < 4; i++)
             {
                 float sx = i < 2 ? -.28f : .38f, sz = i % 2 == 0 ? -.34f : .34f;
-                novaLimbs[i] = MgfLook.Prim(PrimitiveType.Cylinder, "Nova leg", new Vector3(sx, -.25f, sz),
-                    new Vector3(.09f, .42f, .09f), nickelMat, nova).transform;
+                novaLimbs[i] = MgfLook.Block("Gakso leg", new Vector3(sx, -.25f, sz),
+                    new Vector3(.10f, .42f, .10f), .012f, nickelMat, nova).transform;
                 novaLimbs[i].localRotation = Quaternion.Euler(sz > 0 ? 62f : -62f, 0, sx > 0 ? 28f : -28f);
             }
         }
 
         void BuildDome()
         {
-            dome = new GameObject("Six petal constellation pavilion").transform; dome.SetParent(worldRoot, false); dome.localPosition = new Vector3(0, .1f, 5.4f);
+            dome = new GameObject("Central seven tower star focus").transform; dome.SetParent(worldRoot, false); dome.localPosition = new Vector3(0, .1f, 5.4f);
             for (int i = 0; i < 6; i++)
             {
                 float a = (-75f + i * 30f) * Mathf.Deg2Rad;
-                var shard = MgfLook.Block("Cloth pavilion petal " + i, new Vector3(Mathf.Sin(a) * 5.2f, 2.1f + Mathf.Cos(a) * 1.0f, Mathf.Cos(a) * 1.7f),
-                    new Vector3(1.35f, 2.7f, .12f), .20f, i % 2 == 0 ? glassMat : cobaltMat, dome);
+                var shard = MgfLook.Block("Brass focus vane " + i, new Vector3(Mathf.Sin(a) * 3.4f, 2.1f + Mathf.Cos(a) * .7f, Mathf.Cos(a) * 1.2f),
+                    new Vector3(.36f, 2.7f, .14f), .025f, i % 2 == 0 ? nickelMat : glassMat, dome);
                 domeShards[i] = shard.transform;
-                domeShardBaseRot[i] = Quaternion.Euler(-58f, -a * Mathf.Rad2Deg, -a * Mathf.Rad2Deg * .25f);
+                domeShardBaseRot[i] = Quaternion.Euler(-18f, -a * Mathf.Rad2Deg, -a * Mathf.Rad2Deg * .12f);
                 domeShards[i].localRotation = domeShardBaseRot[i];
             }
         }
@@ -223,33 +248,35 @@ namespace Mgf.ByeolkanGwancheukso
             titleUi = R("Title world overlay", uiRoot, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
             titleUi.anchorMin = Vector2.zero; titleUi.anchorMax = Vector2.one; titleUi.offsetMin = titleUi.offsetMax = Vector2.zero;
             titleGroup = titleUi.gameObject.AddComponent<CanvasGroup>();
-            var villageBanner = Img("Hanging cloth village sign", titleUi, new Vector2(.5f,.72f), Vector2.zero, new Vector2(342,176), new Color(.30f,.48f,.50f,.93f), panelSprite);
+            var villageBanner = Img("Brass meridian sign", titleUi, new Vector2(.5f,.72f), Vector2.zero, new Vector2(342,176), new Color(.10f,.16f,.24f,.96f), panelSprite);
             titleBannerRt = villageBanner.rectTransform;
-            Img("Banner tassel L", villageBanner.transform, new Vector2(.06f,.04f), Vector2.zero, new Vector2(18,55), new Color(Star.r,Star.g,Star.b,.95f), panelSprite);
-            Img("Banner tassel R", villageBanner.transform, new Vector2(.94f,.04f), Vector2.zero, new Vector2(18,55), new Color(Star.r,Star.g,Star.b,.95f), panelSprite);
+            Img("Scale tooth L", villageBanner.transform, new Vector2(.06f,.04f), Vector2.zero, new Vector2(18,55), new Color(Star.r,Star.g,Star.b,.95f), panelSprite);
+            Img("Scale tooth R", villageBanner.transform, new Vector2(.94f,.04f), Vector2.zero, new Vector2(18,55), new Color(Star.r,Star.g,Star.b,.95f), panelSprite);
             logoText = Txt("Painted village logo", villageBanner.transform, "별칸\n관측소", new Vector2(.5f, .60f), Vector2.zero, 47, Pale, 315, TextAlignmentOptions.Center);
             logoText.characterSpacing = 5; logoText.outlineWidth = .10f; logoText.outlineColor = Night;
             taglineText = Txt("Tagline", villageBanner.transform, "두 랙을 엮어 별칸을 밝히시오", new Vector2(.5f,.13f), Vector2.zero, 15, new Color32(255,224,166,255), 320);
             titleMetaText = Txt("Title meta", titleUi, "중학교 2학년 · 경우의 수    최고 최초 정답 0/6", new Vector2(.5f, .055f), Vector2.zero, 12, new Color(Night.r,Night.g,Night.b,.86f), 370);
-            titleHandleImage = Img("Wooden observatory wheel", titleUi, new Vector2(.5f, .28f), Vector2.zero, new Vector2(146, 146), new Color(Star.r,Star.g,Star.b,.96f), ringSprite);
+            titleHandleImage = Img("Meridian observatory wheel", titleUi, new Vector2(.5f, .28f), Vector2.zero, new Vector2(146, 146), new Color(Star.r,Star.g,Star.b,.96f), ringSprite);
             titleHandleRt = titleHandleImage.rectTransform;
-            titleHandleText = Txt("Handle label", titleUi, "마을 풍차\n돌려 시작", new Vector2(.5f, .28f), Vector2.zero, 16, Night, 130);
+            titleHandleText = Txt("Handle label", titleUi, "황동 관측환\n눌러 시작", new Vector2(.5f, .28f), Vector2.zero, 16, Night, 130);
 
             gameUi = R("Game overlay", uiRoot, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
             gameUi.anchorMin = Vector2.zero; gameUi.anchorMax = Vector2.one; gameUi.offsetMin = gameUi.offsetMax = Vector2.zero;
             gameGroup = gameUi.gameObject.AddComponent<CanvasGroup>();
-            Img("HUD cloth strip", gameUi, new Vector2(.42f, .965f), Vector2.zero, new Vector2(318, 46), new Color(.20f,.32f,.34f,.92f), panelSprite);
+            hudStripRt = Img("HUD brass ledger", gameUi, new Vector2(.42f, .965f), Vector2.zero, new Vector2(318, 46), new Color(.08f,.13f,.20f,.96f), panelSprite).rectTransform;
             progressText = Txt("Progress", gameUi, "관측 1/6", new Vector2(.11f, .965f), Vector2.zero, 12, Pale, 82);
             livesText = Txt("Seals", gameUi, "봉인 ●●●", new Vector2(.32f, .965f), Vector2.zero, 12, new Color32(255,224,166,255), 96);
             scoreText = Txt("Score", gameUi, "0", new Vector2(.53f, .965f), Vector2.zero, 15, Star, 58);
             timerText = Txt("Timer", gameUi, "110초", new Vector2(.70f, .965f), Vector2.zero, 12, Pale, 62);
-            goalText = Txt("Goal", gameUi, "두 사건을 엮어 정확한 별칸을 밝히시오.", new Vector2(.5f, .908f), Vector2.zero, 14, new Color32(122,70,53,255), 370);
-            var promptPlate = Img("Prompt linen", gameUi, new Vector2(.5f, .815f), Vector2.zero, new Vector2(365, 92), new Color(.98f,.91f,.76f,.96f), panelSprite);
+            goalText = Txt("Goal", gameUi, "두 사건을 엮어 정확한 별칸을 밝히시오.", new Vector2(.5f, .908f), Vector2.zero, 14, Pale, 370);
+            goalRt = goalText.rectTransform;
+            var promptPlate = Img("Prompt carved tablet", gameUi, new Vector2(.5f, .815f), Vector2.zero, new Vector2(365, 92), new Color(.94f,.79f,.57f,.98f), panelSprite);
+            promptPlateRt = promptPlate.rectTransform;
             promptText = Txt("Prompt", promptPlate.transform, "", new Vector2(.5f, .56f), Vector2.zero, 15, Night, 337, TextAlignmentOptions.Center);
             conceptText = Txt("Concept", promptPlate.transform, "", new Vector2(.5f, .14f), Vector2.zero, 11, Violet, 330);
 
-            boardRt = R("Ceramic outcome courtyard", gameUi, new Vector2(.5f, .49f), Vector2.zero, new Vector2(350, 338));
-            Img("Courtyard field", boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(350,338), new Color(.95f,.82f,.61f,.88f), panelSprite);
+            boardRt = R("Terracotta outcome map", gameUi, new Vector2(.5f, .49f), Vector2.zero, new Vector2(350, 338));
+            boardPlateImage = Img("Mosaic map field", boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(350,338), new Color(.47f,.24f,.19f,.96f), panelSprite);
             endDockLeft = Img("End dock A", boardRt, new Vector2(.12f,.54f), Vector2.zero, new Vector2(82, 218), new Color(.31f,.56f,.58f,.34f), panelSprite).rectTransform;
             crossDock = Img("Cross dock", boardRt, new Vector2(.5f,.54f), Vector2.zero, new Vector2(210,210), new Color(Star.r,Star.g,Star.b,.28f), ringSprite).rectTransform;
             endDockRight = Img("End dock B", boardRt, new Vector2(.88f,.54f), Vector2.zero, new Vector2(82,218), new Color(.31f,.56f,.58f,.34f), panelSprite).rectTransform;
@@ -272,19 +299,20 @@ namespace Mgf.ByeolkanGwancheukso
             crankImage = Img("Crank", gameUi, new Vector2(.86f,.17f), Vector2.zero, new Vector2(92,92), Star, ringSprite);
             crankRt = crankImage.rectTransform;
             Txt("Crank text", crankRt, "관측\n크랭크", new Vector2(.5f,.5f), Vector2.zero, 13, Night, 78);
-            actionText = Txt("Action", gameUi, "", new Vector2(.5f,.085f), Vector2.zero, 12, Opal, 360);
+            actionText = Txt("Action", gameUi, "", new Vector2(.5f,.085f), Vector2.zero, 12, Pale, 360);
+            actionRt = actionText.rectTransform;
 
-            guideImage = Img("Guide pulse", gameUi, new Vector2(.5f,.5f), Vector2.zero, new Vector2(82,82), new Color(Star.r,Star.g,Star.b,.78f), ringSprite);
+            guideImage = Img("Guide pulse", gameUi, new Vector2(.5f,.5f), Vector2.zero, new Vector2(62,62), new Color(Star.r,Star.g,Star.b,.70f), ringSprite);
             guideRt = guideImage.rectTransform;
             guideTrailRt = R("Guide path", gameUi, new Vector2(.5f,.5f), Vector2.zero, Vector2.zero);
             for (int i = 0; i < trailDots.Length; i++)
             {
-                trailImages[i] = Img("Guide dot " + i, guideTrailRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(12,12), new Color(Star.r,Star.g,Star.b,.72f), discSprite);
+                trailImages[i] = Img("Guide dot " + i, guideTrailRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(8,8), new Color(Star.r,Star.g,Star.b,.54f), discSprite);
                 trailDots[i] = trailImages[i].rectTransform;
             }
             guideHandRt = Img("Animated drag hand", gameUi, new Vector2(.5f,.5f), Vector2.zero, new Vector2(58,58), new Color(Pale.r,Pale.g,Pale.b,.96f), ringSprite).rectTransform;
             guideHandText = Txt("Drag hand label", guideHandRt, "끌기", new Vector2(.5f,.5f), Vector2.zero, 11, Night, 52);
-            guideCaptionRt = Img("Drag instruction ribbon", gameUi, new Vector2(.5f,.315f), Vector2.zero, new Vector2(292,40), new Color(.23f,.40f,.42f,.94f), panelSprite).rectTransform;
+            guideCaptionRt = Img("Local action ledger", gameUi, new Vector2(.5f,.315f), Vector2.zero, new Vector2(292,40), new Color(.08f,.13f,.20f,.97f), panelSprite).rectTransform;
             guideCaptionText = Txt("Drag instruction", guideCaptionRt, "A 랙 출발 → 중앙 교차 홈", new Vector2(.5f,.5f), Vector2.zero, 12, Pale, 278);
             rippleImage = Img("Input ripple", gameUi, new Vector2(0,0), Vector2.zero, new Vector2(60,60), new Color(1,1,1,0), ringSprite);
             rippleRt = rippleImage.rectTransform;
@@ -298,10 +326,15 @@ namespace Mgf.ByeolkanGwancheukso
             endUi = R("Result observatory", uiRoot, new Vector2(.5f,.5f), Vector2.zero, Vector2.zero);
             endUi.anchorMin = Vector2.zero; endUi.anchorMax = Vector2.one; endUi.offsetMin = endUi.offsetMax = Vector2.zero;
             endGroup = endUi.gameObject.AddComponent<CanvasGroup>();
-            Img("Result linen card", endUi, new Vector2(.5f,.56f), Vector2.zero, new Vector2(358,272), new Color(.98f,.91f,.76f,.96f), panelSprite);
-            Img("Result pavilion wreath", endUi, new Vector2(.5f,.56f), Vector2.zero, new Vector2(300,300), new Color(.31f,.56f,.58f,.48f), ringSprite);
+            Img("Result mosaic ledger", endUi, new Vector2(.5f,.56f), Vector2.zero, new Vector2(358,292), new Color(.94f,.79f,.57f,.98f), panelSprite);
+            Img("Result meridian wreath", endUi, new Vector2(.5f,.56f), Vector2.zero, new Vector2(300,300), new Color(.10f,.16f,.24f,.58f), ringSprite);
             endTitle = Txt("Result title", endUi, "", new Vector2(.5f,.66f), Vector2.zero, 35, Night, 340);
             endStats = Txt("Result stats", endUi, "", new Vector2(.5f,.51f), Vector2.zero, 16, new Color32(122,70,53,255), 330);
+            endStats.rectTransform.sizeDelta = new Vector2(330, 108);
+            endStats.overflowMode = TextOverflowModes.Overflow;
+            endStats.enableAutoSizing = true;
+            endStats.fontSizeMin = 12f;
+            endStats.fontSizeMax = 16f;
             restartRt = Img("Restart orbit", endUi, new Vector2(.5f,.31f), Vector2.zero, new Vector2(170,92), new Color(.86f,.90f,.88f,.92f), ringSprite).rectTransform;
             endCta = Txt("Restart label", endUi, "다시 관측하기", new Vector2(.5f,.31f), Vector2.zero, 17, Night, 160);
             sealImage = Img("Seal crack", endUi, new Vector2(.5f,.16f), Vector2.zero, new Vector2(92,92), new Color(Wrong.r,Wrong.g,Wrong.b,.75f), crackSprite);
@@ -311,8 +344,8 @@ namespace Mgf.ByeolkanGwancheukso
 
         RectTransform BuildRackHandle(string label, Vector2 anchor)
         {
-            var rt = Img(label + " handle", gameUi, anchor, Vector2.zero, new Vector2(132,112), new Color(.45f,.30f,.20f,.98f), panelSprite).rectTransform;
-            for (int i = 0; i < 5; i++) Img("ceramic tooth", rt, new Vector2(.18f + i * .16f,.24f), Vector2.zero, new Vector2(13,34), Opal, panelSprite);
+            var rt = Img(label + " handle", gameUi, anchor, Vector2.zero, new Vector2(132,112), new Color(.16f,.22f,.25f,.99f), panelSprite).rectTransform;
+            for (int i = 0; i < 5; i++) Img("engraved tooth", rt, new Vector2(.18f + i * .16f,.24f), Vector2.zero, new Vector2(13,34), i % 2 == 0 ? Star : Opal, panelSprite);
             Txt("label", rt, label, new Vector2(.5f,.74f), Vector2.zero, 13, Pale, 122);
             Txt("grab label", rt, "여기서 잡기", new Vector2(.5f,.50f), Vector2.zero, 10, new Color32(255,224,166,255), 120);
             return rt;
@@ -329,29 +362,49 @@ namespace Mgf.ByeolkanGwancheukso
             titleHandleRt.anchorMin = titleHandleRt.anchorMax = wideLayout ? new Vector2(.5f,.29f) : new Vector2(.5f,.28f);
             titleHandleText.rectTransform.anchorMin = titleHandleText.rectTransform.anchorMax = titleHandleRt.anchorMin;
 
-            boardRt.sizeDelta = wideLayout ? new Vector2(430,338) : new Vector2(350,338);
-            boardRt.anchorMin = boardRt.anchorMax = wideLayout ? new Vector2(.58f,.47f) : new Vector2(.5f,.49f);
-            rackHandleA.anchorMin = rackHandleA.anchorMax = wideLayout ? new Vector2(.25f,.20f) : new Vector2(.22f,.17f);
-            rackHandleB.anchorMin = rackHandleB.anchorMax = wideLayout ? new Vector2(.43f,.20f) : new Vector2(.57f,.17f);
-            crankRt.anchorMin = crankRt.anchorMax = wideLayout ? new Vector2(.82f,.20f) : new Vector2(.86f,.17f);
-            foldRt.anchorMin = foldRt.anchorMax = wideLayout ? new Vector2(.88f,.50f) : new Vector2(.91f,.49f);
+            Vector2 boardSize = wideLayout ? new Vector2(610,360) : new Vector2(350,338);
+            boardRt.sizeDelta = boardSize;
+            boardPlateImage.rectTransform.sizeDelta = boardSize;
+            boardRt.anchorMin = boardRt.anchorMax = wideLayout ? new Vector2(.55f,.55f) : new Vector2(.5f,.49f);
+            rackHandleA.anchorMin = rackHandleA.anchorMax = wideLayout ? new Vector2(.40f,.105f) : new Vector2(.22f,.17f);
+            rackHandleB.anchorMin = rackHandleB.anchorMax = wideLayout ? new Vector2(.58f,.105f) : new Vector2(.57f,.17f);
+            crankRt.anchorMin = crankRt.anchorMax = wideLayout ? new Vector2(.87f,.11f) : new Vector2(.86f,.17f);
+            foldRt.anchorMin = foldRt.anchorMax = wideLayout ? new Vector2(.83f,.58f) : new Vector2(.91f,.49f);
+            guideCaptionRt.anchorMin = guideCaptionRt.anchorMax = wideLayout ? new Vector2(.55f,.235f) : new Vector2(.5f,.315f);
+
+            hudStripRt.anchorMin = hudStripRt.anchorMax = wideLayout ? new Vector2(.50f,.965f) : new Vector2(.42f,.965f);
+            hudStripRt.sizeDelta = wideLayout ? new Vector2(520,46) : new Vector2(318,46);
+            progressText.rectTransform.anchorMin = progressText.rectTransform.anchorMax = wideLayout ? new Vector2(.15f,.965f) : new Vector2(.11f,.965f);
+            livesText.rectTransform.anchorMin = livesText.rectTransform.anchorMax = wideLayout ? new Vector2(.36f,.965f) : new Vector2(.32f,.965f);
+            scoreText.rectTransform.anchorMin = scoreText.rectTransform.anchorMax = wideLayout ? new Vector2(.55f,.965f) : new Vector2(.53f,.965f);
+            timerText.rectTransform.anchorMin = timerText.rectTransform.anchorMax = wideLayout ? new Vector2(.73f,.965f) : new Vector2(.70f,.965f);
+
+            goalRt.anchorMin = goalRt.anchorMax = wideLayout ? new Vector2(.15f,.895f) : new Vector2(.5f,.908f);
+            goalRt.sizeDelta = wideLayout ? new Vector2(250,74) : new Vector2(370,43);
+            promptPlateRt.anchorMin = promptPlateRt.anchorMax = wideLayout ? new Vector2(.15f,.68f) : new Vector2(.5f,.815f);
+            promptPlateRt.sizeDelta = wideLayout ? new Vector2(260,190) : new Vector2(365,92);
+            promptText.rectTransform.sizeDelta = wideLayout ? new Vector2(236,126) : new Vector2(337,46.5f);
+            promptText.rectTransform.anchorMin = promptText.rectTransform.anchorMax = wideLayout ? new Vector2(.5f,.60f) : new Vector2(.5f,.56f);
+            conceptText.rectTransform.sizeDelta = wideLayout ? new Vector2(232,56) : new Vector2(330,34.1f);
+            actionRt.anchorMin = actionRt.anchorMax = wideLayout ? new Vector2(.15f,.40f) : new Vector2(.5f,.085f);
+            actionRt.sizeDelta = wideLayout ? new Vector2(250,74) : new Vector2(360,37.2f);
             if (current != null) LayoutCells();
         }
 
         void LayoutCells()
         {
             float w = boardRt.rect.width, h = boardRt.rect.height;
-            float marginX = wideLayout ? 56f : 34f, marginY = 34f;
+            float marginX = wideLayout ? 72f : 34f, marginY = wideLayout ? 48f : 34f;
             float cw = (w - marginX * 2f) / Mathf.Max(1,current.cols);
             float ch = (h - marginY * 2f) / Mathf.Max(1,current.rows);
-            float size = Mathf.Clamp(Mathf.Min(cw,ch) * .94f, 44f, 58f);
+            float size = Mathf.Clamp(Mathf.Min(cw,ch) * .94f, 44f, wideLayout ? 74f : 58f);
             for (int y = 0; y < current.rows; y++) for (int x = 0; x < current.cols; x++)
             {
                 int i = y * current.cols + x;
                 cellRt[i].anchorMin = cellRt[i].anchorMax = new Vector2(.5f,.5f);
                 cellRt[i].anchoredPosition = new Vector2((x-(current.cols-1)*.5f)*cw, ((current.rows-1)*.5f-y)*ch);
                 cellRt[i].sizeDelta = Vector2.one * size;
-                cellText[i].fontSize = current.rows >= 6 ? 12f : current.rows >= 5 ? 12.5f : 13f;
+                cellText[i].fontSize = wideLayout ? (current.rows >= 6 ? 15f : 17f) : (current.rows >= 6 ? 12f : current.rows >= 5 ? 12.5f : 13f);
             }
         }
 
@@ -411,8 +464,13 @@ namespace Mgf.ByeolkanGwancheukso
         void ResetWorldForRun()
         {
             wrongShake = 0; novaRun = -1f; displayedScore = 0;
-            pavilionFold = pavilionFoldTarget = 0f;
+            pavilionFold = pavilionFoldTarget = 0f; towerAim = -1f;
             for (int i = 0; i < starNodes.Length; i++) { starNodes[i].gameObject.SetActive(false); starRenderers[i].sharedMaterial = starOffMat; }
+            for (int i = 0; i < towerLamps.Length; i++) if (towerLamps[i])
+            {
+                towerLamps[i].sharedMaterial = starOffMat;
+                if (towerRays[i]) towerRays[i].GetComponent<Renderer>().sharedMaterial = starOffMat;
+            }
         }
 
         void ResetWorldForProblem()
@@ -422,8 +480,8 @@ namespace Mgf.ByeolkanGwancheukso
             rackHandleA.anchoredPosition = Vector2.zero;
             rackHandleB.anchoredPosition = Vector2.zero;
             rackHandleA.localRotation = rackHandleB.localRotation = Quaternion.identity;
-            rackHandleA.GetComponent<Image>().color = new Color(.45f,.30f,.20f,.98f);
-            rackHandleB.GetComponent<Image>().color = new Color(.45f,.30f,.20f,.98f);
+            rackHandleA.GetComponent<Image>().color = new Color(.16f,.22f,.25f,.99f);
+            rackHandleB.GetComponent<Image>().color = new Color(.16f,.22f,.25f,.99f);
             foldRt.localRotation = Quaternion.identity;
             crankImage.color = Star;
             DockRack(0, RackTopology.None); DockRack(1, RackTopology.None);
@@ -474,7 +532,7 @@ namespace Mgf.ByeolkanGwancheukso
         void SnapRackHandleUi(int rack, RackTopology topology)
         {
             RectTransform rt = rack == 0 ? rackHandleA : rackHandleB;
-            Vector2 home = wideLayout ? (rack == 0 ? new Vector2(.25f,.20f) : new Vector2(.43f,.20f))
+            Vector2 home = wideLayout ? (rack == 0 ? new Vector2(.40f,.105f) : new Vector2(.58f,.105f))
                                       : (rack == 0 ? new Vector2(.22f,.17f) : new Vector2(.57f,.17f));
             rt.anchorMin = rt.anchorMax = home;
             rt.anchoredPosition = Vector2.zero;
@@ -516,6 +574,26 @@ namespace Mgf.ByeolkanGwancheukso
                 racks[i].localScale = Vector3.one * (1f+pulse);
             }
             dockPulse = Mathf.Max(0,dockPulse-dt*2.8f);
+
+            if (towerAim >= 0f) towerAim += dt * 1.05f;
+            Vector3 starFocus = new Vector3(0f, 2.25f, 1.35f);
+            for (int i = 0; i < towerHeads.Length; i++) if (towerHeads[i])
+            {
+                bool aimed = towerAim >= i * .16f;
+                Vector3 dir = starFocus - towerHeads[i].position;
+                Quaternion desired = aimed
+                    ? Quaternion.LookRotation(-dir.normalized, Vector3.up)
+                    : Quaternion.Euler(-8f, Mathf.Sin(worldTime * .42f + i) * 24f, 0f);
+                towerHeads[i].rotation = Quaternion.Slerp(towerHeads[i].rotation, desired, 1f - Mathf.Exp(-dt * (aimed ? 7f : 1.7f)));
+                Material beamMat = aimed ? starOnMat : starOffMat;
+                if (towerLamps[i].sharedMaterial != beamMat)
+                {
+                    towerLamps[i].sharedMaterial = beamMat;
+                    towerRays[i].GetComponent<Renderer>().sharedMaterial = beamMat;
+                }
+                float rayGrow = aimed ? Mathf.Clamp01((towerAim - i * .16f) * 4f) : 0f;
+                towerRays[i].localScale = new Vector3(1f, 1f, Mathf.Lerp(.04f, 1f, rayGrow));
+            }
 
             if (nova)
             {
@@ -603,25 +681,29 @@ namespace Mgf.ByeolkanGwancheukso
             if (source != null)
             {
                 Vector2 start = RectCenterInGame(source);
+                // Keep the moving cue beside the source control; the separate target ring marks
+                // the home.  A full-width ribbon used to cover pair labels on the board.
+                Vector2 localEnd = Vector2.Lerp(start, targetLocal, .34f);
                 float handU = Mathf.SmoothStep(0f,1f,Mathf.PingPong(worldTime*.47f,1f));
-                Vector2 handBend = (start+targetLocal)*.5f + Vector2.up*34f;
-                guideHandRt.anchoredPosition = Bezier(start,handBend,targetLocal,handU);
+                Vector2 handBend = (start+localEnd)*.5f + Vector2.up*24f;
+                guideHandRt.anchoredPosition = Bezier(start,handBend,localEnd,handU);
                 guideHandRt.localScale = Vector3.one * (.88f + Mathf.Sin(handU*Mathf.PI)*.18f);
                 guideHandText.text = handU < .18f ? "잡기" : handU > .82f ? "놓기" : "끌기";
                 guideCaptionText.text = source == rackHandleA ? "A 랙 출발 → 중앙 교차 홈" : source == rackHandleB ? "B 랙 출발 → 중앙 교차 홈" : "접이 손잡이 → 반대쪽";
                 for (int i = 0; i < trailDots.Length; i++)
                 {
                     float u = Mathf.Repeat(worldTime*.55f+i/(float)trailDots.Length,1f);
-                    Vector2 bend = (start+targetLocal)*.5f + Vector2.up*34f;
-                    trailDots[i].anchoredPosition = Bezier(start,bend,targetLocal,u);
+                    Vector2 bend = (start+localEnd)*.5f + Vector2.up*24f;
+                    trailDots[i].anchoredPosition = Bezier(start,bend,localEnd,u);
                     trailImages[i].color = new Color(Star.r,Star.g,Star.b,.2f+.7f*Mathf.Sin(u*Mathf.PI));
                 }
             }
             else
             {
                 guideHandRt.anchoredPosition = targetLocal + new Vector2(Mathf.Cos(worldTime*3f)*24f,Mathf.Sin(worldTime*3f)*24f);
-                guideHandText.text = "돌리기";
-                guideCaptionRt.gameObject.SetActive(false);
+                guideHandText.text = flow == Flow.Practice ? "누르기" : "돌리기";
+                guideCaptionRt.gameObject.SetActive(flow == Flow.Practice);
+                if (flow == Flow.Practice) guideCaptionText.text = "B 랙 시범 완료 · 크랭크를 눌러 관측";
                 for (int i = 0; i < trailDots.Length; i++) trailImages[i].color = Color.clear;
             }
         }
@@ -640,7 +722,7 @@ namespace Mgf.ByeolkanGwancheukso
 
         void CorrectFeedback(string reveal, int gain)
         {
-            revealText.text = reveal + "\n별마을 천막 완성 +" + gain;
+            revealText.text = reveal + "\n관측탑 일곱 대 조준 +" + gain;
             revealText.color = Star; revealClock = 0; revealGroup.alpha = 1;
             for (int i = 0; i < activeCells; i++)
             {
@@ -653,7 +735,7 @@ namespace Mgf.ByeolkanGwancheukso
                     cellText[i].color = i % 2 == 0 ? Night : Pale;
                 }
             }
-            novaRun = -1f; pavilionFoldTarget = 1f; dockPulse = 1f; crankVisual += 220f;
+            novaRun = 0f; pavilionFoldTarget = 0f; towerAim = 0f; dockPulse = 1f; crankVisual += 220f;
             MgfFx.Punch(boardRt,.055f,.34f);
             MgfFx.Punch(nova,.14f,.40f);
         }
@@ -701,8 +783,8 @@ namespace Mgf.ByeolkanGwancheukso
         void ShowEnd(string phaseName, string reason)
         {
             SetScreen();
-            endTitle.text = phaseName == "clear" ? "별자리 돔 완성" : phaseName == "practice_complete" ? "관측 기록 완성" : "관측환 봉인";
-            endStats.text = reason + "\n최초 정답 " + st.firstAttemptCorrect + "/6 · 마지막 두 관측 " + tailFirstCorrect + "/2\n점수 " + st.score;
+            endTitle.text = phaseName == "clear" ? "별빛 초점 완성" : phaseName == "practice_complete" ? "관측 기록 완성" : "관측환 봉인";
+            endStats.text = reason + "\n최초 정답 " + st.firstAttemptCorrect + "/6\n마지막 두 관측 " + tailFirstCorrect + "/2\n점수 " + st.score;
             sealImage.color = phaseName == "clear" ? new Color(Star.r,Star.g,Star.b,.72f) : new Color(Wrong.r,Wrong.g,Wrong.b,.76f);
             MgfFx.Punch(endTitle.rectTransform,.15f,.5f);
         }
@@ -733,6 +815,16 @@ namespace Mgf.ByeolkanGwancheukso
         void PointToTitleHandle() { MgfFx.Punch(titleHandleRt,.16f,.36f); }
         void PulseRestart() { MgfFx.Punch(restartRt,.15f,.32f); }
         void PulseDock(RackTopology topology) { dockPulse = 1f; MgfFx.Punch(topology==RackTopology.Crossed?crossDock:endDockLeft,.11f,.3f); }
+
+        void DemonstrateSecondRack()
+        {
+            DockRack(1, RackTopology.Crossed);
+            rackHandleB.GetComponent<Image>().color = new Color(Cobalt.r,Cobalt.g,Cobalt.b,.98f);
+            MgfFx.Punch(rackHandleB, .15f, .42f);
+            MgfFx.Punch(crossDock, .10f, .36f);
+            MgfSfx.Play("whoosh", .24f);
+            PositionGuide();
+        }
 
         void BeginRackDrag(int rack) { MgfFx.Punch(rack==0?rackHandleA:rackHandleB,.1f,.2f); MgfSfx.Play("tap",.15f); }
         void UpdateRackDrag(int rack, Vector2 screen)

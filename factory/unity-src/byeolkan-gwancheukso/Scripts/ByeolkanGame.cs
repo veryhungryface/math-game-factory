@@ -73,7 +73,7 @@ namespace Mgf.ByeolkanGwancheukso
 
         void Prewarm()
         {
-            var sb = new StringBuilder("별칸관측소랙을엮어별마을천막을완성하라중학교2학년경우의수마을풍차돌려시작최고기록두사건을엮어정확한별칸을밝히시오십의자리일의자리서로다른두개의주사위를동시에던질때역할구분없이대표두명중앙교차홈여기에놓기끝접속출발여기서잡기끌기놓기접이손잡이크랭크첫시도렌즈봉인연습관측완료다시관측하기");
+            var sb = new StringBuilder("별칸관측소랙을엮어관측탑별빛초점을완성하라중학교2학년경우의수황동환눌러시작최고기록두사건을엮어정확한별칸을밝히시오십의자리일의자리서로다른두개의주사위를동시에던질때역할구분없이대표두명중앙교차홈여기에놓기끝접속출발여기서잡기끌기놓기접이손잡이크랭크첫시도렌즈봉인연습관측완료다시관측하기");
             for (int i = 0; i < catalog.Count; i++) { sb.Append(catalog[i].prompt); sb.Append(catalog[i].reveal); sb.Append(catalog[i].concept); }
             MgfText.Prewarm(sb.ToString());
         }
@@ -182,7 +182,7 @@ namespace Mgf.ByeolkanGwancheukso
                 if (down)
                 {
                     if (HitTitleHandle(MgfPointer.Position)) BeginRun(true);
-                    else { Refuse("마을 풍차를 돌려 관측을 시작하시오."); PointToTitleHandle(); }
+                    else { Refuse("황동 관측환을 눌러 시작하시오."); PointToTitleHandle(); }
                 }
                 return;
             }
@@ -207,6 +207,18 @@ namespace Mgf.ByeolkanGwancheukso
             if (down)
             {
                 dragStart = dragNow = MgfPointer.Position;
+                // The practice board teaches the mathematical decision with one real rack drag.
+                // Once the second rack has been demonstrated, the next deliberate tap is the
+                // student's submit gesture.  The six missions still require the full crank arc.
+                if (flow == Flow.Practice && rackA == RackTopology.Crossed && rackB == RackTopology.Crossed)
+                {
+                    dragMode = DragMode.Crank;
+                    crankAccum = 0f;
+                    crankHasAngle = false;
+                    BeginCrankDrag();
+                    TrackCrank(dragStart);
+                    return;
+                }
                 if (HitRackHandle(0, dragStart)) { dragMode = DragMode.RackA; BeginRackDrag(0); return; }
                 if (HitRackHandle(1, dragStart)) { dragMode = DragMode.RackB; BeginRackDrag(1); return; }
                 if (current.needsFold && HitFoldHandle(dragStart)) { dragMode = DragMode.Fold; BeginFoldDrag(); return; }
@@ -257,7 +269,13 @@ namespace Mgf.ByeolkanGwancheukso
                 else if (dragMode == DragMode.Crank)
                 {
                     EndCrankDrag();
-                    if (crankAccum >= 105f) SubmitBoard();
+                    if (flow == Flow.Practice && rackA == RackTopology.Crossed && rackB == RackTopology.Crossed)
+                    {
+                        crankAccum = Mathf.Max(crankAccum, 140f);
+                        RotateCrank(crankLastAngle + 220f, crankAccum);
+                        SubmitBoard();
+                    }
+                    else if (crankAccum >= 105f) SubmitBoard();
                     else { Refuse("크랭크를 원형 궤도로 더 돌리시오."); BoostCrankGuide(); }
                 }
                 dragMode = DragMode.None;
@@ -279,6 +297,15 @@ namespace Mgf.ByeolkanGwancheukso
             {
                 MgfSfx.Play("pop", .25f);
                 PulseDock(topology);
+                if (flow == Flow.Practice && rack == 0 && topology == RackTopology.Crossed && rackB == RackTopology.None)
+                {
+                    // Keep the first rack placement authentic, then demonstrate the symmetric
+                    // second placement so a new player reaches the multiplication payoff before
+                    // the onboarding attention window closes.
+                    rackB = RackTopology.Crossed;
+                    UpdateTopologyState();
+                    DemonstrateSecondRack();
+                }
             }
             MgfBridge.NotifyChanged();
         }
