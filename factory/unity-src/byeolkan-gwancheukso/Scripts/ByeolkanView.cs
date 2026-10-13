@@ -9,21 +9,27 @@ namespace Mgf.ByeolkanGwancheukso
 {
     public partial class ByeolkanGame
     {
-        static readonly Color Night = new Color32(11, 20, 40, 255);
-        static readonly Color Cobalt = new Color32(41, 59, 104, 255);
-        static readonly Color Opal = new Color32(221, 231, 230, 255);
-        static readonly Color Violet = new Color32(181, 166, 232, 255);
-        static readonly Color Star = new Color32(231, 200, 75, 255);
-        static readonly Color Bubble = new Color32(90, 70, 112, 255);
-        static readonly Color Pale = new Color32(238, 244, 241, 255);
-        static readonly Color Basalt = new Color32(22, 29, 48, 255);
-        static readonly Color Nickel = new Color32(105, 119, 139, 255);
-        static readonly Color Wrong = new Color32(188, 111, 126, 255);
+        // 1차 수정: 어두운 금속 관측소를 밝은 도자기 별마을로 바꾼다.
+        // 저광택 세라믹·목재·천의 같은 재질 체계를 타이틀부터 플레이까지 유지한다.
+        static readonly Color Night = new Color32(45, 58, 70, 255);
+        static readonly Color Cobalt = new Color32(63, 122, 130, 255);
+        static readonly Color Opal = new Color32(244, 229, 194, 255);
+        static readonly Color Violet = new Color32(105, 91, 147, 255);
+        static readonly Color Star = new Color32(226, 125, 79, 255);
+        static readonly Color Bubble = new Color32(111, 84, 103, 255);
+        static readonly Color Pale = new Color32(255, 250, 232, 255);
+        static readonly Color Basalt = new Color32(205, 151, 100, 255);
+        static readonly Color Nickel = new Color32(113, 79, 55, 255);
+        static readonly Color Wrong = new Color32(174, 72, 79, 255);
+        static readonly Color SkyTeal = new Color32(119, 190, 196, 255);
+        static readonly Color Leaf = new Color32(93, 145, 101, 255);
 
         Camera cam;
         Transform worldRoot, titleRing, orbitA, orbitB, rackWorldA, rackWorldB, nova, novaTail, dome;
         readonly Transform[] orbiters = new Transform[9];
         readonly Transform[] novaLimbs = new Transform[4];
+        readonly Transform[] domeShards = new Transform[6];
+        readonly Quaternion[] domeShardBaseRot = new Quaternion[6];
         readonly Transform[] starNodes = new Transform[36];
         readonly Renderer[] starRenderers = new Renderer[36];
         readonly Vector3[] starWorld = new Vector3[36];
@@ -31,11 +37,11 @@ namespace Mgf.ByeolkanGwancheukso
         readonly Quaternion[] rackTargetRot = new Quaternion[2];
         readonly Vector3[] rackVelocity = new Vector3[2];
         Material basaltMat, basaltLightMat, nickelMat, opalMat, opalGlowMat, starOffMat, starOnMat, bubbleMat, cobaltMat, glassMat;
-        float worldTime, wrongShake, novaRun = -1f, dockPulse, crankVisual;
+        float worldTime, wrongShake, novaRun = -1f, dockPulse, crankVisual, pavilionFold, pavilionFoldTarget;
         Vector3 camBase;
 
-        RectTransform uiRoot, titleUi, gameUi, endUi, titleHandleRt, restartRt, boardRt, crankRt, foldRt;
-        RectTransform rackHandleA, rackHandleB, guideRt, guideTrailRt, rippleRt, toastRt, revealRt;
+        RectTransform uiRoot, titleUi, gameUi, endUi, titleBannerRt, titleHandleRt, restartRt, boardRt, crankRt, foldRt;
+        RectTransform rackHandleA, rackHandleB, guideRt, guideTrailRt, guideHandRt, guideCaptionRt, rippleRt, toastRt, revealRt;
         RectTransform endDockLeft, endDockRight, crossDock;
         CanvasGroup titleGroup, gameGroup, endGroup, toastGroup, revealGroup;
         CanvasScaler scaler;
@@ -44,7 +50,8 @@ namespace Mgf.ByeolkanGwancheukso
         Image sealImage;
         TextMeshProUGUI logoText, taglineText, titleMetaText, titleHandleText;
         TextMeshProUGUI scoreText, livesText, timerText, progressText, goalText, promptText, conceptText, actionText;
-        TextMeshProUGUI toastText, revealText, endTitle, endStats, endCta;
+        TextMeshProUGUI toastText, revealText, endTitle, endStats, endCta, guideHandText, guideCaptionText;
+        TextMeshProUGUI endDockLeftText, crossDockText, endDockRightText;
         readonly RectTransform[] cellRt = new RectTransform[36];
         readonly Image[] cellImage = new Image[36];
         readonly TextMeshProUGUI[] cellText = new TextMeshProUGUI[36];
@@ -67,23 +74,23 @@ namespace Mgf.ByeolkanGwancheukso
             colliderTypes.AddComponent<SphereCollider>();
             colliderTypes.AddComponent<BoxCollider>();
             UnityEngine.Object.Destroy(colliderTypes);
-            MgfLook.Sky(MgfLook.Hex("#050916"), MgfLook.Hex("#151F40"), MgfLook.Hex("#060910"), .72f);
-            MgfLook.Sun(new Vector3(46f, -32f, 18f), new Color(.72f, .78f, 1f), 1.12f, .72f);
+            MgfLook.Sky(MgfLook.Hex("#78C6CF"), MgfLook.Hex("#F5D7A8"), MgfLook.Hex("#D98F6A"), .58f);
+            MgfLook.Sun(new Vector3(48f, -38f, 20f), new Color(1f, .83f, .62f), 1.20f, .78f);
             cam = MgfLook.Camera(new Vector3(0f, 16.5f, -17.5f), new Vector3(0f, .5f, 1.2f), 40f);
             cam.orthographic = true; cam.orthographicSize = 9.1f; camBase = cam.transform.position;
 
-            basaltMat = MgfLook.Lit(Basalt, .12f, .1f);
-            basaltLightMat = MgfLook.Lit(new Color32(44, 54, 78, 255), .18f, .12f);
-            nickelMat = MgfLook.Lit(Nickel, .72f, .78f);
-            opalMat = MgfLook.Lit(new Color(.72f, .82f, .86f), .82f, .12f, new Color(.03f, .04f, .07f));
-            opalGlowMat = MgfLook.Lit(Opal, .88f, .15f, Star * .52f);
-            starOffMat = MgfLook.Lit(new Color32(68, 73, 96, 255), .55f, .35f);
-            starOnMat = MgfLook.Lit(Star, .72f, .45f, Star * 1.25f);
-            bubbleMat = MgfLook.Lit(Bubble, .32f, .1f, Bubble * .18f);
-            cobaltMat = MgfLook.Lit(Cobalt, .58f, .35f, Cobalt * .12f);
-            glassMat = MgfLook.Alpha(new Color(0.55f, .65f, .86f, .26f));
+            basaltMat = MgfLook.Lit(Basalt, .14f, 0f);
+            basaltLightMat = MgfLook.Lit(new Color32(238, 202, 153, 255), .12f, 0f);
+            nickelMat = MgfLook.Lit(Nickel, .16f, 0f);
+            opalMat = MgfLook.Lit(Opal, .18f, 0f);
+            opalGlowMat = MgfLook.Lit(new Color32(250, 241, 205, 255), .22f, 0f, new Color(.08f, .045f, .015f));
+            starOffMat = MgfLook.Lit(new Color32(181, 143, 112, 255), .12f, 0f);
+            starOnMat = MgfLook.Lit(Star, .18f, 0f, Star * .18f);
+            bubbleMat = MgfLook.Lit(Bubble, .12f, 0f);
+            cobaltMat = MgfLook.Lit(Cobalt, .16f, 0f);
+            glassMat = MgfLook.Lit(new Color32(115, 101, 154, 255), .10f, 0f);
 
-            worldRoot = new GameObject("Basalt Observatory").transform;
+            worldRoot = new GameObject("Sunlit Ceramic Star Village").transform;
             BuildCrater();
             BuildObservatoryRings();
             rackWorldA = BuildRack("Opal Rack A", 6);
@@ -100,56 +107,59 @@ namespace Mgf.ByeolkanGwancheukso
 
         void BuildCrater()
         {
-            MgfLook.Prim(PrimitiveType.Cylinder, "Crater Floor", new Vector3(0, -.7f, 1.8f), new Vector3(16f, .55f, 16f), basaltMat, worldRoot);
-            MgfLook.Prim(PrimitiveType.Cylinder, "Inner Well", new Vector3(0, -.25f, 2.3f), new Vector3(8.5f, .5f, 8.5f), basaltLightMat, worldRoot);
-            for (int i = 0; i < 34; i++)
+            MgfLook.Prim(PrimitiveType.Cylinder, "Terracotta Hill", new Vector3(0, -.7f, 1.8f), new Vector3(16f, .55f, 16f), basaltMat, worldRoot);
+            MgfLook.Prim(PrimitiveType.Cylinder, "Cream Plaza", new Vector3(0, -.25f, 2.3f), new Vector3(8.5f, .5f, 8.5f), basaltLightMat, worldRoot);
+            for (int i = 0; i < 28; i++)
             {
-                float a = i * Mathf.PI * 2f / 34f;
-                float r = 8.2f + Mathf.Sin(i * 7.1f) * .55f;
-                float h = 1.2f + (i % 5) * .25f;
-                var rock = MgfLook.Block("Basalt strata", new Vector3(Mathf.Cos(a) * r, h * .5f - .35f, 2.2f + Mathf.Sin(a) * r),
-                    new Vector3(.65f + (i % 3) * .25f, h, .75f), .08f, i % 2 == 0 ? basaltMat : basaltLightMat, worldRoot);
-                rock.transform.localRotation = Quaternion.Euler(0, -a * Mathf.Rad2Deg + i * 3f, (i % 3 - 1) * 3f);
+                float a = i * Mathf.PI * 2f / 28f;
+                float r = 7.4f + Mathf.Sin(i * 5.1f) * .42f;
+                float h = 1.0f + (i % 4) * .22f;
+                var house = MgfLook.Block("Plaster observatory house", new Vector3(Mathf.Cos(a) * r, h * .5f - .35f, 2.2f + Mathf.Sin(a) * r),
+                    new Vector3(.72f + (i % 3) * .24f, h, .86f), .17f, i % 3 == 0 ? opalMat : basaltLightMat, worldRoot);
+                house.transform.localRotation = Quaternion.Euler(0, -a * Mathf.Rad2Deg + i * 2f, 0);
+                var roof = MgfLook.Block("Cloth roof", new Vector3(0, h * .53f, 0), new Vector3(.88f, .16f, 1.02f), .08f,
+                    i % 2 == 0 ? cobaltMat : glassMat, house.transform);
+                roof.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 5f : -5f);
             }
             for (int i = 0; i < 12; i++)
             {
                 float a = i * Mathf.PI * 2f / 12f;
-                var lamp = MgfLook.Prim(PrimitiveType.Cylinder, "Crater Lamp", new Vector3(Mathf.Cos(a) * 6.4f, .45f, 2.2f + Mathf.Sin(a) * 6.4f),
-                    new Vector3(.13f, .75f, .13f), nickelMat, worldRoot);
-                var glow = MgfLook.Prim(PrimitiveType.Sphere, "Lamp glow", new Vector3(0, .68f, 0), new Vector3(.26f, .26f, .26f), starOnMat, lamp.transform, false);
-                glow.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                var trunk = MgfLook.Prim(PrimitiveType.Cylinder, "Olive tree trunk", new Vector3(Mathf.Cos(a) * 6.1f, .40f, 2.2f + Mathf.Sin(a) * 6.1f),
+                    new Vector3(.14f, .72f, .14f), nickelMat, worldRoot);
+                var crown = MgfLook.Prim(PrimitiveType.Sphere, "Olive crown", new Vector3(0, .72f, 0), new Vector3(.72f, .48f, .58f), MgfLook.Lit(Leaf,.08f,0f), trunk.transform, false);
+                crown.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.On;
             }
         }
 
         void BuildObservatoryRings()
         {
-            titleRing = NewMeshObject("Eclipse Observation Ring", Torus(5.5f, .18f, 64, 8), nickelMat, worldRoot).transform;
+            titleRing = NewMeshObject("Village Festival Arch", Torus(5.5f, .18f, 64, 8), nickelMat, worldRoot).transform;
             titleRing.localPosition = new Vector3(0, 4.2f, 3.8f);
             titleRing.localRotation = Quaternion.Euler(68f, 0, 0);
-            orbitA = NewMeshObject("Orbit A", Torus(7.0f, .045f, 64, 5), nickelMat, worldRoot).transform;
-            orbitB = NewMeshObject("Orbit B", Torus(5.9f, .035f, 64, 5), MgfLook.Lit(Violet, .6f, .55f), worldRoot).transform;
+            orbitA = NewMeshObject("Ribbon rail A", Torus(7.0f, .045f, 64, 5), nickelMat, worldRoot).transform;
+            orbitB = NewMeshObject("Ribbon rail B", Torus(5.9f, .035f, 64, 5), MgfLook.Lit(Violet, .12f, 0f), worldRoot).transform;
             orbitA.localPosition = new Vector3(0, 3f, 4f); orbitA.localRotation = Quaternion.Euler(72f, 12f, 0);
             orbitB.localPosition = new Vector3(0, 3.4f, 4f); orbitB.localRotation = Quaternion.Euler(62f, -20f, 0);
             for (int i = 0; i < orbiters.Length; i++)
             {
                 float a = i * Mathf.PI * 2f / orbiters.Length;
-                orbiters[i] = MgfLook.Prim(PrimitiveType.Sphere, "Orbit stone", new Vector3(Mathf.Cos(a) * (i % 2 == 0 ? 7f : 5.9f), 0, Mathf.Sin(a) * (i % 2 == 0 ? 7f : 5.9f)),
-                    Vector3.one * (.15f + (i % 3) * .06f), i % 3 == 0 ? starOnMat : nickelMat, i % 2 == 0 ? orbitA : orbitB).transform;
+                orbiters[i] = MgfLook.Prim(PrimitiveType.Sphere, "Cloth pennant bead", new Vector3(Mathf.Cos(a) * (i % 2 == 0 ? 7f : 5.9f), 0, Mathf.Sin(a) * (i % 2 == 0 ? 7f : 5.9f)),
+                    Vector3.one * (.15f + (i % 3) * .06f), i % 3 == 0 ? starOnMat : opalMat, i % 2 == 0 ? orbitA : orbitB).transform;
             }
         }
 
         Transform BuildRack(string name, int teeth)
         {
             var root = new GameObject(name).transform;
-            MgfLook.Block("opal spine", Vector3.zero, new Vector3(6.0f, .34f, .58f), .13f, opalMat, root);
+            MgfLook.Block("wood rack spine", Vector3.zero, new Vector3(6.0f, .34f, .58f), .13f, nickelMat, root);
             for (int i = 0; i < teeth; i++)
             {
                 float x = (i - (teeth - 1) * .5f) * .92f;
-                var tooth = MgfLook.Block("opal tooth", new Vector3(x, -.24f, .32f), new Vector3(.54f, .72f, 1.05f), .10f, opalMat, root);
+                var tooth = MgfLook.Block("ceramic outcome tile", new Vector3(x, -.24f, .32f), new Vector3(.54f, .72f, 1.05f), .16f, opalMat, root);
                 tooth.transform.localRotation = Quaternion.Euler(0, 0, (i % 2 == 0 ? -1.5f : 1.5f));
             }
-            MgfLook.Prim(PrimitiveType.Cylinder, "hinge", new Vector3(-3.08f, 0, 0), new Vector3(.5f, .4f, .5f), nickelMat, root).transform.localRotation = Quaternion.Euler(90, 0, 0);
-            MgfLook.Prim(PrimitiveType.Cylinder, "hinge", new Vector3(3.08f, 0, 0), new Vector3(.5f, .4f, .5f), nickelMat, root).transform.localRotation = Quaternion.Euler(90, 0, 0);
+            MgfLook.Prim(PrimitiveType.Cylinder, "wood peg", new Vector3(-3.08f, 0, 0), new Vector3(.5f, .4f, .5f), nickelMat, root).transform.localRotation = Quaternion.Euler(90, 0, 0);
+            MgfLook.Prim(PrimitiveType.Cylinder, "wood peg", new Vector3(3.08f, 0, 0), new Vector3(.5f, .4f, .5f), nickelMat, root).transform.localRotation = Quaternion.Euler(90, 0, 0);
             return root;
         }
 
@@ -165,39 +175,41 @@ namespace Mgf.ByeolkanGwancheukso
 
         void BuildNova()
         {
-            nova = new GameObject("Nova glass gecko").transform;
+            nova = new GameObject("Bori ceramic star lizard").transform;
             nova.SetParent(worldRoot, false); nova.localPosition = new Vector3(-4.6f, 1.15f, 2.6f);
-            var body = MgfLook.Prim(PrimitiveType.Sphere, "Nova body", Vector3.zero, new Vector3(1.35f, .48f, .68f), cobaltMat, nova);
+            var body = MgfLook.Prim(PrimitiveType.Sphere, "Bori clay body", Vector3.zero, new Vector3(1.35f, .48f, .68f), basaltMat, nova);
             body.transform.localRotation = Quaternion.Euler(0, 0, -8f);
-            var head = MgfLook.Prim(PrimitiveType.Sphere, "Nova head", new Vector3(.75f, .12f, 0), new Vector3(.72f, .62f, .64f), opalGlowMat, nova);
-            MgfLook.Prim(PrimitiveType.Sphere, "Nova eye L", new Vector3(.18f, .22f, -.30f), Vector3.one * .22f, cobaltMat, head.transform);
-            MgfLook.Prim(PrimitiveType.Sphere, "Nova eye R", new Vector3(.18f, .22f, .30f), Vector3.one * .22f, cobaltMat, head.transform);
-            novaTail = new GameObject("Lens tail").transform; novaTail.SetParent(nova, false); novaTail.localPosition = new Vector3(-.7f, 0, 0);
+            var head = MgfLook.Prim(PrimitiveType.Sphere, "Bori cream head", new Vector3(.75f, .12f, 0), new Vector3(.72f, .62f, .64f), opalMat, nova);
+            MgfLook.Prim(PrimitiveType.Sphere, "Bori eye L", new Vector3(.18f, .22f, -.30f), Vector3.one * .22f, nickelMat, head.transform);
+            MgfLook.Prim(PrimitiveType.Sphere, "Bori eye R", new Vector3(.18f, .22f, .30f), Vector3.one * .22f, nickelMat, head.transform);
+            novaTail = new GameObject("Cloth ribbon tail").transform; novaTail.SetParent(nova, false); novaTail.localPosition = new Vector3(-.7f, 0, 0);
             for (int i = 0; i < 4; i++)
             {
                 var seg = MgfLook.Prim(PrimitiveType.Cylinder, "tail segment", new Vector3(-.34f - i * .38f, .05f + i * .08f, 0),
-                    new Vector3(.13f - i * .018f, .42f, .13f - i * .018f), i == 3 ? opalGlowMat : cobaltMat, novaTail);
+                    new Vector3(.13f - i * .018f, .42f, .13f - i * .018f), i == 3 ? starOnMat : cobaltMat, novaTail);
                 seg.transform.localRotation = Quaternion.Euler(0, 0, 70f - i * 8f);
             }
-            MgfLook.Prim(PrimitiveType.Sphere, "tail lens", new Vector3(-1.85f, .56f, 0), Vector3.one * .48f, opalGlowMat, novaTail);
+            MgfLook.Prim(PrimitiveType.Sphere, "tail tassel", new Vector3(-1.85f, .56f, 0), Vector3.one * .48f, starOnMat, novaTail);
             for (int i = 0; i < 4; i++)
             {
                 float sx = i < 2 ? -.28f : .38f, sz = i % 2 == 0 ? -.34f : .34f;
                 novaLimbs[i] = MgfLook.Prim(PrimitiveType.Cylinder, "Nova leg", new Vector3(sx, -.25f, sz),
-                    new Vector3(.09f, .42f, .09f), opalMat, nova).transform;
+                    new Vector3(.09f, .42f, .09f), nickelMat, nova).transform;
                 novaLimbs[i].localRotation = Quaternion.Euler(sz > 0 ? 62f : -62f, 0, sx > 0 ? 28f : -28f);
             }
         }
 
         void BuildDome()
         {
-            dome = new GameObject("Six piece glass dome").transform; dome.SetParent(worldRoot, false); dome.localPosition = new Vector3(0, .1f, 5.4f);
+            dome = new GameObject("Six petal constellation pavilion").transform; dome.SetParent(worldRoot, false); dome.localPosition = new Vector3(0, .1f, 5.4f);
             for (int i = 0; i < 6; i++)
             {
                 float a = (-75f + i * 30f) * Mathf.Deg2Rad;
-                var shard = MgfLook.Block("Dome shard " + i, new Vector3(Mathf.Sin(a) * 5.2f, 2.5f + Mathf.Cos(a) * 1.2f, Mathf.Cos(a) * 1.7f),
-                    new Vector3(1.35f, 3.1f, .08f), .08f, glassMat, dome);
-                shard.transform.localRotation = Quaternion.Euler(-10f, -a * Mathf.Rad2Deg, -a * Mathf.Rad2Deg * .35f);
+                var shard = MgfLook.Block("Cloth pavilion petal " + i, new Vector3(Mathf.Sin(a) * 5.2f, 2.1f + Mathf.Cos(a) * 1.0f, Mathf.Cos(a) * 1.7f),
+                    new Vector3(1.35f, 2.7f, .12f), .20f, i % 2 == 0 ? glassMat : cobaltMat, dome);
+                domeShards[i] = shard.transform;
+                domeShardBaseRot[i] = Quaternion.Euler(-58f, -a * Mathf.Rad2Deg, -a * Mathf.Rad2Deg * .25f);
+                domeShards[i].localRotation = domeShardBaseRot[i];
             }
         }
 
@@ -211,51 +223,52 @@ namespace Mgf.ByeolkanGwancheukso
             titleUi = R("Title world overlay", uiRoot, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
             titleUi.anchorMin = Vector2.zero; titleUi.anchorMax = Vector2.one; titleUi.offsetMin = titleUi.offsetMax = Vector2.zero;
             titleGroup = titleUi.gameObject.AddComponent<CanvasGroup>();
-            var tex = Resources.Load<Texture2D>("ByeolkanGwancheukso/title");
-            if (tex)
-            {
-                titleArt = R("Key art portal", titleUi, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)).gameObject.AddComponent<RawImage>();
-                titleArt.texture = tex; titleArt.color = new Color(1, 1, 1, .24f); titleArt.raycastTarget = false;
-            }
-            logoText = Txt("Etched logo", titleUi, "별칸\n관측소", new Vector2(.5f, .73f), Vector2.zero, 51, Pale, 330, TextAlignmentOptions.Center);
-            logoText.characterSpacing = 5; logoText.outlineWidth = .15f; logoText.outlineColor = Night;
-            taglineText = Txt("Tagline", titleUi, "두 랙을 엮어 별칸을 밝히시오", new Vector2(.5f, .61f), Vector2.zero, 17, Star, 340);
-            titleMetaText = Txt("Title meta", titleUi, "중학교 2학년 · 경우의 수    최고 최초 정답 0/6", new Vector2(.5f, .055f), Vector2.zero, 12, new Color(1,1,1,.72f), 370);
-            titleHandleImage = Img("Meteor handle", titleUi, new Vector2(.5f, .27f), Vector2.zero, new Vector2(136, 136), new Color(.72f,.65f,.94f,.92f), ringSprite);
+            var villageBanner = Img("Hanging cloth village sign", titleUi, new Vector2(.5f,.72f), Vector2.zero, new Vector2(342,176), new Color(.30f,.48f,.50f,.93f), panelSprite);
+            titleBannerRt = villageBanner.rectTransform;
+            Img("Banner tassel L", villageBanner.transform, new Vector2(.06f,.04f), Vector2.zero, new Vector2(18,55), new Color(Star.r,Star.g,Star.b,.95f), panelSprite);
+            Img("Banner tassel R", villageBanner.transform, new Vector2(.94f,.04f), Vector2.zero, new Vector2(18,55), new Color(Star.r,Star.g,Star.b,.95f), panelSprite);
+            logoText = Txt("Painted village logo", villageBanner.transform, "별칸\n관측소", new Vector2(.5f, .60f), Vector2.zero, 47, Pale, 315, TextAlignmentOptions.Center);
+            logoText.characterSpacing = 5; logoText.outlineWidth = .10f; logoText.outlineColor = Night;
+            taglineText = Txt("Tagline", villageBanner.transform, "두 랙을 엮어 별칸을 밝히시오", new Vector2(.5f,.13f), Vector2.zero, 15, new Color32(255,224,166,255), 320);
+            titleMetaText = Txt("Title meta", titleUi, "중학교 2학년 · 경우의 수    최고 최초 정답 0/6", new Vector2(.5f, .055f), Vector2.zero, 12, new Color(Night.r,Night.g,Night.b,.86f), 370);
+            titleHandleImage = Img("Wooden observatory wheel", titleUi, new Vector2(.5f, .28f), Vector2.zero, new Vector2(146, 146), new Color(Star.r,Star.g,Star.b,.96f), ringSprite);
             titleHandleRt = titleHandleImage.rectTransform;
-            titleHandleText = Txt("Handle label", titleUi, "관측환\n당기기", new Vector2(.5f, .27f), Vector2.zero, 17, Pale, 124);
+            titleHandleText = Txt("Handle label", titleUi, "마을 풍차\n돌려 시작", new Vector2(.5f, .28f), Vector2.zero, 16, Night, 130);
 
             gameUi = R("Game overlay", uiRoot, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
             gameUi.anchorMin = Vector2.zero; gameUi.anchorMax = Vector2.one; gameUi.offsetMin = gameUi.offsetMax = Vector2.zero;
             gameGroup = gameUi.gameObject.AddComponent<CanvasGroup>();
-            Img("HUD line", gameUi, new Vector2(.5f, .965f), Vector2.zero, new Vector2(370, 46), new Color(.04f,.07f,.13f,.84f), panelSprite);
-            progressText = Txt("Progress", gameUi, "관측 1/6", new Vector2(.16f, .965f), Vector2.zero, 13, Opal, 110);
-            livesText = Txt("Seals", gameUi, "봉인 ●●●", new Vector2(.40f, .965f), Vector2.zero, 13, Violet, 110);
-            scoreText = Txt("Score", gameUi, "0", new Vector2(.66f, .965f), Vector2.zero, 16, Star, 82);
-            timerText = Txt("Timer", gameUi, "110초", new Vector2(.86f, .965f), Vector2.zero, 13, Opal, 70);
-            goalText = Txt("Goal", gameUi, "두 사건을 엮어 정확한 별칸을 밝히시오.", new Vector2(.5f, .908f), Vector2.zero, 14, Star, 370);
-            var promptPlate = Img("Prompt basalt", gameUi, new Vector2(.5f, .815f), Vector2.zero, new Vector2(365, 92), new Color(.07f,.10f,.18f,.92f), panelSprite);
-            promptText = Txt("Prompt", promptPlate.transform, "", new Vector2(.5f, .56f), Vector2.zero, 15, Pale, 337, TextAlignmentOptions.Center);
+            Img("HUD cloth strip", gameUi, new Vector2(.42f, .965f), Vector2.zero, new Vector2(318, 46), new Color(.20f,.32f,.34f,.92f), panelSprite);
+            progressText = Txt("Progress", gameUi, "관측 1/6", new Vector2(.11f, .965f), Vector2.zero, 12, Pale, 82);
+            livesText = Txt("Seals", gameUi, "봉인 ●●●", new Vector2(.32f, .965f), Vector2.zero, 12, new Color32(255,224,166,255), 96);
+            scoreText = Txt("Score", gameUi, "0", new Vector2(.53f, .965f), Vector2.zero, 15, Star, 58);
+            timerText = Txt("Timer", gameUi, "110초", new Vector2(.70f, .965f), Vector2.zero, 12, Pale, 62);
+            goalText = Txt("Goal", gameUi, "두 사건을 엮어 정확한 별칸을 밝히시오.", new Vector2(.5f, .908f), Vector2.zero, 14, new Color32(122,70,53,255), 370);
+            var promptPlate = Img("Prompt linen", gameUi, new Vector2(.5f, .815f), Vector2.zero, new Vector2(365, 92), new Color(.98f,.91f,.76f,.96f), panelSprite);
+            promptText = Txt("Prompt", promptPlate.transform, "", new Vector2(.5f, .56f), Vector2.zero, 15, Night, 337, TextAlignmentOptions.Center);
             conceptText = Txt("Concept", promptPlate.transform, "", new Vector2(.5f, .14f), Vector2.zero, 11, Violet, 330);
 
-            boardRt = R("Star grid", gameUi, new Vector2(.5f, .49f), Vector2.zero, new Vector2(338, 300));
-            Img("Board field", boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(338,300), new Color(.12f,.17f,.28f,.66f), panelSprite);
-            endDockLeft = Img("End dock A", boardRt, new Vector2(.13f,.54f), Vector2.zero, new Vector2(84, 185), new Color(.55f,.65f,.82f,.13f), ringSprite).rectTransform;
-            crossDock = Img("Cross dock", boardRt, new Vector2(.5f,.54f), Vector2.zero, new Vector2(188,188), new Color(.71f,.65f,.92f,.14f), ringSprite).rectTransform;
-            endDockRight = Img("End dock B", boardRt, new Vector2(.87f,.54f), Vector2.zero, new Vector2(84,185), new Color(.55f,.65f,.82f,.13f), ringSprite).rectTransform;
+            boardRt = R("Ceramic outcome courtyard", gameUi, new Vector2(.5f, .49f), Vector2.zero, new Vector2(350, 338));
+            Img("Courtyard field", boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(350,338), new Color(.95f,.82f,.61f,.88f), panelSprite);
+            endDockLeft = Img("End dock A", boardRt, new Vector2(.12f,.54f), Vector2.zero, new Vector2(82, 218), new Color(.31f,.56f,.58f,.34f), panelSprite).rectTransform;
+            crossDock = Img("Cross dock", boardRt, new Vector2(.5f,.54f), Vector2.zero, new Vector2(210,210), new Color(Star.r,Star.g,Star.b,.28f), ringSprite).rectTransform;
+            endDockRight = Img("End dock B", boardRt, new Vector2(.88f,.54f), Vector2.zero, new Vector2(82,218), new Color(.31f,.56f,.58f,.34f), panelSprite).rectTransform;
+            endDockLeftText = Txt("End dock A label", boardRt, "끝접속 A 홈", new Vector2(.13f,.94f), Vector2.zero, 10, Night, 92);
+            crossDockText = Txt("Cross dock label", boardRt, "① 중앙 교차 홈", new Vector2(.5f,.94f), Vector2.zero, 11, Night, 150);
+            endDockRightText = Txt("End dock B label", boardRt, "끝접속 B 홈", new Vector2(.87f,.94f), Vector2.zero, 10, Night, 92);
             for (int i = 0; i < cellRt.Length; i++)
             {
-                cellImage[i] = Img("Contact " + i, boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(42,42), new Color(.37f,.42f,.58f,.72f), starSprite);
+                cellImage[i] = Img("Contact " + i, boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(44,44), new Color(.91f,.78f,.59f,.98f), starSprite);
                 cellRt[i] = cellImage[i].rectTransform;
-                cellText[i] = Txt("Pair label " + i, cellRt[i], "", new Vector2(.5f,.5f), Vector2.zero, 9, Pale, 48);
+                cellText[i] = Txt("Pair label " + i, cellRt[i], "", new Vector2(.5f,.5f), Vector2.zero, 12, Night, 52);
                 cellRt[i].gameObject.SetActive(false);
             }
             foldImage = Img("Fold handle", gameUi, new Vector2(.91f,.49f), Vector2.zero, new Vector2(54,112), Violet, panelSprite);
             foldRt = foldImage.rectTransform;
             Txt("Fold text", foldRt, "접\n기", new Vector2(.5f,.5f), Vector2.zero, 14, Night, 40);
 
-            rackHandleA = BuildRackHandle("A 랙", new Vector2(.22f,.17f));
-            rackHandleB = BuildRackHandle("B 랙", new Vector2(.57f,.17f));
+            rackHandleA = BuildRackHandle("A 랙 출발", new Vector2(.22f,.17f));
+            rackHandleB = BuildRackHandle("B 랙 출발", new Vector2(.57f,.17f));
             crankImage = Img("Crank", gameUi, new Vector2(.86f,.17f), Vector2.zero, new Vector2(92,92), Star, ringSprite);
             crankRt = crankImage.rectTransform;
             Txt("Crank text", crankRt, "관측\n크랭크", new Vector2(.5f,.5f), Vector2.zero, 13, Night, 78);
@@ -269,6 +282,10 @@ namespace Mgf.ByeolkanGwancheukso
                 trailImages[i] = Img("Guide dot " + i, guideTrailRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(12,12), new Color(Star.r,Star.g,Star.b,.72f), discSprite);
                 trailDots[i] = trailImages[i].rectTransform;
             }
+            guideHandRt = Img("Animated drag hand", gameUi, new Vector2(.5f,.5f), Vector2.zero, new Vector2(58,58), new Color(Pale.r,Pale.g,Pale.b,.96f), ringSprite).rectTransform;
+            guideHandText = Txt("Drag hand label", guideHandRt, "끌기", new Vector2(.5f,.5f), Vector2.zero, 11, Night, 52);
+            guideCaptionRt = Img("Drag instruction ribbon", gameUi, new Vector2(.5f,.315f), Vector2.zero, new Vector2(292,40), new Color(.23f,.40f,.42f,.94f), panelSprite).rectTransform;
+            guideCaptionText = Txt("Drag instruction", guideCaptionRt, "A 랙 출발 → 중앙 교차 홈", new Vector2(.5f,.5f), Vector2.zero, 12, Pale, 278);
             rippleImage = Img("Input ripple", gameUi, new Vector2(0,0), Vector2.zero, new Vector2(60,60), new Color(1,1,1,0), ringSprite);
             rippleRt = rippleImage.rectTransform;
             toastPlate = Img("Refusal plate", gameUi, new Vector2(.5f,.29f), Vector2.zero, new Vector2(330,52), new Color(.10f,.08f,.16f,.95f), panelSprite);
@@ -281,9 +298,10 @@ namespace Mgf.ByeolkanGwancheukso
             endUi = R("Result observatory", uiRoot, new Vector2(.5f,.5f), Vector2.zero, Vector2.zero);
             endUi.anchorMin = Vector2.zero; endUi.anchorMax = Vector2.one; endUi.offsetMin = endUi.offsetMax = Vector2.zero;
             endGroup = endUi.gameObject.AddComponent<CanvasGroup>();
-            Img("Result eclipse", endUi, new Vector2(.5f,.55f), Vector2.zero, new Vector2(330,330), new Color(.70f,.66f,.92f,.78f), ringSprite);
-            endTitle = Txt("Result title", endUi, "", new Vector2(.5f,.66f), Vector2.zero, 35, Pale, 340);
-            endStats = Txt("Result stats", endUi, "", new Vector2(.5f,.51f), Vector2.zero, 16, Star, 330);
+            Img("Result linen card", endUi, new Vector2(.5f,.56f), Vector2.zero, new Vector2(358,272), new Color(.98f,.91f,.76f,.96f), panelSprite);
+            Img("Result pavilion wreath", endUi, new Vector2(.5f,.56f), Vector2.zero, new Vector2(300,300), new Color(.31f,.56f,.58f,.48f), ringSprite);
+            endTitle = Txt("Result title", endUi, "", new Vector2(.5f,.66f), Vector2.zero, 35, Night, 340);
+            endStats = Txt("Result stats", endUi, "", new Vector2(.5f,.51f), Vector2.zero, 16, new Color32(122,70,53,255), 330);
             restartRt = Img("Restart orbit", endUi, new Vector2(.5f,.31f), Vector2.zero, new Vector2(170,92), new Color(.86f,.90f,.88f,.92f), ringSprite).rectTransform;
             endCta = Txt("Restart label", endUi, "다시 관측하기", new Vector2(.5f,.31f), Vector2.zero, 17, Night, 160);
             sealImage = Img("Seal crack", endUi, new Vector2(.5f,.16f), Vector2.zero, new Vector2(92,92), new Color(Wrong.r,Wrong.g,Wrong.b,.75f), crackSprite);
@@ -293,9 +311,10 @@ namespace Mgf.ByeolkanGwancheukso
 
         RectTransform BuildRackHandle(string label, Vector2 anchor)
         {
-            var rt = Img(label + " handle", gameUi, anchor, Vector2.zero, new Vector2(112,70), new Color(.80f,.86f,.88f,.95f), panelSprite).rectTransform;
-            for (int i = 0; i < 5; i++) Img("tooth", rt, new Vector2(.18f + i * .16f,.28f), Vector2.zero, new Vector2(10,26), new Color(.53f,.59f,.72f,.9f), panelSprite);
-            Txt("label", rt, label, new Vector2(.5f,.73f), Vector2.zero, 13, Night, 96);
+            var rt = Img(label + " handle", gameUi, anchor, Vector2.zero, new Vector2(132,112), new Color(.45f,.30f,.20f,.98f), panelSprite).rectTransform;
+            for (int i = 0; i < 5; i++) Img("ceramic tooth", rt, new Vector2(.18f + i * .16f,.24f), Vector2.zero, new Vector2(13,34), Opal, panelSprite);
+            Txt("label", rt, label, new Vector2(.5f,.74f), Vector2.zero, 13, Pale, 122);
+            Txt("grab label", rt, "여기서 잡기", new Vector2(.5f,.50f), Vector2.zero, 10, new Color32(255,224,166,255), 120);
             return rt;
         }
 
@@ -305,17 +324,12 @@ namespace Mgf.ByeolkanGwancheukso
             lastScreenW = Screen.width; lastScreenH = Screen.height;
             wideLayout = Screen.width >= 1024 && (float)Screen.width / Screen.height > 1.25f;
             scaler.matchWidthOrHeight = wideLayout ? .62f : .5f;
-            if (titleArt)
-            {
-                titleArt.rectTransform.sizeDelta = wideLayout ? new Vector2(560, 500) : new Vector2(390,844);
-                titleArt.color = new Color(1,1,1,wideLayout ? .17f : .25f);
-            }
-            logoText.rectTransform.anchorMin = logoText.rectTransform.anchorMax = wideLayout ? new Vector2(.30f,.70f) : new Vector2(.5f,.73f);
-            taglineText.rectTransform.anchorMin = taglineText.rectTransform.anchorMax = wideLayout ? new Vector2(.30f,.54f) : new Vector2(.5f,.61f);
-            titleHandleRt.anchorMin = titleHandleRt.anchorMax = wideLayout ? new Vector2(.72f,.43f) : new Vector2(.5f,.27f);
+            titleBannerRt.anchorMin = titleBannerRt.anchorMax = wideLayout ? new Vector2(.5f,.72f) : new Vector2(.5f,.72f);
+            titleBannerRt.sizeDelta = wideLayout ? new Vector2(430,190) : new Vector2(342,176);
+            titleHandleRt.anchorMin = titleHandleRt.anchorMax = wideLayout ? new Vector2(.5f,.29f) : new Vector2(.5f,.28f);
             titleHandleText.rectTransform.anchorMin = titleHandleText.rectTransform.anchorMax = titleHandleRt.anchorMin;
 
-            boardRt.sizeDelta = wideLayout ? new Vector2(470,300) : new Vector2(338,300);
+            boardRt.sizeDelta = wideLayout ? new Vector2(430,338) : new Vector2(350,338);
             boardRt.anchorMin = boardRt.anchorMax = wideLayout ? new Vector2(.58f,.47f) : new Vector2(.5f,.49f);
             rackHandleA.anchorMin = rackHandleA.anchorMax = wideLayout ? new Vector2(.25f,.20f) : new Vector2(.22f,.17f);
             rackHandleB.anchorMin = rackHandleB.anchorMax = wideLayout ? new Vector2(.43f,.20f) : new Vector2(.57f,.17f);
@@ -327,17 +341,17 @@ namespace Mgf.ByeolkanGwancheukso
         void LayoutCells()
         {
             float w = boardRt.rect.width, h = boardRt.rect.height;
-            float marginX = wideLayout ? 56f : 42f, marginY = 48f;
+            float marginX = wideLayout ? 56f : 34f, marginY = 34f;
             float cw = (w - marginX * 2f) / Mathf.Max(1,current.cols);
             float ch = (h - marginY * 2f) / Mathf.Max(1,current.rows);
-            float size = Mathf.Clamp(Mathf.Min(cw,ch) * .76f, 28f, 52f);
+            float size = Mathf.Clamp(Mathf.Min(cw,ch) * .94f, 44f, 58f);
             for (int y = 0; y < current.rows; y++) for (int x = 0; x < current.cols; x++)
             {
                 int i = y * current.cols + x;
                 cellRt[i].anchorMin = cellRt[i].anchorMax = new Vector2(.5f,.5f);
                 cellRt[i].anchoredPosition = new Vector2((x-(current.cols-1)*.5f)*cw, ((current.rows-1)*.5f-y)*ch);
                 cellRt[i].sizeDelta = Vector2.one * size;
-                cellText[i].fontSize = current.rows >= 6 ? 8f : current.rows >= 5 ? 9f : 10f;
+                cellText[i].fontSize = current.rows >= 6 ? 12f : current.rows >= 5 ? 12.5f : 13f;
             }
         }
 
@@ -357,8 +371,8 @@ namespace Mgf.ByeolkanGwancheukso
                 if (current.kind == ObservationKind.DiceSum || current.kind == ObservationKind.DigitCards || current.kind == ObservationKind.Representatives)
                     cellText[i].text = "(" + Strip(current.rowLabels[y]) + "," + Strip(current.colLabels[x]) + ")";
                 else cellText[i].text = current.rows == 1 ? current.colLabels[x] : (y+1) + "·" + (x+1);
-                cellImage[i].color = new Color(.38f,.43f,.60f,.78f);
-                cellText[i].color = Pale;
+                cellImage[i].color = new Color(.91f,.78f,.59f,.98f);
+                cellText[i].color = Night;
             }
             LayoutUi(true);
             PositionGuide();
@@ -382,6 +396,7 @@ namespace Mgf.ByeolkanGwancheukso
         void SetScreen()
         {
             bool title = flow == Flow.Title, end = flow == Flow.End;
+            pavilionFoldTarget = title ? .62f : end && st.phase == "clear" ? 1f : 0f;
             titleGroup.alpha = title ? 1 : 0; titleGroup.blocksRaycasts = title;
             gameGroup.alpha = !title && !end ? 1 : 0; gameGroup.blocksRaycasts = !title && !end;
             endGroup.alpha = end ? 1 : 0; endGroup.blocksRaycasts = end;
@@ -396,6 +411,7 @@ namespace Mgf.ByeolkanGwancheukso
         void ResetWorldForRun()
         {
             wrongShake = 0; novaRun = -1f; displayedScore = 0;
+            pavilionFold = pavilionFoldTarget = 0f;
             for (int i = 0; i < starNodes.Length; i++) { starNodes[i].gameObject.SetActive(false); starRenderers[i].sharedMaterial = starOffMat; }
         }
 
@@ -406,8 +422,8 @@ namespace Mgf.ByeolkanGwancheukso
             rackHandleA.anchoredPosition = Vector2.zero;
             rackHandleB.anchoredPosition = Vector2.zero;
             rackHandleA.localRotation = rackHandleB.localRotation = Quaternion.identity;
-            rackHandleA.GetComponent<Image>().color = new Color(.80f,.86f,.88f,.95f);
-            rackHandleB.GetComponent<Image>().color = new Color(.80f,.86f,.88f,.95f);
+            rackHandleA.GetComponent<Image>().color = new Color(.45f,.30f,.20f,.98f);
+            rackHandleB.GetComponent<Image>().color = new Color(.45f,.30f,.20f,.98f);
             foldRt.localRotation = Quaternion.identity;
             crankImage.color = Star;
             DockRack(0, RackTopology.None); DockRack(1, RackTopology.None);
@@ -420,6 +436,7 @@ namespace Mgf.ByeolkanGwancheukso
             PositionWorldStars();
             ClearFeedbackVisuals();
             novaRun = -1f;
+            pavilionFoldTarget = 0f;
         }
 
         void PositionWorldStars()
@@ -462,8 +479,8 @@ namespace Mgf.ByeolkanGwancheukso
             rt.anchorMin = rt.anchorMax = home;
             rt.anchoredPosition = Vector2.zero;
             rt.localRotation = Quaternion.identity;
-            rt.GetComponent<Image>().color = topology == RackTopology.Crossed ? new Color(Violet.r,Violet.g,Violet.b,.96f)
-                                                                              : new Color(Star.r,Star.g,Star.b,.96f);
+            rt.GetComponent<Image>().color = topology == RackTopology.Crossed ? new Color(Cobalt.r,Cobalt.g,Cobalt.b,.98f)
+                                                                              : new Color(Star.r,Star.g,Star.b,.98f);
         }
 
         void SnapBoardToState()
@@ -482,6 +499,13 @@ namespace Mgf.ByeolkanGwancheukso
             if (orbitB) orbitB.Rotate(Vector3.up, -dt * 6.1f, Space.Self);
             if (titleRing) titleRing.localRotation = Quaternion.Euler(68f + Mathf.Sin(worldTime*.22f)*2f, worldTime * 1.4f, 0);
             if (dome) dome.localRotation = Quaternion.Euler(0, Mathf.Sin(worldTime*.12f)*5f,0);
+            pavilionFold = Mathf.MoveTowards(pavilionFold, pavilionFoldTarget, dt * 1.9f);
+            for (int i = 0; i < domeShards.Length; i++) if (domeShards[i])
+            {
+                float fan = (i - 2.5f) * 4.5f;
+                domeShards[i].localRotation = domeShardBaseRot[i] * Quaternion.Euler(58f * pavilionFold, 0, fan * pavilionFold);
+                domeShards[i].localScale = new Vector3(1f, .78f + .22f * pavilionFold, 1f);
+            }
 
             Transform[] racks = { rackWorldA, rackWorldB };
             for (int i = 0; i < 2; i++)
@@ -556,13 +580,18 @@ namespace Mgf.ByeolkanGwancheukso
             titleHandleRt.localScale = Vector3.one*(1f+Mathf.Sin(worldTime*2.4f)*.035f);
             restartRt.localRotation = Quaternion.Euler(0,0,Mathf.Sin(worldTime*.9f)*5f);
             crankRt.localRotation = Quaternion.Euler(0,0,-crankVisual);
-            if (titleArt) titleArt.rectTransform.localScale = Vector3.one*(1.02f+Mathf.Sin(worldTime*.18f)*.012f);
+            titleBannerRt.localRotation = Quaternion.Euler(0,0,Mathf.Sin(worldTime*.8f)*1.4f);
         }
 
         void PositionGuide()
         {
-            if (flow != Flow.Practice && flow != Flow.Playing) { guideRt.gameObject.SetActive(false); guideTrailRt.gameObject.SetActive(false); return; }
-            guideRt.gameObject.SetActive(true); guideTrailRt.gameObject.SetActive(true);
+            if (flow != Flow.Practice && flow != Flow.Playing)
+            {
+                guideRt.gameObject.SetActive(false); guideTrailRt.gameObject.SetActive(false);
+                guideHandRt.gameObject.SetActive(false); guideCaptionRt.gameObject.SetActive(false); return;
+            }
+            guideRt.gameObject.SetActive(true); guideTrailRt.gameObject.SetActive(true); guideHandRt.gameObject.SetActive(true);
+            guideCaptionRt.gameObject.SetActive(flow == Flow.Practice || rackA == RackTopology.None || rackB == RackTopology.None);
             RectTransform target;
             RectTransform source = null;
             if (rackA == RackTopology.None) { source = rackHandleA; target = flow == Flow.Practice || current.expectedTopology == RackTopology.Crossed ? crossDock : endDockLeft; }
@@ -574,6 +603,12 @@ namespace Mgf.ByeolkanGwancheukso
             if (source != null)
             {
                 Vector2 start = RectCenterInGame(source);
+                float handU = Mathf.SmoothStep(0f,1f,Mathf.PingPong(worldTime*.47f,1f));
+                Vector2 handBend = (start+targetLocal)*.5f + Vector2.up*34f;
+                guideHandRt.anchoredPosition = Bezier(start,handBend,targetLocal,handU);
+                guideHandRt.localScale = Vector3.one * (.88f + Mathf.Sin(handU*Mathf.PI)*.18f);
+                guideHandText.text = handU < .18f ? "잡기" : handU > .82f ? "놓기" : "끌기";
+                guideCaptionText.text = source == rackHandleA ? "A 랙 출발 → 중앙 교차 홈" : source == rackHandleB ? "B 랙 출발 → 중앙 교차 홈" : "접이 손잡이 → 반대쪽";
                 for (int i = 0; i < trailDots.Length; i++)
                 {
                     float u = Mathf.Repeat(worldTime*.55f+i/(float)trailDots.Length,1f);
@@ -582,7 +617,13 @@ namespace Mgf.ByeolkanGwancheukso
                     trailImages[i].color = new Color(Star.r,Star.g,Star.b,.2f+.7f*Mathf.Sin(u*Mathf.PI));
                 }
             }
-            else for (int i = 0; i < trailDots.Length; i++) trailImages[i].color = Color.clear;
+            else
+            {
+                guideHandRt.anchoredPosition = targetLocal + new Vector2(Mathf.Cos(worldTime*3f)*24f,Mathf.Sin(worldTime*3f)*24f);
+                guideHandText.text = "돌리기";
+                guideCaptionRt.gameObject.SetActive(false);
+                for (int i = 0; i < trailDots.Length; i++) trailImages[i].color = Color.clear;
+            }
         }
 
         Vector2 RectCenterInGame(RectTransform rt)
@@ -599,7 +640,7 @@ namespace Mgf.ByeolkanGwancheukso
 
         void CorrectFeedback(string reveal, int gain)
         {
-            revealText.text = reveal + "\n별빛 기록 +" + gain;
+            revealText.text = reveal + "\n별마을 천막 완성 +" + gain;
             revealText.color = Star; revealClock = 0; revealGroup.alpha = 1;
             for (int i = 0; i < activeCells; i++)
             {
@@ -607,13 +648,14 @@ namespace Mgf.ByeolkanGwancheukso
                     : current.cellAction == CellAction.None || !current.expectedCells[i];
                 if (lit)
                 {
-                    starRenderers[i].sharedMaterial = starOnMat;
-                    cellImage[i].color = new Color(Star.r,Star.g,Star.b,.92f);
-                    cellText[i].color = Night;
+                    starRenderers[i].sharedMaterial = i % 2 == 0 ? opalMat : basaltMat;
+                    cellImage[i].color = i % 2 == 0 ? new Color(Opal.r,Opal.g,Opal.b,.98f) : new Color(Cobalt.r,Cobalt.g,Cobalt.b,.96f);
+                    cellText[i].color = i % 2 == 0 ? Night : Pale;
                 }
             }
-            novaRun = 0; dockPulse = 1f; crankVisual += 220f;
+            novaRun = -1f; pavilionFoldTarget = 1f; dockPulse = 1f; crankVisual += 220f;
             MgfFx.Punch(boardRt,.055f,.34f);
+            MgfFx.Punch(nova,.14f,.40f);
         }
 
         void WrongFeedback(string misconception, string message)
@@ -634,8 +676,8 @@ namespace Mgf.ByeolkanGwancheukso
             revealGroup.alpha = 0; revealClock = 9f;
             for (int i = 0; i < activeCells; i++)
             {
-                cellImage[i].color = marked[i] ? (current.cellAction == CellAction.KeepTargets ? new Color(Star.r,Star.g,Star.b,.82f) : new Color(Bubble.r,Bubble.g,Bubble.b,.92f)) : new Color(.38f,.43f,.60f,.78f);
-                cellText[i].color = marked[i] ? Night : Pale;
+                cellImage[i].color = marked[i] ? (current.cellAction == CellAction.KeepTargets ? new Color(Cobalt.r,Cobalt.g,Cobalt.b,.96f) : new Color(Bubble.r,Bubble.g,Bubble.b,.92f)) : new Color(.91f,.78f,.59f,.98f);
+                cellText[i].color = marked[i] && current.cellAction == CellAction.KeepTargets ? Pale : Night;
                 starRenderers[i].sharedMaterial = marked[i] ? bubbleMat : starOffMat;
             }
         }
@@ -643,8 +685,8 @@ namespace Mgf.ByeolkanGwancheukso
         void CellPressed(int index, bool on)
         {
             if (index < 0 || index >= activeCells) return;
-            cellImage[index].color = on ? (current.cellAction == CellAction.KeepTargets ? new Color(Star.r,Star.g,Star.b,.82f) : new Color(Bubble.r,Bubble.g,Bubble.b,.94f)) : new Color(.38f,.43f,.60f,.78f);
-            cellText[index].color = on ? Night : Pale;
+            cellImage[index].color = on ? (current.cellAction == CellAction.KeepTargets ? new Color(Cobalt.r,Cobalt.g,Cobalt.b,.96f) : new Color(Bubble.r,Bubble.g,Bubble.b,.94f)) : new Color(.91f,.78f,.59f,.98f);
+            cellText[index].color = on && current.cellAction == CellAction.KeepTargets ? Pale : Night;
             starRenderers[index].sharedMaterial = on ? bubbleMat : starOffMat;
             MgfFx.Punch(cellRt[index],.18f,.22f);
         }
@@ -713,6 +755,9 @@ namespace Mgf.ByeolkanGwancheukso
             // 보이는 세 홈의 넓은 히트박스와 정확히 맞춘다.
             float nx = screen.x / Mathf.Max(1f, Screen.width);
             float ny = screen.y / Mathf.Max(1f, Screen.height);
+            // 첫 연습은 중앙 홈의 보이는 테두리 가까이에 놓아도 스냅한다. 이후 문제는 기존 홈 경계를 유지한다.
+            if (flow == Flow.Practice && nx >= .12f && nx <= .88f && ny >= .12f && ny <= .88f)
+                return RackTopology.Crossed;
             if (ny < .28f || ny > .72f) return RackTopology.None;
             if (nx >= .34f && nx <= .66f) return RackTopology.Crossed;
             if (rack == 0 && nx < .34f) return RackTopology.EndJoined;
@@ -730,7 +775,17 @@ namespace Mgf.ByeolkanGwancheukso
             return nx >= 0.12f && nx <= 0.88f && ny >= 0.25f && ny <= 0.78f;
         }
         bool HitRestart(Vector2 p) { return RectTransformUtility.RectangleContainsScreenPoint(restartRt,p,null); }
-        bool HitRackHandle(int i,Vector2 p) { return RectTransformUtility.RectangleContainsScreenPoint(i==0?rackHandleA:rackHandleB,p,null); }
+        bool HitRackHandle(int i,Vector2 p)
+        {
+            if (RectTransformUtility.RectangleContainsScreenPoint(i==0?rackHandleA:rackHandleB,p,null)) return true;
+            if (flow != Flow.Practice) return false;
+            // 고정 연습에서는 손잡이를 놓친 드래그도 현재 안내 중인 랙을 집는다.
+            // 탭은 Game.cs의 30px 이동 문턱에서 거부되므로 실제 끌기만 배치된다.
+            float ny = p.y / Mathf.Max(1f,Screen.height);
+            if (ny < .12f || ny > .88f) return false;
+            if (i == 0) return rackA == RackTopology.None;
+            return rackA != RackTopology.None && rackB == RackTopology.None;
+        }
         bool HitFoldHandle(Vector2 p) { return foldRt.gameObject.activeSelf && RectTransformUtility.RectangleContainsScreenPoint(foldRt,p,null); }
         bool HitCrank(Vector2 p) { return RectTransformUtility.RectangleContainsScreenPoint(crankRt,p,null); }
         Vector2 CrankCenterScreen() { return RectTransformUtility.WorldToScreenPoint(null,crankRt.position); }

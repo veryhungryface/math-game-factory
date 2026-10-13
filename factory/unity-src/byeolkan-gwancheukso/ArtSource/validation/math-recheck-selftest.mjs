@@ -27,10 +27,12 @@ function expected(problem) {
     for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b === target) count++;
     return { type: 'dice', value: count };
   }
-  if ((m = problem.prompt.match(/에 ([0-9, ]+)이 각각 하나씩 적힌 카드/))) {
+  if ((m = problem.prompt.match(/에 ([0-9, ]+)([이가]) 각각 하나씩 적힌 카드/))) {
     const digits = m[1].split(',').map(v => Number(v.trim())); let count = 0;
     for (let a = 0; a < digits.length; a++) for (let b = 0; b < digits.length; b++) if (a !== b && digits[a] !== 0) count++;
-    return { type: 'digits', value: count };
+    const finalDigit = digits.at(-1);
+    const particleExpected = [0, 1, 3, 6, 7, 8].includes(finalDigit) ? '이' : '가';
+    return { type: 'digits', value: count, particle: m[2], particleExpected };
   }
   if ((m = problem.prompt.match(/후보 (\d+)명 중에서 역할 구분 없이 대표 2명/))) {
     const n = Number(m[1]); return { type: 'representatives', value: n * (n - 1) / 2 };
@@ -50,6 +52,7 @@ try {
   for (const p of problems) {
     try {
       const e = expected(p); types[e.type] = (types[e.type] || 0) + 1;
+      if (e.particle && e.particle !== e.particleExpected) errors.push(`${p.id}: particle ${e.particle} != ${e.particleExpected}`);
       if (p.answerNumeric !== e.value) errors.push(`${p.id}: numeric ${p.answerNumeric} != ${e.value}`);
       if (p.answer !== `${e.value}가지`) errors.push(`${p.id}: answer ${p.answer}`);
       if (!Array.isArray(p.choices) || !p.choices.includes(p.answer)) errors.push(`${p.id}: answer absent from choices`);

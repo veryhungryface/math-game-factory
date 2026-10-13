@@ -67,8 +67,8 @@ async function placeTopology(page, topology, sources = rackHome) {
 }
 
 function cellPoint(rows, cols, index) {
-  const board = { x: 195, y: 430, w: 338, h: 300 };
-  const mx = 42, my = 48;
+  const board = { x: 195, y: 430, w: 350, h: 338 };
+  const mx = 34, my = 34;
   const cw = (board.w - mx * 2) / cols, ch = (board.h - my * 2) / rows;
   const x = index % cols, y = Math.floor(index / cols);
   return [board.x + (x - (cols - 1) / 2) * cw, board.y - ((rows - 1) / 2 - y) * ch];

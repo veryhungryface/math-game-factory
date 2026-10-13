@@ -73,7 +73,7 @@ namespace Mgf.ByeolkanGwancheukso
 
         void Prewarm()
         {
-            var sb = new StringBuilder("별칸관측소랙을엮어밤하늘을켜라중학교2학년경우의수관측환당기기최고기록두사건을엮어정확한별칸을밝히시오십의자리일의자리서로다른두개의주사위를동시에던질때역할구분없이대표두명교차홈끝접속홈월식마개접이손잡이크랭크첫시도렌즈봉인연습관측완료다시관측하기");
+            var sb = new StringBuilder("별칸관측소랙을엮어별마을천막을완성하라중학교2학년경우의수마을풍차돌려시작최고기록두사건을엮어정확한별칸을밝히시오십의자리일의자리서로다른두개의주사위를동시에던질때역할구분없이대표두명중앙교차홈여기에놓기끝접속출발여기서잡기끌기놓기접이손잡이크랭크첫시도렌즈봉인연습관측완료다시관측하기");
             for (int i = 0; i < catalog.Count; i++) { sb.Append(catalog[i].prompt); sb.Append(catalog[i].reveal); sb.Append(catalog[i].concept); }
             MgfText.Prewarm(sb.ToString());
         }
@@ -182,7 +182,7 @@ namespace Mgf.ByeolkanGwancheukso
                 if (down)
                 {
                     if (HitTitleHandle(MgfPointer.Position)) BeginRun(true);
-                    else { Refuse("빛나는 관측환 손잡이를 당기시오."); PointToTitleHandle(); }
+                    else { Refuse("마을 풍차를 돌려 관측을 시작하시오."); PointToTitleHandle(); }
                 }
                 return;
             }
@@ -236,6 +236,11 @@ namespace Mgf.ByeolkanGwancheukso
                 {
                     int rack = dragMode == DragMode.RackA ? 0 : 1;
                     RackTopology drop = TopologyAtDrop(dragNow, rack);
+                    if (flow == Flow.Practice && Vector2.Distance(dragStart,dragNow) < 30f)
+                    {
+                        drop = RackTopology.None;
+                        Refuse("손가락 화살표를 따라 랙을 홈까지 끌어 놓으시오.");
+                    }
                     if (flow == Flow.Practice && drop != RackTopology.Crossed)
                     {
                         drop = RackTopology.None;
@@ -443,8 +448,8 @@ namespace Mgf.ByeolkanGwancheukso
 
         string CurrentInstruction()
         {
-            if (rackA == RackTopology.None) return "왼쪽 오팔 랙을 홈으로 끌어 놓으시오.";
-            if (rackB == RackTopology.None) return "오른쪽 오팔 랙도 같은 방식의 홈에 놓으시오.";
+            if (rackA == RackTopology.None) return "‘A 랙 출발’을 잡아 표시된 홈에 놓으시오.";
+            if (rackB == RackTopology.None) return "‘B 랙 출발’도 같은 방식의 홈에 놓으시오.";
             if (current.cellAction == CellAction.MaskForbidden && !CellsMatch()) return "금지 접점에 월식 마개를 놓으시오.";
             if (current.cellAction == CellAction.KeepTargets && !CellsMatch()) return "조건에 맞는 순서쌍 접점만 눌러 표시하시오.";
             if (current.needsFold && !folded) return "대각선을 가린 뒤 접이 손잡이를 왼쪽으로 끌어 포개시오.";

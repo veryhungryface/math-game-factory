@@ -187,7 +187,7 @@ namespace Mgf.ByeolkanGwancheukso
         {
             int n = digits.Length;
             var p = Base(id, ObservationKind.DigitCards, RackTopology.Crossed, CellAction.MaskForbidden, n, n);
-            p.prompt = StationNames[variant % StationNames.Length] + "에 " + Join(digits) + "이 각각 하나씩 적힌 카드가 있다. 이 중 2장을 뽑아 만들 수 있는 두 자리 자연수의 경우의 수를 구하시오.";
+            p.prompt = StationNames[variant % StationNames.Length] + "에 " + Join(digits) + SubjectParticle(digits[n - 1]) + " 각각 하나씩 적힌 카드가 있다. 이 중 2장을 뽑아 만들 수 있는 두 자리 자연수의 경우의 수를 구하시오.";
             p.concept = "0을 포함한 숫자 카드로 두 자리 자연수 만들기";
             for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
             {
@@ -278,6 +278,12 @@ namespace Mgf.ByeolkanGwancheukso
             string s = "";
             for (int i = 0; i < a.Length; i++) s += (i == 0 ? "" : i == a.Length - 1 ? ", " : ", ") + a[i];
             return s;
+        }
+        static string SubjectParticle(int digit)
+        {
+            // 숫자를 한글로 읽었을 때 받침이 있는 0(영)·1(일)·3(삼)·6(육)·7(칠)·8(팔)은 '이'.
+            int d = Math.Abs(digit) % 10;
+            return d == 0 || d == 1 || d == 3 || d == 6 || d == 7 || d == 8 ? "이" : "가";
         }
         static string PairList(ObservationProblem p)
         {
