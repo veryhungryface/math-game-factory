@@ -3,6 +3,25 @@
 > 마지막 갱신: 2026-10-14. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-14 — 「별칸 관측소」 3차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u6` Unity 게임 `byeolkan-gwancheukso`의 최신 high 1건과 남은 시각 nice-to-have 1건을
+병렬 레인 `factory/work-lanes/20261014-015549-L2/`에서 수정했다. 정본은
+`factory/unity-src/byeolkan-gwancheukso/`, WebGL 산출물은 `public/g/byeolkan-gwancheukso/`이며
+게시·배포는 실행하지 않았다.
+
+- 최종 WebGL artifact `80d66ac95fcd…`와 새 firstplay manifest를 run id로 연결했다. 순진 입력은 11초에
+  A 랙을 실제 드래그하고 15초에 B 랙 시범·`2줄×3칸=6가지` 공개, 18초에 첫 본문항으로 진입했다.
+  ready true·console/page error 0이며 stale 2차 캡처와 무드래그 탐침 실패도 레인 안에 분리 보존했다.
+- 발문판 알파를 0.98→0.90, 보드판을 0.96→0.76으로 낮추고 홈 라벨 대비를 높여 테라코타 마을이
+  플레이 보드 뒤로 이어지게 했다. 접점 타일·수식은 불투명하게 유지했고 정답 흔들림은 추가하지 않았다.
+- 같은 실제 입력 `(86,701)→(195,610)`은 최종 빌드에서 `crossed+crossed/pass`다. trusted pointer
+  192/192로 무실수 `clear/6/lives3`와 오답 회복 `clear/6/lives2`를 다시 완주했다.
+- 실제 은행 1,083문항 재검산은 오류·우연히 참인 오답 0이다. B3 4정책×200판은 고정 33.333%≤50%,
+  순환 31.461%≤37.453%, 무작위 25.070%≤42.958%, 무입력 진도 0이며 전 정책 완주 0이다.
+- Unity 빌드 warnings 0·산출물 **7.6MB**(게임 폴더 **8,240KB**), 공식 QA **45/45·fatal 0**,
+  모바일·1280 **60fps**, 15초 유지율 **100%**다. `fix.json`은 fixed2/not_fixed2·`replan_required=false`다.
+
 ## 2026-10-14 — 「별칸 관측소」 2차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u6` Unity 게임 `byeolkan-gwancheukso`의 최신 high 3건과 medium 1건을 병렬 레인

@@ -270,19 +270,22 @@ namespace Mgf.ByeolkanGwancheukso
             timerText = Txt("Timer", gameUi, "110초", new Vector2(.70f, .965f), Vector2.zero, 12, Pale, 62);
             goalText = Txt("Goal", gameUi, "두 사건을 엮어 정확한 별칸을 밝히시오.", new Vector2(.5f, .908f), Vector2.zero, 14, Pale, 370);
             goalRt = goalText.rectTransform;
-            var promptPlate = Img("Prompt carved tablet", gameUi, new Vector2(.5f, .815f), Vector2.zero, new Vector2(365, 92), new Color(.94f,.79f,.57f,.98f), panelSprite);
+            // The town is part of the playfield, not wallpaper.  Keep the carved tablets
+            // translucent enough that the terraces remain visible while preserving a
+            // warm, high-contrast paper surface behind the actual problem text.
+            var promptPlate = Img("Prompt carved tablet", gameUi, new Vector2(.5f, .815f), Vector2.zero, new Vector2(365, 92), new Color(.94f,.79f,.57f,.90f), panelSprite);
             promptPlateRt = promptPlate.rectTransform;
             promptText = Txt("Prompt", promptPlate.transform, "", new Vector2(.5f, .56f), Vector2.zero, 15, Night, 337, TextAlignmentOptions.Center);
             conceptText = Txt("Concept", promptPlate.transform, "", new Vector2(.5f, .14f), Vector2.zero, 11, Violet, 330);
 
             boardRt = R("Terracotta outcome map", gameUi, new Vector2(.5f, .49f), Vector2.zero, new Vector2(350, 338));
-            boardPlateImage = Img("Mosaic map field", boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(350,338), new Color(.47f,.24f,.19f,.96f), panelSprite);
+            boardPlateImage = Img("Mosaic map field", boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(350,338), new Color(.34f,.15f,.13f,.76f), panelSprite);
             endDockLeft = Img("End dock A", boardRt, new Vector2(.12f,.54f), Vector2.zero, new Vector2(82, 218), new Color(.31f,.56f,.58f,.34f), panelSprite).rectTransform;
             crossDock = Img("Cross dock", boardRt, new Vector2(.5f,.54f), Vector2.zero, new Vector2(210,210), new Color(Star.r,Star.g,Star.b,.28f), ringSprite).rectTransform;
             endDockRight = Img("End dock B", boardRt, new Vector2(.88f,.54f), Vector2.zero, new Vector2(82,218), new Color(.31f,.56f,.58f,.34f), panelSprite).rectTransform;
-            endDockLeftText = Txt("End dock A label", boardRt, "끝접속 A 홈", new Vector2(.13f,.94f), Vector2.zero, 10, Night, 92);
-            crossDockText = Txt("Cross dock label", boardRt, "① 중앙 교차 홈", new Vector2(.5f,.94f), Vector2.zero, 11, Night, 150);
-            endDockRightText = Txt("End dock B label", boardRt, "끝접속 B 홈", new Vector2(.87f,.94f), Vector2.zero, 10, Night, 92);
+            endDockLeftText = Txt("End dock A label", boardRt, "끝접속 A 홈", new Vector2(.13f,.94f), Vector2.zero, 10, Pale, 92);
+            crossDockText = Txt("Cross dock label", boardRt, "① 중앙 교차 홈", new Vector2(.5f,.94f), Vector2.zero, 11, Pale, 150);
+            endDockRightText = Txt("End dock B label", boardRt, "끝접속 B 홈", new Vector2(.87f,.94f), Vector2.zero, 10, Pale, 92);
             for (int i = 0; i < cellRt.Length; i++)
             {
                 cellImage[i] = Img("Contact " + i, boardRt, new Vector2(.5f,.5f), Vector2.zero, new Vector2(44,44), new Color(.91f,.78f,.59f,.98f), starSprite);
