@@ -8,14 +8,14 @@ namespace Mgf.MuneoSajinsa
 {
     public partial class MuneoSajinsaGame
     {
-        static readonly Color Water = MgfLook.Hex("#26384B");
-        static readonly Color Copper = MgfLook.Hex("#B97732");
-        static readonly Color Cream = MgfLook.Hex("#E9D7AD");
-        static readonly Color Deep = MgfLook.Hex("#0C1622");
-        static readonly Color Yellow = MgfLook.Hex("#F0A62B");
-        static readonly Color SeaDark = MgfLook.Hex("#060A10");
-        static readonly Color Coral = MgfLook.Hex("#8E2F2C");
-        static readonly Color Ink = MgfLook.Hex("#111319");
+        static readonly Color Water = MgfLook.Hex("#36B8C7");
+        static readonly Color Copper = MgfLook.Hex("#F39A62");
+        static readonly Color Cream = MgfLook.Hex("#FFF5D7");
+        static readonly Color Deep = MgfLook.Hex("#083B52");
+        static readonly Color Yellow = MgfLook.Hex("#FFE071");
+        static readonly Color SeaDark = MgfLook.Hex("#075F78");
+        static readonly Color Coral = MgfLook.Hex("#EC5F7E");
+        static readonly Color Ink = MgfLook.Hex("#102E3D");
 
         Camera cam;
         Transform worldRoot, octopus, octoHead, puffer, pufferBody, pufferTail, cameraBody, titleLensWorld;
@@ -24,6 +24,7 @@ namespace Mgf.MuneoSajinsa
         readonly Transform[] bubbles = new Transform[16];
         readonly Transform[] photoPegs = new Transform[12];
         readonly Transform[] wallPhotos = new Transform[12];
+        readonly Vector3[] wallPhotoBase = new Vector3[12];
         Transform wornHat, wornFlag;
         Vector3 cameraHome;
         Material waterMat, copperMat, creamMat, deepMat, yellowMat, coralMat, glassMat, inkMat;
@@ -45,7 +46,8 @@ namespace Mgf.MuneoSajinsa
         readonly TextMeshProUGUI[] filmText = new TextMeshProUGUI[MuneoRules.ShotLimit];
         RectTransform shutterRt, tearRt, trashRt, restartRt, titleLensRt, promptPlateRt;
         Sprite roundSprite, discSprite, ringSprite, dashedSprite;
-        float worldClock, shootClock, flashClock, rippleClock, toastClock, guideBoost, refuseClock;
+        float worldClock, shootClock, flashClock, rippleClock, toastClock, guideBoost, refuseClock, correctWaveClock;
+        int correctPhotoCount;
         float displayedScore, displayedEndScore;
         int lastW = -1, lastH = -1, lastScore = -1, shuffledOffset;
         Vector2 tearBase;
@@ -99,32 +101,39 @@ namespace Mgf.MuneoSajinsa
         void BuildWorld()
         {
             var types = new GameObject("PrimitiveColliderTypes"); types.AddComponent<SphereCollider>(); types.AddComponent<CapsuleCollider>(); Object.Destroy(types);
-            MgfLook.Sky(SeaDark, Deep, MgfLook.Hex("#26303A"), .76f);
-            MgfLook.Sun(new Vector3(42, -34, 16), MgfLook.Hex("#FFC76B"), 1.05f, .28f);
-            cam = MgfLook.Camera(new Vector3(10.7f, 10.8f, -18.4f), new Vector3(0, 1.2f, 1.8f), 34f); cameraHome = cam.transform.position;
-            waterMat = MgfLook.Lit(Water, .23f, .12f); copperMat = MgfLook.Lit(Copper, .22f, .62f, Copper * .025f);
-            creamMat = MgfLook.Lit(Cream, .16f); deepMat = MgfLook.Lit(Deep, .14f, .38f); yellowMat = MgfLook.Lit(Yellow, .24f, .35f, Yellow * .18f);
-            coralMat = MgfLook.Lit(Coral, .20f, .22f, Coral * .09f); glassMat = MgfLook.Lit(MgfLook.Hex("#45697A"), .56f, .38f, MgfLook.Hex("#142632") * .06f); inkMat = MgfLook.Lit(Ink, .12f, .18f);
-            worldRoot = new GameObject("PressureHullDarkroom").transform;
-            Block("RibbedSteelDeck", new Vector3(0, -1.15f, 2.2f), new Vector3(24, 1.4f, 17), .05f, inkMat, worldRoot);
-            for (int i = 0; i < 13; i++) Block("DeckRib" + i, new Vector3(-9f + i * 1.5f, -.38f, .6f), new Vector3(.10f, .10f, 11f), .01f, copperMat, worldRoot);
+            MgfLook.Sky(MgfLook.Hex("#0B7892"), MgfLook.Hex("#45C4CB"), MgfLook.Hex("#B9F0E6"), .82f);
+            MgfLook.Sun(new Vector3(58, -28, 8), MgfLook.Hex("#FFF1BE"), 1.12f, .22f);
+            cam = MgfLook.Camera(new Vector3(11.8f, 8.9f, -19.2f), new Vector3(0, 1.15f, 2.4f), 32f); cameraHome = cam.transform.position;
+            waterMat = MgfLook.Alpha(new Color(Water.r, Water.g, Water.b, .66f));
+            copperMat = MgfLook.Alpha(new Color(Copper.r, Copper.g, Copper.b, .84f));
+            creamMat = MgfLook.Lit(Cream, .72f, .04f); deepMat = MgfLook.Lit(Deep, .46f, .03f); yellowMat = MgfLook.Alpha(new Color(Yellow.r, Yellow.g, Yellow.b, .78f));
+            coralMat = MgfLook.Lit(Coral, .62f, .02f, Coral * .035f); glassMat = MgfLook.Alpha(new Color(.70f, .98f, 1f, .30f)); inkMat = MgfLook.Lit(Ink, .72f, .01f);
+            worldRoot = new GameObject("OpenWaterFilmLab").transform;
+            Block("ShallowGlassDevelopingPool", new Vector3(0, -1.14f, 2.4f), new Vector3(24, 1.05f, 17), .34f, glassMat, worldRoot);
+            Block("SoftSandShelf", new Vector3(0, -1.72f, 3.2f), new Vector3(25, .24f, 18), .09f, creamMat, worldRoot);
+            for (int i = 0; i < 9; i++)
+            {
+                float x = -9f + i * 2.25f;
+                var ripple = Prim(PrimitiveType.Cylinder, "PoolRipple" + i, new Vector3(x, -.55f, 2.1f + (i % 3) * 1.9f), new Vector3(.68f + (i % 2) * .24f, .018f, .68f), waterMat, worldRoot).transform;
+                ripple.localRotation = Quaternion.Euler(90, 0, 0);
+            }
             BuildCoralWall(); BuildKelp(); BuildOctopus(); BuildPuffer(); BuildCameraProp(); BuildPhotoWall(); BuildBubbles();
         }
 
         void BuildCoralWall()
         {
-            Block("PressureBulkhead", new Vector3(0, 2.7f, 7.2f), new Vector3(18, 6.5f, .55f), .04f, deepMat, worldRoot);
-            for (int i = 0; i < 24; i++)
+            // 벽을 없애고 물빛과 부유 필름이 화면 끝까지 이어지는 열린 현상실을 만든다.
+            for (int i = 0; i < 7; i++)
             {
-                int row = i / 8, col = i % 8; float x = -7.7f + col * 2.2f, y = .3f + row * 2.05f;
-                Block("RivetedHullPanel" + i, new Vector3(x, y, 6.82f), new Vector3(2.02f, 1.86f, .12f), .025f, (i + row) % 3 == 0 ? waterMat : inkMat, worldRoot);
-                for (int b = 0; b < 4; b++) Prim(PrimitiveType.Sphere, "PanelBolt", new Vector3(x + (b % 2 == 0 ? -.84f : .84f), y + (b < 2 ? -.72f : .72f), 6.63f), new Vector3(.10f, .10f, .06f), copperMat, worldRoot);
+                float x = -8.4f + i * 2.8f;
+                Block("MovingCausticColumn" + i, new Vector3(x, 3.45f, 8.4f + (i % 2) * .35f), new Vector3(.58f, 8.1f, .05f), .20f, glassMat, worldRoot);
+                var floatFrame = Prim(PrimitiveType.Cylinder, "FloatingFilmReel" + i, new Vector3(x, 4.9f + (i % 3) * .42f, 6.8f), new Vector3(.72f, .12f, .72f), i % 2 == 0 ? copperMat : yellowMat, worldRoot).transform;
+                floatFrame.localRotation = Quaternion.Euler(70, i * 13f, 0);
             }
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 10; i++)
             {
-                float x = -6.2f + i * 6.2f;
-                var rim = Prim(PrimitiveType.Cylinder, "PortholeRim", new Vector3(x, 4.45f, 6.45f), new Vector3(1.28f, .15f, 1.28f), copperMat, worldRoot).transform; rim.localRotation = Quaternion.Euler(90, 0, 0);
-                var glass = Prim(PrimitiveType.Cylinder, "PortholeGlass", new Vector3(x, 4.45f, 6.27f), new Vector3(.91f, .08f, .91f), glassMat, worldRoot).transform; glass.localRotation = Quaternion.Euler(90, 0, 0);
+                float x = -8.1f + i * 1.8f;
+                Block("SuspendedCelluloid" + i, new Vector3(x, 2.1f + (i % 4) * .86f, 7.1f), new Vector3(1.12f, .64f, .035f), .16f, i % 3 == 0 ? copperMat : (i % 3 == 1 ? waterMat : yellowMat), worldRoot);
             }
         }
 
@@ -133,30 +142,31 @@ namespace Mgf.MuneoSajinsa
             for (int i = 0; i < kelp.Length; i++)
             {
                 float side = i < kelp.Length / 2 ? -1 : 1; int k = i % (kelp.Length / 2);
-                var root = new GameObject("GaugeNeedle" + i).transform; root.SetParent(worldRoot, false);
-                root.localPosition = new Vector3(side * (6.25f + (k % 3) * .68f), .28f + (k / 3) * 1.55f, 5.95f);
-                var gauge = Prim(PrimitiveType.Cylinder, "GaugeFace", Vector3.zero, new Vector3(.42f, .08f, .42f), creamMat, root).transform; gauge.localRotation = Quaternion.Euler(90, 0, 0);
-                Block("Needle", new Vector3(0, .12f, -.12f), new Vector3(.06f, .34f, .05f), .01f, coralMat, root);
+                var root = new GameObject("FloatingCelluloidRibbon" + i).transform; root.SetParent(worldRoot, false);
+                root.localPosition = new Vector3(side * (5.9f + (k % 3) * .72f), -.25f + (k / 3) * 1.55f, 4.9f + (k % 2) * .35f);
+                Block("GelatinStrip", new Vector3(0, .78f, 0), new Vector3(.26f + (k % 2) * .08f, 1.62f, .045f), .11f, k % 3 == 0 ? copperMat : (k % 3 == 1 ? waterMat : yellowMat), root);
+                for (int p = 0; p < 3; p++) Prim(PrimitiveType.Sphere, "FilmPerforation", new Vector3(0, .20f + p * .55f, -.06f), new Vector3(.055f, .055f, .025f), creamMat, root, false);
                 kelp[i] = root;
             }
         }
 
         void BuildOctopus()
         {
-            octopus = new GameObject("BrassDarkroomOperator").transform; octopus.SetParent(worldRoot, false); octopus.localPosition = new Vector3(-4.15f, .42f, 1.9f);
-            octoHead = Block("AngularHead", new Vector3(0, 1.35f, 0), new Vector3(1.55f, 1.32f, 1.18f), .08f, copperMat, octopus).transform;
-            Block("ApronBody", new Vector3(0, .25f, .18f), new Vector3(1.65f, 1.45f, .9f), .05f, inkMat, octopus);
+            octopus = new GameObject("GelatinFilmPhotographer").transform; octopus.SetParent(worldRoot, false); octopus.localPosition = new Vector3(-4.15f, .42f, 1.9f);
+            octoHead = Prim(PrimitiveType.Sphere, "TranslucentCoralHead", new Vector3(0, 1.42f, 0), new Vector3(1.48f, 1.28f, 1.12f), copperMat, octopus).transform;
+            Prim(PrimitiveType.Capsule, "RubberApronBody", new Vector3(0, .38f, .18f), new Vector3(1.34f, .80f, .92f), deepMat, octopus);
             for (int e = -1; e <= 1; e += 2)
             {
-                Prim(PrimitiveType.Cylinder, "ApertureEye", new Vector3(e * .39f, 1.45f, -.65f), new Vector3(.25f, .09f, .25f), yellowMat, octopus).transform.localRotation = Quaternion.Euler(90, 0, 0);
+                Prim(PrimitiveType.Sphere, "PearlEye", new Vector3(e * .39f, 1.48f, -.58f), new Vector3(.24f, .28f, .14f), creamMat, octopus);
+                Prim(PrimitiveType.Sphere, "InkPupil", new Vector3(e * .39f, 1.48f, -.70f), new Vector3(.09f, .12f, .06f), inkMat, octopus);
             }
             for (int i = 0; i < tentacles.Length; i++)
             {
                 float a = Mathf.Lerp(-112f, 112f, i / 7f) * Mathf.Deg2Rad;
-                var t = new GameObject("ArticulatedArm" + i).transform; t.SetParent(octopus, false); t.localPosition = new Vector3(Mathf.Sin(a) * .68f, .40f, Mathf.Cos(a) * .32f);
+                var t = new GameObject("SoftTentacle" + i).transform; t.SetParent(octopus, false); t.localPosition = new Vector3(Mathf.Sin(a) * .68f, .40f, Mathf.Cos(a) * .32f);
                 for (int s = 0; s < 3; s++)
                 {
-                    var seg = Block("JointedArmSegment", new Vector3(0, -.30f - s * .39f, s * .08f), new Vector3(.18f, .40f, .18f), .025f, s % 2 == 0 ? copperMat : inkMat, t).transform;
+                    var seg = Prim(PrimitiveType.Capsule, "GelTentacleSegment", new Vector3(0, -.30f - s * .37f, s * .08f), new Vector3(.17f - s * .02f, .28f, .17f - s * .02f), copperMat, t).transform;
                     seg.localRotation = Quaternion.Euler(0, 0, (i - 3.5f) * 3f + s * (i % 2 == 0 ? 6 : -6));
                 }
                 tentacles[i] = t;
@@ -165,46 +175,47 @@ namespace Mgf.MuneoSajinsa
 
         void BuildPuffer()
         {
-            puffer = new GameObject("PressureSuitSubject").transform; puffer.SetParent(worldRoot, false); puffer.localPosition = new Vector3(.45f, .72f, 1.5f);
-            pufferBody = Block("RivetedSuitBody", new Vector3(0, .92f, 0), new Vector3(2.05f, 1.75f, 1.35f), .10f, waterMat, puffer).transform;
+            puffer = new GameObject("InflatableRubberSubject").transform; puffer.SetParent(worldRoot, false); puffer.localPosition = new Vector3(.45f, .72f, 1.5f);
+            pufferBody = Prim(PrimitiveType.Sphere, "PearlRubberBody", new Vector3(0, .92f, 0), new Vector3(2.05f, 1.75f, 1.35f), creamMat, puffer).transform;
             for (int i = 0; i < 10; i++)
             {
-                float a = i * Mathf.PI * 2 / 10f; var rivet = Prim(PrimitiveType.Cube, "SuitRivet", new Vector3(Mathf.Cos(a) * 1.01f, .92f + Mathf.Sin(a) * .82f, -.57f), new Vector3(.13f, .13f, .10f), copperMat, puffer).transform;
-                rivet.localRotation = Quaternion.Euler(0, 0, -a * Mathf.Rad2Deg + 45f);
+                float a = i * Mathf.PI * 2 / 10f;
+                Prim(PrimitiveType.Sphere, "SoftNub", new Vector3(Mathf.Cos(a) * 1.01f, .92f + Mathf.Sin(a) * .82f, -.57f), new Vector3(.12f, .12f, .08f), yellowMat, puffer);
             }
             for (int e = -1; e <= 1; e += 2)
             {
-                Prim(PrimitiveType.Cylinder, "SuitLens", new Vector3(e * .43f, 1.18f, -.77f), new Vector3(.25f, .08f, .25f), yellowMat, puffer).transform.localRotation = Quaternion.Euler(90, 0, 0);
+                Prim(PrimitiveType.Sphere, "SubjectEye", new Vector3(e * .43f, 1.18f, -.72f), new Vector3(.23f, .28f, .13f), deepMat, puffer);
             }
-            pufferTail = Block("PressureLever", new Vector3(1.35f, .94f, .12f), new Vector3(.22f, 1.0f, .18f), .02f, coralMat, puffer).transform;
+            pufferTail = Prim(PrimitiveType.Capsule, "RubberTail", new Vector3(1.35f, .94f, .12f), new Vector3(.20f, .46f, .20f), coralMat, puffer).transform;
             pufferTail.localRotation = Quaternion.Euler(0, 0, -22f);
             wornHat = new GameObject("WornHat").transform; wornHat.SetParent(puffer, false); wornHat.localPosition = new Vector3(0, 2.02f, 0);
-            Block("HatBrim", Vector3.zero, new Vector3(1.30f, .12f, .72f), .02f, yellowMat, wornHat);
-            Block("HatCrown", new Vector3(0, .34f, 0), new Vector3(.72f, .62f, .62f), .04f, coralMat, wornHat);
+            Block("CelluloidHatBrim", Vector3.zero, new Vector3(1.30f, .12f, .72f), .11f, yellowMat, wornHat);
+            Prim(PrimitiveType.Sphere, "GelatinHatCrown", new Vector3(0, .34f, 0), new Vector3(.72f, .62f, .62f), coralMat, wornHat);
             wornFlag = new GameObject("WornFlag").transform; wornFlag.SetParent(puffer, false); wornFlag.localPosition = new Vector3(0, 1.28f, .62f);
-            Prim(PrimitiveType.Cylinder, "FlagPole", new Vector3(.68f, .25f, 0), new Vector3(.07f, .84f, .07f), copperMat, wornFlag);
-            var flag = Block("SignalPlate", new Vector3(.18f, .68f, 0), new Vector3(1.0f, .52f, .08f), .02f, coralMat, wornFlag); flag.transform.localRotation = Quaternion.Euler(0, 0, 7f);
+            Prim(PrimitiveType.Cylinder, "RubberFlagPole", new Vector3(.68f, .25f, 0), new Vector3(.07f, .84f, .07f), deepMat, wornFlag);
+            var flag = Block("TransparentFlag", new Vector3(.18f, .68f, 0), new Vector3(1.0f, .52f, .08f), .16f, coralMat, wornFlag); flag.transform.localRotation = Quaternion.Euler(0, 0, 7f);
             wornHat.gameObject.SetActive(false); wornFlag.gameObject.SetActive(false);
         }
 
         void BuildCameraProp()
         {
-            var root = new GameObject("BrassPlateCamera").transform; root.SetParent(worldRoot, false); root.localPosition = new Vector3(4.5f, .70f, .50f);
-            cameraBody = Block("BellowsCameraBody", new Vector3(0, .82f, 0), new Vector3(2.25f, 1.60f, 1.08f), .05f, copperMat, root).transform;
-            for (int i = 0; i < 5; i++) Block("BellowsRib", new Vector3(-.76f + i * .38f, .82f, -.58f), new Vector3(.09f, 1.18f, .32f), .01f, inkMat, root);
-            titleLensWorld = Prim(PrimitiveType.Cylinder, "ApertureLens", new Vector3(0, .84f, -.76f), new Vector3(1.30f, .18f, 1.30f), deepMat, root).transform;
+            var root = new GameObject("WaterproofRubberCamera").transform; root.SetParent(worldRoot, false); root.localPosition = new Vector3(4.5f, .70f, .50f);
+            cameraBody = Block("SeafoamCameraBody", new Vector3(0, .82f, 0), new Vector3(2.25f, 1.60f, 1.08f), .28f, waterMat, root).transform;
+            for (int i = 0; i < 4; i++) Prim(PrimitiveType.Sphere, "RubberGripDot", new Vector3(-.72f + i * .48f, .46f, -.58f), new Vector3(.13f, .13f, .07f), yellowMat, root);
+            titleLensWorld = Prim(PrimitiveType.Cylinder, "CelluloidLens", new Vector3(0, .84f, -.76f), new Vector3(1.30f, .18f, 1.30f), coralMat, root).transform;
             titleLensWorld.localRotation = Quaternion.Euler(90, 0, 0);
-            Prim(PrimitiveType.Cylinder, "SmokedLens", new Vector3(0, .84f, -.91f), new Vector3(.90f, .10f, .90f), glassMat, root).transform.localRotation = Quaternion.Euler(90, 0, 0);
-            Block("FilmMouth", new Vector3(0, .05f, -.20f), new Vector3(1.38f, .20f, .62f), .025f, inkMat, root);
+            Prim(PrimitiveType.Cylinder, "AquaLens", new Vector3(0, .84f, -.91f), new Vector3(.90f, .10f, .90f), glassMat, root).transform.localRotation = Quaternion.Euler(90, 0, 0);
+            Block("SoftFilmMouth", new Vector3(0, .05f, -.20f), new Vector3(1.38f, .20f, .62f), .18f, deepMat, root);
         }
 
         void BuildPhotoWall()
         {
             for (int i = 0; i < photoPegs.Length; i++)
             {
-                int row = i / 6, col = i % 6; float x = -2.2f + col * 1.23f, y = 2.0f + row * 1.28f;
-                var peg = Prim(PrimitiveType.Cylinder, "DevelopmentLamp" + i, new Vector3(x, y + .52f, 6.28f), new Vector3(.11f, .05f, .11f), yellowMat, worldRoot).transform; peg.localRotation = Quaternion.Euler(90, 0, 0);
-                var card = Block("ChemicalDevelopmentCell", new Vector3(x, y, 6.35f), new Vector3(.94f, .92f, .08f), .015f, creamMat, worldRoot).transform;
+                int row = i / 6, col = i % 6; float x = -3.35f + col * 1.34f, y = 1.75f + row * 1.36f;
+                wallPhotoBase[i] = new Vector3(x, y, 4.75f - row * .18f);
+                var peg = Prim(PrimitiveType.Sphere, "DevelopingWaveDrop" + i, wallPhotoBase[i] + new Vector3(0, .56f, .08f), new Vector3(.18f, .18f, .10f), waterMat, worldRoot).transform;
+                var card = Block("FloatingStudentFilm" + i, wallPhotoBase[i], new Vector3(1.02f, .96f, .045f), .18f, i % 2 == 0 ? yellowMat : copperMat, worldRoot).transform;
                 card.gameObject.SetActive(false); peg.gameObject.SetActive(false); photoPegs[i] = peg; wallPhotos[i] = card;
             }
         }
@@ -214,8 +225,7 @@ namespace Mgf.MuneoSajinsa
             for (int i = 0; i < bubbles.Length; i++)
             {
                 float side = i < 8 ? -1 : 1; int k = i % 8;
-                Block("SafetyLampCable", new Vector3(side * (3.0f + k * .68f), 5.52f, 4.7f), new Vector3(.035f, 1.05f + (k % 3) * .22f, .035f), .005f, inkMat, worldRoot);
-                var b = Prim(PrimitiveType.Sphere, "RedSafetyLamp", new Vector3(side * (3.0f + k * .68f), 4.95f - (k % 3) * .22f, 4.65f), new Vector3(.16f, .16f, .16f), i % 3 == 0 ? yellowMat : coralMat, worldRoot, false).transform;
+                var b = Prim(PrimitiveType.Sphere, "OpenWaterBubble", new Vector3(side * (2.9f + k * .72f), .35f + (k % 4) * 1.45f, 3.9f + (k % 3) * .5f), new Vector3(.12f + (k % 3) * .04f, .12f + (k % 3) * .04f, .07f), glassMat, worldRoot, false).transform;
                 bubbles[i] = b;
             }
         }
@@ -231,15 +241,15 @@ namespace Mgf.MuneoSajinsa
         void BuildTitleUi()
         {
             titleRt = R("Title", rootRt, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero); titleRt.anchorMin = Vector2.zero; titleRt.anchorMax = Vector2.one; titleRt.sizeDelta = Vector2.zero; titleG = titleRt.gameObject.AddComponent<CanvasGroup>();
-            Img(titleRt, "HangingBrassSign", new Vector2(.5f, .79f), Vector2.zero, new Vector2(356, 82), new Color(Deep.r, Deep.g, Deep.b, .94f), roundSprite);
-            titleLogo = Txt(titleRt, "문어 사진사", new Vector2(.50f, .80f), Vector2.zero, 43, Cream, 350); titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineWidth = .20f; titleLogo.outlineColor = Ink;
-            titleTag = Txt(titleRt, "압력선체 암실 · 가능한 장면을 전부 현상하라", new Vector2(.5f, .715f), Vector2.zero, 14, Yellow, 360); titleTag.outlineWidth = .10f; titleTag.outlineColor = Ink;
+            Img(titleRt, "FloatingCelluloidTitle", new Vector2(.5f, .79f), Vector2.zero, new Vector2(356, 82), new Color(Deep.r, Deep.g, Deep.b, .78f), roundSprite);
+            titleLogo = Txt(titleRt, "문어 사진사", new Vector2(.50f, .80f), Vector2.zero, 43, Cream, 350); titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineWidth = .12f; titleLogo.outlineColor = Deep;
+            titleTag = Txt(titleRt, "열린 수중 현상실 · 빠짐없이 찍어 띄워라", new Vector2(.5f, .715f), Vector2.zero, 14, Yellow, 360); titleTag.outlineWidth = .10f; titleTag.outlineColor = Deep;
             titleLensRt = R("StartLens", titleRt, new Vector2(.5f, .39f), Vector2.zero, new Vector2(156, 156));
-            Img(titleLensRt, "OuterCopper", new Vector2(.5f, .5f), Vector2.zero, new Vector2(156, 156), Copper, discSprite);
-            Img(titleLensRt, "DarkRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(128, 128), Deep, discSprite);
-            titleLens = Img(titleLensRt, "SeaGlass", new Vector2(.5f, .5f), Vector2.zero, new Vector2(104, 104), new Color(Water.r, Water.g, Water.b, .98f), discSprite);
+            Img(titleLensRt, "RubberCoralRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(156, 156), Coral, discSprite);
+            Img(titleLensRt, "DeepWaterRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(128, 128), Deep, discSprite);
+            titleLens = Img(titleLensRt, "AquaGelLens", new Vector2(.5f, .5f), Vector2.zero, new Vector2(104, 104), new Color(Water.r, Water.g, Water.b, .98f), discSprite);
             titleStart = Txt(titleLensRt, "렌즈를 눌러\n사진관 열기", new Vector2(.5f, .5f), Vector2.zero, 17, Cream, 126); titleStart.fontStyle = FontStyles.Bold;
-            titleMeta = Txt(titleRt, "중2 · 경우의 수    목표: 첫 제출 5/6", new Vector2(.5f, .16f), Vector2.zero, 12, Cream, 340);
+            titleMeta = Txt(titleRt, "중2 · 경우의 수    목표: 첫 제출 5/6", new Vector2(.5f, .16f), Vector2.zero, 12, Deep, 340);
         }
 
         void BuildHudUi()
@@ -269,7 +279,7 @@ namespace Mgf.MuneoSajinsa
             trashRt = R("Trash", hudRt, new Vector2(.08f, .08f), Vector2.zero, new Vector2(58, 58)); trashImage = Img(trashRt, "TrashBody", new Vector2(.5f, .5f), Vector2.zero, new Vector2(58, 58), Deep, roundSprite); Txt(trashRt, "버리기", new Vector2(.5f, .5f), Vector2.zero, 11, Cream, 54);
             tearRt = R("TearHandle", hudRt, new Vector2(.92f, .09f), Vector2.zero, new Vector2(62, 72)); tearBase = tearRt.anchoredPosition;
             tearImage = Img(tearRt, "Handle", new Vector2(.5f, .5f), Vector2.zero, new Vector2(62, 72), Copper, roundSprite); tearText = Txt(tearRt, "필름\n당기기", new Vector2(.5f, .5f), Vector2.zero, 11, Cream, 58);
-            shotsText = Txt(hudRt, "촬영 0/14", new Vector2(.5f, .205f), Vector2.zero, 12, Cream, 180);
+            shotsText = Txt(hudRt, "촬영 0/14", new Vector2(.5f, .205f), Vector2.zero, 12, Deep, 180); shotsText.fontStyle = FontStyles.Bold;
             for (int i = 0; i < filmRt.Length; i++)
             {
                 int row = i / 7, col = i % 7; filmRt[i] = R("Film" + i, hudRt, new Vector2(.18f + col * .105f, .13f - row * .07f), Vector2.zero, new Vector2(38, 46));
@@ -282,8 +292,8 @@ namespace Mgf.MuneoSajinsa
         {
             endRt = R("End", rootRt, new Vector2(.5f, .5f), Vector2.zero, Vector2.zero); endRt.anchorMin = Vector2.zero; endRt.anchorMax = Vector2.one; endRt.sizeDelta = Vector2.zero; endG = endRt.gameObject.AddComponent<CanvasGroup>();
             Img(endRt, "DarkroomResult", new Vector2(.5f, .55f), Vector2.zero, new Vector2(350, 365), new Color(Deep.r, Deep.g, Deep.b, .97f), roundSprite);
-            endTitle = Txt(endRt, "현상 격자 완성", new Vector2(.5f, .68f), Vector2.zero, 35, Yellow, 330); endTitle.fontStyle = FontStyles.Bold; endTitle.outlineWidth = .16f; endTitle.outlineColor = Ink;
-            endStats = Txt(endRt, "", new Vector2(.5f, .52f), Vector2.zero, 19, Ink, 320);
+            endTitle = Txt(endRt, "부유 필름 완성", new Vector2(.5f, .68f), Vector2.zero, 35, Yellow, 330); endTitle.fontStyle = FontStyles.Bold; endTitle.outlineWidth = .16f; endTitle.outlineColor = Ink;
+            endStats = Txt(endRt, "", new Vector2(.5f, .52f), Vector2.zero, 19, Cream, 320);
             restartRt = R("RestartPeg", endRt, new Vector2(.5f, .30f), Vector2.zero, new Vector2(156, 72)); Img(restartRt, "Peg", new Vector2(.5f, .5f), Vector2.zero, new Vector2(156, 72), Yellow, roundSprite);
             restartText = Txt(restartRt, "새 필름 걸기", new Vector2(.5f, .5f), Vector2.zero, 18, Ink, 150); restartText.fontStyle = FontStyles.Bold;
         }
@@ -334,8 +344,23 @@ namespace Mgf.MuneoSajinsa
             for (int g = 0; g < 2; g++) for (int i = 0; i < 4; i++)
             {
                 string[] arr = g == 0 ? current.leftLabels : current.rightLabels; bool on = i < arr.Length;
-                propRt[g, i].gameObject.SetActive(on); if (on) propText[g, i].text = arr[i];
+                propRt[g, i].gameObject.SetActive(on);
+                if (on)
+                {
+                    bool used = phase == GamePhase.Practice && PracticeGroupAlreadyShot(g);
+                    bool next = phase == GamePhase.Practice && !used && g == (photos.Count == 0 ? 0 : 1);
+                    propText[g, i].text = arr[i];
+                    propImage[g, i].color = used ? new Color(.28f, .39f, .42f, .72f) : (g == 0 ? new Color(Coral.r, Coral.g, Coral.b, .96f) : new Color(Deep.r, Deep.g, Deep.b, .94f));
+                    propText[g, i].color = used ? new Color(Cream.r, Cream.g, Cream.b, .46f) : Cream;
+                    propRt[g, i].localScale = Vector3.one * (next ? 1.12f : 1f);
+                }
             }
+            if (phase == GamePhase.Practice)
+            {
+                int nextGroup = photos.Count == 0 ? 0 : 1;
+                for (int g = 0; g < 2; g++) slotImage[g].color = g == nextGroup ? new Color(Yellow.r, Yellow.g, Yellow.b, .72f) : new Color(Cream.r, Cream.g, Cream.b, .18f);
+            }
+            else for (int g = 0; g < 2; g++) slotImage[g].color = new Color(Cream.r, Cream.g, Cream.b, .30f);
             wornLeftText.text = current.kind == TaskKind.NumberCards ? "십의 자리" : "모자";
             wornRightText.text = current.kind == TaskKind.NumberCards ? "일의 자리" : "깃발";
             if (current.kind == TaskKind.Sum) instructionText.text = "카드를 누르거나 끌어 모자 또는 깃발 하나만 착용하시오";
@@ -388,21 +413,38 @@ namespace Mgf.MuneoSajinsa
         void UpdateWorld(float dt)
         {
             worldClock += dt; float s = Mathf.Sin(worldClock * 1.4f);
-            for (int i = 0; i < kelp.Length; i++) kelp[i].localRotation = Quaternion.Euler(0, 0, -38f + (i % 7) * 12f + Mathf.Sin(worldClock * .45f + i * .61f) * 2.5f);
+            for (int i = 0; i < kelp.Length; i++) kelp[i].localRotation = Quaternion.Euler(0, 0, (i % 7 - 3) * 5f + Mathf.Sin(worldClock * .62f + i * .61f) * 8f);
             for (int i = 0; i < tentacles.Length; i++) tentacles[i].localRotation = Quaternion.Euler(0, 0, Mathf.Sin(worldClock * .75f + i * .72f) * 3.5f);
             octoHead.localScale = new Vector3(1.55f, 1.32f + s * .012f, 1.18f); puffer.localPosition = new Vector3(.45f, .72f + Mathf.Sin(worldClock * .8f) * .018f, 1.5f);
             pufferTail.localRotation = Quaternion.Euler(0, 0, -22f + Mathf.Sin(worldClock * 2.2f) * 4f);
             for (int i = 0; i < bubbles.Length; i++)
             {
-                float glow = .88f + Mathf.Max(0, Mathf.Sin(worldClock * 1.7f + i * .73f)) * .22f; bubbles[i].localScale = Vector3.one * glow;
+                float side = i < 8 ? -1 : 1; int k = i % 8;
+                float y = -.35f + Mathf.Repeat(worldClock * (.34f + (k % 3) * .055f) + k * .82f, 6.2f);
+                bubbles[i].localPosition = new Vector3(side * (2.9f + k * .72f) + Mathf.Sin(worldClock * .55f + i) * .12f, y, 3.9f + (k % 3) * .5f);
             }
             if (shootClock > 0)
             {
                 shootClock -= dt; float k = 1f - shootClock / .55f; float pulse = 1f + Mathf.Sin(Mathf.Clamp01(k) * Mathf.PI) * .08f; pufferBody.localScale = new Vector3(2.05f, 1.75f, 1.35f) * pulse;
             }
             else pufferBody.localScale = new Vector3(2.05f, 1.75f, 1.35f);
+            if (correctWaveClock > 0f)
+            {
+                correctWaveClock = Mathf.Max(0f, correctWaveClock - dt);
+                float elapsed = 1.85f - correctWaveClock;
+                for (int i = 0; i < correctPhotoCount; i++)
+                {
+                    bool surfaced = elapsed >= i * .11f;
+                    wallPhotos[i].gameObject.SetActive(surfaced); photoPegs[i].gameObject.SetActive(surfaced);
+                    if (!surfaced) continue;
+                    float rise = Mathf.Clamp01((elapsed - i * .11f) / .34f);
+                    float bob = Mathf.Sin(worldClock * 3.2f + i * .8f) * .08f;
+                    wallPhotos[i].localPosition = wallPhotoBase[i] + new Vector3(0, Mathf.Sin(rise * Mathf.PI) * .78f + bob, 0);
+                    photoPegs[i].localPosition = wallPhotos[i].localPosition + new Vector3(0, .56f, -.08f);
+                }
+            }
             if (phase == GamePhase.Title) titleLensWorld.localScale = Vector3.one * (1f + Mathf.Sin(worldClock * 2.1f) * .035f);
-            MgfLook.FitWidth(cam, 34f, .72f);
+            MgfLook.FitWidth(cam, 32f, .72f);
         }
 
         void UpdateUi(float dt)
@@ -428,6 +470,12 @@ namespace Mgf.MuneoSajinsa
             else shutterRt.localRotation = Quaternion.identity;
         }
 
+        float StageAnchorX(float localX)
+        {
+            float stageFraction = Mathf.Min(1f, 1360f / Mathf.Max(1f, Screen.width));
+            return .5f + (localX - .5f) * stageFraction;
+        }
+
         void LayoutUi(bool shuffleOnly)
         {
             if (!hudRt || current == null) return; bool wide = Screen.width >= 640 && Screen.width >= Screen.height;
@@ -437,14 +485,14 @@ namespace Mgf.MuneoSajinsa
                 promptText.rectTransform.anchorMin = promptText.rectTransform.anchorMax = new Vector2(.5f, .875f); promptText.rectTransform.sizeDelta = new Vector2(590, 58); promptText.fontSize = 14;
                 goalText.rectTransform.anchorMin = goalText.rectTransform.anchorMax = new Vector2(.5f, .805f);
                 instructionText.rectTransform.anchorMin = instructionText.rectTransform.anchorMax = new Vector2(.5f, .735f);
-                slotRt[0].anchorMin = slotRt[0].anchorMax = new Vector2(.43f, .57f); slotRt[1].anchorMin = slotRt[1].anchorMax = new Vector2(.56f, .57f);
-                shutterRt.anchorMin = shutterRt.anchorMax = new Vector2(.61f, .43f);
+                slotRt[0].anchorMin = slotRt[0].anchorMax = new Vector2(StageAnchorX(.43f), .57f); slotRt[1].anchorMin = slotRt[1].anchorMax = new Vector2(StageAnchorX(.56f), .57f);
+                shutterRt.anchorMin = shutterRt.anchorMax = new Vector2(StageAnchorX(.61f), .43f);
                 for (int g = 0; g < 2; g++) for (int i = 0; i < 4; i++)
                 {
-                    int j = (i + shuffledOffset + g) % 4; propRt[g, i].anchorMin = propRt[g, i].anchorMax = new Vector2(.09f + (j % 2) * .12f, .62f - g * .20f - (j / 2) * .10f);
+                    int j = (i + shuffledOffset + g) % 4; propRt[g, i].anchorMin = propRt[g, i].anchorMax = new Vector2(StageAnchorX(.09f + (j % 2) * .12f), .62f - g * .20f - (j / 2) * .10f);
                 }
-                for (int i = 0; i < filmRt.Length; i++) { int row = i / 4, col = i % 4; filmRt[i].anchorMin = filmRt[i].anchorMax = new Vector2(.73f + col * .065f, .58f - row * .095f); filmRt[i].sizeDelta = new Vector2(43, 52); }
-                trashRt.anchorMin = trashRt.anchorMax = new Vector2(.73f, .15f); tearRt.anchorMin = tearRt.anchorMax = new Vector2(.94f, .15f); shotsText.rectTransform.anchorMin = shotsText.rectTransform.anchorMax = new Vector2(.83f, .73f);
+                for (int i = 0; i < filmRt.Length; i++) { int row = i / 4, col = i % 4; filmRt[i].anchorMin = filmRt[i].anchorMax = new Vector2(StageAnchorX(.73f + col * .065f), .58f - row * .095f); filmRt[i].sizeDelta = new Vector2(43, 52); }
+                trashRt.anchorMin = trashRt.anchorMax = new Vector2(StageAnchorX(.73f), .15f); tearRt.anchorMin = tearRt.anchorMax = new Vector2(StageAnchorX(.94f), .15f); shotsText.rectTransform.anchorMin = shotsText.rectTransform.anchorMax = new Vector2(StageAnchorX(.83f), .73f);
             }
             else
             {
@@ -484,6 +532,7 @@ namespace Mgf.MuneoSajinsa
             for (int g = 0; g < 2; g++) for (int i = 0; i < 4; i++)
             {
                 if (!propRt[g, i].gameObject.activeInHierarchy) continue;
+                if (phase == GamePhase.Practice && PracticeGroupAlreadyShot(g)) continue;
                 Vector2 c = RectTransformUtility.WorldToScreenPoint(null, propRt[g, i].position);
                 Vector2 scale = new Vector2(propRt[g, i].lossyScale.x, propRt[g, i].lossyScale.y);
                 Vector2 radius = Vector2.Scale(propRt[g, i].rect.size, scale) * new Vector2(.72f, .88f);
@@ -552,14 +601,14 @@ namespace Mgf.MuneoSajinsa
 
         void PlayCorrectFilm(string reveal, IList<string> submitted)
         {
-            SetScreen(); feedbackRt.gameObject.SetActive(true); feedbackG.alpha = 1; feedbackTitle.text = "현상 성공"; feedbackBody.text = reveal + "\n학생이 찍은 " + submitted.Count + "장이 현상 격자에 나타납니다.";
-            for (int i = 0; i < Mathf.Min(submitted.Count, photoPegs.Length); i++)
+            SetScreen(); feedbackRt.gameObject.SetActive(true); feedbackG.alpha = 1; feedbackTitle.text = "현상 성공"; feedbackBody.text = reveal + "\n현상액 파동이 학생의 필름을 한 장씩 띄웁니다.";
+            correctPhotoCount = Mathf.Min(submitted.Count, photoPegs.Length); correctWaveClock = 1.85f;
+            for (int i = 0; i < photoPegs.Length; i++)
             {
-                photoPegs[i].gameObject.SetActive(true); wallPhotos[i].gameObject.SetActive(true);
-                photoPegs[i].localScale = Vector3.one; wallPhotos[i].localScale = Vector3.one;
-                MgfFx.Punch(photoPegs[i], .35f, .55f + i * .025f); MgfFx.Punch(wallPhotos[i], .18f, .48f + i * .025f);
+                photoPegs[i].gameObject.SetActive(false); wallPhotos[i].gameObject.SetActive(false);
+                photoPegs[i].localScale = Vector3.one; wallPhotos[i].localScale = Vector3.one; wallPhotos[i].localPosition = wallPhotoBase[i];
             }
-            MgfFx.Glow(new Vector3(0, 3.0f, 6.0f), Yellow, 18, .38f); displayedScore = Mathf.Max(0, st.score - 100);
+            MgfFx.Glow(new Vector3(0, 2.8f, 4.4f), Water, 18, .38f); displayedScore = Mathf.Max(0, st.score - 100);
         }
 
         void PlayWrongFilm(string reason, string misconception)
@@ -570,14 +619,14 @@ namespace Mgf.MuneoSajinsa
 
         void StopFeedbackVisuals()
         {
-            feedbackG.alpha = 0; feedbackRt.gameObject.SetActive(false); cam.transform.position = cameraHome;
+            feedbackG.alpha = 0; feedbackRt.gameObject.SetActive(false); cam.transform.position = cameraHome; correctWaveClock = 0f; correctPhotoCount = 0;
             for (int i = 0; i < photoPegs.Length; i++) { photoPegs[i].gameObject.SetActive(false); wallPhotos[i].gameObject.SetActive(false); }
         }
 
         void ShowEnd(bool mastered, string reason)
         {
             SetScreen(); endRt.gameObject.SetActive(true); endG.alpha = 1; displayedEndScore = 0;
-            endTitle.text = mastered ? "현상 격자 완성" : (st.solved >= MuneoRules.Goal ? "연습 필름 완성" : "보호고리 소진");
+            endTitle.text = mastered ? "부유 필름 완성" : (st.solved >= MuneoRules.Goal ? "연습 필름 완성" : "방수 필름 소진");
             restartText.text = "새 필름 걸기"; ShowToast(reason);
             if (mastered) { for (int i = 0; i < photoPegs.Length; i++) { photoPegs[i].gameObject.SetActive(true); wallPhotos[i].gameObject.SetActive(true); } MgfFx.Glow(puffer.position + Vector3.up * 1.5f, Yellow, 22, .45f); }
         }

@@ -65,7 +65,7 @@ namespace Mgf.MuneoSajinsa
             sb.Append("모자깃발고깔둥근챙조개별산호물결점줄달십의자리일의자리두자리자연수같은카드는두번쓰지않는다");
             sb.Append("모든모습을한번씩찍으면사진벽이열린다소품을끌어복어에게입히시오렌즈를눌러촬영하시오필름끝을위로당겨제출하시오");
             sb.Append("정확합니다아직찍지않은모습이있습니다중복되었습니다조건에맞지않습니다연습완료다시촬영결과사진벽완성");
-            sb.Append("압력선체암실가능한장면을전부현상하라황동안전등현상격자카드를누르거나착용자리로끌어놓으시오실수여유목표");
+            sb.Append("수중현상실가능한장면을전부띄워라젤라틴셀룰로이드방수고무현상액파동카드를누르거나착용자리로끌어놓으시오실수여유목표이미찍은사진다른소품");
             MgfText.Prewarm(sb.ToString());
         }
 
@@ -242,6 +242,12 @@ namespace Mgf.MuneoSajinsa
         void WearProp(int group, int index)
         {
             if (group < 0 || group > 1 || index < 0) return;
+            if (phase == GamePhase.Practice && PracticeGroupAlreadyShot(group))
+            {
+                Refuse("이미 찍은 소품입니다. 표시된 다른 카드를 누르시오.");
+                PointToNextProp();
+                return;
+            }
             string[] labels = group == 0 ? current.leftLabels : current.rightLabels;
             if (index >= labels.Length) return;
             string value = labels[index];
@@ -270,9 +276,19 @@ namespace Mgf.MuneoSajinsa
             if (st.shotsUsed >= MuneoRules.ShotLimit) { Resolve(false, "촬영 14회를 모두 사용했습니다.", "shot-limit"); return; }
             string id = CurrentPhotoId();
             if (id == null) { Refuse(current.kind == TaskKind.Sum ? "모자 또는 깃발 중 하나를 먼저 놓으시오." : "두 착용 자리를 모두 채우시오."); BlinkLensClosed(); return; }
+            if (phase == GamePhase.Practice && photos.Contains(id))
+            {
+                Refuse("이 사진은 이미 찍었습니다. 찬영 횟수는 줄지 않습니다.");
+                wornLeft = wornRight = ""; st.currentProps = ""; ApplyWornVisual(); RebuildPropCards(); RefreshHud(); PointToNextProp();
+                MgfBridge.NotifyChanged();
+                return;
+            }
             st.shotsUsed++; photos.Add(id); st.photoCount = photos.Count; st.photoIds = string.Join(",", photos);
             ShootAnimation(id, photos.Count - 1); MgfSfx.Play("pop", .28f);
-            wornLeft = wornRight = ""; st.currentProps = ""; ApplyWornVisual(); ShufflePropCards(); RefreshFilm(); RefreshHud(); MgfBridge.NotifyChanged();
+            wornLeft = wornRight = ""; st.currentProps = ""; ApplyWornVisual();
+            if (phase == GamePhase.Practice) { RebuildPropCards(); LayoutUi(true); }
+            else ShufflePropCards();
+            RefreshFilm(); RefreshHud(); MgfBridge.NotifyChanged();
             if (phase == GamePhase.Practice)
             {
                 if (photos.Count < current.answerCount) { ShowToast("첫 사진입니다. 다른 소품 한 가지도 찍으시오."); PointToNextProp(); }
@@ -291,6 +307,14 @@ namespace Mgf.MuneoSajinsa
             if (wornLeft.Length == 0 || wornRight.Length == 0) return null;
             if (current.kind == TaskKind.Product) return "H" + Array.IndexOf(current.leftLabels, wornLeft) + "|F" + Array.IndexOf(current.rightLabels, wornRight);
             return wornLeft + wornRight;
+        }
+
+        bool PracticeGroupAlreadyShot(int group)
+        {
+            if (phase != GamePhase.Practice) return false;
+            string prefix = group == 0 ? "H" : "F";
+            for (int i = 0; i < photos.Count; i++) if (photos[i].StartsWith(prefix, StringComparison.Ordinal)) return true;
+            return false;
         }
 
         void SubmitFilm()
@@ -345,7 +369,7 @@ namespace Mgf.MuneoSajinsa
                 if (st.solved >= MuneoRules.Goal)
                 {
                     bool mastered = st.firstAttemptCorrect >= 5;
-                    EndRun(mastered, mastered ? "현상 격자를 완성했습니다." : "완주했지만 첫 제출 목표 5/6에 도달하지 못했습니다.");
+                    EndRun(mastered, mastered ? "학생 필름을 모두 물위로 띄웠습니다." : "완주했지만 첫 제출 목표 5/6에 도달하지 못했습니다.");
                 }
                 else { phase = GamePhase.Playing; LoadRound(); SetScreen(); }
             }

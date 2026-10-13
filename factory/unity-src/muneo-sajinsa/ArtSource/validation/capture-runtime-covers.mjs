@@ -33,7 +33,7 @@ try {
     await page.screenshot({ path: path.join(GAME, file) });
     await page.close();
   }
-  console.log('captured live darkroom title to thumb.png and square.png');
+  console.log('captured live open-water film lab title to thumb.png and square.png');
 } finally {
   await browser.close();
   await server.close();
