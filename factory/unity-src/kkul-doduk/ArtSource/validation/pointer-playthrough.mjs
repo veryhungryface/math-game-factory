@@ -42,30 +42,37 @@ await page.goto(`${server.url}/g/kkul-doduk/?playthrough=1`, { waitUntil: 'load'
 await page.waitForFunction(() => window.__GAME_TEST__?.ready, { timeout: 60000 });
 await page.evaluate(() => window.__GAME_TEST__.start()); await sleep(80);
 
-// runSerial=1의 공개 생성 순서. 두 일반 실수 뒤에도 같은 문제를 직접 고쳐 최종 조건에 도달하는지 본다.
+// runSerial=1의 공개 생성 순서. 합/곱에서 각각 한 군만 센 오개념을 실제 포인터로 제출한 뒤
+// 같은 문제를 직접 고쳐 최종 조건에 도달하는지 본다.
 const answers = [5, 9, 9, 15, 21, 18, 12, 6];
 const start = await state(page);
-await cut(page, 1);
-const firstWrong = await state(page);
+await cut(page, 4); // 4+1 합 문제에서 한 군(4)만 센 입력
+const sumOneGroupWrong = await state(page);
 await page.screenshot({ path: path.join(OUT, 'playthrough-01-wrong.png') });
-await sleep(1750); await cut(page, answers[0]); await sleep(2200);
-await cut(page, 1);
-const secondWrong = await state(page);
-await sleep(1750); await cut(page, answers[1]); await sleep(2200);
-for (let i = 2; i < answers.length; i++) { await cut(page, answers[i]); await sleep(2200); }
+await sleep(900);
+await page.screenshot({ path: path.join(OUT, 'playthrough-01b-wrong-answer.png') });
+await sleep(850); await cut(page, answers[0]); await sleep(2200);
+await cut(page, answers[1]); await sleep(2200);
+await cut(page, 3); // 3×3 곱 문제에서 한 묶음(3)만 센 입력
+const productOneGroupWrong = await state(page);
+await page.screenshot({ path: path.join(OUT, 'playthrough-01c-product-one-group.png') });
+await sleep(1750); await cut(page, answers[2]); await sleep(2200);
+for (let i = 3; i < answers.length; i++) { await cut(page, answers[i]); await sleep(2200); }
 const end = await state(page);
 await page.screenshot({ path: path.join(OUT, 'playthrough-02-clear-after-two-errors.png') });
 
 const result = {
-  method: '390×844 실제 canvas pointer 입력만 사용. 첫 두 의뢰에서 오답 후 같은 의뢰를 수정하고 나머지를 첫 절단에 해결.',
+  method: '390×844 실제 canvas pointer 입력만 사용. 첫 합 의뢰와 세 번째 곱 의뢰에서 한 군만 센 오답 후 같은 의뢰를 수정하고 나머지를 첫 절단에 해결.',
   predeterminedAnswers: answers,
   start,
-  firstWrong,
-  secondWrong,
+  sumOneGroupWrong,
+  productOneGroupWrong,
   end,
   errors,
-  passed: firstWrong.lives === 2 && firstWrong.solved === 0 &&
-    secondWrong.lives === 1 && secondWrong.solved === 1 &&
+  passed: sumOneGroupWrong.lives === 2 && sumOneGroupWrong.solved === 0 &&
+    sumOneGroupWrong.misconceptionId === 'one_group_only' &&
+    productOneGroupWrong.lives === 1 && productOneGroupWrong.solved === 2 &&
+    productOneGroupWrong.misconceptionId === 'one_group_only' &&
     end.phase === 'clear' && end.solved === 8 && end.firstCorrect === 6 && end.firstAttempted === 8 && end.lives === 1 && errors.length === 0
 };
 fs.writeFileSync(new URL('./pointer-playthrough-results.json', import.meta.url), JSON.stringify(result, null, 2) + '\n');

@@ -120,7 +120,7 @@ namespace Mgf.KkulDoduk
                 leftName = left, rightName = right,
                 concept = repair ? "곱의 법칙 오류 찾기" : "곱의 법칙",
                 prompt = repair
-                    ? ticket + " " + condition + " 벌은 " + (m + n) + "칸으로 잡았다. 필요한 경우의 수를 구하고 벌집을 고치시오."
+                    ? ticket + " " + condition + " 벌이 벌집을 " + (m + n) + "칸으로 잘못 나누었다. 필요한 경우의 수를 구하고 벌집을 고치시오."
                     : ticket + " " + condition + " 경우의 수를 구하시오.",
                 formula = m + " × " + n + " = " + (m * n),
                 distractorA = m + n,                    // 더함
@@ -163,8 +163,10 @@ namespace Mgf.KkulDoduk
             if (p == null) return "integer_miss";
             if (p.kind == HoneyKind.Sum)
             {
-                if (submitted == p.distractorA) return "sum_used_product";
+                // 4+1처럼 m×n과 큰 군의 수가 우연히 같은 경우, 관찰 가능한 누락인
+                // '한 군만 셈'을 우선해 모순 없는 합의 법칙 피드백을 준다.
                 if (submitted == p.distractorB) return "one_group_only";
+                if (submitted == p.distractorA) return "sum_used_product";
                 if (submitted == p.distractorC) return "difference_only";
             }
             else
@@ -178,13 +180,21 @@ namespace Mgf.KkulDoduk
 
         public static List<MgfProblem> BuildBank()
         {
-            var bank = new List<MgfProblem>(900);
+            var source = BuildHoneyBank();
+            var bank = new List<MgfProblem>(source.Count);
+            for (int i = 0; i < source.Count; i++) bank.Add(source[i].ToMgf());
+            return bank;
+        }
+
+        static List<HoneyProblem> BuildHoneyBank()
+        {
+            var bank = new List<HoneyProblem>(900);
             for (int i = 0; i < 300; i++)
-                bank.Add(MakeSum("kd-bank-s-" + (i + 1), SumTargets[i % 9], i, i < 180 ? 1 : 3, 101 + i).ToMgf());
+                bank.Add(MakeSum("kd-bank-s-" + (i + 1), SumTargets[i % 9], i, i < 180 ? 1 : 3, 101 + i));
             for (int i = 0; i < 420; i++)
-                bank.Add(MakeProduct("kd-bank-p-" + (i + 1), ProductTargets[i % 12], i, i < 260 ? 2 : 3, false, 503 + i).ToMgf());
+                bank.Add(MakeProduct("kd-bank-p-" + (i + 1), ProductTargets[i % 12], i, i < 260 ? 2 : 3, false, 503 + i));
             for (int i = 0; i < 180; i++)
-                bank.Add(MakeProduct("kd-bank-r-" + (i + 1), ProductTargets[(i * 5) % 12], i, 3, true, 907 + i).ToMgf());
+                bank.Add(MakeProduct("kd-bank-r-" + (i + 1), ProductTargets[(i * 5) % 12], i, 3, true, 907 + i));
             return bank;
         }
 
@@ -192,7 +202,8 @@ namespace Mgf.KkulDoduk
         {
             for (int k = 0; k < SumTargets.Length; k++)
             {
-                var pairs = SumPairs(SumTargets[k], 6);
+                // 실제 RunDeck 3단계와 BuildBank가 쓰는 최대 범위까지 같은 풀을 검증한다.
+                var pairs = SumPairs(SumTargets[k], 12);
                 if (pairs.Count == 0) { error = "sum target pool " + SumTargets[k]; return false; }
                 for (int i = 0; i < pairs.Count; i++)
                 {
@@ -215,16 +226,56 @@ namespace Mgf.KkulDoduk
                     { error = "roles-merged accidental truth"; return false; }
                 }
             }
-            var bank = BuildBank();
+            var practice = Practice();
+            if (!ValidateProblem(practice, out error)) { error = "practice: " + error; return false; }
+            // 실전 덱의 모든 선택 인덱스와 band 3 합 문제를 실제 생성 경로로 검증한다.
+            for (int serial = 1; serial <= 72; serial++)
+            {
+                var deck = RunDeck(serial);
+                if (deck.Count != Goal) { error = "run deck count " + serial; return false; }
+                for (int i = 0; i < deck.Count; i++)
+                    if (!ValidateProblem(deck[i], out error))
+                    { error = "run deck " + serial + "/" + i + ": " + error; return false; }
+            }
+
+            var bank = BuildHoneyBank();
             var ids = new HashSet<string>();
             var prompts = new HashSet<string>();
             for (int i = 0; i < bank.Count; i++)
             {
-                if (!ids.Add(bank[i].id)) { error = "duplicate id " + bank[i].id; return false; }
-                if (!prompts.Add(bank[i].prompt)) { error = "duplicate prompt " + bank[i].id; return false; }
-                if (bank[i].choices != null && bank[i].choices.Length != 0) { error = "choices not null"; return false; }
-                if (bank[i].answer != ((int)bank[i].answerNumeric).ToString()) { error = "answer mismatch"; return false; }
+                var p = bank[i];
+                if (!ValidateProblem(p, out error)) { error = "bank " + p.id + ": " + error; return false; }
+                if (!ids.Add(p.id)) { error = "duplicate id " + p.id; return false; }
+                if (!prompts.Add(p.prompt)) { error = "duplicate prompt " + p.id; return false; }
+                var exported = p.ToMgf();
+                if (exported.choices != null && exported.choices.Length != 0) { error = "choices not null"; return false; }
+                if (exported.answer != ((int)exported.answerNumeric).ToString()) { error = "answer mismatch"; return false; }
             }
+            error = "";
+            return true;
+        }
+
+        static bool ValidateProblem(HoneyProblem p, out string error)
+        {
+            if (p == null) { error = "null problem"; return false; }
+            int calculated = p.kind == HoneyKind.Sum ? p.m + p.n : p.m * p.n;
+            if (p.m < 1 || p.n < 1 || calculated < 1 || calculated > 24 || p.answer != calculated)
+            { error = "answer calculation"; return false; }
+            string expectedFormula = p.kind == HoneyKind.Sum
+                ? p.m + " + " + p.n + " = " + calculated
+                : p.m + " × " + p.n + " = " + calculated;
+            if (p.formula != expectedFormula) { error = "formula mismatch"; return false; }
+            if (p.prompt.IndexOf(p.leftName + " " + p.m + "종", StringComparison.Ordinal) < 0 ||
+                p.prompt.IndexOf(p.rightName + " " + p.n + "종", StringComparison.Ordinal) < 0)
+            { error = "prompt operands"; return false; }
+            if (p.kind == HoneyKind.Sum &&
+                p.prompt.IndexOf("두 군에 같은 꿀은 없다", StringComparison.Ordinal) < 0)
+            { error = "sum disjoint condition"; return false; }
+            if (p.kind != HoneyKind.Sum &&
+                p.prompt.IndexOf("각각 하나씩", StringComparison.Ordinal) < 0)
+            { error = "product pair condition"; return false; }
+            if (p.distractorA == p.answer || p.distractorB == p.answer || p.distractorC == p.answer)
+            { error = "distractor equals answer"; return false; }
             error = "";
             return true;
         }

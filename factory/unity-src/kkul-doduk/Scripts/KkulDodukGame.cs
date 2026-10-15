@@ -41,6 +41,8 @@ namespace Mgf.KkulDoduk
         bool revealCorrect;
         bool revealPractice;
         bool dragging;
+        bool assistedPracticeDrag;
+        bool practicePrimed;
         bool titleOpening;
         float titleClock;
         float revealClock;
@@ -174,6 +176,7 @@ namespace Mgf.KkulDoduk
             st.currentProblemId = current.id; st.prompt = current.prompt; st.level = current.band;
             st.selectedCellCount = Mathf.Clamp(selected, 1, 24); st.attempts = 0; st.cutLocked = false;
             st.misconceptionId = ""; Snapshot(); dragging = false; idleGuide = 0f;
+            assistedPracticeDrag = false; practicePrimed = false;
             StartProblemVisual(current, phase == GamePhase.Practice, st.selectedCellCount);
             RefreshHud();
         }
@@ -208,8 +211,33 @@ namespace Mgf.KkulDoduk
                 if (phase != GamePhase.Practice && phase != GamePhase.Playing) return;
 
                 RippleAt(MgfPointer.Position);
-                if (HitHandle(MgfPointer.Position))
+                if (phase == GamePhase.Practice && practicePrimed &&
+                    Vector2.Distance(MgfPointer.Position, HandleScreenPosition(current.answer)) >= 44f * ReferenceScale())
                 {
+                    practicePrimed = false; st.selectedCellCount = current.answer;
+                    MoveHandleVisual(st.selectedCellCount); SubmitCut(st.selectedCellCount);
+                    return;
+                }
+                bool hitHandle = HitHandle(MgfPointer.Position);
+                bool hitPracticeLane = phase == GamePhase.Practice && PracticeTrackHit(MgfPointer.Position);
+                bool hitFirstMainLane = phase == GamePhase.Playing && st.solved == 0 && st.firstAttempted == 0 &&
+                    FirstMainTrackHit(MgfPointer.Position);
+                if (hitHandle || hitPracticeLane || hitFirstMainLane)
+                {
+                    assistedPracticeDrag = hitPracticeLane && !hitHandle;
+                    if (assistedPracticeDrag)
+                    {
+                        st.selectedCellCount = current.answer;
+                        MoveHandleVisual(st.selectedCellCount);
+                        RefuseAt(MgfPointer.Position, "좋다. 5칸 눈금에서 띠를 가로질러 베시오.");
+                    }
+                    else if (hitFirstMainLane && !hitHandle)
+                    {
+                        // 정답으로 보정하지 않는다. 누른 위치의 실제 눈금부터 조작을 시작한다.
+                        st.selectedCellCount = PointerToValue(MgfPointer.Position);
+                        MoveHandleVisual(st.selectedCellCount);
+                        RefuseAt(MgfPointer.Position, "좋다. 손잡이를 눈금에 맞춘 뒤 띠를 가로질러 베시오.");
+                    }
                     dragging = true; st.cutLocked = true; dragStart = MgfPointer.Position;
                     lastAxisChange = Time.unscaledTime; idleGuide = 0f;
                     BeginHandleDrag(); MgfSfx.Play("tap", .18f); Snapshot(); MgfBridge.NotifyChanged();
@@ -223,7 +251,7 @@ namespace Mgf.KkulDoduk
 
             if (dragging && MgfPointer.Held)
             {
-                int next = PointerToValue(MgfPointer.Position);
+                int next = assistedPracticeDrag ? current.answer : PointerToValue(MgfPointer.Position);
                 if (next != st.selectedCellCount)
                 {
                     st.selectedCellCount = next; lastAxisChange = Time.unscaledTime;
@@ -236,12 +264,25 @@ namespace Mgf.KkulDoduk
             {
                 Vector2 now = MgfPointer.Position; dragging = false; st.cutLocked = false;
                 float stable = Time.unscaledTime - lastAxisChange;
-                float cross = IsLand() ? dragStart.y - now.y : Mathf.Abs(now.x - dragStart.x);
-                bool cut = cross >= 64f * ReferenceScale() && stable >= .05f;
+                bool practiceAssist = phase == GamePhase.Practice && assistedPracticeDrag;
+                float cross = IsLand()
+                    ? (practiceAssist ? Mathf.Abs(dragStart.y - now.y) : dragStart.y - now.y)
+                    : Mathf.Abs(now.x - dragStart.x);
+                float threshold = (practiceAssist ? 44f : 64f) * ReferenceScale();
+                bool cut = cross >= threshold && stable >= .05f;
                 UpdateCutTrail(dragStart, now, true);
+                assistedPracticeDrag = false;
                 if (cut) SubmitCut(st.selectedCellCount);
                 else
                 {
+                    if (practiceAssist)
+                    {
+                        practicePrimed = true;
+                        st.selectedCellCount = current.answer; MoveHandleVisual(st.selectedCellCount);
+                        RefuseAt(now, "5칸에 맞췄다. 분홍 경로 끝을 한 번 더 눌러 베시오.");
+                        BoostGuide(); Snapshot(); MgfBridge.NotifyChanged();
+                        return;
+                    }
                     CancelHandleDrag();
                     string why = stable < .05f ? "눈금에서 잠깐 멈춘 뒤 띠를 가로질러 베시오." :
                         (IsLand() ? "손잡이를 아래로 그어 벌집을 베시오." : "손잡이를 옆으로 그어 벌집을 베시오.");
@@ -353,9 +394,27 @@ namespace Mgf.KkulDoduk
             return Vector2.Distance(screen, HandleScreenPosition(st.selectedCellCount)) <= 48f * ReferenceScale();
         }
 
+        bool PracticeTrackHit(Vector2 screen)
+        {
+            if (IsLand())
+                return screen.x >= Screen.width * .10f && screen.x <= Screen.width * .90f &&
+                    screen.y >= Screen.height * .18f && screen.y <= Screen.height * .62f;
+            return screen.y >= Screen.height * .16f && screen.y <= Screen.height * .76f &&
+                screen.x >= Screen.width * .10f && screen.x <= Screen.width * .90f;
+        }
+
+        bool FirstMainTrackHit(Vector2 screen)
+        {
+            if (IsLand())
+                return screen.x >= Screen.width * .14f && screen.x <= Screen.width * .86f &&
+                    screen.y >= Screen.height * .20f && screen.y <= Screen.height * .58f;
+            return screen.y >= Screen.height * .18f && screen.y <= Screen.height * .72f &&
+                screen.x >= Screen.width * .12f && screen.x <= Screen.width * .88f;
+        }
+
         bool HitTitleSeal(Vector2 screen)
         {
-            Vector2 c = new Vector2(Screen.width * .5f, Screen.height * (IsLand() ? .34f : .24f));
+            Vector2 c = new Vector2(Screen.width * .5f, Screen.height * (IsLand() ? .34f : .41f));
             return Vector2.Distance(screen, c) <= 82f * ReferenceScale();
         }
 
