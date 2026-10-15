@@ -24,4 +24,6 @@
 - `pointer-play.mjs` → `pointer-play-results.json` + `shots/`: 답 훅 없이 실제 pointer 탭·드래그로
   타이틀→연습→본판 6장을 390×844·1280×800 에서 정상 경로와 「첫 재킷 1회 오답 후 회복」 경로 모두 완주.
   두 경로가 오류 없이 clear이고 실행 중 WebGL 해시가 불변일 때만 현재 `MGF_RUN_ID`와 같은
-  `artifact_hash`를 이 결과·레인 QA report·firstplay manifest 세 파일에 함께 기록한다.
+  `artifact_hash`를 이 결과·레인 QA report·firstplay manifest 세 파일에 원자적 파일 교체로 기록하고,
+  세 필드의 일치와 현재 `index.html`+`Build/` 재계산 해시 일치를 즉시 다시 검사한다. QA와 firstplay 하네스도
+  생성 시점부터 같은 두 필드를 직접 쓰므로 이후 재실행이 증거 귀속을 지우지 않는다.

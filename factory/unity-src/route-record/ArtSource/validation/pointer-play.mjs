@@ -29,14 +29,31 @@ function artifactHash() {
   return hash.digest('hex');
 }
 
-function stampEvidence(file, artifactHashValue, expectedSlug) {
+function stampedEvidence(file, artifactHashValue, expectedSlug) {
   if (!fs.existsSync(file)) throw new Error(`evidence file missing: ${file}`);
   const data = JSON.parse(fs.readFileSync(file, 'utf8'));
   if (data.slug !== expectedSlug) throw new Error(`evidence slug mismatch in ${file}: ${data.slug}`);
   data.run_id = RUN_ID;
   data.artifact_hash = artifactHashValue;
   data.evidence_captured_at = new Date().toISOString();
-  fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
+  return data;
+}
+
+function atomicWriteJson(file, data) {
+  const temp = `${file}.tmp-${process.pid}`;
+  fs.writeFileSync(temp, JSON.stringify(data, null, 2) + '\n');
+  fs.renameSync(temp, file);
+}
+
+function verifyEvidenceChain(files, artifactHashValue) {
+  const evidence = files.map((file) => ({ file, data: JSON.parse(fs.readFileSync(file, 'utf8')) }));
+  for (const { file, data } of evidence) {
+    if (data.run_id !== RUN_ID) throw new Error(`evidence run_id mismatch in ${file}: ${data.run_id}`);
+    if (data.artifact_hash !== artifactHashValue) throw new Error(`evidence artifact_hash mismatch in ${file}: ${data.artifact_hash}`);
+  }
+  const current = artifactHash();
+  if (current !== artifactHashValue) throw new Error(`current WebGL artifact mismatch: ${current} != ${artifactHashValue}`);
+  return { run_id: RUN_ID, artifact_hash: artifactHashValue, current_artifact_hash: current, files: files.map((file) => path.relative(ROOT, file)) };
 }
 
 function chromePath() {
@@ -186,11 +203,18 @@ const bad = results.filter(r => r.error || r.phase !== 'clear' || (r.errors && r
 if (bad.length) throw new Error(`pointer evidence incomplete: ${JSON.stringify(bad)}`);
 const qaReport = path.join(WORK, 'qa/route-record/report.json');
 const firstplayManifest = path.join(WORK, 'qa/route-record/firstplay/route-record/manifest.json');
-stampEvidence(qaReport, artifactHashBefore, 'route-record');
-stampEvidence(firstplayManifest, artifactHashBefore, 'route-record');
-fs.writeFileSync(path.join(HERE, 'pointer-play-results.json'), JSON.stringify({
+const pointerResults = path.join(HERE, 'pointer-play-results.json');
+const evidenceFiles = [qaReport, firstplayManifest, pointerResults];
+const pointerData = {
   run_id: RUN_ID,
   artifact_hash: artifactHashBefore,
   generatedAt: new Date().toISOString(),
   results
-}, null, 2));
+};
+// 세 JSON을 모두 준비한 뒤 rename으로 교체하고, 바로 현재 산출물까지 다시 대조한다.
+atomicWriteJson(qaReport, stampedEvidence(qaReport, artifactHashBefore, 'route-record'));
+atomicWriteJson(firstplayManifest, stampedEvidence(firstplayManifest, artifactHashBefore, 'route-record'));
+atomicWriteJson(pointerResults, pointerData);
+pointerData.evidence_chain = verifyEvidenceChain(evidenceFiles, artifactHashBefore);
+atomicWriteJson(pointerResults, pointerData);
+verifyEvidenceChain(evidenceFiles, artifactHashBefore);

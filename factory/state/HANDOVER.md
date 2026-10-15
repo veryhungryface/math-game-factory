@@ -3,22 +3,23 @@
 > 마지막 갱신: 2026-10-15. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
-## 2026-10-15 — 「루트 레코드」 2차 수정 완료 / QA 45·fatal 0 / 미게시
+## 2026-10-15 — 「루트 레코드」 3차 수정 완료 / QA 45·fatal 0 / 미게시
 
-중2-2 `m2s2-u6` Unity 게임 `route-record`의 최신 high 1건과 누적 태블릿 결함, 첫 플레이
-nice-to-have 1건을 병렬 레인 `factory/work-lanes/20261015-100006-L3/`에서 수정했다. 정본은
+중2-2 `m2s2-u6` Unity 게임 `route-record`의 최신 high 1건과 medium 1건을 병렬 레인
+`factory/work-lanes/20261015-100006-L3/`에서 수정했다. 정본은
 `factory/unity-src/route-record/`, WebGL 산출물은 `public/g/route-record/`이며 게시·배포는 실행하지 않았다.
 
-- QA report·firstplay manifest·실제 pointer 결과에 공통 `run_id=20261015-100006-L3`와 현재 WebGL
-  `artifact_hash=edcfe6f6…10c4df`를 실제 직렬화했다. 정상판은 clear 6/6·첫시도6·바늘3,
-  첫 오답 회복판은 clear 6/6·첫시도5·바늘2이며 둘 다 콘솔 오류0이다.
-- 820×1180 전용 브리지 통을 더 올려 「끌어서 노치에」 전체와 하단 여백을 확보했다. 연습 중에는
-  첫 브리지 뒤에도 통→다음 노치 유령 경로가 계속 보여 순진 입력의 다음 행동 단서를 유지한다.
-- 새 45초 firstplay는 16프레임·ready true·console/page error 0이다. 문제은행 385문항·독립 DFS
+- QA와 firstplay 하네스가 생성 시점부터 `run_id`와 WebGL 해시를 기록하게 해 재실행 덮어쓰기를 막았다.
+  최종 QA report·firstplay manifest·pointer 결과와 현재 산출물의 해시는 모두
+  `7f8500e4…b47b6ab5`로 일치하고 pointer 검증기가 종료 직전 다시 확인한다.
+- 820×1180에서 선반선과 겹치던 「끌어서 노치에」를 브리지 통 내부 하단 안전 영역으로 옮겼다.
+  새 tablet.png에서 글자 외곽과 마젠타 선이 완전히 분리되고 모바일에서도 통 안에 유지됨을 직접 확인했다.
+- 새 45초 firstplay는 15프레임·ready true·console/page error 0이다. 정상판은 clear 6/6·첫시도6·바늘3,
+  첫 오답 회복판은 clear 6/6·첫시도5·바늘2이며 둘 다 콘솔 오류0이다. 문제은행 385문항·독립 DFS
   738,521배치 불일치0, 오개념 오답 28,196개 모순0을 재실행했다. B3 8정책×1,000판은 모두
   우연 상한 이하·완주0·무입력 진도0이다.
 - Unity 빌드 warnings0·산출물 **8.0MB**(게임 폴더 **9.8MB**), 공식 QA **45/45·fatal 0**,
-  실GPU 모바일/1280폭 **60fps**, 15초 유지율 **100%**다. `fix.json`은 fixed4/not_fixed2(nice-to-have만)·
+  실GPU 모바일/1280폭 **60fps**, 15초 유지율 **100%**다. `fix.json`은 fixed2/not_fixed4(nice-to-have만)·
   `replan_required=false`다.
 
 ## 2026-10-15 — 「꿀 도둑」 신규 빌드 완료 / QA 45·fatal 0 / 미게시

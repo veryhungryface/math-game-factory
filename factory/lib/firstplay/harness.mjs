@@ -25,6 +25,7 @@
  * 규격은 `docs/onboarding-spec.md`.
  */
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
@@ -51,6 +52,18 @@ console.error(`[cfg] OUT_ROOT=${OUT_ROOT} PLAY_MS=${PLAY_MS}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+/** qa.mjs·게임별 pointer 검증과 같은 Unity WebGL 산출물 해시 규칙. */
+function webglArtifactHash(gameDir) {
+  const buildDir = path.join(gameDir, 'Build');
+  const rels = ['index.html', ...fs.readdirSync(buildDir).sort().map((name) => `Build/${name}`)];
+  const hash = crypto.createHash('sha256');
+  for (const rel of rels) {
+    hash.update(rel);
+    hash.update(fs.readFileSync(path.join(gameDir, rel)));
+  }
+  return hash.digest('hex');
+}
 
 /** qa.mjs 와 같은 규칙으로 로컬 Chrome for Testing 을 찾는다. */
 function resolveChrome() {
@@ -176,6 +189,8 @@ async function naiveStep(page, startedRef) {
 async function run(slug, browser, serverUrl) {
   const outDir = path.join(OUT_ROOT, slug);
   fs.mkdirSync(outDir, { recursive: true });
+  const gameDir = path.join(PUBLIC_DIR, 'g', slug);
+  const artifactHashBefore = webglArtifactHash(gameDir);
   const manifest = [];
   const consoleErrors = [];
   const pageErrors = [];
@@ -232,9 +247,22 @@ async function run(slug, browser, serverUrl) {
     await sleep(rand(2000, 4000));
   }
 
+  const artifactHashAfter = webglArtifactHash(gameDir);
+  if (artifactHashAfter !== artifactHashBefore) {
+    throw new Error(`WebGL artifact changed during firstplay: ${artifactHashBefore} -> ${artifactHashAfter}`);
+  }
   fs.writeFileSync(
     path.join(outDir, 'manifest.json'),
-    JSON.stringify({ slug, loadOk, readyOk, consoleErrors, pageErrors, frames: manifest }, null, 2)
+    JSON.stringify({
+      slug,
+      run_id: process.env.MGF_RUN_ID || null,
+      artifact_hash: artifactHashBefore,
+      loadOk,
+      readyOk,
+      consoleErrors,
+      pageErrors,
+      frames: manifest,
+    }, null, 2)
   );
   await page.close();
   console.log(`[done] ${slug} — ${manifest.length} frames, readyOk=${readyOk}, consoleErrors=${consoleErrors.length}`);

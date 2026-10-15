@@ -1176,7 +1176,9 @@ namespace Mgf.RouteRecord
             }
             binCount = Txt("Bridge count", binRt, "", new Vector2(1f, .5f), new Vector2(-30, 10), 26, Cream, 60, 36);
             binCarry = Txt("Carry", binRt, "", new Vector2(1f, .5f), new Vector2(-30, -18), 11, Magenta, 70, 18);
-            Txt("Tin label", binRt, "끌어서 노치에", new Vector2(.5f, 0f), new Vector2(0, -12), 12, Cream, 170, 20);
+            // 통 바깥에 두면 820x1180 Canvas 배율에서 하단 선반선과 겹친다.
+            // 통 안쪽 하단의 전용 띠에 넣어 모든 세로 화면에서 글자 외곽과 배경선 사이를 확보한다.
+            Txt("Tin label", binRt, "끌어서 노치에", new Vector2(.5f, 0f), new Vector2(0, 12), 12, Cream, 170, 20);
         }
 
         void BuildEndUi()

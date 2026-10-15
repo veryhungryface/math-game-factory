@@ -32,6 +32,22 @@ function pngSize(file) {
   }
 }
 
+/** 최종 Unity WebGL 코드 산출물(index.html + Build)의 재현 가능한 SHA-256. */
+function webglArtifactHash(gameDir) {
+  try {
+    const buildDir = path.join(gameDir, 'Build');
+    const rels = ['index.html', ...fs.readdirSync(buildDir).sort().map((name) => `Build/${name}`)];
+    const hash = crypto.createHash('sha256');
+    for (const rel of rels) {
+      hash.update(rel);
+      hash.update(fs.readFileSync(path.join(gameDir, rel)));
+    }
+    return hash.digest('hex');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * puppeteer 캐시에서 풀 Chrome 실행파일을 찾는다 (WebGL2 지원용). 없으면 번들 기본값.
  *
@@ -1157,6 +1173,9 @@ function finish() {
   const fatal = failed.filter((c) => c.fatal);
   const report = {
     slug,
+    // 재실행해도 검수 증거 귀속 필드가 사라지지 않게 하네스가 직접 기록한다.
+    run_id: process.env.MGF_RUN_ID || null,
+    artifact_hash: webglArtifactHash(gameDir),
     checked_at: nowKST(),
     total: checks.length,
     passed: checks.length - failed.length,
