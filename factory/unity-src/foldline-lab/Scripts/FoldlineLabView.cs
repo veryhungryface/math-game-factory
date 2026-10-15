@@ -29,7 +29,7 @@ namespace Mgf.FoldlineLab
         Vector3 playCamPos = new Vector3(0, 18f, -3.9f);
         Vector3 camBase;
         Transform worldRoot, stageRoot, sailRoot, fixedSail, foldPivot, foldSail, flagRoot, cordRoot;
-        Transform titleHalo, scanner, guideHand, guideArrow, haloPoint;
+        Transform titleHalo, scanner, guideHand, guideArrow, haloPoint, titleCueKnob;
         Transform dragHandleA, dragHandleB;
         readonly Transform[] clouds = new Transform[CloudCount];
         readonly Vector3[] cloudHome = new Vector3[CloudCount];
@@ -52,11 +52,11 @@ namespace Mgf.FoldlineLab
         Vector2 haloCenter;
 
         // UI
-        CanvasGroup titleG, playG, endG, evidenceG, toastG;
-        RectTransform titleRt, titleArtRt, playRt, endRt, evidenceRt, toastRt, restartRt, rippleRoot;
+        CanvasGroup titleG, playG, endG, evidenceG, toastG, tutorialG;
+        RectTransform titleRt, titleArtRt, playRt, endRt, evidenceRt, toastRt, restartRt, rippleRoot, promptPlateRt, tutorialRt;
         RawImage titleArtImage;
         TextMeshProUGUI logoBack, logoFront, titleTag, titleHint, titleBest;
-        TextMeshProUGUI progressText, livesText, scoreText, promptText, modeText, scannerText;
+        TextMeshProUGUI progressText, livesText, scoreText, masteryText, promptText, modeText, scannerText, tutorialText;
         readonly TextMeshProUGUI[] vertexLabels = new TextMeshProUGUI[3];
         TextMeshProUGUI evidenceTitle, evidenceBody, toastText, endTitle, endStats, endReason, restartText;
         readonly Image[] ripples = new Image[RippleCount];
@@ -79,7 +79,9 @@ namespace Mgf.FoldlineLab
             camBase = cam.transform.position;
 
             mylar = Resources.Load<Texture2D>("FoldlineLab/mylar-noise");
-            titleArt = Resources.Load<Texture2D>("FoldlineLab/title");
+            // 타이틀도 인게임과 같은 절차형 디오라마를 그대로 보여 준다.
+            // 생성 원화는 ArtSource 참고 자료로만 남기고 런타임 화면에는 합성하지 않는다.
+            titleArt = null;
             cobaltMat = MgfLook.Lit(Cobalt, .42f, .36f);
             cobaltDarkMat = MgfLook.Lit(DeepBlue, .36f, .46f);
             persimmonMat = MgfLook.Lit(Persimmon, .56f, .08f, Persimmon * .18f);
@@ -205,7 +207,7 @@ namespace Mgf.FoldlineLab
         void BuildFlag()
         {
             flagRoot = new GameObject("Red physical safety flag").transform; flagRoot.SetParent(stageRoot, false);
-            flagRoot.localPosition = new Vector3(4.7f, .9f, -3.65f);
+            flagRoot.localPosition = new Vector3(4.05f, .9f, -3.15f);
             MgfLook.Block("Flag pole", new Vector3(0, .36f, 0), new Vector3(.12f, .75f, .12f), .04f, graphiteMat, flagRoot);
             var f = new GameObject("Flag cloth"); f.transform.SetParent(flagRoot, false); f.transform.localPosition = new Vector3(.38f, .66f, 0);
             var mf = f.AddComponent<MeshFilter>(); mf.sharedMesh = QuadMesh(.85f, .52f);
@@ -258,6 +260,7 @@ namespace Mgf.FoldlineLab
             cordRoot = new GameObject("Title pull cord").transform; cordRoot.SetParent(worldRoot, false); cordRoot.localPosition = new Vector3(0, 1.2f, -5.8f);
             MgfLook.Block("Cord", new Vector3(0, -.9f, 0), new Vector3(.1f, 1.9f, .1f), .03f, graphiteMat, cordRoot);
             MgfLook.Prim(PrimitiveType.Sphere, "Ceramic pull", new Vector3(0, -1.9f, 0), new Vector3(.75f, .42f, .55f), persimmonMat, cordRoot, true);
+            titleCueKnob = MgfLook.Prim(PrimitiveType.Sphere, "Animated pull cue", new Vector3(0, -1.55f, -.18f), Vector3.one * .22f, whiteGlowMat, cordRoot, false).transform;
             titleHalo = new GameObject("Title rotating halo").transform; titleHalo.SetParent(worldRoot, false); titleHalo.localPosition = new Vector3(0, 2.3f, 1.2f);
             var h1 = MakeCircle("Title halo A", whiteLineMat, 128, .09f, titleHalo); SetCircle(h1, Vector2.zero, 4.35f, 0f);
             var h2 = MakeCircle("Title halo B", cyanLineMat, 128, .045f, titleHalo); SetCircle(h2, Vector2.zero, 3.85f, .02f);
@@ -284,15 +287,17 @@ namespace Mgf.FoldlineLab
             logoBack.characterSpacing = 12; logoBack.fontStyle = FontStyles.Bold;
             logoFront = Txt(titleRt, "폴 드 라 인", new Vector2(.5f, .78f), Vector2.zero, 49, Cream, 370, TextAlignmentOptions.Center);
             logoFront.characterSpacing = 12; logoFront.fontStyle = FontStyles.Bold;
-            titleTag = Txt(titleRt, "접힌 자국이 중심을 밝힌다", new Vector2(.5f, .70f), Vector2.zero, 18, DeepBlue, 340);
-            titleHint = Txt(titleRt, "▼  태양돛 당김끈을 아래로 끌어 시작", new Vector2(.5f, .10f), Vector2.zero, 18, DeepBlue, 360);
+            titleTag = Txt(titleRt, "접는 선을 그어 중심을 밝혀라", new Vector2(.5f, .70f), Vector2.zero, 18, DeepBlue, 340);
+            titleHint = Txt(titleRt, "●  당김끈을 아래로 끌어 조율판 열기", new Vector2(.5f, .10f), Vector2.zero, 18, DeepBlue, 360);
             titleBest = Txt(titleRt, "중학교 2학년 · 삼각형의 성질", new Vector2(.5f, .045f), Vector2.zero, 14, Graphite, 350);
 
             playRt = ScreenRoot("Play", root); playG = playRt.gameObject.AddComponent<CanvasGroup>();
             progressText = Txt(playRt, "돛 1/6", new Vector2(.12f, .955f), Vector2.zero, 16, DeepBlue, 100);
             livesText = Txt(playRt, "오접힘 ◇◇◇", new Vector2(.50f, .955f), Vector2.zero, 16, DeepBlue, 170);
-            scoreText = Txt(playRt, "0", new Vector2(.86f, .955f), Vector2.zero, 20, Persimmon, 100);
+            scoreText = Txt(playRt, "점수 0", new Vector2(.79f, .955f), Vector2.zero, 16, Persimmon, 120);
+            masteryText = Txt(playRt, "첫 시도 0/5 · 남은 허용 실수 1회", new Vector2(.5f, .915f), Vector2.zero, 13, DeepBlue, 350);
             var promptBg = Img(playRt, "Prompt sailplate", new Vector2(.5f, .865f), Vector2.zero, new Vector2(362, 82), new Color(Cream.r, Cream.g, Cream.b, .94f), roundSprite);
+            promptPlateRt = promptBg.rectTransform;
             promptText = Txt(promptBg.transform, "", new Vector2(.5f, .55f), Vector2.zero, 18, DeepBlue, 334);
             promptText.textWrappingMode = TextWrappingModes.Normal;
             modeText = Txt(promptBg.transform, "", new Vector2(.5f, .12f), Vector2.zero, 12, Graphite, 330);
@@ -314,6 +319,13 @@ namespace Mgf.FoldlineLab
             var toastImg = toastRt.gameObject.AddComponent<Image>(); toastImg.sprite = roundSprite; toastImg.type = Image.Type.Sliced; toastImg.color = new Color(Cobalt.r, Cobalt.g, Cobalt.b, .93f); toastImg.raycastTarget = false;
             toastG = toastRt.gameObject.AddComponent<CanvasGroup>(); toastG.alpha = 0;
             toastText = Txt(toastRt, "", Vector2.one * .5f, Vector2.zero, 14, White, 326);
+
+            tutorialRt = R("Practice three-step guide", playRt, new Vector2(.5f, .14f), Vector2.zero, new Vector2(360, 86));
+            var tutorialImg = tutorialRt.gameObject.AddComponent<Image>(); tutorialImg.sprite = roundSprite; tutorialImg.type = Image.Type.Sliced;
+            tutorialImg.color = new Color(DeepBlue.r, DeepBlue.g, DeepBlue.b, .94f); tutorialImg.raycastTarget = false;
+            tutorialG = tutorialRt.gameObject.AddComponent<CanvasGroup>(); tutorialG.alpha = 0;
+            tutorialText = Txt(tutorialRt, "① 시작점 누르기\n② 점선을 따라 끌기  →  ③ 끝점에서 놓기", Vector2.one * .5f, Vector2.zero, 14, White, 332);
+            tutorialText.textWrappingMode = TextWrappingModes.Normal;
 
             rippleRoot = R("Input ripples", root, Vector2.zero, Vector2.zero, Vector2.zero);
             rippleRoot.anchorMin = Vector2.zero; rippleRoot.anchorMax = Vector2.one; rippleRoot.offsetMin = rippleRoot.offsetMax = Vector2.zero;
@@ -369,8 +381,13 @@ namespace Mgf.FoldlineLab
             endG.alpha = end ? 1 : 0; endG.blocksRaycasts = end;
             if (titleHalo) titleHalo.gameObject.SetActive(title);
             if (cordRoot) cordRoot.gameObject.SetActive(title);
+            if (titleCueKnob) titleCueKnob.gameObject.SetActive(title);
             for (int i = 0; i < vertexLabels.Length; i++) if (vertexLabels[i]) vertexLabels[i].gameObject.SetActive(!title && !end);
             cameraBlend = title ? 0f : 1f;
+            lastW = -1; // 같은 뷰포트에서도 title→play 전환 시 카메라·3존 UI를 다시 계산한다.
+            cam.transform.position = title ? titleCamPos : playCamPos;
+            cam.transform.LookAt(new Vector3(0, .2f, .2f));
+            ApplyLayoutIfNeeded();
             if (title)
             {
                 int best = PlayerPrefs.GetInt("foldline_best", 0);
@@ -383,7 +400,7 @@ namespace Mgf.FoldlineLab
             promptText.text = text;
             modeText.text = task == null ? "" : task.kind == FoldTaskKind.VertexPair ? "꼭짓점 포개기 → 수직이등분선 → 외심 O"
                 : task.kind == FoldTaskKind.SidePair ? "변 포개기 → 각의 이등분선 → 내심 I"
-                : task.kind == FoldTaskKind.Impossible ? "같은 두 변이 없으면 빨간 안전 깃"
+                : task.kind == FoldTaskKind.Impossible ? "세 변 3·4·5 cm가 모두 다름 → 빨간 안전 깃"
                 : "같은 두 변의 끼인각을 찾으시오";
         }
 
@@ -400,7 +417,7 @@ namespace Mgf.FoldlineLab
                 if (on) SetInfiniteLine(acceptedLines[i], acceptedCreases[i], .93f);
             }
             flagRoot.gameObject.SetActive(t.kind == FoldTaskKind.Impossible);
-            flagRoot.localPosition = new Vector3(4.7f, .9f, -3.65f);
+            flagRoot.localPosition = new Vector3(4.05f, .9f, -3.15f);
             scannerVisual = practice ? 0f : Mathf.Clamp01(runClock / FoldlineRules.SessionSeconds);
             scanner.localPosition = new Vector3(0, .98f, Mathf.Lerp(4.25f, -4.25f, scannerVisual));
             ApplySailColor(t.kind == FoldTaskKind.Impossible ? .55f : 0f);
@@ -704,6 +721,12 @@ namespace Mgf.FoldlineLab
             toastText.text = text; toastClock = 1.55f; toastG.alpha = 1; MgfSfx.Play("tap", .12f); guideBoost = Mathf.Max(guideBoost, .65f);
         }
 
+        void ShowPracticeAssist()
+        {
+            toastText.text = "연습 보정 ON · 손동작을 흰 점선에 맞춰 접는다";
+            toastClock = 1.2f; toastG.alpha = 1;
+        }
+
         void ShowEnd(bool clear, string reason)
         {
             SetScreen(); endTitle.text = clear ? "헤일로 조율 완료" : "조율 프레임 잠금";
@@ -726,13 +749,13 @@ namespace Mgf.FoldlineLab
         bool HitSafetyFlag(Vector2 screen)
         {
             Vector3 s = cam.WorldToScreenPoint(flagRoot.position + Vector3.up * .5f);
-            return Vector2.Distance(screen, new Vector2(s.x, s.y)) <= Mathf.Max(48f, Screen.width * .09f);
+            return Vector2.Distance(screen, new Vector2(s.x, s.y)) <= Mathf.Max(64f, Screen.width * .14f);
         }
 
         void GrabFlag() { MgfFx.Punch(flagRoot, .14f, .2f); MgfSfx.Play("tap", .18f); }
         void MoveFlag(Vector2 p) { flagRoot.position = StageWorld(p) + Vector3.up * .45f; }
         void ReleaseFlag() { }
-        void ReturnFlag() { flagRoot.localPosition = new Vector3(4.7f, .9f, -3.65f); }
+        void ReturnFlag() { flagRoot.localPosition = new Vector3(4.05f, .9f, -3.15f); }
 
         void GrabCord() { cordPull = .1f; MgfSfx.Play("tap", .16f); }
         void PullCord(float pixels) { cordPull = Mathf.Clamp01(pixels / 170f); cordRoot.localPosition = new Vector3(0, 1.2f - cordPull * 1.0f, -5.8f); }
@@ -763,35 +786,94 @@ namespace Mgf.FoldlineLab
             }
             if (flow == Flow.End) return "restart:0.5,0.72";
             if (task == null) return "";
-            Vector3 a = cam.WorldToScreenPoint(StageWorld(task.a));
-            Vector3 b = cam.WorldToScreenPoint(StageWorld(task.kind == FoldTaskKind.Impossible ? (task.a + task.b + task.c) / 3f : task.target.point + task.target.direction * 2f));
-            Vector3 f = cam.WorldToScreenPoint(flagRoot.position);
+            // 검증·접근성 좌표는 화면 안쪽의 충분히 긴 선분만 노출한다. 무한 직선 판정은 동일하다.
+            Vector2 lineStart, lineEnd;
+            if (task.kind == FoldTaskKind.Impossible)
+            {
+                lineStart = task.a;
+                lineEnd = (task.a + task.b + task.c) / 3f;
+            }
+            else SegmentInsideFrame(task.target, out lineStart, out lineEnd);
+            Vector3 a = cam.WorldToScreenPoint(StageWorld(lineStart));
+            Vector3 b = cam.WorldToScreenPoint(StageWorld(lineEnd));
+            // Keep the exported pointer target identical to HitSafetyFlag's visual center.
+            Vector3 f = cam.WorldToScreenPoint(flagRoot.position + Vector3.up * .5f);
             return "line:" + N(a.x / Screen.width) + "," + N(1f - a.y / Screen.height) + ">" + N(b.x / Screen.width) + "," + N(1f - b.y / Screen.height)
                 + ";flag:" + N(f.x / Screen.width) + "," + N(1f - f.y / Screen.height);
         }
 
         static string N(float x) { return Mathf.Clamp01(x).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture); }
 
+        static void SegmentInsideFrame(FoldLine line, out Vector2 start, out Vector2 end)
+        {
+            float lo = -100f, hi = 100f;
+            ClipLineAxis(line.point.x, line.direction.x, -4.65f, 4.65f, ref lo, ref hi);
+            ClipLineAxis(line.point.y, line.direction.y, -3.8f, 3.8f, ref lo, ref hi);
+            float mid = (lo + hi) * .5f;
+            float half = Mathf.Min(1.65f, Mathf.Max(.7f, (hi - lo) * .5f - .12f));
+            start = line.point + line.direction * (mid - half);
+            end = line.point + line.direction * (mid + half);
+        }
+
+        static void ClipLineAxis(float origin, float direction, float min, float max, ref float lo, ref float hi)
+        {
+            if (Mathf.Abs(direction) < .0001f) return;
+            float a = (min - origin) / direction, b = (max - origin) / direction;
+            if (a > b) { float t = a; a = b; b = t; }
+            lo = Mathf.Max(lo, a); hi = Mathf.Min(hi, b);
+        }
+
         void ApplyLayoutIfNeeded()
         {
             if (lastW == Screen.width && lastH == Screen.height) return;
             lastW = Screen.width; lastH = Screen.height;
+            UnityEngine.Canvas.ForceUpdateCanvases();
             float a = Mathf.Max(.35f, cam.aspect);
             float targetSize = Mathf.Max(6.2f, 5.35f / a);
             cam.orthographicSize = flow == Flow.Title ? Mathf.Max(targetSize, 8.2f) : targetSize;
             bool land = a >= 1.25f;
             if (land)
             {
-                promptText.fontSize = 18; promptText.rectTransform.sizeDelta = new Vector2(470, 66);
-                promptText.transform.parent.GetComponent<RectTransform>().sizeDelta = new Vector2(500, 82);
-                promptText.transform.parent.GetComponent<RectTransform>().anchorMin = promptText.transform.parent.GetComponent<RectTransform>().anchorMax = new Vector2(.22f, .86f);
+                // 극장형 3존: 좌측 문제·목표, 중앙 조율판, 우측 결과/헤일로.
+                // 고정 왼쪽 피벗으로 잡아 초와이드에서도 카드가 화면 밖으로 나가지 않는다.
+                Place(progressText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -10), new Vector2(112, 40));
+                Place(livesText.rectTransform, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -10), new Vector2(184, 40));
+                Place(scoreText.rectTransform, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-70, -10), new Vector2(130, 40));
+                Place(masteryText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -48), new Vector2(260, 38));
+                Place(promptPlateRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -82), new Vector2(260, 148));
+                Place(promptText.rectTransform, new Vector2(.5f, .61f), Vector2.one * .5f, Vector2.zero, new Vector2(232, 98));
+                Place(modeText.rectTransform, new Vector2(.5f, .14f), Vector2.one * .5f, Vector2.zero, new Vector2(232, 46));
+                Place(scannerText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -238), new Vector2(260, 34));
+                Place(tutorialRt, Vector2.zero, Vector2.zero, new Vector2(18, 18), new Vector2(260, 82));
+                Place(evidenceRt, Vector2.one, Vector2.one, new Vector2(-24, -72), new Vector2(300, 104));
+                Place(toastRt, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 18), new Vector2(350, 56));
+                promptText.fontSize = 15; modeText.fontSize = 11; masteryText.fontSize = 12;
+                promptText.textWrappingMode = TextWrappingModes.Normal; modeText.textWrappingMode = TextWrappingModes.Normal;
             }
             else
             {
-                promptText.fontSize = 18; promptText.rectTransform.sizeDelta = new Vector2(334, 66);
-                promptText.transform.parent.GetComponent<RectTransform>().sizeDelta = new Vector2(362, 82);
-                promptText.transform.parent.GetComponent<RectTransform>().anchorMin = promptText.transform.parent.GetComponent<RectTransform>().anchorMax = new Vector2(.5f, .865f);
+                Place(progressText.rectTransform, new Vector2(.12f, .965f), Vector2.one * .5f, Vector2.zero, new Vector2(100, 42));
+                Place(livesText.rectTransform, new Vector2(.49f, .965f), Vector2.one * .5f, Vector2.zero, new Vector2(170, 42));
+                Place(scoreText.rectTransform, new Vector2(.79f, .965f), Vector2.one * .5f, Vector2.zero, new Vector2(120, 42));
+                Place(masteryText.rectTransform, new Vector2(.5f, .918f), Vector2.one * .5f, Vector2.zero, new Vector2(350, 38));
+                Place(promptPlateRt, new Vector2(.5f, .84f), Vector2.one * .5f, Vector2.zero, new Vector2(362, 104));
+                Place(promptText.rectTransform, new Vector2(.5f, .59f), Vector2.one * .5f, Vector2.zero, new Vector2(334, 72));
+                Place(modeText.rectTransform, new Vector2(.5f, .13f), Vector2.one * .5f, Vector2.zero, new Vector2(330, 40));
+                Place(scannerText.rectTransform, new Vector2(.5f, .755f), Vector2.one * .5f, Vector2.zero, new Vector2(240, 34));
+                Place(tutorialRt, new Vector2(.5f, .13f), Vector2.one * .5f, Vector2.zero, new Vector2(360, 86));
+                Place(evidenceRt, new Vector2(.5f, .27f), Vector2.one * .5f, Vector2.zero, new Vector2(360, 104));
+                Place(toastRt, new Vector2(.5f, .225f), Vector2.one * .5f, Vector2.zero, new Vector2(350, 56));
+                promptText.fontSize = 17; modeText.fontSize = 12; masteryText.fontSize = 13;
+                promptText.textWrappingMode = TextWrappingModes.Normal; modeText.textWrappingMode = TextWrappingModes.Normal;
             }
+        }
+
+        static void Place(RectTransform rt, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size)
+        {
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.pivot = pivot;
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
         }
 
         void UpdateWorld(float dt)
@@ -809,7 +891,16 @@ namespace Mgf.FoldlineLab
             for (int i = 4; i < vanes.Length; i++) if (vanes[i]) vanes[i].localRotation = Quaternion.Euler(0, 0, Mathf.Sin(worldTime * .45f + i) * 4f);
             for (int i = 0; i < hangingSails.Length; i++) if (hangingSails[i]) hangingSails[i].localRotation = Quaternion.Euler(0, Mathf.Sin(worldTime * .7f + i) * 8f, Mathf.Sin(worldTime * .9f + i * .6f) * 5f);
             if (titleHalo) titleHalo.localRotation = Quaternion.Euler(0, worldTime * 4f, worldTime * 2f);
-            if (flow == Flow.Title) cordRoot.localScale = Vector3.one * (1f + .06f * titlePulse);
+            if (flow == Flow.Title)
+            {
+                cordRoot.localScale = Vector3.one * (1f + .06f * titlePulse);
+                if (titleCueKnob)
+                {
+                    float q = Mathf.Repeat(worldTime * .62f, 1f);
+                    titleCueKnob.localPosition = new Vector3(0, Mathf.Lerp(-1.45f, -2.65f, Smooth(q)), -.18f);
+                    titleCueKnob.localScale = Vector3.one * (.18f + .08f * Mathf.Sin(q * Mathf.PI));
+                }
+            }
             else cordRoot.localScale = Vector3.one;
 
             scanner.localPosition = new Vector3(0, .98f, Mathf.Lerp(4.25f, -4.25f, scannerVisual));
@@ -847,8 +938,9 @@ namespace Mgf.FoldlineLab
             }
             if (idleClock > 8f) guideBoost = 1.5f;
             float phase = Mathf.Repeat(worldTime / 1.35f, 1f);
-            Vector2 start = task.kind == FoldTaskKind.Symmetry ? task.a : task.target.point - task.target.direction * 2.6f;
-            Vector2 end = task.kind == FoldTaskKind.Symmetry ? (task.b + task.c) * .5f : task.target.point + task.target.direction * 2.6f;
+            Vector2 start, end;
+            if (task.kind == FoldTaskKind.Symmetry) { start = task.a; end = (task.b + task.c) * .5f; }
+            else SegmentInsideFrame(task.target, out start, out end);
             Vector2 hand = Vector2.Lerp(start, end, Smooth(phase));
             guideHand.gameObject.SetActive(true); guideArrow.gameObject.SetActive(true);
             guideHand.localPosition = new Vector3(hand.x, 1.18f, hand.y);
@@ -875,12 +967,26 @@ namespace Mgf.FoldlineLab
                 float drift = Mathf.Sin(worldTime * .23f);
                 titleArtRt.localScale = Vector3.one * (1.035f + .012f * drift);
                 titleArtRt.anchoredPosition = new Vector2(drift * 3f, Mathf.Cos(worldTime * .19f) * 4f);
+                titleHint.rectTransform.anchoredPosition = new Vector2(0, Mathf.Sin(worldTime * 3.2f) * 7f);
             }
             displayedScore = Mathf.Lerp(displayedScore, st.score, 1f - Mathf.Exp(-dt * 10f));
-            scoreText.text = Mathf.RoundToInt(displayedScore).ToString();
+            scoreText.text = "점수 " + Mathf.RoundToInt(displayedScore);
             progressText.text = practice ? "연습 돛" : "돛 " + Mathf.Clamp(st.sail, 1, 6) + "/6";
             livesText.text = "오접힘 " + Diamonds(st.lives);
+            int firstMisses = Mathf.Max(0, st.firstAttempted - st.firstCorrect);
+            masteryText.text = practice ? "연습 보정 ON · 본판 목표 첫 시도 5/6"
+                : "첫 시도 " + st.firstCorrect + "/5 · 남은 허용 실수 " + Mathf.Max(0, 1 - firstMisses) + "회";
             scannerText.text = practice ? "첫 접기 동안 열 스캐너 정지" : "열 스캐너  " + Mathf.RoundToInt((1f - scannerVisual) * 100f) + "% 여유";
+            tutorialG.alpha = practice && flow != Flow.Resolving ? 1f : 0f;
+            if (practice && flow != Flow.Resolving)
+            {
+                if (drag != DragMode.Line)
+                    tutorialText.text = "① 빛나는 시작점 누르기\n② 흰 점선을 따라 끌기  →  ③ 끝점에서 놓기";
+                else if (Vector2.Distance(dragStartWorld, dragEndWorld) < 1.15f)
+                    tutorialText.text = "① 완료  ·  ② 점선을 따라 길게 끌기\n③ 끝점에서 손 놓기";
+                else
+                    tutorialText.text = "① 완료  ·  ② 완료\n③ 지금 손을 놓아 접기";
+            }
             UpdateVertexLabels();
             if (toastClock > 0f) { toastClock -= dt; toastG.alpha = Mathf.Clamp01(toastClock * 4f); }
             else toastG.alpha = 0;

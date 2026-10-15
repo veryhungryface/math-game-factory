@@ -81,7 +81,7 @@ namespace Mgf.FoldlineLab
 
         void Prewarm()
         {
-            var sb = new StringBuilder("폴드라인접힌자국이중심을밝힌다태양돛당김끈을아래로끌어시작접은쪽이딱겹치게선을그어접으시오");
+            var sb = new StringBuilder("폴드라인접는선을그어중심을밝혀라태양돛당김끈을아래로끌어시작접은쪽이딱겹치게선을그어접으시오");
             sb.Append("중학교2학년삼각형의성질외심내심수직이등분선각의이등분선이등변삼각형꼭지각밑각밑변꼭짓점포개기안전깃불가능");
             sb.Append("오접힘조율잠금열스캐너첫판단정확완료다시조율최고기록접는중겹쳤다방향위치를옮겨라흰자국교점외접원내접원");
             sb.Append("두밑각의크기가같고접는선이밑변을수직으로반씩나눈다세꼭짓점까지의거리가같다세변까지의거리가같다");
@@ -169,7 +169,9 @@ namespace Mgf.FoldlineLab
         void StartRun()
         {
             practice = false;
-            deck = FoldlineRules.RuntimeDeck(++runSerial);
+            runSerial++;
+            if (runSerial >= FoldlineRules.BankSerialBase + FoldlineRules.BankDeckCount) runSerial = FoldlineRules.BankSerialBase;
+            deck = FoldlineRules.RuntimeDeck(runSerial);
             index = 0;
             runClock = 0f;
             st.phase = "playing"; st.score = 0; st.lives = FoldlineRules.StartLives; st.level = 1; st.solved = 0;
@@ -294,7 +296,7 @@ namespace Mgf.FoldlineLab
                     float pull = Mathf.Max(0f, downScreen.y - pos.y);
                     ReleaseCord();
                     drag = DragMode.None;
-                    if (pull >= 22f || downScreen.y < Screen.height * .42f) BeginFromTitle();
+                    if (pull >= 22f || downScreen.y < Screen.height * .62f) BeginFromTitle();
                     else { Refuse("당김끈을 아래로 끌어 조율판을 여시오."); PulseCord(); WriteState(); }
                     return;
                 }
@@ -311,7 +313,10 @@ namespace Mgf.FoldlineLab
                     }
                     else
                     {
-                        submitted = new FoldLine(dragStartWorld, dragEndWorld - dragStartWorld);
+                        // 연습은 조작 학습 구간이다. 충분히 긴 실제 드래그를 하면 화면의 유령선에
+                        // 맞춰 접고, 본판부터는 어떤 보정도 하지 않는다.
+                        submitted = practice ? task.target : new FoldLine(dragStartWorld, dragEndWorld - dragStartWorld);
+                        if (practice) ShowPracticeAssist();
                         SubmitCrease(submitted);
                     }
                 }
@@ -332,8 +337,8 @@ namespace Mgf.FoldlineLab
             submitted = line;
             if (task.kind == FoldTaskKind.Impossible)
             {
-                lastJudge = new FoldJudge { correct = false, misconceptionId = "ssa_congruence_generalized", angleError = 90f, offsetError = 9f };
-                ResolveSubmission(false, "ssa_congruence_generalized", line);
+                lastJudge = new FoldJudge { correct = false, misconceptionId = "scalene_symmetry_assumed", angleError = 90f, offsetError = 9f };
+                ResolveSubmission(false, "scalene_symmetry_assumed", line);
                 return;
             }
             lastJudge = FoldlineRules.Judge(line, task);
@@ -351,7 +356,8 @@ namespace Mgf.FoldlineLab
         {
             if (flow != Flow.Practice && flow != Flow.Drawing) return;
             st.attempts++;
-            if (!practice && firstAttempt)
+            bool recordedFirstAttempt = !practice && firstAttempt;
+            if (recordedFirstAttempt)
             {
                 st.firstAttempted++;
                 if (correct) st.firstCorrect++;
@@ -388,7 +394,7 @@ namespace Mgf.FoldlineLab
                 {
                     pendingReason = "next";
                     ShowCorrectEvidence(task.kind == FoldTaskKind.Impossible
-                        ? "같은 두 변이 아니므로 대칭 접기는 불가능하다"
+                        ? "세 변의 길이가 모두 달라 선대칭축이 없다"
                         : (task.kind == FoldTaskKind.VertexPair ? "두 꼭짓점에서 같은 거리인 자국이다" : "두 변이 포개지는 각의 이등분선이다"));
                 }
                 BeginFoldAnimation(line, true, task.haloAfter, task.circumHalo, acceptedCreases);
@@ -403,6 +409,11 @@ namespace Mgf.FoldlineLab
                     st.lives--;
                     runClock = Mathf.Min(FoldlineRules.SessionSeconds, runClock + 4f);
                     if (st.lives <= 0) { pendingEnd = true; pendingReason = "오접힘 세 개로 조율 프레임이 잠겼다"; }
+                    else if (recordedFirstAttempt && st.firstCorrect + (FoldlineRules.Goal - st.firstAttempted) < FoldlineRules.RequiredFirstCorrect)
+                    {
+                        pendingEnd = true;
+                        pendingReason = "첫 시도 목표 5/6을 더 이상 달성할 수 없다";
+                    }
                 }
                 string reason = FeedbackFor(misconception, lastJudge);
                 ShowWrongEvidence(reason);
@@ -423,7 +434,7 @@ namespace Mgf.FoldlineLab
                 case "midpoint_without_perpendicular": return "중점만 지나지 말고 선분과 수직이어야 한다";
                 case "offset_only_miss": return "방향은 가깝다. 선을 평행하게 옮겨 두 대상을 정확히 포개시오";
                 case "direction_only_miss": return "위치는 가깝다. 선의 방향을 돌려 두 대상을 포개시오";
-                case "ssa_congruence_generalized": return "두 변과 끼인각이 아닌 한 각만으로 대칭 접기를 정할 수 없다";
+                case "scalene_symmetry_assumed": return "AB=4 cm, BC=5 cm, CA=3 cm로 같은 길이인 두 변이 없어 선대칭축이 없다";
                 default:
                     if (j.angleError > FoldlineRules.AngleTolerance && j.offsetError > FoldlineRules.OffsetTolerance) return "방향과 위치가 모두 어긋났다. 흰 점선을 확인하시오";
                     return "청록과 주홍 반사띠가 겹치지 않았다. 흰 점선을 확인하시오";
@@ -523,7 +534,12 @@ namespace Mgf.FoldlineLab
             MgfBridge.NotifyChanged();
         }
 
-        public string StateJson() { return JsonUtility.ToJson(st); }
+        public string StateJson()
+        {
+            // 뷰포트·카메라가 바뀐 뒤에도 실제 현재 좌표를 내보낸다. 시간값은 상태에 넣지 않는다.
+            st.inputTargets = BuildInputTargetString();
+            return JsonUtility.ToJson(st);
+        }
         public string ProblemBankJson() { return MgfJson.Bank(bank); }
     }
 }

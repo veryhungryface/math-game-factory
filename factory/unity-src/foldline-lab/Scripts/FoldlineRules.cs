@@ -72,6 +72,8 @@ namespace Mgf.FoldlineLab
         public const int Goal = 6;
         public const int RequiredFirstCorrect = 5;
         public const int StartLives = 3;
+        public const int BankSerialBase = 20261017;
+        public const int BankDeckCount = 70;
         public const float SessionSeconds = 90f;
         public const float StageLength = 9.5f;
         public const float AngleTolerance = 4f;
@@ -110,7 +112,7 @@ namespace Mgf.FoldlineLab
             Vector2 c1 = Rot(new Vector2(3, -2), r1) + sh1;
             deck.Add(new FoldTask {
                 id = "fl-run-" + serial + "-1", kind = FoldTaskKind.Symmetry, level = 1, group = 1,
-                prompt = "AB=AC인 △ABC의 두 쪽이 겹치게 접으시오.",
+                prompt = "AB=AC인 △ABC를 " + RotationText(r1) + "° 돌려 놓았다. 두 쪽이 겹치게 접으시오.",
                 concept = "이등변삼각형의 성질", answer = "∠A의 이등분선이자 BC의 수직이등분선",
                 a = a1, b = b1, c = c1, target = Through(a1, (b1 + c1) * .5f),
                 // misconceptionId=visual_top_vertex: 그림에서 가장 위인 점만 보고 그은 수직선
@@ -119,23 +121,24 @@ namespace Mgf.FoldlineLab
                 misconceptionB = Shift(Through(a1, (b1 + c1) * .5f), 1.25f)
             });
 
-            // 2. SSA 일반화 함정: 이등변이 아닌 삼각형은 대칭 접기가 불가능하다.
-            float r2 = -21f + (s * 29 % 72);
+            // 2. 세 변이 3 cm, 4 cm, 5 cm로 모두 다른 삼각형은 선대칭축이 없다.
+            // 표시의 부재가 아니라 화면 발문과 같은 정수 길이 자료로 불가능을 확정한다.
+            float r2 = -21f + (s * 29 % 149);
             Vector2 sh2 = new Vector2(.4f - (s % 4) * .35f, .15f);
-            Vector2 a2 = Rot(new Vector2(-.4f, 3.0f), r2) + sh2;
-            Vector2 b2 = Rot(new Vector2(-3.2f, -2.0f), r2) + sh2;
-            Vector2 c2 = Rot(new Vector2(2.4f, -1.2f), r2) + sh2;
+            Vector2 a2 = Rot(new Vector2(-2f, -1.5f), r2) + sh2;
+            Vector2 b2 = Rot(new Vector2(2f, -1.5f), r2) + sh2;
+            Vector2 c2 = Rot(new Vector2(-2f, 1.5f), r2) + sh2;
             deck.Add(new FoldTask {
                 id = "fl-run-" + serial + "-2", kind = FoldTaskKind.Impossible, level = 1, group = 2,
-                prompt = "같은 길이 표시가 없는 △ABC이다. 대칭 접기가 불가능하면 안전 깃을 돛 위에 꽂으시오.",
-                concept = "이등변삼각형의 역과 SSA 오개념", answer = "대칭 접기 불가능",
+                prompt = "AB=4 cm, BC=5 cm, CA=3 cm인 △ABC를 " + RotationText(r2) + "° 돌려 놓았다. 세 변의 길이가 모두 다르므로 선대칭 접기가 불가능하면 안전 깃을 꽂으시오.",
+                concept = "이등변삼각형의 역", answer = "선대칭 접기 불가능",
                 a = a2, b = b2, c = c2,
                 misconceptionA = Through(a2, (b2 + c2) * .5f),
                 misconceptionB = PerpendicularBisector(b2, c2)
             });
 
             // 3~4. 같은 둔각삼각형의 두 변 수직이등분선. 교점은 돛 밖의 외심이다.
-            float r3 = -18f + (s * 13 % 37);
+            float r3 = -18f + (s * 13 % 173);
             // 두 수직이등분선 모두 원점을 우연히 지나지 않도록 로컬 좌표에서 먼저 이동한다.
             Vector2 sh3 = Rot(new Vector2(-1.05f - (s % 3) * .12f, .45f + (s % 2) * .12f), r3);
             Vector2 oa = Rot(new Vector2(-3.2f, -1.7f), r3) + sh3;
@@ -145,7 +148,7 @@ namespace Mgf.FoldlineLab
             var o2 = PerpendicularBisector(oa, oc);
             deck.Add(new FoldTask {
                 id = "fl-run-" + serial + "-3", kind = FoldTaskKind.VertexPair, level = 2, group = 3,
-                prompt = "꼭짓점 A가 B에 포개지게 접으시오.",
+                prompt = "△ABC를 " + RotationText(r3) + "° 돌려 놓았다. 꼭짓점 A가 B에 포개지게 접으시오.",
                 concept = "외심과 선분의 수직이등분선", answer = "선분 AB의 수직이등분선",
                 a = oa, b = ob, c = oc, target = o1,
                 // misconceptionId=circumcenter_incenter_swapped: 꼭짓점을 지나는 각의 이등분선을 그음
@@ -155,7 +158,7 @@ namespace Mgf.FoldlineLab
             });
             deck.Add(new FoldTask {
                 id = "fl-run-" + serial + "-4", kind = FoldTaskKind.VertexPair, level = 3, group = 3,
-                prompt = "꼭짓점 A가 C에 포개지게 접으시오. 두 자국의 교점을 확인하시오.",
+                prompt = "△ABC를 " + RotationText(r3) + "° 돌려 놓았다. 꼭짓점 A가 C에 포개지게 접고 두 자국의 교점을 확인하시오.",
                 concept = "둔각삼각형의 외심", answer = "선분 AC의 수직이등분선",
                 a = oa, b = ob, c = oc, target = o2, haloAfter = true, circumHalo = true,
                 misconceptionA = AngleBisector(oa, ob, oc),
@@ -164,7 +167,7 @@ namespace Mgf.FoldlineLab
             });
 
             // 5~6. 같은 예각삼각형의 두 내각 이등분선. 교점은 늘 내부의 내심이다.
-            float r4 = 14f + (s * 17 % 58);
+            float r4 = 14f + (s * 17 % 163);
             // 각의 이등분선도 화면 중앙 고정선으로 맞힐 수 없게 회전 전 좌표에서 이동한다.
             Vector2 sh4 = Rot(new Vector2(-1.0f - (s % 3) * .1f, .55f + (s % 2) * .12f), r4);
             Vector2 ia = Rot(new Vector2(0, 3.0f), r4) + sh4;
@@ -174,7 +177,7 @@ namespace Mgf.FoldlineLab
             var i2 = AngleBisector(ib, ia, ic);
             deck.Add(new FoldTask {
                 id = "fl-run-" + serial + "-5", kind = FoldTaskKind.SidePair, level = 3, group = 4,
-                prompt = "변 AB가 AC에 포개지게 접으시오.",
+                prompt = "△ABC를 " + RotationText(r4) + "° 돌려 놓았다. 변 AB가 AC에 포개지게 접으시오.",
                 concept = "내심과 각의 이등분선", answer = "∠A의 이등분선",
                 a = ia, b = ib, c = ic, target = i1,
                 // misconceptionId=circumcenter_incenter_swapped: AB의 수직이등분선을 그음
@@ -184,7 +187,7 @@ namespace Mgf.FoldlineLab
             });
             deck.Add(new FoldTask {
                 id = "fl-run-" + serial + "-6", kind = FoldTaskKind.SidePair, level = 3, group = 4,
-                prompt = "변 BA가 BC에 포개지게 접으시오. 두 자국의 교점을 확인하시오.",
+                prompt = "△ABC를 " + RotationText(r4) + "° 돌려 놓았다. 변 BA가 BC에 포개지게 접고 두 자국의 교점을 확인하시오.",
                 concept = "삼각형의 내심", answer = "∠B의 이등분선",
                 a = ia, b = ib, c = ic, target = i2, haloAfter = true, circumHalo = false,
                 misconceptionA = PerpendicularBisector(ib, ic),
@@ -283,53 +286,21 @@ namespace Mgf.FoldlineLab
         }
         static int Positive(int x) { return x == int.MinValue ? 0 : Math.Abs(x); }
 
+        static int RotationText(float degrees)
+        {
+            int d = Mathf.RoundToInt(degrees) % 180;
+            return d < 0 ? d + 180 : d;
+        }
+
         public static List<MgfProblem> BuildBank()
         {
-            var bank = new List<MgfProblem>(420);
-            // 제약 만족 매개변수 풀. 각 항목은 답 형식까지 같은 모델에서 만든다.
-            for (int i = 0; i < 140; i++)
+            // 실제 플레이가 쓰는 6장 덱을 그대로 직렬화한다. 별도 시험지 생성기는 없다.
+            // StartRun도 이 70개 덱 안에서 순환하므로 플레이 problemId가 은행에 항상 존재한다.
+            var bank = new List<MgfProblem>(BankDeckCount * Goal);
+            for (int serial = BankSerialBase; serial < BankSerialBase + BankDeckCount; serial++)
             {
-                int baseCm = 4 + (i * 5 % 13);
-                int apex = 28 + (i * 7 % 69);
-                int rot = (i * 17) % 180;
-                bank.Add(new MgfProblem {
-                    id = "fl-bank-s-" + (i + 1),
-                    prompt = "AB=AC, BC=" + baseCm + " cm, ∠A=" + apex + "°인 △ABC를 " + rot + "° 돌려 놓았다. 두 쪽이 겹치게 접으시오.",
-                    choices = null,
-                    answer = "∠A의 이등분선이자 BC의 수직이등분선",
-                    answerNumeric = double.NaN,
-                    unitConcept = "이등변삼각형의 꼭지각 이등분선"
-                });
-            }
-            for (int i = 0; i < 140; i++)
-            {
-                int len = 3 + (i * 7 % 16);
-                int rot = (i * 19 + 11) % 180;
-                string pair = i % 3 == 0 ? "A가 B" : (i % 3 == 1 ? "B가 C" : "C가 A");
-                string seg = i % 3 == 0 ? "AB" : (i % 3 == 1 ? "BC" : "CA");
-                bank.Add(new MgfProblem {
-                    id = "fl-bank-o-" + (i + 1),
-                    prompt = "선분 " + seg + "=" + len + " cm인 △ABC를 " + rot + "° 돌려 놓았다. 꼭짓점 " + pair + "에 포개지게 접으시오.",
-                    choices = null,
-                    answer = "선분 " + seg + "의 수직이등분선",
-                    answerNumeric = double.NaN,
-                    unitConcept = "삼각형의 외심"
-                });
-            }
-            for (int i = 0; i < 140; i++)
-            {
-                int angle = 31 + (i * 11 % 101);
-                int rot = (i * 23 + 7) % 180;
-                string vertex = i % 3 == 0 ? "A" : (i % 3 == 1 ? "B" : "C");
-                string sides = vertex == "A" ? "AB가 AC" : (vertex == "B" ? "BA가 BC" : "CA가 CB");
-                bank.Add(new MgfProblem {
-                    id = "fl-bank-i-" + (i + 1),
-                    prompt = "∠" + vertex + "=" + angle + "°인 △ABC를 " + rot + "° 돌려 놓았다. 변 " + sides + "에 포개지게 접으시오.",
-                    choices = null,
-                    answer = "∠" + vertex + "의 이등분선",
-                    answerNumeric = double.NaN,
-                    unitConcept = "삼각형의 내심"
-                });
+                var deck = RuntimeDeck(serial);
+                for (int i = 0; i < deck.Count; i++) bank.Add(deck[i].ToMgf());
             }
             return bank;
         }
@@ -347,15 +318,28 @@ namespace Mgf.FoldlineLab
                 if (p.choices != null && p.choices.Length > 0) { error = "unexpected choices"; return false; }
                 if (p.prompt.Contains("√") || p.prompt.Contains("가정") || p.prompt.Contains("결론")) { error = "expression trap"; return false; }
             }
-            // 오개념 전수 검증: 실제 덱 2,000개에서 정답선과 두 오개념선이 허용창 안에서 일치하면 안 된다.
-            for (int s = 1; s <= 2000; s++)
+            int[] kindCounts = new int[4];
+            // 실제 은행 70덱 전수 검증: 불가능 조건과 나머지 정답선·오개념선을 같은 모델에서 검사한다.
+            for (int s = BankSerialBase; s < BankSerialBase + BankDeckCount; s++)
             {
                 var deck = RuntimeDeck(s);
                 if (deck.Count != Goal) { error = "deck count"; return false; }
                 for (int i = 0; i < deck.Count; i++)
                 {
                     var t = deck[i];
-                    if (t.kind == FoldTaskKind.Impossible) continue;
+                    kindCounts[(int)t.kind]++;
+                    if (t.kind == FoldTaskKind.Impossible)
+                    {
+                        float ab2 = (t.a - t.b).sqrMagnitude;
+                        float bc2 = (t.b - t.c).sqrMagnitude;
+                        float ca2 = (t.c - t.a).sqrMagnitude;
+                        if (Mathf.Abs(ab2 - 16f) > .01f || Mathf.Abs(bc2 - 25f) > .01f || Mathf.Abs(ca2 - 9f) > .01f)
+                        { error = "impossible side data mismatch " + t.id; return false; }
+                        if (t.target != null || !t.prompt.Contains("AB=4 cm") || !t.prompt.Contains("BC=5 cm") || !t.prompt.Contains("CA=3 cm") || !t.prompt.Contains("모두 다르"))
+                        { error = "impossible prompt not sufficient " + t.id; return false; }
+                        if (t.answer != "선대칭 접기 불가능") { error = "impossible answer " + t.id; return false; }
+                        continue;
+                    }
                     if (t.target == null) { error = "missing target"; return false; }
                     if (t.misconceptionA != null && Near(t.target, t.misconceptionA, AngleTolerance, OffsetTolerance))
                     { error = "misconception A accidental truth " + t.id; return false; }
@@ -365,6 +349,11 @@ namespace Mgf.FoldlineLab
                     if (!exact.correct) { error = "exact target rejected " + t.id; return false; }
                 }
             }
+            if (kindCounts[(int)FoldTaskKind.Symmetry] != BankDeckCount ||
+                kindCounts[(int)FoldTaskKind.Impossible] != BankDeckCount ||
+                kindCounts[(int)FoldTaskKind.VertexPair] != BankDeckCount * 2 ||
+                kindCounts[(int)FoldTaskKind.SidePair] != BankDeckCount * 2)
+            { error = "runtime type coverage"; return false; }
             error = "";
             return true;
         }

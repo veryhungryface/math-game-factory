@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const rulesPath = join(here, '../../Scripts/FoldlineRules.cs');
 const outPath = join(here, 'b3-bot-results.json');
-const RUNS = 1000;
+const RUNS = 10000;
 const POLICY_SEED = 20261016; // 제작 회차 KST 날짜 고정 시드
 const L = 9.5;
 const ANGLE_TOL = 4;
@@ -64,13 +64,13 @@ function deck(serial) {
   const b1 = add(rot(v(-3, -2), r1), sh1);
   const c1 = add(rot(v(3, -2), r1), sh1);
 
-  const r3 = -18 + (s * 13 % 37);
+  const r3 = -18 + (s * 13 % 173);
   const sh3 = rot(v(-1.05 - (s % 3) * .12, .45 + (s % 2) * .12), r3);
   const oa = add(rot(v(-3.2, -1.7), r3), sh3);
   const ob = add(rot(v(3, -1.7), r3), sh3);
   const oc = add(rot(v(1.45, -.05), r3), sh3);
 
-  const r4 = 14 + (s * 17 % 58);
+  const r4 = 14 + (s * 17 % 163);
   const sh4 = rot(v(-1.0 - (s % 3) * .1, .55 + (s % 2) * .12), r4);
   const ia = add(rot(v(0, 3), r4), sh4);
   const ib = add(rot(v(-3.1, -2.1), r4), sh4);
@@ -123,16 +123,22 @@ function simulate(name) {
   const runtimeInput = name === 'idle' ? null : blindPolicy(name, POLICY_SEED ^ 0x9e3779b9);
   for (let run = 0; run < RUNS; run++) {
     if (name === 'idle') continue;
-    let lives = 3, taskIndex = 0;
+    let lives = 3, taskIndex = 0, firstMisses = 0;
     const tasks = deck(20261017 + run);
     while (lives > 0 && taskIndex < tasks.length) {
       const task = tasks[taskIndex];
       let correct = false;
-      while (lives > 0 && !correct) {
+      let firstOnTask = true;
+      while (lives > 0 && !correct && firstMisses <= 1) {
         correct = task.kind === 'line' && judge(runtimeInput(), task.target);
-        if (!correct) lives--;
+        if (!correct) {
+          lives--;
+          if (firstOnTask) firstMisses++;
+        }
+        firstOnTask = false;
       }
       if (correct) { solved++; taskIndex++; }
+      else if (firstMisses > 1) break;
     }
     if (taskIndex === tasks.length) clears++;
   }
@@ -157,7 +163,7 @@ const policies = ['fixed', 'cycle36', 'random', 'idle'].map(simulate);
 const result = {
   runId: `foldline-lab-b3-${new Date().toISOString()}`,
   rulesSha256: createHash('sha256').update(readFileSync(rulesPath)).digest('hex'),
-  method: 'FoldlineRules.RuntimeDeck/Judge 1:1 JS mirror; practice excluded; every one of the six sails receives one independent blind first input (6,000 samples/policy), so life loss cannot hide later tasks; a separate runtime pass measures progress/clear with three lives; blind bots never inspect task geometry or use the safety flag.',
+  method: `FoldlineRules.RuntimeDeck/Judge 1:1 JS mirror; practice excluded; every one of the six sails receives one independent blind first input (${(RUNS * 6).toLocaleString('en-US')} samples/policy), so life loss cannot hide later tasks; a separate runtime pass measures progress/clear with three lives and the visible first-try mastery cutoff; blind bots never inspect task geometry or use the safety flag.`,
   lineSpace: {
     thetaDegrees: '[0,180)',
     signedOffset: `[-${L / 2},${L / 2}]`,
