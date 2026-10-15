@@ -347,7 +347,34 @@ namespace Mgf.FoldlineLab
                     { error = "misconception B accidental truth " + t.id; return false; }
                     var exact = Judge(t.target, t);
                     if (!exact.correct) { error = "exact target rejected " + t.id; return false; }
+                    // 허용창의 네 모서리(각도 ±, offset ±)도 실제 Judge 경로로 전수 확인한다.
+                    for (int sa = -1; sa <= 1; sa += 2)
+                    for (int so = -1; so <= 1; so += 2)
+                    {
+                        Vector2 d = Rot(t.target.direction, sa * 3.5f);
+                        Vector2 n = new Vector2(-d.y, d.x);
+                        if (Vector2.Dot(n, t.target.Normal) < 0f) n = -n;
+                        var corner = new FoldLine(n * (t.target.Offset + so * .34f), d);
+                        var boundary = Judge(corner, t);
+                        if (!boundary.correct) { error = "tolerance corner rejected " + t.id; return false; }
+                    }
                 }
+
+                // 외심/내심 시각화는 허용된 학생선이 아니라 정확한 목표선의 교점을 쓴다.
+                // 70개 실제 덱 전부에서 교과서의 등거리 성질을 수치로 확인한다.
+                if (!Intersect(deck[2].target, deck[3].target, out Vector2 o))
+                { error = "circumcenter intersection " + s; return false; }
+                float oa = Vector2.Distance(o, deck[3].a), ob = Vector2.Distance(o, deck[3].b), oc = Vector2.Distance(o, deck[3].c);
+                if (Mathf.Max(oa, Mathf.Max(ob, oc)) - Mathf.Min(oa, Mathf.Min(ob, oc)) > .001f)
+                { error = "circumcenter equal distance " + s; return false; }
+
+                if (!Intersect(deck[4].target, deck[5].target, out Vector2 inc))
+                { error = "incenter intersection " + s; return false; }
+                float ia = DistancePointLine(inc, deck[5].a, deck[5].b);
+                float ib = DistancePointLine(inc, deck[5].b, deck[5].c);
+                float ic = DistancePointLine(inc, deck[5].c, deck[5].a);
+                if (Mathf.Max(ia, Mathf.Max(ib, ic)) - Mathf.Min(ia, Mathf.Min(ib, ic)) > .001f)
+                { error = "incenter equal distance " + s; return false; }
             }
             if (kindCounts[(int)FoldTaskKind.Symmetry] != BankDeckCount ||
                 kindCounts[(int)FoldTaskKind.Impossible] != BankDeckCount ||
@@ -356,6 +383,12 @@ namespace Mgf.FoldlineLab
             { error = "runtime type coverage"; return false; }
             error = "";
             return true;
+        }
+
+        public static float DistancePointLine(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 d = (b - a).normalized;
+            return Mathf.Abs(Cross(d, p - a));
         }
     }
 }

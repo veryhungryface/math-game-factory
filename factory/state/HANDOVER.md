@@ -3,25 +3,25 @@
 > 마지막 갱신: 2026-10-16. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
-## 2026-10-16 — 「폴드라인」 1차 수정 완료 / QA 45·fatal 0 / 미게시
+## 2026-10-16 — 「폴드라인」 2차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u1` Unity 게임 `foldline-lab`을 병렬 레인
 `factory/work-lanes/20261016-000158-L2/`에서 제작했다. 정본은 `factory/unity-src/foldline-lab/`,
 WebGL 산출물은 `public/g/foldline-lab/`이며 게시·배포는 실행하지 않았다.
 
-- 불가능 판을 AB=4·BC=5·CA=3 cm인 명시적 부등변삼각형으로 바꾸고 SSA 설명을 제거했다. QA 표본은
-  실제 `RuntimeDeck` 70개×6문항과 동일한 420문항 은행이며 불가능 유형 70개도 Validate와 포인터 로그가 검사한다.
-- 연습에 누르기→끌기→놓기 시범과 연습 전용 보정을 넣었다. 최종 firstplay는 t6 연습 진입,
-  t26 실제 `drag-canvas` 성공, t31 본판 진입이며 ready true·console/page error 0이다.
-- 1440×900·2000px의 문제 카드/HUD를 3존 safe layout으로 고쳤고, 타이틀·thumb·square는 생성 이미지가
-  아닌 최종 런타임 디오라마를 사용한다. 동사형 태그라인·당김끈 궤적·점수 라벨도 화면에서 확인했다.
-- HUD는 `첫 시도 x/5 · 남은 허용 실수 n회`를 표시하고 두 번째 첫 시도 실패 즉시 회복 불능 gameover가 된다.
-  실제 pointer 전용 로그는 무실수 `clear/first6/lives3`, 첫 오답 회복 `clear/first5/lives2`, 독립 2회차
-  `clear/first6/lives3`, 조기 실패를 같은 최종 artifact에서 재현했고 console error 0이다.
-- B3 4정책×10,000판(각 60,000 첫 입력)은 고정·36방향 순환 0%, 무작위 0.335%≤우연 상한 0.356%,
-  무입력 진도 0이다. 최종 WebGL `5e767a92b953…`, Unity build **8.78MiB**(게임 폴더 **10.67MiB**),
-  warnings 0, 공식 QA **45/45·fatal 0**, 모바일/1280 **60fps**, 15초 유지율 **100%**다.
-- `fix.json`은 fixed9/not_fixed2(nice-to-have reduced-motion·연습 재진입만)·`replan_required=false`다.
+- mathcheck fail의 외심·내심 오답 피드백을 교과서 정의(세 변의 수직이등분선의 교점 / 세 내각의
+  이등분선의 교점)로 바로잡았다. 실제 pointer로 오개념 선을 제출해 최종 상태와 화면 문구를 확인했다.
+- 학생 허용선과 정확한 목표선을 분리했다. 중심 시각화는 target 두 선만 사용하며 70개 실제 덱의 외심·내심
+  등거리 불변량과 각 문항 허용창 네 모서리를 부팅 때 전수 검사한다. 실제 완주 `exactCenterSpread` 최대 5.96e-7이다.
+- 연습 잡기 띠를 유령 손 경로와 맞춰 넓혔다. 최종 해시 `ff52463b…` firstplay는 t22 실제 드래그로 연습 성공,
+  t25 본판 1/6 진입, 16프레임·ready true·console error 0이다.
+- 목표 HUD·문제 카드·evidence/toast를 safe zone으로 분리하고 타이틀 부제를 직물 리본 위로 옮겼다.
+  세계도 광학 프리즘 계열에서 불투명 돛천·직물 롤·권취 바퀴·황동 클램프·등거리 측정 리브의 폐쇄형
+  기계식 돛 공방으로 바꿨다. 최종 런타임에서 thumb/square를 다시 캡처했다.
+- 실제 pointer 전용 로그는 무실수 `clear/first6/lives3`, 첫 오답 회복 `clear/first5/lives2`, 독립 2회차
+  `clear/first6/lives3`, 조기 실패와 오개념 피드백을 같은 artifact에서 재현했고 passed=true다.
+- Unity 산출물 **8.8MB**(게임 폴더 **11MB**), 공식 QA **45/45·fatal 0**, 모바일/1280 **60fps**,
+  15초 유지율 **100%**다. `fix.json`은 fixed5/not_fixed3(nice-to-have만)·`replan_required=false`다.
 
 ## 2026-10-15 — 「루트 레코드」 3차 수정 완료 / QA 45·fatal 0 / 미게시
 

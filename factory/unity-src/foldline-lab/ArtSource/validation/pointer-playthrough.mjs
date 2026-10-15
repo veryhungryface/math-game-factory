@@ -63,6 +63,12 @@ function targets(st) {
   return { lineA: p(1), lineB: p(3), flag: p(5) };
 }
 
+function diagnosticTargets(st) {
+  const m = /^line:([\d.]+),([\d.]+)>([\d.]+),([\d.]+)$/.exec(st.diagnosticTarget || '');
+  if (!m) throw new Error(`bad diagnosticTarget: ${st.diagnosticTarget}`);
+  return { from: [Number(m[1]) * W, Number(m[2]) * H], to: [Number(m[3]) * W, Number(m[4]) * H] };
+}
+
 async function drag(page, from, to) {
   // The WebGL old Input Manager can keep the last pressed position while ignoring
   // hover-only movement at low FPS. Every prior submission parks that sampled
@@ -194,6 +200,20 @@ async function earlyMasteryFail(page, frames) {
   return { actions, final: afterSecondMiss };
 }
 
+
+async function swappedCenterFeedback(page, frames) {
+  const actions = []; await begin(page);
+  await submitCorrect(page, actions);
+  await submitCorrect(page, actions);
+  const before = await state(page);
+  const t = diagnosticTargets(before);
+  await drag(page, t.from, t.to);
+  const after = await waitFor(page, s => s.inputLocked && s.lastResult === 'wrong', 'swapped center feedback');
+  await page.screenshot({ path: path.join(OUT, 'swapped-center-feedback.png') });
+  frames.push('swapped-center-feedback.png');
+  return { before, gesture: t, after };
+}
+
 fs.mkdirSync(OUT, { recursive: true });
 const server = await serveStatic(PUBLIC);
 const browser = await puppeteer.launch({ headless: true, executablePath: chromePath(), protocolTimeout: 900000, args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio'] });
@@ -218,6 +238,7 @@ try {
   const recovery = await recoveryRun(page, frames);
   const second = await clearRun(page, 'second', frames);
   const earlyFail = await earlyMasteryFail(page, frames);
+  const swappedFeedback = await swappedCenterFeedback(page, frames);
   const playedIds = [...normal.actions, ...recovery.actions, ...second.actions, ...earlyFail.actions].map(x => x.problemId);
   const bankIds = new Set(bank.map(x => x.id));
   const typeCounts = {
@@ -235,7 +256,7 @@ try {
     input: 'trusted Puppeteer mouse down/move/up for every mathematical submission; start() only enters a run; answerCorrect()/answerWrong() are never called',
     frames, bankCount: bank.length, typeCounts, impossibleMath,
     playedProblemIds: playedIds, allPlayedProblemIdsInBank: playedIds.every(id => bankIds.has(id)),
-    normal, oneMistakeRecovery: recovery, independentSecondRun: second, earlyMasteryFail: earlyFail,
+    normal, oneMistakeRecovery: recovery, independentSecondRun: second, earlyMasteryFail: earlyFail, swappedFeedback,
     artifactStable: hashBefore === hashAfter, consoleErrors,
   };
   output.passed = output.artifactStable && consoleErrors.length === 0 && bank.length === 420 &&
@@ -243,7 +264,9 @@ try {
     normal.final.phase === 'clear' && normal.final.firstCorrect === 6 &&
     recovery.afterMistake.lives === 2 && recovery.final.phase === 'clear' && recovery.final.firstCorrect === 5 &&
     second.final.phase === 'clear' && second.final.firstCorrect === 6 &&
-    earlyFail.final.phase === 'gameover' && /더 이상 달성할 수 없다/.test(earlyFail.final.endReason || '');
+    earlyFail.final.phase === 'gameover' && /더 이상 달성할 수 없다/.test(earlyFail.final.endReason || '') &&
+    swappedFeedback.after.misconceptionId === 'circumcenter_incenter_swapped' &&
+    swappedFeedback.after.feedbackText === '외심은 세 변의 수직이등분선의 교점이고, 내심은 세 내각의 이등분선의 교점이다';
   fs.writeFileSync(path.join(HERE, 'pointer-playthrough-results.json'), `${JSON.stringify(output, null, 2)}\n`);
   console.log(JSON.stringify(output, null, 2));
   if (!output.passed) process.exitCode = 1;

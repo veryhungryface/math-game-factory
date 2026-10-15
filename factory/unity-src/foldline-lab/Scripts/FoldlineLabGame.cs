@@ -22,6 +22,7 @@ namespace Mgf.FoldlineLab
             public int scannerStep;
             public int pointerVersion;
             public int creases;
+            public float exactCenterSpread;
             public bool onboarding;
             public bool frozen;
             public bool trap;
@@ -30,8 +31,10 @@ namespace Mgf.FoldlineLab
             public string mode = "";
             public string lastResult = "";
             public string misconceptionId = "";
+            public string feedbackText = "";
             public string endReason = "";
             public string inputTargets = "";
+            public string diagnosticTarget = "";
         }
 
         enum Flow { Title, Practice, Drawing, Resolving, End }
@@ -40,6 +43,10 @@ namespace Mgf.FoldlineLab
         readonly State st = new State();
         readonly List<MgfProblem> bank = new List<MgfProblem>();
         readonly List<FoldLine> acceptedCreases = new List<FoldLine>(2);
+        // 학생이 그은 허용선은 조작 흔적으로 남기되, 수학 중심 시각화에는
+        // 각 문항의 정확한 목표선만 사용한다. 두 목록을 섞으면 허용오차 경계의
+        // 정답선 두 개가 만드는 교점이 외심/내심의 정의와 어긋날 수 있다.
+        readonly List<FoldLine> exactCreases = new List<FoldLine>(2);
         List<FoldTask> deck;
         FoldTask task;
         Flow flow = Flow.Title;
@@ -135,8 +142,8 @@ namespace Mgf.FoldlineLab
             st.sail = 0; st.firstCorrect = 0; st.firstAttempted = 0; st.attempts = 0; st.combo = 0;
             st.scannerStep = 0; st.pointerVersion = 0; st.creases = 0;
             st.onboarding = false; st.frozen = true; st.trap = false; st.inputLocked = false;
-            st.problemId = ""; st.mode = "title"; st.lastResult = ""; st.misconceptionId = ""; st.endReason = "";
-            acceptedCreases.Clear();
+            st.problemId = ""; st.mode = "title"; st.lastResult = ""; st.misconceptionId = ""; st.feedbackText = ""; st.endReason = "";
+            acceptedCreases.Clear(); exactCreases.Clear();
             ResetStageVisuals();
             SetScreen();
             WriteState();
@@ -156,9 +163,9 @@ namespace Mgf.FoldlineLab
             firstAttempt = true;
             idleClock = 0f;
             st.phase = "practice"; st.onboarding = true; st.frozen = true; st.trap = false; st.inputLocked = false;
-            st.problemId = task.id; st.mode = "symmetry"; st.lastResult = ""; st.misconceptionId = "";
+            st.problemId = task.id; st.mode = "symmetry"; st.lastResult = ""; st.misconceptionId = ""; st.feedbackText = "";
             st.level = 1; st.sail = 0; st.creases = 0;
-            acceptedCreases.Clear();
+            acceptedCreases.Clear(); exactCreases.Clear();
             LoadTaskVisual(task, true);
             SetGoal("접은 쪽이 딱 겹치게 선을 그어 접으시오");
             ShowGuide(true);
@@ -177,8 +184,8 @@ namespace Mgf.FoldlineLab
             st.phase = "playing"; st.score = 0; st.lives = FoldlineRules.StartLives; st.level = 1; st.solved = 0;
             st.sail = 1; st.firstCorrect = 0; st.firstAttempted = 0; st.attempts = 0; st.combo = 0;
             st.scannerStep = 0; st.creases = 0; st.onboarding = false; st.frozen = false;
-            st.lastResult = ""; st.misconceptionId = ""; st.endReason = "";
-            acceptedCreases.Clear();
+            st.lastResult = ""; st.misconceptionId = ""; st.feedbackText = ""; st.endReason = ""; st.exactCenterSpread = 0f;
+            acceptedCreases.Clear(); exactCreases.Clear();
             BeginTask();
             SetScreen();
             WriteState();
@@ -189,7 +196,7 @@ namespace Mgf.FoldlineLab
             if (index >= deck.Count)
             {
                 bool mastery = st.firstCorrect >= FoldlineRules.RequiredFirstCorrect;
-                EndRun(mastery, mastery ? "여섯 돛의 헤일로 조율 완료" : "첫 시도 정답이 5/6에 미치지 못했다");
+                EndRun(mastery, mastery ? "여섯 돛의 중심 리브 체결 완료" : "첫 시도 정답이 5/6에 미치지 못했다");
                 return;
             }
             task = deck[index];
@@ -198,8 +205,12 @@ namespace Mgf.FoldlineLab
             flow = Flow.Drawing;
             st.phase = "playing"; st.sail = index + 1; st.level = task.level; st.problemId = task.id;
             st.mode = ModeName(task.kind); st.trap = task.kind == FoldTaskKind.Impossible; st.inputLocked = false;
-            st.lastResult = ""; st.misconceptionId = "";
-            if (index == 0 || deck[index - 1].group != task.group) acceptedCreases.Clear();
+            st.lastResult = ""; st.misconceptionId = ""; st.feedbackText = "";
+            if (index == 0 || deck[index - 1].group != task.group)
+            {
+                acceptedCreases.Clear();
+                exactCreases.Clear();
+            }
             st.creases = acceptedCreases.Count;
             LoadTaskVisual(task, false);
             SetGoal(task.prompt);
@@ -257,7 +268,11 @@ namespace Mgf.FoldlineLab
                     return;
                 }
                 Vector2 world = ScreenToStage(pos);
-                if (!InsideFrame(world))
+                // 연습에서는 화면에 보이는 유령 손의 넓은 이동 띠 전체를 잡을 수 있다.
+                // 저프레임 입력에서 정확한 시작 구를 놓쳐도 실제 드래그 길이는 학생이 만든다.
+                bool practiceGrabBand = practice && pos.x >= Screen.width * .08f && pos.x <= Screen.width * .92f
+                    && pos.y >= Screen.height * .22f && pos.y <= Screen.height * .78f;
+                if (!InsideFrame(world) && !practiceGrabBand)
                 {
                     Refuse(task.kind == FoldTaskKind.Impossible ? "안전 깃을 돛 위로 끌어 꽂으시오." : "태양돛 위에서 선을 시작하시오.");
                     BouncePins();
@@ -266,9 +281,15 @@ namespace Mgf.FoldlineLab
                     return;
                 }
                 drag = DragMode.Line;
-                dragStartWorld = world;
-                dragEndWorld = world;
-                BeginLinePreview(world);
+                if (practice)
+                {
+                    // 유령 손 경로와 실제 hit 영역을 같은 정답선 띠에 맞춘다.
+                    float along = Vector2.Dot(world - task.target.point, task.target.direction);
+                    dragStartWorld = task.target.point + task.target.direction * Mathf.Clamp(along, -2.7f, 2.7f);
+                }
+                else dragStartWorld = world;
+                dragEndWorld = dragStartWorld;
+                BeginLinePreview(dragStartWorld);
                 WriteState();
             }
             else if (MgfPointer.Held)
@@ -377,7 +398,11 @@ namespace Mgf.FoldlineLab
                 int gain = 100 + Mathf.Min(4, st.combo) * 25;
                 st.score += gain;
                 if (!practice) runClock = Mathf.Max(0f, runClock - 6.5f);
-                if (line != null) acceptedCreases.Add(line);
+                if (line != null)
+                {
+                    acceptedCreases.Add(line);
+                    exactCreases.Add(task.target);
+                }
                 st.creases = acceptedCreases.Count;
                 if (practice)
                 {
@@ -397,7 +422,7 @@ namespace Mgf.FoldlineLab
                         ? "세 변의 길이가 모두 달라 선대칭축이 없다"
                         : (task.kind == FoldTaskKind.VertexPair ? "두 꼭짓점에서 같은 거리인 자국이다" : "두 변이 포개지는 각의 이등분선이다"));
                 }
-                BeginFoldAnimation(line, true, task.haloAfter, task.circumHalo, acceptedCreases);
+                BeginFoldAnimation(line, true, task.haloAfter, task.circumHalo, exactCreases);
                 hitStop = fastMode ? 0f : .08f;
                 MgfSfx.Play(task.haloAfter ? "win" : "correct", .48f);
             }
@@ -416,6 +441,7 @@ namespace Mgf.FoldlineLab
                     }
                 }
                 string reason = FeedbackFor(misconception, lastJudge);
+                st.feedbackText = reason;
                 ShowWrongEvidence(reason);
                 BeginFoldAnimation(line, false, false, false, acceptedCreases);
                 MgfSfx.Play("wrong", .42f);
@@ -429,15 +455,15 @@ namespace Mgf.FoldlineLab
             switch (id)
             {
                 case "visual_top_vertex": return "화면 위쪽이 아니라 같은 두 변의 끼인각을 찾으시오";
-                case "circumcenter_incenter_swapped": return "외심은 꼭짓점 쌍의 수직이등분선, 내심은 변 쌍의 각 이등분선이다";
+                case "circumcenter_incenter_swapped": return "외심은 세 변의 수직이등분선의 교점이고, 내심은 세 내각의 이등분선의 교점이다";
                 case "outside_center_denial": return "둔각삼각형의 외심은 돛 밖에 있을 수 있다";
                 case "midpoint_without_perpendicular": return "중점만 지나지 말고 선분과 수직이어야 한다";
                 case "offset_only_miss": return "방향은 가깝다. 선을 평행하게 옮겨 두 대상을 정확히 포개시오";
                 case "direction_only_miss": return "위치는 가깝다. 선의 방향을 돌려 두 대상을 포개시오";
                 case "scalene_symmetry_assumed": return "AB=4 cm, BC=5 cm, CA=3 cm로 같은 길이인 두 변이 없어 선대칭축이 없다";
                 default:
-                    if (j.angleError > FoldlineRules.AngleTolerance && j.offsetError > FoldlineRules.OffsetTolerance) return "방향과 위치가 모두 어긋났다. 흰 점선을 확인하시오";
-                    return "청록과 주홍 반사띠가 겹치지 않았다. 흰 점선을 확인하시오";
+                    if (j.angleError > FoldlineRules.AngleTolerance && j.offsetError > FoldlineRules.OffsetTolerance) return "방향과 위치가 모두 어긋났다. 기준 점선을 확인하시오";
+                    return "접힌 두 면이 포개지지 않았다. 기준 점선을 확인하시오";
             }
         }
 
@@ -501,6 +527,7 @@ namespace Mgf.FoldlineLab
         void WriteState()
         {
             st.inputTargets = BuildInputTargetString();
+            st.diagnosticTarget = BuildDiagnosticTargetString();
             MgfBridge.NotifyChanged();
         }
 
@@ -538,6 +565,7 @@ namespace Mgf.FoldlineLab
         {
             // 뷰포트·카메라가 바뀐 뒤에도 실제 현재 좌표를 내보낸다. 시간값은 상태에 넣지 않는다.
             st.inputTargets = BuildInputTargetString();
+            st.diagnosticTarget = BuildDiagnosticTargetString();
             return JsonUtility.ToJson(st);
         }
         public string ProblemBankJson() { return MgfJson.Bank(bank); }

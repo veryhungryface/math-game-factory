@@ -20,7 +20,7 @@ namespace Mgf.FoldlineLab
         static readonly Color DeepBlue = MgfLook.Hex("#163B74");
 
         const float SailY = .72f;
-        const int CloudCount = 30;
+        const int CloudCount = 24;
         const int HangingCount = 6;
         const int RippleCount = 8;
 
@@ -38,6 +38,8 @@ namespace Mgf.FoldlineLab
         readonly Transform[] pins = new Transform[4];
         readonly Transform[] guideDots = new Transform[12];
         readonly LineRenderer[] acceptedLines = new LineRenderer[2];
+        readonly LineRenderer[] proofSpokes = new LineRenderer[3];
+        readonly Transform[] seamClamps = new Transform[9];
         LineRenderer previewLine, cyanBand, orangeBand, correctGhost, haloRing, innerRing;
         LineRenderer tickA, tickB;
         Mesh fullMesh, fixedMesh, foldMesh;
@@ -53,7 +55,7 @@ namespace Mgf.FoldlineLab
 
         // UI
         CanvasGroup titleG, playG, endG, evidenceG, toastG, tutorialG;
-        RectTransform titleRt, titleArtRt, playRt, endRt, evidenceRt, toastRt, restartRt, rippleRoot, promptPlateRt, tutorialRt;
+        RectTransform titleRt, titleArtRt, playRt, endRt, evidenceRt, toastRt, restartRt, rippleRoot, promptPlateRt, tutorialRt, masteryPlateRt;
         RawImage titleArtImage;
         TextMeshProUGUI logoBack, logoFront, titleTag, titleHint, titleBest;
         TextMeshProUGUI progressText, livesText, scoreText, masteryText, promptText, modeText, scannerText, tutorialText;
@@ -71,8 +73,9 @@ namespace Mgf.FoldlineLab
             var keep = new GameObject("Collider type keep");
             keep.AddComponent<SphereCollider>(); keep.AddComponent<CapsuleCollider>(); keep.AddComponent<MeshCollider>();
             Destroy(keep);
-            MgfLook.Sky(MgfLook.Hex("#2186D0"), MgfLook.Hex("#BDE8F7"), MgfLook.Hex("#EEF8F7"), .92f);
-            MgfLook.Sun(new Vector3(48, -35, 10), MgfLook.Hex("#FFF4D4"), 1.25f, .62f);
+            // 폐쇄형 돛 직물 공방: 기존 광학 프리즘 계열의 밝은 구름 바다와 분리한다.
+            MgfLook.Sky(MgfLook.Hex("#1D3444"), MgfLook.Hex("#667B78"), MgfLook.Hex("#D8C7A1"), .72f);
+            MgfLook.Sun(new Vector3(48, -35, 10), MgfLook.Hex("#FFE0A3"), 1.05f, .48f);
             cam = MgfLook.Camera(titleCamPos, new Vector3(0, .2f, .4f), 32f);
             cam.orthographic = true;
             cam.orthographicSize = 8.4f;
@@ -88,15 +91,15 @@ namespace Mgf.FoldlineLab
             creamMat = MgfLook.Lit(Cream, .55f, .02f);
             graphiteMat = MgfLook.Lit(Graphite, .34f, .4f);
             whiteGlowMat = MgfLook.Lit(White, .72f, .15f, White * 1.15f);
-            cloudMat = MgfLook.Lit(MgfLook.Hex("#EAF6F8"), .15f, 0f);
-            sailMat = MgfLook.Lit(new Color(0.78f, .95f, .94f, 1), .86f, .08f, new Color(.04f, .15f, .18f), mylar);
-            sailFoldMat = MgfLook.Lit(new Color(.98f, .9f, .7f, 1), .9f, .08f, new Color(.12f, .08f, .02f), mylar);
-            cyanLineMat = MgfLook.Additive(new Color(Cyan.r, Cyan.g, Cyan.b, .92f));
-            orangeLineMat = MgfLook.Additive(new Color(Persimmon.r, Persimmon.g, Persimmon.b, .92f));
-            whiteLineMat = MgfLook.Additive(new Color(1, 1, 1, .96f));
+            cloudMat = MgfLook.Lit(MgfLook.Hex("#9B7454"), .22f, .02f);
+            sailMat = MgfLook.Lit(MgfLook.Hex("#E9D6A7"), .28f, .01f, MgfLook.Hex("#251A0E") * .02f);
+            sailFoldMat = MgfLook.Lit(MgfLook.Hex("#C96D43"), .32f, .02f, MgfLook.Hex("#32120A") * .03f);
+            cyanLineMat = MgfLook.Unlit(MgfLook.Hex("#2F6663"));
+            orangeLineMat = MgfLook.Unlit(MgfLook.Hex("#C44F2E"));
+            whiteLineMat = MgfLook.Unlit(MgfLook.Hex("#FFF2C9"));
             flagMat = MgfLook.Lit(MgfLook.Hex("#D83D37"), .28f, .05f);
 
-            worldRoot = new GameObject("Stratosphere fold calibration yard").transform;
+            worldRoot = new GameObject("Enclosed mechanical sail loft").transform;
             BuildCloudSea();
             BuildGantry();
             BuildStage();
@@ -106,15 +109,16 @@ namespace Mgf.FoldlineLab
 
         void BuildCloudSea()
         {
-            var sea = new GameObject("Moving cloud sea").transform;
+            var sea = new GameObject("Moving fabric roller gallery").transform;
             sea.SetParent(worldRoot, false);
             for (int i = 0; i < clouds.Length; i++)
             {
-                float x = -17f + (i * 37 % 340) / 10f;
-                float z = -12f + (i * 53 % 240) / 10f;
-                float y = -2.75f - (i % 4) * .18f;
-                Vector3 scale = new Vector3(3.2f + (i % 5) * .65f, .7f + (i % 3) * .24f, 2.1f + (i % 4) * .55f);
-                var c = MgfLook.Prim(PrimitiveType.Sphere, "Cloud bank", new Vector3(x, y, z), scale, cloudMat, sea, false).transform;
+                float x = -16f + (i * 37 % 320) / 10f;
+                float z = -10f + (i * 53 % 220) / 10f;
+                float y = -2.3f - (i % 3) * .28f;
+                Vector3 scale = new Vector3(.62f + (i % 3) * .13f, 1.5f + (i % 5) * .28f, .62f + (i % 3) * .13f);
+                var c = MgfLook.Prim(PrimitiveType.Cylinder, "Rolled sail cloth", new Vector3(x, y, z), scale, cloudMat, sea, false).transform;
+                c.localRotation = Quaternion.Euler(0, i * 23f, 90f);
                 clouds[i] = c; cloudHome[i] = c.localPosition;
             }
         }
@@ -193,12 +197,24 @@ namespace Mgf.FoldlineLab
                 acceptedLines[i].gameObject.SetActive(false);
             }
 
+            for (int i = 0; i < seamClamps.Length; i++)
+            {
+                seamClamps[i] = MgfLook.Block("Brass seam clamp " + i, Vector3.zero,
+                    new Vector3(.22f, .16f, .44f), .05f, persimmonMat, stageRoot).transform;
+                seamClamps[i].gameObject.SetActive(false);
+            }
+
             scanner = MgfLook.Block("Heat scanner", new Vector3(0, .98f, 4.25f), new Vector3(10.2f, .13f, .2f), .06f, persimmonMat, stageRoot).transform;
             haloRing = MakeCircle("Outer halo frame", whiteLineMat, 128, .12f);
             innerRing = MakeCircle("Inner halo frame", cyanLineMat, 96, .06f);
             haloRing.gameObject.SetActive(false); innerRing.gameObject.SetActive(false);
             haloPoint = MgfLook.Prim(PrimitiveType.Sphere, "Halo center flare", Vector3.zero, Vector3.one * .22f, whiteGlowMat, stageRoot, false).transform;
             haloPoint.gameObject.SetActive(false);
+            for (int i = 0; i < proofSpokes.Length; i++)
+            {
+                proofSpokes[i] = MakeLine("Equal-distance measuring rib " + i, i == 0 ? orangeLineMat : graphiteMat, .065f);
+                proofSpokes[i].gameObject.SetActive(false);
+            }
 
             BuildFlag();
             BuildGuide();
@@ -237,12 +253,13 @@ namespace Mgf.FoldlineLab
                 MgfLook.Block("Vane blade", new Vector3(.65f, 0, 0), new Vector3(1.35f, .14f, .42f), .06f, persimmonMat, v);
                 vanes[i] = v;
             }
-            var right = new GameObject("Completed halo rack").transform; right.SetParent(worldRoot, false); right.localPosition = new Vector3(8.35f, 0, .5f);
-            MgfLook.Block("Halo rack mast", new Vector3(0, 2.4f, 0), new Vector3(.26f, 6f, .26f), .08f, cobaltDarkMat, right);
+            var right = new GameObject("Stored measuring rib rack").transform; right.SetParent(worldRoot, false); right.localPosition = new Vector3(8.35f, 0, .5f);
+            MgfLook.Block("Rib rack mast", new Vector3(0, 2.4f, 0), new Vector3(.26f, 6f, .26f), .08f, cobaltDarkMat, right);
             for (int i = 0; i < 4; i++)
             {
-                var lr = MakeCircle("Stored halo", i % 2 == 0 ? cyanLineMat : orangeLineMat, 64, .045f, right);
-                SetCircle(lr, new Vector2(0, -.7f + i * 1.65f), .62f + i * .06f, 1.25f);
+                var lr = MakeLine("Stored measuring rib", i % 2 == 0 ? graphiteMat : orangeLineMat, .09f, right);
+                float z = -.9f + i * 1.55f;
+                SetLine(lr, new Vector2(-.72f, z - .2f), new Vector2(.72f, z + .2f), 1.25f);
                 vanes[4 + i] = lr.transform;
             }
             for (int i = 0; i < hangingSails.Length; i++)
@@ -261,9 +278,14 @@ namespace Mgf.FoldlineLab
             MgfLook.Block("Cord", new Vector3(0, -.9f, 0), new Vector3(.1f, 1.9f, .1f), .03f, graphiteMat, cordRoot);
             MgfLook.Prim(PrimitiveType.Sphere, "Ceramic pull", new Vector3(0, -1.9f, 0), new Vector3(.75f, .42f, .55f), persimmonMat, cordRoot, true);
             titleCueKnob = MgfLook.Prim(PrimitiveType.Sphere, "Animated pull cue", new Vector3(0, -1.55f, -.18f), Vector3.one * .22f, whiteGlowMat, cordRoot, false).transform;
-            titleHalo = new GameObject("Title rotating halo").transform; titleHalo.SetParent(worldRoot, false); titleHalo.localPosition = new Vector3(0, 2.3f, 1.2f);
-            var h1 = MakeCircle("Title halo A", whiteLineMat, 128, .09f, titleHalo); SetCircle(h1, Vector2.zero, 4.35f, 0f);
-            var h2 = MakeCircle("Title halo B", cyanLineMat, 128, .045f, titleHalo); SetCircle(h2, Vector2.zero, 3.85f, .02f);
+            titleHalo = new GameObject("Title rotating winding wheel").transform; titleHalo.SetParent(worldRoot, false); titleHalo.localPosition = new Vector3(0, 2.3f, 1.2f);
+            var h1 = MakeCircle("Winding wheel rim", graphiteMat, 96, .13f, titleHalo); SetCircle(h1, Vector2.zero, 4.35f, 0f);
+            for (int i = 0; i < 8; i++)
+            {
+                float a = i * Mathf.PI / 4f;
+                var spoke = MakeLine("Winding wheel spoke", i % 2 == 0 ? orangeLineMat : graphiteMat, .07f, titleHalo);
+                SetLine(spoke, Vector2.zero, new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 4.15f, .01f);
+            }
         }
 
         void BuildUi()
@@ -287,15 +309,19 @@ namespace Mgf.FoldlineLab
             logoBack.characterSpacing = 12; logoBack.fontStyle = FontStyles.Bold;
             logoFront = Txt(titleRt, "폴 드 라 인", new Vector2(.5f, .78f), Vector2.zero, 49, Cream, 370, TextAlignmentOptions.Center);
             logoFront.characterSpacing = 12; logoFront.fontStyle = FontStyles.Bold;
-            titleTag = Txt(titleRt, "접는 선을 그어 중심을 밝혀라", new Vector2(.5f, .70f), Vector2.zero, 18, DeepBlue, 340);
-            titleHint = Txt(titleRt, "●  당김끈을 아래로 끌어 조율판 열기", new Vector2(.5f, .10f), Vector2.zero, 18, DeepBlue, 360);
+            var titleRibbon = Img(titleRt, "Hanging cloth title ribbon", new Vector2(.5f, .64f), Vector2.zero,
+                new Vector2(350, 46), new Color(DeepBlue.r, DeepBlue.g, DeepBlue.b, .90f), roundSprite);
+            titleTag = Txt(titleRibbon.transform, "접는 선을 그어 중심 리브를 잠가라", Vector2.one * .5f, Vector2.zero, 18, Cream, 330);
+            titleHint = Txt(titleRt, "●  당김끈을 아래로 끌어 돛 공방 열기", new Vector2(.5f, .10f), Vector2.zero, 18, DeepBlue, 360);
             titleBest = Txt(titleRt, "중학교 2학년 · 삼각형의 성질", new Vector2(.5f, .045f), Vector2.zero, 14, Graphite, 350);
 
             playRt = ScreenRoot("Play", root); playG = playRt.gameObject.AddComponent<CanvasGroup>();
             progressText = Txt(playRt, "돛 1/6", new Vector2(.12f, .955f), Vector2.zero, 16, DeepBlue, 100);
             livesText = Txt(playRt, "오접힘 ◇◇◇", new Vector2(.50f, .955f), Vector2.zero, 16, DeepBlue, 170);
             scoreText = Txt(playRt, "점수 0", new Vector2(.79f, .955f), Vector2.zero, 16, Persimmon, 120);
-            masteryText = Txt(playRt, "첫 시도 0/5 · 남은 허용 실수 1회", new Vector2(.5f, .915f), Vector2.zero, 13, DeepBlue, 350);
+            var masteryBg = Img(playRt, "Mastery status plate", new Vector2(.5f, .915f), Vector2.zero, new Vector2(356, 38), new Color(Cream.r, Cream.g, Cream.b, .94f), roundSprite);
+            masteryPlateRt = masteryBg.rectTransform;
+            masteryText = Txt(masteryPlateRt, "첫 시도 0/5 · 남은 허용 실수 1회", Vector2.one * .5f, Vector2.zero, 13, DeepBlue, 342);
             var promptBg = Img(playRt, "Prompt sailplate", new Vector2(.5f, .865f), Vector2.zero, new Vector2(362, 82), new Color(Cream.r, Cream.g, Cream.b, .94f), roundSprite);
             promptPlateRt = promptBg.rectTransform;
             promptText = Txt(promptBg.transform, "", new Vector2(.5f, .55f), Vector2.zero, 18, DeepBlue, 334);
@@ -442,6 +468,8 @@ namespace Mgf.FoldlineLab
             tickA.gameObject.SetActive(false); tickB.gameObject.SetActive(false);
             dragHandleA.gameObject.SetActive(false); dragHandleB.gameObject.SetActive(false);
             for (int i = 0; i < acceptedLines.Length; i++) acceptedLines[i].gameObject.SetActive(false);
+            for (int i = 0; i < seamClamps.Length; i++) seamClamps[i].gameObject.SetActive(false);
+            for (int i = 0; i < proofSpokes.Length; i++) proofSpokes[i].gameObject.SetActive(false);
             scanner.localPosition = new Vector3(0, .98f, 4.25f);
         }
 
@@ -518,7 +546,21 @@ namespace Mgf.FoldlineLab
                 fixedSail.gameObject.SetActive(true);
                 SetInfiniteLine(cyanBand, FoldlineRules.Shift(line, .22f), 1.03f);
                 SetInfiniteLine(orangeBand, FoldlineRules.Shift(line, -.22f), 1.04f);
-                cyanBand.gameObject.SetActive(true); orangeBand.gameObject.SetActive(true);
+                cyanBand.gameObject.SetActive(!correct); orangeBand.gameObject.SetActive(!correct);
+                if (correct)
+                {
+                    SegmentInsideFrame(line, out Vector2 seamA, out Vector2 seamB);
+                    float yaw = -Mathf.Atan2((seamB - seamA).y, (seamB - seamA).x) * Mathf.Rad2Deg;
+                    for (int i = 0; i < seamClamps.Length; i++)
+                    {
+                        float u = (i + 1f) / (seamClamps.Length + 1f);
+                        Vector2 p = Vector2.Lerp(seamA, seamB, u);
+                        seamClamps[i].localPosition = new Vector3(p.x, 1.05f, p.y);
+                        seamClamps[i].localRotation = Quaternion.Euler(0, yaw, 0);
+                        seamClamps[i].localScale = Vector3.one * .15f;
+                        seamClamps[i].gameObject.SetActive(true);
+                    }
+                }
             }
             if (!correct && task.target != null)
             {
@@ -528,10 +570,18 @@ namespace Mgf.FoldlineLab
             if (showHalo && creases.Count >= 2 && FoldlineRules.Intersect(creases[0], creases[1], out Vector2 center))
             {
                 haloActive = true; haloCircum = circum; haloCenter = center; haloVisual = 0f;
-                if (circum) haloRadius = (Vector2.Distance(center, task.a) + Vector2.Distance(center, task.b) + Vector2.Distance(center, task.c)) / 3f;
-                else haloRadius = DistancePointLine(center, task.a, task.b);
-                haloRadius = Mathf.Clamp(haloRadius, .75f, 6.8f);
-                haloRing.gameObject.SetActive(true); innerRing.gameObject.SetActive(true); haloPoint.gameObject.SetActive(true);
+                Vector2[] ends = circum
+                    ? new[] { task.a, task.b, task.c }
+                    : new[] { FootOnLine(center, task.a, task.b), FootOnLine(center, task.b, task.c), FootOnLine(center, task.c, task.a) };
+                float min = float.MaxValue, max = 0f;
+                for (int i = 0; i < proofSpokes.Length; i++)
+                {
+                    float d = Vector2.Distance(center, ends[i]); min = Mathf.Min(min, d); max = Mathf.Max(max, d);
+                    SetLine(proofSpokes[i], center, ends[i], 1.08f);
+                    proofSpokes[i].gameObject.SetActive(true);
+                }
+                st.exactCenterSpread = max - min;
+                haloRing.gameObject.SetActive(false); innerRing.gameObject.SetActive(false); haloPoint.gameObject.SetActive(true);
             }
         }
 
@@ -554,10 +604,10 @@ namespace Mgf.FoldlineLab
             if (haloActive)
             {
                 haloVisual = EaseOutBack(Mathf.Clamp01((k - .28f) / .62f));
-                SetCircle(haloRing, haloCenter, haloRadius * haloVisual, 1.08f);
-                SetCircle(innerRing, haloCenter, haloRadius * .92f * haloVisual, 1.09f);
                 haloPoint.localPosition = StageWorld(haloCenter) - stageRoot.position + Vector3.up * .45f;
                 haloPoint.localScale = Vector3.one * (.18f + haloVisual * .65f);
+                for (int i = 0; i < seamClamps.Length; i++) if (seamClamps[i].gameObject.activeSelf)
+                    seamClamps[i].localScale = Vector3.one * Mathf.Lerp(.15f, 1f, haloVisual);
             }
         }
 
@@ -572,6 +622,8 @@ namespace Mgf.FoldlineLab
                 acceptedLines[at].gameObject.SetActive(true); SetInfiniteLine(acceptedLines[at], submitted, .93f);
             }
             haloActive = false; haloRing.gameObject.SetActive(false); innerRing.gameObject.SetActive(false); haloPoint.gameObject.SetActive(false);
+            for (int i = 0; i < seamClamps.Length; i++) seamClamps[i].gameObject.SetActive(false);
+            for (int i = 0; i < proofSpokes.Length; i++) proofSpokes[i].gameObject.SetActive(false);
             BuildFullTriangle(task.a, task.b, task.c);
         }
 
@@ -704,14 +756,16 @@ namespace Mgf.FoldlineLab
 
         void ShowCorrectEvidence(string text)
         {
-            evidenceTitle.text = "정밀 조율";
+            evidenceTitle.text = "중심 리브 체결";
             evidenceTitle.color = Cobalt; evidenceBody.text = text; evidenceClock = resolveDuration; evidenceG.alpha = 1;
+            toastClock = 0f; toastG.alpha = 0f;
         }
 
         void ShowWrongEvidence(string text)
         {
-            evidenceTitle.text = "두 반사띠가 어긋났다";
+            evidenceTitle.text = "접힌 두 면이 어긋났다";
             evidenceTitle.color = Persimmon; evidenceBody.text = text; evidenceClock = resolveDuration; evidenceG.alpha = 1;
+            toastClock = 0f; toastG.alpha = 0f;
         }
 
         void HideEvidence() { evidenceClock = 0; evidenceG.alpha = 0; }
@@ -729,7 +783,7 @@ namespace Mgf.FoldlineLab
 
         void ShowEnd(bool clear, string reason)
         {
-            SetScreen(); endTitle.text = clear ? "헤일로 조율 완료" : "조율 프레임 잠금";
+            SetScreen(); endTitle.text = clear ? "중심 리브 체결 완료" : "조율 프레임 잠금";
             endTitle.color = clear ? Cobalt : Persimmon; endReason.text = reason; endCount = 0;
             endStats.text = "0점 · 첫 시도 0/6";
             if (clear)
@@ -802,6 +856,15 @@ namespace Mgf.FoldlineLab
                 + ";flag:" + N(f.x / Screen.width) + "," + N(1f - f.y / Screen.height);
         }
 
+        string BuildDiagnosticTargetString()
+        {
+            if (!cam || task == null || task.misconceptionA == null || flow == Flow.Title || flow == Flow.End) return "";
+            SegmentInsideFrame(task.misconceptionA, out Vector2 start, out Vector2 end);
+            Vector3 a = cam.WorldToScreenPoint(StageWorld(start));
+            Vector3 b = cam.WorldToScreenPoint(StageWorld(end));
+            return "line:" + N(a.x / Screen.width) + "," + N(1f - a.y / Screen.height) + ">" + N(b.x / Screen.width) + "," + N(1f - b.y / Screen.height);
+        }
+
         static string N(float x) { return Mathf.Clamp01(x).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture); }
 
         static void SegmentInsideFrame(FoldLine line, out Vector2 start, out Vector2 end)
@@ -839,13 +902,14 @@ namespace Mgf.FoldlineLab
                 Place(progressText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -10), new Vector2(112, 40));
                 Place(livesText.rectTransform, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -10), new Vector2(184, 40));
                 Place(scoreText.rectTransform, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-70, -10), new Vector2(130, 40));
-                Place(masteryText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -48), new Vector2(260, 38));
-                Place(promptPlateRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -82), new Vector2(260, 148));
+                Place(masteryPlateRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -48), new Vector2(260, 38));
+                Place(masteryText.rectTransform, Vector2.one * .5f, Vector2.one * .5f, Vector2.zero, new Vector2(244, 34));
+                Place(promptPlateRt, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -94), new Vector2(260, 148));
                 Place(promptText.rectTransform, new Vector2(.5f, .61f), Vector2.one * .5f, Vector2.zero, new Vector2(232, 98));
                 Place(modeText.rectTransform, new Vector2(.5f, .14f), Vector2.one * .5f, Vector2.zero, new Vector2(232, 46));
-                Place(scannerText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -238), new Vector2(260, 34));
+                Place(scannerText.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -250), new Vector2(260, 34));
                 Place(tutorialRt, Vector2.zero, Vector2.zero, new Vector2(18, 18), new Vector2(260, 82));
-                Place(evidenceRt, Vector2.one, Vector2.one, new Vector2(-24, -72), new Vector2(300, 104));
+                Place(evidenceRt, Vector2.one, Vector2.one, new Vector2(-24, -82), new Vector2(330, 126));
                 Place(toastRt, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 18), new Vector2(350, 56));
                 promptText.fontSize = 15; modeText.fontSize = 11; masteryText.fontSize = 12;
                 promptText.textWrappingMode = TextWrappingModes.Normal; modeText.textWrappingMode = TextWrappingModes.Normal;
@@ -855,14 +919,15 @@ namespace Mgf.FoldlineLab
                 Place(progressText.rectTransform, new Vector2(.12f, .965f), Vector2.one * .5f, Vector2.zero, new Vector2(100, 42));
                 Place(livesText.rectTransform, new Vector2(.49f, .965f), Vector2.one * .5f, Vector2.zero, new Vector2(170, 42));
                 Place(scoreText.rectTransform, new Vector2(.79f, .965f), Vector2.one * .5f, Vector2.zero, new Vector2(120, 42));
-                Place(masteryText.rectTransform, new Vector2(.5f, .918f), Vector2.one * .5f, Vector2.zero, new Vector2(350, 38));
+                Place(masteryPlateRt, new Vector2(.5f, .918f), Vector2.one * .5f, Vector2.zero, new Vector2(356, 38));
+                Place(masteryText.rectTransform, Vector2.one * .5f, Vector2.one * .5f, Vector2.zero, new Vector2(342, 34));
                 Place(promptPlateRt, new Vector2(.5f, .84f), Vector2.one * .5f, Vector2.zero, new Vector2(362, 104));
                 Place(promptText.rectTransform, new Vector2(.5f, .59f), Vector2.one * .5f, Vector2.zero, new Vector2(334, 72));
                 Place(modeText.rectTransform, new Vector2(.5f, .13f), Vector2.one * .5f, Vector2.zero, new Vector2(330, 40));
                 Place(scannerText.rectTransform, new Vector2(.5f, .755f), Vector2.one * .5f, Vector2.zero, new Vector2(240, 34));
                 Place(tutorialRt, new Vector2(.5f, .13f), Vector2.one * .5f, Vector2.zero, new Vector2(360, 86));
-                Place(evidenceRt, new Vector2(.5f, .27f), Vector2.one * .5f, Vector2.zero, new Vector2(360, 104));
-                Place(toastRt, new Vector2(.5f, .225f), Vector2.one * .5f, Vector2.zero, new Vector2(350, 56));
+                Place(evidenceRt, new Vector2(.5f, .25f), Vector2.one * .5f, Vector2.zero, new Vector2(360, 126));
+                Place(toastRt, new Vector2(.5f, .08f), Vector2.one * .5f, Vector2.zero, new Vector2(350, 56));
                 promptText.fontSize = 17; modeText.fontSize = 12; masteryText.fontSize = 13;
                 promptText.textWrappingMode = TextWrappingModes.Normal; modeText.textWrappingMode = TextWrappingModes.Normal;
             }
@@ -988,7 +1053,7 @@ namespace Mgf.FoldlineLab
                     tutorialText.text = "① 완료  ·  ② 완료\n③ 지금 손을 놓아 접기";
             }
             UpdateVertexLabels();
-            if (toastClock > 0f) { toastClock -= dt; toastG.alpha = Mathf.Clamp01(toastClock * 4f); }
+            if (toastClock > 0f && evidenceClock <= 0f) { toastClock -= dt; toastG.alpha = Mathf.Clamp01(toastClock * 4f); }
             else toastG.alpha = 0;
             if (evidenceClock > 0f) { evidenceClock -= dt; evidenceG.alpha = Mathf.Clamp01(Mathf.Min(1f, evidenceClock * 5f)); }
             for (int i = 0; i < ripples.Length; i++)
@@ -1042,6 +1107,11 @@ namespace Mgf.FoldlineLab
         static float DistancePointLine(Vector2 p, Vector2 a, Vector2 b)
         {
             Vector2 d = (b - a).normalized; return Mathf.Abs(FoldlineRules.Cross(d, p - a));
+        }
+        static Vector2 FootOnLine(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 d = (b - a).normalized;
+            return a + d * Vector2.Dot(p - a, d);
         }
         static float Smooth(float t) { return t * t * (3f - 2f * t); }
         static float EaseOut(float t) { return 1f - (1f - t) * (1f - t) * (1f - t); }
