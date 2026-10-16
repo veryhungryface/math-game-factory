@@ -3,6 +3,23 @@
 > 마지막 갱신: 2026-10-17. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-17 — 「연못 점프」 2차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u3` Unity 게임 `yeonmot-jeompeu`의 최신 high 1건·medium 1건을 병렬 레인
+`factory/work-lanes/20261017-040537-L2/`에서 수정했다. 정본은 `factory/unity-src/yeonmot-jeompeu/`,
+WebGL 산출물은 `public/g/yeonmot-jeompeu/`이며 게시·배포는 실행하지 않았다.
+
+- 14.5초 자동 연습 통과를 제거했다. 최종 artifact에서 타이틀 클릭 뒤 같은 16초 무입력은
+  `onboarding=true/practice-345/solved0/submission0`으로 남고, 실제 B→F 드래그만 본판을 연다.
+  이어 독립 정수 풀이한 첫 본문항을 실제 pointer로 맞혀 `solved1/firstCorrect1/lives3`을 확인했다.
+- 오입력 때 B와 F를 함께 강조하고 8초마다 큰 경로를 반복하되 안내 손은 꼭짓점 문자 아래로 지나간다.
+  표준 45초 firstplay는 자동 통과 없이 16프레임·ready true·console/page error 0이다.
+- meta의 연보라·꽃 개화 서술을 현재 비 오는 심야 청록 수로·구리/녹청 부표·잎 회전/경로 점등으로
+  동기화했다. 초와이드 꼭짓점 부표도 축소해 D~I 문자가 서로 덮이지 않는다.
+- Unity 빌드 warnings 0·산출물 **7.6MB**(게임 폴더 **9.6MB**), 공식 QA **45/45·fatal 0**,
+  실GPU 모바일/1280폭 **60fps**, 15초 유지율 **100%**다. `fix.json`은 fixed3/not_fixed2
+  (nice-to-have만)·`replan_required=false`다.
+
 ## 2026-10-17 — 「곱빼기 빵집」 3차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u3` Unity 게임 `gopbaegi-bbangjip`의 마지막 high인 현재 artifact 독립 2회차 증거
