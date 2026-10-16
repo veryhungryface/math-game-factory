@@ -3,6 +3,23 @@
 > 마지막 갱신: 2026-10-17. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-17 — 「곱빼기 빵집」 2차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u3` Unity 게임 `gopbaegi-bbangjip`의 최신 high 2건을 병렬 레인
+`factory/work-lanes/20261017-000511-L3/`에서 수정했다. 정본은
+`factory/unity-src/gopbaegi-bbangjip/`, WebGL 산출물은 `public/g/gopbaegi-bbangjip/`이며 게시·배포는 실행하지 않았다.
+
+- release 즉시 채점을 거친 계량 종료→`±1 cm³` 정밀 조정→봉인 제출로 바꿨다. 정답은 여전히 단 하나의
+  정수이며, 실제 pointer에서 선형 오개념 50 cm³는 오답으로 판정됐다.
+- 실제 pointer만으로 100~250 ms 늦은 release와 조기 release를 섞어 연습과 9주문을
+  `clear/first8/lives2`로 완주했다. 최종 WebGL·firstplay·검증 결과의 artifact hash는
+  `419e45e15d6b…35e2`로 일치하고 콘솔 오류는 0이다.
+- 가로 전용 안전 앵커로 레버·코치·정밀 버튼·토스트를 분리했다. 1280×800·2000×1045에서
+  시작 문구와 `−1/봉인 제출/+1`, 재계량 문구가 모두 화면 안에 있음을 실제 캡처로 확인했다.
+- Unity 빌드 warnings 0·산출물 **8.6MB**(게임 폴더 **10,847KB**), 공식 QA **45/45·fatal 0**,
+  실GPU 모바일·1280 **60fps**, 15초 유지율 **100%**다. `fix.json`은 fixed2/not_fixed2(nice-to-have만)·
+  `replan_required=false`다.
+
 ## 2026-10-17 — 「화물 잼」 1차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u3` Unity 게임 `hwamul-jam`의 mathcheck fail과 high 7건을 병렬 레인
