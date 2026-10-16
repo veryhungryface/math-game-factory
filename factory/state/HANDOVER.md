@@ -3,6 +3,26 @@
 > 마지막 갱신: 2026-10-17. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-17 — 「곱빼기 빵집」 3차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u3` Unity 게임 `gopbaegi-bbangjip`의 마지막 high인 현재 artifact 독립 2회차 증거
+누락과 모바일 목표 문장 잘림을 병렬 레인 `factory/work-lanes/20261017-000511-L3/`에서 수정했다.
+정본은 `factory/unity-src/gopbaegi-bbangjip/`, WebGL 산출물은 `public/g/gopbaegi-bbangjip/`이며
+게시·배포는 실행하지 않았다.
+
+- 새 artifact `3cd0b3adc5fc…acce4`에서 실제 pointer만 쓴 첫 판은 선형 오개념 50 cm³ 오답 뒤
+  `clear/first8/lives2`, 별도 브라우저의 독립 두 번째 판은 7 cm³ 조기 release→+1 복원과 130 ms
+  지연 release→−1 복원을 번갈아 쓰고 주문을 교대해 `clear/first9/lives3`로 완주했다. 결과 화면 실제
+  탭 재도전도 `playing/solved0`이며 양쪽 콘솔 오류는 0이다.
+- 세로 목표 문장을 음소거 안전 영역 왼쪽 300×58에 배치했다. 새 mobile.png와 firstplay에서 연습 목표와
+  숙련 목표가 모두 잘림 없이 보이며, 가로는 중앙 620×45 영역을 유지한다.
+- 공식 QA report·firstplay manifest·두 실제 pointer 결과가 모두 같은 artifact hash다. firstplay는
+  15프레임·ready true·console/page error 0이다.
+- Unity 빌드 warnings 0·산출물 **8.6MB**(게임 폴더 **11MB**), 공식 QA **45/45·fatal 0**,
+  실GPU 모바일·1280 **60fps**, 15초 유지율 **100%**다. B3 4정책×200판 첫 시도는 모두 0%
+  (균일 우연 평균 0.230%, 최악 0.337%), 무입력 진도 0이며 `fix.json`은 fixed2/not_fixed2·
+  `replan_required=false`다.
+
 ## 2026-10-17 — 「자두 집게」 3차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u3` Unity 게임 `jadu-jipge`의 최신 high 2건·medium 1건을 병렬 레인

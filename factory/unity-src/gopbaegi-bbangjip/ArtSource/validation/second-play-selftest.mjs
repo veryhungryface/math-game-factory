@@ -42,17 +42,29 @@ function targetFromPrompt(prompt){
 }
 
 const getState=page=>page.evaluate(()=>window.__GAME_TEST__.getState());
-async function holdUntil(page,target,label,log){
+const points={lever:[312,713],minus:[59,713],seal:[148,713],plus:[238,713]};
+
+async function coarseFineSeal(page,target,{label,mode='under',jitterMs=0},log){
   const before=await getState(page);
-  await page.mouse.move(281,713);await page.mouse.down();
-  await page.waitForFunction(value=>window.__GAME_TEST__.getState().poured>=value,{timeout:30000},target);
+  const threshold=mode==='under'?Math.max(before.poured+4,target-7):target;
+  await page.mouse.move(...points.lever);await page.mouse.down();
+  await page.waitForFunction(value=>window.__GAME_TEST__.getState().poured>=value,{timeout:30000},threshold);
+  if(mode==='over')await sleep(jitterMs);
   await page.mouse.up();
+  await page.waitForFunction(()=>window.__GAME_TEST__.getState().actionPhase==='fine',{timeout:5000});
+  const coarse=await getState(page);let minus=0,plus=0;
+  while((await getState(page)).poured>target){await page.mouse.click(...points.minus);minus++;await sleep(33);}
+  while((await getState(page)).poured<target){await page.mouse.click(...points.plus);plus++;await sleep(37);}
+  const tuned=await getState(page);
+  if(tuned.poured!==target||tuned.targetHidden!==1)throw new Error(`${label}: fine=${tuned.poured}, hidden=${tuned.targetHidden}`);
+  await page.mouse.click(...points.seal);
   await page.waitForFunction(()=>window.__GAME_TEST__.getState().actionPhase==='reveal',{timeout:5000});
-  const after=await getState(page);
-  log.push({label,problemId:before.problemId,prompt:before.prompt,calculated_target:target,actual_release:after.poured,
-    solved:[before.solved,after.solved],firstAttemptCorrect:after.firstAttemptCorrect,lives:after.lives});
-  if(after.poured!==target)throw new Error(`${label}: release ${after.poured} != ${target}`);
-  return after;
+  const judged=await getState(page);
+  log.push({label,problemId:before.problemId,prompt:before.prompt,calculated_target:target,strategy:mode,
+    jitterMs,coarse_release:coarse.poured,minus_taps:minus,plus_taps:plus,sealed:judged.poured,
+    solved:[before.solved,judged.solved],firstAttemptCorrect:judged.firstAttemptCorrect,lives:judged.lives});
+  if(judged.poured!==target)throw new Error(`${label}: sealed ${judged.poured} != ${target}`);
+  return judged;
 }
 
 const release=await acquireMachineLock('gpu',{label:'gopbaegi-bbangjip 독립 두 번째 플레이'});
@@ -67,11 +79,12 @@ try{
   await page.waitForFunction(()=>window.__GAME_TEST__?.ready,{timeout:60000});await sleep(500);
   await page.screenshot({path:path.join(FRAMES,'00-title.png')});
 
-  // 같은 실제 레버로 연습을 열고, 화면의 25 cm³·1:2를 독립 계산해 정확히 200에서 놓는다.
-  await page.mouse.move(281,713);await page.mouse.down();await sleep(110);await page.mouse.up();
+  // 같은 실제 레버로 연습을 열고, 화면의 25 cm³·1:2를 독립 계산한다.
+  await page.mouse.click(...points.lever);
   await page.waitForFunction(()=>window.__GAME_TEST__.getState().onboarding,{timeout:5000});
   await page.screenshot({path:path.join(FRAMES,'01-hold-coach.png')});
-  await holdUntil(page,200,'practice',log);
+  // 첫 증거의 지연 release와 달리 7 cm³ 일찍 놓고 +1 밸브로 복원한다.
+  await coarseFineSeal(page,200,{label:'practice-early-release',mode:'under'},log);
   await sleep(850);
   await page.screenshot({path:path.join(FRAMES,'02-cubic-proof.png')});
   await page.waitForFunction(()=>{const s=window.__GAME_TEST__.getState();return s.actionPhase==='playing'&&!s.onboarding;},{timeout:8000});
@@ -85,7 +98,9 @@ try{
       swapped=state.problemId!==beforeId;log.push({label:'pair-swap',beforeId,afterId:state.problemId,swapped});
       await page.screenshot({path:path.join(FRAMES,'03-pair-swapped.png')});
     }
-    await holdUntil(page,targetFromPrompt(state.prompt),`order-${state.orderIndex}`,log);
+    const target=targetFromPrompt(state.prompt);
+    const mode=state.solved%2===0?'under':'over';
+    await coarseFineSeal(page,target,{label:`order-${state.orderIndex}-${mode}`,mode,jitterMs:mode==='over'?130:0},log);
     await page.waitForFunction(()=>window.__GAME_TEST__.getState().actionPhase!=='reveal',{timeout:8000});
   }
   const clear=await getState(page);await sleep(900);await page.screenshot({path:path.join(FRAMES,'04-perfect-clear.png')});
@@ -95,12 +110,15 @@ try{
   await page.waitForFunction(()=>{const s=window.__GAME_TEST__.getState();return s.phase==='playing'&&s.solved===0&&s.orderIndex===1;},{timeout:5000});
   const retry=await getState(page);await page.screenshot({path:path.join(FRAMES,'05-voluntary-retry.png')});
   const hashAfter=artifactHash();
-  const passed=hashBefore===hashAfter&&errors.length===0&&swapped&&clear.phase==='clear'&&clear.solved===9&&clear.lives===3&&
+  const firstRun=JSON.parse(fs.readFileSync(path.join(HERE,'fix2-human-jitter-results.json'),'utf8'));
+  const independentFromFirst=firstRun.passed===true&&firstRun.artifact_hash===hashBefore&&firstRun.run_id!==undefined;
+  const passed=hashBefore===hashAfter&&independentFromFirst&&errors.length===0&&swapped&&clear.phase==='clear'&&clear.solved===9&&clear.lives===3&&
     clear.firstAttemptCorrect===9&&clear.finalBandFirstCorrect===3&&retry.phase==='playing'&&retry.solved===0;
-  const result={run_id:`${path.basename(process.env.MGF_WORK||'20261017-000511-L3')}-fix1-second-play-${new Date().toISOString()}`,
+  const result={run_id:`${path.basename(process.env.MGF_WORK||'20261017-000511-L3')}-fix3-second-play-${new Date().toISOString()}`,
     artifact_hash:hashBefore,generated_at:new Date().toISOString(),viewport:'390x844',
-    method:'최종 WebGL의 실제 mouse down/up만 사용. 화면 발문에서 매 목표를 독립 계산했고 answerCorrect/answerWrong은 사용하지 않았다. 중반 주문 교대와 clear 뒤 실제 재도전 탭을 포함한다.',
-    swapped_order:swapped,log,clear,retry,consoleErrors:errors,passed};
+    method:'현재 WebGL의 실제 mouse down/up과 ±1/봉인 클릭만 사용. 첫 판과 달리 조기 release 복원·교대 주문·번갈아 쓰는 조기/지연 계량으로 독립 완주했으며 answerCorrect/answerWrong은 사용하지 않았다.',
+    first_run:{run_id:firstRun.run_id,artifact_hash:firstRun.artifact_hash,final:firstRun.final},
+    independent_from_first:independentFromFirst,swapped_order:swapped,log,clear,retry,consoleErrors:errors,passed};
   fs.writeFileSync(path.join(HERE,'second-play-results.json'),JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result,null,2));
   if(!passed)exitCode=1;
 }catch(error){console.error(error.stack||error);exitCode=1;}

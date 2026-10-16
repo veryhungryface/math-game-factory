@@ -72,7 +72,7 @@ async function openPage(browser,server,width,height,errors){
   page.on('console',message=>{if(message.type()==='error')errors.push(`${width}x${height}: ${message.text()}`);});
   page.on('pageerror',error=>errors.push(`${width}x${height}: ${String(error)}`));
   await page.goto(`${server.url}/g/gopbaegi-bbangjip/`,{waitUntil:'load',timeout:45000});
-  await page.waitForFunction(()=>window.__GAME_TEST__?.ready,{timeout:60000});await sleep(400);
+  await page.waitForFunction(()=>window.__GAME_TEST__?.ready,{timeout:90000});await sleep(400);
   return page;
 }
 
@@ -107,6 +107,9 @@ try{
     await page.waitForFunction(()=>window.__GAME_TEST__.getState().actionPhase!=='reveal',{timeout:8000});
   }
   const final=await getState(page);await page.screenshot({path:path.join(FRAMES,'03-recovery-clear.png')});
+  // 세로 WebGL 컨텍스트를 닫고 나서 와이드 캡처를 연다. 동시에 여러 Unity 인스턴스를
+  // 살려 두면 저사양/병렬 레인 환경에서 두 번째 인스턴스 ready가 60초를 넘길 수 있다.
+  await page.close();
 
   // 1280×800과 2000×1045에서 타이틀 레이블과 본판 정밀 조정 컨트롤을 실제로 캡처한다.
   const wideCaptures=[];

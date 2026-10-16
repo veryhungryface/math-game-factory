@@ -246,6 +246,9 @@ namespace Mgf.GopbaegiBbangjip
             hudG = new GameObject("Hud", typeof(RectTransform), typeof(CanvasGroup)).GetComponent<CanvasGroup>();
             hudG.transform.SetParent(uiRoot, false); var hudRoot = (RectTransform)hudG.transform; hudRoot.anchorMin = Vector2.zero; hudRoot.anchorMax = Vector2.one; hudRoot.offsetMin = hudRoot.offsetMax = Vector2.zero;
             goalText = Txt(hudRoot, "닮음비를 세제곱해 정확한 큰 틀의 부피만큼 부으시오", new Vector2(.5f, .965f), Vector2.zero, 15, Ink, 370);
+            // 모바일의 우상단 음소거 버튼은 공용 WebGL 템플릿이 덮어쓴다. 목표 문장을
+            // 그 안전 영역 밖으로 밀어내지 말고, 세로에서는 두 줄로 감싸 전체 발문을 보존한다.
+            goalText.overflowMode = TextOverflowModes.Overflow;
             scoreText = Txt(hudRoot, "0", new Vector2(.11f, .905f), Vector2.zero, 18, Violet, 80);
             livesText = Txt(hudRoot, "봉인 ◆◆◆", new Vector2(.50f, .905f), Vector2.zero, 15, Ink, 150);
             stockText = Txt(hudRoot, "재고 3650 cm³", new Vector2(.84f, .905f), Vector2.zero, 15, Coral, 145);
@@ -608,6 +611,11 @@ namespace Mgf.GopbaegiBbangjip
             lastUiWidth = Screen.width; lastUiHeight = Screen.height;
             float aspect = Screen.width / (float)Mathf.Max(1, Screen.height);
             bool land = aspect >= 1.15f;
+
+            goalText.rectTransform.anchorMin = goalText.rectTransform.anchorMax = land
+                ? new Vector2(.5f, .965f) : new Vector2(.43f, .952f);
+            goalText.rectTransform.sizeDelta = land ? new Vector2(620f, 45f) : new Vector2(300f, 58f);
+            goalText.fontSize = land ? 15f : 13.5f;
 
             Vector2 leverAnchor = land ? new Vector2(.84f, .22f) : new Vector2(.80f, .155f);
             leverRt.anchorMin = leverRt.anchorMax = leverAnchor;
