@@ -3,6 +3,22 @@
 > 마지막 갱신: 2026-10-17. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-17 — 「자두 집게」 3차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u3` Unity 게임 `jadu-jipge`의 최신 high 2건·medium 1건을 병렬 레인
+`factory/work-lanes/20261017-000511-L1/`에서 수정했다. 정본은 `factory/unity-src/jadu-jipge/`,
+WebGL 산출물은 `public/g/jadu-jipge/`이며 게시·배포는 실행하지 않았다.
+
+- 연습 오답이 본판 통과권이던 결함을 막았다. 수정 전과 같은 실제 입력 DE=12·DF=9는 최종 artifact
+  `485e4df6…`에서 score0/solved0/lives3/onboarding true로 같은 연습에 남고, 화면에
+  `AB:DE=AC:DF=2:1`, `DE=4 cm`, `DF=6 cm`를 보여 준다. 실제 4·6 드래그 뒤에만 본판으로 전환됐다.
+- 일반 오답 피드백은 현재 대응 라벨을 써 `AB:DE와 AC:DF가 각각 q:1인지` 확인하도록 고쳤다.
+  새 페이지의 독립 두 번째 실제 pointer 판은 clear10/10·첫시도10·후반4, 첫 판과 다른 대응 순서7·
+  회전 대응6·SAS 각도4문항이며 결과 화면 실제 클릭 재도전도 통과했다. 콘솔/page error는 0이다.
+- Unity 빌드 warnings0·산출물 **7.6MB**(게임 폴더 **9,624KB**), 공식 QA **45/45·fatal0**,
+  실GPU 모바일·1280 **60fps**, 15초 유지율 **100%**다. 새 45초 firstplay는 16프레임·ready true·
+  console/page error0이고 같은 artifact hash다. `fix.json`은 fixed3/not_fixed2(nice-to-have만)·replan false다.
+
 ## 2026-10-17 — 「곱빼기 빵집」 2차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u3` Unity 게임 `gopbaegi-bbangjip`의 최신 high 2건을 병렬 레인
