@@ -3,6 +3,26 @@
 > 마지막 갱신: 2026-10-17. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-17 — 「유리나방 결속」 3차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u3` Unity 게임 `yurinabang-gyeolsok`의 최신 high 1건·medium 1건과 누적 결함을
+병렬 레인 `factory/work-lanes/20261017-040537-L3/`에서 수정했다. 정본은
+`factory/unity-src/yurinabang-gyeolsok/`, WebGL 산출물은 `public/g/yurinabang-gyeolsok/`이며
+게시·배포는 실행하지 않았다.
+
+- `sil-taneun-geomi`와 겹치던 식물 온실·실·둥근 생물·개구부 열림을 제거했다. 비식물성 수직 도자
+  계전탑, 건메탈 기둥, 구리 버스바, 경질 에나멜 자석 레일로 바꾸고 정답은 세 결속핀 체결과 불투명
+  도자판 상감 각인으로 만들었다. 누적 `prism-mobil` 유사점인 반투명 유리·회전 장미창·투사광도 없다.
+- 모바일 목표판을 음소거 버튼 왼쪽 안전영역으로 옮기고, 하단 안내판을 별도 남색 컨테이너+흰 글자로
+  고쳐 자식 이미지가 글자를 덮던 렌더 순서 결함까지 해소했다. 2000×1045 후보 D·9 cm와 기준 caption은
+  실제 Rect 기반 24px 간격을 유지하며, 정답·오답 근거는 390×844에서 여러 줄로 전부 보인다.
+- 최종 실제 pointer 정상판은 `clear/first8/lives3`, 첫 오답 회복판은 `clear/first7/lives3`이고 콘솔 오류 0이다.
+  384문항×18상태 전수검사는 오판정 0이며 B3 첫 시도는 반복 0%, 순환 0%, 무작위 4.405%(우연 5.556%),
+  무입력 진도 0이다. 독립 `mathcheck`도 104표본 pass다.
+- Unity 빌드 warnings 0·압축 산출물 **8.2MB**(게임 폴더 **10.9MiB**), 최종 artifact
+  `6f6a8c7cb3b7…5353`의 공식 QA **45/45·fatal 0**, 실GPU 모바일·1280 **60fps**, 15초 유지율
+  **100%**다. `fix.json`은 fixed5/not_fixed3(nice-to-have만)·`replan_required=false`다.
+
 ## 2026-10-17 — 「연못 점프」 2차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u3` Unity 게임 `yeonmot-jeompeu`의 최신 high 1건·medium 1건을 병렬 레인
