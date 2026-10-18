@@ -60,6 +60,7 @@ function solutions(s) {
   const found = [];
   for (let a = 1; a <= s.gridN; a++) for (let b = 1; b <= s.gridN; b++) {
     if (s.lockedAxis && a !== s.currentA) continue;
+    if (s.currentBand === 2 && a - b !== s.currentDeltaAB) continue;
     if (a * a + b * b === s.currentS) found.push({ a, b });
   }
   return found;
@@ -171,6 +172,10 @@ try {
   await page.mouse.click(195, 766);
   const onboarding1 = await completePractice(page, true, '01-practice-guide-midpoint.png');
   await page.screenshot({ path: path.join(FRAMES, '02-run1-start.png') });
+  // 첫 실전의 같은 빗나간 입력 사례가 입력 위치 리플과 몸통 방향 화살표를 재생하는지 남긴다.
+  await page.mouse.click(195, 270);
+  const missedStartAssist = await waitFor(page, x => x.lastAction === 'refuse-point-handle' && x.round === 1, 'first-round missed start assist');
+  await page.screenshot({ path: path.join(FRAMES, '02b-first-round-missed-start-guide.png') });
   const run1 = await finishRun(page, { mistake: true, preferLastSolution: false, prefix: 'run1' });
 
   // 결과 천막의 실제 재시작 CTA를 누르고, 연습부터 독립된 두 번째 판을 완주한다.
@@ -189,6 +194,12 @@ try {
     viewport: '390x844',
     method: 'trusted Puppeteer mouse click/down/move/up; title and restart CTA plus both practices and 16 scored landings; answer/start hooks never called',
     onboarding: { first_run: onboarding1, second_run: onboarding2 },
+    first_run_missed_start_assist: {
+      input: 'trusted click at 195,270 outside the mouse body',
+      last_action: missedStartAssist.lastAction,
+      input_serial: missedStartAssist.inputSerial,
+      screenshot: 'pointer-playthrough/02b-first-round-missed-start-guide.png',
+    },
     run1,
     run2,
     deck_changed: deckChanged,

@@ -61,6 +61,7 @@ namespace Mgf.MoraejwiMeollittwigi
         readonly RectTransform guideTarget;
         readonly RectTransform guidePath;
         readonly RectTransform guideFinger;
+        readonly TextMeshProUGUI guideInstruction;
         readonly CanvasGroup toastGroup;
         readonly Image rippleImage;
         readonly Image guideRingImage;
@@ -103,6 +104,7 @@ namespace Mgf.MoraejwiMeollittwigi
         float toastClock;
         float rippleClock;
         float guideClock;
+        float guideArrowClock;
         float scoreShown;
         float endScoreShown;
         int lastSecond = -1;
@@ -115,6 +117,8 @@ namespace Mgf.MoraejwiMeollittwigi
         bool revealPractice;
         bool dragging;
         bool guideStrong;
+        bool guideHandleOnly;
+        Vector2 guideFromScreen;
         bool wide;
         bool portraitTablet;
         Sprite roundedSprite;
@@ -169,7 +173,7 @@ namespace Mgf.MoraejwiMeollittwigi
                 out squareTableText, out labelA, out labelB, out labelC, out magnifier, out magnifierText,
                 out toastGroup, out toastText, out ripple, out rippleImage);
             BuildGuideUi(out guideRing, out guideRingImage, out guideTarget, out guideTargetImage,
-                out guidePath, out guideFinger);
+                out guidePath, out guideFinger, out guideInstruction);
             BuildRevealUi(out revealPanelImage, out revealTitleText, out revealEquationText, out revealReasonText);
             BuildEndUi(out restartCta, out endTitleText, out endStatsText, out endScoreText);
             ApplyLayout(true);
@@ -458,7 +462,8 @@ namespace Mgf.MoraejwiMeollittwigi
         }
 
         void BuildGuideUi(out RectTransform ringRt, out Image ringImg, out RectTransform targetRt,
-            out Image targetImg, out RectTransform pathRt, out RectTransform fingerRt)
+            out Image targetImg, out RectTransform pathRt, out RectTransform fingerRt,
+            out TextMeshProUGUI instruction)
         {
             var ring = Panel("Double pulse ring", guideGroup.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(84, 84), new Color(Cream.r, Cream.g, Cream.b, .38f), circleSprite);
             ringRt = ring.rectTransform; ringImg = ring;
@@ -469,7 +474,7 @@ namespace Mgf.MoraejwiMeollittwigi
             pathRt = path.rectTransform;
             var finger = Panel("Ghost finger", guideGroup.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(32, 42), Cream, circleSprite);
             fingerRt = finger.rectTransform;
-            Text("Guide instruction", guideGroup.transform, "모래쥐를 잡아 3 m, 4 m 착지점으로 끌어 놓으시오", new Vector2(.5f, 0), new Vector2(0, 139), new Vector2(360, 44), 16, Cream);
+            instruction = Text("Guide instruction", guideGroup.transform, "모래쥐를 잡아 3 m, 4 m 착지점으로 끌어 놓으시오", new Vector2(.5f, 0), new Vector2(0, 151), new Vector2(360, 58), 15, Cream);
         }
 
         void BuildRevealUi(out Image panelImage, out TextMeshProUGUI title, out TextMeshProUGUI equation, out TextMeshProUGUI reason)
@@ -527,7 +532,7 @@ namespace Mgf.MoraejwiMeollittwigi
             mouseRoot.localScale = Vector3.one * .78f;
             mouseRoot.position = GridWorld(Vector2.zero);
             mouseHome = mouseRoot.position;
-            progressText.text = "연습 · 압박 정지";
+            progressText.text = "연습\n압박 정지";
             scoreText.text = "0점";
             livesText.text = "끈 ●●●";
             timerText.text = "타이머 정지";
@@ -537,7 +542,8 @@ namespace Mgf.MoraejwiMeollittwigi
             measureText.text = "모래쥐를 잡아 가로 3 m · 세로 4 m로 끌어 보시오";
             squareTableText.text = "첫 착지  AC²=9 m² · CB²=16 m²\n두 넓이를 따로 보고 착지점을 구성하시오";
             SetKnotUi(3); SetSeedUi(0);
-            guideClock = 0; guideStrong = true;
+            guideClock = 0; guideArrowClock = 0; guideStrong = true; guideHandleOnly = false;
+            guideInstruction.text = "모래쥐를 잡아 3 m, 4 m 착지점으로 끌어 놓으시오";
             RefreshGeometry(Vector2.zero, 0, 0);
         }
 
@@ -546,14 +552,15 @@ namespace Mgf.MoraejwiMeollittwigi
             revealActive = false;
             current = problem;
             boardRoot.gameObject.SetActive(true);
-            titleGroup.SetActive(false); playGroup.SetActive(true); guideGroup.SetActive(false); revealGroup.SetActive(false); endGroup.SetActive(false);
+            bool firstSubmissionGuide = index == 0 && game.State.firstAttempts == 0;
+            titleGroup.SetActive(false); playGroup.SetActive(true); guideGroup.SetActive(firstSubmissionGuide); revealGroup.SetActive(false); endGroup.SetActive(false);
             targetPlayCamera = true;
             SetupBoard(problem);
             previewGrid = problem.LockedAxis ? new Vector2(problem.targetA, problem.startB) : Vector2.zero;
             mouseRoot.localScale = Vector3.one * .78f;
             mouseRoot.position = GridWorld(previewGrid);
             mouseHome = mouseRoot.position;
-            progressText.text = (index + 1) + " / 8 · " + (problem.band == 1 ? "넓이 보기" : problem.band == 2 ? "제곱표 계산" : "발자국 수리");
+            progressText.text = (index + 1) + " / 8\n" + (problem.band == 1 ? "넓이 보기" : problem.band == 2 ? "제곱표 계산" : "발자국 수리");
             promptText.text = problem.prompt;
             targetText.text = "빗변 위 정사각형  " + problem.targetArea + " m²";
             scoreShown = Mathf.Min(scoreShown, score);
@@ -567,6 +574,10 @@ namespace Mgf.MoraejwiMeollittwigi
                 ? "AC=" + problem.targetA + " m 고정 · CB 발자국을 위아래로 옮기시오"
                 : "모래쥐를 잡아 AC와 CB를 모두 정하시오";
             SetKnotUi(lives); SetSeedUi(index);
+            guideHandleOnly = firstSubmissionGuide;
+            guideClock = 0; guideArrowClock = 0; guideStrong = firstSubmissionGuide;
+            guideInstruction.text = "여기서 시작 · 모래쥐 몸통을 잡아 끄시오";
+            guideWorldPath.enabled = false;
             RefreshGeometry(previewGrid, Mathf.RoundToInt(previewGrid.x), Mathf.RoundToInt(previewGrid.y));
         }
 
@@ -589,6 +600,7 @@ namespace Mgf.MoraejwiMeollittwigi
             dragging = true;
             MgfFx.Punch(mouseBody, .15f, .18f);
             guideStrong = false;
+            if (guideHandleOnly) guideGroup.SetActive(false);
             magnifier.gameObject.SetActive(current != null && current.gridN >= 10);
         }
 
@@ -614,6 +626,8 @@ namespace Mgf.MoraejwiMeollittwigi
             ShowToast(message, 2.1f);
             MgfFx.Punch(boardRoot, .025f, .18f);
             if (problem.band == 0) { guideClock = 0; guideStrong = true; }
+            else if (game.State.round == 1 && game.State.firstAttempts == 0)
+                ReplayHandleGuide(MgfPointer.Position);
         }
 
         public void BeginReveal(bool correct, bool practice, int a, int b, int s, string evidence, int solved, int score)
@@ -844,7 +858,25 @@ namespace Mgf.MoraejwiMeollittwigi
             ShowToast(message, 2.2f);
             MgfFx.Punch(mouseRoot, .10f, .22f);
             MgfSfx.Play("wrong", .10f);
-            if (replayGuide) { guideClock = 0; guideStrong = true; guideGroup.SetActive(true); }
+            if (replayGuide)
+            {
+                if (game.Phase == MoraejwiMeollittwigiGame.GamePhase.Practice)
+                {
+                    guideHandleOnly = false; guideClock = 0; guideStrong = true; guideGroup.SetActive(true);
+                }
+                else ReplayHandleGuide(screen);
+            }
+        }
+
+        void ReplayHandleGuide(Vector2 screen)
+        {
+            guideHandleOnly = true;
+            guideFromScreen = screen;
+            guideArrowClock = 2.6f;
+            guideClock = 0;
+            guideStrong = true;
+            guideInstruction.text = "입력한 곳에서 화살표를 따라 모래쥐 몸통을 잡으시오";
+            guideGroup.SetActive(true);
         }
 
         void ShowToast(string message, float duration)
@@ -995,6 +1027,7 @@ namespace Mgf.MoraejwiMeollittwigi
                 guideClock += dt; PositionGuide();
                 if (guideClock > 8f) { guideClock = 0; guideStrong = true; }
             }
+            if (guideArrowClock > 0) guideArrowClock = Mathf.Max(0, guideArrowClock - dt);
             if (revealActive)
             {
                 revealClock += dt;
@@ -1012,14 +1045,39 @@ namespace Mgf.MoraejwiMeollittwigi
         void PositionGuide()
         {
             Vector3 fromW = GridWorld(Vector2.zero) + Vector3.up * .25f;
-            Vector3 toW = GridWorld(new Vector2(3, 4)) + Vector3.up * .25f;
-            Vector3 fromS = cam.WorldToScreenPoint(fromW), toS = cam.WorldToScreenPoint(toW);
+            Vector3 fromS = cam.WorldToScreenPoint(fromW);
             Vector2 a = ScreenToCanvas(new Vector2(fromS.x, fromS.y));
-            Vector2 b = ScreenToCanvas(new Vector2(toS.x, toS.y));
             float pulse = .5f + .5f * Mathf.Sin(worldClock * 5.2f);
             float boost = guideStrong ? 1.25f : 1f;
             guideRing.anchoredPosition = a; guideRing.sizeDelta = Vector2.one * (72 + pulse * 22) * boost;
             guideRingImage.color = new Color(Cream.r, Cream.g, Cream.b, .24f + pulse * .35f);
+
+            if (guideHandleOnly)
+            {
+                guideWorldPath.enabled = false;
+                bool arrow = guideArrowClock > 0;
+                guideTarget.gameObject.SetActive(arrow);
+                guidePath.gameObject.SetActive(arrow);
+                guideFinger.gameObject.SetActive(arrow);
+                if (!arrow) return;
+                Vector2 miss = ScreenToCanvas(guideFromScreen);
+                guideTarget.anchoredPosition = a;
+                guideTarget.sizeDelta = Vector2.one * (34 + pulse * 8);
+                Vector2 toward = a - miss;
+                guidePath.anchoredPosition = (miss + a) * .5f;
+                guidePath.sizeDelta = new Vector2(toward.magnitude, 6 + pulse * 2);
+                guidePath.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(toward.y, toward.x) * Mathf.Rad2Deg);
+                float arrowLoop = (guideClock % 1.0f) / 1.0f;
+                guideFinger.anchoredPosition = Vector2.Lerp(miss, a, arrowLoop * arrowLoop * (3 - 2 * arrowLoop));
+                return;
+            }
+
+            guideTarget.gameObject.SetActive(true);
+            guidePath.gameObject.SetActive(true);
+            guideFinger.gameObject.SetActive(true);
+            Vector3 toW = GridWorld(new Vector2(3, 4)) + Vector3.up * .25f;
+            Vector3 toS = cam.WorldToScreenPoint(toW);
+            Vector2 b = ScreenToCanvas(new Vector2(toS.x, toS.y));
             guideTarget.anchoredPosition = b; guideTarget.sizeDelta = Vector2.one * (52 + pulse * 10);
             Vector2 d = b - a; guidePath.anchoredPosition = (a + b) * .5f; guidePath.sizeDelta = new Vector2(d.magnitude, 5 + pulse * 2);
             guidePath.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
@@ -1065,19 +1123,19 @@ namespace Mgf.MoraejwiMeollittwigi
             else if (portraitTablet)
             {
                 // 태블릿 세로형은 중앙 격자를 줄이고 발문과 근거를 양쪽 열로 보낸다.
-                Place(promptPanel, new Vector2(0, .5f), new Vector2(92, 66), new Vector2(168, 178));
-                Place(evidencePanel, new Vector2(1, .5f), new Vector2(-92, -54), new Vector2(168, 214));
-                ConfigurePromptChildren(new Vector2(148, 106), new Vector2(0, 26), 13,
-                    new Vector2(148, 45), new Vector2(0, -57), 18);
-                ConfigureEvidenceChildren(new Vector2(148, 132), new Vector2(0, 26), 10,
-                    new Vector2(148, 58), new Vector2(0, -72), 12);
+                Place(promptPanel, new Vector2(0, .5f), new Vector2(74, 66), new Vector2(140, 198));
+                Place(evidencePanel, new Vector2(1, .5f), new Vector2(-74, -54), new Vector2(140, 228));
+                ConfigurePromptChildren(new Vector2(122, 124), new Vector2(0, 28), 12,
+                    new Vector2(122, 48), new Vector2(0, -68), 16);
+                ConfigureEvidenceChildren(new Vector2(122, 142), new Vector2(0, 28), 9,
+                    new Vector2(122, 64), new Vector2(0, -78), 11);
             }
             else
             {
-                Place(promptPanel, new Vector2(.5f, 1), new Vector2(0, -162), new Vector2(368, 92));
+                Place(promptPanel, new Vector2(.5f, 1), new Vector2(0, -168), new Vector2(368, 108));
                 Place(evidencePanel, new Vector2(.5f, 0), new Vector2(0, 67), new Vector2(368, 112));
-                ConfigurePromptChildren(new Vector2(344, 49), new Vector2(0, 18), 15,
-                    new Vector2(344, 34), new Vector2(0, -28), 22);
+                ConfigurePromptChildren(new Vector2(344, 64), new Vector2(0, 19), 14,
+                    new Vector2(344, 34), new Vector2(0, -35), 21);
                 ConfigureEvidenceChildren(new Vector2(348, 52), new Vector2(0, 25), 12,
                     new Vector2(348, 34), new Vector2(0, -35), 15);
             }

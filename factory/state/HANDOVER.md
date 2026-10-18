@@ -2236,3 +2236,9 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 목표를 발문 천의 자식으로 묶었다. DPR 2 휴대폰을 태블릿으로 오인하던 폭 기준을 종횡비 기준으로 고치고, 모바일은 목표→발문→격자→근거 세로 스택, 태블릿·가로는 격자 바깥 좌우 열로 분리했다. 최종 mobile/tablet/desktop/wide 캡처에서 겹침·가림이 없다.
 - 최종 artifact `1a8c5dac58659b8f2451e3d68ab98b119598be5aba8ff2ac38226cd5f1afabea`, run_id `moraejwi-fix1-20261019T0240KST`에서 trusted pointer 첫 판은 첫 오답 수리 뒤 clear8/8·첫시도7·끈2, 실제 결과 CTA 재시작 뒤 다른 덱의 둘째 판은 clear8/8·첫시도8·끈3이다. 두 판 모두 답/시작 훅 호출0·콘솔 오류0이다.
 - thumb 1200×630과 square 1080×1080을 현재 Unity 런타임 타이틀/연습 장면에서 후처리 없이 다시 캡처했다. 빌드 warnings0·산출물7.6MB, 공식 QA45/45·fatal0·실GPU 모바일80fps·1280폭79fps·15초 유지율106%, firstplay ready true·console/page error0이다. `fix.json`은 fixed4/not_fixed2(nice-to-have만)·replan false이며 게시·허브·큐는 건드리지 않았다.
+
+## 2026-10-19 — 「모래쥐 멀리뛰기」 2차 수정 완료 / QA 45·fatal 0 / 미게시
+- 재검수 77점의 high 3건을 모두 수정했다. 16초 무입력 자동 정답을 제거해 실제 drag 정수 판정 전에는 연습이 닫히지 않으며, 첫 실전 첫 제출 전 몸통 링과 모든 빗나간 입력의 리플·입력점→몸통 화살표를 유지한다. 17초 무입력은 round0에 그대로 있었고, 이어 가이드 중점→(3,4) 실제 drag만으로 round1에 진입했다.
+- 가짜 `협곡 표지 NNN`과 방향 복제를 제거했다. 최종 은행은 실제 발문 346개(목표 넓이21·AC-CB 길이 차100·한 축 고정 역문제225)이며, id/발문 중복·실제 정답·2/3단계 유일해를 부팅 시 전수 검사한다. QA 표본은 번호 제거 핵심 문장 63/63 고유다.
+- 같은 최종 artifact의 trusted pointer 첫 판은 첫 오답 수리 뒤 clear8/8·첫시도7·끈2, 재시작 둘째 판은 다른 덱으로 clear8/8·첫시도8·끈3이다. 첫 실전 몸통 밖 클릭도 `refuse-point-handle`과 리플·화살표 프레임으로 재현했다. 일반 firstplay는 무작위 입력이라 47초 안에 연습을 완료하지 못했으며 이를 성공 증거로 쓰지 않았다.
+- 최종 artifact `74b2af2a5bb655412db41e4c2146b93006812a012a6e0f16016b412386ee606e`, run_id `moraejwi-fix2-20261019T0307KST`. Unity 빌드 warnings0·산출물7.6MB, 공식 QA45/45·fatal0·실GPU 모바일79fps·1280폭81fps·15초 유지율109%, B3 4정책×200판 통과·무입력 진도0이다. `fix.json`은 fixed5/not_fixed3(nice-to-have만)·replan false이며 게시·허브·큐는 건드리지 않았다.

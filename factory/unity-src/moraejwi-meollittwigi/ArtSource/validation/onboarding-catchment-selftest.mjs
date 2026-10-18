@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// 수정 전에는 거부되던 유령 경로 중점을 같은 입력으로 잡아 30초 안에 연습을 벗어나는지 확인한다.
+// 수정 전 자동 통과 시각(16초)을 같은 무입력 사례로 넘긴 뒤에도 연습이 유지되고,
+// 보이는 유령 경로 입력으로 30초 안에 실제 성공하는지 확인한다.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,8 +56,11 @@ try {
   const startedAt = Date.now();
   await page.mouse.click(195, 766);
   await waitFor(page, s => s.onboarding && s.frozen);
+  await sleep(17000);
+  const afterIdle = await state(page);
+  if (!afterIdle.onboarding || afterIdle.round !== 0 || afterIdle.lastAction !== 'practice-ready')
+    throw new Error(`practice auto-advanced without trusted drag: ${JSON.stringify(afterIdle)}`);
   // 타이틀→플레이 카메라 보간이 끝난 현재 격자 좌표를 사용한다.
-  await sleep(550);
   const practice = await state(page);
   const origin = gridPoint(practice, 0, 0), target = gridPoint(practice, 3, 4);
   const midpoint = [(origin[0] + target[0]) / 2, (origin[1] + target[1]) / 2];
@@ -73,12 +77,15 @@ try {
     generated_at: new Date().toISOString(),
     run_id: process.env.MGF_RUN_ID || null,
     artifact_hash: artifactHash(),
-    regression_input: 'start at exact midpoint of visible practice guide, drag to (3,4)',
+    regression_input: 'wait beyond the former 16s auto-submit, then start at exact midpoint of visible practice guide and drag to (3,4)',
+    idle_wait_ms: 17000,
+    state_after_idle: afterIdle,
+    auto_advanced: false,
     start_px: midpoint.map(Math.round),
     target_px: target.map(Math.round),
     elapsed_ms: elapsedMs,
     final_state: after,
-    passed: elapsedMs < 30000 && after.round === 1 && after.lastAction === 'run-start',
+    passed: elapsedMs < 30000 && afterIdle.onboarding && afterIdle.round === 0 && after.round === 1 && after.lastAction === 'run-start',
   };
   fs.writeFileSync(path.join(HERE, 'onboarding-catchment-results.json'), `${JSON.stringify(result, null, 2)}\n`);
   console.log(JSON.stringify(result, null, 2));

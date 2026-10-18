@@ -33,11 +33,13 @@ namespace Mgf.MoraejwiMeollittwigi
         public int targetArea;
         public int startB;
         public int orientation;
+        public int deltaAB;
         public string prompt;
         public string unitConcept;
         public string misconceptionId;
 
         public bool LockedAxis => band == 3;
+        public bool HasDifferenceConstraint => band == 2;
         public int AnswerNumeric => LockedAxis ? targetB : targetArea;
     }
 
@@ -55,7 +57,7 @@ namespace Mgf.MoraejwiMeollittwigi
             return Make("mj-practice", 0, 3, 4, 0, 0);
         }
 
-        public static LandingProblem Make(string id, int band, int a, int b, int orientation, int startB)
+        public static LandingProblem Make(string id, int band, int a, int b, int orientation, int startB, int deltaAB = 0)
         {
             int gridN = band <= 1 ? 6 : band == 2 ? 10 : 15;
             if (a < 1 || b < 1 || a > gridN || b > gridN)
@@ -67,6 +69,16 @@ namespace Mgf.MoraejwiMeollittwigi
             {
                 prompt = "AC=" + a + " m일 때, 빗변 위 정사각형의 넓이가 " + s + " m²가 되도록 CB의 길이를 정하시오.";
                 concept = "피타고라스 정리로 다른 한 변의 길이 구하기";
+            }
+            else if (band == 2)
+            {
+                string relation = deltaAB == 0
+                    ? "AC와 CB의 길이가 같고"
+                    : deltaAB > 0
+                        ? "AC가 CB보다 " + deltaAB + " m 길고"
+                        : "CB가 AC보다 " + (-deltaAB) + " m 길고";
+                prompt = relation + ", 빗변 위 정사각형의 넓이가 " + s + " m²가 되는 착지점을 정하시오.";
+                concept = "두 직각변의 길이 조건과 정사각형의 넓이 관계";
             }
             else
             {
@@ -82,6 +94,7 @@ namespace Mgf.MoraejwiMeollittwigi
                 targetArea = s,
                 startB = band == 3 ? ValidWrongStart(a, b, startB) : 0,
                 orientation = orientation & 7,
+                deltaAB = band == 2 ? deltaAB : 0,
                 prompt = prompt,
                 unitConcept = concept,
                 misconceptionId = band == 3 ? "areaAsLeg" : "addLengths"
@@ -102,6 +115,7 @@ namespace Mgf.MoraejwiMeollittwigi
         {
             if (problem == null || a < 1 || b < 1 || a > problem.gridN || b > problem.gridN) return false;
             if (problem.LockedAxis && a != problem.targetA) return false;
+            if (problem.HasDifferenceConstraint && a - b != problem.deltaAB) return false;
             return a * a + b * b == problem.targetArea;
         }
 
@@ -152,35 +166,34 @@ namespace Mgf.MoraejwiMeollittwigi
         public static List<LandingProblem> BuildBank()
         {
             if (bankCache != null) return bankCache;
-            var bank = new List<LandingProblem>(569);
+            var bank = new List<LandingProblem>(343);
             int serial = 1;
-            // 밴드 1: 36쌍 × 4방향 = 144. 쌍을 먼저 만든 뒤 S를 계산한다.
-            for (int o = 0; o < 4; o++)
+            // 밴드 1: 같은 목표 넓이는 한 번만 넣는다. 화면 방향은 presentation seed이고
+            // 수학 문항의 고유성을 부풀리는 근거로 쓰지 않는다.
+            var seenBand1Area = new HashSet<int>();
             for (int a = 1; a <= 6; a++)
             for (int b = 1; b <= 6; b++)
-                bank.Add(Numbered(serial++, 1, a, b, o));
-            // 밴드 2: 100쌍 × 2방향 = 200.
-            for (int o = 0; o < 2; o++)
+            {
+                int s = a * a + b * b;
+                if (seenBand1Area.Add(s)) bank.Add(Make(BankId(serial++), 1, a, b, (a + b) & 3, 0));
+            }
+            // 밴드 2: 목표 넓이뿐 아니라 두 직각변의 길이 차를 함께 판단한다.
+            // (S, AC-CB)는 양의 정수 격자에서 순서쌍을 하나로 정하므로 100개가
+            // 모두 실제로 다른 문제이며, 같은 IsCorrect 경로로 화면 입력을 판정한다.
             for (int a = 1; a <= 10; a++)
             for (int b = 1; b <= 10; b++)
-                bank.Add(Numbered(serial++, 2, a, b, o + 4));
+                bank.Add(Make(BankId(serial++), 2, a, b, (a * 3 + b) & 7, 0, a - b));
             // 밴드 3: 알려진 a와 미지 b의 225쌍. a 고정이면 양의 해 b는 정확히 하나다.
             for (int a = 1; a <= 15; a++)
             for (int b = 1; b <= 15; b++)
-                bank.Add(Numbered(serial++, 3, a, b, (a + b) & 7));
+                bank.Add(Make(BankId(serial++), 3, a, b, (a + b) & 7, 0));
 
             AuditBank(bank);
             bankCache = bank;
             return bankCache;
         }
 
-        static LandingProblem Numbered(int serial, int band, int a, int b, int orientation)
-        {
-            var p = Make("mj-bank-" + serial.ToString("000"), band, a, b, orientation, 0);
-            // QA가 괄호 내용을 지우더라도 문항 번호가 남아 고유성이 유지된다.
-            p.prompt = "협곡 표지 " + serial.ToString("000") + ": " + p.prompt;
-            return p;
-        }
+        static string BankId(int serial) => "mj-bank-" + serial.ToString("000");
 
         static void AuditBank(List<LandingProblem> bank)
         {
@@ -193,8 +206,8 @@ namespace Mgf.MoraejwiMeollittwigi
                 if (!IsCorrect(p, p.targetA, p.targetB)) throw new Exception("생성 정답 불일치: " + p.id);
                 int solutions = CountSolutions(p);
                 if (p.band == 3 && solutions != 1) throw new Exception("수리 문항 유일해 아님: " + p.id + " / " + solutions);
+                if (p.band == 2 && solutions != 1) throw new Exception("길이 차 문항 유일해 아님: " + p.id + " / " + solutions);
                 if (p.band == 1 && solutions > 2) throw new Exception("6×6 해 상한 초과: " + p.id);
-                if (p.band == 2 && solutions > 4) throw new Exception("10×10 해 상한 초과: " + p.id);
             }
 
             // distractor_rules 전수 검사: 아래 세 오개념식은 양의 정수 풀에서 정답과 우연히 같지 않는다.
@@ -230,11 +243,8 @@ namespace Mgf.MoraejwiMeollittwigi
         public static LandingProblem RepairFromCarry(int knownA, System.Random rng, int order)
         {
             int b = rng.Next(1, 16); // 독립 균등: 무뇌 우연 1/15.
-            int serial = 144 + 200 + (knownA - 1) * 15 + b;
-            var p = Clone(BuildBank()[serial - 1]);
-            p.id = "mj-run-repair-" + order + "-" + knownA + "-" + b;
-            p.prompt = "AC=" + knownA + " m일 때, 빗변 위 정사각형의 넓이가 " + p.targetArea + " m²가 되도록 CB의 길이를 정하시오.";
-            return p;
+            return Make("mj-run-repair-" + order + "-" + knownA + "-" + b,
+                3, knownA, b, (knownA + b) & 7, 0);
         }
 
         static LandingProblem Clone(LandingProblem p)
@@ -242,6 +252,7 @@ namespace Mgf.MoraejwiMeollittwigi
             return new LandingProblem {
                 id=p.id, band=p.band, gridN=p.gridN, targetA=p.targetA, targetB=p.targetB,
                 targetArea=p.targetArea, startB=p.startB, orientation=p.orientation,
+                deltaAB=p.deltaAB,
                 prompt=p.prompt, unitConcept=p.unitConcept, misconceptionId=p.misconceptionId
             };
         }

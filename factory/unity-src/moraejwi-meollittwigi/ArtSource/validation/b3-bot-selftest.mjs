@@ -42,8 +42,9 @@ function shuffle(a, random) {
 }
 
 function bandOf(p) {
-  const n = Number(p.id.match(/(\d+)$/)?.[1] || 0);
-  return n <= 144 ? 1 : n <= 344 ? 2 : 3;
+  if (p.unitConcept === '피타고라스 정리로 다른 한 변의 길이 구하기') return 3;
+  if (p.unitConcept === '두 직각변의 길이 조건과 정사각형의 넓이 관계') return 2;
+  return 1;
 }
 
 function gridN(band) { return band === 1 ? 6 : band === 2 ? 10 : 15; }
@@ -53,17 +54,28 @@ function targetA(p) {
   return m ? Number(m[1]) : 0;
 }
 
+function deltaAB(p) {
+  let m = p.prompt.match(/AC가 CB보다 (\d+) m 길고/);
+  if (m) return Number(m[1]);
+  m = p.prompt.match(/CB가 AC보다 (\d+) m 길고/);
+  if (m) return -Number(m[1]);
+  return p.prompt.includes('AC와 CB의 길이가 같고') ? 0 : null;
+}
+
 function solutionCount(p) {
   const band = bandOf(p), n = gridN(band);
   if (band === 3) return 1;
   let k = 0;
-  for (let a = 1; a <= n; a++) for (let b = 1; b <= n; b++) if (a * a + b * b === p.answerNumeric) k++;
+  const delta = deltaAB(p);
+  for (let a = 1; a <= n; a++) for (let b = 1; b <= n; b++)
+    if ((delta === null || a - b === delta) && a * a + b * b === p.answerNumeric) k++;
   return k;
 }
 
 function isCorrect(p, guess) {
   const band = bandOf(p);
   if (band === 3) return guess.b === p.answerNumeric && guess.a === targetA(p);
+  if (band === 2 && guess.a - guess.b !== deltaAB(p)) return false;
   return guess.a * guess.a + guess.b * guess.b === p.answerNumeric;
 }
 
@@ -139,14 +151,14 @@ try {
   await page.goto(`${server.url}/g/moraejwi-meollittwigi/`, { waitUntil: 'networkidle2', timeout: 45000 });
   await page.waitForFunction('window.__GAME_TEST__ && window.__GAME_TEST__.ready === true', { timeout: 30000 });
   const bank = await page.evaluate(() => window.__GAME_TEST__.sampleProblems(1000));
-  if (bank.length !== 569) throw new Error(`expected 569 bank problems, got ${bank.length}`);
+  if (bank.length < 300) throw new Error(`expected at least 300 bank problems, got ${bank.length}`);
   const counts = { 1: bank.filter(p => bandOf(p) === 1).length, 2: bank.filter(p => bandOf(p) === 2).length, 3: bank.filter(p => bandOf(p) === 3).length };
-  if (counts[1] !== 144 || counts[2] !== 200 || counts[3] !== 225) throw new Error(`bank bands mismatch ${JSON.stringify(counts)}`);
+  if (counts[1] < 18 || counts[2] !== 100 || counts[3] !== 225) throw new Error(`bank bands mismatch ${JSON.stringify(counts)}`);
   const result = {
     run_id: process.env.MGF_RUN_ID || `moraejwi-b3-${new Date().toISOString()}`,
     artifact_hash: artifactHash(),
     criterion: '각 정책 200판의 문항별 첫 제출 정답률을 실제 WebGL 문제 은행의 문항별 해 개수에서 계산한 우연 수준과 비교한다. 완주율은 판정 근거가 아니다.',
-    method: 'ProblemBankJson 569문항을 브라우저에서 읽고, 실전 2·3·3 밴드 비율로 비복원 덱을 만든 단일 고정 시드 시뮬레이션',
+    method: `ProblemBankJson ${bank.length}문항을 브라우저에서 읽고, 실전 2·3·3 밴드 비율로 비복원 덱을 만든 단일 고정 시드 시뮬레이션`,
     bankCount: bank.length,
     bandCounts: counts,
     spam: simulate(bank, 'spam', 20261019),

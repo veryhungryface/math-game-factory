@@ -26,6 +26,7 @@ namespace Mgf.MoraejwiMeollittwigi
             public int currentA;
             public int currentB;
             public int currentStartB;
+            public int currentDeltaAB;
             public int gridN;
             public int solutionCount;
             public int attemptsOnCurrent;
@@ -58,7 +59,6 @@ namespace Mgf.MoraejwiMeollittwigi
         int runSerial;
         int lastSuccessfulB = 5;
         int actualAttemptsCurrent;
-        float practiceElapsed;
 
         public GameState State => st;
         public LandingProblem Current => current;
@@ -76,7 +76,7 @@ namespace Mgf.MoraejwiMeollittwigi
             colliderTypes.AddComponent<CapsuleCollider>();
             colliderTypes.AddComponent<BoxCollider>();
             Destroy(colliderTypes);
-            MgfText.Prewarm("모래쥐멀리뛰기착지점을끌어라협곡굴길열기중학교학년피타고라스정리빗변위정사각형넓이가되는정하시오가로세로모두이동직각맞은편안전끈첫제출목표보다초과부족연습실전씨앗보관성공기준미달다시도전ACCBm²0123456789+=−<>·/초");
+            MgfText.Prewarm("모래쥐멀리뛰기착지점을끌어라협곡굴길열기중학교학년피타고라스정리빗변위정사각형넓이가되는정하시오가로세로모두이동직각맞은편안전끈첫제출목표보다초과부족연습실전씨앗보관성공기준미달다시도전같고길며조건화살표몸통ACCBm²0123456789+=−<>·/초");
             MoraejwiRules.BuildBank();
             view = new MoraejwiView(this);
             ShowTitle();
@@ -86,14 +86,6 @@ namespace Mgf.MoraejwiMeollittwigi
         void Update()
         {
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
-            if (phase == GamePhase.Practice && st.onboarding)
-            {
-                practiceElapsed += dt;
-                // 조작을 못 찾은 학생도 30초 동안 연습에 갇히지 않는다. 유령 경로를
-                // 충분히 본 뒤 같은 정수 좌표 판정 경로로 성공 시연하고 실전으로 잇는다.
-                if (practiceElapsed >= 16f && !dragging)
-                    Submit(3, 4, "guided-demo", false);
-            }
             if (phase == GamePhase.Playing && !st.frozen)
             {
                 timeLeft = Mathf.Max(0f, timeLeft - dt);
@@ -127,7 +119,6 @@ namespace Mgf.MoraejwiMeollittwigi
             current = MoraejwiRules.Practice();
             dragging = false;
             actualAttemptsCurrent = 0;
-            practiceElapsed = 0f;
             st.phase = "playing";
             st.onboarding = true;
             st.frozen = true; // 압박과 진행은 정지하지만 연습 드래그 입력은 별도로 허용한다.
@@ -206,6 +197,7 @@ namespace Mgf.MoraejwiMeollittwigi
             st.currentA = current.LockedAxis ? current.targetA : 0;
             st.currentB = current.LockedAxis ? current.startB : 0;
             st.currentStartB = current.startB;
+            st.currentDeltaAB = current.HasDifferenceConstraint ? current.deltaAB : 0;
             st.gridN = current.gridN;
             st.lockedAxis = current.LockedAxis;
             st.solutionCount = MoraejwiRules.CountSolutions(current);
@@ -266,7 +258,9 @@ namespace Mgf.MoraejwiMeollittwigi
                 {
                     st.lastAction = "refuse-point-handle";
                     st.lastFeedback = "모래쥐 몸통을 잡아 착지점까지 끄시오";
-                    view.RefuseAt(MgfPointer.Position, "모래쥐 몸통을 잡아 끄시오", phase == GamePhase.Practice);
+                    bool needsStartGuide = phase == GamePhase.Practice ||
+                        (phase == GamePhase.Playing && st.round == 1 && actualAttemptsCurrent == 0);
+                    view.RefuseAt(MgfPointer.Position, "모래쥐 몸통을 잡아 끄시오", needsStartGuide);
                     MgfBridge.NotifyChanged();
                 }
             }
