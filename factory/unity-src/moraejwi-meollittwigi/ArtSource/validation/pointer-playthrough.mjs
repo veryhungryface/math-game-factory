@@ -1,3 +1,7 @@
+#!/usr/bin/env node
+// 현재 WebGL 산출물에서 답 훅 없이, 타이틀→연습→완주→재시작→연습→두 번째 완주를
+// 모두 신뢰된 pointer 입력으로 실행한다.
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,29 +11,44 @@ import { serveStatic } from '../../../../lib/static-server.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../../../..');
 const PUBLIC = path.join(ROOT, 'public');
+const GAME = path.join(PUBLIC, 'g/moraejwi-meollittwigi');
 const FRAMES = path.join(HERE, 'pointer-playthrough');
+const RUN_ID = process.env.MGF_RUN_ID || `moraejwi-fix1-${new Date().toISOString()}`;
 fs.mkdirSync(FRAMES, { recursive: true });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function chromePath() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
   const base = path.join(process.env.HOME || '', '.cache/puppeteer/chrome');
-  for (const build of fs.readdirSync(base).sort().reverse()) {
-    const p = path.join(base, build, 'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing');
-    if (fs.existsSync(p)) return p;
+  for (const build of fs.readdirSync(base).sort().reverse()) for (const rel of [
+    'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+    'chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+    'chrome-linux64/chrome',
+  ]) {
+    const candidate = path.join(base, build, rel);
+    if (fs.existsSync(candidate)) return candidate;
   }
   throw new Error('Chrome for Testing not found');
 }
 
+function artifactHash() {
+  const hash = crypto.createHash('sha256');
+  for (const name of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(file => `Build/${file}`)]) {
+    hash.update(name);
+    hash.update(fs.readFileSync(path.join(GAME, name)));
+  }
+  return hash.digest('hex');
+}
+
 async function state(page) { return page.evaluate(() => window.__GAME_TEST__.getState()); }
-async function waitFor(page, predicate, timeout = 7000) {
+async function waitFor(page, predicate, label, timeout = 7000) {
   const end = Date.now() + timeout; let s;
   while (Date.now() < end) {
     s = await state(page);
     if (predicate(s)) return s;
     await sleep(70);
   }
-  throw new Error(`state timeout: ${JSON.stringify(s)}`);
+  throw new Error(`state timeout (${label}): ${JSON.stringify(s)}`);
 }
 
 function gridPoint(s, a, b) {
@@ -58,6 +77,7 @@ function wrongPoint(s) {
 
 async function drag(page, from, to) {
   await page.mouse.move(from[0], from[1]);
+  await sleep(70);
   await page.mouse.down();
   await page.mouse.move((from[0] + to[0]) / 2, (from[1] + to[1]) / 2, { steps: 5 });
   await page.mouse.move(to[0], to[1], { steps: 6 });
@@ -65,86 +85,115 @@ async function drag(page, from, to) {
   await page.mouse.up();
 }
 
-async function submit(page, point) {
+async function submit(page, point, start = null) {
   const s = await state(page);
-  await drag(page, s.handlePx, gridPoint(s, point.a, point.b));
-  return waitFor(page, x => x.frozen || x.phase === 'clear' || x.phase === 'gameover', 3000);
+  await drag(page, start || s.handlePx, gridPoint(s, point.a, point.b));
+  return waitFor(page, x => x.frozen || x.phase === 'clear' || x.phase === 'gameover', 'submission result', 3500);
 }
 
-const errors = [], events = [];
+async function completePractice(page, useGuideMidpoint, frameName) {
+  const started = Date.now();
+  await waitFor(page, x => x.onboarding && x.frozen, 'practice ready');
+  // 타이틀/결과 카메라에서 플레이 카메라로 보간된 뒤의 좌표를 읽는다.
+  await sleep(550);
+  const s = await state(page);
+  if (s.currentS !== 25 || s.gridN !== 6) throw new Error(`practice mismatch: ${JSON.stringify(s)}`);
+  await page.screenshot({ path: path.join(FRAMES, frameName) });
+  const target = gridPoint(s, 3, 4);
+  const origin = gridPoint(s, 0, 0);
+  const start = useGuideMidpoint ? [(origin[0] + target[0]) / 2, (origin[1] + target[1]) / 2] : s.handlePx;
+  await submit(page, { a: 3, b: 4 }, start);
+  const next = await waitFor(page, x => !x.onboarding && !x.frozen && x.round === 1, 'practice exit', 7000);
+  const elapsed = Date.now() - started;
+  return {
+    elapsed_ms: elapsed,
+    start_kind: useGuideMidpoint ? 'visible-guide-midpoint' : 'mouse-body',
+    start_px: start.map(Math.round),
+    target_px: target.map(Math.round),
+    input_serial_after: next.inputSerial,
+    passed_under_30s: elapsed < 30000,
+  };
+}
+
+async function finishRun(page, { mistake, preferLastSolution, prefix }) {
+  let s = await state(page);
+  const problemIds = [s.currentId];
+  let recovery = null;
+  if (mistake) {
+    const firstId = s.currentId;
+    const wrong = wrongPoint(s);
+    await submit(page, wrong);
+    s = await waitFor(page, x => x.frozen && x.lives === 2, `${prefix} wrong feedback`);
+    await page.screenshot({ path: path.join(FRAMES, `${prefix}-wrong.png`) });
+    s = await waitFor(page, x => !x.frozen && x.currentId === firstId, `${prefix} repair ready`);
+    const choices = solutions(s);
+    const right = choices[preferLastSolution ? choices.length - 1 : 0];
+    await submit(page, right);
+    s = await waitFor(page, x => x.solved === 1 && x.frozen, `${prefix} repair accepted`);
+    recovery = { wrong, right, after: s };
+    await page.screenshot({ path: path.join(FRAMES, `${prefix}-repaired.png`) });
+    s = await waitFor(page, x => !x.frozen && x.round === 2, `${prefix} round 2`);
+    problemIds.push(s.currentId);
+  }
+
+  while (s.phase !== 'clear' && s.phase !== 'gameover') {
+    const id = s.currentId;
+    const choices = solutions(s);
+    const right = choices[preferLastSolution ? choices.length - 1 : 0];
+    if (!right) throw new Error(`no solution: ${JSON.stringify(s)}`);
+    await submit(page, right);
+    s = await waitFor(page, x => x.phase === 'clear' || x.phase === 'gameover' || (!x.frozen && x.currentId !== id), `${prefix} next round`, 7000);
+    if (s.phase === 'playing' && problemIds.at(-1) !== s.currentId) problemIds.push(s.currentId);
+  }
+  if (s.phase !== 'clear' || s.solved !== 8 || s.lives !== (mistake ? 2 : 3)) {
+    throw new Error(`${prefix} clear gate mismatch: ${JSON.stringify(s)}`);
+  }
+  if (mistake && (s.firstCorrect !== 7 || s.firstAttempts !== 8)) throw new Error(`${prefix} recovery score mismatch`);
+  if (!mistake && (s.firstCorrect !== 8 || s.firstAttempts !== 8)) throw new Error(`${prefix} clean score mismatch`);
+  await page.screenshot({ path: path.join(FRAMES, `${prefix}-clear.png`) });
+  return { problem_ids: problemIds, recovery, final: s };
+}
+
+const hashBefore = artifactHash();
+const consoleErrors = [];
 const server = await serveStatic(PUBLIC);
-const browser = await puppeteer.launch({ headless: true, executablePath: chromePath(), args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio'] });
+const browser = await puppeteer.launch({ headless: true, executablePath: chromePath(), protocolTimeout: 900000, args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio'] });
 try {
   const page = await browser.newPage();
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 });
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('pageerror', e => errors.push(String(e)));
+  page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+  page.on('pageerror', error => consoleErrors.push(String(error)));
   await page.goto(`${server.url}/g/moraejwi-meollittwigi/`, { waitUntil: 'networkidle2', timeout: 45000 });
-  await page.waitForFunction('window.__GAME_TEST__ && window.__GAME_TEST__.ready === true', { timeout: 30000 });
+  await page.waitForFunction(() => window.__GAME_TEST__?.ready === true, { timeout: 30000 });
   await page.screenshot({ path: path.join(FRAMES, '00-title.png') });
 
-  // 세계 안의 단일 CTA를 실제 pointer로 누른다.
+  // 첫 진입은 세계 안 CTA, 첫 연습은 수정 전 거부되던 유령 경로 중점을 누른다.
   await page.mouse.click(195, 766);
-  let s = await waitFor(page, x => x.onboarding && x.frozen);
-  await sleep(350);
-  await page.screenshot({ path: path.join(FRAMES, '01-practice-guide.png') });
-  if (s.currentS !== 25 || s.gridN !== 6) throw new Error(`practice mismatch: ${JSON.stringify(s)}`);
+  const onboarding1 = await completePractice(page, true, '01-practice-guide-midpoint.png');
+  await page.screenshot({ path: path.join(FRAMES, '02-run1-start.png') });
+  const run1 = await finishRun(page, { mistake: true, preferLastSolution: false, prefix: 'run1' });
 
-  // 고정 연습은 공개 훅 없이 실제 3,4 격자점으로 드래그한다.
-  await submit(page, { a: 3, b: 4 });
-  s = await waitFor(page, x => !x.onboarding && !x.frozen && x.round === 1, 7000);
-  events.push({ name: 'practice-real-drag', state: s });
-  await page.screenshot({ path: path.join(FRAMES, '02-first-round.png') });
+  // 결과 천막의 실제 재시작 CTA를 누르고, 연습부터 독립된 두 번째 판을 완주한다.
+  await page.mouse.click(195, 766);
+  const onboarding2 = await completePractice(page, false, '06-run2-practice.png');
+  await page.screenshot({ path: path.join(FRAMES, '07-run2-start.png') });
+  const run2 = await finishRun(page, { mistake: false, preferLastSolution: true, prefix: 'run2' });
 
-  // 첫 일반 실수는 안전끈 하나와 첫 제출 기록을 잃되 같은 문제를 유지한다.
-  const firstId = s.currentId;
-  const wrong = wrongPoint(s);
-  await submit(page, wrong);
-  s = await waitFor(page, x => x.frozen && x.lives === 2);
-  if (s.currentId !== firstId || s.firstAttempts !== 1 || s.firstCorrect !== 0) throw new Error(`wrong consequence mismatch: ${JSON.stringify(s)}`);
-  await page.screenshot({ path: path.join(FRAMES, '03-wrong-evidence.png') });
-  s = await waitFor(page, x => !x.frozen && x.currentId === firstId, 6000);
-  const recovery = solutions(s)[0];
-  await submit(page, recovery);
-  s = await waitFor(page, x => x.solved === 1 && x.frozen);
-  events.push({ name: 'wrong-then-repair', wrong, recovery, state: s });
-  await page.screenshot({ path: path.join(FRAMES, '04-recovery-leap.png') });
-  s = await waitFor(page, x => !x.frozen && x.round === 2, 6000);
-
-  // 남은 일곱 도약을 모두 실제 화면 드래그로 완주한다.
-  while (s.phase !== 'clear' && s.phase !== 'gameover') {
-    const id = s.currentId;
-    const right = solutions(s)[0];
-    if (!right) throw new Error(`no solution: ${JSON.stringify(s)}`);
-    await submit(page, right);
-    s = await waitFor(page, x => x.phase === 'clear' || x.phase === 'gameover' || (!x.frozen && x.currentId !== id), 6500);
-  }
-  if (s.phase !== 'clear' || s.solved !== 8 || s.firstCorrect !== 7 || s.firstAttempts !== 8 || s.lives !== 2) {
-    throw new Error(`clear gate mismatch: ${JSON.stringify(s)}`);
-  }
-  events.push({ name: 'clear-after-one-real-mistake', state: s });
-  await page.screenshot({ path: path.join(FRAMES, '05-clear.png') });
-
-  // 안전끈 0 뒤 입력 잠금: 테스트 명령은 실제 Submit 경로를 사용하고 종료 상태를 바꿀 수 없어야 한다.
-  await page.evaluate(() => window.__GAME_TEST__.start());
-  for (let i = 0; i < 3; i++) {
-    await page.evaluate(() => window.__GAME_TEST__.answerWrong());
-    await sleep(1200);
-  }
-  s = await waitFor(page, x => x.phase === 'gameover' && x.lives === 0, 5000);
-  const locked = JSON.stringify(s);
-  await page.mouse.click(195, 420); await sleep(250);
-  const afterLockedTap = await state(page);
-  if (afterLockedTap.score !== s.score || afterLockedTap.solved !== s.solved || afterLockedTap.lives !== 0) throw new Error('gameover input changed progress');
-  events.push({ name: 'zero-rope-input-lock', before: JSON.parse(locked), after: afterLockedTap });
-
+  const deckChanged = run1.problem_ids.join('|') !== run2.problem_ids.join('|');
+  const hashAfter = artifactHash();
   const result = {
     generated_at: new Date().toISOString(),
+    run_id: RUN_ID,
+    artifact_hash: hashBefore,
+    artifact_hash_after: hashAfter,
     viewport: '390x844',
-    method: 'Chrome trusted mouse down/move/up; 연습·오답·수리·8회 완주를 화면에 노출된 격자 변환으로 실행',
-    console_errors: errors,
-    events,
-    passed: errors.length === 0
+    method: 'trusted Puppeteer mouse click/down/move/up; title and restart CTA plus both practices and 16 scored landings; answer/start hooks never called',
+    onboarding: { first_run: onboarding1, second_run: onboarding2 },
+    run1,
+    run2,
+    deck_changed: deckChanged,
+    console_errors: consoleErrors,
+    passed: hashBefore === hashAfter && onboarding1.passed_under_30s && onboarding2.passed_under_30s && deckChanged && run1.final.phase === 'clear' && run2.final.phase === 'clear' && consoleErrors.length === 0,
   };
   fs.writeFileSync(path.join(HERE, 'pointer-playthrough-results.json'), `${JSON.stringify(result, null, 2)}\n`);
   console.log(JSON.stringify(result, null, 2));

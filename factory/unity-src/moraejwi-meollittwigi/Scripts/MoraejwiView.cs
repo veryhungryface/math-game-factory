@@ -116,6 +116,7 @@ namespace Mgf.MoraejwiMeollittwigi
         bool dragging;
         bool guideStrong;
         bool wide;
+        bool portraitTablet;
         Sprite roundedSprite;
         Sprite circleSprite;
 
@@ -427,8 +428,9 @@ namespace Mgf.MoraejwiMeollittwigi
             var p = Panel("Target cloth", playGroup.transform, new Vector2(.5f, 1), new Vector2(0, -147), new Vector2(368, 60), Cream);
             promptRt = p.rectTransform;
             prompt = Text("Prompt", p.transform, "", new Vector2(.5f, .5f), new Vector2(0, 0), new Vector2(344, 54), 16, Brown);
-            target = Text("Target area", playGroup.transform, "25 m²", new Vector2(.5f, 1), new Vector2(0, -196), new Vector2(238, 50), 27, Cream);
-            target.outlineColor = Brown; target.outlineWidth = .18f;
+            // 목표를 발문과 같은 천 패널의 하위 요소로 묶는다. 뷰포트가
+            // 바뀌어도 두 텍스트가 독립 절대 좌표로 격자 위에 떠오르지 않는다.
+            target = Text("Target area", p.transform, "25 m²", new Vector2(.5f, .5f), new Vector2(0, -27), new Vector2(340, 34), 23, Wrong);
 
             var bottom = Panel("Square reference cloth", playGroup.transform, new Vector2(.5f, 0), new Vector2(0, 67), new Vector2(368, 112), new Color(Cream.r, Cream.g, Cream.b, .96f));
             squareTable = Text("Square table", bottom.transform,
@@ -463,7 +465,7 @@ namespace Mgf.MoraejwiMeollittwigi
             var inner = Panel("Pulse ring center", ring.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(56, 56), new Color(Rust.r, Rust.g, Rust.b, .72f), circleSprite);
             var tar = Panel("Ghost landing", guideGroup.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(58, 58), new Color(Sage.r, Sage.g, Sage.b, .46f), circleSprite);
             targetRt = tar.rectTransform; targetImg = tar;
-            var path = Panel("Flowing dotted path", guideGroup.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(100, 5), new Color(Cream.r, Cream.g, Cream.b, .75f));
+            var path = Panel("Flowing dotted path", guideGroup.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(100, 10), new Color(Cream.r, Cream.g, Cream.b, .75f));
             pathRt = path.rectTransform;
             var finger = Panel("Ghost finger", guideGroup.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(32, 42), Cream, circleSprite);
             fingerRt = finger.rectTransform;
@@ -705,7 +707,28 @@ namespace Mgf.MoraejwiMeollittwigi
         {
             Vector3 p = cam.WorldToScreenPoint(mouseRoot.position + Vector3.up * .28f);
             float radius = current != null && current.gridN >= 10 ? 86f : 76f;
-            return p.z > 0 && Vector2.Distance(screen, new Vector2(p.x, p.y)) <= radius;
+            if (p.z > 0 && Vector2.Distance(screen, new Vector2(p.x, p.y)) <= radius) return true;
+
+            if (current == null || current.band != 0) return false;
+
+            // 연습에서는 보이는 맥동 링 전체와 유령 경로가 하나의 손잡이다.
+            // 지도 손가락 위에서 눌러도 원점의 모래쥐를 잡은 것으로 해석한다.
+            Vector3 from3 = cam.WorldToScreenPoint(GridWorld(Vector2.zero) + Vector3.up * .25f);
+            Vector3 to3 = cam.WorldToScreenPoint(GridWorld(new Vector2(3, 4)) + Vector3.up * .25f);
+            if (from3.z <= 0 || to3.z <= 0) return false;
+            Vector2 from = new Vector2(from3.x, from3.y);
+            Vector2 to = new Vector2(to3.x, to3.y);
+            if (Vector2.Distance(screen, from) <= 108f || Vector2.Distance(screen, to) <= 72f) return true;
+            return DistanceToSegment(screen, from, to) <= 34f;
+        }
+
+        static float DistanceToSegment(Vector2 point, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float denom = ab.sqrMagnitude;
+            if (denom <= .001f) return Vector2.Distance(point, a);
+            float t = Mathf.Clamp01(Vector2.Dot(point - a, ab) / denom);
+            return Vector2.Distance(point, a + ab * t);
         }
 
         public bool ScreenToGrid(Vector2 screen, out Vector2 grid)
@@ -877,7 +900,7 @@ namespace Mgf.MoraejwiMeollittwigi
             cameraBlend = Mathf.MoveTowards(cameraBlend, targetPlayCamera ? 1f : 0f, dt * speed);
             float aspect = (float)Screen.width / Mathf.Max(1, Screen.height);
             float titleSize = aspect < .72f ? 7.2f : aspect > 1.25f ? 5.5f : 6.2f;
-            float playSize = aspect < .72f ? 9.1f : aspect > 1.25f ? 5.3f : 7.0f;
+            float playSize = portraitTablet ? 12.2f : aspect < .72f ? 9.45f : aspect > 1.25f ? 5.3f : 7.0f;
             Vector3 titlePos = aspect > 1.25f ? new Vector3(10.5f, 8.3f, -11.5f) : new Vector3(9.2f, 9.1f, -11.8f);
             Vector3 playPos = new Vector3(0, 20f, 1.15f);
             Quaternion titleRot = Quaternion.LookRotation(new Vector3(0, .45f, 1.2f) - titlePos, Vector3.up);
@@ -1024,27 +1047,61 @@ namespace Mgf.MoraejwiMeollittwigi
         {
             lastW = Screen.width; lastH = Screen.height;
             float aspect = (float)Screen.width / Mathf.Max(1, Screen.height);
-            wide = (Screen.width >= Screen.height && Screen.width >= 640) || Screen.width >= 1024;
-            var scaler = canvas.GetComponent<CanvasScaler>(); if (scaler) scaler.matchWidthOrHeight = wide ? 1f : .5f;
+            // WebGL의 Screen.width는 devicePixelRatio가 반영된다. 폭 700만 보면
+            // DPR 2인 390px 휴대폰(내부 780px)을 태블릿으로 오인하므로 판형 비율로 나눈다.
+            portraitTablet = Screen.height > Screen.width && aspect >= .68f;
+            wide = Screen.width >= Screen.height && Screen.width >= 640;
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler) scaler.matchWidthOrHeight = (wide || portraitTablet) ? 1f : .5f;
             if (wide)
             {
-                Place(promptPanel, new Vector2(0, .5f), new Vector2(194, 128), new Vector2(350, 92));
-                Place(evidencePanel, new Vector2(1, .5f), new Vector2(-194, -28), new Vector2(350, 210));
-                goalText.rectTransform.anchorMin = goalText.rectTransform.anchorMax = new Vector2(0, .5f);
-                goalText.rectTransform.anchoredPosition = new Vector2(194, 224); goalText.rectTransform.sizeDelta = new Vector2(350, 58);
-                targetText.rectTransform.anchorMin = targetText.rectTransform.anchorMax = new Vector2(0, .5f);
-                targetText.rectTransform.anchoredPosition = new Vector2(194, 62);
+                Place(promptPanel, new Vector2(0, .5f), new Vector2(170, 92), new Vector2(326, 146));
+                Place(evidencePanel, new Vector2(1, .5f), new Vector2(-170, -36), new Vector2(326, 190));
+                ConfigurePromptChildren(new Vector2(304, 78), new Vector2(0, 23), 15,
+                    new Vector2(304, 42), new Vector2(0, -43), 22);
+                ConfigureEvidenceChildren(new Vector2(302, 86), new Vector2(0, 24), 12,
+                    new Vector2(302, 48), new Vector2(0, -60), 14);
+            }
+            else if (portraitTablet)
+            {
+                // 태블릿 세로형은 중앙 격자를 줄이고 발문과 근거를 양쪽 열로 보낸다.
+                Place(promptPanel, new Vector2(0, .5f), new Vector2(92, 66), new Vector2(168, 178));
+                Place(evidencePanel, new Vector2(1, .5f), new Vector2(-92, -54), new Vector2(168, 214));
+                ConfigurePromptChildren(new Vector2(148, 106), new Vector2(0, 26), 13,
+                    new Vector2(148, 45), new Vector2(0, -57), 18);
+                ConfigureEvidenceChildren(new Vector2(148, 132), new Vector2(0, 26), 10,
+                    new Vector2(148, 58), new Vector2(0, -72), 12);
             }
             else
             {
-                Place(promptPanel, new Vector2(.5f, 1), new Vector2(0, -147), new Vector2(368, 60));
+                Place(promptPanel, new Vector2(.5f, 1), new Vector2(0, -162), new Vector2(368, 92));
                 Place(evidencePanel, new Vector2(.5f, 0), new Vector2(0, 67), new Vector2(368, 112));
-                goalText.rectTransform.anchorMin = goalText.rectTransform.anchorMax = new Vector2(.5f, 1);
-                goalText.rectTransform.anchoredPosition = new Vector2(0, -17); goalText.rectTransform.sizeDelta = new Vector2(350, 30);
-                targetText.rectTransform.anchorMin = targetText.rectTransform.anchorMax = new Vector2(.5f, 1);
-                targetText.rectTransform.anchoredPosition = new Vector2(0, -196);
+                ConfigurePromptChildren(new Vector2(344, 49), new Vector2(0, 18), 15,
+                    new Vector2(344, 34), new Vector2(0, -28), 22);
+                ConfigureEvidenceChildren(new Vector2(348, 52), new Vector2(0, 25), 12,
+                    new Vector2(348, 34), new Vector2(0, -35), 15);
             }
-            game.State.layout = wide ? "wide-theater" : "portrait-square-stage";
+            // 목표는 항상 HUD 천 안에 남겨 별도 안전 영역을 유지한다.
+            Place(goalText.rectTransform, new Vector2(.5f, 1), new Vector2(0, -17), new Vector2(350, 30));
+            game.State.layout = wide ? "wide-safe-columns" : portraitTablet ? "tablet-safe-columns" : "portrait-safe-stack";
+        }
+
+        void ConfigurePromptChildren(Vector2 promptSize, Vector2 promptPos, float promptFont,
+            Vector2 targetSize, Vector2 targetPos, float targetFont)
+        {
+            Place(promptText.rectTransform, new Vector2(.5f, .5f), promptPos, promptSize);
+            promptText.fontSize = promptFont;
+            Place(targetText.rectTransform, new Vector2(.5f, .5f), targetPos, targetSize);
+            targetText.fontSize = targetFont;
+        }
+
+        void ConfigureEvidenceChildren(Vector2 tableSize, Vector2 tablePos, float tableFont,
+            Vector2 measureSize, Vector2 measurePos, float measureFont)
+        {
+            Place(squareTableText.rectTransform, new Vector2(.5f, .5f), tablePos, tableSize);
+            squareTableText.fontSize = tableFont;
+            Place(measureText.rectTransform, new Vector2(.5f, .5f), measurePos, measureSize);
+            measureText.fontSize = measureFont;
         }
 
         static void Place(RectTransform rt, Vector2 anchor, Vector2 pos, Vector2 size)

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
 import { serveStatic } from '../../../../lib/static-server.mjs';
@@ -7,6 +8,7 @@ import { serveStatic } from '../../../../lib/static-server.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../../../..');
 const PUBLIC = path.join(ROOT, 'public');
+const GAME = path.join(PUBLIC, 'g/moraejwi-meollittwigi');
 const GAMES = 200;
 const ROUNDS = [1, 1, 2, 2, 2, 3, 3, 3];
 
@@ -18,6 +20,15 @@ function chromePath() {
     if (fs.existsSync(p)) return p;
   }
   throw new Error('Chrome for Testing not found');
+}
+
+function artifactHash() {
+  const hash = crypto.createHash('sha256');
+  for (const name of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(file => `Build/${file}`)]) {
+    hash.update(name);
+    hash.update(fs.readFileSync(path.join(GAME, name)));
+  }
+  return hash.digest('hex');
 }
 
 function rng(seed) {
@@ -132,7 +143,8 @@ try {
   const counts = { 1: bank.filter(p => bandOf(p) === 1).length, 2: bank.filter(p => bandOf(p) === 2).length, 3: bank.filter(p => bandOf(p) === 3).length };
   if (counts[1] !== 144 || counts[2] !== 200 || counts[3] !== 225) throw new Error(`bank bands mismatch ${JSON.stringify(counts)}`);
   const result = {
-    run_id: `moraejwi-b3-${new Date().toISOString()}`,
+    run_id: process.env.MGF_RUN_ID || `moraejwi-b3-${new Date().toISOString()}`,
+    artifact_hash: artifactHash(),
     criterion: '각 정책 200판의 문항별 첫 제출 정답률을 실제 WebGL 문제 은행의 문항별 해 개수에서 계산한 우연 수준과 비교한다. 완주율은 판정 근거가 아니다.',
     method: 'ProblemBankJson 569문항을 브라우저에서 읽고, 실전 2·3·3 밴드 비율로 비복원 덱을 만든 단일 고정 시드 시뮬레이션',
     bankCount: bank.length,

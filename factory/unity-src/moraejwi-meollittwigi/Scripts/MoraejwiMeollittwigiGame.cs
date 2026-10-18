@@ -58,6 +58,7 @@ namespace Mgf.MoraejwiMeollittwigi
         int runSerial;
         int lastSuccessfulB = 5;
         int actualAttemptsCurrent;
+        float practiceElapsed;
 
         public GameState State => st;
         public LandingProblem Current => current;
@@ -85,6 +86,14 @@ namespace Mgf.MoraejwiMeollittwigi
         void Update()
         {
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
+            if (phase == GamePhase.Practice && st.onboarding)
+            {
+                practiceElapsed += dt;
+                // 조작을 못 찾은 학생도 30초 동안 연습에 갇히지 않는다. 유령 경로를
+                // 충분히 본 뒤 같은 정수 좌표 판정 경로로 성공 시연하고 실전으로 잇는다.
+                if (practiceElapsed >= 16f && !dragging)
+                    Submit(3, 4, "guided-demo", false);
+            }
             if (phase == GamePhase.Playing && !st.frozen)
             {
                 timeLeft = Mathf.Max(0f, timeLeft - dt);
@@ -118,6 +127,7 @@ namespace Mgf.MoraejwiMeollittwigi
             current = MoraejwiRules.Practice();
             dragging = false;
             actualAttemptsCurrent = 0;
+            practiceElapsed = 0f;
             st.phase = "playing";
             st.onboarding = true;
             st.frozen = true; // 압박과 진행은 정지하지만 연습 드래그 입력은 별도로 허용한다.
