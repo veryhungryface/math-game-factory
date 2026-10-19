@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 import puppeteer from 'puppeteer';
 import { serveStatic } from '../../../../lib/static-server.mjs';
 
@@ -8,7 +9,17 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../../../..');
 const PUBLIC = path.join(ROOT, 'public');
 const SHOTS = path.join(HERE, 'pointer-playthrough');
+const VALIDATION_RUN_ID = process.env.VALIDATION_RUN_ID || `bulkkot-fix2-${new Date().toISOString()}`;
 fs.mkdirSync(SHOTS, { recursive: true });
+
+function artifactHash() {
+  const hash = crypto.createHash('sha256');
+  const game = path.join(PUBLIC, 'g', 'bulkkot-jeomgeom');
+  for (const file of ['index.html', ...fs.readdirSync(path.join(game, 'Build')).sort().map(f => `Build/${f}`)]) {
+    hash.update(file); hash.update(fs.readFileSync(path.join(game, file)));
+  }
+  return hash.digest('hex');
+}
 
 function chromePath() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -89,6 +100,7 @@ async function enterThroughPractice(page) {
 
 async function runRecovery(page) {
   await enterThroughPractice(page);
+  const firstRoundStart = await state(page);
   await page.screenshot({ path: path.join(SHOTS, '03-round1-start.png') });
   await pullFuse(page);
   await page.screenshot({ path: path.join(SHOTS, '04-round1-wrong.png') });
@@ -100,13 +112,14 @@ async function runRecovery(page) {
   const end = await state(page);
   await page.screenshot({ path: path.join(SHOTS, '05-recovery-clear.png') });
   if (end.phase !== 'clear' || end.solved !== 6 || end.firstCorrect !== 5 || end.lives !== 2) throw new Error(`recovery path failed: ${JSON.stringify(end)}`);
-  return end;
+  return { firstRoundStart, end };
 }
 
 async function runClean(page, url) {
   await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
   await page.waitForFunction('window.__GAME_TEST__ && window.__GAME_TEST__.ready === true', { timeout: 30000 });
   await enterThroughPractice(page);
+  const secondRoundStart = await state(page);
   for (let expected = 1; expected <= 6; expected++) {
     const before = (await state(page)).roundId;
     await repairRoster(page); await pullFuse(page); await waitRoundChange(page, before);
@@ -114,7 +127,7 @@ async function runClean(page, url) {
   const end = await state(page);
   await page.screenshot({ path: path.join(SHOTS, '06-clean-clear.png') });
   if (end.phase !== 'clear' || end.solved !== 6 || end.firstCorrect !== 6 || end.lives !== 3) throw new Error(`clean path failed: ${JSON.stringify(end)}`);
-  return end;
+  return { secondRoundStart, end };
 }
 
 const server = await serveStatic(PUBLIC);
@@ -128,7 +141,15 @@ try {
   await page.screenshot({ path: path.join(SHOTS, '00-title.png') });
   const recovery = await runRecovery(page);
   const clean = await runClean(page, url);
-  const result = { run_id: `bulkkot-pointer-${new Date().toISOString()}`, method: '390×844 실제 browser mouse down/move/up만으로 타이틀→고리→도화선 경로 실행; answerCorrect/answerWrong 미사용', recovery, clean, consoleErrors: errors };
+  const result = {
+    run_id: VALIDATION_RUN_ID,
+    artifact_hash: artifactHash(),
+    method: '390×844 실제 browser mouse down/move/up만으로 타이틀→고리→도화선 경로 실행; answerCorrect/answerWrong 미사용',
+    recovery,
+    clean,
+    second_play_changed: JSON.stringify(recovery.firstRoundStart.currentCaseIds) !== JSON.stringify(clean.secondRoundStart.currentCaseIds),
+    consoleErrors: errors
+  };
   fs.writeFileSync(path.join(HERE, 'pointer-playthrough-results.json'), `${JSON.stringify(result, null, 2)}\n`);
   console.log(JSON.stringify(result, null, 2));
   if (errors.length) process.exitCode = 1;

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 import puppeteer from 'puppeteer';
 import { serveStatic } from '../../../../lib/static-server.mjs';
 
@@ -8,6 +9,16 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../../../..');
 const PUBLIC = path.join(ROOT, 'public');
 const TRIALS = 200;
+const VALIDATION_RUN_ID = process.env.VALIDATION_RUN_ID || `bulkkot-fix2-${new Date().toISOString()}`;
+
+function artifactHash() {
+  const hash = crypto.createHash('sha256');
+  const game = path.join(PUBLIC, 'g', 'bulkkot-jeomgeom');
+  for (const file of ['index.html', ...fs.readdirSync(path.join(game, 'Build')).sort().map(f => `Build/${f}`)]) {
+    hash.update(file); hash.update(fs.readFileSync(path.join(game, file)));
+  }
+  return hash.digest('hex');
+}
 
 function chromePath() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
@@ -123,7 +134,8 @@ try {
   await page.waitForFunction('window.__GAME_TEST__ && window.__GAME_TEST__.ready === true', { timeout: 30000 });
   const random = rng(20261020);
   const result = {
-    run_id: `bulkkot-b3-${new Date().toISOString()}`,
+    run_id: VALIDATION_RUN_ID,
+    artifact_hash: artifactHash(),
     criterion: '각 정책 200판의 첫 도화선 제출 정답률이 정책의 실제 한 칸 전이분포 우연 기준을 95% 수준에서 유의하게 넘지 않고, 무입력은 제출·진도 0',
     method: '매 판 start()로 새 덱만 준비하고, 답 입력은 browser mouse down/move/up으로 고리 1회와 도화선을 실제 조작. random은 카드×고리×방향 전수, 고정 정책은 섞인 카드 위치를 주변화해 기준선 산출',
     spam: await policyRun(page, 'spam', random),

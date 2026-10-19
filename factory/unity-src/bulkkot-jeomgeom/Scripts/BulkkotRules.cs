@@ -136,8 +136,9 @@ namespace Mgf.BulkkotJeomgeom
                 for (int i = 0; i < p.aItems.Length; i++)
                     for (int j = 0; j < p.bItems.Length; j++)
                         canonical.Add(CaseId(true, p.aItems[i], p.bItems[j]));
-                p.prompt = "모양 " + JoinNames(p.aItems, Shapes) + "과 꼬리 " + JoinNames(p.bItems, Tails)
-                    + "에서 각각 하나씩 골라 모든 경우를 빠짐없이 한 번씩 남기시오.";
+                // 조사 결합을 피하면서 두 역할에서 하나씩 고른다는 조건을 그대로 드러낸다.
+                p.prompt = "모양에서는 " + JoinNames(p.aItems, Shapes) + ", 꼬리에서는 " + JoinNames(p.bItems, Tails)
+                    + " 중 각각 하나씩 골라 모든 경우를 빠짐없이 한 번씩 남기시오.";
             }
             else
             {
