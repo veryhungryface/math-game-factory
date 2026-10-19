@@ -31,15 +31,9 @@ function xorshift(seed) {
 }
 
 function artifactHash() {
-  const files = [];
-  (function walk(dir) {
-    for (const name of fs.readdirSync(dir).sort()) {
-      const file = path.join(dir, name);
-      fs.statSync(file).isDirectory() ? walk(file) : files.push(file);
-    }
-  })(GAME);
   const hash = crypto.createHash('sha256');
-  for (const file of files) { hash.update(path.relative(GAME, file)); hash.update(fs.readFileSync(file)); }
+  const rels = ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(name => `Build/${name}`)];
+  for (const rel of rels) { hash.update(rel); hash.update(fs.readFileSync(path.join(GAME, rel))); }
   return hash.digest('hex');
 }
 
@@ -64,6 +58,7 @@ async function submitSeat(page, target) {
   await page.mouse.up();
 }
 
+const artifactHashBefore = artifactHash();
 const server = await serveStatic(PUBLIC);
 const launch = () => puppeteer.launch({
   headless: true,
@@ -143,13 +138,19 @@ const idle = {
   passed: idleProgressed === 0 && idleErrors.length === 0
 };
 
+const artifactHashAfter = artifactHash();
+const runId = `dalpaengi-geukjang-b3-${new Date().toISOString()}`;
 const result = {
-  runId: `dalpaengi-geukjang-b3-${new Date().toISOString()}`,
-  artifactHashSha256: artifactHash(),
+  runId,
+  run_id: runId,
+  artifactHashSha256: artifactHashBefore,
+  artifact_hash: artifactHashBefore,
+  artifact_hash_before: artifactHashBefore,
+  artifact_hash_after: artifactHashAfter,
   criterion: '각 200판 첫 시도 정답률이 1/16 이하이고 무입력 진도가 0',
   method: '390×844 Chrome의 실제 canvas mouse down/move/up. 매 판 start로 독립 본판을 만든 뒤 첫 홀드·드래그·릴리스만 측정한다. 정책은 문제·prompt·answer·문제 id를 읽지 않는다.',
   repeat, cycle, random, idle,
-  passed: repeat.passed && cycle.passed && random.passed && idle.passed
+  passed: repeat.passed && cycle.passed && random.passed && idle.passed && artifactHashBefore === artifactHashAfter
 };
 console.log(JSON.stringify(result, null, 2));
 fs.writeFileSync(new URL('./b3-results.json', import.meta.url), JSON.stringify(result, null, 2) + '\n');

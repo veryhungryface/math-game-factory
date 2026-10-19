@@ -1,5 +1,5 @@
-// 달팽이 극장 — 코드로 만든 2.5D 분홍 나선 껍데기 극장과 UI/연출.
-// 별도 회화 배경이나 검은 HUD 없이 장밋빛 껍데기 벽이 화면의 최빈색이 되게 한다.
+// 달팽이 극장 — 코드로 만든 2.5D 나선 껍데기 단면과 접힌 잎 객석 UI/연출.
+// 프로시니엄 막 대신 성장 고리·얇은 통로·순차 개방 객실이 화면의 구조를 만든다.
 using System;
 using System.Collections.Generic;
 using Mgf;
@@ -23,13 +23,11 @@ namespace Mgf.DalpaengiGeukjang
         static readonly Color Plum = MgfLook.Hex("#6E3E5C");
 
         Camera cam;
-        Transform worldRoot, shellRoot, stageRoot, seatRoot, audienceRoot, titleCurtainRoot;
+        Transform worldRoot, shellRoot, stageRoot, seatRoot, titleIrisRoot;
         Transform handleRoot, bellRoot, flowerSign, pulseRing, guideHand, guideArrow;
         readonly Transform[] seats = new Transform[DalpaengiRules.MaxSeats];
         readonly Transform[] seatBacks = new Transform[DalpaengiRules.MaxSeats];
-        readonly Transform[] audience = new Transform[DalpaengiRules.MaxSeats];
-        readonly Vector3[] audienceHomes = new Vector3[DalpaengiRules.MaxSeats];
-        readonly Vector3[] audienceStarts = new Vector3[DalpaengiRules.MaxSeats];
+        readonly Transform[] chamberShutters = new Transform[DalpaengiRules.MaxSeats];
         readonly Transform[] shellRidges = new Transform[5];
         readonly Transform[] titleSnails = new Transform[3];
         Light stageGlow;
@@ -45,6 +43,7 @@ namespace Mgf.DalpaengiGeukjang
         float seatCounterPunch;
         int previousCounter;
         bool lastLand;
+        int lastScreenW = -1, lastScreenH = -1;
 
         RectTransform uiRoot, titleRoot, gameRoot, revealRoot, endRoot;
         CanvasGroup titleGroup, gameGroup, revealGroup, endGroup;
@@ -55,6 +54,10 @@ namespace Mgf.DalpaengiGeukjang
         TextMeshProUGUI revealTitle, revealFormula, revealReason;
         TextMeshProUGUI endTitle, endStats, endReasonText, restartText;
         Sprite roundedSprite, leafSprite, petalSprite, ringSprite;
+        CanvasScaler uiScaler;
+        RectTransform invalidTapUi, invalidPathUi, assistZoneUi;
+        Vector2 invalidGuideStart;
+        float invalidGuideClock;
         float noticeClock;
         int shownSecond = -1;
         int resultCount;
@@ -70,12 +73,13 @@ namespace Mgf.DalpaengiGeukjang
             colliderTypes.AddComponent<BoxCollider>();
             colliderTypes.AddComponent<MeshCollider>();
             UnityEngine.Object.Destroy(colliderTypes);
-            roseMat = MgfLook.Lit(Rose, .52f, .02f);
-            roseLightMat = MgfLook.Lit(RoseLight, .62f, .01f, RoseLight * .035f);
-            roseDeepMat = MgfLook.Lit(RoseDeep, .44f, .02f);
-            leafMat = MgfLook.Lit(Leaf, .36f, .01f);
-            leafLightMat = MgfLook.Lit(LeafLight, .40f, .01f, LeafLight * .03f);
-            ivoryMat = MgfLook.Lit(Ivory, .48f, .01f);
+            // 종이 단면처럼 얇고 매트한 재질. 기존 둥근 새틴 무대 계열과 분리한다.
+            roseMat = MgfLook.Lit(Rose, .24f, .01f);
+            roseLightMat = MgfLook.Lit(RoseLight, .18f, .01f, RoseLight * .025f);
+            roseDeepMat = MgfLook.Lit(RoseDeep, .16f, .01f);
+            leafMat = MgfLook.Lit(Leaf, .18f, .01f);
+            leafLightMat = MgfLook.Lit(LeafLight, .20f, .01f, LeafLight * .025f);
+            ivoryMat = MgfLook.Lit(Ivory, .22f, .01f);
             amberMat = MgfLook.Lit(Amber, .66f, .16f, Amber * .08f);
             inkMat = MgfLook.Lit(Ink, .32f, .02f);
             snailBodyMat = MgfLook.Lit(MgfLook.Hex("#F3C6A9"), .60f, .01f);
@@ -90,19 +94,17 @@ namespace Mgf.DalpaengiGeukjang
             cam.orthographicSize = 10.2f;
             cam.backgroundColor = Rose;
 
-            worldRoot = new GameObject("Rose shell theater").transform;
-            shellRoot = new GameObject("Spiral shell walls").transform;
+            worldRoot = new GameObject("Rose shell cross-section").transform;
+            shellRoot = new GameObject("Layered spiral growth map").transform;
             shellRoot.SetParent(worldRoot, false);
-            stageRoot = new GameObject("Petal stage").transform;
+            stageRoot = new GameObject("Folded shell passages").transform;
             stageRoot.SetParent(worldRoot, false);
             seatRoot = new GameObject("Leaf seat fan").transform;
             seatRoot.SetParent(worldRoot, false);
-            audienceRoot = new GameObject("Snail audience pool").transform;
-            audienceRoot.SetParent(worldRoot, false);
 
-            // 껍데기 자체가 배경이다. 납작한 탁자나 전면 어두운 판을 만들지 않는다.
-            var shellBack = MgfLook.Prim(PrimitiveType.Sphere, "Satin rose shell interior",
-                new Vector3(0f, 3.4f, 3.3f), new Vector3(15.5f, 12.4f, 2.4f), roseMat, shellRoot, false);
+            // 껍데기 단면 자체가 배경이다. 완전한 무대 프레임이나 막을 만들지 않는다.
+            var shellBack = MgfLook.Prim(PrimitiveType.Sphere, "Cut rose shell interior",
+                new Vector3(-.35f, 3.55f, 3.3f), new Vector3(15.8f, 12.7f, 1.65f), roseMat, shellRoot, false);
             shellBack.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             for (int i = 0; i < shellRidges.Length; i++)
             {
@@ -113,7 +115,7 @@ namespace Mgf.DalpaengiGeukjang
                 ridge.localScale = new Vector3(1.18f, .92f, 1f);
                 shellRidges[i] = ridge;
             }
-            // 나선 중심을 한쪽으로 살짝 밀어 생성 이미지의 껍데기 단면 인상을 낸다.
+            // 나선 중심과 방사형 성장선을 한쪽으로 밀어 실제 절단 표본 같은 비대칭을 만든다.
             for (int i = 0; i < 9; i++)
             {
                 float a = i * .78f;
@@ -123,44 +125,45 @@ namespace Mgf.DalpaengiGeukjang
                     Vector3.one * (.22f + i * .025f), roseDeepMat, shellRoot, false);
                 bead.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
-
-            // 꽃잎 지붕과 무대. 타이틀의 꽃잎 막은 같은 세계에서 양옆으로 실제로 열린다.
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 13; i++)
             {
-                float a = Mathf.Lerp(-74f, 74f, i / 6f) * Mathf.Deg2Rad;
-                var petal = MgfLook.Prim(PrimitiveType.Sphere, "Canopy petal " + i,
-                    new Vector3(Mathf.Sin(a) * 6.25f, 8.25f + Mathf.Cos(a) * .32f, 2.4f),
-                    new Vector3(1.48f, .38f, .24f), i % 2 == 0 ? roseLightMat : roseDeepMat, stageRoot, false);
-                petal.transform.localRotation = Quaternion.Euler(0f, 0f, -Mathf.Lerp(-30f, 30f, i / 6f));
+                float a = Mathf.Lerp(-148f, 126f, i / 12f) * Mathf.Deg2Rad;
+                float len = 2.2f + (i % 4) * .62f;
+                var vein = MgfLook.Prim(PrimitiveType.Cube, "Radial growth seam " + i,
+                    new Vector3(-.55f + Mathf.Cos(a) * len * .54f, 4f + Mathf.Sin(a) * len * .54f, 1.05f),
+                    new Vector3(.055f, len, .08f), i % 3 == 0 ? ivoryMat : roseDeepMat, shellRoot, false);
+                vein.transform.localRotation = Quaternion.Euler(0f, 0f, -a * Mathf.Rad2Deg + 90f);
+                vein.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
-            var stage = MgfLook.Prim(PrimitiveType.Cylinder, "Round satin stage",
-                new Vector3(0f, .05f, 1.0f), new Vector3(7.5f, .35f, 5.2f), roseLightMat, stageRoot, false);
-            stage.transform.rotation = Quaternion.identity;
-            var stageRim = MgfLook.Prim(PrimitiveType.Cylinder, "Amber stage rim",
-                new Vector3(0f, -.05f, .85f), new Vector3(8.0f, .22f, 5.7f), amberMat, stageRoot, false);
-            stageRim.transform.rotation = Quaternion.identity;
-            var carpet = MgfLook.Prim(PrimitiveType.Cube, "Ivory entry carpet",
-                new Vector3(0f, .18f, -3.1f), new Vector3(2.2f, .12f, 5.5f), ivoryMat, stageRoot, false);
-            carpet.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+            // 얇은 접힘 통로가 나선의 세 층을 가로지른다. 원형 단상·카펫은 없다.
+            for (int i = 0; i < 4; i++)
+            {
+                float y = -.05f + i * 1.35f;
+                float x = i % 2 == 0 ? -.95f : .75f;
+                var passage = MgfLook.Prim(PrimitiveType.Cube, "Folded passage layer " + i,
+                    new Vector3(x, y, .7f - i * .08f), new Vector3(8.9f - i * .72f, .14f, 1.25f),
+                    i % 2 == 0 ? leafMat : leafLightMat, stageRoot, false);
+                passage.transform.localRotation = Quaternion.Euler(0f, 0f, i % 2 == 0 ? 5f : -7f);
+                for (int v = -3; v <= 3; v++)
+                {
+                    var vein = MgfLook.Prim(PrimitiveType.Cube, "Passage fold vein " + i + " " + v,
+                        new Vector3(x + v * .78f, y + .11f, .02f), new Vector3(.035f, .26f, 1.36f),
+                        ivoryMat, stageRoot, false);
+                    vein.transform.localRotation = passage.transform.localRotation;
+                }
+            }
 
-            // 무대 간판은 세계 안 사물이며 타이틀 카드가 아니다.
-            flowerSign = MgfLook.Block("Flower marquee", new Vector3(0f, 6.15f, -.1f),
-                new Vector3(6.6f, 1.5f, .34f), .58f, ivoryMat, stageRoot).transform;
-            var signText = MgfText.World("달팽이 극장", new Vector3(0f, 6.15f, -.31f), .72f, Ink, stageRoot);
+            // 제목은 나선 안쪽에 박힌 얇은 표찰이다. 전구 테두리의 극장 마키를 쓰지 않는다.
+            flowerSign = MgfLook.Block("Shell core plaque", new Vector3(-.55f, 6.15f, -.1f),
+                new Vector3(5.9f, 1.18f, .18f), .18f, ivoryMat, stageRoot).transform;
+            flowerSign.localRotation = Quaternion.Euler(0f, 0f, -7f);
+            var signText = MgfText.World("달팽이 극장", new Vector3(-.55f, 6.15f, -.31f), .66f, Ink, stageRoot);
             signText.fontStyle = FontStyles.Bold;
             signText.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            for (int i = 0; i < 8; i++)
-            {
-                float a = i * Mathf.PI * 2f / 8f;
-                var bulb = MgfLook.Prim(PrimitiveType.Sphere, "Marquee bulb " + i,
-                    new Vector3(Mathf.Cos(a) * 3.0f, 6.15f + Mathf.Sin(a) * .56f, -.34f),
-                    Vector3.one * .20f, amberMat, stageRoot, false);
-                bulb.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
-            }
 
             BuildSeats();
             BuildHandleAndBell();
-            BuildTitleCurtains();
+            BuildTitleIris();
             BuildAmbientSnails();
 
             stageGlow = new GameObject("Warm translucent edge light").AddComponent<Light>();
@@ -188,27 +191,33 @@ namespace Mgf.DalpaengiGeukjang
                 root.localRotation = Quaternion.Euler(0f, -angle * Mathf.Rad2Deg, 0f);
                 seats[i] = root;
 
-                var pad = MgfLook.Prim(PrimitiveType.Sphere, "Leaf cushion", Vector3.zero,
-                    new Vector3(.68f, .18f, .82f), leafMat, root, false);
+                var pad = MgfLook.Prim(PrimitiveType.Cube, "Folded leaf seat", Vector3.zero,
+                    new Vector3(.72f, .09f, .86f), leafMat, root, false);
                 pad.transform.localPosition = new Vector3(0f, .02f, .04f);
-                var back = MgfLook.Prim(PrimitiveType.Sphere, "Folding leaf back", new Vector3(0f, .36f, .30f),
-                    new Vector3(.72f, .80f, .18f), leafLightMat, root, false).transform;
+                pad.transform.localRotation = Quaternion.Euler(0f, 0f, i % 2 == 0 ? 4f : -4f);
+                var back = MgfLook.Prim(PrimitiveType.Cube, "Folding leaf back", new Vector3(0f, .36f, .30f),
+                    new Vector3(.74f, .78f, .08f), leafLightMat, root, false).transform;
                 back.localRotation = Quaternion.Euler(-12f, 0f, 0f);
                 seatBacks[i] = back;
+                MgfLook.Prim(PrimitiveType.Cube, "Leaf center vein", new Vector3(0f, .38f, .245f),
+                    new Vector3(.035f, .66f, .035f), ivoryMat, root, false);
+
+                // 각 자리 뒤의 얇은 객실 문은 정답 때 나선 순서로 열린다.
+                var shutter = new GameObject("Spiral chamber shutter " + (i + 1)).transform;
+                shutter.SetParent(root, false);
+                shutter.localPosition = new Vector3(0f, .73f, .43f);
+                var shutterPanel = MgfLook.Prim(PrimitiveType.Cube, "Folded chamber panel", Vector3.zero,
+                    new Vector3(.64f, .72f, .055f), i % 2 == 0 ? roseLightMat : ivoryMat, shutter, false);
+                shutterPanel.transform.localRotation = Quaternion.Euler(0f, 0f, i % 2 == 0 ? -5f : 5f);
+                MgfLook.Prim(PrimitiveType.Cube, "Chamber growth line", new Vector3(0f, 0f, -.04f),
+                    new Vector3(.035f, .58f, .025f), roseDeepMat, shutter, false);
+                chamberShutters[i] = shutter;
 
                 // 의자 번호는 정답 힌트가 아니라 현재 조작 수의 물리적 눈금이다.
                 var number = MgfText.World((i + 1).ToString(), new Vector3(0f, .62f, -.13f), .29f, Ivory, root);
                 number.fontStyle = FontStyles.Bold;
                 number.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
-                var snail = BuildSnail("Audience snail " + (i + 1), audienceRoot,
-                    new Color(.92f - .16f * (i % 3) / 2f, .70f + .12f * (i % 4) / 3f, .62f + .18f * (i % 5) / 4f));
-                audienceHomes[i] = p + new Vector3(0f, .55f, -.20f);
-                audienceStarts[i] = new Vector3((i % 2 == 0 ? -1f : 1f) * (8.5f + i * .10f), .25f, -3.7f - (i % 3) * .35f);
-                snail.localPosition = audienceStarts[i];
-                snail.localScale = Vector3.one * .62f;
-                snail.gameObject.SetActive(false);
-                audience[i] = snail;
             }
         }
 
@@ -238,19 +247,22 @@ namespace Mgf.DalpaengiGeukjang
                 Vector3.one * .32f, ivoryMat, bellRoot, false);
         }
 
-        void BuildTitleCurtains()
+        void BuildTitleIris()
         {
-            titleCurtainRoot = new GameObject("Split reveal petal curtains").transform;
-            titleCurtainRoot.SetParent(worldRoot, false);
-            for (int side = -1; side <= 1; side += 2)
-            for (int i = 0; i < 4; i++)
+            titleIrisRoot = new GameObject("Rotating shell aperture").transform;
+            titleIrisRoot.SetParent(worldRoot, false);
+            titleIrisRoot.localPosition = new Vector3(-.55f, 3.95f, -1.75f);
+            for (int i = 0; i < 7; i++)
             {
-                var petal = MgfLook.Prim(PrimitiveType.Sphere, "Curtain petal " + side + " " + i,
-                    new Vector3(side * (1.15f + i * .95f), 3.45f + i * .35f, -2.2f - i * .10f),
-                    new Vector3(2.4f, 4.7f - i * .42f, .42f), i % 2 == 0 ? roseDeepMat : roseMat,
-                    titleCurtainRoot, false);
-                petal.transform.localRotation = Quaternion.Euler(0f, side * 8f, side * (18f + i * 5f));
+                float a = i * Mathf.PI * 2f / 7f;
+                var blade = MgfLook.Prim(PrimitiveType.Cube, "Shell aperture blade " + i,
+                    new Vector3(Mathf.Cos(a) * 1.75f, Mathf.Sin(a) * 1.75f, 0f),
+                    new Vector3(.72f, 2.65f, .11f), i % 2 == 0 ? roseDeepMat : roseLightMat,
+                    titleIrisRoot, false);
+                blade.transform.localRotation = Quaternion.Euler(0f, 0f, -a * Mathf.Rad2Deg + 42f);
             }
+            var core = NewMeshObject("Open spiral threshold", Torus(2.25f, .10f, 56, 6), ivoryMat, titleIrisRoot);
+            core.localPosition = Vector3.zero;
         }
 
         void BuildAmbientSnails()
@@ -294,12 +306,13 @@ namespace Mgf.DalpaengiGeukjang
             petalSprite = MakePetalSprite(96);
             ringSprite = MakeRingSprite(96);
             uiRoot = Full("Dalpaengi UI", MgfText.Canvas.transform);
+            uiScaler = MgfText.Canvas.GetComponent<CanvasScaler>();
 
             titleRoot = Full("Title screen", uiRoot);
             titleGroup = titleRoot.gameObject.AddComponent<CanvasGroup>();
-            titlePetalPlate = Img("Flower sign plate", titleRoot, new Vector2(.5f, .79f), Vector2.zero,
-                new Vector2(350f, 174f), Ivory, petalSprite);
-            titleLogo = Txt("Logo", titleRoot, "달팽이\n극장", new Vector2(.5f, .80f), new Vector2(0f, 4f), 56f, Ink, 330f);
+            titlePetalPlate = Img("Shell core title plate", titleRoot, new Vector2(.5f, .79f), Vector2.zero,
+                new Vector2(350f, 174f), Leaf, leafSprite);
+            titleLogo = Txt("Logo", titleRoot, "달팽이\n극장", new Vector2(.5f, .80f), new Vector2(0f, 4f), 56f, Ivory, 330f);
             titleLogo.fontStyle = FontStyles.Bold;
             titleLogo.outlineColor = RoseDeep;
             titleLogo.outlineWidth = .22f;
@@ -308,7 +321,7 @@ namespace Mgf.DalpaengiGeukjang
             titleCta = Txt("World CTA", titleRoot, "입장종을 울려 극장 열기", new Vector2(.5f, .18f), Vector2.zero, 23f, Ivory, 350f);
             titleCta.outlineColor = Ink;
             titleCta.outlineWidth = .19f;
-            titleMeta = Txt("Title meta", titleRoot, "중2 · 경우의 수     최고 기록은 첫 공연 뒤 저장", new Vector2(.5f, .095f), Vector2.zero, 12f, Ivory, 360f);
+            titleMeta = Txt("Title meta", titleRoot, "중2 · 경우의 수     한 판 8공연", new Vector2(.5f, .095f), Vector2.zero, 12f, Ivory, 360f);
 
             gameRoot = Full("Game HUD", uiRoot);
             gameGroup = gameRoot.gameObject.AddComponent<CanvasGroup>();
@@ -371,7 +384,6 @@ namespace Mgf.DalpaengiGeukjang
 
         void CreateGuideObjects()
         {
-            var canvas = MgfText.Canvas.transform;
             var ring = Img("Guide pulse ring", gameRoot, new Vector2(.5f, .13f), Vector2.zero,
                 new Vector2(106f, 106f), new Color(1f, .90f, .50f, .85f), ringSprite);
             pulseRingUi = ring.rectTransform;
@@ -381,6 +393,15 @@ namespace Mgf.DalpaengiGeukjang
             var arrow = Img("Flow arrow", gameRoot, new Vector2(.5f, .205f), Vector2.zero,
                 new Vector2(34f, 70f), LeafLight, leafSprite);
             guideArrowUi = arrow.rectTransform;
+            invalidTapUi = Img("Missed tap locator", gameRoot, new Vector2(.5f, .5f), Vector2.zero,
+                new Vector2(72f, 72f), new Color(1f, .82f, .35f, .92f), ringSprite).rectTransform;
+            invalidPathUi = Img("Miss-to-handle path", gameRoot, new Vector2(.5f, .5f), Vector2.zero,
+                new Vector2(8f, 120f), new Color(1f, .91f, .55f, .78f), roundedSprite).rectTransform;
+            assistZoneUi = Img("Progressive handle catchment", gameRoot, new Vector2(.5f, .18f), Vector2.zero,
+                new Vector2(350f, 168f), new Color(LeafLight.r, LeafLight.g, LeafLight.b, .15f), roundedSprite).rectTransform;
+            invalidTapUi.gameObject.SetActive(false);
+            invalidPathUi.gameObject.SetActive(false);
+            assistZoneUi.gameObject.SetActive(false);
         }
 
         RectTransform pulseRingUi, guideHandUi, guideArrowUi;
@@ -397,13 +418,17 @@ namespace Mgf.DalpaengiGeukjang
             {
                 seats[i].localScale = new Vector3(1f, .18f, 1f);
                 seatBacks[i].localRotation = Quaternion.Euler(76f, 0f, 0f);
-                audience[i].gameObject.SetActive(false);
-                audience[i].localPosition = audienceStarts[i];
-                audience[i].localScale = Vector3.one * .62f;
+                chamberShutters[i].localRotation = Quaternion.identity;
+                chamberShutters[i].localScale = Vector3.one;
             }
-            if (titleCurtainRoot) titleCurtainRoot.localScale = Vector3.one;
+            if (titleIrisRoot)
+            {
+                titleIrisRoot.localScale = Vector3.one;
+                titleIrisRoot.localRotation = Quaternion.identity;
+            }
             if (bellRoot) bellRoot.gameObject.SetActive(true);
             if (handleRoot) handleRoot.gameObject.SetActive(false);
+            invalidGuideClock = 0f;
         }
 
         void ShowTitleVisual()
@@ -413,9 +438,10 @@ namespace Mgf.DalpaengiGeukjang
             gameGroup.alpha = 0f;
             revealGroup.alpha = 0f;
             endGroup.alpha = 0f;
-            titleCurtainRoot.gameObject.SetActive(true);
-            titleCurtainRoot.localPosition = Vector3.zero;
-            titleCurtainRoot.localScale = Vector3.one;
+            titleIrisRoot.gameObject.SetActive(true);
+            titleIrisRoot.localPosition = new Vector3(-.55f, 3.95f, -1.75f);
+            titleIrisRoot.localScale = Vector3.one;
+            titleIrisRoot.localRotation = Quaternion.identity;
             handleRoot.gameObject.SetActive(false);
             bellRoot.gameObject.SetActive(true);
             for (int i = 0; i < titleSnails.Length; i++) titleSnails[i].gameObject.SetActive(true);
@@ -429,8 +455,8 @@ namespace Mgf.DalpaengiGeukjang
             endGroup.alpha = 0f;
             handleRoot.gameObject.SetActive(true);
             bellRoot.gameObject.SetActive(false);
-            // 0.55초 Split Reveal이 끝난 뒤 막은 입력 화면을 가리지 않게 완전히 퇴장한다.
-            titleCurtainRoot.gameObject.SetActive(false);
+            // 0.55초 나선 개구가 끝난 뒤 입력 화면을 가리지 않게 완전히 퇴장한다.
+            titleIrisRoot.gameObject.SetActive(false);
             guideBoost = 1.4f;
             noticeClock = 999f;
             ShowNotice("경우마다 한 자리, 펼쳐 입장시켜라");
@@ -492,19 +518,14 @@ namespace Mgf.DalpaengiGeukjang
             correctFlash = 1f;
             drumWave = 0f;
             revealGroup.alpha = 1f;
-            revealTitle.text = practice ? "첫 객석 만석" : "마지막 자리까지 만석";
+            revealTitle.text = practice ? "첫 나선 객실 개방" : "계산한 객실이 차례로 열린다";
             revealFormula.text = problem.formula;
             revealReason.text = problem.kind == ShowKind.Sum
                 ? "겹치지 않는 두 목록 중 하나만 고르므로 더한다."
                 : problem.kind == ShowKind.Product
                     ? "두 목록에서 각각 하나씩 고르므로 모든 조합을 센다."
                     : "전체에서 알려진 부분을 빼면 나머지 공연 수가 나온다.";
-            for (int i = 0; i < problem.answer; i++)
-            {
-                audience[i].gameObject.SetActive(true);
-                audience[i].localPosition = audienceStarts[i];
-            }
-            // 정답은 화면 흔들림/색종이 대신 따뜻한 빛, 입장 이동, 껍데기 합주로 표현한다.
+            // 정답은 관객 환호가 아니라 나선 객실의 순차 개방과 성장 고리 파동으로 표현한다.
             MgfFx.Glow(new Vector3(0f, 2.3f, -1.4f), LeafLight, 16 + Mathf.Min(18, combo * 3), .28f);
             noticeClock = 0f;
             RefreshUi();
@@ -523,7 +544,6 @@ namespace Mgf.DalpaengiGeukjang
             if (!practice) ShowBellCrack(st.lives);
             // 흔들림은 오답 전용이며 강도도 한 단계만 쓴다.
             MgfFx.Shake(cam, practice ? .045f : .105f, .24f);
-            ReactAudience(false);
             RefreshUi();
         }
 
@@ -547,7 +567,7 @@ namespace Mgf.DalpaengiGeukjang
             for (int i = 0; i < count; i++)
             {
                 int idx = submitted < answer ? Mathf.Clamp(submitted + i, 0, 16) : Mathf.Clamp(answer + i, 0, 16);
-                MgfFx.Glow(audienceHomes[idx] + Vector3.up * .9f, submitted < answer ? Amber : RoseDeep, 3, .42f);
+                MgfFx.Glow(seats[idx].position + Vector3.up * .9f, submitted < answer ? Amber : RoseDeep, 3, .42f);
             }
         }
 
@@ -569,8 +589,12 @@ namespace Mgf.DalpaengiGeukjang
             revealGroup.alpha = 0f;
             if (correct)
             {
-                for (int i = 0; i < audience.Length; i++) audience[i].gameObject.SetActive(false);
                 SetOpenSeats(0);
+                for (int i = 0; i < chamberShutters.Length; i++)
+                {
+                    chamberShutters[i].localRotation = Quaternion.identity;
+                    chamberShutters[i].localScale = Vector3.one;
+                }
             }
             wrongFlash = 0f;
             correctFlash = 0f;
@@ -584,14 +608,6 @@ namespace Mgf.DalpaengiGeukjang
             ShowNotice("같은 공연을 직접 다시 펼쳐 고치시오.");
             noticeClock = 999f;
             guideBoost = 1.05f;
-            ReactAudience(false);
-        }
-
-        void ReactAudience(bool happy)
-        {
-            for (int i = 0; i < audience.Length; i++)
-                if (audience[i].gameObject.activeSelf)
-                    audience[i].localRotation = Quaternion.Euler(happy ? -8f : 8f, 0f, happy ? -5f : 5f);
         }
 
         void RefuseAt(Vector2 screen, string message)
@@ -608,9 +624,11 @@ namespace Mgf.DalpaengiGeukjang
             correctFlash = Mathf.Max(correctFlash, .12f);
         }
 
-        void PointToHandle()
+        void PointToHandle(Vector2 screen, int missCount)
         {
             guideBoost = Mathf.Max(guideBoost, 1.1f);
+            invalidGuideClock = 2.6f;
+            invalidGuideStart = ScreenToUi(screen);
             MgfFx.Punch(handleRoot, .11f, .28f);
         }
 
@@ -665,9 +683,19 @@ namespace Mgf.DalpaengiGeukjang
         bool UpdateLayoutIfNeeded(bool force = false)
         {
             bool land = IsLand();
-            if (!force && land == lastLand && st.layoutLand == land) return false;
+            if (!force && land == lastLand && st.layoutLand == land &&
+                lastScreenW == Screen.width && lastScreenH == Screen.height) return false;
             lastLand = land;
             st.layoutLand = land;
+            lastScreenW = Screen.width;
+            lastScreenH = Screen.height;
+            if (uiScaler)
+            {
+                // 가로는 1280×800 논리 좌표로 고정한다. 기존 390×844 기하평균 좌표에서
+                // 1440/2000 화면의 좌우 카드가 캔버스 밖으로 밀리던 문제를 없앤다.
+                uiScaler.referenceResolution = land ? new Vector2(1280f, 800f) : new Vector2(390f, 844f);
+                uiScaler.matchWidthOrHeight = land ? 1f : .5f;
+            }
             if (cam)
             {
                 cam.orthographicSize = land ? 7.1f : 10.35f;
@@ -678,12 +706,12 @@ namespace Mgf.DalpaengiGeukjang
             {
                 if (land)
                 {
-                    Place(promptPlate.rectTransform, new Vector2(.17f, .58f), new Vector2(300f, 260f));
-                    Place(goalPlate.rectTransform, new Vector2(.83f, .88f), new Vector2(300f, 60f));
-                    Place(countPlate.rectTransform, new Vector2(.83f, .56f), new Vector2(160f, 118f));
-                    Place(progressText.rectTransform, new Vector2(.80f, .74f), new Vector2(130f, 34f));
-                    Place(timerText.rectTransform, new Vector2(.90f, .74f), new Vector2(90f, 34f));
-                    Place(handleLabel.rectTransform, new Vector2(.56f, .09f), new Vector2(420f, 38f));
+                    Place(promptPlate.rectTransform, new Vector2(.16f, .55f), new Vector2(350f, 264f));
+                    Place(goalPlate.rectTransform, new Vector2(.84f, .88f), new Vector2(330f, 60f));
+                    Place(countPlate.rectTransform, new Vector2(.84f, .55f), new Vector2(170f, 122f));
+                    Place(progressText.rectTransform, new Vector2(.80f, .73f), new Vector2(130f, 34f));
+                    Place(timerText.rectTransform, new Vector2(.90f, .73f), new Vector2(90f, 34f));
+                    Place(handleLabel.rectTransform, new Vector2(.56f, .08f), new Vector2(420f, 38f));
                     Place(noticePlate.rectTransform, new Vector2(.50f, .91f), new Vector2(500f, 58f));
                     Place(pulseRingUi, new Vector2(.57f, .16f), new Vector2(112f, 112f));
                     Place(guideHandUi, new Vector2(.57f, .22f), new Vector2(44f, 66f));
@@ -694,6 +722,7 @@ namespace Mgf.DalpaengiGeukjang
                     Place(titleSub.rectTransform, new Vector2(.27f, .45f), new Vector2(390f, 42f));
                     Place(titleCta.rectTransform, new Vector2(.70f, .18f), new Vector2(430f, 70f));
                     Place(titleMeta.rectTransform, new Vector2(.70f, .10f), new Vector2(430f, 30f));
+                    Place(assistZoneUi, new Vector2(.57f, .19f), new Vector2(610f, 245f));
                 }
                 else
                 {
@@ -713,6 +742,7 @@ namespace Mgf.DalpaengiGeukjang
                     Place(titleSub.rectTransform, new Vector2(.5f, .66f), new Vector2(350f, 42f));
                     Place(titleCta.rectTransform, new Vector2(.5f, .18f), new Vector2(350f, 72f));
                     Place(titleMeta.rectTransform, new Vector2(.5f, .095f), new Vector2(360f, 30f));
+                    Place(assistZoneUi, new Vector2(.5f, .18f), new Vector2(350f, 190f));
                 }
             }
             return true;
@@ -741,16 +771,18 @@ namespace Mgf.DalpaengiGeukjang
                 titleSnails[i].localRotation = Quaternion.Euler(0f, Mathf.Sin(worldClock * .7f + i) * 8f, 0f);
             }
 
-            // Split Reveal: 종이 울리면 꽃잎 막이 좌우로 벌어진다.
+            // 종이 울리면 껍데기 개구가 회전하며 중심으로 접힌다.
             if (titleOpening)
             {
                 float k = EaseOutBack(Mathf.Clamp01(titleClock / .52f));
-                titleCurtainRoot.localScale = new Vector3(1f + k * .90f, 1f - k * .07f, 1f);
-                titleCurtainRoot.localPosition = new Vector3(0f, k * .18f, 0f);
+                float scale = Mathf.Lerp(1f, .12f, Mathf.Clamp01(k));
+                titleIrisRoot.localScale = Vector3.one * scale;
+                titleIrisRoot.localRotation = Quaternion.Euler(0f, 0f, k * 96f);
             }
-            else if (localPhase != LocalPhase.Title && titleCurtainRoot.localScale.x < 1.85f)
+            else if (localPhase != LocalPhase.Title && titleIrisRoot.gameObject.activeSelf)
             {
-                titleCurtainRoot.localScale = Vector3.Lerp(titleCurtainRoot.localScale, new Vector3(1.9f, .93f, 1f), dt * 7f);
+                titleIrisRoot.localScale = Vector3.Lerp(titleIrisRoot.localScale, Vector3.one * .12f, dt * 9f);
+                titleIrisRoot.Rotate(0f, 0f, dt * 120f);
             }
 
             for (int i = 0; i < seats.Length; i++)
@@ -775,9 +807,10 @@ namespace Mgf.DalpaengiGeukjang
                         float delay = i * .035f;
                         float k = Mathf.Clamp01((revealProgress - delay) / Mathf.Max(.15f, 1f - delay));
                         k = k * k * (3f - 2f * k);
-                        audience[i].localPosition = Vector3.Lerp(audienceStarts[i], audienceHomes[i], k);
-                        float squash = 1f + Mathf.Sin(k * Mathf.PI) * .18f;
-                        audience[i].localScale = new Vector3(.62f / squash, .62f * squash, .62f);
+                        float side = i % 2 == 0 ? -1f : 1f;
+                        chamberShutters[i].localRotation = Quaternion.Euler(0f, side * k * 78f, side * k * 11f);
+                        float breathe = 1f + Mathf.Sin(k * Mathf.PI) * .12f;
+                        chamberShutters[i].localScale = new Vector3(1f, breathe, 1f);
                     }
                 }
             }
@@ -830,17 +863,46 @@ namespace Mgf.DalpaengiGeukjang
                 noticePlate.gameObject.SetActive(false);
 
             float pulse = .5f + .5f * Mathf.Sin(worldClock * (guideBoost > .9f ? 6f : 3.2f));
-            bool guideOn = (IsPractice() || guideBoost > .05f) && localPhase != LocalPhase.Reveal;
+            invalidGuideClock = Mathf.Max(0f, invalidGuideClock - dt);
+            bool invalidGuide = invalidGuideClock > 0f && localPhase != LocalPhase.Reveal;
+            bool guideOn = (IsPractice() || guideBoost > .05f || invalidGuide) && localPhase != LocalPhase.Reveal;
             pulseRingUi.gameObject.SetActive(guideOn);
             guideHandUi.gameObject.SetActive(guideOn);
             guideArrowUi.gameObject.SetActive(guideOn);
+            invalidTapUi.gameObject.SetActive(invalidGuide);
+            invalidPathUi.gameObject.SetActive(invalidGuide);
+            assistZoneUi.gameObject.SetActive(invalidGuide && st.invalidHandleTaps > 0);
             if (guideOn)
             {
-                float amp = guideBoost > .9f ? 34f : 18f;
-                guideHandUi.anchoredPosition = new Vector2(0f, Mathf.Lerp(-amp * .35f, amp, pulse));
-                guideHandUi.localRotation = Quaternion.Euler(0f, 0f, -14f + pulse * 9f);
                 pulseRingUi.localScale = Vector3.one * (1f + pulse * .13f);
                 guideArrowUi.localScale = new Vector3(1f, .75f + pulse * .35f, 1f);
+                if (invalidGuide)
+                {
+                    Vector2 target = ScreenToUi(new Vector2(Screen.width * (IsLand() ? .57f : .5f),
+                        Screen.height * (IsLand() ? .16f : .13f)));
+                    float travel = 1f - Mathf.Clamp01(invalidGuideClock / 2.6f);
+                    travel = travel < .78f ? Mathf.SmoothStep(0f, 1f, travel / .78f) : 1f;
+                    AnchorCenter(guideHandUi, Vector2.Lerp(invalidGuideStart, target, travel));
+                    AnchorCenter(invalidTapUi, invalidGuideStart);
+                    Vector2 delta = target - invalidGuideStart;
+                    AnchorCenter(invalidPathUi, (target + invalidGuideStart) * .5f);
+                    invalidPathUi.sizeDelta = new Vector2(7f + st.invalidHandleTaps * 2f, Mathf.Max(36f, delta.magnitude));
+                    invalidPathUi.localRotation = Quaternion.Euler(0f, 0f,
+                        -Mathf.Atan2(delta.x, delta.y) * Mathf.Rad2Deg);
+                    invalidTapUi.localScale = Vector3.one * (1f + pulse * .22f);
+                    assistZoneUi.localScale = Vector3.one * (1f + Mathf.Min(2, st.invalidHandleTaps) * .08f);
+                    guideHandUi.localRotation = Quaternion.Euler(0f, 0f, -14f + pulse * 9f);
+                }
+                else
+                {
+                    Place(guideHandUi, IsLand() ? new Vector2(.57f, .22f) : new Vector2(.5f, .18f),
+                        IsLand() ? new Vector2(44f, 66f) : new Vector2(42f, 64f));
+                    Place(guideArrowUi, IsLand() ? new Vector2(.57f, .27f) : new Vector2(.5f, .225f),
+                        IsLand() ? new Vector2(36f, 74f) : new Vector2(34f, 70f));
+                    float amp = guideBoost > .9f ? 34f : 18f;
+                    guideHandUi.anchoredPosition = new Vector2(0f, Mathf.Lerp(-amp * .35f, amp, pulse));
+                    guideHandUi.localRotation = Quaternion.Euler(0f, 0f, -14f + pulse * 9f);
+                }
             }
 
             if (seatCounterPunch > 0f)
@@ -983,6 +1045,20 @@ namespace Mgf.DalpaengiGeukjang
             rt.pivot = new Vector2(.5f, .5f);
             rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = size;
+        }
+
+        static void AnchorCenter(RectTransform rt, Vector2 local)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(.5f, .5f);
+            rt.pivot = new Vector2(.5f, .5f);
+            rt.anchoredPosition = local;
+        }
+
+        Vector2 ScreenToUi(Vector2 screen)
+        {
+            if (uiRoot == null || Screen.width <= 0 || Screen.height <= 0) return Vector2.zero;
+            return new Vector2((screen.x / Screen.width - .5f) * uiRoot.rect.width,
+                (screen.y / Screen.height - .5f) * uiRoot.rect.height);
         }
 
         static Sprite MakeRoundedSprite(int s, float radius)

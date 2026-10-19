@@ -1,10 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import puppeteer from 'puppeteer';
 import { serveStatic } from '../../../../lib/static-server.mjs';
 
 const ROOT = path.resolve(new URL('../../../../../', import.meta.url).pathname);
 const PUBLIC = path.join(ROOT, 'public');
+const GAME = path.join(PUBLIC, 'g/dalpaengi-geukjang');
+
+function artifactHash() {
+  const hash = crypto.createHash('sha256');
+  const rels = ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(name => `Build/${name}`)];
+  for (const rel of rels) { hash.update(rel); hash.update(fs.readFileSync(path.join(GAME, rel))); }
+  return hash.digest('hex');
+}
 
 function resolveChrome() {
   const base = path.join(process.env.HOME || '', '.cache/puppeteer/chrome');
@@ -49,6 +58,7 @@ for (let y = 2; y <= 17; y++) {
   }
 }
 
+const artifactHashBefore = artifactHash();
 const server = await serveStatic(PUBLIC);
 const browser = await puppeteer.launch({ headless: true, executablePath: resolveChrome(), args: ['--no-sandbox', '--mute-audio'] });
 let pageErrors = [], bank = [];
@@ -68,8 +78,15 @@ const invalid = bank.filter(p => !p.id || !p.prompt || p.choices !== null || Str
 // 「모든 조합이 가능하다」는 곱의 법칙의 조건 설명이다. 금지 범위는 순열·조합의
 // 공식/기호를 별도 학습 대상으로 묻는 발문이며 이 일반어 사용과 구분한다.
 const forbidden = bank.filter(p => /[√]|순열의 수|조합의 수|nCr|확률을 구하시오/.test(p.prompt));
+const artifactHashAfter = artifactHash();
+const runId = `dalpaengi-geukjang-math-audit-${new Date().toISOString()}`;
 const result = {
-  runId: `dalpaengi-geukjang-math-audit-${new Date().toISOString()}`,
+  runId,
+  run_id: runId,
+  artifactHashSha256: artifactHashBefore,
+  artifact_hash: artifactHashBefore,
+  artifact_hash_before: artifactHashBefore,
+  artifact_hash_after: artifactHashAfter,
   bankSize: bank.length,
   uniquePrompts: prompts.size,
   checkedMisconceptionValues: checkedCases,
@@ -77,7 +94,7 @@ const result = {
   invalidExports: invalid.length,
   forbiddenScopePrompts: forbidden.length,
   consoleErrors: pageErrors,
-  passed: bank.length >= 300 && prompts.size === bank.length && accidentalTruths === 0 && invalid.length === 0 && forbidden.length === 0 && pageErrors.length === 0
+  passed: bank.length >= 300 && prompts.size === bank.length && accidentalTruths === 0 && invalid.length === 0 && forbidden.length === 0 && pageErrors.length === 0 && artifactHashBefore === artifactHashAfter
 };
 console.log(JSON.stringify(result, null, 2));
 fs.writeFileSync(new URL('./math-bank-audit-results.json', import.meta.url), JSON.stringify(result, null, 2) + '\n');

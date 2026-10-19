@@ -20,6 +20,7 @@ namespace Mgf.DalpaengiGeukjang
             public int submittedValue;
             public int combo;
             public int pointerVersion;
+            public int invalidHandleTaps;
             public string mode = "title";
             public string currentProblemId = "";
             public string prompt = "";
@@ -153,6 +154,7 @@ namespace Mgf.DalpaengiGeukjang
             st.currentSeatCount = 0;
             st.submittedValue = 0;
             st.combo = 0;
+            st.invalidHandleTaps = 0;
             st.mode = "title";
             st.currentProblemId = "";
             st.prompt = "";
@@ -182,6 +184,7 @@ namespace Mgf.DalpaengiGeukjang
             st.currentSeatCount = 0;
             st.submittedValue = 0;
             st.combo = 0;
+            st.invalidHandleTaps = 0;
             st.lastError = "";
             st.holding = false;
             holding = false;
@@ -336,8 +339,7 @@ namespace Mgf.DalpaengiGeukjang
 
                 if (localPhase == LocalPhase.Reveal)
                 {
-                    RefuseAt(pointer, "관객 입장이 끝날 때까지 기다리시오.");
-                    ReactAudience(false);
+                    RefuseAt(pointer, "객실이 열리는 동안 잠시 기다리시오.");
                     return;
                 }
 
@@ -346,9 +348,14 @@ namespace Mgf.DalpaengiGeukjang
                 if (spaceDown || HitLeafHandle(pointer)) BeginHold(pointer.y);
                 else
                 {
-                    RefuseAt(pointer, "아래쪽 둥근 잎 손잡이를 누르시오.");
-                    PointToHandle();
-                    ReactAudience(false);
+                    st.invalidHandleTaps++;
+                    string help = st.invalidHandleTaps == 1
+                        ? "빛난 지점에서 잎 손잡이까지 화살표를 따라가시오."
+                        : st.invalidHandleTaps == 2
+                            ? "잡기 영역을 넓혔다. 화살표 끝을 누른 채 위로 미시오."
+                            : "넓은 아래쪽 잎 영역을 누른 채 위로 밀고 놓으시오.";
+                    RefuseAt(pointer, help);
+                    PointToHandle(pointer, st.invalidHandleTaps);
                 }
             }
 
@@ -389,7 +396,7 @@ namespace Mgf.DalpaengiGeukjang
                 if (holdClock < .16f)
                 {
                     ShowNotice("누른 채 펼치고, 계산한 자리 수에서 놓으시오.");
-                    BoostGuide();
+                    PointToHandle(MgfPointer.Position, Mathf.Max(1, st.invalidHandleTaps));
                     MgfSfx.Play("tap", .16f);
                     MgfBridge.NotifyChanged();
                 }
@@ -556,7 +563,9 @@ namespace Mgf.DalpaengiGeukjang
 
         bool IsLand()
         {
-            return Screen.width >= 1024 || (Screen.width >= Screen.height && Screen.width >= 700);
+            // WebGL의 Screen.width는 DPR 2 태블릿에서 CSS 폭의 두 배가 될 수 있다.
+            // 픽셀 임계값 대신 종횡비만 사용해 820×1180 세로 화면을 가로로 오분류하지 않는다.
+            return Screen.height > 0 && Screen.width / (float)Screen.height >= 1.05f;
         }
 
         float ReferenceScale()
@@ -568,11 +577,13 @@ namespace Mgf.DalpaengiGeukjang
         {
             // 390×844에서 화면 아래 56px 손잡이와 외곽 링 전체를 포함한다.
             // QA 격자 y=72%(상단 원점)에도 닿도록 하단 객석 부채 전체를 합법 grab 영역으로 둔다.
-            if (IsLand())
-                return point.x >= Screen.width * .30f && point.x <= Screen.width * .74f &&
-                       point.y >= Screen.height * .08f && point.y <= Screen.height * .40f;
-            return point.x >= Screen.width * .14f && point.x <= Screen.width * .86f &&
-                   point.y >= Screen.height * .06f && point.y <= Screen.height * .36f;
+            float left = IsLand() ? .30f : .14f;
+            float right = IsLand() ? .74f : .86f;
+            float top = IsLand() ? .40f : .36f;
+            if (st.invalidHandleTaps >= 1) { left = .08f; right = .92f; top = .49f; }
+            if (st.invalidHandleTaps >= 2) { left = .02f; right = .98f; top = .62f; }
+            return point.x >= Screen.width * left && point.x <= Screen.width * right &&
+                   point.y >= Screen.height * .04f && point.y <= Screen.height * top;
         }
 
         bool HitTitleBell(Vector2 point)
