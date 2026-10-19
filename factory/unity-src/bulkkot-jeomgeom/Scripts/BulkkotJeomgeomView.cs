@@ -149,19 +149,26 @@ namespace Mgf.BulkkotJeomgeom
 
         void BuildRooftops()
         {
-            MgfLook.Block("CityBase", new Vector3(0, -1.8f, 3.3f), new Vector3(19, 1.2f, 17), .65f, roofMat, roofRoot);
-            for (int i = 0; i < 14; i++)
+            // 여러 둥근 장난감 블록 대신 종이를 겹쳐 오린 듯한 비대칭 옥상 골목을 만든다.
+            MgfLook.Block("LowerPaperRoof", new Vector3(-2.2f, -1.65f, 3.8f), new Vector3(15.8f, .65f, 14.5f), .12f, roofMat, roofRoot);
+            MgfLook.Block("RoseSideRoof", new Vector3(5.5f, -1.05f, 5.5f), new Vector3(5.3f, 1.5f, 10.5f), .10f, redMat, roofRoot);
+            MgfLook.Block("IvoryUpperRoof", new Vector3(-5.7f, -.72f, 7.0f), new Vector3(4.8f, 2.1f, 7.0f), .10f, paperMat, roofRoot);
+            for (int i = 0; i < 9; i++)
             {
-                float x = -7.5f + (i % 7) * 2.45f, z = -1.4f + (i / 7) * 5.2f + (i % 2) * .5f;
-                float h = 1.15f + (i % 4) * .38f;
-                var mat = i % 3 == 0 ? paperMat : i % 3 == 1 ? roofMat : redMat;
-                MgfLook.Block("ToyRoof" + i, new Vector3(x, -1.0f + h * .5f, z), new Vector3(2.05f, h, 2.0f), .32f, mat, roofRoot);
-                var cap = MgfLook.Prim(PrimitiveType.Cylinder, "CeramicChimney" + i, new Vector3(x + .45f, h - .55f, z + .25f),
-                    new Vector3(.46f, .72f, .46f), i % 2 == 0 ? paperMat : roofMat, roofRoot, false);
+                float x = -7.2f + i * 1.75f;
+                MgfLook.Block("PaperRailing" + i, new Vector3(x, -.78f, -2.9f), new Vector3(.16f, 1.05f, .16f), .03f, paperMat, roofRoot);
+            }
+            MgfLook.Block("RailingTop", new Vector3(-.2f, -.28f, -2.9f), new Vector3(14.4f, .14f, .16f), .03f, paperMat, roofRoot);
+            for (int i = 0; i < 5; i++)
+            {
+                float x = -6.2f + i * 2.9f;
+                var cap = MgfLook.Prim(PrimitiveType.Cylinder, "PaperChimney" + i,
+                    new Vector3(x, -.28f + (i % 2) * .22f, 5.4f + (i % 2) * 1.7f),
+                    new Vector3(.5f, 1.25f, .5f), i % 2 == 0 ? sootMat : roofMat, roofRoot, false);
                 cap.transform.localRotation = Quaternion.Euler(0, 22.5f, 0);
             }
-            MgfLook.Block("BannerChimney", new Vector3(0, .3f, 4.8f), new Vector3(5.8f, 2.0f, 2.3f), .55f, roofMat, roofRoot);
-            MgfLook.Block("CurvedBanner", new Vector3(0, 1.35f, 3.55f), new Vector3(5.2f, 1.15f, .18f), .42f, redMat, roofRoot);
+            MgfLook.Block("BannerChimney", new Vector3(-3.3f, .15f, 4.0f), new Vector3(4.6f, 2.1f, 1.8f), .12f, sootMat, roofRoot);
+            MgfLook.Block("HangingRibbon", new Vector3(-3.3f, 1.15f, 2.98f), new Vector3(6.7f, .78f, .12f), .06f, redMat, roofRoot);
         }
 
         void BuildLaunchers()
@@ -246,17 +253,18 @@ namespace Mgf.BulkkotJeomgeom
 
         void BuildTitleUi()
         {
-            titleBannerRt = Img(titleG.transform, "ChimneyBannerUi", new Vector2(.5f, .72f), Vector2.zero, new Vector2(340, 150), new Color(RocketRed.r, RocketRed.g, RocketRed.b, .95f), roundSprite).rectTransform;
-            titleLogo = Txt(titleBannerRt, "불꽃 점검", new Vector2(.5f, .62f), Vector2.zero, 48, Paper, 320);
+            titleBannerRt = Img(titleG.transform, "HangingChimneyRibbon", new Vector2(.5f, .74f), new Vector2(-34, 0), new Vector2(330, 104), new Color(RocketRed.r, RocketRed.g, RocketRed.b, .95f), thinSprite).rectTransform;
+            titleBannerRt.localRotation = Quaternion.Euler(0, 0, -4f);
+            titleLogo = Txt(titleBannerRt, "불꽃 점검", new Vector2(.5f, .62f), Vector2.zero, 44, Paper, 310);
             titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineWidth = .22f; titleLogo.outlineColor = Soot;
-            titleTag = Txt(titleBannerRt, "중복 고리를 돌려 빠진 경우를 채워라", new Vector2(.5f, .22f), Vector2.zero, 17, Paper, 310);
-            titleMeta = Txt(titleG.transform, "중학교 2학년 · 경우의 수", new Vector2(.5f, .55f), Vector2.zero, 16, Soot, 320);
-            titleBirdBadgeRt = Img(titleG.transform, "SparrowBadge", new Vector2(.5f, .43f), new Vector2(112, 0), new Vector2(88, 58), new Color(Paper.r, Paper.g, Paper.b, .88f), roundSprite).rectTransform;
-            Txt(titleBirdBadgeRt, "숯콩 점검대", new Vector2(.5f, .5f), Vector2.zero, 14, Soot, 84);
-            startSealRt = Img(titleG.transform, "TearSeal", new Vector2(.5f, .30f), Vector2.zero, new Vector2(136, 136), Paper, ringSprite).rectTransform;
-            var disk = Img(startSealRt, "SealPaper", new Vector2(.5f, .5f), Vector2.zero, new Vector2(112, 112), RocketRed, circleSprite);
-            startTxt = Txt(disk.transform, "점검 시작", new Vector2(.5f, .5f), Vector2.zero, 20, Paper, 102); startTxt.fontStyle = FontStyles.Bold;
-            titleBest = Txt(titleG.transform, "6판 · 105초 · 첫 제출 5판 이상", new Vector2(.5f, .17f), Vector2.zero, 14, Soot, 340);
+            titleTag = Txt(titleBannerRt, "중복을 찾아 빠진 경우로 돌려라", new Vector2(.5f, .20f), Vector2.zero, 16, Paper, 300);
+            titleMeta = Txt(titleG.transform, "중2 · 경우의 수 · 옥상 6번 발사대", new Vector2(.5f, .53f), new Vector2(-28, 0), 16, Soot, 330);
+            titleBirdBadgeRt = Img(titleG.transform, "SparrowPerch", new Vector2(.5f, .42f), new Vector2(120, 0), new Vector2(112, 42), new Color(Soot.r, Soot.g, Soot.b, .90f), thinSprite).rectTransform;
+            Txt(titleBirdBadgeRt, "숯콩 점검대", new Vector2(.5f, .5f), Vector2.zero, 14, Paper, 108);
+            startSealRt = Img(titleG.transform, "LaunchRail", new Vector2(.5f, .27f), Vector2.zero, new Vector2(278, 72), RocketRed, thinSprite).rectTransform;
+            Img(startSealRt, "RailHandle", new Vector2(.84f, .5f), Vector2.zero, new Vector2(74, 54), Brass, thinSprite);
+            startTxt = Txt(startSealRt, "도화선을 밀어 점검 시작  →", new Vector2(.43f, .5f), Vector2.zero, 18, Paper, 238); startTxt.fontStyle = FontStyles.Bold;
+            titleBest = Txt(titleG.transform, "105초 · 첫 제출 5/6 목표", new Vector2(.5f, .13f), Vector2.zero, 14, Soot, 340);
         }
 
         void BuildHudUi()
@@ -280,7 +288,7 @@ namespace Mgf.BulkkotJeomgeom
             rosterRt = R("FireworkRoster", rosterG.transform, new Vector2(.5f, .43f), Vector2.zero, new Vector2(370, 380));
             for (int i = 0; i < cardRt.Length; i++)
             {
-                cardBg[i] = Img(rosterRt, "ShellCard" + i, new Vector2(.5f, .5f), Vector2.zero, new Vector2(108, 82), new Color(RoofGray.r, RoofGray.g, RoofGray.b, .94f), roundSprite);
+                cardBg[i] = Img(rosterRt, "RocketSleeve" + i, new Vector2(.5f, .5f), Vector2.zero, new Vector2(108, 82), new Color(RocketRed.r, RocketRed.g, RocketRed.b, .94f), thinSprite);
                 cardRt[i] = cardBg[i].rectTransform;
                 cardNum[i] = Txt(cardRt[i], (i + 1).ToString("00"), new Vector2(.12f, .5f), Vector2.zero, 11, Paper, 24);
                 for (int r = 0; r < 2; r++)
@@ -406,18 +414,37 @@ namespace Mgf.BulkkotJeomgeom
         void LayoutUi(bool force)
         {
             if (!rootRt || current == null) return;
-            float w = rootRt.rect.width, h = rootRt.rect.height; landscape = w / Mathf.Max(1f, h) >= 1.15f;
+            landscape = Screen.width / Mathf.Max(1f, Screen.height) >= 1.15f;
+            // 가로판은 높이를 기준으로 스케일해야 실제 캔버스 폭 전체가 논리 좌표에 들어온다.
+            // 절충(.5) 스케일을 유지하면 2000px에서도 양쪽 안전영역이 화면 밖으로 밀린다.
+            var canvas = rootRt.GetComponentInParent<Canvas>();
+            var scaler = canvas ? canvas.GetComponent<CanvasScaler>() : null;
+            float wantedMatch = landscape ? 1f : .5f;
+            if (scaler && Mathf.Abs(scaler.matchWidthOrHeight - wantedMatch) > .001f)
+            {
+                scaler.matchWidthOrHeight = wantedMatch;
+                Canvas.ForceUpdateCanvases();
+            }
+            // CanvasScaler 변경은 같은 프레임의 Rect 갱신보다 먼저 적용될 수 있다. 가로판은
+            // 높이 기준(844) 논리 크기를 직접 계산해 첫 프레임부터 위·아래 경계를 정확히 맞춘다.
+            float w = landscape ? 844f * Screen.width / Mathf.Max(1f, Screen.height) : rootRt.rect.width;
+            float h = landscape ? 844f : rootRt.rect.height;
             if (!force && layoutW == Screen.width && layoutH == Screen.height) return;
             layoutW = Screen.width; layoutH = Screen.height;
             if (!landscape)
             {
-                hudRt.anchorMin = hudRt.anchorMax = new Vector2(.5f, .96f); hudRt.sizeDelta = new Vector2(Mathf.Min(370, w - 16), 58);
-                goalTxt.rectTransform.anchorMin = goalTxt.rectTransform.anchorMax = new Vector2(.5f, .885f);
-                conditionRt.anchorMin = conditionRt.anchorMax = new Vector2(.5f, .80f); conditionRt.sizeDelta = new Vector2(Mathf.Min(370, w - 16), 82);
-                binsRt.anchorMin = binsRt.anchorMax = new Vector2(.5f, .715f); binsRt.sizeDelta = new Vector2(Mathf.Min(370, w - 16), 58);
-                rosterRt.anchorMin = rosterRt.anchorMax = new Vector2(.5f, .425f); rosterRt.sizeDelta = new Vector2(Mathf.Min(374, w - 10), h * .43f);
-                fusePanelRt.anchorMin = fusePanelRt.anchorMax = new Vector2(.5f, .105f); fusePanelRt.sizeDelta = new Vector2(250, 110);
-                int cols = 3, rows = Mathf.CeilToInt(roster.Count / 3f); float cw = Mathf.Min(112, (rosterRt.rect.width - 12) / cols), ch = Mathf.Min(86, (rosterRt.rect.height - 8) / Mathf.Max(1, rows));
+                float scale = Mathf.Max(.01f, canvas.scaleFactor);
+                // QA 모바일은 DPR 2라 DOM 음소거 48 CSS px가 약 96 렌더 픽셀을 차지한다.
+                float muteSafe = 112f / scale;
+                float hudW = Mathf.Min(370f, w - 16f - muteSafe);
+                CenterBox(hudRt, new Vector2(-muteSafe * .5f, h * .46f), new Vector2(hudW, 58));
+                CenterBox(goalTxt.rectTransform, new Vector2(0, h * .385f), new Vector2(Mathf.Min(370, w - 16), 54));
+                CenterBox(conditionRt, new Vector2(0, h * .30f), new Vector2(Mathf.Min(370, w - 16), 82));
+                CenterBox(binsRt, new Vector2(0, h * .215f), new Vector2(Mathf.Min(370, w - 16), 58));
+                float rosterW = Mathf.Min(374, w - 10), rosterH = h * .43f;
+                CenterBox(rosterRt, new Vector2(0, -h * .075f), new Vector2(rosterW, rosterH));
+                CenterBox(fusePanelRt, new Vector2(0, -h * .395f), new Vector2(250, 110));
+                int cols = 3, rows = Mathf.CeilToInt(roster.Count / 3f); float cw = Mathf.Min(112, (rosterW - 12) / cols), ch = Mathf.Min(86, (rosterH - 8) / Mathf.Max(1, rows));
                 for (int i = 0; i < roster.Count; i++)
                 {
                     int row = i / cols, col = i % cols;
@@ -428,13 +455,21 @@ namespace Mgf.BulkkotJeomgeom
             }
             else
             {
-                hudRt.anchorMin = hudRt.anchorMax = new Vector2(.78f, .93f); hudRt.sizeDelta = new Vector2(w * .40f, 54);
-                goalTxt.rectTransform.anchorMin = goalTxt.rectTransform.anchorMax = new Vector2(.80f, .82f); goalTxt.rectTransform.sizeDelta = new Vector2(w * .35f, 54);
-                conditionRt.anchorMin = conditionRt.anchorMax = new Vector2(.81f, .68f); conditionRt.sizeDelta = new Vector2(w * .34f, 96);
-                binsRt.anchorMin = binsRt.anchorMax = new Vector2(.81f, .53f); binsRt.sizeDelta = new Vector2(w * .34f, 72);
-                rosterRt.anchorMin = rosterRt.anchorMax = new Vector2(.34f, .49f); rosterRt.sizeDelta = new Vector2(w * .64f, h * .82f);
-                fusePanelRt.anchorMin = fusePanelRt.anchorMax = new Vector2(.81f, .30f); fusePanelRt.sizeDelta = new Vector2(w * .30f, 128);
-                int cols = 4, rows = Mathf.CeilToInt(roster.Count / 4f); float cw = Mathf.Min(160, (rosterRt.rect.width - 16) / cols), ch = Mathf.Min(126, (rosterRt.rect.height - 12) / Mathf.Max(1, rows));
+                const float margin = 14f, gap = 16f;
+                float usable = w - margin * 2f, leftW = usable * .60f, rightW = usable - leftW - gap;
+                float leftX = -w * .5f + margin + leftW * .5f;
+                float rightX = leftX + leftW * .5f + gap + rightW * .5f;
+                float top = h * .5f - 12f;
+                float scale = Mathf.Max(.01f, canvas.scaleFactor);
+                float muteSafe = 58f / scale;
+                CenterBox(hudRt, new Vector2(rightX - muteSafe * .5f, top - 27f), new Vector2(rightW - muteSafe, 54));
+                CenterBox(goalTxt.rectTransform, new Vector2(rightX, top - 82f), new Vector2(rightW, 50));
+                CenterBox(conditionRt, new Vector2(rightX, top - 150f), new Vector2(rightW, 78));
+                CenterBox(binsRt, new Vector2(rightX, top - 205f), new Vector2(rightW, 58));
+                float rosterH = h - 28f;
+                CenterBox(rosterRt, new Vector2(leftX, 0), new Vector2(leftW, rosterH));
+                CenterBox(fusePanelRt, new Vector2(rightX, -h * .5f + 48f), new Vector2(Mathf.Min(280, rightW), 84));
+                int cols = 4, rows = Mathf.CeilToInt(roster.Count / 4f); float cw = Mathf.Min(160, (leftW - 16) / cols), ch = Mathf.Min(126, (rosterH - 12) / Mathf.Max(1, rows));
                 for (int i = 0; i < roster.Count; i++)
                 {
                     int row = i / cols, col = i % cols;
@@ -444,6 +479,13 @@ namespace Mgf.BulkkotJeomgeom
                 }
             }
             if (phase == Phase.Practice) ShowRingGuide(1, 1, false);
+        }
+
+        static void CenterBox(RectTransform rt, Vector2 position, Vector2 size)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(.5f, .5f);
+            rt.anchoredPosition = position;
+            rt.sizeDelta = new Vector2(Mathf.Max(1f, size.x), Mathf.Max(1f, size.y));
         }
 
         void UpdateUi(float dt)
@@ -460,7 +502,7 @@ namespace Mgf.BulkkotJeomgeom
                 float p = reveal < 1 ? 1f - Mathf.Pow(1f - reveal, 3f) : 1f;
                 float bump = cardPulse[i] > 0f && cardPulse[i] < .28f ? Mathf.Sin(cardPulse[i] / .28f * Mathf.PI) * .10f : 0f;
                 cardRt[i].localScale = Vector3.one * ((.88f + .12f * p) + bump);
-                cardBg[i].color = Color.Lerp(new Color(RoofGray.r, RoofGray.g, RoofGray.b, .72f), new Color(RoofGray.r, RoofGray.g, RoofGray.b, .96f), p);
+                cardBg[i].color = Color.Lerp(new Color(RocketRed.r, RocketRed.g, RocketRed.b, .70f), new Color(RocketRed.r, RocketRed.g, RocketRed.b, .96f), p);
             }
             if (guideRingRt.gameObject.activeSelf)
             {
@@ -593,6 +635,17 @@ namespace Mgf.BulkkotJeomgeom
                 if (RectTransformUtility.RectangleContainsScreenPoint(ringRt[i, r], screen, null)) { card = i; ring = r; return true; }
             }
             return false;
+        }
+
+        bool HitPracticeShell(Vector2 screen)
+        {
+            return roster.Count > 1 && RectTransformUtility.RectangleContainsScreenPoint(rosterRt, screen, null);
+        }
+
+        bool HitPracticeFuse(Vector2 screen)
+        {
+            return RectTransformUtility.RectangleContainsScreenPoint(fusePanelRt, screen, null)
+                || screen.y <= Screen.height * .25f;
         }
 
         bool HitFuse(Vector2 screen) => RectTransformUtility.RectangleContainsScreenPoint(fuseHandleRt, screen, null);

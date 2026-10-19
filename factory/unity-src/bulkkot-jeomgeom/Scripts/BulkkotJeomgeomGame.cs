@@ -362,6 +362,24 @@ namespace Mgf.BulkkotJeomgeom
                 {
                     fuseDragging = true; BeginFuseDrag(); return;
                 }
+                if (phase == Phase.Practice)
+                {
+                    // 연습 정답 뒤에는 다시 고리를 흐트러뜨리지 않고 도화선 행동만 받는다.
+                    if (BulkkotRules.ValidateRoster(current, roster))
+                    {
+                        // 한 번 정답 고리를 만든 뒤에는 다음 탭을 도화선 손잡이로 스냅한다.
+                        // 연습에서 작은 손잡이를 다시 찾아 헤매지 않게 하되 실전 판정은 그대로다.
+                        fuseDragging = true; BeginFuseDrag(); ShowFuseGuide(true); return;
+                    }
+                    // 안내 카드의 위·아래 고리와 몸통을 모두 '별→원' 목표 고리 하나로 연결한다.
+                    if (HitPracticeShell(pointerDown))
+                    {
+                        ringDragging = true; dragCard = 1; dragRing = 1;
+                        selectedShell = dragCard; selectedRing = dragRing; BindCurrent();
+                        BeginRingDrag(dragCard, dragRing); MgfSfx.Play("tap", .14f); return;
+                    }
+                    RefuseInput("맥동하는 두 번째 불꽃 몸통을 누르거나 좌우로 미시오"); ReplayGuide(true); return;
+                }
                 if (HitRing(pointerDown, out int card, out int ring))
                 {
                     ringDragging = true; dragCard = card; dragRing = ring;
@@ -383,15 +401,16 @@ namespace Mgf.BulkkotJeomgeom
                 {
                     float dx = MgfPointer.Position.x - pointerDown.x;
                     ringDragging = false; EndRingDrag(dragCard, dragRing);
-                    if (Mathf.Abs(dx) >= 28f) ChangeRing(dragCard, dragRing, dx > 0 ? 1 : -1);
-                    else { ShowRingGuide(dragCard, dragRing, true); RefuseInput("고리를 좌우로 28px 이상 미시오"); }
+                    if (Mathf.Abs(dx) >= 14f) ChangeRing(dragCard, dragRing, dx > 0 ? 1 : -1);
+                    else if (phase == Phase.Practice) ChangeRing(dragCard, dragRing, 1);
+                    else { ShowRingGuide(dragCard, dragRing, true); RefuseInput("고리를 좌우로 14px 이상 미시오"); }
                     dragCard = dragRing = -1; return;
                 }
                 if (fuseDragging)
                 {
                     float dy = pointerDown.y - MgfPointer.Position.y;
                     fuseDragging = false; EndFuseDrag();
-                    if (dy >= 48f) SubmitRoster();
+                    if (dy >= 48f || (phase == Phase.Practice && BulkkotRules.ValidateRoster(current, roster))) SubmitRoster();
                     else RefuseInput("도화선 손잡이를 아래로 48px 이상 당기시오");
                 }
             }
