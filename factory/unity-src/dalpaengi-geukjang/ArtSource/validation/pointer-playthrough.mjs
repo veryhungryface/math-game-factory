@@ -65,7 +65,7 @@ async function run(page, recovery, label) {
     if (shouldWrong) wrongDone = true;
     if (label === 'normal' && !before.onboarding && problemOrder.length === 1 && !shouldWrong) {
       await sleep(620);
-      await page.screenshot({ path: path.join(OUT, 'correct-chambers.png') });
+      await page.screenshot({ path: path.join(OUT, 'fix3-correct-snail-audience.png') });
       await sleep(1280);
     } else await sleep(1900);
     const after = await page.evaluate(() => window.__GAME_TEST__.getState());
@@ -107,11 +107,11 @@ const result = {
   artifact_hash: artifactHashBefore,
   artifact_hash_before: artifactHashBefore,
   artifact_hash_after: artifactHashAfter,
-  method: '타이틀 입장종부터 모든 연습·본문 좌석 제출까지 실제 mouse down/move/up. 정상판 결과 종을 실제 클릭해 별도 두 번째 덱을 완주한 뒤, 페이지를 새로 로드해 오답 회복판을 수행했다. 화면 prompt의 공개된 수를 독립 정수 계산했으며 answerCorrect/answerWrong을 호출하지 않음.',
+  method: '타이틀 꽃종부터 모든 연습·본문 좌석 제출까지 실제 mouse down/move/up. 정상판 결과 종을 실제 클릭해 별도 두 번째 덱을 완주한 뒤, 페이지를 새로 로드해 오답 회복판을 수행했다. 화면 prompt의 공개된 수를 독립 정수 계산했으며 answerCorrect/answerWrong을 호출하지 않음.',
   normal,
   second,
   recovery,
-  correctRevealScreenshot: 'correct-chambers.png',
+  correctRevealScreenshot: 'fix3-correct-snail-audience.png',
   consoleErrors: errors,
   passed: normal?.phase === 'clear' && normal.solved === 8 && normal.firstCorrect === 8 && normal.lives === 3 &&
     second?.phase === 'clear' && second.solved === 8 && second.firstCorrect === 8 && second.lives === 3 &&

@@ -3,6 +3,55 @@
 > 마지막 갱신: 2026-10-20. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-20 — 「달팽이 극장」 3차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u6` 경우의 수 Unity 게임 `dalpaengi-geukjang`의 최신 high 2건·medium 1건을
+모두 수정했다. 정본은 `factory/unity-src/dalpaengi-geukjang/`, WebGL 산출물은
+`public/g/dalpaengi-geukjang/`이며 게시·배포는 실행하지 않았다.
+
+- `bitbyeon-cheolgil`과 겹치던 어두운 기계 상자·청흑 금속/황동·펀칭 티켓 연쇄 사건을 제거했다.
+  밝은 민트 하늘의 분홍 껍데기 정원, 이끼 언덕, 종이·천·접힌 잎 물성으로 바꾸고, 정답은 중앙부터
+  꽃잎 커튼이 열려 달팽이 관객이 좌석을 채운 뒤 껍데기 타악과 꽃등이 이어지는 생물 사건으로 교체했다.
+  `meta.json` v3와 WebGL 직접 캡처 thumb/square도 같은 세계로 동기화했다.
+- 첫 무효 입력 뒤 넓은 잡기 영역을 화면에 칠하고 어디서든 잡히게 했다. DPR 독립 짧은 눈금 매핑으로
+  실제 **19px** 드래그가 `2→3→4→5`를 순서대로 밟으며 release 전에는 제출하지 않는다. 별도 실제
+  mouse 회귀는 3.959초에 첫 본문으로 진입했고, 공식 firstplay는 **t018 첫 정답·t021 첫 본문**으로
+  이전 t045 고착과 t030 게이트 위반을 해소했다(28프레임, ready true, console/page error 0).
+- 오개념 후보는 값 생성 뒤 의미로 재분류한다. `one_group_only`는 제출값이 정확히 `m` 또는 `n`일
+  때만 허용하고, 보정값은 `cases_missing/overcounted`로 보낸다. `ValidateProblem`에 ID-값 의미 전수
+  불변식을 추가했으며 361개 고유 발문·722개 후보에서 우연한 정답·잘못된 export·범위 밖 발문 0이다.
+- 최종 artifact `2d59dea1c3b6…86da`의 실제 pointer 정상판·서로 다른 두 번째 판은 각각
+  `clear/first8/lives3`, 오답 회복판은 `clear/first7/lives2`다. B3 각 200판 첫 시도는 반복 6.0%,
+  순환 5.5%, 무작위 4.5%(우연 6.25%), 무입력 진도 0이며 콘솔 오류 0이다.
+- Unity 빌드 warnings 0·압축 산출물 **7.9MB**(게임 폴더 **9881KB**), 공식 QA
+  **45/45·fatal 0**다. 실GPU는 모바일 중앙값 **88fps**, 15초 뒤 **61fps**(유지율 69%),
+  1280폭 **83fps**다. `fix.json`은 fixed3/not_fixed0·`replan_required=false`다.
+
+## 2026-10-20 — 「달팽이 극장」 2차 수정 완료 / QA 45·fatal 0 / 미게시
+
+중2-2 `m2s2-u6` 경우의 수 Unity 게임 `dalpaengi-geukjang`의 최신 high 2건·medium 2건을
+수정했다. 정본은 `factory/unity-src/dalpaengi-geukjang/`, WebGL 산출물은
+`public/g/dalpaengi-geukjang/`이며 게시·배포는 실행하지 않았다.
+
+- 파스텔 서식지·둥근 광택 부품을 제거하고 짙은 무광 태엽 음악상자 단면, 녹청 양철·구리판·황동
+  리벳·기어 톱니로 다시 만들었다. 정답은 문/꽃 개방 대신 계산한 수만큼 공연표에 구멍이 타공되고
+  음악통·기어가 연주하는 사건이며, 완료 표 8장이 누적된다. 정답 화면 흔들림은 없다.
+- 합 연습에는 `2+3=5` 색 묶음, 손잡이→5 고정 경로, 지속 목표 노치와 이동 손을 추가했다. 첫 무효
+  입력 뒤 다음 실제 드래그·릴리스를 2→5 세 눈금에 투영하되 자동 제출은 없다. 최종 firstplay는
+  **t026**에 첫 본문제를 보여 이전 43초 정체와 t030 게이트를 해소했고, 별도 같은 입력 회귀는
+  4.179초에 진입했다.
+- 정답 식·이유 패널을 상단 안전영역으로 줄여 중앙 타공 스트립과 음악통을 비웠다. 실제 pointer 정답
+  캡처에서 타공 구멍과 기계 연주를 동시에 확인했다. `thumb.png`·`square.png`는 최종 WebGL 타이틀을
+  직접 1200×630·1080×1080으로 캡처해 런타임과 일치시켰다.
+- 최종 artifact `1276a9645794…f09a`에서 실제 pointer 정상판과 서로 다른 두 번째 덱은 각각
+  `clear/first8/lives3`, 오답 회복판은 `clear/first7/lives2`다. 361개 고유 발문·오개념 값 722개는
+  우연한 정답·잘못된 export·범위 밖 발문 0이다.
+- 같은 artifact의 B3 실제 pointer 각 200판 첫 시도는 반복 6.0%, 순환 5.5%, 무작위 4.5%
+  (우연 6.25%), 무입력 진도 0이며 모든 정책 자동 완주 0·콘솔 오류 0이다.
+- Unity 빌드 warnings 0·압축 산출물 **7.9MB**, 공식 QA **45/45·fatal 0**다. 최종 실GPU는 모바일
+  중앙값 **47fps**, 15초 뒤 **47fps**(유지율 67%), 1280폭 **71fps**다. `fix.json`은
+  fixed4/not_fixed0·`replan_required=false`다.
+
 ## 2026-10-20 — 「달팽이 극장」 1차 수정 완료 / QA 45·fatal 0 / 미게시
 
 중2-2 `m2s2-u6` 경우의 수 Unity 게임 `dalpaengi-geukjang`을 제작했다. 정본은

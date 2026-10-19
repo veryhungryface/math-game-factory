@@ -47,8 +47,10 @@ namespace Mgf.DalpaengiGeukjang
         bool productPracticeDone;
         bool holding;
         bool manualMode;
+        bool guidedPracticeGesture;
         int holdStartSeats;
         float holdStartY;
+        Vector2 holdStartPointer;
         float holdClock;
         float autoClock;
         float revealClock;
@@ -73,7 +75,7 @@ namespace Mgf.DalpaengiGeukjang
 
         void PrewarmText()
         {
-            var text = new StringBuilder("달팽이극장객석을펼쳐입장시켜라중학교2학년경우의수합의법칙곱의법칙전체부분독주곡합주곡무대배경각각하나씩한곡만고른다두목록에같은곡은없다모든조합이가능하다경우의수를구하시오입장종첫제출정확도연습공연완료폐장다시울리기");
+            var text = new StringBuilder("달팽이극장잎객석을펼쳐입장시켜라중학교2학년경우의수합의법칙곱의법칙전체부분독주곡합주곡무대배경각각하나씩한곡만고른다두목록에같은곡은없다모든조합이가능하다경우의수를구하시오꽃종첫제출정확도연습공연완료폐장다시울리기관객입장껍데기합주목표여기서놓기");
             for (int i = 0; i < bank.Count; i++)
             {
                 text.Append(bank[i].prompt);
@@ -112,7 +114,7 @@ namespace Mgf.DalpaengiGeukjang
                 {
                     idleClock = 0f;
                     BoostGuide();
-                    ShowNotice("잎 손잡이를 누르고, 계산한 자리 수에서 놓으시오.");
+                    ShowNotice("넓은 잎 손잡이를 누르고, 계산한 자리 수에서 놓으시오.");
                 }
             }
             else if (localPhase == LocalPhase.SumPractice || localPhase == LocalPhase.ProductPractice)
@@ -189,6 +191,7 @@ namespace Mgf.DalpaengiGeukjang
             st.holding = false;
             holding = false;
             manualMode = false;
+            guidedPracticeGesture = false;
             sessionLeft = DalpaengiRules.SessionSeconds;
             idleClock = 0f;
             endReason = "";
@@ -238,6 +241,8 @@ namespace Mgf.DalpaengiGeukjang
             localPhase = LocalPhase.Playing;
             st.phase = "playing";
             LoadProblem();
+            ShowNotice("첫 공연: 조건을 계산한 뒤 잎 손잡이로 자리 수를 만드시오.");
+            noticeClock = 3.2f;
         }
 
         void StartProductPractice()
@@ -333,27 +338,33 @@ namespace Mgf.DalpaengiGeukjang
                         RingEntranceBell();
                         StartSumPractice();
                     }
-                    else RefuseAt(pointer, "입장종을 눌러 새 공연을 여시오.");
+                    else RefuseAt(pointer, "꽃종을 눌러 새 공연을 여시오.");
                     return;
                 }
 
                 if (localPhase == LocalPhase.Reveal)
                 {
-                    RefuseAt(pointer, "객실이 열리는 동안 잠시 기다리시오.");
+                    RefuseAt(pointer, "달팽이 관객이 입장하는 동안 잠시 기다리시오.");
                     return;
                 }
 
                 if (localPhase != LocalPhase.Playing && !IsPractice()) return;
 
-                if (spaceDown || HitLeafHandle(pointer)) BeginHold(pointer.y);
+                bool practicePickup = IsPractice() && current != null && current.kind == ShowKind.Sum &&
+                                      st.invalidHandleTaps >= 1;
+                if (spaceDown || HitLeafHandle(pointer) || practicePickup) BeginHold(pointer.y);
                 else
                 {
                     st.invalidHandleTaps++;
-                    string help = st.invalidHandleTaps == 1
-                        ? "빛난 지점에서 잎 손잡이까지 화살표를 따라가시오."
-                        : st.invalidHandleTaps == 2
-                            ? "잡기 영역을 넓혔다. 화살표 끝을 누른 채 위로 미시오."
-                            : "넓은 아래쪽 잎 영역을 누른 채 위로 밀고 놓으시오.";
+                    string help = st.invalidHandleTaps == 1 && IsPractice() && current.kind == ShowKind.Sum
+                        ? "2장 + 3장 = 5장. 손잡이에서 목표 5까지 미시오."
+                        : st.invalidHandleTaps == 2 && IsPractice() && current.kind == ShowKind.Sum
+                            ? "손잡이 → 목표 5. 노란 길을 따라 끌고 놓으시오."
+                            : st.invalidHandleTaps == 1
+                                ? "빛난 지점에서 잎 손잡이까지 화살표를 따라가시오."
+                            : st.invalidHandleTaps >= 3 && IsPractice() && current.kind == ShowKind.Sum
+                                ? "손잡이에서 시작 → 목표 5에서 놓기. 노란 경로를 그대로 따라가시오."
+                                : "넓은 아래쪽 손잡이 영역을 누른 채 위로 밀고 놓으시오.";
                     RefuseAt(pointer, help);
                     PointToHandle(pointer, st.invalidHandleTaps);
                 }
@@ -366,15 +377,32 @@ namespace Mgf.DalpaengiGeukjang
                 if (!spaceHeld)
                 {
                     float dy = MgfPointer.Position.y - holdStartY;
-                    if (!manualMode && Mathf.Abs(dy) >= 12f * ReferenceScale())
+                    float gestureDistance = guidedPracticeGesture
+                        ? Vector2.Distance(MgfPointer.Position, holdStartPointer)
+                        : Mathf.Abs(dy);
+                    float guidedStep = Mathf.Max(8f, Mathf.Min(Screen.width, Screen.height) * .022f);
+                    if (!manualMode && gestureDistance >= (guidedPracticeGesture ? guidedStep * .45f : 12f * ReferenceScale()))
                     {
                         manualMode = true;
                         autoClock = 0f;
                     }
                     if (manualMode)
                     {
-                        int delta = Mathf.RoundToInt(dy / (24f * ReferenceScale()));
-                        SetSeatCount(Mathf.Clamp(holdStartSeats + delta, DalpaengiRules.MinSeats, DalpaengiRules.MaxSeats));
+                        if (guidedPracticeGesture)
+                        {
+                            // 한 번 빗나간 비채점 합 연습에서는 수학 답 5를 이미 화면에 공개한다.
+                            // 실제 드래그 거리를 고정 시범 경로의 세 눈금으로 투영하되, 놓기는 학생이 해야 한다.
+                            float travel = Vector2.Distance(MgfPointer.Position, holdStartPointer);
+                            // DPR이나 화면 면적이 아니라 짧은 화면 비율로 3개 눈금을 고정한다.
+                            // 첫 무효 입력 뒤 어느 지점에서 잡아도 2→3→4→5가 같은 보이는 경로와 동기화된다.
+                            int guidedDelta = Mathf.Clamp(Mathf.FloorToInt(travel / guidedStep) + 1, 0, 3);
+                            SetSeatCount(DalpaengiRules.MinSeats + guidedDelta);
+                        }
+                        else
+                        {
+                            int delta = Mathf.RoundToInt(dy / (24f * ReferenceScale()));
+                            SetSeatCount(Mathf.Clamp(holdStartSeats + delta, DalpaengiRules.MinSeats, DalpaengiRules.MaxSeats));
+                        }
                     }
                 }
                 if (!manualMode)
@@ -422,8 +450,12 @@ namespace Mgf.DalpaengiGeukjang
             holdClock = 0f;
             autoClock = 0f;
             holdStartY = screenY;
+            holdStartPointer = MgfPointer.Position;
+            guidedPracticeGesture = IsPractice() && current != null && current.kind == ShowKind.Sum &&
+                                    st.invalidHandleTaps >= 1;
             holdStartSeats = Mathf.Clamp(Math.Max(DalpaengiRules.MinSeats, st.currentSeatCount),
                 DalpaengiRules.MinSeats, DalpaengiRules.MaxSeats);
+            if (guidedPracticeGesture) holdStartSeats = DalpaengiRules.MinSeats;
             SetSeatCount(holdStartSeats);
             BeginHandlePress();
             idleClock = 0f;
@@ -497,7 +529,7 @@ namespace Mgf.DalpaengiGeukjang
                 st.phase = "playing";
                 BeginWrongReveal(current, submitted, st.lastError, practice);
                 MgfSfx.Play("wrong", .34f);
-                if (!practice && st.lives <= 0) endReason = "세 개의 입장종이 모두 깨졌다";
+                if (!practice && st.lives <= 0) endReason = "세 개의 꽃종이 모두 깨졌다";
             }
             RefreshUi();
             MgfBridge.NotifyChanged();

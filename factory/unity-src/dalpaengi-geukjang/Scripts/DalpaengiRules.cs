@@ -138,16 +138,19 @@ namespace Mgf.DalpaengiGeukjang
             int b = Math.Min(m, n);
             if (b == a || b == y || b < MinSeats) b = Math.Abs(m - n);
             if (b == a || b == y || b < MinSeats) b = y == MinSeats ? MinSeats + 1 : y - 1;
-            return new ShowProblem {
+            var problem = new ShowProblem {
                 id = id, kind = ShowKind.Sum, band = band, m = m, n = n, total = y, answer = y,
                 leftLabel = left, rightLabel = right,
                 concept = "두 사건이 동시에 일어나지 않을 때의 합의 법칙",
                 prompt = left + " " + m + "가지 또는 " + right + " " + n +
                     "가지 중 한 곡만 고른다. 두 목록에 같은 곡은 없다. 경우의 수를 구하시오.",
                 formula = m + " + " + n + " = " + y,
-                misconceptionA = a, misconceptionAId = multiply == a ? "sum_used_product" : "one_group_only",
-                misconceptionB = b, misconceptionBId = "one_group_only"
+                misconceptionA = a,
+                misconceptionB = b
             };
+            problem.misconceptionAId = SumMisconceptionId(problem, a);
+            problem.misconceptionBId = SumMisconceptionId(problem, b);
+            return problem;
         }
 
         public static ShowProblem MakeProduct(string id, int y, int variant, int band)
@@ -162,16 +165,19 @@ namespace Mgf.DalpaengiGeukjang
             if (a == y || a < MinSeats) a = y == MinSeats ? MinSeats + 1 : y - 1;
             int b = Math.Max(m, n);
             if (b == y || b == a || b < MinSeats) b = y > MinSeats ? y - 1 : MinSeats + 1;
-            return new ShowProblem {
+            var problem = new ShowProblem {
                 id = id, kind = ShowKind.Product, band = band, m = m, n = n, total = y, answer = y,
                 leftLabel = left, rightLabel = right,
                 concept = "곱의 법칙",
                 prompt = left + " " + m + "가지와 " + right + " " + n +
                     "가지 중 각각 하나씩 고른다. 모든 조합이 가능하다. 경우의 수를 구하시오.",
                 formula = m + " × " + n + " = " + y,
-                misconceptionA = a, misconceptionAId = sum == a ? "product_used_sum" : "one_group_only",
-                misconceptionB = b, misconceptionBId = "one_group_only"
+                misconceptionA = a,
+                misconceptionB = b
             };
+            problem.misconceptionAId = ProductMisconceptionId(problem, a);
+            problem.misconceptionBId = ProductMisconceptionId(problem, b);
+            return problem;
         }
 
         public static ShowProblem MakeReverse(string id, int y, int known, int variant, int band)
@@ -296,6 +302,66 @@ namespace Mgf.DalpaengiGeukjang
             { error = "reverse total " + p.id; return false; }
             if (p.misconceptionA == p.answer || p.misconceptionB == p.answer)
             { error = "misconception accidentally true " + p.id; return false; }
+            if (!ValidateMisconception(p, p.misconceptionA, p.misconceptionAId, out error)) return false;
+            if (!ValidateMisconception(p, p.misconceptionB, p.misconceptionBId, out error)) return false;
+            error = "";
+            return true;
+        }
+
+        static string SumMisconceptionId(ShowProblem p, int value)
+        {
+            if (value == p.m * p.n && value != p.answer) return "sum_used_product";
+            if (value == p.m || value == p.n) return "one_group_only";
+            return value < p.answer ? "cases_missing" : "cases_overcounted";
+        }
+
+        static string ProductMisconceptionId(ShowProblem p, int value)
+        {
+            if (value == p.m + p.n && value != p.answer) return "product_used_sum";
+            if (value == p.m || value == p.n) return "one_group_only";
+            return value < p.answer ? "cases_missing" : "cases_overcounted";
+        }
+
+        static bool ValidateMisconception(ShowProblem p, int value, string id, out string error)
+        {
+            // 0은 입력 범위를 벗어나 비활성화한 역문제 진단값이다.
+            if (value <= 0) { error = ""; return true; }
+            bool valid;
+            switch (id)
+            {
+                case "one_group_only":
+                    valid = value == p.m || value == p.n;
+                    break;
+                case "sum_used_product":
+                    valid = p.kind == ShowKind.Sum && value == p.m * p.n && value != p.answer;
+                    break;
+                case "product_used_sum":
+                    valid = p.kind == ShowKind.Product && value == p.m + p.n && value != p.answer;
+                    break;
+                case "one_combination_missing":
+                    valid = p.kind == ShowKind.Product && value == p.answer - 1;
+                    break;
+                case "reverse_used_total":
+                    valid = p.kind == ShowKind.Reverse && value == p.total;
+                    break;
+                case "reverse_added_part":
+                    valid = p.kind == ShowKind.Reverse && value == p.total + p.m;
+                    break;
+                case "cases_missing":
+                    valid = value < p.answer;
+                    break;
+                case "cases_overcounted":
+                    valid = value > p.answer;
+                    break;
+                default:
+                    valid = false;
+                    break;
+            }
+            if (!valid)
+            {
+                error = "misconception semantic mismatch " + p.id + " " + id + "=" + value;
+                return false;
+            }
             error = "";
             return true;
         }
