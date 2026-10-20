@@ -28,8 +28,10 @@ function chromePath() {
 
 function artifactHash() {
   const h = crypto.createHash('sha256');
-  for (const file of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(x => `Build/${x}`)])
+  for (const file of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(x => `Build/${x}`)]) {
+    h.update(file);
     h.update(fs.readFileSync(path.join(GAME, file)));
+  }
   return h.digest('hex');
 }
 
@@ -91,6 +93,21 @@ async function setCount(page, wanted) {
   }
   throw new Error(`setCount guard: ${JSON.stringify(s)}`);
 }
+async function setCountReverse(page, wanted) {
+  let s = await state(page);
+  for (let guard = 0; guard < 20; guard++) {
+    const current = s.colors.slice(0, s.N).reduce((a, b) => a + b, 0);
+    if (current === wanted) return s;
+    const makePurple = current < wanted;
+    const candidates = s.colors.slice(0, s.N).map((v, i) => ({ v, i }))
+      .filter(x => x.v !== (makePurple ? 1 : 0));
+    const i = candidates.at(-1)?.i;
+    if (i === undefined) throw new Error(`no reverse marble to change: ${JSON.stringify(s)}`);
+    await tap(page, marblePoint(s, i));
+    s = await state(page);
+  }
+  throw new Error(`setCountReverse guard: ${JSON.stringify(s)}`);
+}
 async function shoot(page) {
   const s = await state(page);
   await drag(page, [s.pouchPx[0], s.pouchPx[1]], [s.pouchPx[2], s.pouchPx[3]]);
@@ -127,7 +144,9 @@ try {
   await page.screenshot({ path: path.join(FRAMES, '03-first-problem.png') });
 
   // 첫 실전만 오답 뒤 같은 판을 직접 고쳐도 최종 목표에 도달해야 한다.
+  const firstProblemIds = [];
   let old = s.currentProblem;
+  firstProblemIds.push(old);
   const correct = correctPurple(s);
   const wrong = correct === s.N ? correct - 1 : correct + 1;
   await submit(page, wrong);
@@ -141,13 +160,46 @@ try {
 
   while (s.phase === 'playing') {
     old = s.currentProblem;
+    firstProblemIds.push(old);
     await submit(page, correctPurple(s));
     s = await waitPlayable(page, old);
   }
   if (s.phase !== 'clear' || s.solved !== 6 || s.firstAttemptCorrect !== 5 || s.lives !== 2)
     throw new Error(`recovery clear failed: ${JSON.stringify(s)}`);
-  events.push({ name: 'clear-after-one-mistake', state: s });
+  events.push({ name: 'clear-after-one-mistake', strategy: 'lowest-index marbles; wrong then repair on problem 1', problemIds: firstProblemIds, state: s });
   await page.screenshot({ path: path.join(FRAMES, '06-clear.png') });
+
+  // 결과 레버를 실제 pointer로 눌러 연습부터 다시 시작한다. 두 번째 판은
+  // 반대쪽(가장 큰 번호) 구슬부터 고치며 모든 문제를 첫 제출로 푼다.
+  const firstClear = s;
+  await tap(page, s.restartPx);
+  s = await waitFor(page, x => x.phase === 'practice' && x.onboarding, 5000);
+  await page.screenshot({ path: path.join(FRAMES, '07-second-practice.png') });
+  await setCountReverse(page, 2);
+  await shoot(page);
+  s = await waitFor(page, x => x.phase === 'playing' && !x.onboarding, 8000);
+  const secondProblemIds = [];
+  await page.screenshot({ path: path.join(FRAMES, '08-second-first-problem.png') });
+  while (s.phase === 'playing') {
+    old = s.currentProblem;
+    secondProblemIds.push(old);
+    await setCountReverse(page, correctPurple(s));
+    await shoot(page);
+    s = await waitPlayable(page, old);
+  }
+  if (s.phase !== 'clear' || s.solved !== 6 || s.firstAttemptCorrect !== 6 || s.lives !== 3)
+    throw new Error(`independent second clear failed: ${JSON.stringify(s)}`);
+  if (JSON.stringify(firstProblemIds) === JSON.stringify(secondProblemIds))
+    throw new Error(`second deck did not change: ${JSON.stringify(secondProblemIds)}`);
+  events.push({
+    name: 'independent-second-real-pointer-clear',
+    restartPoint: firstClear.restartPx,
+    strategy: 'highest-index marbles first; perfect first submissions',
+    firstProblemIds,
+    secondProblemIds,
+    state: s
+  });
+  await page.screenshot({ path: path.join(FRAMES, '09-second-clear.png') });
 
   // 새 판에서 서로 다른 오답 배합 세 번: 안전잎 0 즉시 종료와 입력 잠금.
   await page.evaluate(() => window.__GAME_TEST__.start());
@@ -165,7 +217,7 @@ try {
   const after = await state(page);
   if (after.solved !== 0 || after.lives !== 3 || after.phase !== 'practice') throw new Error(`one-tap restart failed: ${JSON.stringify(after)}`);
   events.push({ name: 'three-wrongs-lock-and-restart', locked: JSON.parse(locked), after });
-  await page.screenshot({ path: path.join(FRAMES, '07-restarted-practice.png') });
+  await page.screenshot({ path: path.join(FRAMES, '10-restarted-practice.png') });
 
   const endHash = artifactHash();
   if (startHash !== endHash) throw new Error('artifact changed during pointer validation');

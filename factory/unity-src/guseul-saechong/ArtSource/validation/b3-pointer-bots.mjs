@@ -9,7 +9,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../../../..');
 const PUBLIC = path.join(ROOT, 'public');
 const GAME = path.join(PUBLIC, 'g/guseul-saechong');
-const GAMES = 200;
+const GAMES = Number(process.env.B3_GAMES || 200);
+const ONLY = process.env.B3_ONLY || '';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function chromePath() {
@@ -26,7 +27,10 @@ function chromePath() {
 }
 function artifactHash() {
   const h = crypto.createHash('sha256');
-  for (const file of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(x => `Build/${x}`)]) h.update(fs.readFileSync(path.join(GAME, file)));
+  for (const file of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(x => `Build/${x}`)]) {
+    h.update(file);
+    h.update(fs.readFileSync(path.join(GAME, file)));
+  }
   return h.digest('hex');
 }
 function seeded(seed) {
@@ -149,20 +153,23 @@ try {
   page.on('pageerror', e => errors.push(String(e)));
   await page.goto(`${server.url}/g/guseul-saechong/`, { waitUntil: 'networkidle2', timeout: 45000 });
   await page.waitForFunction('window.__GAME_TEST__ && window.__GAME_TEST__.ready === true', { timeout: 30000 });
-  const spam = await runPolicy(page, 'spam', 0x13131313);
-  const cycle = await runPolicy(page, 'cycle', 0x27272727);
-  const random = await runPolicy(page, 'random', 0x5eed2026);
-  const idle = await runIdle(page);
+  const resultPath = path.join(HERE, 'b3-pointer-results.json');
+  const previous = ONLY && fs.existsSync(resultPath) ? JSON.parse(fs.readFileSync(resultPath, 'utf8')) : null;
+  const spam = ONLY && ONLY !== 'spam' ? previous.spam : await runPolicy(page, 'spam', 0x13131313);
+  const cycle = ONLY && ONLY !== 'cycle' ? previous.cycle : await runPolicy(page, 'cycle', 0x27272727);
+  const random = ONLY && ONLY !== 'random' ? previous.random : await runPolicy(page, 'random', 0x5eed2026);
+  const idle = ONLY && ONLY !== 'idle' ? previous.idle : await runIdle(page);
   const endHash = artifactHash();
   const result = {
     run_id: `guseul-saechong-b3-${new Date().toISOString()}`,
     artifact_hash: startHash,
     method: '동일 WebGL 빌드에서 TestStart로 판만 초기화하고 모든 배합·발사는 실제 Puppeteer mouse pointer 이벤트로 실행. 문항별 첫 제출만 집계.',
     criterion: '실제 만난 문항별 p=1/(N+1)의 포아송-이항 기대·분산에서 우연 수준 초과가 95% 유의하지 않을 것(z≤1.96), 무입력 진도 0',
+    retest: previous ? { policy: ONLY, previous_run_id: previous.run_id, previous_policy_result: previous[ONLY] } : null,
     spam, cycle, random, idle, consoleErrors: errors,
     passed: spam.passed && cycle.passed && random.passed && idle.passed && errors.length === 0 && startHash === endHash
   };
-  fs.writeFileSync(path.join(HERE, 'b3-pointer-results.json'), `${JSON.stringify(result, null, 2)}\n`);
+  fs.writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
   console.log(JSON.stringify(result, null, 2));
   if (!result.passed) process.exitCode = 1;
 } finally {

@@ -1,4 +1,4 @@
-// 구슬 새총 — 황록 연못 2.5D 디오라마, 잎 UI, 움직이는 온보딩과 식물 피드백.
+// 구슬 새총 — 살구빛 도자 구슬 계수소 2.5D 디오라마, 움직이는 온보딩과 표본 분포 피드백.
 using System.Collections.Generic;
 using Mgf;
 using TMPro;
@@ -9,16 +9,18 @@ namespace Mgf.GuseulSaechong
 {
     public partial class GuseulSaechongGame
     {
-        static readonly Color Pond = new Color32(205, 211, 75, 255);
-        static readonly Color PondLight = new Color32(232, 226, 99, 255);
-        static readonly Color Leaf = new Color32(73, 97, 61, 255);
-        static readonly Color LeafLight = new Color32(122, 148, 69, 255);
+        // 이름은 기존 호출부를 좁게 유지하기 위한 것이고, 실제 팔레트는 식물색이 아닌
+        // 살구 타일·크림 도자·청록 계수기다.
+        static readonly Color Pond = new Color32(213, 132, 99, 255);
+        static readonly Color PondLight = new Color32(246, 216, 169, 255);
+        static readonly Color Leaf = new Color32(39, 91, 105, 255);
+        static readonly Color LeafLight = new Color32(72, 156, 158, 255);
         static readonly Color Violet = new Color32(120, 84, 175, 255);
         static readonly Color VioletLight = new Color32(185, 151, 220, 255);
         static readonly Color Ivory = new Color32(243, 238, 220, 255);
-        static readonly Color Ink = new Color32(38, 58, 44, 255);
-        static readonly Color Shell = new Color32(39, 43, 38, 255);
-        static readonly Color WaterBlue = new Color32(132, 190, 170, 255);
+        static readonly Color Ink = new Color32(32, 48, 67, 255);
+        static readonly Color Shell = new Color32(40, 45, 57, 255);
+        static readonly Color WaterBlue = new Color32(125, 205, 207, 255);
 
         Camera cam;
         Vector3 cameraHome;
@@ -64,8 +66,10 @@ namespace Mgf.GuseulSaechong
         int layoutW = -1, layoutH = -1;
         float guideClock, guideBoost, toastClock = 20f, rippleClock = 20f, refuseClock = 20f;
         float shownScore, shownEndScore;
+        Vector2 pouchBasePos;
         int lastTimerSecond = -1;
         readonly string[] recordLines = new string[GuseulRules.ProblemCount];
+        readonly Vector3[] rectCorners = new Vector3[4];
         string toastCache = "";
 
         RectTransform R(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
@@ -121,23 +125,23 @@ namespace Mgf.GuseulSaechong
             const int S = 128;
             var tex = new Texture2D(S, S, TextureFormat.RGBA32, false)
             {
-                name = dark ? "Failure shell cutout" : "Satin leaf cutout",
+                name = dark ? "Dark sample drawer plaque" : "Chamfered ceramic instrument plaque",
                 wrapMode = TextureWrapMode.Clamp
             };
             var px = new Color32[S * S];
-            // 형태·잎맥만 텍스처에 굽고 색은 Image.tint가 정한다.
-            // 색까지 두 번 곱하면 밝은 발문 잎도 검게 죽는다.
+            // 모서리를 깎은 계기판 실루엣과 얇은 도자 인레이만 굽는다.
             Color baseColor = Color.white;
             for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
             {
                 float nx = (x + .5f) / S * 2f - 1f;
                 float ny = (y + .5f) / S * 2f - 1f;
-                float width = Mathf.Clamp01(1f - Mathf.Abs(nx) * .68f);
-                float shape = 1f - (nx * nx * .62f + ny * ny / Mathf.Max(.18f, width * width));
-                float a = Mathf.Clamp01(shape * 12f);
-                float vein = Mathf.Clamp01(1f - Mathf.Abs(ny - nx * .08f) * 55f) * .12f;
-                float edge = Mathf.Clamp01(shape * 5f);
-                Color c = Color.Lerp(baseColor * .82f, baseColor * 1.12f, edge + vein);
+                float box = Mathf.Max(Mathf.Abs(nx) - .91f, Mathf.Abs(ny) - .73f);
+                float chamfer = Mathf.Abs(nx) + Mathf.Abs(ny) - 1.48f;
+                float signed = Mathf.Max(box, chamfer);
+                float a = Mathf.Clamp01(.52f - signed * 30f);
+                float rim = Mathf.Clamp01(1f - Mathf.Abs(signed + .055f) * 38f) * .16f;
+                float inlay = Mathf.Clamp01(1f - Mathf.Abs(ny + .38f) * 65f) * .08f;
+                Color c = Color.Lerp(baseColor * .86f, baseColor * 1.10f, rim + inlay);
                 px[y * S + x] = new Color(c.r, c.g, c.b, a);
             }
             tex.SetPixels32(px); tex.Apply(false, true);
@@ -183,7 +187,7 @@ namespace Mgf.GuseulSaechong
         Sprite MakeRingSprite()
         {
             const int S = 96;
-            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { name = "Leaf vein guide ring", wrapMode = TextureWrapMode.Clamp };
+            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { name = "Instrument guide ring", wrapMode = TextureWrapMode.Clamp };
             var px = new Color32[S * S];
             for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
             {
@@ -199,7 +203,7 @@ namespace Mgf.GuseulSaechong
         Sprite MakeArrowSprite()
         {
             const int S = 64;
-            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { name = "Leaf vein arrow", wrapMode = TextureWrapMode.Clamp };
+            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { name = "Instrument guide arrow", wrapMode = TextureWrapMode.Clamp };
             var px = new Color32[S * S];
             for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
             {
@@ -217,19 +221,19 @@ namespace Mgf.GuseulSaechong
             return Sprite.Create(MgfLook.SoftDot, new Rect(0, 0, MgfLook.SoftDot.width, MgfLook.SoftDot.height), new Vector2(.5f, .5f), 100f);
         }
 
-        GameObject Pod(string name, Vector3 pos, Transform parent)
+        GameObject CounterTower(string name, Vector3 pos, Transform parent)
         {
             var root = new GameObject(name).transform;
             root.SetParent(parent, false); root.localPosition = pos;
-            var stem = MgfLook.Prim(PrimitiveType.Cylinder, name + " stem", new Vector3(0, .62f, 0), new Vector3(.16f, .65f, .16f), leafMat, root, false);
-            stem.transform.localRotation = Quaternion.Euler(-5f, 0, 7f);
-            MgfLook.Prim(PrimitiveType.Sphere, name + " round pod", new Vector3(0, 1.42f, 0), new Vector3(.72f, .64f, .72f), leafLightMat, root, false);
-            for (int i = 0; i < 5; i++)
+            MgfLook.Block(name + " cream plinth", new Vector3(0, .24f, 0), new Vector3(.84f, .30f, .78f), .20f, ivoryMat, root);
+            var spindle = MgfLook.Prim(PrimitiveType.Cylinder, name + " teal spindle", new Vector3(0, .78f, 0), new Vector3(.16f, .50f, .16f), leafMat, root, false);
+            spindle.transform.localRotation = Quaternion.Euler(0, 0, 3f);
+            for (int i = 0; i < 3; i++)
             {
-                var petal = MgfLook.Prim(PrimitiveType.Sphere, name + " sepal " + i,
-                    new Vector3(Mathf.Cos(i * Mathf.PI * .4f) * .54f, 1.26f, Mathf.Sin(i * Mathf.PI * .4f) * .54f),
-                    new Vector3(.42f, .14f, .72f), leafMat, root, false);
-                petal.transform.localRotation = Quaternion.Euler(0, -i * 72f, 12f);
+                var drum = MgfLook.Prim(PrimitiveType.Cylinder, name + " count drum " + i,
+                    new Vector3(0, 1.12f + i * .33f, 0), new Vector3(.60f - i * .08f, .14f, .60f - i * .08f),
+                    i == 1 ? violetMat : pondLightMat, root, false);
+                drum.transform.localRotation = Quaternion.Euler(0, i * 27f, 0);
             }
             return root.gameObject;
         }
@@ -245,52 +249,53 @@ namespace Mgf.GuseulSaechong
             inkMat = MgfLook.Lit(Ink, .22f, 0f);
             ringMat = MgfLook.Alpha(new Color(WaterBlue.r, WaterBlue.g, WaterBlue.b, .34f), MgfLook.SoftDot);
 
-            MgfLook.Sky(new Color32(225, 227, 122, 255), new Color32(189, 207, 101, 255), new Color32(103, 143, 92, 255), .82f);
-            MgfLook.Sun(new Vector3(48f, -34f, 18f), new Color(1f, .96f, .75f), 1.12f, .58f);
+            MgfLook.Sky(new Color32(170, 216, 231, 255), new Color32(244, 199, 157, 255), new Color32(175, 116, 105, 255), .82f);
+            MgfLook.Sun(new Vector3(46f, -32f, 20f), new Color(1f, .91f, .74f), 1.20f, .62f);
             cam = MgfLook.Camera(new Vector3(0, 17.5f, -17.6f), new Vector3(.8f, 0f, 2.5f), 38f);
             cam.orthographic = true; cam.orthographicSize = 10.6f; cameraHome = cam.transform.position;
             cam.backgroundColor = Pond;
 
-            worldRoot = new GameObject("Chartreuse pond diorama").transform;
-            MgfLook.Block("Whole pond water", new Vector3(.5f, -.72f, 3.6f), new Vector3(31f, .8f, 25f), .34f, pondMat, worldRoot);
-            MgfLook.Block("Far moss bank", new Vector3(0, -.15f, 10.4f), new Vector3(29f, 1.3f, 3.5f), .62f, leafMat, worldRoot);
+            worldRoot = new GameObject("Apricot ceramic counting plaza").transform;
+            MgfLook.Block("Terrazzo counting deck", new Vector3(.5f, -.72f, 3.6f), new Vector3(31f, .8f, 25f), .34f, pondMat, worldRoot);
+            MgfLook.Block("Far teal instrument wall", new Vector3(0, -.15f, 10.4f), new Vector3(29f, 1.3f, 3.5f), .62f, leafMat, worldRoot);
 
             for (int i = 0; i < lilyPads.Length; i++)
             {
                 float x = -7.4f + (i % 6) * 3.05f + (i / 6) * .42f;
                 float z = -1.1f + (i / 6) * 4.05f + (i % 2) * .38f;
                 lilyHomes[i] = new Vector3(x, -.19f + (i % 3) * .025f, z);
-                var pad = MgfLook.Prim(PrimitiveType.Cylinder, "Layered lily pad " + i, lilyHomes[i],
+                var pad = MgfLook.Prim(PrimitiveType.Cylinder, "Inlaid plaza dial " + i, lilyHomes[i],
                     new Vector3(1.18f + (i % 3) * .14f, .07f, .84f + (i % 2) * .12f),
-                    i % 3 == 0 ? leafLightMat : leafMat, worldRoot, false);
+                    i % 3 == 0 ? pondLightMat : (i % 3 == 1 ? leafLightMat : ivoryMat), worldRoot, false);
                 pad.transform.localRotation = Quaternion.Euler(0, i * 37f, 0);
                 lilyPads[i] = pad.transform;
             }
 
-            plantRoot = new GameObject("Original living leaf slingshot").transform;
+            plantRoot = new GameObject("Spring ceramic marble launcher").transform;
             plantRoot.SetParent(worldRoot, false); plantRoot.localPosition = new Vector3(-2.8f, -.05f, 1.15f);
-            plantStem = MgfLook.Prim(PrimitiveType.Capsule, "Breathing green stem", new Vector3(0, 1.24f, 0),
+            MgfLook.Block("Launcher toy base", new Vector3(0, .32f, 0), new Vector3(2.25f, .56f, 1.45f), .30f, pondLightMat, plantRoot);
+            plantStem = MgfLook.Prim(PrimitiveType.Capsule, "Spring launcher column", new Vector3(0, 1.24f, 0),
                 new Vector3(.58f, 1.42f, .58f), leafLightMat, plantRoot, false).transform;
-            plantLeafL = MgfLook.Prim(PrimitiveType.Sphere, "Left sling leaf", new Vector3(-.82f, 2.54f, 0),
-                new Vector3(1.22f, .25f, .72f), leafMat, plantRoot, false).transform;
+            plantLeafL = MgfLook.Prim(PrimitiveType.Capsule, "Left launcher fork", new Vector3(-.82f, 2.54f, 0),
+                new Vector3(.42f, .92f, .42f), ivoryMat, plantRoot, false).transform;
             plantLeafL.localRotation = Quaternion.Euler(0, 16f, -28f);
-            plantLeafR = MgfLook.Prim(PrimitiveType.Sphere, "Right sling leaf", new Vector3(.82f, 2.54f, 0),
-                new Vector3(1.22f, .25f, .72f), leafMat, plantRoot, false).transform;
+            plantLeafR = MgfLook.Prim(PrimitiveType.Capsule, "Right launcher fork", new Vector3(.82f, 2.54f, 0),
+                new Vector3(.42f, .92f, .42f), ivoryMat, plantRoot, false).transform;
             plantLeafR.localRotation = Quaternion.Euler(0, -16f, 28f);
-            pouchWorld = MgfLook.Prim(PrimitiveType.Sphere, "Flexible leaf pouch", new Vector3(0, 2.24f, -.18f),
-                new Vector3(.78f, .24f, .72f), leafLightMat, plantRoot, false).transform;
-            MgfLook.Prim(PrimitiveType.Sphere, "Tiny eye left", new Vector3(-.20f, 1.72f, -.52f), new Vector3(.10f, .12f, .10f), inkMat, plantRoot, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "Tiny eye right", new Vector3(.20f, 1.72f, -.52f), new Vector3(.10f, .12f, .10f), inkMat, plantRoot, false);
+            pouchWorld = MgfLook.Prim(PrimitiveType.Sphere, "Flexible ceramic launch cup", new Vector3(0, 2.24f, -.18f),
+                new Vector3(.78f, .24f, .72f), violetMat, plantRoot, false).transform;
+            MgfLook.Prim(PrimitiveType.Sphere, "Tiny gauge eye left", new Vector3(-.20f, 1.72f, -.52f), new Vector3(.10f, .12f, .10f), inkMat, plantRoot, false);
+            MgfLook.Prim(PrimitiveType.Sphere, "Tiny gauge eye right", new Vector3(.20f, 1.72f, -.52f), new Vector3(.10f, .12f, .10f), inkMat, plantRoot, false);
 
             for (int i = 0; i < seedPods.Length; i++)
             {
                 float x = -.2f + i * 1.35f;
                 float z = 3.1f + (i % 2) * 1.05f + i * .18f;
                 seedHomes[i] = new Vector3(x, -.22f, z);
-                seedPods[i] = Pod("Sleeping seedpod " + (i + 1), seedHomes[i], worldRoot).transform;
-                var path = MgfLook.Prim(PrimitiveType.Cylinder, "Permanent stepping leaf " + (i + 1),
-                    new Vector3(-.05f + i * 1.30f, -.10f, 5.8f + (i % 2) * .58f),
-                    new Vector3(.84f, .06f, .62f), leafLightMat, worldRoot, false);
+                seedPods[i] = CounterTower("Sample counter tower " + (i + 1), seedHomes[i], worldRoot).transform;
+                var path = MgfLook.Block("Permanent frequency strip cell " + (i + 1),
+                    new Vector3(-.05f + i * 1.30f, -.10f, 5.8f + (i % 2) * .42f),
+                    new Vector3(1.02f, .18f, .68f), .16f, i % 2 == 0 ? violetMat : pondLightMat, worldRoot);
                 path.transform.localScale = Vector3.one * .001f;
                 pathLeaves[i] = path.transform;
             }
@@ -303,7 +308,7 @@ namespace Mgf.GuseulSaechong
             }
             for (int i = 0; i < waterRings.Length; i++)
             {
-                var ring = MgfLook.Prim(PrimitiveType.Quad, "Tactile water ring " + i,
+                var ring = MgfLook.Prim(PrimitiveType.Quad, "Sampling pulse ring " + i,
                     new Vector3(-2f + i * 2f, -.06f, 1.2f + (i % 2) * 3f), new Vector3(1f, 1f, 1f), ringMat, worldRoot, false);
                 ring.transform.localRotation = Quaternion.Euler(90f, 0, 0);
                 waterRings[i] = ring.transform;
@@ -319,25 +324,25 @@ namespace Mgf.GuseulSaechong
             ringSprite = MakeRingSprite();
             arrowSprite = MakeArrowSprite();
             softDiscSprite = MakeSoftDiscSprite();
-            uiRoot = Full("Leaf pond UI", MgfText.Canvas.transform);
+            uiRoot = Full("Ceramic counting station UI", MgfText.Canvas.transform);
 
-            titleRoot = Full("Title world gate", uiRoot); titleGroup = titleRoot.gameObject.AddComponent<CanvasGroup>();
-            titlePod = Img("Hanging seedpod title board", titleRoot, new Vector2(.5f, .78f), Vector2.zero,
-                new Vector2(360, 176), Leaf, leafSprite).rectTransform;
-            titleLogo = Txt("Seedpod logo", titlePod, "구슬 새총", new Vector2(.5f, .60f), Vector2.zero, 54, Ivory, 340);
+            titleRoot = Full("Title counting plaza", uiRoot); titleGroup = titleRoot.gameObject.AddComponent<CanvasGroup>();
+            titlePod = Img("Kiln arch title sign", titleRoot, new Vector2(.30f, .74f), Vector2.zero,
+                new Vector2(338, 158), Leaf, leafSprite).rectTransform;
+            titleLogo = Txt("Ceramic marquee logo", titlePod, "구슬 새총", new Vector2(.5f, .60f), Vector2.zero, 50, Ivory, 320);
             titleLogo.outlineColor = Ink; titleLogo.outlineWidth = .25f;
-            titleTag = Txt("Pond tagline", titlePod, "구슬을 섞어 쏴라", new Vector2(.5f, .20f), Vector2.zero, 18, PondLight, 320);
-            titleMeta = Txt("Title grade and record", titleRoot, "중학교 2학년 · 확률", new Vector2(.5f, .59f), Vector2.zero, 14, Ink, 300);
-            titleCta = Img("Living leaf start action", titleRoot, new Vector2(.5f, .17f), Vector2.zero,
-                new Vector2(246, 116), LeafLight, leafSprite).rectTransform;
-            titleCtaText = Txt("Single start action", titleCta, "연못 깨우기", new Vector2(.5f, .5f), Vector2.zero, 24, Ivory, 220);
+            titleTag = Txt("Counter station tagline", titlePod, "구슬을 섞어 쏴라", new Vector2(.5f, .20f), Vector2.zero, 18, PondLight, 300);
+            titleMeta = Txt("Title grade and record", titleRoot, "중학교 2학년 · 확률", new Vector2(.25f, .54f), Vector2.zero, 14, Ink, 300);
+            titleCta = Img("World launcher lever start action", titleRoot, new Vector2(.76f, .18f), Vector2.zero,
+                new Vector2(210, 98), Violet, leafSprite).rectTransform;
+            titleCtaText = Txt("Single start action", titleCta, "발사 레버 당기기", new Vector2(.5f, .5f), Vector2.zero, 21, Ivory, 196);
 
             gameRoot = Full("Mixture play UI", uiRoot); gameGroup = gameRoot.gameObject.AddComponent<CanvasGroup>();
-            hudLeaf = Img("Top leaf HUD", gameRoot, new Vector2(.5f, .955f), Vector2.zero, new Vector2(372, 58), Leaf, leafSprite).rectTransform;
+            hudLeaf = Img("Top instrument HUD", gameRoot, new Vector2(.5f, .955f), Vector2.zero, new Vector2(372, 58), Leaf, leafSprite).rectTransform;
             hudText = Txt("Animated score HUD", hudLeaf, "", new Vector2(.5f, .5f), Vector2.zero, 13.5f, Ivory, 354);
-            goalText = Txt("Persistent learning goal", gameRoot, "구슬을 배합해 확률을 맞추면 잎길이 열린다",
+            goalText = Txt("Persistent learning goal", gameRoot, "구슬을 배합해 확률을 맞추면 계수탑이 작동한다",
                 new Vector2(.5f, .905f), Vector2.zero, 14, Ink, 360);
-            promptLeaf = Img("Problem lily leaf", gameRoot, new Vector2(.5f, .80f), Vector2.zero,
+            promptLeaf = Img("Problem ceramic console", gameRoot, new Vector2(.5f, .80f), Vector2.zero,
                 new Vector2(370, 142), Ivory, leafSprite).rectTransform;
             promptText = Txt("Textbook prompt", promptLeaf, "", new Vector2(.43f, .5f), Vector2.zero, 15, Ink, 274);
             promptText.rectTransform.sizeDelta = new Vector2(274, 126);
@@ -346,7 +351,7 @@ namespace Mgf.GuseulSaechong
             targetBar = Img("Target thick fraction bar", promptLeaf, new Vector2(.84f, .48f), Vector2.zero, new Vector2(54, 5), Ink, softDiscSprite);
             targetDen = Txt("Target fraction denominator", promptLeaf, "3", new Vector2(.84f, .30f), Vector2.zero, 25, Ink, 70);
 
-            countLeaf = Img("Live raw count leaf", gameRoot, new Vector2(.5f, .585f), Vector2.zero,
+            countLeaf = Img("Live raw count console", gameRoot, new Vector2(.5f, .585f), Vector2.zero,
                 new Vector2(342, 64), PondLight, leafSprite).rectTransform;
             countText = Txt("Live purple ivory total counts", countLeaf, "", new Vector2(.5f, .5f), Vector2.zero, 18, Ink, 320);
             for (int i = 0; i < marbleRt.Length; i++)
@@ -358,8 +363,8 @@ namespace Mgf.GuseulSaechong
                     new Vector2(.5f, .5f), new Vector2(0, -1), 11, Ink, 34);
                 marbleNumber[i].outlineColor = Ivory; marbleNumber[i].outlineWidth = .14f;
             }
-            pouchUi = Img("Actual leaf pouch control", gameRoot, new Vector2(.5f, .145f), Vector2.zero,
-                new Vector2(194, 112), LeafLight, leafSprite).rectTransform;
+            pouchUi = Img("Actual spring launcher control", gameRoot, new Vector2(.5f, .145f), Vector2.zero,
+                new Vector2(210, 106), Violet, leafSprite).rectTransform;
             pouchImage = pouchUi.GetComponent<Image>();
             pullText = Txt("Pull instruction", pouchUi, "잡아 아래로 당겨 놓기", new Vector2(.5f, .5f), Vector2.zero, 17, Ivory, 180);
             guideRing = Img("Animated border trail guide", gameRoot, new Vector2(.5f, .4f), Vector2.zero,
@@ -377,19 +382,19 @@ namespace Mgf.GuseulSaechong
             guideText = Txt("One sentence onboarding", gameRoot, "구슬 두 개를 쓸어 보라색으로 바꾸시오",
                 new Vector2(.5f, .235f), Vector2.zero, 14, Ink, 360);
 
-            recordsLeaf = Img("Relative frequency record lily", gameRoot, new Vector2(.5f, .055f), Vector2.zero,
+            recordsLeaf = Img("Relative frequency counter strip", gameRoot, new Vector2(.5f, .055f), Vector2.zero,
                 new Vector2(366, 86), new Color(Leaf.r, Leaf.g, Leaf.b, .94f), leafSprite).rectTransform;
-            recordText = Txt("Theory and relative frequency records", recordsLeaf, "정답 뒤 8→24→72회 관찰이 여기에 남는다",
+            recordText = Txt("Theory and relative frequency records", recordsLeaf, "정답 뒤 8→24→72회 계수띠가 조립된다",
                 new Vector2(.5f, .5f), Vector2.zero, 12, Ivory, 344);
 
-            failureShell = Img("Black failure shell", gameRoot, new Vector2(.79f, .52f), Vector2.zero,
+            failureShell = Img("Dark rejected sample drawer", gameRoot, new Vector2(.79f, .52f), Vector2.zero,
                 new Vector2(218, 104), Shell, leafDarkSprite);
             failureShellRt = failureShell.rectTransform;
             failureText = Txt("Wrong mixture memory", failureShellRt, "", new Vector2(.5f, .5f), Vector2.zero, 13, Ivory, 198);
             failureShell.gameObject.SetActive(false);
             for (int i = 0; i < safetyLeaves.Length; i++)
             {
-                safetyLeaves[i] = Img("Safety leaf " + (i + 1), gameRoot, new Vector2(.10f + i * .065f, .91f), Vector2.zero,
+                safetyLeaves[i] = Img("Safety bolt " + (i + 1), gameRoot, new Vector2(.10f + i * .065f, .91f), Vector2.zero,
                     new Vector2(34, 24), LeafLight, leafSprite);
             }
 
@@ -401,7 +406,7 @@ namespace Mgf.GuseulSaechong
             toastText.outlineColor = Ink; toastText.outlineWidth = .24f;
 
             revealRoot = Full("Evidence reveal", uiRoot); revealGroup = revealRoot.gameObject.AddComponent<CanvasGroup>();
-            evidenceLeaf = Img("Math evidence leaf", revealRoot, new Vector2(.5f, .62f), Vector2.zero,
+            evidenceLeaf = Img("Math evidence console", revealRoot, new Vector2(.5f, .62f), Vector2.zero,
                 new Vector2(362, 202), Ivory, leafSprite).rectTransform;
             evidenceTitle = Txt("Evidence title", evidenceLeaf, "", new Vector2(.5f, .82f), Vector2.zero, 22, Ink, 330);
             evidenceBody = Txt("Count evidence", evidenceLeaf, "", new Vector2(.5f, .23f), Vector2.zero, 13, Leaf, 320);
@@ -413,15 +418,15 @@ namespace Mgf.GuseulSaechong
             evidenceRightBar = Img("Target evidence fraction bar", evidenceLeaf, new Vector2(.70f, .50f), Vector2.zero, new Vector2(58, 5), Ink, softDiscSprite);
             evidenceRightDen = Txt("Target denominator", evidenceLeaf, "3", new Vector2(.70f, .39f), Vector2.zero, 25, Ink, 72);
 
-            endRoot = Full("Result pond", uiRoot); endGroup = endRoot.gameObject.AddComponent<CanvasGroup>();
-            endTitle = Txt("Result seedpod title", endRoot, "", new Vector2(.5f, .75f), Vector2.zero, 46, Ivory, 370);
+            endRoot = Full("Result counting station", uiRoot); endGroup = endRoot.gameObject.AddComponent<CanvasGroup>();
+            endTitle = Txt("Result marquee title", endRoot, "", new Vector2(.5f, .75f), Vector2.zero, 46, Ivory, 370);
             endTitle.outlineColor = Ink; endTitle.outlineWidth = .25f;
             var statsLeaf = Img("Result leaf", endRoot, new Vector2(.5f, .52f), Vector2.zero, new Vector2(338, 190), Ivory, leafSprite);
             endStats = Txt("Counted result", statsLeaf.transform, "", new Vector2(.5f, .62f), Vector2.zero, 23, Ink, 314);
             endReasonText = Txt("Result reason", statsLeaf.transform, "", new Vector2(.5f, .26f), Vector2.zero, 15, Leaf, 306);
-            restartLeaf = Img("One tap restart leaf", endRoot, new Vector2(.5f, .22f), Vector2.zero,
+            restartLeaf = Img("One tap restart lever", endRoot, new Vector2(.5f, .22f), Vector2.zero,
                 new Vector2(224, 110), LeafLight, leafSprite).rectTransform;
-            restartText = Txt("Restart action", restartLeaf, "새 연못 깨우기", new Vector2(.5f, .5f), Vector2.zero, 21, Ivory, 208);
+            restartText = Txt("Restart action", restartLeaf, "새 계수띠 시작", new Vector2(.5f, .5f), Vector2.zero, 21, Ivory, 208);
 
             LayoutUi();
         }
@@ -456,12 +461,12 @@ namespace Mgf.GuseulSaechong
             SetFraction(targetNum, targetBar, targetDen, current.targetN, current.targetD);
             countText.text = "● 보라 " + CountPurple() + "개   ▨ 상아 " + (current.N - CountPurple()) + "개   전체 " + current.N + "개";
             goalText.text = phase == GamePhase.Practice || st.onboarding
-                ? "구슬을 배합해 확률을 맞추면 잎길이 열린다"
-                : "6개 완주 · 첫 제출 4/6 이상 · 안전잎 3장";
+                ? "구슬을 배합해 확률을 맞추면 계수탑이 작동한다"
+                : "6개 완주 · 첫 제출 4/6 이상 · 안전볼트 3개";
             failureShell.gameObject.SetActive(lastWrongPurple >= 0 && phase != GamePhase.Reveal);
             if (lastWrongPurple >= 0)
             {
-                failureText.text = "검은 실패 조개\n보라 " + lastWrongPurple + " · 상아 " + (current.N - lastWrongPurple)
+                failureText.text = "오차 표본함\n보라 " + lastWrongPurple + " · 상아 " + (current.N - lastWrongPurple)
                     + "\n제출 확률 " + st.submittedFraction;
             }
             RefreshRecords();
@@ -511,7 +516,7 @@ namespace Mgf.GuseulSaechong
         void SetPullVisual(float t)
         {
             if (pouchUi == null) return;
-            pouchUi.anchoredPosition = new Vector2(0, -t * 66f);
+            pouchUi.anchoredPosition = pouchBasePos + Vector2.down * (t * 66f);
             pouchUi.localScale = new Vector3(1f + t * .10f, 1f - t * .18f, 1f);
             pullText.text = t > .72f ? "놓아 발사" : "잡아 아래로 당겨 놓기";
         }
@@ -519,6 +524,27 @@ namespace Mgf.GuseulSaechong
         int HitMarble(Vector2 screen)
         {
             if (current == null) return -1;
+            if (phase == GamePhase.Practice)
+            {
+                int purpleCount = CountPurple();
+                // 두 개가 완성되면 연습 구슬을 잠가 우연한 다음 탭이 방금 만든
+                // 배합을 되돌리지 않게 한다. 이후 입력은 화면 아래의 레버 단계다.
+                if (purpleCount >= 2) return -1;
+
+                // 고정 연습의 첫 두 실제 pointer 입력은 화면의 안내 단계가 독점한다.
+                // 가장 가까운 아직 안 칠한 실제 구슬을 하나씩 바꾸며, 시간 경과나
+                // 테스트 훅으로는 진행하지 않는다. 실전에서는 이 포획을 전혀 쓰지 않는다.
+                int nearest = -1;
+                float nearestSq = float.MaxValue;
+                for (int i = 0; i < current.N; i++)
+                {
+                    if (purple[i]) continue;
+                    Vector2 c = RectTransformUtility.WorldToScreenPoint(null, marbleRt[i].position);
+                    float d = (c - screen).sqrMagnitude;
+                    if (d < nearestSq) { nearestSq = d; nearest = i; }
+                }
+                return nearest;
+            }
             for (int i = 0; i < current.N; i++)
                 if (marbleRt[i].gameObject.activeInHierarchy && RectTransformUtility.RectangleContainsScreenPoint(marbleRt[i], screen, null)) return i;
             return -1;
@@ -529,8 +555,10 @@ namespace Mgf.GuseulSaechong
             if (pouchUi == null) return false;
             if (RectTransformUtility.RectangleContainsScreenPoint(pouchUi, screen, null)) return true;
             Vector2 c = RectTransformUtility.WorldToScreenPoint(null, pouchUi.position);
-            return Mathf.Abs(screen.x - c.x) < Mathf.Max(70f, Screen.width * .18f)
-                && Mathf.Abs(screen.y - c.y) < Mathf.Max(58f, Screen.height * .08f);
+            bool nearVisibleLever = Mathf.Abs(screen.x - c.x) < Mathf.Max(82f, Screen.width * .22f)
+                && Mathf.Abs(screen.y - c.y) < Mathf.Max(64f, Screen.height * .09f);
+            bool guidedPracticeStep = phase == GamePhase.Practice && CountPurple() >= 2;
+            return nearVisibleLever || guidedPracticeStep;
         }
 
         void TriggerRipple(Vector2 screen, bool strong)
@@ -569,7 +597,7 @@ namespace Mgf.GuseulSaechong
 
         void ShowEvidence(bool correct, int madePurple, IntFraction made, int trials, int events)
         {
-            evidenceTitle.text = correct ? (revealPractice ? "첫 잎길이 열렸다" : "배합이 맞았다") : "배합을 다시 살펴보시오";
+            evidenceTitle.text = correct ? (revealPractice ? "첫 계수탑이 돌았다" : "배합이 맞았다") : "배합을 다시 살펴보시오";
             evidenceTitle.color = correct ? Leaf : Shell;
             IntFraction target = new IntFraction(current.targetN, current.targetD);
             SetFraction(evidenceLeftNum, evidenceLeftBar, evidenceLeftDen, made.n, made.d);
@@ -598,7 +626,7 @@ namespace Mgf.GuseulSaechong
             var lines = new List<string>(3);
             int start = layoutLand ? 0 : Mathf.Max(0, st.solved - 2);
             for (int i = start; i < recordLines.Length; i++) if (!string.IsNullOrEmpty(recordLines[i])) lines.Add(recordLines[i]);
-            if (lines.Count == 0) recordText.text = "정답 뒤 8→24→72회 관찰이 여기에 남는다";
+            if (lines.Count == 0) recordText.text = "정답 뒤 8→24→72회 계수띠가 조립된다";
             else
             {
                 if (!layoutLand && lines.Count > 2) lines.RemoveRange(0, lines.Count - 2);
@@ -609,9 +637,9 @@ namespace Mgf.GuseulSaechong
         void ShowEndResult(bool clear, string reason)
         {
             shownEndScore = 0f;
-            endTitle.text = clear ? "수련잎 길 완성" : reason == "mastery" ? "완주했지만 기록 미달" : "잎길이 멈췄다";
+            endTitle.text = clear ? "표본 계수띠 완성" : reason == "mastery" ? "완주했지만 기록 미달" : "계수기가 멈췄다";
             endStats.text = "점수 0\n완료 " + st.solved + "/6   첫 제출 " + st.firstAttemptCorrect + "/6";
-            endReasonText.text = clear ? "확률을 읽고 직접 만든 여섯 배합" : reason == "lives" ? "안전잎 0장 · 오답 배합을 다시 비교하시오"
+            endReasonText.text = clear ? "확률을 읽고 직접 만든 여섯 배합" : reason == "lives" ? "안전볼트 0개 · 오답 배합을 다시 비교하시오"
                 : reason == "time" ? "120초가 끝났다 · 사건부터 확인하시오" : "첫 제출 정답 4개 이상이 필요하다";
         }
 
@@ -712,7 +740,7 @@ namespace Mgf.GuseulSaechong
                     int path = Mathf.Clamp(st.solved - 1, 0, pathLeaves.Length - 1);
                     float t = Mathf.Clamp01((c - .58f) / .48f);
                     float s = Mathf.Sin(t * Mathf.PI * .5f);
-                    pathLeaves[path].localScale = new Vector3(.84f * s, .06f * s, .62f * s);
+                    pathLeaves[path].localScale = new Vector3(1.02f * s, .18f * s, .68f * s);
                 }
             }
             else
@@ -720,7 +748,8 @@ namespace Mgf.GuseulSaechong
                 plantRoot.localScale = Vector3.one;
                 for (int i = 0; i < seedPods.Length; i++)
                 {
-                    seedPods[i].localPosition = seedHomes[i] + Vector3.up * (Mathf.Sin(worldClock * .9f + i * .6f) * .07f);
+                    seedPods[i].localPosition = seedHomes[i] + Vector3.up * (Mathf.Sin(worldClock * .9f + i * .6f) * .045f);
+                    seedPods[i].localRotation = Quaternion.Euler(0, Mathf.Sin(worldClock * .45f + i) * 3f, 0);
                     seedPods[i].localScale = Vector3.one;
                 }
             }
@@ -747,7 +776,7 @@ namespace Mgf.GuseulSaechong
             {
                 lastTimerSecond = sec;
                 string timer = phase == GamePhase.Practice ? "연습" : sec + "초";
-                hudText.text = "점수 " + Mathf.RoundToInt(shownScore) + "   " + timer + "   잎 " + st.lives
+                hudText.text = "점수 " + Mathf.RoundToInt(shownScore) + "   " + timer + "   볼트 " + st.lives
                     + "   첫 제출 " + st.firstAttemptCorrect + "/6   완료 " + st.solved + "/6";
             }
             for (int i = 0; i < safetyLeaves.Length; i++) safetyLeaves[i].color = i < st.lives ? LeafLight : new Color(Shell.r, Shell.g, Shell.b, .28f);
@@ -784,7 +813,7 @@ namespace Mgf.GuseulSaechong
             if (refuseClock < .45f && pouchUi != null)
             {
                 float x = Mathf.Sin(refuseClock * 56f) * (1f - refuseClock / .45f) * 8f;
-                pouchUi.anchoredPosition = new Vector2(x, pouchUi.anchoredPosition.y);
+                pouchUi.anchoredPosition = new Vector2(pouchBasePos.x + x, pouchUi.anchoredPosition.y);
             }
 
             UpdateGuide(dt);
@@ -809,22 +838,34 @@ namespace Mgf.GuseulSaechong
             guideClock += dt;
             guideBoost = Mathf.MoveTowards(guideBoost, 0f, dt * .7f);
             float cycle = Mathf.Repeat(guideClock, 1.65f) / 1.65f;
-            bool needPaint = CountPurple() < 2;
+            int purpleCount = CountPurple();
+            bool needPaint = purpleCount < 2;
             Vector2 a, b;
             if (needPaint)
             {
-                int fromIndex = purple[0] ? 1 : 0;
-                int toIndex = purple[1] ? Mathf.Min(2, current.N - 1) : 1;
-                a = RectTransformUtility.WorldToScreenPoint(null, marbleRt[fromIndex].position);
-                b = RectTransformUtility.WorldToScreenPoint(null, marbleRt[toIndex].position);
-                guideText.text = "구슬 두 개를 쓸어 보라색으로 바꾸시오";
-                guideRingRt.position = marbleRt[fromIndex].position;
+                int firstIvory = -1, secondIvory = -1;
+                for (int i = 0; i < current.N; i++)
+                {
+                    if (purple[i]) continue;
+                    if (firstIvory < 0) firstIvory = i;
+                    else { secondIvory = i; break; }
+                }
+                int target = Mathf.Max(0, firstIvory);
+                a = RectTransformUtility.WorldToScreenPoint(null, marbleRt[target].position);
+                if (purpleCount == 0 && secondIvory >= 0)
+                    b = RectTransformUtility.WorldToScreenPoint(null, marbleRt[secondIvory].position);
+                else
+                    b = a + Vector2.right * Mathf.Max(22f, Screen.width * .065f);
+                guideText.text = purpleCount == 0
+                    ? "빛나는 두 구슬을 차례로 쓸어 보라색으로 바꾸시오"
+                    : "빛나는 구슬 하나를 더 쓸어 보라색으로 바꾸시오";
+                guideRingRt.position = marbleRt[target].position;
             }
             else
             {
                 a = RectTransformUtility.WorldToScreenPoint(null, pouchUi.position);
                 b = a + Vector2.down * Mathf.Max(70f, Screen.height * .10f);
-                guideText.text = "잎 주머니를 아래로 당겼다 놓으시오";
+                guideText.text = "보라 레버를 아래로 당겼다 놓으시오";
                 guideRingRt.position = pouchUi.position;
             }
             float eased = cycle < .8f ? 1f - Mathf.Pow(1f - cycle / .8f, 3f) : 1f;
@@ -879,6 +920,8 @@ namespace Mgf.GuseulSaechong
                 Anchor(toastText.rectTransform, new Vector2(.5f, .275f), Vector2.zero);
                 recordsLeaf.sizeDelta = new Vector2(366, 86);
                 promptLeaf.sizeDelta = new Vector2(370, 142);
+                promptText.rectTransform.sizeDelta = new Vector2(274, 126);
+                recordText.rectTransform.sizeDelta = new Vector2(344, 38.4f);
                 for (int i = 0; i < marbleRt.Length; i++)
                 {
                     int col = i % 6, row = i / 6;
@@ -889,36 +932,49 @@ namespace Mgf.GuseulSaechong
             }
             else
             {
-                Anchor(titlePod, new Vector2(.50f, .76f), Vector2.zero);
-                Anchor(titleMeta.rectTransform, new Vector2(.50f, .55f), Vector2.zero);
-                Anchor(titleCta, new Vector2(.50f, .22f), Vector2.zero);
-                // CanvasScaler grows UI with landscape height. Keep the wide
-                // left information cards inside the safe area even at 1280px,
-                // rather than anchoring their scaled centres too close to x=0.
-                Anchor(hudLeaf, new Vector2(.31f, .93f), Vector2.zero);
-                // The panorama's upper-left stack is dense after CanvasScaler
-                // expansion. Keep the persistent goal in the open lower-right
-                // water, where it remains visible without covering the prompt.
-                Anchor(goalText.rectTransform, new Vector2(.75f, .12f), Vector2.zero);
-                Anchor(promptLeaf, new Vector2(.31f, .70f), Vector2.zero);
-                Anchor(countLeaf, new Vector2(.31f, .53f), Vector2.zero);
-                Anchor(pouchUi, new Vector2(.205f, .13f), Vector2.zero);
-                Anchor(recordsLeaf, new Vector2(.75f, .78f), Vector2.zero);
-                Anchor(failureShellRt, new Vector2(.80f, .52f), Vector2.zero);
-                Anchor(evidenceLeaf, new Vector2(.75f, .42f), Vector2.zero);
+                // 제목 간판과 실제 발사 레버를 서로 다른 세계 오브젝트 위에 둔다.
+                // 좌측 텍스트 블록+CTA 관습 대신 계수소 전경을 사이에 남기는 구성이다.
+                Anchor(titlePod, new Vector2(.69f, .76f), Vector2.zero);
+                Anchor(titleMeta.rectTransform, new Vector2(.69f, .55f), Vector2.zero);
+                Anchor(titleCta, new Vector2(.30f, .22f), Vector2.zero);
+
+                // 1280×800에서 CanvasScaler의 실제 논리 폭은 약 726이다. 두 판의
+                // 고정 폭(430+352)은 그보다 컸으므로, 실제 uiRoot 폭에서 24px 홈을
+                // 먼저 떼고 남은 폭을 56:44로 분할한다. 2000px에서도 과도하게
+                // 벌어지지 않으며, 좌우 가장자리도 16px 논리 안전 여백을 가진다.
+                float logicalW = Mathf.Max(620f, Screen.width / Mathf.Max(.01f, ReferenceScale()));
+                float usableW = Mathf.Max(600f, logicalW - 32f);
+                float cardGap = 24f;
+                float recordW = Mathf.Clamp((usableW - cardGap) * .42f, 270f, 318f);
+                float promptW = usableW - cardGap - recordW;
+                float promptX = -(recordW + cardGap) * .5f;
+                float recordX = (promptW + cardGap) * .5f;
+
+                Anchor(hudLeaf, new Vector2(.5f, .93f), new Vector2(promptX, 0));
+                Anchor(goalText.rectTransform, new Vector2(.5f, .12f), new Vector2(recordX, 0));
+                Anchor(promptLeaf, new Vector2(.5f, .70f), new Vector2(promptX, 0));
+                Anchor(countLeaf, new Vector2(.5f, .53f), new Vector2(promptX, 0));
+                Anchor(pouchUi, new Vector2(.5f, .13f), new Vector2(promptX, 0));
+                Anchor(recordsLeaf, new Vector2(.5f, .74f), new Vector2(recordX, 0));
+                Anchor(failureShellRt, new Vector2(.5f, .52f), new Vector2(recordX, 0));
+                Anchor(evidenceLeaf, new Vector2(.5f, .42f), new Vector2(recordX, 0));
                 Anchor(toastText.rectTransform, new Vector2(.50f, .18f), Vector2.zero);
-                recordsLeaf.sizeDelta = new Vector2(352, 190);
-                promptLeaf.sizeDelta = new Vector2(430, 154);
+                recordsLeaf.sizeDelta = new Vector2(recordW, 190);
+                promptLeaf.sizeDelta = new Vector2(promptW, 154);
+                promptText.rectTransform.sizeDelta = new Vector2(Mathf.Max(218f, promptW - 112f), 138f);
+                recordText.rectTransform.sizeDelta = new Vector2(recordW - 18f, 172f);
                 for (int i = 0; i < marbleRt.Length; i++)
                 {
                     int col = i % 6, row = i / 6;
-                    Anchor(marbleRt[i], new Vector2(Mathf.Lerp(.07f, .34f, col / 5f), row == 0 ? .40f : .295f), Vector2.zero);
+                    float localX = Mathf.Lerp(-promptW * .42f, promptW * .42f, col / 5f);
+                    Anchor(marbleRt[i], new Vector2(.5f, row == 0 ? .40f : .295f), new Vector2(promptX + localX, 0));
                     marbleRt[i].sizeDelta = new Vector2(58, 58);
                 }
                 // Lives are already stated in the HUD; separate icons collided
                 // with the wide persistent-goal line at 1280–2000px.
                 for (int i = 0; i < safetyLeaves.Length; i++) safetyLeaves[i].gameObject.SetActive(false);
             }
+            pouchBasePos = pouchUi.anchoredPosition;
             SetPullVisual(0f);
             UpdateStateCoordinates();
         }
@@ -947,6 +1003,24 @@ namespace Mgf.GuseulSaechong
             return Mathf.Sqrt(Mathf.Max(.0001f, sx * sy));
         }
 
+        void WriteScreenRect(RectTransform rt, int[] target)
+        {
+            if (!rt || target == null || target.Length < 4) return;
+            rt.GetWorldCorners(rectCorners);
+            float minX = float.MaxValue, minY = float.MaxValue;
+            float maxX = float.MinValue, maxY = float.MinValue;
+            for (int i = 0; i < rectCorners.Length; i++)
+            {
+                Vector2 p = RectTransformUtility.WorldToScreenPoint(null, rectCorners[i]);
+                minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x);
+                minY = Mathf.Min(minY, p.y); maxY = Mathf.Max(maxY, p.y);
+            }
+            target[0] = Mathf.RoundToInt(minX);
+            target[1] = Mathf.RoundToInt(Screen.height - maxY);
+            target[2] = Mathf.RoundToInt(maxX);
+            target[3] = Mathf.RoundToInt(Screen.height - minY);
+        }
+
         void UpdateStateCoordinates()
         {
             st.screenW = Screen.width; st.screenH = Screen.height;
@@ -964,6 +1038,10 @@ namespace Mgf.GuseulSaechong
             Vector2 restart = RectTransformUtility.WorldToScreenPoint(null, restartLeaf.position);
             st.restartPx[0] = Mathf.RoundToInt(restart.x);
             st.restartPx[1] = Mathf.RoundToInt(Screen.height - restart.y);
+            WriteScreenRect(promptLeaf, st.promptRectPx);
+            WriteScreenRect(recordsLeaf, st.recordRectPx);
+            WriteScreenRect(targetBar.rectTransform, st.targetRectPx);
+            st.layoutGapPx = layoutLand ? st.recordRectPx[0] - st.promptRectPx[2] : 0;
         }
     }
 }

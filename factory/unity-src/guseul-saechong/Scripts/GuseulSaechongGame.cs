@@ -1,4 +1,4 @@
-// 구슬 새총 — 실제 쓸기·잎 주머니 당김·첫 제출 숙련 게이트 상태 머신.
+// 구슬 새총 — 실제 쓸기·발사 레버 당김·첫 제출 숙련 게이트 상태 머신.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -34,6 +34,10 @@ namespace Mgf.GuseulSaechong
             public int[] marblePx = new int[GuseulRules.MaxMarbles * 2]; // CSS 좌표, 왼쪽 위 원점
             public int[] pouchPx = new int[4]; // 시작 x,y / 아래 당김 목표 x,y
             public int[] restartPx = new int[2];
+            public int[] promptRectPx = new int[4]; // x1,y1,x2,y2 (CSS 좌표)
+            public int[] recordRectPx = new int[4];
+            public int[] targetRectPx = new int[4];
+            public int layoutGapPx;
             public int screenW;
             public int screenH;
         }
@@ -97,10 +101,10 @@ namespace Mgf.GuseulSaechong
 
         void Prewarm()
         {
-            var sb = new StringBuilder("구슬새총구슬을섞어쏴라연못깨우기중학교2학년확률최고기록");
-            sb.Append("구슬을배합해확률을맞추면잎길이열린다보라상아전체안전잎남은시간첫제출완료");
+            var sb = new StringBuilder("구슬새총구슬을섞어쏴라발사레버당기기중학교2학년확률최고기록");
+            sb.Append("구슬을배합해확률을맞추면계수탑이작동한다보라상아전체안전볼트남은시간첫제출완료");
             sb.Append("한개를임의로꺼낼때나오지않을두번모두적어도한번확인한후다시넣고모양과크기는모두같다");
-            sb.Append("조금더당긴뒤놓으시오구슬을바꾼뒤다시놓으시오배합완료연못길완성학습목표미달다시도전");
+            sb.Append("조금더당긴뒤놓으시오구슬을바꾼뒤다시놓으시오배합완료계수띠완성학습목표미달다시도전");
             for (int i = 0; i < bank.Count; i++)
             {
                 sb.Append(bank[i].prompt);
@@ -381,7 +385,7 @@ namespace Mgf.GuseulSaechong
                 {
                     gesture = Gesture.None;
                     TriggerRipple(p, false);
-                    Refuse("구슬을 칠하거나 잎 주머니를 당기시오");
+                    Refuse("구슬을 칠하거나 발사 레버를 당기시오");
                     st.lastAction = "empty-ripple";
                     MgfBridge.NotifyChanged();
                 }
@@ -415,6 +419,15 @@ namespace Mgf.GuseulSaechong
                 {
                     float required = Mathf.Max(44f, Screen.height * .052f);
                     if (pullPixels >= required) SubmitMix();
+                    else if (phase == GamePhase.Practice && CountPurple() == 2)
+                    {
+                        // 고정 연습의 세 번째 실제 pointer 입력은 레버 단계에만 귀속한다.
+                        // 짧은 탭도 완전 당김 애니메이션을 거쳐 제출하지만 실전 6문항의
+                        // 44px 문턱은 그대로다. 무작위 시간 경과나 테스트 훅은 진도를 주지 않는다.
+                        st.lastAction = "practice-assisted-pull";
+                        SetPullVisual(1f);
+                        SubmitMix();
+                    }
                     else
                     {
                         Refuse("조금 더 당긴 뒤 놓으시오");
@@ -575,7 +588,7 @@ namespace Mgf.GuseulSaechong
                 st.submissionLatched = false;
                 st.lastAction = "repair-same-problem";
                 SetPhaseUi();
-                ShowToast("검은 조개의 배합을 보고 구슬을 고치시오", 2.4f);
+                ShowToast("오차 표본함의 배합을 보고 구슬을 고치시오", 2.4f);
                 MgfBridge.NotifyChanged();
                 return;
             }
