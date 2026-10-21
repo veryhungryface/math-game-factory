@@ -67,23 +67,23 @@ namespace Mgf.JibungGalla
                 apex = apex,
                 baseAngle = baseAngle,
                 errorAngle = band == 3 ? errorAngle : 0,
-                answer = "∠BAD=" + h + "°인 내부의 선 AD",
+                answer = "∠BAD=" + h + "°인 ∠A의 이등분선 AD",
             };
             if (band == 1)
             {
-                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠A=" + apex + "°이다. ∠A의 이등분선이 BC와 만나는 점을 D라고 할 때, 선 AD를 그으시오.";
+                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠A=" + apex + "°이다. BC 위에 점 D를 잡고, 점 D를 지나도록 ∠A의 이등분선을 그으시오.";
                 p.evidence = "∠BAD=∠CAD=" + h + "°";
                 p.unitConcept = "이등변삼각형의 꼭지각 이등분";
             }
             else if (band == 2)
             {
-                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠B=" + baseAngle + "°이다. ∠A의 이등분선이 BC와 만나는 점을 D라고 할 때, 선 AD를 그으시오.";
+                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠B=" + baseAngle + "°이다. BC 위에 점 D를 잡고, 점 D를 지나도록 ∠A의 이등분선을 그으시오.";
                 p.evidence = "∠A=180°-" + baseAngle + "°×2=" + apex + "°, ∠BAD=" + h + "°";
                 p.unitConcept = "두 밑각과 꼭지각의 이등분";
             }
             else
             {
-                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠B=" + baseAngle + "°이고 잘못 그은 선 AE에서 ∠BAE=" + errorAngle + "°이다. ∠A의 이등분선이 BC와 만나는 점을 D라고 할 때, AE를 대신할 선 AD를 그으시오.";
+                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠B=" + baseAngle + "°이다. BC 위의 점 E에 잘못 그은 선분 AE에서 ∠BAE=" + errorAngle + "°일 때, BC 위에 점 D를 잡고 점 D를 지나도록 ∠A의 이등분선을 그으시오.";
                 p.evidence = "90°-" + baseAngle + "°=" + h + "°, ∠BAD=∠CAD=" + h + "°";
                 p.unitConcept = "잘못 그은 이등분선의 교정";
             }
@@ -191,8 +191,10 @@ namespace Mgf.JibungGalla
                 if (p.prompt.Contains("√") || p.prompt.Contains("가정") || p.prompt.Contains("결론"))
                     throw new Exception("표현 함정 위반: " + p.id);
                 if (!p.prompt.StartsWith("AB=AC인 이등변삼각형 ABC에서", StringComparison.Ordinal) ||
-                    !p.prompt.Contains("만나는 점을 D라고 할 때") || !p.prompt.Contains("선 AD"))
+                    !p.prompt.Contains("BC 위에 점 D") || !p.prompt.Contains("점 D를 지나도록 ∠A의 이등분선"))
                     throw new Exception("삼각형 또는 점 D 정의 누락: " + p.id);
+                if (p.band == 3 && (!p.prompt.Contains("BC 위의 점 E") || !p.prompt.Contains("선분 AE")))
+                    throw new Exception("교정형 점 E 또는 선분 AE 정의 누락: " + p.id);
                 if (p.misconceptionAngles == null || p.misconceptionIds == null ||
                     p.misconceptionAngles.Length != p.misconceptionIds.Length || p.misconceptionAngles.Length < 2)
                     throw new Exception("제출 가능한 오개념 후보 2개 미만: " + p.id);

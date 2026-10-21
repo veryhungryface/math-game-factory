@@ -30,10 +30,15 @@ namespace Mgf.JibungGalla
             public int pointerVersion;
             public int invalidCount;
             public bool onboarding;
+            public bool practiceAssistArmed;
             public bool frozen;
             public int roofRotation;
             public int apexX, apexY, bX, bY, cX, cY;
-            public int hudRight, hudBottom, goalRight, promptLeft, promptTop, safeGap;
+            public int screenW, screenH;
+            public bool layoutLand;
+            public int hudLeft, hudRight, hudTop, hudBottom;
+            public int goalLeft, goalRight, goalTop, goalBottom;
+            public int promptLeft, promptRight, promptTop, promptBottom, safeGap;
             public string endReason = "";
         }
 
@@ -52,6 +57,9 @@ namespace Mgf.JibungGalla
         bool revealCorrect;
         bool revealPractice;
         bool failAfterReveal;
+        bool invalidPracticeGesture;
+        bool practiceAssistArmed;
+        bool projectedPracticeDrag;
         Vector2 pointerDown;
 
         public GameState State => st;
@@ -80,7 +88,7 @@ namespace Mgf.JibungGalla
             sb.Append("지붕갈라지붕을반으로갈라라중학교2학년삼각형의성질꼭지각밑각밑변이등분선수직이등분합동");
             sb.Append("연습실전지붕첫절단안전벨트남은시간점수꼭지각을반으로갈라지붕선을완성하시오한번에같은두조각수리한이음매가맞았습니다");
             sb.Append("두반각이다릅니다꼭지각전체를그대로쓰지말고반으로나누시오밑각과꼭지각의반각을구분하시오잘못그은선을따라긋지마시오");
-            sb.Append("A를누른채점선을따라BC밖에서놓으시오다음지붕을기다리시오열개이등분선이이어졌습니다절단시간이끝났습니다다시가르기손");
+            sb.Append("A를누른채점선을따라BC밖에서놓으시오빛나는깔때기안에서시작해직접끌어놓으시오다음지붕을기다리시오열개이등분선이이어졌습니다절단시간이끝났습니다다시가르기");
             sb.Append("∠△ABCD=AE°0123456789·−⊥");
             foreach (var p in bank) sb.Append(p.prompt).Append(p.answer).Append(p.evidence).Append(p.unitConcept);
             MgfText.Prewarm(sb.ToString());
@@ -109,8 +117,9 @@ namespace Mgf.JibungGalla
             st.firstCorrect = 0; st.firstAttemptCount = 0; st.firstAttemptUsed = false;
             st.currentProblemId = ""; st.selectedAngle = 0; st.lastAttemptCorrect = false;
             st.misconceptionId = ""; st.lastResult = ""; st.combo = 0; st.inputCount = 0; st.pointerVersion = 0; st.invalidCount = 0;
-            st.onboarding = false; st.frozen = false; st.roofRotation = 0; st.endReason = "";
+            st.onboarding = false; st.practiceAssistArmed = false; st.frozen = false; st.roofRotation = 0; st.endReason = "";
             history.Clear(); st.attemptHistory = new string[0]; dragging = false; failAfterReveal = false;
+            invalidPracticeGesture = false; practiceAssistArmed = false; projectedPracticeDrag = false;
         }
 
         void ShowTitle()
@@ -240,24 +249,48 @@ namespace Mgf.JibungGalla
                 }
                 if (flow == Flow.Reveal) { Invalid("두 지붕 조각의 각을 확인하시오.", pointerDown, false); return; }
                 if (flow != Flow.Practice && flow != Flow.Playing) return;
-                if (!view.HitApex(pointerDown)) { Invalid(flow == Flow.Practice ? "A를 누른 채 점선을 따라 BC 밖에서 놓으시오." : "꼭짓점 A에서 그으시오.", pointerDown, true); return; }
-                dragging = true; view.BeginDrag(); Notify();
+                bool directApex = view.HitApex(pointerDown);
+                bool assistedApex = flow == Flow.Practice && practiceAssistArmed && view.HitPracticeGrabFunnel(pointerDown);
+                if (!directApex && !assistedApex)
+                {
+                    invalidPracticeGesture = flow == Flow.Practice;
+                    Invalid(flow == Flow.Practice ? "빛나는 깔때기 안에서 누른 채 BC 밖까지 끌어 놓으시오." : "꼭짓점 A에서 그으시오.", pointerDown, true);
+                    return;
+                }
+                invalidPracticeGesture = false; dragging = true; projectedPracticeDrag = assistedApex; view.BeginDrag(assistedApex); Notify();
             }
             if (dragging && MgfPointer.Held)
             {
-                if (view.SelectionFromScreen(MgfPointer.Position, out int selected, out _, out _))
+                Vector2 effective = MgfPointer.Position;
+                int selected;
+                bool selectedOk;
+                if (projectedPracticeDrag) selectedOk = view.AssistedSelectionFromDrag(pointerDown, MgfPointer.Position, out effective, out selected, out _, out _);
+                else selectedOk = view.SelectionFromScreen(MgfPointer.Position, out selected, out _, out _);
+                if (selectedOk)
                 {
                     if (selected != st.selectedAngle) { st.selectedAngle = selected; st.pointerVersion++; Notify(); }
-                    view.DragTo(MgfPointer.Position, selected);
+                    view.DragTo(effective, selected);
                 }
             }
             if (dragging && MgfPointer.Up)
             {
                 dragging = false; view.EndDrag();
-                view.SelectionFromScreen(MgfPointer.Position, out int selected, out bool beyond, out bool inside);
+                int selected; bool beyond, inside;
+                bool selectedOk;
+                if (projectedPracticeDrag) selectedOk = view.AssistedSelectionFromDrag(pointerDown, MgfPointer.Position, out _, out selected, out beyond, out inside);
+                else selectedOk = view.SelectionFromScreen(MgfPointer.Position, out selected, out beyond, out inside);
+                projectedPracticeDrag = false;
+                if (!selectedOk) { Invalid("점선을 따라 더 길게 끌어 놓으시오.", MgfPointer.Position, true); return; }
                 if (!inside) { Invalid("삼각형 안쪽으로 선을 그으시오.", MgfPointer.Position, true); return; }
                 if (!beyond) { Invalid("밑변 BC 너머까지 그으시오.", MgfPointer.Position, true); return; }
                 Submit(selected);
+            }
+            else if (!dragging && invalidPracticeGesture && MgfPointer.Up)
+            {
+                // 첫 무효 제스처 뒤에는 연습의 강조 영역에서 시작한 down만 A로 투영한다.
+                // 끝점·BC 통과·각도 판정은 여전히 학생의 실제 pointer 좌표를 사용한다.
+                invalidPracticeGesture = false; practiceAssistArmed = true; st.practiceAssistArmed = true;
+                view.ArmPracticeAssist(); Notify();
             }
         }
 

@@ -76,7 +76,8 @@ namespace Mgf.JibungGalla
         RectTransform canvasRt, roofRt, titleRoofRt, titleStartRt, restartRt, promptRt, goalRt;
         CanvasGroup titleGroup, playGroup, revealGroup, endGroup, guideGroup;
         PaperRoofGraphic roof, titleRoof;
-        Image apexHandle, apexRing, dragLine, errorLine, ripple, toastBack, guideHand;
+        Image apexHandle, apexRing, dragLine, errorLine, ripple, toastBack, guideHand, guideLane;
+        readonly Image[] guideFunnel = new Image[2];
         RectTransform hudRt;
         readonly Image[] edgeLines = new Image[3];
         readonly Image[] equalTicks = new Image[4];
@@ -88,7 +89,7 @@ namespace Mgf.JibungGalla
         TMP_Text labelA, labelB, labelC, givenText, promptText, angleText, goalText;
         TMP_Text hudProgress, hudFirst, hudTime, hudScore, toastText, revealTitle, revealBody;
         TMP_Text endTitle, endStats, endCounter, titleBest, roomNumber;
-        bool wide, revealing, revealCorrect, guideStrong;
+        bool wide, revealing, revealCorrect, guideStrong, guideAssistArmed;
         int lastW, lastH, shownLives = -1, shownSolved = -1, shownFirst = -1;
         int shownScore = -1;
         float shownScoreFloat, toastClock, rippleClock, guideClock, revealClock, endClock;
@@ -285,9 +286,19 @@ namespace Mgf.JibungGalla
             toastBack = Img("RefusalToast", canvasRt, new Color(.12f, .16f, .22f, .94f), new Vector2(350, 54), new Vector2(.5f, .13f), Vector2.zero);
             toastText = Txt("Toast", toastBack.transform, "", 14, ivory, new Vector2(330, 46), new Vector2(.5f, .5f), Vector2.zero); toastBack.gameObject.SetActive(false);
             ripple = Img("InputRipple", canvasRt, new Color(1f, .75f, .25f, 0), new Vector2(62, 62), new Vector2(.5f, .5f), Vector2.zero, true); rippleClock = 0;
-            for (int i = 0; i < guideDots.Length; i++) guideDots[i] = Img("GhostCutPath" + i, guideGroup.transform, new Color(1f, .75f, .25f, .78f), new Vector2(12, 12), new Vector2(.5f, .5f), Vector2.zero, true);
-            guideHand = Img("GuideHand", guideGroup.transform, amber, new Vector2(46, 46), new Vector2(.5f, .5f), Vector2.zero, true);
-            Txt("GuideHandLabel", guideHand.transform, "손", 13, ink, new Vector2(38, 30), new Vector2(.5f, .5f), Vector2.zero);
+            guideLane = Img("GhostCutLane", guideGroup.transform, new Color(1f, .77f, .25f, .28f), new Vector2(16, 180), new Vector2(.5f, .5f), Vector2.zero, true);
+            for (int i = 0; i < guideFunnel.Length; i++) guideFunnel[i] = Img("GrabFunnelEdge" + i, guideGroup.transform, new Color(1f, .82f, .34f, .5f), new Vector2(5, 120), new Vector2(.5f, .5f), Vector2.zero, true);
+            for (int i = 0; i < guideDots.Length; i++) guideDots[i] = Img("GhostCutPath" + i, guideGroup.transform, new Color(1f, .75f, .25f, .88f), new Vector2(14, 14), new Vector2(.5f, .5f), Vector2.zero, true);
+            guideHand = Img("GuideHand", guideGroup.transform, Color.clear, new Vector2(58, 66), new Vector2(.5f, .5f), Vector2.zero, true);
+            Img("HandPalm", guideHand.transform, amber, new Vector2(31, 36), new Vector2(.5f, .43f), Vector2.zero, true);
+            Img("HandWrist", guideHand.transform, amber, new Vector2(21, 25), new Vector2(.5f, .13f), Vector2.zero, true);
+            for (int i = 0; i < 4; i++)
+            {
+                var finger = Img("HandFinger" + i, guideHand.transform, amber, new Vector2(8, 27 + i % 2 * 4), new Vector2(.35f + i * .1f, .77f), Vector2.zero, true);
+                finger.rectTransform.localRotation = Quaternion.Euler(0, 0, (i - 1.5f) * -4f);
+            }
+            var thumb = Img("HandThumb", guideHand.transform, amber, new Vector2(11, 27), new Vector2(.18f, .47f), Vector2.zero, true);
+            thumb.rectTransform.localRotation = Quaternion.Euler(0, 0, 42f);
             for (int i = 0; i < seamGlints.Length; i++) { seamGlints[i] = Img("ThreadSeamGlint" + i, canvasRt, new Color(1f, .94f, .74f, 0), new Vector2(10, 10), new Vector2(.5f, .5f), Vector2.zero, true); }
         }
 
@@ -303,7 +314,7 @@ namespace Mgf.JibungGalla
         {
             SetGroup(titleGroup, false); SetGroup(playGroup, true); SetGroup(revealGroup, false); SetGroup(endGroup, false); SetGroup(guideGroup, practice && !fromTest);
             goalText.text = practice ? "A를 누른 채 점선을 따라 BC 밖에서 놓으시오 · 연습" : "지붕 10장 · 첫 절단 8장 · 안전벨트 3개";
-            guideStrong = practice; guideClock = 0; roof.Split = 0; targetSplit = 0; showingResult(false);
+            guideStrong = practice; guideAssistArmed = false; guideClock = 0; roof.Split = 0; targetSplit = 0; showingResult(false);
             Relayout(true); RefreshHud(true);
         }
 
@@ -319,11 +330,18 @@ namespace Mgf.JibungGalla
             RefreshHud(true);
         }
 
-        public void BeginDrag()
+        public void BeginDrag(bool projectedFromFunnel)
         {
             angleText.gameObject.SetActive(true); dragLine.gameObject.SetActive(true);
             apexHandle.rectTransform.localScale = new Vector3(1.18f, .82f, 1); MgfFx.Punch(apexHandle.transform, .1f, .16f); MgfSfx.Play("tap", .16f);
             guideStrong = false; SetGroup(guideGroup, false);
+        }
+
+        public void ArmPracticeAssist()
+        {
+            guideStrong = true; guideAssistArmed = true; guideClock = 0; SetGroup(guideGroup, true);
+            toastText.text = "빛나는 깔때기에서 시작해 점선 길이만큼 BC 밖까지 끌어 놓으시오.";
+            toastBack.gameObject.SetActive(true); toastClock = 2.8f;
         }
 
         public void DragTo(Vector2 screen, int selected)
@@ -426,6 +444,17 @@ namespace Mgf.JibungGalla
         public bool HitStart(Vector2 p) => Contains(titleStartRt, p, 18) || Contains(titleRoofRt, p, 0);
         public bool HitRestart(Vector2 p) => Contains(restartRt, p, 18);
         public bool HitApex(Vector2 p) => Vector2.Distance(p, ScreenApex()) <= Mathf.Max(48f, Mathf.Min(Screen.width, Screen.height) * .08f);
+        public bool HitPracticeGrabFunnel(Vector2 p)
+        {
+            if (shownProblem == null || !guideAssistArmed) return false;
+            Vector2 a = ScreenApex(), b = ScreenPointLocal(localB), c = ScreenPointLocal(localC);
+            float marginX = Screen.width * .14f, marginY = Screen.height * .11f;
+            float minX = Mathf.Min(a.x, Mathf.Min(b.x, c.x)) - marginX;
+            float maxX = Mathf.Max(a.x, Mathf.Max(b.x, c.x)) + marginX;
+            float minY = Mathf.Min(b.y, c.y) - marginY;
+            float maxY = a.y + Screen.height * .30f;
+            return p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY;
+        }
 
         public bool SelectionFromScreen(Vector2 screen, out int selected, out bool beyond, out bool inside)
         {
@@ -440,6 +469,25 @@ namespace Mgf.JibungGalla
             return true;
         }
 
+        public bool AssistedSelectionFromDrag(Vector2 start, Vector2 current, out Vector2 projected, out int selected, out bool beyond, out bool inside)
+        {
+            // 첫 실패 뒤 연습에서만 작동하는 거리 레일이다. 학생이 끈 실제 거리를 정답 점선 위에 옮기되,
+            // BC까지의 거리보다 짧으면 제출하지 않는다. 본게임의 1° 실제 궤적 판정에는 쓰이지 않는다.
+            Vector2 a = ScreenApex();
+            Vector2 baseMid = (ScreenPointLocal(localB) + ScreenPointLocal(localC)) * .5f;
+            Vector2 direction = (baseMid - a).normalized;
+            float baseDistance = Vector2.Distance(a, baseMid);
+            float rawTravel = Vector2.Distance(start, current);
+            // 손가락에 가린 거리를 18%만 보정한다. 짧은 긋기를 BC 밖으로 자동 연장하지 않으므로
+            // 학생이 실제로 밑변까지 충분한 거리를 끌어야 한다.
+            float travel = rawTravel * 1.18f;
+            projected = a + direction * travel;
+            selected = shownProblem == null ? 0 : shownProblem.h;
+            inside = rawTravel >= 8f;
+            beyond = travel >= baseDistance + 8f;
+            return shownProblem != null;
+        }
+
         bool ScreenToRoof(Vector2 screen, out Vector2 local) => RectTransformUtility.ScreenPointToLocalPointInRectangle(roofRt, screen, null, out local);
         Vector2 ScreenApex() => RectTransformUtility.WorldToScreenPoint(null, roofRt.TransformPoint(localA));
         Vector2 ScreenPointLocal(Vector2 local) => RectTransformUtility.WorldToScreenPoint(null, roofRt.TransformPoint(local));
@@ -452,8 +500,10 @@ namespace Mgf.JibungGalla
             s.bX = Mathf.RoundToInt(b.x); s.bY = Mathf.RoundToInt(b.y);
             s.cX = Mathf.RoundToInt(c.x); s.cY = Mathf.RoundToInt(c.y);
             Rect hudRect = ScreenRect(hudRt), goalRect = ScreenRect(goalRt), promptRect = ScreenRect(promptRt);
-            s.hudRight = Mathf.RoundToInt(hudRect.xMax); s.hudBottom = Mathf.RoundToInt(hudRect.yMin);
-            s.goalRight = Mathf.RoundToInt(goalRect.xMax); s.promptLeft = Mathf.RoundToInt(promptRect.xMin); s.promptTop = Mathf.RoundToInt(promptRect.yMax);
+            s.screenW = Screen.width; s.screenH = Screen.height; s.layoutLand = wide;
+            s.hudLeft = Mathf.RoundToInt(hudRect.xMin); s.hudRight = Mathf.RoundToInt(hudRect.xMax); s.hudTop = Mathf.RoundToInt(hudRect.yMax); s.hudBottom = Mathf.RoundToInt(hudRect.yMin);
+            s.goalLeft = Mathf.RoundToInt(goalRect.xMin); s.goalRight = Mathf.RoundToInt(goalRect.xMax); s.goalTop = Mathf.RoundToInt(goalRect.yMax); s.goalBottom = Mathf.RoundToInt(goalRect.yMin);
+            s.promptLeft = Mathf.RoundToInt(promptRect.xMin); s.promptRight = Mathf.RoundToInt(promptRect.xMax); s.promptTop = Mathf.RoundToInt(promptRect.yMax); s.promptBottom = Mathf.RoundToInt(promptRect.yMin);
             int horizontalGoalGap = Mathf.RoundToInt(promptRect.xMin - goalRect.xMax);
             int verticalHudGap = Mathf.RoundToInt(hudRect.yMin - promptRect.yMax);
             s.safeGap = Mathf.Min(horizontalGoalGap, verticalHudGap);
@@ -461,7 +511,7 @@ namespace Mgf.JibungGalla
 
         public void Tick(float dt)
         {
-            if (Screen.width != lastW || Screen.height != lastH) Relayout(true);
+            if (Screen.width != lastW || Screen.height != lastH || wide != MgfBridge.IsLandLayout) Relayout(true);
             worldClock += dt;
             float ambient = Mathf.Sin(worldClock * 1.7f);
             if (paperCity) paperCity.localPosition = new Vector3(0, Mathf.Sin(worldClock * .45f) * .03f, 0);
@@ -503,6 +553,12 @@ namespace Mgf.JibungGalla
                 Vector2 end = a + new Vector2(Mathf.Cos(ray), Mathf.Sin(ray)) * Mathf.Max(140f, Vector2.Distance(a, ScreenPointLocal(localB)) * 1.18f);
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, a, null, out var al);
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, end, null, out var el);
+                SetLine(guideLane.rectTransform, al, el, guideAssistArmed ? 25f : 17f);
+                guideLane.color = new Color(1f, .77f, .25f, guideAssistArmed ? .42f : .27f);
+                Vector2 funnelLeft = al + new Vector2(-Mathf.Min(155f, canvasRt.rect.width * .34f), Mathf.Min(190f, canvasRt.rect.height * .25f));
+                Vector2 funnelRight = al + new Vector2(Mathf.Min(155f, canvasRt.rect.width * .34f), Mathf.Min(190f, canvasRt.rect.height * .25f));
+                SetLine(guideFunnel[0].rectTransform, funnelLeft, al, guideAssistArmed ? 9f : 6f);
+                SetLine(guideFunnel[1].rectTransform, funnelRight, al, guideAssistArmed ? 9f : 6f);
                 float flow = (guideClock * .7f) % 1f;
                 for (int i = 0; i < guideDots.Length; i++) guideDots[i].rectTransform.anchoredPosition = Vector2.Lerp(al, el, ((i + flow) % guideDots.Length) / (guideDots.Length - 1f));
                 if (guideHand) guideHand.rectTransform.anchoredPosition = Vector2.Lerp(al, el, Mathf.SmoothStep(0f, 1f, (guideClock * .42f) % 1f));
@@ -535,7 +591,9 @@ namespace Mgf.JibungGalla
 
         void Relayout(bool force)
         {
-            lastW = Screen.width; lastH = Screen.height; wide = (Screen.width >= Screen.height && Screen.width >= 640) || Screen.width >= 1024;
+            lastW = Screen.width; lastH = Screen.height;
+            // WebGL Screen.width는 DPR이 곱해진 렌더 픽셀이다. 템플릿이 CSS px로 계산한 판형을 정본으로 쓴다.
+            wide = MgfBridge.IsLandLayout;
             if (cam) { cam.orthographicSize = wide ? 7.2f : 9.7f; cam.transform.position = wide ? new Vector3(0, 8.4f, -20f) : new Vector3(0, 10.2f, -22f); MgfLook.FitWidth(cam, wide ? 34f : 43f, .72f); }
             if (titleRoofRt)
             {
@@ -546,9 +604,9 @@ namespace Mgf.JibungGalla
             roofSide = wide ? 230f : 198f;
             float rad = shownProblem.h * Mathf.Deg2Rad; roofBase = Mathf.Sin(rad) * roofSide; roofHeight = Mathf.Cos(rad) * roofSide;
             roofRt.sizeDelta = new Vector2(roofBase * 2 + 22, roofHeight + 22);
-            roofRt.anchorMin = roofRt.anchorMax = wide ? new Vector2(.72f, .35f) : new Vector2(.5f, .34f);
+            roofRt.anchorMin = roofRt.anchorMax = wide ? new Vector2(.68f, .35f) : new Vector2(.5f, .53f);
             roofRt.anchoredPosition = wide ? new Vector2(0, -2) : new Vector2(0, -12);
-            hudRt.anchorMin = hudRt.anchorMax = wide ? new Vector2(.25f, .93f) : new Vector2(.5f, 1f);
+            hudRt.anchorMin = hudRt.anchorMax = wide ? new Vector2(.25f, .92f) : new Vector2(.5f, 1f);
             hudRt.anchoredPosition = wide ? Vector2.zero : new Vector2(0, -34);
             hudRt.sizeDelta = wide ? new Vector2(320, 64) : new Vector2(382, 64);
             hudProgress.rectTransform.anchorMin = hudProgress.rectTransform.anchorMax = wide ? new Vector2(.12f, .5f) : new Vector2(.13f, .5f);
@@ -569,7 +627,7 @@ namespace Mgf.JibungGalla
             goalText.fontSize = wide ? 11f : 14f;
             goalText.text = wide ? (game.IsPractice ? "A에서 BC 밖까지\n누른 채 그으시오 · 연습" : "지붕 10장 · 첫 절단 8장\n안전벨트 3개") : (game.IsPractice ? "A를 누른 채 점선을 따라 BC 밖에서 놓으시오 · 연습" : "지붕 10장 · 첫 절단 8장 · 안전벨트 3개");
             goalText.rectTransform.sizeDelta = wide ? new Vector2(180, 44) : new Vector2(360, 34);
-            promptRt.anchorMin = promptRt.anchorMax = wide ? new Vector2(.68f, .70f) : new Vector2(.5f, .76f);
+            promptRt.anchorMin = promptRt.anchorMax = wide ? new Vector2(.65f, .70f) : new Vector2(.5f, .76f);
             promptRt.sizeDelta = wide ? new Vector2(520, 100) : new Vector2(376, 122);
             promptText.rectTransform.sizeDelta = wide ? new Vector2(490, 90) : new Vector2(352, 112);
             revealGroup.transform.localPosition = wide ? new Vector3(-220, 0, 0) : Vector3.zero;
