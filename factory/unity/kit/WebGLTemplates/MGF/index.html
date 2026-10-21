@@ -146,13 +146,16 @@
       return idx.slice(0, Math.min(n, idx.length)).map(function (i) { return JSON.parse(JSON.stringify(bank[i])); });
     },
     getLayout: function () {
-      return { land: innerWidth > innerHeight, playW: innerWidth, playH: innerHeight, canvas: 'fullscreen', lowGfx: lowGfx };
+      return { land: isLandLayout(), playW: innerWidth, playH: innerHeight, canvas: 'fullscreen', lowGfx: lowGfx };
     }
   };
 
-  // 판형: 가로 화면이면 html.land (캔버스는 항상 전체 화면이라 Unity 카메라가 종횡비에 맞춘다)
+  // 판형: 일반 가로 화면 또는 폭 1024px 이상의 세로형 데스크톱 창은 land로 취급한다.
+  function isLandLayout() {
+    return (innerWidth >= innerHeight && innerWidth >= 640) || innerWidth >= 1024;
+  }
   function layout() {
-    document.documentElement.classList.toggle('land', innerWidth > innerHeight);
+    document.documentElement.classList.toggle('land', isLandLayout());
     if (instance && instance.Module) instance.Module.devicePixelRatio = pixelRatio(); // Unity 가 매 프레임 이 값으로 캔버스 크기를 맞춘다
   }
   addEventListener('resize', layout);

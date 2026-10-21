@@ -64,6 +64,7 @@ namespace Mgf.GereulKkeonae
         bool pullMoved;
         bool swipingCut;
         bool draggingPiece;
+        bool pieceMoved;
         Vector2 pointerDown;
         int pullStartLength;
 
@@ -95,6 +96,7 @@ namespace Mgf.GereulKkeonae
             var text = new System.Text.StringBuilder(12000);
             text.Append("게를꺼내줄을재서조간대다리를펼쳐라도르래를눌러구조시작중학교2학년삼각형의성질최고기록");
             text.Append("줄을맞게잘라게를꺼내시오매듭을끌어길이를정하고절단선을가로질러자른뒤점선구간에거시오");
+            text.Append("달빛삼각항로직조도면천막자홍색인장증거선이잠겼습니다대응하는변이포개져구조망이완성됩니다시작점도착점까지");
             text.Append("연습실전안전부표남은시간첫연결정답목표구조완료기준미달다시구조같은두각의맞은편두변은같다");
             text.Append("이등변삼각형의꼭지각이등분선은밑변을이등분한다전체는한쪽의두배다줄이짧습니다길어서처졌습니다");
             text.Append("줄을먼저뽑으시오절단선을길게가로지르시오잘린줄의매듭을점선구간으로끌어놓으시오부표소진시간종료");
@@ -127,7 +129,7 @@ namespace Mgf.GereulKkeonae
             st.drawnLength = 3; st.cutLength = 0; st.repairKind = ""; st.problemId = "";
             st.misconceptionId = ""; st.lastResult = ""; st.toolStep = "pull";
             st.retrims = 0; st.discardedCm = 0; st.onboarding = false; st.frozen = false;
-            draggingPull = swipingCut = draggingPiece = false;
+            draggingPull = swipingCut = draggingPiece = false; pieceMoved = false;
         }
 
         void ShowTitle()
@@ -173,7 +175,7 @@ namespace Mgf.GereulKkeonae
             st.drawnLength = practice ? 3 : GereulRules.WrongStart(p, rng);
             st.cutLength = 0; st.firstAttemptUsed = false; st.lastResult = ""; st.misconceptionId = "";
             st.problemId = p.id; st.repairKind = p.repairKind; st.level = p.band; st.toolStep = "pull";
-            draggingPull = swipingCut = draggingPiece = false;
+            draggingPull = swipingCut = draggingPiece = false; pieceMoved = false;
             view.LoadProblem(p, practice); Notify();
         }
 
@@ -285,7 +287,7 @@ namespace Mgf.GereulKkeonae
                 if (flow == Flow.Title)
                 {
                     if (view.HitStart(pointerDown)) { view.PressStart(); BeginPractice(1); MgfSfx.Play("pop", .35f); }
-                    else Refuse("주황색 도르래 표지의 「구조 시작」을 누르시오.", pointerDown, true);
+                    else Refuse("화면 가운데 자홍색 매듭 인장을 눌러 시작하시오.", pointerDown, true);
                     return;
                 }
                 if (flow == Flow.End)
@@ -304,7 +306,7 @@ namespace Mgf.GereulKkeonae
                 }
                 if (step == ToolStep.Connect && view.HitPiece(pointerDown))
                 {
-                    draggingPiece = true; view.PressPiece(pointerDown); Notify(); return;
+                    draggingPiece = true; pieceMoved = false; view.PressPiece(pointerDown); Notify(); return;
                 }
                 Refuse(step == ToolStep.Pull ? "둥근 매듭을 끌어 줄 길이를 정하시오." : step == ToolStep.Cut ? "절단선을 가로질러 스와이프하시오." : "잘린 줄의 매듭을 점선 구간에 거시오.", pointerDown, true);
             }
@@ -312,7 +314,11 @@ namespace Mgf.GereulKkeonae
             {
                 if (draggingPull && (MgfPointer.Position - pointerDown).sqrMagnitude >= 144f) SetLength(view.LengthFromScreen(MgfPointer.Position));
                 else if (swipingCut) view.DragCutter(MgfPointer.Position);
-                else if (draggingPiece) view.DragPiece(MgfPointer.Position);
+                else if (draggingPiece)
+                {
+                    if ((MgfPointer.Position - pointerDown).sqrMagnitude >= 2025f) pieceMoved = true;
+                    view.DragPiece(MgfPointer.Position);
+                }
             }
             if (MgfPointer.Up)
             {
@@ -320,7 +326,7 @@ namespace Mgf.GereulKkeonae
                 else if (swipingCut) { swipingCut = false; view.ReleaseCutter(); FinishCut(MgfPointer.Position); }
                 else if (draggingPiece)
                 {
-                    draggingPiece = false; bool hit = view.ReleasePiece(MgfPointer.Position);
+                    draggingPiece = false; bool hit = view.ReleasePiece(MgfPointer.Position, st.onboarding && pieceMoved);
                     if (hit) SubmitConnection(); else Refuse("줄 조각을 그물의 점선 구간에 놓으시오.", MgfPointer.Position, true);
                 }
             }

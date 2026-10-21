@@ -21,12 +21,14 @@ namespace Mgf
         [DllImport("__Internal")] static extern void MGF_PushBank(string json);
         [DllImport("__Internal")] static extern int MGF_InitialMuted();
         [DllImport("__Internal")] static extern int MGF_LowGfx();
+        [DllImport("__Internal")] static extern int MGF_IsLand();
 #else
         static void MGF_Ready() { Debug.Log("[MGF] ready"); }
         static void MGF_PushState(string json) { }
         static void MGF_PushBank(string json) { }
         static int MGF_InitialMuted() { return 0; }
         static int MGF_LowGfx() { return 0; }
+        static int MGF_IsLand() { return (Screen.width >= Screen.height && Screen.width >= 640) || Screen.width >= 1024 ? 1 : 0; }
 #endif
         public const string ObjectName = "MgfBridge";
         const float PushInterval = 0.2f;
@@ -36,6 +38,8 @@ namespace Mgf
         public static bool Muted { get; private set; }
         /// <summary>소프트웨어 렌더러(GPU 없음)이거나 ?lowgfx=1 이면 true. MgfLook.Quality() 가 그림자·MSAA 를 끈다.</summary>
         public static bool LowGfx { get; private set; }
+        /// <summary>WebGL 템플릿이 CSS px로 계산한 판형. Unity Screen.width의 devicePixelRatio 중복 계산을 피한다.</summary>
+        public static bool IsLandLayout => MGF_IsLand() == 1;
         /// <summary>HTML 음소거 버튼이 눌렸을 때(true=음소거). 킷이 AudioListener.volume 은 이미 처리한다.</summary>
         public static event Action<bool> MuteChanged;
 
