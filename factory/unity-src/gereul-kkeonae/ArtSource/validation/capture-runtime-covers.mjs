@@ -25,10 +25,10 @@ function chromePath() {
 const server = await serveStatic(publicDir);
 const browser = await puppeteer.launch({ headless: true, executablePath: chromePath(), args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio'] });
 try {
-  // 카탈로그 표지는 타이틀 세계와 로고에 집중하고, 하단 CTA가 잘린 채 보이지 않도록 안전 영역 위를 캡처한다.
+  // 카탈로그 규격 자체의 종횡비로 렌더해 제목·세계·시작 사물이 실제 배치대로 모두 보이게 한다.
   for (const target of [
-    { width: 1200, height: 630, renderHeight: 900, clipY: 0, file: 'thumb.png' },
-    { width: 1080, height: 1080, renderHeight: 1400, clipY: 0, file: 'square.png' },
+    { width: 1200, height: 630, renderHeight: 630, clipY: 0, file: 'thumb.png' },
+    { width: 1080, height: 1080, renderHeight: 1080, clipY: 0, file: 'square.png' },
   ]) {
     const page = await browser.newPage();
     await page.setViewport({ width: target.width, height: target.renderHeight, deviceScaleFactor: 1 });

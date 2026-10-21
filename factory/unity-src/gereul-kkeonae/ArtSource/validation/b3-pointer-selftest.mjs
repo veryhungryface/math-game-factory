@@ -28,7 +28,7 @@ function chromePath() {
 function artifactHash() {
   const hash = crypto.createHash('sha256');
   for (const name of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(file => `Build/${file}`)]) {
-    hash.update(fs.readFileSync(path.join(GAME, name)));
+    hash.update(name); hash.update(fs.readFileSync(path.join(GAME, name)));
   }
   return hash.digest('hex');
 }

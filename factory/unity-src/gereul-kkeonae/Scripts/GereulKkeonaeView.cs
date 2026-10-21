@@ -11,18 +11,19 @@ namespace Mgf.GereulKkeonae
     public sealed class GereulKkeonaeView
     {
         readonly GereulKkeonaeGame game;
-        // 글로우 산업 작업장 계열을 벗어난 야간 도면 천막. 금속·나무보다 무광 직조·실·분필이 화면의 물성을 만든다.
-        readonly Color cobalt = MgfLook.Hex("#365C9D");
-        readonly Color cobaltDeep = MgfLook.Hex("#17264C");
-        readonly Color tangerine = MgfLook.Hex("#F04F78");
-        readonly Color ivory = MgfLook.Hex("#FFF4D6");
-        readonly Color ink = MgfLook.Hex("#14264A");
-        readonly Color foam = MgfLook.Hex("#7FE2D6");
-        readonly Color coral = MgfLook.Hex("#FF6B6B");
-        readonly Color iron = MgfLook.Hex("#29365B");
-        readonly Color rust = MgfLook.Hex("#B34273");
-        readonly Color timber = MgfLook.Hex("#344A73");
-        readonly Color sand = MgfLook.Hex("#D9C9A5");
+        // 밝은 조간대 구조 정원. 삐뚤 대문의 자주 직조/극장/봉제 물성을 피하고
+        // 젖은 돌, 유약 도자, 반투명 물결을 주재료로 쓴다.
+        readonly Color cobalt = MgfLook.Hex("#2D8FC4");
+        readonly Color cobaltDeep = MgfLook.Hex("#17476B");
+        readonly Color tangerine = MgfLook.Hex("#F26B5E");
+        readonly Color ivory = MgfLook.Hex("#FFF7DF");
+        readonly Color ink = MgfLook.Hex("#17314A");
+        readonly Color foam = MgfLook.Hex("#76E2D2");
+        readonly Color coral = MgfLook.Hex("#FF846E");
+        readonly Color iron = MgfLook.Hex("#4F87A2");
+        readonly Color rust = MgfLook.Hex("#D94F64");
+        readonly Color timber = MgfLook.Hex("#80C9B5");
+        readonly Color sand = MgfLook.Hex("#F4D69C");
 
         Camera cam;
         Transform world;
@@ -33,6 +34,8 @@ namespace Mgf.GereulKkeonae
         readonly List<Transform> pennants = new List<Transform>();
         readonly List<Transform> bridgePlanks = new List<Transform>();
         readonly List<Vector3> bridgeHomes = new List<Vector3>();
+        readonly List<Transform> tideRings = new List<Transform>();
+        readonly List<Vector3> tideRingHomes = new List<Vector3>();
         Transform reel;
         Transform titleBuoy;
         float worldClock;
@@ -53,7 +56,7 @@ namespace Mgf.GereulKkeonae
         readonly List<TMP_Text> rulerLabels = new List<TMP_Text>();
         TMP_Text titleBest, hudRound, hudScore, hudTime, goalText, promptText, readoutText, stepText;
         TMP_Text givenText, proofText, toastText, revealTitle, revealBody, endTitle, endStats, endScore;
-        TMP_Text pieceLabel, handleLabel;
+        TMP_Text pieceLabel, handleLabel, guideTargetText;
         float toastClock, rippleClock, guideClock, revealVisualClock, endClock, shownScore;
         bool guideStrong, isWide, cutAssistExpanded, connectAssistExpanded;
         Vector2 pieceHome, pieceDragOffset;
@@ -85,53 +88,54 @@ namespace Mgf.GereulKkeonae
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#1A2148"), MgfLook.Hex("#514A82"), MgfLook.Hex("#11172F"), .72f);
-            MgfLook.Sun(new Vector3(38, -28, -18), new Color(.72f, .8f, 1f), 1.12f, .48f);
-            cam = MgfLook.Camera(new Vector3(0, 8.8f, -19f), new Vector3(0, 2.5f, 1.4f), 35f);
-            cam.orthographic = true; cam.orthographicSize = 8.5f; cam.backgroundColor = MgfLook.Hex("#151C3B");
-            world = new GameObject("MoonlitTriangleChartLoft").transform;
+            MgfLook.Sky(MgfLook.Hex("#72CBEA"), MgfLook.Hex("#D9F3EA"), MgfLook.Hex("#FFE6B5"), .82f);
+            MgfLook.Sun(new Vector3(46, -34, -22), new Color(1f, .92f, .74f), 1.22f, .38f);
+            cam = MgfLook.Camera(new Vector3(0, 9.8f, -19f), new Vector3(0, 2.3f, 2.8f), 32f);
+            cam.orthographic = true; cam.orthographicSize = 8.5f; cam.backgroundColor = MgfLook.Hex("#9EDCEB");
+            world = new GameObject("SunlitTidepoolRescueGarden").transform;
 
-            var back = MgfLook.Prim(PrimitiveType.Quad, "IndigoCanvasBackdrop", new Vector3(0, 8f, 15f), new Vector3(42, 25, 1), MgfLook.Unlit(MgfLook.Hex("#252E58")), world, false);
+            var back = MgfLook.Prim(PrimitiveType.Quad, "SeaMistBackdrop", new Vector3(0, 8f, 15f), new Vector3(42, 25, 1), MgfLook.Unlit(MgfLook.Hex("#BDE9E7")), world, false);
             back.transform.rotation = Quaternion.Euler(0, 180, 0);
-            var clothDark = MgfLook.Lit(MgfLook.Hex("#24345D"), .04f, 0f);
-            var clothLight = MgfLook.Lit(MgfLook.Hex("#344A73"), .03f, 0f);
+            var water = MgfLook.Lit(MgfLook.Hex("#49BFD0"), .72f, .04f, MgfLook.Hex("#155E83"));
+            var wetStone = MgfLook.Lit(MgfLook.Hex("#7AC3AF"), .32f, .02f);
+            var paleStone = MgfLook.Lit(MgfLook.Hex("#F4D8A2"), .24f, 0f);
+            MgfLook.Block("TidepoolWater", new Vector3(0, -.5f, 4.2f), new Vector3(19f, .22f, 12.5f), .65f, water, world);
             for (int i = -6; i <= 6; i++)
             {
-                var panel = MgfLook.Block("WovenChartPanel", new Vector3(i * 1.48f, -.42f + (i & 1) * .018f, 4.35f), new Vector3(1.4f, .2f, 12.4f), .06f, (i & 1) == 0 ? clothDark : clothLight, world);
-                panel.transform.rotation = Quaternion.Euler(0, (i % 3 - 1) * .35f, 0);
+                float z = 3.9f + Mathf.Abs(i) * .34f;
+                var rim = MgfLook.Block("SunWarmedPoolStone", new Vector3(i * 1.48f, -.18f + (i & 1) * .08f, z), new Vector3(1.34f, .52f, 1.15f), .28f, (i & 1) == 0 ? wetStone : paleStone, world);
+                rim.transform.rotation = Quaternion.Euler((i & 1) * 2f, (i % 3 - 1) * 5f, 0);
+            }
+            for (int side = -1; side <= 1; side += 2)
+            for (int tier = 0; tier < 4; tier++)
+            {
+                var rock = MgfLook.Block("CoralCliffStep", new Vector3(side * (6.2f + tier * .28f), .25f + tier * .52f, 2.4f + tier * 1.12f), new Vector3(2.2f, .78f, 1.7f), .34f, tier % 2 == 0 ? paleStone : wetStone, world);
+                rock.transform.rotation = Quaternion.Euler(0, side * (8 + tier * 3), side * 2f);
             }
 
-            // 큰 반원 후프와 분필 격자가 '작업 랙'이 아닌 펼쳐진 항로 도면을 즉시 읽히게 한다.
-            var chalk = MgfLook.Lit(MgfLook.Hex("#84D9D1"), .02f, 0f, MgfLook.Hex("#315D72"));
-            for (int row = 0; row < 4; row++)
+            // 물결 고리는 평면 격자/직조 패턴 대신 살아 있는 조간대의 깊이를 만든다.
+            var rippleMat = MgfLook.Lit(MgfLook.Hex("#D9FFF4"), .62f, 0f, MgfLook.Hex("#3EB7C6"));
+            for (int ring = 0; ring < 3; ring++)
             {
-                float z = .4f + row * 2.1f;
-                BeamBetween("ChalkLatitude", new Vector3(-7.2f, -.24f, z), new Vector3(7.2f, -.24f, z), .024f, chalk, world);
-            }
-            for (int col = -3; col <= 3; col++)
-                BeamBetween("ChalkLongitude", new Vector3(col * 2.1f, -.23f, -.25f), new Vector3(col * 2.1f, -.23f, 8.4f), .02f, chalk, world);
-
-            var hoop = MgfLook.Lit(MgfLook.Hex("#D6B96D"), .12f, 0f);
-            for (int ring = 0; ring < 2; ring++)
-            {
-                float radius = ring == 0 ? 5.6f : 3.8f;
-                for (int i = 0; i < 24; i++)
+                float radius = 2.5f + ring * 1.65f;
+                for (int i = 0; i < 28; i++)
                 {
-                    float a = i * Mathf.PI * 2f / 24f, b = (i + 1) * Mathf.PI * 2f / 24f;
-                    BeamBetween("ChartHoop", new Vector3(Mathf.Cos(a) * radius, -.08f, 4.2f + Mathf.Sin(a) * radius * .62f), new Vector3(Mathf.Cos(b) * radius, -.08f, 4.2f + Mathf.Sin(b) * radius * .62f), .045f, hoop, world);
+                    float a = i * Mathf.PI * 2f / 28f, b = (i + 1) * Mathf.PI * 2f / 28f;
+                    var part = BeamBetween("CeramicTideRing", new Vector3(Mathf.Cos(a) * radius, -.31f, 3.8f + Mathf.Sin(a) * radius * .46f), new Vector3(Mathf.Cos(b) * radius, -.31f, 3.8f + Mathf.Sin(b) * radius * .46f), .026f, rippleMat, world).transform;
+                    tideRings.Add(part); tideRingHomes.Add(part.localPosition);
                 }
             }
-            BuildRopeBridge(clothLight, chalk);
+            BuildRopeBridge(paleStone, rippleMat);
             BuildPennants(); BuildDust(); BuildReel(); BuildSail();
 
-            titleBuoy = new GameObject("KnottedChartSeal").transform; titleBuoy.SetParent(world, false); titleBuoy.position = new Vector3(0, 1.15f, -.8f);
-            var hookMat = MgfLook.Lit(tangerine, .08f, 0f, MgfLook.Hex("#5D244E"));
+            titleBuoy = new GameObject("PorcelainRescueFloat").transform; titleBuoy.SetParent(world, false); titleBuoy.position = new Vector3(0, 1.15f, -.8f);
+            var hookMat = MgfLook.Lit(tangerine, .5f, .04f, MgfLook.Hex("#8F3945"));
             for (int i = 0; i < 12; i++)
             {
                 float a = i * Mathf.PI / 6f;
-                MgfLook.Prim(PrimitiveType.Cylinder, "ThreadKnot", new Vector3(Mathf.Cos(a) * .72f, Mathf.Sin(a) * .72f, 0), new Vector3(.11f, .32f, .11f), hookMat, titleBuoy, false).transform.rotation = Quaternion.Euler(0, 0, -a * Mathf.Rad2Deg);
+                MgfLook.Prim(PrimitiveType.Sphere, "GlazedFloatBead", new Vector3(Mathf.Cos(a) * .72f, Mathf.Sin(a) * .72f, 0), new Vector3(.24f, .24f, .16f), hookMat, titleBuoy, false);
             }
-            crabs.Add(BuildDockCrab(new Vector3(-4.65f, .12f, 2.1f), .7f));
+            crabs.Add(BuildDockCrab(new Vector3(-4.65f, .12f, 2.1f), .78f));
         }
 
         GameObject BeamBetween(string name, Vector3 a, Vector3 b, float radius, Material mat, Transform parent)
@@ -155,49 +159,50 @@ namespace Mgf.GereulKkeonae
 
         void BuildRopeBridge(Material plankMat, Material ropeMat)
         {
-            var cord = MgfLook.Lit(MgfLook.Hex("#F04F78"), .04f, 0f, MgfLook.Hex("#5D244E"));
-            BeamBetween("EvidenceThreadTop", new Vector3(-5.1f, .02f, 4.05f), new Vector3(5.1f, .02f, 4.05f), .045f, cord, world);
-            BeamBetween("EvidenceThreadBottom", new Vector3(-5.1f, .02f, 5.45f), new Vector3(5.1f, .02f, 5.45f), .045f, cord, world);
+            var cord = MgfLook.Lit(MgfLook.Hex("#FF8C72"), .4f, .02f, MgfLook.Hex("#9B3F58"));
+            BeamBetween("WetRescueLineTop", new Vector3(-5.1f, .02f, 4.05f), new Vector3(5.1f, .02f, 4.05f), .052f, cord, world);
+            BeamBetween("WetRescueLineBottom", new Vector3(-5.1f, .02f, 5.45f), new Vector3(5.1f, .02f, 5.45f), .052f, cord, world);
             for (int i = 0; i < 11; i++)
             {
                 float x = -4.55f + i * .91f;
                 float stagger = (i % 3 - 1) * .08f;
-                var p = MgfLook.Block("ProofClothTab", new Vector3(x, .05f + stagger, 4.75f), new Vector3(.72f, .1f, 1.12f), .04f, i % 2 == 0 ? plankMat : MgfLook.Lit(MgfLook.Hex("#465B89"), .03f), world).transform;
-                p.localRotation = Quaternion.Euler(0, (i - 5) * .45f, (i % 2 == 0 ? -1.5f : 1.5f));
+                var shellMat = i % 2 == 0 ? plankMat : MgfLook.Lit(MgfLook.Hex("#B6E8D5"), .45f, .02f);
+                var p = MgfLook.Block("PorcelainNetTile", new Vector3(x, .05f + stagger, 4.75f), new Vector3(.72f, .14f, 1.02f), .22f, shellMat, world).transform;
+                p.localRotation = Quaternion.Euler(-3f, (i - 5) * 1.4f, (i % 2 == 0 ? -2.5f : 2.5f));
                 bridgePlanks.Add(p); bridgeHomes.Add(p.localPosition);
-                BeamBetween("TabStitch", new Vector3(x, .12f, 4.15f), new Vector3(x, .12f, 5.35f), .022f, cord, world);
+                BeamBetween("TileRescueCord", new Vector3(x, .13f, 4.15f), new Vector3(x, .13f, 5.35f), .025f, cord, world);
             }
         }
 
         void BuildPennants()
         {
-            var flagMat = MgfLook.Lit(MgfLook.Hex("#7FE2D6"), .04f);
+            var flagMat = MgfLook.Lit(MgfLook.Hex("#55B88B"), .28f);
             for (int i = 0; i < 7; i++)
             {
-                var f = MgfLook.Block("PinnedPatternSwatch", new Vector3(-4.5f + i * 1.5f, .16f, 7.8f), new Vector3(.68f, .08f, .82f), .035f, flagMat, world).transform;
-                f.localRotation = Quaternion.Euler(0, i % 2 == 0 ? -8 : 8, 0); pennants.Add(f);
+                var f = MgfLook.Prim(PrimitiveType.Capsule, "TideGrass", new Vector3(-4.5f + i * 1.5f, .3f, 7.8f), new Vector3(.18f, .58f, .12f), flagMat, world, false).transform;
+                f.localRotation = Quaternion.Euler(0, i % 2 == 0 ? -12 : 12, i % 2 == 0 ? -18 : 18); pennants.Add(f);
             }
         }
 
         void BuildDust()
         {
-            var mat = MgfLook.Alpha(new Color(1f, .82f, .52f, .26f));
+            var mat = MgfLook.Alpha(new Color(.88f, 1f, .96f, .48f));
             var rng = new System.Random(17);
             for (int i = 0; i < 18; i++)
             {
                 float s = .045f + (float)rng.NextDouble() * .08f;
-                var p = MgfLook.Prim(PrimitiveType.Sphere, "SunDust", new Vector3(-8f + (float)rng.NextDouble() * 16f, .2f + (float)rng.NextDouble() * 8f, 1f + (float)rng.NextDouble() * 8f), Vector3.one * s, mat, world, false).transform;
+                var p = MgfLook.Prim(PrimitiveType.Sphere, "WaterGlint", new Vector3(-8f + (float)rng.NextDouble() * 16f, .2f + (float)rng.NextDouble() * 8f, 1f + (float)rng.NextDouble() * 8f), Vector3.one * s, mat, world, false).transform;
                 dust.Add(p); dustPhase.Add((float)rng.NextDouble() * 8f);
             }
         }
 
         void BuildReel()
         {
-            var ceramic = MgfLook.Lit(MgfLook.Hex("#C9A963"), .14f, .04f);
+            var ceramic = MgfLook.Lit(MgfLook.Hex("#FFF0C6"), .68f, .05f);
             var cordTex = Resources.Load<Texture2D>("GereulKkeonae/cord-fiber");
             if (cordTex) { cordTex.wrapMode = TextureWrapMode.Repeat; cordTex.filterMode = FilterMode.Bilinear; }
             var cordMat = MgfLook.Lit(tangerine, .04f, 0f, MgfLook.Hex("#5D244E"), cordTex);
-            reel = new GameObject("ChartThreadBobbin").transform; reel.SetParent(world, false); reel.position = new Vector3(4.9f, .42f, .6f);
+            reel = new GameObject("PorcelainCordSpool").transform; reel.SetParent(world, false); reel.position = new Vector3(4.9f, .42f, .6f);
             MgfLook.Prim(PrimitiveType.Cylinder, "ReelBody", Vector3.zero, new Vector3(1.15f, .38f, 1.15f), ceramic, reel, false).transform.rotation = Quaternion.Euler(90, 0, 0);
             for (int i = 0; i < 10; i++)
             {
@@ -208,15 +213,15 @@ namespace Mgf.GereulKkeonae
 
         Transform BuildDockCrab(Vector3 pos, float scale)
         {
-            var root = new GameObject("RiggerCrab").transform; root.SetParent(world, false); root.position = pos; root.localScale = Vector3.one * scale;
-            var orange = MgfLook.Lit(rust, .32f, .08f);
-            var cream = MgfLook.Lit(sand, .28f);
-            MgfLook.Block("AngularBody", new Vector3(0, .48f, 0), new Vector3(1.4f, .62f, .82f), .15f, orange, root);
-            MgfLook.Block("CanvasApron", new Vector3(0, .34f, -.43f), new Vector3(.72f, .32f, .12f), .08f, cream, root);
+            var root = new GameObject("TidepoolRescueCrab").transform; root.SetParent(world, false); root.position = pos; root.localScale = Vector3.one * scale;
+            var orange = MgfLook.Lit(MgfLook.Hex("#F36E62"), .54f, .06f);
+            var cream = MgfLook.Lit(MgfLook.Hex("#FFF1C2"), .62f);
+            MgfLook.Block("RoundShellBody", new Vector3(0, .48f, 0), new Vector3(1.4f, .62f, .82f), .3f, orange, root);
+            MgfLook.Block("PorcelainBelly", new Vector3(0, .34f, -.43f), new Vector3(.72f, .32f, .12f), .14f, cream, root);
             for (int side = -1; side <= 1; side += 2)
             {
                 for (int j = 0; j < 2; j++) BeamBetween("JointedLeg", new Vector3(side * .52f, .3f, j * .24f), new Vector3(side * (1.02f + j * .12f), .08f, .05f + j * .35f), .07f, orange, root);
-                MgfLook.Block("ClampClaw", new Vector3(side * 1.02f, .68f, -.05f), new Vector3(.58f + (side > 0 ? .12f : 0), .42f, .32f), .12f, orange, root);
+                MgfLook.Block("BubbleClaw", new Vector3(side * 1.02f, .68f, -.05f), new Vector3(.58f + (side > 0 ? .12f : 0), .42f, .32f), .2f, orange, root);
                 MgfLook.Prim(PrimitiveType.Sphere, "Eye", new Vector3(side * .3f, .95f, -.18f), Vector3.one * .16f, MgfLook.Lit(ink, .6f), root, false);
             }
             return root;
@@ -224,14 +229,24 @@ namespace Mgf.GereulKkeonae
 
         void BuildSail()
         {
-            sail = new GameObject("StitchedChartBanner").transform; sail.SetParent(world, false); sail.position = new Vector3(0, 6.2f, 4.55f);
-            var cloth = MgfLook.Block("IndigoTitleCloth", Vector3.zero, new Vector3(6.2f, 2.15f, .1f), .12f, MgfLook.Lit(MgfLook.Hex("#405584"), .04f), sail);
-            UnityEngine.Object.Destroy(cloth.GetComponent<Collider>());
+            // 사각 명패를 없애고 산호 아치와 조개 글자가 세계 안에서 제목을 이룬다.
+            sail = new GameObject("ShellLetterCoralArch").transform; sail.SetParent(world, false); sail.position = new Vector3(0, 6.25f, 4.55f);
+            var coralMat = MgfLook.Lit(MgfLook.Hex("#FF987D"), .38f, .02f);
+            var shellMat = MgfLook.Lit(MgfLook.Hex("#FFF3C8"), .7f, .05f);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    var branch = MgfLook.Prim(PrimitiveType.Capsule, "CoralTitleBranch", new Vector3(side * (2.7f + i * .25f), -.65f + i * .38f, .1f), new Vector3(.22f, .62f, .22f), coralMat, sail, false);
+                    branch.transform.rotation = Quaternion.Euler(0, 0, side * (18 + i * 5));
+                }
+                MgfLook.Prim(PrimitiveType.Sphere, "TitleShell", new Vector3(side * 2.25f, .18f, -.02f), new Vector3(.72f, .5f, .24f), shellMat, sail, false);
+            }
             sail.rotation = Quaternion.Euler(2, 0, -1);
-            var shadow = MgfText.World("게를 꺼내", new Vector3(.08f, .05f, -.12f), 7.8f, new Color(.04f, .08f, .18f, .58f), sail);
-            var logo = MgfText.World("게를 꺼내", new Vector3(0, .12f, -.14f), 7.8f, ivory, sail);
+            var shadow = MgfText.World("게를 꺼내", new Vector3(.1f, .04f, -.12f), 13.2f, new Color(.08f, .2f, .28f, .42f), sail);
+            var logo = MgfText.World("게를 꺼내", new Vector3(0, .14f, -.14f), 13.2f, ivory, sail);
             shadow.alignment = logo.alignment = TextAlignmentOptions.Center;
-            shadow.rectTransform.sizeDelta = logo.rectTransform.sizeDelta = new Vector2(6, 2);
+            shadow.rectTransform.sizeDelta = logo.rectTransform.sizeDelta = new Vector2(8, 2.5f);
             // TMP 전면이 카메라(-Z)를 향한다. 180°를 주면 WebGL에서 뒷면이 좌우 반전되어 보인다.
             shadow.transform.rotation = logo.transform.rotation = Quaternion.identity;
         }
@@ -268,16 +283,16 @@ namespace Mgf.GereulKkeonae
 
         void BuildTitleUi()
         {
-            // 세계와 분리된 사각 버튼 대신 도면 천에 꿰맨 큰 매듭 인장을 시작 사물로 쓴다.
-            var tagFrame = Img("ChartSealOuter", titleGroup.transform, new Color(.07f, .12f, .27f, .98f), new Vector2(164, 164), new Vector2(.5f, .5f), Vector2.zero, true);
-            titleBuoyImg = Img("ChartSealThread", tagFrame.transform, new Color(.94f, .31f, .47f, .98f), new Vector2(142, 142), new Vector2(.5f, .5f), Vector2.zero, true);
+            // 세계와 분리된 버튼이 아니라 조간대의 유약 구조 부표를 누른다.
+            var tagFrame = Img("PorcelainFloatOuter", titleGroup.transform, new Color(.98f, .91f, .69f, .98f), new Vector2(164, 164), new Vector2(.5f, .5f), Vector2.zero, true);
+            titleBuoyImg = Img("CoralFloatRing", tagFrame.transform, new Color(.95f, .39f, .34f, .98f), new Vector2(142, 142), new Vector2(.5f, .5f), Vector2.zero, true);
             titleStartRt = tagFrame.rectTransform;
-            Img("ChartSealCloth", titleBuoyImg.transform, cobaltDeep, new Vector2(92, 92), new Vector2(.5f, .5f), Vector2.zero, true);
-            Img("ChartSealEyelet", titleBuoyImg.transform, sand, new Vector2(24, 24), new Vector2(.5f, .78f), Vector2.zero, true);
-            Txt("BuoyVerb", titleBuoyImg.transform, "매듭을\n눌러 시작", 16, ivory, new Vector2(110, 62), new Vector2(.5f, .46f), Vector2.zero);
-            Txt("TitleTagline", titleGroup.transform, "줄을 재서 삼각 항로를 꿰매라", 18, ivory, new Vector2(350, 42), new Vector2(.5f, .32f), Vector2.zero);
-            Txt("TitleGrade", titleGroup.transform, "중학교 2학년 · 삼각형의 성질", 12, new Color(1, 1, 1, .88f), new Vector2(300, 28), new Vector2(.5f, .06f), Vector2.zero);
-            titleBest = Txt("TitleBest", titleGroup.transform, "", 12, ivory, new Vector2(260, 26), new Vector2(.5f, .11f), Vector2.zero);
+            Img("FloatWaterWindow", titleBuoyImg.transform, cobalt, new Vector2(92, 92), new Vector2(.5f, .5f), Vector2.zero, true);
+            Img("FloatShellEyelet", titleBuoyImg.transform, ivory, new Vector2(24, 24), new Vector2(.5f, .78f), Vector2.zero, true);
+            Txt("BuoyVerb", titleBuoyImg.transform, "구조 부표\n눌러 시작", 16, ivory, new Vector2(110, 62), new Vector2(.5f, .46f), Vector2.zero);
+            Txt("TitleTagline", titleGroup.transform, "줄을 재서 삼각 그물을 펼쳐라", 18, ink, new Vector2(350, 42), new Vector2(.5f, .32f), Vector2.zero);
+            Txt("TitleGrade", titleGroup.transform, "중학교 2학년 · 삼각형의 성질", 12, new Color(.07f, .22f, .3f, .9f), new Vector2(300, 28), new Vector2(.5f, .06f), Vector2.zero);
+            titleBest = Txt("TitleBest", titleGroup.transform, "", 12, ink, new Vector2(260, 26), new Vector2(.5f, .11f), Vector2.zero);
             titleGuideRingRt = Img("TitleTargetPulse", titleGroup.transform, new Color(.5f, .94f, .88f, .55f), new Vector2(176, 176), new Vector2(.5f, .5f), Vector2.zero, true).rectTransform;
             titleGuideHandRt = Txt("TitlePointer", titleGroup.transform, "●", 30, ivory, new Vector2(50, 50), new Vector2(.5f, .5f), new Vector2(0, 105)).rectTransform;
             for (int i = 0; i < titleGuideDots.Length; i++) titleGuideDots[i] = Img("TitlePath" + i, titleGroup.transform, new Color(1f, .9f, .55f, .75f), new Vector2(10, 10), new Vector2(.5f, .5f), Vector2.zero, true);
@@ -294,7 +309,7 @@ namespace Mgf.GereulKkeonae
             goalText = Txt("Goal", goal.transform, "줄을 맞게 잘라 게를 꺼내시오", 14, ink, new Vector2(360, 34), new Vector2(.5f, .5f), Vector2.zero);
 
             netRt = (RectTransform)new GameObject("GeometryNet", typeof(RectTransform)).transform; netRt.SetParent(playGroup.transform, false);
-            netPlate = Img("NetWaterPlate", netRt, new Color(.08f, .36f, .68f, .72f), new Vector2(360, 310), new Vector2(.5f, .5f), Vector2.zero);
+            netPlate = Img("NetWaterPlate", netRt, new Color(.18f, .65f, .74f, .76f), new Vector2(360, 310), new Vector2(.5f, .5f), Vector2.zero);
             for (int i = 0; i < 3; i++) netEdges[i] = Img("NetEdge" + i, netRt, ivory, new Vector2(190, 6), new Vector2(.5f, .5f), Vector2.zero);
             bisectorLine = Img("Bisector", netRt, new Color(.72f, .91f, .91f, .95f), new Vector2(100, 4), new Vector2(.5f, .5f), Vector2.zero);
             tensionWave = Img("TensionWave", netRt, new Color(1f, .78f, .25f, 0), new Vector2(20, 20), new Vector2(.5f, .5f), Vector2.zero, true);
@@ -356,8 +371,10 @@ namespace Mgf.GereulKkeonae
             toastText.transform.parent.gameObject.SetActive(false);
             rippleImg = Img("InputRipple", canvasRt, new Color(1f, .75f, .28f, 0), new Vector2(54, 54), new Vector2(.5f, .5f), Vector2.zero, true); rippleRt = rippleImg.rectTransform;
             guideHandRt = Txt("GhostHand", guideGroup.transform, "●", 34, ivory, new Vector2(50, 50), new Vector2(.5f, .5f), Vector2.zero).rectTransform;
-            guideRingImg = Img("GuideRing", guideGroup.transform, new Color(1f, .78f, .3f, .7f), new Vector2(72, 72), new Vector2(.5f, .5f), Vector2.zero, true); guideRingRt = guideRingImg.rectTransform;
-            for (int i = 0; i < guideDots.Length; i++) guideDots[i] = Img("PathChevron" + i, guideGroup.transform, new Color(1f, .9f, .55f, .7f), new Vector2(10, 10), new Vector2(.5f, .5f), Vector2.zero, true);
+            guideRingImg = Img("GuideRing", guideGroup.transform, new Color(1f, .45f, .32f, .86f), new Vector2(82, 82), new Vector2(.5f, .5f), Vector2.zero, true); guideRingRt = guideRingImg.rectTransform;
+            for (int i = 0; i < guideDots.Length; i++) guideDots[i] = Img("PathChevron" + i, guideGroup.transform, new Color(1f, .48f, .32f, .9f), new Vector2(16, 16), new Vector2(.5f, .5f), Vector2.zero, true);
+            guideTargetText = Txt("GuideTarget", guideGroup.transform, "", 15, ivory, new Vector2(210, 52), new Vector2(.5f, .5f), Vector2.zero);
+            guideTargetText.outlineColor = new Color(.05f, .16f, .24f, .9f); guideTargetText.outlineWidth = .28f;
         }
 
         public void ShowTitle()
@@ -386,7 +403,9 @@ namespace Mgf.GereulKkeonae
             shownProblem = p; promptText.text = p.prompt; proofText.text = ""; proofText.gameObject.SetActive(false);
             givenText.text = p.band == 1 ? "같은 밑각  ∠B = ∠C" : "선분 AB = 선분 AC · D는 이등분선과 선분 BC의 교점";
             SetPulledLength(game.State.drawnLength, false); pieceRt.gameObject.SetActive(false); SetCutAssist(false, false); connectAssistExpanded = false;
-            stepText.text = "① 둥근 매듭을 끌어 줄 길이를 정하시오";
+            stepText.text = practice
+                ? "① 눈금 " + p.answerCm + "을 누르거나 매듭을 " + p.answerCm + " cm까지 끄시오"
+                : "① 둥근 매듭을 끌어 줄 길이를 정하시오";
             DrawNet(p); guideClock = 0f; guideStrong = practice; RefreshHud(true); Relayout(true);
         }
 
@@ -471,12 +490,22 @@ namespace Mgf.GereulKkeonae
                 titleGuideFrom = local; titleGuideStrongClock = 2.8f;
             }
             else if (guide) { guideClock = 0f; guideStrong = true; SetGroup(guideGroup, true); }
+            if (game.CurrentStep == GereulKkeonaeGame.ToolStep.Pull) MgfFx.Punch(handleRt, .2f, .32f);
             MgfFx.Punch(toastText.transform.parent, .08f, .2f);
         }
 
         public bool HitStart(Vector2 p) => ContainsExpanded(titleStartRt, p, 22);
         public bool HitRestart(Vector2 p) => Contains(restartRt, p);
         public bool HitHandleOrRuler(Vector2 p) => ContainsExpanded(handleRt, p, 18) || Contains(rulerRt, p);
+        // 직접 눈금 선택과 매듭 드래그를 가를 때는 보이는 매듭 원만 쓴다.
+        // 확장 잡기 영역까지 제외하면 3→6처럼 가까운 목표 눈금 탭이 드래그로 오인된다.
+        public bool HitHandle(Vector2 p) => Contains(handleRt, p);
+        public bool HitRuler(Vector2 p) => Contains(rulerRt, p);
+        // 고정 연습은 하단 도구 패널에서 목표 표식 주변을 넓게 받아 첫 조작을
+        // 발견하게 한다. 실전에는 이 보조 영역이 전혀 적용되지 않는다.
+        public bool HitPracticeTarget(Vector2 p) => game.State.onboarding && ContainsExpanded(guideTargetText.rectTransform, p, 120);
+        public bool HitGap(Vector2 p) => ContainsExpanded(gapHitRt, p, 48);
+        public void SnapPieceToGap() { pieceRt.anchoredPosition = CenterLocal(gapHitRt); }
         public bool HitCutZone(Vector2 p) => cutAssistExpanded && game.State.onboarding ? true : cutAssistExpanded ? Contains(rulerRt, p) : ContainsExpanded(cutZoneRt, p, 88);
         public bool HitPiece(Vector2 p) => connectAssistExpanded && game.State.onboarding || ContainsExpanded(pieceRt, p, 32);
         public bool ReleasePiece(Vector2 p, bool assistGesture)
@@ -562,10 +591,20 @@ namespace Mgf.GereulKkeonae
                 if (revealCorrect && game.CurrentFlow == GereulKkeonaeGame.Flow.Reveal)
                 {
                     float k = Mathf.Clamp01(revealVisualClock / 1.25f); p.y += Mathf.Sin(k * Mathf.PI * 2f) * .12f;
-                    crabs[i].localScale = Vector3.one * (.7f + Mathf.Sin(k * Mathf.PI) * .08f);
+                    // 정답 사건의 주인공은 도구가 아니라 게다. 뒤집힌 그물 위를 활강해
+                    // 반대쪽 조간대까지 빠져나오며, 화면 흔들림은 쓰지 않는다.
+                    p.x = Mathf.Lerp(-4.65f, 4.15f, Mathf.SmoothStep(0f, 1f, k));
+                    p.y = .12f + Mathf.Sin(k * Mathf.PI) * 1.65f;
+                    crabs[i].localScale = Vector3.one * (.78f + Mathf.Sin(k * Mathf.PI) * .12f);
                 }
-                else crabs[i].localScale = Vector3.one * .7f;
+                else crabs[i].localScale = Vector3.one * .78f;
                 crabs[i].position = p; crabs[i].rotation = Quaternion.Euler(0, Mathf.Sin(worldClock * 1.3f + i) * 7f, Mathf.Sin(worldClock * 2.4f + i) * 2f);
+            }
+            for (int i = 0; i < tideRings.Count; i++)
+            {
+                Vector3 home = tideRingHomes[i];
+                float shimmer = Mathf.Sin(worldClock * 1.35f + i * .17f) * .018f;
+                tideRings[i].localPosition = home + Vector3.up * shimmer;
             }
             reel.rotation = Quaternion.Euler(0, 0, worldClock * 5f);
             if (sail.gameObject.activeSelf) sail.localRotation = Quaternion.Euler(2 + Mathf.Sin(worldClock * .7f) * .65f, 0, -1 + Mathf.Sin(worldClock * .5f) * .6f);
@@ -578,6 +617,7 @@ namespace Mgf.GereulKkeonae
                 {
                     float k = Mathf.Clamp01(revealVisualClock / 1.2f);
                     netRt.localScale = Vector3.one * (1f + Mathf.Sin(k * Mathf.PI) * .035f);
+                    netRt.localRotation = Quaternion.Euler(0, Mathf.Sin(k * Mathf.PI) * 58f, Mathf.Sin(k * Mathf.PI) * -5f);
                     tensionWave.color = new Color(.5f, .95f, .88f, (1f - k) * .9f);
                     tensionWave.rectTransform.anchoredPosition = Vector2.Lerp(vertexLabels[1].rectTransform.anchoredPosition, vertexLabels[(Mathf.FloorToInt(k * 3) + 1) % 3].rectTransform.anchoredPosition, Mathf.Repeat(k * 3, 1));
                     tensionWave.rectTransform.localScale = Vector3.one * (1f + k * 1.4f);
@@ -591,8 +631,8 @@ namespace Mgf.GereulKkeonae
                     {
                         float delay = Mathf.Clamp01(k * 1.45f - i * .045f);
                         Vector3 home = bridgeHomes[i];
-                        bridgePlanks[i].localPosition = home + Vector3.up * (Mathf.Sin(delay * Mathf.PI) * .12f);
-                        bridgePlanks[i].localRotation = Quaternion.Euler(0, Mathf.Lerp((i - 5) * .45f, 0f, delay), Mathf.Lerp(i % 2 == 0 ? -1.5f : 1.5f, 0f, delay));
+                        bridgePlanks[i].localPosition = home + Vector3.up * (Mathf.Sin(delay * Mathf.PI) * .5f);
+                        bridgePlanks[i].localRotation = Quaternion.Euler(Mathf.Sin(delay * Mathf.PI) * -18f, Mathf.Lerp((i - 5) * 1.4f, 0f, delay), Mathf.Lerp(i % 2 == 0 ? -2.5f : 2.5f, 0f, delay));
                     }
                 }
                 else
@@ -603,7 +643,7 @@ namespace Mgf.GereulKkeonae
             }
             else
             {
-                netRt.localScale = Vector3.one; tensionWave.color = new Color(1, 1, 1, 0); pieceRt.localRotation = Quaternion.identity;
+                netRt.localScale = Vector3.one; netRt.localRotation = Quaternion.identity; tensionWave.color = new Color(1, 1, 1, 0); pieceRt.localRotation = Quaternion.identity;
                 for (int i = 0; i < netEdges.Length; i++)
                 {
                     Color edge = ivory; edge.a = netEdges[i].color.a; netEdges[i].color = edge;
@@ -612,7 +652,7 @@ namespace Mgf.GereulKkeonae
                 for (int i = 0; i < bridgePlanks.Count; i++)
                 {
                     bridgePlanks[i].localPosition = bridgeHomes[i];
-                    bridgePlanks[i].localRotation = Quaternion.Euler(0, (i - 5) * .45f, i % 2 == 0 ? -1.5f : 1.5f);
+                    bridgePlanks[i].localRotation = Quaternion.Euler(-3f, (i - 5) * 1.4f, i % 2 == 0 ? -2.5f : 2.5f);
                 }
             }
         }
@@ -684,17 +724,20 @@ namespace Mgf.GereulKkeonae
             {
                 a = CenterLocal(handleRt); int target = game.State.onboarding && shownProblem != null ? shownProblem.answerCm : Mathf.Clamp(game.State.drawnLength + 5, 1, 24);
                 b = RulerPointLocal(target);
+                guideTargetText.text = game.State.onboarding ? "여기를 누르세요 · " + target + " cm" : "원하는 눈금";
             }
             else if (game.CurrentStep == GereulKkeonaeGame.ToolStep.Cut)
             {
                 Vector2 c = CenterLocal(cutZoneRt); float reach = cutAssistExpanded ? 146f : 74f;
                 if (isWide) { a = c + new Vector2(0, -reach); b = c + new Vector2(0, reach); }
                 else { a = c + new Vector2(-reach, 0); b = c + new Vector2(reach, 0); }
+                guideTargetText.text = "시작 → 도착";
             }
-            else { a = CenterLocal(pieceRt); b = CenterLocal(gapHitRt); }
+            else { a = CenterLocal(pieceRt); b = CenterLocal(gapHitRt); guideTargetText.text = "점선에 놓기"; }
             float ph = Mathf.Repeat(guideClock / 1.2f, 1f); float move = Mathf.SmoothStep(0, 1, Mathf.Clamp01((ph - .12f) / .7f));
             guideHandRt.anchoredPosition = Vector2.Lerp(a, b, move); guideHandRt.localScale = Vector3.one * (guideStrong ? 1.25f : 1f) * (ph < .15f ? .82f : 1f);
             guideRingRt.anchoredPosition = b; guideRingRt.localScale = Vector3.one * (.8f + ph * .65f); guideRingImg.color = new Color(1f, .78f, .3f, 1f - ph);
+            guideTargetText.rectTransform.anchoredPosition = b + (isWide ? new Vector2(112, 0) : new Vector2(0, 76));
             for (int i = 0; i < guideDots.Length; i++) { float f = (i + 1f) / (guideDots.Length + 1); guideDots[i].rectTransform.anchoredPosition = Vector2.Lerp(a, b, f); guideDots[i].color = new Color(1f, .9f, .55f, .25f + .7f * Mathf.Repeat(f - guideClock * .7f, 1)); }
             if (guideClock > 8f) guideStrong = true;
         }

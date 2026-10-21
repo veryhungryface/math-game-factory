@@ -28,7 +28,9 @@ function chromePath() {
 
 function artifactHash() {
   const hash = crypto.createHash('sha256');
-  for (const name of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(x => `Build/${x}`)]) hash.update(fs.readFileSync(path.join(GAME, name)));
+  for (const name of ['index.html', ...fs.readdirSync(path.join(GAME, 'Build')).sort().map(x => `Build/${x}`)]) {
+    hash.update(name); hash.update(fs.readFileSync(path.join(GAME, name)));
+  }
   return hash.digest('hex');
 }
 
@@ -90,10 +92,11 @@ try {
   await page.waitForFunction(() => window.__GAME_TEST__?.ready, { timeout: 60000 });
   const normal = await run(page, false); await page.screenshot({ path: path.join(SHOTS, 'normal-clear.png') });
   const recovery = await run(page, true); await page.screenshot({ path: path.join(SHOTS, 'recovery-clear.png') });
+  const second = await run(page, false); await page.screenshot({ path: path.join(SHOTS, 'second-clear.png') });
   const out = {
     runId: `gereul-kkeonae-pointer-${new Date().toISOString()}`, generatedAt: new Date().toISOString(), artifactHashSha256: artifactHash(), viewport: `${W}x${H}`,
-    input: 'trusted Puppeteer mouse down/move/up; start() only enters a run; answer hooks never called', normal, oneMistakeRecovery: recovery, consoleErrors,
-    passed: normal.final.phase === 'clear' && normal.final.solved === 8 && normal.final.firstCorrect === 8 && recovery.recovery?.state.lives === 2 && recovery.final.phase === 'clear' && recovery.final.solved === 8 && recovery.final.firstCorrect === 7 && consoleErrors.length === 0,
+    input: 'trusted Puppeteer mouse down/move/up; start() only enters a run; answer hooks never called', normal, oneMistakeRecovery: recovery, independentSecondRun: second, consoleErrors,
+    passed: normal.final.phase === 'clear' && normal.final.solved === 8 && normal.final.firstCorrect === 8 && recovery.recovery?.state.lives === 2 && recovery.final.phase === 'clear' && recovery.final.solved === 8 && recovery.final.firstCorrect === 7 && second.final.phase === 'clear' && second.final.solved === 8 && second.final.firstCorrect === 8 && second.played[0]?.problemId !== normal.played[0]?.problemId && consoleErrors.length === 0,
   };
   fs.writeFileSync(path.join(HERE, 'pointer-playthrough-results.json'), `${JSON.stringify(out, null, 2)}\n`);
   console.log(JSON.stringify(out, null, 2)); if (!out.passed) process.exitCode = 1;

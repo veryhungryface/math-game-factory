@@ -296,13 +296,33 @@ namespace Mgf.GereulKkeonae
                     return;
                 }
                 if (flow == Flow.Reveal) { Refuse("그물의 변화를 확인하시오.", pointerDown, false); return; }
-                if (step == ToolStep.Pull && (view.HitHandleOrRuler(pointerDown) || st.onboarding))
+                bool practiceTargetTap = step == ToolStep.Pull && st.onboarding && view.HitPracticeTarget(pointerDown);
+                if (step == ToolStep.Pull && (view.HitHandleOrRuler(pointerDown) || practiceTargetTap))
                 {
-                    draggingPull = true; pullMoved = false; pullStartLength = st.drawnLength; view.PressHandle(); Notify(); return;
+                    bool directRulerTap = practiceTargetTap || (view.HitRuler(pointerDown) && !view.HitHandle(pointerDown));
+                    draggingPull = true; pullMoved = false; pullStartLength = st.drawnLength;
+                    view.PressHandle();
+                    // 눈금 띠는 연속 드래그 영역이면서 직접 선택 영역이다. 특히 첫 연습에서는
+                    // 목표 눈금을 한 번 누르는 것만으로도 매듭이 그 눈금까지 이동해야 한다.
+                    // 정답을 자동으로 고르는 것이 아니라 학생이 누른 실제 눈금을 같은 판정 경로로 쓴다.
+                    SetLength(practiceTargetTap && current != null ? current.answerCm : view.LengthFromScreen(pointerDown));
+                    if (directRulerTap && pullMoved)
+                    {
+                        // 브라우저의 짧은 tap은 down/up이 같은 Unity 프레임에 들어와 Up을
+                        // 관찰하지 못할 수 있으므로 눈금 본체 탭은 down에서 확정한다.
+                        draggingPull = false; view.ReleaseHandle(); FinishPull();
+                    }
+                    Notify(); return;
                 }
                 if (step == ToolStep.Cut && view.HitCutZone(pointerDown))
                 {
                     swipingCut = true; view.PressCutter(); Notify(); return;
+                }
+                if (step == ToolStep.Connect && st.onboarding && (view.HitPracticeTarget(pointerDown) || view.HitGap(pointerDown)))
+                {
+                    // 고정 연습의 강조된 도착 표식은 탭 배치도 허용한다. 선택한 길이와
+                    // SubmitConnection의 정수 판정은 드래그 경로와 완전히 같다.
+                    view.SnapPieceToGap(); SubmitConnection(); return;
                 }
                 if (step == ToolStep.Connect && view.HitPiece(pointerDown))
                 {
