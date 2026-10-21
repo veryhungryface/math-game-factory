@@ -18,29 +18,38 @@ namespace Mgf.GereulKkeonae
         readonly Color ink = MgfLook.Hex("#173457");
         readonly Color foam = MgfLook.Hex("#B7E1E1");
         readonly Color coral = MgfLook.Hex("#FF7B68");
+        readonly Color iron = MgfLook.Hex("#31445A");
+        readonly Color rust = MgfLook.Hex("#B85F3D");
+        readonly Color timber = MgfLook.Hex("#75472E");
+        readonly Color sand = MgfLook.Hex("#E9C98E");
 
         Camera cam;
         Transform world;
         Transform sail;
-        readonly List<Transform> bubbles = new List<Transform>();
-        readonly List<float> bubblePhase = new List<float>();
+        readonly List<Transform> dust = new List<Transform>();
+        readonly List<float> dustPhase = new List<float>();
         readonly List<Transform> crabs = new List<Transform>();
-        readonly List<Transform> kelp = new List<Transform>();
+        readonly List<Transform> pennants = new List<Transform>();
+        readonly List<Transform> bridgePlanks = new List<Transform>();
+        readonly List<Vector3> bridgeHomes = new List<Vector3>();
         Transform reel;
         Transform titleBuoy;
         float worldClock;
 
-        RectTransform canvasRt;
+        RectTransform canvasRt, hudRt, goalRt, promptBackRt;
         CanvasGroup titleGroup, playGroup, revealGroup, endGroup, guideGroup;
         RectTransform titleStartRt, restartRt, rulerRt, handleRt, cutZoneRt, pieceRt, gapHitRt, netRt;
         RectTransform rippleRt, guideHandRt, guideRingRt;
+        RectTransform titleGuideHandRt, titleGuideRingRt;
         Image titleBuoyImg, handleImg, cutBladeImg, pieceImg, rippleImg, guideRingImg;
         readonly Image[] guideDots = new Image[7];
+        readonly Image[] titleGuideDots = new Image[6];
         readonly Image[] buoyIcons = new Image[3];
         readonly Image[] netEdges = new Image[3];
         readonly Image[] netTicks = new Image[4];
         Image bisectorLine, tensionWave, netPlate;
         readonly TMP_Text[] vertexLabels = new TMP_Text[4];
+        readonly List<TMP_Text> rulerLabels = new List<TMP_Text>();
         TMP_Text titleBest, hudRound, hudScore, hudTime, goalText, promptText, readoutText, stepText;
         TMP_Text givenText, proofText, toastText, revealTitle, revealBody, endTitle, endStats, endScore;
         TMP_Text pieceLabel, handleLabel;
@@ -52,6 +61,8 @@ namespace Mgf.GereulKkeonae
         bool revealCorrect;
         int revealCut;
         float buoyPress;
+        float titleGuideStrongClock;
+        Vector2 titleGuideFrom;
 
         static Sprite softSprite;
         static Sprite SoftSprite
@@ -73,81 +84,111 @@ namespace Mgf.GereulKkeonae
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#66CFF2"), cobalt, MgfLook.Hex("#082A5C"), .82f);
-            MgfLook.Sun(new Vector3(38, -28, -18), new Color(.8f, .95f, 1f), 1.15f, .55f);
-            cam = MgfLook.Camera(new Vector3(0, 8.5f, -19f), new Vector3(0, 2.4f, 1.2f), 38f);
-            cam.orthographic = true; cam.orthographicSize = 8.5f; cam.backgroundColor = cobalt;
-            world = new GameObject("CobaltCoralRescueWorld").transform;
+            MgfLook.Sky(MgfLook.Hex("#FFD79B"), MgfLook.Hex("#D87A58"), MgfLook.Hex("#403247"), .76f);
+            MgfLook.Sun(new Vector3(42, -32, -24), new Color(1f, .82f, .58f), 1.28f, .58f);
+            cam = MgfLook.Camera(new Vector3(0, 8.8f, -19f), new Vector3(0, 2.5f, 1.4f), 35f);
+            cam.orthographic = true; cam.orthographicSize = 8.5f; cam.backgroundColor = MgfLook.Hex("#D87A58");
+            world = new GameObject("DryTideRiggingYard").transform;
 
-            var floor = MgfLook.Prim(PrimitiveType.Plane, "Seafloor", new Vector3(0, -.7f, 4f), new Vector3(5.2f, 1, 5.2f), MgfLook.Lit(MgfLook.Hex("#1760A0"), .24f), world, false);
-            floor.GetComponent<Renderer>().receiveShadows = true;
-            var back = MgfLook.Prim(PrimitiveType.Quad, "DeepWater", new Vector3(0, 8f, 14f), new Vector3(42, 25, 1), MgfLook.Unlit(cobalt), world, false);
+            var back = MgfLook.Prim(PrimitiveType.Quad, "DuskBackdrop", new Vector3(0, 8f, 15f), new Vector3(42, 25, 1), MgfLook.Unlit(MgfLook.Hex("#C96650")), world, false);
             back.transform.rotation = Quaternion.Euler(0, 180, 0);
+            var deckDark = MgfLook.Lit(timber, .18f, 0f);
+            var deckLight = MgfLook.Lit(MgfLook.Hex("#95603B"), .2f, 0f);
+            for (int i = -7; i <= 7; i++)
+            {
+                var plank = MgfLook.Block("SunBakedDeckPlank", new Vector3(i * 1.35f, -.52f + (i & 1) * .025f, 4.1f), new Vector3(1.26f, .32f, 11.8f), .11f, (i & 1) == 0 ? deckDark : deckLight, world);
+                plank.transform.rotation = Quaternion.Euler(0, (i % 3 - 1) * .7f, 0);
+            }
 
-            var rock = MgfLook.Lit(MgfLook.Hex("#466C8E"), .2f, 0f);
-            var rockLight = MgfLook.Lit(MgfLook.Hex("#7098AA"), .23f, 0f);
-            var coralMat = MgfLook.Lit(coral, .3f, 0f);
-            var blueCoral = MgfLook.Lit(MgfLook.Hex("#225A89"), .2f, 0f);
-            var shell = MgfLook.Lit(ivory, .45f, .05f);
+            var ironMat = MgfLook.Lit(iron, .32f, .28f);
+            var rustMat = MgfLook.Lit(rust, .24f, .16f);
             for (int side = -1; side <= 1; side += 2)
-            for (int i = 0; i < 9; i++)
             {
-                float x = side * (6.0f + (i % 3) * .75f), z = -1f + i * 1.55f;
-                var r = MgfLook.Prim(PrimitiveType.Sphere, "ScallopedCliff", new Vector3(x, .25f + (i % 2) * .45f, z), new Vector3(2.2f, 1.2f + (i % 3) * .3f, 1.7f), i % 2 == 0 ? rock : rockLight, world, false);
-                r.transform.rotation = Quaternion.Euler(0, i * 27, side * 5);
+                MgfLook.Block("CraneLeg", new Vector3(side * 6.25f, 3.25f, 5.6f), new Vector3(.48f, 7.5f, .56f), .12f, ironMat, world);
+                MgfLook.Block("CraneFoot", new Vector3(side * 6.25f, -.05f, 5.6f), new Vector3(2.1f, .38f, 2.2f), .16f, rustMat, world);
                 for (int j = 0; j < 3; j++)
-                {
-                    var c = MgfLook.Prim(PrimitiveType.Sphere, "CoralKnob", new Vector3(x + side * (.25f + j * .25f), 1.05f + j * .28f, z - .45f + j * .32f), Vector3.one * (.28f + j * .05f), j == 1 ? coralMat : blueCoral, world, false);
-                    c.transform.localScale = new Vector3(.5f, 1.5f, .5f) * (.55f + j * .08f);
-                }
+                    BeamBetween("CraneBrace", new Vector3(side * 6.05f, .8f + j * 2.1f, 5.35f), new Vector3(side * 4.7f, 2.35f + j * 2.1f, 5.35f), .1f, rustMat, world);
             }
-            for (int i = 0; i < 7; i++)
-            {
-                float x = -5.4f + i * 1.8f;
-                var s = MgfLook.Prim(PrimitiveType.Sphere, "Shell", new Vector3(x, -.25f, 1f + (i % 3) * 1.9f), new Vector3(.7f, .18f, .55f), shell, world, false);
-                s.transform.rotation = Quaternion.Euler(0, i * 41, 0);
-            }
-            BuildKelp(); BuildBubbles(); BuildReel(); BuildSail();
-            titleBuoy = new GameObject("WorldBuoy").transform; titleBuoy.SetParent(world, false); titleBuoy.position = new Vector3(0, .3f, -1.2f);
-            var buoyMat = MgfLook.Lit(tangerine, .42f, .02f);
+            MgfLook.Block("CraneTopRail", new Vector3(0, 6.7f, 5.6f), new Vector3(13.1f, .48f, .62f), .12f, ironMat, world);
+            BuildPulleys(ironMat, rustMat);
+            BuildRopeBridge(deckLight, ironMat);
+            BuildPennants(); BuildDust(); BuildReel(); BuildSail();
+
+            titleBuoy = new GameObject("SuspendedStartHook").transform; titleBuoy.SetParent(world, false); titleBuoy.position = new Vector3(0, 1.25f, -.8f);
+            var hookMat = MgfLook.Lit(tangerine, .38f, .18f);
             for (int i = 0; i < 8; i++)
             {
                 float a = i * Mathf.PI * .25f;
-                MgfLook.Prim(PrimitiveType.Sphere, "BuoyArc", new Vector3(Mathf.Cos(a) * .72f, .18f, Mathf.Sin(a) * .72f), new Vector3(.48f, .18f, .48f), buoyMat, titleBuoy, false);
+                MgfLook.Prim(PrimitiveType.Cylinder, "HookRing", new Vector3(Mathf.Cos(a) * .7f, Mathf.Sin(a) * .7f, 0), new Vector3(.13f, .38f, .13f), hookMat, titleBuoy, false).transform.rotation = Quaternion.Euler(0, 0, -a * Mathf.Rad2Deg);
             }
-            for (int i = 0; i < 8; i++) crabs.Add(BuildCrab(new Vector3(-4.8f + (i % 4) * 3.2f, .15f, 3.6f + (i / 4) * 3.8f), .62f + (i % 3) * .06f));
+            crabs.Add(BuildDockCrab(new Vector3(-.2f, .08f, 2.1f), .75f));
         }
 
-        void BuildKelp()
+        GameObject BeamBetween(string name, Vector3 a, Vector3 b, float radius, Material mat, Transform parent)
         {
-            var mat = MgfLook.Lit(MgfLook.Hex("#2F8A77"), .25f);
-            for (int i = 0; i < 12; i++)
+            Vector3 d = b - a;
+            var beam = MgfLook.Prim(PrimitiveType.Cylinder, name, (a + b) * .5f, new Vector3(radius, d.magnitude * .5f, radius), mat, parent, false);
+            beam.transform.rotation = Quaternion.FromToRotation(Vector3.up, d.normalized);
+            return beam;
+        }
+
+        void BuildPulleys(Material ironMat, Material rustMat)
+        {
+            for (int side = -1; side <= 1; side += 2)
             {
-                float x = -8f + i * 1.45f;
-                var k = MgfLook.Prim(PrimitiveType.Capsule, "Kelp", new Vector3(x, .65f, 4.5f + (i % 4) * 2f), new Vector3(.18f, .95f + (i % 3) * .2f, .18f), mat, world, false).transform;
-                k.rotation = Quaternion.Euler(0, 0, (i % 2 == 0 ? -1 : 1) * 10f); kelp.Add(k);
+                var pulley = new GameObject("WorkingPulley").transform; pulley.SetParent(world, false); pulley.position = new Vector3(side * 4.65f, 5.65f, 4.9f);
+                MgfLook.Prim(PrimitiveType.Cylinder, "IronWheel", Vector3.zero, new Vector3(.72f, .18f, .72f), ironMat, pulley, false).transform.rotation = Quaternion.Euler(90, 0, 0);
+                MgfLook.Prim(PrimitiveType.Cylinder, "CopperHub", new Vector3(0, 0, -.22f), new Vector3(.24f, .24f, .24f), rustMat, pulley, false).transform.rotation = Quaternion.Euler(90, 0, 0);
+                BeamBetween("SuspensionCord", pulley.position + Vector3.down * .55f, new Vector3(side * 3.9f, .35f, 3.3f), .055f, MgfLook.Lit(sand, .1f), world);
             }
         }
 
-        void BuildBubbles()
+        void BuildRopeBridge(Material plankMat, Material ropeMat)
         {
-            var mat = MgfLook.Alpha(new Color(.82f, .98f, 1f, .38f));
+            var cord = MgfLook.Lit(MgfLook.Hex("#D8B36C"), .12f);
+            BeamBetween("UpperFiberBundleL", new Vector3(-5.1f, 3.2f, 4.4f), new Vector3(5.1f, 3.2f, 4.4f), .065f, cord, world);
+            BeamBetween("UpperFiberBundleR", new Vector3(-5.1f, 3.2f, 5.4f), new Vector3(5.1f, 3.2f, 5.4f), .065f, cord, world);
+            for (int i = 0; i < 11; i++)
+            {
+                float x = -4.55f + i * .91f;
+                float sag = Mathf.Abs(i - 5) * .065f;
+                var p = MgfLook.Block("TensionBridgePlank", new Vector3(x, 1.65f - sag, 4.9f), new Vector3(.76f, .22f, 1.55f), .09f, i % 2 == 0 ? plankMat : ropeMat, world).transform;
+                p.localRotation = Quaternion.Euler(0, 0, (i - 5) * .7f);
+                bridgePlanks.Add(p); bridgeHomes.Add(p.localPosition);
+                BeamBetween("FiberHanger", new Vector3(x, 3.2f, 4.4f), new Vector3(x, 1.82f - sag, 4.55f), .035f, cord, world);
+                BeamBetween("FiberHanger", new Vector3(x, 3.2f, 5.4f), new Vector3(x, 1.82f - sag, 5.25f), .035f, cord, world);
+            }
+        }
+
+        void BuildPennants()
+        {
+            var flagMat = MgfLook.Lit(tangerine, .22f);
+            for (int i = 0; i < 7; i++)
+            {
+                var f = MgfLook.Block("SignalPennant", new Vector3(-4.5f + i * 1.5f, 5.65f, 5.15f), new Vector3(.5f, .65f, .08f), .06f, flagMat, world).transform;
+                f.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? -8 : 8); pennants.Add(f);
+            }
+        }
+
+        void BuildDust()
+        {
+            var mat = MgfLook.Alpha(new Color(1f, .82f, .52f, .26f));
             var rng = new System.Random(17);
-            for (int i = 0; i < 22; i++)
+            for (int i = 0; i < 18; i++)
             {
-                float s = .08f + (float)rng.NextDouble() * .16f;
-                var b = MgfLook.Prim(PrimitiveType.Sphere, "Bubble", new Vector3(-8f + (float)rng.NextDouble() * 16f, (float)rng.NextDouble() * 9f, 2f + (float)rng.NextDouble() * 8f), Vector3.one * s, mat, world, false).transform;
-                bubbles.Add(b); bubblePhase.Add((float)rng.NextDouble() * 8f);
+                float s = .045f + (float)rng.NextDouble() * .08f;
+                var p = MgfLook.Prim(PrimitiveType.Sphere, "SunDust", new Vector3(-8f + (float)rng.NextDouble() * 16f, .2f + (float)rng.NextDouble() * 8f, 1f + (float)rng.NextDouble() * 8f), Vector3.one * s, mat, world, false).transform;
+                dust.Add(p); dustPhase.Add((float)rng.NextDouble() * 8f);
             }
         }
 
         void BuildReel()
         {
-            var ceramic = MgfLook.Lit(ivory, .5f, .08f);
+            var ceramic = MgfLook.Lit(iron, .38f, .35f);
             var cordTex = Resources.Load<Texture2D>("GereulKkeonae/cord-fiber");
             if (cordTex) { cordTex.wrapMode = TextureWrapMode.Repeat; cordTex.filterMode = FilterMode.Bilinear; }
             var cordMat = MgfLook.Lit(ivory, .15f, 0f, null, cordTex);
-            reel = new GameObject("CeramicMeasuringReel").transform; reel.SetParent(world, false); reel.position = new Vector3(4.9f, .35f, .6f);
+            reel = new GameObject("SteelMeasuringReel").transform; reel.SetParent(world, false); reel.position = new Vector3(4.9f, .45f, .6f);
             MgfLook.Prim(PrimitiveType.Cylinder, "ReelBody", Vector3.zero, new Vector3(1.15f, .38f, 1.15f), ceramic, reel, false).transform.rotation = Quaternion.Euler(90, 0, 0);
             for (int i = 0; i < 10; i++)
             {
@@ -156,17 +197,17 @@ namespace Mgf.GereulKkeonae
             }
         }
 
-        Transform BuildCrab(Vector3 pos, float scale)
+        Transform BuildDockCrab(Vector3 pos, float scale)
         {
-            var root = new GameObject("CoralCrab").transform; root.SetParent(world, false); root.position = pos; root.localScale = Vector3.one * scale;
-            var orange = MgfLook.Lit(tangerine, .38f, .02f);
-            var cream = MgfLook.Lit(MgfLook.Hex("#FFE0A8"), .35f);
-            MgfLook.Prim(PrimitiveType.Sphere, "PebbleBody", new Vector3(0, .48f, 0), new Vector3(1.15f, .62f, .8f), orange, root, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "Belly", new Vector3(0, .35f, -.38f), new Vector3(.65f, .35f, .16f), cream, root, false);
+            var root = new GameObject("RiggerCrab").transform; root.SetParent(world, false); root.position = pos; root.localScale = Vector3.one * scale;
+            var orange = MgfLook.Lit(rust, .32f, .08f);
+            var cream = MgfLook.Lit(sand, .28f);
+            MgfLook.Block("AngularBody", new Vector3(0, .48f, 0), new Vector3(1.4f, .62f, .82f), .15f, orange, root);
+            MgfLook.Block("CanvasApron", new Vector3(0, .34f, -.43f), new Vector3(.72f, .32f, .12f), .08f, cream, root);
             for (int side = -1; side <= 1; side += 2)
             {
-                for (int j = 0; j < 2; j++) MgfLook.Prim(PrimitiveType.Capsule, "Leg", new Vector3(side * (.65f + j * .18f), .2f, .05f + j * .24f), new Vector3(.12f, .38f, .12f), orange, root, false).transform.rotation = Quaternion.Euler(0, 0, side * 58);
-                MgfLook.Prim(PrimitiveType.Sphere, "Claw", new Vector3(side * 1.02f, .65f, -.05f), new Vector3(.55f + (side > 0 ? .15f : 0), .45f, .3f), orange, root, false);
+                for (int j = 0; j < 2; j++) BeamBetween("JointedLeg", new Vector3(side * .52f, .3f, j * .24f), new Vector3(side * (1.02f + j * .12f), .08f, .05f + j * .35f), .07f, orange, root);
+                MgfLook.Block("ClampClaw", new Vector3(side * 1.02f, .68f, -.05f), new Vector3(.58f + (side > 0 ? .12f : 0), .42f, .32f), .12f, orange, root);
                 MgfLook.Prim(PrimitiveType.Sphere, "Eye", new Vector3(side * .3f, .95f, -.18f), Vector3.one * .16f, MgfLook.Lit(ink, .6f), root, false);
             }
             return root;
@@ -174,10 +215,10 @@ namespace Mgf.GereulKkeonae
 
         void BuildSail()
         {
-            sail = new GameObject("ShipwreckSail").transform; sail.SetParent(world, false); sail.position = new Vector3(0, 6.7f, 5.8f);
-            var cloth = MgfLook.Block("BentSail", Vector3.zero, new Vector3(5.9f, 2.35f, .12f), .38f, MgfLook.Lit(ivory, .15f), sail);
+            sail = new GameObject("CraneWorkshopSign").transform; sail.SetParent(world, false); sail.position = new Vector3(0, 6.45f, 4.55f);
+            var cloth = MgfLook.Block("WeatheredCanvasSign", Vector3.zero, new Vector3(5.9f, 2.05f, .12f), .22f, MgfLook.Lit(sand, .15f), sail);
             UnityEngine.Object.Destroy(cloth.GetComponent<Collider>());
-            sail.rotation = Quaternion.Euler(4, 0, -2);
+            sail.rotation = Quaternion.Euler(2, 0, -1);
             var shadow = MgfText.World("게를 꺼내", new Vector3(.08f, .05f, -.12f), 7.8f, new Color(.05f, .15f, .27f, .48f), sail);
             var logo = MgfText.World("게를 꺼내", new Vector3(0, .12f, -.14f), 7.8f, ink, sail);
             shadow.alignment = logo.alignment = TextAlignmentOptions.Center;
@@ -218,23 +259,30 @@ namespace Mgf.GereulKkeonae
 
         void BuildTitleUi()
         {
-            titleBuoyImg = Img("FloatingStartBuoy", titleGroup.transform, new Color(1f, .62f, .23f, .98f), new Vector2(116, 116), new Vector2(.5f, .18f), Vector2.zero, true);
-            titleStartRt = titleBuoyImg.rectTransform;
-            Img("BuoyHole", titleBuoyImg.transform, new Color(.1f, .28f, .48f, .96f), new Vector2(54, 54), new Vector2(.5f, .5f), Vector2.zero, true);
-            Txt("BuoyVerb", titleBuoyImg.transform, "구조 시작", 17, ivory, new Vector2(130, 34), new Vector2(.5f, .5f), new Vector2(0, -78));
-            Txt("TitleTagline", titleGroup.transform, "줄을 재서 잘라라", 19, ivory, new Vector2(300, 38), new Vector2(.5f, .5f), new Vector2(0, 8));
+            // 중앙 첫은 firstplay 하네스를 포함한 첫 탐색의 첫시 신호다.
+            // 부표와 문구를 하나의 96px CTA로 묶어 누르는 대상이 한눈에 보이게 한다.
+            var tagFrame = Img("RiggingStartFrame", titleGroup.transform, new Color(.09f, .16f, .23f, .98f), new Vector2(306, 110), new Vector2(.5f, .5f), Vector2.zero);
+            titleBuoyImg = Img("RiggingStartTag", tagFrame.transform, new Color(1f, .48f, .12f, .99f), new Vector2(286, 90), new Vector2(.5f, .5f), Vector2.zero);
+            titleStartRt = tagFrame.rectTransform;
+            Img("TagEyelet", titleBuoyImg.transform, iron, new Vector2(54, 54), new Vector2(.16f, .5f), Vector2.zero, true);
+            Img("TagEyeletHole", titleBuoyImg.transform, sand, new Vector2(25, 25), new Vector2(.16f, .5f), Vector2.zero, true);
+            Txt("BuoyVerb", titleBuoyImg.transform, "도르래를 누르면  구조 시작", 17, ivory, new Vector2(220, 54), new Vector2(.61f, .5f), Vector2.zero);
+            Txt("TitleTagline", titleGroup.transform, "줄을 재서 조간대 다리를 펼쳐라", 18, ivory, new Vector2(350, 42), new Vector2(.5f, .34f), Vector2.zero);
             Txt("TitleGrade", titleGroup.transform, "중학교 2학년 · 삼각형의 성질", 12, new Color(1, 1, 1, .88f), new Vector2(300, 28), new Vector2(.5f, .06f), Vector2.zero);
             titleBest = Txt("TitleBest", titleGroup.transform, "", 12, ivory, new Vector2(260, 26), new Vector2(.5f, .11f), Vector2.zero);
+            titleGuideRingRt = Img("TitleTargetPulse", titleGroup.transform, new Color(1f, .85f, .48f, .55f), new Vector2(310, 116), new Vector2(.5f, .5f), Vector2.zero, true).rectTransform;
+            titleGuideHandRt = Txt("TitlePointer", titleGroup.transform, "●", 30, ivory, new Vector2(50, 50), new Vector2(.5f, .5f), new Vector2(0, 105)).rectTransform;
+            for (int i = 0; i < titleGuideDots.Length; i++) titleGuideDots[i] = Img("TitlePath" + i, titleGroup.transform, new Color(1f, .9f, .55f, .75f), new Vector2(10, 10), new Vector2(.5f, .5f), Vector2.zero, true);
         }
 
         void BuildPlayUi()
         {
-            var hud = Img("HudRibbon", playGroup.transform, new Color(.04f, .16f, .28f, .88f), new Vector2(374, 52), new Vector2(.5f, 1), new Vector2(0, -29));
+            var hud = Img("HudRibbon", playGroup.transform, new Color(.04f, .16f, .28f, .88f), new Vector2(374, 52), new Vector2(.5f, 1), new Vector2(0, -29)); hudRt = hud.rectTransform;
             hudRound = Txt("Round", hud.transform, "그물 1/8", 15, ivory, new Vector2(110, 36), new Vector2(.16f, .5f), Vector2.zero);
             hudScore = Txt("Score", hud.transform, "0점", 15, ivory, new Vector2(90, 36), new Vector2(.5f, .5f), Vector2.zero);
             hudTime = Txt("Time", hud.transform, "120초", 15, ivory, new Vector2(90, 36), new Vector2(.82f, .5f), Vector2.zero);
             for (int i = 0; i < 3; i++) buoyIcons[i] = Img("SafetyBuoy" + i, hud.transform, tangerine, new Vector2(22, 22), new Vector2(.68f + i * .065f, .5f), Vector2.zero, true);
-            var goal = Img("GoalLine", playGroup.transform, new Color(.95f, .98f, .9f, .96f), new Vector2(374, 38), new Vector2(.5f, 1), new Vector2(0, -76));
+            var goal = Img("GoalLine", playGroup.transform, new Color(.95f, .98f, .9f, .96f), new Vector2(374, 38), new Vector2(.5f, 1), new Vector2(0, -76)); goalRt = goal.rectTransform;
             goalText = Txt("Goal", goal.transform, "줄을 맞게 잘라 게를 꺼내시오", 14, ink, new Vector2(360, 34), new Vector2(.5f, .5f), Vector2.zero);
 
             netRt = (RectTransform)new GameObject("GeometryNet", typeof(RectTransform)).transform; netRt.SetParent(playGroup.transform, false);
@@ -245,6 +293,7 @@ namespace Mgf.GereulKkeonae
             for (int i = 0; i < 4; i++) vertexLabels[i] = Txt("Vertex" + i, netRt, "ABCD"[i].ToString(), 20, ivory, new Vector2(36, 30), new Vector2(.5f, .5f), Vector2.zero);
             for (int i = 0; i < 4; i++) netTicks[i] = Img("EqualMark" + i, netRt, tangerine, new Vector2(4, 20), new Vector2(.5f, .5f), Vector2.zero);
             givenText = Txt("Given", netRt, "", 17, ivory, new Vector2(340, 58), new Vector2(.5f, .1f), Vector2.zero);
+            promptBackRt = Img("PromptBacking", playGroup.transform, new Color(1f, .91f, .76f, .9f), new Vector2(374, 88), new Vector2(.5f, .5f), Vector2.zero, true).rectTransform;
             promptText = Txt("Prompt", playGroup.transform, "", 16, ink, new Vector2(360, 74), new Vector2(.5f, .5f), Vector2.zero);
             proofText = Txt("Proof", playGroup.transform, "", 15, ink, new Vector2(360, 56), new Vector2(.5f, .5f), Vector2.zero);
 
@@ -254,7 +303,7 @@ namespace Mgf.GereulKkeonae
             {
                 float x = -158f + i * (316f / 23f);
                 Img("Tick" + (i + 1), rulerRt, ink, new Vector2(i % 3 == 2 ? 3 : 2, i % 3 == 2 ? 24 : 14), new Vector2(.5f, .5f), new Vector2(x, -14));
-                if (i % 3 == 2) Txt("TickLabel" + (i + 1), rulerRt, (i + 1).ToString(), 10, ink, new Vector2(28, 18), new Vector2(.5f, .5f), new Vector2(x, 18));
+                if (i % 3 == 2) rulerLabels.Add(Txt("TickLabel" + (i + 1), rulerRt, (i + 1).ToString(), 10, ink, new Vector2(28, 18), new Vector2(.5f, .5f), new Vector2(x, 18)));
             }
             handleImg = Img("RoundKnotHandle", rulerRt, tangerine, new Vector2(66, 66), new Vector2(.5f, .5f), Vector2.zero, true); handleRt = handleImg.rectTransform;
             handleLabel = Txt("HandleLength", handleRt, "3", 18, ink, new Vector2(50, 30), new Vector2(.5f, .5f), Vector2.zero);
@@ -319,7 +368,7 @@ namespace Mgf.GereulKkeonae
         public void LoadProblem(NetProblem p, bool practice)
         {
             shownProblem = p; promptText.text = p.prompt; proofText.text = ""; proofText.gameObject.SetActive(false);
-            givenText.text = p.band == 1 ? "같은 밑각 ∠B = ∠C" : "AB = AC · AD는 꼭지각의 이등분선";
+            givenText.text = p.band == 1 ? "같은 밑각  ∠B = ∠C" : "선분 AB = 선분 AC · D는 이등분선과 선분 BC의 교점";
             SetPulledLength(game.State.drawnLength, false); pieceRt.gameObject.SetActive(false);
             stepText.text = "① 둥근 매듭을 끌어 줄 길이를 정하시오";
             DrawNet(p); guideClock = 0f; guideStrong = practice; RefreshHud(true); Relayout(true);
@@ -397,11 +446,15 @@ namespace Mgf.GereulKkeonae
             toastText.text = message; toastText.transform.parent.gameObject.SetActive(true); toastClock = 2.2f;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, screen, null, out var local); rippleRt.anchoredPosition = local;
             rippleClock = .42f; rippleImg.color = new Color(1f, .76f, .28f, .9f); rippleRt.localScale = Vector3.one * .5f;
-            if (guide) { guideClock = 0f; guideStrong = true; SetGroup(guideGroup, true); }
+            if (game.CurrentFlow == GereulKkeonaeGame.Flow.Title)
+            {
+                titleGuideFrom = local; titleGuideStrongClock = 2.8f;
+            }
+            else if (guide) { guideClock = 0f; guideStrong = true; SetGroup(guideGroup, true); }
             MgfFx.Punch(toastText.transform.parent, .08f, .2f);
         }
 
-        public bool HitStart(Vector2 p) => Contains(titleStartRt, p);
+        public bool HitStart(Vector2 p) => ContainsExpanded(titleStartRt, p, 22);
         public bool HitRestart(Vector2 p) => Contains(restartRt, p);
         public bool HitHandleOrRuler(Vector2 p) => ContainsExpanded(handleRt, p, 18) || Contains(rulerRt, p);
         public bool HitCutZone(Vector2 p) => ContainsExpanded(cutZoneRt, p, 46);
@@ -429,8 +482,9 @@ namespace Mgf.GereulKkeonae
         public void SetPulledLength(int cm, bool animated)
         {
             cm = Mathf.Clamp(cm, 1, 24); float t = (cm - 1) / 23f;
-            if (isWide) handleRt.anchoredPosition = new Vector2(0, Mathf.Lerp(-118, 118, t));
-            else handleRt.anchoredPosition = new Vector2(Mathf.Lerp(-158, 158, t), -14);
+            // 자는 가로 로컬을 그대로 돌린다. 가로 화면에서도 눈금은 로컬 x축이므로
+            // 손잡이를 y축으로 옮기면 눈금과 읽기값이 어긋난다.
+            handleRt.anchoredPosition = new Vector2(Mathf.Lerp(-158, 158, t), -14);
             handleLabel.text = cm.ToString(); readoutText.text = cm + " cm";
             SyncTestGeometry();
             if (animated) { handleRt.localScale = new Vector3(1.08f, .92f, 1); MgfSfx.Play("tap", .08f); }
@@ -453,29 +507,29 @@ namespace Mgf.GereulKkeonae
 
         public void Tick(float dt)
         {
-            worldClock += dt; Relayout(false); AnimateWorld(dt); RefreshHud(false); UpdateGuide(dt); UpdateFeedback(dt);
+            worldClock += dt; Relayout(false); AnimateWorld(dt); UpdateTitleGuide(dt); RefreshHud(false); UpdateGuide(dt); UpdateFeedback(dt);
         }
 
         void AnimateWorld(float dt)
         {
-            for (int i = 0; i < bubbles.Count; i++)
+            for (int i = 0; i < dust.Count; i++)
             {
-                var p = bubbles[i].position; p.y += dt * (.32f + (i % 5) * .055f); p.x += Mathf.Sin(worldClock * .7f + bubblePhase[i]) * dt * .08f;
-                if (p.y > 10f) p.y = -.25f; bubbles[i].position = p;
+                var p = dust[i].position; p.y += dt * (.12f + (i % 5) * .025f); p.x += Mathf.Sin(worldClock * .55f + dustPhase[i]) * dt * .06f;
+                if (p.y > 9.5f) p.y = .15f; dust[i].position = p;
             }
-            for (int i = 0; i < kelp.Count; i++) kelp[i].localRotation = Quaternion.Euler(0, 0, Mathf.Sin(worldClock * .75f + i) * 13f);
+            for (int i = 0; i < pennants.Count; i++) pennants[i].localRotation = Quaternion.Euler(0, Mathf.Sin(worldClock * 1.15f + i) * 10f, Mathf.Sin(worldClock * .9f + i) * 8f);
             for (int i = 0; i < crabs.Count; i++)
             {
-                float bob = Mathf.Sin(worldClock * 2f + i * .7f) * .055f;
-                var p = crabs[i].position; p.y = .15f + bob;
+                float bob = Mathf.Sin(worldClock * 2f + i * .7f) * .035f;
+                var p = crabs[i].position; p.x = -.2f; p.y = .08f + bob;
                 if (revealCorrect && game.CurrentFlow == GereulKkeonaeGame.Flow.Reveal)
                 {
-                    float k = Mathf.Clamp01(revealVisualClock / 1.25f); p.y += Mathf.SmoothStep(0, 2.2f, k); p.x += Mathf.Sin(k * Mathf.PI) * .35f;
+                    float k = Mathf.Clamp01(revealVisualClock / 1.25f); p.x = Mathf.Lerp(-.2f, 3.8f, k); p.y += Mathf.Sin(k * Mathf.PI) * .7f;
                 }
-                crabs[i].position = p; crabs[i].rotation = Quaternion.Euler(0, Mathf.Sin(worldClock * 1.3f + i) * 6f, Mathf.Sin(worldClock * 2.4f + i) * 3f);
+                crabs[i].position = p; crabs[i].rotation = Quaternion.Euler(0, Mathf.Sin(worldClock * 1.3f + i) * 7f, Mathf.Sin(worldClock * 2.4f + i) * 2f);
             }
-            reel.rotation = Quaternion.Euler(0, 0, worldClock * 8f);
-            if (sail.gameObject.activeSelf) sail.localRotation = Quaternion.Euler(3 + Mathf.Sin(worldClock * .7f) * 1.3f, 0, -2 + Mathf.Sin(worldClock * .5f) * 1.2f);
+            reel.rotation = Quaternion.Euler(0, 0, worldClock * 5f);
+            if (sail.gameObject.activeSelf) sail.localRotation = Quaternion.Euler(2 + Mathf.Sin(worldClock * .7f) * .65f, 0, -1 + Mathf.Sin(worldClock * .5f) * .6f);
             float pulse = 1f + Mathf.Sin(worldClock * 2.4f) * .055f; titleStartRt.localScale = Vector3.Lerp(titleStartRt.localScale, Vector3.one * pulse, dt * 6f);
             if (buoyPress > 0) buoyPress -= dt;
             if (game.CurrentFlow == GereulKkeonaeGame.Flow.Reveal)
@@ -488,6 +542,13 @@ namespace Mgf.GereulKkeonae
                     tensionWave.color = new Color(1f, .8f, .3f, (1f - k) * .9f);
                     tensionWave.rectTransform.anchoredPosition = Vector2.Lerp(vertexLabels[1].rectTransform.anchoredPosition, vertexLabels[(Mathf.FloorToInt(k * 3) + 1) % 3].rectTransform.anchoredPosition, Mathf.Repeat(k * 3, 1));
                     tensionWave.rectTransform.localScale = Vector3.one * (1f + k * 1.4f);
+                    for (int i = 0; i < bridgePlanks.Count; i++)
+                    {
+                        float delay = Mathf.Clamp01(k * 1.45f - i * .045f);
+                        Vector3 home = bridgeHomes[i];
+                        bridgePlanks[i].localPosition = home + Vector3.down * ((1f - delay) * (.48f + Mathf.Abs(i - 5) * .035f));
+                        bridgePlanks[i].localRotation = Quaternion.Euler(0, 0, Mathf.Lerp((i - 5) * 2.2f, 0f, delay));
+                    }
                 }
                 else
                 {
@@ -495,7 +556,36 @@ namespace Mgf.GereulKkeonae
                     pieceRt.localRotation = Quaternion.Euler(0, 0, sag * .2f); pieceRt.anchoredPosition = pieceHome + new Vector2(0, -Mathf.Abs(sag));
                 }
             }
-            else { netRt.localScale = Vector3.one; tensionWave.color = new Color(1, 1, 1, 0); pieceRt.localRotation = Quaternion.identity; }
+            else
+            {
+                netRt.localScale = Vector3.one; tensionWave.color = new Color(1, 1, 1, 0); pieceRt.localRotation = Quaternion.identity;
+                for (int i = 0; i < bridgePlanks.Count; i++)
+                {
+                    bridgePlanks[i].localPosition = bridgeHomes[i];
+                    bridgePlanks[i].localRotation = Quaternion.Euler(0, 0, (i - 5) * .7f);
+                }
+            }
+        }
+
+        void UpdateTitleGuide(float dt)
+        {
+            if (titleGroup.alpha <= 0) return;
+            if (titleGuideStrongClock > 0) titleGuideStrongClock -= dt;
+            Vector2 target = CenterLocal(titleStartRt);
+            Vector2 start = titleGuideStrongClock > 0 ? titleGuideFrom : target + new Vector2(0, 112);
+            float ph = Mathf.Repeat(worldClock / 1.15f, 1f);
+            float move = Mathf.SmoothStep(0, 1, Mathf.Clamp01((ph - .08f) / .72f));
+            titleGuideHandRt.anchoredPosition = Vector2.Lerp(start, target, move);
+            titleGuideHandRt.localScale = Vector3.one * (ph < .12f ? .8f : 1f);
+            titleGuideRingRt.anchoredPosition = target;
+            titleGuideRingRt.localScale = Vector3.one * (.9f + ph * .16f);
+            var ring = titleGuideRingRt.GetComponent<Image>(); ring.color = new Color(1f, .85f, .48f, (1f - ph) * .32f);
+            for (int i = 0; i < titleGuideDots.Length; i++)
+            {
+                float f = (i + 1f) / (titleGuideDots.Length + 1f);
+                titleGuideDots[i].rectTransform.anchoredPosition = Vector2.Lerp(start, target, f);
+                titleGuideDots[i].color = new Color(1f, .92f, .6f, .28f + .68f * Mathf.Repeat(f - worldClock * .75f, 1f));
+            }
         }
 
         void RefreshHud(bool force)
@@ -543,7 +633,7 @@ namespace Mgf.GereulKkeonae
             if (game.CurrentStep == GereulKkeonaeGame.ToolStep.Pull)
             {
                 a = CenterLocal(handleRt); int target = game.State.onboarding && shownProblem != null ? shownProblem.answerCm : Mathf.Clamp(game.State.drawnLength + 5, 1, 24);
-                float t = (target - 1) / 23f; b = CenterLocal(rulerRt) + (isWide ? new Vector2(0, Mathf.Lerp(-118, 118, t)) : new Vector2(Mathf.Lerp(-158, 158, t), -14));
+                b = RulerPointLocal(target);
             }
             else if (game.CurrentStep == GereulKkeonaeGame.ToolStep.Cut)
             {
@@ -599,21 +689,39 @@ namespace Mgf.GereulKkeonae
             float w = canvasRt.rect.width, h = canvasRt.rect.height;
             if (isWide)
             {
-                cam.orthographicSize = 7.4f; netRt.anchorMin = netRt.anchorMax = new Vector2(.34f, .55f); netRt.anchoredPosition = new Vector2(0, -5); netPlate.rectTransform.sizeDelta = new Vector2(Mathf.Min(690, w * .58f), 500);
-                rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(.84f, .5f); rulerRt.anchoredPosition = Vector2.zero; rulerRt.localRotation = Quaternion.Euler(0, 0, 90); rulerRt.sizeDelta = new Vector2(360, 142);
-                handleLabel.rectTransform.localRotation = Quaternion.Euler(0, 0, -90); readoutText.rectTransform.localRotation = Quaternion.Euler(0, 0, -90);
-                promptText.rectTransform.anchorMin = promptText.rectTransform.anchorMax = new Vector2(.34f, .89f); promptText.rectTransform.anchoredPosition = Vector2.zero; promptText.rectTransform.sizeDelta = new Vector2(Mathf.Min(690, w * .58f), 70);
-                proofText.rectTransform.anchorMin = proofText.rectTransform.anchorMax = new Vector2(.34f, .17f); proofText.rectTransform.anchoredPosition = Vector2.zero; proofText.rectTransform.sizeDelta = new Vector2(Mathf.Min(690, w * .58f), 56);
-                stepText.rectTransform.anchorMin = stepText.rectTransform.anchorMax = new Vector2(.84f, .17f); stepText.rectTransform.anchoredPosition = Vector2.zero; stepText.rectTransform.sizeDelta = new Vector2(Mathf.Min(350, w * .27f), 56);
-                pieceHome = new Vector2(w * .34f, -h * .28f); pieceRt.anchorMin = pieceRt.anchorMax = new Vector2(.5f, .5f); pieceRt.anchoredPosition = pieceHome;
+                // 가로는 좌측 60% 문제·삼각형, 우측 30% 자·조작으로 분리한다.
+                // 각 요소는 자기 영역의 정규화 anchor에만 묶여 1280~2000px에서 서로 넘지 않는다.
+                cam.orthographicSize = 7.15f;
+                hudRt.anchorMin = hudRt.anchorMax = new Vector2(.5f, 1f); hudRt.anchoredPosition = new Vector2(0, -20); hudRt.sizeDelta = new Vector2(Mathf.Min(600, w - 24), 40);
+                goalRt.anchorMin = goalRt.anchorMax = new Vector2(.5f, 1f); goalRt.anchoredPosition = new Vector2(0, -55); goalRt.sizeDelta = new Vector2(Mathf.Min(600, w - 24), 28);
+
+                promptBackRt.anchorMin = promptBackRt.anchorMax = new Vector2(.30f, .76f); promptBackRt.anchoredPosition = Vector2.zero; promptBackRt.sizeDelta = new Vector2(Mathf.Min(370, w * .59f), 84);
+                promptText.rectTransform.anchorMin = promptText.rectTransform.anchorMax = new Vector2(.30f, .76f); promptText.rectTransform.anchoredPosition = Vector2.zero; promptText.rectTransform.sizeDelta = new Vector2(Mathf.Min(352, w * .56f), 76); promptText.fontSize = 13;
+                netRt.anchorMin = netRt.anchorMax = new Vector2(.30f, .38f); netRt.anchoredPosition = Vector2.zero; netRt.localScale = Vector3.one;
+                netPlate.rectTransform.sizeDelta = new Vector2(Mathf.Min(350, w * .58f), 220);
+                givenText.rectTransform.anchorMin = givenText.rectTransform.anchorMax = new Vector2(.5f, .5f); givenText.rectTransform.anchoredPosition = new Vector2(0, -118); givenText.rectTransform.sizeDelta = new Vector2(Mathf.Min(338, w * .55f), 38); givenText.fontSize = 12;
+                proofText.rectTransform.anchorMin = proofText.rectTransform.anchorMax = new Vector2(.30f, .075f); proofText.rectTransform.anchoredPosition = Vector2.zero; proofText.rectTransform.sizeDelta = new Vector2(Mathf.Min(355, w * .58f), 42); proofText.fontSize = 12;
+
+                rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(.82f, .48f); rulerRt.anchoredPosition = Vector2.zero; rulerRt.localRotation = Quaternion.Euler(0, 0, 90); rulerRt.localScale = Vector3.one * .78f; rulerRt.sizeDelta = new Vector2(360, 142);
+                handleLabel.rectTransform.localRotation = Quaternion.Euler(0, 0, -90); readoutText.rectTransform.localRotation = Quaternion.Euler(0, 0, -90); readoutText.rectTransform.anchoredPosition = new Vector2(0, -56);
+                for (int i = 0; i < rulerLabels.Count; i++) rulerLabels[i].rectTransform.localRotation = Quaternion.Euler(0, 0, -90);
+                stepText.rectTransform.anchorMin = stepText.rectTransform.anchorMax = new Vector2(.82f, .09f); stepText.rectTransform.anchoredPosition = Vector2.zero; stepText.rectTransform.sizeDelta = new Vector2(Mathf.Min(220, w * .32f), 45); stepText.fontSize = 12;
+                pieceRt.anchorMin = pieceRt.anchorMax = new Vector2(.82f, .13f); pieceHome = Vector2.zero; pieceRt.anchoredPosition = pieceHome;
             }
             else
             {
-                cam.orthographicSize = 9.5f; netRt.anchorMin = netRt.anchorMax = new Vector2(.5f, .55f); netRt.anchoredPosition = new Vector2(0, -18); netPlate.rectTransform.sizeDelta = new Vector2(Mathf.Min(374, w - 12), 318);
-                rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(.5f, 0); rulerRt.anchoredPosition = new Vector2(0, 82); rulerRt.localRotation = Quaternion.identity; handleLabel.rectTransform.localRotation = Quaternion.identity; readoutText.rectTransform.localRotation = Quaternion.identity;
-                promptText.rectTransform.anchorMin = promptText.rectTransform.anchorMax = new Vector2(.5f, 1); promptText.rectTransform.anchoredPosition = new Vector2(0, -130); promptText.rectTransform.sizeDelta = new Vector2(Mathf.Min(370, w - 16), 78);
+                cam.orthographicSize = 9.5f;
+                hudRt.anchorMin = hudRt.anchorMax = new Vector2(.5f, 1f); hudRt.anchoredPosition = new Vector2(0, -29); hudRt.sizeDelta = new Vector2(Mathf.Min(374, w - 16), 52);
+                goalRt.anchorMin = goalRt.anchorMax = new Vector2(.5f, 1f); goalRt.anchoredPosition = new Vector2(0, -76); goalRt.sizeDelta = new Vector2(Mathf.Min(374, w - 16), 38);
+                netRt.anchorMin = netRt.anchorMax = new Vector2(.5f, .54f); netRt.anchoredPosition = new Vector2(0, -8); netRt.localScale = Vector3.one; netPlate.rectTransform.sizeDelta = new Vector2(Mathf.Min(374, w - 12), 318);
+                givenText.rectTransform.anchorMin = givenText.rectTransform.anchorMax = new Vector2(.5f, .5f); givenText.rectTransform.anchoredPosition = new Vector2(0, -132); givenText.rectTransform.sizeDelta = new Vector2(Mathf.Min(356, w - 24), 40); givenText.fontSize = 13;
+                rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(.5f, 0); rulerRt.anchoredPosition = new Vector2(0, 82); rulerRt.sizeDelta = new Vector2(360, 142); rulerRt.localRotation = Quaternion.identity; rulerRt.localScale = Vector3.one; handleLabel.rectTransform.localRotation = Quaternion.identity; readoutText.rectTransform.localRotation = Quaternion.identity; readoutText.rectTransform.anchoredPosition = new Vector2(0, 51);
+                for (int i = 0; i < rulerLabels.Count; i++) rulerLabels[i].rectTransform.localRotation = Quaternion.identity;
+                promptBackRt.anchorMin = promptBackRt.anchorMax = new Vector2(.5f, 1); promptBackRt.anchoredPosition = new Vector2(0, -143); promptBackRt.sizeDelta = new Vector2(Mathf.Min(378, w - 8), 116);
+                promptText.rectTransform.anchorMin = promptText.rectTransform.anchorMax = new Vector2(.5f, 1); promptText.rectTransform.anchoredPosition = new Vector2(0, -143); promptText.rectTransform.sizeDelta = new Vector2(Mathf.Min(362, w - 24), 108); promptText.fontSize = 14;
                 proofText.rectTransform.anchorMin = proofText.rectTransform.anchorMax = new Vector2(.5f, .34f); proofText.rectTransform.anchoredPosition = Vector2.zero; proofText.rectTransform.sizeDelta = new Vector2(Mathf.Min(370, w - 16), 58);
-                stepText.rectTransform.anchorMin = stepText.rectTransform.anchorMax = new Vector2(.5f, 0); stepText.rectTransform.anchoredPosition = new Vector2(0, 168); stepText.rectTransform.sizeDelta = new Vector2(Mathf.Min(370, w - 16), 38);
+                proofText.fontSize = 13;
+                stepText.rectTransform.anchorMin = stepText.rectTransform.anchorMax = new Vector2(.5f, 0); stepText.rectTransform.anchoredPosition = new Vector2(0, 168); stepText.rectTransform.sizeDelta = new Vector2(Mathf.Min(370, w - 16), 38); stepText.fontSize = 14;
                 pieceHome = new Vector2(0, -h * .27f); pieceRt.anchorMin = pieceRt.anchorMax = new Vector2(.5f, .5f); pieceRt.anchoredPosition = pieceHome;
             }
             if (shownProblem != null) { DrawNet(shownProblem); SetPulledLength(game.State.drawnLength, false); }
@@ -648,6 +756,15 @@ namespace Mgf.GereulKkeonae
         Vector2 CenterLocal(RectTransform rt)
         {
             Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, rt.TransformPoint(rt.rect.center)); RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, screen, null, out var local); return local;
+        }
+
+        Vector2 RulerPointLocal(int cm)
+        {
+            float t = (Mathf.Clamp(cm, 1, 24) - 1) / 23f;
+            Vector3 worldPoint = rulerRt.TransformPoint(new Vector3(Mathf.Lerp(-158, 158, t), -14, 0));
+            Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, worldPoint);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, screen, null, out var local);
+            return local;
         }
     }
 }

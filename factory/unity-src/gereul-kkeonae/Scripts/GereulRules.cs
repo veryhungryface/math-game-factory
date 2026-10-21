@@ -2,7 +2,8 @@
 //
 // curriculum/2022-middle-math.json style_guide / expression_traps:
 // - 발문은 중학교 지시형 「~의 길이를 구하시오」로 통일한다.
-// - 수와 단위는 띄어 쓴다(8 cm). 선분과 각은 AB, ∠B처럼 쓴다.
+// - 수와 단위는 띄어 쓴다(8 cm). 선분 위에 선을 그을 수 없는 UI에서는
+//   중학교 style_guide의 허용 표현인 「선분 AB」를 쓰고, 각은 ∠B처럼 쓴다.
 // - 중2 범위에서 근호·삼각비를 요구하지 않는다. 모든 답은 1~24 cm 정수다.
 // - AB=AC와 AD가 꼭지각의 이등분선이라는 두 조건이 함께 있을 때만 BD=DC를 쓴다.
 //
@@ -78,8 +79,8 @@ namespace Mgf.GereulKkeonae
                 p.equalSideCm = L;
                 p.baseQuarter = t * L;
                 p.repairKind = "AC";
-                p.prompt = "∠B=∠C, AB=" + L + " cm, BC=" + QuarterText(p.baseQuarter) + " cm일 때, 점선 AC의 길이를 구하시오.";
-                p.evidence = "∠B=∠C이면 맞은편 두 변 AB와 AC의 길이는 같다 · AC=" + L + " cm";
+                p.prompt = "∠B=∠C이고 선분 AB의 길이가 " + L + " cm, 선분 BC의 길이가 " + QuarterText(p.baseQuarter) + " cm일 때, 점선으로 나타낸 선분 AC의 길이를 구하시오.";
+                p.evidence = "∠B=∠C이면 그 맞은편인 선분 AB와 선분 AC의 길이는 같다 · AC=" + L + " cm";
                 p.unitConcept = "같은 두 내각의 맞은편 두 변";
                 p.adjacentWrong = IntegralCm(p.baseQuarter) && p.baseQuarter / 4 != L ? p.baseQuarter / 4 : 0;
             }
@@ -88,8 +89,8 @@ namespace Mgf.GereulKkeonae
                 p.equalSideCm = L + auxiliary;
                 p.baseQuarter = 8 * L; // BC=2L
                 p.repairKind = "BD";
-                p.prompt = "AB=AC=" + p.equalSideCm + " cm, BC=" + (2 * L) + " cm이고 AD가 꼭지각의 이등분선일 때, 점선 BD의 길이를 구하시오.";
-                p.evidence = "이등변삼각형의 꼭지각의 이등분선은 밑변을 이등분한다 · BD=DC=" + L + " cm";
+                p.prompt = "선분 AB와 선분 AC의 길이가 모두 " + p.equalSideCm + " cm이다. ∠A의 이등분선이 선분 BC와 만나는 점을 D라 할 때, 선분 BC의 길이가 " + (2 * L) + " cm이면 점선으로 나타낸 선분 BD의 길이를 구하시오.";
+                p.evidence = "이등변삼각형의 꼭지각의 이등분선은 밑변을 이등분한다 · 선분 BD와 선분 DC의 길이는 " + L + " cm";
                 p.unitConcept = "꼭지각의 이등분선과 밑변의 이등분";
                 p.wholeWrong = 2 * L <= MaxLength ? 2 * L : 0;
             }
@@ -98,8 +99,8 @@ namespace Mgf.GereulKkeonae
                 p.equalSideCm = L + auxiliary;
                 p.baseQuarter = 2 * L; // BD=L/2 cm, quarter-unit exact because L/2 = 2L quarters
                 p.repairKind = "BC";
-                p.prompt = "AB=AC=" + p.equalSideCm + " cm, BD=" + HalfText(L) + " cm이고 AD가 꼭지각의 이등분선일 때, 점선 BC의 길이를 구하시오.";
-                p.evidence = "BD=DC이므로 전체 밑변 BC는 BD의 2배다 · BC=" + L + " cm";
+                p.prompt = "선분 AB와 선분 AC의 길이가 모두 " + p.equalSideCm + " cm이다. ∠A의 이등분선이 선분 BC와 만나는 점을 D라 할 때, 선분 BD의 길이가 " + HalfText(L) + " cm이면 점선으로 나타낸 선분 BC의 길이를 구하시오.";
+                p.evidence = "선분 BD와 선분 DC의 길이는 같으므로 선분 BC의 길이는 선분 BD의 2배다 · BC=" + L + " cm";
                 p.unitConcept = "한쪽 밑변에서 전체 밑변 복원";
                 p.halveWrong = L % 2 == 0 && L / 2 != L ? L / 2 : 0;
             }

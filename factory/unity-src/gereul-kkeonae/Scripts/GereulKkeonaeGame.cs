@@ -93,7 +93,7 @@ namespace Mgf.GereulKkeonae
         void Prewarm()
         {
             var text = new System.Text.StringBuilder(12000);
-            text.Append("게를꺼내줄을재서잘라라구명부표눌러구조시작중학교2학년삼각형의성질최고기록");
+            text.Append("게를꺼내줄을재서조간대다리를펼쳐라도르래를눌러구조시작중학교2학년삼각형의성질최고기록");
             text.Append("줄을맞게잘라게를꺼내시오매듭을끌어길이를정하고절단선을가로질러자른뒤점선구간에거시오");
             text.Append("연습실전안전부표남은시간첫연결정답목표구조완료기준미달다시구조같은두각의맞은편두변은같다");
             text.Append("이등변삼각형의꼭지각이등분선은밑변을이등분한다전체는한쪽의두배다줄이짧습니다길어서처졌습니다");
@@ -285,7 +285,7 @@ namespace Mgf.GereulKkeonae
                 if (flow == Flow.Title)
                 {
                     if (view.HitStart(pointerDown)) { view.PressStart(); BeginPractice(1); MgfSfx.Play("pop", .35f); }
-                    else Refuse("떠 있는 구명 부표를 누르시오.", pointerDown, true);
+                    else Refuse("주황색 도르래 표지의 「구조 시작」을 누르시오.", pointerDown, true);
                     return;
                 }
                 if (flow == Flow.End)
@@ -294,7 +294,7 @@ namespace Mgf.GereulKkeonae
                     return;
                 }
                 if (flow == Flow.Reveal) { Refuse("그물의 변화를 확인하시오.", pointerDown, false); return; }
-                if (step == ToolStep.Pull && view.HitHandleOrRuler(pointerDown))
+                if (step == ToolStep.Pull && (view.HitHandleOrRuler(pointerDown) || st.onboarding))
                 {
                     draggingPull = true; pullMoved = false; pullStartLength = st.drawnLength; view.PressHandle(); Notify(); return;
                 }
@@ -310,7 +310,7 @@ namespace Mgf.GereulKkeonae
             }
             if (MgfPointer.Held)
             {
-                if (draggingPull) SetLength(view.LengthFromScreen(MgfPointer.Position));
+                if (draggingPull && (MgfPointer.Position - pointerDown).sqrMagnitude >= 144f) SetLength(view.LengthFromScreen(MgfPointer.Position));
                 else if (swipingCut) view.DragCutter(MgfPointer.Position);
                 else if (draggingPiece) view.DragPiece(MgfPointer.Position);
             }
