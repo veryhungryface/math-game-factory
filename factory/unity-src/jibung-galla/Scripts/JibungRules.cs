@@ -7,9 +7,10 @@
 // - 증명 문맥에서도 「가정」「결론」이라는 낱말을 쓰지 않는다.
 //
 // 오개념 역산(misconceptionId):
-// - whole_apex: 꼭지각 전체 2h를 반각으로 그대로 사용한다.
-// - base_as_half: 밑각 90-h를 꼭지각의 반각으로 사용한다(h=45 우연 일치 시 분류하지 않음).
-// - one_base_then_half: (180-base)/2를 사용한다(정수 관계일 때만 분류).
+// - whole_apex_edge: 꼭지각 전체를 고르려다 입력 가능한 AC 바로 안쪽(apex-1)을 긋는다.
+// - double_halving: 이미 구한 반각을 다시 반으로 나눈다(정수 눈금으로 내림).
+// - base_as_half: 밑각 90-h를 꼭지각의 반각으로 사용한다(내부 정수각일 때만).
+// - one_base_then_half: (180-base)/2를 사용한다(내부 정수각일 때만).
 // - trace_error_line: 잘못 그은 AE의 e를 그대로 덧긋는다.
 // 정답 h와 우연히 같은 값은 Diagnose에서 오개념으로 주장하지 않으며 AuditBank가 전수 검사한다.
 using System;
@@ -31,6 +32,8 @@ namespace Mgf.JibungGalla
         public string answer;
         public string evidence;
         public string unitConcept;
+        public int[] misconceptionAngles;
+        public string[] misconceptionIds;
     }
 
     public static class JibungRules
@@ -68,23 +71,44 @@ namespace Mgf.JibungGalla
             };
             if (band == 1)
             {
-                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠A=" + apex + "°이다. ∠A의 이등분선을 그으시오.";
+                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠A=" + apex + "°이다. ∠A의 이등분선이 BC와 만나는 점을 D라고 할 때, 선 AD를 그으시오.";
                 p.evidence = "∠BAD=∠CAD=" + h + "°";
                 p.unitConcept = "이등변삼각형의 꼭지각 이등분";
             }
             else if (band == 2)
             {
-                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠B=" + baseAngle + "°이다. ∠A의 이등분선을 그으시오.";
+                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠B=" + baseAngle + "°이다. ∠A의 이등분선이 BC와 만나는 점을 D라고 할 때, 선 AD를 그으시오.";
                 p.evidence = "∠A=180°-" + baseAngle + "°×2=" + apex + "°, ∠BAD=" + h + "°";
                 p.unitConcept = "두 밑각과 꼭지각의 이등분";
             }
             else
             {
-                p.prompt = "AB=AC, ∠B=" + baseAngle + "°이고 잘못 그은 선 AE에서 ∠BAE=" + errorAngle + "°이다. AE를 대신할 ∠A의 이등분선을 그으시오.";
+                p.prompt = "AB=AC인 이등변삼각형 ABC에서 ∠B=" + baseAngle + "°이고 잘못 그은 선 AE에서 ∠BAE=" + errorAngle + "°이다. ∠A의 이등분선이 BC와 만나는 점을 D라고 할 때, AE를 대신할 선 AD를 그으시오.";
                 p.evidence = "90°-" + baseAngle + "°=" + h + "°, ∠BAD=∠CAD=" + h + "°";
                 p.unitConcept = "잘못 그은 이등분선의 교정";
             }
+            BuildMisconceptions(p);
             return p;
+        }
+
+        static void BuildMisconceptions(RoofProblem p)
+        {
+            var angles = new List<int>(6);
+            var ids = new List<string>(6);
+            AddCandidate(p, angles, ids, p.apex - 1, "whole_apex_edge");
+            AddCandidate(p, angles, ids, Math.Max(1, p.h / 2), "double_halving");
+            AddCandidate(p, angles, ids, p.baseAngle, "base_as_half");
+            int oneBaseThenHalf = 180 - p.baseAngle;
+            if ((oneBaseThenHalf & 1) == 0) AddCandidate(p, angles, ids, oneBaseThenHalf / 2, "one_base_then_half");
+            if (p.band == 3) AddCandidate(p, angles, ids, p.errorAngle, "trace_error_line");
+            p.misconceptionAngles = angles.ToArray();
+            p.misconceptionIds = ids.ToArray();
+        }
+
+        static void AddCandidate(RoofProblem p, List<int> angles, List<string> ids, int angle, string id)
+        {
+            if (angle <= 0 || angle >= p.apex || angle == p.h || angles.Contains(angle)) return;
+            angles.Add(angle); ids.Add(id);
         }
 
         public static List<RoofProblem> BuildBank()
@@ -125,11 +149,8 @@ namespace Mgf.JibungGalla
         public static string Diagnose(RoofProblem p, int selectedAngle)
         {
             if (selectedAngle == p.h) return "";
-            if (selectedAngle == p.apex) return "whole_apex";
-            if (p.baseAngle != p.h && selectedAngle == p.baseAngle) return "base_as_half";
-            int twiceCandidate = 180 - p.baseAngle;
-            if ((twiceCandidate & 1) == 0 && selectedAngle == twiceCandidate / 2 && selectedAngle != p.h) return "one_base_then_half";
-            if (p.band == 3 && selectedAngle == p.errorAngle) return "trace_error_line";
+            for (int i = 0; i < p.misconceptionAngles.Length; i++)
+                if (selectedAngle == p.misconceptionAngles[i]) return p.misconceptionIds[i];
             return selectedAngle < p.h ? "cut_too_close_to_ab" : "cut_too_close_to_ac";
         }
 
@@ -169,6 +190,15 @@ namespace Mgf.JibungGalla
                 if (p.answer.IndexOf(p.h + "°", StringComparison.Ordinal) < 0) throw new Exception("답 표기 오류: " + p.id);
                 if (p.prompt.Contains("√") || p.prompt.Contains("가정") || p.prompt.Contains("결론"))
                     throw new Exception("표현 함정 위반: " + p.id);
+                if (!p.prompt.StartsWith("AB=AC인 이등변삼각형 ABC에서", StringComparison.Ordinal) ||
+                    !p.prompt.Contains("만나는 점을 D라고 할 때") || !p.prompt.Contains("선 AD"))
+                    throw new Exception("삼각형 또는 점 D 정의 누락: " + p.id);
+                if (p.misconceptionAngles == null || p.misconceptionIds == null ||
+                    p.misconceptionAngles.Length != p.misconceptionIds.Length || p.misconceptionAngles.Length < 2)
+                    throw new Exception("제출 가능한 오개념 후보 2개 미만: " + p.id);
+                for (int i = 0; i < p.misconceptionAngles.Length; i++)
+                    if (p.misconceptionAngles[i] <= 0 || p.misconceptionAngles[i] >= p.apex || p.misconceptionAngles[i] == p.h)
+                        throw new Exception("오개념 후보 입력 범위 오류: " + p.id + " / " + p.misconceptionAngles[i]);
                 if (p.band == 1) direct[p.h]++;
                 else if (p.band == 2) reverse[p.h]++;
                 else repair[p.h]++;

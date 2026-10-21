@@ -33,6 +33,7 @@ namespace Mgf.JibungGalla
             public bool frozen;
             public int roofRotation;
             public int apexX, apexY, bX, bY, cX, cY;
+            public int hudRight, hudBottom, goalRight, promptLeft, promptTop, safeGap;
             public string endReason = "";
         }
 
@@ -77,9 +78,9 @@ namespace Mgf.JibungGalla
         {
             var sb = new StringBuilder(18000);
             sb.Append("지붕갈라지붕을반으로갈라라중학교2학년삼각형의성질꼭지각밑각밑변이등분선수직이등분합동");
-            sb.Append("연습실전지붕첫절단안전벨트남은시간점수꼭지각을반으로갈라방을여시오한번에같은두조각수리한이음매가맞았습니다");
+            sb.Append("연습실전지붕첫절단안전벨트남은시간점수꼭지각을반으로갈라지붕선을완성하시오한번에같은두조각수리한이음매가맞았습니다");
             sb.Append("두반각이다릅니다꼭지각전체를그대로쓰지말고반으로나누시오밑각과꼭지각의반각을구분하시오잘못그은선을따라긋지마시오");
-            sb.Append("A에서그으시오밑변BC너머까지그으시오다음지붕을기다리시오열방이모두열렸습니다절단시간이끝났습니다다시가르기");
+            sb.Append("A를누른채점선을따라BC밖에서놓으시오다음지붕을기다리시오열개이등분선이이어졌습니다절단시간이끝났습니다다시가르기손");
             sb.Append("∠△ABCD=AE°0123456789·−⊥");
             foreach (var p in bank) sb.Append(p.prompt).Append(p.answer).Append(p.evidence).Append(p.unitConcept);
             MgfText.Prewarm(sb.ToString());
@@ -229,17 +230,17 @@ namespace Mgf.JibungGalla
                 if (flow == Flow.Title)
                 {
                     if (view.HitStart(pointerDown)) { MgfSfx.Play("pop", .35f); BeginPractice(); }
-                    else Invalid("고양이 발이 놓인 ‘지붕 가르기’를 누르시오.", pointerDown, false);
+                    else Invalid("지붕 위 ‘지붕 가르기’를 누르시오.", pointerDown, false);
                     return;
                 }
                 if (flow == Flow.End)
                 {
-                    if (view.HitRestart(pointerDown)) BeginPractice(); else Invalid("호박색 고양이 발을 눌러 다시 시작하시오.", pointerDown, false);
+                    if (view.HitRestart(pointerDown)) BeginPractice(); else Invalid("호박색 지붕 표식을 눌러 다시 시작하시오.", pointerDown, false);
                     return;
                 }
                 if (flow == Flow.Reveal) { Invalid("두 지붕 조각의 각을 확인하시오.", pointerDown, false); return; }
                 if (flow != Flow.Practice && flow != Flow.Playing) return;
-                if (!view.HitApex(pointerDown)) { Invalid("꼭짓점 A에서 그으시오.", pointerDown, true); return; }
+                if (!view.HitApex(pointerDown)) { Invalid(flow == Flow.Practice ? "A를 누른 채 점선을 따라 BC 밖에서 놓으시오." : "꼭짓점 A에서 그으시오.", pointerDown, true); return; }
                 dragging = true; view.BeginDrag(); Notify();
             }
             if (dragging && MgfPointer.Held)

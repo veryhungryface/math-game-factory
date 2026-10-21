@@ -47,15 +47,33 @@ function rotate(vx, vy, degrees) {
   const a = degrees * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); return [vx * c - vy * s, vx * s + vy * c];
 }
 
-async function submitAngle(page, angle) {
+async function submitAngle(page, angle, startOffsetX = 0) {
   const before = await waitFor(page, s => s.phase === 'playing' && s.apexX > 0 && s.bX > 0, 'ready roof');
   const abx = before.bX - before.apexX, aby = before.bY - before.apexY;
   const [dx, dy] = rotate(abx, aby, angle); const scale = 1.38;
-  const from = browserPoint(before.apexX, before.apexY);
+  const from = browserPoint(before.apexX + startOffsetX, before.apexY);
   const to = browserPoint(before.apexX + dx * scale, before.apexY + dy * scale);
   await page.mouse.move(from[0], from[1]); await page.mouse.down(); await sleep(42);
   await page.mouse.move(to[0], to[1], { steps: 5 }); await sleep(42); await page.mouse.up();
   return waitFor(page, s => s.phase === 'reveal' || s.phase === 'clear' || s.phase === 'gameover', `submit ${angle}`);
+}
+
+async function finishOnboardingWithFormerMiss(page) {
+  const began = Date.now();
+  await page.mouse.click(W / 2, H / 2);
+  const practice = await waitFor(page, s => s.phase === 'playing' && s.onboarding && s.currentProblemId === 'practice-h30' && s.apexX > 0, 'practice from title');
+  await page.screenshot({ path: path.join(HERE, 'fix1-onboarding-guide.png') });
+  const reveal = await submitAngle(page, 30, 44);
+  const firstRun = await waitFor(page, s => s.phase === 'playing' && !s.onboarding && s.round === 1, 'first run after practice');
+  await page.screenshot({ path: path.join(HERE, 'fix1-onboarding-first-run.png') });
+  return {
+    method: 'title center tap, then mouse drag starting 44 px right of A (the same miss outside the old 38 px radius) through the 30° guide beyond BC',
+    elapsedMs: Date.now() - began,
+    practiceStart: { apexX: practice.apexX, apexY: practice.apexY },
+    reveal: { phase: reveal.phase, lastResult: reveal.lastResult, selectedAngle: reveal.selectedAngle },
+    firstRun: { phase: firstRun.phase, onboarding: firstRun.onboarding, round: firstRun.round },
+    passed: reveal.lastResult === 'correct' && firstRun.round === 1 && Date.now() - began < 30000,
+  };
 }
 
 async function startRun(page) {
@@ -117,17 +135,20 @@ try {
     uniqueIds: new Set(bank.map(p => p.id)).size,
     uniquePrompts: new Set(bank.map(p => `${p.prompt}|${p.answer}`)).size,
     correctRelations: bank.every(p => Number.isInteger(p.answerNumeric) && p.answerNumeric >= 25 && p.answerNumeric <= 64 && !/[√]/.test(p.prompt)),
+    triangleAndDDefined: bank.every(p => p.prompt.startsWith('AB=AC인 이등변삼각형 ABC에서') && p.prompt.includes('만나는 점을 D라고 할 때') && p.prompt.includes('선 AD')),
+    answerMatchesIntegerHalf: bank.every(p => p.answer === `∠BAD=${p.answerNumeric}°인 내부의 선 AD`),
   };
+  const onboarding = await finishOnboardingWithFormerMiss(page);
   const clean = await finishAllCorrect(page); await page.screenshot({ path: path.join(HERE, 'pointer-clean-clear.png') });
   const repaired = await finishAfterRepair(page); await page.screenshot({ path: path.join(HERE, 'pointer-repair-clear.png') });
   const gameover = await forceGameover(page); await page.screenshot({ path: path.join(HERE, 'pointer-gameover.png') });
-  const passed = bankAudit.count === 320 && bankAudit.uniqueIds === 320 && bankAudit.uniquePrompts === 320 && bankAudit.correctRelations &&
+  const passed = bankAudit.count === 320 && bankAudit.uniqueIds === 320 && bankAudit.uniquePrompts === 320 && bankAudit.correctRelations && bankAudit.triangleAndDDefined && bankAudit.answerMatchesIntegerHalf && onboarding.passed &&
     clean.final.phase === 'clear' && clean.final.solved === 10 && clean.final.firstCorrect === 10 && clean.final.lives === 3 &&
     repaired.final.phase === 'clear' && repaired.final.solved === 10 && repaired.final.firstCorrect === 9 && repaired.final.lives === 2 && repaired.final.firstAttemptCount === 10 &&
     gameover.final.phase === 'gameover' && gameover.final.lives === 0 && consoleErrors.length === 0;
-  const out = { generatedAt: new Date().toISOString(), artifactHashSha256: artifactHash(), viewport: `${W}x${H}`, method: 'all submissions use Puppeteer mouse down/move/up from the runtime A coordinate through a chosen local integer angle; answer hooks are never called', bankAudit, clean, repaired, gameover, consoleErrors, passed };
+  const out = { generatedAt: new Date().toISOString(), artifactHashSha256: artifactHash(), viewport: `${W}x${H}`, method: 'all submissions use Puppeteer mouse down/move/up from the runtime A coordinate through a chosen local integer angle; answer hooks are never called', bankAudit, onboarding, clean, repaired, gameover, consoleErrors, passed };
   fs.writeFileSync(path.join(HERE, 'pointer-playthrough-results.json'), `${JSON.stringify(out, null, 2)}\n`);
-  console.log(JSON.stringify({ bankAudit, cleanFinal: clean.final, repairedFinal: repaired.final, gameoverFinal: gameover.final, consoleErrors, passed }, null, 2));
+  console.log(JSON.stringify({ bankAudit, onboarding, cleanFinal: clean.final, repairedFinal: repaired.final, gameoverFinal: gameover.final, consoleErrors, passed }, null, 2));
   if (!passed) process.exitCode = 1;
   await page.close();
 } finally { await browser.close(); await server.close(); }
