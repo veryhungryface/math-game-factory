@@ -1,4 +1,4 @@
-// 현악 네모 — 청록 바위벌레의 햇빛 결정 협곡 섬유현 공방.
+// 현악 네모 — 햇빛 기하 음악원의 황동 현·원목 공명판 무대.
 // 두 꼭짓점을 직접 끌어 대각선의 이등분·같은 길이·수직 조건을 구성한다.
 using System;
 using System.Collections.Generic;
@@ -39,29 +39,29 @@ namespace Mgf.HyeonakNemo
 
         enum RunPhase { Title, Practice, Playing, Reveal, End }
 
-        static readonly Color Basalt = MgfLook.Hex("#C79B63");
-        static readonly Color Basalt2 = MgfLook.Hex("#E4C58D");
-        static readonly Color Copper = MgfLook.Hex("#C86645");
-        static readonly Color CopperHot = MgfLook.Hex("#FFAA63");
-        static readonly Color Teal = MgfLook.Hex("#3B9182");
-        static readonly Color TealGlow = MgfLook.Hex("#83E3C5");
+        static readonly Color Basalt = MgfLook.Hex("#C98B52");
+        static readonly Color Basalt2 = MgfLook.Hex("#F1DFC1");
+        static readonly Color Copper = MgfLook.Hex("#C94B3D");
+        static readonly Color CopperHot = MgfLook.Hex("#E2A83B");
+        static readonly Color Teal = MgfLook.Hex("#197B78");
+        static readonly Color TealGlow = MgfLook.Hex("#67C7BF");
         static readonly Color Ivory = MgfLook.Hex("#FFF8E8");
-        static readonly Color Violet = MgfLook.Hex("#7565A8");
-        static readonly Color Amber = MgfLook.Hex("#F4C95D");
-        static readonly Color Ink = MgfLook.Hex("#263E3A");
+        static readonly Color Violet = MgfLook.Hex("#345DA8");
+        static readonly Color Amber = MgfLook.Hex("#F2C14E");
+        static readonly Color Ink = MgfLook.Hex("#26333A");
 
         readonly State st = new State();
         readonly List<FrameProblem> bank = new List<FrameProblem>(300);
         readonly List<FrameProblem> band1 = new List<FrameProblem>();
         readonly List<FrameProblem> band2 = new List<FrameProblem>();
         readonly List<FrameProblem> band3 = new List<FrameProblem>();
-        readonly Transform[] chimes = new Transform[6];
-        readonly Renderer[] chimeRenderers = new Renderer[6];
-        readonly Transform[] resonanceRings = new Transform[6];
-        readonly Vector3[] resonanceRingHomes = new Vector3[6];
+        readonly Transform[] pitchNodes = new Transform[6];
+        readonly Renderer[] pitchNodeRenderers = new Renderer[6];
+        readonly Transform[] spectrumCells = new Transform[6];
+        readonly Vector3[] spectrumCellHomes = new Vector3[6];
         readonly Transform[] fuses = new Transform[3];
         readonly Transform[] savedFrames = new Transform[6];
-        readonly Transform[] crystalBlooms = new Transform[6];
+        readonly Transform[] waveLocks = new Transform[6];
         readonly LineRenderer[] radialLines = new LineRenderer[10];
         readonly LineRenderer[] measureRings = new LineRenderer[10];
         readonly LineRenderer[] rippleLines = new LineRenderer[5];
@@ -96,11 +96,10 @@ namespace Mgf.HyeonakNemo
         TextMeshProUGUI guideTextB, guideTextD;
         float displayedScore, toastT;
         float lastLayoutW = -1, lastLayoutH = -1;
-        Sprite roundedSprite, ringSprite, arrowSprite, handSprite;
+        Sprite roundedSprite, squareSprite, ringSprite, arrowSprite, handSprite;
         int practiceMisses;
         bool tutorialAssistActive, tutorialAssistB;
         float tutorialAssistT, tutorialAssistDelay;
-        int tutorialAssistFromRadius, tutorialAssistTargetRadius;
         Vector3 beetleHome;
 
         const float Unit = 0.285f;
@@ -125,16 +124,16 @@ namespace Mgf.HyeonakNemo
 
         void BuildMaterials()
         {
-            basaltMat = MgfLook.Lit(Basalt, .10f, .01f);
-            basaltLightMat = MgfLook.Lit(Basalt2, .14f, .01f);
-            copperMat = MgfLook.Lit(Copper, .24f, .08f);
-            copperHotMat = MgfLook.Lit(CopperHot, .36f, .10f, Copper * .18f);
-            dimCopperMat = MgfLook.Lit(MgfLook.Hex("#8F745B"), .08f, .02f);
-            tealMat = MgfLook.Lit(Teal, .30f, .04f);
-            tealGlowMat = MgfLook.Lit(TealGlow, .46f, .04f, Teal * .34f);
+            basaltMat = MgfLook.Lit(Basalt, .20f, .01f);
+            basaltLightMat = MgfLook.Lit(Basalt2, .12f, .01f);
+            copperMat = MgfLook.Lit(Copper, .24f, .06f);
+            copperHotMat = MgfLook.Lit(CopperHot, .42f, .16f);
+            dimCopperMat = MgfLook.Lit(MgfLook.Hex("#8A7562"), .10f, .02f);
+            tealMat = MgfLook.Lit(Teal, .24f, .03f);
+            tealGlowMat = MgfLook.Lit(TealGlow, .32f, .03f);
             ivoryMat = MgfLook.Lit(Ivory, .12f, .01f);
-            violetMat = MgfLook.Lit(Violet, .18f, .02f);
-            amberMat = MgfLook.Lit(Amber, .28f, .03f, Amber * .16f);
+            violetMat = MgfLook.Lit(Violet, .20f, .02f);
+            amberMat = MgfLook.Lit(Amber, .28f, .03f);
         }
 
         void BuildWorld()
@@ -144,24 +143,24 @@ namespace Mgf.HyeonakNemo
             colliderTypes.AddComponent<CapsuleCollider>();
             colliderTypes.AddComponent<SphereCollider>();
             Destroy(colliderTypes);
-            MgfLook.Sky(MgfLook.Hex("#78BDB5"), MgfLook.Hex("#EBCB98"), MgfLook.Hex("#F0DBB2"), .84f);
-            MgfLook.Sun(new Vector3(42, -28, 14), MgfLook.Hex("#FFF0C3"), 1.06f, .70f);
+            MgfLook.Sky(MgfLook.Hex("#76BDD1"), MgfLook.Hex("#F1D9A9"), MgfLook.Hex("#F7E9CE"), .84f);
+            MgfLook.Sun(new Vector3(42, -28, 14), MgfLook.Hex("#FFF1C4"), 1.05f, .70f);
             cam = MgfLook.Camera(new Vector3(7.7f, 6.4f, -16.5f), new Vector3(0, 1.15f, 0), 34f);
             cam.orthographic = true;
             cam.orthographicSize = 7.35f;
 
-            // 햇빛이 드는 야외 결정 협곡. 둥근 금속 설비 대신 각진 층리와 결정 군락이 좌우 세계를 채운다.
-            MgfLook.Block("SunlitQuarryFloor", new Vector3(0, -1.05f, 3.8f), new Vector3(24, .9f, 20), .20f, basaltMat);
+            // 햇빛이 드는 기하 음악원. 검은 계기판 대신 층진 원목 무대와 실제 마림바 건반이 세계를 채운다.
+            MgfLook.Block("MapleConservatoryFloor", new Vector3(0, -1.05f, 3.8f), new Vector3(24, .9f, 20), .12f, basaltMat);
             for (int side = -1; side <= 1; side += 2)
             for (int row = 0; row < 5; row++)
             {
                 float x = side * (4.7f + row * 1.55f);
                 float y = -.45f + row * .64f;
                 float z = 2.3f + row * 1.15f;
-                var ledge = MgfLook.Prim(PrimitiveType.Cube, "StrataLedge" + side + "_" + row, new Vector3(x, y, z),
-                    new Vector3(3.3f + row * .35f, .66f, 4.5f), row % 2 == 0 ? basaltLightMat : basaltMat, null, false);
-                ledge.transform.localRotation = Quaternion.Euler(side * (2 + row), side * (9 + row * 3), side * (3 + row));
-                MakeCrystalCluster(new Vector3(x - side * .8f, y + .72f, z - 1.0f), side, row);
+                var rack = MgfLook.Block("MarimbaTerrace" + side + "_" + row, new Vector3(x, y, z),
+                    new Vector3(3.15f + row * .28f, .48f, 3.2f), .07f, row % 2 == 0 ? basaltLightMat : ivoryMat);
+                rack.transform.localRotation = Quaternion.Euler(0, side * (4 + row * 2), 0);
+                MakeMarimbaBank(new Vector3(x - side * .7f, y + .58f, z - .8f), side, row);
             }
             for (int i = 0; i < 18; i++)
             {
@@ -169,17 +168,19 @@ namespace Mgf.HyeonakNemo
                 float x = side * (5.2f + (i % 5) * 1.14f);
                 float y = .1f + (i % 4) * .58f;
                 float z = -1.8f + (i % 7) * 1.2f;
-                var streamer = MgfLook.Prim(PrimitiveType.Capsule, "FiberStreamer" + i, new Vector3(x, y, z),
-                    new Vector3(.07f, .40f + (i % 3) * .11f, .07f), i % 3 == 0 ? tealGlowMat : (i % 3 == 1 ? violetMat : copperMat), null, false);
-                streamer.transform.rotation = Quaternion.Euler(12, i * 31, 38 + (i % 4) * 7);
+                var mobile = MgfLook.Block("AcousticMobile" + i, new Vector3(x, y, z),
+                    new Vector3(.13f, .38f + (i % 3) * .18f, .09f), .018f,
+                    i % 3 == 0 ? amberMat : (i % 3 == 1 ? violetMat : copperMat));
+                mobile.transform.localRotation = Quaternion.Euler(0, side * 12, side * (8 + i % 4 * 4));
             }
-            // 산책로의 햇빛 표식.
+            // 중앙 악기 아래에 박힌 황동 박자 눈금.
             for (int i = 0; i < 9; i++)
             {
                 float x = -5.6f + i * 1.4f;
-                MgfLook.Block("SunMarker" + i, new Vector3(x, -.46f, -2.15f), new Vector3(.78f, .10f, .16f), .04f,
+                MgfLook.Block("BrassBeatInlay" + i, new Vector3(x, -.46f, -2.15f), new Vector3(.62f, .06f, .12f), .018f,
                     i % 2 == 0 ? amberMat : copperHotMat);
             }
+            MgfLook.Block("StartPianoKey", new Vector3(0, -.44f, -3.0f), new Vector3(4.4f, .22f, 1.0f), .045f, copperHotMat);
 
             BuildResonanceGallery();
             BuildBeetle();
@@ -187,16 +188,16 @@ namespace Mgf.HyeonakNemo
             BuildRipples();
         }
 
-        void MakeCrystalCluster(Vector3 center, float side, int seed)
+        void MakeMarimbaBank(Vector3 center, float side, int seed)
         {
-            var root = new GameObject("QuartzCluster" + side + "_" + seed).transform;
+            var root = new GameObject("MarimbaBank" + side + "_" + seed).transform;
             root.position = center;
-            for (int i = 0; i < 4; i++)
+            MgfLook.Block("BrassAxle", new Vector3(0, .05f, 0), new Vector3(1.55f, .10f, .62f), .025f, copperHotMat, root);
+            for (int i = 0; i < 5; i++)
             {
-                float h = .52f + i * .18f;
-                var shard = MgfLook.Prim(PrimitiveType.Cube, "SunCrystal", new Vector3((i - 1.5f) * .24f, h * .42f, (i % 2) * .18f),
-                    new Vector3(.22f, h, .22f), i % 2 == 0 ? tealGlowMat : violetMat, root, false);
-                shard.transform.localRotation = Quaternion.Euler(8 + i * 5, side * (12 + i * 9), side * (-18 + i * 11));
+                float h = .32f + ((i + seed) % 4) * .22f;
+                MgfLook.Block("WoodenToneKey", new Vector3((i - 2) * .27f, h * .5f + .12f, 0),
+                    new Vector3(.16f, h, .18f), .018f, i % 3 == 0 ? tealMat : (i % 3 == 1 ? violetMat : copperMat), root);
             }
         }
 
@@ -207,40 +208,42 @@ namespace Mgf.HyeonakNemo
                 float side = i < 3 ? -1f : 1f;
                 float lane = i % 3;
                 Vector3 center = new Vector3(side * (4.55f + lane * 1.25f), .4f + lane * 1.1f, 1.8f + lane * .65f);
-                var root = new GameObject("FiberLoomGrove" + i).transform;
+                var root = new GameObject("ScoreTileRack" + i).transform;
                 root.position = center;
-                resonanceRings[i] = root;
-                resonanceRingHomes[i] = center;
-                MakeEllipse("BraidedFiberHoop" + i, root, 1.12f, 1.43f, .065f, i % 2 == 0 ? violetMat : copperMat, 40);
-                var chime = MgfLook.Prim(PrimitiveType.Cube, "QuartzBud" + i, new Vector3(0, 0, 0),
-                    new Vector3(.38f, .76f, .38f), ivoryMat, root, false);
-                chime.transform.localRotation = Quaternion.Euler(8, 35, 45);
-                chimes[i] = chime.transform;
-                chimeRenderers[i] = chime.GetComponent<Renderer>();
+                spectrumCells[i] = root;
+                spectrumCellHomes[i] = center;
+                MgfLook.Block("BirchScoreTile", Vector3.zero, new Vector3(1.75f, 2.18f, .16f), .035f, basaltLightMat, root);
+                MgfLook.Block("BrassRailTop", new Vector3(0, .82f, -.14f), new Vector3(1.35f, .08f, .08f), .018f, copperHotMat, root);
+                MgfLook.Block("BrassRailBottom", new Vector3(0, -.82f, -.14f), new Vector3(1.35f, .08f, .08f), .018f, copperHotMat, root);
+                var node = MgfLook.Block("MarimbaKey" + i, new Vector3(0, 0, -.22f),
+                    new Vector3(.58f, .22f, .10f), .025f, i % 2 == 0 ? violetMat : copperMat, root);
+                pitchNodes[i] = node.transform;
+                pitchNodeRenderers[i] = node.GetComponent<Renderer>();
                 savedFrames[i] = MakeMiniFrame(root, new Vector3(0, -1.0f, 0));
                 savedFrames[i].gameObject.SetActive(false);
-                crystalBlooms[i] = MakeCrystalBloom(root, new Vector3(0, .05f, -.18f));
-                crystalBlooms[i].gameObject.SetActive(false);
+                waveLocks[i] = MakePunchedScore(root, new Vector3(0, .05f, -.28f));
+                waveLocks[i].gameObject.SetActive(false);
             }
             for (int i = 0; i < 3; i++)
             {
-                var fuse = MgfLook.Prim(PrimitiveType.Cylinder, "ResonanceFuse" + i,
+                var fuse = MgfLook.Prim(PrimitiveType.Cylinder, "SpareMallet" + i,
                     new Vector3(-.65f + i * .65f, -.28f, -2.2f), new Vector3(.055f, .44f, .055f), copperHotMat);
                 fuse.transform.rotation = Quaternion.Euler(90, 0, 0);
                 fuses[i] = fuse.transform;
             }
         }
 
-        Transform MakeCrystalBloom(Transform parent, Vector3 local)
+        Transform MakePunchedScore(Transform parent, Vector3 local)
         {
-            var root = new GameObject("UnfoldingCrystal").transform;
+            var root = new GameObject("PunchedQuadrilateralScore").transform;
             root.SetParent(parent, false); root.localPosition = local;
-            for (int i = 0; i < 5; i++)
+            MgfLook.Block("StampedCard", Vector3.zero, new Vector3(1.20f, .86f, .08f), .025f, ivoryMat, root);
+            for (int i = 0; i < 8; i++)
             {
-                float a = (-54 + i * 27) * Mathf.Deg2Rad;
-                var petal = MgfLook.Prim(PrimitiveType.Cube, "CrystalPetal", new Vector3(Mathf.Sin(a) * .26f, Mathf.Cos(a) * .25f, 0),
-                    new Vector3(.16f, .78f, .15f), i % 2 == 0 ? tealGlowMat : amberMat, root, false);
-                petal.transform.localRotation = Quaternion.Euler(0, 0, -54 + i * 27);
+                float a = (45 + i * 45) * Mathf.Deg2Rad;
+                var hole = MgfLook.Prim(PrimitiveType.Cylinder, "ScorePunch", new Vector3(Mathf.Cos(a) * .38f, Mathf.Sin(a) * .25f, -.08f),
+                    new Vector3(.09f, .04f, .09f), tealMat, root, false);
+                hole.transform.localRotation = Quaternion.Euler(90, 0, 0);
             }
             return root;
         }
@@ -256,7 +259,7 @@ namespace Mgf.HyeonakNemo
                     Vector3.one * .09f, copperHotMat, root, false);
                 peg.transform.localScale = Vector3.one * .09f;
             }
-            var lr = MakeLine("MiniFiberFrame", tealMat, .035f, root);
+            var lr = MakeLine("MiniPhaseFrame", tealMat, .035f, root);
             lr.useWorldSpace = false; lr.positionCount = 5;
             for (int i = 0; i < 5; i++)
             {
@@ -291,19 +294,19 @@ namespace Mgf.HyeonakNemo
 
         void BuildBoard()
         {
-            boardRoot = new GameObject("FrontalFiberLoomStage").transform;
+            boardRoot = new GameObject("MapleStringSoundboard").transform;
             boardRoot.position = new Vector3(0, 1.35f, .25f);
             // TMP/board front(-Z)가 카메라를 향하도록 +Z를 카메라 반대쪽으로 둔다.
             boardRoot.rotation = Quaternion.LookRotation(boardRoot.position - cam.transform.position, Vector3.up);
-            MgfLook.Block("CarvedSandstoneLoom", Vector3.zero, new Vector3(7.0f, 6.15f, .34f), .28f, copperMat, boardRoot);
-            MgfLook.Block("BraidedFiberRim", new Vector3(0, 0, -.20f), new Vector3(6.55f, 5.70f, .10f), .22f, tealMat, boardRoot);
-            MgfLook.Block("IvoryMeasurementCloth", new Vector3(0, 0, -.27f), new Vector3(6.30f, 5.45f, .08f), .18f, ivoryMat, boardRoot);
+            MgfLook.Block("MapleSoundboardFrame", Vector3.zero, new Vector3(7.0f, 6.15f, .34f), .20f, basaltMat, boardRoot);
+            MgfLook.Block("BrassSoundboardBezel", new Vector3(0, 0, -.20f), new Vector3(6.55f, 5.70f, .10f), .12f, copperHotMat, boardRoot);
+            MgfLook.Block("IvoryStringChart", new Vector3(0, 0, -.27f), new Vector3(6.30f, 5.45f, .08f), .08f, ivoryMat, boardRoot);
 
             for (int i = 0; i < radialLines.Length; i++)
-                radialLines[i] = MakeLine("RadialScale" + i, MgfLook.Alpha(new Color(Ink.r, Ink.g, Ink.b, .34f)), .018f, boardRoot);
+                radialLines[i] = MakeLine("RadialScale" + i, MgfLook.Alpha(new Color(Ink.r, Ink.g, Ink.b, .28f)), .018f, boardRoot);
             for (int i = 0; i < measureRings.Length; i++)
             {
-                measureRings[i] = MakeLine("MeasureRing" + (i + 1), MgfLook.Alpha(new Color(Ink.r, Ink.g, Ink.b, i % 5 == 4 ? .42f : .22f)),
+                measureRings[i] = MakeLine("MeasureRing" + (i + 1), MgfLook.Alpha(new Color(Ink.r, Ink.g, Ink.b, i % 5 == 4 ? .62f : .25f)),
                     i % 5 == 4 ? .025f : .014f, boardRoot);
                 measureRings[i].useWorldSpace = false; measureRings[i].positionCount = 49;
                 float r = (i + 1) * Unit;
@@ -314,11 +317,11 @@ namespace Mgf.HyeonakNemo
                 }
             }
 
-            frameLine = MakeLine("QuadrilateralFiberStrings", copperMat, .075f, boardRoot);
+            frameLine = MakeLine("QuadrilateralString", copperMat, .075f, boardRoot);
             frameLine.positionCount = 5;
-            diagAC = MakeLine("ActualDiagonalAC", MgfLook.Alpha(new Color(Ink.r, Ink.g, Ink.b, .78f)), .032f, boardRoot);
+            diagAC = MakeLine("ActualDiagonalAC", MgfLook.Alpha(new Color(Teal.r, Teal.g, Teal.b, .92f)), .038f, boardRoot);
             diagAC.positionCount = 2;
-            diagBD = MakeLine("ActualDiagonalBD", MgfLook.Alpha(new Color(Violet.r, Violet.g, Violet.b, .88f)), .042f, boardRoot);
+            diagBD = MakeLine("ActualDiagonalBD", MgfLook.Alpha(new Color(Violet.r, Violet.g, Violet.b, .92f)), .042f, boardRoot);
             diagBD.positionCount = 2;
             resonanceTrail = MakeLine("TealResonanceTrail", MgfLook.Additive(new Color(TealGlow.r, TealGlow.g, TealGlow.b, .85f)), .12f, boardRoot);
             resonanceTrail.positionCount = 2; resonanceTrail.enabled = false;
@@ -349,7 +352,9 @@ namespace Mgf.HyeonakNemo
             if (movable)
             {
                 var col = go.GetComponent<SphereCollider>(); col.radius = .75f;
-                MakeEllipse(name + "CopperRing", go.transform, .31f, .31f, .075f, copperHotMat, 28, -.12f);
+                MgfLook.Block(name + "CaliperJawLeft", new Vector3(-.34f, 0, -.11f), new Vector3(.12f, .52f, .08f), .025f, copperHotMat, go.transform);
+                MgfLook.Block(name + "CaliperJawRight", new Vector3(.34f, 0, -.11f), new Vector3(.12f, .52f, .08f), .025f, copperHotMat, go.transform);
+                MgfLook.Block(name + "CaliperBridge", new Vector3(0, .23f, -.11f), new Vector3(.58f, .10f, .08f), .025f, copperHotMat, go.transform);
             }
             return go.transform;
         }
@@ -358,7 +363,7 @@ namespace Mgf.HyeonakNemo
         {
             var t = MgfText.World(text, pos, size, Ink, parent);
             t.fontStyle = FontStyles.Bold;
-            t.outlineWidth = .10f; t.outlineColor = new Color32(255, 248, 232, 220);
+            t.outlineWidth = .18f; t.outlineColor = new Color32(255, 248, 232, 255);
             return t;
         }
 
@@ -396,38 +401,39 @@ namespace Mgf.HyeonakNemo
         void BuildUi()
         {
             roundedSprite = MakeSprite(64, 15, false);
+            squareSprite = MakeSprite(64, 3, false);
             ringSprite = MakeSprite(96, 0, true);
             arrowSprite = MakeArrowSprite(128, 48);
             handSprite = MakeHandSprite(64);
             Transform root = MgfText.Canvas.transform;
 
             titlePanel = Full("TitleScreen", root); titleGroup = titlePanel.gameObject.AddComponent<CanvasGroup>();
-            var plaque = Panel(titlePanel, "SuspendedQuarryFlag", new Vector2(.5f, .78f), Vector2.zero, new Vector2(354, 168), new Color(.13f, .27f, .24f, .96f));
+            var plaque = Panel(titlePanel, "HangingScoreBanner", new Vector2(.5f, .78f), Vector2.zero, new Vector2(354, 168), new Color(Ivory.r, Ivory.g, Ivory.b, .97f), squareSprite);
             plaque.localRotation = Quaternion.Euler(0, 0, -2.2f);
-            titleText = Txt(plaque, "현악 네모", new Vector2(.5f, .61f), Vector2.zero, 54, Ivory, 330);
-            titleText.outlineWidth = .24f; titleText.outlineColor = new Color32(58, 30, 20, 255);
+            titleText = Txt(plaque, "현악 네모", new Vector2(.5f, .61f), Vector2.zero, 54, Violet, 330);
+            titleText.outlineWidth = .14f; titleText.outlineColor = new Color32(255, 248, 232, 255);
             titleText.fontStyle = FontStyles.Bold;
-            tagText = Txt(plaque, "꼭짓점을 끌어 대각선을 조율하라", new Vector2(.5f, .24f), Vector2.zero, 16, TealGlow, 330);
-            badgeText = Txt(titlePanel, "중2 · 사각형의 성질", new Vector2(.5f, .62f), Vector2.zero, 14, Ivory, 280);
-            bestText = Txt(titlePanel, "", new Vector2(.5f, .26f), Vector2.zero, 14, Ivory, 300);
-            ctaPanel = Panel(titlePanel, "TuneCta", new Vector2(.5f, .14f), Vector2.zero, new Vector2(330, 72), Copper);
-            ctaText = Txt(ctaPanel, "조율사를 눌러 공명 시작", new Vector2(.5f, .5f), Vector2.zero, 22, MgfLook.Hex("#21150E"), 310);
+            tagText = Txt(plaque, "꼭짓점을 끌어 대각선을 조율하라", new Vector2(.5f, .24f), Vector2.zero, 16, Teal, 330);
+            badgeText = Txt(titlePanel, "중2 · 사각형의 성질", new Vector2(.5f, .62f), Vector2.zero, 14, Ink, 280);
+            bestText = Txt(titlePanel, "", new Vector2(.5f, .26f), Vector2.zero, 14, Ink, 300);
+            ctaPanel = Panel(titlePanel, "BrassPianoKey", new Vector2(.5f, .14f), Vector2.zero, new Vector2(330, 72), CopperHot, squareSprite);
+            ctaText = Txt(ctaPanel, "황동 건반을 눌러 시작", new Vector2(.5f, .5f), Vector2.zero, 22, Ink, 310);
 
             var hud = Full("Hud", root); hudGroup = hud.gameObject.AddComponent<CanvasGroup>();
-            goalPanel = Panel(hud, "GoalPlaque", new Vector2(.5f, 1f), new Vector2(0, -49), new Vector2(368, 54), new Color(.12f, .29f, .26f, .95f));
-            goalText = Txt(goalPanel, "꼭짓점을 맞추면 결정꽃이 펼쳐진다", new Vector2(.5f, .5f), Vector2.zero, 16, Ivory, 344);
-            promptPanel = Panel(hud, "PromptPlaque", new Vector2(.5f, 1f), new Vector2(0, -116), new Vector2(372, 72), new Color(.93f, .89f, .80f, .96f));
-            promptText = Txt(promptPanel, "", new Vector2(.5f, .5f), Vector2.zero, 15, MgfLook.Hex("#24262B"), 350);
-            statusPanel = Panel(hud, "StatusPlaque", new Vector2(.5f, 1f), new Vector2(0, -166), new Vector2(372, 42), new Color(.12f, .29f, .26f, .88f));
-            hudText = Txt(hud, "", new Vector2(.5f, 1f), new Vector2(0, -166), 15, Ivory, 350);
-            progressPanel = Panel(hud, "ProgressPlaque", new Vector2(.5f, 0f), new Vector2(0, 80), new Vector2(372, 56), new Color(.12f, .29f, .26f, .88f));
-            progressText = Txt(hud, "", new Vector2(.5f, 0f), new Vector2(0, 80), 18, Ivory, 360);
-            fusePanel = Panel(hud, "FusePlaque", new Vector2(.5f, 0f), new Vector2(0, 34), new Vector2(330, 46), new Color(.12f, .29f, .26f, .88f));
-            fuseText = Txt(hud, "공명 퓨즈", new Vector2(.18f, 0f), new Vector2(0, 34), 13, Ivory, 110);
+            goalPanel = Panel(hud, "ScoreStrip", new Vector2(.5f, 1f), new Vector2(0, -49), new Vector2(368, 54), new Color(Ivory.r, Ivory.g, Ivory.b, .96f), squareSprite);
+            goalText = Txt(goalPanel, "두 꼭짓점을 맞춰 공명판을 완성하시오", new Vector2(.5f, .5f), Vector2.zero, 16, Ink, 344);
+            promptPanel = Panel(hud, "PromptScore", new Vector2(.5f, 1f), new Vector2(0, -116), new Vector2(372, 72), new Color(Ivory.r, Ivory.g, Ivory.b, .98f), squareSprite);
+            promptText = Txt(promptPanel, "", new Vector2(.5f, .5f), Vector2.zero, 15, Ink, 350);
+            statusPanel = Panel(hud, "StatusStrip", new Vector2(.5f, 1f), new Vector2(0, -166), new Vector2(372, 42), new Color(Basalt2.r, Basalt2.g, Basalt2.b, .94f), squareSprite);
+            hudText = Txt(hud, "", new Vector2(.5f, 1f), new Vector2(0, -166), 15, Ink, 350);
+            progressPanel = Panel(hud, "PerforatedProgress", new Vector2(.5f, 0f), new Vector2(0, 80), new Vector2(372, 56), new Color(Ivory.r, Ivory.g, Ivory.b, .94f), squareSprite);
+            progressText = Txt(hud, "", new Vector2(.5f, 0f), new Vector2(0, 80), 18, Ink, 360);
+            fusePanel = Panel(hud, "MalletTray", new Vector2(.5f, 0f), new Vector2(0, 34), new Vector2(330, 46), new Color(Basalt2.r, Basalt2.g, Basalt2.b, .94f), squareSprite);
+            fuseText = Txt(hud, "남은 말렛", new Vector2(.18f, 0f), new Vector2(0, 34), 13, Ink, 110);
             for (int i = 0; i < 3; i++)
                 fuseImages[i] = Img(hud, "Fuse" + i, new Vector2(.36f + i * .11f, 0), new Vector2(0, 36), new Vector2(30, 8), CopperHot);
-            magnifierPanel = Panel(hud, "Magnifier", new Vector2(.5f, 0f), new Vector2(0, 140), new Vector2(300, 54), new Color(.12f, .29f, .26f, .95f));
-            measureText = Txt(magnifierPanel, "", new Vector2(.5f, .5f), Vector2.zero, 15, Ivory, 284);
+            magnifierPanel = Panel(hud, "MeasureCard", new Vector2(.5f, 0f), new Vector2(0, 140), new Vector2(300, 54), new Color(Ivory.r, Ivory.g, Ivory.b, .96f), squareSprite);
+            measureText = Txt(magnifierPanel, "", new Vector2(.5f, .5f), Vector2.zero, 15, Ink, 284);
             ringBGuide = Img(hud, "RingBGuide", new Vector2(.5f, .5f), Vector2.zero, new Vector2(72, 72), TealGlow, ringSprite);
             ringDGuide = Img(hud, "RingDGuide", new Vector2(.5f, .5f), Vector2.zero, new Vector2(72, 72), CopperHot, ringSprite);
             ringBTarget = Img(hud, "RingBTarget", new Vector2(.5f, .5f), Vector2.zero, new Vector2(88, 88), Teal, ringSprite);
@@ -438,24 +444,26 @@ namespace Mgf.HyeonakNemo
             guideHandD = Img(hud, "HandD", new Vector2(.5f, .5f), Vector2.zero, new Vector2(50, 50), Ivory, handSprite);
             guideTextB = Txt(hud, "C → 4 cm", new Vector2(.5f, .5f), Vector2.zero, 13, Ink, 100);
             guideTextD = Txt(hud, "D → 7 cm", new Vector2(.5f, .5f), Vector2.zero, 13, Ink, 100);
+            guideTextB.outlineWidth = guideTextD.outlineWidth = .24f;
+            guideTextB.outlineColor = guideTextD.outlineColor = new Color32(255, 248, 232, 255);
             SetPracticeGuidesVisible(false);
 
-            toastPanel = Panel(hud, "Feedback", new Vector2(.5f, .5f), new Vector2(0, 205), new Vector2(352, 76), new Color(.12f, .29f, .26f, .97f));
+            toastPanel = Panel(hud, "FeedbackScore", new Vector2(.5f, .5f), new Vector2(0, 205), new Vector2(352, 76), new Color(Ink.r, Ink.g, Ink.b, .97f), squareSprite);
             toastGroup = toastPanel.gameObject.AddComponent<CanvasGroup>();
             feedbackText = Txt(toastPanel, "", new Vector2(.5f, .5f), Vector2.zero, 18, Ivory, 330);
 
             endPanel = Full("EndScreen", root); endGroup = endPanel.gameObject.AddComponent<CanvasGroup>();
-            var resultPlaque = Panel(endPanel, "ResultPlaque", new Vector2(.5f, .58f), Vector2.zero, new Vector2(360, 300), new Color(.13f, .27f, .24f, .97f));
+            var resultPlaque = Panel(endPanel, "ResultScore", new Vector2(.5f, .58f), Vector2.zero, new Vector2(360, 300), new Color(Ivory.r, Ivory.g, Ivory.b, .98f), squareSprite);
             endTitle = Txt(resultPlaque, "", new Vector2(.5f, .78f), Vector2.zero, 38, TealGlow, 330);
-            endScore = Txt(resultPlaque, "", new Vector2(.5f, .52f), Vector2.zero, 54, Ivory, 330);
-            endStats = Txt(resultPlaque, "", new Vector2(.5f, .25f), Vector2.zero, 18, Ivory, 330);
-            var retry = Panel(endPanel, "RetryCta", new Vector2(.5f, .28f), Vector2.zero, new Vector2(330, 72), Copper);
-            endCta = Txt(retry, "다시 조율하기", new Vector2(.5f, .5f), Vector2.zero, 23, MgfLook.Hex("#21150E"), 310);
+            endScore = Txt(resultPlaque, "", new Vector2(.5f, .52f), Vector2.zero, 54, Ink, 330);
+            endStats = Txt(resultPlaque, "", new Vector2(.5f, .25f), Vector2.zero, 18, Ink, 330);
+            var retry = Panel(endPanel, "RetryKey", new Vector2(.5f, .28f), Vector2.zero, new Vector2(330, 72), CopperHot, squareSprite);
+            endCta = Txt(retry, "다시 조율하기", new Vector2(.5f, .5f), Vector2.zero, 23, Ink, 310);
         }
 
         void Prewarm()
         {
-            var s = new StringBuilder("현악네모꼭짓점을끌어대각선을조율하라중학교2학년사각형의성질조율사를눌러공명시작결정꽃펼친다평행사변형직사각형마름모정사각형중앙핀교점서로다른것을이등분수직선분의길이는반대방향첫시도공명퓨즈남은시간완성연주다시조율하기연습C와D옮기시오cm");
+            var s = new StringBuilder("현악네모꼭짓점을끌어대각선을조율하라중학교2학년사각형의성질황동건반을눌러시작손잡이공명판악보타일평행사변형직사각형마름모정사각형중앙핀교점서로다른것을이등분수직선분의길이는반대방향첫시도남은말렛남은시간완성다시조율하기연습C와D옮기시오cm");
             for (int i = 0; i < bank.Count; i++) { s.Append(bank[i].prompt); s.Append(bank[i].answer); }
             MgfText.Prewarm(s.ToString());
         }
@@ -470,11 +478,11 @@ namespace Mgf.HyeonakNemo
             titleGroup.alpha = 1; titleGroup.blocksRaycasts = false;
             hudGroup.alpha = 0; endGroup.alpha = 0; toastGroup.alpha = 0;
             bestText.text = PlayerPrefs.GetInt("hyeonak-nemo.bestFirst", 0) > 0
-                ? "최고 첫 시도 " + PlayerPrefs.GetInt("hyeonak-nemo.bestFirst", 0) + "/6" : "결정꽃 6송이를 펼쳐라";
+                ? "최고 첫 시도 " + PlayerPrefs.GetInt("hyeonak-nemo.bestFirst", 0) + "/6" : "악보 타일 6장을 완성하라";
             for (int i = 0; i < 6; i++)
             {
-                savedFrames[i].gameObject.SetActive(false); crystalBlooms[i].gameObject.SetActive(false);
-                chimeRenderers[i].sharedMaterial = ivoryMat;
+                savedFrames[i].gameObject.SetActive(false); waveLocks[i].gameObject.SetActive(false);
+                pitchNodeRenderers[i].sharedMaterial = ivoryMat;
             }
             for (int i = 0; i < 3; i++) { fuses[i].gameObject.SetActive(true); fuses[i].localPosition = new Vector3(-.65f + i * .65f, -.28f, -2.2f); }
             SetPracticeGuidesVisible(false); tutorialAssistActive = false; beetle.position = beetleHome;
@@ -495,8 +503,8 @@ namespace Mgf.HyeonakNemo
             beetle.position = beetleHome;
             for (int i = 0; i < 6; i++)
             {
-                savedFrames[i].gameObject.SetActive(false); crystalBlooms[i].gameObject.SetActive(false);
-                chimeRenderers[i].sharedMaterial = ivoryMat;
+                savedFrames[i].gameObject.SetActive(false); waveLocks[i].gameObject.SetActive(false);
+                pitchNodeRenderers[i].sharedMaterial = ivoryMat;
             }
             for (int i = 0; i < 3; i++) { fuses[i].gameObject.SetActive(true); fuses[i].localPosition = new Vector3(-.65f + i * .65f, -.28f, -2.2f); fuses[i].localRotation = Quaternion.Euler(90, 0, 0); }
         }
@@ -506,7 +514,7 @@ namespace Mgf.HyeonakNemo
             ResetRun(); phase = RunPhase.Practice; st.phase = "playing";
             current = HyeonakRules.Practice(); SetProblem(current, true);
             titleGroup.alpha = 0; hudGroup.alpha = 1; endGroup.alpha = 0;
-            goalText.text = "C와 D를 끌어 두 대각선을 서로 다른 것을 이등분하시오";
+            goalText.text = "C와 D 손잡이를 끌어 두 대각선을 이등분하시오";
             SetPracticeGuidesVisible(true);
             MgfSfx.Play("whoosh", .30f); MgfBridge.NotifyChanged();
         }
@@ -525,7 +533,7 @@ namespace Mgf.HyeonakNemo
             st.lives = HyeonakRules.StartLives; st.attemptsOnCurrent = 0; secondsLeft = 110f;
             phase = RunPhase.Playing; st.phase = "playing";
             SetPracticeGuidesVisible(false); tutorialAssistActive = false; beetle.position = beetleHome;
-            goalText.text = "두 꼭짓점을 놓아 주문한 사각형을 만드시오";
+            goalText.text = "두 손잡이를 놓아 주문한 사각형을 만드시오";
             NextProblem();
         }
 
@@ -597,22 +605,22 @@ namespace Mgf.HyeonakNemo
                 secondsLeft -= dt;
                 if (secondsLeft <= 0) { secondsLeft = 0; EndRun(false); }
             }
-            if (phase == RunPhase.Practice)
+            if (tutorialAssistActive) UpdateTutorialAssist(dt);
+            if (phase == RunPhase.Practice && !tutorialAssistActive)
             {
-                if (tutorialAssistActive) UpdateTutorialAssist(dt);
-                else
-                {
-                    idleGuide += dt; tutorialAssistDelay += dt;
-                    bool firstIdle = !st.ringBChanged && idleGuide >= 4.5f;
-                    bool secondReady = st.ringBChanged && !st.ringDChanged && tutorialAssistDelay >= .8f;
-                    if (firstIdle || secondReady) BeginTutorialAssist();
-                }
+                idleGuide += dt; tutorialAssistDelay += dt;
+                bool firstIdle = !st.ringBChanged && idleGuide >= 4.5f;
+                bool secondReady = st.ringBChanged && !st.ringDChanged && tutorialAssistDelay >= .8f;
+                if (firstIdle || secondReady) BeginTutorialAssist();
             }
             if (phase == RunPhase.Reveal)
             {
                 revealT += dt;
                 trailT += dt;
-                float revealDuration = current.kind == FrameKind.Practice && revealCorrect ? 2.55f : (revealCorrect ? 1.18f : .92f);
+                bool firstMainExplanation = current.kind == FrameKind.Parallelogram && st.round == 1 && st.firstAttempts <= 1;
+                float revealDuration = current.kind == FrameKind.Practice && revealCorrect ? 2.55f
+                    : firstMainExplanation ? 3.2f
+                    : (revealCorrect ? 1.18f : .92f);
                 if (revealT >= revealDuration) FinishReveal();
             }
             else if (toastT > 0)
@@ -626,7 +634,6 @@ namespace Mgf.HyeonakNemo
 
         void HandleInput()
         {
-            if (tutorialAssistActive) return;
             if (MgfPointer.Down)
             {
                 if (phase == RunPhase.Title) { StartPractice(); return; }
@@ -634,12 +641,12 @@ namespace Mgf.HyeonakNemo
                 if (phase == RunPhase.Reveal) { InvalidTap(); return; }
                 if (phase != RunPhase.Practice && phase != RunPhase.Playing) return;
 
-                // 바위벌레와 줄이 시각적으로 겹쳐도 52px 고리의 화면 히트박스가 항상 먼저 잡힌다.
+                // 안내가 떠도 빈 공간을 고리로 오인하지 않도록 화면 히트박스는 손잡이 주변에만 둔다.
                 Vector2 pointer = MgfPointer.Position;
                 Vector2 bScreen = new Vector2(st.ringBScreenX, Screen.height - st.ringBScreenY);
                 Vector2 dScreen = new Vector2(st.ringDScreenX, Screen.height - st.ringDScreenY);
                 float db = Vector2.Distance(pointer, bScreen), dd = Vector2.Distance(pointer, dScreen);
-                float hitRadius = phase == RunPhase.Practice && practiceMisses > 0 ? 82f : 46f;
+                float hitRadius = phase == RunPhase.Practice ? 64f : 54f;
                 if (Mathf.Min(db, dd) <= hitRadius)
                 {
                     draggingB = db <= dd; draggingD = !draggingB; dragMoved = false; idleGuide = 0;
@@ -675,14 +682,14 @@ namespace Mgf.HyeonakNemo
 
         void BeginTutorialAssist()
         {
-            if (phase != RunPhase.Practice || tutorialAssistActive || (st.ringBChanged && st.ringDChanged)) return;
+            bool firstMain = phase == RunPhase.Playing && st.round == 1 && st.firstAttempts == 0 && st.attemptsOnCurrent == 0;
+            if ((phase != RunPhase.Practice && !firstMain) || tutorialAssistActive || (st.ringBChanged && st.ringDChanged)) return;
             tutorialAssistB = !st.ringBChanged;
-            tutorialAssistFromRadius = tutorialAssistB ? st.ringBRadius : st.ringDRadius;
-            tutorialAssistTargetRadius = tutorialAssistB ? current.a : current.b;
             tutorialAssistT = 0; tutorialAssistActive = true; idleGuide = 0;
-            feedbackText.text = tutorialAssistB
-                ? "손을 따라 C를 선분 AO와 같은 4 cm 눈금으로 옮깁니다"
-                : "이제 D를 선분 BO와 같은 7 cm 눈금으로 옮깁니다";
+            string point = tutorialAssistB ? (current.kind == FrameKind.Practice || current.kind == FrameKind.Parallelogram ? "C" : "B") : "D";
+            string half = tutorialAssistB ? "AO" : "BO";
+            int targetRadius = tutorialAssistB ? current.a : current.b;
+            feedbackText.text = $"{point} 손잡이를 직접 끌어 선분 {half}와 같은 {targetRadius} cm 눈금에 놓으시오";
             feedbackText.color = Ivory; toastGroup.alpha = 1; toastT = 1.2f;
             MgfSfx.Play("whoosh", .20f);
         }
@@ -690,16 +697,10 @@ namespace Mgf.HyeonakNemo
         void UpdateTutorialAssist(float dt)
         {
             tutorialAssistT += dt;
-            float q = Mathf.SmoothStep(0, 1, Mathf.Clamp01(tutorialAssistT / .95f));
-            int radius = Mathf.RoundToInt(Mathf.Lerp(tutorialAssistFromRadius, tutorialAssistTargetRadius, q));
-            if (tutorialAssistB) st.ringBRadius = radius; else st.ringDRadius = radius;
-            UpdateGeometry();
-            if (q < 1) return;
-
-            tutorialAssistActive = false; tutorialAssistDelay = 0; st.inputSerial++;
-            if (tutorialAssistB) st.ringBChanged = true; else st.ringDChanged = true;
-            SetPracticeGuidesVisible(true); MgfSfx.Play("pop", .18f); MgfBridge.NotifyChanged();
-            if (st.ringBChanged && st.ringDChanged) Submit();
+            SetPracticeGuidesVisible(true);
+            if (tutorialAssistT < 1.4f) return;
+            tutorialAssistActive = false;
+            tutorialAssistDelay = 0;
         }
 
         bool ScreenToBoard(out Vector3 local)
@@ -778,9 +779,9 @@ namespace Mgf.HyeonakNemo
                 {
                     int slot = Mathf.Clamp(st.solved - 1, 0, 5);
                     savedFrames[slot].gameObject.SetActive(true);
-                    crystalBlooms[slot].gameObject.SetActive(true);
-                    crystalBlooms[slot].localScale = Vector3.zero;
-                    chimeRenderers[slot].sharedMaterial = tealGlowMat;
+                    waveLocks[slot].gameObject.SetActive(true);
+                    waveLocks[slot].localScale = Vector3.zero;
+                    pitchNodeRenderers[slot].sharedMaterial = copperHotMat;
                 }
             }
             else
@@ -822,8 +823,8 @@ namespace Mgf.HyeonakNemo
             titleGroup.alpha = 0; hudGroup.alpha = 0; endGroup.alpha = 1;
             int best = Mathf.Max(PlayerPrefs.GetInt("hyeonak-nemo.bestFirst", 0), st.firstCorrect);
             PlayerPrefs.SetInt("hyeonak-nemo.bestFirst", best); PlayerPrefs.Save();
-            endTitle.text = clear ? "육현 공명 완성" : st.lives <= 0 ? "공명 퓨즈 소진" : secondsLeft <= 0 ? "연주 시간 종료" : "첫 시도 4회에 도전";
-            endTitle.color = clear ? TealGlow : Ivory;
+            endTitle.text = clear ? "육현 악보 완성" : st.lives <= 0 ? "말렛을 모두 썼습니다" : secondsLeft <= 0 ? "조율 시간 종료" : "첫 시도 4회에 도전";
+            endTitle.color = clear ? Teal : Ink;
             endScore.text = st.score.ToString("N0");
             endStats.text = $"완성 {st.solved}/6   ·   첫 시도 {st.firstCorrect}/6\n최고 첫 시도 {best}/6";
             if (clear) MgfSfx.Play("win", .46f); else MgfSfx.Play("lose", .38f);
@@ -863,6 +864,7 @@ namespace Mgf.HyeonakNemo
                 case "not_perpendicular": return "O에서 이등분되지만 두 대각선이 수직이 아닙니다.\n90°가 되도록 방향을 바꾸시오.";
                 case "first_half_not_equal": return "선분 AO와 선분 OC의 길이가 다릅니다. 같은 눈금에 놓으시오.";
                 case "second_half_not_equal": return "선분 BO와 선분 OD의 길이가 다릅니다. 같은 눈금에 놓으시오.";
+                case "not_opposite_rays": return "C와 D가 정해진 반대쪽 반직선에 놓이지 않았습니다.\nO를 지나도록 빛 절점을 옮기시오.";
                 default: return "두 반쪽 길이와 반대 방향을 함께 확인하시오.";
             }
         }
@@ -871,11 +873,19 @@ namespace Mgf.HyeonakNemo
         {
             st.inputSerial++; idleGuide = 0;
             if (ScreenToBoard(out var local)) StartRipple(local);
+            if (phase == RunPhase.Reveal)
+            {
+                MgfSfx.Play("tap", .08f);
+                MgfBridge.NotifyChanged();
+                return;
+            }
             wrongJolt = .35f; MgfSfx.Play("tap", .12f);
-            feedbackText.text = phase == RunPhase.Reveal ? "현이 울리는 동안 잠시 기다리시오" : "손과 화살표를 따라 꼭짓점 고리를 옮기시오";
+            string pending = !st.ringBChanged ? (current.kind == FrameKind.Practice || current.kind == FrameKind.Parallelogram ? "C" : "B") : "D";
+            feedbackText.text = $"맥동하는 {pending} 손잡이를 잡고 화살표 끝까지 직접 끌어 놓으시오";
             feedbackText.color = Ivory; toastGroup.alpha = 1;
             toastT = .85f;
-            if (phase == RunPhase.Practice && !tutorialAssistActive)
+            bool firstMain = phase == RunPhase.Playing && st.round == 1 && st.firstAttempts == 0 && st.attemptsOnCurrent == 0;
+            if ((phase == RunPhase.Practice || firstMain) && !tutorialAssistActive)
             {
                 practiceMisses++;
                 if (practiceMisses >= 1) BeginTutorialAssist();
@@ -898,13 +908,13 @@ namespace Mgf.HyeonakNemo
 
         void UpdatePresentation(float dt)
         {
-            // 늘 움직이는 협곡: 섬유 고리·결정꽃·조율사의 대기 동작.
+            // 늘 움직이는 음악원: 마림바 건반과 악보 타일이 서로 다른 박자로 호흡한다.
             for (int i = 0; i < 6; i++)
             {
-                float sway = Mathf.Sin(titleT * (1.25f + i * .04f) + i * .72f) * (phase == RunPhase.Reveal && revealCorrect ? 6f : 2.2f);
-                chimes[i].localRotation = Quaternion.Euler(0, 35 + sway, 45 + sway * .35f);
-                float lift = i < st.solved ? Mathf.SmoothStep(0, .32f, Mathf.PingPong(titleT * .45f + i * .11f, 1)) : 0;
-                resonanceRings[i].position = resonanceRingHomes[i] + Vector3.up * (lift * .05f);
+                float pulse = 1f + Mathf.Sin(titleT * (1.6f + i * .08f) + i * .72f) * (i < st.solved ? .10f : .035f);
+                pitchNodes[i].localScale = new Vector3(.34f, .34f, .18f) * pulse;
+                float lift = i < st.solved ? Mathf.PingPong(titleT * .38f + i * .11f, 1) : 0;
+                spectrumCells[i].position = spectrumCellHomes[i] + Vector3.up * (lift * .025f);
             }
             if (beetle)
             {
@@ -949,16 +959,17 @@ namespace Mgf.HyeonakNemo
                 float q = Mathf.Clamp01(trailT / .65f);
                 Vector3[] pts = FramePointsWorld();
                 float f = q * 4f; int seg = Mathf.Min(3, Mathf.FloorToInt(f)); float u = f - seg;
-                Vector3 ride = Vector3.Lerp(pts[seg], pts[seg + 1], u);
-                resonanceTrail.SetPosition(0, pts[seg]); resonanceTrail.SetPosition(1, ride);
-                beetle.position = ride + boardRoot.forward * -.38f;
-                beetle.localScale = Vector3.one * .56f;
+                Vector3 scan = Vector3.Lerp(pts[seg], pts[seg + 1], u);
+                resonanceTrail.SetPosition(0, pts[seg]); resonanceTrail.SetPosition(1, scan);
+                // 정답 사건은 현을 훑는 진동 뒤 천공 악보가 물리적으로 솟는 연주 기록이다.
+                beetle.position = beetleHome;
+                beetle.localScale = Vector3.one * (1f + Mathf.Sin(q * Mathf.PI) * .05f);
                 if (current.kind != FrameKind.Practice)
                 {
                     int slot = Mathf.Clamp(st.solved - 1, 0, 5);
-                    float bloom = Mathf.Clamp01(trailT / .58f);
-                    float overshoot = bloom + Mathf.Sin(bloom * Mathf.PI) * .16f;
-                    crystalBlooms[slot].localScale = Vector3.one * overshoot;
+                    float lockPhase = Mathf.Clamp01(trailT / .58f);
+                    float overshoot = lockPhase + Mathf.Sin(lockPhase * Mathf.PI) * .16f;
+                    waveLocks[slot].localScale = Vector3.one * overshoot;
                 }
                 float pulse = 1 + Mathf.Sin(q * Mathf.PI) * .20f;
                 handleB.localScale = new Vector3(.38f, .38f, .22f) * pulse;
@@ -1055,9 +1066,12 @@ namespace Mgf.HyeonakNemo
             int shownScore = Mathf.RoundToInt(displayedScore);
             hudText.text = phase == RunPhase.Practice ? "연습 · 시계 정지"
                 : $"점수 {shownScore:N0}   ·   {Mathf.CeilToInt(secondsLeft)}초   ·   첫 시도 {st.firstCorrect}/{st.firstAttempts}";
-            progressText.text = phase == RunPhase.Practice ? "두 고리를 모두 움직이면 자동 제출"
-                : $"공명 프레임 {st.solved}/6   ·   {BandName(st.level)}";
-            fuseText.text = "공명 퓨즈 " + Mathf.Max(0, st.lives);
+            bool firstMainGuide = phase == RunPhase.Playing && st.round == 1 && st.firstAttempts == 0 && st.attemptsOnCurrent == 0;
+            int placed = (st.ringBChanged ? 1 : 0) + (st.ringDChanged ? 1 : 0);
+            progressText.text = phase == RunPhase.Practice ? $"연습 절점 {placed}/2   ·   둘 다 놓으면 자동 제출"
+                : firstMainGuide ? $"첫 조율 {placed}/2   ·   두 손잡이를 차례로 놓으시오"
+                : $"악보 타일 {st.solved}/6   ·   {BandName(st.level)}";
+            fuseText.text = "남은 말렛 " + Mathf.Max(0, st.lives);
             for (int i = 0; i < 3; i++) fuseImages[i].color = i < st.lives ? CopperHot : new Color(.28f, .27f, .27f, .65f);
             RectTransform canvasRt = (RectTransform)MgfText.Canvas.transform;
             float logicalW = canvasRt.rect.width, logicalH = canvasRt.rect.height;
@@ -1142,7 +1156,8 @@ namespace Mgf.HyeonakNemo
 
         void PositionGuides()
         {
-            if (phase != RunPhase.Practice) { SetPracticeGuidesVisible(false); guideLine.enabled = false; return; }
+            bool mainFirst = phase == RunPhase.Playing && st.round == 1 && st.firstAttempts == 0 && st.attemptsOnCurrent == 0;
+            if (phase != RunPhase.Practice && !mainFirst) { SetPracticeGuidesVisible(false); guideLine.enabled = false; return; }
             SetPracticeGuidesVisible(true);
             RectTransform canvasRt = (RectTransform)MgfText.Canvas.transform;
             Vector2 bStart = ScreenToCanvas(handleB.position, canvasRt);
@@ -1152,15 +1167,17 @@ namespace Mgf.HyeonakNemo
             float pulse = 1 + Mathf.Sin(titleT * (idleGuide > 8 ? 8f : 5f)) * .12f;
             ringBGuide.rectTransform.localScale = ringDGuide.rectTransform.localScale = Vector3.one * pulse;
             ringBTarget.rectTransform.localScale = ringDTarget.rectTransform.localScale = Vector3.one * (1.02f + Mathf.Sin(titleT * 4.2f) * .06f);
-            PositionGuideSet(ringBGuide, ringBTarget, guideArrowB, guideHandB, guideTextB, bStart, bTarget, "C · 4 cm", 0f);
-            PositionGuideSet(ringDGuide, ringDTarget, guideArrowD, guideHandD, guideTextD, dStart, dTarget, "D · 7 cm", .55f);
+            string bLabel = "C · " + current.a + " cm";
+            string dLabel = "D · " + current.b + " cm";
+            PositionGuideSet(ringBGuide, ringBTarget, guideArrowB, guideHandB, guideTextB, bStart, bTarget, bLabel, 0f);
+            PositionGuideSet(ringDGuide, ringDTarget, guideArrowD, guideHandD, guideTextD, dStart, dTarget, dLabel, .55f);
 
             guideLine.enabled = !st.ringBChanged || !st.ringDChanged;
             if (guideLine.enabled)
             {
                 bool first = !st.ringBChanged;
                 guideLine.SetPosition(0, first ? handleB.position : handleD.position);
-                guideLine.SetPosition(1, first ? BoardWorld(4, current.baseK + 6) : BoardWorld(7, current.baseK + 8));
+                guideLine.SetPosition(1, first ? BoardWorld(current.a, current.baseK + 6) : BoardWorld(current.b, current.baseK + 8));
                 guideLine.startWidth = guideLine.endWidth = .06f + .035f * (.5f + .5f * Mathf.Sin(titleT * 7f));
             }
         }
@@ -1173,12 +1190,13 @@ namespace Mgf.HyeonakNemo
             targetRing.rectTransform.anchoredPosition = target;
             Vector2 delta = target - start;
             float length = delta.magnitude;
+            Vector2 perpendicular = length > 1f ? new Vector2(-delta.y, delta.x) / length : Vector2.up;
             arrow.rectTransform.anchoredPosition = (start + target) * .5f;
             arrow.rectTransform.sizeDelta = new Vector2(Mathf.Clamp(length, 78, 190), 48);
             arrow.rectTransform.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
             float travel = Mathf.PingPong(titleT * .72f + phaseOffset, 1f);
-            hand.rectTransform.anchoredPosition = Vector2.Lerp(start, target, Mathf.SmoothStep(0, 1, travel));
-            label.rectTransform.anchoredPosition = target + new Vector2(0, -52);
+            hand.rectTransform.anchoredPosition = Vector2.Lerp(start, target, Mathf.SmoothStep(0, 1, travel)) + perpendicular * 36f;
+            label.rectTransform.anchoredPosition = target + perpendicular * 42f;
             label.text = text;
         }
 
@@ -1208,10 +1226,10 @@ namespace Mgf.HyeonakNemo
             rt.anchoredPosition = pos; rt.sizeDelta = size; return rt;
         }
 
-        RectTransform Panel(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Color color)
+        RectTransform Panel(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Color color, Sprite sprite = null)
         {
             var rt = R(name, parent, anchor, pos, size); var img = rt.gameObject.AddComponent<Image>();
-            img.sprite = roundedSprite; img.type = Image.Type.Sliced; img.color = color; img.raycastTarget = false; return rt;
+            img.sprite = sprite ?? roundedSprite; img.type = Image.Type.Sliced; img.color = color; img.raycastTarget = false; return rt;
         }
 
         Image Img(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Color color, Sprite sprite = null)
@@ -1291,16 +1309,19 @@ namespace Mgf.HyeonakNemo
         void SetPracticeGuidesVisible(bool visible)
         {
             if (ringBGuide == null) return;
-            ringBGuide.enabled = visible && !st.ringBChanged;
-            ringDGuide.enabled = visible && !st.ringDChanged;
-            ringBTarget.enabled = visible && !st.ringBChanged;
-            ringDTarget.enabled = visible && !st.ringDChanged;
-            guideArrowB.enabled = visible && !st.ringBChanged;
-            guideArrowD.enabled = visible && !st.ringDChanged;
-            guideHandB.enabled = visible && !st.ringBChanged;
-            guideHandD.enabled = visible && !st.ringDChanged;
-            guideTextB.gameObject.SetActive(visible && !st.ringBChanged);
-            guideTextD.gameObject.SetActive(visible && !st.ringDChanged);
+            // 한 번에 한 절점만 가리켜 첫 본판에서도 "다음에 무엇을 잡는지"가 끊기지 않게 한다.
+            bool showB = visible && !st.ringBChanged;
+            bool showD = visible && st.ringBChanged && !st.ringDChanged;
+            ringBGuide.enabled = showB;
+            ringDGuide.enabled = showD;
+            ringBTarget.enabled = showB;
+            ringDTarget.enabled = showD;
+            guideArrowB.enabled = showB;
+            guideArrowD.enabled = showD;
+            guideHandB.enabled = showB;
+            guideHandD.enabled = showD;
+            guideTextB.gameObject.SetActive(showB);
+            guideTextD.gameObject.SetActive(showD);
         }
 
         // ── QA bridge ────────────────────────────────────────────────────────

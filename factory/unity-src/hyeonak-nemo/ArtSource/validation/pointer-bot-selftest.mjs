@@ -27,6 +27,12 @@ function radialTarget(s,which,wanted){
   return{x:s.boardCenterScreenX+(p.x-s.boardCenterScreenX)*wanted/r,y:s.boardCenterScreenY+(p.y-s.boardCenterScreenY)*wanted/r};
 }
 async function drag(page,from,to){await page.mouse.move(from.x,from.y);await page.mouse.down();await sleep(16);await page.mouse.move(to.x,to.y,{steps:5});await sleep(16);await page.mouse.up();await sleep(24);}
+async function tap(page,p){await page.mouse.move(p.x,p.y);await page.mouse.down();await sleep(16);await page.mouse.up();await sleep(24);}
+function shortTarget(s,which){const p=currentPos(s,which),c={x:s.boardCenterScreenX,y:s.boardCenterScreenY},d=Math.hypot(c.x-p.x,c.y-p.y)||1;return{x:p.x+(c.x-p.x)*3/d,y:p.y+(c.y-p.y)*3/d};}
+function blankTarget(s){
+  const handles=[currentPos(s,'B'),currentPos(s,'D')],candidates=[{x:18,y:410},{x:372,y:410},{x:18,y:650},{x:372,y:650},{x:195,y:735}];
+  return candidates.sort((a,b)=>Math.min(...handles.map(h=>Math.hypot(b.x-h.x,b.y-h.y)))-Math.min(...handles.map(h=>Math.hypot(a.x-h.x,a.y-h.y))))[0];
+}
 
 function artifactHash(){
   const dir=path.join(PUBLIC,'g/hyeonak-nemo'),files=[];
@@ -43,11 +49,26 @@ async function open(){
   await page.waitForFunction(()=>window.__GAME_TEST__?.ready,{timeout:60000});return{page,errors};
 }
 async function run(kind){
-  const {page,errors}=await open();const random=rnd(kind==='random'?0x51a7c0de:0x1963);let correct=0,submitted=0,complete=0;
+  const {page,errors}=await open();const random=rnd(kind==='random'?0x51a7c0de:0x1963);let correct=0,submitted=0,complete=0,progressed=0;
   for(let i=0;i<TRIALS;i++){
     const before=await page.evaluate(()=>{window.__GAME_TEST__.start();return window.__GAME_TEST__.getState();});
+    if(kind==='blank'){
+      await tap(page,blankTarget(before));
+      const after=await page.evaluate(()=>window.__GAME_TEST__.getState());
+      if(after.firstAttempts!==0||after.firstCorrect!==0||after.solved!==0)progressed++;
+      continue;
+    }
+    if(kind==='short'){
+      await drag(page,currentPos(before,'B'),shortTarget(before,'B'));
+      const mid=await page.evaluate(()=>window.__GAME_TEST__.getState());
+      await drag(page,currentPos(mid,'D'),shortTarget(mid,'D'));
+      const after=await page.evaluate(()=>window.__GAME_TEST__.getState());
+      if(after.firstAttempts===1){submitted++;if(after.firstCorrect===1)correct++;}
+      if(after.phase==='clear')complete++;
+      continue;
+    }
     let rb,rd;
-    if(kind==='fixed'){rb=1;rd=1;}
+    if(kind==='same'){rb=rd=i%10+1;}
     else if(kind==='cycle'){const n=i%100;rb=Math.floor(n/10)+1;rd=n%10+1;}
     else {rb=Math.floor(random()*10)+1;rd=Math.floor(random()*10)+1;}
     await drag(page,currentPos(before,'B'),radialTarget(before,'B',rb));
@@ -65,16 +86,22 @@ async function run(kind){
     if(after.firstAttempts===1){submitted++;if(after.firstCorrect===1)correct++;}
     if(after.phase==='clear')complete++;
   }
-  await page.close();const rate=submitted?correct/submitted:0,pValueAboveChance=binomialTail(correct,submitted,CHANCE);
-  return{trials:TRIALS,submitted,correct,firstTryRate:rate,chance:CHANCE,rawReviewCeiling:RAW_REVIEW_CEILING,pValueAboveChance,completionRate:complete/TRIALS,consoleErrors:errors,
-    passed:submitted===TRIALS&&rate<=RAW_REVIEW_CEILING&&pValueAboveChance>=.05&&errors.length===0};
+  await page.close();
+  const rate=submitted?correct/submitted:0,zeroChance=kind==='blank'||kind==='same'||kind==='short';
+  const chance=zeroChance?0:CHANCE,pValueAboveChance=zeroChance?(correct===0?1:0):binomialTail(correct,submitted,CHANCE);
+  const passed=kind==='blank'
+    ? submitted===0&&correct===0&&progressed===0&&errors.length===0
+    : kind==='short'
+      ? correct===0&&complete===0&&errors.length===0
+      : submitted===TRIALS&&rate<=RAW_REVIEW_CEILING&&pValueAboveChance>=.05&&errors.length===0;
+  return{trials:TRIALS,submitted,correct,firstTryRate:rate,chance,rawReviewCeiling:RAW_REVIEW_CEILING,pValueAboveChance,completionRate:complete/TRIALS,progressed,consoleErrors:errors,passed};
 }
-const fixed=await run('fixed'),cycle=await run('cycle'),random=await run('random');
+const blank=await run('blank'),same=await run('same'),short=await run('short'),cycle=await run('cycle'),random=await run('random');
 const {page:idlePage,errors:idleErrors}=await open();
 const idleBefore=await idlePage.evaluate(()=>{window.__GAME_TEST__.start();return window.__GAME_TEST__.getState();});
 await sleep(900);const idleAfter=await idlePage.evaluate(()=>window.__GAME_TEST__.getState());await idlePage.close();
 const idle={trials:TRIALS,submitted:0,correct:0,firstTryRate:0,chance:0,completionRate:0,progressBefore:idleBefore.solved,progressAfter:idleAfter.solved,consoleErrors:idleErrors,passed:idleBefore.solved===idleAfter.solved&&idleErrors.length===0};
-const result={run_id:`hyeonak-nemo-pointer-bots-${new Date().toISOString()}`,artifact_hash_sha256:artifactHash(),method:'Chrome CDP real mouse down/move/up on both Unity vertex rings; no problem prompt/id/answer hook/sampleProblems read',criterion:'each 200-run policy raw rate <= 2.5% review ceiling AND not significantly above exact 1/100 chance (one-sided binomial p >= .05); idle progress 0',fixed,cycle,random,idle,passed:fixed.passed&&cycle.passed&&random.passed&&idle.passed};
+const result={run_id:`hyeonak-nemo-pointer-bots-${new Date().toISOString()}`,artifact_hash_sha256:artifactHash(),method:'Chrome CDP real mouse events only: blank taps, equal-radius placements, 3px short drags, exhaustive radius cycle, seeded random; no problem prompt/id/answer hook/sampleProblems read',criterion:'blank 200 runs must make no progress; same/short 200 runs must produce 0 accidental correct (a short drag may intentionally remain unsubmitted); cycle/random raw rate <= 2.5% and not significantly above exact 1/100 chance; idle progress 0',blank,same,short,cycle,random,idle,passed:blank.passed&&same.passed&&short.passed&&cycle.passed&&random.passed&&idle.passed};
 console.log(JSON.stringify(result,null,2));
 fs.writeFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),'bot-results.json'),JSON.stringify(result,null,2));
 await browser.close();await server.close();if(!result.passed)process.exitCode=1;

@@ -112,6 +112,15 @@ namespace Mgf.HyeonakNemo
                     misconceptionId = "square_excluded_from_rectangle_rhombus"
                 });
             }
+            // 브라우저에 노출하는 바로 그 은행을 실제 C# 정본 판정으로 전수 검사한다.
+            // CountSolutions가 IsCorrect와 다른 방향 규약을 쓰면 부팅 자체를 실패시킨다.
+            for (int i = 0; i < list.Count; i++)
+            {
+                int expected = list[i].kind == FrameKind.Rectangle ? 5 : 1;
+                int actual = CountSolutions(list[i]);
+                if (actual != expected)
+                    throw new InvalidOperationException($"{list[i].id} solution audit: expected {expected}, got {actual}");
+            }
             return list;
         }
 
@@ -127,7 +136,11 @@ namespace Mgf.HyeonakNemo
             kD = Mod12(kD - p.baseK);
             bool opposite = Mod12(kD - kB) == 6;
             if (p.kind == FrameKind.Practice || p.kind == FrameKind.Parallelogram)
-                return rB == p.a && rD == p.b; // 여기서 B/D는 이동하는 C/D 반쪽 길이 역할이다.
+            {
+                // 여기서 B/D는 이동하는 C/D 반쪽 길이 역할이다. UI의 반직선 제한과 별개로
+                // 판정도 A-O-C, B-O-D의 반대 방향 일직선을 직접 보장한다.
+                return rB == p.a && rD == p.b && kB == 6 && kD == 8;
+            }
             if (p.kind == FrameKind.Rectangle)
                 return rB == p.a && rD == p.a && opposite;
             bool perpendicular = kB == 3 && kD == 9;
@@ -142,6 +155,7 @@ namespace Mgf.HyeonakNemo
             bool opposite = Mod12(kd - kb) == 6;
             if (p.kind == FrameKind.Practice || p.kind == FrameKind.Parallelogram)
             {
+                if (kb != 6 || kd != 8) return "not_opposite_rays";
                 if (rB == p.a && rD == p.a && p.a != p.b) return "parallelogram_diagonals_equal";
                 if (rB != p.a) return "first_half_not_equal";
                 return "second_half_not_equal";
@@ -162,7 +176,7 @@ namespace Mgf.HyeonakNemo
             {
                 for (int rb = 1; rb <= 10; rb++)
                 for (int rd = 1; rd <= 10; rd++)
-                    if (IsCorrect(p, rb, p.baseK + 3, rd, p.baseK + 9)) count++;
+                    if (IsCorrect(p, rb, p.baseK + 6, rd, p.baseK + 8)) count++;
                 return count;
             }
             for (int kb = 1; kb <= 5; kb++)

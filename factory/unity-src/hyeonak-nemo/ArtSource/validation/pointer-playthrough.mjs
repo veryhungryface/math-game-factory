@@ -26,14 +26,18 @@ await page.goto(`${server.url}/g/hyeonak-nemo/`,{waitUntil:'load',timeout:45000}
 await page.screenshot({path:path.join(OUT,'00-title.png')});
 await page.mouse.click(195,610);await sleep(180);let s=await page.evaluate(()=>window.__GAME_TEST__.getState());
 // 연습 정답 설명은 학생이 읽을 수 있도록 2.55초 유지한다. 본문 전환까지 기다린다.
-await place(page,4,s.ringBDirection,7,s.ringDDirection);await sleep(2850);
+await place(page,4,s.ringBDirection,7,s.ringDDirection);await sleep(180);
+await page.screenshot({path:path.join(OUT,'00b-reveal-before-tap.png')});
+await page.mouse.click(22,520);await sleep(220);
+await page.screenshot({path:path.join(OUT,'00c-reveal-after-tap.png')});
+await sleep(2450);
 await page.screenshot({path:path.join(OUT,'01-main-start.png')});
 // 공개된 두 고리를 실제로 잘못 놓고 같은 문제를 고쳐 회복한다.
-s=await page.evaluate(()=>window.__GAME_TEST__.getState());await place(page,1,s.ringBDirection,1,s.ringDDirection);await sleep(1050);
+s=await page.evaluate(()=>window.__GAME_TEST__.getState());await place(page,1,s.ringBDirection,1,s.ringDDirection);await sleep(3450);
 const wrong=await page.evaluate(()=>window.__GAME_TEST__.getState());await page.screenshot({path:path.join(OUT,'02-after-wrong.png')});
 if(wrong.lives!==2||wrong.round!==1||wrong.firstAttempts!==1)throw new Error(`wrong path ${JSON.stringify(wrong)}`);
 for(let solved=0;solved<6;solved++){
-  s=await page.evaluate(()=>window.__GAME_TEST__.getState());const a=answerFor(s);await place(page,...a);await sleep(1350);
+  s=await page.evaluate(()=>window.__GAME_TEST__.getState());const a=answerFor(s);await place(page,...a);await sleep(solved===0?3450:1350);
   if(solved===0)await page.screenshot({path:path.join(OUT,'03-recovered.png')});
 }
 const recovered=await page.evaluate(()=>window.__GAME_TEST__.getState());await page.screenshot({path:path.join(OUT,'04-recovery-clear.png')});
@@ -41,7 +45,7 @@ if(recovered.phase!=='clear'||recovered.solved!==6||recovered.lives!==2||recover
 
 // 결과 화면 한 탭으로 새 판. 여섯 문항 모두 실제 포인터로 첫 시도 정답.
 await page.mouse.click(195,620);await sleep(160);
-for(let solved=0;solved<6;solved++){s=await page.evaluate(()=>window.__GAME_TEST__.getState());const a=answerFor(s);await place(page,...a);await sleep(1350);}
+for(let solved=0;solved<6;solved++){s=await page.evaluate(()=>window.__GAME_TEST__.getState());const a=answerFor(s);await place(page,...a);await sleep(solved===0?3450:1350);}
 const clean=await page.evaluate(()=>window.__GAME_TEST__.getState());await page.screenshot({path:path.join(OUT,'05-clean-clear.png')});
 if(clean.phase!=='clear'||clean.solved!==6||clean.lives!==3||clean.firstCorrect!==6)throw new Error(`clean end ${JSON.stringify(clean)}`);
 const result={run_id:`hyeonak-nemo-playthrough-${new Date().toISOString()}`,method:'all vertex placements use Chrome real mouse down/move/up',practicePassed:true,recovery:{wrong,recovered},clean,consoleErrors:errors,passed:errors.length===0};
