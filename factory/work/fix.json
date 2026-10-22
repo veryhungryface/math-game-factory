@@ -1,38 +1,15 @@
 {
-  "slug": "jibung-galla",
+  "slug": "hamster-daehoejeon",
   "fixed": [
     {
-      "issue": "순진한 첫 플레이가 연습 0/0에 41초 이상 고착되고 드래그가 A 잡기와 제출로 이어지지 않음",
-      "what_i_did": "연습에만 A에서 BC까지 굵은 경로와 넓은 깔때기, 실제 손 실루엣을 표시했다. 첫 무효 드래그 뒤에는 깔때기 안의 down을 A로 투영하되 학생이 8px 이상 직접 끌어 BC를 넘어야만 제출되는 보조를 켰다. 탭과 실전 판정은 완화하지 않았다.",
-      "file": "factory/unity-src/jibung-galla/Scripts/JibungView.cs, factory/unity-src/jibung-galla/Scripts/JibungGallaGame.cs",
+      "issue": "[구현 버그/high] 가로 플레이에서 고정 비율 앵커와 고정 크기를 함께 사용해 1440·2000px에서 발문이 잘리고 목표 띠가 발문 영역을 침범하며 삼각형과 다이얼이 겹침",
+      "what_i_did": "Unity 논리 캔버스의 실제 폭·높이로 좌우 안전 열을 계산하고 오른쪽을 발문·도형·다이얼 3구역으로 분리했다. HUD·목표·필름은 왼쪽 열에 고정하고 발문 자동 글자 크기와 자식 박스도 판형별로 재배치했다. 리사이즈 직후 CanvasScaler가 한 프레임 늦게 갱신되는 경우까지 논리 캔버스 크기 변화로 다시 배치한다.",
+      "file": "factory/unity-src/hamster-daehoejeon/Scripts/HamsterView.cs",
       "verified": true,
-      "evidence": "수정 전 실패 입력과 같은 A에서 110 CSS px 위 down→BC 중점 밖 up을 첫 무효 입력 뒤 다시 실행하자 2.450초에 onboarding=false, round=1이 됐다(fix2-regression-results.json). 동일 firstplay 하네스 재캡처에서도 t=26에 연습을 끝내고 t=29에 round 1을 관찰했다(fix2-firstplay-verified)."
-    },
-    {
-      "issue": "820×1180 DPR 2 세로 태블릿을 렌더 픽셀 폭으로 가로 화면으로 오인해 HUD·발문·C·수식이 잘림",
-      "what_i_did": "land 판정을 Screen.width가 아니라 브리지가 제공하는 CSS 논리 화면비로 통일하고, 세로와 가로의 HUD·발문·삼각형 앵커를 각각 안전영역 안에 다시 배치했다. 실제 레이아웃 경계도 테스트 상태에 노출했다.",
-      "file": "factory/unity-src/jibung-galla/Scripts/JibungView.cs, factory/unity-src/jibung-galla/Scripts/JibungGallaGame.cs",
-      "verified": true,
-      "evidence": "실제 WebGL 820×1180 DPR2(렌더 1640×2360)는 hookLand/unityLand=false, 1280×700 DPR2(렌더 2560×1400)는 둘 다 true였다. 두 화면 모두 HUD·발문·A/B/C 좌표가 화면 안이었다(fix2-regression-results.json과 두 캡처)."
-    },
-    {
-      "issue": "발문이 거친 '선 AD' 표현을 쓰고 교정형의 점 E 위치를 정의하지 않음",
-      "what_i_did": "직접형·역형은 BC 위의 D를 먼저 정의한 뒤 '점 D를 지나도록 ∠A의 이등분선을 그으시오'로, 교정형은 BC 위의 E와 선분 AE를 먼저 정의한 뒤 올바른 이등분선을 요구하도록 바꿨다.",
-      "file": "factory/unity-src/jibung-galla/Scripts/JibungRules.cs",
-      "verified": true,
-      "evidence": "최종 WebGL의 320개 문제은행을 전수 감사해 고유 id 320개, 수학·표현 오류 0을 확인했고 공식 QA의 문제 표본·정답·선택지 검사도 통과했다(fix2-regression-results.json, report.json)."
+      "evidence": "수정 전과 같은 QA start 입력 및 1440x900·2000x1045 뷰포트로 실 GPU 캡처를 재실행했다. 수정 전 desktop.png/wide.png의 우측 발문 잘림·붉은 띠 침범·도형/다이얼 겹침과 달리, 최종 캡처에서는 HUD/목표/필름이 왼쪽 열 안에 있고 발문 전체 문장과 조건이 오른쪽 상단에 보이며 삼각형과 다이얼 사이에 빈 간격이 남는다. 세로 mobile/tablet도 직접 열어 기존 배치가 유지됨을 확인했다. Unity 빌드 warnings 0, QA 45/45 fatal 0, 실제 pointer 정상/둘째/회복/게임오버 회귀와 B3 800판, 94초 firstplay도 통과했다."
     }
   ],
-  "not_fixed": [
-    {
-      "issue": "결과 카드 전에 열 개의 영구 이음매를 보여 주는 짧은 카메라 후퇴",
-      "why": "nice_to_have이며 이번 회차는 남은 high 두 건과 교과서 표현 결함을 우선했다. 핵심 루프와 판정에는 영향이 없다."
-    },
-    {
-      "issue": "prefers-reduced-motion 또는 기기 설정에 따른 오답 흔들림·펀치 강도 축소",
-      "why": "nice_to_have이며 Unity WebGL에서 신뢰할 수 있는 설정 전달 경로와 회귀 검증을 별도 설계해야 해 이번 국소 수정 범위에는 넣지 않았다."
-    }
-  ],
+  "not_fixed": [],
   "qa_after": {
     "fatal": 0,
     "passed": 45,
@@ -40,5 +17,5 @@
   },
   "qa_status": "executed",
   "replan_required": false,
-  "next_experiment": "핵심 조작·학습 목표·종이 지붕 도시 정체성은 유지되고 남은 것은 선택적 연출·접근성 개선이므로 재설계 슬롯은 필요하지 않다."
+  "next_experiment": "없음 — 핵심 조작·학습 목표·시각 정체성을 바꾸지 않고 가로 판형 구현 결함을 국소 수정했다."
 }

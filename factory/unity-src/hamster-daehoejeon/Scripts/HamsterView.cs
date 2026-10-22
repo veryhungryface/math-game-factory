@@ -196,9 +196,10 @@ namespace Mgf.HamsterDaehoejeon
         readonly List<Quaternion> cordBases = new List<Quaternion>();
         float worldClock, drumVelocity = 7f, revealSpin, curtainClock, refuseClock, hitStop, scoreShown, endClock;
         int lastW, lastH;
+        float lastCanvasW, lastCanvasH;
         bool wide, revealing, revealCorrect, dragging, validArc = true, doublePrint;
 
-        RectTransform canvasRt, titleStartRt, restartRt, dialRt, handleRt, promptRt, triangleRt, guideHandRt, rippleRt, curtainLeftRt, curtainRightRt;
+        RectTransform canvasRt, titleStartRt, restartRt, hudRt, goalRt, dialRt, handleRt, promptRt, triangleRt, guideHandRt, rippleRt, curtainLeftRt, curtainRightRt;
         CanvasGroup titleGroup, playGroup, revealGroup, endGroup, feedbackGroup;
         AngleDialGraphic dial;
         TriangleDiagramGraphic triangle;
@@ -319,14 +320,15 @@ namespace Mgf.HamsterDaehoejeon
 
         void BuildPlay()
         {
-            var hud = Img("LinenHud", playGroup.transform, new Color(linen.r, linen.g, linen.b, .98f), new Vector2(382, 62), new Vector2(.5f, 1f), new Vector2(0, -32));
+            var hud = Img("LinenHud", playGroup.transform, new Color(linen.r, linen.g, linen.b, .98f), new Vector2(382, 62), new Vector2(.5f, 1f), new Vector2(0, -32)); hudRt = hud.rectTransform;
             progressText = Txt("Progress", hud.transform, "필름 0/8", 13, ink, new Vector2(86, 40), new Vector2(.12f, .5f), Vector2.zero);
             firstText = Txt("FirstAccuracy", hud.transform, "첫 제출 0/0", 13, ink, new Vector2(112, 40), new Vector2(.39f, .5f), Vector2.zero);
             timeText = Txt("Time", hud.transform, "100초", 13, ink, new Vector2(62, 40), new Vector2(.63f, .5f), Vector2.zero);
             scoreText = Txt("Score", hud.transform, "0", 14, red, new Vector2(66, 40), new Vector2(.91f, .5f), Vector2.zero);
             for (int i = 0; i < 3; i++) brakes[i] = Img("BrakeClip" + i, hud.transform, MgfLook.Hex("#B89250"), new Vector2(12, 31), new Vector2(.72f + i * .045f, .5f), Vector2.zero);
-            var goal = Img("PermanentGoal", playGroup.transform, new Color(red.r, red.g, red.b, .96f), new Vector2(370, 38), new Vector2(.5f, 1f), new Vector2(0, -82));
+            var goal = Img("PermanentGoal", playGroup.transform, new Color(red.r, red.g, red.b, .96f), new Vector2(370, 38), new Vector2(.5f, 1f), new Vector2(0, -82)); goalRt = goal.rectTransform;
             goalText = Txt("Goal", goal.transform, "빈 각을 맞추면 햄스터가 달린다", 14, Color.white, new Vector2(350, 30), new Vector2(.5f, .5f), Vector2.zero);
+            goalText.enableAutoSizing = true; goalText.fontSizeMin = 10f; goalText.fontSizeMax = 14f;
 
             var filmGo = new GameObject("EightFrameLinenFilm", typeof(RectTransform), typeof(CanvasRenderer)); filmGo.transform.SetParent(playGroup.transform, false);
             var filmRt = (RectTransform)filmGo.transform; filmRt.anchorMin = filmRt.anchorMax = new Vector2(.5f, .79f); filmRt.sizeDelta = new Vector2(360, 106);
@@ -335,7 +337,9 @@ namespace Mgf.HamsterDaehoejeon
 
             var prompt = Img("LinenConditionPlate", playGroup.transform, new Color(linen.r, linen.g, linen.b, .98f), new Vector2(374, 100), new Vector2(.5f, .61f), Vector2.zero); promptRt = prompt.rectTransform;
             promptText = Txt("ProblemPrompt", prompt.transform, "", 13, ink, new Vector2(352, 82), new Vector2(.5f, .54f), Vector2.zero);
+            promptText.enableAutoSizing = true; promptText.fontSizeMin = 10f; promptText.fontSizeMax = 13f;
             conditionText = Txt("ModelTag", prompt.transform, "모식도 · 각도는 정면 눈금에서 조절", 10, red, new Vector2(300, 20), new Vector2(.5f, .10f), Vector2.zero);
+            conditionText.enableAutoSizing = true; conditionText.fontSizeMin = 8f; conditionText.fontSizeMax = 10f;
 
             var triGo = new GameObject("FrontFacingTriangleDiagram", typeof(RectTransform), typeof(CanvasRenderer)); triGo.transform.SetParent(playGroup.transform, false);
             triangleRt = (RectTransform)triGo.transform; triangleRt.anchorMin = triangleRt.anchorMax = new Vector2(.5f, .43f); triangleRt.sizeDelta = new Vector2(310, 190);
@@ -511,7 +515,8 @@ namespace Mgf.HamsterDaehoejeon
 
         public void Tick(float dt)
         {
-            if (Screen.width != lastW || Screen.height != lastH || wide != MgfBridge.IsLandLayout) Relayout(true);
+            if (Screen.width != lastW || Screen.height != lastH || wide != MgfBridge.IsLandLayout ||
+                Mathf.Abs(canvasRt.rect.width - lastCanvasW) > .5f || Mathf.Abs(canvasRt.rect.height - lastCanvasH) > .5f) Relayout(true);
             worldClock += dt;
             float ambient = Mathf.Sin(worldClock * .55f);
             if (hitStop > 0f) hitStop -= dt;
@@ -616,6 +621,7 @@ namespace Mgf.HamsterDaehoejeon
         void Relayout(bool force)
         {
             lastW = Screen.width; lastH = Screen.height; wide = MgfBridge.IsLandLayout;
+            lastCanvasW = canvasRt.rect.width; lastCanvasH = canvasRt.rect.height;
             if (cam)
             {
                 cam.orthographicSize = wide ? 7.2f : 9.4f; cam.transform.position = wide ? new Vector3(0, 8.0f, -19f) : new Vector3(0, 10.8f, -21f); MgfLook.FitWidth(cam, wide ? 34f : 42f, .72f);
@@ -623,21 +629,58 @@ namespace Mgf.HamsterDaehoejeon
             if (!dialRt) return;
             if (wide)
             {
-                promptRt.anchorMin = promptRt.anchorMax = new Vector2(.80f, .78f); promptRt.sizeDelta = new Vector2(360, 112);
-                triangleRt.anchorMin = triangleRt.anchorMax = new Vector2(.70f, .48f); triangleRt.sizeDelta = new Vector2(340, 220);
-                dialRt.anchorMin = dialRt.anchorMax = new Vector2(.69f, .19f); dialRt.sizeDelta = new Vector2(390, 270);
-                film.rectTransform.anchorMin = film.rectTransform.anchorMax = new Vector2(.20f, .60f); film.rectTransform.sizeDelta = new Vector2(390, 144);
+                // CanvasScaler의 논리 캔버스는 같은 가로 화면이어도 높이에 따라 폭이 달라진다.
+                // 화면 비율 앵커 대신 안전 폭 안에 좌/우 열을 만들고, 오른쪽을 발문-도형-다이얼 3구역으로 고정한다.
+                float canvasW = canvasRt.rect.width;
+                float canvasH = canvasRt.rect.height;
+                float safeW = Mathf.Min(canvasW - 24f, 760f);
+                float columnX = safeW * .32f;
+                Vector2 center = new Vector2(.5f, .5f);
+
+                SetBox(hudRt, center, new Vector2(270, 74), new Vector2(-columnX, canvasH * .5f - 45));
+                SetBox(goalRt, center, new Vector2(270, 34), new Vector2(-columnX, canvasH * .5f - 101));
+                SetBox(film.rectTransform, center, new Vector2(270, 140), new Vector2(-columnX, -25));
+
+                SetBox(promptRt, center, new Vector2(270, 90), new Vector2(columnX, canvasH * .5f - 52));
+                SetBox(triangleRt, center, new Vector2(250, 100), new Vector2(columnX, 40));
+                SetBox(dialRt, center, new Vector2(270, 160), new Vector2(columnX, -canvasH * .5f + 90));
+
+                SetBox(progressText.rectTransform, center, new Vector2(70, 32), new Vector2(-96, 10));
+                SetBox(firstText.rectTransform, center, new Vector2(88, 32), new Vector2(-25, 10));
+                SetBox(timeText.rectTransform, center, new Vector2(48, 32), new Vector2(50, 10));
+                SetBox(scoreText.rectTransform, center, new Vector2(38, 32), new Vector2(106, 10));
+                for (int i = 0; i < brakes.Length; i++) SetBox(brakes[i].rectTransform, center, new Vector2(12, 22), new Vector2(35 + i * 16, -22));
+                SetBox(goalText.rectTransform, center, new Vector2(252, 28), Vector2.zero);
+                SetBox(promptText.rectTransform, center, new Vector2(248, 64), new Vector2(0, 5));
+                SetBox(conditionText.rectTransform, center, new Vector2(246, 18), new Vector2(0, -34));
                 titleStartRt.anchorMin = titleStartRt.anchorMax = new Vector2(.5f, .30f);
             }
             else
             {
-                promptRt.anchorMin = promptRt.anchorMax = new Vector2(.5f, .61f); promptRt.sizeDelta = new Vector2(374, 100);
-                triangleRt.anchorMin = triangleRt.anchorMax = new Vector2(.5f, .43f); triangleRt.sizeDelta = new Vector2(310, 190);
-                dialRt.anchorMin = dialRt.anchorMax = new Vector2(.5f, .17f); dialRt.sizeDelta = new Vector2(360, 250);
-                film.rectTransform.anchorMin = film.rectTransform.anchorMax = new Vector2(.5f, .79f); film.rectTransform.sizeDelta = new Vector2(360, 106);
+                SetBox(hudRt, new Vector2(.5f, 1f), new Vector2(382, 62), new Vector2(0, -32));
+                SetBox(goalRt, new Vector2(.5f, 1f), new Vector2(370, 38), new Vector2(0, -82));
+                SetBox(promptRt, new Vector2(.5f, .61f), new Vector2(374, 100), Vector2.zero);
+                SetBox(triangleRt, new Vector2(.5f, .43f), new Vector2(310, 190), Vector2.zero);
+                SetBox(dialRt, new Vector2(.5f, .17f), new Vector2(360, 250), Vector2.zero);
+                SetBox(film.rectTransform, new Vector2(.5f, .79f), new Vector2(360, 106), Vector2.zero);
+                SetBox(progressText.rectTransform, new Vector2(.12f, .5f), new Vector2(86, 40), Vector2.zero);
+                SetBox(firstText.rectTransform, new Vector2(.39f, .5f), new Vector2(112, 40), Vector2.zero);
+                SetBox(timeText.rectTransform, new Vector2(.63f, .5f), new Vector2(62, 40), Vector2.zero);
+                SetBox(scoreText.rectTransform, new Vector2(.91f, .5f), new Vector2(66, 40), Vector2.zero);
+                for (int i = 0; i < brakes.Length; i++) SetBox(brakes[i].rectTransform, new Vector2(.72f + i * .045f, .5f), new Vector2(12, 31), Vector2.zero);
+                SetBox(goalText.rectTransform, new Vector2(.5f, .5f), new Vector2(350, 30), Vector2.zero);
+                SetBox(promptText.rectTransform, new Vector2(.5f, .54f), new Vector2(352, 82), Vector2.zero);
+                SetBox(conditionText.rectTransform, new Vector2(.5f, .10f), new Vector2(300, 20), Vector2.zero);
                 titleStartRt.anchorMin = titleStartRt.anchorMax = new Vector2(.5f, .31f);
             }
             if (shown != null) { dial.SetVerticesDirty(); triangle.SetVerticesDirty(); PositionHandle(); SyncGeometry(); }
+        }
+
+        static void SetBox(RectTransform rt, Vector2 anchor, Vector2 size, Vector2 position)
+        {
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.anchoredPosition = position;
+            rt.sizeDelta = size;
         }
 
         void PositionTriangleLabels()
