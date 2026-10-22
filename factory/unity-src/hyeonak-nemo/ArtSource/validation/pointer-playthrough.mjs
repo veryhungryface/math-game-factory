@@ -25,7 +25,8 @@ page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pa
 await page.goto(`${server.url}/g/hyeonak-nemo/`,{waitUntil:'load',timeout:45000});await page.waitForFunction(()=>window.__GAME_TEST__?.ready,{timeout:60000});
 await page.screenshot({path:path.join(OUT,'00-title.png')});
 await page.mouse.click(195,610);await sleep(180);let s=await page.evaluate(()=>window.__GAME_TEST__.getState());
-await place(page,4,s.ringBDirection,7,s.ringDDirection);await sleep(1350);
+// 연습 정답 설명은 학생이 읽을 수 있도록 2.55초 유지한다. 본문 전환까지 기다린다.
+await place(page,4,s.ringBDirection,7,s.ringDDirection);await sleep(2850);
 await page.screenshot({path:path.join(OUT,'01-main-start.png')});
 // 공개된 두 고리를 실제로 잘못 놓고 같은 문제를 고쳐 회복한다.
 s=await page.evaluate(()=>window.__GAME_TEST__.getState());await place(page,1,s.ringBDirection,1,s.ringDDirection);await sleep(1050);

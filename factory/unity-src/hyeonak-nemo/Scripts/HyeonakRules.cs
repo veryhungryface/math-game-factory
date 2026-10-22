@@ -35,9 +35,9 @@ namespace Mgf.HyeonakNemo
         {
             return new FrameProblem {
                 id = "practice-fixed", kind = FrameKind.Practice, band = 0, a = 4, b = 7, baseK = 0,
-                prompt = "AO=4 cm, BO=7 cm이다. O가 두 대각선의 교점이 되도록 C와 D를 옮기시오.",
+                prompt = "선분 AO의 길이는 4 cm, 선분 BO의 길이는 7 cm이다. O가 두 대각선의 교점이 되도록 C와 D를 옮기시오.",
                 concept = "평행사변형의 두 대각선은 서로 다른 것을 이등분한다",
-                answer = "OC=4 cm, OD=7 cm, C와 D는 각각 반대 방향",
+                answer = "선분 OC의 길이는 4 cm, 선분 OD의 길이는 7 cm이고 C와 D는 각각 반대 방향",
                 misconceptionId = "parallelogram_diagonals_equal"
             };
         }
@@ -56,14 +56,14 @@ namespace Mgf.HyeonakNemo
                 {
                     bool reverse = rev == 1;
                     string given = reverse
-                        ? $"AC={a * 2} cm, BD={b * 2} cm이고 O는 각 대각선의 중점이다."
-                        : $"AO={a} cm, BO={b} cm이다.";
+                        ? $"선분 AC의 길이는 {a * 2} cm, 선분 BD의 길이는 {b * 2} cm이고 O는 각 대각선의 중점이다."
+                        : $"선분 AO의 길이는 {a} cm, 선분 BO의 길이는 {b} cm이다.";
                     list.Add(new FrameProblem {
                         id = "hn-" + id++, kind = FrameKind.Parallelogram, band = 1, a = a, b = b,
                         baseK = ((a * 3 + b * 5 + rev) % 2) * 1, reverse = reverse,
                         prompt = given + " O가 두 대각선의 교점인 평행사변형 ABCD를 만드시오.",
                         concept = reverse ? "전체 대각선 길이에서 반쪽 길이를 구성" : "평행사변형의 대각선 이등분",
-                        answer = $"OC={a} cm, OD={b} cm",
+                        answer = $"선분 OC의 길이는 {a} cm, 선분 OD의 길이는 {b} cm",
                         misconceptionId = "parallelogram_diagonals_equal"
                     });
                 }
@@ -74,13 +74,15 @@ namespace Mgf.HyeonakNemo
             for (int rev = 0; rev < 2; rev++)
             {
                 bool reverse = rev == 1;
-                string given = reverse ? $"AC={a * 2} cm이고 AO=OC이다." : $"AO=OC={a} cm이다.";
+                string given = reverse
+                    ? $"선분 AC의 길이는 {a * 2} cm이고 O는 선분 AC의 중점이다."
+                    : $"선분 AO와 선분 OC의 길이는 각각 {a} cm이다.";
                 list.Add(new FrameProblem {
                     id = "hn-" + id++, kind = FrameKind.Rectangle, band = 2, a = a, b = a,
                     baseK = (a + rev * 2) % 12, reverse = reverse,
                     prompt = given + " O가 두 대각선의 교점인 직사각형 ABCD를 만드시오.",
                     concept = reverse ? "직사각형의 같은 대각선 전체 길이" : "직사각형의 대각선은 길이가 같고 서로 다른 것을 이등분",
-                    answer = $"OB=OD={a} cm, B와 D는 반대 방향(수직인 정사각형도 정답)",
+                    answer = $"선분 OB와 선분 OD의 길이는 각각 {a} cm이고 B와 D는 반대 방향(수직인 정사각형도 정답)",
                     misconceptionId = "equal_length_without_bisection"
                 });
             }
@@ -93,9 +95,9 @@ namespace Mgf.HyeonakNemo
                 list.Add(new FrameProblem {
                     id = "hn-" + id++, kind = FrameKind.Rhombus, band = 3, a = a, b = b,
                     baseK = (a * 7 + b * 3) % 12,
-                    prompt = $"AO=OC={a} cm, BD={b * 2} cm이다. O가 두 대각선의 교점인 마름모 ABCD를 만드시오.",
+                    prompt = $"선분 AO와 선분 OC의 길이는 각각 {a} cm, 선분 BD의 길이는 {b * 2} cm이다. O가 두 대각선의 교점인 마름모 ABCD를 만드시오.",
                     concept = "마름모의 두 대각선은 서로 다른 것을 수직이등분",
-                    answer = $"OB=OD={b} cm, AC와 BD는 수직",
+                    answer = $"선분 OB와 선분 OD의 길이는 각각 {b} cm이고 선분 AC와 선분 BD는 수직",
                     misconceptionId = "perpendicular_without_bisection"
                 });
             }
@@ -104,9 +106,9 @@ namespace Mgf.HyeonakNemo
                 list.Add(new FrameProblem {
                     id = "hn-" + id++, kind = FrameKind.Square, band = 3, a = a, b = a,
                     baseK = (a * 5) % 12,
-                    prompt = $"AC={a * 2} cm이고 AO=OC이다. O가 두 대각선의 교점인 정사각형 ABCD를 만드시오.",
+                    prompt = $"선분 AC의 길이는 {a * 2} cm이고 O는 선분 AC의 중점이다. O가 두 대각선의 교점인 정사각형 ABCD를 만드시오.",
                     concept = "정사각형의 두 대각선은 길이가 같고 서로 다른 것을 수직이등분",
-                    answer = $"OB=OD={a} cm, AC와 BD는 수직",
+                    answer = $"선분 OB와 선분 OD의 길이는 각각 {a} cm이고 선분 AC와 선분 BD는 수직",
                     misconceptionId = "square_excluded_from_rectangle_rhombus"
                 });
             }
