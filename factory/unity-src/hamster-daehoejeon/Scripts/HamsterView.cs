@@ -198,6 +198,9 @@ namespace Mgf.HamsterDaehoejeon
         int lastW, lastH;
         float lastCanvasW, lastCanvasH;
         bool wide, revealing, revealCorrect, dragging, validArc = true, doublePrint;
+        bool playVisibilityPending;
+        int playStableLayoutFrames;
+        float playGateCanvasW = -1f, playGateCanvasH = -1f;
 
         RectTransform canvasRt, titleStartRt, restartRt, hudRt, goalRt, dialRt, handleRt, promptRt, triangleRt, guideHandRt, rippleRt, curtainLeftRt, curtainRightRt;
         CanvasGroup titleGroup, playGroup, revealGroup, endGroup, feedbackGroup;
@@ -395,6 +398,7 @@ namespace Mgf.HamsterDaehoejeon
         public void ShowTitle()
         {
             Set(titleGroup, true); Set(playGroup, false); Set(revealGroup, false); Set(endGroup, false); Set(feedbackGroup, true);
+            playVisibilityPending = false;
             titleBest.text = "최고 첫 제출 " + PlayerPrefs.GetInt("hamster-daehoejeon-best", 0) + "/8";
             revealSpin = 0f; drumVelocity = 6f; doublePrint = false;
         }
@@ -402,6 +406,12 @@ namespace Mgf.HamsterDaehoejeon
         public void ShowPlay(bool practice, bool bridge, bool fromTest)
         {
             Set(titleGroup, false); Set(playGroup, true); Set(revealGroup, false); Set(endGroup, false); Set(feedbackGroup, true);
+            // 비활성 상태였던 uGUI를 켠 직후 CanvasScaler가 이전 논리 폭을 한 프레임 유지할 수 있다.
+            // 실제 캔버스 크기가 두 프레임 연속 안정될 때까지 투명하게 두어 좁게 찌그러진 UI를 노출하지 않는다.
+            playGroup.alpha = 0f;
+            playVisibilityPending = true;
+            playStableLayoutFrames = 0;
+            playGateCanvasW = playGateCanvasH = -1f;
             goalText.text = practice ? "빈 각을 맞추면 햄스터가 달린다 · 첫 연습" : bridge ? "이등분선이 만든 반각을 직접 맞추시오" : "8칸 수리 · 첫 제출 6칸 · 브레이크 3개";
             endClock = 0f; RefreshHud(true);
         }
@@ -462,6 +472,7 @@ namespace Mgf.HamsterDaehoejeon
         public void ShowEnd(bool clear, string reason)
         {
             Set(titleGroup, false); Set(playGroup, false); Set(revealGroup, false); Set(endGroup, true); Set(feedbackGroup, true); endClock = 0f;
+            playVisibilityPending = false;
             endTitle.text = clear ? "여덟 프레임이 달립니다" : reason == "brakes" ? "브레이크가 모두 풀렸습니다" : reason == "time" ? "필름 시간이 끝났습니다" : "첫 제출 6칸이 필요합니다";
             endStats.text = "수리 " + game.State.solved + "/8\n첫 제출 " + game.State.firstCorrect + "/" + game.State.firstAttempts + "\n점수 " + game.State.score;
             endCounter.text = "0"; drumVelocity = clear ? 56f : 0f; revealSpin = clear ? 4f : 0f;
@@ -515,6 +526,23 @@ namespace Mgf.HamsterDaehoejeon
 
         public void Tick(float dt)
         {
+            if (playVisibilityPending)
+            {
+                Canvas.ForceUpdateCanvases();
+                float cw = canvasRt.rect.width;
+                float ch = canvasRt.rect.height;
+                bool usable = Screen.width >= 360 && Screen.height >= 360 && cw >= 360f && ch >= 360f;
+                bool stable = usable && playGateCanvasW > 0f && Mathf.Abs(cw - playGateCanvasW) <= .5f && Mathf.Abs(ch - playGateCanvasH) <= .5f;
+                playStableLayoutFrames = stable ? playStableLayoutFrames + 1 : 0;
+                playGateCanvasW = cw;
+                playGateCanvasH = ch;
+                Relayout(true);
+                if (playStableLayoutFrames >= 2)
+                {
+                    playVisibilityPending = false;
+                    playGroup.alpha = 1f;
+                }
+            }
             if (Screen.width != lastW || Screen.height != lastH || wide != MgfBridge.IsLandLayout ||
                 Mathf.Abs(canvasRt.rect.width - lastCanvasW) > .5f || Mathf.Abs(canvasRt.rect.height - lastCanvasH) > .5f) Relayout(true);
             worldClock += dt;

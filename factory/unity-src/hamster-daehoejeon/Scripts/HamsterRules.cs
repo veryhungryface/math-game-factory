@@ -118,7 +118,7 @@ namespace Mgf.HamsterDaehoejeon
                 p.allowedMin = 10; p.allowedMax = 69; p.allowedStep = 1;
                 string leftTarget = mapIndex % 2 == 0 ? p.baseLeft : p.baseRight;
                 p.targetAngleName = "∠" + leftTarget + p.apex + p.divider;
-                p.prompt = p.equalSides + "인 이등변삼각형 " + p.apex + p.baseLeft + p.baseRight + "에서 ∠" + p.baseLeft + "=" + p.baseAngle + "°이다. ∠" + p.apex + "의 이등분선과 선분 " + p.baseLeft + p.baseRight + "의 교점을 " + p.divider + "라 할 때, " + p.targetAngleName + "의 크기를 구하시오.";
+                p.prompt = p.equalSides + "인 이등변삼각형 " + p.apex + p.baseLeft + p.baseRight + "에서 ∠" + p.baseLeft + "=" + p.baseAngle + "°이다. ∠" + p.apex + "의 이등분선과 선분 " + p.baseLeft + p.baseRight + "의 교점을 " + p.divider + "라고 할 때, " + p.targetAngleName + "의 크기를 구하시오.";
                 p.evidence = "∠" + p.apex + "=180°−" + p.baseAngle + "°×2=" + p.apexAngle + "°, 한 반각은 " + p.answer + "°";
                 p.unitConcept = "꼭지각의 이등분선과 반각";
             }

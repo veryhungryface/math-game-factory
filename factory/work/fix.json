@@ -2,14 +2,40 @@
   "slug": "hamster-daehoejeon",
   "fixed": [
     {
-      "issue": "[구현 버그/high] 가로 플레이에서 고정 비율 앵커와 고정 크기를 함께 사용해 1440·2000px에서 발문이 잘리고 목표 띠가 발문 영역을 침범하며 삼각형과 다이얼이 겹침",
-      "what_i_did": "Unity 논리 캔버스의 실제 폭·높이로 좌우 안전 열을 계산하고 오른쪽을 발문·도형·다이얼 3구역으로 분리했다. HUD·목표·필름은 왼쪽 열에 고정하고 발문 자동 글자 크기와 자식 박스도 판형별로 재배치했다. 리사이즈 직후 CanvasScaler가 한 프레임 늦게 갱신되는 경우까지 논리 캔버스 크기 변화로 다시 배치한다.",
+      "issue": "[구현 버그/high·누적 1차] 가로 플레이에서 발문 잘림·목표 띠 침범·삼각형/다이얼 겹침",
+      "what_i_did": "1차에서 도입한 Unity 논리 캔버스 기반 좌우 안전 열과 오른쪽 발문·도형·다이얼 3구역 배치를 보존하고 이번 빌드에서 회귀 검증했다.",
       "file": "factory/unity-src/hamster-daehoejeon/Scripts/HamsterView.cs",
       "verified": true,
-      "evidence": "수정 전과 같은 QA start 입력 및 1440x900·2000x1045 뷰포트로 실 GPU 캡처를 재실행했다. 수정 전 desktop.png/wide.png의 우측 발문 잘림·붉은 띠 침범·도형/다이얼 겹침과 달리, 최종 캡처에서는 HUD/목표/필름이 왼쪽 열 안에 있고 발문 전체 문장과 조건이 오른쪽 상단에 보이며 삼각형과 다이얼 사이에 빈 간격이 남는다. 세로 mobile/tablet도 직접 열어 기존 배치가 유지됨을 확인했다. Unity 빌드 warnings 0, QA 45/45 fatal 0, 실제 pointer 정상/둘째/회복/게임오버 회귀와 B3 800판, 94초 firstplay도 통과했다."
+      "evidence": "최종 공식 QA의 desktop-1280.png와 wide.png(2000×1045)를 직접 열어 발문 전체, 목표 띠, 삼각형과 다이얼이 각각 분리되어 보임을 확인했다. layout.wide1280·wide.overflow도 통과했다."
+    },
+    {
+      "issue": "[구현 버그/high] 생성 표지의 사진급 리넨·목재·황동 장치와 실제 Unity 화면이 다른 게임처럼 보임",
+      "what_i_did": "생성 표지를 폐기하고 최종 WebGL 캔버스에서 thumb는 실제 pointer로 44°를 제출한 첫 정답 장면, square는 움직이는 타이틀 장면을 각각 직접 캡처했다. 재현 가능한 캡처 스크립트와 결과도 ArtSource/validation에 기록했다.",
+      "file": "public/g/hamster-daehoejeon/thumb.png, public/g/hamster-daehoejeon/square.png",
+      "verified": true,
+      "evidence": "runtime-cover-capture-results.json에서 thumb 상태가 phase=reveal·selectedAngle=44·lastResult=correct·inputCount=1이고 console/page error 0임을 확인했다. 두 이미지를 직접 열어 런타임의 리넨·프락시노스코프·검은 각도계와 동일한 재질·구도임을 확인했으며 최종 QA가 1200×630·1080×1080 규격과 비중복을 통과했다."
+    },
+    {
+      "issue": "[구현 버그/medium] PlayUI 활성화 직후 이전 CanvasScaler 논리 폭으로 한 프레임이 렌더되어 HUD·목표·발문이 중앙의 좁은 폭으로 잘림",
+      "what_i_did": "PlayUI를 활성화할 때 투명 상태로 준비하고 Canvas.ForceUpdateCanvases 뒤 실제 캔버스 폭·높이가 두 프레임 연속 안정된 경우에만 노출하는 전환 게이트를 추가했다. 안정 대기 중에도 현재 판형으로 Relayout을 반복한다.",
+      "file": "factory/unity-src/hamster-daehoejeon/Scripts/HamsterView.cs",
+      "verified": true,
+      "evidence": "수정 전 frame-04-t014-play.png는 Unity UI가 약 174px 폭으로 찌그러졌지만, 수정 후 firstplay-fix2의 전환 구간 frame-02~05는 타이틀 분할 뒤 정상 390px PlayUI로 이어졌다. 11프레임 ready=true, console/page error 0이다."
+    },
+    {
+      "issue": "[학습 표현 불일치/nice_to_have] 3단계 발문의 ‘교점을 M라 할 때’ 조사 어색함",
+      "what_i_did": "실제 생성기 문구를 ‘교점을 M이라고 할 때’로 통일했다.",
+      "file": "factory/unity-src/hamster-daehoejeon/Scripts/HamsterRules.cs",
+      "verified": true,
+      "evidence": "수정 소스로 WebGL을 재빌드했고 브라우저에 노출된 실제 문제은행 1080개가 고유 id·고유 발문·정수 정답 검사를 모두 통과했다. 공식 QA의 문제 표본 40/17/63 합집합도 문장·정답·다양성·answerNumeric 검사를 통과했다."
     }
   ],
-  "not_fixed": [],
+  "not_fixed": [
+    {
+      "issue": "[시각 nice_to_have] 런타임 리넨 대면적에 미세한 결 또는 노멀 변주 추가",
+      "why": "모든 high·medium과 발문 표현을 먼저 해결했고, 이번 결함의 원인이던 표지-런타임 불일치는 런타임 직접 캡처로 제거했다. 새 셰이더·텍스처 장식은 핵심 조작이나 가독성 결함을 해결하지 않아 범위를 넓히지 않았다."
+    }
+  ],
   "qa_after": {
     "fatal": 0,
     "passed": 45,
@@ -17,5 +43,5 @@
   },
   "qa_status": "executed",
   "replan_required": false,
-  "next_experiment": "없음 — 핵심 조작·학습 목표·시각 정체성을 바꾸지 않고 가로 판형 구현 결함을 국소 수정했다."
+  "next_experiment": "없음 — 핵심 조작·학습 목표·새벽 리넨 프락시노스코프 정체성을 바꾸지 않고 구현·표지 일관성 결함을 국소 수정했다."
 }
