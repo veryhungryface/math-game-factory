@@ -19,7 +19,8 @@ case "$SCHOOL" in elementary|middle) ;; *) echo "SCHOOL 은 elementary|middle �
 if [ "$SCHOOL" = "middle" ]; then
   export CURRICULUM_FILE="curriculum/2022-middle-math.json"
   export SCHOOL_TAG="[중학교]"
-  _FOCUS_DEFAULT="2-2"      # 중2 2학기 (2026-09-26 사용자 지시)
+  _FOCUS_DEFAULT="1-2,2-2,3-2"  # 중1·2·3 2학기 (2026-10-23 사용자 지시 「중1, 3 2학기 컨텐츠가 너무 없어」 — 9/26 중2-2 단독에서 확장).
+                            # pick-slot 은 게임 수가 적은 단원부터 뽑으므로 중1-2·중3-2 가 먼저 채워진다.
   _PRIORITY_DEFAULT=""
   # 중학교는 Unity(WebGL) 트랙으로 만든다 — 사용자 지시 2026-09-26 「unity cli 결과가 마음에 든다」.
   # 계약·빌드 절차: docs/unity-track.md, factory/prompts/30-build-unity.md, factory/unity/.
