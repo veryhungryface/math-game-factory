@@ -101,7 +101,7 @@ namespace Mgf.SeongnyuCore
             else
             {
                 int wx = cx + wrong * ux, wy = cy + wrong * uy;
-                prompt = a + "와 " + b + "를 지나는 직선을 l이라 하자. " + point + "에서 x좌표가 " + wx + "이고 y좌표가 " + wy + "인 직선 l 위의 점으로 그은 빗선을 수선으로 고치시오.";
+                prompt = a + "와 " + b + "를 지나는 직선을 l이라 하자. " + point + "에서 x좌표가 " + wx + "이고 y좌표가 " + wy + "인 직선 l 위의 점으로 그은 수선이 아닌 선분을 수선으로 고치시오.";
                 concept = "수선이 아닌 선분 수정";
             }
             return new CoreProblem {
@@ -110,7 +110,7 @@ namespace Mgf.SeongnyuCore
                 prompt = prompt,
                 answer = "수선의 발 H(" + hx + ", " + hy + ")",
                 concept = concept,
-                // 모든 t≠k는 빗선이다. 두 대표 오개념은 실제 답과 겹치지 않게 전수 검사한다.
+                // 모든 t≠k는 수선이 아닌 선분이다. 두 대표 오개념은 실제 답과 겹치지 않게 전수 검사한다.
                 misconceptionId = "arbitrary_point_on_line",
                 misconceptionId2 = band == 3 ? "small_nudge_repairs_perpendicular" : "rail_endpoint_is_distance"
             };

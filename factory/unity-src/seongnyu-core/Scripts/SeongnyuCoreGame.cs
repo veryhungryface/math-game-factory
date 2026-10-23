@@ -54,9 +54,11 @@ namespace Mgf.SeongnyuCore
         static readonly Color Juice = MgfLook.Hex("#FF9D55");
         static readonly Color Deep = MgfLook.Hex("#64162E");
         static readonly Color Glass = new Color(1f, .94f, .82f, .56f);
-        static readonly Color PlumStone = MgfLook.Hex("#251824");
-        static readonly Color Oxide = MgfLook.Hex("#744052");
-        static readonly Color Copper = MgfLook.Hex("#D69B58");
+        static readonly Color OrchardSky = MgfLook.Hex("#CFE9E2");
+        static readonly Color Meadow = MgfLook.Hex("#7EAD75");
+        static readonly Color Leaf = MgfLook.Hex("#3F7551");
+        static readonly Color Clay = MgfLook.Hex("#E9B58F");
+        static readonly Color Terracotta = MgfLook.Hex("#C96F55");
 
         readonly State st = new State();
         readonly List<CoreProblem> bank = new List<CoreProblem>(375);
@@ -80,7 +82,8 @@ namespace Mgf.SeongnyuCore
         float secondsLeft = 90f;
         bool firstAttemptOnRound;
 
-        Material rindMat, rubyMat, rubyLightMat, coralMat, ivoryMat, inkMat, glassMat, glassBrightMat, scarMat, juiceMat, clearMembraneMat, stoneMat, oxideMat, copperMat;
+        Material rindMat, rubyMat, rubyLightMat, coralMat, ivoryMat, inkMat, glassMat, glassBrightMat, scarMat, juiceMat, clearMembraneMat;
+        Material soilMat, clayMat, terracottaMat, leafMat, linenMat;
         Transform worldRoot, rindRoot, boardRoot, handle, germ, germBody, germArmL, germArmR, rulerRoot, rulerKnob;
         Transform titleHandle, titleCore;
         Renderer handleRenderer, germRenderer;
@@ -142,22 +145,24 @@ namespace Mgf.SeongnyuCore
 
         void BuildMaterials()
         {
-            // 1차 검수: 밝은 반투명 온실 계열과 분리한다. 단면은 무광 석재·도자 인레이,
-            // 상호작용은 유리 대신 상아색 각진 타일과 산화 구리 회로로 통일한다.
-            stoneMat = MgfLook.Lit(PlumStone, .10f, .01f);
-            oxideMat = MgfLook.Lit(Oxide, .16f, .02f);
-            copperMat = MgfLook.Lit(Copper, .42f, .24f, Copper * .08f);
-            rindMat = MgfLook.Lit(MgfLook.Hex("#49303D"), .12f, .01f);
-            coralMat = MgfLook.Lit(MgfLook.Hex("#875064"), .15f, .01f);
-            rubyMat = MgfLook.Lit(MgfLook.Hex("#55243B"), .18f, .02f);
-            rubyLightMat = MgfLook.Lit(MgfLook.Hex("#9A4960"), .20f, .02f);
-            ivoryMat = MgfLook.Lit(Ivory, .28f, .02f);
+            // 2차 검수: 폐쇄형 기계 패널과 금속 회로 계열을 버리고, 햇빛을 받은 과수원의
+            // 무광 과피·도자·천으로 통일한다. 전기 발광이나 금속 잠금 부품은 쓰지 않는다.
+            soilMat = MgfLook.Lit(MgfLook.Hex("#6C5844"), .08f, .00f);
+            clayMat = MgfLook.Lit(Clay, .10f, .00f);
+            terracottaMat = MgfLook.Lit(Terracotta, .16f, .00f);
+            leafMat = MgfLook.Lit(Leaf, .12f, .00f);
+            linenMat = MgfLook.Lit(MgfLook.Hex("#F5E8CF"), .08f, .00f);
+            rindMat = MgfLook.Lit(MgfLook.Hex("#ECA07E"), .10f, .00f);
+            coralMat = MgfLook.Lit(MgfLook.Hex("#F28B7A"), .12f, .00f);
+            rubyMat = MgfLook.Lit(MgfLook.Hex("#9F3154"), .16f, .01f);
+            rubyLightMat = MgfLook.Lit(MgfLook.Hex("#D94E6C"), .18f, .01f);
+            ivoryMat = MgfLook.Lit(Ivory, .16f, .00f);
             inkMat = MgfLook.Lit(Ink, .18f, .01f);
-            juiceMat = MgfLook.Lit(Juice, .60f, .04f, Juice * .42f);
-            glassMat = ivoryMat;
+            juiceMat = MgfLook.Lit(Juice, .28f, .01f, Juice * .10f);
+            glassMat = linenMat;
             glassBrightMat = ivoryMat;
-            scarMat = MgfLook.Alpha(new Color(.95f, .76f, .62f, .42f));
-            clearMembraneMat = oxideMat;
+            scarMat = MgfLook.Alpha(new Color(.55f, .28f, .24f, .46f));
+            clearMembraneMat = clayMat;
         }
 
         void BuildWorld()
@@ -167,18 +172,27 @@ namespace Mgf.SeongnyuCore
             types.AddComponent<SphereCollider>(); types.AddComponent<CapsuleCollider>();
             Destroy(types);
 
-            MgfLook.Sky(MgfLook.Hex("#1B111B"), MgfLook.Hex("#4A2638"), MgfLook.Hex("#8A5062"), .74f);
-            MgfLook.Sun(new Vector3(38, -32, 18), MgfLook.Hex("#FFE7BE"), 1.05f, .60f);
+            MgfLook.Sky(MgfLook.Hex("#9ED8D2"), OrchardSky, MgfLook.Hex("#FFF2D5"), .42f);
+            MgfLook.Sun(new Vector3(42, -28, 14), MgfLook.Hex("#FFF0C7"), 1.12f, .54f);
             cam = MgfLook.Camera(new Vector3(0, 4.8f, -19.5f), new Vector3(0, .55f, 0), 32f);
             cam.orthographic = true;
             cam.orthographicSize = 9.5f;
             baseCamPos = cam.transform.position;
 
-            worldRoot = new GameObject("GiantPomegranateCrossSection").transform;
-            // 빈 탁자 대신 화면 전체를 채우는 과피 단면과 젤리 씨방을 만든다.
-            MgfLook.Block("PomegranateStoneBack", new Vector3(0, .25f, 3.5f), new Vector3(22, 16, 1.2f), .28f, stoneMat, worldRoot);
-            MgfLook.Block("OxideCutFace", new Vector3(0, .2f, 2.72f), new Vector3(18.5f, 13.4f, .72f), .18f, oxideMat, worldRoot);
-            MgfLook.Block("DarkInlayCavity", new Vector3(0, .18f, 2.18f), new Vector3(15.9f, 11.3f, .48f), .12f, rubyMat, worldRoot);
+            worldRoot = new GameObject("OpenPomegranateOrchard").transform;
+            // 화면 전체가 열린 야외 지형이다. 중앙 패널 대신 하늘·언덕·비대칭 과실 단면이 깊이를 만든다.
+            MgfLook.Block("OpenSky", new Vector3(0, 1.8f, 4.2f), new Vector3(23, 14, .55f), .28f, MgfLook.Lit(OrchardSky, .04f, 0), worldRoot);
+            MgfLook.Block("MeadowShelf", new Vector3(0, -4.75f, 2.6f), new Vector3(23, 4.7f, 1.2f), .70f, MgfLook.Lit(Meadow, .08f, 0), worldRoot);
+            MgfLook.Block("WarmSoilCut", new Vector3(1.8f, -5.65f, 1.7f), new Vector3(18, 2.1f, .85f), .42f, soilMat, worldRoot);
+            var branch = MgfLook.Block("OrchardBranch", new Vector3(3.2f, 3.9f, 1.5f), new Vector3(10.8f, .42f, .50f), .16f, soilMat, worldRoot);
+            branch.transform.rotation = Quaternion.Euler(0, 0, -11f);
+            for (int i = 0; i < 7; i++)
+            {
+                float x = -1.1f + i * 1.55f;
+                var leaf = MgfLook.Prim(PrimitiveType.Sphere, "OrchardLeaf" + i,
+                    new Vector3(x, 4.25f + (i % 2) * .38f, 1.15f), new Vector3(.90f, .34f, .22f), leafMat, worldRoot, false);
+                leaf.transform.rotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 24f : -28f);
+            }
             BuildRindRing();
             BuildChambers();
             BuildAmbientBubbles();
@@ -189,22 +203,25 @@ namespace Mgf.SeongnyuCore
 
         void BuildRindRing()
         {
-            rindRoot = new GameObject("ThickRindRing").transform;
+            rindRoot = new GameObject("AsymmetricCutFruit").transform;
             rindRoot.SetParent(worldRoot, false);
-            for (int i = 0; i < 30; i++)
+            Vector3 fruitCenter = new Vector3(-2.25f, .10f, 0);
+            for (int i = 0; i < 24; i++)
             {
-                float a = i * Mathf.PI * 2f / 30f;
-                float x = Mathf.Cos(a) * 7.9f, y = Mathf.Sin(a) * 5.55f + .25f;
-                var rind = MgfLook.Block("CutStoneTessera", new Vector3(x, y, 1.45f),
-                    new Vector3(.78f, 1.12f, .62f), .045f, i % 3 == 0 ? copperMat : rindMat, rindRoot);
+                float a = i * Mathf.PI * 2f / 24f;
+                float wobble = 1f + Mathf.Sin(i * 1.7f) * .055f;
+                float x = fruitCenter.x + Mathf.Cos(a) * 6.45f * wobble;
+                float y = fruitCenter.y + Mathf.Sin(a) * 4.65f;
+                var rind = MgfLook.Block("MatteRindPiece", new Vector3(x, y, 1.38f),
+                    new Vector3(.94f, 1.22f, .66f), .18f, i % 4 == 0 ? terracottaMat : rindMat, rindRoot);
                 rind.transform.rotation = Quaternion.Euler(8, 0, -a * Mathf.Rad2Deg - 90);
             }
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < 5; i++)
             {
-                float a = i * Mathf.PI * 2f / 8f + .2f;
-                var septum = MgfLook.Block("CopperCircuitSpoke", new Vector3(Mathf.Cos(a) * 3.9f, Mathf.Sin(a) * 2.7f + .2f, 1.55f),
-                    new Vector3(5.6f, .14f, .20f), .025f, copperMat, rindRoot);
-                septum.transform.rotation = Quaternion.Euler(0, 0, a * Mathf.Rad2Deg);
+                float a = (-58f + i * 31f) * Mathf.Deg2Rad;
+                var seam = MgfLook.Block("IvoryFruitSeam", fruitCenter + new Vector3(Mathf.Cos(a) * 2.45f, Mathf.Sin(a) * 1.75f, 1.48f),
+                    new Vector3(4.5f, .10f, .16f), .05f, linenMat, rindRoot);
+                seam.transform.rotation = Quaternion.Euler(0, 0, a * Mathf.Rad2Deg);
             }
         }
 
@@ -212,18 +229,19 @@ namespace Mgf.SeongnyuCore
         {
             for (int i = 0; i < chambers.Length; i++)
             {
-                float a = (i * 30f + 15f) * Mathf.Deg2Rad;
-                var root = new GameObject("BreathingArilChamber" + i).transform;
+                float a = (i * 30f + 12f) * Mathf.Deg2Rad;
+                float radiusJitter = (i % 3 - 1) * .28f;
+                var root = new GameObject("MatteArilPocket" + i).transform;
                 root.SetParent(worldRoot, false);
-                root.localPosition = new Vector3(Mathf.Cos(a) * 5.1f, Mathf.Sin(a) * 3.55f + .2f, .9f);
+                root.localPosition = new Vector3(-2.25f + Mathf.Cos(a) * (4.25f + radiusJitter), .10f + Mathf.Sin(a) * (2.95f + radiusJitter), .84f);
                 root.localRotation = Quaternion.Euler(0, 0, a * Mathf.Rad2Deg - 90f);
                 chambers[i] = root;
-                var outer = MgfLook.Block("FacetedCeramicAril", Vector3.zero,
-                    new Vector3(1.30f, 1.46f, .62f), .06f, i % 2 == 0 ? rubyLightMat : rubyMat, root);
-                outer.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 45f : 0f);
-                var membraneGo = MgfLook.Block("LockingInlayTile", new Vector3(0, 0, -.38f),
-                    new Vector3(.92f, 1.02f, .13f), .025f, clearMembraneMat, root);
-                membraneGo.transform.localRotation = Quaternion.Euler(0, 0, 45f);
+                var outer = MgfLook.Prim(PrimitiveType.Sphere, "RoundedAril", Vector3.zero,
+                    new Vector3(1.18f, 1.46f, .62f), i % 2 == 0 ? rubyLightMat : rubyMat, root, false);
+                outer.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 11f : -9f);
+                var membraneGo = MgfLook.Block("PorcelainPetal", new Vector3(0, 0, -.40f),
+                    new Vector3(.82f, 1.08f, .12f), .18f, clearMembraneMat, root);
+                membraneGo.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 18f : -16f);
                 var membrane = membraneGo.transform;
                 chamberMembranes[i] = membrane;
                 chamberTileRenderers[i] = membraneGo.GetComponent<Renderer>();
@@ -258,15 +276,15 @@ namespace Mgf.SeongnyuCore
                 float x = -7f + (i * 37 % 140) / 10f;
                 float y = -5.2f + (i * 23 % 95) / 10f;
                 bubbleHomes[i] = new Vector3(x, y, -.5f - (i % 4) * .14f);
-                var b = MgfLook.Block("SlowCopperTessera" + i, bubbleHomes[i],
-                    Vector3.one * (.09f + (i % 4) * .035f), .012f, i % 3 == 0 ? copperMat : ivoryMat, worldRoot).transform;
-                b.localRotation = Quaternion.Euler(0, 0, i * 17f);
+                var b = MgfLook.Prim(PrimitiveType.Sphere, "DriftingOrchardLeaf" + i, bubbleHomes[i],
+                    new Vector3(.18f + (i % 4) * .035f, .07f, .035f), i % 3 == 0 ? leafMat : linenMat, worldRoot, false).transform;
+                b.localRotation = Quaternion.Euler(0, 0, i * 23f);
                 bubbles[i] = b;
             }
             for (int i = 0; i < juiceBeads.Length; i++)
             {
-                var b = MgfLook.Block("CircuitPulse" + i, Vector3.zero,
-                    Vector3.one * (.09f + (i % 3) * .018f), .01f, juiceMat, worldRoot).transform;
+                var b = MgfLook.Prim(PrimitiveType.Sphere, "FlyingPetal" + i, Vector3.zero,
+                    new Vector3(.14f, .07f, .035f), i % 2 == 0 ? terracottaMat : linenMat, worldRoot, false).transform;
                 b.gameObject.SetActive(false); juiceBeads[i] = b;
             }
         }
@@ -275,26 +293,32 @@ namespace Mgf.SeongnyuCore
         {
             for (int i = 0; i < savedPaths.Length; i++)
             {
-                savedPaths[i] = MakeLine("SavedPerpendicular" + i, glassBrightMat, .09f, worldRoot);
+                savedPaths[i] = MakeLine("HiddenSolvedGuide" + i, glassBrightMat, .09f, worldRoot);
                 savedPaths[i].positionCount = 2; savedPaths[i].gameObject.SetActive(false);
-                savedGerms[i] = MgfLook.Block("LockedRightAngleTile" + i, Vector3.zero,
-                    new Vector3(.34f, .34f, .12f), .025f, copperMat, worldRoot).transform;
+                savedGerms[i] = MgfLook.Prim(PrimitiveType.Sphere, "RosettePetal" + i, Vector3.zero,
+                    new Vector3(.62f, .24f, .10f), i % 2 == 0 ? terracottaMat : linenMat, worldRoot, false).transform;
                 savedGerms[i].gameObject.SetActive(false);
             }
             for (int i = 0; i < seals.Length; i++)
             {
-                seals[i] = MgfLook.Block("FractureSeal" + i,
-                    new Vector3(-.72f + i * .72f, -4.85f, -.48f), new Vector3(.32f, .32f, .14f),
-                    .025f, ivoryMat, worldRoot).transform;
+                seals[i] = MgfLook.Prim(PrimitiveType.Sphere, "WholeSeedSeal" + i,
+                    new Vector3(-1.05f + i * .52f, -4.85f, -1.65f), new Vector3(.27f, .38f, .16f),
+                    rubyMat, worldRoot, false).transform;
             }
+        }
+
+        Vector3 RosettePetalTarget(int index)
+        {
+            float a = (index * 45f + 22.5f) * Mathf.Deg2Rad;
+            return new Vector3(2.80f + Mathf.Cos(a) * .64f, -4.55f + Mathf.Sin(a) * .46f, -1.78f);
         }
 
         void BuildMeasurementBoard()
         {
-            boardRoot = new GameObject("EngravedMeasurementInlay").transform;
+            boardRoot = new GameObject("OrchardSurveyCloth").transform;
             boardRoot.SetParent(worldRoot, false); boardRoot.localPosition = new Vector3(0, .0f, -1.25f);
-            MgfLook.Block("StoneMeasurementFrame", Vector3.zero, new Vector3(12.8f, 8.0f, .18f), .12f, copperMat, boardRoot);
-            MgfLook.Block("MatteCoordinateInlay", new Vector3(0, 0, -.14f), new Vector3(11.8f, 7.0f, .10f), .08f, oxideMat, boardRoot);
+            MgfLook.Block("TerracottaClothWeight", Vector3.zero, new Vector3(12.8f, 8.0f, .18f), .28f, terracottaMat, boardRoot);
+            MgfLook.Block("IvoryMeasurementCloth", new Vector3(0, 0, -.14f), new Vector3(11.8f, 7.0f, .10f), .22f, linenMat, boardRoot);
             // 정방 모눈은 답을 누설하지 않고 직각 판단 근거만 제공한다.
             for (int i = -6; i <= 6; i++)
             {
@@ -315,8 +339,8 @@ namespace Mgf.SeongnyuCore
                 var tick = MgfLook.Block("UniformRindTick" + i, Vector3.zero, new Vector3(.055f, .28f, .055f), .018f, ivoryMat, boardRoot);
                 ticks[i] = tick.transform; tickRenderers[i] = tick.GetComponent<Renderer>();
             }
-            handle = MgfLook.Block("IvoryInlayHandle", Vector3.zero,
-                new Vector3(1.12f, .88f, .30f), .10f, ivoryMat, boardRoot).transform;
+            handle = MgfLook.Block("PorcelainCapillaryHandle", Vector3.zero,
+                new Vector3(1.12f, .88f, .30f), .18f, ivoryMat, boardRoot).transform;
             // 보이는 손잡이와 온보딩 링 전체를 같은 넉넉한 입력 영역으로 묶는다.
             var hc = handle.GetComponent<BoxCollider>(); hc.size = new Vector3(1.85f, 1.70f, .90f);
             handleRenderer = handle.GetComponent<Renderer>();
@@ -331,12 +355,12 @@ namespace Mgf.SeongnyuCore
 
         void BuildRuler()
         {
-            rulerRoot = new GameObject("ManualCopperSetSquare").transform;
+            rulerRoot = new GameObject("ManualLeafSetSquare").transform;
             rulerRoot.SetParent(boardRoot, false);
-            rulerLong = MakeLine("SetSquareRailEdge", copperMat, .105f, rulerRoot);
+            rulerLong = MakeLine("SetSquareRailEdge", leafMat, .105f, rulerRoot);
             rulerLong.positionCount = 2; rulerLong.SetPosition(0, new Vector3(-1.5f, 0, 0)); rulerLong.SetPosition(1, new Vector3(1.5f, 0, 0));
             var longHit = rulerLong.gameObject.AddComponent<BoxCollider>(); longHit.size = new Vector3(3.3f, .52f, .8f);
-            rulerShort = MakeLine("SetSquarePerpendicularEdge", copperMat, .105f, rulerRoot);
+            rulerShort = MakeLine("SetSquarePerpendicularEdge", leafMat, .105f, rulerRoot);
             rulerShort.positionCount = 2; rulerShort.SetPosition(0, Vector3.zero); rulerShort.SetPosition(1, new Vector3(0, 2.0f, 0));
             var shortHit = rulerShort.gameObject.AddComponent<BoxCollider>(); shortHit.center = new Vector3(0, 1f, 0); shortHit.size = new Vector3(.52f, 2.4f, .8f);
             var diag = MakeLine("SetSquareDiagonal", ivoryMat, .055f, rulerRoot);
@@ -349,18 +373,26 @@ namespace Mgf.SeongnyuCore
 
         void BuildTitleSculpture()
         {
-            titleCore = MgfLook.Block("LivingCircuitCore", new Vector3(0, -.25f, -1.12f),
-                new Vector3(2.8f, 2.8f, .48f), .14f, copperMat, worldRoot).transform;
-            titleCore.localRotation = Quaternion.Euler(0, 0, 45f);
-            titleHandle = MgfLook.Block("CoreOpenInlayLever", new Vector3(0, -2.25f, -1.4f),
-                new Vector3(2.3f, .68f, .34f), .10f, ivoryMat, worldRoot).transform;
+            titleCore = new GameObject("ClothPetalRosette").transform;
+            titleCore.SetParent(worldRoot, false); titleCore.localPosition = new Vector3(1.75f, -.20f, -1.22f);
+            for (int i = 0; i < 8; i++)
+            {
+                float a = i * 45f * Mathf.Deg2Rad;
+                var petal = MgfLook.Prim(PrimitiveType.Sphere, "TitlePetal" + i,
+                    new Vector3(Mathf.Cos(a) * .86f, Mathf.Sin(a) * .62f, 0), new Vector3(.88f, .28f, .18f),
+                    i % 2 == 0 ? terracottaMat : linenMat, titleCore, false);
+                petal.transform.localRotation = Quaternion.Euler(0, 0, i * 45f);
+            }
+            MgfLook.Prim(PrimitiveType.Sphere, "RosetteSeed", Vector3.zero, new Vector3(.48f, .48f, .22f), rubyMat, titleCore, false);
+            titleHandle = MgfLook.Block("PicnicClothStartTab", new Vector3(1.75f, -2.25f, -1.4f),
+                new Vector3(2.6f, .72f, .34f), .22f, linenMat, worldRoot).transform;
             titleHandle.GetComponent<BoxCollider>().size = new Vector3(2.8f, 1.15f, .9f);
-            titleSpiral = MakeLine("TitleJuiceSpiral", juiceMat, .13f, worldRoot);
+            titleSpiral = MakeLine("TitleWindRibbon", leafMat, .11f, worldRoot);
             titleSpiral.positionCount = 40;
             for (int i = 0; i < 40; i++)
             {
-                float a = i * .43f, r = .10f + i * .035f;
-                titleSpiral.SetPosition(i, new Vector3(Mathf.Cos(a) * r, -.25f + Mathf.Sin(a) * r * .65f, -1.58f));
+                float t = i / 39f;
+                titleSpiral.SetPosition(i, new Vector3(-.45f + t * 4.4f, -1.15f + Mathf.Sin(t * Mathf.PI * 2f) * .28f, -1.58f));
             }
         }
 
@@ -376,37 +408,36 @@ namespace Mgf.SeongnyuCore
             var titleCanvas = NewGroup("TitleLayer", out titleGroup);
             titleArt = titleCanvas.gameObject.AddComponent<RawImage>();
             titleArt.raycastTarget = false;
-            // 생성 회화와 인게임 프리미티브가 충돌하던 레이어를 제거한다. 타이틀도 아래의
-            // 실제 Unity 석재 모자이크 세계·조명만 렌더해 연습/실전과 한 파이프라인을 쓴다.
+            // 생성 회화는 쓰지 않는다. 타이틀도 실제 Unity 과수원·천 로제트·햇빛을 그대로 렌더한다.
             titleArt.enabled = false;
             logoText = AddText(titleCanvas, "석류\n코어", new Vector2(.5f, .78f), Vector2.zero, 58, Ivory, 330, FontStyles.Bold);
-            logoText.lineSpacing = -22; logoText.outlineWidth = .27f; logoText.outlineColor = Deep;
+            logoText.lineSpacing = -22; logoText.outlineWidth = .27f; logoText.outlineColor = Ruby;
             logoText.fontMaterial.EnableKeyword("UNDERLAY_ON");
-            tagText = AddText(titleCanvas, "수선을 꽂아 씨눈을 깨워라", new Vector2(.5f, .64f), Vector2.zero, 20, Ivory, 350);
-            titleBadge = AddText(titleCanvas, "중1 · 기본 도형 · 실전 90초", new Vector2(.5f, .205f), Vector2.zero, 15, Blush, 340);
-            titleBest = AddText(titleCanvas, "첫 제출 6/8이 코어를 깨운다", new Vector2(.5f, .16f), Vector2.zero, 14, Ivory, 350);
-            titleCta = AddText(titleCanvas, "상아 손잡이를 눌러 코어 열기", new Vector2(.5f, .305f), Vector2.zero, 19, Ink, 330, FontStyles.Bold);
-            var ctaBg = AddPanel(titleCanvas, "WorldLeverLabel", new Vector2(.5f, .305f), Vector2.zero, new Vector2(330, 58), new Color(1f, .94f, .82f, .88f));
+            tagText = AddText(titleCanvas, "수선을 놓아 꽃잎 지도를 완성하라", new Vector2(.5f, .64f), Vector2.zero, 20, Ivory, 360);
+            titleBadge = AddText(titleCanvas, "중1 · 기본 도형 · 과수원 90초", new Vector2(.5f, .205f), Vector2.zero, 15, Ink, 340);
+            titleBest = AddText(titleCanvas, "첫 제출 6/8이면 로제트 완성", new Vector2(.5f, .16f), Vector2.zero, 14, Ink, 350);
+            titleCta = AddText(titleCanvas, "천 손잡이를 눌러 과수원 열기", new Vector2(.5f, .305f), Vector2.zero, 19, Ink, 330, FontStyles.Bold);
+            var ctaBg = AddPanel(titleCanvas, "PicnicClothLabel", new Vector2(.5f, .305f), Vector2.zero, new Vector2(330, 58), new Color(.98f, .92f, .79f, .94f));
             ctaBg.transform.SetSiblingIndex(titleCta.transform.GetSiblingIndex());
 
             bootDetail = "ui-hud";
             var hud = NewGroup("HudLayer", out hudGroup);
-            goalPanel = AddPanel(hud, "GoalRibbon", new Vector2(.5f, .955f), Vector2.zero, new Vector2(366, 47), new Color(.15f, .08f, .16f, .82f));
-            goalText = AddText(hud, "PH를 직선 l에 수직으로 꽂아 코어를 깨워라", new Vector2(.5f, .955f), Vector2.zero, 16, Ivory, 350, FontStyles.Bold);
-            promptPanel = AddPanel(hud, "PromptMembrane", new Vector2(.5f, .855f), Vector2.zero, new Vector2(366, 96), new Color(.98f, .77f, .69f, .90f));
+            goalPanel = AddPanel(hud, "GoalClothRibbon", new Vector2(.5f, .955f), Vector2.zero, new Vector2(366, 47), new Color(.20f, .38f, .25f, .90f));
+            goalText = AddText(hud, "PH를 직선 l에 수직으로 놓아 로제트를 완성하라", new Vector2(.5f, .955f), Vector2.zero, 16, Ivory, 350, FontStyles.Bold);
+            promptPanel = AddPanel(hud, "PromptPorcelainCard", new Vector2(.5f, .855f), Vector2.zero, new Vector2(366, 96), new Color(.98f, .90f, .78f, .94f));
             promptText = AddText(hud, "", new Vector2(.5f, .855f), Vector2.zero, 15, Ink, 344, FontStyles.Bold);
             statusText = AddText(hud, "", new Vector2(.19f, .748f), Vector2.zero, 15, Ivory, 140, FontStyles.Bold);
             progressText = AddText(hud, "", new Vector2(.52f, .748f), Vector2.zero, 15, Ivory, 150, FontStyles.Bold);
             timerText = AddText(hud, "90", new Vector2(.86f, .748f), Vector2.zero, 18, Ivory, 80, FontStyles.Bold);
-            timerTrack = AddPanel(hud, "JuiceTimerTrack", new Vector2(.5f, .705f), Vector2.zero, new Vector2(350, 13), new Color(.25f, .06f, .13f, .58f));
-            timerFill = AddPanel(timerTrack.rectTransform, "JuiceTimerFill", new Vector2(0, .5f), Vector2.zero, new Vector2(350, 9), Juice);
+            timerTrack = AddPanel(hud, "ClothTimerTrack", new Vector2(.5f, .705f), Vector2.zero, new Vector2(350, 13), new Color(.21f, .38f, .24f, .58f));
+            timerFill = AddPanel(timerTrack.rectTransform, "TerracottaTimerFill", new Vector2(0, .5f), Vector2.zero, new Vector2(350, 9), Terracotta);
             timerFill.rectTransform.pivot = new Vector2(0, .5f); timerFill.rectTransform.anchorMin = timerFill.rectTransform.anchorMax = new Vector2(0, .5f);
             scoreGlow = AddPanel(hud, "ScorePulse", new Vector2(.18f, .748f), Vector2.zero, new Vector2(120, 44), new Color(1f, .70f, .33f, 0));
             scoreGlow.transform.SetSiblingIndex(statusText.transform.GetSiblingIndex());
 
             bootDetail = "ui-feedback";
             var feedback = NewGroup("FeedbackLayer", out feedbackGroup);
-            AddPanel(feedback, "FeedbackMembrane", new Vector2(.5f, .18f), Vector2.zero, new Vector2(350, 70), new Color(.16f, .07f, .13f, .90f));
+            AddPanel(feedback, "FeedbackCloth", new Vector2(.5f, .18f), Vector2.zero, new Vector2(350, 70), new Color(.18f, .34f, .22f, .92f));
             feedbackText = AddText(feedback, "", new Vector2(.5f, .18f), Vector2.zero, 18, Ivory, 330, FontStyles.Bold);
 
             bootDetail = "ui-guide";
@@ -418,19 +449,19 @@ namespace Mgf.SeongnyuCore
 
             bootDetail = "ui-magnifier";
             var magnifier = NewGroup("FingerClearMagnifier", out magnifierGroup);
-            magnifierPanel = AddPanel(magnifier, "MagnifierStone", new Vector2(.82f, .43f), Vector2.zero,
-                new Vector2(126, 88), new Color(.10f, .06f, .10f, .94f));
+            magnifierPanel = AddPanel(magnifier, "MagnifierLeaf", new Vector2(.82f, .43f), Vector2.zero,
+                new Vector2(126, 88), new Color(.16f, .31f, .20f, .95f));
             magnifierText = AddText(magnifier, "현재 눈금", new Vector2(.82f, .43f), Vector2.zero, 15, Ivory, 112, FontStyles.Bold);
             magnifierGroup.alpha = 0;
 
             bootDetail = "ui-end";
             var end = NewGroup("EndLayer", out endGroup);
-            endShade = AddPanel(end, "ResultRind", new Vector2(.5f, .5f), Vector2.zero, new Vector2(366, 530), new Color(.25f, .05f, .14f, .94f));
+            endShade = AddPanel(end, "ResultPicnicCloth", new Vector2(.5f, .5f), Vector2.zero, new Vector2(366, 530), new Color(.19f, .36f, .23f, .95f));
             endTitle = AddText(end, "", new Vector2(.5f, .70f), Vector2.zero, 41, Ivory, 340, FontStyles.Bold);
             endStats = AddText(end, "", new Vector2(.5f, .54f), Vector2.zero, 20, Blush, 330, FontStyles.Bold);
             endScore = AddText(end, "0", new Vector2(.5f, .42f), Vector2.zero, 52, Juice, 300, FontStyles.Bold);
-            endCta = AddText(end, "석류 코어를 눌러 다시 꽂기", new Vector2(.5f, .28f), Vector2.zero, 18, Ink, 320, FontStyles.Bold);
-            AddPanel(end, "RestartHandle", new Vector2(.5f, .28f), Vector2.zero, new Vector2(320, 62), new Color(1f, .94f, .82f, .95f)).transform.SetSiblingIndex(endCta.transform.GetSiblingIndex());
+            endCta = AddText(end, "천 조각을 눌러 다시 놓기", new Vector2(.5f, .28f), Vector2.zero, 18, Ink, 320, FontStyles.Bold);
+            AddPanel(end, "RestartClothTab", new Vector2(.5f, .28f), Vector2.zero, new Vector2(320, 62), new Color(1f, .94f, .82f, .95f)).transform.SetSiblingIndex(endCta.transform.GetSiblingIndex());
             bootDetail = "ui-complete";
         }
 
@@ -475,6 +506,12 @@ namespace Mgf.SeongnyuCore
             magnifierGroup.alpha = 0;
             titleHandle.gameObject.SetActive(false); titleCore.gameObject.SetActive(false); titleSpiral.gameObject.SetActive(false); boardRoot.gameObject.SetActive(true);
             for (int i = 0; i < savedPaths.Length; i++) { savedPaths[i].gameObject.SetActive(false); savedGerms[i].gameObject.SetActive(false); }
+            for (int i = 0; i < chamberMembranes.Length; i++)
+            {
+                chamberMembranes[i].localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 18f : -16f);
+                chamberMembranes[i].localScale = Vector3.one;
+                chamberTileRenderers[i].sharedMaterial = clayMat;
+            }
             for (int i = 0; i < seals.Length; i++) seals[i].gameObject.SetActive(true);
             // 첫 자동 QA 진입만 중앙의 고정 기하로 실입력 게이트 접근성을 보장한다.
             // 그 뒤 재시작은 25개 정답 눈금을 고르게 바꿔 고정/연타 전략이 학습 진도를 만들지 못한다.
@@ -756,6 +793,14 @@ namespace Mgf.SeongnyuCore
                 feedbackGroup.alpha = 1;
                 feedbackText.text = practice ? "PH는 직선 l에 수직인 수선이다" : (revealFirst ? "수직이다 · 첫 제출 성공" : "수선으로 고쳤다");
                 correctionLine.gameObject.SetActive(true); correctionLine.SetPosition(0, pointP); correctionLine.SetPosition(1, SnapWorld(current.k));
+                if (!practice && st.solved < savedGerms.Length)
+                {
+                    Transform petal = savedGerms[st.solved];
+                    petal.gameObject.SetActive(true);
+                    petal.localPosition = worldRoot.InverseTransformPoint(boardRoot.TransformPoint(SnapWorld(current.k))) + new Vector3(0, 0, -.42f);
+                    petal.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(railDir.y, railDir.x) * Mathf.Rad2Deg);
+                    petal.localScale = new Vector3(.72f, .30f, .12f);
+                }
                 MgfSfx.Play("tap", .45f); MgfSfx.Play("correct", .52f);
                 revealTime = practice ? 1.15f : .92f;
             }
@@ -791,7 +836,7 @@ namespace Mgf.SeongnyuCore
             correctionLine.SetPosition(0, pointP); correctionLine.SetPosition(1, SnapWorld(current.k));
             promptText.text = "연결 활동: 점 P에서 직선 l까지 그은 두 선분 중 더 짧은 선분을 누르시오.";
             progressText.text = "무벌점 · 길이 비교"; timerText.text = "정지";
-            feedbackGroup.alpha = 1; feedbackText.text = "수선과 빗선의 길이를 직접 비교하시오";
+            feedbackGroup.alpha = 1; feedbackText.text = "수선과 수선이 아닌 선분의 길이를 비교하시오";
             ShowGuide(false); UpdateComparisonScreenState(); UpdateState();
         }
 
@@ -822,7 +867,7 @@ namespace Mgf.SeongnyuCore
             }
             else
             {
-                feedbackText.text = "빗선보다 수선이 짧습니다 · 다시 고르시오";
+                feedbackText.text = "수선이 아닌 선분보다 수선이 짧습니다 · 다시 고르시오";
                 scarLine.sharedMaterial = scarMat; handleNudge = .28f; MgfSfx.Play("wrong", .18f);
             }
             UpdateState();
@@ -860,15 +905,26 @@ namespace Mgf.SeongnyuCore
                     juiceBeads[i].localPosition = Vector3.Lerp(end, pointP, SmoothOvershoot(t));
                 }
                 int chamberIndex = Mathf.Clamp(st.solved, 0, chamberMembranes.Length - 1);
-                // 정답 사건은 막이 열리고 생물이 이동하는 온실 계열이 아니다.
-                // 각진 인레이가 직각 홈에 맞물리고 방사형 회로가 점등된다.
+                // 정답 사건: 도자 꽃잎이 열리고, 학생이 만든 수선 끝의 천 조각이 실제로
+                // 회전·이동해 아래 로제트에 겹친다. 잠금·회로 점등은 쓰지 않는다.
                 float lockT = SmoothOvershoot(chamberOpen);
-                chamberMembranes[chamberIndex].localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(45f, 0f, lockT));
+                float petalStart = chamberIndex % 2 == 0 ? 18f : -16f;
+                chamberMembranes[chamberIndex].localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(petalStart, 78f, lockT));
                 float tilePulse = 1f + Mathf.Sin(chamberOpen * Mathf.PI) * .20f;
                 chamberMembranes[chamberIndex].localScale = new Vector3(tilePulse, tilePulse, 1f);
-                chamberTileRenderers[chamberIndex].sharedMaterial = chamberOpen > .72f ? copperMat : oxideMat;
+                chamberTileRenderers[chamberIndex].sharedMaterial = chamberOpen > .72f ? linenMat : clayMat;
                 chamberGerms[chamberIndex].localPosition = new Vector3(0, -.06f, -.58f);
                 chamberGerms[chamberIndex].localScale = Vector3.one * (.34f + Mathf.Sin(chamberOpen * Mathf.PI) * .035f);
+                if (current.band != 0 && st.solved < savedGerms.Length)
+                {
+                    Transform petal = savedGerms[st.solved];
+                    Vector3 start = worldRoot.InverseTransformPoint(boardRoot.TransformPoint(SnapWorld(current.k))) + new Vector3(0, 0, -.42f);
+                    Vector3 target = RosettePetalTarget(st.solved);
+                    petal.localPosition = Vector3.Lerp(start, target, lockT);
+                    petal.localRotation = Quaternion.Euler(0, 0, Mathf.LerpAngle(Mathf.Atan2(railDir.y, railDir.x) * Mathf.Rad2Deg, st.solved * 45f + 22.5f, lockT));
+                    float petalPulse = 1f + Mathf.Sin(chamberOpen * Mathf.PI) * .22f;
+                    petal.localScale = new Vector3(.72f * petalPulse, .30f * petalPulse, .12f);
+                }
             }
             else
             {
@@ -890,18 +946,17 @@ namespace Mgf.SeongnyuCore
                 int save = st.solved;
                 if (save < savedPaths.Length)
                 {
-                    float a = save * Mathf.PI * 2f / 8f;
-                    Vector3 outer = new Vector3(Mathf.Cos(a) * 6.0f, Mathf.Sin(a) * 4.1f + .2f, -.9f);
-                    Vector3 inner = new Vector3(Mathf.Cos(a) * 1.45f, Mathf.Sin(a) * 1.05f + .2f, -.9f);
-                    savedPaths[save].gameObject.SetActive(true); savedPaths[save].SetPosition(0, outer); savedPaths[save].SetPosition(1, inner);
-                    savedGerms[save].gameObject.SetActive(true); savedGerms[save].localPosition = inner;
-                    savedGerms[save].localRotation = Quaternion.Euler(0, 0, 45f + save * 45f);
+                    savedPaths[save].gameObject.SetActive(false);
+                    savedGerms[save].gameObject.SetActive(true);
+                    savedGerms[save].localPosition = RosettePetalTarget(save);
+                    savedGerms[save].localRotation = Quaternion.Euler(0, 0, save * 45f + 22.5f);
+                    savedGerms[save].localScale = new Vector3(.72f, .30f, .12f);
                 }
                 st.solved++; st.roundIndex = st.solved;
                 if (st.solved >= SeongnyuRules.TargetSolved)
                 {
                     EndRun(st.firstCorrect >= SeongnyuRules.MasteryTarget,
-                        st.firstCorrect >= SeongnyuRules.MasteryTarget ? "여덟 수선이 코어를 깨웠다" : "8개를 열었지만 첫 제출 6/8이 필요하다");
+                        st.firstCorrect >= SeongnyuRules.MasteryTarget ? "여덟 수선이 로제트를 완성했다" : "8개를 놓았지만 첫 제출 6/8이 필요하다");
                     return;
                 }
                 if (st.solved == 3)
@@ -931,7 +986,7 @@ namespace Mgf.SeongnyuCore
             dragging = false; boardRoot.gameObject.SetActive(false); hudGroup.alpha = 0; feedbackGroup.alpha = 0; guideGroup.alpha = 0; magnifierGroup.alpha = 0; endGroup.alpha = 1;
             titleCore.gameObject.SetActive(true); titleCore.localScale = success ? Vector3.one * 1.25f : Vector3.one * .82f;
             titleSpiral.gameObject.SetActive(success); titleHandle.gameObject.SetActive(false);
-            endTitle.text = success ? "코어 각성" : "씨방 봉인";
+            endTitle.text = success ? "로제트 완성" : "꽃잎 수선 중";
             endStats.text = reason + "\n개방 " + st.solved + "/8 · 첫 제출 " + st.firstCorrect + "/8 · 봉인 " + st.lives;
             endScore.text = "0"; displayedScore = 0;
             if (success) MgfSfx.Play("win", .6f); else MgfSfx.Play("lose", .52f);
@@ -1046,8 +1101,9 @@ namespace Mgf.SeongnyuCore
                 SetRect(goalPanel.rectTransform, new Vector2(.5f, .965f), Vector2.zero, new Vector2(Mathf.Min(820, w * .66f), 36));
                 SetRect(goalText.rectTransform, new Vector2(.5f, .965f), Vector2.zero, new Vector2(Mathf.Min(800, w * .64f), 34));
                 goalText.fontSize = 16;
-                SetRect(promptPanel.rectTransform, new Vector2(.5f, .835f), Vector2.zero, new Vector2(Mathf.Min(930, w * .74f), 72));
-                SetRect(promptText.rectTransform, new Vector2(.5f, .835f), Vector2.zero, new Vector2(Mathf.Min(890, w * .70f), 66));
+                SetRect(promptPanel.rectTransform, new Vector2(.5f, .835f), Vector2.zero, new Vector2(Mathf.Min(1220, w * .80f), 72));
+                SetRect(promptText.rectTransform, new Vector2(.5f, .835f), Vector2.zero, new Vector2(Mathf.Min(1170, w * .77f), 66));
+                promptText.fontSize = 14;
                 SetRect(statusText.rectTransform, new Vector2(.17f, .715f), Vector2.zero, new Vector2(150, 40));
                 SetRect(progressText.rectTransform, new Vector2(.5f, .715f), Vector2.zero, new Vector2(300, 40));
                 SetRect(timerText.rectTransform, new Vector2(.83f, .715f), Vector2.zero, new Vector2(100, 40));
@@ -1067,6 +1123,7 @@ namespace Mgf.SeongnyuCore
                 goalText.fontSize = 14;
                 SetRect(promptPanel.rectTransform, new Vector2(.5f, .855f), Vector2.zero, new Vector2(366, 96));
                 SetRect(promptText.rectTransform, new Vector2(.5f, .855f), Vector2.zero, new Vector2(344, 92));
+                promptText.fontSize = 15;
                 SetRect(statusText.rectTransform, new Vector2(.19f, .748f), Vector2.zero, new Vector2(140, 38));
                 SetRect(progressText.rectTransform, new Vector2(.52f, .748f), Vector2.zero, new Vector2(150, 38));
                 SetRect(timerText.rectTransform, new Vector2(.86f, .748f), Vector2.zero, new Vector2(80, 40));
@@ -1204,7 +1261,7 @@ namespace Mgf.SeongnyuCore
         {
             if (phase == RunPhase.Title || phase == RunPhase.End || phase == RunPhase.Practice) StartRunDirect();
             if (phase == RunPhase.Reveal) { revealTime = 0; FinishReveal(); if (phase == RunPhase.End) StartRunDirect(); }
-            if (phase == RunPhase.Compare) { st.compareAttempts++; feedbackText.text = "빗선보다 수선이 짧습니다 · 다시 고르시오"; UpdateState(); return; }
+            if (phase == RunPhase.Compare) { st.compareAttempts++; feedbackText.text = "수선이 아닌 선분보다 수선이 짧습니다 · 다시 고르시오"; UpdateState(); return; }
             if (phase != RunPhase.Playing) return;
             int wrong = current.k == SeongnyuRules.MaxSnap ? current.k - 1 : current.k + 1;
             st.selectedSnap = wrong; handle.localPosition = SnapWorld(wrong); capillaryLine.SetPosition(1, handle.localPosition); Submit(wrong);
