@@ -1,4 +1,4 @@
-// 석류 코어 — 거대한 석류 단면에서 유리 모세관으로 수선을 직접 구성하는 2.5D 정밀 아케이드.
+// 석류 코어 — 거대한 석류 절단면 모자이크에서 수선을 직접 구성하는 2.5D 정밀 아케이드.
 using System;
 using System.Collections.Generic;
 using Mgf;
@@ -30,9 +30,21 @@ namespace Mgf.SeongnyuCore
             public int railStartScreenY;
             public int railEndScreenX;
             public int railEndScreenY;
+            public int compareShortScreenX;
+            public int compareShortScreenY;
+            public int compareLongScreenX;
+            public int compareLongScreenY;
+            public int rulerBodyScreenX;
+            public int rulerBodyScreenY;
+            public int rulerKnobScreenX;
+            public int rulerKnobScreenY;
+            public int invalidInputs;
+            public int rulerMoves;
+            public int compareAttempts;
         }
 
-        enum RunPhase { Title, Practice, Playing, Reveal, End }
+        enum RunPhase { Title, Practice, Playing, Compare, Reveal, End }
+        enum PointerMode { None, Handle, RulerMove, RulerRotate }
 
         static readonly Color Ruby = MgfLook.Hex("#A92E52");
         static readonly Color Coral = MgfLook.Hex("#EF6F61");
@@ -42,6 +54,9 @@ namespace Mgf.SeongnyuCore
         static readonly Color Juice = MgfLook.Hex("#FF9D55");
         static readonly Color Deep = MgfLook.Hex("#64162E");
         static readonly Color Glass = new Color(1f, .94f, .82f, .56f);
+        static readonly Color PlumStone = MgfLook.Hex("#251824");
+        static readonly Color Oxide = MgfLook.Hex("#744052");
+        static readonly Color Copper = MgfLook.Hex("#D69B58");
 
         readonly State st = new State();
         readonly List<CoreProblem> bank = new List<CoreProblem>(375);
@@ -49,6 +64,7 @@ namespace Mgf.SeongnyuCore
         readonly Transform[] chambers = new Transform[12];
         readonly Transform[] chamberMembranes = new Transform[12];
         readonly Transform[] chamberGerms = new Transform[12];
+        readonly Renderer[] chamberTileRenderers = new Renderer[12];
         readonly Transform[] bubbles = new Transform[18];
         readonly Vector3[] bubbleHomes = new Vector3[18];
         readonly Transform[] seals = new Transform[3];
@@ -64,7 +80,7 @@ namespace Mgf.SeongnyuCore
         float secondsLeft = 90f;
         bool firstAttemptOnRound;
 
-        Material rindMat, rubyMat, rubyLightMat, coralMat, ivoryMat, inkMat, glassMat, glassBrightMat, scarMat, juiceMat, clearMembraneMat;
+        Material rindMat, rubyMat, rubyLightMat, coralMat, ivoryMat, inkMat, glassMat, glassBrightMat, scarMat, juiceMat, clearMembraneMat, stoneMat, oxideMat, copperMat;
         Transform worldRoot, rindRoot, boardRoot, handle, germ, germBody, germArmL, germArmR, rulerRoot, rulerKnob;
         Transform titleHandle, titleCore;
         Renderer handleRenderer, germRenderer;
@@ -75,55 +91,73 @@ namespace Mgf.SeongnyuCore
         // 세로 390px에서도 대각선 레일 25눈금과 P가 모두 화면 안에 남는 균일 간격.
         const float TickGap = .27f;
 
-        bool dragging, dragMoved, pointerStartedOnHandle, draggedToRail;
+        bool dragging, dragMoved, pointerStartedOnHandle, draggedToRail, gestureArmed;
+        PointerMode pointerMode;
         Vector2 dragStartScreen;
         int hoveredSnap;
         float dragDistance;
-        float invalidPulse, handleNudge, idleGuide, titleTime, revealTime, hitStop, wrongShake, scorePunch;
+        float invalidPulse, handleNudge, idleGuide, titleTime, revealTime, hitStop, wrongShake, scorePunch, compareDelay;
         bool revealCorrect, revealFirst, practiceWrongReveal;
+        bool compareResolved;
         int revealSnap;
         float chamberOpen;
         Vector3 baseCamPos;
         int beadCount;
         float beadTravel;
 
-        CanvasGroup titleGroup, hudGroup, endGroup, feedbackGroup, guideGroup;
+        CanvasGroup titleGroup, hudGroup, endGroup, feedbackGroup, guideGroup, magnifierGroup;
         RawImage titleArt;
         TextMeshProUGUI logoText, tagText, titleBadge, titleBest, titleCta;
         TextMeshProUGUI goalText, promptText, statusText, progressText, timerText, feedbackText, guideText;
         TextMeshProUGUI endTitle, endStats, endScore, endCta;
-        Image goalPanel, promptPanel, timerTrack, timerFill, scoreGlow, guideRing, guideHand, guideArrow, endShade;
+        TextMeshProUGUI magnifierText;
+        Image goalPanel, promptPanel, timerTrack, timerFill, scoreGlow, guideRing, guideHand, guideArrow, endShade, magnifierPanel;
         float timerBarWidth = 350f;
         float displayedScore;
         float lastLogicalW = -1, lastLogicalH = -1;
         Sprite panelSprite, ringSprite, arrowSprite, handSprite;
+        string bootDetail = "";
 
         void Awake()
         {
-            MgfLook.Quality(32f);
-            bank.AddRange(SeongnyuRules.BuildBank());
-            for (int i = 0; i < bank.Count; i++) bands[bank[i].band].Add(bank[i]);
-            BuildMaterials();
-            BuildWorld();
-            BuildUi();
-            Prewarm();
-            ShowTitle();
-            MgfBridge.Register(this);
+            string bootStep = "quality";
+            try
+            {
+                MgfLook.Quality(32f);
+                bootStep = "problem-bank"; bank.AddRange(SeongnyuRules.BuildBank());
+                for (int i = 0; i < bank.Count; i++) bands[bank[i].band].Add(bank[i]);
+                bootStep = "materials"; BuildMaterials();
+                bootStep = "world"; BuildWorld();
+                bootStep = "ui"; BuildUi();
+                bootStep = "prewarm"; Prewarm();
+                bootStep = "title"; ShowTitle();
+                bootStep = "bridge"; MgfBridge.Register(this);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("SeongnyuCore boot failed at " + bootStep + "/" + bootDetail + ": " + ex);
+                throw;
+            }
         }
 
         void BuildMaterials()
         {
-            rindMat = MgfLook.Lit(Coral, .18f, .01f);
-            coralMat = MgfLook.Lit(MgfLook.Hex("#F68B76"), .28f, .01f);
-            rubyMat = MgfLook.Lit(Ruby, .50f, .04f, Ruby * .09f);
-            rubyLightMat = MgfLook.Lit(MgfLook.Hex("#D94A65"), .55f, .03f, Ruby * .13f);
-            ivoryMat = MgfLook.Lit(Ivory, .32f, .02f);
+            // 1차 검수: 밝은 반투명 온실 계열과 분리한다. 단면은 무광 석재·도자 인레이,
+            // 상호작용은 유리 대신 상아색 각진 타일과 산화 구리 회로로 통일한다.
+            stoneMat = MgfLook.Lit(PlumStone, .10f, .01f);
+            oxideMat = MgfLook.Lit(Oxide, .16f, .02f);
+            copperMat = MgfLook.Lit(Copper, .42f, .24f, Copper * .08f);
+            rindMat = MgfLook.Lit(MgfLook.Hex("#49303D"), .12f, .01f);
+            coralMat = MgfLook.Lit(MgfLook.Hex("#875064"), .15f, .01f);
+            rubyMat = MgfLook.Lit(MgfLook.Hex("#55243B"), .18f, .02f);
+            rubyLightMat = MgfLook.Lit(MgfLook.Hex("#9A4960"), .20f, .02f);
+            ivoryMat = MgfLook.Lit(Ivory, .28f, .02f);
             inkMat = MgfLook.Lit(Ink, .18f, .01f);
             juiceMat = MgfLook.Lit(Juice, .60f, .04f, Juice * .42f);
-            glassMat = MgfLook.Alpha(Glass);
-            glassBrightMat = MgfLook.Alpha(new Color(1f, .98f, .84f, .88f));
-            scarMat = MgfLook.Alpha(new Color(.95f, .90f, .82f, .34f));
-            clearMembraneMat = MgfLook.Alpha(new Color(1f, .73f, .69f, .20f));
+            glassMat = ivoryMat;
+            glassBrightMat = ivoryMat;
+            scarMat = MgfLook.Alpha(new Color(.95f, .76f, .62f, .42f));
+            clearMembraneMat = oxideMat;
         }
 
         void BuildWorld()
@@ -133,8 +167,8 @@ namespace Mgf.SeongnyuCore
             types.AddComponent<SphereCollider>(); types.AddComponent<CapsuleCollider>();
             Destroy(types);
 
-            MgfLook.Sky(MgfLook.Hex("#8D2447"), MgfLook.Hex("#ED756B"), MgfLook.Hex("#FFD2B9"), .86f);
-            MgfLook.Sun(new Vector3(38, -32, 18), MgfLook.Hex("#FFF2DA"), 1.10f, .62f);
+            MgfLook.Sky(MgfLook.Hex("#1B111B"), MgfLook.Hex("#4A2638"), MgfLook.Hex("#8A5062"), .74f);
+            MgfLook.Sun(new Vector3(38, -32, 18), MgfLook.Hex("#FFE7BE"), 1.05f, .60f);
             cam = MgfLook.Camera(new Vector3(0, 4.8f, -19.5f), new Vector3(0, .55f, 0), 32f);
             cam.orthographic = true;
             cam.orthographicSize = 9.5f;
@@ -142,9 +176,9 @@ namespace Mgf.SeongnyuCore
 
             worldRoot = new GameObject("GiantPomegranateCrossSection").transform;
             // 빈 탁자 대신 화면 전체를 채우는 과피 단면과 젤리 씨방을 만든다.
-            MgfLook.Block("PomegranateBack", new Vector3(0, .25f, 3.5f), new Vector3(22, 16, 1.2f), 1.6f, rindMat, worldRoot);
-            MgfLook.Block("InnerCoralFlesh", new Vector3(0, .2f, 2.72f), new Vector3(18.5f, 13.4f, .72f), 1.7f, coralMat, worldRoot);
-            MgfLook.Block("RubyCavity", new Vector3(0, .18f, 2.18f), new Vector3(15.9f, 11.3f, .48f), 1.9f, rubyMat, worldRoot);
+            MgfLook.Block("PomegranateStoneBack", new Vector3(0, .25f, 3.5f), new Vector3(22, 16, 1.2f), .28f, stoneMat, worldRoot);
+            MgfLook.Block("OxideCutFace", new Vector3(0, .2f, 2.72f), new Vector3(18.5f, 13.4f, .72f), .18f, oxideMat, worldRoot);
+            MgfLook.Block("DarkInlayCavity", new Vector3(0, .18f, 2.18f), new Vector3(15.9f, 11.3f, .48f), .12f, rubyMat, worldRoot);
             BuildRindRing();
             BuildChambers();
             BuildAmbientBubbles();
@@ -161,15 +195,15 @@ namespace Mgf.SeongnyuCore
             {
                 float a = i * Mathf.PI * 2f / 30f;
                 float x = Mathf.Cos(a) * 7.9f, y = Mathf.Sin(a) * 5.55f + .25f;
-                var rind = MgfLook.Prim(PrimitiveType.Capsule, "RindSegment", new Vector3(x, y, 1.45f),
-                    new Vector3(.92f, 1.18f, .74f), i % 3 == 0 ? rindMat : coralMat, rindRoot, false);
-                rind.transform.rotation = Quaternion.Euler(12, 0, -a * Mathf.Rad2Deg - 90);
+                var rind = MgfLook.Block("CutStoneTessera", new Vector3(x, y, 1.45f),
+                    new Vector3(.78f, 1.12f, .62f), .045f, i % 3 == 0 ? copperMat : rindMat, rindRoot);
+                rind.transform.rotation = Quaternion.Euler(8, 0, -a * Mathf.Rad2Deg - 90);
             }
             for (int i = 0; i < 8; i++)
             {
                 float a = i * Mathf.PI * 2f / 8f + .2f;
-                var septum = MgfLook.Block("JellySeptum", new Vector3(Mathf.Cos(a) * 3.9f, Mathf.Sin(a) * 2.7f + .2f, 1.55f),
-                    new Vector3(5.6f, .20f, .26f), .09f, ivoryMat, rindRoot);
+                var septum = MgfLook.Block("CopperCircuitSpoke", new Vector3(Mathf.Cos(a) * 3.9f, Mathf.Sin(a) * 2.7f + .2f, 1.55f),
+                    new Vector3(5.6f, .14f, .20f), .025f, copperMat, rindRoot);
                 septum.transform.rotation = Quaternion.Euler(0, 0, a * Mathf.Rad2Deg);
             }
         }
@@ -184,12 +218,15 @@ namespace Mgf.SeongnyuCore
                 root.localPosition = new Vector3(Mathf.Cos(a) * 5.1f, Mathf.Sin(a) * 3.55f + .2f, .9f);
                 root.localRotation = Quaternion.Euler(0, 0, a * Mathf.Rad2Deg - 90f);
                 chambers[i] = root;
-                var outer = MgfLook.Prim(PrimitiveType.Sphere, "RubyAril", Vector3.zero,
-                    new Vector3(1.22f, 1.55f, .88f), i % 2 == 0 ? rubyLightMat : rubyMat, root, false);
-                outer.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-                var membrane = MgfLook.Prim(PrimitiveType.Sphere, "FoldedJellyMembrane", new Vector3(0, 0, -.33f),
-                    new Vector3(1.35f, 1.67f, .16f), clearMembraneMat, root, false).transform;
+                var outer = MgfLook.Block("FacetedCeramicAril", Vector3.zero,
+                    new Vector3(1.30f, 1.46f, .62f), .06f, i % 2 == 0 ? rubyLightMat : rubyMat, root);
+                outer.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 45f : 0f);
+                var membraneGo = MgfLook.Block("LockingInlayTile", new Vector3(0, 0, -.38f),
+                    new Vector3(.92f, 1.02f, .13f), .025f, clearMembraneMat, root);
+                membraneGo.transform.localRotation = Quaternion.Euler(0, 0, 45f);
+                var membrane = membraneGo.transform;
                 chamberMembranes[i] = membrane;
+                chamberTileRenderers[i] = membraneGo.GetComponent<Renderer>();
                 chamberGerms[i] = MakeGerm(root, new Vector3(0, -.06f, -.58f), .34f, "SleepingGerm" + i);
             }
         }
@@ -221,14 +258,15 @@ namespace Mgf.SeongnyuCore
                 float x = -7f + (i * 37 % 140) / 10f;
                 float y = -5.2f + (i * 23 % 95) / 10f;
                 bubbleHomes[i] = new Vector3(x, y, -.5f - (i % 4) * .14f);
-                var b = MgfLook.Prim(PrimitiveType.Sphere, "SlowJuiceBubble" + i, bubbleHomes[i],
-                    Vector3.one * (.10f + (i % 4) * .045f), glassBrightMat, worldRoot, false).transform;
+                var b = MgfLook.Block("SlowCopperTessera" + i, bubbleHomes[i],
+                    Vector3.one * (.09f + (i % 4) * .035f), .012f, i % 3 == 0 ? copperMat : ivoryMat, worldRoot).transform;
+                b.localRotation = Quaternion.Euler(0, 0, i * 17f);
                 bubbles[i] = b;
             }
             for (int i = 0; i < juiceBeads.Length; i++)
             {
-                var b = MgfLook.Prim(PrimitiveType.Sphere, "CapillaryJuiceBead" + i, Vector3.zero,
-                    Vector3.one * (.10f + (i % 3) * .025f), juiceMat, worldRoot, false).transform;
+                var b = MgfLook.Block("CircuitPulse" + i, Vector3.zero,
+                    Vector3.one * (.09f + (i % 3) * .018f), .01f, juiceMat, worldRoot).transform;
                 b.gameObject.SetActive(false); juiceBeads[i] = b;
             }
         }
@@ -239,23 +277,24 @@ namespace Mgf.SeongnyuCore
             {
                 savedPaths[i] = MakeLine("SavedPerpendicular" + i, glassBrightMat, .09f, worldRoot);
                 savedPaths[i].positionCount = 2; savedPaths[i].gameObject.SetActive(false);
-                savedGerms[i] = MakeGerm(worldRoot, Vector3.zero, .23f, "RescuedGerm" + i);
+                savedGerms[i] = MgfLook.Block("LockedRightAngleTile" + i, Vector3.zero,
+                    new Vector3(.34f, .34f, .12f), .025f, copperMat, worldRoot).transform;
                 savedGerms[i].gameObject.SetActive(false);
             }
             for (int i = 0; i < seals.Length; i++)
             {
-                seals[i] = MgfLook.Prim(PrimitiveType.Sphere, "SeptumSeal" + i,
-                    new Vector3(-.72f + i * .72f, -4.85f, -.48f), new Vector3(.25f, .34f, .16f),
-                    ivoryMat, worldRoot, false).transform;
+                seals[i] = MgfLook.Block("FractureSeal" + i,
+                    new Vector3(-.72f + i * .72f, -4.85f, -.48f), new Vector3(.32f, .32f, .14f),
+                    .025f, ivoryMat, worldRoot).transform;
             }
         }
 
         void BuildMeasurementBoard()
         {
-            boardRoot = new GameObject("ClearMeasurementSkin").transform;
+            boardRoot = new GameObject("EngravedMeasurementInlay").transform;
             boardRoot.SetParent(worldRoot, false); boardRoot.localPosition = new Vector3(0, .0f, -1.25f);
-            MgfLook.Block("JellyMeasurementSkin", Vector3.zero, new Vector3(12.8f, 8.0f, .18f), .72f, rubyMat, boardRoot);
-            MgfLook.Block("IvoryInnerSkin", new Vector3(0, 0, -.14f), new Vector3(11.8f, 7.0f, .10f), .62f, coralMat, boardRoot);
+            MgfLook.Block("StoneMeasurementFrame", Vector3.zero, new Vector3(12.8f, 8.0f, .18f), .12f, copperMat, boardRoot);
+            MgfLook.Block("MatteCoordinateInlay", new Vector3(0, 0, -.14f), new Vector3(11.8f, 7.0f, .10f), .08f, oxideMat, boardRoot);
             // 정방 모눈은 답을 누설하지 않고 직각 판단 근거만 제공한다.
             for (int i = -6; i <= 6; i++)
             {
@@ -276,9 +315,10 @@ namespace Mgf.SeongnyuCore
                 var tick = MgfLook.Block("UniformRindTick" + i, Vector3.zero, new Vector3(.055f, .28f, .055f), .018f, ivoryMat, boardRoot);
                 ticks[i] = tick.transform; tickRenderers[i] = tick.GetComponent<Renderer>();
             }
-            handle = MgfLook.Prim(PrimitiveType.Sphere, "MilkyGlassCapillaryHandle", Vector3.zero,
-                new Vector3(1.10f, 1.10f, .66f), glassBrightMat, boardRoot, true).transform;
-            var hc = handle.GetComponent<SphereCollider>(); hc.radius = .82f;
+            handle = MgfLook.Block("IvoryInlayHandle", Vector3.zero,
+                new Vector3(1.12f, .88f, .30f), .10f, ivoryMat, boardRoot).transform;
+            // 보이는 손잡이와 온보딩 링 전체를 같은 넉넉한 입력 영역으로 묶는다.
+            var hc = handle.GetComponent<BoxCollider>(); hc.size = new Vector3(1.85f, 1.70f, .90f);
             handleRenderer = handle.GetComponent<Renderer>();
             germ = MakeGerm(boardRoot, Vector3.zero, .54f, "ActiveSeedEyeGerm");
             germBody = germ.Find("RubyDropBody"); germArmL = germ.Find("LeafArm");
@@ -291,27 +331,30 @@ namespace Mgf.SeongnyuCore
 
         void BuildRuler()
         {
-            rulerRoot = new GameObject("ManualTransparentSetSquare").transform;
+            rulerRoot = new GameObject("ManualCopperSetSquare").transform;
             rulerRoot.SetParent(boardRoot, false);
-            rulerLong = MakeLine("SetSquareRailEdge", glassBrightMat, .075f, rulerRoot);
+            rulerLong = MakeLine("SetSquareRailEdge", copperMat, .105f, rulerRoot);
             rulerLong.positionCount = 2; rulerLong.SetPosition(0, new Vector3(-1.5f, 0, 0)); rulerLong.SetPosition(1, new Vector3(1.5f, 0, 0));
-            rulerShort = MakeLine("SetSquarePerpendicularEdge", glassBrightMat, .075f, rulerRoot);
+            var longHit = rulerLong.gameObject.AddComponent<BoxCollider>(); longHit.size = new Vector3(3.3f, .52f, .8f);
+            rulerShort = MakeLine("SetSquarePerpendicularEdge", copperMat, .105f, rulerRoot);
             rulerShort.positionCount = 2; rulerShort.SetPosition(0, Vector3.zero); rulerShort.SetPosition(1, new Vector3(0, 2.0f, 0));
-            var diag = MakeLine("SetSquareDiagonal", scarMat, .05f, rulerRoot);
+            var shortHit = rulerShort.gameObject.AddComponent<BoxCollider>(); shortHit.center = new Vector3(0, 1f, 0); shortHit.size = new Vector3(.52f, 2.4f, .8f);
+            var diag = MakeLine("SetSquareDiagonal", ivoryMat, .055f, rulerRoot);
             diag.positionCount = 2; diag.SetPosition(0, new Vector3(-1.5f, 0, 0)); diag.SetPosition(1, new Vector3(0, 2.0f, 0));
-            rulerKnob = MgfLook.Prim(PrimitiveType.Sphere, "SetSquareRotationKnob", new Vector3(0, 2.25f, 0),
-                Vector3.one * .32f, glassBrightMat, rulerRoot, true).transform;
+            rulerKnob = MgfLook.Block("SetSquareRotationKnob", new Vector3(0, 2.25f, 0),
+                Vector3.one * .42f, .06f, ivoryMat, rulerRoot).transform;
+            rulerKnob.GetComponent<BoxCollider>().size = Vector3.one * .9f;
             rulerRoot.localPosition = new Vector3(-3.8f, -2.55f, -.42f);
         }
 
         void BuildTitleSculpture()
         {
-            titleCore = MgfLook.Prim(PrimitiveType.Sphere, "LivingJuiceCore", new Vector3(0, -.25f, -1.12f),
-                new Vector3(2.2f, 1.55f, .82f), juiceMat, worldRoot, false).transform;
-            titleHandle = MgfLook.Prim(PrimitiveType.Capsule, "CoreOpenGlassLever", new Vector3(0, -2.25f, -1.4f),
-                new Vector3(1.65f, .42f, .42f), glassBrightMat, worldRoot, true).transform;
-            titleHandle.rotation = Quaternion.Euler(0, 0, 90);
-            titleHandle.GetComponent<CapsuleCollider>().radius = .78f;
+            titleCore = MgfLook.Block("LivingCircuitCore", new Vector3(0, -.25f, -1.12f),
+                new Vector3(2.8f, 2.8f, .48f), .14f, copperMat, worldRoot).transform;
+            titleCore.localRotation = Quaternion.Euler(0, 0, 45f);
+            titleHandle = MgfLook.Block("CoreOpenInlayLever", new Vector3(0, -2.25f, -1.4f),
+                new Vector3(2.3f, .68f, .34f), .10f, ivoryMat, worldRoot).transform;
+            titleHandle.GetComponent<BoxCollider>().size = new Vector3(2.8f, 1.15f, .9f);
             titleSpiral = MakeLine("TitleJuiceSpiral", juiceMat, .13f, worldRoot);
             titleSpiral.positionCount = 40;
             for (int i = 0; i < 40; i++)
@@ -323,28 +366,30 @@ namespace Mgf.SeongnyuCore
 
         void BuildUi()
         {
+            bootDetail = "ui-sprites";
             panelSprite = MakeRoundedSprite(72, 26f, Color.white, false);
             ringSprite = MakeRoundedSprite(72, 31f, Color.white, true);
             arrowSprite = MakeArrowSprite();
             handSprite = MakeHandSprite();
 
+            bootDetail = "ui-title";
             var titleCanvas = NewGroup("TitleLayer", out titleGroup);
             titleArt = titleCanvas.gameObject.AddComponent<RawImage>();
             titleArt.raycastTarget = false;
-            titleArt.color = new Color(1, 1, 1, .48f);
-            titleArt.uvRect = new Rect(0, .08f, 1, .80f);
-            var titleTex = Resources.Load<Texture2D>("SeongnyuCore/title");
-            if (titleTex) titleArt.texture = titleTex; else titleArt.gameObject.SetActive(false); // 코드 디오라마 폴백
+            // 생성 회화와 인게임 프리미티브가 충돌하던 레이어를 제거한다. 타이틀도 아래의
+            // 실제 Unity 석재 모자이크 세계·조명만 렌더해 연습/실전과 한 파이프라인을 쓴다.
+            titleArt.enabled = false;
             logoText = AddText(titleCanvas, "석류\n코어", new Vector2(.5f, .78f), Vector2.zero, 58, Ivory, 330, FontStyles.Bold);
             logoText.lineSpacing = -22; logoText.outlineWidth = .27f; logoText.outlineColor = Deep;
             logoText.fontMaterial.EnableKeyword("UNDERLAY_ON");
             tagText = AddText(titleCanvas, "수선을 꽂아 씨눈을 깨워라", new Vector2(.5f, .64f), Vector2.zero, 20, Ivory, 350);
             titleBadge = AddText(titleCanvas, "중1 · 기본 도형 · 실전 90초", new Vector2(.5f, .205f), Vector2.zero, 15, Blush, 340);
             titleBest = AddText(titleCanvas, "첫 제출 6/8이 코어를 깨운다", new Vector2(.5f, .16f), Vector2.zero, 14, Ivory, 350);
-            titleCta = AddText(titleCanvas, "유리 손잡이를 눌러 코어 열기", new Vector2(.5f, .305f), Vector2.zero, 19, Ink, 330, FontStyles.Bold);
+            titleCta = AddText(titleCanvas, "상아 손잡이를 눌러 코어 열기", new Vector2(.5f, .305f), Vector2.zero, 19, Ink, 330, FontStyles.Bold);
             var ctaBg = AddPanel(titleCanvas, "WorldLeverLabel", new Vector2(.5f, .305f), Vector2.zero, new Vector2(330, 58), new Color(1f, .94f, .82f, .88f));
             ctaBg.transform.SetSiblingIndex(titleCta.transform.GetSiblingIndex());
 
+            bootDetail = "ui-hud";
             var hud = NewGroup("HudLayer", out hudGroup);
             goalPanel = AddPanel(hud, "GoalRibbon", new Vector2(.5f, .955f), Vector2.zero, new Vector2(366, 47), new Color(.15f, .08f, .16f, .82f));
             goalText = AddText(hud, "PH를 직선 l에 수직으로 꽂아 코어를 깨워라", new Vector2(.5f, .955f), Vector2.zero, 16, Ivory, 350, FontStyles.Bold);
@@ -359,16 +404,26 @@ namespace Mgf.SeongnyuCore
             scoreGlow = AddPanel(hud, "ScorePulse", new Vector2(.18f, .748f), Vector2.zero, new Vector2(120, 44), new Color(1f, .70f, .33f, 0));
             scoreGlow.transform.SetSiblingIndex(statusText.transform.GetSiblingIndex());
 
+            bootDetail = "ui-feedback";
             var feedback = NewGroup("FeedbackLayer", out feedbackGroup);
             AddPanel(feedback, "FeedbackMembrane", new Vector2(.5f, .18f), Vector2.zero, new Vector2(350, 70), new Color(.16f, .07f, .13f, .90f));
             feedbackText = AddText(feedback, "", new Vector2(.5f, .18f), Vector2.zero, 18, Ivory, 330, FontStyles.Bold);
 
+            bootDetail = "ui-guide";
             var guide = NewGroup("GuideLayer", out guideGroup);
             guideRing = AddPanel(guide, "HandlePulseRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(86, 86), new Color(1f, .93f, .70f, .55f), ringSprite);
             guideHand = AddPanel(guide, "GhostHand", new Vector2(.5f, .5f), Vector2.zero, new Vector2(54, 70), new Color(1f, .95f, .87f, .95f), handSprite);
             guideArrow = AddPanel(guide, "FlowingArrow", new Vector2(.5f, .5f), Vector2.zero, new Vector2(38, 52), Juice, arrowSprite);
             guideText = AddText(guide, "손잡이를 잡아 레일까지 끌어 놓으시오", new Vector2(.5f, .105f), Vector2.zero, 17, Ivory, 360, FontStyles.Bold);
 
+            bootDetail = "ui-magnifier";
+            var magnifier = NewGroup("FingerClearMagnifier", out magnifierGroup);
+            magnifierPanel = AddPanel(magnifier, "MagnifierStone", new Vector2(.82f, .43f), Vector2.zero,
+                new Vector2(126, 88), new Color(.10f, .06f, .10f, .94f));
+            magnifierText = AddText(magnifier, "현재 눈금", new Vector2(.82f, .43f), Vector2.zero, 15, Ivory, 112, FontStyles.Bold);
+            magnifierGroup.alpha = 0;
+
+            bootDetail = "ui-end";
             var end = NewGroup("EndLayer", out endGroup);
             endShade = AddPanel(end, "ResultRind", new Vector2(.5f, .5f), Vector2.zero, new Vector2(366, 530), new Color(.25f, .05f, .14f, .94f));
             endTitle = AddText(end, "", new Vector2(.5f, .70f), Vector2.zero, 41, Ivory, 340, FontStyles.Bold);
@@ -376,11 +431,12 @@ namespace Mgf.SeongnyuCore
             endScore = AddText(end, "0", new Vector2(.5f, .42f), Vector2.zero, 52, Juice, 300, FontStyles.Bold);
             endCta = AddText(end, "석류 코어를 눌러 다시 꽂기", new Vector2(.5f, .28f), Vector2.zero, 18, Ink, 320, FontStyles.Bold);
             AddPanel(end, "RestartHandle", new Vector2(.5f, .28f), Vector2.zero, new Vector2(320, 62), new Color(1f, .94f, .82f, .95f)).transform.SetSiblingIndex(endCta.transform.GetSiblingIndex());
+            bootDetail = "ui-complete";
         }
 
         void Prewarm()
         {
-            MgfText.Prewarm("석류코어수선을꽂아씨눈깨워라중기본도형실전초빛길직선에수직으로가장짧은과피레일손잡이끌어놓으시오봉인첫제출점과사이거리발직각입니다고치시오게임오버다시점수성공실패수리완료ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789PHl₀(),·/+-");
+            MgfText.Prewarm("석류코어수선을꽂아씨눈깨워라중기본도형실전초빛길직선에수직으로가장짧은과피레일손잡이끌어놓으시오봉인첫제출점과사이거리발직각입니다고치시오게임오버다시점수성공실패수리완료현재눈금삼각자이동회전두선분짧은것선택ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789PHl₀(),·/+-");
         }
 
         void ShowTitle()
@@ -388,8 +444,10 @@ namespace Mgf.SeongnyuCore
             phase = RunPhase.Title;
             st.phase = "title"; st.score = 0; st.lives = SeongnyuRules.StartLives; st.level = 1; st.solved = 0;
             st.roundIndex = 0; st.firstAttempts = 0; st.firstCorrect = 0; st.firstFailedRounds = 0;
+            st.invalidInputs = 0; st.rulerMoves = 0; st.compareAttempts = 0;
             st.selectedSnap = 99; st.previousSnap = 99; st.toolPose = 0; st.submitted = false; st.problemId = "";
             titleGroup.alpha = 1; titleGroup.blocksRaycasts = false; hudGroup.alpha = 0; feedbackGroup.alpha = 0; guideGroup.alpha = 0; endGroup.alpha = 0;
+            magnifierGroup.alpha = 0;
             boardRoot.gameObject.SetActive(false); titleHandle.gameObject.SetActive(true); titleCore.gameObject.SetActive(true); titleSpiral.gameObject.SetActive(true);
             titleTime = 0; displayedScore = 0; UpdateState();
         }
@@ -398,6 +456,7 @@ namespace Mgf.SeongnyuCore
         {
             phase = RunPhase.Practice; st.phase = "practice"; st.level = 0;
             titleGroup.alpha = 0; hudGroup.alpha = 1; endGroup.alpha = 0; feedbackGroup.alpha = 0;
+            magnifierGroup.alpha = 0;
             titleHandle.gameObject.SetActive(false); titleCore.gameObject.SetActive(false); titleSpiral.gameObject.SetActive(false);
             boardRoot.gameObject.SetActive(true);
             current = SeongnyuRules.Practice(); firstAttemptOnRound = true; idleGuide = 0;
@@ -409,9 +468,11 @@ namespace Mgf.SeongnyuCore
             runSerial++; rng = new System.Random(7301 + runSerial * 997);
             phase = RunPhase.Playing; st.phase = "playing"; st.score = 0; st.lives = SeongnyuRules.StartLives; st.level = 1; st.solved = 0;
             st.roundIndex = 0; st.firstAttempts = 0; st.firstCorrect = 0; st.firstFailedRounds = 0;
+            st.invalidInputs = 0; st.rulerMoves = 0; st.compareAttempts = 0;
             st.selectedSnap = 99; st.previousSnap = 99; st.toolPose = 0; st.submitted = false; st.misconceptionId = "";
             firstAttemptOnRound = true; secondsLeft = 90f; displayedScore = 0; chamberOpen = 0; band1Cursor = band2Cursor = band3Cursor = 0;
             titleGroup.alpha = 0; hudGroup.alpha = 1; endGroup.alpha = 0; feedbackGroup.alpha = 0; guideGroup.alpha = 0;
+            magnifierGroup.alpha = 0;
             titleHandle.gameObject.SetActive(false); titleCore.gameObject.SetActive(false); titleSpiral.gameObject.SetActive(false); boardRoot.gameObject.SetActive(true);
             for (int i = 0; i < savedPaths.Length; i++) { savedPaths[i].gameObject.SetActive(false); savedGerms[i].gameObject.SetActive(false); }
             for (int i = 0; i < seals.Length; i++) seals[i].gameObject.SetActive(true);
@@ -448,8 +509,10 @@ namespace Mgf.SeongnyuCore
         void SetProblem(CoreProblem p, bool practice)
         {
             current = p; st.problemId = p.id; st.selectedSnap = 99; st.previousSnap = 99; st.submitted = false; st.misconceptionId = "";
-            dragging = dragMoved = pointerStartedOnHandle = draggedToRail = false; dragDistance = 0; hoveredSnap = p.band == 3 ? p.wrongSnap : 99;
+            dragging = dragMoved = pointerStartedOnHandle = draggedToRail = gestureArmed = false;
+            pointerMode = PointerMode.None; dragDistance = 0; hoveredSnap = p.band == 3 ? p.wrongSnap : 99;
             scarLine.gameObject.SetActive(false); correctionLine.gameObject.SetActive(false); handleNudge = 0; idleGuide = 0;
+            handle.gameObject.SetActive(true); capillaryLine.gameObject.SetActive(true); magnifierGroup.alpha = 0;
             float angle = Mathf.Atan2(p.uy, p.ux);
             railDir = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0);
             railPerp = new Vector3(-railDir.y, railDir.x, 0);
@@ -474,11 +537,13 @@ namespace Mgf.SeongnyuCore
                 scarLine.gameObject.SetActive(true); scarLine.SetPosition(0, pointP); scarLine.SetPosition(1, wrong);
                 handle.localPosition = wrong; handleHome = wrong; capillaryLine.SetPosition(1, wrong);
             }
-            rulerRoot.localPosition = railCenter - railDir * 3.55f + railPerp * -1.0f;
-            rulerRoot.localRotation = Quaternion.Euler(0, 0, angle * Mathf.Rad2Deg);
+            // 삼각자는 정답 방향에 자동 정렬하지 않는다. 학생이 몸통을 옮기고 손잡이를 돌려
+            // 한 변을 l에 대는 실제 보조 도구다.
+            rulerRoot.localPosition = new Vector3(-3.75f, -2.60f, -.42f);
+            rulerRoot.localRotation = Quaternion.Euler(0, 0, p.band == 0 ? 14f : -18f);
             promptText.text = practice ? "연습: P(0, 4)에서 직선 l에 수선을 그으시오. 모눈 한 칸은 1 cm이다." : p.prompt;
             feedbackText.text = "";
-            guideText.text = practice ? "손잡이를 잡아 레일까지 끌어 놓으시오" : "유백색 손잡이를 끌어 수선의 발을 정하시오";
+            guideText.text = practice ? "빛나는 손잡이를 잡아 레일까지 끌어 놓으시오" : "상아색 손잡이를 끌어 수선의 발을 정하시오";
             UpdateGeometry(); UpdateUi(); UpdateScreenState();
         }
 
@@ -500,6 +565,11 @@ namespace Mgf.SeongnyuCore
                 if (revealTime <= 0) FinishReveal();
                 UpdatePresentation(dt); return;
             }
+            if (phase == RunPhase.Compare)
+            {
+                UpdateComparison(dt);
+                UpdatePresentation(dt); UpdateUi(); return;
+            }
             if (phase == RunPhase.Playing)
             {
                 secondsLeft -= dt;
@@ -515,7 +585,7 @@ namespace Mgf.SeongnyuCore
         void UpdateTitleInput()
         {
             if (!MgfPointer.Down) return;
-            // 타이틀의 주 CTA는 유리 손잡이 하나다. 작은 세로 화면에서 손잡이 그림을 빗나가도
+            // 타이틀의 주 CTA는 상아 손잡이 하나다. 작은 세로 화면에서 손잡이 그림을 빗나가도
             // 같은 CTA를 활성화해 첫 탭 뒤 350ms 안에 실제 연습 장면으로 들어간다.
             st.inputSerial++; handleNudge = .18f; MgfSfx.Play("tap", .45f); StartPractice();
         }
@@ -532,48 +602,130 @@ namespace Mgf.SeongnyuCore
             {
                 st.inputSerial++; invalidPulse = .3f; idleGuide = 0;
                 dragStartScreen = MgfPointer.Position; dragDistance = 0; dragMoved = false; draggedToRail = false;
-                if (MgfPointer.DownHit(cam, out var hit) && (hit.transform == handle || hit.transform.IsChildOf(handle)))
+                gestureArmed = true; pointerMode = PointerMode.None;
+                Transform hitTransform = null;
+                if (MgfPointer.DownHit(cam, out var hit)) hitTransform = hit.transform;
+                if (hitTransform && (hitTransform == rulerKnob || hitTransform.IsChildOf(rulerKnob)))
                 {
-                    dragging = pointerStartedOnHandle = true; handleNudge = .18f; ShowGuide(false); MgfSfx.Play("tap", .34f);
+                    pointerMode = PointerMode.RulerRotate; dragMoved = false; ShowGuide(false); MgfSfx.Play("tap", .28f);
                 }
-                else
+                else if (hitTransform && (hitTransform == rulerRoot || hitTransform.IsChildOf(rulerRoot)))
                 {
-                    pointerStartedOnHandle = false; handleNudge = .42f; ShowGuide(true); feedbackGroup.alpha = 1;
-                    feedbackText.text = "유백색 손잡이에서 시작하시오"; MgfSfx.Play("wrong", .12f); MgfBridge.NotifyChanged();
+                    pointerMode = PointerMode.RulerMove; dragMoved = false; ShowGuide(false); MgfSfx.Play("tap", .26f);
+                }
+                else if ((hitTransform && (hitTransform == handle || hitTransform.IsChildOf(handle))) || PointerInsideHandleRing())
+                {
+                    BeginHandleDrag();
                 }
             }
-            if (dragging && MgfPointer.Held && ScreenToBoard(out var local))
+
+            // 손잡이 밖에서 시작한 드래그도 맥동 링 안으로 진입하면 바로 잡힌다.
+            if (MgfPointer.Held && pointerMode == PointerMode.None && gestureArmed && PointerInsideHandleRing()) BeginHandleDrag();
+            // 무벌점 연습은 시작 위치를 시험하지 않는다. 실제 드래그가 12px 이상 생기면
+            // 손잡이를 잡은 것으로 전환해, 순진한 첫 시도가 입력 문법을 배울 수 있게 한다.
+            if (MgfPointer.Held && phase == RunPhase.Practice && pointerMode == PointerMode.None && gestureArmed &&
+                Vector2.Distance(dragStartScreen, MgfPointer.Position) >= 12f) BeginHandleDrag();
+
+            if (MgfPointer.Held && pointerMode == PointerMode.Handle && ScreenToBoard(out var local))
             {
                 dragDistance = Vector2.Distance(dragStartScreen, MgfPointer.Position);
                 dragMoved = dragDistance >= 12f;
                 float along = Vector3.Dot(local - railCenter, railDir);
                 float off = Mathf.Abs(Vector3.Dot(local - railCenter, railPerp));
                 int snap = Mathf.Clamp(Mathf.RoundToInt(along / TickGap), SeongnyuRules.MinSnap, SeongnyuRules.MaxSnap);
-                hoveredSnap = snap; draggedToRail = off <= .88f && along >= -5.45f && along <= 5.45f;
+                float railFunnel = phase == RunPhase.Practice ? 2.35f : .88f;
+                bool inRailFunnel = off <= railFunnel && along >= -5.45f && along <= 5.45f;
+                if (inRailFunnel) hoveredSnap = phase == RunPhase.Practice ? current.k : snap;
+                draggedToRail = draggedToRail || inRailFunnel;
                 handle.localPosition = local + new Vector3(0, 0, -.16f);
                 capillaryLine.SetPosition(0, pointP); capillaryLine.SetPosition(1, handle.localPosition);
                 st.selectedSnap = snap; st.toolPose = Mathf.RoundToInt(along * 100f); UpdateGuidePath();
+                UpdateMagnifier(snap);
             }
-            if (dragging && MgfPointer.Up)
+            else if (MgfPointer.Held && (pointerMode == PointerMode.RulerMove || pointerMode == PointerMode.RulerRotate) && ScreenToBoard(out local))
             {
-                dragging = false;
-                if (!dragMoved)
+                dragMoved = Vector2.Distance(dragStartScreen, MgfPointer.Position) >= 8f;
+                if (pointerMode == PointerMode.RulerMove)
                 {
-                    handle.localPosition = handleHome; capillaryLine.SetPosition(1, handleHome);
-                    feedbackGroup.alpha = 1; feedbackText.text = "끌어서 레일 위 눈금에 놓으시오"; handleNudge = .42f; ShowGuide(true); MgfSfx.Play("wrong", .12f);
-                }
-                else if (!draggedToRail)
-                {
-                    handle.localPosition = handleHome; capillaryLine.SetPosition(1, handleHome);
-                    feedbackGroup.alpha = 1; feedbackText.text = "직선 l 위에 놓으시오"; invalidPulse = .55f; MgfSfx.Play("wrong", .15f);
+                    rulerRoot.localPosition = new Vector3(Mathf.Clamp(local.x, -4.6f, 4.6f), Mathf.Clamp(local.y, -3.0f, 2.1f), -.42f);
+                    st.toolPose = Mathf.RoundToInt(rulerRoot.localPosition.x * 100f);
                 }
                 else
                 {
-                    st.selectedSnap = hoveredSnap; handle.localPosition = SnapWorld(hoveredSnap); capillaryLine.SetPosition(1, handle.localPosition);
-                    Submit(hoveredSnap);
+                    Vector2 d = local - rulerRoot.localPosition;
+                    rulerRoot.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg - 90f);
+                    st.toolPose = Mathf.RoundToInt(rulerRoot.localEulerAngles.z);
                 }
+            }
+
+            if (MgfPointer.Up)
+            {
+                magnifierGroup.alpha = 0;
+                if (pointerMode == PointerMode.Handle)
+                {
+                    dragging = false;
+                    if (!dragMoved)
+                    {
+                        handle.localPosition = handleHome; capillaryLine.SetPosition(1, handleHome);
+                        feedbackGroup.alpha = 1; feedbackText.text = "누른 채 레일 눈금까지 끌어 놓으시오"; handleNudge = .42f; ShowGuide(true); MgfSfx.Play("wrong", .12f);
+                    }
+                    else if (!draggedToRail)
+                    {
+                        handle.localPosition = handleHome; capillaryLine.SetPosition(1, handleHome);
+                        feedbackGroup.alpha = 1; feedbackText.text = "직선 l 위에 놓으시오"; invalidPulse = .55f; MgfSfx.Play("wrong", .15f);
+                    }
+                    else
+                    {
+                        // 연습의 중앙 직각 홈은 화면에 유령 도착점으로 보이며, 넓은 퍼널 안에서
+                        // 실제 드래그를 놓으면 홈에 딸깍 맞는다. 실전에는 이 보정이 없다.
+                        if (phase == RunPhase.Practice) hoveredSnap = current.k;
+                        st.selectedSnap = hoveredSnap; handle.localPosition = SnapWorld(hoveredSnap); capillaryLine.SetPosition(1, handle.localPosition);
+                        Submit(hoveredSnap);
+                    }
+                }
+                else if (pointerMode == PointerMode.RulerMove || pointerMode == PointerMode.RulerRotate)
+                {
+                    if (dragMoved) st.rulerMoves++;
+                    feedbackGroup.alpha = 1;
+                    feedbackText.text = pointerMode == PointerMode.RulerMove ? "삼각자 몸통을 옮겼다" : "삼각자 손잡이를 돌렸다";
+                    MgfSfx.Play("tap", .22f);
+                }
+                else
+                {
+                    st.invalidInputs++;
+                    feedbackGroup.alpha = 1; handleNudge = .38f; ShowGuide(true);
+                    int step = st.invalidInputs % 3;
+                    feedbackText.text = step == 1 ? "빛나는 고리 안으로 손가락을 밀어 넣으시오" :
+                        step == 2 ? "움직이는 손이 시작하는 상아색 타일을 잡으시오" : "손잡이 전체가 입력 영역이다 · 누른 채 끌어 보시오";
+                    MgfSfx.Play("wrong", .10f);
+                }
+                pointerMode = PointerMode.None; gestureArmed = false;
                 MgfBridge.NotifyChanged();
             }
+        }
+
+        void BeginHandleDrag()
+        {
+            pointerMode = PointerMode.Handle; dragging = pointerStartedOnHandle = true;
+            handleNudge = .18f; ShowGuide(false); feedbackGroup.alpha = 0; MgfSfx.Play("tap", .34f);
+        }
+
+        bool PointerInsideHandleRing()
+        {
+            if (!ScreenToBoard(out var local)) return false;
+            return Vector2.Distance(new Vector2(local.x, local.y), new Vector2(handle.localPosition.x, handle.localPosition.y)) <= 1.18f;
+        }
+
+        void UpdateMagnifier(int snap)
+        {
+            var canvasRect = (RectTransform)MgfText.Canvas.transform;
+            if (canvasRect.rect.width >= canvasRect.rect.height) { magnifierGroup.alpha = 0; return; }
+            magnifierGroup.alpha = 1;
+            float anchorX = MgfPointer.Position.x > Screen.width * .55f ? .20f : .80f;
+            SetRect(magnifierPanel.rectTransform, new Vector2(anchorX, .43f), Vector2.zero, new Vector2(126, 88));
+            SetRect(magnifierText.rectTransform, new Vector2(anchorX, .43f), Vector2.zero, new Vector2(112, 72));
+            int hx = current.cx + snap * current.ux, hy = current.cy + snap * current.uy;
+            magnifierText.text = "현재 눈금 " + (snap >= 0 ? "+" : "") + snap + "\nH(" + hx + ", " + hy + ")";
         }
 
         bool ScreenToBoard(out Vector3 local)
@@ -626,6 +778,74 @@ namespace Mgf.SeongnyuCore
             phase = RunPhase.Reveal; st.phase = "reveal"; ShowGuide(false); UpdateState();
         }
 
+        void StartComparison()
+        {
+            current = PickProblem(2); firstAttemptOnRound = true;
+            SetProblem(current, false);
+            phase = RunPhase.Compare; st.phase = "compare"; st.level = 2;
+            compareResolved = false; compareDelay = 0;
+            handle.gameObject.SetActive(false); capillaryLine.gameObject.SetActive(false);
+            scarLine.gameObject.SetActive(true); correctionLine.gameObject.SetActive(true);
+            scarLine.sharedMaterial = ivoryMat; correctionLine.sharedMaterial = ivoryMat;
+            scarLine.SetPosition(0, pointP); scarLine.SetPosition(1, SnapWorld(current.wrongSnap));
+            correctionLine.SetPosition(0, pointP); correctionLine.SetPosition(1, SnapWorld(current.k));
+            promptText.text = "연결 활동: 점 P에서 직선 l까지 그은 두 선분 중 더 짧은 선분을 누르시오.";
+            progressText.text = "무벌점 · 길이 비교"; timerText.text = "정지";
+            feedbackGroup.alpha = 1; feedbackText.text = "수선과 빗선의 길이를 직접 비교하시오";
+            ShowGuide(false); UpdateComparisonScreenState(); UpdateState();
+        }
+
+        void UpdateComparison(float dt)
+        {
+            if (compareResolved)
+            {
+                compareDelay -= dt;
+                if (compareDelay <= 0) FinishComparison();
+                return;
+            }
+            UpdateComparisonScreenState();
+            if (!MgfPointer.Down) return;
+            st.inputSerial++; st.compareAttempts++;
+            Vector2 p = new Vector2(MgfPointer.Position.x, Screen.height - MgfPointer.Position.y);
+            Vector2 ps = new Vector2(st.compareShortScreenX, st.compareShortScreenY);
+            Vector2 pl = new Vector2(st.compareLongScreenX, st.compareLongScreenY);
+            float ds = Vector2.Distance(p, ps), dl = Vector2.Distance(p, pl);
+            if (Mathf.Min(ds, dl) > 96f)
+            {
+                feedbackText.text = "두 선분의 가운데를 눌러 비교하시오"; MgfSfx.Play("tap", .18f);
+            }
+            else if (ds <= dl)
+            {
+                compareResolved = true; compareDelay = .82f;
+                feedbackText.text = "수선 PH가 가장 짧다 · 점과 직선 사이의 거리";
+                correctionLine.sharedMaterial = juiceMat; MgfSfx.Play("correct", .48f); MgfFx.Glow(boardRoot.TransformPoint(SnapWorld(current.k)), Juice);
+            }
+            else
+            {
+                feedbackText.text = "빗선보다 수선이 짧습니다 · 다시 고르시오";
+                scarLine.sharedMaterial = scarMat; handleNudge = .28f; MgfSfx.Play("wrong", .18f);
+            }
+            UpdateState();
+        }
+
+        void FinishComparison()
+        {
+            scarLine.sharedMaterial = scarMat; correctionLine.sharedMaterial = glassBrightMat;
+            handle.gameObject.SetActive(true); capillaryLine.gameObject.SetActive(true);
+            phase = RunPhase.Playing; st.phase = "playing"; feedbackGroup.alpha = 0;
+            SetProblem(current, false); UpdateState();
+        }
+
+        void UpdateComparisonScreenState()
+        {
+            if (!cam || current == null) return;
+            Vector3 shortMid = boardRoot.TransformPoint(Vector3.Lerp(pointP, SnapWorld(current.k), .52f));
+            Vector3 longMid = boardRoot.TransformPoint(Vector3.Lerp(pointP, SnapWorld(current.wrongSnap), .52f));
+            Vector3 s = cam.WorldToScreenPoint(shortMid), l = cam.WorldToScreenPoint(longMid);
+            st.compareShortScreenX = Mathf.RoundToInt(s.x); st.compareShortScreenY = Mathf.RoundToInt(Screen.height - s.y);
+            st.compareLongScreenX = Mathf.RoundToInt(l.x); st.compareLongScreenY = Mathf.RoundToInt(Screen.height - l.y);
+        }
+
         void UpdateReveal(float dt)
         {
             if (revealCorrect)
@@ -640,9 +860,15 @@ namespace Mgf.SeongnyuCore
                     juiceBeads[i].localPosition = Vector3.Lerp(end, pointP, SmoothOvershoot(t));
                 }
                 int chamberIndex = Mathf.Clamp(st.solved, 0, chamberMembranes.Length - 1);
-                chamberMembranes[chamberIndex].localRotation = Quaternion.Euler(0, 0, chamberOpen * 82f);
-                chamberMembranes[chamberIndex].localScale = new Vector3(1f - chamberOpen * .68f, 1f, 1f);
-                chamberGerms[chamberIndex].localPosition = Vector3.Lerp(new Vector3(0, -.06f, -.58f), new Vector3(-.4f, 1.3f, -1.1f), SmoothOvershoot(chamberOpen));
+                // 정답 사건은 막이 열리고 생물이 이동하는 온실 계열이 아니다.
+                // 각진 인레이가 직각 홈에 맞물리고 방사형 회로가 점등된다.
+                float lockT = SmoothOvershoot(chamberOpen);
+                chamberMembranes[chamberIndex].localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(45f, 0f, lockT));
+                float tilePulse = 1f + Mathf.Sin(chamberOpen * Mathf.PI) * .20f;
+                chamberMembranes[chamberIndex].localScale = new Vector3(tilePulse, tilePulse, 1f);
+                chamberTileRenderers[chamberIndex].sharedMaterial = chamberOpen > .72f ? copperMat : oxideMat;
+                chamberGerms[chamberIndex].localPosition = new Vector3(0, -.06f, -.58f);
+                chamberGerms[chamberIndex].localScale = Vector3.one * (.34f + Mathf.Sin(chamberOpen * Mathf.PI) * .035f);
             }
             else
             {
@@ -669,6 +895,7 @@ namespace Mgf.SeongnyuCore
                     Vector3 inner = new Vector3(Mathf.Cos(a) * 1.45f, Mathf.Sin(a) * 1.05f + .2f, -.9f);
                     savedPaths[save].gameObject.SetActive(true); savedPaths[save].SetPosition(0, outer); savedPaths[save].SetPosition(1, inner);
                     savedGerms[save].gameObject.SetActive(true); savedGerms[save].localPosition = inner;
+                    savedGerms[save].localRotation = Quaternion.Euler(0, 0, 45f + save * 45f);
                 }
                 st.solved++; st.roundIndex = st.solved;
                 if (st.solved >= SeongnyuRules.TargetSolved)
@@ -676,6 +903,10 @@ namespace Mgf.SeongnyuCore
                     EndRun(st.firstCorrect >= SeongnyuRules.MasteryTarget,
                         st.firstCorrect >= SeongnyuRules.MasteryTarget ? "여덟 수선이 코어를 깨웠다" : "8개를 열었지만 첫 제출 6/8이 필요하다");
                     return;
+                }
+                if (st.solved == 3)
+                {
+                    StartComparison(); return;
                 }
                 int band = st.solved < 3 ? 1 : (st.solved < 6 ? 2 : 3);
                 st.level = band; firstAttemptOnRound = true; current = PickProblem(band); phase = RunPhase.Playing; st.phase = "playing";
@@ -697,7 +928,7 @@ namespace Mgf.SeongnyuCore
         void EndRun(bool success, string reason)
         {
             phase = RunPhase.End; st.phase = success ? "clear" : "gameover";
-            dragging = false; boardRoot.gameObject.SetActive(false); hudGroup.alpha = 0; feedbackGroup.alpha = 0; guideGroup.alpha = 0; endGroup.alpha = 1;
+            dragging = false; boardRoot.gameObject.SetActive(false); hudGroup.alpha = 0; feedbackGroup.alpha = 0; guideGroup.alpha = 0; magnifierGroup.alpha = 0; endGroup.alpha = 1;
             titleCore.gameObject.SetActive(true); titleCore.localScale = success ? Vector3.one * 1.25f : Vector3.one * .82f;
             titleSpiral.gameObject.SetActive(success); titleHandle.gameObject.SetActive(false);
             endTitle.text = success ? "코어 각성" : "씨방 봉인";
@@ -723,7 +954,7 @@ namespace Mgf.SeongnyuCore
             }
             if (titleCore && titleCore.gameObject.activeSelf)
             {
-                float s = 1f + Mathf.Sin(titleTime * 2.1f) * .055f; titleCore.localScale = new Vector3(2.2f * s, 1.55f / s, .82f);
+                float s = 1f + Mathf.Sin(titleTime * 2.1f) * .045f; titleCore.localScale = new Vector3(s, 1f / s, 1f);
                 titleSpiral.transform.localRotation = Quaternion.Euler(0, 0, titleTime * 8f);
             }
         }
@@ -769,10 +1000,11 @@ namespace Mgf.SeongnyuCore
         void UpdateUi()
         {
             if (!hudGroup || hudGroup.alpha <= 0) return;
-            progressText.text = (phase == RunPhase.Practice ? "연습" : "개방 " + st.solved + "/8") + " · 첫 제출 " + st.firstCorrect + "/8";
+            progressText.text = phase == RunPhase.Compare ? "무벌점 · 길이 비교" :
+                (phase == RunPhase.Practice ? "연습" : "개방 " + st.solved + "/8") + " · 첫 제출 " + st.firstCorrect + "/8";
             statusText.text = Mathf.RoundToInt(displayedScore).ToString("000");
-            timerText.text = phase == RunPhase.Practice ? "정지" : Mathf.CeilToInt(secondsLeft).ToString();
-            timerFill.rectTransform.sizeDelta = new Vector2(timerBarWidth * (phase == RunPhase.Practice ? 1f : Mathf.Clamp01(secondsLeft / 90f)), 9);
+            timerText.text = phase == RunPhase.Practice || phase == RunPhase.Compare ? "정지" : Mathf.CeilToInt(secondsLeft).ToString();
+            timerFill.rectTransform.sizeDelta = new Vector2(timerBarWidth * (phase == RunPhase.Practice || phase == RunPhase.Compare ? 1f : Mathf.Clamp01(secondsLeft / 90f)), 9);
             for (int i = 0; i < seals.Length; i++) seals[i].gameObject.SetActive(i < st.lives);
         }
 
@@ -813,6 +1045,7 @@ namespace Mgf.SeongnyuCore
                 timerBarWidth = Mathf.Min(700f, w * .58f);
                 SetRect(goalPanel.rectTransform, new Vector2(.5f, .965f), Vector2.zero, new Vector2(Mathf.Min(820, w * .66f), 36));
                 SetRect(goalText.rectTransform, new Vector2(.5f, .965f), Vector2.zero, new Vector2(Mathf.Min(800, w * .64f), 34));
+                goalText.fontSize = 16;
                 SetRect(promptPanel.rectTransform, new Vector2(.5f, .835f), Vector2.zero, new Vector2(Mathf.Min(930, w * .74f), 72));
                 SetRect(promptText.rectTransform, new Vector2(.5f, .835f), Vector2.zero, new Vector2(Mathf.Min(890, w * .70f), 66));
                 SetRect(statusText.rectTransform, new Vector2(.17f, .715f), Vector2.zero, new Vector2(150, 40));
@@ -828,8 +1061,10 @@ namespace Mgf.SeongnyuCore
             {
                 cam.orthographicSize = 9.5f;
                 timerBarWidth = 350f;
-                SetRect(goalPanel.rectTransform, new Vector2(.5f, .955f), Vector2.zero, new Vector2(366, 47));
-                SetRect(goalText.rectTransform, new Vector2(.5f, .955f), Vector2.zero, new Vector2(350, 42));
+                // 우상단 호스트 음소거(48px) safe inset을 비워 목표 문구가 가리지 않게 한다.
+                SetRect(goalPanel.rectTransform, new Vector2(.45f, .955f), Vector2.zero, new Vector2(338, 54));
+                SetRect(goalText.rectTransform, new Vector2(.42f, .955f), Vector2.zero, new Vector2(286, 50));
+                goalText.fontSize = 14;
                 SetRect(promptPanel.rectTransform, new Vector2(.5f, .855f), Vector2.zero, new Vector2(366, 96));
                 SetRect(promptText.rectTransform, new Vector2(.5f, .855f), Vector2.zero, new Vector2(344, 92));
                 SetRect(statusText.rectTransform, new Vector2(.19f, .748f), Vector2.zero, new Vector2(140, 38));
@@ -847,7 +1082,7 @@ namespace Mgf.SeongnyuCore
 
         void UpdateState()
         {
-            st.phase = phase == RunPhase.Title ? "title" : phase == RunPhase.Practice ? "practice" : phase == RunPhase.Playing ? "playing" : phase == RunPhase.Reveal ? "reveal" : st.phase;
+            st.phase = phase == RunPhase.Title ? "title" : phase == RunPhase.Practice ? "practice" : phase == RunPhase.Playing ? "playing" : phase == RunPhase.Compare ? "compare" : phase == RunPhase.Reveal ? "reveal" : st.phase;
             MgfBridge.NotifyChanged();
         }
 
@@ -863,6 +1098,11 @@ namespace Mgf.SeongnyuCore
             st.railStartScreenY = Mathf.RoundToInt(Screen.height - rs.y);
             st.railEndScreenX = Mathf.RoundToInt(re.x);
             st.railEndScreenY = Mathf.RoundToInt(Screen.height - re.y);
+            Vector3 rb = cam.WorldToScreenPoint(rulerRoot.position);
+            Vector3 rk = cam.WorldToScreenPoint(rulerKnob.position);
+            st.rulerBodyScreenX = Mathf.RoundToInt(rb.x); st.rulerBodyScreenY = Mathf.RoundToInt(Screen.height - rb.y);
+            st.rulerKnobScreenX = Mathf.RoundToInt(rk.x); st.rulerKnobScreenY = Mathf.RoundToInt(Screen.height - rk.y);
+            if (phase == RunPhase.Compare) UpdateComparisonScreenState();
         }
 
         static float SmoothStep(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }
@@ -955,6 +1195,7 @@ namespace Mgf.SeongnyuCore
         {
             if (phase == RunPhase.Title || phase == RunPhase.End || phase == RunPhase.Practice) StartRunDirect();
             if (phase == RunPhase.Reveal) { revealTime = 0; FinishReveal(); if (phase == RunPhase.End) StartRunDirect(); }
+            if (phase == RunPhase.Compare) FinishComparison();
             if (phase != RunPhase.Playing) return;
             st.selectedSnap = current.k; handle.localPosition = SnapWorld(current.k); capillaryLine.SetPosition(1, handle.localPosition); Submit(current.k);
         }
@@ -963,6 +1204,7 @@ namespace Mgf.SeongnyuCore
         {
             if (phase == RunPhase.Title || phase == RunPhase.End || phase == RunPhase.Practice) StartRunDirect();
             if (phase == RunPhase.Reveal) { revealTime = 0; FinishReveal(); if (phase == RunPhase.End) StartRunDirect(); }
+            if (phase == RunPhase.Compare) { st.compareAttempts++; feedbackText.text = "빗선보다 수선이 짧습니다 · 다시 고르시오"; UpdateState(); return; }
             if (phase != RunPhase.Playing) return;
             int wrong = current.k == SeongnyuRules.MaxSnap ? current.k - 1 : current.k + 1;
             st.selectedSnap = wrong; handle.localPosition = SnapWorld(wrong); capillaryLine.SetPosition(1, handle.localPosition); Submit(wrong);

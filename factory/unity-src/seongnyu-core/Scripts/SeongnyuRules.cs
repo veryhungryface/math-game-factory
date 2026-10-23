@@ -83,25 +83,25 @@ namespace Mgf.SeongnyuCore
 
             // QA가 괄호 주석을 제거해도 좌표가 핵심 문장에 남도록 교과서식 좌표를 문장으로 풀어 쓴다.
             // 이것은 장식 번호가 아니라 실제 화면 모눈과 판정에 쓰는 문제 자료다.
-            string a = "점 A의 좌표는 x=" + cx + ", y=" + cy;
-            string b = "점 B의 좌표는 x=" + (cx + ux) + ", y=" + (cy + uy);
-            string point = "점 P의 좌표는 x=" + px + ", y=" + py;
+            string a = "x좌표가 " + cx + "이고 y좌표가 " + cy + "인 점 A";
+            string b = "x좌표가 " + (cx + ux) + "이고 y좌표가 " + (cy + uy) + "인 점 B";
+            string point = "x좌표가 " + px + "이고 y좌표가 " + py + "인 점 P";
             string prompt;
             string concept;
             if (band <= 1)
             {
-                prompt = a + "이고 " + b + "이다. 두 점을 지나는 직선 l에 " + point + "에서 수선을 그으시오.";
+                prompt = a + "와 " + b + "를 지나는 직선을 l이라 하자. " + point + "에서 직선 l에 수선을 그으시오.";
                 concept = "수선과 수선의 발";
             }
             else if (band == 2)
             {
-                prompt = a + "이고 " + b + "이다. 두 점을 지나는 직선 l까지 " + point + "에서 가장 짧은 빛길을 꽂으시오.";
+                prompt = a + "와 " + b + "를 지나는 직선을 l이라 하자. " + point + "에서 직선 l까지 가장 짧은 선분을 그으시오.";
                 concept = "점과 직선 사이의 거리는 수선의 길이";
             }
             else
             {
                 int wx = cx + wrong * ux, wy = cy + wrong * uy;
-                prompt = a + "이고 " + b + "이다. " + point + "에서 직선 l의 x=" + wx + ", y=" + wy + "인 점으로 그은 수선이 아닌 빛길을 고치시오.";
+                prompt = a + "와 " + b + "를 지나는 직선을 l이라 하자. " + point + "에서 x좌표가 " + wx + "이고 y좌표가 " + wy + "인 직선 l 위의 점으로 그은 빗선을 수선으로 고치시오.";
                 concept = "수선이 아닌 선분 수정";
             }
             return new CoreProblem {
