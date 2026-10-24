@@ -1,4 +1,4 @@
-// 나비 재봉소 — 빛이 스미는 고치 섬유 터널, 수학 평면, UI와 피드백.
+// 나비 재봉소 — 거대 고치 단면의 각진 직조 골조, 수학 평면, UI와 피드백.
 using System;
 using Mgf;
 using TMPro;
@@ -10,17 +10,17 @@ namespace Mgf.NabiJaebongso
 {
     public sealed partial class NabiJaebongsoGame
     {
-        static readonly Color SkyBlue = MgfLook.Hex("#BFE8E2");
-        static readonly Color SkyLight = MgfLook.Hex("#FFF0D8");
-        static readonly Color Ivory = MgfLook.Hex("#FFF8EA");
-        static readonly Color IvoryShadow = MgfLook.Hex("#E9D8EF");
-        static readonly Color Ultramarine = MgfLook.Hex("#31536B");
-        static readonly Color Saffron = MgfLook.Hex("#EF7C68");
-        static readonly Color Ink = MgfLook.Hex("#243647");
-        static readonly Color Brass = MgfLook.Hex("#59AFA8");
+        static readonly Color SkyBlue = MgfLook.Hex("#173B46");
+        static readonly Color SkyLight = MgfLook.Hex("#5E3928");
+        static readonly Color Ivory = MgfLook.Hex("#F4E7C8");
+        static readonly Color IvoryShadow = MgfLook.Hex("#C98A52");
+        static readonly Color Ultramarine = MgfLook.Hex("#164E5B");
+        static readonly Color Saffron = MgfLook.Hex("#D56E34");
+        static readonly Color Ink = MgfLook.Hex("#182127");
+        static readonly Color Brass = MgfLook.Hex("#B9782E");
         static readonly Color Ghost = new Color(.95f, .98f, 1f, .90f);
-        static readonly Color SilkRose = MgfLook.Hex("#F3A8B5");
-        static readonly Color Lavender = MgfLook.Hex("#B9A7DF");
+        static readonly Color SilkRose = MgfLook.Hex("#A34832");
+        static readonly Color Lavender = MgfLook.Hex("#6A5140");
 
         Camera cam;
         Transform worldRoot, boardRoot, sourcePanel, targetPanel, activeButterfly, butterflyBody, wingLeft, wingRight, titleRelief;
@@ -57,6 +57,7 @@ namespace Mgf.NabiJaebongso
         float worldClock, revealVisualClock, refuseClock, toastClock, guideBoost;
         bool revealVisualActive, revealVisualCorrect;
         Vector2 revealCandidate;
+        Vector3 revealPatchHome, revealPatchDock;
         Vector3 cameraHome;
 
         CanvasGroup titleGroup, hudGroup, endGroup, helpGroup, toastGroup;
@@ -73,7 +74,7 @@ namespace Mgf.NabiJaebongso
         readonly TextMeshProUGUI[] screenEdgeLabels = new TextMeshProUGUI[3];
         Image titleFrame;
 
-        // 타이틀 시연막: 실제 작도 순서(원호 둘 → 교점 → 두 선 → 실크막 성장)를 반복한다.
+        // 타이틀 직조판: 실제 작도 순서(원호 둘 → 교점 → 두 선 → 조각 분리·접힘·체결)를 반복한다.
         LineRenderer demoBase, demoLeg, demoSegL, demoSegR;
         readonly LineRenderer[] demoArcs = new LineRenderer[2];
         readonly Transform[] demoPins = new Transform[3];
@@ -100,19 +101,20 @@ namespace Mgf.NabiJaebongso
 
         void BuildMaterials()
         {
-            ivoryMat = MgfLook.Alpha(new Color(1f, .965f, .88f, .94f));
-            ivorySoftMat = MgfLook.Alpha(new Color(.88f, .78f, .94f, .78f));
+            // 수학 작도면은 고치 내부 조명 각도와 무관하게 항상 높은 대비를 유지한다.
+            ivoryMat = MgfLook.Unlit(Ivory);
+            ivorySoftMat = MgfLook.Unlit(MgfLook.Hex("#D8B779"));
             blueMat = MgfLook.Lit(Ultramarine, .42f, .02f);
             blueGlowMat = MgfLook.Lit(MgfLook.Hex("#73D8CC"), .54f, .08f, MgfLook.Hex("#2A9F9B") * .24f);
             saffronMat = MgfLook.Lit(Saffron, .58f, .02f);
             inkMat = MgfLook.Lit(Ink, .12f, .01f);
-            brassMat = MgfLook.Lit(Brass, .72f, .04f, Brass * .08f);
-            bodyMat = MgfLook.Lit(MgfLook.Hex("#F2A09B"), .64f, .03f);
-            wingMat = MgfLook.Alpha(new Color(.72f, .94f, .91f, .72f));
+            brassMat = MgfLook.Lit(Brass, .62f, .48f, Brass * .04f);
+            bodyMat = MgfLook.Lit(MgfLook.Hex("#4D2D25"), .20f, .08f);
+            wingMat = MgfLook.Lit(MgfLook.Hex("#D19A57"), .16f, .02f);
             seamMat = MgfLook.Unlit(Ultramarine);
             ghostMat = MgfLook.Alpha(Ghost);
-            flowerMat = MgfLook.Lit(Lavender, .52f, .02f);
-            silkMat = MgfLook.Alpha(new Color(1f, .83f, .82f, .66f));
+            flowerMat = MgfLook.Lit(Lavender, .18f, .04f);
+            silkMat = MgfLook.Unlit(MgfLook.Hex("#D6B77A"));
         }
 
         void BuildWorld()
@@ -122,14 +124,14 @@ namespace Mgf.NabiJaebongso
             colliderTypes.AddComponent<SphereCollider>();
             Destroy(colliderTypes);
 
-            MgfLook.Sky(MgfLook.Hex("#8ACFC8"), SkyBlue, SkyLight, .96f);
-            MgfLook.Sun(new Vector3(43, -28, 12), MgfLook.Hex("#FFF1CC"), 1.20f, .58f);
+            MgfLook.Sky(MgfLook.Hex("#0D252D"), SkyBlue, SkyLight, .92f);
+            MgfLook.Sun(new Vector3(43, -28, 12), MgfLook.Hex("#FFD58A"), 1.32f, .42f);
             cam = MgfLook.Camera(new Vector3(0, 6.8f, -18f), new Vector3(0, .5f, 1.1f), 34f);
             cam.orthographic = true;
             cam.orthographicSize = 8.4f;
             cameraHome = cam.transform.position;
 
-            worldRoot = new GameObject("LuminousCocoonFiberTunnel").transform;
+            worldRoot = new GameObject("DeepCocoonCutawayLoom").transform;
             BuildSilkSky();
             BuildCocoonsAndFlowers();
             BuildTitlePressRelief();
@@ -211,37 +213,49 @@ namespace Mgf.NabiJaebongso
 
         void BuildSilkSky()
         {
-            // 빛이 통과하는 고치 안쪽을 굵은 비정형 리본과 겹친 장력 고리로 만든다.
-            // 직교 격자·계기실 선을 피하고, 화면 가장자리에서 중앙으로 감싸는 터널 실루엣을 낸다.
-            for (int row = 0; row < 11; row++)
+            // 파스텔 리본과 공중 고리를 폐기한다. 고치 단면에서 중앙 작업대로 뻗는
+            // 불규칙한 각재 골조와 그 사이에 끼운 거친 실 묶음이 전후 세 층을 만든다.
+            Material ribDark = MgfLook.Lit(MgfLook.Hex("#263A39"), .15f, .04f);
+            Material ribLight = MgfLook.Lit(MgfLook.Hex("#92704B"), .18f, .03f);
+            Material twine = MgfLook.Unlit(MgfLook.Hex("#C5A56C"));
+            for (int layer = 0; layer < 3; layer++)
             {
-                Material ribbon = row % 3 == 0 ? MgfLook.Alpha(new Color(.46f, .88f, .82f, .55f)) :
-                    row % 3 == 1 ? MgfLook.Alpha(new Color(.96f, .58f, .66f, .48f)) :
-                    MgfLook.Alpha(new Color(.70f, .61f, .90f, .42f));
-                var line = MakeLine("BreathingSilkRibbon" + row, ribbon, .12f + row % 3 * .035f, 17, worldRoot);
-                for (int i = 0; i < 17; i++)
+                float z = 4.5f + layer * 2.7f;
+                for (int spoke = 0; spoke < 14; spoke++)
                 {
-                    float x = -16f + i * 2f;
-                    float u = (i - 8f) / 8f;
-                    float sideCurl = Mathf.Sign(u) * u * u * (1.6f + row * .08f);
-                    float y = -7.2f + row * 1.58f + (1f - u * u) * (2.4f + row * .05f) + sideCurl;
-                    float z = 5.2f + row * .85f + Mathf.Abs(u) * 1.8f;
-                    line.SetPosition(i, new Vector3(x, y, z));
+                    float a = (spoke * 360f / 14f + layer * 8f) * Mathf.Deg2Rad;
+                    float rx = 11.4f + layer * 1.3f;
+                    float ry = 7.3f + layer * .9f;
+                    Vector3 outer = new Vector3(Mathf.Cos(a) * rx, Mathf.Sin(a) * ry, z);
+                    Vector3 inner = new Vector3(Mathf.Cos(a) * (4.4f + layer * .35f), Mathf.Sin(a) * (2.7f + layer * .25f), z - .45f);
+                    Vector3 mid = (outer + inner) * .5f;
+                    float length = Vector3.Distance(outer, inner);
+                    var rib = MgfLook.Block("RadialCocoonRib" + layer + "_" + spoke, mid,
+                        new Vector3(length, .18f + layer * .04f, .28f + layer * .05f), .04f,
+                        spoke % 3 == 0 ? ribLight : ribDark, worldRoot);
+                    rib.transform.localRotation = Quaternion.Euler(0, -5f + layer * 5f, a * Mathf.Rad2Deg);
+                }
+                var ring = MakeLine("TornFiberRing" + layer, twine, .08f + layer * .025f, 29, worldRoot);
+                ring.loop = true;
+                for (int i = 0; i < 29; i++)
+                {
+                    float a = i * Mathf.PI * 2f / 28f;
+                    float tear = 1f + ((i * 7 + layer * 3) % 5 - 2) * .025f;
+                    ring.SetPosition(i, new Vector3(Mathf.Cos(a) * (8.1f + layer * 1.7f) * tear,
+                        Mathf.Sin(a) * (5.0f + layer * .8f) * tear, z - .2f));
                 }
             }
-            for (int ring = 0; ring < 7; ring++)
+            for (int bundle = 0; bundle < 9; bundle++)
             {
-                var loop = MakeLine("SoftTensionLoop" + ring,
-                    ring % 2 == 0 ? MgfLook.Alpha(new Color(.98f, .82f, .72f, .55f)) :
-                    MgfLook.Alpha(new Color(.55f, .91f, .86f, .55f)), .07f, 49, worldRoot);
-                loop.loop = true;
-                float cx = (ring - 3f) * 3.8f;
-                float cy = -1.8f + (ring % 3) * 3.3f;
-                for (int k = 0; k < 49; k++)
+                float side = bundle % 2 == 0 ? -1f : 1f;
+                float x = side * (5.8f + bundle % 4 * 1.25f);
+                float y = -5.4f + (bundle % 5) * 2.45f;
+                for (int strand = 0; strand < 4; strand++)
                 {
-                    float a = k * Mathf.PI * 2f / 48f;
-                    loop.SetPosition(k, new Vector3(cx + Mathf.Cos(a) * (2.2f + ring * .12f),
-                        cy + Mathf.Sin(a) * (3.9f - ring * .16f), 8.5f + ring * .7f));
+                    var line = MakeLine("RoughFiberBundle" + bundle + "_" + strand, twine, .035f + strand * .008f, 5, worldRoot);
+                    for (int p = 0; p < 5; p++)
+                        line.SetPosition(p, new Vector3(x + side * p * .38f + Mathf.Sin(bundle + p) * .10f,
+                            y + p * .34f + strand * .07f, 3.2f + bundle % 3 * 1.4f + p * .15f));
                 }
             }
         }
@@ -254,41 +268,42 @@ namespace Mgf.NabiJaebongso
                 float x = side * (5.0f + (i % 4) * 1.32f);
                 float y = -1.8f + (i % 6) * 1.85f;
                 float z = 3.8f + (i % 3) * 1.7f;
-                var root = new GameObject("CeramicTensionBobbin" + i).transform;
+                var root = new GameObject("AngularWarpFrame" + i).transform;
                 root.SetParent(worldRoot, false);
                 root.localPosition = new Vector3(x, y, z);
                 cocoonHomes[i] = root.localPosition;
-                var core = MgfLook.Prim(PrimitiveType.Capsule, "PorcelainBobbinCore", Vector3.zero,
-                    new Vector3(.42f + i % 3 * .05f, .66f, .42f), i % 3 == 0 ? brassMat : flowerMat, root, false);
-                core.transform.localRotation = Quaternion.Euler(0, i * 17f, side * (22f + i % 4 * 6f));
-                for (int wrap = 0; wrap < 4; wrap++)
+                Material frameMat = i % 3 == 0 ? brassMat : flowerMat;
+                var beamA = MgfLook.Block("WarpFrameLong", Vector3.zero, new Vector3(.20f, 1.25f, .22f), .025f, frameMat, root);
+                var beamB = MgfLook.Block("WarpFrameCross", Vector3.zero, new Vector3(.92f, .18f, .20f), .025f, frameMat, root);
+                beamA.transform.localRotation = Quaternion.Euler(0, i * 11f, side * (18f + i % 4 * 5f));
+                beamB.transform.localRotation = Quaternion.Euler(0, i * 11f, side * (18f + i % 4 * 5f));
+                for (int wrap = 0; wrap < 5; wrap++)
                 {
-                    var thread = MakeLine("SoftThreadWrap", wrap % 2 == 0 ? silkMat : MgfLook.Alpha(new Color(.96f, .55f, .62f, .65f)), .045f, 25, root);
-                    thread.loop = true;
-                    float yBand = -.30f + wrap * .20f;
-                    for (int k = 0; k < 25; k++)
-                    {
-                        float a = k * Mathf.PI * 2f / 24f;
-                        thread.SetPosition(k, new Vector3(Mathf.Cos(a) * .38f, yBand, Mathf.Sin(a) * .38f));
-                    }
+                    var thread = MakeLine("TautWarpThread", wrap % 2 == 0 ? silkMat : MgfLook.Unlit(MgfLook.Hex("#8F4A32")), .030f, 2, root);
+                    float dx = -.34f + wrap * .17f;
+                    thread.SetPosition(0, new Vector3(dx, -.54f, -.13f));
+                    thread.SetPosition(1, new Vector3(dx, .54f, -.13f));
                 }
             }
             for (int i = 0; i < flowers.Length; i++)
             {
                 float a = i * Mathf.PI * 2f / flowers.Length;
                 float r = 6.3f + (i % 4) * .9f;
-                var root = new GameObject("SilkDewLantern" + i).transform;
+                var root = new GameObject("HangingNeedleAndKnot" + i).transform;
                 root.SetParent(worldRoot, false);
                 root.localPosition = new Vector3(Mathf.Cos(a) * r * 1.2f, -3.4f + (i % 6) * 1.5f, 7.5f + Mathf.Abs(Mathf.Sin(a)) * 3f + (i % 3));
                 flowers[i] = root;
-                var dew = MgfLook.Prim(PrimitiveType.Sphere, "TranslucentDew", Vector3.zero,
-                    new Vector3(.20f + i % 3 * .04f, .27f + i % 2 * .04f, .16f), i % 2 == 0 ? brassMat : saffronMat, root, false);
-                dew.transform.localRotation = Quaternion.Euler(i * 11f, i * 23f, 0);
-                var tail = MakeLine("DewTail", silkMat, .035f, 4, root);
-                tail.SetPosition(0, Vector3.zero);
-                tail.SetPosition(1, new Vector3(.15f, -.38f, .08f));
-                tail.SetPosition(2, new Vector3(-.12f, -.72f, .04f));
-                tail.SetPosition(3, new Vector3(.08f, -1.05f, 0));
+                var needle = MgfLook.Prim(PrimitiveType.Cylinder, "TailorNeedle", Vector3.zero,
+                    new Vector3(.055f, .62f + i % 3 * .08f, .055f), i % 2 == 0 ? brassMat : saffronMat, root, false);
+                needle.transform.localRotation = Quaternion.Euler(0, 0, 18f + i * 7f);
+                var knot = MgfLook.Block("SquareFiberKnot", new Vector3(.12f, -.48f, -.04f),
+                    new Vector3(.24f, .24f, .16f), .035f, i % 2 == 0 ? flowerMat : bodyMat, root);
+                knot.transform.localRotation = Quaternion.Euler(0, i * 17f, 45f);
+                var tail = MakeLine("FrayedKnotTail", silkMat, .028f, 4, root);
+                tail.SetPosition(0, new Vector3(.12f, -.48f, 0));
+                tail.SetPosition(1, new Vector3(.25f, -.72f, .06f));
+                tail.SetPosition(2, new Vector3(.04f, -.93f, .02f));
+                tail.SetPosition(3, new Vector3(.20f, -1.18f, 0));
             }
         }
 
@@ -307,19 +322,19 @@ namespace Mgf.NabiJaebongso
 
         void BuildTitlePressRelief()
         {
-            // 타이틀 중앙의 살아 있는 실크 창. 게임과 같은 작도 순서가 반복된다:
-            // 왼쪽 원호 → 오른쪽 원호 → 교점까지 두 선 → 막이 자라고 세 봉합매듭이 맺힌다.
+            // 타이틀 중앙의 각진 직조판. 게임과 같은 작도 순서가 반복된다:
+            // 왼쪽 원호 → 오른쪽 원호 → 교점까지 두 선 → 조각이 들리고 접혀 체결된다.
             titleRelief = new GameObject("TitleConstructionDemo").transform;
             titleRelief.SetParent(worldRoot, false);
             titleRelief.position = new Vector3(0, .1f, 1.6f);
             titleRelief.rotation = cam.transform.rotation;
-            var silkWindow = MakeSilkPanel("DemoSilkWindow", ivoryMat, titleRelief);
+            var silkWindow = MakeSilkPanel("DemoCuttingTable", ivoryMat, titleRelief);
             silkWindow.localScale = new Vector3(6.35f, 4.75f, 1f);
             for (int i = 0; i < 5; i++)
             {
                 float a = (-125f + i * 62.5f) * Mathf.Deg2Rad;
-                var knot = MgfLook.Prim(PrimitiveType.Sphere, "DemoStitchKnot", new Vector3(Mathf.Cos(a) * 3.0f, Mathf.Sin(a) * 2.18f, -.14f),
-                    new Vector3(.18f, .18f, .10f), i % 2 == 0 ? saffronMat : brassMat, titleRelief, false);
+                var knot = MgfLook.Block("DemoSquareRivet", new Vector3(Mathf.Cos(a) * 3.0f, Mathf.Sin(a) * 2.18f, -.14f),
+                    new Vector3(.24f, .24f, .12f), .025f, i % 2 == 0 ? saffronMat : brassMat, titleRelief);
                 knot.transform.localRotation = Quaternion.Euler(0, 0, i * 21f);
             }
             float d = Vector2.Distance(DemoLeft, DemoRight);
@@ -341,21 +356,24 @@ namespace Mgf.NabiJaebongso
                 new Vector3(.16f, .30f, .16f), saffronMat, titleRelief, false).transform;
             demoPencil.localRotation = Quaternion.Euler(90, 0, 0);
 
-            var go = new GameObject("DemoMembrane");
+            var go = new GameObject("DemoCutPatch");
             go.transform.SetParent(titleRelief, false);
             var mesh = new Mesh { name = "DemoMembraneMesh" };
-            mesh.vertices = new[] { V3(DemoLeft, -.14f), V3(DemoRight, -.14f), V3(demoApex, -.14f) };
+            Vector2 demoCenter = (DemoLeft + DemoRight + demoApex) / 3f;
+            mesh.vertices = new[] { V3(DemoLeft - demoCenter, 0), V3(DemoRight - demoCenter, 0), V3(demoApex - demoCenter, 0) };
             mesh.triangles = new[] { 0, 2, 1 };
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = wingMat;
             demoMembrane = go.transform;
+            demoMembrane.localPosition = V3(demoCenter, -.14f);
             for (int i = 0; i < 3; i++)
             {
                 Vector2 at = i == 0 ? DemoLeft : i == 1 ? DemoRight : demoApex;
-                demoPins[i] = MgfLook.Prim(PrimitiveType.Sphere, "DemoStitchKnot" + i, V3(at, -.24f),
-                    new Vector3(.26f, .07f, .26f), brassMat, titleRelief, false).transform;
+                demoPins[i] = MgfLook.Block("DemoClamp" + i, V3(at, -.24f),
+                    new Vector3(.28f, .12f, .28f), .025f, brassMat, titleRelief).transform;
+                demoPins[i].localRotation = Quaternion.Euler(0, 0, 45f);
             }
             foreach (var r in titleRelief.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = ShadowCastingMode.Off;
             UpdateTitleDemo(0f);
@@ -406,17 +424,23 @@ namespace Mgf.NabiJaebongso
             demoMembrane.gameObject.SetActive(memOn);
             if (memOn)
             {
-                float over = 1f + Mathf.Sin(km * Mathf.PI) * .06f;
-                Vector3 pivot = V3((DemoLeft + DemoRight + demoApex) / 3f, 0f);
-                demoMembrane.localScale = Vector3.one * (km * over);
-                demoMembrane.localPosition = pivot * (1f - km * over);
+                Vector2 home = (DemoLeft + DemoRight + demoApex) / 3f;
+                float lift = Mathf.Clamp01(km * 2.8f);
+                float fold = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((km - .28f) / .72f));
+                demoMembrane.localScale = Vector3.one;
+                demoMembrane.localPosition = V3(Vector2.Lerp(home, new Vector2(2.55f, .15f), fold), -.14f - lift * .42f);
+                demoMembrane.localRotation = Quaternion.Euler(0, -72f * fold, 7f * Mathf.Sin(fold * Mathf.PI));
             }
             for (int i = 0; i < 3; i++)
             {
-                float pk = Mathf.Clamp01((t - 3.2f - i * .16f) / .18f);
+                float pk = Mathf.Clamp01((t - 3.38f - i * .11f) / .16f);
                 bool on = pk > 0f && fade > 0f;
                 demoPins[i].gameObject.SetActive(on);
-                if (on) demoPins[i].localScale = new Vector3(.26f, .07f, .26f) * (1f + (1f - pk) * .8f);
+                if (on)
+                {
+                    demoPins[i].localPosition = new Vector3(2.40f + i * .18f, -.18f + i * .18f, -.32f);
+                    demoPins[i].localScale = new Vector3(.28f, .12f, .28f) * (1f + (1f - pk) * .8f);
+                }
             }
         }
 
@@ -437,42 +461,43 @@ namespace Mgf.NabiJaebongso
         {
             var root = new GameObject(name).transform;
             root.SetParent(parent, false);
-            var left = MakeTriangle("WovenWingLeft", new Color(.52f, .89f, .82f, .78f), root);
-            left.localPosition = new Vector3(-.10f, -.18f, .02f);
-            left.localScale = new Vector3(-.48f, .48f, .48f);
-            var right = MakeTriangle("WovenWingRight", new Color(.96f, .61f, .67f, .72f), root);
-            right.localPosition = new Vector3(.10f, -.18f, .02f);
-            right.localScale = Vector3.one * .48f;
-            MgfLook.Prim(PrimitiveType.Sphere, "SilkKnot", new Vector3(0, .03f, -.05f),
-                new Vector3(.16f, .28f, .12f), brassMat, root, false);
+            var patch = MakeTriangle("FoldedWovenPatch", new Color(.74f, .44f, .20f, 1f), root);
+            patch.localPosition = new Vector3(-.12f, -.24f, .02f);
+            patch.localScale = new Vector3(.52f, .52f, .52f);
+            patch.localRotation = Quaternion.Euler(0, -55f, -16f);
+            var backing = MakeTriangle("FoldedPatchBacking", new Color(.30f, .20f, .16f, 1f), root);
+            backing.localPosition = new Vector3(.10f, -.20f, .10f);
+            backing.localScale = new Vector3(-.42f, .42f, .42f);
+            backing.localRotation = Quaternion.Euler(0, 48f, 12f);
+            MgfLook.Block("SquareBrassClamp", new Vector3(0, .03f, -.05f),
+                new Vector3(.20f, .28f, .14f), .025f, brassMat, root);
             return root;
         }
 
         void BuildActiveButterfly()
         {
-            activeButterfly = new GameObject("CeramicWeavingShuttle").transform;
+            activeButterfly = new GameObject("TailorClampAndNeedle").transform;
             activeButterfly.SetParent(boardRoot, false);
-            butterflyBody = MgfLook.Prim(PrimitiveType.Capsule, "PorcelainShuttleBody", Vector3.zero,
-                new Vector3(.32f, .68f, .28f), bodyMat, activeButterfly, false).transform;
-            butterflyBody.localRotation = Quaternion.Euler(0, 0, 90f);
-            wingLeft = MgfLook.Prim(PrimitiveType.Cylinder, "ThreadSpoolLeft", new Vector3(-.42f, 0, 0),
-                new Vector3(.24f, .12f, .24f), flowerMat, activeButterfly, false).transform;
-            wingLeft.localRotation = Quaternion.Euler(90, 0, 0);
-            wingRight = MgfLook.Prim(PrimitiveType.Cylinder, "ThreadSpoolRight", new Vector3(.42f, 0, 0),
-                new Vector3(.24f, .12f, .24f), brassMat, activeButterfly, false).transform;
-            wingRight.localRotation = Quaternion.Euler(90, 0, 0);
-            MgfLook.Prim(PrimitiveType.Sphere, "CoralNeedleEye", new Vector3(0, .38f, -.04f),
-                new Vector3(.16f, .16f, .10f), saffronMat, activeButterfly, false);
+            butterflyBody = MgfLook.Block("IronClampBody", Vector3.zero,
+                new Vector3(.92f, .30f, .26f), .04f, bodyMat, activeButterfly).transform;
+            butterflyBody.localRotation = Quaternion.Euler(0, 0, -8f);
+            wingLeft = MgfLook.Block("ClampJawLeft", new Vector3(-.38f, -.20f, 0),
+                new Vector3(.18f, .48f, .24f), .025f, flowerMat, activeButterfly).transform;
+            wingRight = MgfLook.Block("ClampJawRight", new Vector3(.38f, -.20f, 0),
+                new Vector3(.18f, .48f, .24f), .025f, brassMat, activeButterfly).transform;
+            var needle = MgfLook.Prim(PrimitiveType.Cylinder, "TailorNeedle", new Vector3(0, .48f, -.04f),
+                new Vector3(.055f, .48f, .055f), saffronMat, activeButterfly, false);
+            needle.transform.localRotation = Quaternion.Euler(0, 0, 12f);
         }
 
         void BuildMembrane()
         {
-            var go = new GameObject("StudentWingMembrane");
+            var go = new GameObject("StudentCutWovenPatch");
             go.transform.SetParent(boardRoot, false);
             var mf = go.AddComponent<MeshFilter>();
             membraneMesh = new Mesh { name = "StudentTriangleMembrane" };
             membraneMesh.vertices = new[] { Vector3.zero, Vector3.right, Vector3.up };
-            membraneMesh.triangles = new[] { 0, 1, 2 };
+            membraneMesh.triangles = new[] { 0, 2, 1 };
             membraneMesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.up };
             membraneMesh.RecalculateNormals();
             mf.sharedMesh = membraneMesh;
@@ -497,8 +522,8 @@ namespace Mgf.NabiJaebongso
 
         Transform MakeSilkPanel(string name, Material mat, Transform parent)
         {
-            // 사각 제도판 대신 가장자리가 불규칙한 얇은 날개막. 수학 좌표는 카메라와
-            // 평행한 로컬 평면을 그대로 쓰므로 시각 정체성만 바뀌고 길이 판정은 변하지 않는다.
+            // 가장자리가 찢긴 불투명 직조판. 수학 좌표는 카메라와 평행한 로컬 평면을
+            // 그대로 쓰므로 두께·섬유 결만 바뀌고 길이 판정은 변하지 않는다.
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
             var mesh = new Mesh { name = name + "Mesh" };
@@ -512,17 +537,24 @@ namespace Mgf.NabiJaebongso
             };
             mesh.triangles = new[]
             {
-                0,1,2, 0,2,3, 0,3,4, 0,4,5,
-                0,5,6, 0,6,7, 0,7,8, 0,8,1
+                0,2,1, 0,3,2, 0,4,3, 0,5,4,
+                0,6,5, 0,7,6, 0,8,7, 0,1,8
             };
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = mat;
-            var outline = MakeLine("SilkMembraneSeam", MgfLook.Alpha(new Color(.24f, .48f, .55f, .55f)), .018f, 9, go.transform);
+            var outline = MakeLine("FrayedCutEdge", MgfLook.Unlit(MgfLook.Hex("#5C3D2B")), .025f, 9, go.transform);
             outline.loop = true;
             for (int i = 0; i < 8; i++) outline.SetPosition(i, mesh.vertices[i + 1] + Vector3.back * .02f);
             outline.SetPosition(8, mesh.vertices[1] + Vector3.back * .02f);
+            for (int row = 0; row < 7; row++)
+            {
+                var grain = MakeLine("VisibleWarpGrain" + row, MgfLook.Alpha(new Color(.25f, .15f, .09f, .22f)), .008f, 5, go.transform);
+                float y = -.32f + row * .105f;
+                for (int p = 0; p < 5; p++)
+                    grain.SetPosition(p, new Vector3(-.40f + p * .20f, y + Mathf.Sin(row * 2.1f + p) * .018f, -.018f));
+            }
             return go.transform;
         }
 
@@ -572,36 +604,36 @@ namespace Mgf.NabiJaebongso
             titleArt.texture = null;
             titleArt.color = Color.clear;
 
-            titleArchRt = R("SilkLogoArch", titleGroup.transform, new Vector2(.5f, .83f), Vector2.zero, new Vector2(340, 150));
-            // 황동 테두리 + 자개 명판. Simple 이미지로 늘이면 96px 원이 흐린 타원이 됐다 → 9-slice.
+            titleArchRt = R("HangingLoomSign", titleGroup.transform, new Vector2(.5f, .83f), Vector2.zero, new Vector2(340, 132));
+            // 둥근 흰 패널 대신 세계의 각진 황동 직조 간판을 사용한다.
             titleArch = titleArchRt.gameObject.AddComponent<Image>();
-            titleArch.sprite = roundSprite;
-            titleArch.type = Image.Type.Sliced;
-            titleArch.color = MgfLook.Hex("#EF8F91");
+            titleArch.sprite = diamondSprite;
+            titleArch.type = Image.Type.Simple;
+            titleArch.color = MgfLook.Hex("#B9782E");
             titleArch.raycastTarget = false;
-            titleFrame = Img(titleArchRt, "LuminousSilkLabel", new Vector2(.5f, .5f), Vector2.zero, Vector2.zero, new Color(.91f, .98f, .94f, .96f), roundSprite);
+            titleFrame = Img(titleArchRt, "DarkWovenSignFace", new Vector2(.5f, .5f), Vector2.zero, Vector2.zero, new Color(.07f, .20f, .23f, .98f), diamondSprite);
             titleFrame.rectTransform.anchorMin = Vector2.zero;
             titleFrame.rectTransform.anchorMax = Vector2.one;
-            titleFrame.rectTransform.offsetMin = new Vector2(6, 6);
-            titleFrame.rectTransform.offsetMax = new Vector2(-6, -6);
-            titleShadow = Txt(titleArchRt, "나비 재봉소", new Vector2(.5f, .62f), new Vector2(3, -5), 51, new Color(.05f, .08f, .18f, .55f), 350);
-            titleLogo = Txt(titleArchRt, "나비 재봉소", new Vector2(.5f, .62f), Vector2.zero, 51, Ultramarine, 350);
-            titleTag = Txt(titleArchRt, "두 원호로 빛나는 날개맥을 짜라", new Vector2(.5f, .24f), Vector2.zero, 17, Ink, 340);
+            titleFrame.rectTransform.offsetMin = new Vector2(7, 7);
+            titleFrame.rectTransform.offsetMax = new Vector2(-7, -7);
+            titleShadow = Txt(titleArchRt, "나비 재봉소", new Vector2(.5f, .62f), new Vector2(3, -5), 46, new Color(0f, 0f, 0f, .55f), 350);
+            titleLogo = Txt(titleArchRt, "나비 재봉소", new Vector2(.5f, .62f), Vector2.zero, 46, Ivory, 350);
+            titleTag = Txt(titleArchRt, "두 원호로 날개 조각을 재단하라", new Vector2(.5f, .25f), Vector2.zero, 16, MgfLook.Hex("#E1B873"), 340);
             titleMeta = Txt(titleGroup.transform, "중학교 1학년 · 작도와 합동", new Vector2(.5f, .235f), Vector2.zero, 15, Ivory, 340);
             titleBest = Txt(titleGroup.transform, "", new Vector2(.5f, .19f), Vector2.zero, 14, Ivory, 320);
 
-            titleCtaRt = R("OpeningCocoon", titleGroup.transform, new Vector2(.5f, .105f), Vector2.zero, new Vector2(318, 78));
+            titleCtaRt = R("BrassFootPedal", titleGroup.transform, new Vector2(.5f, .105f), Vector2.zero, new Vector2(318, 78));
             titleCta = titleCtaRt.gameObject.AddComponent<Image>();
             titleCta.sprite = softOvalSprite;
             titleCta.sprite = diamondSprite;
-            titleCta.color = new Color(.28f, .68f, .65f, .98f);
+            titleCta.color = new Color(.72f, .46f, .18f, .98f);
             titleCta.raycastTarget = false;
-            titleStart = Txt(titleCtaRt, "빛실 재봉소 열기", new Vector2(.5f, .5f), Vector2.zero, 21, Ivory, 270);
+            titleStart = Txt(titleCtaRt, "황동 발판 밟기", new Vector2(.5f, .5f), Vector2.zero, 21, Ivory, 270);
             helpLink = Txt(titleGroup.transform, "어떻게 놀아요?", new Vector2(.5f, .035f), Vector2.zero, 13, Ivory, 180);
             helpLinkRt = helpLink.rectTransform;
             helpLinkRt.sizeDelta = new Vector2(190, 46);
 
-            headerBg = Img(hudGroup.transform, "SilkHudHeader", new Vector2(.5f, 1f), new Vector2(0, -34), new Vector2(374, 58), new Color(.89f, .97f, .93f, .96f), roundSprite);
+            headerBg = Img(hudGroup.transform, "WovenHudHeader", new Vector2(.5f, 1f), new Vector2(0, -34), new Vector2(374, 58), new Color(.91f, .84f, .68f, .97f), roundSprite);
             headerRt = headerBg.rectTransform;
             scoreText = Txt(headerRt, "0", new Vector2(.08f, .5f), Vector2.zero, 20, Ultramarine, 48);
             progressText = Txt(headerRt, "날개 0/6", new Vector2(.36f, .5f), Vector2.zero, 13, Ink, 132);
@@ -615,7 +647,7 @@ namespace Mgf.NabiJaebongso
             goalText.fontSizeMin = 11;
             goalText.fontSizeMax = 16;
 
-            promptBg = Img(hudGroup.transform, "PromptSilkMembrane", new Vector2(.5f, 1f), new Vector2(0, -145), new Vector2(364, 58), new Color(.96f, .94f, 1f, .92f), roundSprite);
+            promptBg = Img(hudGroup.transform, "PromptWovenCard", new Vector2(.5f, 1f), new Vector2(0, -145), new Vector2(364, 58), new Color(.95f, .88f, .72f, .96f), roundSprite);
             promptRt = promptBg.rectTransform;
             promptText = Txt(promptRt, "", new Vector2(.5f, .5f), Vector2.zero, 13, Ink, 344);
             promptText.textWrappingMode = TextWrappingModes.Normal;
@@ -1307,8 +1339,8 @@ namespace Mgf.NabiJaebongso
             if (activeButterfly && activeButterfly.gameObject.activeSelf)
             {
                 float pulse = 1f + Mathf.Sin(worldClock * 1.8f) * .018f;
-                if (wingLeft) wingLeft.localScale = new Vector3(-.82f * pulse, .82f, .82f);
-                if (wingRight) wingRight.localScale = new Vector3(.82f * pulse, .82f, .82f);
+                if (wingLeft) wingLeft.localPosition = new Vector3(-.38f - (pulse - 1f) * .8f, -.20f, 0);
+                if (wingRight) wingRight.localPosition = new Vector3(.38f + (pulse - 1f) * .8f, -.20f, 0);
             }
             if (phase == RunPhase.Practice && selectedSourceEdge < 0)
                 for (int i = 0; i < practiceMarkers.Length; i++) if (practiceMarkers[i])
@@ -1345,23 +1377,24 @@ namespace Mgf.NabiJaebongso
             revealVisualClock += dt;
             if (revealVisualCorrect)
             {
-                float k = Mathf.Clamp01(revealVisualClock / .7f);
-                float overshoot = 1f + Mathf.Sin(k * Mathf.PI) * .12f * (1f - k);
-                membrane.localScale = Vector3.one * (Mathf.SmoothStep(.05f, 1f, k) * overshoot);
+                // 완성 면이 차오르는 연출을 쓰지 않는다. 학생이 이미 만든 삼각형 조각 전체가
+                // 작업면에서 분리되어 들리고, 한쪽으로 접혀 황동 클램프에 체결된다.
+                float lift = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(revealVisualClock / .34f));
+                float fold = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((revealVisualClock - .30f) / .80f));
+                float settle = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((revealVisualClock - 1.08f) / .34f));
+                membrane.localScale = Vector3.one;
+                membrane.localPosition = Vector3.Lerp(revealPatchHome, revealPatchDock, fold);
+                membrane.localPosition += Vector3.back * (.62f * lift * (1f - settle));
+                membrane.localRotation = Quaternion.Euler(0, -74f * fold + 8f * settle, Mathf.Sin(fold * Mathf.PI) * 7f);
                 for (int i = 0; i < 3; i++)
                 {
-                    bool on = revealVisualClock >= .12f + i * .18f;
+                    bool on = revealVisualClock >= .96f + i * .12f;
                     brassPins[i].gameObject.SetActive(on);
-                    if (on) brassPins[i].localScale = Vector3.one * (1f + Mathf.Sin((revealVisualClock - i * .18f) * 12f) * .12f);
-                }
-                if (revealVisualClock > .78f)
-                {
-                    // 학생이 만든 두 변을 도자 셔틀이 따라가며 실크 막을 엮는다. 정답 화면 흔들림은 없다.
-                    float weave = Mathf.Clamp01((revealVisualClock - .78f) / .72f);
-                    Vector2 path = weave < .5f ? Vector2.Lerp(targetLeftLocal, revealCandidate, weave * 2f) :
-                        Vector2.Lerp(revealCandidate, targetRightLocal, (weave - .5f) * 2f);
-                    activeButterfly.localPosition = V3(path + new Vector2(0, .18f), -.72f);
-                    activeButterfly.localScale = Vector3.one * (ShuttleScale * (1f + Mathf.Sin(weave * Mathf.PI) * .20f));
+                    if (on)
+                    {
+                        brassPins[i].localPosition = revealPatchDock + new Vector3(-.22f + i * .22f, -.18f + i * .17f, -.16f);
+                        brassPins[i].localScale = Vector3.one * (1f + Mathf.Sin((revealVisualClock - i * .12f) * 12f) * .10f);
+                    }
                 }
             }
             else
@@ -1520,7 +1553,10 @@ namespace Mgf.NabiJaebongso
             {
                 SetMembrane(targetLeftLocal, targetRightLocal, candidate);
                 membrane.gameObject.SetActive(true);
-                membrane.localScale = Vector3.one * .05f;
+                membrane.localScale = Vector3.one;
+                membrane.localRotation = Quaternion.identity;
+                // 작은 주체가 선을 따라 달리는 대신 완성된 학생 조각 자체가 사건의 주인공이다.
+                activeButterfly.gameObject.SetActive(false);
                 targetPins[2].gameObject.SetActive(true);
                 targetPins[2].localPosition = V3(candidate, -.48f);
                 targetLabels[2].gameObject.SetActive(true);
@@ -1562,9 +1598,11 @@ namespace Mgf.NabiJaebongso
             for (int i = 0; i < 2; i++) ghostLines[i].gameObject.SetActive(false);
             for (int i = 0; i < 3; i++) brassPins[i].gameObject.SetActive(false);
             membrane.gameObject.SetActive(false);
+            membrane.localRotation = Quaternion.identity;
             activeButterfly.localRotation = Quaternion.identity;
             activeButterfly.localPosition = ShuttleHome;
             activeButterfly.localScale = Vector3.one * ShuttleScale;
+            activeButterfly.gameObject.SetActive(true);
             if (correct && current.band > 0 && st.solved > 0)
             {
                 int idx = Mathf.Clamp(st.solved - 1, 0, sentButterflies.Length - 1);
@@ -1577,11 +1615,15 @@ namespace Mgf.NabiJaebongso
 
         void SetMembrane(Vector2 a, Vector2 b, Vector2 c)
         {
-            membraneMesh.vertices = new[] { V3(a, -.49f), V3(b, -.49f), V3(c, -.49f) };
+            Vector2 center = (a + b + c) / 3f;
+            membraneMesh.vertices = new[] { V3(a - center, 0), V3(b - center, 0), V3(c - center, 0) };
             membraneMesh.RecalculateBounds();
             membraneMesh.RecalculateNormals();
-            membrane.localPosition = Vector3.zero;
-            Vector2 center = (a + b + c) / 3f;
+            revealPatchHome = V3(center, -.49f);
+            Vector2 dock2 = landscape ? targetOffset + new Vector2(3.25f, 1.55f) :
+                targetOffset + new Vector2(2.35f, 1.15f);
+            revealPatchDock = V3(dock2, -.72f);
+            membrane.localPosition = revealPatchHome;
             for (int i = 0; i < 3; i++)
             {
                 Vector2 p = i == 0 ? a : i == 1 ? b : c;
