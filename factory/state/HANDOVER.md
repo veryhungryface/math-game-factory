@@ -2797,3 +2797,9 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 발문은 밴드1 「삼각형 ABC에서」, 밴드2·3 「AB=AC인 이등변삼각형 ABC에서」 선언을 포함한다. 최종 WebGL 문제은행 360개는 밴드별120·고유 id/발문360·선언/정답 오류0이다. 판형은 템플릿과 Unity 모두 `(W>=H && W>=640)||W>=1024`로 통일해 820×1180 DPR2 portrait와 1280×1400 land를 실제 브라우저에서 확인했다.
 - artifact `f238f8b492dbf92947f6bf939794c34d1164cb0fa40ae90b287be484a2213495`, 게임 폴더10708KB(빌드8692KB). trusted pointer 정상판은 clear8/8·첫시도8·목숨3, 첫 오답 회복판은 clear8/8·첫시도7·목숨2다. B3 각200판은 반복4.0%·순환2.0%·무작위3.0%≤우연4.17%, 무입력 진도0이며 콘솔 오류0이다.
 - 최종 공식 QA45/45·fatal0·실GPU 모바일82fps·1280폭84fps·15초 유지95%다. `fix.json`은 fixed5/not_fixed0/replan false이며 게시·허브·queue는 건드리지 않았다.
+
+## 2026-10-25 — 「게 짐꾼」 3차 수정 완료 / QA 45·fatal 0 / 미게시
+- 최신 review 78점의 high 1건·medium 2건을 모두 수정했다. `neoguri-oncheon`과 겹치던 중앙 팝업북·채색 종이·솟는 팝업 사건을 폐기하고, 수직 현무암 조수갑문·깊은 남청 수로·도색 부표/계류 밧줄·예인선 횡단 사건으로 배경·재질·정답 연출 세 축을 바꿨다. thumb/square는 최종 WebGL 타이틀에서 다시 캡처했다.
+- 상단 꼭짓점을 낮추고 문자 라벨을 제목 안전띠 아래로 clamp해 390×844·820×1180·1280×800·2000px에서 E/B와 도형판 제목이 겹치지 않는다. `mgf.json`을 `#071A29`로 바꿔 생성된 index의 theme-color·body·canvas·loading도 같은 팔레트로 맞췄다. 정답 설명판은 낮고 반투명하게 옮겨 예인선 횡단을 보존했다.
+- 최종 artifact `0480298fab3714905c281cf983dc86cd8b75e832caeb28f5f17044d123133248`. 실제 pointer 정상판 clear8/8·첫시도8·매듭3, 첫 오답 회복판 clear8/8·첫시도7·매듭2, 매듭0 gameover와 독립 재시작을 정답 훅 없이 재현했고 콘솔 오류0이다. final firstplay17프레임·ready true·console/page error0이다.
+- mathcheck pass·표본110 오류0. Unity 빌드 warnings0·산출물7.9MB, 공식 QA45/45·fatal0·실GPU 모바일81fps·1280폭84fps·15초 유지100%. B3 각200판은 반복0%(무제출)·순환12.79%·무작위13.79%≤우연16.67%, 무입력진도0이다. `fix.json`은 fixed4/not_fixed0/replan false이며 게시·허브·queue는 건드리지 않았다.

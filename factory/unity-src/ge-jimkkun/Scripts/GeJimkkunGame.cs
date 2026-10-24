@@ -1,4 +1,4 @@
-// 게 짐꾼 — 세워지는 팝업 항로책의 2.5D 세계, 실제 드래그 입력, 진행·실패·브리지 정본.
+// 게 짐꾼 — 밤 조수갑문의 2.5D 예인 항로, 실제 드래그 입력, 진행·실패·브리지 정본.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -45,9 +45,10 @@ namespace Mgf.GeJimkkun
         public Vector2 Vertex(int i)
         {
             Rect r = rectTransform.rect;
-            if (i == 0) return new Vector2(r.xMin + r.width * .18f, r.yMin + r.height * .22f);
-            if (i == 1) return new Vector2(r.center.x + r.width * .02f, r.yMax - r.height * .15f);
-            return new Vector2(r.xMax - r.width * .16f, r.yMin + r.height * .24f);
+            if (i == 0) return new Vector2(r.xMin + r.width * .18f, r.yMin + r.height * .20f);
+            // 상단 꼭짓점과 토큰이 보드 제목 안전띠를 침범하지 않도록 충분히 낮춘다.
+            if (i == 1) return new Vector2(r.center.x + r.width * .02f, r.yMax - r.height * .29f);
+            return new Vector2(r.xMax - r.width * .16f, r.yMin + r.height * .22f);
         }
 
         protected override void OnPopulateMesh(VertexHelper vh)
@@ -112,15 +113,15 @@ namespace Mgf.GeJimkkun
 
         enum Flow { Title, Practice, Playing, Reveal, End }
 
-        // 목제 작업대·황동 부품 계열을 버리고, 얇은 채색 종이·먹선·실 접철 무대로 분화한다.
-        static readonly Color Stage = MgfLook.Hex("#2B2458");
-        static readonly Color Sun = MgfLook.Hex("#FFD45A");
-        static readonly Color Page = MgfLook.Hex("#FFF0D2");
-        static readonly Color Indigo = MgfLook.Hex("#171B3D");
-        static readonly Color Ink = MgfLook.Hex("#102B3C");
-        static readonly Color Coral = MgfLook.Hex("#F0645C");
-        static readonly Color Mint = MgfLook.Hex("#55D6BE");
-        static readonly Color White = MgfLook.Hex("#FFF9EA");
+        // 3차: 팝업북·채색 종이 계열을 버리고 수직 조수갑문·현무암·도색 부표·밧줄 항로로 분화한다.
+        static readonly Color Stage = MgfLook.Hex("#071A29");
+        static readonly Color Sun = MgfLook.Hex("#FFB000");
+        static readonly Color Page = MgfLook.Hex("#E8F1F2");
+        static readonly Color Indigo = MgfLook.Hex("#07111C");
+        static readonly Color Ink = MgfLook.Hex("#0B2433");
+        static readonly Color Coral = MgfLook.Hex("#FF6B35");
+        static readonly Color Mint = MgfLook.Hex("#35A7FF");
+        static readonly Color White = MgfLook.Hex("#F4FBFF");
 
         readonly State st = new State();
         readonly List<CargoProblem> bank = new List<CargoProblem>(360);
@@ -139,6 +140,7 @@ namespace Mgf.GeJimkkun
         readonly Image[] knots = new Image[3];
         readonly Image[] raftPips = new Image[8];
         readonly List<Transform> worldProps = new List<Transform>();
+        readonly List<Vector3> worldPropBase = new List<Vector3>();
         readonly List<Transform> worldCrabs = new List<Transform>();
 
         Camera cam;
@@ -185,98 +187,87 @@ namespace Mgf.GeJimkkun
 
         void BuildMaterials()
         {
-            stageMat = MgfLook.Lit(Stage, .76f, .01f, new Color(.025f, .02f, .07f));
-            sunMat = MgfLook.Lit(Sun, .44f, .02f);
-            coralMat = MgfLook.Lit(Coral, .58f, .01f);
-            pageMat = MgfLook.Lit(Page, .82f, .00f);
-            indigoMat = MgfLook.Lit(Indigo, .70f, .01f);
-            inkMat = MgfLook.Lit(Ink, .80f, .01f);
-            mintMat = MgfLook.Lit(Mint, .54f, .01f);
+            stageMat = MgfLook.Lit(Stage, .90f, .18f, new Color(.01f, .06f, .10f));
+            sunMat = MgfLook.Lit(Sun, .72f, .34f, new Color(.08f, .035f, 0));
+            coralMat = MgfLook.Lit(Coral, .64f, .24f);
+            pageMat = MgfLook.Lit(Page, .58f, .42f);
+            indigoMat = MgfLook.Lit(Indigo, .88f, .38f);
+            inkMat = MgfLook.Lit(Ink, .38f, .02f);
+            mintMat = MgfLook.Lit(Mint, .72f, .28f, new Color(0, .025f, .07f));
         }
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#4A3A86"), MgfLook.Hex("#251D4E"), Indigo, .72f);
-            MgfLook.Sun(new Vector3(36, -24, -18), MgfLook.Hex("#FFF0C2"), 1.06f, .62f);
-            cam = MgfLook.Camera(new Vector3(0, 10.8f, -18.8f), new Vector3(0, 1.6f, 3.6f), 34f);
+            MgfLook.Sky(MgfLook.Hex("#122D44"), MgfLook.Hex("#0A5266"), MgfLook.Hex("#06111C"), .78f);
+            MgfLook.Sun(new Vector3(44, -28, -14), MgfLook.Hex("#D9F6FF"), 1.04f, .70f);
+            cam = MgfLook.Camera(new Vector3(0, 10.4f, -19.4f), new Vector3(0, 1.35f, 4.2f), 33f);
             cam.orthographic = true; cam.orthographicSize = 8.2f;
-            world = new GameObject("PopupRouteBookTheatre").transform;
+            world = new GameObject("NightTideSignalLock").transform;
 
-            // 수평 작업대가 아니라 책등을 중심으로 좌우 면이 일어나고, 그 뒤에 항로 무대가 세워지는 구조다.
-            var cover = MgfLook.Block("IndigoBookCover", new Vector3(0, -1.04f, 4.2f), new Vector3(15.8f, .34f, 12.4f), .05f, indigoMat, world).transform;
-            cover.localRotation = Quaternion.Euler(0, 0, 0);
-            var leftPage = MgfLook.Block("CoralPaperLeaf", new Vector3(-3.65f, -.76f, 3.7f), new Vector3(7.2f, .12f, 10.6f), .018f, coralMat, world).transform;
-            leftPage.localRotation = Quaternion.Euler(0, 0, -3.5f);
-            var rightPage = MgfLook.Block("MintPaperLeaf", new Vector3(3.65f, -.76f, 3.7f), new Vector3(7.2f, .12f, 10.6f), .018f, mintMat, world).transform;
-            rightPage.localRotation = Quaternion.Euler(0, 0, 3.5f);
-            MgfLook.Block("YellowThreadSpine", new Vector3(0, -.45f, 3.8f), new Vector3(.18f, .24f, 10.9f), .025f, sunMat, world);
-
-            MakePaperWing(new Vector3(-4.2f, 1.2f, 5.9f), -9f, "DeparturePopupWing", coralMat);
-            MakePaperWing(new Vector3(4.2f, 1.2f, 5.9f), 9f, "ArrivalPopupWing", mintMat);
-
-            // 작은 접힌 표식과 먹실 항로가 책의 세로 공간을 채운다.
-            for (int i = 0; i < 16; i++)
+            // 화면을 채우는 수직 현무암 갑문과 깊은 수로. 중앙 팝업북이나 수평 작업대가 아니다.
+            MgfLook.Block("DeepTideChannel", new Vector3(0, -1.18f, 4.4f), new Vector3(17.2f, .48f, 13.4f), .08f, stageMat, world);
+            MgfLook.Block("VerticalBasaltSeawall", new Vector3(0, 2.1f, 9.1f), new Vector3(17.3f, 6.2f, 1.05f), .10f, indigoMat, world);
+            MgfLook.Block("LockMouth", new Vector3(0, .85f, 8.48f), new Vector3(5.4f, 3.0f, .28f), .06f, inkMat, world);
+            for (int i = -6; i <= 6; i++)
             {
-                float side = i % 2 == 0 ? -1 : 1;
-                float x = side * (5.4f + (i % 4) * .88f), y = .15f + (i % 5) * .66f, z = 2.1f + (i % 6) * 1.28f;
-                var tab = MgfLook.Block("FoldedRouteTab" + i, new Vector3(x, y, z),
-                    new Vector3(.56f + (i % 3) * .16f, .08f, 1.05f + (i % 2) * .34f), .012f,
-                    i % 3 == 0 ? sunMat : i % 3 == 1 ? coralMat : mintMat, world).transform;
-                tab.localRotation = Quaternion.Euler(side * (26 + i % 3 * 7), side * (8 + i % 4 * 6), side * 12); worldProps.Add(tab);
+                Material m = (i % 4 == 0) ? pageMat : (i % 2 == 0 ? inkMat : indigoMat);
+                MgfLook.Block("SeawallCourse" + i, new Vector3(i * 1.28f, 2.15f + Mathf.Abs(i % 2) * .18f, 8.48f),
+                    new Vector3(1.12f, .16f, .18f), .025f, m, world);
             }
+            MakeSignalTower(new Vector3(-5.65f, 1.1f, 7.35f), -1, "PortSignalTower");
+            MakeSignalTower(new Vector3(5.65f, 1.1f, 7.35f), 1, "StarboardSignalTower");
 
+            // 항로 부표와 실제 밧줄이 깊이 방향을 만든다.
             Vector3[] route = {
-                new Vector3(-6.6f, .25f, 2.0f), new Vector3(-4.8f, 1.5f, 4.0f),
-                new Vector3(-2.2f, .65f, 6.1f), new Vector3(0, 2.65f, 7.0f),
-                new Vector3(2.4f, .85f, 6.0f), new Vector3(4.8f, 1.65f, 4.1f), new Vector3(6.7f, .35f, 2.2f)
+                new Vector3(-6.6f, -.48f, 2.0f), new Vector3(-4.7f, -.38f, 3.5f),
+                new Vector3(-2.4f, -.43f, 5.2f), new Vector3(0, -.32f, 6.0f),
+                new Vector3(2.5f, -.42f, 5.15f), new Vector3(4.8f, -.35f, 3.45f), new Vector3(6.7f, -.46f, 2.0f)
             };
-            for (int i = 0; i < route.Length - 1; i++)
-                MakeThread("InkThreadRoute" + i, route[i], route[i + 1], .055f, i % 2 == 0 ? inkMat : sunMat, world);
-
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < route.Length; i++)
             {
-                float x = -6.5f + i * 1.45f, z = 1.2f + (i % 4) * 2.25f;
-                var stitch = MgfLook.Prim(PrimitiveType.Cylinder, "ThreadStitch" + i,
-                    new Vector3(x, -.42f, z), new Vector3(.08f, .14f, .08f), i % 2 == 0 ? sunMat : pageMat, world, false).transform;
-                stitch.localRotation = Quaternion.Euler(0, 0, 90);
+                Material buoyMat = i % 2 == 0 ? sunMat : coralMat;
+                var buoy = MgfLook.Prim(PrimitiveType.Cylinder, "PaintedRouteBuoy" + i, route[i], new Vector3(.30f, .48f, .30f), buoyMat, world, false).transform;
+                MgfLook.Prim(PrimitiveType.Sphere, "BuoyCap" + i, route[i] + new Vector3(0, .52f, 0), new Vector3(.27f, .22f, .27f), mintMat, world, false);
+                worldProps.Add(buoy); worldPropBase.Add(route[i]);
+                if (i > 0) MakeThread("TautHarborRope" + i, route[i - 1] + Vector3.up * .25f, route[i] + Vector3.up * .25f, .045f, pageMat, world);
             }
 
-            // 정답 때 세 실이 당기면 이 한 장이 가운데 책등에서 실제로 V자로 접혀 일어난다.
-            popupRoute3d = new GameObject("AnswerPopupRoute").transform; popupRoute3d.SetParent(world, false);
-            popupRoute3d.localPosition = new Vector3(0, -.25f, 7.6f);
-            foldLeft3d = MgfLook.Block("AnswerFoldLeft", new Vector3(-1.25f, 0, 0), new Vector3(2.48f, .09f, 2.0f), .012f, pageMat, popupRoute3d).transform;
-            foldRight3d = MgfLook.Block("AnswerFoldRight", new Vector3(1.25f, 0, 0), new Vector3(2.48f, .09f, 2.0f), .012f, pageMat, popupRoute3d).transform;
-            MakeThread("AnswerInkLineLeft", new Vector3(-2.25f, .08f, 0), new Vector3(0, .08f, .55f), .04f, inkMat, popupRoute3d);
-            MakeThread("AnswerInkLineRight", new Vector3(0, .08f, .55f), new Vector3(2.25f, .08f, 0), .04f, inkMat, popupRoute3d);
+            // 정답 사건: 세 장력선이 선체에 걸리고 예인선이 갑문을 가로질러 실제로 이동한다.
+            popupRoute3d = new GameObject("AnswerTowRaft").transform; popupRoute3d.SetParent(world, false);
+            popupRoute3d.localPosition = new Vector3(-5.4f, -.36f, 5.9f);
+            MgfLook.Block("TowRaftHull", Vector3.zero, new Vector3(2.65f, .34f, 1.35f), .16f, coralMat, popupRoute3d);
+            MgfLook.Block("TowRaftDeck", new Vector3(0, .28f, 0), new Vector3(2.1f, .20f, 1.0f), .08f, pageMat, popupRoute3d);
+            foldLeft3d = MgfLook.Prim(PrimitiveType.Cylinder, "PortFender", new Vector3(-1.30f, .04f, 0), new Vector3(.22f, .58f, .22f), inkMat, popupRoute3d, false).transform;
+            foldLeft3d.localRotation = Quaternion.Euler(90, 0, 0);
+            foldRight3d = MgfLook.Prim(PrimitiveType.Cylinder, "StarboardFender", new Vector3(1.30f, .04f, 0), new Vector3(.22f, .58f, .22f), inkMat, popupRoute3d, false).transform;
+            foldRight3d.localRotation = Quaternion.Euler(90, 0, 0);
+            for (int i = 0; i < 3; i++)
+                MgfLook.Prim(PrimitiveType.Cylinder, "CargoBuoy" + i, new Vector3((i - 1) * .62f, .64f, 0), new Vector3(.25f, .38f, .25f), i == 1 ? sunMat : mintMat, popupRoute3d, false);
             for (int i = 0; i < 3; i++)
             {
                 pullThreads3d[i] = MakeThread("VertexPullThread" + i,
-                    new Vector3((i - 1) * 1.35f, .12f, 1.4f), new Vector3((i - 1) * .9f, 1.8f, 7.4f),
-                    .045f, i == 1 ? sunMat : mintMat, world);
+                    new Vector3((i - 1) * 1.35f, .14f, 1.5f), new Vector3(-4.9f + i * .55f, .22f, 5.9f),
+                    .055f, i == 1 ? sunMat : pageMat, world);
                 pullThreads3d[i].gameObject.SetActive(false);
             }
             ResetFoldRoute();
             for (int i = 0; i < 3; i++)
             {
-                var crab = MakeWorldCrab(new Vector3((i - 1) * 1.55f, .15f, 1.2f + (i % 2) * .25f), "PaperCrab" + i);
+                var crab = MakeWorldCrab(new Vector3((i - 1) * 1.55f, .12f, 1.25f + (i % 2) * .25f), "TowCrab" + i);
                 worldCrabs.Add(crab);
             }
             titleCrab3d = worldCrabs[1];
         }
 
-        void MakePaperWing(Vector3 pos, float yaw, string name, Material face)
+        void MakeSignalTower(Vector3 pos, float side, string name)
         {
-            var root = new GameObject(name).transform; root.SetParent(world, false); root.localPosition = pos; root.localRotation = Quaternion.Euler(0, yaw, 0);
-            var sheet = MgfLook.Block("StandingPaperSheet", Vector3.zero, new Vector3(5.6f, 3.8f, .12f), .018f, face, root).transform;
-            sheet.localRotation = Quaternion.Euler(-4, 0, 0);
-            MgfLook.Block("DarkFoldHinge", new Vector3(0, -1.82f, -.10f), new Vector3(5.7f, .16f, .18f), .018f, indigoMat, root);
-            for (int i = -2; i <= 2; i++)
-            {
-                var fold = MgfLook.Block("InkFold" + i, new Vector3(i * .92f, .1f + Mathf.Abs(i) * .18f, -.10f), new Vector3(.075f, 2.65f, .10f), .008f, i == 0 ? sunMat : inkMat, root).transform;
-                fold.localRotation = Quaternion.Euler(0, 0, i * 7f);
-            }
-            var flag = MgfLook.Block("FoldedSignalFlag", new Vector3(0, 1.25f, -.22f), new Vector3(1.3f, .55f, .08f), .01f, pageMat, root).transform;
-            flag.localRotation = Quaternion.Euler(0, 0, yaw * .7f); worldProps.Add(flag);
+            var root = new GameObject(name).transform; root.SetParent(world, false); root.localPosition = pos;
+            MgfLook.Block("BasaltPier", Vector3.zero, new Vector3(2.35f, 4.8f, 1.35f), .12f, inkMat, root);
+            MgfLook.Block("SafetyStripe", new Vector3(0, .60f, -.72f), new Vector3(2.05f, .28f, .12f), .03f, sunMat, root);
+            MgfLook.Block("SignalCabin", new Vector3(0, 2.15f, -.10f), new Vector3(1.35f, .82f, .92f), .12f, pageMat, root);
+            var beacon = MgfLook.Prim(PrimitiveType.Cylinder, "BlueBeacon", new Vector3(0, 2.83f, -.10f), new Vector3(.30f, .28f, .30f), mintMat, root, false).transform;
+            worldProps.Add(beacon); worldPropBase.Add(beacon.localPosition);
+            MakeThread("TowerMooring", new Vector3(pos.x, 2.8f, pos.z), new Vector3(side * 2.1f, -.2f, 4.0f), .06f, sunMat, world);
         }
 
         Transform MakeThread(string name, Vector3 a, Vector3 b, float radius, Material mat, Transform parent)
@@ -291,14 +282,12 @@ namespace Mgf.GeJimkkun
         Transform MakeWorldCrab(Vector3 pos, string name)
         {
             var root = new GameObject(name).transform; root.SetParent(world, false); root.localPosition = pos;
-            MgfLook.Block("CoralFoldedBody", Vector3.zero, new Vector3(.88f, .24f, .62f), .012f, coralMat, root);
-            var shell = MgfLook.Block("YellowDiamondFold", new Vector3(0, .38f, .10f), new Vector3(.76f, .55f, .68f), .012f, sunMat, root).transform;
-            shell.localRotation = Quaternion.Euler(0, 45, 0);
+            MgfLook.Prim(PrimitiveType.Sphere, "RoundedOrangeBody", Vector3.zero, new Vector3(.58f, .26f, .42f), coralMat, root, false);
+            MgfLook.Prim(PrimitiveType.Sphere, "BlueBuoyShell", new Vector3(0, .38f, .10f), new Vector3(.48f, .48f, .48f), mintMat, root, false);
             for (int s = -1; s <= 1; s += 2)
             {
                 MgfLook.Prim(PrimitiveType.Cylinder, "InkEye" + s, new Vector3(s * .25f, .27f, -.48f), new Vector3(.09f, .09f, .09f), inkMat, root, false);
-                var claw = MgfLook.Block("PaperClaw" + s, new Vector3(s * .65f, .06f, -.20f), new Vector3(.40f, .12f, .24f), .01f, coralMat, root).transform;
-                claw.localRotation = Quaternion.Euler(0, 0, s * 18f);
+                MgfLook.Prim(PrimitiveType.Sphere, "RoundedClaw" + s, new Vector3(s * .64f, .06f, -.20f), new Vector3(.28f, .13f, .20f), coralMat, root, false);
             }
             return root;
         }
@@ -321,37 +310,35 @@ namespace Mgf.GeJimkkun
 
         void BuildTitle()
         {
-            var sign = Panel(titleGroup.transform, "StandingPopupBanner", new Vector2(.5f, .73f), Vector2.zero, new Vector2(354, 210), new Color(Coral.r, Coral.g, Coral.b, .97f), paperSprite);
-            var leftFold = Img(sign, "LeftFoldTab", new Vector2(.08f, .22f), Vector2.zero, new Vector2(76, 26), Sun, paperSprite).rectTransform;
-            leftFold.localRotation = Quaternion.Euler(0, 0, 16);
-            var rightFold = Img(sign, "RightFoldTab", new Vector2(.92f, .72f), Vector2.zero, new Vector2(86, 24), Mint, paperSprite).rectTransform;
-            rightFold.localRotation = Quaternion.Euler(0, 0, -14);
-            Img(sign, "BookSpineInk", new Vector2(.5f, .08f), Vector2.zero, new Vector2(300, 5), Indigo, paperSprite);
-            var shadow = Txt(sign, "게 짐꾼", new Vector2(.5f, .63f), new Vector2(3, -4), 60, Indigo, 310); shadow.characterSpacing = 4;
-            var logo = Txt(sign, "게 짐꾼", new Vector2(.5f, .63f), Vector2.zero, 60, White, 310); logo.characterSpacing = 4; logo.outlineColor = Ink; logo.outlineWidth = .13f;
-            Txt(sign, "게를 대응점으로 옮겨라", new Vector2(.5f, .27f), Vector2.zero, 17, Indigo, 300);
+            var sign = Panel(titleGroup.transform, "LockGantrySign", new Vector2(.5f, .78f), Vector2.zero, new Vector2(354, 154), new Color(Indigo.r, Indigo.g, Indigo.b, .94f), paperSprite);
+            Img(sign, "PortSignal", new Vector2(.07f, .50f), Vector2.zero, new Vector2(16, 112), Coral, paperSprite);
+            Img(sign, "StarboardSignal", new Vector2(.93f, .50f), Vector2.zero, new Vector2(16, 112), Mint, paperSprite);
+            Img(sign, "AmberRouteBar", new Vector2(.5f, .08f), Vector2.zero, new Vector2(300, 6), Sun, paperSprite);
+            var shadow = Txt(sign, "게 짐꾼", new Vector2(.5f, .64f), new Vector2(3, -3), 52, Ink, 310); shadow.characterSpacing = 4;
+            var logo = Txt(sign, "게 짐꾼", new Vector2(.5f, .64f), Vector2.zero, 52, White, 310); logo.characterSpacing = 4; logo.outlineColor = Mint; logo.outlineWidth = .09f;
+            Txt(sign, "대응 꼭짓점을 연결해 갑문을 열어라", new Vector2(.5f, .23f), Vector2.zero, 15, Page, 318);
             var start = CrabWidget(titleGroup.transform, "TitleCrabStart", "출", new Vector2(.5f, .32f), Vector2.zero, 1.48f, -1);
             titleStart = start; Img(start, "TitlePulse", new Vector2(.5f, .5f), Vector2.zero, new Vector2(142, 142), new Color(White.r, White.g, White.b, .28f), ringSprite).transform.SetAsFirstSibling();
-            Txt(titleGroup.transform, "종이 게를 눌러 항로책 펼치기", new Vector2(.5f, .20f), Vector2.zero, 17, White, 310);
+            Txt(titleGroup.transform, "예인 게를 눌러 야간 출항", new Vector2(.5f, .20f), Vector2.zero, 17, White, 310);
             Txt(titleGroup.transform, "중학교 1학년 · 작도와 합동", new Vector2(.5f, .075f), Vector2.zero, 13, Page, 330);
             titleBest = Txt(titleGroup.transform, "최고 첫 제출 0/8", new Vector2(.5f, .125f), Vector2.zero, 13, Mint, 260);
         }
 
         void BuildPlay()
         {
-            hudPanel = Panel(playGroup.transform, "ThreadSpineHud", new Vector2(.5f, .5f), Vector2.zero, new Vector2(370, 48), new Color(Indigo.r, Indigo.g, Indigo.b, .96f), paperSprite);
-            hudText = Txt(hudPanel, "지도 0/8 · 첫 제출 0/0 · 90초", new Vector2(.42f, .5f), Vector2.zero, 13, White, 265);
+            hudPanel = Panel(playGroup.transform, "LockControlHud", new Vector2(.5f, .5f), Vector2.zero, new Vector2(370, 48), new Color(Indigo.r, Indigo.g, Indigo.b, .96f), paperSprite);
+            hudText = Txt(hudPanel, "출항 0/8 · 첫 제출 0/0 · 90초", new Vector2(.42f, .5f), Vector2.zero, 13, White, 265);
             scoreText = Txt(hudPanel, "0", new Vector2(.88f, .5f), Vector2.zero, 16, Coral, 60);
             for (int i = 0; i < 3; i++) knots[i] = Img(hudPanel, "SafetyThread" + i, new Vector2(.69f + i * .055f, .5f), Vector2.zero, new Vector2(13, 28), Sun, paperSprite);
             goalPanel = Panel(playGroup.transform, "PermanentGoal", new Vector2(.5f, .5f), Vector2.zero, new Vector2(368, 38), new Color(Coral.r, Coral.g, Coral.b, .95f), paperSprite);
-            goalText = Txt(goalPanel, "게 토큰을 대응점에 옮기면 지도가 입체로 접힌다", new Vector2(.5f, .5f), Vector2.zero, 14, White, 352);
-            promptPanel = Panel(playGroup.transform, "ConditionSheet", new Vector2(.5f, .5f), Vector2.zero, new Vector2(370, 82), new Color(Page.r, Page.g, Page.b, .96f), paperSprite);
+            goalText = Txt(goalPanel, "세 게를 대응점에 옮기면 예인선이 갑문을 건넌다", new Vector2(.5f, .5f), Vector2.zero, 14, White, 352);
+            promptPanel = Panel(playGroup.transform, "ConditionConsole", new Vector2(.5f, .5f), Vector2.zero, new Vector2(370, 82), new Color(Page.r, Page.g, Page.b, .97f), paperSprite);
             promptText = Txt(promptPanel, "", new Vector2(.5f, .57f), Vector2.zero, 12.5f, Ink, 350); promptText.enableAutoSizing = true; promptText.fontSizeMin = 9; promptText.fontSizeMax = 12.5f;
             Txt(promptPanel, "그림은 실제 비율과 다릅니다", new Vector2(.5f, .10f), Vector2.zero, 9.5f, Coral, 300);
 
-            sourceBoardRt = Panel(playGroup.transform, "DeparturePaperLeaf", new Vector2(.5f, .5f), Vector2.zero, new Vector2(330, 220), new Color(Page.r, Page.g, Page.b, .94f), paperSprite);
+            sourceBoardRt = Panel(playGroup.transform, "DepartureGaugePlate", new Vector2(.5f, .5f), Vector2.zero, new Vector2(330, 220), new Color(Page.r, Page.g, Page.b, .95f), paperSprite);
             Color mintPage = Color.Lerp(Mint, White, .78f);
-            targetBoardRt = Panel(playGroup.transform, "ArrivalPaperLeaf", new Vector2(.5f, .5f), Vector2.zero, new Vector2(330, 220), new Color(mintPage.r, mintPage.g, mintPage.b, .94f), paperSprite);
+            targetBoardRt = Panel(playGroup.transform, "ArrivalGaugePlate", new Vector2(.5f, .5f), Vector2.zero, new Vector2(330, 220), new Color(mintPage.r, mintPage.g, mintPage.b, .95f), paperSprite);
             sourceDiagram = Graphic(sourceBoardRt, "TriangleABC", false); targetDiagram = Graphic(targetBoardRt, "TriangleDEF", true);
             Txt(sourceBoardRt, "출발 △ABC", new Vector2(.5f, .94f), Vector2.zero, 13, Indigo, 160);
             Txt(targetBoardRt, "도착 △DEF", new Vector2(.5f, .94f), Vector2.zero, 13, Indigo, 160);
@@ -366,9 +353,9 @@ namespace Mgf.GeJimkkun
                 crabs[i] = CrabWidget(playGroup.transform, "CargoCrab" + i, "ABC"[i].ToString(), new Vector2(.5f, .5f), Vector2.zero, 1f, i);
                 crabShadows[i] = (RectTransform)crabs[i].Find("CrabShadow"); crabTags[i] = crabs[i].GetComponentInChildren<TextMeshProUGUI>();
             }
-            progressPanel = Panel(playGroup.transform, "FoldLedger", new Vector2(.5f, .5f), Vector2.zero, new Vector2(370, 46), new Color(Indigo.r, Indigo.g, Indigo.b, .94f), paperSprite);
+            progressPanel = Panel(playGroup.transform, "DepartureLedger", new Vector2(.5f, .5f), Vector2.zero, new Vector2(370, 46), new Color(Indigo.r, Indigo.g, Indigo.b, .94f), paperSprite);
             progressText = Txt(progressPanel, "게 0/3 · 세 자리가 차면 자동 제출", new Vector2(.43f, .5f), Vector2.zero, 13, White, 270);
-            for (int i = 0; i < 8; i++) raftPips[i] = Img(progressPanel, "FoldedRoute" + i, new Vector2(.72f + i * .032f, .5f), Vector2.zero, new Vector2(8, 21), i == 0 ? Mint : new Color(White.r, White.g, White.b, .22f), paperSprite);
+            for (int i = 0; i < 8; i++) raftPips[i] = Img(progressPanel, "DepartureLamp" + i, new Vector2(.72f + i * .032f, .5f), Vector2.zero, new Vector2(8, 21), i == 0 ? Mint : new Color(White.r, White.g, White.b, .22f), paperSprite);
             guideLine = Img(playGroup.transform, "ThreadCarryRoute", new Vector2(.5f, .5f), Vector2.zero, new Vector2(120, 8), new Color(Sun.r, Sun.g, Sun.b, .94f), paperSprite).rectTransform;
             guideRing = Img(playGroup.transform, "CrabGuideRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(88, 88), new Color(Coral.r, Coral.g, Coral.b, .45f), ringSprite).rectTransform;
             guideTarget = Img(playGroup.transform, "TargetGuideRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(92, 92), new Color(Coral.r, Coral.g, Coral.b, .60f), ringSprite).rectTransform;
@@ -387,9 +374,10 @@ namespace Mgf.GeJimkkun
 
         void BuildReveal()
         {
-            var card = Panel(revealGroup.transform, "ThreadMeasureReveal", new Vector2(.5f, .5f), Vector2.zero, new Vector2(352, 132), new Color(Indigo.r, Indigo.g, Indigo.b, .96f), paperSprite);
-            revealTitle = Txt(card, "", new Vector2(.5f, .69f), Vector2.zero, 24, White, 325);
-            revealBody = Txt(card, "", new Vector2(.5f, .31f), Vector2.zero, 13, Page, 326); revealBody.enableAutoSizing = true; revealBody.fontSizeMin = 10; revealBody.fontSizeMax = 13;
+            // 정답 사건의 예인선 횡단을 가리지 않도록 낮고 반투명한 계기판으로 둔다.
+            var card = Panel(revealGroup.transform, "TensionReadout", new Vector2(.5f, .5f), new Vector2(0, 86), new Vector2(350, 106), new Color(Indigo.r, Indigo.g, Indigo.b, .84f), paperSprite);
+            revealTitle = Txt(card, "", new Vector2(.5f, .70f), Vector2.zero, 21, White, 324);
+            revealBody = Txt(card, "", new Vector2(.5f, .29f), Vector2.zero, 12, Page, 324); revealBody.enableAutoSizing = true; revealBody.fontSizeMin = 9; revealBody.fontSizeMax = 12;
         }
 
         void BuildEnd()
@@ -414,12 +402,11 @@ namespace Mgf.GeJimkkun
         {
             var root = R(name, parent, anchor, pos, new Vector2(78, 66)); root.localScale = Vector3.one * scale;
             Img(root, "CrabShadow", new Vector2(.5f, .5f), new Vector2(0, -20), new Vector2(72, 24), new Color(Ink.r, Ink.g, Ink.b, .22f), softSprite);
-            Img(root, "LeftClaw", new Vector2(.16f, .50f), new Vector2(-3, -2), new Vector2(25, 15), Coral, paperSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, -28);
-            Img(root, "RightClaw", new Vector2(.84f, .50f), new Vector2(3, -2), new Vector2(25, 15), Coral, paperSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, 28);
-            Img(root, "FoldedPaperBody", new Vector2(.5f, .40f), Vector2.zero, new Vector2(57, 25), Coral, paperSprite);
-            var shell = Img(root, "YellowDiamondFold", new Vector2(.5f, .63f), Vector2.zero, new Vector2(48, 48), Sun, paperSprite).rectTransform;
-            shell.localRotation = Quaternion.Euler(0, 0, 45);
-            Img(root, "InkFold", new Vector2(.5f, .66f), Vector2.zero, new Vector2(27, 5), new Color(Ink.r, Ink.g, Ink.b, .48f), paperSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, -20);
+            Img(root, "LeftClaw", new Vector2(.16f, .50f), new Vector2(-3, -2), new Vector2(25, 18), Coral, roundedSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, -22);
+            Img(root, "RightClaw", new Vector2(.84f, .50f), new Vector2(3, -2), new Vector2(25, 18), Coral, roundedSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, 22);
+            Img(root, "RoundedTowBody", new Vector2(.5f, .40f), Vector2.zero, new Vector2(57, 27), Coral, roundedSprite);
+            Img(root, "BlueBuoyShell", new Vector2(.5f, .63f), Vector2.zero, new Vector2(49, 45), Mint, roundedSprite);
+            Img(root, "AmberHarness", new Vector2(.5f, .68f), Vector2.zero, new Vector2(31, 6), Sun, roundedSprite);
             Img(root, "LeftEyeRivet", new Vector2(.39f, .37f), Vector2.zero, new Vector2(8, 8), Ink, roundedSprite);
             Img(root, "RightEyeRivet", new Vector2(.61f, .37f), Vector2.zero, new Vector2(8, 8), Ink, roundedSprite);
             var tag = Panel(root, "LetterTag", new Vector2(.5f, .54f), Vector2.zero, new Vector2(31, 31), Ink, paperSprite);
@@ -431,7 +418,7 @@ namespace Mgf.GeJimkkun
         {
             var sb = new StringBuilder(50000);
             sb.Append("게짐꾼게를대응점으로옮겨라출항도착출발연습실전배지도첫제출보호매듭남은시간수선성공실패다시싣기");
-            sb.Append("종이항로책펼치기입체접기완성팝업극장실매듭");
+            sb.Append("야간조수갑문예인선부표밧줄수직현무암항로개방출항완성");
             sb.Append("주어진조건을이용하여대응하는꼭짓점으로게를옮기시오그림은실제비율과다릅니다같은두변이만나는꼭짓점끼인각한변의양끝각");
             sb.Append("대응을확인했습니다밧줄이느슨합니다빈자리로옮기시오꼭짓점자리에놓으시오세자리가차면자동제출중학교학년작도와합동");
             sb.Append("△∠≡→=°cmSSSSASASAABCDEF0123456789");
@@ -463,9 +450,9 @@ namespace Mgf.GeJimkkun
         {
             for (int i = 0; i < worldProps.Count; i++)
             {
-                var t = worldProps[i];
-                float flutter = Mathf.Sin(titleClock * 1.35f + i * .73f) * (i < 16 ? 4.2f : 1.6f);
-                Vector3 e = t.localEulerAngles; t.localRotation = Quaternion.Euler(e.x, e.y, flutter);
+                var t = worldProps[i]; Vector3 basePos = worldPropBase[i];
+                t.localPosition = basePos + Vector3.up * (Mathf.Sin(titleClock * 1.4f + i * .73f) * .07f);
+                t.localRotation = Quaternion.Euler(0, Mathf.Sin(titleClock * 1.1f + i) * 7f, 0);
             }
             for (int i = 0; i < worldCrabs.Count; i++)
             {
@@ -477,17 +464,17 @@ namespace Mgf.GeJimkkun
                 if (foldEventClock >= 0)
                 {
                     foldEventClock += dt;
-                    float rise = Mathf.SmoothStep(0, 1, Mathf.Clamp01(foldEventClock / .70f));
-                    float settle = Mathf.SmoothStep(0, 1, Mathf.Clamp01((foldEventClock - .70f) / .36f));
-                    popupRoute3d.localPosition = new Vector3(0, Mathf.Lerp(-.25f, 1.15f, rise) - settle * .18f, 7.6f);
-                    foldLeft3d.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(0, -56f, rise) + settle * 4f);
-                    foldRight3d.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(0, 56f, rise) - settle * 4f);
-                    float pull = Mathf.Lerp(.25f, 1f, rise);
+                    float sail = Mathf.SmoothStep(0, 1, Mathf.Clamp01(foldEventClock / 1.08f));
+                    float wake = Mathf.Sin(Mathf.Clamp01(foldEventClock / 1.08f) * Mathf.PI);
+                    popupRoute3d.localPosition = new Vector3(Mathf.Lerp(-5.4f, 5.4f, sail), -.36f + wake * .30f, 5.9f);
+                    popupRoute3d.localRotation = Quaternion.Euler(0, Mathf.Lerp(-8f, 9f, sail), Mathf.Sin(sail * Mathf.PI * 2f) * 2.2f);
+                    float pull = Mathf.Lerp(.35f, 1f, Mathf.Clamp01(foldEventClock / .28f));
                     for (int i = 0; i < pullThreads3d.Length; i++) pullThreads3d[i].localScale = new Vector3(pull, 1, pull);
                 }
                 else
                 {
-                    popupRoute3d.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(titleClock * 1.15f) * 1.2f);
+                    popupRoute3d.localPosition = new Vector3(-5.4f, -.36f + Mathf.Sin(titleClock * 1.3f) * .06f, 5.9f);
+                    popupRoute3d.localRotation = Quaternion.Euler(0, -8f, Mathf.Sin(titleClock * 1.15f) * 1.2f);
                 }
             }
         }
@@ -502,10 +489,8 @@ namespace Mgf.GeJimkkun
         {
             foldEventClock = -1f;
             if (!popupRoute3d) return;
-            popupRoute3d.localPosition = new Vector3(0, -.25f, 7.6f);
-            popupRoute3d.localRotation = Quaternion.identity;
-            foldLeft3d.localRotation = Quaternion.identity;
-            foldRight3d.localRotation = Quaternion.identity;
+            popupRoute3d.localPosition = new Vector3(-5.4f, -.36f, 5.9f);
+            popupRoute3d.localRotation = Quaternion.Euler(0, -8f, 0);
             for (int i = 0; i < pullThreads3d.Length; i++) if (pullThreads3d[i]) pullThreads3d[i].gameObject.SetActive(false);
         }
 
@@ -533,7 +518,7 @@ namespace Mgf.GeJimkkun
             current = GeJimkkunRules.Practice(); secondsLeft = GeJimkkunRules.RunSeconds; tutorialFirstCarryDone = false;
             practiceNoProgressClock = 0;
             titleGroup.alpha = 0; titleGroup.blocksRaycasts = false; SetGroup(playGroup, true); SetGroup(revealGroup, false); SetGroup(endGroup, false);
-            LoadCurrent(); goalText.text = "게 토큰을 대응점에 옮기면 지도가 입체로 접힌다"; toastClock = 99; Notify();
+            LoadCurrent(); goalText.text = "세 게를 대응점에 옮기면 예인선이 갑문을 건넌다"; toastClock = 99; Notify();
         }
 
         void BeginRun(bool test)
@@ -587,7 +572,9 @@ namespace Mgf.GeJimkkun
             for (int i = 0; i < 3; i++)
             {
                 Vector2 outDir = (v[i] - center).normalized;
-                vertices[i].rectTransform.anchoredPosition = v[i] + outDir * 29f;
+                Vector2 vertexPos = v[i] + outDir * 24f;
+                vertexPos.y = Mathf.Min(vertexPos.y, diagram.rectTransform.rect.yMax - 38f);
+                vertices[i].rectTransform.anchoredPosition = vertexPos;
                 angles[i].rectTransform.anchoredPosition = v[i] - outDir * 30f;
                 int j = (i + 1) % 3; Vector2 mid = (v[i] + v[j]) * .5f;
                 Vector2 edge = v[j] - v[i]; Vector2 n = new Vector2(-edge.y, edge.x).normalized;
@@ -603,7 +590,7 @@ namespace Mgf.GeJimkkun
                 st.inputSerial++; idleClock = 0; Vector2 local = ToCanvas(MgfPointer.Position); ShowRipple(local);
                 if (flow == Flow.Title)
                 {
-                    // 첫 화면 전체가 하나의 팝업 항로책이다. 첫 탭을 놓치지 않게 어느 지점에서든 연습으로 연다.
+                    // 첫 화면 전체가 살아 있는 야간 갑문이다. 첫 탭을 놓치지 않게 어느 지점에서든 연습으로 연다.
                     MgfSfx.Play("pop", .42f); BeginPractice();
                     return;
                 }
@@ -712,7 +699,7 @@ namespace Mgf.GeJimkkun
                     { int add = Math.Min(4, 8 - st.bonusSeconds); st.bonusSeconds += add; secondsLeft += add; }
                 }
                 revealCorrect = true; failAfterReveal = false; hitStop = .075f; BeginFoldRoute();
-                revealTitle.text = practice ? "대응 완성 · SSS 합동" : "항로 접기 성공 · " + current.kind + " 합동";
+                revealTitle.text = practice ? "대응 완성 · SSS 합동" : "갑문 횡단 성공 · " + current.kind + " 합동";
                 revealBody.text = current.answer + (first && !practice ? "\n첫 제출 기록에 반영했습니다." : practice ? "\n같은 조건이 만나는 꼭짓점을 확인했습니다." : "\n수선하여 출항했습니다.");
                 MgfSfx.Play(practice ? "correct" : "win", .48f); MgfFx.Glow(new Vector3(0, 1.1f, 2.4f), White, 18 + st.combo * 3, .34f);
             }
@@ -750,7 +737,7 @@ namespace Mgf.GeJimkkun
             if (flow == Flow.End) return;
             if (current.id == "practice-fixed")
             {
-                if (revealCorrect) { BeginRun(false); goalText.text = "게 토큰을 대응점에 옮기면 지도가 입체로 접힌다"; }
+                if (revealCorrect) { BeginRun(false); goalText.text = "세 게를 대응점에 옮기면 예인선이 갑문을 건넌다"; }
                 else { flow = Flow.Practice; st.phase = "playing"; st.frozen = true; st.tutorialStep = tutorialFirstCarryDone ? "repair" : "A_to_F"; }
                 Notify(); return;
             }
@@ -768,8 +755,8 @@ namespace Mgf.GeJimkkun
             bool clear = reason == "complete" && st.solved == GeJimkkunRules.RoundCount && st.firstAttemptCorrect >= GeJimkkunRules.MasteryNeeded && st.lives > 0;
             flow = Flow.End; st.phase = clear ? "clear" : "gameover"; st.frozen = true; dragging = -1; st.dragActive = false; st.draggingCrab = -1;
             SetGroup(playGroup, false); SetGroup(revealGroup, false); SetGroup(endGroup, true);
-            endTitle.text = clear ? "입체 항로책 완성" : reason == "time" ? "접기 시간이 끝났습니다" : reason == "knots" ? "실 매듭이 모두 풀렸습니다" : "첫 제출 기준 미달";
-            endStats.text = "완성 지도 " + st.solved + "/8\n첫 제출 " + st.firstAttemptCorrect + "/" + st.firstAttemptCount + " · 매듭 " + st.lives + "/3";
+            endTitle.text = clear ? "야간 갑문 완전 개방" : reason == "time" ? "밀물이 갑문을 덮었습니다" : reason == "knots" ? "예인 매듭이 모두 풀렸습니다" : "첫 제출 기준 미달";
+            endStats.text = "출항 예인선 " + st.solved + "/8\n첫 제출 " + st.firstAttemptCorrect + "/" + st.firstAttemptCount + " · 매듭 " + st.lives + "/3";
             endScore.text = "0"; scoreShown = 0;
             toastPanel.gameObject.SetActive(false); ripple.gameObject.SetActive(false);
             int best = PlayerPrefs.GetInt("ge-jimkkun-best", 0); if (st.firstAttemptCorrect > best) PlayerPrefs.SetInt("ge-jimkkun-best", st.firstAttemptCorrect);
@@ -825,7 +812,7 @@ namespace Mgf.GeJimkkun
             scoreShown = Mathf.MoveTowards(scoreShown, st.score, Mathf.Max(70, Mathf.Abs(st.score - scoreShown) * 8f) * dt);
             if (flow == Flow.End) { endScore.text = Mathf.RoundToInt(scoreShown).ToString("N0") + "점"; return; }
             if (flow == Flow.Practice) hudText.text = "연습 · 시계 정지 · 매듭 안전";
-            else hudText.text = "지도 " + st.solved + "/8 · 첫 제출 " + st.firstAttemptCorrect + "/" + st.firstAttemptCount + " · " + Mathf.CeilToInt(secondsLeft) + "초";
+            else hudText.text = "출항 " + st.solved + "/8 · 첫 제출 " + st.firstAttemptCorrect + "/" + st.firstAttemptCount + " · " + Mathf.CeilToInt(secondsLeft) + "초";
             scoreText.text = Mathf.RoundToInt(scoreShown).ToString("N0");
             for (int i = 0; i < 3; i++) knots[i].color = i < st.lives ? Sun : new Color(Coral.r, Coral.g, Coral.b, .24f);
             for (int i = 0; i < 8; i++) raftPips[i].color = i < st.solved ? Mint : new Color(White.r, White.g, White.b, .22f);
