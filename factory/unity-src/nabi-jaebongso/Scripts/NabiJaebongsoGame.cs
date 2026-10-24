@@ -22,26 +22,31 @@ namespace Mgf.NabiJaebongso
             public int arcs;
             public int drawnSegments;
             public int inputSerial;
-            public int sourceAScreenX;
-            public int sourceAScreenY;
-            public int sourceBScreenX;
-            public int sourceBScreenY;
-            public int sourceCScreenX;
-            public int sourceCScreenY;
-            public int targetLeftScreenX;
-            public int targetLeftScreenY;
-            public int targetRightScreenX;
-            public int targetRightScreenY;
-            public int hingeScreenX;
-            public int hingeScreenY;
-            public int pencilScreenX;
-            public int pencilScreenY;
-            public int compassButtonScreenX;
-            public int compassButtonScreenY;
-            public int rulerButtonScreenX;
-            public int rulerButtonScreenY;
+            public float sourceAScreenX;
+            public float sourceAScreenY;
+            public float sourceBScreenX;
+            public float sourceBScreenY;
+            public float sourceCScreenX;
+            public float sourceCScreenY;
+            public float targetLeftScreenX;
+            public float targetLeftScreenY;
+            public float targetRightScreenX;
+            public float targetRightScreenY;
+            public float targetPanelBottomScreenY;
+            public float promptBottomScreenY;
+            public float toolHintTopScreenY;
+            public float sourceLabelTopCenterScreenY;
+            public float hingeScreenX;
+            public float hingeScreenY;
+            public float pencilScreenX;
+            public float pencilScreenY;
+            public float compassButtonScreenX;
+            public float compassButtonScreenY;
+            public float rulerButtonScreenX;
+            public float rulerButtonScreenY;
             public string tool = "compass";
             public string problemId = "";
+            public string screenPrompt = "";
             public string misconceptionId = "";
         }
 
@@ -65,6 +70,11 @@ namespace Mgf.NabiJaebongso
         System.Random rng;
         int runSerial;
         int sourceDragStart = -1;
+        bool sourceDragFromCorridor;
+        bool sourceDragReachedTarget;
+        bool practiceGuideStrong;
+        int practiceFailedInputs;
+        float sourceDragStartT;
         int selectedSourceEdge = -1;
         int compassCenter = -1;
         bool segmentLeft, segmentRight;
@@ -74,7 +84,7 @@ namespace Mgf.NabiJaebongso
         bool firstAttempt;
         bool revealCorrect, revealFirst, pendingTerminal;
         float secondsLeft = NabiRules.RunSeconds;
-        float revealClock, idleClock, titleClock, hitStop;
+        float revealClock, idleClock, practiceNoProgressClock, titleClock, hitStop;
         string endReason = "";
         Vector2 lastBoardPointer;
 
@@ -97,7 +107,7 @@ namespace Mgf.NabiJaebongso
         void Prewarm()
         {
             var sb = new StringBuilder("나비재봉소원을그려날개를펴라중학교1학년작도와합동고치를열어연습시작");
-            sb.Append("같은길이로날개를그리면나비가난다컴퍼스폭중심원호교점눈금없는자대응변SSS합동");
+            sb.Append("같은길이로날개맥을짜라날개를그리면나비가난다두원호빛실셔틀재봉소열기어떻게놀아요컴퍼스폭중심원호교점눈금없는자대응변SSS합동");
             sb.Append("실타래첫제출시간날개완성수선다시재봉도구를고르시오원본변두꼭짓점을이어폭을잡으시오");
             sb.Append("중심손잡이를밑변끝점으로옮기시오연필끝을원둘레로움직이시오교점까지두선을그으시오");
             sb.Append("세대응변의길이가같으므로SSS합동화면좌우가아니라기호순서대로대응을읽으시오");
@@ -116,7 +126,17 @@ namespace Mgf.NabiJaebongso
             else if (phase == RunPhase.Practice)
             {
                 idleClock += dt;
-                if (idleClock >= 8f) { idleClock = 0f; ReplayGuide(true); }
+                practiceNoProgressClock += dt;
+                if (!practiceGuideStrong && selectedSourceEdge < 0 && practiceNoProgressClock >= 6f)
+                {
+                    practiceGuideStrong = true;
+                    ReplayGuide(true);
+                }
+                else if (idleClock >= 8f)
+                {
+                    idleClock = 0f;
+                    ReplayGuide(true);
+                }
             }
             else if (phase == RunPhase.Playing)
             {
@@ -147,6 +167,7 @@ namespace Mgf.NabiJaebongso
             st.attemptsOnCurrent = 0;
             st.timeLeft = (int)NabiRules.RunSeconds;
             st.problemId = "";
+            st.screenPrompt = "";
             st.misconceptionId = "";
             st.inputSerial = 0;
             current = null;
@@ -174,6 +195,7 @@ namespace Mgf.NabiJaebongso
             st.attemptsOnCurrent = 0;
             st.timeLeft = (int)NabiRules.RunSeconds;
             st.problemId = "";
+            st.screenPrompt = "";
             st.misconceptionId = "";
             st.inputSerial = 0;
             secondsLeft = NabiRules.RunSeconds;
@@ -190,10 +212,14 @@ namespace Mgf.NabiJaebongso
             st.phase = "practice";
             current = NabiRules.Practice();
             st.problemId = current.id;
+            st.screenPrompt = current.prompt;
             st.level = 0;
             st.round = 0;
             firstAttempt = true;
             idleClock = 0f;
+            practiceNoProgressClock = 0f;
+            practiceGuideStrong = false;
+            practiceFailedInputs = 0;
             ResetConstruction();
             // 첫 연습의 D 중심 AC 원호는 명시적인 시범이며 통계에 포함하지 않는다.
             arcPresent[0] = true;
@@ -246,6 +272,7 @@ namespace Mgf.NabiJaebongso
             st.round = st.solved + 1;
             st.level = current.band;
             st.problemId = current.id;
+            st.screenPrompt = current.prompt;
             st.attemptsOnCurrent = 0;
             st.misconceptionId = "";
             firstAttempt = true;
@@ -270,6 +297,9 @@ namespace Mgf.NabiJaebongso
         {
             drag = DragKind.None;
             sourceDragStart = -1;
+            sourceDragFromCorridor = false;
+            sourceDragReachedTarget = false;
+            sourceDragStartT = 0f;
             selectedSourceEdge = -1;
             compassCenter = -1;
             tool = ToolMode.Compass;
@@ -362,10 +392,41 @@ namespace Mgf.NabiJaebongso
 
         void BeginCompassDrag(Vector2 p)
         {
-            int v = ClosestSourceVertex(p, HitRadius);
+            // 폭과 중심을 이미 잡은 뒤에는 화면에 보이는 연필 손잡이가 입력 우선이다.
+            // 큰 반지름의 연필 끝이 회전된 원본 꼭짓점과 겹칠 수 있어, 꼭짓점을 먼저
+            // 검사하면 사용자가 연필을 잡아도 새 변 선택으로 오인되어 원호를 못 그린다.
+            if (selectedSourceEdge >= 0 && compassCenter >= 0 &&
+                Vector2.Distance(p, PencilLocal) <= HitRadius * 1.2f)
+            {
+                Vector2 c = compassCenter == 0 ? TargetLeftLocal : TargetRightLocal;
+                drag = DragKind.Arc;
+                tracedStartAngle = Mathf.Atan2(p.y - c.y, p.x - c.x);
+                tracedCurrentAngle = tracedStartAngle;
+                SetArcPreview(compassCenter, selectedSourceEdge, tracedStartAngle, tracedStartAngle + .02f);
+                return;
+            }
+            // 첫 고정 연습은 B→C 선분 자체가 44 CSS px 이상의 입력 레일이다. 꼭짓점의
+            // 작은 월드 점을 정확히 찍게 하지 않고 강조된 BC 어디서든 시작할 수 있다.
+            // 단, C 방향으로 실제 거리를 따라가야 하므로 탭이나 엉뚱한 드래그는 통과하지 않는다.
+            if (phase == RunPhase.Practice && selectedSourceEdge < 0 &&
+                PointNearSegment(p, sourcePoints[1], sourcePoints[2], HitRadius * 2.20f, out float practiceT) && practiceT <= .82f)
+            {
+                sourceDragStart = 1;
+                sourceDragFromCorridor = true;
+                sourceDragReachedTarget = false;
+                sourceDragStartT = practiceT;
+                drag = DragKind.SourceEdge;
+                SetSourceDragVisual(1, p);
+                MgfSfx.Play("tap", .24f);
+                return;
+            }
+            float sourceHit = HitRadius;
+            int v = ClosestSourceVertex(p, sourceHit);
             if (v >= 0)
             {
                 sourceDragStart = v;
+                sourceDragFromCorridor = false;
+                sourceDragReachedTarget = false;
                 drag = DragKind.SourceEdge;
                 SetSourceDragVisual(v, p);
                 MgfSfx.Play("tap", .24f);
@@ -393,7 +454,7 @@ namespace Mgf.NabiJaebongso
                 }
             }
             RefuseInput(MgfPointer.Position, selectedSourceEdge < 0 ? "원본의 두 꼭짓점을 이어 컴퍼스 폭을 잡으시오." :
-                compassCenter < 0 ? "황동 중심 손잡이를 밑변 끝점으로 옮기시오." : "연필 끝을 원둘레로 움직이시오.");
+                compassCenter < 0 ? "도자 중심 손잡이를 밑변 끝점으로 옮기시오." : "연필 끝을 원둘레로 움직이시오.");
         }
 
         void BeginRulerDrag(Vector2 p)
@@ -423,6 +484,10 @@ namespace Mgf.NabiJaebongso
             {
                 case DragKind.SourceEdge:
                     SetSourceDragVisual(sourceDragStart, p);
+                    if (sourceDragFromCorridor &&
+                        PointNearSegment(p, sourcePoints[1], sourcePoints[2], HitRadius * 2.35f, out float pathT) &&
+                        pathT >= Mathf.Min(.94f, sourceDragStartT + .18f))
+                        sourceDragReachedTarget = true;
                     break;
                 case DragKind.Hinge:
                     SetHingeVisual(p, true);
@@ -449,12 +514,26 @@ namespace Mgf.NabiJaebongso
             drag = DragKind.None;
             if (ended == DragKind.SourceEdge)
             {
-                int v = ClosestSourceVertex(p, HitRadius * 1.35f);
+                float endHit = phase == RunPhase.Practice ? HitRadius * 2.20f : HitRadius * 1.35f;
+                int v = ClosestSourceVertex(p, endHit);
+                bool corridorFinish = sourceDragFromCorridor && sourceDragReachedTarget &&
+                    PointNearSegment(p, sourcePoints[1], sourcePoints[2], HitRadius * 2.35f, out float endT) &&
+                    endT >= Mathf.Min(.94f, sourceDragStartT + .18f);
                 HideSourceDragVisual();
-                if (v >= 0 && v != sourceDragStart)
+                if (corridorFinish) v = 2;
+                bool validPair = (v >= 0 && v != sourceDragStart) || corridorFinish;
+                // 고정 연습은 안내문·시범 경로가 가리키는 B→C 한 변만 받는다. 다른 변을 받아 주면
+                // 안내(「B에서 C까지」)와 실제 진행이 어긋나 다음 단계에서 이유 모를 오답이 났다.
+                if (validPair && phase == RunPhase.Practice &&
+                    NabiRules.EdgeBetween(sourceDragStart, v) != current.expectedRightEdge)
+                    RefuseInput(MgfPointer.Position, "연습에서는 원본의 B에서 C까지 이어 BC 폭을 잡으시오.");
+                else if (validPair)
                 {
                     selectedSourceEdge = NabiRules.EdgeBetween(sourceDragStart, v);
                     compassCenter = -1;
+                    practiceGuideStrong = false;
+                    practiceFailedInputs = 0;
+                    practiceNoProgressClock = 0f;
                     SetCompassWidthVisual(selectedSourceEdge);
                     ShowToast("컴퍼스 폭: " + current.EdgeName(selectedSourceEdge), false);
                     MgfSfx.Play("pop", .35f);
@@ -531,25 +610,63 @@ namespace Mgf.NabiJaebongso
             return value;
         }
 
+        static bool PointNearSegment(Vector2 p, Vector2 a, Vector2 b, float radius, out float t)
+        {
+            Vector2 ab = b - a;
+            float denom = ab.sqrMagnitude;
+            t = denom <= .0001f ? 0f : Mathf.Clamp01(Vector2.Dot(p - a, ab) / denom);
+            return Vector2.Distance(p, a + ab * t) <= radius;
+        }
+
         void AdvancePracticeGuide()
         {
             if (phase != RunPhase.Practice) return;
             idleClock = 0f;
+            practiceNoProgressClock = 0f;
             ReplayGuide(false);
         }
 
         bool CandidateGeometryOkay(out Vector2 candidate)
         {
-            candidate = (segmentLeftEnd + segmentRightEnd) * .5f;
+            candidate = Vector2.zero;
             if (!segmentLeft || !segmentRight || !arcPresent[0] || !arcPresent[1]) return false;
             float baseLen = Vector2.Distance(TargetLeftLocal, TargetRightLocal);
             float tolerance = baseLen * .02f;
-            if (Vector2.Distance(segmentLeftEnd, segmentRightEnd) > tolerance * 2f) return false;
             float leftRadius = EdgeWorldLength(arcEdge[0]);
             float rightRadius = EdgeWorldLength(arcEdge[1]);
-            bool leftOnArc = Mathf.Abs(Vector2.Distance(candidate, TargetLeftLocal) - leftRadius) <= tolerance;
-            bool rightOnArc = Mathf.Abs(Vector2.Distance(candidate, TargetRightLocal) - rightRadius) <= tolerance;
-            return leftOnArc && rightOnArc;
+            if (!CircleIntersections(leftRadius, rightRadius, out Vector2 first, out Vector2 second)) return false;
+            if (CandidateMatchesActualMarks(first, leftRadius, rightRadius, tolerance)) { candidate = first; return true; }
+            if (CandidateMatchesActualMarks(second, leftRadius, rightRadius, tolerance)) { candidate = second; return true; }
+            return false;
+        }
+
+        bool CandidateMatchesActualMarks(Vector2 intersection, float leftRadius, float rightRadius, float tolerance)
+        {
+            // 두 자 선분은 평균점이 아니라 같은 수학적 교점 하나에 각각 닿아야 한다.
+            if (Vector2.Distance(segmentLeftEnd, intersection) > tolerance) return false;
+            if (Vector2.Distance(segmentRightEnd, intersection) > tolerance) return false;
+            if (Vector2.Distance(segmentLeftEnd, segmentRightEnd) > tolerance * 2f) return false;
+
+            // 각 선의 끝점도 자신이 대응하는 실제 원호 위에 있어야 한다.
+            if (Mathf.Abs(Vector2.Distance(segmentLeftEnd, TargetLeftLocal) - leftRadius) > tolerance) return false;
+            if (Mathf.Abs(Vector2.Distance(segmentRightEnd, TargetRightLocal) - rightRadius) > tolerance) return false;
+
+            // 원 전체의 가상 교점이 아니라 학생이 실제로 그은 arcStart~arcEnd 구간이
+            // 그 교점을 포함해야 한다. 길이 허용오차를 각도 허용오차로 환산한다.
+            float leftAngleTolerance = Mathf.Asin(Mathf.Clamp(tolerance / Mathf.Max(.001f, leftRadius), 0f, .45f)) + .015f;
+            float rightAngleTolerance = Mathf.Asin(Mathf.Clamp(tolerance / Mathf.Max(.001f, rightRadius), 0f, .45f)) + .015f;
+            float leftAngle = Mathf.Atan2(intersection.y - TargetLeftLocal.y, intersection.x - TargetLeftLocal.x);
+            float rightAngle = Mathf.Atan2(intersection.y - TargetRightLocal.y, intersection.x - TargetRightLocal.x);
+            return AngleInsideRecordedSweep(leftAngle, arcStart[0], arcEnd[0], leftAngleTolerance) &&
+                AngleInsideRecordedSweep(rightAngle, arcStart[1], arcEnd[1], rightAngleTolerance);
+        }
+
+        static bool AngleInsideRecordedSweep(float angle, float start, float end, float tolerance)
+        {
+            float unwrappedAngle = UnwrapAngle(start, angle);
+            float lo = Mathf.Min(start, end) - tolerance;
+            float hi = Mathf.Max(start, end) + tolerance;
+            return unwrappedAngle >= lo && unwrappedAngle <= hi;
         }
 
         void SubmitConstruction()
@@ -728,13 +845,15 @@ namespace Mgf.NabiJaebongso
             arcPresent[0] = arcPresent[1] = true;
             arcEdge[0] = current.expectedRightEdge;
             arcEdge[1] = current.expectedLeftEdge;
+            arcStart[0] = arcStart[1] = .05f;
+            arcEnd[0] = arcEnd[1] = Mathf.PI - .05f;
             Vector2 a, b;
             CircleIntersections(EdgeWorldLength(arcEdge[0]), EdgeWorldLength(arcEdge[1]), out a, out b);
             Vector2 target = a.y >= b.y ? a : b;
             segmentLeft = segmentRight = true;
             segmentLeftEnd = segmentRightEnd = target;
-            SetArcVisual(0, true, arcEdge[0], .05f, Mathf.PI - .05f, false);
-            SetArcVisual(1, true, arcEdge[1], .05f, Mathf.PI - .05f, false);
+            SetArcVisual(0, true, arcEdge[0], arcStart[0], arcEnd[0], false);
+            SetArcVisual(1, true, arcEdge[1], arcStart[1], arcEnd[1], false);
             SetSegmentVisual(0, true, target);
             SetSegmentVisual(1, true, target);
             SubmitConstruction();

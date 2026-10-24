@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// NabiRules / CandidateGeometryOkay의 정수 변 ID + 2% 실측 판정을 1:1로 옮긴 B3 감사.
+// NabiRules / CandidateGeometryOkay의 변 ID + 두 끝점 + 실제 원호 sweep 판정을 1:1로 옮긴 B3 감사.
 // 각 정책 200판 × 6문항의 독립 첫 제출을 세며, 봇은 문제/정답/좌표를 읽지 않는다.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -25,6 +25,22 @@ const edgeBetween = (a, b) => {
   return lo === 0 && hi === 1 ? 0 : lo === 0 && hi === 2 ? 1 : 2;
 };
 const edgeLength = (p, e) => e === 0 ? p.ab : e === 1 ? p.ac : p.bc;
+const unwrapAngle = (start, value) => {
+  while (value - start > Math.PI) value -= Math.PI * 2;
+  while (value - start < -Math.PI) value += Math.PI * 2;
+  return value;
+};
+const angleInside = (angle, sweep, tolerance) => {
+  const value = unwrapAngle(sweep[0], angle);
+  return value >= Math.min(...sweep) - tolerance && value <= Math.max(...sweep) + tolerance;
+};
+function circleIntersections(base, leftR, rightR) {
+  if (base <= 0 || leftR + rightR < base || Math.abs(leftR - rightR) > base) return [];
+  const xFromLeft = (leftR * leftR - rightR * rightR + base * base) / (2 * base);
+  const h = Math.sqrt(Math.max(0, leftR * leftR - xFromLeft * xFromLeft));
+  const x = -base / 2 + xFromLeft;
+  return [{ x, y: h }, { x, y: -h }];
+}
 
 function buildBank() {
   const bank = [];
@@ -66,9 +82,20 @@ function judge(p, action) {
   const base = edgeLength(p, p.baseEdge), leftR = edgeLength(p, action.edges[0]), rightR = edgeLength(p, action.edges[1]);
   const tol = base * 0.02;
   const left = { x: -base / 2, y: 0 }, right = { x: base / 2, y: 0 };
-  const dl = Math.hypot(action.point.x - left.x, action.point.y - left.y);
-  const dr = Math.hypot(action.point.x - right.x, action.point.y - right.y);
-  return Math.abs(dl - leftR) <= tol + 1e-12 && Math.abs(dr - rightR) <= tol + 1e-12;
+  const leftEnd = action.leftEnd ?? action.point;
+  const rightEnd = action.rightEnd ?? action.point;
+  const sweeps = action.sweeps ?? [[0, Math.PI - 0.02], [0, Math.PI - 0.02]];
+  return circleIntersections(base, leftR, rightR).some((candidate) => {
+    if (Math.hypot(leftEnd.x - candidate.x, leftEnd.y - candidate.y) > tol + 1e-12) return false;
+    if (Math.hypot(rightEnd.x - candidate.x, rightEnd.y - candidate.y) > tol + 1e-12) return false;
+    if (Math.hypot(leftEnd.x - rightEnd.x, leftEnd.y - rightEnd.y) > tol * 2 + 1e-12) return false;
+    if (Math.abs(Math.hypot(leftEnd.x - left.x, leftEnd.y - left.y) - leftR) > tol + 1e-12) return false;
+    if (Math.abs(Math.hypot(rightEnd.x - right.x, rightEnd.y - right.y) - rightR) > tol + 1e-12) return false;
+    const leftTol = Math.asin(Math.min(0.45, tol / Math.max(0.001, leftR))) + 0.015;
+    const rightTol = Math.asin(Math.min(0.45, tol / Math.max(0.001, rightR))) + 0.015;
+    return angleInside(Math.atan2(candidate.y - left.y, candidate.x - left.x), sweeps[0], leftTol) &&
+      angleInside(Math.atan2(candidate.y - right.y, candidate.x - right.x), sweeps[1], rightTol);
+  });
 }
 function policy(name, seed) {
   const rand = xorshift(seed); let n = 0;
@@ -80,6 +107,32 @@ function policy(name, seed) {
     if (name === 'cycle4') { const k = n++ % 4; return { edges: pairs[k], point: { x: 0, y: ys[k] } }; }
     const a = Math.floor(rand() * 3); let b = Math.floor(rand() * 2); if (b >= a) b++;
     return { edges: [a,b], point: { x: rand() * 16 - 8, y: rand() * 12 - 6 } };
+  };
+}
+
+function geometryRegression() {
+  const p = bank[0];
+  const base = edgeLength(p, p.baseEdge);
+  const leftR = edgeLength(p, p.expectedLeftEdge), rightR = edgeLength(p, p.expectedRightEdge);
+  const candidate = circleIntersections(base, leftR, rightR)[0];
+  const left = { x: -base / 2, y: 0 }, right = { x: base / 2, y: 0 };
+  const angles = [
+    Math.atan2(candidate.y - left.y, candidate.x - left.x),
+    Math.atan2(candidate.y - right.y, candidate.x - right.x),
+  ];
+  const correct = {
+    edges: [p.expectedLeftEdge, p.expectedRightEdge],
+    leftEnd: candidate,
+    rightEnd: candidate,
+    sweeps: angles.map((a) => [a - 0.4, a + 0.4]),
+  };
+  const missedArcs = { ...correct, sweeps: angles.map((a) => [a + 0.9, a + 1.26]) };
+  const splitEnds = { ...correct, rightEnd: { x: candidate.x + base * 0.08, y: candidate.y } };
+  return {
+    problem: p.id,
+    correctAccepted: judge(p, correct),
+    virtualIntersectionWithMissedArcRejected: !judge(p, missedArcs),
+    separateSegmentEndsRejected: !judge(p, splitEnds),
   };
 }
 function simulate(name) {
@@ -124,14 +177,16 @@ function simulate(name) {
 }
 
 const policies = ['fixed','cycle4','random','idle'].map(simulate);
+const regression = geometryRegression();
 const result = {
   runId: `nabi-jaebongso-b3-${new Date().toISOString()}`,
   rulesSha256: createHash('sha256').update(readFileSync(rulesPath)).digest('hex'),
   judgeSha256: createHash('sha256').update(readFileSync(gamePath)).digest('hex'),
-  method: 'NabiRules 360-bank / CandidateGeometryOkay mirror; 200 games per policy, six independent first submissions per game; bots do not inspect problem, correspondence, or geometry; both segment ends are generously treated as the same blind point, so measured rates are an upper bound for real random dragging.',
-  chanceModel: 'ordered distinct source-edge pair: 1/6 upper bound; continuous two-annulus 2% intersection requirement only lowers chance further',
+  method: 'NabiRules 360-bank / CandidateGeometryOkay mirror; 200 games per policy, six independent first submissions per game; bots do not inspect problem, correspondence, or geometry. Mirror checks each segment endpoint against one shared circle intersection and checks that intersection against both recorded arc sweeps.',
+  chanceModel: 'ordered distinct source-edge pair: 1/6 upper bound; continuous endpoint and actual-arc-sweep requirements only lower chance further',
   policies,
-  passed: policies.every((p) => p.passed),
+  regression,
+  passed: policies.every((p) => p.passed) && Object.entries(regression).filter(([k]) => k !== 'problem').every(([, value]) => value),
 };
 writeFileSync(outPath, JSON.stringify(result, null, 2) + '\n');
 console.log(JSON.stringify(result, null, 2));

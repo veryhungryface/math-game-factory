@@ -148,7 +148,7 @@ namespace Mgf.NabiJaebongso
             string prefix = band == 0 ? "고정 연습" : "재봉 주문 " + serial.ToString("D3");
             if (band == 2)
             {
-                p.prompt = prefix + ": " + congruence + "이 되도록 잘못 놓인 원호 하나를 고치시오. " + baseCondition;
+                p.prompt = prefix + ": " + congruence + "이 되도록 잘못 놓인 원호를 고치고, 두 원호의 교점까지 두 선분을 이어 삼각형을 완성하시오. " + baseCondition;
                 p.unitConcept = "error_find · 대응변 원호 수선";
             }
             else if (band == 3)
