@@ -33,6 +33,8 @@ try{
   await page.screenshot({path:path.join(OUT,'01-practice-guide.png')});
   // 첫 A→F 성공 뒤 나머지 두 대응은 승무원 시범으로 완성되어 실전으로 넘어간다.
   await drag(page,source[0],target[2]);
+  await new Promise(r=>setTimeout(r,320));
+  await page.screenshot({path:path.join(OUT,'01b-practice-popup-fold.png')});
   await page.waitForFunction('window.__GAME_TEST__.getState().currentProblemId!=="practice-fixed"',{timeout:5000});
   await page.screenshot({path:path.join(OUT,'02-first-run.png')});
 
