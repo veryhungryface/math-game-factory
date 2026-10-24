@@ -13,7 +13,7 @@ function chromePath(){
     if(fs.existsSync(p))return p;
   }throw new Error('chrome missing');
 }
-const source=[[90,626],[202,509],[306,622]],target=[[90,357],[202,240],[306,353]];
+const source=[[90,711],[202,596],[306,711]],target=[[90,369],[202,252],[306,369]];
 async function drag(page,a,b){
   await page.mouse.move(a[0],a[1]);await page.mouse.down();await page.mouse.move((a[0]+b[0])/2,(a[1]+b[1])/2,{steps:8});await page.mouse.move(b[0],b[1],{steps:8});await page.mouse.up();await new Promise(r=>setTimeout(r,180));
 }
@@ -31,7 +31,8 @@ try{
   await page.screenshot({path:path.join(OUT,'00-title.png')});
   await page.mouse.click(195,574);await new Promise(r=>setTimeout(r,350));
   await page.screenshot({path:path.join(OUT,'01-practice-guide.png')});
-  await drag(page,source[0],target[2]);await drag(page,source[1],target[1]);await drag(page,source[2],target[0]);
+  // 첫 A→F 성공 뒤 나머지 두 대응은 승무원 시범으로 완성되어 실전으로 넘어간다.
+  await drag(page,source[0],target[2]);
   await page.waitForFunction('window.__GAME_TEST__.getState().currentProblemId!=="practice-fixed"',{timeout:5000});
   await page.screenshot({path:path.join(OUT,'02-first-run.png')});
 

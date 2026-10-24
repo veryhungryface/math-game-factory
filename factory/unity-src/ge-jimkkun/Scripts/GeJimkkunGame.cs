@@ -1,4 +1,4 @@
-// 게 짐꾼 — 환초 환승장의 2.5D 세계, 실제 드래그 입력, 진행·실패·브리지 정본.
+// 게 짐꾼 — 목제 기계식 항로판의 2.5D 세계, 실제 드래그 입력, 진행·실패·브리지 정본.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -112,13 +112,14 @@ namespace Mgf.GeJimkkun
 
         enum Flow { Title, Practice, Playing, Reveal, End }
 
-        static readonly Color Water = MgfLook.Hex("#67BED1");
-        static readonly Color Peach = MgfLook.Hex("#F4C5A5");
-        static readonly Color Ivory = MgfLook.Hex("#F5F4E8");
-        static readonly Color Moss = MgfLook.Hex("#385B53");
-        static readonly Color Ink = MgfLook.Hex("#193E4A");
-        static readonly Color Coral = MgfLook.Hex("#E66E62");
-        static readonly Color White = MgfLook.Hex("#FFFDF1");
+        // 기존 청록 수중/유백 장난감 계열에서 벗어난 건식 지도 공방 팔레트.
+        static readonly Color Water = MgfLook.Hex("#B99A62");
+        static readonly Color Peach = MgfLook.Hex("#C6923E");
+        static readonly Color Ivory = MgfLook.Hex("#E9DDBB");
+        static readonly Color Moss = MgfLook.Hex("#67442C");
+        static readonly Color Ink = MgfLook.Hex("#26302D");
+        static readonly Color Coral = MgfLook.Hex("#B64B3D");
+        static readonly Color White = MgfLook.Hex("#FFF6DA");
 
         readonly State st = new State();
         readonly List<CargoProblem> bank = new List<CargoProblem>(360);
@@ -155,8 +156,9 @@ namespace Mgf.GeJimkkun
         Flow flow = Flow.Title;
         int runSerial, dragging = -1;
         float secondsLeft = GeJimkkunRules.RunSeconds, revealClock, titleClock, idleClock, scoreShown;
+        float practiceNoProgressClock;
         float rippleClock = 9f, toastClock = 9f, wrongJolt, hitStop, launchClock;
-        bool revealCorrect, failAfterReveal, tutorialFirstCarryDone, didDrop;
+        bool revealCorrect, failAfterReveal, tutorialFirstCarryDone;
         Vector2 dragOffset, dragStart;
         float dragDistance;
         float lastCanvasW = -1, lastCanvasH = -1;
@@ -181,42 +183,44 @@ namespace Mgf.GeJimkkun
 
         void BuildMaterials()
         {
-            waterMat = MgfLook.Lit(Water, .72f, .02f, new Color(.02f, .09f, .10f));
-            shellMat = MgfLook.Lit(Peach, .43f, .03f);
-            coralMat = MgfLook.Lit(Coral, .28f, .02f);
-            ivoryMat = MgfLook.Lit(Ivory, .50f, .04f);
-            mossMat = MgfLook.Lit(Moss, .22f, .02f);
-            inkMat = MgfLook.Lit(Ink, .18f, .02f);
+            waterMat = MgfLook.Lit(Water, .58f, .02f, new Color(.08f, .045f, .02f));
+            shellMat = MgfLook.Lit(Peach, .30f, .30f);
+            coralMat = MgfLook.Lit(Coral, .42f, .03f);
+            ivoryMat = MgfLook.Lit(Ivory, .76f, .01f);
+            mossMat = MgfLook.Lit(Moss, .64f, .01f);
+            inkMat = MgfLook.Lit(Ink, .78f, .01f);
         }
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#BFE8EA"), MgfLook.Hex("#F7E3C7"), Water, .92f);
-            MgfLook.Sun(new Vector3(38, -32, -20), MgfLook.Hex("#FFF2D2"), 1.18f, .46f);
+            MgfLook.Sky(MgfLook.Hex("#E6D4A6"), MgfLook.Hex("#76533A"), Moss, .68f);
+            MgfLook.Sun(new Vector3(42, -28, -18), MgfLook.Hex("#FFE2A3"), 1.12f, .58f);
             cam = MgfLook.Camera(new Vector3(0, 13.5f, -17.5f), new Vector3(0, 0, 2.5f), 36f);
             cam.orthographic = true; cam.orthographicSize = 8.2f;
-            world = new GameObject("TurquoiseAtollHarbor").transform;
-            MgfLook.Block("TidalWater", new Vector3(0, -1.15f, 4), new Vector3(30, .7f, 30), .18f, waterMat, world);
+            world = new GameObject("MechanicalRouteWorkshop").transform;
+            MgfLook.Block("DarkWoodMapTable", new Vector3(0, -1.15f, 4), new Vector3(30, .7f, 30), .12f, mossMat, world);
+            MgfLook.Block("UnfoldedRouteMap", new Vector3(0, -.72f, 3.1f), new Vector3(13.8f, .16f, 11.2f), .12f, ivoryMat, world);
             for (int i = 0; i < 14; i++)
             {
                 float side = i % 2 == 0 ? -1 : 1;
                 float x = side * (4.9f + (i % 4) * 1.35f), z = -4f + (i % 7) * 2.15f;
-                var c = MgfLook.Prim(PrimitiveType.Capsule, "TinyCoral" + i, new Vector3(x, -.22f, z),
-                    new Vector3(.24f + (i % 3) * .08f, .55f + (i % 4) * .12f, .24f), i % 3 == 0 ? coralMat : shellMat, world, false).transform;
-                c.localRotation = Quaternion.Euler((i % 3) * 9, 0, side * (8 + i % 5 * 4)); worldProps.Add(c);
+                var c = MgfLook.Block("InkMapStrip" + i, new Vector3(x, -.24f, z),
+                    new Vector3(.20f + (i % 3) * .07f, .16f, .9f + (i % 4) * .24f), .025f,
+                    i % 3 == 0 ? coralMat : inkMat, world).transform;
+                c.localRotation = Quaternion.Euler(0, side * (12 + i % 5 * 7), 0); worldProps.Add(c);
             }
             for (int i = 0; i < 12; i++)
             {
                 float a = i * Mathf.PI * 2 / 12f, r = 5.4f + (i % 3) * .7f;
-                var buoy = MgfLook.Prim(PrimitiveType.Sphere, "CeramicBuoy" + i,
-                    new Vector3(Mathf.Sin(a) * r, -.32f, 2.8f + Mathf.Cos(a) * r), new Vector3(.35f, .22f, .35f),
-                    i % 2 == 0 ? ivoryMat : shellMat, world, false).transform; worldProps.Add(buoy);
+                var buoy = MgfLook.Prim(PrimitiveType.Cylinder, "BrassRoutePin" + i,
+                    new Vector3(Mathf.Sin(a) * r, -.30f, 2.8f + Mathf.Cos(a) * r), new Vector3(.18f, .20f, .18f),
+                    i % 3 == 0 ? coralMat : shellMat, world, false).transform; worldProps.Add(buoy);
             }
-            MakeDock(new Vector3(-3.5f, -.42f, 1.6f), -8f, "DepartureShellDock");
-            MakeDock(new Vector3(3.5f, -.42f, 4.2f), 8f, "ArrivalShellDock");
-            raft3d = MgfLook.Block("ShellCargoRaft", new Vector3(0, -.20f, 7.8f), new Vector3(3.0f, .30f, 1.75f), .35f, shellMat, world).transform;
-            MgfLook.Prim(PrimitiveType.Sphere, "CargoPearl1", new Vector3(-.6f, .38f, 0), Vector3.one * .55f, ivoryMat, raft3d, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "CargoPearl2", new Vector3(.45f, .38f, .15f), Vector3.one * .45f, coralMat, raft3d, false);
+            MakeDock(new Vector3(-3.5f, -.42f, 1.6f), -8f, "DepartureMapTray");
+            MakeDock(new Vector3(3.5f, -.42f, 4.2f), 8f, "ArrivalMapTray");
+            raft3d = MgfLook.Block("FoldedRouteLedger", new Vector3(0, -.20f, 7.8f), new Vector3(3.0f, .30f, 1.75f), .10f, waterMat, world).transform;
+            MgfLook.Prim(PrimitiveType.Cylinder, "BrassSeal1", new Vector3(-.6f, .38f, 0), new Vector3(.34f, .20f, .34f), shellMat, raft3d, false);
+            MgfLook.Prim(PrimitiveType.Cylinder, "RedSeal2", new Vector3(.45f, .38f, .15f), new Vector3(.28f, .18f, .28f), coralMat, raft3d, false);
             for (int i = 0; i < 3; i++)
             {
                 var crab = MakeWorldCrab(new Vector3((i - 1) * 1.5f, .15f, 1.2f + (i % 2) * .25f), "HarborCrab" + i);
@@ -228,24 +232,26 @@ namespace Mgf.GeJimkkun
         void MakeDock(Vector3 pos, float yaw, string name)
         {
             var root = new GameObject(name).transform; root.SetParent(world, false); root.localPosition = pos; root.localRotation = Quaternion.Euler(0, yaw, 0);
-            MgfLook.Block("ShellInterior", Vector3.zero, new Vector3(6.2f, .55f, 4.1f), .7f, ivoryMat, root);
+            MgfLook.Block("WoodenMapTray", Vector3.zero, new Vector3(6.2f, .55f, 4.1f), .16f, waterMat, root);
+            MgfLook.Block("PaperInset", new Vector3(0, .34f, 0), new Vector3(5.72f, .12f, 3.62f), .06f, ivoryMat, root);
             for (int i = -3; i <= 3; i++)
             {
-                var rib = MgfLook.Block("ShellRib" + i, new Vector3(i * .74f, .34f, 0), new Vector3(.10f, .24f, 3.55f), .045f, shellMat, root).transform;
+                var rib = MgfLook.Block("InkRoute" + i, new Vector3(i * .74f, .43f, 0), new Vector3(.075f, .08f, 3.35f), .02f, i == 0 ? coralMat : inkMat, root).transform;
                 rib.localRotation = Quaternion.Euler(0, i * 1.7f, 0);
             }
-            MgfLook.Prim(PrimitiveType.Cylinder, "ShellBell", new Vector3(0, 1.05f, 1.75f), new Vector3(.36f, .62f, .36f), coralMat, root, false);
+            MgfLook.Prim(PrimitiveType.Cylinder, "BrassIndexWheel", new Vector3(0, .74f, 1.65f), new Vector3(.42f, .16f, .42f), shellMat, root, false);
         }
 
         Transform MakeWorldCrab(Vector3 pos, string name)
         {
             var root = new GameObject(name).transform; root.SetParent(world, false); root.localPosition = pos;
-            MgfLook.Prim(PrimitiveType.Sphere, "Body", Vector3.zero, new Vector3(.88f, .38f, .62f), coralMat, root, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "Shell", new Vector3(0, .42f, .10f), new Vector3(1.0f, .78f, .84f), shellMat, root, false);
+            MgfLook.Block("FoldedBody", Vector3.zero, new Vector3(.88f, .30f, .62f), .05f, coralMat, root);
+            var shell = MgfLook.Block("BrassDiamondShell", new Vector3(0, .40f, .10f), new Vector3(.78f, .62f, .70f), .04f, shellMat, root).transform;
+            shell.localRotation = Quaternion.Euler(0, 45, 0);
             for (int s = -1; s <= 1; s += 2)
             {
-                MgfLook.Prim(PrimitiveType.Sphere, "Eye" + s, new Vector3(s * .25f, .36f, -.48f), Vector3.one * .16f, inkMat, root, false);
-                var claw = MgfLook.Prim(PrimitiveType.Sphere, "Claw" + s, new Vector3(s * .65f, .08f, -.20f), new Vector3(.40f, .22f, .30f), coralMat, root, false).transform;
+                MgfLook.Prim(PrimitiveType.Cylinder, "EyeRivet" + s, new Vector3(s * .25f, .30f, -.48f), new Vector3(.10f, .10f, .10f), inkMat, root, false);
+                var claw = MgfLook.Block("PaperClaw" + s, new Vector3(s * .65f, .08f, -.20f), new Vector3(.40f, .16f, .24f), .03f, coralMat, root).transform;
                 claw.localRotation = Quaternion.Euler(0, 0, s * 18f);
             }
             return root;
@@ -269,15 +275,15 @@ namespace Mgf.GeJimkkun
 
         void BuildTitle()
         {
-            var sign = Panel(titleGroup.transform, "GiantShellStationSign", new Vector2(.5f, .73f), Vector2.zero, new Vector2(352, 230), new Color(Ivory.r, Ivory.g, Ivory.b, .94f));
-            var rim = Img(sign, "PeachShellRim", new Vector2(.5f, .5f), Vector2.zero, new Vector2(338, 214), new Color(Peach.r, Peach.g, Peach.b, .78f), ringSprite);
+            var sign = Panel(titleGroup.transform, "MechanicalRouteSign", new Vector2(.5f, .73f), Vector2.zero, new Vector2(352, 230), new Color(Moss.r, Moss.g, Moss.b, .96f));
+            var rim = Img(sign, "BrassCompassRim", new Vector2(.5f, .5f), Vector2.zero, new Vector2(338, 214), new Color(Peach.r, Peach.g, Peach.b, .86f), ringSprite);
             rim.type = Image.Type.Simple;
-            var shadow = Txt(sign, "게 짐꾼", new Vector2(.5f, .62f), new Vector2(4, -5), 60, Moss, 310); shadow.characterSpacing = 4;
-            var logo = Txt(sign, "게 짐꾼", new Vector2(.5f, .62f), Vector2.zero, 60, Ink, 310); logo.characterSpacing = 4; logo.outlineColor = White; logo.outlineWidth = .18f;
-            Txt(sign, "게를 대응점으로 옮겨라", new Vector2(.5f, .25f), Vector2.zero, 17, Coral, 300);
+            var shadow = Txt(sign, "게 짐꾼", new Vector2(.5f, .62f), new Vector2(4, -5), 60, Ink, 310); shadow.characterSpacing = 4;
+            var logo = Txt(sign, "게 짐꾼", new Vector2(.5f, .62f), Vector2.zero, 60, White, 310); logo.characterSpacing = 4; logo.outlineColor = Peach; logo.outlineWidth = .18f;
+            Txt(sign, "기계식 항로판을 맞춰라", new Vector2(.5f, .25f), Vector2.zero, 17, Peach, 300);
             var start = CrabWidget(titleGroup.transform, "TitleCrabStart", "출", new Vector2(.5f, .32f), Vector2.zero, 1.48f, -1);
             titleStart = start; Img(start, "TitlePulse", new Vector2(.5f, .5f), Vector2.zero, new Vector2(142, 142), new Color(White.r, White.g, White.b, .28f), ringSprite).transform.SetAsFirstSibling();
-            Txt(titleGroup.transform, "게를 눌러 짐 싣기", new Vector2(.5f, .20f), Vector2.zero, 17, Ink, 270);
+            Txt(titleGroup.transform, "황동 게를 눌러 항로 열기", new Vector2(.5f, .20f), Vector2.zero, 17, White, 300);
             Txt(titleGroup.transform, "중학교 1학년 · 작도와 합동", new Vector2(.5f, .075f), Vector2.zero, 13, Ink, 330);
             titleBest = Txt(titleGroup.transform, "최고 첫 제출 0/8", new Vector2(.5f, .125f), Vector2.zero, 13, Moss, 260);
         }
@@ -289,7 +295,7 @@ namespace Mgf.GeJimkkun
             scoreText = Txt(hudPanel, "0", new Vector2(.88f, .5f), Vector2.zero, 16, Coral, 60);
             for (int i = 0; i < 3; i++) knots[i] = Img(hudPanel, "SafetyKnot" + i, new Vector2(.69f + i * .055f, .5f), Vector2.zero, new Vector2(13, 28), Moss, roundedSprite);
             goalPanel = Panel(playGroup.transform, "PermanentGoal", new Vector2(.5f, .5f), Vector2.zero, new Vector2(368, 38), new Color(Moss.r, Moss.g, Moss.b, .94f));
-            goalText = Txt(goalPanel, "게를 대응점에 옮기면 배가 출항한다", new Vector2(.5f, .5f), Vector2.zero, 14, White, 352);
+            goalText = Txt(goalPanel, "게 토큰을 대응점에 옮기면 항로판이 열린다", new Vector2(.5f, .5f), Vector2.zero, 14, White, 352);
             promptPanel = Panel(playGroup.transform, "ConditionSheet", new Vector2(.5f, .5f), Vector2.zero, new Vector2(370, 82), new Color(Ivory.r, Ivory.g, Ivory.b, .94f));
             promptText = Txt(promptPanel, "", new Vector2(.5f, .57f), Vector2.zero, 12.5f, Ink, 350); promptText.enableAutoSizing = true; promptText.fontSizeMin = 9; promptText.fontSizeMax = 12.5f;
             Txt(promptPanel, "그림은 실제 비율과 다릅니다", new Vector2(.5f, .10f), Vector2.zero, 9.5f, Coral, 300);
@@ -317,6 +323,10 @@ namespace Mgf.GeJimkkun
             guideRing = Img(playGroup.transform, "CrabGuideRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(88, 88), new Color(Coral.r, Coral.g, Coral.b, .45f), ringSprite).rectTransform;
             guideTarget = Img(playGroup.transform, "TargetGuideRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(92, 92), new Color(Coral.r, Coral.g, Coral.b, .60f), ringSprite).rectTransform;
             guideHand = Img(playGroup.transform, "MovingGhostHand", new Vector2(.5f, .5f), Vector2.zero, new Vector2(42, 54), new Color(White.r, White.g, White.b, .90f), softSprite).rectTransform;
+            // 문제지는 도형판보다 위에 그리되 실제 조작 토큰과 안내선은 그보다 앞에 둔다.
+            promptPanel.SetAsLastSibling();
+            for (int i = 0; i < crabs.Length; i++) crabs[i].SetAsLastSibling();
+            guideLine.SetAsLastSibling(); guideRing.SetAsLastSibling(); guideTarget.SetAsLastSibling(); guideHand.SetAsLastSibling();
         }
 
         HarborTriangleGraphic Graphic(RectTransform parent, string name, bool target)
@@ -353,15 +363,16 @@ namespace Mgf.GeJimkkun
         RectTransform CrabWidget(Transform parent, string name, string label, Vector2 anchor, Vector2 pos, float scale, int index)
         {
             var root = R(name, parent, anchor, pos, new Vector2(78, 66)); root.localScale = Vector3.one * scale;
-            Img(root, "CrabShadow", new Vector2(.5f, .5f), new Vector2(0, -20), new Vector2(72, 24), new Color(Ink.r, Ink.g, Ink.b, .18f), softSprite);
-            Img(root, "LeftClaw", new Vector2(.16f, .50f), new Vector2(-3, -2), new Vector2(25, 22), Coral, softSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, -22);
-            Img(root, "RightClaw", new Vector2(.84f, .50f), new Vector2(3, -2), new Vector2(25, 22), Coral, softSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, 22);
-            Img(root, "CoralBody", new Vector2(.5f, .40f), Vector2.zero, new Vector2(57, 30), Coral, softSprite);
-            Img(root, "PeachShell", new Vector2(.5f, .63f), Vector2.zero, new Vector2(64, 50), Peach, softSprite);
-            Img(root, "ShellShine", new Vector2(.42f, .72f), Vector2.zero, new Vector2(24, 13), new Color(White.r, White.g, White.b, .50f), softSprite);
-            Img(root, "LeftEye", new Vector2(.39f, .37f), Vector2.zero, new Vector2(8, 11), Ink, softSprite);
-            Img(root, "RightEye", new Vector2(.61f, .37f), Vector2.zero, new Vector2(8, 11), Ink, softSprite);
-            var tag = Panel(root, "LetterTag", new Vector2(.5f, .54f), Vector2.zero, new Vector2(31, 31), Ink, softSprite);
+            Img(root, "CrabShadow", new Vector2(.5f, .5f), new Vector2(0, -20), new Vector2(72, 24), new Color(Ink.r, Ink.g, Ink.b, .22f), softSprite);
+            Img(root, "LeftClaw", new Vector2(.16f, .50f), new Vector2(-3, -2), new Vector2(25, 15), Coral, roundedSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, -28);
+            Img(root, "RightClaw", new Vector2(.84f, .50f), new Vector2(3, -2), new Vector2(25, 15), Coral, roundedSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, 28);
+            Img(root, "FoldedPaperBody", new Vector2(.5f, .40f), Vector2.zero, new Vector2(57, 25), Coral, roundedSprite);
+            var shell = Img(root, "BrassDiamondShell", new Vector2(.5f, .63f), Vector2.zero, new Vector2(48, 48), Peach, roundedSprite).rectTransform;
+            shell.localRotation = Quaternion.Euler(0, 0, 45);
+            Img(root, "InkFold", new Vector2(.5f, .66f), Vector2.zero, new Vector2(27, 5), new Color(Ink.r, Ink.g, Ink.b, .48f), roundedSprite).rectTransform.localRotation = Quaternion.Euler(0, 0, -20);
+            Img(root, "LeftEyeRivet", new Vector2(.39f, .37f), Vector2.zero, new Vector2(8, 8), Ink, roundedSprite);
+            Img(root, "RightEyeRivet", new Vector2(.61f, .37f), Vector2.zero, new Vector2(8, 8), Ink, roundedSprite);
+            var tag = Panel(root, "LetterTag", new Vector2(.5f, .54f), Vector2.zero, new Vector2(31, 31), Ink, roundedSprite);
             Txt(tag, label, new Vector2(.5f, .5f), Vector2.zero, 15, White, 26);
             return root;
         }
@@ -381,6 +392,7 @@ namespace Mgf.GeJimkkun
         {
             float dt = Mathf.Min(.05f, Time.unscaledDeltaTime);
             titleClock += dt; idleClock += dt; rippleClock += dt; toastClock += dt;
+            if (flow == Flow.Practice && st.tutorialStep == "A_to_F") practiceNoProgressClock += dt;
             if (hitStop > 0) hitStop -= dt; else AnimateWorld(dt);
             Relayout(); HandlePointer();
             if (flow == Flow.Playing)
@@ -429,15 +441,16 @@ namespace Mgf.GeJimkkun
             st.firstAttemptCorrect = 0; st.firstAttemptCount = 0; st.firstFailures = 0; st.combo = 0; st.bonusSeconds = 0;
             st.assignments = new[] { -1, -1, -1 }; st.currentProblemId = ""; st.tutorialStep = "title"; st.submissionSerial = 0;
             st.inputSerial = 0; st.invalidCount = 0; st.misconceptionId = ""; st.lastResult = ""; st.firstAttemptUsed = false;
-            st.frozen = false; st.dragActive = false; st.draggingCrab = -1; dragging = -1; scoreShown = 0; didDrop = false;
+            st.frozen = false; st.dragActive = false; st.draggingCrab = -1; dragging = -1; scoreShown = 0;
         }
 
         void BeginPractice()
         {
             ResetState(); flow = Flow.Practice; st.phase = "playing"; st.frozen = true; st.tutorialStep = "A_to_F";
             current = GeJimkkunRules.Practice(); secondsLeft = GeJimkkunRules.RunSeconds; tutorialFirstCarryDone = false;
+            practiceNoProgressClock = 0;
             titleGroup.alpha = 0; titleGroup.blocksRaycasts = false; SetGroup(playGroup, true); SetGroup(revealGroup, false); SetGroup(endGroup, false);
-            LoadCurrent(); goalText.text = "게를 대응점에 옮기면 배가 출항한다"; toastClock = 99; Notify();
+            LoadCurrent(); goalText.text = "게 토큰을 대응점에 옮기면 항로판이 열린다"; toastClock = 99; Notify();
         }
 
         void BeginRun(bool test)
@@ -506,8 +519,8 @@ namespace Mgf.GeJimkkun
                 st.inputSerial++; idleClock = 0; Vector2 local = ToCanvas(MgfPointer.Position); ShowRipple(local);
                 if (flow == Flow.Title)
                 {
-                    if (Contains(titleStart, MgfPointer.Position, 18)) { MgfSfx.Play("pop", .42f); BeginPractice(); }
-                    else Refuse("집게를 흔드는 게를 눌러 시작하시오.", local, true);
+                    // 첫 화면 전체가 하나의 기계식 항로판이다. 첫 탭을 놓치지 않게 어느 지점에서든 연습으로 연다.
+                    MgfSfx.Play("pop", .42f); BeginPractice();
                     return;
                 }
                 if (flow == Flow.End)
@@ -517,7 +530,11 @@ namespace Mgf.GeJimkkun
                 }
                 if (flow == Flow.Reveal) { Refuse("밧줄이 조건을 확인하는 동안 잠시 보시오.", local, false); return; }
                 if (flow != Flow.Playing && flow != Flow.Practice) return;
+                bool tutorialAssist = flow == Flow.Practice && st.tutorialStep == "A_to_F" && practiceNoProgressClock >= 8f;
                 int hit = HitCrab(local);
+                // 무진도 8초 뒤에는 다음 입력을 유령 경로의 시작점으로 흡착한다.
+                // 실제 드래그는 경로 끝에 스냅하고, 탭만 반복되면 Up 단계의 짧은 시범으로 이어진다.
+                if (tutorialAssist) hit = 0;
                 if (hit < 0) { Refuse("문자 표찰이 달린 게를 잡아 꼭짓점으로 옮기시오.", local, true); return; }
                 if (flow == Flow.Practice && st.tutorialStep == "A_to_F" && hit != 0) { Refuse("먼저 A 게를 흰 경로를 따라 F로 옮기시오.", local, true); return; }
                 BeginDrag(hit, local);
@@ -532,15 +549,22 @@ namespace Mgf.GeJimkkun
             if (dragging >= 0 && MgfPointer.Up)
             {
                 int crab = dragging; dragging = -1; st.dragActive = false; st.draggingCrab = -1;
-                crabs[crab].localScale = Vector3.one; didDrop = true;
-                if (dragDistance < 7f) { ReturnCrab(crab); Refuse("게를 누른 채 대응하는 꼭짓점까지 끌어 놓으시오.", ToCanvas(MgfPointer.Position), true); return; }
+                crabs[crab].localScale = Vector3.one;
+                if (dragDistance < 7f)
+                {
+                    // 유령 경로가 8초 이상 반복됐는데도 이동이 없으면 같은 링의 탭도 경로 시범으로 받아들인다.
+                    // 실전 문항에는 적용하지 않아 실제 대응 판단과 드래그 규칙은 그대로 남는다.
+                    if (flow == Flow.Practice && st.tutorialStep == "A_to_F" && practiceNoProgressClock >= 8f)
+                    { DropCrab(crab, TargetPoint(2)); return; }
+                    ReturnCrab(crab); Refuse("게를 누른 채 대응하는 꼭짓점까지 끌어 놓으시오.", ToCanvas(MgfPointer.Position), true); return;
+                }
                 DropCrab(crab, ToCanvas(MgfPointer.Position));
             }
         }
 
         void BeginDrag(int crab, Vector2 local)
         {
-            dragging = crab; st.dragActive = true; st.draggingCrab = crab; dragStart = local; dragDistance = 0; didDrop = false;
+            dragging = crab; st.dragActive = true; st.draggingCrab = crab; dragStart = local; dragDistance = 0;
             dragOffset = crabs[crab].anchoredPosition - local;
             if (st.assignments[crab] >= 0) st.assignments[crab] = -1;
             crabs[crab].SetAsLastSibling(); MgfSfx.Play("tap", .22f); MgfFx.Punch(crabs[crab], .10f, .18f); Notify();
@@ -549,10 +573,12 @@ namespace Mgf.GeJimkkun
         void DropCrab(int crab, Vector2 local)
         {
             int nearest = -1; float best = 9999;
+            bool tutorialSnap = flow == Flow.Practice && st.tutorialStep == "A_to_F" && crab == 0 && practiceNoProgressClock >= 8f;
             for (int i = 0; i < 3; i++)
             {
                 float d = Vector2.Distance(local, TargetPoint(i)); if (d < best) { best = d; nearest = i; }
             }
+            if (tutorialSnap) { nearest = 2; best = 0; }
             if (best > 72f) { ReturnCrab(crab); Refuse("꼭짓점 자리 안에 놓으시오.", local, true); return; }
             for (int i = 0; i < 3; i++) if (i != crab && st.assignments[i] == nearest)
             { ReturnCrab(crab); Refuse("이미 게가 있습니다. 빈자리로 옮기시오.", local, true); return; }
@@ -560,8 +586,12 @@ namespace Mgf.GeJimkkun
             crabs[crab].localScale = new Vector3(1.10f, .90f, 1); MgfFx.Punch(crabs[crab], .15f, .24f); MgfSfx.Play("pop", .26f);
             if (flow == Flow.Practice && !tutorialFirstCarryDone && crab == 0 && nearest == 2)
             {
-                tutorialFirstCarryDone = true; st.tutorialStep = "B_to_E";
-                Toast("4 cm와 5 cm가 함께 만나는 A와 F가 대응합니다.", 1.6f); goalText.text = "남은 B와 C 게도 대응점으로 옮기시오";
+                tutorialFirstCarryDone = true; st.tutorialStep = "crew_demo"; practiceNoProgressClock = 0;
+                Toast("A와 F가 대응합니다. 나머지 두 토큰도 같은 조건으로 맞춥니다.", 1.6f);
+                goalText.text = "같은 길이가 만나는 꼭짓점끼리 대응한다";
+                // 첫 성공 뒤 나머지 두 대응은 짧은 승무원 시범으로 완성해 연습 정체를 막는다.
+                st.assignments[1] = current.correspondence[1]; st.assignments[2] = current.correspondence[2];
+                UpdateCrabPositions(); progressText.text = "연습 3/3 · 밧줄 조건 확인"; Notify(); Submit(); return;
             }
             else if (flow == Flow.Practice && st.tutorialStep == "A_to_F" && crab == 0)
             {
@@ -636,7 +666,7 @@ namespace Mgf.GeJimkkun
             if (flow == Flow.End) return;
             if (current.id == "practice-fixed")
             {
-                if (revealCorrect) { BeginRun(false); goalText.text = "게를 대응점에 옮기면 배가 출항한다"; }
+                if (revealCorrect) { BeginRun(false); goalText.text = "게 토큰을 대응점에 옮기면 항로판이 열린다"; }
                 else { flow = Flow.Practice; st.phase = "playing"; st.frozen = true; st.tutorialStep = tutorialFirstCarryDone ? "repair" : "A_to_F"; }
                 Notify(); return;
             }
@@ -700,7 +730,7 @@ namespace Mgf.GeJimkkun
             if (!show) return;
             Vector2 a = SourcePoint(0), b = TargetPoint(2), d = b - a; float len = d.magnitude;
             guideLine.anchoredPosition = (a + b) * .5f; guideLine.sizeDelta = new Vector2(len, 7); guideLine.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-            float pulse = 1f + Mathf.Sin(titleClock * (idleClock > 8 ? 9f : 5f)) * .12f;
+            float pulse = 1f + Mathf.Sin(titleClock * (practiceNoProgressClock > 8 ? 9f : 5f)) * .12f;
             guideRing.anchoredPosition = a; guideTarget.anchoredPosition = b; guideRing.localScale = guideTarget.localScale = Vector3.one * pulse;
             float travel = Mathf.PingPong(titleClock * .65f, 1f); guideHand.anchoredPosition = Vector2.Lerp(a, b, Mathf.SmoothStep(0, 1, travel)) + new Vector2(26, 18);
         }
@@ -730,24 +760,33 @@ namespace Mgf.GeJimkkun
             lastCanvasW = w; lastCanvasH = h; st.layoutVersion++; bool land = w >= h * 1.08f;
             if (land)
             {
-                float boardW = Mathf.Clamp(w * .34f, 330, 430), boardH = Mathf.Clamp(h * .48f, 260, 340);
+                float boardW = Mathf.Min(430, (w - 72) * .5f);
                 Center(hudPanel, new Vector2(0, h * .5f - 30), new Vector2(Mathf.Min(w - 40, 680), 52));
                 Center(goalPanel, new Vector2(0, h * .5f - 83), new Vector2(Mathf.Min(w - 80, 600), 40));
-                Center(promptPanel, new Vector2(0, h * .5f - 150), new Vector2(Mathf.Min(w * .55f, 680), 84));
-                Center(sourceBoardRt, new Vector2(-w * .26f, -20), new Vector2(boardW, boardH));
-                Center(targetBoardRt, new Vector2(w * .26f, -20), new Vector2(boardW, boardH));
+                const float promptH = 84f;
+                float promptY = h * .5f - 150, boardTop = promptY - promptH * .5f - 24;
+                float boardBottom = -h * .5f + 80, boardH = Mathf.Clamp(boardTop - boardBottom, 110, 320);
+                float boardY = (boardTop + boardBottom) * .5f, boardX = boardW * .5f + 18;
+                Center(promptPanel, new Vector2(0, promptY), new Vector2(Mathf.Min(w - 120, 720), promptH));
+                Center(sourceBoardRt, new Vector2(-boardX, boardY), new Vector2(boardW, boardH));
+                Center(targetBoardRt, new Vector2(boardX, boardY), new Vector2(boardW, boardH));
                 Center(progressPanel, new Vector2(0, -h * .5f + 32), new Vector2(Mathf.Min(w - 80, 620), 48));
                 toastPanel.anchoredPosition = new Vector2(0, h * .5f - 210);
                 cam.orthographicSize = 7.0f;
             }
             else
             {
-                float boardW = Mathf.Min(348, w - 34), boardH = Mathf.Min(220, h * .265f);
+                bool tabletPortrait = w >= 500;
+                float boardW = tabletPortrait ? Mathf.Min(460, w - 44) : Mathf.Min(348, w - 34);
                 Center(hudPanel, new Vector2(0, h * .5f - 28), new Vector2(Mathf.Min(374, w - 16), 48));
                 Center(goalPanel, new Vector2(0, h * .5f - 74), new Vector2(Mathf.Min(370, w - 20), 36));
-                Center(promptPanel, new Vector2(0, h * .5f - 137), new Vector2(Mathf.Min(370, w - 20), 82));
-                Center(targetBoardRt, new Vector2(0, h * .5f - 300), new Vector2(boardW, boardH));
-                Center(sourceBoardRt, new Vector2(0, -h * .5f + 275), new Vector2(boardW, boardH));
+                const float promptH = 82f;
+                float promptY = h * .5f - 137, boardTop = promptY - promptH * .5f - 24;
+                float boardBottom = -h * .5f + 76;
+                float boardH = Mathf.Min(tabletPortrait ? 230 : 220, Mathf.Max(180, (boardTop - boardBottom - 24) * .5f));
+                Center(promptPanel, new Vector2(0, promptY), new Vector2(Mathf.Min(tabletPortrait ? 480 : 370, w - 20), promptH));
+                Center(targetBoardRt, new Vector2(0, boardTop - boardH * .5f), new Vector2(boardW, boardH));
+                Center(sourceBoardRt, new Vector2(0, boardBottom + boardH * .5f), new Vector2(boardW, boardH));
                 Center(progressPanel, new Vector2(0, -h * .5f + 29), new Vector2(Mathf.Min(372, w - 18), 46));
                 toastPanel.anchoredPosition = new Vector2(0, 28);
                 cam.orthographicSize = 8.2f;
@@ -771,7 +810,8 @@ namespace Mgf.GeJimkkun
         int HitCrab(Vector2 local)
         {
             int best = -1; float dist = 999;
-            for (int i = 0; i < 3; i++) { float d = Vector2.Distance(local, crabs[i].anchoredPosition); if (d < 54 && d < dist) { dist = d; best = i; } }
+            float radius = flow == Flow.Practice && st.tutorialStep == "A_to_F" ? 82f : 54f;
+            for (int i = 0; i < 3; i++) { float d = Vector2.Distance(local, crabs[i].anchoredPosition); if (d < radius && d < dist) { dist = d; best = i; } }
             return best;
         }
 
