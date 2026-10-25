@@ -386,6 +386,12 @@ namespace Mgf.HanIpman
             bool wide = MgfBridge.IsLandLayout;
             if (wide)
             {
+                // 1200×630 카드처럼 낮은 가로 화면에서도 초콜릿 간판 전체와 세계 안
+                // 시작 태그가 함께 보이도록 타이틀 요소를 세로 중앙대로 압축한다.
+                titleSign.rectTransform.anchorMin = titleSign.rectTransform.anchorMax = new Vector2(.5f, .62f);
+                titleMeta.rectTransform.anchorMin = titleMeta.rectTransform.anchorMax = new Vector2(.5f, .50f);
+                titleBest.rectTransform.anchorMin = titleBest.rectTransform.anchorMax = new Vector2(.5f, .39f);
+                titleCta.rectTransform.anchorMin = titleCta.rectTransform.anchorMax = new Vector2(.5f, .31f);
                 goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.78f, .86f);
                 promptRt.anchorMin = promptRt.anchorMax = new Vector2(.78f, .69f); promptRt.sizeDelta = new Vector2(360, 112);
                 formulaRt.anchorMin = formulaRt.anchorMax = new Vector2(.78f, .48f); formulaRt.sizeDelta = new Vector2(350, 92);
@@ -393,6 +399,10 @@ namespace Mgf.HanIpman
             }
             else
             {
+                titleSign.rectTransform.anchorMin = titleSign.rectTransform.anchorMax = new Vector2(.5f, .71f);
+                titleMeta.rectTransform.anchorMin = titleMeta.rectTransform.anchorMax = new Vector2(.5f, .605f);
+                titleBest.rectTransform.anchorMin = titleBest.rectTransform.anchorMax = new Vector2(.5f, .225f);
+                titleCta.rectTransform.anchorMin = titleCta.rectTransform.anchorMax = new Vector2(.5f, .135f);
                 goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.5f, .875f);
                 promptRt.anchorMin = promptRt.anchorMax = new Vector2(.5f, .795f); promptRt.sizeDelta = new Vector2(362, 78);
                 formulaRt.anchorMin = formulaRt.anchorMax = new Vector2(.5f, .115f); formulaRt.sizeDelta = new Vector2(350, 72);
