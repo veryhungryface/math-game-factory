@@ -175,28 +175,36 @@ namespace Mgf.BingmakBonghap
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear(); if (Problem == null) return;
-            Color ink = MgfLook.Hex("#D5E8EA"), graphite = MgfLook.Hex("#222A33"), orange = MgfLook.Hex("#F3A33B");
-            Color aqua = MgfLook.Hex("#86C7CF"), cream = MgfLook.Hex("#F5E8C8"), blue = MgfLook.Hex("#6EC6D2");
+            Color ink = MgfLook.Hex("#244E60"), graphite = MgfLook.Hex("#4A5C58"), orange = MgfLook.Hex("#EA684F");
+            Color rope = MgfLook.Hex("#A95F3C"), gold = MgfLook.Hex("#E7B94E");
+            Color aqua = MgfLook.Hex("#5BAAB9"), cream = MgfLook.Hex("#FFF4D2"), blue = MgfLook.Hex("#58B9CA");
             Rect r = rectTransform.rect;
 
             // 0.5 cm grid. It is measurement evidence, not an answer-color guide.
             for (float x = BingmakRules.DomainMinX; x <= BingmakRules.DomainMaxX + .01f; x += .5f)
             {
-                Color c = new Color(ink.r, ink.g, ink.b, Mathf.Abs(x - Mathf.Round(x)) < .01f ? .17f : .075f);
+                Color c = new Color(ink.r, ink.g, ink.b, Mathf.Abs(x - Mathf.Round(x)) < .01f ? .29f : .12f);
                 IceUiDraw.Line(vh, ModelToLocal(new Vector2(x, 0)), ModelToLocal(new Vector2(x, 10)), 1.1f, c);
             }
             for (float y = 0; y <= 10.01f; y += .5f)
             {
-                Color c = new Color(ink.r, ink.g, ink.b, Mathf.Abs(y - Mathf.Round(y)) < .01f ? .17f : .075f);
+                Color c = new Color(ink.r, ink.g, ink.b, Mathf.Abs(y - Mathf.Round(y)) < .01f ? .29f : .12f);
                 IceUiDraw.Line(vh, ModelToLocal(new Vector2(-1, y)), ModelToLocal(new Vector2(11, y)), 1.1f, c);
             }
 
             Vector2 d = ModelToLocal(Vector2.zero), e = ModelToLocal(new Vector2(Problem.baseLength, 0)), f = ModelToLocal(CurrentF);
             Vector2 centroid = (d + e + f) / 3f;
             int tri = vh.currentVertCount;
-            Color membrane = Color.Lerp(new Color(.31f, .39f, .43f, .96f), new Color(orange.r, orange.g, orange.b, .82f), Flash * .58f);
+            Color membrane = Color.Lerp(new Color(.92f, .53f, .35f, .58f), new Color(1f, .78f, .31f, .78f), Flash * .68f);
             vh.AddVert(d, membrane, Vector2.zero); vh.AddVert(e, membrane, Vector2.right); vh.AddVert(f, membrane, Vector2.up);
             vh.AddTriangle(tri, tri + 1, tri + 2);
+            // 직조 결이 보이는 안전띠 보강물. 매끈한 금속/플라스틱 막과 다른 촉감을 만든다.
+            for (int i = 1; i <= 5; i++)
+            {
+                float t = i / 6f;
+                Vector2 a = Vector2.Lerp(d, f, t), b = Vector2.Lerp(e, f, t);
+                IceUiDraw.Dashed(vh, a, b, 2.2f, new Color(cream.r, cream.g, cream.b, .34f), 8, 5, i * 3f);
+            }
 
             // Bounded drag trail: a compressed-rubber afterimage, never an unbounded particle list.
             for (int i = 1; i < TrailCount; i++)
@@ -206,18 +214,17 @@ namespace Mgf.BingmakBonghap
                 IceUiDraw.Line(vh, ModelToLocal(Trail[i - 1]), ModelToLocal(Trail[i]), 2f + 3f * k, tc);
             }
 
-            Color outline = Color.Lerp(graphite, cream, Flash * .7f);
-            IceUiDraw.Line(vh, d, e, 9f, outline); IceUiDraw.Line(vh, e, f, 9f, outline); IceUiDraw.Line(vh, f, d, 9f, outline);
-            IceUiDraw.Line(vh, d, e, 3f, orange); IceUiDraw.Line(vh, e, f, 3f, orange); IceUiDraw.Line(vh, f, d, 3f, orange);
+            Color outline = Color.Lerp(rope, cream, Flash * .7f);
+            IceUiDraw.Line(vh, d, e, 10f, outline); IceUiDraw.Line(vh, e, f, 10f, outline); IceUiDraw.Line(vh, f, d, 10f, outline);
+            IceUiDraw.Dashed(vh, d, e, 3f, gold, 10, 5); IceUiDraw.Dashed(vh, e, f, 3f, gold, 10, 5); IceUiDraw.Dashed(vh, f, d, 3f, gold, 10, 5);
 
-            Vector2[] ribA = { d, e, f }, ribB = { (d + e) * .5f, (e + f) * .5f, (f + d) * .5f };
+            Vector2[] ribA = { d, e, f };
             for (int i = 0; i < 3; i++)
             {
-                float threshold = i + 1;
-                bool locked = LockProgress >= threshold;
-                Color rc = locked ? cream : new Color(graphite.r, graphite.g, graphite.b, .55f);
-                IceUiDraw.Line(vh, ribA[i], centroid, locked ? 8f : 5f, rc);
-                IceUiDraw.Ring(vh, ribA[i], locked ? 13f : 10f, locked ? 13f : 10f, locked ? 4f : 2f, rc, 22);
+                Color rc = Color.Lerp(new Color(rope.r, rope.g, rope.b, .58f), gold, LockProgress);
+                IceUiDraw.Line(vh, ribA[i], centroid, 5f + 5f * LockProgress, rc);
+                float knot = 10f + 5f * Mathf.Sin(LockProgress * Mathf.PI);
+                IceUiDraw.Disc(vh, ribA[i], knot, knot * .72f, rc, 22);
             }
 
             if (HasWrong)
@@ -229,7 +236,7 @@ namespace Mgf.BingmakBonghap
                 IceUiDraw.Ring(vh, wf, 16 + WrongPulse * 4, 11, 3f, wc, 24);
             }
 
-            // 정답 때 빙벽의 균열선이 피톤 쪽으로 접히고, 불투명 보강선이 남는다.
+            // 정답 때 균열광이 안쪽으로 접히며, 이어서 세계 속 얼음 아치가 한 번에 일어난다.
             Vector2[] crackOrigins = {
                 ModelToLocal(new Vector2(-.8f, 8.8f)), ModelToLocal(new Vector2(10.8f, 9.1f)), ModelToLocal(new Vector2(5.1f, 10f))
             };
@@ -260,11 +267,11 @@ namespace Mgf.BingmakBonghap
                 IceUiDraw.Arrow(vh, rp, f, 2.4f, new Color(aqua.r, aqua.g, aqua.b, (1f - k) * .65f));
             }
 
-            IceUiDraw.Disc(vh, d, 15, 15, graphite); IceUiDraw.Disc(vh, e, 15, 15, graphite);
-            IceUiDraw.Ring(vh, d, 22, 22, 5f, new Color(.75f, .93f, .91f, .75f), 28);
-            IceUiDraw.Ring(vh, e, 22, 22, 5f, new Color(.75f, .93f, .91f, .75f), 28);
+            IceUiDraw.Disc(vh, d, 15, 12, rope); IceUiDraw.Disc(vh, e, 15, 12, rope);
+            IceUiDraw.Ring(vh, d, 22, 18, 5f, new Color(gold.r, gold.g, gold.b, .82f), 28);
+            IceUiDraw.Ring(vh, e, 22, 18, 5f, new Color(gold.r, gold.g, gold.b, .82f), 28);
             float sx = Dragging ? 1.16f : 1f, sy = Dragging ? .86f : 1f;
-            IceUiDraw.Disc(vh, f, 20 * sx, 20 * sy, graphite);
+            IceUiDraw.Disc(vh, f, 20 * sx, 20 * sy, rope);
             IceUiDraw.Ring(vh, f, 29 * sx, 29 * sy, 6f, orange, 32);
             IceUiDraw.Ring(vh, f, (34 + Mathf.Sin(Pulse * 3f) * 2f) * sx, (34 + Mathf.Sin(Pulse * 3f) * 2f) * sy,
                 2f, new Color(cream.r, cream.g, cream.b, .48f), 32);
