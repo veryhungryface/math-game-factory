@@ -36,6 +36,7 @@ namespace Mgf.HanIpman
         float worldClock, guideBoost, rippleClock, toastClock, titlePress, openingAnim;
         float revealAnim, hitStop, wrongKick, seamFlash, scoreShown, endScoreShown;
         int lastW = -1, lastH = -1, shownSecond = -1, shownScore = -1, failedCutCount;
+        float lastLogicalW = -1f, lastLogicalH = -1f;
         bool land;
 
         CanvasGroup titleG, hudG, revealG, endG, toastG;
@@ -221,7 +222,8 @@ namespace Mgf.HanIpman
                 guests[i] = BuildTapir(guestRail, new Vector3((i - 1) * 2.65f, -.2f, 1.6f), .48f + i * .04f, 180f, i);
                 plates[i] = MgfLook.Prim(PrimitiveType.Cylinder, "AngleNode" + i, new Vector3((i - 1) * 2.65f, .12f, -.25f), new Vector3(.72f, .12f, .72f), i == 1 ? jamMat : ivoryMat, guestRail, false).transform;
             }
-            RelayoutWorld(true);
+            land = MgfBridge.IsLandLayout;
+            RelayoutWorld();
         }
 
         void BuildLayerCake(Transform parent, Vector3 pos, float radius, bool title)
@@ -388,7 +390,7 @@ namespace Mgf.HanIpman
                 cam.orthographic = false; cam.transform.position = new Vector3(8.8f, 8.3f, -12.9f); cam.transform.LookAt(new Vector3(0, 1.55f, 1.35f)); cam.fieldOfView = 36f;
             }
             else SetTopCamera();
-            RelayoutWorld(true); RelayoutUi();
+            RelayoutAll(true);
         }
 
         void SetTopCamera()
@@ -398,11 +400,22 @@ namespace Mgf.HanIpman
             cam.transform.position = new Vector3(0, 18f, .2f); cam.transform.rotation = Quaternion.Euler(90, 0, 0);
         }
 
-        void RelayoutWorld(bool force)
+        void RelayoutAll(bool force)
         {
             bool nowLand = MgfBridge.IsLandLayout;
-            if (!force && Screen.width == lastW && Screen.height == lastH && nowLand == land) return;
+            var canvasRt = (RectTransform)MgfText.Canvas.transform;
+            Vector2 logical = canvasRt.rect.size;
+            if (logical.x < 1f || logical.y < 1f) logical = new Vector2(390, 844);
+            bool logicalChanged = Mathf.Abs(logical.x - lastLogicalW) > .5f || Mathf.Abs(logical.y - lastLogicalH) > .5f;
+            if (!force && Screen.width == lastW && Screen.height == lastH && nowLand == land && !logicalChanged) return;
             land = nowLand; lastW = Screen.width; lastH = Screen.height;
+            lastLogicalW = logical.x; lastLogicalH = logical.y;
+            RelayoutWorld();
+            RelayoutUi(logical);
+        }
+
+        void RelayoutWorld()
+        {
             boardHome = land ? new Vector3(0, 0, .05f) : new Vector3(0, 0, .60f);
             boardRoot.localPosition = boardHome;
             proofArch.localPosition = boardHome;
@@ -410,16 +423,13 @@ namespace Mgf.HanIpman
             if (!titleRoot.gameObject.activeSelf) SetTopCamera();
         }
 
-        void RelayoutUi()
+        void RelayoutUi(Vector2 logical)
         {
             bool wide = MgfBridge.IsLandLayout;
             shownScore = -1;
             goalTxt.fontSize = wide ? 13f : 15f;
             promptTxt.fontSize = wide ? 12.5f : 14f;
             formulaTxt.fontSize = wide ? 12.5f : 14f;
-            var canvasRt = (RectTransform)MgfText.Canvas.transform;
-            Vector2 logical = canvasRt.rect.size;
-            if (logical.x < 1f || logical.y < 1f) logical = new Vector2(390, 844);
             titleRt.sizeDelta = logical; hudRt.sizeDelta = logical; revealRt.sizeDelta = logical; endRt.sizeDelta = logical; toastRt.sizeDelta = logical;
             if (wide)
             {
@@ -652,7 +662,7 @@ namespace Mgf.HanIpman
 
         void UpdateWorld(float dt)
         {
-            worldClock += dt; RelayoutWorld(false);
+            worldClock += dt;
             for (int i = 0; i < steam.Length; i++) if (steam[i])
             {
                 float u = (worldClock * .16f + i * .13f) % 1f;
@@ -707,7 +717,6 @@ namespace Mgf.HanIpman
 
         void UpdateUi(float dt)
         {
-            if (Screen.width != lastW || Screen.height != lastH) { RelayoutWorld(true); RelayoutUi(); }
             if (current != null && (flow == Flow.Practice || flow == Flow.Playing || flow == Flow.Reveal))
             {
                 Vector3 s = cam.WorldToScreenPoint(boardRoot.position + new Vector3(0, .83f, 0));

@@ -73,6 +73,9 @@ namespace Mgf.HanIpman
         void Update()
         {
             float dt = Mathf.Min(.05f, Time.deltaTime);
+            // 월드와 UI가 같은 프레임에 같은 화면 크기를 소비하게 한다. 월드가 먼저
+            // lastW/lastH를 갱신해 UI 재배치를 건너뛰던 순차 리사이즈 결함을 막는다.
+            RelayoutAll(false);
             HandleInput();
             if (flow == Flow.Opening)
             {

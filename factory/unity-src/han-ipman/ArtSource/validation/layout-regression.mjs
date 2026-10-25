@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 2차 수정 회귀: 실제 CanvasScaler 논리 사각형에서 4개 플레이 뷰포트와 누적 아치 사건을 보존한다.
+// 3차 수정 회귀: 실제 CanvasScaler 논리 사각형에서 순차 리사이즈와 누적 아치 사건을 보존한다.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -50,21 +50,29 @@ async function shot(page, file, label, viewport) {
 }
 
 try {
-  for (const viewport of [
+  const viewports = [
+    { name: 'mobile-390x844', width: 390, height: 844 },
     { name: 'tablet-820x1180', width: 820, height: 1180 },
     { name: 'desktop-1280x800', width: 1280, height: 800 },
     { name: 'desktop-1440x900', width: 1440, height: 900 },
     { name: 'wide-2000x1045', width: 2000, height: 1045 },
-  ]) {
-    const page = await browser.newPage();
-    page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`${viewport.name}: ${message.text()}`); });
-    page.on('pageerror', (error) => browserErrors.push(`${viewport.name}: ${String(error)}`));
+  ];
+
+  // QA와 같은 한 페이지에서 모바일→태블릿→가로→태블릿으로 바꾼다.
+  // 마지막 태블릿 프레임은 최초 로드가 아니라 순차 리사이즈 뒤 상태를 검증한다.
+  const page = await browser.newPage();
+  page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(message.text()); });
+  page.on('pageerror', (error) => browserErrors.push(String(error)));
+  for (const viewport of [...viewports, { name: 'tablet-return-820x1180', width: 820, height: 1180 }]) {
     await page.setViewport({ width: viewport.width, height: viewport.height, deviceScaleFactor: 1 });
-    await page.goto(`${server.url}/g/han-ipman/`, { waitUntil: 'networkidle2', timeout: 45000 });
+    if (!page.url().includes('/g/han-ipman/')) {
+      await page.goto(`${server.url}/g/han-ipman/`, { waitUntil: 'networkidle2', timeout: 45000 });
+    }
     await page.waitForFunction(() => window.__GAME_TEST__?.ready === true, { timeout: 25000 });
-    await page.evaluate(() => window.__GAME_TEST__.start());
+    const phase = await page.evaluate(() => window.__GAME_TEST__.getState().phase);
+    if (phase === 'title') await page.evaluate(() => window.__GAME_TEST__.start());
     await sleep(700);
-    await shot(page, `${viewport.name}-play.png`, 'playing layout', viewport);
+    await shot(page, `${viewport.name}-play.png`, 'playing layout after sequential resize', viewport);
 
     if (viewport.width === 1280) {
       await page.evaluate(() => window.__GAME_TEST__.answerCorrect());
@@ -73,8 +81,8 @@ try {
       await sleep(1050);
       await shot(page, `${viewport.name}-arch-persist.png`, 'solved angle tile persists', viewport);
     }
-    await page.close();
   }
+  await page.close();
 
   if (browserErrors.length) throw new Error(JSON.stringify(browserErrors));
   const qa = JSON.parse(fs.readFileSync(path.join(root, 'factory/work/qa/han-ipman/report.json'), 'utf8'));

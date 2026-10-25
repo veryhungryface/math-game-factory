@@ -2,25 +2,18 @@
   "slug": "han-ipman",
   "fixed": [
     {
-      "issue": "[구현 버그/high] 생성 원화 표지가 실제 Unity 로우폴리 타이틀·인게임과 달라 카탈로그 클릭 전후가 다른 게임처럼 보였다.",
-      "what_i_did": "최종 WebGL 타이틀을 1200×630과 1080×1080 브라우저 프레임으로 직접 캡처해 thumb.png·square.png를 교체하고, 재현 가능한 캡처 스크립트와 해시 기록을 추가했다.",
-      "file": "public/g/han-ipman/thumb.png, public/g/han-ipman/square.png, factory/unity-src/han-ipman/ArtSource/validation/capture-runtime-covers.mjs",
+      "issue": "[구현 버그/high] 한 세션에서 뷰포트를 순차 변경하면 UpdateWorld가 크기 캐시를 먼저 갱신해 UpdateUi 재배치를 건너뛰었고, 820×1180 공식 캡처에서 HUD와 공식이 잘렸다.",
+      "what_i_did": "화면 크기 감지를 RelayoutAll 한 경로로 통합해 월드와 UI를 같은 프레임에 함께 배치했다. CanvasScaler가 한 프레임 늦게 바꾸는 실제 논리 사각형도 별도 캐시해 Screen 크기가 같아도 논리 폭·높이가 달라지면 다시 배치하도록 했다. UpdateWorld와 UpdateUi의 서로 경쟁하던 개별 크기 검사는 제거했다.",
+      "file": "factory/unity-src/han-ipman/Scripts/HanIpmanView.cs, factory/unity-src/han-ipman/Scripts/HanIpmanGame.cs",
       "verified": true,
-      "evidence": "capture-runtime-covers.mjs를 실제 실행해 1200×630(sha256 61691c07...)과 1080×1080(sha256 f4946ce8...)을 생성했다. 두 이미지를 직접 열어 QA desktop-1280의 제목·맥·케이크·조명·프리미티브 재질과 동일함을 관찰했다."
+      "evidence": "수정 전 최종 공식 tablet.png에서는 점수·아치·첫 제출·시간이 사라지고 냅킨과 공식이 잘렸다. 수정 후 artifact 7e1b13f3에서 공식 QA의 모바일→태블릿 순차 캡처와 별도 한 페이지 mobile→tablet→1280→1440→2000→tablet-return 회귀를 실제 실행했다. 공식 820×1180 및 마지막 tablet-return 화면 모두 점수·아치·첫 제출·시간·냅킨 3장·전체 발문·공식이 안전 영역 안에 보였고 브라우저 오류는 0건이었다."
     },
     {
-      "issue": "[구현 버그/high 연계] 1200×630 실제 런타임 캡처에서 초콜릿 제목 상단과 세계 안 시작 태그가 잘렸다.",
-      "what_i_did": "가로 화면의 타이틀 간판·학년 표기·기록·시작 태그 앵커만 중앙대로 압축하고 세로 레이아웃은 기존 값을 유지했다. 정답·오답 연출과 판정은 바꾸지 않았다.",
-      "file": "factory/unity-src/han-ipman/Scripts/HanIpmanView.cs",
+      "issue": "[핵심 루프 검증 공백/high] 수선 완주와 독립 둘째 판 기록의 artifactHash가 이전 빌드여서 최종 산출물의 실제 입력 관용도와 게임성이 미검증이었다.",
+      "what_i_did": "최종 재빌드와 공식 QA 뒤 같은 artifact에서 화면 캡처만 읽어 q와 계산 근거를 정하고 실제 pointerdown→move→pointerup으로 두 판을 새로 수행했다. 첫 판은 일반 1회 고의 오답 뒤 같은 문항 수선과 8문제 클리어, 결과 화면에서 재도전한 둘째 판은 8문제 무실수 클리어로 기록했다. 정답 훅·problemId·상태 prompt·문제은행은 사용하지 않았다.",
+      "file": "factory/work/qa/han-ipman/pointer-playthrough.json, factory/unity-src/han-ipman/ArtSource/validation/independent-play-results.json",
       "verified": true,
-      "evidence": "bash factory/unity/build.sh han-ipman을 실행해 Unity 6000.3.24f1 WebGL 빌드 warnings=0을 확인했다. 수정 전 1200×630에서 제목 상단·CTA가 잘렸고, 수정 후 같은 1200×630 캡처에서 제목 전체와 CTA가 모두 프레임 안에 보인다."
-    },
-    {
-      "issue": "[핵심 루프 검증 결함/high] 기존 수선판과 둘째 판 검증이 problemId의 -q 정답을 읽어 화면 발문을 이해한 독립 플레이를 증명하지 못했다.",
-      "what_i_did": "검증기를 대화형 화면 전용 평가로 교체했다. 평가자는 각 저장 프레임의 발문·식을 보고 q와 계산 근거를 입력하며, 스크립트는 문항 ID·상태 prompt·문제은행·정답 훅을 읽지 않고 실제 pointerdown/move/up만 수행한다. 첫 판은 고의 오답 뒤 같은 주문 수선, 결과 화면에서 재도전 이유 기록, 둘째 판은 새 주문 무실수 완주로 구성했다.",
-      "file": "factory/unity-src/han-ipman/ArtSource/validation/pointer-playthrough.mjs, factory/unity-src/han-ipman/ArtSource/validation/independent-play-results.json",
-      "verified": true,
-      "evidence": "QA artifact_hash 3b8b36c3...에서 실제 실행했다. answer hook 0회·problemId/prompt 상태/문제은행 0회, 실제 pointer 19회였다. 첫 판 clear·solved8·firstCorrect7·lives2, 자발적 재도전 뒤 둘째 판 clear·solved8·firstCorrect8·lives3, console/page/network 오류 0건이며 16개 실전 화면·계산식·선택·전후 상태를 보존했다."
+      "evidence": "pointer-playthrough.json의 artifactHash가 공식 QA와 같은 7e1b13f3402ded6c1beb8dfdcd09c7d9560f6930a15bffd2d437723c110d13e6이다. 실제 포인터 제출 19회로 첫 판 clear/solved8/firstCorrect7/firstWrong1/lives2, 독립 둘째 판 clear/solved8/firstCorrect8/firstWrong0/lives3을 달성했고 console/page/network 오류는 모두 0건이다. 같은 해시의 firstplay도 15프레임·ready true·오류 0으로 재실행했다."
     }
   ],
   "not_fixed": [],

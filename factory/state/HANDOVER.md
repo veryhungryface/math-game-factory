@@ -3,6 +3,21 @@
 > 마지막 갱신: 2026-10-26. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
 
+## 2026-10-26 — 「한 입만」 3차 수정 완료 / QA 45·fatal 0 / 재검수 대기
+
+- 최신 review 87점의 high 2건을 모두 수정했다. 화면 크기 감지를 `RelayoutAll`로 통합해 월드와
+  UI가 같은 프레임에 배치되게 했고, CanvasScaler의 실제 논리 사각형이 한 프레임 늦게 바뀌는
+  경우도 별도로 감지한다. 공식 820×1180과 한 페이지 mobile→tablet→1280→1440→2000→
+  tablet-return 회귀 캡처에서 점수·아치·첫 제출·시간·냅킨·발문·공식이 모두 안전 영역 안이다.
+- 최종 artifact `7e1b13f3402ded6c1beb8dfdcd09c7d9560f6930a15bffd2d437723c110d13e6`에서
+  화면만 읽고 실제 pointer 19회로 첫 판 고의 오답→같은 문항 수선→`clear/solved8/first7/lives2`,
+  결과 화면 재도전 뒤 둘째 판 `clear/solved8/first8/lives3`을 완료했다. problemId·상태 prompt·
+  문제은행·정답 훅 사용은 0이고 console/page/network 오류도 0이다.
+- Unity 재빌드는 warnings0·압축 산출물7.6MB(게임 폴더9452KB)다. 공식 QA45/45·fatal0·실GPU
+  모바일67fps·1280폭67fps·15초 유지101%이며, 같은 해시 firstplay는15프레임·ready true·오류0이다.
+  B3 각200판은 연타2.44%·순환3.04%·무작위3.07%≤우연4.35%, 무입력진도0이다.
+  `fix.json`은 fixed2/not_fixed0/replan false이며 게시·허브·queue는 건드리지 않았다.
+
 ## 2026-10-26 — 「한 입만」 2차 수정 완료 / QA 45·fatal 0 / 재검수 대기
 
 - 최신 review 82점의 high 2건을 모두 수정했다. 고정 390×844 HUD 루트를 CanvasScaler의
