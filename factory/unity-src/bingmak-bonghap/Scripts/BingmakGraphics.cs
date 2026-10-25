@@ -198,7 +198,7 @@ namespace Mgf.BingmakBonghap
             Color membrane = Color.Lerp(new Color(.92f, .53f, .35f, .58f), new Color(1f, .78f, .31f, .78f), Flash * .68f);
             vh.AddVert(d, membrane, Vector2.zero); vh.AddVert(e, membrane, Vector2.right); vh.AddVert(f, membrane, Vector2.up);
             vh.AddTriangle(tri, tri + 1, tri + 2);
-            // 직조 결이 보이는 안전띠 보강물. 매끈한 금속/플라스틱 막과 다른 촉감을 만든다.
+            // 직조 결이 보이는 섬유 보강물. 매끈한 금속/플라스틱 막과 다른 촉감을 만든다.
             for (int i = 1; i <= 5; i++)
             {
                 float t = i / 6f;
@@ -236,7 +236,7 @@ namespace Mgf.BingmakBonghap
                 IceUiDraw.Ring(vh, wf, 16 + WrongPulse * 4, 11, 3f, wc, 24);
             }
 
-            // 정답 때 균열광이 안쪽으로 접히며, 이어서 세계 속 얼음 아치가 한 번에 일어난다.
+            // 정답 때 세 균열광이 동시에 접히며, 이어서 세계 속 현수 빙하 단면이 들어 올려진다.
             Vector2[] crackOrigins = {
                 ModelToLocal(new Vector2(-.8f, 8.8f)), ModelToLocal(new Vector2(10.8f, 9.1f)), ModelToLocal(new Vector2(5.1f, 10f))
             };

@@ -116,8 +116,8 @@ async function solveCurrent(page, bank, { wrongFirst = false } = {}) {
     const repairStart = await state(page);
     await dragModel(page, { x: repairStart.fx100 / 100, y: repairStart.fy100 / 100 }, geometry.target, geometry);
     // 같은 실제 드래그가 정답 피드백으로 들어간 직후를 남긴다. 훅으로 연출을 호출하지 않는다.
-    await sleep(520);
-    await page.screenshot({ path: path.join(outDir, '02b-run1-repaired-arch.png') });
+    await sleep(920);
+    await page.screenshot({ path: path.join(outDir, '02b-run1-repaired-section.png') });
     console.log('[repair-state]', await state(page));
     const repaired = await waitState(page, s => s.phase === 'clear' ||
       (s.solved === before.solved + 1 && !s.frozen && s.currentProblemId !== before.currentProblemId), 5000);

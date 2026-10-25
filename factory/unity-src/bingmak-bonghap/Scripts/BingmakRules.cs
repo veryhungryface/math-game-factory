@@ -128,7 +128,7 @@ namespace Mgf.BingmakBonghap
             p.prompt = p.congruence + "가 되도록 표시된 반평면에서 꼭짓점 F를 옮기시오.";
             p.answer = "DE=" + p.baseLength + ";DF=" + p.targetDF + ";EF=" + p.targetEF +
                 ";target=(" + p.targetX.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + "," +
-                p.targetY.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ");tol=0.25;halfplane=marked";
+                p.targetY.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ");lengthTolEach=0.25;halfplane=marked";
             p.unitConcept = band == 1 ? "SSS 합동과 대응변" :
                 band == 2 ? "회전·반사된 합동 도형의 대응" : "대응변 오류 찾기와 수정";
             p.initialMisconceptionId = band == 3 || (band == 2 && (id[id.Length - 1] & 1) == 0)
@@ -157,8 +157,19 @@ namespace Mgf.BingmakBonghap
 
         public static bool IsCorrect(IceProblem p, Vector2 f)
         {
-            float dx = f.x - p.targetX, dy = f.y - p.targetY;
-            return dx * dx + dy * dy <= Tolerance * Tolerance;
+            // 학생에게 보이는 규칙은 "DF와 EF 각각 제작 허용오차 0.25 cm"다.
+            // 정답 꼭짓점 주위의 원을 검사하면 두 길이가 모두 허용 범위인 점을 오답 처리하므로,
+            // 두 선분 길이의 제곱을 각 목표 구간과 직접 비교한다. 표시된 반평면도 판정에 포함한다.
+            if (f.y < 0f) return false;
+            return LengthWithinToleranceSquared(f.sqrMagnitude, p.targetDF) &&
+                LengthWithinToleranceSquared((f - new Vector2(p.baseLength, 0f)).sqrMagnitude, p.targetEF);
+        }
+
+        static bool LengthWithinToleranceSquared(float lengthSquared, int target)
+        {
+            float min = Mathf.Max(0f, target - Tolerance), max = target + Tolerance;
+            const float epsilon = .0001f;
+            return lengthSquared >= min * min - epsilon && lengthSquared <= max * max + epsilon;
         }
 
         public static Vector2 InitialPoint(IceProblem p)
@@ -238,6 +249,35 @@ namespace Mgf.BingmakBonghap
                 if (initial.y <= 0 || initial.x < DomainMinX || initial.x > DomainMaxX || initial.y > DomainMaxY)
                     throw new InvalidOperationException(p.id + " initial out of domain " + initial);
             }
+            AuditToleranceContract();
+        }
+
+        static void AuditToleranceContract()
+        {
+            // 독립 회귀 표본: DE=3, DF=5, EF=4인 3·4·5 배치.
+            var p = Make("audit-345", "audit-345", 0, new[] { 3, 4, 5 }, new[] { 0, 1, 2 }, 0, false);
+            Vector2 target = new Vector2(p.targetX, p.targetY);
+            if (!IsCorrect(p, target)) throw new InvalidOperationException("tolerance audit: exact target rejected");
+            if (!IsCorrect(p, new Vector2(3.3f, 4f)))
+                throw new InvalidOperationException("tolerance audit: two-length interior point rejected");
+            if (IsCorrect(p, new Vector2(3.6f, 4f)))
+                throw new InvalidOperationException("tolerance audit: outside length band accepted");
+            if (IsCorrect(p, new Vector2(target.x, -target.y)))
+                throw new InvalidOperationException("tolerance audit: unmarked half-plane accepted");
+
+            float outerDf = p.targetDF + Tolerance;
+            float boundaryX = (outerDf * outerDf + p.baseLength * p.baseLength - p.targetEF * p.targetEF) /
+                (2f * p.baseLength);
+            float boundaryY = Mathf.Sqrt(outerDf * outerDf - boundaryX * boundaryX);
+            if (!IsCorrect(p, new Vector2(boundaryX, boundaryY)))
+                throw new InvalidOperationException("tolerance audit: inclusive boundary rejected");
+
+            float outsideDf = p.targetDF + Tolerance + .01f;
+            float outsideX = (outsideDf * outsideDf + p.baseLength * p.baseLength - p.targetEF * p.targetEF) /
+                (2f * p.baseLength);
+            float outsideY = Mathf.Sqrt(outsideDf * outsideDf - outsideX * outsideX);
+            if (IsCorrect(p, new Vector2(outsideX, outsideY)))
+                throw new InvalidOperationException("tolerance audit: just-outside boundary accepted");
         }
     }
 }

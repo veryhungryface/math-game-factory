@@ -1,4 +1,4 @@
-// 빙막 봉합 — 빙벽 측량 캠프 2.5D 세계, 자유 꼭짓점 F 직접 드래그, 진행/실패/브리지 정본.
+// 빙막 봉합 — 현수 빙하 단면 2.5D 세계, 자유 꼭짓점 F 직접 드래그, 진행/실패/브리지 정본.
 using System;
 using System.Collections.Generic;
 using Mgf;
@@ -58,7 +58,7 @@ namespace Mgf.BingmakBonghap
         readonly Transform[] snowMotes = new Transform[12];
 
         Camera cam;
-        Transform world, pikaRoot, pikaBody, pikaHead, pikaPaw, iceArchRoot, titleBanner;
+        Transform world, keeperRoot, keeperBody, keeperHead, keeperWing, liftedSectionRoot, titleBanner;
         Material iceMat, darkIceMat, orangeMat, graphiteMat, creamMat, cobaltMat, clearMat, glowMat;
         Material snowMat, rockMat, ropeMat, coralCanvasMat, yellowCanvasMat, pineMat;
         Canvas canvas;
@@ -84,7 +84,7 @@ namespace Mgf.BingmakBonghap
         Vector2 workBasePosition;
         float secondsLeft = BingmakRules.RunSeconds;
         float titleClock, ambientClock, idleClock, revealClock, hitStop, wrongJolt, unfoldClock;
-        float pikaEventClock = 99f, toastClock = 99f, lensClock, scoreShown, endShown;
+        float keeperEventClock = 99f, toastClock = 99f, lensClock, scoreShown, endShown;
         float lastTrailTime;
         int lastTimerSecond = -1, lastDf = -1, lastEf = -1, lockSoundStep;
         bool revealCorrect, revealPractice, failAfterReveal, dragMoved;
@@ -112,129 +112,129 @@ namespace Mgf.BingmakBonghap
 
         void BuildMaterials()
         {
-            iceMat = MgfLook.Lit(MgfLook.Hex("#BCEAF2"), .66f, .03f, new Color(.01f, .045f, .055f));
-            darkIceMat = MgfLook.Lit(MgfLook.Hex("#6EB7C8"), .58f, .02f, new Color(0, .018f, .028f));
-            orangeMat = MgfLook.Lit(MgfLook.Hex("#EF704F"), .30f, .02f, new Color(.035f, .006f, 0));
-            graphiteMat = MgfLook.Lit(MgfLook.Hex("#3B4650"), .28f, .04f);
-            creamMat = MgfLook.Lit(Cream, .62f, .02f);
-            cobaltMat = MgfLook.Lit(MgfLook.Hex("#347E9B"), .50f, .03f, new Color(0, .018f, .035f));
-            clearMat = MgfLook.Lit(MgfLook.Hex("#87DCE5"), .48f, .02f, new Color(.012f, .04f, .045f));
-            glowMat = MgfLook.Additive(new Color(.96f, .80f, .42f, .46f), MgfLook.SoftDot);
-            snowMat = MgfLook.Lit(MgfLook.Hex("#F8FCF2"), .38f, .01f);
-            rockMat = MgfLook.Lit(MgfLook.Hex("#8B9B91"), .25f, .02f);
-            ropeMat = MgfLook.Lit(MgfLook.Hex("#B9693D"), .20f, .01f);
-            coralCanvasMat = MgfLook.Lit(MgfLook.Hex("#E95F50"), .20f, .01f);
-            yellowCanvasMat = MgfLook.Lit(MgfLook.Hex("#F2C85B"), .24f, .01f);
-            pineMat = MgfLook.Lit(MgfLook.Hex("#39745C"), .18f, .01f);
+            iceMat = MgfLook.Lit(MgfLook.Hex("#9CE8F2"), .18f, .01f, new Color(.005f, .045f, .065f));
+            darkIceMat = MgfLook.Lit(MgfLook.Hex("#21445E"), .12f, .01f, new Color(0, .012f, .025f));
+            orangeMat = MgfLook.Lit(MgfLook.Hex("#FF6B52"), .12f, .01f, new Color(.045f, .004f, 0));
+            graphiteMat = MgfLook.Lit(MgfLook.Hex("#172131"), .08f, .02f);
+            creamMat = MgfLook.Lit(Cream, .24f, .01f);
+            cobaltMat = MgfLook.Lit(MgfLook.Hex("#186D91"), .16f, .02f, new Color(0, .02f, .05f));
+            clearMat = MgfLook.Lit(MgfLook.Hex("#5DE3EE"), .22f, .01f, new Color(.01f, .08f, .09f));
+            glowMat = MgfLook.Additive(new Color(.47f, .98f, 1f, .62f), MgfLook.SoftDot);
+            snowMat = MgfLook.Lit(MgfLook.Hex("#E9FFF5"), .20f, .01f);
+            rockMat = MgfLook.Lit(MgfLook.Hex("#293348"), .08f, .01f);
+            ropeMat = MgfLook.Lit(MgfLook.Hex("#D5435D"), .10f, .01f);
+            coralCanvasMat = MgfLook.Lit(MgfLook.Hex("#F04E67"), .12f, .01f);
+            yellowCanvasMat = MgfLook.Lit(MgfLook.Hex("#F6C94C"), .16f, .01f);
+            pineMat = MgfLook.Lit(MgfLook.Hex("#8154B8"), .12f, .01f);
         }
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#87D7EE"), MgfLook.Hex("#DFF5F4"), MgfLook.Hex("#B9D9D2"), .68f);
-            MgfLook.Sun(new Vector3(48, -28, -24), MgfLook.Hex("#FFF2C7"), 1.14f, .78f);
-            cam = MgfLook.Camera(new Vector3(0, 5.1f, -20f), new Vector3(0, .45f, 4.4f), 27f);
+            MgfLook.Sky(MgfLook.Hex("#071525"), MgfLook.Hex("#164A64"), MgfLook.Hex("#0B2638"), .36f);
+            MgfLook.Sun(new Vector3(35, -34, -18), MgfLook.Hex("#C9FFF0"), 1.22f, .86f);
+            cam = MgfLook.Camera(new Vector3(8.8f, 6.2f, -21f), new Vector3(0, -.15f, 4.5f), 24f);
             cam.orthographic = true; cam.orthographicSize = 8.4f;
-            world = new GameObject("DaylightGlacierCamp").transform;
+            world = new GameObject("SuspendedGlacierSection").transform;
 
-            // 열린 낮의 미니어처 협곡. 금속 계측판/레일 대신 눈 둔덕, 얼음 기둥, 텐트와 직조물이 세계를 채운다.
-            MgfLook.Block("SnowShelf", new Vector3(0, -3.72f, 5.4f), new Vector3(22f, .70f, 8.5f), .22f, snowMat, world);
-            MgfLook.Block("BlueCrevasse", new Vector3(0, -3.22f, 3.65f), new Vector3(8.4f, .18f, 2.8f), .08f, cobaltMat, world);
-            for (int i = 0; i < 10; i++)
+            // 각진 빙하 단면과 매달린 결정 천장. 둥근 협곡 블록을 쓰지 않아 실루엣부터 분리한다.
+            MgfLook.Prim(PrimitiveType.Cube, "DeepIceWall", new Vector3(0, .4f, 8.6f), new Vector3(24f, 15f, 1.2f), darkIceMat, world, false);
+            MgfLook.Prim(PrimitiveType.Cube, "FractureFloor", new Vector3(0, -3.75f, 4.7f), new Vector3(23f, .45f, 7.6f), rockMat, world, false);
+            for (int i = 0; i < 15; i++)
             {
-                float side = i < 5 ? -1f : 1f, lane = i % 5;
-                float x = side * (5.1f + lane * 1.65f);
-                float y = -1.45f + (lane % 3) * .82f;
-                var spire = MgfLook.Block("CarvedIceSpire" + i, new Vector3(x, y, 5.9f + (lane % 2) * .62f),
-                    new Vector3(2.2f - lane * .11f, 5.4f + lane * .55f, 2.2f), .32f, lane % 2 == 0 ? iceMat : darkIceMat, world);
-                spire.transform.localRotation = Quaternion.Euler(0, side * (10 + lane * 3), side * (5 + lane * 2));
+                float x = -11.2f + i * 1.62f;
+                float len = 1.5f + (i % 5) * .62f;
+                var shard = MgfLook.Prim(PrimitiveType.Cube, "CeilingCrystal" + i,
+                    new Vector3(x, 5.9f - len * .45f, 4.8f + (i % 3) * .52f),
+                    new Vector3(.34f + (i % 2) * .17f, len, .42f), i % 3 == 0 ? clearMat : iceMat, world, false);
+                shard.transform.localRotation = Quaternion.Euler(i % 2 == 0 ? 8 : -7, (i % 5 - 2) * 9, (i % 3 - 1) * 16);
             }
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 9; i++)
             {
-                float x = -8.7f + i * 2.9f;
-                MgfLook.Prim(PrimitiveType.Cylinder, "SnowRock" + i, new Vector3(x, -3.03f + (i % 2) * .08f, 3.2f + (i % 3) * .7f),
-                    new Vector3(.68f + (i % 3) * .13f, .30f, .60f), i % 2 == 0 ? rockMat : iceMat, world, false);
+                float side = i < 5 ? -1f : 1f, lane = i < 5 ? i : i - 4;
+                var plate = MgfLook.Prim(PrimitiveType.Cube, "CutIcePlate" + i,
+                    new Vector3(side * (5.2f + lane * 1.2f), -1.2f + (lane % 3) * 1.15f, 5.5f + (lane % 2) * .5f),
+                    new Vector3(2.7f, .52f + lane * .08f, 1.25f), lane % 2 == 0 ? iceMat : cobaltMat, world, false);
+                plate.transform.localRotation = Quaternion.Euler(side * 4f, side * (18f + lane * 5f), side * (25f + lane * 7f));
             }
-            BuildCampTent(new Vector3(-6.25f, -2.58f, 3.28f), coralCanvasMat, "CoralTent");
-            BuildCampTent(new Vector3(6.45f, -2.64f, 4.08f), yellowCanvasMat, "YellowTent");
             BuildTitleBanner();
             BuildCampFlags();
-            BuildPikaGuide();
+            BuildKeeper();
             BuildIceArch();
             for (int i = 0; i < snowMotes.Length; i++)
             {
                 var mote = MgfLook.Prim(PrimitiveType.Sphere, "WindSnow" + i,
                     new Vector3(-10f + i * 1.8f, -1.9f + (i % 5) * 1.2f, 3.0f + (i % 3) * .5f),
-                    Vector3.one * (.045f + (i % 3) * .02f), snowMat, world, false);
+                    Vector3.one * (.045f + (i % 3) * .02f), i % 3 == 0 ? yellowCanvasMat : clearMat, world, false);
                 snowMotes[i] = mote.transform;
             }
-        }
-
-        void BuildCampTent(Vector3 p, Material cloth, string name)
-        {
-            var root = new GameObject(name).transform; root.SetParent(world, false); root.localPosition = p;
-            var left = MgfLook.Block(name + "Left", new Vector3(-.62f, .55f, 0), new Vector3(1.42f, .10f, 1.45f), .03f, cloth, root);
-            var right = MgfLook.Block(name + "Right", new Vector3(.62f, .55f, 0), new Vector3(1.42f, .10f, 1.45f), .03f, cloth, root);
-            left.transform.localRotation = Quaternion.Euler(0, 0, 42); right.transform.localRotation = Quaternion.Euler(0, 0, -42);
-            MakeRope(root, "TentRidge", new Vector3(0, 1.08f, -.76f), new Vector3(0, 1.08f, .76f), .055f, ropeMat);
         }
 
         void BuildCampFlags()
         {
             for (int i = 0; i < flagCloths.Length; i++)
             {
-                float x = -8.3f + i * 3.3f, y = -.88f + (i % 2) * .28f;
-                MgfLook.Prim(PrimitiveType.Cylinder, "FlagPole" + i, new Vector3(x, y, 3.35f),
-                    new Vector3(.055f, 1.55f, .055f), ropeMat, world, false);
-                var cloth = MgfLook.Block("WovenFlag" + i, new Vector3(x + .55f, y + .72f, 3.32f),
-                    new Vector3(1.05f, .48f, .06f), .025f, i % 2 == 0 ? coralCanvasMat : yellowCanvasMat, world);
+                float x = -8.3f + i * 3.3f, y = .15f + (i % 2) * .6f;
+                MakeRope(world, "CeilingCord" + i, new Vector3(x, 5.5f, 3.7f), new Vector3(x, y + .7f, 3.7f), .055f, ropeMat);
+                var cloth = MgfLook.Prim(PrimitiveType.Cube, "TensionTape" + i, new Vector3(x, y, 3.65f),
+                    new Vector3(.20f, 1.7f, .07f), i % 2 == 0 ? coralCanvasMat : yellowCanvasMat, world, false);
+                cloth.transform.localRotation = Quaternion.Euler(0, 0, i % 2 == 0 ? 14 : -14);
                 flagCloths[i] = cloth.transform;
             }
         }
 
         void BuildTitleBanner()
         {
-            MgfLook.Prim(PrimitiveType.Cylinder, "BannerPoleL", new Vector3(-4.55f, 3.55f, 4.25f),
-                new Vector3(.08f, 2.15f, .08f), ropeMat, world, false);
-            MgfLook.Prim(PrimitiveType.Cylinder, "BannerPoleR", new Vector3(4.55f, 3.55f, 4.25f),
-                new Vector3(.08f, 2.15f, .08f), ropeMat, world, false);
-            titleBanner = MgfLook.Block("CampTitleFlag", new Vector3(0, 4.25f, 4.18f),
-                new Vector3(8.65f, 2.10f, .12f), .08f, coralCanvasMat, world).transform;
-            MakeRope(world, "BannerTopRope", new Vector3(-4.55f, 5.38f, 4.20f), new Vector3(4.55f, 5.38f, 4.20f), .065f, ropeMat);
-            MakeRope(world, "BannerBottomRope", new Vector3(-4.55f, 3.15f, 4.20f), new Vector3(4.55f, 3.15f, 4.20f), .055f, ropeMat);
+            MakeRope(world, "TitleSuspensionL", new Vector3(-3.7f, 6.1f, 3.95f), new Vector3(-3.25f, 4.35f, 3.95f), .07f, ropeMat);
+            MakeRope(world, "TitleSuspensionR", new Vector3(3.7f, 6.1f, 3.95f), new Vector3(3.25f, 4.35f, 3.95f), .07f, ropeMat);
+            titleBanner = MgfLook.Prim(PrimitiveType.Cube, "EtchedTitleIceSection", new Vector3(0, 4.05f, 4.1f),
+                new Vector3(7.7f, 1.75f, .26f), cobaltMat, world, false).transform;
+            titleBanner.localRotation = Quaternion.Euler(-3f, -8f, 0);
+            for (int i = 0; i < 5; i++)
+            {
+                var chip = MgfLook.Prim(PrimitiveType.Cube, "TitleCrystalChip" + i,
+                    new Vector3(-3.5f + i * 1.75f, 3.15f + (i % 2) * .13f, 4.0f),
+                    new Vector3(.72f, .36f, .38f), i % 2 == 0 ? iceMat : clearMat, world, false);
+                chip.transform.localRotation = Quaternion.Euler(0, i * 9f, i % 2 == 0 ? 24f : -20f);
+            }
         }
 
-        void BuildPikaGuide()
+        void BuildKeeper()
         {
-            pikaRoot = new GameObject("PikaGuide").transform; pikaRoot.SetParent(world, false);
-            pikaRoot.localPosition = new Vector3(-4.9f, -2.67f, 2.75f);
-            Material fur = MgfLook.Lit(MgfLook.Hex("#C88F5A"), .25f, .01f);
-            Material belly = MgfLook.Lit(MgfLook.Hex("#F3D7A5"), .30f, .01f);
-            pikaBody = MgfLook.Prim(PrimitiveType.Sphere, "PikaBody", Vector3.zero, new Vector3(.56f, .72f, .48f), fur, pikaRoot, false).transform;
-            pikaHead = MgfLook.Prim(PrimitiveType.Sphere, "PikaHead", new Vector3(.06f, .62f, -.04f), new Vector3(.44f, .43f, .40f), fur, pikaRoot, false).transform;
-            MgfLook.Prim(PrimitiveType.Sphere, "PikaBelly", new Vector3(-.05f, .05f, -.46f), new Vector3(.30f, .40f, .05f), belly, pikaRoot, false);
+            keeperRoot = new GameObject("CrystalWeaverKeeper").transform; keeperRoot.SetParent(world, false);
+            keeperRoot.localPosition = new Vector3(-4.9f, -2.72f, 2.75f);
+            keeperBody = MgfLook.Prim(PrimitiveType.Cube, "KeeperBody", Vector3.zero, new Vector3(.48f, .78f, .32f), pineMat, keeperRoot, false).transform;
+            keeperBody.localRotation = Quaternion.Euler(0, 0, 45f);
+            keeperHead = MgfLook.Prim(PrimitiveType.Cube, "KeeperHead", new Vector3(.02f, .64f, -.03f), new Vector3(.34f, .34f, .30f), creamMat, keeperRoot, false).transform;
+            keeperHead.localRotation = Quaternion.Euler(0, 0, 45f);
             for (int i = 0; i < 2; i++)
-                MgfLook.Prim(PrimitiveType.Sphere, "PikaEar" + i, new Vector3(-.17f + i * .42f, .98f, 0), new Vector3(.18f, .25f, .12f), fur, pikaRoot, false);
-            for (int i = 0; i < 2; i++)
-                MgfLook.Prim(PrimitiveType.Sphere, "PikaEye" + i, new Vector3(-.11f + i * .30f, .69f, -.38f), Vector3.one * .055f, graphiteMat, pikaRoot, false);
-            pikaPaw = MgfLook.Prim(PrimitiveType.Cube, "PikaFlagPaw", new Vector3(.48f, .25f, -.06f), new Vector3(.10f, .55f, .10f), fur, pikaRoot, false).transform;
-            pikaPaw.localRotation = Quaternion.Euler(0, 0, -40);
+            {
+                var wing = MgfLook.Prim(PrimitiveType.Cube, "KeeperWing" + i, new Vector3(i == 0 ? -.48f : .48f, .12f, .05f),
+                    new Vector3(.72f, .18f, .08f), i == 0 ? coralCanvasMat : yellowCanvasMat, keeperRoot, false);
+                wing.transform.localRotation = Quaternion.Euler(0, i == 0 ? -18f : 18f, i == 0 ? -24f : 24f);
+                if (i == 1) keeperWing = wing.transform;
+            }
+            MakeRope(keeperRoot, "KeeperAntennaL", new Vector3(-.09f, .78f, 0), new Vector3(-.26f, 1.1f, 0), .025f, ropeMat);
+            MakeRope(keeperRoot, "KeeperAntennaR", new Vector3(.09f, .78f, 0), new Vector3(.27f, 1.08f, 0), .025f, ropeMat);
         }
 
         void BuildIceArch()
         {
-            iceArchRoot = new GameObject("RisingIceArch").transform; iceArchRoot.SetParent(world, false);
-            iceArchRoot.localPosition = new Vector3(0, -2.72f, 3.05f);
-            for (int i = 0; i < 9; i++)
+            liftedSectionRoot = new GameObject("SSSSuspendedSectionLift").transform; liftedSectionRoot.SetParent(world, false);
+            liftedSectionRoot.localPosition = new Vector3(0, -2.72f, 3.05f);
+            for (int i = 0; i < 7; i++)
             {
-                float t = i / 8f, a = Mathf.Lerp(195f, -15f, t) * Mathf.Deg2Rad;
-                Vector3 p = new Vector3(Mathf.Cos(a) * 2.35f, Mathf.Sin(a) * 1.55f + 1.34f, 0);
-                var stone = MgfLook.Block("CarvedArchStone" + i, p, new Vector3(.82f, .50f, .72f), .16f,
-                    i % 2 == 0 ? iceMat : clearMat, iceArchRoot);
-                stone.transform.localRotation = Quaternion.Euler(0, 0, a * Mathf.Rad2Deg + 90f);
+                var slab = MgfLook.Prim(PrimitiveType.Cube, "AngularSectionSlab" + i,
+                    new Vector3(-2.7f + i * .9f, 1.15f + (i % 2) * .16f, (i % 3) * .08f),
+                    new Vector3(1.05f, .62f, .72f), i % 2 == 0 ? iceMat : clearMat, liftedSectionRoot, false);
+                slab.transform.localRotation = Quaternion.Euler(i % 2 == 0 ? -6f : 7f, i * 5f, i % 2 == 0 ? 13f : -11f);
             }
-            MakeRope(iceArchRoot, "CoralSafetyBelt", new Vector3(-2.35f, .25f, -.40f), new Vector3(2.35f, .25f, -.40f), .10f, coralCanvasMat);
-            MakeRope(iceArchRoot, "GoldSafetyBelt", new Vector3(-2.05f, .70f, -.43f), new Vector3(2.05f, .70f, -.43f), .07f, yellowCanvasMat);
-            iceArchRoot.localScale = Vector3.zero;
+            // 세 대응변의 측정광과 직조 보강선은 동시에 잠긴다.
+            MakeRope(liftedSectionRoot, "MeasureBeamDF", new Vector3(-2.55f, -.18f, -.42f), new Vector3(-.72f, 1.02f, -.42f), .13f, clearMat);
+            MakeRope(liftedSectionRoot, "MeasureBeamEF", new Vector3(2.55f, -.18f, -.42f), new Vector3(.72f, 1.02f, -.42f), .13f, clearMat);
+            MakeRope(liftedSectionRoot, "MeasureBeamDE", new Vector3(-2.55f, -.18f, -.42f), new Vector3(2.55f, -.18f, -.42f), .13f, clearMat);
+            MakeRope(liftedSectionRoot, "WovenBraceLeft", new Vector3(-2.55f, -.25f, -.50f), new Vector3(0, .72f, -.50f), .10f, coralCanvasMat);
+            MakeRope(liftedSectionRoot, "WovenBraceRight", new Vector3(2.55f, -.25f, -.50f), new Vector3(0, .72f, -.50f), .10f, yellowCanvasMat);
+            liftedSectionRoot.localScale = Vector3.zero;
         }
 
         GameObject MakeRope(Transform parent, string name, Vector3 a, Vector3 b, float width, Material material)
@@ -246,7 +246,7 @@ namespace Mgf.BingmakBonghap
 
         void BuildUi()
         {
-            // 캠프의 직조 라벨과 서리 낀 측량판. 금속 제어판 문법을 쓰지 않는다.
+            // 빙하 단면의 직조 라벨과 서리 낀 측량판. 금속 제어판 문법을 쓰지 않는다.
             roundedSprite = MakeRoundedSprite(64, 4, false, false);
             circleSprite = MakeRoundedSprite(64, 31, false, false);
             ringSprite = MakeRoundedSprite(64, 31, true, false);
@@ -261,29 +261,29 @@ namespace Mgf.BingmakBonghap
             titleBackdrop = R("TitleBackdrop", titleGroup.transform, Vector2.zero, Vector2.zero, Vector2.zero);
             Stretch(titleBackdrop, 0);
             titleArt = titleBackdrop.gameObject.AddComponent<RawImage>(); titleArt.raycastTarget = false;
-            // 타이틀도 인게임과 같은 실시간 빙벽 캠프다. 생성 원화는 더 이상 렌더하지 않는다.
+            // 타이틀도 인게임과 같은 실시간 현수 빙하 단면이다. 생성 원화는 더 이상 렌더하지 않는다.
             titleArt.enabled = false;
 
             var topGlow = Img(titleGroup.transform, "SunHalo", new Vector2(.5f, 1), new Vector2(0, -86), new Vector2(580, 210),
-                new Color(1f, .94f, .60f, .18f), circleSprite); topGlow.raycastTarget = false;
-            // 실제 배경의 직조 캠프 깃발 위에 글자만 얹는다. 떠 있는 직사각 제목판은 없다.
+                new Color(.40f, .96f, 1f, .07f), circleSprite); topGlow.raycastTarget = false;
+            // 실제 배경의 매달린 얼음 단면 위에 글자만 얹는다. 별도 메뉴 패널은 없다.
             titleLogoRoot = Panel(titleGroup.transform, "CampFlagLettering", new Vector2(.5f, 1), new Vector2(0, -180), new Vector2(380, 170), new Color(1, 1, 1, 0), roundedSprite);
             titleLogoShadow = Txt(titleLogoRoot, "빙막\n봉합", new Vector2(.5f, .5f), new Vector2(3, -4), 61, new Color(.10f, .28f, .34f, .50f), 360, TextAlignmentOptions.Center);
             titleLogoShadow.outlineWidth = .18f; titleLogoShadow.outlineColor = new Color(.97f, .92f, .64f, .86f);
             titleLogo = Txt(titleLogoRoot, "빙막\n봉합", new Vector2(.5f, .5f), Vector2.zero, 61, Cream, 360, TextAlignmentOptions.Center);
             titleLogo.outlineWidth = .17f; titleLogo.outlineColor = Deep;
-            titleTag = Txt(titleGroup.transform, "안전띠를 엮어 얼음 아치를 세워라", new Vector2(.5f, .64f), Vector2.zero, 17, Deep, 410);
-            titleTag.outlineWidth = .10f; titleTag.outlineColor = Cream;
-            titleMeta = Txt(titleGroup.transform, "중학교 1학년 · 작도와 합동", new Vector2(.5f, .18f), new Vector2(0, 24), 13, Deep, 340);
-            titleMeta.outlineWidth = .10f; titleMeta.outlineColor = Cream;
-            titleBest = Txt(titleGroup.transform, "", new Vector2(.5f, .18f), new Vector2(0, 52), 13, Deep, 340);
-            titleBest.outlineWidth = .10f; titleBest.outlineColor = Cream;
+            titleTag = Txt(titleGroup.transform, "F 고리를 끌어 두 변을 맞춰라", new Vector2(.5f, .64f), Vector2.zero, 17, Cream, 410);
+            titleTag.outlineWidth = .14f; titleTag.outlineColor = Deep;
+            titleMeta = Txt(titleGroup.transform, "중학교 1학년 · 작도와 합동", new Vector2(.5f, .18f), new Vector2(0, 24), 13, Cream, 340);
+            titleMeta.outlineWidth = .14f; titleMeta.outlineColor = Deep;
+            titleBest = Txt(titleGroup.transform, "", new Vector2(.5f, .18f), new Vector2(0, 52), 13, Cream, 340);
+            titleBest.outlineWidth = .14f; titleBest.outlineColor = Deep;
 
             titleStart = R("SignalFlareStart", titleGroup.transform, new Vector2(.5f, 0), new Vector2(0, 104), new Vector2(142, 142));
             var flare = titleStart.gameObject.AddComponent<Image>(); flare.sprite = circleSprite; flare.type = Image.Type.Simple;
             flare.color = new Color(.92f, .33f, .25f, .96f); flare.raycastTarget = false;
             Img(titleStart, "FlareHalo", new Vector2(.5f, .5f), Vector2.zero, new Vector2(166, 166), new Color(1f, .83f, .35f, .58f), ringSprite);
-            titleStartText = Txt(titleStart, "신호탄\n탭하여 출발", new Vector2(.5f, .5f), Vector2.zero, 17, Cream, 128);
+            titleStartText = Txt(titleStart, "장력핵\n탭하여 출발", new Vector2(.5f, .5f), Vector2.zero, 17, Cream, 128);
             titleHelp = R("HowTo", titleGroup.transform, new Vector2(.5f, 0), new Vector2(0, 33), new Vector2(190, 44));
             titleHelpText = Txt(titleHelp, "조작 다시 보기", new Vector2(.5f, .5f), Vector2.zero, 13, Cream, 180);
             titleHelpText.outlineWidth = .12f; titleHelpText.outlineColor = Deep;
@@ -297,7 +297,7 @@ namespace Mgf.BingmakBonghap
             // 우상단 HTML 음소거 버튼과 겹치지 않는 헤더 안쪽에 둔다.
             scoreText = Txt(hudPanel, "0점", new Vector2(1, .5f), new Vector2(-92, 0), 18, Cream, 72, TextAlignmentOptions.Right);
             goalPanel = Panel(playGroup.transform, "CoralGoalRibbon", new Vector2(.5f, .5f), Vector2.zero, new Vector2(370, 40), new Color(.93f, .37f, .29f, .97f));
-            goalText = Txt(goalPanel, "안전띠의 세 변을 맞춰 얼음 아치를 세워라", new Vector2(.5f, .5f), Vector2.zero, 15, Cream, 356);
+            goalText = Txt(goalPanel, "두 직조띠 길이를 맞춰 빙하 단면을 들어라", new Vector2(.5f, .5f), Vector2.zero, 15, Cream, 356);
 
             referencePanel = Panel(playGroup.transform, "ReferenceSchematic", new Vector2(.5f, .5f), Vector2.zero, new Vector2(364, 126), new Color(.96f, .91f, .78f, .98f));
             congruenceText = Txt(referencePanel, "", new Vector2(.5f, 1), new Vector2(0, -17), 18, Deep, 340);
@@ -363,12 +363,12 @@ namespace Mgf.BingmakBonghap
             endStats = Txt(endPanel, "", new Vector2(.5f, .5f), new Vector2(0, -48), 18, Graphite, 330);
             endButton = Panel(endPanel, "RetrySuction", new Vector2(.5f, 0), new Vector2(0, 62), new Vector2(300, 72), Graphite, circleSprite);
             Img(endButton, "RetryRing", new Vector2(.5f, .5f), Vector2.zero, new Vector2(272, 50), Orange, ringSprite);
-            endButtonText = Txt(endButton, "새 아치 세우기", new Vector2(.5f, .5f), Vector2.zero, 20, Cream, 260);
+            endButtonText = Txt(endButton, "새 단면 보강", new Vector2(.5f, .5f), Vector2.zero, 20, Cream, 260);
         }
 
         void Prewarm()
         {
-            MgfText.Prewarm("빙막봉합안전띠얼음아치를세워라중학교학년작도와합동신호탄탭하여출발조작다시보기보강선균열고정빛나는화살표방향끌어놓으시오모식도표시된반평면에서옮기시오현재약모눈제작허용오차수선클립첫제출정답초과부족대응변뒤바꿈한길이만확인SSS합동완료실패새아치세우기점수시간진행DFEFABCcm△≡·0123456789.-/");
+            MgfText.Prewarm("빙막봉합직조띠길이를맞춰단면들어라중학교학년작도와합동장력핵탭하여출발조작다시보기보강선균열고정빛나는화살표방향끌어놓으시오모식도표시된반평면에서옮기시오현재약모눈제작허용오차수선클립첫제출정답초과부족대응변뒤바꿈한길이만확인SSS합동완료실패새단면보강점수시간진행DFEFABCcm△≡·0123456789.-/");
         }
 
         void ShowTitle()
@@ -388,7 +388,7 @@ namespace Mgf.BingmakBonghap
             SetGroup(titleGroup, false); SetGroup(playGroup, true); SetGroup(revealGroup, false); SetGroup(endGroup, false); SetGroup(lensGroup, false);
             ConfigureProblem(); membrane.PracticeGuide = true; membrane.GuideScale = 1f;
             UpdateMeasures(true);
-            goalText.text = "빛나는 F를 잡아 안전띠 끝을 끌어 놓으시오";
+            goalText.text = "빛나는 F를 잡아 직조띠 끝을 끌어 놓으시오";
             unfoldClock = 0; idleClock = 0; MgfSfx.Play("whoosh", .38f); Notify();
         }
 
@@ -406,7 +406,7 @@ namespace Mgf.BingmakBonghap
         {
             ResetRunState(); BuildDeck(); flow = Flow.Playing; st.phase = "playing"; st.frozen = false; st.tutorialStep = skipPractice ? "real" : "after_practice";
             SetGroup(titleGroup, false); SetGroup(playGroup, true); SetGroup(revealGroup, false); SetGroup(endGroup, false); SetGroup(lensGroup, false);
-            st.round = 1; SelectProblem(0); goalText.text = "세 변의 대응을 읽고 안전띠 끝 F를 옮기시오";
+            st.round = 1; SelectProblem(0); goalText.text = "세 변의 대응을 읽고 직조띠 끝 F를 옮기시오";
             unfoldClock = 0; Notify();
         }
 
@@ -486,14 +486,15 @@ namespace Mgf.BingmakBonghap
             for (int i = 0; i < flagCloths.Length; i++)
             {
                 float flutter = Mathf.Sin(ambientClock * (2.1f + i * .11f) + i * .8f);
-                flagCloths[i].localRotation = Quaternion.Euler(0, flutter * 7f, flutter * 3.5f);
-                flagCloths[i].localScale = new Vector3(1f + flutter * .035f, 1f - flutter * .025f, 1f);
+                flagCloths[i].localRotation = Quaternion.Euler(flutter * 5f, flutter * 14f, (i % 2 == 0 ? 14f : -14f) + flutter * 8f);
+                flagCloths[i].localScale = new Vector3(1f + flutter * .08f, 1f - flutter * .045f, 1f);
             }
             if (titleBanner)
             {
-                float wave = Mathf.Sin(ambientClock * 1.65f) * .018f;
-                titleBanner.localScale = new Vector3(1f + wave, 1f - wave * .55f, 1f);
-                titleBanner.localRotation = Quaternion.Euler(0, Mathf.Sin(ambientClock * 1.15f) * 1.8f, 0);
+                float wave = Mathf.Sin(ambientClock * 1.65f) * .025f;
+                titleBanner.localScale = new Vector3(1f + wave, 1f - wave * .35f, 1f);
+                titleBanner.localRotation = Quaternion.Euler(-3f, -8f + Mathf.Sin(ambientClock * 1.15f) * 4.5f,
+                    Mathf.Sin(ambientClock * .88f) * 1.8f);
             }
             for (int i = 0; i < snowMotes.Length; i++)
             {
@@ -504,19 +505,21 @@ namespace Mgf.BingmakBonghap
                 snowMotes[i].localPosition = p;
             }
             float breath = 1f + Mathf.Sin(ambientClock * 1.35f) * .025f;
-            if (pikaBody) pikaBody.localScale = new Vector3(.56f, .72f * breath, .48f);
-            if (pikaHead) pikaHead.localRotation = Quaternion.Euler(0, Mathf.Sin(ambientClock * .8f) * 6f, 0);
-            if (pikaPaw) pikaPaw.localRotation = Quaternion.Euler(0, 0, -40 + Mathf.Sin(ambientClock * 1.8f) * 10f);
-            if (pikaEventClock < 2.4f)
+            if (keeperBody) keeperBody.localScale = new Vector3(.48f, .78f * breath, .32f);
+            if (keeperHead) keeperHead.localRotation = Quaternion.Euler(0, Mathf.Sin(ambientClock * .8f) * 10f, 45f);
+            if (keeperWing) keeperWing.localRotation = Quaternion.Euler(0, 18f, 24f + Mathf.Sin(ambientClock * 3.2f) * 18f);
+            if (keeperEventClock < 2.4f)
             {
-                pikaEventClock += dt; float k = Mathf.Clamp01(pikaEventClock / 2.1f);
-                float hop = Mathf.Abs(Mathf.Sin(k * Mathf.PI * 4f)) * .40f + Mathf.Sin(k * Mathf.PI) * 1.25f;
-                pikaRoot.localPosition = new Vector3(Mathf.Lerp(-3.2f, 3.5f, k), -2.68f + hop, 2.72f);
-                pikaRoot.localRotation = Quaternion.Euler(0, k < .5f ? -8f : 8f, Mathf.Sin(k * Mathf.PI * 4f) * 6f);
+                keeperEventClock += dt; float k = Mathf.Clamp01(keeperEventClock / 2.1f);
+                float hop = Mathf.Abs(Mathf.Sin(k * Mathf.PI * 3f)) * .28f;
+                // 캐릭터는 길을 건너지 않고 자기 작업대 자리에서만 장력 잠금에 반응한다.
+                keeperRoot.localPosition = new Vector3(-4.9f, -2.72f + hop, 2.75f);
+                keeperRoot.localRotation = Quaternion.Euler(0, Mathf.Sin(k * Mathf.PI * 2f) * 10f, Mathf.Sin(k * Mathf.PI * 4f) * 8f);
             }
-            else if (pikaRoot && flow != Flow.Reveal)
+            else if (keeperRoot && flow != Flow.Reveal)
             {
-                pikaRoot.localPosition = Vector3.Lerp(pikaRoot.localPosition, new Vector3(-4.9f, -2.67f, 2.75f), dt * 2.2f);
+                keeperRoot.localPosition = Vector3.Lerp(keeperRoot.localPosition, new Vector3(-4.9f, -2.72f, 2.75f), dt * 2.2f);
+                keeperRoot.localRotation = Quaternion.Slerp(keeperRoot.localRotation, Quaternion.identity, dt * 3f);
             }
             float baseSize = canvasRt && canvasRt.rect.width > canvasRt.rect.height * 1.15f ? 7.1f : 8.4f;
             // 정답은 짧은 카메라 푸시만 사용한다. 화면 흔들림은 없다.
@@ -581,8 +584,8 @@ namespace Mgf.BingmakBonghap
             {
                 if (MgfPointer.Down)
                 {
-                    st.inputSerial++; invalidCountVisual("얼음 아치가 일어나는 중이다");
-                    pikaPaw.localScale = Vector3.one * 1.08f; Notify();
+                    st.inputSerial++; invalidCountVisual("빙하 단면을 들어 올리는 중이다");
+                    if (keeperWing) keeperWing.localScale = new Vector3(.82f, .22f, .10f); Notify();
                 }
                 return;
             }
@@ -707,17 +710,18 @@ namespace Mgf.BingmakBonghap
             revealCorrect = correct; revealPractice = practice; revealClock = 0; lockSoundStep = 0;
             hitStop = correct ? .075f : 0; SetGroup(revealGroup, true); SetGroup(lensGroup, false);
             PositionRevealPanel(correct);
-            // 정답은 세계가 주인공이다. 측량 UI를 잠깐 걷어 아치 기립과 피카 횡단을 가리지 않는다.
+            // 정답은 세계가 주인공이다. 측량 UI를 잠깐 걷어 단면 인양과 세 측정광 잠금을 가리지 않는다.
             // 오답은 눌린 자국과 두 길이 차이를 봐야 하므로 플레이 UI를 유지한다.
             playGroup.alpha = correct ? 0 : 1;
             playGroup.interactable = !correct; playGroup.blocksRaycasts = !correct;
             if (correct)
             {
-                revealTitle.text = practice ? "잡기·끌기·놓기 확인" : (st.lastResult == "repaired" ? "안전띠 수선 완료" : "얼음 아치 기립");
+                revealTitle.text = practice ? "잡기·끌기·놓기 확인" : (st.lastResult == "repaired" ? "직조띠 수선 완료" : "빙하 단면 인양");
                 revealBody.text = practice
                     ? "실전에서는 합동 순서를 읽고 DF·EF를 직접 맞춘다"
-                    : "DE=" + current.baseLength + " cm · DF=" + current.targetDF + " cm · EF=" + current.targetEF + " cm\nSSS 합동 보강물이 아치를 세운다";
-                pikaEventClock = 0; iceArchRoot.localScale = Vector3.zero;
+                    : "DE=" + current.baseLength + " cm · DF=" + current.targetDF + " cm · EF=" + current.targetEF + " cm\n세 대응변의 측정광이 동시에 잠긴다";
+                keeperEventClock = 0; liftedSectionRoot.localScale = Vector3.zero;
+                liftedSectionRoot.localPosition = new Vector3(0, -2.5f, 2.35f);
             }
             else
             {
@@ -743,8 +747,9 @@ namespace Mgf.BingmakBonghap
                 membrane.CrackClose = Mathf.Clamp01((revealClock - .78f) / .52f);
                 membrane.Flash = Mathf.Sin(Mathf.Clamp01(revealClock / 1.4f) * Mathf.PI);
                 float k = Mathf.Clamp01((revealClock - .28f) / .72f);
-                float lift = k <= 0 ? 0 : SmoothOut(k) * (1f + Mathf.Sin(k * Mathf.PI) * .08f);
-                iceArchRoot.localScale = Vector3.one * lift;
+                float lift = k <= 0 ? 0 : SmoothOut(k) * 1.18f * (1f + Mathf.Sin(k * Mathf.PI) * .08f);
+                liftedSectionRoot.localScale = Vector3.one * lift;
+                liftedSectionRoot.localPosition = new Vector3(0, Mathf.Lerp(-2.5f, .20f, SmoothOut(k)), 2.35f);
             }
             else
             {
@@ -766,7 +771,7 @@ namespace Mgf.BingmakBonghap
                 if (st.solved >= BingmakRules.RoundCount)
                 {
                     EndRun(st.firstAttemptCorrect >= BingmakRules.MasteryNeeded,
-                        st.firstAttemptCorrect >= BingmakRules.MasteryNeeded ? "여덟 아치가 빙하 길을 이었다" : "첫 제출 6개가 필요하다");
+                        st.firstAttemptCorrect >= BingmakRules.MasteryNeeded ? "여덟 빙하 단면의 보강을 마쳤다" : "첫 제출 6개가 필요하다");
                     return;
                 }
                 flow = Flow.Playing; st.phase = "playing"; st.frozen = false; st.round = st.solved + 1; SelectProblem(st.solved);
@@ -783,7 +788,7 @@ namespace Mgf.BingmakBonghap
         {
             flow = Flow.End; st.phase = clear ? "clear" : "gameover"; st.frozen = true; st.dragActive = false;
             SetGroup(playGroup, false); SetGroup(revealGroup, false); SetGroup(endGroup, true); SetGroup(lensGroup, false);
-            endTitle.text = clear ? "빙하 길 개통" : "아치 공사 중단";
+            endTitle.text = clear ? "빙하 단면 안정" : "단면 보강 중단";
             endStats.text = reason + "\n고정 " + st.solved + "/8 · 첫 제출 " + st.firstAttemptCorrect + "/8 · 남은 클립 " + st.lives;
             endShown = 0; endScore.text = "0점";
             if (clear)
@@ -825,7 +830,10 @@ namespace Mgf.BingmakBonghap
                 hudText.text = flow == Flow.Practice ? "연습 · 시간 정지" : "균열 " + Mathf.Max(1, st.round) + "/8 · " + sec + "초";
                 lastTimerSecond = sec;
             }
-            progressText.text = "세운 아치 " + st.solved + "/8 · 첫 제출 " + st.firstAttemptCorrect + "/" + st.firstAttemptTotal + " (목표 6)";
+            bool land = canvasRt && canvasRt.rect.width >= canvasRt.rect.height * 1.15f;
+            progressText.text = land
+                ? "완료 " + st.solved + "/8\n첫 제출 " + st.firstAttemptCorrect + "/" + st.firstAttemptTotal + "\n목표 6"
+                : "보강 " + st.solved + "/8 · 첫 제출 " + st.firstAttemptCorrect + "/" + st.firstAttemptTotal + " (목표 6)";
         }
 
         void UpdateClips()
@@ -901,8 +909,9 @@ namespace Mgf.BingmakBonghap
                 Center(referencePanel, new Vector2(sourceX, (top + bottom) * .5f), new Vector2(sourceW, top - bottom));
                 Center(workPanel, new Vector2(workX, (top + bottom) * .5f), new Vector2(workW, top - bottom)); workBasePosition = workPanel.anchoredPosition;
                 Center(progressPanel, new Vector2(recordX, (top + bottom) * .5f - 30), new Vector2(recordW, Mathf.Min(226, top - bottom - 72)));
-                for (int i = 0; i < 8; i++) mapWindows[i].rectTransform.anchoredPosition = new Vector2(((i % 2) - .5f) * 44, 62 - (i / 2) * 32);
-                progressText.rectTransform.anchoredPosition = new Vector2(0, -64);
+                for (int i = 0; i < 8; i++) mapWindows[i].rectTransform.anchoredPosition = new Vector2(((i % 2) - .5f) * 44, 70 - (i / 2) * 25);
+                progressText.rectTransform.anchorMin = progressText.rectTransform.anchorMax = new Vector2(.5f, .5f);
+                progressText.rectTransform.anchoredPosition = new Vector2(0, -66);
                 Center(toastPanel, new Vector2(recordX, top - 28), new Vector2(recordW, 48));
                 Center(revealPanel, new Vector2(workX, 0), new Vector2(Mathf.Min(430, workW - 18), 166));
                 Center(endPanel, Vector2.zero, new Vector2(480, Mathf.Min(480, h - 44)));
@@ -925,6 +934,7 @@ namespace Mgf.BingmakBonghap
                 Center(workPanel, new Vector2(0, (workTop + workBottom) * .5f), new Vector2(Mathf.Min(370, w - 16), workTop - workBottom)); workBasePosition = workPanel.anchoredPosition;
                 Center(progressPanel, new Vector2(0, -h * .5f + 30), new Vector2(Mathf.Min(372, w - 16), 50));
                 for (int i = 0; i < 8; i++) mapWindows[i].rectTransform.anchoredPosition = new Vector2((i - 3.5f) * 35f, 7);
+                progressText.rectTransform.anchorMin = progressText.rectTransform.anchorMax = new Vector2(.5f, 0);
                 progressText.rectTransform.anchoredPosition = new Vector2(0, 7);
                 Center(revealPanel, new Vector2(0, 0), new Vector2(Mathf.Min(354, w - 24), 166));
                 Center(endPanel, Vector2.zero, new Vector2(Mathf.Min(360, w - 24), Mathf.Min(460, h - 64)));
@@ -943,7 +953,7 @@ namespace Mgf.BingmakBonghap
             sourceSummaryText.rectTransform.sizeDelta = new Vector2(referencePanel.sizeDelta.x - 20, land ? 76 : 28);
             sourceSummaryText.rectTransform.anchoredPosition = land ? new Vector2(0, 44) : new Vector2(0, 13);
             toleranceText.rectTransform.sizeDelta = new Vector2(workPanel.sizeDelta.x - 24, 28);
-            progressText.rectTransform.sizeDelta = new Vector2(progressPanel.sizeDelta.x - 16, 34);
+            progressText.rectTransform.sizeDelta = new Vector2(progressPanel.sizeDelta.x - 16, land ? 82 : 34);
             titleMeta.rectTransform.anchorMin = titleMeta.rectTransform.anchorMax = new Vector2(.5f, 0);
             titleBest.rectTransform.anchorMin = titleBest.rectTransform.anchorMax = new Vector2(.5f, 0);
             titleMeta.rectTransform.anchoredPosition = land ? new Vector2(-w * .34f, 88) : new Vector2(0, 165);
