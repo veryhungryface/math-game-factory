@@ -65,7 +65,7 @@ namespace Mgf.HanIpman
 
         void Prewarm()
         {
-            var sb = new StringBuilder("한입만케이크를잘라라중학교1학년평면도형의성질호의길이부채꼴넓이중심각반지름남은부분주문접시첫제출냅킨연속서빙수선영업성공종료원밖에서놓으시오반시계방향");
+            var sb = new StringBuilder("한입만케이크를잘라라중학교1학년평면도형의성질호의길이부채꼴넓이중심각반지름남은부분주문아치타일무대완성첫제출냅킨연속수선영업성공종료원밖에서놓으시오반시계방향");
             for (int i = 0; i < bank.Count; i++) { sb.Append(bank[i].prompt); sb.Append(bank[i].answer); sb.Append(bank[i].unitConcept); }
             MgfText.Prewarm(sb.ToString());
         }
@@ -256,7 +256,7 @@ namespace Mgf.HanIpman
         {
             if (flow == Flow.Title)
             {
-                if (MgfPointer.Down) { st.inputRevision++; RippleAtScreen(MgfPointer.Position, "덮개를 엽니다"); StartOpening(); }
+                if (MgfPointer.Down) { st.inputRevision++; RippleAtScreen(MgfPointer.Position, "무대를 엽니다"); StartOpening(); }
                 return;
             }
             if (flow == Flow.End)
@@ -268,7 +268,7 @@ namespace Mgf.HanIpman
             {
                 if (MgfPointer.Down)
                 {
-                    st.inputRevision++; RippleAtScreen(MgfPointer.Position, flow == Flow.Opening ? "덮개를 여는 중" : "접시를 내는 중");
+                    st.inputRevision++; RippleAtScreen(MgfPointer.Position, flow == Flow.Opening ? "무대를 여는 중" : "타일을 놓는 중");
                     MgfBridge.NotifyChanged();
                 }
                 return;

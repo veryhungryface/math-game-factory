@@ -1,5 +1,5 @@
-// 한 입만 — 코코아 진열장 2.5D 월드, 탑뷰 각도 재단 무대, 온보딩·결과 UI.
-// 정답은 크림 봉합선 개방→층 조각 인양→맥 접시 전달, 오답은 케이크만 국소 흔들림→크림 둑과 냅킨 얼룩이다.
+// 한 입만 — 도자 타일 회전극장 2.5D 월드, 탑뷰 각도 재단 무대, 온보딩·결과 UI.
+// 정답은 크림 봉합선 개방→층 조각 인양→중심각 아치 누적, 오답은 케이크만 국소 흔들림→크림 둑과 냅킨 얼룩이다.
 using System;
 using System.Collections.Generic;
 using Mgf;
@@ -12,19 +12,20 @@ namespace Mgf.HanIpman
 {
     public partial class HanIpmanGame
     {
-        static readonly Color Cocoa = MgfLook.Hex("#684331");
-        static readonly Color DarkCocoa = MgfLook.Hex("#35251D");
-        static readonly Color Caramel = MgfLook.Hex("#B67844");
-        static readonly Color Ivory = MgfLook.Hex("#F6E5C9");
-        static readonly Color Plum = MgfLook.Hex("#763F68");
-        static readonly Color Steel = MgfLook.Hex("#C3CDD2");
-        static readonly Color Jam = MgfLook.Hex("#8E274F");
+        static readonly Color Cocoa = MgfLook.Hex("#245B63");
+        static readonly Color DarkCocoa = MgfLook.Hex("#162A3A");
+        static readonly Color Caramel = MgfLook.Hex("#E17863");
+        static readonly Color Ivory = MgfLook.Hex("#F4E8D0");
+        static readonly Color Plum = MgfLook.Hex("#4968A8");
+        static readonly Color Steel = MgfLook.Hex("#8CBEC3");
+        static readonly Color Jam = MgfLook.Hex("#E7B34E");
 
         Camera cam;
-        Transform titleRoot, gameRoot, boardRoot, guestRail, cakeRoot, serviceRoot, seamGlow;
+        Transform titleRoot, gameRoot, boardRoot, guestRail, proofArch, cakeRoot, serviceRoot, seamGlow;
         readonly Transform[] titleDoors = new Transform[2];
         readonly Transform[] guests = new Transform[3];
         readonly Transform[] plates = new Transform[3];
+        readonly Transform[] proofTiles = new Transform[8];
         readonly Transform[] steam = new Transform[8];
         readonly LineRenderer[] failedCuts = new LineRenderer[3];
         LineRenderer oaLine, obLine, ghostPath;
@@ -39,7 +40,7 @@ namespace Mgf.HanIpman
 
         CanvasGroup titleG, hudG, revealG, endG, toastG;
         RectTransform titleRt, hudRt, revealRt, endRt, toastRt, rippleRt, angleRt, promptRt, formulaRt;
-        Image titleSign, titleCta, goalBg, promptBg, formulaBg, revealBg, rippleImg, napkin1, napkin2, napkin3;
+        Image titleSign, titleCta, statusBg, goalBg, promptBg, formulaBg, revealBg, rippleImg, napkin1, napkin2, napkin3;
         TextMeshProUGUI titleLogo, titleTag, titleMeta, titleBest, titleCtaText;
         TextMeshProUGUI scoreTxt, progressTxt, firstTxt, timeTxt, goalTxt, promptTxt, formulaTxt, angleTxt, directionTxt;
         TextMeshProUGUI revealTitleTxt, revealFormulaTxt, toastTxt, endTitleTxt, endScoreTxt, endStatsTxt, endTapTxt;
@@ -50,6 +51,13 @@ namespace Mgf.HanIpman
             var go = new GameObject(name, typeof(RectTransform)); go.transform.SetParent(parent, false);
             var rt = (RectTransform)go.transform; rt.anchorMin = rt.anchorMax = anchor; rt.pivot = new Vector2(.5f, .5f);
             rt.anchoredPosition = pos; rt.sizeDelta = size; return rt;
+        }
+
+        static void Place(RectTransform rt, Vector2 anchor, Vector2 pos, Vector2 size)
+        {
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
         }
 
         Image Img(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Color color, Sprite sprite = null)
@@ -94,8 +102,8 @@ namespace Mgf.HanIpman
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#2D1712"), Cocoa, MgfLook.Hex("#170E0B"), .72f);
-            MgfLook.Sun(new Vector3(42, -32, 18), MgfLook.Hex("#FFD29A"), 1.26f, .66f);
+            MgfLook.Sky(MgfLook.Hex("#18384B"), Cocoa, MgfLook.Hex("#0D2030"), .72f);
+            MgfLook.Sun(new Vector3(42, -32, 18), MgfLook.Hex("#FFE0AF"), 1.24f, .65f);
             cam = MgfLook.Camera(new Vector3(8.8f, 8.3f, -12.9f), new Vector3(0, 1.55f, 1.35f), 36f);
             cocoaMat = MgfLook.Lit(Cocoa, .36f, .04f);
             darkMat = MgfLook.Lit(DarkCocoa, .22f, .02f);
@@ -107,36 +115,42 @@ namespace Mgf.HanIpman
             creamMat = MgfLook.Lit(MgfLook.Hex("#FFF2D6"), .42f, .01f);
             glassMat = MgfLook.Alpha(new Color(.72f, .87f, .89f, .20f));
             guideMat = MgfLook.Additive(new Color(1f, .78f, .38f, .82f), MgfLook.SoftDot);
-            titleRoot = new GameObject("CocoaVitrineTitle").transform;
-            gameRoot = new GameObject("CakeCuttingStage").transform;
+            titleRoot = new GameObject("PorcelainRotundaTitle").transform;
+            gameRoot = new GameObject("AngleArchStage").transform;
             BuildTitleWorld(); BuildGameWorld();
         }
 
         void BuildTitleWorld()
         {
-            MgfLook.Block("VitrineFloor", new Vector3(0, -.65f, 2.0f), new Vector3(21, 1.2f, 16), .45f, darkMat, titleRoot);
-            MgfLook.Block("BackWall", new Vector3(0, 4.5f, 9.0f), new Vector3(21, 11, .6f), .22f, cocoaMat, titleRoot);
-            for (int tier = 0; tier < 3; tier++)
+            MgfLook.Prim(PrimitiveType.Cylinder, "RotundaFloor", new Vector3(0, -.58f, 1.8f), new Vector3(17.8f, .55f, 17.8f), darkMat, titleRoot, false);
+            MgfLook.Prim(PrimitiveType.Cylinder, "PorcelainInlay", new Vector3(0, -.25f, 1.8f), new Vector3(14.8f, .10f, 14.8f), steelMat, titleRoot, false);
+            for (int i = 0; i < 16; i++)
             {
-                float y = .9f + tier * 2.15f, z = 7.7f + tier * .32f;
-                MgfLook.Block("Shelf" + tier, new Vector3(0, y, z), new Vector3(18.5f, .24f, 1.65f), .10f, caramelMat, titleRoot);
-                for (int i = 0; i < 6; i++)
-                {
-                    float x = -7.3f + i * 2.9f;
-                    MgfLook.Prim(PrimitiveType.Cylinder, "Cup" + tier + "_" + i, new Vector3(x, y + .45f, z), new Vector3(.38f, .38f, .38f), ivoryMat, titleRoot, false);
-                    var mini = MgfLook.Prim(PrimitiveType.Cylinder, "MiniCake" + tier + "_" + i, new Vector3(x + .65f, y + .42f, z), new Vector3(.55f, .34f, .55f), i % 2 == 0 ? plumMat : jamMat, titleRoot, false);
-                    mini.transform.localRotation = Quaternion.Euler(0, i * 21, 0);
-                }
+                float a = i * Mathf.PI * 2f / 16f;
+                var tile = MgfLook.Block("RadialTile" + i,
+                    new Vector3(Mathf.Cos(a) * 6.45f, .04f, 1.8f + Mathf.Sin(a) * 6.45f),
+                    new Vector3(.78f, .16f, 1.55f), .18f,
+                    i % 3 == 0 ? caramelMat : (i % 3 == 1 ? ivoryMat : plumMat), titleRoot).transform;
+                tile.localRotation = Quaternion.Euler(0, -i * 22.5f, 0);
             }
-            MgfLook.Prim(PrimitiveType.Cylinder, "CakePedestal", new Vector3(0, .05f, 1.2f), new Vector3(6.2f, .45f, 6.2f), ivoryMat, titleRoot, false);
+            for (int i = 0; i < 9; i++)
+            {
+                float u = i / 8f;
+                float a = Mathf.Lerp(25f, 155f, u) * Mathf.Deg2Rad;
+                var arch = MgfLook.Block("TitleAngleArch" + i,
+                    new Vector3(Mathf.Cos(a) * 5.7f, 1.2f + Mathf.Sin(a) * 3.4f, 6.5f),
+                    new Vector3(.68f, 1.05f, .62f), .20f, i % 2 == 0 ? jamMat : ivoryMat, titleRoot).transform;
+                arch.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(-65f, 65f, u));
+            }
+            MgfLook.Prim(PrimitiveType.Cylinder, "CakeTurntable", new Vector3(0, .05f, 1.2f), new Vector3(6.2f, .45f, 6.2f), ivoryMat, titleRoot, false);
             BuildLayerCake(titleRoot, new Vector3(0, .70f, 1.2f), 3.05f, true);
-            // 둥근 구 두 개가 아니라 가운데에서 실제로 벌어지는 진열장 유리 양문이다.
-            titleDoors[0] = MgfLook.Block("GlassDoorLeft", new Vector3(-1.58f, 2.72f, -.02f), new Vector3(3.02f, 4.50f, .12f), .08f, glassMat, titleRoot).transform;
-            titleDoors[1] = MgfLook.Block("GlassDoorRight", new Vector3(1.58f, 2.72f, -.02f), new Vector3(3.02f, 4.50f, .12f), .08f, glassMat, titleRoot).transform;
+            // 첫 탭에서 열리는 것은 음식 진열장이 아니라 회전극장의 반투명 도자 막이다.
+            titleDoors[0] = MgfLook.Block("CeramicCurtainLeft", new Vector3(-1.58f, 2.72f, -.02f), new Vector3(3.02f, 4.50f, .12f), .08f, glassMat, titleRoot).transform;
+            titleDoors[1] = MgfLook.Block("CeramicCurtainRight", new Vector3(1.58f, 2.72f, -.02f), new Vector3(3.02f, 4.50f, .12f), .08f, glassMat, titleRoot).transform;
             for (int i = 0; i < 2; i++)
             {
                 float x = i == 0 ? -3.06f : 3.06f;
-                MgfLook.Block("DoorFrame" + i, new Vector3(x, 2.72f, -.08f), new Vector3(.16f, 4.72f, .22f), .05f, steelMat, titleRoot);
+                MgfLook.Block("CurtainSpine" + i, new Vector3(x, 2.72f, -.08f), new Vector3(.16f, 4.72f, .22f), .05f, steelMat, titleRoot);
             }
             BuildTapir(titleRoot, new Vector3(-5.0f, -.05f, .15f), 1.12f, 16f, 0);
             BuildTapir(titleRoot, new Vector3(4.9f, -.05f, .45f), 1.18f, -18f, 1);
@@ -145,12 +159,12 @@ namespace Mgf.HanIpman
 
         void BuildGameWorld()
         {
-            MgfLook.Block("CocoaCounter", new Vector3(0, -.74f, .2f), new Vector3(22, 1.25f, 17), .58f, cocoaMat, gameRoot);
+            MgfLook.Prim(PrimitiveType.Cylinder, "PorcelainRotationStage", new Vector3(0, -.74f, .2f), new Vector3(21f, 1.25f, 21f), cocoaMat, gameRoot, false);
             for (int i = 0; i < 7; i++)
             {
-                steam[i] = MgfLook.Prim(PrimitiveType.Sphere, "WarmSteam" + i,
+                steam[i] = MgfLook.Prim(PrimitiveType.Sphere, "TileLantern" + i,
                     new Vector3(-8f + i * 2.5f, .15f, 7.0f), new Vector3(.18f, .05f, .26f),
-                    MgfLook.Additive(new Color(1f, .69f, .30f, .24f), MgfLook.SoftDot), gameRoot, false).transform;
+                    MgfLook.Additive(new Color(.45f, .90f, .92f, .30f), MgfLook.SoftDot), gameRoot, false).transform;
             }
             boardRoot = new GameObject("ExactTopViewCakeBoard").transform; boardRoot.SetParent(gameRoot, false);
             BuildLayerCake(boardRoot, Vector3.zero, 3.05f, false);
@@ -188,11 +202,24 @@ namespace Mgf.HanIpman
                 failedCuts[i] = MakeLine("FailedCreamRidge" + i, boardRoot, MgfLook.Hex("#E7C8A0"), .075f);
                 failedCuts[i].enabled = false;
             }
-            guestRail = new GameObject("TapirServingRail").transform; guestRail.SetParent(gameRoot, false);
+            proofArch = new GameObject("CumulativeAngleArch").transform; proofArch.SetParent(gameRoot, false);
+            for (int i = 0; i < proofTiles.Length; i++)
+            {
+                float u = i / 7f;
+                float degrees = Mathf.Lerp(205f, 335f, u);
+                float a = degrees * Mathf.Deg2Rad;
+                proofTiles[i] = MgfLook.Block("SolvedAngleTile" + i,
+                    new Vector3(Mathf.Cos(a) * 4.45f, .46f, Mathf.Sin(a) * 4.45f),
+                    new Vector3(.62f, .28f, 1.18f), .18f,
+                    i % 3 == 0 ? caramelMat : (i % 3 == 1 ? ivoryMat : plumMat), proofArch).transform;
+                proofTiles[i].localRotation = Quaternion.Euler(0, -degrees, 0);
+                proofTiles[i].gameObject.SetActive(false);
+            }
+            guestRail = new GameObject("TapirStagehands").transform; guestRail.SetParent(gameRoot, false);
             for (int i = 0; i < 3; i++)
             {
-                guests[i] = BuildTapir(guestRail, new Vector3((i - 1) * 2.7f, -.2f, 0), .56f + i * .04f, 180f, i);
-                plates[i] = MgfLook.Prim(PrimitiveType.Cylinder, "GuestPlate" + i, new Vector3((i - 1) * 2.7f, .12f, -1.15f), new Vector3(1.4f, .12f, 1.4f), ivoryMat, guestRail, false).transform;
+                guests[i] = BuildTapir(guestRail, new Vector3((i - 1) * 2.65f, -.2f, 1.6f), .48f + i * .04f, 180f, i);
+                plates[i] = MgfLook.Prim(PrimitiveType.Cylinder, "AngleNode" + i, new Vector3((i - 1) * 2.65f, .12f, -.25f), new Vector3(.72f, .12f, .72f), i == 1 ? jamMat : ivoryMat, guestRail, false).transform;
             }
             RelayoutWorld(true);
         }
@@ -259,21 +286,21 @@ namespace Mgf.HanIpman
             titleMeta = Txt(titleRt, "중학교 1학년 · 평면도형의 성질", new Vector2(.5f, .605f), Vector2.zero, 13, Ivory, 340); titleMeta.outlineColor = DarkCocoa; titleMeta.outlineWidth = .16f;
             titleBest = Txt(titleRt, "", new Vector2(.5f, .225f), Vector2.zero, 13, Ivory, 330); titleBest.outlineColor = DarkCocoa; titleBest.outlineWidth = .14f;
             titleCta = Img(titleRt, "GlassCoverTag", new Vector2(.5f, .135f), Vector2.zero, new Vector2(330, 74), Ivory, roundSprite);
-            titleCtaText = Txt(titleCta.transform, "덮개 열고 자르기", new Vector2(.5f, .5f), Vector2.zero, 24, DarkCocoa, 316); titleCtaText.fontStyle = FontStyles.Bold;
+            titleCtaText = Txt(titleCta.transform, "무대 열고 자르기", new Vector2(.5f, .5f), Vector2.zero, 24, DarkCocoa, 316); titleCtaText.fontStyle = FontStyles.Bold;
 
             hudRt = R("GameHud", canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)); hudG = hudRt.gameObject.AddComponent<CanvasGroup>();
-            Img(hudRt, "TopShelf", new Vector2(.5f, .955f), Vector2.zero, new Vector2(378, 64), new Color(DarkCocoa.r, DarkCocoa.g, DarkCocoa.b, .96f), roundSprite);
+            statusBg = Img(hudRt, "RunLedger", new Vector2(.5f, .955f), Vector2.zero, new Vector2(378, 64), new Color(DarkCocoa.r, DarkCocoa.g, DarkCocoa.b, .96f), roundSprite);
             // The host mute control owns the top-right 58 px on phones. Keep all run
             // state to its left so the timer and last napkin never sit underneath it.
             scoreTxt = Txt(hudRt, "0", new Vector2(.09f, .955f), Vector2.zero, 20, Ivory, 54); scoreTxt.fontStyle = FontStyles.Bold;
-            progressTxt = Txt(hudRt, "접시 0/8", new Vector2(.28f, .955f), Vector2.zero, 15, Ivory, 104); progressTxt.fontStyle = FontStyles.Bold;
+            progressTxt = Txt(hudRt, "아치 0/8", new Vector2(.28f, .955f), Vector2.zero, 15, Ivory, 104); progressTxt.fontStyle = FontStyles.Bold;
             firstTxt = Txt(hudRt, "첫 제출 0/0", new Vector2(.53f, .955f), Vector2.zero, 14, Caramel, 120); firstTxt.fontStyle = FontStyles.Bold;
             timeTxt = Txt(hudRt, "120초", new Vector2(.75f, .955f), Vector2.zero, 15, Ivory, 62); timeTxt.fontStyle = FontStyles.Bold;
             napkin1 = Img(hudRt, "Napkin1", new Vector2(.63f, .905f), Vector2.zero, new Vector2(24, 18), Ivory, roundSprite);
             napkin2 = Img(hudRt, "Napkin2", new Vector2(.71f, .905f), Vector2.zero, new Vector2(24, 18), Ivory, roundSprite);
             napkin3 = Img(hudRt, "Napkin3", new Vector2(.79f, .905f), Vector2.zero, new Vector2(24, 18), Ivory, roundSprite);
             goalBg = Img(hudRt, "GoalBanner", new Vector2(.5f, .875f), Vector2.zero, new Vector2(360, 44), new Color(Plum.r, Plum.g, Plum.b, .94f), roundSprite);
-            goalTxt = Txt(goalBg.transform, "주문만큼 잘라 손님에게 내세요", new Vector2(.5f, .5f), Vector2.zero, 15, Color.white, 345); goalTxt.fontStyle = FontStyles.Bold;
+            goalTxt = Txt(goalBg.transform, "주문만큼 잘라 아치를 완성하세요", new Vector2(.5f, .5f), Vector2.zero, 15, Color.white, 345); goalTxt.fontStyle = FontStyles.Bold;
             promptBg = Img(hudRt, "OrderPlate", new Vector2(.5f, .795f), Vector2.zero, new Vector2(362, 78), new Color(Ivory.r, Ivory.g, Ivory.b, .97f), roundSprite); promptRt = (RectTransform)promptBg.transform;
             promptTxt = Txt(promptBg.transform, "", new Vector2(.5f, .5f), Vector2.zero, 14, DarkCocoa, 344); promptTxt.fontStyle = FontStyles.Bold;
             formulaBg = Img(hudRt, "FormulaCard", new Vector2(.5f, .115f), Vector2.zero, new Vector2(350, 72), new Color(DarkCocoa.r, DarkCocoa.g, DarkCocoa.b, .94f), roundSprite); formulaRt = (RectTransform)formulaBg.transform;
@@ -307,6 +334,7 @@ namespace Mgf.HanIpman
             openingAnim = revealAnim = hitStop = wrongKick = seamFlash = 0f; failedCutCount = 0;
             for (int i = 0; i < failedCuts.Length; i++) failedCuts[i].enabled = false;
             obLine.enabled = false; ghostPath.enabled = false; previewFilter.gameObject.SetActive(false); serviceRoot.gameObject.SetActive(false); seamGlow.gameObject.SetActive(false);
+            for (int i = 0; i < proofTiles.Length; i++) if (proofTiles[i]) proofTiles[i].gameObject.SetActive(false);
             for (int i = 0; i < titleDoors.Length; i++) if (titleDoors[i]) titleDoors[i].localRotation = Quaternion.identity;
         }
 
@@ -375,27 +403,49 @@ namespace Mgf.HanIpman
             bool nowLand = MgfBridge.IsLandLayout;
             if (!force && Screen.width == lastW && Screen.height == lastH && nowLand == land) return;
             land = nowLand; lastW = Screen.width; lastH = Screen.height;
-            boardHome = land ? new Vector3(-3.25f, 0, .05f) : new Vector3(0, 0, .60f);
+            boardHome = land ? new Vector3(0, 0, .05f) : new Vector3(0, 0, .60f);
             boardRoot.localPosition = boardHome;
-            guestRail.localPosition = land ? new Vector3(4.45f, 0, 1.0f) : new Vector3(0, 0, -5.25f);
+            proofArch.localPosition = boardHome;
+            guestRail.localPosition = land ? new Vector3(7.25f, 0, .65f) : new Vector3(0, 0, -5.25f);
             if (!titleRoot.gameObject.activeSelf) SetTopCamera();
         }
 
         void RelayoutUi()
         {
             bool wide = MgfBridge.IsLandLayout;
+            shownScore = -1;
+            goalTxt.fontSize = wide ? 13f : 15f;
+            promptTxt.fontSize = wide ? 12.5f : 14f;
+            formulaTxt.fontSize = wide ? 12.5f : 14f;
+            var canvasRt = (RectTransform)MgfText.Canvas.transform;
+            Vector2 logical = canvasRt.rect.size;
+            if (logical.x < 1f || logical.y < 1f) logical = new Vector2(390, 844);
+            titleRt.sizeDelta = logical; hudRt.sizeDelta = logical; revealRt.sizeDelta = logical; endRt.sizeDelta = logical; toastRt.sizeDelta = logical;
             if (wide)
             {
-                // 1200×630 카드처럼 낮은 가로 화면에서도 초콜릿 간판 전체와 세계 안
-                // 시작 태그가 함께 보이도록 타이틀 요소를 세로 중앙대로 압축한다.
+                // CanvasScaler의 실제 논리 사각형 안에 좌측 문제·중앙 케이크·우측 기록을
+                // 고정한다. 고정 390×844 루트 때문에 낮은 가로 화면에서 HUD가 잘리던 경로를 제거한다.
                 titleSign.rectTransform.anchorMin = titleSign.rectTransform.anchorMax = new Vector2(.5f, .62f);
                 titleMeta.rectTransform.anchorMin = titleMeta.rectTransform.anchorMax = new Vector2(.5f, .50f);
                 titleBest.rectTransform.anchorMin = titleBest.rectTransform.anchorMax = new Vector2(.5f, .39f);
                 titleCta.rectTransform.anchorMin = titleCta.rectTransform.anchorMax = new Vector2(.5f, .31f);
-                goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.78f, .86f);
-                promptRt.anchorMin = promptRt.anchorMax = new Vector2(.78f, .69f); promptRt.sizeDelta = new Vector2(360, 112);
-                formulaRt.anchorMin = formulaRt.anchorMax = new Vector2(.78f, .48f); formulaRt.sizeDelta = new Vector2(350, 92);
-                revealBg.rectTransform.anchorMin = revealBg.rectTransform.anchorMax = new Vector2(.78f, .27f);
+                Place(goalBg.rectTransform, new Vector2(0, .83f), new Vector2(155, 0), new Vector2(290, 50));
+                Place(promptRt, new Vector2(0, .63f), new Vector2(155, 0), new Vector2(290, 122));
+                Place(formulaRt, new Vector2(0, .36f), new Vector2(155, 0), new Vector2(290, 92));
+                Place(revealBg.rectTransform, new Vector2(0, .18f), new Vector2(155, 0), new Vector2(290, 128));
+                Place(goalTxt.rectTransform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(272, 46));
+                Place(promptTxt.rectTransform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(272, 112));
+                Place(formulaTxt.rectTransform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(272, 82));
+                Place(revealTitleTxt.rectTransform, new Vector2(.5f, .70f), Vector2.zero, new Vector2(272, 54));
+                Place(revealFormulaTxt.rectTransform, new Vector2(.5f, .35f), Vector2.zero, new Vector2(272, 70));
+                Place(statusBg.rectTransform, new Vector2(1, .69f), new Vector2(-105, 0), new Vector2(190, 252));
+                Place(scoreTxt.rectTransform, new Vector2(1, .84f), new Vector2(-105, 0), new Vector2(168, 46));
+                Place(progressTxt.rectTransform, new Vector2(1, .76f), new Vector2(-105, 0), new Vector2(168, 42));
+                Place(firstTxt.rectTransform, new Vector2(1, .68f), new Vector2(-105, 0), new Vector2(168, 42));
+                Place(timeTxt.rectTransform, new Vector2(1, .60f), new Vector2(-105, 0), new Vector2(168, 42));
+                Place(napkin1.rectTransform, new Vector2(1, .51f), new Vector2(-145, 0), new Vector2(24, 18));
+                Place(napkin2.rectTransform, new Vector2(1, .51f), new Vector2(-105, 0), new Vector2(24, 18));
+                Place(napkin3.rectTransform, new Vector2(1, .51f), new Vector2(-65, 0), new Vector2(24, 18));
             }
             else
             {
@@ -403,10 +453,23 @@ namespace Mgf.HanIpman
                 titleMeta.rectTransform.anchorMin = titleMeta.rectTransform.anchorMax = new Vector2(.5f, .605f);
                 titleBest.rectTransform.anchorMin = titleBest.rectTransform.anchorMax = new Vector2(.5f, .225f);
                 titleCta.rectTransform.anchorMin = titleCta.rectTransform.anchorMax = new Vector2(.5f, .135f);
-                goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.5f, .875f);
-                promptRt.anchorMin = promptRt.anchorMax = new Vector2(.5f, .795f); promptRt.sizeDelta = new Vector2(362, 78);
-                formulaRt.anchorMin = formulaRt.anchorMax = new Vector2(.5f, .115f); formulaRt.sizeDelta = new Vector2(350, 72);
-                revealBg.rectTransform.anchorMin = revealBg.rectTransform.anchorMax = new Vector2(.5f, .24f);
+                Place(statusBg.rectTransform, new Vector2(.5f, .955f), Vector2.zero, new Vector2(Mathf.Min(378, logical.x - 12), 64));
+                Place(scoreTxt.rectTransform, new Vector2(.09f, .955f), Vector2.zero, new Vector2(54, 49));
+                Place(progressTxt.rectTransform, new Vector2(.28f, .955f), Vector2.zero, new Vector2(104, 42));
+                Place(firstTxt.rectTransform, new Vector2(.53f, .955f), Vector2.zero, new Vector2(120, 40));
+                Place(timeTxt.rectTransform, new Vector2(.75f, .955f), Vector2.zero, new Vector2(62, 42));
+                Place(napkin1.rectTransform, new Vector2(.63f, .905f), Vector2.zero, new Vector2(24, 18));
+                Place(napkin2.rectTransform, new Vector2(.71f, .905f), Vector2.zero, new Vector2(24, 18));
+                Place(napkin3.rectTransform, new Vector2(.79f, .905f), Vector2.zero, new Vector2(24, 18));
+                Place(goalBg.rectTransform, new Vector2(.5f, .875f), Vector2.zero, new Vector2(Mathf.Min(360, logical.x - 24), 44));
+                Place(promptRt, new Vector2(.5f, .775f), Vector2.zero, new Vector2(Mathf.Min(362, logical.x - 24), 84));
+                Place(formulaRt, new Vector2(.5f, .105f), Vector2.zero, new Vector2(Mathf.Min(350, logical.x - 34), 72));
+                Place(revealBg.rectTransform, new Vector2(.5f, .24f), Vector2.zero, new Vector2(Mathf.Min(354, logical.x - 28), 148));
+                Place(goalTxt.rectTransform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(Mathf.Min(345, logical.x - 38), 46));
+                Place(promptTxt.rectTransform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(Mathf.Min(344, logical.x - 42), 70));
+                Place(formulaTxt.rectTransform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(Mathf.Min(335, logical.x - 48), 66));
+                Place(revealTitleTxt.rectTransform, new Vector2(.5f, .70f), Vector2.zero, new Vector2(Mathf.Min(332, logical.x - 50), 58));
+                Place(revealFormulaTxt.rectTransform, new Vector2(.5f, .36f), Vector2.zero, new Vector2(Mathf.Min(332, logical.x - 50), 74));
             }
         }
 
@@ -507,13 +570,16 @@ namespace Mgf.HanIpman
             UpdateCutPreview(qInput); previewFilter.gameObject.SetActive(true); obLine.enabled = true;
             if (correct)
             {
+                int tile = Mathf.Clamp(st.solved - 1, 0, proofTiles.Length - 1);
+                proofTiles[tile].gameObject.SetActive(true);
+                proofTiles[tile].localScale = Vector3.one * .12f;
                 UpdateSectorMesh(serviceTopMesh, st.oaTick * 15f, current.qAnswer, 3.02f);
                 UpdateSectorMesh(serviceCreamMesh, st.oaTick * 15f, current.qAnswer, 2.98f);
                 serviceRoot.localPosition = Vector3.zero; serviceRoot.localScale = Vector3.one; serviceRoot.gameObject.SetActive(true);
                 serviceStart = Vector3.zero;
-                serviceEnd = land ? new Vector3(7.2f, 2.1f, -.2f) : new Vector3(0, 2.1f, -6.3f);
+                serviceEnd = boardRoot.InverseTransformPoint(proofTiles[tile].position) + Vector3.up * 1.65f;
                 seamGlow.localPosition = new Vector3(0, .88f, 0); seamGlow.localScale = new Vector3(3.2f, .02f, 3.2f); seamGlow.gameObject.SetActive(true);
-                revealTitleTxt.text = practice ? "90°, 정확한 한 조각" : "주문대로 잘랐습니다";
+                revealTitleTxt.text = practice ? "90°, 정확한 한 조각" : "비례 아치에 한 칸 완성";
                 revealTitleTxt.color = Plum; revealFormulaTxt.text = Explain(current, practice);
                 MgfSfx.Play("correct", .46f);
             }
@@ -551,6 +617,7 @@ namespace Mgf.HanIpman
 
         void CompleteRevealVisual(bool correct)
         {
+            if (revealPractice && proofTiles[0]) proofTiles[0].gameObject.SetActive(false);
             previewFilter.gameObject.SetActive(false); obLine.enabled = false; serviceRoot.gameObject.SetActive(false); seamGlow.gameObject.SetActive(false);
             cakeRoot.localPosition = Vector3.zero; cakeRoot.localScale = Vector3.one; boardRoot.localPosition = boardHome;
             SetTopCamera();
@@ -564,13 +631,13 @@ namespace Mgf.HanIpman
             if (reason == "clear")
             {
                 endTitleTxt.text = "오늘 영업 성공"; endTitleTxt.color = Plum;
-                endStatsTxt.text = "접시 8개 완성\n첫 제출 " + st.firstCorrect + "/" + st.firstAttempted + "  ·  냅킨 " + st.lives + "장";
+                endStatsTxt.text = "아치 8칸 완성\n첫 제출 " + st.firstCorrect + "/" + st.firstAttempted + "  ·  냅킨 " + st.lives + "장";
             }
             else
             {
                 endTitleTxt.text = reason == "timer" ? "영업 시간이 끝났습니다" : (reason == "mastery" ? "첫 제출 기준 미달" : "깨끗한 냅킨이 없습니다");
                 endTitleTxt.color = Cocoa;
-                endStatsTxt.text = "완성 접시 " + st.solved + "/8\n첫 제출 " + st.firstCorrect + "/" + Math.Max(1, st.firstAttempted) + "\n호·넓이·남길 양을 구분해 다시 도전하세요";
+                endStatsTxt.text = "완성 아치 " + st.solved + "/8\n첫 제출 " + st.firstCorrect + "/" + Math.Max(1, st.firstAttempted) + "\n호·넓이·남길 양을 구분해 다시 도전하세요";
             }
         }
 
@@ -597,6 +664,8 @@ namespace Mgf.HanIpman
                 float bob = Mathf.Sin(worldClock * (1.2f + i * .08f) + i) * .055f;
                 var p = guests[i].localPosition; p.y = -.2f + bob; guests[i].localPosition = p;
             }
+            for (int i = 0; i < proofTiles.Length; i++) if (proofTiles[i] && proofTiles[i].gameObject.activeSelf)
+                proofTiles[i].localScale = Vector3.Lerp(proofTiles[i].localScale, Vector3.one, 1f - Mathf.Exp(-dt * 9f));
             if (flow == Flow.Title)
             {
                 float p = 1f + .018f * Mathf.Sin(worldClock * 1.35f) + titlePress * .07f;
@@ -645,8 +714,8 @@ namespace Mgf.HanIpman
                 angleRt.anchoredPosition = new Vector2(s.x / Mathf.Max(1, Screen.width) * 390f - 195f, s.y / Mathf.Max(1, Screen.height) * 844f - 422f + 72f);
             }
             scoreShown = Mathf.MoveTowards(scoreShown, st.score, Mathf.Max(100, Mathf.Abs(st.score - scoreShown) * 6f) * dt);
-            int sc = Mathf.RoundToInt(scoreShown); if (sc != shownScore) { shownScore = sc; scoreTxt.text = sc.ToString(); scoreTxt.transform.localScale = Vector3.one * (1f + .08f * Mathf.Sin(Mathf.Clamp01(Mathf.Abs(st.score - scoreShown) / 80f) * Mathf.PI)); }
-            progressTxt.text = "접시 " + st.solved + "/8"; firstTxt.text = "첫 제출 " + st.firstCorrect + "/" + st.firstAttempted;
+            int sc = Mathf.RoundToInt(scoreShown); if (sc != shownScore) { shownScore = sc; scoreTxt.text = land ? "점수 " + sc : sc.ToString(); scoreTxt.transform.localScale = Vector3.one * (1f + .08f * Mathf.Sin(Mathf.Clamp01(Mathf.Abs(st.score - scoreShown) / 80f) * Mathf.PI)); }
+            progressTxt.text = "아치 " + st.solved + "/8"; firstTxt.text = "첫 제출 " + st.firstCorrect + "/" + st.firstAttempted;
             int sec = Mathf.Max(0, Mathf.CeilToInt(timeLeft)); if (sec != shownSecond) { shownSecond = sec; timeTxt.text = flow == Flow.Practice ? "연습" : sec + "초"; }
             napkin1.color = st.lives >= 1 ? Ivory : new Color(.35f, .22f, .18f, .45f);
             napkin2.color = st.lives >= 2 ? Ivory : new Color(.35f, .22f, .18f, .45f);
@@ -667,7 +736,7 @@ namespace Mgf.HanIpman
                 endScoreShown = Mathf.MoveTowards(endScoreShown, st.score, Mathf.Max(160, st.score * 1.8f) * dt); endScoreTxt.text = Mathf.RoundToInt(endScoreShown).ToString();
                 endScoreTxt.transform.localScale = Vector3.one * (1f + .045f * Mathf.Sin(worldClock * 2.5f));
             }
-            int best = PlayerPrefs.GetInt("han-ipman-best", 0); titleBest.text = best > 0 ? "최고 " + best + "점  ·  8접시 영업" : "8접시 · 120초 영업";
+            int best = PlayerPrefs.GetInt("han-ipman-best", 0); titleBest.text = best > 0 ? "최고 " + best + "점  ·  아치 8칸" : "아치 8칸 · 120초";
         }
     }
 }

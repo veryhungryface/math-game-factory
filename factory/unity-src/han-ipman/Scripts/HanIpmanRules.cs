@@ -86,6 +86,7 @@ namespace Mgf.HanIpman
                 if (f.n == 1) return "π" + unit;
                 return f.n + "π" + unit;
             }
+            if (f.n == 1) return "π/" + f.d + unit;
             return f.n + "π/" + f.d + unit;
         }
 
@@ -107,19 +108,19 @@ namespace Mgf.HanIpman
             switch (kind)
             {
                 case CakeOrderKind.Arc:
-                    prompt = "반지름이 " + r + " cm인 원에서 호의 길이가 " + quantity + "인 부채꼴을 자르시오.";
+                    prompt = "반지름의 길이가 " + r + " cm인 원에서 호의 길이가 " + quantity + "인 부채꼴을 자르시오.";
                     concept = "호의 길이와 중심각의 관계";
                     break;
                 case CakeOrderKind.Area:
-                    prompt = "반지름이 " + r + " cm인 원에서 넓이가 " + quantity + "인 부채꼴을 자르시오.";
+                    prompt = "반지름의 길이가 " + r + " cm인 원에서 넓이가 " + quantity + "인 부채꼴을 자르시오.";
                     concept = "부채꼴의 넓이와 중심각의 관계";
                     break;
                 case CakeOrderKind.LeaveArc:
-                    prompt = "반지름이 " + r + " cm인 원에서 남은 호의 길이가 " + quantity + "가 되도록 자르시오.";
+                    prompt = "반지름의 길이가 " + r + " cm인 원에서 남은 호의 길이가 " + quantity + "가 되도록 자르시오.";
                     concept = "전체 호와 남은 호에서 중심각 역추적";
                     break;
                 default:
-                    prompt = "반지름이 " + r + " cm인 원에서 남은 부분의 넓이가 " + quantity + "가 되도록 자르시오.";
+                    prompt = "반지름의 길이가 " + r + " cm인 원에서 남은 부분의 넓이가 " + quantity + "가 되도록 자르시오.";
                     concept = "전체 넓이와 남은 넓이에서 중심각 역추적";
                     break;
             }
