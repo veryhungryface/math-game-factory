@@ -83,7 +83,7 @@ namespace Mgf.BinuSseoreo
         void Prewarm()
         {
             var sb = new StringBuilder(26000);
-            sb.Append("비누썰어비누를잘라다리를세워라중학교1학년입체도형의성질기포협곡절단높이밑넓이반지름원기둥각기둥아래조각위쪽조각부피리브첫칼여분연습실전완성실패다시자르기막대끝까지그으시오전체높이πcm³");
+            sb.Append("비누썰어한줄로기포터널을열어라중학교1학년입체도형의성질기포협곡절단높이밑넓이반지름원기둥각기둥아래조각위쪽조각부피균열길첫칼여분연습실전완성실패다시자르기막대끝까지그으시오전체높이πcm³");
             for (int i = 0; i < bank.Count; i++) sb.Append(bank[i].prompt).Append(bank[i].answer).Append(bank[i].unitConcept);
             MgfText.Prewarm(sb.ToString());
         }

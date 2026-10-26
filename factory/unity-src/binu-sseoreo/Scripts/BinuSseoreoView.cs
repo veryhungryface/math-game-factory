@@ -121,11 +121,22 @@ namespace Mgf.BinuSseoreo
         void BuildCanyon(Transform root, bool title)
         {
             // 둥근 협곡 블록이 아니라 칼로 쪼갠 건조 비누 단면: 각진 지층과 결정 파편을 겹친다.
-            MgfLook.Prim(PrimitiveType.Cube, "BackCutFace", new Vector3(0, 3.4f, 6.8f), new Vector3(30f, 9.8f, 1.7f), grapeMat, root, false);
+            MgfLook.Prim(PrimitiveType.Cube, "BackCutFace", new Vector3(0, 3.4f, 6.8f), new Vector3(30f, 9.8f, 1.7f), grapeDeepMat, root, false);
             MgfLook.Prim(PrimitiveType.Cube, "LeftFracture", new Vector3(-11.5f, 1.0f, 1.8f), new Vector3(5.0f, 5.4f, 8.4f), grapeMat, root, false);
             MgfLook.Prim(PrimitiveType.Cube, "RightFracture", new Vector3(11.5f, .7f, 2.5f), new Vector3(5.0f, 5.0f, 7.6f), grapeMat, root, false);
             MgfLook.Prim(PrimitiveType.Cube, "LowerCleavage", new Vector3(0, -1.1f, 2.2f), new Vector3(30f, 1.8f, 10.4f), grapeMat, root, false);
-            for (int i = 0; i < 20; i++)
+            // 평평한 무대를 없애고 카메라 가까이까지 겹친 절리층을 만든다.
+            for (int i = 0; i < 13; i++)
+            {
+                float x = -11.8f + (i * 3.71f % 23.6f);
+                float y = -.35f + (i * 1.47f % 7.8f);
+                float z = 5.35f - (i % 4) * .42f;
+                var slab = MgfLook.Prim(PrimitiveType.Cube, "BrokenStratum" + i, new Vector3(x, y, z),
+                    new Vector3(2.2f + (i % 4) * .65f, .42f + (i % 3) * .31f, .48f + (i % 2) * .24f),
+                    i % 5 == 0 ? grapeMat : grapeDeepMat, root, false).transform;
+                slab.localRotation = Quaternion.Euler(-8f + (i % 3) * 7f, 6f + (i % 4) * 5f, -19f + (i * 17f % 39f));
+            }
+            for (int i = 0; i < 24; i++)
             {
                 float x = -10.2f + (i * 2.17f % 20.4f);
                 float y = -.55f + ((i * 1.19f) % 7.1f);
@@ -134,7 +145,7 @@ namespace Mgf.BinuSseoreo
                     new Vector3(.20f + (i % 3) * .13f, .46f + (i % 4) * .18f, .16f), i % 5 == 0 ? ivoryMat : grapeMat, root, false).transform;
                 chip.localRotation = Quaternion.Euler(i * 11f % 27f, i * 17f % 33f, -34f + (i * 23f % 68f));
             }
-            int holes = title ? 18 : 14;
+            int holes = title ? 12 : 10;
             for (int i = 0; i < holes; i++)
             {
                 float x = -7.2f + (i * 3.37f % 14.4f);
@@ -145,6 +156,9 @@ namespace Mgf.BinuSseoreo
                 b.localRotation = Quaternion.Euler(0, 0, i * 29f % 61f);
                 ambientBubbles.Add(b);
             }
+            BuildPoreMouth(root, new Vector3(-7.3f, 4.4f, 5.15f), title ? 1.65f : 1.35f, 0);
+            BuildPoreMouth(root, new Vector3(7.6f, 3.6f, 5.05f), title ? 1.45f : 1.75f, 1);
+            BuildPoreMouth(root, new Vector3(1.7f, 6.4f, 5.10f), title ? 1.15f : 1.30f, 2);
             for (int i = 0; i < 6; i++)
             {
                 var lamp = MgfLook.Prim(PrimitiveType.Sphere, "CanyonLamp" + i,
@@ -153,14 +167,41 @@ namespace Mgf.BinuSseoreo
             }
         }
 
+        void BuildPoreMouth(Transform root, Vector3 center, float radius, int variant)
+        {
+            var throat = MgfLook.Prim(PrimitiveType.Sphere, "PoreThroat" + variant, center,
+                new Vector3(radius * 1.55f, radius, .28f), inkMat, root, false).transform;
+            throat.localRotation = Quaternion.Euler(0, 0, variant * 17f - 12f);
+            for (int i = 0; i < 10; i++)
+            {
+                float a = (i / 10f) * Mathf.PI * 2f + variant * .21f;
+                Vector3 p = center + new Vector3(Mathf.Cos(a) * radius * 1.34f, Mathf.Sin(a) * radius * .92f, -.28f);
+                var tooth = MgfLook.Prim(PrimitiveType.Cube, "PoreCrystal" + variant + "_" + i, p,
+                    new Vector3(radius * .52f, radius * .17f, .30f), i % 4 == 0 ? ivoryMat : grapeMat, root, false).transform;
+                tooth.localRotation = Quaternion.Euler(0, 0, a * Mathf.Rad2Deg + (i % 2 == 0 ? 7f : -7f));
+            }
+        }
+
         void BuildTitleWorld()
         {
-            MgfLook.Block("CarvedTitleShelf", new Vector3(0, 2.5f, 4.5f), new Vector3(10.6f, 2.7f, 1.0f), .42f, grapeDeepMat, titleRoot);
+            // 별도 타이틀 패널 대신 벽 자체의 비스듬한 절개선과 손잡이가 시작 UI가 된다.
+            for (int i = 0; i < 7; i++)
+            {
+                var seam = MgfLook.Prim(PrimitiveType.Cube, "TitleFault" + i,
+                    new Vector3(-4.7f + i * 1.55f, 2.35f + Mathf.Sin(i * 1.2f) * .42f, 4.72f),
+                    new Vector3(1.75f, .16f, .24f), i % 2 == 0 ? saffronMat : ivoryMat, titleRoot, false).transform;
+                seam.localRotation = Quaternion.Euler(0, 0, -16f + i * 6f);
+            }
             titleHandle = MgfLook.Block("SaffronPullHandle", new Vector3(0, -.05f, -.2f), new Vector3(4.5f, .82f, 1.0f), .32f, saffronMat, titleRoot).transform;
             MgfLook.Block("HandleGrip", new Vector3(0, .18f, -.78f), new Vector3(2.8f, .34f, .42f), .16f, inkMat, titleHandle);
             for (int i = 0; i < 5; i++) BuildForming(titleRoot, new Vector3(-5.5f + i * 2.75f, -.18f + (i % 2) * .22f, 1.7f + (i % 3) * .8f), .72f, i * 19f, i);
             for (int i = 0; i < 6; i++)
-                MgfLook.Block("EmptySocket" + i, new Vector3(-5.0f + i * 2f, -.25f, 3.2f), new Vector3(.62f, .55f, 1.2f), .18f, inkMat, titleRoot);
+            {
+                var marker = MgfLook.Prim(PrimitiveType.Cube, "FaultMarker" + i,
+                    new Vector3(-4.8f + i * 1.9f, -.15f + (i % 2) * .22f, 3.2f),
+                    new Vector3(1.25f, .14f, .30f), i % 2 == 0 ? ivoryMat : saffronMat, titleRoot, false).transform;
+                marker.localRotation = Quaternion.Euler(0, 0, -20f + i * 8f);
+            }
         }
 
         void BuildGameWorld()
@@ -182,32 +223,33 @@ namespace Mgf.BinuSseoreo
             guideArrow = MgfLook.Block("GuideArrow", new Vector3(-4.8f, 1f, -.2f), new Vector3(.85f, .18f, .18f), .08f, saffronMat, gameRoot).transform;
             guideArrow.gameObject.SetActive(false);
 
-            bridgeRoot = new GameObject("RibBridge").transform; bridgeRoot.SetParent(gameRoot, false);
-            bridgeRoot.localPosition = new Vector3(3.7f, -.18f, 2.1f);
+            bridgeRoot = new GameObject("GrowingFaultTunnel").transform; bridgeRoot.SetParent(gameRoot, false);
+            bridgeRoot.localPosition = new Vector3(3.9f, 1.15f, 4.95f);
             for (int i = 0; i < ribs.Length; i++)
             {
-                float x = -3.25f + i * .92f;
-                sockets[i] = new GameObject("TensionFrame" + i).transform; sockets[i].SetParent(bridgeRoot, false); sockets[i].localPosition = new Vector3(x, .05f, 0);
-                MgfLook.Prim(PrimitiveType.Cube, "FrameFoot", Vector3.zero, new Vector3(.78f, .18f, 1.45f), inkMat, sockets[i], false);
-                for (int side = -1; side <= 1; side += 2)
+                int col = i % 4, row = i / 4;
+                float x = -2.55f + col * 1.72f, y = row * 1.45f + (col % 2) * .24f;
+                sockets[i] = new GameObject("DormantFault" + i).transform; sockets[i].SetParent(bridgeRoot, false); sockets[i].localPosition = new Vector3(x, y, 0);
+                ribs[i] = new GameObject("LitTunnel" + i).transform; ribs[i].SetParent(bridgeRoot, false); ribs[i].localPosition = new Vector3(x, y, -.16f);
+                for (int segment = 0; segment < 3; segment++)
                 {
-                    var brace = MgfLook.Prim(PrimitiveType.Cube, "DiagonalBrace", new Vector3(side * .25f, .38f, 0), new Vector3(.11f, .82f, .14f), inkMat, sockets[i], false).transform;
-                    brace.localRotation = Quaternion.Euler(0, 0, side * 31f);
-                }
-                ribs[i] = new GameObject("CrystalRib" + i).transform; ribs[i].SetParent(bridgeRoot, false); ribs[i].localPosition = new Vector3(x, .9f, 0);
-                MgfLook.Prim(PrimitiveType.Cube, "RibCore", Vector3.zero, new Vector3(.42f, 2.15f, .86f), ivoryMat, ribs[i], false);
-                for (int edge = -1; edge <= 1; edge += 2)
-                {
-                    var fin = MgfLook.Prim(PrimitiveType.Cube, "CleavageFin", new Vector3(edge * .25f, .06f, 0), new Vector3(.12f, 1.82f, 1.02f), ivoryMat, ribs[i], false).transform;
-                    fin.localRotation = Quaternion.Euler(0, 0, edge * 7f);
+                    float sx = -.48f + segment * .48f;
+                    float sy = segment == 1 ? .18f : 0f;
+                    float angle = segment == 0 ? 22f : segment == 1 ? -31f : 18f;
+                    var dormant = MgfLook.Prim(PrimitiveType.Cube, "Crack" + segment, new Vector3(sx, sy, 0),
+                        new Vector3(.72f, .16f, .26f), inkMat, sockets[i], false).transform;
+                    dormant.localRotation = Quaternion.Euler(0, 0, angle);
+                    var live = MgfLook.Prim(PrimitiveType.Cube, "MineralLight" + segment, new Vector3(sx, sy, 0),
+                        new Vector3(.68f, .085f, .18f), segment == 1 ? mintMat : saffronMat, ribs[i], false).transform;
+                    live.localRotation = Quaternion.Euler(0, 0, angle);
                 }
                 ribs[i].gameObject.SetActive(false);
-                lampGlows[i] = MgfLook.Prim(PrimitiveType.Sphere, "WorkLampGlow" + i, new Vector3(x, 2.18f, .55f), new Vector3(.22f, .22f, .12f), glowMat, bridgeRoot, false).transform;
+                lampGlows[i] = MgfLook.Prim(PrimitiveType.Sphere, "TunnelGlow" + i, new Vector3(x + .08f, y + .15f, -.28f), new Vector3(.32f, .32f, .12f), glowMat, bridgeRoot, false).transform;
                 lampGlows[i].gameObject.SetActive(false);
             }
             creatureRoot = new GameObject("FormingWorkers").transform; creatureRoot.SetParent(gameRoot, false);
             for (int i = 0; i < formings.Length; i++)
-                formings[i] = BuildForming(creatureRoot, new Vector3(.7f + (i % 4) * 1.5f, -.05f, 3.7f + (i / 4) * 1.0f), .42f, 180f, i);
+                formings[i] = BuildForming(creatureRoot, new Vector3(.4f + (i % 4) * 1.55f, -.05f, 3.2f + (i / 4) * .85f), .42f, 180f, i);
 
             // 정면 읽기용 자: 5 cm마다 굵은 눈금과 숫자. 실제 판정은 같은 0~25 투영을 쓴다.
             for (int i = 0; i <= 25; i++)
@@ -262,23 +304,22 @@ namespace Mgf.BinuSseoreo
             titleRt = R("TitleScreen", canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)); titleG = titleRt.gameObject.AddComponent<CanvasGroup>();
             titleShadow = Txt(titleRt, "비누 썰어", new Vector2(.5f, .78f), new Vector2(4, -8), 61, Ink, 360); titleShadow.fontStyle = FontStyles.Bold;
             titleLogo = Txt(titleRt, "비누 썰어", new Vector2(.5f, .78f), Vector2.zero, 61, Ivory, 360); titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineColor = Coral; titleLogo.outlineWidth = .22f;
-            titleTag = Txt(titleRt, "비누를 잘라 다리를 세워라", new Vector2(.5f, .69f), Vector2.zero, 18, Saffron, 350); titleTag.fontStyle = FontStyles.Bold;
+            titleTag = Txt(titleRt, "한 줄로 기포 터널을 열어라", new Vector2(.5f, .69f), Vector2.zero, 18, Saffron, 350); titleTag.fontStyle = FontStyles.Bold;
             titleMeta = Txt(titleRt, "중학교 1학년 · 입체도형의 성질", new Vector2(.5f, .635f), Vector2.zero, 13, Ivory, 350);
-            titleBest = Txt(titleRt, "리브 8개 · 첫 칼 6개", new Vector2(.5f, .23f), Vector2.zero, 14, Ivory, 330);
-            titleCta = Img(titleRt, "WorldHandleCTA", new Vector2(.5f, .135f), Vector2.zero, new Vector2(328, 72), Saffron, roundSprite);
-            Img(titleCta.transform, "HandleCut", new Vector2(.5f, .18f), Vector2.zero, new Vector2(250, 7), Ink, roundSprite);
-            titleCtaTxt = Txt(titleCta.transform, "손잡이를 당겨 시작", new Vector2(.5f, .60f), Vector2.zero, 22, Ink, 310); titleCtaTxt.fontStyle = FontStyles.Bold;
+            titleBest = Txt(titleRt, "균열길 8칸 · 첫 칼 6개", new Vector2(.5f, .23f), Vector2.zero, 14, Ivory, 330);
+            titleCta = Img(titleRt, "WorldHandleCTA", new Vector2(.5f, .135f), Vector2.zero, new Vector2(328, 72), new Color(0, 0, 0, 0), roundSprite);
+            titleCtaTxt = Txt(titleCta.transform, "노란 절단선을 당겨 입장", new Vector2(.5f, .50f), Vector2.zero, 20, Saffron, 310); titleCtaTxt.fontStyle = FontStyles.Bold;
 
             hudRt = R("GameHud", canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)); hudG = hudRt.gameObject.AddComponent<CanvasGroup>();
-            statusBg = Img(hudRt, "Status", new Vector2(.44f, .955f), Vector2.zero, new Vector2(335, 64), new Color(Ivory.r, Ivory.g, Ivory.b, .96f), roundSprite);
+            statusBg = Img(hudRt, "Status", new Vector2(.43f, .955f), Vector2.zero, new Vector2(326, 64), new Color(Ivory.r, Ivory.g, Ivory.b, .96f), roundSprite);
             scoreTxt = Txt(statusBg.transform, "0", new Vector2(.10f, .56f), Vector2.zero, 22, Ink, 66); scoreTxt.fontStyle = FontStyles.Bold;
-            progressTxt = Txt(statusBg.transform, "리브 0/8", new Vector2(.34f, .56f), Vector2.zero, 15, Ink, 108);
-            firstTxt = Txt(statusBg.transform, "첫 칼 0/0", new Vector2(.62f, .56f), Vector2.zero, 14, Ink, 110);
-            timeTxt = Txt(statusBg.transform, "120초", new Vector2(.88f, .56f), Vector2.zero, 16, Coral, 72); timeTxt.fontStyle = FontStyles.Bold;
-            for (int i = 0; i < lifeImgs.Length; i++) lifeImgs[i] = Img(statusBg.transform, "SpareSoap" + i, new Vector2(.74f + i * .07f, .18f), Vector2.zero, new Vector2(19, 10), Ivory, roundSprite);
+            progressTxt = Txt(statusBg.transform, "길 0/8", new Vector2(.31f, .56f), Vector2.zero, 15, Ink, 92);
+            firstTxt = Txt(statusBg.transform, "첫 칼 0/0", new Vector2(.56f, .56f), Vector2.zero, 14, Ink, 106);
+            timeTxt = Txt(statusBg.transform, "120초", new Vector2(.80f, .56f), Vector2.zero, 16, Coral, 62); timeTxt.fontStyle = FontStyles.Bold;
+            for (int i = 0; i < lifeImgs.Length; i++) lifeImgs[i] = Img(statusBg.transform, "SpareSoap" + i, new Vector2(.70f + i * .075f, .18f), Vector2.zero, new Vector2(19, 10), Ivory, roundSprite);
 
             goalBg = Img(hudRt, "Goal", new Vector2(.5f, .875f), Vector2.zero, new Vector2(360, 42), Ink, roundSprite);
-            goalTxt = Txt(goalBg.transform, "필요한 부피로 잘라 리브를 세우시오", new Vector2(.5f, .52f), Vector2.zero, 15, Ivory, 344); goalTxt.fontStyle = FontStyles.Bold;
+            goalTxt = Txt(goalBg.transform, "필요한 부피로 잘라 균열길을 여시오", new Vector2(.5f, .52f), Vector2.zero, 15, Ivory, 344); goalTxt.fontStyle = FontStyles.Bold;
             promptBg = Img(hudRt, "OrderPlate", new Vector2(.5f, .79f), Vector2.zero, new Vector2(362, 94), new Color(Ivory.r, Ivory.g, Ivory.b, .97f), roundSprite);
             promptTxt = Txt(promptBg.transform, "", new Vector2(.5f, .52f), Vector2.zero, 15, Ink, 340); promptTxt.fontStyle = FontStyles.Bold;
             promptTxt.enableAutoSizing = true; promptTxt.fontSizeMin = 11; promptTxt.fontSizeMax = 16; promptTxt.margin = new Vector4(8, 6, 8, 6);
@@ -371,8 +412,8 @@ namespace Mgf.BinuSseoreo
                 baseInsetBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(148f, logical.x * .38f), 76);
                 rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(RulerXFraction(), (RulerBottomFraction() + RulerTopFraction()) * .5f);
                 exitRt.anchorMin = exitRt.anchorMax = new Vector2(ExitFraction(), (RulerBottomFraction() + RulerTopFraction()) * .5f);
-                statusBg.rectTransform.anchorMin = statusBg.rectTransform.anchorMax = new Vector2(.50f, .955f);
-                statusBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(370f, logical.x * .94f), 64);
+                statusBg.rectTransform.anchorMin = statusBg.rectTransform.anchorMax = new Vector2(.43f, .955f);
+                statusBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(326f, logical.x - 64f), 64);
                 revealRt.anchorMin = revealRt.anchorMax = new Vector2(.5f, .30f);
             }
             float rulerHeight = logical.y * (RulerTopFraction() - RulerBottomFraction());
@@ -395,7 +436,7 @@ namespace Mgf.BinuSseoreo
             {
                 if (ribs[i]) ribs[i].gameObject.SetActive(false);
                 if (lampGlows[i]) lampGlows[i].gameObject.SetActive(false);
-                if (sockets[i]) sockets[i].localPosition = new Vector3(sockets[i].localPosition.x, .05f, 0);
+                if (sockets[i]) sockets[i].localScale = Vector3.one;
             }
             if (ghostPath) ghostPath.enabled = false;
             if (ghostHand) ghostHand.gameObject.SetActive(false);
@@ -447,7 +488,7 @@ namespace Mgf.BinuSseoreo
             }
             else
             {
-                goalTxt.text = st.round <= 6 ? "필요한 부피로 잘라 리브를 세우시오" : "위쪽 조각의 부피로 절단 높이를 찾으시오";
+                goalTxt.text = st.round <= 6 ? "필요한 부피로 잘라 균열길을 여시오" : "위쪽 조각의 부피로 절단 높이를 찾으시오";
                 ghostPath.enabled = false; ghostHand.gameObject.SetActive(false); guideArrow.gameObject.SetActive(false);
             }
             UpdateCutUi();
@@ -626,11 +667,11 @@ namespace Mgf.BinuSseoreo
             UpdateWire(selectedHeight, new Vector2(Screen.width * .82f, HeightToScreen(selectedHeight)));
             if (correct)
             {
-                revealTitleTxt.text = practice ? "4 cm, 정확한 절단" : "리브가 잠겼습니다";
+                revealTitleTxt.text = practice ? "4 cm, 정확한 절단" : "균열길이 열렸습니다";
                 revealTitleTxt.color = GrapeDeep; revealFormulaTxt.text = Explain(current);
                 if (!practice)
                 {
-                    int slot = Mathf.Clamp(st.solved - 1, 0, ribs.Length - 1); ribs[slot].gameObject.SetActive(true); ribs[slot].localScale = Vector3.one * .08f;
+                    int slot = Mathf.Clamp(st.solved - 1, 0, ribs.Length - 1); ribs[slot].gameObject.SetActive(true); ribs[slot].localScale = new Vector3(.04f, 1f, 1f);
                     lampGlows[slot].gameObject.SetActive(true);
                 }
                 MgfFx.Glow(soapRoot.position + Vector3.up * (selectedHeight * .205f), Saffron, 14, .24f);
@@ -675,10 +716,10 @@ namespace Mgf.BinuSseoreo
         void ShowEndVisual(bool clear, string reason)
         {
             shownEndScore = 0f;
-            endTitleTxt.text = clear ? "기포 협곡 연결 완료" : (reason == "time" ? "절단 시간이 끝났습니다" : reason == "mastery" ? "첫 칼 기준에 못 미쳤습니다" : "여분 비누가 없습니다");
+            endTitleTxt.text = clear ? "기포 터널 개통 완료" : (reason == "time" ? "절단 시간이 끝났습니다" : reason == "mastery" ? "첫 칼 기준에 못 미쳤습니다" : "여분 비누가 없습니다");
             endTitleTxt.color = clear ? GrapeDeep : Coral;
-            endStatsTxt.text = "리브 " + st.solved + "/8\n첫 칼 " + st.firstAttemptCorrect + "/" + Math.Max(1, st.firstAttemptTotal) + "  ·  여분 " + st.lives + "개\n" +
-                (clear ? "포밍들이 새 층으로 건넜습니다" : "밑넓이와 보낼 조각을 확인하고 다시 도전하시오");
+            endStatsTxt.text = "균열길 " + st.solved + "/8\n첫 칼 " + st.firstAttemptCorrect + "/" + Math.Max(1, st.firstAttemptTotal) + "  ·  여분 " + st.lives + "개\n" +
+                (clear ? "인접한 기포 방이 하나의 길로 이어졌습니다" : "밑넓이와 보낼 조각을 확인하고 다시 도전하시오");
         }
 
         void Ripple(Vector2 screen, string message)
@@ -734,22 +775,20 @@ namespace Mgf.BinuSseoreo
                 if (revealCorrect)
                 {
                     float t = 1f - Mathf.Pow(1f - revealAnim, 3f);
-                    float split = Mathf.Sin(Mathf.Clamp01(t * 1.6f) * Mathf.PI) * .38f;
+                    float split = Mathf.Sin(Mathf.Clamp01(t * 1.6f) * Mathf.PI) * .22f;
                     soapLower.localPosition = Vector3.down * split; soapUpper.localPosition = Vector3.up * split;
-                    Transform chosen = current.piece == PieceKind.Lower ? soapLower : soapUpper;
-                    chosen.localRotation = Quaternion.Euler(0, 0, -90f * Mathf.SmoothStep(0, 1, Mathf.Clamp01((t - .30f) / .70f)));
-                    chosen.localPosition += new Vector3(Mathf.SmoothStep(0, 5.2f, Mathf.Clamp01((t - .35f) / .65f)), Mathf.Sin(t * Mathf.PI) * 1.25f, 0);
                     int slot = revealPractice ? 0 : Mathf.Clamp(st.solved - 1, 0, ribs.Length - 1);
                     if (ribs[slot] && ribs[slot].gameObject.activeSelf)
                     {
-                        float overshoot = 1f + .18f * Mathf.Sin(Mathf.Clamp01(t * 1.25f) * Mathf.PI);
-                        ribs[slot].localScale = Vector3.one * Mathf.Lerp(.08f, overshoot, t);
-                        // 포밍은 다리를 건너지 않고 제자리에서 장력 프레임 체결에 반응한다.
+                        float grow = Mathf.SmoothStep(.04f, 1f, Mathf.Clamp01((t - .12f) / .72f));
+                        float pulse = 1f + .12f * Mathf.Sin(Mathf.Clamp01(t * 1.25f) * Mathf.PI);
+                        ribs[slot].localScale = new Vector3(grow, pulse, 1f);
+                        // 포밍은 이동하지 않고 벽에서 자라는 균열광을 제자리에서 점검한다.
                         formings[slot].localScale = Vector3.one * (.42f * (1f + Mathf.Sin(t * Mathf.PI) * .22f));
                         formings[slot].localRotation = Quaternion.Euler(0, 180f, Mathf.Sin(t * Mathf.PI * 2f) * 9f);
                     }
                     if (!revealPractice && st.combo >= 3)
-                        for (int i = 0; i < st.solved; i++) { Vector3 p = sockets[i].localPosition; p.y = .05f + Mathf.Sin(Mathf.Clamp01(t * 1.4f - i * .06f) * Mathf.PI) * .55f; sockets[i].localPosition = p; }
+                        for (int i = 0; i < st.solved; i++) ribs[i].localScale = new Vector3(1f, 1f + Mathf.Sin(Mathf.Clamp01(t * 1.4f - i * .06f) * Mathf.PI) * .12f, 1f);
                 }
                 else
                 {
@@ -766,7 +805,7 @@ namespace Mgf.BinuSseoreo
             shownScore = Mathf.MoveTowards(shownScore, st.score, Mathf.Max(120f, Mathf.Abs(st.score - shownScore) * 5f) * dt);
             scoreTxt.text = Mathf.RoundToInt(shownScore).ToString();
             scoreTxt.transform.localScale = Vector3.one * (1f + .08f * Mathf.Sin(Mathf.Clamp01(Mathf.Abs(st.score - shownScore) / 80f) * Mathf.PI));
-            progressTxt.text = "리브 " + st.solved + "/8"; firstTxt.text = "첫 칼 " + st.firstAttemptCorrect + "/" + st.firstAttemptTotal;
+            progressTxt.text = "길 " + st.solved + "/8"; firstTxt.text = "첫 칼 " + st.firstAttemptCorrect + "/" + st.firstAttemptTotal;
             int sec = Mathf.Max(0, Mathf.CeilToInt(timeLeft)); if (sec != shownSecond) { shownSecond = sec; timeTxt.text = flow == Flow.Practice ? "연습" : sec + "초"; }
             for (int i = 0; i < lifeImgs.Length; i++) lifeImgs[i].color = st.lives > i ? Saffron : new Color(.28f, .22f, .30f, .35f);
             if (toastClock > 0) { toastClock = Mathf.Max(0, toastClock - dt); toastG.alpha = Mathf.Min(1f, toastClock * 5f); }
@@ -785,7 +824,7 @@ namespace Mgf.BinuSseoreo
                 endScoreTxt.transform.localScale = Vector3.one * (1f + .035f * Mathf.Sin(clock * 2.5f));
             }
             int best = PlayerPrefs.GetInt("binu-sseoreo-best", 0);
-            titleBest.text = best > 0 ? "최고 " + best + "점 · 리브 8개" : "리브 8개 · 첫 칼 6개";
+            titleBest.text = best > 0 ? "최고 " + best + "점 · 균열길 8칸" : "균열길 8칸 · 첫 칼 6개";
         }
     }
 }

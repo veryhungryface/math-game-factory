@@ -36,7 +36,7 @@ try {
   let rect = 0, cylinder = 0, upper = 0;
   for (const p of bank) {
     if (!p.id || ids.has(p.id)) errors.push(`duplicate id ${p.id}`); else ids.add(p.id);
-    if (!p.prompt.includes('전체 높이가 25 cm') || !p.prompt.includes('바닥에서 몇 cm 높이')) errors.push(`missing reference ${p.id}`);
+    if (!/전체 높이(?:가|는) 25 cm/.test(p.prompt) || !p.prompt.includes('바닥에서 몇 cm 높이')) errors.push(`missing reference ${p.id}`);
     if (p.choices !== null) errors.push(`choices must be null ${p.id}`);
     const cut = Number.parseInt(p.answer, 10);
     if (cut !== p.answerNumeric || cut < 1 || cut > 24) errors.push(`answer mismatch ${p.id}`);
@@ -44,11 +44,11 @@ try {
     if (isUpper) upper++;
     const pieceHeight = isUpper ? 25 - cut : cut;
     let base, target;
-    const rm = /가로 (\d+) cm, 세로 (\d+) cm인 직사각형인 사각기둥/.exec(p.prompt);
+    const rm = /밑면은 가로 (\d+) cm, 세로 (\d+) cm인 직사각형이고, 전체 높이는 25 cm인 사각기둥/.exec(p.prompt);
     if (rm) {
       rect++; base = Number(rm[1]) * Number(rm[2]);
       const vm = /부피가 (\d+) cm³/.exec(p.prompt); target = vm && Number(vm[1]);
-      if (!p.prompt.includes('직사각형인 사각기둥')) errors.push(`ambiguous rectangle ${p.id}`);
+      if (!p.prompt.includes('밑면은') || !p.prompt.includes('직사각형이고')) errors.push(`ambiguous rectangle ${p.id}`);
     } else {
       const cm = /반지름의 길이가 (\d+) cm인 원기둥/.exec(p.prompt);
       const vm = /부피가 (\d*)π cm³/.exec(p.prompt);
