@@ -83,7 +83,7 @@ namespace Mgf.BinuSseoreo
         void Prewarm()
         {
             var sb = new StringBuilder(26000);
-            sb.Append("비누썰어한줄로기포터널을열어라중학교1학년입체도형의성질기포협곡절단높이밑넓이반지름원기둥각기둥아래조각위쪽조각부피균열길첫칼여분연습실전완성실패다시자르기막대끝까지그으시오전체높이πcm³");
+            sb.Append("비누썰어한줄로기포터널을열어라중학교1학년입체도형의성질기포협곡절단높이밑넓이반지름원기둥각기둥아래조각위쪽조각부피균열길첫칼여분연습실전완성실패다시자르기막대끝까지그으시오전체높이왼쪽눈금에서시작해원하는높이로맞추시오현재손잡이에서시작오른쪽놓기띠까지πcm³");
             for (int i = 0; i < bank.Count; i++) sb.Append(bank[i].prompt).Append(bank[i].answer).Append(bank[i].unitConcept);
             MgfText.Prewarm(sb.ToString());
         }
@@ -107,6 +107,11 @@ namespace Mgf.BinuSseoreo
             {
                 timeLeft -= dt;
                 if (timeLeft <= 0f) { timeLeft = 0f; EndRun("time"); }
+                else
+                {
+                    idleGuide += dt;
+                    if (idleGuide >= 8f) { idleGuide = 0f; BoostGuide(); }
+                }
             }
             else if (flow == Flow.Reveal)
             {
@@ -255,7 +260,7 @@ namespace Mgf.BinuSseoreo
         {
             if (MgfPointer.Down)
             {
-                pointerDown = MgfPointer.Position; st.inputRevision++;
+                pointerDown = MgfPointer.Position; st.inputRevision++; idleGuide = 0f;
                 if (flow == Flow.Title) { Ripple(pointerDown, "절단 손잡이를 당깁니다"); StartOpening(); return; }
                 if (flow == Flow.End) { Ripple(pointerDown, "새 비누를 준비합니다"); StartOpening(); return; }
                 if (flow == Flow.Opening || flow == Flow.Reveal)
@@ -278,7 +283,9 @@ namespace Mgf.BinuSseoreo
                 {
                     dragging = false; st.gesturePhase = "refused";
                     if (flow == Flow.Practice) st.practiceMisses++;
-                    Ripple(pointerDown, "빛나는 4 cm 손잡이에서 시작하시오");
+                    Ripple(pointerDown, flow == Flow.Practice
+                        ? "빛나는 4 cm 손잡이에서 시작하시오"
+                        : "왼쪽 눈금에서 시작해 원하는 높이로 맞추시오");
                     BoostGuide(flow == Flow.Practice && st.practiceMisses >= 2); MgfSfx.Play("wrong", .12f); Notify();
                 }
             }
@@ -316,7 +323,9 @@ namespace Mgf.BinuSseoreo
                 {
                     st.gesturePhase = "cancelled"; CancelWire();
                     if (flow == Flow.Practice) st.practiceMisses++;
-                    Ripple(p, "빛나는 띠 끝까지 수평으로 그으시오");
+                    Ripple(p, flow == Flow.Practice
+                        ? "빛나는 띠 끝까지 수평으로 그으시오"
+                        : "현재 손잡이에서 오른쪽 놓기 띠까지 그으시오");
                     BoostGuide(flow == Flow.Practice && st.practiceMisses >= 2); MgfSfx.Play("wrong", .13f); Notify();
                 }
             }

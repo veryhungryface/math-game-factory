@@ -624,7 +624,10 @@ namespace Mgf.BinuSseoreo
 
         void UpdateScreenGuide()
         {
-            float y = Mathf.Lerp(RulerBottomFraction(), RulerTopFraction(), 4f / 25f);
+            // 연습만 4 cm를 가리킨다. 실전 안내는 무작위로 놓인 현재 손잡이를 따라가며
+            // 문제의 정답 높이를 계산하거나 암시하지 않는다.
+            int guideHeight = flow == Flow.Practice ? 4 : Mathf.Clamp(st.cutHeight, 1, 24);
+            float y = Mathf.Lerp(RulerBottomFraction(), RulerTopFraction(), guideHeight / 25f);
             float start = RulerXFraction(), end = ExitFraction(), center = (start + end) * .5f;
             guideStartImg.rectTransform.anchorMin = guideStartImg.rectTransform.anchorMax = new Vector2(start, y);
             guideExitImg.rectTransform.anchorMin = guideExitImg.rectTransform.anchorMax = new Vector2(end, y);
@@ -653,6 +656,14 @@ namespace Mgf.BinuSseoreo
             {
                 if (snapAssist) st.guideAssist = true;
                 ghostPath.enabled = true; ghostHand.gameObject.SetActive(true); guideArrow.gameObject.SetActive(true); UpdateGhostPath();
+                guideStartImg.gameObject.SetActive(true); guideTrailImg.gameObject.SetActive(true);
+                guideExitImg.gameObject.SetActive(true); guideHintTxt.gameObject.SetActive(true); UpdateScreenGuide();
+            }
+            else if (flow == Flow.Playing && !dragging)
+            {
+                // 실전에서는 4 cm 유령 손을 재사용하지 않는다. 현재 손잡이에서 출구까지의
+                // 제스처 방향만 화면 좌표로 보여 주어 수학 답을 누설하지 않는다.
+                ghostPath.enabled = false; ghostHand.gameObject.SetActive(false); guideArrow.gameObject.SetActive(false);
                 guideStartImg.gameObject.SetActive(true); guideTrailImg.gameObject.SetActive(true);
                 guideExitImg.gameObject.SetActive(true); guideHintTxt.gameObject.SetActive(true); UpdateScreenGuide();
             }
@@ -766,7 +777,9 @@ namespace Mgf.BinuSseoreo
                 guideStartImg.rectTransform.localScale = Vector3.one * pulse;
                 guideExitImg.rectTransform.localScale = Vector3.one * (1f + .08f * Mathf.Sin(clock * 4.1f + 1f));
                 guideTrailImg.color = new Color(Saffron.r, Saffron.g, Saffron.b, st.guideAssist ? .82f : .52f);
-                guideHintTxt.text = st.guideAssist ? "4 cm에 맞췄습니다 · 오른쪽 띠까지 밀어 놓기" : "4 cm에서 누르고  →  놓기까지";
+                guideHintTxt.text = flow == Flow.Practice
+                    ? (st.guideAssist ? "4 cm에 맞췄습니다 · 오른쪽 띠까지 밀어 놓기" : "4 cm에서 누르고  →  놓기까지")
+                    : "현재 손잡이에서 시작  →  오른쪽 놓기 띠";
             }
             if (hitStop > 0) { hitStop = Mathf.Max(0, hitStop - dt); UpdateUi(dt); return; }
             if (flow == Flow.Reveal)
