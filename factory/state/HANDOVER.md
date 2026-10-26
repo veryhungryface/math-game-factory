@@ -2935,3 +2935,9 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 상단 꼭짓점을 낮추고 문자 라벨을 제목 안전띠 아래로 clamp해 390×844·820×1180·1280×800·2000px에서 E/B와 도형판 제목이 겹치지 않는다. `mgf.json`을 `#071A29`로 바꿔 생성된 index의 theme-color·body·canvas·loading도 같은 팔레트로 맞췄다. 정답 설명판은 낮고 반투명하게 옮겨 예인선 횡단을 보존했다.
 - 최종 artifact `0480298fab3714905c281cf983dc86cd8b75e832caeb28f5f17044d123133248`. 실제 pointer 정상판 clear8/8·첫시도8·매듭3, 첫 오답 회복판 clear8/8·첫시도7·매듭2, 매듭0 gameover와 독립 재시작을 정답 훅 없이 재현했고 콘솔 오류0이다. final firstplay17프레임·ready true·console/page error0이다.
 - mathcheck pass·표본110 오류0. Unity 빌드 warnings0·산출물7.9MB, 공식 QA45/45·fatal0·실GPU 모바일81fps·1280폭84fps·15초 유지100%. B3 각200판은 반복0%(무제출)·순환12.79%·무작위13.79%≤우연16.67%, 무입력진도0이다. `fix.json`은 fixed4/not_fixed0/replan false이며 게시·허브·queue는 건드리지 않았다.
+
+## 2026-10-27 — 「비누 썰어」 Unity 빌드 완료 / QA 45·fatal 0 / 미게시
+- `factory/unity-src/binu-sseoreo/`와 `public/g/binu-sseoreo/`를 만들었다. 포도빛 기포 협곡에서 왼쪽 1~24 cm 눈금부터 오른쪽 놓기 띠까지 한 획으로 잘라, 각기둥·원기둥의 목표 부피를 높이로 역산하고 8개 리브와 첫 칼 6개를 완성한다.
+- 실제 판정과 같은 문제 풀 624개·절단 후보 14,976개를 전수 검사해 유일해 실패와 오개념 우연 참이 모두 0이었다. 실제 Chrome pointer 회복판은 첫 오답 뒤 clear8/8·첫시도7·여분2, 독립 정상판은 clear8/8·첫시도8·여분3이며, 여분0 즉시 gameover도 확인했다.
+- B3 각200판 첫 시도 정답률은 연타3.38%·순환2.35%·무작위2.68%≤우연4.17%, 무입력0%·진도0이고 완주율은 모두0%다. 45초 firstplay는 ready true·console/page error0이다.
+- 최종 artifact `27b090dc24497e17c5fb72a701545c794ef9417eca30eb13941c0adcf0dcbf79`, Unity 빌드 warnings0·산출물7.9MB, 공식 QA45/45·fatal0·실GPU 모바일68fps·1280폭69fps·15초 유지율103%다. 게시·허브·queue는 건드리지 않았다.
