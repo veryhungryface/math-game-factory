@@ -20,7 +20,7 @@ namespace Mgf.BinuSseoreo
         static readonly Color Mint = MgfLook.Hex("#86D7B3");
 
         Camera cam;
-        Transform titleRoot, gameRoot, soapRoot, soapLower, soapUpper, bridgeRoot, bubbleRoot, creatureRoot;
+        Transform titleRoot, gameRoot, soapRoot, soapLower, soapUpper, bridgeRoot, bubbleRoot, creatureRoot, dimensionRoot;
         Transform titleHandle, cutHandle, cutGlow, ghostHand, guideArrow;
         readonly Transform[] ribs = new Transform[8];
         readonly Transform[] sockets = new Transform[8];
@@ -39,12 +39,14 @@ namespace Mgf.BinuSseoreo
         CanvasGroup titleG, hudG, revealG, endG, toastG;
         RectTransform titleRt, hudRt, revealRt, endRt, rippleRt, knobRt, cutLineRt, exitRt, rulerRt;
         Image titleCta, statusBg, goalBg, promptBg, formulaBg, revealBg, endBg, rippleImg, knobImg, cutLineImg, exitImg;
+        Image rulerSpineImg, guideStartImg, guideTrailImg, guideExitImg, baseInsetBg, baseLineH, baseLineV;
         readonly Image[] lifeImgs = new Image[3];
         readonly Image[] tickImgs = new Image[26];
         TextMeshProUGUI titleShadow, titleLogo, titleTag, titleMeta, titleBest, titleCtaTxt;
         TextMeshProUGUI scoreTxt, progressTxt, firstTxt, timeTxt, goalTxt, promptTxt, formulaTxt, heightTxt, exitTxt;
-        TextMeshProUGUI revealTitleTxt, revealFormulaTxt, toastTxt, endTitleTxt, endScoreTxt, endStatsTxt, endTapTxt;
+        TextMeshProUGUI revealTitleTxt, revealFormulaTxt, toastTxt, endTitleTxt, endScoreTxt, endStatsTxt, endTapTxt, guideHintTxt, baseInsetTxt;
         Sprite roundSprite, ringSprite;
+        Vector2 logicalSize = new Vector2(390, 844);
 
         RectTransform R(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
         {
@@ -99,9 +101,9 @@ namespace Mgf.BinuSseoreo
             MgfLook.Sky(MgfLook.Hex("#38224C"), Grape, MgfLook.Hex("#24162F"), .82f);
             MgfLook.Sun(new Vector3(44, -32, 18), MgfLook.Hex("#FFE3A7"), 1.34f, .68f);
             cam = MgfLook.Camera(new Vector3(11.2f, 10.8f, -16.8f), new Vector3(0, 2.4f, 1.8f), 35f);
-            grapeMat = MgfLook.Lit(Grape, .18f, .01f);
-            grapeDeepMat = MgfLook.Lit(GrapeDeep, .12f, .01f);
-            ivoryMat = MgfLook.Lit(Ivory, .30f, .01f);
+            grapeMat = MgfLook.Lit(Grape, .05f, .00f);
+            grapeDeepMat = MgfLook.Lit(GrapeDeep, .03f, .00f);
+            ivoryMat = MgfLook.Lit(Ivory, .08f, .00f);
             inkMat = MgfLook.Lit(Ink, .72f, .28f);
             saffronMat = MgfLook.Lit(Saffron, .54f, .08f, Saffron * .08f);
             coralMat = MgfLook.Lit(Coral, .34f, .02f);
@@ -118,10 +120,20 @@ namespace Mgf.BinuSseoreo
 
         void BuildCanyon(Transform root, bool title)
         {
-            MgfLook.Block("BackStratum", new Vector3(0, 3.4f, 6.8f), new Vector3(30f, 9.8f, 1.7f), .55f, grapeMat, root);
-            MgfLook.Block("LeftCliff", new Vector3(-11.5f, 1.0f, 1.8f), new Vector3(5.0f, 5.4f, 8.4f), .65f, grapeMat, root);
-            MgfLook.Block("RightCliff", new Vector3(11.5f, .7f, 2.5f), new Vector3(5.0f, 5.0f, 7.6f), .65f, grapeMat, root);
-            MgfLook.Block("LowerShelf", new Vector3(0, -1.1f, 2.2f), new Vector3(30f, 1.8f, 10.4f), .55f, grapeMat, root);
+            // 둥근 협곡 블록이 아니라 칼로 쪼갠 건조 비누 단면: 각진 지층과 결정 파편을 겹친다.
+            MgfLook.Prim(PrimitiveType.Cube, "BackCutFace", new Vector3(0, 3.4f, 6.8f), new Vector3(30f, 9.8f, 1.7f), grapeMat, root, false);
+            MgfLook.Prim(PrimitiveType.Cube, "LeftFracture", new Vector3(-11.5f, 1.0f, 1.8f), new Vector3(5.0f, 5.4f, 8.4f), grapeMat, root, false);
+            MgfLook.Prim(PrimitiveType.Cube, "RightFracture", new Vector3(11.5f, .7f, 2.5f), new Vector3(5.0f, 5.0f, 7.6f), grapeMat, root, false);
+            MgfLook.Prim(PrimitiveType.Cube, "LowerCleavage", new Vector3(0, -1.1f, 2.2f), new Vector3(30f, 1.8f, 10.4f), grapeMat, root, false);
+            for (int i = 0; i < 20; i++)
+            {
+                float x = -10.2f + (i * 2.17f % 20.4f);
+                float y = -.55f + ((i * 1.19f) % 7.1f);
+                float z = 5.72f - (i % 4) * .10f;
+                var chip = MgfLook.Prim(PrimitiveType.Cube, "DryCrystal" + i, new Vector3(x, y, z),
+                    new Vector3(.20f + (i % 3) * .13f, .46f + (i % 4) * .18f, .16f), i % 5 == 0 ? ivoryMat : grapeMat, root, false).transform;
+                chip.localRotation = Quaternion.Euler(i * 11f % 27f, i * 17f % 33f, -34f + (i * 23f % 68f));
+            }
             int holes = title ? 18 : 14;
             for (int i = 0; i < holes; i++)
             {
@@ -129,7 +141,8 @@ namespace Mgf.BinuSseoreo
                 float y = -.15f + ((i * 1.73f) % 6.7f);
                 float z = 5.85f - (i % 3) * .14f;
                 float s = .42f + (i % 5) * .17f;
-                var b = MgfLook.Prim(PrimitiveType.Sphere, "AirPocket" + i, new Vector3(x, y, z), new Vector3(s * 1.45f, s, .18f), grapeDeepMat, root, false).transform;
+                var b = MgfLook.Prim(PrimitiveType.Sphere, "DeepPore" + i, new Vector3(x, y, z), new Vector3(s * 1.45f, s, .24f), grapeDeepMat, root, false).transform;
+                b.localRotation = Quaternion.Euler(0, 0, i * 29f % 61f);
                 ambientBubbles.Add(b);
             }
             for (int i = 0; i < 6; i++)
@@ -155,6 +168,7 @@ namespace Mgf.BinuSseoreo
             soapRoot = new GameObject("WorkingSoap").transform; soapRoot.SetParent(gameRoot, false); soapRoot.localPosition = new Vector3(-2.7f, -.25f, .8f);
             soapLower = new GameObject("LowerPiece").transform; soapLower.SetParent(soapRoot, false);
             soapUpper = new GameObject("UpperPiece").transform; soapUpper.SetParent(soapRoot, false);
+            dimensionRoot = new GameObject("BaseMeasureInset").transform; dimensionRoot.SetParent(gameRoot, false);
             cutGlow = MgfLook.Prim(PrimitiveType.Cube, "DryCutGlow", new Vector3(0, 2.3f, -.72f), new Vector3(3.2f, .07f, .18f), MgfLook.Unlit(Coral), soapRoot, false).transform;
             cutGlow.gameObject.SetActive(false);
 
@@ -173,8 +187,20 @@ namespace Mgf.BinuSseoreo
             for (int i = 0; i < ribs.Length; i++)
             {
                 float x = -3.25f + i * .92f;
-                sockets[i] = MgfLook.Block("BlackSocket" + i, new Vector3(x, .05f, 0), new Vector3(.72f, .48f, 1.45f), .17f, inkMat, bridgeRoot).transform;
-                ribs[i] = MgfLook.Block("SoapRib" + i, new Vector3(x, .9f, 0), new Vector3(.52f, 2.15f, 1.08f), .13f, ivoryMat, bridgeRoot).transform;
+                sockets[i] = new GameObject("TensionFrame" + i).transform; sockets[i].SetParent(bridgeRoot, false); sockets[i].localPosition = new Vector3(x, .05f, 0);
+                MgfLook.Prim(PrimitiveType.Cube, "FrameFoot", Vector3.zero, new Vector3(.78f, .18f, 1.45f), inkMat, sockets[i], false);
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var brace = MgfLook.Prim(PrimitiveType.Cube, "DiagonalBrace", new Vector3(side * .25f, .38f, 0), new Vector3(.11f, .82f, .14f), inkMat, sockets[i], false).transform;
+                    brace.localRotation = Quaternion.Euler(0, 0, side * 31f);
+                }
+                ribs[i] = new GameObject("CrystalRib" + i).transform; ribs[i].SetParent(bridgeRoot, false); ribs[i].localPosition = new Vector3(x, .9f, 0);
+                MgfLook.Prim(PrimitiveType.Cube, "RibCore", Vector3.zero, new Vector3(.42f, 2.15f, .86f), ivoryMat, ribs[i], false);
+                for (int edge = -1; edge <= 1; edge += 2)
+                {
+                    var fin = MgfLook.Prim(PrimitiveType.Cube, "CleavageFin", new Vector3(edge * .25f, .06f, 0), new Vector3(.12f, 1.82f, 1.02f), ivoryMat, ribs[i], false).transform;
+                    fin.localRotation = Quaternion.Euler(0, 0, edge * 7f);
+                }
                 ribs[i].gameObject.SetActive(false);
                 lampGlows[i] = MgfLook.Prim(PrimitiveType.Sphere, "WorkLampGlow" + i, new Vector3(x, 2.18f, .55f), new Vector3(.22f, .22f, .12f), glowMat, bridgeRoot, false).transform;
                 lampGlows[i].gameObject.SetActive(false);
@@ -255,12 +281,13 @@ namespace Mgf.BinuSseoreo
             goalTxt = Txt(goalBg.transform, "필요한 부피로 잘라 리브를 세우시오", new Vector2(.5f, .52f), Vector2.zero, 15, Ivory, 344); goalTxt.fontStyle = FontStyles.Bold;
             promptBg = Img(hudRt, "OrderPlate", new Vector2(.5f, .79f), Vector2.zero, new Vector2(362, 94), new Color(Ivory.r, Ivory.g, Ivory.b, .97f), roundSprite);
             promptTxt = Txt(promptBg.transform, "", new Vector2(.5f, .52f), Vector2.zero, 15, Ink, 340); promptTxt.fontStyle = FontStyles.Bold;
+            promptTxt.enableAutoSizing = true; promptTxt.fontSizeMin = 11; promptTxt.fontSizeMax = 16; promptTxt.margin = new Vector4(8, 6, 8, 6);
 
             formulaBg = Img(hudRt, "Formula", new Vector2(.5f, .105f), Vector2.zero, new Vector2(350, 72), new Color(Ink.r, Ink.g, Ink.b, .94f), roundSprite);
             formulaTxt = Txt(formulaBg.transform, "V = 밑넓이 × 높이  ·  전체 높이 25 cm", new Vector2(.5f, .50f), Vector2.zero, 15, Ivory, 330); formulaTxt.fontStyle = FontStyles.Bold;
 
             rulerRt = R("RulerOverlay", hudRt, new Vector2(.18f, .49f), Vector2.zero, new Vector2(64, 430));
-            Img(rulerRt, "RulerSpine", new Vector2(.34f, .5f), Vector2.zero, new Vector2(5, 418), Ink, roundSprite);
+            rulerSpineImg = Img(rulerRt, "RulerSpine", new Vector2(.34f, .5f), Vector2.zero, new Vector2(5, 418), Ink, roundSprite);
             for (int i = 0; i <= 25; i++)
             {
                 float u = i / 25f;
@@ -273,6 +300,17 @@ namespace Mgf.BinuSseoreo
             cutLineImg = Img(hudRt, "CutPreview", new Vector2(.5f, .5f), Vector2.zero, new Vector2(260, 5), Coral, roundSprite); cutLineRt = cutLineImg.rectTransform;
             exitImg = Img(hudRt, "ExitStrip", new Vector2(.87f, .49f), Vector2.zero, new Vector2(48, 430), new Color(Saffron.r, Saffron.g, Saffron.b, .16f), ringSprite); exitRt = exitImg.rectTransform;
             exitTxt = Txt(exitImg.transform, "놓기", new Vector2(.5f, .50f), Vector2.zero, 13, Saffron, 42); exitTxt.fontStyle = FontStyles.Bold;
+
+            // 실제 입력 좌표에서 계산되는 온보딩 포인터. 월드 원근과 무관하게 시작점과 놓기 띠를 정확히 잇는다.
+            guideTrailImg = Img(hudRt, "ScreenSpaceGesturePath", new Vector2(.5f, .5f), Vector2.zero, new Vector2(260, 16), new Color(Saffron.r, Saffron.g, Saffron.b, .58f), roundSprite);
+            guideStartImg = Img(hudRt, "FourCmStartPulse", new Vector2(.18f, .3f), Vector2.zero, new Vector2(92, 92), Saffron, ringSprite);
+            guideExitImg = Img(hudRt, "ReleaseTargetPulse", new Vector2(.87f, .3f), Vector2.zero, new Vector2(82, 112), new Color(Saffron.r, Saffron.g, Saffron.b, .82f), ringSprite);
+            guideHintTxt = Txt(hudRt, "4 cm에서 누르고  →  놓기까지", new Vector2(.52f, .34f), new Vector2(0, 26), 14, Ivory, 310); guideHintTxt.fontStyle = FontStyles.Bold;
+
+            baseInsetBg = Img(hudRt, "BaseMeasureCard", new Vector2(.76f, .51f), Vector2.zero, new Vector2(142, 76), new Color(Ink.r, Ink.g, Ink.b, .90f), roundSprite);
+            baseLineH = Img(baseInsetBg.transform, "BaseHorizontal", new Vector2(.27f, .34f), Vector2.zero, new Vector2(48, 4), Coral, roundSprite);
+            baseLineV = Img(baseInsetBg.transform, "BaseVertical", new Vector2(.12f, .51f), Vector2.zero, new Vector2(4, 28), Coral, roundSprite);
+            baseInsetTxt = Txt(baseInsetBg.transform, "", new Vector2(.66f, .55f), Vector2.zero, 11, Ivory, 94); baseInsetTxt.fontStyle = FontStyles.Bold;
 
             revealRt = R("Reveal", canvas.transform, new Vector2(.5f, .28f), Vector2.zero, new Vector2(354, 154)); revealG = revealRt.gameObject.AddComponent<CanvasGroup>();
             revealBg = Img(revealRt, "Evidence", new Vector2(.5f, .5f), Vector2.zero, new Vector2(354, 154), new Color(Ivory.r, Ivory.g, Ivory.b, .98f), roundSprite);
@@ -300,32 +338,51 @@ namespace Mgf.BinuSseoreo
             lastW = Screen.width; lastH = Screen.height; lastCanvasScale = canvasScale; land = MgfBridge.IsLandLayout;
             Vector2 logical = new Vector2(Screen.width / canvasScale, Screen.height / canvasScale);
             if (logical.x < 100f || logical.y < 100f) logical = new Vector2(390, 844);
+            logicalSize = logical;
             titleRt.sizeDelta = logical; hudRt.sizeDelta = logical; endRt.sizeDelta = logical;
             MgfLook.FitWidth(cam, land ? 34f : 36f, .72f);
             if (land)
             {
                 cam.transform.position = new Vector3(12.8f, 9.8f, -17.2f); cam.transform.LookAt(new Vector3(0, 2.0f, 2.0f));
-                promptBg.rectTransform.anchorMin = promptBg.rectTransform.anchorMax = new Vector2(.35f, .58f);
-                promptBg.rectTransform.sizeDelta = new Vector2(350, 94);
-                goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.35f, .78f);
-                formulaBg.rectTransform.anchorMin = formulaBg.rectTransform.anchorMax = new Vector2(.67f, .12f);
-                rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(.13f, .45f);
-                exitRt.anchorMin = exitRt.anchorMax = new Vector2(.58f, .45f);
-                statusBg.rectTransform.anchorMin = statusBg.rectTransform.anchorMax = new Vector2(.50f, .94f);
-                statusBg.rectTransform.sizeDelta = new Vector2(520, 64);
+                promptBg.rectTransform.anchorMin = promptBg.rectTransform.anchorMax = new Vector2(.80f, .61f);
+                promptBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(390f, logical.x * .34f), 154);
+                goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.80f, .82f);
+                goalBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(390f, logical.x * .34f), 52);
+                formulaBg.rectTransform.anchorMin = formulaBg.rectTransform.anchorMax = new Vector2(.80f, .35f);
+                formulaBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(390f, logical.x * .34f), 92);
+                baseInsetBg.rectTransform.anchorMin = baseInsetBg.rectTransform.anchorMax = new Vector2(.80f, .17f);
+                baseInsetBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(250f, logical.x * .28f), 74);
+                rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(RulerXFraction(), (RulerBottomFraction() + RulerTopFraction()) * .5f);
+                exitRt.anchorMin = exitRt.anchorMax = new Vector2(ExitFraction(), (RulerBottomFraction() + RulerTopFraction()) * .5f);
+                statusBg.rectTransform.anchorMin = statusBg.rectTransform.anchorMax = new Vector2(.50f, .945f);
+                statusBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(560f, logical.x * .48f), 64);
+                revealRt.anchorMin = revealRt.anchorMax = new Vector2(.80f, .17f);
             }
             else
             {
                 cam.transform.position = new Vector3(11.2f, 10.8f, -16.8f); cam.transform.LookAt(new Vector3(0, 2.4f, 1.8f));
-                promptBg.rectTransform.anchorMin = promptBg.rectTransform.anchorMax = new Vector2(.5f, .79f);
-                promptBg.rectTransform.sizeDelta = new Vector2(362, 94);
-                goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.5f, .875f);
+                promptBg.rectTransform.anchorMin = promptBg.rectTransform.anchorMax = new Vector2(.5f, .73f);
+                promptBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(376f, logical.x * .96f), 126);
+                goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.5f, .855f);
+                goalBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(376f, logical.x * .96f), 46);
                 formulaBg.rectTransform.anchorMin = formulaBg.rectTransform.anchorMax = new Vector2(.5f, .105f);
-                rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(.18f, .49f);
-                exitRt.anchorMin = exitRt.anchorMax = new Vector2(.87f, .49f);
-                statusBg.rectTransform.anchorMin = statusBg.rectTransform.anchorMax = new Vector2(.44f, .955f);
-                statusBg.rectTransform.sizeDelta = new Vector2(335, 64);
+                formulaBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(370f, logical.x * .94f), 72);
+                baseInsetBg.rectTransform.anchorMin = baseInsetBg.rectTransform.anchorMax = new Vector2(.77f, .51f);
+                baseInsetBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(148f, logical.x * .38f), 76);
+                rulerRt.anchorMin = rulerRt.anchorMax = new Vector2(RulerXFraction(), (RulerBottomFraction() + RulerTopFraction()) * .5f);
+                exitRt.anchorMin = exitRt.anchorMax = new Vector2(ExitFraction(), (RulerBottomFraction() + RulerTopFraction()) * .5f);
+                statusBg.rectTransform.anchorMin = statusBg.rectTransform.anchorMax = new Vector2(.50f, .955f);
+                statusBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(370f, logical.x * .94f), 64);
+                revealRt.anchorMin = revealRt.anchorMax = new Vector2(.5f, .30f);
             }
+            float rulerHeight = logical.y * (RulerTopFraction() - RulerBottomFraction());
+            rulerRt.sizeDelta = new Vector2(72, rulerHeight);
+            rulerSpineImg.rectTransform.sizeDelta = new Vector2(5, Mathf.Max(120, rulerHeight - 12));
+            exitRt.sizeDelta = new Vector2(54, rulerHeight);
+            promptTxt.rectTransform.sizeDelta = new Vector2(Mathf.Max(170, promptBg.rectTransform.sizeDelta.x - 20), Mathf.Max(76, promptBg.rectTransform.sizeDelta.y - 14));
+            goalTxt.rectTransform.sizeDelta = new Vector2(Mathf.Max(170, goalBg.rectTransform.sizeDelta.x - 16), Mathf.Max(34, goalBg.rectTransform.sizeDelta.y - 8));
+            formulaTxt.rectTransform.sizeDelta = new Vector2(Mathf.Max(170, formulaBg.rectTransform.sizeDelta.x - 18), Mathf.Max(48, formulaBg.rectTransform.sizeDelta.y - 12));
+            UpdateCutUi();
         }
 
         void ResetVisuals()
@@ -355,27 +412,32 @@ namespace Mgf.BinuSseoreo
             knobImg.gameObject.SetActive(flow == Flow.Practice || flow == Flow.Playing);
             cutLineImg.gameObject.SetActive(flow == Flow.Practice || flow == Flow.Playing || flow == Flow.Reveal);
             exitImg.gameObject.SetActive(flow == Flow.Practice || flow == Flow.Playing);
+            bool guide = flow == Flow.Practice && !dragging;
+            guideStartImg.gameObject.SetActive(guide); guideTrailImg.gameObject.SetActive(guide);
+            guideExitImg.gameObject.SetActive(guide); guideHintTxt.gameObject.SetActive(guide);
+            baseInsetBg.gameObject.SetActive(flow == Flow.Practice || flow == Flow.Playing);
         }
 
         void BeginTitleSplit() { titleSplit = .001f; }
 
         void LoadProblemVisual(SoapProblem p, bool practice)
         {
-            ClearSoapChildren();
-            float fullH = 5.15f, cutY = fullH * p.answerHeight / 25f;
-            if (p.solid == SolidKind.RectPrism)
-            {
-                MgfLook.Block("LowerSoap", new Vector3(0, cutY * .5f, 0), new Vector3(2.7f, Mathf.Max(.18f, cutY), 2.15f), .18f, ivoryMat, soapLower);
-                MgfLook.Block("UpperSoap", new Vector3(0, cutY + (fullH - cutY) * .5f, 0), new Vector3(2.7f, Mathf.Max(.18f, fullH - cutY), 2.15f), .18f, ivoryMat, soapUpper);
-            }
-            else
-            {
-                MgfLook.Prim(PrimitiveType.Cylinder, "LowerSoap", new Vector3(0, cutY * .5f, 0), new Vector3(2.55f, Mathf.Max(.09f, cutY * .5f), 2.55f), ivoryMat, soapLower, false);
-                MgfLook.Prim(PrimitiveType.Cylinder, "UpperSoap", new Vector3(0, cutY + (fullH - cutY) * .5f, 0), new Vector3(2.55f, Mathf.Max(.09f, (fullH - cutY) * .5f), 2.55f), ivoryMat, soapUpper, false);
-            }
+            // 제출 전에는 하나의 통비누만 그린다. 정답 높이의 이음선이 화면에 새어 나오면 안 된다.
+            BuildSoapGeometry(p, p.answerHeight, false);
+            BuildBaseMeasureInset(p);
             soapLower.localPosition = soapUpper.localPosition = Vector3.zero; soapLower.localRotation = soapUpper.localRotation = Quaternion.identity;
             cutGlow.gameObject.SetActive(false); wireLine.enabled = trailLine.enabled = false;
             promptTxt.text = p.prompt;
+            if (p.solid == SolidKind.RectPrism)
+            {
+                baseInsetTxt.text = "가로 " + p.a + " cm\n세로 " + p.b + " cm\n직각";
+                baseLineH.rectTransform.sizeDelta = new Vector2(48, 4); baseLineV.gameObject.SetActive(true);
+            }
+            else
+            {
+                baseInsetTxt.text = "중심에서\n반지름 " + p.radius + " cm";
+                baseLineH.rectTransform.sizeDelta = new Vector2(64, 4); baseLineV.gameObject.SetActive(false);
+            }
             formulaTxt.text = p.piece == PieceKind.Upper ? "V = 밑넓이 × 위 높이  ·  절단 높이 = 25 − 위 높이" : "V = 밑넓이 × 높이  ·  전체 높이 25 cm";
             if (practice)
             {
@@ -389,6 +451,83 @@ namespace Mgf.BinuSseoreo
                 ghostPath.enabled = false; ghostHand.gameObject.SetActive(false); guideArrow.gameObject.SetActive(false);
             }
             UpdateCutUi();
+        }
+
+        void BuildSoapGeometry(SoapProblem p, int cutHeight, bool split)
+        {
+            ClearSoapChildren();
+            const float fullH = 5.15f;
+            float rectW = 2.15f + p.a * .13f, rectD = 1.45f + p.b * .13f;
+            float cylD = 2.05f + p.radius * .14f;
+            if (!split)
+            {
+                if (p.solid == SolidKind.RectPrism)
+                    MgfLook.Prim(PrimitiveType.Cube, "WholeDrySoap", new Vector3(0, fullH * .5f, 0), new Vector3(rectW, fullH, rectD), ivoryMat, soapLower, false);
+                else
+                    MgfLook.Prim(PrimitiveType.Cylinder, "WholeDrySoap", new Vector3(0, fullH * .5f, 0), new Vector3(cylD, fullH * .5f, cylD), ivoryMat, soapLower, false);
+                AddCleavageMarks(soapLower, fullH, p.solid == SolidKind.Cylinder ? cylD : rectW);
+                return;
+            }
+
+            float cutY = fullH * cutHeight / 25f;
+            if (p.solid == SolidKind.RectPrism)
+            {
+                MgfLook.Prim(PrimitiveType.Cube, "LowerCutSoap", new Vector3(0, cutY * .5f, 0), new Vector3(rectW, Mathf.Max(.18f, cutY), rectD), ivoryMat, soapLower, false);
+                MgfLook.Prim(PrimitiveType.Cube, "UpperCutSoap", new Vector3(0, cutY + (fullH - cutY) * .5f, 0), new Vector3(rectW, Mathf.Max(.18f, fullH - cutY), rectD), ivoryMat, soapUpper, false);
+            }
+            else
+            {
+                MgfLook.Prim(PrimitiveType.Cylinder, "LowerCutSoap", new Vector3(0, cutY * .5f, 0), new Vector3(cylD, Mathf.Max(.09f, cutY * .5f), cylD), ivoryMat, soapLower, false);
+                MgfLook.Prim(PrimitiveType.Cylinder, "UpperCutSoap", new Vector3(0, cutY + (fullH - cutY) * .5f, 0), new Vector3(cylD, Mathf.Max(.09f, (fullH - cutY) * .5f), cylD), ivoryMat, soapUpper, false);
+            }
+            AddCutCrystals(soapLower, cutY, p.solid == SolidKind.Cylinder ? cylD : rectW, false);
+            AddCutCrystals(soapUpper, cutY, p.solid == SolidKind.Cylinder ? cylD : rectW, true);
+        }
+
+        void AddCleavageMarks(Transform parent, float fullH, float width)
+        {
+            for (int i = 0; i < 7; i++)
+            {
+                float y = .42f + i * .67f;
+                var groove = MgfLook.Prim(PrimitiveType.Cube, "DryCleavage" + i, new Vector3(-width * .48f, y, -.68f),
+                    new Vector3(.055f, .28f + (i % 3) * .12f, .16f), i % 2 == 0 ? coralMat : grapeMat, parent, false).transform;
+                groove.localRotation = Quaternion.Euler(0, 0, -22f + i * 7f);
+            }
+        }
+
+        void AddCutCrystals(Transform parent, float y, float width, bool upper)
+        {
+            for (int i = 0; i < 9; i++)
+            {
+                float x = Mathf.Lerp(-width * .38f, width * .38f, i / 8f);
+                var shard = MgfLook.Prim(PrimitiveType.Cube, "CutCrystal" + i,
+                    new Vector3(x, y + (upper ? .055f : -.055f), -.62f), new Vector3(.12f, .10f + (i % 3) * .035f, .18f),
+                    i % 3 == 0 ? saffronMat : ivoryMat, parent, false).transform;
+                shard.localRotation = Quaternion.Euler(0, i * 13f, -18f + i * 5f);
+            }
+        }
+
+        void BuildBaseMeasureInset(SoapProblem p)
+        {
+            for (int i = dimensionRoot.childCount - 1; i >= 0; i--) Destroy(dimensionRoot.GetChild(i).gameObject);
+            dimensionRoot.localPosition = new Vector3(-2.7f, -.62f, -.35f);
+            if (p.solid == SolidKind.RectPrism)
+            {
+                MgfLook.Prim(PrimitiveType.Cube, "WidthMeasure", new Vector3(0, 0, 0), new Vector3(2.45f, .055f, .08f), coralMat, dimensionRoot, false);
+                MgfLook.Prim(PrimitiveType.Cube, "DepthMeasure", new Vector3(1.18f, .27f, .18f), new Vector3(.055f, .58f, .08f), coralMat, dimensionRoot, false);
+                MgfLook.Prim(PrimitiveType.Cube, "RightAngleA", new Vector3(.93f, .10f, .13f), new Vector3(.32f, .045f, .07f), inkMat, dimensionRoot, false);
+                MgfLook.Prim(PrimitiveType.Cube, "RightAngleB", new Vector3(.78f, .24f, .13f), new Vector3(.045f, .30f, .07f), inkMat, dimensionRoot, false);
+                var aText = MgfText.World("가로 " + p.a + " cm", new Vector3(0, -.28f, -.04f), .27f, Coral, dimensionRoot);
+                var bText = MgfText.World("세로 " + p.b + " cm · 직각", new Vector3(1.45f, .32f, -.04f), .25f, Ivory, dimensionRoot);
+                aText.transform.rotation = bText.transform.rotation = Quaternion.Euler(22f, 0, 0);
+            }
+            else
+            {
+                MgfLook.Prim(PrimitiveType.Cube, "RadiusMeasure", Vector3.zero, new Vector3(1.65f, .055f, .08f), coralMat, dimensionRoot, false);
+                MgfLook.Prim(PrimitiveType.Sphere, "CenterPoint", new Vector3(-.82f, 0, 0), new Vector3(.12f, .12f, .08f), inkMat, dimensionRoot, false);
+                var rText = MgfText.World("반지름 " + p.radius + " cm", new Vector3(0, -.28f, -.04f), .27f, Coral, dimensionRoot);
+                rText.transform.rotation = Quaternion.Euler(22f, 0, 0);
+            }
         }
 
         void ClearSoapChildren()
@@ -405,6 +544,8 @@ namespace Mgf.BinuSseoreo
         void BeginWire(int h)
         {
             wireLine.enabled = trailLine.enabled = true; ghostPath.enabled = false; ghostHand.gameObject.SetActive(false); guideArrow.gameObject.SetActive(false);
+            guideStartImg.gameObject.SetActive(false); guideTrailImg.gameObject.SetActive(false);
+            guideExitImg.gameObject.SetActive(false); guideHintTxt.gameObject.SetActive(false);
             cutHandle.localScale = new Vector3(1.18f, .78f, 1.08f); UpdateWire(h, MgfPointer.Position);
         }
 
@@ -414,7 +555,8 @@ namespace Mgf.BinuSseoreo
             float y = -.05f + h * .205f;
             Vector3 start = new Vector3(-4.95f, y, -.55f);
             float ux = pointer.x / Mathf.Max(1f, Screen.width);
-            Vector3 end = new Vector3(Mathf.Lerp(-4.7f, 2.4f, Mathf.Clamp01((ux - .18f) / .65f)), y, -.55f);
+            Vector3 end = new Vector3(Mathf.Lerp(-4.7f, 2.4f,
+                Mathf.InverseLerp(RulerXFraction(), ExitFraction(), ux)), y, -.55f);
             wireLine.SetPosition(0, start); wireLine.SetPosition(1, end);
             trailLine.SetPosition(0, start + Vector3.back * .05f); trailLine.SetPosition(1, end + Vector3.back * .05f);
             cutHandle.localPosition = new Vector3(-4.35f, y, -.45f);
@@ -422,19 +564,33 @@ namespace Mgf.BinuSseoreo
 
         void CancelWire()
         {
-            wireLine.enabled = trailLine.enabled = false; cutHandle.localScale = Vector3.one; UpdateCutUi();
+            wireLine.enabled = trailLine.enabled = false; cutHandle.localScale = Vector3.one; UpdateCutUi(); ShowScreen();
         }
 
         void UpdateCutUi()
         {
             float u = st.cutHeight / 25f;
-            float y = Mathf.Lerp(-244f, 244f, u);
-            knobRt.anchorMin = knobRt.anchorMax = land ? new Vector2(.15f, .49f) : new Vector2(.18f, .49f);
-            knobRt.anchoredPosition = new Vector2(0, y);
+            float yFraction = Mathf.Lerp(RulerBottomFraction(), RulerTopFraction(), u);
+            knobRt.anchorMin = knobRt.anchorMax = new Vector2(RulerXFraction(), yFraction);
+            knobRt.anchoredPosition = Vector2.zero;
             heightTxt.text = st.cutHeight + " cm";
-            cutLineRt.anchorMin = cutLineRt.anchorMax = new Vector2(.49f, .49f);
-            cutLineRt.anchoredPosition = new Vector2(0, y);
-            cutLineRt.sizeDelta = new Vector2(land ? 520 : 250, 5);
+            float cutCenter = (RulerXFraction() + ExitFraction()) * .5f;
+            cutLineRt.anchorMin = cutLineRt.anchorMax = new Vector2(cutCenter, yFraction);
+            cutLineRt.anchoredPosition = Vector2.zero;
+            cutLineRt.sizeDelta = new Vector2(Mathf.Max(80, logicalSize.x * (ExitFraction() - RulerXFraction())), 5);
+            UpdateScreenGuide();
+        }
+
+        void UpdateScreenGuide()
+        {
+            float y = Mathf.Lerp(RulerBottomFraction(), RulerTopFraction(), 4f / 25f);
+            float start = RulerXFraction(), end = ExitFraction(), center = (start + end) * .5f;
+            guideStartImg.rectTransform.anchorMin = guideStartImg.rectTransform.anchorMax = new Vector2(start, y);
+            guideExitImg.rectTransform.anchorMin = guideExitImg.rectTransform.anchorMax = new Vector2(end, y);
+            guideTrailImg.rectTransform.anchorMin = guideTrailImg.rectTransform.anchorMax = new Vector2(center, y);
+            guideTrailImg.rectTransform.sizeDelta = new Vector2(Mathf.Max(100, logicalSize.x * (end - start)), st.guideAssist ? 22 : 14);
+            guideHintTxt.rectTransform.anchorMin = guideHintTxt.rectTransform.anchorMax = new Vector2(center, y);
+            guideHintTxt.rectTransform.anchoredPosition = new Vector2(0, 42);
         }
 
         void UpdateGhostPath()
@@ -449,15 +605,22 @@ namespace Mgf.BinuSseoreo
             }
         }
 
-        void BoostGuide()
+        void BoostGuide(bool snapAssist = false)
         {
             guideBoost = 1f;
-            if (flow == Flow.Practice) { ghostPath.enabled = true; ghostHand.gameObject.SetActive(true); guideArrow.gameObject.SetActive(true); UpdateGhostPath(); }
+            if (flow == Flow.Practice)
+            {
+                if (snapAssist) st.guideAssist = true;
+                ghostPath.enabled = true; ghostHand.gameObject.SetActive(true); guideArrow.gameObject.SetActive(true); UpdateGhostPath();
+                guideStartImg.gameObject.SetActive(true); guideTrailImg.gameObject.SetActive(true);
+                guideExitImg.gameObject.SetActive(true); guideHintTxt.gameObject.SetActive(true); UpdateScreenGuide();
+            }
         }
 
         void BeginRevealVisual(bool correct, bool practice, int selectedHeight, string misconception)
         {
             revealAnim = 0f; hitStop = correct ? .085f : 0f; wrongKick = correct ? 0f : 1f;
+            BuildSoapGeometry(current, selectedHeight, true);
             cutGlow.localPosition = new Vector3(0, selectedHeight * .205f, -.72f); cutGlow.gameObject.SetActive(true);
             cutGlow.localScale = new Vector3(3.2f, .07f, .18f);
             UpdateWire(selectedHeight, new Vector2(Screen.width * .82f, HeightToScreen(selectedHeight)));
@@ -520,8 +683,8 @@ namespace Mgf.BinuSseoreo
 
         void Ripple(Vector2 screen, string message)
         {
-            float sx = screen.x / Mathf.Max(1f, Screen.width) * 390f - 195f;
-            float sy = screen.y / Mathf.Max(1f, Screen.height) * 844f - 422f;
+            float sx = screen.x / Mathf.Max(1f, Screen.width) * logicalSize.x - logicalSize.x * .5f;
+            float sy = screen.y / Mathf.Max(1f, Screen.height) * logicalSize.y - logicalSize.y * .5f;
             rippleRt.anchoredPosition = new Vector2(sx, sy); rippleRt.localScale = Vector3.one * .25f; rippleRt.gameObject.SetActive(true);
             rippleImg.color = Ivory; rippleClock = .42f; toastTxt.text = message; toastClock = 1.25f; toastG.alpha = 1f;
         }
@@ -556,6 +719,14 @@ namespace Mgf.BinuSseoreo
                 ghostHand.position = ghostPath.GetPosition(idx); float pulse = 1f + .18f * Mathf.Sin(clock * 5f) + guideBoost * .28f; ghostHand.localScale = Vector3.one * (.48f * pulse);
                 guideArrow.localPosition = new Vector3(1.9f + Mathf.Sin(clock * 3.2f) * .18f, ghostPath.GetPosition(ghostPath.positionCount - 1).y, -.55f);
             }
+            if (guideStartImg && guideStartImg.gameObject.activeSelf)
+            {
+                float pulse = 1f + (st.guideAssist ? .22f : .10f) * Mathf.Sin(clock * 5.5f);
+                guideStartImg.rectTransform.localScale = Vector3.one * pulse;
+                guideExitImg.rectTransform.localScale = Vector3.one * (1f + .08f * Mathf.Sin(clock * 4.1f + 1f));
+                guideTrailImg.color = new Color(Saffron.r, Saffron.g, Saffron.b, st.guideAssist ? .82f : .52f);
+                guideHintTxt.text = st.guideAssist ? "4 cm에 맞췄습니다 · 오른쪽 띠까지 밀어 놓기" : "4 cm에서 누르고  →  놓기까지";
+            }
             if (hitStop > 0) { hitStop = Mathf.Max(0, hitStop - dt); UpdateUi(dt); return; }
             if (flow == Flow.Reveal)
             {
@@ -573,7 +744,9 @@ namespace Mgf.BinuSseoreo
                     {
                         float overshoot = 1f + .18f * Mathf.Sin(Mathf.Clamp01(t * 1.25f) * Mathf.PI);
                         ribs[slot].localScale = Vector3.one * Mathf.Lerp(.08f, overshoot, t);
-                        formings[slot].localPosition = Vector3.Lerp(formings[slot].localPosition, new Vector3(.45f + slot * .45f, .42f + Mathf.Sin(t * Mathf.PI) * .5f, 2.4f), dt * 3.5f);
+                        // 포밍은 다리를 건너지 않고 제자리에서 장력 프레임 체결에 반응한다.
+                        formings[slot].localScale = Vector3.one * (.42f * (1f + Mathf.Sin(t * Mathf.PI) * .22f));
+                        formings[slot].localRotation = Quaternion.Euler(0, 180f, Mathf.Sin(t * Mathf.PI * 2f) * 9f);
                     }
                     if (!revealPractice && st.combo >= 3)
                         for (int i = 0; i < st.solved; i++) { Vector3 p = sockets[i].localPosition; p.y = .05f + Mathf.Sin(Mathf.Clamp01(t * 1.4f - i * .06f) * Mathf.PI) * .55f; sockets[i].localPosition = p; }

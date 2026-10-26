@@ -45,8 +45,9 @@ namespace Mgf.BinuSseoreo
             int area = a * b;
             int volume = area * pieceHeight;
             string which = piece == PieceKind.Lower ? "아래 조각" : "위쪽 조각";
-            string prompt = "밑면의 두 변의 길이가 " + a + " cm, " + b + " cm인 각기둥의 " + which +
-                " 부피가 " + volume + " cm³가 되도록 자르시오.";
+            string prompt = "전체 높이가 25 cm이고 밑면이 가로 " + a + " cm, 세로 " + b +
+                " cm인 직사각형인 사각기둥입니다. " + which + "의 부피가 " + volume +
+                " cm³가 되도록 바닥에서 몇 cm 높이에서 자르시오.";
             return new SoapProblem {
                 id = prefix + "-a" + a + "-b" + b + "-h" + cutHeight + "-" + (piece == PieceKind.Lower ? "lo" : "up"),
                 solid = SolidKind.RectPrism, piece = piece, a = a, b = b, radius = 0,
@@ -65,8 +66,9 @@ namespace Mgf.BinuSseoreo
             int areaPi = radius * radius;
             int volumePi = areaPi * pieceHeight;
             string which = piece == PieceKind.Lower ? "아래 조각" : "위쪽 조각";
-            string prompt = "밑면의 반지름의 길이가 " + radius + " cm인 원기둥의 " + which +
-                " 부피가 " + Pi(volumePi) + " cm³가 되도록 자르시오.";
+            string prompt = "전체 높이가 25 cm이고 밑면의 반지름의 길이가 " + radius +
+                " cm인 원기둥입니다. " + which + "의 부피가 " + Pi(volumePi) +
+                " cm³가 되도록 바닥에서 몇 cm 높이에서 자르시오.";
             return new SoapProblem {
                 id = prefix + "-r" + radius + "-h" + cutHeight + "-" + (piece == PieceKind.Lower ? "lo" : "up"),
                 solid = SolidKind.Cylinder, piece = piece, a = 0, b = 0, radius = radius,
@@ -198,6 +200,11 @@ namespace Mgf.BinuSseoreo
                 if (solutions != 1 || !IsCorrect(p, p.answerHeight)) throw new InvalidOperationException("유일해 오류: " + p.id);
                 if (p.prompt.Contains("자리에서") || p.prompt.Contains("√")) throw new InvalidOperationException("금지 표현: " + p.id);
                 if (!p.prompt.Contains(" cm") || !p.prompt.EndsWith("자르시오.")) throw new InvalidOperationException("발문 형식 오류: " + p.id);
+                if (!p.prompt.Contains("전체 높이가 25 cm") || !p.prompt.Contains("바닥에서 몇 cm 높이"))
+                    throw new InvalidOperationException("절단 기준 누락: " + p.id);
+                if (p.solid == SolidKind.RectPrism && (!p.prompt.Contains("직사각형인 사각기둥") ||
+                    !p.prompt.Contains("가로 ") || !p.prompt.Contains("세로 ")))
+                    throw new InvalidOperationException("사각기둥 밑면 조건 누락: " + p.id);
                 // 오개념 역산 전수 검사: 어떤 규칙도 정답 높이를 오답으로 분류할 수 없다.
                 for (int h = 1; h <= 24; h++)
                 {

@@ -27,6 +27,8 @@ namespace Mgf.BinuSseoreo
             public int combo;
             public bool repairMode;
             public bool onboarding;
+            public bool guideAssist;
+            public int practiceMisses;
             public string lastResult = "";
             public string misconceptionId = "";
             public string shape = "";
@@ -99,7 +101,7 @@ namespace Mgf.BinuSseoreo
             else if (flow == Flow.Practice)
             {
                 idleGuide += dt;
-                if (idleGuide >= 8f) { idleGuide = 0f; BoostGuide(); }
+                if (idleGuide >= 8f) { idleGuide = 0f; BoostGuide(true); }
             }
             else if (flow == Flow.Playing)
             {
@@ -120,6 +122,7 @@ namespace Mgf.BinuSseoreo
             st.activeProblemId = ""; st.attemptCount = 0; st.firstAttemptCorrect = 0; st.firstAttemptTotal = 0;
             st.remainingOrders = BinuRules.TargetSolved; st.cutHeight = 13; st.gesturePhase = "idle";
             st.inputRevision = 0; st.combo = 0; st.repairMode = false; st.onboarding = false;
+            st.guideAssist = false; st.practiceMisses = 0;
             st.lastResult = ""; st.misconceptionId = ""; st.shape = ""; st.piece = "";
             dragging = false; heightLocked = false; firstAttempt = true; failAfterReveal = false;
             timeLeft = BinuRules.SessionSeconds; revealClock = 0f; idleGuide = 0f; endReason = "";
@@ -262,14 +265,21 @@ namespace Mgf.BinuSseoreo
                 if (flow != Flow.Practice && flow != Flow.Playing) return;
                 float x = pointerDown.x / Mathf.Max(1f, Screen.width);
                 float y = pointerDown.y / Mathf.Max(1f, Screen.height);
-                if (x <= .46f && y >= .16f && y <= .82f)
+                bool onRuler = x <= RulerXFraction() + .14f && y >= RulerBottomFraction() - .035f && y <= RulerTopFraction() + .035f;
+                bool assistedPracticeStart = flow == Flow.Practice && st.guideAssist && x >= .06f && x <= .94f && y >= .14f && y <= .76f;
+                if (onRuler || assistedPracticeStart)
                 {
-                    dragging = true; heightLocked = false; st.cutHeight = HeightFromScreen(pointerDown.y); st.gesturePhase = "aiming";
+                    dragging = true; heightLocked = false;
+                    st.cutHeight = flow == Flow.Practice && st.guideAssist ? 4 : HeightFromScreen(pointerDown.y);
+                    st.gesturePhase = "aiming"; idleGuide = 0f;
                     BeginWire(st.cutHeight); MgfSfx.Play("tap", .22f); Notify();
                 }
                 else
                 {
-                    dragging = false; st.gesturePhase = "refused"; Ripple(pointerDown, "왼쪽 눈금에서 시작하시오"); BoostGuide(); MgfSfx.Play("wrong", .12f); Notify();
+                    dragging = false; st.gesturePhase = "refused";
+                    if (flow == Flow.Practice) st.practiceMisses++;
+                    Ripple(pointerDown, "빛나는 4 cm 손잡이에서 시작하시오");
+                    BoostGuide(flow == Flow.Practice && st.practiceMisses >= 2); MgfSfx.Play("wrong", .12f); Notify();
                 }
             }
 
@@ -277,9 +287,15 @@ namespace Mgf.BinuSseoreo
             {
                 Vector2 p = MgfPointer.Position;
                 float x = p.x / Mathf.Max(1f, Screen.width);
-                if (!heightLocked && x < .47f)
+                if (flow == Flow.Practice && st.guideAssist)
                 {
-                    int h = HeightFromScreen(p.y);
+                    st.cutHeight = 4; heightLocked = true; st.gesturePhase = "slicing";
+                    float projectedX = Mathf.Max(p.x, pointerDown.x + Mathf.Abs(p.x - pointerDown.x));
+                    UpdateWire(4, new Vector2(projectedX, HeightToScreen(4)));
+                }
+                else if (!heightLocked && x < Mathf.Lerp(RulerXFraction(), ExitFraction(), .28f))
+                {
+                    int h = flow == Flow.Practice && st.guideAssist ? 4 : HeightFromScreen(p.y);
                     if (h != st.cutHeight) { st.cutHeight = h; UpdateWire(h, p); st.inputRevision++; Notify(); }
                 }
                 else heightLocked = true;
@@ -293,22 +309,31 @@ namespace Mgf.BinuSseoreo
                 Vector2 p = MgfPointer.Position;
                 float x = p.x / Mathf.Max(1f, Screen.width);
                 float dy = Mathf.Abs(p.y - HeightToScreen(st.cutHeight));
-                if (x >= .65f && dy <= Screen.height * .18f) Submit(st.cutHeight);
+                bool assistedPracticeStroke = flow == Flow.Practice && st.guideAssist && Vector2.Distance(p, pointerDown) >= Screen.width * .08f;
+                if (assistedPracticeStroke) Submit(4);
+                else if (x >= ExitFraction() - .04f && dy <= Screen.height * .12f) Submit(st.cutHeight);
                 else
                 {
-                    st.gesturePhase = "cancelled"; CancelWire(); Ripple(p, "막대 끝까지 수평으로 그으시오"); BoostGuide(); MgfSfx.Play("wrong", .13f); Notify();
+                    st.gesturePhase = "cancelled"; CancelWire();
+                    if (flow == Flow.Practice) st.practiceMisses++;
+                    Ripple(p, "빛나는 띠 끝까지 수평으로 그으시오");
+                    BoostGuide(flow == Flow.Practice && st.practiceMisses >= 2); MgfSfx.Play("wrong", .13f); Notify();
                 }
             }
         }
 
         int HeightFromScreen(float screenY)
         {
-            float bottom = Screen.height * .20f, top = Screen.height * .78f;
+            float bottom = Screen.height * RulerBottomFraction(), top = Screen.height * RulerTopFraction();
             float u = Mathf.InverseLerp(bottom, top, screenY);
             return Mathf.Clamp(Mathf.RoundToInt(u * BinuRules.TotalHeight), 1, 24);
         }
 
-        float HeightToScreen(int h) => Mathf.Lerp(Screen.height * .20f, Screen.height * .78f, h / 25f);
+        float RulerBottomFraction() => MgfBridge.IsLandLayout ? .12f : .18f;
+        float RulerTopFraction() => MgfBridge.IsLandLayout ? .82f : .64f;
+        float RulerXFraction() => MgfBridge.IsLandLayout ? .10f : .18f;
+        float ExitFraction() => MgfBridge.IsLandLayout ? .58f : .87f;
+        float HeightToScreen(int h) => Mathf.Lerp(Screen.height * RulerBottomFraction(), Screen.height * RulerTopFraction(), h / 25f);
         void Notify() => MgfBridge.NotifyChanged();
 
         public void TestStart() => BeginRun(true);
@@ -325,7 +350,10 @@ namespace Mgf.BinuSseoreo
         public string StateJson()
         {
             st.layoutLand = MgfBridge.IsLandLayout;
-            st.rulerLeftPermille = 170; st.rulerBottomPermille = 200; st.rulerTopPermille = 780; st.exitPermille = 650;
+            st.rulerLeftPermille = Mathf.RoundToInt(RulerXFraction() * 1000f);
+            st.rulerBottomPermille = Mathf.RoundToInt(RulerBottomFraction() * 1000f);
+            st.rulerTopPermille = Mathf.RoundToInt(RulerTopFraction() * 1000f);
+            st.exitPermille = Mathf.RoundToInt(ExitFraction() * 1000f);
             return JsonUtility.ToJson(st);
         }
 

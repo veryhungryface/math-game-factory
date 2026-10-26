@@ -1,19 +1,61 @@
 {
-  "slug": "han-ipman",
+  "slug": "binu-sseoreo",
   "fixed": [
     {
-      "issue": "[구현 버그/high] 한 세션에서 뷰포트를 순차 변경하면 UpdateWorld가 크기 캐시를 먼저 갱신해 UpdateUi 재배치를 건너뛰었고, 820×1180 공식 캡처에서 HUD와 공식이 잘렸다.",
-      "what_i_did": "화면 크기 감지를 RelayoutAll 한 경로로 통합해 월드와 UI를 같은 프레임에 함께 배치했다. CanvasScaler가 한 프레임 늦게 바꾸는 실제 논리 사각형도 별도 캐시해 Screen 크기가 같아도 논리 폭·높이가 달라지면 다시 배치하도록 했다. UpdateWorld와 UpdateUi의 서로 경쟁하던 개별 크기 검사는 제거했다.",
-      "file": "factory/unity-src/han-ipman/Scripts/HanIpmanView.cs, factory/unity-src/han-ipman/Scripts/HanIpmanGame.cs",
+      "issue": "각기둥 발문만으로 밑넓이 a×b가 유일하게 정해지지 않았다.",
+      "what_i_did": "모든 각기둥을 밑면이 가로 a cm, 세로 b cm인 직사각형인 사각기둥으로 명시하고 화면 밑면 확대 카드에 두 변과 직각 표시를 그렸다.",
+      "file": "factory/unity-src/binu-sseoreo/Scripts/BinuRules.cs",
       "verified": true,
-      "evidence": "수정 전 최종 공식 tablet.png에서는 점수·아치·첫 제출·시간이 사라지고 냅킨과 공식이 잘렸다. 수정 후 artifact 7e1b13f3에서 공식 QA의 모바일→태블릿 순차 캡처와 별도 한 페이지 mobile→tablet→1280→1440→2000→tablet-return 회귀를 실제 실행했다. 공식 820×1180 및 마지막 tablet-return 화면 모두 점수·아치·첫 제출·시간·냅킨 3장·전체 발문·공식이 안전 영역 안에 보였고 브라우저 오류는 0건이었다."
+      "evidence": "최종 WebGL 문제은행 624개 전수 검사에서 사각기둥 480개 모두 조건·정수식 일치, 오류 0(runtime-bank-results.json)."
     },
     {
-      "issue": "[핵심 루프 검증 공백/high] 수선 완주와 독립 둘째 판 기록의 artifactHash가 이전 빌드여서 최종 산출물의 실제 입력 관용도와 게임성이 미검증이었다.",
-      "what_i_did": "최종 재빌드와 공식 QA 뒤 같은 artifact에서 화면 캡처만 읽어 q와 계산 근거를 정하고 실제 pointerdown→move→pointerup으로 두 판을 새로 수행했다. 첫 판은 일반 1회 고의 오답 뒤 같은 문항 수선과 8문제 클리어, 결과 화면에서 재도전한 둘째 판은 8문제 무실수 클리어로 기록했다. 정답 훅·problemId·상태 prompt·문제은행은 사용하지 않았다.",
-      "file": "factory/work/qa/han-ipman/pointer-playthrough.json, factory/unity-src/han-ipman/ArtSource/validation/independent-play-results.json",
+      "issue": "위쪽 조각 문항에 전체 높이와 바닥 기준 절단 위치가 없어 답이 모호했다.",
+      "what_i_did": "원기둥·사각기둥의 아래/위쪽 문형 모두에 전체 높이 25 cm와 바닥에서 몇 cm 높이에서 자르는지를 명시했다.",
+      "file": "factory/unity-src/binu-sseoreo/Scripts/BinuRules.cs",
       "verified": true,
-      "evidence": "pointer-playthrough.json의 artifactHash가 공식 QA와 같은 7e1b13f3402ded6c1beb8dfdcd09c7d9560f6930a15bffd2d437723c110d13e6이다. 실제 포인터 제출 19회로 첫 판 clear/solved8/firstCorrect7/firstWrong1/lives2, 독립 둘째 판 clear/solved8/firstCorrect8/firstWrong0/lives3을 달성했고 console/page/network 오류는 모두 0건이다. 같은 해시의 firstplay도 15프레임·ready true·오류 0으로 재실행했다."
+      "evidence": "최종 WebGL 624개 중 위쪽 조각 312개를 포함한 전 문항에 기준 문구가 있고, 표시 답과 정수식 오류가 0이었다. 독립 정수 검산도 624문항·14,976후보 오류 0."
+    },
+    {
+      "issue": "미절단 비누가 정답 높이로 미리 분할되어 이음선이 정답을 누설할 수 있었다.",
+      "what_i_did": "제출 전에는 하나의 통비누만 만들고 실제 포인터 제출 뒤 선택한 높이에서만 두 조각과 결정 절단면을 생성하도록 렌더 경로를 분리했다.",
+      "file": "factory/unity-src/binu-sseoreo/Scripts/BinuSseoreoView.cs",
+      "verified": true,
+      "evidence": "최종 firstplay와 수동 두 판의 제출 전 프레임에서 정답 이음선이 없고, 제출 높이에서만 절단면이 나타나는 것을 관찰했다."
+    },
+    {
+      "issue": "순진 입력이 47초까지 연습을 벗어나지 못했다.",
+      "what_i_did": "실제 화면 좌표의 4 cm 시작 링·굵은 경로·놓기 링을 추가하고, 8초 또는 무효 입력 2회 뒤 다음 실제 드래그를 4 cm 경로에 흡착시켰다. 탭만으로는 진행하지 않는다.",
+      "file": "factory/unity-src/binu-sseoreo/Scripts/BinuSseoreoGame.cs",
+      "verified": true,
+      "evidence": "새 45초 firstplay에서 17초 실제 drag로 연습 정답 설명이 나타나고 21초 프레임부터 실전 1번 문항에 진입했다(ready true, console/page 오류 0)."
+    },
+    {
+      "issue": "태블릿·데스크톱·초와이드에서 자와 절단선이 문제 카드/HUD를 관통하거나 잘렸다.",
+      "what_i_did": "logical rect로 자의 상하 안전 범위를 계산하고 손잡이·절단선·놓기 띠를 같은 좌표계에 묶었다. 가로 화면은 좌측 조작, 중앙 비누/장력 구조, 우측 발문·공식의 3존으로 재배치했다.",
+      "file": "factory/unity-src/binu-sseoreo/Scripts/BinuSseoreoView.cs",
+      "verified": true,
+      "evidence": "최종 QA mobile/tablet/desktop-1280/wide 캡처에서 카드 관통·화면 잘림 0을 직접 확인했고 layout.wide1280 포함 QA 45/45를 통과했다."
+    },
+    {
+      "issue": "moraejwi-meollittwigi와 둥근 파스텔 협곡·캡슐 발판·생물 횡단 정답 사건이 겹쳤다.",
+      "what_i_did": "배경을 각진 건조 절단 지층과 결정 파편으로 바꾸고 캡슐 발판을 삼각 장력 프레임/결정 리브로 교체했다. 정답은 생물 횡단 대신 비누 조각이 기립해 프레임에 맞물리고 포밍은 제자리 체결 반응만 하게 했다.",
+      "file": "factory/unity-src/binu-sseoreo/Scripts/BinuSseoreoView.cs",
+      "verified": true,
+      "evidence": "최종 실GPU mobile·wide와 정답 프레임에서 배경 재질, 구조 부품, 정답 사건의 세 축이 기존 둥근 협곡/횡단 계열과 달라졌음을 관찰했다."
+    },
+    {
+      "issue": "이전 둘째 판 증거가 public problem id에서 정답 높이를 해독했다.",
+      "what_i_did": "화면 캡처의 발문만 사람이 읽어 계산 근거와 높이를 입력하는 수동 포인터 드라이버로 교체했다.",
+      "file": "factory/unity-src/binu-sseoreo/ArtSource/validation/manual-visible-play.mjs",
+      "verified": true,
+      "evidence": "최종 artifact 62a956…에서 회복판 8/8·첫시도7·여분2, 새 덱 무실수판 8/8·첫시도8·여분3. activeProblemId/sampleProblems/answerCorrect/answerWrong/start 호출은 모두 0, 콘솔·페이지 오류 0."
+    },
+    {
+      "issue": "표지 3종의 사진풍 다공성 비누와 실제 런타임 프리미티브가 다른 제품처럼 보였다.",
+      "what_i_did": "thumb.png, square.png, assets/title.png를 최종 WebGL 타이틀에서 1200×630·1080×1080로 다시 캡처했다.",
+      "file": "public/g/binu-sseoreo/thumb.png",
+      "verified": true,
+      "evidence": "file 검사에서 1200×630·1080×1080을 확인했고 QA 표지 치수·중복 검사 통과, 세 이미지가 실제 타이틀 카메라·재질·캐릭터와 일치한다."
     }
   ],
   "not_fixed": [],
