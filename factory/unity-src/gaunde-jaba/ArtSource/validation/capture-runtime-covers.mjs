@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 최종 WebGL 타이틀의 같은 관측소 세계를 허브 표지로 캡처한다.
+// 최종 WebGL 타이틀의 같은 공중 종이 회랑 세계를 허브 표지로 캡처한다.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

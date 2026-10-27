@@ -136,7 +136,7 @@ namespace Mgf.GaundeJaba
         {
             string values = JoinValues(raw);
             string prompt = error
-                ? "관측 시간 " + values + "초에 놓인 " + FormatHalf(wrong) + "초 표식은 잘못되었다. 중앙값을 구하시오."
+                ? "관측 시간이 " + values + "초인 자료에서 " + FormatHalf(wrong) + "초에 놓인 표식은 잘못되었다. 중앙값을 구하시오."
                 : "관측 시간 " + values + "초의 중앙값을 구하시오.";
             var problem = new MedianProblem { id = id, raw = raw, answer2 = answer2, band = band, errorFind = error, wrongMark2 = wrong, prompt = prompt };
             problem.wrongMarkMisconception = error ? ClassifyMisconception(problem, wrong) : "";
@@ -270,6 +270,8 @@ namespace Mgf.GaundeJaba
                 if (p.errorFind && (p.wrongMark2 < 2 || p.wrongMark2 > 24 || p.wrongMark2 == p.answer2)) throw new InvalidOperationException("오류 표식 오류: " + p.id);
                 if (p.errorFind && string.IsNullOrEmpty(p.wrongMarkMisconception))
                     throw new InvalidOperationException("설명할 수 없는 오류 표식: " + p.id);
+                if (p.errorFind && (!p.prompt.StartsWith("관측 시간이 ") || !p.prompt.Contains("초인 자료에서 ")))
+                    throw new InvalidOperationException("오류 찾기 발문 문법 오류: " + p.id);
                 if (p.prompt.Contains("자리에서") || p.prompt.Contains("√") || !p.prompt.EndsWith("구하시오.")) throw new InvalidOperationException("발문 오류: " + p.id);
                 foreach (int v in new[] { p.answer2, 2, 3, 8, 13, 24 })
                     if (v == p.answer2 && ClassifyMisconception(p, v).Length != 0) throw new InvalidOperationException("오개념 우연 참: " + p.id);

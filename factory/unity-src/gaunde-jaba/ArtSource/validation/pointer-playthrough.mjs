@@ -129,7 +129,7 @@ try {
   }
 
   async function playRun(serial, { oneWrong = false } = {}) {
-    const runId = `gaunde-jaba-fix1-${artifact.slice(0, 12)}-run${serial}`;
+    const runId = `gaunde-jaba-fix2-${artifact.slice(0, 12)}-run${serial}`;
     const prefix = serial === 1 ? '01-run1' : '02-run2';
     const answers = Array.from({ length: 6 }, (_, round) => answerAt(serial, round));
     const startedAt = new Date().toISOString();

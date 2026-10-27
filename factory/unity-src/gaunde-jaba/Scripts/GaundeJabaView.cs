@@ -1,4 +1,4 @@
-// 가운데 잡아 — 야간 시간 표본 관측소 2.5D 디오라마, 기록 정리 줄, 숫자 자 UI와 피드백 사건.
+// 가운데 잡아 — 공중 종이 시간 회랑 2.5D 디오라마, 기록 정리 줄, 숫자 자 UI와 피드백 사건.
 using System;
 using System.Collections.Generic;
 using Mgf;
@@ -11,13 +11,13 @@ namespace Mgf.GaundeJaba
 {
     public partial class GaundeJabaGame
     {
-        static readonly Color Olive = MgfLook.Hex("#102D3A");       // 관측소 남청 구조체
-        static readonly Color Chartreuse = MgfLook.Hex("#5AD6CE");  // 발광 유리
-        static readonly Color Cocoa = MgfLook.Hex("#182126");       // 먹빛 금속
-        static readonly Color Fire = MgfLook.Hex("#E4B45A");        // 황동 클램프
-        static readonly Color Ivory = MgfLook.Hex("#F0E5C6");       // 기록지
-        static readonly Color Shade = MgfLook.Hex("#D8615C");       // 오답 경보
-        static readonly Color Moss = MgfLook.Hex("#2B8791");        // 청록 유리
+        static readonly Color Olive = MgfLook.Hex("#69405C");       // 오디빛 직조 무대
+        static readonly Color Chartreuse = MgfLook.Hex("#EF7462");  // 산호색 기록 잉크
+        static readonly Color Cocoa = MgfLook.Hex("#283442");       // 남색 먹선
+        static readonly Color Fire = MgfLook.Hex("#4868A9");        // 코발트 도자 추
+        static readonly Color Ivory = MgfLook.Hex("#F5E9CF");       // 무광 종이
+        static readonly Color Shade = MgfLook.Hex("#C64958");       // 오답 잉크
+        static readonly Color Moss = MgfLook.Hex("#A97B9D");        // 자주빛 한지
 
         Camera cam;
         Transform worldRoot, beetleRoot, netRoot, canopyRoot, titleNet, titleBeetle;
@@ -105,52 +105,51 @@ namespace Mgf.GaundeJaba
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#06141F"), MgfLook.Hex("#123A48"), MgfLook.Hex("#02080E"), .72f);
-            MgfLook.Sun(new Vector3(39, -34, 12), MgfLook.Hex("#BDEDEA"), 1.18f, .72f);
+            MgfLook.Sky(MgfLook.Hex("#E9D4AC"), MgfLook.Hex("#C78673"), MgfLook.Hex("#4C3048"), .60f);
+            MgfLook.Sun(new Vector3(39, -34, 12), MgfLook.Hex("#FFF0CF"), 1.24f, .68f);
             cam = MgfLook.Camera(new Vector3(11.8f, 10.7f, -19.8f), new Vector3(0, 1.0f, 2.7f), 34f);
-            oliveMat = MgfLook.Lit(Olive, .54f, .24f);
-            chartreuseMat = MgfLook.Lit(Chartreuse, .72f, .12f, Chartreuse * .22f);
-            cocoaMat = MgfLook.Lit(Cocoa, .40f, .52f);
-            fireMat = MgfLook.Lit(Fire, .68f, .64f, Fire * .18f);
-            ivoryMat = MgfLook.Lit(Ivory, .18f, .02f);
-            mossMat = MgfLook.Lit(Moss, .66f, .18f, Moss * .08f);
-            glowMat = MgfLook.Additive(new Color(Fire.r, Fire.g, Fire.b, .90f), MgfLook.SoftDot);
-            ropeMat = MgfLook.Lit(MgfLook.Hex("#A37A37"), .52f, .48f);
+            oliveMat = MgfLook.Lit(Olive, .24f, .02f);
+            chartreuseMat = MgfLook.Lit(Chartreuse, .20f, .01f, Chartreuse * .05f);
+            cocoaMat = MgfLook.Lit(Cocoa, .30f, .03f);
+            fireMat = MgfLook.Lit(Fire, .55f, .02f, Fire * .06f);
+            ivoryMat = MgfLook.Lit(Ivory, .12f, .00f);
+            mossMat = MgfLook.Lit(Moss, .18f, .01f);
+            glowMat = MgfLook.Additive(new Color(Chartreuse.r, Chartreuse.g, Chartreuse.b, .90f), MgfLook.SoftDot);
+            ropeMat = MgfLook.Lit(MgfLook.Hex("#C86F87"), .16f, .00f);
 
-            worldRoot = new GameObject("NightSpecimenObservatory").transform;
-            canopyRoot = new GameObject("GlassArchiveChamber").transform; canopyRoot.SetParent(worldRoot, false);
-            MgfLook.Block("ArchiveFloor", new Vector3(0, -1.14f, 3.4f), new Vector3(27f, .48f, 12.6f), .18f, cocoaMat, canopyRoot);
-            MgfLook.Block("RearLedgerWall", new Vector3(0, 2.6f, 7.4f), new Vector3(25f, 7.4f, .48f), .12f, oliveMat, canopyRoot);
+            worldRoot = new GameObject("HangingPaperChronograph").transform;
+            canopyRoot = new GameObject("AirbornePaperGallery").transform; canopyRoot.SetParent(worldRoot, false);
+            MgfLook.Prim(PrimitiveType.Cylinder, "PorcelainCloudStage", new Vector3(0, -1.08f, 3.2f), new Vector3(13.6f, .24f, 6.3f), ivoryMat, canopyRoot, false);
+            MgfLook.Block("MulberryWovenRunner", new Vector3(0, -.66f, 2.65f), new Vector3(19.4f, .20f, 3.5f), .32f, oliveMat, canopyRoot);
+            for (int thread = 0; thread < 9; thread++)
+                MgfLook.Block("WovenThread" + thread, new Vector3(-8.6f + thread * 2.15f, -.53f, 2.65f), new Vector3(.055f, .05f, 3.15f), .018f,
+                    thread % 2 == 0 ? chartreuseMat : ropeMat, canopyRoot);
             for (int i = 0; i < 13; i++)
             {
                 float x = -11.7f + i * 1.95f;
-                float y = .2f + (i % 3) * .34f;
-                float z = 5.7f - (i % 4) * .55f;
-                var pane = MgfLook.Block("TimeGlassPane" + i, new Vector3(x, y + 2.05f, z), new Vector3(1.42f, 4.45f, .18f), .05f,
-                    i % 3 == 0 ? chartreuseMat : mossMat, canopyRoot).transform;
-                pane.localRotation = Quaternion.Euler(0, -7f + (i % 4) * 4f, -3f + (i % 3) * 3f); leaves.Add(pane); panelBaseRotations.Add(pane.localRotation);
-                MgfLook.Block("PaneSpine" + i, new Vector3(x, y + 2.05f, z - .18f), new Vector3(.08f, 4.72f, .13f), .025f, fireMat, canopyRoot);
+                float y = .16f + (i % 4) * .30f;
+                float z = 5.8f - (i % 5) * .58f;
+                Material paper = i % 4 == 0 ? chartreuseMat : i % 3 == 0 ? mossMat : ivoryMat;
+                MgfLook.Block("SuspensionCord" + i, new Vector3(x, 5.35f, z), new Vector3(.045f, 3.0f + (i % 3) * .45f, .045f), .015f, ropeMat, canopyRoot);
+                var pane = MgfLook.Block("HangingTimeScroll" + i, new Vector3(x, y + 2.15f, z), new Vector3(1.34f, 4.15f, .10f), .14f,
+                    paper, canopyRoot).transform;
+                pane.localRotation = Quaternion.Euler(0, -10f + (i % 5) * 4f, -6f + (i % 4) * 4f); leaves.Add(pane); panelBaseRotations.Add(pane.localRotation);
                 for (int k = 0; k < 3; k++)
-                    MgfLook.Block("TimeEtch" + i + "_" + k, new Vector3(x, y + .8f + k * 1.18f, z - .27f), new Vector3(1.1f, .045f, .07f), .015f, ivoryMat, canopyRoot);
+                    MgfLook.Block("InkStroke" + i + "_" + k, new Vector3(x, y + .88f + k * 1.08f, z - .13f), new Vector3(1.02f, .045f, .035f), .015f, cocoaMat, canopyRoot);
+                MgfLook.Prim(PrimitiveType.Sphere, "PorcelainWeight" + i, new Vector3(x, y - .05f, z - .08f), new Vector3(.34f, .34f, .22f), fireMat, canopyRoot, false);
             }
-            for (int i = 0; i < 5; i++)
-            {
-                float x = -10f + i * 5f;
-                MgfLook.Block("FloorRail" + i, new Vector3(x, -.79f, 2.4f), new Vector3(.18f, .16f, 8.4f), .04f, fireMat, canopyRoot);
-            }
-            MgfLook.Block("SpecimenBench", new Vector3(0, -.50f, 2.55f), new Vector3(18.6f, .38f, 3.2f), .10f, oliveMat, worldRoot);
-            MgfLook.Block("SealRack", new Vector3(0, .42f, 3.32f), new Vector3(18.2f, .18f, .24f), .04f, ropeMat, worldRoot);
+            MgfLook.Block("ChronographRibbon", new Vector3(0, .42f, 3.32f), new Vector3(18.2f, .14f, .20f), .07f, ropeMat, worldRoot);
             for (int i = 0; i < nests.Length; i++)
             {
-                float x = -7.25f + i * 2.90f; nests[i] = new GameObject("SpecimenSeal" + i).transform; nests[i].SetParent(worldRoot, false); nests[i].localPosition = new Vector3(x, 1.02f + (i % 2) * .12f, 3.0f);
-                for (int k = 0; k < 4; k++)
+                float x = -7.25f + i * 2.90f; nests[i] = new GameObject("PaperTimeRosette" + i).transform; nests[i].SetParent(worldRoot, false); nests[i].localPosition = new Vector3(x, 1.00f + (i % 2) * .12f, 3.0f);
+                for (int k = 0; k < 6; k++)
                 {
-                    float a = 45f + k * 90f;
-                    var edge = MgfLook.Block("SealFrame" + k, new Vector3(0, .02f, 0), new Vector3(.92f, .10f, .10f), .02f, fireMat, nests[i]).transform;
-                    edge.localRotation = Quaternion.Euler(0, 0, a);
+                    float a = k * 60f;
+                    var petal = MgfLook.Block("FoldedPetal" + k, new Vector3(Mathf.Sin(a * Mathf.Deg2Rad) * .35f, Mathf.Cos(a * Mathf.Deg2Rad) * .35f, 0), new Vector3(.20f, .58f, .07f), .08f,
+                        k % 2 == 0 ? ivoryMat : mossMat, nests[i]).transform;
+                    petal.localRotation = Quaternion.Euler(0, 0, -a);
                 }
-                nestGlows[i] = MgfLook.Prim(PrimitiveType.Cube, "SealedLight", new Vector3(0, .02f, -.14f), new Vector3(.52f, .52f, .09f), glowMat, nests[i], false).transform;
-                nestGlows[i].localRotation = Quaternion.Euler(0, 0, 45f);
+                nestGlows[i] = MgfLook.Prim(PrimitiveType.Sphere, "ReleasedTimePollen", new Vector3(0, 0, -.10f), new Vector3(.48f, .48f, .12f), glowMat, nests[i], false).transform;
                 nestGlows[i].gameObject.SetActive(false);
             }
             beetleRoot = BuildBeetle(worldRoot, new Vector3(-.8f, .30f, .32f), 1.22f, false);
@@ -167,18 +166,18 @@ namespace Mgf.GaundeJaba
 
         Transform BuildBeetle(Transform parent, Vector3 pos, float scale, bool title)
         {
-            var root = new GameObject(title ? "TitleGlassMoth" : "GlassMothArchivist").transform; root.SetParent(parent, false); root.localPosition = pos; root.localScale = Vector3.one * scale;
-            MgfLook.Block("PrismBody", new Vector3(0, .78f, 0), new Vector3(.64f, 1.18f, .76f), .10f, cocoaMat, root).transform.localRotation = Quaternion.Euler(12f, 0, 0);
-            MgfLook.Block("BrassThorax", new Vector3(0, .80f, -.54f), new Vector3(.74f, .62f, .46f), .08f, fireMat, root);
-            MgfLook.Block("AngularHead", new Vector3(0, .82f, -1.02f), new Vector3(.86f, .66f, .56f), .09f, mossMat, root);
+            var root = new GameObject(title ? "TitlePaperMoth" : "PaperMothArchivist").transform; root.SetParent(parent, false); root.localPosition = pos; root.localScale = Vector3.one * scale;
+            MgfLook.Prim(PrimitiveType.Capsule, "FeltBody", new Vector3(0, .78f, 0), new Vector3(.48f, .62f, .52f), cocoaMat, root, false).transform.localRotation = Quaternion.Euler(12f, 0, 0);
+            MgfLook.Prim(PrimitiveType.Sphere, "PorcelainThorax", new Vector3(0, .80f, -.54f), new Vector3(.72f, .62f, .50f), fireMat, root, false);
+            MgfLook.Prim(PrimitiveType.Sphere, "PaperHead", new Vector3(0, .82f, -1.02f), new Vector3(.82f, .66f, .58f), mossMat, root, false);
             MgfLook.Prim(PrimitiveType.Sphere, "EyeL", new Vector3(-.25f, .90f, -1.34f), new Vector3(.13f, .15f, .10f), ivoryMat, root, false);
             MgfLook.Prim(PrimitiveType.Sphere, "EyeR", new Vector3(.25f, .90f, -1.34f), new Vector3(.13f, .15f, .10f), ivoryMat, root, false);
             for (int i = 0; i < 4; i++)
             {
                 float side = i < 2 ? -1f : 1f, z = -.34f + (i % 2) * .72f;
-                var wing = MgfLook.Block("GlassWing" + i, new Vector3(side * 1.02f, 1.02f, z), new Vector3(1.54f, .12f, .72f), .04f, chartreuseMat, root).transform;
+                var wing = MgfLook.Prim(PrimitiveType.Sphere, "PaperWing" + i, new Vector3(side * 1.02f, 1.02f, z), new Vector3(1.46f, .13f, .72f), i % 2 == 0 ? ivoryMat : chartreuseMat, root, false).transform;
                 wing.localRotation = Quaternion.Euler(8f, side * (20f + (i % 2) * 9f), side * (24f + (i % 2) * 12f));
-                MgfLook.Block("WingRib" + i, new Vector3(side * .94f, 1.07f, z - .04f), new Vector3(1.32f, .05f, .08f), .015f, fireMat, root).transform.localRotation = wing.localRotation;
+                MgfLook.Block("StitchedWingVein" + i, new Vector3(side * .94f, 1.07f, z - .04f), new Vector3(1.32f, .04f, .07f), .015f, ropeMat, root).transform.localRotation = wing.localRotation;
             }
             for (int i = 0; i < 2; i++)
             {
@@ -191,19 +190,19 @@ namespace Mgf.GaundeJaba
 
         Transform BuildNet(Transform parent, Vector3 pos, bool title)
         {
-            var root = new GameObject(title ? "TitleMedianClamp" : "MedianFiberClamp").transform; root.SetParent(parent, false); root.localPosition = pos;
+            var root = new GameObject(title ? "TitleMedianLoom" : "MedianRibbonLoom").transform; root.SetParent(parent, false); root.localPosition = pos;
             for (int i = 0; i < 7; i++)
             {
                 float x = -2.2f + i * .72f;
                 var rope = MgfLook.Prim(PrimitiveType.Cube, "TensionFiber" + i, new Vector3(x, .38f + Mathf.Abs(i - 3) * .09f, 0), new Vector3(.055f, 1.38f, .055f), i == 3 ? chartreuseMat : ropeMat, root, false).transform;
                 rope.localRotation = Quaternion.Euler(0, 0, -8f + i * 2.7f);
             }
-            MgfLook.Block("ClampCrossbar", new Vector3(0, -.46f, 0), new Vector3(5.25f, .28f, .40f), .05f, cocoaMat, root);
-            MgfLook.Block("BrassGrip", new Vector3(0, -.78f, -.04f), new Vector3(1.72f, .44f, .54f), .09f, fireMat, root);
+            var roll = MgfLook.Prim(PrimitiveType.Capsule, "WovenRibbonRoll", new Vector3(0, -.46f, 0), new Vector3(.22f, 2.58f, .22f), ropeMat, root, false).transform;
+            roll.localRotation = Quaternion.Euler(0, 0, 90f);
+            MgfLook.Prim(PrimitiveType.Sphere, "PorcelainGrip", new Vector3(0, -.78f, -.04f), new Vector3(1.56f, .48f, .56f), fireMat, root, false);
             for (int i = 0; i < 6; i++)
             {
-                var pin = MgfLook.Prim(PrimitiveType.Cube, "ClampPin" + i, new Vector3(-1.8f + i * .72f, -.47f, -.28f), new Vector3(.20f, .20f, .20f), fireMat, root, false).transform;
-                pin.localRotation = Quaternion.Euler(0, 0, 45f);
+                MgfLook.Prim(PrimitiveType.Sphere, "ThreadKnot" + i, new Vector3(-1.8f + i * .72f, -.47f, -.28f), new Vector3(.19f, .19f, .19f), chartreuseMat, root, false);
             }
             return root;
         }
@@ -213,28 +212,28 @@ namespace Mgf.GaundeJaba
             roundedSprite = MakeSprite(96, 8, false); ringSprite = MakeSprite(96, 0, true);
             dotSprite = Sprite.Create(MgfLook.SoftDot, new Rect(0, 0, 64, 64), new Vector2(.5f, .5f), 100);
             var canvas = MgfText.Canvas;
-            // 타이틀과 플레이 모두 같은 실시간 관측소를 보여 준다. 생성 키 아트는 사용하지 않는다.
+            // 타이틀과 플레이 모두 같은 실시간 종이 회랑을 보여 준다. 생성 키 아트는 사용하지 않는다.
             titlePortrait = null; titleLandscape = null;
 
             titleRt = R("TitleScreen", canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)); titleG = titleRt.gameObject.AddComponent<CanvasGroup>();
             var artRt = R("LocalTitleKeyArt", titleRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844));
             titleArt = artRt.gameObject.AddComponent<RawImage>(); titleArt.raycastTarget = false; titleArt.color = Color.white;
             titleLogo = Txt(titleRt, "가운데\n잡아", new Vector2(.66f, .79f), Vector2.zero, 55, Ivory, 250); titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineColor = Cocoa; titleLogo.outlineWidth = .25f; titleLogo.lineSpacing = -22;
-            titleTag = Txt(titleRt, "시간 표본의 가운데를 봉인하라", new Vector2(.62f, .65f), Vector2.zero, 17, Chartreuse, 330); titleTag.fontStyle = FontStyles.Bold; titleTag.outlineColor = Cocoa; titleTag.outlineWidth = .15f;
+            titleTag = Txt(titleRt, "시간 띠의 가운데를 접어라", new Vector2(.62f, .65f), Vector2.zero, 17, Chartreuse, 330); titleTag.fontStyle = FontStyles.Bold; titleTag.outlineColor = Ivory; titleTag.outlineWidth = .15f;
             titleMeta = Txt(titleRt, "중학교 1학년 · 중앙값 관측 기록", new Vector2(.62f, .595f), Vector2.zero, 12, Ivory, 330); titleMeta.outlineColor = Cocoa; titleMeta.outlineWidth = .13f;
-            titleBest = Txt(titleRt, "빈 표본 봉인 6칸 · 첫 시도 5번", new Vector2(.5f, .20f), Vector2.zero, 14, Ivory, 370); titleBest.outlineColor = Cocoa; titleBest.outlineWidth = .14f;
-            titleCtaTxt = Txt(titleRt, "황동 클램프를 당겨 시작", new Vector2(.5f, .115f), Vector2.zero, 21, Fire, 360); titleCtaTxt.fontStyle = FontStyles.Bold; titleCtaTxt.outlineColor = Cocoa; titleCtaTxt.outlineWidth = .18f;
+            titleBest = Txt(titleRt, "종이꽃 6송이 · 첫 시도 5번", new Vector2(.5f, .20f), Vector2.zero, 14, Ivory, 370); titleBest.outlineColor = Cocoa; titleBest.outlineWidth = .14f;
+            titleCtaTxt = Txt(titleRt, "도자 추를 끌어 시작", new Vector2(.5f, .115f), Vector2.zero, 21, Fire, 360); titleCtaTxt.fontStyle = FontStyles.Bold; titleCtaTxt.outlineColor = Ivory; titleCtaTxt.outlineWidth = .18f;
 
             hudRt = R("GameHud", canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)); hudG = hudRt.gameObject.AddComponent<CanvasGroup>();
             statusBg = Img(hudRt, "ObservatoryStatus", new Vector2(.42f, .955f), Vector2.zero, new Vector2(320, 58), new Color(Olive.r, Olive.g, Olive.b, .94f), roundedSprite);
             scoreTxt = Txt(statusBg.transform, "0", new Vector2(.10f, .54f), Vector2.zero, 20, Ivory, 60); scoreTxt.fontStyle = FontStyles.Bold;
-            roundTxt = Txt(statusBg.transform, "봉인 0/6", new Vector2(.31f, .54f), Vector2.zero, 14, Ivory, 100);
+            roundTxt = Txt(statusBg.transform, "종이꽃 0/6", new Vector2(.31f, .54f), Vector2.zero, 14, Ivory, 100);
             firstTxt = Txt(statusBg.transform, "첫 0/0", new Vector2(.54f, .54f), Vector2.zero, 14, Ivory, 86);
             timeTxt = Txt(statusBg.transform, "110초", new Vector2(.78f, .54f), Vector2.zero, 15, Chartreuse, 64); timeTxt.fontStyle = FontStyles.Bold;
             for (int i = 0; i < 3; i++) lifeImgs[i] = Img(statusBg.transform, "ClampLock" + i, new Vector2(.72f + i * .08f, .18f), Vector2.zero, new Vector2(18, 9), Fire, roundedSprite);
 
             goalBg = Img(hudRt, "MissionLedger", new Vector2(.5f, .88f), Vector2.zero, new Vector2(360, 42), new Color(Moss.r, Moss.g, Moss.b, .96f), roundedSprite);
-            goalTxt = Txt(goalBg.transform, "중앙값 위치에서 표본을 봉인하시오", new Vector2(.5f, .52f), Vector2.zero, 15, Ivory, 344); goalTxt.fontStyle = FontStyles.Bold; goalTxt.enableAutoSizing = true; goalTxt.fontSizeMin = 11; goalTxt.fontSizeMax = 15;
+            goalTxt = Txt(goalBg.transform, "중앙값 위치에서 시간 띠를 접으시오", new Vector2(.5f, .52f), Vector2.zero, 15, Ivory, 344); goalTxt.fontStyle = FontStyles.Bold; goalTxt.enableAutoSizing = true; goalTxt.fontSizeMin = 11; goalTxt.fontSizeMax = 15;
             promptBg = Img(hudRt, "ObservationPrompt", new Vector2(.5f, .805f), Vector2.zero, new Vector2(360, 82), new Color(Olive.r, Olive.g, Olive.b, .95f), roundedSprite);
             promptTxt = Txt(promptBg.transform, "", new Vector2(.5f, .52f), Vector2.zero, 14, Ivory, 338); promptTxt.fontStyle = FontStyles.Bold; promptTxt.enableAutoSizing = true; promptTxt.fontSizeMin = 10; promptTxt.fontSizeMax = 15; promptTxt.margin = new Vector4(8, 5, 8, 5);
             rawLabelTxt = Txt(hudRt, "원자료 · 관측 시간(초)", new Vector2(.5f, .72f), Vector2.zero, 12, Chartreuse, 350); rawLabelTxt.outlineColor = Cocoa; rawLabelTxt.outlineWidth = .12f;
@@ -261,7 +260,7 @@ namespace Mgf.GaundeJaba
             }
             numberRailImg = Img(hudRt, "NumberRail", new Vector2(.5f, .18f), Vector2.zero, new Vector2(334, 6), Fire, roundedSprite); numberRailImg.transform.SetAsFirstSibling();
             for (int i = 0; i < trail.Length; i++) trail[i] = Img(hudRt, "NetTrail" + i, new Vector2(.075f, .18f), Vector2.zero, new Vector2(26 - i * 2, 26 - i * 2), new Color(Fire.r, Fire.g, Fire.b, .14f - i * .012f), dotSprite);
-            handleImg = Img(hudRt, "ActualBrassClamp", new Vector2(.075f, .18f), Vector2.zero, new Vector2(92, 68), Fire, roundedSprite); handleRt = handleImg.rectTransform;
+            handleImg = Img(hudRt, "ActualPorcelainWeight", new Vector2(.075f, .18f), Vector2.zero, new Vector2(92, 68), Fire, roundedSprite); handleRt = handleImg.rectTransform;
             railValueTxt = Txt(handleImg.transform, "1", new Vector2(.5f, .5f), new Vector2(0, 62), 24, Ivory, 106); railValueTxt.fontStyle = FontStyles.Bold; railValueTxt.outlineColor = Cocoa; railValueTxt.outlineWidth = .18f;
             grabHintTxt = Txt(handleImg.transform, "여기를 잡아", new Vector2(.5f, .5f), Vector2.zero, 12, Cocoa, 86); grabHintTxt.fontStyle = FontStyles.Bold;
             errorMarkImg = Img(hudRt, "WrongExistingMark", new Vector2(.5f, .18f), Vector2.zero, new Vector2(28, 74), new Color(Shade.r, Shade.g, Shade.b, .85f), ringSprite); errorMarkRt = errorMarkImg.rectTransform;
@@ -412,7 +411,7 @@ namespace Mgf.GaundeJaba
             endG.alpha = end ? 1f : 0f;
             if (titleNet) titleNet.gameObject.SetActive(title); if (titleBeetle) titleBeetle.gameObject.SetActive(title);
             if (netRoot) netRoot.gameObject.SetActive(!title); if (beetleRoot) beetleRoot.gameObject.SetActive(!title);
-            titleBest.text = PlayerPrefs.GetInt("gaunde-jaba-best-first", 0) > 0 ? "최고 첫 시도 " + PlayerPrefs.GetInt("gaunde-jaba-best-first", 0) + "/6" : "빈 표본 봉인 6칸 · 첫 시도 5번";
+            titleBest.text = PlayerPrefs.GetInt("gaunde-jaba-best-first", 0) > 0 ? "최고 첫 시도 " + PlayerPrefs.GetInt("gaunde-jaba-best-first", 0) + "/6" : "종이꽃 6송이 · 첫 시도 5번";
             if (!title && !end) UpdateHudText();
         }
 
@@ -421,7 +420,7 @@ namespace Mgf.GaundeJaba
         void LoadProblemVisual(MedianProblem p, bool practice)
         {
             promptTxt.text = p.prompt;
-            goalTxt.text = practice ? (p.id == "practice-odd" ? "9, 2, 5를 정렬해 5초에 놓으시오" : "2, 4, 6, 8의 가운데 둘을 평균 내시오") : "중앙값 위치에서 시간 표본을 봉인하시오";
+            goalTxt.text = practice ? (p.id == "practice-odd" ? "9, 2, 5를 정렬해 5초에 놓으시오" : "2, 4, 6, 8의 가운데 둘을 평균 내시오") : "중앙값 위치에서 시간 띠를 접으시오";
             rawLabelTxt.text = "원자료 · 관측 시간(초) · " + p.raw.Length + "개";
             for (int i = 0; i < 8; i++)
             {
@@ -434,24 +433,24 @@ namespace Mgf.GaundeJaba
 
         void UpdateHudText()
         {
-            roundTxt.text = IsPractice ? "연습" : "봉인 " + st.solved + "/6";
+            roundTxt.text = IsPractice ? "연습" : "종이꽃 " + st.solved + "/6";
             firstTxt.text = "첫 " + st.firstCorrect + "/" + st.attemptedRounds;
             for (int i = 0; i < lifeImgs.Length; i++) lifeImgs[i].color = i < st.lives ? Fire : new Color(Shade.r, Shade.g, Shade.b, .28f);
             definitionTxt.text = st.level >= 2 ? "중앙값: 크기순 가운데 값 · 짝수 개는 가운데 두 값의 평균" : "중앙값: 자료를 크기순으로 놓았을 때 가운데 값";
         }
 
-        void BoostGuide(bool strong) { guideBoost = strong ? 1.8f : 1f; toastClock = 1.5f; toastTxt.text = strong ? "‘여기를 잡아’ 클램프를 끌어 목표 눈금에서 놓으시오" : "아래 황동 클램프를 좌우로 끌어 놓으시오"; }
+        void BoostGuide(bool strong) { guideBoost = strong ? 1.8f : 1f; toastClock = 1.5f; toastTxt.text = strong ? "‘여기를 잡아’ 도자 추를 끌어 목표 눈금에서 놓으시오" : "아래 도자 추를 좌우로 끌어 놓으시오"; }
 
         void BeginRevealVisual(bool correct, bool practice, int value2, string misconception)
         {
             feedbackClock = 0f; feedbackGood = correct; hitStop = correct ? .075f : 0f; wrongKick = correct ? 0f : 1f; guideBoost = 0f;
-            revealTitleTxt.text = correct ? (practice ? "가운데를 잡았다" : "표본 봉인이 잠겼다") : "클램프 경보가 울렸다";
+            revealTitleTxt.text = correct ? (practice ? "가운데를 잡았다" : "시간 띠가 종이꽃으로 접혔다") : "직조 매듭이 풀렸다";
             revealTitleTxt.color = correct ? Chartreuse : Shade;
             revealEvidenceTxt.text = correct ? MedianRules.Evidence(current) : MedianRules.MisconceptionKorean(misconception) + "\n" + MedianRules.Evidence(current);
             if (correct)
             {
                 MgfSfx.Play("correct", .46f); MgfFx.Punch(netRoot, .16f, .30f); MgfFx.Glow(new Vector3(1.8f, 1.5f, .2f), Fire, 9, .32f);
-                if (!practice && st.solved > 0 && st.solved <= nests.Length) { nestGlows[st.solved - 1].gameObject.SetActive(true); MgfFx.Glow(nests[st.solved - 1].position, Fire, 8, .28f); }
+                if (!practice && st.solved > 0 && st.solved <= nests.Length) { nestGlows[st.solved - 1].gameObject.SetActive(true); MgfFx.Punch(nests[st.solved - 1], .22f, .34f); MgfFx.Glow(nests[st.solved - 1].position, Chartreuse, 11, .32f); }
             }
             else
             {
@@ -478,9 +477,9 @@ namespace Mgf.GaundeJaba
 
         void ShowEndVisual(bool clear, string reason)
         {
-            endTitleTxt.text = clear ? "시간 표본 6칸 봉인 완료" : reason == "knots" ? "클램프가 모두 풀렸다" : reason == "time" ? "관측 시간이 끝났다" : "첫 시도 5번이 필요하다";
+            endTitleTxt.text = clear ? "시간 종이꽃 6송이 완성" : reason == "knots" ? "직조 매듭이 모두 풀렸다" : reason == "time" ? "관측 시간이 끝났다" : "첫 시도 5번이 필요하다";
             endScoreTxt.text = "0"; shownEndScore = 0f;
-            endStatsTxt.text = "봉인 " + st.solved + "/6\n첫 시도 " + st.firstCorrect + "/" + st.attemptedRounds + "\n남은 클램프 " + st.lives;
+            endStatsTxt.text = "종이꽃 " + st.solved + "/6\n첫 시도 " + st.firstCorrect + "/" + st.attemptedRounds + "\n남은 매듭 " + st.lives;
             endTapTxt.text = "새 표본 기록 열기";
             if (clear) for (int i = 0; i < nests.Length; i++) { nestGlows[i].gameObject.SetActive(true); MgfFx.Glow(nests[i].position, Fire, 6, .26f); }
         }

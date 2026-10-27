@@ -88,7 +88,7 @@ namespace Mgf.GaundeJaba
         void Prewarm()
         {
             var sb = new StringBuilder(42000);
-            sb.Append("가운데잡아시간표본의가운데를봉인하라중학교1학년자료의정리와해석중앙값크기순짝수개가운데두값의평균관측시간초클램프표본봉인첫시도정답실전연습잘못된표식을고치시오여기를잡아");
+            sb.Append("가운데잡아시간띠의가운데를접어라중학교1학년자료의정리와해석중앙값크기순짝수개가운데두값의평균관측시간초도자추종이꽃직조매듭첫시도정답실전연습잘못된표식을고치시오여기를잡아");
             for (int i = 0; i < bank.Count; i++) sb.Append(bank[i].prompt).Append(bank[i].answer).Append(bank[i].unitConcept);
             MgfText.Prewarm(sb.ToString());
         }
@@ -292,7 +292,7 @@ namespace Mgf.GaundeJaba
                 if (flow != Flow.Playing && flow != Flow.PracticeOdd && flow != Flow.PracticeEven) return;
                 float y = pointerDown.y / Mathf.Max(1f, Screen.height);
                 float x01 = pointerDown.x / Mathf.Max(1f, Screen.width);
-                // 첫 화면에서는 화면 대부분의 실제 drag가 같은 황동 클램프 연습으로 이어진다.
+                // 첫 화면에서는 화면 대부분의 실제 drag가 같은 도자 추 연습으로 이어진다.
                 // 탭은 아래 Up 게이트에서 거절되며, 다음 화면부터 정리 줄 drag를 정상 제공한다.
                 bool guidedPracticeBand = flow == Flow.PracticeOdd && y <= .78f;
                 bool tagBand = !guidedPracticeBand && current != null && (MgfBridge.IsLandLayout
@@ -304,7 +304,7 @@ namespace Mgf.GaundeJaba
                     draggingTag = draggedTag >= 0; draggingNet = false; st.lastInputKind = "sort_drag";
                     BeginTagDrag(draggedTag); Notify();
                 }
-                // 92px 클램프보다 넓은 하단 43% 포인터 띠를 잡기 영역으로 둔다.
+                // 92px 도자 추보다 넓은 하단 43% 포인터 띠를 잡기 영역으로 둔다.
                 // 첫 고정 연습만 실제 수평 드래그가 확인되면 명시된 5초 눈금에 흡착해 조작을 가르친다.
                 else if (guidedPracticeBand || y <= .43f)
                 {
@@ -317,7 +317,7 @@ namespace Mgf.GaundeJaba
                 else
                 {
                     draggingNet = draggingTag = false; st.lastInputKind = "refused";
-                    Ripple(pointerDown, "아래 황동 클램프를 끌거나 정리 줄의 기록을 옮기시오"); BoostGuide(IsPractice); MgfSfx.Play("wrong", .10f); Notify();
+                    Ripple(pointerDown, "아래 도자 추를 끌거나 정리 줄의 기록을 옮기시오"); BoostGuide(IsPractice); MgfSfx.Play("wrong", .10f); Notify();
                 }
             }
 
@@ -354,7 +354,7 @@ namespace Mgf.GaundeJaba
                 if (moved >= Mathf.Max(4f, Screen.width * .012f) || st.netValue2 != valueAtDown) Submit(st.netValue2);
                 else
                 {
-                    st.lastInputKind = "net_tap"; Ripple(MgfPointer.Position, "황동 클램프를 좌우로 끌어 눈금에서 놓으시오"); BoostGuide(IsPractice); Notify();
+                    st.lastInputKind = "net_tap"; Ripple(MgfPointer.Position, "도자 추를 좌우로 끌어 눈금에서 놓으시오"); BoostGuide(IsPractice); Notify();
                 }
             }
             else if (MgfPointer.Up && draggingTag)

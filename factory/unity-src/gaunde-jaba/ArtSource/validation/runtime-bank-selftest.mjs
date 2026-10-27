@@ -49,15 +49,17 @@ try {
   for (const p of bank) {
     if (!p.id || ids.has(p.id)) errors.push(`duplicate id: ${p.id}`); else ids.add(p.id);
     if (!p.prompt || prompts.has(p.prompt)) errors.push(`duplicate prompt: ${p.id}`); else prompts.add(p.prompt);
-    const match = /^관측 시간 ([0-9, ]+)초(?:(?:의 )|(?:에 놓인 ([0-9.]+)초 표식은 잘못되었다\. ))중앙값을 구하시오\.$/.exec(p.prompt);
-    if (!match) { errors.push(`unparsed prompt: ${p.id}`); continue; }
+    const direct = /^관측 시간 ([0-9, ]+)초의 중앙값을 구하시오\.$/.exec(p.prompt);
+    const correction = /^관측 시간이 ([0-9, ]+)초인 자료에서 ([0-9.]+)초에 놓인 표식은 잘못되었다\. 중앙값을 구하시오\.$/.exec(p.prompt);
+    if (!direct && !correction) { errors.push(`unparsed prompt: ${p.id}`); continue; }
+    const match = correction || direct;
     const values = match[1].split(',').map((v) => Number.parseInt(v.trim(), 10));
     const sorted = [...values].sort((a, b) => a - b);
     const answer2 = sorted.length % 2
       ? 2 * sorted[Math.floor(sorted.length / 2)]
       : sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2];
     if (sorted.length % 2) odd++; else even++;
-    if (match[2] !== undefined) {
+    if (correction) {
       errorFind++;
       const wrong2 = Math.round(Number(match[2]) * 2);
       if (wrong2 === answer2) errors.push(`wrong mark equals answer: ${p.id}`);
