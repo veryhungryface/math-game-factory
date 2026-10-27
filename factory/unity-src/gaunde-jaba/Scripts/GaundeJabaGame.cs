@@ -49,6 +49,7 @@ namespace Mgf.GaundeJaba
         bool firstAttempt;
         bool draggingNet;
         bool draggingTag;
+        bool practiceGuidedDrag;
         int draggedTag = -1;
         bool revealCorrect;
         bool revealPractice;
@@ -57,6 +58,8 @@ namespace Mgf.GaundeJaba
         float timeLeft;
         float idleGuide;
         Vector2 pointerDown;
+        float lastNetPointerX;
+        float netDragTravel;
         int valueAtDown;
         string endReason = "";
 
@@ -85,7 +88,7 @@ namespace Mgf.GaundeJaba
         void Prewarm()
         {
             var sb = new StringBuilder(42000);
-            sb.Append("가운데잡아그물로가운데를잡아라중학교1학년자료의정리와해석중앙값크기순짝수개가운데두값의평균빛기록발광시간초매듭보금자리첫시도정답실전연습잘못된표식을고치시오");
+            sb.Append("가운데잡아시간표본의가운데를봉인하라중학교1학년자료의정리와해석중앙값크기순짝수개가운데두값의평균관측시간초클램프표본봉인첫시도정답실전연습잘못된표식을고치시오여기를잡아");
             for (int i = 0; i < bank.Count; i++) sb.Append(bank[i].prompt).Append(bank[i].answer).Append(bank[i].unitConcept);
             MgfText.Prewarm(sb.ToString());
         }
@@ -131,7 +134,8 @@ namespace Mgf.GaundeJaba
             st.netValue2 = 2; st.rawValues = Array.Empty<int>(); st.studentOrder = Array.Empty<int>();
             st.lastInputKind = "none"; st.activeProblemId = ""; st.lastResult = ""; st.misconceptionId = "";
             st.onboarding = false; st.repairMode = false; st.inputRevision = 0;
-            draggingNet = false; draggingTag = false; draggedTag = -1; firstAttempt = true;
+            draggingNet = false; draggingTag = false; practiceGuidedDrag = false; draggedTag = -1; firstAttempt = true;
+            netDragTravel = 0f; lastNetPointerX = 0f;
             revealClock = 0f; openingClock = 0f; idleGuide = 0f; timeLeft = MedianRules.SessionSeconds; endReason = "";
         }
 
@@ -184,7 +188,8 @@ namespace Mgf.GaundeJaba
             current = p; st.activeProblemId = p.id; st.netValue2 = start2;
             st.rawValues = (int[])p.raw.Clone(); st.studentOrder = (int[])p.raw.Clone();
             st.firstAttemptRecorded = false; st.lastResult = ""; st.misconceptionId = ""; st.repairMode = false;
-            firstAttempt = true; draggingNet = false; draggingTag = false; draggedTag = -1; idleGuide = 0f;
+            firstAttempt = true; draggingNet = false; draggingTag = false; practiceGuidedDrag = false; draggedTag = -1; idleGuide = 0f;
+            netDragTravel = 0f;
             LoadProblemVisual(p, practice); ShowScreen(); Notify();
         }
 
@@ -278,34 +283,48 @@ namespace Mgf.GaundeJaba
             if (MgfPointer.Down)
             {
                 pointerDown = MgfPointer.Position; valueAtDown = st.netValue2; st.inputRevision++; idleGuide = 0f;
-                if (flow == Flow.Title) { st.lastInputKind = "title_net"; Ripple(pointerDown, "빛 그물을 펼칩니다"); StartOpening(); return; }
-                if (flow == Flow.End) { st.lastInputKind = "restart"; Ripple(pointerDown, "새 수관을 엽니다"); StartOpening(); return; }
+                if (flow == Flow.Title) { st.lastInputKind = "title_net"; Ripple(pointerDown, "시간 표본 기록을 엽니다"); StartOpening(); return; }
+                if (flow == Flow.End) { st.lastInputKind = "restart"; Ripple(pointerDown, "새 표본 기록을 엽니다"); StartOpening(); return; }
                 if (flow == Flow.Opening || flow == Flow.Reveal)
                 {
                     st.lastInputKind = "busy"; Ripple(pointerDown, flow == Flow.Opening ? "기록이 펼쳐지는 중입니다" : "크기순 근거를 확인하시오"); Notify(); return;
                 }
                 if (flow != Flow.Playing && flow != Flow.PracticeOdd && flow != Flow.PracticeEven) return;
                 float y = pointerDown.y / Mathf.Max(1f, Screen.height);
-                if (y <= .34f)
-                {
-                    draggingNet = true; draggingTag = false; st.lastInputKind = "net_drag";
-                    st.netValue2 = Value2FromScreen(pointerDown.x); BeginNetDrag(); Notify();
-                }
-                else if (y >= .38f && y <= .64f && current != null)
+                float x01 = pointerDown.x / Mathf.Max(1f, Screen.width);
+                // 첫 화면에서는 화면 대부분의 실제 drag가 같은 황동 클램프 연습으로 이어진다.
+                // 탭은 아래 Up 게이트에서 거절되며, 다음 화면부터 정리 줄 drag를 정상 제공한다.
+                bool guidedPracticeBand = flow == Flow.PracticeOdd && y <= .78f;
+                bool tagBand = !guidedPracticeBand && current != null && (MgfBridge.IsLandLayout
+                    ? x01 <= .37f && y >= .28f && y <= .64f
+                    : y >= .46f && y <= .68f);
+                if (tagBand)
                 {
                     draggedTag = TagIndexFromScreen(pointerDown.x, st.studentOrder.Length);
                     draggingTag = draggedTag >= 0; draggingNet = false; st.lastInputKind = "sort_drag";
                     BeginTagDrag(draggedTag); Notify();
                 }
+                // 92px 클램프보다 넓은 하단 43% 포인터 띠를 잡기 영역으로 둔다.
+                // 첫 고정 연습만 실제 수평 드래그가 확인되면 명시된 5초 눈금에 흡착해 조작을 가르친다.
+                else if (guidedPracticeBand || y <= .43f)
+                {
+                    draggingNet = true; draggingTag = false; st.lastInputKind = "net_drag";
+                    practiceGuidedDrag = IsPractice && current != null && current.id == "practice-odd";
+                    netDragTravel = 0f; lastNetPointerX = pointerDown.x;
+                    if (!practiceGuidedDrag) st.netValue2 = Value2FromScreen(pointerDown.x);
+                    BeginNetDrag(); Notify();
+                }
                 else
                 {
                     draggingNet = draggingTag = false; st.lastInputKind = "refused";
-                    Ripple(pointerDown, "아래 그물 손잡이를 끌거나 정리 줄의 기록을 옮기시오"); BoostGuide(IsPractice); MgfSfx.Play("wrong", .10f); Notify();
+                    Ripple(pointerDown, "아래 황동 클램프를 끌거나 정리 줄의 기록을 옮기시오"); BoostGuide(IsPractice); MgfSfx.Play("wrong", .10f); Notify();
                 }
             }
 
             if (draggingNet && MgfPointer.Held)
             {
+                netDragTravel += Mathf.Abs(MgfPointer.Position.x - lastNetPointerX);
+                lastNetPointerX = MgfPointer.Position.x;
                 int next = Value2FromScreen(MgfPointer.Position.x);
                 if (next != st.netValue2) { st.netValue2 = next; st.inputRevision++; UpdateNetDrag(); Notify(); }
             }
@@ -323,11 +342,19 @@ namespace Mgf.GaundeJaba
             {
                 draggingNet = false;
                 float moved = Mathf.Abs(MgfPointer.Position.x - pointerDown.x);
+                // 첫 연습은 탭과 구분되는 실제 수평 이동이면 충분하다. 제출 게이트와 같은 규모로
+                // 맞춰, 짧게 끌어 본 학생도 오답으로 벌하지 않고 목표 눈금까지 안내한다.
+                if (practiceGuidedDrag && netDragTravel >= Mathf.Max(5f, Screen.width * .0125f))
+                {
+                    st.netValue2 = current.answer2;
+                    UpdateNetDrag();
+                }
+                practiceGuidedDrag = false;
                 EndNetDrag();
                 if (moved >= Mathf.Max(4f, Screen.width * .012f) || st.netValue2 != valueAtDown) Submit(st.netValue2);
                 else
                 {
-                    st.lastInputKind = "net_tap"; Ripple(MgfPointer.Position, "손잡이를 좌우로 끌어 눈금에서 놓으시오"); BoostGuide(IsPractice); Notify();
+                    st.lastInputKind = "net_tap"; Ripple(MgfPointer.Position, "황동 클램프를 좌우로 끌어 눈금에서 놓으시오"); BoostGuide(IsPractice); Notify();
                 }
             }
             else if (MgfPointer.Up && draggingTag)
@@ -353,7 +380,9 @@ namespace Mgf.GaundeJaba
         int TagIndexFromScreen(float x, int count)
         {
             if (count <= 0) return -1;
-            float u = Mathf.InverseLerp(Screen.width * .07f, Screen.width * .93f, x);
+            float left = MgfBridge.IsLandLayout ? .04f : .07f;
+            float right = MgfBridge.IsLandLayout ? .34f : .93f;
+            float u = Mathf.InverseLerp(Screen.width * left, Screen.width * right, x);
             return Mathf.Clamp(Mathf.FloorToInt(u * count), 0, count - 1);
         }
 

@@ -1,4 +1,4 @@
-// 가운데 잡아 — 올리브 수관 2.5D 디오라마, 기록 정리 줄, 숫자 자 UI와 피드백 사건.
+// 가운데 잡아 — 야간 시간 표본 관측소 2.5D 디오라마, 기록 정리 줄, 숫자 자 UI와 피드백 사건.
 using System;
 using System.Collections.Generic;
 using Mgf;
@@ -11,17 +11,18 @@ namespace Mgf.GaundeJaba
 {
     public partial class GaundeJabaGame
     {
-        static readonly Color Olive = MgfLook.Hex("#82963B");
-        static readonly Color Chartreuse = MgfLook.Hex("#C8DE68");
-        static readonly Color Cocoa = MgfLook.Hex("#3B3024");
-        static readonly Color Fire = MgfLook.Hex("#F6D967");
-        static readonly Color Ivory = MgfLook.Hex("#FFF4C7");
-        static readonly Color Shade = MgfLook.Hex("#53656E");
-        static readonly Color Moss = MgfLook.Hex("#45571F");
+        static readonly Color Olive = MgfLook.Hex("#102D3A");       // 관측소 남청 구조체
+        static readonly Color Chartreuse = MgfLook.Hex("#5AD6CE");  // 발광 유리
+        static readonly Color Cocoa = MgfLook.Hex("#182126");       // 먹빛 금속
+        static readonly Color Fire = MgfLook.Hex("#E4B45A");        // 황동 클램프
+        static readonly Color Ivory = MgfLook.Hex("#F0E5C6");       // 기록지
+        static readonly Color Shade = MgfLook.Hex("#D8615C");       // 오답 경보
+        static readonly Color Moss = MgfLook.Hex("#2B8791");        // 청록 유리
 
         Camera cam;
         Transform worldRoot, beetleRoot, netRoot, canopyRoot, titleNet, titleBeetle;
         readonly List<Transform> leaves = new List<Transform>();
+        readonly List<Quaternion> panelBaseRotations = new List<Quaternion>();
         readonly Transform[] antennae = new Transform[2];
         readonly Transform[] nests = new Transform[6];
         readonly Transform[] nestGlows = new Transform[6];
@@ -39,9 +40,9 @@ namespace Mgf.GaundeJaba
         Texture2D titlePortrait, titleLandscape;
         TextMeshProUGUI titleLogo, titleTag, titleMeta, titleBest, titleCtaTxt;
         TextMeshProUGUI scoreTxt, roundTxt, firstTxt, timeTxt, goalTxt, promptTxt, railValueTxt;
-        TextMeshProUGUI rawLabelTxt, sortLabelTxt, definitionTxt, revealTitleTxt, revealEvidenceTxt, toastTxt;
+        TextMeshProUGUI rawLabelTxt, sortLabelTxt, definitionTxt, revealTitleTxt, revealEvidenceTxt, toastTxt, grabHintTxt;
         TextMeshProUGUI endTitleTxt, endScoreTxt, endStatsTxt, endTapTxt;
-        Image statusBg, goalBg, promptBg, definitionBg, handleImg, shadeImg, errorMarkImg, guideRing, guidePath, guideHand;
+        Image statusBg, goalBg, promptBg, definitionBg, handleImg, shadeImg, errorMarkImg, guideRing, guidePath, guideHand, numberRailImg;
         Image revealBg, endBg, rippleImg;
         readonly Image[] lifeImgs = new Image[3];
         readonly Image[] rawCards = new Image[8];
@@ -104,72 +105,85 @@ namespace Mgf.GaundeJaba
 
         void BuildWorld()
         {
-            MgfLook.Sky(MgfLook.Hex("#AFCB57"), Olive, MgfLook.Hex("#36431D"), .90f);
-            MgfLook.Sun(new Vector3(48, -38, 16), MgfLook.Hex("#FFF1B5"), 1.32f, .60f);
-            cam = MgfLook.Camera(new Vector3(11.8f, 11.4f, -18.6f), new Vector3(0, 1.4f, 2.4f), 35f);
-            oliveMat = MgfLook.Lit(Olive, .28f, 0f);
-            chartreuseMat = MgfLook.Lit(Chartreuse, .34f, 0f, Chartreuse * .035f);
-            cocoaMat = MgfLook.Lit(Cocoa, .38f, .02f);
-            fireMat = MgfLook.Lit(Fire, .58f, .02f, Fire * .42f);
-            ivoryMat = MgfLook.Lit(Ivory, .20f, 0f);
-            mossMat = MgfLook.Lit(Moss, .16f, 0f);
+            MgfLook.Sky(MgfLook.Hex("#06141F"), MgfLook.Hex("#123A48"), MgfLook.Hex("#02080E"), .72f);
+            MgfLook.Sun(new Vector3(39, -34, 12), MgfLook.Hex("#BDEDEA"), 1.18f, .72f);
+            cam = MgfLook.Camera(new Vector3(11.8f, 10.7f, -19.8f), new Vector3(0, 1.0f, 2.7f), 34f);
+            oliveMat = MgfLook.Lit(Olive, .54f, .24f);
+            chartreuseMat = MgfLook.Lit(Chartreuse, .72f, .12f, Chartreuse * .22f);
+            cocoaMat = MgfLook.Lit(Cocoa, .40f, .52f);
+            fireMat = MgfLook.Lit(Fire, .68f, .64f, Fire * .18f);
+            ivoryMat = MgfLook.Lit(Ivory, .18f, .02f);
+            mossMat = MgfLook.Lit(Moss, .66f, .18f, Moss * .08f);
             glowMat = MgfLook.Additive(new Color(Fire.r, Fire.g, Fire.b, .90f), MgfLook.SoftDot);
-            ropeMat = MgfLook.Lit(MgfLook.Hex("#7B5C31"), .14f, 0f);
+            ropeMat = MgfLook.Lit(MgfLook.Hex("#A37A37"), .52f, .48f);
 
-            worldRoot = new GameObject("LivingOliveCanopy").transform;
-            canopyRoot = new GameObject("LayeredLeaves").transform; canopyRoot.SetParent(worldRoot, false);
-            for (int i = 0; i < 19; i++)
+            worldRoot = new GameObject("NightSpecimenObservatory").transform;
+            canopyRoot = new GameObject("GlassArchiveChamber").transform; canopyRoot.SetParent(worldRoot, false);
+            MgfLook.Block("ArchiveFloor", new Vector3(0, -1.14f, 3.4f), new Vector3(27f, .48f, 12.6f), .18f, cocoaMat, canopyRoot);
+            MgfLook.Block("RearLedgerWall", new Vector3(0, 2.6f, 7.4f), new Vector3(25f, 7.4f, .48f), .12f, oliveMat, canopyRoot);
+            for (int i = 0; i < 13; i++)
             {
-                float x = -13.5f + (i * 4.17f % 27f), z = -1.2f + (i * 2.83f % 9.6f), y = -.9f + (i % 4) * .65f;
-                float s = 1.5f + (i % 5) * .34f;
-                var leaf = MgfLook.Prim(PrimitiveType.Sphere, "OliveLeaf" + i, new Vector3(x, y, z), new Vector3(s * 2.35f, .25f + s * .08f, s), i % 4 == 0 ? chartreuseMat : oliveMat, canopyRoot, false).transform;
-                leaf.localRotation = Quaternion.Euler(-4f + i % 3 * 5f, i * 37f % 180f, -18f + i * 19f % 36f); leaves.Add(leaf);
-                // 잎의 비균등 스케일을 상속하므로 로컬 길이는 1 안쪽으로 둔다. 중복 스케일은 화면을 가로지르는 선이 된다.
-                var vein = MgfLook.Prim(PrimitiveType.Cube, "Vein" + i, new Vector3(0, .48f, 0), new Vector3(.86f, .035f, .045f), chartreuseMat, leaf, false).transform;
-                vein.localRotation = Quaternion.Euler(0, 0, 0);
+                float x = -11.7f + i * 1.95f;
+                float y = .2f + (i % 3) * .34f;
+                float z = 5.7f - (i % 4) * .55f;
+                var pane = MgfLook.Block("TimeGlassPane" + i, new Vector3(x, y + 2.05f, z), new Vector3(1.42f, 4.45f, .18f), .05f,
+                    i % 3 == 0 ? chartreuseMat : mossMat, canopyRoot).transform;
+                pane.localRotation = Quaternion.Euler(0, -7f + (i % 4) * 4f, -3f + (i % 3) * 3f); leaves.Add(pane); panelBaseRotations.Add(pane.localRotation);
+                MgfLook.Block("PaneSpine" + i, new Vector3(x, y + 2.05f, z - .18f), new Vector3(.08f, 4.72f, .13f), .025f, fireMat, canopyRoot);
+                for (int k = 0; k < 3; k++)
+                    MgfLook.Block("TimeEtch" + i + "_" + k, new Vector3(x, y + .8f + k * 1.18f, z - .27f), new Vector3(1.1f, .045f, .07f), .015f, ivoryMat, canopyRoot);
             }
-            var branch = MgfLook.Prim(PrimitiveType.Cylinder, "NestBranch", new Vector3(0, .38f, 3.3f), new Vector3(.38f, 11.5f, .38f), ropeMat, worldRoot, false).transform;
-            branch.localRotation = Quaternion.Euler(0, 0, 90f);
+            for (int i = 0; i < 5; i++)
+            {
+                float x = -10f + i * 5f;
+                MgfLook.Block("FloorRail" + i, new Vector3(x, -.79f, 2.4f), new Vector3(.18f, .16f, 8.4f), .04f, fireMat, canopyRoot);
+            }
+            MgfLook.Block("SpecimenBench", new Vector3(0, -.50f, 2.55f), new Vector3(18.6f, .38f, 3.2f), .10f, oliveMat, worldRoot);
+            MgfLook.Block("SealRack", new Vector3(0, .42f, 3.32f), new Vector3(18.2f, .18f, .24f), .04f, ropeMat, worldRoot);
             for (int i = 0; i < nests.Length; i++)
             {
-                float x = -7.2f + i * 2.85f; nests[i] = new GameObject("LeafNest" + i).transform; nests[i].SetParent(worldRoot, false); nests[i].localPosition = new Vector3(x, 1.12f + (i % 2) * .18f, 3.0f);
-                for (int k = 0; k < 9; k++)
+                float x = -7.25f + i * 2.90f; nests[i] = new GameObject("SpecimenSeal" + i).transform; nests[i].SetParent(worldRoot, false); nests[i].localPosition = new Vector3(x, 1.02f + (i % 2) * .12f, 3.0f);
+                for (int k = 0; k < 4; k++)
                 {
-                    float a = k / 9f * Mathf.PI * 2f;
-                    MgfLook.Prim(PrimitiveType.Capsule, "NestFiber" + k, new Vector3(Mathf.Cos(a) * .58f, Mathf.Sin(a) * .30f, 0), new Vector3(.14f, .42f, .14f), ropeMat, nests[i], false).transform.localRotation = Quaternion.Euler(0, 0, -a * Mathf.Rad2Deg);
+                    float a = 45f + k * 90f;
+                    var edge = MgfLook.Block("SealFrame" + k, new Vector3(0, .02f, 0), new Vector3(.92f, .10f, .10f), .02f, fireMat, nests[i]).transform;
+                    edge.localRotation = Quaternion.Euler(0, 0, a);
                 }
-                nestGlows[i] = MgfLook.Prim(PrimitiveType.Sphere, "NestGlow", new Vector3(0, .08f, -.20f), new Vector3(.52f, .32f, .16f), glowMat, nests[i], false).transform;
+                nestGlows[i] = MgfLook.Prim(PrimitiveType.Cube, "SealedLight", new Vector3(0, .02f, -.14f), new Vector3(.52f, .52f, .09f), glowMat, nests[i], false).transform;
+                nestGlows[i].localRotation = Quaternion.Euler(0, 0, 45f);
                 nestGlows[i].gameObject.SetActive(false);
             }
-            beetleRoot = BuildBeetle(worldRoot, new Vector3(-.6f, .52f, .25f), 1.35f, false);
-            titleBeetle = BuildBeetle(worldRoot, new Vector3(-5.6f, .25f, 1.15f), 1.0f, true);
-            netRoot = BuildNet(worldRoot, new Vector3(1.8f, .45f, .45f), false);
-            titleNet = BuildNet(worldRoot, new Vector3(4.1f, .25f, .92f), true);
+            beetleRoot = BuildBeetle(worldRoot, new Vector3(-.8f, .30f, .32f), 1.22f, false);
+            titleBeetle = BuildBeetle(worldRoot, new Vector3(-4.8f, .42f, .86f), 1.18f, true);
+            netRoot = BuildNet(worldRoot, new Vector3(2.0f, .36f, .50f), false);
+            titleNet = BuildNet(worldRoot, new Vector3(3.8f, .38f, .94f), true);
             for (int i = 0; i < fireflies.Length; i++)
             {
-                fireflies[i] = MgfLook.Prim(PrimitiveType.Sphere, "Firefly" + i, new Vector3(0, 0, 0), new Vector3(.17f, .17f, .17f), glowMat, worldRoot, false).transform;
-                fireflies[i].localPosition = new Vector3(-7f + (i * 1.93f % 14f), 2.1f + (i % 5) * .35f, 1.2f + (i % 4) * .65f);
+                fireflies[i] = MgfLook.Prim(PrimitiveType.Cube, "TimePhoton" + i, new Vector3(0, 0, 0), new Vector3(.13f, .13f, .40f), glowMat, worldRoot, false).transform;
+                fireflies[i].localRotation = Quaternion.Euler(25f + i * 7f, i * 23f, 45f);
+                fireflies[i].localPosition = new Vector3(-7f + (i * 1.93f % 14f), 1.9f + (i % 5) * .32f, 1.2f + (i % 4) * .65f);
             }
         }
 
         Transform BuildBeetle(Transform parent, Vector3 pos, float scale, bool title)
         {
-            var root = new GameObject(title ? "TitleLeafBeetle" : "LeafBeetle").transform; root.SetParent(parent, false); root.localPosition = pos; root.localScale = Vector3.one * scale;
-            MgfLook.Prim(PrimitiveType.Sphere, "Shell", new Vector3(0, .85f, 0), new Vector3(2.0f, .95f, 1.55f), oliveMat, root, false);
-            var seam = MgfLook.Prim(PrimitiveType.Cube, "ShellSeam", new Vector3(0, 1.12f, -.79f), new Vector3(.07f, .76f, .05f), chartreuseMat, root, false).transform; seam.localRotation = Quaternion.Euler(0, 0, 90);
-            MgfLook.Prim(PrimitiveType.Sphere, "Head", new Vector3(0, .74f, -1.06f), new Vector3(1.18f, .78f, .82f), cocoaMat, root, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "EyeL", new Vector3(-.30f, .90f, -1.47f), new Vector3(.16f, .18f, .11f), ivoryMat, root, false);
-            MgfLook.Prim(PrimitiveType.Sphere, "EyeR", new Vector3(.30f, .90f, -1.47f), new Vector3(.16f, .18f, .11f), ivoryMat, root, false);
-            for (int i = 0; i < 6; i++)
+            var root = new GameObject(title ? "TitleGlassMoth" : "GlassMothArchivist").transform; root.SetParent(parent, false); root.localPosition = pos; root.localScale = Vector3.one * scale;
+            MgfLook.Block("PrismBody", new Vector3(0, .78f, 0), new Vector3(.64f, 1.18f, .76f), .10f, cocoaMat, root).transform.localRotation = Quaternion.Euler(12f, 0, 0);
+            MgfLook.Block("BrassThorax", new Vector3(0, .80f, -.54f), new Vector3(.74f, .62f, .46f), .08f, fireMat, root);
+            MgfLook.Block("AngularHead", new Vector3(0, .82f, -1.02f), new Vector3(.86f, .66f, .56f), .09f, mossMat, root);
+            MgfLook.Prim(PrimitiveType.Sphere, "EyeL", new Vector3(-.25f, .90f, -1.34f), new Vector3(.13f, .15f, .10f), ivoryMat, root, false);
+            MgfLook.Prim(PrimitiveType.Sphere, "EyeR", new Vector3(.25f, .90f, -1.34f), new Vector3(.13f, .15f, .10f), ivoryMat, root, false);
+            for (int i = 0; i < 4; i++)
             {
-                float side = i < 3 ? -1f : 1f, z = -.64f + (i % 3) * .62f;
-                var leg = MgfLook.Prim(PrimitiveType.Capsule, "Leg" + i, new Vector3(side * .92f, .28f, z), new Vector3(.14f, .68f, .14f), cocoaMat, root, false).transform;
-                leg.localRotation = Quaternion.Euler(0, 0, side * 58f);
+                float side = i < 2 ? -1f : 1f, z = -.34f + (i % 2) * .72f;
+                var wing = MgfLook.Block("GlassWing" + i, new Vector3(side * 1.02f, 1.02f, z), new Vector3(1.54f, .12f, .72f), .04f, chartreuseMat, root).transform;
+                wing.localRotation = Quaternion.Euler(8f, side * (20f + (i % 2) * 9f), side * (24f + (i % 2) * 12f));
+                MgfLook.Block("WingRib" + i, new Vector3(side * .94f, 1.07f, z - .04f), new Vector3(1.32f, .05f, .08f), .015f, fireMat, root).transform.localRotation = wing.localRotation;
             }
             for (int i = 0; i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
-                var ant = MgfLook.Prim(PrimitiveType.Capsule, "Antenna" + i, new Vector3(side * .28f, 1.45f, -1.25f), new Vector3(.10f, .58f, .10f), cocoaMat, root, false).transform;
+                var ant = MgfLook.Prim(PrimitiveType.Capsule, "Antenna" + i, new Vector3(side * .25f, 1.40f, -1.22f), new Vector3(.07f, .54f, .07f), fireMat, root, false).transform;
                 ant.localRotation = Quaternion.Euler(side * 18f, 0, side * 22f); if (!title) antennae[i] = ant;
             }
             return root;
@@ -177,61 +191,65 @@ namespace Mgf.GaundeJaba
 
         Transform BuildNet(Transform parent, Vector3 pos, bool title)
         {
-            var root = new GameObject(title ? "TitleGatheringNet" : "GatheringNet").transform; root.SetParent(parent, false); root.localPosition = pos;
+            var root = new GameObject(title ? "TitleMedianClamp" : "MedianFiberClamp").transform; root.SetParent(parent, false); root.localPosition = pos;
             for (int i = 0; i < 7; i++)
             {
                 float x = -2.2f + i * .72f;
-                var rope = MgfLook.Prim(PrimitiveType.Capsule, "NetFold" + i, new Vector3(x, .35f + Mathf.Abs(i - 3) * .10f, 0), new Vector3(.10f, 1.35f, .10f), ropeMat, root, false).transform;
-                rope.localRotation = Quaternion.Euler(0, 0, -7f + i * 2.4f);
+                var rope = MgfLook.Prim(PrimitiveType.Cube, "TensionFiber" + i, new Vector3(x, .38f + Mathf.Abs(i - 3) * .09f, 0), new Vector3(.055f, 1.38f, .055f), i == 3 ? chartreuseMat : ropeMat, root, false).transform;
+                rope.localRotation = Quaternion.Euler(0, 0, -8f + i * 2.7f);
             }
-            MgfLook.Block("NetHandle", new Vector3(0, -.54f, 0), new Vector3(5.2f, .34f, .36f), .12f, cocoaMat, root);
-            for (int i = 0; i < 6; i++) MgfLook.Prim(PrimitiveType.Sphere, "Knot" + i, new Vector3(-1.8f + i * .72f, -.50f, -.24f), new Vector3(.26f, .26f, .26f), fireMat, root, false);
+            MgfLook.Block("ClampCrossbar", new Vector3(0, -.46f, 0), new Vector3(5.25f, .28f, .40f), .05f, cocoaMat, root);
+            MgfLook.Block("BrassGrip", new Vector3(0, -.78f, -.04f), new Vector3(1.72f, .44f, .54f), .09f, fireMat, root);
+            for (int i = 0; i < 6; i++)
+            {
+                var pin = MgfLook.Prim(PrimitiveType.Cube, "ClampPin" + i, new Vector3(-1.8f + i * .72f, -.47f, -.28f), new Vector3(.20f, .20f, .20f), fireMat, root, false).transform;
+                pin.localRotation = Quaternion.Euler(0, 0, 45f);
+            }
             return root;
         }
 
         void BuildUi()
         {
-            roundedSprite = MakeSprite(96, 20, false); ringSprite = MakeSprite(96, 0, true);
+            roundedSprite = MakeSprite(96, 8, false); ringSprite = MakeSprite(96, 0, true);
             dotSprite = Sprite.Create(MgfLook.SoftDot, new Rect(0, 0, 64, 64), new Vector2(.5f, .5f), 100);
             var canvas = MgfText.Canvas;
-            titlePortrait = Resources.Load<Texture2D>("GaundeJaba/title");
-            // 가로에서도 같은 로컬 키 아트를 cover-crop한다. 별도 사본을 넣지 않아 빌드 예산을 지킨다.
-            titleLandscape = titlePortrait;
+            // 타이틀과 플레이 모두 같은 실시간 관측소를 보여 준다. 생성 키 아트는 사용하지 않는다.
+            titlePortrait = null; titleLandscape = null;
 
             titleRt = R("TitleScreen", canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)); titleG = titleRt.gameObject.AddComponent<CanvasGroup>();
             var artRt = R("LocalTitleKeyArt", titleRt, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844));
             titleArt = artRt.gameObject.AddComponent<RawImage>(); titleArt.raycastTarget = false; titleArt.color = Color.white;
-            titleLogo = Txt(titleRt, "가운데\n잡아", new Vector2(.73f, .77f), Vector2.zero, 55, Ivory, 250); titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineColor = Cocoa; titleLogo.outlineWidth = .25f; titleLogo.lineSpacing = -22;
-            titleTag = Txt(titleRt, "그물로 가운데를 잡아라", new Vector2(.67f, .63f), Vector2.zero, 17, Fire, 300); titleTag.fontStyle = FontStyles.Bold; titleTag.outlineColor = Cocoa; titleTag.outlineWidth = .15f;
-            titleMeta = Txt(titleRt, "중학교 1학년 · 자료의 정리와 해석", new Vector2(.67f, .575f), Vector2.zero, 12, Ivory, 320); titleMeta.outlineColor = Cocoa; titleMeta.outlineWidth = .13f;
-            titleBest = Txt(titleRt, "빈 보금자리 6곳 · 첫 시도 5번", new Vector2(.5f, .20f), Vector2.zero, 14, Ivory, 350); titleBest.outlineColor = Cocoa; titleBest.outlineWidth = .14f;
-            titleCtaTxt = Txt(titleRt, "빈 그물을 당겨 시작", new Vector2(.5f, .115f), Vector2.zero, 21, Fire, 340); titleCtaTxt.fontStyle = FontStyles.Bold; titleCtaTxt.outlineColor = Cocoa; titleCtaTxt.outlineWidth = .18f;
+            titleLogo = Txt(titleRt, "가운데\n잡아", new Vector2(.66f, .79f), Vector2.zero, 55, Ivory, 250); titleLogo.fontStyle = FontStyles.Bold; titleLogo.outlineColor = Cocoa; titleLogo.outlineWidth = .25f; titleLogo.lineSpacing = -22;
+            titleTag = Txt(titleRt, "시간 표본의 가운데를 봉인하라", new Vector2(.62f, .65f), Vector2.zero, 17, Chartreuse, 330); titleTag.fontStyle = FontStyles.Bold; titleTag.outlineColor = Cocoa; titleTag.outlineWidth = .15f;
+            titleMeta = Txt(titleRt, "중학교 1학년 · 중앙값 관측 기록", new Vector2(.62f, .595f), Vector2.zero, 12, Ivory, 330); titleMeta.outlineColor = Cocoa; titleMeta.outlineWidth = .13f;
+            titleBest = Txt(titleRt, "빈 표본 봉인 6칸 · 첫 시도 5번", new Vector2(.5f, .20f), Vector2.zero, 14, Ivory, 370); titleBest.outlineColor = Cocoa; titleBest.outlineWidth = .14f;
+            titleCtaTxt = Txt(titleRt, "황동 클램프를 당겨 시작", new Vector2(.5f, .115f), Vector2.zero, 21, Fire, 360); titleCtaTxt.fontStyle = FontStyles.Bold; titleCtaTxt.outlineColor = Cocoa; titleCtaTxt.outlineWidth = .18f;
 
             hudRt = R("GameHud", canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)); hudG = hudRt.gameObject.AddComponent<CanvasGroup>();
-            statusBg = Img(hudRt, "CanopyStatus", new Vector2(.42f, .955f), Vector2.zero, new Vector2(320, 58), new Color(Ivory.r, Ivory.g, Ivory.b, .94f), roundedSprite);
-            scoreTxt = Txt(statusBg.transform, "0", new Vector2(.10f, .54f), Vector2.zero, 20, Cocoa, 60); scoreTxt.fontStyle = FontStyles.Bold;
-            roundTxt = Txt(statusBg.transform, "빛 0/6", new Vector2(.31f, .54f), Vector2.zero, 14, Cocoa, 90);
-            firstTxt = Txt(statusBg.transform, "첫 0/0", new Vector2(.54f, .54f), Vector2.zero, 14, Cocoa, 86);
-            timeTxt = Txt(statusBg.transform, "110초", new Vector2(.78f, .54f), Vector2.zero, 15, Shade, 64); timeTxt.fontStyle = FontStyles.Bold;
-            for (int i = 0; i < 3; i++) lifeImgs[i] = Img(statusBg.transform, "NetKnot" + i, new Vector2(.72f + i * .08f, .18f), Vector2.zero, new Vector2(18, 9), Fire, roundedSprite);
+            statusBg = Img(hudRt, "ObservatoryStatus", new Vector2(.42f, .955f), Vector2.zero, new Vector2(320, 58), new Color(Olive.r, Olive.g, Olive.b, .94f), roundedSprite);
+            scoreTxt = Txt(statusBg.transform, "0", new Vector2(.10f, .54f), Vector2.zero, 20, Ivory, 60); scoreTxt.fontStyle = FontStyles.Bold;
+            roundTxt = Txt(statusBg.transform, "봉인 0/6", new Vector2(.31f, .54f), Vector2.zero, 14, Ivory, 100);
+            firstTxt = Txt(statusBg.transform, "첫 0/0", new Vector2(.54f, .54f), Vector2.zero, 14, Ivory, 86);
+            timeTxt = Txt(statusBg.transform, "110초", new Vector2(.78f, .54f), Vector2.zero, 15, Chartreuse, 64); timeTxt.fontStyle = FontStyles.Bold;
+            for (int i = 0; i < 3; i++) lifeImgs[i] = Img(statusBg.transform, "ClampLock" + i, new Vector2(.72f + i * .08f, .18f), Vector2.zero, new Vector2(18, 9), Fire, roundedSprite);
 
-            goalBg = Img(hudRt, "GoalLeaf", new Vector2(.5f, .88f), Vector2.zero, new Vector2(360, 42), Cocoa, roundedSprite);
-            goalTxt = Txt(goalBg.transform, "중앙값에 그물을 놓으면 빛이 모인다", new Vector2(.5f, .52f), Vector2.zero, 15, Ivory, 344); goalTxt.fontStyle = FontStyles.Bold;
-            promptBg = Img(hudRt, "ObservationPrompt", new Vector2(.5f, .805f), Vector2.zero, new Vector2(360, 82), new Color(Ivory.r, Ivory.g, Ivory.b, .95f), roundedSprite);
-            promptTxt = Txt(promptBg.transform, "", new Vector2(.5f, .52f), Vector2.zero, 14, Cocoa, 338); promptTxt.fontStyle = FontStyles.Bold; promptTxt.enableAutoSizing = true; promptTxt.fontSizeMin = 10; promptTxt.fontSizeMax = 15; promptTxt.margin = new Vector4(8, 5, 8, 5);
-            rawLabelTxt = Txt(hudRt, "원자료 · 발광 시간(초)", new Vector2(.5f, .72f), Vector2.zero, 12, Ivory, 350); rawLabelTxt.outlineColor = Cocoa; rawLabelTxt.outlineWidth = .12f;
-            sortLabelTxt = Txt(hudRt, "정리 줄 · 끌어서 순서를 바꿀 수 있다", new Vector2(.5f, .55f), Vector2.zero, 12, Ivory, 360); sortLabelTxt.outlineColor = Cocoa; sortLabelTxt.outlineWidth = .12f;
+            goalBg = Img(hudRt, "MissionLedger", new Vector2(.5f, .88f), Vector2.zero, new Vector2(360, 42), new Color(Moss.r, Moss.g, Moss.b, .96f), roundedSprite);
+            goalTxt = Txt(goalBg.transform, "중앙값 위치에서 표본을 봉인하시오", new Vector2(.5f, .52f), Vector2.zero, 15, Ivory, 344); goalTxt.fontStyle = FontStyles.Bold; goalTxt.enableAutoSizing = true; goalTxt.fontSizeMin = 11; goalTxt.fontSizeMax = 15;
+            promptBg = Img(hudRt, "ObservationPrompt", new Vector2(.5f, .805f), Vector2.zero, new Vector2(360, 82), new Color(Olive.r, Olive.g, Olive.b, .95f), roundedSprite);
+            promptTxt = Txt(promptBg.transform, "", new Vector2(.5f, .52f), Vector2.zero, 14, Ivory, 338); promptTxt.fontStyle = FontStyles.Bold; promptTxt.enableAutoSizing = true; promptTxt.fontSizeMin = 10; promptTxt.fontSizeMax = 15; promptTxt.margin = new Vector4(8, 5, 8, 5);
+            rawLabelTxt = Txt(hudRt, "원자료 · 관측 시간(초)", new Vector2(.5f, .72f), Vector2.zero, 12, Chartreuse, 350); rawLabelTxt.outlineColor = Cocoa; rawLabelTxt.outlineWidth = .12f;
+            sortLabelTxt = Txt(hudRt, "정리 줄 · 끌어서 순서를 바꿀 수 있다", new Vector2(.5f, .55f), Vector2.zero, 12, Chartreuse, 360); sortLabelTxt.outlineColor = Cocoa; sortLabelTxt.outlineWidth = .12f;
             for (int i = 0; i < 8; i++)
             {
-                rawCards[i] = Img(hudRt, "RawTag" + i, new Vector2(.5f, .66f), Vector2.zero, new Vector2(42, 48), new Color(Ivory.r, Ivory.g, Ivory.b, .96f), roundedSprite);
+                rawCards[i] = Img(hudRt, "RawGlassTag" + i, new Vector2(.5f, .66f), Vector2.zero, new Vector2(42, 48), new Color(Ivory.r, Ivory.g, Ivory.b, .94f), roundedSprite);
                 rawTexts[i] = Txt(rawCards[i].transform, "", new Vector2(.5f, .5f), Vector2.zero, 19, Cocoa, 42); rawTexts[i].fontStyle = FontStyles.Bold;
-                sortCards[i] = Img(hudRt, "SortTag" + i, new Vector2(.5f, .48f), Vector2.zero, new Vector2(42, 48), new Color(Chartreuse.r, Chartreuse.g, Chartreuse.b, .96f), roundedSprite);
-                sortTexts[i] = Txt(sortCards[i].transform, "", new Vector2(.5f, .5f), Vector2.zero, 19, Cocoa, 42); sortTexts[i].fontStyle = FontStyles.Bold;
+                sortCards[i] = Img(hudRt, "SortedGlassTag" + i, new Vector2(.5f, .48f), Vector2.zero, new Vector2(42, 48), new Color(Moss.r, Moss.g, Moss.b, .96f), roundedSprite);
+                sortTexts[i] = Txt(sortCards[i].transform, "", new Vector2(.5f, .5f), Vector2.zero, 19, Ivory, 42); sortTexts[i].fontStyle = FontStyles.Bold;
             }
 
-            definitionBg = Img(hudRt, "Definition", new Vector2(.5f, .355f), Vector2.zero, new Vector2(360, 48), new Color(Cocoa.r, Cocoa.g, Cocoa.b, .90f), roundedSprite);
-            definitionTxt = Txt(definitionBg.transform, "중앙값: 크기순 가운데 값 · 짝수 개는 가운데 두 값의 평균", new Vector2(.5f, .5f), Vector2.zero, 12, Ivory, 344); definitionTxt.fontStyle = FontStyles.Bold;
-            shadeImg = Img(hudRt, "RisingCanopyShade", new Vector2(.5f, .02f), Vector2.zero, new Vector2(390, 5), new Color(Shade.r, Shade.g, Shade.b, .80f), roundedSprite); shadeRt = shadeImg.rectTransform;
+            definitionBg = Img(hudRt, "Definition", new Vector2(.5f, .355f), Vector2.zero, new Vector2(360, 48), new Color(Cocoa.r, Cocoa.g, Cocoa.b, .94f), roundedSprite);
+            definitionTxt = Txt(definitionBg.transform, "중앙값: 크기순 가운데 값 · 짝수 개는 가운데 두 값의 평균", new Vector2(.5f, .5f), Vector2.zero, 12, Ivory, 344); definitionTxt.fontStyle = FontStyles.Bold; definitionTxt.enableAutoSizing = true; definitionTxt.fontSizeMin = 9; definitionTxt.fontSizeMax = 12;
+            shadeImg = Img(hudRt, "RisingArchiveAlarm", new Vector2(.5f, .02f), Vector2.zero, new Vector2(390, 5), new Color(Shade.r, Shade.g, Shade.b, .80f), roundedSprite); shadeRt = shadeImg.rectTransform;
             for (int i = 0; i < ticks.Length; i++)
             {
                 float u = i / 22f;
@@ -241,32 +259,33 @@ namespace Mgf.GaundeJaba
                     int idx = i / 2; tickLabels[idx] = Txt(hudRt, (idx + 1).ToString(), new Vector2(.075f + .85f * u, .125f), Vector2.zero, 12, Ivory, 30); tickLabels[idx].outlineColor = Cocoa; tickLabels[idx].outlineWidth = .12f;
                 }
             }
-            Img(hudRt, "NumberRail", new Vector2(.5f, .18f), Vector2.zero, new Vector2(334, 6), Cocoa, roundedSprite).transform.SetAsFirstSibling();
+            numberRailImg = Img(hudRt, "NumberRail", new Vector2(.5f, .18f), Vector2.zero, new Vector2(334, 6), Fire, roundedSprite); numberRailImg.transform.SetAsFirstSibling();
             for (int i = 0; i < trail.Length; i++) trail[i] = Img(hudRt, "NetTrail" + i, new Vector2(.075f, .18f), Vector2.zero, new Vector2(26 - i * 2, 26 - i * 2), new Color(Fire.r, Fire.g, Fire.b, .14f - i * .012f), dotSprite);
-            handleImg = Img(hudRt, "GatheringNetHandle", new Vector2(.075f, .18f), Vector2.zero, new Vector2(58, 58), Fire, dotSprite); handleRt = handleImg.rectTransform;
-            railValueTxt = Txt(handleImg.transform, "1", new Vector2(.5f, .5f), new Vector2(0, 58), 24, Ivory, 96); railValueTxt.fontStyle = FontStyles.Bold; railValueTxt.outlineColor = Cocoa; railValueTxt.outlineWidth = .18f;
+            handleImg = Img(hudRt, "ActualBrassClamp", new Vector2(.075f, .18f), Vector2.zero, new Vector2(92, 68), Fire, roundedSprite); handleRt = handleImg.rectTransform;
+            railValueTxt = Txt(handleImg.transform, "1", new Vector2(.5f, .5f), new Vector2(0, 62), 24, Ivory, 106); railValueTxt.fontStyle = FontStyles.Bold; railValueTxt.outlineColor = Cocoa; railValueTxt.outlineWidth = .18f;
+            grabHintTxt = Txt(handleImg.transform, "여기를 잡아", new Vector2(.5f, .5f), Vector2.zero, 12, Cocoa, 86); grabHintTxt.fontStyle = FontStyles.Bold;
             errorMarkImg = Img(hudRt, "WrongExistingMark", new Vector2(.5f, .18f), Vector2.zero, new Vector2(28, 74), new Color(Shade.r, Shade.g, Shade.b, .85f), ringSprite); errorMarkRt = errorMarkImg.rectTransform;
-            guidePath = Img(hudRt, "GhostDragPath", new Vector2(.5f, .255f), Vector2.zero, new Vector2(250, 8), new Color(Fire.r, Fire.g, Fire.b, .72f), roundedSprite);
-            guideRing = Img(hudRt, "HandlePulse", new Vector2(.075f, .18f), Vector2.zero, new Vector2(94, 94), Fire, ringSprite);
-            guideHand = Img(hudRt, "GhostHand", new Vector2(.075f, .255f), Vector2.zero, new Vector2(32, 54), new Color(Ivory.r, Ivory.g, Ivory.b, .92f), roundedSprite);
+            guidePath = Img(hudRt, "ClampDragPath", new Vector2(.5f, .18f), Vector2.zero, new Vector2(250, 8), new Color(Chartreuse.r, Chartreuse.g, Chartreuse.b, .78f), roundedSprite);
+            guideRing = Img(hudRt, "ClampPulse", new Vector2(.075f, .18f), Vector2.zero, new Vector2(112, 88), Chartreuse, ringSprite);
+            guideHand = Img(hudRt, "ClampGhost", new Vector2(.075f, .18f), Vector2.zero, new Vector2(46, 34), new Color(Fire.r, Fire.g, Fire.b, .72f), roundedSprite);
 
             revealRt = R("EvidenceReveal", canvas.transform, new Vector2(.5f, .31f), Vector2.zero, new Vector2(360, 142)); revealG = revealRt.gameObject.AddComponent<CanvasGroup>();
-            revealBg = Img(revealRt, "EvidenceLeaf", new Vector2(.5f, .5f), Vector2.zero, new Vector2(360, 142), new Color(Ivory.r, Ivory.g, Ivory.b, .98f), roundedSprite);
+            revealBg = Img(revealRt, "EvidenceGlass", new Vector2(.5f, .5f), Vector2.zero, new Vector2(360, 142), new Color(Olive.r, Olive.g, Olive.b, .98f), roundedSprite);
             revealTitleTxt = Txt(revealBg.transform, "", new Vector2(.5f, .74f), Vector2.zero, 20, Moss, 338); revealTitleTxt.fontStyle = FontStyles.Bold;
-            revealEvidenceTxt = Txt(revealBg.transform, "", new Vector2(.5f, .38f), Vector2.zero, 14, Cocoa, 338); revealEvidenceTxt.fontStyle = FontStyles.Bold; revealEvidenceTxt.enableAutoSizing = true; revealEvidenceTxt.fontSizeMin = 10; revealEvidenceTxt.fontSizeMax = 15;
+            revealEvidenceTxt = Txt(revealBg.transform, "", new Vector2(.5f, .38f), Vector2.zero, 14, Ivory, 338); revealEvidenceTxt.fontStyle = FontStyles.Bold; revealEvidenceTxt.enableAutoSizing = true; revealEvidenceTxt.fontSizeMin = 10; revealEvidenceTxt.fontSizeMax = 15;
 
-            toastG = R("LeafToast", canvas.transform, new Vector2(.5f, .40f), Vector2.zero, new Vector2(350, 48)).gameObject.AddComponent<CanvasGroup>();
-            var toastBg = Img(toastG.transform, "ToastBg", new Vector2(.5f, .5f), Vector2.zero, new Vector2(350, 48), Cocoa, roundedSprite);
+            toastG = R("ArchiveToast", canvas.transform, new Vector2(.5f, .40f), Vector2.zero, new Vector2(350, 48)).gameObject.AddComponent<CanvasGroup>();
+            var toastBg = Img(toastG.transform, "ToastBg", new Vector2(.5f, .5f), Vector2.zero, new Vector2(350, 48), new Color(Cocoa.r, Cocoa.g, Cocoa.b, .96f), roundedSprite);
             toastTxt = Txt(toastBg.transform, "", new Vector2(.5f, .5f), Vector2.zero, 13, Ivory, 330);
-            rippleImg = Img(canvas.transform, "LeafVeinRipple", new Vector2(.5f, .5f), Vector2.zero, new Vector2(68, 68), Chartreuse, ringSprite); rippleRt = rippleImg.rectTransform; rippleRt.gameObject.SetActive(false);
+            rippleImg = Img(canvas.transform, "GlassPulseRipple", new Vector2(.5f, .5f), Vector2.zero, new Vector2(68, 68), Chartreuse, ringSprite); rippleRt = rippleImg.rectTransform; rippleRt.gameObject.SetActive(false);
 
             endRt = R("EndScreen", canvas.transform, new Vector2(.5f, .5f), Vector2.zero, new Vector2(390, 844)); endG = endRt.gameObject.AddComponent<CanvasGroup>();
-            endBg = Img(endRt, "ResultLeaf", new Vector2(.5f, .54f), Vector2.zero, new Vector2(350, 402), new Color(Ivory.r, Ivory.g, Ivory.b, .97f), roundedSprite);
+            endBg = Img(endRt, "ResultLedger", new Vector2(.5f, .54f), Vector2.zero, new Vector2(350, 402), new Color(Olive.r, Olive.g, Olive.b, .98f), roundedSprite);
             endTitleTxt = Txt(endBg.transform, "", new Vector2(.5f, .80f), Vector2.zero, 30, Moss, 326); endTitleTxt.fontStyle = FontStyles.Bold;
-            endScoreTxt = Txt(endBg.transform, "0", new Vector2(.5f, .61f), Vector2.zero, 58, Cocoa, 320); endScoreTxt.fontStyle = FontStyles.Bold;
-            endStatsTxt = Txt(endBg.transform, "", new Vector2(.5f, .39f), Vector2.zero, 17, Cocoa, 318); endStatsTxt.fontStyle = FontStyles.Bold;
-            var restart = Img(endBg.transform, "RestartNet", new Vector2(.5f, .12f), Vector2.zero, new Vector2(300, 68), Fire, roundedSprite);
-            endTapTxt = Txt(restart.transform, "빈 그물 다시 당기기", new Vector2(.5f, .5f), Vector2.zero, 21, Cocoa, 282); endTapTxt.fontStyle = FontStyles.Bold;
+            endScoreTxt = Txt(endBg.transform, "0", new Vector2(.5f, .61f), Vector2.zero, 58, Ivory, 320); endScoreTxt.fontStyle = FontStyles.Bold;
+            endStatsTxt = Txt(endBg.transform, "", new Vector2(.5f, .39f), Vector2.zero, 17, Ivory, 318); endStatsTxt.fontStyle = FontStyles.Bold;
+            var restart = Img(endBg.transform, "RestartClamp", new Vector2(.5f, .12f), Vector2.zero, new Vector2(300, 68), Fire, roundedSprite);
+            endTapTxt = Txt(restart.transform, "새 표본 기록 열기", new Vector2(.5f, .5f), Vector2.zero, 21, Cocoa, 282); endTapTxt.fontStyle = FontStyles.Bold;
         }
 
         void Relayout(bool force)
@@ -279,19 +298,28 @@ namespace Mgf.GaundeJaba
             MgfLook.FitWidth(cam, land ? 34f : 38f, .72f);
             if (land)
             {
-                cam.transform.position = new Vector3(12.8f, 10.1f, -19.5f); cam.transform.LookAt(new Vector3(0, 1.2f, 2.5f));
-                titleLogo.rectTransform.anchorMin = titleLogo.rectTransform.anchorMax = new Vector2(.78f, .74f);
-                titleTag.rectTransform.anchorMin = titleTag.rectTransform.anchorMax = new Vector2(.78f, .55f);
-                titleMeta.rectTransform.anchorMin = titleMeta.rectTransform.anchorMax = new Vector2(.78f, .48f);
+                cam.transform.position = new Vector3(12.8f, 9.8f, -20.8f); cam.transform.LookAt(new Vector3(0, 1.05f, 2.8f));
+                titleLogo.rectTransform.anchorMin = titleLogo.rectTransform.anchorMax = new Vector2(.73f, .72f);
+                titleTag.rectTransform.anchorMin = titleTag.rectTransform.anchorMax = new Vector2(.73f, .51f);
+                titleMeta.rectTransform.anchorMin = titleMeta.rectTransform.anchorMax = new Vector2(.73f, .43f);
                 statusBg.rectTransform.anchorMin = statusBg.rectTransform.anchorMax = new Vector2(.50f, .945f);
-                statusBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(520, logical.x * .48f), 58);
-                goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.50f, .86f);
-                promptBg.rectTransform.anchorMin = promptBg.rectTransform.anchorMax = new Vector2(.50f, .765f);
-                promptBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(680, logical.x * .64f), 78);
-                rawLabelTxt.rectTransform.anchorMin = rawLabelTxt.rectTransform.anchorMax = new Vector2(.50f, .69f);
-                sortLabelTxt.rectTransform.anchorMin = sortLabelTxt.rectTransform.anchorMax = new Vector2(.50f, .48f);
-                definitionBg.rectTransform.anchorMin = definitionBg.rectTransform.anchorMax = new Vector2(.50f, .34f);
-                revealRt.anchorMin = revealRt.anchorMax = new Vector2(.50f, .39f);
+                statusBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(560, logical.x * .46f), 58);
+
+                // 가로는 좌측 기록실 / 중앙 3D 관측소 / 우측 정의·근거 / 하단 전폭 눈금의 3존이다.
+                float leftPanelW = Mathf.Min(450f, logical.x * .36f);
+                float rightPanelW = Mathf.Min(420f, logical.x * .34f);
+                SetAnchor(goalBg.rectTransform, new Vector2(.19f, .855f)); goalBg.rectTransform.sizeDelta = new Vector2(leftPanelW, 36);
+                goalTxt.rectTransform.sizeDelta = new Vector2(leftPanelW - 20, 32);
+                SetAnchor(promptBg.rectTransform, new Vector2(.19f, .715f)); promptBg.rectTransform.sizeDelta = new Vector2(leftPanelW, 64);
+                promptTxt.rectTransform.sizeDelta = new Vector2(leftPanelW - 24, 58);
+                SetAnchor(rawLabelTxt.rectTransform, new Vector2(.19f, .605f)); rawLabelTxt.rectTransform.sizeDelta = new Vector2(leftPanelW, 34);
+                SetAnchor(sortLabelTxt.rectTransform, new Vector2(.19f, .415f)); sortLabelTxt.rectTransform.sizeDelta = new Vector2(leftPanelW, 34);
+                SetAnchor(definitionBg.rectTransform, new Vector2(.80f, .80f)); definitionBg.rectTransform.sizeDelta = new Vector2(rightPanelW, 62);
+                definitionTxt.rectTransform.sizeDelta = new Vector2(rightPanelW - 22, 54);
+                SetAnchor(revealRt, new Vector2(.80f, .60f)); revealRt.sizeDelta = new Vector2(rightPanelW, 154);
+                revealBg.rectTransform.sizeDelta = new Vector2(rightPanelW, 154);
+                revealTitleTxt.rectTransform.sizeDelta = new Vector2(rightPanelW - 20, 52);
+                revealEvidenceTxt.rectTransform.sizeDelta = new Vector2(rightPanelW - 22, 88);
             }
             else
             {
@@ -301,17 +329,32 @@ namespace Mgf.GaundeJaba
                 titleMeta.rectTransform.anchorMin = titleMeta.rectTransform.anchorMax = new Vector2(.59f, .61f);
                 statusBg.rectTransform.anchorMin = statusBg.rectTransform.anchorMax = new Vector2(.42f, .955f);
                 statusBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(320, logical.x - 68), 58);
-                goalBg.rectTransform.anchorMin = goalBg.rectTransform.anchorMax = new Vector2(.50f, .88f);
-                promptBg.rectTransform.anchorMin = promptBg.rectTransform.anchorMax = new Vector2(.50f, .805f);
+                SetAnchor(goalBg.rectTransform, new Vector2(.50f, .88f)); goalBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(366, logical.x * .95f), 42);
+                goalTxt.rectTransform.sizeDelta = new Vector2(Mathf.Min(344, logical.x * .88f), 42);
+                SetAnchor(promptBg.rectTransform, new Vector2(.50f, .805f));
                 promptBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(366, logical.x * .95f), 82);
-                rawLabelTxt.rectTransform.anchorMin = rawLabelTxt.rectTransform.anchorMax = new Vector2(.50f, .72f);
-                sortLabelTxt.rectTransform.anchorMin = sortLabelTxt.rectTransform.anchorMax = new Vector2(.50f, .55f);
-                definitionBg.rectTransform.anchorMin = definitionBg.rectTransform.anchorMax = new Vector2(.50f, .355f);
-                revealRt.anchorMin = revealRt.anchorMax = new Vector2(.50f, .31f);
+                promptTxt.rectTransform.sizeDelta = new Vector2(Mathf.Min(338, logical.x * .88f), 76);
+                SetAnchor(rawLabelTxt.rectTransform, new Vector2(.50f, .72f)); rawLabelTxt.rectTransform.sizeDelta = new Vector2(Mathf.Min(350, logical.x * .92f), 34);
+                SetAnchor(sortLabelTxt.rectTransform, new Vector2(.50f, .55f)); sortLabelTxt.rectTransform.sizeDelta = new Vector2(Mathf.Min(360, logical.x * .94f), 34);
+                SetAnchor(definitionBg.rectTransform, new Vector2(.50f, .355f)); definitionBg.rectTransform.sizeDelta = new Vector2(Mathf.Min(360, logical.x * .94f), 48);
+                definitionTxt.rectTransform.sizeDelta = new Vector2(Mathf.Min(344, logical.x * .88f), 44);
+                SetAnchor(revealRt, new Vector2(.50f, .31f)); revealRt.sizeDelta = new Vector2(Mathf.Min(360, logical.x * .94f), 142);
+                revealBg.rectTransform.sizeDelta = revealRt.sizeDelta;
+                revealTitleTxt.rectTransform.sizeDelta = new Vector2(Mathf.Min(338, logical.x * .88f), 52);
+                revealEvidenceTxt.rectTransform.sizeDelta = new Vector2(Mathf.Min(338, logical.x * .88f), 84);
             }
             Texture2D tex = land ? titleLandscape : titlePortrait;
             titleArt.texture = tex; titleArt.enabled = tex != null;
             titleArt.rectTransform.sizeDelta = logical; titleArt.uvRect = CoverUv(tex, logical.x / Mathf.Max(1, logical.y));
+            SetAnchor(numberRailImg.rectTransform, new Vector2(.5f, RailYFraction()));
+            numberRailImg.rectTransform.sizeDelta = new Vector2(logical.x * (RailRightFraction() - RailLeftFraction()), 6);
+            shadeRt.sizeDelta = new Vector2(logical.x, 5);
+            for (int i = 0; i < ticks.Length; i++)
+            {
+                float u = i / 22f;
+                SetAnchor(ticks[i].rectTransform, new Vector2(Mathf.Lerp(RailLeftFraction(), RailRightFraction(), u), RailYFraction()));
+                if (i % 2 == 0) SetAnchor(tickLabels[i / 2].rectTransform, new Vector2(Mathf.Lerp(RailLeftFraction(), RailRightFraction(), u), land ? .095f : .125f));
+            }
             PositionTags(); UpdateNetUi();
         }
 
@@ -332,9 +375,9 @@ namespace Mgf.GaundeJaba
                 if (land)
                 {
                     float u = count == 1 ? .5f : i / (float)(count - 1);
-                    SetAnchor(rawCards[i].rectTransform, new Vector2(.15f + .70f * u, .62f));
-                    SetAnchor(sortCards[i].rectTransform, new Vector2(.15f + .70f * u, .42f));
-                    rawCards[i].rectTransform.sizeDelta = sortCards[i].rectTransform.sizeDelta = new Vector2(54, 54);
+                    SetAnchor(rawCards[i].rectTransform, new Vector2(.055f + .27f * u, .535f));
+                    SetAnchor(sortCards[i].rectTransform, new Vector2(.055f + .27f * u, .345f));
+                    rawCards[i].rectTransform.sizeDelta = sortCards[i].rectTransform.sizeDelta = new Vector2(42, 48);
                 }
                 else
                 {
@@ -369,7 +412,7 @@ namespace Mgf.GaundeJaba
             endG.alpha = end ? 1f : 0f;
             if (titleNet) titleNet.gameObject.SetActive(title); if (titleBeetle) titleBeetle.gameObject.SetActive(title);
             if (netRoot) netRoot.gameObject.SetActive(!title); if (beetleRoot) beetleRoot.gameObject.SetActive(!title);
-            titleBest.text = PlayerPrefs.GetInt("gaunde-jaba-best-first", 0) > 0 ? "최고 첫 시도 " + PlayerPrefs.GetInt("gaunde-jaba-best-first", 0) + "/6" : "빈 보금자리 6곳 · 첫 시도 5번";
+            titleBest.text = PlayerPrefs.GetInt("gaunde-jaba-best-first", 0) > 0 ? "최고 첫 시도 " + PlayerPrefs.GetInt("gaunde-jaba-best-first", 0) + "/6" : "빈 표본 봉인 6칸 · 첫 시도 5번";
             if (!title && !end) UpdateHudText();
         }
 
@@ -378,8 +421,8 @@ namespace Mgf.GaundeJaba
         void LoadProblemVisual(MedianProblem p, bool practice)
         {
             promptTxt.text = p.prompt;
-            goalTxt.text = practice ? (p.id == "practice-odd" ? "9, 2, 5를 크기순으로 보고 5초에 그물을 놓으시오" : "2, 4, 6, 8의 가운데 두 값을 평균 내어 놓으시오") : "중앙값에 그물을 놓으면 빛이 모인다";
-            rawLabelTxt.text = "원자료 · 발광 시간(초) · " + p.raw.Length + "개";
+            goalTxt.text = practice ? (p.id == "practice-odd" ? "9, 2, 5를 정렬해 5초에 놓으시오" : "2, 4, 6, 8의 가운데 둘을 평균 내시오") : "중앙값 위치에서 시간 표본을 봉인하시오";
+            rawLabelTxt.text = "원자료 · 관측 시간(초) · " + p.raw.Length + "개";
             for (int i = 0; i < 8; i++)
             {
                 if (i < p.raw.Length) { rawTexts[i].text = p.raw[i].ToString(); sortTexts[i].text = st.studentOrder[i].ToString(); }
@@ -391,19 +434,19 @@ namespace Mgf.GaundeJaba
 
         void UpdateHudText()
         {
-            roundTxt.text = IsPractice ? "연습" : "빛 " + st.solved + "/6";
+            roundTxt.text = IsPractice ? "연습" : "봉인 " + st.solved + "/6";
             firstTxt.text = "첫 " + st.firstCorrect + "/" + st.attemptedRounds;
             for (int i = 0; i < lifeImgs.Length; i++) lifeImgs[i].color = i < st.lives ? Fire : new Color(Shade.r, Shade.g, Shade.b, .28f);
             definitionTxt.text = st.level >= 2 ? "중앙값: 크기순 가운데 값 · 짝수 개는 가운데 두 값의 평균" : "중앙값: 자료를 크기순으로 놓았을 때 가운데 값";
         }
 
-        void BoostGuide(bool strong) { guideBoost = strong ? 1.8f : 1f; toastClock = 1.5f; toastTxt.text = strong ? "빛나는 손잡이를 끌어 목표 눈금에서 놓으시오" : "아래 그물 손잡이를 좌우로 끌어 놓으시오"; }
+        void BoostGuide(bool strong) { guideBoost = strong ? 1.8f : 1f; toastClock = 1.5f; toastTxt.text = strong ? "‘여기를 잡아’ 클램프를 끌어 목표 눈금에서 놓으시오" : "아래 황동 클램프를 좌우로 끌어 놓으시오"; }
 
         void BeginRevealVisual(bool correct, bool practice, int value2, string misconception)
         {
             feedbackClock = 0f; feedbackGood = correct; hitStop = correct ? .075f : 0f; wrongKick = correct ? 0f : 1f; guideBoost = 0f;
-            revealTitleTxt.text = correct ? (practice ? "가운데를 잡았다" : "매듭이 잠겼다") : "매듭 하나가 풀렸다";
-            revealTitleTxt.color = correct ? Moss : Shade;
+            revealTitleTxt.text = correct ? (practice ? "가운데를 잡았다" : "표본 봉인이 잠겼다") : "클램프 경보가 울렸다";
+            revealTitleTxt.color = correct ? Chartreuse : Shade;
             revealEvidenceTxt.text = correct ? MedianRules.Evidence(current) : MedianRules.MisconceptionKorean(misconception) + "\n" + MedianRules.Evidence(current);
             if (correct)
             {
@@ -435,10 +478,10 @@ namespace Mgf.GaundeJaba
 
         void ShowEndVisual(bool clear, string reason)
         {
-            endTitleTxt.text = clear ? "수관이 환해졌다" : reason == "knots" ? "매듭이 모두 풀렸다" : reason == "time" ? "그늘이 보금자리에 닿았다" : "첫 시도 5번이 필요하다";
+            endTitleTxt.text = clear ? "시간 표본 6칸 봉인 완료" : reason == "knots" ? "클램프가 모두 풀렸다" : reason == "time" ? "관측 시간이 끝났다" : "첫 시도 5번이 필요하다";
             endScoreTxt.text = "0"; shownEndScore = 0f;
-            endStatsTxt.text = "빛 " + st.solved + "/6\n첫 시도 " + st.firstCorrect + "/" + st.attemptedRounds + "\n남은 매듭 " + st.lives;
-            endTapTxt.text = "빈 그물 다시 당기기";
+            endStatsTxt.text = "봉인 " + st.solved + "/6\n첫 시도 " + st.firstCorrect + "/" + st.attemptedRounds + "\n남은 클램프 " + st.lives;
+            endTapTxt.text = "새 표본 기록 열기";
             if (clear) for (int i = 0; i < nests.Length; i++) { nestGlows[i].gameObject.SetActive(true); MgfFx.Glow(nests[i].position, Fire, 6, .26f); }
         }
 
@@ -449,8 +492,9 @@ namespace Mgf.GaundeJaba
             {
                 titleFold += dt; float k = Mathf.Clamp01(titleFold / .40f); titleG.alpha = 1f - k; if (titleNet) titleNet.localScale = Vector3.one * (1f + .28f * Mathf.Sin(k * Mathf.PI));
             }
-            for (int i = 0; i < leaves.Count; i++) leaves[i].localRotation *= Quaternion.Euler(0, Mathf.Sin(clock * .33f + i) * .012f, Mathf.Sin(clock * .52f + i * .7f) * .018f);
-            if (beetleRoot) beetleRoot.localPosition = new Vector3(-.6f, .52f + Mathf.Sin(clock * 2.1f) * .055f, .25f);
+            for (int i = 0; i < leaves.Count; i++)
+                leaves[i].localRotation = panelBaseRotations[i] * Quaternion.Euler(0, Mathf.Sin(clock * .33f + i) * .55f, Mathf.Sin(clock * .52f + i * .7f) * .38f);
+            if (beetleRoot) beetleRoot.localPosition = new Vector3(-.8f, .30f + Mathf.Sin(clock * 2.1f) * .055f, .32f);
             for (int i = 0; i < antennae.Length; i++) if (antennae[i]) antennae[i].localRotation = Quaternion.Euler((i == 0 ? -18f : 18f) + Mathf.Sin(clock * 3f + i) * 5f, 0, i == 0 ? -22f : 22f);
             for (int i = 0; i < fireflies.Length; i++)
             {
@@ -495,12 +539,13 @@ namespace Mgf.GaundeJaba
             {
                 guideBoost = Mathf.Max(.35f, guideBoost - dt * .18f); float pulse = .90f + .14f * Mathf.Sin(clock * 5f);
                 guideRing.gameObject.SetActive(true); guidePath.gameObject.SetActive(true); guideHand.gameObject.SetActive(true);
+                grabHintTxt.gameObject.SetActive(IsPractice && !draggingNet);
                 SetAnchor(guideRing.rectTransform, new Vector2(RailXFor(st.netValue2), RailYFraction())); guideRing.rectTransform.localScale = Vector3.one * pulse;
                 float from = RailXFor(st.netValue2), to = current == null ? .5f : RailXFor(current.answer2);
-                float travel = (clock * .55f) % 1f; SetAnchor(guideHand.rectTransform, new Vector2(Mathf.Lerp(from, to, travel), RailYFraction() + .075f));
-                SetAnchor(guidePath.rectTransform, new Vector2((from + to) * .5f, RailYFraction() + .075f)); guidePath.rectTransform.sizeDelta = new Vector2(Mathf.Abs(to - from) * logicalSize.x, 7);
+                float travel = (clock * .55f) % 1f; SetAnchor(guideHand.rectTransform, new Vector2(Mathf.Lerp(from, to, travel), RailYFraction()));
+                SetAnchor(guidePath.rectTransform, new Vector2((from + to) * .5f, RailYFraction())); guidePath.rectTransform.sizeDelta = new Vector2(Mathf.Abs(to - from) * logicalSize.x, 7);
             }
-            else { guideRing.gameObject.SetActive(false); guidePath.gameObject.SetActive(false); guideHand.gameObject.SetActive(false); }
+            else { guideRing.gameObject.SetActive(false); guidePath.gameObject.SetActive(false); guideHand.gameObject.SetActive(false); grabHintTxt.gameObject.SetActive(false); }
             if (rippleClock > 0f)
             {
                 rippleClock -= dt; float k = 1f - rippleClock / .48f; rippleRt.localScale = Vector3.one * Mathf.Lerp(.35f, 1.6f, k); rippleImg.color = new Color(Chartreuse.r, Chartreuse.g, Chartreuse.b, 1f - k); if (rippleClock <= 0f) rippleRt.gameObject.SetActive(false);

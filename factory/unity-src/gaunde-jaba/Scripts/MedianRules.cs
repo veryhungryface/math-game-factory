@@ -15,6 +15,7 @@ namespace Mgf.GaundeJaba
         public int band;
         public bool errorFind;
         public int wrongMark2;
+        public string wrongMarkMisconception;
         public string prompt;
 
         public MgfProblem ToMgf()
@@ -98,7 +99,7 @@ namespace Mgf.GaundeJaba
                 Shuffle(raw, ref seed);
                 string sig = n + ":" + error + ":" + string.Join(",", raw);
                 if (!signatures.Add(sig)) continue;
-                int wrong = error ? WrongMark(2 * m, seed) : 0;
+                int wrong = error ? WrongMark(raw, 2 * m, seed) : 0;
                 return Make("odd-" + n + "-m" + m + "-v" + variant, raw, 2 * m, error ? 3 : 1, error, wrong);
             }
             throw new InvalidOperationException("홀수 중앙값 버킷 생성 실패");
@@ -125,7 +126,7 @@ namespace Mgf.GaundeJaba
                 Shuffle(raw, ref seed);
                 string sig = n + ":" + error + ":" + string.Join(",", raw);
                 if (!signatures.Add(sig)) continue;
-                int wrong = error ? WrongMark(answer2, seed) : 0;
+                int wrong = error ? WrongMark(raw, answer2, seed) : 0;
                 return Make("even-" + n + "-a2" + answer2 + "-v" + variant, raw, answer2, error ? 3 : 2, error, wrong);
             }
             throw new InvalidOperationException("짝수 중앙값 버킷 생성 실패");
@@ -135,9 +136,11 @@ namespace Mgf.GaundeJaba
         {
             string values = JoinValues(raw);
             string prompt = error
-                ? "빛 기록 " + values + "초에 놓인 " + FormatHalf(wrong) + "초 표식은 잘못되었다. 중앙값을 구하시오."
-                : "빛 기록 " + values + "초의 중앙값을 구하시오.";
-            return new MedianProblem { id = id, raw = raw, answer2 = answer2, band = band, errorFind = error, wrongMark2 = wrong, prompt = prompt };
+                ? "관측 시간 " + values + "초에 놓인 " + FormatHalf(wrong) + "초 표식은 잘못되었다. 중앙값을 구하시오."
+                : "관측 시간 " + values + "초의 중앙값을 구하시오.";
+            var problem = new MedianProblem { id = id, raw = raw, answer2 = answer2, band = band, errorFind = error, wrongMark2 = wrong, prompt = prompt };
+            problem.wrongMarkMisconception = error ? ClassifyMisconception(problem, wrong) : "";
+            return problem;
         }
 
         public static bool IsCorrect(MedianProblem p, int value2) => p != null && value2 == p.answer2;
@@ -212,11 +215,38 @@ namespace Mgf.GaundeJaba
             return ties == 1 ? bestValue : -1;
         }
 
-        static int WrongMark(int answer2, uint seed)
+        // 오류 찾기 표식은 임의의 다른 눈금이 아니라 실제 중앙값 오개념에서만 고른다.
+        // 생성된 문제는 항상 최댓값이 중앙값보다 크므로 후보가 하나도 없는 경우는 없다.
+        static int WrongMark(int[] raw, int answer2, uint seed)
         {
-            int value2 = 2 + (int)(seed % 23u);
-            if (value2 == answer2) value2 = value2 == 24 ? 2 : value2 + 1;
-            return value2;
+            var candidates = new List<int>(6);
+            int n = raw.Length;
+            int rawMiddle2 = n % 2 == 1 ? 2 * raw[n / 2] : raw[n / 2 - 1] + raw[n / 2];
+            AddWrongCandidate(candidates, rawMiddle2, answer2);
+
+            var sorted = (int[])raw.Clone(); Array.Sort(sorted);
+            if (n % 2 == 0)
+            {
+                AddWrongCandidate(candidates, 2 * sorted[n / 2 - 1], answer2);
+                AddWrongCandidate(candidates, 2 * sorted[n / 2], answer2);
+            }
+            int sum = 0;
+            for (int i = 0; i < n; i++) sum += sorted[i];
+            if ((2 * sum) % n == 0) AddWrongCandidate(candidates, 2 * sum / n, answer2);
+            AddWrongCandidate(candidates, 2 * sorted[n - 1], answer2);
+            int mode = UniqueMode(sorted);
+            if (mode >= 0) AddWrongCandidate(candidates, 2 * mode, answer2);
+
+            // m=12 극단 자료처럼 모든 대표 오개념이 정답과 같거나 1~12 레일 밖이면
+            // 정답 바로 옆의 온전한 1초 눈금을 일반적인 크기순 위치 오류로 사용한다.
+            if (candidates.Count == 0) return answer2 == 24 ? 22 : answer2 + 2;
+            return candidates[(int)(seed % (uint)candidates.Count)];
+        }
+
+        static void AddWrongCandidate(List<int> candidates, int value2, int answer2)
+        {
+            if (value2 < 2 || value2 > 24 || value2 == answer2 || candidates.Contains(value2)) return;
+            candidates.Add(value2);
         }
 
         static void Shuffle(int[] a, ref uint state)
@@ -238,6 +268,8 @@ namespace Mgf.GaundeJaba
                 int solutions = 0; for (int v = 2; v <= 24; v++) if (IsCorrect(p, v)) solutions++;
                 if (solutions != 1) throw new InvalidOperationException("유일해 오류: " + p.id);
                 if (p.errorFind && (p.wrongMark2 < 2 || p.wrongMark2 > 24 || p.wrongMark2 == p.answer2)) throw new InvalidOperationException("오류 표식 오류: " + p.id);
+                if (p.errorFind && string.IsNullOrEmpty(p.wrongMarkMisconception))
+                    throw new InvalidOperationException("설명할 수 없는 오류 표식: " + p.id);
                 if (p.prompt.Contains("자리에서") || p.prompt.Contains("√") || !p.prompt.EndsWith("구하시오.")) throw new InvalidOperationException("발문 오류: " + p.id);
                 foreach (int v in new[] { p.answer2, 2, 3, 8, 13, 24 })
                     if (v == p.answer2 && ClassifyMisconception(p, v).Length != 0) throw new InvalidOperationException("오개념 우연 참: " + p.id);

@@ -49,7 +49,7 @@ try {
   for (const p of bank) {
     if (!p.id || ids.has(p.id)) errors.push(`duplicate id: ${p.id}`); else ids.add(p.id);
     if (!p.prompt || prompts.has(p.prompt)) errors.push(`duplicate prompt: ${p.id}`); else prompts.add(p.prompt);
-    const match = /^빛 기록 ([0-9, ]+)초(?:(?:의 )|(?:에 놓인 ([0-9.]+)초 표식은 잘못되었다\. ))중앙값을 구하시오\.$/.exec(p.prompt);
+    const match = /^관측 시간 ([0-9, ]+)초(?:(?:의 )|(?:에 놓인 ([0-9.]+)초 표식은 잘못되었다\. ))중앙값을 구하시오\.$/.exec(p.prompt);
     if (!match) { errors.push(`unparsed prompt: ${p.id}`); continue; }
     const values = match[1].split(',').map((v) => Number.parseInt(v.trim(), 10));
     const sorted = [...values].sort((a, b) => a - b);
@@ -59,7 +59,26 @@ try {
     if (sorted.length % 2) odd++; else even++;
     if (match[2] !== undefined) {
       errorFind++;
-      if (Number(match[2]) * 2 === answer2) errors.push(`wrong mark equals answer: ${p.id}`);
+      const wrong2 = Math.round(Number(match[2]) * 2);
+      if (wrong2 === answer2) errors.push(`wrong mark equals answer: ${p.id}`);
+      const candidates = new Set();
+      const add = (v2) => { if (v2 >= 2 && v2 <= 24 && v2 !== answer2) candidates.add(v2); };
+      add(values.length % 2 ? 2 * values[Math.floor(values.length / 2)] : values[values.length / 2 - 1] + values[values.length / 2]);
+      if (values.length % 2 === 0) {
+        add(2 * sorted[sorted.length / 2 - 1]);
+        add(2 * sorted[sorted.length / 2]);
+      }
+      const sum2 = 2 * values.reduce((a, b) => a + b, 0);
+      if (sum2 % values.length === 0) add(sum2 / values.length);
+      add(2 * sorted[sorted.length - 1]);
+      const counts = new Map();
+      for (const v of sorted) counts.set(v, (counts.get(v) || 0) + 1);
+      const maxCount = Math.max(...counts.values());
+      const modes = [...counts.entries()].filter(([, c]) => c === maxCount && c > 1);
+      if (modes.length === 1) add(2 * modes[0][0]);
+      const fallback2 = answer2 === 24 ? 22 : answer2 + 2;
+      if (candidates.size > 0 && !candidates.has(wrong2)) errors.push(`wrong mark is not a modeled misconception: ${p.id}`);
+      if (candidates.size === 0 && wrong2 !== fallback2) errors.push(`unexplained order-error fallback: ${p.id}`);
     }
     if (answer2 < 2 || answer2 > 24) errors.push(`answer out of range: ${p.id}`);
     if (p.answer !== `${formatHalf(answer2)}초`) errors.push(`answer mismatch: ${p.id}`);

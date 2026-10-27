@@ -1,7 +1,6 @@
 # 가운데 잡아 — 아트 출처
 
-- `Resources/GaundeJaba/title.png`: 아트 단계에서 gpt-image로 생성된 `public/g/gaunde-jaba/assets/title.png` 사본. 세로 타이틀 키 아트.
-- 가로 화면도 같은 `title.png`를 cover-crop하고 코드 수관 오브젝트가 좌우 세계를 채운다. 공개용 `thumb.png`는 게임 폴더에만 한 번 둔다.
-- 런타임 주인공·수관·그물·보금자리는 `GaundeJabaView.cs`의 로우폴리 프리미티브와 킷 재질로 제작했다.
-- 생성 프롬프트와 원본 크기·출처 기록은 `factory/work/art.json`과 `factory/work/chosen.json`의 `art_direction.assets_needed`가 정본이다.
-- 두 텍스처는 `Resources.Load` 결과가 없으면 자동으로 숨고 코드 수관이 그대로 보이도록 폴백한다.
+- 최초 `Resources/GaundeJaba/title.png`와 `public/g/gaunde-jaba/assets/title.png`는 아트 단계의 gpt-image 생성물이었다. 생성 프롬프트와 원본 출처는 `factory/work/art.json`·`factory/work/chosen.json`에 남아 있다. 공개 폴더의 사용하지 않는 `assets/title.png`·`hero.png` 복제본은 1차 수정에서 제거했다.
+- 1차 수정에서는 생성 키 아트와 인게임의 불일치를 없애기 위해 런타임에서 이 텍스처를 로드하지 않는다. 타이틀·플레이·thumb·square 모두 같은 WebGL 관측소 장면을 정본으로 쓴다.
+- 최종 장면은 `GaundeJabaView.cs`가 만드는 야간 시간 표본 관측소다. 남청 금속 구조, 청록 유리판, 황동 클램프, 각진 유리나방 기록관과 표본 봉인 사건으로 구성했다.
+- 이 수정에는 새 생성 이미지·외부 모델·외부 텍스처를 사용하지 않았다. 표지는 최종 WebGL 런타임을 직접 캡처한다.
