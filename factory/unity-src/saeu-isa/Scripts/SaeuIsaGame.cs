@@ -452,7 +452,9 @@ namespace Mgf.SaeuIsa
             goal = Text("새우를 길이별로 옮기면 그래프 완성", new Vector2(.5f, 1f), new Vector2(0, -66), 21, Ivory, 360);
             hud = Text("", new Vector2(.5f, 1f), new Vector2(0, -22), 18, LacquerDark, 380);
             timer = Text("", new Vector2(.5f, 1f), new Vector2(0, -104), 17, LacquerDark, 360);
-            terms = Text("계급: 자료를 나눈 구간   ·   도수: 그 구간의 자료 수\n이상은 포함, 미만은 제외", new Vector2(.5f, 0f), new Vector2(0, 66), 15, LacquerDark, 380);
+            terms = Text("계급: 나눈 구간\n도수: 자료 수\n하한 포함 · 상한 제외", new Vector2(.5f, 0f), new Vector2(0, 66), 15, LacquerDark, 380);
+            terms.fontStyle = FontStyles.Bold;
+            terms.outlineColor = new Color32(242, 232, 213, 220); terms.outlineWidth = .12f;
             formulaPlate = Panel("FormulaInlay", new Color(.95f, .91f, .83f, .92f), new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(360, 62));
             formula = Text("", new Vector2(.5f, .5f), Vector2.zero, 23, Ink, 350);
             feedback = Text("", new Vector2(.5f, .5f), new Vector2(0, 72), 22, LacquerDark, 370);
@@ -499,7 +501,7 @@ namespace Mgf.SaeuIsa
             for (int i = 0; i < samples.Length; i++) HideSample(i);
             SetTitleUi(true); SetGameplayUi(false); SetEndUi(false);
             int best = 0; try { best = PlayerPrefs.GetInt("saeu-isa-best-first", 0); } catch { }
-            titleMeta.text = "중학교 1학년 · 자료의 정리와 해석   최고 첫 시도 " + best + "/24";
+            titleMeta.text = "중학교 1학년 · 자료의 정리와 해석   최고 첫 시도 " + best + "/" + ShrimpRules.Goal;
             MgfBridge.NotifyChanged();
         }
 
@@ -809,7 +811,7 @@ namespace Mgf.SaeuIsa
             else
             {
                 bool mastery = st.firstCorrect >= ShrimpRules.MasteryTarget && st.repairFirstCorrect >= ShrimpRules.RepairTarget;
-                End(mastery, mastery ? "24개 정리 · 첫 시도 기준 달성" : "정리는 끝났지만 첫 시도 기준이 부족합니다");
+                End(mastery, mastery ? ShrimpRules.Goal + "개 정리 · 첫 시도 기준 달성" : "정리는 끝났지만 첫 시도 기준이 부족합니다");
                 return;
             }
             formula.text = band == 1 ? "계급의 크기 10 mm → 5 mm" : "자료 이동: 출발 도수 −1 · 도착 도수 +1";
@@ -1140,7 +1142,7 @@ namespace Mgf.SaeuIsa
 
                 // CanvasScaler는 가로에서 390 논리 폭을 유지한다. 700px 논리 폭을 쓰면 실제로
                 // 화면 전체를 덮으므로, 좌측 정보 헤더와 우측 설명 존을 논리 폭 205/96으로 분리한다.
-                hud.fontSize = 11f; goal.fontSize = 13f; timer.fontSize = 10.5f; feedback.fontSize = 11.5f; terms.fontSize = 10.5f; formula.fontSize = 11.5f;
+                hud.fontSize = 11f; goal.fontSize = 13f; timer.fontSize = 10.5f; feedback.fontSize = 11.5f; terms.fontSize = 10f; formula.fontSize = 11.5f;
                 hud.rectTransform.anchorMin = hud.rectTransform.anchorMax = new Vector2(.28f, .965f);
                 hud.rectTransform.anchoredPosition = Vector2.zero; hud.rectTransform.sizeDelta = new Vector2(205, 16);
                 goalPlate.rectTransform.anchorMin = goalPlate.rectTransform.anchorMax = new Vector2(.28f, .875f);
@@ -1152,8 +1154,8 @@ namespace Mgf.SaeuIsa
                 feedback.rectTransform.anchorMin = feedback.rectTransform.anchorMax = new Vector2(.28f, .715f);
                 feedback.rectTransform.anchoredPosition = Vector2.zero; feedback.rectTransform.sizeDelta = new Vector2(205, 23);
 
-                terms.rectTransform.anchorMin = terms.rectTransform.anchorMax = new Vector2(.865f, .54f);
-                terms.rectTransform.anchoredPosition = Vector2.zero; terms.rectTransform.sizeDelta = new Vector2(96, 72);
+                terms.rectTransform.anchorMin = terms.rectTransform.anchorMax = new Vector2(.845f, .54f);
+                terms.rectTransform.anchoredPosition = Vector2.zero; terms.rectTransform.sizeDelta = new Vector2(112, 72);
                 terms.textWrappingMode = TextWrappingModes.Normal; terms.alignment = TextAlignmentOptions.Center;
 
                 formulaPlate.rectTransform.anchorMin = formulaPlate.rectTransform.anchorMax = new Vector2(.855f, .19f);
@@ -1199,12 +1201,12 @@ namespace Mgf.SaeuIsa
             if (!force && !hud.gameObject.activeSelf) return;
             st.waitingCount = CountWaiting();
             int shown = Mathf.RoundToInt(scoreShown);
-            hud.text = "점수 " + shown + "   안전등 " + Mathf.Max(0, st.lives) + "/3   첫 시도 " + st.firstCorrect + "/22";
-            timer.text = "남은 시간 " + Mathf.Max(0, Mathf.CeilToInt(timeLeft)) + "초   ·   정리 " + st.solved + "/24";
+            hud.text = "점수 " + shown + "   안전등 " + Mathf.Max(0, st.lives) + "/3   첫 시도 " + st.firstCorrect + "/" + ShrimpRules.Goal + " · 통과 " + ShrimpRules.MasteryTarget;
+            timer.text = "남은 시간 " + Mathf.Max(0, Mathf.CeilToInt(timeLeft)) + "초   ·   정리 " + st.solved + "/" + ShrimpRules.Goal;
             feedback.text = feedbackText;
             RefreshTargetState();
             if (mode == Mode.End)
-                endStats.text = endTitleText + "\n점수 " + Mathf.RoundToInt(endScoreShown) + "\n첫 시도 " + st.firstCorrect + "/24 · 수정 " + st.repairFirstCorrect + "/8\n" + st.endReason;
+                endStats.text = endTitleText + "\n점수 " + Mathf.RoundToInt(endScoreShown) + "\n첫 시도 " + st.firstCorrect + "/" + ShrimpRules.Goal + " · 통과 " + ShrimpRules.MasteryTarget + " · 수정 " + st.repairFirstCorrect + "/" + ShrimpRules.SamplesPerBand + "\n" + st.endReason;
         }
 
         void RefreshTargetState()
