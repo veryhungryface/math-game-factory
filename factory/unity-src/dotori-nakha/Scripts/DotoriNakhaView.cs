@@ -500,7 +500,7 @@ namespace Mgf.DotoriNakha
             titleLogoShadow = Txt(board.transform, "도토리 낙하", new Vector2(.5f, .5f), new Vector2(2, 5), 52, BarkDark, 300);
             titleLogo = Txt(board.transform, "<color=#F4E3A6>도토리</color> <color=#F3B53B>낙하</color>", new Vector2(.5f, .5f), new Vector2(0, 11), 52, Paper, 300);
             titleLogo.outlineWidth = .2f; titleLogo.outlineColor = BarkDark;
-            titleTag = Txt(board.transform, "중앙값으로 뿌리 금고를 열어라", new Vector2(.5f, .5f), new Vector2(0, -38), 16, Paper, 280);
+            titleTag = Txt(board.transform, "바구니를 끌어 중앙값에 놓아라", new Vector2(.5f, .5f), new Vector2(0, -38), 16, Paper, 280);
             knotRt = R("StartKnotTag", titleRt, new Vector2(.5f, .2f), Vector2.zero, new Vector2(176, 64));
             knotRingImg = Img(knotRt, "KnotPulse", new Vector2(.5f, .5f), Vector2.zero, new Vector2(230, 120), Paper, ringSprite); knotRingRt = knotRingImg.rectTransform;
             Img(knotRt, "KnotTagBack", new Vector2(.5f, .5f), new Vector2(0, -3), new Vector2(178, 62), Pal.C(Pal.SackDark), pillSprite);
