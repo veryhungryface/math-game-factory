@@ -1,7 +1,38 @@
 # 인수인계 — 현재 상태 (갱신형 문서)
 
-> 마지막 갱신: 2026-10-28. 운영 규약은 `docs/OPERATIONS.md`.
+> 마지막 갱신: 2026-10-29. 운영 규약은 `docs/OPERATIONS.md`.
 > **다음 세션 지침: 작업 상태가 바뀔 때마다 이 문서를 갱신하고 커밋해라.**
+
+## 2026-10-29 — 「양말 대탈출」 2차 재검수 79점 / 미검증 게시 보류
+
+- 최종 QA artifact `53622ebe450298ed526accdd5ed315465161bdc5baa9494f04ddcb84bf97a4a0`의 공식 QA45/45·fatal0, 독립 mathcheck110/110 pass를 확인했고, 표본110문항을 PB=PA·AF=AB−BD·AF=AB−(BC−CF)로 각각 다시 계산해 수학 오류0을 확인했다. 같은 해시의 화면 OCR+실제 pointer 기록은 첫 판 고의 오답 수리 `clear9/first8/lives2`, 결과 배너 재탭 뒤 둘째 판 `clear9/first9/lives3`다.
+- firstplay16프레임은 t013 연습 근거·t015 실전 전이, 무효 탭 리플을 보여 목표·조작·수학은 이해 가능(`yes`)했다. 그러나 `YangmalDaetalchulGame.cs:134-136`이 연습의 실제 선택 길이를 무조건 정답 6 cm로 치환해 1~24 cm 어느 드래그도 통과시키므로 기획의 첫 행동 게이트와 수정 내역을 위반한다.
+- B3 결과는 이전 artifact `d959ab210e…`로 최종 QA 해시와 달라 최종 빌드 무뇌 전략이 미검증이다. 또한 desktop-1280·desktop·wide가 모두 60% 로딩 화면이고 report·firstplay·screen-eval run_id가 null이라 와이드 인게임과 증거 회차도 미검증이다. `review.json`은79점·passed false·reject false·high3이며 게시·허브·queue는 건드리지 않았다.
+
+## 2026-10-29 — 「양말 대탈출」 1차 수정 완료 / QA 45·fatal 0 / 재검수 대기
+
+- 연습을 흰 점 안내에서 손가락 실루엣·점선 궤적·6 cm 목표 링으로 바꾸고, 탭은 통과시키지 않되 실제 드래그가 확인되면 공개 목표에 흡착하게 했다. 최종 firstplay `yangmal-fix1-final-2-20261029`은 수정 전 48초 연습 정체에서 t013 실제 drag→정답 근거→t017 실전 전이로 바뀌었고 ready true·오류0이다. 모바일 HUD는 첫 시도/통과 기준을 두 줄로 옮겨 음소거 안전영역을 비웠다.
+- `ppallaetjul-chulhang`과 겹친 따뜻한 단색 설비 파사드·둥근 에나멜 물성을 폐기하고 남청 세탁물 수직 골목·철망 프레임·겹친 천 패널·교차 직조실·각진 양말·황동 실다리로 바꿨다. thumb/square도 최종 Unity 타이틀에서 재캡처해 런타임과 일치시켰다.
+- 최종 artifact `d959ab210e36097bbc75c98b7981af57fd0c8d5de89b1debc8f0932a2a8adc3e`에서 화면 OCR만 읽는 실제 pointer 첫 판은 고의 오답 수리 뒤 clear9/first8/lives2, 결과 배너를 눌러 시작한 독립 둘째 판은 clear9/first9/lives3다. B3 각200판은 연타4.0%·순환0%·무작위2.5%≤우연4.17%, 무입력 진도0이며 같은 해시다.
+- Unity warnings0·압축 산출물7.9MB, 게임 폴더9976KB다. 최종 공식 QA45/45·fatal0·실GPU 모바일79fps·1280폭77fps·15초 유지69%다. 수학 생성기·정수 판정은 변경하지 않았고 기존 독립 mathcheck107/107 pass를 보존했다. `fix.json`은 fixed6/not_fixed2(nice-to-have만)·replan false이며 게시·허브·queue는 건드리지 않았다.
+
+## 2026-10-29 — 「양말 대탈출」 검수 68점 / 수정 후 재검수
+
+- 최종 QA artifact `4c014b1f621b38107cf3048f0c2eb7f8cfb013c76fc4a8cfc4553ec0110169cb`의 공식 QA45/45·fatal0과 독립 mathcheck107/107 pass를 확인했다. 표본107문항(두 접선37·내접원 한 단계35·연쇄35)을 각각 다시 계산해 수학 오류0을 확인했다.
+- firstplay16프레임은 6초에 연습으로 들어갔지만 frame-07~10의 연속 입력 뒤에도 같은 화면이고 48초까지 실전 전이가 없어 `partial`·온보딩 정체 high다. 모바일에서는 음소거 버튼이 `첫 x/9 · 통과 7`을 덮어 실패 기준이 숨는다.
+- `ppallaetjul-chulhang`과 따뜻한 단색 설비 파사드 배경·둥근 저폴리 에나멜/고무 물성 두 축이 같아 동일 디자인 계열이다. B3·포인터 로그는 이전 artifact `12bb304f…` 증거라 최종 빌드의 무뇌 전략과 독립 두 번째 플레이도 미검증이다. `review.json`은68점·passed false·high5·medium1이며 게시·허브·queue는 건드리지 않았다.
+
+## 2026-10-29 — 「양말 대탈출」 Unity 빌드 완료 / QA 45·fatal 0 / 미게시
+
+- `factory/unity-src/yangmal-daetalchul/`에 정수 생성기·상태/판정·2.5D 세탁방 뷰를 만들고 Unity WebGL로 빌드했다. 문제은행은 3단계×24답×5변형=360문항이며 답을 먼저 정한 뒤 치수를 역생성하고, `center_distance`·`whole_side`·`different_vertex`·`stopped_midway` 오개념 값의 우연 정답을 부팅 때 전수 검사한다.
+- 최종 artifact `12bb304fe8c44b0eaf2215455d108e10140b31d8ebd8e7db818c899830c8f35f`는 Unity warnings0·Unity 산출물7.9MB·게임 폴더10.49MiB다. 공식 QA45/45·fatal0·실GPU 모바일65fps·1280폭80fps·15초 유지100%, 첫플레이16프레임·ready true·console/page error0이다.
+- 최종 artifact에서 실제 pointer 정상판은 clear9/9·첫시도9·실3, 첫 오답 수리판은 clear9/9·첫시도8·실2다. B3 각200판 첫 시도 정답률은 연타4.0%·순환0%·무작위2.5%≤우연4.17%, 무입력 진도0이며 완주율은 모두0%다. `meta.qa.passed=false`인 미게시 상태다.
+
+## 2026-10-29 — m3s2-u2 컨셉 심사 완료 / 「양말 대탈출」 선택
+
+- `factory/work/concept-1~3.json`을 D1~D10과 100점표로 심사해 1안 「양말 대탈출」을 90점, fun 예측 18점으로 선택하고 `factory/work/chosen.json`을 작성했다. 단원 `m3s2-u2`와 표준 `[9수03-18]`은 `curriculum/2022-middle-math.json`에 실재하고 typical_grade도 3이다.
+- 2안은 제출 전 록온 신호를 훑는 무뇌 전략(D1·D9), 반대 접선 자동 생성(D2), 9웨이브·로그라이크·복합 기하 과욕(D6), `sudal-dari`·`sumun-yeoreo`와 겹친 에메랄드 항구/목재 도크·수달 계열(D7)로 탈락했다. 3안은 노란 점선 추종(D1·D9), 작도 근거 없이 ±4° 접점을 찍는 후기 단계(D10), 영구 구멍·융해·충돌까지 묶은 과욕(D6)으로 탈락했다.
+- 승자에는 3안의 실패 궤적 기억을 제출 후 보풀 활주선과 착지점 비교로, 2안의 록온 손맛을 제출 후 고무 손잡이 잠금음·릴 반동으로 번역해 `core_loop`·`fun_contract`·`reward`·`wow_moment`·`art_direction.feedback_signature`에 실제 반영했다. 제출 전 정답 근접 신호는 추가하지 않아 이론 무작위 첫 제출률 1/24를 유지한다.
 
 ## 2026-10-28 — 「도토리 낙하」 2차 재검수 88점 / 게시 통과
 
@@ -3197,3 +3228,9 @@ t=1s 43fps → t=8s 이후 **14~15fps 로 고정**(DOM 노드 101개 flat — �
 - 820×1180에서 손잡이를 따라가던 각도 읽기표가 HUD·발문 뒤로 겹치던 문제를 세로 안전띠 배치로 고쳤다. 첫 플레이 무효 입력은 ① 손잡이 → ② 유령 레일 120° → ③ 손 떼기 안내로 단계화했으며 자동 성공·정답 흡착은 추가하지 않았다.
 - 최종 artifact `5154272b3894f8cf67cd3e4ea4728d44466f7e1caf3b700b159d0e10c66d45f4`. 실제 pointer 정상판은 clear8/8·첫 제출8/8, 첫 오답 회복판은 clear8/8·첫 제출7/8·공2, 숙달 불가와 공0 경로는 gameover이며 오류0이다.
 - Unity 빌드 산출물8.0MB(게임 폴더10420KB), 공식 QA45/45·fatal0·실GPU 모바일79fps·1280폭77fps·15초 유지100%다. `fix.json`은 fixed3/not_fixed0/replan false이며 게시·허브·queue는 건드리지 않았다.
+
+## 2026-10-29 — 「양말 대탈출」 3차 수정 완료 / QA 45·fatal 0 / 미게시
+- 최신 review 79점의 high 3건을 모두 수정했다. 연습은 실제 놓은 정수 눈금을 그대로 판정해 12 cm가 `wrong`으로 남고 연습을 벗어나지 않으며, 실제 6 cm 드래그만 통과한다. 화면 OCR 평가자는 이 실패 사례와 6 cm 성공을 같은 포인터 경로로 재현했다.
+- 태블릿→데스크톱 뷰포트 전환 재로드 뒤 ready를 다시 기다리도록 QA 하네스를 고쳤다. 1280×800·1440×900·2000×1045 캡처는 모두 로딩 화면이 아닌 실제 인게임이며 좌 도형·우 발문/자·전폭 세계의 겹침이 없다.
+- 최종 run_id `20261029-055257-fix3-final`, artifact `4718a55ed6af2e9215877a86de7e3a3afe160f6a0ad8e01c992928394e7eb737`가 QA·firstplay·화면 OCR 두 판·B3에 모두 일치한다. 화면 평가 첫 판은 오답 수리 뒤 clear9/9·첫시도8·실2, 독립 둘째 판은 clear9/9·첫시도9·실3이다.
+- Unity 빌드 warnings0·산출물7.9MB(게임 폴더9984KB), 공식 QA45/45·fatal0·실GPU 모바일78fps·1280폭62fps·15초 유지93%다. B3 각200판은 연타4.0%·순환0%·무작위2.5%≤우연4.17%, 무입력진도0이다. `fix.json`은 fixed3/not_fixed3(nice-to-have만)·replan false이며 게시·허브·queue는 건드리지 않았다.
