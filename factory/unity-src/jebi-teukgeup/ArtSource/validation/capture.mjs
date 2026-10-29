@@ -1,0 +1,53 @@
+// 실제 포인터로 타이틀→연습(12 cm 실패→7 cm 성공)→실전 1역 오답·정답 장면을 찍는다.
+import fs from 'node:fs';
+import path from 'node:path';
+import { launch, startServer, openGame, pull, state, sleep } from './common.mjs';
+const OUT = path.join(path.dirname(new URL(import.meta.url).pathname), 'shots');
+fs.mkdirSync(OUT, { recursive: true });
+const server = await startServer();
+const browser = await launch();
+const shots = [];
+async function snap(page, name) { const f = path.join(OUT, name + '.png'); await page.screenshot({ path: f }); shots.push(name); }
+for (const [w, h, tag] of [[390, 844, 'p'], [1280, 800, 'l']]) {
+  const { page, errors } = await openGame(browser, server, w, h, tag);
+  await snap(page, `${tag}-00-title`);
+  await page.mouse.click(w * 0.5, h * 0.5);
+  await sleep(1400);
+  await snap(page, `${tag}-01-practice`);
+  await pull(page, w, h, 0, 12);
+  await sleep(500);
+  await snap(page, `${tag}-02-practice-wrong`);
+  await sleep(1700);
+  const s1 = await state(page);
+  await pull(page, w, h, s1.selectedLength, 7);
+  await sleep(700);
+  await snap(page, `${tag}-03-practice-correct`);
+  await sleep(3800);
+  const s2 = await state(page);
+  await snap(page, `${tag}-04-station1`);
+  const wrongV = s2.selectedLength === 0 ? 3 : 3;
+  await pull(page, w, h, s2.selectedLength, wrongV);
+  await sleep(1000);
+  await snap(page, `${tag}-05-station1-wrong`);
+  await sleep(1200);
+  await page.evaluate(() => { window.__GAME_TEST__.answerCorrect(); window.__GAME_TEST__.answerCorrect(); window.__GAME_TEST__.answerCorrect(); });
+  await sleep(1600);
+  await snap(page, `${tag}-06-after3`);
+  await page.evaluate(() => { window.__GAME_TEST__.answerCorrect(); window.__GAME_TEST__.answerCorrect(); });
+  await sleep(1300);
+  await snap(page, `${tag}-06b-bridge`);
+  await sleep(3200);
+  await snap(page, `${tag}-07-incircle`);
+  const s3 = await state(page);
+  await pull(page, w, h, s3.selectedLength, 2);
+  await sleep(900);
+  await snap(page, `${tag}-08-incircle-wrong`);
+  await page.evaluate(() => { const g = window.__GAME_TEST__; g.answerWrong(); g.answerWrong(); g.answerWrong(); });
+  await sleep(2500);
+  await snap(page, `${tag}-09-end`);
+  console.log(tag, JSON.stringify(await state(page)), 'errors', errors);
+  await page.close();
+}
+await browser.close(); server.close?.();
+console.log('shots', shots.join(','));
+process.exit(0);
