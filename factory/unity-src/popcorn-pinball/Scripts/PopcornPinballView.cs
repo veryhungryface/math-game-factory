@@ -57,7 +57,7 @@ namespace Mgf.PopcornPinball
         TextMeshProUGUI resultTitle, resultStats, resultReason, resultRestart;
         RectTransform restartCta;
 
-        Sprite plateSprite, ringSprite, discSprite, faceSprite, arrowSprite, stripeSprite;
+        Sprite plateSprite, ringSprite, thinRingSprite, discSprite, faceSprite, arrowSprite, stripeSprite;
         Vector2 circleCenter;
         float circleRadius;
         Vector2 pPoint, aPoint, bPoint, refDir, aimDir;
@@ -233,6 +233,12 @@ namespace Mgf.PopcornPinball
                     MgfLook.Prim(PrimitiveType.Sphere, "Tin rivet", new Vector3(x, -3.4f + b * 4.9f, 4.55f),
                         new Vector3(.22f, .22f, .13f), tinMat, worldRoot, false);
             }
+            // 세로 화면에서도 버터 노랑 기계 케이스가 사라지지 않도록 유리 안쪽에 얇은 접힌 채널을 둔다.
+            // 어두운 패널을 더하지 않고, 조준실과 자판기 외장을 같은 물성으로 잇는 역할이다.
+            MgfLook.Block("Left inner butter guide", new Vector3(-4.25f, 1.5f, 4.72f),
+                new Vector3(.44f, 14.2f, .32f), .055f, butterLightMat, worldRoot);
+            MgfLook.Block("Right inner butter guide", new Vector3(4.25f, 1.5f, 4.72f),
+                new Vector3(.44f, 14.2f, .32f), .055f, butterLightMat, worldRoot);
 
             // 팝콘은 상단 호퍼에서 한 줄로 대기한다. 평평한 작업대 위 산개를 피한다.
             for (int i = 0; i < worldPopcorn.Length; i++)
@@ -286,6 +292,7 @@ namespace Mgf.PopcornPinball
             plateSprite = MakePlateSprite();
             stripeSprite = MakePlateSprite(true);
             ringSprite = MakeRingSprite();
+            thinRingSprite = MakeRingSprite(.88f);
             faceSprite = MakeFilledDiscSprite();
             arrowSprite = MakeArrowSprite();
             discSprite = Sprite.Create(MgfLook.SoftDot, new Rect(0, 0, MgfLook.SoftDot.width, MgfLook.SoftDot.height), new Vector2(.5f, .5f), 100f);
@@ -329,14 +336,14 @@ namespace Mgf.PopcornPinball
             promptText = Txt("Target condition", promptPlaque, "", Vector2.zero, 18, Paper, 340);
 
             circleRoot = R("Front orthographic aiming chamber", gameRoot, new Vector2(.5f, .5f), Vector2.zero, new Vector2(320, 320));
-            circleFace = Img("Glass aiming face", circleRoot, Vector2.zero, new Vector2(300, 300), new Color(GlassBlue.r, GlassBlue.g, GlassBlue.b, .93f), faceSprite);
-            circleRing = Img("Brushed tin circular rim", circleRoot, Vector2.zero, new Vector2(310, 310), Tin, ringSprite);
+            circleFace = Img("Printed teal aiming face", circleRoot, Vector2.zero, new Vector2(300, 300), new Color(.16f, .34f, .35f, .98f), faceSprite);
+            circleRing = Img("Thin brushed tin circular rim", circleRoot, Vector2.zero, new Vector2(310, 310), new Color32(232, 220, 185, 255), thinRingSprite);
             centerDot = Img("Center O", circleRoot, Vector2.zero, new Vector2(18, 18), Paper, discSprite);
             centerLabel = Txt("Center O label", circleRoot, "O", new Vector2(18, -12), 14, Paper, 30);
             fixedRay = Img("Fixed line PA", circleRoot, Vector2.zero, new Vector2(10, 5), Tin, discSprite);
             aimRay = Img("Current ray PB", circleRoot, Vector2.zero, new Vector2(10, 7), Red, discSprite);
             targetRay = Img("Revealed target ray", circleRoot, Vector2.zero, new Vector2(10, 4), Mint, discSprite);
-            barrel = Img("Short movable barrel", circleRoot, Vector2.zero, new Vector2(72, 24), Ink, plateSprite);
+            barrel = Img("Butter enamel movable barrel", circleRoot, Vector2.zero, new Vector2(72, 24), ButterLight, plateSprite);
             handle = Img("Cherry red barrel handle", circleRoot, Vector2.zero, new Vector2(58, 58), Red, ringSprite);
             handleRt = handle.rectTransform;
             pDot = Img("Point P", circleRoot, Vector2.zero, new Vector2(24, 24), Red, discSprite);
@@ -346,7 +353,8 @@ namespace Mgf.PopcornPinball
             aLabel = Txt("A label", circleRoot, "A", Vector2.zero, 15, Paper, 28);
             bLabel = Txt("B question label", circleRoot, "B?", Vector2.zero, 15, Paper, 38);
             for (int i = 0; i < tickMarks.Length; i++)
-                tickMarks[i] = Img("Equal 5 degree tick " + (i + 1), circleRoot, Vector2.zero, new Vector2(11, 3), Paper, discSprite);
+                tickMarks[i] = Img("Printed 5 degree tick " + (i + 1), circleRoot, Vector2.zero,
+                    new Vector2(i % 5 == 4 ? 20 : 14, 4), i % 5 == 4 ? Red : ButterLight, discSprite);
             angleText = Txt("Magnified selected angle", circleRoot, "주차 0°", new Vector2(0, -116), 24, Paper, 175);
             relationText = Txt("Visible relation", circleRoot, "중심각 = 원주각 × 2", new Vector2(0, 118), 15, Paper, 230);
 
@@ -421,11 +429,11 @@ namespace Mgf.PopcornPinball
             {
                 ShowRipple(local);
                 NotePointer("pointer-down");
-                // 모바일 터치 에뮬레이션에서 release가 캔버스 밖으로 빠졌다면 다음 탭을 이전 연습 drag의 놓기로 회복한다.
+                // 모바일 터치 에뮬레이션에서 release가 캔버스 밖으로 빠졌다면 다음 탭을 이전 drag의 놓기로 회복한다.
+                // 이때도 학생이 마지막으로 만든 눈금을 그대로 제출한다. 정답 눈금으로 바꾸면 학습 판정이 거짓이 된다.
                 if (phase == Phase.Practice && aimDragging && st.selectedTick > 0)
                 {
-                    draggedTick = current.answerTick;
-                    SetAimTick(current.answerTick, true);
+                    draggedTick = st.selectedTick;
                     FinishAimDrag();
                     return;
                 }
@@ -547,18 +555,10 @@ namespace Mgf.PopcornPinball
             st.dragging = false;
             handle.rectTransform.localScale = Vector3.one;
             int releaseTick = draggedTick > 0 ? draggedTick : st.selectedTick;
-            if (phase == Phase.Practice && releaseTick > 0)
-            {
-                SetAimTick(current.answerTick, true);
-                SubmitTick(current.answerTick);
-                return;
-            }
             if (draggedDistance < 18f) RefuseAim("포신을 한 눈금 이상 돌린 뒤 놓으시오");
             else if (releaseTick < 1 || releaseTick > PopcornRules.TickCount) RefuseAim("5°~85° 눈금 안에서 놓으시오");
             else
             {
-                // 연습은 조작을 익히는 구간이다. 충분히 끌었다면 목표 링에 스냅해 관계식을 바로 보여 준다.
-                if (phase == Phase.Practice) releaseTick = current.answerTick;
                 SetAimTick(releaseTick, true);
                 SubmitTick(releaseTick);
             }
@@ -650,7 +650,16 @@ namespace Mgf.PopcornPinball
             PlaceLine(barrel.rectTransform, pPoint, pPoint + aimDir * Mathf.Min(76f, circleRadius * .52f), 24f);
             handleRt.anchoredPosition = pPoint + aimDir * Mathf.Min(74f, circleRadius * .51f);
             bDot.rectTransform.anchoredPosition = bPoint;
-            bLabel.rectTransform.anchoredPosition = bPoint + new Vector2(18, 12);
+            Vector2 labelOut = bPoint.sqrMagnitude > 1f ? bPoint.normalized * 22f : new Vector2(22f, 12f);
+            bool nearA = Vector2.Distance(bPoint, aPoint) < circleRadius * .40f;
+            bLabel.rectTransform.anchoredPosition = bPoint + labelOut + (nearA ? new Vector2(30f, -22f) : new Vector2(8f, 4f));
+            aLabel.rectTransform.anchoredPosition = aPoint + (nearA ? new Vector2(-25f, 18f) : new Vector2(0f, 18f));
+            for (int i = 0; i < tickMarks.Length; i++)
+            {
+                bool selected = tick == i + 1;
+                tickMarks[i].color = selected ? Red : (i % 5 == 4 ? Paper : ButterLight);
+                tickMarks[i].rectTransform.localScale = selected ? new Vector3(1.25f, 1.45f, 1f) : Vector3.one;
+            }
             angleText.text = tick <= 0 ? "주차 0°" : "현재 " + angle.ToString("0") + "°";
         }
 
@@ -689,6 +698,9 @@ namespace Mgf.PopcornPinball
                 else if (current.band == 2) feedbackMath.text = "(" + current.splitU + "° + " + current.splitV + "°) ÷ 2 = " + chosen + "°";
                 else feedbackMath.text = "같은 작은 호 AB → ∠AQB = ∠APB = " + chosen + "°";
             }
+            else if (practice)
+                feedbackMath.text = "선택 " + chosen + "° → 중심각 " + (chosen * 2) + "°\n목표 "
+                    + current.answerAngle + "° → 중심각 " + current.centralAngle + "°";
             else feedbackMath.text = "실제 중심각 " + (chosen * 2) + "° / 목표 중심각 " + current.centralAngle + "°";
             feedbackTitle.color = correct ? Mint : Red;
             targetRay.gameObject.SetActive(!correct);
@@ -1075,9 +1087,9 @@ namespace Mgf.PopcornPinball
             for (int i = 0; i < tickMarks.Length; i++)
             {
                 Vector2 d = Rotate(refDir, -(i + 1) * 5f);
-                tickMarks[i].rectTransform.anchoredPosition = pPoint + d * (circleRadius * .33f + (i % 5 == 4 ? 5f : 0f));
+                tickMarks[i].rectTransform.anchoredPosition = pPoint + d * (circleRadius * .39f + (i % 5 == 4 ? 6f : 0f));
                 tickMarks[i].rectTransform.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-                tickMarks[i].rectTransform.sizeDelta = new Vector2(i % 5 == 4 ? 16f : 10f, 3f);
+                tickMarks[i].rectTransform.sizeDelta = new Vector2(i % 5 == 4 ? 20f : 14f, 4f);
             }
             angleText.rectTransform.anchoredPosition = new Vector2(0, -circleRadius * .63f);
             relationText.rectTransform.anchoredPosition = new Vector2(0, circleRadius * .57f);

@@ -14,7 +14,7 @@ const GAME = path.join(PUBLIC, 'g/popcorn-pinball');
 const OUT = path.join(HERE, 'pointer-playthrough');
 fs.mkdirSync(OUT, { recursive: true });
 const W = 390, H = 844, sleep = ms => new Promise(r => setTimeout(r, ms));
-const RUN_ID = process.env.MGF_RUN_ID || `popcorn-fix2-${Date.now()}`;
+const RUN_ID = process.env.MGF_RUN_ID || `popcorn-fix3-${Date.now()}`;
 
 function artifactHash() {
   const hash = crypto.createHash('sha256');
@@ -75,7 +75,17 @@ async function run(page, recovery, prefix, fromResult = false) {
   const inputLog = [];
   await page.mouse.click(195, fromResult ? 570 : 598);
   await page.waitForFunction(() => window.__GAME_TEST__.getState().phase === 'practice', { timeout: 3000 });
+  if (recovery) {
+    await dragTick(page, 5, inputLog, 'practice-wrong-25deg');
+    await page.screenshot({ path: path.join(OUT, `${prefix}-practice-wrong-feedback.png`) });
+    await page.waitForFunction(() => {
+      const s = window.__GAME_TEST__.getState();
+      return s.phase === 'practice' && s.lastAction === 'practice-retry' && s.shots === 1;
+    }, { timeout: 5000 });
+    await page.screenshot({ path: path.join(OUT, `${prefix}-practice-wrong-stays-practice.png`) });
+  }
   await dragTick(page, 8, inputLog, 'practice-40deg');
+  await page.screenshot({ path: path.join(OUT, `${prefix}-practice-correct-feedback.png`) });
   await page.waitForFunction(() => window.__GAME_TEST__.getState().phase === 'playing', { timeout: 5000 });
   await page.screenshot({ path: path.join(OUT, `${prefix}-start.png`) });
   if (recovery) {
