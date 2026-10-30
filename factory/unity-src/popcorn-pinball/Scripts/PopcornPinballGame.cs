@@ -80,8 +80,8 @@ namespace Mgf.PopcornPinball
         void PrewarmText()
         {
             var sb = new StringBuilder("팝콘핀볼포신을돌려쏴라중학교3학년원주각상자를눌러시작");
-            sb.Append("포신각을맞춰쏘면상자가찬다목표중심각호길이첫발여분남은시간수리완성");
-            sb.Append("중심각원주각같은호반원지름현비례구하고포신으로나타내시오눈금안에서놓으시오");
+            sb.Append("포신각을맞춰쏘면상자가찬다목표중심각같은호첫발여분남은시간수리완성");
+            sb.Append("중심각원주각같은호반원지름현구하고포신으로나타내시오눈금안에서놓으시오");
             sb.Append("중심각은원주각의두배같은호의원주각은같다반원에대한원주각은90도");
             for (int i = 0; i < bank.Count; i++)
             {

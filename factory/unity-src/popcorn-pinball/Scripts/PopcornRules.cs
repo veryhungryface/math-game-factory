@@ -21,9 +21,6 @@ namespace Mgf.PopcornPinball
         public int splitU;
         public int splitV;
         public int referenceTick;
-        public int scale;
-        public int referenceArcLength;
-        public int targetArcLength;
         public string prompt;
         public string concept;
     }
@@ -79,33 +76,26 @@ namespace Mgf.PopcornPinball
                 splitU = u,
                 splitV = v,
                 prompt = "원 O에서 점 T는 작은 호 AB 위에 있고 ∠AOT=" + u + "°, ∠TOB=" + v
-                    + "°이다. 원주각 ∠APB의 크기를 구하고 포신으로 나타내시오.",
+                    + "°이다. 작은 호 AB에 대한 원주각 ∠APB의 크기를 구하고 포신으로 나타내시오.",
                 concept = "나뉜 중심각과 원주각"
             };
         }
 
-        public static PinballProblem MakeBand3(int a, int r, int s, string id)
+        public static PinballProblem MakeBand3(int a, string id)
         {
-            if (r == a || r < 1 || r > TickCount) throw new ArgumentOutOfRangeException(nameof(r));
-            if (s < 1 || s > 3) throw new ArgumentOutOfRangeException(nameof(s));
-            int refLength = s * r;
-            int targetLength = s * a;
-            int refAngle = 5 * r;
+            if (a < 1 || a > TickCount) throw new ArgumentOutOfRangeException(nameof(a));
+            int angle = 5 * a;
             return new PinballProblem
             {
                 id = id,
                 band = 3,
                 answerTick = a,
-                answerAngle = 5 * a,
+                answerAngle = angle,
                 centralAngle = 10 * a,
-                referenceTick = r,
-                scale = s,
-                referenceArcLength = refLength,
-                targetArcLength = targetLength,
-                prompt = "같은 원 O에서 호 CD의 길이는 " + refLength + " cm이고 그 호에 대한 원주각 ∠CQD="
-                    + refAngle + "°이다. 호 AB의 길이가 " + targetLength
-                    + " cm일 때, 원주각 ∠APB의 크기를 구하고 포신으로 나타내시오.",
-                concept = "호의 길이와 원주각의 비"
+                referenceTick = a,
+                prompt = "같은 원 O에서 ∠AQB와 ∠APB는 모두 작은 호 AB에 대한 원주각이다. ∠AQB="
+                    + angle + "°일 때, ∠APB의 크기를 구하고 포신으로 나타내시오.",
+                concept = "같은 호에 대한 원주각"
             };
         }
 
@@ -119,10 +109,7 @@ namespace Mgf.PopcornPinball
                 int j = rng.Next(1, 2 * a);
                 return MakeBand2(a, j, "run-" + serial + "-b2-a" + a + "-j" + j);
             }
-            int r = rng.Next(1, TickCount);
-            if (r >= a) r++;
-            int s = rng.Next(1, 4);
-            return MakeBand3(a, r, s, "run-" + serial + "-b3-a" + a + "-r" + r + "-s" + s);
+            return MakeBand3(a, "run-" + serial + "-b3-a" + a);
         }
 
         public static bool IsCorrect(PinballProblem p, int selectedTick)
@@ -142,8 +129,8 @@ namespace Mgf.PopcornPinball
                 if (p.splitU % 10 == 0) raw.Add(new DiagnosticAim("one_split_half_u", p.splitU / 10));
                 if (p.splitV % 10 == 0) raw.Add(new DiagnosticAim("one_split_half_v", p.splitV / 10));
             }
-            if (p.band == 3 && (p.referenceTick * p.referenceTick) % p.answerTick == 0)
-                raw.Add(new DiagnosticAim("arc_ratio_reversed", p.referenceTick * p.referenceTick / p.answerTick));
+            if (p.band == 3)
+                raw.Add(new DiagnosticAim("same_arc_changed", p.answerTick == TickCount ? p.answerTick - 1 : p.answerTick + 1));
 
             var result = new List<DiagnosticAim>();
             var used = new HashSet<int>();
@@ -170,17 +157,15 @@ namespace Mgf.PopcornPinball
             return selectedTick > p.answerTick ? "aimed_too_wide" : "aimed_too_narrow";
         }
 
-        // 실제 게임과 같은 Make/IsCorrect 경로에서 1,122개 고유 문항을 만든다.
+        // 실제 게임과 같은 Make/IsCorrect 경로에서 323개 고유 문항을 만든다.
         public static List<MgfProblem> BuildBank()
         {
-            var bank = new List<MgfProblem>(1122);
+            var bank = new List<MgfProblem>(323);
             int serial = 1;
             for (int a = 1; a <= TickCount; a++) Add(bank, MakeBand1(a, "bank-" + serial++));
             for (int a = 1; a <= TickCount; a++)
                 for (int j = 1; j <= 2 * a - 1; j++) Add(bank, MakeBand2(a, j, "bank-" + serial++));
-            for (int a = 1; a <= TickCount; a++)
-                for (int r = 1; r <= TickCount; r++) if (r != a)
-                    for (int s = 1; s <= 3; s++) Add(bank, MakeBand3(a, r, s, "bank-" + serial++));
+            for (int a = 1; a <= TickCount; a++) Add(bank, MakeBand3(a, "bank-" + serial++));
             return bank;
         }
 
@@ -220,15 +205,10 @@ namespace Mgf.PopcornPinball
                     if (p2.splitU + p2.splitV != p2.centralAngle) throw new InvalidOperationException("분할 중심각 합 오류");
                     ValidateOne(p2, ref accidentalTrue); checkedProblems++;
                 }
-                for (int r = 1; r <= TickCount; r++) if (r != a)
-                    for (int s = 1; s <= 3; s++)
-                    {
-                        var p3 = MakeBand3(a, r, s, "v3");
-                        // (5r) * (sa)/(sr) = 5a 를 정수 교차곱으로 검산한다.
-                        if ((5 * r) * p3.targetArcLength != p3.answerAngle * p3.referenceArcLength)
-                            throw new InvalidOperationException("호 길이 비 정수 검산 오류");
-                        ValidateOne(p3, ref accidentalTrue); checkedProblems++;
-                    }
+                var p3 = MakeBand3(a, "v3");
+                if (p3.referenceTick != p3.answerTick)
+                    throw new InvalidOperationException("같은 호 원주각 불변 오류");
+                ValidateOne(p3, ref accidentalTrue); checkedProblems++;
             }
             if (accidentalTrue != 0) throw new InvalidOperationException("오개념 우연 정답 " + accidentalTrue + "건");
             if (checkedProblems != bank.Count) throw new InvalidOperationException("은행/검산 개수 불일치");

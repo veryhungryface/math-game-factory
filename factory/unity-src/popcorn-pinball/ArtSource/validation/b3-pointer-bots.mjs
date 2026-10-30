@@ -13,6 +13,7 @@ const PUBLIC = path.join(ROOT, 'public');
 const GAME = path.join(PUBLIC, 'g/popcorn-pinball');
 const TRIALS = +(process.env.TRIALS || 200);
 const W = 390, H = 844, CHANCE = 1 / 17;
+const RUN_ID = process.env.MGF_RUN_ID || `popcorn-fix2-b3-${Date.now()}`;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function chromePath() {
@@ -147,12 +148,13 @@ const browser = await puppeteer.launch({
   args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio'],
 });
 try {
+  // 장시간 600판 뒤 새 Unity 페이지가 뜨지 않는 브라우저 수명 문제를 피하려고 가벼운 무입력을 먼저 측정한다.
+  const idle = await runIdle(browser, server);
   const repeat = await runPolicy(browser, server, 'repeat');
   const cycle = await runPolicy(browser, server, 'cycle');
   const random = await runPolicy(browser, server, 'random');
-  const idle = await runIdle(browser, server);
   const output = {
-    generatedAt: new Date().toISOString(), artifactHashSha256: artifactHash(), viewport: `${W}x${H}`,
+    generatedAt: new Date().toISOString(), runId: RUN_ID, artifactHashSha256: artifactHash(), viewport: `${W}x${H}`,
     method: 'trusted Puppeteer mouse down/move/up on the final Unity WebGL canvas; start() only resets runs; answer/sample hooks and problem answers are never read',
     criterion: 'active policies are not significantly above 1/17 chance (one-sided binomial p>=0.05); idle progress is zero',
     chance: { formula: '1/17', rate: CHANCE }, repeat, cycle, random, idle,
