@@ -1,8 +1,8 @@
 # Art source
 
-아트 단계 생성물은 `public/g/poksinhan-kkokdaegi/assets/`에 보존한다. 런타임은 빌드 크기와 로딩 시간을 줄이기 위해 해당 비트맵을 복제하지 않고, 같은 팔레트와 실루엣을 Unity 프리미티브로 재구성한다.
+- `generated/hero.png`, `generated/fabric.png`: 아트 단계 생성 원본. 프롬프트는 `factory/work/art.json`·`chosen.json` 기록.
+- `Resources/PoksinhanKkokdaegi/gecko.png`: hero.png 흰 배경을 지워 640px로 줄인 런타임 스프라이트(위 절반 서기, 아래 절반 배 깔기).
+- `Resources/PoksinhanKkokdaegi/quilt.png`: fabric.png에서 누비 한 칸만 잘라 256px 타일로 만든 것. UV 1 = 눈금 1칸이라 방석 위 칸 수가 곧 넓이다.
+- `thumb.png`·`square.png`는 최종 WebGL 타이틀을 `validation/capture-runtime-covers.mjs`로 촬영한다.
 
-- `hero.png`: 크림색 봉제 도마뱀, 먹색 눈, 연두 지퍼 꼬리의 포즈 참고.
-- `fabric.png`: 진홍 누비 천, 상아색 봉제선의 재질 참고.
-- `title.png`: 방석 절벽과 중앙 봉제 라벨의 타이틀 구도 참고.
-- 생성 프롬프트와 크기·출처 기록: `factory/work/art.json`, `factory/work/chosen.json`.
+검증: `validation/screen-eval-playthrough.mjs`(OCR로 풀이하는 3판), `validation/pointer-bot-audit.mjs`(실제 pointer 무뇌 봇), `validation/look-capture.mjs`(장면 캡처).
