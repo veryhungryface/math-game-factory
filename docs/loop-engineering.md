@@ -734,6 +734,10 @@ $ node factory/lib/verify-catalog.mjs
 `game-references.json`(현재 sites 143 · mechanics 28 · visual_refs 46 · art_directions 10축)에 병합된다.
 스카우트는 게임 게시 이후에만 돌고, 실패해도 사이클을 죽이지 않는다(부가 작업이므로 `die()` 하지 않는다).
 
+**2026-10-31 보강:** 승인이 8/20 이후 한 번도 없어 후보 7파일이 기획자에게 닿지 않았다. 승인 게이트는 유지하고,
+최근 3파일 요약(`trend-digest.mjs`)과 사람이 관리하는 `references/trends-current.md` 를 기획 프롬프트에 **참고용**으로 넣는다.
+주기는 7작(`SCOUT_EVERY=7`). 3D 쏠림은 이진 게이트(`render-rule.mjs`, `flat-2d|mesh-3d`)로 막는다. 스타일 열거형은 §7.8 대로 만들지 않았다.
+
 ---
 
 ## 8. 모델 티어링

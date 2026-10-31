@@ -116,6 +116,14 @@ const candidates = allMechanics
 // 상위 5개를 후보로 넘긴다 — 기획 에이전트가 그 중에서 고르거나 조합한다.
 const mechanicPool = candidates.slice(0, 5).map(({ _score, ...m }) => m);
 
+// 3D 쏠림 방지 (2026-10-31): 최근 6작 중 조명 메쉬 3D 가 2작을 넘으면 이번 회차는 평면 2D 만 허용한다.
+// 필드가 없는 예전 게시작은 3D 로 친다. 판정·기록은 factory/lib/render-rule.mjs.
+const recentMiddle = publishedMetas
+  .filter((m) => /^m\d/.test(m?.unit?.id || ''))
+  .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+  .slice(-6);
+const recentMesh3d = recentMiddle.filter((m) => m.render_dimension !== 'flat-2d').length;
+
 const slot = {
   picked_at: nowKST(),
   school: SCHOOL,
@@ -158,6 +166,9 @@ const slot = {
   // 기획 에이전트는 이 목록에 있는 무드/배경색과 겹치지 않는 걸 골라야 한다.
   avoid_palette_moods: (queue.palette_history || []).slice(-6).map((p) => ({ mood: p.mood, bg: p.bg })),
   total_published: publishedMetas.length,
+  ...(SCHOOL === 'middle' ? {
+    render_rule: { mesh3d_allowed: recentMesh3d <= 2, recent_mesh3d: recentMesh3d, recent_window: recentMiddle.length },
+  } : {}),
 };
 
 if (flag('write') !== null) {

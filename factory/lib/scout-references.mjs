@@ -16,7 +16,7 @@ import { P, readJSON, writeJSON, nowKST } from './paths.mjs';
 
 const STATE_FILE = path.join(P.root, 'references/scout-state.json');
 const PENDING_DIR = path.join(P.root, 'references/pending');
-const EVERY_N_GAMES = Number(process.env.SCOUT_EVERY || 10);
+const EVERY_N_GAMES = Number(process.env.SCOUT_EVERY || 7);
 
 // 아직 안 판 카테고리 순서대로 로테이션한다. 다 돌면 처음부터 다시.
 const CATEGORY_ROTATION = [
@@ -27,6 +27,8 @@ const CATEGORY_ROTATION = [
   '리듬·타이밍 게임의 최신 변형 (모바일 리듬게임, 타이밍바 챌린지)',
   '물리 기반 파괴·건설 게임 (Getting Over It 류, 타워 무너뜨리기)',
   '카드 덱빌딩·로그라이크 최신작 (Balatro 이후 유행한 것들)',
+  '지금 앱스토어·구글플레이 차트에서 오르는 캐주얼·퍼즐 (월간 시장 리포트 기준)',
+  '평면 2D 아트 스타일의 최신 사례 (픽셀아트·손그림·판화·만화·종이 오리기 게임과 웹 데모)',
   '숫자/타일 퍼즐의 새로운 변형 (2048 이후 나온 머지·타일 게임들)',
   '게임 사운드 디자인·게임필(juice) 전문 레퍼런스 사이트',
   '한국 초등학생 사이 인기 있는 웹/앱 게임 (실사용 데이터 기반)',

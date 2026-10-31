@@ -7,7 +7,7 @@
 > 합격작이 없으면 그날 0개여도 된다 — 미검증을 통과시켜 생산량을 채우는 것이 더 나쁘다.
 > 근거: `docs/gpt6-factory-audit-20260905.md` §5.
 
-> **2026-09-26 중학교 라인 신설.** `SCHOOL=middle` 회차는 `curriculum/2022-middle-math.json`(중2 2학기)에서
+> **2026-09-26 중학교 라인 신설.** `SCHOOL=middle` 회차는 `curriculum/2022-middle-math.json`(포커스는 `factory/config.sh`, 2026-10-31 기준 중1·중3 2학기)에서
 > 슬롯을 뽑고 **Unity WebGL 트랙**(`docs/unity-track.md`, 소스 `factory/unity-src/<slug>/`)으로 만든다.
 > 하루 1작 가드는 학교급별, 락은 공유. 중학교 회차의 추가 계약은 `factory/prompts/_school-middle.md` 가 정본이다
 > (이 문서의 「초등 N학년」 서술은 그 회차에선 슬롯 학교급·학년으로 읽어라).

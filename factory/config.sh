@@ -19,8 +19,7 @@ case "$SCHOOL" in elementary|middle) ;; *) echo "SCHOOL 은 elementary|middle �
 if [ "$SCHOOL" = "middle" ]; then
   export CURRICULUM_FILE="curriculum/2022-middle-math.json"
   export SCHOOL_TAG="[중학교]"
-  _FOCUS_DEFAULT="1-2,2-2,3-2"  # 중1·2·3 2학기 (2026-10-23 사용자 지시 「중1, 3 2학기 컨텐츠가 너무 없어」 — 9/26 중2-2 단독에서 확장).
-                            # pick-slot 은 게임 수가 적은 단원부터 뽑으므로 중1-2·중3-2 가 먼저 채워진다.
+  _FOCUS_DEFAULT="1-2,3-2"  # 중1·중3 2학기 (2026-10-31 사용자 지시 — 중2 는 이미 단원당 4~6작이라 뺐다)
   _PRIORITY_DEFAULT=""
   # 중학교는 Unity(WebGL) 트랙으로 만든다 — 사용자 지시 2026-09-26 「unity cli 결과가 마음에 든다」.
   # 계약·빌드 절차: docs/unity-track.md, factory/prompts/30-build-unity.md, factory/unity/.
@@ -136,7 +135,7 @@ export T_FIRSTPLAY="${T_FIRSTPLAY:-300}"
 export FIRSTPLAY_MS="${FIRSTPLAY_MS:-45000}"  # 하네스 플레이 길이(ms). 검수용 스모크는 45초
 
 # ── 레퍼런스 갱신 루프 ─────────────────────────────────────────
-export SCOUT_EVERY="${SCOUT_EVERY:-10}"  # 게임 몇 개 게시할 때마다 새 레퍼런스를 찾을지
+export SCOUT_EVERY="${SCOUT_EVERY:-7}"  # 게임 몇 개 게시할 때마다 새 레퍼런스를 찾을지
 
 # ── 배포 ──────────────────────────────────────────────
 export VERCEL_PROJECT="${VERCEL_PROJECT:-math-game-factory}"

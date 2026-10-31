@@ -584,11 +584,15 @@ $USER_FEEDBACK
 }
 ## 참고
 - 레퍼런스 광산: \`references/game-references.json\` 과 \`references/game-references.md\` 를 읽어서 아이디어를 가져와라.
+- 최근 시장·비주얼 동향: \`references/trends-current.md\` 를 읽어라.
 - 위 \`mechanic_pool\` 은 추천일 뿐이다. 더 좋은 게 있으면 references 에서 직접 골라도 된다. \`avoid_mechanics\` 는 피해라.
 - 너는 **${i}번 기획자**다. 다른 기획자 2명이 동시에 다른 안을 만들고 있다. 남들이 안 할 법한 각도로 가라.
   - 1번: 가장 정통적이고 안전한 아케이드
-  - 2번: 요즘 초등학생이 실제로 하는 모바일 게임 문법 (머지·로그라이크·오토배틀·리듬·.io)
-  - 3번: 비주얼로 승부하는 안 (3D·셰이더·물리). 단, 단원 내용과 억지로 붙이지 마라
+  - 2번: 이 슬롯 학년 학생이 요즘 실제로 하는 모바일 게임 문법 (아래 트렌드 참고)
+  - 3번: 비주얼로 승부하는 안. 3D 과시가 아니라 카탈로그에 없는 화면으로 승부해라. 단원 내용과 억지로 붙이지 마라
+
+## 최근 스카우트 후보 (미승인 — 그대로 베끼지 말고 아이디어로만)
+$(node factory/lib/trend-digest.mjs "$ROOT" 2>/dev/null)
 
 ## 출력 파일
 \`factory/work/concept-${i}.json\` 로 저장해라. \`n\` 필드는 ${i} 다."
@@ -676,6 +680,12 @@ $SLOT_CTX
     cp "$(ls "$WORK"/concept-*.json | head -1)" "$WORK/chosen.json"
   }
 fi
+fi
+
+# 3D 쏠림 게이트 (2026-10-31): 아트·빌드 비용을 쓰기 전에 기획 단계에서 막는다.
+if [ "$RESUMED" = "0" ]; then
+  _RR="$(node factory/lib/render-rule.mjs check "$WORK" 2>&1)" || die "화면 방식 게이트: $_RR"
+  log "화면 방식 게이트 — $_RR"
 fi
 
 SLUG="$(jqv "$WORK/chosen.json" .slug)"
@@ -1052,6 +1062,9 @@ step "10. 게시 준비"
 # 때도 똑같이 이 스크립트를 호출해야 한다 — docs/OPERATIONS.md §8 참조.
 # 병렬 레인(2026-10-03): queue.json·catalog·허브·git·배포는 공유 자원이라 게시~배포 전체를 한 레인씩 돈다.
 acquire_lock publish
+if [ "$SCHOOL" = "middle" ]; then
+  log "화면 방식 실측 — $(node factory/lib/render-rule.mjs stamp "$WORK" "$SLUG" "$ROOT" 2>&1)"
+fi
 node factory/lib/publish-game.mjs "$SLUG" \
   --score "${SCORE:-0}" \
   --gate "$GATE_SCORE" \
